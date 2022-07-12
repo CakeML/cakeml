@@ -4,7 +4,7 @@
 *)
 open preamble
 open set_sepTheory helperLib ml_translatorTheory ConseqConv
-open ml_translatorTheory semanticPrimitivesTheory
+open ml_translatorTheory semanticPrimitivesTheory fpSemTheory
 open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
 open cfNormaliseTheory cfAppTheory
 open cfTacticsBaseLib evaluateTheory
@@ -481,8 +481,8 @@ val pat_wildcards_def = tDefine "pat_wildcards" `
 val v_of_matching_pat_aux_measure_def = Define `
   v_of_matching_pat_aux_measure x =
     sum_CASE x
-      (\(_,p,_,_). pat_size p)
-      (\(_,ps,_,_). list_size pat_size ps)`;
+      (\ (_,p,_,_). pat_size p)
+      (\ (_,ps,_,_). list_size pat_size ps)`;
 
 val v_of_pat_def = tDefine "v_of_pat" `
   v_of_pat envC (Pvar x) insts wildcards =
@@ -1361,7 +1361,7 @@ val app_copyaw8aw8_def = Define `
   app_copyaw8aw8 s so l d do' H Q =
     ((?ws wd F.
         0 <= do' /\ 0 <= so /\ 0 <= l /\
-        (Num do' + Num l) <= LENGTH wd /\(Num so + Num l) <= LENGTH ws /\
+        (Num do' + Num l) <= LENGTH wd /\ (Num so + Num l) <= LENGTH ws /\
         (H ==>> F * W8ARRAY s ws * W8ARRAY d wd) /\
         (F * W8ARRAY s ws *
              W8ARRAY d (TAKE (Num do') wd ⧺
@@ -1374,7 +1374,7 @@ val app_copystraw8_def = Define `
   app_copystraw8 s so l d do' H Q =
     ((?wd F.
         0 <= do' /\ 0 <= so /\ 0 <= l /\
-        (Num do' + Num l) <= LENGTH wd /\(Num so + Num l) <= LENGTH s /\
+        (Num do' + Num l) <= LENGTH wd /\ (Num so + Num l) <= LENGTH s /\
         (H ==>> F * W8ARRAY d wd) /\
         (F * W8ARRAY d (TAKE (Num do') wd ⧺
                         MAP (n2w o ORD) (TAKE (Num l) (DROP (Num so) s)) ⧺
@@ -1655,6 +1655,26 @@ val cf_wordToInt_W64_def = Define `
       exp2v env xw = SOME (Litv (Word64 w)) /\
       app_wordToInt w H Q)`
 
+val app_fptoword_def = Define ‘
+   app_fptoword fp H Q =
+   (H ==>> Q (Val (Litv (Word64 (fpSem$compress_word fp)))) ∧ Q =~v> POST_F)’;
+
+val cf_fptoword_def = Define ‘
+ cf_fptoword xd = λ env. local ( λ H Q.
+   ∃ fp.
+   exp2v env xd = SOME (FP_WordTree fp) ∧
+   app_fptoword fp H Q)’;
+
+val app_fpfromword_def = Define ‘
+ app_fpfromword w H Q =
+ (H ==>> Q (Val (FP_WordTree (fpValTree$Fp_const w))) ∧ Q =~v> POST_F)’;
+
+val cf_fpfromword_def = Define ‘
+ cf_fpfromword xw = λ env. local (λ H Q.
+   ∃ w.
+   exp2v env xw = SOME (Litv (Word64 w)) ∧
+   app_fpfromword w H Q)’;
+
 val app_ffi_def = Define `
   app_ffi ffi_index c a H Q =
     ((?conf ws frame s u ns events.
@@ -1849,6 +1869,14 @@ val cf_def = tDefine "cf" `
           (case args of
              | [c;w] => cf_ffi ffi_index c w
              | _ => cf_bottom)
+        | FpFromWord =>
+          (case args of
+             | [w] => cf_fpfromword w
+             | _ => cf_bottom)
+        | FpToWord =>
+          (case args of
+             | [w] => cf_fptoword w
+             | _ => cf_bottom)
         | _ => cf_bottom) /\
   cf (p:'ffi ffi_proj) (Log lop e1 e2) =
     cf_log lop e1 (cf p e2) /\
@@ -1905,6 +1933,8 @@ val cf_defs = [
   cf_wordFromInt_W64_def,
   cf_wordToInt_W8_def,
   cf_wordToInt_W64_def,
+  cf_fpfromword_def,
+  cf_fptoword_def,
   cf_app_def,
   cf_ref_def,
   cf_assign_def,
@@ -1977,7 +2007,7 @@ val DROP_EL_CONS = Q.prove (
 );
 
 val FST_rw = Q.prove(
-  `(\(x,_,_). x) = FST`,
+  `(\ (x,_,_). x) = FST`,
   fs [FUN_EQ_THM,FORALL_PROD]);
 
 val _ = print "Proving cf_letrec_sound_aux\n";
@@ -2148,12 +2178,14 @@ val cf_cases_evaluate_match = Q.prove (
         | Val v' => ?ck st'.
           evaluate_match (st with clock := ck) env v rows nomatch_exn =
           (st', Rval [v']) /\
+          st.fp_state = st'.fp_state /\
           st'.next_type_stamp = st.next_type_stamp /\
           st'.next_exn_stamp = st.next_exn_stamp /\
           st2heap p st' = heap
         | Exn e => ?ck st'.
           evaluate_match (st with clock := ck) env v rows nomatch_exn =
           (st', Rerr (Rraise e)) /\
+          st.fp_state = st'.fp_state /\
           st'.next_type_stamp = st.next_type_stamp /\
           st'.next_exn_stamp = st.next_exn_stamp /\
           st2heap p st' = heap
@@ -2221,15 +2253,18 @@ val cf_cases_evaluate_match = Q.prove (
     (assume_tac o REWRITE_RULE [sound_def, htriple_valid_def]) \\
   pop_assum progress \\
   progress v_of_pat_norest_insts_length \\
-  fs [extend_env_def, extend_env_v_zip, evaluate_to_heap_def, evaluate_ck_def] \\ instantiate \\
+  fs [extend_env_def, extend_env_v_zip, evaluate_to_heap_def, evaluate_ck_def] \\
   first_assum (qspecl_then [`r`, `h_f UNION h2`] mp_tac) \\
   impl_tac THEN1 (instantiate \\ SPLIT_TAC) \\ strip_tac \\
-  instantiate \\ fs [GC_def, SEP_EXISTS] \\
+  instantiate \\
+  fs [GC_def, SEP_EXISTS] \\
   fs [MAP_MAP_o,o_DEF] \\
   rename1 `SPLIT (h_f UNION h2) (h_f', h_g')` \\
-  qexists_tac `h_g UNION h_g'` \\
-  reverse conj_tac THEN1 SPLIT_TAC \\
-  fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS] \\ rw [] \\ res_tac \\
+  qexists_tac `h_g UNION h_g'` \\ qexists_tac ‘heap’ \\
+  reverse $ rpt conj_tac
+  >- (Cases_on ‘r’ \\ fs[] \\ instantiate)
+  >- SPLIT_TAC
+  \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS] \\ rw [] \\ res_tac \\
   imp_res_tac (CONJUNCT1 pmatch_NIL_IMP) \\ fs []);
 
 val _ = print "Proving cf_ffi_sound\n";
@@ -2621,7 +2656,8 @@ Proof
           (* e2 ~> Rval v' || e2 ~> Rerr (Rraise v') *)
           fs [PULL_EXISTS]
           \\ rename1 `st2heap _ st2 = heap`
-          \\ GEN_EXISTS_TAC "st'" `st2 with clock := st'.clock + st2.clock`
+          \\ (GEN_EXISTS_TAC "st'" `st2 with clock := st'.clock + st2.clock`
+            ORELSE (GEN_EXISTS_TAC "st'''" `st2 with clock := st'.clock + st2.clock`))
           \\ `SPLIT3 (st2heap (p:'ffi ffi_proj) st2) (h_f',h_k, h_g UNION h_g')`
             by SPLIT_TAC
           \\ simp [st2heap_clock] \\ rveq \\ instantiate
@@ -2713,6 +2749,24 @@ Proof
       fs [SEP_IMP_def] \\ first_assum progress \\ instantiate \\
       qexists_tac `{}` \\ fs [st2heap_def] \\ SPLIT_TAC
     )
+    THEN1 (
+     (* FpFromWord *)
+     Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[] \\ cf_evaluate_step_tac
+     \\ simp[]
+     \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+     \\ GEN_EXISTS_TAC "ck" ‘st.clock’ \\ fs[with_clock_self]
+     \\ cf_exp2v_evaluate_tac ‘st’ \\ fs [do_app_def, app_fpfromword_def]
+     \\ fs [SEP_IMP_def]
+     \\ fs [state_component_equality])
+    THEN1 (
+     (* FpToWord *)
+     Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[] \\ cf_evaluate_step_tac
+     \\ simp[]
+     \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+     \\ GEN_EXISTS_TAC "ck" ‘st.clock’ \\ fs[with_clock_self]
+     \\ cf_exp2v_evaluate_tac ‘st’ \\ fs [do_app_def, app_fptoword_def]
+     \\ fs [SEP_IMP_def]
+     \\ fs [state_component_equality])
     THEN1 (
       (* Opapp *)
       rename1 `dest_opapp _ = SOME (f, xs)` \\
@@ -3388,11 +3442,13 @@ Theorem cf_sound':
             evaluate (st with clock := ck) env [e] = (st', Rval [v]) /\
             st'.next_type_stamp = st.next_type_stamp ∧
             st'.next_exn_stamp = st.next_exn_stamp ∧
+            (st.fp_state = st'.fp_state)  /\
             st2heap p st' = heap
           | Exn v => ?ck st'.
             evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v)) /\
             st'.next_type_stamp = st.next_type_stamp ∧
             st'.next_exn_stamp = st.next_exn_stamp ∧
+            (st.fp_state = st'.fp_state)  /\
             st2heap p st' = heap
           | FFIDiv name conf bytes => ∃ck st'.
             evaluate (st with clock := ck) env [e] =
@@ -3425,11 +3481,16 @@ Theorem cf_sound_local:
             evaluate (st with clock := ck) env [e] = (st', Rval [v]) /\
             st'.next_type_stamp = st.next_type_stamp ∧
             st'.next_exn_stamp = st.next_exn_stamp ∧
+            st.fp_state = st'.fp_state ∧
             st2heap p st' = heap
           | Exn v => ?ck st'.
             evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v)) /\
             st'.next_type_stamp = st.next_type_stamp ∧
             st'.next_exn_stamp = st.next_exn_stamp ∧
+            st.fp_state = st'.fp_state ∧
+            st2heap p st' = heap
+          | Exn v => ?ck st'.
+            evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v)) /\
             st2heap p st' = heap
           | FFIDiv name conf bytes => ∃ck st'.
             evaluate (st with clock := ck) env [e] =

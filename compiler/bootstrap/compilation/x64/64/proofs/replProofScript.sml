@@ -25,7 +25,8 @@ Theorem no_closures_IMP_concrete_v:
   (∀v. EVERY no_closures v ⇒ concrete_v_list v)
 Proof
   ho_match_mp_tac concrete_v_ind \\ rw []
-  \\ Cases_on ‘v’ \\ fs [ml_translatorTheory.no_closures_def, SF ETA_ss]
+  \\ Cases_on ‘v’
+  \\ fs [ml_translatorTheory.no_closures_def, SF ETA_ss, concrete_v_def]
 QED
 
 Triviality EqualityType_concrete_v:
@@ -1142,7 +1143,7 @@ Proof
   \\ impl_tac >-
    (fs [] \\ simp (find "repl_moduleProg_st" |> map (fst o snd))
     \\ simp (repl_prog_isPREFIX :: (find "refs_def" |> map (fst o snd)))
-    \\ fs [repl_prog_st_def])
+    \\ fs [repl_prog_st_def, ml_progTheory.init_state_def])
   \\ fs [repl_prog_st_def]
   \\ qpat_abbrev_tac ‘ppp = W8array _ :: _’ \\ pop_assum kall_tac
   \\ pop_assum kall_tac

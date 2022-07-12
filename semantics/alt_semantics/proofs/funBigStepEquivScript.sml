@@ -3,24 +3,13 @@
   semantics.
 *)
 open preamble evaluateTheory evaluatePropsTheory
-     interpTheory semanticPrimitivesTheory
+     interpTheory semanticPrimitivesTheory fpSemPropsTheory;
 
 val _ = new_theory"funBigStepEquiv"
 
 val s = ``s:'ffi state``;
 
-Theorem evaluate_eq_run_eval_list:
-  (∀^s env e.
-    s.eval_state = NONE ⇒
-    evaluate s env e = run_eval_list env e s) ∧
-  (∀^s env v e errv.
-    s.eval_state = NONE ⇒
-    evaluate_match s env v e errv =
-    (I ## list_result) (run_eval_match env v e errv s))
-Proof
-  ho_match_mp_tac evaluate_ind >>
-  rw[evaluate_def,run_eval_def,
-     result_return_def,result_bind_def] >> gvs [] >>
+val prove_tac =
   every_case_tac >> fs[] >> rw[] >> gvs [] >>
   imp_res_tac evaluatePropsTheory.eval_no_eval_simulation >> gvs [] >>
   rpt (qpat_x_assum ‘∀x. _’ kall_tac) >>
@@ -44,7 +33,38 @@ Proof
   fs[set_store_def] >> rw[] >>
   fs[FST_triple] >>
   gvs [do_eval_res_def,do_eval_def] >>
-  gvs [do_app_def,AllCaseEqs()]
+  gvs [do_app_def,AllCaseEqs()];
+
+Theorem evaluate_eq_run_eval_list:
+  (∀^s env e.
+    s.eval_state = NONE ⇒
+    evaluate s env e = run_eval_list env e s) ∧
+  (∀^s env v e errv.
+    s.eval_state = NONE ⇒
+    evaluate_match s env v e errv =
+    (I ## list_result) (run_eval_match env v e errv s))
+Proof
+  ho_match_mp_tac evaluate_ind >>
+  rw[evaluate_def,run_eval_def,
+     result_return_def,result_bind_def, Excl"getOpClass_def"] >> gvs [Excl"getOpClass_def"]
+  >~[‘getOpClass op’]
+  >- (
+    ntac 3 TOP_CASE_TAC >> gs[Excl"getOpClass_def"]
+    >- prove_tac
+    >- prove_tac
+    >- prove_tac
+    >- (gs[get_store_def] >>
+        ntac 4 (TOP_CASE_TAC >>
+                gs[result_raise_def, set_store_def, state_transformerTheory.UNIT_DEF, shift_fp_opts_def]) >>
+        every_case_tac >> gs[]) >>
+    gs[get_store_def, Excl"getOpClass_def"] >>
+    imp_res_tac (INST_TYPE [alpha |-> “:'ffi”, beta |-> “:'ffi”] fpSemPropsTheory.realOp_determ) >>
+    ntac 5 (TOP_CASE_TAC >>
+            gs[result_raise_def, set_store_def, state_transformerTheory.UNIT_DEF, shift_fp_opts_def]) >>
+    res_tac >> gs[state_component_equality]) >>
+   TRY (rpt $ pop_assum mp_tac >>
+        ntac 2 (TOP_CASE_TAC >> gs[do_fpoptimise_LENGTH]) >> NO_TAC) >>
+  prove_tac
 QED
 
 Theorem functional_evaluate_list:

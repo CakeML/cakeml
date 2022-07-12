@@ -14,7 +14,8 @@ open ml_translatorLib ml_translatorTheory;
 
 val res = translate sortingTheory.PART_DEF;
 val res = translate sortingTheory.PARTITION_DEF;
-val res = translate sortingTheory.QSORT_DEF;
+val qsort = REWRITE_RULE [GSYM APPEND_ASSOC,APPEND] sortingTheory.QSORT_DEF;
+val res = translate qsort;
 
 
 (* --- all of the important lemmas about qsort --- *)

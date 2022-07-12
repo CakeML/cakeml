@@ -12,29 +12,78 @@ val _ = temp_tight_equality();
 
 (* Get and set bytes in a word *)
 
-val byte_index_def = Define `
+Definition byte_index_def:
   byte_index (a:'a word) is_bigendian =
     let d = dimindex (:'a) DIV 8 in
-      if is_bigendian then 8 * ((d - 1) - w2n a MOD d) else 8 * (w2n a MOD d)`
+      if is_bigendian then 8 * ((d - 1) - w2n a MOD d) else 8 * (w2n a MOD d)
+End
 
-val get_byte_def = Define `
+Definition get_byte_def:
   get_byte (a:'a word) (w:'a word) is_bigendian =
-    (w2w (w >>> byte_index a is_bigendian)):word8`
+    (w2w (w >>> byte_index a is_bigendian)):word8
+End
 
-val word_slice_alt_def = Define `
-  (word_slice_alt h l (w:'a word) :'a word) = FCP i. l <= i /\ i < h /\ w ' i`
+Definition word_slice_alt_def:
+  (word_slice_alt h l (w:'a word) :'a word) = FCP i. l <= i /\ i < h /\ w ' i
+End
 
-val set_byte_def = Define `
+Definition set_byte_def[nocompute]:
   set_byte (a:'a word) (b:word8) (w:'a word) is_bigendian =
     let i = byte_index a is_bigendian in
       (word_slice_alt (dimindex (:'a)) (i + 8) w
        || w2w b << i
-       || word_slice_alt i 0 w)`;
+       || word_slice_alt i 0 w)
+End
+
+Theorem set_byte_32[compute]:
+  set_byte a b (w:word32) be =
+    let i = byte_index a be in
+      if i = 0  then w2w b       || (w && 0xFFFFFF00w) else
+      if i = 8  then w2w b << 8  || (w && 0xFFFF00FFw) else
+      if i = 16 then w2w b << 16 || (w && 0xFF00FFFFw) else
+                     w2w b << 24 || (w && 0x00FFFFFFw)
+Proof
+  fs [set_byte_def]
+  \\ qsuff_tac ‘byte_index a be = 0 ∨
+                byte_index a be = 8 ∨
+                byte_index a be = 16 ∨
+                byte_index a be = 24’
+  THEN1 (rw [] \\ fs [word_slice_alt_def] \\ blastLib.BBLAST_TAC)
+  \\ fs [byte_index_def]
+  \\ ‘w2n a MOD 4 < 4’ by fs [MOD_LESS] \\ rw []
+QED
+
+Theorem set_byte_64[compute]:
+  set_byte a b (w:word64) be =
+    let i = byte_index a be in
+      if i = 0  then w2w b       || (w && 0xFFFFFFFFFFFFFF00w) else
+      if i = 8  then w2w b << 8  || (w && 0xFFFFFFFFFFFF00FFw) else
+      if i = 16 then w2w b << 16 || (w && 0xFFFFFFFFFF00FFFFw) else
+      if i = 24 then w2w b << 24 || (w && 0xFFFFFFFF00FFFFFFw) else
+      if i = 32 then w2w b << 32 || (w && 0xFFFFFF00FFFFFFFFw) else
+      if i = 40 then w2w b << 40 || (w && 0xFFFF00FFFFFFFFFFw) else
+      if i = 48 then w2w b << 48 || (w && 0xFF00FFFFFFFFFFFFw) else
+                     w2w b << 56 || (w && 0x00FFFFFFFFFFFFFFw)
+Proof
+  fs [set_byte_def]
+  \\ qsuff_tac ‘byte_index a be = 0 ∨
+                byte_index a be = 8 ∨
+                byte_index a be = 16 ∨
+                byte_index a be = 24 ∨
+                byte_index a be = 32 ∨
+                byte_index a be = 40 ∨
+                byte_index a be = 48 ∨
+                byte_index a be = 56’
+  THEN1 (rw [] \\ fs [word_slice_alt_def] \\ blastLib.BBLAST_TAC)
+  \\ fs [byte_index_def]
+  \\ ‘w2n a MOD 8 < 8’ by fs [MOD_LESS] \\ rw []
+QED
 
 Theorem set_byte_change_a:
   w2n (a:α word) MOD (dimindex(:α) DIV 8) = w2n a' MOD (dimindex(:α) DIV 8) ⇒
     set_byte a b w be = set_byte a' b w be
-Proof rw[set_byte_def,byte_index_def]
+Proof
+  rw[set_byte_def,byte_index_def]
 QED
 
 Theorem get_byte_set_byte:
@@ -72,23 +121,25 @@ QED
 
 (* Convert between lists of bytes and words *)
 
-val bytes_in_word_def = Define `
-  bytes_in_word = n2w (dimindex (:'a) DIV 8):'a word`;
+Definition bytes_in_word_def:
+  bytes_in_word = n2w (dimindex (:'a) DIV 8):'a word
+End
 
-val word_of_bytes_def = Define `
+Definition word_of_bytes_def:
   (word_of_bytes be a [] = 0w) /\
   (word_of_bytes be a (b::bs) =
-     set_byte a b (word_of_bytes be (a+1w) bs) be)`
+     set_byte a b (word_of_bytes be (a+1w) bs) be)
+End
 
-val words_of_bytes_def = tDefine "words_of_bytes" `
+Definition words_of_bytes_def:
   (words_of_bytes be [] = ([]:'a word list)) /\
   (words_of_bytes be bytes =
      let xs = TAKE (MAX 1 (w2n (bytes_in_word:'a word))) bytes in
      let ys = DROP (MAX 1 (w2n (bytes_in_word:'a word))) bytes in
-       word_of_bytes be 0w xs :: words_of_bytes be ys)`
- (WF_REL_TAC `measure (LENGTH o SND)` \\ fs [])
-
-val words_of_bytes_ind = theorem"words_of_bytes_ind";
+       word_of_bytes be 0w xs :: words_of_bytes be ys)
+Termination
+  WF_REL_TAC `measure (LENGTH o SND)` \\ fs []
+End
 
 Theorem LENGTH_words_of_bytes:
    8 ≤ dimindex(:'a) ⇒
@@ -190,18 +241,27 @@ Proof
   \\ rw[TAKE_APPEND,DROP_APPEND,DROP_LENGTH_NIL] \\ fs[]
 QED
 
-val bytes_to_word_def = Define `
-  (bytes_to_word 0 a bs w be = w) /\
-  (bytes_to_word (SUC k) a [] w be = w) /\
-  (bytes_to_word (SUC k) a (b::bs) w be =
-     set_byte a b (bytes_to_word k (a+1w) bs w be) be)`
+Definition bytes_to_word_def:
+  bytes_to_word k a bs w be =
+    if k = 0:num then w else
+      case bs of
+      | [] => w
+      | (b::bs) => set_byte a b (bytes_to_word (k-1) (a+1w) bs w be) be
+End
 
-val bytes_to_word_ind = theorem "bytes_to_word_ind";
+Theorem bytes_to_word_eq:
+  bytes_to_word 0 a bs w be = w ∧
+  bytes_to_word k a [] w be = w ∧
+  bytes_to_word (SUC k) a (b::bs) w be =
+    set_byte a b (bytes_to_word k (a+1w) bs w be) be
+Proof
+  rw [] \\ simp [Once bytes_to_word_def]
+QED
 
 Theorem word_of_bytes_bytes_to_word:
-   ∀be a bs k.
-   LENGTH bs ≤ k ⇒
-   (word_of_bytes be a bs = bytes_to_word k a bs 0w be)
+  ∀be a bs k.
+    LENGTH bs ≤ k ⇒
+    (word_of_bytes be a bs = bytes_to_word k a bs 0w be)
 Proof
   Induct_on`bs`
   >- (
@@ -211,7 +271,7 @@ Proof
     \\ rw[] )
   \\ rw[word_of_bytes_def]
   \\ Cases_on`k` \\ fs[]
-  \\ rw[bytes_to_word_def]
+  \\ rw[Once bytes_to_word_def]
   \\ AP_THM_TAC
   \\ AP_TERM_TAC
   \\ first_x_assum match_mp_tac
@@ -224,12 +284,12 @@ Theorem bytes_to_word_same:
     ⇒
     (bytes_to_word bw k b1 w be = bytes_to_word bw k b2 w be)
 Proof
-  ho_match_mp_tac bytes_to_word_ind
-  \\ rw[bytes_to_word_def]
+  ho_match_mp_tac bytes_to_word_ind \\ rw []
+  \\ once_rewrite_tac [bytes_to_word_def] \\ rw []
+  \\ Cases_on`b1` \\ fs[]
   >- (first_x_assum(qspec_then`0`mp_tac) \\ simp[])
   \\ Cases_on`b2` \\ fs[]
   >- (first_x_assum(qspec_then`0`mp_tac) \\ simp[])
-  \\ simp[bytes_to_word_def]
   \\ first_assum(qspec_then`0`mp_tac)
   \\ impl_tac >- simp[]
   \\ simp_tac(srw_ss())[] \\ rw[]

@@ -255,6 +255,10 @@ intermediate language.
 [serialiser](serialiser):
 Proofs and automation for serialising HOL values.
 
+[source_letScript.sml](source_letScript.sml):
+This is a source-to-source transformation that lifts Let/Letrec expressions
+out of Dlet/Dletrecs when they are independent of function arguments.
+
 [source_to_flatScript.sml](source_to_flatScript.sml):
 This is the compiler phase that translates the CakeML source
 language into flatLang.

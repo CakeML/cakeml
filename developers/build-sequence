@@ -98,7 +98,7 @@ examples/compilation/x64
 examples/compilation/x64/proofs
 examples/compilation/ag32
 examples/compilation/ag32/proofs
-examples/cost
+# examples/cost
 examples/lpr_checker
 examples/lpr_checker/array
 examples/lpr_checker/array/compilation
@@ -113,12 +113,20 @@ examples/sat_encodings
 examples/sat_encodings/case_studies
 examples/sat_encodings/translation
 examples/sat_encodings/translation/compilation
+examples/deflate
+examples/deflate/translation
+examples/deflate/translation/compilation
 
 translator/okasaki-examples
 translator/other-examples
 compiler/parsing/tests
 compiler/inference/tests
 compiler/printing/test
+
+# Floating-Point optimizer
+icing/flover
+icing/
+icing/examples
 
 # compiler translation
 compiler/repl

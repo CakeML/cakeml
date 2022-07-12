@@ -62,6 +62,7 @@ val BOTTOM_UP_OPT_def = tDefine "BOTTOM_UP_OPT" `
   (BOTTOM_UP_OPT f (Letrec z1 z2) = f (Letrec z1 z2)) ∧
   (BOTTOM_UP_OPT f (Tannot x t) = Tannot (BOTTOM_UP_OPT f x) t) ∧
   (BOTTOM_UP_OPT f (Lannot x l) = Lannot (BOTTOM_UP_OPT f x) l) /\
+  (BOTTOM_UP_OPT f (FpOptimise opt e) = FpOptimise opt (BOTTOM_UP_OPT f e)) /\
   (BOTTOM_UP_OPT_LIST f [] = []) /\
   (BOTTOM_UP_OPT_LIST f (y::ys) =
      BOTTOM_UP_OPT f y :: BOTTOM_UP_OPT_LIST f ys) /\
@@ -150,7 +151,9 @@ Proof
          eval_list_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM],
          eval_match_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM]]
   \\ fs [evaluate_def,pair_case_eq,result_case_eq,PULL_EXISTS,
-         bool_case_eq,option_case_eq,state_component_equality]
+         bool_case_eq,option_case_eq,state_component_equality,
+         Excl "getOpClass_def"]
+  \\ TRY (rename1 ‘getOpClass op’ \\ Cases_on `getOpClass op` \\ fs[])
   \\ rpt strip_tac \\ fs []
   \\ rveq \\ fs [BOTTOM_UP_OPT_def] \\ fs [evaluate_def]
   \\ TRY (first_x_assum match_mp_tac) \\ fs [evaluate_def]
@@ -169,22 +172,6 @@ Proof
              by fs [state_component_equality]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
     \\ asm_exists_tac \\ fs [])
-  THEN1 (* App Opapp *)
-   (rename1 `_ = (st1,Rval vs)`
-    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
-          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
-             by fs [state_component_equality]
-    \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ qpat_x_assum `(_,_) = _` (assume_tac o GSYM)
-    \\ drule evaluate_add_to_clock \\ fs []
-    \\ disch_then (qspec_then `ck2' + 1` assume_tac)
-    \\ rfs [EVAL ``(dec_clock st1).clock``]
-    \\ qpat_x_assum `evaluate _ _
-         (BOTTOM_UP_OPT_LIST f (REVERSE xs)) = _` assume_tac
-    \\ drule evaluate_add_to_clock \\ fs []
-    \\ disch_then (qspec_then `st1.clock+1` assume_tac)
-    \\ asm_exists_tac \\ fs []
-    \\ fs [evaluateTheory.dec_clock_def,state_component_equality])
   THEN1 (* App Eval *)
    (
     fs [evaluateTheory.do_eval_res_def, Q.ISPEC `(_, _)` EQ_SYM_EQ]
@@ -206,13 +193,84 @@ Proof
    (
    fs [error_result_case_eq]
    )
-  THEN1 (* App other *)
+  THEN1 (* App Opapp *)
+   (rename1 `_ = (st1,Rval vs)`
+    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
+          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
+             by fs [state_component_equality]
+    \\ first_x_assum drule \\ simp [] \\ strip_tac
+    \\ qpat_x_assum `(_,_) = _` (assume_tac o GSYM)
+    \\ drule evaluate_add_to_clock \\ fs []
+    \\ disch_then (qspec_then `ck2' + 1` assume_tac)
+    \\ rfs [EVAL ``(dec_clock st1).clock``]
+    \\ qpat_x_assum `evaluate _ _
+         (BOTTOM_UP_OPT_LIST f (REVERSE xs)) = _` assume_tac
+    \\ drule evaluate_add_to_clock \\ fs []
+    \\ disch_then (qspec_then `st1.clock+1` assume_tac)
+    \\ asm_exists_tac \\ fs []
+    \\ fs [evaluateTheory.dec_clock_def,state_component_equality])
+  THEN1 (* App Simple *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
           ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
              by fs [state_component_equality]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
     \\ asm_exists_tac \\ fs [])
+  THEN1 (* App Icing *)
+   (rename1 `_ = (st1,Rval vs)`
+    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
+          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
+             by fs [state_component_equality]
+    \\ first_x_assum drule \\ simp [] \\ strip_tac
+    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
+  THEN1 (* App Icing 2 *)
+   (rename1 `_ = (st1,Rval vs)`
+    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
+          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
+             by fs [state_component_equality]
+    \\ first_x_assum drule \\ simp [] \\ strip_tac
+    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
+  THEN1 (* App Icing 3*)
+   (fs[]
+    \\ `s1.fp_state.canOpt ≠ FPScope Opt` by rfs[fpState_component_equality, state_component_equality]
+    \\ rveq
+    \\ rename1 `_ = (st1,Rval vs)`
+    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
+          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
+             by fs [state_component_equality]
+    \\ first_x_assum drule \\ simp [] \\ strip_tac
+    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
+  THEN1 (* App Icing 4 *)
+   (rename1 `_ = (st1,Rval vs)`
+    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
+          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
+             by fs [state_component_equality]
+    \\ first_x_assum drule \\ simp [] \\ strip_tac
+    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
+  THEN1 (* App Icing 5 *)
+   (rename1 `_ = (st1,Rval vs)`
+    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
+          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
+             by fs [state_component_equality]
+    \\ first_x_assum drule \\ simp [] \\ strip_tac
+    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
+  THEN1 (* App Icing 6*)
+   (fs[]
+    \\ `s1.fp_state.canOpt ≠ FPScope Opt` by rfs[fpState_component_equality, state_component_equality]
+    \\ rveq
+    \\ rename1 `_ = (st1,Rval vs)`
+    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
+          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
+             by fs [state_component_equality]
+    \\ first_x_assum drule \\ simp [] \\ strip_tac
+    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
+  THEN1 (* App Reals*)
+   (rename1 `_ = (st1,Rval vs)`
+    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
+          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
+             by fs [state_component_equality]
+    \\ first_x_assum drule \\ simp [] \\ strip_tac
+    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
   THEN1 (* do_log *)
    (
     imp_res_tac evaluate_sing
@@ -276,6 +334,14 @@ Proof
     \\ simp []
     \\ simp [state_component_equality]
    )
+  THEN1 (* fpOptimise *)
+   (imp_res_tac evaluate_sing \\ rveq \\ fs [] \\ rveq \\ fs []
+    \\ rename1 `evaluate (s with <| clock := ck1; fp_state := _ |>) env [x1] = (st5,Rval [v5])`
+    \\ rveq \\ fs []
+    \\ `evaluate (s with <| clock := ck1; fp_state := if s.fp_state.canOpt = Strict then s.fp_state else s.fp_state with canOpt := FPScope opt |>) env [x1] =
+                 ((st5 with clock := s.clock) with clock := st5.clock,Rval [v5])` by
+      fs [state_component_equality]
+    \\ res_tac \\ fs[state_component_equality] \\ asm_exists_tac \\ fs[])
   THEN1 (* cons *)
    (
     ntac 2 (pop_assum mp_tac)

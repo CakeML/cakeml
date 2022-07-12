@@ -45,7 +45,7 @@ val riscv_names_def = save_thm("riscv_names_def[compute]",
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=3; col_oracle := [] |>``
-val riscv_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F; has_fp_ops:=F; has_fp_tern:=F; call_empty_ffi:=F; gc_kind:=Simple|>``
+val riscv_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F; has_fp_ops:=F; has_fp_tern:=F; be:=F; call_empty_ffi:=F; gc_kind:=Simple|>``
 val riscv_word_conf = ``<| bitmaps_length := 0; stack_frame_size := LN |>``
 val riscv_stack_conf = ``<|jump:=F;reg_names:=riscv_names|>``
 val riscv_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=riscv_config;init_clock:=5;hash_size:=104729n|>``

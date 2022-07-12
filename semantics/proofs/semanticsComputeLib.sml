@@ -156,8 +156,6 @@ val add_lexparse_compset = computeLib.extend_compset
     let open cmlPtreeConversionTheory in
       [tuplify_def
       ,ptree_TopLevelDecs_def
-      ,ptree_TopLevelDec_def
-      ,ptree_Structure_def
       ,ptree_StructName_def
       (*
       ,ptree_SignatureValue_def

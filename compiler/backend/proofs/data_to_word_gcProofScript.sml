@@ -4498,7 +4498,7 @@ Proof
   Cases_on `xs` \\ fs [flat_def]
 QED
 
-val init_store_ok_def = Define `
+Definition init_store_ok_def:
   init_store_ok c store m (dm:'a word set) code_buffer data_buffer <=>
     ?limit curr.
       limit <= max_heap_limit (:'a) c /\
@@ -4526,7 +4526,8 @@ val init_store_ok_def = Define `
       code_buffer.buffer = [] /\
       data_buffer.buffer = [] /\
       (word_list_exists curr (limit + limit)) (fun2set (m,dm)) ∧
-      byte_aligned curr`
+      byte_aligned curr
+End
 
 Theorem state_rel_init:
     t.ffi = ffi ∧ t.handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
@@ -4540,6 +4541,7 @@ Theorem state_rel_init:
     t.locals_size = SOME 0 /\
     t.stack_limit = lim.stack_limit /\
     c.len_size = lim.length_limit /\
+    c.be = t.be /\
     (lim.arch_64_bit ⇔ dimindex (:α) = 64) /\
     lim.heap_limit * w2n (bytes_in_word:'a word) < dimword (:α) /\
     t.store ' HeapLength = Word (bytes_in_word * n2w lim.heap_limit) /\
@@ -4580,12 +4582,13 @@ Proof
                               | Generational l => MAP (K 0) l
                               | _ => [])` \\ fs []
   \\ reverse conj_tac THEN1
-   (fs[abs_ml_inv_def,roots_ok_def,heap_ok_def,heap_length_heap_expand,
+   (Cases_on ‘c.gc_kind’
+    \\ fs[abs_ml_inv_def,roots_ok_def,heap_ok_def,heap_length_heap_expand,
        unused_space_inv_def,bc_stack_ref_inv_def,FDOM_EQ_EMPTY]
     \\ fs [heap_expand_def,heap_lookup_def]
     \\ rw [] \\ fs [isForwardPointer_def,bc_ref_inv_def,reachable_refs_def,
-                    gc_kind_inv_def,data_up_to_def]
-    \\ CASE_TAC \\ fs [heap_split_0]
+                    gc_kind_inv_def,data_up_to_def,be_ok_def]
+    \\ fs [heap_split_0]
     \\ fs [gen_state_ok_def,EVERY_MAP,gen_start_ok_def,heap_split_0]
     \\ fs [heap_split_def,el_length_def] \\ every_case_tac
     \\ fs [isRef_def,heap_lookup_def])
@@ -7951,6 +7954,16 @@ Theorem inter_insert_ODD_adjust_set_alt:
       inter s (adjust_set t)
 Proof
   fs [spt_eq_thm,wf_inter,lookup_inter_alt,lookup_insert]
+  \\ rw [] \\ rw [] \\ fs []
+  \\ imp_res_tac domain_adjust_set_EVEN \\ fs [EVEN_ODD]
+QED
+
+Theorem inter_delete_ODD_adjust_set_alt:
+   !k. ODD k ==>
+      inter (delete k s) (adjust_set t) =
+      inter s (adjust_set t)
+Proof
+  fs [spt_eq_thm,wf_inter,lookup_inter_alt,lookup_delete]
   \\ rw [] \\ rw [] \\ fs []
   \\ imp_res_tac domain_adjust_set_EVEN \\ fs [EVEN_ODD]
 QED

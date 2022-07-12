@@ -879,7 +879,7 @@ Definition stoppers_def:
   (stoppers nDecls =
      nestoppers DIFF
      ({BarT; StarT; AndT; SemicolonT; FunT; ValT; DatatypeT; OfT; ExceptionT;
-       TypeT; LocalT} ∪ {TyvarT s | T})) ∧
+       TypeT; LocalT; StructureT} ∪ {TyvarT s | T})) ∧
   (stoppers nDType = UNIV DIFF firstSet cmlG [NN nTyOp]) ∧
   (stoppers nDtypeCons =
      UNIV DIFF ({ArrowT; BarT; StarT; OfT; LparT} ∪ firstSet cmlG [NN nTyOp] ∪
@@ -1000,8 +1000,6 @@ Definition stoppers_def:
                 firstSet cmlG [NN nTyOp] ∪ {TyvarT s | T})) ∧
   (stoppers nTbaseList =
      UNIV DIFF ({LparT} ∪ firstSet cmlG [NN nTyOp] ∪ {TyvarT s | T})) ∧
-  (stoppers nTopLevelDec =
-     nestoppers DIFF ({LparT; BarT; StarT; AndT; OfT} ∪ {TyvarT s | T})) ∧
   (stoppers nTopLevelDecs = ∅) ∧
   (stoppers nType = UNIV DIFF ({ArrowT; StarT} ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nTypeAbbrevDec =
@@ -2372,21 +2370,21 @@ Proof
           simp[stoppers_def, nestoppers_def])
       >- (dsimp[Once choicel_cons] >> disj2_tac >>
           gvs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
-          rename [‘ptree_head TLDpt = NN nTopLevelDec’,
+          rename [‘ptree_head Dpt = NN nDecl’,
                   ‘ptree_head NeTLDspt = NN nNonETopLevelDecs’,
-                  ‘real_fringe TLDpt = MAP _ TLDfr’,
+                  ‘real_fringe Dpt = MAP _ Dfr’,
                   ‘real_fringe NeTLDspt = MAP _ NeTLDsfr’] >>
-          ‘∃eo. peg_eval cmlPEG (TLDfr ++ NeTLDsfr ++ sfx,
-                                 nt (mkNT nTopLevelDec) I)
-                         (Success (NeTLDsfr ++ sfx) [TLDpt] eo)’
+          ‘∃eo. peg_eval cmlPEG (Dfr ++ NeTLDsfr ++ sfx,
+                                 nt (mkNT nDecl) I)
+                         (Success (NeTLDsfr ++ sfx) [Dpt] eo)’
             by (Cases_on ‘NeTLDsfr = []’
                 >- (gvs[] >>
-                    ‘NT_rank (mkNT nTopLevelDec) < NT_rank (mkNT nTopLevelDecs)’
+                    ‘NT_rank (mkNT nDecl) < NT_rank (mkNT nTopLevelDecs)’
                       by simp[NT_rank_def] >>
                     first_x_assum (pop_assum o mp_then Any irule) >>
                     gs[stoppers_def]) >>
                 ‘0 < LENGTH NeTLDsfr’ by (Cases_on ‘NeTLDsfr’ >> fs[]) >>
-                ‘LENGTH TLDfr < LENGTH TLDfr + LENGTH NeTLDsfr’ by simp[] >>
+                ‘LENGTH Dfr < LENGTH Dfr + LENGTH NeTLDsfr’ by simp[] >>
                 normlist >> first_x_assum (pop_assum o mp_then Any irule) >>
                 simp[] >>
                 Cases_on ‘NeTLDsfr’ >> gs[] >>
@@ -2395,17 +2393,17 @@ Proof
                 ‘tok1 ∈ firstSet cmlG [NN nNonETopLevelDecs]’
                    by metis_tac[rfirstSet_nonempty_fringe] >>
                 fs[stoppers_def, nestoppers_def]) >>
-          ‘0 < LENGTH (MAP (TK ## I) TLDfr)’
-            by metis_tac[rfringe_length_not_nullable, nullable_TopLevelDec] >>
+          ‘0 < LENGTH (MAP (TK ## I) Dfr)’
+            by metis_tac[rfringe_length_not_nullable, nullable_Decl] >>
           fs[] >>
-          ‘∃tok1 loc1 TLDfr0. TLDfr = (tok1,loc1) :: TLDfr0’
-              by (Cases_on ‘TLDfr’ >> fs[] >> metis_tac[pair_CASES])>>
+          ‘∃tok1 loc1 Dfr0. Dfr = (tok1,loc1) :: Dfr0’
+              by (Cases_on ‘Dfr’ >> fs[] >> metis_tac[pair_CASES])>>
           gvs[] >>
-          ‘tok1 ∈ firstSet cmlG [NN nTopLevelDec]’
+          ‘tok1 ∈ firstSet cmlG [NN nDecl]’
             by metis_tac[rfirstSet_nonempty_fringe] >>
           ‘∃fl fe.
              peg_eval cmlPEG
-                      ((tok1,loc1)::(TLDfr0 ++ NeTLDsfr ++ sfx), nt (mkNT nE) I)
+                      ((tok1,loc1)::(Dfr0 ++ NeTLDsfr ++ sfx), nt (mkNT nE) I)
                       (Failure fl fe)’
             by (irule peg_respects_firstSets >> simp[] >> gs[firstSet_nE]) >>
           dxrule_then assume_tac peg_det >>
@@ -2437,23 +2435,6 @@ Proof
           >- (Cases_on ‘sfx’ >> dsimp[seql_cons, peg_eval_tok] >>
               rename [‘h::t ≠ []’] >> Cases_on ‘h’ >> gvs[stoppers_def]) >>
           csimp[choicel_cons, peg_eval_seq_SOME]))
-  >- (print_tac "nTopLevelDec" >> simp[peg_eval_NT_SOME] >>
-      simp[cmlpeg_rules_applied, FDOM_cmlPEG] >> strip_tac >>
-      gvs[MAP_EQ_SING] >> dsimp[Once choicel_cons]
-      >- (DISJ1_TAC >> first_x_assum match_mp_tac >>
-          simp[NT_rank_def, FDOM_cmlPEG] >> gvs[stoppers_def]) >>
-      DISJ2_TAC >> simp[RIGHT_EXISTS_AND_THM, LEFT_EXISTS_AND_THM] >>
-      reverse conj_tac
-      >- (simp[choicel_cons, PULL_EXISTS] >> first_x_assum irule >>
-          gs[NT_rank_def, FDOM_cmlPEG, stoppers_def]) >>
-      ‘0 < LENGTH (MAP (TK ## I) pfx)’
-        by metis_tac [rfringe_length_not_nullable, nullable_Decl] >> fs[] >>
-      Cases_on ‘pfx’ >> fs[] >>
-      rename [‘(TK ## I) pair :: MAP _ _’] >> Cases_on ‘pair’ >> fs[] >>
-      match_mp_tac peg_respects_firstSets >>
-      simp[] >> strip_tac >> rw[] >>
-      ‘StructureT ∈ firstSet cmlG [NN nDecl]’
-        by metis_tac [rfirstSet_nonempty_fringe] >> fs[])
   >- (print_tac "nTbaseList" >> stdstart
       >- (rename [‘sfx = []’] >> Cases_on ‘sfx’ >> fs[]
           >- (dsimp[not_peg0_peg_eval_NIL_NONE, peg0_nPTbase, choicel_cons] >>
@@ -3027,14 +3008,14 @@ Proof
       simp[choicel_cons, peg_eval_tok, peg_eval_seqempty])
   >- (print_tac "nNonETopLevelDecs" >> strip_tac >>
       gvs[MAP_EQ_CONS,MAP_EQ_APPEND,DISJ_IMP_THM, FORALL_AND_THM]
-      >- (rename [‘ptree_head TLDpt = NN nTopLevelDec’,
+      >- (rename [‘ptree_head Dpt = NN nDecl’,
                   ‘ptree_head NeTLDpt = NN nNonETopLevelDecs’,
-                  ‘real_fringe TLDpt = MAP _ TLDfr’,
+                  ‘real_fringe Dpt = MAP _ Dfr’,
                   ‘real_fringe NeTLDpt = MAP _ NeTLDfr’] >>
           simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
-          ‘∃eo1. peg_eval cmlPEG (TLDfr ++ NeTLDfr ++ sfx,
-                                  nt (mkNT nTopLevelDec) I)
-                          (Success (NeTLDfr ++ sfx) [TLDpt] eo1)’
+          ‘∃eo1. peg_eval cmlPEG (Dfr ++ NeTLDfr ++ sfx,
+                                  nt (mkNT nDecl) I)
+                          (Success (NeTLDfr ++ sfx) [Dpt] eo1)’
             by (Cases_on ‘NeTLDfr’
                 >- (loseC “LENGTH” >> gs[] >> first_x_assum irule >>
                     gs[NT_rank_def, stoppers_def]) >> simp[] >> normlist >>
@@ -3046,7 +3027,7 @@ Proof
           dsimp[Once choicel_cons, seql_cons_SOME] >> disj1_tac >>
           pop_assum $ irule_at Any >> simp[] >> first_x_assum irule >> simp[] >>
           drule_all
-          (MATCH_MP rfringe_length_not_nullable nullable_TopLevelDec) >> simp[])
+            (MATCH_MP rfringe_length_not_nullable nullable_Decl) >> simp[])
       >- (dsimp[Once peg_eval_NT_SOME, cmlpeg_rules_applied,
                 Once choicel_cons] >> disj2_tac >>
           simp[LEFT_EXISTS_AND_THM, RIGHT_EXISTS_AND_THM] >>
@@ -3577,12 +3558,14 @@ Proof
   >- (print_tac "nDecl" >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> rw[] >>
       gvs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM]
-      >- (dsimp[Once choicel_cons] >> DISJ1_TAC >>
+      >- (rename [‘ptree_head pt = NN nPattern’] >>
+          dsimp[Once choicel_cons] >> DISJ1_TAC >>
           simp[seql_cons_SOME, PULL_EXISTS] >> loseRK >>
           SKTAC >> normlist >> first_assum $ irule_at Any >>
           simp[stoppers_def] >> first_x_assum $ irule_at Any >>
           gvs[stoppers_def])
-      >- (dsimp[Ntimes choicel_cons 2, seql_cons_SOME] >>
+      >- (rename [‘ptree_head afdpt = NN nAndFDecls’] >>
+          dsimp[Ntimes choicel_cons 2, seql_cons_SOME] >>
           gvs[seql_cons, peg_eval_tok, stoppers_def, nestoppers_def]) >~
       [‘ptree_head tpt = NN nTypeDec’]
       >- (drule_all (MATCH_MP rfringe_length_not_nullable nullable_TypeDec) >>
@@ -3613,7 +3596,15 @@ Proof
           simp[seql_cons_SOME, PULL_EXISTS] >> loseRK >> SKTAC >>
           normlist >> first_assum $ irule_at Any >>
           simp[stoppers_def, nestoppers_def] >>
-          first_x_assum $ irule_at Any >> gvs[stoppers_def, nestoppers_def]))
+          first_x_assum $ irule_at Any >> gvs[stoppers_def, nestoppers_def]) >>
+      rename [‘ptree_head spt = NN nStructure’] >>
+      drule_all
+        (MATCH_MP rfringe_length_not_nullable nullable_Structure) >>
+      simp[] >> Cases_on ‘pfx’ >> gvs[PAIR_MAP] >>
+      drule_all rfirstSet_nonempty_fringe >> simp[PULL_EXISTS] >> rw[] >>
+      gvs[] >>
+      simp[choicel_cons, seql_cons, peg_eval_tok, peg_respects_firstSets_rwt] >>
+      dsimp[] >> first_x_assum irule >> simp[NT_rank_def, stoppers_def])
   >- (print_tac "nDconstructor" >> stdstart >>
       rename [‘ptree_head upt = NN nUQConstructorName’,
               ‘real_fringe upt = MAP _ upf’,

@@ -115,6 +115,28 @@ val stack_load_def = Define`
   stack_load r n =
     Seq (upshift r n) (Inst (Mem Load r (Addr r 0w))):'a stackLang$prog`
 
+Definition copy_each_def:
+  copy_each t1 t2 =
+    While NotEqual 1 (Imm 1w)
+      (list_Seq [load_inst t1 t2;
+                 add_bytes_in_word_inst t2;
+                 If Test 1 (Imm 1w) Skip (add_inst t1 3);
+                 right_shift_inst 1 1;
+                 store_inst t1 2;
+                 add_bytes_in_word_inst 2])
+End
+
+Definition copy_loop_def:
+  copy_loop t1 t2 =
+    list_Seq [load_inst 1 t2;
+              add_bytes_in_word_inst t2;
+              While Less 1 (Imm 0w)
+                (list_Seq [copy_each t1 t2;
+                           load_inst 1 t2;
+                           add_bytes_in_word_inst t2]);
+              copy_each t1 t2]
+End
+
 val comp_def = Define `
   comp jump off k (p:'a stackLang$prog) =
     case p of
@@ -157,6 +179,13 @@ val comp_def = Define `
                   add_inst r v;
                   left_shift_inst r (word_shift (:'a));
                   Inst (Mem Load r (Addr r 0w))]
+    | StoreConsts t1 t2 _ =>
+        list_Seq [Inst (Mem Load t2 (Addr (k+1) (store_offset BitmapBase)));
+                  add_inst t2 1;
+                  left_shift_inst t2 (word_shift (:'a));
+                  copy_loop t1 t2;
+                  move t1 1;
+                  move t2 1]
     (* for the rest, just leave it unchanged *)
     | Seq p1 p2 => Seq (comp jump off k p1) (comp jump off k p2)
     | If c r ri p1 p2 => If c r ri (comp jump off k p1) (comp jump off k p2)
@@ -282,17 +311,18 @@ val stub_names_def = Define`
     (2n,mlstring$strlit "_Halt2")]`
 
 Theorem check_init_stubs_length:
-   LENGTH (init_stubs gen_gc max_heap k start) + 1 (* gc *) =
-   stack_num_stubs
+  LENGTH (init_stubs gen_gc max_heap k start) + 2 (* gc + dummy *) =
+  stack_num_stubs
 Proof
   EVAL_TAC
 QED
 
 (* -- full compiler -- *)
 
-val compile_def = Define `
+Definition compile_def:
   compile jump off gen_gc max_heap k start prog =
     init_stubs gen_gc max_heap k start ++
-    MAP (prog_comp jump off k) prog`;
+    MAP (prog_comp jump off k) prog
+End
 
 val _ = export_theory();

@@ -82,9 +82,8 @@ val NT_rank_def = Define`
         else if n = nTypeName          then  2
         else if n = nUQTyOp            then  1
         else if n = nNonETopLevelDecs  then  4
-        else if n = nTopLevelDec       then  3
         else if n = nDecls             then  3
-        else if n = nStructure         then  2
+        else if n = nStructure         then  1
         else if n = nDecl              then  2
         else if n = nTypeDec           then  1
         else if n = nSpecLineList      then  3
@@ -253,7 +252,7 @@ val nullacc =
            “nPapp”, “nPattern”, “nRelOps”, “nMultOps”,
            “nAddOps”, “nDconstructor”, “nFDecl”,
            “nPatternList”, “nPbaseList1”, “nElist2”,
-           “nEseq”, “nEtuple”, “nTopLevelDecs”, “nTopLevelDec”]
+           “nEseq”, “nEtuple”, “nTopLevelDecs”]
 
 local
   fun appthis th = let

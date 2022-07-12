@@ -175,6 +175,7 @@ val r = translate clos_numberTheory.compile_inc_def;
 
 val r = translate clos_opTheory.is_Var_pmatch;
 val r = translate clos_opTheory.dest_Const_pmatch;
+val r = translate clos_opTheory.dest_Constant_pmatch;
 val r = translate clos_opTheory.dest_Cons_pmatch;
 val r = translate clos_opTheory.dest_ElemAt_pmatch;
 val r = translate clos_opTheory.dest_TagEq_pmatch;
