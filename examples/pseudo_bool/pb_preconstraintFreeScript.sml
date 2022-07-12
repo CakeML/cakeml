@@ -249,7 +249,7 @@ End
 
 Definition lhs_string_def:
   lhs_string f xs =
-  concat (MAP(λ(c,l). concat [int_to_string #"-" c; strlit " " ; lit_string f l]) xs)
+  concatWith (strlit" ") (MAP(λ(c,l). concat [int_to_string #"-" c; strlit " " ; lit_string f l]) xs)
 End
 
 Definition pbc_string_def:
