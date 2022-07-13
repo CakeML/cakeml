@@ -39,6 +39,11 @@ Definition eval_lit_def[simp]:
   eval_lit w (Neg v) = 1 - b2i (w v)
 End
 
+Definition negate_def[simp]:
+  negate (Pos n) = Neg n ∧
+  negate (Neg n) = Pos n
+End
+
 Definition eval_term_def[simp]:
   eval_term w (c,l) = c * eval_lit w l
 End
