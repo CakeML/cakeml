@@ -398,6 +398,17 @@ fun add_Dlet eval_thm var_str = let
         let_env_abbrev ALL_CONV, let_st_abbrev reduce_conv]
   end
 
+fun add_Dlet_lit loc n exp =
+  let
+    val theVal = EVAL (Parse.Term ‘case evaluate s env [^exp] of |(_, Rval [v]) => v’) |> concl |> rhs
+    val mp_thm =
+      SPECL [exp,“s2:'a semanticPrimitives$state”, theVal, n, loc] (SIMP_RULE std_ss [] ML_code_Dlet_var)
+    val eval_rel_proof = prove (UNDISCH mp_thm |> concl |> dest_imp |> fst, EVAL_TAC >> ntac 2 $ qexists_tac ‘s2.clock’ >> simp[])
+    val clean_mp_thm = UNDISCH mp_thm |> (fn th => MP th eval_rel_proof) |> DISCH_ALL
+  in
+    ML_code_upd "add_Dlet_lit" clean_mp_thm [let_env_abbrev ALL_CONV, let_env_abbrev ALL_CONV]
+end
+
 fun add_Denv eval_thm var_str = let
     val (_, eval_thm_xs) = strip_comb (concl eval_thm)
     val mp_thm = ML_code_Denv |> SPECL (
@@ -505,6 +516,12 @@ fun add_dec dec_tm pick_name s =
     val prefix = get_mod_prefix s
     val v_name = prefix ^ pick_name (stringSyntax.fromHOLstring v_tm) ^ "_v"
     in add_Dlet_Fun loc v_tm w body v_name s end
+  else if is_Dlet dec_tm
+          andalso is_Lit (rand dec_tm)
+          andalso is_Pvar (rand (rator dec_tm)) then let
+    val (loc,p,l) = dest_Dlet dec_tm
+    val v_tm = dest_Pvar p
+    in add_Dlet_lit loc v_tm l s end
   else if is_Dlet dec_tm
           andalso is_Var (rand dec_tm)
           andalso is_Pvar (rand (rator dec_tm)) then let

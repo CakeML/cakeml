@@ -882,16 +882,41 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
  *)
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
-  " match x with \
-  \ | h::t when P -> z \
-  \ | _ -> w"
-  (SOME “Let (SOME "") (V "x")
-             (Mat (V "")
-                  [(Pc "::" [Pvar "h"; Pvar "t"],
-                    If (V "P") (V "z")
-                       (Mat (V "") [(Pany, V "w")]));
-                   (Pany, V "w")])”)
-  ;
+  "match x with \n\
+  \| h::t when P -> z \n\
+  \| [] -> z \n\
+  \| _ -> w"
+  (SOME “
+    Let (SOME "") (V "x")
+      (Let (SOME " p") (Fun " u" (Mat (V "") [(Pc "[]" [],V "z");
+                                              (Pany,V "w");
+                                             ]))
+       (Mat (V "")
+          [(Pc "::" [Pv "h"; Pv "t"],
+            If (V "P") (V "z") (App Opapp [V " p"; Con NONE []]));
+           (Pany,App Opapp [V " p"; Con NONE []])]))”);
+
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "match x with \n\
+  \| r1 when x1 -> y1\n\
+  \| r2 -> y2\n\
+  \| r3 when x3 -> y3\n\
+  \| r4 -> y4\n"
+  (SOME “
+    Let (SOME "") (V "x")
+      (Let (SOME " p")
+        (Fun " u" (Mat (V "") [
+                    (Pv "r2", V "y2");
+                    (Pany, Let (SOME " p")
+                             (Fun " u" (Mat (V "") [(Pv "r4",V "y4")]))
+                             (Mat (V "") [
+                               (Pv "r3", If (V "x3") (V "y3")
+                                         (App Opapp [V " p"; Con NONE []]));
+                               (Pany,App Opapp [V " p"; Con NONE []])]))]))
+        (Mat (V "") [
+          (Pv "r1",If (V "x1") (V "y1") (App Opapp [V " p"; Con NONE []]));
+          (Pany,App Opapp [V " p"; Con NONE []])]))”);
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   " try f x with Ea _ -> g x\
@@ -901,6 +926,17 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
                  (Pc "Eb" [], V "h")]”)
   ;
 
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "try f ()\n\
+  \with Bar when P -> X"
+  (SOME “
+    Handle (V"") [
+      (Pany, Let (SOME " p") (Fun " u" (Raise (V"")))
+                 (Mat (V"")
+                      [(Pc "Bar" [],
+                        If (V "P") (V "X") (App Opapp [V " p"; Con NONE []]));
+                       (Pany, App Opapp [V " p"; Con NONE []])]))]”)
+  ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   " function Ca _ -> A\

@@ -144,6 +144,16 @@ Proof
        peg_eval_seq_SOME, tokeq_def, peg_eval_tok_SOME] >> rw[] >> gs[]
 QED
 
+Theorem peg_eval_Structure_wrongtok:
+  FST tk ≠ StructureT ⇒
+  ¬peg_eval cmlPEG (tk::i, nt (mkNT nStructure) f) (Success i' r e0)
+Proof
+  simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
+       peg_eval_seq_SOME, tokeq_def, peg_eval_tok_SOME] >> rw[] >> gs[]
+QED
+
+
+
 Theorem peg_eval_LetDec_wrongtok:
    FST tk = SemicolonT ⇒
    ¬peg_eval cmlPEG (tk::i, nt (mkNT nLetDec) f) (Success i' r eo)
@@ -500,20 +510,20 @@ Proof
   disch_then (CONJUNCTS_THEN2 strip_assume_tac mp_tac) >> rveq >>
   simp[cmlPEGTheory.cmlpeg_rules_applied, ptree_list_loc_def]
   >- (print_tac "nNonETopLevelDecs" >>
-      `NT_rank (mkNT nTopLevelDec) < NT_rank (mkNT nNonETopLevelDecs)`
+      `NT_rank (mkNT nDecl) < NT_rank (mkNT nNonETopLevelDecs)`
         by simp[NT_rank_def] >>
       strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]
       >- (first_x_assum (drule_all_then strip_assume_tac) >> rveq >> csimp[] >>
           rename1
-           `peg_eval _ (inp0, nt (mkNT nTopLevelDec) _) (Success inp1 _ _)` >>
+           `peg_eval _ (inp0, nt (mkNT nDecl) _) (Success inp1 _ _)` >>
           `LENGTH inp1 < LENGTH inp0`
-            by metis_tac[not_peg0_LENGTH_decreases, peg0_nTopLevelDec] >>
+            by metis_tac[not_peg0_LENGTH_decreases, peg0_nDecl] >>
           csimp[PULL_EXISTS] >> metis_tac[])
       >- (fs[] >> csimp[] >> metis_tac[DECIDE ``x < SUC x``])
       >- (csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``]))
   >- (print_tac "nTopLevelDecs" >> simp[] >>
       `NT_rank (mkNT nE) < NT_rank (mkNT nTopLevelDecs) ∧
-       NT_rank (mkNT nTopLevelDec) < NT_rank (mkNT nTopLevelDecs)`
+       NT_rank (mkNT nDecl) < NT_rank (mkNT nTopLevelDecs)`
           by simp[NT_rank_def] >>
       strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied]
       >- (dsimp[APPEND_EQ_CONS] >> csimp[] >>
@@ -525,25 +535,25 @@ Proof
       >- (first_x_assum (drule_all_then strip_assume_tac) >> rveq >> dsimp[] >>
           csimp[] >>
           rename1
-            `peg_eval _ (inp0, nt (mkNT nTopLevelDec) I) (Success inp1 _ _)` >>
+            `peg_eval _ (inp0, nt (mkNT nDecl) I) (Success inp1 _ _)` >>
           `LENGTH inp1 < LENGTH inp0` suffices_by metis_tac[] >>
-          metis_tac[not_peg0_LENGTH_decreases, peg0_nTopLevelDec])
+          metis_tac[not_peg0_LENGTH_decreases, peg0_nDecl])
       >- (dsimp[] >> csimp[] >> fs[GSYM CONJ_ASSOC, SF SFY_ss])
       >- (dsimp[] >> csimp[] >> fs[GSYM CONJ_ASSOC, SF SFY_ss])
       >- (first_x_assum
-          (qpat_assum ‘peg_eval _ (_, nt (mkNT nTopLevelDec) I) _’ o
+          (qpat_assum ‘peg_eval _ (_, nt (mkNT nDecl) I) _’ o
            mp_then (Pos last) mp_tac) >>
           simp[] >> strip_tac >> rveq >> dsimp[] >> csimp[] >>
           simp[GSYM CONJ_ASSOC] >> first_x_assum irule >>
-          metis_tac[not_peg0_LENGTH_decreases, peg0_nTopLevelDec])
+          metis_tac[not_peg0_LENGTH_decreases, peg0_nDecl])
       >- (dsimp[] >> csimp[] >> fs[GSYM CONJ_ASSOC, SF SFY_ss])
       >- (dsimp[] >> csimp[] >> fs[GSYM CONJ_ASSOC, SF SFY_ss])
       >- (first_x_assum $
-            qpat_assum ‘peg_eval _ (_, nt (mkNT nTopLevelDec) I) _’ o
+            qpat_assum ‘peg_eval _ (_, nt (mkNT nDecl) I) _’ o
             mp_then (Pos last) mp_tac >>
           simp[] >> strip_tac >> rveq >> dsimp[] >> csimp[GSYM CONJ_ASSOC] >>
           first_x_assum irule >>
-          metis_tac[not_peg0_LENGTH_decreases, peg0_nTopLevelDec])
+          metis_tac[not_peg0_LENGTH_decreases, peg0_nDecl])
       >- (dsimp[] >> csimp[] >> fs[GSYM CONJ_ASSOC, SF SFY_ss])
       >- (dsimp[] >> csimp[] >> fs[GSYM CONJ_ASSOC, SF SFY_ss]))
   (* >- (print_tac "nREPLTop">>
@@ -560,13 +570,6 @@ Proof
       strip_tac >> rveq >> simp[] >>
       first_x_assum (erule strip_assume_tac) >> rveq >>
       dsimp[cmlG_applied, cmlG_FDOM]) *)
-  >- (print_tac "nTopLevelDec" >>
-      `NT_rank (mkNT nStructure) < NT_rank (mkNT nTopLevelDec) ∧
-       NT_rank (mkNT nDecl) < NT_rank (mkNT nTopLevelDec)`
-        by simp[NT_rank_def] >>
-      rpt strip_tac >>
-      first_x_assum (erule mp_tac) >>
-      strip_tac >> simp[cmlG_FDOM, cmlG_applied] >> gvs[])
   >- (print_tac "nStructure" >> rpt strip_tac >> rveq >>
       simp[DISJ_IMP_THM, FORALL_AND_THM, cmlG_FDOM, cmlG_applied] >>
       loseC ``NT_rank`` >> fs[] >>
@@ -659,10 +662,11 @@ Proof
       first_x_assum $ drule_all >>
       simp[] >> metis_tac[])
   >- (print_tac "nDecl" >> simp[PULL_EXISTS, EXISTS_PROD] >>
-      rpt strip_tac >> rveq >>
-      fs[peg_eval_TypeDec_wrongtok, peg_eval_TypeAbbrevDec_wrongtok] >>
-      rveq >> fs[] >> dsimp[cmlG_applied, cmlG_FDOM, APPEND_EQ_CONS]>>
-      csimp[]
+      rpt strip_tac >>
+      gvs[peg_eval_TypeDec_wrongtok, peg_eval_TypeAbbrevDec_wrongtok,
+          peg_eval_Structure_wrongtok] >>
+      dsimp[cmlG_applied, cmlG_FDOM, APPEND_EQ_CONS, MAP_EQ_CONS]>>
+      csimp[] (* 7 *)
       >- (rename [‘peg_eval cmlPEG (i1, nt (mkNT nPattern) I) _’] >>
           ‘LENGTH i1 < SUC (LENGTH i1)’ by decide_tac >>
           first_assum (drule_all_then strip_assume_tac) >> rveq >> simp[] >>
@@ -685,7 +689,11 @@ Proof
       >- (`NT_rank (mkNT nTypeAbbrevDec) < NT_rank (mkNT nDecl)`
             by simp[NT_rank_def] >>
           first_x_assum (erule strip_assume_tac) >>
-          dsimp[cmlG_FDOM, cmlG_applied]))
+          dsimp[cmlG_FDOM, cmlG_applied])
+      >- (‘NT_rank (mkNT nStructure) < NT_rank (mkNT nDecl)’
+            by simp[NT_rank_def] >>
+          first_x_assum $ drule_all_then strip_assume_tac >>
+          simp[]))
   >- (print_tac "nLetDecs" >> rpt strip_tac >> rveq >>
       simp[cmlG_applied, cmlG_FDOM] >> fs[peg_eval_LetDec_wrongtok]
       >- (simp[] >>

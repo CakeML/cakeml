@@ -6,7 +6,7 @@ open preamble
      closLangTheory closSemTheory closPropsTheory
      bvlSemTheory bvlPropsTheory
      bvl_jumpProofTheory
-     clos_to_bvlTheory
+     clos_to_bvlTheory clos_constantProofTheory
      backend_commonTheory;
 
 local
@@ -977,6 +977,22 @@ val env_rel_IMP_EL =
   LESS_LENGTH_env_rel_IMP |> SPEC_ALL |> UNDISCH
   |> CONJUNCT2 |> DISCH_ALL |> GEN_ALL;
 
+(*
+val extract_name_def = Define `
+  extract_name [] = (0,[]) /\
+  extract_name (x :: xs) =
+    case (some n. ?t. x = Op t (Const (& n)) []) of
+    | NONE => (0,x::xs)
+    | SOME n => (n, if xs = [] then [x] else xs)`;
+
+val compile_inc_def = Define `
+  compile_inc max_app (es,prog) =
+    let (n,real_es) = extract_name es in
+        clos_to_bvl$compile_prog max_app
+          (clos_to_bvl$chain_exps n real_es ++ prog)
+    : (num, num # exp) alist`;
+*)
+
 val nth_code_def = Define `
   nth_code t_co 0 = LN /\
   nth_code t_co (SUC n) =
@@ -1385,21 +1401,22 @@ Proof
   \\ rw [] \\ fs [v_rel_SIMP, closSemTheory.list_to_v_def, list_to_v_def]
 QED
 
-val do_app = Q.prove(
-  `(do_app op xs s1 = Rval (v,s2)) /\
+Theorem do_app[local]:
+   (do_app op xs s1 = Rval (v,s2)) /\
    state_rel f s1 t1 /\
    LIST_REL (v_rel s1.max_app f t1.refs t1.code) xs ys /\
    (* store updates need special treatment *)
    (op <> Ref) /\ (op <> Update) ∧
    (op ≠ RefArray) ∧ (∀f. op ≠ RefByte f) ∧ (op ≠ UpdateByte) ∧
-   (∀s. op ≠ String s) ∧ (op ≠ FromListByte) ∧ op ≠ ConcatByteVec ∧
-   (∀b. op ≠ CopyByte b) ∧
+   (op ≠ FromListByte) ∧ op ≠ ConcatByteVec ∧
+   (∀b. op ≠ CopyByte b) ∧ (∀c. op ≠ Constant c) ∧
    (∀n. op ≠ (FFI n)) ==>
    ?w t2.
      (do_app (compile_op op) ys t1 = Rval (w,t2)) /\
      v_rel s1.max_app f t1.refs t1.code v w /\
      state_rel f s2 t2 /\
-     (t1.refs = t2.refs) /\ (t1.code = t2.code)`,
+     (t1.refs = t2.refs) /\ (t1.code = t2.code)
+Proof
   Cases_on `op = ListAppend`
   >-
    (rw []
@@ -1409,9 +1426,6 @@ val do_app = Q.prove(
     \\ match_mp_tac list_to_v_v_rel
     \\ fs [EVERY2_APPEND_suff])
   \\ Cases_on `?i. op = LessConstSmall i` THEN1
-    (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
-     \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def])
-  \\ Cases_on `?i. op = EqualInt i` THEN1
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
      \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def])
   \\ Cases_on `op = BoundsCheckBlock` THEN1
@@ -1431,8 +1445,9 @@ val do_app = Q.prove(
      \\ res_tac \\ fs [] \\ rveq \\ fs []
      \\ rw [] \\ res_tac \\ fs []
      \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
-  \\ Cases_on `?i. op = EqualInt i` THEN1
-    (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs [])
+  \\ Cases_on `?i. op = EqualConst i` THEN1
+    (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac
+     \\ gvs [bvlSemTheory.do_app_def,v_rel_SIMP])
   \\ Cases_on `op = Install` THEN1 fs[closSemTheory.do_app_def]
   \\ Cases_on `op = Equal` THEN1
    (srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def,
@@ -1486,15 +1501,6 @@ val do_app = Q.prove(
     Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
     Cases_on `h` >> fs []>>
     Cases_on `t` >> fs []>>
-    rpt strip_tac >> rveq \\ fs [] >>
-    fs[v_rel_SIMP] \\ rw[] >>
-    rveq \\ fs [listTheory.LIST_REL_EL_EQN]) >>
-  Cases_on `∃n. op = ElemAt n`
-  >- (
-    fs [closSemTheory.do_app_def,bvlSemTheory.do_app_def,bvlSemTheory.do_eq_def] >>
-    Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
-    Cases_on `h` >> fs []>>
-    Cases_on `t` >> fs [CaseEq"bool",PULL_EXISTS]>>
     rpt strip_tac >> rveq \\ fs [] >>
     fs[v_rel_SIMP] \\ rw[] >>
     rveq \\ fs [listTheory.LIST_REL_EL_EQN]) >>
@@ -1588,6 +1594,10 @@ val do_app = Q.prove(
     every_case_tac \\ fs[v_rel_SIMP] \\ rw[]
     \\ full_simp_tac(srw_ss())[state_rel_def] >> res_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >>
     rw[] \\ fs[LIST_REL_EL_EQN])
+  >-
+   (gvs [AllCaseEqs(),PULL_EXISTS,v_rel_SIMP]
+    \\ gvs [state_rel_def]
+    \\ res_tac \\ gvs [])
   >- (
     Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
     Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
@@ -1633,7 +1643,8 @@ val do_app = Q.prove(
   \\ rpt (TOP_CASE_TAC \\ fs [])
   \\ full_simp_tac(srw_ss())[v_rel_SIMP] \\ srw_tac[][v_rel_SIMP]
   \\ full_simp_tac(srw_ss())[v_rel_SIMP] \\ srw_tac[][v_rel_SIMP]
-  \\ CCONTR_TAC \\ fs []);
+  \\ CCONTR_TAC \\ fs []
+QED
 
 val v_case_eq_thms =
   LIST_CONJ [
@@ -1645,7 +1656,7 @@ val clos_do_app_case_eqs = closSemTheory.do_app_def |> concl
   |> map (type_of o #2 o TypeBase.dest_case)
   |> Redblackset.fromList Type.compare
   |> Redblackset.listItems
-  |> map (TypeBasePure.case_eq_of o Option.valOf o TypeBase.fetch)
+  |> map (TypeBasePure.case_eq_of o Option.valOf o TypeBase.fetch);
 
 val do_app_err = Q.prove(
   `do_app op xs s1 = Rerr err ∧
@@ -1655,7 +1666,7 @@ val do_app_err = Q.prove(
    ⇒
    ∃e. do_app (compile_op op) ys t1 = Rerr e ∧
        exc_rel (v_rel s1.max_app f t1.refs t1.code) err e`,
-  Cases_on `?i. op = EqualInt i` THEN1
+  Cases_on `?i. op = EqualConst i` THEN1
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []) >>
   Cases_on `?tag. op = ConsExtend tag`
   >- (
@@ -1681,8 +1692,7 @@ val do_app_err = Q.prove(
   \\ spose_not_then strip_assume_tac \\ fs[]
   \\ rpt (pop_assum mp_tac)
   \\ rpt (PURE_CASE_TAC \\ fs []) \\ fs []
-  \\ TRY(rpt strip_tac \\ fs[v_rel_cases] \\ fs[state_rel_def] \\ NO_TAC)
-    );
+  \\ TRY(rpt strip_tac \\ fs[v_rel_cases] \\ fs[state_rel_def] \\ NO_TAC));
 
 (* correctness of implemented primitives *)
 
@@ -3076,6 +3086,98 @@ Proof
   \\ Cases_on `c1` \\ fs [chain_exps_def]
 QED
 
+Triviality refs_lemma:
+  (t2 with refs := t2.refs) = (t2:('a,'b) bvlSem$state)
+Proof
+  fs [state_component_equality]
+QED
+
+Theorem do_build_const_thm:
+  do_build_const (MAP clos_constantProof$update_tag parts) t2.refs = (v,rs) ∧
+  state_rel f2 p1 t2 ∧ f1 ⊑ f2 ∧
+  FDIFF t1.refs (FRANGE f1) ⊑ FDIFF t2.refs (FRANGE f2) ⇒
+  ∃f2'.
+    v_rel p1.max_app f2' rs t2.code
+      (clos_constantProof$build_const' parts) v ∧
+    state_rel f2' p1 (t2 with refs := rs) ∧ f1 ⊑ f2' ∧
+    FDIFF t1.refs (FRANGE f1) ⊑ FDIFF rs (FRANGE f2')
+Proof
+  fs [do_build_const_def,clos_constantProofTheory.build_const'_def]
+  \\ qmatch_goalsub_abbrev_tac ‘do_build m2’
+  \\ qmatch_goalsub_abbrev_tac ‘clos_constantProof$build' m1’
+  \\ ‘∀k. v_rel p1.max_app f2 t2.refs t2.code (m1 k) (m2 k)’ by
+    (unabbrev_all_tac \\ fs [] \\ simp [Once v_rel_cases])
+  \\ pop_assum mp_tac
+  \\ qspec_tac (‘0n’,‘n:num’)
+  \\ goal_term (fn tm => EVERY (map ID_SPEC_TAC (free_vars tm)))
+  \\ rpt (pop_assum kall_tac)
+  \\ Induct_on ‘parts’ \\ fs []
+  \\ fs [do_build_def,clos_constantProofTheory.build'_def,do_part_def]
+  THEN1 (rw [] \\ first_x_assum $ irule_at (Pos last)\\ fs [refs_lemma])
+  \\ rw [] \\ pairarg_tac \\ fs []
+  \\ ‘t2.code = (t2 with refs := refs1).code ∧
+      (t2 with refs := rs) = ((t2 with refs := refs1) with refs := rs)’ by fs []
+  \\ asm_rewrite_tac []
+  \\ first_x_assum irule \\ fs []
+  \\ first_x_assum $ irule_at (Pos $ el 2) \\ gvs []
+  \\ Cases_on ‘h’ \\ gvs [do_part_def,update_tag_def]
+  THEN1
+   (qexists_tac ‘f2’ \\ fs [refs_lemma]
+    \\ rw [APPLY_UPDATE_THM,clos_constantProofTheory.build_part'_def]
+    \\ simp [Once v_rel_cases]
+    \\ disj1_tac \\ qid_spec_tac ‘l’
+    \\ Induct \\ fs [])
+  \\ TRY
+   (qexists_tac ‘f2’ \\ fs [refs_lemma]
+    \\ rw [APPLY_UPDATE_THM,clos_constantProofTheory.build_part'_def]
+    \\ simp [Once v_rel_cases] \\ NO_TAC)
+  \\ qexists_tac ‘f2’ \\ fs [refs_lemma,update_tag_def]
+  \\ fs [APPLY_UPDATE_THM,clos_constantProofTheory.build_part'_def]
+  \\ qabbrev_tac ‘k = LEAST ptr. ptr ∉ FDOM t2.refs’
+  \\ ‘k ∉ FDOM t2.refs’ by metis_tac [LEAST_NOTIN_FDOM]
+  \\ once_rewrite_tac [DECIDE “a ∧ b ∧ c ⇔ b ∧ a ∧ c”]
+  \\ conj_asm1_tac
+  THEN1
+   (fs [SUBMAP_DEF,FDIFF_def]
+    \\ rw [FAPPLY_FUPDATE_THM] \\ rw [] \\ res_tac)
+  \\ conj_tac
+  THEN1
+   (rw []
+    THEN1 (simp [Once v_rel_cases,FLOOKUP_UPDATE]
+           \\ fs[state_rel_def,SUBSET_DEF] \\ METIS_TAC[LEAST_NOTIN_FDOM])
+    \\ irule v_rel_SUBMAP
+    \\ first_x_assum (qspec_then ‘k'’ assume_tac)
+    \\ first_x_assum $ irule_at $ Pos last \\ fs []
+    \\ fs [SUBMAP_DEF,FDIFF_def]
+    \\ rw [FAPPLY_FUPDATE_THM]
+    \\ METIS_TAC[LEAST_NOTIN_FDOM])
+  \\ fs[state_rel_def]
+  \\ conj_tac >-
+   (match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    rpt strip_tac >>
+    match_mp_tac OPTREL_v_rel_NEW_REF >>
+    simp[LEAST_NOTIN_FDOM] )
+  \\ conj_tac >-
+   (rw[FLOOKUP_UPDATE]
+    >-
+     (fs[FLOOKUP_DEF]
+      \\ METIS_TAC[LEAST_NOTIN_FDOM] )
+    \\ first_x_assum match_mp_tac
+    \\ asm_exists_tac \\ rw[] ) \\
+  conj_tac >- fs[SUBSET_DEF] \\
+  rw[FLOOKUP_UPDATE] \\
+  first_x_assum drule \\ rw[] \\ simp[] \\
+  rw[] >- ( fs[FLOOKUP_DEF] \\ METIS_TAC[LEAST_NOTIN_FDOM] ) \\
+  Cases_on`x` \\ fs[] \\
+  match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
+  ONCE_REWRITE_TAC[CONJ_COMM] >>
+  asm_exists_tac \\ fs[] \\ rw[] \\
+  match_mp_tac v_rel_NEW_REF \\
+  simp[LEAST_NOTIN_FDOM]
+QED
+
 Theorem compile_exps_correct:
   (!tmp xs env ^s1 aux1 (t1:('c,'ffi) bvlSem$state) env' f1 res s2 ys aux2.
     (tmp = (xs,env,s1)) ∧
@@ -3347,19 +3449,6 @@ Proof
     \\ IMP_RES_TAC SUBMAP_TRANS \\ full_simp_tac(srw_ss())[])
   THEN1 (* Op *)
    (Cases_on `op = Install` THEN1
-(*
-    (rveq \\ fs[] \\ rveq \\ fs[]
-     \\ fs[closSemTheory.evaluate_def]
-     \\ fs[case_eq_thms] \\ rveq \\ fs[]
-     \\ fs[compile_exps_def]
-     \\ pairarg_tac \\ fs[] \\ rveq
-     \\ first_x_assum drule
-     \\ disch_then drule
-     \\ disch_then drule
-     \\ rw[] \\ simp[bEval_def]
-     \\ qexists_tac`ck` \\ simp[]
-     \\ asm_exists_tac \\ rw[])
-*)
      (rveq \\ fs [] \\ rveq
       \\ fs [cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
       \\ pairarg_tac \\ fs []
@@ -3687,6 +3776,30 @@ Proof
       strip_tac >> simp[] >>
       first_assum(match_exists_tac o concl) >> simp[])
     \\ (Cases_on `a'`) \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ Cases_on ‘∃c. op = Constant c’
+    THEN1
+     (gvs []
+      \\ Cases_on ‘∃i. c = ConstCons i []’
+      THEN1
+       (gvs [compile_op_def,compile_const_def]
+        \\ gvs [closSemTheory.do_app_def,AllCaseEqs(),do_app_def,PULL_EXISTS]
+        \\ fs [make_const_def]
+        \\ first_x_assum $ irule_at $ Pos last \\ fs []
+        \\ simp [Once v_rel_cases])
+      \\ Cases_on ‘∃i. c = ConstInt i’
+      THEN1
+       (gvs [compile_op_def,compile_const_def]
+        \\ gvs [closSemTheory.do_app_def,AllCaseEqs(),do_app_def,PULL_EXISTS]
+        \\ fs [make_const_def]
+        \\ first_x_assum $ irule_at $ Pos last \\ fs []
+        \\ simp [Once v_rel_cases])
+      \\ fs []
+      \\ drule_all compile_const_thm
+      \\ strip_tac \\ gvs []
+      \\ gvs [closSemTheory.do_app_def,AllCaseEqs(),do_app_def,PULL_EXISTS]
+      \\ pairarg_tac \\ gvs [make_const_thm]
+      \\ irule do_build_const_thm \\ fs []
+      \\ first_x_assum $ irule_at Any \\ fs [])
     \\ Cases_on `op = Ref` \\ full_simp_tac(srw_ss())[]
     THEN1
      (full_simp_tac(srw_ss())[closSemTheory.do_app_def,LET_DEF] \\ SRW_TAC [] []
@@ -4064,49 +4177,6 @@ Proof
       \\ `m IN FRANGE f2` by (full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
       \\ full_simp_tac(srw_ss())[SUBMAP_DEF,FDIFF_def,DRESTRICT_DEF,FAPPLY_FUPDATE_THM, add_args_def]
       \\ rveq \\ fs[])
-    \\ Cases_on `∃str. op = String str` \\ fs[] >- (
-      fs[closSemTheory.do_app_def,bvlSemTheory.do_app_def]
-      \\ Cases_on`REVERSE a` \\  fs[] \\ rw[]
-      \\ rw[v_rel_SIMP,FLOOKUP_UPDATE]
-      \\ qexists_tac`f2`
-      \\ conj_tac
-      >- ( fs[state_rel_def,SUBSET_DEF] \\ METIS_TAC[LEAST_NOTIN_FDOM] )
-      \\ conj_tac
-      >- (
-        fs[state_rel_def] \\
-        conj_tac >- (
-          match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
-          ONCE_REWRITE_TAC[CONJ_COMM] >>
-          first_assum(match_exists_tac o concl) >> simp[] >>
-          rpt strip_tac >>
-          match_mp_tac OPTREL_v_rel_NEW_REF >>
-          simp[LEAST_NOTIN_FDOM] ) >>
-        conj_tac >- (
-          rw[FLOOKUP_UPDATE]
-          >- (
-            fs[FLOOKUP_DEF]
-            \\ METIS_TAC[LEAST_NOTIN_FDOM] )
-          \\ first_x_assum match_mp_tac
-          \\ asm_exists_tac \\ rw[] ) \\
-        conj_tac >- fs[SUBSET_DEF] \\
-        rw[FLOOKUP_UPDATE] \\
-        first_x_assum drule \\ rw[] \\ simp[] \\
-        rw[] >- ( fs[FLOOKUP_DEF] \\ METIS_TAC[LEAST_NOTIN_FDOM] ) \\
-        Cases_on`x` \\ fs[] \\
-        match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
-        ONCE_REWRITE_TAC[CONJ_COMM] >>
-        asm_exists_tac \\ fs[] \\ rw[] \\
-        match_mp_tac v_rel_NEW_REF \\
-        simp[LEAST_NOTIN_FDOM])
-      \\ simp[]
-      \\ qmatch_goalsub_abbrev_tac`t2.refs |+ (ptr,_)`
-      \\ `ptr ∉ FRANGE f2`
-      by (
-        fs[state_rel_def]
-        \\ `ptr ∉ FDOM t2.refs` suffices_by METIS_TAC[SUBSET_DEF]
-        \\ simp[Abbr`ptr`,LEAST_NOTIN_FDOM] )
-      \\ fs[FDIFF_def,DRESTRICT_DEF,SUBMAP_DEF,FAPPLY_FUPDATE_THM]
-      \\ rw[] \\ METIS_TAC[LEAST_NOTIN_FDOM] )
     \\ Cases_on`op = FromListByte` \\ fs[] >- (
       fs[closSemTheory.do_app_def,bvlSemTheory.do_app_def]
       \\ Cases_on`REVERSE a` \\  fs[]
@@ -6416,6 +6486,14 @@ Proof
   \\ fs []
 QED
 
+val compile_common_inc_def = Define`
+  compile_common_inc c cc =
+  (pure_cc (cond_mti_compile_inc c.do_mti c.max_app)
+    (state_cc (ignore_table clos_number$compile_inc)
+      (clos_knownProof$known_cc c.known_conf
+        (state_cc (cond_call_compile_inc c.do_call)
+          (pure_cc clos_annotate$compile_inc cc)))))`;
+
 val clos_state_cc_def = Define `
   clos_state_cc inc (cc : 'b clos_cc) = (state_cc inc cc : ('a # 'b) clos_cc)`;
 
@@ -6874,14 +6952,6 @@ Proof
   \\ simp[backendPropsTheory.FST_state_co]
 QED
 
-val compile_common_inc_def = Define`
-  compile_common_inc c cc =
-  (pure_cc (cond_mti_compile_inc c.do_mti c.max_app)
-    (state_cc (ignore_table clos_number$compile_inc)
-      (clos_knownProof$known_cc c.known_conf
-        (state_cc (cond_call_compile_inc c.do_call)
-          (pure_cc clos_annotate$compile_inc cc)))))`;
-
 Theorem compile_common_semantics:
    closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1
     (compile_common_inc c cc) es1 ≠ Fail ∧
@@ -6978,7 +7048,8 @@ Proof
   \\ qpat_assum `compile c.known_conf _ = _`
     (fn t => conseq (map (fn t2 => MATCH_MP t2 t) known_co_facts2))
   \\ simp [backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co,
-           FST_SND_ignore_table,SND_SND_ignore_table]
+        FST_SND_ignore_table,
+        SND_SND_ignore_table]
   \\ csimp []
   \\ fs [clos_knownProofTheory.syntax_oracle_ok_def,
         clos_knownProofTheory.syntax_ok_def]
@@ -7843,7 +7914,7 @@ fun abbrev_adj_tac f = first_assum (fn t => if not
     val (v_nm, _) = dest_var v
     val x = f rhs
     val v2 = mk_var (v_nm ^ "'", type_of x)
-  in markerLib.ABBREV_TAC (mk_eq (v2, x)) \\ markerLib.UNABBREV_TAC v_nm end)
+  in markerLib.ABBREV_TAC (mk_eq (v2, x)) \\ markerLib.UNABBREV_TAC v_nm end);
 
 Theorem syntax_oracle_ok_to_oracle_inv:
   ∀cc es co c c'. syntax_oracle_ok c c' es co /\
@@ -8448,6 +8519,9 @@ Theorem assign_get_code_label_compile_op:
    closLang$assign_get_code_label (compile_op op) = case some n. op = Label n of SOME n => {n} | _ => {}
 Proof
   Cases_on`op` \\ rw[clos_to_bvlTheory.compile_op_def, closLangTheory.assign_get_code_label_def]
+  \\ Cases_on ‘c’ \\ fs [assign_get_code_label_def,compile_const_def]
+  \\ rw [] \\ fs [assign_get_code_label_def]
+  \\ pairarg_tac \\ fs [assign_get_code_label_def]
 QED
 
 Theorem recc_Lets_code_labels:

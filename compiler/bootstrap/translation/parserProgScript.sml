@@ -145,7 +145,73 @@ val _ = translate maybe_handleRef_eq
 
 val _ = translate (def_of_const ``ptree_Expr``);
 
-val _ = translate (def_of_const ``ptree_Decl``);
+val _ = translate (def_of_const ``ptree_linfix``);
+
+val _ = translate (def_of_const ``ptree_TypeDec``);
+
+val _ = def_of_const “ptree_DtypeDecl” |> translate;
+
+val def = cmlPtreeConversionTheory.ptree_SpeclineList_def
+  |> SIMP_RULE (srw_ss()) [OPTION_CHOICE_def |> DefnBase.one_line_ify NONE,
+                           OPTION_BIND_def |> DefnBase.one_line_ify NONE,
+                           OPTION_IGNORE_BIND_def |> DefnBase.one_line_ify NONE,
+                           OPTION_GUARD_def |> DefnBase.one_line_ify NONE]
+
+val res = translate def;
+
+val _ = def_of_const “ptree_SignatureValue” |> translate
+
+Triviality ptree_Decls:
+  ptree_Decls x =
+     case x of
+     | Lf t => ptree_Decls (Lf t)
+     | Nd (a1,a2) b => ptree_Decls (Nd (a1,a2) b)
+Proof
+  Cases_on ‘x’ \\ fs []
+  \\ rename [‘Nd p’] \\ PairCases_on ‘p’ \\ fs []
+QED
+
+Triviality ptree_Structure:
+  ptree_Structure x =
+     case x of
+     | Lf t => ptree_Structure (Lf t)
+     | Nd (a1,a2) b => ptree_Structure (Nd (a1,a2) b)
+Proof
+  Cases_on ‘x’ \\ fs []
+  \\ rename [‘Nd p’] \\ PairCases_on ‘p’ \\ fs []
+QED
+
+val def =
+  LIST_CONJ
+    [cmlPtreeConversionTheory.ptree_Decl_def |> CONJUNCT1 |> SPEC_ALL,
+     ptree_Decls
+     |> ONCE_REWRITE_RULE  [cmlPtreeConversionTheory.ptree_Decl_def],
+     ptree_Structure
+     |> ONCE_REWRITE_RULE  [cmlPtreeConversionTheory.ptree_Decl_def]]
+  |> SIMP_RULE (srw_ss()) [OPTION_CHOICE_def |> DefnBase.one_line_ify NONE,
+                           OPTION_BIND_def |> DefnBase.one_line_ify NONE,
+                           OPTION_IGNORE_BIND_def |> DefnBase.one_line_ify NONE,
+                           OPTION_GUARD_def |> DefnBase.one_line_ify NONE]
+
+val res = translate_no_ind def;
+
+Triviality ind_lemma:
+  ^(first is_forall (hyp res))
+Proof
+  rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac
+      (cmlPtreeConversionTheory.ptree_Decl_ind
+       |> SIMP_RULE (srw_ss()) [AllCaseEqs(),PULL_EXISTS])
+  \\ rpt conj_tac
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ fs []
+  \\ rpt strip_tac
+  \\ gvs [AllCaseEqs()]
+QED
+
+val _ = ind_lemma |> update_precondition;
 
 val _ = translate (def_of_const ``ptree_TopLevelDecs``);
 

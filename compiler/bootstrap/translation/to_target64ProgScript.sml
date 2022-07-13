@@ -72,6 +72,11 @@ val _ = inst_tyargs := [alpha]
 
 open word_to_stackTheory;
 
+val r = translate (chunk_to_bits_def |> conv64);
+val r = translate (chunk_to_bitmap_def |> conv64);
+Theorem const_words_to_bitmap_ind = const_words_to_bitmap_ind |> conv64;
+val r = translate (const_words_to_bitmap_def |> conv64);
+
 val _ = translate (conv64 write_bitmap_def|> (RW (!extra_preprocessing)))
 
 (* TODO: The paired let trips up the translator's single line def mechanism, unable to find a smaller failing example yet *)
@@ -170,6 +175,15 @@ val stack_alloc_compile_side = Q.prove(`∀conf prog. stack_alloc_compile_side c
 *)
 
 open stack_removeTheory;
+
+val each_def =
+  copy_each_def |> inline_simp |> conv64 |> SPEC_ALL |> CONV_RULE (RAND_CONV EVAL);
+val loop_def =
+  (copy_loop_def |> inline_simp |> conv64 |> SPEC_ALL |> CONV_RULE (RAND_CONV EVAL)
+    |> REWRITE_RULE [GSYM each_def]);
+
+val _ = translate each_def;
+val _ = translate loop_def;
 
 (* Might be better to inline this *)
 val _ = translate (conv64 word_offset_def)

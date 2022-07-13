@@ -724,7 +724,7 @@ Theorem data_safe_sum:
        sum_x64_conf
        sum_prog
        (* (s_size,h_size) *)
-       (56,112)
+       (56,500)
 Proof
 let
   val code_lookup   = mk_code_lookup
@@ -776,13 +776,13 @@ in
  \\ strip_makespace
  \\ ntac 47 strip_assign
  \\ make_tailcall
- \\ ntac 4
+ \\ ntac 10
     (strip_call
     \\ ntac 9 strip_assign
     \\ make_if
      \\ UNABBREV_ALL_TAC)
   \\ ntac 6 strip_assign
-  \\ ntac 4
+  \\ ntac 10
      (open_tailcall
      \\ ntac 4 strip_assign
      \\ make_if
@@ -797,13 +797,19 @@ in
   \\ strip_makespace
   \\ ntac 3 strip_assign
   \\ make_tailcall
-  \\ ntac 3
+  \\ ntac 4
+     (TRY strip_makespace
+     \\ ntac 4 (TRY strip_assign)
+     \\ make_tailcall)
+  \\ ntac 30 strip_assign
+  \\ strip_makespace
+  \\ ntac 2 strip_assign
+  \\ make_tailcall
+  \\ ntac 4
      (strip_makespace
      \\ ntac 4 strip_assign
      \\ make_tailcall)
-  \\ ntac 31 strip_assign
-  \\ strip_makespace
-  \\ ntac 9 strip_assign
+  \\ strip_assign
   \\ qmatch_goalsub_abbrev_tac `f (state_locals_fupd _ _)`
   \\ qmatch_goalsub_abbrev_tac `f s`
   \\ irule data_safe_res
@@ -836,7 +842,7 @@ in
       \\ conj_tac >- EVAL_TAC
       \\ conj_tac >- EVAL_TAC
       \\ conj_tac >- EVAL_TAC
-      \\ conj_tac >- (EVAL_TAC \\ METIS_TAC [])
+      \\ conj_tac >- (EVAL_TAC \\ rw[] \\ rw[lookup_def])
       \\ conj_tac
       >- (simp [sum_stack_size_def,repint_to_list_def,lookup_def,stack_consumed_def,small_num_def,
                 word_depthTheory.max_depth_def,data_to_wordTheory.AnyArith_call_tree_def]

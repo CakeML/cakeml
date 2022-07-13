@@ -363,7 +363,7 @@ val do_app_err_thm = Q.prove(
           exc_rel v_rel err w`,
   srw_tac[][] >>
   imp_res_tac do_app_err >> fsrw_tac[][] >>
-  Cases_on `?i. op = EqualInt i`
+  Cases_on `?i. op = EqualConst i`
   THEN1 (rw [] \\ fsrw_tac[][do_app_def] \\ every_case_tac >> fs[])
   \\ Cases_on `err` \\ fs []
   \\ fs [do_app_cases_err]

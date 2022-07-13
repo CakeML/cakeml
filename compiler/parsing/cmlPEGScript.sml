@@ -451,7 +451,8 @@ Definition cmlPEG_def[nocompute]:
                  seql [tokeq LocalT; pnt nDecls; tokeq InT; pnt nDecls;
                        tokeq EndT] (bindNT nDecl);
                  seql [pnt nTypeDec] (bindNT nDecl);
-                 seql [pnt nTypeAbbrevDec] (bindNT nDecl)
+                 seql [pnt nTypeAbbrevDec] (bindNT nDecl);
+                 seql [pnt nStructure] (bindNT nDecl);
                ]);
               (mkNT nTypeAbbrevDec,
                seql [tokeq TypeT; pnt nTypeName; tokeq EqualsT; pnt nType]
@@ -487,20 +488,18 @@ Definition cmlPEG_def[nocompute]:
                seql [tokeq StructureT; pnt nStructName; pnt nOptionalSignatureAscription;
                      tokeq EqualsT; tokeq StructT; pnt nDecls; tokeq EndT]
                     (bindNT nStructure));
-              (mkNT nTopLevelDec,
-               pegf (choicel [pnt nStructure; pnt nDecl]) (bindNT nTopLevelDec));
               (mkNT nTopLevelDecs,
                choicel [
                  seql [pnt nE; tokeq SemicolonT; pnt nTopLevelDecs]
                       (bindNT nTopLevelDecs);
-                 seql [pnt nTopLevelDec; pnt nNonETopLevelDecs]
+                 seql [pnt nDecl; pnt nNonETopLevelDecs]
                       (bindNT nTopLevelDecs);
                  seql [tokeq SemicolonT; pnt nTopLevelDecs]
                       (bindNT nTopLevelDecs);
                  pegf (empty []) (bindNT nTopLevelDecs)]);
               (mkNT nNonETopLevelDecs,
                choicel [
-                 seql [pnt nTopLevelDec; pnt nNonETopLevelDecs]
+                 seql [pnt nDecl; pnt nNonETopLevelDecs]
                       (bindNT nNonETopLevelDecs);
                  seql [tokeq SemicolonT; pnt nTopLevelDecs]
                       (bindNT nNonETopLevelDecs);
@@ -676,7 +675,7 @@ end
 
 val npeg0_rwts =
     List.foldl pegnt []
-               [“nTypeDec”, “nTypeAbbrevDec”, “nOpID”,
+               [“nTypeDec”, “nTypeAbbrevDec”, “nOpID”, “nStructure”,
                 “nDecl”, “nV”, “nUQTyOp”,
                 “nUQConstructorName”, “nStructName”, “nConstructorName”,
                 “nTypeName”,
@@ -693,7 +692,7 @@ val npeg0_rwts =
                 “nEbefore”,
                 “nEtyped”, “nElogicAND”, “nElogicOR”, “nEhandle”,
                 “nE”, “nE'”, “nElist1”,
-                “nSpecLine”, “nStructure”, “nTopLevelDec”
+                “nSpecLine”
                ]
 
 fun wfnt(t,acc) = let
@@ -711,7 +710,10 @@ in
   th::acc
 end;
 
-val topo_nts = [“nV”, “nTyvarN”, “nTypeDec”, “nTypeAbbrevDec”, “nDecl”,
+val topo_nts = [“nV”, “nTyvarN”, “nTypeDec”, “nTypeAbbrevDec”,
+                “nSpecLine”, “nSpecLineList”, “nSignatureValue”,
+                “nStructure”,
+                “nDecl”,
                 “nUQTyOp”, “nUQConstructorName”, “nStructName”,
                 “nConstructorName”, “nTyVarList”, “nTypeName”, “nTyOp”,
                 “nTbase”, “nPTbase”, “nTbaseList”, “nDType”, “nPType”,
@@ -728,10 +730,9 @@ val topo_nts = [“nV”, “nTyvarN”, “nTypeDec”, “nTypeAbbrevDec”, �
                 “nType”, “nTypeList1”, “nTypeList2”,
                 “nEseq”, “nElist1”, “nDtypeDecl”,
                 “nOptTypEqn”,
-                “nDecls”, “nDconstructor”, “nAndFDecls”, “nSpecLine”,
-                “nSpecLineList”, “nSignatureValue”,
-                “nOptionalSignatureAscription”, “nStructure”,
-                “nTopLevelDec”, “nTopLevelDecs”, “nNonETopLevelDecs”
+                “nDecls”, “nDconstructor”, “nAndFDecls”,
+                “nOptionalSignatureAscription”,
+                “nTopLevelDecs”, “nNonETopLevelDecs”
                ]
 
 val cml_wfpeg_thm = save_thm(

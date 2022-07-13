@@ -607,11 +607,13 @@ val word_gc_code_def = Define `
                If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip ])
                  :'a stackLang$prog`
 
-val stubs_def = Define `
-  stubs conf = [(gc_stub_location,Seq (word_gc_code conf) (Return 0 0))]`
+Definition stubs_def:
+  stubs conf = [(gc_stub_location, Seq (word_gc_code conf) (Return 0 0))]
+End
 
-val stub_names_def = Define`
-  stub_names () = [(gc_stub_location,«_Gc»)]`
+Definition stub_names_def:
+  stub_names () = [(gc_stub_location, «_GC»)]
+End
 
 (* compiler *)
 
@@ -641,7 +643,7 @@ Theorem next_lab_pmatch = Q.prove(
    >> rpt strip_tac
    >> rw[Once next_lab_def]
    >> every_case_tac >> fs[]);
-end
+end;
 
 local
 val comp_quotation = `
@@ -667,6 +669,7 @@ val comp_quotation = `
               let (q2,m) = comp n m p2 in
                 (Call (SOME (q1,lr,l1,l2)) dest (SOME (q2,k1,k2)),m))
     | Alloc k => (Call (SOME (Skip,0,n,m)) (INL gc_stub_location) NONE,m+1)
+    | StoreConsts k1 k2 (SOME loc) => (Call (SOME (Skip,0,n,m)) (INL loc) NONE,m+1)
     | _ => (p,m) `
 in
 val comp_def = Define comp_quotation
@@ -681,6 +684,7 @@ Theorem comp_pmatch = Q.prove(
    >> rpt strip_tac
    >> rw[Once comp_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
 end
+
 val prog_comp_def = Define `
   prog_comp (n,p) = (n,FST (comp n (next_lab p 2) p))`
 

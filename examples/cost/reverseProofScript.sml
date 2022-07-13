@@ -162,25 +162,21 @@ Proof
      fs[lookup_def] >>
      pop_assum mp_tac >> rpt(pop_assum kall_tac) >> intLib.COOPER_TAC)
   \\ simp[]
-  \\ strip_assign
-  \\ strip_assign
+  \\ eval_goalsub_tac “lookup 0 (insert _ _ _)”
+  \\ simp[]
   \\ reverse IF_CASES_TAC >-
     (rw[] >> rw[] >>
      Cases_on ‘s.stack_max’ >> rw[MAX_DEF,PULL_EXISTS] >>
      fs[lookup_def] >>
-     pop_assum mp_tac >> rpt(pop_assum kall_tac) >> intLib.COOPER_TAC)
+     pop_assum mp_tac >> rpt(pop_assum kall_tac) >> intLib.COOPER_TAC >>
+     qexists_tac ‘0’ \\ simp[])
   \\ simp[]
-  \\ simp[numeralTheory.numeral_eq]
+  \\ strip_assign
+  \\ strip_assign
   \\ ‘NUMERAL 3 = 3’ by(metis_tac[NUMERAL_DEF])
   \\ pop_assum SUBST_ALL_TAC
   \\ simp[]
-  \\ ‘NUMERAL 6 = 6’ by(metis_tac[NUMERAL_DEF])
-  \\ pop_assum SUBST_ALL_TAC
-  \\ simp[]
-  \\ ‘BIT2(BIT2 ZERO) = 6’ by(metis_tac[NUMERAL_DEF])
-  \\ pop_assum SUBST_ALL_TAC
-  \\ simp [code_lookup,lookup_def,frame_lookup]
-  \\ simp [lookup_insert,lookup_def]
+  \\ simp[numeralTheory.numeral_eq]
   \\ strip_assign
   \\ simp[v_to_list_def,backend_commonTheory.cons_tag_def,backend_commonTheory.nil_tag_def]
   \\ Cases_on ‘v_to_list block2’ >-
@@ -195,6 +191,9 @@ Proof
                      , flush_state_def]
   \\ simp [code_lookup,lookup_def,frame_lookup]
   \\ simp [lookup_insert,lookup_def]
+  \\ eval_goalsub_tac “lookup (NUMERAL _) (fromAList reverse_data_prog)”
+  \\ ‘BIT1 (BIT1 (BIT1 (BIT2 3))) = 71’ by metis_tac[NUMERAL_DEF]
+  \\ simp [code_lookup]
   \\ IF_CASES_TAC >-
     (simp[] >> rw[] >> simp[] >>fs[size_of_stack_def] >>
      Cases_on ‘s.stack_max’ >> rw[MAX_DEF,PULL_EXISTS] >>
@@ -213,12 +212,14 @@ Proof
   \\ disch_then(qspec_then ‘(list_to_v (ts + 1) block2 [HD l])’ mp_tac)
   \\ disch_then(qspec_then ‘(EL 1 l)’ mp_tac)
   \\ simp[]
+  \\ ‘NUMERAL 71 = 71’ by metis_tac[NUMERAL_DEF]
+  \\ pop_assum SUBST_ALL_TAC
+  \\ simp[frame_lookup]
   \\ ‘NUMERAL 6 = 6’ by(metis_tac[NUMERAL_DEF])
   \\ pop_assum SUBST_ALL_TAC
   \\ simp[]
   \\ qmatch_goalsub_abbrev_tac ‘a1 = (_,_)’
   \\ disch_then(qspecl_then [‘SND a1’,‘FST a1’] mp_tac)
-  \\ simp[]
   \\ Cases_on ‘a1’ >> rw[] >> simp[]
   \\ fs[size_of_stack_def]
   \\ rpt(pop_assum kall_tac)

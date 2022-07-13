@@ -3,7 +3,7 @@
   primitive operations) used in the semantics.
 *)
 open HolKernel Parse boolLib bossLib;
-open libTheory astTheory namespaceTheory ffiTheory fpSemTheory;
+open libTheory astTheory namespaceTheory ffiTheory fpValTreeTheory fpSemTheory realOpsTheory;
 
 val _ = numLib.prefer_num();
 
@@ -42,8 +42,21 @@ Datatype:
   | Recclosure (v sem_env) ((varN # varN # exp) list) varN
   | Loc num
   | Vectorv (v list)
+  | FP_WordTree fp_word_val
+  | FP_BoolTree fp_bool_val
+  | Real real
   (* Environment value for Eval, and its numeric identifier *)
   | Env (v sem_env) (num # num)
+End
+
+(* The runtime semantics should be able to deal with constants too, thus we add
+   a translation function from word constants to value trees *)
+(*val fp_translate: v -> maybe v*)
+Definition fp_translate_def:
+  fp_translate (Litv (Word64 w)) = (SOME (FP_WordTree (Fp_const w))) ∧
+  fp_translate (FP_WordTree v) = (SOME (FP_WordTree v)) ∧
+  fp_translate (FP_BoolTree v) = (SOME (FP_BoolTree v)) ∧
+  fp_translate _=  NONE
 End
 
 Type env_ctor = ``: (modN, conN, (num # stamp)) namespace``
@@ -76,11 +89,15 @@ val _ = Define ‘fp_uop_type_num = 13’
 val _ = Define ‘fp_bop_type_num = 14’
 val _ = Define ‘fp_top_type_num = 15’
 val _ = Define ‘fp_cmp_type_num = 16’
-val _ = Define ‘op_type_num     = 17’
-val _ = Define ‘locn_type_num   = 18’
-val _ = Define ‘locs_type_num   = 19’
-val _ = Define ‘exp_type_num    = 20’
-val _ = Define ‘dec_type_num    = 21’
+val _ = Define ‘real_uop_type_num = 17’
+val _ = Define ‘real_bop_type_num = 18’
+val _ = Define ‘real_cmp_type_num = 19’
+val _ = Define ‘op_type_num     = 20’
+val _ = Define ‘locn_type_num   = 21’
+val _ = Define ‘locs_type_num   = 22’
+val _ = Define ‘fp_opt_num      = 23’
+val _ = Define ‘exp_type_num    = 24’
+val _ = Define ‘dec_type_num    = 25’
 
 (* The result of evaluation *)
 Datatype:
@@ -155,6 +172,29 @@ Type compiler_args = ``: ((num # num) # v # dec list)``
 Type compiler_fun = ``: compiler_args ->
      (v # word8 list # word64 list)option``
 
+(*
+   State component encapsulating Icing optimizations and rewriter oracle.
+   rws := list of rewrites allowed to be applied by the semantics
+   opts := oracle that decides which rewrites are applied next
+   choices := global counter how many rewriting steps have been done
+   canOpt := flag indicating whether evaluation has stepped below an "opt" scope
+*)
+Datatype:
+ optChoice =
+    Strict (* strict 64-bit floating-point semantics, ignores annotations *)
+ | FPScope fp_opt (* currently under scope *)
+End
+
+Datatype:
+ fpState =
+  <| rws: fp_rw list
+   ; opts: num -> rewrite_app list
+   ; choices: num
+   ; canOpt : optChoice
+   ; real_sem : bool
+   |>
+End
+
 Datatype:
  eval_decs_state =
   <|
@@ -195,6 +235,7 @@ Datatype:
    ; ffi : 'ffi ffi_state
    ; next_type_stamp : num
    ; next_exn_stamp : num
+   ; fp_state : fpState
    ; eval_state :  eval_state option
    |>
 End
@@ -252,6 +293,27 @@ Definition ctor_same_type_def:
      (NONE,NONE) => T
    | (SOME stamp1,SOME stamp2) => same_type stamp1 stamp2
    | _ => F
+End
+
+Definition Boolv_def:
+  Boolv b =
+    if b then Conv (SOME (TypeStamp "True" bool_type_num)) []
+         else Conv (SOME (TypeStamp "False" bool_type_num)) []
+End
+
+Definition compress_def:
+ compress (FP_WordTree fp) = (Litv (Word64 (compress_word fp))) ∧
+ compress (FP_BoolTree fp) = (Boolv (compress_bool fp)) ∧
+ compress (Real r) = (Real r) ∧
+ compress (Litv l) =  (Litv l) ∧
+ compress (Conv ts vs) = (Conv ts (compress_list vs)) ∧
+ compress (Closure env x e) = (Closure env x e) ∧
+ compress (Env env n) =  (Env env n) ∧
+ compress (Recclosure env es x) = (Recclosure env es x) ∧
+ compress (Loc n) =  (Loc n) ∧
+ compress (Vectorv vs) = (Vectorv (compress_list vs)) ∧
+ compress_list [] = [] ∧
+ compress_list (v::vs) = (compress v)::(compress_list vs)
 End
 
 (* A big-step pattern matcher.  If the value matches the pattern, return an
@@ -351,6 +413,31 @@ Definition do_eq_def:
   do_eq (Closure v8 v9 v10) (Recclosure v11 v12 v13) = Eq_val T ∧
   do_eq (Recclosure v14 v15 v16) (Closure v17 v18 v19) = Eq_val T ∧
   do_eq (Recclosure v20 v21 v22) (Recclosure v23 v24 v25) = Eq_val T ∧
+  do_eq (FP_BoolTree v1) (FP_BoolTree v2) = (Eq_val (compress_bool v1 <=> compress_bool v2)) ∧
+  do_eq (FP_BoolTree v1) (Conv cn2 vs2)=
+   (case Boolv (compress_bool v1) of
+    Conv cn1 vs1 =>
+    if (cn1 = cn2) /\ (LENGTH vs1 = LENGTH vs2) then
+      do_eq_list vs1 vs2
+      else if ctor_same_type cn1 cn2 then
+         Eq_val F
+      else
+        Eq_type_error
+  | _ => Eq_type_error) ∧
+  do_eq (Conv cn1 vs1) (FP_BoolTree v2)=
+   (case Boolv (compress_bool v2) of
+    Conv cn2 vs2 =>
+    if (cn1 = cn2) /\ (LENGTH vs1 = LENGTH vs2) then
+      do_eq_list vs1 vs2
+      else if ctor_same_type cn1 cn2 then
+         Eq_val F
+      else
+        Eq_type_error
+  | _ => Eq_type_error) ∧
+  do_eq (FP_WordTree v1) (FP_WordTree v2) = (Eq_val (compress_word v1 = compress_word v2)) ∧
+  do_eq (Litv (Word64 w1)) (FP_WordTree v2) = (Eq_val (w1 = compress_word v2)) ∧
+  do_eq (FP_WordTree v1) (Litv (Word64 w2)) = (Eq_val (compress_word v1 = w2)) ∧
+  do_eq (Real r1) (Real r2) =  (Eq_val (r1 = r2)) ∧
   do_eq (Env v26 (gen1,id1)) (Env v27 (gen2,id2)) =
     Eq_val (gen1 = gen2 ∧ id1 = id2) ∧
   do_eq _ _ = Eq_type_error ∧
@@ -363,6 +450,7 @@ Definition do_eq_def:
 Termination
   WF_REL_TAC `inv_image $< (λx. case x of INL (v1,v2) => v_size v1
                                         | INR (vs1,vs2) => list_size v_size vs1)`
+  >> Cases_on ‘compress_bool v1’ >> gs[Boolv_def, listTheory.list_size_def]
 End
 
 (* Do an application *)
@@ -530,6 +618,9 @@ Definition concrete_v_def:
      | Litv _ => T
      | Conv v_ vs => concrete_v_list vs
      | Vectorv vs => concrete_v_list vs
+     | FP_WordTree fp => T
+     | FP_BoolTree fp => T
+     | Real r => T
      | _ => F) ∧
   (concrete_v_list [] ⇔ T) ∧
   (concrete_v_list (v::vs) ⇔ concrete_v v ∧ concrete_v_list vs)
@@ -581,6 +672,7 @@ Definition do_eval_def:
 End
 
 (* conclude an Eval generation *)
+
 Definition reset_env_generation_def:
   reset_env_generation prior_es es =
     case (prior_es,es) of
@@ -672,16 +764,10 @@ End
 Definition shift64_lookup_def:
   shift64_lookup sh =
     case sh of
-    |  Lsl => word_lsl
+    | Lsl => word_lsl
     | Lsr => word_lsr
     | Asr => word_asr
     | Ror => word_ror : word64 -> num -> word64
-End
-
-Definition Boolv_def:
-  Boolv b =
-    if b then Conv (SOME (TypeStamp "True" bool_type_num)) []
-         else Conv (SOME (TypeStamp "False" bool_type_num)) []
 End
 
 Datatype:
@@ -689,6 +775,40 @@ Datatype:
 End
 
 Type store_ffi = “: 'v store # 'ffi ffi_state”
+
+Definition do_fprw_def:
+ do_fprw (v:(v,v) result) fp_opt fp_rws=
+   (case (v, fp_opt) of
+    (Rval (FP_BoolTree fv), rws) =>
+    (case rwAllBoolTree rws fp_rws fv of
+      NONE => NONE
+    | SOME fv_opt => SOME (Rval (FP_BoolTree fv_opt))
+    )
+  | (Rval (FP_WordTree fv), rws) =>
+    (case rwAllWordTree rws fp_rws fv of
+      NONE => NONE
+    | SOME fv_opt => SOME (Rval (FP_WordTree fv_opt))
+    )
+  | (Rval r, [] ) => SOME v
+  | (_, _) => NONE)
+End
+
+Definition do_fpoptimise_def:
+ do_fpoptimise sc [] = [] ∧
+ do_fpoptimise sc [Litv l] = [Litv l] ∧
+ do_fpoptimise sc [Conv st vs] = [Conv st (do_fpoptimise sc vs)] ∧
+ do_fpoptimise sc [Closure env x e] = [Closure env x e] ∧
+ do_fpoptimise sc [Recclosure env ls x] = [Recclosure env ls x] ∧
+ do_fpoptimise sc [Loc n] = [Loc n] ∧
+ do_fpoptimise sc [Vectorv vs] = [Vectorv (do_fpoptimise sc vs)] ∧
+ do_fpoptimise sc [Real r]=  [Real r]  ∧
+ do_fpoptimise sc [FP_WordTree fp] = [FP_WordTree (Fp_wopt sc fp)] ∧
+ do_fpoptimise sc [FP_BoolTree fp] = [FP_BoolTree (Fp_bopt sc fp)] ∧
+ do_fpoptimise sc [Env env n] = [Env env n] ∧
+ do_fpoptimise sc (v::vs) = (do_fpoptimise sc [v]) ++ (do_fpoptimise sc vs)
+Termination
+  WF_REL_TAC `measure (\ (_, l). v1_size l)` \\ fs[]
+End
 
 Definition do_app_def:
   do_app (s: v store_v list, t: 'ffi ffi_state) op vs =
@@ -709,18 +829,57 @@ Definition do_app_def:
         SOME ((s,t), Rval (Litv (Word8 (opw8_lookup op w1 w2))))
     | (Opw W64 op, [Litv (Word64 w1); Litv (Word64 w2)]) =>
         SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
-    | (FP_top t_op, [Litv (Word64 w1); Litv (Word64 w2); Litv (Word64 w3)]) =>
-        SOME ((s,t), Rval (Litv (Word64 (fp_top t_op w1 w2 w3))))
-    | (FP_bop bop, [Litv (Word64 w1); Litv (Word64 w2)]) =>
-        SOME ((s,t),Rval (Litv (Word64 (fp_bop bop w1 w2))))
-    | (FP_uop uop, [Litv (Word64 w)]) =>
-        SOME ((s,t),Rval (Litv (Word64 (fp_uop uop w))))
-    | (FP_cmp cmp, [Litv (Word64 w1); Litv (Word64 w2)]) =>
-        SOME ((s,t),Rval (Boolv (fp_cmp cmp w1 w2)))
+    | (Opw W64 op, [FP_WordTree w1; Litv (Word64 w2)]) =>
+        let wr1 = (compress_word w1) in
+          SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op wr1 w2))))
+    | (Opw W64 op, [Litv (Word64 w1); FP_WordTree w2]) =>
+        let wr2 = (compress_word w2) in
+          SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 wr2))))
+    | (Opw W64 op, [FP_WordTree w1; FP_WordTree w2]) =>
+        let wr1 = (compress_word w1) in
+        let wr2 = (compress_word w2) in
+          SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op wr1 wr2))))
+    | (FP_top t_op, [v1; v2; v3]) =>
+        (case (fp_translate v1, fp_translate v2, fp_translate v3) of
+          (SOME (FP_WordTree w1), SOME (FP_WordTree w2), SOME (FP_WordTree w3)) =>
+          SOME ((s,t), Rval (FP_WordTree (fp_top t_op w1 w2 w3)))
+        | _ => NONE
+        )
+    | (FP_bop bop, [v1; v2]) =>
+        (case (fp_translate v1, fp_translate v2) of
+          (SOME (FP_WordTree w1), SOME (FP_WordTree w2)) =>
+          SOME ((s,t),Rval (FP_WordTree (fp_bop bop w1 w2)))
+        | _ => NONE
+        )
+    | (FP_uop uop, [v1]) =>
+        (case (fp_translate v1) of
+          (SOME (FP_WordTree w1)) =>
+          SOME ((s,t),Rval (FP_WordTree (fp_uop uop w1)))
+        | _ => NONE
+        )
+    | (FP_cmp cmp, [v1; v2]) =>
+        (case (fp_translate v1, fp_translate v2) of
+          (SOME (FP_WordTree w1), SOME (FP_WordTree w2)) =>
+          SOME ((s,t),Rval (FP_BoolTree (fp_cmp cmp w1 w2)))
+        | _ => NONE
+        )
+    | (FpToWord, [FP_WordTree v1]) => SOME ((s,t), Rval (Litv (Word64 (compress_word v1))))
+    | (FpFromWord, [Litv (Word64 v1)]) => (SOME ((s,t), Rval (FP_WordTree (Fp_const v1))))
+    | (Real_cmp cmp, [Real v1; Real v2]) =>
+        SOME ((s,t), Rval (Boolv (real_cmp cmp v1 v2)))
+    | (Real_bop bop, [Real v1; Real v2]) =>
+        SOME ((s,t), Rval (Real (real_bop bop v1 v2)))
+    | (Real_uop uop, [Real v1]) =>
+        SOME ((s,t), Rval (Real (real_uop uop v1)))
+    | (RealFromFP, [Litv (Word64 fp)]) =>
+        SOME ((s,t), Rval (Real (fp64_to_real fp)))
     | (Shift W8 op n, [Litv (Word8 w)]) =>
         SOME ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
     | (Shift W64 op n, [Litv (Word64 w)]) =>
         SOME ((s,t), Rval (Litv (Word64 (shift64_lookup op w n))))
+    | (Shift W64 op n, [FP_WordTree w1]) =>
+        let wr1 = (compress_word w1) in
+          (SOME ((s,t), Rval (Litv (Word64 (shift64_lookup op wr1 n)))))
     | (Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
@@ -819,6 +978,9 @@ Definition do_app_def:
         SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
     | (WordToInt W64, [Litv (Word64 w)]) =>
         SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
+    | (WordToInt W64, [FP_WordTree v]) =>
+        let w = (compress_word v) in
+          SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME ((s,t),
         (case copy_array (EXPLODE str,off) len NONE of
@@ -1074,6 +1236,16 @@ End
 Definition extend_dec_env_def:
   extend_dec_env new_env (env: v sem_env) =
     <|c := nsAppend new_env.c env.c; v := nsAppend new_env.v env.v|>
+End
+
+Definition shift_fp_opts_def:
+  shift_fp_opts s =
+  (s with <| fp_state :=
+             s.fp_state with <|
+                opts := (\ x . s.fp_state.opts (x + 1));
+                choices := (s.fp_state.choices + 1)
+             |>
+          |>)
 End
 
 val _ = set_fixity "+++" (Infixl 480);

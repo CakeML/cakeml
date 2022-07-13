@@ -824,7 +824,7 @@ val instream_buffered_inv_def = Define `
       bactive = TAKE (w-r) (DROP r bcontent))`;
       (*(bactive = [] <=> r = w))*)
 
-Overload TypeStamp_InstreamBuffered = “TypeStamp "InstreamBuffered" 12”;
+Overload TypeStamp_InstreamBuffered = “TypeStamp "InstreamBuffered" 35”;
 
 val INSTREAM_BUFFERED_def = Define `
   INSTREAM_BUFFERED bactive is =

@@ -18,6 +18,9 @@ Compilation of the CakeML examples to different architectures.
 [cost](cost):
 Preliminary data-cost examples
 
+[deflate](deflate):
+Scripts relevant to the formalisation of the DEFLATE algorithm
+
 [diffProgScript.sml](diffProgScript.sml):
 diff example: find a patch representing the difference between two files.
 

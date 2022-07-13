@@ -76,13 +76,15 @@ Proof
 QED
 
 Theorem no_install_evaluate_const_code:
-     ∀ prog s result s1 . evaluate (prog, s) = (result, s1) ∧
-        no_install prog ∧ no_install_code s.code
+  ∀ prog s result s1 .
+    evaluate (prog, s) = (result, s1) ∧
+    no_install prog ∧ no_install_code s.code
     ⇒ s.code = s1.code
 Proof
     recInduct evaluate_ind >> rw[] >> qpat_x_assum `evaluate _ = _` mp_tac >>
     fs[evaluate_def]
-    >- (EVERY_CASE_TAC >> fs[] >> rw[] >> imp_res_tac alloc_const >> fs[])
+    >- (EVERY_CASE_TAC >> fs[] >> rw[] >> imp_res_tac alloc_const >> fs[set_var_def])
+    >- (EVERY_CASE_TAC >> fs[] >> rw[] >> fs[set_var_def,unset_var_def])
     >- (fs[get_vars_def, set_vars_def] >> EVERY_CASE_TAC >>
         fs[] >> rw[] >> fs[get_vars_def])
     >- (rw[] >> EVERY_CASE_TAC >> imp_res_tac inst_const_full >>
@@ -911,6 +913,13 @@ Proof
         >- (fs[get_locals_def, get_stack_def])
 QED
 
+Theorem const_writes_eq_Loc:
+  ∀words a c m k l1 l2.
+    const_writes a c words m k = Loc l1 l2 ⇒ m k = Loc l1 l2
+Proof
+  Induct \\ fs [const_writes_def,FORALL_PROD]
+  \\ rw [] \\ res_tac \\ fs [APPLY_UPDATE_THM,AllCaseEqs()]
+QED
 
 
 (**************************** MAIN LEMMAS *****************************)
@@ -1559,6 +1568,19 @@ Proof
                     metis_tac[LENGTH_MAP] >> rveq >>
                metis_tac[ALOOKUP_ZIP_SUCCESS])
         >> fs[dest_result_loc_def]
+        )
+    >- ( (* StoreConsts *)
+        simp[wordSemTheory.evaluate_def] >>
+        fs[get_var_def] >>
+        every_case_tac >> fs [set_var_def,unset_var_def] >> rw [] >>
+        gvs [word_state_rel_def] >>
+        irule SUBSET_TRANS >>
+        first_x_assum $ irule_at Any >>
+        fs [find_loc_state_def,domain_union,dest_result_loc_def] >> fs [SUBSET_DEF] >>
+        fs [domain_get_locals_lookup,lookup_insert,AllCaseEqs(),lookup_delete,
+            domain_get_memory] >> rw [] >>
+        imp_res_tac const_writes_eq_Loc >>
+        rw [] >> fs [] >> metis_tac []
         )
     >- ( (* Alloc *)
         simp[wordSemTheory.evaluate_def] >>

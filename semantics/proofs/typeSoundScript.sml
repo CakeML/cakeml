@@ -2,8 +2,9 @@
   Proof of type soundness: a type-correct program does not crash.
 *)
 open preamble;
-open libTheory astTheory typeSystemTheory semanticPrimitivesTheory evaluateTheory;
-open namespacePropsTheory;
+open libTheory astTheory typeSystemTheory semanticPrimitivesTheory fpSemTheory
+     evaluateTheory;
+open namespacePropsTheory fpSemPropsTheory;
 open semanticPrimitivesPropsTheory;
 open evaluatePropsTheory;
 open weakeningTheory typeSysPropsTheory typeSoundInvariantsTheory;
@@ -12,7 +13,7 @@ local open primSemEnvTheory in end;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "getOpClass_def"]
 
 val _ = new_theory "typeSound";
 
@@ -30,7 +31,9 @@ val type_num_defs = LIST_CONJ [
   Tvector_num_def,
   Tword64_num_def,
   Tword8_num_def,
-  Tword8array_num_def];
+  Tword8array_num_def,
+  Tdouble_num_def,
+  Treal_num_def];
 
 Theorem list_rel_flat:
    !R l1 l2. LIST_REL (LIST_REL R) l1 l2 ⇒ LIST_REL R (FLAT l1) (FLAT l2)
@@ -43,7 +46,7 @@ Proof
 QED
 
 val fst_triple = Q.prove (
-`(\(x,y,z). x) = FST`,
+`(\ (x,y,z). x) = FST`,
  rw [FUN_EQ_THM]
  >> pairarg_tac
  >> rw []);
@@ -95,7 +98,9 @@ Theorem prim_canonical_values_thm:
    (type_v tvs ctMap tenvS v Tchar ∧ ctMap_ok ctMap ⇒ (∃c. v = Litv (Char c))) ∧
    (type_v tvs ctMap tenvS v Tstring ∧ ctMap_ok ctMap ⇒ (∃s. v = Litv (StrLit s))) ∧
    (type_v tvs ctMap tenvS v Tword8 ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (Word8 n))) ∧
-   (type_v tvs ctMap tenvS v Tword64 ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (Word64 n))) ∧
+   (type_v tvs ctMap tenvS v Tword64 ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (Word64 n))) /\
+   (type_v tvs ctMap tenvS v Tdouble /\ ctMap_ok ctMap ==> (? f w. v = FP_WordTree f)) ∧
+   (type_v tvs ctMap tenvS v Treal /\ ctMap_ok ctMap ==> (? r. v = Real r)) ∧
    (type_v tvs ctMap tenvS v (Ttup ts) ∧ ctMap_ok ctMap ⇒
      (∃vs. v = Conv NONE vs ∧ LENGTH ts = LENGTH vs)) ∧
    (type_v tvs ctMap tenvS v (Tfn t1 t2) ∧ ctMap_ok ctMap ⇒
@@ -175,7 +180,7 @@ val has_lists_v_to_list = Q.prove (
 
 Theorem ctor_canonical_values_thm:
    (type_v tvs ctMap tenvS v Tbool ∧ ctMap_ok ctMap ∧ ctMap_has_bools ctMap ⇒
-      ∃b. v = Boolv b) ∧
+      (∃b. v = Boolv b)) /\
    (type_v tvs ctMap tenvS v (Tlist t) ∧ ctMap_ok ctMap ∧ ctMap_has_lists ctMap ⇒
      ?vs.
        v_to_list v = SOME vs ∧
@@ -263,7 +268,11 @@ val eq_same_type = Q.prove (
    Cases_on `stamp` >>
    res_tac >>
    fs [prim_type_nums_def, type_num_defs] >>
-   NO_TAC)
+   NO_TAC) >>
+  TRY (
+  (* floating-point value trees *)
+    rename1 `Boolv (compress_bool fp)` >>
+    fs[Once type_v_cases] >> NO_TAC)
   >- (
     (* Same constructor and type *)
     rpt (qpat_x_assum `type_v _ _ _ _ _` mp_tac) >>
@@ -282,6 +291,7 @@ val eq_same_type = Q.prove (
    rw [] >>
    metis_tac [prim_type_nums_def, same_type_refl, stamp_nchotomy, MEM,
           Q.prove (`Ttup_num ≠ Texn_num`, rw [type_num_defs])])
+  (* Vectors *)
   >- (
     rpt (qpat_x_assum `type_v _ _ _ _ _` mp_tac) >>
     ONCE_REWRITE_TAC [type_v_cases] >>
@@ -450,7 +460,7 @@ val type_v_Boolv = Q.prove(
   srw_tac[][Once type_v_cases]);
 
 val remove_lambda_prod = Q.prove (
-`(\(x,y). P x y) = (\xy. P (FST xy) (SND xy))`,
+`(\ (x,y). P x y) = (\xy. P (FST xy) (SND xy))`,
  rw [FUN_EQ_THM]
  >> pairarg_tac
  >> rw []);
@@ -692,6 +702,7 @@ Theorem op_type_sound:
  !ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
  good_ctMap ctMap ∧
  op ≠ Opapp ∧
+ (~ (getOpClass op = Icing)) /\ (* FP soundness separate *)
  type_s ctMap store tenvS ∧
  type_op op ts t ∧
  check_freevars 0 [] t ∧
@@ -716,6 +727,8 @@ Proof
     qpat_x_assum `type_v _ _ _ _ _` mp_tac) >>
   rw [] >>
   rw [do_opapp_def]
+ >> TRY ( (* FP cases *)
+    fs[getOpClass_def] >> NO_TAC)
  >> TRY ( (* simple cases *)
    rw [do_app_cases, PULL_EXISTS] >>
    simp [Once type_v_cases] >>
@@ -738,14 +751,16 @@ Proof
    rename1 `Opb _` >>
    rw [do_app_cases, PULL_EXISTS] >>
    metis_tac [type_v_Boolv, store_type_extension_refl, Tbool_def])
- >> TRY ( (* FP cmp *)
-   rename1`FP_cmp` >>
-   rw [do_app_cases, PULL_EXISTS] >>
-   metis_tac[type_v_Boolv,store_type_extension_refl, Tbool_def])
  >> TRY ( (* Equality *)
    rename1`Equality` >>
    rw [do_app_cases, PULL_EXISTS] >>
    metis_tac [Tbool_def, type_v_Boolv, store_type_extension_refl, eq_result_nchotomy, eq_same_type])
+ >> TRY ( (* real comparisons *)
+   rename1`Real_cmp cmp` >>
+   rw [do_app_cases, PULL_EXISTS] >>
+   simp [Once type_v_cases] >>
+   qexists_tac `tenvS` >>
+   rw [store_type_extension_refl, Boolv_def] >> fs[ctMap_has_bools_def] >> NO_TAC)
  >> TRY ( (* ref update *)
    rename1 `Opassign` >>
    res_tac >>
@@ -1054,6 +1069,67 @@ Proof
    metis_tac [type_v_list_to_v_APPEND, type_v_list_to_v])
 QED
 
+Theorem type_v_valtree:
+  type_v 0 ctMap tenvS (FP_WordTree f) (Tapp [] Tdouble_num)
+Proof
+  assume_tac (SIMP_RULE std_ss [Tdouble_def] type_v_rules) \\ fs[]
+QED
+
+Theorem fpOp_type_sound:
+   !ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
+   good_ctMap ctMap ∧
+   op ≠ Opapp ∧
+   getOpClass op = Icing /\
+   type_s ctMap store tenvS ∧
+   type_op op ts t ∧
+   check_freevars 0 [] t ∧
+   LIST_REL (type_v 0 ctMap tenvS) vs (REVERSE ts)
+   ⇒
+   ?tenvS' store' ffi' r.
+     store_type_extension tenvS tenvS' ∧
+     type_s ctMap store' tenvS' ∧
+     do_app (store,ffi) op (REVERSE vs) = SOME ((store', ffi'), r) ∧
+    (~ isFpBool op ==>
+     case r of
+     | Rval v => type_v 0 ctMap tenvS' v t
+     | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
+     | Rerr (Rabort(Rffi_error _)) => T
+     | Rerr (Rabort _) => F) /\
+    (isFpBool op ==>
+       case r of
+       Rval (FP_BoolTree fv) => type_v 0 ctMap tenvS' (Boolv (compress_bool fv)) t
+       | Rval v => type_v 0 ctMap tenvS' v t
+       | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
+       | Rerr (Rabort(Rffi_error _)) => T
+       | Rerr (Rabort _) => F)
+Proof
+  rw [type_op_cases, good_ctMap_def] >>
+  fs [] >>
+  rw [] >>
+  rpt (
+    MAP_EVERY (TRY o drule o SIMP_RULE (srw_ss()) [] o GEN_ALL)
+      (CONJUNCTS prim_canonical_values_thm) >>
+    qpat_x_assum `type_v _ _ _ _ _` mp_tac) >>
+  rw [] >>
+  rw [do_opapp_def]
+  >> TRY ( (* exclude non-fp and fp comparison cases *)
+    fs[getOpClass_def, isFpBool_def] >> NO_TAC)
+  >> TRY ( (* FP ops *)
+    (rename1`FP_uop op` ORELSE rename1`FP_bop op` ORELSE rename1 `FP_top op`) >>
+    rw [do_app_cases, PULL_EXISTS] >>
+    qexists_tac `tenvS` >> fs[store_type_extension_refl, fp_translate_def] >>
+    TRY (rename1 `FP_uop op` >> Cases_on `op`) >>
+    fs[isFpBool_def] >>
+    irule type_v_valtree)
+  >> TRY ( (* FP cmp *)
+    (rename1`FP_cmp`) >>
+    rw [do_app_cases, PULL_EXISTS] >>
+    qexists_tac `tenvS` >> fs[store_type_extension_refl, fp_translate_def] >>
+    conj_tac >> fs[isFpBool_def] >>
+    fs[fpValTreeTheory.fp_cmp_def, compress_word_def, compress_bool_def] >>
+    drule type_v_Boolv >> fs[Tbool_def])
+QED
+
 Theorem build_conv_type_sound:
  !envC cn vs tvs ts ctMap tenvS ts' tn tenvC tvs' tenvE l.
  nsAll2 (type_ctor ctMap) envC tenvC ∧
@@ -1127,7 +1203,7 @@ Theorem pat_type_sound:
    pmatch cenv st p v bindings = No_match ∨
    (?bindings'.
      pmatch cenv st p v bindings = Match bindings' ∧
-     LIST_REL (\(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings'
+     LIST_REL (\ (x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings'
        (new_tbindings ++ tbindings))) ∧
   (∀(cenv : env_ctor) st ps vs bindings tenv ctMap tbindings new_tbindings ts tenvS tvs.
    ctMap_ok ctMap ∧
@@ -1140,7 +1216,7 @@ Theorem pat_type_sound:
    pmatch_list cenv st ps vs bindings = No_match ∨
    (?bindings'.
      pmatch_list cenv st ps vs bindings = Match bindings' ∧
-     LIST_REL (\(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings'
+     LIST_REL (\ (x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings'
        (new_tbindings ++ tbindings)))
 Proof
  ho_match_mp_tac pmatch_ind
@@ -1229,6 +1305,15 @@ Proof
  >- pat_sound_tac
  >- pat_sound_tac
  >- pat_sound_tac
+ >- pat_sound_tac
+ >- pat_sound_tac
+ >- pat_sound_tac
+ >- pat_sound_tac
+ >- pat_sound_tac
+ >- pat_sound_tac
+ >- pat_sound_tac
+ >- pat_sound_tac
+ >- pat_sound_tac
  >- (
    qpat_x_assum `type_ps _ _ (_::_) _ _` mp_tac
    >> simp [Once type_p_cases]
@@ -1281,6 +1366,93 @@ Proof
    >> metis_tac [tveLookup_freevars])
  >- metis_tac [nsLookup_add_tenvE3]
 QED
+
+(* TODO: Move *)
+Theorem fpOp_no_err:
+  ! op s store ffi r.
+    getOpClass op = Icing /\
+    do_app (s.refs, s.ffi) op vs = SOME ((store, ffi), r) ==>
+    (isFpBool op ==> (? fv. r = Rval (FP_BoolTree fv))) /\
+    (~ isFpBool op ==> (? fv. r = Rval (FP_WordTree fv)))
+Proof
+  rpt strip_tac
+  \\ qpat_x_assum `do_app _ _ _ = _` mp_tac
+  \\ Cases_on `isFpBool op` \\ Cases_on `op` \\ fs[getOpClass_def, isFpBool_def, do_app_def]
+  \\ rpt (TOP_CASE_TAC \\ fs[])
+  \\ rpt strip_tac \\ rveq \\ fs[]
+QED
+
+(* TODO: Move *)
+Theorem fprw_preserves_type:
+  (do_fprw (Rval (FP_BoolTree fv_b)) rwApps rws = SOME v ==>
+  ? fv_opt. v = Rval (FP_BoolTree fv_opt)) /\
+  (do_fprw (Rval (FP_WordTree fv_w)) rwApps rws = SOME v ==>
+  ? fv_opt. v = Rval (FP_WordTree fv_opt))
+Proof
+  fs[do_fprw_def]
+  >> TOP_CASE_TAC >> fs[]
+  >> rpt strip_tac >> fs[option_case_eq]
+  >> rveq >> fs[]
+QED
+
+(* TODO: Move *)
+Theorem EVERY_REPLICATE:
+  EVERY (\x. type_v tvs ctMap tenv x t') vs =
+  EVERY (\x. type_v tvs ctMap tenv (FST x) (SND x)) (ZIP (vs, REPLICATE (LENGTH vs) t'))
+Proof
+  Induct_on `vs` \\ fs[]
+QED
+
+Theorem EVERY_LIST_REL:
+  EVERY (\ v. type_v n ctMap tenvS v t) vs =
+  LIST_REL (type_v n ctMap tenvS) vs (REPLICATE (LENGTH vs) t)
+Proof
+  EQ_TAC \\ Induct_on `vs` \\ fs[] \\ rpt strip_tac \\ res_tac
+QED
+
+Theorem do_fpoptimise_preserves_type:
+! vs ts n ctMap tenvS annot.
+  LIST_REL (type_v n ctMap tenvS) vs ts ==>
+  ? vs2.
+    do_fpoptimise annot vs = vs2 /\
+    LIST_REL (type_v n ctMap tenvS) vs2 ts
+Proof
+  measureInduct_on `v1_size vs`
+  \\ Cases_on `vs` \\ fs[do_fpoptimise_def, Once do_fpoptimise_cons]
+  \\ rpt strip_tac \\ rveq
+  \\ first_assum (qspec_then `t` mp_tac)
+  \\ impl_tac >- fs[v_size_def]
+  \\ strip_tac \\ res_tac
+  \\ Cases_on `h` \\ fs[do_fpoptimise_def]
+  >- (
+    qpat_x_assum `type_v _ _ _ _ _` mp_tac
+    \\ simp[Once type_v_cases]
+    \\ rpt strip_tac \\ fs[] \\ rveq
+    \\ first_x_assum (qspec_then `l` mp_tac)
+    \\ impl_tac \\ fs[v_size_def]
+    \\ strip_tac \\ res_tac
+    \\ simp [Once type_v_cases])
+  >- (
+    qpat_x_assum `type_v _ _ _ _ _` mp_tac
+    \\ simp[Once type_v_cases]
+    \\ rpt strip_tac \\ fs[] \\ rveq
+    \\ first_x_assum (qspec_then `l` mp_tac)
+    \\ impl_tac \\ fs[v_size_def]
+    \\ strip_tac \\ res_tac
+    \\ simp [Once type_v_cases]
+    \\ fs[EVERY_LIST_REL] \\ res_tac
+    \\ fs[do_fpoptimise_LENGTH])
+  \\ qpat_x_assum `type_v _ _ _ _ _` mp_tac
+  \\ simp[Once type_v_cases]
+  \\ rpt strip_tac \\ fs[Once type_v_cases]
+QED
+
+Theorem do_fpoptimise_preserves_type_single =
+  do_fpoptimise_preserves_type
+    |> SPEC_ALL
+    |> Q.GEN `ts` |> Q.GEN `vs`
+    |> Q.SPEC `[v]` |> Q.SPEC `[t]`
+    |> GEN_ALL |> REWRITE_RULE [LIST_REL_def]
 
 Theorem exp_type_sound:
   (!(s:'ffi semanticPrimitives$state) env es r s' tenv tenvE ts tvs tenvS.
@@ -1523,61 +1695,105 @@ Proof
    >> simp [PULL_EXISTS]
    >> disch_then (qspecl_then [`REVERSE ts`, `0`] mp_tac)
    >> rw [LIST_REL_REVERSE_EQ]
-   >> Cases_on `r1`
+   >> reverse (Cases_on `r1`)
    >> fs []
    >> rw []
-   >- (
-     Cases_on `op = Opapp`
-     >> fs []
-     >> rename1 `LIST_REL (type_v 0 _ _) vs _`
-     >- (
-       drule opapp_type_sound
-       >> fs [EVERY2_REVERSE1]
-       >> disch_then drule
-       >> disch_then drule
-       >> rw []
-       >> fs []
-       >> Cases_on `s1.clock = 0`
-       >> fs []
-       >> rw []
-       >- metis_tac []
-       >> fs [type_all_env_def]
-       >> first_x_assum drule
-       >> rpt (disch_then drule)
-       >> fs [dec_clock_def, PULL_EXISTS]
-       >> rename1 `type_e tenv' tenvE' e t`
-       >> rename1 `type_s _ _ tenvS'`
-       >> disch_then (qspecl_then [`0`, `t`] mp_tac)
-       >> simp [bind_tvar_def]
-       >> rw []
-       >> metis_tac [store_type_extension_trans])
-     >> Cases_on `op = Eval`
-     >- (fs [type_op_def] \\ Cases_on `ts` \\ fs [])
-     >- (
-       fs [bind_tvar_def]
-       >> `good_ctMap ctMap` by simp [good_ctMap_def]
-       >> drule op_type_sound
-       >> rpt (disch_then drule)
-       >> disch_then (qspec_then `s1.ffi` mp_tac)
-       >> rw []
-       >> rename1 `do_app _ _ _ = SOME ((store1, ffi1), r1)`
-       >> Cases_on `r1`
-       >> fs []
-       >> rw []
-       >- metis_tac [store_type_extension_trans]
-       >> rename1 `do_app _ _ _ = SOME (_, Rerr err_v)`
-       >> Cases_on `err_v`
-       >> fs []
-       >> rw []
-       >> every_case_tac
-       >> metis_tac [store_type_extension_trans]))
    >- (
      rename1 `evaluate _ _ _ = (s1, Rerr err_v)`
      >> Cases_on `err_v`
      >> fs []
      >> rw []
      >> metis_tac [])
-   )
+   >> Cases_on `op = Opapp`
+   >> fs []
+   >> rename1 `LIST_REL (type_v 0 _ _) vs _`
+   >- (
+     drule opapp_type_sound
+     >> fs [EVERY2_REVERSE1]
+     >> disch_then drule
+     >> disch_then drule
+     >> rw []
+     >> fs [getOpClass_def]
+     >> Cases_on `s1.clock = 0`
+     >> fs []
+     >> rw []
+     >- metis_tac []
+     >> fs [type_all_env_def]
+     >> first_x_assum drule
+     >> rpt (disch_then drule)
+     >> fs [dec_clock_def, PULL_EXISTS]
+     >> rename1 `type_e tenv' tenvE' e t`
+     >> rename1 `type_s _ _ tenvS'`
+     >> disch_then (qspecl_then [`0`, `t`] mp_tac)
+     >> simp [bind_tvar_def]
+     >> rw []
+     >> metis_tac [store_type_extension_trans])
+   >> `getOpClass op ≠ FunApp`
+     by (Cases_on `op` >> fs[getOpClass_def])
+   >> Cases_on `getOpClass op = Icing` >> fs[]
+   >- ( (* FP ops *)
+    Cases_on `s1.fp_state.canOpt = FPScope Opt`
+    >> fs[bind_tvar_def]
+    >> `good_ctMap ctMap` by simp [good_ctMap_def]
+    >> drule fpOp_type_sound
+    >> rpt (disch_then drule)
+    >> disch_then (qspec_then `s1.ffi` mp_tac)
+    >> rw []
+    >> rename1 `do_app _ _ _ = SOME ((store1, ffi1), r1)`
+    >> imp_res_tac fpOp_no_err
+    >> fs[shift_fp_opts_def] >> rveq
+    >> Cases_on `isFpBool op` >> fs[] >> rveq >> fs[]
+    >- (
+       Cases_on `do_fprw ((Rval (FP_BoolTree fv)):(v,v) result) (s1.fp_state.opts 0) s1.fp_state.rws`
+       >> fs[]
+       >- metis_tac [store_type_extension_trans]
+       >> imp_res_tac fprw_preserves_type
+       >> rveq >> fs[Boolv_def]
+       >> Cases_on `compress_bool fv`
+       >> Cases_on `compress_bool fv_opt`
+       >> fs[Once type_v_cases, PULL_EXISTS, ctMap_has_bools_def] >> rveq
+       >> fs[] >> rveq
+       >> rename [`LENGTH [] = LENGTH ts2`] >> Cases_on `ts2` \\ fs[]
+       >> metis_tac [store_type_extension_trans])
+    >- (
+       Cases_on `do_fprw ((Rval (FP_WordTree fv)):(v,v) result) (s1.fp_state.opts 0) s1.fp_state.rws`
+       >> fs[]
+       >- metis_tac [store_type_extension_trans]
+       >> imp_res_tac fprw_preserves_type
+       >> rveq >> fs[Once type_v_cases]
+       >> metis_tac [store_type_extension_trans])
+    >- (
+       fs[do_fprw_def]
+       >> Cases_on `s1.fp_state.opts 0` >> fs[]
+       >> metis_tac [store_type_extension_trans])
+     >> fs[Once type_v_cases]
+     >> metis_tac [store_type_extension_trans])
+   >> Cases_on `getOpClass op = Reals`
+   >- (
+     Cases_on `op` >> fs[getOpClass_def]
+     >> Cases_on `ts` >> fs[type_op_def])
+   >> Cases_on ‘getOpClass op = EvalOp’
+   >- (
+     Cases_on ‘op’ >> gs[getOpClass_def]
+     >> Cases_on ‘ts’ >> fs[type_op_def])
+   >> fs [bind_tvar_def]
+   >> `good_ctMap ctMap` by simp [good_ctMap_def]
+   >> drule op_type_sound
+   >> rpt (disch_then drule)
+   >> disch_then (qspec_then `s1.ffi` mp_tac)
+   >> `getOpClass op = Simple` by (Cases_on `op` >> fs[getOpClass_def])
+   >> rw []
+   >> rename1 `do_app _ _ _ = SOME ((store1, ffi1), r1)`
+   >> Cases_on `r1`
+   >> fs []
+   >> rw []
+   >- metis_tac [store_type_extension_trans]
+   >> rename1 `do_app _ _ _ = SOME (_, Rerr err_v)`
+   >> Cases_on `err_v`
+   >> fs []
+   >> rw []
+   >> every_case_tac
+   >> metis_tac [store_type_extension_trans])
  >- (
    rename [`Log`]
    >> pop_assum mp_tac
@@ -1817,6 +2033,36 @@ Proof
    >> first_x_assum irule
    >> rw []
    >> metis_tac [store_type_extension_refl])
+ >- (
+    pop_assum mp_tac
+    >> simp [Once type_e_cases]
+    >> rw[]
+    >> rfs[is_value_def, bind_tvar_def]
+    >> qpat_x_assum `_ = (_, _)` mp_tac
+    >> ntac 2 (TOP_CASE_TAC >> fs[])
+    >> first_x_assum drule
+    >> rpt (disch_then drule)
+    >> rename1 ‘type_e tenv tenvE e te’
+    >> disch_then (qspecl_then [`[te]`, `tvs`] assume_tac)
+    >> rpt strip_tac >> rveq >> fs[] >> res_tac >> rveq
+    >> imp_res_tac do_fpoptimise_preserves_type_single
+    >> first_x_assum (qspec_then `annot` assume_tac) >> fs[]
+    >> asm_exists_tac >> fs[])
+ >- (
+    pop_assum mp_tac
+    >> simp [Once type_e_cases]
+    >> rw[]
+    >> rfs[is_value_def, bind_tvar_def]
+    >> qpat_x_assum `_ = (_, _)` mp_tac
+    >> ntac 2 (TOP_CASE_TAC >> fs[])
+    >> first_x_assum drule
+    >> rpt (disch_then drule)
+    >> rename1 ‘type_e tenv tenvE e te’
+    >> disch_then (qspecl_then [`[te]`, `tvs`] assume_tac)
+    >> rpt strip_tac >> rveq >> fs[] >> res_tac >> rveq
+    >> imp_res_tac do_fpoptimise_preserves_type_single
+    >> first_x_assum (qspec_then `annot` assume_tac) >> fs[]
+    >> asm_exists_tac >> fs[])
  >- metis_tac [store_type_extension_refl]
  >- (
    fs [type_pes_def, RES_FORALL]

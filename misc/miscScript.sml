@@ -18,10 +18,10 @@ val _ = ParseExtras.tight_equality()
 
 (* Note: This globally hides constants over the reals that gets imported through machine_ieeeTheory *)
 
-val _ = remove_ovl_mapping "max" {Name="max", Thy="real"}
-val _ = remove_ovl_mapping "min" {Name="min", Thy="real"}
+val _ = remove_ovl_mapping "max" {Name="max", Thy="realax"}
+val _ = remove_ovl_mapping "min" {Name="min", Thy="realax"}
 val _ = remove_ovl_mapping "pos" {Name="pos", Thy="real"}
-val _ = remove_ovl_mapping "abs" {Name="abs", Thy="real"}
+val _ = remove_ovl_mapping "abs" {Name="abs", Thy="realax"}
 val _ = remove_ovl_mapping "inf" {Name="inf", Thy="real"}
 
 (* this is copied in preamble.sml, but needed here to avoid cyclic dep *)
