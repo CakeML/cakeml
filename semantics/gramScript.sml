@@ -218,13 +218,13 @@ val cmlG_def = mk_grammar_def ginfo
  OptionalSignatureAscription ::= ":>" SignatureValue | ;
  Decl ::= "val" Pattern "=" E  | "fun" AndFDecls |  TypeDec
        |  "exception" Dconstructor
-       | TypeAbbrevDec | "local" Decls "in" Decls "end";
+       | TypeAbbrevDec | "local" Decls "in" Decls "end" | Structure;
  Decls ::= Decl Decls | ";" Decls | ;
- Structure ::= "structure" StructName OptionalSignatureAscription "=" "struct" Decls "end";
- TopLevelDec ::= Structure | Decl ;
- TopLevelDecs ::= E ";" TopLevelDecs | TopLevelDec NonETopLevelDecs
+ Structure ::= "structure" StructName OptionalSignatureAscription "=" "struct"
+               Decls "end";
+ TopLevelDecs ::= E ";" TopLevelDecs | Decl NonETopLevelDecs
                |  ";" TopLevelDecs | ;
- NonETopLevelDecs ::= TopLevelDec NonETopLevelDecs | ";" TopLevelDecs | ; (*
+ NonETopLevelDecs ::= Decl NonETopLevelDecs | ";" TopLevelDecs | ; (*
  REPLCommand ::= <REPLIDT> Ebase ;
  TopLevel ::= REPLCommand | TopLevelDecs ; *)
 `;

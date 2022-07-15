@@ -340,6 +340,12 @@ val print_sexp_alt_def = tDefine"print_sexp_alt"`
    \\ fs[LENGTH_EQ_NUM_compute] \\ rw[] \\ fs[]
    \\ res_tac \\ simp[]);
 
+Theorem strip_dot_EQ_NILSOME:
+  strip_dot s = ([], SOME x) ⇒ s = x
+Proof
+  Cases_on ‘s’ >> simp[AllCaseEqs()] >> pairarg_tac >> simp[]
+QED
+
 Theorem print_sexp_alt_thm:
   print_sexp s = print_sexp_alt s
 Proof
@@ -348,31 +354,27 @@ Proof
   qid_spec_tac `s` >> qid_spec_tac `n` >>
   ho_match_mp_tac COMPLETE_INDUCTION >>
   rpt strip_tac >> Cases_on `s` >>
-  fs[simpleSexpParseTheory.print_sexp_def,print_sexp_alt_def,IMPLODE_EXPLODE_I,sexp_size_def] >>
-  pairarg_tac >> fs[] >> every_case_tac >> fs[STRCAT_11] >>
-  TRY(first_x_assum (match_mp_tac o MP_CANON) >>
-      rw[] >>
-      imp_res_tac simpleSexpParseTheory.strip_dot_MEM_sizelt >>
-      rfs[MEM_EL,ELIM_UNCURRY,PULL_EXISTS] >>
-      fs[sexp_size_def]) >>
-  TRY(rename1 `print_sexp x` >>
-      `print_sexp x = print_sexp_alt x`
-        by(first_x_assum (match_mp_tac o MP_CANON) >>
-           rw[] >>
-           imp_res_tac simpleSexpParseTheory.strip_dot_last_sizelt >>
-           fs[sexp_size_def] >> fs[LENGTH_EQ_NUM_compute] >>
-           fs[Once strip_dot_def,ELIM_UNCURRY] >> rveq >> fs[])) >>
-  fs[STRCAT_11] >>
-  qmatch_goalsub_abbrev_tac `_ a1 = _ a2` >>
-  `a1 = a2` suffices_by simp[] >>
-  unabbrev_all_tac >>
-  match_mp_tac LIST_EQ >>
-  rw[EL_MAP] >>
-  first_x_assum (match_mp_tac o MP_CANON) >>
-  rw[] >>
-  imp_res_tac simpleSexpParseTheory.strip_dot_MEM_sizelt >>
-  rfs[MEM_EL,ELIM_UNCURRY,PULL_EXISTS] >>
-  fs[sexp_size_def]
+  fs[simpleSexpParseTheory.print_sexp_def,print_sexp_alt_def,IMPLODE_EXPLODE_I,
+     sexp_size_def, PULL_FORALL] >>
+  pairarg_tac >> fs[] >> every_case_tac >>
+  gvs[STRCAT_11, LENGTH_EQ_NUM_compute, PULL_EXISTS] >>
+  pairarg_tac >> gvs[]
+  >- (first_x_assum irule >> dxrule strip_dot_MEM_sizelt >> simp[])
+  >- (drule strip_dot_last_sizelt >> dxrule strip_dot_MEM_sizelt >> simp[])
+  >- (dxrule strip_dot_MEM_sizelt >>
+      disch_then (C (resolve_then Any assume_tac)
+                  (DECIDE “x < y ⇒ x < a + (y + 1n)”)) >>
+      pop_assum (first_assum o resolve_then Any assume_tac) >>
+      simp[Cong MAP_CONG] >> simp[SF ETA_ss])
+  >- (drule strip_dot_last_sizelt >> drule strip_dot_MEM_sizelt >> simp[] >>
+      rename [‘strip_dot s0 = (els, SOME _)’] >>
+      Cases_on ‘NULL els’ >> gs[] >>
+      disch_then (C (resolve_then Any assume_tac)
+                  (DECIDE “x < y ⇒ x < a + (y + 1n)”)) >>
+      pop_assum (first_assum o resolve_then Any assume_tac) >>
+      simp[Cong MAP_CONG] >> simp[SF ETA_ss] >>
+      Cases_on ‘els’ >> gs[] >>
+      dxrule strip_dot_EQ_NILSOME >> simp[])
 QED
 
 val _ = translate print_sexp_alt_def;

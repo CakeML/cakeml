@@ -686,38 +686,6 @@ Proof
             Type_OK]
 QED
 
-Theorem Decl_OK:
-   valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
-     (ptree_head pt = NN nDecl ⇒ ∃d. ptree_Decl pt = SOME d) ∧
-     (ptree_head pt = NN nDecls ⇒ ∃d. ptree_Decls pt = SOME d)
-Proof
-  map_every qid_spec_tac [‘toks’, ‘pt’] >>
-  ho_match_mp_tac grammarTheory.ptree_ind >> rw[]
-  >- (rename [‘Lf p’] >> Cases_on ‘p’ >> fs[])
-  >- (rename [‘Lf p’] >> Cases_on ‘p’ >> fs[])
-  >- (rename [‘ptree_Decl (Nd pt loc) = SOME _’] >>
-      Cases_on ‘pt’ >> fs[] >> rveq >>
-      fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >>
-      rveq >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
-      simp[ptree_Decl_def, tokcheckl_def, tokcheck_def] >> dsimp[]
-      >- metis_tac[Pattern_OK, E_OK]
-      >- metis_tac[AndFDecls_OK]
-      >- (drule_then (first_assum o mp_then Any mp_tac) TypeDec_OK >> dsimp[])
-      >- (fs[DISJ_IMP_THM, FORALL_AND_THM] >>
-          drule (GEN_ALL Dconstructor_OK) >> dsimp[FORALL_PROD])
-      >- (drule_then (first_assum o mp_then Any mp_tac) TypeAbbrevDec_OK >>
-          dsimp[] >> rw[] >>
-          qmatch_abbrev_tac `∃d. foo ++ SOME x = SOME d` >>
-          Cases_on `foo` >> simp[])
-      >- fs[DISJ_IMP_THM, FORALL_AND_THM])
-  >- (rename [‘ptree_Decls (Nd pt loc) = SOME _’] >>
-      Cases_on ‘pt’ >> fs[] >> rveq >>
-      fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >>
-      rveq >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
-      simp[Once ptree_Decl_def, tokcheckl_def, tokcheck_def] >> dsimp[] >>
-      rw[] >> metis_tac[])
-QED
-
 Theorem OptTypEqn_OK:
    valid_ptree cmlG pt ∧ ptree_head pt = NN nOptTypEqn ∧
     MAP TK toks = ptree_fringe pt ⇒
@@ -776,38 +744,53 @@ Proof
   metis_tac[SpecLineList_OK, oneTheory.one]
 QED
 
-Theorem Structure_OK:
-   valid_ptree cmlG pt ∧ ptree_head pt = NN nStructure ∧
-    MAP TK toks = ptree_fringe pt ⇒
-    ∃s. ptree_Structure pt = SOME s
+Theorem Decl_OK:
+   valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
+     (ptree_head pt = NN nDecl ⇒ ∃d. ptree_Decl pt = SOME d) ∧
+     (ptree_head pt = NN nDecls ⇒ ∃d. ptree_Decls pt = SOME d) ∧
+     (ptree_head pt = NN nStructure ⇒ ∃d. ptree_Structure pt = SOME d)
 Proof
-  start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
-  rveq >> simp[ptree_Structure_def] >>
-  rpt (Q.PAT_X_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
-  map_every (erule strip_assume_tac o n) [Decl_OK, StructName_OK] >>
-  simp[tokcheck_def, tokcheckl_def] >>
-  asm_match `ptree_head pt' = NN nOptionalSignatureAscription` >>
-  Cases_on `pt'` >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq
-  >- (rename[`Lf p`] >> Cases_on `p` >> fs[] >> fs []) >>
-  rename[`Nd p`] >> Cases_on `p` >> fs[] >>
-  fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >> rveq >>
-  fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >> rfs [] >>
-  fs[AllCaseEqs()] >> fs [PULL_EXISTS] >>
-  fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >> rveq >>
-  fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS] >> rfs [] >>
-  metis_tac[SignatureValue_OK, oneTheory.one]
-QED
-
-Theorem TopLevelDec_OK:
-   valid_ptree cmlG pt ∧ ptree_head pt = NN nTopLevelDec ∧
-    MAP TK toks = ptree_fringe pt ⇒
-    ∃t. ptree_TopLevelDec pt = SOME t
-Proof
-  start
-  >- (erule strip_assume_tac (n Structure_OK) >> simp[ptree_TopLevelDec_def]) >>
-  erule strip_assume_tac (n Decl_OK) >> simp[ptree_TopLevelDec_def] >>
-  rename1 `ptree_Structure pt` >>
-  Cases_on `ptree_Structure pt` >> simp[]
+  map_every qid_spec_tac [‘toks’, ‘pt’] >>
+  ho_match_mp_tac grammarTheory.ptree_ind >> rw[]
+  >- (rename [‘Lf p’] >> Cases_on ‘p’ >> fs[])
+  >- (rename [‘Lf p’] >> Cases_on ‘p’ >> fs[])
+  >- (rename [‘Lf p’] >> Cases_on ‘p’ >> fs[])
+  >- (rename [‘ptree_Decl (Nd pt loc) = SOME _’] >>
+      Cases_on ‘pt’ >> fs[] >> rveq >>
+      fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >>
+      rveq >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
+      simp[ptree_Decl_def, tokcheckl_def, tokcheck_def] >> dsimp[]
+      >- metis_tac[Pattern_OK, E_OK]
+      >- metis_tac[AndFDecls_OK]
+      >- (drule_then (first_assum o mp_then Any mp_tac) TypeDec_OK >> dsimp[])
+      >- (fs[DISJ_IMP_THM, FORALL_AND_THM] >>
+          drule (GEN_ALL Dconstructor_OK) >> dsimp[FORALL_PROD])
+      >- (drule_then (first_assum o mp_then Any mp_tac) TypeAbbrevDec_OK >>
+          dsimp[] >> rw[] >>
+          qmatch_abbrev_tac `∃d. foo ++ SOME x ++ _ = SOME d` >>
+          Cases_on `foo` >> simp[])
+      >- fs[DISJ_IMP_THM, FORALL_AND_THM]
+      >- (rename [‘ptree_head pt = NN nStructure’] >>
+          first_x_assum $ drule_then strip_assume_tac >> simp[] >>
+          qmatch_abbrev_tac ‘∃d. foo ++ SOME x = SOME d’ >>
+          Cases_on ‘foo’ >> simp[]))
+  >- (rename [‘ptree_Decls (Nd pt loc) = SOME _’] >>
+      Cases_on ‘pt’ >> fs[] >> rveq >>
+      fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >>
+      rveq >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
+      simp[Once ptree_Decl_def, tokcheckl_def, tokcheck_def] >> dsimp[] >>
+      rw[] >> metis_tac[])
+  >- (rename [‘ptree_Structure (Nd nm pts) = SOME _’] >>
+      Cases_on ‘nm’ >> gvs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS,
+                           DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_APPEND] >>
+      simp[ptree_Decl_def, tokcheckl_def, tokcheck_def, PULL_EXISTS,
+           AllCaseEqs()] >> dsimp[] >>
+      dxrule_then dxrule  StructName_OK >> simp[] >> rw[] >> simp[] >>
+      rename [‘ptree_head osa_pt = NN nOptionalSignatureAscription’] >>
+      ‘(∃tok l. osa_pt = Lf (tok,l)) ∨ ∃nt l pts. osa_pt = Nd (nt,l) pts’
+        by (Cases_on ‘osa_pt’ >> metis_tac[pair_CASES]) >> gvs[] >>
+      gvs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
+      dxrule_then dxrule SignatureValue_OK >> simp[])
 QED
 
 Theorem TopLevelDecs_OK:
@@ -827,10 +810,10 @@ Proof
   >- (fs[MAP_EQ_CONS] >> rveq >> metis_tac[E_OK])
   >- (rename[`destLf lf`] >> Cases_on `lf` >> fs[]
       >- (rename[`Lf p`] >> Cases_on `p` >> fs[] >> fs[]) >>
-      metis_tac[TopLevelDec_OK, grammarTheory.ptree_fringe_def])
+      metis_tac[Decl_OK, grammarTheory.ptree_fringe_def])
   >- (rename[`destLf lf`] >> Cases_on `lf` >> fs[]
       >- (rename[`Lf p`] >> Cases_on `p` >> fs[] >> fs[]) >>
-      metis_tac[TopLevelDec_OK, grammarTheory.ptree_fringe_def])
+      metis_tac[Decl_OK, grammarTheory.ptree_fringe_def])
 QED
 
 (*
