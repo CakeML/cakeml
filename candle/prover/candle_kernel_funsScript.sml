@@ -469,7 +469,6 @@ Theorem inferred_ok:
       (∀vs. res = Rval vs ⇒ EVERY (v_ok ctxt') vs) ∧
       (∀v. res = Rerr (Rraise v) ⇒ v_ok ctxt' v)
 Proof
-
   rw [Once inferred_cases]
   >~ [‘TYPE ctxt ty’] >- (
     Cases_on ‘ty’ \\ gs [TYPE_TYPE_def, do_opapp_cases])
@@ -1508,11 +1507,33 @@ Proof
     \\ gvs[SF SFY_ss, THM_IMP_v_ok]
     \\ reverse conj_tac >- metis_tac[v_ok_APPEND, CONS_APPEND]
     \\ metis_tac[ref_ok_APPEND, CONS_APPEND])
-
+  >~ [‘do_opapp [new_overloading_specification_v; v]’] >- (
+    drule_all new_overloading_specification_v_head \\ strip_tac \\ gvs[]
+    >- (qexists_tac ‘ctxt’ \\ fs [])
+    \\ assume_tac new_overloading_specification_v_thm
+    \\ drule_then drule v_ok_THM_TYPE_HEAD \\ strip_tac
+    \\ fs[state_ok_def]
+    \\ drule ArrowM1
+    \\ rpt(disch_then drule)
+    \\ impl_tac >- simp[SF SFY_ss, THM_TYPE_perms_ok]
+    \\ strip_tac \\ fs[]
+    \\ disj2_tac
+    \\ drule_at_then Any (drule_at Any) v_ok_THM
+    \\ strip_tac
+    \\ drule_then drule new_overloading_specification_thm
+    \\ simp[]
+    \\ reverse TOP_CASE_TAC \\ simp[] \\ strip_tac
+    >- (
+      first_assum $ irule_at Any
+      \\ fs[SF SFY_ss]
+      \\ rename1 `M_failure ff`
+      \\ Cases_on`ff` \\ gvs[]
+      \\ drule_then irule HOL_EXN_TYPE_Fail_v_ok )
+    \\ first_assum $ irule_at Any
+    \\ gvs[SF SFY_ss, THM_IMP_v_ok]
+    \\ reverse conj_tac >- metis_tac[v_ok_APPEND, CONS_APPEND]
+    \\ metis_tac[ref_ok_APPEND, CONS_APPEND])
   >~ [‘do_opapp [Kernel_print_thm_v; v]’] >- (
-
-
-
     drule_all Kernel_print_thm_v_head
     \\ strip_tac \\ gvs[]
     >- (first_assum $ irule_at Any \\ simp[])
@@ -2155,3 +2176,4 @@ Proof
 QED
 
 val _ = export_theory ();
+
