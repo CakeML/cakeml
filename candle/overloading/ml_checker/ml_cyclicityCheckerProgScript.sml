@@ -257,7 +257,7 @@ val _ = (append_prog o process_topdecs)
                 )
              end
             ))
-            handle Kernel.Fail s => print s
+            handle Kernel.Failure s => print s
                  | _ => print "Unhandled exception raised!\n"
      end
   ’

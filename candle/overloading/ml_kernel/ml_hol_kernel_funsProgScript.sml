@@ -78,8 +78,8 @@ val refs_init_list = [
 val rarrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
 val farrays_init_list = [] : (string * (int * thm) * thm * thm * thm * thm * thm) list;
 
-val raise_functions = [raise_Fail_def, raise_Clash_def];
-val handle_functions = [handle_Fail_def, handle_Clash_def];
+val raise_functions = [raise_Failure_def, raise_Clash_def];
+val handle_functions = [handle_Failure_def, handle_Clash_def];
 val exn_functions = zip raise_functions handle_functions;
 
 val store_hprop_name = "HOL_STORE";
@@ -464,7 +464,7 @@ val def = add_type_def |> m_translate
 Definition call_new_type_def[simp]:
   call_new_type (n:mlstring, arity:int) =
     if 0 ≤ arity then new_type (n, Num (ABS arity))
-    else raise_Fail (strlit "negative arity")
+    else raise_Failure (strlit "negative arity")
 End
 
 val _ = next_ml_names := ["new_type_num"];
@@ -535,7 +535,7 @@ Overload monad_bind[local] = ``st_ex_bind``
 Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
 Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
 Overload return[local] = ``st_ex_return``
-Overload failwith[local] = ``raise_Fail``
+Overload failwith[local] = ``raise_Failure``
 
 val def = holSyntaxTheory.wellformed_compute_def |> translate
 

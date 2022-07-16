@@ -56,7 +56,7 @@ End
 (* the state-exception monad *)
 
 Datatype:
-  hol_exn = Fail mlstring | Clash term
+  hol_exn = Failure mlstring | Clash term
 End
 
 Type M = ``: (hol_refs, 'a, hol_exn) M``
@@ -68,7 +68,7 @@ val _ = define_monad_access_funs ``:hol_refs``;
 (* failwith *)
 
 val _ = define_monad_exception_functions ``:hol_exn`` ``:hol_refs``;
-Overload failwith[local] = ``raise_Fail``
+Overload failwith[local] = ``raise_Failure``
 Overload raise_clash[local] = ``raise_Clash``
 Overload handle_clash[local] = ``handle_Clash``
 
