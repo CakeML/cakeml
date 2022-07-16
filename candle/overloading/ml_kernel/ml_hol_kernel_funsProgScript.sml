@@ -515,6 +515,8 @@ val def = DEDUCT_ANTISYM_RULE_def |> m_translate
 val def = new_specification_def |> m_translate
 val def = new_basic_definition_def |> check [‘tm’] |> m_translate
 
+val _ = ml_prog_update open_local_block;
+
 val def = holSyntaxExtraTheory.instance_subst_def |> PURE_REWRITE_RULE [MEM_EXISTS] |> translate_no_ind
 val ind_lemma = Q.prove(
   `^(first is_forall (hyp def))`,
@@ -742,6 +744,8 @@ val _ = Q.prove(
 
 val def = dep_steps_compute_def |> m_translate
 
+val _ = ml_prog_update open_local_in_block;
+
 val def = new_overloading_specification_def |> m_translate
 
 val _ = next_ml_names := ["INST_TYPE", "INST"];
@@ -755,9 +759,27 @@ val def = list_to_hypset_def |> translate
 
 val _ = ml_prog_update open_local_in_block;
 
-val def = m_translate axioms_def;
-val def = m_translate types_def;
-val def = m_translate constants_def;
+Triviality axioms_eq:
+  axioms u = one_CASE u get_the_axioms
+Proof
+  fs [axioms_def]
+QED
+
+Triviality types_eq:
+  types u = one_CASE u get_the_type_constants
+Proof
+  fs [types_def]
+QED
+
+Triviality constants_eq:
+  constants u = one_CASE u get_the_term_constants
+Proof
+  fs [constants_def]
+QED
+
+val def = m_translate axioms_eq;
+val def = m_translate types_eq;
+val def = m_translate constants_eq;
 
 (* The kernel module is closed in subsequent script files:
    ml_hol_kernelProgScript.sml and candle_kernelProgScript.sml *)
