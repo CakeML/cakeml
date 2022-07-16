@@ -772,19 +772,24 @@ Proof
   \\ fs [TYPE_TYPE_perms_ok, SF SFY_ss]
 QED
 
+Theorem BOOL_perms_ok:
+  ∀b v. BOOL b v ⇒ perms_ok ps v
+Proof
+  Cases \\ rw [ml_translatorTheory.BOOL_def, Boolv_def, perms_ok_def]
+QED
+
 Theorem UPDATE_TYPE_perms_ok:
   ∀u v. UPDATE_TYPE u v ⇒ perms_ok ps v
 Proof
   Cases \\ rw [UPDATE_TYPE_def]
+  \\ imp_res_tac BOOL_perms_ok
   \\ imp_res_tac TYPE_TYPE_perms_ok
   \\ imp_res_tac TERM_TYPE_perms_ok
   \\ imp_res_tac STRING_TYPE_perms_ok
   \\ imp_res_tac NUM_perms_ok
   \\ fs [perms_ok_def]
-  \\ drule_at (Pos last) LIST_TYPE_perms_ok
-  \\ disch_then irule \\ rw []
-  \\ drule_at (Pos last) PAIR_TYPE_perms_ok
-  \\ disch_then irule \\ rw []
+  \\ drule_at_then (Pos last) irule LIST_TYPE_perms_ok \\ rw []
+  \\ drule_at_then (Pos last) irule PAIR_TYPE_perms_ok \\ rw []
   \\ imp_res_tac STRING_TYPE_perms_ok
   \\ imp_res_tac NUM_perms_ok
   \\ imp_res_tac TERM_TYPE_perms_ok \\ fs []
@@ -854,3 +859,4 @@ Proof
 QED
 
 val _ = export_theory ();
+
