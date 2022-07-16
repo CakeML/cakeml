@@ -1068,10 +1068,12 @@ Definition lr_type_subst_def:
       INL x =>
         return(INL(type_subst subst x))
     | INR x =>
-        do
-          t <- inst subst x;
-          return(INR t)
-        od
+        handle_clash
+          do
+            t <- inst subst x;
+            return(INR t)
+          od
+          (λe. failwith «impossible: clash exception» )
 End
 
 Definition composable_step_compute_def:

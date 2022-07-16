@@ -2696,10 +2696,11 @@ Proof
   gvs[holSyntaxCyclicityTheory.composable_step_def,composable_step_compute_def,
       st_ex_return_def,FUN_EQ_THM,LR_TYPE_SUBST_def] >>
   reverse CASE_TAC >- metis_tac[] >>
-  gvs[FUN_EQ_THM,st_ex_return_def,st_ex_bind_def,lr_type_subst_def] >>
+  gvs[FUN_EQ_THM,st_ex_return_def,st_ex_bind_def,lr_type_subst_def,
+      handle_Clash_def] >>
   rename1 ‘SND tup’ >> PairCases_on ‘tup’ >> Cases_on ‘tup1’
-  >- (gvs[FUN_EQ_THM,st_ex_return_def,st_ex_bind_def,lr_type_subst_def,AllCaseEqs(),
-          type_subst] >>
+  >- (gvs[FUN_EQ_THM,st_ex_return_def,st_ex_bind_def,lr_type_subst_def,
+          AllCaseEqs(), type_subst] >>
       metis_tac[]) >>
   gvs[] >>
   reverse(ntac 2 CASE_TAC) >>
@@ -2741,8 +2742,8 @@ Proof
       st_ex_return_def,FUN_EQ_THM,LR_TYPE_SUBST_def] >>
   rename1 ‘FST tup’ >> PairCases_on ‘tup’ >> Cases_on ‘tup1’
   >- (PURE_FULL_CASE_TAC >>
-      gvs[FUN_EQ_THM,st_ex_return_def,st_ex_bind_def,lr_type_subst_def,AllCaseEqs(),
-          type_subst] >>
+      gvs[FUN_EQ_THM,st_ex_return_def,st_ex_bind_def,lr_type_subst_def,
+          handle_Clash_def, AllCaseEqs(), type_subst] >>
       first_x_assum match_mp_tac >>
       goal_assum(drule_at (Pos last)) >>
       simp[] >>
@@ -2772,29 +2773,30 @@ Proof
       imp_res_tac term_ok_type_ok >>
       gvs[type_ok_def,TYPE_def]) >>
   PURE_FULL_CASE_TAC >>
-  gvs[FUN_EQ_THM,st_ex_return_def,st_ex_bind_def,lr_type_subst_def,AllCaseEqs(),
-      type_subst]
-  >- (first_x_assum match_mp_tac >>
-      first_assum(irule_at (Pos last)) >>
-      drule_at Any inst_thm >>
-      disch_then(qspec_then ‘ctxt’ mp_tac) >>
-      impl_tac
-      >- (gvs[TYPE_OR_TERM_def] >>
-          gvs[holSyntaxCyclicityTheory.composable_one_def,AllCaseEqs()] >>
-          rename1 ‘unify_LR t1 t2’ >>
-          qspecl_then [‘t1’,‘t2’] match_mp_tac unify_LR_cases >>
-          rw[] >> gvs[holSyntaxCyclicityTheory.unify_LR_def] >>
-          drule_at (Pat ‘_ = _’) unify_type_ok >>
-          gvs[TYPE_OR_TERM_def,TERM_def] >>
-          gvs[STATE_def,CONTEXT_def] >>
-          drule is_std_sig_extends >>
-          simp[is_std_sig_init] >>
-          strip_tac >>
-          imp_res_tac term_ok_type_ok >>
-          gvs[type_ok_def,TYPE_def]) >>
-      rw[] >>
-      gvs[TYPE_OR_TERM_def]) >>
-  metis_tac[]
+  gvs[FUN_EQ_THM,st_ex_return_def,st_ex_bind_def,lr_type_subst_def,
+      handle_Clash_def, AllCaseEqs(), type_subst]
+  >~ [‘composable_one _ _ = Ignore’] >- (
+    metis_tac []) >>
+  first_x_assum match_mp_tac >>
+  first_assum(irule_at (Pos last)) >>
+  drule_at Any inst_thm >>
+  disch_then(qspec_then ‘ctxt’ mp_tac) >>
+  (impl_tac
+  >- (gvs[TYPE_OR_TERM_def] >>
+      gvs[holSyntaxCyclicityTheory.composable_one_def,AllCaseEqs()] >>
+      rename1 ‘unify_LR t1 t2’ >>
+      qspecl_then [‘t1’,‘t2’] match_mp_tac unify_LR_cases >>
+      rw[] >> gvs[holSyntaxCyclicityTheory.unify_LR_def] >>
+      drule_at (Pat ‘_ = _’) unify_type_ok >>
+      gvs[TYPE_OR_TERM_def,TERM_def] >>
+      gvs[STATE_def,CONTEXT_def] >>
+      drule is_std_sig_extends >>
+      simp[is_std_sig_init] >>
+      strip_tac >>
+      imp_res_tac term_ok_type_ok >>
+      gvs[type_ok_def,TYPE_def])) >>
+  rw[] >>
+  gvs[TYPE_OR_TERM_def]
 QED
 
 Theorem dep_step_compute_thm:
@@ -4284,4 +4286,69 @@ Proof
 QED
 *)
 
+Theorem lr_type_subst_not_clash[simp]:
+  ∀a b c tm refs. lr_type_subst a b c ≠ (M_failure (Clash tm), refs)
+Proof
+  Cases_on ‘b’ \\ rw [lr_type_subst_def, st_ex_bind_def, st_ex_return_def,
+                      handle_Clash_def, raise_Failure_def]
+  \\ CASE_TAC \\ CASE_TAC \\ rw [] \\ gs []
+  \\ CASE_TAC \\ CASE_TAC \\ rw [] \\ gs []
+QED
+
+Theorem composable_step_compute_not_clash[simp]:
+  ∀a b c d tm refs. composable_step_compute a b c d ≠ (M_failure (Clash tm), refs)
+Proof
+  Induct_on ‘b’
+  \\ rw [composable_step_compute_def, st_ex_return_def, st_ex_bind_def]
+  \\ rpt CASE_TAC \\ rw [] \\ gs []
+QED
+
+Theorem dep_step_compute_not_clash[simp]:
+  ∀a b c d tm refs. dep_step_compute a b c d ≠ (M_failure (Clash tm), refs)
+Proof
+  ho_match_mp_tac dep_step_compute_ind
+  \\ rw [dep_step_compute_def, st_ex_bind_def, st_ex_return_def]
+  \\ CASE_TAC \\ CASE_TAC \\ rw [] \\ gs []
+  \\ CASE_TAC \\ CASE_TAC \\ rw [] \\ gs []
+QED
+
+Theorem dep_steps_compute_not_clash[simp]:
+  ∀a b c d tm refs. dep_steps_compute a b c d ≠ (M_failure (Clash tm), refs)
+Proof
+  ho_match_mp_tac dep_steps_compute_ind \\ rw []
+  \\ rw [dep_steps_compute_def, st_ex_return_def, st_ex_bind_def]
+  \\ rpt CASE_TAC \\ rw [] \\ gs []
+QED
+
+Theorem check_overloads_not_clash[simp]:
+  check_overloads xs s ≠ (M_failure (Clash tm),refs)
+Proof
+  rw [check_overloads_def, st_ex_bind_def, get_the_term_constants_def,
+      get_the_context_def, st_ex_ignore_bind_def, st_ex_return_def,
+      raise_Failure_def]
+  \\ CASE_TAC \\ CASE_TAC \\ rw [] \\ gs []
+  \\ strip_tac \\ rw [] \\ pop_assum mp_tac \\ rw []
+  \\ ho_match_mp_tac forall_clash_thm
+  \\ rw [] \\ pairarg_tac \\ gvs []
+  \\ TOP_CASE_TAC \\ TOP_CASE_TAC
+  \\ IF_CASES_TAC \\ gs []
+  \\ IF_CASES_TAC \\ gs []
+QED
+
+Theorem new_overloading_specification_not_clash[simp]:
+   new_overloading_specification a b ≠ (M_failure (Clash tm),refs)
+Proof
+  Cases_on ‘a’ \\ rw [new_overloading_specification_def, st_ex_bind_def,
+                      raise_Failure_def, st_ex_return_def, case_eq_thms,
+                      bool_case_eq, COND_RATOR, get_the_context_def]
+  \\ rw [DISJ_EQ_IMP] \\ gs []
+  >- (
+    rpt CASE_TAC \\ rw [] \\ gs [])
+  \\ strip_tac \\ gvs []
+  \\ pop_assum mp_tac \\ simp []
+  \\ ho_match_mp_tac map_not_clash_thm \\ rw []
+  \\ rw [case_eq_thms, bool_case_eq, COND_RATOR, ELIM_UNCURRY]
+QED
+
 val _ = export_theory();
+
