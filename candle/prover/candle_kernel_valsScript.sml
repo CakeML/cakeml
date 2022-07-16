@@ -81,6 +81,9 @@ Definition kernel_funs_def:
     new_basic_type_definition_v;
     new_specification_v;
 
+    (* Overloading extension: *)
+    new_overloading_specification_v;
+
     Kernel_print_thm_v;
 
   }
@@ -89,8 +92,11 @@ End
 Theorem kernel_funs_v_def =
   kernel_funs_def |> concl |> rand |> find_terms is_const
   |> filter (fn tm => not (mem (fst (dest_const tm)) ["INSERT","EMPTY"]))
-  |> map (fn c => DB.find (fst (dest_const c) ^ "_def"))
-  |> map (fn t => hd t |> snd |> fst)
+  |> map (fn c => fst (dest_const c) ^ "_def")
+  |> map (fn defn =>
+      DB.find defn
+      |> Lib.pluck (fn ((_,nm),_) => nm = defn)
+      |> fst |> snd |> fst)
   |> curry (op @) [constants_v_def,abs_v_def]
   |> LIST_CONJ;
 
@@ -1490,6 +1496,15 @@ QED
 
 Theorem Kernel_print_thm_v_head:
   do_opapp [Kernel_print_thm_v; v] = SOME (env, exp) ∧
+  evaluate ^s env [exp] = (s', res) ⇒
+    ^safe_error_goal ∨
+    THM_TYPE_HEAD v
+Proof
+  prove_head_tac
+QED
+
+Theorem new_overloading_specification_v_head:
+  do_opapp [new_overloading_specification_v; v] = SOME (env, exp) ∧
   evaluate ^s env [exp] = (s', res) ⇒
     ^safe_error_goal ∨
     THM_TYPE_HEAD v
