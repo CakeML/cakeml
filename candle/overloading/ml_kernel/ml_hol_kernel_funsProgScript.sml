@@ -63,6 +63,14 @@ val init_term_constants_def = Define `
 val init_axioms_def = Define `
   init_axioms = []:thm list`;
 
+Triviality init_axioms_alt:
+  init_axioms = case [Sequent [] (Var (strlit "") (Tyvar (strlit "")))] of
+                | [] => []
+                | (_ :: xs) => xs
+Proof
+  EVAL_TAC
+QED
+
 val init_context_def = Define `
   init_context = ^(rhs(concl(holSyntaxTheory.init_ctxt_def)))`;
 
@@ -71,7 +79,7 @@ val refs_init_list = [
   set_the_type_constants_def),
   ("the_term_constants", init_term_constants_def, get_the_term_constants_def,
   set_the_term_constants_def),
-  ("the_axioms", init_axioms_def, get_the_axioms_def, set_the_axioms_def),
+  ("the_axioms", init_axioms_alt, get_the_axioms_def, set_the_axioms_def),
   ("the_context", init_context_def, get_the_context_def, set_the_context_def)
 ];
 
