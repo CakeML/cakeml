@@ -324,11 +324,15 @@ Proof
     \\ qpat_x_assum ‘(COMMANDLINE cl * STDIO fs) h_f’ mp_tac
     \\ rpt (pop_assum kall_tac)
     \\ fs [cfStoreTheory.st2heap_def,cfAppTheory.store2heap_append_many]
+    \\ fs [GSYM UNION_ASSOC] (* wat! the rename failed w/o this, even though
+                                parenthesis do _not_ match the term in rename
+                                after this tactic:
+                              *)
     \\ rename [‘x ∪ y ∪ z’]
     \\ fs [set_sepTheory.SPLIT_def,cfHeapsBaseTheory.SPLIT3_def]
     \\ rw [] \\ last_x_assum $ irule_at $ Pos last
     \\ qexists_tac ‘(h_k ∪ h_g ∪ y) DIFF h_f’ \\ fs [UNION_ASSOC]
-    \\ fs [IN_DISJOINT,EXTENSION] \\ metis_tac [])
+    \\ simp [DISJOINT_DIFF, AC UNION_COMM UNION_ASSOC])
   \\ disch_then drule_all
   \\ strip_tac \\ fs []
   \\ fs [cfAppTheory.evaluate_ck_def]
@@ -364,3 +368,4 @@ Proof
 QED
 
 val _ = export_theory();
+
