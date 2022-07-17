@@ -27,8 +27,6 @@ val _ = (use_full_type_names := false);
 
 val _ = hide "abs";
 
-val _ = ml_prog_update (open_module "Kernel");
-
 Type state = ``:'ffi semanticPrimitives$state``
 
 (* construct type refinement invariants *)
@@ -44,6 +42,8 @@ val _ = register_type ``:thm``;
 val _ = register_type ``:update``;
 val _ = register_type ``:ext_step``;
 val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def";
+
+val _ = ml_prog_update (open_module "Kernel");
 
 val _ = ml_prog_update open_local_block;
 
