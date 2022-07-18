@@ -80,7 +80,7 @@ Proof
   metis_tac []
 QED
 
-Definition lit_var_def:
+Definition lit_var_def[simp]:
   (lit_var (Pos v) = v) ∧
   (lit_var (Neg v) = v)
 End
@@ -188,70 +188,6 @@ Theorem satisfiable_INJ_iff:
   (satisfiable (IMAGE (map_pbc f) pbf) ⇔ satisfiable pbf)
 Proof
   metis_tac[satisfiable_INJ,satisfiable_map_pbf]
-QED
-
-(* PRINTING of string pbc *)
-Definition lit_string_def:
-  (lit_string (Pos v) = v) ∧
-  (lit_string (Neg v) = strlit "~" ^ v)
-End
-
-Definition lhs_string_def:
-  lhs_string xs =
-  concatWith (strlit" ") (MAP(λ(c,l). concat [int_to_string #"-" c; strlit " " ; lit_string l]) xs)
-End
-
-Definition pbc_string_def:
-  (pbc_string (Equal xs i) = concat [lhs_string xs; strlit " = "; int_to_string #"-" i]) ∧
-  (pbc_string (GreaterEqual xs i) = concat [lhs_string xs; strlit " >= "; int_to_string #"-" i])
-End
-
-(* NORMALIZATION *)
-
-(* Convert a list of pbc to one with ≥ constraints only *)
-Definition pbc_ge_def:
-  (pbc_ge (GreaterEqual xs n) = [GreaterEqual xs n]) ∧
-  (pbc_ge (Equal xs n) =
-    let xs' = MAP (λ(c:int,l). (-c,l)) xs in
-      [GreaterEqual xs n; GreaterEqual xs' (-n)])
-End
-
-Theorem eq_disj:
-  (∀x. x = a ∨ x = b ⇒ P x) ⇔ P a ∧ P b
-Proof
-  metis_tac[]
-QED
-
-Theorem eval_term_negate:
-  ∀ls.
-  (MAP (eval_term w) (MAP (λ(c,l). (-c,l)) ls)) =
-  (MAP (\i. -i) (MAP (eval_term w) ls))
-Proof
-  Induct>>simp[]>>
-  Cases>>rw[eval_term_def]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem iSUM_negate:
-  ∀ls. iSUM (MAP (\i. -i) ls) = -iSUM ls
-Proof
-  Induct>>simp[iSUM_def]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem pbc_ge_thm:
-  ∀c.
-  satisfies w (set (pbc_ge c)) ⇔
-  satisfies_pbc w c
-Proof
-  Cases>>
-  simp[pbc_ge_def,satisfies_def]>>
-  rw[EQ_IMP_THM]
-  >- (
-    fs[satisfies_pbc_def,eq_disj,eval_term_negate,iSUM_negate]>>
-    intLib.ARITH_TAC) >>
-  fs[satisfies_pbc_def,eval_term_negate,iSUM_negate]>>
-  intLib.ARITH_TAC
 QED
 
 val _ = export_theory();

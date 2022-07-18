@@ -35,11 +35,11 @@ Datatype:
   | Mul constr num      (* Multiply by a constant factor *)
   | Div constr num      (* Divide by a constant factor *)
   | Sat constr          (* Saturation *)
-  | Lit lit             (* Literal axiom lit ≥ 0 *)
+  | Lit (num lit)       (* Literal axiom lit ≥ 0 *)
   | Weak constr var     (* Addition of literal axioms until "var" disappears *)
 End
 
-Type subst = ``:(bool + lit) num_map``;
+Type subst = ``:(bool + num lit) num_map``;
 
 Datatype:
   pbpstep =
@@ -630,6 +630,7 @@ Proof
   \\ imp_res_tac range_insert_2 \\ gvs []
 QED
 
+(* TODO: move below into pb_parse *)
 (*
   Parse an OPB file as an unnormalized formula
   For now, use the standard format where variables are named x1,...,xn
