@@ -1,18 +1,15 @@
 (*
-  Formalisation of (un-normalised) pseudo-boolean constraints
+  Formalisation of (un-normalised) pseudo-boolean constraints with 'a var type
 *)
 
-open preamble;
+open preamble mlintTheory;
 
 val _ = new_theory "pb_preconstraint";
 
 val _ = numLib.prefer_num();
 
-(* TODO: Possibly use mlstring, but need to check how it is supported in PBP *)
-Type var = “:num”
-
 Datatype:
-  lit = Pos var | Neg var
+  lit = Pos 'a | Neg 'a
 End
 
 (*
@@ -23,8 +20,8 @@ End
 *)
 Datatype:
   pbc =
-    Equal ((int # lit) list) int
-  | GreaterEqual ((int # lit) list) int
+    Equal ((int # 'a lit) list) int
+  | GreaterEqual ((int # 'a lit) list) int
 End
 
 (* integer-valued semantics *)
@@ -82,6 +79,134 @@ Proof
   fs [satisfies_def] \\
   metis_tac []
 QED
+
+Definition lit_var_def:
+  (lit_var (Pos v) = v) ∧
+  (lit_var (Neg v) = v)
+End
+
+Definition pbc_vars_def:
+  (pbc_vars (Equal xs n) = set (MAP (lit_var o SND) xs)) ∧
+  (pbc_vars (GreaterEqual xs n) = set (MAP (lit_var o SND) xs))
+End
+
+Definition pbf_vars_def:
+  pbf_vars pbf =
+  BIGUNION (IMAGE pbc_vars pbf)
+End
+
+Definition map_lit_def:
+  (map_lit f (Pos v) = Pos (f v)) ∧
+  (map_lit f (Neg v) = Neg (f v))
+End
+
+Definition map_pbc_def:
+  (map_pbc f (Equal xs n) = Equal (MAP (λ(a,b). (a, map_lit f b)) xs) n) ∧
+  (map_pbc f (GreaterEqual xs n) = GreaterEqual (MAP (λ(a,b). (a, map_lit f b)) xs) n)
+End
+
+Theorem satisfiable_map_pbc:
+  satisfies_pbc w (map_pbc f pbc) ⇒
+  satisfies_pbc (w o f) pbc
+Proof
+  Cases_on`pbc`>>simp[satisfies_pbc_def,map_pbc_def,MAP_MAP_o,o_DEF,pbc_vars_def]>>
+  rw[]
+  >- (
+    AP_TERM_TAC>>
+    match_mp_tac LIST_EQ>>simp[EL_MAP]>>
+    rw[]>>
+    Cases_on`EL x l`>>fs[]>>
+    Cases_on`r`>>simp[map_lit_def])>>
+  qmatch_asmsub_abbrev_tac`a ≥ _` >>
+  qmatch_goalsub_abbrev_tac`b ≥ _` >>
+  qsuff_tac`a=b` >-
+    intLib.ARITH_TAC>>
+  unabbrev_all_tac>>
+  AP_TERM_TAC>>
+  match_mp_tac LIST_EQ>>simp[EL_MAP]>>
+  rw[]>>
+  Cases_on`EL x l`>>fs[]>>
+  Cases_on`r`>>simp[map_lit_def]
+QED
+
+Theorem satisfiable_map_pbf:
+  satisfiable (IMAGE (map_pbc f) pbf) ⇒
+  satisfiable pbf
+Proof
+  rw[satisfiable_def]>>
+  qexists_tac`w o f`>>fs[satisfies_def,PULL_EXISTS]>>
+  metis_tac[satisfiable_map_pbc]
+QED
+
+Theorem map_pbc_o:
+  map_pbc f (map_pbc g x) = map_pbc (f o g) x
+Proof
+  Cases_on`x`>>EVAL_TAC>>simp[o_DEF,MAP_MAP_o]>>
+  match_mp_tac LIST_EQ>>simp[EL_MAP]>>rw[]>>
+  Cases_on`EL x l`>>fs[]>>
+  Cases_on`r`>>fs[map_lit_def]
+QED
+
+Theorem map_pbc_I:
+  (∀x. x ∈ pbc_vars pbc ⇒ f x = x) ⇒
+  map_pbc f pbc = pbc
+Proof
+  Cases_on`pbc`>>EVAL_TAC>>rw[MEM_MAP]>>
+  rw[MAP_EQ_ID]>>
+  Cases_on`x`>>fs[]>>
+  Cases_on`r`>>fs[map_lit_def]>>
+  first_x_assum match_mp_tac>>simp[]>>
+  metis_tac[lit_var_def,SND]
+QED
+
+Theorem satisfiable_INJ:
+  INJ f (pbf_vars pbf) UNIV ∧
+  satisfiable pbf ⇒
+  satisfiable (IMAGE (map_pbc f) pbf)
+Proof
+  rw[]>>
+  match_mp_tac (GEN_ALL satisfiable_map_pbf)>>
+  simp[IMAGE_IMAGE,o_DEF]>>
+  qexists_tac`LINV f (pbf_vars pbf)`>>
+  simp[map_pbc_o,o_DEF]>>
+  drule LINV_DEF>>strip_tac>>
+  qmatch_goalsub_abbrev_tac`satisfiable A`>>
+  qsuff_tac`A = pbf`>>fs[]>>
+  unabbrev_all_tac>>rw[EXTENSION,EQ_IMP_THM]
+  >- (
+    DEP_REWRITE_TAC [map_pbc_I]>>simp[]>>
+    fs[pbf_vars_def,PULL_EXISTS]>>
+    metis_tac[])>>
+  qexists_tac`x`>>simp[]>>
+  match_mp_tac (GSYM map_pbc_I)>>
+  fs[pbf_vars_def,PULL_EXISTS]>>
+  metis_tac[]
+QED
+
+Theorem satisfiable_INJ_iff:
+  INJ f (pbf_vars pbf) UNIV ⇒
+  (satisfiable (IMAGE (map_pbc f) pbf) ⇔ satisfiable pbf)
+Proof
+  metis_tac[satisfiable_INJ,satisfiable_map_pbf]
+QED
+
+(* PRINTING of string pbc *)
+Definition lit_string_def:
+  (lit_string (Pos v) = v) ∧
+  (lit_string (Neg v) = strlit "~" ^ v)
+End
+
+Definition lhs_string_def:
+  lhs_string xs =
+  concatWith (strlit" ") (MAP(λ(c,l). concat [int_to_string #"-" c; strlit " " ; lit_string l]) xs)
+End
+
+Definition pbc_string_def:
+  (pbc_string (Equal xs i) = concat [lhs_string xs; strlit " = "; int_to_string #"-" i]) ∧
+  (pbc_string (GreaterEqual xs i) = concat [lhs_string xs; strlit " >= "; int_to_string #"-" i])
+End
+
+(* NORMALIZATION *)
 
 (* Convert a list of pbc to one with ≥ constraints only *)
 Definition pbc_ge_def:

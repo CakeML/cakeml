@@ -6,8 +6,8 @@ Improving the pseudoboolean proof checker with arrays (manually)
 [compilation](compilation):
 Compiling the pseudo-boolean constraints checker
 
-[pb_checkProgScript.sml](pb_checkProgScript.sml):
-This produces an executable program for pb_check
+[graph_encoding](graph_encoding):
+Formalization of encodings from graph problems into pseudo-boolean constraints
 
 [pb_checkScript.sml](pb_checkScript.sml):
 Pseudo-boolean constraints proof format and checker
@@ -16,4 +16,4 @@ Pseudo-boolean constraints proof format and checker
 Formalisation of normalised pseudo-boolean constraints
 
 [pb_preconstraintScript.sml](pb_preconstraintScript.sml):
-Formalisation of (un-normalised) pseudo-boolean constraints
+Formalisation of (un-normalised) pseudo-boolean constraints with 'a var type
