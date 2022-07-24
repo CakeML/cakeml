@@ -1,12 +1,86 @@
 (*
   Normalization from pb_preconstraint into pb_constraint
 *)
-
 open preamble pb_preconstraintTheory pb_constraintTheory;
 
 val _ = new_theory "pb_normalise";
 
 val _ = numLib.prefer_num();
+
+(*
+  Injective mapping from mlstring into num
+
+  This does not simply parse a number but is optimized to keep numbers small if they are in the range
+
+  a-z, A-Z, 0-9, []{}_^
+
+  Other characters can be used but
+
+  EVAL ``MAP ORD (explode (strlit "[]{}_^"))``
+*)
+Definition mapNon_def:
+  mapNon n =
+  if n = 91 then 63
+  else if n = 93 then 64
+  else if n = 123 then 65
+  else if n = 125 then 66
+  else if n = 95 then 67
+  else if n = 94 then 68
+  else 0
+End
+
+Definition mapChar_def:
+  mapChar c =
+  let oc = ORD c in
+  if 48 ≤ oc ∧ oc ≤ 57 (* char 0 to 9 maps to 1-10 respectively *)
+  then oc - 47
+  else if 65 ≤ oc ∧ oc ≤ 90 (* char A to Z maps to 11-36 *)
+  then oc - 54
+  else if 97 ≤ oc ∧ oc ≤ 122 (* char a to z maps to 37-62 *)
+  then oc - 60
+  else mapNon oc
+End
+
+Definition mapChars_def:
+  (mapChars 0 str = 0) ∧
+  (mapChars (SUC n) str =
+    mapChars n str * 68 + mapChar (strsub str n))
+End
+
+Definition mapString_def:
+  mapString str = mapChars (strlen str) str
+End
+
+(* Kind of a circular definition ... *)
+Definition goodChar_def:
+  goodChar c ⇔
+  mapChar c ≠ 0
+End
+
+Definition goodChars_def:
+  (goodChars 0 str = T) ∧
+  (goodChars (SUC n) str =
+    (goodChar (strsub str n) ∧
+    goodChars n str))
+End
+
+Definition goodString_def:
+  goodString str = goodChars (strlen str) str
+End
+
+Theorem mapString_INJ:
+  INJ mapString goodString UNIV
+Proof
+  cheat
+QED
+
+Definition convert_pbf:
+  convert_pbf pbf = MAP (map_pbc mapString) pbf
+End
+
+(* TODO: prove that, under suitable assumptions
+  convert_pbf preserves satisfiability exactly
+*)
 
 (* Convert a list of pbc to one with ≥ constraints only *)
 Definition pbc_ge_def:
@@ -386,4 +460,3 @@ Proof
 QED
 
 val _ = export_theory();
-

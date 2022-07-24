@@ -1,14 +1,13 @@
 (*
   Parse and print for pb_preconstraint, pb_check
 *)
-
 open preamble pb_preconstraintTheory pb_normaliseTheory pb_checkTheory;
 
 val _ = new_theory "pb_parse";
 
 val _ = numLib.prefer_num();
 
-(* printing of string pbc *)
+(* Print mlstring pbc *)
 Definition lit_string_def:
   (lit_string (Pos v) = v) ∧
   (lit_string (Neg v) = strlit "~" ^ v)
@@ -26,8 +25,7 @@ End
 
 (* TODO: move below into pb_parse *)
 (*
-  Parse an OPB file as an unnormalized formula
-  For now, use the standard format where variables are named x1,...,xn
+  Parse an OPB file as string pbc
 *)
 
 (* TODO: copied from lpr_parsing *)
@@ -48,16 +46,19 @@ Definition toks_def:
 End
 
 (* OPB parser
-  Parses a literal xi, ~xi
-  Note: for now, only handle default "xi" var names
+  Parses a literal s, ~s
+  Any string (length >= 1) is parsed to a Neg-ated literal if it starts with ~
 *)
-
 Definition parse_lit_def:
   parse_lit s =
-  if strlen s ≥ 2 ∧ strsub s 0 = #"~" /\ strsub s 1 = #"x" then
-    OPTION_MAP Neg (mlint$fromNatString (substring s 2 (strlen s - 2)))
-  else if strlen s ≥ 1 ∧ strsub s 0 = #"x" then
-    OPTION_MAP Pos (mlint$fromNatString (substring s 1 (strlen s - 1)))
+  if strlen s ≥ 2 ∧ strsub s 0 = #"~" then
+    (let ss = substring s 1 (strlen s - 1) in
+    if goodString ss then
+      SOME (Neg ss)
+    else NONE)
+  else if strlen s ≥ 1 then
+    (if goodString s then SOME (Pos s)
+    else NONE)
   else NONE
 End
 
@@ -137,6 +138,10 @@ End
 
 (* The stack is formed from constraints, where factors and variables are
   also encoded using Id *)
+Definition parse_lit_num_def:
+  parse_lit_num s = OPTION_MAP (map_lit mapString) (parse_lit s)
+End
+
 Definition parse_cutting_def:
   (parse_cutting (x::xs) stack =
   case x of INR n =>
@@ -165,7 +170,7 @@ Definition parse_cutting_def:
       Lit (Pos v)::a::rest => parse_cutting xs (Weak a v::rest)
     | _ => NONE)
   else
-    case parse_lit s of SOME l => parse_cutting xs (Lit l::stack)
+    case parse_lit_num s of SOME l => parse_cutting xs (Lit l::stack)
     | NONE => NONE) ∧
   (parse_cutting [] [c] = SOME c) ∧
   (parse_cutting [] _ = NONE)
@@ -183,7 +188,7 @@ End
 
 Definition parse_var_def:
   parse_var v =
-  case parse_lit v of SOME (Pos n) => SOME n | _ => NONE
+  case parse_lit_num v of SOME (Pos n) => SOME n | _ => NONE
 End
 
 (* Parse a substitution {var -> lit} *)
@@ -199,7 +204,7 @@ Definition parse_subst_def:
           else if r = 1 then parse_subst rest (insert v (INL T) acc)
           else ([],LN)
       | INL r =>
-          (case parse_lit r of NONE => ([],LN)
+          (case parse_lit_num r of NONE => ([],LN)
           | SOME l => parse_subst rest (insert v (INR l) acc)))
   else ([],LN)) ∧
   (parse_subst ls acc = (ls, acc))
@@ -210,7 +215,7 @@ Definition parse_constraint_npbc_def:
   case parse_constraint_LHS line [] of (rest,lhs) =>
   (case rest of (INL cmp :: INR deg :: INL term :: rest) =>
     if term = str #";" ∧ cmp = strlit">=" then
-      SOME (pbc_to_npbc (GreaterEqual lhs deg),rest)
+      SOME (pbc_to_npbc (map_pbc mapString (GreaterEqual lhs deg)),rest)
     else
       NONE
   | _ => NONE)
@@ -510,10 +515,8 @@ val pbpraw = ``[
 strlit"  e 679 1 x121 1 ~x127 1 ~x134 1 x144 1 ~x153 1 ~x154 1 x159 1 x165 >= 1 ;"
 ]``;
 
-EVAL``(MAP toks_fast ^(pbpraw))``
+EVAL``parse_tops (MAP toks_fast ^(pbpraw))``
 
 *)
 
-
 val _ = export_theory();
-
