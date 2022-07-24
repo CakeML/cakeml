@@ -19,11 +19,10 @@ Definition lhs_string_def:
 End
 
 Definition pbc_string_def:
-  (pbc_string (Equal xs i) = concat [lhs_string xs; strlit " = "; int_to_string #"-" i; #";"]) ∧
-  (pbc_string (GreaterEqual xs i) = concat [lhs_string xs; strlit " >= "; int_to_string #"-" i; #";"])
+  (pbc_string (Equal xs i) = concat [lhs_string xs; strlit " = "; int_to_string #"-" i; strlit ";"]) ∧
+  (pbc_string (GreaterEqual xs i) = concat [lhs_string xs; strlit " >= "; int_to_string #"-" i; strlit ";"])
 End
 
-(* TODO: move below into pb_parse *)
 (*
   Parse an OPB file as string pbc
 *)
