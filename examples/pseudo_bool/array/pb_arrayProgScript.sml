@@ -34,31 +34,20 @@ val r = translate format_failure_def;
 
 val r = translate OPTION_MAP2_DEF;
 
-val r = translate get_var_def;
+(* Translate steps in check_cutting *)
 val r = translate listTheory.REV_DEF;
-val r = translate term_lt_def;
-
 val r = translate offset_def;
 val r = translate add_terms_def;
 val r = translate add_lists'_def;
 val r = translate add_lists'_thm;
 val r = translate add_def;
 
-val r = translate OPTION_MAP_DEF;
-
-val r = translate pb_constraintTheory.multiply_def;
-
-val mul_k_def = Define`
-  mul_k k c = multiply c k`
-
-val r = translate mul_k_def;
+val r = translate multiply_def;
 
 val r = translate IQ_def;
-
-val r = translate pb_constraintTheory.div_ceiling_def;
-
+val r = translate div_ceiling_def;
 val r = translate arithmeticTheory.CEILING_DIV_def ;
-val r = translate pb_constraintTheory.divide_def;
+val r = translate divide_def;
 
 val divide_side = Q.prove(
   `∀x y. divide_side x y ⇔ y ≠ 0`,
@@ -68,8 +57,8 @@ val divide_side = Q.prove(
   intLib.ARITH_TAC
   ) |> update_precondition
 
-val r = translate pb_constraintTheory.abs_min_def;
-val r = translate pb_constraintTheory.saturate_def;
+val r = translate abs_min_def;
+val r = translate saturate_def;
 
 val r = translate pb_constraintTheory.weaken_aux_def;
 val r = translate pb_constraintTheory.weaken_def;
@@ -199,9 +188,8 @@ Proof
     metis_tac[])
 QED
 
-val result = translate sorted_insert_def;
+(* Translation for pb checking *)
 
-val r = translate pb_constraintTheory.negate_def;
 val r = translate (pb_constraintTheory.lslack_def |> SIMP_RULE std_ss [MEMBER_INTRO, o_DEF]);
 val r = translate (pb_constraintTheory.check_contradiction_def |> SIMP_RULE std_ss[LET_DEF]);
 
@@ -378,7 +366,7 @@ val extract_clauses_arr = process_topdecs`
 Theorem extract_clauses_arr_spec:
   ∀pfs pfsv s sv def defv fmlls fmlv fmllsv acc accv lno lnov.
   NUM lno lnov ∧
-  (SPTREE_SPT_TYPE (SUM_TYPE BOOL PB_PRECONSTRAINT_LIT_TYPE)) s sv ∧
+  (SPTREE_SPT_TYPE (SUM_TYPE BOOL (PB_PRECONSTRAINT_LIT_TYPE NUM))) s sv ∧
   PB_CONSTRAINT_NPBC_TYPE def defv ∧
   LIST_TYPE (PAIR_TYPE (OPTION_TYPE (SUM_TYPE NUM UNIT_TYPE)) (LIST_TYPE PB_CHECK_PBPSTEP_TYPE)) pfs pfsv ∧
   LIST_TYPE (PAIR_TYPE (OPTION_TYPE PB_CONSTRAINT_NPBC_TYPE) (LIST_TYPE PB_CHECK_PBPSTEP_TYPE)) acc accv ∧
@@ -475,7 +463,7 @@ val subst_indexes_arr = process_topdecs`
 
 Theorem subst_indexes_arr_spec:
   ∀is isv s sv fmlls fmlv.
-  (SPTREE_SPT_TYPE (SUM_TYPE BOOL PB_PRECONSTRAINT_LIT_TYPE)) s sv ∧
+  (SPTREE_SPT_TYPE (SUM_TYPE BOOL (PB_PRECONSTRAINT_LIT_TYPE NUM))) s sv ∧
   LIST_TYPE NUM is isv ∧
   LIST_REL (OPTION_TYPE PB_CONSTRAINT_NPBC_TYPE) fmlls fmllsv
   ⇒
@@ -527,6 +515,8 @@ Definition all_goals_def:
 End
 
 val res = translate (all_goals_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
+
+val res = translate sorted_insert_def;
 
 val check_pbpstep_arr = process_topdecs`
   fun check_pbpstep_arr lno step fml inds mindel id =
@@ -644,7 +634,7 @@ Proof
 QED
 
 Theorem EqualityType_PB_PRECONSTRAINT_LIT_TYPE:
-  EqualityType PB_PRECONSTRAINT_LIT_TYPE
+  EqualityType (PB_PRECONSTRAINT_LIT_TYPE NUM)
 Proof
   EVAL_TAC>>
   rw[]
