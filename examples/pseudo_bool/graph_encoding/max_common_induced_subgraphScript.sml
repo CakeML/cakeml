@@ -1,7 +1,7 @@
 (*
   Formalization of the maximum common induced subgraph problem
 *)
-open preamble graph_basicTheory pb_preconstraintFreeTheory;
+open preamble pb_preconstraintTheory graph_basicTheory pb_normaliseTheory;
 
 val _ = new_theory "max_common_induced_subgraph";
 
@@ -139,8 +139,8 @@ Definition k_size_def:
   GreaterEqual (GENLIST (λb. (1, Neg (Unmapped b))) vp) &k
 End
 
-Definition encode_def:
-  encode (vp,ep) (vt,et) k =
+Definition encode_base_def:
+  encode_base (vp,ep) (vt,et) k =
   k_size vp k ::
   all_has_mapping vp vt ++
   all_one_one vp vt ++
@@ -480,10 +480,10 @@ Proof
   rw[]
 QED
 
-Theorem encode_correct:
+Theorem encode_base_correct:
   good_graph (vp,ep) ∧
   good_graph (vt,et) ∧
-  encode (vp,ep) (vt,et) k = constraints ⇒
+  encode_base (vp,ep) (vt,et) k = constraints ⇒
   (
     (∃f vs.
       injective_partial_map f vs k (vp,ep) (vt,et)) ⇔
@@ -499,7 +499,7 @@ Proof
         Unmapped a => a ∉ vs
       | Mapped a u => a ∈ vs ∧ f a = u
       | _ => ARB` >>
-    rw[encode_def]
+    rw[encode_base_def]
     >- (
       rename1`k_size`>>
       simp[k_size_def,satisfies_pbc_def,MAP_GENLIST, o_DEF]>>
@@ -621,7 +621,7 @@ Proof
   simp[]>>
   CONJ_TAC>-
     simp[Abbr`dom`,SUBSET_DEF]>>
-  fs[satisfies_def,encode_def,SF DNF_ss]>>
+  fs[satisfies_def,encode_base_def,SF DNF_ss]>>
   CONJ_TAC>- (
     fs[k_size_def,satisfies_pbc_def,MAP_GENLIST,o_DEF,neg_b2i]>>
     match_mp_tac iSUM_GENLIST_geq_k>>
@@ -1305,9 +1305,9 @@ Definition encode_connected_def:
       else []) vp)) vp)
 End
 
-Definition encode_full_def:
-  encode_full (vp,ep) (vt,et) k =
-  encode (vp,ep) (vt,et) k ++
+Definition encode_def:
+  encode (vp,ep) (vt,et) k =
+  encode_base (vp,ep) (vt,et) k ++
   encode_connected (vp,ep)
 End
 
@@ -1453,10 +1453,10 @@ Proof
   disch_then drule>>simp[]
 QED
 
-Theorem encode_full_correct:
+Theorem encode_correct:
   good_graph (vp,ep) ∧
   good_graph (vt,et) ∧
-  encode_full (vp,ep) (vt,et) k = constraints ⇒
+  encode (vp,ep) (vt,et) k = constraints ⇒
   (
     (∃f vs.
       injective_partial_map f vs k (vp,ep) (vt,et) ∧
@@ -1468,7 +1468,7 @@ Proof
   >- (
     fs[injective_partial_map_def]>>
     simp[satisfiable_def]>>
-    rw[encode_full_def,encode_def]>>
+    rw[encode_def,encode_base_def]>>
     qabbrev_tac`w = λenc.
       case enc of
         Unmapped a => a ∉ vs
@@ -1631,7 +1631,7 @@ Proof
   qexists_tac `dom`>>
   simp[]>>
   reverse CONJ_TAC >- (
-    fs[satisfies_def,encode_full_def,encode_connected_def]>>
+    fs[satisfies_def,encode_def,encode_connected_def]>>
     Cases_on`vp=0`>>fs[]
     >-
       rw[connected_subgraph_def,Abbr`dom`]>>
@@ -1664,7 +1664,7 @@ Proof
     qexists_tac`walk`>>fs[SUBSET_DEF,EVERY_MEM])>>
   CONJ_TAC>-
     simp[Abbr`dom`,SUBSET_DEF]>>
-  fs[satisfies_def,encode_full_def,encode_def,SF DNF_ss]>>
+  fs[satisfies_def,encode_def,encode_base_def,SF DNF_ss]>>
   CONJ_TAC>- (
     fs[k_size_def,satisfies_pbc_def,MAP_GENLIST,o_DEF,neg_b2i]>>
     match_mp_tac iSUM_GENLIST_geq_k>>
@@ -1796,8 +1796,6 @@ QED
 val pattern = ``(5, fromAList [(0,[1;3;4]); (1,[0;3;4]);  (2,[3]); (3,[0;1;2]); (4,[0;1])]):graph``
 val target = ``(5, fromAList [(0,[1;3;4]); (1,[0;3;4]);  (2,[3]); (3,[0;1;2]); (4,[0;1])]):graph``
 
-val pattern = ``(2, fromAList [(0,[]);(1,[1])]):graph``
-
 Definition enc_string_def:
   (enc_string (Walk f g k) =
     concat [strlit"xconn";toString k;strlit"_";toString f;strlit"_";toString g]) ∧
@@ -1809,6 +1807,80 @@ Definition enc_string_def:
     concat [strlit"x";toString f;strlit"_";toString g])
 End
 
-val res = EVAL``(MAP (pbc_string enc_string) (encode ^pattern ^pattern 1))``
+Theorem enc_string_INJ:
+  INJ enc_string UNIV UNIV
+Proof
+  rw[INJ_DEF]>>
+  Cases_on`x`>>Cases_on`y`>>
+  fs[enc_string_def]>>
+  cheat
+QED
+
+Theorem enc_string_goodString:
+  goodString (enc_string e)
+Proof
+  cheat
+QED
+
+Definition full_encode_def:
+  full_encode gp gt k =
+  MAP (map_pbc enc_string) (encode gp gt k)
+End
+
+Theorem full_encode_correct:
+  good_graph gp ∧
+  good_graph gt ∧
+  full_encode gp gt k = constraints ⇒
+  (
+    (∃f vs.
+      injective_partial_map f vs k gp gt ∧
+      connected_subgraph vs (SND gp)) ⇔
+    satisfiable (set constraints)
+  )
+Proof
+  rw[full_encode_def]>>
+  simp[LIST_TO_SET_MAP]>>
+  DEP_REWRITE_TAC[satisfiable_INJ_iff]>>
+  rw[]
+  >- (
+    assume_tac enc_string_INJ>>
+    drule INJ_SUBSET>>
+    disch_then match_mp_tac>>
+    simp[])>>
+  metis_tac[encode_correct,PAIR]
+QED
+
+(* The normalised encoding *)
+Definition norm_encode_def:
+  norm_encode gp gt k =
+  full_normalise (full_encode gp gt k)
+End
+
+Theorem pbf_vars_full_encode:
+  pbf_vars (set (full_encode gp gt k)) ⊆ goodString
+Proof
+  rw[SUBSET_DEF,full_encode_def,LIST_TO_SET_MAP,pbf_vars_IMAGE]>>
+  simp[IN_DEF]>>
+  metis_tac[enc_string_goodString,PAIR]
+QED
+
+Theorem norm_encode_correct:
+  good_graph gp ∧
+  good_graph gt ∧
+  norm_encode gp gt k = constraints ⇒
+  (
+    (∃f vs.
+      injective_partial_map f vs k gp gt ∧
+      connected_subgraph vs (SND gp)) ⇔
+    satisfiable (set constraints)
+  )
+Proof
+  rw[norm_encode_def]>>
+  DEP_REWRITE_TAC[full_normalise_satisfiable]>>rw[]
+  >- metis_tac[pbf_vars_full_encode]
+  >- metis_tac[full_encode_correct]
+QED
+
+val res = EVAL``(norm_encode ^pattern ^pattern 1)``
 
 val _ = export_theory();

@@ -1,7 +1,7 @@
 (*
   Formalization of the subgraph isomorphism problem
 *)
-open preamble graph_basicTheory pb_preconstraintFreeTheory;
+open preamble graph_basicTheory pb_preconstraintTheory pb_normaliseTheory;
 
 val _ = new_theory "subgraph_iso";
 
@@ -381,45 +381,74 @@ Proof
   metis_tac[is_edge_thm]
 QED
 
-(* An injection *)
-Definition index_def:
-  index (vp:num) (xp,xt) = xt*vp + xp
+(* Encoded as strings *)
+Definition enc_string_def:
+  (enc_string (xp,xt) =
+    concat [strlit"x";toString xp;strlit"_";toString xt])
 End
 
-Definition full_encode_def:
-  full_encode (vp,ep) (vt,et) =
-  MAP (map_pbc (index vp)) (encode (vp,ep) (vt,et))
-End
-
-Theorem index_inj:
-  a < vp ∧ a' < vp ∧
-  index vp (a,v) = index vp (a',v') ⇒
-  a = a' ∧ v = v'
+Theorem enc_string_INJ:
+  INJ enc_string UNIV UNIV
 Proof
-  strip_tac>>
-  CONJ_ASM1_TAC>> fs [index_def] >>
-  pop_assum (mp_tac o Q.AP_TERM `λn. n MOD vp`)>>simp[]
+  rw[INJ_DEF]>>
+  Cases_on`x`>>Cases_on`y`>>
+  fs[enc_string_def]>>
+  cheat
 QED
 
+Theorem enc_string_goodString:
+  goodString (enc_string (xp,xt))
+Proof
+  cheat
+QED
+
+Definition full_encode_def:
+  full_encode gp gt =
+  MAP (map_pbc enc_string) (encode gp gt)
+End
+
 Theorem full_encode_correct:
-  good_graph (vp,ep) ∧
-  good_graph (vt,et) ∧
-  full_encode (vp,ep) (vt,et) = constraints ⇒
-  (has_subgraph_iso (vp,ep) (vt,et) ⇔ satisfiable (set constraints))
+  good_graph gp ∧
+  good_graph gt ∧
+  full_encode gp gt = constraints ⇒
+  (has_subgraph_iso gp gt ⇔ satisfiable (set constraints))
 Proof
   rw[full_encode_def]>>
   simp[LIST_TO_SET_MAP]>>
   DEP_REWRITE_TAC[satisfiable_INJ_iff]>>
   rw[]
   >- (
-    simp[pbf_vars_def,encode_def]>>
-    simp[INJ_DEF,PULL_EXISTS]>>
-    EVAL_TAC>>
-    rw[]>>
-    gvs[MEM_FLAT,MEM_GENLIST,pbc_vars_def,MEM_MAP,lit_var_def]>>
-    every_case_tac>>fs[good_graph_def,is_edge_thm]>>
-    metis_tac[index_inj])>>
-  metis_tac[encode_correct]
+    assume_tac enc_string_INJ>>
+    drule INJ_SUBSET>>
+    disch_then match_mp_tac>>
+    simp[])>>
+  metis_tac[encode_correct,PAIR]
+QED
+
+(* The normalised encoding *)
+Definition norm_encode_def:
+  norm_encode gp gt =
+  full_normalise (full_encode gp gt)
+End
+
+Theorem pbf_vars_full_encode:
+  pbf_vars (set (full_encode gp gt)) ⊆ goodString
+Proof
+  rw[SUBSET_DEF,full_encode_def,LIST_TO_SET_MAP,pbf_vars_IMAGE]>>
+  simp[IN_DEF]>>
+  metis_tac[enc_string_goodString,PAIR]
+QED
+
+Theorem norm_encode_correct:
+  good_graph gp ∧
+  good_graph gt ∧
+  norm_encode gp gt = constraints ⇒
+  (has_subgraph_iso gp gt ⇔ satisfiable (set constraints))
+Proof
+  rw[norm_encode_def]>>
+  DEP_REWRITE_TAC[full_normalise_satisfiable]>>rw[]
+  >- metis_tac[pbf_vars_full_encode]
+  >- metis_tac[full_encode_correct]
 QED
 
 val _ = export_theory();

@@ -159,6 +159,29 @@ Proof
   metis_tac[lit_var_def,SND]
 QED
 
+Theorem lit_var_map_lit:
+  !x. lit_var (map_lit f x) = f (lit_var x)
+Proof
+  Cases>>EVAL_TAC
+QED
+
+Theorem pbc_vars_map_pbc:
+  ∀x.
+  pbc_vars (map_pbc f x) =
+  IMAGE f (pbc_vars x)
+Proof
+  Cases>>
+  simp[pbc_vars_def,map_pbc_def,o_DEF,MAP_MAP_o,LAMBDA_PROD,LIST_TO_SET_MAP,IMAGE_IMAGE,lit_var_map_lit]
+QED
+
+Theorem pbf_vars_IMAGE:
+  pbf_vars (IMAGE (map_pbc f) pbf) =
+  IMAGE f (pbf_vars pbf)
+Proof
+  rw[pbf_vars_def,IMAGE_BIGUNION,IMAGE_IMAGE,o_DEF]>>
+  simp[pbc_vars_map_pbc]
+QED
+
 Theorem satisfiable_INJ:
   INJ f (pbf_vars pbf) UNIV ∧
   satisfiable pbf ⇒

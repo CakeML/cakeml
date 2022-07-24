@@ -74,13 +74,21 @@ Proof
   cheat
 QED
 
-Definition convert_pbf:
+Definition convert_pbf_def:
   convert_pbf pbf = MAP (map_pbc mapString) pbf
 End
 
-(* TODO: prove that, under suitable assumptions
-  convert_pbf preserves satisfiability exactly
-*)
+Theorem convert_pbf_thm:
+  pbf_vars (set pbf) ⊆ goodString ⇒
+  (satisfiable (set (convert_pbf pbf)) ⇔ satisfiable (set pbf))
+Proof
+  rw[]>>
+  simp[convert_pbf_def,LIST_TO_SET_MAP]>>
+  match_mp_tac satisfiable_INJ_iff>>
+  match_mp_tac INJ_SUBSET>>
+  first_x_assum (irule_at Any)>>
+  metis_tac[mapString_INJ,SUBSET_REFL]
+QED
 
 (* Convert a list of pbc to one with ≥ constraints only *)
 Definition pbc_ge_def:
@@ -279,26 +287,26 @@ Definition mk_coeff_def:
   (mk_coeff c (Neg v) = -c:int)
 End
 
-Definition normalize_lhs_def:
-  (normalize_lhs [] acc n = (REVERSE acc,n)) ∧
-  (normalize_lhs ((x,l)::xs) acc n =
+Definition normalise_lhs_def:
+  (normalise_lhs [] acc n = (REVERSE acc,n)) ∧
+  (normalise_lhs ((x,l)::xs) acc n =
     let v = lit_var l in
     if x < 0 then
-      normalize_lhs xs ((mk_coeff x l,v)::acc) (n+x)
-    else if x > 0 then normalize_lhs xs ((mk_coeff x l,v)::acc) n
-    else normalize_lhs xs acc n)
+      normalise_lhs xs ((mk_coeff x l,v)::acc) (n+x)
+    else if x > 0 then normalise_lhs xs ((mk_coeff x l,v)::acc) n
+    else normalise_lhs xs acc n)
 End
 
-Theorem normalize_lhs_normalizes:
+Theorem normalise_lhs_normalises:
   ∀ls acc n ls' n'.
-  normalize_lhs ls acc n = (ls',n') ⇒
+  normalise_lhs ls acc n = (ls',n') ⇒
   iSUM (MAP (pb_preconstraint$eval_term w) ls) + &(SUM (MAP (eval_term w) acc)) + n =
   &(SUM (MAP (eval_term w) ls')) + n'
 Proof
-  Induct>>rw[normalize_lhs_def,iSUM_def]
+  Induct>>rw[normalise_lhs_def,iSUM_def]
   >-
     metis_tac[SUM_REVERSE,MAP_REVERSE] >>
-  Cases_on`h`>>fs[normalize_lhs_def]>>
+  Cases_on`h`>>fs[normalise_lhs_def]>>
   every_case_tac>>fs[]
   >- intLib.ARITH_TAC>>
   first_x_assum drule>>
@@ -331,14 +339,14 @@ QED
 Definition pbc_to_npbc_def:
   (pbc_to_npbc (GreaterEqual lhs n) =
     let (lhs',m') = compact_lhs (QSORT term_le lhs) 0 in
-    let (lhs'',m'') = normalize_lhs lhs' [] 0 in
+    let (lhs'',m'') = normalise_lhs lhs' [] 0 in
     let rhs = if n-(m'+m'') ≥ 0 then Num(n-(m'+m'')) else 0 in
     PBC lhs'' rhs) ∧
   (pbc_to_npbc (Equal xs n) = PBC [] 0)
 End
 
-Definition normalize_def:
-  normalize pbf =
+Definition normalise_def:
+  normalise pbf =
   let pbf' = FLAT (MAP pbc_ge pbf) in
   MAP pbc_to_npbc pbf'
 End
@@ -353,17 +361,17 @@ Proof
   pairarg_tac>>fs[]>>
   drule compact_lhs_sound>>
   disch_then(qspec_then`w` assume_tac)>>fs[]>>
-  drule normalize_lhs_normalizes>>
+  drule normalise_lhs_normalises>>
   disch_then(qspec_then`w` assume_tac)>>fs[]>>
   simp[satisfies_npbc_def]>>
   intLib.ARITH_TAC
 QED
 
-Theorem normalize_thm:
-  satisfies w (set pbf) ⇔
-  satisfies w (set (normalize pbf))
+Theorem normalise_thm:
+  satisfies w (set (normalise pbf)) ⇔
+  satisfies w (set pbf)
 Proof
-  simp[normalize_def]>>
+  simp[normalise_def]>>
   qmatch_goalsub_abbrev_tac`MAP _ pbf'`>>
   `satisfies w (set pbf) ⇔ satisfies w (set pbf')` by
     (simp[Abbr`pbf'`]>>
@@ -382,20 +390,33 @@ Proof
   metis_tac[pbc_to_npbc_thm]
 QED
 
+Definition full_normalise_def:
+  full_normalise pbf = normalise (convert_pbf pbf)
+End
+
+Theorem full_normalise_satisfiable:
+  pbf_vars (set pbf) ⊆ goodString ⇒
+  (satisfiable (set (full_normalise pbf)) ⇔
+    satisfiable (set pbf))
+Proof
+  rw[pb_preconstraintTheory.satisfiable_def,pb_constraintTheory.satisfiable_def,full_normalise_def,normalise_thm]>>
+  metis_tac[convert_pbf_thm,pb_preconstraintTheory.satisfiable_def,pb_constraintTheory.satisfiable_def]
+QED
+
 Theorem lit_var_negate[simp]:
   lit_var (negate r) = lit_var r
 Proof
   Cases_on`r`>>simp[]
 QED
 
-Theorem normalize_lhs_compact1:
+Theorem normalise_lhs_compact1:
   ∀lhs acc n lhs' n'.
-  normalize_lhs lhs acc n = (lhs',n') ∧
+  normalise_lhs lhs acc n = (lhs',n') ∧
   SORTED $< (MAP SND (REVERSE acc) ++ MAP (lit_var o SND) lhs) ⇒
   SORTED $< (MAP SND lhs')
 Proof
-  Induct>>simp[normalize_lhs_def]>>
-  Cases>>simp[normalize_lhs_def]>>rw[]>>
+  Induct>>simp[normalise_lhs_def]>>
+  Cases>>simp[normalise_lhs_def]>>rw[]>>
   first_x_assum match_mp_tac>>
   asm_exists_tac>>fs[]
   >- (
@@ -410,16 +431,16 @@ Proof
   simp[]
 QED
 
-Theorem normalize_lhs_compact2:
+Theorem normalise_lhs_compact2:
   ∀lhs acc n lhs' n'.
-  normalize_lhs lhs acc n = (lhs',n') ∧
+  normalise_lhs lhs acc n = (lhs',n') ∧
   EVERY (λc. c ≠ 0) (MAP FST acc) ⇒
   EVERY (λc. c ≠ 0) (MAP FST lhs')
 Proof
-  Induct>>simp[normalize_lhs_def]
+  Induct>>simp[normalise_lhs_def]
   >-
     simp[EVERY_MAP]>>
-  Cases>>fs[normalize_lhs_def]>>rw[]>>
+  Cases>>fs[normalise_lhs_def]>>rw[]>>
   first_x_assum match_mp_tac>>
   asm_exists_tac>>fs[]>>
   Cases_on`r`>>fs[mk_coeff_def]>>
@@ -441,22 +462,22 @@ Proof
     Cases>>Cases>>simp[])>>
   strip_tac>>
   CONJ_TAC>- (
-    match_mp_tac normalize_lhs_compact1>>
+    match_mp_tac normalise_lhs_compact1>>
     asm_exists_tac>>
     simp[sorted_map]>>
     qmatch_goalsub_abbrev_tac`_ tlt _`>>
     `tlt = term_lt` by
       simp[Abbr`tlt`,FUN_EQ_THM,FORALL_PROD]>>
     fs[])>>
-  match_mp_tac normalize_lhs_compact2>>
+  match_mp_tac normalise_lhs_compact2>>
   asm_exists_tac>>
   simp[]
 QED
 
-Theorem normalize_compact:
-  EVERY compact (normalize pbf)
+Theorem normalise_compact:
+  EVERY compact (normalise pbf)
 Proof
-  simp[normalize_def,EVERY_MAP,compact_pbc_to_npbc]
+  simp[normalise_def,EVERY_MAP,compact_pbc_to_npbc]
 QED
 
 val _ = export_theory();
