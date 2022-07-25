@@ -35,6 +35,9 @@ val strip_terminator_side = Q.prove(
 
 val r = translate pb_normaliseTheory.normalise_def;
 
+val r = translate pb_normaliseTheory.convert_pbf_def;
+val r = translate pb_normaliseTheory.full_normalise_def;
+
 val r = translate parse_constraint_def;
 val r = translate parse_constraints_def;
 
@@ -252,7 +255,7 @@ QED
 val _ = translate build_fml_def;
 
 Definition build_def:
-  build pbf = build_fml 1 (normalize pbf) LN
+  build pbf = build_fml 1 (full_normalise pbf) LN
 End
 
 val r = translate build_def;
@@ -268,7 +271,7 @@ val check_unsat_2 = (append_prog o process_topdecs) `
   case parse_pbf_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr fml =>
-  let val ls = enumerate 1 (normalize fml)
+  let val ls = enumerate 1 (full_normalise fml)
       val id = List.length ls + 1
       val arr = Array.array (2*id) None
       val arr = fill_arr arr ls
