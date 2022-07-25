@@ -3,7 +3,7 @@
 *)
 open preamble pb_preconstraintTheory graph_basicTheory pb_normaliseTheory;
 
-val _ = new_theory "max_common_induced_subgraph";
+val _ = new_theory "mcis";
 
 (* Additional graph notions *)
 

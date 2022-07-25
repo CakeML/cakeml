@@ -1,10 +1,10 @@
 (*
   A simple (unverified) parse and printer
 *)
-open preamble basis max_common_induced_subgraphTheory;
+open preamble basis mcisTheory pb_parseTheory;
 open cfLib basisFunctionsLib;
 
-val _ = new_theory "max_common_induced_subgraphProg";
+val _ = new_theory "mcisProg";
 
 val _ = translation_extends "basisProg";
 
@@ -63,7 +63,7 @@ val ladraw = ``[
 
 val pattern = rconc (EVAL``THE (parse_lad_toks (MAP toks ^(ladraw)))``)
 
-val res = EVAL``MAP (pbc_string enc_string) (encode_full ^pattern ^pattern 1)``
+val res = EVAL``MAP pbc_string (full_encode ^pattern ^pattern 1)``
 *)
 
 Definition usage_string_def:
@@ -119,7 +119,6 @@ QED
 
 val _ = translate is_edge_compute;
 
-
 val _ = translate edge_map_def;
 
 val _ = translate COUNT_LIST_AUX_def;
@@ -128,7 +127,7 @@ val _ = translate (graph_basicTheory.not_neighbours_def |> SIMP_RULE std_ss [MEM
 val _ = translate not_edge_map_def;
 val _ = translate all_full_edge_map_def;
 
-val _ = translate encode_def;
+val _ = translate encode_base_def;
 
 Definition log2_def:
   log2 n =
@@ -145,7 +144,7 @@ Proof
   cheat
 QED
 
-val _ = translate pb_preconstraintFreeTheory.negate_def;
+val _ = translate pb_preconstraintTheory.negate_def;
 val _ = translate iff_and_def;
 val _ = translate iff_or_def;
 val _ = translate walk_base_def;
@@ -155,15 +154,15 @@ val _ = translate walk_k_def;
 
 val _ = translate (encode_connected_def |> SIMP_RULE std_ss [LOG2_log2])
 
-val _ = translate encode_full_def;
+val _ = translate encode_def;
 
 Definition print_pbf_def:
-  print_pbf f = MAP (pbc_string enc_string) f
+  print_pbf f = MAP pbc_string f
 End
 
-val res = translate pb_preconstraintFreeTheory.lit_string_def;
-val res = translate pb_preconstraintFreeTheory.lhs_string_def;
-val res = translate pb_preconstraintFreeTheory.pbc_string_def;
+val res = translate lit_string_def;
+val res = translate lhs_string_def;
+val res = translate pbc_string_def;
 val res = translate enc_string_def;
 val res = translate print_pbf_def;
 
