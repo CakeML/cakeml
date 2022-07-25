@@ -279,11 +279,14 @@ Definition parse_pbpstep_def:
       else NONE)
 End
 
+(* For Con steps, either no subproof given or
+  exactly 1 subproof, possibly inside a proofgoal #1 block *)
 Definition parse_pbpsteps_aux_def:
   parse_pbpsteps_aux c s pf =
     if s = LN then
        case pf of [] => SOME (Con c [])
        | [(NONE,p)] => SOME (Con c p)
+       | [(SOME(INR ()),p)] => SOME (Con c p)
        | _ => NONE
     else SOME (Red c s pf)
 End
@@ -510,11 +513,42 @@ Definition parse_header_line_fast_def:
 End
 
 (*
-val pbpraw = ``[
-strlit"  e 679 1 x121 1 ~x127 1 ~x134 1 x144 1 ~x153 1 ~x154 1 x159 1 x165 >= 1 ;"
+val pbfraw = ``[
+strlit" * #variable= 4 #constraint= 7";
+strlit" 2 ~x1 1 ~x3 >= 1 ;";
+strlit" 1 ~x3 1 ~x5 >= 1 ;";
+strlit" 1 ~x1 1 ~x5 >= 1 ;";
+strlit" 1 ~x2 1 ~x4 1 ~x6 >= 2 ;";
+strlit" +1 x1 +1 x2 >= 1 ;";
+strlit" +1 x3 +1 x4 >= 1 ;";
+strlit" +1 x5 +1 x6 >= 1 ;"
 ]``;
 
-EVAL``parse_tops (MAP toks_fast ^(pbpraw))``
+val pbf = rconc (EVAL ``build_fml 1 (full_normalise (THE (parse_pbf ^(pbfraw)))) LN``);
+
+val pbpraw = ``[
+strlit"pseudo-Boolean proof version 1.2";
+strlit"f 7";
+strlit"pol 1 s";
+strlit"pol 8 2 + 3 +";
+strlit"pol 9 2 d";
+strlit"red 1 x1 >= 1 ; x1 -> x3 x3 -> x5 x5 -> x1 x2 -> x4 x4 -> x6 x6 -> x2 ; begin";
+strlit"e 11 1 ~x1 >= 1 ;";
+strlit"proofgoal #1";
+strlit"e 12 1 ~x3 >= 1 ;";
+strlit"pol 12 11 + 5 + 6 +";
+strlit"pol 13 4 +";
+strlit"pol 14 x6 +";
+strlit"c 15";
+strlit"end";
+strlit"proofgoal 1";
+strlit"pol 16 2 +";
+strlit"c 17";
+strlit"end";
+strlit"end";
+]``
+
+val steps = rconc (EVAL``THE (parse_pbp ^(pbpraw))``)
 
 *)
 
