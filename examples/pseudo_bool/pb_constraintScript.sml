@@ -962,8 +962,96 @@ Definition finite_support_def:
        (λv. if v ∈ z then w' v else F)
 End
 
+Theorem finite_find_min:
+  ∀s.
+  FINITE s ∧ s ≠ {} ∧
+  transitive po ⇒
+  ∃p.
+    p ∈ s ∧
+    ∀p'. p' ∈ s ∧ po p' p ⇒ po p p'
+Proof
+  Induct_on`FINITE`>>rw[]>>
+  Cases_on`s = {}`
+  >- fs[]>>
+  gvs[]>>
+  Cases_on`po e p`
+  >- (
+    qexists_tac`e`>>rw[]>>
+    fs[]>>
+    metis_tac[transitive_def])>>
+  metis_tac[]
+QED
+
+Theorem finite_support_find_min:
+  (s : ('a -> bool) -> bool) ≠ {} ∧
+  transitive po ∧
+  finite_support po z ∧ FINITE z ⇒
+  ∃p. p ∈ s ∧
+    ∀p'. p' ∈ s ∧ po p' p ⇒ po p p'
+Proof
+  rw[]>>
+  qabbrev_tac`R = λx (y:'a -> bool).
+    ∀v. v ∈ z ⇒ x v = y v`>>
+  `R equiv_on s` by (
+    fs[equiv_on_def,Abbr`R`]>>
+    metis_tac[])>>
+  qabbrev_tac`sR = partition R s`>>
+  `FINITE sR` by cheat>>
+  `∀x y z. y ∈ equiv_class R s x ⇒
+    (po y z ⇔ po x z) ∧ (po z y ⇔ po z x)` by
+    (rw[Abbr`R`]>>
+    qpat_x_assum`finite_support _ _` mp_tac>>
+    rewrite_tac[finite_support_def]>>
+    disch_then (fn th => PURE_ONCE_REWRITE_TAC [th])>>
+    qmatch_goalsub_abbrev_tac`po A C ⇔ po B D`>>
+    `A = B ∧ C = D` by(
+      unabbrev_all_tac>>
+      simp[EXTENSION]>>
+      metis_tac[])>>
+    fs[])>>
+  qabbrev_tac`spo = λS T. S ∈ sR ∧ T ∈ sR ∧
+    ∃x y. x ∈ S ∧ y ∈ T ∧ po x y`>>
+  `transitive spo` by (
+    rw[transitive_def,Abbr`spo`,Abbr`sR`]>>
+    qexists_tac`x`>>
+    qexists_tac`y'`>>
+    simp[]>>
+    qpat_x_assum`S'' ∈ parition _ _` mp_tac>>
+    simp[pred_setTheory.partition_def]>>
+    rw[]>>
+    metis_tac[transitive_def])>>
+  drule finite_find_min>>
+  disch_then (drule_at Any)>>
+  impl_tac>- (
+    fs[Abbr`sR`,pred_setTheory.partition_def,EXTENSION]>>
+    first_x_assum (irule_at Any)>>
+    qexists_tac`{y| y ∈ s ∧ R x y}`>>
+    simp[])>>
+  rw[]>>
+  fs[Abbr`sR`]>>
+  `∃pp. pp ∈ p` by (
+    `p ≠ {}` by metis_tac[EMPTY_NOT_IN_partition]>>
+    fs[EXTENSION]>>
+    metis_tac[])>>
+  qexists_tac`pp`>>rw[]
+  >- (
+    drule partition_SUBSET>>
+    fs[SUBSET_DEF])>>
+  rename1`po pp qq`>>
+  `equiv_class R s qq ∈ partition R s` by
+    (fs[pred_setTheory.partition_def] >>
+    metis_tac[])>>
+  first_x_assum drule>>
+  impl_tac>- (
+    simp[Abbr`spo`]>>
+    `R qq qq` by fs[Abbr`R`]>>
+    metis_tac[])>>
+  rw[Abbr`spo`]>>
+  gvs[pred_setTheory.partition_def]>>
+  metis_tac[]
+QED
+
 Theorem dominance:
-  (* reflexive po ∧ *)
   transitive po ∧
   finite_support po z ∧ FINITE z ∧
   C ∪ D ∪ {not c} ⊨ C ⇂ w ∧
@@ -985,8 +1073,9 @@ Proof
     metis_tac[])>>
   rename1`satisfies pold C`>>
   `∃p. p ∈ s ∧
-    ∀p'. p' ∈ s ∧ po p' p ⇒
-      ∀v. v ∈ z ⇒ p' v = p v` by cheat>>
+    ∀p'. p' ∈ s ∧ po p' p ⇒ po p p'` by
+    (match_mp_tac finite_support_find_min>>
+    fs[])>>
   qpat_x_assum`s ≠ _ ` kall_tac>>
   `satisfies p C ∧
   ∀p'.
@@ -1007,18 +1096,6 @@ Proof
   `satisfies p'' C` by (
     fs[sat_implies_def,Abbr`p''`]>>
     fs[satisfies_def,PULL_EXISTS,subst_thm,not_thm])>>
-  `?v. v ∈ z ∧ (p'' v ≠ p v)` by
-    (fs[finite_support_def]>>
-    CCONTR_TAC>>fs[]>>
-    qpat_x_assum`po _ _` mp_tac>>
-    qpat_x_assum`¬po _ _` mp_tac>>
-    qpat_x_assum`!w w'. _ ⇔ _` (fn th => PURE_ONCE_REWRITE_TAC [th])>>
-    qmatch_goalsub_abbrev_tac`po A B`>>
-    `A = B` by(
-      unabbrev_all_tac>>
-      simp[EXTENSION]>>
-      metis_tac[])>>
-    fs[])>>
   `p'' ∉ s` by metis_tac[]>>
   gs[Abbr`s`]>>
   rename1`satisfies_npbc pprime c`>>
