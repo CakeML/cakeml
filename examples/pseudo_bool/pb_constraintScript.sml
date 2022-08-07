@@ -935,4 +935,96 @@ Proof
   \\ first_x_assum $ irule_at (Pos last)
   \\ fs [satisfies_def,PULL_EXISTS,subst_thm]
 QED
+
+val _ = Parse.hide "C";
+
+Definition dom_ord_def:
+  dom_ord f po w ⇔
+  ∀z. satisfies z f ⇒
+    po (assign w z) z ∧
+    ¬po z (assign w z)
+End
+
+Definition conf_valid_def:
+  conf_valid C D po ⇔
+  ∀p.
+    satisfies p C ⇒
+    ∃p'.
+      satisfies p' (C ∪ D) ∧
+      po p' p
+End
+
+Definition finite_support_def:
+  finite_support po z ⇔
+  ∀w w'.
+    po w w' ⇔
+    po (λv. if v ∈ z then w v else F)
+       (λv. if v ∈ z then w' v else F)
+End
+
+Theorem dominance:
+  (* reflexive po ∧ *)
+  transitive po ∧
+  finite_support po z ∧ FINITE z ∧
+  C ∪ D ∪ {not c} ⊨ C ⇂ w ∧
+  dom_ord (C ∪ D ∪ {not c}) po w ∧
+  conf_valid C D po ⇒
+  conf_valid C (D ∪ {c}) po
+Proof
+  rw[conf_valid_def]>>
+  CCONTR_TAC>>
+  gs[]>>
+  fs[METIS_PROVE [] ``(A ∨ ¬B) ⇔ (¬A ⇒ ¬B)``]>>
+  qabbrev_tac`s =
+    {p |
+    satisfies p C ∧
+    ∀p'. po p' p ⇒
+      ¬satisfies p' (C ∪ D ∪ {c})}`>>
+  `s <> {}` by (
+    rw[Abbr`s`,EXTENSION]>>
+    metis_tac[])>>
+  rename1`satisfies pold C`>>
+  `∃p. p ∈ s ∧
+    ∀p'. p' ∈ s ∧ po p' p ⇒
+      ∀v. v ∈ z ⇒ p' v = p v` by cheat>>
+  qpat_x_assum`s ≠ _ ` kall_tac>>
+  `satisfies p C ∧
+  ∀p'.
+    po p' p ⇒
+    (¬satisfies p' C ∨ ¬satisfies p' D)
+      ∨ ¬satisfies_npbc p' c` by fs[Abbr`s`]>>
+  last_x_assum drule>>strip_tac>>
+  gvs[]>>
+  `~satisfies_npbc p' c` by metis_tac[]>>
+  fs[dom_ord_def,not_thm]>>
+  last_x_assum drule_all>>
+  strip_tac>>
+  qabbrev_tac`p'' = assign w p'`>>
+  `po p'' p` by
+    metis_tac[relationTheory.transitive_def]>>
+  `¬po p p''` by
+    metis_tac[relationTheory.transitive_def]>>
+  `satisfies p'' C` by (
+    fs[sat_implies_def,Abbr`p''`]>>
+    fs[satisfies_def,PULL_EXISTS,subst_thm,not_thm])>>
+  `?v. v ∈ z ∧ (p'' v ≠ p v)` by
+    (fs[finite_support_def]>>
+    CCONTR_TAC>>fs[]>>
+    qpat_x_assum`po _ _` mp_tac>>
+    qpat_x_assum`¬po _ _` mp_tac>>
+    qpat_x_assum`!w w'. _ ⇔ _` (fn th => PURE_ONCE_REWRITE_TAC [th])>>
+    qmatch_goalsub_abbrev_tac`po A B`>>
+    `A = B` by(
+      unabbrev_all_tac>>
+      simp[EXTENSION]>>
+      metis_tac[])>>
+    fs[])>>
+  `p'' ∉ s` by metis_tac[]>>
+  gs[Abbr`s`]>>
+  rename1`satisfies_npbc pprime c`>>
+  `po pprime p` by
+    metis_tac[transitive_def]>>
+  metis_tac[]
+QED
+
 val _ = export_theory();
