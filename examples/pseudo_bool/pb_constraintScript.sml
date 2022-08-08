@@ -962,7 +962,7 @@ Definition finite_support_def:
        (λv. if v ∈ z then w' v else F)
 End
 
-Theorem finite_find_min:
+Theorem FINITE_find_min:
   ∀s.
   FINITE s ∧ s ≠ {} ∧
   transitive po ⇒
@@ -982,7 +982,7 @@ Proof
   metis_tac[]
 QED
 
-Theorem finite_support_find_min:
+Theorem FINITE_support_find_min:
   (s : ('a -> bool) -> bool) ≠ {} ∧
   transitive po ∧
   finite_support po z ∧ FINITE z ⇒
@@ -996,7 +996,15 @@ Proof
     fs[equiv_on_def,Abbr`R`]>>
     metis_tac[])>>
   qabbrev_tac`sR = partition R s`>>
-  `FINITE sR` by cheat>>
+  `FINITE (POW z)` by metis_tac[FINITE_POW]>>
+  `FINITE sR` by (
+    pop_assum mp_tac>>
+    match_mp_tac (FINITE_INJ |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO])>>
+    qexists_tac`λS. {n | (∃ w. w ∈ S ∧ w n ∧ n ∈ z)}`>>
+    simp[INJ_DEF,EXTENSION,IN_POW,SUBSET_DEF,Abbr`sR`,pred_setTheory.partition_def,Abbr`R`]>>
+    rw[]>>
+    simp[]>>
+    metis_tac[])>>
   `∀x y z. y ∈ equiv_class R s x ⇒
     (po y z ⇔ po x z) ∧ (po z y ⇔ po z x)` by
     (rw[Abbr`R`]>>
@@ -1020,7 +1028,7 @@ Proof
     simp[pred_setTheory.partition_def]>>
     rw[]>>
     metis_tac[transitive_def])>>
-  drule finite_find_min>>
+  drule FINITE_find_min>>
   disch_then (drule_at Any)>>
   impl_tac>- (
     fs[Abbr`sR`,pred_setTheory.partition_def,EXTENSION]>>
@@ -1074,7 +1082,7 @@ Proof
   rename1`satisfies pold C`>>
   `∃p. p ∈ s ∧
     ∀p'. p' ∈ s ∧ po p' p ⇒ po p p'` by
-    (match_mp_tac finite_support_find_min>>
+    (match_mp_tac FINITE_support_find_min>>
     fs[])>>
   qpat_x_assum`s ≠ _ ` kall_tac>>
   `satisfies p C ∧
