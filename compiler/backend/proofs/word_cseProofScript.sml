@@ -2,7 +2,7 @@
   Correctness proof for word_cse
 *)
 open preamble alistTheory totoTheory;
-open wordLangTheory wordSemTheory wordPropsTheory word_simpTheory word_cseTheory;
+open wordLangTheory wordSemTheory wordPropsTheory reg_allocTheory word_simpTheory word_cseTheory;
 
 val _ = new_theory "word_cseProof";
 
@@ -29,15 +29,7 @@ Definition data_inv_def:
                 ∃w. word_exp s (Op op [Var src; Lookup CurrHeap]) = SOME w ∧
                     get_var v s = SOME w) ∧
     map_ok data.instrs
-    (*
-    (∀r (c:'a word) x v. lookup data.inst_instrs (instToNumList (Const r c)) = SOME x ⇒
-           x IN domain data.all_names ∧ get_var x s = SOME (Word c)) ∧
-    (∀r v (a:'a arith). lookup data.inst_instrs (instToNumList (Arith a)) = SOME v ∧ firstRegOfArith a = r ⇒
-             get_var r s = get_var v s ∧
-             r IN domain data.all_names ∧ v IN domain data.all_names)
-     *)
 End
-(* domain_lookup lookup_insert*)
 
 Theorem canonicalRegs_correct[simp]:
   ∀data r s. data_inv data s ⇒ get_var (canonicalRegs data r) s = get_var r s
@@ -201,6 +193,74 @@ Proof
   \\ Cases_on ‘c' = 0w’ \\ gvs []
   \\ gvs [state_component_equality, firstRegOfArith_def]
   \\ gvs [insert_eq]
+QED
+
+Theorem evaluate_remove_insert_arith:
+  ∀a w s r v. ¬is_seen r data ⇒
+              ¬is_complex a ⇒
+              are_reads_seen a data ⇒
+              evaluate (Inst (Arith a), set_var r v s) =
+              (NONE, set_var (firstRegOfArith a) w (set_var r v s)) ⇒
+                evaluate (Inst (Arith a), s) = (NONE, set_var (firstRegOfArith a) w s)
+Proof
+  rpt strip_tac
+  \\ Cases_on ‘a’ \\ gvs [is_complex_def, are_reads_seen_def]
+  >- (Cases_on ‘r'’ \\ gvs [are_reads_seen_def]
+      \\ gvs [evaluate_def, inst_def, assign_def, word_exp_def, the_words_def]
+      >- (Cases_on ‘n0=r’ \\ gvs [set_var_def, lookup_insert]
+          \\ Cases_on ‘n'=r’ \\ gvs [AllCaseEqs(), firstRegOfArith_def]
+          \\ gvs [state_component_equality]
+          \\ gvs [insert_eq])
+      \\ Cases_on ‘n0=r’ \\ gvs [set_var_def, lookup_insert]
+      \\ gvs [AllCaseEqs(), firstRegOfArith_def]
+      \\ gvs [state_component_equality]
+      \\ gvs [insert_eq])
+  >- (gvs [evaluate_def, inst_def, assign_def, word_exp_def, the_words_def]
+          \\ gvs [set_var_def, lookup_insert]
+      \\ Cases_on ‘lookup n0 s.locals’ \\ gvs []
+      \\ Cases_on ‘n0=r’ \\ gvs [AllCaseEqs()]
+      \\ gvs [state_component_equality, firstRegOfArith_def]
+      \\ gvs [insert_eq])
+  \\ gvs [evaluate_def, inst_def, assign_def]
+  \\ gvs [get_vars_def, get_var_def, set_var_def, lookup_insert]
+  \\ Cases_on ‘n1=r’ \\ gvs []
+  \\ Cases_on ‘n0=r’ \\ gvs []
+  \\ Cases_on ‘lookup n1 s.locals’ \\ gvs []
+  \\ Cases_on ‘lookup n0 s.locals’ \\ gvs []
+  \\ Cases_on ‘x'’ \\ gvs []
+  \\ Cases_on ‘x’ \\ gvs []
+  \\ Cases_on ‘c' = 0w’ \\ gvs []
+  \\ gvs [state_component_equality, firstRegOfArith_def]
+  \\ gvs [insert_eq]
+QED
+
+Theorem data_inv_set_var:
+  ∀data s n v. ¬is_seen n data ⇒ data_inv data (set_var n v s) = data_inv data s
+Proof
+  rpt gen_tac \\ strip_tac
+  \\ eq_tac
+  >- (strip_tac \\ gvs [data_inv_def]
+      \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac \\ first_x_assum drule \\ strip_tac \\ gvs []
+      >- (Cases_on ‘r=n’ \\ Cases_on ‘v'=n’
+          \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def])
+      >- (Cases_on ‘v'=n’
+          \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def])
+      >- (drule_all evaluate_remove_insert_arith
+          \\ Cases_on ‘v'=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def])
+      \\ Cases_on ‘v'=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def]
+      \\ gvs [word_exp_def, the_words_def, lookup_insert]
+      \\ Cases_on ‘src=n’ \\ gvs [])
+  \\ strip_tac \\ gvs [data_inv_def]
+  \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac \\ first_x_assum drule \\ strip_tac \\ gvs []
+  >- (Cases_on ‘r=n’ \\ Cases_on ‘v'=n’
+      \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def])
+  >- (Cases_on ‘v'=n’
+      \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def])
+  >- (drule_all evaluate_arith_insert
+      \\ Cases_on ‘v'=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def])
+  \\ Cases_on ‘v'=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def]
+  \\ gvs [word_exp_def, the_words_def, lookup_insert]
+  \\ Cases_on ‘src=n’ \\ gvs []
 QED
 
 Theorem not_seen_data_inv_alist_insert[simp]:
@@ -956,6 +1016,17 @@ Proof
       \\ Cases_on ‘src=n’ \\ gvs [word_exp_def, lookup_insert])
 QED
 
+Theorem data_inv_Arith_update:
+  ∀data s a s'.
+    data_inv data s ∧
+    inst (Arith a) s = SOME s' ∧
+    ¬is_complex a ∧ ¬is_seen (firstRegOfArith a) data ⇒
+      data_inv data s'
+Proof
+  rpt strip_tac
+  \\ Cases_on ‘a’ \\ gvs [is_complex_def, inst_def, assign_def, firstRegOfArith_def, AllCaseEqs(), data_inv_set_var]
+QED
+
 Theorem comp_Inst_correct:
   ^(get_goal "Inst")
 Proof
@@ -975,8 +1046,8 @@ Proof
      \\ Cases_on ‘is_seen n data’ \\ gvs [evaluate_def, inst_def, assign_def]
      \\ gvs [add_to_data_def, add_to_data_aux_def]
      \\ Cases_on ‘lookup data.instrs (instToNumList (Const n c))’
-     \\ gvs [evaluate_def, inst_def, assign_def]
-     >- (gvs [data_inv_def]
+     >- (Cases_on ‘EVEN n’ \\ gvs [evaluate_def, inst_def, assign_def, data_inv_set_var]
+         \\ gvs [data_inv_def]
          \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
          >- (first_x_assum drule \\ strip_tac
              \\ Cases_on ‘r=n’ \\ Cases_on ‘v=n’
@@ -996,8 +1067,9 @@ Proof
          \\ Cases_on ‘src=n’ \\ gvs [is_seen_def, lookup_insert]
          \\ Cases_on ‘v=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup]
          \\ gvs [word_exp_def, the_words_def, lookup_insert])
+     \\ Cases_on ‘EVEN n’ \\ gvs [evaluate_def, inst_def, assign_def, data_inv_set_var]
      \\ gvs [data_inv_def]
-     \\ first_assum drule \\ pop_assum kall_tac \\ strip_tac
+     \\ first_assum drule \\ pop_assum kall_tac \\ pop_assum kall_tac \\ strip_tac
      \\ gvs [get_vars_def, get_var_def, set_vars_def, alist_insert_def, set_var_def, word_exp_def]
      \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
      >- (Cases_on ‘r=n’ \\ Cases_on ‘v=n’ \\ gvs [lookup_insert, domain_lookup, is_seen_def]
@@ -1018,9 +1090,15 @@ Proof
      \\ drule_all are_reads_seen_canonical \\ strip_tac \\ gvs []
      \\ Cases_on ‘are_reads_seen a data’ \\ gvs [evaluate_def]
      \\ Cases_on ‘inst (Arith a) s’ \\ gvs [add_to_data_def, add_to_data_aux_def]
-     \\ Cases_on ‘lookup data.instrs (instToNumList (Arith (canonicalArith data a)))’ \\ gvs [evaluate_def]
-     >- (drule_all Inst_Arith_NONE_lemma \\ rw [])
-     \\ drule_all Inst_Arith_SOME_lemma \\ rw []
+     \\ Cases_on ‘lookup data.instrs (instToNumList (Arith (canonicalArith data a)))’ \\ gvs []
+     >- (Cases_on ‘EVEN (firstRegOfArith a)’ \\ gvs [evaluate_def]
+         >- (drule_all data_inv_Arith_update \\ rw [])
+         \\ drule_all Inst_Arith_NONE_lemma \\ rw [])
+     \\ ‘data_inv data' s' ∧ p = Move 0 [(firstRegOfArith a,x)]’
+       by (Cases_on ‘EVEN (firstRegOfArith a)’ \\ gvs [evaluate_def]
+           >- (drule_all data_inv_Arith_update \\ rw [])
+           \\ drule_all Inst_Arith_SOME_lemma \\ rw [])
+     \\ gvs [evaluate_def]
      \\ pop_assum kall_tac
      \\ gvs [get_vars_def, data_inv_def]
      \\ first_x_assum drule \\ pop_assum kall_tac \\ strip_tac \\ gvs []
@@ -1152,9 +1230,8 @@ Proof
   \\ Cases_on ‘is_seen src data’ \\ gvs []
   \\ gvs [add_to_data_aux_def]
   \\ Cases_on ‘lookup data.instrs (OpCurrHeapToNumList b (canonicalRegs data src))’ \\ gvs []
-  >- (gvs [evaluate_def, word_exp_def]
-      \\ strip_tac \\ gvs []
-      \\ gvs [AllCaseEqs()]
+  >- (Cases_on ‘EVEN dst’
+      \\ gvs [evaluate_def, word_exp_def, AllCaseEqs(), data_inv_set_var]
       \\ gvs [data_inv_def]
       \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
       >- (first_x_assum drule \\ strip_tac
@@ -1185,50 +1262,34 @@ Proof
       \\ Cases_on ‘src'=dst’ \\ gvs [lookup_insert]
       \\ gvs [word_exp_def, set_var_def, get_var_def, lookup_insert]
       \\ Cases_on ‘v=dst’ \\ gvs [domain_lookup])
-  \\ gvs [evaluate_def, AllCaseEqs()]
-  \\ gvs [data_inv_def]
-  \\ first_assum drule \\ strip_tac
-  \\ gvs [get_vars_def, set_vars_def, alist_insert_def, set_var_def]
-  \\ gvs [canonicalRegs_def, lookup_any_def]
-  \\ Cases_on ‘lookup src data.map’ \\ gvs []
-  >- (rpt conj_tac \\ rpt gen_tac \\ strip_tac
-      >- (Cases_on ‘r=dst’ \\ gvs [get_var_def, lookup_insert]
-          \\ pop_assum kall_tac \\ first_x_assum drule \\ first_x_assum drule \\ strip_tac
-          \\ Cases_on ‘v=dst’ \\ gvs [domain_lookup, is_seen_def])
-      >- (first_x_assum drule \\ first_x_assum drule \\ strip_tac
-          \\ Cases_on ‘v=dst’ \\ gvs [lookup_insert, domain_lookup, is_seen_def])
-      >- (first_x_assum drule \\ strip_tac \\ first_x_assum drule \\ strip_tac
-          \\ gvs [get_var_def]
-          \\ Cases_on ‘v=dst’ \\ gvs [domain_lookup, lookup_insert, is_seen_def]
-          \\ pop_assum kall_tac
-          \\ ‘evaluate (Inst (Arith a),s) = (NONE, set_var (firstRegOfArith a) w'' s)’ by gvs [set_var_def]
-          \\ drule_at (Pos last) evaluate_arith_insert
-          \\ strip_tac \\ gvs [is_seen_def] \\ first_x_assum drule_all \\ strip_tac
-          \\ gvs [set_var_def])
+  \\ ‘p' = Move 0 [(dst,x)]’ by gvs [AllCaseEqs()] \\ gvs []
+  \\ conj_tac
+  >- (drule canonicalRegs_correct_bis \\ strip_tac
+      \\ gvs [evaluate_def, AllCaseEqs(), data_inv_def]
       \\ first_x_assum drule \\ strip_tac
-      \\ gvs [get_var_def]
-      \\ Cases_on ‘v=dst’ \\ gvs [lookup_insert, domain_lookup, is_seen_def]
-      \\ Cases_on ‘src'=dst’ \\ gvs []
-      \\ gvs [word_exp_def, the_words_def, lookup_insert])
-  \\ last_assum drule \\ pop_assum kall_tac \\ strip_tac
-  \\ Cases_on ‘lookup x' s.locals = lookup src s.locals’ \\ gvs [get_var_def, word_exp_def]
+      \\ gvs [word_exp_def, the_words_def, AllCaseEqs()]
+      \\ gvs [get_vars_def, set_vars_def, alist_insert_def, set_var_def]
+     )
+  \\ strip_tac
+  \\ Cases_on ‘EVEN dst’ \\ gvs [evaluate_def, AllCaseEqs(), data_inv_set_var]
+  \\ drule canonicalRegs_correct
+  \\ gvs [data_inv_def]
+  \\ first_assum drule \\ pop_assum kall_tac \\ pop_assum kall_tac
+  \\ strip_tac \\ strip_tac
   \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
-  >- (Cases_on ‘r=dst’ \\ gvs [lookup_insert, domain_lookup, is_seen_def]
-      \\ last_x_assum drule \\ strip_tac
-      \\ Cases_on ‘v=dst’ \\ gvs [])
-  >- (last_x_assum drule \\ strip_tac
-      \\ Cases_on ‘v=dst’ \\ gvs [lookup_insert, domain_lookup, is_seen_def])
-  >- (last_x_assum drule \\ strip_tac
-      \\ Cases_on ‘dst=v’ \\ gvs [lookup_insert, domain_lookup, is_seen_def]
-      \\ pop_assum kall_tac
-      \\ ‘evaluate (Inst (Arith a),s) = (NONE, set_var (firstRegOfArith a) w'' s)’ by gvs [set_var_def]
-      \\ drule_at (Pos last) evaluate_arith_insert
-      \\ strip_tac \\ gvs [is_seen_def] \\ first_x_assum drule_all \\ strip_tac
-      \\ gvs [set_var_def])
-  \\ first_x_assum drule \\ strip_tac
+  >- (gvs [word_exp_def, the_words_def, get_var_def, AllCaseEqs()]
+      \\ Cases_on ‘r=dst’ \\ gvs [set_var_def, lookup_insert]
+      \\ first_x_assum drule \\ strip_tac
+      \\ Cases_on ‘v=dst’ \\ gvs [is_seen_def, domain_lookup])
+  >- (first_x_assum drule \\ strip_tac
+      \\ Cases_on ‘v=dst’ \\ gvs [set_var_def, lookup_insert, domain_lookup, is_seen_def])
+  >- (first_x_assum drule \\ strip_tac
+      \\ drule_all evaluate_arith_insert
+      \\ Cases_on ‘v=dst’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def])
+  \\ first_x_assum drule \\ strip_tac \\ gvs []
   \\ Cases_on ‘v=dst’ \\ gvs [lookup_insert, domain_lookup, is_seen_def]
   \\ Cases_on ‘src'=dst’ \\ gvs []
-  \\ gvs [word_exp_def, the_words_def, lookup_insert]
+  \\ gvs [word_exp_def, the_words_def, get_var_def, set_var_def, lookup_insert]
 QED
 
 Theorem comp_Store_correct:
@@ -1388,7 +1449,10 @@ Proof
   rpt gen_tac \\ strip_tac
   \\ rpt (pop_assum kall_tac)
   \\ rpt gen_tac \\ strip_tac
-  \\ gvs [word_cse_def]
+  \\ gvs [word_cse_def, AllCaseEqs()]
+  \\ pairarg_tac \\ gvs []
+  \\ gvs [evaluate_def]
+  \\ gvs [AllCaseEqs(), add_ret_loc_def]
 QED
 
 (* DATA EMPTY *)
@@ -1405,6 +1469,691 @@ Proof
      comp_Install_correct,comp_CodeBufferWrite_correct,comp_DataBufferWrite_correct,
      comp_FFI_correct,comp_OpCurrHeap_correct,comp_Call_correct
     ]
+QED
+
+Definition data_conventions_def:
+  data_conventions (data:knowledge) ⇔
+    (∀r v. lookup r data.map = SOME v ⇒
+           ¬EVEN r ∧ ¬EVEN v ∧ is_seen r data ∧ is_seen v data) ∧
+    (∀r l. lookup data.instrs l = SOME r ⇒
+           ¬EVEN r ∧ is_seen r data) ∧
+    (∀r. is_seen r data ⇒ ¬EVEN r) ∧
+    map_ok data.instrs
+End
+
+Theorem empty_data_conventions[simp]:
+  ∀data. data_conventions empty_data
+Proof
+  gvs [data_conventions_def, empty_data_def, lookup_def, is_seen_def]
+QED
+
+Theorem almost_empty_data_conventions[simp]:
+  ∀data an. data_conventions data ⇒ data_conventions (empty_data with all_names:=data.all_names)
+Proof
+  gvs [data_conventions_def, empty_data_def, lookup_def, is_seen_def]
+QED
+
+(*Theorem almost_empty_data_conventions_any:
+  ∀an. data_conventions (empty_data with all_names:=an)
+Proof
+  EVAL_TAC \\ gvs [lookup_def]
+QED*)
+
+Theorem MAP_FST_simp:
+  ∀l f. MAP FST (MAP (λ(a,b). (a, f b)) l) = MAP FST l
+Proof
+  Induct \\ gvs []
+  \\ Cases_on ‘h’ \\ gvs []
+QED
+
+Theorem MAP_SND_simp:
+  ∀l f. MAP SND (MAP (λ(a,b). (a,f b)) l) = MAP f (MAP SND l)
+Proof
+  Induct \\ gvs []
+  \\ Cases_on ‘h’ \\ gvs []
+QED
+
+Theorem is_phy_var_EVEN:
+  ∀x. is_phy_var x ⇔ EVEN x
+Proof
+  gvs [is_phy_var_def, EVEN_MOD2]
+QED
+
+Theorem is_phy_var_canonicalRegs:
+  ∀data r. data_conventions data ⇒ (is_phy_var (canonicalRegs data r) ⇔ is_phy_var r)
+Proof
+  rpt gen_tac \\ strip_tac \\ gvs [data_conventions_def, lookup_any_def, canonicalRegs_def]
+  \\ Cases_on ‘lookup r data.map’ \\ gvs []
+  \\ last_x_assum drule \\ strip_tac \\ gvs [is_phy_var_EVEN]
+QED
+
+Theorem EVERY_is_phy_var_canonicalRegs:
+  ∀l data.
+    EVERY is_phy_var (MAP SND l) ∧ data_conventions data ⇒
+    EVERY is_phy_var (MAP (λb. canonicalRegs data b) (MAP SND l))
+Proof
+  Induct \\ gvs []
+  \\ rpt gen_tac \\ Cases_on ‘h’ \\ gvs [is_phy_var_canonicalRegs]
+QED
+
+Theorem lookup_map_insert:
+  ∀l m r v. lookup r (map_insert l m) = if ∃v. ALOOKUP l r = SOME v then ALOOKUP l r else lookup r m
+Proof
+  Induct \\ gvs [map_insert_def]
+  \\ rpt gen_tac \\ Cases_on ‘h’
+  \\ gvs [map_insert_def, lookup_insert]
+  \\ Cases_on ‘q=r’ \\ gvs []
+QED
+
+Theorem ALOOKUP_LOOKUP:
+  ∀l r v. ALOOKUP l r = SOME v ⇒ MEM (r,v) l
+Proof
+  Induct \\ gvs [] \\ rpt gen_tac
+  \\ Cases_on ‘h’ \\ gvs [AllCaseEqs()]
+  \\ strip_tac \\ gvs []
+QED
+
+Theorem lookup_insert_instrs:
+  ∀r n l1 l2 data.
+    map_ok data.instrs ⇒
+    lookup (insert data.instrs l1 n) l2 = SOME r ⇒
+    (if l1 = l2 then SOME n else lookup data.instrs l2) = SOME r
+Proof
+  gvs [mlmapTheory.lookup_insert]
+QED
+
+Theorem lookup_SOME_map_insert:
+  ∀l r v data. lookup r (map_insert l data.map) = SOME v ⇒
+               (MEM (r,v) l ∨ lookup r data.map = SOME v)
+Proof
+  Induct \\ gvs [map_insert_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ Cases_on ‘h’ \\ gvs [map_insert_def]
+  \\ Cases_on ‘r=q’ \\ gvs [lookup_insert]
+QED
+
+Theorem is_seen_list_insert:
+  ∀l (r:num) map. lookup r map = SOME () ⇒ lookup r (list_insert l map) = SOME ()
+Proof
+  Induct \\ rpt gen_tac
+  \\ gvs [list_insert_def]
+  \\ first_x_assum (qspecl_then [‘r’, ‘insert h () map'’] assume_tac) \\ gvs []
+  \\ Cases_on ‘r=h’ \\ gvs [lookup_insert]
+QED
+
+Theorem lookup_SOME_list_insert:
+  ∀l r map. lookup r (list_insert l map) = SOME () ⇒
+             (MEM r l ∨ lookup r map = SOME ())
+Proof
+  Induct \\ gvs [list_insert_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ first_x_assum drule \\ strip_tac \\ gvs []
+  \\ Cases_on ‘r=h’ \\ gvs [lookup_insert]
+QED
+
+Theorem lookup_SOME_list_insert_RW:
+  ∀l r map. lookup r (list_insert l map) = if MEM r l then SOME () else lookup r map
+Proof
+  Induct \\ gvs [list_insert_def]
+  \\ rpt gen_tac
+  \\ Cases_on ‘r=h’ \\ gvs [lookup_insert]
+QED
+
+Theorem word_cse_data_conventions:
+  ∀p data.
+    let data' = FST (word_cse data p) in
+      data_conventions data ⇒ data_conventions data'
+Proof
+  Induct \\ gvs [flat_exp_conventions_def, word_cse_def, AllCaseEqs()]
+  \\ rpt gen_tac \\ strip_tac
+  >- (pairarg_tac \\ gvs []
+      \\ gvs [canonicalMoveRegs3_def, AllCaseEqs()]
+      \\ gvs [data_conventions_def]
+      \\ rpt conj_tac \\ rpt gen_tac
+      >- (strip_tac
+          \\ drule lookup_SOME_map_insert
+          \\ strip_tac
+          >- (gvs [MEM_FILTER, MEM_MAP, EVERY_MEM]
+              \\ first_assum drule \\ strip_tac
+              \\ first_assum drule \\ strip_tac
+              \\ Cases_on ‘y’ \\ gvs [is_seen_def]
+              >- (gvs [lookup_SOME_list_insert_RW, MEM_FILTER]
+                  \\ ‘MEM (q,r') l ⇒ MEM q (MAP FST l)’
+                    by (rpt (first_x_assum kall_tac) \\ strip_tac
+                        \\ Induct_on ‘l’ \\ gvs []
+                        \\ gen_tac \\ Cases_on ‘h’ \\ gvs []
+                        \\ strip_tac \\ gvs [])
+                  \\ first_x_assum drule \\ strip_tac \\ gvs [ODD_EVEN]
+                  \\ ‘¬EVEN r'’
+                    by (gvs [canonicalRegs_def, lookup_any_def]
+                        \\ Cases_on ‘lookup r' data.map’ \\ gvs []))
+              \\ gvs [lookup_SOME_list_insert_RW, MEM_FILTER, ODD_EVEN]
+              \\ strip_tac
+              >- (Cases_on ‘MEM q (MAP FST l)’ \\ gvs [] \\ gvs [MEM_MAP])
+              \\ Cases_on ‘MEM (canonicalRegs data r') (MAP FST l)’ \\ gvs []
+              \\ Cases_on ‘lookup r' data.map’ \\ simp [canonicalRegs_def, lookup_any_def]
+              \\ last_x_assum drule \\ strip_tac)
+          \\ last_x_assum drule \\ strip_tac \\ gvs [is_seen_def]
+          \\ Cases_on ‘lookup v data.all_names’ \\ gvs []
+          \\ drule is_seen_list_insert \\ gvs []
+          \\ Cases_on ‘lookup r data.all_names’ \\ gvs []
+          \\ drule is_seen_list_insert \\ gvs []
+         )
+      >- (strip_tac \\ first_x_assum drule \\ strip_tac
+          \\ Cases_on ‘lookup r data.all_names’
+          \\ gvs [is_seen_def, is_seen_list_insert])
+      \\ gvs [is_seen_def] \\ strip_tac
+      \\ Cases_on ‘lookup r (list_insert (FILTER ODD (MAP FST l)) data.all_names)’ \\ gvs []
+      \\ drule lookup_SOME_list_insert \\ strip_tac
+      >- gvs [MEM_FILTER, ODD_EVEN]
+      \\ ‘is_seen r data’ by gvs [is_seen_def]
+      \\ gvs [is_seen_def])
+  >- (pairarg_tac
+      \\ Cases_on ‘i’ \\ gvs [word_cseInst_def, AllCaseEqs()]
+      >- (gvs [add_to_data_def, add_to_data_aux_def, AllCaseEqs()]
+          \\ gvs [data_conventions_def]
+          >- (rpt conj_tac \\ rpt gen_tac
+              \\ strip_tac
+              >- (first_x_assum drule \\ strip_tac
+                  \\ Cases_on ‘r=n’ \\ Cases_on ‘v=n’ \\ gvs [lookup_insert, is_seen_def])
+              >- (drule_all lookup_insert_instrs \\ strip_tac \\ gvs [AllCaseEqs(), is_seen_def]
+                  \\ first_x_assum drule
+                  \\ Cases_on ‘r=n’ \\ gvs [lookup_insert])
+              \\ Cases_on ‘r=n’ \\ gvs [is_seen_def, lookup_insert])
+          \\ rpt conj_tac \\ rpt gen_tac
+          \\ strip_tac
+          >- (Cases_on ‘r=n’ \\ gvs [is_seen_def, lookup_insert]
+              >- (Cases_on ‘r'=n’ \\ gvs []
+                  \\ last_x_assum drule \\ gvs [])
+              \\ Cases_on ‘v=n’ \\ gvs []
+              \\ last_x_assum drule \\ gvs [])
+          >- (first_x_assum drule \\ strip_tac
+              \\ Cases_on ‘r=n’ \\ gvs [is_seen_def, lookup_insert])
+          \\ Cases_on ‘r=n’ \\ gvs [is_seen_def, lookup_insert])
+      >- (gvs [add_to_data_def, add_to_data_aux_def, AllCaseEqs()]
+          \\ gvs [data_conventions_def]
+          >- (rpt conj_tac \\ rpt gen_tac
+              \\ strip_tac
+              >- (first_x_assum drule \\ strip_tac
+                  \\ Cases_on ‘r=firstRegOfArith a’
+                  \\ Cases_on ‘v=firstRegOfArith a’
+                  \\ gvs [lookup_insert, is_seen_def])
+              >- (drule_all lookup_insert_instrs \\ strip_tac \\ gvs [AllCaseEqs(), is_seen_def]
+                  \\ first_x_assum drule
+                  \\ Cases_on ‘r=firstRegOfArith a’ \\ gvs [lookup_insert])
+              \\ Cases_on ‘r=firstRegOfArith a’ \\ gvs [is_seen_def, lookup_insert])
+          \\ rpt conj_tac \\ rpt gen_tac
+          \\ strip_tac
+          >- (Cases_on ‘r = firstRegOfArith a’ \\ gvs [is_seen_def, lookup_insert]
+              >- (Cases_on ‘r'=firstRegOfArith a’ \\ gvs []
+                  \\ last_x_assum drule \\ gvs [])
+              \\ Cases_on ‘v=firstRegOfArith a’ \\ gvs []
+              \\ last_x_assum drule \\ gvs [])
+          >- (first_x_assum drule \\ strip_tac
+              \\ Cases_on ‘r=firstRegOfArith a’ \\ gvs [is_seen_def, lookup_insert])
+          \\ Cases_on ‘r=firstRegOfArith a’ \\ gvs [is_seen_def, lookup_insert])
+      \\ Cases_on ‘a’ \\ gvs [word_cseInst_def, AllCaseEqs()])
+  >- (Cases_on ‘is_seen n data’ \\ gvs [])
+  >- (Cases_on ‘s=CurrHeap’ \\ gvs [])
+  >- (pairarg_tac \\ first_x_assum drule \\ gvs [])
+  >- (Cases_on ‘o'’ \\ gvs []
+      \\ Cases_on ‘x’ \\ gvs []
+      \\ Cases_on ‘r’ \\ gvs []
+      \\ gvs [data_conventions_def]
+      \\ gvs [empty_data_def, lookup_def, is_seen_def, lookup_inter]
+      \\ gen_tac \\ Cases_on ‘lookup r data.all_names’ \\ gvs [])
+  >- (pairarg_tac \\ gvs []
+      \\ pairarg_tac \\ gvs []
+      \\ last_x_assum drule \\ strip_tac
+      \\ last_x_assum drule \\ strip_tac
+      \\ gvs [])
+  >- (pairarg_tac \\ gvs []
+      \\ pairarg_tac \\ gvs []
+      \\ last_x_assum drule \\ strip_tac
+      \\ last_x_assum drule \\ strip_tac
+      \\ gvs [data_conventions_def, empty_data_def, lookup_def, is_seen_def, lookup_inter]
+      \\ gen_tac \\ Cases_on ‘lookup r data1.all_names’ \\ gvs [])
+  >- (Cases_on ‘is_seen n data’ \\ gvs []
+      \\ Cases_on ‘is_seen n0 data’ \\ gvs [add_to_data_aux_def]
+      \\ Cases_on ‘lookup data.instrs (OpCurrHeapToNumList b (canonicalRegs data n0))’
+      \\ Cases_on ‘EVEN n’ \\ gvs []
+      \\ gvs [data_conventions_def]
+      >- (rpt conj_tac \\ rpt gen_tac
+          \\ strip_tac
+          >- (last_x_assum drule \\ strip_tac
+              \\ Cases_on ‘r=n’ \\ Cases_on ‘v=n’ \\ gvs [lookup_insert, is_seen_def])
+          >- (drule_all lookup_insert_instrs \\ strip_tac \\ gvs [AllCaseEqs(), is_seen_def]
+              \\ last_x_assum drule
+              \\ Cases_on ‘r=n’ \\ gvs [lookup_insert])
+          \\ Cases_on ‘r=n’ \\ gvs [is_seen_def, lookup_insert])
+      \\ rpt conj_tac \\ rpt gen_tac
+      \\ strip_tac
+      >- (Cases_on ‘r=n’ \\ gvs [is_seen_def, lookup_insert]
+          \\ Cases_on ‘v=n’ \\ gvs []
+          \\ last_x_assum drule \\ gvs [])
+      >- (last_x_assum drule \\ strip_tac
+          \\ Cases_on ‘r=n’ \\ gvs [is_seen_def, lookup_insert])
+      \\ Cases_on ‘r=n’ \\ gvs [is_seen_def, lookup_insert])
+  \\ Cases_on ‘is_seen n data’ \\ gvs []
+QED
+
+Theorem word_cse_flat_exp_conventions:
+  ∀p data.
+    let p' = SND (word_cse data p) in
+      flat_exp_conventions p ⇒ flat_exp_conventions p'
+Proof
+  Induct \\ gvs [flat_exp_conventions_def, word_cse_def, AllCaseEqs()]
+  >- (Cases_on ‘canonicalMoveRegs3 data l’ \\ gvs [flat_exp_conventions_def])
+  >- (rpt gen_tac
+      \\ pairarg_tac \\ gvs []
+      \\ Cases_on ‘i’ \\ gvs [word_cseInst_def, flat_exp_conventions_def,
+                              add_to_data_def, add_to_data_aux_def, AllCaseEqs()]
+      \\ Cases_on ‘a’ \\ gvs [word_cseInst_def, flat_exp_conventions_def, AllCaseEqs()])
+  >- (Cases_on ‘is_seen n data’ \\ gvs [flat_exp_conventions_def])
+  >- (Cases_on ‘s = CurrHeap’ \\ Cases_on ‘e’ \\ gvs [flat_exp_conventions_def, canonicalExp_def])
+  >- (gen_tac \\ first_x_assum (qspec_then ‘data’ assume_tac)
+      \\ Cases_on ‘word_cse data p’ \\ gvs [flat_exp_conventions_def])
+  >- (Cases_on ‘o'’ \\ gvs [flat_exp_conventions_def]
+      \\ Cases_on ‘x’ \\ gvs []
+      \\ Cases_on ‘r’ \\ gvs [flat_exp_conventions_def])
+  >- (gen_tac \\ strip_tac
+      \\ rpt (first_x_assum drule \\ strip_tac)
+      \\ Cases_on ‘word_cse data p’ \\ gvs []
+      \\ first_x_assum (qspec_then ‘data’ assume_tac) \\ gvs []
+      \\ Cases_on ‘word_cse q p'’ \\ gvs []
+      \\ first_x_assum (qspec_then ‘q’ assume_tac) \\ gvs [flat_exp_conventions_def])
+  >- (rpt gen_tac
+      \\ Cases_on ‘word_cse data p’ \\ gvs []
+      \\ Cases_on ‘word_cse data p'’ \\ gvs []
+      \\ strip_tac \\ gvs []
+      \\ last_x_assum (qspec_then ‘data’ assume_tac) \\ gvs []
+      \\ last_x_assum (qspec_then ‘data’ assume_tac) \\ gvs [flat_exp_conventions_def])
+  >- (Cases_on ‘is_seen n data ∨ ¬is_seen n0 data’ \\ gvs [flat_exp_conventions_def]
+      \\ gvs [add_to_data_aux_def]
+      \\ Cases_on ‘lookup data.instrs (OpCurrHeapToNumList b (canonicalRegs data n0))’
+      \\ Cases_on ‘EVEN n’ \\ gvs [flat_exp_conventions_def])
+  >- (Cases_on ‘is_seen n data’ \\ gvs [flat_exp_conventions_def])
+QED
+
+Theorem inst_ok_canonicalArith_lemma:
+  ∀a data c.
+    data_conventions data ⇒
+    ¬is_seen (firstRegOfArith a) data ⇒
+    inst_ok_less c (Arith a) ⇒
+    inst_ok_less c (Arith (canonicalArith data a))
+Proof
+  rpt strip_tac
+  \\ Cases_on ‘a’ \\ gvs [inst_ok_less_def, canonicalArith_def, canonicalRegs_def, lookup_any_def]
+  >- (Cases_on ‘r’ \\ gvs [canonicalImmReg_def, inst_ok_less_def])
+  >- (strip_tac \\ gvs [data_conventions_def]
+      \\ Cases_on ‘lookup n1 data.map’ \\ gvs []
+      \\ Cases_on ‘lookup n2 data.map’ \\ gvs []
+      \\ first_assum drule \\ first_x_assum kall_tac \\ strip_tac
+      \\ Cases_on ‘n=x’ \\ gvs [firstRegOfArith_def]
+      \\ last_x_assum drule \\ gvs []
+      \\ Cases_on ‘n=x'’ \\ gvs [])
+  \\ (strip_tac \\ gvs [data_conventions_def]
+      \\ Cases_on ‘lookup n1 data.map’ \\ gvs []
+      \\ first_x_assum drule \\ strip_tac \\ gvs []
+      \\ Cases_on ‘n=x’ \\ gvs [firstRegOfArith_def])
+QED
+
+Theorem word_cse_full_inst_ok_less:
+  ∀p data c.
+    let p' = SND (word_cse data p) in
+      data_conventions data ⇒
+      full_inst_ok_less c p ⇒ full_inst_ok_less c p'
+Proof
+  Induct \\ gvs [full_inst_ok_less_def, word_cse_def]
+  >- (Cases_on ‘canonicalMoveRegs3 data l’ \\ gvs [full_inst_ok_less_def])
+  >- (rpt gen_tac
+      \\ Cases_on ‘i’ \\ gvs [word_cseInst_def, full_inst_ok_less_def]
+      >- (Cases_on ‘is_seen n data’ \\ gvs [full_inst_ok_less_def, add_to_data_def, add_to_data_aux_def]
+          \\ Cases_on ‘lookup data.instrs (instToNumList (Const n c'))’
+          \\ Cases_on ‘EVEN n’ \\ gvs [full_inst_ok_less_def])
+      >- (Cases_on ‘is_seen (firstRegOfArith a) data’
+          \\ Cases_on ‘is_complex a’
+          \\ Cases_on ‘are_reads_seen (canonicalArith data a) data’
+          \\ gvs [full_inst_ok_less_def, inst_ok_less_def, add_to_data_def, add_to_data_aux_def, canonicalArith_def]
+          \\ Cases_on ‘lookup data.instrs (instToNumList (Arith (canonicalArith data a)))’
+          \\ Cases_on ‘EVEN (firstRegOfArith a)’
+          \\ gvs [full_inst_ok_less_def, inst_ok_canonicalArith_lemma])
+      \\ Cases_on ‘a’ \\ gvs [word_cseInst_def, full_inst_ok_less_def]
+      \\ Cases_on ‘is_store m’ \\ gvs [full_inst_ok_less_def]
+      \\ Cases_on ‘is_seen n data’ \\ gvs [inst_ok_less_def, full_inst_ok_less_def])
+  >- (Cases_on ‘is_seen n data’ \\ gvs [full_inst_ok_less_def])
+  >- (Cases_on ‘s = CurrHeap’ \\ Cases_on ‘e’ \\ gvs [full_inst_ok_less_def, canonicalExp_def])
+  >- (gen_tac \\ first_x_assum (qspec_then ‘data’ assume_tac)
+      \\ Cases_on ‘word_cse data p’ \\ gvs [full_inst_ok_less_def])
+  >- (Cases_on ‘o'’ \\ gvs [full_inst_ok_less_def]
+      \\ Cases_on ‘x’ \\ gvs []
+      \\ Cases_on ‘r’ \\ gvs [full_inst_ok_less_def])
+  >- (rpt strip_tac
+      \\ pairarg_tac \\ gvs []
+      \\ pairarg_tac \\ gvs []
+      \\ last_x_assum drule_all
+      \\ assume_tac word_cse_data_conventions
+      \\ first_x_assum (qspecl_then [‘p’, ‘data’] assume_tac) \\ gvs []
+      \\ last_x_assum drule_all
+      \\ gvs [full_inst_ok_less_def])
+  >- (rpt strip_tac
+      \\ pairarg_tac \\ gvs []
+      \\ pairarg_tac \\ gvs []
+      \\ last_x_assum drule_all
+      \\ last_x_assum drule_all
+      \\ gvs [full_inst_ok_less_def]
+      \\ Cases_on ‘r’ \\ gvs [canonicalImmReg_def])
+  >- (Cases_on ‘is_seen n data ∨ ¬is_seen n0 data’ \\ gvs [full_inst_ok_less_def]
+      \\ gvs [add_to_data_aux_def]
+      \\ Cases_on ‘lookup data.instrs (OpCurrHeapToNumList b (canonicalRegs data n0))’
+      \\ Cases_on ‘EVEN n’ \\ gvs [full_inst_ok_less_def])
+  \\ Cases_on ‘is_seen n data’ \\ gvs [full_inst_ok_less_def]
+QED
+
+Theorem every_is_phy_var_canonicalArith:
+  ∀a data. data_conventions data ⇒
+           ¬is_complex a ⇒
+           every_var is_phy_var (Inst (Arith a)) ⇒
+           every_var is_phy_var (Inst (Arith (canonicalArith data a)))
+Proof
+  rpt strip_tac
+  \\ Cases_on ‘a’ \\ gvs [is_complex_def]
+  \\ gvs [canonicalArith_def, every_var_def, every_var_inst_def, is_phy_var_canonicalRegs]
+  \\ Cases_on ‘r’ \\ gvs [canonicalImmReg_def, every_var_imm_def, is_phy_var_canonicalRegs]
+QED
+
+Theorem inst_arg_convention_canonicalArith:
+  ∀a data. data_conventions data ⇒
+           ¬is_complex a ⇒
+           inst_arg_convention (Arith (canonicalArith data a))
+Proof
+  rpt strip_tac
+  \\ Cases_on ‘a’ \\ gvs [is_complex_def]
+  \\ gvs [canonicalArith_def, inst_arg_convention_def]
+QED
+
+Theorem word_cse_pre_alloc_conventions:
+  ∀p data.
+    let p' = SND (word_cse data p) in
+      data_conventions data ⇒
+      pre_alloc_conventions p ⇒ pre_alloc_conventions p'
+Proof
+  Induct \\ gvs [pre_alloc_conventions_def, word_cse_def, AllCaseEqs()]
+  \\ rpt gen_tac \\ strip_tac
+  >- (strip_tac
+      \\ pairarg_tac \\ gvs [every_var_def, every_stack_var_def, call_arg_convention_def])
+  >- (pairarg_tac \\ gvs []
+      \\ strip_tac \\ Cases_on ‘i’ \\ gvs [word_cseInst_def]
+      >- (gvs [AllCaseEqs(), data_conventions_def, add_to_data_def, add_to_data_aux_def,
+               every_stack_var_def, call_arg_convention_def])
+      >- (gvs [add_to_data_def, add_to_data_aux_def, AllCaseEqs(),
+               every_stack_var_def, call_arg_convention_def]
+          \\ Cases_on ‘a’
+          \\ gvs [is_complex_def, canonicalArith_def, inst_arg_convention_def])
+      \\ Cases_on ‘a’ \\ gvs [word_cseInst_def]
+      \\ Cases_on ‘m’
+      \\ gvs [is_store_def, every_stack_var_def, call_arg_convention_def,
+              inst_arg_convention_def, AllCaseEqs()])
+  >- (Cases_on ‘is_seen n data’ \\ gvs [])
+  >- (Cases_on ‘s = CurrHeap’ \\ Cases_on ‘e’ \\ gvs [every_stack_var_def, call_arg_convention_def])
+  >- (pairarg_tac \\ gvs [every_stack_var_def, call_arg_convention_def]
+      \\ strip_tac \\ first_x_assum drule_all \\ gvs [])
+  >- (Cases_on ‘o'’ \\ gvs []
+      \\ Cases_on ‘x’ \\ gvs []
+      \\ Cases_on ‘r’ \\ gvs [])
+  >- (strip_tac
+      \\ gvs [every_stack_var_def, call_arg_convention_def]
+      \\ last_x_assum drule_all \\ strip_tac \\ gvs []
+      \\ pairarg_tac \\ gvs []
+      \\ ‘data_conventions data1’
+        by (assume_tac word_cse_data_conventions
+            \\ first_x_assum (qspecl_then [‘p’, ‘data’] assume_tac) \\ gvs [])
+      \\ last_x_assum drule_all \\ strip_tac
+      \\ pairarg_tac \\ gvs []
+      \\ gvs [every_stack_var_def, call_arg_convention_def])
+  >- (strip_tac
+      \\ rpt (pairarg_tac \\ gvs [])
+      \\ gvs [every_stack_var_def, call_arg_convention_def]
+      \\ last_x_assum drule_all \\ strip_tac \\ gvs []
+      \\ last_x_assum drule_all \\ strip_tac
+      \\ gvs [every_stack_var_def, call_arg_convention_def])
+  >- (strip_tac
+      \\ Cases_on ‘is_seen n data’ \\ gvs []
+      \\ Cases_on ‘is_seen n0 data’ \\ gvs [add_to_data_aux_def]
+      \\ Cases_on ‘lookup data.instrs (OpCurrHeapToNumList b (canonicalRegs data n0))’ \\ gvs []
+      \\ Cases_on ‘EVEN n’ \\ gvs [every_stack_var_def, call_arg_convention_def])
+  \\ strip_tac
+  \\ Cases_on ‘is_seen n data’ \\ gvs []
+QED
+
+Theorem word_cse_post_alloc_conventions:
+  ∀p data k.
+    let p' = SND (word_cse data p) in
+      data_conventions data ⇒
+      post_alloc_conventions k p ⇒ post_alloc_conventions k p'
+Proof
+  Induct \\ gvs [post_alloc_conventions_def, word_cse_def, AllCaseEqs()]
+  \\ rpt gen_tac \\ strip_tac
+  >- (strip_tac
+      \\ pairarg_tac \\ gvs [every_var_def, every_stack_var_def, call_arg_convention_def]
+      \\ gvs [canonicalMoveRegs3_def]
+      \\ ‘rs' = MAP (λ(a,b). (a,canonicalRegs data b)) l’ by gvs [AllCaseEqs()]
+      \\ gvs [MAP_FST_simp, MAP_SND_simp, EVERY_is_phy_var_canonicalRegs])
+  >- (pairarg_tac \\ gvs []
+      \\ strip_tac \\ Cases_on ‘i’ \\ gvs [word_cseInst_def]
+      >- (‘EVEN n’ by gvs [every_var_def, every_var_inst_def, is_phy_var_EVEN]
+          \\ gvs [AllCaseEqs(), data_conventions_def, add_to_data_def, add_to_data_aux_def]
+          \\ first_x_assum drule \\ strip_tac
+          \\ gvs [every_var_def, every_stack_var_def, call_arg_convention_def]
+          \\ gvs [every_var_inst_def]
+          \\ cheat) (* Transformation from [Inst (Const n c)] to [Move 0 (n, r')]
+                       because we know that [r'] contains the value of [c].
+                       This break the convention stating that
+                         if all vars are initialy physical (ie EVEN)
+                         then all vars are still physical after transformation.
+                       This is not true because [r'] is not physical.
+                       Solution: not replacing [Inst (Const n c)] when [n] is physical
+                       Cons: Weakening of our CSE
+                       NB: after checking, post_alloc_conventions doesn't seem to be necessary *)
+      >- (gvs [AllCaseEqs()]
+          \\ gvs [add_to_data_def, add_to_data_aux_def, AllCaseEqs()]
+          \\ gvs [every_var_def, every_stack_var_def, call_arg_convention_def]
+          \\ drule every_is_phy_var_canonicalArith \\ strip_tac
+          \\ gvs[every_var_def, inst_arg_convention_canonicalArith]
+          \\ (Cases_on ‘a’ \\ gvs [is_complex_def, are_reads_seen_def, every_var_inst_def,
+                                   canonicalArith_def]
+              >- (Cases_on ‘r’
+                  \\ gvs [firstRegOfArith_def, are_reads_seen_def,
+                          canonicalImmReg_def, canonicalRegs_def,
+                          lookup_any_def, every_var_imm_def]
+                  \\ gvs [data_conventions_def]
+                  \\ first_x_assum drule \\ strip_tac
+                  >- (Cases_on ‘lookup n' data.map’ \\ gvs [is_phy_var_EVEN])
+                  \\ Cases_on ‘lookup n0 data.map’ \\ gvs [is_phy_var_EVEN])
+              \\ gvs [data_conventions_def]
+              \\ first_x_assum drule \\ strip_tac
+              \\ gvs [canonicalRegs_def, lookup_any_def]
+              >- (Cases_on ‘lookup n0 data.map’ \\ gvs [is_phy_var_EVEN]
+                  \\ last_x_assum drule \\ strip_tac \\ gvs [is_phy_var_EVEN]
+                  \\ gvs [is_seen_def, lookup_any_def])
+              \\ Cases_on ‘lookup n1 data.map’ \\ gvs [is_phy_var_EVEN]
+              \\ last_x_assum drule \\ strip_tac \\ gvs [is_phy_var_EVEN]
+              \\ gvs [is_seen_def, lookup_any_def])
+         )
+      \\ Cases_on ‘a’ \\ gvs [word_cseInst_def]
+      \\ Cases_on ‘m’ \\ gvs [AllCaseEqs()]
+      \\ gvs [is_store_def, every_var_def, every_var_inst_def, every_stack_var_def,
+              call_arg_convention_def, inst_arg_convention_def]
+      \\ gvs [is_phy_var_canonicalRegs])
+  >- (Cases_on ‘is_seen n data’ \\ gvs [])
+  >- (Cases_on ‘s = CurrHeap’ \\ Cases_on ‘e’
+      \\ gvs [every_var_def, every_stack_var_def, call_arg_convention_def, canonicalExp_def]
+      \\ gvs [every_var_exp_def, data_conventions_def, canonicalRegs_def, lookup_any_def]
+      \\ Cases_on ‘lookup n data.map’ \\ gvs []
+      \\ strip_tac \\ first_x_assum drule
+      \\ gvs [is_phy_var_EVEN])
+  >- (pairarg_tac \\ gvs [every_var_def, every_stack_var_def, call_arg_convention_def]
+      \\ strip_tac \\ first_x_assum drule_all \\ gvs [])
+  >- (Cases_on ‘o'’ \\ gvs []
+      \\ Cases_on ‘x’ \\ gvs []
+      \\ Cases_on ‘r’ \\ gvs [])
+  >- (strip_tac
+      \\ gvs [every_var_def, every_stack_var_def, call_arg_convention_def]
+      \\ last_x_assum drule_all \\ strip_tac \\ gvs []
+      \\ pairarg_tac \\ gvs []
+      \\ ‘data_conventions data1’
+        by (assume_tac word_cse_data_conventions
+            \\ first_x_assum (qspecl_then [‘p’, ‘data’] assume_tac) \\ gvs [])
+      \\ last_x_assum drule_all \\ strip_tac
+      \\ pairarg_tac \\ gvs []
+      \\ gvs [every_var_def, every_stack_var_def, call_arg_convention_def])
+  >- (strip_tac
+      \\ rpt (pairarg_tac \\ gvs [])
+      \\ gvs [every_var_def, every_stack_var_def, call_arg_convention_def]
+      \\ last_x_assum drule_all \\ strip_tac \\ gvs []
+      \\ last_x_assum drule_all \\ strip_tac
+      \\ gvs [every_var_def, every_stack_var_def, call_arg_convention_def]
+      \\ Cases_on ‘r’
+      \\ gvs [is_phy_var_canonicalRegs, canonicalImmReg_def, every_var_imm_def])
+  >- (strip_tac
+      \\ Cases_on ‘is_seen n data’ \\ gvs []
+      \\ Cases_on ‘is_seen n0 data’ \\ gvs [add_to_data_aux_def]
+      \\ Cases_on ‘lookup data.instrs (OpCurrHeapToNumList b (canonicalRegs data n0))’ \\ gvs []
+      \\ Cases_on ‘EVEN n’ \\ gvs [every_var_def, every_stack_var_def, call_arg_convention_def]
+      \\ gvs [is_phy_var_canonicalRegs]
+      \\ gvs [data_conventions_def]
+      \\ first_x_assum drule \\ strip_tac \\ gvs [is_phy_var_EVEN])
+  >- (strip_tac
+      \\ Cases_on ‘is_seen n data’ \\ gvs [])
+QED
+
+Theorem word_cse_wf_cutsets:
+  ∀p data.
+    let p' = SND (word_cse data p) in
+      data_conventions data ⇒
+      wf_cutsets p ⇒ wf_cutsets p'
+Proof
+  Induct \\ gvs [wf_cutsets_def, word_cse_def, AllCaseEqs()]
+  \\ rpt gen_tac \\ strip_tac
+  >- (pairarg_tac \\ gvs [wf_cutsets_def])
+  >- (pairarg_tac \\ gvs []
+      \\ Cases_on ‘i’
+      \\ gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+              wf_cutsets_def, AllCaseEqs()]
+      \\ Cases_on ‘a’
+      \\ gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+              wf_cutsets_def, AllCaseEqs()])
+  >- (Cases_on ‘is_seen n data’ \\ gvs [wf_cutsets_def])
+  >- (Cases_on ‘s’ \\ gvs [wf_cutsets_def])
+  >- (pairarg_tac \\ strip_tac \\ gvs [] \\ last_x_assum drule_all \\ gvs [wf_cutsets_def])
+  >- (Cases_on ‘o'’ \\ gvs [wf_cutsets_def]
+      \\ Cases_on ‘x’ \\ gvs [wf_cutsets_def]
+      \\ Cases_on ‘r’ \\ gvs [wf_cutsets_def])
+  >- (pairarg_tac \\ gvs [] \\ strip_tac
+      \\ last_x_assum drule_all \\ strip_tac
+      \\ ‘data_conventions data1’
+        by (assume_tac word_cse_data_conventions
+            \\ first_x_assum (qspecl_then [‘p’, ‘data’] assume_tac) \\ gvs [])
+      \\ last_x_assum drule_all \\ strip_tac
+      \\ pairarg_tac \\ gvs [wf_cutsets_def])
+  >- (strip_tac
+      \\ rpt (pairarg_tac \\ gvs [])
+      \\ rpt (last_x_assum drule \\ strip_tac)
+      \\ gvs [wf_cutsets_def])
+  >- (Cases_on ‘is_seen n data’ \\ gvs [wf_cutsets_def]
+      \\ Cases_on ‘¬is_seen n0 data’ \\ gvs [wf_cutsets_def]
+      \\ gvs [add_to_data_aux_def]
+      \\ Cases_on ‘lookup data.instrs (OpCurrHeapToNumList b (canonicalRegs data n0))’ \\ gvs []
+      \\ Cases_on ‘EVEN n’ \\ gvs [wf_cutsets_def])
+  \\ Cases_on ‘is_seen n data’ \\ gvs [wf_cutsets_def]
+QED
+
+Theorem is_seen_canonical:
+  ∀n data. data_conventions data ⇒ is_seen (canonicalRegs data n) data ⇒ is_seen n data
+Proof
+  rpt strip_tac \\ gvs [canonicalRegs_def, lookup_any_def, data_conventions_def]
+  \\ Cases_on ‘lookup n data.map’ \\ gvs []
+QED
+
+Theorem word_cse_every_inst_two_reg:
+  ∀p data.
+    let p' = SND (word_cse data p) in
+      data_conventions data ⇒
+      every_inst two_reg_inst p ⇒ every_inst two_reg_inst p'
+Proof
+  Induct \\ gvs [every_inst_def, word_cse_def, AllCaseEqs()]
+  \\ rpt gen_tac \\ strip_tac
+  >- (pairarg_tac \\ gvs [every_inst_def])
+  >- (pairarg_tac \\ gvs []
+      \\ reverse (Cases_on ‘i’)
+      \\ gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+              every_inst_def, two_reg_inst_def, AllCaseEqs()]
+      >- (Cases_on ‘a’ \\ gvs [word_cseInst_def, every_inst_def, two_reg_inst_def, AllCaseEqs()])
+      \\ Cases_on ‘a’ \\ gvs [is_complex_def, firstRegOfArith_def]
+      \\ strip_tac
+      \\ gvs [two_reg_inst_def, are_reads_seen_def, canonicalArith_def, is_seen_canonical]
+      \\ gvs [canonicalRegs_def, lookup_any_def]
+      \\ Cases_on ‘lookup n data.map’ \\ gvs [data_conventions_def])
+  >- (Cases_on ‘is_seen n data’ \\ gvs [every_inst_def])
+  >- (Cases_on ‘s’ \\ gvs [every_inst_def])
+  >- (pairarg_tac \\ strip_tac \\ gvs [] \\ last_x_assum drule_all \\ gvs [every_inst_def])
+  >- (Cases_on ‘o'’ \\ gvs [every_inst_def]
+      \\ Cases_on ‘x’ \\ gvs [every_inst_def]
+      \\ Cases_on ‘r’ \\ gvs [every_inst_def])
+  >- (pairarg_tac \\ gvs [] \\ strip_tac
+      \\ last_x_assum drule_all \\ strip_tac
+      \\ ‘data_conventions data1’
+        by (assume_tac word_cse_data_conventions
+            \\ first_x_assum (qspecl_then [‘p’, ‘data’] assume_tac) \\ gvs [])
+      \\ last_x_assum drule_all \\ strip_tac
+      \\ pairarg_tac \\ gvs [every_inst_def])
+  >- (strip_tac
+      \\ rpt (pairarg_tac \\ gvs [])
+      \\ rpt (last_x_assum drule \\ strip_tac)
+      \\ gvs [every_inst_def])
+  >- (Cases_on ‘is_seen n data’ \\ gvs [every_inst_def]
+      \\ Cases_on ‘¬is_seen n0 data’ \\ gvs [every_inst_def]
+      \\ gvs [add_to_data_aux_def]
+      \\ Cases_on ‘lookup data.instrs (OpCurrHeapToNumList b (canonicalRegs data n0))’ \\ gvs []
+      \\ Cases_on ‘EVEN n’ \\ gvs [every_inst_def, two_reg_inst_def]
+      \\ strip_tac \\ gvs [])
+  \\ Cases_on ‘is_seen n data’ \\ gvs [every_inst_def]
+QED
+
+Theorem word_cse_conventions:
+  ∀p data c k.
+    data_conventions data ⇒
+    let (data', p') = word_cse data p in
+      (flat_exp_conventions p ⇒ flat_exp_conventions p') ∧
+      (full_inst_ok_less c p ⇒ full_inst_ok_less c p') ∧
+      (post_alloc_conventions k p ⇒ post_alloc_conventions k p') ∧
+      (data_conventions data')
+Proof
+  rpt gen_tac \\ gvs [] \\ pairarg_tac
+  \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_flat_exp_conventions \\ gvs []
+  \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_full_inst_ok_less \\ gvs []
+  \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_post_alloc_conventions \\ gvs []
+  \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_data_conventions \\ gvs []
+QED
+
+Theorem word_cse_conventions2:
+  ∀p data c.
+    data_conventions data ⇒
+    let (data', p') = word_cse data p in
+      (flat_exp_conventions p ⇒ flat_exp_conventions p') ∧
+      (full_inst_ok_less c p ⇒ full_inst_ok_less c p') ∧
+      (pre_alloc_conventions p ⇒ pre_alloc_conventions p') ∧
+      (wf_cutsets p ⇒ wf_cutsets p') ∧
+      (every_inst two_reg_inst p ⇒ every_inst two_reg_inst p') ∧
+      (data_conventions data')
+Proof
+  rpt gen_tac \\ gvs [] \\ pairarg_tac \\ gvs []
+  \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_flat_exp_conventions \\ gvs []
+  \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_full_inst_ok_less \\ gvs []
+  \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_pre_alloc_conventions \\ gvs []
+  \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_wf_cutsets \\ gvs []
+  \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_every_inst_two_reg \\ gvs []
+  \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_data_conventions \\ gvs []
 QED
 
 val _ = export_theory();
