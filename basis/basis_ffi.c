@@ -5,12 +5,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#ifdef __EVAL__
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/mman.h>
 #include <assert.h>
+#endif
 
 #ifndef __WIN32
 #include <signal.h>
@@ -376,8 +378,12 @@ int main (int local_argc, char **local_argv) {
   cml_stackend = cml_stack + cml_stack_sz;
 
   /** Set up the "eval" code buffer to be read-write-execute. **/
+  #ifdef __EVAL__
   if(mprotect(&cake_text_begin, &cake_codebuffer_end - &cake_text_begin,
               PROT_READ | PROT_WRITE | PROT_EXEC))
+  #else
+  if(0)
+  #endif
   {
     #ifdef STDERR_MEM_EXHAUST
     fprintf(stderr,"failed to set permissions for CakeML code buffer.\n");
