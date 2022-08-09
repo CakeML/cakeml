@@ -5,13 +5,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#ifdef __EVAL__
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/mman.h>
 #include <assert.h>
+#ifdef __EVAL__
+#include <sys/time.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
 #endif
 
 #ifndef __WIN32
