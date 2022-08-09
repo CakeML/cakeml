@@ -381,9 +381,6 @@ int main (int local_argc, char **local_argv) {
   #ifdef __EVAL__
   if(mprotect(&cake_text_begin, &cake_codebuffer_end - &cake_text_begin,
               PROT_READ | PROT_WRITE | PROT_EXEC))
-  #else
-  if(0)
-  #endif
   {
     #ifdef STDERR_MEM_EXHAUST
     fprintf(stderr,"failed to set permissions for CakeML code buffer.\n");
@@ -391,6 +388,7 @@ int main (int local_argc, char **local_argv) {
     #endif
     exit(3);
   }
+  #endif
 
   /* Set up the signal handler for SIGINTs when running the REPL. */
   #ifndef __WIN32
