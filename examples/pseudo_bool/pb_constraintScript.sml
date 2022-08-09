@@ -938,10 +938,16 @@ QED
 
 val _ = Parse.hide "C";
 
-Definition dom_ord_def:
-  dom_ord f po w ⇔
+Definition sat_ord_def:
+  sat_ord f po w ⇔
   ∀z. satisfies z f ⇒
-    po (assign w z) z ∧
+    po (assign w z) z
+End
+
+Definition sat_strict_ord_def:
+  sat_strict_ord f po w ⇔
+  sat_ord f po w ∧
+  ∀z. satisfies z f ⇒
     ¬po z (assign w z)
 End
 
@@ -1059,11 +1065,11 @@ Proof
   metis_tac[]
 QED
 
-Theorem dominance:
+Theorem dominance_conf_valid:
   transitive po ∧
   finite_support po z ∧ FINITE z ∧
   C ∪ D ∪ {not c} ⊨ C ⇂ w ∧
-  dom_ord (C ∪ D ∪ {not c}) po w ∧
+  sat_strict_ord (C ∪ D ∪ {not c}) po w ∧
   conf_valid C D po ⇒
   conf_valid C (D ∪ {c}) po
 Proof
@@ -1093,7 +1099,7 @@ Proof
   last_x_assum drule>>strip_tac>>
   gvs[]>>
   `~satisfies_npbc p' c` by metis_tac[]>>
-  fs[dom_ord_def,not_thm]>>
+  fs[sat_strict_ord_def,sat_ord_def,not_thm]>>
   last_x_assum drule_all>>
   strip_tac>>
   qabbrev_tac`p'' = assign w p'`>>
@@ -1110,6 +1116,29 @@ Proof
   `po pprime p` by
     metis_tac[transitive_def]>>
   metis_tac[]
+QED
+
+Theorem redundancy_conf_valid:
+  transitive po ∧
+  C ∪ D ∪ {not c} ⊨ (C ∪ D ∪ {c}) ⇂ w ∧
+  sat_ord (C ∪ D ∪ {not c}) po w ∧
+  conf_valid C D po ⇒
+  conf_valid C (D ∪ {c}) po
+Proof
+  rw[conf_valid_def]>>
+  first_x_assum drule>>
+  rename1`satisfies pold C`>>
+  strip_tac>>
+  rename1`satisfies p C`>>
+  Cases_on`satisfies_npbc p c`
+  >-
+    metis_tac[]>>
+  qexists_tac`assign w p`>>
+  fs[sat_implies_def]>>
+  first_x_assum drule>>
+  simp[not_thm,satisfies_def,PULL_EXISTS,subst_thm]>>
+  fs[sat_ord_def]>>
+  metis_tac[not_thm,transitive_def]
 QED
 
 val _ = export_theory();
