@@ -85,6 +85,7 @@ OPTIONS:
   --explore     outputs several intermediate forms of the compiled
                 program in JSON format
 
+  --pancake     takes a pancake program as input
 ADDITIONAL OPTIONS:
 
 Optimisations can be configured using the following advanced options.
@@ -272,6 +273,18 @@ val compile_def = Define`
           | (NONE, td) => (Failure AssembleError, td)
           | (SOME (bytes,data,c), td) => (Success (bytes,data,c), td)`;
 
+Definition compile_pancake_def:
+  compile_pancake c input =
+  let _ = empty_ffi (strlit "finished: start up") in
+  case panPtreeConversion$parse_to_ast input of
+  | NONE => Failure (ParseError (strlit "Failed pancake parsing"))
+  | SOME prog =>
+      let _ = empty_ffi (strlit "finished: lexing and parsing") in
+      case pan_to_target$compile_prog c [strlit "main", [], prog] of
+      | NONE => (Failure AssembleError)
+      | SOME (bytes,data,c) => (Success (bytes,data,c))
+End
+                                                                     
 (* The top-level compiler *)
 val error_to_str_def = Define`
   (error_to_str (ParseError s) =
@@ -600,6 +613,11 @@ val has_version_flag_def = Define `
 val has_help_flag_def = Define `
   has_help_flag ls = MEM (strlit"--help") ls`
 
+(* Check for pancake flag *)
+Definition has_pancake_flag_def:
+  has_pancake_flag ls = MEM (strlit"--pancake") ls
+End
+
 val format_compiler_result_def = Define`
   format_compiler_result bytes_export (Failure err) =
     (List[]:mlstring app_list, error_to_str err) ∧
@@ -654,6 +672,28 @@ val compile_64_def = Define`
   | _ =>
     (List[], error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))`
 
+Definition compile_pancake_64_def:
+  compile_pancake_64 cl input =
+  let confexp = parse_target_64 cl in
+  case confexp of
+  | INR err => (List[], error_to_str (ConfigError err))
+  | INL (conf, export) =>
+      let topconf = parse_top_config cl in
+      case (topconf) of
+      | INR err => (List[], error_to_str (ConfigError err))
+      | INL (sexp, prelude, sexpprint) =>
+          let ext_conf = extend_conf cl conf in
+          case ext_conf of
+          | INR err =>
+              (List[], error_to_str (ConfigError (get_err_str ext_conf)))
+          | INL ext_conf =>
+              case compiler$compile_pancake ext_conf input of
+              | (Failure err) =>
+                  (List[], error_to_str err)
+              | (Success (bytes, data, c)) =>
+                  (export (the [] c.lab_conf.ffi_names) bytes data c.symbols, implode "")
+End
+    
 val full_compile_64_def = Define `
   full_compile_64 cl inp fs =
     if has_help_flag cl then
@@ -662,7 +702,23 @@ val full_compile_64_def = Define `
       add_stdout fs current_build_info_str
     else
       let (out, err) = compile_64 cl inp in
-      add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err`
+        add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err`
+
+Definition full_compile_64_def:
+  full_compile_64 cl inp fs =
+  if has_help_flag cl then
+    add_stdout fs help_string
+  else if has_version_flag cl then
+    add_stdout fs current_build_info_str
+  else
+    let (out, err) =
+        if has_pancake_flag cl then
+          compile_pancake_64 cl inp
+        else
+          compile_64 cl inp
+    in
+      add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err
+End
 
 val compile_32_def = Define`
   compile_32 cl input =
