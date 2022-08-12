@@ -1248,6 +1248,7 @@ Definition cexp_consts_def:
   cexp_consts (Uop uop p) = cexp_consts p ∧
   cexp_consts (Binop bop p q) = cexp_consts p ∪ cexp_consts q ∧
   cexp_consts (If p q r) =  cexp_consts p ∪ cexp_consts q ∪ cexp_consts r ∧
+  cexp_consts (Let s p q) = cexp_consts p ∪ cexp_consts q ∧
   cexp_consts (App s cs) = {s, LENGTH cs} ∪ BIGUNION (set (MAP cexp_consts cs))
 Termination
   wf_rel_tac ‘measure compute_exp_size’
@@ -1260,6 +1261,7 @@ Definition cexp_vars_def:
   cexp_vars (Uop uop p) = cexp_vars p ∧
   cexp_vars (Binop bop p q) = cexp_vars p ∪ cexp_vars q ∧
   cexp_vars (If p q r) =  cexp_vars p ∪ cexp_vars q ∪ cexp_vars r ∧
+  cexp_vars (Let s p q) = cexp_vars p ∪ (cexp_vars q DIFF {s}) ∧
   cexp_vars (App s cs) = BIGUNION (set (MAP cexp_vars cs))
 Termination
   wf_rel_tac ‘measure compute_exp_size’
@@ -1349,8 +1351,23 @@ Definition compute_thy_ok_def:
                 (_IF (_P1 === _P2) (_Q1 === _Q2) _FALSE) ∧
     (thy,[]) |- (_CEXP_NUM _M === _CEXP_NUM _N) === (_M === _N) ∧
     (thy,[]) |- (_CEXP_NUM _M === _CEXP_PAIR _P1 _Q1) === _FALSE ∧
-    (thy,[]) |- (_CEXP_PAIR _P1 _Q1 === _CEXP_NUM _N) === _FALSE
+    (thy,[]) |- (_CEXP_PAIR _P1 _Q1 === _CEXP_NUM _N) === _FALSE ∧
+    (* Let *)
+    (thy,[]) |- _LET _F _P1 === Comb _F _P1
 End
+
+Theorem LET_eqn:
+  compute_thy_ok thy ∧
+  term_ok (sigof thy) f ∧ term_ok (sigof thy) p1 ∧
+  f has_type (Fun Cexp Cexp) ∧ p1 has_type Cexp ⇒
+    (thy,[]) |- _LET f p1 === Comb f p1
+Proof
+  rw [compute_thy_ok_def]
+  \\ qpat_x_assum ‘_ |- _LET _ _ === _’ assume_tac
+  \\ dxrule_at_then (Pos (el 2)) (qspec_then ‘[p1,_P1; f,_F]’ mp_tac)
+                    proves_INST
+  \\ dsimp [VSUBST_def, equation_def, REV_ASSOCD_def]
+QED
 
 Theorem CEXP_IF_eqn1:
   compute_thy_ok thy ∧
@@ -1964,6 +1981,8 @@ Theorem compute_thy_ok_terms_ok:
     term_ok (sigof thy) _CEXP_SND_TM ∧
     term_ok (sigof thy) _CEXP_ISPAIR_TM ∧
     term_ok (sigof thy) _CEXP_EQ_TM ∧
+    (* let *)
+    term_ok (sigof thy) _LET_TM ∧
     (* types *)
     type_ok (tysof thy) Cexp
 Proof
@@ -2028,6 +2047,9 @@ Proof
   >~ [‘bop2term _ _ _’] >- (
     Cases_on ‘bop’ \\ simp [bop2term_def]
     \\ rw [Ntimes has_type_cases 3])
+  >~ [‘_LET _ _’] >- (
+    rw [Ntimes has_type_cases 3]
+    \\ rw [Ntimes has_type_cases 3])
   >~ [‘Var _’] >- (
     rw [has_type_rules])
   \\ simp [FOLDL_MAP]
@@ -2081,8 +2103,6 @@ Proof
   \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
   \\ ho_match_mp_tac cexp2term_ind \\ rw []
   \\ gs [cexp2term_def, cexp_consts_def]
-  >~ [‘Var s _’] >- (
-    simp [term_ok_def])
   >~ [‘_CEXP_NUM _’] >- (
     simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
   >~ [‘uop2term _’] >- (
@@ -2093,6 +2113,10 @@ Proof
     irule bop2term_term_ok \\ gs [])
   >~ [‘_CEXP_IF _ _ _ ’] >- (
     simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
+  >~ [‘_LET _ _’] >- (
+    simp [term_ok_def])
+  >~ [‘Var s _’] >- (
+    simp [term_ok_def])
   \\ gvs [FOLDL_MAP, MEM_MAP, SF SFY_ss, SF DNF_ss]
   \\ ‘∀tm.
         term_ok (sigof thy) tm ∧
