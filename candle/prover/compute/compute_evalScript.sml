@@ -168,62 +168,74 @@ Definition dest_cexp_def:
     case list_dest_comb [] tm of
     | [Var n ty] => if ty = Cexp then SOME (Var n) else NONE
     | Const n ty :: args =>
-        (let vs = MAP dest_cexp args in
-        case vs of
-        | [arg] =>
-            if Const n ty = _CEXP_NUM_TM then
-              case dest_numeral_opt (HD args) of
-              | NONE => NONE
-              | SOME n => SOME (Num n)
-            else if ty = Fun Cexp Cexp then
-              case arg of
-              | NONE => NONE
-              | SOME cv =>
-                if Const n ty = _CEXP_FST_TM then
-                  SOME (Uop Fst cv)
-                else if Const n ty = _CEXP_SND_TM then
-                  SOME (Uop Snd cv)
-                else if Const n ty = _CEXP_ISPAIR_TM then
-                  SOME (Uop Ispair cv)
-                else
-                 SOME (App n [cv])
-            else
-              NONE
-        | [SOME p; SOME q] =>
-            if Const n ty = _CEXP_PAIR_TM then
-              SOME (Pair p q)
-            else if Const n ty = _CEXP_ADD_TM then
-              SOME (Binop Add p q)
-            else if Const n ty = _CEXP_SUB_TM then
-              SOME (Binop Sub p q)
-            else if Const n ty = _CEXP_MUL_TM then
-              SOME (Binop Mul p q)
-            else if Const n ty = _CEXP_DIV_TM then
-              SOME (Binop Div p q)
-            else if Const n ty = _CEXP_MOD_TM then
-              SOME (Binop Mod p q)
-            else if Const n ty = _CEXP_LESS_TM then
-              SOME (Binop Less p q)
-            else if Const n ty = _CEXP_EQ_TM then
-              SOME (Binop Eq p q)
-            else if ty = Fun Cexp (Fun Cexp Cexp) then
-              SOME (App n [p; q])
-            else
-              NONE
-        | [SOME p; SOME q; SOME r] =>
-            if Const n ty = _CEXP_IF_TM then
-              SOME (If p q r)
-            else if ty = Fun Cexp (Fun Cexp (Fun Cexp Cexp)) then
-              SOME (App n [p; q; r])
-            else
-              NONE
-        | args =>
-            (case mapOption I args of
-            | NONE => NONE
-            | SOME cvs =>
-                if ty = app_type (LENGTH cvs) then
-                  SOME (App n cvs)
-                else NONE))
+        (if Const n ty = _LET_TM then
+           (case args of
+            | [Abs (Var s ty) y; x] =>
+                if ty = Cexp then
+                  case dest_cexp x of
+                  | NONE => NONE
+                  | SOME p =>
+                      case dest_cexp y of
+                      | NONE => NONE
+                      | SOME q => SOME (Let s p q)
+                else NONE
+            | _ => NONE)
+         else let vs = MAP dest_cexp args in
+           case vs of
+           | [arg] =>
+               if Const n ty = _CEXP_NUM_TM then
+                 case dest_numeral_opt (HD args) of
+                 | NONE => NONE
+                 | SOME n => SOME (Num n)
+               else if ty = Fun Cexp Cexp then
+                 case arg of
+                 | NONE => NONE
+                 | SOME cv =>
+                   if Const n ty = _CEXP_FST_TM then
+                     SOME (Uop Fst cv)
+                   else if Const n ty = _CEXP_SND_TM then
+                     SOME (Uop Snd cv)
+                   else if Const n ty = _CEXP_ISPAIR_TM then
+                     SOME (Uop Ispair cv)
+                   else
+                    SOME (App n [cv])
+               else
+                 NONE
+           | [SOME p; SOME q] =>
+               if Const n ty = _CEXP_PAIR_TM then
+                 SOME (Pair p q)
+               else if Const n ty = _CEXP_ADD_TM then
+                 SOME (Binop Add p q)
+               else if Const n ty = _CEXP_SUB_TM then
+                 SOME (Binop Sub p q)
+               else if Const n ty = _CEXP_MUL_TM then
+                 SOME (Binop Mul p q)
+               else if Const n ty = _CEXP_DIV_TM then
+                 SOME (Binop Div p q)
+               else if Const n ty = _CEXP_MOD_TM then
+                 SOME (Binop Mod p q)
+               else if Const n ty = _CEXP_LESS_TM then
+                 SOME (Binop Less p q)
+               else if Const n ty = _CEXP_EQ_TM then
+                 SOME (Binop Eq p q)
+               else if ty = Fun Cexp (Fun Cexp Cexp) then
+                 SOME (App n [p; q])
+               else
+                 NONE
+           | [SOME p; SOME q; SOME r] =>
+               if Const n ty = _CEXP_IF_TM then
+                 SOME (If p q r)
+               else if ty = Fun Cexp (Fun Cexp (Fun Cexp Cexp)) then
+                 SOME (App n [p; q; r])
+               else
+                 NONE
+           | args =>
+               (case mapOption I args of
+               | NONE => NONE
+               | SOME cvs =>
+                   if ty = app_type (LENGTH cvs) then
+                     SOME (App n cvs)
+                   else NONE))
     | _ => NONE
 Termination
   wf_rel_tac ‘measure term_size_alt’ \\ rw []
@@ -354,7 +366,9 @@ Definition subst_def:
   subst env (Uop uop p) = Uop uop (subst env p) ∧
   subst env (Binop bop p q) = Binop bop (subst env p) (subst env q) ∧
   subst env (App f cs) = App f (MAP (subst env) cs) ∧
-  subst env (If p q r) = If (subst env p) (subst env q) (subst env r)
+  subst env (If p q r) = If (subst env p) (subst env q) (subst env r) ∧
+  subst env (Let s x y) = Let s (subst env x)
+                                (subst (FILTER (λ(n,x). n ≠ s) env) y)
 Termination
   wf_rel_tac ‘measure (compute_exp_size o SND)’
 End
@@ -406,6 +420,12 @@ Definition compute_eval_def:
       | Pair _ _ => compute_eval ck ceqs q
       | _ => error
     od ∧
+  compute_eval ck ceqs (Let s p q) =
+    (if ck = 0 then timeout else
+      do
+        x <- compute_eval ck ceqs p;
+        compute_eval (ck - 1) ceqs (subst [s,x] q)
+      od) ∧
   compute_eval_list ck ceqs [] = return [] ∧
   compute_eval_list ck ceqs (c::cs) =
     do
