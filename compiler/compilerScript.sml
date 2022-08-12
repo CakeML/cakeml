@@ -18,6 +18,7 @@ open riscv_configTheory export_riscvTheory
 open mips_configTheory export_mipsTheory
 open arm7_configTheory export_arm7Theory
 open ag32_configTheory export_ag32Theory
+open panPtreeConversionTheory pan_to_targetTheory
 
 val _ = new_theory"compiler";
 
@@ -693,16 +694,6 @@ Definition compile_pancake_64_def:
               | (Success (bytes, data, c)) =>
                   (export (the [] c.lab_conf.ffi_names) bytes data c.symbols, implode "")
 End
-    
-val full_compile_64_def = Define `
-  full_compile_64 cl inp fs =
-    if has_help_flag cl then
-      add_stdout fs help_string
-    else if has_version_flag cl then
-      add_stdout fs current_build_info_str
-    else
-      let (out, err) = compile_64 cl inp in
-        add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err`
 
 Definition full_compile_64_def:
   full_compile_64 cl inp fs =
