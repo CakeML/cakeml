@@ -131,6 +131,7 @@ Definition compute_thms_def:
     (* PAIR_EQ2   *) (_CEXP_NUM _M === _CEXP_NUM _N) === (_M === _N);
     (* PAIR_EQ3   *) (_CEXP_NUM _M === _CEXP_PAIR _P1 _Q1) === _FALSE;
     (* PAIR_EQ4   *) (_CEXP_PAIR _P1 _Q1 === _CEXP_NUM _N) === _FALSE;
+    (* LET        *) (_LET _F _P1 === Comb _F _P1)
   ]
 End
 
