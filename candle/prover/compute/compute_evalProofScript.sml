@@ -495,6 +495,44 @@ Proof
   Cases_on ‘uop’ \\ gs [uop2term_def, VSUBST_thm]
 QED
 
+
+Theorem VFREE_IN_FOLDL:
+  ∀ts v t.
+    VFREE_IN v (FOLDL Comb t ts) ⇔ EXISTS (VFREE_IN v) ts ∨ VFREE_IN v t
+Proof
+  Induct \\ simp [] \\ rw []
+  \\ eq_tac \\ rw [] \\ gs []
+QED
+
+Theorem VFREE_IN_cexp_vars:
+  ∀v. cexp_vars v = {n | VFREE_IN (Var n Cexp) (cexp2term v) }
+Proof
+  ho_match_mp_tac cexp2term_ind
+  \\ rw [cexp2term_def, cexp_vars_def]
+  >- (
+    rw [EXTENSION]
+    \\ qid_spec_tac ‘n’
+    \\ ho_match_mp_tac num2bit_ind \\ rw []
+    \\ simp [Once num2bit_def] \\ rw [] \\ gs [])
+  >- (
+    gs [EXTENSION, PULL_EXISTS, EQ_IMP_THM, SF DNF_ss, SF SFY_ss])
+  >- (
+    Cases_on ‘uop’ \\ gs [uop2term_def])
+  >- (
+    Cases_on ‘bop’ \\ gs [bop2term_def]
+    \\ gs [EXTENSION, PULL_EXISTS, EQ_IMP_THM, SF DNF_ss, SF SFY_ss])
+  >- (
+    gs [EXTENSION, PULL_EXISTS, EQ_IMP_THM, SF DNF_ss, SF SFY_ss])
+  >- (
+    gs [EXTENSION, DIFF_DEF, PULL_EXISTS, EQ_IMP_THM, SF DNF_ss, SF SFY_ss])
+  >- (
+    gs [VFREE_IN_FOLDL, EXISTS_MAP, BIGUNION, EXISTS_MEM, MEM_MAP,
+          PULL_EXISTS, EXTENSION]
+    \\ rw [EQ_IMP_THM] \\ gs [SF SFY_ss, SF DNF_ss]
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ qexists_tac ‘cexp_vars a’ \\ gs [])
+QED
+
 Theorem subst_VSUBST:
   ∀env x.
     EVERY (λv. cexp_vars v = {}) (MAP SND env) ⇒
@@ -521,7 +559,7 @@ Proof
       \\ gs [o_DEF, LAMBDA_PROD, EVERY_FILTER, EVERY_MAP, EVERY_MEM,
              FORALL_PROD]
       \\ rw [] \\ first_x_assum (drule_then assume_tac)
-      \\ cheat (* Needs a theorem connecting VFREE_IN and cexp_vars *))
+      \\ gs [VFREE_IN_cexp_vars, EXTENSION])
     \\ gs [FILTER_MAP, combinTheory.o_DEF, LAMBDA_PROD, EVERY_MAP, EVERY_FILTER,
            EVERY_MEM, FORALL_PROD, SF SFY_ss])
   \\ gs [subst_def, cexp2term_def, VSUBST_def, cexp_vars_def, SF ETA_ss]
@@ -1373,8 +1411,7 @@ QED
 
 Theorem LET_VSUBST:
   term_ok (sigof thy) q ∧ term_ok (sigof thy) p ∧ term_ok (sigof thy) r ∧
-  (thy,[]) |- p === r ⇒
-  p has_type Cexp ∧ q has_type Cexp ⇒
+  (thy,[]) |- p === r ∧ p has_type Cexp ∧ q has_type Cexp ⇒
     (thy,[]) |- _LET (Abs (Var s Cexp) q) p === VSUBST [(r,Var s Cexp)] q
 Proof
   cheat (* TODO *)
