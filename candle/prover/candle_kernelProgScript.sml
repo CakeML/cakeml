@@ -125,8 +125,24 @@ val r = m_translate dest_binary_PMATCH;
 val r = check [‘ths’] compute_init_def |> translate;
 
 val r = m_translate check_var_def;
-val r = translate check_cexp_closed_def;
+
+val _ = use_mem_intro := true;
+val res = translate_no_ind check_cexp_closed_def;
+
+val ind_lemma = Q.prove(
+  `^(first is_forall (hyp res))`,
+  rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ fs [FORALL_PROD, GSYM ml_translatorTheory.MEMBER_INTRO])
+  |> update_precondition;
+val _ = use_mem_intro := false;
+
 val r = translate var_list_def;
+
 val r = translate const_list_def;
 val r = m_translate map_def;
 
