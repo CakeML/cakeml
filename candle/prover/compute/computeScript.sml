@@ -241,20 +241,22 @@ Definition check_consts_def:
 End
 
 Definition check_cexp_closed_def:
-  check_cexp_closed (Var n) = F ∧
-  check_cexp_closed (Num n) = T ∧
-  check_cexp_closed (Pair p q) =
-    EVERY check_cexp_closed [p;q] ∧
-  check_cexp_closed (Uop uop p) =
-    check_cexp_closed p ∧
-  check_cexp_closed (Binop bop p q) =
-    EVERY check_cexp_closed [p;q] ∧
-  check_cexp_closed (If p q r) =
-    EVERY check_cexp_closed [p;q;r] ∧
-  check_cexp_closed (App f cs) =
-    EVERY check_cexp_closed cs
+  check_cexp_closed bvs (Var n) = MEM n bvs ∧
+  check_cexp_closed bvs (Num n) = T ∧
+  check_cexp_closed bvs (Pair p q) =
+    EVERY (check_cexp_closed bvs) [p;q] ∧
+  check_cexp_closed bvs (Uop uop p) =
+    check_cexp_closed bvs p ∧
+  check_cexp_closed bvs (Binop bop p q) =
+    EVERY (check_cexp_closed bvs) [p;q] ∧
+  check_cexp_closed bvs (If p q r) =
+    EVERY (check_cexp_closed bvs) [p;q;r] ∧
+  check_cexp_closed bvs (Let s p q) =
+    (check_cexp_closed bvs p ∧ check_cexp_closed (s::bvs) q) ∧
+  check_cexp_closed bvs (App f cs) =
+    EVERY (check_cexp_closed bvs) cs
 Termination
-  wf_rel_tac ‘measure compute_exp_size’ \\ rw [] \\ gs []
+  wf_rel_tac ‘measure (compute_exp_size o SND)’ \\ rw [] \\ gs []
 End
 
 Definition compute_def:
@@ -267,7 +269,7 @@ Definition compute_def:
     | NONE => failwith «Kernel.compute: term is not a compute_exp»
     | SOME cexp =>
         do
-          if check_cexp_closed cexp then return () else
+          if check_cexp_closed [] cexp then return () else
             failwith «Kernel.compute: free variables in starting expression»;
           ceqs <- map check_eqn ceqs;
           if ALL_DISTINCT (MAP FST ceqs) then return () else

@@ -121,7 +121,7 @@ Theorem var_list_ok[local]:
   ∀vs. set (var_list vs) = cexp_vars vs
 Proof
   ho_match_mp_tac var_list_ind
-  \\ rw [var_list_def, cexp_vars_def]
+  \\ rw [var_list_def, cexp_vars_def, LIST_TO_SET_FILTER, INTER_DEF, DIFF_DEF]
   \\ simp [Once EXTENSION]
   \\ rw [MEM_FLAT, MEM_MAP, PULL_EXISTS]
   \\ eq_tac \\ rw [DISJ_EQ_IMP] \\ gs []
@@ -130,16 +130,15 @@ Proof
 QED
 
 Theorem check_cexp_closed_correct:
-  ∀v. check_cexp_closed v ⇒ cexp_vars v = {}
+  ∀bvs v. check_cexp_closed bvs v ⇒ cexp_vars v DIFF set bvs = {}
 Proof
   ho_match_mp_tac check_cexp_closed_ind
   \\ rw [check_cexp_closed_def, cexp_vars_def]
+  \\ gs [SUBSET_DIFF_EMPTY, DIFF_DEF, SUBSET_DEF, PULL_EXISTS, DISJ_EQ_IMP,
+         SF DNF_ss]
   \\ rw [DISJ_EQ_IMP] \\ gs [EVERY_MEM]
   \\ simp [Once EXTENSION, EQ_IMP_THM, MEM_MAP, PULL_EXISTS]
-  \\ ‘∃c. MEM c cs’
-    by (Cases_on ‘cs’ \\ gs [SF DNF_ss])
-  \\ first_assum (irule_at Any)
-  \\ gs [SF SFY_ss]
+  \\ gvs [MEM_MAP, EXISTS_PROD, SF SFY_ss]
 QED
 
 Theorem map_check_var_thm:
