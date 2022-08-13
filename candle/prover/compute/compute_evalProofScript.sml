@@ -1409,12 +1409,50 @@ Proof
   \\ gs [EVERY_MAP, EVERY_MEM, EXISTS_PROD, PULL_EXISTS, MEM_FILTER]
 QED
 
+(* N.B. This can be cleaned up a bit. There's a derivation of general beta
+ *      conversion hidden in here that could be pulled out into a lemma if its
+ *      ever needed.
+ *)
+
 Theorem LET_VSUBST:
+  compute_thy_ok thy ∧
   term_ok (sigof thy) q ∧ term_ok (sigof thy) p ∧ term_ok (sigof thy) r ∧
   (thy,[]) |- p === r ∧ p has_type Cexp ∧ q has_type Cexp ⇒
     (thy,[]) |- _LET (Abs (Var s Cexp) q) p === VSUBST [(r,Var s Cexp)] q
 Proof
-  cheat (* TODO *)
+  strip_tac
+  \\ irule trans_equation_simple
+  \\ irule_at Any LET_eqn \\ gs []
+  \\ ‘is_std_sig (sigof thy)’
+    by (irule theory_ok_sig \\ gs [])
+  \\ gs [term_ok_clauses]
+  \\ simp [Ntimes has_type_cases 3]
+  \\ ‘r has_type Cexp ∧ welltyped q ∧ welltyped r ∧ welltyped p’
+    by (drule_then strip_assume_tac proves_term_ok
+        \\ gs [term_ok_clauses, EQUATION_HAS_TYPE_BOOL] \\ rgs [WELLTYPED]
+        \\ imp_res_tac WELLTYPED_LEMMA \\ gs [])
+  \\ conj_asm1_tac
+  >- (
+    drule_then strip_assume_tac compute_thy_ok_terms_ok
+    \\ rfs [])
+  \\ resolve_then Any irule sym_equation replaceL2
+  \\ first_x_assum (irule_at Any)
+  \\ qabbrev_tac ‘_S = Var s Cexp’
+  \\ irule trans_equation_simple
+  \\ qexists_tac ‘VSUBST [r,_S] (Comb (Abs _S q) _S)’
+  \\ conj_tac
+  >- (
+    simp [VSUBST_thm, Abbr ‘_S’, REV_ASSOCD_def]
+    \\ irule proves_REFL
+    \\ fs [term_ok_clauses]
+    \\ irule WELLTYPED_LEMMA \\ fs [])
+  \\ qspecl_then [‘(Comb (Abs _S q) _S) === q’,‘[]’,‘[r,_S]’,‘thy’]
+                 mp_tac proves_INST
+  \\ simp []
+  \\ impl_tac
+  >- (
+    simp [Abbr ‘_S’, proves_BETA])
+  \\ simp [equation_def, VSUBST_thm]
 QED
 
 Theorem compute_eval_thm:
