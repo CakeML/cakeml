@@ -170,6 +170,7 @@ Definition const_list_def:
   const_list (Uop uop x) = const_list x ∧
   const_list (Binop bop x y) = const_list x ++ const_list y ∧
   const_list (If x y z) = const_list x ++ const_list y ++ const_list z ∧
+  const_list (Let s x y) = const_list x ++ const_list y ∧
   const_list (App s xs) = (s,LENGTH xs)::FLAT (MAP const_list xs)
 Termination
   wf_rel_tac ‘measure compute_exp_size’
@@ -182,6 +183,7 @@ Definition var_list_def:
   var_list (Uop uop x) = var_list x ∧
   var_list (Binop bop x y) = var_list x ++ var_list y ∧
   var_list (If x y z) = var_list x ++ var_list y ++ var_list z ∧
+  var_list (Let s x y) = var_list x ++ FILTER (λn. n ≠ s) (var_list y) ∧
   var_list (App s xs) = FLAT (MAP var_list xs)
 Termination
   wf_rel_tac ‘measure compute_exp_size’
