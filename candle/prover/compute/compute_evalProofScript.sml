@@ -70,6 +70,10 @@ Proof
     Cases_on ‘bop’
     \\ gs [subst_def, cexp2term_def, EVERY_MEM, MEM_MAP, EXISTS_PROD,
            bop2term_def, PULL_EXISTS, term_ok_def, SF SFY_ss])
+  >~ [‘FILTER _ _’] >- (
+    last_x_assum irule
+    \\ rw [MEM_FILTER]
+    \\ gs [SF SFY_ss])
   \\ ‘∀tm tms.
         term_ok ctxt tm ∧
         tm has_type (app_type (LENGTH tms)) ∧
@@ -159,6 +163,11 @@ Proof
     \\ TOP_CASE_TAC \\ gs [] \\ TOP_CASE_TAC \\ gs []
     \\ TOP_CASE_TAC \\ gs [SF SFY_ss]
     \\ TOP_CASE_TAC \\ gs [SF SFY_ss])
+  >- ((* Let *)
+    IF_CASES_TAC \\ gs []
+    \\ simp [Once st_ex_bind_def]
+    \\ TOP_CASE_TAC \\ gs [] \\ TOP_CASE_TAC \\ gs []
+    \\ rw [] \\ gs [SF SFY_ss])
   >- ((* List *)
     simp [Once st_ex_bind_def]
     \\ TOP_CASE_TAC \\ gs [] \\ TOP_CASE_TAC \\ gs []
@@ -292,6 +301,18 @@ Proof
     \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
     \\ fs [cexp2term_def, proves_REFL, term_ok_def, SF SFY_ss])
   \\ TOP_CASE_TAC
+  >- ((* LET *)
+    fs [CaseEqs ["term", "list", "option"], PULL_EXISTS]
+    \\ rpt gen_tac \\ ntac 2 strip_tac \\ gvs []
+    \\ simp [cexp2term_def]
+    \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
+    \\ ‘is_std_sig (sigof thy)’
+      by (irule theory_ok_sig \\ gs [])
+    \\ gs [term_ok_clauses]
+    \\ irule MK_COMB_simple \\ simp []
+    \\ irule MK_COMB_simple \\ simp [proves_REFL]
+    \\ irule proves_ABS \\ simp [])
+  \\ TOP_CASE_TAC
   >- ((* 0-ary *)
     rw [mapOption_def, app_type]
     \\ drule_then strip_assume_tac list_dest_comb_folds_back \\ gvs []
@@ -352,6 +373,8 @@ Proof
       (* n-ary: app *)
   \\ fs [CaseEqs ["list", "option", "bool"], SF ETA_ss]
   \\ strip_tac \\ gvs []
+  \\ qpat_x_assum ‘∀x y z w. _ ∧ (_ = «LET» ∧ _) ∧ _ ⇒ _’ kall_tac
+  \\ qpat_x_assum ‘_ = «LET» ⇒ _’ kall_tac
   \\ qmatch_asmsub_abbrev_tac ‘mapOption _ tms’
   \\ rename [‘tms = a::b::c::d::e’]
   \\ ‘∀tm. tm = a ∨ tm = b ∨ tm = c ∨ tm = d ∨ MEM tm e ⇔ MEM tm tms’
@@ -415,22 +438,30 @@ QED
 
 Theorem closed_subst:
   ∀env v.
-    (∀n w. MEM (n,w) env ∧ n ∈ cexp_vars v ⇒ cexp_value w) ∧
-    cexp_vars v ⊆ set (MAP FST env) ⇒
-      cexp_vars (subst env v) = {}
+    EVERY cexp_value (MAP SND env) ⇒
+      cexp_vars (subst env v) = cexp_vars v DIFF set (MAP FST env)
 Proof
-  ho_match_mp_tac subst_ind \\ rw [subst_def]
-  \\ gs [cexp_vars_def, cexp_value_closed, SF SFY_ss, SF DNF_ss]
+  ho_match_mp_tac subst_ind \\ simp []
+  \\ rpt conj_tac \\ simp [subst_def, cexp_vars_def]
   >- (
-    CASE_TAC \\ gs [ALOOKUP_NONE, MEM_MAP, EXISTS_PROD, PULL_EXISTS]
+    rw [] \\ CASE_TAC \\ gs [ALOOKUP_NONE, cexp_vars_def]
     \\ drule_then assume_tac ALOOKUP_MEM
-    \\ gs [cexp_value_closed, SF SFY_ss])
-  \\ rw [DISJ_EQ_IMP] \\ gs [SF ETA_ss]
-  \\ gs [BIGUNION, SUBSET_DEF, PULL_EXISTS]
-  \\ rw [Once EXTENSION] \\ eq_tac \\ rw []
-  \\ gvs [MEM_MAP, EXISTS_PROD, PULL_EXISTS, SF SFY_ss]
-  \\ last_x_assum (irule_at Any)
-  \\ Cases_on ‘cs’ \\ gs [SF DNF_ss]
+    \\ gs [MEM_MAP, EXISTS_PROD, PULL_EXISTS, EVERY_MEM, SF SFY_ss]
+    \\ irule cexp_value_closed \\ gs [SF SFY_ss])
+  >- (
+    gs [DIFF_DEF, UNION_DEF, EXTENSION]
+    \\ rw [EQ_IMP_THM] \\ gs [])
+  >~ [‘FILTER _ _’] >- (
+    rw [] \\ gs [EVERY_MAP, EVERY_FILTER, LAMBDA_PROD]
+    \\ qpat_x_assum ‘_ ⇒ _’ mp_tac
+    \\ impl_tac >- gs [EVERY_MEM, FORALL_PROD, SF DNF_ss, SF SFY_ss]
+    \\ rw []
+    \\ gs [EXTENSION, MEM_MAP, EXISTS_PROD, FORALL_PROD, PULL_EXISTS,
+           MEM_FILTER]
+    \\ metis_tac [])
+  \\ gs [BIGUNION, EXTENSION, PULL_EXISTS, SF ETA_ss, MEM_MAP, EXISTS_PROD,
+         PULL_EXISTS, EVERY_MEM, FORALL_PROD]
+  \\ rw [EQ_IMP_THM] \\ gs [] \\ metis_tac []
 QED
 
 Theorem closed_subst':
@@ -438,9 +469,9 @@ Theorem closed_subst':
   cexp_vars v ⊆ set (MAP FST env) ⇒
     cexp_vars (subst env v) = {}
 Proof
-  rw [EVERY_MEM]
-  \\ irule closed_subst
-  \\ gs [MEM_MAP, EXISTS_PROD, PULL_EXISTS, SF SFY_ss]
+  rw []
+  \\ drule_all_then (qspec_then ‘v’ SUBST1_TAC) closed_subst
+  \\ gs [DIFF_DEF, SUBSET_DEF, EXTENSION, DISJ_EQ_IMP]
 QED
 
 Theorem VSUBST_FOLDL_Comb_push:
@@ -466,8 +497,7 @@ QED
 
 Theorem subst_VSUBST:
   ∀env x.
-    EVERY (λv. cexp_vars v = {}) (MAP SND env) ∧
-    cexp_vars x ⊆ set (MAP FST env) ⇒
+    EVERY (λv. cexp_vars v = {}) (MAP SND env) ⇒
       cexp2term (subst env x) =
       VSUBST (MAP (λ(s,v). (cexp2term v, Var s Cexp)) env) (cexp2term x)
 Proof
@@ -482,54 +512,24 @@ Proof
     \\ Q.ISPECL_THEN [‘cexp2term’, ‘λs. Var s Cexp’] assume_tac
                      (GEN_ALL ALOOKUP_MAP_3)
     \\ gs [ALOOKUP_MAP, SF SFY_ss])
+  >~ [‘Let s x y’] >- (
+    gs [cexp_vars_def, cexp2term_def, subst_def, VSUBST_thm]
+    \\ IF_CASES_TAC \\ gs []
+    >- (
+      ‘F’ suffices_by rw []
+      \\ pop_assum mp_tac
+      \\ gs [o_DEF, LAMBDA_PROD, EVERY_FILTER, EVERY_MAP, EVERY_MEM,
+             FORALL_PROD]
+      \\ rw [] \\ first_x_assum (drule_then assume_tac)
+      \\ cheat (* Needs a theorem connecting VFREE_IN and cexp_vars *))
+    \\ gs [FILTER_MAP, combinTheory.o_DEF, LAMBDA_PROD, EVERY_MAP, EVERY_FILTER,
+           EVERY_MEM, FORALL_PROD, SF SFY_ss])
   \\ gs [subst_def, cexp2term_def, VSUBST_def, cexp_vars_def, SF ETA_ss]
   \\ gs [BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS]
   \\ simp [GSYM VSUBST_FOLDL_Comb_push]
   \\ simp [VSUBST_thm]
   \\ AP_TERM_TAC
   \\ simp [MAP_MAP_o, o_DEF, LAMBDA_PROD, MAP_EQ_f]
-QED
-
-Theorem subst_REVERSE:
-  ∀env v.
-    ALL_DISTINCT (MAP FST env) ⇒
-      subst (REVERSE env) v = subst env v
-Proof
-  ho_match_mp_tac subst_ind \\ rw [subst_def]
-  \\ rw [alookup_distinct_reverse]
-  \\ irule LIST_EQ \\ gvs [EL_MAP, MEM_EL, PULL_EXISTS]
-QED
-
-Theorem subst_closed:
-  ∀env v. cexp_vars v = {} ⇒ subst env v = v
-Proof
-  ho_match_mp_tac subst_ind
-  \\ rw [cexp_vars_def, subst_def] \\ gs []
-  \\ irule LIST_EQ \\ rgs [Once EXTENSION, EQ_IMP_THM, IMP_CONJ_THM]
-  \\ gs [SF DNF_ss, EL_MAP, MEM_EL, PULL_EXISTS]
-QED
-
-Theorem subst_closed_APPEND:
-  ∀bs v as.
-    EVERY (λv. cexp_vars v = {}) (MAP SND as) ∧
-    EVERY (λv. cexp_vars v = {}) (MAP SND bs) ⇒
-      subst (as ++ bs) v = subst bs (subst as v)
-Proof
-  ho_match_mp_tac subst_ind \\ rw [subst_def]
-  >- (
-    gs [ALL_DISTINCT_APPEND, ALOOKUP_APPEND, EVERY_MEM]
-    \\ CASE_TAC \\ gs []
-    >- (
-      CASE_TAC \\ gs [ALOOKUP_NONE, subst_def]
-      \\ CASE_TAC \\ gs []
-      \\ drule_then assume_tac ALOOKUP_MEM
-      \\ gs [MEM_MAP, EXISTS_PROD, PULL_EXISTS])
-    \\ drule_then assume_tac ALOOKUP_MEM
-    \\ gs [MEM_MAP, EXISTS_PROD, PULL_EXISTS]
-    \\ first_x_assum (drule_all_then assume_tac)
-    \\ drule_then assume_tac subst_closed \\ gs [])
-  \\ irule LIST_EQ
-  \\ gvs [EL_MAP, MEM_EL, PULL_EXISTS]
 QED
 
 Theorem MAP_subst_MAP_Var[local]:
@@ -1339,6 +1339,8 @@ Definition cexp_consts_ok_def:
   cexp_consts_ok eqs (Uop uop p) = cexp_consts_ok eqs p ∧
   cexp_consts_ok eqs (Binop bop p q) =
     (cexp_consts_ok eqs p ∧ cexp_consts_ok eqs q) ∧
+  cexp_consts_ok eqs (Let s p q) =
+    (cexp_consts_ok eqs p ∧ cexp_consts_ok eqs q) ∧
   cexp_consts_ok eqs (App f cs) =
     (MEM (f,LENGTH cs) (MAP (λ(f,n,x). (f,LENGTH n)) eqs) ∧
      EVERY (cexp_consts_ok eqs) cs)
@@ -1366,7 +1368,16 @@ Proof
     gs [EVERY_MEM, MEM_MAP, EXISTS_PROD, PULL_EXISTS]
     \\ CASE_TAC \\ gs [cexp_consts_ok_def]
     \\ drule_then assume_tac ALOOKUP_MEM \\ gs [SF SFY_ss])
-  \\ gs [EVERY_MAP, EVERY_MEM, EXISTS_PROD, PULL_EXISTS]
+  \\ gs [EVERY_MAP, EVERY_MEM, EXISTS_PROD, PULL_EXISTS, MEM_FILTER]
+QED
+
+Theorem LET_VSUBST:
+  term_ok (sigof thy) q ∧ term_ok (sigof thy) p ∧ term_ok (sigof thy) r ∧
+  (thy,[]) |- p === r ⇒
+  p has_type Cexp ∧ q has_type Cexp ⇒
+    (thy,[]) |- _LET (Abs (Var s Cexp) q) p === VSUBST [(r,Var s Cexp)] q
+Proof
+  cheat (* TODO *)
 QED
 
 Theorem compute_eval_thm:
@@ -1507,6 +1518,36 @@ Proof
     \\ drule_then strip_assume_tac term_ok_bop2term \\ gvs []
     \\ imp_res_tac (CONJUNCT1 compute_eval_value)
     \\ drule_all_then strip_assume_tac do_binop_thm \\ gs [])
+  >~ [‘Let s p q’] >- (
+    IF_CASES_TAC \\ gs []
+    \\ simp [Once st_ex_bind_def]
+    \\ gs [cexp_consts_ok_def, cexp_vars_def, cexp2term_def]
+    \\ ‘is_std_sig (sigof thy)’
+      by (irule theory_ok_sig \\ gs [])
+    \\ gs [term_ok_clauses]
+    \\ CASE_TAC
+    \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
+    \\ CASE_TAC \\ gs []
+    \\ strip_tac
+    \\ first_x_assum drule
+    \\ ‘term_ok (sigof thy) (cexp2term a)’
+      by (drule proves_term_ok \\ gs [term_ok_clauses])
+    \\ ‘cexp_value a’
+      by (irule_at Any (CONJUNCT1 compute_eval_value)
+          \\ first_assum (irule_at Any))
+    \\ impl_keep_tac
+    >- (
+      irule_at Any closed_subst' \\ gs [SUBSET_DIFF_EMPTY]
+      \\ irule_at Any cexp_consts_ok_subst \\ gs []
+      \\ irule_at Any cexp_consts_ok_value
+      \\ irule_at Any subst_term_ok \\ gs [])
+    \\ rw [] \\ gs []
+    \\ irule trans_equation_simple
+    \\ first_x_assum (irule_at Any) \\ gvs [SF ETA_ss]
+    \\ DEP_REWRITE_TAC [subst_VSUBST] \\ simp []
+    \\ gs [SUBSET_DIFF_EMPTY]
+    \\ irule_at Any cexp_value_closed \\ gs []
+    \\ irule LET_VSUBST \\ fs [])
   >~ [‘App f cs’] >- (
     IF_CASES_TAC \\ gs []
     \\ simp [option_def, Once st_ex_bind_def, st_ex_return_def,
