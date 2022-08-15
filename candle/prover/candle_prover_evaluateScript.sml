@@ -19,6 +19,7 @@ val _ = set_grammar_ancestry [
 val _ = temp_send_to_back_overload "If" {Name="If",Thy="compute_syntax"};
 val _ = temp_send_to_back_overload "App" {Name="App",Thy="compute_syntax"};
 val _ = temp_send_to_back_overload "Var" {Name="Var",Thy="compute_syntax"};
+val _ = temp_send_to_back_overload "Let" {Name="Let",Thy="compute_syntax"};
 
 Theorem pmatch_v_ok:
   (∀envC s p v ws env.

@@ -131,6 +131,7 @@ Definition compute_thms_def:
     (* PAIR_EQ2   *) (_CEXP_NUM _M === _CEXP_NUM _N) === (_M === _N);
     (* PAIR_EQ3   *) (_CEXP_NUM _M === _CEXP_PAIR _P1 _Q1) === _FALSE;
     (* PAIR_EQ4   *) (_CEXP_PAIR _P1 _Q1 === _CEXP_NUM _N) === _FALSE;
+    (* LET        *) (_LET _F _P1 === Comb _F _P1)
   ]
 End
 
@@ -169,6 +170,7 @@ Definition const_list_def:
   const_list (Uop uop x) = const_list x ∧
   const_list (Binop bop x y) = const_list x ++ const_list y ∧
   const_list (If x y z) = const_list x ++ const_list y ++ const_list z ∧
+  const_list (Let s x y) = const_list x ++ const_list y ∧
   const_list (App s xs) = (s,LENGTH xs)::FLAT (MAP const_list xs)
 Termination
   wf_rel_tac ‘measure compute_exp_size’
@@ -181,6 +183,7 @@ Definition var_list_def:
   var_list (Uop uop x) = var_list x ∧
   var_list (Binop bop x y) = var_list x ++ var_list y ∧
   var_list (If x y z) = var_list x ++ var_list y ++ var_list z ∧
+  var_list (Let s x y) = var_list x ++ FILTER (λn. n ≠ s) (var_list y) ∧
   var_list (App s xs) = FLAT (MAP var_list xs)
 Termination
   wf_rel_tac ‘measure compute_exp_size’
@@ -238,20 +241,22 @@ Definition check_consts_def:
 End
 
 Definition check_cexp_closed_def:
-  check_cexp_closed (Var n) = F ∧
-  check_cexp_closed (Num n) = T ∧
-  check_cexp_closed (Pair p q) =
-    EVERY check_cexp_closed [p;q] ∧
-  check_cexp_closed (Uop uop p) =
-    check_cexp_closed p ∧
-  check_cexp_closed (Binop bop p q) =
-    EVERY check_cexp_closed [p;q] ∧
-  check_cexp_closed (If p q r) =
-    EVERY check_cexp_closed [p;q;r] ∧
-  check_cexp_closed (App f cs) =
-    EVERY check_cexp_closed cs
+  check_cexp_closed bvs (Var n) = MEM n bvs ∧
+  check_cexp_closed bvs (Num n) = T ∧
+  check_cexp_closed bvs (Pair p q) =
+    EVERY (check_cexp_closed bvs) [p;q] ∧
+  check_cexp_closed bvs (Uop uop p) =
+    check_cexp_closed bvs p ∧
+  check_cexp_closed bvs (Binop bop p q) =
+    EVERY (check_cexp_closed bvs) [p;q] ∧
+  check_cexp_closed bvs (If p q r) =
+    EVERY (check_cexp_closed bvs) [p;q;r] ∧
+  check_cexp_closed bvs (Let s p q) =
+    (check_cexp_closed bvs p ∧ check_cexp_closed (s::bvs) q) ∧
+  check_cexp_closed bvs (App f cs) =
+    EVERY (check_cexp_closed bvs) cs
 Termination
-  wf_rel_tac ‘measure compute_exp_size’ \\ rw [] \\ gs []
+  wf_rel_tac ‘measure (compute_exp_size o SND)’ \\ rw [] \\ gs []
 End
 
 Definition compute_def:
@@ -264,7 +269,7 @@ Definition compute_def:
     | NONE => failwith «Kernel.compute: term is not a compute_exp»
     | SOME cexp =>
         do
-          if check_cexp_closed cexp then return () else
+          if check_cexp_closed [] cexp then return () else
             failwith «Kernel.compute: free variables in starting expression»;
           ceqs <- map check_eqn ceqs;
           if ALL_DISTINCT (MAP FST ceqs) then return () else

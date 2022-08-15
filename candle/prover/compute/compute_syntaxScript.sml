@@ -105,6 +105,12 @@ Overload "_CEXP_ISPAIR" = “λtm. Comb _CEXP_ISPAIR_TM tm”;
 Overload "_CEXP_EQ_TM" = “Const «Cexp_eq» (Fun Cexp (Fun Cexp Cexp))”;
 Overload "_CEXP_EQ" = “λt1 t2. Comb (Comb _CEXP_EQ_TM t1) t2”;
 
+(* Lets, “let a = b in x”: *)
+
+Overload "_F" = “Var «f» (Fun Cexp Cexp)”;
+Overload "_LET_TM" = “Const «LET» (Fun (Fun Cexp Cexp) (Fun Cexp Cexp))”;
+Overload "_LET" = “λt1 t2. Comb (Comb _LET_TM t1) t2”;
+
 (* -------------------------------------------------------------------------
  * Bools
  * ------------------------------------------------------------------------- *)
@@ -149,6 +155,7 @@ Datatype:
               | Var mlstring
               | App mlstring (compute_exp list)
               | If compute_exp compute_exp compute_exp
+              | Let mlstring compute_exp compute_exp
               | Uop uop compute_exp
               | Binop binop compute_exp compute_exp
 End
@@ -192,6 +199,7 @@ Definition cexp2term_def:
   cexp2term (Uop uop p) = uop2term uop (cexp2term p) ∧
   cexp2term (Binop bop p q) =  bop2term bop (cexp2term p) (cexp2term q) ∧
   cexp2term (If p q r) = _CEXP_IF (cexp2term p) (cexp2term q) (cexp2term r) ∧
+  cexp2term (Let s x y) = _LET (Abs (Var s Cexp) (cexp2term y)) (cexp2term x) ∧
   cexp2term (Var s) = Var s Cexp ∧
   cexp2term (App s cs) =
     FOLDL Comb (Const s (app_type (LENGTH cs))) (MAP cexp2term cs)
