@@ -2,6 +2,11 @@
  * Prelude
  * ------------------------------------------------------------------------- *)
 
+(* This is pointer equality, which is missing from CakeML.
+   || x = y is just to get the type variables right:
+ *)
+let (==) x y = false || x = y;;
+
 let ref x = Ref x;;
 
 let (/) = div;;
@@ -11,6 +16,11 @@ let ( *.) = Double.( * );;
 let (/.) = Double.(/);;
 
 let failwith msg = raise (Failure msg);;
+
+(* This is the pretty printer for exceptions, and you need to update it
+   each time you add an exception definition if you want it to print something
+   informative (see e.g. exception Unchanged in lib.ml).
+ *)
 
 let pp_exn e =
   match e with
@@ -22,10 +32,28 @@ let pp_exn e =
   | Failure s -> Pretty_printer.app_block "Failure" [Pretty_printer.pp_string s]
   | _ -> Pretty_printer.token "<exn>";;
 
+(*CML
+(* OCaml parser doesn't like the tilde *)
+val rat_minus = Rat.~;
+*)
+
 (* Some conversions in OCaml style: *)
 
-let string_of_int = Int.toString;;
+let string_of_int n =
+  if n < 0 then "-" ^ Int.toString (-n)
+  else Int.toString n
+;;
+
+let pp_int n = Pretty_printer.token (string_of_int n);;
+
+let pp_rat r =
+  let n = Rat.numerator r in
+  let d = Rat.denominator r in
+  Pretty_printer.token (string_of_int n ^ "/" ^ string_of_int d)
+;;
+
 let string_of_float = Double.toString;;
+
 let int_of_string = Option.valOf o Int.fromString;;
 
 (* Left shifting integers. HOL Light expects these to not be bigints, so I
@@ -47,6 +75,7 @@ let string_escaped =
     | '\b'::l -> '\\'::'b'::escape l
     | '\t'::l -> '\\'::'t'::escape l
     | '\n'::l -> '\\'::'n'::escape l
+    | '"'::l -> '\\'::'"'::escape l
     | c::l -> c::escape l in
   fun s -> String.implode (escape (String.explode s));;
 
@@ -70,6 +99,11 @@ let rec pp_app_list f xs =
 let abs x = if x < 0 then -x else x;;
 
 let ignore x = x; ();;
+
+let rec rev_append xs acc =
+  match xs with
+  | [] -> acc
+  | x::xs -> rev_append xs (x::acc);;
 
 (* ------------------------------------------------------------------------- *
  * Helpful banner
@@ -642,7 +676,8 @@ let () =
       if not (!userInput) then print (!prompt1);
       Buffer.flush input_buffer;
       Buffer.flush output_buffer;
-      Repl.nextString := "" in
+      Repl.nextString := "";
+      userInput := true in
   Repl.readNextString := (fun () ->
     print (!prompt1);
     next ();
