@@ -253,9 +253,9 @@ let string_of_directive d =
 
 type token =
   | T_begin | T_end | T_struct | T_sig | T_semis | T_newline
+  | T_use | T_needs | T_loads (* converted into directives *)
   | T_other of string
   | T_symb of string
-  | T_directive of directive * string
   | T_comment of string
   | T_string of string
   | T_quote of string
@@ -281,10 +281,19 @@ let string_of_token unquote tok =
         | Some f -> "(" ^ f s ^ ")"
       end
   | T_char s -> "'" ^ s ^ "'"
-  | T_directive (d, f) ->
-      String.concat ["#"; string_of_directive d; " "; "\""; f; "\";;"]
   | T_comment s | T_other s | T_symb s | T_number s | T_spaces s -> s
+  | T_use -> "#use"
+  | T_loads -> "loads"
+  | T_needs -> "needs"
   | T_done -> "(* shouldn't happen *)"
+;;
+
+let directive_of_token t =
+  match t with
+  | T_needs -> Some D_need
+  | T_loads -> Some D_load
+  | T_use -> Some D_use
+  | _ -> None
 ;;
 
 let scan nextChar peekChar =
@@ -295,6 +304,10 @@ let scan nextChar peekChar =
       "end",    T_end;
       "struct", T_struct;
       "sig",    T_sig;
+      (* top-level directives *)
+      "#use",   T_use;
+      "needs",  T_needs;
+      "loads",  T_loads;
     ] in
     fun s -> match Alist.lookup keywords s with
              | None -> T_other s
@@ -369,37 +382,6 @@ let scan nextChar peekChar =
   let scan_spaces c =
     Option.map (fun s -> T_spaces s)
                (scan_while [c] (fun c -> c <> '\n' && Char.isSpace c)) in
-  let dir_from_string =
-    let dirs = [
-      "load", D_load;
-      "need", D_need;
-      "use",  D_use ] in
-    Alist.lookup dirs in
-  let scan_directive () = (* TODO *)
-    match scan_while [] (fun x -> x <> ';') with
-    | None -> None
-    | Some s ->
-        nextChar ();
-        match peekChar () with
-        | None -> Some (T_other ("#" ^ s ^ ";"))
-        | Some c ->
-            if c <> ';' then
-              Some (T_other ("#" ^ s ^ ";" ^ String.str c))
-            else
-              begin
-                nextChar ();
-                match String.fields (fun x -> x = '"') s with
-                | [dir; fname; rest] ->
-                    let dir = trimRight dir in
-                    let rest = trimLeft rest in
-                    if rest <> "" then Some (T_other ("#" ^ s ^ ";;")) else
-                      begin
-                        match dir_from_string dir with
-                        | None -> Some (T_other ("#" ^ s ^ ";;"))
-                        | Some d -> Some (T_directive (d, fname))
-                      end
-                | _ -> Some (T_other ("#" ^ s ^ ";;"))
-              end in
   let scan_escaped ch =
     let rec nom acc =
       Interrupt.check ();
@@ -479,8 +461,8 @@ let scan nextChar peekChar =
     | Some '\'' -> scan_charlit_or_tyvar ()
     (* Attempt to scan string literal *)
     | Some '"' -> scan_strlit ()
-    (* Attempt to scan load directive *)
-    | Some '#' -> scan_directive ()
+    (* A #use directive, maybe: *)
+    | Some '#' -> scan_name '#'
     (* Newlines *)
     | Some '\n' -> Some T_newline
     (* Anything else *)
@@ -626,20 +608,61 @@ let () =
     | Some tok -> Some tok
     | None -> scan1 () in
   let output_buffer = (Buffer.empty () : Lexer.token Buffer.buffer) in
+  let rec next_nonspace () =
+    match next () with
+    | Some (Lexer.T_spaces _) -> next_nonspace ()
+    | res -> res in
   let rec scan level =
     try match next () with
         | None -> None
+        (* Attempt to use token as part of loading directive if it sits at the
+           top level (i.e. not inside parenthesis). The REPL fails and reports
+           and error unless the token is followed by a string literal and then
+           double semicolons. Ideally we should also check that the token sits
+           at the start of the line, but we don't, so odd things such as this:
+             foo needs "bar.ml";;
+           are OK and will cause the file bar.ml to be loaded and appear
+           directly after 'foo' in the token stream.
+         *)
+        | Some (Lexer.T_use | Lexer.T_needs | Lexer.T_loads as tok)
+          when level = 0 ->
+            begin
+              let dir = Option.valOf (Lexer.directive_of_token tok) in
+              match next_nonspace () with
+              (* Attempt to convert into directive: *)
+              | Some (Lexer.T_string fname as tok') ->
+                  begin
+                    match next_nonspace () with
+                    (* OK directive, perform load: *)
+                    | Some (Lexer.T_semis) ->
+                        let lines = load dir fname in
+                        if List.null lines then scan level else
+                          begin
+                            userInput := false;
+                            scan_lines lines;
+                            scan level
+                          end
+                    (* Malformed *)
+                    | _ ->
+                        failwith
+                          (String.concat [
+                             "\nREPL error: ";
+                             Lexer.string_of_directive dir;
+                             " \"string\" should be followed by a double";
+                             " semicolon [;;].\n"])
+                  end
+              (* Malformed *)
+              | _ ->
+                  failwith
+                    (String.concat [
+                       "\nREPL error: ";
+                       Lexer.string_of_directive dir;
+                       " should be followed by a \"string literal\" and then a";
+                       " double semicolon [;;].\n"])
+            end
         | Some (Lexer.T_done) ->
             userInput := true;
             scan level
-        | Some (Lexer.T_directive (dir, fname)) ->
-            let lines = load dir fname in
-            if List.null lines then scan level else
-              begin
-                userInput := false;
-                scan_lines lines;
-                scan level
-              end
         | Some tok ->
             Buffer.push_back output_buffer tok;
             match tok with
