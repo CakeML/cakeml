@@ -12,6 +12,9 @@ Proofs about the interpreter function for the Candle compute primitive.
 [compute_evalScript.sml](compute_evalScript.sml):
 Interpreter function for the Candle compute primitive.
 
+[compute_execScript.sml](compute_execScript.sml):
+Interpreter function for the Candle compute primitive.
+
 [compute_pmatchScript.sml](compute_pmatchScript.sml):
 Pmatch definitions for functions in computeScript.sml.
 

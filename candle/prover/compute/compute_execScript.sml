@@ -80,10 +80,11 @@ Definition exec_def:
       exec funs vs (ck-1n) (sub funs f)
     od) ∧
   exec funs env ck (Let x y) =
+    (if ck = 0 then timeout else
     do
       v <- exec funs env ck x;
-      exec funs (v::env) ck y
-    od ∧
+      exec funs (v::env) (ck-1) y
+    od) ∧
   exec funs env ck (If x y z) =
     do
       v <- exec funs env ck x;
@@ -181,6 +182,10 @@ Inductive code_rel:
      code_rel eqs env vars y y1 ∧
      code_rel eqs env vars z z1 ⇒
      code_rel eqs env vars (If x y z) (If x1 y1 z1)) ∧
+  (∀eqs env vars s x y x1 y1.
+     code_rel eqs env vars x x1 ∧
+     code_rel eqs env (s::vars) y y1 ⇒
+     code_rel eqs env vars (Let s x y) (Let x1 y1)) ∧
   (∀eqs env vars xs xs1 f l body n.
      LIST_REL (code_rel eqs env vars) xs xs1 ∧
      n < LENGTH eqs ∧ EL n eqs = (f,l,body) ∧
@@ -324,6 +329,20 @@ Proof
     \\ TRY (first_x_assum drule_all \\ strip_tac \\ fs [exec_def,st_ex_bind_def])
     \\ Cases_on ‘n’ \\ gvs []
     \\ first_x_assum drule_all \\ strip_tac \\ fs [exec_def,st_ex_bind_def])
+  >~ [‘Let s e1 e2’] >-
+   (pop_assum mp_tac
+    \\ simp [Once code_rel_cases] \\ strip_tac
+    \\ Cases_on ‘ck = 0’ \\ gvs [compute_eval_def,exec_def]
+    \\ gvs [raise_Failure_def,exec_def,st_ex_bind_def]
+    \\ gvs [AllCaseEqs(),PULL_EXISTS]
+    \\ first_x_assum drule_all \\ gvs [] \\ strip_tac \\ gvs []
+    \\ Cases_on ‘res1’ \\ gvs []
+    \\ first_x_assum drule
+    \\ disch_then irule
+    \\ DEP_REWRITE_TAC [compute_evalProofTheory.closed_subst]
+    \\ fs [cexp_value_from_cv]
+    \\ qexists_tac ‘s::vars’ \\ fs []
+    \\ cheat)
   >~ [‘App f xs’] >-
    (pop_assum mp_tac
     \\ simp [Once code_rel_cases] \\ strip_tac
@@ -346,19 +365,14 @@ Proof
     \\ first_x_assum irule
     \\ first_x_assum $ irule_at Any
     \\ qexists_tac ‘[]’ \\ fs []
-    \\ irule_at Any compute_evalProofTheory.closed_subst
+    \\ DEP_REWRITE_TAC [compute_evalProofTheory.closed_subst]
     \\ rename [‘REVERSE vs = _’]
     \\ imp_res_tac compile_eval_list_length \\ fs [MAP_ZIP,MEM_ZIP,PULL_EXISTS]
-    \\ conj_tac
-    >-
-     (rw []
-      \\ ‘n' < LENGTH vs’ by fs []
-      \\ drule EL_MEM
-      \\ gvs [SWAP_REVERSE_SYM]
-      \\ strip_tac \\ gvs [MEM_MAP,cexp_value_from_cv])
     \\ gvs [SWAP_REVERSE_SYM,sub_def,build_funs_def,EL_MAP]
+    \\ simp [EVERY_MEM,MEM_MAP,PULL_EXISTS,cexp_value_from_cv]
     \\ gvs [eqs_ok_def,EVERY_EL]
-    \\ last_x_assum drule \\ fs [])
+    \\ last_x_assum drule \\ fs []
+    \\ fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
   >~ [‘Uop’] >-
    (pop_assum mp_tac
     \\ simp [Once code_rel_cases] \\ strip_tac \\ gvs []
