@@ -383,9 +383,39 @@ let scan nextChar peekChar =
   let scan_strlit () =
     Option.map (fun s -> T_string s)
                (scan_escaped '"') in
-  let scan_charlit () =
-    Option.map (fun s -> T_char s)
-               (scan_escaped '\'') in
+  (* This code will intentionally let through some bad tokens (it doesn't check
+     whether escape sequences are well formed), but those will get stuck in the
+     real lexer. *)
+  let scan_charlit_or_tyvar () =
+    match peekChar () with
+    (* Escaped character literal *)
+    | Some '\\' ->
+        begin
+          nextChar ();
+          Option.map (fun s -> T_char ("\\" ^ s))
+                     (scan_escaped '\'')
+        end
+    (* A single tick, start of a type variable, but followed by space *)
+    | Some ' ' | Some '\n' | Some '\t' | Some '\r' -> Some (T_other "'")
+    (* Regular character literal, or a type variable *)
+    | Some c ->
+        begin
+          nextChar ();
+          match peekChar () with
+          (* Regular character literal *)
+          | Some '\'' ->
+              begin
+                nextChar ();
+                Some (T_char (String.str c))
+              end
+          (* Type variable *)
+          | Some _ -> Option.map (fun s -> T_other s)
+                                 (scan_while [c; '\''] is_name_char)
+          | None -> Some (T_other (String.implode ['\''; c]))
+        end
+    (* Two ticks following each other: '' *)
+    | Some '\'' -> Some (T_symb "''")
+    | None -> Some (T_symb "'") in
   let rec nextToken () =
     match nextChar () with
     | None -> None
@@ -411,8 +441,8 @@ let scan nextChar peekChar =
               end
           | _ -> Some (T_symb "(")
         end
-    (* Attempt to scan char literal *)
-    | Some '\'' -> scan_charlit ()
+    (* Attempt to scan char literal or type variable *)
+    | Some '\'' -> scan_charlit_or_tyvar ()
     (* Attempt to scan string literal *)
     | Some '"' -> scan_strlit ()
     (* Attempt to scan load directive *)
