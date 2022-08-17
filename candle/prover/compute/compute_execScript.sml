@@ -162,43 +162,37 @@ Definition from_res_def[simp]:
 End
 
 Inductive code_rel:
-  (∀eqs env vars n k.
-     LENGTH env ≤ k ∧ EL (k - LENGTH env) vars = n ⇒
-     code_rel eqs env vars ((Var n):compute_exp) ((Var k):ce)) ∧
-  (∀eqs env vars n k.
-     k < LENGTH env ∧ EL k env = Num n ⇒
-     code_rel eqs env vars (Num n) (Var k)) ∧
-  (∀eqs env vars x y k.
-     k < LENGTH env ∧ EL k env = Pair x y ⇒
-     code_rel eqs env vars (Pair (from_cv x) (from_cv y)) (Var k)) ∧
-  (∀eqs env vars n.
-     code_rel eqs env vars (Num n) (Const n)) ∧
-  (∀eqs env vars x y x1 y1.
-     code_rel eqs env vars x x1 ∧
-     code_rel eqs env vars y y1 ⇒
-     code_rel eqs env vars (Pair x y) (Binop Pair x1 y1)) ∧
-  (∀eqs env vars x y z x1 y1 z1.
-     code_rel eqs env vars x x1 ∧
-     code_rel eqs env vars y y1 ∧
-     code_rel eqs env vars z z1 ⇒
-     code_rel eqs env vars (If x y z) (If x1 y1 z1)) ∧
-  (∀eqs env vars s x y x1 y1.
-     code_rel eqs env vars x x1 ∧
-     code_rel eqs env (s::vars) y y1 ⇒
-     code_rel eqs env vars (Let s x y) (Let x1 y1)) ∧
-  (∀eqs env vars xs xs1 f l body n.
-     LIST_REL (code_rel eqs env vars) xs xs1 ∧
+  (∀eqs v1 n v2.
+     ~MEM n v1 ⇒
+     code_rel eqs (v1 ++ [n] ++ v2) ((Var n):compute_exp) ((Var (LENGTH v1)):ce)) ∧
+  (∀eqs vars n.
+     code_rel eqs vars (Num n) (Const n)) ∧
+  (∀eqs vars x y x1 y1.
+     code_rel eqs vars x x1 ∧
+     code_rel eqs vars y y1 ⇒
+     code_rel eqs vars (Pair x y) (Binop Pair x1 y1)) ∧
+  (∀eqs vars x y z x1 y1 z1.
+     code_rel eqs vars x x1 ∧
+     code_rel eqs vars y y1 ∧
+     code_rel eqs vars z z1 ⇒
+     code_rel eqs vars (If x y z) (If x1 y1 z1)) ∧
+  (∀eqs vars s x y x1 y1.
+     code_rel eqs vars x x1 ∧
+     code_rel eqs (s::vars) y y1 ⇒
+     code_rel eqs vars (Let s x y) (Let x1 y1)) ∧
+  (∀eqs vars xs xs1 f l body n.
+     LIST_REL (code_rel eqs vars) xs xs1 ∧
      n < LENGTH eqs ∧ EL n eqs = (f,l,body) ∧
      LENGTH l = LENGTH xs ∧
      (∀k. k < n ⇒ FST (EL k eqs) ≠ f) ⇒
-     code_rel eqs env vars (App f xs) (App n xs1)) ∧
-  (∀eqs env vars x x1 m.
-     code_rel eqs env vars x x1 ⇒
-     code_rel eqs env vars (Uop m x) (Monop (monop m) x1)) ∧
-  (∀eqs env vars x y x1 y1 b.
-     code_rel eqs env vars x x1 ∧
-     code_rel eqs env vars y y1 ⇒
-     code_rel eqs env vars (Binop b x y) (Binop (binop b) x1 y1))
+     code_rel eqs vars (App f xs) (App n xs1)) ∧
+  (∀eqs vars x x1 m.
+     code_rel eqs vars x x1 ⇒
+     code_rel eqs vars (Uop m x) (Monop (monop m) x1)) ∧
+  (∀eqs vars x y x1 y1 b.
+     code_rel eqs vars x x1 ∧
+     code_rel eqs vars y y1 ⇒
+     code_rel eqs vars (Binop b x y) (Binop (binop b) x1 y1))
 End
 
 Theorem option_ALOOKUP:
@@ -255,10 +249,8 @@ Triviality cexp_vars_def[simp] = compute_syntaxProofTheory.cexp_vars_def;
 Definition eqs_ok_def:
   eqs_ok eqs ⇔
     EVERY (λ(n,args,body).
-             ∀vs. LENGTH vs = LENGTH args ∧
-                  cexp_vars body ⊆ set args ∧
-                  code_rel eqs vs [] (subst (ZIP (args,REVERSE (MAP from_cv vs))) body)
-                           (compile_to_ce eqs (n,args,body))) eqs
+             cexp_vars body ⊆ set args ∧ ALL_DISTINCT args ∧
+             code_rel eqs (REVERSE args) body (compile_to_ce eqs (n,args,body))) eqs
 End
 
 Theorem do_uop_from_cv:
@@ -284,32 +276,119 @@ Proof
   \\ rw []
 QED
 
+Theorem env_lookup_lemma:
+  ∀v1 env s v2.
+    MAP FST env = v1 ++ [s] ++ v2 ∧ ¬MEM s v1 ⇒
+    ∃z.
+      ALOOKUP (MAP (λ(x,y). (x,from_cv y)) env) s = SOME (from_cv z) ∧
+      env_lookup (LENGTH v1) (MAP SND env) = z
+Proof
+  Induct \\ fs []
+  \\ Cases_on ‘env’ \\ fs [] \\ PairCases_on ‘h’ \\ fs [env_lookup_def]
+QED
+
+Theorem subst_from_cv:
+  ∀v xs. subst xs (from_cv v) = from_cv v
+Proof
+  Induct \\ fs [subst_def]
+QED
+
+Theorem subst_subst:
+  ∀e xs ys.
+    EVERY (λx. ∃v. SND x = from_cv v) ys ⇒
+    subst xs (subst ys e) = subst (ys ++ xs) e
+Proof
+  ho_match_mp_tac compute_syntaxProofTheory.cexp_vars_ind \\ rw []
+  \\ gvs [subst_def,FILTER_APPEND,MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f]
+  \\ gvs [ALOOKUP_APPEND]
+  \\ every_case_tac  \\ fs [subst_def]
+  \\ fs [EVERY_FILTER_IMP]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs [EVERY_MEM] \\ res_tac
+  \\ fs [subst_from_cv]
+QED
+
+Theorem alookup_subst:
+  ∀e xs ys.
+    ALOOKUP xs = ALOOKUP ys ⇒
+    subst xs e = subst ys e
+Proof
+  ho_match_mp_tac compute_syntaxProofTheory.cexp_vars_ind \\ rw []
+  \\ gvs [subst_def,MAP_EQ_f]
+  \\ first_x_assum irule
+  \\ fs [ALOOKUP_FILTER,FUN_EQ_THM]
+QED
+
+Theorem subst_cons_lemma:
+  subst [(s,from_cv a)]
+    (subst
+       (FILTER (λ(n,x). n ≠ s) (MAP (λ(x,y). (x,from_cv y)) env)) e2) =
+  subst (MAP (λ(x,y). (x,from_cv y)) ((s,a)::env)) e2
+Proof
+  DEP_REWRITE_TAC [subst_subst] \\ fs []
+  \\ conj_tac
+  >-
+   (fs [EVERY_FILTER,EVERY_MAP,LAMBDA_PROD,EXISTS_PROD]
+    \\ fs [EVERY_MEM,FORALL_PROD] \\ metis_tac [])
+  \\ irule alookup_subst
+  \\ fs [FUN_EQ_THM]
+  \\ rw []
+  >-
+   (fs [ALOOKUP_APPEND,AllCaseEqs(),ALOOKUP_NONE]
+    \\ fs [MEM_MAP,EXISTS_PROD,MEM_FILTER])
+  \\ Induct_on ‘env’ \\ fs []
+  \\ PairCases \\ fs [] \\ rw []
+QED
+
+Theorem subst_eq_subst_lemma:
+  ∀s xs ys.
+    ALL_DISTINCT (MAP FST xs) ∧ xs = REVERSE ys ⇒
+    subst xs s = subst ys s
+Proof
+  ho_match_mp_tac compute_syntaxProofTheory.cexp_vars_ind
+  \\ rw [] \\ gvs [subst_def]
+  \\ fs [MAP_EQ_f]
+  \\ imp_res_tac alistTheory.alookup_distinct_reverse
+  \\ fs [FILTER_REVERSE]
+  \\ first_x_assum irule
+  \\ fs [MAP_REVERSE]
+  \\ qsuff_tac ‘MAP FST (FILTER (λ(n,x). n ≠ s) ys) = FILTER (λn. n ≠ s) (MAP FST ys)’
+  \\ fs [FILTER_ALL_DISTINCT]
+  \\ qid_spec_tac ‘ys’ \\ Induct \\ fs [FORALL_PROD]
+  \\ rw []
+QED
+
 Theorem exec_thm:
-  (∀ck eqs e res env vars e1 s s1.
-    compute_eval ck eqs e s = (res,s1) ∧
-    cexp_vars e = {} ∧ eqs_ok eqs ∧
-    code_rel eqs env vars e e1 ⇒
+  (∀ck eqs e res env e1 s s1.
+    compute_eval ck eqs (subst (MAP (λ(x,y). (x, from_cv y)) env) e) s = (res,s1) ∧
+    cexp_vars e SUBSET set (MAP FST env) ∧ eqs_ok eqs ∧
+    code_rel eqs (MAP FST env) e e1 ⇒
     ∃res1.
-      exec (build_funs eqs) env ck e1 s = (res1,s1) ∧
+      exec (build_funs eqs) (MAP SND env) ck e1 s = (res1,s1) ∧
       res = from_res from_cv res1) ∧
-  (∀ck eqs e res env vars e1 s s1 acc.
-    compute_eval_list ck eqs e s = (res,s1) ∧
-    EVERY (λe. cexp_vars e = {}) e ∧ eqs_ok eqs ∧
-    LIST_REL (code_rel eqs env vars) e e1 ⇒
+  (∀ck eqs e res env e1 s s1 acc.
+    compute_eval_list ck eqs (MAP (subst (MAP (λ(x,y). (x, from_cv y)) env)) e) s = (res,s1) ∧
+    EVERY (λe. cexp_vars e SUBSET set (MAP FST env)) e ∧ eqs_ok eqs ∧
+    LIST_REL (code_rel eqs (MAP FST env)) e e1 ⇒
     ∃res1.
-      exec_list (build_funs eqs) env ck e1 acc s = (res1,s1) ∧
+      exec_list (build_funs eqs) (MAP SND env) ck e1 acc s = (res1,s1) ∧
       from_res (λxs. REVERSE xs ++ MAP from_cv acc) res = from_res (MAP from_cv) res1)
 Proof
-  ho_match_mp_tac compute_eval_ind \\ rpt strip_tac
-  >~ [‘Var’] >- fs []
+  ho_match_mp_tac compute_eval_ind_ind \\ rpt strip_tac
+  >~ [‘Var’] >-
+   (pop_assum mp_tac
+    \\ simp [Once code_rel_cases] \\ strip_tac
+    \\ gvs [subst_def,exec_def,st_ex_return_def]
+    \\ drule_all env_lookup_lemma \\ strip_tac \\ fs []
+    \\ gvs [compute_eval_from_cv])
   >~ [‘Num’] >-
    (gvs [Once code_rel_cases]
     \\ gvs [compute_eval_def,st_ex_return_def,exec_def,from_cv_def,
-            LESS_LENGTH_env_lookup])
+            LESS_LENGTH_env_lookup,subst_def])
   >~ [‘Pair x y’] >-
    (pop_assum mp_tac
     \\ simp [Once code_rel_cases] \\ strip_tac \\ gvs []
-    \\ gvs [compute_eval_def,st_ex_return_def,exec_def,from_cv_def,
+    \\ gvs [compute_eval_def,st_ex_return_def,exec_def,from_cv_def,subst_def,
             LESS_LENGTH_env_lookup,compute_eval_from_cv,st_ex_bind_def]
     \\ gvs [cexp_consts_ok_def]
     \\ gvs [AllCaseEqs()]
@@ -319,7 +398,7 @@ Proof
     \\ Cases_on ‘res1'’ \\ gvs [])
   >~ [‘If x y z’] >-
    (gvs [cexp_consts_ok_def]
-    \\ gvs [compute_eval_def,st_ex_return_def,exec_def,from_cv_def,
+    \\ gvs [compute_eval_def,st_ex_return_def,exec_def,from_cv_def,subst_def,
             LESS_LENGTH_env_lookup,compute_eval_from_cv,st_ex_bind_def]
     \\ gvs [AllCaseEqs()]
     \\ pop_assum mp_tac \\ simp [Once code_rel_cases] \\ rw []
@@ -332,51 +411,63 @@ Proof
   >~ [‘Let s e1 e2’] >-
    (pop_assum mp_tac
     \\ simp [Once code_rel_cases] \\ strip_tac
-    \\ Cases_on ‘ck = 0’ \\ gvs [compute_eval_def,exec_def]
+    \\ Cases_on ‘ck = 0’ \\ gvs [compute_eval_def,exec_def,subst_def]
     \\ gvs [raise_Failure_def,exec_def,st_ex_bind_def]
     \\ gvs [AllCaseEqs(),PULL_EXISTS]
     \\ first_x_assum drule_all \\ gvs [] \\ strip_tac \\ gvs []
     \\ Cases_on ‘res1’ \\ gvs []
-    \\ first_x_assum drule
-    \\ disch_then irule
-    \\ DEP_REWRITE_TAC [compute_evalProofTheory.closed_subst]
-    \\ fs [cexp_value_from_cv]
-    \\ qexists_tac ‘s::vars’ \\ fs []
-    \\ cheat)
+    \\ ‘a::MAP SND env = MAP SND ((s,a)::env)’ by fs []
+    \\ pop_assum $ once_rewrite_tac o single
+    \\ first_x_assum irule
+    \\ fs [subst_cons_lemma]
+    \\ fs [SUBSET_DEF] \\ metis_tac [])
   >~ [‘App f xs’] >-
    (pop_assum mp_tac
     \\ simp [Once code_rel_cases] \\ strip_tac
-    \\ qpat_x_assum ‘cexp_vars (App f xs) = ∅’ mp_tac
-    \\ gvs []
+    \\ qpat_x_assum ‘cexp_vars (App f xs) ⊆ set (MAP FST env)’ mp_tac
+    \\ gvs [subst_def]
     \\ Cases_on ‘ck = 0’ \\ gvs [compute_eval_def]
     \\ gvs [raise_Failure_def,exec_def]
     \\ drule_all option_ALOOKUP
     \\ strip_tac \\ fs [st_ex_bind_def,check_def,st_ex_return_def,st_ex_ignore_bind_def]
     \\ disch_then assume_tac
-    \\ ‘EVERY (λe. cexp_vars e = ∅) xs’ by
-     (fs [EVERY_MEM,EXTENSION,MEM_MAP,PULL_EXISTS]
+    \\ ‘EVERY (λe. cexp_vars e ⊆ set (MAP FST env)) xs’ by
+     (fs [EVERY_MEM,EXTENSION,MEM_MAP,PULL_EXISTS,SUBSET_DEF]
       \\ metis_tac [])
-    \\ qpat_x_assum ‘_ ∨ _’ kall_tac
-    \\ reverse $ gvs [AllCaseEqs()]
+    \\ reverse $ gvs [AllCaseEqs(),SF ETA_ss]
     \\ first_x_assum drule_all
     \\ disch_then $ qspec_then ‘[]’ mp_tac \\ strip_tac \\ gvs []
     >- (Cases_on ‘res1’ \\ fs [])
     \\ Cases_on ‘res1’ \\ fs []
-    \\ first_x_assum irule
-    \\ first_x_assum $ irule_at Any
-    \\ qexists_tac ‘[]’ \\ fs []
-    \\ DEP_REWRITE_TAC [compute_evalProofTheory.closed_subst]
     \\ rename [‘REVERSE vs = _’]
-    \\ imp_res_tac compile_eval_list_length \\ fs [MAP_ZIP,MEM_ZIP,PULL_EXISTS]
     \\ gvs [SWAP_REVERSE_SYM,sub_def,build_funs_def,EL_MAP]
-    \\ simp [EVERY_MEM,MEM_MAP,PULL_EXISTS,cexp_value_from_cv]
     \\ gvs [eqs_ok_def,EVERY_EL]
-    \\ last_x_assum drule \\ fs []
-    \\ fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
+    \\ imp_res_tac compile_eval_list_length \\ fs [MAP_ZIP,MEM_ZIP,PULL_EXISTS]
+    \\ qpat_x_assum ‘∀x. _ ⇒ _’ drule
+    \\ fs [] \\ strip_tac
+    \\ ‘a = MAP SND (ZIP (REVERSE l,a))’ by fs [MAP_ZIP]
+    \\ pop_assum $ once_rewrite_tac o single
+    \\ first_x_assum irule
+    \\ fs [MAP_ZIP]
+    \\ first_x_assum $ irule_at $ Pos last
+    \\ first_x_assum $ irule_at $ Pos last
+    \\ qpat_x_assum ‘_ = (res,s1)’ $ rewrite_tac o single o GSYM
+    \\ AP_THM_TAC \\ AP_TERM_TAC
+    \\ ‘MAP (λ(x,y). (x,from_cv y)) (ZIP (REVERSE l,a)) =
+        ZIP (REVERSE l,MAP from_cv a)’ by
+      (‘LENGTH a = LENGTH l’ by fs []
+       \\ pop_assum mp_tac
+       \\ qid_spec_tac ‘a’
+       \\ qid_spec_tac ‘l’
+       \\ Induct using SNOC_INDUCT
+       \\ fs [] \\ strip_tac \\ Cases \\ fs [])
+    \\ fs []
+    \\ irule subst_eq_subst_lemma
+    \\ fs [MAP_ZIP,REVERSE_ZIP])
   >~ [‘Uop’] >-
    (pop_assum mp_tac
     \\ simp [Once code_rel_cases] \\ strip_tac \\ gvs []
-    \\ gvs [compute_eval_def,st_ex_return_def,exec_def,from_cv_def,
+    \\ gvs [compute_eval_def,st_ex_return_def,exec_def,from_cv_def,subst_def,
             LESS_LENGTH_env_lookup,compute_eval_from_cv,st_ex_bind_def]
     \\ gvs [cexp_consts_ok_def]
     \\ gvs [AllCaseEqs()]
@@ -386,7 +477,7 @@ Proof
   >~ [‘Binop’] >-
    (pop_assum mp_tac
     \\ simp [Once code_rel_cases] \\ strip_tac \\ gvs []
-    \\ gvs [compute_eval_def,st_ex_return_def,exec_def,from_cv_def,
+    \\ gvs [compute_eval_def,st_ex_return_def,exec_def,from_cv_def,subst_def,
             LESS_LENGTH_env_lookup,compute_eval_from_cv,st_ex_bind_def]
     \\ gvs [cexp_consts_ok_def]
     \\ gvs [AllCaseEqs()]
@@ -407,5 +498,11 @@ Proof
   \\ first_x_assum $ qspec_then ‘a::acc’ strip_assume_tac
   \\ gvs [] \\ Cases_on ‘res1’ \\ gvs []
 QED
+
+Theorem exec_lemma =
+  exec_thm
+  |> CONJUNCT1
+  |> Q.SPECL [‘ck’,‘eqs’,‘e’,‘res’,‘[]’,‘e1’,‘s’,‘s1’]
+  |> SIMP_RULE std_ss [MAP,subst_empty,listTheory.LIST_TO_SET];
 
 val _ = export_theory ();

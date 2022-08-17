@@ -439,5 +439,62 @@ Termination
                           | INR (ck,_,cv) => (ck, compute_exp1_size cv))’
 End
 
-val _ = export_theory ();
+(* Let and App cases are modified below to get a more useful ind theorem *)
+Definition compute_eval_ind_def:
+  compute_eval_ind ck ceqs (Var s) = error ∧
+  compute_eval_ind ck ceqs (Num n) = return (Num n) ∧
+  compute_eval_ind ck ceqs (Pair p q) =
+    do
+      x <- compute_eval_ind ck ceqs p;
+      y <- compute_eval_ind ck ceqs q;
+      return (Pair x y)
+    od ∧
+  compute_eval_ind ck ceqs (Uop uop p) =
+    do x <- compute_eval_ind ck ceqs p;
+       do_uop uop x
+    od ∧
+  compute_eval_ind ck ceqs (Binop bop p q) =
+    do
+      x <- compute_eval_ind ck ceqs p;
+      y <- compute_eval_ind ck ceqs q;
+      do_binop bop x y
+    od ∧
+  compute_eval_ind ck ceqs (App f cs) =
+    (if ck = 0 then timeout else
+      do
+        (args,exp) <- option (ALOOKUP ceqs) f;
+        check (LENGTH args = LENGTH cs);
+        cs <- compute_eval_ind_list ck ceqs cs;
+        compute_eval_ind (ck - 1) ceqs exp
+      od) ∧
+  compute_eval_ind ck ceqs (If p q r) =
+    do
+      x <- compute_eval_ind ck ceqs p;
+      case x of
+      | Num 0 => compute_eval_ind ck ceqs r
+      | Num _ => compute_eval_ind ck ceqs q
+      | Pair _ _ => compute_eval_ind ck ceqs q
+      | _ => error
+    od ∧
+  compute_eval_ind ck ceqs (Let s p q) =
+    (if ck = 0 then timeout else
+      do
+        x <- compute_eval_ind ck ceqs p;
+        compute_eval_ind (ck - 1) ceqs q
+      od) ∧
+  compute_eval_ind_list ck ceqs [] = return [] ∧
+  compute_eval_ind_list ck ceqs (c::cs) =
+    do
+      x <- compute_eval_ind ck ceqs c;
+      xs <- compute_eval_ind_list ck ceqs cs;
+      return (x::xs)
+    od
+Termination
+  wf_rel_tac ‘inv_image ($< LEX $<)
+             (λx. case x of INL (ck,_,cv) => (ck, compute_exp_size cv)
+                          | INR (ck,_,cv) => (ck, compute_exp1_size cv))’
+End
 
+val _ = Theory.delete_binding "compute_eval_ind_def"
+
+val _ = export_theory ();
