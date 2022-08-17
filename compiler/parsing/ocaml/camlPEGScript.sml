@@ -556,9 +556,6 @@ Definition camlPEG_def[nocompute]:
        seql [tokeq LbraceT; pnt nExpr; tokeq WithT; pnt nUpdates;
              try (tokeq SemiT); tokeq RbraceT]
             (bindNT nERecUpdate));
-      (INL nERecCons,
-       seql [tokeq LbraceT; pnt nUpdates; try (tokeq SemiT); tokeq RbraceT]
-            (bindNT nERecCons));
       (INL nEBase,
        choicel [
          pegf (pnt nLiteral) (bindNT nEBase);
@@ -566,7 +563,6 @@ Definition camlPEG_def[nocompute]:
          pegf (pnt nConstr) (bindNT nEBase);
          pegf (pnt nEList) (bindNT nEBase);
          pegf (pnt nERecUpdate) (bindNT nEBase);
-         pegf (pnt nERecCons) (bindNT nEBase);
          seql [tokeq LparT; tokeq RparT] (bindNT nEBase); (* unit *)
          seql [tokeq BeginT; tokeq EndT] (bindNT nEBase); (* unit *)
          seql [tokeq LparT; pnt nExpr;
@@ -592,6 +588,10 @@ Definition camlPEG_def[nocompute]:
        seql [tokeq LazyT; pnt nERecProj] (bindNT nELazy));
       (INL nEConstr,
        seql [pnt nConstr; pnt nERecProj] (bindNT nEConstr));
+      (INL nERecCons,
+       seql [pnt nConstr;
+             tokeq LbraceT; pnt nUpdates; try (tokeq SemiT); tokeq RbraceT]
+            (bindNT nERecCons));
       (INL nEFunapp,
        seql [pnt nEPrefix; rpt (pnt nERecProj) FLAT]
             (λl. case l of
@@ -600,7 +600,7 @@ Definition camlPEG_def[nocompute]:
                                   (mkNd (INL nEFunapp) [h]) t]));
       (INL nEApp,
        pegf (choicel (MAP pnt [nELazy; nEAssert; nEConstr; nEFunapp;
-                               nERecProj]))
+                               nERecCons; nERecProj]))
             (bindNT nEApp));
       (* -- Expr13 --------------------------------------------------------- *)
       (INL nEUnclosed,
