@@ -227,7 +227,7 @@ Datatype:
     | nTypeConstr | nTypeConstrName
     | nModulePath | nModuleName
     | nModTypePath | nModTypeName
-    | nField | nFieldName
+    | nFieldName
     | nOperatorName
     (* expressions *)
     | nLiteral | nIdent | nEBase | nEList
@@ -341,9 +341,6 @@ Definition camlPEG_def[nocompute]:
        pegf (choicel [seql [pnt nModuleName; tokeq DotT; pnt nModTypePath] I;
                       pnt nModTypeName])
             (bindNT nModTypePath));
-      (INL nField,
-       seql [try (seql [pnt nModulePath; tokeq DotT] I); pnt nFieldName]
-            (bindNT nField));
       (* -- Definitions (module items) ------------------------------------- *)
       (INL nSemis,
        seql [tokeq SemisT; try (pnt nSemis)]
@@ -496,7 +493,7 @@ Definition camlPEG_def[nocompute]:
        seql [pnt nFieldDec; try (seql [tokeq SemiT; pnt nFieldDecs] I)]
             (bindNT nFieldDecs));
       (INL nFieldDec,
-       seql [pnt nField; tokeq ColonT; pnt nType]
+       seql [pnt nFieldName; tokeq ColonT; pnt nType]
             (bindNT nFieldDec));
       (INL nConstrArgs,
        seql [pnt nTConstr; rpt (seql [tokeq StarT; pnt nTConstr] I) FLAT]
@@ -550,7 +547,7 @@ Definition camlPEG_def[nocompute]:
       (INL nIdent,
        tok isIdent (bindNT nIdent o mktokLf));
       (INL nUpdate,
-       seql [pnt nField; tokeq EqualT; pnt nExpr]
+       seql [pnt nFieldName; tokeq EqualT; pnt nExpr]
             (bindNT nUpdate));
       (INL nUpdates,
        seql [pnt nUpdate; try (seql [tokeq SemiT; pnt nUpdates] I)]
@@ -586,7 +583,7 @@ Definition camlPEG_def[nocompute]:
       (* -- Expr14.5 ------------------------------------------------------- *)
       (INL nERecProj,
        seql [pnt nEPrefix;
-             try (seql [tokeq DotT; pnt nField] I)]
+             try (seql [tokeq DotT; pnt nFieldName] I)]
             (bindNT nERecProj));
       (* -- Expr14 --------------------------------------------------------- *)
       (INL nEAssert,
@@ -999,7 +996,7 @@ val npeg0_rwts =
         “nHolInfixOp”, “nCatOp”, “nPrefixOp”, “nAssignOp”, “nValueName”,
         “nOperatorName”, “nConstrName”, “nTypeConstrName”, “nModuleName”,
         “nValuePath”, “nConstr”, “nTypeConstr”, “nModulePath”, “nFieldName”,
-        “nField”, “nUpdate”, “nUpdates”, “nERecUpdate”, “nERecCons”, “nLiteral”,
+        “nUpdate”, “nUpdates”, “nERecUpdate”, “nERecCons”, “nLiteral”,
         “nIdent”, “nEList”, “nEConstr”, “nEBase”, “nEPrefix”, “nERecProj”,
         “nELazy”, “nEAssert”, “nEFunapp”, “nEApp”, “nLetBinding”, “nPAny”,
         “nPList”, “nPPar”, “nPBase”, “nPCons”, “nPAs”, “nPOps”, “nPattern”,
@@ -1038,7 +1035,7 @@ val topo_nts =
         “nHolInfixOp”, “nCatOp”, “nPrefixOp”, “nAssignOp”, “nValueName”,
         “nOperatorName”, “nConstrName”, “nTypeConstrName”, “nModuleName”,
         “nModulePath”, “nValuePath”, “nConstr”, “nTypeConstr”, “nFieldName”,
-        “nField”,“nLiteral”, “nIdent”, “nEList”, “nEConstr”, “nERecUpdate”,
+        “nLiteral”, “nIdent”, “nEList”, “nEConstr”, “nERecUpdate”,
         “nERecCons”, “nEBase”, “nEPrefix”, “nERecProj”, “nELazy”, “nEAssert”,
         “nEFunapp”, “nEApp”, “nPAny”, “nPList”, “nPPar”, “nPBase”, “nPCons”,
         “nPAs”, “nPOps”, “nPattern”, “nPatterns”, “nLetBinding”, “nLetBindings”,
