@@ -481,6 +481,22 @@ Definition ptree_TypeConstrName_def:
       fail (locs, «Expected typeconstr-name non-terminal»)
 End
 
+Definition ptree_FieldName_def:
+  ptree_FieldName (Lf (_, locs)) =
+    fail (locs, «Expected fieldname non-terminal») ∧
+  ptree_FieldName (Nd (nterm, locs) args) =
+    if nterm = INL nFieldName then
+      case args of
+        [arg] =>
+          do
+            lf <- destLf arg;
+            tk <- option $ destTOK lf;
+            option $ destIdent tk
+          od
+    else
+      fail (locs, «Expected fieldname non-terminal»)
+End
+
 Definition ptree_ModuleName_def:
   ptree_ModuleName (Lf (_, locs)) =
     fail (locs, «Expected modulename non-terminal») ∧
@@ -987,8 +1003,7 @@ Definition ptree_PPattern_def:
               fail (locs, «Impossible: nPBase»)
          od
       | _ => fail (locs, «Impossible: nPBase»)
-    else if nterm = INL nPCons then
-      case args of
+    else if nterm = INL nPCons then case args of
         [cn] =>
           do
             cns <- ptree_Constr cn;
@@ -1260,6 +1275,24 @@ Definition flatten_pmatch_def:
   flatten_pmatch pss = FLAT (MAP (λ(ps,x,w). MAP (λp. (p,x,w)) ps) pss)
 End
 
+Definition build_record_upd_def:
+  build_record_upd b (f,x) =
+    App Opapp [App Opapp [Var (Short ("__" ++ f ++ "_record_upd")); b]; x]
+End
+
+Definition build_record_proj_def:
+  build_record_proj f x =
+    App Opapp [Var (Short ("__" ++ f ++ "_record_proj")); x]
+End
+
+Definition build_record_cons_def:
+  build_record_cons cn upds =
+    let upds = QSORT (λ(f,_) (g,_). string_lt f g) upds in
+    let (names,exprs) = UNZIP upds in
+    let name = FLAT (["__";cn;"_"] ++ MAP (λf. f ++ "_") names ++ ["constr"]) in
+    build_funapp (Var (Short name)) exprs
+End
+
 Definition ptree_Expr_def:
   (ptree_Expr et (Lf (_, locs)) =
     fail (locs, «Expected an expression non-terminal»)) ∧
@@ -1342,7 +1375,9 @@ Definition ptree_Expr_def:
       | [arg] =>
           do
             n <- nterm_of arg;
-            if n = INL nLiteral then
+            if n = INL nERecUpdate then
+              ptree_Expr nERecUpdate arg
+            else if n = INL nLiteral then
               fmap (λid. Con (SOME id) []) (ptree_Bool arg) ++
               fmap Lit (ptree_Literal arg)
             else if n = INL nValuePath then
@@ -1363,6 +1398,48 @@ Definition ptree_Expr_def:
               fail (locs, «Impossible: nEBase»)
           od
       | _ => fail (locs, «Impossible: nEBase»)
+    else if nterm = INL nERecUpdate then
+      case args of
+        [lb; x; witht; upds; semi; rb] =>
+          do
+            expect_tok lb LbraceT;
+            expect_tok witht WithT;
+            expect_tok semi SemiT;
+            expect_tok rb RbraceT;
+            e <- ptree_Expr nExpr x;
+            us <- ptree_Updates upds;
+            return $ FOLDL build_record_upd e us
+          od
+      | [lb; x; witht; upds; rb] =>
+          do
+            expect_tok lb LbraceT;
+            expect_tok witht WithT;
+            expect_tok rb RbraceT;
+            e <- ptree_Expr nExpr x;
+            us <- ptree_Updates upds;
+            return $ FOLDL build_record_upd e us
+          od
+      | _ => fail (locs, «Impossible: nERecUpdate»)
+    else if nterm = INL nERecCons then
+      case args of
+        [cons; lb; upds; semi; rb] =>
+          do
+            expect_tok lb LbraceT;
+            expect_tok semi SemiT;
+            expect_tok rb RbraceT;
+            cn <- ptree_Constr cons;
+            us <- ptree_Updates upds;
+            return $ build_record_cons cn us
+          od
+      | [cons; lb; upds; rb] =>
+          do
+            expect_tok lb LbraceT;
+            expect_tok rb RbraceT;
+            cn <- ptree_ConstrName cons;
+            us <- ptree_Updates upds;
+            return $ build_record_cons cn us
+          od
+      | _ => fail (locs, «Impossible: nERecCons»)
     else if nterm = INL nEAssert then
       case args of
         [assr; expr] =>
@@ -1905,7 +1982,38 @@ Definition ptree_Expr_def:
       y <- ptree_Expr nEHolInfix x;
       ys <- ptree_ExprCommas xs;
       return (y::ys)
-    od)
+    od) ∧
+  (ptree_Update (Lf (_, locs)) =
+    fail (locs, «Expected an update non-terminal»)) ∧
+  (ptree_Update (Nd (nterm,locs) args) =
+     if nterm = INL nUpdate then
+       case args of
+         [fd; eq; expr] =>
+           do
+             expect_tok eq EqualT;
+             f <- ptree_FieldName fd;
+             x <- ptree_Expr nExpr expr;
+             return (f, x)
+           od
+       | _ => fail (locs, «Impossible: nUpdate»)
+     else
+       fail (locs, «Expected an update non-terminal»)) ∧
+  (ptree_Updates (Lf (_, locs)) =
+    fail (locs, «Expected an updates non-terminal»)) ∧
+  (ptree_Updates (Nd (nterm,locs) args) =
+     if nterm = INL nUpdates then
+       case args of
+         [upd] => fmap (λu. [u]) $ ptree_Update upd
+       | [upd; semi; upds] =>
+           do
+             expect_tok semi SemiT;
+             u <- ptree_Update upd;
+             us <- ptree_Updates upds;
+             return (u::us)
+           od
+       | _ => fail (locs, «Impossible: nUpdates»)
+     else
+       fail (locs, «Expected an updates non-terminal»))
 Termination
   WF_REL_TAC ‘measure $ sum_size (pair_size camlNT_size psize)
                       $ sum_size psize
@@ -1914,7 +2022,9 @@ Termination
                       $ sum_size psize
                       $ sum_size psize
                       $ sum_size psize
-                      $ sum_size (SUC o list_size psize) (SUC o list_size psize)’
+                      $ sum_size (SUC o list_size psize)
+                      $ sum_size (SUC o list_size psize)
+                      $ sum_size psize psize’
   \\ simp [parsetree_size_lemma]
 End
 
@@ -2067,9 +2177,9 @@ Definition ptree_TypeInfo_def:
   ptree_TypeInfo (Nd (nterm, locs) args) =
     if nterm = INL nTypeInfo then
       case args of
-        [eq; arg] =>
+        [eqt; arg] =>
           do
-            expect_tok eq EqualT;
+            expect_tok eqt EqualT;
             n <- nterm_of arg;
             if n = INL nType then
               fmap INL (ptree_Type arg)
