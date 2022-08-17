@@ -444,6 +444,75 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
   ;
 
 (* -------------------------------------------------------------------------
+ * Record syntax
+ * ------------------------------------------------------------------------- *)
+
+(* record projection and update *)
+
+val _ = parsetest0 “nExpr” “ptree_nExpr”
+  "x.foo"
+  (SOME “App Opapp [V "__foo_record_proj"; V "x"]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_nExpr”
+  "x with foo := bar"
+  (SOME “App Opapp [App Opapp [V "__foo_record_upd"; V "x"]; V "bar"]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_nExpr”
+  "x with foo := bar with baz = quux"
+  (SOME “App Opapp [App Opapp [V "__baz_record_upd";
+                               App Opapp [App Opapp [V "__foo_record_upd";
+                                                     V "x"];
+                                                     V "bar"]];
+                    V "quux"]”)
+  ;
+
+(* construction *)
+
+val _ = parsetest0 “nExpr” “ptree_nExpr”
+  "Foo { foo = 5; bar = true }"
+  (SOME “App Opapp [App Opapp [V "__record_constr_Foo_bar_foo"; (C "True" [])];
+                    Lit (IntLit 5)]”)
+  ;
+
+(* declaration *)
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "type rec1 = Foo of {foo: int; bar: bool};;"
+  (SOME “[(* datatype definition: *)
+          Dtype L [([], "rec1", [("Foo", [Atapp [] (Short "bool");
+                                          Atapp [] (Short "int")])])];
+          (* update functions: *)
+          Dlet L1 (Pv "__foo_record_upd")
+                  (Fun "" (Mat (V "") [
+                    (Pc "Foo" [Pv "bar"; Pv "foo"],
+                     Fun "" (Mat (V "") [
+                       (Pv "foo",
+                        Con (Short "Foo") [V "bar"; V "foo"])]))]));
+          Dlet L2 (Pv "__bar_record_upd")
+                  (Fun "" (Mat (V "") [
+                    (Pc "Foo" [Pv "bar"; Pv "foo"],
+                     Fun "" (Mat (V "") [
+                       (Pv "bar",
+                        Con (Short "Foo") [V "bar"; V "foo"])]))]));
+          (* projection functions: *)
+          Dlet L3 (Pv "__foo_record_proj")
+                  (Fun "" (Mat (V "") [
+                    (Pc "Foo" [Pv "bar"; Pv "foo"],
+                     V "foo")));
+          Dlet L4 (Pv "__foo_record_proj")
+                  (Fun "" (Mat (V "") [
+                    (Pc "Foo" [Pv "bar"; Pv "foo"],
+                     V "bar")));
+          (* constructor function(s): *)
+          Dlet L5 (Pv "__record_constr_Foo_bar_foo")
+                  (Fun "bar"
+                    (Fun "foo"
+                      (Con (Short "Foo") [V "bar"; V "foo"])))]”)
+  ;
+
+(* -------------------------------------------------------------------------
  * Expressions
  * ------------------------------------------------------------------------- *)
 
