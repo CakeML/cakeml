@@ -77,7 +77,7 @@ End
 *)
 
 Overload TailCall = “Call NONE”
-Overload RetCall = “\s h. Call (SOME (s # h))”
+Overload RetCall = “\s h. Call (SOME (s , h))”
 
 (*
 Datatype:
