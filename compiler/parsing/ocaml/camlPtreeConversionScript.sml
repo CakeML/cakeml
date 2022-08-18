@@ -493,6 +493,7 @@ Definition ptree_FieldName_def:
             tk <- option $ destTOK lf;
             option $ destIdent tk
           od
+      | _ => fail (locs, «Impossible: nFieldName»)
     else
       fail (locs, «Expected fieldname non-terminal»)
 End
