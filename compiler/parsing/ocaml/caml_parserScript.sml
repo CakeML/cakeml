@@ -53,8 +53,7 @@ Definition run_parser_def:
         [ptree] =>
           (case ptree_Start ptree of
             INR x => INR x
-          | INL (loc, err) =>
-              fail (loc, concat [«Ptree conversion: »; err]))
+          | INL (loc, err) => fail (loc, err))
       | _ => fail (unknown_loc, «Impossible: run_parser»)
     od
 End
