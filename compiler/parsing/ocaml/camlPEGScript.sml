@@ -593,7 +593,7 @@ Definition camlPEG_def[nocompute]:
              tokeq LbraceT; pnt nUpdates; try (tokeq SemiT); tokeq RbraceT]
             (bindNT nERecCons));
       (INL nEFunapp,
-       seql [pnt nEPrefix; rpt (pnt nERecProj) FLAT]
+       seql [pnt nERecProj; rpt (pnt nERecProj) FLAT]
             (λl. case l of
                    [] => []
                  | h::t => [FOLDL (λa b. mkNd (INL nEFunapp) [a; b])
