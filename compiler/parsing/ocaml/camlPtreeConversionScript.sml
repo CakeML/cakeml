@@ -2032,7 +2032,7 @@ Definition ptree_Expr_def:
            do
              expect_tok eq EqualT;
              f <- ptree_FieldName fd;
-             x <- ptree_Expr nExpr expr;
+             x <- ptree_Expr nEIf expr;
              return (f, x)
            od
        | _ => fail (locs, «Impossible: nUpdate»)

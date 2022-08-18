@@ -547,7 +547,7 @@ Definition camlPEG_def[nocompute]:
       (INL nIdent,
        tok isIdent (bindNT nIdent o mktokLf));
       (INL nUpdate,
-       seql [pnt nFieldName; tokeq EqualT; pnt nExpr]
+       seql [pnt nFieldName; tokeq EqualT; pnt nEIf]
             (bindNT nUpdate));
       (INL nUpdates,
        seql [pnt nUpdate; try (seql [tokeq SemiT; pnt nUpdates] I)]
@@ -599,8 +599,8 @@ Definition camlPEG_def[nocompute]:
                  | h::t => [FOLDL (λa b. mkNd (INL nEFunapp) [a; b])
                                   (mkNd (INL nEFunapp) [h]) t]));
       (INL nEApp,
-       pegf (choicel (MAP pnt [nELazy; nEAssert; nEConstr; nEFunapp;
-                               nERecCons; nERecProj]))
+       pegf (choicel (MAP pnt [nELazy; nEAssert; nERecCons; nEConstr; nEFunapp;
+                               nERecProj]))
             (bindNT nEApp));
       (* -- Expr13 --------------------------------------------------------- *)
       (INL nEUnclosed,
