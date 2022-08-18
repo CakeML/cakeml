@@ -1275,22 +1275,49 @@ Definition flatten_pmatch_def:
   flatten_pmatch pss = FLAT (MAP (λ(ps,x,w). MAP (λp. (p,x,w)) ps) pss)
 End
 
+Definition mk_record_update_name_def:
+  mk_record_update_name field = "{record_update(" ++ field ++ ")}"
+End
+
 Definition build_record_upd_def:
   build_record_upd b (f,x) =
-    App Opapp [App Opapp [Var (Short ("__" ++ f ++ "_record_upd")); b]; x]
+    App Opapp [App Opapp [Var (Short (mk_record_update_name f)); b]; x]
+End
+
+Definition mk_record_proj_name_def:
+  mk_record_proj_name field = "{record_projection(" ++ field ++ ")}"
 End
 
 Definition build_record_proj_def:
   build_record_proj f x =
-    App Opapp [Var (Short ("__" ++ f ++ "_record_proj")); x]
+    App Opapp [Var (Short (mk_record_proj_name f)); x]
+End
+
+Definition mk_record_constr_name_def:
+  mk_record_constr_name constr fields =
+    FLAT $ ["{record_constructor("; constr; ")"] ++
+           MAP (λfn. "(" ++ fn ++ ")") fields ++ ["}"]
+End
+
+Definition build_record_cons_id_def:
+  build_record_cons_id fns [] =
+    fail (unknown_loc, «build_record_cons_id: empty path») ∧
+  build_record_cons_id fns [cn] =
+    return $ Short $ mk_record_constr_name cn fns ∧
+  build_record_cons_id fns (c::cs) =
+    do
+      id <- build_record_cons_id fns cs;
+      return $ Long c id
+    od
 End
 
 Definition build_record_cons_def:
-  build_record_cons cn upds =
-    let upds = QSORT (λ(f,_) (g,_). string_lt f g) upds in
-    let (names,exprs) = UNZIP upds in
-    let name = FLAT (["__";cn;"_"] ++ MAP (λf. f ++ "_") names ++ ["constr"]) in
-    build_funapp (Var (Short name)) exprs
+  build_record_cons path upds =
+    let (names,exprs) = UNZIP (QSORT (λ(f,_) (g,_). string_lt f g) upds) in
+      do
+        id <- build_record_cons_id names path;
+        return $ build_funapp (Var id) exprs
+      od
 End
 
 Definition ptree_Expr_def:
@@ -1427,17 +1454,17 @@ Definition ptree_Expr_def:
             expect_tok lb LbraceT;
             expect_tok semi SemiT;
             expect_tok rb RbraceT;
-            cn <- ptree_Constr cons;
+            path <- ptree_Constr cons;
             us <- ptree_Updates upds;
-            return $ build_record_cons cn us
+            build_record_cons path us
           od
       | [cons; lb; upds; rb] =>
           do
             expect_tok lb LbraceT;
             expect_tok rb RbraceT;
-            cn <- ptree_ConstrName cons;
+            path <- ptree_Constr cons;
             us <- ptree_Updates upds;
-            return $ build_record_cons cn us
+            build_record_cons path us
           od
       | _ => fail (locs, «Impossible: nERecCons»)
     else if nterm = INL nEAssert then
@@ -2033,6 +2060,75 @@ End
 
 Theorem ptree_Expr_ind = ptree_Expr_ind |> SIMP_RULE (srw_ss() ++ CONJ_ss) [];
 
+Definition ptree_FieldDec_def:
+  ptree_FieldDec (Lf (_, locs)) =
+    fail (locs, «Expected a field declaration non-terminal») ∧
+  ptree_FieldDec (Nd (nterm, locs) args) =
+    if nterm = INL nFieldDec then
+      case args of
+        [fn; colon; ty] =>
+          do
+            expect_tok colon ColonT;
+            f <- ptree_FieldName fn;
+            t <- ptree_Type ty;
+            return (f, t)
+          od
+      | _ => fail (locs, «Impossible: nFieldDec»)
+    else
+      fail (locs, «Expected a field declaration non-terminal»)
+End
+
+Definition ptree_FieldDecs_def:
+  ptree_FieldDecs (Lf (_, locs)) =
+    fail (locs, «Expected a field decls non-terminal») ∧
+  ptree_FieldDecs (Nd (nterm, locs) args) =
+    if nterm = INL nFieldDecs then
+      case args of
+        [fdec] => fmap (λfd. [fd]) $ ptree_FieldDec fdec
+      | [fdec; semi; fdecs] =>
+          do
+            expect_tok semi SemiT;
+            f <- ptree_FieldDec fdec;
+            fs <- ptree_FieldDecs fdecs;
+            return (f::fs)
+          od
+      | _ => fail (locs, «Impossible: nFieldDecs»)
+    else
+      fail (locs, «Expected a field declaration non-terminal»)
+End
+
+(*
+ * Record definitions return a list of (field_name,type) pairs.
+ *)
+
+Definition ptree_Record_def:
+  ptree_Record (Lf (_, locs)) =
+    fail (locs, «Expected a record constructor») ∧
+  ptree_Record (Nd (nterm, locs) args) =
+    if nterm = INL nRecord then
+      case args of
+        [lb; fds; semi; rb] =>
+          do
+            expect_tok lb LbraceT;
+            expect_tok semi SemiT;
+            expect_tok rb RbraceT;
+            ptree_FieldDecs fds
+          od
+      | [lb; fds; rb] =>
+          do
+            expect_tok lb LbraceT;
+            expect_tok rb RbraceT;
+            ptree_FieldDecs fds
+          od
+      | _ => fail (locs, «Impossible: nRecord»)
+    else
+      fail (locs, «Expected a record constructor»)
+End
+
+(*
+ * Vanilla constructor definitions return a list of types.
+ *)
+
 Definition ptree_ConstrArgs_def:
   ptree_ConstrArgs (Lf (_, locs)) =
     fail (locs, «Expected a constructor arguments non-terminal») ∧
@@ -2050,6 +2146,13 @@ Definition ptree_ConstrArgs_def:
       fail (locs, «Expected a constructor arguments non-terminal»)
 End
 
+(*
+ * A constructor declaration returns one of:
+ * - a name and a list of types (a regular constructor)
+ * - a name and a list of (name*type) pairs (record constructor)
+ * The latter causes a bunch of definitions to be generated.
+ *)
+
 Definition ptree_ConstrDecl_def:
   ptree_ConstrDecl (Lf (_, locs)) =
     fail (locs, «Expected a constructor declaration non-terminal») ∧
@@ -2057,13 +2160,24 @@ Definition ptree_ConstrDecl_def:
     if nterm = INL nConstrDecl then
       case args of
         [name] =>
-          fmap (λnm. (nm,[])) $ ptree_ConstrName name
+          fmap (λnm. INL (nm,[])) $ ptree_ConstrName name
       | [name; oft; args] =>
           do
             expect_tok oft OfT;
             nm <- ptree_ConstrName name;
-            ts <- ptree_ConstrArgs args;
-            return (nm, ts)
+            nt <- nterm_of args;
+            if nt = INL nRecord then
+              do
+                ts <- ptree_Record args;
+                return $ INR (nm, ts)
+              od
+            else if nt = INL nConstrArgs then
+              do
+                ts <- ptree_ConstrArgs args;
+                return $ INL (nm, ts)
+              od
+            else
+              fail (locs, «Impossible: nConstrDecl»)
           od
       | _ => fail (locs, «Impossible: nConstrDecl»)
     else
@@ -2079,8 +2193,10 @@ Definition ptree_ExcType_def:
         [exnt; cdecl] =>
           do
             expect_tok exnt ExceptionT;
-            (nm, args) <- ptree_ConstrDecl cdecl;
-            return () (* No types in the CakeML ast *)
+            res <- ptree_ConstrDecl cdecl;
+            case res of
+            | INR _ => fail (locs, «Record type exceptions are forbidden»)
+            | INL (nm, args) => return () (* No types in the CakeML ast *)
           od
       | _ =>
           fail (locs, «Impossible: nExcType»)
@@ -2106,8 +2222,10 @@ Definition ptree_ExcDefinition_def:
         [exnt; cdecl] =>
           do
             expect_tok exnt ExceptionT;
-            (nm, args) <- ptree_ConstrDecl cdecl;
-            return $ Dexn locs nm (ctor_tup args)
+            res <- ptree_ConstrDecl cdecl;
+            case res of
+            | INR _ => fail (locs, «Record type exceptions are forbidden»)
+            | INL (nm, args) => return $ Dexn locs nm (ctor_tup args)
           od
       | [exnt; lhsid; eq; rhsid] =>
           fail (locs, «Exception abbreviation is not supported»)
@@ -2116,9 +2234,10 @@ Definition ptree_ExcDefinition_def:
       fail (locs, «Expected an exception definition non-terminal»)
 End
 
-(* ptree_TypeRepr picks out constructor declarations and returns
- * a list of (constructor_name # argument_types) pairs, one for
- * each constructor.
+(* ptree_TypeRepr takes apart the rows in a datatype declaration
+ * and returns a list where each element is one of:
+ * - a name and a list of types (a regular constructor)
+ * - a name and a list of (name*type) pairs (record constructor)
  *)
 
 Definition ptree_TypeRepr_def:
@@ -2186,7 +2305,9 @@ Definition ptree_TypeInfo_def:
             else if n = INL nTypeRepr then
               do
                 tr <- ptree_TypeRepr arg;
-                return $ INR $ MAP (λ(n,ts). (n, ctor_tup ts)) tr
+                return $ INR $ MAP (λtr. case tr of
+                                         | INL (n,ts) => INL (n,ctor_tup ts)
+                                         | INR (n,ts) => INR (n,ts)) tr
               od
             else
               fail (locs, «Impossible: nTypeInfo»)
@@ -2306,10 +2427,48 @@ Definition ptree_TypeDefs_def:
       fail (locs, «Expected a typedef:s non-terminal»)
 End
 
-(* Ocaml datatype definitions and type abbreviations can be made mutually
- * recursive with each other and this is not supported in CakeML. Example:
- *   type foo = A of bar | B of baz | ...
- *   and baz = foo list
+(* Builds the constructor, projection, and update functions for a record
+ * datatype constructor.
+ *)
+
+Definition build_rec_funs_def:
+  build_rec_funs (locs, cname, fds) =
+    let rhs = Con (SOME (Short cname)) (MAP (Var o Short) fds) in
+    let constr = Dlet locs (Pvar (mk_record_constr_name cname fds))
+                      (FOLDL (λx f. Fun f x) rhs fds) in
+    let projs = MAP (λf.
+                  Dlet locs (Pvar (mk_record_proj_name f))
+                    (Fun "" (Mat (Var (Short ""))
+                        [(Pcon (SOME (Short cname)) (MAP Pvar fds),
+                          Var (Short f))]))) fds in
+    let upds = MAP (λf.
+                  Dlet locs (Pvar (mk_record_update_name f))
+                    (Fun "" (Mat (Var (Short ""))
+                        [(Pcon (SOME (Short cname)) (MAP Pvar fds),
+                          Fun f rhs)]))) fds in
+      constr :: projs ++ upds
+End
+
+(* This function attempts to make sense of different type declarations. It has
+ * grown quite convoluted. ptree_TypeDefs returns a list of tuples:
+ *
+ *   (locs * (tvarN list) * name * (ast_t + ast_t list + (name * ast_t) list))
+ *
+ * The sum type chooses between the three kinds of type declarations:
+ * - type abbreviations:                  (ast_t)
+ *   "type foo = bar"
+ * - datatype declarations:               (ast_t list)
+ *   "type foo = C of args | D | ..."
+ * - record datatype declarations:        ((name # ast_t) list)
+ *   "type foo = C { arg1 : type1; ...}"
+ *
+ * The latter two can be mixed within one declaration. Type declarations can
+ * also be mutually recursive, but the type abbreviation cannot be put into
+ * mutual recursion with the datatype declarations.
+ *
+ * A record constructor is turned into a datatype constructor and a set of
+ * function definitions for projection, update and construction of values of the
+ * record datatype.
  *)
 
 Definition ptree_TypeDefinition_def:
@@ -2322,31 +2481,53 @@ Definition ptree_TypeDefinition_def:
           do
             expect_tok typet TypeT;
             expect_tok nrec NonrecT;
-            tdefs <- fmap REVERSE $ ptree_TypeDefs tds;
-            if EVERY (λ(locs,tys,nm,trs). ISL trs) tdefs then
-              return $ MAP (λ(locs,tys,nm,trs). Dtabbrev locs tys nm (OUTL trs))
-                           tdefs
-            else if EVERY (λ(locs,tys,nm,trs). ISR trs) tdefs then
-              return $ [Dtype locs (MAP (λ(_,tys,nm,trs). (tys,nm,OUTR trs))
-                                        tdefs)]
-            else
-              fail (locs, concat [
-                    «Type abbreviations and datatype definitions cannot be»;
-                    « mutually recursive in CakeML»])
+            fail (locs, «nonrec type definitions are not supported»)
           od
       | [typet; tds] =>
           do
             expect_tok typet TypeT;
             tdefs <- fmap REVERSE $ ptree_TypeDefs tds;
-            (abbrevs,datas) <<- PARTITION (λ(_,tys,nm,trs). ISL trs) tdefs;
+            (abbrevs,datas) <<- PARTITION (λ(_,_,_,trs). ISL trs) tdefs;
+            abbrevs <<- MAP (I ## I ## I ## OUTL) abbrevs;
+            datas <<- MAP (I ## I ## I ## OUTR) datas;
+            if abbrevs ≠ [] ∧ datas ≠ [] then
+              fail (locs, concat[
+                    «datatypes and type abbreviations cannot be made »;
+                    «mutually recursive»]) else return ();
             abbrevs <<-
-              MAP (λ(locs,tys,nm,trs). Dtabbrev locs tys nm (OUTL trs))
-                  abbrevs;
+              MAP (λ(locs,tys,nm,trs). Dtabbrev locs tys nm trs) abbrevs;
             case datas of
-              [] => return abbrevs
-            | _ => let datas = Dtype locs
-                     (MAP (λ(_,tys,nm,trs). (tys,nm,OUTR trs)) datas)
-                   in return (datas::abbrevs)
+            | [] => return abbrevs
+            | _ =>
+              do
+                (* Sort record fields by field name *)
+                defs <<- MAP (I ## I ## I ##
+                              MAP (SUM_MAP I (I ##
+                                QSORT (λ(l,_) (r,_). string_lt l r))))
+                             datas;
+                (* Pick out all record constructor definitions: *)
+                recs <<- FLAT $
+                  MAP (λ(l,_,_,trs). MAP ((λ(cn,fs). (l,cn,MAP FST fs)) o OUTR)
+                                         (FILTER ISR trs)) defs;
+                (* Check distinctness of field names *)
+                if ¬EVERY (ALL_DISTINCT o SND o SND) recs then
+                  fail (locs, «record field names must be distinct»)
+                else return ();
+                (* Build record funs *)
+                recfuns <<- FLAT $ MAP build_rec_funs recs;
+                (* Strip away field names from defs *)
+                defs <<-
+                  MAP (λ(locs,tvs,cn,trs).
+                        (locs,tvs,cn,
+                         MAP (λtr. case tr of
+                                   | INL (n,fs) => (n,fs)
+                                   | INR (n,fs) => (n,MAP SND fs)) trs))
+                              defs;
+                (* Datatype constructors for everything: *)
+                datas <<- Dtype locs (MAP SND defs);
+                (* Record-related function definitions: *)
+                return (datas::abbrevs ++ recfuns)
+            od
           od
       | _ => fail (locs, «Impossible: nTypeDefinition»)
     else
