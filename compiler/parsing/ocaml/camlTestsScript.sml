@@ -449,67 +449,62 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
 
 (* record projection and update *)
 
-val _ = parsetest0 “nExpr” “ptree_nExpr”
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "x.foo"
-  (SOME “App Opapp [V "__foo_record_proj"; V "x"]”)
+  (SOME (rconc $ EVAL “App Opapp [V (mk_record_proj_name "foo"); V "x"]”))
   ;
 
-val _ = parsetest0 “nExpr” “ptree_nExpr”
-  "x with foo := bar"
-  (SOME “App Opapp [App Opapp [V "__foo_record_upd"; V "x"]; V "bar"]”)
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "{x with foo = bar}"
+  (SOME (rconc $ EVAL “App Opapp [App Opapp [
+                        V (mk_record_update_name "foo"); V "x"]; V "bar"]”))
   ;
 
-val _ = parsetest0 “nExpr” “ptree_nExpr”
-  "x with foo := bar with baz = quux"
-  (SOME “App Opapp [App Opapp [V "__baz_record_upd";
-                               App Opapp [App Opapp [V "__foo_record_upd";
-                                                     V "x"];
-                                                     V "bar"]];
-                    V "quux"]”)
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "{x with foo = bar;}"
+  (SOME (rconc $ EVAL “App Opapp [App Opapp [
+                        V (mk_record_update_name "foo"); V "x"]; V "bar"]”))
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "{x with foo = bar; baz = quux;}"
+  (SOME (rconc $ EVAL “App Opapp [App Opapp [V (mk_record_update_name "baz");
+           App Opapp [App Opapp [V (mk_record_update_name "foo");
+             V "x"]; V "bar"]]; V "quux"]”))
   ;
 
 (* construction *)
 
-val _ = parsetest0 “nExpr” “ptree_nExpr”
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "Foo { foo = 5; bar = true }"
-  (SOME “App Opapp [App Opapp [V "__record_constr_Foo_bar_foo"; (C "True" [])];
-                    Lit (IntLit 5)]”)
+  (SOME (rconc $ EVAL
+    “App Opapp [App Opapp [V (mk_record_constr_name "Foo" ["bar";"foo"]);
+                           (C "True" [])];
+                    Lit (IntLit 5)]”))
   ;
 
 (* declaration *)
 
 val _ = parsetest0 “nStart” “ptree_Start”
   "type rec1 = Foo of {foo: int; bar: bool};;"
-  (SOME “[(* datatype definition: *)
-          Dtype L [([], "rec1", [("Foo", [Atapp [] (Short "bool");
-                                          Atapp [] (Short "int")])])];
-          (* update functions: *)
-          Dlet L1 (Pv "__foo_record_upd")
-                  (Fun "" (Mat (V "") [
-                    (Pc "Foo" [Pv "bar"; Pv "foo"],
-                     Fun "" (Mat (V "") [
-                       (Pv "foo",
-                        Con (Short "Foo") [V "bar"; V "foo"])]))]));
-          Dlet L2 (Pv "__bar_record_upd")
-                  (Fun "" (Mat (V "") [
-                    (Pc "Foo" [Pv "bar"; Pv "foo"],
-                     Fun "" (Mat (V "") [
-                       (Pv "bar",
-                        Con (Short "Foo") [V "bar"; V "foo"])]))]));
-          (* projection functions: *)
-          Dlet L3 (Pv "__foo_record_proj")
-                  (Fun "" (Mat (V "") [
-                    (Pc "Foo" [Pv "bar"; Pv "foo"],
-                     V "foo")));
-          Dlet L4 (Pv "__foo_record_proj")
-                  (Fun "" (Mat (V "") [
-                    (Pc "Foo" [Pv "bar"; Pv "foo"],
-                     V "bar")));
-          (* constructor function(s): *)
-          Dlet L5 (Pv "__record_constr_Foo_bar_foo")
-                  (Fun "bar"
-                    (Fun "foo"
-                      (Con (Short "Foo") [V "bar"; V "foo"])))]”)
+  (SOME (rconc $ EVAL “
+      [Dtype L [([],"rec1",[("Foo",[Atapp [] (Short "bool"); Atapp [] (Short "int")])])];
+       Dlet L1 (Pv (mk_record_constr_name "Foo" ["bar";"foo"]))
+          (Fun "foo" (Fun "bar" (C "Foo" [V "bar"; V "foo"])));
+        Dlet L2 (Pv (mk_record_proj_name "bar"))
+          (Fun "" (Mat (V "") [(Pc "Foo" [Pv "bar"; Pv "foo"],V "bar")]));
+        Dlet L3 (Pv (mk_record_proj_name "foo"))
+          (Fun "" (Mat (V "") [(Pc "Foo" [Pv "bar"; Pv "foo"],V "foo")]));
+        Dlet L4 (Pv (mk_record_update_name "bar"))
+          (Fun ""
+             (Mat (V "")
+                [(Pc "Foo" [Pv "bar"; Pv "foo"],
+                  Fun "bar" (C "Foo" [V "bar"; V "foo"]))]));
+        Dlet L5 (Pv (mk_record_update_name "foo"))
+          (Fun ""
+             (Mat (V "")
+                [(Pc "Foo" [Pv "bar"; Pv "foo"],
+                  Fun "foo" (C "Foo" [V "bar"; V "foo"]))]))]”))
   ;
 
 (* -------------------------------------------------------------------------
