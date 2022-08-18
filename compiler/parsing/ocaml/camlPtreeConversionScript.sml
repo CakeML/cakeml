@@ -1518,8 +1518,10 @@ Definition ptree_Expr_def:
               ptree_Expr nEConstr arg
             else if n = INL nEFunapp then
               ptree_Expr nEFunapp arg
-            else if n = INL nEPrefix then
-              ptree_Expr nEPrefix arg
+            else if n = INL nERecCons then
+              ptree_Expr nERecCons arg
+            else if n = INL nERecProj then
+              ptree_Expr nERecProj arg
             else
               fail (locs, «Impolssible: nEApp»)
           od
