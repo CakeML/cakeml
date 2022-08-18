@@ -1472,7 +1472,7 @@ Definition ptree_Expr_def:
         [assr; expr] =>
           do
             expect_tok assr AssertT;
-            x <- ptree_Expr nEPrefix expr;
+            x <- ptree_Expr nERecProj expr;
             return (App Opapp [Var (Short "assert"); x])
           od
       | _ => fail (locs, «Impossible: nEAssert»)
@@ -1481,7 +1481,7 @@ Definition ptree_Expr_def:
         [lazy; expr] =>
           do
             expect_tok lazy LazyT;
-            x <- ptree_Expr nEPrefix expr;
+            x <- ptree_Expr nERecProj expr;
             return (App Opapp [Var (Short "lazy"); x])
           od
       | _ => fail (locs, «Impossible: nELazy»)
@@ -1491,17 +1491,17 @@ Definition ptree_Expr_def:
           do
             cns <- ptree_Constr consid;
             id <- path_to_ns locs cns;
-            x <- ptree_Expr nEPrefix expr;
+            x <- ptree_Expr nERecProj expr;
             return $ compatCurryE id x
           od
       | _ => fail (locs, «Impossible: nEConstr»)
     else if nterm = INL nEFunapp then
       case args of
-        [exp] => ptree_Expr nEPrefix exp
+        [exp] => ptree_Expr nERecProj exp
       | [fexp; aexp] =>
           do
             f <- ptree_Expr nEFunapp fexp;
-            x <- ptree_Expr nEPrefix aexp;
+            x <- ptree_Expr nERecProj aexp;
             return (build_funapp f [x])
           od
       | _ => fail (locs, «Impossible: nEFunapp»)
