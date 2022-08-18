@@ -140,11 +140,27 @@ Definition binop_def:
 End
 
 Definition to_ce_def:
-  to_ce eqs args body = ARB
+  to_ce (eqs:(mlstring # mlstring list # compute_exp) list)
+    args ((Var v):compute_exp) = Var (findi v args) ∧
+  to_ce eqs args (Num n) = Const n ∧
+  to_ce eqs args (Pair x y) =
+    Binop Pair (to_ce eqs args x) (to_ce eqs args y) ∧
+  to_ce eqs args (If x y z) =
+    If (to_ce eqs args x) (to_ce eqs args y) (to_ce eqs args z) ∧
+  to_ce eqs args (Let s x y) =
+    Let (to_ce eqs args x) (to_ce eqs (s::args) y) ∧
+  to_ce eqs args (Uop m x) =
+    Monop (monop m) (to_ce eqs args x) ∧
+  to_ce eqs args (Binop b x y) =
+    Binop (binop b) (to_ce eqs args x) (to_ce eqs args y) ∧
+  to_ce eqs args (App f xs) =
+    App (findi f (MAP FST eqs)) (MAP (to_ce eqs args) xs)
+Termination
+  WF_REL_TAC ‘measure $ λ(eqs,args,e). compute_exp_size e’
 End
 
 Definition compile_to_ce_def:
-  compile_to_ce eqs (n,args,body) = to_ce eqs args body
+  compile_to_ce eqs (n,args,body) = to_ce eqs (REVERSE args) body
 End
 
 Definition build_funs_def:
@@ -502,7 +518,83 @@ QED
 Theorem exec_lemma =
   exec_thm
   |> CONJUNCT1
-  |> Q.SPECL [‘ck’,‘eqs’,‘e’,‘res’,‘[]’,‘e1’,‘s’,‘s1’]
+  |> Q.SPECL [‘ck’,‘eqs’,‘e’,‘res’,‘[]’,‘to_ce eqs [] e’,‘s’,‘s1’]
   |> SIMP_RULE std_ss [MAP,subst_empty,listTheory.LIST_TO_SET];
+
+Triviality LIST_REL_MAP_lemma:
+  ∀xs. LIST_REL R xs (MAP f xs) = EVERY (λx. R x (f x)) xs
+Proof
+  Induct \\ fs []
+QED
+
+Theorem code_rel_to_ce:
+  ∀e vars eqs.
+    cexp_vars e ⊆ set vars ∧ cexp_consts_ok eqs e ∧
+    EVERY (λ(n,args,body). cexp_vars body ⊆ set args ∧ cexp_consts_ok eqs body) eqs ∧
+    ALL_DISTINCT (MAP FST eqs) ⇒
+    code_rel eqs vars e (to_ce eqs vars e)
+Proof
+  ho_match_mp_tac compute_syntaxProofTheory.cexp_vars_ind
+  \\ rw [to_ce_def,cexp_consts_ok_def]
+  \\ simp [Once code_rel_cases]
+  >-
+   (Induct_on ‘vars’ \\ fs [] \\ rw [] \\ fs [indexedListsTheory.findi_def]
+    \\ rw [] \\ fs []
+    \\ qexists_tac ‘h::v1’ \\ qexists_tac ‘v2’ \\ fs [])
+  >-
+   (first_x_assum irule
+    \\ fs [SUBSET_DEF] \\ metis_tac [])
+  \\ gvs [MEM_MAP,EXISTS_PROD,LIST_REL_MAP_lemma]
+  \\ fs [EVERY_MEM,FORALL_PROD]
+  \\ rename [‘MEM (n,args,body) _’]
+  \\ qexists_tac ‘args’
+  \\ qexists_tac ‘body’
+  \\ fs []
+  \\ conj_tac
+  >-
+   (rw [] \\ first_x_assum irule \\ fs []
+    \\ res_tac \\ fs []
+    \\ rw [] \\ res_tac \\ fs []
+    \\ fs [SUBSET_DEF,PULL_EXISTS,MEM_MAP]
+    \\ res_tac \\ fs [])
+  \\ qpat_x_assum ‘MEM _ _’ mp_tac
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘eqs’
+  \\ Induct \\ fs [FORALL_PROD]
+  \\ rw [] \\ gvs [indexedListsTheory.findi_def]
+  \\ rw [] \\ fs []
+  \\ gvs [GSYM ADD1,EL]
+  \\ gvs [MEM_MAP,FORALL_PROD]
+  \\ every_case_tac \\ gvs []
+  \\ Cases_on ‘k’ \\ gvs []
+QED
+
+Theorem compute_eval_eq_exec:
+  cexp_vars e = ∅ ∧
+  cexp_consts_ok eqs e ∧
+  ALL_DISTINCT (MAP FST eqs) ∧
+  EVERY (λ(n,args,body).
+    ALL_DISTINCT args ∧
+    cexp_vars body ⊆ set args ∧
+    cexp_consts_ok eqs body) eqs
+  ⇒
+  compute_eval ck eqs e s =
+    let (r,s1) = exec (build_funs eqs) [] ck (to_ce eqs [] e) s in
+      (from_res from_cv r, s1)
+Proof
+  Cases_on ‘compute_eval ck eqs e s’ \\ fs []
+  \\ pairarg_tac \\ gvs [] \\ strip_tac
+  \\ ‘eqs_ok eqs’ by
+   (fs [eqs_ok_def,EVERY_MEM,FORALL_PROD]
+    \\ rw [] \\ res_tac \\ fs [compile_to_ce_def]
+    \\ irule code_rel_to_ce \\ fs []
+    \\ fs [eqs_ok_def,EVERY_MEM,FORALL_PROD]
+    \\ rw [] \\ res_tac)
+  \\ drule exec_lemma
+  \\ impl_tac \\ rpt strip_tac \\ fs []
+  \\ irule code_rel_to_ce  \\ fs []
+  \\ gvs [EVERY_MEM,FORALL_PROD]
+  \\ rw [] \\ res_tac \\ fs []
+QED
 
 val _ = export_theory ();
