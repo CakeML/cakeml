@@ -2485,6 +2485,41 @@ End
  * record datatype.
  *)
 
+Definition partition_types_def:
+  partition_types tdefs =
+    let (abbrevs,datas) = PARTITION (λ(_,_,_,trs). ISL trs) tdefs in
+    let abbrevs = MAP (λ(l,tvs,cn,trs). (l,tvs,cn,OUTL trs)) abbrevs in
+    let datas = MAP (λ(l,tvs,cn,trs). (l,tvs,cn,OUTR trs)) datas in
+      (abbrevs,datas)
+End
+
+Definition sort_records_def:
+  sort_records (locs,tvs,tn,tds) =
+    (locs,tvs,tn,
+     MAP (λtdef.
+       case tdef of
+       | INL (cn,tys) => INL (cn,tys)
+       | INR (cn,fds) => INR (cn,QSORT (λ(l,_) (r,_). string_lt l r) fds)) tds)
+End
+
+Definition MAP_OUTR_def:
+  MAP_OUTR f [] = [] ∧
+  MAP_OUTR f ((INR x)::xs) = f x :: MAP_OUTR f xs ∧
+  MAP_OUTR f ((INL x)::xs) = MAP_OUTR f xs
+End
+
+Definition extract_record_defns_def:
+  extract_record_defns (locs,tvs,tn,tds) =
+    MAP_OUTR (λ(cn,fds). (locs,cn,MAP FST fds)) tds
+End
+
+Definition strip_record_fields_def:
+  strip_record_fields (locs,tvs,cn,trs) =
+    (locs,tvs,cn,MAP (λtr. case tr of
+                 | INL (n,tys) => (n,tys)
+                 | INR (n,fds) => (n, MAP SND fds)) trs)
+End
+
 Definition ptree_TypeDefinition_def:
   ptree_TypeDefinition (Lf (_, locs)) =
     fail (locs, «Expected a type definition non-terminal») ∧
@@ -2501,9 +2536,7 @@ Definition ptree_TypeDefinition_def:
           do
             expect_tok typet TypeT;
             tdefs <- fmap REVERSE $ ptree_TypeDefs tds;
-            (abbrevs,datas) <<- PARTITION (λ(_,_,_,trs). ISL trs) tdefs;
-            abbrevs <<- MAP (I ## I ## I ## OUTL) abbrevs;
-            datas <<- MAP (I ## I ## I ## OUTR) datas;
+            (abbrevs,datas) <<- partition_types tdefs;
             if abbrevs ≠ [] ∧ datas ≠ [] then
               fail (locs, concat[
                     «datatypes and type abbreviations cannot be made »;
@@ -2514,29 +2547,13 @@ Definition ptree_TypeDefinition_def:
             | [] => return abbrevs
             | _ =>
               do
-                (* Sort record fields by field name *)
-                defs <<- MAP (I ## I ## I ##
-                              MAP (SUM_MAP I (I ##
-                                QSORT (λ(l,_) (r,_). string_lt l r))))
-                             datas;
-                (* Pick out all record constructor definitions: *)
-                recs <<- FLAT $
-                  MAP (λ(l,_,_,trs). MAP ((λ(cn,fs). (l,cn,MAP FST fs)) o OUTR)
-                                         (FILTER ISR trs)) defs;
-                (* Check distinctness of field names *)
+                defs <<- MAP sort_records datas;
+                recs <<- FLAT $ MAP extract_record_defns defs;
                 if ¬EVERY (ALL_DISTINCT o SND o SND) recs then
                   fail (locs, «record field names must be distinct»)
                 else return ();
-                (* Build record funs *)
                 recfuns <<- FLAT $ MAP build_rec_funs recs;
-                (* Strip away field names from defs *)
-                defs <<-
-                  MAP (λ(locs,tvs,cn,trs).
-                        (locs,tvs,cn,
-                         MAP (λtr. case tr of
-                                   | INL (n,fs) => (n,fs)
-                                   | INR (n,fs) => (n,MAP SND fs)) trs))
-                              defs;
+                defs <<- MAP strip_record_fields defs;
                 (* Datatype constructors for everything: *)
                 datas <<- Dtype locs (MAP SND defs);
                 (* Record-related function definitions: *)
