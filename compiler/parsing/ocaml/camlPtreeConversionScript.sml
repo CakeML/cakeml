@@ -1447,6 +1447,17 @@ Definition ptree_Expr_def:
             return $ FOLDL build_record_upd e us
           od
       | _ => fail (locs, «Impossible: nERecUpdate»)
+    else if nterm = INL nERecProj then
+      case args of
+        [arg] => ptree_Expr nEPrefix arg
+      | [arg; dot; fn] =>
+          do
+            expect_tok dot DotT;
+            x <- ptree_Expr nEPrefix arg;
+            f <- ptree_FieldName fn;
+            return $ build_record_proj f x
+          od
+      | _ => fail (locs, «Impossible: nERecProj»)
     else if nterm = INL nERecCons then
       case args of
         [cons; lb; upds; semi; rb] =>
