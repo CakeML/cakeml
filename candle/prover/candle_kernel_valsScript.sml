@@ -124,7 +124,7 @@ val context_refs_defs = the_context_def |> concl |> find_terms (listSyntax.is_le
   |> map (dest_thy_const o listSyntax.dest_length)
   |> map (fn cn => fetch (#Thy cn) (#Name cn ^ "_def"))
 
-Theorem refs_defs = LIST_CONJ context_refs_defs
+Theorem refs_defs = LIST_CONJ (cv_t_refs_def :: cv_f_refs_def :: context_refs_defs)
 
 Theorem kernel_locs = IN_kernel_locs |>
   SIMP_RULE (srw_ss()) [the_type_constants_def,

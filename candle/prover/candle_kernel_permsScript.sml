@@ -833,14 +833,6 @@ Proof
   \\ rw[]
 QED
 
-Theorem perms_ok_foldl_1_v[simp]:
-  perms_ok ps foldl_1_v
-Proof
-  rw[perms_ok_def, foldl_1_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ eval_nsLookup_tac
-  \\ rw[]
-QED
-
 Theorem perms_ok_num2bit_v[simp]:
   perms_ok ps num2bit_v
 Proof
@@ -849,26 +841,10 @@ Proof
   \\ rw[]
 QED
 
-Theorem perms_ok_uop2term_v[simp]:
-  perms_ok ps uop2term_v
+Theorem perms_ok_cv2term_v[simp]:
+  perms_ok ps cv2term_v
 Proof
-  rw[perms_ok_def, uop2term_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ eval_nsLookup_tac
-  \\ rw[]
-QED
-
-Theorem perms_ok_bop2term_v[simp]:
-  perms_ok ps bop2term_v
-Proof
-  rw[perms_ok_def, bop2term_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ eval_nsLookup_tac
-  \\ rw[]
-QED
-
-Theorem perms_ok_cexp2term_v[simp]:
-  perms_ok ps cexp2term_v
-Proof
-  rw[perms_ok_def, cexp2term_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  rw[perms_ok_def, cv2term_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
@@ -904,14 +880,6 @@ Proof
   \\ rw[]
 QED
 
-Theorem perms_ok_subst_v[simp]:
-  perms_ok ps subst_v
-Proof
-  rw[perms_ok_def, subst_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ eval_nsLookup_tac
-  \\ rw[]
-QED
-
 Theorem perms_ok_option_v[simp]:
   perms_ok ps option_v
 Proof
@@ -928,74 +896,103 @@ Proof
   \\ rw[]
 QED
 
-Theorem perms_ok_do_fst_v[simp]:
-  perms_ok ps do_fst_v
+Theorem perms_ok_get_code_v[simp]:
+  perms_ok ps get_code_v
 Proof
-  rw[perms_ok_def, do_fst_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ eval_nsLookup_tac
-  \\ rw[]
+  rw[perms_ok_def, get_code_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
 QED
 
-Theorem perms_ok_do_snd_v[simp]:
-  perms_ok ps do_snd_v
+Theorem perms_ok_env_lookup_v[simp]:
+  perms_ok ps env_lookup_v
 Proof
-  rw[perms_ok_def, do_snd_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ eval_nsLookup_tac
-  \\ rw[]
+  rw[perms_ok_def, env_lookup_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
 QED
 
-Theorem perms_ok_do_ispair_v[simp]:
-  perms_ok ps do_ispair_v
+Theorem perms_ok_exec_v[simp]:
+  perms_ok ps exec_v
 Proof
-  rw[perms_ok_def, do_ispair_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ eval_nsLookup_tac
-  \\ rw[]
+  rw[perms_ok_def, exec_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
 QED
 
-Theorem perms_ok_do_arith_v[simp]:
-  perms_ok ps do_arith_v
+Theorem perms_ok_cv_t_v[simp]:
+  perms_ok ps cv_t_v
 Proof
-  rw[perms_ok_def, do_arith_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ eval_nsLookup_tac
-  \\ rw[]
+  mp_tac candle_kernelProgTheory.cv_t_v_thm
+  \\ qabbrev_tac ‘a = cv_t_v’ \\ EVAL_TAC
+  \\ rw[perms_ok_def, astTheory.pat_bindings_def, perms_ok_env_def]
 QED
 
-Theorem perms_ok_do_reln_v[simp]:
-  perms_ok ps do_reln_v
+Theorem perms_ok_cv_f_v[simp]:
+  perms_ok ps cv_f_v
 Proof
-  rw[perms_ok_def, do_reln_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ eval_nsLookup_tac
-  \\ rw[]
+  mp_tac candle_kernelProgTheory.cv_f_v_thm
+  \\ qabbrev_tac ‘a = cv_f_v’ \\ EVAL_TAC
+  \\ rw[perms_ok_def, astTheory.pat_bindings_def, perms_ok_env_def]
 QED
 
-Theorem perms_ok_do_eq_v[simp]:
-  perms_ok ps do_eq_v
+Theorem perms_ok_to_num_v[simp]:
+  perms_ok ps to_num_v
 Proof
-  rw[perms_ok_def, do_eq_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ eval_nsLookup_tac
-  \\ rw[]
+  rw[perms_ok_def, to_num_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
 QED
 
-Theorem perms_ok_do_binop_v[simp]:
-  perms_ok ps do_uop_v
+Theorem perms_ok_monop_v[simp]:
+  perms_ok ps monop_v
 Proof
-  rw[perms_ok_def, do_uop_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ eval_nsLookup_tac
-  \\ rw[]
+  rw[perms_ok_def, monop_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
 QED
 
-Theorem perms_ok_do_binop_v[simp]:
-  perms_ok ps do_binop_v
+Theorem perms_ok_binop_v[simp]:
+  perms_ok ps binop_v
 Proof
-  rw[perms_ok_def, do_binop_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-  \\ pop_assum mp_tac \\ eval_nsLookup_tac
-  \\ rw[]
+  rw[perms_ok_def, binop_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
 QED
 
-Theorem perms_ok_compute_eval_v[simp]:
-  perms_ok ps compute_eval_v
+Theorem perms_ok_findi_1_v[simp]:
+  perms_ok ps findi_1_v
 Proof
-  rw[perms_ok_def, compute_eval_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  rw[perms_ok_def, findi_1_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
+QED
+
+Theorem perms_ok_to_ce_v[simp]:
+  perms_ok ps to_ce_v
+Proof
+  rw[perms_ok_def, to_ce_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
+QED
+
+Theorem perms_ok_rev_v[simp]:
+  perms_ok ps ListProg$rev_v
+Proof
+  rw[perms_ok_def, ListProgTheory.rev_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
+QED
+
+Theorem perms_ok_reverse_v[simp]:
+  perms_ok ps ListProg$reverse_v
+Proof
+  rw[perms_ok_def, ListProgTheory.reverse_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
+QED
+
+Theorem perms_ok_compile_to_ce_v[simp]:
+  perms_ok ps compile_to_ce_v
+Proof
+  rw[perms_ok_def, compile_to_ce_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
+QED
+
+Theorem perms_ok_build_funs_v[simp]:
+  perms_ok ps build_funs_v
+Proof
+  rw[perms_ok_def, build_funs_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
 QED
 
