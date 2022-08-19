@@ -251,7 +251,7 @@ Definition task_controller_def:
         wait_input_time_limit;
         If (Cmp Equal (Var «sysTime») (Const (n2w (dimword (:α) - 2))))
            check_input_time (Skip:'a prog);
-        Call (Ret «taskRet» NONE) (Var «loc»)
+        Call (SOME («taskRet», NONE)) (Var «loc»)
              [Struct (normalisedClks «sysTime» «clks» clksLength);
              Var «event»];
         Assign «clks» nClks;
@@ -317,8 +317,8 @@ Definition ta_controller_def:
   ]
   (nested_seq
    [
-     Call (Ret «retvar»
-           (SOME (Handle «panic» «excpvar» (Return (Const 1w)))))
+     Call (SOME («retvar»,
+           (SOME («panic», «excpvar», (Return (Const 1w))))))
      (Label «start_controller»)
      [];
      Return (Const 0w)

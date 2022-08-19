@@ -148,12 +148,12 @@ Definition compile_def:
                 If NotEqual tmp (Imm 0w)
                    (Seq lp Continue) Break l]))
           l) /\
-  (compile ctxt l (Call Tail e es) =
+  (compile ctxt l (Call NONE e es) =
    let (p, les, tmp, nl) = compile_exps ctxt (ctxt.vmax + 1) l (es ++ [e]);
        nargs = gen_temps tmp (LENGTH les) in
    nested_seq (p ++ MAP2 Assign nargs les ++
                [Call NONE NONE nargs NONE])) /\
-  (compile ctxt l (Call (Ret rt rp hdl) e es) =
+  (compile ctxt l (Call (SOME (rt, rp, hdl)) e es) =
    let (p, les, tmp, nl) = compile_exps ctxt (ctxt.vmax + 1) l (es ++ [e]);
        nargs = gen_temps tmp (LENGTH les);
        rn  = rt_var ctxt.vars rt (ctxt.vmax + 1) (ctxt.vmax + 1);
@@ -161,7 +161,7 @@ Definition compile_def:
        pr  = compile ctxt l rp;
        pe  = case hdl of
               | NONE => Raise en
-              | SOME (Handle eid ep) =>
+              | SOME (eid, ep) =>
                 let cpe = compile ctxt l ep in
                   (If NotEqual en (Imm eid) (Raise en) (Seq Tick cpe) l)
    in
