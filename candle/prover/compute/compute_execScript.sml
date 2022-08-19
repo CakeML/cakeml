@@ -57,6 +57,14 @@ Definition env_lookup_def:
     if n = 0n then x else env_lookup (n-1) xs
 End
 
+Definition get_code_def:
+  get_code f funs =
+    if f < length funs then
+      return (sub funs f)
+    else
+      timeout
+End
+
 Definition exec_def:
   exec funs env ck (Const n) =
     return (Num n) ∧
@@ -74,10 +82,11 @@ Definition exec_def:
       return (b v w)
     od ∧
   exec funs env ck (App f xs) =
-    (if ck = 0 ∨ length funs ≤ f then timeout else
+    (if ck = 0 then timeout else
     do
       vs <- exec_list funs env ck xs [];
-      exec funs vs (ck-1n) (sub funs f)
+      c <- get_code f funs;
+      exec funs vs (ck-1n) c
     od) ∧
   exec funs env ck (Let x y) =
     (if ck = 0 then timeout else

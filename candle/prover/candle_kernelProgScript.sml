@@ -98,25 +98,10 @@ val _ = update_precondition dest_cexp_side;
 
 val r = m_translate option_def;
 val r = m_translate check_def;
-
-val r = m_translate do_arith_PMATCH;
-val r = m_translate do_reln_PMATCH;
-val r = m_translate do_eq_def;
-
 val r = translate SAFEMOD_def;
 val r = translate SAFEDIV_def;
-val r = m_translate do_binop_def;
-val r = m_translate do_fst_def;
-val r = m_translate do_snd_def;
-val r = m_translate do_ispair_def;
-val r = m_translate do_uop_def;
-val r = translate subst_def;
-val r = m_translate compute_eval_def;
 val r = translate num2bit_def;
-val r = translate bop2term_def;
-val r = translate uop2term_def;
-val r = translate FOLDL;
-val r = translate cexp2term_def;
+val r = translate compute_execTheory.cv2term_def
 
 val r = compute_thms_def |> EVAL_RULE |> translate;
 
@@ -152,6 +137,19 @@ val r = m_translate check_eqn_def;
 val _ = use_mem_intro := false;
 
 val r = translate compute_default_clock; (* TODO _def *)
+val r = translate indexedListsTheory.findi_def
+val r = translate compute_execTheory.monop_def
+val r = translate compute_execTheory.to_num_def
+val r = translate compute_execTheory.cv_T_def
+val r = translate compute_execTheory.cv_F_def
+val r = translate compute_execTheory.binop_def
+val r = translate compute_execTheory.to_ce_def
+val r = translate compute_execTheory.compile_to_ce_def
+val r = translate compute_execTheory.build_funs_def
+val r = translate compute_execTheory.env_lookup_def
+
+val r = m_translate compute_execTheory.get_code_def
+val r = m_translate compute_execTheory.exec_def
 
 val _ = ml_prog_update open_local_in_block;
 

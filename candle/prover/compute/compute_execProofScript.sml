@@ -292,6 +292,7 @@ Proof
     \\ drule_all option_ALOOKUP
     \\ strip_tac \\ fs [st_ex_bind_def,check_def,st_ex_return_def,st_ex_ignore_bind_def]
     \\ ‘n < length (build_funs eqs)’ by fs [build_funs_def,length_def]
+    \\ fs [get_code_def,st_ex_return_def]
     \\ disch_then assume_tac
     \\ ‘EVERY (λe. cexp_vars e ⊆ set (MAP FST env)) xs’ by
      (fs [EVERY_MEM,EXTENSION,MEM_MAP,PULL_EXISTS,SUBSET_DEF]
