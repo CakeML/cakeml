@@ -195,30 +195,30 @@ Definition compile_def:
     case cs of
     | ce::ces =>
      (case rtyp of
-       | Tail => Call Tail ce args
-       | Ret rt hdl =>
+       | NONE => Call NONE ce args
+       | SOME (rt, hdl) =>
          (case wrap_rt (FLOOKUP ctxt.vars rt) of
           | NONE =>
             (case hdl of
-              | NONE => Call Tail ce args
-              | SOME (Handle eid evar p) =>
+              | NONE => Call NONE ce args
+              | SOME (eid, evar, p) =>
                 (case FLOOKUP ctxt.eids eid of
-                   | NONE => Call Tail ce args
+                   | NONE => Call NONE ce args
                    | SOME neid =>
                      let comp_hdl = compile ctxt p;
                         hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
-                     Call (Ret NONE Skip (SOME (Handle neid hndlr))) ce args))
+                     Call (SOME (NONE, Skip, (SOME (neid, hndlr)))) ce args))
           | SOME (sh, ns) =>
             (case hdl of
-             | NONE => Call (Ret (ret_var sh ns) (ret_hdl sh ns) NONE) ce args
-             | SOME (Handle eid evar p) =>
+             | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
+             | SOME (eid, evar, p) =>
                 (case FLOOKUP ctxt.eids eid of
-                  | NONE => Call (Ret (ret_var sh ns) (ret_hdl sh ns) NONE) ce args
+                  | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
                   | SOME neid =>
                     let comp_hdl = compile ctxt p;
                         hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
-                      Call (Ret (ret_var sh ns) (ret_hdl sh ns)
-                              (SOME (Handle neid hndlr))) ce args))))
+                      Call (SOME ((ret_var sh ns), (ret_hdl sh ns),
+                              (SOME (neid, hndlr)))) ce args))))
     | [] => Skip) /\
   (compile ctxt (ExtCall f ptr1 len1 ptr2 len2) =
    case (FLOOKUP ctxt.vars ptr1, FLOOKUP ctxt.vars len1,
