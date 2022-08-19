@@ -4,7 +4,7 @@
 
 open preamble holSyntaxTheory holSyntaxExtraTheory holKernelTheory
      holKernelProofTheory ml_monadBaseTheory;
-open compute_syntaxTheory compute_evalTheory;
+open compute_syntaxTheory compute_evalTheory compute_execTheory;
 
 val _ = new_theory "compute";
 
@@ -283,5 +283,6 @@ Definition compute_def:
         od
 End
 
-val _ = export_theory ();
 
+
+val _ = export_theory ();
