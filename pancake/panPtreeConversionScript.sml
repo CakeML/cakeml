@@ -313,20 +313,22 @@ End
 Definition conv_Prog_def:
   (conv_Handle tree =
     case argsNT tree HandleNT of
-      SOME [eid; id; p] => do excp <- conv_ident eid;
+    | SOME [eid; id; p] => do excp <- conv_ident eid;
                               var <- conv_ident id;
                               prog <- conv_Prog p;
-                              SOME $ Handle excp var prog
+                              SOME $ SOME (excp, var, prog)
                            od
     | _ => NONE) ∧
 
   (conv_Ret tree =
     case argsNT tree RetNT of
-      SOME [id; t] => do var <- conv_ident id;
-                         hdr' <- conv_Handle t;
-                         SOME $ Ret var (SOME hdr')
+    | SOME [id; t] => do var <- conv_ident id;
+                         hdl <- conv_Handle t;
+                         SOME $ SOME (var, hdl)
                       od
-    | SOME [id] => lift2 Ret (conv_ident id) (SOME NONE)
+    | SOME [id] => do var <- conv_ident id;
+                      SOME $ SOME (var, NONE)
+                   od
     | _ => NONE) ∧
 
   (conv_Prog (Nd nodeNT args) =
