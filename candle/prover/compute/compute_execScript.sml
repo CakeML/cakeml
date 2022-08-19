@@ -74,7 +74,7 @@ Definition exec_def:
       return (b v w)
     od ∧
   exec funs env ck (App f xs) =
-    (if ck = 0 then timeout else
+    (if ck = 0 ∨ length funs ≤ f then timeout else
     do
       vs <- exec_list funs env ck xs [];
       exec funs vs (ck-1n) (sub funs f)
@@ -446,6 +446,7 @@ Proof
     \\ gvs [raise_Failure_def,exec_def]
     \\ drule_all option_ALOOKUP
     \\ strip_tac \\ fs [st_ex_bind_def,check_def,st_ex_return_def,st_ex_ignore_bind_def]
+    \\ ‘n < length (build_funs eqs)’ by fs [build_funs_def,length_def]
     \\ disch_then assume_tac
     \\ ‘EVERY (λe. cexp_vars e ⊆ set (MAP FST env)) xs’ by
      (fs [EVERY_MEM,EXTENSION,MEM_MAP,PULL_EXISTS,SUBSET_DEF]
