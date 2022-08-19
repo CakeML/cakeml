@@ -277,12 +277,10 @@ Definition compute_def:
           ars <<- MAP (λ(f,(n,r)). (f,LENGTH n)) ceqs;
           check_consts ars «starting cexpr» cexp;
           map (λ(f,(n,r)). check_consts ars f r) ceqs;
-          res <- compute_eval compute_default_clock ceqs cexp;
-          c <- mk_eq (tm, cexp2term res);
+          res <- exec (build_funs ceqs) [] compute_default_clock (to_ce ceqs [] cexp);
+          c <- mk_eq (tm, cv2term res);
           return (Sequent [] c)
         od
 End
-
-
 
 val _ = export_theory ();

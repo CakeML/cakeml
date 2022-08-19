@@ -313,7 +313,8 @@ Theorem map_check_consts_thm:
       (∀tm. res ≠ M_failure (Clash tm)) ∧
       ∀u. res = M_success u ⇒
         ∀f vs cv.
-          MEM (f,vs,cv) ceqs ⇒ EVERY (λ(c,n). MEM (c,n) ars) (const_list cv)
+          MEM (f,vs,cv) ceqs ⇒
+          EVERY (λ(c,n). MEM (c,n) ars) (const_list cv)
 Proof
   Induct \\ fs [map_def, check_consts_def, st_ex_return_def, raise_Failure_def]
   \\ qx_gen_tac ‘h’ \\ PairCases_on ‘h’
@@ -344,9 +345,32 @@ Proof
          SF SFY_ss]
 QED
 
+Theorem cexp2term_from_cv:
+  ∀v. cexp2term (from_cv v) = cv2term v
+Proof
+  Induct \\ fs [cexp2term_def,compute_execTheory.cv2term_def]
+QED
+
+Theorem const_list_imp_cexp_consts_ok:
+  ∀eqs cv.
+    EVERY (λ(p1,p2). MEM (p1,p2) (MAP (λ(f,n,r). (f,LENGTH n)) eqs)) (const_list cv) ⇒
+    cexp_consts_ok eqs cv
+Proof
+  ho_match_mp_tac cexp_consts_ok_ind
+  \\ fs [const_list_def,cexp_consts_ok_def]
+  \\ rw []
+  \\ simp [EVERY_MEM]
+  \\ rw [] \\ last_x_assum drule
+  \\ disch_then irule
+  \\ fs [EVERY_MEM,MEM_FLAT,PULL_EXISTS,FORALL_PROD,MEM_MAP,EXISTS_PROD]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ metis_tac []
+QED
+
 (* The type check can cause all sorts of failures, but the 'compute_eval'
- * function always succeeds or raises a «timeout» exception. (Unfortunately,
- * this is shadowed by the failures raised by the 'compute' function.)
+ * (and its implementation called exec) function always succeeds or raises
+ * a «timeout» exception. (Unfortunately, this is shadowed by the failures
+ * raised by the 'compute' function.)
  *)
 
 Theorem compute_thm:
@@ -386,16 +410,16 @@ Proof
   \\ drule_all_then strip_assume_tac map_check_consts_thm \\ gvs []
   \\ rename [‘map _ _ s = (res,s)’]
   \\ reverse (Cases_on ‘res’) \\ gs [] >- (CASE_TAC \\ gs [] \\ rw [])
-  \\ rename [‘compute_eval _ eqs cv’]
+  \\ rename [‘to_ce eqs _ cv’]
   \\ simp [Once st_ex_bind_def] \\ CASE_TAC
-  \\ ‘term_ok (sigof ctxt) tm’ (* meh what's up with the overloads? *)
-    by fs [TERM_def]
+  \\ ‘term_ok (sigof ctxt) tm’ by fs [TERM_def]
   \\ drule dest_cexp_thm \\ simp []
   \\ disch_then (drule_all_then strip_assume_tac)
   \\ ‘term_ok (sigof ctxt) (cexp2term cv)’
     by (drule_then assume_tac proves_term_ok
         \\ gvs [term_ok_clauses])
   \\ drule (DISCH_ALL (CONJUNCT1 (UNDISCH_ALL compute_eval_thm)))
+  \\ ‘∃res1 s1. compute_eval compute_default_clock eqs cv s = (res1,s1)’ by metis_tac [PAIR]
   \\ disch_then drule \\ gs []
   \\ impl_tac
   >- (
@@ -415,9 +439,24 @@ Proof
     \\ first_x_assum drule \\ rw []
     \\ first_assum (irule_at Any))
   \\ strip_tac \\ gvs []
+  \\ qpat_x_assum ‘_ = _’ mp_tac
+  \\ DEP_REWRITE_TAC [compute_execProofTheory.compute_eval_eq_exec]
+  \\ conj_tac >-
+   (drule check_consts_ok \\ fs [] \\ rw []
+    \\ fs [EVERY_EL] \\ rw []
+    \\ ‘∃x. EL n eqs = x’ by fs [] \\ PairCases_on ‘x’ \\ fs []
+    \\ res_tac \\ gvs [] \\ gvs [SUBSET_DEF]
+    \\ qpat_x_assum ‘∀x1 x2 x3. _’ mp_tac
+    \\ simp [Once MEM_EL,PULL_EXISTS]
+    \\ disch_then drule \\ fs []
+    \\ simp [GSYM EVERY_EL] \\ fs [LAMBDA_PROD]
+    \\ simp [const_list_imp_cexp_consts_ok])
+  \\ gvs []
+  \\ strip_tac \\ gvs []
   \\ CASE_TAC \\ gs []
-  \\ rename [‘compute_eval _ _ _ _ = (M_success tm', _)’]
-  \\ ‘TERM ctxt (cexp2term tm')’
+  \\ rename [‘exec _ _ _ _ _ = (M_success tm', _)’]
+  \\ fs [cexp2term_from_cv]
+  \\ ‘TERM ctxt (cv2term tm')’
     by (drule_then strip_assume_tac proves_term_ok
         \\ gvs [term_ok_clauses, TERM_def])
   \\ simp [Once st_ex_bind_def] \\ CASE_TAC \\ gs []
@@ -428,11 +467,10 @@ Proof
     by (fs [STATE_def]
         \\ qpat_x_assum ‘TERM ctxt tm’ assume_tac
         \\ drule_all term_type \\ gs [])
-  \\ ‘(thyof ctxt,[]) |- tm === cexp2term tm'’
+  \\ ‘(thyof ctxt,[]) |- tm === cv2term tm'’
     suffices_by rw [equation_def, THM_def]
   \\ resolve_then Any irule trans_equation_simple sym_equation
   \\ first_x_assum (irule_at Any) \\ gs [sym_equation]
 QED
 
 val _ = export_theory ();
-
