@@ -483,7 +483,17 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
                     Lit (IntLit 5)]”))
   ;
 
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Foo { f2 = 2; f1 = 1; f3 = 3;}"
+  NONE
+  ;
+
 (* declaration *)
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "type rec1 = Foo of {f3: t3; f1: t1; f2: t2};;"
+  NONE
+  ;
 
 val _ = parsetest0 “nStart” “ptree_Start”
   "type rec1 = Foo of {foo: int; bar: bool};;"

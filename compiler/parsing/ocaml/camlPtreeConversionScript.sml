@@ -2449,7 +2449,7 @@ Definition build_rec_funs_def:
   build_rec_funs (locs, cname, fds) =
     let rhs = Con (SOME (Short cname)) (MAP (Var o Short) fds) in
     let constr = Dlet locs (Pvar (mk_record_constr_name cname fds))
-                      (FOLDL (λx f. Fun f x) rhs fds) in
+                      (FOLDR (λx f. Fun f x) rhs fds) in
     let projs = MAP (λf.
                   Dlet locs (Pvar (mk_record_proj_name f))
                     (Fun "" (Mat (Var (Short ""))
