@@ -500,7 +500,7 @@ val _ = parsetest0 “nStart” “ptree_Start”
   (SOME (rconc $ EVAL “
       [Dtype L [([],"rec1",[("Foo",[Atapp [] (Short "bool"); Atapp [] (Short "int")])])];
        Dlet L1 (Pv (mk_record_constr_name "Foo" ["bar";"foo"]))
-          (Fun "foo" (Fun "bar" (C "Foo" [V "bar"; V "foo"])));
+          (Fun "bar" (Fun "foo" (C "Foo" [V "bar"; V "foo"])));
         Dlet L2 (Pv (mk_record_proj_name "bar"))
           (Fun "" (Mat (V "") [(Pc "Foo" [Pv "bar"; Pv "foo"],V "bar")]));
         Dlet L3 (Pv (mk_record_proj_name "foo"))
