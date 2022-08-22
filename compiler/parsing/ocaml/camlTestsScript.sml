@@ -498,23 +498,23 @@ val _ = parsetest0 “nStart” “ptree_Start”
 val _ = parsetest0 “nStart” “ptree_Start”
   "type rec1 = Foo of {foo: int; bar: bool};;"
   (SOME (rconc $ EVAL “
-      [Dtype L [([],"rec1",[("Foo",[Atapp [] (Short "bool"); Atapp [] (Short "int")])])];
+      [Dtype L [([],"rec1",[("Foo",[Attup [Atapp [] (Short "bool"); Atapp [] (Short "int")]])])];
        Dlet L1 (Pv (mk_record_constr_name "Foo" ["bar";"foo"]))
-          (Fun "bar" (Fun "foo" (C "Foo" [V "bar"; V "foo"])));
+          (Fun "bar" (Fun "foo" (C "Foo" [Con NONE [V "bar"; V "foo"]])));
         Dlet L2 (Pv (mk_record_proj_name "bar"))
-          (Fun "" (Mat (V "") [(Pc "Foo" [Pv "bar"; Pv "foo"],V "bar")]));
+          (Fun "" (Mat (V "") [(Pc "Foo" [Pcon NONE [Pv "bar"; Pv "foo"]],V "bar")]));
         Dlet L3 (Pv (mk_record_proj_name "foo"))
-          (Fun "" (Mat (V "") [(Pc "Foo" [Pv "bar"; Pv "foo"],V "foo")]));
+          (Fun "" (Mat (V "") [(Pc "Foo" [Pcon NONE [Pv "bar"; Pv "foo"]],V "foo")]));
         Dlet L4 (Pv (mk_record_update_name "bar"))
           (Fun ""
              (Mat (V "")
-                [(Pc "Foo" [Pv "bar"; Pv "foo"],
-                  Fun "bar" (C "Foo" [V "bar"; V "foo"]))]));
+                [(Pc "Foo" [Pcon NONE [Pv "bar"; Pv "foo"]],
+                  Fun "bar" (C "Foo" [Con NONE [V "bar"; V "foo"]]))]));
         Dlet L5 (Pv (mk_record_update_name "foo"))
           (Fun ""
              (Mat (V "")
-                [(Pc "Foo" [Pv "bar"; Pv "foo"],
-                  Fun "foo" (C "Foo" [V "bar"; V "foo"]))]))]”))
+                [(Pc "Foo" [Pcon NONE [Pv "bar"; Pv "foo"]],
+                  Fun "foo" (C "Foo" [Con NONE [V "bar"; V "foo"]]))]))]”))
   ;
 
 (* -------------------------------------------------------------------------

@@ -2317,12 +2317,7 @@ Definition ptree_TypeInfo_def:
             if n = INL nType then
               fmap INL (ptree_Type arg)
             else if n = INL nTypeRepr then
-              do
-                tr <- ptree_TypeRepr arg;
-                return $ INR $ MAP (λtr. case tr of
-                                         | INL (n,ts) => INL (n,ctor_tup ts)
-                                         | INR (n,ts) => INR (n,ts)) tr
-              od
+              fmap INR (ptree_TypeRepr arg)
             else
               fail (locs, «Impossible: nTypeInfo»)
           od
@@ -2447,19 +2442,26 @@ End
 
 Definition build_rec_funs_def:
   build_rec_funs (locs, cname, fds) =
-    let rhs = Con (SOME (Short cname)) (MAP (Var o Short) fds) in
+    let vars = MAP (Var o Short) fds in
+    let rhs = Con (SOME (Short cname))
+                  (case vars of
+                   | _::_::_ => [Con NONE vars]
+                   | _ => vars) in
     let constr = Dlet locs (Pvar (mk_record_constr_name cname fds))
                       (FOLDR (λf x. Fun f x) rhs fds) in
+    let pvars = MAP Pvar fds in
+    let pat = Pcon (SOME (Short cname))
+                   (case pvars of
+                    | _::_::_ => [Pcon NONE pvars]
+                    | _ => pvars) in
     let projs = MAP (λf.
                   Dlet locs (Pvar (mk_record_proj_name f))
                     (Fun "" (Mat (Var (Short ""))
-                        [(Pcon (SOME (Short cname)) (MAP Pvar fds),
-                          Var (Short f))]))) fds in
+                        [(pat, Var (Short f))]))) fds in
     let upds = MAP (λf.
                   Dlet locs (Pvar (mk_record_update_name f))
                     (Fun "" (Mat (Var (Short ""))
-                        [(Pcon (SOME (Short cname)) (MAP Pvar fds),
-                          Fun f rhs)]))) fds in
+                        [(pat, Fun f rhs)]))) fds in
       constr :: projs ++ upds
 End
 
@@ -2513,11 +2515,16 @@ Definition extract_record_defns_def:
     MAP_OUTR (λ(cn,fds). (locs,cn,MAP FST fds)) tds
 End
 
+(* Flattens records into regular datatype constructors. Multi-argument
+ * constructors are turned into single argument constructors with tuple
+ * arguments.
+ *)
+
 Definition strip_record_fields_def:
   strip_record_fields (locs,tvs,cn,trs) =
     (locs,tvs,cn,MAP (λtr. case tr of
-                 | INL (n,tys) => (n,tys)
-                 | INR (n,fds) => (n, MAP SND fds)) trs)
+                           | INL (n,tys) => (n, ctor_tup tys)
+                           | INR (n,fds) => (n, ctor_tup (MAP SND fds))) trs)
 End
 
 Definition ptree_TypeDefinition_def:
