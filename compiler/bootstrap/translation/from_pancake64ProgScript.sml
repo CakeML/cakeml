@@ -66,66 +66,45 @@ val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
 
 open panLangTheory;
 
-(*
-val _ = register_type “:shift”;
-*)
-(*
-Theorem EqualityType_STRING_TYPE:
-  EqualityType HOL_STRING_TYPE ⇒ EqualityType STRING_TYPE
-Proof
-  rw [EqualityType_def] >> rw [STRING_TYPE_def] >> rw [HOL_STRING_TYPE_def]
-  >> qsuff_tac “STRING_TYPE x1 v1 ⇒ HOL_STRING_TYPE x1 v1”
-QED
-val _ = register_type “:sname”;
-
-val _ = register_type “:varname”;
-
-val _ = register_type “:funname”;
-
-val _ = register_type “:eid”;
-
-val _ = register_type “:decname”;
-*)
 val _ = register_type “:64 panLang$exp”;
-
-
-Datatype:
-  container = Container('a)
-End
-
-Datatype:
-  thing = Thing(thing container) | NonThing
-End
-
-Datatype:
-  my_option = MySome('a) | MyNone
-End
-val _ = register_type “:'a my_option”;
-
-Datatype:
-  thing = Thing(thing my_option) | NonThing
-End
-
-Datatype:
-  thing2 = Thing(thing2 list) | NonThing
-End
-
-val _ = register_type “:'a container”;
-val _ = register_type “:thing”;
-val _ = register_type “:thing2”;
-(*
-  load "Definition"
-*)
 
 val _ = register_type “:64 panLang$prog”;
 
+val EqualityType_prog = EqualityType_rule [] “:64 panLang$prog”;
+
+open crepLangTheory;
+
+val _ = register_type “:64 crepLang$exp”;
+
+val _ = register_type “:64 crepLang$prog”;
+
 open pan_simpTheory;
 
-val _ = translate seq_assoc_def;
+val _ = translate $ spec64 SmartSeq_def;
 
-val _ = translate compile_def;
+val _ = translate $ spec64 seq_assoc_def;
 
-val _ = translate compile_prog_def;
+val _ = translate $ spec64 seq_call_ret_def;
+
+val _ = translate $ conv64 ret_to_tail_def;
+
+val _ = translate $ conv64 compile_def;
+
+val _ = translate $ INST_TYPE[gamma|->“:64”] compile_prog_def;
+
+open loop_removeTheory;
+
+val _ = translate $ spec64 store_cont_def;
+
+val _ = translate $ spec64 comp_with_loop_def;
+
+val _ = translate $ spec64 comp_def;
+
+val _ = translate $ spec64 comp_prog_def;
+
+open loop_to_wordTheory;
+
+val _ = translate $ spec64 compile_def;
 
 open pan_to_wordTheory;
 
