@@ -34,6 +34,9 @@ Translate the compiler's state decoder.
 [explorerProgScript.sml](explorerProgScript.sml):
 Translate the compiler explorer parts of the compiler.
 
+[from_pancake64ProgScript.sml](from_pancake64ProgScript.sml):
+Translate the pan_to_target part of the 64-bit compiler.
+
 [inferProgScript.sml](inferProgScript.sml):
 Translate the compiler's type inferencer.
 
