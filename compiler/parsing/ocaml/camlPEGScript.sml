@@ -227,22 +227,27 @@ Datatype:
     | nTypeConstr | nTypeConstrName
     | nModulePath | nModuleName
     | nModTypePath | nModTypeName
+    | nFieldName
     | nOperatorName
     (* expressions *)
     | nLiteral | nIdent | nEBase | nEList
     | nEApp | nEConstr | nEFunapp | nEAssert | nELazy
     | nEPrefix | nENeg | nEShift | nEMult
+    | nERecProj | nERecUpdate | nERecCons
     | nEAdd | nECons | nECat | nERel
     | nEAnd | nEOr | nEProd | nEAssign | nEIf | nESeq
     | nEMatch | nETry | nEFun | nEFunction | nELet | nELetRec
     | nEWhile | nEFor | nExpr
     | nEUnclosed (* expressions that bind everything to the right *)
+    (* record updates *)
+    | nUpdate | nUpdates | nFieldDec | nFieldDecs
     (* pattern matches *)
     | nLetBinding | nLetBindings | nLetRecBinding | nLetRecBindings
     | nPatternMatch | nPatternMatches
     (* type definitions *)
     | nTypeDefinition | nTypeDef | nTypeDefs | nTypeParams | nTypeInfo
-    | nTypeRepr | nTypeReprs | nConstrDecl | nConstrArgs | nExcDefinition
+    | nTypeRepr | nTypeReprs | nConstrDecl | nConstrArgs | nRecord
+    | nExcDefinition
     (* patterns *)
     | nPAny | nPList | nPPar | nPBase | nPCons | nPAs | nPOps | nPattern
     | nPatterns
@@ -307,6 +312,8 @@ Definition camlPEG_def[nocompute]:
        pegf (tokIdP identLower) (bindNT nTypeConstrName));
       (INL nModuleName,
        pegf (tokIdP identUpperLower) (bindNT nModuleName));
+      (INL nFieldName,
+       pegf (tokIdP identLower) (bindNT nFieldName));
       (INL nValuePath,
        seql [try (seql [pnt nModulePath; tokeq DotT] I); pnt nValueName]
             (bindNT nValuePath));
@@ -476,8 +483,18 @@ Definition camlPEG_def[nocompute]:
        seql [tokeq BarT; pnt nConstrDecl; try (pnt nTypeReprs)]
             (bindNT nTypeReprs));
       (INL nConstrDecl,
-       seql [pnt nConstrName; try (seql [tokeq OfT; pnt nConstrArgs] I)]
+       seql [pnt nConstrName;
+             try (seql [tokeq OfT; choicel [pnt nConstrArgs; pnt nRecord]] I)]
             (bindNT nConstrDecl));
+      (INL nRecord,
+       seql [tokeq LbraceT; pnt nFieldDecs; try (tokeq SemiT); tokeq RbraceT]
+            (bindNT nRecord));
+      (INL nFieldDecs,
+       seql [pnt nFieldDec; try (seql [tokeq SemiT; pnt nFieldDecs] I)]
+            (bindNT nFieldDecs));
+      (INL nFieldDec,
+       seql [pnt nFieldName; tokeq ColonT; pnt nType]
+            (bindNT nFieldDec));
       (INL nConstrArgs,
        seql [pnt nTConstr; rpt (seql [tokeq StarT; pnt nTConstr] I) FLAT]
             (bindNT nConstrArgs));
@@ -529,12 +546,23 @@ Definition camlPEG_def[nocompute]:
          tok (λx. MEM x [TrueT; FalseT]) (bindNT nLiteral o mktokLf)]);
       (INL nIdent,
        tok isIdent (bindNT nIdent o mktokLf));
+      (INL nUpdate,
+       seql [pnt nFieldName; tokeq EqualT; pnt nEIf]
+            (bindNT nUpdate));
+      (INL nUpdates,
+       seql [pnt nUpdate; try (seql [tokeq SemiT; pnt nUpdates] I)]
+            (bindNT nUpdates));
+      (INL nERecUpdate,
+       seql [tokeq LbraceT; pnt nExpr; tokeq WithT; pnt nUpdates;
+             try (tokeq SemiT); tokeq RbraceT]
+            (bindNT nERecUpdate));
       (INL nEBase,
        choicel [
          pegf (pnt nLiteral) (bindNT nEBase);
          pegf (pnt nValuePath) (bindNT nEBase);
          pegf (pnt nConstr) (bindNT nEBase);
          pegf (pnt nEList) (bindNT nEBase);
+         pegf (pnt nERecUpdate) (bindNT nEBase);
          seql [tokeq LparT; tokeq RparT] (bindNT nEBase); (* unit *)
          seql [tokeq BeginT; tokeq EndT] (bindNT nEBase); (* unit *)
          seql [tokeq LparT; pnt nExpr;
@@ -548,21 +576,31 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPrefixOp));
       (INL nEPrefix,
        seql [try (pnt nPrefixOp); pnt nEBase] (bindNT nEPrefix));
+      (* -- Expr14.5 ------------------------------------------------------- *)
+      (INL nERecProj,
+       seql [pnt nEPrefix;
+             try (seql [tokeq DotT; pnt nFieldName] I)]
+            (bindNT nERecProj));
       (* -- Expr14 --------------------------------------------------------- *)
       (INL nEAssert,
-       seql [tokeq AssertT; pnt nEPrefix] (bindNT nEAssert));
+       seql [tokeq AssertT; pnt nERecProj] (bindNT nEAssert));
       (INL nELazy,
-       seql [tokeq LazyT; pnt nEPrefix] (bindNT nELazy));
+       seql [tokeq LazyT; pnt nERecProj] (bindNT nELazy));
       (INL nEConstr,
-       seql [pnt nConstr; pnt nEPrefix] (bindNT nEConstr));
+       seql [pnt nConstr; pnt nERecProj] (bindNT nEConstr));
+      (INL nERecCons,
+       seql [pnt nConstr;
+             tokeq LbraceT; pnt nUpdates; try (tokeq SemiT); tokeq RbraceT]
+            (bindNT nERecCons));
       (INL nEFunapp,
-       seql [pnt nEPrefix; rpt (pnt nEPrefix) FLAT]
+       seql [pnt nERecProj; rpt (pnt nERecProj) FLAT]
             (λl. case l of
                    [] => []
                  | h::t => [FOLDL (λa b. mkNd (INL nEFunapp) [a; b])
                                   (mkNd (INL nEFunapp) [h]) t]));
       (INL nEApp,
-       pegf (choicel (MAP pnt [nELazy; nEAssert; nEConstr; nEFunapp; nEPrefix]))
+       pegf (choicel (MAP pnt [nELazy; nEAssert; nERecCons; nEConstr; nEFunapp;
+                               nERecProj]))
             (bindNT nEApp));
       (* -- Expr13 --------------------------------------------------------- *)
       (INL nEUnclosed,
@@ -955,10 +993,11 @@ end
 val npeg0_rwts =
     List.foldl pegnt []
       [ “nShiftOp”, “nMultOp”, “nAddOp”, “nRelOp”, “nAndOp”, “nOrOp”,
-        “nHolInfixOp”, “nCatOp”, “nPrefixOp”, “nAssignOp”,
-        “nValueName”, “nOperatorName”, “nConstrName”, “nTypeConstrName”,
-        “nModuleName”, “nValuePath”, “nConstr”, “nTypeConstr”, “nModulePath”,
-        “nLiteral”, “nIdent”, “nEList”, “nEConstr”, “nEBase”, “nEPrefix”,
+        “nHolInfixOp”, “nCatOp”, “nPrefixOp”, “nAssignOp”, “nValueName”,
+        “nOperatorName”, “nConstrName”, “nTypeConstrName”, “nModuleName”,
+        “nValuePath”, “nConstr”, “nTypeConstr”, “nModulePath”, “nFieldName”,
+        “nUpdate”, “nUpdates”, “nERecUpdate”, “nERecCons”, “nLiteral”,
+        “nIdent”, “nEList”, “nEConstr”, “nEBase”, “nEPrefix”, “nERecProj”,
         “nELazy”, “nEAssert”, “nEFunapp”, “nEApp”, “nLetBinding”, “nPAny”,
         “nPList”, “nPPar”, “nPBase”, “nPCons”, “nPAs”, “nPOps”, “nPattern”,
         “nPatterns”, “nLetBindings”, “nLetRecBinding”, “nLetRecBindings”,
@@ -995,25 +1034,26 @@ val topo_nts =
       [ “nShiftOp”, “nMultOp”, “nAddOp”, “nRelOp”, “nAndOp”, “nOrOp”,
         “nHolInfixOp”, “nCatOp”, “nPrefixOp”, “nAssignOp”, “nValueName”,
         “nOperatorName”, “nConstrName”, “nTypeConstrName”, “nModuleName”,
-        “nModulePath”, “nValuePath”, “nConstr”, “nTypeConstr”, “nLiteral”,
-        “nIdent”, “nEList”, “nEConstr”, “nEBase”, “nEPrefix”, “nELazy”,
-        “nEAssert”, “nEFunapp”, “nEApp”, “nPAny”, “nPList”, “nPPar”, “nPBase”,
-        “nPCons”, “nPAs”, “nPOps”, “nPattern”, “nPatterns”, “nLetBinding”,
-        “nLetBindings”, “nLetRecBinding”, “nLetRecBindings”, “nPatternMatches”,
-        “nPatternMatch”, “nEMatch”, “nETry”, “nEFun”, “nEFunction”, “nELet”,
-        “nELetRec”, “nEWhile”, “nEFor”, “nEUnclosed”, “nENeg”, “nEShift”,
-        “nEMult”, “nEAdd”, “nECons”, “nECat”, “nERel”, “nEAnd”, “nEOr”,
-        “nEHolInfix”, “nEProd”, “nEAssign”, “nEIf”, “nESeq”, “nExpr”,
-        “nTypeDefinition”, “nTVar”, “nTBase”, “nTConstr”, “nTProd”, “nTFun”,
-        “nType”, “nTypeList”, “nTypeLists”, “nTypeParams”, “nTypeDef”,
-        “nTypeDefs”, “nConstrDecl”, “nTypeReprs”, “nTypeRepr”, “nTypeInfo”,
-        “nConstrArgs”, “nExcDefinition”, “nTopLet”, “nTopLetRec”, “nOpen”,
-        “nSemis”, “nExprItem”, “nExprItems”, “nModuleDef”, “nModTypeName”,
-        “nModTypePath”, “nSigSpec”, “nExcType”, “nValType”, “nOpenMod”,
-        “nIncludeMod”, “nModTypeAsc”, “nModTypeAssign”, “nSigItem”, “nSigItems”,
-        “nModuleType”, “nModAscApp”, “nModAscApps”, “nCakeMLPragma”,
-        “nModuleTypeDef”, “nModExpr”, “nDefinition”, “nDefItem”, “nModuleItem”,
-        “nModuleItems”, “nStart”];
+        “nModulePath”, “nValuePath”, “nConstr”, “nTypeConstr”, “nFieldName”,
+        “nLiteral”, “nIdent”, “nEList”, “nEConstr”, “nERecUpdate”,
+        “nERecCons”, “nEBase”, “nEPrefix”, “nERecProj”, “nELazy”, “nEAssert”,
+        “nEFunapp”, “nEApp”, “nPAny”, “nPList”, “nPPar”, “nPBase”, “nPCons”,
+        “nPAs”, “nPOps”, “nPattern”, “nPatterns”, “nLetBinding”, “nLetBindings”,
+        “nLetRecBinding”, “nLetRecBindings”, “nPatternMatches”, “nPatternMatch”,
+        “nEMatch”, “nETry”, “nEFun”, “nEFunction”, “nELet”, “nELetRec”,
+        “nEWhile”, “nEFor”, “nEUnclosed”, “nENeg”, “nEShift”, “nEMult”, “nEAdd”,
+        “nECons”, “nECat”, “nERel”, “nEAnd”, “nEOr”, “nEHolInfix”, “nEProd”,
+        “nEAssign”, “nEIf”, “nESeq”, “nExpr”, “nTypeDefinition”, “nTVar”,
+        “nTBase”, “nTConstr”, “nTProd”, “nTFun”, “nType”, “nTypeList”,
+        “nTypeLists”, “nTypeParams”, “nTypeDef”, “nTypeDefs”, “nConstrDecl”,
+        “nTypeReprs”, “nTypeRepr”, “nTypeInfo”, “nUpdate”, “nUpdates”,
+        “nFieldDec”, “nFieldDecs”, “nRecord”, “nConstrArgs”, “nExcDefinition”,
+        “nTopLet”, “nTopLetRec”, “nOpen”, “nSemis”, “nExprItem”, “nExprItems”,
+        “nModuleDef”, “nModTypeName”, “nModTypePath”, “nSigSpec”, “nExcType”,
+        “nValType”, “nOpenMod”, “nIncludeMod”, “nModTypeAsc”, “nModTypeAssign”,
+        “nSigItem”, “nSigItems”, “nModuleType”, “nModAscApp”, “nModAscApps”,
+        “nCakeMLPragma”, “nModuleTypeDef”, “nModExpr”, “nDefinition”,
+        “nDefItem”, “nModuleItem”, “nModuleItems”, “nStart”];
 
 val cml_wfpeg_thm = save_thm(
   "cml_wfpeg_thm",

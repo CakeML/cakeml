@@ -5,10 +5,14 @@ open preamble;
 open ml_translatorLib ml_monad_translatorLib ml_progLib ml_hol_kernel_funsProgTheory;
 open basisFunctionsLib print_thmTheory;
 open (* lisp: *) lisp_parsingTheory lisp_valuesTheory lisp_printingTheory;
+open (* compute: *) compute_syntaxTheory compute_evalTheory computeTheory
+                    compute_pmatchTheory;
+open runtime_checkTheory runtime_checkLib;
 
 val _ = new_theory "candle_kernelProg";
 
-val _ = set_grammar_ancestry ["ml_hol_kernel_funsProg"];
+val _ = set_grammar_ancestry [ "ml_hol_kernel_funsProg", "compute"
+  ];
 
 val _ = m_translation_extends "ml_hol_kernel_funsProg"
 
@@ -71,6 +75,89 @@ val _ = (append_prog o process_topdecs) `
       #(kernel_ffi) str arr
     end;
 `
+(* compute primitive *)
+
+val _ = ml_prog_update open_local_block;
+
+val r = translate dest_num_PMATCH;
+val r = m_translate dest_numeral_PMATCH;
+val r = translate dest_numeral_opt_PMATCH;
+val r = translate list_dest_comb_def;
+val r = translate mapOption_def;
+val r = translate app_type_def;
+val r = translate dest_cexp_def;
+
+Theorem dest_cexp_side[local]:
+  ∀x. dest_cexp_side x
+Proof
+  ho_match_mp_tac dest_cexp_ind \\ rw []
+  \\ once_rewrite_tac [fetch "-" "dest_cexp_side_def"] \\ rw []
+QED
+
+val _ = update_precondition dest_cexp_side;
+
+val r = m_translate option_def;
+val r = m_translate check_def;
+val r = translate SAFEMOD_def;
+val r = translate SAFEDIV_def;
+val r = translate num2bit_def;
+val r = translate compute_execTheory.cv2term_def
+
+val r = compute_thms_def |> EVAL_RULE |> translate;
+
+val r = m_translate dest_binary_PMATCH;
+
+val r = check [‘ths’] compute_init_def |> translate;
+
+val r = m_translate check_var_def;
+
+val _ = use_mem_intro := true;
+val res = translate_no_ind check_cexp_closed_def;
+
+val ind_lemma = Q.prove(
+  `^(first is_forall (hyp res))`,
+  rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ fs [FORALL_PROD, GSYM ml_translatorTheory.MEMBER_INTRO])
+  |> update_precondition;
+val _ = use_mem_intro := false;
+
+val r = translate var_list_def;
+
+val r = translate const_list_def;
+val r = m_translate map_def;
+
+val _ = use_mem_intro := true;
+val r = m_translate check_consts_def;
+val r = m_translate check_eqn_def;
+val _ = use_mem_intro := false;
+
+val r = translate compute_default_clock; (* TODO _def *)
+val r = translate indexedListsTheory.findi_def
+val r = translate compute_execTheory.monop_def
+val r = translate compute_execTheory.to_num_def
+val r = translate compute_execTheory.cv_T_def
+val r = translate compute_execTheory.cv_F_def
+val r = translate compute_execTheory.binop_def
+val r = translate compute_execTheory.to_ce_def
+val r = translate compute_execTheory.compile_to_ce_def
+val r = translate compute_execTheory.build_funs_def
+val r = translate compute_execTheory.env_lookup_def
+
+val r = m_translate compute_execTheory.get_code_def
+val r = m_translate compute_execTheory.exec_def
+
+val _ = ml_prog_update open_local_in_block;
+
+val r = check [‘ths’,‘tm’] compute_add_def |> m_translate;
+val r = compute_def
+        |> SIMP_RULE(srw_ss()) [combinTheory.C_DEF]
+        |> check [‘ths’,‘ceqs’,‘tm’]
+        |> m_translate;
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);

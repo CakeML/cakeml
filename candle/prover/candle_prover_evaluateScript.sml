@@ -16,6 +16,11 @@ val _ = set_grammar_ancestry [
   "candle_kernel_funs", "ast_extras", "evaluate", "namespaceProps", "perms",
   "semanticPrimitivesProps", "misc"];
 
+val _ = temp_send_to_back_overload "If" {Name="If",Thy="compute_syntax"};
+val _ = temp_send_to_back_overload "App" {Name="App",Thy="compute_syntax"};
+val _ = temp_send_to_back_overload "Var" {Name="Var",Thy="compute_syntax"};
+val _ = temp_send_to_back_overload "Let" {Name="Let",Thy="compute_syntax"};
+
 Theorem pmatch_v_ok:
   (∀envC s p v ws env.
     pmatch envC s p v ws = Match env ∧
@@ -216,7 +221,7 @@ Proof
 QED
 
 Theorem evaluate_v_ok_Eval:
-  op = Eval ⇒ ^(get_goal "App")
+  op = Eval ⇒ ^(get_goal "ast$App")
 Proof
   rw [evaluate_def]
   \\ gvs [AllCaseEqs(), evaluateTheory.do_eval_res_def]
@@ -652,7 +657,7 @@ Proof
 QED
 
 Theorem evaluate_v_ok_Op:
-  op ≠ Opapp ∧ op ≠ Eval ⇒ ^(get_goal "App")
+  op ≠ Opapp ∧ op ≠ Eval ⇒ ^(get_goal "ast$App")
 Proof
   rw [evaluate_def] \\ Cases_on ‘getOpClass op’ \\ gs[]
   >~ [‘EvalOp’] >- (Cases_on ‘op’ \\ gs[])
@@ -694,7 +699,7 @@ Proof
 QED
 
 Theorem evaluate_v_ok_Opapp:
-  op = Opapp ⇒ ^(get_goal "App")
+  op = Opapp ⇒ ^(get_goal "ast$App")
 Proof
   rw [evaluate_def]
   \\ gvs [AllCaseEqs()]
@@ -760,7 +765,7 @@ Proof
 QED
 
 Theorem evaluate_v_ok_App:
-  ^(get_goal "App")
+  ^(get_goal "ast$App")
 Proof
   Cases_on ‘op = Opapp’ >- (match_mp_tac evaluate_v_ok_Opapp \\ gs [])
   \\ Cases_on ‘op = Eval’ >- (match_mp_tac evaluate_v_ok_Eval \\ gs [])
@@ -788,7 +793,7 @@ Proof
 QED
 
 Theorem evaluate_v_ok_If:
-  ^(get_goal "If")
+  ^(get_goal "ast$If")
 Proof
   rw [evaluate_def]
   \\ gvs [AllCaseEqs(), do_if_def]
@@ -827,7 +832,7 @@ Proof
 QED
 
 Theorem evaluate_v_ok_Let:
-  ^(get_goal "Let")
+  ^(get_goal "ast$Let")
 Proof
   rw [evaluate_def]
   \\ gvs [AllCaseEqs()]

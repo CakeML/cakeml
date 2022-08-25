@@ -134,11 +134,11 @@ val arm7_enc1 = replace_at 1 (fn th => th |>finish|> SIMP_RULE (srw_ss()) [] )
 
 val arm7_enc2 = replace_at 2 (fn th => th |> finish |> gconv)
 
-val arm7_enc3 = replace_at 3 (fn th => th |> Q.GEN `bop` |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:binop``]) (LET_THM::arm7_bop_def::defaults) |> finish |> CONJUNCTS
+val arm7_enc3 = replace_at 3 (fn th => th |> Q.GEN `bop` |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:asm$binop``]) (LET_THM::arm7_bop_def::defaults) |> finish |> CONJUNCTS
 |> reconstruct_case ``arm7_enc (Inst (Arith (Binop bop r1 r2 (Reg r3))))`` (rand o rator o rator o rator o rand o rand o rand))
 
 (* TODO: Uses THE (EncodeARMImmediate)*)
-val arm7_enc4 = replace_at 4 (fn th => th |> Q.GEN `bop` |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:binop``]) (arm7_bop_def::defaults) |> finish
+val arm7_enc4 = replace_at 4 (fn th => th |> Q.GEN `bop` |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:asm$binop``]) (arm7_bop_def::defaults) |> finish
 |> SIMP_RULE (srw_ss())[word_2comp_def]
 |> CONJUNCTS
 |> reconstruct_case ``arm7_enc (Inst (Arith (Binop bop r1 r2 (Imm i))))`` (rand o rator o rator o rator o rand o rand o rand))

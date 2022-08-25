@@ -83,14 +83,20 @@ Definition kernel_funs_def:
 
     Kernel_print_thm_v;
 
+    (* Compute additions *)
+    compute_add_v;
+    compute_v;
   }
 End
 
 Theorem kernel_funs_v_def =
   kernel_funs_def |> concl |> rand |> find_terms is_const
   |> filter (fn tm => not (mem (fst (dest_const tm)) ["INSERT","EMPTY"]))
-  |> map (fn c => DB.find (fst (dest_const c) ^ "_def"))
-  |> map (fn t => hd t |> snd |> fst)
+  |> map (fn c => fst (dest_const c) ^ "_def")
+  |> map (fn defn =>
+      DB.find defn
+      |> Lib.pluck (fn ((_,nm),_) => nm = defn)
+      |> fst |> snd |> fst)
   |> curry (op @) [constants_v_def,abs_v_def]
   |> LIST_CONJ;
 
@@ -118,7 +124,7 @@ val context_refs_defs = the_context_def |> concl |> find_terms (listSyntax.is_le
   |> map (dest_thy_const o listSyntax.dest_length)
   |> map (fn cn => fetch (#Thy cn) (#Name cn ^ "_def"))
 
-Theorem refs_defs = LIST_CONJ context_refs_defs
+Theorem refs_defs = LIST_CONJ (cv_t_refs_def :: cv_f_refs_def :: context_refs_defs)
 
 Theorem kernel_locs = IN_kernel_locs |>
   SIMP_RULE (srw_ss()) [the_type_constants_def,
@@ -315,7 +321,8 @@ val safe_error_goal =
          (res = Rerr (Rabort Rtype_error) ∨
           res = Rerr (Rraise bind_exn_v) ∨
           res = Rerr (Rabort Rtimeout_error)
-            :(semanticPrimitives$v list, semanticPrimitives$v) semanticPrimitives$result)”
+            :(semanticPrimitives$v list, semanticPrimitives$v)
+             semanticPrimitives$result)”
 
 Theorem do_opapp_clos:
   do_opapp [Closure env v e; argv] = SOME (env1,e1) ⇔
@@ -412,6 +419,30 @@ Proof
   \\ gvs [AllCaseEqs(),LENGTH_EQ_NUM_compute]
   \\ rpt strip_tac \\ gvs [same_ctor_def,pmatch_def]
   \\ fs [TERM_TYPE_HEAD_def]
+  \\ rpt (pop_assum mp_tac)
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ fs [namespaceTheory.nsOptBind_def]
+QED
+
+Theorem evaluate_thm_check:
+  evaluate ^s env
+    [Let NONE
+      (Mat (Var (Short v))
+        [(Pcon (SOME (Short "Sequent")) [Pvar a1; Pvar a2], Con NONE [])]) ee] =
+    (s',res) ∧
+  nsLookup env.c (Short "Sequent") = SOME (2,TypeStamp "Sequent" thm_stamp_n) ∧
+  nsLookup env.v (Short v) = SOME w ⇒
+  ^safe_error_goal ∨ THM_TYPE_HEAD w ∧ evaluate ^s env [ee] = (s',res)
+Proof
+  fs [evaluate_def,same_ctor_def,pmatch_def,do_con_check_def] \\ csimp []
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ rpt strip_tac
+  \\ gvs [AllCaseEqs(),LENGTH_EQ_NUM_compute,same_clock_exists]
+  \\ Cases_on ‘w’ \\ gvs [pmatch_def]
+  \\ rename [‘Conv oo ll’] \\ Cases_on ‘oo’ \\ gvs [pmatch_def,AllCaseEqs()]
+  \\ gvs [AllCaseEqs(),LENGTH_EQ_NUM_compute]
+  \\ rpt strip_tac \\ gvs [same_ctor_def,pmatch_def]
+  \\ fs [THM_TYPE_HEAD_def]
   \\ rpt (pop_assum mp_tac)
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
   \\ fs [namespaceTheory.nsOptBind_def]
@@ -596,6 +627,79 @@ Proof
   \\ fs [build_rec_env_def]
   \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
   \\ fs [GSYM check_ty_v_def]
+  \\ rename [‘do_opapp [_; h_tail]’]
+  \\ last_x_assum (qspecl_then [‘h_tail’,‘dec_clock s’] mp_tac)
+  \\ impl_tac THEN1 fs [v_size_def]
+  \\ strip_tac \\ fs []
+  \\ rw [] \\ fs [dec_clock_def,same_clock_exists,GSYM PULL_EXISTS]
+  \\ fs [LIST_TYPE_HEAD_def]
+  \\ qexists_tac ‘()::l’
+  \\ fs [LIST_TYPE_def,PAIR_TYPE_HEAD_def,PAIR_TYPE_def]
+  \\ rpt (pop_assum mp_tac)
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+QED
+
+Theorem check_thm_head:
+  ∀v s.
+    ∃env e s' res.
+      do_opapp [check_thm_v; v] = SOME (env,e) ∧
+      evaluate (dec_clock ^s) env [e] = (s',res) ∧
+      (^safe_error_goal ∨
+       ∃k z. s' = s with clock := k ∧ res = Rval [z] ∧
+       LIST_TYPE_HEAD THM_TYPE_HEAD v)
+Proof
+  strip_tac \\ completeInduct_on ‘v_size v’
+  \\ rpt strip_tac \\ gvs [PULL_FORALL,AND_IMP_INTRO]
+  \\ rename [‘do_opapp [_; v]’]
+  \\ simp [check_thm_v_def]
+  \\ simp [do_opapp_def]
+  \\ once_rewrite_tac [find_recfun_def] \\ fs []
+  \\ simp_tac (srw_ss()) [Once evaluate_def]
+  \\ simp_tac (srw_ss()) [Once evaluate_def]
+  \\ reverse IF_CASES_TAC \\ fs []
+  THEN1 fs [dec_clock_def,same_clock_exists]
+  \\ simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+  \\ simp_tac (srw_ss()) [pmatch_def]
+  \\ reverse CASE_TAC \\ fs []
+  \\ TRY (fs [dec_clock_def,same_clock_exists] \\ NO_TAC)
+  \\ pop_assum mp_tac
+  \\ Cases_on ‘v’ \\ simp_tac (srw_ss()) [pmatch_def]
+  \\ Cases_on ‘o'’ \\ simp_tac (srw_ss()) [pmatch_def,AllCaseEqs(),same_ctor_def]
+  \\ strip_tac \\ fs []
+  THEN1
+   (rpt var_eq_tac
+    \\ simp_tac (srw_ss()) [evaluate_def]
+    \\ rpt (CASE_TAC \\ gvs [dec_clock_def,same_clock_exists,GSYM PULL_EXISTS])
+    \\ rpt (pop_assum mp_tac)
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+    \\ rpt strip_tac \\ gvs []
+    \\ fs [LIST_TYPE_HEAD_def]
+    \\ qexists_tac ‘[]’
+    \\ fs [LIST_TYPE_def])
+  \\ simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+  \\ CASE_TAC \\ fs []
+  \\ TRY (fs [dec_clock_def,same_clock_exists] \\ NO_TAC)
+  THEN1
+   (simp_tac (srw_ss()) [Once evaluate_def,ALL_DISTINCT,astTheory.pat_bindings_def]
+    \\ simp_tac (srw_ss()) [pmatch_def,dec_clock_def,same_clock_exists])
+  \\ pop_assum mp_tac \\ simp_tac (srw_ss()) [pmatch_def,AllCaseEqs(),same_ctor_def]
+  \\ strip_tac \\ fs []
+  \\ gvs [LENGTH_EQ_NUM_compute,pmatch_def]
+  \\ qmatch_goalsub_abbrev_tac ‘xx = (_,_)’
+  \\ ‘∃res s. xx = (s,res)’ by metis_tac [PAIR]
+  \\ fs [Abbr ‘xx’]
+  \\ drule evaluate_thm_check
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ strip_tac \\ gvs [same_clock_exists]
+  \\ pop_assum mp_tac
+  \\ simp [Once evaluate_def]
+  \\ simp [Once evaluate_def]
+  \\ simp [Once evaluate_def]
+  \\ simp [Once evaluate_def]
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ fs [build_rec_env_def]
+  \\ fs [] \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ fs [GSYM check_thm_v_def]
   \\ rename [‘do_opapp [_; h_tail]’]
   \\ last_x_assum (qspecl_then [‘h_tail’,‘dec_clock s’] mp_tac)
   \\ impl_tac THEN1 fs [v_size_def]
@@ -810,6 +914,22 @@ Proof
   \\ fs [] \\ strip_tac \\ gvs [] \\ metis_tac []
 QED
 
+Theorem evaluate_thm_list_check:
+  evaluate ^s env
+    [Let NONE (App Opapp [Var (Short "check_thm"); Var (Short v)]) ee] = (s',res) ∧
+  nsLookup env.v (Short "check_thm") = SOME check_thm_v ∧
+  nsLookup env.v (Short v) = SOME w ⇒
+  ^safe_error_goal ∨
+  LIST_TYPE_HEAD THM_TYPE_HEAD w ∧
+  ∃k. evaluate (^s with clock := k) env [ee] = (s',res)
+Proof
+  fs [evaluate_def,same_ctor_def,pmatch_def,do_con_check_def] \\ csimp []
+  \\ fs [do_app_def,AllCaseEqs()] \\ strip_tac \\ gvs [same_clock_exists]
+  \\ fs [STRING_TYPE_HEAD_def,STRING_TYPE_def,namespaceTheory.nsOptBind_def]
+  \\ qspecl_then [‘w’,‘s’] mp_tac check_thm_head
+  \\ fs [] \\ strip_tac \\ gvs [] \\ metis_tac []
+QED
+
 Theorem evaluate_ty_ty_list_check:
   evaluate ^s env
     [Let NONE (App Opapp [Var (Short "check_ty_ty"); Var (Short v)]) ee] = (s',res) ∧
@@ -946,6 +1066,8 @@ val prove_head_tac =
      dxrule evaluate_tm_check ORELSE
      dxrule evaluate_tm_list_check ORELSE
      dxrule evaluate_tm_tm_list_check ORELSE
+     dxrule evaluate_thm_check ORELSE
+     dxrule evaluate_thm_list_check ORELSE
      dxrule evaluate_str_check ORELSE
      dxrule evaluate_mat_thm ORELSE
      dxrule evaluate_mat_pair)
@@ -1497,6 +1619,28 @@ Proof
   prove_head_tac
 QED
 
+Theorem compute_add_v_head:
+  do_partial_app compute_add_v v = SOME g ∧
+  do_opapp [g; w] = SOME (env,exp) ∧
+  evaluate ^s env [exp] = (s',res) ⇒
+    ^safe_error_goal ∨
+    LIST_TYPE_HEAD THM_TYPE_HEAD v ∧
+    TERM_TYPE_HEAD w
+Proof
+  prove_head_tac
+QED
+
+Theorem compute_v_head:
+  do_partial_app compute_v v = SOME g ∧
+  do_opapp [g; w] = SOME (env,exp) ∧
+  evaluate ^s env [exp] = (s',res) ⇒
+    ^safe_error_goal ∨
+    PAIR_TYPE_HEAD (LIST_TYPE_HEAD THM_TYPE_HEAD)
+                   (LIST_TYPE_HEAD THM_TYPE_HEAD) v ∧
+    TERM_TYPE_HEAD w
+Proof
+  prove_head_tac
+QED
 
 (* -------------------------------------------------------------------------
  * Misc. simps
