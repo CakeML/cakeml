@@ -4081,4 +4081,42 @@ Proof
   \\ imp_res_tac s_key_eq_stack_size \\ fs []
 QED
 
+(****** no_alloc ******)
+
+val no_alloc_def = Define `
+  (no_alloc (MustTerminate p) = no_alloc p) ∧
+  (no_alloc (Call ret _ _ handler) =
+     (case ret of
+      | NONE =>
+            (case handler of
+             | NONE => T
+             | SOME (_,ph,_,_) => no_alloc ph)
+      | SOME (_,_,pr,_,_) =>
+            (case handler of
+             | NONE => no_alloc pr
+             | SOME (_,ph,_,_) => no_alloc ph ∧ no_alloc pr))) ∧
+  (no_alloc (Seq p1 p2) = (no_alloc p1 ∧ no_alloc p2)) ∧
+  (no_alloc (If _ _ _ p1 p2) = (no_alloc p1 ∧ no_alloc p2)) ∧
+  (no_alloc (Alloc _ _) = F) ∧
+  (no_alloc _ = T)
+`
+
+val no_alloc_ind = theorem "no_alloc_ind";
+
+val no_alloc_code_def = Define `
+  no_alloc_code (code : (num # ('a wordLang$prog)) num_map) ⇔
+  ∀ k n p . lookup k code = SOME (n, p) ⇒ no_alloc p`
+
+Theorem no_alloc_find_code:
+  ∀ code dest args lsize args1 expr ps.
+    wordSem$find_code dest args code lsize = SOME (args1, expr, ps) ∧
+    no_alloc_code code ⇒
+    no_alloc expr
+Proof
+  rw[no_alloc_code_def] >> Cases_on `dest` >>
+  fs[find_code_def] >>
+  EVERY_CASE_TAC >> fs [] >> rveq >>
+  metis_tac[]
+QED
+
 val _ = export_theory();
