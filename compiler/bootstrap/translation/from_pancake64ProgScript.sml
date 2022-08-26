@@ -94,7 +94,15 @@ val _ = translate $ INST_TYPE[gamma|->“:64”] compile_prog_def;
 
 open loop_removeTheory;
 
-val _ = translate $ spec64 store_cont_def;
+val _ = register_type “:64 loopLang$exp”;
+
+val _ = register_type “:64 loopLang$prog”;
+
+val EqualityType_prog = EqualityType_rule [] “:64 loopLang$prog”;
+
+val _ = translate $ INST_TYPE[alpha|->“:64”, beta|->“:64 loopLang$prog”, gamma|->“:one$one”] store_cont_def;
+
+val _ = translate $ spec64 comp_no_loop_def;
 
 val _ = translate $ spec64 comp_with_loop_def;
 
@@ -103,6 +111,8 @@ val _ = translate $ spec64 comp_def;
 val _ = translate $ spec64 comp_prog_def;
 
 open loop_to_wordTheory;
+
+val _ = translate $ spec64 compile_prog_def;
 
 val _ = translate $ spec64 compile_def;
 
