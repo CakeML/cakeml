@@ -70,13 +70,33 @@ val _ = register_type “:64 panLang$exp”;
 
 val _ = register_type “:64 panLang$prog”;
 
-val EqualityType_prog = EqualityType_rule [] “:64 panLang$prog”;
+val _ = translate $ spec64 exp_ids_def;
 
 open crepLangTheory;
 
 val _ = register_type “:64 crepLang$exp”;
 
 val _ = register_type “:64 crepLang$prog”;
+
+val _ = translate $ spec64 var_cexp_def;
+
+val _ = translate $ spec64 acc_vars_def;
+
+val _ = translate $ spec64 nested_decs_def;
+
+val _ = translate $ spec64 nested_seq_def;
+
+val lem = Q.prove(‘dimindex(:64) = 64’, EVAL_TAC);
+
+val _ = translate $ SIMP_RULE std_ss [byteTheory.bytes_in_word_def,lem] $ spec64 stores_def;
+
+val _ = translate $ spec64 store_globals_def;
+
+val _ = translate $ spec64 load_globals_def;
+
+val _ = translate $ spec64 assign_ret_def;
+
+val _ = translate $ SIMP_RULE std_ss [byteTheory.bytes_in_word_def,lem] $ spec64 load_shape_def;
 
 open pan_simpTheory;
 
@@ -92,13 +112,17 @@ val _ = translate $ conv64 compile_def;
 
 val _ = translate $ INST_TYPE[gamma|->“:64”] compile_prog_def;
 
-open loop_removeTheory;
+open loopLangTheory;
 
 val _ = register_type “:64 loopLang$exp”;
 
 val _ = register_type “:64 loopLang$prog”;
 
-val EqualityType_prog = EqualityType_rule [] “:64 loopLang$prog”;
+val _ = translate $ spec64 acc_vars_def;
+
+val _ = translate $ spec64 nested_seq_def;
+
+open loop_removeTheory;
 
 val _ = translate $ INST_TYPE[alpha|->“:64”, beta|->“:64 loopLang$prog”, gamma|->“:one$one”] store_cont_def;
 
@@ -112,14 +136,118 @@ val _ = translate $ spec64 comp_prog_def;
 
 open loop_to_wordTheory;
 
+val _ = translate $ spec64 comp_exp_def;
+
+val _ = translate $ spec64 find_reg_imm_def;
+
+(* ^comp_exp, ^find_reg_imm *)
+val _ = translate $ spec64 comp_def;
+
+(* ^loopLang$acc_vars, ^comp *)
+val _ = translate $ spec64 comp_func_def;
+
+(* ^comp_func *)
 val _ = translate $ spec64 compile_prog_def;
+
+(* ^loop_remove$comp_prog, ^compile_prog *)
+val _ = translate $ spec64 compile_def;
+
+open pan_to_crepTheory;
+
+val _ = translate $ spec64 ret_hdl_def;
+
+val _ = translate $ INST_TYPE[alpha|->“:num”] ret_var_def;
+
+val _ = translate $ INST_TYPE[alpha|->“:64 crepLang$exp”] cexp_heads_def;
+
+val _ = translate $ spec64 comp_field_def;
+
+val _ = translate $ spec64 exp_hdl_def;
+
+val _ = register_type “:64 context”;
+
+val _ = translate $ INST_TYPE[alpha|->“:64”, beta|->“:64”] compile_exp_def;
 
 val _ = translate $ spec64 compile_def;
 
+val _ = translate $ spec64 mk_ctxt_def;
+
+(* compile, ^mk_ctxt *)
+val _ = translate $ spec64 comp_func_def;
+
+val _ = translate $ make_funcs_def;
+
+(* ^panLang$exp_ids *)
+val _ = translate $ get_eids_def;
+
+(* comp_func, ^make_funcs, ^get_eids *)
+val _ = translate $ spec64 compile_prog_def;
+
+open loop_liveTheory;
+
+(* aux-function: fixedpoint *)
+val _ = translate $ spec64 shrink_def;
+
+val _ = translate $ spec64 mark_all_def;
+
+(* ^mark_all, shrink *)
+val _ = translate $ spec64 comp_def;
+
+(* comp, loop_call$comp *)
+val _ = translate $ spec64 optimise_def;
+
+open crep_to_loopTheory;
+
+val _ = translate $ spec64 prog_if_def;
+
+(* ^prog_if *)
+val _ = translate $ spec64 compile_exp_def;
+
+(* ^compile_exp, ^loopLang$nested_seq *)
+val _ = translate $ spec64 compile_def;
+
+(* ^compile *)
+val _ = translate $ spec64 comp_func_def;
+
+val _ = translate $ make_funcs_def;
+
+(* ^comp_func, ^make_funcs, loop_live$optimise *)
+val _ = translate $ spec64 compile_prog_def;
+
 open pan_to_wordTheory;
 
+(*
+   ^pan_simp$compile_prog, pan_to_crep$compile_prog, crep_to_loop$compile_prog,
+   ^loop_to_word$compile
+*)
 val _ = translate $ spec64 compile_prog_def;
+
+open word_to_wordTheory;
+
+(*
+    word_simp$compile_exp, wordLang$max_var, word_inst$inst_select,
+    word_all$remove_dead, word_inst$three_to_two_reg, word_alloc$word_alloc
+*)
+val _ = translate $ spec64 compile_single_def;
+
+(* compile_single, word_remove$remove_must_terminate *)
+val _ = translate $ spec64 full_compile_single_def;
+
+(* full_compile_single *)
+val _ = translate $ spec64 compile_def;
+
+open backendTheory;
+
+(* attach_bitmaps, lab_to_target$compile *)
+val _ = translate $ INST_TYPE[alpha|->“:64 word list”, beta|->“:64”] from_lab_def;
+
+(* stack_to_lab$compile, from_lab *)
+val _ = translate $ spec64 $ INST_TYPE[beta|->“:64 word list”] from_stack_def;
+
+(* word_to_stack$compile from_stack *)
+val _ = translate $ spec64 from_word_def;
 
 open pan_to_targetTheory;
 
+(* pan_to_word$compile_prog, word_to_word$compile, backend$from_word *)
 val _ = translate $ spec64 compile_prog_def;
