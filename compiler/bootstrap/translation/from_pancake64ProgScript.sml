@@ -140,16 +140,12 @@ val _ = translate $ spec64 comp_exp_def;
 
 val _ = translate $ spec64 find_reg_imm_def;
 
-(* ^comp_exp, ^find_reg_imm *)
 val _ = translate $ spec64 comp_def;
 
-(* ^loopLang$acc_vars, ^comp *)
 val _ = translate $ spec64 comp_func_def;
 
-(* ^comp_func *)
 val _ = translate $ spec64 compile_prog_def;
 
-(* ^loop_remove$comp_prog, ^compile_prog *)
 val _ = translate $ spec64 compile_def;
 
 open pan_to_crepTheory;
@@ -168,6 +164,123 @@ val _ = register_type “:64 context”;
 
 val _ = translate $ INST_TYPE[alpha|->“:64”, beta|->“:64”] compile_exp_def;
 
+Definition testing_def:
+  (compile _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
+  (compile ctxt (Dec v e p) =
+   let (es, sh) = compile_exp ctxt e;
+       vmax = ctxt.vmax;
+       nvars = GENLIST (λx. vmax + SUC x) (size_of_shape sh);
+       nctxt = ctxt with  <|vars := ctxt.vars |+ (v, (sh, nvars));
+                            vmax := ctxt.vmax + size_of_shape sh|> in
+            if size_of_shape sh = LENGTH es
+            then nested_decs nvars es (compile nctxt p)
+            else Skip) (* /\
+  (compile ctxt (Assign v e) =
+   let (es, sh) = compile_exp ctxt e in
+   case FLOOKUP ctxt.vars v of
+    | SOME (vshp, ns) =>
+      if LENGTH ns = LENGTH es
+      then if distinct_lists ns (FLAT (MAP var_cexp es))
+      then nested_seq (MAP2 Assign ns es)
+      else let vmax = ctxt.vmax;
+               temps = GENLIST (λx. vmax + SUC x) (LENGTH ns) in
+           nested_decs temps es
+                       (nested_seq (MAP2 Assign ns (MAP Var temps)))
+      else Skip:'a crepLang$prog
+    | NONE => Skip) /\
+  (compile ctxt (Store ad v) =
+   case compile_exp ctxt ad of
+    | (e::es',sh') =>
+       let (es,sh) = compile_exp ctxt v;
+            adv = ctxt.vmax + 1;
+            temps = GENLIST (λx. adv + SUC x) (size_of_shape sh) in
+            if size_of_shape sh = LENGTH es
+            then nested_decs (adv::temps) (e::es)
+                 (nested_seq (stores (Var adv) (MAP Var temps) 0w))
+            else Skip
+    | (_,_) => Skip) /\
+  (compile ctxt (StoreByte dest src) =
+   case (compile_exp ctxt dest, compile_exp ctxt src) of
+    | (ad::ads, _), (e::es, _) => StoreByte ad e
+    | _ => Skip) /\
+  (compile ctxt (Return rt) =
+   let (ces,sh) = compile_exp ctxt rt in
+   if size_of_shape sh = 0 then Return (Const 0w)
+   else case ces of
+         | [] => Skip
+         | e::es => if size_of_shape sh = 1 then (Return e) else
+          let temps = GENLIST (λx. ctxt.vmax + SUC x) (size_of_shape sh) in
+           if size_of_shape sh = LENGTH (e::es)
+           then Seq (nested_decs temps (e::es)
+                                 (nested_seq (store_globals 0w (MAP Var temps)))) (Return (Const 0w))
+        else Skip) /\
+  (compile ctxt (Raise eid excp) =
+    case FLOOKUP ctxt.eids eid of
+    | SOME n =>
+      let (ces,sh) = compile_exp ctxt excp;
+          temps = GENLIST (λx. ctxt.vmax + SUC x) (size_of_shape sh) in
+       if size_of_shape sh = LENGTH ces
+       then Seq (nested_decs temps ces (nested_seq (store_globals 0w (MAP Var temps))))
+                (Raise n)
+       else Skip
+    | NONE => Skip) /\
+  (compile ctxt (Seq p p') =
+    Seq (compile ctxt p) (compile ctxt p')) /\
+  (compile ctxt (If e p p') =
+   case compile_exp ctxt e of
+    | (ce::ces, _) =>
+      If ce (compile ctxt p) (compile ctxt p')
+    | _ => Skip) /\
+  (compile ctxt (While e p) =
+   case compile_exp ctxt e of
+   | (ce::ces, _) =>
+     While ce (compile ctxt p)
+   | _ => Skip) /\
+  (compile ctxt Break = Break) /\
+  (compile ctxt Continue = Continue) /\
+  (compile ctxt (Call rtyp e es) =
+   let (cs, sh) = compile_exp ctxt e;
+       cexps = MAP (compile_exp ctxt) es;
+       args = FLAT (MAP FST cexps) in
+    case cs of
+    | ce::ces =>
+     (case rtyp of
+       | NONE => Call NONE ce args
+       | SOME (rt, hdl) =>
+         (case wrap_rt (FLOOKUP ctxt.vars rt) of
+          | NONE =>
+            (case hdl of
+              | NONE => Call NONE ce args
+              | SOME (eid, evar, p) =>
+                (case FLOOKUP ctxt.eids eid of
+                   | NONE => Call NONE ce args
+                   | SOME neid =>
+                     let comp_hdl = compile ctxt p;
+                        hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
+                     Call (SOME (NONE, Skip, (SOME (neid, hndlr)))) ce args))
+          | SOME (sh, ns) =>
+            (case hdl of
+             | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
+             | SOME (eid, evar, p) =>
+                (case FLOOKUP ctxt.eids eid of
+                  | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
+                  | SOME neid =>
+                    let comp_hdl = compile ctxt p;
+                        hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
+                      Call (SOME ((ret_var sh ns), (ret_hdl sh ns),
+                              (SOME (neid, hndlr)))) ce args))))
+    | [] => Skip) /\
+  (compile ctxt (ExtCall f ptr1 len1 ptr2 len2) =
+   case (FLOOKUP ctxt.vars ptr1, FLOOKUP ctxt.vars len1,
+         FLOOKUP ctxt.vars ptr2, FLOOKUP ctxt.vars len2) of
+    | (SOME (One, pc::pcs), SOME (One, lc::lcs),
+       SOME (One, pc'::pcs'), SOME (One, lc'::lcs')) => ExtCall f pc lc pc' lc'
+    | _ => Skip) /\
+  (compile ctxt Tick = Tick) *)
+End
+
+
+
 val _ = translate $ spec64 compile_def;
 
 val _ = translate $ spec64 mk_ctxt_def;
@@ -185,15 +298,30 @@ val _ = translate $ spec64 compile_prog_def;
 
 open loop_liveTheory;
 
-(* aux-function: fixedpoint *)
-val _ = translate $ spec64 shrink_def;
+val _ = translate $ spec64 vars_of_exp_def;
+
+val res = translate_no_ind $ spec64 loop_liveTheory.shrink_def;
+
+val ind_lemma = Q.prove(
+  `^(first is_forall (hyp res))`,
+  rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ TRY (last_x_assum match_mp_tac
+          \\ rpt strip_tac
+          \\ fs [FORALL_PROD] \\ NO_TAC)
+  \\ last_x_assum (match_mp_tac o MP_CANON)
+  \\ rpt strip_tac
+  \\ fs [FORALL_PROD])
+  |> update_precondition;
 
 val _ = translate $ spec64 mark_all_def;
 
-(* ^mark_all, shrink *)
+(* ^mark_all, ^shrink *)
 val _ = translate $ spec64 comp_def;
 
-(* comp, loop_call$comp *)
+(* ^comp, loop_call$comp *)
 val _ = translate $ spec64 optimise_def;
 
 open crep_to_loopTheory;
@@ -221,6 +349,17 @@ open pan_to_wordTheory;
    ^loop_to_word$compile
 *)
 val _ = translate $ spec64 compile_prog_def;
+
+open word_simpTheory;
+
+
+(* SmartSeq *)
+val _ = translate $ spec64 Seq_assoc_def;
+
+val _ = translate $ spec64 simp_if_def;
+
+(* simp_if, const_fp *)
+val _ = translate $ spec64 compile_exp_def;
 
 open word_to_wordTheory;
 
