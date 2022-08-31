@@ -155,16 +155,16 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE``
                      vbinop (Short "+") (V "x")
                             (vbinop (Short "*") (V "y") (V "h")))])]``)
 
-val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec`` "val w = 0wx3"
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val w = 0wx3"
           (SOME ``Dlet locs (Pvar "w") (Lit (Word64 3w))``)
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "#(read) byte_array"
           (SOME ``App (FFI "read") [Var (Short "byte_array")]``)
 
-val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec`` "val w = 0wxf"
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val w = 0wxf"
           (SOME ``Dlet locs (Pvar "w") (Lit (Word64 15w))``)
 
-val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec`` "val w = 0w3"
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val w = 0w3"
           (SOME ``Dlet locs (Pvar "w") (Lit (Word64 3w))``)
 
 val _ = parsetest0 ``nPattern`` ``ptree_Pattern nPattern`` "(x:int) :: _"
@@ -197,7 +197,7 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "(x : int) + 3"
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "op="
           (SOME ``Var (Short "=")``)
 
-val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec``
+val _ = parsetest0 ``nDecl`` ``ptree_Decl``
           "val x = 10"
           (SOME ``Dlet locs (Pvar "x") (Lit (IntLit 10))``)
 
@@ -474,13 +474,29 @@ val _ = parsetest ``nTopLevelDecs`` ``ptree_TopLevelDecs``
                   "val S.C x = z;"
 val _ = parsetest ``nTopLevelDecs`` ``ptree_TopLevelDecs`` "val x = str.y;"
 val _ = parsetest ``nTopLevelDecs`` ``ptree_TopLevelDecs`` "x + 10;"
-val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec``
+val _ = parsetest ``nDecl`` ``ptree_Decl``
                   "structure s = struct val x = 3 end"
-val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec``
+val _ = parsetest ``nDecl`` ``ptree_Decl``
                   "structure s :> sig val x : int end = struct val x = 3 end"
-val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec``
+val _ = parsetest ``nDecl`` ``ptree_Decl``
                   "structure s :> sig val x : int; end = struct val x = 3 end"
-val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec`` "val x = 10"
+val _ = parsetest ``nDecl`` ``ptree_Decl`` "val x = 10"
+val _ = parsetest0 ``nDecl`` ``ptree_Decl``
+                  "local structure s = struct val x = 10 end in\n\
+                  \structure t = struct val y = s.x + 1 end end"
+                  (SOME “Dlocal [Dmod "s"
+                                 [Dlet _ (Pvar "x") (Lit (IntLit 10))]]
+                         [Dmod "t" [Dlet _ (Pvar "y") $
+                                   vbinop (Short "+")
+                                     (Var (Long "s" (Short "x")))
+                                     (Lit (IntLit 1))]]”)
+val _ = parsetest0 ``nDecl`` ``ptree_Decl``
+            "structure s = struct structure t = struct type ty = int end end"
+                  (SOME “Dmod "s" [
+                           Dmod "t" [
+                               Dtabbrev _ [] "ty" (Atapp [] (Short "int"))
+                           ]
+                         ]”)
 
 (* elab_decls doesn't exist:
 

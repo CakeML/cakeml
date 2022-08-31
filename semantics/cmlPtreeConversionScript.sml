@@ -1221,75 +1221,15 @@ local
 in
 
 val ptree_Expr_def = Define ptree_Expr_quotation
-(*
-Theorem ptree_decl_pmatch:
-  ^(ptree_Expr_quotation |>
-   map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq))
-Proof
-  rpt strip_tac
-  >> TRY(CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
-  >> rpt strip_tac
-  >> fs[Once ptree_Expr_def] >> every_case_tac >> fs[]
-  >> TRY(CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
-  >> rpt strip_tac)
-QED
-*)
 end
 
-Definition ptree_Decl_def:
-  (ptree_Decl pt : dec option =
-    dtcase pt of
-       Lf _ => NONE
-     | Nd (nt,locs) args =>
-       if nt <> mkNT nDecl then NONE
-       else
-         dtcase args of
-             [dt] =>
-             do
-               tydec <- ptree_TypeDec dt;
-               SOME (Dtype (locs) tydec)
-             od ++ ptree_TypeAbbrevDec dt
-           | [funtok; fdecls] =>
-             do
-               assert(tokcheck funtok FunT);
-               fdecs <- ptree_AndFDecls fdecls;
-               SOME (Dletrec (locs) fdecs)
-             od ++
-             do
-               assert (tokcheck funtok ExceptionT);
-               (enm, etys) <- ptree_Dconstructor fdecls;
-               SOME (Dexn (locs) enm etys)
-             od
-           | [valtok; patpt; eqtok; ept] =>
-             do
-               assert (tokcheckl [valtok; eqtok] [ValT; EqualsT]);
-               pat <- ptree_Pattern nPattern patpt;
-               e <- ptree_Expr nE ept;
-               SOME (Dlet (locs) pat e)
-             od
-           | [localtok; decls1_pt; intok; decls2_pt; endtok] =>
-             do
-               assert (tokcheckl [localtok; intok; endtok] [LocalT; InT; EndT]);
-               decls1 <- ptree_Decls decls1_pt;
-               decls2 <- ptree_Decls decls2_pt;
-               return (Dlocal decls1 decls2)
-             od
-           | _ => NONE) /\
-  ptree_Decls (Lf _) = NONE ∧
-  ptree_Decls (Nd (nt,_) args) =
-    if nt <> mkNT nDecls then NONE
+Definition ptree_StructName_def:
+  ptree_StructName (Lf _) = NONE ∧
+  ptree_StructName (Nd nm args) =
+    if FST nm <> mkNT nStructName then NONE
     else
       dtcase args of
-          [] => SOME []
-        | [d_pt; ds_pt] =>
-          if tokcheck d_pt SemicolonT then ptree_Decls ds_pt
-          else
-            do
-              d <- ptree_Decl d_pt;
-              ds <- ptree_Decls ds_pt;
-              SOME(d::ds)
-            od
+          [pt] => destAlphaT ' (destTOK ' (destLf pt))
         | _ => NONE
 End
 
@@ -1377,17 +1317,60 @@ Definition ptree_SignatureValue_def:
         | _ => NONE
 End
 
-Definition ptree_StructName_def:
-  ptree_StructName (Lf _) = NONE ∧
-  ptree_StructName (Nd nm args) =
-    if FST nm <> mkNT nStructName then NONE
+Definition ptree_Decl_def:
+  (ptree_Decl pt : dec option =
+    dtcase pt of
+       Lf _ => NONE
+     | Nd (nt,locs) args =>
+       if nt <> mkNT nDecl then NONE
+       else
+         dtcase args of
+             [dt] =>
+             do
+               tydec <- ptree_TypeDec dt;
+               SOME (Dtype (locs) tydec)
+             od ++ ptree_TypeAbbrevDec dt ++ ptree_Structure dt
+           | [funtok; fdecls] =>
+             do
+               assert(tokcheck funtok FunT);
+               fdecs <- ptree_AndFDecls fdecls;
+               SOME (Dletrec (locs) fdecs)
+             od ++
+             do
+               assert (tokcheck funtok ExceptionT);
+               (enm, etys) <- ptree_Dconstructor fdecls;
+               SOME (Dexn (locs) enm etys)
+             od
+           | [valtok; patpt; eqtok; ept] =>
+             do
+               assert (tokcheckl [valtok; eqtok] [ValT; EqualsT]);
+               pat <- ptree_Pattern nPattern patpt;
+               e <- ptree_Expr nE ept;
+               SOME (Dlet (locs) pat e)
+             od
+           | [localtok; decls1_pt; intok; decls2_pt; endtok] =>
+             do
+               assert (tokcheckl [localtok; intok; endtok] [LocalT; InT; EndT]);
+               decls1 <- ptree_Decls decls1_pt;
+               decls2 <- ptree_Decls decls2_pt;
+               return (Dlocal decls1 decls2)
+             od
+           | _ => NONE) /\
+  ptree_Decls (Lf _) = NONE ∧
+  (ptree_Decls (Nd (nt,_) args) =
+    if nt <> mkNT nDecls then NONE
     else
       dtcase args of
-          [pt] => destAlphaT ' (destTOK ' (destLf pt))
-        | _ => NONE
-End
-
-Definition ptree_Structure_def:
+          [] => SOME []
+        | [d_pt; ds_pt] =>
+          if tokcheck d_pt SemicolonT then ptree_Decls ds_pt
+          else
+            do
+              d <- ptree_Decl d_pt;
+              ds <- ptree_Decls ds_pt;
+              SOME(d::ds)
+            od
+        | _ => NONE) ∧
   ptree_Structure (Lf _) = NONE ∧
   ptree_Structure (Nd nt args) =
     if FST nt <> mkNT nStructure then NONE
@@ -1417,17 +1400,7 @@ Definition ptree_Structure_def:
             SOME(Dmod sname (*asc*) ds)
           od
         | _ => NONE
-End
 
-Definition ptree_TopLevelDec_def:
-  ptree_TopLevelDec (Lf _) = NONE ∧
-  ptree_TopLevelDec (Nd nt args) =
-    if FST nt <> mkNT nTopLevelDec then NONE
-    else
-      dtcase args of
-          [pt] =>
-            ptree_Structure pt ++ (ptree_Decl pt)
-        | _ => NONE
 End
 
 Definition ptree_TopLevelDecs_def:
@@ -1441,7 +1414,7 @@ Definition ptree_TopLevelDecs_def:
            if tokcheck td_pt SemicolonT then ptree_TopLevelDecs tds_pt
            else
              do
-               td <- ptree_TopLevelDec td_pt;
+               td <- ptree_Decl td_pt;
                tds <- ptree_NonETopLevelDecs tds_pt;
                return(td::tds)
              od
@@ -1463,7 +1436,7 @@ Definition ptree_TopLevelDecs_def:
          if tokcheck pt1 SemicolonT then ptree_TopLevelDecs pt2
          else
            do
-             td <- ptree_TopLevelDec pt1 ;
+             td <- ptree_Decl pt1 ;
              tds <- ptree_NonETopLevelDecs pt2 ;
              return (td :: tds)
            od

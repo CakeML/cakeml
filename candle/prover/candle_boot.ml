@@ -2,6 +2,11 @@
  * Prelude
  * ------------------------------------------------------------------------- *)
 
+(* This is pointer equality, which is missing from CakeML.
+   || x = y is just to get the type variables right:
+ *)
+let (==) x y = false || x = y;;
+
 let ref x = Ref x;;
 
 let (/) = div;;
@@ -11,6 +16,11 @@ let ( *.) = Double.( * );;
 let (/.) = Double.(/);;
 
 let failwith msg = raise (Failure msg);;
+
+(* This is the pretty printer for exceptions, and you need to update it
+   each time you add an exception definition if you want it to print something
+   informative (see e.g. exception Unchanged in lib.ml).
+ *)
 
 let pp_exn e =
   match e with
@@ -22,10 +32,28 @@ let pp_exn e =
   | Failure s -> Pretty_printer.app_block "Failure" [Pretty_printer.pp_string s]
   | _ -> Pretty_printer.token "<exn>";;
 
+(*CML
+(* OCaml parser doesn't like the tilde *)
+val rat_minus = Rat.~;
+*)
+
 (* Some conversions in OCaml style: *)
 
-let string_of_int = Int.toString;;
+let string_of_int n =
+  if n < 0 then "-" ^ Int.toString (-n)
+  else Int.toString n
+;;
+
+let pp_int n = Pretty_printer.token (string_of_int n);;
+
+let pp_rat r =
+  let n = Rat.numerator r in
+  let d = Rat.denominator r in
+  Pretty_printer.token (string_of_int n ^ "/" ^ string_of_int d)
+;;
+
 let string_of_float = Double.toString;;
+
 let int_of_string = Option.valOf o Int.fromString;;
 
 (* Left shifting integers. HOL Light expects these to not be bigints, so I
@@ -47,6 +75,7 @@ let string_escaped =
     | '\b'::l -> '\\'::'b'::escape l
     | '\t'::l -> '\\'::'t'::escape l
     | '\n'::l -> '\\'::'n'::escape l
+    | '"'::l -> '\\'::'"'::escape l
     | c::l -> c::escape l in
   fun s -> String.implode (escape (String.explode s));;
 
@@ -70,6 +99,11 @@ let rec pp_app_list f xs =
 let abs x = if x < 0 then -x else x;;
 
 let ignore x = x; ();;
+
+let rec rev_append xs acc =
+  match xs with
+  | [] -> acc
+  | x::xs -> rev_append xs (x::acc);;
 
 (* ------------------------------------------------------------------------- *
  * Helpful banner
@@ -219,9 +253,9 @@ let string_of_directive d =
 
 type token =
   | T_begin | T_end | T_struct | T_sig | T_semis | T_newline
+  | T_use | T_needs | T_loads (* converted into directives *)
   | T_other of string
   | T_symb of string
-  | T_directive of directive * string
   | T_comment of string
   | T_string of string
   | T_quote of string
@@ -247,10 +281,19 @@ let string_of_token unquote tok =
         | Some f -> "(" ^ f s ^ ")"
       end
   | T_char s -> "'" ^ s ^ "'"
-  | T_directive (d, f) ->
-      String.concat ["#"; string_of_directive d; " "; "\""; f; "\";;"]
   | T_comment s | T_other s | T_symb s | T_number s | T_spaces s -> s
+  | T_use -> "#use"
+  | T_loads -> "loads"
+  | T_needs -> "needs"
   | T_done -> "(* shouldn't happen *)"
+;;
+
+let directive_of_token t =
+  match t with
+  | T_needs -> Some D_need
+  | T_loads -> Some D_load
+  | T_use -> Some D_use
+  | _ -> None
 ;;
 
 let scan nextChar peekChar =
@@ -261,6 +304,10 @@ let scan nextChar peekChar =
       "end",    T_end;
       "struct", T_struct;
       "sig",    T_sig;
+      (* top-level directives *)
+      "#use",   T_use;
+      "needs",  T_needs;
+      "loads",  T_loads;
     ] in
     fun s -> match Alist.lookup keywords s with
              | None -> T_other s
@@ -335,37 +382,6 @@ let scan nextChar peekChar =
   let scan_spaces c =
     Option.map (fun s -> T_spaces s)
                (scan_while [c] (fun c -> c <> '\n' && Char.isSpace c)) in
-  let dir_from_string =
-    let dirs = [
-      "load", D_load;
-      "need", D_need;
-      "use",  D_use ] in
-    Alist.lookup dirs in
-  let scan_directive () = (* TODO *)
-    match scan_while [] (fun x -> x <> ';') with
-    | None -> None
-    | Some s ->
-        nextChar ();
-        match peekChar () with
-        | None -> Some (T_other ("#" ^ s ^ ";"))
-        | Some c ->
-            if c <> ';' then
-              Some (T_other ("#" ^ s ^ ";" ^ String.str c))
-            else
-              begin
-                nextChar ();
-                match String.fields (fun x -> x = '"') s with
-                | [dir; fname; rest] ->
-                    let dir = trimRight dir in
-                    let rest = trimLeft rest in
-                    if rest <> "" then Some (T_other ("#" ^ s ^ ";;")) else
-                      begin
-                        match dir_from_string dir with
-                        | None -> Some (T_other ("#" ^ s ^ ";;"))
-                        | Some d -> Some (T_directive (d, fname))
-                      end
-                | _ -> Some (T_other ("#" ^ s ^ ";;"))
-              end in
   let scan_escaped ch =
     let rec nom acc =
       Interrupt.check ();
@@ -383,9 +399,39 @@ let scan nextChar peekChar =
   let scan_strlit () =
     Option.map (fun s -> T_string s)
                (scan_escaped '"') in
-  let scan_charlit () =
-    Option.map (fun s -> T_char s)
-               (scan_escaped '\'') in
+  (* This code will intentionally let through some bad tokens (it doesn't check
+     whether escape sequences are well formed), but those will get stuck in the
+     real lexer. *)
+  let scan_charlit_or_tyvar () =
+    match peekChar () with
+    (* Escaped character literal *)
+    | Some '\\' ->
+        begin
+          nextChar ();
+          Option.map (fun s -> T_char ("\\" ^ s))
+                     (scan_escaped '\'')
+        end
+    (* A single tick, start of a type variable, but followed by space *)
+    | Some ' ' | Some '\n' | Some '\t' | Some '\r' -> Some (T_other "'")
+    (* Regular character literal, or a type variable *)
+    | Some c ->
+        begin
+          nextChar ();
+          match peekChar () with
+          (* Regular character literal *)
+          | Some '\'' ->
+              begin
+                nextChar ();
+                Some (T_char (String.str c))
+              end
+          (* Type variable *)
+          | Some _ -> Option.map (fun s -> T_other s)
+                                 (scan_while [c; '\''] is_name_char)
+          | None -> Some (T_other (String.implode ['\''; c]))
+        end
+    (* Two ticks following each other: '' *)
+    | Some '\'' -> Some (T_symb "''")
+    | None -> Some (T_symb "'") in
   let rec nextToken () =
     match nextChar () with
     | None -> None
@@ -411,12 +457,12 @@ let scan nextChar peekChar =
               end
           | _ -> Some (T_symb "(")
         end
-    (* Attempt to scan char literal *)
-    | Some '\'' -> scan_charlit ()
+    (* Attempt to scan char literal or type variable *)
+    | Some '\'' -> scan_charlit_or_tyvar ()
     (* Attempt to scan string literal *)
     | Some '"' -> scan_strlit ()
-    (* Attempt to scan load directive *)
-    | Some '#' -> scan_directive ()
+    (* A #use directive, maybe: *)
+    | Some '#' -> scan_name '#'
     (* Newlines *)
     | Some '\n' -> Some T_newline
     (* Anything else *)
@@ -562,20 +608,61 @@ let () =
     | Some tok -> Some tok
     | None -> scan1 () in
   let output_buffer = (Buffer.empty () : Lexer.token Buffer.buffer) in
+  let rec next_nonspace () =
+    match next () with
+    | Some (Lexer.T_spaces _) -> next_nonspace ()
+    | res -> res in
   let rec scan level =
     try match next () with
         | None -> None
+        (* Attempt to use token as part of loading directive if it sits at the
+           top level (i.e. not inside parenthesis). The REPL fails and reports
+           and error unless the token is followed by a string literal and then
+           double semicolons. Ideally we should also check that the token sits
+           at the start of the line, but we don't, so odd things such as this:
+             foo needs "bar.ml";;
+           are OK and will cause the file bar.ml to be loaded and appear
+           directly after 'foo' in the token stream.
+         *)
+        | Some (Lexer.T_use | Lexer.T_needs | Lexer.T_loads as tok)
+          when level = 0 ->
+            begin
+              let dir = Option.valOf (Lexer.directive_of_token tok) in
+              match next_nonspace () with
+              (* Attempt to convert into directive: *)
+              | Some (Lexer.T_string fname as tok') ->
+                  begin
+                    match next_nonspace () with
+                    (* OK directive, perform load: *)
+                    | Some (Lexer.T_semis) ->
+                        let lines = load dir fname in
+                        if List.null lines then scan level else
+                          begin
+                            userInput := false;
+                            scan_lines lines;
+                            scan level
+                          end
+                    (* Malformed *)
+                    | _ ->
+                        failwith
+                          (String.concat [
+                             "\nREPL error: ";
+                             Lexer.string_of_directive dir;
+                             " \"string\" should be followed by a double";
+                             " semicolon [;;].\n"])
+                  end
+              (* Malformed *)
+              | _ ->
+                  failwith
+                    (String.concat [
+                       "\nREPL error: ";
+                       Lexer.string_of_directive dir;
+                       " should be followed by a \"string literal\" and then a";
+                       " double semicolon [;;].\n"])
+            end
         | Some (Lexer.T_done) ->
             userInput := true;
             scan level
-        | Some (Lexer.T_directive (dir, fname)) ->
-            let lines = load dir fname in
-            if List.null lines then scan level else
-              begin
-                userInput := false;
-                scan_lines lines;
-                scan level
-              end
         | Some tok ->
             Buffer.push_back output_buffer tok;
             match tok with
@@ -612,7 +699,8 @@ let () =
       if not (!userInput) then print (!prompt1);
       Buffer.flush input_buffer;
       Buffer.flush output_buffer;
-      Repl.nextString := "" in
+      Repl.nextString := "";
+      userInput := true in
   Repl.readNextString := (fun () ->
     print (!prompt1);
     next ();

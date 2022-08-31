@@ -13,14 +13,17 @@ OS ?= $(shell uname)
 ifeq ($(OS),Windows_NT)
 	PREF =
 	SUFF = .exe
+	EVALFLAG =
 else
 	PREF = ./
 	SUFF =
+	EVALFLAG = -D__EVAL__
 endif
 
 ifeq ($(OS),Darwin)
 	# These options avoid linker warnings on macOS
 	LDFLAGS += -Wl,-no_pie
+	EVALFLAG =
 endif
 
 CMLS = $(wildcard *.cml)
@@ -31,8 +34,8 @@ all: cake$(SUFF)
 
 # Linking the CakeML compiler
 
-cake$(SUFF): cake.o basis_ffi.o
-	$(CC) $(LDFLAGS) $< basis_ffi.o $(LOADLIBES) $(LDLIBS) -o $@
+cake$(SUFF): cake.S basis_ffi.c
+	$(CC) $(LDFLAGS) $< basis_ffi.c $(LOADLIBES) $(LDLIBS) $(EVALFLAG) -o $@
 
 # Note: While this Makefile is shared the sexpr files used in the example rules
 # below are only included in the verified cake-x64-64.tar.gz release package
@@ -69,8 +72,8 @@ cake_riscv_host: cake-sexpr-64 basis_ffi.c cake$(SUFF)
 %.cake.S : %.cml cake$(SUFF)
 	$(PREF)cake$(SUFF) $(CAKEFLAGS) <$< >$@
 
-%.cake$(SUFF) : %.cake.S basis_ffi.o
-	$(CC) $(LDFLAGS) $< basis_ffi.o $(LOADLIBES) $(LDLIBS) -o $@
+%.cake$(SUFF) : %.cake.S basis_ffi.c
+	$(CC) $(LDFLAGS) $< basis_ffi.c $(LOADLIBES) $(LDLIBS) -o $@
 
 clean:
 	$(RM) basis_ffi.o cake.o cake$(SUFF) *.cake.o *.cake.S *.cake$(SUFF)
