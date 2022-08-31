@@ -20,32 +20,79 @@ Inductive evaluate_ctxt:
   (evaluate_list ck env s1 es (s2, Rval vs2) ∧
    do_opapp (REVERSE vs2 ++ [v] ++ vs1) = SOME (env',e) ∧
    (ck ⇒ s2.clock ≠ 0) ∧
+   (opClass op FunApp) ∧
    evaluate ck env' (if ck then s2 with clock := s2.clock - 1 else s2) e bv
-      ⇒ evaluate_ctxt ck env s1 (Capp Opapp vs1 () es) v bv) ∧
+      ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v bv) ∧
 
   (evaluate_list T env s1 es (s2, Rval vs2) ∧
    do_opapp (REVERSE vs2 ++ [v] ++ vs1) = SOME (env',e) ∧
-   s2.clock = 0
-      ⇒ evaluate_ctxt T env s1 (Capp Opapp vs1 () es) v
+   s2.clock = 0 ∧
+   (opClass op FunApp)
+      ⇒ evaluate_ctxt T env s1 (Capp op vs1 () es) v
           (s2, Rerr (Rabort Rtimeout_error))) ∧
 
   (evaluate_list ck env s1 es (s2, Rval vs2) ∧
-   do_opapp (REVERSE vs2 ++ [v] ++ vs1) = NONE
-      ⇒ evaluate_ctxt ck env s1 (Capp Opapp vs1 () es) v
+   (do_opapp (REVERSE vs2 ++ [v] ++ vs1) = NONE) ∧
+   (opClass op FunApp)
+      ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
           (s2, Rerr (Rabort Rtype_error))) ∧
 
-  (op ≠ Opapp ∧
+  (opClass op Simple ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    do_app (s2.refs,s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) =
     SOME ((new_refs, new_ffi) ,res)
       ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
           (s2 with <| ffi := new_ffi; refs := new_refs |>, res)) ∧
 
-  (op ≠ Opapp ∧
+  (opClass op Icing ∧
+   evaluate_list ck env s1 es (s2, Rval vs2) ∧
+   do_app (s2.refs,s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) =
+   SOME ((new_refs, new_ffi) ,vFp) ∧
+   s2.fp_state.canOpt ≠ FPScope Opt ∧
+   compress_if_bool op vFp = res
+      ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+          (s2 with <| ffi := new_ffi; refs := new_refs |>, res)) ∧
+
+  (opClass op Icing ∧
+   evaluate_list ck env s1 es (s2, Rval vs2) ∧
+   do_app (s2.refs,s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) =
+   SOME ((new_refs, new_ffi) ,vFp) ∧
+   s2.fp_state.canOpt = FPScope Opt ∧
+   do_fprw vFp (s2.fp_state.opts 0) s2.fp_state.rws = NONE ∧
+   compress_if_bool op vFp = res
+      ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+          ((shift_fp_opts s2) with <| ffi := new_ffi; refs := new_refs |>, res)) ∧
+
+  (opClass op Icing ∧
+   evaluate_list ck env s1 es (s2, Rval vs2) ∧
+   do_app (s2.refs,s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) =
+   SOME ((new_refs, new_ffi) ,vFp) ∧
+   s2.fp_state.canOpt = FPScope Opt ∧
+   do_fprw vFp (s2.fp_state.opts 0) s2.fp_state.rws = SOME rOpt ∧
+   compress_if_bool op rOpt = res
+      ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+          ((shift_fp_opts s2) with <| ffi := new_ffi; refs := new_refs |>, res)) ∧
+
+  (opClass op Reals ∧
+   evaluate_list ck env s1 es (s2, Rval vs2) ∧
+   do_app (s2.refs,s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) =
+   SOME ((new_refs, new_ffi) ,res) ∧
+   s2.fp_state.real_sem
+      ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+          (s2 with <| ffi := new_ffi; refs := new_refs |>, res)) ∧
+
+  (opClass op Reals ∧
+   evaluate_list ck env s1 es (s2, Rval vs2) ∧
+   ~s2.fp_state.real_sem
+      ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+          (shift_fp_opts s2, Rerr (Rabort Rtype_error))) ∧
+
+  ((~opClass op FunApp) ∧
+   (opClass op Reals ⇒ s2.fp_state.real_sem) ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    do_app (s2.refs, s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) = NONE
       ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
-          (s2, Rerr (Rabort Rtype_error))) ∧
+                      (s2, Rerr (Rabort Rtype_error))) ∧
 
   (evaluate_list ck env s es (s', Rerr err)
       ⇒ evaluate_ctxt ck env s (Capp op vs () es) v (s', Rerr err)) ∧
@@ -97,7 +144,15 @@ Inductive evaluate_ctxt:
 
   evaluate_ctxt ck env s (Ctannot () t) v (s, Rval v) ∧
 
-  evaluate_ctxt ck env s (Clannot () l) v (s, Rval v)
+  evaluate_ctxt ck env s (Clannot () l) v (s, Rval v) ∧
+
+  (oldSc = Strict ⇒
+   evaluate_ctxt ck env s (Coptimise oldSc sc ()) v (s with fp_state := s.fp_state with canOpt := oldSc,
+                                                     Rval (HD (do_fpoptimise sc [v])))) ∧
+
+  (oldSc ≠ Strict ⇒
+   evaluate_ctxt ck env s (Coptimise oldSc sc ()) v (s with fp_state := s.fp_state with canOpt := oldSc,
+                                                     Rval (HD (do_fpoptimise sc [v]))))
 End
 
 Inductive evaluate_ctxts:
@@ -108,8 +163,12 @@ Inductive evaluate_ctxts:
       ⇒ evaluate_ctxts ck s1 ((c,env)::cs) (Rval v) bv) ∧
 
   (evaluate_ctxts ck s cs (Rerr err) bv ∧
-  ((∀pes. c ≠ Chandle () pes) ∨ (∀v. err ≠ Rraise v))
+  ((∀pes. c ≠ Chandle () pes) ∨ (∀v. err ≠ Rraise v)) ∧
+   (∀ oldSc sc. c ≠ Coptimise oldSc sc ())
       ⇒ evaluate_ctxts ck s ((c,env)::cs) (Rerr err) bv) ∧
+
+  (evaluate_ctxts ck (s with fp_state := s.fp_state with canOpt := oldSc) cs (Rerr err) bv ⇒
+   evaluate_ctxts ck s ((Coptimise oldSc sc (),env)::cs) (Rerr err) bv) ∧
 
   (¬can_pmatch_all env.c s.refs (MAP FST pes) v ∧
    evaluate_ctxts ck s cs (Rerr (Rabort Rtype_error)) res2

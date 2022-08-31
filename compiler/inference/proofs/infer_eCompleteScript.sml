@@ -904,6 +904,38 @@ t = convert_t (t_walkstar s' t')`,
   >> TRY1
     (qpat_x_assum `_ <> SND (op_to_string _)` mp_tac>>
       simp [op_to_string_def])
+  >> TRY1
+    (* ... -> t->int*)
+    (unconversion_tac>>
+    Q.EXISTS_TAC `Infer_Tapp [] Tint_num`>>
+    fs[pure_add_constraints_combine]>>
+    qpat_abbrev_tac `ls = (h,_)::_` >>
+    pac_tac)
+  >> TRY1 (* ... -> t ->bool*)
+    (unconversion_tac>>
+    Q.EXISTS_TAC`Infer_Tapp [] Tbool_num`>>
+    fs[pure_add_constraints_combine]>>
+    qpat_abbrev_tac `ls = (h,_)::_` >>
+    pac_tac)
+  >> TRY1
+    (* ... ->t->word8*)
+    (unconversion_tac>>
+    Q.EXISTS_TAC`Infer_Tapp [] Tword8_num`>>
+    fs[pure_add_constraints_combine]>>
+    qpat_abbrev_tac `ls = (h,_)::_` >>
+    pac_tac)
+  >> TRY1 (* ... -> t->double*)
+    (unconversion_tac>>
+    Q.EXISTS_TAC `Infer_Tapp [] Tdouble_num`>>
+    fs[pure_add_constraints_combine]>>
+    qpat_abbrev_tac `ls = (h,_)::_` >>
+    pac_tac)
+  >> TRY1 (* ... -> t->word64*)
+    (unconversion_tac>>
+    Q.EXISTS_TAC `Infer_Tapp [] Tword64_num`>>
+    fs[pure_add_constraints_combine]>>
+    qpat_abbrev_tac `ls = (h,_)::_` >>
+    pac_tac)
   >> TRY1 (*simple t->t'*)
     (unconversion_tac>>
     qpat_abbrev_tac `ls = [(h,B)]`>>

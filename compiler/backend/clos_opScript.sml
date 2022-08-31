@@ -25,6 +25,25 @@ Proof
   \\ Cases_on ‘x’ \\ EVAL_TAC
 QED
 
+Definition dest_Constant_def:
+  dest_Constant (Constant (ConstStr c)) = SOME (Str c) ∧
+  dest_Constant (Constant (ConstInt c)) = SOME (Int c) ∧
+  dest_Constant (Constant (ConstWord64 c)) = SOME (W64 c) ∧
+  dest_Constant _ = NONE
+End
+
+Theorem dest_Constant_pmatch:
+  dest_Constant x = case x of
+                    | Constant (ConstStr c) => SOME (Str c)
+                    | Constant (ConstInt c) => SOME (Int c)
+                    | Constant (ConstWord64 c) => SOME (W64 c)
+                    | _ => NONE
+Proof
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ Cases_on ‘x’ \\ EVAL_TAC
+  \\ Cases_on ‘c’ \\ fs [dest_Constant_def]
+QED
+
 Definition dest_Cons_def:
   dest_Cons (closLang$Cons i) = SOME i ∧
   dest_Cons _ = NONE
@@ -115,6 +134,7 @@ End
 Overload dest_Op_Cons[local]     = “dest_Op dest_Cons”
 Overload dest_Op_Cons_Nil[local] = “dest_Op_Nil dest_Cons”
 Overload dest_Op_Const[local]    = “dest_Op_Nil dest_Const”
+Overload dest_Op_Constant[local]    = “dest_Op_Nil dest_Constant”
 
 Definition dest_Op_Consts_def:
   dest_Op_Consts x y =
@@ -197,10 +217,23 @@ Definition eq_direct_const_def:
     | SOME i =>
         (dtcase dest_Op_Const y of
          | SOME j => SOME (MakeBool (i = j))
-         | NONE => SOME (Op None (EqualInt i) [y]))
+         | NONE => SOME (Op None (EqualConst (Int i)) [y]))
     | NONE =>
         (dtcase dest_Op_Const y of
-         | SOME i => SOME (Op None (EqualInt i) [x])
+         | SOME i => SOME (Op None (EqualConst (Int i)) [x])
+         | NONE => NONE)
+End
+
+Definition eq_direct_constant_def:
+  eq_direct_constant x y =
+    dtcase dest_Op_Constant x of
+    | SOME p =>
+        (dtcase dest_Op_Constant y of
+         | SOME q => SOME (MakeBool (q = p))
+         | NONE => SOME (Op None (EqualConst p) [y]))
+    | NONE =>
+        (dtcase dest_Op_Constant y of
+         | SOME p => SOME (Op None (EqualConst p) [x])
          | NONE => NONE)
 End
 
@@ -208,7 +241,9 @@ Definition eq_direct_def:
   eq_direct x y =
     dtcase eq_direct_const x y of
     | SOME res => SOME res
-    | NONE => eq_direct_nil x y
+    | NONE => dtcase eq_direct_constant x y of
+              | SOME res => SOME res
+              | NONE => eq_direct_nil x y
 End
 
 Definition cons_measure_def:
@@ -290,7 +325,7 @@ Triviality eq_pure_list_test:
             Op None (Cons 70) [Op None (Const 2) []; Op None (Cons 4) []])]) =
      [Op None (TagLenEq 70 2) [Var None 5];
       Op None (TagLenEq 4 0) [Op None (ElemAt 0) [Var None 5]];
-      Op None (EqualInt 2) [Op None (ElemAt 1) [Var None 5]]]
+      Op None (EqualConst (Int 2)) [Op None (ElemAt 1) [Var None 5]]]
 Proof
   EVAL_TAC
 QED
@@ -302,7 +337,10 @@ Definition dont_lift_def:
     | NONE =>
       dtcase dest_Op_Cons_Nil x of
       | SOME t => T
-      | NONE => F
+      | NONE =>
+        dtcase dest_Op_Constant x of
+        | SOME t => T
+        | NONE => F
 End
 
 Definition lift_exps_def:
@@ -362,14 +400,5 @@ Definition SmartOp_def:
     | NONE => closLang$Op tra op xs
     | SOME x => x
 End
-
-(*
-Definition SmartIf_def:
-  SmartIf tra x y z =
-    dtcase dest_Op_Cons x of
-    | SOME (t,xs) => if t = 0 then z else y
-    | NONE => If tra x y z
-End
-*)
 
 val _ = export_theory();

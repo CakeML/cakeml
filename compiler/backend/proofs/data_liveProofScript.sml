@@ -56,7 +56,7 @@ val state_rel_IMP_do_app_aux = Q.prove(
                             peak_heap_length := peak ;
                             |>))`,
   STRIP_TAC
-  \\ Cases_on `op`
+  \\ Cases_on `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
   \\ fs [do_app_aux_def,do_space_def,with_fresh_ts_def,state_rel_def,check_lim_def]
   \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
@@ -91,7 +91,7 @@ val state_rel_IMP_do_app_aux_err = Q.prove(
   `(do_app_aux op args s1 = Rerr e) /\ state_rel s1 t1 anything ==>
     (do_app_aux op args t1 = Rerr e)`,
   STRIP_TAC
-  \\ Cases_on `op`
+  \\ Cases_on `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
   \\ fs [do_app_aux_def,do_space_def,with_fresh_ts_def]
   \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
@@ -127,7 +127,8 @@ val state_rel_IMP_get_vars = Q.prove(
 val is_pure_do_app_Rerr_IMP = Q.prove(
   `is_pure op /\ do_app op xs s = Rerr e ==>
     Rabort Rtype_error = e`,
-  Cases_on `op` \\ fs [is_pure_def,do_app_def,do_app_aux_def]
+  Cases_on `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
+  \\ fs [is_pure_def,do_app_def,do_app_aux_def]
   \\ simp[do_space_def,data_spaceTheory.op_space_req_def,
           case_eq_thms,do_install_def,UNCURRY] \\ rw[]);
 
@@ -135,7 +136,8 @@ val is_pure_do_app_Rval_IMP = Q.prove(
   `is_pure op /\ do_app op x s = Rval (q,r)
    ⇒  ∃safe smax. r = s with <| safe_for_space := safe;
                                 stack_max := smax |>`,
-  Cases_on `op` \\ fs [is_pure_def,do_app_def,do_app_aux_def]
+  Cases_on `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
+  \\ fs [is_pure_def,do_app_def,do_app_aux_def]
   \\ simp[do_space_def,dataLangTheory.op_space_reset_def,data_spaceTheory.op_space_req_def,
           consume_space_def,do_install_def,UNCURRY,case_eq_thms]
   \\ rw[] \\ fs [state_component_equality,is_pure_def

@@ -59,6 +59,10 @@ val type_ident_to_string_def = Define `
     strlit "Word8.word"
   else if ti = Tword8array_num then
     strlit "byte_array"
+  else if ti = Tdouble_num then
+    strlit "Double.double"
+  else if ti = Treal_num then
+    strlit "Double.real"
   else
     case get_tyname ti tys of
     | NONE => mlint$toString (&ti)

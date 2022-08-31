@@ -30,10 +30,8 @@ local open closLangTheory in end;
 val _ = new_theory "dataLang";
 val _ = set_grammar_ancestry ["closLang" (* for op *), "misc" (* for num_set *)]
 
-
-
 (* --- Syntax of dataLang --- *)
-val op_space_reset_def = Define `
+Definition op_space_reset_def:
   (op_space_reset Add = T) /\
   (op_space_reset Sub = T) /\
   (op_space_reset Mult = T) /\
@@ -52,14 +50,16 @@ val op_space_reset_def = Define `
   (op_space_reset (CopyByte new_flag) = new_flag) /\
   (op_space_reset ConfigGC = T) /\
   (op_space_reset (FFI _) = T) /\
-  (op_space_reset _ = F)`;
+  (op_space_reset _ = F)
+End
 
-val op_requires_names_def = Define`
+Definition op_requires_names_def:
   op_requires_names op = (op_space_reset op ∨ (∃n. op = FFI n) ∨
                          (∃new_flag. op = CopyByte new_flag) ∨
-                         (op = Install))`;
+                         (op = Install))
+End
 
-val _ = Datatype `
+Datatype:
   prog = Skip
        | Move num num
        | Call ((num # num_set) option) (* return var, cut-set *)
@@ -72,9 +72,11 @@ val _ = Datatype `
        | MakeSpace num num_set
        | Raise num
        | Return num
-       | Tick`;
+       | Tick
+End
 
-val mk_ticks_def = Define `
-  mk_ticks n e = FUNPOW (Seq Tick) n e`;
+Definition mk_ticks_def:
+  mk_ticks n e = FUNPOW (Seq Tick) n e
+End
 
 val _ = export_theory();

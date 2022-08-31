@@ -106,7 +106,8 @@ val simple_case =
   qexists_tac `0`
   \\ fs [Once comp_def,evaluate_def,get_var_def,set_var_def,loc_check_def,mem_load_def,
          alloc_def,gc_def,set_store_def,inst_def,assign_def,word_exp_def,get_vars_def,
-         mem_store_def,get_fp_var_def,set_fp_var_def,wordLangTheory.word_op_def]
+         mem_store_def,get_fp_var_def,set_fp_var_def,wordLangTheory.word_op_def,
+         store_const_sem_def]
   \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq,CaseEq"ffi_result",pair_case_eq,
          CaseEq"inst",CaseEq"arith",IS_SOME_EXISTS,CaseEq"list",CaseEq"memop",
          CaseEq"addr",CaseEq"fp",CaseEq"binop"] \\ rfs []
@@ -152,6 +153,12 @@ Proof
    (rename [`Halt`] \\ simple_case)
   THEN1
    (rename [`Alloc`] \\ simple_case)
+  THEN1
+   (rename [`StoreConsts`] \\ simple_case \\ rw []
+    \\ fs [unset_var_def,check_store_consts_opt_def]
+    \\ Cases_on ‘stub_opt’
+    \\ fs [unset_var_def,check_store_consts_opt_def]
+    \\ res_tac \\ fs [comp_top_def,Once comp_def])
   THEN1
    (rename [`Inst`] \\ match_mp_tac evaluate_comp_Inst \\ fs [])
   THEN1

@@ -14,6 +14,7 @@ open holKernelTheory
 open basisProgTheory
 open holAxiomsSyntaxTheory (* for setting up the context *)
 local open holKernelPmatchTheory in end
+open runtime_checkTheory runtime_checkLib; (* Adds runtime type checks *)
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
@@ -30,14 +31,14 @@ Type state = ``:'ffi semanticPrimitives$state``
 
 (* construct type refinement invariants *)
 
-val _ = register_type ``:type``;
+val _ = register_type “:type”;
+val _ = register_type “:term”;
+val _ = register_type “:thm”;
 
 (* check ``:type`` is known to be an EqualityType *)
 val EqualityType_TYPE = EqualityType_rule [] ``:type``;
 
-val _ = register_type ``:term``;
 val _ = register_exn_type ``:hol_exn``;
-val _ = register_type ``:thm``;
 val _ = register_type ``:update``;
 val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def";
 
@@ -110,69 +111,11 @@ val (monad_parameters, store_translation, exn_specs) =
                                               NONE
                                               NONE;
 
-(* mechanism for adding type checking annotations *)
-
-val pure_seq_intro = prove(“x = y ⇒ ∀z. x = pure_seq z y”, fs [pure_seq_def]);
-
-fun mlstring_check s = “mlstring$strlen ^s”
-fun type_check ty = “case ^ty of Tyvar _ => () | _ => abc” |> subst [“abc:unit”|->“()”]
-fun term_check tm = “case ^tm of Const _ _ => () | _ => abc” |> subst [“abc:unit”|->“()”]
-
-val t1 = type_check “t1:type”
-val t2 = type_check “t2:type”
-val tm = term_check “tm:term”
-val tm' = term_check “tm':term”
-
-Definition check_ty_def:
-  check_ty [] = () ∧
-  check_ty (t1::l) = pure_seq ^t1 (check_ty l)
-End
-
-Definition check_tm_def:
-  check_tm [] = () ∧
-  check_tm (tm::l) = pure_seq ^tm (check_tm l)
-End
-
-Definition check_ty_ty_def:
-  check_ty_ty [] = () ∧
-  check_ty_ty ((t1,t2)::l) = pure_seq ^t1 (pure_seq ^t2 (check_ty_ty l))
-End
-
-Definition check_tm_tm_def:
-  check_tm_tm [] = () ∧
-  check_tm_tm ((tm,tm')::l) = pure_seq ^tm (pure_seq ^tm' (check_tm_tm l))
-End
-
-fun ty_list_check ty = “check_ty ^ty”;
-fun tm_list_check tm = “check_tm ^tm”;
-fun ty_ty_list_check tyty = “check_ty_ty ^tyty”;
-fun tm_tm_list_check tmtm = “check_tm_tm ^tmtm”;
-
-fun guess_check tm =
-  if type_of tm = “:mlstring” then mlstring_check else
-  if type_of tm = “:type” then type_check else
-  if type_of tm = “:term” then term_check else
-  if type_of tm = “:type list” then ty_list_check else
-  if type_of tm = “:term list” then tm_list_check else
-  if type_of tm = “:(type # type) list” then ty_ty_list_check else
-  if type_of tm = “:(term # term) list” then tm_tm_list_check else fail()
-
-fun add_type_check v f def = let
-  val def = SPEC_ALL def
-  val tm = f v
-  in MATCH_MP pure_seq_intro def |> ISPEC tm end
-
-fun check [] def = SPEC_ALL def
-  | check (v::vs) def =
-    let
-      val def = check vs def
-      val tm = Parse.parse_in_context (free_vars (concl def)) v
-      val f = guess_check tm
-      val def = add_type_check tm f def
-    in def end
+(* Translate type-checking code from checkTheory *)
 
 val res = translate check_ty_def;
 val res = translate check_tm_def;
+val res = translate check_thm_def;
 val res = translate check_ty_ty_def;
 val res = translate check_tm_tm_def;
 

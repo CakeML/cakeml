@@ -33,27 +33,6 @@ Proof
   \\ gvs [LPREFIX_LCONS, SF SFY_ss]
 QED
 
-(* TODO move to evaluateProps (or wherever evaluate_decs_cons is)
- *)
-
-Theorem evaluate_decs_append:
-  ∀ds1 s env ds2.
-    evaluate_decs s env (ds1 ++ ds2) =
-    case evaluate_decs s env ds1 of
-      (s1,Rval env1) =>
-        (case evaluate_decs s1 (extend_dec_env env1 env) ds2 of
-           (s2,r) => (s2,combine_dec_result env1 r))
-    | (s1,Rerr v7) => (s1,Rerr v7)
-Proof
-  Induct \\ rw []
-  >- (
-    rw [extend_dec_env_def, combine_dec_result_def]
-    \\ rpt CASE_TAC)
-  \\ once_rewrite_tac [evaluate_decs_cons] \\ simp []
-  \\ gs [combine_dec_result_def, extend_dec_env_def]
-  \\ rpt CASE_TAC \\ gs []
-QED
-
 (* -------------------------------------------------------------------------
  * - The basis program:
  *   basis, basis_env, basis_state
@@ -208,7 +187,8 @@ Proof
   \\ simp [state_ok_def, candle_init_state_stamp]
   \\ irule_at Any STATE_init_refs
   \\ simp [candle_init_state_refs,kernel_locs]
-  \\ rw [LLOOKUP_EQ_EL, EL_APPEND_EQN, candle_init_state_def, refs_defs]
+  \\ rw [LLOOKUP_EQ_EL, EL_APPEND_EQN, candle_init_state_def, refs_defs,
+         compute_thms_refs_def, compute_default_clock_refs_def]
   \\ ‘loc = 0’ by fs []
   \\ fs [ref_ok_def]
 QED

@@ -107,7 +107,6 @@ val do_app_aux_def = Define `
             else NONE
           | _ => NONE)
     | (AllocGlobal, _) => NONE
-    | (String _, _) => NONE
     | (FromListByte, _) => NONE
     | (ToListByte, _) => NONE
     | (ConcatByteVec, _) => NONE

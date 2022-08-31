@@ -16,7 +16,7 @@ cake-sexpr-$(ARCH)-$(WORD_SIZE): *$(ARCH)SexprScript.sml
 cake.S: cake-sexpr-$(ARCH)-$(WORD_SIZE) $(CAKE_BIN)
 	CML_STACK_SIZE=8000 CML_HEAP_SIZE=8000 $(CAKE_BIN) --sexp=true --exclude_prelude=true --skip_type_inference=true --emit_empty_ffi=true --reg_alg=0 <$< >$@
 
-cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE) how-to.md how-to.output
+cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE) how-to.md how-to.output basis-types-output
 	tar -chzf $@ --transform='s|^|cake-unverified-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE) how-to.md
 
 # the following extracts the code from how-to.md, compiles it and runs it
@@ -35,4 +35,8 @@ extract_code.cake: extract_code.cml cake
 cake: cake.S basis_ffi.c
 	make $@
 
-EXTRA_CLEANS = cake.S cake-sexpr-$(ARCH)-$(WORD_SIZE) cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz how-to.output how-to.cake how-to.cml extract_code.cake cake
+basis-types-output: cake
+	echo "" | ./cake --types 2> $@
+	diff $@ $(CAKEMLDIR)/basis/types.txt
+
+EXTRA_CLEANS = cake.S cake-sexpr-$(ARCH)-$(WORD_SIZE) cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz how-to.output how-to.cake how-to.cml extract_code.cake cake basis-types-output

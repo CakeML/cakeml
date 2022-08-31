@@ -351,6 +351,7 @@ val const_fp_loop_def = Define `
   (const_fp_loop (FFI x0 x1 x2 x3 x4 names) cs = (FFI x0 x1 x2 x3 x4 names, inter cs names)) /\
   (const_fp_loop (LocValue v x3) cs = (LocValue v x3, delete v cs)) /\
   (const_fp_loop (Alloc n names) cs = (Alloc n names, filter_v is_gc_const (inter cs names))) /\
+  (const_fp_loop (StoreConsts a b c d ws) cs = (StoreConsts a b c d ws, delete a (delete b (delete c (delete d cs))))) /\
   (const_fp_loop (Install r1 r2 r3 r4 names) cs = (Install r1 r2 r3 r4 names, delete r1 (filter_v is_gc_const (inter cs names)))) /\
   (const_fp_loop p cs = (p, cs))`;
 
@@ -393,6 +394,7 @@ Theorem const_fp_loop_pmatch:
   | (FFI x0 x1 x2 x3 x4 names) => (FFI x0 x1 x2 x3 x4 names, inter cs names)
   | (LocValue v x3) => (LocValue v x3, delete v cs)
   | (Alloc n names) => (Alloc n names, filter_v is_gc_const (inter cs names))
+  | (StoreConsts a b c d ws) => (StoreConsts a b c d ws, delete a (delete b (delete c (delete d cs))))
   | (Install r1 r2 r3 r4 names) => (Install r1 r2 r3 r4 names, delete r1 (filter_v is_gc_const (inter cs names)))
   | p => (p, cs)
 Proof
@@ -419,16 +421,18 @@ QED
 
 val const_fp_loop_ind = fetch "-" "const_fp_loop_ind";
 
-val const_fp_def = Define `
-  const_fp p = FST (const_fp_loop p LN)`;
+Definition const_fp_def:
+  const_fp p = FST (const_fp_loop p LN)
+End
 
 (* all of them together *)
 
-val compile_exp_def = Define `
+Definition compile_exp_def:
   compile_exp (e:'a wordLang$prog) =
     let e = Seq_assoc Skip e in
     let e = simp_if e in
     let e = const_fp e in
-      e`;
+      e
+End
 
 val _ = export_theory();

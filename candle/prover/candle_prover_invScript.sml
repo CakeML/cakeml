@@ -14,7 +14,7 @@ val _ = new_theory "candle_prover_inv";
 
 val _ = set_grammar_ancestry [
   "candle_kernel_vals", "ast_extras", "evaluate", "namespaceProps", "perms",
-  "semanticPrimitivesProps", "misc"];
+  "holKernelProof", "semanticPrimitivesProps", "misc"];
 
 (* -------------------------------------------------------------------------
  * Expressions are safe if they do not construct anything with a name from the
@@ -111,6 +111,15 @@ Inductive v_ok:
 [~Lit:]
   (∀ctxt lit.
      v_ok ctxt (Litv lit)) ∧
+[~FP_WordTree:]
+  (∀ ctxt fp.
+     v_ok ctxt (FP_WordTree fp)) ∧
+[~FP_BoolTree:]
+  (∀ ctxt fp.
+     v_ok ctxt (FP_BoolTree fp)) ∧
+[~Real:]
+  (∀ ctxt r.
+     v_ok ctxt (Real r)) ∧
 [~Loc:]
   (∀ctxt loc.
      loc ∉ kernel_locs ⇒
@@ -169,6 +178,9 @@ Theorem v_ok_def =
    “v_ok ctxt (Recclosure env f n)”,
    “v_ok ctxt (Vectorv vs)”,
    “v_ok ctxt (Litv lit)”,
+   “v_ok ctxt (FP_WordTree fp)”,
+   “v_ok ctxt (FP_BoolTree fp)”,
+   “v_ok ctxt (Real r)”,
    “v_ok ctxt (Loc loc)”,
    “v_ok ctxt (Env env ns)”]
   |> map (SIMP_CONV (srw_ss()) [Once v_ok_cases])
@@ -553,6 +565,18 @@ Proof
   \\ metis_tac[v_ok_TERM_TYPE_HEAD]
 QED
 
+Theorem v_ok_LIST_THM_TYPE_HEAD:
+  v_ok ctxt v ∧
+  LIST_TYPE_HEAD THM_TYPE_HEAD v ⇒
+    ∃ths. LIST_TYPE THM_TYPE ths v
+Proof
+  strip_tac
+  \\ irule v_ok_LIST_TYPE_HEAD
+  \\ first_assum (irule_at Any)
+  \\ first_assum (irule_at Any)
+  \\ rw [v_ok_THM_TYPE_HEAD, SF SFY_ss]
+QED
+
 Theorem v_ok_PAIR_TYPE_HEAD:
   v_ok ctxt v ∧
   (!v. v_ok ctxt v ∧ A_HEAD v ==> ?a. A a v) ∧
@@ -647,6 +671,16 @@ Proof
   \\ first_assum $ irule_at Any
   \\ first_assum $ irule_at Any
   \\ metis_tac[v_ok_TERM]
+QED
+
+Theorem v_ok_LIST_THM:
+  ∀ths v ctxt. LIST_TYPE THM_TYPE ths v ∧ v_ok ctxt v ⇒ EVERY (THM ctxt) ths
+Proof
+  rpt strip_tac
+  \\ irule v_ok_LIST
+  \\ first_assum (irule_at Any)
+  \\ first_assum (irule_at Any)
+  \\ rw [v_ok_THM, SF SFY_ss]
 QED
 
 Theorem v_ok_LIST_TYPE:
@@ -758,6 +792,14 @@ Proof
   rw []
   \\ drule_at Any LIST_TYPE_perms_ok
   \\ fs [TYPE_TYPE_perms_ok, SF SFY_ss]
+QED
+
+Theorem LIST_TYPE_THM_perms_ok:
+  ∀tm v. LIST_TYPE THM_TYPE th v ⇒ perms_ok ps v
+Proof
+  rw []
+  \\ drule_at Any LIST_TYPE_perms_ok
+  \\ fs [THM_TYPE_perms_ok, SF SFY_ss]
 QED
 
 Theorem UPDATE_TYPE_perms_ok:

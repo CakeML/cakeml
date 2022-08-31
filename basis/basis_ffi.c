@@ -7,12 +7,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/mman.h>
 #include <assert.h>
-
-#ifndef __WIN32
+#ifdef __EVAL__
+#include <sys/time.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
 #include <signal.h>
 #endif
 
@@ -21,12 +20,6 @@
  * Note that this is not specified by the basis library.
  * */
 #define STDERR_MEM_EXHAUST
-
-/* This is set to 1 when the runtime traps a SIGINT */
-
-#ifndef __WIN32
-volatile sig_atomic_t caught_sigint = 0;
-#endif
 
 /* clFFI (command line) */
 
@@ -43,15 +36,18 @@ extern char cake_text_begin;
 extern char cake_codebuffer_begin;
 extern char cake_codebuffer_end;
 
+#ifdef __EVAL__
+
 /* Signal handler for SIGINT */
 
-#ifndef __WIN32
+/* This is set to 1 when the runtime traps a SIGINT */
+volatile sig_atomic_t caught_sigint = 0;
+
 void do_sigint(int sig_num)
 {
     signal(SIGINT, do_sigint);
     caught_sigint = 1;
 }
-#endif
 
 void ffipoll_sigint (unsigned char *c, long clen, unsigned char *a, long alen)
 {
@@ -67,6 +63,8 @@ void ffikernel_ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
         putc(c[i], stdout);
     }
 }
+
+#endif
 
 void ffiget_arg_count (unsigned char *c, long clen, unsigned char *a, long alen) {
   a[0] = (char) argc;
@@ -136,10 +134,10 @@ void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
 
 void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
   assert(9 <= alen);
-  #ifdef __WIN32
-  int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC);
-  #else
+  #ifdef __EVAL__
   int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+  #else
+  int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC);
   #endif
   if (0 <= fd){
     a[0] = 0;
@@ -375,6 +373,8 @@ int main (int local_argc, char **local_argv) {
   cml_stack = cml_heap + cml_heap_sz;
   cml_stackend = cml_stack + cml_stack_sz;
 
+  #ifdef __EVAL__
+
   /** Set up the "eval" code buffer to be read-write-execute. **/
   if(mprotect(&cake_text_begin, &cake_codebuffer_end - &cake_text_begin,
               PROT_READ | PROT_WRITE | PROT_EXEC))
@@ -387,7 +387,6 @@ int main (int local_argc, char **local_argv) {
   }
 
   /* Set up the signal handler for SIGINTs when running the REPL. */
-  #ifndef __WIN32
   for (int i = 0; i < local_argc; i++) {
       if (strcmp(local_argv[i], "--repl") == 0 ||
           strcmp(local_argv[i], "--candle") == 0) {
@@ -395,6 +394,7 @@ int main (int local_argc, char **local_argv) {
         break;
       }
   }
+
   #endif
 
   cml_main(); // Passing control to CakeML

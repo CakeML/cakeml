@@ -201,17 +201,19 @@ val loc_check_rename_state = Q.prove(
   \\ simp[lookup_fromAList,compile_def,prog_comp_eta,ALOOKUP_MAP,ALOOKUP_toAList]
   \\ fs [PULL_EXISTS,get_labels_comp]);
 
-val comp_correct = Q.prove(
-  `!p s r t.
+Theorem comp_correct[local]:
+  ∀p s r t.
      evaluate (p,s) = (r,t) /\ BIJ (find_name f) UNIV UNIV /\
      ~s.use_alloc /\ ~s.use_store /\ ~s.use_stack /\
      s.compile = (λcfg. c cfg o (stack_names$compile f))
      ==>
-     evaluate (comp f p, rename_state c f s) = (r, rename_state c f t)`,
+     evaluate (comp f p, rename_state c f s) = (r, rename_state c f t)
+Proof
   recInduct evaluate_ind \\ rpt strip_tac
   THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac)
   THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac \\ CASE_TAC \\ fs []
          \\ rw [] \\ fs [rename_state_def,empty_env_def])
+  THEN1 (fs [evaluate_def,comp_def,rename_state_def] \\ rpt var_eq_tac \\ fs [])
   THEN1 (fs [evaluate_def,comp_def,rename_state_def] \\ rpt var_eq_tac \\ fs [])
   THEN1 (fs [evaluate_def,comp_def] >>
     every_case_tac >> fs[] >> rveq >> fs[] >>
@@ -420,7 +422,8 @@ val comp_correct = Q.prove(
     rw[] >> fs[] >> rveq >> fs[set_var_find_name] )
   \\ (
     simp[Once comp_def] >> fs[evaluate_def] >>
-    simp[Once rename_state_def] >> rveq >> simp[] ));
+    simp[Once rename_state_def] >> rveq >> simp[])
+QED
 
 Theorem compile_semantics:
    BIJ (find_name f) UNIV UNIV /\
