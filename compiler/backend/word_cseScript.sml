@@ -1,7 +1,6 @@
 (*
-This file is a Work in Progress.
-It gives some functions about a Common Sub-Expression
-Elimination occuring right atfer the SSA-like renaming.
+  Defines a common sub-expression elimination pass on a wordLang program.
+  This pass is to run immeidately atfer the SSA-like renaming.
 *)
 
 open preamble wordLangTheory wordsTheory boolTheory mlmapTheory sptreeTheory
@@ -443,7 +442,10 @@ Definition word_cse_def:
   (word_cse data (DataBufferWrite r1 r2) =
                 (empty_data with all_names:=data.all_names, DataBufferWrite r1 r2)) ∧
   (word_cse data (FFI s p1 l1 p2 l2 m) =
-                (empty_data with all_names:=data.all_names, FFI s p1 l1 p2 l2 m))
+                (empty_data with all_names:=data.all_names, FFI s p1 l1 p2 l2 m)) ∧
+  (word_cse data (StoreConsts r1 r2 r3 r4 payload) =
+                (empty_data with all_names:=data.all_names,
+                 StoreConsts r1 r2 r3 r4 payload))
 End
 
 val _ = export_theory ();

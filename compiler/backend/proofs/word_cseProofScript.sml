@@ -2,7 +2,8 @@
   Correctness proof for word_cse
 *)
 open preamble alistTheory totoTheory;
-open wordLangTheory wordSemTheory wordPropsTheory reg_allocTheory word_simpTheory word_cseTheory;
+open wordLangTheory wordSemTheory wordPropsTheory reg_allocTheory;
+open word_simpTheory word_cseTheory;
 
 val _ = new_theory "word_cseProof";
 
@@ -1455,6 +1456,12 @@ Proof
   \\ gvs [AllCaseEqs(), add_ret_loc_def]
 QED
 
+Theorem comp_StoreConsts_correct:
+  ^(get_goal "wordLang$StoreConsts")
+Proof
+  gvs[word_cse_def, empty_data_def, lookup_def, data_inv_def]
+QED
+
 (* DATA EMPTY *)
 
 Theorem comp_correct:
@@ -1463,12 +1470,15 @@ Proof
   match_mp_tac (the_ind_thm()) >>
   rpt conj_tac >>
   MAP_FIRST MATCH_ACCEPT_TAC
-    [comp_Skip_correct,comp_Alloc_correct,comp_Move_correct,comp_Inst_correct,comp_Assign_correct,
-     comp_Get_correct,comp_Set_correct,comp_Store_correct,comp_Tick_correct,comp_MustTerminate_correct,
-     comp_Seq_correct,comp_Return_correct,comp_Raise_correct,comp_If_correct,comp_LocValue_correct,
-     comp_Install_correct,comp_CodeBufferWrite_correct,comp_DataBufferWrite_correct,
-     comp_FFI_correct,comp_OpCurrHeap_correct,comp_Call_correct
-    ]
+    [comp_Skip_correct, comp_Alloc_correct, comp_Move_correct,
+     comp_Inst_correct, comp_Assign_correct, comp_Get_correct,
+     comp_Set_correct, comp_Store_correct, comp_Tick_correct,
+     comp_MustTerminate_correct, comp_Seq_correct,
+     comp_Return_correct, comp_Raise_correct, comp_If_correct,
+     comp_LocValue_correct, comp_Install_correct,
+     comp_StoreConsts_correct, comp_CodeBufferWrite_correct,
+     comp_DataBufferWrite_correct, comp_FFI_correct,
+     comp_OpCurrHeap_correct, comp_Call_correct ]
 QED
 
 Definition data_conventions_def:
