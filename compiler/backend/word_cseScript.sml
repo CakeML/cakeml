@@ -448,4 +448,10 @@ Definition word_cse_def:
                  StoreConsts r1 r2 r3 r4 payload))
 End
 
+Definition word_common_subexp_elim_def:
+  word_common_subexp_elim prog =
+    let (_,new_prog) = word_cse empty_data prog in
+      new_prog
+End
+
 val _ = export_theory ();
