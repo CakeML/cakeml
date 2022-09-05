@@ -4229,7 +4229,7 @@ Proof
   simp[lookup_fromAList] >>
   rw[] >>
   Cases_on ‘ALOOKUP l2 n’
-  >- (dxrule MEM_PERM >> rw[ALOOKUP_NONE,MEM_MAP]) >>
+  >- (dxrule MEM_PERM >> strip_tac >> gvs[ALOOKUP_NONE,MEM_MAP]) >>
   drule_then assume_tac ALOOKUP_MEM >>
   match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
   metis_tac[MEM_PERM]
