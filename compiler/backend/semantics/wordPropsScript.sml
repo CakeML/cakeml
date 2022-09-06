@@ -4314,7 +4314,7 @@ Proof
        first_x_assum drule >>
        disch_then(qspec_then ‘perm’ mp_tac) >>
        rw[] >>
-       drule_then drule no_alloc_no_install_evaluate_const_code >>
+       drule_then drule no_install_evaluate_const_code >>
        simp[] >>
        disch_then $ ASSUME_TAC o GSYM >>
        simp[state_component_equality])
@@ -4476,14 +4476,14 @@ Proof
                gvs[]
                >- (first_x_assum match_mp_tac >>
                    simp[] >>
-                   drule_then drule no_alloc_no_install_evaluate_const_code >>
+                   drule_then drule no_install_evaluate_const_code >>
                    simp[] >>
                    disch_then $ ASSUME_TAC o GSYM >>
                    simp[] >>
                    gvs[no_alloc_def,no_install_def])
                >- (first_x_assum match_mp_tac >>
                    simp[] >>
-                   drule_then drule no_alloc_no_install_evaluate_const_code >>
+                   drule_then drule no_install_evaluate_const_code >>
                    simp[] >>
                    disch_then $ ASSUME_TAC o GSYM >>
                    simp[] >>
@@ -4513,14 +4513,14 @@ Proof
            gvs[]
            >- (first_x_assum match_mp_tac >>
                simp[] >>
-               drule_then drule no_alloc_no_install_evaluate_const_code >>
+               drule_then drule no_install_evaluate_const_code >>
                simp[] >>
                disch_then $ ASSUME_TAC o GSYM >>
                simp[] >>
                gvs[no_alloc_def,no_install_def])
            >- (first_x_assum match_mp_tac >>
                simp[] >>
-               drule_then drule no_alloc_no_install_evaluate_const_code >>
+               drule_then drule no_install_evaluate_const_code >>
                simp[] >>
                disch_then $ ASSUME_TAC o GSYM >>
                simp[] >>
@@ -4566,7 +4566,7 @@ Proof
            gvs[pop_env_def,AllCaseEqs(),PULL_EXISTS,cut_env_def] >>
            first_x_assum match_mp_tac >>
            simp[] >>
-           drule_then drule no_alloc_no_install_evaluate_const_code >>
+           drule_then drule no_install_evaluate_const_code >>
            simp[] >>
            disch_then $ ASSUME_TAC o GSYM >>
            simp[] >>
