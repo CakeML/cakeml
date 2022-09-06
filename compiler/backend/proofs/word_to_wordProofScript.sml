@@ -733,10 +733,10 @@ Theorem const_fp_loop_no_install:
 Proof
   recInduct word_simpTheory.const_fp_loop_ind>>
   rw[word_simpTheory.compile_exp_def, word_simpTheory.const_fp_loop_def]>>
-  TRY (every_case_tac>> gs[word_elimProofTheory.no_install_def])>>
-  TRY (pairarg_tac>>gs[word_elimProofTheory.no_install_def])>>
-  gs[word_elimProofTheory.no_install_def]>>
-  pairarg_tac>>gs[word_elimProofTheory.no_install_def]
+  TRY (every_case_tac>> gs[no_install_def])>>
+  TRY (pairarg_tac>>gs[no_install_def])>>
+  gs[no_install_def]>>
+  pairarg_tac>>gs[no_install_def]
 QED
 
 Theorem const_fp_no_install:
@@ -751,7 +751,7 @@ Theorem SmartSeq_no_install:
   no_install prog' ⇒
   no_install (SmartSeq prog prog')
 Proof
-  rw[word_simpTheory.SmartSeq_def, word_elimProofTheory.no_install_def]
+  rw[word_simpTheory.SmartSeq_def, no_install_def]
 QED
 
 Theorem apply_if_opt_SOME_no_install:
@@ -768,18 +768,18 @@ Proof
   fs [word_simpProofTheory.dest_If_Eq_Imm_thm]>>
   gs[word_simpProofTheory.dest_If_thm]>>
   fs [word_simpTheory.SmartSeq_def]>>rveq>>
-  IF_CASES_TAC>>gs[word_elimProofTheory.no_install_def]>>
+  IF_CASES_TAC>>gs[no_install_def]>>
   Cases_on ‘prog’>>gs[word_simpTheory.dest_Seq_def,
-                      word_elimProofTheory.no_install_def]
+                      no_install_def]
 QED
 
 Theorem simp_if_no_install:
   no_install prog ⇒ no_install (simp_if prog)
 Proof
   qid_spec_tac ‘prog’>> ho_match_mp_tac word_simpTheory.simp_if_ind>>
-  rw[word_simpTheory.simp_if_def, word_elimProofTheory.no_install_def]>>
-  TRY (every_case_tac>> gs[word_elimProofTheory.no_install_def])>>
-  TRY (pairarg_tac>>gs[word_elimProofTheory.no_install_def])>>
+  rw[word_simpTheory.simp_if_def, no_install_def]>>
+  TRY (every_case_tac>> gs[no_install_def])>>
+  TRY (pairarg_tac>>gs[no_install_def])>>
   imp_res_tac apply_if_opt_SOME_no_install
 QED
 
@@ -792,17 +792,17 @@ Proof
   qid_spec_tac ‘prog'’>>
   qid_spec_tac ‘prog’>>
   ho_match_mp_tac word_simpTheory.Seq_assoc_ind>>
-  rw[word_elimProofTheory.no_install_def]
+  rw[no_install_def]
   >~[‘_ (_ _ (Call _ _ _ _))’]
   >- (
   gs[word_simpTheory.Seq_assoc_def,
      word_simpTheory.SmartSeq_def,
-     word_elimProofTheory.no_install_def]>>
-  every_case_tac>>gs[word_elimProofTheory.no_install_def])>>
+     no_install_def]>>
+  every_case_tac>>gs[no_install_def])>>
   Cases_on ‘prog’>>
   gs[word_simpTheory.Seq_assoc_def,
      word_simpTheory.SmartSeq_def,
-     word_elimProofTheory.no_install_def]
+     no_install_def]
 QED
 
 Theorem compile_exp_no_install:
@@ -814,7 +814,7 @@ Proof
   qexists_tac ‘simp_if (Seq_assoc Skip prog)’>>rw[]>>
   irule simp_if_no_install>>
   irule Seq_assoc_no_install>>
-  rw[word_elimProofTheory.no_install_def]
+  rw[no_install_def]
 QED
 
 Theorem inst_select_exp_no_install:
@@ -823,8 +823,8 @@ Proof
   MAP_EVERY qid_spec_tac [‘exp’, ‘n’, ‘c'’, ‘c’]>>
   ho_match_mp_tac word_instTheory.inst_select_exp_ind>>
   rw[word_instTheory.inst_select_exp_def,
-     word_elimProofTheory.no_install_def]>>
-  every_case_tac>>gs[word_elimProofTheory.no_install_def,
+     no_install_def]>>
+  every_case_tac>>gs[no_install_def,
                      word_instTheory.inst_select_exp_def]
 QED
 
@@ -835,13 +835,13 @@ Proof
   MAP_EVERY qid_spec_tac [‘prog’, ‘n’, ‘c’]>>
   ho_match_mp_tac word_instTheory.inst_select_ind>>
   rw[
-      word_elimProofTheory.no_install_def]>>
+      no_install_def]>>
   every_case_tac>>
   gs[inst_select_exp_no_install, word_instTheory.inst_select_def,
-     word_elimProofTheory.no_install_def]>>
+     no_install_def]>>
   every_case_tac>>
   gs[inst_select_exp_no_install, word_instTheory.inst_select_def,
-     word_elimProofTheory.no_install_def]
+     no_install_def]
 QED
 
 Theorem ssa_cc_trans_inst_no_install:
@@ -851,13 +851,13 @@ Proof
   MAP_EVERY qid_spec_tac [‘i'’, ‘ssa'’, ‘na'’, ‘na’, ‘ssa’, ‘i’]>>
   recInduct word_allocTheory.ssa_cc_trans_inst_ind>>
   rw[word_allocTheory.ssa_cc_trans_inst_def,
-     word_elimProofTheory.no_install_def]>>
+     no_install_def]>>
   rpt (pairarg_tac>>gs[])>>
   rw[word_allocTheory.ssa_cc_trans_inst_def,
-     word_elimProofTheory.no_install_def]>>
+     no_install_def]>>
   every_case_tac>>rw[]>>rveq>>
   gs[word_allocTheory.next_var_rename_def,
-     word_elimProofTheory.no_install_def]
+     no_install_def]
 QED
 
 Theorem fake_moves_no_install:
@@ -867,11 +867,11 @@ Proof
   MAP_EVERY qid_spec_tac [‘ssa'’, ‘ssa’, ‘n'’, ‘prog2’, ‘prog1’, ‘n’, ‘nR’, ‘NL’, ‘ls’]>>
   Induct_on ‘ls’>>
   gs[word_allocTheory.fake_moves_def,
-     word_elimProofTheory.no_install_def]>>rw[]>>
+     no_install_def]>>rw[]>>
   pairarg_tac>>gs[]>>FULL_CASE_TAC>>gs[]>>
   every_case_tac>>
-  rveq>>gs[word_elimProofTheory.no_install_def]>>
-  rveq>>gs[word_elimProofTheory.no_install_def,
+  rveq>>gs[no_install_def]>>
+  rveq>>gs[no_install_def,
            word_allocTheory.fake_move_def]>>metis_tac[]
 QED
 
@@ -885,16 +885,16 @@ Proof
   rw[word_allocTheory.ssa_cc_trans_def,
      word_allocTheory.fix_inconsistencies_def,
      word_allocTheory.list_next_var_rename_move_def,
-     word_elimProofTheory.no_install_def]>>gs[]>>
+     no_install_def]>>gs[]>>
   rpt (pairarg_tac>>gs[])>>rveq>>
   gs[word_allocTheory.ssa_cc_trans_def,
      word_allocTheory.fix_inconsistencies_def,
      word_allocTheory.list_next_var_rename_move_def,
-     word_elimProofTheory.no_install_def]
+     no_install_def]
   >- (drule ssa_cc_trans_inst_no_install>>rw[])
   >- (drule fake_moves_no_install>>rw[])>>
-  EVERY_CASE_TAC>>gs[]>>rveq>>gs[word_elimProofTheory.no_install_def]>>
-  rpt (pairarg_tac>>gs[])>>rveq>>gs[word_elimProofTheory.no_install_def]>>
+  EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_install_def]>>
+  rpt (pairarg_tac>>gs[])>>rveq>>gs[no_install_def]>>
   drule fake_moves_no_install>>rw[]
 QED
 
@@ -907,7 +907,7 @@ Proof
   pairarg_tac>>gs[]>>
   rw[word_allocTheory.setup_ssa_def,
      word_allocTheory.list_next_var_rename_move_def,
-     word_elimProofTheory.no_install_def]
+     no_install_def]
 QED
 
 Theorem full_ssa_cc_trans_no_install:
@@ -918,9 +918,9 @@ Proof
   pairarg_tac>>gs[]>>
   pairarg_tac>>
   drule_all setup_ssa_no_install>>
-  rw[word_elimProofTheory.no_install_def]>>
+  rw[no_install_def]>>
   drule_all ssa_cc_trans_no_install>>
-  rw[word_elimProofTheory.no_install_def]
+  rw[no_install_def]
 QED
 
 Theorem remove_dead_no_install:
@@ -930,13 +930,13 @@ Proof
   MAP_EVERY qid_spec_tac [‘q’, ‘prog’]>>
   recInduct word_allocTheory.remove_dead_ind>>
   rw[word_allocTheory.remove_dead_def,
-     word_elimProofTheory.no_install_def]>>gs[]>>
+     no_install_def]>>gs[]>>
   rw[word_allocTheory.remove_dead_def,
-     word_elimProofTheory.no_install_def]>>gs[]>>
+     no_install_def]>>gs[]>>
   rpt (pairarg_tac>>gs[])>>rveq>>
-  rw[word_elimProofTheory.no_install_def]>>gs[]>>
+  rw[no_install_def]>>gs[]>>
   every_case_tac>>rpt (pairarg_tac>>gs[])>>rveq>>
-  rw[word_elimProofTheory.no_install_def]>>gs[]
+  rw[no_install_def]>>gs[]
 QED
 
 Theorem three_to_two_reg_no_install:
@@ -946,7 +946,7 @@ Proof
   qid_spec_tac ‘prog’>>
   recInduct word_instTheory.three_to_two_reg_ind>>
   rw[word_instTheory.three_to_two_reg_def,
-     word_elimProofTheory.no_install_def]>>
+     no_install_def]>>
   gs[]>>every_case_tac>>gs[]
 QED
 
@@ -957,7 +957,7 @@ Proof
   qid_spec_tac ‘prog’>>qid_spec_tac ‘f’>>
   recInduct word_allocTheory.apply_colour_ind>>
   rw[word_allocTheory.apply_colour_def,
-     word_elimProofTheory.no_install_def]>>gs[]>>
+     no_install_def]>>gs[]>>
   every_case_tac>>gs[]
 QED
 
@@ -966,12 +966,12 @@ Theorem word_alloc_no_install:
   no_install (word_alloc n c a r prog cl)
 Proof
   rw[word_allocTheory.word_alloc_def]>>
-  every_case_tac>>gs[word_elimProofTheory.no_install_def]
+  every_case_tac>>gs[no_install_def]
   >- (pairarg_tac>>gs[]>>
-      every_case_tac>>gs[word_elimProofTheory.no_install_def]>>
+      every_case_tac>>gs[no_install_def]>>
       irule apply_colour_no_install>>rw[])>>
   gs[word_allocTheory.oracle_colour_ok_def]>>
-  every_case_tac>>gs[word_elimProofTheory.no_install_def]>>
+  every_case_tac>>gs[no_install_def]>>
   rveq>>irule apply_colour_no_install>>rw[]
 QED
 
@@ -1335,7 +1335,7 @@ Proof
   >-
    (* Must_Terminate *)
    (fs[evaluate_def,AND_IMP_INTRO,
-       no_alloc_def, word_elimProofTheory.no_install_def]>>
+       no_alloc_def, no_install_def]>>
     IF_CASES_TAC>>
     fs[]>>
     last_x_assum(qspecl_then[`st with <|clock:=MustTerminate_limit(:'a);termdep:=st.termdep-1|>`,`p`,`l`] mp_tac)>>
@@ -1350,7 +1350,7 @@ Proof
   >- (*Call -- the hard case*)
    (
    fs[evaluate_def,
-      no_alloc_def, word_elimProofTheory.no_install_def]>>
+      no_alloc_def, no_install_def]>>
    TOP_CASE_TAC>> fs [] >>
    TOP_CASE_TAC>> fs []>>
    Cases_on`find_code o1 (add_ret_loc o' x) st.code st.stack_size`>>
@@ -1385,7 +1385,7 @@ Proof
       disch_then drule>>gs[]>>
       impl_tac
       >-(drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
-                    word_elimProofTheory.no_install_find_code)>>gs[])>>
+                    no_install_find_code)>>gs[])>>
       rw[]>>
       drule (GEN_ALL code_rel_no_alloc)>>
       disch_then drule>>gs[]>>
@@ -1452,7 +1452,7 @@ Proof
      disch_then drule>>gs[]>>
      impl_tac
      >-(drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
-                   word_elimProofTheory.no_install_find_code)>>gs[])>>
+                   no_install_find_code)>>gs[])>>
      rw[]>>
      drule (GEN_ALL code_rel_no_alloc)>>
      disch_then drule>>gs[]>>
@@ -1550,7 +1550,7 @@ Proof
        drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
                   no_alloc_find_code)>>gs[]>>
        drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
-                  word_elimProofTheory.no_install_find_code)>>gs[]>>
+                  no_install_find_code)>>gs[]>>
        ntac 2 strip_tac>>gs[])>>
      rw[]>>
      Q.ISPECL_THEN[`q'`,`call_env q r' (push_env x' o0 (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac wordPropsTheory.permute_swap_lemma>>
@@ -1631,7 +1631,7 @@ Proof
        drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
                   no_alloc_find_code)>>gs[]>>
        drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
-                  word_elimProofTheory.no_install_find_code)>>gs[]>>
+                  no_install_find_code)>>gs[]>>
        ntac 2 strip_tac>>gs[])>>
      rw[]>>
      Q.ISPECL_THEN[`q'`,`call_env q r' (push_env x' (SOME (p0,p1,p2,p3)) (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac wordPropsTheory.permute_swap_lemma>>
@@ -1675,7 +1675,7 @@ Proof
    fs[push_env_def,env_to_list_def,dec_clock_def,call_env_def,flush_state_def,ETA_AX])
   >- (*Seq, inductive*)
    (fs[evaluate_def,LET_THM,AND_IMP_INTRO]>>
-    gs[word_elimProofTheory.no_install_def, no_alloc_def]>>
+    gs[no_install_def, no_alloc_def]>>
     first_assum(qspecl_then[`p`,`st`,`l`] mp_tac)>>
     impl_tac>- size_tac>>
     rw[]>>
@@ -1695,10 +1695,10 @@ Proof
        full_simp_tac(srw_ss())[state_component_equality])>>
     Cases_on`rst.clock = st.clock`
     >-
-     (gs[word_elimProofTheory.no_install_def, no_alloc_def]>>
+     (gs[no_install_def, no_alloc_def]>>
       first_x_assum(qspecl_then[`p0`,`rst`,`rst1.code`] mp_tac)>>
       impl_tac>-(
-       gs[word_elimProofTheory.no_install_def, no_alloc_def]>>
+       gs[no_install_def, no_alloc_def]>>
        ‘no_install_code rst.code ∧ no_alloc_code rst.code’
          by (qpat_assum ‘_ = (_, rst)’ assume_tac>>
              drule no_install_evaluate_const_code>>
@@ -1708,7 +1708,7 @@ Proof
              drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
                         no_alloc_find_code)>>gs[]>>
              drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
-                        word_elimProofTheory.no_install_find_code)>>gs[]>>
+                        no_install_find_code)>>gs[]>>
              ntac 2 strip_tac>>gs[])>>
        imp_res_tac wordPropsTheory.evaluate_consts>>
        fs[]>>size_tac)>>
@@ -1733,7 +1733,7 @@ Proof
      drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
                 no_alloc_find_code)>>gs[]>>
      drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
-                word_elimProofTheory.no_install_find_code)>>gs[]>>
+                no_install_find_code)>>gs[]>>
      ntac 2 strip_tac>>gs[])>>
     rw[]>>
     Q.ISPECL_THEN[`p`,`st with permute:=perm'`,`perm''`]
@@ -1751,7 +1751,7 @@ Proof
     TRY(qpat_abbrev_tac`prog = p`)>>
     TRY(qpat_abbrev_tac`prog = p0`)>>
     first_x_assum(qspecl_then[`prog`,`st`,`l`] mp_tac)>>
-    gs[word_elimProofTheory.no_install_def, no_alloc_def]>>
+    gs[no_install_def, no_alloc_def]>>
     (impl_tac>-size_tac>>srw_tac[][]))
   >>gs[no_alloc_def, no_install_def]>>tac
 QED
