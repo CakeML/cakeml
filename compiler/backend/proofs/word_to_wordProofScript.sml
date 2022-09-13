@@ -3,7 +3,7 @@
 *)
 open preamble word_to_wordTheory wordSemTheory word_simpProofTheory
      wordPropsTheory word_allocProofTheory word_instProofTheory
-     word_removeProofTheory word_cseProofTheory (* word_elimTheory word_elimProofTheory *);
+     word_removeProofTheory word_cseProofTheory word_elimTheory word_elimProofTheory;
 
 val _ = new_theory "word_to_wordProof";
 
@@ -991,6 +991,26 @@ Proof
   rveq>>irule apply_colour_no_install>>rw[]
 QED
 
+Theorem word_common_subexp_elim_no_install:
+  no_install prog ⇒
+  no_install (word_common_subexp_elim prog)
+Proof
+  fs [word_cseTheory.word_common_subexp_elim_def]
+  \\ pairarg_tac \\ fs []
+  \\ rename [‘_ e p = (a,np)’]
+  \\ pop_assum mp_tac
+  \\ MAP_EVERY qid_spec_tac [‘np’,‘e’,‘a’,‘p’]
+  \\ ho_match_mp_tac word_simpTheory.simp_if_ind
+  \\ rpt strip_tac \\ fs []
+  \\ fs [word_cseTheory.word_cse_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [no_install_def,AllCaseEqs(),word_cseTheory.add_to_data_aux_def]
+  \\ res_tac \\ fs []
+  \\ gvs [word_cseTheory.word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
+  \\ gvs [no_install_def,AllCaseEqs(),word_cseTheory.add_to_data_aux_def,
+          word_cseTheory.add_to_data_def]
+QED
+
 Theorem compile_single_no_install:
   no_install prog ∧
   (q, r) = (SND (compile_single two_reg_arith reg_count alg c
@@ -1001,6 +1021,7 @@ Proof
   irule word_alloc_no_install>>
   TRY (irule three_to_two_reg_no_install)>>
   irule remove_dead_no_install>>
+  irule word_common_subexp_elim_no_install>>
   irule full_ssa_cc_trans_no_install>>
   irule inst_select_no_install>>
   irule compile_exp_no_install>>rw[]
@@ -1273,6 +1294,26 @@ Proof
   irule apply_colour_no_alloc>>rw[]
 QED
 
+Theorem word_common_subexp_elim_no_alloc:
+  no_alloc prog ⇒
+  no_alloc (word_common_subexp_elim prog)
+Proof
+  fs [word_cseTheory.word_common_subexp_elim_def]
+  \\ pairarg_tac \\ fs []
+  \\ rename [‘_ e p = (a,np)’]
+  \\ pop_assum mp_tac
+  \\ MAP_EVERY qid_spec_tac [‘np’,‘e’,‘a’,‘p’]
+  \\ ho_match_mp_tac word_simpTheory.simp_if_ind
+  \\ rpt strip_tac \\ fs []
+  \\ fs [word_cseTheory.word_cse_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [no_alloc_def,AllCaseEqs(),word_cseTheory.add_to_data_aux_def]
+  \\ res_tac \\ fs []
+  \\ gvs [word_cseTheory.word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
+  \\ gvs [no_alloc_def,AllCaseEqs(),word_cseTheory.add_to_data_aux_def,
+          word_cseTheory.add_to_data_def]
+QED
+
 Theorem compile_single_no_alloc:
   no_alloc prog ∧
   (q, r) = (SND (compile_single two_reg_arith reg_count alg c
@@ -1283,6 +1324,7 @@ Proof
   irule word_alloc_no_alloc>>
   TRY (irule three_to_two_reg_no_alloc)>>
   irule remove_dead_no_alloc>>
+  irule word_common_subexp_elim_no_alloc>>
   irule full_ssa_cc_trans_no_alloc>>
   irule inst_select_no_alloc>>
   irule compile_exp_no_alloc>>rw[]
