@@ -122,7 +122,8 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Defs (theory_computes "mlmap")
   ,computeLib.Tys [``:('k,'v) mlmap$map``]
   ,computeLib.Defs (theory_computes "balanced_map")
-  ,computeLib.Tys [``:('k,'v) balanced_map$balanced_map``]
+  ,computeLib.Tys [``:('k,'v) balanced_map$balanced_map``,
+                   ``:ternaryComparisons$ordering``]
 
   ,computeLib.Tys
     [``:closLang$exp``
