@@ -3,7 +3,7 @@
 *)
 open preamble word_to_wordTheory wordSemTheory word_simpProofTheory
      wordPropsTheory word_allocProofTheory word_instProofTheory
-     word_removeProofTheory;
+     word_removeProofTheory word_cseProofTheory;
 
 val _ = new_theory "word_to_wordProof";
 
@@ -31,7 +31,7 @@ QED
 
 (*Chains up compile_single theorems*)
 Theorem compile_single_lem:
-    ∀prog n st.
+ ∀prog n st.
   domain st.locals = set(even_list n) ∧
   gc_fun_const_ok st.gc_fun
   ⇒
@@ -49,10 +49,11 @@ Proof
   full_simp_tac(srw_ss())[compile_single_def,LET_DEF]>>srw_tac[][]>>
   qpat_abbrev_tac`p1 = inst_select A B C`>>
   qpat_abbrev_tac`p2 = full_ssa_cc_trans n p1`>>
+  qpat_abbrev_tac`p2a = word_common_subexp_elim p2`>>
   TRY(
-    qpat_abbrev_tac`p3 = FST (remove_dead p2 LN)`>>
+    qpat_abbrev_tac`p3 = FST (remove_dead p2a LN)`>>
     qpat_abbrev_tac`p4 = three_to_two_reg p3`)>>
-  TRY(qpat_abbrev_tac`p4 = FST (remove_dead p2 LN)`)>>
+  TRY(qpat_abbrev_tac`p4 = FST (remove_dead p2a LN)`)>>
   Q.ISPECL_THEN [`name`,`c`,`a`,`p4`,`k`,`col`,`st`] mp_tac word_alloc_correct>>
   (impl_tac>-
       (full_simp_tac(srw_ss())[even_starting_locals_def]>>
@@ -63,6 +64,7 @@ Proof
         unabbrev_all_tac>>fs[full_ssa_cc_trans_wf_cutsets]>>
         TRY(ho_match_mp_tac three_to_two_reg_wf_cutsets)>>
         match_mp_tac (el 5 rmd_thms)>>
+        irule wf_cutsets_word_common_subexp_elim >>
         fs[full_ssa_cc_trans_wf_cutsets]))>>
   rw[]>>
   Q.ISPECL_THEN [`p1`,`st with permute:= perm'`,`n`] assume_tac full_ssa_cc_trans_correct>>
@@ -84,16 +86,25 @@ Proof
   qpat_x_assum`(λ(x,y). _) _`mp_tac >>
   pairarg_tac>>fs[]>>
   strip_tac>>
-  Cases_on`remove_dead p2 LN`>>fs[]>>
-  Q.ISPECL_THEN [`p2`,`LN:num_set`,`q`,`r`,`st with permute := perm'`,`st.locals`,`res'`,`rcst`] mp_tac evaluate_remove_dead>>
+  Cases_on`remove_dead p2a LN`>>fs[]>>
+  drule word_common_subexp_elim_correct >>
+  (impl_tac >- (fs [] >>
+    unabbrev_all_tac >>
+    irule word_allocProofTheory.full_ssa_cc_trans_flat_exp_conventions >>
+    fs [word_instProofTheory.inst_select_flat_exp_conventions])) >>
+  gvs [] >> strip_tac >>
+  Q.ISPECL_THEN [`p2a`,`LN:num_set`,`q`,`r`,`st with permute := perm'`,`st.locals`,`res`,`rcst`] mp_tac evaluate_remove_dead>>
   impl_tac>>fs[strong_locals_rel_def]>>
   strip_tac
   >-
-    (Q.ISPECL_THEN[`p3`,`st with permute:=perm'`,`res'`,`rcst with locals:=t'`] mp_tac three_to_two_reg_correct>>
+    (Q.ISPECL_THEN[`p3`,`st with permute:=perm'`,`res`,`rcst with locals:=t'`] mp_tac three_to_two_reg_correct>>
     impl_tac>-
       (rev_full_simp_tac(srw_ss())[]>>
-      unabbrev_all_tac>>rpt var_eq_tac >> fs[]>>
-      metis_tac[full_ssa_cc_trans_distinct_tar_reg,el 4 rmd_thms,FST,PAIR])>>
+      qspecl_then [‘p2a’,‘LN’] mp_tac (el 4 rmd_thms) >>
+      fs [] >> disch_then irule >>
+      unabbrev_all_tac>>rpt var_eq_tac >> fs[] >>
+      irule every_inst_distinct_tar_reg_word_common_subexp_elim >>
+      fs [full_ssa_cc_trans_distinct_tar_reg]) >>
     srw_tac[][]>>
     full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
     Cases_on`res`>>full_simp_tac(srw_ss())[])
@@ -691,7 +702,9 @@ Proof
     fs[compile_single_def]>>
     fs[GSYM (el 5 rmt_thms),GSYM word_alloc_lab_pres]>>
     IF_CASES_TAC>>
-    fs[GSYM three_to_two_reg_lab_pres,GSYM full_ssa_cc_trans_lab_pres,GSYM inst_select_lab_pres,GSYM (el 6 rmd_thms)])>>
+    fs[GSYM three_to_two_reg_lab_pres,GSYM full_ssa_cc_trans_lab_pres,
+       GSYM inst_select_lab_pres,GSYM (el 6 rmd_thms),
+       extract_labels_word_common_subexp_elim])>>
   fs[EVERY_MAP,EVERY_MEM,MEM_ZIP,FORALL_PROD]>>rw[]>>
   fs[full_compile_single_def,compile_single_def]>>
   CONJ_TAC>-
@@ -700,6 +713,7 @@ Proof
     IF_CASES_TAC>>
     TRY(match_mp_tac three_to_two_reg_flat_exp_conventions)>>
     match_mp_tac (el 1 rmd_thms)>>
+    irule flat_exp_conventions_word_common_subexp_elim >>
     match_mp_tac full_ssa_cc_trans_flat_exp_conventions>>
     fs[inst_select_flat_exp_conventions])>>
   CONJ_TAC>-
@@ -708,12 +722,14 @@ Proof
     IF_CASES_TAC>>
     TRY(match_mp_tac three_to_two_reg_pre_alloc_conventions)>>
     match_mp_tac (el 3 rmd_thms)>>
+    irule pre_alloc_conventions_word_common_subexp_elim >>
     fs[full_ssa_cc_trans_pre_alloc_conventions])>>
   CONJ_TAC>-
     (rw[]>>match_mp_tac (el 2 rmt_thms)>>
     match_mp_tac word_alloc_full_inst_ok_less>>
     TRY(match_mp_tac three_to_two_reg_full_inst_ok_less)>>
     match_mp_tac (el 2 rmd_thms)>>
+    irule full_inst_ok_less_word_common_subexp_elim >>
     match_mp_tac full_ssa_cc_trans_full_inst_ok_less>>
     match_mp_tac inst_select_full_inst_ok_less>>
     fs[]>>

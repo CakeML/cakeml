@@ -53,27 +53,30 @@ End
 
 Definition regsUpdate1Aux_def:
   regsUpdate1Aux r l (hd::tl) =
-    if listLookup r hd
+   (if listLookup r hd
       then (l ++ hd)::tl
-      else hd::(regsUpdate1Aux r l tl)
+      else hd::(regsUpdate1Aux r l tl)) ∧
+  regsUpdate1Aux r l _ = []
 End
 
 Definition regsUpdate1_def:
   regsUpdate1 r1 r2 (hd::tl) =
-    if listLookup r1 hd
+   (if listLookup r1 hd
       then if listLookup r2 hd
         then (hd::tl)
         else regsUpdate1Aux r2 hd tl
       else if listLookup r2 hd
         then regsUpdate1Aux r1 hd tl
-        else hd::(regsUpdate1 r1 r2 tl)
+        else hd::(regsUpdate1 r1 r2 tl)) ∧
+  regsUpdate1 r1 r2 _ = []
 End
 
 Definition regsUpdate2_def:
   regsUpdate2 r1 r2 ((hd::tl)::tl') =
-    if listLookup r1 (hd::tl)
+   (if listLookup r1 (hd::tl)
       then (hd::r2::tl)::tl'
-      else (hd::tl)::(regsUpdate2 r1 r2 tl')
+      else (hd::tl)::(regsUpdate2 r1 r2 tl')) ∧
+  regsUpdate2 r1 r2 _ = []
 End
 
 Definition regsUpdate_def:
@@ -95,9 +98,20 @@ Definition canonicalRegs_def:
   lookup_any r data.map r
 End
 
+Definition canonicalRegs'_def:
+  canonicalRegs' avoid (data:knowledge) (r:num) =
+    let n = canonicalRegs (data:knowledge) (r:num) in
+      if n = avoid then r else n
+End
+
 Definition canonicalImmReg_def:
   canonicalImmReg data (Reg r) = Reg (canonicalRegs data r) ∧
   canonicalImmReg data (Imm w) = Imm w
+End
+
+Definition canonicalImmReg'_def:
+  canonicalImmReg' avoid data (Reg r) = Reg (canonicalRegs' avoid data r) ∧
+  canonicalImmReg' avoid data (Imm w) = Imm w
 End
 
 Definition canonicalMultRegs_def:
@@ -130,9 +144,9 @@ End
 
 Definition canonicalArith_def:
   canonicalArith data (Binop op r1 r2 r3) =
-    Binop op r1 (canonicalRegs data r2) (canonicalImmReg data r3) ∧
+    Binop op r1 (canonicalRegs' r1 data r2) (canonicalImmReg' r1 data r3) ∧
   canonicalArith data (Shift s r1 r2 n) =
-    Shift s r1 (canonicalRegs data r2) n ∧
+    Shift s r1 (canonicalRegs' r1 data r2) n ∧
   canonicalArith data (Div r1 r2 r3) =
     Div r1 (canonicalRegs data r2) (canonicalRegs data r3) ∧
   canonicalArith data (LongMul r1 r2 r3 r4) =
@@ -140,11 +154,11 @@ Definition canonicalArith_def:
   canonicalArith data (LongDiv r1 r2 r3 r4 r5) =
     LongDiv r1 r2 (canonicalRegs data r3) (canonicalRegs data r4) (canonicalRegs data r5) ∧
   canonicalArith data (AddCarry r1 r2 r3 r4) =
-    AddCarry r1 (canonicalRegs data r2) (canonicalRegs data r3) r4 ∧
+    AddCarry r1 (canonicalRegs' r1 data r2) (canonicalRegs' r1 data r3) r4 ∧
   canonicalArith data (AddOverflow r1 r2 r3 r4) =
-    AddOverflow r1 (canonicalRegs data r2) (canonicalRegs data r3) r4 ∧
+    AddOverflow r1 (canonicalRegs' r1 data r2) (canonicalRegs' r1 data r3) r4 ∧
   canonicalArith data (SubOverflow r1 r2 r3 r4) =
-    SubOverflow r1 (canonicalRegs data r2) (canonicalRegs data r3) r4
+    SubOverflow r1 (canonicalRegs' r1 data r2) (canonicalRegs' r1 data r3) r4
 End
 
 Definition canonicalFp_def:
@@ -208,7 +222,6 @@ Definition regImmToNumList_def:
   regImmToNumList (Imm w) = [34; wordToNum w]
 End
 
-
 Definition arithToNumList_def:
   arithToNumList (Binop op r1 r2 ri) = [25; arithOpToNum op; r2+100] ++ regImmToNumList ri ∧
   arithToNumList (LongMul r1 r2 r3 r4) = [26; r3+100; r4+100] ∧
@@ -247,10 +260,10 @@ Definition fpToNumList_def:
 End
 
 Definition instToNumList_def:
-  instToNumList (Skip) = [1] ∧
   instToNumList (Const r w) = [2;wordToNum w] ∧
   instToNumList (Arith a) = 3::(arithToNumList a) ∧
-  instToNumList (FP fp) = 4::(fpToNumList fp)
+  instToNumList (FP fp) = 4::(fpToNumList fp) ∧
+  instToNumList _ = [1]
 End
 
 (*
@@ -356,8 +369,8 @@ Definition word_cseInst_def:
        (empty_data with all_names:=data.all_names, Inst (Mem op r (Addr (canonicalRegs data r') w)))
      else
        (data, Inst (Mem op r (Addr (canonicalRegs data r') w))) ) ∧
-  (word_cseInst data ((FP f):'a inst) =
-            (empty_data with all_names:=data.all_names, Inst (FP f)))
+  (word_cseInst data (x:'a inst) =
+     (empty_data with all_names:=data.all_names, Inst x))
 End
 
 (*
@@ -430,7 +443,7 @@ Definition word_cse_def:
                 (data, Tick)) ∧
   (word_cse data ((OpCurrHeap b r1 r2):'a prog) =
     if is_seen r1 data ∨ ¬is_seen r2 data then (empty_data with all_names:=data.all_names, OpCurrHeap b r1 r2) else
-      let r2' = canonicalRegs data r2 in
+      let r2' = canonicalRegs' r1 data r2 in
         let pL = OpCurrHeapToNumList b r2' in
           add_to_data_aux data r1 pL (OpCurrHeap b r1 r2')) ∧
   (word_cse data (LocValue r l) =

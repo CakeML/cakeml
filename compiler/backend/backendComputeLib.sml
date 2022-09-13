@@ -116,6 +116,14 @@ val add_backend_compset = computeLib.extend_compset
 
   ,computeLib.Defs (theory_computes "flat_to_clos")
 
+  ,computeLib.Defs (theory_computes "word_cse")
+  ,computeLib.Tys [``:word_cse$knowledge``]
+
+  ,computeLib.Defs (theory_computes "mlmap")
+  ,computeLib.Tys [``:('k,'v) mlmap$map``]
+  ,computeLib.Defs (theory_computes "balanced_map")
+  ,computeLib.Tys [``:('k,'v) balanced_map$balanced_map``]
+
   ,computeLib.Tys
     [``:closLang$exp``
     ,``:closLang$op``

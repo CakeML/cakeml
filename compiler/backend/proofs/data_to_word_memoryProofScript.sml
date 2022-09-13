@@ -252,7 +252,7 @@ val v_all_ts_def = tDefine"v_all_ts" `
 (* TODO: MOVE *)
 val all_ts_def = Define`
   all_ts refs stack =
-    let refs_v = {x | ∃n l. lookup n refs = SOME (ValueArray l) ∧ MEM x l}
+    let refs_v = {x | ∃n l. sptree$lookup n refs = SOME (ValueArray l) ∧ MEM x l}
     in {ts | ∃x. (x ∈ refs_v ∨ MEM x stack) ∧ MEM ts (v_all_ts x)}
 `
 
