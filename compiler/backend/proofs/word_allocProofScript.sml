@@ -4039,7 +4039,7 @@ val is_stack_var_add= Q.prove(`
     pop_assum (qspecl_then [`na`,`4`] assume_tac)>>
     rev_full_simp_tac(srw_ss())[]));
 
-val _ = diminish_srw_ss ["MOD_ss"]
+val _ = diminish_srw_ss ["MOD"]
 
 val is_alloc_var_flip = Q.prove(`
   is_alloc_var na ⇒ is_stack_var (na+2)`,
@@ -7185,7 +7185,7 @@ Proof
   metis_tac[ssa_cc_trans_flat_exp_conventions,FST]
 QED
 
-val _ = diminish_srw_ss ["NORMEQ_ss"];
+val _ = diminish_srw_ss ["NORMEQ"];
 
 Theorem ssa_cc_trans_full_inst_ok_less[local]:
   ∀prog ssa na c.
