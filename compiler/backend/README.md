@@ -93,6 +93,10 @@ function calls.
 [clos_fvsScript.sml](clos_fvsScript.sml):
 Replaces free variables with constant type errors.
 
+[clos_interpScript.sml](clos_interpScript.sml):
+Correctness proof for closLang interpreter used by the REPL, i.e. Install,
+to avoid spending time comiling simple run-once code in declarations.
+
 [clos_knownScript.sml](clos_knownScript.sml):
 This complicated compiler phase tracks where closure values flow
 in a program. It attempts to annotate function applications with the
@@ -257,11 +261,14 @@ Proofs and automation for serialising HOL values.
 
 [source_letScript.sml](source_letScript.sml):
 This is a source-to-source transformation that lifts Let/Letrec expressions
-out of Dlet/Dletrecs when they are independent of function arguments.
+that sit at the top of Dlet:s into their own Dlet/Dletrec:s.
 
 [source_to_flatScript.sml](source_to_flatScript.sml):
 This is the compiler phase that translates the CakeML source
 language into flatLang.
+
+[source_to_sourceScript.sml](source_to_sourceScript.sml):
+This phase collects all source-to-source transformations.
 
 [stackLangScript.sml](stackLangScript.sml):
 The stackLang intermediate language is a structured programming
