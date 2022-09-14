@@ -4212,6 +4212,8 @@ Proof
         EVERY_CASE_TAC >> rw[] >> fs[] >> metis_tac[no_install_find_code])
 QED
 
+(*** permute_swap for no_install & no_alloc ***)
+
 Overload PERM_STACK = “λs1 s2. case (s1,s2) of
                                  (StackFrame ss env h,StackFrame ss' env' h') =>
                                    ss = ss' ∧ h = h' ∧ PERM env env' ∧ ALL_DISTINCT (MAP FST env)
@@ -4605,4 +4607,42 @@ Proof
   simp[state_component_equality]
 QED
 
+(****** no_mt : no MustTerminate ******)
+
+val no_mt_def = Define `
+  (no_mt (MustTerminate p) = F) /\
+  (no_mt (Call ret _ _ handler) =
+     (case ret of
+      | NONE =>
+            (case handler of
+             | NONE => T
+             | SOME (_,ph,_,_) => no_mt ph)
+      | SOME (_,_,pr,_,_) =>
+            (case handler of
+             | NONE => no_mt pr
+             | SOME (_,ph,_,_) => no_mt ph /\ no_mt pr))) /\
+  (no_mt (Seq p1 p2) = (no_mt p1 /\ no_mt p2)) /\
+  (no_mt (If _ _ _ p1 p2) = (no_mt p1 /\ no_mt p2)) /\
+  (no_mt _ = T)
+`
+
+val no_mt_ind = theorem "no_mt_ind";
+
+val no_mt_code_def = Define `
+  no_mt_code (code : (num # ('a wordLang$prog)) num_map) <=>
+  ! k n p . lookup k code = SOME (n, p) ==> no_mt p`
+
+Theorem no_mt_find_code:
+  ! code dest args lsize args1 expr ps.
+    wordSem$find_code dest args code lsize = SOME (args1, expr, ps) /\
+    no_mt_code code ==>
+    no_mt expr
+Proof
+  rw[no_mt_code_def] >> Cases_on `dest` >>
+  fs[wordSemTheory.find_code_def] >>
+  EVERY_CASE_TAC >> fs [] >> rveq >>
+  metis_tac[]
+QED
+
 val _ = export_theory();
+

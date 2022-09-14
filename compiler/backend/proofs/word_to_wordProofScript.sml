@@ -1814,6 +1814,332 @@ Proof
   >>gs[no_alloc_def, no_install_def]>>tac
 QED
 
-(**********************)
+(******** more on no_mt **********)
+(**
+  no_mt simplifies full_compile_single, i.e.,
+    full_compile_single = compile_single;
+  also code_rel = code_rel_ext holds with no_mt
+**)
+
+Theorem const_fp_loop_no_mt:
+  !prog p.
+    no_mt prog ==>
+    no_mt (FST (const_fp_loop prog p))
+Proof
+  recInduct word_simpTheory.const_fp_loop_ind>>
+  rw[word_simpTheory.compile_exp_def, word_simpTheory.const_fp_loop_def]>>
+  TRY (every_case_tac>> gs[no_mt_def])>>
+  TRY (pairarg_tac>>gs[no_mt_def])>>
+  gs[no_mt_def]>>
+  pairarg_tac>>gs[no_mt_def]
+QED
+
+Theorem const_fp_no_mt:
+  r = const_fp prog /\ no_mt prog ==>
+  no_mt r
+Proof
+  gs[word_simpTheory.const_fp_def, const_fp_loop_no_mt]
+QED
+
+Theorem SmartSeq_no_mt:
+  no_mt prog /\
+  no_mt prog' ==>
+  no_mt (SmartSeq prog prog')
+Proof
+  rw[word_simpTheory.SmartSeq_def, no_mt_def]
+QED
+
+Theorem apply_if_opt_SOME_no_mt:
+  no_mt prog /\ no_mt prog' /\
+  apply_if_opt prog prog' = SOME x ==>
+  no_mt x
+Proof
+  strip_tac>>
+  fs [word_simpTheory.apply_if_opt_def]>>
+  pairarg_tac \\ fs []>>
+  rpt FULL_CASE_TAC>>gs[]
+  >- (every_case_tac \\ fs [])>>
+  rpt (FULL_CASE_TAC>>gs[])>>
+  fs [word_simpProofTheory.dest_If_Eq_Imm_thm]>>
+  gs[word_simpProofTheory.dest_If_thm]>>
+  fs [word_simpTheory.SmartSeq_def]>>rveq>>
+  IF_CASES_TAC>>gs[no_mt_def]>>
+  Cases_on ‘prog’>>gs[word_simpTheory.dest_Seq_def,
+                      no_mt_def]
+QED
+
+Theorem simp_if_no_mt:
+  no_mt prog ==> no_mt (simp_if prog)
+Proof
+  qid_spec_tac ‘prog’>> ho_match_mp_tac word_simpTheory.simp_if_ind>>
+  rw[word_simpTheory.simp_if_def, no_mt_def]>>
+  TRY (every_case_tac>> gs[no_mt_def])>>
+  TRY (pairarg_tac>>gs[no_mt_def])>>
+  imp_res_tac apply_if_opt_SOME_no_mt
+QED
+
+Theorem Seq_assoc_no_mt:
+  no_mt prog /\
+  no_mt prog' ==>
+  no_mt (Seq_assoc prog prog')
+Proof
+  gs[GSYM AND_IMP_INTRO]>>
+  qid_spec_tac ‘prog'’>>
+  qid_spec_tac ‘prog’>>
+  ho_match_mp_tac word_simpTheory.Seq_assoc_ind>>
+  rw[no_mt_def]
+  >~[‘_ (_ _ (Call _ _ _ _))’]
+  >- (
+  gs[word_simpTheory.Seq_assoc_def,
+     word_simpTheory.SmartSeq_def,
+     no_mt_def]>>
+  every_case_tac>>gs[no_mt_def])>>
+  Cases_on ‘prog’>>
+  gs[word_simpTheory.Seq_assoc_def,
+     word_simpTheory.SmartSeq_def,
+     no_mt_def]
+QED
+
+Theorem compile_exp_no_mt:
+  no_mt prog ==>
+  no_mt (compile_exp prog)
+Proof
+  rw[word_simpTheory.compile_exp_def]>>
+  irule const_fp_no_mt>>gs[]>>
+  qexists_tac ‘simp_if (Seq_assoc Skip prog)’>>rw[]>>
+  irule simp_if_no_mt>>
+  irule Seq_assoc_no_mt>>
+  rw[no_mt_def]
+QED
+
+Theorem inst_select_exp_no_mt:
+  no_mt (inst_select_exp c c' n exp)
+Proof
+  MAP_EVERY qid_spec_tac [‘exp’, ‘n’, ‘c'’, ‘c’]>>
+  ho_match_mp_tac word_instTheory.inst_select_exp_ind>>
+  rw[word_instTheory.inst_select_exp_def,
+     no_mt_def]>>
+  every_case_tac>>gs[no_mt_def,
+                     word_instTheory.inst_select_exp_def]
+QED
+
+Theorem inst_select_no_mt:
+  no_mt prog ==>
+  no_mt (inst_select c n prog)
+Proof
+  MAP_EVERY qid_spec_tac [‘prog’, ‘n’, ‘c’]>>
+  ho_match_mp_tac word_instTheory.inst_select_ind>>
+  rw[
+      no_mt_def]>>
+  every_case_tac>>
+  gs[inst_select_exp_no_mt, word_instTheory.inst_select_def,
+     no_mt_def]>>
+  every_case_tac>>
+  gs[inst_select_exp_no_mt, word_instTheory.inst_select_def,
+     no_mt_def]
+QED
+
+Theorem ssa_cc_trans_inst_no_mt:
+  ssa_cc_trans_inst i ssa na = (i',ssa',na') ==>
+  no_mt i'
+Proof
+  MAP_EVERY qid_spec_tac [‘i'’, ‘ssa'’, ‘na'’, ‘na’, ‘ssa’, ‘i’]>>
+  recInduct word_allocTheory.ssa_cc_trans_inst_ind>>
+  rw[word_allocTheory.ssa_cc_trans_inst_def,
+     no_mt_def]>>
+  rpt (pairarg_tac>>gs[])>>
+  rw[word_allocTheory.ssa_cc_trans_inst_def,
+     no_mt_def]>>
+  every_case_tac>>rw[]>>rveq>>
+  gs[word_allocTheory.next_var_rename_def,
+     no_mt_def]
+QED
+
+Theorem fake_moves_no_mt:
+  fake_moves ls nL nR n = (prog1, prog2, n' ,ssa, ssa') ==>
+  no_mt prog1 /\ no_mt prog2
+Proof
+  MAP_EVERY qid_spec_tac [‘ssa'’, ‘ssa’, ‘n'’, ‘prog2’, ‘prog1’, ‘n’, ‘nR’, ‘NL’, ‘ls’]>>
+  Induct_on ‘ls’>>
+  gs[word_allocTheory.fake_moves_def,
+     no_mt_def]>>rw[]>>
+  pairarg_tac>>gs[]>>FULL_CASE_TAC>>gs[]>>
+  every_case_tac>>
+  rveq>>gs[no_mt_def]>>
+  rveq>>gs[no_mt_def,
+           word_allocTheory.fake_move_def]>>metis_tac[]
+QED
+
+Theorem ssa_cc_trans_no_mt:
+  no_mt prog /\
+  ssa_cc_trans prog ssa n = (prog', ssa', na)==>
+  no_mt prog'
+Proof
+  MAP_EVERY qid_spec_tac [‘prog'’, ‘ssa'’, ‘na’, ‘n’, ‘ssa’, ‘prog’]>>
+  recInduct word_allocTheory.ssa_cc_trans_ind>>
+  rw[word_allocTheory.ssa_cc_trans_def,
+     word_allocTheory.fix_inconsistencies_def,
+     word_allocTheory.list_next_var_rename_move_def,
+     no_mt_def]>>gs[]>>
+  rpt (pairarg_tac>>gs[])>>rveq>>
+  gs[word_allocTheory.ssa_cc_trans_def,
+     word_allocTheory.fix_inconsistencies_def,
+     word_allocTheory.list_next_var_rename_move_def,
+     no_mt_def]
+  >- (drule ssa_cc_trans_inst_no_mt>>rw[])
+  >- (drule fake_moves_no_mt>>rw[])>>
+  EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_mt_def]>>
+  rpt (pairarg_tac>>gs[])>>rveq>>gs[no_mt_def]>>
+  drule fake_moves_no_mt>>rw[]
+QED
+
+Theorem setup_ssa_no_mt:
+  no_mt prog /\
+  setup_ssa n v prog = (mov, ssa, na)==>
+  no_mt mov
+Proof
+  rw[word_allocTheory.setup_ssa_def]>>
+  pairarg_tac>>gs[]>>
+  rw[word_allocTheory.setup_ssa_def,
+     word_allocTheory.list_next_var_rename_move_def,
+     no_mt_def]
+QED
+
+Theorem full_ssa_cc_trans_no_mt:
+  no_mt prog ==>
+  no_mt (full_ssa_cc_trans n prog)
+Proof
+  rw[word_allocTheory.full_ssa_cc_trans_def]>>
+  pairarg_tac>>gs[]>>
+  pairarg_tac>>
+  drule_all setup_ssa_no_mt>>
+  rw[no_mt_def]>>
+  drule_all ssa_cc_trans_no_mt>>
+  rw[no_mt_def]
+QED
+
+Theorem remove_dead_no_mt:
+  no_mt prog ==>
+  no_mt (FST (remove_dead prog q))
+Proof
+  MAP_EVERY qid_spec_tac [‘q’, ‘prog’]>>
+  recInduct word_allocTheory.remove_dead_ind>>
+  rw[word_allocTheory.remove_dead_def,
+     no_mt_def]>>gs[]>>
+  rw[word_allocTheory.remove_dead_def,
+     no_mt_def]>>gs[]>>
+  rpt (pairarg_tac>>gs[])>>rveq>>
+  rw[no_mt_def]>>gs[]>>
+  every_case_tac>>rpt (pairarg_tac>>gs[])>>rveq>>
+  rw[no_mt_def]>>gs[]
+QED
+
+Theorem three_to_two_reg_no_mt:
+  no_mt prog ==>
+  no_mt (three_to_two_reg prog)
+Proof
+  qid_spec_tac ‘prog’>>
+  recInduct word_instTheory.three_to_two_reg_ind>>
+  rw[word_instTheory.three_to_two_reg_def,
+     no_mt_def]>>gs[]>>
+  every_case_tac>>gs[]
+QED
+
+Theorem apply_colour_no_mt:
+  no_mt prog ==>
+  no_mt (apply_colour f prog)
+Proof
+  qid_spec_tac ‘prog’>>qid_spec_tac ‘f’>>
+  recInduct word_allocTheory.apply_colour_ind>>
+  rw[word_allocTheory.apply_colour_def,
+     no_mt_def]>>gs[]>>
+  every_case_tac>>gs[]
+QED
+
+Theorem word_alloc_no_mt:
+  no_mt prog ==>
+  no_mt (word_alloc n c a r prog cl)
+Proof
+  rw[word_allocTheory.word_alloc_def]>>
+  every_case_tac>>gs[no_mt_def]
+  >- (pairarg_tac>>gs[]>>
+      every_case_tac>>gs[no_mt_def]>>
+      irule apply_colour_no_mt>>rw[])>>
+  gs[word_allocTheory.oracle_colour_ok_def]>>
+  every_case_tac>>gs[no_mt_def]>>rveq>>
+  irule apply_colour_no_mt>>rw[]
+QED
+
+Theorem compile_single_no_mt:
+  no_mt prog /\
+  (q, r) = (SND (compile_single two_reg_arith reg_count alg c
+                 ((name_num,arg_count,prog),col_opt))) ==>
+  no_mt r
+Proof
+  rw[word_to_wordTheory.compile_single_def]>>
+  irule word_alloc_no_mt>>
+  TRY (irule three_to_two_reg_no_mt)>>
+  irule remove_dead_no_mt>>
+  irule full_ssa_cc_trans_no_mt>>
+  irule inst_select_no_mt>>
+  irule compile_exp_no_mt>>rw[]
+QED
+
+Theorem code_rel_no_mt:
+  wordSem$find_code op args c1 sz = SOME v /\
+  code_rel c1 c2 /\
+  no_mt (FST (SND v)) /\
+  find_code op args c2 sz = SOME v' ==>
+  no_mt (FST (SND v'))
+Proof
+  gs[code_rel_def]>>Cases_on ‘op’>>
+  gs[wordSemTheory.find_code_def]>>every_case_tac>>rw[]>>gs[]>-
+   (rename1 ‘lookup n c1 = SOME (q', r)’>>
+    last_x_assum (qspecl_then [‘n’, ‘(q' ,r)’] assume_tac)>>gs[]>>
+    drule_all compile_single_no_mt>>gs[])>>
+  res_tac>>gs[]>>rveq>>
+  irule compile_single_no_mt>>metis_tac[]
+QED
+
+Theorem no_mt_remove_must_terminate_const:
+  no_mt prog ==> remove_must_terminate prog = prog
+Proof
+  qid_spec_tac ‘prog’>>
+  recInduct word_removeTheory.remove_must_terminate_ind>>
+  gs[word_removeTheory.remove_must_terminate_def, no_mt_def]>>
+  rw[]>>every_case_tac>>gs[]
+QED
+
+Theorem no_mt_full_compile_single:
+  no_mt (SND (SND (FST x))) ==>
+  full_compile_single tt kk aa c x =
+  compile_single tt kk aa c x
+Proof
+  fs[word_to_wordTheory.full_compile_single_def]>>
+  qpat_abbrev_tac ‘prog = compile_single _ _ _ _ _’>>
+  pairarg_tac>>gs[]>>
+  strip_tac>>
+  irule no_mt_remove_must_terminate_const>>
+  PairCases_on ‘x’>>gs[]>>
+  ‘(arg_count, reg_prog) =
+   SND (compile_single tt kk aa c ((x0,x1,x2),x3))’ by gs[]>>
+  drule_all compile_single_no_mt>>gs[]
+QED
+
+Theorem no_mt_code_full_compile_single:
+  no_mt_code (fromAList progs) /\
+  ALL_DISTINCT (MAP FST progs) /\
+  LENGTH x = LENGTH progs ==>
+  MAP (full_compile_single tt kk aa co) (ZIP (progs, x)) =
+  MAP (compile_single tt kk aa co) (ZIP (progs, x))
+Proof
+  rw[no_mt_code_def]>>
+  gs[lookup_fromAList, MAP_EQ_f]>>rpt strip_tac>>
+  gs[MEM_ZIP]>>
+  drule_all ALOOKUP_ALL_DISTINCT_EL>>strip_tac>>
+  qmatch_goalsub_abbrev_tac ‘(prg, _)’>>PairCases_on ‘prg’>>gs[]>>
+  last_x_assum (qspecl_then [‘prg0’, ‘prg1’, ‘prg2’] assume_tac)>>gs[]>>
+  gs[no_mt_full_compile_single]
+QED
 
 val _ = export_theory();
