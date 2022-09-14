@@ -2142,4 +2142,343 @@ Proof
   gs[no_mt_full_compile_single]
 QED
 
+(*** code_rel_ext ***)
+
+val code_rel_ext_def = Define`
+                             code_rel_ext code l ⇔
+  (∀n p_1 p_2.
+     SOME (p_1,p_2) = lookup n code ⇒
+     ∃t' k' a' c' col.
+       SOME
+       (SND (full_compile_single t' k' a' c' ((n,p_1,p_2),col))) =
+       lookup n l)`
+
+val code_rel_ext_def = definition"code_rel_ext_def";
+
+Theorem code_rel_ext_word_to_word:
+  ∀code c1 col code'.
+    compile c1 c2 code = (col,code') ⇒
+    code_rel_ext (fromAList code) (fromAList code')
+Proof
+  simp[word_to_wordTheory.compile_def,code_rel_ext_def] \\
+  rw[]>>
+  pairarg_tac>>fs[]>>rw[]>>
+  `LENGTH n_oracles = LENGTH code` by
+    (fs[word_to_wordTheory.next_n_oracle_def]>>
+     every_case_tac>>rw[]>>fs[])>>
+  last_x_assum mp_tac>>
+  pop_assum mp_tac>>
+  pop_assum kall_tac>>
+  map_every qid_spec_tac [`n_oracles`,`p_1`,`p_2`,`n`]>>
+  Induct_on`code` \\ rw[] \\
+  fs[lookup_fromAList]>>
+  Cases_on`n_oracles`>>fs[]>>
+  Cases_on`h`>>fs[]>>
+  simp[word_to_wordTheory.full_compile_single_def,SimpRHS] \\
+  pairarg_tac \\ fs[] \\
+  qmatch_asmsub_rename_tac`((q,p),h)` \\
+  PairCases_on`p` \\ fs[word_to_wordTheory.compile_single_def] \\
+  rveq \\ fs[] \\
+  IF_CASES_TAC \\ fs[] \\
+  simp[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def]>>
+  metis_tac[]
+QED
+
+Theorem no_mt_code_rel_ext:
+  no_mt_code cd1 /\
+  code_rel_ext cd1 cd2 ==>
+  code_rel cd1 cd2
+Proof
+  gs[code_rel_ext_def,
+     code_rel_def,
+     no_mt_code_def]>>
+  rpt strip_tac>>
+  Cases_on ‘v’>>gs[]>>
+  rename1 ‘lookup n cd1 = SOME (q, r)’>>
+  res_tac>>
+  first_x_assum (qspecl_then [‘n’, ‘q’, ‘r’] assume_tac)>>gs[]>>
+  pop_assum (assume_tac o GSYM)>>gs[]>>
+  qmatch_asmsub_abbrev_tac ‘full_compile_single _ _ _ _ x’>>
+  ‘r = SND (SND (FST x))’ by gs[Abbr ‘x’]>>gs[]>>
+  drule (GEN_ALL no_mt_full_compile_single)>>gs[]>>metis_tac[]
+QED
+
+(***** word_to_word semantics correctness for Pancake *****)
+
+Theorem panLang_compile_word_to_word_thm:
+  code_rel (st:('a,'c,'ffi) wordSem$state).code l ∧
+  no_install_code st.code /\ no_alloc_code st.code /\ no_mt_code st.code /\
+  (domain st.code = domain l) /\
+  gc_fun_const_ok st.gc_fun ==>
+  ?perm' clk.
+    let prog = Call NONE (SOME start) [0] NONE in
+      let (res,rst) = evaluate (prog,st with permute := perm') in
+        if res = SOME Error then T else
+          let (res1,rst1) = evaluate (prog, st with code := l)
+          in
+            res1 = res ∧
+            rst1.clock = rst.clock ∧
+            rst1.ffi = rst.ffi ∧
+            rst1.stack_max = rst.stack_max
+Proof
+  simp[]>>rw[]>>
+  qpat_abbrev_tac`prog = wordLang$Call _ _ _ _` >>
+  ‘no_install prog /\ no_alloc prog /\ no_mt prog’
+    by gs[wordPropsTheory.no_alloc_def, wordPropsTheory.no_install_def,
+          no_mt_def, Abbr ‘prog’]>>
+  ‘no_install_code l /\ no_alloc_code l /\ no_mt_code l’
+    by (gs[code_rel_def,
+           wordPropsTheory.no_alloc_code_def, no_mt_code_def,
+           wordPropsTheory.no_install_code_def]>>
+        qpat_x_assum ‘domain _ = domain _’ (assume_tac o GSYM)>>
+        gs[domain_eq]>>
+        rw[]>>rename1 ‘lookup k l = SOME (n, p)’>>
+        first_x_assum (qspec_then ‘k’ assume_tac)>>gs[]>>
+        Cases_on ‘lookup k st.code’>>gs[]>>
+        rename1 ‘lookup k st.code = SOME x’>>
+        PairCases_on ‘x’>>gs[]>>
+        first_x_assum (qspecl_then [‘k’, ‘(x0, x1)’] assume_tac)>>gs[]>>
+        res_tac
+        >- (drule_all compile_single_no_install>>gs[])
+        >- (drule_all compile_single_no_alloc>>gs[])
+        >> (drule_all compile_single_no_mt>>gs[]))>>
+  drule no_install_no_alloc_compile_single_correct>>
+  fs[]>>
+  disch_then(qspec_then`prog`mp_tac)>>
+  rpt (disch_then drule)>>
+  rw[]>>
+  qexists_tac`perm'`>>pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  Cases_on`res=SOME Error`>>fs[]>>
+  ‘st with <|clock := st.clock; code := l|> = st with code := l’
+    by gs[wordSemTheory.state_component_equality]>>
+  gs[]>>
+  gs[wordSemTheory.state_component_equality]
+QED
+
+Theorem word_to_word_compile_semantics:
+  word_to_word$compile wconf acomf wprog0 = (col, wprog) ∧
+  gc_fun_const_ok s.gc_fun ∧
+  no_install_code (fromAList wprog0) ∧
+  no_alloc_code (fromAList wprog0) ∧
+  no_install_code s.code ∧ no_alloc_code s.code ∧
+  no_mt_code (fromAList wprog0) ∧
+  ALL_DISTINCT (MAP FST wprog0) ∧ s.stack = [] ∧
+  (*
+  start = lc + first_name ∧
+  EL lc wprog0 = (start, v) ∧
+  *)
+  t.code = fromAList wprog ∧ lookup 0 t.locals = SOME (Loc 1 0) ∧
+  t = s with code := t.code ∧
+  s.code = fromAList wprog0 ∧
+  wordSem$semantics (s:(α,β,'ffi) wordSem$state) start ≠ Fail ⇒
+  wordSem$semantics s start =
+  wordSem$semantics (t:(α,β,'ffi) wordSem$state) start
+Proof
+  strip_tac>>pop_assum mp_tac>>
+  drule code_rel_ext_word_to_word>>
+  strip_tac>>
+  drule_all no_mt_code_rel_ext>>strip_tac>>
+  gs[word_to_wordTheory.compile_def]>>
+  pairarg_tac>>gs[]>>
+  qpat_x_assum ‘_ = wprog’ (assume_tac o GSYM)>>gs[]>>
+  ‘LENGTH n_oracles = LENGTH wprog0’ by
+    (fs[word_to_wordTheory.next_n_oracle_def]>>
+     every_case_tac>>rw[]>>fs[])>>
+  drule_all no_mt_code_full_compile_single>>
+  qmatch_goalsub_abbrev_tac ‘MAP (full_compile_single tt kk aa c) _’>>
+  disch_then (qspecl_then [‘tt’, ‘kk’, ‘c’, ‘aa’] assume_tac)>>
+  gs[]>>
+  ‘domain s.code =
+   domain (fromAList
+           (MAP (compile_single tt kk aa c) (ZIP (wprog0,n_oracles))))’
+    by (gs[domain_fromAList, MAP_MAP_o]>>
+        ‘MAP (FST ∘ compile_single tt kk aa c) (ZIP (wprog0,n_oracles)) =
+         MAP (FST o FST) (ZIP (wprog0,n_oracles))’
+          by gs[MAP_EQ_f]>>gs[MAP_ZIP])>>
+  qpat_x_assum ‘s.code = _’ (assume_tac o GSYM)>>gs[]>>
+  gs[wordSemTheory.semantics_def]>>
+  IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac
+  >- (
+  qx_gen_tac`r`>>simp[]>>strip_tac>>
+  strip_tac>>
+  IF_CASES_TAC >- (
+    full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
+    last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
+    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    gs[]>>
+    qmatch_asmsub_abbrev_tac ‘FST ev’>>Cases_on ‘ev’>>gs[]>>
+    ‘code_rel (s with clock := k').code
+     (fromAList
+      (MAP (compile_single tt kk aa acomf)
+       (ZIP (wprog0,n_oracles))))’ by
+      gs[wordSemTheory.state_component_equality]>>
+    drule (GEN_ALL panLang_compile_word_to_word_thm)>>
+    full_simp_tac(srw_ss())[] >>
+    disch_then (qspec_then ‘start’ mp_tac)>>gs[]>>
+    strip_tac>>
+    Cases_on ‘ q = SOME Error’>>gs[]>>
+    mp_tac (INST_TYPE [gamma |-> “:'ffi”] permute_swap_lemma3)>>
+    disch_then (qspecl_then [‘Call NONE (SOME start) [0] NONE’,
+                             ‘s with clock := k'’,
+                             ‘perm'’] mp_tac)>>
+    simp[no_alloc_def, no_install_def]>>
+    strip_tac>>
+    pairarg_tac>>gs[]>>
+    pairarg_tac>>gs[])>>  (* IF CASE 1 *)
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac>- (
+    strip_tac>>
+    strip_tac>>gs[]>>
+    last_x_assum(qspec_then`k'`assume_tac)>>
+    qmatch_asmsub_abbrev_tac ‘FST ev’>>
+    Cases_on ‘ev’>>gs[]>>
+    qmatch_asmsub_abbrev_tac ‘Abbrev ((q, r''') = ev)’>>
+    ‘ev = (q, r''')’ by gs[Abbr ‘ev’]>>gs[Abbr ‘ev’]>>
+    ‘code_rel (s with clock := k').code
+     (fromAList
+      (MAP (compile_single tt kk aa acomf)
+       (ZIP (wprog0,n_oracles))))’ by
+      gs[wordSemTheory.state_component_equality]>>
+    drule (GEN_ALL panLang_compile_word_to_word_thm)>>
+    full_simp_tac(srw_ss())[] >>
+    disch_then (qspec_then ‘start’ mp_tac)>>gs[]>>
+    strip_tac>>
+    Cases_on ‘ q = SOME Error’>>gs[]>>
+
+    mp_tac (INST_TYPE [gamma |-> “:'ffi”] permute_swap_lemma3)>>
+    disch_then (qspecl_then [‘Call NONE (SOME start) [0] NONE’,
+                             ‘s with clock := k'’,
+                             ‘perm'’] mp_tac)>>
+    simp[no_alloc_def, no_install_def]>>
+    strip_tac>>
+    pairarg_tac>>gs[]>>
+    qpat_x_assum ‘_ = (q, r''')’ assume_tac>>
+    drule (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
+    simp[RIGHT_FORALL_IMP_THM] >>
+    impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+    disch_then(qspec_then`k`mp_tac) >>
+    strip_tac>>
+    qpat_x_assum ‘_ = (r', t')’ assume_tac>>
+    drule (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
+    simp[RIGHT_FORALL_IMP_THM] >>
+    impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
+    disch_then(qspec_then`k'`mp_tac) >>
+    strip_tac>>
+
+    gs[]>>every_case_tac>>gs[wordSemTheory.state_component_equality])>>
+  (* IF2 conj1 done *)
+
+  ‘code_rel (s with clock := k).code
+   (fromAList
+    (MAP (compile_single tt kk aa acomf)
+     (ZIP (wprog0,n_oracles))))’ by
+    gs[wordSemTheory.state_component_equality]>>
+  drule (GEN_ALL panLang_compile_word_to_word_thm)>>
+  full_simp_tac(srw_ss())[] >>
+  disch_then (qspec_then ‘start’ mp_tac)>>gs[]>>
+
+  strip_tac>>
+  Cases_on ‘r' = SOME Error’>>gs[]>>
+  mp_tac (INST_TYPE [gamma |-> “:'ffi”] permute_swap_lemma3)>>
+  disch_then (qspecl_then [‘Call NONE (SOME start) [0] NONE’,
+                           ‘s with clock := k’,
+                           ‘perm'’] mp_tac)>>
+  simp[no_alloc_def, no_install_def]>>
+  strip_tac>>gs[]>>
+  pairarg_tac>>gs[]>>
+  qexists_tac ‘k’>>gs[]>>metis_tac[])>> (* top level conj 1 *)
+
+  (****)
+
+  rpt strip_tac>>gs[]>>
+  IF_CASES_TAC>>gs[]
+  >- (
+  last_x_assum(qspec_then`k`assume_tac)>>gs[] >>
+  last_x_assum(qspec_then`k`assume_tac)>>gs[] >>
+  qmatch_asmsub_abbrev_tac ‘FST ev’>>Cases_on ‘ev’>>gs[]>>
+  qmatch_asmsub_abbrev_tac ‘FST ev’>>Cases_on ‘ev’>>gs[]>>
+  ‘q = q'’
+    by (
+    ‘code_rel (s with clock := k).code
+     (fromAList
+      (MAP (compile_single tt kk aa acomf)
+       (ZIP (wprog0,n_oracles))))’ by
+       gs[wordSemTheory.state_component_equality]>>
+    drule (GEN_ALL panLang_compile_word_to_word_thm)>>
+    full_simp_tac(srw_ss())[] >>
+    disch_then (qspec_then ‘start’ mp_tac)>>gs[]>>
+    strip_tac>>
+
+    Cases_on ‘q = SOME Error’>>gs[]>>
+    mp_tac (INST_TYPE [gamma |-> “:'ffi”] permute_swap_lemma3)>>
+    disch_then (qspecl_then [‘Call NONE (SOME start) [0] NONE’,
+                             ‘s with clock := k’,
+                             ‘perm'’] mp_tac)>>
+    simp[no_alloc_def, no_install_def]>>
+    strip_tac>>gs[]>>
+    pairarg_tac>>gs[])>>gs[])>>
+
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac>- (
+  rpt strip_tac>>
+  gs[]>>
+  rpt (last_x_assum(qspec_then`k`assume_tac)>>gs[])>>
+  qmatch_asmsub_abbrev_tac ‘FST ev’>>Cases_on ‘ev’>>gs[]>>
+  ‘q = r’
+    by (
+    ‘code_rel (s with clock := k).code
+     (fromAList
+      (MAP (compile_single tt kk aa acomf)
+       (ZIP (wprog0,n_oracles))))’ by
+       gs[wordSemTheory.state_component_equality]>>
+    drule (GEN_ALL panLang_compile_word_to_word_thm)>>
+    full_simp_tac(srw_ss())[] >>
+    disch_then (qspec_then ‘start’ mp_tac)>>gs[]>>
+    strip_tac>>
+
+    Cases_on ‘q = SOME Error’>>gs[]>>
+    mp_tac (INST_TYPE [gamma |-> “:'ffi”] permute_swap_lemma3)>>
+    disch_then (qspecl_then [‘Call NONE (SOME start) [0] NONE’,
+                             ‘s with clock := k’,
+                             ‘perm'’] mp_tac)>>
+    simp[no_alloc_def, no_install_def]>>
+    strip_tac>>gs[]>>
+    pairarg_tac>>gs[])>>gs[])>>
+  rpt strip_tac>>
+  AP_TERM_TAC>>
+  irule IMAGE_CONG>>
+  irule_at (Pos last) EQ_REFL>>
+  rpt strip_tac>>gs[]>>
+  rpt (first_x_assum (qspec_then ‘x’ assume_tac))>>
+  qmatch_asmsub_abbrev_tac ‘FST ev’>>Cases_on ‘ev’>>gs[]>>
+  qmatch_asmsub_abbrev_tac ‘FST ev’>>Cases_on ‘ev’>>gs[]>>
+  qmatch_asmsub_abbrev_tac ‘Abbrev ((q, r) = ev)’>>
+  ‘ev = (q, r)’ by gs[Abbr ‘ev’]>>gs[Abbr ‘ev’]>>
+  rpt (FULL_CASE_TAC>>gs[])>>
+  qmatch_asmsub_abbrev_tac ‘Abbrev ((_, r') = ev)’>>
+  ‘ev = (SOME TimeOut, r')’ by gs[Abbr ‘ev’]>>gs[Abbr ‘ev’]>>
+  qpat_x_assum ‘_ = (_, r)’ assume_tac>>
+
+  ‘code_rel (s with clock := x).code
+   (fromAList
+    (MAP (compile_single tt kk aa acomf)
+     (ZIP (wprog0,n_oracles))))’ by
+    gs[wordSemTheory.state_component_equality]>>
+
+  drule (GEN_ALL panLang_compile_word_to_word_thm)>>
+  full_simp_tac(srw_ss())[] >>
+  disch_then (qspec_then ‘start’ mp_tac)>>gs[]>>
+  strip_tac>>gs[]>>
+  mp_tac (INST_TYPE [gamma |-> “:'ffi”] permute_swap_lemma3)>>
+  disch_then (qspecl_then [‘Call NONE (SOME start) [0] NONE’,
+                           ‘s with clock := x’,
+                           ‘perm'’] mp_tac)>>
+  simp[no_alloc_def, no_install_def]>>
+  strip_tac>>gs[]>>
+  pairarg_tac>>gs[]
+QED
+
 val _ = export_theory();
