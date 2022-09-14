@@ -3,7 +3,7 @@
 *)
 open preamble word_to_wordTheory wordSemTheory word_simpProofTheory
      wordPropsTheory word_allocProofTheory word_instProofTheory
-     word_removeProofTheory;
+     word_removeProofTheory word_elimTheory word_elimProofTheory;
 
 val _ = new_theory "word_to_wordProof";
 
@@ -723,5 +723,1039 @@ Proof
   match_mp_tac word_alloc_two_reg_inst>>
   fs[three_to_two_reg_two_reg_inst]
 QED
+
+(**** more on no_install ****)
+
+Theorem const_fp_loop_no_install:
+  ∀prog p.
+    no_install prog ⇒
+    no_install (FST (const_fp_loop prog p))
+Proof
+  recInduct word_simpTheory.const_fp_loop_ind>>
+  rw[word_simpTheory.compile_exp_def, word_simpTheory.const_fp_loop_def]>>
+  TRY (every_case_tac>> gs[no_install_def])>>
+  TRY (pairarg_tac>>gs[no_install_def])>>
+  gs[no_install_def]>>
+  pairarg_tac>>gs[no_install_def]
+QED
+
+Theorem const_fp_no_install:
+  r = const_fp prog ∧ no_install prog ⇒
+  no_install r
+Proof
+  gs[word_simpTheory.const_fp_def, const_fp_loop_no_install]
+QED
+
+Theorem SmartSeq_no_install:
+  no_install prog ∧
+  no_install prog' ⇒
+  no_install (SmartSeq prog prog')
+Proof
+  rw[word_simpTheory.SmartSeq_def, no_install_def]
+QED
+
+Theorem apply_if_opt_SOME_no_install:
+  no_install prog ∧ no_install prog' ∧
+  apply_if_opt prog prog' = SOME x ⇒
+  no_install x
+Proof
+  strip_tac>>
+  fs [word_simpTheory.apply_if_opt_def]>>
+  pairarg_tac \\ fs []>>
+  rpt FULL_CASE_TAC>>gs[]
+  >- (every_case_tac \\ fs [])>>
+  rpt (FULL_CASE_TAC>>gs[])>>
+  fs [word_simpProofTheory.dest_If_Eq_Imm_thm]>>
+  gs[word_simpProofTheory.dest_If_thm]>>
+  fs [word_simpTheory.SmartSeq_def]>>rveq>>
+  IF_CASES_TAC>>gs[no_install_def]>>
+  Cases_on ‘prog’>>gs[word_simpTheory.dest_Seq_def,
+                      no_install_def]
+QED
+
+Theorem simp_if_no_install:
+  no_install prog ⇒ no_install (simp_if prog)
+Proof
+  qid_spec_tac ‘prog’>> ho_match_mp_tac word_simpTheory.simp_if_ind>>
+  rw[word_simpTheory.simp_if_def, no_install_def]>>
+  TRY (every_case_tac>> gs[no_install_def])>>
+  TRY (pairarg_tac>>gs[no_install_def])>>
+  imp_res_tac apply_if_opt_SOME_no_install
+QED
+
+Theorem Seq_assoc_no_install:
+  no_install prog ∧
+  no_install prog' ⇒
+  no_install (Seq_assoc prog prog')
+Proof
+  gs[GSYM AND_IMP_INTRO]>>
+  qid_spec_tac ‘prog'’>>
+  qid_spec_tac ‘prog’>>
+  ho_match_mp_tac word_simpTheory.Seq_assoc_ind>>
+  rw[no_install_def]
+  >~[‘_ (_ _ (Call _ _ _ _))’]
+  >- (
+  gs[word_simpTheory.Seq_assoc_def,
+     word_simpTheory.SmartSeq_def,
+     no_install_def]>>
+  every_case_tac>>gs[no_install_def])>>
+  Cases_on ‘prog’>>
+  gs[word_simpTheory.Seq_assoc_def,
+     word_simpTheory.SmartSeq_def,
+     no_install_def]
+QED
+
+Theorem compile_exp_no_install:
+  no_install prog ⇒
+  no_install (compile_exp prog)
+Proof
+  rw[word_simpTheory.compile_exp_def]>>
+  irule const_fp_no_install>>gs[]>>
+  qexists_tac ‘simp_if (Seq_assoc Skip prog)’>>rw[]>>
+  irule simp_if_no_install>>
+  irule Seq_assoc_no_install>>
+  rw[no_install_def]
+QED
+
+Theorem inst_select_exp_no_install:
+  no_install (inst_select_exp c c' n exp)
+Proof
+  MAP_EVERY qid_spec_tac [‘exp’, ‘n’, ‘c'’, ‘c’]>>
+  ho_match_mp_tac word_instTheory.inst_select_exp_ind>>
+  rw[word_instTheory.inst_select_exp_def,
+     no_install_def]>>
+  every_case_tac>>gs[no_install_def,
+                     word_instTheory.inst_select_exp_def]
+QED
+
+Theorem inst_select_no_install:
+  no_install prog ⇒
+  no_install (inst_select c n prog)
+Proof
+  MAP_EVERY qid_spec_tac [‘prog’, ‘n’, ‘c’]>>
+  ho_match_mp_tac word_instTheory.inst_select_ind>>
+  rw[
+      no_install_def]>>
+  every_case_tac>>
+  gs[inst_select_exp_no_install, word_instTheory.inst_select_def,
+     no_install_def]>>
+  every_case_tac>>
+  gs[inst_select_exp_no_install, word_instTheory.inst_select_def,
+     no_install_def]
+QED
+
+Theorem ssa_cc_trans_inst_no_install:
+  ssa_cc_trans_inst i ssa na = (i',ssa',na') ⇒
+  no_install i'
+Proof
+  MAP_EVERY qid_spec_tac [‘i'’, ‘ssa'’, ‘na'’, ‘na’, ‘ssa’, ‘i’]>>
+  recInduct word_allocTheory.ssa_cc_trans_inst_ind>>
+  rw[word_allocTheory.ssa_cc_trans_inst_def,
+     no_install_def]>>
+  rpt (pairarg_tac>>gs[])>>
+  rw[word_allocTheory.ssa_cc_trans_inst_def,
+     no_install_def]>>
+  every_case_tac>>rw[]>>rveq>>
+  gs[word_allocTheory.next_var_rename_def,
+     no_install_def]
+QED
+
+Theorem fake_moves_no_install:
+  fake_moves ls nL nR n = (prog1, prog2, n' ,ssa, ssa') ⇒
+  no_install prog1 ∧ no_install prog2
+Proof
+  MAP_EVERY qid_spec_tac [‘ssa'’, ‘ssa’, ‘n'’, ‘prog2’, ‘prog1’, ‘n’, ‘nR’, ‘NL’, ‘ls’]>>
+  Induct_on ‘ls’>>
+  gs[word_allocTheory.fake_moves_def,
+     no_install_def]>>rw[]>>
+  pairarg_tac>>gs[]>>FULL_CASE_TAC>>gs[]>>
+  every_case_tac>>
+  rveq>>gs[no_install_def]>>
+  rveq>>gs[no_install_def,
+           word_allocTheory.fake_move_def]>>metis_tac[]
+QED
+
+Theorem ssa_cc_trans_no_install:
+  no_install prog ∧
+  ssa_cc_trans prog ssa n = (prog', ssa', na)⇒
+  no_install prog'
+Proof
+  MAP_EVERY qid_spec_tac [‘prog'’, ‘ssa'’, ‘na’, ‘n’, ‘ssa’, ‘prog’]>>
+  recInduct word_allocTheory.ssa_cc_trans_ind>>
+  rw[word_allocTheory.ssa_cc_trans_def,
+     word_allocTheory.fix_inconsistencies_def,
+     word_allocTheory.list_next_var_rename_move_def,
+     no_install_def]>>gs[]>>
+  rpt (pairarg_tac>>gs[])>>rveq>>
+  gs[word_allocTheory.ssa_cc_trans_def,
+     word_allocTheory.fix_inconsistencies_def,
+     word_allocTheory.list_next_var_rename_move_def,
+     no_install_def]
+  >- (drule ssa_cc_trans_inst_no_install>>rw[])
+  >- (drule fake_moves_no_install>>rw[])>>
+  EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_install_def]>>
+  rpt (pairarg_tac>>gs[])>>rveq>>gs[no_install_def]>>
+  drule fake_moves_no_install>>rw[]
+QED
+
+Theorem setup_ssa_no_install:
+  no_install prog ∧
+  setup_ssa n v prog = (mov, ssa, na)⇒
+  no_install mov
+Proof
+  rw[word_allocTheory.setup_ssa_def]>>
+  pairarg_tac>>gs[]>>
+  rw[word_allocTheory.setup_ssa_def,
+     word_allocTheory.list_next_var_rename_move_def,
+     no_install_def]
+QED
+
+Theorem full_ssa_cc_trans_no_install:
+  no_install prog ⇒
+  no_install (full_ssa_cc_trans n prog)
+Proof
+  rw[word_allocTheory.full_ssa_cc_trans_def]>>
+  pairarg_tac>>gs[]>>
+  pairarg_tac>>
+  drule_all setup_ssa_no_install>>
+  rw[no_install_def]>>
+  drule_all ssa_cc_trans_no_install>>
+  rw[no_install_def]
+QED
+
+Theorem remove_dead_no_install:
+  no_install prog ⇒
+  no_install (FST (remove_dead prog q))
+Proof
+  MAP_EVERY qid_spec_tac [‘q’, ‘prog’]>>
+  recInduct word_allocTheory.remove_dead_ind>>
+  rw[word_allocTheory.remove_dead_def,
+     no_install_def]>>gs[]>>
+  rw[word_allocTheory.remove_dead_def,
+     no_install_def]>>gs[]>>
+  rpt (pairarg_tac>>gs[])>>rveq>>
+  rw[no_install_def]>>gs[]>>
+  every_case_tac>>rpt (pairarg_tac>>gs[])>>rveq>>
+  rw[no_install_def]>>gs[]
+QED
+
+Theorem three_to_two_reg_no_install:
+  no_install prog ⇒
+  no_install (three_to_two_reg prog)
+Proof
+  qid_spec_tac ‘prog’>>
+  recInduct word_instTheory.three_to_two_reg_ind>>
+  rw[word_instTheory.three_to_two_reg_def,
+     no_install_def]>>
+  gs[]>>every_case_tac>>gs[]
+QED
+
+Theorem apply_colour_no_install:
+  no_install prog ⇒
+  no_install (apply_colour f prog)
+Proof
+  qid_spec_tac ‘prog’>>qid_spec_tac ‘f’>>
+  recInduct word_allocTheory.apply_colour_ind>>
+  rw[word_allocTheory.apply_colour_def,
+     no_install_def]>>gs[]>>
+  every_case_tac>>gs[]
+QED
+
+Theorem word_alloc_no_install:
+  no_install prog ⇒
+  no_install (word_alloc n c a r prog cl)
+Proof
+  rw[word_allocTheory.word_alloc_def]>>
+  every_case_tac>>gs[no_install_def]
+  >- (pairarg_tac>>gs[]>>
+      every_case_tac>>gs[no_install_def]>>
+      irule apply_colour_no_install>>rw[])>>
+  gs[word_allocTheory.oracle_colour_ok_def]>>
+  every_case_tac>>gs[no_install_def]>>
+  rveq>>irule apply_colour_no_install>>rw[]
+QED
+
+Theorem compile_single_no_install:
+  no_install prog ∧
+  (q, r) = (SND (compile_single two_reg_arith reg_count alg c
+                 ((name_num,arg_count,prog),col_opt))) ⇒
+  no_install r
+Proof
+  rw[word_to_wordTheory.compile_single_def]>>
+  irule word_alloc_no_install>>
+  TRY (irule three_to_two_reg_no_install)>>
+  irule remove_dead_no_install>>
+  irule full_ssa_cc_trans_no_install>>
+  irule inst_select_no_install>>
+  irule compile_exp_no_install>>rw[]
+QED
+
+Theorem code_rel_no_install:
+  find_code op args c1 sz = SOME v ∧
+  code_rel c1 c2 ∧
+  no_install (FST (SND v)) ∧
+  find_code op args c2 sz = SOME v' ⇒
+  no_install (FST (SND v'))
+Proof
+  gs[code_rel_def]>>Cases_on ‘op’>>
+  gs[find_code_def]>>every_case_tac>>rw[]>>gs[]>-
+   (rename1 ‘lookup n c1 = SOME (q', r)’>>
+    last_x_assum (qspecl_then [‘n’, ‘(q' ,r)’] assume_tac)>>gs[]>>
+    drule_all compile_single_no_install>>gs[])>>
+  res_tac>>gs[]>>
+  irule compile_single_no_install>>metis_tac[]
+QED
+
+(**** more on alloc ****)
+
+Theorem const_fp_loop_no_alloc:
+  ∀prog p.
+    no_alloc prog ⇒
+    no_alloc (FST (const_fp_loop prog p))
+Proof
+  recInduct word_simpTheory.const_fp_loop_ind>>
+  rw[word_simpTheory.compile_exp_def, word_simpTheory.const_fp_loop_def]>>
+  TRY (every_case_tac>> gs[no_alloc_def])>>
+  TRY (pairarg_tac>>gs[no_alloc_def])>>
+  gs[no_alloc_def]>>
+  pairarg_tac>>gs[no_alloc_def]
+QED
+
+Theorem const_fp_no_alloc:
+  r = const_fp prog ∧ no_alloc prog ⇒
+  no_alloc r
+Proof
+  gs[word_simpTheory.const_fp_def, const_fp_loop_no_alloc]
+QED
+
+Theorem SmartSeq_no_alloc:
+  no_alloc prog ∧
+  no_alloc prog' ⇒
+  no_alloc (SmartSeq prog prog')
+Proof
+  rw[word_simpTheory.SmartSeq_def, no_alloc_def]
+QED
+
+Theorem apply_if_opt_SOME_no_alloc:
+  no_alloc prog ∧ no_alloc prog' ∧
+  apply_if_opt prog prog' = SOME x ⇒
+  no_alloc x
+Proof
+  strip_tac>>
+  fs [word_simpTheory.apply_if_opt_def]>>
+  pairarg_tac \\ fs []>>
+  rpt FULL_CASE_TAC>>gs[]
+  >- (every_case_tac \\ fs [])>>
+  rpt (FULL_CASE_TAC>>gs[])>>
+  fs [word_simpProofTheory.dest_If_Eq_Imm_thm]>>
+  gs[word_simpProofTheory.dest_If_thm]>>
+  fs [word_simpTheory.SmartSeq_def]>>rveq>>
+  IF_CASES_TAC>>gs[no_alloc_def]>>
+  Cases_on ‘prog’>>gs[word_simpTheory.dest_Seq_def,
+                      no_alloc_def]
+QED
+
+Theorem simp_if_no_alloc:
+  no_alloc prog ⇒ no_alloc (simp_if prog)
+Proof
+  qid_spec_tac ‘prog’>> ho_match_mp_tac word_simpTheory.simp_if_ind>>
+  rw[word_simpTheory.simp_if_def, no_alloc_def]>>
+  TRY (every_case_tac>> gs[no_alloc_def])>>
+  TRY (pairarg_tac>>gs[no_alloc_def])>>
+  imp_res_tac apply_if_opt_SOME_no_alloc
+QED
+
+Theorem Seq_assoc_no_alloc:
+  no_alloc prog ∧
+  no_alloc prog' ⇒
+  no_alloc (Seq_assoc prog prog')
+Proof
+  gs[GSYM AND_IMP_INTRO]>>
+  qid_spec_tac ‘prog'’>>
+  qid_spec_tac ‘prog’>>
+  ho_match_mp_tac word_simpTheory.Seq_assoc_ind>>
+  rw[no_alloc_def]
+  >~[‘_ (_ _ (Call _ _ _ _))’]
+  >- (
+  gs[word_simpTheory.Seq_assoc_def,
+     word_simpTheory.SmartSeq_def,
+     no_alloc_def]>>
+  every_case_tac>>gs[no_alloc_def])>>
+  Cases_on ‘prog’>>
+  gs[word_simpTheory.Seq_assoc_def,
+     word_simpTheory.SmartSeq_def,
+     no_alloc_def]
+QED
+
+Theorem compile_exp_no_alloc:
+  no_alloc prog ⇒
+  no_alloc (compile_exp prog)
+Proof
+  rw[word_simpTheory.compile_exp_def]>>
+  irule const_fp_no_alloc>>gs[]>>
+  qexists_tac ‘simp_if (Seq_assoc Skip prog)’>>rw[]>>
+  irule simp_if_no_alloc>>
+  irule Seq_assoc_no_alloc>>
+  rw[no_alloc_def]
+QED
+
+Theorem inst_select_exp_no_alloc:
+  no_alloc (inst_select_exp c c' n exp)
+Proof
+  MAP_EVERY qid_spec_tac [‘exp’, ‘n’, ‘c'’, ‘c’]>>
+  ho_match_mp_tac word_instTheory.inst_select_exp_ind>>
+  rw[word_instTheory.inst_select_exp_def,
+     no_alloc_def]>>
+  every_case_tac>>gs[no_alloc_def,
+                     word_instTheory.inst_select_exp_def]
+QED
+
+Theorem inst_select_no_alloc:
+  no_alloc prog ⇒
+  no_alloc (inst_select c n prog)
+Proof
+  MAP_EVERY qid_spec_tac [‘prog’, ‘n’, ‘c’]>>
+  ho_match_mp_tac word_instTheory.inst_select_ind>>
+  rw[
+      no_alloc_def]>>
+  every_case_tac>>
+  gs[inst_select_exp_no_alloc, word_instTheory.inst_select_def,
+     no_alloc_def]>>
+  every_case_tac>>
+  gs[inst_select_exp_no_alloc, word_instTheory.inst_select_def,
+     no_alloc_def]
+QED
+
+Theorem ssa_cc_trans_inst_no_alloc:
+  ssa_cc_trans_inst i ssa na = (i',ssa',na') ⇒
+  no_alloc i'
+Proof
+  MAP_EVERY qid_spec_tac [‘i'’, ‘ssa'’, ‘na'’, ‘na’, ‘ssa’, ‘i’]>>
+  recInduct word_allocTheory.ssa_cc_trans_inst_ind>>
+  rw[word_allocTheory.ssa_cc_trans_inst_def,
+     no_alloc_def]>>
+  rpt (pairarg_tac>>gs[])>>
+  rw[word_allocTheory.ssa_cc_trans_inst_def,
+     no_alloc_def]>>
+  every_case_tac>>rw[]>>rveq>>
+  gs[word_allocTheory.next_var_rename_def,
+     no_alloc_def]
+QED
+
+Theorem fake_moves_no_alloc:
+  fake_moves ls nL nR n = (prog1, prog2, n' ,ssa, ssa') ⇒
+  no_alloc prog1 ∧ no_alloc prog2
+Proof
+  MAP_EVERY qid_spec_tac [‘ssa'’, ‘ssa’, ‘n'’, ‘prog2’, ‘prog1’, ‘n’, ‘nR’, ‘NL’, ‘ls’]>>
+  Induct_on ‘ls’>>
+  gs[word_allocTheory.fake_moves_def,
+     no_alloc_def]>>rw[]>>
+  pairarg_tac>>gs[]>>FULL_CASE_TAC>>gs[]>>
+  every_case_tac>>
+  rveq>>gs[no_alloc_def]>>
+  rveq>>gs[no_alloc_def,
+           word_allocTheory.fake_move_def]>>metis_tac[]
+QED
+
+Theorem ssa_cc_trans_no_alloc:
+  no_alloc prog ∧
+  ssa_cc_trans prog ssa n = (prog', ssa', na)⇒
+  no_alloc prog'
+Proof
+  MAP_EVERY qid_spec_tac [‘prog'’, ‘ssa'’, ‘na’, ‘n’, ‘ssa’, ‘prog’]>>
+  recInduct word_allocTheory.ssa_cc_trans_ind>>
+  rw[word_allocTheory.ssa_cc_trans_def,
+     word_allocTheory.fix_inconsistencies_def,
+     word_allocTheory.list_next_var_rename_move_def,
+     no_alloc_def]>>gs[]>>
+  rpt (pairarg_tac>>gs[])>>rveq>>
+  gs[word_allocTheory.ssa_cc_trans_def,
+     word_allocTheory.fix_inconsistencies_def,
+     word_allocTheory.list_next_var_rename_move_def,
+     no_alloc_def]
+  >- (drule ssa_cc_trans_inst_no_alloc>>rw[])
+  >- (drule fake_moves_no_alloc>>rw[])>>
+  EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_alloc_def]>>
+  rpt (pairarg_tac>>gs[])>>rveq>>gs[no_alloc_def]>>
+  drule fake_moves_no_alloc>>rw[]
+QED
+
+Theorem setup_ssa_no_alloc:
+  no_alloc prog ∧
+  setup_ssa n v prog = (mov, ssa, na)⇒
+  no_alloc mov
+Proof
+  rw[word_allocTheory.setup_ssa_def]>>
+  pairarg_tac>>gs[]>>
+  rw[word_allocTheory.setup_ssa_def,
+     word_allocTheory.list_next_var_rename_move_def,
+     no_alloc_def]
+QED
+
+Theorem full_ssa_cc_trans_no_alloc:
+  no_alloc prog ⇒
+  no_alloc (full_ssa_cc_trans n prog)
+Proof
+  rw[word_allocTheory.full_ssa_cc_trans_def]>>
+  pairarg_tac>>gs[]>>
+  pairarg_tac>>
+  drule_all setup_ssa_no_alloc>>
+  rw[no_alloc_def]>>
+  drule_all ssa_cc_trans_no_alloc>>
+  rw[no_alloc_def]
+QED
+
+Theorem remove_dead_no_alloc:
+  no_alloc prog ⇒
+  no_alloc (FST (remove_dead prog q))
+Proof
+  MAP_EVERY qid_spec_tac [‘q’, ‘prog’]>>
+  recInduct word_allocTheory.remove_dead_ind>>
+  rw[word_allocTheory.remove_dead_def,
+     no_alloc_def]>>gs[]>>
+  rw[word_allocTheory.remove_dead_def,
+     no_alloc_def]>>gs[]>>
+  rpt (pairarg_tac>>gs[])>>rveq>>
+  rw[no_alloc_def]>>gs[]>>
+  every_case_tac>>rpt (pairarg_tac>>gs[])>>rveq>>
+  rw[no_alloc_def]>>gs[]
+QED
+
+Theorem three_to_two_reg_no_alloc:
+  no_alloc prog ⇒
+  no_alloc (three_to_two_reg prog)
+Proof
+  qid_spec_tac ‘prog’>>
+  recInduct word_instTheory.three_to_two_reg_ind>>
+  rw[word_instTheory.three_to_two_reg_def,
+     no_alloc_def]>>gs[]>>
+  every_case_tac>>gs[]
+QED
+
+Theorem apply_colour_no_alloc:
+  no_alloc prog ⇒
+  no_alloc (apply_colour f prog)
+Proof
+  qid_spec_tac ‘prog’>>qid_spec_tac ‘f’>>
+  recInduct word_allocTheory.apply_colour_ind>>
+  rw[word_allocTheory.apply_colour_def,
+     no_alloc_def]>>gs[]>>
+  every_case_tac>>gs[]
+QED
+
+Theorem word_alloc_no_alloc:
+  no_alloc prog ⇒
+  no_alloc (word_alloc n c a r prog cl)
+Proof
+  rw[word_allocTheory.word_alloc_def]>>
+  every_case_tac>>gs[no_alloc_def]
+  >- (pairarg_tac>>gs[]>>
+      every_case_tac>>gs[no_alloc_def]>>
+      irule apply_colour_no_alloc>>rw[])>>
+  gs[word_allocTheory.oracle_colour_ok_def]>>
+  every_case_tac>>gs[no_alloc_def]>>rveq>>
+  irule apply_colour_no_alloc>>rw[]
+QED
+
+Theorem compile_single_no_alloc:
+  no_alloc prog ∧
+  (q, r) = (SND (compile_single two_reg_arith reg_count alg c
+                 ((name_num,arg_count,prog),col_opt))) ⇒
+  no_alloc r
+Proof
+  rw[word_to_wordTheory.compile_single_def]>>
+  irule word_alloc_no_alloc>>
+  TRY (irule three_to_two_reg_no_alloc)>>
+  irule remove_dead_no_alloc>>
+  irule full_ssa_cc_trans_no_alloc>>
+  irule inst_select_no_alloc>>
+  irule compile_exp_no_alloc>>rw[]
+QED
+
+Theorem code_rel_no_alloc:
+  find_code op args c1 sz = SOME v ∧
+  code_rel c1 c2 ∧
+  no_alloc (FST (SND v)) ∧
+  find_code op args c2 sz = SOME v' ⇒
+  no_alloc (FST (SND v'))
+Proof
+  gs[code_rel_def]>>Cases_on ‘op’>>
+  gs[find_code_def]>>every_case_tac>>rw[]>>gs[]>-
+   (rename1 ‘lookup n c1 = SOME (q', r)’>>
+    last_x_assum (qspecl_then [‘n’, ‘(q' ,r)’] assume_tac)>>gs[]>>
+    drule_all compile_single_no_alloc>>gs[])>>
+  res_tac>>gs[]>>rveq>>
+  irule compile_single_no_alloc>>metis_tac[]
+QED
+
+
+(***** compile_single correctness for no_alloc & no_install ******)
+
+Theorem no_install_no_alloc_compile_single_correct:
+  ∀prog (st:('a,'c,'ffi) wordSem$state) l.
+    code_rel st.code l ∧
+    no_install prog ∧ no_alloc prog ∧
+    no_install_code st.code ∧ no_alloc_code st.code ∧
+    (domain st.code = domain l) ∧
+    gc_fun_const_ok st.gc_fun
+    ==>
+    ∃perm'.
+      let (res,rst) = evaluate (prog,st with <|permute := perm'|>) in
+        if res = SOME Error then T
+        else
+          let (res1,rst1) = evaluate (prog, st with code := l) in
+            res1 = res ∧
+            code_rel rst.code rst1.code ∧
+            domain rst.code = domain rst1.code ∧
+            rst1 = rst with code:=rst1.code
+Proof
+  completeInduct_on`((st:('a,'c,'ffi)wordSem$state).termdep)`>>
+                   completeInduct_on`((st:('a,'c,'ffi)wordSem$state).clock)`>>
+                   simp[PULL_FORALL]>>
+  completeInduct_on`prog_size (K 0) (prog:'a wordLang$prog)`>>
+                   rpt strip_tac>>
+  fs[PULL_FORALL,evaluate_def]>>
+  Cases_on`prog`
+  >- tac
+  >- tac
+  >- (Cases_on`i`>>
+      fs[evaluate_def,inst_def,
+         state_component_equality,assign_def,
+         wordPropsTheory.word_exp_perm,mem_load_def,
+         wordPropsTheory.get_var_perm,mem_store_def,
+         get_var_def,wordPropsTheory.get_vars_perm,LET_THM,
+         get_fp_var_def]>>
+      EVERY_CASE_TAC>>
+      fs[set_var_def,set_fp_var_def]>>
+      rw[])
+  >- tac
+  >- tac
+  >- tac
+  >- tac
+  >-
+   (* Must_Terminate *)
+   (fs[evaluate_def,AND_IMP_INTRO,
+       no_alloc_def, no_install_def]>>
+    IF_CASES_TAC>>
+    fs[]>>
+    last_x_assum(qspecl_then[`st with <|clock:=MustTerminate_limit(:'a);termdep:=st.termdep-1|>`,`p`,`l`] mp_tac)>>
+    simp[]>>
+    rw[]>>
+    qexists_tac`perm'`>>fs[]>>
+    pop_assum mp_tac >>
+    rpt(pairarg_tac >> fs[])>>
+    rw[]>> ntac 5 (pop_assum mp_tac) >>
+    IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
+    rw[] >> rw[]>>fs[state_component_equality])
+  >- (*Call -- the hard case*)
+   (
+   fs[evaluate_def,
+      no_alloc_def, no_install_def]>>
+   TOP_CASE_TAC>> fs [] >>
+   TOP_CASE_TAC>> fs []>>
+   Cases_on`find_code o1 (add_ret_loc o' x) st.code st.stack_size`>>
+           fs []>>
+   Cases_on`o'`>>full_simp_tac(srw_ss())[]>>
+   (*    Cases_on`o0`>>full_simp_tac(srw_ss())[]>>*)
+   Cases_on`x'`>>simp[]>>
+   Cases_on `r` >> simp [] >>
+   imp_res_tac find_code_thm>>
+   pop_assum(qspec_then`l` mp_tac)>>
+   (impl_tac>-
+     (fs[code_rel_def]>>
+      metis_tac[]))>>
+   rw[]>>
+   rfs[]
+   >- (*Tail calls*)
+    (
+    ntac 2 (IF_CASES_TAC>>full_simp_tac(srw_ss())[])
+    >-simp[flush_state_def,
+           state_component_equality]>>
+    qabbrev_tac`stt = call_env q r' (dec_clock st)`>>
+                               first_x_assum(qspecl_then[`stt`,`prog'`,`l`] mp_tac)>>
+    simp[AND_IMP_INTRO]>>
+    impl_tac>-
+     (full_simp_tac(srw_ss())
+      [Abbr`stt`,dec_clock_def,
+       call_env_def,
+       flush_state_def]>>
+      conj_tac>-DECIDE_TAC>>
+      qpat_x_assum ‘find_code _ _ st.code _ = _’ assume_tac>>
+      drule (GEN_ALL code_rel_no_install)>>
+      disch_then drule>>gs[]>>
+      impl_tac
+      >-(drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
+                    no_install_find_code)>>gs[])>>
+      rw[]>>
+      drule (GEN_ALL code_rel_no_alloc)>>
+      disch_then drule>>gs[]>>
+      impl_tac
+      >-(drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
+                    no_alloc_find_code)>>gs[])>>
+      rw[])>>
+    srw_tac[][]>>
+    Q.ISPECL_THEN [`n`,`q'`,`LENGTH q`,`stt with permute:=perm'`]
+     mp_tac (Q.GEN `name` compile_single_lem)>>
+    impl_tac>-
+     (full_simp_tac(srw_ss())[Abbr`stt`,call_env_def,flush_state_def]>>
+      simp[domain_fromList2,word_allocTheory.even_list_def,dec_clock_def])>>
+    qpat_abbrev_tac`A = compile_single t k a c B`>>
+                                       PairCases_on`A`>>srw_tac[][]>>full_simp_tac(srw_ss())[LET_THM]>>
+    pop_assum mp_tac>>
+    pairarg_tac>>full_simp_tac(srw_ss())[Abbr`stt`] >>
+    strip_tac
+    >-
+     (qexists_tac`perm''`>>full_simp_tac(srw_ss())[dec_clock_def,call_env_def,flush_state_def])>>
+    Cases_on`res`>>full_simp_tac(srw_ss())[]
+    >-
+     (qexists_tac`perm''`>>full_simp_tac(srw_ss())[dec_clock_def,call_env_def,flush_state_def])>>
+    Cases_on`x' = Error`>>full_simp_tac(srw_ss())[]
+    >-
+     (qexists_tac`perm''`>>full_simp_tac(srw_ss())[dec_clock_def,call_env_def,flush_state_def])>>
+    ntac 2 (pop_assum mp_tac) >>
+    pairarg_tac>>full_simp_tac(srw_ss())[]>>
+    rw[]>>
+    qpat_x_assum`(λ(x,y). _) _`mp_tac >>
+    pairarg_tac>>fs[]>>
+    qpat_x_assum`Abbrev ((_,_,_) = _)` mp_tac>>
+    simp[Once markerTheory.Abbrev_def]>>rw[]>>
+    rw[]>>fs[dec_clock_def,call_env_def,flush_state_def]>>
+    qmatch_asmsub_abbrev_tac`evaluate (q',stt)`>>
+                            Q.ISPECL_THEN [`q'`,`stt`,`rcst.permute`] mp_tac wordPropsTheory.permute_swap_lemma>>
+    fs[]>>rw[]>>
+    qexists_tac`perm'''`>>
+               fs[Abbr`stt`,word_allocProofTheory.word_state_eq_rel_def,state_component_equality]>>
+    fs[code_rel_def]>>
+    metis_tac[])
+   >>
+   rename [‘find_code _ (add_ret_loc (SOME xx) _)’] >>
+   ‘∃xn xnames xrh xl1 xl2. xx = (xn, xnames, xrh, xl1, xl2)’
+     by (PairCases_on`xx`>>simp[]) >> rveq >> full_simp_tac(srw_ss())[]>>
+   TOP_CASE_TAC>>full_simp_tac(srw_ss())[]>>
+   TOP_CASE_TAC>>full_simp_tac(srw_ss())[]>>
+   IF_CASES_TAC>-
+    (Cases_on `o0` >> TRY (PairCases_on `x''`) >>
+     fs[call_env_def,flush_state_def,state_component_equality,
+        stack_size_def, stack_size_frame_def, push_env_def, env_to_list_def, LET_THM])>>
+   fs[]>>
+   qabbrev_tac`stt = call_env q r' (push_env x' o0 (dec_clock st))`>>
+                              first_assum(qspecl_then[`stt`,`prog'`,`l`] mp_tac)>>
+   impl_tac>-
+    (fs[Abbr`stt`,dec_clock_def]>>
+     DECIDE_TAC)>>
+   impl_tac>-
+    fs[Abbr`stt`,call_env_def,flush_state_def,wordPropsTheory.push_env_const,dec_clock_def]>>
+   impl_tac>-
+    (fs[Abbr`stt`,call_env_def,flush_state_def,dec_clock_def,word_simpProofTheory.push_env_gc_fun]>>
+     qpat_x_assum ‘find_code _ _ st.code _ = _’ assume_tac>>
+     drule (GEN_ALL code_rel_no_install)>>
+     disch_then drule>>gs[]>>
+     impl_tac
+     >-(drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
+                   no_install_find_code)>>gs[])>>
+     rw[]>>
+     drule (GEN_ALL code_rel_no_alloc)>>
+     disch_then drule>>gs[]>>
+     impl_tac
+     >-(drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
+                   no_alloc_find_code)>>gs[])>>
+     rw[])>>
+   rw[]>>
+   Q.ISPECL_THEN [`n`,`q'`,`LENGTH q`,`stt with permute:=perm'`] mp_tac
+    (Q.GEN `name` compile_single_lem)>>
+   impl_tac>-
+    (full_simp_tac(srw_ss())[Abbr`stt`,call_env_def,flush_state_def]>>
+     simp[domain_fromList2,word_allocTheory.even_list_def,word_simpProofTheory.push_env_gc_fun,dec_clock_def])>>
+   qpat_abbrev_tac`A = compile_single t k a c B`>>
+                                      PairCases_on`A`>>srw_tac[][]>>full_simp_tac(srw_ss())[LET_THM]>>
+   pop_assum mp_tac >>
+   pairarg_tac>>full_simp_tac(srw_ss())[Abbr`stt`] >>
+   strip_tac
+   >-
+    (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+                                                                Cases_on`o0`>>TRY(PairCases_on`x''`)>>
+     full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])>>
+   Cases_on`res`>>full_simp_tac(srw_ss())[]
+   >-
+    (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+                                                                Cases_on`o0`>>TRY(PairCases_on`x''`)>>
+     full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,
+                             flush_state_def,ETA_AX])>>
+   Cases_on`x''`>>full_simp_tac(srw_ss())[]
+   >-
+    (*Manual simulation for Result*)
+    (Cases_on`w ≠ Loc xl1 xl2`>>full_simp_tac(srw_ss())[]
+     >-
+      (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+                                                                  Cases_on`o0`>>TRY(PairCases_on`x''`)>>
+       full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])
+     >>
+     Cases_on`pop_env rst`>>full_simp_tac(srw_ss())[]
+     >-
+      (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+                                                                  Cases_on`o0`>>TRY(PairCases_on`x''`)>>
+       full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])
+     >>
+     reverse (Cases_on`domain x''.locals = domain x'`)>>full_simp_tac(srw_ss())[]
+     >-
+      (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+                                                                  Cases_on`o0`>>TRY(PairCases_on`x'''`)>>
+       full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])
+     >>
+     qpat_x_assum`(λ(x,y). _) _`mp_tac >>
+     pairarg_tac>>full_simp_tac(srw_ss())[]>>
+     strip_tac >>
+     last_x_assum kall_tac>>
+     qpat_x_assum`(λ(x,y). _) _`mp_tac >>
+     pairarg_tac>>full_simp_tac(srw_ss())[]>>
+     strip_tac >>
+     last_x_assum(qspecl_then[`(set_var xn w0 x'') with permute:=rcst.permute`,`xrh`,`rst1.code`]mp_tac)>>
+     impl_tac>-
+      (simp[set_var_def]>>
+       (*Monotonicity on 12, and dec_clock*)
+       `rst.clock < st.clock` by
+         (imp_res_tac evaluate_clock>>
+          full_simp_tac(srw_ss())[call_env_def,flush_state_def,dec_clock_def]>>
+          DECIDE_TAC)>>
+       qpat_x_assum`A=SOME x''` mp_tac>>full_simp_tac(srw_ss())[pop_env_def]>>
+       EVERY_CASE_TAC>>srw_tac[][state_component_equality]>>
+       simp[])>>
+     impl_tac>-
+      (simp[set_var_def]>>
+       imp_res_tac evaluate_clock>>full_simp_tac(srw_ss())[]>>
+       imp_res_tac evaluate_clock>>
+       Cases_on`o0`>>TRY(PairCases_on`x'''`)>>
+       full_simp_tac(srw_ss())[call_env_def,flush_state_def,push_env_def,
+                               LET_THM,dec_clock_def,env_to_list_def]>>
+       imp_res_tac pop_env_termdep>>
+       full_simp_tac(srw_ss())[])>>
+     impl_tac>-
+      (simp[set_var_def]>>
+       imp_res_tac wordPropsTheory.pop_env_code_gc_fun_clock>>fs[]>>
+       imp_res_tac wordPropsTheory.evaluate_consts>>
+       fs[dec_clock_def]>>
+       fs[word_allocProofTheory.word_state_eq_rel_def]>>
+       gs[]>>
+       rewrite_tac[Once CONJ_ASSOC]>>
+       conj_tac >- (every_case_tac>>gs[])>>
+       gs[pop_env_def]>>
+       Cases_on ‘rst.stack’>>gs[]>>
+       Cases_on ‘h’>>gs[]>>
+       Cases_on ‘o0'’>>gs[state_component_equality]>>
+       qpat_assum ‘_ = (_, rst)’ assume_tac>>
+       drule no_install_evaluate_const_code>>
+       strip_tac>>gs[call_env_def,
+                     push_env_def]>>
+       qpat_x_assum ‘find_code _ _ st.code _ = _’ assume_tac>>
+       drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
+                  no_alloc_find_code)>>gs[]>>
+       drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
+                  no_install_find_code)>>gs[]>>
+       ntac 2 strip_tac>>gs[])>>
+     rw[]>>
+     Q.ISPECL_THEN[`q'`,`call_env q r' (push_env x' o0 (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac wordPropsTheory.permute_swap_lemma>>
+     rfs[]>>
+     qexists_tac`λn. if n = 0:num then st.permute 0 else perm'''' (n-1)`>>
+                                                                  Cases_on`o0`>>TRY(PairCases_on `x'''`)>>
+     (fs[call_env_def,flush_state_def,
+         push_env_def,dec_clock_def,
+         env_to_list_def,ETA_AX,wordPropsTheory.pop_env_perm,
+         wordPropsTheory.set_var_perm]>>
+      qpat_x_assum`((λ(res',rcst). P) A)` mp_tac>>
+      pairarg_tac>>rev_full_simp_tac(srw_ss())[]>>full_simp_tac(srw_ss())[]>>
+      `pop_env rst1 =
+      SOME (x'' with <| code:=rst1.code; permute:=rcst.permute|>)` by
+        (fs[pop_env_def,word_allocProofTheory.word_state_eq_rel_def]>>
+         qpat_x_assum`rst1 = _` SUBST_ALL_TAC>>
+         simp[]>>
+         EVERY_CASE_TAC>>fs[state_component_equality])>>
+      simp[]>>
+      rw[]>>
+      pairarg_tac>>fs[set_var_def]))
+   >-
+    (*Manual simulation for Exceptions*)
+    (Cases_on`o0`>>full_simp_tac(srw_ss())[]
+     >-
+      (pop_assum mp_tac >> pairarg_tac>>full_simp_tac(srw_ss())[]>>
+       strip_tac >>
+       qmatch_assum_abbrev_tac `evaluate(q',A) = _`>>
+                                                  Q.ISPECL_THEN [`q'`,`A`,`rcst.permute`] mp_tac wordPropsTheory.permute_swap_lemma>>
+       simp[Abbr`A`]>>
+       impl_tac>-
+        (qpat_x_assum`B=res'` sym_sub_tac>>full_simp_tac(srw_ss())[])>>
+       rw[]>>
+       qexists_tac`λn. if n = 0:num then st.permute 0 else perm''' (n-1)`>>
+                                                                   fs[push_env_def,env_to_list_def,dec_clock_def,call_env_def,flush_state_def,ETA_AX]>>
+       qpat_x_assum`(λ(x,y). _) _`mp_tac >>
+       pairarg_tac>>rfs[]>>fs[]>>
+       rw[]>>fs[word_allocProofTheory.word_state_eq_rel_def,state_component_equality]>>
+       metis_tac[])
+     >>
+     qmatch_goalsub_rename_tac`push_env _ (SOME p)` >>
+     PairCases_on`p`>>full_simp_tac(srw_ss())[]>>
+     Cases_on`w ≠ Loc p2 p3`
+     >-
+      (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+                                                                  full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])>>
+     Cases_on`domain rst.locals ≠ domain x'`
+     >-
+      (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+                                                                  full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])
+     >>
+     qpat_x_assum`((λ(res',rcst). P) A)` mp_tac>>
+     pairarg_tac>>full_simp_tac(srw_ss())[]>>strip_tac>>
+     last_x_assum kall_tac>>
+     qpat_x_assum`(λ(x,y). _) _`mp_tac >>
+     pairarg_tac>>full_simp_tac(srw_ss())[]>>
+     strip_tac >>
+     last_x_assum(qspecl_then[`(set_var p0 w0 rst) with permute:=rcst.permute`,`p1`,`rst1.code`]mp_tac)>>
+     impl_tac>-
+      (simp[set_var_def]>>
+       imp_res_tac evaluate_clock>>
+       full_simp_tac(srw_ss())[call_env_def,flush_state_def,dec_clock_def]>>
+       DECIDE_TAC)>>
+     impl_tac>-
+      (imp_res_tac evaluate_clock>>
+       full_simp_tac(srw_ss())[set_var_def,call_env_def,flush_state_def,push_env_def,dec_clock_def,LET_THM,env_to_list_def])>>
+     impl_tac>-
+      (simp[set_var_def]>>
+       imp_res_tac wordPropsTheory.pop_env_code_gc_fun_clock>>fs[]>>
+       imp_res_tac wordPropsTheory.evaluate_consts>>fs[dec_clock_def]>>
+       fs[word_allocProofTheory.word_state_eq_rel_def]>>
+       gs[]>>
+       qpat_assum ‘_ = (_, rst)’ assume_tac>>
+       drule no_install_evaluate_const_code>>
+       strip_tac>>gs[call_env_def,
+                     push_env_def]>>
+       qpat_x_assum ‘find_code _ _ st.code _ = _’ assume_tac>>
+       drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
+                  no_alloc_find_code)>>gs[]>>
+       drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
+                  no_install_find_code)>>gs[]>>
+       ntac 2 strip_tac>>gs[])>>
+     rw[]>>
+     Q.ISPECL_THEN[`q'`,`call_env q r' (push_env x' (SOME (p0,p1,p2,p3)) (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac wordPropsTheory.permute_swap_lemma>>
+     rfs[]>>
+     qexists_tac`λn. if n = 0:num then st.permute 0 else perm'''' (n-1)` >>
+     fs[call_env_def,flush_state_def,push_env_def,dec_clock_def,
+        env_to_list_def,ETA_AX,wordPropsTheory.pop_env_perm,
+        wordPropsTheory.set_var_perm]>>
+     `domain rst1.locals = domain x'` by
+       (qpat_x_assum`rst1=_` SUBST_ALL_TAC>>rw[])>>
+     simp[]>>
+     pairarg_tac>>fs[]>>
+     qpat_x_assum`rst1=_` SUBST_ALL_TAC>>fs[]>>
+     rpt(pairarg_tac>>fs[])>>
+     fs[set_var_def]>>
+     pop_assum mp_tac>>
+     qmatch_goalsub_abbrev_tac`_ (evaluate (_,A))`>>
+                              qmatch_asmsub_abbrev_tac`_ (evaluate (_,B))`>>
+                              strip_tac>>
+     `A = B` by
+       (unabbrev_all_tac>>fs[state_component_equality,word_allocProofTheory.word_state_eq_rel_def])>>
+     rfs[]>>
+     unabbrev_all_tac>>fs[])
+   >>
+   TRY(
+     pop_assum mp_tac >> pairarg_tac>>
+     fs[]>>
+     Q.ISPECL_THEN [`q'`,`call_env q r' (push_env x' o0 (dec_clock st)) with permute:=perm''`,`rcst.permute`] mp_tac wordPropsTheory.permute_swap_lemma>>
+     fs[]>>rw[]>>
+     qexists_tac`λn. if n = 0:num then st.permute 0 else perm''' (n-1)`>>
+                                                                 Cases_on`o0`>>TRY(PairCases_on`x''`)>>
+     fs[push_env_def,env_to_list_def,dec_clock_def,call_env_def,flush_state_def,ETA_AX]>>
+     qpat_x_assum`(λ(a,b). _) _`mp_tac >>
+     pairarg_tac>>rfs[]>>
+     fs[]>>rw[]>>
+     fs[word_allocProofTheory.word_state_eq_rel_def,state_component_equality]>>
+     metis_tac[])
+   >>
+   qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+                                                              Cases_on`o0`>>TRY(PairCases_on`x''`)>>
+   fs[push_env_def,env_to_list_def,dec_clock_def,call_env_def,flush_state_def,ETA_AX])
+  >- (*Seq, inductive*)
+   (fs[evaluate_def,LET_THM,AND_IMP_INTRO]>>
+    gs[no_install_def, no_alloc_def]>>
+    first_assum(qspecl_then[`p`,`st`,`l`] mp_tac)>>
+    impl_tac>- size_tac>>
+    rw[]>>
+    pop_assum mp_tac >>
+    pairarg_tac>>fs[]>>
+    strip_tac
+    >- (qexists_tac`perm'`>>srw_tac[][]) >>
+    pop_assum mp_tac >>
+    pairarg_tac>>fs[]>>
+    strip_tac >>
+    reverse (Cases_on`res`)>>fs[]
+    >- (qexists_tac`perm'`>>fs[])>>
+    full_simp_tac std_ss [GSYM PULL_FORALL]>>
+    (*Clock monotonicity*)
+    `rst.clock ≤ st.clock ∧ rst.termdep = st.termdep` by
+      (imp_res_tac evaluate_clock>>
+       full_simp_tac(srw_ss())[state_component_equality])>>
+    Cases_on`rst.clock = st.clock`
+    >-
+     (gs[no_install_def, no_alloc_def]>>
+      first_x_assum(qspecl_then[`p0`,`rst`,`rst1.code`] mp_tac)>>
+      impl_tac>-(
+       gs[no_install_def, no_alloc_def]>>
+       ‘no_install_code rst.code ∧ no_alloc_code rst.code’
+         by (qpat_assum ‘_ = (_, rst)’ assume_tac>>
+             drule no_install_evaluate_const_code>>
+             strip_tac>>gs[call_env_def,
+                           push_env_def]>>
+             qpat_x_assum ‘find_code _ _ st.code _ = _’ assume_tac>>
+             drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
+                        no_alloc_find_code)>>gs[]>>
+             drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
+                        no_install_find_code)>>gs[]>>
+             ntac 2 strip_tac>>gs[])>>
+       imp_res_tac wordPropsTheory.evaluate_consts>>
+       fs[]>>size_tac)>>
+      rw[]>>
+      Q.ISPECL_THEN[`p`,`st with permute:=perm'`,`perm''`]
+       assume_tac wordPropsTheory.permute_swap_lemma>>
+      rfs[]>>
+      qexists_tac`perm'''`>>
+                 rw[]>>fs[]>>
+      pairarg_tac>>fs[]>>
+      qpat_x_assum`rst1 = _` SUBST_ALL_TAC>>fs[])
+    >>
+    first_x_assum(qspecl_then[`rst`,`p0`,`rst1.code`] mp_tac)>>
+    impl_tac>- (
+     imp_res_tac wordPropsTheory.evaluate_consts>>
+     fs[]>>
+     qpat_assum ‘_ = (_, rst)’ assume_tac>>
+     drule no_install_evaluate_const_code>>
+     strip_tac>>gs[call_env_def,
+                   push_env_def]>>
+     qpat_x_assum ‘find_code _ _ st.code _ = _’ assume_tac>>
+     drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
+                no_alloc_find_code)>>gs[]>>
+     drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
+                no_install_find_code)>>gs[]>>
+     ntac 2 strip_tac>>gs[])>>
+    rw[]>>
+    Q.ISPECL_THEN[`p`,`st with permute:=perm'`,`perm''`]
+     assume_tac wordPropsTheory.permute_swap_lemma>>
+    rfs[]>>
+    qexists_tac`perm'''`>>
+               rw[]>>fs[]>>
+    pairarg_tac>>fs[]>>
+    qpat_x_assum`rst1 = _` SUBST_ALL_TAC>>fs[])
+  >- (* If *)
+   (simp[evaluate_def,get_var_def,get_var_imm_def]>>
+    ntac 2 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
+    Cases_on`r`>>full_simp_tac(srw_ss())[get_var_imm_def,get_var_def]>>
+    rpt(TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
+    TRY(qpat_abbrev_tac`prog = p`)>>
+    TRY(qpat_abbrev_tac`prog = p0`)>>
+    first_x_assum(qspecl_then[`prog`,`st`,`l`] mp_tac)>>
+    gs[no_install_def, no_alloc_def]>>
+    (impl_tac>-size_tac>>srw_tac[][]))
+  >>gs[no_alloc_def, no_install_def]>>tac
+QED
+
+(**********************)
 
 val _ = export_theory();
