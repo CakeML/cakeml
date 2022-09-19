@@ -64,6 +64,12 @@ void ffikernel_ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
     }
 }
 
+#else
+
+void ffipoll_sigint (unsigned char *c, long clen, unsigned char *a, long alen) { }
+
+void ffikernel_ffi (unsigned char *c, long clen, unsigned char *a, long alen) { }
+
 #endif
 
 void ffiget_arg_count (unsigned char *c, long clen, unsigned char *a, long alen) {
