@@ -71,7 +71,7 @@ End
 
 Definition check_res_def:
   check_res r (n, refs, seen) =
-    if size refs <= size r then (n, refs, seen) else (n, r, seen)
+    if sptree$size refs <= sptree$size r then (n, refs, seen) else (n, r, seen)
 End
 
 Theorem check_res_IMP:
@@ -127,14 +127,14 @@ Definition size_of_def:
     (if small_num lims.arch_64_bit i then 0 else bignum_size lims.arch_64_bit i, refs, seen)) /\
   (size_of lims [CodePtr _] refs seen = (0, refs, seen)) /\
   (size_of lims [RefPtr r] refs seen =
-     case lookup r refs of
+     case sptree$lookup r refs of
      | NONE => (0, refs, seen)
      | SOME (ByteArray _ bs) => (LENGTH bs DIV (arch_size lims DIV 8) + 2, delete r refs, seen)
      | SOME (ValueArray vs) => let (n,refs,seen) = size_of lims vs (delete r refs) seen in
                                  (n + LENGTH vs + 1, refs, seen)) /\
   (size_of lims [Block ts tag []]) refs seen = (0, refs, seen) /\
   (size_of lims [Block ts tag vs] refs seen =
-     if IS_SOME (lookup ts seen) then (0, refs, seen) else
+     if IS_SOME (sptree$lookup ts seen) then (0, refs, seen) else
        let (n,refs,seen) = size_of lims vs refs (insert ts () seen) in
          (n + LENGTH vs + 1, refs, seen))
 Termination
@@ -283,7 +283,7 @@ Definition eq_code_stack_max_def:
   eq_code_stack_max n tsz =
   OPTION_MAP ($* n)
     (OPTION_MAP2 MAX
-      (lookup Equal_location tsz)
+      (sptree$lookup Equal_location tsz)
       (OPTION_MAP2 MAX
         (lookup Equal1_location tsz)
         (lookup Compare1_location tsz)))
@@ -292,7 +292,7 @@ End
 Definition stack_consumed_def:
   (stack_consumed  sfs lims (CopyByte _) vs =
     OPTION_MAP2 MAX
-     (lookup ByteCopy_location sfs)
+     (sptree$lookup ByteCopy_location sfs)
      (OPTION_MAP2 MAX
         (lookup ByteCopyAdd_location sfs)
         (lookup ByteCopySub_location sfs))) /\
@@ -438,7 +438,7 @@ val do_eq_def = tDefine"do_eq"`
   (do_eq _ (Word64 _) _ = Eq_type_error) ∧
   (do_eq _ _ (Word64 _) = Eq_type_error) ∧
   (do_eq refs (RefPtr n1) (RefPtr n2) =
-    case (lookup n1 refs, lookup n2 refs) of
+    case (sptree$lookup n1 refs, sptree$lookup n2 refs) of
       (SOME (ByteArray T bs1), SOME (ByteArray T bs2))
         => Eq_val (bs1 = bs2)
     | (SOME (ByteArray T bs1), _) => Eq_type_error
@@ -712,7 +712,7 @@ Definition do_app_aux_def:
         (case xs of
          | [] => (case s.global of
                   | SOME ptr =>
-                      (case lookup ptr s.refs of
+                      (case sptree$lookup ptr s.refs of
                        | SOME (ValueArray xs) =>
                            (if n < LENGTH xs
                             then Rval (EL n xs, s)
@@ -1001,7 +1001,7 @@ val do_app_def = Define `
     | SOME s1 => do_app_aux op vs (do_stack op vs (do_lim_safe s1 op vs))`
 
 val get_var_def = Define `
-  get_var v = lookup v`;
+  get_var v = sptree$lookup v`;
 
 val get_vars_def = Define `
   (get_vars [] s = SOME []) /\
@@ -1126,7 +1126,7 @@ val push_env_clock = Q.prove(
 
 val find_code_def = Define `
   (find_code (SOME p) args code ssize =
-     case lookup p code of
+     case sptree$lookup p code of
      | NONE => NONE
      | SOME (arity,exp) =>
         if LENGTH args = arity

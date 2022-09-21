@@ -264,10 +264,9 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
            REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
            REWR_CONV LET_THM THENC
            PATH_CONV "rlrraraalralrarllr" eval THENC
-           PATH_CONV"rlrraraalralralralralrar"
+           PATH_CONV"rlrraraalralralralralralrar"
              (RATOR_CONV(RATOR_CONV(RAND_CONV eval)) THENC
               (FIRST_CONV (map REWR_CONV (CONJUNCTS bool_case_thm)))))
-
     val tm0 = to_livesets_0_thm0 |> rconc |> rand |> rand
     val thm0 = el 2 word_0_abbrevs;
 
@@ -291,7 +290,7 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
         val conv = RATOR_CONV(REWR_CONV word_to_word_fn_eq) THENC eval
       in
         conv tm
-      end
+      end;
     val ths = time_with_size thms_size "inst,ssa,two-reg (par)"
                 (parl eval_fn) word_prog;
     val thm1 =
@@ -744,7 +743,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
           REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
           REWR_CONV LET_THM THENC
           PATH_CONV "rlrraraalralrarllr" eval THENC
-          PATH_CONV"rlrraraalralralralralrar"
+          PATH_CONV"rlrraraalralralralralralrar"
             (RATOR_CONV(RATOR_CONV(RAND_CONV eval)) THENC
              (FIRST_CONV (map REWR_CONV (CONJUNCTS bool_case_thm)))))
     val tm0 = to_livesets_thm0 |> rconc |> rand |> rand
