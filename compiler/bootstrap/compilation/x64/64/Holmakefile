@@ -18,8 +18,8 @@ config_enc_str.txt: *$(ARCH)_config_encScript.sml
 cake-sexpr-32: *sexprBootstrap32Script.sml
 cake-sexpr-64: *sexprBootstrap64Script.sml
 
-cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile how-to.md cake-sexpr-32 cake-sexpr-64 config_enc_str.txt candle_boot.ml repl_boot.cml
-	tar -chzf $@ --transform='s|^|cake-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile how-to.md cake-sexpr-32 cake-sexpr-64 config_enc_str.txt candle_boot.ml repl_boot.cml
+cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile hello.cml how-to.md cake-sexpr-32 cake-sexpr-64 config_enc_str.txt candle_boot.ml repl_boot.cml
+	tar -chzf $@ --transform='s|^|cake-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile hello.cml how-to.md cake-sexpr-32 cake-sexpr-64 config_enc_str.txt candle_boot.ml repl_boot.cml
 	make test-hello.cake   # the following lines are a basic test
 	./test-hello.cake >output
 	echo 'Hello!'>expected_output
