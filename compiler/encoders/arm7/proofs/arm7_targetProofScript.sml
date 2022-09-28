@@ -430,7 +430,7 @@ val aligned_add = Q.prove(
    metis_tac [wordsTheory.WORD_ADD_COMM, alignmentTheory.aligned_add_sub]
    )
 
-val _ = diminish_srw_ss ["MOD_ss"]
+val _ = diminish_srw_ss ["MOD"]
 
 val adc_lem1 = Q.prove(
   `!r2 r3 : word32 r4 : word32.
@@ -982,7 +982,7 @@ val arm7_target_ok = Q.prove (
 
 val print_tac = asmLib.print_tac "correct"
 
-val _ = diminish_srw_ss ["NORMEQ_ss"]
+val _ = diminish_srw_ss ["NORMEQ"]
 
 Theorem arm7_encoder_correct:
    encoder_correct arm7_target

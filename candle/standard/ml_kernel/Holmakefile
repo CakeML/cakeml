@@ -1,7 +1,13 @@
-INCLUDES = $(CAKEMLDIR)/misc lisp $(CAKEMLDIR)/semantics\
-					 $(CAKEMLDIR)/translator $(CAKEMLDIR)/translator/monadic\
-					 $(CAKEMLDIR)/basis $(CAKEMLDIR)/basis/pure\
-					 $(CAKEMLDIR)/characteristic ../monadic
+INCLUDES = $(CAKEMLDIR)/misc\
+	   lisp\
+	   $(CAKEMLDIR)/semantics\
+	   $(CAKEMLDIR)/translator\
+	   $(CAKEMLDIR)/translator/monadic\
+	   $(CAKEMLDIR)/basis\
+	   $(CAKEMLDIR)/basis/pure\
+	   $(CAKEMLDIR)/characteristic\
+	   ../monadic
+
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

@@ -1167,7 +1167,7 @@ End
 
 Definition lookup_mem_def:
   lookup_mem m a =
-    dtcase lookup a m of
+    dtcase sptree$lookup a m of
     | NONE => (F,Word (0w:'a word))
     | SOME x => x
 End
@@ -1224,7 +1224,7 @@ Definition part_to_words_def:
             | NONE => NONE
             | SOME hd => SOME ((T,(make_ptr c offset (0w:'a word) (LENGTH ws))),
                                MAP (λw. (F,Word w)) (hd::ws))) ∧
-  part_to_words c m (Con t ns) (offset:'a word) =
+  part_to_words c m (closLang$Con t ns) (offset:'a word) =
     (if NULL ns then
        if t < dimword (:'a) DIV 16
        then SOME ((F,Word (n2w (16 * t + 2))),[]) else NONE

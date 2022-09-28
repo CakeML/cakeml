@@ -5,7 +5,7 @@
 
 open preamble ml_monad_translator_interfaceLib
 
-val _ = new_theory "doubleProg"
+val _ = new_theory "doubleArgProg"
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 

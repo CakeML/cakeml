@@ -72,6 +72,10 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
+val _ = ml_translatorLib.use_string_type false;
+
+val r = translate string_lt_def;
+
 val _ = ml_translatorLib.use_string_type true;
 
 (* -------------------------------------------------------------------------
@@ -105,6 +109,7 @@ val _ = update_precondition ptree_op_side;
 
 val r = preprocess ptree_Literal_def |> translate;
 
+
 Theorem ptree_literal_side[local]:
   ∀x. camlptreeconversion_ptree_literal_side x
 Proof
@@ -115,6 +120,8 @@ Proof
 QED
 
 val _ = update_precondition ptree_literal_side;
+
+val r = preprocess ptree_FieldName_def |> translate;
 
 val r = translate (DefnBase.one_line_ify NONE precparserTheory.precparse_def)
 
@@ -149,7 +156,9 @@ Theorem ptree_Expr_preconds[local]:
   (∀x. camlptreeconversion_ptree_patternmatches_side x) ∧
   (∀x. camlptreeconversion_ptree_patternmatch_side x) ∧
   (∀x. camlptreeconversion_ptree_exprlist_side x) ∧
-  (∀x. camlptreeconversion_ptree_exprcommas_side x)
+  (∀x. camlptreeconversion_ptree_exprcommas_side x) ∧
+  (∀x. camlptreeconversion_ptree_update_side x) ∧
+  (∀x. camlptreeconversion_ptree_updates_side x)
 Proof
   ho_match_mp_tac ptree_Expr_ind
   \\ strip_tac
@@ -173,16 +182,14 @@ QED
 
 val _ = List.app (ignore o update_precondition) (CONJUNCTS ptree_Expr_preconds);
 
-val r = preprocess ptree_TypeDefinition_def |> translate;
 
-Theorem ptree_typedefinition_side[local]:
-  ∀x. camlptreeconversion_ptree_typedefinition_side x
+val r = translate partition_types_def;
+
+Theorem camlptreeconversion_partition_types_side[local]:
+  camlptreeconversion_partition_types_side x
 Proof
-  rw [fetch "-" "camlptreeconversion_ptree_typedefinition_side_def",
-      fetch "-" "sum_outr_side_def", fetch "-" "sum_outl_side_def"]
-  \\ gs [EVERY_MEM, FORALL_PROD, quantHeuristicsTheory.ISR_exists,
-         quantHeuristicsTheory.ISL_exists, SF SFY_ss]
-  \\ res_tac \\ gs []
+  rw [fetch "-" "camlptreeconversion_partition_types_side_def",
+      fetch "-" "sum_outl_side_def", fetch "-" "sum_outr_side_def"]
   \\ qpat_x_assum ‘PARTITION _ _ = _’ (assume_tac o SYM)
   \\ gs [PARTITION_DEF]
   \\ drule_then assume_tac PARTs_HAVE_PROP
@@ -194,7 +201,14 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-val _ = update_precondition ptree_typedefinition_side;
+val _ = update_precondition camlptreeconversion_partition_types_side;
+
+val r = translate sort_records_def;
+val r = translate MAP_OUTR_def;
+val r = translate extract_record_defns_def;
+val r = translate strip_record_fields_def;
+
+val r = preprocess ptree_TypeDefinition_def |> translate;
 
 val r = preprocess ptree_ModuleType_def |> translate;
 val r = preprocess ptree_Definition_def |> translate;

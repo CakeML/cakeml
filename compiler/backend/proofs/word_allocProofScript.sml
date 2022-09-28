@@ -4039,21 +4039,23 @@ val is_stack_var_add= Q.prove(`
     pop_assum (qspecl_then [`na`,`4`] assume_tac)>>
     rev_full_simp_tac(srw_ss())[]));
 
-val _ = diminish_srw_ss ["MOD_ss"]
-
 val is_alloc_var_flip = Q.prove(`
   is_alloc_var na ⇒ is_stack_var (na+2)`,
   full_simp_tac(srw_ss())[is_alloc_var_def,is_stack_var_def]>>
-  (qspec_then `4` assume_tac arithmeticTheory.MOD_PLUS>>full_simp_tac(srw_ss())[]>>
-    pop_assum (qspecl_then [`na`,`2`] assume_tac)>>
-    srw_tac[][]>>full_simp_tac(srw_ss())[]));
+  ‘0 < 4:num’ by fs [] >>
+  drule arithmeticTheory.MOD_PLUS >>
+  disch_then $ qspecl_then [`na`,`2`] assume_tac >>
+  full_simp_tac std_ss [EVAL “2 MOD 4”] >>
+  strip_tac >> fs []);
 
 val is_stack_var_flip = Q.prove(`
   is_stack_var na ⇒ is_alloc_var (na+2)`,
   full_simp_tac(srw_ss())[is_alloc_var_def,is_stack_var_def]>>
-  (qspec_then `4` assume_tac arithmeticTheory.MOD_PLUS>>full_simp_tac(srw_ss())[]>>
-    pop_assum (qspecl_then [`na`,`2`] assume_tac)>>
-    srw_tac[][]>>full_simp_tac(srw_ss())[]));
+  ‘0 < 4:num’ by fs [] >>
+  drule arithmeticTheory.MOD_PLUS >>
+  disch_then $ qspecl_then [`na`,`2`] assume_tac >>
+  full_simp_tac std_ss [EVAL “2 MOD 4”] >>
+  strip_tac >> fs []);
 
 val list_next_var_rename_props = Q.prove(`
   ∀ls ssa na ls' ssa' na'.
@@ -6606,7 +6608,7 @@ val limit_var_props = Q.prove(`
    (`x MOD 4 < 4` by full_simp_tac(srw_ss())[]>>
     `(x MOD 4 = 0) ∨ (x MOD 4 = 1) ∨ (x MOD 4 = 2) ∨ (x MOD 4 = 3)` by
       DECIDE_TAC>>
-    full_simp_tac(srw_ss())[]>>
+    full_simp_tac std_ss [EVAL “0<4:num”]>>
     (*Fastest way I could find*)
     `(0 MOD 4 = 0) ∧
     (1 MOD 4 = 1) ∧
@@ -6617,8 +6619,8 @@ val limit_var_props = Q.prove(`
     ((1+3)MOD 4 = 0) ∧
     ((2+2)MOD 4 = 0) ∧
     ((3+1)MOD 4 = 0)` by full_simp_tac(srw_ss())[]>>
-    metis_tac[])>>
-  full_simp_tac(srw_ss())[]>>
+    metis_tac[]) >>
+  full_simp_tac std_ss [EVAL “0<4:num”]>>
   first_x_assum(qspecl_then [`x+(4- x MOD 4)`,`1`] assume_tac)>>
   pop_assum sym_sub_tac>>
   full_simp_tac(srw_ss())[]);
@@ -7180,8 +7182,6 @@ Proof
   LET_ELIM_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ]>>
   metis_tac[ssa_cc_trans_flat_exp_conventions,FST]
 QED
-
-val _ = diminish_srw_ss ["NORMEQ_ss"];
 
 Theorem ssa_cc_trans_full_inst_ok_less[local]:
   ∀prog ssa na c.

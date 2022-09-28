@@ -5,7 +5,7 @@ open preamble semanticPrimitivesTheory
      ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
      basisProgTheory
 
-val _ = new_theory "doubleProg";
+val _ = new_theory "doubleArgProg";
 
 val _ = translation_extends "basisProg";
 
