@@ -2070,6 +2070,26 @@ Proof
   irule apply_colour_no_mt>>rw[]
 QED
 
+Theorem word_common_subexp_elim_no_mt:
+  no_mt prog ⇒
+  no_mt (word_common_subexp_elim prog)
+Proof
+  fs [word_cseTheory.word_common_subexp_elim_def]
+  \\ pairarg_tac \\ fs []
+  \\ rename [‘_ e p = (a,np)’]
+  \\ pop_assum mp_tac
+  \\ MAP_EVERY qid_spec_tac [‘np’,‘e’,‘a’,‘p’]
+  \\ ho_match_mp_tac word_simpTheory.simp_if_ind
+  \\ rpt strip_tac \\ fs []
+  \\ fs [word_cseTheory.word_cse_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [no_mt_def,AllCaseEqs(),word_cseTheory.add_to_data_aux_def]
+  \\ res_tac \\ fs []
+  \\ gvs [word_cseTheory.word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
+  \\ gvs [no_mt_def,AllCaseEqs(),word_cseTheory.add_to_data_aux_def,
+          word_cseTheory.add_to_data_def]
+QED
+
 Theorem compile_single_no_mt:
   no_mt prog /\
   (q, r) = (SND (compile_single two_reg_arith reg_count alg c
@@ -2080,6 +2100,7 @@ Proof
   irule word_alloc_no_mt>>
   TRY (irule three_to_two_reg_no_mt)>>
   irule remove_dead_no_mt>>
+  irule word_common_subexp_elim_no_mt>>
   irule full_ssa_cc_trans_no_mt>>
   irule inst_select_no_mt>>
   irule compile_exp_no_mt>>rw[]
