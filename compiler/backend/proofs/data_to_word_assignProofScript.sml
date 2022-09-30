@@ -33,6 +33,8 @@ val shift_def = backend_commonTheory.word_shift_def
 val isWord_def = wordSemTheory.isWord_def
 val theWord_def = wordSemTheory.theWord_def
 
+Overload lookup[local] = “sptree$lookup”;
+
 val assign_def =
   data_to_wordTheory.assign_def
   |> REWRITE_RULE [arg1_def, arg2_def, arg3_def, arg4_def, all_assign_defs];
@@ -13221,7 +13223,7 @@ Proof
             >- (
               first_x_assum (mp_tac o GSYM)
               \\ simp[DROP_LENGTH_NIL_rwt,wordSemTheory.write_bytearray_def]
-              \\ qpat_abbrev_tac`refs = insert _ _ x.refs`
+              \\ qpat_abbrev_tac`refs = sptree$insert _ _ x.refs`
               \\ `refs = x.refs` by simp[Abbr`refs`,insert_unchanged]
               \\ rw[]
               >- (qpat_x_assum `memory_rel _ _ _ _ _ _ _ _ (_ :: _ :: _)` mp_tac

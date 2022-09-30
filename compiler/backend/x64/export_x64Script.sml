@@ -39,13 +39,13 @@ val startup =
        "     movq    cdecl(cml_heap)(%rip), %rsi     # arg2: first address of heap";
        "     leaq    cake_bitmaps(%rip), %rax";
        "     movq    %rax, 0(%rsi)                   # store bitmap pointer";
-       "     leaq    cake_bitmaps_buffer_begin(%rip), %rax";
+       "     leaq    cdecl(cake_bitmaps_buffer_begin)(%rip), %rax";
        "     movq    %rax, 8(%rsi)                   # store bitmap mutable start pointer";
-       "     leaq    cake_bitmaps_buffer_end(%rip), %rax";
+       "     leaq    cdecl(cake_bitmaps_buffer_end)(%rip), %rax";
        "     movq    %rax, 16(%rsi)                  # store bitmap mutable end pointer";
-       "     leaq    cake_codebuffer_begin(%rip), %rax";
+       "     leaq    cdecl(cake_codebuffer_begin)(%rip), %rax";
        "     movq    %rax, 24(%rsi)                  # store code mutable start pointer";
-       "     leaq    cake_codebuffer_end(%rip), %rax";
+       "     leaq    cdecl(cake_codebuffer_end)(%rip), %rax";
        "     movq    %rax, 32(%rsi)                  # store code mutable end pointer";
        "     movq    cdecl(cml_stack)(%rip), %rdx    # arg3: first address of stack";
        "     movq    cdecl(cml_stackend)(%rip), %rcx # arg4: first address past the stack";

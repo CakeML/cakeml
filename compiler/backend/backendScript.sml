@@ -309,7 +309,8 @@ val to_livesets_def = Define`
     let maxv = max_var prog + 1 in
     let inst_prog = inst_select asm_conf maxv prog in
     let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
-    let rm_prog = FST(remove_dead ssa_prog LN) in
+    let cse_prog = word_common_subexp_elim ssa_prog in
+    let rm_prog = FST(remove_dead cse_prog LN) in
     let prog = if two_reg_arith then three_to_two_reg rm_prog
                                 else rm_prog in
      (name_num,arg_count,prog)) p in
@@ -330,7 +331,8 @@ val to_livesets_0_def = Define`
     let maxv = max_var prog + 1 in
     let inst_prog = inst_select asm_conf maxv prog in
     let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
-    let rm_prog = FST(remove_dead ssa_prog LN) in
+    let cse_prog = word_common_subexp_elim ssa_prog in
+    let rm_prog = FST(remove_dead cse_prog LN) in
     let prog = if two_reg_arith then three_to_two_reg rm_prog
                                 else rm_prog in
      (name_num,arg_count,prog)) p in

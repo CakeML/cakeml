@@ -20,6 +20,7 @@ val _ = ml_prog_update (add_dec
 (* to/from int *)
 val _ = trans "fromInt" ``n2w:num->word64``;
 val _ = trans "toInt" ``w2n:word64->num``;
+val _ = trans "toIntSigned" ``w2i:word64->int``;
 
 (* bitwise operations *)
 val _ = trans "andb" ``word_and:word64->word64->word64``;;

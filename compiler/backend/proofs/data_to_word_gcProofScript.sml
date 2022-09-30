@@ -4,7 +4,7 @@
 open preamble dataSemTheory dataPropsTheory copying_gcTheory
      int_bitwiseTheory data_to_word_memoryProofTheory finite_mapTheory
      data_to_wordTheory wordPropsTheory labPropsTheory whileTheory
-     set_sepTheory semanticsPropsTheory word_to_wordProofTheory
+     set_sepTheory semanticsPropsTheory
      helperLib alignmentTheory blastLib word_bignumTheory wordLangTheory
      word_bignumProofTheory gen_gc_partialTheory gc_sharedTheory
      word_gcFunctionsTheory backendPropsTheory
@@ -26,6 +26,8 @@ val shift_def = backend_commonTheory.word_shift_def
 val isWord_def = wordSemTheory.isWord_def
 val theWord_def = wordSemTheory.theWord_def
 val is_fwd_ptr_def = wordSemTheory.is_fwd_ptr_def
+
+Overload lookup[local] = “sptree$lookup”;
 
 val _ = hide "next";
 

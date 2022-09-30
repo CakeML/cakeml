@@ -21,8 +21,8 @@ Type prog[pp] = “:α stackLang$prog”
 Definition state_ok_def:
   state_ok i code <=>
     !n v.
-      lookup n i = SOME v ==>
-      ?p. lookup n code = SOME (Seq (StackAlloc v) p)
+      sptree$lookup n i = SOME v ==>
+      ?p. sptree$lookup n code = SOME (Seq (StackAlloc v) p)
 End
 
 Definition state_rel_def:
@@ -36,7 +36,7 @@ Definition state_rel_def:
       t.compile_oracle = (I ## compile ## I) o s.compile_oracle /\ *)
       state_ok i s.code /\
       !n b.
-        lookup n s.code = SOME b ==>
+        sptree$lookup n s.code = SOME b ==>
         ?i. state_ok i s.code /\
             lookup n c = SOME (comp_top i b)
 End

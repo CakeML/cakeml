@@ -1,0 +1,20 @@
+INCLUDES = ../../../developers \
+	   ../../../misc \
+	   ../../../semantics \
+	   ../../../semantics/proofs \
+	   ../../../translator \
+	   ../../../translator/monadic \
+	   ../../../characteristic \
+	   ../../../basis \
+	   ../../standard/ml_kernel \
+	   ../../standard/monadic \
+	   ../../standard/semantics \
+	   ../../standard/syntax
+
+all: $(DEFAULT_TARGETS) README.md
+.PHONY: all
+
+README_SOURCES = $(wildcard *Script.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)

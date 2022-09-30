@@ -41,7 +41,7 @@ End
 
 Definition if_var_def:
   if_var n ^f ^g s =
-    case lookup n s.locals of
+    case sptree$lookup n s.locals of
     | NONE => fail s
     | SOME v => if isBool T v then f s else
                 if isBool F v then g s else fail s
@@ -49,7 +49,7 @@ End
 
 Definition return_def[simp]:
   return n s =
-    case lookup n s.locals of
+    case sptree$lookup n s.locals of
     | NONE => fail s
     | SOME v => (SOME (Rval v), flush_state F s)
 End
@@ -124,7 +124,7 @@ val _ = set_fixity ":≡" (Infixl 480);
 
 Definition move_def:
   move dest src s =
-    case lookup src s.locals of
+    case sptree$lookup src s.locals of
     | NONE => fail s
     | SOME v => (NONE, set_var dest v s)
 End

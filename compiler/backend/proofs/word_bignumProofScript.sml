@@ -1776,7 +1776,7 @@ fun dest_If tm = let
 fun mk_If (c,r,ri,p1,p2) = ``word_bignum$If ^c ^r ^ri ^p1 ^p2``;
 fun is_If tm = can dest_If tm
 
-val _ = diminish_srw_ss ["LET"];
+(* val _ = diminish_srw_ss ["LET"]; *)
 
 fun derive_corr_thm const_def = let
 

@@ -1019,7 +1019,7 @@ Proof
   \\ fs[contained_def, widenInterval_def]
 QED
 
-val _ = diminish_srw_ss ["RMULCANON_ss","RMULRELNORM_ss"]
+val _ = diminish_srw_ss ["RMULCANON","RMULRELNORM"]
 
 Theorem divisionErrorBounded:
   !(e1lo e1hi nR1 e2lo e2hi nR2 nF1 nF2 err1 err2:real).
