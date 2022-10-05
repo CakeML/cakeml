@@ -132,6 +132,9 @@ icing/flover
 icing/
 icing/examples
 
+# Floating-Point codegen
+libmGen/
+
 # compiler translation
 compiler/repl
 
