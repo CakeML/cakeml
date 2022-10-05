@@ -25,6 +25,6 @@ Definition sin_example_def:
   |>
 End
 
-Theorem checkerSucceeds = validateCert sin_example_def “16:num”;
+Theorem checkerSucceeds = validateCert sin_example_def “8:num”;
 
 val _ = export_theory();

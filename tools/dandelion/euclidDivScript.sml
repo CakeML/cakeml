@@ -1,8 +1,9 @@
 (**
   Computable version of polynomial division and a correctness proof.
   Inspired by the implementation in Isabelle/HOL
-  https://isabelle.in.tum.de/library/HOL/HOL-Computational_Algebra/Polynomial.html
-  used to implement a computable version of Sturm sequences **)
+  isabelle.in.tum.de/library/HOL/HOL-Computational_Algebra/Polynomial.html
+  used to implement a computable version of Sturm sequences
+**)
 open pred_setTheory listTheory bossLib RealArith realTheory polyTheory;
 open realPolyTheory sturmTheory realPolyProofsTheory;
 open renameTheory;
@@ -79,7 +80,8 @@ Proof
     by (
        VAR_EQ_TAC >> gs[Abbr‘rrr’, Abbr‘b’]
        >> irule LESS_EQ_TRANS
-       >> qexists_tac ‘if zerop (monom n [qq]) ∨ zerop d then 0 else deg (monom n [qq]) + deg d’
+       >> qexists_tac ‘if zerop (monom n [qq]) ∨ zerop d then 0
+                       else deg (monom n [qq]) + deg d’
        >> gs[deg_mul_poly]
        >> cond_cases_tac >> gs[]
        >> Cases_on ‘qq = 0’ >> gs[]
@@ -97,7 +99,8 @@ Proof
          >> conj_tac
          >- irule deg_sub_poly
          >> gs[])
-  >> first_x_assum $ qspecl_then [‘lc’, ‘qqq’, ‘rrr’, ‘d’, ‘dr - 1’, ‘q'’, ‘r'’] mp_tac
+  >> first_x_assum $
+       qspecl_then [‘lc’, ‘qqq’, ‘rrr’, ‘d’, ‘dr - 1’, ‘q'’, ‘r'’] mp_tac
   >> impl_tac
   >- (
     gs[] >> reverse $ Cases_on ‘dr’ >- gs[]
@@ -115,11 +118,13 @@ Proof
   >> gs[FUN_EQ_THM, eval_simps]
   >> rpt gen_tac
   >> qmatch_goalsub_abbrev_tac ‘_ = lc pow _ * ( _ * (_ * _ + mnm) + _)’
-  >> ‘evalPoly d x * (lc * evalPoly q x + mnm) = lc * (evalPoly d x * evalPoly q x) + evalPoly d x * mnm’
+  >> ‘evalPoly d x * (lc * evalPoly q x + mnm) =
+      lc * (evalPoly d x * evalPoly q x) + evalPoly d x * mnm’
      by real_tac
   >> pop_assum $ rewrite_tac o single
   >> rewrite_tac [GSYM REAL_ADD_ASSOC]
-  >> ‘evalPoly d x * mnm + (lc * evalPoly r x - evalPoly d x * mnm) = lc * evalPoly r x’ by real_tac
+  >> ‘evalPoly d x * mnm + (lc * evalPoly r x - evalPoly d x * mnm) =
+      lc * evalPoly r x’ by real_tac
   >> pop_assum $ rewrite_tac o single
   >> rewrite_tac [GSYM REAL_LDISTRIB]
   >> rewrite_tac [REAL_MUL_ASSOC]

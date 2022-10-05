@@ -1,6 +1,7 @@
 (***
   Proofs of McLaurin series for the supported elementary functions
-  described in transcLang file **)
+  described in transcLang file
+**)
 
 open moreRealTheory realPolyTheory realPolyProofsTheory;
 open preambleDandelion;
@@ -364,6 +365,7 @@ Proof
       >> pop_assum $ rewrite_tac o single
       >> gs[REAL_LDISTRIB]
     )
+  >> pop_assum $ once_rewrite_tac o single
   >> gs[]
 QED
 

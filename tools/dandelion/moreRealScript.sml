@@ -283,7 +283,8 @@ Theorem cos_pi2_pi_le:
     pi / 2 ≤ x ∧ x ≤ pi ⇒
     cos x ≤ 0
 Proof
-  rpt strip_tac >> Cases_on ‘x = pi/2’ >- gs[COS_PI2]
+  rpt strip_tac >> Cases_on ‘x = pi/2’
+  >- (VAR_EQ_TAC >> gs[COS_PI2])
   >> ‘pi/2 < x’ by real_tac
   >> qspecl_then [‘cos’, ‘λ x. - sin x’, ‘pi/2’, ‘x’] mp_tac MVT_ALT
   >> impl_tac

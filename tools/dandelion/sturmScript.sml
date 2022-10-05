@@ -1209,7 +1209,7 @@ Proof
 QED
 
 Theorem lemma4[local]:
-  (!k. (i:num->real) k < i(SUC k)) ==> !k n. ~((i k + i (SUC k)) / &2 = i n)
+  (!k. (i:num->real) k < i(SUC k)) ==> !k n. ~((i k + i (SUC k)) = 2 * i n)
 Proof
   DISCH_TAC >> REPEAT GEN_TAC
   >> ONCE_REWRITE_TAC[GSYM REAL_LE_ANTISYM] >> STRIP_TAC
@@ -1338,7 +1338,7 @@ Proof
     >> ‘k= SUC(PRE k)’ by gs[]
     >> ‘i k = i (SUC (PRE k))’ by metis_tac[]
     >> pop_assum $ rewrite_tac o single
-    >> irule lemma4 >> metis_tac[]
+    >> irule (SIMP_RULE (simpLib.mk_simpset [realSimps.RMULRELNORM_ss]) [] lemma4) >> metis_tac[]
   )
   >> GEN_TAC >> gs[]
   >> ASM_CASES_TAC “k:num =0” >> ASM_REWRITE_TAC[]

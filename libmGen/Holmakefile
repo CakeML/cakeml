@@ -2,8 +2,6 @@ INCLUDES = $(HOLDIR)/examples/formal-languages/context-free\
            $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc\
 	   $(CAKEMLDIR)/unverified/sexpr-bootstrap\
 	   $(CAKEMLDIR)/semantics $(CAKEMLDIR)/characteristic\
-	   $(CAKEMLDIR)/compiler $(CAKEMLDIR)/compiler/inference\
-	   $(CAKEMLDIR)/compiler/backend/proofs\
 	   $(CAKEMLDIR)/icing\
 	   $(CAKEMLDIR)/tools/flover\
 	   $(CAKEMLDIR)/tools/dandelion

@@ -17,7 +17,7 @@ struct
 
   exception libmGenException of string;
 
-  val approxSteps = “20:num”; (** TODO: make this a parameter ? **)
+  val approxSteps = “16:num”; (** TODO: make this a parameter ? **)
 
   val zero_eq = GSYM $ Q.SPEC ‘1’ REAL_DIV_LZERO
 
