@@ -1,3 +1,7 @@
+(**
+  Library to convert between real-valued and rational-valued
+  FloVer expressions
+**)
 structure expressionsLib = struct
 
   open HolKernel Parse Abbrev ExpressionsTheory;

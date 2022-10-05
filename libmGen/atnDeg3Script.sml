@@ -1,3 +1,7 @@
+(**
+  Example file for libmGen, generates an approximation of
+  tan^-1 with degree 3
+**)
 open realZeroLib bitArithLib libmLib preambleDandelion;
 
 val _ = new_theory "atnDeg3";

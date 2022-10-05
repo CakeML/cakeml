@@ -1,3 +1,7 @@
+(**
+  Library implementing the automatic computations
+  done by Dandelion
+**)
 structure realZeroLib =
 struct
   open RealArith realTheory realLib realSyntax polyTheory;
