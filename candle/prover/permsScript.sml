@@ -581,6 +581,10 @@ Proof
   >- (
     rw [do_app_cases] \\ gs[]
     \\ rw [perms_ok_def])
+  \\ Cases_on ‘op = RealFromIntProd’ \\ gs[]
+  >- (
+    rw [do_app_cases] \\ gs[]
+    \\ rw [perms_ok_def])
   \\ Cases_on ‘op’ \\ gs []
 QED
 
