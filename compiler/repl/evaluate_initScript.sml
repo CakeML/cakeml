@@ -679,6 +679,11 @@ Proof
     gvs[do_app_cases, v_ok_thm]
     \\ ‘s with <| refs := s.refs; ffi := s.ffi |> = s’ suffices_by gs[]
     \\ gs[state_component_equality])
+  \\ Cases_on ‘op = RealFromIntProd’ \\ gs[]
+  >- (
+    gvs[do_app_cases, v_ok_thm]
+    \\ ‘s with <| refs := s.refs; ffi := s.ffi |> = s’ suffices_by gs[]
+    \\ gs[state_component_equality])
   \\ Cases_on ‘op’ \\ gs []
 QED
 
