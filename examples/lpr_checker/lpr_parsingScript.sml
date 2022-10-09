@@ -851,6 +851,161 @@ Proof
   pop_assum SUBST1_TAC>>simp[SEG_LENGTH_ID]
 QED
 
+(* Parse a string as variable byte encoded numbers *)
+Definition parse_vb_string_aux_def:
+  parse_vb_string_aux (str:mlstring) (i:num) (len:num) (ex:num) (n:num) (acc:num list) =
+  if i < len then
+    let v = ORD (strsub str i) in
+      if v >= 128 then (* msb is set *)
+        parse_vb_string_aux str (i+1) len (ex*128) ((v-128)*ex+n) acc
+      else if v = 0 then (* should be terminator *)
+        acc
+      else
+        parse_vb_string_aux str (i+1) len 1 0 (v*ex+n::acc)
+  else
+    acc
+Termination
+  WF_REL_TAC` measure (λ(x,s,i,r). i-s)`
+End
+
+Definition parse_vb_string_def:
+  parse_vb_string str =
+  parse_vb_string_aux str 0 (strlen str - 1) 1 0 []
+End
+
+(* TODO: can get rid of options here
+  if we know the lists do not contain 0
+*)
+val parse_vb_until_zero_def = Define`
+  (parse_vb_until_zero [] acc = REVERSE acc) ∧
+  (parse_vb_until_zero (l::xs) acc =
+      parse_vb_until_zero xs (l::acc)
+  )`
+
+val parse_vb_until_k_def = Define`
+  (parse_vb_until_k k [] acc = (REVERSE acc, NONE)) ∧
+  (parse_vb_until_k k (l::xs) acc =
+    if l = k then
+      let w = parse_vb_until_zero xs [] in
+        (REVERSE acc, SOME (k::w))
+    else
+      parse_vb_until_k k xs (l::acc))`
+
+Definition parse_vb_clause_witness_def:
+  (parse_vb_clause_witness [] = ([],NONE)) ∧
+  (parse_vb_clause_witness (l::xs) =
+      parse_vb_until_k l xs [l])
+End
+
+(* Turn into ints and drop 0s *)
+Definition clausify_aux_def:
+  (clausify_aux [] acc = acc) ∧
+  (clausify_aux (x::xs) acc =
+  if x = 0n then clausify_aux xs acc
+  else
+    let v =
+      (if x MOD 2 = 0n
+      then (&(x DIV 2):int)
+      else (-&(x DIV 2):int)) in
+      clausify_aux xs (v::acc))
+End
+
+Definition clausify_def:
+  clausify cls = clausify_aux cls []
+End
+
+(* Parse everything until the next negative and returns it *)
+val parse_vb_until_nn_def = Define`
+  (parse_vb_until_nn [] acc = (0, REVERSE acc, [])) ∧
+  (parse_vb_until_nn (l::xs) acc =
+    if l <= 0:int then
+      (Num (-l), REVERSE acc, xs)
+    else
+      parse_vb_until_nn xs (Num l::acc)
+  )`
+
+val parse_vb_until_nn_length = Q.prove(`
+  ∀ls acc a b c.
+  parse_vb_until_nn ls acc = (a,b,c) ∧ a ≠ 0 ⇒
+  LENGTH c < LENGTH ls`,
+  Induct>>fs[parse_vb_until_nn_def]>>
+  rw[]>>every_case_tac>>fs[]>>
+  first_x_assum drule>>
+  fs[]
+QED
+
+Definition parse_vb_PR_hint_def:
+  parse_vb_PR_hint id xs acc =
+  if id = 0 then acc
+  else
+  case parse_vb_until_nn xs [] of (n,clause,rest) =>
+    if n = 0 then ((id,clause)::acc)
+    else parse_vb_PR_hint n rest ((id,clause)::acc)
+Termination
+  (WF_REL_TAC `measure (LENGTH o (FST o SND))`>>
+  rw[]>>
+  drule parse_vb_until_nn_length>>fs[])
+End
+
+(* All parsing steps related to PR *)
+Definition do_PR_def:
+  do_PR lss y =
+  let rs = (clausify (parse_vb_string y)) in
+  (* read the clause ID *)
+  case REVERSE lss of [] => NONE
+  | (l::r) =>
+  case parse_vb_clause_witness r of (clause,witness) =>
+    let clause = REVERSE (clausify clause) in
+    let witness = OPTION_MAP clausify witness in
+    case parse_vb_until_nn rs [] of (id,hint,rss) =>
+    case parse_vb_PR_hint id rss [] of sp =>
+    SOME (PR (l DIV 2) clause witness hint sp)
+End
+
+Definition parse_vb_string_head_def:
+  parse_vb_string_head x =
+  if strlen x = 0 then NONE
+  else
+    SOME (strsub x 0, parse_vb_string_aux x 1 (strlen x - 1) 1 0 [])
+End
+
+(* semantic definition assumes lines are split at "00" *)
+Definition parse_vb_lines_def:
+  (parse_vb_lines [] acc = SOME (REVERSE acc)) ∧
+  (parse_vb_lines (x::xs) acc =
+  (* Turn into numerical format *)
+  case parse_vb_string_head x of NONE => NONE
+  | SOME(st,lss) =>
+    if st = #"d" (* deletion *) then
+      parse_vb_lines xs (Delete (MAP (λn. n DIV 2) lss)::acc)
+    else if st = #"a" (* addition *) then
+      case xs of [] => NONE
+      | y::ys =>
+      case do_PR lss y of NONE => NONE
+      | SOME pr =>
+        parse_vb_lines ys (pr::acc)
+    else NONE)
+End
+
+(*
+EVAL ``parse_vb_lines
+  (MAP (implode o MAP CHR)
+  [
+  [0x61;0x86;0x02;0x12;0x3d;0x00];
+  [0x15;0x78;0xb6;0x01;0x66;0xa0;0x01;0x6c;0x2f;0xd4;0x01;0x76;0xac;0x01;0x9c;0x01;0x9e;0x01;0x4c;0x10;0x66;0x24;0x6c;0xe4;0x01;0xb8;0x01;0xe6;0x01;0x02;0x3a;0xd2;0x01;0x8d;0x01;0x92;0x01;0x2c;0xf0;0x01;0x66;0xba;0x01;0xb6;0x01;0x0c;0x90;0x01;0x4c;0xd8;0x01;0x3a;0x7e;0x34;0xaa;0x01;0x68;0x76;0xf8;0x01;0xb8;0x01;0x81;0x02;0x00];
+  ])
+  []``
+
+EVAL ``parse_vb_clause_witness  (parse_vb_string
+  ((implode o MAP CHR)
+  [0x07;0x04;0x07;0x17;0x17;0x18;0x00;]))``
+
+  [0x0d;0x24;0x13;0x2a;0x27;0x0e;0x2d;0xa0;0x14;0x00;];
+  [0x64;0x02;0x04;0x06;0x00;]
+  ])
+  []``
+
+*)
 val dimacsraw = ``[
   strlit "c this is a comment";
   strlit "p cnf 5 8 ";
