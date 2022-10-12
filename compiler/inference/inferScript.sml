@@ -378,6 +378,7 @@ val op_to_string_def = Define `
 (op_to_string (Real_uop _) = (implode "Real_uop", 1)) ∧
 (op_to_string (Real_cmp _) = (implode "Real_cmp", 2)) ∧
 (op_to_string (RealFromFP) = (implode "RealFromFP", 1)) ∧
+(op_to_string (RealFromIntProd) = (implode "RealFromIntProd", 1)) ∧
 (op_to_string (Shift _ _ _) = (implode "Shift", 1)) ∧
 (op_to_string Equality = (implode "Equality", 2)) ∧
 (op_to_string Opapp = (implode "Opapp", 2)) ∧
