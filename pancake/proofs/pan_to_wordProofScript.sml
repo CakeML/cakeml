@@ -723,5 +723,42 @@ Proof
   fs []
 QED
 
+(*** no_install/no_alloc/no_mt lemmas ***)
+
+Theorem pan_to_word_compile_prog_no_install_code:
+  compile_prog prog = prog' ⇒
+  no_install_code (fromAList prog')
+Proof
+  gs[compile_prog_def]>>strip_tac>>
+  metis_tac[loop_to_wordProofTheory.loop_compile_no_install_code]
+QED
+
+Theorem pan_to_word_compile_prog_no_alloc_code:
+  compile_prog prog = prog' ⇒
+  no_alloc_code (fromAList prog')
+Proof
+  gs[compile_prog_def]>>strip_tac>>
+  metis_tac[loop_to_wordProofTheory.loop_compile_no_alloc_code]
+QED
+
+Theorem pan_to_word_compile_prog_no_mt_code:
+  compile_prog prog = prog' ⇒
+  no_mt_code (fromAList prog')
+Proof
+  gs[compile_prog_def]>>strip_tac>>
+  metis_tac[loop_to_wordProofTheory.loop_compile_no_mt_code]
+QED
+
+(*** pan_to_word good_handlers ***)
+
+Theorem pan_to_word_good_handlers:
+  compile_prog prog = prog' ⇒
+  EVERY (λ(n,m,pp). good_handlers n pp) prog'
+Proof
+  gs[compile_prog_def,
+     loop_to_wordTheory.compile_def]>>
+  strip_tac>>
+  irule loop_to_wordProofTheory.loop_to_word_good_handlers>>metis_tac[]
+QED
 
 val _ = export_theory();
