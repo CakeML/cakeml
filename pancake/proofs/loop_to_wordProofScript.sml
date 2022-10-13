@@ -1485,4 +1485,207 @@ Proof
   rveq >> fs [EVERY_DEF]
 QED
 
+(*** no_install/no_alloc/no_mt lemmas ***)
+
+Theorem loop_to_word_comp_no_install:
+  wprog = comp ctxt prog l ⇒
+  no_install (FST wprog)
+Proof
+  MAP_EVERY qid_spec_tac [‘wprog’, ‘l’, ‘prog’, ‘ctxt’]>>
+  recInduct comp_ind>>
+  gs[comp_def, wordPropsTheory.no_install_def]>>
+  rw[]>>
+  TRY (pairarg_tac>>gs[]>>
+       pairarg_tac>>gs[]>>
+       gs[wordPropsTheory.no_install_def])>>
+  TRY (rpt (CASE_TAC>>gs[wordPropsTheory.no_install_def]))>>
+  rpt (pairarg_tac>>gs[wordPropsTheory.no_install_def])
+QED
+
+Theorem loop_to_word_comp_func_no_install:
+  no_install (comp_func name params body)
+Proof
+  MAP_EVERY qid_spec_tac [‘wprog’, ‘name’, ‘params’, ‘body’]>>Induct>>
+  gs[comp_func_def]>>
+  gs[comp_def, wordPropsTheory.no_install_def]>>
+  rw[loop_to_word_comp_no_install]>>
+  TRY (last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
+       gs[loopLangTheory.acc_vars_def])>>
+  TRY (last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
+       pairarg_tac>>gs[]>>
+       pairarg_tac>>
+       gs[wordPropsTheory.no_install_def]>>
+       last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
+       rpt (qpat_x_assum ‘comp _ _ _ = _’ (assume_tac o GSYM))>>
+       drule loop_to_word_comp_no_install>>gs[]>>
+       qpat_x_assum ‘(wp, _) = _’ kall_tac>>
+       drule loop_to_word_comp_no_install>>gs[])>>
+  rpt (CASE_TAC>>gs[wordPropsTheory.no_install_def])>>
+  pairarg_tac>>gs[]>>
+  pairarg_tac>>
+  gs[wordPropsTheory.no_install_def]>>
+  rpt (qpat_x_assum ‘comp _ _ _ = _’ (assume_tac o GSYM))>>
+  drule loop_to_word_comp_no_install>>gs[]>>
+  qpat_x_assum ‘(p1, _) = _’ kall_tac>>
+  drule loop_to_word_comp_no_install>>gs[]
+QED
+
+Theorem loop_to_word_compile_no_install:
+  wprog = compile_prog pan_prog ⇒
+  EVERY no_install (MAP (SND o SND) wprog)
+Proof
+  qid_spec_tac ‘wprog’>>
+  Induct_on ‘pan_prog’>>
+  gs[compile_def, compile_prog_def]>>
+  strip_tac>>pairarg_tac>>gs[loop_to_word_comp_func_no_install]
+QED
+
+Theorem loop_compile_no_install_code:
+  compile prog = prog' ⇒
+  no_install_code (fromAList prog')
+Proof
+  disch_then (assume_tac o GSYM)>>
+  gs[compile_def]>>
+  drule loop_to_word_compile_no_install>>
+  rw[wordPropsTheory.no_install_code_def]>>
+  gs[lookup_fromAList, EVERY_MEM, MEM_MAP]>>
+  drule ALOOKUP_MEM>>strip_tac>>
+  first_x_assum (qspec_then ‘p’ assume_tac)>>
+  res_tac>>gs[]
+QED
+
+Theorem loop_to_word_comp_no_alloc:
+  wprog = comp ctxt prog l ⇒
+  no_alloc (FST wprog)
+Proof
+  MAP_EVERY qid_spec_tac [‘wprog’, ‘l’, ‘prog’, ‘ctxt’]>>
+  recInduct comp_ind>>
+  gs[comp_def, wordPropsTheory.no_alloc_def]>>
+  rw[]>>
+  TRY (pairarg_tac>>gs[]>>
+       pairarg_tac>>gs[]>>
+       gs[wordPropsTheory.no_alloc_def])>>
+  TRY (rpt (CASE_TAC>>gs[wordPropsTheory.no_alloc_def]))>>
+  rpt (pairarg_tac>>gs[wordPropsTheory.no_alloc_def])
+QED
+
+Theorem loop_to_word_comp_func_no_alloc:
+  no_alloc (comp_func name params body)
+Proof
+  MAP_EVERY qid_spec_tac [‘wprog’, ‘name’, ‘params’, ‘body’]>>Induct>>
+  gs[comp_func_def]>>
+  gs[comp_def, wordPropsTheory.no_alloc_def]>>
+  rw[loop_to_word_comp_no_alloc]>>
+  TRY (last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
+       gs[loopLangTheory.acc_vars_def])>>
+  TRY (last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
+       pairarg_tac>>gs[]>>
+       pairarg_tac>>
+       gs[wordPropsTheory.no_alloc_def]>>
+       last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
+       rpt (qpat_x_assum ‘comp _ _ _ = _’ (assume_tac o GSYM))>>
+       drule loop_to_word_comp_no_alloc>>gs[]>>
+       qpat_x_assum ‘(wp, _) = _’ kall_tac>>
+       drule loop_to_word_comp_no_alloc>>gs[])>>
+  rpt (CASE_TAC>>gs[wordPropsTheory.no_alloc_def])>>
+  pairarg_tac>>gs[]>>
+  pairarg_tac>>
+  gs[wordPropsTheory.no_alloc_def]>>
+  rpt (qpat_x_assum ‘comp _ _ _ = _’ (assume_tac o GSYM))>>
+  drule loop_to_word_comp_no_alloc>>gs[]>>
+  qpat_x_assum ‘(p1, _) = _’ kall_tac>>
+  drule loop_to_word_comp_no_alloc>>gs[]
+QED
+
+Theorem loop_to_word_compile_no_alloc:
+  wprog = compile_prog pan_prog ⇒
+  EVERY no_alloc (MAP (SND o SND) wprog)
+Proof
+  qid_spec_tac ‘wprog’>>
+  Induct_on ‘pan_prog’>>
+  gs[compile_def, compile_prog_def]>>
+  strip_tac>>pairarg_tac>>gs[loop_to_word_comp_func_no_alloc]
+QED
+
+Theorem loop_compile_no_alloc_code:
+  compile prog = prog' ⇒
+  no_alloc_code (fromAList prog')
+Proof
+  disch_then (assume_tac o GSYM)>>
+  gs[compile_def]>>
+  drule loop_to_word_compile_no_alloc>>
+  rw[wordPropsTheory.no_alloc_code_def]>>
+  gs[lookup_fromAList, EVERY_MEM, MEM_MAP]>>
+  drule ALOOKUP_MEM>>strip_tac>>
+  first_x_assum (qspec_then ‘p’ assume_tac)>>
+  res_tac>>gs[]
+QED
+
+Theorem loop_to_word_comp_no_mt:
+  wprog = comp ctxt prog l ⇒
+  no_mt (FST wprog)
+Proof
+  MAP_EVERY qid_spec_tac [‘wprog’, ‘l’, ‘prog’, ‘ctxt’]>>
+  recInduct comp_ind>>
+  gs[comp_def, wordPropsTheory.no_mt_def]>>
+  rw[]>>
+  TRY (pairarg_tac>>gs[]>>
+       pairarg_tac>>gs[]>>
+       gs[wordPropsTheory.no_mt_def])>>
+  TRY (rpt (CASE_TAC>>gs[wordPropsTheory.no_mt_def]))>>
+  rpt (pairarg_tac>>gs[wordPropsTheory.no_mt_def])
+QED
+
+Theorem loop_to_word_comp_func_no_mt:
+  no_mt (comp_func name params body)
+Proof
+  MAP_EVERY qid_spec_tac [‘wprog’, ‘name’, ‘params’, ‘body’]>>Induct>>
+  gs[comp_func_def]>>
+  gs[comp_def, wordPropsTheory.no_mt_def]>>
+  rw[loop_to_word_comp_no_mt]>>
+  TRY (last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
+       gs[loopLangTheory.acc_vars_def])>>
+  TRY (last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
+       pairarg_tac>>gs[]>>
+       pairarg_tac>>
+       gs[wordPropsTheory.no_mt_def]>>
+       last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
+       rpt (qpat_x_assum ‘comp _ _ _ = _’ (assume_tac o GSYM))>>
+       drule loop_to_word_comp_no_mt>>gs[]>>
+       qpat_x_assum ‘(wp, _) = _’ kall_tac>>
+       drule loop_to_word_comp_no_mt>>gs[])>>
+  rpt (CASE_TAC>>gs[wordPropsTheory.no_mt_def])>>
+  pairarg_tac>>gs[]>>
+  pairarg_tac>>
+  gs[wordPropsTheory.no_mt_def]>>
+  rpt (qpat_x_assum ‘comp _ _ _ = _’ (assume_tac o GSYM))>>
+  drule loop_to_word_comp_no_mt>>gs[]>>
+  qpat_x_assum ‘(p1, _) = _’ kall_tac>>
+  drule loop_to_word_comp_no_mt>>gs[]
+QED
+
+Theorem loop_to_word_compile_no_mt:
+  wprog = compile_prog pan_prog ⇒
+  EVERY no_mt (MAP (SND o SND) wprog)
+Proof
+  qid_spec_tac ‘wprog’>>
+  Induct_on ‘pan_prog’>>
+  gs[compile_def, compile_prog_def]>>
+  strip_tac>>pairarg_tac>>gs[loop_to_word_comp_func_no_mt]
+QED
+
+Theorem loop_compile_no_mt_code:
+  compile prog = prog' ⇒
+  no_mt_code (fromAList prog')
+Proof
+  disch_then (assume_tac o GSYM)>>
+  gs[compile_def]>>
+  drule loop_to_word_compile_no_mt>>
+  rw[wordPropsTheory.no_mt_code_def]>>
+  gs[lookup_fromAList, EVERY_MEM, MEM_MAP]>>
+  drule ALOOKUP_MEM>>strip_tac>>
+  first_x_assum (qspec_then ‘p’ assume_tac)>>
+  res_tac>>gs[]
+QED
+
 val _ = export_theory();
