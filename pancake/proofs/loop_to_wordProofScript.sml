@@ -1688,4 +1688,42 @@ Proof
   res_tac>>gs[]
 QED
 
+(*** loop_to_word good_handlers ***)
+
+Theorem comp_l_invariant:
+  ∀ctxt prog l prog' l'. comp ctxt prog l = (prog',l') ⇒ FST l' = FST l
+Proof
+  ho_match_mp_tac comp_ind >>
+  rw[comp_def] >>
+  gvs[ELIM_UNCURRY,PULL_FORALL,AllCaseEqs()] >> metis_tac[PAIR]
+QED
+
+Theorem good_handlers_comp:
+  ∀ctxt prog l. good_handlers (FST l) (FST (comp ctxt prog l))
+Proof
+  ho_match_mp_tac comp_ind >>
+  rw[wordPropsTheory.good_handlers_def,
+     comp_def] >>
+  gvs[ELIM_UNCURRY] >>
+  rpt(PURE_TOP_CASE_TAC >> gvs[]) >>
+  metis_tac[PAIR,FST,SND,comp_l_invariant]
+QED
+
+Theorem loop_to_word_good_handlers:
+  (compile_prog prog) = prog' ⇒
+  EVERY (λ(n,m,pp). good_handlers n pp) prog'
+Proof
+  fs[compile_def,
+     compile_prog_def,
+     comp_func_def]>>
+  rw[]>>
+  fs[EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
+  PairCases >>
+  rw[] >>
+  pop_assum kall_tac >>
+  rename1 ‘comp ctxt prog’ >>
+  rename1 ‘(n,m)’ >>
+  metis_tac[PAIR,FST,SND,good_handlers_comp]
+QED
+
 val _ = export_theory();
