@@ -76,6 +76,8 @@ Definition do_app_def:
         SOME (s, Rval (Real (real_uop uop v1)))
     | (RealFromFP, [Litv (Word64 fp)]) =>
         SOME (s, Rval (Real (fp64_to_real fp)))
+    | (RealFromIntProd, [Litv (IntLit i); Litv (IntLit d)]) =>
+        SOME (s, Rval (Real (real_of_int i / real_of_int d)))
     | (Shift W8 op n, [Litv (Word8 w)]) =>
         SOME (s, Rval (Litv (Word8 (shift8_lookup op w n))))
     | (Shift W64 op n, [Litv (Word64 w)]) =>

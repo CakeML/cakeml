@@ -47,7 +47,8 @@ Inductive opClass:
 (∀ op. opClass (Real_cmp op) Reals) ∧
 (∀ op. opClass (Real_uop op) Reals) ∧
 (∀ op. opClass (Real_bop op) Reals) ∧
-(opClass RealFromFP Reals)
+(opClass RealFromFP Reals) ∧
+(opClass RealFromIntProd Reals)
 End
 
 Definition compress_if_bool_def:
