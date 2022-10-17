@@ -1097,17 +1097,6 @@ Proof
   \\ disch_then drule \\ fs [extend_with_resource_limit'_def]
 QED
 
-val code_rel_ext_def = Define`
-  code_rel_ext code l ⇔
-  (∀n p_1 p_2.
-        SOME (p_1,p_2) = lookup n code ⇒
-        ∃t' k' a' c' col.
-          SOME
-            (SND (full_compile_single t' k' a' c' ((n,p_1,p_2),col))) =
-          lookup n l)`
-
-val code_rel_ext_def = definition"code_rel_ext_def";
-
 Definition get_limits_def:
   get_limits c (t :('a, 'c, 'ffi) wordSem$state) =
     <| stack_limit := t.stack_limit
@@ -1601,35 +1590,6 @@ Theorem MAP_FST_stubs_bound:
 Proof
   Cases_on`a` \\ EVAL_TAC
   \\ strip_tac \\ rveq \\ EVAL_TAC
-QED
-
-Theorem code_rel_ext_word_to_word:
-   ∀code c1 col code'.
-   compile c1 c2 code = (col,code') ⇒
-   code_rel_ext (fromAList code) (fromAList code')
-Proof
-  simp[word_to_wordTheory.compile_def,code_rel_ext_def] \\
-  rw[]>>
-  pairarg_tac>>fs[]>>rw[]>>
-  `LENGTH n_oracles = LENGTH code` by
-    (fs[word_to_wordTheory.next_n_oracle_def]>>
-    every_case_tac>>rw[]>>fs[])>>
-  last_x_assum mp_tac>>
-  pop_assum mp_tac>>
-  pop_assum kall_tac>>
-  map_every qid_spec_tac [`n_oracles`,`p_1`,`p_2`,`n`]>>
-  Induct_on`code` \\ rw[] \\
-  fs[lookup_fromAList]>>
-  Cases_on`n_oracles`>>fs[]>>
-  Cases_on`h`>>fs[]>>
-  simp[word_to_wordTheory.full_compile_single_def,SimpRHS] \\
-  pairarg_tac \\ fs[] \\
-  qmatch_asmsub_rename_tac`((q,p),h)` \\
-  PairCases_on`p` \\ fs[word_to_wordTheory.compile_single_def] \\
-  rveq \\ fs[] \\
-  IF_CASES_TAC \\ fs[] \\
-  simp[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def]>>
-  metis_tac[]
 QED
 
 Theorem max_heap_limit_has_fp_ops[simp]:

@@ -2,6 +2,7 @@ INCLUDES = $(HOLDIR)/examples/machine-code/multiword\
 					 $(CAKEMLDIR)/misc\
                                          $(CAKEMLDIR)/basis/pure\
 					 $(CAKEMLDIR)/compiler/backend/\
+					 $(CAKEMLDIR)/compiler/backend/proofs\
 					 $(CAKEMLDIR)/compiler/encoders/asm\
                                          $(CAKEMLDIR)/pancake\
                                          $(CAKEMLDIR)/pancake/semantics
