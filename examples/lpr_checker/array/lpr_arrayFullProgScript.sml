@@ -829,20 +829,18 @@ val check_unsat_1 = (append_prog o process_topdecs) `
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (mv,(ncl,fml)) => TextIO.print_list (print_dimacs fml)`
 
-val _ = translate miscTheory.enumerate_def;
-
 val check_unsat_2 = (append_prog o process_topdecs) `
   fun check_unsat_2 f1 f2 =
   case parse_dimacs_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (mv,(ncl,fml)) =>
-  let val ls = enumerate 1 fml
+  let val one = 1
       val arr = Array.array (2*ncl) None
-      val arr = fill_arr arr ls
+      val arr = fill_arr arr one fml
       val bnd = 2*mv + 3
       val earr = Array.array bnd None
-      val earr = fill_earliest earr ls
-      val rls = List.rev (List.map fst ls)
+      val earr = fill_earliest earr one fml
+      val rls = rev_enum_full 1 fml
   in
     case check_unsat' 0 arr rls earr f2 bnd [[]] of
       Inl err => TextIO.output TextIO.stdErr err
@@ -864,13 +862,13 @@ val check_unsat_3 = (append_prog o process_topdecs) `
   case parse_dimacs_full f3 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (mv2,(ncl2,fml2)) =>
-  let val ls = enumerate 1 fml
+  let val one = 1
       val arr = Array.array (2*ncl) None
-      val arr = fill_arr arr ls
+      val arr = fill_arr arr one fml
       val bnd = 2*mv + 3
       val earr = Array.array bnd None
-      val earr = fill_earliest earr ls
-      val rls = List.rev (List.map fst ls)
+      val earr = fill_earliest earr one fml
+      val rls = rev_enum_full 1 fml
   in
     case check_unsat' 0 arr rls earr f2 bnd fml2 of
       Inl err => TextIO.output TextIO.stdErr err
@@ -912,13 +910,13 @@ val check_unsat_4 = (append_prog o process_topdecs) `
   | Some (Inr (i,j)) =>
     if check_cond i j pf
     then
-    let val ls = enumerate 1 fml
+    let val one = 1
         val arr = Array.array (2*ncl) None
-        val arr = fill_arr arr ls
+        val arr = fill_arr arr one fml
         val bnd = 2*mv + 3
         val earr = Array.array bnd None
-        val earr = fill_earliest earr ls
-        val rls = List.rev (List.map fst ls)
+        val earr = fill_earliest earr one fml
+        val rls = rev_enum_full 1 fml
     in
       case check_lpr_range_arr f3 arr rls earr bnd (ncl+1) pf i j of
         Inl err => TextIO.output TextIO.stdErr err
@@ -1050,6 +1048,10 @@ Proof
   >- (xmatch>> err_tac)>>
   PairCases_on`x`>>fs[SUM_TYPE_def,PAIR_TYPE_def]>>
   xmatch>>
+  xlet`POSTv v. &NUM 1 v * STDIO fs` >- (xlit>>xsimpl)>>
+  drule fill_arr_spec>>
+  drule fill_earliest_spec>>
+  rw[]>>
   rpt(xlet_autop)>>
   (* help instantiate fill_arr_spec *)
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2 * x1) NONE)
@@ -1060,18 +1062,7 @@ Proof
   `LIST_REL (OPTION_TYPE NUM) (REPLICATE (2 * x0 + 3) NONE)
           (REPLICATE (2 * x0 + 3) (Conv (SOME (TypeStamp "None" 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
-  xlet_autop>>
-  xlet`
-    POSTv lv.
-    ARRAY resv' earliestv' * ARRAY resv arrlsv' * STDIO fs *
-    &(LIST_TYPE NUM (MAP FST (enumerate 1 x2)) lv)`
-  >- (
-    xapp_spec (ListProgTheory.map_1_v_thm |> INST_TYPE [alpha |-> ``:num``, beta |-> ``:num # int list``])>>
-    xsimpl>>
-    asm_exists_tac >>simp[]>>
-    qexists_tac`FST`>>
-    qexists_tac`NUM`>>simp[fst_v_thm])>>
-  rpt xlet_autop >>
+  rpt xlet_autop>>
   simp[check_lpr_unsat_list_def]>>
   qmatch_goalsub_abbrev_tac`check_lpr_list _ _ a b c d`>>
   xlet`POSTv v.
@@ -1120,6 +1111,7 @@ Proof
       disch_then drule>>
       simp[index_def]>>rw[]>>
       intLib.ARITH_TAC)>>
+    fs[LENGTH_enumerate,rev_enum_full_rev_enumerate]>>
     metis_tac[])>>
   reverse TOP_CASE_TAC>>simp[]
   >- (fs[SUM_TYPE_def]>>xmatch>>err_tac)>>
@@ -1206,6 +1198,10 @@ Proof
   >- (xmatch>> err_tac)>>
   PairCases_on`x`>>fs[SUM_TYPE_def,PAIR_TYPE_def]>>
   xmatch>>
+  xlet`POSTv v. &NUM 1 v * STDIO fs` >- (xlit>>xsimpl)>>
+  drule fill_arr_spec>>
+  drule fill_earliest_spec>>
+  rw[]>>
   rpt(xlet_autop)>>
   (* help instantiate fill_arr_spec *)
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2 * x1) NONE)
@@ -1216,18 +1212,7 @@ Proof
   `LIST_REL (OPTION_TYPE NUM) (REPLICATE (2 * x0 + 3) NONE)
           (REPLICATE (2 * x0 + 3) (Conv (SOME (TypeStamp "None" 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
-  xlet_autop>>
-  xlet`
-    POSTv lv.
-    ARRAY resv' earliestv' * ARRAY resv arrlsv' * STDIO fs *
-    &(LIST_TYPE NUM (MAP FST (enumerate 1 x2)) lv)`
-  >- (
-    xapp_spec (ListProgTheory.map_1_v_thm |> INST_TYPE [alpha |-> ``:num``, beta |-> ``:num # int list``])>>
-    xsimpl>>
-    asm_exists_tac >>simp[]>>
-    qexists_tac`FST`>>
-    qexists_tac`NUM`>>simp[fst_v_thm])>>
-  rpt xlet_autop >>
+  rpt xlet_autop>>
   simp[check_lpr_sat_equiv_list_def]>>
   qmatch_goalsub_abbrev_tac`check_lpr_list _ _ a b c d`>>
   xlet`POSTv v.
@@ -1276,6 +1261,7 @@ Proof
       disch_then drule>>
       simp[index_def]>>rw[]>>
       intLib.ARITH_TAC)>>
+    fs[LENGTH_enumerate,rev_enum_full_rev_enumerate]>>
     metis_tac[])>>
   reverse TOP_CASE_TAC>>simp[]
   >- (fs[SUM_TYPE_def]>>xmatch>>err_tac)>>
@@ -1515,6 +1501,10 @@ Proof
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     qexists_tac`strlit"c Invalid range specification: range a-b must satisfy a <= b <= num lines in proof file\n"`>>xsimpl)>>
+  xlet`POSTv v. &NUM 1 v * STDIO fs` >- (xlit>>xsimpl)>>
+  drule fill_arr_spec>>
+  drule fill_earliest_spec>>
+  strip_tac >> strip_tac>>
   rpt(xlet_autop)>>
   (* help instantiate fill_arr_spec *)
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2 * x1) NONE)
@@ -1525,17 +1515,6 @@ Proof
   `LIST_REL (OPTION_TYPE NUM) (REPLICATE (2 * x0 + 3) NONE)
           (REPLICATE (2 * x0 + 3) (Conv (SOME (TypeStamp "None" 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
-  xlet_autop>>
-  xlet`
-    POSTv lv.
-    ARRAY resv' earliestv' * ARRAY resv arrlsv' * STDIO fs *
-    &(LIST_TYPE NUM (MAP FST (enumerate 1 x2)) lv)`
-  >- (
-    xapp_spec (ListProgTheory.map_1_v_thm |> INST_TYPE [alpha |-> ``:num``, beta |-> ``:num # int list``])>>
-    xsimpl>>
-    asm_exists_tac >>simp[]>>
-    qexists_tac`FST`>>
-    qexists_tac`NUM`>>simp[fst_v_thm])>>
   rpt xlet_autop >>
   xlet_auto
   >- (
@@ -1579,9 +1558,12 @@ Proof
     rw[]>>
     simp[check_lpr_range_list_def]>>fs[]>>
     simp[check_lpr_sat_equiv_list_def]>>
-    qexists_tac`err`>>xsimpl)>>
+    qexists_tac`err`>>xsimpl>>
+    fs[LENGTH_enumerate,rev_enum_full_rev_enumerate]>>
+    xsimpl)>>
   TOP_CASE_TAC>>simp[check_lpr_range_list_def,check_lpr_sat_equiv_list_def]>>
   simp[SUM_TYPE_def]>>strip_tac>>
+  fs[LENGTH_enumerate,rev_enum_full_rev_enumerate]>>
   TOP_CASE_TAC>>fs[OPTION_TYPE_def,SUM_TYPE_def]>> xmatch
   >- (
     xlet_autop>>
