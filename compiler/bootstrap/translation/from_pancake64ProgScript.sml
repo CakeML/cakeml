@@ -313,7 +313,7 @@ open loop_liveTheory;
 
 val _ = translate $ spec64 vars_of_exp_def;
 
-val res = translate_no_ind $ spec64 loop_liveTheory.shrink_def;
+val res = translate $ spec64 shrink_def;
 
 val ind_lemma = Q.prove(
   `^(first is_forall (hyp res))`,
@@ -331,10 +331,8 @@ val ind_lemma = Q.prove(
 
 val _ = translate $ spec64 mark_all_def;
 
-(* ^mark_all, ~shrink *)
 val _ = translate $ spec64 comp_def;
 
-(* ~comp, ^loop_call$comp *)
 val _ = translate $ spec64 optimise_def;
 
 open crep_to_loopTheory;
@@ -418,35 +416,24 @@ val _ = translate $ spec64 full_compile_single_def;
 (* ^full_compile_single *)
 val _ = translate $ spec64 compile_def;
 
-open word_to_stackTheory;
-
-val _ = translate $ INST_TYPE[alpha|->“:64”,
-                              beta|->“:64”] compile_def;
-
-open stack_to_labTheory;
-
-val _ = translate $ spec64 compile_def;
-
 open backendTheory;
-
-val _ = translate $ SIMP_RULE std_ss [dimword_def,lem,backend_commonTheory.word_shift_def] $ spec64 data_to_wordTheory.max_heap_limit_def;
 
 val _ = translate $ INST_TYPE[alpha|->“:word8 list”,
                               beta|->“:word64 list”,
                               gamma|->“:64”,
                               delta|->“:64”] attach_bitmaps_def;
 
-(* attach_bitmaps, lab_to_target$compile *)
+(* attach_bitmaps *)
 val _ = translate $ INST_TYPE[alpha|->“:64 word list”,
                               beta|->“:64”] from_lab_def;
 
-(* stack_to_lab$compile, from_lab *)
+(* from_lab *)
 val _ = translate $ SIMP_RULE std_ss [dimword_def,lem,backend_commonTheory.word_shift_def]
                   $ SIMP_RULE std_ss [data_to_wordTheory.max_heap_limit_def]
                   $ INST_TYPE[alpha|->“:64”,
                               beta|->“:64 word list”] from_stack_def;
 
-(* ^word_to_stack$compile from_stack *)
+(* from_stack *)
 val _ = translate $ spec64 from_word_def;
 
 open pan_to_targetTheory;
