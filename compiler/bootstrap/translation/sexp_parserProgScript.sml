@@ -160,19 +160,24 @@ val lemma2 = Q.prove(`
   rw[num_from_hex_string_alt_intro]);
 
 val _ = ml_translatorLib.use_string_type false;
+
+val _ = add_preferred_thy "-";
+
+Theorem decode_control_ind =
+  fromSexpTheory.decode_control_ind
+  |> SIMP_RULE std_ss [lemma2, SF CONJ_ss];
+
 val r = fromSexpTheory.decode_control_def
         |> SIMP_RULE std_ss [monad_unitbind_assert,lemma,lemma2]
         |> translate;
 
+val decode_control_side_def = theorem "decode_control_side_def";
+
 val decode_control_side = Q.prove(
   `∀x. decode_control_side x = T`,
-  ho_match_mp_tac fromSexpTheory.decode_control_ind \\
-  rw[Once(theorem"decode_control_side_def")] \\
-  rw[Once(theorem"decode_control_side_def")] \\ rfs[] \\
-  rw[num_from_hex_string_alt_length_2] \\
-  Cases_on`x1` \\ fs[] \\
-  rw[Once(theorem"decode_control_side_def")] \\
-  rw[Once(theorem"decode_control_side_def")])
+  ho_match_mp_tac decode_control_ind \\ rw []
+  \\ rw[Once decode_control_side_def]
+  \\ rw[num_from_hex_string_alt_length_2])
   |> update_precondition;
 
 val decode_control_wrapper_def = Define `

@@ -61,14 +61,14 @@ val max_lit_fml_side = Q.prove(
 val check_unsat_1 = (append_prog o process_topdecs) `
   fun check_unsat_1 enc f =
   let val fml = enc ()
-      val ls = enumerate 1 fml
-      val arr = Array.array (2*(List.length ls)) None
-      val arr = fill_arr arr ls
+      val one = 1
+      val arr = Array.array (2*(List.length fml)) None
+      val arr = fill_arr arr one fml
       val mv = max_lit_fml fml
       val bnd = 2*mv + 3
       val earr = Array.array bnd None
-      val earr = fill_earliest earr ls
-      val rls = List.rev (List.map fst ls)
+      val earr = fill_earliest earr one fml
+      val rls = rev_enum_full 1 fml
   in
     case check_unsat' 0 arr rls earr f bnd [[]] of
       Inl err => TextIO.output TextIO.stdErr err
@@ -115,13 +115,18 @@ Proof
   rw[]>>
   xcf "check_unsat_1" (get_ml_prog_state ())>>
   rpt xlet_autop>>
+  xlet`POSTv v. &NUM 1 v * STDIO fs` >- (xlit>>xsimpl)>>
+  drule fill_arr_spec>>
+  drule fill_earliest_spec>>
+  rw[]>>
+  rpt xlet_autop>>
   (* help instantiate fill_arr_spec *)
   qmatch_asmsub_abbrev_tac`NUM (LENGTH fmlls) nv`>>
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2*(LENGTH fmlls)) NONE)
         (REPLICATE (2 * (LENGTH fmlls)) (Conv (SOME (TypeStamp "None" 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
-  drule fill_arr_spec>>
-  disch_then drule>>
+  first_x_assum drule>>
+  rpt (disch_then drule)>>
   strip_tac>>
   rpt xlet_autop>>
   (* help instantiate fill_earliest_spec *)
@@ -129,21 +134,10 @@ Proof
   `LIST_REL (OPTION_TYPE NUM) (REPLICATE (2 * mv + 3) NONE)
           (REPLICATE (2 * mv + 3) (Conv (SOME (TypeStamp "None" 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
-  drule  fill_earliest_spec>>
+  first_x_assum drule>>
   disch_then drule>>
   strip_tac>>
   simp[Abbr`mv`]>>
-  xlet_autop >>
-  xlet`
-    POSTv lv.
-    ARRAY resv' earliestv' * ARRAY resv arrlsv' * STDIO fs *
-    &(LIST_TYPE NUM (MAP FST (enumerate 1 (enc()))) lv)`
-  >- (
-    xapp_spec (ListProgTheory.map_1_v_thm |> INST_TYPE [alpha |-> ``:num``, beta |-> ``:num # int list``])>>
-    xsimpl>>
-    asm_exists_tac >>simp[]>>
-    qexists_tac`FST`>>
-    qexists_tac`NUM`>>simp[fst_v_thm])>>
   rpt xlet_autop >>
   simp[check_unsat_1_sem_def,check_lpr_unsat_list_def]>>
   qmatch_goalsub_abbrev_tac`check_lpr_list _ _ a b c d`>>
@@ -194,6 +188,7 @@ Proof
       disch_then drule>>
       simp[index_def]>>rw[]>>
       intLib.ARITH_TAC)>>
+    fs[LENGTH_enumerate,rev_enum_full_rev_enumerate]>>
     metis_tac[])>>
   reverse TOP_CASE_TAC>>simp[]
   >- (fs[SUM_TYPE_def]>>xmatch>>err_tac)>>
