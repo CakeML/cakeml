@@ -2,7 +2,6 @@
   Formalisation of a flexible surface syntax and semantics for
   pseudo-boolean constraint (un-normalised) with 'a var type
 *)
-
 open preamble mlintTheory;
 
 val _ = new_theory "pbc";
@@ -177,7 +176,7 @@ QED
 Theorem eval_lin_term_MAP_negate_coeff:
   ∀f.
   eval_lin_term w (MAP (λ(c,l). (-c,l)) f) =
-  -eval_lin_term w (MAP (λ(c,l). (c,l)) f)
+  -eval_lin_term w f
 Proof
   Induct>>fs[eval_lin_term_def,iSUM_def]>>
   Cases_on`h`>>rw[]>>
@@ -201,8 +200,6 @@ Proof
   >-
     metis_tac[]>>
   fs[satisfies_pbc_def,eval_lin_term_MAP_negate_coeff]>>
-  `MAP (λ(c,l). (c,l)) f = f` by
-    simp[MAP_EQ_ID,FORALL_PROD]>>
   fs[]>>
   intLib.ARITH_TAC
 QED

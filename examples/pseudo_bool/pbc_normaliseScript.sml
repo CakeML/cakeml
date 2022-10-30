@@ -1,60 +1,67 @@
 (*
-  Normalization from pb_preconstraint into pb_constraint
+  Normalizes pbc into npbc
 *)
-open preamble pb_preconstraintTheory pb_constraintTheory;
+open preamble pbcTheory npbcTheory;
 
-val _ = new_theory "pb_normalise";
+val _ = new_theory "pbc_normalise";
 
 val _ = numLib.prefer_num();
+
+(* Normalization proceeds in two steps (for surface syntax):
+
+  string pbc -> int pbc
+  int pbc -> npbc
+
+  There is a builtin string normalization using hashing for
+  the supported characters
+
+  TODO: normalise string names using a hashmap or similar...
+*)
 
 (*
   Injective mapping from mlstring into num
 
   This does not simply parse a number but is optimized to keep numbers small if they are in the range
 
-  a-z, A-Z, 0-9, []{}_^
+  a-z, A-Z, 0-9, _ -
 
-  Other characters can be used but
+  EVAL ``MAP ORD (explode (strlit "_-"))``
 
-  EVAL ``MAP ORD (explode (strlit "[]{}_^"))``
+  Other characters allowed are _ and -
+
 *)
-Definition mapNon_def:
-  mapNon n =
-  if n = 91 then 63
-  else if n = 93 then 64
-  else if n = 123 then 65
-  else if n = 125 then 66
-  else if n = 95 then 67
-  else if n = 94 then 68
+Definition hashNon_def:
+  hashNon n =
+  if n = 45 then 63
+  else if n = 95 then 64
   else 0
 End
 
-Definition mapChar_def:
-  mapChar c =
+Definition hashChar_def:
+  hashChar c =
   let oc = ORD c in
-  if 48 ≤ oc ∧ oc ≤ 57 (* char 0 to 9 maps to 1-10 respectively *)
+  if 48 ≤ oc ∧ oc ≤ 57 (* char 0 to 9 hashes to 1-10 respectively *)
   then oc - 47
-  else if 65 ≤ oc ∧ oc ≤ 90 (* char A to Z maps to 11-36 *)
+  else if 65 ≤ oc ∧ oc ≤ 90 (* char A to Z hashes to 11-36 *)
   then oc - 54
-  else if 97 ≤ oc ∧ oc ≤ 122 (* char a to z maps to 37-62 *)
+  else if 97 ≤ oc ∧ oc ≤ 122 (* char a to z hashes to 37-62 *)
   then oc - 60
-  else mapNon oc
+  else hashNon oc
 End
 
-Definition mapChars_def:
-  (mapChars 0 str = 0) ∧
-  (mapChars (SUC n) str =
-    mapChars n str * 68 + mapChar (strsub str n))
+Definition hashChars_alt_def:
+  (hashChars_alt [] = 0) ∧
+  (hashChars_alt (c::cs) =
+    hashChar c + 65 * hashChars_alt cs)
 End
 
-Definition mapString_def:
-  mapString str = mapChars (strlen str) str
+Definition hashString_def:
+  hashString s = hashChars_alt (explode s)
 End
 
 (* Kind of a circular definition ... *)
 Definition goodChar_def:
-  goodChar c ⇔
-  mapChar c ≠ 0
+  goodChar c ⇔ hashChar c ≠ 0
 End
 
 Definition goodChars_def:
@@ -68,14 +75,15 @@ Definition goodString_def:
   goodString str = goodChars (strlen str) str
 End
 
-Theorem mapString_INJ:
-  INJ mapString goodString UNIV
+Theorem hashString_INJ:
+  INJ hashString goodString UNIV
 Proof
+  rw[INJ_DEF,SPECIFICATION,goodString_def,goodChars_def,hashString_def]>>
   cheat
 QED
 
 Definition convert_pbf_def:
-  convert_pbf pbf = MAP (map_pbc mapString) pbf
+  convert_pbf pbf = MAP (map_pbc hashString) pbf
 End
 
 Theorem convert_pbf_thm:
@@ -87,7 +95,7 @@ Proof
   match_mp_tac satisfiable_INJ_iff>>
   match_mp_tac INJ_SUBSET>>
   first_x_assum (irule_at Any)>>
-  metis_tac[mapString_INJ,SUBSET_REFL]
+  metis_tac[hashString_INJ,SUBSET_REFL]
 QED
 
 (* Convert a list of pbc to one with ≥ constraints only *)
@@ -104,23 +112,6 @@ Proof
   metis_tac[]
 QED
 
-Theorem eval_term_negate:
-  ∀ls.
-  (MAP (eval_term w) (MAP (λ(c,l). (-c,l)) ls)) =
-  (MAP (\i. -i) (MAP (eval_term w) ls))
-Proof
-  Induct>>simp[]>>
-  Cases>>rw[eval_term_def]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem iSUM_negate:
-  ∀ls. iSUM (MAP (\i. -i) ls) = -iSUM ls
-Proof
-  Induct>>simp[iSUM_def]>>
-  intLib.ARITH_TAC
-QED
-
 Theorem pbc_ge_thm:
   ∀c.
   satisfies w (set (pbc_ge c)) ⇔
@@ -130,9 +121,9 @@ Proof
   simp[pbc_ge_def,satisfies_def]>>
   rw[EQ_IMP_THM]
   >- (
-    fs[satisfies_pbc_def,eq_disj,eval_term_negate,iSUM_negate]>>
+    fs[satisfies_pbc_def,eq_disj,eval_lin_term_MAP_negate_coeff]>>
     intLib.ARITH_TAC) >>
-  fs[satisfies_pbc_def,eval_term_negate,iSUM_negate]>>
+  fs[satisfies_pbc_def,eval_lin_term_MAP_negate_coeff]>>
   intLib.ARITH_TAC
 QED
 
@@ -255,7 +246,7 @@ QED
 Theorem compact_lhs_sound:
   ∀xs n xs' n'.
   compact_lhs xs n = (xs',n') ⇒
-  iSUM (MAP (pb_preconstraint$eval_term w) xs) + n = iSUM (MAP (pb_preconstraint$eval_term w) xs') + n'
+  iSUM (MAP (pbc$eval_term w) xs) + n = iSUM (MAP (pbc$eval_term w) xs') + n'
 Proof
   ho_match_mp_tac (theorem "compact_lhs_ind")>>
   rw[compact_lhs_def]>> fs[]
@@ -300,7 +291,7 @@ End
 Theorem normalise_lhs_normalises:
   ∀ls acc n ls' n'.
   normalise_lhs ls acc n = (ls',n') ⇒
-  iSUM (MAP (pb_preconstraint$eval_term w) ls) + &(SUM (MAP (eval_term w) acc)) + n =
+  iSUM (MAP (pbc$eval_term w) ls) + &(SUM (MAP (eval_term w) acc)) + n =
   &(SUM (MAP (eval_term w) ls')) + n'
 Proof
   Induct>>rw[normalise_lhs_def,iSUM_def]
@@ -360,7 +351,7 @@ Proof
   pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
   drule compact_lhs_sound>>
-  disch_then(qspec_then`w` assume_tac)>>fs[]>>
+  disch_then(qspec_then`w` assume_tac)>>fs[eval_lin_term_def]>>
   drule normalise_lhs_normalises>>
   disch_then(qspec_then`w` assume_tac)>>fs[]>>
   simp[satisfies_npbc_def]>>
@@ -399,8 +390,8 @@ Theorem full_normalise_satisfiable:
   (satisfiable (set (full_normalise pbf)) ⇔
     satisfiable (set pbf))
 Proof
-  rw[pb_preconstraintTheory.satisfiable_def,pb_constraintTheory.satisfiable_def,full_normalise_def,normalise_thm]>>
-  metis_tac[convert_pbf_thm,pb_preconstraintTheory.satisfiable_def,pb_constraintTheory.satisfiable_def]
+  rw[pbcTheory.satisfiable_def,npbcTheory.satisfiable_def,full_normalise_def,normalise_thm]>>
+  metis_tac[convert_pbf_thm,pbcTheory.satisfiable_def,npbcTheory.satisfiable_def]
 QED
 
 Theorem lit_var_negate[simp]:

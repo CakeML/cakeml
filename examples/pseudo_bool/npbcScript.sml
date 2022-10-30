@@ -2,9 +2,9 @@
   Formalisation of normalised pseudo-boolean constraints
 *)
 
-open preamble pb_preconstraintTheory;
+open preamble pbcTheory;
 
-val _ = new_theory "pb_constraint";
+val _ = new_theory "npbc";
 
 val _ = numLib.prefer_num();
 
@@ -48,6 +48,11 @@ Definition satisfiable_def:
   satisfiable pbf ⇔
   ∃w. satisfies w pbf
 End
+
+Definition unsatisfiable_def:
+  unsatisfiable pbf ⇔ ¬satisfiable pbf
+End
+
 
 (* compactness *)
 
