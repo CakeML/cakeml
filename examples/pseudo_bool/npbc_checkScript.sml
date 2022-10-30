@@ -1,9 +1,9 @@
 (*
   Pseudo-boolean constraints proof format and checker
 *)
-open preamble pb_constraintTheory mlstringTheory mlintTheory;
+open preamble npbcTheory mlstringTheory mlintTheory;
 
-val _ = new_theory "pb_check";
+val _ = new_theory "npbc_check";
 
 val _ = numLib.prefer_num();
 
