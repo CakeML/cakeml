@@ -1,10 +1,11 @@
 (*
-  Formalisation of (un-normalised) pseudo-boolean constraints with 'a var type
+  Formalisation of a flexible surface syntax and semantics for
+  pseudo-boolean constraint (un-normalised) with 'a var type
 *)
 
 open preamble mlintTheory;
 
-val _ = new_theory "pb_preconstraint";
+val _ = new_theory "pbc";
 
 val _ = numLib.prefer_num();
 
@@ -17,15 +18,21 @@ End
   c_i l_i ≥ n OR
   c_i l_i = n OR
   where coefficients c_i and n are arbitrary integers and l_i are literals
+
+  TODO: the surface format could also support other comparators
+    like <, ≤ if needed
 *)
+
+(* A linear term over variables *)
+Type lin_term = ``:(int # 'a lit) list``;
+
 Datatype:
   pbc =
-    Equal ((int # 'a lit) list) int
-  | GreaterEqual ((int # 'a lit) list) int
+    Equal ('a lin_term) int
+  | GreaterEqual ('a lin_term) int
 End
 
-(* integer-valued semantics *)
-
+(* 0-1 integer-valued semantics *)
 Definition b2i_def[simp]:
   b2i T = 1i ∧
   b2i F = 0i
@@ -50,17 +57,17 @@ Definition iSUM_def:
   (iSUM (x::xs) = x + iSUM xs)
 End
 
-Definition eval_lhs_def[simp]:
-  eval_lhs w xs = iSUM (MAP (eval_term w) xs)
+Definition eval_lin_term_def:
+  eval_lin_term w (xs:'a lin_term) = iSUM (MAP (eval_term w) xs)
 End
 
-(* satisfaction of a pseudoboolean constraint *)
+(* satisfaction of a pseudo-boolean constraint *)
 Definition satisfies_pbc_def:
-  (satisfies_pbc w (Equal xs n) ⇔ eval_lhs w xs = n) ∧
-  (satisfies_pbc w (GreaterEqual xs n) ⇔ eval_lhs w xs ≥ n)
+  (satisfies_pbc w (Equal xs n) ⇔ eval_lin_term w xs = n) ∧
+  (satisfies_pbc w (GreaterEqual xs n) ⇔ eval_lin_term w xs ≥ n)
 End
 
-(* satisfaction of a set of pseudoboolean constraints *)
+(* satisfaction of a set of constraints *)
 Definition satisfies_def:
   satisfies w pbf ⇔
   ∀c. c ∈ pbf ⇒ satisfies_pbc w c
@@ -70,6 +77,135 @@ Definition satisfiable_def:
   satisfiable pbf ⇔
   ∃w. satisfies w pbf
 End
+
+Definition unsatisfiable_def:
+  unsatisfiable pbf ⇔ ¬satisfiable pbf
+End
+
+(* Optimality of an assignment *)
+Definition optimal_def:
+  optimal w pbf f ⇔
+    satisfies w pbf ∧
+    ∀w'.
+      satisfies w' pbf ⇒ eval_lin_term w f ≤ eval_lin_term w' f
+End
+
+Definition optimal_val_def:
+  optimal_val pbf f =
+    if satisfiable pbf then
+      SOME (eval_lin_term (@w. optimal w pbf f) f)
+    else
+      NONE
+End
+
+Theorem NUM_LE:
+  0 ≤ x ∧ 0 ≤ y ⇒
+  (Num x ≤ Num y ⇔ x ≤ y)
+Proof
+  intLib.ARITH_TAC
+QED
+
+Theorem optimal_exists:
+  satisfies w pbf ⇒
+  ∃w'.
+    optimal w' pbf f
+Proof
+  rw[]>>
+  qabbrev_tac`solns = {w | satisfies w pbf}`>>
+  qabbrev_tac`(mv:int) =
+    iSUM (MAP (λ(c,l). if c < 0 then c else 0) f)`>>
+  qabbrev_tac`objs = IMAGE (λw. Num (eval_lin_term w f - mv)) solns`>>
+  qabbrev_tac`opt = MIN_SET objs`>>
+
+  `objs ≠ {}` by (
+    unabbrev_all_tac>>
+    fs[EXTENSION]>>
+    metis_tac[])>>
+  drule MIN_SET_LEM>>
+  rw[]>>
+  unabbrev_all_tac>>fs[]>>
+  qexists_tac`w'`>>
+  fs[optimal_def,PULL_EXISTS]>>rw[]>>
+  first_x_assum drule>>
+  rw[]>>
+  pop_assum mp_tac>>
+  DEP_REWRITE_TAC [NUM_LE]>>
+  simp[]>>
+  `∀w f. 0 ≤
+   eval_lin_term w f -
+   iSUM (MAP (λ(c,l). if c < 0 then c else 0) f)` by
+    (rpt(pop_assum kall_tac)>>
+    strip_tac>>Induct>>
+    fs[eval_lin_term_def]>>rw[iSUM_def]>>
+    Cases_on`h`>>rw[]>>
+    Cases_on`r`>>fs[]>>
+    Cases_on`w a`>>fs[]>>
+    intLib.ARITH_TAC)>>
+  simp[]>>
+  pop_assum kall_tac>>
+  intLib.ARITH_TAC
+QED
+
+Theorem optimal_obj_eq:
+  optimal w pbf f ∧
+  optimal w' pbf f ⇒
+  eval_lin_term w f =
+  eval_lin_term w' f
+Proof
+  rw[optimal_def]>>
+  last_x_assum drule>>
+  qpat_x_assum`_ w' _` kall_tac>>
+  first_x_assum drule>>
+  intLib.ARITH_TAC
+QED
+
+Theorem optimal_optimal_val:
+  optimal w pbf f ⇒
+  optimal_val pbf f = SOME (eval_lin_term w f)
+Proof
+  rw[]>>
+  drule optimal_obj_eq>>
+  rw[optimal_val_def]
+  >- (
+    fs[satisfiable_def,optimal_def]>>
+    metis_tac[])>>
+  `optimal (@w. optimal w pbf f) pbf f` by
+    metis_tac[SELECT_AX]>>
+  metis_tac[]
+QED
+
+Theorem eval_lin_term_MAP_negate_coeff:
+  ∀f.
+  eval_lin_term w (MAP (λ(c,l). (-c,l)) f) =
+  -eval_lin_term w (MAP (λ(c,l). (c,l)) f)
+Proof
+  Induct>>fs[eval_lin_term_def,iSUM_def]>>
+  Cases_on`h`>>rw[]>>
+  Cases_on`r`>>rw[]>>Cases_on`w a`>>rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem optimal_witness:
+  satisfies w pbf ∧
+  unsatisfiable (
+    GreaterEqual (MAP (λ(c,l). (-c,l)) f)
+    (-(eval_lin_term w f) +1) INSERT pbf) ⇒
+  optimal_val pbf f = SOME (eval_lin_term w f)
+Proof
+  rw[]>>
+  match_mp_tac optimal_optimal_val>>
+  rw[optimal_def]>>
+  fs[unsatisfiable_def,satisfiable_def,satisfies_def,PULL_EXISTS]>>
+  first_x_assum (qspec_then `w'` assume_tac)>>
+  reverse (rw[])
+  >-
+    metis_tac[]>>
+  fs[satisfies_pbc_def,eval_lin_term_MAP_negate_coeff]>>
+  `MAP (λ(c,l). (c,l)) f = f` by
+    simp[MAP_EQ_ID,FORALL_PROD]>>
+  fs[]>>
+  intLib.ARITH_TAC
+QED
 
 Theorem satisfies_simp[simp]:
   satisfies w EMPTY = T ∧
@@ -110,7 +246,7 @@ Theorem satisfiable_map_pbc:
   satisfies_pbc (w o f) pbc
 Proof
   Cases_on`pbc`>>simp[satisfies_pbc_def,map_pbc_def,MAP_MAP_o,o_DEF,pbc_vars_def]>>
-  rw[]
+  rw[eval_lin_term_def]
   >- (
     AP_TERM_TAC>>
     match_mp_tac LIST_EQ>>simp[EL_MAP]>>
