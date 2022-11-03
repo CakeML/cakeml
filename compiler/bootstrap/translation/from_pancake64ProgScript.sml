@@ -64,6 +64,8 @@ val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
 
 val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
 
+val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``,``foo:'a stackLang$prog``, “foo:'a pan_to_crep$context”]
+
 open panLangTheory;
 
 val _ = register_type “:64 panLang$exp”;
@@ -160,23 +162,23 @@ val _ = translate $ spec64 comp_field_def;
 
 val _ = translate $ spec64 exp_hdl_def;
 
-val _ = register_type “:64 context”;
+(* val _ = register_type “:64 pan_to_crep$context”; *)
 
 val _ = translate $ INST_TYPE[alpha|->“:64”,
                               beta|->“:64”] compile_exp_def;
 
 Definition testing_def:
-  (compile _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
-  (compile ctxt (Dec v e p) =
+  (testing _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
+  (testing ctxt (Dec v e p) =
    let (es, sh) = compile_exp ctxt e;
        vmax = ctxt.vmax;
        nvars = GENLIST (λx. vmax + SUC x) (size_of_shape sh);
        nctxt = ctxt with  <|vars := ctxt.vars |+ (v, (sh, nvars));
                             vmax := ctxt.vmax + size_of_shape sh|> in
             if size_of_shape sh = LENGTH es
-            then nested_decs nvars es (compile nctxt p)
-            else Skip) (* /\
-  (compile ctxt (Assign v e) =
+            then nested_decs nvars es (testing nctxt p)
+            else Skip) /\
+  (testing ctxt (Assign v e) =
    let (es, sh) = compile_exp ctxt e in
    case FLOOKUP ctxt.vars v of
     | SOME (vshp, ns) =>
@@ -189,7 +191,7 @@ Definition testing_def:
                        (nested_seq (MAP2 Assign ns (MAP Var temps)))
       else Skip:'a crepLang$prog
     | NONE => Skip) /\
-  (compile ctxt (Store ad v) =
+  (testing ctxt (Store ad v) =
    case compile_exp ctxt ad of
     | (e::es',sh') =>
        let (es,sh) = compile_exp ctxt v;
@@ -200,11 +202,11 @@ Definition testing_def:
                  (nested_seq (stores (Var adv) (MAP Var temps) 0w))
             else Skip
     | (_,_) => Skip) /\
-  (compile ctxt (StoreByte dest src) =
+  (testing ctxt (StoreByte dest src) =
    case (compile_exp ctxt dest, compile_exp ctxt src) of
     | (ad::ads, _), (e::es, _) => StoreByte ad e
     | _ => Skip) /\
-  (compile ctxt (Return rt) =
+  (testing ctxt (Return rt) =
    let (ces,sh) = compile_exp ctxt rt in
    if size_of_shape sh = 0 then Return (Const 0w)
    else case ces of
@@ -215,7 +217,7 @@ Definition testing_def:
            then Seq (nested_decs temps (e::es)
                                  (nested_seq (store_globals 0w (MAP Var temps)))) (Return (Const 0w))
         else Skip) /\
-  (compile ctxt (Raise eid excp) =
+  (testing ctxt (Raise eid excp) =
     case FLOOKUP ctxt.eids eid of
     | SOME n =>
       let (ces,sh) = compile_exp ctxt excp;
@@ -225,21 +227,21 @@ Definition testing_def:
                 (Raise n)
        else Skip
     | NONE => Skip) /\
-  (compile ctxt (Seq p p') =
-    Seq (compile ctxt p) (compile ctxt p')) /\
-  (compile ctxt (If e p p') =
+  (testing ctxt (Seq p p') =
+    Seq (testing ctxt p) (testing ctxt p')) /\
+  (testing ctxt (If e p p') =
    case compile_exp ctxt e of
     | (ce::ces, _) =>
-      If ce (compile ctxt p) (compile ctxt p')
+      If ce (testing ctxt p) (testing ctxt p')
     | _ => Skip) /\
-  (compile ctxt (While e p) =
+  (testing ctxt (While e p) =
    case compile_exp ctxt e of
    | (ce::ces, _) =>
-     While ce (compile ctxt p)
+     While ce (testing ctxt p)
    | _ => Skip) /\
-  (compile ctxt Break = Break) /\
-  (compile ctxt Continue = Continue) /\
-  (compile ctxt (Call rtyp e es) =
+  (testing ctxt Break = Break) /\
+  (testing ctxt Continue = Continue) /\
+  (testing ctxt (Call rtyp e es) =
    let (cs, sh) = compile_exp ctxt e;
        cexps = MAP (compile_exp ctxt) es;
        args = FLAT (MAP FST cexps) in
@@ -256,7 +258,7 @@ Definition testing_def:
                 (case FLOOKUP ctxt.eids eid of
                    | NONE => Call NONE ce args
                    | SOME neid =>
-                     let comp_hdl = compile ctxt p;
+                     let comp_hdl = testing ctxt p;
                         hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
                      Call (SOME (NONE, Skip, (SOME (neid, hndlr)))) ce args))
           | SOME (sh, ns) =>
@@ -266,21 +268,59 @@ Definition testing_def:
                 (case FLOOKUP ctxt.eids eid of
                   | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
                   | SOME neid =>
-                    let comp_hdl = compile ctxt p;
+                    let comp_hdl = testing ctxt p;
                         hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
                       Call (SOME ((ret_var sh ns), (ret_hdl sh ns),
                               (SOME (neid, hndlr)))) ce args))))
     | [] => Skip) /\
-  (compile ctxt (ExtCall f ptr1 len1 ptr2 len2) =
+  (testing ctxt (ExtCall f ptr1 len1 ptr2 len2) =
    case (FLOOKUP ctxt.vars ptr1, FLOOKUP ctxt.vars len1,
          FLOOKUP ctxt.vars ptr2, FLOOKUP ctxt.vars len2) of
     | (SOME (One, pc::pcs), SOME (One, lc::lcs),
        SOME (One, pc'::pcs'), SOME (One, lc'::lcs')) => ExtCall f pc lc pc' lc'
     | _ => Skip) /\
-  (compile ctxt Tick = Tick) *)
+  (testing ctxt Tick = Tick)
 End
 
+Definition testing_def:
+  (testing _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
+  (testing ctxt (Dec v e p) =
+   let (es, sh) = compile_exp ctxt e;
+       vmax = ctxt.vmax;
+       nvars = GENLIST (λx. vmax + SUC x) (size_of_shape sh);
+       nctxt = ctxt with <|vmax := size_of_shape sh|> in
+            if size_of_shape sh = LENGTH es
+            then nested_decs nvars es (testing nctxt p)
+            else Skip) /\
+  (testing ctxt (Assign v e) = Tick) /\
+  (testing ctxt (Store ad v) = Tick) /\
+  (testing ctxt (StoreByte dest src) = Tick) /\
+  (testing ctxt (Return rt) = Tick) /\
+  (testing ctxt (Raise eid excp) = Tick) /\
+  (testing ctxt (Seq p p') = Tick) /\
+  (testing ctxt (If e p p') = Tick) /\
+  (testing ctxt (While e p) = Tick) /\
+  (testing ctxt Break = Break) /\
+  (testing ctxt Continue = Continue) /\
+  (testing ctxt (Call rtyp e es) = Tick) /\
+  (testing ctxt (ExtCall f ptr1 len1 ptr2 len2) = Tick) /\
+  (testing ctxt Tick = Tick)
+End        
 
+val res = translate_no_ind $ INST_TYPE[alpha|->“:64”, beta|->“:64”] testing_def;
+
+val ind_lemma = Q.prove(
+  `^(first is_forall (hyp res))`,
+  rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum (match_mp_tac o MP_CANON)
+  \\ rpt strip_tac
+  \\ FULL_SIMP_TAC bool_ss[panLangTheory.prog_11, panLangTheory.prog_distinct]
+  \\ rveq
+  \\ metis_tac [])
+|> update_precondition; 
 
 val _ = translate $ spec64 compile_def;
 
