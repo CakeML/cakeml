@@ -1516,7 +1516,7 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
     | build_measure (t1::t2::ts) = let
         val s1 = build_measure [t1]
         val s2 = build_measure (t2::ts)
-        in "sum_case ("^s1^") ("^s2^")" end
+        in "\\x. sum_CASE x ("^s1^") ("^s2^")" end
   val MEM_pat = MEM |> CONJUNCT2 |> SPEC_ALL |> concl |> rand |> rand
   val tac =
     (WF_REL_TAC [QUOTE ("measure (" ^ build_measure tys ^ ")")]
@@ -1533,7 +1533,13 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
   val inv_def = if is_list_type then LIST_TYPE_def else
                 if is_pair_type then PAIR_TYPE_def else
                 if is_unit_type then UNIT_TYPE_def else
-                  tDefine name [ANTIQUOTE (get_def_tm ())] tac
+                 (tDefine name [ANTIQUOTE (get_def_tm ())] tac (*handle HOL_ERR _ =>
+                  let
+                    val d = Defn.mk_defn name (get_def_tm ())
+                    val (def,ind) = Defn.tprove(d,tac)
+                  in
+                    def
+                  end *))
   val clean_rule = CONV_RULE (DEPTH_CONV (fn tm =>
                    if not (is_abs tm) then NO_CONV tm else
                    if fst (dest_abs tm) ~~ tmp_v_var then ALPHA_CONV real_v_var tm
@@ -1562,8 +1568,8 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
                    (ml_ty_name,xs,ty,sub lhs th,input)) (zip inv_defs ys)
   val _ = map reg_type ys2
   (* equality type and type rep *)
-  val eq_lemmas = map (fn ty => (ty, mk_EqualityType_thm is_exn_type ty
-        |> simp_eq_lemma)) tys
+  val eq_lemmas = (map (fn ty => (ty, mk_EqualityType_thm is_exn_type ty
+        |> simp_eq_lemma)) tys handle HOL_ERR _ => map (fn ty => (ty,TRUTH)) tys)
   val res = map (fn ((th,inv_def),(_,eq_lemma)) => (th,inv_def,eq_lemma))
                 (zip inv_defs eq_lemmas)
   val type_rep_lemmas = filter (not o same_const T o concl o snd) eq_lemmas
