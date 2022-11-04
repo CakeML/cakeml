@@ -922,8 +922,7 @@ val do_app = time Q.prove (
     SND s1 = s1_i1.ffi ∧
     genv_c_ok genv.c ∧
     op ≠ AallocEmpty ∧
-    getOpClass op ≠ Reals ∧
-    op ≠ Env_id
+    getOpClass op ≠ Reals
     ⇒
      ∃r_i1 s2_i1.
        LIST_REL (sv_rel genv) (FST s2) (TL s2_i1.refs) ∧
@@ -4142,24 +4141,7 @@ Proof
     fs [evaluateTheory.dec_clock_def, dec_clock_def] >>
     metis_tac (SUBSET_TRANS :: trans_thms)
   )
-  \\ Cases_on `op = Env_id`
-  >- (
-    fs [option_case_eq, pair_case_eq, result_rel_eqns, astTheory.getOpClass_def]
-    \\ rw []
-    \\ fs [semanticPrimitivesTheory.do_app_def]
-    \\ fs [case_eq_thms, semanticPrimitivesTheory.v_case_eq, pair_case_eq]
-    \\ rveq \\ fs []
-    \\ fs [v_rel_eqns]
-    \\ rveq \\ fs []
-    \\ imp_res_tac evaluate_length
-    \\ fs [compile_exps_length]
-    \\ fs [LENGTH_EQ_NUM_compute]
-    \\ fs [compile_exp_def]
-    \\ rw [result_rel_eqns, v_rel_eqns]
-    \\ asm_exists_tac \\ fs []
-    \\ fs [invariant_def, s_rel_cases]
-  ) >>
-  Cases_on ‘getOpClass op’ >> gs[]
+  >> Cases_on ‘getOpClass op’ >> gs[]
   >- (Cases_on ‘op’ >> gs[astTheory.getOpClass_def])
   >- (Cases_on ‘op’ >> gs[astTheory.getOpClass_def])
   >~ [‘getOpClass op = Reals’]

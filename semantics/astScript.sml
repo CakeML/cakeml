@@ -132,8 +132,6 @@ Datatype:
   | FFI string
   (* Evaluate new code in a given env *)
   | Eval
-  (* Get the identifier of an env object *)
-  | Env_id
 End
 
 (* Define operator classes, that allow to group their behavior later *)

@@ -322,10 +322,6 @@ Theorem do_app_perms:
 Proof
   strip_tac
   \\ qpat_x_assum ‘do_app _ _ _ = _’ mp_tac
-  \\ Cases_on ‘op = Env_id’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def, nat_to_v_def])
   \\ Cases_on ‘∃chn. op = FFI chn’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []

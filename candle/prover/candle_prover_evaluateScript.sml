@@ -287,11 +287,6 @@ Theorem do_app_ok:
 Proof
   strip_tac
   \\ qpat_x_assum ‘do_app _ _ _ = _’ mp_tac
-  \\ Cases_on ‘op = Env_id’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [v_ok_def, nat_to_v_def]
-    \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
   \\ Cases_on ‘∃chn. op = FFI chn’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []

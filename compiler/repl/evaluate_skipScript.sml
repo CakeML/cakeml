@@ -849,12 +849,6 @@ Theorem do_app_update:
               res res1
 Proof
   strip_tac
-  \\ Cases_on ‘op = Env_id’ \\ gs []
-  >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, CaseEqs ["list", "v", "option", "prod"],
-                           v_rel_def, OPTREL_def]
-    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs [v_rel_def, nat_to_v_def]
-    \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘∃chn. op = FFI chn’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,

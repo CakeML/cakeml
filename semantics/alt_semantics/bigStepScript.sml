@@ -31,7 +31,7 @@ Inductive opClass:
        op = Vlength ∨ op = Aalloc ∨ op = AallocEmpty ∨ op = Asub ∨
        op = Alength ∨ op = Aupdate ∨ op = Asub_unsafe ∨ op = Aupdate_unsafe ∨
        op = Aw8sub_unsafe ∨ op = Aw8update_unsafe ∨ op = ListAppend ∨
-       op = ConfigGC ∨ op = Env_id ∨ op = Opderef ∨ op = AallocFixed
+       op = ConfigGC ∨ op = Opderef ∨ op = AallocFixed
        ⇒
        opClass op Simple) ∧
 (* FunApp *)

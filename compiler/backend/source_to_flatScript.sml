@@ -192,14 +192,6 @@ Definition compile_exp_def:
                 (Let None (SOME "r") (App None (GlobalVarLookup 0) [])
                     (flatLang$App None (El 0) [Var_local None "r"])))]
     else
-    if op = Env_id then (case es of
-      | [_] => (case compile_exps t env es of
-                | x::xs => x
-                | _ => Var_local None "" (* Can't happen *))
-      (* possible only if one of es raises an exception *)
-      | _ => App None (El 0) (compile_exps t env es)
-      )
-    else
       flatLang$App None (astOp_to_flatOp op) (compile_exps t env es)) ∧
   (compile_exp t env (Log lop e1 e2) =
       case lop of

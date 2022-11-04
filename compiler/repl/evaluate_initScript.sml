@@ -357,9 +357,6 @@ Proof
     gs [state_ok_def, state_rel_def, EVERY_EL, ref_ok_def]
     \\ rw [] \\ gs [FLOOKUP_FUN_FMAP])
   \\ simp [Once CONJ_COMM]
-  \\ Cases_on ‘op = Env_id’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
   \\ Cases_on ‘∃chn. op = FFI chn’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, ffiTheory.call_FFI_def, store_assign_def,

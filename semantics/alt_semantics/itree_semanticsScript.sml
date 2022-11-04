@@ -368,10 +368,6 @@ Definition do_app_def:
       )
     | (ConfigGC, [Litv (IntLit i); Litv (IntLit j)]) =>
         SOME (s, Rval (Conv NONE []))
-    | (Env_id, [Env env (gen, id)]) => SOME (s,
-            Rval (Conv NONE [nat_to_v gen; nat_to_v id]))
-    | (Env_id, [Conv NONE [gen; id]]) => SOME (s,
-            Rval (Conv NONE [gen; id]))
     | _ => NONE
 End
 
