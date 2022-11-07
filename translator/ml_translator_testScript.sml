@@ -252,21 +252,27 @@ val res = translate (miscTheory.arith_shift_right_def
                      |> PURE_REWRITE_RULE [wordsTheory.dimindex_64]
                      |> CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV));
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+Triviality arith_shift_right_ind:
+  arith_shift_right_ind
+Proof
+  once_rewrite_tac [fetch "-" "arith_shift_right_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (latest_ind ())
   \\ rpt strip_tac
   \\ last_x_assum match_mp_tac
   \\ rpt strip_tac
   \\ fs [FORALL_PROD]
-  \\ first_x_assum match_mp_tac \\ wordsLib.WORD_EVAL_TAC \\ rw[])
-  |> update_precondition;
+  \\ first_x_assum match_mp_tac \\ wordsLib.WORD_EVAL_TAC \\ rw[]
+QED
+
+val _ = arith_shift_right_ind |> update_precondition;
 
 val shift_test_def = Define `shift_test (x:word64) y = arith_shift_right x y`
 
 val res = translate shift_test_def;
+
+val _ = res |> hyp |> null orelse fail ();
 
 (* Translation failure with primes *)
 val _ = Datatype` idrec = <|v : num; f : 'a|>`;
@@ -315,7 +321,7 @@ val test_def = xDefine "test" `test x = (case x of
   | E1 (x, y) => REVERSE (test x) ++ test y)`
 ;
 
-val _ = translate_no_ind test_def;
+val r = translate_no_ind test_def;
 
 (* registering types inside modules *)
 
