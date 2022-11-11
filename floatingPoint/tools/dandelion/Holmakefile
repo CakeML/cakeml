@@ -1,6 +1,6 @@
 INCLUDES = $(HOLDIR)/examples/algebra/polynomial\
-	   $(CAKEMLDIR)/tools/flover\
-	   $(CAKEMLDIR)/tools/flover/semantics
+	   $(CAKEMLDIR)/floatingPoint/tools/flover\
+	   $(CAKEMLDIR)/floatingPoint/tools/flover/semantics
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

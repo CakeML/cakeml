@@ -128,12 +128,13 @@ compiler/inference/tests
 compiler/printing/test
 
 # Floating-Point optimizer
-icing/flover
-icing/
-icing/examples
+floatingPoint/tools/flover
+floatingPoint/icing/
+floatingPoint/icing/examples
 
 # Floating-Point codegen
-libmGen/
+floatingPoint/tools/dandelion
+floatingPoint/libmGen/
 
 # compiler translation
 compiler/repl

@@ -2,12 +2,10 @@ INCLUDES = $(HOLDIR)/examples/formal-languages/context-free\
            $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc\
 	   $(CAKEMLDIR)/unverified/sexpr-bootstrap\
 	   $(CAKEMLDIR)/semantics $(CAKEMLDIR)/characteristic\
-	   $(CAKEMLDIR)/icing\
-	   $(CAKEMLDIR)/tools/flover\
-	   $(CAKEMLDIR)/tools/dandelion
+	   $(CAKEMLDIR)/compiler $(CAKEMLDIR)/compiler/inference\
+	   $(CAKEMLDIR)/compiler/backend/proofs\
+	   $(CAKEMLDIR)/floatingPoint/tools/flover
 
-#Explicitly without $(DEFAULT_TARGETS) to reduce compilation time
-DEFAULT_TARGETS = atnDeg3Theory.sig
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

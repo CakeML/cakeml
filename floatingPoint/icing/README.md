@@ -34,9 +34,6 @@ theorems.
 Translation from CakeML floating-point computations to
 CakeML real-number computations.
 
-[flover](flover):
-# FloVer - A Certificate Checker for Roundoff Error Bounds
-
 [icingTacticsLib.sml](icingTacticsLib.sml):
 Tactic library for PrincessCake development
 
