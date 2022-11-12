@@ -94,8 +94,7 @@ function calls.
 Replaces free variables with constant type errors.
 
 [clos_interpScript.sml](clos_interpScript.sml):
-Correctness proof for closLang interpreter used by the REPL, i.e. Install,
-to avoid spending time comiling simple run-once code in declarations.
+Implementation of interpreter for closLang expressions written in closLang.
 
 [clos_knownScript.sml](clos_knownScript.sml):
 This complicated compiler phase tracks where closure values flow

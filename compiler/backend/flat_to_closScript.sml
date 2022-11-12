@@ -4,11 +4,11 @@
   closLang. It also makes all division-by-zero and out-of-bounds
   exceptions raised explicitly.
 *)
-open preamble flatLangTheory closLangTheory
+open preamble flatLangTheory closLangTheory clos_interpTheory;
 
 val _ = new_theory"flat_to_clos"
 
-val _ = set_grammar_ancestry ["flatLang","closLang","backend_common"];
+val _ = set_grammar_ancestry ["flatLang", "closLang", "clos_interp", "backend_common"];
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -301,10 +301,6 @@ Definition compile_decs_def:
   compile_decs [] = [] /\
   compile_decs ((Dlet e)::xs) = compile [] [e] ++ compile_decs xs /\
   compile_decs (_::xs) = compile_decs xs
-End
-
-Definition clos_interpreter_def:
-  clos_interpreter = Op None (Cons 0) [] (* TODO: implement *)
 End
 
 Definition compile_init_def:
