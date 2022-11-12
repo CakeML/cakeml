@@ -7,7 +7,8 @@
       5) reg_alloc;
       6) word_to_stack.
 *)
-open preamble asmTheory wordLangTheory word_allocTheory word_removeTheory word_simpTheory
+open preamble asmTheory wordLangTheory word_allocTheory word_removeTheory
+open word_simpTheory word_cseTheory
 local open word_instTheory in (* word-to-word transformations *) end
 open mlstringTheory
 
@@ -25,7 +26,8 @@ val compile_single_def = Define`
   let maxv = max_var prog + 1 in
   let inst_prog = inst_select c maxv prog in
   let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
-  let rm_prog = FST(remove_dead ssa_prog LN) in
+  let cse_prog = word_common_subexp_elim ssa_prog in
+  let rm_prog = FST(remove_dead cse_prog LN) in
   let prog = if two_reg_arith then three_to_two_reg rm_prog
                               else rm_prog in
   let reg_prog = word_alloc name_num c alg reg_count prog col_opt in
@@ -60,7 +62,9 @@ Definition full_compile_single_for_eval_def:
     let _ = empty_ffi (strlit "finished: word_inst") in
     let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
     let _ = empty_ffi (strlit "finished: word_ssa") in
-    let rm_prog = FST(remove_dead ssa_prog LN) in
+    let cse_prog = word_common_subexp_elim ssa_prog in
+    let _ = empty_ffi (strlit "finished: word_cse") in
+    let rm_prog = FST(remove_dead cse_prog LN) in
     let _ = empty_ffi (strlit "finished: word_remove_dead") in
     let prog = if two_reg_arith then three_to_two_reg rm_prog
                                 else rm_prog in
@@ -94,7 +98,9 @@ Theorem compile_alt:
     let _ = empty_ffi (strlit "finished: word_inst") in
     let ssa_ps = MAP2 (λa p. full_ssa_cc_trans a p) args inst_ps in
     let _ = empty_ffi (strlit "finished: word_ssa") in
-    let dead_ps = MAP (\p. FST (remove_dead p LN)) ssa_ps in
+    let cse_ps = MAP word_common_subexp_elim ssa_ps in
+    let _ = empty_ffi (strlit "finished: word_cse") in
+    let dead_ps = MAP (\p. FST (remove_dead p LN)) cse_ps in
     let _ = empty_ffi (strlit "finished: word_remove_dead") in
     let two_ps = if two_reg_arith then MAP three_to_two_reg dead_ps else dead_ps in
     let _ = empty_ffi (strlit "finished: word_two_reg") in

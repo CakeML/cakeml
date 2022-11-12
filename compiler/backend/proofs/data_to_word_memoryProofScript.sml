@@ -176,7 +176,7 @@ val v_size_LEMMA = Q.prove(
   NIL-like constructors end in ...10
 *)
 
-val v_inv_def = tDefine "v_inv" `
+Definition v_inv_def[schematic]:
   (* v_inv v (x,f,tf,heap)
      v    : the dataSem value
      x    : the abstract gc value
@@ -205,9 +205,11 @@ val v_inv_def = tDefine "v_inv" `
          EVERY2 (\v x. v_inv v (x,f,tf,heap)) vs xs /\
          FLOOKUP tf ts = SOME ptr ∧
          (x = Pointer ptr (Word (ptr_bits conf n (LENGTH xs)))) /\
-         (heap_lookup ptr heap = SOME (BlockRep n xs)))`
- (WF_REL_TAC `measure (v_size o FST)` \\ rpt strip_tac
-  \\ imp_res_tac v_size_LEMMA \\ DECIDE_TAC);
+         (heap_lookup ptr heap = SOME (BlockRep n xs)))
+Termination
+  WF_REL_TAC `measure (v_size o FST)` \\ rpt strip_tac
+  \\ imp_res_tac v_size_LEMMA \\ DECIDE_TAC
+End
 
 val get_refs_def = tDefine "get_refs" `
   (get_refs (Number _) = []) /\
@@ -252,7 +254,7 @@ val v_all_ts_def = tDefine"v_all_ts" `
 (* TODO: MOVE *)
 val all_ts_def = Define`
   all_ts refs stack =
-    let refs_v = {x | ∃n l. lookup n refs = SOME (ValueArray l) ∧ MEM x l}
+    let refs_v = {x | ∃n l. sptree$lookup n refs = SOME (ValueArray l) ∧ MEM x l}
     in {ts | ∃x. (x ∈ refs_v ∨ MEM x stack) ∧ MEM ts (v_all_ts x)}
 `
 

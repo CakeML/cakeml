@@ -305,6 +305,26 @@ open word_simpTheory word_allocTheory word_instTheory
 
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``]
 
+val res = word_cseTheory.map_insert_def |> DefnBase.one_line_ify NONE |> translate;
+val res = translate (word_cseTheory.word_cseInst_def |> spec32);
+val res = translate_no_ind (word_cseTheory.word_cse_def |> spec32);
+
+Theorem word_cse_ind[local]:
+  ^(hyp res |> first is_forall)
+Proof
+  rpt strip_tac
+  \\ rename [‘P x y’]
+  \\ qid_spec_tac ‘x’
+  \\ qid_spec_tac ‘y’
+  \\ ho_match_mp_tac word_simpTheory.simp_if_ind
+  \\ rpt strip_tac
+  \\ last_x_assum irule
+  \\ fs []
+QED
+val _ = word_cse_ind |> update_precondition;
+
+val res = translate (word_cseTheory.word_common_subexp_elim_def |> spec32);
+
 val _ = translate (const_fp_inst_cs_def |> spec32 |> econv)
 
 val rws = Q.prove(`

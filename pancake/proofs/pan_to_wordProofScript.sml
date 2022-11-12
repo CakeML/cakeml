@@ -376,9 +376,7 @@ Theorem state_rel_imp_semantics:
   t.mdomain = s.memaddrs ∧
   t.be = s.be ∧
   t.ffi = s.ffi ∧
-  IS_SOME (FLOOKUP t.store CurrHeap) ∧
-  isWord (THE (FLOOKUP t.store CurrHeap)) ∧
-  theWord (THE (FLOOKUP t.store CurrHeap)) = s.base_addr ∧
+  ALOOKUP (fmap_to_alist t.store) CurrHeap = SOME (Word s.base_addr) ∧
   ALL_DISTINCT (MAP FST pan_code) ∧
   ALOOKUP pan_code start = SOME ([],prog) ∧
   lc < LENGTH pan_code ∧ EL lc pan_code = (start,[],prog) ∧

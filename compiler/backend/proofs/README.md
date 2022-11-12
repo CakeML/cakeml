@@ -151,6 +151,9 @@ Correctness proof for word_alloc
 [word_bignumProofScript.sml](word_bignumProofScript.sml):
 Correctness proof for word_bignum
 
+[word_cseProofScript.sml](word_cseProofScript.sml):
+Correctness proof for word_cse
+
 [word_depthProofScript.sml](word_depthProofScript.sml):
 Proves correctness of the max_depth applied to the call graph of a
 wordLang program as produced by the word_depth$call_graph function.

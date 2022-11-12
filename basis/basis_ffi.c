@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <assert.h>
-#ifdef __EVAL__
+#ifdef EVAL
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -36,7 +36,7 @@ extern char cake_text_begin;
 extern char cake_codebuffer_begin;
 extern char cake_codebuffer_end;
 
-#ifdef __EVAL__
+#ifdef EVAL
 
 /* Signal handler for SIGINT */
 
@@ -63,6 +63,12 @@ void ffikernel_ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
         putc(c[i], stdout);
     }
 }
+
+#else
+
+void ffipoll_sigint (unsigned char *c, long clen, unsigned char *a, long alen) { }
+
+void ffikernel_ffi (unsigned char *c, long clen, unsigned char *a, long alen) { }
 
 #endif
 
@@ -134,7 +140,7 @@ void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
 
 void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
   assert(9 <= alen);
-  #ifdef __EVAL__
+  #ifdef EVAL
   int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
   #else
   int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC);
@@ -373,7 +379,7 @@ int main (int local_argc, char **local_argv) {
   cml_stack = cml_heap + cml_heap_sz;
   cml_stackend = cml_stack + cml_stack_sz;
 
-  #ifdef __EVAL__
+  #ifdef EVAL
 
   /** Set up the "eval" code buffer to be read-write-execute. **/
   if(mprotect(&cake_text_begin, &cake_codebuffer_end - &cake_text_begin,

@@ -69,7 +69,7 @@ Definition data_buffer_def:
      MAP (\n. strlit (n ++ "\n"))
        ["     .globl cdecl(cake_bitmaps_buffer_begin)";
         "cdecl(cake_bitmaps_buffer_begin):";
-        "#if defined(__EVAL__)";
+        "#if defined(EVAL)";
         "     .space DATA_BUFFER_SIZE";
         "#endif";
         "     .globl cdecl(cake_bitmaps_buffer_end)";
@@ -81,7 +81,7 @@ Definition code_buffer_def:
      MAP (\n. strlit (n ++ "\n"))
        ["     .globl cdecl(cake_codebuffer_begin)";
         "cdecl(cake_codebuffer_begin):";
-        "#if defined(__EVAL__)";
+        "#if defined(EVAL)";
         "     .space CODE_BUFFER_SIZE";
         "#endif";
         "     .p2align 12";

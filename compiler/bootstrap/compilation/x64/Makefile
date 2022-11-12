@@ -17,7 +17,7 @@ ifeq ($(OS),Windows_NT)
 else
 	PREF = ./
 	SUFF =
-	EVALFLAG = -D__EVAL__
+	EVALFLAG = -DEVAL
 endif
 
 ifeq ($(OS),Darwin)

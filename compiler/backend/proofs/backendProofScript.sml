@@ -3361,7 +3361,7 @@ Proof
     match_mp_tac ALOOKUP_ALL_DISTINCT_MEM \\
     simp[MAP_MAP_o,o_DEF,LAMBDA_PROD,data_to_wordTheory.compile_part_def,FST_triple,MEM_MAP,EXISTS_PROD] \\
     metis_tac[ALOOKUP_MEM] ) \\
-  `data_to_wordProof$code_rel_ext (fromAList t_code) (fromAList p5)` by metis_tac[code_rel_ext_word_to_word] \\
+  `word_to_wordProof$code_rel_ext (fromAList t_code) (fromAList p5)` by metis_tac[word_to_wordProofTheory.code_rel_ext_word_to_word] \\
   qpat_x_assum`Abbrev(tar_st = _)`kall_tac \\
   (* syntactic properties from stack_to_lab *)
   `all_enc_ok_pre c4.lab_conf.asm_conf p7` by (

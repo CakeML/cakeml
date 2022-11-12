@@ -1097,17 +1097,6 @@ Proof
   \\ disch_then drule \\ fs [extend_with_resource_limit'_def]
 QED
 
-val code_rel_ext_def = Define`
-  code_rel_ext code l ⇔
-  (∀n p_1 p_2.
-        SOME (p_1,p_2) = lookup n code ⇒
-        ∃t' k' a' c' col.
-          SOME
-            (SND (full_compile_single t' k' a' c' ((n,p_1,p_2),col))) =
-          lookup n l)`
-
-val code_rel_ext_def = definition"code_rel_ext_def";
-
 Definition get_limits_def:
   get_limits c (t :('a, 'c, 'ffi) wordSem$state) =
     <| stack_limit := t.stack_limit
@@ -1603,35 +1592,6 @@ Proof
   \\ strip_tac \\ rveq \\ EVAL_TAC
 QED
 
-Theorem code_rel_ext_word_to_word:
-   ∀code c1 col code'.
-   compile c1 c2 code = (col,code') ⇒
-   code_rel_ext (fromAList code) (fromAList code')
-Proof
-  simp[word_to_wordTheory.compile_def,code_rel_ext_def] \\
-  rw[]>>
-  pairarg_tac>>fs[]>>rw[]>>
-  `LENGTH n_oracles = LENGTH code` by
-    (fs[word_to_wordTheory.next_n_oracle_def]>>
-    every_case_tac>>rw[]>>fs[])>>
-  last_x_assum mp_tac>>
-  pop_assum mp_tac>>
-  pop_assum kall_tac>>
-  map_every qid_spec_tac [`n_oracles`,`p_1`,`p_2`,`n`]>>
-  Induct_on`code` \\ rw[] \\
-  fs[lookup_fromAList]>>
-  Cases_on`n_oracles`>>fs[]>>
-  Cases_on`h`>>fs[]>>
-  simp[word_to_wordTheory.full_compile_single_def,SimpRHS] \\
-  pairarg_tac \\ fs[] \\
-  qmatch_asmsub_rename_tac`((q,p),h)` \\
-  PairCases_on`p` \\ fs[word_to_wordTheory.compile_single_def] \\
-  rveq \\ fs[] \\
-  IF_CASES_TAC \\ fs[] \\
-  simp[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def]>>
-  metis_tac[]
-QED
-
 Theorem max_heap_limit_has_fp_ops[simp]:
    max_heap_limit (:α) (conf with has_fp_ops := b) =
     max_heap_limit (:α) conf
@@ -2070,11 +2030,12 @@ Proof
   simp[COND_RAND]>>
   fs[word_good_handlers_three_to_two_reg]>>
   match_mp_tac word_good_handlers_remove_dead>>
+  match_mp_tac word_cseProofTheory.word_good_handlers_word_common_subexp_elim >>
   simp[word_good_handlers_full_ssa_cc_trans,word_good_handlers_inst_select]>>
   match_mp_tac word_good_handlers_word_simp>>
   fs[FORALL_PROD]>>
   metis_tac[EL_MEM]
-QED;
+QED
 
 Theorem word_get_code_labels_word_to_word_incr_helper:
   ∀oracles.
@@ -2097,7 +2058,8 @@ Proof
     fs[COND_RAND]>>
     fs[word_get_code_labels_three_to_two_reg]>>
     old_drule (word_get_code_labels_remove_dead|>SIMP_RULE std_ss [SUBSET_DEF])>>
-    simp[word_get_code_labels_full_ssa_cc_trans,word_get_code_labels_inst_select]>>
+    simp[word_get_code_labels_full_ssa_cc_trans,word_get_code_labels_inst_select,
+         word_cseProofTheory.word_get_code_labels_word_common_subexp_elim]>>
     strip_tac>>
     old_drule (word_get_code_labels_word_simp|>SIMP_RULE std_ss [SUBSET_DEF])>>
     rw[]>>fs[FORALL_PROD,EXISTS_PROD,PULL_EXISTS,EVERY_MEM]>>
@@ -2170,7 +2132,7 @@ val word_get_code_labels_MemEqList = Q.prove(`
 Triviality part_to_words_isWord:
   ∀h c m i w ws.
     part_to_words c m h i = SOME (w,ws) ∧
-    (∀n v. lookup n m = SOME v ⇒ isWord (SND v)) ⇒
+    (∀n v. sptree$lookup n m = SOME v ⇒ isWord (SND v)) ⇒
     EVERY isWord (MAP SND ws) ∧ isWord (SND w)
 Proof
   Cases_on ‘h’ \\ fs [part_to_words_def] \\ rw []
@@ -2187,7 +2149,7 @@ QED
 Triviality parts_to_words_isWord:
   ∀ps c w ws m n i.
     parts_to_words c m n ps i = SOME (w,ws) ∧
-    (∀n v. lookup n m = SOME v ⇒ isWord (SND v)) ⇒
+    (∀n v. sptree$lookup n m = SOME v ⇒ isWord (SND v)) ⇒
     EVERY isWord (MAP SND ws) ∧ isWord (SND w)
 Proof
   Induct
