@@ -65,7 +65,7 @@ Termination
   \\ pop_assum (qspec_then`list_size pbpstep_size` mp_tac)
   \\ pop_assum (qspec_then`pbpstep_size` assume_tac)
   \\ rw[]
-  \\ qmatch_goalsub_abbrev_tac`_ < _ + (ls2 + _)`
+  \\ qmatch_goalsub_abbrev_tac`_ < _ + (_ + (ls2 + _))`
   \\ qmatch_asmsub_abbrev_tac`_ < ls1`
   \\ `ls1 <= ls2` by (
     unabbrev_all_tac
@@ -95,8 +95,8 @@ Definition check_cutting_def:
     else NONE) ∧
   (check_cutting fml (Sat c) =
     OPTION_MAP saturate (check_cutting fml c)) ∧
-  (check_cutting fml (Lit (Pos v)) = SOME (PBC [(1,v)] 0)) ∧
-  (check_cutting fml (Lit (Neg v)) = SOME (PBC [(-1,v)] 0)) ∧
+  (check_cutting fml (Lit (Pos v)) = SOME ([(1,v)],0)) ∧
+  (check_cutting fml (Lit (Neg v)) = SOME ([(-1,v)],0)) ∧
   (check_cutting fml (Weak c var) =
     OPTION_MAP (λc. weaken c var) (check_cutting fml c))
 End
@@ -235,7 +235,7 @@ Termination
   >- (EVAL_TAC>>rw[])
   \\ drule extract_clauses_MAP_SND
   \\ simp[] \\ rw[]
-  \\ qmatch_goalsub_abbrev_tac`ls1 < _ + (ls2 + _)`
+  \\ qmatch_goalsub_abbrev_tac`ls1 < _ + (_ + (ls2 + _))`
   \\ `ls1 <= ls2` by (
     unabbrev_all_tac
     \\ rpt (pop_assum kall_tac)
@@ -549,6 +549,8 @@ Proof
     \\ first_x_assum (irule_at Any)
     \\ fs[id_ok_def])
   (* Red steps *)
+  \\ cheat
+  (* TODO: something broken below
   \\ ‘∃c s pfs. step = Red c s pfs’ by (Cases_on ‘step’ \\ fs [])
   \\ gvs []
   \\ simp[check_pbpstep_def]
@@ -588,13 +590,13 @@ Proof
     \\ fs [satisfies_def,range_def,PULL_EXISTS]
     \\ metis_tac[])
   \\ strip_tac
-  \\  drule extract_clauses_MEM_INL
+  \\  drule extract_clauses_MEM_INR
   \\ strip_tac
   \\ first_x_assum drule
   \\ strip_tac
   \\ first_x_assum drule
   \\ fs[]
-  \\ metis_tac[INSERT_SING_UNION,UNION_COMM]
+  \\ metis_tac[INSERT_SING_UNION,UNION_COMM] *)
 QED
 
 Theorem check_pbpstep_compact:

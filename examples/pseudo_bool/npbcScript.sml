@@ -1,7 +1,6 @@
 (*
   Formalisation of normalised pseudo-boolean constraints
 *)
-
 open preamble pbcTheory;
 
 val _ = new_theory "npbc";
@@ -10,14 +9,11 @@ val _ = numLib.prefer_num();
 
 Type var = “:num”
 
-(* Normalized pseudoboolean constraints PBC xs n represents constraint xs ≥ n
+(* Normalized pseudoboolean constraints (xs,n) represents constraint xs ≥ n
 An additional compactness assumption guarantees uniqueness *)
-Datatype:
-  npbc = PBC ((int # var) list) num
-End
+Type npbc = ``: ((int # var) list) #num``
 
 (* semantics *)
-
 Definition b2n_def[simp]:
   b2n T = 1:num ∧
   b2n F = 0:num
@@ -35,7 +31,7 @@ Definition eval_term_def[simp]:
 End
 
 Definition satisfies_npbc_def:
-  satisfies_npbc w (PBC xs n) ⇔ SUM (MAP (eval_term w) xs) ≥ n
+  satisfies_npbc w (xs,n) ⇔ SUM (MAP (eval_term w) xs) ≥ n
 End
 
 (* Tentative representation of PBF as a set of constraints *)
@@ -53,17 +49,15 @@ Definition unsatisfiable_def:
   unsatisfiable pbf ⇔ ¬satisfiable pbf
 End
 
-
 (* compactness *)
 
 Definition compact_def[simp]:
-  compact (PBC xs n) ⇔
+  compact ((xs,n):npbc) ⇔
     SORTED $< (MAP SND xs) ∧ (* implies that no var is mentioned twice *)
     EVERY (λc. c ≠ 0) (MAP FST xs)
 End
 
 (* addition -- implementation *)
-
 Definition offset_def:
   offset c1 c2 =
   if (c1 < 0) = (c2 < 0) then 0 else
@@ -97,9 +91,9 @@ Definition add_lists_def:
 End
 
 Definition add_def:
-  add (PBC xs m) (PBC ys n) =
+  add (xs,m) (ys,n) =
     let (xs,d) = add_lists xs ys in
-      PBC xs ((m + n) - d)
+      (xs,((m + n) - d))
 End
 
 (* addition -- proof *)
@@ -317,8 +311,8 @@ Proof
 QED
 
 Definition divide_def:
-  divide (PBC l n) k =
-    PBC (MAP (λ(c,v). (div_ceiling c k, v)) l) (n \\ k)
+  divide ((l,n):npbc) k =
+    (MAP (λ(c,v). (div_ceiling c k, v)) l,n \\ k)
 End
 
 Theorem divide_thm:
@@ -328,7 +322,7 @@ Proof
   \\ rw [satisfies_npbc_def,GREATER_EQ,CEILING_DIV_LE_X]
   \\ irule LESS_EQ_TRANS
   \\ first_x_assum $ irule_at Any
-  \\ Induct_on ‘l’ \\ fs [FORALL_PROD]
+  \\ Induct_on ‘q’ \\ fs [FORALL_PROD]
   \\ fs [LEFT_ADD_DISTRIB] \\ rw []
   \\ irule (DECIDE “m ≤ m1 ∧ n ≤ n1 ⇒ m+n ≤ m1+n1:num”)
   \\ fs[] \\ Cases_on ‘p_1’ \\ gvs [div_ceiling_compute,DIV_CEILING_EQ_0]
@@ -354,8 +348,10 @@ QED
 Theorem compact_divide:
   compact c ∧ k ≠ 0 ⇒ compact (divide c k)
 Proof
-  Cases_on`c` \\ rw[compact_def,divide_def]
-  THEN1 (Induct_on ‘l’ \\ fs [FORALL_PROD]
+  Cases_on`c` \\
+  rename1`(l,r)` \\
+  rw[compact_def,divide_def]
+  THEN1 (Induct_on `l` \\ fs [FORALL_PROD]
     \\ Cases_on ‘l’ \\ fs []
     \\ Cases_on ‘t’ \\ fs []
     \\ PairCases_on ‘h’ \\ fs [])
@@ -368,36 +364,38 @@ QED
 (* negation *)
 
 Definition not_def:
-  not (PBC l n) = PBC (MAP (λ(c,l). (0 - c,l)) l)
-                      (SUM (MAP (λi. Num (ABS (FST i))) l) + 1 - n)
+  not ((l,n):npbc) =
+    (MAP (λ(c,l). (0 - c,l)) l,
+      SUM (MAP (λi. Num (ABS (FST i))) l) + 1 - n)
 End
 
 Theorem not_thm:
   satisfies_npbc w (not c) ⇔ ~satisfies_npbc w c
 Proof
   Cases_on ‘c’ \\ fs [not_def,satisfies_npbc_def,GREATER_EQ]
-  \\ qid_spec_tac ‘n’
-  \\ qid_spec_tac ‘l’
+  \\ qid_spec_tac ‘r’
+  \\ qid_spec_tac ‘q’
   \\ Induct \\ fs [FORALL_PROD] \\ rw []
   \\ Cases_on ‘w p_2’ \\ fs []
   \\ TRY (last_x_assum (fn th => rewrite_tac [GSYM th]) \\ gvs [] \\ NO_TAC)
   \\ Cases_on ‘p_1’ \\ gvs []
-  \\ Cases_on ‘n' ≤ n’ \\ fs []
-  \\ last_x_assum (qspec_then ‘n-n'’ assume_tac) \\ gvs []
+  \\ Cases_on ‘n ≤ r’ \\ fs []
+  \\ last_x_assum (qspec_then ‘r-n’ assume_tac) \\ gvs []
 QED
 
 (* multiplication *)
 
 Definition multiply_def:
-  multiply (PBC l n) k =
-    if k = 0 then PBC [] 0 else
-      PBC (MAP (λ(c,v). (c * & k, v)) l) (n * k)
+  multiply ((l,n):npbc) k =
+    if k = 0 then ([],0) else
+      (MAP (λ(c,v). (c * & k, v)) l,n * k)
 End
 
 Theorem multiply_thm:
   satisfies_npbc w c ⇒ satisfies_npbc w (multiply c k)
 Proof
-  Cases_on ‘c’ \\ fs [multiply_def]
+  Cases_on ‘c’ \\
+  rename1`(l,r)` \\ fs [multiply_def]
   \\ rw [satisfies_npbc_def,GREATER_EQ]
   \\ drule LESS_MONO_MULT
   \\ disch_then (qspec_then`k` mp_tac)
@@ -415,7 +413,9 @@ QED
 Theorem compact_multiply:
   compact c ⇒ compact (multiply c k)
 Proof
-  Cases_on ‘c’ \\ reverse (rw [multiply_def,compact_def])
+  Cases_on ‘c’ \\
+  rename1`(l,r)` \\
+  reverse (rw [multiply_def,compact_def])
   THEN1 gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
   \\ Induct_on ‘l’ \\ fs [FORALL_PROD]
   \\ Cases_on ‘l’ \\ fs []
@@ -424,7 +424,6 @@ Proof
 QED
 
 (* saturation *)
-
 Definition abs_min_def:
   abs_min c n =
   if Num(ABS c)  ≤ n then
@@ -433,9 +432,9 @@ Definition abs_min_def:
 End
 
 Definition saturate_def:
-  saturate (PBC l n) =
-    if n = 0 then PBC [] n
-    else PBC (MAP (λ(c,v). (abs_min c n, v)) l) n
+  saturate (l,n) =
+    if n = 0 then ([],n)
+    else (MAP (λ(c,v). (abs_min c n, v)) l, n)
 End
 
 Theorem eval_lit_bool:
@@ -448,7 +447,7 @@ QED
 Theorem saturate_thm:
   satisfies_npbc w c ⇒ satisfies_npbc w (saturate c)
 Proof
-  Cases_on ‘c’ \\ fs [saturate_def]
+  Cases_on ‘c’ \\ rename1`(l,n)` \\ fs [saturate_def]
   \\ rw [satisfies_npbc_def,GREATER_EQ]
   \\ `∀a.
       n ≤ SUM (MAP (eval_term w) l) + a ⇒
@@ -470,7 +469,8 @@ QED
 Theorem compact_saturate:
   compact c ⇒ compact (saturate c)
 Proof
-  Cases_on ‘c’ \\ reverse (rw [saturate_def,compact_def])
+  Cases_on ‘c’ \\  rename1`(l,n)` \\
+  reverse (rw [saturate_def,compact_def])
   THEN1 (
     gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] \\
     rw[abs_min_def] )
@@ -492,11 +492,8 @@ End
 
 (* weakening *)
 Definition weaken_def:
-  weaken (PBC l n) v =
-    let (l',n') = weaken_aux v l n in
-    PBC l' n'
+  weaken (l,n) v = weaken_aux v l n
 End
-
 
 Theorem weaken_aux_theorem:
   ∀v l n l' n' a.
@@ -531,7 +528,7 @@ Theorem weaken_thm:
   satisfies_npbc w c ⇒ satisfies_npbc w (weaken c v)
 Proof
   Cases_on ‘c’ \\ fs [weaken_def]
-  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`weaken_aux v q r`
   \\ rw [satisfies_npbc_def,GREATER_EQ]
   \\ match_mp_tac weaken_aux_theorem0
   \\ metis_tac[]
@@ -569,7 +566,7 @@ Theorem compact_weaken:
   compact c ⇒ compact (weaken c v)
 Proof
   Cases_on ‘c’ \\ rw[weaken_def]
-  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`weaken_aux v q r`
   \\ rw[]
   >-
     metis_tac[SORTED_weaken_aux]
@@ -683,17 +680,19 @@ Definition subst_aux_def:
 End
 
 Definition subst_def:
-  subst f (PBC l n) =
+  subst f (l,n) =
     let (old,new,k) = subst_aux f l in
     let (sorted,k2) = clean_up new in
     let (result,k3) = add_lists old sorted in
-      (PBC result (n - (k + k2 + k3)))
+      (result, n - (k + k2 + k3))
 End
 
 Theorem subst_thm:
   satisfies_npbc w (subst f c) = satisfies_npbc (assign f w) c
 Proof
-  Cases_on ‘c’ \\ fs [satisfies_npbc_def,subst_def]
+  Cases_on ‘c’ \\
+  rename1‘(l,n)’ \\
+  fs [satisfies_npbc_def,subst_def]
   \\ rpt (pairarg_tac \\ gvs [satisfies_npbc_def,GREATER_EQ])
   \\ qsuff_tac
     ‘∀l old new k.
@@ -734,21 +733,14 @@ End
 
 (* Computes the LHS term of the slack of a constraint under
    a partial assignment p (list of literals) *)
-(*
-Definition lslack_def:
-  lslack (PBC ls num) p =
-  SUM (MAP FST (FILTER (λ(a,b). ¬MEM (negate b) p) ls))
-End *)
-
 Definition lslack_def:
   lslack ls =
-  SUM (MAP (Num o ABS o FST ) ls)
+  SUM (MAP (Num o ABS o FST) ls)
 End
 
 Definition check_contradiction_def:
-  check_contradiction (PBC ls num) =
-  let l = lslack ls in
-    l < num
+  check_contradiction ((ls,num):npbc) ⇔
+    lslack ls < num
 End
 
 Theorem check_contradiction_unsat:
@@ -756,6 +748,7 @@ Theorem check_contradiction_unsat:
   ¬satisfies_npbc w c
 Proof
   Cases_on`c`>>
+  rename1`(l,n)`>>
   rw[check_contradiction_def,satisfies_npbc_def,lslack_def]>>
   fs[o_DEF]>>
   qmatch_asmsub_abbrev_tac`SUM ll < n`>>
@@ -790,13 +783,13 @@ Proof
 QED
 
 Definition subst_opt_def:
-  subst_opt f (PBC l n) =
+  subst_opt f (l,n) =
     let (old,new,k,same) = subst_opt_aux f l in
       if same then NONE else
         let (sorted,k2) = clean_up new in
         let (result,k3) = add_lists old sorted in
-        let res = PBC result (n - (k + k2 + k3)) in
-        if imp (PBC l n) res then NONE
+        let res = (result,n - (k + k2 + k3)) in
+        if imp (l,n) res then NONE
         else SOME res
 End
 
@@ -864,7 +857,9 @@ QED
 Theorem compact_subst:
   compact c ⇒ compact (subst f c)
 Proof
-  Cases_on ‘c’ \\ fs [compact_def,subst_def]
+  Cases_on ‘c’ \\
+  rename1`(l,n)` \\
+  fs [compact_def,subst_def]
   \\ rpt (pairarg_tac \\ fs []) \\ strip_tac
   \\ qsuff_tac ‘∀l old new k.
        SORTED $< (MAP SND l) ∧ EVERY (λc. c ≠ 0) (MAP FST l) ∧ subst_aux f l = (old,new,k) ⇒

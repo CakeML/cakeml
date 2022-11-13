@@ -13,23 +13,25 @@ Datatype:
 End
 
 (*
-  Un-normalised pseudo-boolean constraints have the form:
-  c_i l_i ≥ n OR
-  c_i l_i = n OR
+  Pseudo-boolean constraints have the form:
+  c_i l_i ≥ n
+  c_i l_i = n
+  c_i l_i > n
+  c_i l_i ≤ n
+  c_i l_i < n
   where coefficients c_i and n are arbitrary integers and l_i are literals
 
-  TODO: the surface format could also support other comparators
-    like <, ≤ if needed
+  All of these will be normalized to ≥ constraints
 *)
 
 (* A linear term over variables *)
 Type lin_term = ``:(int # 'a lit) list``;
 
 Datatype:
-  pbc =
-    Equal ('a lin_term) int
-  | GreaterEqual ('a lin_term) int
+  pbop = Equal | GreaterEqual | Greater | LessEqual | Less
 End
+
+Type pbc = ``:(pbop # 'a lin_term # int)``
 
 (* 0-1 integer-valued semantics *)
 Definition b2i_def[simp]:
@@ -60,10 +62,18 @@ Definition eval_lin_term_def:
   eval_lin_term w (xs:'a lin_term) = iSUM (MAP (eval_term w) xs)
 End
 
+Definition do_op_def[simp]:
+  (do_op Equal (l:int) (r:int) ⇔ l = r) ∧
+  (do_op GreaterEqual l r ⇔ l ≥ r) ∧
+  (do_op Greater l r ⇔ l > r) ∧
+  (do_op LessEqual l r ⇔ l ≤ r) ∧
+  (do_op Less l r ⇔ l < r)
+End
+
 (* satisfaction of a pseudo-boolean constraint *)
 Definition satisfies_pbc_def:
-  (satisfies_pbc w (Equal xs n) ⇔ eval_lin_term w xs = n) ∧
-  (satisfies_pbc w (GreaterEqual xs n) ⇔ eval_lin_term w xs ≥ n)
+  (satisfies_pbc w (pbop,xs,n) ⇔
+    do_op pbop (eval_lin_term w xs) n)
 End
 
 (* satisfaction of a set of constraints *)
@@ -173,22 +183,10 @@ Proof
   metis_tac[]
 QED
 
-Theorem eval_lin_term_MAP_negate_coeff:
-  ∀f.
-  eval_lin_term w (MAP (λ(c,l). (-c,l)) f) =
-  -eval_lin_term w f
-Proof
-  Induct>>fs[eval_lin_term_def,iSUM_def]>>
-  Cases_on`h`>>rw[]>>
-  Cases_on`r`>>rw[]>>Cases_on`w a`>>rw[]>>
-  intLib.ARITH_TAC
-QED
-
 Theorem optimal_witness:
   satisfies w pbf ∧
   unsatisfiable (
-    GreaterEqual (MAP (λ(c,l). (-c,l)) f)
-    (-(eval_lin_term w f) +1) INSERT pbf) ⇒
+    (Less,f,(eval_lin_term w f)) INSERT pbf) ⇒
   optimal_val pbf f = SOME (eval_lin_term w f)
 Proof
   rw[]>>
@@ -199,8 +197,7 @@ Proof
   reverse (rw[])
   >-
     metis_tac[]>>
-  fs[satisfies_pbc_def,eval_lin_term_MAP_negate_coeff]>>
-  fs[]>>
+  fs[satisfies_pbc_def]>>
   intLib.ARITH_TAC
 QED
 
@@ -219,8 +216,7 @@ Definition lit_var_def[simp]:
 End
 
 Definition pbc_vars_def:
-  (pbc_vars (Equal xs n) = set (MAP (lit_var o SND) xs)) ∧
-  (pbc_vars (GreaterEqual xs n) = set (MAP (lit_var o SND) xs))
+  (pbc_vars (pbop,xs,n) = set (MAP (lit_var o SND) xs))
 End
 
 Definition pbf_vars_def:
@@ -234,31 +230,24 @@ Definition map_lit_def:
 End
 
 Definition map_pbc_def:
-  (map_pbc f (Equal xs n) = Equal (MAP (λ(a,b). (a, map_lit f b)) xs) n) ∧
-  (map_pbc f (GreaterEqual xs n) = GreaterEqual (MAP (λ(a,b). (a, map_lit f b)) xs) n)
+  map_pbc f (pbop,xs,n) =
+    (pbop,MAP (λ(a,b). (a, map_lit f b)) xs,n)
 End
 
 Theorem satisfiable_map_pbc:
   satisfies_pbc w (map_pbc f pbc) ⇒
   satisfies_pbc (w o f) pbc
 Proof
-  Cases_on`pbc`>>simp[satisfies_pbc_def,map_pbc_def,MAP_MAP_o,o_DEF,pbc_vars_def]>>
-  rw[eval_lin_term_def]
-  >- (
-    AP_TERM_TAC>>
-    match_mp_tac LIST_EQ>>simp[EL_MAP]>>
-    rw[]>>
-    Cases_on`EL x l`>>fs[]>>
-    Cases_on`r`>>simp[map_lit_def])>>
-  qmatch_asmsub_abbrev_tac`a ≥ _` >>
-  qmatch_goalsub_abbrev_tac`b ≥ _` >>
-  qsuff_tac`a=b` >-
-    intLib.ARITH_TAC>>
+  PairCases_on`pbc`>>
+  simp[satisfies_pbc_def,map_pbc_def,MAP_MAP_o,o_DEF,pbc_vars_def]>>
+  qmatch_goalsub_abbrev_tac`do_op _ A _ ⇒ do_op _ B _`>>
+  qsuff_tac`A=B` >- fs[]>>
   unabbrev_all_tac>>
+  simp[eval_lin_term_def]>>
   AP_TERM_TAC>>
   match_mp_tac LIST_EQ>>simp[EL_MAP]>>
   rw[]>>
-  Cases_on`EL x l`>>fs[]>>
+  Cases_on`EL x pbc1`>>fs[]>>
   Cases_on`r`>>simp[map_lit_def]
 QED
 
@@ -272,11 +261,12 @@ Proof
 QED
 
 Theorem map_pbc_o:
-  map_pbc f (map_pbc g x) = map_pbc (f o g) x
+  map_pbc f (map_pbc g pbc) = map_pbc (f o g) pbc
 Proof
-  Cases_on`x`>>EVAL_TAC>>simp[o_DEF,MAP_MAP_o]>>
+  PairCases_on`pbc`>>
+  EVAL_TAC>>simp[o_DEF,MAP_MAP_o]>>
   match_mp_tac LIST_EQ>>simp[EL_MAP]>>rw[]>>
-  Cases_on`EL x l`>>fs[]>>
+  Cases_on`EL x pbc1`>>fs[]>>
   Cases_on`r`>>fs[map_lit_def]
 QED
 
@@ -284,7 +274,7 @@ Theorem map_pbc_I:
   (∀x. x ∈ pbc_vars pbc ⇒ f x = x) ⇒
   map_pbc f pbc = pbc
 Proof
-  Cases_on`pbc`>>EVAL_TAC>>rw[MEM_MAP]>>
+  PairCases_on`pbc`>>EVAL_TAC>>rw[MEM_MAP]>>
   rw[MAP_EQ_ID]>>
   Cases_on`x`>>fs[]>>
   Cases_on`r`>>fs[map_lit_def]>>
@@ -299,11 +289,10 @@ Proof
 QED
 
 Theorem pbc_vars_map_pbc:
-  ∀x.
-  pbc_vars (map_pbc f x) =
-  IMAGE f (pbc_vars x)
+  pbc_vars (map_pbc f pbc) =
+  IMAGE f (pbc_vars pbc)
 Proof
-  Cases>>
+  PairCases_on`pbc`>>
   simp[pbc_vars_def,map_pbc_def,o_DEF,MAP_MAP_o,LAMBDA_PROD,LIST_TO_SET_MAP,IMAGE_IMAGE,lit_var_map_lit]
 QED
 

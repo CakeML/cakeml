@@ -1,7 +1,7 @@
 (*
   Formalization of the maximum common induced subgraph problem
 *)
-open preamble pb_preconstraintTheory graph_basicTheory pb_normaliseTheory;
+open preamble pbcTheory graph_basicTheory pbc_normaliseTheory;
 
 val _ = new_theory "mcis";
 
@@ -83,9 +83,10 @@ End
   v in vt *)
 Definition has_mapping_def:
   has_mapping a vt =
-  Equal (
+  (Equal,
     (1, Pos (Unmapped a)) ::
-    GENLIST (λv. (1, Pos (Mapped a v))) vt) 1
+    GENLIST (λv. (1, Pos (Mapped a v))) vt,
+    1): enc pbc
 End
 
 Definition all_has_mapping_def:
@@ -95,7 +96,9 @@ End
 
 Definition one_one_def:
   one_one u vp =
-  GreaterEqual (GENLIST (λb. (1, Neg (Mapped b u))) vp) (&vp-1)
+  (GreaterEqual,
+    (GENLIST (λb. (1, Neg (Mapped b u))) vp),
+    (&vp-1)): enc pbc
 End
 
 Definition all_one_one_def:
@@ -106,20 +109,22 @@ End
 Definition edge_map_def:
   edge_map (a,b) u et =
   if a = b then [] else
-  [GreaterEqual (
+  [(GreaterEqual,
     (1,Neg (Mapped a u)) ::
     (1,Pos (Unmapped b)) ::
-    MAP (λv. (1,Pos (Mapped b v))) (neighbours et u) ) 1]
+    MAP (λv. (1,Pos (Mapped b v))) (neighbours et u),
+    1):enc pbc]
 End
 
 Definition not_edge_map_def:
   not_edge_map (a,b) u vt et =
   if a = b then []
   else
-  [GreaterEqual (
+  [(GreaterEqual,
     (1,Neg (Mapped a u)) ::
     (1,Pos (Unmapped b)) ::
-    MAP (λv. (1,Pos (Mapped b v))) (not_neighbours (vt,et) u) ) 1]
+    MAP (λv. (1,Pos (Mapped b v))) (not_neighbours (vt,et) u),
+    1):enc pbc]
 End
 
 Definition all_full_edge_map_def:
@@ -128,7 +133,7 @@ Definition all_full_edge_map_def:
     FLAT (GENLIST (λa.
       (* Check that a,u have same self-loop *)
       if is_edge ep a a ⇎ is_edge et u u
-      then [GreaterEqual [(1,Neg (Mapped a u))] 1]
+      then [(GreaterEqual, [(1,Neg (Mapped a u))], 1):enc pbc]
       else
         FLAT (MAP (λb. edge_map (a,b) u et) (neighbours ep a)) ++
         FLAT (MAP (λb. not_edge_map (a,b) u vt et) (not_neighbours (vp,ep) a) )) vp)) vt)
@@ -136,7 +141,7 @@ End
 
 Definition k_size_def:
   k_size vp k =
-  GreaterEqual (GENLIST (λb. (1, Neg (Unmapped b))) vp) &k
+  (GreaterEqual,GENLIST (λb. (1, Neg (Unmapped b))) vp,&k):enc pbc
 End
 
 Definition encode_base_def:
@@ -502,14 +507,14 @@ Proof
     rw[encode_base_def]
     >- (
       rename1`k_size`>>
-      simp[k_size_def,satisfies_pbc_def,MAP_GENLIST, o_DEF]>>
+      simp[k_size_def,satisfies_pbc_def,MAP_GENLIST, o_DEF,eval_lin_term_def]>>
       simp[neg_b2i]>>
       metis_tac[iSUM_GENLIST_geq_k_rev])
     >- (
       rename1`all_has_mapping`>>
       simp[all_has_mapping_def,satisfies_def,MEM_GENLIST,has_mapping_def]>>
       rw[]>>
-      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
+      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
       simp[iSUM_def]>>
       Cases_on`a ∈ vs`>>simp[]
       >- ( (* a ∈ vs *)
@@ -523,7 +528,7 @@ Proof
       rename1`all_one_one`>>
       simp[all_one_one_def,satisfies_def,MEM_GENLIST,one_one_def]>>
       rw[]>>
-      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
+      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
       fs[INJ_DEF]>>
       qmatch_goalsub_abbrev_tac`iSUM ls`>>
       `vp = LENGTH ls` by
@@ -547,7 +552,7 @@ Proof
       IF_CASES_TAC
       >- (
         rw[Abbr`P`]>>
-        simp[satisfies_pbc_def,iSUM_def]>>
+        simp[satisfies_pbc_def,iSUM_def,eval_lin_term_def]>>
         Cases_on`a ∈ vs`>>simp[iSUM_def]>>
         `f a ≠ u` by metis_tac[MEM_neighbours]>>
         simp[])>>
@@ -556,7 +561,7 @@ Proof
       >- (
         (* edge_map constraint *)
         gvs[edge_map_def,MEM_if,MEM_neighbours]>>
-        simp[satisfies_pbc_def,MAP_MAP_o,o_DEF]>>
+        simp[satisfies_pbc_def,MAP_MAP_o,o_DEF,eval_lin_term_def]>>
         `b < vp` by
           (fs[good_graph_def,is_edge_thm]>>
           metis_tac[])>>
@@ -589,7 +594,7 @@ Proof
       >- (
         (* not_edge_map constraint *)
         gvs[not_edge_map_def,MEM_if,MEM_not_neighbours]>>
-        simp[satisfies_pbc_def,MAP_MAP_o,o_DEF]>>
+        simp[satisfies_pbc_def,MAP_MAP_o,o_DEF,eval_lin_term_def]>>
         reverse (Cases_on`b ∈ vs`)>>fs[]
         >- (
           simp[iSUM_def,iSUM_MAP_const]>>
@@ -623,7 +628,7 @@ Proof
     simp[Abbr`dom`,SUBSET_DEF]>>
   fs[satisfies_def,encode_base_def,SF DNF_ss]>>
   CONJ_TAC>- (
-    fs[k_size_def,satisfies_pbc_def,MAP_GENLIST,o_DEF,neg_b2i]>>
+    fs[k_size_def,satisfies_pbc_def,MAP_GENLIST,o_DEF,neg_b2i,eval_lin_term_def]>>
     match_mp_tac iSUM_GENLIST_geq_k>>
     qexists_tac`vp`>>fs[Abbr`dom`,SUBSET_DEF]>>
     qmatch_asmsub_abbrev_tac`iSUM ls1`>>
@@ -637,7 +642,7 @@ Proof
      fs[all_has_mapping_def,MEM_GENLIST,has_mapping_def,PULL_EXISTS]>>
      rw[]>>
      first_x_assum drule>>
-     simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
+     simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
      simp[iSUM_def]>>
      DEP_REWRITE_TAC[iSUM_eq_1]>>
      CONJ_TAC>-
@@ -659,7 +664,7 @@ Proof
     res_tac>>
     gvs[]>>
     last_x_assum drule>>
-    simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
+    simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
     qmatch_goalsub_abbrev_tac`iSUM ls`>>
     `vp = LENGTH ls` by
       simp[Abbr`ls`]>>
@@ -690,13 +695,13 @@ Proof
     IF_CASES_TAC
     >- (
       fs[Abbr`P`]>>
-      simp[satisfies_pbc_def,iSUM_def])>>
+      simp[satisfies_pbc_def,iSUM_def,eval_lin_term_def])>>
     simp[MEM_FLAT,MEM_MAP,MEM_neighbours,SF DNF_ss,MEM_if]>>
     Cases_on` b = a` >-
       metis_tac[]>>
     strip_tac>> pop_assum kall_tac>>
     pop_assum drule>>
-    simp[satisfies_pbc_def,iSUM_def,MAP_MAP_o,o_DEF,LAMBDA_PROD,MEM_neighbours]>>
+    simp[satisfies_pbc_def,iSUM_def,MAP_MAP_o,o_DEF,LAMBDA_PROD,MEM_neighbours,eval_lin_term_def]>>
     strip_tac>>
     gs[]>>
     drule iSUM_geq_1>>
@@ -727,13 +732,13 @@ Proof
     IF_CASES_TAC
     >- (
       fs[Abbr`P`]>>
-      simp[satisfies_pbc_def,iSUM_def])>>
+      simp[satisfies_pbc_def,iSUM_def,eval_lin_term_def])>>
     simp[MEM_FLAT,MEM_MAP,MEM_not_neighbours,SF DNF_ss,MEM_if]>>
     Cases_on` b = a` >-
       metis_tac[]>>
     strip_tac>>
     pop_assum (drule_at (Pos (el 2)))>>
-    simp[satisfies_pbc_def,iSUM_def,MAP_MAP_o,o_DEF,LAMBDA_PROD]>>
+    simp[satisfies_pbc_def,iSUM_def,MAP_MAP_o,o_DEF,LAMBDA_PROD,eval_lin_term_def]>>
     strip_tac>>
     drule iSUM_geq_1>>
     simp[MEM_MAP,PULL_EXISTS,MEM_FILTER,FORALL_PROD]>>
@@ -751,11 +756,11 @@ Proof
 QED
 
 Theorem satisfies_pbc_geq_1:
-  satisfies_pbc w (GreaterEqual xs 1) ∧
+  satisfies_pbc w (GreaterEqual,xs, 1) ∧
   EVERY ($= 1) (MAP FST xs) ⇒
   ∃x. MEM x (MAP SND xs)  ∧ eval_lit w x = 1
 Proof
-  rw[satisfies_pbc_def]>>
+  rw[satisfies_pbc_def,eval_lin_term_def]>>
   drule iSUM_geq_1>>
   impl_tac>- (
     fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,EXISTS_PROD]>>
@@ -778,9 +783,9 @@ QED
 (* Encode variable x <-> y_1 ∧ y_2 ...., where y_i are literals *)
 Definition iff_and_def:
   iff_and x ys =
-    GreaterEqual ((1, Pos x)::MAP (λy.(1, negate y)) ys) 1::
+    (GreaterEqual,(1, Pos x)::MAP (λy.(1, negate y)) ys,1):'a pbc ::
     MAP (λy.
-      GreaterEqual [(1, Neg x); (1,y)] 1) ys
+      (GreaterEqual, [(1, Neg x); (1,y)], 1)) ys
 End
 
 Theorem eval_lit_negate:
@@ -794,7 +799,7 @@ Theorem iff_and:
   (w x ⇔ EVERY (λy. eval_lit w y = 1) ys)
 Proof
   rw[iff_and_def]>>
-  fs[satisfies_pbc_def,satisfies_def,MEM_MAP,PULL_EXISTS]>>
+  fs[satisfies_pbc_def,satisfies_def,MEM_MAP,PULL_EXISTS,eval_lin_term_def]>>
   rw[EQ_IMP_THM]
   >- (
     rw[EVERY_MEM]>>first_x_assum drule>>
@@ -817,9 +822,9 @@ QED
 (* Encode variable x <-> y_1 ∨ y_2 ...., where y_i are literals *)
 Definition iff_or_def:
   iff_or x ys =
-    GreaterEqual ((1, Neg x)::MAP (λy.(1, y)) ys) 1::
+    (GreaterEqual, (1, Neg x)::MAP (λy.(1, y)) ys, 1):'a pbc ::
     MAP (λy.
-      GreaterEqual [(1, Pos x); (1, negate y)] 1) ys
+      (GreaterEqual, [(1, Pos x); (1, negate y)], 1)) ys
 End
 
 Theorem iff_or:
@@ -827,7 +832,7 @@ Theorem iff_or:
   (w x ⇔ EXISTS (λy. eval_lit w y = 1) ys)
 Proof
   rw[iff_or_def]>>
-  fs[satisfies_pbc_def,satisfies_def,MEM_MAP,PULL_EXISTS]>>
+  fs[satisfies_pbc_def,satisfies_def,MEM_MAP,PULL_EXISTS,eval_lin_term_def]>>
   rw[EQ_IMP_THM]
   >- (
     drule iSUM_geq_1>>
@@ -852,7 +857,8 @@ Theorem iff_or_satisfies:
   satisfies w (set (iff_or x ys))
 Proof
   rw[iff_or_def]>>
-  fs[satisfies_pbc_def,satisfies_def,MEM_MAP,PULL_EXISTS]>>rw[]
+  fs[satisfies_pbc_def,satisfies_def,MEM_MAP,PULL_EXISTS,eval_lin_term_def]>>
+  rw[]
   >- (
     Cases_on`w x`>>gs[iSUM_def]
     >- (
@@ -884,7 +890,7 @@ Definition walk_base_def:
     (* x_{f,g}^1 <-> !x_f,bot ∧ !x_g,bot *)
     iff_and (Walk f g 0) [Neg (Unmapped f); Neg (Unmapped g)]
   else
-    [GreaterEqual [(1,Neg (Walk f g 0))] 1]
+    [(GreaterEqual, [(1,Neg (Walk f g 0))], 1): enc pbc]
 End
 
 Definition walk_aux_def:
@@ -1096,7 +1102,7 @@ Proof
       rw[EQ_IMP_THM]>>fs[]>>
       qexists_tac`[g]`>>simp[is_walk_def])
     >- (
-      fs[satisfies_pbc_def]>>
+      fs[satisfies_pbc_def,eval_lin_term_def]>>
       Cases_on`w (Walk f g 0)` >> fs[iSUM_def]>>
       CCONTR_TAC>>fs[]>>
       Cases_on`walk`>>fs[is_walk_def]>>Cases_on`t`>>fs[is_walk_def]) )>>
@@ -1301,7 +1307,7 @@ Definition encode_connected_def:
   FLAT (GENLIST (λf.
     FLAT (GENLIST (λg.
       if f < g then
-        [GreaterEqual [(1, Pos(Unmapped f));(1, Pos(Unmapped g));(1, Pos(Walk f g k))] 1]
+        [(GreaterEqual, [(1, Pos(Unmapped f));(1, Pos(Unmapped g));(1, Pos(Walk f g k))], 1)]
       else []) vp)) vp)
 End
 
@@ -1331,24 +1337,24 @@ Proof
   gvs[MEM_FLAT,MEM_GENLIST]
   >- (
     fs[walk_base_def]>>every_case_tac>>
-    gvs[iff_and_def,satisfies_pbc_def]>>
+    gvs[iff_and_def,satisfies_pbc_def,eval_lin_term_def]>>
     first_x_assum(qspec_then`0` kall_tac)>>
     first_x_assum(qspec_then`0` assume_tac)>>
     fs[])
   >- (
     every_case_tac>>gvs[MEM_FLAT,MEM_GENLIST]
     >- (
-      gvs[walk_aux_def,iff_and_def,satisfies_pbc_def]>>
+      gvs[walk_aux_def,iff_and_def,satisfies_pbc_def,eval_lin_term_def]>>
       first_x_assum(qspec_then`SUC k` mp_tac)>>
       first_x_assum(qspec_then`k` mp_tac)>>
       every_case_tac>>
-      gvs[satisfies_pbc_def])>>
+      gvs[satisfies_pbc_def,eval_lin_term_def])>>
     first_x_assum(qspec_then`SUC k` mp_tac)>>
     first_assum(qspec_then`SUC k` mp_tac)>>
     first_x_assum(qspec_then`k` mp_tac)>>
-    gvs[walk_ind_def,iff_or_def,satisfies_pbc_def]>>
-    gvs[MEM_FLAT,MAP_MAP_o,o_DEF,MAP_GENLIST,MEM_GENLIST,satisfies_pbc_def,MAP_FLAT,MAP_if]>>
-    every_case_tac>>gvs[satisfies_pbc_def])>>
+    gvs[walk_ind_def,iff_or_def,satisfies_pbc_def,eval_lin_term_def]>>
+    gvs[MEM_FLAT,MAP_MAP_o,o_DEF,MAP_GENLIST,MEM_GENLIST,satisfies_pbc_def,MAP_FLAT,MAP_if,eval_lin_term_def]>>
+    every_case_tac>>gvs[satisfies_pbc_def,eval_lin_term_def])>>
   fs[AND_IMP_INTRO]>>
   first_x_assum match_mp_tac>>fs[]>>
   rw[]
@@ -1381,11 +1387,11 @@ Proof
       gvs[MEM_FLAT,MEM_GENLIST,walk_base_def]>>
       every_case_tac>>fs[]>>rw[]
       >- (
-        gvs[iff_and_def,satisfies_pbc_def,iSUM_def]>>
+        gvs[iff_and_def,satisfies_pbc_def,iSUM_def,eval_lin_term_def]>>
         Cases_on`w (Unmapped f)`>>
         Cases_on`w (Unmapped g)`>>simp[])
       >>
-      simp[satisfies_pbc_def,iSUM_def])>>
+      simp[satisfies_pbc_def,iSUM_def,eval_lin_term_def])>>
     every_case_tac>>simp[])>>
   qexists_tac`λn.
         case n of
@@ -1411,7 +1417,7 @@ Proof
     >- (
       gvs[walk_aux_def]>>
       every_case_tac>>
-      gvs[iff_and_def,satisfies_pbc_def,iSUM_def]>>
+      gvs[iff_and_def,satisfies_pbc_def,iSUM_def,eval_lin_term_def]>>
       rpt(qmatch_goalsub_abbrev_tac`b2i A`>>Cases_on`A`>>fs[]))>>
     gvs[walk_ind_def]>>
     qpat_x_assum `MEM _ _` mp_tac>>
@@ -1480,14 +1486,14 @@ Proof
     rw[]
     >- (
       rename1`k_size`>>
-      simp[k_size_def,satisfies_pbc_def,MAP_GENLIST, o_DEF]>>
+      simp[k_size_def,satisfies_pbc_def,MAP_GENLIST, o_DEF,eval_lin_term_def]>>
       simp[neg_b2i]>>
       metis_tac[iSUM_GENLIST_geq_k_rev])
     >- (
       rename1`all_has_mapping`>>
       simp[all_has_mapping_def,satisfies_def,MEM_GENLIST,has_mapping_def]>>
       rw[]>>
-      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
+      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
       simp[iSUM_def]>>
       Cases_on`a ∈ vs`>>simp[]
       >- ( (* a ∈ vs *)
@@ -1501,7 +1507,7 @@ Proof
       rename1`all_one_one`>>
       simp[all_one_one_def,satisfies_def,MEM_GENLIST,one_one_def]>>
       rw[]>>
-      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
+      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
       fs[INJ_DEF]>>
       qmatch_goalsub_abbrev_tac`iSUM ls`>>
       `vp = LENGTH ls` by
@@ -1525,7 +1531,7 @@ Proof
       IF_CASES_TAC
       >- (
         rw[Abbr`P`]>>
-        simp[satisfies_pbc_def,iSUM_def]>>
+        simp[satisfies_pbc_def,iSUM_def,eval_lin_term_def]>>
         Cases_on`a ∈ vs`>>simp[iSUM_def]>>
         `f a ≠ u` by metis_tac[MEM_neighbours]>>
         simp[])>>
@@ -1534,7 +1540,7 @@ Proof
       >- (
         (* edge_map constraint *)
         gvs[edge_map_def,MEM_if,MEM_neighbours]>>
-        simp[satisfies_pbc_def,MAP_MAP_o,o_DEF]>>
+        simp[satisfies_pbc_def,MAP_MAP_o,o_DEF,eval_lin_term_def]>>
         `b < vp` by
           (fs[good_graph_def,is_edge_thm]>>
           metis_tac[])>>
@@ -1567,7 +1573,7 @@ Proof
       >- (
         (* not_edge_map constraint *)
         gvs[not_edge_map_def,MEM_if,MEM_not_neighbours]>>
-        simp[satisfies_pbc_def,MAP_MAP_o,o_DEF]>>
+        simp[satisfies_pbc_def,MAP_MAP_o,o_DEF,eval_lin_term_def]>>
         reverse (Cases_on`b ∈ vs`)>>fs[]
         >- (
           simp[iSUM_def,iSUM_MAP_const]>>
@@ -1595,9 +1601,9 @@ Proof
     >- (
       (* connectedness *)
       rw[encode_connected_def]>>
-      simp[satisfies_def,MEM_FLAT,MEM_GENLIST,PULL_EXISTS,satisfies_pbc_def]>>
+      simp[satisfies_def,MEM_FLAT,MEM_GENLIST,PULL_EXISTS,satisfies_pbc_def,eval_lin_term_def]>>
       rw[]>>
-      simp[satisfies_pbc_def]>>
+      simp[satisfies_pbc_def,eval_lin_term_def]>>
       reverse (Cases_on`f' ∈ vs`)>>simp[iSUM_def]
       >- (
         qmatch_goalsub_abbrev_tac`b2i A + b2i B`>>
@@ -1635,7 +1641,7 @@ Proof
     Cases_on`vp=0`>>fs[]
     >-
       rw[connected_subgraph_def,Abbr`dom`]>>
-    fs[SF DNF_ss,MEM_FLAT,MEM_GENLIST,PULL_EXISTS,satisfies_pbc_def]>>
+    fs[SF DNF_ss,MEM_FLAT,MEM_GENLIST,PULL_EXISTS,satisfies_pbc_def,eval_lin_term_def]>>
     rw[connected_subgraph_def,Abbr`dom`]>>
     match_mp_tac is_walk_is_connected>>
     qpat_x_assum`good_graph (vp,ep)` assume_tac>>
@@ -1656,7 +1662,7 @@ Proof
     strip_tac>>
     strip_tac>>
     first_x_assum drule>>
-    simp[satisfies_pbc_def,iSUM_def]>>strip_tac>>
+    simp[satisfies_pbc_def,iSUM_def,eval_lin_term_def]>>strip_tac>>
     drule (SIMP_RULE std_ss [satisfies_def] satisfies_walk_k)>>
     disch_then drule>>
     disch_then(qspecl_then[`a`,`b`] assume_tac)>>
@@ -1666,7 +1672,7 @@ Proof
     simp[Abbr`dom`,SUBSET_DEF]>>
   fs[satisfies_def,encode_def,encode_base_def,SF DNF_ss]>>
   CONJ_TAC>- (
-    fs[k_size_def,satisfies_pbc_def,MAP_GENLIST,o_DEF,neg_b2i]>>
+    fs[k_size_def,satisfies_pbc_def,MAP_GENLIST,o_DEF,neg_b2i,eval_lin_term_def]>>
     match_mp_tac iSUM_GENLIST_geq_k>>
     qexists_tac`vp`>>fs[Abbr`dom`,SUBSET_DEF]>>
     qmatch_asmsub_abbrev_tac`iSUM ls1`>>
@@ -1680,7 +1686,7 @@ Proof
      fs[all_has_mapping_def,MEM_GENLIST,has_mapping_def,PULL_EXISTS]>>
      rw[]>>
      first_x_assum drule>>
-     simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
+     simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
      simp[iSUM_def]>>
      DEP_REWRITE_TAC[iSUM_eq_1]>>
      CONJ_TAC>-
@@ -1702,7 +1708,7 @@ Proof
     res_tac>>
     gvs[]>>
     last_x_assum drule>>
-    simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
+    simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
     qmatch_goalsub_abbrev_tac`iSUM ls`>>
     `vp = LENGTH ls` by
       simp[Abbr`ls`]>>
@@ -1733,13 +1739,13 @@ Proof
     IF_CASES_TAC
     >- (
       fs[Abbr`P`]>>
-      simp[satisfies_pbc_def,iSUM_def])>>
+      simp[satisfies_pbc_def,iSUM_def,eval_lin_term_def])>>
     simp[MEM_FLAT,MEM_MAP,MEM_neighbours,SF DNF_ss,MEM_if]>>
     Cases_on` b = a` >-
       metis_tac[]>>
     strip_tac>> pop_assum kall_tac>>
     pop_assum drule>>
-    simp[satisfies_pbc_def,iSUM_def,MAP_MAP_o,o_DEF,LAMBDA_PROD,MEM_neighbours]>>
+    simp[satisfies_pbc_def,iSUM_def,MAP_MAP_o,o_DEF,LAMBDA_PROD,MEM_neighbours,eval_lin_term_def]>>
     strip_tac>>
     gs[]>>
     drule iSUM_geq_1>>
@@ -1770,13 +1776,13 @@ Proof
     IF_CASES_TAC
     >- (
       fs[Abbr`P`]>>
-      simp[satisfies_pbc_def,iSUM_def])>>
+      simp[satisfies_pbc_def,iSUM_def,eval_lin_term_def])>>
     simp[MEM_FLAT,MEM_MAP,MEM_not_neighbours,SF DNF_ss,MEM_if]>>
     Cases_on` b = a` >-
       metis_tac[]>>
     strip_tac>>
     pop_assum (drule_at (Pos (el 2)))>>
-    simp[satisfies_pbc_def,iSUM_def,MAP_MAP_o,o_DEF,LAMBDA_PROD]>>
+    simp[satisfies_pbc_def,iSUM_def,MAP_MAP_o,o_DEF,LAMBDA_PROD,eval_lin_term_def]>>
     strip_tac>>
     drule iSUM_geq_1>>
     simp[MEM_MAP,PULL_EXISTS,MEM_FILTER,FORALL_PROD]>>

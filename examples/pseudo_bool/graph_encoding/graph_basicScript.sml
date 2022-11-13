@@ -1,7 +1,7 @@
 (*
   Basic graph notions
 *)
-open preamble;
+open preamble mlintTheory;
 
 val _ = new_theory "graph_basic";
 
@@ -60,5 +60,100 @@ Proof
   every_case_tac>>fs[MEM_COUNT_LIST]>>
   metis_tac[]
 QED
+
+(* Parser for LAD *)
+Definition blanks_def:
+  blanks (c:char) ⇔ c = #" " ∨ c = #"\n" ∨ c = #"\t" ∨ c = #"\r"
+End
+
+Definition tokenize_def:
+  tokenize (s:mlstring) =
+  case mlint$fromNatString s of
+    NONE => INL s
+  | SOME i => INR i
+End
+
+Definition toks_def:
+  toks s = MAP tokenize (tokens blanks s)
+End
+
+Definition parse_num_list_def:
+  (parse_num_list v [] acc = SOME (REVERSE acc)) ∧
+  (parse_num_list v (x::xs) acc =
+    case x of
+      INR (n:num) => parse_num_list v xs (n::acc)
+    | INL _ => NONE)
+End
+
+(* A parser for LAD format *)
+Definition parse_edges_def:
+  (parse_edges v i [] acc = SOME acc) ∧
+  (parse_edges v i (l::ls) acc =
+    case parse_num_list v l [] of
+      SOME (d::xs) =>
+        if LENGTH xs = d then parse_edges v (i+1) ls (insert i xs acc) else NONE
+    | _ => NONE)
+End
+
+Definition check_good_edges_inner_def:
+  check_good_edges_inner u v es =
+  case lookup u es of NONE => F
+      | SOME edges => MEM v edges
+End
+
+(* Undirectedness and u < bound *)
+Definition check_good_edges_def:
+  check_good_edges bound v ls es =
+    EVERY (λu.
+      check_good_edges_inner u v es) ls
+End
+
+Definition check_good_graph_def:
+  check_good_graph (nv,edgelist) ⇔
+  let ls = toAList edgelist in
+  EVERY (λ(v,e). v < nv ∧ check_good_edges nv v e edgelist) ls
+End
+
+Theorem check_good_graph:
+  check_good_graph (v,e) ⇒
+  good_graph (v,e)
+Proof
+  rw[good_graph_def,check_good_graph_def,is_edge_def]>>
+  fs[GSYM MEM_toAList,EVERY_MEM]>>
+  first_x_assum drule>>
+  fs[check_good_edges_def,check_good_edges_inner_def]>>
+  rw[]>>
+  fs[EVERY_MEM]
+QED
+
+Definition parse_lad_toks_def:
+  parse_lad_toks ls =
+  case ls of
+    [INR h]::rest =>
+      (case parse_edges h 0 rest LN of NONE => NONE
+      | SOME e => SOME (h,e))
+  | _ => NONE
+End
+
+val ladraw = ``[
+  strlit"5";
+  strlit"3 1 3 4";
+  strlit"3 0 3 4";
+  strlit"1 3";
+  strlit"3 0 1 2";
+  strlit"2 0 1";
+]``;
+
+val pattern = rconc (EVAL``check_good_graph (THE (parse_lad_toks (MAP toks ^(ladraw))))``)
+
+(* Odd cases with self-edges *)
+
+val ladraw = ``[
+  strlit"2";
+  strlit"2 0 1";
+  strlit"2 1 0";
+]``;
+
+val pattern = rconc (EVAL``check_good_graph (THE (parse_lad_toks (MAP toks ^(ladraw))))``)
 
 val _ = export_theory();

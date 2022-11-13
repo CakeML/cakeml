@@ -1,7 +1,7 @@
 (*
   Parse and print for pb_preconstraint, pb_check
 *)
-open preamble pb_preconstraintTheory pb_normaliseTheory pb_checkTheory;
+open preamble pbcTheory pbc_normaliseTheory npbc_checkTheory;
 
 val _ = new_theory "pb_parse";
 
@@ -18,9 +18,20 @@ Definition lhs_string_def:
   concatWith (strlit" ") (MAP(λ(c,l). concat [int_to_string #"-" c; strlit " " ; lit_string l]) xs)
 End
 
+Definition op_string_def:
+  (op_string Equal = strlit" = ") ∧
+  (op_string GreaterEqual = strlit" >= ") ∧
+  (op_string Greater = strlit" > ") ∧
+  (op_string LessEqual = strlit" = ") ∧
+  (op_string Less = strlit" < ")
+End
+
 Definition pbc_string_def:
-  (pbc_string (Equal xs i) = concat [lhs_string xs; strlit " = "; int_to_string #"-" i; strlit ";"]) ∧
-  (pbc_string (GreaterEqual xs i) = concat [lhs_string xs; strlit " >= "; int_to_string #"-" i; strlit ";"])
+  (pbc_string (pbop,xs,i) =
+    concat [
+      lhs_string xs;
+      strlit " = ";
+      int_to_string #"-" i; strlit ";"])
 End
 
 (*
@@ -82,6 +93,16 @@ Definition strip_terminator_def:
   else NONE
 End
 
+Definition parse_op_def:
+  parse_op cmp =
+  if cmp = strlit ">=" then SOME GreaterEqual
+  else if cmp = strlit "=" then SOME Equal
+  else if cmp = strlit ">" then SOME Greater
+  else if cmp = strlit "<=" then SOME LessEqual
+  else if cmp = strlit "<" then SOME Less
+  else NONE
+End
+
 Definition parse_constraint_def:
   parse_constraint line =
   case parse_constraint_LHS line [] of (rest,lhs) =>
@@ -95,11 +116,9 @@ Definition parse_constraint_def:
     | _ => NONE) in
   case cmpdeg of NONE => NONE
   | SOME (cmp, deg) =>
-    if cmp = implode ">=" then
-      SOME (GreaterEqual lhs deg)
-    else if cmp = implode "=" then
-      SOME (Equal lhs deg)
-    else NONE
+    case parse_op cmp of NONE => NONE
+    | SOME op =>
+      SOME ((op,lhs,deg):mlstring pbc)
 End
 
 (* EVAL ``parse_constraint (toks (strlit "2 ~x1 1 ~x3 >= 1;"))``; *)
@@ -138,7 +157,7 @@ End
 (* The stack is formed from constraints, where factors and variables are
   also encoded using Id *)
 Definition parse_lit_num_def:
-  parse_lit_num s = OPTION_MAP (map_lit mapString) (parse_lit s)
+  parse_lit_num s = OPTION_MAP (map_lit hashString) (parse_lit s)
 End
 
 Definition parse_cutting_def:
@@ -214,7 +233,7 @@ Definition parse_constraint_npbc_def:
   case parse_constraint_LHS line [] of (rest,lhs) =>
   (case rest of (INL cmp :: INR deg :: INL term :: rest) =>
     if term = str #";" ∧ cmp = strlit">=" then
-      SOME (pbc_to_npbc (map_pbc mapString (GreaterEqual lhs deg)),rest)
+      SOME (pbc_to_npbc (map_pbc hashString (GreaterEqual,lhs,deg)),rest)
     else
       NONE
   | _ => NONE)

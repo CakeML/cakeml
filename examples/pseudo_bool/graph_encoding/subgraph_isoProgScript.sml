@@ -1,15 +1,15 @@
 (*
-  Temporary file: A simple (unverified) printer for MCIS
+  Temporary file: A simple (unverified) printer for subgraph_iso
 *)
-open preamble basis mcisTheory pb_parseTheory graph_basicTheory;
+open preamble basis subgraph_isoTheory pb_parseTheory graph_basicTheory;
 open cfLib basisFunctionsLib;
 
-val _ = new_theory "mcisProg";
+val _ = new_theory "subgraph_isoProg";
 
 val _ = translation_extends "basisProg";
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: mcis_encode <LAD format file (pattern)> <LAD format file (target)>\n"
+  usage_string = strlit "Usage: subgraph_iso_encode <LAD format file (pattern)> <LAD format file (target)>\n"
 End
 
 val r = translate usage_string_def;
@@ -63,60 +63,16 @@ val parse_lad = (append_prog o process_topdecs) `
       Inr x
     else Inl ("Input graph fails undirectedness check")))`
 
-val _ = translate k_size_def;
+(* Translate the encoder *)
 val _ = translate has_mapping_def;
 val _ = translate all_has_mapping_def;
+
 val _ = translate one_one_def;
 val _ = translate all_one_one_def;
-val _ = translate lookup_def;
+
 val _ = translate graph_basicTheory.neighbours_def;
-
-Theorem is_edge_compute:
-  is_edge e a b =
-  case lookup a e of NONE => F
-  | SOME ns => MEMBER b ns
-Proof
-  simp[graph_basicTheory.is_edge_def]>>
-  every_case_tac>>metis_tac[MEMBER_INTRO]
-QED
-
-val _ = translate is_edge_compute;
-
 val _ = translate edge_map_def;
-
-val _ = translate COUNT_LIST_AUX_def;
-val _ = translate COUNT_LIST_compute;
-val _ = translate (graph_basicTheory.not_neighbours_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
-val _ = translate not_edge_map_def;
-val _ = translate all_full_edge_map_def;
-
-val _ = translate encode_base_def;
-
-Definition log2_def:
-  log2 n =
-  if n < 2 then 0:num
-  else (log2 (n DIV 2))+1
-End
-
-val _ = translate log2_def;
-
-(* Just for the sake of translation *)
-Theorem LOG2_log2:
-  LOG 2 n = log2 n
-Proof
-  cheat
-QED
-
-val _ = translate pbcTheory.negate_def;
-val _ = translate iff_and_def;
-val _ = translate iff_or_def;
-val _ = translate walk_base_def;
-val _ = translate walk_aux_def;
-val _ = translate walk_ind_def;
-val _ = translate walk_k_def;
-
-val _ = translate (encode_connected_def |> SIMP_RULE std_ss [LOG2_log2])
-
+val _ = translate all_edge_map_def;
 val _ = translate encode_def;
 
 (* Translate the string converter *)
@@ -126,6 +82,7 @@ val _ = translate pbcTheory.map_lit_def;
 val _ = translate pbcTheory.map_pbc_def;
 val _ = translate full_encode_def;
 
+(* Generic print_pbf *)
 
 Definition print_pbf_def:
   print_pbf f = MAP pbc_string f
@@ -134,7 +91,6 @@ End
 val res = translate lit_string_def;
 val res = translate lhs_string_def;
 val res = translate pbc_string_def;
-val res = translate enc_string_def;
 val res = translate print_pbf_def;
 
 val _ = (append_prog o process_topdecs) `
@@ -149,7 +105,7 @@ val enc_and_print = (append_prog o process_topdecs) `
   (case parse_lad f2 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr target =>
-    print_list (print_pbf (full_encode pattern target 0))
+    print_list (print_pbf (full_encode pattern target))
   )`
 
 val top = (append_prog o process_topdecs) `

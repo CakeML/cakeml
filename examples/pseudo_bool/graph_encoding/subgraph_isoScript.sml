@@ -1,7 +1,7 @@
 (*
-  Formalization of the subgraph isomorphism problem
+  Formalization of the subgraph isomorphism encoder (non-induced)
 *)
-open preamble graph_basicTheory pb_preconstraintTheory pb_normaliseTheory;
+open preamble graph_basicTheory pbcTheory pbc_normaliseTheory;
 
 val _ = new_theory "subgraph_iso";
 
@@ -15,10 +15,10 @@ End
 (* tuple (p,t) represents variable x_{p,t} *)
 Type map_var = ``:num # num``
 
-(* a in vp *)
+(* For a in vp, vp is mapped to exactly 1 target in vt *)
 Definition has_mapping_def:
   has_mapping (a:num) vt =
-  Equal (GENLIST (λv. (1, Pos (a,v))) vt) 1
+  (Equal, (GENLIST (λv. (1, Pos (a,v))) vt), 1):map_var pbc
 End
 
 Definition all_has_mapping_def:
@@ -28,7 +28,7 @@ End
 
 Definition one_one_def:
   one_one u vp =
-  GreaterEqual (GENLIST (λb. (1, Neg (b,u))) vp) (&vp-1)
+  (GreaterEqual, GENLIST (λb. (1, Neg (b,u))) vp, &vp-1): map_var pbc
 End
 
 Definition all_one_one_def:
@@ -38,7 +38,9 @@ End
 
 Definition edge_map_def:
   edge_map (a:num,b:num) (u:num) et =
-  GreaterEqual ( (1,Neg (a,u)) :: MAP (λv. (1,Pos (b,v))) (neighbours et u) ) 1
+  (GreaterEqual,
+    (1,Neg (a,u)) :: MAP (λv. (1,Pos (b,v))) (neighbours et u),
+    1): map_var pbc
 End
 
 Definition all_edge_map_def:
@@ -253,8 +255,8 @@ Proof
       rename1`all_has_mapping`>>
       simp[all_has_mapping_def,satisfies_def,MEM_GENLIST,has_mapping_def]>>
       rw[]>>
-      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
-      DEP_REWRITE_TAC[iSUM_eq_1]>>
+      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
+      DEP_REWRITE_TAC[iSUM_eq_1,eval_lin_term_def]>>
       CONJ_TAC>-
         (simp[MEM_GENLIST]>>metis_tac[])>>
       qexists_tac`f a`>>
@@ -263,7 +265,7 @@ Proof
       rename1`all_one_one`>>
       simp[all_one_one_def,satisfies_def,MEM_GENLIST,one_one_def]>>
       rw[]>>
-      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
+      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
       fs[INJ_DEF]>>
       qmatch_goalsub_abbrev_tac`iSUM ls`>>
       `vp = LENGTH ls` by
@@ -285,7 +287,7 @@ Proof
       rw[]>>
       gvs[MEM_FLAT,MEM_GENLIST,MEM_MAP]>>
       fs[MEM_neighbours]>>
-      simp[satisfies_pbc_def,MAP_MAP_o,o_DEF]>>
+      simp[satisfies_pbc_def,MAP_MAP_o,o_DEF,eval_lin_term_def]>>
       `b < vp` by
         (fs[good_graph_def,is_edge_thm]>>
         metis_tac[MEM_neighbours])>>
@@ -312,7 +314,7 @@ Proof
     fs[all_has_mapping_def,MEM_GENLIST,has_mapping_def,PULL_EXISTS]>>
     rw[]>>
     first_x_assum drule>>
-    simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
+    simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
     DEP_REWRITE_TAC[iSUM_eq_1]>>
     CONJ_TAC>- (
       simp[MEM_GENLIST]>>metis_tac[])>>
@@ -332,7 +334,7 @@ Proof
     res_tac>>
     gvs[]>>
     last_x_assum drule>>
-    simp[satisfies_pbc_def,MAP_GENLIST,o_DEF]>>
+    simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
     qmatch_goalsub_abbrev_tac`iSUM ls`>>
     `vp = LENGTH ls` by
       simp[Abbr`ls`]>>
@@ -361,7 +363,7 @@ Proof
     fs[is_edge_thm]>>
   first_x_assum (drule_at (Pos (el 2)))>>
   disch_then (qspec_then`m` mp_tac)>>
-  simp[satisfies_pbc_def,iSUM_def,MAP_MAP_o,o_DEF,LAMBDA_PROD,MEM_neighbours]>>
+  simp[satisfies_pbc_def,iSUM_def,MAP_MAP_o,o_DEF,LAMBDA_PROD,MEM_neighbours,eval_lin_term_def]>>
   disch_then drule>>
   strip_tac>>
   gs[]>>
@@ -450,5 +452,13 @@ Proof
   >- metis_tac[pbf_vars_full_encode]
   >- metis_tac[full_encode_correct]
 QED
+
+(*
+open pb_parseTheory;
+
+val pattern = ``(5, fromAList [(0,[1;3;4]); (1,[0;3;4]);  (2,[3]); (3,[0;1;2]); (4,[0;1])]):graph``
+
+val res = EVAL``MAP pbc_string (full_encode ^pattern ^pattern)``
+*)
 
 val _ = export_theory();

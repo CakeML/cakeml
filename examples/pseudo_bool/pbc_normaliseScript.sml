@@ -7,10 +7,11 @@ val _ = new_theory "pbc_normalise";
 
 val _ = numLib.prefer_num();
 
-(* Normalization proceeds in two steps (for surface syntax):
+(* Normalization proceeds in three steps (for string variables):
 
   string pbc -> int pbc
-  int pbc -> npbc
+  int pbc -> int pbc with ≥
+  int pbc ≥ -> npbc
 
   There is a builtin string normalization using hashing for
   the supported characters
@@ -19,16 +20,11 @@ val _ = numLib.prefer_num();
 *)
 
 (*
-  Injective mapping from mlstring into num
-
-  This does not simply parse a number but is optimized to keep numbers small if they are in the range
+  Injective mapping from mlstring into num, supports
 
   a-z, A-Z, 0-9, _ -
 
   EVAL ``MAP ORD (explode (strlit "_-"))``
-
-  Other characters allowed are _ and -
-
 *)
 Definition hashNon_def:
   hashNon n =
@@ -98,12 +94,18 @@ Proof
   metis_tac[hashString_INJ,SUBSET_REFL]
 QED
 
+Definition flip_coeffs_def:
+  flip_coeffs xs = MAP (λ(c,l). (-c:int,l)) xs
+End
+
 (* Convert a list of pbc to one with ≥ constraints only *)
 Definition pbc_ge_def:
-  (pbc_ge (GreaterEqual xs n) = [GreaterEqual xs n]) ∧
-  (pbc_ge (Equal xs n) =
-    let xs' = MAP (λ(c:int,l). (-c,l)) xs in
-      [GreaterEqual xs n; GreaterEqual xs' (-n)])
+  (pbc_ge ((GreaterEqual,xs,n):'a pbc) = [(GreaterEqual,xs,n)]) ∧
+  (pbc_ge (Greater,xs,n) = [(GreaterEqual,xs,(n+1))]) ∧
+  (pbc_ge (LessEqual,xs,n) = [(GreaterEqual,flip_coeffs xs,-n)]) ∧
+  (pbc_ge (Less,xs,n) = [(GreaterEqual,flip_coeffs xs,-(n-1))]) ∧
+  (pbc_ge (Equal,xs,n) =
+      [(GreaterEqual,xs,n); (GreaterEqual,flip_coeffs xs,(-n))])
 End
 
 Theorem eq_disj:
@@ -112,19 +114,37 @@ Proof
   metis_tac[]
 QED
 
+Theorem eval_lin_term_flip_coeffs:
+  ∀f.
+  eval_lin_term w (flip_coeffs f) =
+  -eval_lin_term w f
+Proof
+  Induct>>fs[eval_lin_term_def,iSUM_def,flip_coeffs_def]>>
+  Cases_on`h`>>rw[]>>
+  Cases_on`r`>>rw[]>>Cases_on`w a`>>rw[]>>
+  intLib.ARITH_TAC
+QED
+
 Theorem pbc_ge_thm:
-  ∀c.
   satisfies w (set (pbc_ge c)) ⇔
   satisfies_pbc w c
 Proof
-  Cases>>
-  simp[pbc_ge_def,satisfies_def]>>
-  rw[EQ_IMP_THM]
-  >- (
-    fs[satisfies_pbc_def,eq_disj,eval_lin_term_MAP_negate_coeff]>>
-    intLib.ARITH_TAC) >>
-  fs[satisfies_pbc_def,eval_lin_term_MAP_negate_coeff]>>
-  intLib.ARITH_TAC
+  PairCases_on`c`>>
+  rename1`(pbop,xs,n)`>>
+  Cases_on`pbop`>>
+  simp[pbc_ge_def,satisfies_def]
+  >- ( (* Equal *)
+    fs[satisfies_pbc_def,eq_disj,eval_lin_term_flip_coeffs]>>
+    intLib.ARITH_TAC)
+  >- ( (* Greater *)
+    simp[satisfies_pbc_def]>>
+    intLib.ARITH_TAC)
+  >- ( (* LessEqual *)
+    simp[satisfies_pbc_def,eval_lin_term_flip_coeffs]>>
+    intLib.ARITH_TAC)
+  >- ( (* Less*)
+    simp[satisfies_pbc_def,eval_lin_term_flip_coeffs]>>
+    intLib.ARITH_TAC)
 QED
 
 Definition term_lt_def[simp]:
@@ -328,12 +348,12 @@ Proof
 QED
 
 Definition pbc_to_npbc_def:
-  (pbc_to_npbc (GreaterEqual lhs n) =
+  (pbc_to_npbc (GreaterEqual,lhs,n) =
     let (lhs',m') = compact_lhs (QSORT term_le lhs) 0 in
     let (lhs'',m'') = normalise_lhs lhs' [] 0 in
     let rhs = if n-(m'+m'') ≥ 0 then Num(n-(m'+m'')) else 0 in
-    PBC lhs'' rhs) ∧
-  (pbc_to_npbc (Equal xs n) = PBC [] 0)
+    (lhs'',rhs):npbc) ∧
+  (pbc_to_npbc _ = ([],0))
 End
 
 Definition normalise_def:
@@ -343,10 +363,10 @@ Definition normalise_def:
 End
 
 Theorem pbc_to_npbc_thm:
-  (∀xs n. pbc ≠ Equal xs n) ⇒
+  FST pbc = GreaterEqual ⇒
   (satisfies_pbc w pbc ⇔ satisfies_npbc w (pbc_to_npbc pbc))
 Proof
-  Cases_on`pbc`>>fs[]>>
+  PairCases_on`pbc`>>fs[]>>
   rw[satisfies_pbc_def,satisfies_npbc_def,pbc_to_npbc_def]>>
   pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
@@ -370,10 +390,10 @@ Proof
     simp[]>>
     metis_tac[pbc_ge_thm])>>
   simp[]>>
-  `!x. MEM x pbf' ⇒ (∀xs n. x ≠ Equal xs n)` by
+  `!x. MEM x pbf' ⇒ FST x = GreaterEqual` by
     (simp[Abbr`pbf'`,MEM_FLAT,MEM_MAP,PULL_EXISTS]>>
-    Cases_on`y`>>simp[pbc_ge_def]>>
-    rw[]>>simp[])>>
+    rw[]>>
+    PairCases_on`y`>>Cases_on`y0`>>fs[pbc_ge_def])>>
   pop_assum mp_tac>>
   rpt(pop_assum kall_tac)>>
   Induct_on`pbf'`>>simp[]>>
@@ -441,7 +461,8 @@ QED
 Theorem compact_pbc_to_npbc:
   compact (pbc_to_npbc c)
 Proof
-  Cases_on`c`>>rw[pbc_to_npbc_def]>>
+  PairCases_on`c`>>Cases_on`c0`>>
+  rw[pbc_to_npbc_def]>>
   pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
   imp_res_tac compact_lhs_no_dup>>
