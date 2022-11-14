@@ -26,6 +26,10 @@ Definition attach_interpreter_def:
     compile_init (has_install_list xs) :: xs
 End
 
+Definition insert_interp_def:
+  insert_interp xs = (xs : closLang$exp list)
+End
+
 (*
 
 Definition compile_inc_def:

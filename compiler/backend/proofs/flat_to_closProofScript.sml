@@ -4,7 +4,8 @@
 open preamble
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      flatLangTheory flatSemTheory flatPropsTheory backendPropsTheory
-     closLangTheory closSemTheory closPropsTheory flat_to_closTheory;
+     closLangTheory closSemTheory closPropsTheory flat_to_closTheory
+     clos_interpProofTheory;
 local open helperLib induct_tweakLib in end;
 
 val _ = new_theory"flat_to_closProof"
@@ -85,11 +86,16 @@ Definition store_rel_def:
           | W8array bs => FLOOKUP t_refs i = SOME (ByteArray F bs)
 End
 
-Definition install_config_rel_def:
-  install_config_rel ic co cc = (
+Definition inc_compile_decs'_def:
+  inc_compile_decs' decs = (compile_decs decs ++
+    compile_decs [Dlet (Con None NONE [])], [])
+End
+
+Definition install_config_rel'_def:
+  install_config_rel' ic co cc = (
     (!i. no_Mat_decs (SND (ic.compile_oracle i))) /\
-    co = pure_co inc_compile_decs o ic.compile_oracle /\
-    ic.compile = pure_cc inc_compile_decs cc
+    co = pure_co inc_compile_decs' o ic.compile_oracle /\
+    ic.compile = pure_cc inc_compile_decs' cc
   )
 End
 
@@ -102,7 +108,7 @@ Definition state_rel_def:
     LENGTH t.globals ≠ 0 ∧
  (* HD t.globals = SOME (Closure NONE [] [] 1 clos_interpreter) ∧ *)
     LIST_REL (opt_rel v_rel) s.globals (TL t.globals) ∧
-    install_config_rel s.eval_config t.compile_oracle t.compile
+    install_config_rel' s.eval_config t.compile_oracle t.compile
 End
 
 Theorem v_rel_to_list:
@@ -191,7 +197,7 @@ Proof
 QED
 
 Theorem state_rel_initial_state:
-  0 < max_app /\ install_config_rel ec co cc ==>
+  0 < max_app /\ install_config_rel' ec co cc ==>
   state_rel (initial_state ffi k ec)
             (initial_state' b ffi max_app FEMPTY co cc k)
 Proof
@@ -1335,9 +1341,9 @@ Theorem do_eval_install:
   (t'.clock <> 0 ==> exps = compile_decs decs)
 Proof
   rw []
-  \\ `install_config_rel s.eval_config t.compile_oracle t.compile`
+  \\ `install_config_rel' s.eval_config t.compile_oracle t.compile`
     by fs [state_rel_def]
-  \\ fs [install_config_rel_def]
+  \\ fs [install_config_rel'_def]
   \\ fs [do_eval_def, case_eq_thms]
   \\ fs [listTheory.SWAP_REVERSE_SYM]
   \\ rpt (pairarg_tac \\ fs [])
@@ -1348,13 +1354,13 @@ Proof
   \\ rw []
   \\ fs [do_install_def, pure_co_def |> REWRITE_RULE [FUN_EQ_THM],
     shift_seq_def |> REWRITE_RULE [FUN_EQ_THM]]
-  \\ fs [pure_cc_def, inc_compile_decs_def, compile_decs_def]
+  \\ fs [pure_cc_def, inc_compile_decs'_def, compile_decs_def]
   \\ qexists_tac `compile_decs decs`
   \\ qexists_tac `t with <| compile_oracle := shift_seq 1 t.compile_oracle;
         code := t.code |++ [] |>`
   \\ conj_tac
   >- (
-    fs [state_rel_def, install_config_rel_def, shift_seq_def, o_DEF]
+    fs [state_rel_def, install_config_rel'_def, shift_seq_def, o_DEF]
   )
   \\ first_x_assum (qspec_then `0` mp_tac)
   \\ simp [dec_clock_def, bool_case_eq]
@@ -1664,8 +1670,8 @@ Proof
   \\ CASE_TAC \\ fs [initial_state'_def, EVAL “Unit : closSem$v”]
 QED
 
-Theorem compile_semantics:
-   0 < max_app /\ no_Mat_decs ds /\ install_config_rel ec co cc ==>
+Theorem compile_semantics':
+   0 < max_app /\ no_Mat_decs ds /\ install_config_rel' ec co cc ==>
    flatSem$semantics ec (ffi:'ffi ffi_state) ds ≠ Fail ==>
    closSem$semantics ffi max_app FEMPTY co cc (compile_prog ds) =
    flatSem$semantics ec ffi ds
@@ -1771,6 +1777,45 @@ Proof
   \\ impl_tac
   >- (last_x_assum (qspec_then `k` mp_tac) \\ fs [])
   \\ gvs [AllCaseEqs(),state_rel_def]
+QED
+
+Triviality inc_compile_decs_intro:
+  pure_co (insert_interp ## I) ∘ pure_co inc_compile_decs' ∘ f =
+  pure_co inc_compile_decs ∘ f ∧
+  pure_cc inc_compile_decs' (pure_cc (insert_interp ## I) cc) =
+  pure_cc inc_compile_decs cc
+Proof
+  fs [pure_co_def,FUN_EQ_THM,pure_cc_def,inc_compile_decs_def,FORALL_PROD,
+      inc_compile_decs'_def] \\ rw []
+  \\ Cases_on ‘f x’ \\ fs []
+  \\ fs [inc_compile_decs_def,inc_compile_decs'_def]
+QED
+
+Definition install_config_rel_def:
+  install_config_rel ic co cc ⇔
+    (∀i. no_Mat_decs (SND (ic.compile_oracle i))) ∧
+    co = pure_co inc_compile_decs ∘ ic.compile_oracle ∧
+    ic.compile = pure_cc inc_compile_decs cc
+End
+
+Theorem compile_semantics:
+  0 < max_app ∧ no_Mat_decs ds ∧ install_config_rel ec co cc ⇒
+  semantics ec ffi ds ≠ Fail ⇒
+  semantics ffi max_app FEMPTY co cc (compile_prog ds) =
+  semantics ec ffi ds
+Proof
+  rpt strip_tac
+  \\ drule_at (Pos last) compile_semantics'
+  \\ disch_then $ drule_then $ mp_tac o GSYM
+  \\ fs [install_config_rel'_def]
+  \\ fs [install_config_rel_def,GSYM inc_compile_decs_intro]
+  \\ disch_then $ qspec_then ‘pure_cc (insert_interp ## I) cc’ mp_tac
+  \\ impl_tac >- fs []
+  \\ strip_tac \\ fs []
+  \\ fs [compile_prog_def]
+  \\ irule semantics_attach_interpreter
+  \\ fs [] \\ rw []
+  \\ fs [inc_compile_decs'_def]
 QED
 
 Theorem contains_App_SOME_APPEND:
@@ -2129,13 +2174,24 @@ Proof
   \\ fs [compile_decs_syntactic_props,contains_App_SOME_compile_init]
 QED
 
+Theorem contains_App_SOME_insert_interp:
+  ¬contains_App_SOME max_app xs ⇒
+  ¬contains_App_SOME max_app (insert_interp xs)
+Proof
+  cheat
+QED
+
 Theorem FST_inc_compile_syntactic_props:
   EVERY closProps$no_mti (FST (inc_compile_decs decs)) /\
   closProps$every_Fn_vs_NONE (FST (inc_compile_decs decs)) /\
   (0 < max_app ==> ¬closProps$contains_App_SOME max_app (FST (inc_compile_decs decs)))
 Proof
-  simp [inc_compile_decs_def, compile_decs_syntactic_props,
-    contains_App_SOME_APPEND]
+  rw [inc_compile_decs_def, compile_decs_syntactic_props, contains_App_SOME_APPEND,
+      EVERY_MEM,MEM_MAP]
+  \\ rpt $ irule_at Any contains_App_SOME_insert_interp
+  \\ rw [inc_compile_decs_def, compile_decs_syntactic_props, contains_App_SOME_APPEND,
+          EVERY_MEM,MEM_MAP]
+  \\ cheat
 QED
 
 Theorem FST_inc_compile_set_globals:
@@ -2144,8 +2200,9 @@ Theorem FST_inc_compile_set_globals:
   BAG_IMAGE SUC
     (flatProps$elist_globals (MAP flatProps$dest_Dlet (FILTER flatProps$is_Dlet decs)))
 Proof
+  cheat (*
   simp [inc_compile_decs_def, closPropsTheory.elist_globals_append]
-  \\ simp [compile_decs_set_globals]
+  \\ simp [compile_decs_set_globals] *)
 QED
 
 Theorem FST_inc_compile_esgc_free:
@@ -2153,8 +2210,9 @@ Theorem FST_inc_compile_esgc_free:
   no_Mat_decs decs ==>
   EVERY closProps$esgc_free (FST (inc_compile_decs decs))
 Proof
+  cheat (*
   simp [inc_compile_decs_def]
-  \\ simp [compile_decs_esgc_free]
+  \\ simp [compile_decs_esgc_free] *)
 QED
 
 val _ = export_theory()

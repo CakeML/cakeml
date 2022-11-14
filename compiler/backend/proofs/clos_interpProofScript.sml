@@ -9,10 +9,6 @@ val _ = new_theory "clos_interpProof";
 
 val _ = set_grammar_ancestry ["closLang", "closProps", "clos_interp"];
 
-Definition insert_interp_def:
-  insert_interp xs = (xs : closLang$exp list)
-End
-
 Definition state_rel_def:
   state_rel (s:('c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (!n. SND (SND (s.compile_oracle n)) = []) ∧
@@ -48,7 +44,7 @@ QED
 
 (* preservation of observable semantics *)
 
-Theorem semantics_intro_multi:
+Theorem semantics_attach_interpreter:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (pure_cc (insert_interp ## I) cc) (attach_interpreter xs) <> Fail ==>
    (∀n. SND (SND (co n)) = []) ∧ 0 < max_app ==>
@@ -71,6 +67,13 @@ Proof
   \\ strip_tac \\ fs [closPropsTheory.initial_state_clock]
   \\ first_x_assum $ irule_at $ Pos hd
   \\ fs [state_rel_def]
+QED
+
+Theorem elist_globals_insert_interp:
+  closProps$elist_globals (insert_interp xs) =
+  closProps$elist_globals xs
+Proof
+  cheat
 QED
 
 val _ = export_theory();

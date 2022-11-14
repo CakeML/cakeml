@@ -6,7 +6,7 @@
 *)
 open preamble flatLangTheory closLangTheory clos_interpTheory;
 
-val _ = new_theory"flat_to_clos"
+val _ = new_theory "flat_to_clos"
 
 val _ = set_grammar_ancestry ["flatLang", "closLang", "clos_interp", "backend_common"];
 
@@ -309,8 +309,9 @@ Definition compile_prog_def:
 End
 
 Definition inc_compile_decs_def:
-  inc_compile_decs decs = (compile_decs decs ++
-    compile_decs [Dlet (Con None NONE [])], [])
+  inc_compile_decs decs =
+    let xs = compile_decs decs ++ compile_decs [Dlet (Con None NONE [])] in
+      (insert_interp xs,[])
 End
 
 Theorem LENGTH_compile:

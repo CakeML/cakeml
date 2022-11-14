@@ -720,7 +720,8 @@ Proof
   rw []
   \\ pop_assum mp_tac
   \\ match_mp_tac backendPropsTheory.oracle_monotonic_subset
-  \\ simp [flat_to_closTheory.inc_compile_decs_def, closPropsTheory.elist_globals_append]
+  \\ simp [flat_to_closTheory.inc_compile_decs_def, closPropsTheory.elist_globals_append,
+           clos_interpProofTheory.elist_globals_insert_interp]
   \\ simp [PULL_FORALL, compile_prog_set_globals]
   \\ simp [PULL_FORALL, compile_decs_set_globals]
   \\ fs [SUBSET_DEF] \\ rw [] \\ fs []
