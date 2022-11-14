@@ -2174,13 +2174,6 @@ Proof
   \\ fs [compile_decs_syntactic_props,contains_App_SOME_compile_init]
 QED
 
-Theorem contains_App_SOME_insert_interp:
-  ¬contains_App_SOME max_app xs ⇒
-  ¬contains_App_SOME max_app (insert_interp xs)
-Proof
-  cheat
-QED
-
 Theorem FST_inc_compile_syntactic_props:
   EVERY closProps$no_mti (FST (inc_compile_decs decs)) /\
   closProps$every_Fn_vs_NONE (FST (inc_compile_decs decs)) /\
@@ -2189,9 +2182,10 @@ Proof
   rw [inc_compile_decs_def, compile_decs_syntactic_props, contains_App_SOME_APPEND,
       EVERY_MEM,MEM_MAP]
   \\ rpt $ irule_at Any contains_App_SOME_insert_interp
-  \\ rw [inc_compile_decs_def, compile_decs_syntactic_props, contains_App_SOME_APPEND,
-          EVERY_MEM,MEM_MAP]
-  \\ cheat
+  \\ rpt $ irule every_Fn_vs_NONE_insert_interp \\ fs []
+  \\ rw [compile_decs_syntactic_props, contains_App_SOME_APPEND, EVERY_MEM,MEM_MAP]
+  \\ drule_then irule insert_interp_no_mti
+  \\ rw [compile_decs_syntactic_props, EVERY_MEM,MEM_MAP]
 QED
 
 Theorem FST_inc_compile_set_globals:
@@ -2200,9 +2194,8 @@ Theorem FST_inc_compile_set_globals:
   BAG_IMAGE SUC
     (flatProps$elist_globals (MAP flatProps$dest_Dlet (FILTER flatProps$is_Dlet decs)))
 Proof
-  cheat (*
-  simp [inc_compile_decs_def, closPropsTheory.elist_globals_append]
-  \\ simp [compile_decs_set_globals] *)
+  simp [inc_compile_decs_def, closPropsTheory.elist_globals_append,elist_globals_insert_interp]
+  \\ simp [compile_decs_set_globals]
 QED
 
 Theorem FST_inc_compile_esgc_free:
@@ -2210,9 +2203,8 @@ Theorem FST_inc_compile_esgc_free:
   no_Mat_decs decs ==>
   EVERY closProps$esgc_free (FST (inc_compile_decs decs))
 Proof
-  cheat (*
   simp [inc_compile_decs_def]
-  \\ simp [compile_decs_esgc_free] *)
+  \\ simp [compile_decs_esgc_free,insert_interp_esgc_free]
 QED
 
 val _ = export_theory()

@@ -76,4 +76,29 @@ Proof
   cheat
 QED
 
+Theorem contains_App_SOME_insert_interp:
+  ¬contains_App_SOME max_app xs ⇒
+  ¬contains_App_SOME max_app (insert_interp xs)
+Proof
+  cheat
+QED
+
+Theorem every_Fn_vs_NONE_insert_interp:
+  every_Fn_vs_NONE xs ⇒ every_Fn_vs_NONE (insert_interp xs)
+Proof
+  cheat
+QED
+
+Theorem insert_interp_no_mti:
+  MEM e (insert_interp xs) ⇒ EVERY no_mti xs ⇒ no_mti e
+Proof
+  cheat
+QED
+
+Theorem insert_interp_esgc_free:
+  EVERY esgc_free (insert_interp xs) = EVERY esgc_free xs
+Proof
+  cheat
+QED
+
 val _ = export_theory();
