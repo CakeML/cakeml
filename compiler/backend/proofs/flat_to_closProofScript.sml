@@ -100,7 +100,7 @@ Definition state_rel_def:
     s.clock = t.clock ∧
     store_rel s.refs t.refs ∧
     LENGTH t.globals ≠ 0 ∧
-    HD t.globals = SOME (Closure NONE [] [] 1 clos_interpreter) ∧
+ (* HD t.globals = SOME (Closure NONE [] [] 1 clos_interpreter) ∧ *)
     LIST_REL (opt_rel v_rel) s.globals (TL t.globals) ∧
     install_config_rel s.eval_config t.compile_oracle t.compile
 End
@@ -173,17 +173,19 @@ Proof
 QED
 
 Definition initial_state'_def:
-  initial_state' ffi ma code co cc k =
+  initial_state' b ffi ma code co cc k =
     <| max_app := ma; clock := k; ffi := ffi; code := code; compile := cc;
        compile_oracle := co;
-       globals := [SOME (Closure NONE [] [] 1 clos_interpreter)];
+       globals := [SOME (if b then
+                           Closure NONE [] [] 1 clos_interpreter
+                         else Unit)];
        refs := FEMPTY|>
 End
 
 Theorem initate_state'_clock[simp,local]:
-  (initial_state' ffi max_app FEMPTY co cc k' with clock := k) =
-  initial_state' ffi max_app FEMPTY co cc k ∧
-  (initial_state' ffi max_app FEMPTY co cc k).clock = k
+  (initial_state' b ffi max_app FEMPTY co cc k' with clock := k) =
+  initial_state' b ffi max_app FEMPTY co cc k ∧
+  (initial_state' b ffi max_app FEMPTY co cc k).clock = k
 Proof
   fs [initial_state'_def]
 QED
@@ -191,7 +193,7 @@ QED
 Theorem state_rel_initial_state:
   0 < max_app /\ install_config_rel ec co cc ==>
   state_rel (initial_state ffi k ec)
-            (initial_state' ffi max_app FEMPTY co cc k)
+            (initial_state' b ffi max_app FEMPTY co cc k)
 Proof
   fs [state_rel_def,flatSemTheory.initial_state_def,initial_state'_def,store_rel_def]
 QED
@@ -1632,28 +1634,34 @@ QED
 Theorem evaluate_compile_prog_initial_state:
   0 < max_app ⇒
   (evaluate (compile_prog ds,[], initial_state ffi max_app FEMPTY co cc k) =
-   case evaluate (compile_decs ds,[], initial_state' ffi max_app FEMPTY co cc k) of
+   case evaluate (compile_decs ds,[],
+          initial_state' (has_install_list (compile_decs ds)) ffi max_app FEMPTY co cc k) of
    | (Rval vs1,s1) => (Rval (Unit::vs1),s1)
    | res => res)
 Proof
-  fs [compile_prog_def]
+  fs [compile_prog_def,clos_interpTheory.attach_interpreter_def]
   \\ simp [Once closPropsTheory.evaluate_CONS]
-  \\ fs [closSemTheory.evaluate_def,compile_init_def]
+  \\ Cases_on ‘has_install_list (compile_decs ds)’ \\ fs []
+  \\ fs [compile_prog_def,clos_interpTheory.compile_init_def]
+  \\ fs [closSemTheory.evaluate_def]
   \\ fs [closSemTheory.do_app_def,initial_state_def,get_global_def,LUPDATE_def]
-  \\ CASE_TAC \\ fs [initial_state'_def]
+  \\ CASE_TAC \\ fs [initial_state'_def, EVAL “Unit : closSem$v”]
 QED
 
 Theorem evaluate_compile_prog_initial_state_FST_Err:
   0 < max_app ⇒
   (FST (evaluate (compile_prog ds,[], initial_state ffi max_app FEMPTY co cc k)) = Rerr e ⇔
-   FST (evaluate (compile_decs ds,[], initial_state' ffi max_app FEMPTY co cc k)) = Rerr e)
+   FST (evaluate (compile_decs ds,[], initial_state' (has_install_list (compile_decs ds))
+                                                    ffi max_app FEMPTY co cc k)) = Rerr e)
 Proof
-  fs [compile_prog_def]
+  fs [compile_prog_def,clos_interpTheory.attach_interpreter_def]
   \\ simp [Once closPropsTheory.evaluate_CONS]
-  \\ fs [closSemTheory.evaluate_def,compile_init_def,AllCaseEqs()]
+  \\ Cases_on ‘has_install_list (compile_decs ds)’ \\ fs []
+  \\ fs [compile_prog_def,clos_interpTheory.compile_init_def]
+  \\ fs [closSemTheory.evaluate_def]
   \\ fs [closSemTheory.do_app_def,initial_state_def,get_global_def,LUPDATE_def]
-  \\ CASE_TAC \\ fs [initial_state'_def]
-  \\ CASE_TAC \\ fs []
+  \\ CASE_TAC \\ fs [initial_state'_def, EVAL “Unit : closSem$v”]
+  \\ CASE_TAC \\ fs [initial_state'_def, EVAL “Unit : closSem$v”]
 QED
 
 Theorem compile_semantics:
@@ -1916,8 +1924,9 @@ Theorem compile_prog_set_globals:
   closProps$elist_globals (compile_prog decs) =
   {|0|} ⊎ BAG_IMAGE SUC (flatProps$elist_globals (MAP dest_Dlet (FILTER is_Dlet decs)))
 Proof
-  fs [compile_prog_def,compile_init_def,op_gbag_def,compile_decs_set_globals,
-      EVAL “set_globals clos_interpreter”]
+  fs [compile_prog_def,clos_interpTheory.attach_interpreter_def,
+      op_gbag_def,compile_decs_set_globals,clos_interpTheory.compile_init_def]
+  \\ rw [] \\ fs [op_gbag_def,EVAL “set_globals clos_interpreter”]
 QED
 
 Theorem compile_esgc_free:
@@ -1988,7 +1997,10 @@ Theorem compile_prog_esgc_free:
   no_Mat_decs decs ==>
   EVERY closProps$esgc_free (compile_prog decs)
 Proof
-  fs [compile_decs_esgc_free,compile_prog_def,EVAL “esgc_free compile_init”]
+  fs [compile_decs_esgc_free,compile_prog_def]
+  \\ rw [clos_interpTheory.attach_interpreter_def,
+         clos_interpTheory.compile_init_def,compile_decs_esgc_free]
+  \\ EVAL_TAC  \\ fs []
 QED
 
 Theorem contains_App_SOME_SmartCons:
@@ -2080,9 +2092,27 @@ Proof
 QED
 
 Triviality contains_App_SOME_compile_init:
-  0 < max_app ⇒ ¬contains_App_SOME max_app [compile_init]
+  0 < max_app ⇒ ¬contains_App_SOME max_app [compile_init b]
 Proof
-  EVAL_TAC
+  EVAL_TAC \\ rw [] \\ EVAL_TAC
+QED
+
+Triviality no_mti_compile_init:
+  no_mti (compile_init b)
+Proof
+  Cases_on ‘b’ \\ fs [] \\ EVAL_TAC
+QED
+
+Triviality every_Fn_vs_NONE_compile_init:
+  every_Fn_vs_NONE [compile_init b]
+Proof
+  Cases_on ‘b’ \\ fs [] \\ EVAL_TAC
+QED
+
+Triviality contains_App_SOME_compile_init:
+  contains_App_SOME max_app [compile_init b] = F
+Proof
+  Cases_on ‘b’ \\ fs [] \\ EVAL_TAC
 QED
 
 Theorem compile_prog_syntactic_props:
@@ -2091,9 +2121,10 @@ Theorem compile_prog_syntactic_props:
     (0 < max_app ==> ¬closProps$contains_App_SOME max_app (compile_prog decs))
 Proof
   fs [compile_prog_def] \\ rw []
-  \\ fs [EVAL “no_mti compile_init”,compile_decs_syntactic_props]
+  \\ fs [compile_decs_syntactic_props,clos_interpTheory.attach_interpreter_def]
   \\ Cases_on ‘compile_decs decs’
-  \\ fs [contains_App_SOME_def,EVAL “every_Fn_vs_NONE [compile_init]”]
+  \\ fs [no_mti_compile_init,every_Fn_vs_NONE_compile_init]
+  \\ fs [contains_App_SOME_def,contains_App_SOME_compile_init]
   \\ pop_assum $ assume_tac o GSYM
   \\ fs [compile_decs_syntactic_props,contains_App_SOME_compile_init]
 QED

@@ -11,6 +11,21 @@ Definition clos_interpreter_def:
   clos_interpreter = Op None (Cons 0) [] (* TODO: implement *)
 End
 
+Definition compile_init_def:
+  compile_init b =
+    Let None [Op None AllocGlobal [];
+              if b then
+                Fn (mlstring$strlit "clos_interpreter") NONE NONE 1 clos_interpreter
+              else
+                Op None (Cons 0) []]
+      (Op None (SetGlobal 0) [Var None 1])
+End
+
+Definition attach_interpreter_def:
+  attach_interpreter xs =
+    compile_init (has_install_list xs) :: xs
+End
+
 (*
 
 Definition compile_inc_def:

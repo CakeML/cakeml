@@ -46,7 +46,7 @@ Correctness proof for clos_fvs
 
 [clos_interpProofScript.sml](clos_interpProofScript.sml):
 Correctness proof for closLang interpreter used by the REPL, i.e. Install,
-to avoid spending time comiling simple run-once code in declarations.
+to avoid spending time compiling simple run-once code in declarations.
 
 [clos_knownProofScript.sml](clos_knownProofScript.sml):
 Correctness proof for clos_known

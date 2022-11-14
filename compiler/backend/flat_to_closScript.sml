@@ -303,16 +303,9 @@ Definition compile_decs_def:
   compile_decs (_::xs) = compile_decs xs
 End
 
-Definition compile_init_def:
-  compile_init =
-    Let None [Op None AllocGlobal [];
-              Fn (mlstring$strlit "clos_interpreter") NONE NONE 1 clos_interpreter]
-      (Op None (SetGlobal 0) [Var None 1])
-End
-
 Definition compile_prog_def:
   compile_prog xs =
-    compile_init :: compile_decs xs
+    attach_interpreter (compile_decs xs)
 End
 
 Definition inc_compile_decs_def:
