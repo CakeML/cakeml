@@ -1316,6 +1316,7 @@ Proof
   >- trivial_tac
   >- trivial_tac
   >- trivial_tac
+  >- trivial_tac
   >- (
     rpt strip_tac
     >> ‘LENGTH a1 = LENGTH a2’ by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
