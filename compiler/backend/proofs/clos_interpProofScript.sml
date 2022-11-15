@@ -9,6 +9,10 @@ val _ = new_theory "clos_interpProof";
 
 val _ = set_grammar_ancestry ["closLang", "closProps", "clos_interp"];
 
+(* ------------------------------------------------------------------------- *
+   correctness of interpreter
+ * ------------------------------------------------------------------------- *)
+
 Definition state_rel_def:
   state_rel (s:('c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (!n. SND (SND (s.compile_oracle n)) = []) ∧
@@ -19,30 +23,140 @@ Definition state_rel_def:
     s.globals = t.globals ∧
     s.refs = t.refs ∧
     s.compile = pure_cc (insert_interp ## I) t.compile ∧
-    t.compile_oracle = pure_co (insert_interp ## I) o s.compile_oracle
+    t.compile_oracle = pure_co (insert_interp ## I) o s.compile_oracle ∧
+    oHD (s.globals) = SOME (SOME (Closure NONE [] [] 1 clos_interpreter))
 End
 
-Theorem evaluate_interp_thm:
-   (!tmp xs env (s1:('c,'ffi) closSem$state) t1 res s2 n.
-     tmp = (xs,env,s1) ∧
+Theorem evaluate_interp_lemma:
+  (∀xs (s1:('c,'ffi) closSem$state) env t1 res s2.
      (evaluate (xs,env,s1) = (res,s2)) ∧ res <> Rerr (Rabort Rtype_error) ⇒
-     state_rel s1 t1 ==>
+     state_rel s1 t1 ⇒
      ?ck t2.
-        (evaluate (xs,env,(t1 with clock := t1.clock + ck)) = (res,t2)) ∧
-        state_rel s2 t2) ∧
-   (!loc f args (s:('c,'ffi) closSem$state) res s2 t1.
-       evaluate_app loc f args s = (res,s2) ∧ res <> Rerr (Rabort Rtype_error) ⇒
-       state_rel s t1
-       ⇒
-       ?ck t2.
-          (evaluate_app loc f args (t1 with clock := t1.clock + ck) = (res,t2)) ∧
-          state_rel s2 t2)
+       (evaluate (xs,env,(t1 with clock := t1.clock + ck)) = (res,t2)) ∧
+       state_rel s2 t2) ∧
+  (∀args (s1:('c,'ffi) closSem$state) loc f t1 res s2.
+     evaluate_app loc f args s1 = (res,s2) ∧ res <> Rerr (Rabort Rtype_error) ⇒
+     state_rel s1 t1 ⇒
+     ?ck t2.
+       (evaluate_app loc f args (t1 with clock := t1.clock + ck) = (res,t2)) ∧
+       state_rel s2 t2)
 Proof
-  ho_match_mp_tac evaluate_ind \\ srw_tac[][]
+  ho_match_mp_tac evaluate_better_ind \\ gvs [PULL_FORALL, GSYM CONJ_ASSOC] \\ rw []
+  >~ [‘evaluate_app _ _ args s1’] >-
+   (rename [‘state_rel s1 t1’]
+    \\ Cases_on ‘args’ \\ gvs [] \\ rw []
+    >- (qexists_tac ‘0’ \\ fs [state_rel_def])
+    \\ fs [evaluate_def]
+    \\ ‘s1.max_app = t1.max_app ∧
+        s1.clock = t1.clock’ by fs [state_rel_def]
+    \\ CASE_TAC >- gvs []
+    \\ CASE_TAC
+    >- (qexists_tac ‘0’ \\ gvs [state_rel_def,dec_clock_def,AllCaseEqs(),PULL_EXISTS])
+    \\ gvs [CaseEq"bool"]
+    >- (qexists_tac ‘0’ \\ gvs [state_rel_def,dec_clock_def,AllCaseEqs(),PULL_EXISTS])
+    \\ gvs [CaseEq"prod"]
+    \\ last_x_assum $ drule_at $ Pos $ el 3
+    \\ disch_then $ qspec_then ‘(dec_clock (SUC (LENGTH t) − LENGTH l0) t1)’ mp_tac
+    \\ ‘(dec_clock (SUC (LENGTH t) − LENGTH l0) s1).clock < t1.clock’ by
+      (fs [dec_clock_def] \\ imp_res_tac dest_closure_length \\ fs [])
+    \\ impl_tac
+    >- (gvs [] \\ gvs [dec_clock_def,state_rel_def,NOT_LESS] \\ strip_tac \\ gvs [])
+    \\ strip_tac \\ fs [PULL_EXISTS]
+    \\ reverse (gvs [AllCaseEqs()])
+    >- (qexists_tac ‘ck’ \\ gvs [dec_clock_def,PULL_EXISTS] \\ gvs [AllCaseEqs()])
+    >- (qexists_tac ‘ck’ \\ gvs [dec_clock_def,PULL_EXISTS] \\ gvs [AllCaseEqs()])
+    \\ gvs [PULL_EXISTS]
+    \\ first_assum $ drule_at $ Pos $ el 3
+    \\ disch_then $ drule_at $ Pos last
+    \\ imp_res_tac dest_closure_length \\ fs []
+    \\ imp_res_tac evaluate_clock \\ fs []
+    \\ strip_tac \\ fs []
+    \\ qpat_x_assum ‘evaluate ([_],_) = _’ assume_tac
+    \\ drule evaluate_add_clock \\ fs []
+    \\ disch_then $ qspec_then ‘ck'’ assume_tac
+    \\ qexists_tac ‘ck+ck'’ \\ gvs [dec_clock_def])
+  \\ Cases_on ‘xs’ \\ fs []
+  >- (qexists_tac ‘0’ \\ gvs [evaluate_def,state_rel_def])
+  \\ rename [‘evaluate (x::xs,_)’]
+  \\ reverse (Cases_on ‘xs’) \\ fs []
+  >-
+   (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
+    \\ first_assum $ drule_at $ Pos $ el 3
+    \\ disch_then $ drule_at $ Pos last
+    \\ impl_tac >- (fs [exp_size_def] \\ strip_tac \\ gvs [])
+    \\ strip_tac \\ fs []
+    \\ reverse (gvs [CaseEq"result"])
+    >- (qexists_tac ‘ck’ \\ fs [])
+    \\ gvs [CaseEq"prod"]
+    \\ qpat_x_assum ‘evaluate (h::t,_) = _’ assume_tac
+    \\ first_assum $ drule_at $ Pos $ el 3
+    \\ disch_then $ drule_at $ Pos last
+    \\ impl_tac >- (fs [exp_size_def]
+                    \\  imp_res_tac evaluate_clock \\ fs []
+                    \\ strip_tac \\ gvs [])
+    \\ strip_tac
+    \\ qpat_x_assum ‘evaluate ([_],_) = _’ assume_tac
+    \\ drule evaluate_add_clock \\ fs []
+    \\ disch_then $ qspec_then ‘ck'’ assume_tac
+    \\ qexists_tac ‘ck+ck'’ \\ fs []
+    \\ gvs [AllCaseEqs()])
+  \\ Cases_on ‘x’ \\ gvs []
+  >~ [‘App t opt x xs’] >-
+   (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
+    \\ gvs [evaluate_def,CaseEq"bool",PULL_EXISTS]
+    \\ gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
+    \\ first_assum $ drule_at $ Pos $ el 3
+    \\ disch_then $ drule_at $ Pos last
+    \\ impl_tac >- (fs [exp_size_def] \\ strip_tac \\ gvs [])
+    \\ strip_tac \\ fs []
+    \\ reverse (gvs [CaseEq"result"])
+    >- (qexists_tac ‘ck’ \\ fs [])
+    \\ gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
+    \\ qpat_x_assum ‘evaluate ([x],_) = _’ assume_tac
+    \\ first_assum $ drule_at $ Pos $ el 3
+    \\ disch_then $ drule_at $ Pos last
+    \\ imp_res_tac evaluate_clock \\ fs []
+    \\ impl_tac >- (fs [exp_size_def] \\ strip_tac \\ gvs [])
+    \\ strip_tac \\ fs []
+    \\ qpat_x_assum ‘evaluate (xs,_) = _’ assume_tac
+    \\ drule evaluate_add_clock \\ fs []
+    \\ disch_then $ qspec_then ‘ck'’ assume_tac
+    \\ reverse (gvs [CaseEq"result"])
+    >- (qexists_tac ‘ck+ck'’ \\ fs [])
+    \\ last_x_assum kall_tac
+    \\ first_assum $ drule_at $ Pos $ el 3
+    \\ disch_then $ drule_at $ Pos last
+    \\ impl_tac >-
+     (fs [exp_size_def]
+      \\ rw [] \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
+      \\ qsuff_tac ‘LENGTH xs ≤ exp3_size xs’ >- fs []
+      \\ qid_spec_tac ‘xs’ \\ Induct \\ fs [])
+    \\ strip_tac
+    \\ qpat_x_assum ‘evaluate (xs,_) = _’ assume_tac
+    \\ drule evaluate_add_clock \\ fs []
+    \\ disch_then $ qspec_then ‘ck''’ assume_tac
+    \\ qpat_x_assum ‘evaluate ([_],_) = _’ assume_tac
+    \\ drule evaluate_add_clock \\ fs []
+    \\ disch_then $ qspec_then ‘ck''’ assume_tac
+    \\ qexists_tac ‘ck+ck'+ck''’ \\ fs [])
   \\ cheat
 QED
 
-(* preservation of observable semantics *)
+Theorem evaluate_interp_thm:
+   ∀xs env (s1:('c,'ffi) closSem$state) t1 res s2.
+     evaluate (xs,env,s1) = (res,s2) ∧ res <> Rerr (Rabort Rtype_error) ∧
+     state_rel s1 t1 ⇒
+     ∃ck t2.
+        evaluate (xs,env,(t1 with clock := t1.clock + ck)) = (res,t2) ∧
+        state_rel s2 t2
+Proof
+  rw [] \\ imp_res_tac evaluate_interp_lemma
+  \\ qexists_tac ‘ck’ \\ fs []
+QED
+
+(* ------------------------------------------------------------------------- *
+   not has_install ignores compiler oracle
+ * ------------------------------------------------------------------------- *)
 
 Definition v_ok_def[simp]:
   (v_ok (Number i) ⇔ T) ∧
@@ -91,6 +205,12 @@ Triviality state_rel'_clock:
   state_rel' s t ⇒ t.clock = s.clock
 Proof
   fs [state_rel'_def]
+QED
+
+Triviality has_install_list_eq:
+  ∀xs. has_install_list xs ⇔ EXISTS has_install xs
+Proof
+  Induct \\ fs [has_install_def]
 QED
 
 Theorem evaluate_change_oracle:
@@ -149,16 +269,68 @@ Proof
     \\ res_tac \\ fs [EXISTS_PROD,PULL_EXISTS]
     \\ gvs [find_code_def,state_rel'_def])
   >~ [‘Op’] >-
-   cheat
+   (gvs [evaluate_def,CaseEq"prod"]
+    \\ rename [‘evaluate (xs,env,s) = (vvv,rr)’]
+    \\ Cases_on ‘vvv ≠ Rerr (Rabort Rtype_error)’ \\ gvs []
+    \\ first_x_assum drule \\ rw [] \\ fs []
+    \\ Cases_on ‘vvv’ \\ fs [] \\ gvs []
+    \\ qabbrev_tac ‘vr = λv1 v2. v1 = v2 ∧ v_ok v1’
+    \\ ‘simple_val_rel vr’ by
+      (fs [simple_val_rel_def]
+       \\ rw [] \\ fs [Abbr‘vr’] \\ gvs []
+       \\ eq_tac \\ gvs [] \\ rw [] \\ fs []
+       \\ pop_assum mp_tac
+       >- (rename [‘LIST_REL _ _ xs’] \\ Induct_on ‘xs’ \\ fs [])
+       >- (rename [‘LIST_REL _ ys xs’]
+           \\ qid_spec_tac ‘xs’ \\ qid_spec_tac ‘ys’
+           \\ Induct \\ gvs [PULL_EXISTS])
+       >- (rename [‘LIST_REL _ ys xs’]
+           \\ qid_spec_tac ‘xs’ \\ qid_spec_tac ‘ys’
+           \\ Induct \\ gvs [PULL_EXISTS] \\ rw [] \\ res_tac \\ fs []))
+    \\ drule_at (Pos $ el 3) simple_val_rel_do_app
+    \\ disch_then drule
+    \\ rename [‘Rval vs’]
+    \\ disch_then $ qspecl_then [‘REVERSE vs’,‘REVERSE vs’,‘op’] mp_tac
+    \\ impl_tac >-
+     (reverse conj_tac >-
+        (qpat_x_assum ‘EVERY _ _’ mp_tac
+         \\ qid_spec_tac ‘vs’ \\ Induct \\ gvs [Abbr‘vr’])
+      \\ fs [simple_state_rel_def] \\ simp [Abbr‘vr’] \\ rpt $ pop_assum kall_tac
+      \\ rw [] \\ gvs [state_rel'_def]
+      \\ TRY $ drule_all FEVERY_FLOOKUP \\ fs []
+      >- (qid_spec_tac ‘w’ \\ Induct \\ fs [])
+      >- (qpat_x_assum ‘EVERY _ _’ mp_tac
+          \\ rename [‘EVERY _ xs’] \\ qid_spec_tac ‘xs’ \\ Induct
+          \\ fs [] \\ Cases \\ fs [])
+      >- (gvs [FEVERY_DEF,SF DNF_ss,FAPPLY_FUPDATE_THM] \\ rw []
+          \\ res_tac \\ fs [])
+      >- (gvs [FEVERY_DEF,SF DNF_ss,FAPPLY_FUPDATE_THM]
+          \\ ‘xs = ys ∧ EVERY v_ok xs’ by
+            (pop_assum mp_tac \\ qid_spec_tac ‘xs’ \\ qid_spec_tac ‘ys’
+             \\ Induct \\ fs [PULL_EXISTS] \\ rw [] \\ gvs [] \\ res_tac \\ fs [])
+          \\ gvs [] \\ rw [] \\ fs [] \\ res_tac \\ fs [])
+      \\ pop_assum mp_tac
+      \\ qid_spec_tac ‘xs’
+      \\ qid_spec_tac ‘ys’
+      \\ Induct \\ fs [PULL_EXISTS]
+      \\ rw [] \\ res_tac \\ fs []
+      \\ Cases_on ‘h’ \\ fs []
+      \\ Cases_on ‘x’ \\ fs [] \\ gvs [])
+    \\ strip_tac
+    \\ gvs [AllCaseEqs()]
+    \\ gvs [Abbr‘vr’]
+    \\ Cases_on ‘err’ \\ gvs [])
   >~ [‘Letrec’] >-
    (gvs [evaluate_def,AllCaseEqs()]
     \\ first_x_assum drule
-    \\ impl_tac >-
+    \\ (impl_tac >-
      (gvs [EVERY_GENLIST,SF ETA_ss] \\ gvs [EVERY_EL]
       \\ rw []
+      \\ TRY (drule lookup_vars_ok)
+      \\ gvs [has_install_list_eq,EVERY_EL] \\ rw []
       \\ first_x_assum drule
       \\ Cases_on ‘EL n fns’ \\ fs []
-      \\ cheat)
+      \\ gvs [EL_MAP]))
     \\ strip_tac \\ fs []
     \\ gvs [EVERY_EL] \\ rw [] \\ res_tac \\ gvs [state_rel'_def])
   >~ [‘App’] >-
@@ -197,7 +369,15 @@ Proof
     \\ fs [])
 QED
 
-(* preservation of observable semantics *)
+(* ------------------------------------------------------------------------- *
+   preservation of observable semantics
+ * ------------------------------------------------------------------------- *)
+
+Triviality init_globals:
+  (initial_state ffi max_app f co cc ck).globals = []
+Proof
+  EVAL_TAC
+QED
 
 Theorem semantics_attach_interpreter:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
@@ -213,16 +393,25 @@ Proof
   \\ fs [] \\ fs [eval_sim_def] \\ rw []
   \\ Cases_on ‘has_install_list xs’ \\ fs []
   >-
-   (qmatch_asmsub_abbrev_tac ‘evaluate (_,_,iis) = _’
-    \\ qspecl_then [‘attach_interpreter xs’,‘[]’,‘iis’] mp_tac
-                   (evaluate_interp_thm |> SIMP_RULE std_ss [] |> CONJUNCT1)
+   (gvs [attach_interpreter_def]
+    \\ last_x_assum kall_tac
+    \\ last_x_assum mp_tac
+    \\ once_rewrite_tac [evaluate_CONS]
+    \\ fs [compile_init_def,evaluate_def,do_app_def,init_globals,get_global_def,
+           LUPDATE_def]
+    \\ qmatch_goalsub_abbrev_tac ‘evaluate (_,_,iis)’
+    \\ CASE_TAC \\ strip_tac
+    \\ qspecl_then [‘xs’,‘[]’,‘iis’] mp_tac evaluate_interp_thm
     \\ disch_then drule \\ fs []
     \\ disch_then $ qspec_then ‘initial_state ffi max_app
-                                FEMPTY (pure_co (insert_interp ## I) ∘ co) cc k’ mp_tac
+                                FEMPTY (pure_co (insert_interp ## I) ∘ co) cc k with
+                        globals := [SOME (Closure NONE [] [] 1 clos_interpreter)]’ mp_tac
     \\ impl_tac
-    >- simp [Abbr‘iis’,state_rel_def,initial_state_def]
+    >- (simp [Abbr‘iis’,state_rel_def,initial_state_def]
+        \\ strip_tac \\ gvs [])
     \\ strip_tac \\ fs [closPropsTheory.initial_state_clock]
-    \\ first_x_assum $ irule_at $ Pos hd
+    \\ qexists_tac ‘ck’ \\ fs []
+    \\ gvs [AllCaseEqs()]
     \\ fs [state_rel_def])
   >-
    (qmatch_asmsub_abbrev_tac ‘evaluate (_,_,iis) = _’
@@ -238,6 +427,10 @@ Proof
     \\ qexists_tac ‘0’ \\ fs []
     \\ fs [state_rel'_def])
 QED
+
+(* ------------------------------------------------------------------------- *
+   syntactic lemmas
+ * ------------------------------------------------------------------------- *)
 
 Theorem elist_globals_insert_interp:
   closProps$elist_globals (insert_interp xs) =
