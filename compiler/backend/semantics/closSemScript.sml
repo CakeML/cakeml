@@ -489,11 +489,12 @@ val dest_closure_def = Define `
                 SOME (Partial_app (Recclosure loc (args++arg_env) clo_env fns i))
     | _ => NONE`;
 
-val dest_closure_length = Q.prove (
-  `!max_app loc_opt f args exp args1 args2 so_far.
+Theorem dest_closure_length:
+  ∀max_app loc_opt f args exp args1 args2 so_far.
     dest_closure max_app loc_opt f args = SOME (Full_app exp args1 args2)
     ⇒
-    LENGTH args2 < LENGTH args`,
+    LENGTH args2 < LENGTH args
+Proof
   rw [dest_closure_def] >>
   BasicProvers.EVERY_CASE_TAC >>
   fs [] >>
@@ -504,7 +505,8 @@ val dest_closure_length = Q.prove (
   Cases_on `LENGTH args + LENGTH l < q` >>
   fs [] >>
   rw [] >>
-  decide_tac);
+  decide_tac
+QED
 
 val clos_env_def = Define `
   clos_env restrict names env =
