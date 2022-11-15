@@ -27,6 +27,76 @@ Definition state_rel_def:
     oHD (s.globals) = SOME (SOME (Closure NONE [] [] 1 clos_interpreter))
 End
 
+Definition state_rel_1_def:
+  state_rel_1 (s:('c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
+    (!n. SND (SND (s.compile_oracle n)) = []) ∧
+    s.code = FEMPTY ∧ t.code = FEMPTY ∧
+    t.max_app = s.max_app ∧ 1 <= s.max_app ∧
+    t.clock = s.clock ∧
+    t.ffi = s.ffi ∧
+    s.globals = t.globals ∧
+    s.refs = t.refs ∧
+    s.compile = pure_cc (insert_interp ## I) t.compile ∧
+    t.compile_oracle = pure_co (insert_interp ## I) o s.compile_oracle
+End
+
+Triviality LIST_REL_eq:
+  ∀xs ys. LIST_REL (λv1 v2. v1 = v2) xs ys ⇔ xs = ys
+Proof
+  Induct \\ fs []
+  \\ Cases_on ‘ys’ \\ fs []
+  \\ rw [] \\ eq_tac \\ rw []
+QED
+
+Triviality LIST_REL_OPTREL_eq:
+  ∀xs ys. LIST_REL (OPTREL (λv1 v2. v1 = v2)) xs ys ⇔ xs = ys
+Proof
+  Induct \\ fs []
+  \\ Cases_on ‘ys’ \\ fs []
+  \\ rw [] \\ eq_tac \\ rw []
+  \\ Cases_on ‘h’
+  \\ Cases_on ‘h'’
+  \\ gvs []
+QED
+
+Theorem do_app_oHD_globals:
+  do_app p vs s1 = Rval (v,s2) ⇒
+  oHD s1.globals = SOME (SOME x) ⇒
+  oHD s2.globals = SOME (SOME x)
+Proof
+  strip_tac
+  \\ gvs [do_app_def,AllCaseEqs()]
+  \\ Cases_on ‘s1.globals’ \\ fs []
+  \\ fs [get_global_def] \\ rw []
+  \\ rename [‘LUPDATE _ nn’]
+  \\ Cases_on ‘nn’ \\ gvs [LUPDATE_def]
+QED
+
+Theorem evaluate_insert_interp:
+  (∀xs s1 env (t1:('c,'ffi) closSem$state) res s2.
+     s1.clock ≤ s4.clock ∧
+     evaluate (xs,env,s1) = (res,s2) ∧
+     res ≠ Rerr (Rabort Rtype_error) ⇒
+     state_rel s1 t1 ⇒
+     ∃ck t2.
+       evaluate (xs,env,t1 with clock := ck + t1.clock) = (res,t2) ∧
+       state_rel s2 t2) ∧
+  (∀args s1 loc f (t1:('c,'ffi) closSem$state) res s2.
+     s1.clock ≤ s4.clock ∧
+     evaluate_app loc f args s1 = (res,s2) ∧
+     res ≠ Rerr (Rabort Rtype_error) ⇒
+     state_rel s1 t1 ⇒
+     ∃ck t2.
+       evaluate_app loc f args (t1 with clock := ck + t1.clock) =
+       (res,t2) ∧ state_rel s2 t2) ∧
+  evaluate (exps,[],s4) = (r,s5) ∧ state_rel s4 t4 ∧ r ≠ Rerr (Rabort Rtype_error) ⇒
+  ∃ck (t5:('c,'ffi) closSem$state).
+    evaluate (insert_interp exps,[],t4 with clock := t4.clock + ck) = (r,t5) ∧
+    state_rel s5 t5
+Proof
+  cheat
+QED
+
 Theorem evaluate_interp_lemma:
   (∀xs (s1:('c,'ffi) closSem$state) env t1 res s2.
      (evaluate (xs,env,s1) = (res,s2)) ∧ res <> Rerr (Rabort Rtype_error) ⇒
@@ -139,7 +209,189 @@ Proof
     \\ drule evaluate_add_clock \\ fs []
     \\ disch_then $ qspec_then ‘ck''’ assume_tac
     \\ qexists_tac ‘ck+ck'+ck''’ \\ fs [])
-  \\ cheat
+  >~ [‘Var’] >-
+   (qexists_tac ‘0’ \\ gvs [evaluate_def,AllCaseEqs(),state_rel_def])
+  >~ [‘Fn’] >-
+   (qexists_tac ‘0’ \\ gvs [evaluate_def,AllCaseEqs(),state_rel_def])
+  >~ [‘Tick’] >-
+   (gvs [evaluate_def,AllCaseEqs()]
+    >- (qexists_tac ‘0’ \\ fs [state_rel_def])
+    \\ first_assum $ drule_at $ Pos $ el 3
+    \\ disch_then $ qspec_then ‘dec_clock 1 t1’ mp_tac
+    \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ gvs [state_rel_def])
+    \\ strip_tac
+    \\ qexists_tac ‘ck’
+    \\ ‘s1.clock = t1.clock’ by fs [state_rel_def]
+    \\ fs [dec_clock_def]
+    \\ first_assum $ irule_at Any
+    \\ ‘(ck + (t1.clock − 1)) = (ck + t1.clock) − 1’ by fs []
+    \\ fs [])
+  >~ [‘Raise’] >-
+   (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
+    \\ first_assum $ drule_at $ Pos $ el 3
+    \\ disch_then $ drule_at $ Pos last
+    \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs [])
+    \\ strip_tac \\ qexists_tac ‘ck’ \\ fs []
+    \\ gvs [AllCaseEqs()])
+  >~ [‘If’] >-
+   (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
+    \\ first_assum $ drule_at $ Pos $ el 3
+    \\ disch_then $ drule_at $ Pos last
+    \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs [])
+    \\ strip_tac
+    \\ reverse $ gvs [CaseEq"result"]
+    >- (qexists_tac ‘ck’ \\ fs [])
+    \\ imp_res_tac evaluate_SING \\ gvs []
+    \\ reverse $ gvs [CaseEq"bool"]
+    \\ ntac 2 $ pop_assum mp_tac
+    \\ first_assum $ drule_at $ Pos $ el 3
+    \\ rw []
+    \\ first_assum $ drule_at $ Pos last
+    \\ imp_res_tac evaluate_clock
+    \\ (impl_tac >- fs [])
+    \\ strip_tac \\ fs []
+    \\ ntac 2 $ pop_assum mp_tac
+    \\ drule evaluate_add_clock \\ fs []
+    \\ disch_then $ qspec_then ‘ck'’ assume_tac \\ rw []
+    \\ qexists_tac ‘ck+ck'’ \\ gvs [dec_clock_def])
+  >~ [‘Let’] >-
+   (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
+    \\ first_assum $ drule_at $ Pos $ el 3
+    \\ disch_then $ drule_at $ Pos last
+    \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs [])
+    \\ strip_tac
+    \\ reverse $ gvs [CaseEq"result"]
+    >- (qexists_tac ‘ck’ \\ fs [])
+    \\ qpat_x_assum ‘evaluate ([_],_) = _’ assume_tac
+    \\ first_assum $ drule_at $ Pos $ el 3
+    \\ disch_then $ drule_at $ Pos last
+    \\ imp_res_tac evaluate_clock
+    \\ impl_tac >- fs []
+    \\ strip_tac \\ fs []
+    \\ qpat_x_assum ‘evaluate _ = (Rval _,_)’ assume_tac
+    \\ drule evaluate_add_clock \\ fs []
+    \\ disch_then $ qspec_then ‘ck'’ assume_tac \\ rw []
+    \\ qexists_tac ‘ck+ck'’ \\ gvs [dec_clock_def])
+  >~ [‘Handle’] >-
+   (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
+    \\ first_assum $ drule_at $ Pos $ el 3
+    \\ disch_then $ drule_at $ Pos last
+    \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs [])
+    \\ strip_tac
+    \\ gvs [AllCaseEqs()]
+    \\ TRY (qexists_tac ‘ck’ \\ fs [] \\ NO_TAC)
+    \\ qpat_x_assum ‘evaluate ([e0],_) = _’ assume_tac
+    \\ first_assum $ drule_at $ Pos $ el 3
+    \\ disch_then $ drule_at $ Pos last
+    \\ imp_res_tac evaluate_clock
+    \\ impl_tac >- fs []
+    \\ strip_tac \\ fs []
+    \\ qpat_x_assum ‘evaluate _ = (Rerr _,_)’ assume_tac
+    \\ drule evaluate_add_clock \\ fs []
+    \\ disch_then $ qspec_then ‘ck'’ assume_tac \\ rw []
+    \\ qexists_tac ‘ck+ck'’ \\ gvs [dec_clock_def])
+  >~ [‘Call’] >-
+   (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
+    \\ first_assum $ drule_at $ Pos $ el 3
+    \\ disch_then $ drule_at $ Pos last
+    \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs [])
+    \\ strip_tac
+    \\ reverse $ gvs [CaseEq"result"]
+    >- (qexists_tac ‘ck’ \\ fs [])
+    \\ gvs [CaseEq"option"]
+    \\ gvs [find_code_def,state_rel_def])
+  >~ [‘Letrec’] >-
+   (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
+    \\ ‘s1.max_app = t1.max_app’ by fs [state_rel_def]
+    \\ gvs [CaseEq"bool",CaseEq"option"]
+    \\ first_assum $ drule_at $ Pos $ el 3
+    \\ disch_then $ drule_at $ Pos last
+    \\ (impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs []))
+    \\ strip_tac
+    \\ qexists_tac ‘ck’ \\ fs [])
+  \\ rename [‘Op t p xs’]
+  \\ gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
+  \\ first_assum $ drule_at $ Pos $ el 3
+  \\ disch_then $ drule_at $ Pos last
+  \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs [])
+  \\ strip_tac
+  \\ reverse $ gvs [CaseEq"result"]
+  >- (qexists_tac ‘ck’ \\ fs [])
+  \\ Cases_on ‘p ≠ Install’ \\ gvs []
+  \\ gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
+  >-
+   (qabbrev_tac ‘vr = λv1 v2. v1 = v2:closSem$v’
+    \\ ‘simple_val_rel vr’ by
+      (fs [simple_val_rel_def]
+       \\ rw [] \\ fs [Abbr‘vr’] \\ gvs [LIST_REL_eq])
+    \\ rename [‘state_rel s3 t3’]
+    \\ ‘state_rel_1 s3 t3’ by fs [state_rel_def,state_rel_1_def]
+    \\ drule_at (Pos $ el 3) simple_val_rel_do_app
+    \\ disch_then drule
+    \\ rename [‘Rval vs’]
+    \\ disch_then $ qspecl_then [‘REVERSE vs’,‘REVERSE vs’,‘p’] mp_tac
+    \\ impl_tac >-
+     (reverse conj_tac >- (qid_spec_tac ‘vs’ \\ Induct \\ gvs [Abbr‘vr’])
+      \\ fs [simple_state_rel_def] \\ simp [Abbr‘vr’] \\ rpt $ pop_assum kall_tac
+      \\ rw [] \\ gvs [state_rel_1_def]
+      \\ TRY $ drule_all FEVERY_FLOOKUP \\ fs [LIST_REL_eq,LIST_REL_OPTREL_eq])
+    \\ strip_tac
+    \\ qexists_tac ‘ck’ \\ fs []
+    \\ reverse $ gvs [AllCaseEqs()]
+    \\ gvs [Abbr‘vr’] >- (Cases_on ‘err’ \\ gvs [])
+    \\ fs [state_rel_def,state_rel_1_def]
+    \\ drule_then irule do_app_oHD_globals \\ fs [])
+  \\ rename [‘state_rel s3 t3’]
+  \\ qpat_x_assum ‘do_install _ _ = _’ mp_tac
+  \\ simp [Once do_install_def]
+  \\ simp [AllCaseEqs()] \\ strip_tac \\ gvs []
+  \\ pairarg_tac \\ gvs []
+  \\ gvs [CaseEq"bool"]
+  \\ gvs [CaseEq"option"]
+  \\ gvs [CaseEq"prod"]
+  \\ ‘s3.compile = pure_cc (insert_interp ## I) t3.compile ∧
+      t3.compile_oracle = pure_co (insert_interp ## I) ∘ s3.compile_oracle ∧
+      t3.clock = s3.clock ∧
+      FDOM t3.code = EMPTY ∧ FDOM s3.code = EMPTY’
+        by fs [state_rel_def]
+  \\ ‘insert_interp exps ≠ []’ by (gvs [insert_interp_def] \\ gvs [AllCaseEqs()])
+  \\ gvs [CaseEq"bool"]
+  >-
+   (qexists_tac ‘ck’ \\ fs []
+    \\ simp [do_install_def]
+    \\ fs [pure_co_def,pure_cc_def]
+    \\ fs [o_DEF,shift_seq_def]
+    \\ fs [state_rel_def,FUN_EQ_THM]
+    \\ rpt (first_x_assum (qspec_then ‘0:num’ assume_tac) \\ gvs [FUPDATE_LIST]))
+  \\ ‘aux = []’ by
+   (fs [state_rel_def,FUN_EQ_THM]
+    \\ rpt (first_x_assum (qspec_then ‘0:num’ assume_tac) \\ gvs [FUPDATE_LIST]))
+  \\ gvs [SWAP_REVERSE_SYM,CaseEq"prod"]
+  \\ drule_at (Pos $ el 3) evaluate_insert_interp \\ fs [FUPDATE_LIST]
+  \\ disch_then $ qspec_then ‘t3 with
+              <|clock := t3.clock − 1;
+                compile_oracle := shift_seq 1 t3.compile_oracle;
+                code := t3.code |>’ mp_tac
+  \\ impl_tac
+  >-
+   (rpt strip_tac
+    >-
+     (last_x_assum irule \\ fs []
+      \\ first_assum $ irule_at Any \\ fs []
+      \\ imp_res_tac evaluate_clock \\ fs [])
+    >-
+     (last_x_assum irule \\ fs []
+      \\ first_assum $ irule_at Any \\ fs []
+      \\ imp_res_tac evaluate_clock \\ fs [])
+    \\ gvs [FUN_EQ_THM,shift_seq_def,state_rel_def])
+  \\ strip_tac
+  \\ qpat_x_assum ‘evaluate _ = (Rval _,_)’ assume_tac
+  \\ drule evaluate_add_clock \\ fs []
+  \\ disch_then $ qspec_then ‘ck'’ assume_tac
+  \\ qexists_tac ‘ck+ck'’ \\ fs [PULL_EXISTS]
+  \\ fs [do_install_def,pure_co_def,shift_seq_def,pure_cc_def,pure_co_def,PULL_EXISTS]
+  \\ gvs [FUPDATE_LIST]
+  \\ gvs [AllCaseEqs()]
 QED
 
 Theorem evaluate_interp_thm:
