@@ -1726,4 +1726,196 @@ Proof
   metis_tac[PAIR,FST,SND,good_handlers_comp]
 QED
 
+(**** lab_pres for loop_to_word ****)
+
+Theorem loop_to_word_comp_SND_LE:
+  ∀ctxt prog l p r.
+    comp ctxt prog l = (p,r) ⇒
+    SND l ≤ SND r
+Proof
+  ho_match_mp_tac loop_to_wordTheory.comp_ind>>
+  rw[loop_to_wordTheory.comp_def]>>
+  rpt (FULL_CASE_TAC>>gs[])>>TRY (rveq>>gs[])>>
+  pairarg_tac>>gs[]>>pairarg_tac>>gs[]>>
+  rveq>>gs[]
+QED
+
+Theorem loop_to_word_comp_extract_labels_len:
+  ∀ctxt prog l p r.
+    comp ctxt prog l = (p,r) ⇒
+    LENGTH (extract_labels p) = SND r - SND l
+Proof
+  ho_match_mp_tac loop_to_wordTheory.comp_ind>>
+  rw[loop_to_wordTheory.comp_def]>>
+  gs[wordPropsTheory.extract_labels_def]
+  >- (
+  pairarg_tac>>gs[]>>
+  pairarg_tac>>gs[]>>
+  rveq>>gs[wordPropsTheory.extract_labels_def]>>
+  drule loop_to_word_comp_SND_LE>>strip_tac>>
+  qpat_x_assum ‘_= (_, l')’ assume_tac>>
+  drule loop_to_word_comp_SND_LE>>strip_tac>>
+  gs[])
+  >- (
+  pairarg_tac>>gs[]>>
+  pairarg_tac>>gs[]>>
+  rveq>>gs[wordPropsTheory.extract_labels_def]>>
+  drule loop_to_word_comp_SND_LE>>strip_tac>>
+  qpat_x_assum ‘_= (_, l')’ assume_tac>>
+  drule loop_to_word_comp_SND_LE>>strip_tac>>
+  gs[])>>
+  rpt (FULL_CASE_TAC>>gs[])>>
+  rveq>>gs[wordPropsTheory.extract_labels_def]>>
+  TRY (CASE_TAC>>gs[])>>
+  pairarg_tac>>gs[]>>pairarg_tac>>gs[]>>
+  rveq>>gs[wordPropsTheory.extract_labels_def]>>
+  rpt (CASE_TAC>>gs[])>>
+  drule loop_to_word_comp_SND_LE>>strip_tac>>gs[]>>
+  qpat_x_assum ‘_= (_, (_, r))’ assume_tac>>
+  drule loop_to_word_comp_SND_LE>>strip_tac>>gs[]
+QED
+
+Theorem loop_to_word_comp_extract_labels:
+  ∀ctxt prog l p l'.
+    loop_to_word$comp ctxt prog l = (p,l') ⇒
+    EVERY (λ(q, r). q = FST l ∧ SND l ≤ r ∧ r < SND l') (extract_labels p)
+Proof
+  ho_match_mp_tac loop_to_wordTheory.comp_ind>>
+  rw[loop_to_wordTheory.comp_def]>>
+  gs[wordPropsTheory.extract_labels_def]
+  >- (pairarg_tac>>gs[]>>
+      pairarg_tac>>gs[]>>
+      rveq>>gs[wordPropsTheory.extract_labels_def]>>
+      ‘FST l'' = FST l’ by metis_tac[comp_l_invariant]>>gs[]>>
+      drule loop_to_word_comp_SND_LE>>strip_tac>>
+      qpat_x_assum ‘_= (_, l'')’ assume_tac>>
+      drule loop_to_word_comp_SND_LE>>strip_tac>>
+      conj_tac>>gs[EVERY_EL]>>strip_tac>>strip_tac>>pairarg_tac>>gs[]
+      >- (first_x_assum $ qspec_then ‘n’ assume_tac>>gs[])>>
+      last_x_assum $ qspec_then ‘n’ assume_tac>>gs[])
+  >- (pairarg_tac>>gs[]>>
+      pairarg_tac>>gs[]>>
+      rveq>>gs[wordPropsTheory.extract_labels_def]>>
+      ‘FST l'' = FST l’ by metis_tac[comp_l_invariant]>>gs[]>>
+      drule loop_to_word_comp_SND_LE>>strip_tac>>
+      qpat_x_assum ‘_= (_, l'')’ assume_tac>>
+      drule loop_to_word_comp_SND_LE>>strip_tac>>
+      conj_tac>>gs[EVERY_EL]>>strip_tac>>strip_tac>>pairarg_tac>>gs[]
+      >- (first_x_assum $ qspec_then ‘n’ assume_tac>>gs[])>>
+      last_x_assum $ qspec_then ‘n’ assume_tac>>gs[])>>
+  rpt (FULL_CASE_TAC>>gs[])>>
+  rveq>>gs[wordPropsTheory.extract_labels_def]>>
+  TRY (CASE_TAC>>gs[])>>
+  pairarg_tac>>gs[]>>
+  pairarg_tac>>gs[]>>
+  rveq>>gs[wordPropsTheory.extract_labels_def]>>
+  rpt (CASE_TAC>>gs[])>>
+  ‘q''' = FST l1’
+    by (drule comp_l_invariant>>gs[])>>gs[]>>
+  drule loop_to_word_comp_SND_LE>>strip_tac>>
+  qpat_x_assum ‘_= (_, (_, r))’ assume_tac>>
+  drule loop_to_word_comp_SND_LE>>strip_tac>>
+  gs[]>>
+  drule comp_l_invariant>>gs[]>>strip_tac>>
+  conj_tac>>gs[EVERY_EL]>>strip_tac>>strip_tac>>pairarg_tac>>gs[]
+  >- (last_x_assum $ qspec_then ‘n’ assume_tac>>gs[])>>
+  first_x_assum $ qspec_then ‘n’ assume_tac>>gs[]
+QED
+
+Theorem loop_to_word_comp_ALL_DISTINCT:
+  ∀ctxt prog l p r.
+    comp ctxt prog l = (p,r) ⇒
+    ALL_DISTINCT (extract_labels p)
+Proof
+  ho_match_mp_tac loop_to_wordTheory.comp_ind>>
+  rw[loop_to_wordTheory.comp_def]>>
+  gs[wordPropsTheory.extract_labels_def]
+  >- (pairarg_tac>>gs[]>>
+      pairarg_tac>>gs[]>>
+      rveq>>
+      gs[wordPropsTheory.extract_labels_def,
+         ALL_DISTINCT_APPEND]>>rpt strip_tac>>
+      drule loop_to_word_comp_extract_labels>>strip_tac>>
+      drule loop_to_word_comp_SND_LE>>strip_tac>>
+      qpat_x_assum ‘_= (_, l')’ assume_tac>>
+      drule loop_to_word_comp_extract_labels>>strip_tac>>
+      drule loop_to_word_comp_SND_LE>>strip_tac>>
+      gs[EVERY_MEM]>>
+      rpt (first_x_assum $ qspec_then ‘e’ assume_tac)>>gs[]>>
+      Cases_on ‘e’>>gs[])
+  >- (pairarg_tac>>gs[]>>
+      pairarg_tac>>gs[]>>
+      rveq>>
+      gs[wordPropsTheory.extract_labels_def,
+         ALL_DISTINCT_APPEND]>>rpt strip_tac>>
+      drule loop_to_word_comp_extract_labels>>strip_tac>>
+      drule loop_to_word_comp_SND_LE>>strip_tac>>
+      qpat_x_assum ‘_= (_, l')’ assume_tac>>
+      drule loop_to_word_comp_extract_labels>>strip_tac>>
+      drule loop_to_word_comp_SND_LE>>strip_tac>>
+      gs[EVERY_MEM]>>
+      rpt (first_x_assum $ qspec_then ‘e’ assume_tac)>>gs[]>>
+      Cases_on ‘e’>>gs[])>>
+  rpt (FULL_CASE_TAC>>gs[])>>
+  rveq>>gs[wordPropsTheory.extract_labels_def]>>
+  TRY (CASE_TAC>>gs[])>>
+  pairarg_tac>>gs[]>>
+  pairarg_tac>>gs[]>>
+  rveq>>gs[wordPropsTheory.extract_labels_def]>>
+  rpt (CASE_TAC>>gs[])>>
+  ‘q''' = FST l1’
+    by (drule comp_l_invariant>>gs[])>>gs[]>>
+  drule loop_to_word_comp_extract_labels>>strip_tac>>
+  drule loop_to_word_comp_SND_LE>>strip_tac>>
+  qpat_x_assum ‘_= (_, (_, r))’ assume_tac>>
+  drule loop_to_word_comp_extract_labels>>strip_tac>>
+  drule loop_to_word_comp_SND_LE>>strip_tac>>
+  gs[]>>
+  gs[ALL_DISTINCT_APPEND, EVERY_MEM]>>rw[]
+  >- (first_x_assum $ qspec_then ‘(FST l1, r')’ assume_tac>>gs[])
+  >- (last_x_assum $ qspec_then ‘(FST l1, r')’ assume_tac>>gs[])
+  >- (first_x_assum $ qspec_then ‘(q, r)’ assume_tac>>gs[])
+  >- (last_x_assum $ qspec_then ‘(q, r)’ assume_tac>>gs[])>>
+  first_x_assum $ qspec_then ‘e’ assume_tac>>gs[]>>
+  first_x_assum $ qspec_then ‘e’ assume_tac>>gs[]>>
+  Cases_on ‘e’>>gs[]
+QED
+
+Theorem loop_to_word_comp_func_lab_pres:
+    comp_func n' params body = p ⇒
+    (∀n. n < LENGTH (extract_labels p) ⇒
+         (λ(l1,l2). l1 = n' ∧ l2 ≠ 0 ∧ l2 ≠ 1)
+         (EL n (extract_labels p))) ∧
+    ALL_DISTINCT (extract_labels p)
+Proof
+  strip_tac>>
+  gs[loop_to_wordTheory.comp_func_def]>>
+  qmatch_asmsub_abbrev_tac ‘FST cmp = _’>>
+  Cases_on ‘cmp’>>gs[]>>
+  drule loop_to_word_comp_extract_labels>>strip_tac>>
+  drule loop_to_word_comp_ALL_DISTINCT>>strip_tac>>
+  gs[]>>rpt strip_tac>>
+  gs[EVERY_EL]>>
+  first_x_assum $ qspec_then ‘n’ assume_tac>>gs[]>>
+  pairarg_tac>>gs[]
+QED
+
+Theorem loop_to_word_compile_prog_lab_pres:
+  loop_to_word$compile_prog prog = prog' ⇒
+  EVERY
+  (λ(n,m,p).
+     (let
+        labs = extract_labels p
+      in
+        EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧
+        ALL_DISTINCT labs)) prog'
+Proof
+  strip_tac>>
+  gs[loop_to_wordTheory.compile_prog_def]>>
+  gs[EVERY_EL]>>ntac 2 strip_tac>>
+  pairarg_tac>>gs[]>>rveq>>gs[EL_MAP]>>
+  pairarg_tac>>gs[]>>
+  drule loop_to_word_comp_func_lab_pres>>rw[]
+QED
+
 val _ = export_theory();

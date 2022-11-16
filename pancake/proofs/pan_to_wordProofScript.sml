@@ -761,4 +761,23 @@ Proof
   irule loop_to_wordProofTheory.loop_to_word_good_handlers>>metis_tac[]
 QED
 
+(* lab_pres *)
+
+Theorem pan_to_word_compile_lab_pres:
+  pan_to_word$compile_prog prog = prog' ⇒
+  EVERY
+  (λ(n,m,p).
+     (let
+        labs = extract_labels p
+      in
+        EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧
+        ALL_DISTINCT labs)) prog'
+Proof
+  strip_tac>>gs[pan_to_wordTheory.compile_prog_def]>>
+  gs[loop_to_wordTheory.compile_def]>>
+  drule loop_to_word_compile_prog_lab_pres>>gs[]
+QED
+
+(**)
+
 val _ = export_theory();
