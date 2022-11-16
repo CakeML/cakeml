@@ -778,6 +778,16 @@ Proof
   drule loop_to_word_compile_prog_lab_pres>>gs[]
 QED
 
-(**)
+(* first_name offset : lab_min *)
+
+Theorem pan_to_word_compile_prog_lab_min:
+  compile_prog pprog = wprog ⇒
+  EVERY (λprog. 60 ≤ FST prog) wprog
+Proof
+  gs[pan_to_wordTheory.compile_prog_def]>>
+  strip_tac>>
+  drule_then irule loop_to_word_compile_lab_min>>
+  irule crep_to_loop_compile_prog_lab_min>>metis_tac[]
+QED
 
 val _ = export_theory();

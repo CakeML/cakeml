@@ -1918,4 +1918,38 @@ Proof
   drule loop_to_word_comp_func_lab_pres>>rw[]
 QED
 
+(* first_name offset *)
+
+Theorem loop_to_word_compile_prog_FST_eq:
+  compile_prog prog = prog' ⇒
+  MAP FST prog' = MAP FST prog
+Proof
+  strip_tac>>gs[loop_to_wordTheory.compile_prog_def]>>
+  ‘LENGTH prog = LENGTH prog'’ by (rveq>>gs[LENGTH_MAP])>>
+  gs[MAP_EQ_EVERY2]>>gs[LIST_REL_EL_EQN]>>
+  strip_tac>>strip_tac>>gs[]>>rveq>>gs[EL_MAP]>>
+  pairarg_tac>>gs[]
+QED
+
+Theorem loop_to_word_compile_prog_lab_min:
+  compile_prog prog = prog' ∧
+  EVERY (λp. x ≤ FST p) prog ⇒
+  EVERY (λp. x ≤ FST p) prog'
+Proof
+  strip_tac>>
+  drule loop_to_word_compile_prog_FST_eq>>gs[GSYM EVERY_MAP]
+QED
+
+Theorem loop_to_word_compile_lab_min:
+  compile prog = prog' ∧
+  EVERY (λp. x ≤ FST p) prog ⇒
+  EVERY (λp. x ≤ FST p) prog'
+Proof
+  strip_tac>>
+  gs[loop_to_wordTheory.compile_def]>>
+  drule_then irule loop_to_word_compile_prog_lab_min>>
+  gs[]>>irule loop_removeProofTheory.loop_remove_comp_prog_lab_min>>
+  metis_tac[]
+QED
+
 val _ = export_theory();
