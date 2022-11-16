@@ -790,4 +790,15 @@ Proof
   irule crep_to_loop_compile_prog_lab_min>>metis_tac[]
 QED
 
+(* inst_ok_less *)
+
+Theorem pan_to_word_every_inst_ok_less:
+  pan_to_word$compile_prog pan_code = wprog0 ∧
+  byte_offset_ok c 0w ⇒
+  EVERY (λ(n,m,p). every_inst (inst_ok_less c) p) wprog0
+Proof
+  gs[pan_to_wordTheory.compile_prog_def]>>strip_tac>>
+  drule_then irule loop_to_word_every_inst_ok_less>>gs[]
+QED
+
 val _ = export_theory();

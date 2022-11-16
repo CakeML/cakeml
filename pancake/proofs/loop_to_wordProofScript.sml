@@ -1952,4 +1952,65 @@ Proof
   metis_tac[]
 QED
 
+(* inst_ok_less *)
+
+Theorem full_imp_inst_ok_less:
+  ∀c prog.
+    full_inst_ok_less c prog ⇒
+    every_inst (inst_ok_less c) prog
+Proof
+  recInduct wordPropsTheory.full_inst_ok_less_ind>>
+  rw[wordPropsTheory.full_inst_ok_less_def,
+     wordPropsTheory.inst_ok_less_def,
+     wordPropsTheory.every_inst_def]>>
+  rpt (CASE_TAC>>gs[])
+QED
+
+Theorem loop_to_word_comp_every_inst_ok_less:
+  ∀ctxt prog l.
+    byte_offset_ok c 0w ⇒
+    every_inst (inst_ok_less c) (FST (comp ctxt prog l))
+Proof
+  ho_match_mp_tac loop_to_wordTheory.comp_ind >>
+  rw[loop_to_wordTheory.comp_def,
+     wordPropsTheory.every_inst_def,
+     wordPropsTheory.inst_ok_less_def] >>
+  gs[]>>TRY (rpt (CASE_TAC>>gs[]))>>
+  TRY (rpt (pairarg_tac>>gs[]))>>
+  gs[wordPropsTheory.every_inst_def]
+QED
+
+Theorem loop_to_word_comp_func_every_inst_ok_less:
+  comp_func n params body = p ∧
+  byte_offset_ok c 0w ⇒
+  every_inst (inst_ok_less c) p
+Proof
+  strip_tac>>gs[loop_to_wordTheory.comp_func_def]>>
+  rveq>>
+  drule_then irule loop_to_word_comp_every_inst_ok_less
+QED
+
+Theorem loop_to_word_compile_prog_every_inst_ok_less:
+  compile_prog lprog = wprog0 ∧
+  byte_offset_ok c 0w ⇒
+  EVERY (λ(n,m,p). every_inst (inst_ok_less c) p) wprog0
+Proof
+  strip_tac>>gs[loop_to_wordTheory.compile_prog_def]>>
+  rveq>>gs[EVERY_MAP, EVERY_EL]>>rpt strip_tac>>
+  pairarg_tac>>gs[]>>
+  pairarg_tac>>gs[]>>
+  drule_then irule loop_to_word_comp_func_every_inst_ok_less>>
+  gs[]
+QED
+
+Theorem loop_to_word_every_inst_ok_less:
+  compile lprog = wprog0 ∧
+  byte_offset_ok c 0w ⇒
+  EVERY (λ(n,m,p). every_inst (inst_ok_less c) p) wprog0
+Proof
+  strip_tac>>gs[loop_to_wordTheory.compile_def]>>
+  drule_then irule loop_to_word_compile_prog_every_inst_ok_less>>
+  gs[]
+QED
+
 val _ = export_theory();
