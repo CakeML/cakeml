@@ -646,4 +646,7 @@ Proof
   metis_tac[]
 QED
 
+(* Top-level unsat checkers and optimality checkers
+  ...
+*)
 val _ = export_theory ();

@@ -9,9 +9,15 @@ val _ = numLib.prefer_num();
 
 (* Normalization proceeds in three steps (for string variables):
 
+  'a pbc -> string pbc (for graph encoders) ~> print out
   string pbc -> int pbc
   int pbc -> int pbc with ≥
-  int pbc ≥ -> npbc
+  int pbc with ≥ -> npbc
+
+  ----
+  'a pbc -> 'a pbc with ≥ ~> print out
+  'a pbc with ≥ -> string pbc (for graph encoders)
+
 
   There is a builtin string normalization using hashing for
   the supported characters
