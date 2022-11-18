@@ -175,6 +175,11 @@ Definition do_app_def:
         (case get_global n s.globals of
          | SOME (SOME v) => (Rval (v,s))
          | _ => Error)
+    | (Global _,[Number i]) =>
+        (if i < 0 then Error else
+         case get_global (Num i) s.globals of
+         | SOME (SOME v) => (Rval (v,s))
+         | _ => Error)
     | (SetGlobal n,[v]) =>
         (case get_global n s.globals of
          | SOME NONE => Rval (Unit,

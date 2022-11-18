@@ -43,9 +43,7 @@ End
 Triviality LIST_REL_eq:
   ∀xs ys. LIST_REL (λv1 v2. v1 = v2) xs ys ⇔ xs = ys
 Proof
-  Induct \\ fs []
-  \\ Cases_on ‘ys’ \\ fs []
-  \\ rw [] \\ eq_tac \\ rw []
+  Induct \\ fs [] \\ rpt gen_tac \\ eq_tac \\ simp []
 QED
 
 Triviality LIST_REL_OPTREL_eq:

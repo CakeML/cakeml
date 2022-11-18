@@ -636,6 +636,8 @@ Proof
   THEN1
    (fs [state_globals_approx_def] \\ res_tac \\ rfs [])
   THEN1
+   (fs [state_globals_approx_def] \\ res_tac \\ rfs [])
+  THEN1
    (fs [state_globals_approx_def] \\ rw []
     \\ fs [lookup_insert, get_global_def, EL_LUPDATE]
     \\ fs [bool_case_eq] \\ rveq \\ fs []
@@ -714,6 +716,12 @@ val value_ind =
    |> SIMP_RULE (srw_ss()) []
    |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> Q.GEN `P`;
 
+Triviality not_less_zoer_imp:
+  ~(i < 0) ⇒ ∃k. (i:int) = & k
+Proof
+  Cases_on ‘i’ \\ gvs []
+QED
+
 Theorem do_app_ssgc:
    !opn args s0 res.
      do_app opn args s0 = res /\
@@ -730,7 +738,9 @@ Proof
   simp[do_app_def, case_eq_thms, op_gbag_def, PULL_EXISTS, bool_case_eq,
        pair_case_eq]
   >- ((* GetGlobal *)
-      simp[get_global_def, ssgc_free_def] >> metis_tac[MEM_EL])
+      simp[get_global_def, ssgc_free_def]
+      \\ rw [] \\ imp_res_tac not_less_zoer_imp \\ gvs []
+      \\ metis_tac[MEM_EL])
   >- ((* SetGlobal *)
       simp[ssgc_free_def, mglobals_extend_def, mapped_globals_def] >>
       rpt strip_tac

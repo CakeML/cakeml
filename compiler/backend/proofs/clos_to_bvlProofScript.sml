@@ -1526,11 +1526,12 @@ Proof
                             bvlSemTheory.do_eq_def]
   >- (
     imp_res_tac state_rel_globals >>
-    every_case_tac >>
+    gvs [AllCaseEqs()] >>
+    gvs [v_rel_SIMP] >>
+    rw [] >> fs [] >>
     fs [get_global_def, num_added_globals_def] >>
     rw [] >>
-    imp_res_tac LIST_REL_LENGTH
-    >- fs [DROP_CONS_EL, ADD1] >>
+    imp_res_tac LIST_REL_LENGTH >>
     fs [LIST_REL_EL_EQN] >>
     rw [] >>
     first_x_assum drule >>

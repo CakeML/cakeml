@@ -2362,8 +2362,11 @@ Proof
     \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
     \\ drule (GEN_ALL simple_state_rel_get_global)
     \\ rpt (disch_then drule \\ fs [])
-    \\ disch_then (qspec_then `n` mp_tac) \\ fs []
-    \\ strip_tac \\ fs [])
+    \\ TRY (disch_then (qspec_then `n` mp_tac) \\ fs [] \\ strip_tac \\ fs [] \\ NO_TAC)
+    \\ gvs [simple_val_rel_def] \\ gvs []
+    \\ disch_then (qspec_then `Num i` mp_tac) \\ fs [] \\ strip_tac \\ fs []
+    \\ gvs [simple_val_rel_def] \\ res_tac
+    \\ Cases_on ‘x’ \\ fs [isClos_def])
   \\ Cases_on `opp = Equal` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
