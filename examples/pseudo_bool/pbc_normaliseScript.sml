@@ -77,11 +77,28 @@ Definition goodString_def:
   goodString str = goodChars (strlen str) str
 End
 
+Theorem goodString_eq_EVERY_goodChar:
+  ∀s. goodString s ⇔ EVERY goodChar (explode s)
+Proof
+  Cases \\ fs [goodString_def]
+  \\ qsuff_tac ‘∀s t. goodChars (STRLEN s) (strlit (s ++ t)) ⇔ EVERY goodChar s’
+  >- metis_tac [APPEND_NIL]
+  \\ Induct using SNOC_INDUCT
+  >- (EVAL_TAC \\ fs [])
+  \\ fs [goodChars_def,EVERY_SNOC]
+  \\ rewrite_tac [SNOC_APPEND,GSYM APPEND_ASSOC,APPEND]
+  \\ fs [EL_LENGTH_APPEND]
+  \\ rw [] \\ eq_tac \\ rw []
+QED
+
 Theorem hashString_INJ:
   INJ hashString goodString UNIV
 Proof
-  rw[INJ_DEF,SPECIFICATION,goodString_def,goodChars_def,hashString_def]>>
-  cheat
+  rw[INJ_DEF,SPECIFICATION,hashString_def]
+  \\ gs [goodString_eq_EVERY_goodChar]
+  \\ Cases_on ‘x’ \\ Cases_on ‘y’ \\ fs []
+  \\ rename [‘s = t’]
+  \\ cheat
 QED
 
 Definition convert_pbf_def:
