@@ -91,6 +91,48 @@ Proof
   \\ rw [] \\ eq_tac \\ rw []
 QED
 
+Triviality hashChar_bound:
+  ∀h. hashChar h < 65
+Proof
+  rw [hashChar_def,hashNon_def]
+QED
+
+Triviality hashChar_11:
+  hashChar h <> 0 /\ hashChar h' <> 0 ==>
+  (hashChar h = hashChar h' <=> h = h')
+Proof
+  rw [] \\ eq_tac \\ rw []
+  \\ Cases_on ‘h’
+  \\ Cases_on ‘h'’
+  \\ fs []
+  \\ rpt $ last_x_assum mp_tac
+  \\ once_rewrite_tac [hashChar_def]
+  \\ ntac 2 strip_tac
+  \\ imp_res_tac ORD_CHR
+  \\ asm_rewrite_tac []
+  \\ simp_tac std_ss [LET_THM,hashNon_def]
+  \\ rename [‘ORD (CHR m) = m’]
+  \\ Cases_on ‘m = 45’ \\ asm_rewrite_tac [] >- fs []
+  \\ Cases_on ‘n = 45’ \\ asm_rewrite_tac [] >- fs []
+  \\ Cases_on ‘m = 95’ \\ asm_rewrite_tac [] >- fs []
+  \\ Cases_on ‘n = 95’ \\ asm_rewrite_tac [] >- fs []
+  \\ reverse $ Cases_on ‘48 <= n’ \\ asm_rewrite_tac []
+  >-
+   (Cases_on ‘48 <= m’ \\ asm_rewrite_tac []
+    \\ rewrite_tac [AllCaseEqs()]
+    \\ strip_tac \\ fs [])
+  \\ reverse $ Cases_on ‘48 <= m’ \\ asm_rewrite_tac []
+  >- (rewrite_tac [AllCaseEqs()] \\ strip_tac \\ fs [])
+  \\ Cases_on ‘n <= 57’ \\ asm_rewrite_tac []
+  >-
+   (Cases_on ‘m <= 57’ \\ asm_rewrite_tac []
+    \\ rewrite_tac [AllCaseEqs()]
+    \\ strip_tac \\ fs [])
+  \\ reverse $ Cases_on ‘m <= 57’ \\ asm_rewrite_tac []
+  >- (rewrite_tac [AllCaseEqs()] \\ strip_tac \\ fs [])
+  \\ fs []
+QED
+
 Theorem hashString_INJ:
   INJ hashString goodString UNIV
 Proof
@@ -98,7 +140,29 @@ Proof
   \\ gs [goodString_eq_EVERY_goodChar]
   \\ Cases_on ‘x’ \\ Cases_on ‘y’ \\ fs []
   \\ rename [‘s = t’]
-  \\ cheat
+  \\ rpt $ pop_assum mp_tac
+  \\ qid_spec_tac ‘t’
+  \\ qid_spec_tac ‘s’
+  \\ Induct
+  \\ Cases_on ‘t’ \\ fs []
+  >- fs [hashChars_alt_def,goodChar_def]
+  >- fs [hashChars_alt_def,goodChar_def]
+  \\ fs [hashChars_alt_def]
+  \\ rpt gen_tac
+  \\ rpt $ disch_then assume_tac
+  \\ gvs []
+  \\ rename [‘EVERY goodChar t’]
+  \\ Cases_on ‘h = h'’ \\ fs []
+  \\ qsuff_tac ‘hashChar h = hashChar h'’
+  >- fs [hashChar_11,goodChar_def]
+  \\ ‘(hashChar h' + 65 * hashChars_alt s) MOD 65 =
+      (hashChar h + 65 * hashChars_alt t) MOD 65’ by metis_tac []
+  \\ ‘0 < 65:num’ by fs []
+  \\ drule arithmeticTheory.MOD_TIMES
+  \\ once_rewrite_tac [ADD_COMM]
+  \\ once_rewrite_tac [MULT_COMM]
+  \\ strip_tac \\ full_simp_tac std_ss []
+  \\ fs [hashChar_bound]
 QED
 
 Definition convert_pbf_def:
