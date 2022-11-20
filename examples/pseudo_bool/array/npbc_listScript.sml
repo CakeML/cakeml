@@ -1,9 +1,9 @@
 (*
   Refine PB proof checker to use arrays
 *)
-open preamble basis pb_checkTheory;
+open preamble basis npbc_checkTheory;
 
-val _ = new_theory "pb_list"
+val _ = new_theory "npbc_list"
 
 Theorem any_el_update_resize:
   any_el n (update_resize fml def v id) def =
@@ -117,27 +117,6 @@ QED
   QED
 *)
 
-Definition check_cutting_list_def:
-  (check_cutting_list (fml: npbc option list) (Id n) =
-    any_el n fml NONE) ∧
-  (check_cutting_list fml (Add c1 c2) =
-    OPTION_MAP2 add (check_cutting_list fml c1) (check_cutting_list fml c2)) ∧
-  (check_cutting_list fml (Mul c k) =
-       OPTION_MAP (λc. multiply c k) (check_cutting_list fml c)) ∧
-  (check_cutting_list fml (Div c k) =
-    if k ≠ 0 then
-      OPTION_MAP (λc. divide c k) (check_cutting_list fml c)
-    else NONE) ∧
-  (check_cutting_list fml (Sat c) =
-    OPTION_MAP saturate (check_cutting_list fml c)) ∧
-  (check_cutting_list fml (Lit l) =
-    case l of
-      Pos v => SOME (PBC [(1,v)] 0)
-    | Neg v => SOME (PBC [(-1,v)] 0)) ∧
-  (check_cutting_list fml (Weak c var) =
-    OPTION_MAP (λc. weaken c var) (check_cutting_list fml c))
-End
-
 (*
 (* Multiply an expanded constraint by k *)
 Definition left_multiply_aux_def:
@@ -197,13 +176,49 @@ Proof
 QED
 *)
 
+(* TODO: optimize this using arrays instead of lists
+  alternative:
+    collapse all adds into one big list before normalizing
+*)
+Definition check_cutting_list_def:
+  (check_cutting_list (fml: npbc option list) (Id n) =
+    any_el n fml NONE) ∧
+  (check_cutting_list fml (Add c1 c2) =
+    OPTION_MAP2 add (check_cutting_list fml c1) (check_cutting_list fml c2)) ∧
+  (check_cutting_list fml (Mul c k) =
+       OPTION_MAP (λc. multiply c k) (check_cutting_list fml c)) ∧
+  (check_cutting_list fml (Div c k) =
+    if k ≠ 0 then
+      OPTION_MAP (λc. divide c k) (check_cutting_list fml c)
+    else NONE) ∧
+  (check_cutting_list fml (Sat c) =
+    OPTION_MAP saturate (check_cutting_list fml c)) ∧
+  (check_cutting_list fml (Lit l) =
+    case l of
+      Pos v => SOME ([(1,v)],0)
+    | Neg v => SOME ([(-1,v)],0)) ∧
+  (check_cutting_list fml (Weak c var) =
+    OPTION_MAP (λc. weaken c var) (check_cutting_list fml c))
+End
+
 (* Copied from LPR *)
-val list_delete_list_def = Define`
+Definition list_delete_list_def:
   (list_delete_list [] fml = fml) ∧
   (list_delete_list (i::is) fml =
     if LENGTH fml ≤ i
     then list_delete_list is fml
-    else list_delete_list is (LUPDATE NONE i fml))`
+    else list_delete_list is (LUPDATE NONE i fml))
+End
+
+(* Rollback a formula to starting ID
+  NOTE: design decision
+  - this always frees up constraints to be collected by the GC
+*)
+Definition rollback_def:
+  rollback fml id_start id_end =
+  list_delete_list
+    (MAP ($+id_start) (COUNT_LIST (id_end-id_start))) fml
+End
 
 (* ensure list remains ≥ sorted -- common case: will always just insert at the front *)
 val sorted_insert_def = Define`
@@ -212,94 +227,17 @@ val sorted_insert_def = Define`
     if x ≥ y then x::y::ys
     else y::(sorted_insert x ys))`
 
-(* Rollback formula to starting ID *)
-Definition rollback_def:
-  rollback fml id_start id_end =
-  list_delete_list
-    (MAP ($+id_start) (COUNT_LIST (id_end-id_start))) fml
-End
-
-Definition subst_subst_fun_def:
-  subst_subst_fun s c = subst (subst_fun s) c
-End
-
-Definition extract_clauses_list_def:
-  (extract_clauses_list s def fml [] acc = SOME (REVERSE acc)) ∧
-  (extract_clauses_list s def fml (cpf::pfs) acc =
-    case cpf of
-      (NONE,pf) => extract_clauses_list s def fml pfs ((NONE,pf)::acc)
-    | (SOME (INL n),pf) =>
-      (case any_el n fml NONE of
-        NONE => NONE
-      | SOME c => extract_clauses_list s def fml pfs ((SOME (subst_subst_fun s c),pf)::acc))
-    | (SOME (INR u),pf) =>
-      extract_clauses_list s def fml pfs ((SOME (subst_subst_fun s def),pf)::acc))
-End
-
-(*
-  fml is represented by an array [...], where fml[i] is the i-th constraint
-    when fml[i]=NONE (or i is out of range)
-    that means there is no constraint at that index
-  inds is a list of indexes (sorted in descending order)
-  mindel is the minimum index allowed for deletion
-
-  Return NONE for Failure
-  T for Unsat
-  F for Cont
-*)
-Theorem list_size_REVERSE:
-  list_size f (REVERSE ls) = list_size f ls
-Proof
-  Induct_on`ls`>>rw[]>>
-  simp[list_size_append,list_size_def]
-QED
-
-Theorem extract_clauses_list_list_size:
-  ∀pfs cpfs acc.
-  extract_clauses_list f c fml pfs acc = SOME cpfs ⇒
-  list_size (λx. list_size pbpstep_size (SND x)) cpfs <=
-  (list_size
-  (pair_size (option_size (full_sum_size (λx. x) one_size)) (list_size pbpstep_size)) pfs) +
-  list_size (λx. list_size pbpstep_size (SND x)) (REVERSE acc)
-Proof
-  Induct>>rw[extract_clauses_list_def] >>simp[]>>
-  every_case_tac>>fs[]>>first_x_assum drule>>
-  simp[list_size_REVERSE]>>
-  EVAL_TAC>>simp[]
-QED
-
-(* Make inds non-lazy *)
-Definition reindex_def:
-  (reindex fml [] = []) ∧
-  (reindex fml (i::is) =
-  case any_el i fml NONE of
-    NONE => reindex fml is
-  | SOME v =>
-    i :: reindex fml is)
-End
-
-Definition subst_opt_subst_fun_def:
-  subst_opt_subst_fun s c = subst_opt (subst_fun s) c
-End
-
-Definition subst_indexes_def:
-  (subst_indexes s fml [] = []) ∧
-  (subst_indexes s fml (i::is) =
-    case any_el i fml NONE of NONE => subst_indexes s fml is
-    | SOME res =>
-    case subst_opt_subst_fun s res of NONE => subst_indexes s fml is
-    | SOME c => i::subst_indexes s fml is)
-End
-
-Definition check_pbpstep_list_def:
-  (check_pbpstep_list (step:pbpstep) (fml: npbc option list) (inds:num list) (mindel:num) (id:num) =
-  case step of
-    Contradiction n =>
+Definition check_lstep_list_def:
+  (check_lstep_list lstep
+    (fml: npbc option list) (inds:num list)
+    (mindel:num) (id:num) =
+  case lstep of
+  | Contradiction n =>
       (case any_el n fml NONE of
         NONE => NONE
       | SOME c =>
         if check_contradiction c
-        then SOME (fml, T,id, inds)
+        then SOME (fml, T, id, inds)
         else NONE)
   | Check n c =>
     if any_el n fml NONE = SOME c
@@ -318,68 +256,131 @@ Definition check_pbpstep_list_def:
       SOME (update_resize fml NONE (SOME c) id, F, (id+1), sorted_insert id inds))
   | Con c pf =>
     let fml_not_c = update_resize fml NONE (SOME (not c)) id in
-    (case check_pbpsteps_list pf fml_not_c (sorted_insert id inds) id (id+1) of
+    (case check_lsteps_list pf fml_not_c (sorted_insert id inds) id (id+1) of
       SOME (fml', T, id' ,inds') =>
         let rfml = rollback fml' id id' in
         (* Optimization: inds' ignored since inds should suffice *)
         SOME(update_resize rfml NONE (SOME c) id', F, (id'+1), sorted_insert id' inds)
-    | _ => NONE)
-  | Red c s pfs =>
-    (let rinds = reindex fml inds in
-     let fml_not_c = update_resize fml NONE (SOME (not c)) id in
-      case extract_clauses_list s c fml pfs [] of
-        NONE => NONE
-      | SOME cpfs =>
-        case check_redundancy_list cpfs fml_not_c (sorted_insert id rinds) id (id+1) of
-          SOME(fml', id', inds') =>
-          let rfml = rollback fml' id id' in
-          let pids = MAP FST pfs in
-          if MEM (SOME (INR ())) (MAP FST pfs) ∧
-            EVERY (λid. MEM (SOME (INL id)) (MAP FST pfs)) (subst_indexes s rfml rinds)
-          then
-            SOME(update_resize rfml NONE (SOME c) id', F, (id'+1), sorted_insert id' rinds)
-          else NONE
-        | NONE => NONE
-       )) ∧
-  (check_pbpsteps_list [] fml inds mindel id = SOME (fml, F, id, inds)) ∧
-  (check_pbpsteps_list (step::steps) fml inds mindel id =
-    case check_pbpstep_list step fml inds mindel id of
+    | _ => NONE)) ∧
+  (check_lsteps_list [] fml inds mindel id =
+    SOME (fml, F, id, inds)) ∧
+  (check_lsteps_list (step::steps) fml inds mindel id =
+    case check_lstep_list step fml inds mindel id of
       SOME (fml', F, id', inds') =>
-        check_pbpsteps_list steps fml' inds' mindel id'
-    | res => res) ∧
-  (check_redundancy_list [] fml inds mindel id = SOME(fml,id,inds)) ∧
-  (check_redundancy_list ((copt,pf)::pfs) fml inds mindel id =
-    case copt of
-      NONE => (* no clause given *)
-      (if ~EVERY is_pol_con pf then NONE else
-      case check_pbpsteps_list pf fml inds mindel id of
-        SOME (fml', F, id', inds') => check_redundancy_list pfs fml' inds' mindel id'
-      | res => NONE)
-    | SOME c =>
-      let cfml = update_resize fml NONE (SOME (not c)) id in
-      case check_pbpsteps_list pf cfml (sorted_insert id inds) id (id+1) of
-        SOME (fml', T, id', inds') =>
-        let rfml = rollback fml' id id' in
-          check_redundancy_list pfs rfml inds' mindel id'
-      | _ => NONE)
+        check_lsteps_list steps fml' inds' mindel id'
+    | res => res)
 Termination
   WF_REL_TAC ‘measure (
-    sum_size (pbpstep_size o FST)
-    (sum_size (list_size pbpstep_size o FST) (list_size (list_size pbpstep_size o SND) o FST)))’
-  \\ fs [pbpstep_size_eq] \\ rw []
-  \\ drule extract_clauses_list_list_size
-  \\ simp[list_size_def]
+    sum_size (lstep_size o FST)
+    (list_size lstep_size o FST))’
 End
 
-(* prove that check_pbpstep_list implements check_pbpstep *)
+(* id numbers are monotone increasing *)
+Theorem check_lstep_list_id:
+  (∀step fmlls inds mindel id fmlls' b id' inds'.
+  check_lstep_list step fmlls inds mindel id = SOME (fmlls', b,id',inds') ⇒ id ≤ id') ∧
+  (∀steps fmlls inds mindel id fmlls' b id' inds'.
+  check_lsteps_list steps fmlls inds mindel id = SOME (fmlls', b,id',inds') ⇒ id ≤ id')
+Proof
+  ho_match_mp_tac check_lstep_list_ind>>
+  rw[] >> gvs [AllCaseEqs(),check_lstep_def,check_lstep_list_def]
+QED
 
-(* Relate sptree representation fml with list representation fmlls *)
+Theorem any_el_list_delete_list:
+  ∀ls n fml.
+  any_el n (list_delete_list ls fml) NONE =
+  if MEM n ls then NONE else any_el n fml NONE
+Proof
+  Induct>>rw[list_delete_list_def]>>
+  gs[any_el_ALT,EL_LUPDATE]
+QED
+
+(* id numbers bound those in the formula *)
+Theorem check_lstep_list_id_upper:
+  (∀step fmlls inds mindel id fmlls' b id' inds'.
+  check_lstep_list step fmlls inds mindel id = SOME (fmlls', b,id',inds') ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ⇒
+    (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE)) ∧
+  (∀steps fmlls inds mindel id fmlls' b id' inds'.
+  check_lsteps_list steps fmlls inds mindel id = SOME (fmlls', b,id',inds') ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ⇒
+    (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE))
+Proof
+  ho_match_mp_tac check_lstep_list_ind>>
+  rw[]
+  >- (
+    gvs [AllCaseEqs(),check_lstep_def,check_lstep_list_def]
+    >-
+      simp[any_el_list_delete_list]
+    >-
+      simp[any_el_update_resize]
+    >-
+      simp[any_el_update_resize,rollback_def,any_el_list_delete_list])
+  >- gvs [AllCaseEqs(),check_lstep_def,check_lstep_list_def]
+  >- (
+    qpat_x_assum`_= SOME _ `mp_tac>>
+    simp[Once check_lstep_list_def,AllCaseEqs()] >>
+    rw[]>>first_x_assum drule
+    >- (
+      disch_then match_mp_tac>>
+      fs[] ) >>
+    first_x_assum drule>>
+    disch_then drule>>
+    rw[])
+QED
+
+(* ids below mindel are unchanged *)
+Theorem check_lstep_list_mindel:
+  (∀step fmlls inds mindel id fmlls' res n.
+    check_lstep_list step fmlls inds mindel id = SOME (fmlls', res) ∧
+    mindel ≤ id ∧
+    n < mindel ⇒ any_el n fmlls NONE = any_el n fmlls' NONE) ∧
+  (∀steps fmlls inds mindel id fmlls' res n.
+    check_lsteps_list steps fmlls inds mindel id = SOME (fmlls', res) ∧
+    mindel ≤ id ∧
+    n < mindel ⇒ any_el n fmlls NONE = any_el n fmlls' NONE)
+Proof
+  ho_match_mp_tac check_lstep_list_ind>>
+  rw[]
+  >- (
+    gvs [AllCaseEqs(),check_lstep_def,check_lstep_list_def]
+    >- (
+      rw[any_el_list_delete_list]>>fs[EVERY_MEM]>>
+      first_x_assum drule>>fs[])
+    >-
+      rw[any_el_update_resize]
+    >- (
+      first_x_assum(qspec_then`n`mp_tac)>>
+      simp[any_el_update_resize]>>
+      drule (el 2 (CONJUNCTS check_lstep_list_id))>>
+      simp[rollback_def,any_el_list_delete_list,MEM_MAP]))
+  >- fs[check_lstep_list_def]
+  >- (
+    qpat_x_assum`_=SOME _` mp_tac>>
+    simp[Once check_lstep_list_def,AllCaseEqs()] >>
+    rw[]>>first_x_assum drule>>
+    simp[]>>
+    rw[]>>
+    first_x_assum drule>>
+    first_x_assum drule>>
+    disch_then drule>>
+    disch_then (qspec_then`n`mp_tac)>>
+    drule (el 1 (CONJUNCTS check_lstep_list_id))>>
+    simp[])
+QED
+
+(* Relation between
+  sptree representation fml and list representation fmlls
+  If we allow "fmlls" to be lazy, then this relation needs
+  to also be parameterized by x ∈ set inds
+*)
 Definition fml_rel_def:
   fml_rel fml fmlls ⇔
   ∀x. any_el x fmlls NONE = lookup x fml
 End
 
-(* Index list must lazily overapproximate active indices in fmlls *)
+(* Index list must lazily overapproximate the
+  active indices in fmlls *)
 Definition ind_rel_def:
   ind_rel fmlls inds ⇔
   ∀x. IS_SOME (any_el x fmlls NONE) ⇒ MEM x inds
@@ -393,182 +394,6 @@ Proof
   Induct>>rw[check_cutting_list_def,check_cutting_def]>>
   fs[fml_rel_def]>>
   every_case_tac>>simp[check_cutting_def]
-QED
-
-Theorem any_el_list_delete_list:
-  ∀ls n fml.
-  any_el n (list_delete_list ls fml) NONE =
-  if MEM n ls then NONE else any_el n fml NONE
-Proof
-  Induct>>rw[list_delete_list_def]>>
-  gs[any_el_ALT,EL_LUPDATE]
-QED
-
-Theorem fml_rel_list_delete_list:
-  ∀ls fml fmlls.
-  fml_rel fml fmlls ⇒
-  fml_rel (FOLDL (λa b. delete b a) fml ls) (list_delete_list ls fmlls)
-Proof
-  Induct>>rw[list_delete_list_def]>>
-  first_x_assum match_mp_tac
-  >- (
-    fs[fml_rel_def]>>
-    rw[lookup_delete]>>
-    first_x_assum(qspec_then`h` assume_tac)>>fs[any_el_ALT]>>
-    gs[])>>
-  fs[fml_rel_def]>>
-  rw[lookup_delete]>>
-  fs[any_el_ALT,EL_LUPDATE]
-QED
-
-Theorem fml_rel_update_resize:
-  fml_rel fml fmlls ⇒
-  fml_rel (insert id c fml) (update_resize fmlls NONE (SOME c) id)
-Proof
-  rw[fml_rel_def,lookup_insert,any_el_update_resize]
-QED
-
-(* id numbers are monotone increasing *)
-Theorem check_pbpstep_list_id:
-  (∀step fmlls inds mindel id fmlls' b id' inds'.
-  check_pbpstep_list step fmlls inds mindel id = SOME (fmlls', b,id',inds') ⇒ id ≤ id') ∧
-  (∀steps fmlls inds mindel id fmlls' b id' inds'.
-  check_pbpsteps_list steps fmlls inds mindel id = SOME (fmlls', b,id',inds') ⇒ id ≤ id') ∧
-  (∀pfs fmlls inds mindel id fmlls' id' inds'.
-  check_redundancy_list pfs fmlls inds mindel id = SOME (fmlls',id',inds') ⇒ id ≤ id')
-Proof
-  ho_match_mp_tac check_pbpstep_list_ind>>
-  rw[]
-  >- gvs [AllCaseEqs(),check_pbpstep_def,check_pbpstep_list_def]
-  >- gvs [AllCaseEqs(),check_pbpstep_def,check_pbpstep_list_def]
-  >- gvs [AllCaseEqs(),check_pbpstep_def,check_pbpstep_list_def]
-  >- gvs [AllCaseEqs(),check_pbpstep_def,check_pbpstep_list_def]
-  >- (
-    pop_assum mp_tac>>
-    simp[Once check_pbpstep_list_def,AllCaseEqs()] >>
-    rw[]>>
-    fs[o_DEF,ETA_AX]>>
-    first_x_assum drule>>
-    simp[]>>
-    rw[]>>
-    first_x_assum drule>>
-    disch_then drule>>
-    fs[])
-QED
-
-(* id numbers bound those in the formula *)
-Theorem check_pbpstep_list_id_upper:
-  (∀step fmlls inds mindel id fmlls' b id' inds'.
-  check_pbpstep_list step fmlls inds mindel id = SOME (fmlls', b,id',inds') ∧
-  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ⇒
-  (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE)) ∧
-  (∀steps fmlls inds mindel id fmlls' b id' inds'.
-  check_pbpsteps_list steps fmlls inds mindel id = SOME (fmlls', b,id',inds') ∧
-  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ⇒
-  (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE)) ∧
-  (∀pfs fmlls inds mindel id fmlls' id' inds'.
-  check_redundancy_list pfs fmlls inds mindel id = SOME (fmlls',id',inds') ∧
-  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ⇒
-  (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE))
-Proof
-  ho_match_mp_tac check_pbpstep_list_ind>>
-  rw[]
-  >- ( (* slow *)
-    gvs [AllCaseEqs(),check_pbpstep_def,check_pbpstep_list_def]
-    >-
-      simp[any_el_list_delete_list]
-    >-
-      simp[any_el_update_resize]
-    >-
-      simp[any_el_update_resize,rollback_def,any_el_list_delete_list]
-    >-
-      simp[any_el_update_resize,rollback_def,any_el_list_delete_list])
-  >- gvs [AllCaseEqs(),check_pbpstep_def,check_pbpstep_list_def]
-  >- (
-    qpat_x_assum`_= SOME _ `mp_tac>>
-    simp[Once check_pbpstep_list_def,AllCaseEqs()] >>
-    rw[]>>first_x_assum drule
-    >- (
-      disch_then match_mp_tac>>
-      fs[] ) >>
-    first_x_assum drule>>
-    disch_then drule>>
-    rw[])
-  >- gs[check_pbpstep_list_def]
-  >- (
-    qpat_x_assum`_= SOME _ `mp_tac>>
-    simp[Once check_pbpstep_list_def,AllCaseEqs()] >>
-    simp[o_DEF,ETA_AX]>>
-    rw[]>>first_x_assum drule
-    >- (
-      disch_then drule>> disch_then drule>>
-      rfs[])>>
-    rfs[]>>
-    fs[any_el_update_resize,rollback_def,any_el_list_delete_list])
-QED
-
-Theorem check_pbpstep_list_mindel:
-  (∀step fmlls inds mindel id fmlls' res n.
-    check_pbpstep_list step fmlls inds mindel id = SOME (fmlls', res) ∧
-    mindel ≤ id ∧
-    n < mindel ⇒ any_el n fmlls NONE = any_el n fmlls' NONE) ∧
-  (∀steps fmlls inds mindel id fmlls' res n.
-    check_pbpsteps_list steps fmlls inds mindel id = SOME (fmlls', res) ∧
-    mindel ≤ id ∧
-    n < mindel ⇒ any_el n fmlls NONE = any_el n fmlls' NONE) ∧
-  (∀pfs fmlls inds mindel id fmlls' res n.
-    check_redundancy_list pfs fmlls inds mindel id = SOME (fmlls', res) ∧
-    mindel ≤ id ∧
-    n < mindel ⇒ any_el n fmlls NONE = any_el n fmlls' NONE)
-Proof
-  ho_match_mp_tac check_pbpstep_list_ind>>
-  rw[]
-  >- (
-    gvs [AllCaseEqs(),check_pbpstep_def,check_pbpstep_list_def]
-    >- (
-      rw[any_el_list_delete_list]>>fs[EVERY_MEM]>>
-      first_x_assum drule>>fs[])
-    >-
-      rw[any_el_update_resize]
-    >- (
-      first_x_assum(qspec_then`n`mp_tac)>>
-      simp[any_el_update_resize]>>
-      drule (el 2 (CONJUNCTS check_pbpstep_list_id))>>
-      simp[rollback_def,any_el_list_delete_list,MEM_MAP])
-    >- (
-      first_x_assum(qspec_then`n`mp_tac)>>
-      simp[any_el_update_resize]>>
-      drule (el 3 (CONJUNCTS check_pbpstep_list_id))>>
-      simp[rollback_def,any_el_list_delete_list,MEM_MAP]))
-  >- fs[check_pbpstep_list_def]
-  >- (
-    qpat_x_assum`_=SOME _` mp_tac>>
-    simp[Once check_pbpstep_list_def,AllCaseEqs()] >>
-    rw[]>>first_x_assum drule>>
-    simp[]>>
-    rw[]>>
-    first_x_assum drule>>
-    first_x_assum drule>>
-    disch_then drule>>
-    disch_then (qspec_then`n`mp_tac)>>
-    drule (el 1 (CONJUNCTS check_pbpstep_list_id))>>
-    simp[])
-  >- fs[check_pbpstep_list_def]
-  >- (
-    qpat_x_assum`_=SOME _` mp_tac>>
-    simp[Once check_pbpstep_list_def,AllCaseEqs()] >>
-    simp[o_DEF,ETA_AX]>>
-    rw[]>>first_x_assum drule>>
-    rfs[]
-    >- (
-      rw[]>>
-      drule (el 2 (CONJUNCTS check_pbpstep_list_id))>>
-      fs[])>>
-    `n < id` by fs[]>>
-    disch_then drule >>
-    rfs[any_el_update_resize,rollback_def,any_el_list_delete_list,MEM_MAP]>>
-    drule (el 2 (CONJUNCTS check_pbpstep_list_id))>>
-    fs[])
 QED
 
 Theorem fml_rel_rollback:
@@ -590,13 +415,107 @@ Proof
     metis_tac[])
 QED
 
-Theorem list_delete_list_FOLDL:
-  ∀l fmlls.
-  list_delete_list l fmlls =
-  FOLDL (\fml i.
-    if LENGTH fml ≤ i then fml else LUPDATE NONE i fml) fmlls l
+Theorem fml_rel_update_resize:
+  fml_rel fml fmlls ⇒
+  fml_rel (insert id c fml) (update_resize fmlls NONE (SOME c) id)
 Proof
-  Induct>>rw[list_delete_list_def]
+  rw[fml_rel_def,lookup_insert,any_el_update_resize]
+QED
+
+Theorem fml_rel_list_delete_list:
+  ∀ls fml fmlls.
+  fml_rel fml fmlls ⇒
+  fml_rel (FOLDL (λa b. delete b a) fml ls) (list_delete_list ls fmlls)
+Proof
+  Induct>>rw[list_delete_list_def]>>
+  first_x_assum match_mp_tac
+  >- (
+    fs[fml_rel_def]>>
+    rw[lookup_delete]>>
+    first_x_assum(qspec_then`h` assume_tac)>>fs[any_el_ALT]>>
+    gs[])>>
+  fs[fml_rel_def]>>
+  rw[lookup_delete]>>
+  fs[any_el_ALT,EL_LUPDATE]
+QED
+
+Theorem fml_rel_check_lstep_list:
+  (∀lstep fmlls inds mindel id fmlls' b id' inds' fml.
+    fml_rel fml fmlls ∧
+    (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
+    mindel ≤ id ∧
+    check_lstep_list lstep fmlls inds mindel id = SOME (fmlls',b,id',inds') ⇒
+    case check_lstep lstep fml id of
+      Unsat idd => idd = id' ∧ b
+    | Cont fml' idd => idd = id' ∧ fml_rel fml' fmlls' ∧ ¬ b
+    | _ => F) ∧
+  (∀lsteps fmlls inds mindel id fmlls' b id' inds' fml.
+    fml_rel fml fmlls ∧
+    (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
+    mindel ≤ id ∧
+    check_lsteps_list lsteps fmlls inds mindel id = SOME (fmlls',b,id',inds') ⇒
+    case check_lsteps lsteps fml id of
+      Unsat idd => idd = id' ∧ b
+    | Cont fml' idd => idd = id' ∧ fml_rel fml' fmlls' ∧ ¬ b
+    | _ => F)
+Proof
+  ho_match_mp_tac check_lstep_list_ind>>
+  rw[]
+  >- (
+    gvs [AllCaseEqs(),check_lstep_def,check_lstep_list_def]
+    >- ( (* Contradiction *)
+      fs[fml_rel_def]>>
+      last_x_assum(qspec_then`n` assume_tac)>>fs[])
+    >- (* Deletion *)
+      metis_tac[fml_rel_list_delete_list]
+    >- ((* Cutting *)
+      drule fml_rel_check_cutting>>
+      disch_then(qspec_then`constr` assume_tac)>>fs[]>>
+      metis_tac[fml_rel_update_resize])
+    >- ( (* Con *)
+      `fml_rel (insert id (not c') fml) (update_resize fmlls NONE (SOME (not c')) id)` by
+        simp[fml_rel_update_resize]>>
+      first_x_assum drule>>
+      impl_tac>-
+        simp[any_el_update_resize]>>
+      TOP_CASE_TAC>>rw[]>>gs[]>>
+      match_mp_tac fml_rel_update_resize>>
+      match_mp_tac fml_rel_rollback>>fs[]>>
+      rw[]
+      >- (
+        drule (el 2 (CONJUNCTS check_lstep_list_mindel))>>
+        simp[any_el_update_resize])>>
+      first_assum(qspec_then`n` mp_tac)>>
+      drule (el 2 (CONJUNCTS check_lstep_list_id))>>
+      simp[]>>rw[]>>
+      drule (el 2 (CONJUNCTS check_lstep_list_id_upper))>>
+      disch_then match_mp_tac>>
+      simp[any_el_update_resize])
+    >- (
+      rw[]>>fs[fml_rel_def]>>
+      metis_tac[SOME_11]))
+  >- (
+    fs[check_lstep_list_def,check_lstep_def] >>
+    rw[])
+  >- (
+    pop_assum mp_tac>>
+    simp[Once check_lstep_list_def,AllCaseEqs()] >>
+    rw[]>>first_x_assum drule>>
+    disch_then drule>>fs[]
+    >- (
+      strip_tac>>simp[Once check_lstep_def]>>
+      every_case_tac>>fs[])
+    >> (
+      TOP_CASE_TAC>>simp[]>>
+      rw[]>>
+      first_x_assum drule>>
+      impl_tac >- (
+        drule (hd (CONJUNCTS check_lstep_list_id))>>
+        simp[]>>
+        rw[]>>
+        drule (el 1 (CONJUNCTS check_lstep_list_id_upper))>>
+        disch_then match_mp_tac>>fs[])>>
+      strip_tac>>simp[Once check_lstep_def]))
 QED
 
 Theorem ind_rel_list_delete_list:
@@ -646,6 +565,188 @@ Proof
   metis_tac[ind_rel_def,MEM_sorted_insert]
 QED
 
+Theorem ind_rel_rollback_2:
+  ind_rel fmlls inds ∧
+  (∀n. n ≥ id' ⇒ any_el n fml NONE = NONE) ∧
+  (∀n. n < id ⇒ any_el n fmlls NONE = any_el n fml NONE)
+  ⇒
+  ind_rel (rollback fml id id') inds
+Proof
+  rw[rollback_def]>>
+  fs[ind_rel_def]>>
+  simp[any_el_list_delete_list]>>
+  rw[]>>
+  fs[MEM_MAP,MEM_COUNT_LIST]>>
+  `x < id ∨ x ≥ id'` by intLib.ARITH_TAC>>
+  fs[]>>
+  first_x_assum drule>>rw[]>>gs[]
+QED
+
+Theorem ind_rel_check_lstep_list:
+  (∀lstep fmlls inds mindel id fmlls' b id' inds' fml.
+  ind_rel fmlls inds ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
+  mindel ≤ id ∧
+  check_lstep_list lstep fmlls inds mindel id = SOME (fmlls',b,id',inds') ⇒
+    ind_rel fmlls' inds') ∧
+  (∀lsteps fmlls inds mindel id fmlls' b id' inds' fml.
+  ind_rel fmlls inds ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
+  mindel ≤ id ∧
+  check_lsteps_list lsteps fmlls inds mindel id = SOME (fmlls', b,id',inds') ⇒
+    ind_rel fmlls' inds')
+Proof
+  ho_match_mp_tac check_lstep_list_ind>>
+  rw[]
+  >- (
+    gvs [AllCaseEqs(),check_lstep_def,check_lstep_list_def]
+    >- metis_tac[ind_rel_list_delete_list]
+    >- metis_tac[ind_rel_update_resize_sorted_insert]
+    >- (
+      match_mp_tac ind_rel_update_resize_sorted_insert>>
+      match_mp_tac (GEN_ALL ind_rel_rollback_2)>>
+      asm_exists_tac>>simp[]>>
+      drule (el 2 (CONJUNCTS check_lstep_list_mindel))>> simp[any_el_update_resize]>>
+      drule (el 2 (CONJUNCTS check_lstep_list_id_upper))>> simp[any_el_update_resize]))
+  >- fs[check_lstep_list_def]
+  >- (
+    fs[] >>
+    gvs [AllCaseEqs(),check_lstep_list_def]>>
+    first_x_assum match_mp_tac>>
+    fs[any_el_list_delete_list,any_el_update_resize,rollback_def,MEM_MAP]
+    >- (
+      simp[MEM_COUNT_LIST]>>
+      pop_assum kall_tac>>
+      drule (el 2 (CONJUNCTS check_lstep_list_id_upper))>> simp[any_el_update_resize]>>
+      strip_tac>>
+      drule (el 2 (CONJUNCTS check_lstep_list_id))>> simp[any_el_update_resize]))
+QED
+
+Definition check_red_list_def:
+  (check_red_list [] fml inds mindel id = SOME(fml,id,inds)) ∧
+  (check_red_list ((copt,pf)::pfs) fml inds mindel id =
+    case copt of
+      NONE => (* no clause given *)
+      (case check_lsteps_list pf fml inds mindel id of
+        SOME (fml', F, id', inds') => check_red_list pfs fml' inds' mindel id'
+      | res => NONE)
+    | SOME c =>
+      let cfml = update_resize fml NONE (SOME (npbc$not c)) id in
+      case check_lsteps_list pf cfml (sorted_insert id inds) id (id+1) of
+        SOME (fml', T, id', inds') =>
+        let rfml = rollback fml' id id' in
+          check_red_list pfs rfml inds' mindel id'
+      | _ => NONE)
+End
+
+(* Make inds non-lazy *)
+Definition reindex_def:
+  (reindex fml [] = []) ∧
+  (reindex fml (i::is) =
+  case any_el i fml NONE of
+    NONE => reindex fml is
+  | SOME v =>
+    i :: reindex fml is)
+End
+
+Definition subst_opt_subst_fun_def:
+  subst_opt_subst_fun s c = subst_opt (subst_fun s) c
+End
+
+Definition subst_indexes_def:
+  (subst_indexes s fml [] = []) ∧
+  (subst_indexes s fml (i::is) =
+    case any_el i fml NONE of NONE => subst_indexes s fml is
+    | SOME res =>
+    case subst_opt_subst_fun s res of NONE => subst_indexes s fml is
+    | SOME c => i::subst_indexes s fml is)
+End
+
+Definition subst_subst_fun_def:
+  subst_subst_fun s c = subst (subst_fun s) c
+End
+
+Definition extract_clauses_list_def:
+  (extract_clauses_list s def fml [] acc = SOME (REVERSE acc)) ∧
+  (extract_clauses_list s def fml (cpf::pfs) acc =
+    case cpf of
+      (NONE,pf) => extract_clauses_list s def fml pfs ((NONE,pf)::acc)
+    | (SOME (INL n),pf) =>
+      (case any_el n fml NONE of
+        NONE => NONE
+      | SOME c => extract_clauses_list s def fml pfs ((SOME (subst_subst_fun s c),pf)::acc))
+    | (SOME (INR u),pf) =>
+      extract_clauses_list s def fml pfs ((SOME (subst_subst_fun s def),pf)::acc))
+End
+
+Definition check_sstep_list_def:
+  (check_sstep_list (sstep:sstep) (fml: npbc option list) (inds:num list) (mindel:num) (id:num) =
+  case sstep of
+  | Lstep lstep =>
+    check_lstep_list lstep fml inds mindel id
+  | Red c s pfs =>
+    (let rinds = reindex fml inds in
+     let fml_not_c = update_resize fml NONE (SOME (not c)) id in
+      case extract_clauses_list s c fml pfs [] of
+        NONE => NONE
+      | SOME cpfs =>
+        case check_red_list cpfs fml_not_c (sorted_insert id rinds) id (id+1) of
+          SOME(fml', id', inds') =>
+          let rfml = rollback fml' id id' in
+          let pids = MAP FST pfs in
+          if MEM (SOME (INR ())) (MAP FST pfs) ∧
+            EVERY (λid. MEM (SOME (INL id)) (MAP FST pfs)) (subst_indexes s rfml rinds)
+          then
+            SOME(update_resize rfml NONE (SOME c) id', F, (id'+1), sorted_insert id' rinds)
+          else NONE
+        | NONE => NONE))
+End
+
+(*
+(*
+  fml is represented by an array [...], where fml[i] is the i-th constraint
+    when fml[i]=NONE (or i is out of range)
+    that means there is no constraint at that index
+  inds is a list of indexes (sorted in descending order)
+  mindel is the minimum index allowed for deletion
+
+  Return NONE for Failure
+  T for Unsat
+  F for Cont
+*)
+Theorem list_size_REVERSE:
+  list_size f (REVERSE ls) = list_size f ls
+Proof
+  Induct_on`ls`>>rw[]>>
+  simp[list_size_append,list_size_def]
+QED
+
+Theorem extract_clauses_list_list_size:
+  ∀pfs cpfs acc.
+  extract_clauses_list f c fml pfs acc = SOME cpfs ⇒
+  list_size (λx. list_size pbpstep_size (SND x)) cpfs <=
+  (list_size
+  (pair_size (option_size (full_sum_size (λx. x) one_size)) (list_size pbpstep_size)) pfs) +
+  list_size (λx. list_size pbpstep_size (SND x)) (REVERSE acc)
+Proof
+  Induct>>rw[extract_clauses_list_def] >>simp[]>>
+  every_case_tac>>fs[]>>first_x_assum drule>>
+  simp[list_size_REVERSE]>>
+  EVAL_TAC>>simp[]
+QED
+
+
+(* prove that check_pbpstep_list implements check_pbpstep *)
+
+
+Theorem list_delete_list_FOLDL:
+  ∀l fmlls.
+  list_delete_list l fmlls =
+  FOLDL (\fml i.
+    if LENGTH fml ≤ i then fml else LUPDATE NONE i fml) fmlls l
+Proof
+  Induct>>rw[list_delete_list_def]
+QED
 Theorem MEM_sorted_insert:
   ∀ls.
   MEM y (sorted_insert n ls) <=> MEM y (n::ls)
@@ -675,23 +776,6 @@ Proof
   metis_tac[ind_rel_list_delete_list]
 QED
 
-Theorem ind_rel_rollback_2:
-  ind_rel fmlls inds ∧
-  (∀n. n ≥ id' ⇒ any_el n fml NONE = NONE) ∧
-  (∀n. n < id ⇒ any_el n fmlls NONE = any_el n fml NONE)
-  ⇒
-  ind_rel (rollback fml id id') inds
-Proof
-  rw[rollback_def]>>
-  fs[ind_rel_def]>>
-  simp[any_el_list_delete_list]>>
-  rw[]>>
-  fs[MEM_MAP,MEM_COUNT_LIST]>>
-  `x < id ∨ x ≥ id'` by intLib.ARITH_TAC>>
-  fs[]>>
-  first_x_assum drule>>rw[]>>gs[]
-QED
-
 Theorem reindex_characterize:
   ∀inds inds'.
   reindex fmlls inds = FILTER (λx. IS_SOME (any_el x fmlls NONE)) inds
@@ -707,81 +791,6 @@ Proof
   simp[ind_rel_def,reindex_characterize,MEM_FILTER]
 QED
 
-Theorem ind_rel_check_pbpstep_list:
-  (∀step fmlls inds mindel id fmlls' b id' inds' fml.
-  ind_rel fmlls inds ∧
-  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
-  mindel ≤ id ∧
-  check_pbpstep_list step fmlls inds mindel id = SOME (fmlls', b,id',inds') ⇒
-  ind_rel fmlls' inds') ∧
-  (∀steps fmlls inds mindel id fmlls' b id' inds' fml.
-  ind_rel fmlls inds ∧
-  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
-  mindel ≤ id ∧
-  check_pbpsteps_list steps fmlls inds mindel id = SOME (fmlls', b,id',inds') ⇒
-  ind_rel fmlls' inds') ∧
-  (∀pfs fmlls inds mindel id fmlls' id' inds' fml.
-  ind_rel fmlls inds ∧
-  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
-  mindel ≤ id ∧
-  check_redundancy_list pfs fmlls inds mindel id = SOME (fmlls', id',inds') ⇒
-  ind_rel fmlls' inds')
-Proof
-  ho_match_mp_tac check_pbpstep_list_ind>>
-  rw[]
-  >- (
-    gvs [AllCaseEqs(),check_pbpstep_def,check_pbpstep_list_def]
-    >- metis_tac[ind_rel_list_delete_list]
-    >- metis_tac[ind_rel_update_resize_sorted_insert]
-    >- (
-      match_mp_tac ind_rel_update_resize_sorted_insert>>
-      match_mp_tac (GEN_ALL ind_rel_rollback_2)>>
-      asm_exists_tac>>simp[]>>
-      drule (el 2 (CONJUNCTS check_pbpstep_list_mindel))>> simp[any_el_update_resize]>>
-      drule (el 2 (CONJUNCTS check_pbpstep_list_id_upper))>> simp[any_el_update_resize])
-    >> (
-      match_mp_tac ind_rel_update_resize_sorted_insert>>
-      match_mp_tac (GEN_ALL ind_rel_rollback_2)>>
-      irule_at Any ind_rel_reindex>>fs[]>>
-      drule (el 3 (CONJUNCTS check_pbpstep_list_mindel))>> simp[any_el_update_resize]>>
-      drule (el 3 (CONJUNCTS check_pbpstep_list_id_upper))>> simp[any_el_update_resize]))
-  >- fs[check_pbpstep_list_def]
-  >- (
-    fs[] >>
-    gvs [AllCaseEqs(),check_pbpstep_list_def]>>
-    first_x_assum match_mp_tac>>
-    fs[any_el_list_delete_list,any_el_update_resize,rollback_def,MEM_MAP]
-    >- (
-      simp[MEM_COUNT_LIST]>>
-      pop_assum kall_tac>>
-      drule (el 2 (CONJUNCTS check_pbpstep_list_id_upper))>> simp[any_el_update_resize]>>
-      strip_tac>>
-      drule (el 2 (CONJUNCTS check_pbpstep_list_id))>> simp[any_el_update_resize])
-    >>
-      simp[MEM_COUNT_LIST]>>
-      pop_assum kall_tac>>
-      drule (el 3 (CONJUNCTS check_pbpstep_list_id_upper))>> simp[any_el_update_resize]>>
-      strip_tac>>
-      drule (el 3 (CONJUNCTS check_pbpstep_list_id))>> simp[any_el_update_resize])
-  >- gvs [AllCaseEqs(),check_pbpstep_list_def]
-  >- (
-    gvs [AllCaseEqs(),check_pbpstep_list_def]>>
-    fs[o_DEF,ETA_AX]>>
-    first_x_assum match_mp_tac
-    >- (
-      drule (el 2 (CONJUNCTS check_pbpstep_list_id_upper))>> simp[any_el_update_resize]>>
-      strip_tac>>
-      drule (el 2 (CONJUNCTS check_pbpstep_list_id))>> simp[any_el_update_resize])
-    >>
-      DEP_REWRITE_TAC [ind_rel_rollback]>>
-      first_x_assum (irule_at Any)>>
-      CONJ_TAC>-
-        metis_tac[ind_rel_update_resize_sorted_insert]>>
-      fs[any_el_list_delete_list,any_el_update_resize,rollback_def,MEM_MAP,MEM_COUNT_LIST]>>
-      drule (el 2 (CONJUNCTS check_pbpstep_list_id_upper))>> simp[any_el_update_resize]>>
-      strip_tac>>
-      drule (el 2 (CONJUNCTS check_pbpstep_list_id))>> simp[any_el_update_resize])
-QED
 
 Theorem fml_rel_extract_clauses_list:
   ∀ls f def fml fmlls acc.
@@ -991,5 +1000,6 @@ Proof
     imp_res_tac check_pbpstep_list_id>>
     fs[])
 QED
+*)
 
 val _ = export_theory();
