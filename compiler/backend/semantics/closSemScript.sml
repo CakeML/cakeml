@@ -185,8 +185,9 @@ Definition do_app_def:
          | SOME NONE => Rval (Unit,
              s with globals := (LUPDATE (SOME v) n s.globals))
          | _ => Error)
-    | (AllocGlobal,[]) =>
-        Rval (Unit, s with globals := s.globals ++ [NONE])
+    | (AllocGlobal,[Number i]) =>
+        (if i < 0 then Error
+         else Rval (Unit, s with globals := s.globals ++ REPLICATE (Num i) NONE))
     | (Const i,[]) => Rval (Number i, s)
     | (Constant c,[]) => Rval (make_const c, s)
     | (Cons tag,xs) => Rval (Block tag xs, s)

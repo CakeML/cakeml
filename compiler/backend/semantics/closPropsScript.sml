@@ -879,16 +879,6 @@ Proof
   simp[evaluate_def,do_app_def]
 QED
 
-Theorem evaluate_REPLICATE_Op_AllocGlobal:
-   ∀n env s. evaluate (REPLICATE n (Op tra AllocGlobal []),env,s) =
-              (Rval (GENLIST (K Unit) n),s with globals := s.globals ++ GENLIST (K NONE) n)
-Proof
-  Induct >> simp[evaluate_def,REPLICATE] >- (
-    simp[state_component_equality] ) >>
-  simp[Once evaluate_CONS,evaluate_def,do_app_def,GENLIST_CONS] >>
-  simp[state_component_equality]
-QED
-
 Theorem lookup_vars_NONE:
    !vs. (lookup_vars vs env = NONE) <=> ?v. MEM v vs /\ LENGTH env <= v
 Proof
@@ -2394,8 +2384,11 @@ Proof
     \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
     \\ rfs [simple_val_rel_def] \\ rveq \\ fs []
     \\ fs [closSemTheory.Unit_def]
-    \\ match_mp_tac simple_state_rel_update_globals \\ fs []
-    \\ fs [OPTREL_def] \\ fs [simple_state_rel_def])
+    >- (match_mp_tac simple_state_rel_update_globals \\ fs []
+        \\ fs [OPTREL_def] \\ fs [simple_state_rel_def]
+        \\ irule LIST_REL_APPEND_suff \\ fs []
+        \\ rename [‘REPLICATE n’] \\ qid_spec_tac ‘n’ \\ Induct \\ fs [])
+    \\ res_tac \\ Cases_on ‘x’ \\ fs [isClos_def])
   \\ Cases_on `opp = RefArray \/ opp = Ref \/ (?b. opp = RefByte b)` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq

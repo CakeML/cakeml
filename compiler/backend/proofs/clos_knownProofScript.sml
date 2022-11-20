@@ -622,10 +622,10 @@ Proof
 QED
 
 Theorem known_op_correct_approx:
-   !opn args g0 a g vs s0 v s.
-   known_op opn args g0 = (a, g) /\ do_app opn vs s0 = Rval (v, s) /\
-   LIST_REL val_approx_val args vs /\ state_globals_approx s0 g0 ==>
-     state_globals_approx s g /\ val_approx_val a v
+  ∀opn args g0 a g vs s0 v s.
+    known_op opn args g0 = (a, g) /\ do_app opn vs s0 = Rval (v, s) /\
+    LIST_REL val_approx_val args vs /\ state_globals_approx s0 g0 ==>
+      state_globals_approx s g /\ val_approx_val a v
 Proof
   rpt gen_tac
   \\ `?this_is_case. this_is_case opn` by (qexists_tac `K T` \\ fs [])
@@ -652,8 +652,7 @@ Proof
    (fs [state_globals_approx_def, get_global_def,
         EL_APPEND_EQN, bool_case_eq]
     \\ rw [] THEN1 (metis_tac [])
-    \\ rename1 `nn - LENGTH (ss:('a,'b) closSem$state).globals`
-    \\ `nn = LENGTH ss.globals` by simp [] \\ fs [])
+    \\ gvs [EL_REPLICATE])
   THEN1
    (rveq \\ fs [LIST_REL_EL_EQN])
   THEN1
@@ -722,6 +721,12 @@ Proof
   Cases_on ‘i’ \\ gvs []
 QED
 
+Triviality not_less_zero_imp:
+  ~(i < 0:int) ⇒ ∃k. i = & k
+Proof
+  Cases_on ‘i’ \\ fs []
+QED
+
 Theorem do_app_ssgc:
    !opn args s0 res.
      do_app opn args s0 = res /\
@@ -755,16 +760,12 @@ Proof
   >- ((* AllocGlobal *)
       dsimp[ssgc_free_def, mglobals_extend_def, mapped_globals_def, SUBSET_DEF,
             get_global_def, EL_APPEND_EQN, bool_case_eq] >>
-      reverse (rpt strip_tac)
-      >- (rename1 `ii < LENGTH (ss:('a,'b) closSem$state).globals` >>
-          Cases_on `ii < LENGTH ss.globals` >> simp[] >>
-          Cases_on `ii - LENGTH ss.globals = 0`
-          >- (pop_assum SUBST_ALL_TAC >> simp[]) >> simp[])
-      >- (rename1 `nn < LENGTH (ss:('a,'b) closSem$state).globals` >>
-          Cases_on `nn < LENGTH ss.globals` >> simp[] >>
-          Cases_on `nn < LENGTH ss.globals + 1` >> simp[] >>
-          `nn - LENGTH ss.globals = 0` by simp[] >> simp[]) >>
-      metis_tac[])
+      reverse (rpt strip_tac) >>
+      imp_res_tac not_less_zero_imp >> gvs [] >>
+      gvs [EL_REPLICATE,SF CONJ_ss]
+      >- (CCONTR_TAC >> gvs [EL_REPLICATE])
+      >- (CCONTR_TAC >> gvs [EL_REPLICATE])
+      \\ metis_tac[])
   >- (rename [‘ConsExtend’] >>
     dsimp [] >>
     rw [] >>

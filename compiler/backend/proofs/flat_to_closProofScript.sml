@@ -1061,20 +1061,10 @@ Proof
     \\ rw [] \\ EVAL_TAC)
   \\ simp [Once v_rel_cases,Unit_def]
   \\ fs [compile_op_def,evaluate_def,do_app_def,arg1_def]
-  \\ qsuff_tac `!n db (t:('c,'ffi) closSem$state).
-       evaluate ([AllocGlobals tt n],db,t) =
-         (Rval [Block 0 []],t with globals := t.globals ++ REPLICATE n NONE)`
-  THEN1
-   (fs [state_rel_def] \\ rw []
-    \\ Cases_on ‘t.globals’ \\ fs []
-    \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
-    \\ qid_spec_tac `n` \\ Induct \\ fs [])
-  \\ Induct \\ simp [Once AllocGlobals_def,evaluate_def,do_app_def]
-  THEN1 (fs [state_component_equality])
-  \\ rw []
-  THEN1 (simp [Once AllocGlobals_def,evaluate_def,do_app_def,Unit_def] \\ EVAL_TAC)
-  \\ simp [evaluate_def,do_app_def,Unit_def]
-  \\ fs [state_component_equality]
+  \\ fs [state_rel_def] \\ rw [EVAL “tuple_tag”]
+  \\ Cases_on ‘t.globals’ \\ fs []
+  \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
+  \\ qid_spec_tac `n` \\ Induct \\ fs []
 QED
 
 Theorem op_vectors:
@@ -1650,7 +1640,8 @@ Proof
   \\ Cases_on ‘has_install_list (compile_decs ds)’ \\ fs []
   \\ fs [compile_prog_def,clos_interpTheory.compile_init_def]
   \\ fs [closSemTheory.evaluate_def]
-  \\ fs [closSemTheory.do_app_def,initial_state_def,get_global_def,LUPDATE_def]
+  \\ fs [closSemTheory.do_app_def,initial_state_def,get_global_def,LUPDATE_def,
+         EVAL “REPLICATE 1 x”]
   \\ CASE_TAC \\ fs [initial_state'_def, EVAL “Unit : closSem$v”]
 QED
 
@@ -1665,7 +1656,8 @@ Proof
   \\ Cases_on ‘has_install_list (compile_decs ds)’ \\ fs []
   \\ fs [compile_prog_def,clos_interpTheory.compile_init_def]
   \\ fs [closSemTheory.evaluate_def]
-  \\ fs [closSemTheory.do_app_def,initial_state_def,get_global_def,LUPDATE_def]
+  \\ fs [closSemTheory.do_app_def,initial_state_def,get_global_def,LUPDATE_def,
+         EVAL “REPLICATE 1 x”]
   \\ CASE_TAC \\ fs [initial_state'_def, EVAL “Unit : closSem$v”]
   \\ CASE_TAC \\ fs [initial_state'_def, EVAL “Unit : closSem$v”]
 QED
@@ -1909,9 +1901,6 @@ Proof
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
     \\ simp ([compile_op_def] @ props_defs)
     \\ rpt (CASE_TAC \\ simp props_defs))
-  \\ TRY (qmatch_goalsub_abbrev_tac `AllocGlobals _ n` \\ Induct_on `n`
-    \\ simp [Once AllocGlobals_def]
-    \\ rw props_defs)
   \\ simp [compile_def, closPropsTheory.op_gbag_def,set_globals_SmartCons,
     flatPropsTheory.op_gbag_def, closPropsTheory.elist_globals_append]
   \\ rpt (
@@ -1992,9 +1981,6 @@ Proof
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
     \\ simp ([compile_op_def] @ props_defs)
     \\ rpt (CASE_TAC \\ simp props_defs))
-  \\ TRY (qmatch_goalsub_abbrev_tac `AllocGlobals _ n` \\ Induct_on `n`
-    \\ simp [Once AllocGlobals_def]
-    \\ rw props_defs)
   \\ simp [compile_def, closPropsTheory.op_gbag_def,esgc_free_SmartCons,
     flatPropsTheory.op_gbag_def, closPropsTheory.elist_globals_append]
   \\ rpt (
@@ -2104,9 +2090,6 @@ Proof
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
     \\ simp ([compile_op_def] @ props_defs)
     \\ rpt (CASE_TAC \\ simp props_defs))
-  \\ TRY (qmatch_goalsub_abbrev_tac `AllocGlobals _ n` \\ Induct_on `n`
-    \\ simp [Once AllocGlobals_def]
-    \\ rw props_defs)
   \\ fs [dest_nop_def]
   \\ simp ([CopyByteAw8_def, CopyByteStr_def] @ props_defs)
   \\ simp [arg1_def, arg2_def]

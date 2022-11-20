@@ -172,8 +172,9 @@ val do_app_def = Define `
          | SOME _ => Rval (Unit,
              s with globals := (LUPDATE (SOME v) n s.globals))
          | _ => Error)
-    | (AllocGlobal,[]) =>
-        Rval (Unit, s with globals := s.globals ++ [NONE])
+    | (AllocGlobal,[Number i]) =>
+        (if i < 0 then Error
+         else Rval (Unit, s with globals := s.globals ++ REPLICATE (Num i) NONE))
     | (Install,vs) => do_install vs s
     | (Const i,[]) => Rval (Number i, s)
     | (Cons tag,xs) => Rval (Block tag xs, s)

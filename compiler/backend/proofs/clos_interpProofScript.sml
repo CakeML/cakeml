@@ -648,7 +648,7 @@ Proof
     \\ last_x_assum mp_tac
     \\ once_rewrite_tac [evaluate_CONS]
     \\ fs [compile_init_def,evaluate_def,do_app_def,init_globals,get_global_def,
-           LUPDATE_def]
+           LUPDATE_def,EVAL “REPLICATE 1 x”]
     \\ qmatch_goalsub_abbrev_tac ‘evaluate (_,_,iis)’
     \\ CASE_TAC \\ strip_tac
     \\ qspecl_then [‘xs’,‘[]’,‘iis’] mp_tac evaluate_interp_thm

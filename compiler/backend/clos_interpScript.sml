@@ -13,7 +13,7 @@ End
 
 Definition compile_init_def:
   compile_init b =
-    Let None [Op None AllocGlobal [];
+    Let None [Op None AllocGlobal [Op None (Const 1) []];
               if b then
                 Fn (mlstring$strlit "clos_interpreter") NONE NONE 1 clos_interpreter
               else

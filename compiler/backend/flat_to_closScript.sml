@@ -71,13 +71,6 @@ Proof
   \\ every_case_tac \\ fs [arg2_def]
 QED
 
-Definition AllocGlobals_def:
-  AllocGlobals t n =
-    if n = 0 then Op t (Cons 0) [] else
-    if n = 1 then Op t AllocGlobal [] else
-      Let t [Op t AllocGlobal []] (AllocGlobals t (n-1:num))
-End
-
 fun var_fun m n = ``closLang$Var t ^(numSyntax.term_of_int(m-n))``;
 
 fun check1 tm var =
@@ -138,7 +131,7 @@ Definition compile_op_def:
     | Opn Modulus => Let t xs (If t (Op t Equal [Var t 0; Op t (Const 0) []])
                                     (Raise t (Op t (Cons div_tag) []))
                                     (Op t Mod [Var t 0; Var t 1]))
-    | GlobalVarAlloc n => Let t xs (AllocGlobals t n)
+    | GlobalVarAlloc n => Let t xs (Op t AllocGlobal [Op t (Const (&n)) []])
     | GlobalVarInit n => Op t (SetGlobal (n+1)) xs
     | GlobalVarLookup n => Op t (Global (n+1)) xs
     | Equality => Op t Equal xs
