@@ -149,7 +149,7 @@ val new_def = prove(goal,
                  patternMatchesTheory.PMATCH_ROW_def,
                  patternMatchesTheory.PMATCH_ROW_COND_def]
   \\ simp[]
-  \\ PURE_TOP_CASE_TAC
+  \\ TRY PURE_TOP_CASE_TAC
   \\ simp[some_v_T]);
 val r = translate new_def;
 

@@ -133,7 +133,15 @@ val flat_to_clos_compile_side = Q.prove(
 
 val r = translate flat_to_closTheory.compile_decs_def;
 
+val r = translate clos_interpTheory.insert_interp_def;
+
 val r = translate flat_to_closTheory.inc_compile_decs_def;
+
+val r = translate clos_interpTheory.clos_interpreter_def;
+val r = translate clos_interpTheory.compile_init_def;
+val r = translate closLangTheory.has_install_def;
+val r = translate clos_interpTheory.attach_interpreter_def;
+val r = translate flat_to_closTheory.compile_prog_def;
 
 (* ------------------------------------------------------------------------- *)
 (* clos_mti                                                                  *)
