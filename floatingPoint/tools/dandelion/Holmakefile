@@ -2,9 +2,7 @@ INCLUDES = $(HOLDIR)/examples/algebra/polynomial\
 	   $(CAKEMLDIR)/floatingPoint/tools/flover\
 	   $(CAKEMLDIR)/floatingPoint/tools/flover/semantics
 
-TARGETS = sollya $(DEFAULT_TARGETS) 
-
-all: $(TARGETS) README.md
+all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
@@ -22,3 +20,5 @@ sollya:
 .PHONY: sollya
 
 realPolyTheory.sml: sollya
+
+EXTRA_CLEANS = sollya/sollya-8.0/
