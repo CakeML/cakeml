@@ -100,13 +100,17 @@ Some simple properties of polynomials on reals
 Definition of datatype for real-valued polynomials
 
 [realZeroLib.sml](realZeroLib.sml):
-Library automating Dandelion's certificate validation
+Library implementing the automatic computations
+done by Dandelion
 
 [renameScript.sml](renameScript.sml):
 renaming theory to unify naming of theorems
 
 [sinDeg3Script.sml](sinDeg3Script.sml):
 Simple approximation of sine of degree 3
+
+[sollya](sollya):
+The sollya tool from sollya.org to compute unverified guesses of Dandelion
 
 [sturmComputeScript.sml](sturmComputeScript.sml):
 Define a computable version of the sturm sequence and
