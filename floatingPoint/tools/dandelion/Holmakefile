@@ -13,9 +13,13 @@ README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmeP
 sollya:
 	tar -xf sollya-8.0.tar.gz &&\
 	cd sollya-8.0 &&\
-	echo "Dependency to generate unverified guesses" > README.md &&\
+	cp ../../../icing/examples/output/Holmakefile ./ &&\
+	echo "Dependency to generate unverified guesses" > readmePrefix &&\
 	./configure &&\
 	make &&\
+	make clean &&\
+	rm -rf ./build-aux doc m4 tests-lib tests-tool &&\
+	rm -rf ./*.c ./*.h &&\
 	cd ../
 .PHONY: sollya
 
