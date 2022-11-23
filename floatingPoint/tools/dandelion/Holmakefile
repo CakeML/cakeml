@@ -11,14 +11,14 @@ README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmeP
 	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
 
 sollya:
-	cd ./sollya &&\
 	tar -xf sollya-8.0.tar.gz &&\
 	cd sollya-8.0 &&\
+	echo "Dependency to generate unverified guesses" > README.md &&\
 	./configure &&\
 	make &&\
-	cd ../../
+	cd ../
 .PHONY: sollya
 
 realPolyTheory.sml: sollya
 
-EXTRA_CLEANS = sollya/sollya-8.0/
+EXTRA_CLEANS = sollya-8.0/

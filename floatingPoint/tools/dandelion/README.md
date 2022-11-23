@@ -109,8 +109,8 @@ renaming theory to unify naming of theorems
 [sinDeg3Script.sml](sinDeg3Script.sml):
 Simple approximation of sine of degree 3
 
-[sollya](sollya):
-The sollya tool from sollya.org to compute unverified guesses of Dandelion
+[sollya-8.0](sollya-8.0):
+Dependency to generate unverified guesses
 
 [sturmComputeScript.sml](sturmComputeScript.sml):
 Define a computable version of the sturm sequence and
