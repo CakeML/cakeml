@@ -13,7 +13,12 @@ README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmeP
 	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
 
 sollya:
-	cd ./sollya && Holmake
+	cd ./sollya &&\
+	tar -xf sollya-8.0.tar.gz &&\
+	cd sollya-8.0 &&\
+	./configure &&\
+	make &&\
+	cd ../../
 .PHONY: sollya
 
 realPolyTheory.sml: sollya
