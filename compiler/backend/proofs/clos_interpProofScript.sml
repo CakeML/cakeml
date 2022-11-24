@@ -70,227 +70,6 @@ Proof
   \\ Cases_on ‘nn’ \\ gvs [LUPDATE_def]
 QED
 
-(* fits in subset *)
-
-Definition can_interpret_op_def:
-  can_interpret_op (Cons tag) l = (l = 0n ∨ tag < 3n) ∧
-  can_interpret_op (Const i) l = (l = 0) ∧
-  can_interpret_op (Global n) l = (l = 0) ∧
-  can_interpret_op (Constant c) l = (l = 0) ∧
-  can_interpret_op _ l = F
-End
-
-Definition can_interpret_def:
-  can_interpret ((Var t n):closLang$exp) = T ∧
-  can_interpret (If t e1 e2 e3) = (can_interpret e1 ∧ can_interpret e2 ∧ can_interpret e3) ∧
-  can_interpret (Let t es e) = (can_interpret e ∧ can_interpret_list es) ∧
-  can_interpret (Op t p es) = (can_interpret_op p (LENGTH es) ∧ can_interpret_list es) ∧
-  can_interpret (Raise t e) = can_interpret e ∧
-  can_interpret (Tick t e) = can_interpret e ∧
-  can_interpret (Fn _ _ _ _ e) = F ∧
-  can_interpret (Handle t e1 e2) = (can_interpret e1 ∧ can_interpret e2) ∧
-  can_interpret (Call _ _ _ es) = F ∧
-  can_interpret (App _ opt e es) =
-    (IS_NONE opt ∧ can_interpret e ∧ can_interpret_list es ∧ LENGTH es = 1) ∧
-  can_interpret (Letrec _ _ _ fns e) = F ∧
-  can_interpret_list [] = T ∧
-  can_interpret_list (x::xs) = (can_interpret x ∧ can_interpret_list xs)
-End
-
-(* check size *)
-
-Definition check_size_op_def:
-  check_size_op k (Cons tag) l = (if l = 0:num then k else k-1:num) ∧
-  check_size_op k (Const i) l = (k:num) ∧
-  check_size_op k (Global n) l = k ∧
-  check_size_op k _ l = k-1
-End
-
-Definition check_size_def:
-  check_size k ((Var t n):closLang$exp) = (k:num) ∧
-  check_size k (If t e1 e2 e3) =
-    (let k = check_size k e1 in if k = 0 then 0 else
-       let k = check_size k e2 in if k = 0 then 0 else
-         check_size k e3) ∧
-  check_size k (Let t es e) =
-    (let k = check_size_list k es in if k = 0 then 0 else
-       check_size k e) ∧
-  check_size k (Op t p es) =
-    (let k = check_size_op k p (LENGTH es) in if k = 0 then 0 else
-       check_size_list k es) ∧
-  check_size k (Raise t e) = check_size k e ∧
-  check_size k (Tick t e) = check_size k e ∧
-  check_size k (Fn _ _ _ _ e) = k ∧
-  check_size k (Handle t e1 e2) =
-    (let k = check_size k e1 in if k = 0 then 0 else
-       check_size k e2) ∧
-  check_size k (Call _ _ _ es) = k ∧
-  check_size k (App _ _ e es) =
-    (let k = check_size (k - 1) e in if k = 0 then 0 else
-       check_size_list k es) ∧
-  check_size k (Letrec _ _ _ fns e) = k ∧
-  check_size_list k [] = k ∧
-  check_size_list k (x::xs) =
-    (let k = check_size k x in if k = 0 then 0 else
-       check_size_list k xs)
-End
-
-Definition nontrivial_size_def:
-  nontrivial_size e = (check_size 8 e = 0)
-End
-
-(* convert to const *)
-
-Definition to_constant_op_def:
-  to_constant_op (Const i) l cs = ConstCons 1 [ConstInt i] ∧
-  to_constant_op (Constant c) l cs = ConstCons 1 [c] ∧
-  to_constant_op (Global n) l cs = ConstCons 2 [ConstInt (& n)] ∧
-  to_constant_op (Cons tag) l cs =
-    (if l = 0n then ConstCons 1 [ConstCons tag []]
-               else ConstCons (tag + 5) [cs]) ∧
-  to_constant_op _ l cs = ConstInt 0
-End
-
-Definition to_constant_def:
-  to_constant ((Var t n):closLang$exp) =
-    ConstCons 0 [ConstInt (& n)] ∧
-  to_constant (App _ _ e es) =
-    ConstCons 0 [to_constant e; case es of [] => ConstInt 0 | (e1::_) => to_constant e1] ∧
-  to_constant (If t e1 e2 e3) =
-    ConstCons 0 [to_constant e1; to_constant e2; to_constant e3] ∧
-  to_constant (Let t es e) = ConstCons 1 [to_constant_list es; to_constant e] ∧
-  to_constant (Op t p es) = to_constant_op p (LENGTH es) (to_constant_list es) ∧
-  to_constant (Raise t e) = ConstCons 3 [to_constant e] ∧
-  to_constant (Tick t e) = ConstCons 4 [to_constant e] ∧
-  to_constant (Handle t e1 e2) = ConstCons 2 [to_constant e1; to_constant e2] ∧
-  to_constant (Fn _ _ _ _ e) = ConstInt 0 ∧
-  to_constant (Call _ _ _ es) = ConstInt 0 ∧
-  to_constant (Letrec _ _ _ fns e) = ConstInt 0 ∧
-  to_constant_list [] = ConstCons 0 [] ∧
-  to_constant_list (x::xs) = ConstCons 0 [to_constant x; to_constant_list xs]
-Termination
-  WF_REL_TAC ‘measure $ λx. case x of INL e => closLang$exp_size e
-                                    | INR es => list_size closLang$exp_size es’
-End
-
-(* interpreter as closLang program *)
-
-Overload V[local] = “Var None”;
-
-Overload IsCase[local] = “λtag len. If None (Op None (TagLenEq tag len) [V 0])”;
-
-Overload GetEl[local] = “λn x. Op None (ElemAt n) [x]”;
-
-Overload CallInterp[local] =
-  “λenv x. App None NONE (App None NONE (App None NONE (Op None (Global 0) [])
-            [env]) [Op None (Cons 0) []]) [x]”
-
-Overload CallInterpList[local] =
-  “λenv x. App None NONE (App None NONE (App None NONE (Op None (Global 0) [])
-            [env]) [Op None (Cons 1) []]) [x]”
-
-Definition clos_interp_el_def:
-  clos_interp_el =
-    If None (Op None (EqualConst (Int 0)) [V 1])
-      (GetEl 0 $ V 0) $
-    App None NONE (App None NONE (V 2)
-      [Op None Sub [Op None (Const 1) []; V 1]]) [GetEl 1 $ V 0]
-End
-
-Definition clos_interp_rev_def:
-  clos_interp_rev =
-    If None (Op None (LenEq 0) [V 1])
-      (V 0) $
-    App None NONE (App None NONE (V 2)
-      [GetEl 1 $ V 1]) [Op None (Cons 0) [V 0; GetEl 0 $ V 1]]
-End
-
-Definition clos_interpreter_body_def:
-  clos_interpreter_body =
-      If None (V 1) (* is _list version *)
-        (If None (Op None (LenEq 0) [V 0]) (V 0) $
-           Let None [CallInterp (V 2) (GetEl 0 $ V 0);
-                     CallInterpList (V 2) (GetEl 1 $ V 0)] $
-             (Op None (Cons 0) [V 1; V 0])) $
-      (* normal cases *)
-      IsCase 0 2 (* App *)
-        (App None NONE (CallInterp (V 2) (GetEl 0 $ V 0))
-                       [CallInterp (V 2) (GetEl 1 $ V 0)]) $
-      IsCase 1 1 (* Constant *)
-        (GetEl 0 $ V 0) $
-      IsCase 2 1 (* Global *)
-        (Op None (Global 0) [GetEl 0 $ V 0]) $
-      IsCase 0 1 (* Var *)
-        (Letrec [] NONE NONE
-           [(1,Fn (mlstring$strlit "") NONE NONE 1 clos_interp_el)] $
-           App None NONE (App None NONE (V 0) [GetEl 0 $ V 1]) [V 3]) $
-      IsCase 1 2 (* Let *)
-        (Let None [CallInterpList (V 2) (GetEl 0 $ V 0)] $
-           CallInterp (Op None ListAppend [V 3; V 0]) (GetEl 1 $ V 1)) $
-      IsCase 2 2 (* Handle *)
-        (Handle None (CallInterp (V 2) (GetEl 0 $ V 0)) $
-           CallInterp (Op None (Cons 0) [V 3; V 0]) (GetEl 1 $ V 1)) $
-      IsCase 0 3 (* If *)
-        (If None (CallInterp (V 2) (GetEl 0 $ V 0))
-                 (CallInterp (V 2) (GetEl 1 $ V 0))
-                 (CallInterp (V 2) (GetEl 2 $ V 0))) $
-      IsCase 3 1 (* Raise *)
-        (Raise None (CallInterp (V 2) (GetEl 0 $ V 0))) $
-      IsCase 4 1 (* Tick *)
-        (CallInterp (V 2) (GetEl 0 $ V 0)) $
-      (* Cons for non-empty payload *)
-      Let None [CallInterpList (V 2) (GetEl 0 $ V 0)] $
-      Letrec [] NONE NONE
-        [(1,Fn (mlstring$strlit "") NONE NONE 1 clos_interp_rev)] $
-      Let None [App None NONE (App None NONE (V 0) [V 1]) [Op None (Cons 0) []]] $
-      Let None [V 3] $
-      IsCase 5 1 (* Cons 0 *) (Op None (FromList 0) [V 1]) $
-      IsCase 6 1 (* Cons 1 *) (Op None (FromList 1) [V 1]) $
-      IsCase 7 1 (* Cons 2 *) (Op None (FromList 2) [V 1]) $
-      Op None (Cons 0) []
-End
-
-Theorem clos_interpreter_def[local]:
-  clos_interpreter =
-    Fn (mlstring$strlit "env") NONE NONE 1 $
-    Fn (mlstring$strlit "exp") NONE NONE 1 $
-      clos_interpreter_body
-Proof
-  cheat
-QED
-
-(* -- *)
-
-Definition opt_interp_def:
-  opt_interp e =
-    if can_interpret e ∧ nontrivial_size e then
-      SOME $ CallInterp (Op None (Cons 0) []) (Op None (Constant (to_constant e)) [])
-    else NONE
-End
-
-Definition opt_interp1_def:
-  opt_interp1 e =
-    case opt_interp e of
-    | SOME x => x
-    | NONE => e
-End
-
-Definition insert_interp1_def:
-  insert_interp1 e =
-    case opt_interp e of
-    | SOME x => x
-    | NONE =>
-        case e of
-        | Let t ys y => Let None (MAP opt_interp1 ys) y
-        | _ => e
-End
-
-Theorem insert_interp_def:
-  insert_interp exps = MAP insert_interp1 exps
-Proof
-  cheat
-QED
-
 Definition interp_assum_def:
   interp_assum (:'c) (:'ffi) c ⇔
     (∀xs s1 env (t1:('c,'ffi) closSem$state) res s2.
@@ -1539,36 +1318,136 @@ QED
    syntactic lemmas
  * ------------------------------------------------------------------------- *)
 
+Theorem opt_interp_lemma[local]:
+  opt_interp x = SOME x' ⇒
+  set_globals x' = {||} ∧
+  set_globals x = {||} ∧
+  (¬contains_App_SOME max_app [x] ⇒ ¬contains_App_SOME max_app [x']) ∧
+  every_Fn_vs_NONE [x'] ∧
+  no_mti x' ∧
+  esgc_free x ∧
+  esgc_free x'
+Proof
+  cheat
+QED
+
 Theorem elist_globals_insert_interp:
   closProps$elist_globals (insert_interp xs) =
   closProps$elist_globals xs
 Proof
-  cheat
+  fs [insert_interp_def]
+  \\ Induct_on ‘xs’ \\ fs [] \\ rw []
+  \\ rename [‘insert_interp1 x’]
+  \\ Cases_on ‘insert_interp1 x = x’ >- fs []
+  \\ fs [insert_interp1_def,AllCaseEqs()]
+  \\ reverse $ Cases_on ‘opt_interp x’ \\ gvs []
+  >- (imp_res_tac opt_interp_lemma \\ fs [])
+  \\ Cases_on ‘x’ \\ gvs []
+  \\ qid_spec_tac ‘l’ \\ Induct \\ fs [] \\ rw []
+  \\ rename [‘opt_interp1 hh’]
+  \\ fs [opt_interp1_def]
+  \\ Cases_on ‘opt_interp hh’ \\ fs []
+  \\ imp_res_tac opt_interp_lemma \\ fs []
 QED
 
 Theorem contains_App_SOME_insert_interp:
   ¬contains_App_SOME max_app xs ⇒
   ¬contains_App_SOME max_app (insert_interp xs)
 Proof
-  cheat
+  fs [insert_interp_def]
+  \\ once_rewrite_tac [contains_App_SOME_EXISTS]
+  \\ fs [EVERY_MAP,o_DEF]
+  \\ qid_spec_tac ‘xs’
+  \\ match_mp_tac listTheory.EVERY_MONOTONIC \\ rw []
+  \\ Cases_on ‘insert_interp1 x = x’ >- fs []
+  \\ fs [insert_interp1_def,AllCaseEqs()]
+  \\ reverse $ Cases_on ‘opt_interp x’ \\ gvs []
+  >- (imp_res_tac opt_interp_lemma \\ fs [])
+  \\ Cases_on ‘x’ \\ gvs []
+  \\ fs [contains_App_SOME_def]
+  \\ qpat_x_assum ‘¬contains_App_SOME max_app l’ mp_tac
+  \\ once_rewrite_tac [contains_App_SOME_EXISTS]
+  \\ fs [EVERY_MAP,o_DEF]
+  \\ qid_spec_tac ‘l’
+  \\ match_mp_tac listTheory.EVERY_MONOTONIC \\ rw []
+  \\ rename [‘opt_interp1 hh’]
+  \\ fs [opt_interp1_def]
+  \\ Cases_on ‘opt_interp hh’ \\ fs []
+  \\ imp_res_tac opt_interp_lemma \\ fs []
 QED
 
 Theorem every_Fn_vs_NONE_insert_interp:
   every_Fn_vs_NONE xs ⇒ every_Fn_vs_NONE (insert_interp xs)
 Proof
-  cheat
+  fs [insert_interp_def]
+  \\ once_rewrite_tac [every_Fn_vs_NONE_EVERY]
+  \\ fs [EVERY_MAP,o_DEF]
+  \\ qid_spec_tac ‘xs’
+  \\ match_mp_tac listTheory.EVERY_MONOTONIC \\ rw []
+  \\ Cases_on ‘insert_interp1 x = x’ >- fs []
+  \\ fs [insert_interp1_def,AllCaseEqs()]
+  \\ reverse $ Cases_on ‘opt_interp x’ \\ gvs []
+  >- (imp_res_tac opt_interp_lemma \\ fs [])
+  \\ Cases_on ‘x’ \\ gvs []
+  \\ qpat_x_assum ‘every_Fn_vs_NONE l’ mp_tac
+  \\ once_rewrite_tac [every_Fn_vs_NONE_EVERY]
+  \\ fs [EVERY_MAP,o_DEF]
+  \\ qid_spec_tac ‘l’
+  \\ match_mp_tac listTheory.EVERY_MONOTONIC \\ rw []
+  \\ rename [‘opt_interp1 hh’]
+  \\ fs [opt_interp1_def]
+  \\ Cases_on ‘opt_interp hh’ \\ fs []
+  \\ imp_res_tac opt_interp_lemma \\ fs []
 QED
 
 Theorem insert_interp_no_mti:
   MEM e (insert_interp xs) ⇒ EVERY no_mti xs ⇒ no_mti e
 Proof
-  cheat
+  qsuff_tac ‘EVERY no_mti xs ⇒ EVERY no_mti (insert_interp xs)’
+  >- fs [EVERY_MEM]
+  \\ fs [insert_interp_def]
+  \\ fs [EVERY_MAP,o_DEF]
+  \\ qid_spec_tac ‘xs’
+  \\ match_mp_tac listTheory.EVERY_MONOTONIC \\ rw []
+  \\ Cases_on ‘insert_interp1 x = x’ >- fs []
+  \\ fs [insert_interp1_def,AllCaseEqs()]
+  \\ reverse $ Cases_on ‘opt_interp x’ \\ gvs []
+  >- (imp_res_tac opt_interp_lemma \\ fs [])
+  \\ Cases_on ‘x’ \\ gvs []
+  \\ gvs [no_mti_def,SF ETA_ss]
+  \\ qpat_x_assum ‘EVERY no_mti l’ mp_tac
+  \\ fs [EVERY_MAP,o_DEF]
+  \\ qid_spec_tac ‘l’
+  \\ match_mp_tac listTheory.EVERY_MONOTONIC \\ rw []
+  \\ rename [‘opt_interp1 hh’]
+  \\ fs [opt_interp1_def]
+  \\ Cases_on ‘opt_interp hh’ \\ fs []
+  \\ imp_res_tac opt_interp_lemma \\ fs []
 QED
 
 Theorem insert_interp_esgc_free:
   EVERY esgc_free (insert_interp xs) = EVERY esgc_free xs
 Proof
-  cheat
+  fs [insert_interp_def]
+  \\ fs [EVERY_MAP,o_DEF]
+  \\ qid_spec_tac ‘xs’
+  \\ Induct \\ fs []
+  \\ qsuff_tac ‘∀h. esgc_free (insert_interp1 h) = esgc_free h’ >- fs []
+  \\ rw []
+  \\ Cases_on ‘insert_interp1 h = h’ >- fs []
+  \\ fs [insert_interp1_def,AllCaseEqs()]
+  \\ reverse $ Cases_on ‘opt_interp h’ \\ gvs []
+  >- (imp_res_tac opt_interp_lemma \\ fs [])
+  \\ Cases_on ‘h’ \\ gvs []
+  \\ gvs [no_mti_def,SF ETA_ss]
+  \\ qsuff_tac ‘EVERY esgc_free (MAP opt_interp1 l) = EVERY esgc_free l’ >- fs []
+  \\ qid_spec_tac ‘l’
+  \\ Induct \\ fs []
+  \\ qsuff_tac ‘∀h. esgc_free (opt_interp1 h) = esgc_free h’ >- fs []
+  \\ rw []
+  \\ fs [opt_interp1_def]
+  \\ Cases_on ‘opt_interp h’ \\ fs []
+  \\ imp_res_tac opt_interp_lemma \\ fs []
 QED
 
 val _ = export_theory();
