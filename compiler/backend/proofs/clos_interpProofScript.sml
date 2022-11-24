@@ -70,29 +70,504 @@ Proof
   \\ Cases_on ‘nn’ \\ gvs [LUPDATE_def]
 QED
 
-Theorem evaluate_insert_interp:
-  (∀xs s1 env (t1:('c,'ffi) closSem$state) res s2.
-     s1.clock ≤ s4.clock ∧
-     evaluate (xs,env,s1) = (res,s2) ∧
-     res ≠ Rerr (Rabort Rtype_error) ⇒
-     state_rel s1 t1 ⇒
-     ∃ck t2.
-       evaluate (xs,env,t1 with clock := ck + t1.clock) = (res,t2) ∧
-       state_rel s2 t2) ∧
-  (∀args s1 loc f (t1:('c,'ffi) closSem$state) res s2.
-     s1.clock ≤ s4.clock ∧
-     evaluate_app loc f args s1 = (res,s2) ∧
-     res ≠ Rerr (Rabort Rtype_error) ⇒
-     state_rel s1 t1 ⇒
-     ∃ck t2.
-       evaluate_app loc f args (t1 with clock := ck + t1.clock) =
-       (res,t2) ∧ state_rel s2 t2) ∧
-  evaluate (exps,[],s4) = (r,s5) ∧ state_rel s4 t4 ∧ r ≠ Rerr (Rabort Rtype_error) ⇒
-  ∃ck (t5:('c,'ffi) closSem$state).
-    evaluate (insert_interp exps,[],t4 with clock := t4.clock + ck) = (r,t5) ∧
-    state_rel s5 t5
+(* fits in subset *)
+
+Definition can_interpret_op_def:
+  can_interpret_op (Cons tag) l = (l = 0 ∨ l < 3n ∧ tag < 3) ∧
+  can_interpret_op (Const i) l = (l = 0) ∧
+  can_interpret_op (Global n) l = (l = 0) ∧
+  can_interpret_op _ l = F
+End
+
+Definition can_interpret_def:
+  can_interpret ((Var t n):closLang$exp) = T ∧
+  can_interpret (If t e1 e2 e3) = (can_interpret e1 ∧ can_interpret e2 ∧ can_interpret e3) ∧
+  can_interpret (Let t es e) = (can_interpret e ∧ can_interpret_list es) ∧
+  can_interpret (Op t p es) = (can_interpret_op p (LENGTH es) ∧ can_interpret_list es) ∧
+  can_interpret (Raise t e) = can_interpret e ∧
+  can_interpret (Tick t e) = can_interpret e ∧
+  can_interpret (Fn _ _ _ _ e) = F ∧
+  can_interpret (Handle t e1 e2) = (can_interpret e1 ∧ can_interpret e2) ∧
+  can_interpret (Call _ _ _ es) = F ∧
+  can_interpret (App _ _ e es) = (can_interpret e ∧ can_interpret_list es ∧ LENGTH es = 1) ∧
+  can_interpret (Letrec _ _ _ fns e) = F ∧
+  can_interpret_list [] = T ∧
+  can_interpret_list (x::xs) = (can_interpret x ∧ can_interpret_list xs)
+End
+
+(* check size *)
+
+Definition check_size_op_def:
+  check_size_op k (Cons tag) l = (if l = 0:num then k else k-1:num) ∧
+  check_size_op k (Const i) l = (k:num) ∧
+  check_size_op k (Global n) l = k ∧
+  check_size_op k _ l = k-1
+End
+
+Definition check_size_def:
+  check_size k ((Var t n):closLang$exp) = (k:num) ∧
+  check_size k (If t e1 e2 e3) =
+    (let k = check_size k e1 in if k = 0 then 0 else
+       let k = check_size k e2 in if k = 0 then 0 else
+         check_size k e3) ∧
+  check_size k (Let t es e) =
+    (let k = check_size_list k es in if k = 0 then 0 else
+       check_size k e) ∧
+  check_size k (Op t p es) =
+    (let k = check_size_op k p (LENGTH es) in if k = 0 then 0 else
+       check_size_list k es) ∧
+  check_size k (Raise t e) = check_size k e ∧
+  check_size k (Tick t e) = check_size k e ∧
+  check_size k (Fn _ _ _ _ e) = k ∧
+  check_size k (Handle t e1 e2) =
+    (let k = check_size k e1 in if k = 0 then 0 else
+       check_size k e2) ∧
+  check_size k (Call _ _ _ es) = k ∧
+  check_size k (App _ _ e es) =
+    (let k = check_size (k - 1) e in if k = 0 then 0 else
+       check_size_list k es) ∧
+  check_size k (Letrec _ _ _ fns e) = k ∧
+  check_size_list k [] = k ∧
+  check_size_list k (x::xs) =
+    (let k = check_size k x in if k = 0 then 0 else
+       check_size_list k xs)
+End
+
+Definition nontrivial_size_def:
+  nontrivial_size e = (check_size 8 e = 0)
+End
+
+(* convert to const *)
+
+Definition to_constant_op_def:
+  to_constant_op (Const i) cs = ConstCons 1 [ConstInt i] ∧
+  to_constant_op (Global n) cs = ConstCons 2 [ConstInt (& n)] ∧
+  to_constant_op (Cons tag) cs =
+    (if NULL cs then ConstCons 1 [ConstCons tag []] else ARB) ∧
+  to_constant_op _ cs = ConstInt 0
+End
+
+Definition to_constant_def:
+  to_constant ((Var t n):closLang$exp) =
+    ConstCons 0 [ConstInt (& n)] ∧
+  to_constant (App _ _ e es) =
+    ConstCons 0 [to_constant e; case es of [] => ConstInt 0 | (e1::_) => to_constant e1] ∧
+  to_constant (If t e1 e2 e3) =
+    ConstCons 0 [to_constant e1; to_constant e2; to_constant e3] ∧
+  to_constant (Let t es e) = ConstCons 1 [to_constant_list es; to_constant e] ∧
+  to_constant (Op t p es) = to_constant_op p (MAP to_constant es) ∧
+  to_constant (Raise t e) = ConstCons 3 [to_constant e] ∧
+  to_constant (Tick t e) = ConstCons 4 [to_constant e] ∧
+  to_constant (Handle t e1 e2) = ConstCons 2 [to_constant e1; to_constant e2] ∧
+  to_constant (Fn _ _ _ _ e) = ConstInt 0 ∧
+  to_constant (Call _ _ _ es) = ConstInt 0 ∧
+  to_constant (Letrec _ _ _ fns e) = ConstInt 0 ∧
+  to_constant_list [] = ConstCons 0 [] ∧
+  to_constant_list (x::xs) = ConstCons 0 [to_constant x; to_constant_list xs]
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of INL e => closLang$exp_size e
+                                    | INR es => list_size closLang$exp_size es’
+End
+
+(* interpreter as closLang program *)
+
+Overload IsCase[local] =
+  “λtag len. If None (Op None (TagLenEq tag len) [Var None 0])”;
+
+Overload GetEl[local] = “λn. Op None (ElemAt n) [Var None 0]”;
+
+Overload CallInterp[local] =
+  “λenv x. App None NONE (App None NONE (App None NONE (Op None (Global 0) [])
+            [env]) [Op None (Cons 0) []]) [x]”
+
+Overload CallInterpList[local] =
+  “λenv x. App None NONE (App None NONE (App None NONE (Op None (Global 0) [])
+            [env]) [Op None (Cons 1) []]) [x]”
+
+Overload V[local] = “Var None”;
+
+Definition clos_interpreter_body_def:
+  clos_interpreter_body =
+      If None (V 1) (* is _list version *)
+        (If None (Op None (LenEq 0) [V 0]) (V 0) $
+           Let None [CallInterp (V 2) (GetEl 0);
+                     CallInterpList (V 2) (GetEl 1)] $
+             (Op None (Cons 0) [V 1; V 0])) $
+      (* constant *)
+      IsCase 1 1 (GetEl 0) $ ARB
+End
+
+Theorem clos_interpreter_def[local]:
+  clos_interpreter =
+    Fn (mlstring$strlit "env") NONE NONE 1 $
+    Fn (mlstring$strlit "exp") NONE NONE 1 $
+      clos_interpreter_body
 Proof
   cheat
+QED
+
+(* -- *)
+
+Definition opt_interp_def:
+  opt_interp e =
+    if can_interpret e ∧ nontrivial_size e then
+      SOME $ CallInterp (Op None (Cons 0) []) (Op None (Constant (to_constant e)) [])
+    else NONE
+End
+
+Definition opt_interp1_def:
+  opt_interp1 e =
+    case opt_interp e of
+    | SOME x => x
+    | NONE => e
+End
+
+Definition insert_interp1_def:
+  insert_interp1 e =
+    case opt_interp e of
+    | SOME x => x
+    | NONE =>
+        case e of
+        | Let t ys y => Let None (MAP opt_interp1 ys) y
+        | _ => e
+End
+
+Theorem insert_interp_def:
+  insert_interp exps = MAP insert_interp1 exps
+Proof
+  cheat
+QED
+
+Definition interp_assum_def:
+  interp_assum (:'c) (:'ffi) c ⇔
+    (∀xs s1 env (t1:('c,'ffi) closSem$state) res s2.
+      s1.clock ≤ c ∧
+      evaluate (xs,env,s1) = (res,s2) ∧
+      res ≠ Rerr (Rabort Rtype_error) ⇒
+      state_rel s1 t1 ⇒
+      ∃ck t2.
+        evaluate (xs,env,t1 with clock := ck + t1.clock) = (res,t2) ∧
+        state_rel s2 t2) ∧
+    (∀args s1 loc f (t1:('c,'ffi) closSem$state) res s2.
+      s1.clock ≤ c ∧
+      evaluate_app loc f args s1 = (res,s2) ∧
+      res ≠ Rerr (Rabort Rtype_error) ⇒
+      state_rel s1 t1 ⇒
+      ∃ck t2.
+        evaluate_app loc f args (t1 with clock := ck + t1.clock) =
+        (res,t2) ∧ state_rel s2 t2)
+End
+
+Theorem interp_assum_leq:
+  interp_assum (:'c) (:'ffi) c ∧ d ≤ c ⇒ interp_assum (:'c) (:'ffi) d
+Proof
+  fs [interp_assum_def] \\ rw []
+  \\ last_x_assum irule \\ fs []
+  \\ imp_res_tac LESS_EQ_TRANS
+  \\ metis_tac []
+QED
+
+Theorem evaluate_Constant[simp,local]:
+  evaluate ([Op t (Constant c) []],env,s) = (Rval [make_const c],s)
+Proof
+  fs [evaluate_def,do_app_def]
+QED
+
+Theorem evaluate_Cons_nil:
+  evaluate ([Op t (Cons n) []],env,s) = (Rval [Block n []],s)
+Proof
+  fs [evaluate_def,do_app_def]
+QED
+
+Theorem evaluate_Global_0:
+  state_rel s t ⇒
+  evaluate ([Op tr (Global 0) []],env,t with clock := k) =
+    (Rval [Closure NONE [] [] 1 clos_interpreter],t with clock := k)
+Proof
+  fs [evaluate_def,do_app_def,state_rel_def,get_global_def]
+  \\ rw [] \\ gvs [] \\ Cases_on ‘t.globals’ \\ gvs []
+QED
+
+Theorem clos_interpreter_correct:
+  (∀e env (s4:('c,'ffi) closSem$state) (t4:('c,'ffi) closSem$state) r s5.
+     evaluate ([e],env,s4) = (r,s5) ∧
+     can_interpret e ∧
+     interp_assum (:γ) (:'ffi) s4.clock ∧
+     state_rel s4 t4 ∧
+     r ≠ Rerr (Rabort Rtype_error) ⇒
+     ∃c t5.
+       evaluate ([clos_interpreter_body],
+                 [make_const (to_constant e); Block 0 []; list_to_v env],
+                 t4 with clock := c + t4.clock) = (r,t5) ∧
+       state_rel s5 t5) ∧
+  (∀es env (s4:('c,'ffi) closSem$state) (t4:('c,'ffi) closSem$state) r s5.
+     evaluate (es,env,s4) = (r,s5) ∧
+     can_interpret_list es ∧
+     interp_assum (:γ) (:'ffi) s4.clock ∧
+     state_rel s4 t4 ∧
+     r ≠ Rerr (Rabort Rtype_error) ⇒
+     ∃c t5 r5.
+       evaluate ([clos_interpreter_body],
+                 [make_const (to_constant_list es); Block 1 []; list_to_v env],
+                 t4 with clock := c + t4.clock) = (r5,t5) ∧
+       state_rel s5 t5 ∧
+       case r of
+       | Rval vs => r5 = Rval [list_to_v vs]
+       | _ => r = r5)
+Proof
+
+  ho_match_mp_tac to_constant_ind \\ reverse (rw [])
+  \\ fs [can_interpret_def]
+  >~ [‘to_constant_list []’] >-
+   (fs [to_constant_def,make_const_def]
+    \\ rewrite_tac [clos_interpreter_body_def]
+    \\ simp [Once evaluate_def]
+    \\ simp [Once evaluate_def,EVAL “Boolv T”]
+    \\ gvs [evaluate_def,do_app_def]
+    \\ qexists_tac ‘0’ \\ fs []
+    \\ EVAL_TAC)
+  >~ [‘to_constant_list (e::es)’] >-
+   (fs [to_constant_def,make_const_def]
+    \\ rewrite_tac [clos_interpreter_body_def]
+    \\ simp [Once evaluate_def]
+    \\ simp [Once evaluate_def,EVAL “Boolv T”]
+    \\ simp [Once evaluate_def,do_app_def]
+    \\ simp [Once evaluate_def,do_app_def]
+    \\ simp [Once evaluate_def,do_app_def]
+    \\ simp [Once evaluate_def,do_app_def]
+    \\ simp [Once evaluate_def,do_app_def]
+    \\ ‘1 ≤ t4.max_app’ by fs [state_rel_def]
+    \\ simp [Once evaluate_def]
+    \\ ntac 5 $ simp [Once evaluate_def,do_app_def,evaluate_Cons_nil]
+    \\ simp [evaluate_Global_0, SF SFY_ss]
+    \\ Q.REFINE_EXISTS_TAC ‘c+3’
+    \\ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+             clos_interpreter_def,dec_clock_def]
+    \\ simp [Once evaluate_def]
+    \\ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+             clos_interpreter_def,dec_clock_def]
+    \\ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+             clos_interpreter_def,dec_clock_def]
+    \\ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+             clos_interpreter_def,dec_clock_def]
+    \\ qpat_x_assum ‘evaluate (e::es,env,s4) = (r,s5)’ mp_tac
+    \\ simp [Once evaluate_CONS,CaseEq"prod"] \\ strip_tac
+    \\ rename [‘evaluate ([e],env,s4) = (v4,s2)’]
+    \\ simp [PULL_EXISTS,GSYM CONJ_ASSOC]
+    \\ last_x_assum drule \\ fs []
+    \\ disch_then drule
+    \\ impl_tac >- (strip_tac \\ fs [])
+    \\ rename [‘evaluate ([e],env,s4) = (r9,s9)’]
+    \\ strip_tac
+    \\ reverse $ Cases_on ‘r9’ \\ gvs []
+    >- (first_x_assum $ irule_at $ Pos $ hd \\ fs [])
+    \\ gvs [CaseEq"prod"]
+    \\ qpat_x_assum ‘evaluate (es,env,s9) = _’ assume_tac
+    \\ rename [‘evaluate (es,env,s9) = (r10,s10)’]
+    \\ imp_res_tac evaluate_SING \\ gvs []
+    \\ last_x_assum drule
+    \\ disch_then $ drule_at $ Pos $ el 2
+    \\ impl_tac >-
+     (imp_res_tac evaluate_clock \\ gvs []
+      \\ imp_res_tac interp_assum_leq \\ fs [] \\ strip_tac \\ gvs [])
+    \\ strip_tac
+    \\ qpat_x_assum ‘_ = (Rval [_],t5)’ assume_tac
+    \\ drule $ SIMP_RULE std_ss [] (CONJUNCT1 evaluate_add_to_clock)
+    \\ disch_then $ qspec_then ‘c'+3’ assume_tac \\ gvs []
+    \\ qexists_tac ‘c+c'+3’ \\ gvs []
+    \\ ‘1 ≤ t5.max_app’ by fs [state_rel_def]
+    \\ ntac 13 $ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+                       clos_interpreter_def,dec_clock_def,do_app_def,
+                       evaluate_Global_0,SF SFY_ss]
+    \\ reverse $ Cases_on ‘r10’ \\ gvs []
+    \\ first_assum $ irule_at Any
+    \\ fs [evaluate_def,do_app_def,EVAL “list_to_v (_::_)”])
+
+  >~ [‘Var t n’] >-
+   (cheat)
+  >~ [‘Handle t e1 e2’] >-
+   (cheat)
+  >~ [‘Tick t e1’] >-
+   (cheat)
+  >~ [‘Raise t e1’] >-
+   (cheat)
+  >~ [‘Let t es e’] >-
+   (cheat)
+  >~ [‘If t e1 e2 e3’] >-
+   (cheat)
+  >~ [‘App t opt e1 e2’] >-
+   (cheat)
+  \\ rename [‘Op t p es’]
+  \\ cheat
+QED
+
+Theorem opt_interp_thm:
+  opt_interp e = SOME x ∧
+  interp_assum (:γ) (:'ffi) s4.clock ∧
+  evaluate ([e],[],s4:('c,'ffi) closSem$state) = (r,s5) ∧
+  state_rel s4 t4 ∧ r ≠ Rerr (Rabort Rtype_error) ⇒
+  ∃ck t5.
+    evaluate ([x],[],t4 with clock := ck + t4.clock) = (r,t5) ∧
+    state_rel s5 (t5:('c,'ffi) closSem$state)
+Proof
+  fs [opt_interp_def,GSYM CONJ_ASSOC] \\ rw []
+  \\ simp [Once evaluate_def]
+  \\ simp [Once evaluate_def,evaluate_Cons_nil]
+  \\ simp [Once evaluate_def,evaluate_Cons_nil]
+  \\ simp [evaluate_Global_0, SF SFY_ss]
+  \\ ‘1 ≤ t4.max_app’ by fs [state_rel_def]
+  \\ Q.REFINE_EXISTS_TAC ‘c+3’
+  \\ simp [evaluate_def,dest_closure_def,check_loc_def,
+           clos_interpreter_def,dec_clock_def]
+  \\ drule (CONJUNCT1 clos_interpreter_correct) \\ fs []
+  \\ disch_then $ drule_then strip_assume_tac
+  \\ gvs [EVAL “list_to_v []”]
+  \\ qexists_tac ‘c’ \\ fs []
+  \\ first_assum $ irule_at Any
+  \\ Cases_on ‘r’ \\ fs []
+  \\ Cases_on ‘a’ \\ fs []
+  \\ Cases_on ‘t’ \\ fs []
+QED
+
+Theorem opt_interp1_thm':
+  ∀l s4 t4 s5 r.
+    interp_assum (:γ) (:'ffi) s4.clock ∧
+    evaluate ([l],[],s4) = (r,s5) ∧
+    state_rel s4 t4 ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
+    ∃ck (t5:('c,'ffi) closSem$state).
+      evaluate ([opt_interp1 l],[],t4 with clock := t4.clock + ck) = (r,t5) ∧
+      state_rel s5 t5
+Proof
+  rw [opt_interp1_def]
+  \\ Cases_on ‘opt_interp l’ \\ fs []
+  >-
+   (gvs [interp_assum_def]
+    \\ last_x_assum irule \\ fs []
+    \\ rpt (first_assum $ irule_at Any \\ fs []))
+  \\ irule opt_interp_thm \\ fs []
+  \\ rpt (first_assum $ irule_at Any \\ fs [])
+QED
+
+Theorem opt_interp1_thm:
+  ∀l s4 t4 s5 r.
+    interp_assum (:γ) (:'ffi) s4.clock ∧
+    evaluate (l,[],s4) = (r,s5) ∧
+    state_rel s4 t4 ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
+    ∃ck (t5:('c,'ffi) closSem$state).
+      evaluate (MAP opt_interp1 l,[],t4 with clock := t4.clock + ck) = (r,t5) ∧
+      state_rel s5 t5
+Proof
+  Induct \\ fs [evaluate_def]
+  >- (rw [] \\ qexists_tac ‘0’ \\ fs [])
+  \\ once_rewrite_tac [evaluate_CONS]
+  \\ gvs [CaseEq"prod",PULL_EXISTS]
+  \\ rw []
+  \\ rename [‘evaluate ([h],[],s4) = (r2,s2)’]
+  \\ Cases_on ‘r2 = Rerr (Rabort Rtype_error)’ \\ fs []
+  \\ drule_all opt_interp1_thm'
+  \\ strip_tac
+  \\ reverse $ gvs [CaseEq"result"]
+  >- (qexists_tac ‘ck’ \\ fs [])
+  \\ imp_res_tac evaluate_clock \\ gvs []
+  \\ ‘interp_assum (:γ) (:'ffi) s2.clock’ by
+    (imp_res_tac interp_assum_leq \\ fs [] \\ strip_tac \\ gvs [])
+  \\ gvs [CaseEq"prod"]
+  \\ last_x_assum $ drule_at $ Pos $ el 2
+  \\ disch_then $ drule_at $ Pos $ el 2
+  \\ impl_tac
+  >- (fs [] \\ strip_tac \\ fs [])
+  \\ strip_tac
+  \\ imp_res_tac evaluate_SING \\ gvs []
+  \\ qpat_x_assum ‘_ = (Rval [r1],t5)’ assume_tac
+  \\ drule $ SIMP_RULE std_ss [] (CONJUNCT1 evaluate_add_to_clock)
+  \\ disch_then $ qspec_then ‘ck'’ assume_tac \\ gvs []
+  \\ qexists_tac ‘ck+ck'’ \\ gvs []
+  \\ gvs [AllCaseEqs()]
+QED
+
+Theorem evaluate_insert_interp1:
+  interp_assum (:'c) (:'ffi) s4.clock ∧
+  evaluate ([e],[],s4) = (r,s5) ∧ state_rel s4 t4 ∧ r ≠ Rerr (Rabort Rtype_error) ⇒
+  ∃ck (t5:('c,'ffi) closSem$state).
+    evaluate ([insert_interp1 e],[],t4 with clock := t4.clock + ck) = (r,t5) ∧
+    state_rel s5 t5
+Proof
+  Cases_on ‘insert_interp1 e = e’ \\ fs []
+  >-
+   (rw [] \\ gvs [interp_assum_def]
+    \\ last_x_assum irule \\ fs []
+    \\ first_assum $ irule_at Any \\ fs []
+    \\ first_assum $ irule_at Any \\ fs [])
+  \\ gvs [insert_interp1_def,AllCaseEqs()]
+  \\ reverse $ Cases_on ‘opt_interp e’ \\ gvs []
+  >-
+   (rw [] \\ irule opt_interp_thm \\ fs []
+    \\ rpt (first_assum $ irule_at Any \\ fs []))
+  \\ Cases_on ‘e’ \\ gvs []
+  \\ last_x_assum kall_tac
+  \\ gvs [evaluate_def,CaseEq"prod"] \\ rw [PULL_EXISTS]
+  \\ rename [‘evaluate (l,[],s4) = (r,s1)’]
+  \\ ‘r ≠ Rerr (Rabort Rtype_error)’ by (strip_tac \\ fs [])
+  \\ drule_all opt_interp1_thm
+  \\ strip_tac
+  \\ reverse $ gvs [AllCaseEqs()]
+  >- (qexists_tac ‘ck’ \\ fs [])
+  \\ imp_res_tac evaluate_clock \\ gvs []
+  \\ ‘interp_assum (:γ) (:'ffi) s1.clock’ by
+    (imp_res_tac interp_assum_leq \\ fs [] \\ strip_tac \\ gvs [])
+  \\ pop_assum mp_tac
+  \\ simp [interp_assum_def]
+  \\ qpat_x_assum ‘evaluate ([_],vs,s1) = _’ assume_tac
+  \\ rewrite_tac [GSYM AND_IMP_INTRO]
+  \\ disch_then $ drule_at $ Pos $ el 2
+  \\ disch_then $ drule_at $ Pos $ last
+  \\ impl_tac
+  >- (fs [] \\ strip_tac \\ gvs [])
+  \\ strip_tac
+  \\ disch_then kall_tac
+  \\ qpat_x_assum ‘_ = (Rval vs,t5)’ assume_tac
+  \\ drule $ SIMP_RULE std_ss [] (CONJUNCT1 evaluate_add_to_clock)
+  \\ disch_then $ qspec_then ‘ck'’ assume_tac \\ gvs []
+  \\ qexists_tac ‘ck+ck'’ \\ gvs []
+QED
+
+Theorem evaluate_insert_interp:
+  ∀exps s4 s5 r t4.
+    interp_assum (:'c) (:'ffi) s4.clock ∧
+    evaluate (exps,[],s4) = (r,s5) ∧ state_rel s4 t4 ∧ r ≠ Rerr (Rabort Rtype_error) ⇒
+    ∃ck (t5:('c,'ffi) closSem$state).
+      evaluate (insert_interp exps,[],t4 with clock := t4.clock + ck) = (r,t5) ∧
+      state_rel s5 t5
+Proof
+  Induct
+  >-
+   (fs [insert_interp_def,evaluate_def]
+    \\ rw [] \\ qexists_tac ‘0’ \\ fs [])
+  \\ fs [insert_interp_def,evaluate_def]
+  \\ once_rewrite_tac [evaluate_CONS]
+  \\ gvs [CaseEq"prod"] \\ rw [PULL_EXISTS]
+  \\ drule_at (Pos $ el 2) evaluate_insert_interp1
+  \\ simp []
+  \\ disch_then drule
+  \\ impl_tac
+  >- (strip_tac \\ fs [])
+  \\ strip_tac
+  \\ reverse $ gvs [CaseEq "result"]
+  >- (first_x_assum $ irule_at $ Pos hd \\ fs [])
+  \\ imp_res_tac evaluate_SING \\ gvs [CaseEq"prod"]
+  \\ first_x_assum $ drule_at $ Pos $ el 2
+  \\ disch_then $ drule_at $ Pos $ el 2
+  \\ imp_res_tac evaluate_clock \\ gvs []
+  \\ impl_tac
+  >- (imp_res_tac interp_assum_leq \\ fs [] \\ strip_tac \\ gvs [])
+  \\ strip_tac
+  \\ qpat_x_assum ‘_ = (Rval [r1],t5)’ assume_tac
+  \\ drule $ SIMP_RULE std_ss [] (CONJUNCT1 evaluate_add_to_clock)
+  \\ disch_then $ qspec_then ‘ck'’ assume_tac \\ gvs []
+  \\ qexists_tac ‘ck+ck'’ \\ gvs []
+  \\ gvs [AllCaseEqs()]
 QED
 
 Theorem evaluate_interp_lemma:
@@ -365,14 +840,14 @@ Proof
    (fs [state_rel_def,FUN_EQ_THM]
     \\ rpt (first_x_assum (qspec_then ‘0:num’ assume_tac) \\ gvs [FUPDATE_LIST]))
   \\ gvs [SWAP_REVERSE_SYM,CaseEq"prod"]
-  \\ drule_at (Pos $ el 3) evaluate_insert_interp \\ fs [FUPDATE_LIST]
+  \\ drule_at (Pos $ el 2) evaluate_insert_interp \\ fs [FUPDATE_LIST]
   \\ disch_then $ qspec_then ‘t3 with
               <|clock := t3.clock − 1;
                 compile_oracle := shift_seq 1 t3.compile_oracle;
                 code := t3.code |>’ mp_tac
   \\ impl_tac
   >-
-   (rpt strip_tac
+   (fs [interp_assum_def] \\ rpt strip_tac
     >-
      (last_x_assum irule \\ fs []
       \\ first_assum $ irule_at Any \\ fs []
