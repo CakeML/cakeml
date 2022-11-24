@@ -73,9 +73,10 @@ QED
 (* fits in subset *)
 
 Definition can_interpret_op_def:
-  can_interpret_op (Cons tag) l = (l = 0 ∨ l < 3n ∧ tag < 3) ∧
+  can_interpret_op (Cons tag) l = (l = 0n ∨ tag < 3n) ∧
   can_interpret_op (Const i) l = (l = 0) ∧
   can_interpret_op (Global n) l = (l = 0) ∧
+  can_interpret_op (Constant c) l = (l = 0) ∧
   can_interpret_op _ l = F
 End
 
@@ -89,7 +90,8 @@ Definition can_interpret_def:
   can_interpret (Fn _ _ _ _ e) = F ∧
   can_interpret (Handle t e1 e2) = (can_interpret e1 ∧ can_interpret e2) ∧
   can_interpret (Call _ _ _ es) = F ∧
-  can_interpret (App _ _ e es) = (can_interpret e ∧ can_interpret_list es ∧ LENGTH es = 1) ∧
+  can_interpret (App _ opt e es) =
+    (IS_NONE opt ∧ can_interpret e ∧ can_interpret_list es ∧ LENGTH es = 1) ∧
   can_interpret (Letrec _ _ _ fns e) = F ∧
   can_interpret_list [] = T ∧
   can_interpret_list (x::xs) = (can_interpret x ∧ can_interpret_list xs)
@@ -140,11 +142,13 @@ End
 (* convert to const *)
 
 Definition to_constant_op_def:
-  to_constant_op (Const i) cs = ConstCons 1 [ConstInt i] ∧
-  to_constant_op (Global n) cs = ConstCons 2 [ConstInt (& n)] ∧
-  to_constant_op (Cons tag) cs =
-    (if NULL cs then ConstCons 1 [ConstCons tag []] else ARB) ∧
-  to_constant_op _ cs = ConstInt 0
+  to_constant_op (Const i) l cs = ConstCons 1 [ConstInt i] ∧
+  to_constant_op (Constant c) l cs = ConstCons 1 [c] ∧
+  to_constant_op (Global n) l cs = ConstCons 2 [ConstInt (& n)] ∧
+  to_constant_op (Cons tag) l cs =
+    (if l = 0n then ConstCons 1 [ConstCons tag []]
+               else ConstCons (tag + 5) [cs]) ∧
+  to_constant_op _ l cs = ConstInt 0
 End
 
 Definition to_constant_def:
@@ -155,7 +159,7 @@ Definition to_constant_def:
   to_constant (If t e1 e2 e3) =
     ConstCons 0 [to_constant e1; to_constant e2; to_constant e3] ∧
   to_constant (Let t es e) = ConstCons 1 [to_constant_list es; to_constant e] ∧
-  to_constant (Op t p es) = to_constant_op p (MAP to_constant es) ∧
+  to_constant (Op t p es) = to_constant_op p (LENGTH es) (to_constant_list es) ∧
   to_constant (Raise t e) = ConstCons 3 [to_constant e] ∧
   to_constant (Tick t e) = ConstCons 4 [to_constant e] ∧
   to_constant (Handle t e1 e2) = ConstCons 2 [to_constant e1; to_constant e2] ∧
@@ -171,10 +175,11 @@ End
 
 (* interpreter as closLang program *)
 
-Overload IsCase[local] =
-  “λtag len. If None (Op None (TagLenEq tag len) [Var None 0])”;
+Overload V[local] = “Var None”;
 
-Overload GetEl[local] = “λn. Op None (ElemAt n) [Var None 0]”;
+Overload IsCase[local] = “λtag len. If None (Op None (TagLenEq tag len) [V 0])”;
+
+Overload GetEl[local] = “λn x. Op None (ElemAt n) [x]”;
 
 Overload CallInterp[local] =
   “λenv x. App None NONE (App None NONE (App None NONE (Op None (Global 0) [])
@@ -184,17 +189,65 @@ Overload CallInterpList[local] =
   “λenv x. App None NONE (App None NONE (App None NONE (Op None (Global 0) [])
             [env]) [Op None (Cons 1) []]) [x]”
 
-Overload V[local] = “Var None”;
+Definition clos_interp_el_def:
+  clos_interp_el =
+    If None (Op None (EqualConst (Int 0)) [V 1])
+      (GetEl 0 $ V 0) $
+    App None NONE (App None NONE (V 2)
+      [Op None Sub [Op None (Const 1) []; V 1]]) [GetEl 1 $ V 0]
+End
+
+Definition clos_interp_rev_def:
+  clos_interp_rev =
+    If None (Op None (LenEq 0) [V 1])
+      (V 0) $
+    App None NONE (App None NONE (V 2)
+      [GetEl 1 $ V 1]) [Op None (Cons 0) [V 0; GetEl 0 $ V 1]]
+End
 
 Definition clos_interpreter_body_def:
   clos_interpreter_body =
       If None (V 1) (* is _list version *)
         (If None (Op None (LenEq 0) [V 0]) (V 0) $
-           Let None [CallInterp (V 2) (GetEl 0);
-                     CallInterpList (V 2) (GetEl 1)] $
+           Let None [CallInterp (V 2) (GetEl 0 $ V 0);
+                     CallInterpList (V 2) (GetEl 1 $ V 0)] $
              (Op None (Cons 0) [V 1; V 0])) $
-      (* constant *)
-      IsCase 1 1 (GetEl 0) $ ARB
+      (* normal cases *)
+      IsCase 0 2 (* App *)
+        (App None NONE (CallInterp (V 2) (GetEl 0 $ V 0))
+                       [CallInterp (V 2) (GetEl 1 $ V 0)]) $
+      IsCase 1 1 (* Constant *)
+        (GetEl 0 $ V 0) $
+      IsCase 2 1 (* Global *)
+        (Op None (Global 0) [GetEl 0 $ V 0]) $
+      IsCase 0 1 (* Var *)
+        (Letrec [] NONE NONE
+           [(1,Fn (mlstring$strlit "") NONE NONE 1 clos_interp_el)] $
+           App None NONE (App None NONE (V 0) [GetEl 0 $ V 1]) [V 3]) $
+      IsCase 1 2 (* Let *)
+        (Let None [CallInterpList (V 2) (GetEl 0 $ V 0)] $
+           CallInterp (Op None ListAppend [V 3; V 0]) (GetEl 1 $ V 1)) $
+      IsCase 2 2 (* Handle *)
+        (Handle None (CallInterp (V 2) (GetEl 0 $ V 0)) $
+           CallInterp (Op None (Cons 0) [V 3; V 0]) (GetEl 1 $ V 1)) $
+      IsCase 0 3 (* If *)
+        (If None (CallInterp (V 2) (GetEl 0 $ V 0))
+                 (CallInterp (V 2) (GetEl 1 $ V 0))
+                 (CallInterp (V 2) (GetEl 2 $ V 0))) $
+      IsCase 3 1 (* Raise *)
+        (Raise None (CallInterp (V 2) (GetEl 0 $ V 0))) $
+      IsCase 4 1 (* Tick *)
+        (CallInterp (V 2) (GetEl 0 $ V 0)) $
+      (* Cons for non-empty payload *)
+      Let None [CallInterpList (V 2) (GetEl 0 $ V 0)] $
+      Letrec [] NONE NONE
+        [(1,Fn (mlstring$strlit "") NONE NONE 1 clos_interp_rev)] $
+      Let None [App None NONE (App None NONE (V 0) [V 1]) [Op None (Cons 0) []]] $
+      Let None [V 3] $
+      IsCase 5 1 (* Cons 0 *) (Op None (FromList 0) [V 1]) $
+      IsCase 6 1 (* Cons 1 *) (Op None (FromList 1) [V 1]) $
+      IsCase 7 1 (* Cons 2 *) (Op None (FromList 2) [V 1]) $
+      Op None (Cons 0) []
 End
 
 Theorem clos_interpreter_def[local]:
@@ -288,6 +341,86 @@ Proof
   \\ rw [] \\ gvs [] \\ Cases_on ‘t.globals’ \\ gvs []
 QED
 
+Theorem v_to_list_list_to_v:
+  ∀a. v_to_list (list_to_v a) = SOME a
+Proof
+  Induct \\ fs [list_to_v_def,v_to_list_def]
+QED
+
+Theorem clos_interp_el_thm:
+  ∀n env rest cl_env.
+    n < LENGTH env ∧ 1 ≤ t4.max_app ⇒
+    ∃c. evaluate
+          ([clos_interp_el],
+           list_to_v env :: Number (&n) ::
+           Recclosure NONE [] cl_env
+             [(1,Fn (mlstring$strlit "") NONE NONE 1 clos_interp_el)] 0 :: rest,
+           t4 with clock := c + t4.clock) = (Rval [EL n env],t4)
+Proof
+  Induct
+  >-
+   (Cases \\ fs [list_to_v_def,clos_interp_el_def]
+    \\ rw [evaluate_def,do_app_def]
+    \\ qexists_tac ‘0’ \\ fs [])
+  \\ Cases \\ fs [] \\ rw [] \\ fs []
+  \\ fs [list_to_v_def,clos_interp_el_def]
+  \\ Q.REFINE_EXISTS_TAC ‘c+2’ \\ fs []
+  \\ ntac 16 $ simp [Once evaluate_def,do_app_def,ADD1,dest_closure_def,
+                    check_loc_def,dec_clock_def]
+  \\ gvs [AllCaseEqs()]
+  \\ ‘&(n + 1) − 1 = &n:int’ by intLib.COOPER_TAC
+  \\ fs []
+QED
+
+Theorem clos_interp_rev_thm:
+  ∀a env rest cl_env.
+    1 ≤ t4.max_app ⇒
+    evaluate
+      ([clos_interp_rev],
+        list_to_v env :: list_to_v a ::
+           Recclosure NONE [] cl_env
+             [(1,Fn (mlstring$strlit "") NONE NONE 1 clos_interp_rev)] 0 :: rest,
+           t4 with clock := 2 * LENGTH a + t4.clock) =
+     (Rval [list_to_v (REVERSE a ++ env)],t4)
+Proof
+  Induct
+  >-
+   (fs [list_to_v_def,clos_interp_rev_def]
+    \\ rw [evaluate_def,do_app_def])
+  \\ fs [list_to_v_def,clos_interp_rev_def]
+  \\ ntac 16 $ simp [Once evaluate_def,do_app_def,ADD1,dest_closure_def,
+                     check_loc_def,dec_clock_def]
+  \\ fs [LEFT_ADD_DISTRIB,GSYM (EVAL “list_to_v (x::xs)”)]
+  \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
+QED
+
+val evaluate_If =
+  SIMP_CONV std_ss [evaluate_def] “evaluate ([If t x1 x2 x3],env,s)”;
+
+val evaluate_Var =
+  SIMP_CONV std_ss [evaluate_def] “evaluate ([Var t n],env,s)”;
+
+val evaluate_TagLenEq =
+  SIMP_CONV (srw_ss()) [evaluate_def,do_app_def]
+    “evaluate ([Op None (TagLenEq t l) [V 0]],Block t1 xs :: env,s)”;
+
+val init0_tac =
+  simp [to_constant_def,make_const_def,Boolv_def,
+        evaluate_Var,evaluate_If,evaluate_TagLenEq,
+        backend_commonTheory.true_tag_def,
+        backend_commonTheory.false_tag_def,clos_interpreter_body_def];
+
+val init_tac =
+  init0_tac
+  \\ qpat_x_assum ‘evaluate ([_],env,s4) = (r,s5)’ mp_tac
+  \\ simp [Once evaluate_def,CaseEq"prod"] \\ rw [PULL_EXISTS];
+
+Triviality evaluate_SING_intro:
+  x = (Rval [v],s) ∧ vs = [v] ⇒ x = (Rval vs,s)
+Proof
+  rw []
+QED
+
 Theorem clos_interpreter_correct:
   (∀e env (s4:('c,'ffi) closSem$state) (t4:('c,'ffi) closSem$state) r s5.
      evaluate ([e],env,s4) = (r,s5) ∧
@@ -315,7 +448,6 @@ Theorem clos_interpreter_correct:
        | Rval vs => r5 = Rval [list_to_v vs]
        | _ => r = r5)
 Proof
-
   ho_match_mp_tac to_constant_ind \\ reverse (rw [])
   \\ fs [can_interpret_def]
   >~ [‘to_constant_list []’] >-
@@ -382,23 +514,273 @@ Proof
     \\ reverse $ Cases_on ‘r10’ \\ gvs []
     \\ first_assum $ irule_at Any
     \\ fs [evaluate_def,do_app_def,EVAL “list_to_v (_::_)”])
-
-  >~ [‘Var t n’] >-
-   (cheat)
-  >~ [‘Handle t e1 e2’] >-
-   (cheat)
-  >~ [‘Tick t e1’] >-
-   (cheat)
-  >~ [‘Raise t e1’] >-
-   (cheat)
-  >~ [‘Let t es e’] >-
-   (cheat)
   >~ [‘If t e1 e2 e3’] >-
-   (cheat)
-  >~ [‘App t opt e1 e2’] >-
-   (cheat)
+   (init_tac
+    \\ rename [‘evaluate ([e1],env,s4) = (r6,s6)’]
+    \\ last_x_assum drule \\ simp []
+    \\ disch_then drule
+    \\ impl_tac >- (strip_tac \\ gvs [])
+    \\ strip_tac
+    \\ Q.REFINE_EXISTS_TAC ‘ck + 3’
+    \\ ‘1 ≤ t4.max_app’ by fs [state_rel_def]
+    \\ ntac 13 $ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+                       clos_interpreter_def,dec_clock_def,do_app_def,
+                       evaluate_Global_0,SF SFY_ss]
+    \\ reverse $ Cases_on ‘r6’ \\ gvs []
+    >- (qexists_tac ‘c’ \\ fs [])
+    \\ imp_res_tac evaluate_SING \\ gvs []
+    \\ gvs [CaseEq"bool"]
+    \\ qpat_x_assum ‘evaluate _ = _’ mp_tac
+    \\ last_x_assum drule
+    \\ fs []
+    \\ disch_then $ drule_at Any
+    \\ (impl_tac >-
+         (imp_res_tac evaluate_clock \\ gvs []
+          \\ imp_res_tac interp_assum_leq \\ fs [] \\ strip_tac \\ gvs []))
+    \\ rpt strip_tac
+    \\ drule $ SIMP_RULE std_ss [] (CONJUNCT1 evaluate_add_to_clock)
+    \\ disch_then $ qspec_then ‘c'+3’ assume_tac \\ gvs []
+    \\ qexists_tac ‘c+c'+3’ \\ gvs [EVAL “Boolv T”,EVAL “Boolv F”]
+    \\ ‘1 ≤ t5.max_app’ by fs [state_rel_def]
+    \\ ntac 13 $ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+                       clos_interpreter_def,dec_clock_def,do_app_def,
+                       evaluate_Global_0,SF SFY_ss]
+    \\ first_x_assum $ irule_at Any
+    \\ every_case_tac \\ fs [])
+  >~ [‘Tick t e1’] >-
+   (init_tac
+    \\ ‘1 ≤ t4.max_app’ by fs [state_rel_def]
+    >-
+     (qexists_tac ‘1’
+      \\ ntac 13 $ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+                         clos_interpreter_def,dec_clock_def,do_app_def,
+                         evaluate_Global_0,SF SFY_ss]
+      \\ fs [state_rel_def])
+    \\ Q.REFINE_EXISTS_TAC ‘ck + 2’
+    \\ ntac 13 $ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+                       clos_interpreter_def,dec_clock_def,do_app_def,
+                       evaluate_Global_0,SF SFY_ss]
+    \\ last_x_assum drule
+    \\ disch_then $ qspec_then ‘dec_clock 1 t4’ mp_tac
+    \\ impl_tac
+    >-
+     (gvs [state_rel_def,dec_clock_def]
+      \\ irule interp_assum_leq
+      \\ first_assum $ irule_at Any \\ fs [])
+    \\ strip_tac \\ fs []
+    \\ ‘t4.clock = s4.clock’ by fs [state_rel_def]
+    \\ Cases_on ‘s4.clock’ \\ gvs [ADD1,dec_clock_def]
+    \\ qexists_tac ‘c’ \\ fs [dec_clock_def]
+    \\ first_x_assum $ irule_at Any
+    \\ every_case_tac \\ fs [])
+  >~ [‘Raise t e1’] >-
+   (init_tac
+    \\ ‘1 ≤ t4.max_app’ by fs [state_rel_def]
+    \\ Q.REFINE_EXISTS_TAC ‘ck + 3’
+    \\ ntac 14 $ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+                       clos_interpreter_def,dec_clock_def,do_app_def,
+                       evaluate_Global_0,SF SFY_ss]
+    \\ last_x_assum drule
+    \\ disch_then $ qspec_then ‘t4’ mp_tac
+    \\ impl_tac
+    >- (gvs [] \\ strip_tac \\ fs [])
+    \\ strip_tac \\ fs []
+    \\ qexists_tac ‘c’ \\ fs []
+    \\ reverse $ Cases_on ‘v2’ >- gvs []
+    \\ gvs []
+    \\ imp_res_tac evaluate_SING \\ gvs [])
+  >~ [‘Let t es e’] >-
+   (init_tac
+    \\ ‘1 ≤ t4.max_app’ by fs [state_rel_def]
+    \\ Q.REFINE_EXISTS_TAC ‘ck + 3’
+    \\ ntac 14 $ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+                       clos_interpreter_def,dec_clock_def,do_app_def,
+                       evaluate_Global_0,SF SFY_ss]
+    \\ rename [‘evaluate _ = (r8,s8)’]
+    \\ last_x_assum drule
+    \\ disch_then $ qspec_then ‘t4’ mp_tac
+    \\ impl_tac
+    >- (gvs [] \\ strip_tac \\ fs [])
+    \\ strip_tac \\ fs []
+    \\ reverse $ Cases_on ‘r8’ \\ gvs []
+    >- (qexists_tac ‘c’ \\ gvs [])
+    \\ dxrule $ SIMP_RULE std_ss [] (CONJUNCT1 evaluate_add_to_clock)
+    \\ simp []
+    \\ last_x_assum drule
+    \\ disch_then $ drule_at $ Pos $ el 2
+    \\ impl_tac >-
+     (imp_res_tac evaluate_clock \\ gvs []
+      \\ imp_res_tac interp_assum_leq \\ fs [] \\ strip_tac \\ gvs [])
+    \\ strip_tac
+    \\ disch_then $ qspec_then ‘c'+3’ assume_tac
+    \\ qexists_tac ‘c+c'+3’ \\ fs []
+    \\ ‘1 ≤ t5.max_app’ by fs [state_rel_def]
+    \\ ntac 16 $ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+                       clos_interpreter_def,dec_clock_def,do_app_def,
+                       evaluate_Global_0,SF SFY_ss,v_to_list_list_to_v]
+    \\ first_assum $ irule_at Any
+    \\ every_case_tac \\ fs [])
+  >~ [‘Handle t e1 e2’] >-
+   (init_tac
+    \\ ‘1 ≤ t4.max_app’ by fs [state_rel_def]
+    \\ Q.REFINE_EXISTS_TAC ‘ck + 3’
+    \\ ntac 14 $ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+                       clos_interpreter_def,dec_clock_def,do_app_def,
+                       evaluate_Global_0,SF SFY_ss]
+    \\ rename [‘evaluate _ = (r8,s8)’]
+    \\ last_x_assum drule
+    \\ disch_then $ qspec_then ‘t4’ mp_tac
+    \\ impl_tac
+    >- (gvs [] \\ strip_tac \\ fs [])
+    \\ strip_tac \\ fs []
+    \\ Cases_on ‘r8’ \\ gvs []
+    >- (qexists_tac ‘c’ \\ gvs []
+        \\ imp_res_tac evaluate_SING \\ gvs [])
+    \\ rename [‘_ = (Rerr e,_)’]
+    \\ reverse $ Cases_on ‘e’ \\ fs []
+    >- (qexists_tac ‘c’ \\ gvs [])
+    \\ dxrule $ SIMP_RULE std_ss [] (CONJUNCT1 evaluate_add_to_clock)
+    \\ simp []
+    \\ last_x_assum drule
+    \\ disch_then $ drule_at $ Pos $ el 2
+    \\ impl_tac >-
+     (imp_res_tac evaluate_clock \\ gvs []
+      \\ imp_res_tac interp_assum_leq \\ fs [] \\ strip_tac \\ gvs [])
+    \\ strip_tac
+    \\ disch_then $ qspec_then ‘c'+3’ assume_tac
+    \\ qexists_tac ‘c+c'+3’ \\ fs []
+    \\ ‘1 ≤ t5.max_app’ by fs [state_rel_def]
+    \\ fs [list_to_v_def,EVAL “cons_tag”]
+    \\ ntac 16 $ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+                       clos_interpreter_def,dec_clock_def,do_app_def,
+                       evaluate_Global_0,SF SFY_ss,v_to_list_list_to_v]
+    \\ first_assum $ irule_at Any
+    \\ every_case_tac \\ fs [])
+  >~ [‘Var t n’] >-
+   (init_tac
+    \\ simp [Once evaluate_def]
+    \\ ‘1 ≤ t4.max_app’ by fs [state_rel_def]
+    \\ fs [clos_interp_el_def]
+    \\ Q.REFINE_EXISTS_TAC ‘c+2’ \\ fs []
+    \\ ntac 9 $ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+                      clos_interpreter_def,dec_clock_def,do_app_def,
+                      evaluate_Global_0,SF SFY_ss,v_to_list_list_to_v]
+    \\ fs [GSYM clos_interp_el_def]
+    \\ first_x_assum $ irule_at Any
+    \\ gvs [AllCaseEqs()]
+    \\ last_x_assum kall_tac
+    \\ irule clos_interp_el_thm \\ fs [])
+  >~ [‘App t _ e1 e2’] >-
+   (init_tac
+    \\ gvs [LENGTH_EQ_NUM_compute,can_interpret_def]
+    \\ ‘1 ≤ t4.max_app’ by fs [state_rel_def]
+    \\ Q.REFINE_EXISTS_TAC ‘ck + 3’
+    \\ ntac 14 $ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+                       clos_interpreter_def,dec_clock_def,do_app_def,
+                       evaluate_Global_0,SF SFY_ss]
+    \\ rename [‘evaluate _ = (r8,s8)’]
+    \\ last_x_assum drule
+    \\ disch_then $ qspec_then ‘t4’ mp_tac
+    \\ impl_tac
+    >- (gvs [] \\ strip_tac \\ fs [])
+    \\ strip_tac \\ fs []
+    \\ reverse $ Cases_on ‘r8’ \\ gvs []
+    >- (qexists_tac ‘c’ \\ gvs [])
+    \\ imp_res_tac evaluate_SING \\ gvs[]
+    \\ dxrule $ SIMP_RULE std_ss [] (CONJUNCT1 evaluate_add_to_clock)
+    \\ gvs [CaseEq"prod"]
+    \\ rename [‘evaluate _ = (r9,s9)’]
+    \\ last_x_assum drule
+    \\ disch_then $ qspec_then ‘t5’ mp_tac
+    \\ impl_tac >-
+     (imp_res_tac evaluate_clock \\ gvs []
+      \\ imp_res_tac interp_assum_leq \\ fs [] \\ strip_tac \\ gvs [])
+    \\ strip_tac
+    \\ reverse $ Cases_on ‘r9’ \\ gvs []
+    >-
+     (disch_then $ qspec_then ‘c'+3’ assume_tac
+      \\ fs [PULL_EXISTS]
+      \\ qexists_tac ‘c+c'+3’ \\ gvs []
+      \\ ‘1 ≤ t5.max_app’ by fs [state_rel_def]
+      \\ rpt $ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+                     clos_interpreter_def,dec_clock_def,do_app_def,
+                     evaluate_Global_0,SF SFY_ss])
+    \\ imp_res_tac evaluate_SING \\ gvs[]
+    \\ rename [‘state_rel s10 t10’]
+    \\ ‘interp_assum (:γ) (:'ffi) s10.clock’ by
+      (imp_res_tac evaluate_clock \\ gvs []
+       \\ imp_res_tac interp_assum_leq \\ fs [] \\ strip_tac \\ gvs [])
+    \\ pop_assum mp_tac
+    \\ simp [interp_assum_def] \\ strip_tac
+    \\ pop_assum $ drule_at $ Pos $ el 2
+    \\ fs [] \\ disch_then drule \\ strip_tac \\ fs []
+    \\ dxrule $ SIMP_RULE std_ss [] (CONJUNCT1 evaluate_add_to_clock)
+    \\ fs [PULL_EXISTS]
+    \\ qpat_x_assum ‘∀x. _’ kall_tac
+    \\ disch_then $ qspec_then ‘ck’ assume_tac
+    \\ disch_then $ qspec_then ‘ck+c'+3’ assume_tac
+    \\ qexists_tac ‘ck+c+c'+3’ \\ fs []
+    \\ ‘1 ≤ t5.max_app’ by fs [state_rel_def]
+    \\ first_assum $ irule_at $ Pos last
+    \\ ntac 40 $ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+                       clos_interpreter_def,dec_clock_def,do_app_def,
+                       evaluate_Global_0,SF SFY_ss])
   \\ rename [‘Op t p es’]
-  \\ cheat
+  \\ Cases_on ‘∃n. p = Global n’
+  \\ gvs [can_interpret_def,can_interpret_op_def,
+          to_constant_def,to_constant_op_def,make_const_def]
+  >-
+   (init_tac \\ gvs [evaluate_def,do_app_def]
+    \\ rename [‘state_rel s t’]
+    \\ ‘s.globals = t.globals’ by fs [state_rel_def]
+    \\ qexists_tac ‘0’ \\ gvs [AllCaseEqs()])
+  \\ Cases_on ‘∃c. p = Constant c’
+  \\ gvs [can_interpret_def,can_interpret_op_def,
+          to_constant_def,to_constant_op_def,make_const_def]
+  >- (init0_tac \\ qexists_tac ‘0’ \\ gvs [evaluate_def,do_app_def])
+  \\ Cases_on ‘∃i. p = Const i’
+  \\ gvs [can_interpret_def,can_interpret_op_def,
+          to_constant_def,to_constant_op_def,make_const_def]
+  >- (init0_tac \\ qexists_tac ‘0’ \\ gvs [evaluate_def,do_app_def])
+  \\ reverse $ Cases_on ‘∃tag. p = Cons tag’
+  >- (Cases_on ‘p’ \\ fs [can_interpret_op_def])
+  \\ Cases_on ‘es = []’
+  \\ gvs [can_interpret_def,can_interpret_op_def,
+          to_constant_def,to_constant_op_def,make_const_def]
+  >- (init0_tac \\ qexists_tac ‘0’ \\ gvs [evaluate_def,do_app_def])
+  \\ init0_tac
+  \\ ‘1 ≤ t4.max_app’ by fs [state_rel_def]
+  \\ gvs [LENGTH_EQ_NUM_compute,can_interpret_def]
+  \\ Q.REFINE_EXISTS_TAC ‘ck + 3’
+  \\ ntac 14 $ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+                     clos_interpreter_def,dec_clock_def,do_app_def,
+                     evaluate_Global_0,SF SFY_ss]
+  \\ qpat_x_assum ‘_ = (_,_)’ mp_tac
+  \\ simp [Once evaluate_def,do_app_def,CaseEq"prod"] \\ strip_tac
+  \\ rename [‘evaluate _ = (r8,s8)’]
+  \\ last_x_assum drule
+  \\ disch_then $ qspec_then ‘t4’ mp_tac
+  \\ impl_tac >- (gvs [] \\ strip_tac \\ fs [])
+  \\ strip_tac \\ fs []
+  \\ reverse $ Cases_on ‘r8’ \\ gvs []
+  >- (qexists_tac ‘c’ \\ gvs [])
+  \\ gvs [PULL_EXISTS,do_app_def,AllCaseEqs()]
+  \\ irule_at Any evaluate_SING_intro
+  \\ fs [] \\ qexists_tac ‘list_to_v a’
+  \\ ‘1 ≤ t5.max_app’ by fs [state_rel_def]
+  \\ first_x_assum $ irule_at $ Pos last
+  \\ simp [Once SWAP_EXISTS_THM]
+  \\ drule $ SIMP_RULE std_ss [] (CONJUNCT1 evaluate_add_to_clock)
+  \\ disch_then $ qspec_then ‘2*LENGTH a+2’ assume_tac \\ gvs []
+  \\ qexists_tac ‘c+2*LENGTH a+2’ \\ gvs []
+  \\ ntac 11 $ simp [Once evaluate_def,dest_closure_def,check_loc_def,
+                     clos_interpreter_def,dec_clock_def,do_app_def,
+                     evaluate_Global_0,SF SFY_ss,AllCaseEqs(),PULL_EXISTS]
+  \\ irule_at Any evaluate_SING_intro \\ fs []
+  \\ rewrite_tac [GSYM (EVAL “list_to_v []”)]
+  \\ simp [clos_interp_rev_thm]
+  \\ fs [evaluate_def,do_app_def,v_to_list_list_to_v]
+  \\ fs [AllCaseEqs()]
 QED
 
 Theorem opt_interp_thm:
