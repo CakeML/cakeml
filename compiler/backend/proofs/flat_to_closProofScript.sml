@@ -2122,7 +2122,7 @@ QED
 Triviality contains_App_SOME_compile_init:
   0 < max_app ⇒ ¬contains_App_SOME max_app [compile_init b]
 Proof
-  EVAL_TAC \\ rw [] \\ EVAL_TAC
+  EVAL_TAC \\ rw [] \\ EVAL_TAC \\ fs []
 QED
 
 Triviality no_mti_compile_init:
@@ -2138,9 +2138,10 @@ Proof
 QED
 
 Triviality contains_App_SOME_compile_init:
+  1 ≤ max_app ⇒
   contains_App_SOME max_app [compile_init b] = F
 Proof
-  Cases_on ‘b’ \\ fs [] \\ EVAL_TAC
+  Cases_on ‘b’ \\ fs [] \\ EVAL_TAC \\ fs []
 QED
 
 Theorem compile_prog_syntactic_props:

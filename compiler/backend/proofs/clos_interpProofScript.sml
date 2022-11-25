@@ -1322,13 +1322,21 @@ Theorem opt_interp_lemma[local]:
   opt_interp x = SOME x' ⇒
   set_globals x' = {||} ∧
   set_globals x = {||} ∧
-  (¬contains_App_SOME max_app [x] ⇒ ¬contains_App_SOME max_app [x']) ∧
+  (1 ≤ max_app ⇒ ¬contains_App_SOME max_app [x']) ∧
   every_Fn_vs_NONE [x'] ∧
   no_mti x' ∧
   esgc_free x ∧
   esgc_free x'
 Proof
-  cheat
+  strip_tac \\ gvs [opt_interp_def,AllCaseEqs()]
+  \\ fs [no_mti_def,contains_App_SOME_def,op_gbag_def]
+  \\ qsuff_tac ‘
+    (∀x. can_interpret x ⇒ set_globals x = {||} ∧ esgc_free x) ∧
+    (∀x. can_interpret_list x ⇒ elist_globals x = {||} ∧ EVERY esgc_free x)’
+  >- (rw [] \\ res_tac \\ fs [])
+  \\ rpt $ pop_assum kall_tac
+  \\ Induct \\ fs [can_interpret_def]
+  \\ Cases \\ fs [can_interpret_op_def,op_gbag_def]
 QED
 
 Theorem elist_globals_insert_interp:
@@ -1351,10 +1359,11 @@ Proof
 QED
 
 Theorem contains_App_SOME_insert_interp:
-  ¬contains_App_SOME max_app xs ⇒
+  ¬contains_App_SOME max_app xs ∧ 1 ≤ max_app ⇒
   ¬contains_App_SOME max_app (insert_interp xs)
 Proof
-  fs [insert_interp_def]
+  Cases_on ‘1 ≤ max_app’ \\ fs []
+  \\ fs [insert_interp_def]
   \\ once_rewrite_tac [contains_App_SOME_EXISTS]
   \\ fs [EVERY_MAP,o_DEF]
   \\ qid_spec_tac ‘xs’

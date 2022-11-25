@@ -241,4 +241,47 @@ Definition insert_interp_def:
   insert_interp xs = MAP insert_interp1 xs
 End
 
+(* pmatch versions of the op-functions *)
+
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
+Theorem can_interpret_op_pmatch:
+  can_interpret_op p l =
+    case p of
+    | Cons tag => (l = 0n ∨ tag < 3n)
+    | Const i => (l = 0)
+    | Global n => (l = 0)
+    | Constant c => (l = 0)
+    | _ => F
+Proof
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ Cases_on ‘p’ \\ fs [can_interpret_op_def]
+QED
+
+Theorem check_size_op_pmatch:
+  check_size_op k p l =
+    case p of
+    | Cons tag => (if l = 0:num then k else k-1:num)
+    | Const i => k
+    | Global n => k
+    | _ => k-1
+Proof
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ Cases_on ‘p’ \\ fs [check_size_op_def]
+QED
+
+Theorem to_constant_op_pmatch:
+  to_constant_op p l cs =
+    case p of
+    | Const i => ConstCons 1 [ConstInt i]
+    | Constant c => ConstCons 1 [c]
+    | Global n => ConstCons 2 [ConstInt (& n)]
+    | Cons tag => (if l = 0n then ConstCons 1 [ConstCons tag []]
+                             else ConstCons (tag + 5) [cs])
+    | _ => ConstInt 0
+Proof
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ Cases_on ‘p’ \\ fs [to_constant_op_def]
+QED
+
 val _ = export_theory();
