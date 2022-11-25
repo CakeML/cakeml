@@ -158,6 +158,23 @@ Theorem check_size_ind = (DefnBase.lookup_indn “check_size” |> valOf |> fst)
 val r = translate $ one_line_ify_mutrec clos_interpTheory.can_interpret_def;
 val r = translate $ one_line_ify_mutrec clos_interpTheory.check_size_def;
 
+Theorem opt_interp_alt:
+  opt_interp e =
+    if can_interpret e ∧ nontrivial_size e then
+      (let u = empty_ffi (strlit "@@@@@ REPL interpreter called @@@@@\n") in
+           SOME
+             (App None NONE
+                (App None NONE
+                   (App None NONE (Op None (Global 0) [])
+                      [Op None (Cons 0) []]) [Op None (Cons 0) []])
+                [Op None (Constant (to_constant e)) []]))
+    else NONE
+Proof
+  fs [clos_interpTheory.opt_interp_def]
+QED
+
+val r = translate opt_interp_alt;
+
 val r = translate clos_interpTheory.insert_interp_def;
 
 val r = translate flat_to_closTheory.inc_compile_decs_def;
