@@ -1,55 +1,27 @@
 (*
-  Add shared PBP parsing, some common stuff to pb_arrayProg
+  Add shared pbp parsing, some common stuff to npbc_arrayProg
 *)
-open preamble basis pb_checkTheory pb_parseTheory pb_normaliseTheory pb_arrayProgTheory;
+open preamble basis npbc_checkTheory pb_parseTheory npbc_arrayProgTheory pbc_normaliseTheory;
 
-val _ = new_theory "pb_arrayParseProg"
+val _ = new_theory "npbc_parseProg"
 
-val _ = translation_extends"pb_arrayProg";
+val _ = translation_extends"npbc_arrayProg";
 
 val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
-Definition noparse_string_def:
-  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]
-End
-
-val r = translate noparse_string_def;
-
-Definition notfound_string_def:
-  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]
-End
-
-val r = translate notfound_string_def;
-
-(* PBP parsing *)
 val r = translate strip_numbers_def;
-
 val strip_numbers_side_def = theorem "strip_numbers_side_def";
 val strip_numbers_side = Q.prove(
   `∀x y. strip_numbers_side x y <=> T`,
   Induct>>rw[Once strip_numbers_side_def]>>
   intLib.ARITH_TAC) |> update_precondition;
 
-val r = translate pb_preconstraintTheory.map_lit_def;
-val r = translate pb_normaliseTheory.mapNon_def;
-val r = translate pb_normaliseTheory.mapChar_def;
-val r = translate pb_normaliseTheory.mapChars_def;
-val r = translate pb_normaliseTheory.mapString_def;
+val r = translate pbcTheory.map_lit_def;
 
-val mapchars_side_def = fetch "-" "mapchars_side_def";
-
-Theorem mapchars_side:
-   ∀n s. n ≤ LENGTH s ⇒ mapchars_side n (strlit s)
-Proof
-  Induct>>rw[]>>
-  simp[Once mapchars_side_def]
-QED
-
-val mapstring_side = Q.prove(
-  `∀x. mapstring_side x = T`,
-  Cases>>EVAL_TAC>>
-  match_mp_tac mapchars_side>>
-  simp[]) |> update_precondition;
+val r = translate hashNon_def;
+val r = translate hashChar_def;
+val r = translate hashChars_alt_def;
+val r = translate hashString_def;
 
 val r = translate goodChar_def;
 val r = translate goodChars_def;
@@ -79,6 +51,7 @@ val parse_lit_side = Q.prove(
   |> update_precondition;
 
 val r = translate parse_lit_num_def;
+
 val r = translate parse_cutting_def;
 
 val parse_cutting_side_def = theorem "parse_cutting_side_def";
@@ -87,54 +60,42 @@ val parse_cutting_side = Q.prove(
   Induct>>rw[Once parse_cutting_side_def]>>
   intLib.ARITH_TAC) |> update_precondition;
 
-val r = translate parse_var_def;
+(* PBP parsing *)
 
-val r = translate insert_def;
-val r = translate parse_subst_def;
-
-val r = translate pbc_ge_def;
-val r = translate pb_preconstraintTheory.lit_var_def;
+val r = translate pbcTheory.lit_var_def;
 val r = translate compact_lhs_def;
 val r = translate term_le_def;
-
 val r = translate mk_coeff_def;
 val r = translate normalise_lhs_def;
 
 val r = translate pbc_to_npbc_def;
-
 val pbc_to_npbc_side = Q.prove(
   `∀x. pbc_to_npbc_side x <=> T`,
   EVAL_TAC>>rw[]>>
   intLib.ARITH_TAC) |> update_precondition;
 
 val r = translate parse_constraint_LHS_def;
+val r = translate pbcTheory.map_pbc_def;
 
-val r = translate pb_preconstraintTheory.map_pbc_def;
 val r = translate parse_constraint_npbc_def;
+
+val r = translate parse_var_def;
+val r = translate insert_def;
+val r = translate parse_subst_def;
+
 val r = translate parse_red_header_def;
 
-val r = translate parse_pbpstep_def;
+val r = translate parse_lstep_aux_def;
 
-val parse_pbpstep_side_def = fetch "-" "parse_pbpstep_side_def";
-val parse_pbpstep_side = Q.prove(
-  `∀x. parse_pbpstep_side x <=> T`,
-  rw[Once parse_pbpstep_side_def]>>fs[]>>
+val parse_lstep_aux_side_def = fetch "-" "parse_lstep_aux_side_def";
+val parse_lstep_aux_side = Q.prove(
+  `∀x. parse_lstep_aux_side x <=> T`,
+  rw[Once parse_lstep_aux_side_def]>>fs[]>>
   intLib.ARITH_TAC) |> update_precondition;
 
-val r = translate parse_pbpsteps_aux_def;
+val r = translate check_end_def;
 
-val r = translate parse_subgoal_num_def;
-
-val parse_subgoal_num_side_def = fetch "-" "parse_subgoal_num_side_def";
-val parse_subgoal_num_side = Q.prove(
-  `∀x. parse_subgoal_num_side x <=> T`,
-  rw[Once parse_subgoal_num_side_def]>>fs[]>>
-  intLib.ARITH_TAC) |> update_precondition;
-
-val r = translate parse_redundancy_header_def;
-
-val r = translate mk_acc_def;
-val r = translate check_head_def;
+val r = translate blanks_def;
 
 open mlintTheory;
 
@@ -209,33 +170,29 @@ val tokenize_fast_side = Q.prove(
   Cases>>simp[fromchars_unsafe_side_thm]
   ) |> update_precondition;
 
-val r = translate blanks_def;
+Definition not_isEmpty_def:
+  not_isEmpty s ⇔ s ≠ LN
+End
 
-val parse_pbpsteps = process_topdecs`
-  fun parse_pbpsteps fd lno acc =
+val r = translate not_isEmpty_def;
+
+val parse_lsteps_aux = process_topdecs`
+  fun parse_lsteps_aux fd lno acc =
     case TextIO.b_inputLineTokens fd blanks tokenize_fast of
       None => raise Fail (format_failure lno "reached EOF while reading PBP steps")
     | Some s =>
-    case parse_pbpstep s of None => (List.rev acc,(s,lno))
-    | Some (Inl step) => parse_pbpsteps fd (lno+1) (step::acc)
+    case parse_lstep_aux s of None => (List.rev acc,(s,lno))
+    | Some (Inl step) => parse_lsteps_aux fd (lno+1) (step::acc)
     | Some (Inr (c,s)) =>
-      case parse_redundancy fd (lno+1) [] of (pf,lno') =>
-        case parse_pbpsteps_aux c s pf of None =>
-          raise Fail (format_failure lno "Unable to format as contradiction or redundancy step")
-        | Some step => parse_pbpsteps fd lno' (step::acc)
-  and parse_redundancy fd lno acc =
-    case parse_pbpsteps fd lno [] of (pf,(s,lno')) =>
-    let val acc' = mk_acc pf acc in
-      (case parse_redundancy_header s of
-        None => raise Fail (format_failure lno' "failed to parse line")
-      | Some (Inl u) => (List.rev acc', lno')
-      | Some (Inr ind) =>
-        case parse_pbpsteps fd lno' [] of (pf,(h,lno'')) =>
-          (if check_head h then
-              parse_redundancy fd lno'' ((Some ind,pf)::acc')
-           else raise Fail (format_failure lno'' "redundancy subgoal not terminated by end") ))
-    end
-    ` |> append_prog;
+      if not_isempty s then
+          raise Fail (format_failure lno "only contradiction steps allowed in nested proof steps")
+      else
+        (case parse_lsteps_aux fd (lno+1) [] of
+          (pf,(s,lno')) =>
+          if check_end s then
+            parse_lsteps_aux fd (lno+1) (Con c pf::acc)
+          else raise Fail (format_failure lno' "subproof not terminated"))`
+    |> append_prog;
 
 val blanks_v_thm = theorem "blanks_v_thm";
 val tokenize_fast_v_thm = theorem "tokenize_fast_v_thm";
@@ -249,14 +206,44 @@ val b_inputLineTokens_specialize =
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
   |> SIMP_RULE std_ss [blanks_v_thm,tokenize_fast_v_thm,blanks_def] ;
 
-Theorem parse_pbpsteps_spec:
-  (!ss acc fd fdv lines lno lnov accv fs.
+Theorem EqualityType_PBC_LIT_TYPE:
+  EqualityType a ⇒
+  EqualityType (PBC_LIT_TYPE a)
+Proof
+  EVAL_TAC>>
+  rw[]>>
+  Cases_on`x1`>>fs[PBC_LIT_TYPE_def]>>
+  TRY(Cases_on`x2`>>fs[PBC_LIT_TYPE_def])>>
+  EVAL_TAC>>
+  metis_tac[]
+QED
+
+Theorem STDIO_INSTREAM_LINES_refl:
+  STDIO A *
+  INSTREAM_LINES B C D E ==>>
+  STDIO A *
+  INSTREAM_LINES B C D E
+Proof
+  xsimpl
+QED
+
+Theorem STDIO_INSTREAM_LINES_refl_gc:
+  STDIO A *
+  INSTREAM_LINES B C D E ==>>
+  STDIO A *
+  INSTREAM_LINES B C D E * GC
+Proof
+  xsimpl
+QED
+
+Theorem parse_lsteps_aux_spec:
+  ∀ss acc fd fdv lines lno lnov accv fs.
   NUM lno lnov ∧
-  LIST_TYPE (PB_CHECK_PBPSTEP_TYPE) acc accv ∧
+  LIST_TYPE (NPBC_CHECK_LSTEP_TYPE) acc accv ∧
   MAP toks_fast lines = ss
   ⇒
   app (p : 'ffi ffi_proj)
-    ^(fetch_v "parse_pbpsteps" (get_ml_prog_state()))
+    ^(fetch_v "parse_lsteps_aux" (get_ml_prog_state()))
     [fdv; lnov; accv]
     (STDIO fs * INSTREAM_LINES fd fdv lines fs)
     (POSTve
@@ -265,45 +252,20 @@ Theorem parse_pbpsteps_spec:
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
          &(
-            PAIR_TYPE (LIST_TYPE (PB_CHECK_PBPSTEP_TYPE))
+            PAIR_TYPE (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))
               (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NUM) (acc',s,lno') v ∧
-            parse_pbpsteps ss acc = SOME(acc',s,rest) ∧
+            parse_lsteps_aux ss acc = SOME(acc',s,rest) ∧
             MAP toks_fast lines' = rest))
       (λe.
          SEP_EXISTS k lines'.
            STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
-           &(Fail_exn e ∧ parse_pbpsteps ss acc = NONE))
-      )) ∧
-  (∀ss acc fd fdv lines lno lnov accv fs.
-  NUM lno lnov ∧
-  LIST_TYPE (PAIR_TYPE (OPTION_TYPE (SUM_TYPE NUM UNIT_TYPE))(LIST_TYPE (PB_CHECK_PBPSTEP_TYPE))) acc accv ∧
-  MAP toks_fast lines = ss
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "parse_redundancy" (get_ml_prog_state()))
-    [fdv; lnov; accv]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
-    (POSTve
-      (λv.
-         SEP_EXISTS k lines' acc' lno' rest.
-         STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
-         &(
-            PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (SUM_TYPE NUM UNIT_TYPE)) (LIST_TYPE (PB_CHECK_PBPSTEP_TYPE))))
-              NUM (acc',lno') v ∧
-            parse_redundancy ss acc = SOME(acc',rest) ∧
-            MAP toks_fast lines' = rest
-            ) )
-      (λe.
-         SEP_EXISTS k lines'.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
-           &(Fail_exn e ∧ parse_redundancy ss acc = NONE))
-      ))
+           &(Fail_exn e ∧ parse_lsteps_aux ss acc = NONE))
+      )
 Proof
-  ho_match_mp_tac parse_pbpsteps_ind>>
+  ho_match_mp_tac parse_lsteps_aux_ind>>
   rw[]
   >- (
-    xcf "parse_pbpsteps" (get_ml_prog_state ())>>
+    xcf "parse_lsteps_aux" (get_ml_prog_state ())>>
     xlet ‘(POSTv v.
         SEP_EXISTS k.
             STDIO (forwardFD fs fd k) *
@@ -313,22 +275,18 @@ Proof
       xapp_spec b_inputLineTokens_specialize
       \\ qexists_tac ‘emp’
       \\ qexists_tac ‘[]’
-      \\ qexists_tac ‘fs’
-      \\ qexists_tac ‘fd’ \\ xsimpl) >>
+      \\ xsimpl
+      \\ metis_tac[STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_refl_gc])>>
     fs[OPTION_TYPE_def]>>
     xmatch >>
-    xlet_autop>>
-    xlet_autop>>
+    rpt xlet_autop>>
     xraise>>xsimpl>>
-    simp[Once parse_pbpsteps_thm]>>
-    simp[Once parse_pbpsteps_thm]>>
-    qexists_tac`k`>>
-    qexists_tac`[]`>>
-    xsimpl>>
+    simp[Once parse_lsteps_aux_thm]>>
+    simp[Once parse_lsteps_aux_thm]>>
     simp[Fail_exn_def]>>
-    metis_tac[])
+    metis_tac[STDIO_INSTREAM_LINES_refl_gc])
   >- (
-    xcfs ["parse_pbpsteps","parse_redundancy"] (get_ml_prog_state ())>>
+    xcfs ["parse_lsteps_aux"] (get_ml_prog_state ())>>
     `?l ls. lines = l::ls` by
       (Cases_on`lines`>>fs[])>>
     rw[]>>
@@ -349,26 +307,22 @@ Proof
     fs[OPTION_TYPE_def]>>
     xmatch>>
     xlet_autop>>
-    simp[Once parse_pbpsteps_thm]>>
+    simp[Once parse_lsteps_aux_thm]>>
     TOP_CASE_TAC>>fs[OPTION_TYPE_def]
-    >- ((* parse_pbpstep gives None *)
+    >- ((* parse_lstep_aux gives None *)
       xmatch>>
-      xlet_autop>>
-      xlet_autop>>
+      rpt xlet_autop>>
       xcon>>
-      xsimpl>-
-        (first_x_assum (irule_at Any)>>
+      xsimpl>- (
         simp[PAIR_TYPE_def]>>
-        first_x_assum (irule_at Any)>>
-        qexists_tac`k`>>xsimpl)>>
-      simp[Once parse_pbpsteps_def])>>
-    (* parse_pbpstep gives Some *)
+        metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+      simp[Once parse_lsteps_aux_thm])>>
+    (* parse_lstep_aux gives Some *)
     TOP_CASE_TAC>>fs[SUM_TYPE_def]
-    (* INL*)
+    (* INL *)
     >- (
       xmatch>>
-      xlet_autop>>
-      xlet_autop>>
+      rpt xlet_autop>>
       xapp>>
       first_x_assum (irule_at Any)>>simp[]>>
       first_x_assum (irule_at Any)>>simp[LIST_TYPE_def]>>
@@ -378,248 +332,283 @@ Proof
       rw[]
       >- (
         fs[PAIR_TYPE_def]>>
-        asm_exists_tac>>simp[]>>
         simp[forwardFD_o]>>
-        qexists_tac`k+x`>>xsimpl>>
-        qexists_tac`x''`>>xsimpl)>>
+        metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
       simp[forwardFD_o]>>
-      qexists_tac`k+x`>>xsimpl>>
-      qexists_tac`x''`>>xsimpl>>
-      fs[Once parse_pbpsteps_thm])>>
+      fs[Once parse_lsteps_aux_thm]>>
+      metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
     (* INR *)
     TOP_CASE_TAC>>fs[]>>
     qpat_x_assum`PAIR_TYPE _ _ _ _` mp_tac>>
     simp[Once PAIR_TYPE_def]>>
     strip_tac>>
     xmatch>>
-    xlet_autop>>
-    xlet_autop>>
+    xlet_auto
+    >- (
+      xsimpl>>
+      match_mp_tac EqualityType_SUM_TYPE>>
+      simp[EqualityType_NUM_BOOL]>>
+      match_mp_tac EqualityType_PBC_LIT_TYPE>>
+      simp[EqualityType_NUM_BOOL])>>
+    reverse (Cases_on`isEmpty r`>>fs[not_isEmpty_def])
+    >- (
+      xif>>asm_exists_tac>>xsimpl>>
+      rpt xlet_autop>>
+      xraise>>xsimpl>>
+      simp[Once parse_lsteps_aux_thm,Fail_exn_def]>>
+      metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+    xif>>asm_exists_tac>>xsimpl>>
+    rpt xlet_autop>>
     xlet`(POSTve
              (λv.
-                  SEP_EXISTS k' lines' acc' lno' rest.
+                  SEP_EXISTS k' lines' acc' s' lno' rest.
                     STDIO (forwardFD (forwardFD fs fd k) fd k') *
                     INSTREAM_LINES fd fdv lines'
                       (forwardFD (forwardFD fs fd k) fd k') *
-                      &(PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (SUM_TYPE NUM UNIT_TYPE)) (LIST_TYPE (PB_CHECK_PBPSTEP_TYPE)))) NUM (acc',lno') v ∧
-                       parse_redundancy ss [] = SOME (acc',rest) ∧
-                       MAP toks_fast lines' = rest))
+                      &(
+            PAIR_TYPE (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))
+              (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NUM) (acc',s',lno') v ∧
+            parse_lsteps_aux ss [] = SOME(acc',s',rest) ∧
+            MAP toks_fast lines' = rest))
              (λe.
                   SEP_EXISTS k' lines'.
                     STDIO (forwardFD (forwardFD fs fd k) fd k') *
                     INSTREAM_LINES fd fdv lines'
                       (forwardFD (forwardFD fs fd k) fd k') *
-                    &(Fail_exn e ∧ parse_redundancy ss [] = NONE)))`
+                    &(Fail_exn e ∧ parse_lsteps_aux ss [] = NONE)))`
     >- (
-      xapp>>
+      last_x_assum xapp_spec>>
       simp[LIST_TYPE_def]>>
       metis_tac[])
     >- (
       xsimpl>>
-      rw[]>>simp[Once parse_pbpsteps_thm]>>
-      simp[forwardFD_o]>>
-      qexists_tac`k+x`>>
-      qexists_tac`x'`>>
-      xsimpl)>>
+      rw[]>>simp[Once parse_lsteps_aux_thm,forwardFD_o]>>
+      metis_tac[STDIO_INSTREAM_LINES_refl])>>
     qpat_x_assum`PAIR_TYPE _ _ _ _` mp_tac>>
+    simp[Once PAIR_TYPE_def]>>
     simp[Once PAIR_TYPE_def]>>
     strip_tac>>
     xmatch>>
     xlet_autop>>
-    TOP_CASE_TAC>>fs[OPTION_TYPE_def]
+    Cases_on`check_end s'`>>xif>>
+    asm_exists_tac>>simp[]
     >- (
-      qpat_x_assum`!x. _` kall_tac>>
-      xmatch>>
-      xlet_autop>>
-      xlet_autop>>
-      xraise>>xsimpl>>
-      simp[Once parse_pbpsteps_thm]>>
-      simp[forwardFD_o]>>
-      qexists_tac`k+k'`>>
+      rpt xlet_autop>>
+      xapp>>
+      first_x_assum (irule_at Any)>>simp[]>>
       qexists_tac`lines'`>>
-      xsimpl>>
-      simp[Fail_exn_def]>>
-      metis_tac[])>>
-    xmatch>>
-    xlet_autop>>
-    xapp>>
-    xsimpl>>
-    first_x_assum (irule_at Any)>>simp[]>>
-    first_x_assum (irule_at Any)>>simp[]>>
-    simp[LIST_TYPE_def]>>
-    imp_res_tac parse_pbpsteps_LENGTH>>
-    simp[forwardFD_o]>>
-    qexists_tac`forwardFD fs fd (k + k')`>>
-    qexists_tac`fd`>>qexists_tac`emp`>>
-    xsimpl>>
-    rw[]
-    >- (
-      fs[PAIR_TYPE_def]>>
-      asm_exists_tac>>xsimpl>>
+      simp[LIST_TYPE_def,NPBC_CHECK_LSTEP_TYPE_def]>>
+      `LENGTH lines' < LENGTH ss` by (
+        imp_res_tac parse_lsteps_aux_LENGTH>>
+        metis_tac[LENGTH_MAP])>>
       simp[forwardFD_o]>>
-      qexists_tac`k+(k'+x')`>>
-      qexists_tac`x''`>>
-      xsimpl)>>
-    simp[Once parse_pbpsteps_def]>>
-    simp[forwardFD_o]>>
-    qexists_tac`k+(k'+x')`>>
-    qexists_tac`x''`>>
-    xsimpl)>>
-  xcfs ["parse_pbpsteps","parse_redundancy"] (get_ml_prog_state ())>>
-  xlet_autop>>
-  simp[Once parse_pbpsteps_thm]>>
-  first_x_assum drule>>
-  simp[LIST_TYPE_def]>>
-  disch_then(mp_tac o CONV_RULE (RESORT_FORALL_CONV (sort_vars ["lines'"])))>>
-  disch_then(qspec_then`lines` mp_tac)>> simp[]>>
-  strip_tac>>
-  xlet`
+      qexists_tac`forwardFD fs fd (k + k')`>>
+      qexists_tac`fd`>>qexists_tac`emp`>>
+      xsimpl>>
+      rw[]
+      >- (
+        fs[PAIR_TYPE_def]>>
+        asm_exists_tac>>xsimpl>>
+        simp[forwardFD_o]>>
+        metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+      simp[Once parse_lsteps_aux_thm]>>
+      simp[forwardFD_o]>>
+      metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+    rpt xlet_autop>>
+    xraise>>
+    xsimpl >>
+    simp[Once parse_lsteps_aux_thm,forwardFD_o,Fail_exn_def]>>
+    metis_tac[STDIO_INSTREAM_LINES_refl_gc])
+QED
+
+val r = translate parse_subgoal_num_def;
+
+val parse_subgoal_num_side_def = fetch "-" "parse_subgoal_num_side_def";
+val parse_subgoal_num_side = Q.prove(
+  `∀x . parse_subgoal_num_side x <=> T`,
+  Induct>>rw[Once parse_subgoal_num_side_def]>>
+  intLib.ARITH_TAC) |> update_precondition;
+
+val r = translate parse_red_body_def;
+
+val r = translate mk_acc_def;
+
+val parse_red_aux = process_topdecs`
+  fun parse_red_aux fd lno acc =
+    case parse_lsteps_aux fd lno [] of
+      (pf,(s,lno')) =>
+      let val acc' = mk_acc pf acc in
+        case parse_red_body s of
+          None => raise Fail (format_failure lno' "subproof not terminated")
+        | Some (Inl u) => (List.rev acc', lno')
+        | Some (Inr ind) =>
+          (case parse_lsteps_aux fd lno' [] of
+            (pf,(s,lno'')) =>
+            if check_end s then
+              parse_red_aux fd lno'' ((Some ind,pf)::acc')
+            else
+              raise Fail (format_failure lno' "subproof not terminated"))
+      end` |> append_prog
+
+Theorem parse_red_aux_spec:
+  ∀ss acc fd fdv lines lno lnov accv fs.
+  NUM lno lnov ∧
+  LIST_TYPE (PAIR_TYPE (OPTION_TYPE (SUM_TYPE NUM UNIT_TYPE))(LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))) acc accv ∧
+  MAP toks_fast lines = ss
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "parse_red_aux" (get_ml_prog_state()))
+    [fdv; lnov; accv]
+    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
     (POSTve
       (λv.
-           SEP_EXISTS k lines' acc' s lno' rest.
-             STDIO (forwardFD fs fd k) *
-             INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
-             &(PAIR_TYPE (LIST_TYPE PB_CHECK_PBPSTEP_TYPE)
-                (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
-                   NUM) (acc',s,lno') v ∧
-              parse_pbpsteps (MAP toks_fast lines) [] =
-              SOME (acc',s,rest) ∧ MAP toks_fast lines' = rest))
+         SEP_EXISTS k lines' acc' s lno' rest.
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         &(
+            (PAIR_TYPE
+              (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (SUM_TYPE NUM UNIT_TYPE)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE)))) NUM) (acc',lno') v ∧
+            parse_red_aux ss acc = SOME(acc',rest) ∧
+            MAP toks_fast lines' = rest))
       (λe.
-           SEP_EXISTS k lines'.
-             STDIO (forwardFD fs fd k) *
-             INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
-             &(Fail_exn e ∧
-              parse_pbpsteps (MAP toks_fast lines) [] = NONE)))`
-  >-
-    xapp
+         SEP_EXISTS k lines'.
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           &(Fail_exn e ∧ parse_red_aux ss acc = NONE))
+      )
+Proof
+  ho_match_mp_tac parse_red_aux_ind>>
+  rw[]>>
+  simp[Once parse_red_aux_def]>>
+  xcf "parse_red_aux" (get_ml_prog_state ())>>
+  xlet_autop>>
+  xlet`(POSTve
+      (λv.
+         SEP_EXISTS k lines' acc' s lno' rest.
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         &(
+            PAIR_TYPE (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))
+              (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NUM) (acc',s,lno') v ∧
+            parse_lsteps_aux (MAP toks_fast lines) [] = SOME(acc',s,rest) ∧
+            MAP toks_fast lines' = rest))
+      (λe.
+         SEP_EXISTS k lines'.
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           &(Fail_exn e ∧ parse_lsteps_aux (MAP toks_fast lines) [] = NONE))
+      )`
+  >- (
+    xapp>>xsimpl>>
+    simp[LIST_TYPE_def]>>
+    metis_tac[])
   >- (
     xsimpl>>
-    simp[Once parse_pbpsteps_thm]>>
     rw[]>>
-    qexists_tac`x`>>qexists_tac`x'`>>xsimpl)>>
-  qpat_x_assum`PAIR_TYPE _ _ _ _` mp_tac>>
-  simp[Once PAIR_TYPE_def]>>
-  simp[Once PAIR_TYPE_def]>>
-  strip_tac>>
+    simp[Once parse_red_aux_def]>>
+    metis_tac[STDIO_INSTREAM_LINES_refl])>>
+  simp[]>>
+  fs[PAIR_TYPE_def]>>
   xmatch>>
-  xlet_autop>>
-  xlet_autop>>
-  TOP_CASE_TAC>> fs[OPTION_TYPE_def]
+  rpt xlet_autop>>
+  Cases_on`parse_red_body s`>>fs[OPTION_TYPE_def]
   >- (
     xmatch>>
     xlet_autop>>
     xlet_autop>>
-    xraise>>
-    xsimpl>>
-    qexists_tac`k`>>qexists_tac`lines'`>>xsimpl>>
-    simp[Once parse_pbpsteps_thm,Fail_exn_def]>>
-    metis_tac[])>>
+    xraise>>xsimpl>>
+    simp[Once parse_red_aux_def,Fail_exn_def]>>
+    metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
   TOP_CASE_TAC>>fs[SUM_TYPE_def]
-  >- (
+  >- ( (* INL*)
     xmatch>>
     xlet_autop>>
     xcon>>xsimpl
-    >- (
-      simp[PAIR_TYPE_def]>>
-      asm_exists_tac>>simp[]>>
-      asm_exists_tac>>simp[]>>
-      qexists_tac`k`>>xsimpl)>>
-    simp[Once parse_pbpsteps_thm])>>
-  xmatch>>
-  xlet_autop>>
-  `LENGTH rest < LENGTH lines` by
-    (imp_res_tac parse_pbpsteps_LENGTH>>
-    fs[])>>
-  fs[]>>
-  first_x_assum drule>>
-  simp[LIST_TYPE_def]>>
-  disch_then(mp_tac o CONV_RULE (RESORT_FORALL_CONV (sort_vars ["lines''"])))>>
-  disch_then(qspec_then`lines'` mp_tac)>> simp[]>>
-  strip_tac>>
-  xlet`
-    (POSTve
-       (λv.
-            SEP_EXISTS k lines' acc' s lno' rest'.
-              STDIO (forwardFD fs fd k) *
-              INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
-              &(PAIR_TYPE (LIST_TYPE PB_CHECK_PBPSTEP_TYPE)
-                 (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NUM) (acc',s,lno') v ∧
-               parse_pbpsteps rest [] = SOME (acc',s,rest') ∧
-               MAP toks_fast lines' = rest'))
-       (λe.
-            SEP_EXISTS k lines'.
-              STDIO (forwardFD fs fd k) *
-              INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
-              &(Fail_exn e ∧ parse_pbpsteps rest [] = NONE)))`
-  >- (
-    xapp>>xsimpl>>
-    qexists_tac`emp`>>qexists_tac`forwardFD fs fd k`>>
-    qexists_tac`fd`>>xsimpl>>
-    rw[PAIR_TYPE_def]
-    >- (
-      asm_exists_tac>>simp[forwardFD_o]>>
-      qexists_tac`k+x`>>qexists_tac`x'`>>xsimpl)>>
-    simp[forwardFD_o]>>
-    qexists_tac`k+x`>>qexists_tac`x'`>>xsimpl)
-  >- (
-    xsimpl>>
-    simp[Once parse_pbpsteps_thm]>>
-    rw[]>>xsimpl>>
-    qexists_tac`x`>>qexists_tac`x'`>>xsimpl)>>
-  TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>
-  qpat_x_assum`PAIR_TYPE _ _ _ _` mp_tac>>
-  simp[Once PAIR_TYPE_def]>>
-  simp[Once PAIR_TYPE_def]>>
-  strip_tac>>
-  xmatch>>
-  xlet_autop>>
-  reverse xif
-  >- (
+    >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
+    rw[]>>
+    gs[Once parse_red_aux_def])
+  >- ( (* INR*)
+    xmatch>>
     xlet_autop>>
+    xlet`(POSTve
+      (λv.
+         SEP_EXISTS k lines'' acc' s lno' rest'.
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_LINES fd fdv lines'' (forwardFD fs fd k) *
+         &(
+            PAIR_TYPE (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))
+              (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NUM) (acc',s,lno') v ∧
+            parse_lsteps_aux rest [] = SOME(acc',s,rest') ∧
+            MAP toks_fast lines'' = rest'))
+      (λe.
+         SEP_EXISTS k lines''.
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines'' (forwardFD fs fd k) *
+           &(Fail_exn e ∧ parse_lsteps_aux rest [] = NONE))
+      )`
+    >- (
+      xapp>>xsimpl>>
+      asm_exists_tac>>xsimpl>>
+      qexists_tac`emp`>>qexists_tac`lines'`>>
+      qexists_tac`forwardFD fs fd k`>>
+      qexists_tac`fd`>>xsimpl>>
+      qexists_tac`[]`>>simp[LIST_TYPE_def,PAIR_TYPE_def]>>
+      rw[]
+      >-(
+        simp[forwardFD_o]>>
+        metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+      simp[forwardFD_o]>>
+      metis_tac[STDIO_INSTREAM_LINES_refl_gc])
+    >- (
+      xsimpl>>rw[]>>
+      simp[Once parse_red_aux_def]>>
+      metis_tac[STDIO_INSTREAM_LINES_refl])>>
+    fs[PAIR_TYPE_def]>>
+    xmatch>>
     xlet_autop>>
-    xraise>>
+    reverse (Cases_on`check_end s'`)>>
+    fs[]>>xif>>asm_exists_tac>>
+    simp[]
+    >- (
+      rpt xlet_autop>>
+      xraise>>
+      xsimpl>>
+      simp[Once parse_red_aux_def,Fail_exn_def]>>
+      metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+    rpt xlet_autop>>
+    xapp>>
+    simp[LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
     xsimpl>>
-    qexists_tac`k`>>qexists_tac`lines''`>>xsimpl>>
-    simp[Once parse_pbpsteps_thm,Fail_exn_def]>>
-    metis_tac[])>>
-  xlet_autop>>
-  xlet_autop>>
-  xlet_autop>>
-  xapp>>
-  xsimpl>>
-  first_assum (irule_at Any o SYM)>>
-  first_x_assum (irule_at Any)>>
-  simp[LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]>>
-  imp_res_tac parse_pbpsteps_LENGTH>>
-  `LENGTH lines''= LENGTH rest'` by
-    metis_tac[LENGTH_MAP]>>
-  simp[]>>xsimpl>>
-  qexists_tac`forwardFD fs fd k`>>
-  qexists_tac`fd`>>
-  qexists_tac`emp`>>
-  xsimpl>>rw[]
-  >- (
-    asm_exists_tac>>
+    qexists_tac`forwardFD fs fd k`>>
+    qexists_tac`fd`>>qexists_tac`emp`>>xsimpl>>
+    rw[]
+    >- (
+      simp[forwardFD_o]>>
+      metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+    simp[Once parse_red_aux_def]>>
     simp[forwardFD_o]>>
-    qexists_tac`k+x'`>>qexists_tac`x''`>>xsimpl)>>
-  simp[Once parse_pbpsteps_thm]>>
-  simp[forwardFD_o]>>
-  qexists_tac`k+x'`>>qexists_tac`x''`>>xsimpl
+    metis_tac[STDIO_INSTREAM_LINES_refl_gc])
 QED
-
-val parse_redundancy_spec = save_thm("parse_redundancy_spec",el 2 (CONJUNCTS parse_pbpsteps_spec));
 
 val parse_top = process_topdecs`
   fun parse_top fd lno =
     case TextIO.b_inputLineTokens fd blanks tokenize_fast of
       None => None
     | Some s =>
-    case parse_pbpstep s of None => raise Fail (format_failure lno "Unable to parse top-level step")
-    | Some (Inl step) => Some (step,lno+1)
+    case parse_lstep_aux s of None =>
+      raise Fail (format_failure lno "Unable to parse top-level step")
+    | Some (Inl step) => Some (Lstep step,lno+1)
     | Some (Inr (c,s)) =>
-      case parse_redundancy fd (lno+1) [] of (pf,lno') =>
-        case parse_pbpsteps_aux c s pf of None =>
-          raise Fail (format_failure lno "Unable to format as contradiction or redundancy step")
-        | Some step => Some (step,lno')` |> append_prog
+      if not_isempty s then
+        case parse_red_aux fd (lno+1) [] of
+          (pf,lno') =>
+          Some (Red c s pf,lno')
+      else
+        (case parse_lsteps_aux fd (lno+1) [] of
+          (pf,(s,lno')) =>
+            if check_end s then
+              Some (Lstep (Con c pf),lno')
+            else
+              raise Fail (format_failure lno' "subproof not terminated"))` |> append_prog
 
 Theorem parse_top_spec:
   !ss fd fdv lines lno lnov fs.
@@ -639,10 +628,10 @@ Theorem parse_top_spec:
             case parse_top ss of
               NONE => F
             | SOME NONE =>
-                OPTION_TYPE PB_CHECK_PBPSTEP_TYPE NONE v ∧
+                OPTION_TYPE NPBC_CHECK_SSTEP_TYPE NONE v ∧
                 lines' = []
             | SOME (SOME (step,rest)) =>
-                OPTION_TYPE (PAIR_TYPE PB_CHECK_PBPSTEP_TYPE NUM) (SOME (step,lno')) v ∧
+                OPTION_TYPE (PAIR_TYPE NPBC_CHECK_SSTEP_TYPE NUM) (SOME (step,lno')) v ∧
                 MAP toks_fast lines' = rest))
       (λe.
          SEP_EXISTS k lines'.
@@ -665,11 +654,11 @@ Proof
       \\ qexists_tac ‘fs’
       \\ qexists_tac ‘fd’ \\ xsimpl
       \\ Cases_on`lines` \\ fs[OPTION_TYPE_def]
-      \\ rw[] \\ qexists_tac`x` \\ xsimpl) >>
+      \\ metis_tac[STDIO_INSTREAM_LINES_refl_gc]) >>
     fs[OPTION_TYPE_def]>>
     xmatch>>
     xcon>>xsimpl>>
-    qexists_tac`k`>>xsimpl)>>
+    metis_tac[ STDIO_INSTREAM_LINES_refl_gc])>>
   `?l ls. lines = l::ls` by
     (Cases_on`lines`>>fs[])>>
   rw[]>>
@@ -690,117 +679,171 @@ Proof
   fs[OPTION_TYPE_def]>>
   xmatch>>
   xlet_autop>>
-  Cases_on`parse_pbpstep h`>>fs[OPTION_TYPE_def]
+  Cases_on`parse_lstep_aux h`>>fs[OPTION_TYPE_def]
   >- (
     xmatch>>
-    xlet_autop>>
-    xlet_autop>>
+    rpt xlet_autop>>
     xraise>>xsimpl>>
-    qexists_tac`k`>>qexists_tac`ls`>>xsimpl>>
-    simp[Fail_exn_def]>>metis_tac[])>>
+    simp[Fail_exn_def]>>
+    metis_tac[ STDIO_INSTREAM_LINES_refl_gc])>>
   Cases_on`x`>>fs[SUM_TYPE_def]
   >- ( (* INL*)
     xmatch>>
-    xlet_autop>>
-    xlet_autop>>
+    rpt xlet_autop>>
     xcon>>xsimpl>>
-    simp[PAIR_TYPE_def]>>
-    asm_exists_tac>>xsimpl>>
-    asm_exists_tac>>xsimpl>>
-    qexists_tac`k`>>xsimpl)>>
-  Cases_on`y`>>fs[]>>
+    simp[PAIR_TYPE_def,NPBC_CHECK_SSTEP_TYPE_def]>>
+    metis_tac[ STDIO_INSTREAM_LINES_refl_gc])>>
   (* INR *)
+  Cases_on`y`>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
-  xlet_autop>>
-  xlet_autop>>
+  rpt xlet_autop>>
+  xlet_auto
+  >- (
+    xsimpl>>
+    match_mp_tac EqualityType_SUM_TYPE>>
+    simp[EqualityType_NUM_BOOL]>>
+    match_mp_tac EqualityType_PBC_LIT_TYPE>>
+    simp[EqualityType_NUM_BOOL])>>
+  Cases_on`isEmpty r`>>fs[not_isEmpty_def]>>
+  xif>>asm_exists_tac>>simp[]
+  >- (
+    rpt xlet_autop>>
+    xlet`(POSTve
+      (λv.
+         SEP_EXISTS k ls' acc' s lno' rest.
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_LINES fd fdv ls' (forwardFD fs fd k) *
+         &(
+            PAIR_TYPE (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))
+              (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NUM) (acc',s,lno') v ∧
+            parse_lsteps_aux (MAP toks_fast ls) [] = SOME(acc',s,rest) ∧
+            MAP toks_fast ls' = rest))
+      (λe.
+         SEP_EXISTS k ls'.
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv ls' (forwardFD fs fd k) *
+           &(Fail_exn e ∧ parse_lsteps_aux (MAP toks_fast ls) [] = NONE))
+      )`
+    >- (
+      xapp>>xsimpl>>
+      asm_exists_tac>>xsimpl>>
+      qexists_tac`emp`>>qexists_tac`ls`>>
+      qexists_tac`forwardFD fs fd k`>>
+      qexists_tac`fd`>>xsimpl>>
+      qexists_tac`[]`>>simp[LIST_TYPE_def,PAIR_TYPE_def]>>
+      rw[]
+      >-(
+        simp[forwardFD_o]>>
+        metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+      simp[forwardFD_o]>>
+      metis_tac[STDIO_INSTREAM_LINES_refl_gc])
+    >- (
+      xsimpl>>
+      metis_tac[STDIO_INSTREAM_LINES_refl])>>
+    fs[PAIR_TYPE_def]>>
+    xmatch>>
+    rpt xlet_autop>>
+    IF_CASES_TAC>>fs[]>>xif>>asm_exists_tac>>simp[]
+    >- (
+      rpt xlet_autop>>
+      xcon>>xsimpl>>
+      simp[NPBC_CHECK_SSTEP_TYPE_def,NPBC_CHECK_LSTEP_TYPE_def]>>
+      metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    simp[Fail_exn_def]>>
+    metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+  rpt xlet_autop>>
   xlet`(POSTve
-           (λv.
-                  SEP_EXISTS k' lines' acc' lno' rest.
-                    STDIO (forwardFD (forwardFD fs fd k) fd k') *
-                    INSTREAM_LINES fd fdv lines'
-                      (forwardFD (forwardFD fs fd k) fd k') *
-                      &(PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (SUM_TYPE NUM UNIT_TYPE)) (LIST_TYPE (PB_CHECK_PBPSTEP_TYPE)))) NUM (acc',lno') v ∧
-                       parse_redundancy t [] = SOME (acc',rest) ∧
-                       MAP toks_fast lines' = rest))
-             (λe.
-                  SEP_EXISTS k' lines'.
-                    STDIO (forwardFD (forwardFD fs fd k) fd k') *
-                    INSTREAM_LINES fd fdv lines'
-                      (forwardFD (forwardFD fs fd k) fd k') *
-                    &(Fail_exn e ∧ parse_redundancy t [] = NONE)))`
+      (λv.
+         SEP_EXISTS k ls' acc' s lno' rest.
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_LINES fd fdv ls' (forwardFD fs fd k) *
+         &(
+            (PAIR_TYPE
+              (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (SUM_TYPE NUM UNIT_TYPE)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE)))) NUM) (acc',lno') v ∧
+            parse_red_aux t [] = SOME(acc',rest) ∧
+            MAP toks_fast ls' = rest))
+      (λe.
+         SEP_EXISTS k ls'.
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv ls' (forwardFD fs fd k) *
+           &(Fail_exn e ∧ parse_red_aux t [] = NONE))
+      )`
   >- (
     xapp>>xsimpl>>
-    simp[LIST_TYPE_def]>>metis_tac[])
-  >- (
-    xsimpl>>rw[]>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>qexists_tac`ls`>>
+    qexists_tac`forwardFD fs fd k`>>
+    qexists_tac`fd`>>xsimpl>>
+    qexists_tac`[]`>>simp[LIST_TYPE_def,PAIR_TYPE_def]>>
+    rw[]
+    >-(
+      simp[forwardFD_o]>>
+      metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
     simp[forwardFD_o]>>
-    qexists_tac`k+x`>>xsimpl>>
-    qexists_tac`x'`>>xsimpl)>>
+    metis_tac[STDIO_INSTREAM_LINES_refl_gc])
+  >- (
+    xsimpl>>
+    metis_tac[STDIO_INSTREAM_LINES_refl] )>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
-  xlet_autop>>
-  Cases_on`parse_pbpsteps_aux q r acc'`>>fs[OPTION_TYPE_def]
-  >- (
-    xmatch>>
-    xlet_autop>>
-    xlet_autop>>
-    xraise>>xsimpl>>
-    simp[forwardFD_o]>>
-    qexists_tac`k+k'`>>
-    qexists_tac`lines'`>>
-    xsimpl>>
-    simp[Fail_exn_def]>>
-    metis_tac[])>>
-  xmatch>>
-  xlet_autop>>
+  rpt xlet_autop>>
   xcon>>xsimpl>>
-  asm_exists_tac>> simp[]>>
-  asm_exists_tac>> simp[]>>
-  simp[forwardFD_o]>>
-  qexists_tac`k+k'`>>xsimpl
+  simp[NPBC_CHECK_SSTEP_TYPE_def,NPBC_CHECK_LSTEP_TYPE_def]>>
+  metis_tac[STDIO_INSTREAM_LINES_refl_gc]
 QED
 
 val check_unsat'' = process_topdecs `
-  fun check_unsat'' fd lno fml inds mindel id =
+  fun check_unsat'' fd lno fml inds id =
     case parse_top fd lno of None => (fml, (False, (id, inds)))
     | Some (step,lno') =>
-      (case check_pbpstep_arr lno step fml inds mindel id of
-        (fml', (False, (id', inds'))) => check_unsat'' fd lno' fml' inds' mindel id'
+      (case check_sstep_arr lno step fml inds id of
+        (fml', (False, (id', inds'))) => check_unsat'' fd lno' fml' inds' id'
       | res => res)` |> append_prog
 
 Definition parse_and_run_def:
-  parse_and_run ss fml inds mindel id =
+  parse_and_run ss fml inds id =
   case parse_top ss of NONE => NONE
   | SOME NONE => SOME (fml, F, id, inds)
   | SOME (SOME (step,rest)) =>
-    (case check_pbpstep_list step fml inds mindel id of
+    (case check_sstep_list step fml inds id of
       SOME (fml', F, id', inds') =>
-        parse_and_run rest fml' inds' mindel id'
+        parse_and_run rest fml' inds' id'
     | res => res)
 Termination
   WF_REL_TAC `measure (LENGTH o FST)`>>
   Cases_on`ss`>>rw[parse_top_def]>>
   every_case_tac>>fs[]>>
   fs[]>>rw[]>>rveq>>
-  imp_res_tac parse_pbpsteps_LENGTH>>
+  imp_res_tac parse_lsteps_aux_LENGTH>>
+  imp_res_tac parse_red_aux_LENGTH>>
   fs[]
 End
 
-val check_pbpstep_arr_spec = save_thm ("check_pbpstep_arr_spec",el 1 (CONJUNCTS pb_arrayProgTheory.check_pbpstep_arr_spec));
+Theorem ARRAY_STDIO_INSTREAM_LINES_refl:
+  (ARRAY arr arrv * STDIO A *
+  INSTREAM_LINES B C D E ==>>
+  ARRAY arr arrv * STDIO A *
+  INSTREAM_LINES B C D E) ∧
+  (ARRAY arr arrv * STDIO A *
+  INSTREAM_LINES B C D E ==>>
+  ARRAY arr arrv * STDIO A *
+  INSTREAM_LINES B C D E * GC)
+Proof
+  xsimpl
+QED
 
 Theorem check_unsat''_spec:
-  ∀ss fmlls inds mindel id fmlv fmllsv indsv mindelv idv fd fdv lines lno lnov fs.
+  ∀ss fmlls inds id fmlv fmllsv indsv idv fd fdv lines lno lnov fs.
   NUM lno lnov ∧
-  NUM mindel mindelv ∧
   NUM id idv ∧
-  LIST_REL (OPTION_TYPE PB_CONSTRAINT_NPBC_TYPE) fmlls fmllsv ∧
+  LIST_REL (OPTION_TYPE constraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
   MAP toks_fast lines = ss
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
-    [fdv; lnov; fmlv; indsv; mindelv; idv]
+    [fdv; lnov; fmlv; indsv; idv]
     (STDIO fs * INSTREAM_LINES fd fdv lines fs * ARRAY fmlv fmllsv)
     (POSTve
       (λv.
@@ -809,17 +852,17 @@ Theorem check_unsat''_spec:
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
          ARRAY fmlv' fmllsv' *
          &(
-          case parse_and_run ss fmlls inds mindel id of NONE => F
+          case parse_and_run ss fmlls inds id of NONE => F
           | SOME res =>
             PAIR_TYPE (λl v.
-              LIST_REL (OPTION_TYPE PB_CONSTRAINT_NPBC_TYPE) l fmllsv' ∧
+              LIST_REL (OPTION_TYPE constraint_TYPE) l fmllsv' ∧
               v = fmlv') (PAIR_TYPE BOOL (PAIR_TYPE NUM (LIST_TYPE NUM))) res v
           ))
       (λe.
          SEP_EXISTS k lines' fmlv' fmllsv'.
            ARRAY fmlv' fmllsv' *
            STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
-           &(Fail_exn e ∧ parse_and_run ss fmlls inds mindel id = NONE)))
+           &(Fail_exn e ∧ parse_and_run ss fmlls inds id = NONE)))
 Proof
   ho_match_mp_tac (fetch "-" "parse_and_run_ind")>>rw[]>>
   xcf "check_unsat''" (get_ml_prog_state ())>>
@@ -842,9 +885,8 @@ Proof
     xsimpl>>
     simp[Once parse_and_run_def]>>
     rw[]>>
-    qexists_tac`x`>>qexists_tac`x'`>>xsimpl>>
-    qmatch_goalsub_abbrev_tac`ARRAY A B`>>
-    qexists_tac`A`>>qexists_tac`B`>>xsimpl)>>
+    metis_tac[ARRAY_STDIO_INSTREAM_LINES_refl])>>
+  (* parse_top SOME *)
   xlet `(POSTv v.
        SEP_EXISTS k lines' lno'.
        STDIO (forwardFD fs fd k) *
@@ -854,10 +896,10 @@ Proof
             case parse_top (MAP toks_fast lines) of
               NONE => F
             | SOME NONE =>
-                OPTION_TYPE PB_CHECK_PBPSTEP_TYPE NONE v ∧
+                OPTION_TYPE NPBC_CHECK_SSTEP_TYPE NONE v ∧
                 lines' = []
             | SOME (SOME (step,rest)) =>
-                OPTION_TYPE (PAIR_TYPE PB_CHECK_PBPSTEP_TYPE NUM) (SOME (step,lno')) v ∧
+                OPTION_TYPE (PAIR_TYPE NPBC_CHECK_SSTEP_TYPE NUM) (SOME (step,lno')) v ∧
                 MAP toks_fast lines' = rest))`
   >- (
     xapp>>xsimpl>>
@@ -878,10 +920,7 @@ Proof
     xcon>>xsimpl
     >- (
       simp[PAIR_TYPE_def]>>xsimpl>>
-      simp[PB_CHECK_PBPRES_TYPE_def]>>
-      qexists_tac`k`>>
-      qexists_tac`[]`>>
-      xsimpl)>>
+      metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
     simp[Once parse_and_run_def])>>
   Cases_on`x'`>> fs[PAIR_TYPE_def]>>
   xmatch>>
@@ -896,8 +935,7 @@ Proof
   >- (
     xsimpl>>rw[]>>
     simp[Once parse_and_run_def]>>
-    qexists_tac`k`>>qexists_tac`lines'`>>xsimpl>>
-    qexists_tac`x`>>qexists_tac`x'`>>xsimpl)>>
+    metis_tac[ARRAY_STDIO_INSTREAM_LINES_refl])>>
   pop_assum mp_tac>>TOP_CASE_TAC>>simp[]>>
   strip_tac>>
   PairCases_on`x`>>fs[PAIR_TYPE_def]>>

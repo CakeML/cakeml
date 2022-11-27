@@ -384,9 +384,9 @@ QED
   end
 end
 *)
-Definition parse_red_header_def:
-  (parse_red_header [] = NONE) ∧
-  (parse_red_header (r::rs) =
+Definition parse_red_body_def:
+  (parse_red_body [] = NONE) ∧
+  (parse_red_body (r::rs) =
     if r = INL (strlit"end") then SOME (INL ())
     else
     if r = INL (strlit"proofgoal") then
@@ -406,7 +406,7 @@ Definition parse_red_aux_def:
     NONE => NONE
   | SOME (pf,s,rest) =>
     let acc' = mk_acc pf acc in
-    (case parse_red_header s of
+    (case parse_red_body s of
       NONE => NONE
     | SOME (INL u) => SOME (REVERSE acc', rest)
     | SOME (INR ind) =>
@@ -437,54 +437,27 @@ Proof
   fs[]
 QED
 
-Definition parse_top_aux_def:
-  parse_top_aux c s pf =
-    if s = LN then
-       case pf of [] => SOME (Lstep (Con c []))
-       | [(NONE,p)] => SOME (Lstep (Con c p))
-       | [(SOME(INR ()),p)] => SOME (Lstep (Con c p))
-       | _ => NONE
-    else SOME (Red c s pf)
-End
-
-(* Parse 1 top level step *)
+(* Parse 1 top level step until EOF *)
 Definition parse_top_def:
-  (parse_top [] = NONE) ∧
+  (parse_top [] = SOME NONE) ∧
   (parse_top (s::ss) =
     case parse_lstep_aux s of NONE => NONE
     | SOME (INL step) =>
-        SOME (Lstep step,ss)
+        SOME (SOME (Lstep step,ss))
     | SOME (INR (c,s)) =>
       if s = LN then
         (case parse_lsteps_aux ss [] of
           NONE => NONE
         | SOME (pf,s,rest) =>
           if check_end s then
-            SOME (Lstep (Con c pf),rest)
+            SOME (SOME (Lstep (Con c pf),rest))
           else NONE)
       else
         (case parse_red_aux ss [] of
           NONE => NONE
         | SOME (pf,rest) =>
-          SOME (Red c s pf,rest)
+          SOME (SOME (Red c s pf,rest))
         ))
-End
-
-Definition parse_tops_def:
-  (parse_tops ss =
-    case ss of [] => SOME []
-    | _ =>
-    case parse_top ss of NONE => NONE
-    | (SOME (step,rest)) =>
-      case parse_tops rest of NONE => NONE
-      | SOME sts => SOME (step::sts))
-Termination
-  cheat>>
-  WF_REL_TAC `measure (LENGTH)`>>
-  Cases>>rw[parse_top_def]>>
-  every_case_tac>>fs[]>>rw[]>>
-  imp_res_tac parse_red_aux_LENGTH>>
-  fs[]
 End
 
 val fromString_unsafe_def = Define`
@@ -516,6 +489,25 @@ Definition parse_header_line_fast_def:
   parse_header_line_fast s = (s = ^headertrm)
 End
 
+(* build an sptree for the PBF from an initial ID *)
+Definition build_fml_def:
+  (build_fml (id:num) [] acc = (acc,id)) ∧
+  (build_fml id (s::ss) acc =
+    build_fml (id+1) ss (insert id s acc))
+End
+
+(*
+
+(* Parse a list of strings in pbf format *)
+Definition parse_tops_def:
+  (parse_tops ss =
+    case ss of [] => SOME []
+    | _ =>
+    case parse_top ss of NONE => NONE
+    | (SOME (step,rest)) =>
+      case parse_tops rest of NONE => NONE
+      | SOME sts => SOME (step::sts))
+
 (* Parse the tokenized pbf file *)
 Definition parse_pbp_toks_def:
   parse_pbp_toks tokss =
@@ -528,82 +520,73 @@ Definition parse_pbp_toks_def:
   | [] => NONE
 End
 
-(* build an sptree for the PBF from an initial ID *)
-Definition build_fml_def:
-  (build_fml (id:num) [] acc = (acc,id)) ∧
-  (build_fml id (s::ss) acc =
-    build_fml (id+1) ss (insert id s acc))
-End
-
-(* Parse a list of strings in pbf format *)
 Definition parse_pbp_def:
   parse_pbp strs = parse_pbp_toks (MAP toks_fast strs)
 End
 
-(*
 val pbfraw = ``[
-strlit" * #variable= 4 #constraint= 7";
-strlit" 2 ~x1 1 ~x3 >= 1 ;";
-strlit" 1 ~x3 1 ~x5 >= 1 ;";
-strlit" 1 ~x1 1 ~x5 >= 1 ;";
-strlit" 1 ~x2 1 ~x4 1 ~x6 >= 2 ;";
-strlit" +1 x1 +1 x2 >= 1 ;";
-strlit" +1 x3 +1 x4 >= 1 ;";
-strlit" +1 x5 +1 x6 >= 1 ;"
-]``;
+  strlit" * #variable= 4 #constraint= 7";
+  strlit" 2 ~x1 1 ~x3 >= 1 ;";
+  strlit" 1 ~x3 1 ~x5 >= 1 ;";
+  strlit" 1 ~x1 1 ~x5 >= 1 ;";
+  strlit" 1 ~x2 1 ~x4 1 ~x6 >= 2 ;";
+  strlit" +1 x1 +1 x2 >= 1 ;";
+  strlit" +1 x3 +1 x4 >= 1 ;";
+  strlit" +1 x5 +1 x6 >= 1 ;"
+  ]``;
 
-val pbf = rconc (EVAL ``build_fml 1 (full_normalise (THE (parse_pbf ^(pbfraw)))) LN``);
+  val pbf = rconc (EVAL ``build_fml 1 (full_normalise (THE (parse_pbf ^(pbfraw)))) LN``);
 
-val pbpraw = ``[
-strlit"pseudo-Boolean proof version 1.2";
-strlit"f 7";
-strlit"pol 1 s";
-strlit"pol 8 2 + 3 +";
-strlit"pol 9 2 d";
-strlit"red 1 x1 >= 1 ; x1 -> x3 x3 -> x5 x5 -> x1 x2 -> x4 x4 -> x6 x6 -> x2 ; begin";
-strlit"e 11 1 ~x1 >= 1 ;";
-strlit"red 1 x1 >= 1 ; ; begin";
-strlit"end";
-strlit"red 1 x1 >= 1 ; ; begin";
-strlit"end";
-strlit"proofgoal #1";
-strlit"e 12 1 ~x3 >= 1 ;";
-strlit"pol 12 11 + 5 + 6 +";
-strlit"red 1 x1 >= 1 ; ; begin";
-strlit"red 1 x1 >= 1 ; ; begin";
-strlit"end";
-strlit"end";
-strlit"red 1 x1 >= 1 ; ; begin";
-strlit"end";
-strlit"pol 13 4 +";
-strlit"pol 14 x6 +";
-strlit"c 15";
-strlit"end";
-strlit"proofgoal 1";
-strlit"red 1 x1 >= 1 ; ; begin";
-strlit"end";
-strlit"pol 16 2 +";
-strlit"c 17";
-strlit"end";
-strlit"red 1 x1 >= 1 ; ; begin";
-strlit"red 1 x1 >= 1 ; ; begin";
-strlit"end";
-strlit"end";
-strlit"end";
-]``
+  val pbpraw = ``[
+  strlit"pseudo-Boolean proof version 1.2";
+  strlit"f 7";
+  strlit"pol 1 s";
+  strlit"pol 8 2 + 3 +";
+  strlit"pol 9 2 d";
+  strlit"red 1 x1 >= 1 ; x1 -> x3 x3 -> x5 x5 -> x1 x2 -> x4 x4 -> x6 x6 -> x2 ; begin";
+  strlit"e 11 1 ~x1 >= 1 ;";
+  strlit"red 1 x1 >= 1 ; ; begin";
+  strlit"end";
+  strlit"red 1 x1 >= 1 ; ; begin";
+  strlit"end";
+  strlit"proofgoal #1";
+  strlit"e 12 1 ~x3 >= 1 ;";
+  strlit"pol 12 11 + 5 + 6 +";
+  strlit"red 1 x1 >= 1 ; ; begin";
+  strlit"red 1 x1 >= 1 ; ; begin";
+  strlit"end";
+  strlit"end";
+  strlit"red 1 x1 >= 1 ; ; begin";
+  strlit"end";
+  strlit"pol 13 4 +";
+  strlit"pol 14 x6 +";
+  strlit"c 15";
+  strlit"end";
+  strlit"proofgoal 1";
+  strlit"red 1 x1 >= 1 ; ; begin";
+  strlit"end";
+  strlit"pol 16 2 +";
+  strlit"c 17";
+  strlit"end";
+  strlit"red 1 x1 >= 1 ; ; begin";
+  strlit"red 1 x1 >= 1 ; ; begin";
+  strlit"end";
+  strlit"end";
+  strlit"end";
+  ]``
 
-val steps = rconc (EVAL``(parse_pbp ^(pbpraw))``)
+  val steps = rconc (EVAL``(parse_pbp ^(pbpraw))``)
 
-val pbpraw = ``MAP toks_fast [
-strlit"red 1 x1 >= 1 ; ; begin";
-strlit"end";
-strlit"end";
-]``
+  val pbpraw = ``MAP toks_fast [
+  strlit"red 1 x1 >= 1 ; ; begin";
+  strlit"end";
+  strlit"end";
+  ]``
 
-EVAL`` parse_lstep_aux (HD ^(pbpraw))``
+  EVAL`` parse_lstep_aux (HD ^(pbpraw))``
 
-EVAL`` parse_lsteps_aux ^(pbpraw) []``
-parse_lsteps_aux_def
+  EVAL`` parse_lsteps_aux ^(pbpraw) []``
+  parse_lsteps_aux_def
 *)
 
 val _ = export_theory();
