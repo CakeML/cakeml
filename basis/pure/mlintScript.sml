@@ -544,4 +544,79 @@ Definition int_gcd_def:
   int_gcd (m:int) (n:int) = & num_gcd (Num (ABS m)) (Num (ABS n)) :int
 End
 
+(* lemmas *)
+
+Theorem num_to_str_11:
+  num_to_str n0 = num_to_str n1 ⇔ n0 = n1:num
+Proof
+  fs [num_to_str_def,toString_thm,mlstringTheory.implode_def]
+QED
+
+Theorem num_to_str_not_nil:
+  num_to_str (i:num) = strlit s ⇒ s ≠ ""
+Proof
+  fs [num_to_str_def,toString_thm,mlstringTheory.implode_def]
+  \\ rw [] \\ fs [num_to_dec_string_def]
+QED
+
+Triviality ORD_HEX_BOUND1:
+  i < 10 ⇒ 48 ≤ ORD (HEX (i:num))
+Proof
+  Cases_on ‘i’ \\ fs [] \\ ntac 6 (Cases_on ‘n’ \\ fs [] \\ Cases_on ‘n'’ \\ fs [])
+QED
+
+Triviality ORD_HEX_BOUND2:
+  i < 10 ⇒ ORD (HEX (i:num)) ≤ 57
+Proof
+  Cases_on ‘i’ \\ fs [] \\ ntac 6 (Cases_on ‘n’ \\ fs [] \\ Cases_on ‘n'’ \\ fs [])
+QED
+
+Theorem num_to_str_every:
+  num_to_str (i:num) = strlit s ⇒ EVERY (λx. 48 ≤ ORD x ∧ ORD x ≤ 57) s
+Proof
+  fs [num_to_str_def,toString_thm,mlstringTheory.implode_def]
+  \\ rw [] \\ fs [num_to_dec_string_def] \\ fs [n2s_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+  \\ completeInduct_on ‘i’
+  \\ once_rewrite_tac [numposrepTheory.n2l_def]
+  \\ rw [] \\ fs []
+  \\ TRY (irule ORD_HEX_BOUND1 \\ fs [] \\ NO_TAC)
+  \\ TRY (irule ORD_HEX_BOUND2 \\ fs [] \\ NO_TAC)
+  \\ gvs [SF DNF_ss, AND_IMP_INTRO]
+  \\ res_tac \\ fs [DIV_LT_X]
+QED
+
+Theorem num_to_str_imp_cons:
+  toString (i:num) = strlit s ⇒
+  ∃x xs. s = x :: xs ∧ 48 ≤ ORD x ∧ ORD x ≤ 57 ∧ EVERY (λx. 48 ≤ ORD x ∧ ORD x ≤ 57) xs
+Proof
+  rw []
+  \\ imp_res_tac num_to_str_every
+  \\ imp_res_tac num_to_str_not_nil
+  \\ Cases_on ‘s’ \\ fs []
+QED
+
+Theorem num_to_str_APPEND_11:
+  STRCAT s1 (STRING x1 xs1) = STRCAT s2 (STRING x2 xs2) ∧
+  toString n1 = strlit s1 ∧
+  toString n2 = strlit s2 ∧
+  ~(48 ≤ ORD x1 ∧ ORD x1 ≤ 57) ∧
+  ~(48 ≤ ORD x2 ∧ ORD x2 ≤ 57) ⇒
+  n1 = n2 ∧ x1::xs1 = x2::xs2
+Proof
+  Cases_on ‘n1 = n2’ \\ gvs [APPEND]
+  >-
+   (full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC] \\ rw [] \\ fs []
+    \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC] \\ fs [])
+  \\ rw []
+  \\ Cases_on ‘s1 = s2’ >- metis_tac [num_to_str_11]
+  \\ imp_res_tac num_to_str_every
+  \\ rpt $ qpat_x_assum ‘toString _ = strlit _’ kall_tac
+  \\ last_x_assum kall_tac
+  \\ rpt $ pop_assum mp_tac
+  \\ qid_spec_tac ‘s2’
+  \\ qid_spec_tac ‘s1’
+  \\ Induct \\ fs [] \\ rw []
+  \\ Cases_on ‘s2’ \\ gvs []
+QED
+
 val _ = export_theory();
