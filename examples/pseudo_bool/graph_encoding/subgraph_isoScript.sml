@@ -392,16 +392,26 @@ End
 Theorem enc_string_INJ:
   INJ enc_string UNIV UNIV
 Proof
-  rw[INJ_DEF]>>
-  Cases_on`x`>>Cases_on`y`>>
-  fs[enc_string_def]>>
-  cheat
+  rw [INJ_DEF]
+  \\ Cases_on`x` \\ Cases_on`y`
+  \\ fs [enc_string_def]
+  \\ fs [mlstringTheory.concat_def]
+  \\ every_case_tac \\ fs []
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ drule mlintTheory.num_to_str_APPEND_11 \\ simp []
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ rw [] \\ gvs []
+  \\ rpt (qpat_x_assum ‘_ = strlit _’ (assume_tac o GSYM))
+  \\ fs [mlintTheory.num_to_str_11]
 QED
 
 Theorem enc_string_goodString:
   goodString (enc_string (xp,xt))
 Proof
-  cheat
+  gvs [enc_string_def,mlstringTheory.concat_def,goodString_eq_EVERY_goodChar]
+  \\ gvs [goodChar_toString]
+  \\ EVAL_TAC
 QED
 
 Definition full_encode_def:
