@@ -1,11 +1,11 @@
 (*
   Add PBF parsing and wrap around the PBP parser
 *)
-open preamble basis pb_parseTheory pb_arrayParseProgTheory;
+open preamble basis pb_parseTheory pbc_normaliseTheory npbc_parseProgTheory;
 
-val _ = new_theory "pb_arrayFullProg"
+val _ = new_theory "npbc_fullProg"
 
-val _ = translation_extends"pb_arrayParseProg";
+val _ = translation_extends"npbc_parseProg";
 
 val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
@@ -33,15 +33,30 @@ val strip_terminator_side = Q.prove(
   rw[strip_terminator_side_def])
   |> update_precondition;
 
-val r = translate pb_normaliseTheory.normalise_def;
+val r = translate flip_coeffs_def;
+val r = translate pbc_ge_def;
+val r = translate normalise_def;
 
-val r = translate pb_normaliseTheory.convert_pbf_def;
-val r = translate pb_normaliseTheory.full_normalise_def;
+val r = translate convert_pbf_def;
+val r = translate full_normalise_def;
 
+val r = translate parse_op_def;
 val r = translate parse_constraint_def;
 val r = translate parse_constraints_def;
 
 val r = translate parse_pbf_toks_def;
+
+Definition noparse_string_def:
+  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]
+End
+
+val r = translate noparse_string_def;
+
+Definition notfound_string_def:
+  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]
+End
+
+val r = translate notfound_string_def;
 
 val parse_pbf_full = (append_prog o process_topdecs) `
   fun parse_pbf_full f =
@@ -72,7 +87,7 @@ Theorem parse_pbf_full_spec:
     [fv]
     (STDIO fs)
     (POSTv v.
-    & (∃err. (SUM_TYPE STRING_TYPE (LIST_TYPE (PB_PRECONSTRAINT_PBC_TYPE STRING_TYPE))
+    & (∃err. (SUM_TYPE STRING_TYPE (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
     (if inFS_fname fs f then
     (case parse_pbf_toks (MAP toks (all_lines fs f)) of
       NONE => INL err
@@ -108,11 +123,10 @@ Proof
       simp[SUM_TYPE_def]>>metis_tac[])>>
     xmatch>>xcon>>
     xsimpl>>
-    simp[SUM_TYPE_def])
-  >>
-    xlet_autop>>
-    xcon>>xsimpl>>
-    simp[SUM_TYPE_def]>>metis_tac[]
+    simp[SUM_TYPE_def]) >>
+  xlet_autop>>
+  xcon>>xsimpl>>
+  simp[SUM_TYPE_def]>>metis_tac[]
 QED
 
 Definition result_string_def:
@@ -138,6 +152,7 @@ val check_unsat' = process_topdecs `
   end
   handle TextIO.BadFileName => Inl (notfound_string fname)` |> append_prog;
 
+(*
 Definition parse_pbp_def:
   parse_pbp strs =
   case MAP toks_fast strs of
@@ -146,7 +161,7 @@ Definition parse_pbp_def:
       parse_tops ss
     else NONE
   | [] => NONE
-End
+End *)
 
 (* Dummy spec *)
 Theorem check_unsat'_spec:
@@ -162,10 +177,7 @@ Theorem check_unsat'_spec:
     SEP_EXISTS err.
       &(SUM_TYPE STRING_TYPE (OPTION_TYPE (LIST_TYPE INT)))
       (if inFS_fname fs f then
-        (case parse_pbp (all_lines fs f) of
-         SOME pbp =>
-           INR ARB
-        | NONE => INL err)
+        ARB
       else
         INL err
       ) v)
@@ -290,13 +302,13 @@ val check_unsat_2_sem_def = Define`
     NONE => add_stderr fs err
   | SOME pbf =>
     if inFS_fname fs f2 then
-      case parse_pbp_toks (MAP toks (all_lines fs f2)) of
+      ARB (* case parse_pbp_toks (MAP toks (all_lines fs f2)) of
         SOME pbp =>
         ARB
         (* case check_pbp pbf pbp of
           INL _ => add_stderr fs err
         | INR succ => add_stdout fs succ *)
-      | NONE => add_stderr fs err
+      | NONE => add_stderr fs err *)
     else add_stderr fs err)
   else add_stderr fs err`
 
