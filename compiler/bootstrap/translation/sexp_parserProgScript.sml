@@ -164,12 +164,29 @@ val r = fromSexpTheory.decode_control_def
         |> SIMP_RULE std_ss [monad_unitbind_assert,lemma,lemma2]
         |> translate;
 
+Triviality decode_control_ind:
+  decode_control_ind
+Proof
+  once_rewrite_tac [fetch "-" "decode_control_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+  \\ rfs [num_from_hex_string_alt_intro]
+QED
+
+val _ = decode_control_ind |> update_precondition;
+
 val decode_control_side = Q.prove(
   `∀x. decode_control_side x = T`,
   ho_match_mp_tac fromSexpTheory.decode_control_ind \\
   rw[Once(theorem"decode_control_side_def")] \\
   rw[Once(theorem"decode_control_side_def")] \\ rfs[] \\
   rw[num_from_hex_string_alt_length_2] \\
+  rfs [num_from_hex_string_alt_intro] \\
   Cases_on`x1` \\ fs[] \\
   rw[Once(theorem"decode_control_side_def")] \\
   rw[Once(theorem"decode_control_side_def")])
