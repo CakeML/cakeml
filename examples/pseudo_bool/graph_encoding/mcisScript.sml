@@ -1816,16 +1816,32 @@ End
 Theorem enc_string_INJ:
   INJ enc_string UNIV UNIV
 Proof
-  rw[INJ_DEF]>>
-  Cases_on`x`>>Cases_on`y`>>
-  fs[enc_string_def]>>
-  cheat
+  rw[INJ_DEF]
+  \\ Cases_on`x` \\ Cases_on`y`
+  \\ fs[enc_string_def]
+  \\ fs [mlstringTheory.concat_def]
+  \\ every_case_tac \\ gvs []
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ TRY (imp_res_tac mlintTheory.num_to_str_imp_cons \\ gvs [] \\ NO_TAC)
+  \\ rpt (drule mlintTheory.num_to_str_APPEND_11 \\ simp []
+          \\ disch_then drule_all \\ strip_tac \\ gvs []
+          \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND])
+  \\ rpt (qpat_x_assum ‘_ = strlit _’ (assume_tac o GSYM))
+  \\ fs [mlintTheory.num_to_str_11]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ drule mlintTheory.num_to_str_APPEND_11 \\ simp []
+  \\ rpt $ irule_at Any (METIS_PROVE [] “x = y ⇒ f x = f y”) \\ fs []
+  \\ rw [] \\ strip_tac \\ gvs []
+  \\ imp_res_tac mlintTheory.num_to_str_imp_cons \\ gvs []
 QED
 
 Theorem enc_string_goodString:
   goodString (enc_string e)
 Proof
-  cheat
+  Induct_on ‘e’
+  \\ gvs [enc_string_def,mlstringTheory.concat_def,goodString_eq_EVERY_goodChar]
+  \\ gvs [goodChar_toString]
+  \\ EVAL_TAC
 QED
 
 Definition full_encode_def:

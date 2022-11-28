@@ -91,6 +91,16 @@ Proof
   \\ rw [] \\ eq_tac \\ rw []
 QED
 
+Theorem goodChar_toString:
+  EVERY goodChar (case toString n1 of strlit x => x)
+Proof
+  Cases_on ‘toString n1’ \\ fs []
+  \\ imp_res_tac mlintTheory.num_to_str_imp_cons
+  \\ gvs [goodChar_def,EVERY_MEM]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ fs [hashChar_def]
+QED
+
 Triviality hashChar_bound:
   ∀h. hashChar h < 65
 Proof
