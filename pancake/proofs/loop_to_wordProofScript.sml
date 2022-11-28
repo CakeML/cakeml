@@ -40,9 +40,7 @@ Definition state_rel_def:
     t.clock = s.clock ∧
     t.be = s.be ∧
     t.ffi = s.ffi ∧
-    IS_SOME (FLOOKUP t.store CurrHeap) ∧
-    isWord (THE (FLOOKUP t.store CurrHeap)) ∧
-    s.base_addr = theWord (THE (FLOOKUP t.store CurrHeap)) ∧
+    ALOOKUP (fmap_to_alist t.store) CurrHeap = SOME (Word s.base_addr) ∧
     globals_rel s.globals t.store ∧
     code_rel s.code t.code
 End
@@ -51,8 +49,7 @@ val goal =
   ``λ(prog, s). ∀res s1 t ctxt retv l.
       evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
       state_rel s t ∧ locals_rel ctxt s.locals t.locals ∧
-      IS_SOME (FLOOKUP t.store CurrHeap) ∧
-      isWord (THE (FLOOKUP t.store CurrHeap)) ∧
+      ALOOKUP (fmap_to_alist t.store) CurrHeap = SOME (Word s.base_addr) ∧
       lookup 0 t.locals = SOME retv ∧ no_Loops prog ∧
       ~(isWord retv) ∧
       domain (acc_vars prog LN) ⊆ domain ctxt ⇒
@@ -122,7 +119,7 @@ Theorem state_rel_intro:
     t.clock = s.clock ∧
     t.be = s.be ∧
     t.ffi = s.ffi ∧
-    s.base_addr = theWord (THE (FLOOKUP t.store CurrHeap)) ∧
+    ALOOKUP (fmap_to_alist t.store) CurrHeap = SOME (Word s.base_addr) ∧
     globals_rel s.globals t.store ∧
     code_rel s.code t.code
 Proof
@@ -1074,7 +1071,6 @@ Proof
      fs [Abbr ‘ctxt’] >>
      match_mp_tac locals_rel_mk_ctxt_ln >>
      fs []) >>
-    conj_tac >- fs[state_rel_def] >>
     conj_tac >- fs[state_rel_def]
     >> (
      fs [no_Loops_def, no_Loop_def] >>
@@ -1115,7 +1111,6 @@ Proof
       fs [Abbr ‘ctxt’] >>
       match_mp_tac locals_rel_mk_ctxt_ln >>
       fs []) >>
-    conj_tac >- fs[state_rel_def] >>
     conj_tac >- fs[state_rel_def]
      >> (
       fs [no_Loops_def, no_Loop_def] >>
@@ -1159,7 +1154,6 @@ Proof
     fs [Abbr ‘ctxt’] >>
     match_mp_tac locals_rel_mk_ctxt_ln >>
     fs []) >>
-    conj_tac >- fs[state_rel_def] >>
     conj_tac >- fs[state_rel_def]
      >> (
     fs [no_Loops_def, no_Loop_def] >>
@@ -1201,7 +1195,6 @@ Proof
     fs [Abbr ‘ctxt’] >>
     match_mp_tac locals_rel_mk_ctxt_ln >>
     fs []) >>
-    conj_tac >- fs[state_rel_def] >>
     conj_tac >- fs[state_rel_def]
      >> (
     fs [no_Loops_def, no_Loop_def] >>
@@ -1240,7 +1233,6 @@ Proof
     fs [Abbr ‘ctxt’] >>
     match_mp_tac locals_rel_mk_ctxt_ln >>
     fs []) >>
-    conj_tac >- fs[state_rel_def] >>
     conj_tac >- fs[state_rel_def]
      >> (
     fs [no_Loops_def, no_Loop_def] >>
@@ -1315,7 +1307,6 @@ Proof
     fs [Abbr ‘ctxt’] >>
     match_mp_tac locals_rel_mk_ctxt_ln >>
     fs []) >>
-   impl_tac >- fs[state_rel_def] >>
    impl_tac>- fs[state_rel_def] >>
    impl_tac >- (
     fs [no_Loops_def, no_Loop_def] >>
@@ -1348,7 +1339,6 @@ Proof
    fs [Abbr ‘ctxt’] >>
    match_mp_tac locals_rel_mk_ctxt_ln >>
    fs []) >>
-   impl_tac >- fs[state_rel_def] >>
    impl_tac>- fs[state_rel_def] >>
   impl_tac
   >- (
