@@ -383,7 +383,8 @@ Proof
   metis_tac[is_edge_thm]
 QED
 
-(* Encoded as strings *)
+(* Encode the variables as strings
+  and normalize to ≥ only *)
 Definition enc_string_def:
   (enc_string (xp,xt) =
     concat [strlit"x";toString xp;strlit"_";toString xt])
@@ -416,8 +417,39 @@ QED
 
 Definition full_encode_def:
   full_encode gp gt =
-  MAP (map_pbc enc_string) (encode gp gt)
+  MAP (map_pbc enc_string) (FLAT (MAP pbc_ge (encode gp gt)))
 End
+
+(* TODO: move *)
+Theorem satisfies_set_FLAT:
+  pbc$satisfies w (set (FLAT ls)) ⇔
+  ∀x. MEM x ls ⇒ pbc$satisfies w (set x)
+Proof
+  rw[EQ_IMP_THM]>>fs[pbcTheory.satisfies_def,MEM_FLAT]>>
+  metis_tac[]
+QED
+
+Theorem satisfies_FLAT_MAP_pbc_ge:
+  satisfies w (set (FLAT (MAP pbc_ge pbf))) ⇔
+  satisfies w (set pbf)
+Proof
+  simp[satisfies_set_FLAT]>>
+  rw[EQ_IMP_THM]
+  >- (
+    rw[satisfies_def]>>fs[MEM_MAP,PULL_EXISTS]>>
+    first_x_assum drule>>
+    metis_tac[pbc_ge_thm])>>
+  fs[MEM_MAP]>>
+  metis_tac[pbc_ge_thm,satisfies_def]
+QED
+
+Theorem satisfiable_FLAT_MAP_pbc_ge:
+  satisfiable (set (FLAT (MAP pbc_ge pbf))) ⇔
+  satisfiable (set pbf)
+Proof
+  simp[satisfiable_def]>>
+  metis_tac[satisfies_FLAT_MAP_pbc_ge]
+QED
 
 Theorem full_encode_correct:
   good_graph gp ∧
@@ -434,7 +466,8 @@ Proof
     drule INJ_SUBSET>>
     disch_then match_mp_tac>>
     simp[])>>
-  metis_tac[encode_correct,PAIR]
+  simp[satisfiable_FLAT_MAP_pbc_ge] >>
+  metis_tac[encode_correct,PAIR,pbc_ge_thm]
 QED
 
 (* The normalised encoding *)

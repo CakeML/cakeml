@@ -22,7 +22,7 @@ Definition op_string_def:
   (op_string Equal = strlit" = ") ∧
   (op_string GreaterEqual = strlit" >= ") ∧
   (op_string Greater = strlit" > ") ∧
-  (op_string LessEqual = strlit" = ") ∧
+  (op_string LessEqual = strlit" <= ") ∧
   (op_string Less = strlit" < ")
 End
 
@@ -30,7 +30,7 @@ Definition pbc_string_def:
   (pbc_string (pbop,xs,i) =
     concat [
       lhs_string xs;
-      strlit " = ";
+      op_string pbop;
       int_to_string #"-" i; strlit ";"])
 End
 

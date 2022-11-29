@@ -139,11 +139,11 @@ End
 val r = translate result_string_def;
 
 val check_unsat' = process_topdecs `
-  fun check_unsat' fml inds mindel id fname =
+  fun check_unsat' fml inds id fname =
   let
     val fd = TextIO.b_openIn fname
     val u = (check_header fd;
-      case check_unsat'' fd 1 fml inds mindel id of
+      case check_unsat'' fd 1 fml inds id of
         (fml', (b, (id',inds'))) => result_string b
       ) handle Fail s => Inl s
     val close = TextIO.b_closeIn fd;
@@ -214,7 +214,7 @@ Proof
          &(
            ARB
            (* case
-             parse_and_run_file_list (all_lines fs f) mindel fmlls ls (REPLICATE n w8z) earliest
+             parse_and_run_file_list (all_lines fs f) fmlls ls (REPLICATE n w8z) earliest
            of
              NONE => resv = Conv (SOME (TypeStamp "Inl" 23)) [v0] ∧ ∃s. STRING_TYPE s v0
            | SOME(fmlls',inds') =>
@@ -288,9 +288,8 @@ val check_unsat_2 = (append_prog o process_topdecs) `
       val arr = Array.array (2*id) None
       val arr = fill_arr arr ls
       val inds = []
-      val mindel = 0
   in
-    case check_unsat' arr inds mindel id f2 of
+    case check_unsat' arr inds id f2 of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s
   end`
