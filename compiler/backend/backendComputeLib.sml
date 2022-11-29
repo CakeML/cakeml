@@ -115,6 +115,7 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Defs (theory_computes "flat_uncheck_ctors")
 
   ,computeLib.Defs (theory_computes "flat_to_clos")
+  ,computeLib.Defs (theory_computes "clos_interp")
 
   ,computeLib.Defs (theory_computes "word_cse")
   ,computeLib.Tys [``:word_cse$knowledge``]
@@ -147,6 +148,7 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Defs
     [closLangTheory.pure_def
     ,closLangTheory.pure_op_def
+    ,closLangTheory.has_install_def
       (* ---- clos_mti ---- *)
     ,clos_mtiTheory.intro_multi_def
     ,clos_mtiTheory.collect_args_def

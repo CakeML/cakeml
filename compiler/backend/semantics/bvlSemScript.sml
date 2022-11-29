@@ -2,7 +2,7 @@
   The formal semantics of BVL
 *)
 open preamble bvlTheory closSemTheory
-open clos_to_bvlTheory (* for closure_tag et al. *)
+open clos_to_bvlTheory (* for closure_tag and num_added_globals *)
 
 val _ = new_theory"bvlSem"
 
@@ -162,13 +162,19 @@ val do_app_def = Define `
         (case get_global n s.globals of
          | SOME (SOME v) => Rval (v,s)
          | _ => Error)
+    | (Global _,[Number i]) =>
+        (if i < 0 then Error else
+         case get_global (Num i + num_added_globals) s.globals of
+         | SOME (SOME v) => Rval (v,s)
+         | _ => Error)
     | (SetGlobal n,[v]) =>
         (case get_global n s.globals of
          | SOME _ => Rval (Unit,
              s with globals := (LUPDATE (SOME v) n s.globals))
          | _ => Error)
-    | (AllocGlobal,[]) =>
-        Rval (Unit, s with globals := s.globals ++ [NONE])
+    | (AllocGlobal,[Number i]) =>
+        (if i < 0 then Error
+         else Rval (Unit, s with globals := s.globals ++ REPLICATE (Num i) NONE))
     | (Install,vs) => do_install vs s
     | (Const i,[]) => Rval (Number i, s)
     | (Cons tag,xs) => Rval (Block tag xs, s)

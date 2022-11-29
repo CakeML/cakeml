@@ -133,7 +133,40 @@ val flat_to_clos_compile_side = Q.prove(
 
 val r = translate flat_to_closTheory.compile_decs_def;
 
+val r = translate (EVAL “clos_interpreter”)
+
+val r = translate optionTheory.IS_NONE_DEF;
+
+val r = translate clos_interpTheory.can_interpret_op_pmatch;
+val r = translate clos_interpTheory.check_size_op_pmatch;
+val r = translate clos_interpTheory.to_constant_op_pmatch;
+
+fun one_line_ify_mutrec def = let
+  val ths = CONJUNCTS def |> map SPEC_ALL
+  val xs = ths |> map (fn th => (th,(th |> concl |> dest_eq |> fst |> repeat rator
+                                        |> dest_const |> fst)))
+  fun nub [] = []
+    | nub (x::xs) = x :: nub (filter (fn y => y <> x) xs)
+  val ys = nub (map snd xs)
+  in ys |> map (fn y => map fst (filter (fn (_,x) => x = y) xs) |> LIST_CONJ
+                        |> DefnBase.one_line_ify NONE |> GEN_ALL) |> LIST_CONJ
+  end
+
+Theorem can_interpret_ind = (DefnBase.lookup_indn “can_interpret” |> valOf |> fst);
+Theorem check_size_ind = (DefnBase.lookup_indn “check_size” |> valOf |> fst);
+
+val r = translate $ one_line_ify_mutrec clos_interpTheory.can_interpret_def;
+val r = translate $ one_line_ify_mutrec clos_interpTheory.check_size_def;
+
+val r = translate clos_interpTheory.insert_interp_def;
+
 val r = translate flat_to_closTheory.inc_compile_decs_def;
+
+val r = translate clos_interpTheory.clos_interpreter_def;
+val r = translate clos_interpTheory.compile_init_def;
+val r = translate closLangTheory.has_install_def;
+val r = translate clos_interpTheory.attach_interpreter_def;
+val r = translate flat_to_closTheory.compile_prog_def;
 
 (* ------------------------------------------------------------------------- *)
 (* clos_mti                                                                  *)

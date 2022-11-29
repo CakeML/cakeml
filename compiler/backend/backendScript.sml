@@ -52,7 +52,7 @@ val compile_tap_def = Define`
     let td = tap_flat c.tap_conf p [] in
     let _ = empty_ffi (strlit "finished: source_to_flat") in
     let c = c with source_conf := c' in
-    let p = flat_to_clos$compile_decs p in
+    let p = flat_to_clos$compile_prog p in
     let td = tap_clos c.tap_conf p td in
     let _ = empty_ffi (strlit "finished: flat_to_clos") in
     let (c',p,names) = clos_to_bvl$compile c.clos_conf p in
@@ -100,7 +100,7 @@ val to_flat_def = Define`
 val to_clos_def = Define`
   to_clos c p =
   let (c,p) = to_flat c p in
-  let p = flat_to_clos$compile_decs p in
+  let p = flat_to_clos$compile_prog p in
   (c,p)`;
 
 val to_bvl_def = Define`
@@ -267,7 +267,7 @@ val from_clos_def = Define`
 
 val from_flat_def = Define`
   from_flat c p =
-  let p = flat_to_clos$compile_decs p in
+  let p = flat_to_clos$compile_prog p in
   from_clos c p`;
 
 val from_source_def = Define`
