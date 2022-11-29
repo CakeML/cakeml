@@ -163,13 +163,9 @@ val _ = ml_translatorLib.use_string_type false;
 
 val _ = add_preferred_thy "-";
 
-Theorem decode_control_ind =
-  fromSexpTheory.decode_control_ind
-  |> SIMP_RULE std_ss [lemma2, SF CONJ_ss];
-
 val r = fromSexpTheory.decode_control_def
         |> SIMP_RULE std_ss [monad_unitbind_assert,lemma,lemma2]
-        |> translate;
+        |> translate_no_ind;
 
 Triviality decode_control_ind:
   decode_control_ind
