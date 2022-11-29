@@ -139,6 +139,15 @@ val check_unsat' = process_topdecs `
   end
   handle TextIO.BadFileName => Inl (notfound_string fname)` |> append_prog;
 
+val _ = translate miscTheory.enumerate_def;
+
+val fill_arr = process_topdecs`
+  fun fill_arr arr ls =
+    case ls of [] => arr
+    | (x::xs) =>
+    case x of (i,v) =>
+      fill_arr (Array.updateResize arr None i (Some v)) xs` |> append_prog
+
 (* TODO: Technically, we do not need to run pbc_ge again *)
 val check_unsat_fml = (append_prog o process_topdecs) `
   fun check_unsat_fml fml fname =
