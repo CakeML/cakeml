@@ -17,7 +17,6 @@ sollya:
 	echo "Dependency to generate unverified guesses" > readmePrefix &&\
 	./configure &&\
 	make &&\
-	make clean &&\
 	rm -rf ./build-aux doc m4 tests-lib tests-tool &&\
 	rm -rf ./*.c ./*.h &&\
 	cd ../
