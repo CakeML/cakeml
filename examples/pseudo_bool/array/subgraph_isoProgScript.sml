@@ -60,7 +60,7 @@ val parse_lad = (append_prog o process_topdecs) `
   | Some x =>
     if check_good_graph x then
       Inr x
-    else Inl ("Input graph fails undirectedness check")))`
+    else Inl ("c WARNING: Input graph file (" ^ f ^ ") fails undirectedness check\n")))`
 
 (* Translate the encoder *)
 val _ = translate has_mapping_def;
@@ -119,7 +119,7 @@ val parse_and_enc = (append_prog o process_topdecs) `
 Definition result_string_def:
   result_string b =
    if b
-   then INR (strlit "Verified <pattern> subgraph isomorphic to <target>\n")
+   then INR (strlit "Verified pattern graph NOT subgraph isomorphic to target graph\n")
    else INL (strlit "Proof checking succeeded but did not derive contradiction\n")
 End
 
