@@ -10,6 +10,83 @@ val _ = new_theory "ml_translator_test";
 open listTheory pairTheory ml_translatorLib ml_translatorTheory;
 open ml_progLib;
 
+val _ = register_type “:'a list”;
+val _ = register_type “:'a option”;
+
+Datatype:
+  a_ty = A1 | B1 (b_ty list) ;
+  b_ty = B2 | A2 a_ty
+End
+
+val _ = register_type “:a_ty”;
+
+val ty = “:a_ty”;
+
+Definition dest_A2_def:
+  dest_A2 (A2 a) = SOME a ∧
+  dest_A2 _ = NONE
+End
+
+val r = translate dest_A2_def;
+
+Datatype:
+  tyAST = tyOp string (tyAST list)
+        | tyVar string
+        | tyTup (tyAST list)
+End
+
+val _ = register_type “:tyAST”;
+
+Overload boolTy = “tyOp "Bool" []”;
+Overload intTy = “tyOp "Int" []”
+Overload listTy = “λty. tyOp "[]" [ty]”
+Overload funTy = “λd r. tyOp "Fun" [d; r]”
+
+Datatype:
+  litAST = litInt int | litString string
+End
+
+val _ = register_type “:litAST”;
+
+Datatype:
+  patAST = patVar string
+         | patApp string (patAST list)
+         | patTup (patAST list)
+         | patLit litAST
+         | patUScore
+End
+
+val _ = register_type “:patAST”;
+
+Datatype:
+  expAST = expVar string
+         | expCon string (expAST list)
+         | expOp unit (expAST list)
+         | expTup (expAST list)
+         | expApp expAST expAST
+         | expAbs patAST expAST
+         | expIf expAST expAST expAST
+         | expLit litAST
+         | expLet (expdecAST list) expAST
+         | expDo (expdostmtAST list) expAST
+         | expCase expAST ((patAST # expAST) list);
+  expdecAST = expdecTysig string tyAST
+            | expdecPatbind patAST expAST
+            | expdecFunbind string (patAST list) expAST ;
+  expdostmtAST = expdostmtExp expAST
+               | expdostmtBind patAST expAST
+               | expdostmtLet (expdecAST list)
+End
+
+val _ = register_type “:expAST”;
+
+Definition dest_Var_def:
+  dest_Var (expdecTysig a b) = SOME (a,b) ∧
+  dest_Var _ = NONE
+End
+
+val r = translate dest_Var_def;
+
 (* test hiding of functions in local .. in .. end *)
 
 fun def_of_const tm = let
@@ -175,21 +252,27 @@ val res = translate (miscTheory.arith_shift_right_def
                      |> PURE_REWRITE_RULE [wordsTheory.dimindex_64]
                      |> CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV));
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+Triviality arith_shift_right_ind:
+  arith_shift_right_ind
+Proof
+  once_rewrite_tac [fetch "-" "arith_shift_right_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (latest_ind ())
   \\ rpt strip_tac
   \\ last_x_assum match_mp_tac
   \\ rpt strip_tac
   \\ fs [FORALL_PROD]
-  \\ first_x_assum match_mp_tac \\ wordsLib.WORD_EVAL_TAC \\ rw[])
-  |> update_precondition;
+  \\ first_x_assum match_mp_tac \\ wordsLib.WORD_EVAL_TAC \\ rw[]
+QED
+
+val _ = arith_shift_right_ind |> update_precondition;
 
 val shift_test_def = Define `shift_test (x:word64) y = arith_shift_right x y`
 
 val res = translate shift_test_def;
+
+val _ = res |> hyp |> null orelse fail ();
 
 (* Translation failure with primes *)
 val _ = Datatype` idrec = <|v : num; f : 'a|>`;
@@ -238,7 +321,7 @@ val test_def = xDefine "test" `test x = (case x of
   | E1 (x, y) => REVERSE (test x) ++ test y)`
 ;
 
-val _ = translate_no_ind test_def;
+val r = translate_no_ind test_def;
 
 (* registering types inside modules *)
 

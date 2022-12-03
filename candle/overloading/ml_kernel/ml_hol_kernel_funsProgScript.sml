@@ -516,16 +516,22 @@ val def = new_specification_def |> m_translate
 val def = new_basic_definition_def |> check [‘tm’] |> m_translate
 
 val def = holSyntaxExtraTheory.instance_subst_def |> PURE_REWRITE_RULE [MEM_EXISTS] |> translate_no_ind
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp def))`,
-  rpt gen_tac
+
+Triviality instance_subst_ind:
+  instance_subst_ind
+Proof
+  rewrite_tac [fetch "-" "instance_subst_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ ho_match_mp_tac holSyntaxExtraTheory.instance_subst_ind
   \\ rpt strip_tac
   \\ last_x_assum match_mp_tac
   \\ rpt strip_tac
-  \\ gvs [FORALL_PROD, GSYM MEM_EXISTS, EVERY_MEM])
-  |> update_precondition;
+  \\ gvs [FORALL_PROD, GSYM MEM_EXISTS, EVERY_MEM]
+QED
+
+val _ = instance_subst_ind |> update_precondition;
+
 val def = holSyntaxTheory.is_reserved_name_def |> translate
 val def = check_overloads_def |> m_translate
 
@@ -656,17 +662,21 @@ val def = holSyntaxExtraTheory.unify_types_def
                                 PURE_REWRITE_RULE[GSYM FUN_EQ_THM] (GSYM (cj 1 holKernelProofTheory.type_subst))]
           |> translate_no_ind
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp def))`,
-  rpt gen_tac
+Triviality unify_types_ind:
+  unify_types_ind
+Proof
+  rewrite_tac [fetch "-" "unify_types_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (holSyntaxExtraTheory.unify_types_ind)
   \\ rpt strip_tac
   \\ last_x_assum match_mp_tac
   \\ rpt strip_tac
-  \\ gvs[EVERY_MEM,holKernelProofTheory.tyvars_EQ_thm,
-         PURE_REWRITE_RULE[GSYM FUN_EQ_THM] (GSYM (cj 1 holKernelProofTheory.type_subst))])
-  |> update_precondition;
+  \\ gvs [EVERY_MEM,holKernelProofTheory.tyvars_EQ_thm,
+          PURE_REWRITE_RULE[GSYM FUN_EQ_THM] (GSYM (cj 1 holKernelProofTheory.type_subst))]
+QED
+
+val _ = unify_types_ind |> update_precondition;
 
 val def = holSyntaxExtraTheory.unify_def
           |> PURE_REWRITE_RULE [
