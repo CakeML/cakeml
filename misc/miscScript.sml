@@ -1998,11 +1998,34 @@ Proof
 QED
 
 Theorem MEM_enumerate_IMP:
-    ∀xs i e.
-  MEM (i,e) (enumerate 0 xs) ⇒ MEM e xs
+  ∀ls k.
+  MEM (i,e) (enumerate k ls) ⇒ MEM e ls
 Proof
-  fs[MEM_EL,LENGTH_enumerate]>>rw[]>>imp_res_tac EL_enumerate>>
-  qexists_tac`n`>>fs[]
+  Induct_on`ls`>>fs[enumerate_def]>>rw[]>>
+  metis_tac[]
+QED
+
+Theorem MAP_FST_enumerate:
+  MAP FST (enumerate k ls) = GENLIST ($+ k) (LENGTH ls)
+Proof
+  rw[LIST_EQ_REWRITE,LENGTH_enumerate]>>
+  simp[EL_MAP,LENGTH_enumerate,EL_enumerate]
+QED
+
+Theorem ALL_DISTINCT_MAP_FST_enumerate:
+  ALL_DISTINCT (MAP FST (enumerate k ls))
+Proof
+  simp[MAP_FST_enumerate,ALL_DISTINCT_GENLIST]
+QED
+
+Theorem ALOOKUP_enumerate:
+  ∀ls k x.
+  ALOOKUP (enumerate k ls) x =
+  if k ≤ x ∧ x < LENGTH ls + k then SOME (EL (x-k) ls) else NONE
+Proof
+  Induct>>rw[enumerate_def]>>
+  `x-k = SUC(x-(k+1))` by DECIDE_TAC>>
+  simp[]
 QED
 
 Theorem SUM_MAP_LENGTH_REPLICATE:
@@ -4247,6 +4270,16 @@ Proof
   \\ fs [fromAList_def,size_insert,domain_lookup,lookup_fromAList,ADD1] \\ rw []
   \\ imp_res_tac ALOOKUP_MEM \\ fs []
   \\ fs [MEM_MAP,EXISTS_PROD] \\ metis_tac []
+QED
+
+Theorem ALL_DISTINCT_MAP_FST_toSortedAList:
+  ALL_DISTINCT (MAP FST (toSortedAList t))
+Proof
+  `SORTED $< (MAP FST (toSortedAList t))` by
+    simp[SORTED_toSortedAList]>>
+  pop_assum mp_tac>>
+  match_mp_tac SORTED_ALL_DISTINCT>>
+  simp[irreflexive_def]
 QED
 
 val _ = export_theory()
