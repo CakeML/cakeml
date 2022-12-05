@@ -294,7 +294,7 @@ Definition parse_lstep_aux_def:
             | _ => NONE)
           else NONE
         | _ => NONE)
-      else if r = INL (strlit "f") then SOME (INL NoOp)
+      else if r = INL (strlit "*") then SOME (INL NoOp)
       else if r = INL (strlit "red") then
         case parse_red_header rs of NONE => NONE
         | SOME (c,s) =>
@@ -487,13 +487,6 @@ val headertrm = rconc (EVAL``toks_fast (strlit"pseudo-Boolean proof version 1.2"
 
 Definition parse_header_line_fast_def:
   parse_header_line_fast s = (s = ^headertrm)
-End
-
-(* build an sptree for the PBF from an initial ID *)
-Definition build_fml_def:
-  (build_fml (id:num) [] acc = (acc,id)) ∧
-  (build_fml id (s::ss) acc =
-    build_fml (id+1) ss (insert id s acc))
 End
 
 (*

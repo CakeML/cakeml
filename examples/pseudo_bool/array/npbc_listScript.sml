@@ -950,4 +950,193 @@ Proof
     simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST])
 QED
 
+Definition check_ssteps_list_def:
+  (check_ssteps_list [] (fml: npbc option list) (inds:num list) (id:num) = SOME (fml, F, id, inds)) ∧
+  (check_ssteps_list (s::ss) fml inds id =
+  case check_sstep_list s fml inds id of
+    SOME (fml',F,id',inds') =>
+      check_ssteps_list ss fml' inds' id'
+  | res => res)
+End
+
+Theorem fml_rel_check_ssteps_list:
+  ∀ss fmlls inds id fmlls' b id' inds' fml.
+    fml_rel fml fmlls ∧
+    ind_rel fmlls inds ∧
+    (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
+    check_ssteps_list ss fmlls inds id = SOME (fmlls',b,id',inds') ⇒
+    case check_ssteps ss fml id of
+      Unsat idd => idd = id' ∧ id ≤ id' ∧ b
+    | Cont fml' idd =>
+      idd = id' ∧
+      fml_rel fml' fmlls' ∧
+      ind_rel fmlls' inds' ∧
+      (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE) ∧
+      id ≤ id' ∧
+      ¬ b
+    | _ => F
+Proof
+  Induct>>rw[check_ssteps_list_def]
+  >-
+    simp[check_ssteps_def]>>
+  simp[check_ssteps_def]>>
+  pop_assum mp_tac>> TOP_CASE_TAC>>
+  PairCases_on`x`>>fs[]>>rw[]>>
+  drule fml_rel_check_sstep_list>>
+  rpt(disch_then drule)>>
+  TOP_CASE_TAC>>fs[]>>
+  rw[]>>
+  first_x_assum drule>>
+  rpt(disch_then drule)>>
+  every_case_tac>>fs[]
+QED
+
+Theorem LENGTH_FOLDR_update_resize2:
+  ∀ll x.
+  MEM x ll ⇒
+  FST x < LENGTH (FOLDR (λx acc. (λ(i,v). update_resize acc NONE (SOME v) i) x) (REPLICATE n NONE) ll)
+Proof
+  Induct>>simp[FORALL_PROD]>>rw[]>>
+  rw[Once update_resize_def]
+  >- (
+    first_x_assum drule>>
+    simp[])>>
+  first_x_assum drule>>simp[]
+QED
+
+Theorem all_distinct_map_fst_rev:
+  ALL_DISTINCT (MAP FST ls) ⇔ ALL_DISTINCT (MAP FST (REVERSE ls))
+Proof
+  fs[MAP_REVERSE]
+QED
+
+Theorem FOLDL_update_resize_lookup:
+  ∀ls.
+  ALL_DISTINCT (MAP FST ls) ⇒
+  ∀x.
+  x < LENGTH (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) (REPLICATE n NONE) ls)
+  ⇒
+  EL x (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) (REPLICATE n NONE) ls)
+  =
+  ALOOKUP ls x
+Proof
+  simp[Once (GSYM EVERY_REVERSE), Once (GSYM MAP_REVERSE)]>>
+  simp[FOLDL_FOLDR_REVERSE]>>
+  simp[GSYM alookup_distinct_reverse]>>
+  simp[Once all_distinct_map_fst_rev]>>
+  strip_tac>>
+  qabbrev_tac`ll= REVERSE ls`>>
+  pop_assum kall_tac>>
+  Induct_on`ll`>-
+    simp[EL_REPLICATE]>>
+  simp[FORALL_PROD]>>
+  rw[]>>
+  pop_assum mp_tac>>
+  simp[Once update_resize_def]>>
+  strip_tac>>
+  simp[Once update_resize_def]>>
+  IF_CASES_TAC>>fs[]
+  >-
+    (simp[EL_LUPDATE]>>
+    IF_CASES_TAC>>simp[])>>
+  simp[EL_LUPDATE]>>
+  IF_CASES_TAC >> simp[]>>
+  simp[EL_APPEND_EQN]>>rw[]>>
+  simp[EL_REPLICATE]>>
+  CCONTR_TAC>>fs[]>>
+  Cases_on`ALOOKUP ll x`>>fs[]>>
+  drule ALOOKUP_MEM>>
+  strip_tac>>
+  drule LENGTH_FOLDR_update_resize2>>
+  simp[]>>
+  metis_tac[]
+QED
+
+Theorem fml_rel_FOLDL_update_resize:
+  fml_rel (build_fml k fml)
+  (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
+Proof
+  rw[fml_rel_def]>>
+  simp[any_el_ALT]>>
+  reverse IF_CASES_TAC
+  >- (
+    fs[lookup_build_fml]>>
+    CCONTR_TAC>>fs[]>>
+    `MEM x (MAP FST (enumerate k fml))` by
+      (fs[MAP_FST_enumerate,MEM_GENLIST]>>
+      intLib.ARITH_TAC)>>
+    fs[MEM_MAP]>>
+    fs[FOLDL_FOLDR_REVERSE]>>
+    `MEM y (REVERSE (enumerate k fml))` by
+      fs[MEM_REVERSE]>>
+    drule LENGTH_FOLDR_update_resize2>>
+    simp[]>>
+    metis_tac[]) >>
+  DEP_REWRITE_TAC [FOLDL_update_resize_lookup]>>
+  simp[]>>
+  CONJ_TAC >-
+    simp[ALL_DISTINCT_MAP_FST_enumerate]>>
+  simp[lookup_build_fml,ALOOKUP_enumerate]
+QED
+
+Theorem ind_rel_FOLDL_update_resize:
+  ind_rel
+  (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
+  (REVERSE (MAP FST (enumerate k fml)))
+Proof
+  simp[ind_rel_def,FOLDL_FOLDR_REVERSE]>>
+  `∀z. MEM z (MAP FST (enumerate k fml)) ⇔ MEM z (MAP FST (REVERSE (enumerate k fml)))` by
+    simp[MEM_MAP]>>
+  simp[]>>
+  qmatch_goalsub_abbrev_tac`MAP FST ls`>>
+  rpt(pop_assum kall_tac)>>
+  Induct_on`ls`>>rw[]
+  >- (
+    simp[any_el_ALT]>>
+    metis_tac[EL_REPLICATE])>>
+  Cases_on`h`>>fs[]>>
+  fs[IS_SOME_EXISTS]>>
+  pop_assum mp_tac>>
+  simp[Once update_resize_def]>>
+  IF_CASES_TAC>>fs[]
+  >- (
+    fs[any_el_ALT,EL_LUPDATE]>>
+    IF_CASES_TAC>>simp[]) >>
+  fs[any_el_ALT,EL_LUPDATE]>>
+  IF_CASES_TAC>>simp[EL_APPEND_EQN]>>
+  IF_CASES_TAC>>simp[]>>
+  rw[]>>
+  first_x_assum match_mp_tac>>
+  gs[EL_REPLICATE]
+QED
+
+Theorem check_ssteps_list_unsat:
+  check_ssteps_list ss
+    (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i)
+             (REPLICATE (2 * (LENGTH fml + 1)) NONE) (enumerate 1 fml))
+    (REVERSE (MAP FST (enumerate 1 fml)))
+    (LENGTH fml + 1 )= SOME(a,T,b,c) ⇒
+  unsatisfiable (set fml)
+Proof
+  rw[]>>
+  qmatch_asmsub_abbrev_tac`check_ssteps_list ss fmlls inds id = _`>>
+  `fml_rel (build_fml 1 fml) fmlls` by
+    simp[Abbr`fmlls`,fml_rel_FOLDL_update_resize]>>
+  `ind_rel fmlls inds` by
+    (unabbrev_all_tac>>
+    simp[ind_rel_FOLDL_update_resize])>>
+  `∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE` by (
+    rw[Abbr`id`,Abbr`fmlls`,any_el_ALT]>>
+    DEP_REWRITE_TAC [FOLDL_update_resize_lookup]>>
+    simp[ALOOKUP_enumerate,ALL_DISTINCT_MAP_FST_enumerate])>>
+  drule fml_rel_check_ssteps_list>>
+  rpt (disch_then drule)>>
+  every_case_tac>>fs[]>>rw[]>>
+  `id_ok (build_fml 1 fml) id` by
+    fs[id_ok_def,domain_build_fml]>>
+  drule check_ssteps_correct>>
+  disch_then(qspec_then`ss` mp_tac)>>simp[]>>
+  simp[range_build_fml,npbcTheory.unsatisfiable_def]
+QED
+
 val _ = export_theory();

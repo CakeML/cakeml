@@ -649,4 +649,78 @@ QED
 (* Top-level unsat checkers and optimality checkers
   ...
 *)
+Definition check_ssteps_def:
+  (check_ssteps [] fml id = Cont fml id) ∧
+  (check_ssteps (s::ss) fml id =
+    case check_sstep s fml id of
+      Cont fml' id' => check_ssteps ss fml' id'
+    | res => res)
+End
+
+Theorem check_ssteps_correct:
+  ∀ss fml id.
+  id_ok fml id ⇒
+  case check_ssteps ss fml id of
+  | Cont fml' id' =>
+      id ≤ id' ∧
+      id_ok fml' id' ∧
+      (satisfiable (range fml) ⇒ satisfiable (range fml'))
+  | Unsat id' =>
+     id ≤ id' ∧
+      ¬ satisfiable (range fml)
+  | Fail => T
+Proof
+  Induct>>rw[check_ssteps_def]>>
+  drule check_sstep_correct>>
+  disch_then(qspec_then`h` mp_tac)>>
+  TOP_CASE_TAC>>simp[]>>
+  rw[]>>
+  first_x_assum drule>>
+  TOP_CASE_TAC>>simp[]>>
+  rw[]>>
+  fs[npbcTheory.satisfiable_def]
+QED
+
+Definition build_fml_def:
+  (build_fml (id:num) [] = LN) ∧
+  (build_fml id (cl::cls) =
+    insert id cl (build_fml (id+1) cls))
+End
+
+Theorem lookup_build_fml:
+  ∀ls n acc i.
+  lookup i (build_fml n ls) =
+  if n ≤ i ∧ i < n + LENGTH ls
+  then SOME (EL (i-n) ls)
+  else NONE
+Proof
+  Induct>>rw[build_fml_def,lookup_def,lookup_insert]>>
+  `i-n = SUC(i-(n+1))` by DECIDE_TAC>>
+  simp[]
+QED
+
+Theorem domain_build_fml:
+  ∀ls id.
+  domain (build_fml id ls) = {i | id ≤ i ∧ i < id + LENGTH ls}
+Proof
+  Induct>>rw[build_fml_def,EXTENSION]
+QED
+
+Theorem range_build_fml:
+  ∀ls id. range (build_fml id ls) = set ls
+Proof
+  Induct>>fs[build_fml_def,range_def,lookup_def]>>
+  fs[EXTENSION]>>
+  rw[lookup_insert]>>
+  rw[EQ_IMP_THM]
+  >- (
+    every_case_tac>>fs[]>>
+    metis_tac[])
+  >- metis_tac[] >>
+  first_x_assum(qspecl_then[`id+1`,`x`] mp_tac)>>
+  rw[]>>
+  fs[lookup_build_fml]>>
+  qexists_tac`n`>>simp[]
+QED
+
 val _ = export_theory ();

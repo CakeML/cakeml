@@ -1,5 +1,5 @@
 (*
-  Add shared pbp parsing, some common stuff to npbc_arrayProg
+  Add shared pbp parsing, normalization and other common stuff to npbc_arrayProg
 *)
 open preamble basis npbc_checkTheory pb_parseTheory npbc_arrayProgTheory pbc_normaliseTheory;
 
@@ -833,6 +833,19 @@ Proof
   xsimpl
 QED
 
+Theorem STDIO_INSTREAM_LINES_ARRAY_refl:
+  (STDIO A *
+  INSTREAM_LINES B C D E * ARRAY arr arrv ==>>
+  STDIO A *
+  INSTREAM_LINES B C D E * ARRAY arr arrv) ∧
+  (STDIO A *
+  INSTREAM_LINES B C D E * ARRAY arr arrv ==>>
+  STDIO A *
+  INSTREAM_LINES B C D E * ARRAY arr arrv * GC)
+Proof
+  xsimpl
+QED
+
 Theorem check_unsat''_spec:
   ∀ss fmlls inds id fmlv fmllsv indsv idv fd fdv lines lno lnov fs.
   NUM lno lnov ∧
@@ -966,87 +979,291 @@ Proof
   qexists_tac`A`>>qexists_tac`B`>>xsimpl
 QED
 
-val r = translate parse_header_line_fast_def;
+val fill_arr = process_topdecs`
+  fun fill_arr arr i ls =
+    case ls of [] => arr
+    | (v::vs) =>
+      fill_arr (Array.updateResize arr None i (Some v)) (i+1) vs` |> append_prog
 
-val check_header = process_topdecs`
-  fun check_header fd =
-    case TextIO.b_inputLineTokens fd blanks tokenize_fast of
-      None => raise Fail (format_failure 0 "Unable to parse header")
-    | Some s =>
-    if parse_header_line_fast s then () else
-      raise Fail (format_failure 0 "Unable to parse header")` |> append_prog;
+Theorem fill_arr_spec:
+  ∀ls lsv arrv arrls arrlsv i iv.
+  NUM i iv ∧
+  LIST_TYPE constraint_TYPE ls lsv ∧
+  LIST_REL (OPTION_TYPE constraint_TYPE) arrls arrlsv
+  ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v"fill_arr"(get_ml_prog_state()))
+  [arrv; iv; lsv]
+  (ARRAY arrv arrlsv)
+  (POSTv resv.
+  SEP_EXISTS arrlsv'. ARRAY resv arrlsv' *
+    & LIST_REL (OPTION_TYPE constraint_TYPE)
+    (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) arrls (enumerate i ls)) arrlsv')
+Proof
+  Induct>>rw[]>>
+  xcf "fill_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def,miscTheory.enumerate_def]>>
+  xmatch
+  >- (xvar>>xsimpl)>>
+  rpt xlet_autop >>
+  xlet_auto>>
+  xapp>>fs[]>>
+  match_mp_tac LIST_REL_update_resize>>fs[]>>
+  simp[OPTION_TYPE_def]
+QED
 
-Theorem check_header_spec:
-  !ss fd fdv lines fs.
-  MAP toks_fast lines = ss
+Definition rev_enum_def:
+  rev_enum (s:num) (e:num) acc =
+  if s < e then
+    rev_enum (s+1) e (s::acc)
+  else
+    acc
+Termination
+  WF_REL_TAC`measure (λ(s,e,acc). e-s)`
+End
+
+Theorem rev_enum_rev_enumerate:
+  ∀fml k acc.
+  rev_enum k (LENGTH fml + k) acc =
+  REVERSE (MAP FST (enumerate k fml)) ++ acc
+Proof
+  Induct>>rw[Once rev_enum_def]>>
+  simp[miscTheory.enumerate_def]>>
+  first_x_assum(qspec_then`k+1` mp_tac)>>
+  simp[ADD1]
+QED
+
+val _ = translate rev_enum_def;
+
+Definition rev_enum_full_def:
+  rev_enum_full k fml =
+  rev_enum k (LENGTH fml + k) []
+End
+
+Theorem rev_enum_full_rev_enumerate:
+  rev_enum_full k fml =
+  REVERSE (MAP FST (enumerate k fml))
+Proof
+  rw[rev_enum_full_def,rev_enum_rev_enumerate]
+QED
+
+val _ = translate rev_enum_full_def;
+
+(* This returns
+  Inr True => fml is unsat
+  Inr False => proof succeeded but did not claim contradiction
+  Inl s => error s
+
+  We only need to prove soundness in the unsat case
+*)
+val check_unsat' = process_topdecs `
+  fun check_unsat' fd lno fml =
+  let
+    val id = List.length fml + 1
+    val arr = Array.array (2*id) None
+    val arr = fill_arr arr 1 fml
+    val inds = rev_enum_full 1 fml
+  in
+    (case check_unsat'' fd 1 arr inds id of
+        (fml', (b, (id',inds'))) => Inr b)
+      handle Fail s => Inl s
+  end` |> append_prog
+
+Theorem parse_and_run_check_ssteps_list:
+  ∀lines fml inds id fml' b id' inds'.
+  parse_and_run lines fml inds id = SOME (fml',b,id',inds') ⇒
+  ∃ss.
+  check_ssteps_list ss fml inds id = SOME (fml',b,id',inds')
+Proof
+  ho_match_mp_tac parse_and_run_ind>>
+  rw[]>>
+  pop_assum mp_tac>>
+  simp[Once parse_and_run_def]>>
+  every_case_tac>>fs[]
+  >-
+    (rw[]>>qexists_tac`[]`>>EVAL_TAC)
+  >- (
+    rw[]>>qexists_tac`[q]`>>
+    simp[npbc_listTheory.check_ssteps_list_def])>>
+  rw[]>>first_x_assum drule>>
+  rw[]>>
+  qexists_tac`q::ss`>>
+  simp[npbc_listTheory.check_ssteps_list_def]
+QED
+
+Theorem check_unsat'_spec:
+  NUM lno lnov ∧
+  LIST_TYPE constraint_TYPE fml fmlv
   ⇒
   app (p : 'ffi ffi_proj)
-    ^(fetch_v "check_header" (get_ml_prog_state()))
-    [fdv]
+    ^(fetch_v "check_unsat'" (get_ml_prog_state()))
+    [fdv; lnov; fmlv]
     (STDIO fs * INSTREAM_LINES fd fdv lines fs)
-    (POSTve
-      (λv.
-         SEP_EXISTS k lines'.
+    (POSTv v.
+         SEP_EXISTS k lines' lno' fmlv' fmllsv' res.
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
-         &(case ss of [] => F
-         | (x::xs) => parse_header_line_fast x))
-      (λe.
-         SEP_EXISTS k lines'.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
-           &(Fail_exn e ∧
-            case ss of [] => T | (x::xs) => ¬parse_header_line_fast x)))
+         ARRAY fmlv' fmllsv' *
+         &(
+          SUM_TYPE STRING_TYPE BOOL res v ∧
+          (res = INR T ⇒ unsatisfiable (set fml))))
 Proof
-  xcf "check_header" (get_ml_prog_state ())>>
-  Cases_on`ss`>>fs[]
-  >- (
-    xlet ‘(POSTv v.
-        SEP_EXISTS k.
-            STDIO (forwardFD fs fd k) *
-            INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
-            &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
-    >- (
-      xapp_spec b_inputLineTokens_specialize
-      \\ qexists_tac ‘emp’
-      \\ qexists_tac ‘lines’
-      \\ qexists_tac ‘fs’
-      \\ qexists_tac ‘fd’ \\ xsimpl)>>
-    fs[OPTION_TYPE_def]>>
-    xmatch>>
-    xlet_autop>>
-    xlet_autop>>
-    xraise>>xsimpl>>
-    qexists_tac`k`>>qexists_tac`[]`>>xsimpl>>
-    simp[Fail_exn_def]>>metis_tac[])>>
-  `?l ls. lines = l::ls` by
-    (Cases_on`lines`>>fs[])>>
   rw[]>>
-  fs[]>>
-  xlet ‘(POSTv v.
-      SEP_EXISTS k.
-      STDIO (forwardFD fs fd k) *
-      INSTREAM_LINES fd fdv ls (forwardFD fs fd k) *
-      & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast l)) v)’
-  THEN1 (
-    xapp_spec b_inputLineTokens_specialize
-    \\ qexists_tac ‘emp’
-    \\ qexists_tac ‘l::ls’
-    \\ qexists_tac ‘fs’
-    \\ qexists_tac ‘fd’ \\ xsimpl \\ fs []
-    \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl
-    \\ simp[toks_fast_def]) >>
-  fs[OPTION_TYPE_def]>>
-  xmatch>>
-  xlet_autop>>
-  xif
+  xcf "check_unsat'" (get_ml_prog_state ())>>
+  rpt xlet_autop>>
+  qmatch_goalsub_abbrev_tac`ARRAY av avs`>>
+  `LIST_REL (OPTION_TYPE constraint_TYPE) (REPLICATE (2 * (LENGTH fml + 1)) NONE) avs` by
+    simp[Abbr`avs`,LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
+  xlet`
+  (POSTv resv.
+    SEP_EXISTS arrlsv'. ARRAY resv arrlsv' *
+      STDIO fs * INSTREAM_LINES fd fdv lines fs *
+      & LIST_REL (OPTION_TYPE constraint_TYPE)
+      (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i)
+      (REPLICATE (2 * (LENGTH fml + 1)) NONE)
+      (enumerate 1 fml)) arrlsv')`
   >- (
-    xcon>>xsimpl>>
-    qexists_tac`k`>>qexists_tac`ls`>>xsimpl)>>
+    xapp>>
+    xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    asm_exists_tac>>xsimpl)>>
   xlet_autop>>
+  qmatch_asmsub_abbrev_tac`LIST_REL _ fmlls fmllsv`>>
+  qmatch_asmsub_abbrev_tac`LIST_TYPE _ inds indsv`>>
+  Cases_on`
+    parse_and_run (MAP toks_fast lines) fmlls inds (LENGTH fml + 1)`
+  >- (
+    xhandle`POSTe e.
+      SEP_EXISTS k lines' fmlv' fmllsv'.
+      ARRAY fmlv' fmllsv' *
+      STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+      &(Fail_exn e)`
+    >- (
+      xlet`POSTe e.
+         SEP_EXISTS k lines' fmlv' fmllsv'.
+           ARRAY fmlv' fmllsv' *
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           &(Fail_exn e)`
+      >- (
+        xapp>>xsimpl>>
+        asm_exists_tac>>simp[]>>
+        asm_exists_tac>>simp[]>>
+        asm_exists_tac>>simp[]>>
+        qexists_tac`emp`>>qexists_tac`lines`>>xsimpl>>
+        metis_tac[STDIO_INSTREAM_LINES_refl,ARRAY_STDIO_INSTREAM_LINES_refl])>>
+      xsimpl)
+    >>
+      fs[Fail_exn_def]>>
+      xcases>>
+      xcon>> xsimpl>>
+      CONV_TAC (RESORT_EXISTS_CONV (sort_vars ["x''''"]))>>
+      qexists_tac`INL s`>>
+      simp[SUM_TYPE_def]>>
+      qexists_tac`k`>>qexists_tac`lines'`>>
+      qexists_tac`fmlv'`>>qexists_tac`fmllsv'`>>
+      xsimpl)>>
+  xhandle`POSTv v.
+    SEP_EXISTS k lines' lno' fmlv' fmllsv'.
+    STDIO (forwardFD fs fd k) *
+    INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+    ARRAY fmlv' fmllsv' *
+    &(
+    case parse_and_run (MAP toks_fast lines) fmlls inds (LENGTH fml + 1) of NONE => F
+    | SOME res =>
+    SUM_TYPE STRING_TYPE BOOL (INR (FST (SND res))) v)`
+  >- (
+    xlet`POSTv v.
+    SEP_EXISTS k lines' lno' fmlv' fmllsv'.
+    STDIO (forwardFD fs fd k) *
+    INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+    ARRAY fmlv' fmllsv' *
+    &(
+    case parse_and_run (MAP toks_fast lines) fmlls inds (LENGTH fml + 1) of NONE => F
+    | SOME res =>
+    PAIR_TYPE (λl v.
+    LIST_REL (OPTION_TYPE constraint_TYPE) l fmllsv' ∧
+    v = fmlv') (PAIR_TYPE BOOL (PAIR_TYPE NUM (LIST_TYPE NUM))) res v)`
+    >- (
+      xapp>>
+      xsimpl>>
+      asm_exists_tac>>xsimpl>>
+      asm_exists_tac>>xsimpl>>
+      asm_exists_tac>>xsimpl>>
+      qexists_tac`emp`>>qexists_tac`lines`>>
+      qexists_tac`fs`>>qexists_tac`fd`>>xsimpl>>
+      rw[]>>
+      asm_exists_tac>>simp[]>>
+      xsimpl>>
+      metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+    PairCases_on`x`>>gvs[PAIR_TYPE_def]>>
+    xmatch>>xcon>>
+    xsimpl>>
+    simp[SUM_TYPE_def]>>
+    metis_tac[STDIO_INSTREAM_LINES_ARRAY_refl])>>
+  xsimpl>>
+  rw[]>>
+  asm_exists_tac>>simp[GSYM PULL_EXISTS]>>rw[]
+  >- ( (* actual stuff *)
+    PairCases_on`x`>>gs[rev_enum_full_rev_enumerate]>>
+    drule parse_and_run_check_ssteps_list>>
+    strip_tac>>
+    match_mp_tac (GEN_ALL npbc_listTheory.check_ssteps_list_unsat)>>
+    metis_tac[])
+  >>
+    metis_tac[STDIO_INSTREAM_LINES_ARRAY_refl]
+QED
+
+val r = translate flip_coeffs_def;
+val r = translate pbc_ge_def;
+val r = translate normalise_def;
+
+val r = translate convert_pbf_def;
+val r = translate full_normalise_def;
+
+(* Same as check_unsat, but normalizes the formula from pbc to npbc *)
+val check_unsat = process_topdecs `
+  fun check_unsat fd lno fml =
+  check_unsat' fd lno (full_normalise fml)` |> append_prog
+
+Theorem full_normalise_unsatisfiable:
+  pbf_vars (set pbf) ⊆ goodString ⇒
+  (unsatisfiable (set (full_normalise pbf)) ⇔
+  unsatisfiable (set pbf))
+Proof
+  rw[pbcTheory.unsatisfiable_def,npbcTheory.unsatisfiable_def]>>
+  metis_tac[full_normalise_satisfiable]
+QED
+
+Theorem check_unsat_spec:
+  NUM lno lnov ∧
+  LIST_TYPE
+    (PAIR_TYPE PBC_PBOP_TYPE
+       (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
+          INT)) fml fmlv ∧
+  pbf_vars (set fml) ⊆ goodString
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "check_unsat" (get_ml_prog_state()))
+    [fdv; lnov; fmlv]
+    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (POSTv v.
+         SEP_EXISTS k lines' lno' fmlv' fmllsv' res.
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         ARRAY fmlv' fmllsv' *
+         &(
+          SUM_TYPE STRING_TYPE BOOL res v ∧
+          (res = INR T ⇒ unsatisfiable (set fml))))
+Proof
+  rw[]>>
+  xcf "check_unsat" (get_ml_prog_state ())>>
   xlet_autop>>
-  xraise>>xsimpl>>
-  qexists_tac`k`>>qexists_tac`ls`>>xsimpl>>
-  simp[Fail_exn_def]>>metis_tac[]
+  xapp>>xsimpl>>
+  asm_exists_tac>>xsimpl>>
+  fs[GSYM constraint_TYPE_def]>>
+  asm_exists_tac>>xsimpl>>
+  simp[full_normalise_unsatisfiable]>>
+  qexists_tac`emp`>>xsimpl>>
+  metis_tac[STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_ARRAY_refl]
 QED
 
 val _ = export_theory();
