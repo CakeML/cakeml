@@ -14,6 +14,7 @@ sollya:
 	tar -xf sollya-8.0.tar.gz &&\
 	cd sollya-8.0 &&\
 	cp ../../../icing/examples/output/Holmakefile ./ &&\
+	echo "Dependency to generate unverified guesses" > README.md &&\
 	echo "Dependency to generate unverified guesses" > readmePrefix &&\
 	./configure &&\
 	make &&\
