@@ -97,12 +97,6 @@ End
 
 val r = translate noparse_string_def;
 
-Definition notfound_string_def:
-  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]
-End
-
-val r = translate notfound_string_def;
-
 val parse_pbf_full = (append_prog o process_topdecs) `
   fun parse_pbf_full f =
   (case TextIO.b_inputAllTokensFrom f blanks tokenize of
@@ -174,265 +168,18 @@ Proof
   simp[SUM_TYPE_def]>>metis_tac[]
 QED
 
-val r = translate parse_header_line_fast_def;
-
-Definition check_f_line_def:
-  (check_f_line [] = F) ∧
-  (check_f_line ((s: mlstring + int)::ss) ⇔ s = INL (strlit "f"))
-End
-
-val r = translate check_f_line_def;
-
-Definition check_header_full_def:
-  check_header_full s s' =
-  case s of NONE => SOME 0
-  | SOME s =>
-  case s' of NONE => SOME 1
-  | SOME s' =>
-  if parse_header_line_fast s then
-    if check_f_line s' then NONE
-    else SOME (1:num)
-  else SOME 0
-End
-
-val r = translate check_header_full_def;
-
-val check_header = process_topdecs`
-  fun check_header fd =
-  let
-    val s1 = TextIO.b_inputLineTokens fd blanks tokenize_fast
-    val s2 = TextIO.b_inputLineTokens fd blanks tokenize_fast
-  in
-  check_header_full s1 s2
-  end` |> append_prog;
-
-val b_inputLineTokens_specialize =
-  b_inputLineTokens_spec_lines
-  |> Q.GEN `f` |> Q.SPEC`blanks`
-  |> Q.GEN `fv` |> Q.SPEC`blanks_v`
-  |> Q.GEN `g` |> Q.ISPEC`tokenize_fast`
-  |> Q.GEN `gv` |> Q.ISPEC`tokenize_fast_v`
-  |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
-  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_fast_v_thm,blanks_def] ;
-
-Theorem check_header_spec:
-  !ss fd fdv lines fs.
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "check_header" (get_ml_prog_state()))
-    [fdv]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
-    (POSTv v.
-       SEP_EXISTS k lines' res.
-       STDIO (forwardFD fs fd k) *
-       INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
-       &(OPTION_TYPE NUM res v))
-Proof
-  xcf "check_header" (get_ml_prog_state ())>>
-  rpt xlet_autop>>
-  xlet ‘(POSTv v.
-      SEP_EXISTS k.
-          STDIO (forwardFD fs fd k) *
-          INSTREAM_LINES fd fdv (TL lines) (forwardFD fs fd k) *
-          &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
-            (OPTION_MAP (MAP tokenize_fast ∘ tokens blanks) (oHD lines)) v)’
-  >- (
-    xapp_spec b_inputLineTokens_specialize
-    \\ qexists_tac ‘emp’
-    \\ xsimpl)>>
-  xlet ‘(POSTv v.
-      SEP_EXISTS k.
-          STDIO (forwardFD fs fd k) *
-          INSTREAM_LINES fd fdv (TL (TL lines)) (forwardFD fs fd k) *
-          &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
-            (OPTION_MAP (MAP tokenize_fast ∘ tokens blanks) (oHD (TL lines))) v)’
-  >- (
-    xapp_spec b_inputLineTokens_specialize
-    \\ qexists_tac ‘emp’
-    \\ xsimpl
-    \\ metis_tac[forwardFD_o,STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_refl_gc]
-    )>>
-  xapp>>
-  xsimpl>>
-  metis_tac[forwardFD_o,STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_refl_gc]
-QED
-
 Definition success_string_def:
-  success_string = strlit "Verified\n"
+  success_string = strlit "Verified UNSAT\n"
 End
 
-val r = translate success_string_def;
-
-Definition result_string_def:
-  result_string ob =
-   case ob of
-    INR b =>
-      if b then INR success_string
-      else INL (strlit "Proof checking succeeded but did not derive contradiction\n")
-  | INL v => INL v
-End
-
-val r = translate result_string_def;
-
-val check_unsat_top = process_topdecs `
-  fun check_unsat_top fml fname =
-  let
-    val fd = TextIO.b_openIn fname
-  in
-    case check_header fd of
-      Some n =>
-      (TextIO.b_closeIn fd;
-      Inl (format_failure n "Unable to parse header"))
-    | None =>
-      let val res =
-        result_string (check_unsat fd 2 fml)
-        val close = TextIO.b_closeIn fd;
-      in
-        res
-      end
-  end
-  handle TextIO.BadFileName => Inl (notfound_string fname)` |> append_prog;
-
-Theorem STDIO_INSTREAM_LINES_refl_more_gc:
-  STDIO A *
-  INSTREAM_LINES B C D E * rest ==>>
-  STDIO A *
-  INSTREAM_LINES B C D E * GC
-Proof
-  xsimpl
-QED
-
-Theorem check_unsat_top_spec:
-  LIST_TYPE
-    (PAIR_TYPE PBC_PBOP_TYPE
-       (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
-          INT)) fml fmlv ∧
-  FILENAME f fv ∧
-  hasFreeFD fs ∧
-  pbf_vars (set fml) ⊆ goodString
-  ⇒
-  app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_top"(get_ml_prog_state()))
-  [fmlv; fv]
-  (STDIO fs)
-  (POSTv v.
-     STDIO fs *
-     SEP_EXISTS res.
-     &(
-      SUM_TYPE STRING_TYPE STRING_TYPE res v ∧
-      (∀s. res = INR s ⇒
-        (s = success_string ∧
-        unsatisfiable (set fml)))))
-Proof
-  xcf"check_unsat_top"(get_ml_prog_state()) >>
-  reverse (Cases_on `STD_streams fs`)
-  >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
-  reverse (Cases_on`consistentFS fs`)
-  >- (fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def] \\ xpull \\ metis_tac[]) >>
-  reverse (Cases_on `inFS_fname fs f`) >> simp[]
-  >- (
-    xhandle`POSTe ev.
-      &BadFileName_exn ev *
-      &(~inFS_fname fs f) *
-      STDIO fs`
-    >-
-      (xlet_auto_spec (SOME b_openIn_STDIO_spec) \\ xsimpl)
-    >>
-      fs[BadFileName_exn_def]>>
-      xcases>>rw[]>>
-      xlet_auto>>xsimpl>>
-      xcon>>xsimpl>>
-      qexists_tac`INL (notfound_string f)`>>
-      simp[SUM_TYPE_def])>>
-  qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
-  xhandle`$POSTv Qval` \\ xsimpl >>
-  qunabbrev_tac`Qval`>>
-  xlet_auto_spec (SOME b_openIn_spec_lines) \\ xsimpl >>
-  qmatch_goalsub_abbrev_tac`INSTREAM_LINES fd fdv lines fss`>>
-  xlet`POSTv v.
-    SEP_EXISTS k lines' res.
-    STDIO (forwardFD fss fd k) *
-    INSTREAM_LINES fd fdv lines' (forwardFD fss fd k) *
-    &OPTION_TYPE NUM res v`
-  >- (
-    xapp>>
-    qexists_tac`emp`>>
-    xsimpl>>
-    metis_tac[STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_refl_gc,STAR_COMM])>>
-  qmatch_goalsub_abbrev_tac`INSTREAM_LINES fd fdv _ fsss`>>
-  reverse (Cases_on`res`)>>fs[OPTION_TYPE_def]>>xmatch
-  >- (
-    xlet `POSTv v. STDIO fs`
-    >- (
-      xapp_spec b_closeIn_spec_lines >>
-      xsimpl>>
-      qexists_tac `emp`>>
-      qexists_tac `lines'` >>
-      qexists_tac `fsss`>>
-      qexists_tac `fd` >>
-      conj_tac THEN1
-        (unabbrev_all_tac
-        \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs []
-        \\ imp_res_tac fsFFIPropsTheory.STD_streams_nextFD \\ fs []) >>
-      xsimpl>>
-      `validFileFD fd fsss.infds` by
-        (unabbrev_all_tac>> simp[validFileFD_forwardFD]
-         \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs []
-         \\ match_mp_tac validFileFD_nextFD \\ fs []) >>
-      xsimpl >> rw [] >>
-      unabbrev_all_tac>>xsimpl>>
-      simp[forwardFD_ADELKEY_same]>>
-      DEP_REWRITE_TAC [fsFFIPropsTheory.openFileFS_ADELKEY_nextFD]>>
-      xsimpl>>
-      imp_res_tac (DECIDE ``n<m:num ==> n <= m``) >>
-      imp_res_tac fsFFIPropsTheory.nextFD_leX \\ fs [])>>
-    xlet_autop>>
-    xcon>>
-    xsimpl>>
-    metis_tac[SUM_TYPE_def,sum_distinct])>>
-  xlet`POSTv v. SEP_EXISTS k lines' lno' fmlv' fmllsv' res.
-          STDIO (forwardFD fsss fd k) *
-          INSTREAM_LINES fd fdv lines' (forwardFD fsss fd k) *
-          &(SUM_TYPE STRING_TYPE BOOL res v ∧
-           (res = INR T ⇒ unsatisfiable (set fml)))`
-  >- (
-    xapp>>xsimpl>>
-    qexists_tac`emp`>>xsimpl>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_more_gc,STDIO_INSTREAM_LINES_refl])>>
-  xlet_autop>>
-  xlet `POSTv v. STDIO fs`
-  >- (
-    xapp_spec b_closeIn_spec_lines >>
-    xsimpl>>
-    qexists_tac `emp`>>
-    qexists_tac `lines'` >>
-    qexists_tac `forwardFD fsss fd k'`>>
-    qexists_tac `fd` >>
-    conj_tac THEN1
-      (unabbrev_all_tac
-      \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs []
-      \\ imp_res_tac fsFFIPropsTheory.STD_streams_nextFD \\ fs []) >>
-    xsimpl>>
-    `validFileFD fd (forwardFD fsss fd k').infds` by
-      (unabbrev_all_tac>> simp[validFileFD_forwardFD]
-       \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs []
-       \\ match_mp_tac validFileFD_nextFD \\ fs []) >>
-    xsimpl >> rw [] >>
-    unabbrev_all_tac>>xsimpl>>
-    simp[forwardFD_ADELKEY_same]>>
-    DEP_REWRITE_TAC [fsFFIPropsTheory.openFileFS_ADELKEY_nextFD]>>
-    xsimpl>>
-    imp_res_tac (DECIDE ``n<m:num ==> n <= m``) >>
-    imp_res_tac fsFFIPropsTheory.nextFD_leX \\ fs [])>>
-  xvar>>xsimpl>>
-  asm_exists_tac>>fs[]>>
-  Cases_on`res`>>gs[result_string_def]
-QED
+val success_string_v_thm = translate success_string_def;
 
 val check_unsat_2 = (append_prog o process_topdecs) `
   fun check_unsat_2 f1 f2 =
   case parse_pbf_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr fml =>
-    (case check_unsat_top fml f2 of
+    (case check_unsat_top success_string fml f2 of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s)`
 
@@ -508,7 +255,7 @@ Proof
         unsatisfiable (set x))))`
   >- (
     xapp>>xsimpl>>
-    fs[FILENAME_def,validArg_def]>>
+    fs[FILENAME_def,validArg_def,success_string_v_thm ]>>
     metis_tac[])>>
   Cases_on`res`>>fs[SUM_TYPE_def]>>xmatch
   >- (

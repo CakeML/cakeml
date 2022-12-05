@@ -1,7 +1,7 @@
 (*
   Basic graph notions
 *)
-open preamble mlintTheory;
+open preamble mlintTheory pb_parseTheory;
 
 val _ = new_theory "graph_basic";
 
@@ -62,19 +62,15 @@ Proof
 QED
 
 (* Parser for LAD *)
-Definition blanks_def:
-  blanks (c:char) ⇔ c = #" " ∨ c = #"\n" ∨ c = #"\t" ∨ c = #"\r"
-End
-
-Definition tokenize_def:
-  tokenize (s:mlstring) =
+Definition tokenize_num_def:
+  tokenize_num (s:mlstring) =
   case mlint$fromNatString s of
     NONE => INL s
   | SOME i => INR i
 End
 
-Definition toks_def:
-  toks s = MAP tokenize (tokens blanks s)
+Definition toks_num_def:
+  toks_num s = MAP tokenize_num (tokens blanks s)
 End
 
 Definition parse_num_list_def:
@@ -135,6 +131,10 @@ Definition parse_lad_toks_def:
   | _ => NONE
 End
 
+Definition parse_lad_def:
+  parse_lad lines = parse_lad_toks (MAP toks_num lines)
+End
+
 val ladraw = ``[
   strlit"5";
   strlit"3 1 3 4";
@@ -144,7 +144,7 @@ val ladraw = ``[
   strlit"2 0 1";
 ]``;
 
-val pattern = rconc (EVAL``check_good_graph (THE (parse_lad_toks (MAP toks ^(ladraw))))``)
+val pattern = rconc (EVAL``check_good_graph (THE (parse_lad ^ladraw))``)
 
 (* Odd cases with self-edges *)
 
@@ -154,6 +154,6 @@ val ladraw = ``[
   strlit"2 1 0";
 ]``;
 
-val pattern = rconc (EVAL``check_good_graph (THE (parse_lad_toks (MAP toks ^(ladraw))))``)
+val pattern = rconc (EVAL``check_good_graph (THE (parse_lad ^ladraw))``)
 
 val _ = export_theory();
