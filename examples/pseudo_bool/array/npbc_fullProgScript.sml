@@ -199,9 +199,12 @@ val r = translate check_header_full_def;
 
 val check_header = process_topdecs`
   fun check_header fd =
-      check_header_full
-        (TextIO.b_inputLineTokens fd blanks tokenize_fast)
-        (TextIO.b_inputLineTokens fd blanks tokenize_fast)` |> append_prog;
+  let
+    val s1 = TextIO.b_inputLineTokens fd blanks tokenize_fast
+    val s2 = TextIO.b_inputLineTokens fd blanks tokenize_fast
+  in
+  check_header_full s1 s2
+  end` |> append_prog;
 
 val b_inputLineTokens_specialize =
   b_inputLineTokens_spec_lines

@@ -31,7 +31,7 @@ Definition pbc_string_def:
     concat [
       lhs_string xs;
       op_string pbop;
-      int_to_string #"-" i; strlit ";"])
+      int_to_string #"-" i; strlit ";\n"])
 End
 
 (*
