@@ -2251,18 +2251,21 @@ val result = translate fromChars_range_unsafe_alt;
 val res = translate_no_ind (mlintTheory.fromChars_unsafe_def
   |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+Triviality fromChars_unsafe_ind:
+  fromchars_unsafe_ind
+Proof
+  rewrite_tac [fetch "-" "fromchars_unsafe_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (latest_ind ())
   \\ rpt strip_tac
   \\ last_x_assum match_mp_tac
   \\ rpt strip_tac
-  \\ fs [FORALL_PROD]>>
-  fs[padLen_DEC_eq,ADD1]
-  )
-  |> update_precondition;
+  \\ fs [FORALL_PROD]
+  \\ fs [padLen_DEC_eq,ADD1]
+QED
+
+val _ = fromChars_unsafe_ind |> update_precondition;
 
 val result = translate lpr_parsingTheory.fromString_unsafe_def;
 
@@ -2895,71 +2898,68 @@ val print_dimacs_side = Q.prove(
   |> update_precondition;
 
 val fill_earliest = process_topdecs`
-  fun fill_earliest earr ls =
+  fun fill_earliest earr n ls =
     case ls of [] => earr
-    | (x::xs) =>
-    case x of (n,c) =>
-      fill_earliest (update_earliest_arr earr n c) xs` |> append_prog
+    | (c::cs) =>
+      fill_earliest (update_earliest_arr earr n c) (n+1) cs` |> append_prog
 
 Theorem fill_earliest_spec:
-  ∀ls lsv earliest earliestv Earrv.
-  LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE INT)) ls lsv ∧
+  ∀ls lsv earliest earliestv Earrv c cv.
+  NUM c cv ∧
+  LIST_TYPE (LIST_TYPE INT) ls lsv ∧
   LIST_REL (OPTION_TYPE NUM) earliest earliestv
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v"fill_earliest"(get_ml_prog_state()))
-  [Earrv; lsv]
+  [Earrv; cv; lsv]
   (ARRAY Earrv earliestv)
   (POSTv resv.
   SEP_EXISTS earliestv'. ARRAY resv earliestv' *
-    &(LIST_REL (OPTION_TYPE NUM) (FOLDL (λacc (i,v). update_earliest acc i v) earliest ls) earliestv'))
+    &(LIST_REL (OPTION_TYPE NUM) (FOLDL (λacc (i,v). update_earliest acc i v) earliest (enumerate c ls)) earliestv'))
 Proof
   Induct>>rw[]>>
   xcf "fill_earliest" (get_ml_prog_state ())>>
-  fs[LIST_TYPE_def]>>
+  fs[LIST_TYPE_def,miscTheory.enumerate_def]>>
   xmatch
   >- (xvar>>xsimpl)>>
-  Cases_on`h`>>fs[PAIR_TYPE_def]>>
-  xmatch>>
+  xlet_autop >>
   xlet_autop >>
   xapp>>
-  simp[]
+  xsimpl
 QED
 
 val fill_arr = process_topdecs`
-  fun fill_arr arr ls =
+  fun fill_arr arr i ls =
     case ls of [] => arr
-    | (x::xs) =>
-    case x of (i,v) =>
-      fill_arr (resize_update_arr (Some v) i arr) xs` |> append_prog
+    | (v::vs) =>
+      fill_arr (resize_update_arr (Some v) i arr) (i+1) vs` |> append_prog
 
 Theorem fill_arr_spec:
-  ∀ls lsv arrv arrls arrlsv.
-  LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE INT)) ls lsv ∧
+  ∀ls lsv arrv arrls arrlsv i iv.
+  NUM i iv ∧
+  LIST_TYPE (LIST_TYPE INT) ls lsv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) arrls arrlsv
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v"fill_arr"(get_ml_prog_state()))
-  [arrv; lsv]
+  [arrv; iv; lsv]
   (ARRAY arrv arrlsv)
   (POSTv resv.
   SEP_EXISTS arrlsv'. ARRAY resv arrlsv' *
-    & LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (FOLDL (λacc (i,v).  resize_update_list acc NONE (SOME v) i) arrls ls) arrlsv')
+    & LIST_REL (OPTION_TYPE (LIST_TYPE INT))
+    (FOLDL (λacc (i,v).  resize_update_list acc NONE (SOME v) i) arrls (enumerate i ls)) arrlsv')
 Proof
   Induct>>rw[]>>
   xcf "fill_arr" (get_ml_prog_state ())>>
-  fs[LIST_TYPE_def]>>
+  fs[LIST_TYPE_def,miscTheory.enumerate_def]>>
   xmatch
   >- (xvar>>xsimpl)>>
-  Cases_on`h`>>fs[PAIR_TYPE_def]>>
-  xmatch>>
-  xlet_autop >>
+  rpt xlet_autop >>
   xlet`(POSTv resv.
       SEP_EXISTS fmllsv'.
       ARRAY resv fmllsv' *
-      &(LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (resize_update_list arrls NONE (SOME r) q) fmllsv') )`
+      &(LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (resize_update_list arrls NONE (SOME h) i) fmllsv') )`
   >- (
     xapp >> xsimpl>>
-    simp[OPTION_TYPE_def] )
-  >>
+    simp[OPTION_TYPE_def] ) >>
   xapp>>
   xsimpl
 QED
@@ -3191,5 +3191,41 @@ Proof
   metis_tac[fml_rel_contains_clauses_list]
 QED
 
+Definition rev_enum_def:
+  rev_enum (s:num) (e:num) acc =
+  if s < e then
+    rev_enum (s+1) e (s::acc)
+  else
+    acc
+Termination
+  WF_REL_TAC`measure (λ(s,e,acc). e-s)`
+End
+
+Theorem rev_enum_rev_enumerate:
+  ∀fml k acc.
+  rev_enum k (LENGTH fml + k) acc =
+  REVERSE (MAP FST (enumerate k fml)) ++ acc
+Proof
+  Induct>>rw[Once rev_enum_def]>>
+  simp[miscTheory.enumerate_def]>>
+  first_x_assum(qspec_then`k+1` mp_tac)>>
+  simp[ADD1]
+QED
+
+val _ = translate rev_enum_def;
+
+Definition rev_enum_full_def:
+  rev_enum_full k fml =
+  rev_enum k (LENGTH fml + k) []
+End
+
+Theorem rev_enum_full_rev_enumerate:
+  rev_enum_full k fml =
+  REVERSE (MAP FST (enumerate k fml))
+Proof
+  rw[rev_enum_full_def,rev_enum_rev_enumerate]
+QED
+
+val _ = translate rev_enum_full_def;
 
 val _ = export_theory();

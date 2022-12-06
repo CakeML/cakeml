@@ -708,20 +708,23 @@ QED
 Theorem oracle_monotonic_globals_flat_to_clos:
   flatProps$no_Mat_decs p /\
   (!n. flatProps$no_Mat_decs (SND (orac n))) /\
-  oracle_monotonic (SET_OF_BAG ∘ flatProps$elist_globals
+  oracle_monotonic (IMAGE SUC ∘ SET_OF_BAG ∘ flatProps$elist_globals
         ∘ MAP flatProps$dest_Dlet ∘ FILTER flatProps$is_Dlet ∘ SND) $<
-    (SET_OF_BAG (flatProps$elist_globals
-      (MAP flatProps$dest_Dlet (FILTER flatProps$is_Dlet p))))
+    (0 INSERT IMAGE SUC (SET_OF_BAG (flatProps$elist_globals
+      (MAP flatProps$dest_Dlet (FILTER flatProps$is_Dlet p)))))
     orac ==>
   oracle_monotonic (SET_OF_BAG ∘ closProps$elist_globals ∘ FST ∘ SND) $<
-    (SET_OF_BAG (closProps$elist_globals (compile_decs p)))
+    (SET_OF_BAG (closProps$elist_globals (compile_prog p)))
     (pure_co flat_to_clos_inc_compile ∘ orac)
 Proof
   rw []
   \\ pop_assum mp_tac
   \\ match_mp_tac backendPropsTheory.oracle_monotonic_subset
-  \\ simp [flat_to_closTheory.inc_compile_decs_def, closPropsTheory.elist_globals_append]
+  \\ simp [flat_to_closTheory.inc_compile_decs_def, closPropsTheory.elist_globals_append,
+           clos_interpProofTheory.elist_globals_insert_interp]
+  \\ simp [PULL_FORALL, compile_prog_set_globals]
   \\ simp [PULL_FORALL, compile_decs_set_globals]
+  \\ fs [SUBSET_DEF] \\ rw [] \\ fs []
 QED
 
 Theorem cake_orac_eq_I:
@@ -1014,6 +1017,32 @@ Proof
   \\ metis_tac []
 QED
 
+Triviality BAG_ALL_DISTINCT_BAG_IMAGE_SUC[simp]:
+  BAG_ALL_DISTINCT s ⇒  BAG_ALL_DISTINCT (BAG_IMAGE SUC s)
+Proof
+  fs [BAG_ALL_DISTINCT] \\ rw []
+  \\ rw [BAG_IMAGE_DEF,BAG_FILTER_DEF]
+  \\ fs [BAG_IMAGE_DEF,BAG_FILTER_DEF]
+  \\ rewrite_tac [DECIDE “n ≤ 1 ⇔ n = 0 ∨ n = SUC 0”]
+  \\ asm_simp_tac bool_ss [BCARD_0]
+  \\ asm_simp_tac bool_ss [BCARD_SUC]
+  \\ fs [FUN_EQ_THM]
+  \\ Cases_on ‘e’ \\ fs [EMPTY_BAG]
+  \\ ‘s n ≤ 1’ by fs []
+  \\ Cases_on ‘s n = 0’ \\ fs []
+  \\ disj2_tac
+  \\ qexists_tac ‘{||}’ \\ fs []
+  \\ qexists_tac ‘n’
+  \\ rw [BAG_INSERT,EMPTY_BAG]
+QED
+
+Triviality BAG_ALL_DISTINCT_BAG_IMAGE_SUC'[simp]:
+  BAG_ALL_DISTINCT s ⇒  BAG_ALL_DISTINCT ({|0|} ⊎ BAG_IMAGE SUC s)
+Proof
+  fs [bagTheory.BAG_ALL_DISTINCT_BAG_UNION,BAG_ALL_DISTINCT_BAG_IMAGE_SUC]
+  \\ fs [BAG_DISJOINT]
+QED
+
 Theorem cake_orac_clos_syntax_oracle_ok:
   compile (c : 's config) prog = SOME (b, bm, c') /\
   compile c2 clos_prog = (clos_c', clos_prog') /\
@@ -1031,14 +1060,14 @@ Proof
   \\ simp [syntax_oracle_ok_def, to_clos_def]
   \\ simp [backendPropsTheory.FST_state_co, cake_orac_0,
       config_tuple1_def, FST_inc_compile_syntactic_props,
-      compile_decs_syntactic_props]
+      compile_prog_syntactic_props]
   \\ simp [clos_knownProofTheory.syntax_ok_def]
   \\ simp [GSYM simple_orac_eqs]
   \\ csimp [FST_inc_compile_syntactic_props]
   \\ simp [PULL_FORALL] \\ rpt gen_tac
-  \\ conseq [FST_inc_compile_esgc_free, compile_decs_esgc_free,
+  \\ conseq [FST_inc_compile_esgc_free, compile_prog_esgc_free,
     oracle_monotonic_globals_flat_to_clos]
-  \\ DEP_REWRITE_TAC [FST_inc_compile_set_globals, compile_decs_set_globals]
+  \\ DEP_REWRITE_TAC [FST_inc_compile_set_globals, compile_prog_set_globals]
   \\ csimp []
   \\ fs [PAIR_FST_SND_EQ |> Q.ISPEC `source_to_flat$compile c p`, SND_state_co]
   \\ rveq
@@ -1047,7 +1076,7 @@ Proof
         inc_compile_globals_BAG_ALL_DISTINCT,
         compile_globals_BAG_ALL_DISTINCT,
         source_to_flatProofTheory.compile_esgc_free,
-        SND_flat_to_clos_inc_compile, compile_decs_syntactic_props]
+        SND_flat_to_clos_inc_compile, compile_prog_syntactic_props]
   \\ simp [Q.prove (`prim_src_config.mod_env.v = nsEmpty`, EVAL_TAC)]
   \\ qpat_assum `compile c _ = SOME _`
     (assume_tac o REWRITE_RULE [compile_eq_from_source])
@@ -3056,7 +3085,7 @@ Theorem flat_semantics:
   flatSem$semantics f_inst ffi ds <> Fail /\
   0 < cconf.max_app /\ flatProps$no_Mat_decs ds ==>
   closSem$semantics ffi cconf.max_app FEMPTY
-    (pure_co flat_to_clos$inc_compile_decs o co) cc (compile_decs ds) =
+    (pure_co flat_to_clos$inc_compile_decs o co) cc (compile_prog ds) =
   flatSem$semantics f_inst ffi ds
 Proof
   rw []
@@ -3333,7 +3362,7 @@ Proof
     match_mp_tac ALOOKUP_ALL_DISTINCT_MEM \\
     simp[MAP_MAP_o,o_DEF,LAMBDA_PROD,data_to_wordTheory.compile_part_def,FST_triple,MEM_MAP,EXISTS_PROD] \\
     metis_tac[ALOOKUP_MEM] ) \\
-  `data_to_wordProof$code_rel_ext (fromAList t_code) (fromAList p5)` by metis_tac[code_rel_ext_word_to_word] \\
+  `word_to_wordProof$code_rel_ext (fromAList t_code) (fromAList p5)` by metis_tac[word_to_wordProofTheory.code_rel_ext_word_to_word] \\
   qpat_x_assum`Abbrev(tar_st = _)`kall_tac \\
   (* syntactic properties from stack_to_lab *)
   `all_enc_ok_pre c4.lab_conf.asm_conf p7` by (

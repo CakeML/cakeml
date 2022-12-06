@@ -361,7 +361,7 @@ val init_code_def = Define `
 
 val init_globals_def = Define `
   init_globals max_app start_loc =
-    Let [Op AllocGlobal []]
+    Let [Op AllocGlobal [Op (Const 1) []]]
     (Let
       [Op (SetGlobal partial_app_label_table_loc)
         [Op (Cons tuple_tag)

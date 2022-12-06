@@ -42,15 +42,19 @@ val num_to_hex_digit_side = prove(
 val res = translate jsonLangTheory.encode_str_def;
 val res = translate jsonLangTheory.concat_with_def;
 
-val res = translate jsonLangTheory.json_to_mlstring_def;
+val res = translate_no_ind jsonLangTheory.json_to_mlstring_def;
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+Triviality json_to_mlstring_ind:
+  json_to_mlstring_ind
+Proof
+  rewrite_tac [fetch "-" "json_to_mlstring_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac jsonLangTheory.json_to_mlstring_ind
-  \\ metis_tac [])
-  |> update_precondition;
+  \\ metis_tac []
+QED
+
+val _ = json_to_mlstring_ind |> update_precondition;
 
 val res = translate presLangTheory.num_to_hex_def;
 

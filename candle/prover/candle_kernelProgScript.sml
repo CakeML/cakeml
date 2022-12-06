@@ -114,16 +114,20 @@ val r = m_translate check_var_def;
 val _ = use_mem_intro := true;
 val res = translate_no_ind check_cexp_closed_def;
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+Triviality check_cexp_closed_ind:
+  check_cexp_closed_ind
+Proof
+  rewrite_tac [fetch "-" "check_cexp_closed_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (latest_ind ())
   \\ rpt strip_tac
   \\ last_x_assum match_mp_tac
   \\ rpt strip_tac
-  \\ fs [FORALL_PROD, GSYM ml_translatorTheory.MEMBER_INTRO])
-  |> update_precondition;
+  \\ fs [FORALL_PROD, GSYM ml_translatorTheory.MEMBER_INTRO]
+QED
+
+val _ = check_cexp_closed_ind |> update_precondition;
 val _ = use_mem_intro := false;
 
 val r = translate var_list_def;
