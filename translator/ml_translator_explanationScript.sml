@@ -21,7 +21,8 @@ End
 
 val id_v_thm = translate id_def;
 
-(* The line above id_v value and proves that id is related to id_v:
+(* The line above stranslates the id_def to CakeML code. It produces a
+   new constant called id_v and proves that id is related to id_v:
 
     ⊢ (a --> a) id id_v
 
@@ -46,7 +47,7 @@ val Decls_thm =
   |> REWRITE_RULE [ml_progTheory.ML_code_def,
                    fetch "-" (current_theory() ^ "_env_def")];
 
-(* When evaluated, the above lines produce a theorem:
+(* When evaluated, the above lines return a theorem:
 
    ⊢ Decls (ML_code_env init_env []) (init_state ffi)
        [Dlet unknown_loc (Pvar "id") (Fun "v1" (Var (Short "v1")))]
