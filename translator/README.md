@@ -42,6 +42,9 @@ ml_translatorTheory.
 [ml_translator_demoScript.sml](ml_translator_demoScript.sml):
 A small example of using the HOL to CakeML translator.
 
+[ml_translator_explanationScript.sml](ml_translator_explanationScript.sml):
+An explanation of what the translator produces.
+
 [ml_translator_testScript.sml](ml_translator_testScript.sml):
 A collection of functions that have in the past turned out to be tricky to
 translate.
