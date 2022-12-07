@@ -21,22 +21,22 @@ End
 
 val id_v_thm = translate id_def;
 
-(* The line above stranslates the id_def to CakeML code. It produces a
+(* The line above translates the id_def to CakeML code. It produces a
    new constant called id_v and proves that id is related to id_v:
 
     ⊢ (a --> a) id id_v
 
-   This should be understand as saying that id_v behaves as function
-   id for any input type a if the output type is the same a.
+   This theorem should be understand as saying that id_v behaves as
+   function id for any input type a if the output type is the same a.
 
    The call to translate also adds id_v to the CakeML program that
-   the translator is building. *)
+   the translator is building in the background. *)
 
 (* ------------------------------------------------------------------- *
    Inspecting the accumulated CakeML program
  * ------------------------------------------------------------------- *)
 
-(* The following lines asks the translator for the CakeML program that
+(* The following lines ask the translator for the CakeML program that
    it's building. *)
 
 val Decls_thm =
