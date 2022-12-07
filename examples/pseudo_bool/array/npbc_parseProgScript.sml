@@ -1063,7 +1063,7 @@ val check_unsat' = process_topdecs `
     val arr = fill_arr arr 1 fml
     val inds = rev_enum_full 1 fml
   in
-    (case check_unsat'' fd 1 arr inds id of
+    (case check_unsat'' fd lno arr inds id of
         (fml', (b, (id',inds'))) => Inr b)
       handle Fail s => Inl s
   end` |> append_prog
@@ -1148,6 +1148,7 @@ Proof
         asm_exists_tac>>simp[]>>
         asm_exists_tac>>simp[]>>
         asm_exists_tac>>simp[]>>
+        asm_exists_tac>>simp[]>>
         qexists_tac`emp`>>qexists_tac`lines`>>xsimpl>>
         metis_tac[STDIO_INSTREAM_LINES_refl,ARRAY_STDIO_INSTREAM_LINES_refl])>>
       xsimpl)
@@ -1185,6 +1186,7 @@ Proof
     >- (
       xapp>>
       xsimpl>>
+      asm_exists_tac>>xsimpl>>
       asm_exists_tac>>xsimpl>>
       asm_exists_tac>>xsimpl>>
       asm_exists_tac>>xsimpl>>
