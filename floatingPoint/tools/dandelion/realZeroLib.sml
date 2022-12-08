@@ -138,7 +138,7 @@ struct
     val sollyaInput = poly2Sollya polyAsString ("[" ^ cst2String lb ^"; " ^ cst2String ub ^"]")
     val fileStr = TextIO.openOut ("/tmp/sollya_input_"^Theory.current_theory()^".sollya")
     val _ = (TextIO.output (fileStr, sollyaInput); TextIO.closeOut fileStr)
-    val sollyaPath = OS.FileSys.getDir() ^ "/sollya/sollya-8.0/sollya"
+    val sollyaPath = OS.FileSys.getDir() ^ "/sollya-8.0/sollya"
         (* case Process.getEnv "SOLLYADIR" of
         SOME p => p ^ "/sollya"
         | NONE =>
@@ -357,7 +357,7 @@ struct
     val fileStr = TextIO.openOut ("/tmp/sollya_input.sollya")
     val _ = (TextIO.output (fileStr, sollyaInput); TextIO.closeOut fileStr)
     val _ = print "Testing sollya\n"
-    val sollyaPath = OS.FileSys.getDir() ^ "/sollya/sollya-8.0/sollya"
+    val sollyaPath = OS.FileSys.getDir() ^ "/sollya-8.0/sollya"
     (* val sollyaPath =
         case Process.getEnv "SOLLYADIR" of
         SOME p => p ^ "/sollya"

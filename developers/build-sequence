@@ -4,6 +4,14 @@
 developers
 developers/bin
 
+# Floating-Point optimizer & codegen
+floatingPoint/tools/dandelion
+floatingPoint/icing/
+floatingPoint/icing/examples
+
+# Floating-Point codegen
+floatingPoint/libmGen/
+
 # build many things in parallel at the start
 compiler/proofs
 compiler/bootstrap/translation
@@ -126,15 +134,6 @@ translator/other-examples
 compiler/parsing/tests
 compiler/inference/tests
 compiler/printing/test
-
-# Floating-Point optimizer
-floatingPoint/tools/flover
-floatingPoint/icing/
-floatingPoint/icing/examples
-
-# Floating-Point codegen
-floatingPoint/tools/dandelion
-floatingPoint/libmGen/
 
 # compiler translation
 compiler/repl

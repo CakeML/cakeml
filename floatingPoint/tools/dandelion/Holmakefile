@@ -10,19 +10,4 @@ DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
 
-sollya:
-	tar -xf sollya-8.0.tar.gz &&\
-	cd sollya-8.0 &&\
-	cp ../../../icing/examples/output/Holmakefile ./ &&\
-	echo "Dependency to generate unverified guesses" > README.md &&\
-	echo "Dependency to generate unverified guesses" > readmePrefix &&\
-	./configure &&\
-	make &&\
-	rm -rf ./build-aux doc m4 tests-lib tests-tool &&\
-	rm -rf ./*.c ./*.h &&\
-	cd ../
-.PHONY: sollya
-
-realPolyTheory.sml: sollya
-
-EXTRA_CLEANS = sollya-8.0/
+EXTRA_CLEANS = sollya-8.0/*
