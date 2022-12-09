@@ -3,7 +3,9 @@ INCLUDES = $(HOLDIR)/examples/formal-languages/context-free\
 	   $(CAKEMLDIR)/unverified/sexpr-bootstrap\
 	   $(CAKEMLDIR)/semantics $(CAKEMLDIR)/characteristic\
 	   $(CAKEMLDIR)/floatingPoint/tools/flover\
-	   $(CAKEMLDIR)/floatingPoint/tools/dandelion
+	   $(CAKEMLDIR)/floatingPoint/tools/dandelion\
+	   $(CAKEMLDIR)/floatingPoint/icing
+
 
 #Explicitly without $(DEFAULT_TARGETS) to reduce compilation time
 DEFAULT_TARGETS = atnDeg3Theory.sig
