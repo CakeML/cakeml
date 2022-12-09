@@ -138,13 +138,13 @@ struct
     val sollyaInput = poly2Sollya polyAsString ("[" ^ cst2String lb ^"; " ^ cst2String ub ^"]")
     val fileStr = TextIO.openOut ("/tmp/sollya_input_"^Theory.current_theory()^".sollya")
     val _ = (TextIO.output (fileStr, sollyaInput); TextIO.closeOut fileStr)
-    val sollyaPath = OS.FileSys.getDir() ^ "/sollya-8.0/sollya"
-        (* case Process.getEnv "SOLLYADIR" of
-        SOME p => p ^ "/sollya"
+    val sollyaPath = (* OS.FileSys.getDir() ^ "/sollya-8.0/sollya" *)
+        case Process.getEnv "CAKEMLDIR" of
+        SOME p => p ^ "/floatingPoint/tools/Dandelion/sollya-8.0/sollya"
         | NONE =>
           (let val (instr, outstr) = Unix.streamsOf(Unix.execute("/usr/bin/which", ["sollya"]))
           in TextIO.inputAll(instr) |> explode |> List.rev |> tl |> List.rev |> implode end)
-          handle SysErr _ => (print "Could not get path for Sollya\n"; ""); *)
+          handle SysErr _ => (print "Could not get path for Sollya\n"; "");
     val (instr, outStr) =
         (Unix.streamsOf(Unix.execute(sollyaPath, ["--warnonstderr",
                   "/tmp/sollya_input_"^Theory.current_theory()^".sollya"])))
@@ -357,14 +357,13 @@ struct
     val fileStr = TextIO.openOut ("/tmp/sollya_input.sollya")
     val _ = (TextIO.output (fileStr, sollyaInput); TextIO.closeOut fileStr)
     val _ = print "Testing sollya\n"
-    val sollyaPath = OS.FileSys.getDir() ^ "/sollya-8.0/sollya"
-    (* val sollyaPath =
-        case Process.getEnv "SOLLYADIR" of
-        SOME p => p ^ "/sollya"
+    val sollyaPath =
+        case Process.getEnv "CAKEMLDIR" of
+        SOME p => p ^ "/floatingPoint/tools/Dandelion/sollya-8.0/sollya"
         | NONE =>
           (let val (instr, outstr) = Unix.streamsOf(Unix.execute("/usr/bin/which", ["sollya"]))
           in TextIO.inputAll(instr) |> explode |> List.rev |> tl |> List.rev |> implode end)
-          handle SysErr _ => (print "Could not get path for Sollya\n"; ""); *)
+          handle SysErr _ => (print "Could not get path for Sollya\n"; "");
     val (instr, outStr) =
         (Unix.streamsOf(Unix.execute(sollyaPath, ["--warnonstderr", "/tmp/sollya_input.sollya"])))
         handle SysErr _ => (print ("Could not run Sollya at "^sollyaPath ^ "\n"); raise ZeroLibErr "")
