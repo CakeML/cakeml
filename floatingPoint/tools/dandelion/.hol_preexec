@@ -1,10 +1,11 @@
 tar -xf sollya-8.0.tar.gz sollya-8.0 &&\
 cd sollya-8.0 &&\
-./configure &&\
-make &&\
+#./configure &&\
+#make &&\
 rm -rf ./build-aux doc m4 tests-lib tests-tool &&\
 rm -rf ./*.c ./*.h &&\
+CURRDIR=$(pwd) &&\
+FULLPATH="$CURRDIR/sollya"
 cd ../
 
-CURRDIR=$(pwd)
-sed -i "s,FILLED_IN_BY_HOLPREEXEC,$CURRDIR,g" realZeroLib.sml
+sed -i "s,FILLED_IN_BY_HOLPREEXEC,$FULLPATH,g" realZeroLib.sml
