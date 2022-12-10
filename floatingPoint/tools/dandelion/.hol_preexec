@@ -5,3 +5,6 @@ make &&\
 rm -rf ./build-aux doc m4 tests-lib tests-tool &&\
 rm -rf ./*.c ./*.h &&\
 cd ../
+
+CURRDIR=$(pwd)
+sed -i "s,FILLED_IN_BY_HOLPREEXEC,$CURRDIR,g" realZeroLib.sml
