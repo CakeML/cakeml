@@ -6,7 +6,8 @@ open preamble panLangTheory;
 local open alignmentTheory
            miscTheory     (* for read_bytearray *)
            wordLangTheory (* for word_op and word_sh *)
-           ffiTheory in end;
+           ffiTheory
+           itreeTheory in end;
 
 val _ = new_theory"panSem";
 val _ = set_grammar_ancestry [
@@ -56,6 +57,33 @@ End
 
 val s = ``(s:('a,'ffi) panSem$state)``
 
+Definition eval_exp_itree_def:
+  (eval_exp_itree (Const w) =
+   λs. Ret (s, SOME (ValWord w))) ∧
+  (eval_exp_itree (Var n) =
+   λs. Ret (s, FLOOKUP s.locals n)) ∧
+  (eval_exp_itree (Label fname) =
+   λs. case FLOOKUP s.code fname of
+         | SOME _ => Ret (s, SOME (ValLabel fname))
+         | _ => Ret (s, NONE))
+End
+
+Definition eval_prog_itree_def:
+  (eval_prog_itree (Skip) =
+   λs. Ret (s, NONE)) ∧
+  (eval_prog_itree (Dec var e p) =
+   λs. case eval_exp_itree e s of
+        | Ret (st, SOME val) => eval_prog_itree p (st with locals := st.locals |+ (var, val))
+        | Ret (st, NONE) => Ret (st, SOME Error)) ∧
+  (* (eval_prog_itree (Call caltyp trgt args) = *)
+  (*  λs. case (eval_exp_itree trgt s, *)
+  (*       | Ret (st, SOME (ValLabel fname)) => *)
+  (*             case *)
+End
+(* Needs termination proof *)
+
+Definition semantics_itree_def:
+End
 
 Theorem MEM_IMP_v_size:
    !xs a. MEM a xs ==> (v_size l a < 1 + v1_size l xs)
@@ -64,7 +92,6 @@ Proof
   rpt strip_tac >> rw [fetch "-" "v_size_def"] >>
   res_tac >> decide_tac
 QED
-
 
 Definition shape_of_def:
   shape_of (ValWord _) = One /\
