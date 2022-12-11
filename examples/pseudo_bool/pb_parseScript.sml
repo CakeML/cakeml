@@ -138,12 +138,35 @@ Definition nocomment_line_def:
   (nocomment_line _ = T)
 End
 
+(* parse objective line *)
+Definition parse_obj_def:
+  (parse_obj [] = NONE) ∧
+  (parse_obj (x::xs) =
+    if x = INL (strlit "min:") then
+      case parse_constraint_LHS xs [] of (rest,obj) =>
+        if rest = [INL (strlit ";")] then SOME obj
+        else NONE
+    else NONE
+  )
+End
+
+(* parse optional objective *)
+Definition parse_obj_maybe_def:
+  (parse_obj_maybe [] = (NONE , [])) ∧
+  (parse_obj_maybe (l::ls) =
+  case parse_obj l of
+    NONE => (NONE, l::ls)
+  | SOME obj => (SOME obj, ls))
+End
+
 (* Parse the tokenized pbf file *)
 Definition parse_pbf_toks_def:
   parse_pbf_toks tokss =
   let nocomments = FILTER nocomment_line tokss in
-  (* TODO: parse the header line ? *)
-  parse_constraints nocomments []
+  let (obj,rest) = parse_obj_maybe nocomments in
+  case parse_constraints rest [] of
+    NONE => NONE
+  | SOME pbf => SOME (obj,pbf)
 End
 
 (* Parse a list of strings in pbf format *)
@@ -528,7 +551,7 @@ val pbfraw = ``[
   strlit" +1 x5 +1 x6 >= 1 ;"
   ]``;
 
-  val pbf = rconc (EVAL ``build_fml 1 (full_normalise (THE (parse_pbf ^(pbfraw)))) LN``);
+  val pbf = rconc (EVAL ``build_fml 1 (full_normalise (SND (THE (parse_pbf ^(pbfraw)))))``);
 
   val pbpraw = ``[
   strlit"pseudo-Boolean proof version 1.2";

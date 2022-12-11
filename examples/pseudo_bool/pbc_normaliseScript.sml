@@ -179,13 +179,38 @@ Definition convert_pbf_def:
   convert_pbf pbf = MAP (map_pbc hashString) pbf
 End
 
-Theorem convert_pbf_thm:
+Theorem convert_pbf_satisfies:
   pbf_vars (set pbf) ⊆ goodString ⇒
-  (satisfiable (set (convert_pbf pbf)) ⇔ satisfiable (set pbf))
+  (satisfies w (set pbf) ⇔
+    satisfies (w o LINV hashString goodString) (set (convert_pbf pbf)))
+Proof
+  rw[]>>
+  `INJ hashString goodString UNIV` by
+    metis_tac[hashString_INJ,SUBSET_REFL]>>
+  simp[convert_pbf_def,LIST_TO_SET_MAP]>>
+  rw[EQ_IMP_THM]
+  >- (
+    match_mp_tac satisfies_INJ>>
+    simp[])>>
+  drule satisfies_map_pbf>>
+  match_mp_tac satisfies_pbf_vars>>
+  rw[]>>fs[]>>
+  drule LINV_DEF>>
+  fs[pbf_vars_IMAGE,SUBSET_DEF]
+QED
+
+Theorem convert_pbf_satisfies_2:
+  pbf_vars (set pbf) ⊆ goodString ⇒
+  (satisfies w (set (convert_pbf pbf)) ⇔
+  satisfies (w o hashString) (set pbf))
 Proof
   rw[]>>
   simp[convert_pbf_def,LIST_TO_SET_MAP]>>
-  match_mp_tac satisfiable_INJ_iff>>
+  rw[EQ_IMP_THM]
+  >-
+    metis_tac[satisfies_map_pbf]>>
+  match_mp_tac satisfies_INJ_2>>
+  simp[]>>
   match_mp_tac INJ_SUBSET>>
   first_x_assum (irule_at Any)>>
   metis_tac[hashString_INJ,SUBSET_REFL]
@@ -502,13 +527,22 @@ Definition full_normalise_def:
   full_normalise pbf = normalise (convert_pbf pbf)
 End
 
-Theorem full_normalise_satisfiable:
+Theorem full_normalise_satisfies:
   pbf_vars (set pbf) ⊆ goodString ⇒
-  (satisfiable (set (full_normalise pbf)) ⇔
-    satisfiable (set pbf))
+  (satisfies w (set pbf) ⇔
+  satisfies (w ∘ LINV hashString goodString) (set (full_normalise pbf)))
 Proof
-  rw[pbcTheory.satisfiable_def,npbcTheory.satisfiable_def,full_normalise_def,normalise_thm]>>
-  metis_tac[convert_pbf_thm,pbcTheory.satisfiable_def,npbcTheory.satisfiable_def]
+  rw[full_normalise_def,normalise_thm]>>
+  metis_tac[convert_pbf_satisfies]
+QED
+
+Theorem full_normalise_satisfies_2:
+  pbf_vars (set pbf) ⊆ goodString ⇒
+  (satisfies w (set (full_normalise pbf)) ⇔
+  satisfies (w o hashString) (set pbf))
+Proof
+  rw[full_normalise_def,normalise_thm]>>
+  metis_tac[convert_pbf_satisfies_2]
 QED
 
 Theorem lit_var_negate[simp]:
@@ -587,6 +621,63 @@ Theorem normalise_compact:
   EVERY compact (normalise pbf)
 Proof
   simp[normalise_def,EVERY_MAP,compact_pbc_to_npbc]
+QED
+
+Theorem full_normalise_optimal_val:
+  pbf_vars (set pbf) ⊆ goodString ∧
+  set (MAP (lit_var ∘ SND) f) ⊆ goodString ∧
+  normalise_lhs
+    (MAP (λ(a,b). (a, map_lit hashString b)) f) [] 0 = (f',m')  ⇒
+  (
+    OPTION_MAP (λn. (&n:int) + m') (optimal_val (set (full_normalise pbf)) f') =
+    optimal_val (set pbf) f
+  )
+Proof
+  reverse (rw[optimal_val_def])
+  >- (
+    fs[pbcTheory.optimal_val_def,satisfiable_def,pbcTheory.satisfiable_def]>>
+    metis_tac[full_normalise_satisfies])>>
+  qmatch_goalsub_abbrev_tac`eval_term w`>>
+  qsuff_tac `optimal (w o hashString) (set pbf) f`
+  >- (
+    drule normalise_lhs_normalises>>
+    simp[GSYM eval_lin_term_def,eval_lin_term_MAP]>>
+    rw[]>>drule optimal_optimal_val>>
+    simp[])>>
+  `optimal w (set (full_normalise pbf)) f'` by
+    (fs[satisfiable_def]>>
+    imp_res_tac optimal_exists>>
+    simp[Abbr`w`]>>
+    metis_tac[SELECT_AX])>>
+  qpat_x_assum`Abbrev _` kall_tac>>
+  fs[optimal_def,pbcTheory.optimal_def]>>
+  CONJ_TAC
+  >- (
+    drule full_normalise_satisfies_2>>
+    metis_tac[])>>
+  rw[]>>
+  drule normalise_lhs_normalises>>
+  simp[GSYM eval_lin_term_def,eval_lin_term_MAP]>>
+  rw[]>>
+  drule full_normalise_satisfies>>
+  disch_then(qspec_then `w'` assume_tac)>>fs[]>>
+  first_x_assum drule>>
+  qmatch_goalsub_abbrev_tac`_ <= SUM (MAP (eval_term ww) f')`>>
+  first_x_assum(qspec_then`ww` mp_tac)>>
+  qsuff_tac` eval_lin_term (ww ∘ hashString) f = eval_lin_term w' f`>>
+  simp[Abbr`ww`]>>
+  simp[eval_lin_term_def]>>
+  AP_TERM_TAC>>
+  qpat_x_assum`_ ⊆ goodString` mp_tac>>
+  simp[MAP_EQ_f,SUBSET_DEF,MEM_MAP,PULL_EXISTS]>>
+  rw[]>>
+  first_x_assum drule>>
+  Cases_on`e`>>simp[]>>
+  rw[]>>
+  `INJ hashString goodString UNIV` by
+    metis_tac[hashString_INJ,SUBSET_REFL]>>
+  drule LINV_DEF>>
+  Cases_on`r`>>fs[]
 QED
 
 val _ = export_theory();

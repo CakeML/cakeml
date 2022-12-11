@@ -1872,12 +1872,6 @@ Proof
   metis_tac[encode_correct,PAIR]
 QED
 
-(* The normalised encoding *)
-Definition norm_encode_def:
-  norm_encode gp gt k =
-  full_normalise (full_encode gp gt k)
-End
-
 Theorem pbf_vars_full_encode:
   pbf_vars (set (full_encode gp gt k)) ⊆ goodString
 Proof
@@ -1885,24 +1879,5 @@ Proof
   simp[IN_DEF]>>
   metis_tac[enc_string_goodString,PAIR]
 QED
-
-Theorem norm_encode_correct:
-  good_graph gp ∧
-  good_graph gt ∧
-  norm_encode gp gt k = constraints ⇒
-  (
-    (∃f vs.
-      injective_partial_map f vs k gp gt ∧
-      connected_subgraph vs (SND gp)) ⇔
-    satisfiable (set constraints)
-  )
-Proof
-  rw[norm_encode_def]>>
-  DEP_REWRITE_TAC[full_normalise_satisfiable]>>rw[]
-  >- metis_tac[pbf_vars_full_encode]
-  >- metis_tac[full_encode_correct]
-QED
-
-val res = EVAL``(norm_encode ^pattern ^pattern 1)``
 
 val _ = export_theory();

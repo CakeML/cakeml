@@ -49,6 +49,22 @@ Definition unsatisfiable_def:
   unsatisfiable pbf ⇔ ¬satisfiable pbf
 End
 
+(* Optimality of an assignment *)
+Definition optimal_def:
+  optimal w pbf f ⇔
+    satisfies w pbf ∧
+    ∀w'.
+      satisfies w' pbf ⇒ SUM (MAP (eval_term w) f) ≤ SUM (MAP (eval_term w') f)
+End
+
+Definition optimal_val_def:
+  optimal_val pbf f =
+    if satisfiable pbf then
+      SOME (SUM (MAP (eval_term (@w. optimal w pbf f)) f))
+    else
+      NONE
+End
+
 (* compactness *)
 
 Definition compact_def[simp]:
@@ -1139,6 +1155,29 @@ Proof
   simp[not_thm,satisfies_def,PULL_EXISTS,subst_thm]>>
   fs[sat_ord_def]>>
   metis_tac[not_thm,transitive_def]
+QED
+
+Theorem optimal_exists:
+  satisfies w pbf ⇒
+  ∃w'.
+    optimal w' pbf f
+Proof
+  rw[]>>
+  qabbrev_tac`objs =
+    IMAGE (λw. SUM (MAP (eval_term w) f))
+    {w | satisfies w pbf}`>>
+  qabbrev_tac`opt = MIN_SET objs`>>
+  `objs ≠ {}` by (
+    unabbrev_all_tac>>
+    fs[EXTENSION]>>
+    metis_tac[])>>
+  drule MIN_SET_LEM>>
+  rw[]>>
+  unabbrev_all_tac>>fs[]>>
+  qexists_tac`w'`>>
+  fs[optimal_def,PULL_EXISTS]>>rw[]>>
+  first_x_assum drule>>
+  rw[]
 QED
 
 val _ = export_theory();

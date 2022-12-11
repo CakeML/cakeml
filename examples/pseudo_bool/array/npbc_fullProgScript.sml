@@ -58,10 +58,12 @@ Proof
 QED
 
 Theorem parse_pbf_goodString:
-  parse_pbf ls = SOME pbf ⇒
+  parse_pbf ls = SOME (obj,pbf) ⇒
   pbf_vars (set pbf) ⊆ goodString
 Proof
   fs[parse_pbf_def,parse_pbf_toks_def]>>
+  pairarg_tac>>fs[]>>
+  every_case_tac>>fs[]>>
   rw[]>>
   (drule_at Any) parse_constraints_goodString>>
   simp[pbcTheory.pbf_vars_def]
@@ -89,6 +91,8 @@ val r = translate parse_op_def;
 val r = translate parse_constraint_def;
 val r = translate parse_constraints_def;
 
+val r = translate parse_obj_def;
+val r = translate parse_obj_maybe_def;
 val r = translate parse_pbf_toks_def;
 
 Definition noparse_string_def:
@@ -104,7 +108,9 @@ val parse_pbf_full = (append_prog o process_topdecs) `
   | Some lines =>
   (case parse_pbf_toks lines of
     None => Inl (noparse_string f "OPB")
-  | Some x => Inr x))`
+  | Some (None, x) => Inr x
+  | Some _ => Inl (" optimization not yet supported ")
+  ))`
 
 val tokenize_v_thm = theorem "tokenize_v_thm";
 
@@ -130,7 +136,8 @@ Theorem parse_pbf_full_spec:
     (if inFS_fname fs f then
     (case parse_pbf (all_lines fs f) of
       NONE => INL err
-    | SOME x => INR x)
+    | SOME (NONE,x) => INR x
+    | _ => INL err)
     else INL err) v)) * STDIO fs)
 Proof
   rw[]>>
@@ -160,7 +167,15 @@ Proof
       xlet_autop>>
       xcon>>xsimpl>>
       simp[SUM_TYPE_def]>>metis_tac[])>>
-    xmatch>>xcon>>
+    TOP_CASE_TAC>>fs[PAIR_TYPE_def]>>
+    TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>
+    xmatch
+    >- (
+      xcon>>
+      xsimpl>>
+      simp[SUM_TYPE_def]) >>
+    (*optimization not yet supported*)
+    xcon>>
     xsimpl>>
     simp[SUM_TYPE_def]) >>
   xlet_autop>>
@@ -194,7 +209,7 @@ Definition check_unsat_2_sem_def:
   if out = success_string then
     inFS_fname fs f1 ∧
     ∃fml.
-    parse_pbf (all_lines fs f1) = SOME fml ∧
+    parse_pbf (all_lines fs f1) = SOME (NONE,fml) ∧
     unsatisfiable (set fml)
   else out = strlit""
 End
@@ -241,10 +256,24 @@ Proof
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[success_string_not_nil,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
-  simp[SUM_TYPE_def]>>rw[]>>
+  TOP_CASE_TAC>>
+  reverse TOP_CASE_TAC>>
+  simp[SUM_TYPE_def]>>
+  rw[]
+  >- ( (* optimization not yet supported *)
+    xmatch>>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    qexists_tac`err`>>
+    fs[success_string_not_nil,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    xsimpl )>>
   xmatch>>
   drule parse_pbf_goodString>>
   strip_tac>>
+  rename1`_ = SOME (NONE, pbf)`>>
   xlet`POSTv v.
      STDIO fs *
      SEP_EXISTS res.
@@ -252,7 +281,7 @@ Proof
       SUM_TYPE STRING_TYPE STRING_TYPE res v ∧
       (∀s. res = INR s ⇒
         (s = success_string ∧
-        unsatisfiable (set x))))`
+        unsatisfiable (set pbf))))`
   >- (
     xapp>>xsimpl>>
     fs[FILENAME_def,validArg_def,success_string_v_thm ]>>
@@ -265,7 +294,7 @@ Proof
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     qexists_tac`strlit ""`>>
-    qexists_tac`x'`>>xsimpl>>rw[]>>
+    qexists_tac`x`>>xsimpl>>rw[]>>
     fs[success_string_not_nil,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   xapp>>asm_exists_tac>>xsimpl>>
@@ -300,7 +329,8 @@ Definition check_unsat_1_sem_def:
   then
     case parse_pbf (all_lines fs f1) of
       NONE => out = strlit ""
-    | SOME fml => out = concat (print_pbf fml)
+    | SOME (NONE, fml) => out = concat (print_pbf fml)
+    | _ => out = strlit ""
   else out = strlit ""
 End
 
@@ -331,22 +361,35 @@ Proof
     fs[success_string_not_nil,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     rw[]>>
     qexists_tac`err`>>xsimpl)>>
-  TOP_CASE_TAC>>fs[SUM_TYPE_def]>>rw[]>>xmatch
+  TOP_CASE_TAC>>fs[SUM_TYPE_def]
   >- (
+    rw[]>>
+    xmatch>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     asm_exists_tac>>xsimpl>>
     qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
     fs[success_string_not_nil,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     rw[]>>
     qexists_tac`err`>>xsimpl)>>
-  xlet_autop>>
-  xapp_spec print_list_spec>>xsimpl>>
+  TOP_CASE_TAC>>
+  TOP_CASE_TAC>>fs[SUM_TYPE_def]>>
+  rw[]>>xmatch
+  >- (
+    xlet_autop>>
+    xapp_spec print_list_spec>>xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    qexists_tac`strlit ""`>>
+    simp[STD_streams_stderr,add_stdo_nil]>>
+    xsimpl) >>
+  (* optimization not yet supported *)
+  xapp_spec output_stderr_spec \\ xsimpl>>
   asm_exists_tac>>xsimpl>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
+  fs[success_string_not_nil,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
   rw[]>>
-  qexists_tac`strlit ""`>>
-  simp[STD_streams_stderr,add_stdo_nil]>>
-  xsimpl
+  qexists_tac`err`>>xsimpl
 QED
 
 Definition usage_string_def:

@@ -1226,15 +1226,6 @@ val check_unsat = process_topdecs `
   fun check_unsat fd lno fml =
   check_unsat' fd lno (full_normalise fml)` |> append_prog
 
-Theorem full_normalise_unsatisfiable:
-  pbf_vars (set pbf) ⊆ goodString ⇒
-  (unsatisfiable (set (full_normalise pbf)) ⇔
-  unsatisfiable (set pbf))
-Proof
-  rw[pbcTheory.unsatisfiable_def,npbcTheory.unsatisfiable_def]>>
-  metis_tac[full_normalise_satisfiable]
-QED
-
 Theorem check_unsat_spec:
   NUM lno lnov ∧
   LIST_TYPE

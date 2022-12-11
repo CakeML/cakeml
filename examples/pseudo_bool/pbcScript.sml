@@ -234,7 +234,19 @@ Definition map_pbc_def:
     (pbop,MAP (λ(a,b). (a, map_lit f b)) xs,n)
 End
 
-Theorem satisfiable_map_pbc:
+Theorem eval_lin_term_MAP:
+  eval_lin_term w (MAP (λ(a,b). (a, map_lit f b)) xs) =
+  eval_lin_term (w o f) xs
+Proof
+  simp[eval_lin_term_def]>>
+  AP_TERM_TAC>>
+  match_mp_tac LIST_EQ>>simp[EL_MAP]>>
+  rw[]>>
+  Cases_on`EL x xs`>>fs[]>>
+  Cases_on`r`>>simp[map_lit_def]
+QED
+
+Theorem satisfies_map_pbc:
   satisfies_pbc w (map_pbc f pbc) ⇒
   satisfies_pbc (w o f) pbc
 Proof
@@ -242,22 +254,15 @@ Proof
   simp[satisfies_pbc_def,map_pbc_def,MAP_MAP_o,o_DEF,pbc_vars_def]>>
   qmatch_goalsub_abbrev_tac`do_op _ A _ ⇒ do_op _ B _`>>
   qsuff_tac`A=B` >- fs[]>>
-  unabbrev_all_tac>>
-  simp[eval_lin_term_def]>>
-  AP_TERM_TAC>>
-  match_mp_tac LIST_EQ>>simp[EL_MAP]>>
-  rw[]>>
-  Cases_on`EL x pbc1`>>fs[]>>
-  Cases_on`r`>>simp[map_lit_def]
+  metis_tac[eval_lin_term_MAP]
 QED
 
-Theorem satisfiable_map_pbf:
-  satisfiable (IMAGE (map_pbc f) pbf) ⇒
-  satisfiable pbf
+Theorem satisfies_map_pbf:
+  satisfies w (IMAGE (map_pbc f) pbf) ⇒
+  satisfies (w o f) pbf
 Proof
-  rw[satisfiable_def]>>
-  qexists_tac`w o f`>>fs[satisfies_def,PULL_EXISTS]>>
-  metis_tac[satisfiable_map_pbc]
+  fs[satisfies_def,PULL_EXISTS]>>
+  metis_tac[satisfies_map_pbc]
 QED
 
 Theorem map_pbc_o:
@@ -304,35 +309,86 @@ Proof
   simp[pbc_vars_map_pbc]
 QED
 
-Theorem satisfiable_INJ:
-  INJ f (pbf_vars pbf) UNIV ∧
-  satisfiable pbf ⇒
-  satisfiable (IMAGE (map_pbc f) pbf)
+Theorem satisfies_INJ:
+  INJ f s UNIV ∧
+  pbf_vars pbf ⊆ s ∧
+  satisfies w pbf ⇒
+  satisfies (w o LINV f s) (IMAGE (map_pbc f) pbf)
 Proof
   rw[]>>
-  match_mp_tac (GEN_ALL satisfiable_map_pbf)>>
+  match_mp_tac (GEN_ALL satisfies_map_pbf)>>
   simp[IMAGE_IMAGE,o_DEF]>>
-  qexists_tac`LINV f (pbf_vars pbf)`>>
   simp[map_pbc_o,o_DEF]>>
   drule LINV_DEF>>strip_tac>>
-  qmatch_goalsub_abbrev_tac`satisfiable A`>>
+  qmatch_goalsub_abbrev_tac`satisfies w A`>>
   qsuff_tac`A = pbf`>>fs[]>>
   unabbrev_all_tac>>rw[EXTENSION,EQ_IMP_THM]
   >- (
     DEP_REWRITE_TAC [map_pbc_I]>>simp[]>>
-    fs[pbf_vars_def,PULL_EXISTS]>>
+    fs[pbf_vars_def,PULL_EXISTS,SUBSET_DEF]>>
     metis_tac[])>>
   qexists_tac`x`>>simp[]>>
   match_mp_tac (GSYM map_pbc_I)>>
-  fs[pbf_vars_def,PULL_EXISTS]>>
+  fs[pbf_vars_def,PULL_EXISTS,SUBSET_DEF]>>
+  metis_tac[]
+QED
+
+Theorem satisfies_pbc_vars:
+  (∀x. x ∈ pbc_vars c ⇒ w x = w' x) ⇒
+  satisfies_pbc w c ⇒
+  satisfies_pbc w' c
+Proof
+  PairCases_on`c`>>rw[satisfies_pbc_def]>>
+  fs[pbc_vars_def,eval_lin_term_def]>>
+  qmatch_asmsub_abbrev_tac`iSUM ls `>>
+  qmatch_goalsub_abbrev_tac`iSUM ls'`>>
+  qsuff_tac `ls = ls'`>>rw[]>>fs[]>>
+  unabbrev_all_tac>>
+  fs[MAP_EQ_f,MEM_MAP,PULL_EXISTS,FORALL_PROD]>>
+  rw[]>>
+  first_x_assum drule>>
+  Cases_on`p_2`>>simp[]
+QED
+
+Theorem satisfies_pbf_vars:
+  (∀x. x ∈ pbf_vars f ⇒ w x = w' x) ⇒
+  satisfies w f ⇒
+  satisfies w' f
+Proof
+  rw[satisfies_def,pbf_vars_def]>>
+  metis_tac[satisfies_pbc_vars]
+QED
+
+Theorem satisfies_INJ_2:
+  INJ f (pbf_vars pbf) UNIV ∧
+  satisfies (w o f) pbf ⇒
+  satisfies w (IMAGE (map_pbc f) pbf)
+Proof
+  rw[]>>
+  drule satisfies_INJ>>
+  disch_then (drule_at Any)>>
+  simp[]>>
+  match_mp_tac satisfies_pbf_vars>>
+  fs[]>>
+  drule LINV_DEF>>
+  simp[pbf_vars_IMAGE]>>
+  rw[]>>
+  first_x_assum drule>>
   metis_tac[]
 QED
 
 Theorem satisfiable_INJ_iff:
   INJ f (pbf_vars pbf) UNIV ⇒
-  (satisfiable (IMAGE (map_pbc f) pbf) ⇔ satisfiable pbf)
+  (satisfiable (IMAGE (map_pbc f) pbf) ⇔
+  satisfiable pbf)
 Proof
-  metis_tac[satisfiable_INJ,satisfiable_map_pbf]
+  rw[satisfiable_def,EQ_IMP_THM]
+  >-
+    metis_tac[satisfies_map_pbf]>>
+  drule satisfies_INJ>>
+  disch_then (drule_at Any)>>
+  simp[]>>
+  metis_tac[]
 QED
 
 val _ = export_theory();
