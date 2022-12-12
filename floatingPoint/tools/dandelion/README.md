@@ -2,6 +2,12 @@
 
 A certificate checker for approximations of elementary functions.
 
+## Building Dandelion
+
+Dandelion relies on a copy of sollya (sollya.org). Therefore it is
+necessary to run `Holmake` in this directory to execute the code
+in `.hol_preexec`.
+
 ## Key theorems and definitions relating to the original ITP'22 paper
 
 The first phase is defined across the files `transcApproxSemScript.sml` and
