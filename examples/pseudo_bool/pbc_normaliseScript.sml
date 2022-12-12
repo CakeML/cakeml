@@ -545,6 +545,16 @@ Proof
   metis_tac[convert_pbf_satisfies_2]
 QED
 
+Theorem full_normalise_unsatisfiable:
+  pbf_vars (set pbf) ⊆ goodString ⇒
+  (unsatisfiable (set (full_normalise pbf)) ⇔
+  unsatisfiable (set pbf))
+Proof
+  rw[pbcTheory.unsatisfiable_def,npbcTheory.unsatisfiable_def]>>
+  fs[pbcTheory.satisfiable_def,npbcTheory.satisfiable_def]>>
+  metis_tac[full_normalise_satisfies,full_normalise_satisfies_2]
+QED
+
 Theorem lit_var_negate[simp]:
   lit_var (negate r) = lit_var r
 Proof
