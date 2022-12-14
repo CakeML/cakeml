@@ -12,7 +12,9 @@ open preamble
 
 val _ = new_theory"bvi_to_dataProof";
 
-val _ = set_grammar_ancestry["bvi_to_data", "bviSem", "bviProps", "dataSem", "dataProps"];
+val _ = set_grammar_ancestry["bvi_to_data", "bviSem", "bviProps", "dataSem",
+                             "dataProps"];
+val _ = temp_delsimps ["fromAList_def"]
 val _ = hide"tail";
 
 (* value relation *)
@@ -935,7 +937,8 @@ Proof
        \\ full_simp_tac(srw_ss())[var_corr_def,get_var_def,lookup_map]
        \\ IMP_RES_TAC LIST_REL_MEM_IMP \\ full_simp_tac(srw_ss())[]
        \\ `lookup x t1.locals <> NONE` by METIS_TAC []
-       \\ Cases_on `lookup x t1.locals` \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [])
+       \\ Cases_on `lookup x t1.locals` \\ full_simp_tac(srw_ss())[]
+       \\ METIS_TAC [])
     \\ full_simp_tac(srw_ss())[]
     \\ Q.ABBREV_TAC `env1 = mk_wf (inter t2.locals (list_to_num_set (REVERSE vs++live++corr)))`
     \\ `var_corr (REVERSE a) (REVERSE vs) (map data_to_bvi_v env1)` by

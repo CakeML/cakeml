@@ -23,7 +23,8 @@ val _ = new_theory"clos_to_bvlProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "fromAList_def",
+                       "domain_union", "domain_insert"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = set_grammar_ancestry

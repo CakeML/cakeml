@@ -1682,7 +1682,8 @@ Proof
         \\ conj_asm1_tac
         >- (
           match_mp_tac code_rel_union
-          \\ fs[domain_fromAList,DISJOINT_SYM] )
+          \\ fs[domain_fromAList,DISJOINT_SYM]
+          \\ gvs[Abbr‘prog1’])
         \\ `namespace_rel (fromAList prog1) (fromAList prog2)`
         by (
           match_mp_tac (GEN_ALL compile_prog_namespace_rel)
@@ -1690,7 +1691,8 @@ Proof
         \\ conj_asm1_tac
         >- (
           match_mp_tac namespace_rel_union
-          \\ fs[domain_fromAList,DISJOINT_SYM])
+          \\ fs[domain_fromAList,DISJOINT_SYM]
+          \\ gs[Abbr‘prog1’])
         \\ simp[domain_union]
         \\ imp_res_tac compile_prog_next_mono
         \\ rveq \\ rw[]
