@@ -59,13 +59,38 @@ val s = ``(s:('a,'ffi) panSem$state)``
 
 Definition eval_exp_itree_def:
   (eval_exp_itree (Const w) =
-   λs. Ret (s, SOME (ValWord w))) ∧
+   λs. Ret (SOME (ValWord w))) ∧
   (eval_exp_itree (Var n) =
-   λs. Ret (s, FLOOKUP s.locals n)) ∧
+   λs. Ret (FLOOKUP s.locals n)) ∧
   (eval_exp_itree (Label fname) =
    λs. case FLOOKUP s.code fname of
-         | SOME _ => Ret (s, SOME (ValLabel fname))
-         | _ => Ret (s, NONE))
+         | SOME _ => Ret (SOME (ValLabel fname))
+         | _ => Ret NONE)
+End
+
+(* As with lookup_code only where args are ITrees. *)
+Definition lookup_code_itree_def:
+  (lookup_code_itree code fname = FLOOKUP code fname)
+End
+
+(* TOOD: Namespace conflict with Ret term in fcall type and Ret in itree. *)
+Definition post_call_binder_def:
+  (post_call_binder ctype (Ret (s, SOME (Return val))) =
+   case ctype of
+    | Tail => Ret (empty_locals s, SOME (Return val))
+    | Ret rt _ =>
+       if is_valid_value s.locals rt val
+       then Ret (set_var rt val s, NONE)
+       else Ret (s, SOME Error)) ∧
+  (* TODO: Add exception handling. *)
+  (post_call_binder ctype (Ret (s, _)) = Ret (s, SOME Error))
+End
+
+Definition next_iter_binder_def:
+  (next_iter_binder p b (s, SOME Break) =
+   Ret (s, NONE)) ∧
+  (next_iter_binder p b (s, _) =
+   eval_prog_itree (While b p) s)
 End
 
 Definition eval_prog_itree_def:
@@ -75,10 +100,76 @@ Definition eval_prog_itree_def:
    λs. case eval_exp_itree e s of
         | Ret (st, SOME val) => eval_prog_itree p (st with locals := st.locals |+ (var, val))
         | Ret (st, NONE) => Ret (st, SOME Error)) ∧
-  (* (eval_prog_itree (Call caltyp trgt args) = *)
-  (*  λs. case (eval_exp_itree trgt s, *)
-  (*       | Ret (st, SOME (ValLabel fname)) => *)
-  (*             case *)
+  (eval_prog_itree (Store dst src) =
+   λs. case (eval_exp_itree dst s, eval_exp_itree src s) of
+        | (Ret (SOME (ValWord addr)), Ret (SOME val)) =>
+           (case mem_stores addr (flatten value) s.memaddrs s.memory of
+            | SOME m => Ret (s with memory := m, NONE)
+            | NONE => (s, SOME Error))) ∧
+  (eval_prog_itree (StoreByte dst src) =
+   λs. case (eval_exp_itree dst s, eval_exp_itree src s) of
+        | (Ret (SOME (ValWord addr)), Ret (SOME (ValWord w))) =>
+           (case mem_store_byte s.memory s.memaddrs s.be addr (w2w w) of
+             | SOME m => (s with memory := m, NONE)
+             | NONE => (s, SOME Error))) ∧
+  (eval_prog_itree (Seq p1 p2) =
+   λs. (eval_prog_itree p1 s) itree_bind λr. if r = (st, NONE)
+                                             then eval_prog_itree p2 st
+                                             else r) ∧
+  (eval_prog_itree (If b pt pf) =
+   λs. case eval_exp_itree b of
+        | Ret (SOME (ValWord w)) =>
+           eval_prog_itree (if w ≠ 0w then pt else pf) s
+        | _ => (s, SOME Error)) ∧
+  (eval_prog_itree (While b p) =
+   λs. case eval_exp_itree b of
+        | Ret (SOME (ValWord w)) =>
+           if (w ≠ 0w)
+           then (eval_exp_itree p) itree_bind next_iter_binder
+           else Ret (s, NONE)
+        | _ => (s, SOME Error)) ∧
+  (eval_prog_itree (Break) =
+   λs. Ret (s, SOME Break)) ∧
+  (eval_prog_itree (Continue) =
+   λs. Ret (s, SOME Continue)) ∧
+  (eval_prog_itree (Call caltyp trgt args) =
+   λs. case (eval_exp_itree trgt s, MAP eval_exp_itree args) of
+        | (Ret (st, SOME (ValLabel fname)), eargs) =>
+           (case (lookup_code_itree st.code fname) of =>
+                                                    | (locals, callee_prog) => itree_bind (eval_prog_itree callee_prog st) post_call_binder caltyp
+                                                    | (_, _) => Ret (s, SOME Error))
+
+        | (_, _) => Ret (s, SOME Error)) ∧
+  (eval_prog_itree (ExtCall ffi_index ptr1 len ptr2 len2) =
+   λs. case (FLOOKUP s.locals len1, FLOOKUP s.locals ptr1, FLOOKUP s.locals len2, FLOOKUP s.locals ptr2) of
+        | (SOME (ValWord sz1), SOME (ValWord ad1), SOME (ValWord sz2), SOME (ValWord ad2)) =>
+           (case (read_bytearray ad1 (w2n sz1) (mem_load_byte s.memory s.memaddrs s.be),
+                  read_bytearray ad2 (w2n sz2) (mem_load_byte s.memory s.memaddrs s.be)) of
+             | (SOME bytes, SOME bytes2) =>
+                (case call_FFI s.ffi (explode ffi_index) bytes bytes2 of
+                  | FFI_final outcome => Vis (FFIEvent ffi_index ad1 ad2, λa. Ret (empty_locals s, SOME FinalFFI r))
+                  | FFI_return new_ffi new_bytes =>
+                     let nmem = write_bytearray ad2 new_bytes s.memory s.memaddrs s.be in
+                     Vis (FFIEvent ffi_index ad1 ad2, λa. Ret (s with <| memory := nmem; ffi := new_ffi |>, NONE)))
+             | _ => Ret (s, SOME Error))
+        | _ => Ret (s, SOME Error)) ∧
+  (eval_prog_itree (Raise eid e) =
+   λs. case (FLOOKUP s.eshapes eid, eval_exp_itree e s) of
+        | (SOME sh, Ret (SOME val)) =>
+           if shape_of val = sh ∧
+              size_of_shape (shape_of val) ≤ 32
+           then Ret (empty_locals s, SOME (Exception eid val))
+           else (s, SOME Error)
+        | _ => (s, SOME Error)) ∧
+  (eval_prog_itree (Return e) =
+   λs. case (eval_exp_itree e s) of
+        | Ret (SOME val) =>
+           if size_of_shape (size_of val) ≤ 32
+           then Ret (s, SOME (Return val))
+           else (s, SOME Error)
+        | _ => (s, SOME Error)) ∧
+  (eval_prog_itree (Tick) =
+   λs. Ret (s, NONE))
 End
 (* Needs termination proof *)
 
