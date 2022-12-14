@@ -618,9 +618,6 @@ Definition concrete_v_def:
      | Litv _ => T
      | Conv v_ vs => concrete_v_list vs
      | Vectorv vs => concrete_v_list vs
-     | FP_WordTree fp => T
-     | FP_BoolTree fp => T
-     | Real r => T
      | _ => F) ∧
   (concrete_v_list [] ⇔ T) ∧
   (concrete_v_list (v::vs) ⇔ concrete_v v ∧ concrete_v_list vs)
@@ -873,6 +870,8 @@ Definition do_app_def:
         SOME ((s,t), Rval (Real (real_uop uop v1)))
     | (RealFromFP, [Litv (Word64 fp)]) =>
         SOME ((s,t), Rval (Real (fp64_to_real fp)))
+    | (RealFromIntProd, [Litv (IntLit i); Litv (IntLit d)]) =>
+        SOME ((s,t), Rval (Real (real_of_int i / real_of_int d)))
     | (Shift W8 op n, [Litv (Word8 w)]) =>
         SOME ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
     | (Shift W64 op n, [Litv (Word64 w)]) =>

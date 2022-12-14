@@ -79,6 +79,8 @@ Datatype:
   | Real_bop real_bop
   (* Translation from floating-points to reals for verification *)
   | RealFromFP
+  (* Create a real constant from a pair of ints *)
+  | RealFromIntProd
   (* Function application *)
   | Opapp
   (* Reference operations *)
@@ -156,6 +158,7 @@ Definition getOpClass_def[simp]:
   | Real_bop _ => Reals
   | Real_uop _ => Reals
   | RealFromFP => Reals
+  | RealFromIntProd => Reals
   | Opapp => FunApp
   | Eval => EvalOp
   | _ => Simple
