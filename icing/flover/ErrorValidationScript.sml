@@ -16,6 +16,11 @@ open preambleFloVer;
 
 val _ = new_theory "ErrorValidation";
 
+val _ = temp_delsimps ["fromAList_def", "domain_union",
+                       "domain_inter", "domain_difference",
+                       "domain_map", "sptree.map_def", "sptree.lookup_rwts",
+                       "sptree.insert_notEmpty", "sptree.isEmpty_union"]
+
 val _ = Parse.hide "delta"; (* so that it can be used as a variable *)
 
 Overload abs[local] = “realax$abs”
