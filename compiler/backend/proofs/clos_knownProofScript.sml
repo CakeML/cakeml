@@ -622,10 +622,10 @@ Proof
 QED
 
 Theorem known_op_correct_approx:
-   !opn args g0 a g vs s0 v s.
-   known_op opn args g0 = (a, g) /\ do_app opn vs s0 = Rval (v, s) /\
-   LIST_REL val_approx_val args vs /\ state_globals_approx s0 g0 ==>
-     state_globals_approx s g /\ val_approx_val a v
+  ∀opn args g0 a g vs s0 v s.
+    known_op opn args g0 = (a, g) /\ do_app opn vs s0 = Rval (v, s) /\
+    LIST_REL val_approx_val args vs /\ state_globals_approx s0 g0 ==>
+      state_globals_approx s g /\ val_approx_val a v
 Proof
   rpt gen_tac
   \\ `?this_is_case. this_is_case opn` by (qexists_tac `K T` \\ fs [])
@@ -633,6 +633,8 @@ Proof
   \\ simp [known_op_def, do_app_def, case_eq_thms, va_case_eq, bool_case_eq,
            pair_case_eq]
   \\ rpt strip_tac \\ rveq \\ fs[]
+  THEN1
+   (fs [state_globals_approx_def] \\ res_tac \\ rfs [])
   THEN1
    (fs [state_globals_approx_def] \\ res_tac \\ rfs [])
   THEN1
@@ -650,8 +652,7 @@ Proof
    (fs [state_globals_approx_def, get_global_def,
         EL_APPEND_EQN, bool_case_eq]
     \\ rw [] THEN1 (metis_tac [])
-    \\ rename1 `nn - LENGTH (ss:('a,'b) closSem$state).globals`
-    \\ `nn = LENGTH ss.globals` by simp [] \\ fs [])
+    \\ gvs [EL_REPLICATE])
   THEN1
    (rveq \\ fs [LIST_REL_EL_EQN])
   THEN1
@@ -714,6 +715,18 @@ val value_ind =
    |> SIMP_RULE (srw_ss()) []
    |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> Q.GEN `P`;
 
+Triviality not_less_zoer_imp:
+  ~(i < 0) ⇒ ∃k. (i:int) = & k
+Proof
+  Cases_on ‘i’ \\ gvs []
+QED
+
+Triviality not_less_zero_imp:
+  ~(i < 0:int) ⇒ ∃k. i = & k
+Proof
+  Cases_on ‘i’ \\ fs []
+QED
+
 Theorem do_app_ssgc:
    !opn args s0 res.
      do_app opn args s0 = res /\
@@ -730,7 +743,9 @@ Proof
   simp[do_app_def, case_eq_thms, op_gbag_def, PULL_EXISTS, bool_case_eq,
        pair_case_eq]
   >- ((* GetGlobal *)
-      simp[get_global_def, ssgc_free_def] >> metis_tac[MEM_EL])
+      simp[get_global_def, ssgc_free_def]
+      \\ rw [] \\ imp_res_tac not_less_zoer_imp \\ gvs []
+      \\ metis_tac[MEM_EL])
   >- ((* SetGlobal *)
       simp[ssgc_free_def, mglobals_extend_def, mapped_globals_def] >>
       rpt strip_tac
@@ -745,16 +760,12 @@ Proof
   >- ((* AllocGlobal *)
       dsimp[ssgc_free_def, mglobals_extend_def, mapped_globals_def, SUBSET_DEF,
             get_global_def, EL_APPEND_EQN, bool_case_eq] >>
-      reverse (rpt strip_tac)
-      >- (rename1 `ii < LENGTH (ss:('a,'b) closSem$state).globals` >>
-          Cases_on `ii < LENGTH ss.globals` >> simp[] >>
-          Cases_on `ii - LENGTH ss.globals = 0`
-          >- (pop_assum SUBST_ALL_TAC >> simp[]) >> simp[])
-      >- (rename1 `nn < LENGTH (ss:('a,'b) closSem$state).globals` >>
-          Cases_on `nn < LENGTH ss.globals` >> simp[] >>
-          Cases_on `nn < LENGTH ss.globals + 1` >> simp[] >>
-          `nn - LENGTH ss.globals = 0` by simp[] >> simp[]) >>
-      metis_tac[])
+      reverse (rpt strip_tac) >>
+      imp_res_tac not_less_zero_imp >> gvs [] >>
+      gvs [EL_REPLICATE,SF CONJ_ss]
+      >- (CCONTR_TAC >> gvs [EL_REPLICATE])
+      >- (CCONTR_TAC >> gvs [EL_REPLICATE])
+      \\ metis_tac[])
   >- (rename [‘ConsExtend’] >>
     dsimp [] >>
     rw [] >>

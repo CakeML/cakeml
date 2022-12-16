@@ -14,8 +14,10 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 val _ = set_grammar_ancestry
   ["wordLang", "wordSem", "wordProps", "word_alloc",
    "reg_alloc", "reg_allocProof", "linear_scan", "linear_scanProof"];
-val _ = Parse.bring_to_front_overload"numset_list_insert"{Thy="word_alloc",Name="numset_list_insert"};
+val _ = Parse.bring_to_front_overload"numset_list_insert"
+             {Thy="word_alloc",Name="numset_list_insert"};
 val _ = Parse.hide"mem";
+val _ = temp_delsimps ["fromAList_def", "domain_union"]
 
 (*TODO: Move?*)
 Theorem SUBSET_OF_INSERT:

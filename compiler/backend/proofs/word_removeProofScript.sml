@@ -267,7 +267,7 @@ Proof
     fs[case_eq_thms] \\ rveq \\ fs[] \\
     fs[shift_seq_def] \\
     qexists_tac`0` \\
-    simp[compile_state_def,state_component_equality,FUN_EQ_THM,map_union,map_fromAList] \\
+    simp[compile_state_def,state_component_equality,FUN_EQ_THM,map_union,map_fromAList,map_insert] \\
     rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\ simp[FUN_EQ_THM,FORALL_PROD] \\ NO_TAC) \\
   TOP_CASE_TAC \\ fs[] \\
   TOP_CASE_TAC \\ fs[] \\

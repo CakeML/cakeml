@@ -93,6 +93,9 @@ function calls.
 [clos_fvsScript.sml](clos_fvsScript.sml):
 Replaces free variables with constant type errors.
 
+[clos_interpScript.sml](clos_interpScript.sml):
+Implementation of interpreter for closLang expressions written in closLang.
+
 [clos_knownScript.sml](clos_knownScript.sml):
 This complicated compiler phase tracks where closure values flow
 in a program. It attempts to annotate function applications with the

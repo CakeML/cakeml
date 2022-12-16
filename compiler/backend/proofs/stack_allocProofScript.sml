@@ -8,7 +8,7 @@ open preamble stack_allocTheory
 local open blastLib wordSemTheory in end
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "fromAList_def"]
 
 val _ = new_theory"stack_allocProof";
 val _ = (max_print_depth := 18);
@@ -6207,7 +6207,8 @@ Proof
 QED
 
 Theorem compile_has_fp_ops[simp]:
-  compile (dconf with <| has_fp_ops := b1; has_fp_tern := b2 |>) code = compile dconf code
+  compile (dconf with <| has_fp_ops := b1; has_fp_tern := b2 |>) code =
+  compile dconf code
 Proof
   fs [compile_def,stubs_def,word_gc_code_def]
   \\ every_case_tac \\ fs []

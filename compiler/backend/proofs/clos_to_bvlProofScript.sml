@@ -23,7 +23,8 @@ val _ = new_theory"clos_to_bvlProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "fromAList_def",
+                       "domain_union", "domain_insert"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = set_grammar_ancestry
@@ -1522,15 +1523,29 @@ Proof
     srw_tac[][] >> full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
     srw_tac[][]>>full_simp_tac(srw_ss())[] >>
     first_x_assum match_mp_tac >> intLib.COOPER_TAC) >>
+  Cases_on `op = AllocGlobal`
+  >- (
+    strip_tac \\ gvs [closSemTheory.do_app_def,AllCaseEqs(),do_app_def,PULL_EXISTS]
+    \\ pop_assum mp_tac
+    \\ simp [Once v_rel_cases]
+    \\ simp [Once cl_rel_cases]
+    \\ simp [add_args_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
+    \\ strip_tac
+    \\ gvs []
+    \\ fs [state_rel_def,SF SFY_ss,OPTREL_def,get_global_def]
+    \\ Cases_on `t1.globals` \\ gvs [EVAL “num_added_globals”]
+    \\ irule_at Any EVERY2_APPEND_suff \\ fs []
+    \\ rename [‘REPLICATE n’] \\ qid_spec_tac ‘n’ \\ Induct \\ fs []) >>
   Cases_on`op`>>fs[]>>srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def,
                             bvlSemTheory.do_eq_def]
   >- (
     imp_res_tac state_rel_globals >>
-    every_case_tac >>
+    gvs [AllCaseEqs()] >>
+    gvs [v_rel_SIMP] >>
+    rw [] >> fs [] >>
     fs [get_global_def, num_added_globals_def] >>
     rw [] >>
-    imp_res_tac LIST_REL_LENGTH
-    >- fs [DROP_CONS_EL, ADD1] >>
+    imp_res_tac LIST_REL_LENGTH >>
     fs [LIST_REL_EL_EQN] >>
     rw [] >>
     first_x_assum drule >>
@@ -1554,22 +1569,6 @@ Proof
       rev_full_simp_tac(srw_ss())[OPTREL_def] )
     >- fs [get_global_def, HD_LUPDATE]
     >- metis_tac [])
-  >- (
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    full_simp_tac(srw_ss())[state_rel_def,OPTREL_def] >>
-    rw []
-    >- (
-      fs [num_added_globals_def, DROP_APPEND] >>
-      irule EVERY2_APPEND_suff >>
-      simp [optionTheory.OPTREL_def] >>
-      fs [get_global_def] >>
-      `1 - LENGTH t1.globals = 0` by decide_tac >>
-      simp [])
-    >- (
-      fs [get_global_def] >>
-      Cases_on `t1.globals` >>
-      fs [])
-    >- metis_tac[])
   >- (
     Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
     Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
@@ -7122,6 +7121,12 @@ Proof
         mcompile_inc_uncurry,
         clos_mtiProofTheory.intro_multi_preserves_elist_globals,
         clos_mtiProofTheory.intro_multi_preserves_esgc_free]
+QED
+
+Triviality REPLICATE_1[simp]:
+  REPLICATE 1 x = [x]
+Proof
+  EVAL_TAC
 QED
 
 Theorem compile_prog_semantics:

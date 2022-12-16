@@ -63,10 +63,6 @@ Proof
     recInduct insert_ind >>
     rw []
     THEN1 (
-        imp_res_tac domain_lookup >>
-        fs [domain_empty]
-    )
-    THEN1 (
         fs [lookup_def] >>
         once_rewrite_tac [insert_def] >>
         simp []

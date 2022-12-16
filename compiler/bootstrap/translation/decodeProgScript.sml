@@ -202,9 +202,11 @@ val def = closLang_exp_dec'_def |> DefnBase.one_line_ify NONE
           |> CONV_RULE (DEPTH_CONV BETA_CONV)
 val res = translate_no_ind def;
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+Triviality closlang_exp_dec'_ind:
+  closlang_exp_dec'_ind
+Proof
+  rewrite_tac [fetch "-" "closlang_exp_dec'_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (latest_ind ())
   \\ rpt strip_tac
@@ -224,8 +226,10 @@ val ind_lemma = Q.prove(
   \\ Cases_on ‘n = 7’ \\ asm_rewrite_tac [] THEN1 (gvs [ADD1])
   \\ Cases_on ‘n = 8’ \\ asm_rewrite_tac [] THEN1 (gvs [ADD1])
   \\ Cases_on ‘n = 9’ \\ asm_rewrite_tac []
-  \\ rpt var_eq_tac \\ gvs [ADD1])
-  |> update_precondition;
+  \\ rpt var_eq_tac \\ gvs [ADD1]
+QED
+
+val _ = closlang_exp_dec'_ind |> update_precondition;
 
 val def = val_approx_dec'_def |> DefnBase.one_line_ify NONE
           |> ONCE_REWRITE_RULE [list_dec'_eq_MAP]

@@ -38,17 +38,21 @@ End
 
 val res = parse_strlit_innards_def |> translate_no_ind;
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+Triviality parse_strlit_innards_ind:
+  parse_strlit_innards_ind
+Proof
+  rewrite_tac [fetch "-" "parse_strlit_innards_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (fetch "-" "parse_strlit_innards_ind")
   \\ rpt strip_tac
   \\ last_x_assum match_mp_tac
   \\ rpt strip_tac
   \\ fs [FORALL_PROD]
-  \\ Cases_on ‘cs’ >> gvs[])
-  |> update_precondition;
+  \\ Cases_on ‘cs’ >> gvs[]
+QED
+
+val _ = parse_strlit_innards_ind |> update_precondition;
 
 Definition parse_strlit_def:
   parse_strlit cs =

@@ -175,13 +175,19 @@ Definition do_app_def:
         (case get_global n s.globals of
          | SOME (SOME v) => (Rval (v,s))
          | _ => Error)
+    | (Global _,[Number i]) =>
+        (if i < 0 then Error else
+         case get_global (Num i) s.globals of
+         | SOME (SOME v) => (Rval (v,s))
+         | _ => Error)
     | (SetGlobal n,[v]) =>
         (case get_global n s.globals of
          | SOME NONE => Rval (Unit,
              s with globals := (LUPDATE (SOME v) n s.globals))
          | _ => Error)
-    | (AllocGlobal,[]) =>
-        Rval (Unit, s with globals := s.globals ++ [NONE])
+    | (AllocGlobal,[Number i]) =>
+        (if i < 0 then Error
+         else Rval (Unit, s with globals := s.globals ++ REPLICATE (Num i) NONE))
     | (Const i,[]) => Rval (Number i, s)
     | (Constant c,[]) => Rval (make_const c, s)
     | (Cons tag,xs) => Rval (Block tag xs, s)
@@ -489,11 +495,12 @@ val dest_closure_def = Define `
                 SOME (Partial_app (Recclosure loc (args++arg_env) clo_env fns i))
     | _ => NONE`;
 
-val dest_closure_length = Q.prove (
-  `!max_app loc_opt f args exp args1 args2 so_far.
+Theorem dest_closure_length:
+  ∀max_app loc_opt f args exp args1 args2 so_far.
     dest_closure max_app loc_opt f args = SOME (Full_app exp args1 args2)
     ⇒
-    LENGTH args2 < LENGTH args`,
+    LENGTH args2 < LENGTH args
+Proof
   rw [dest_closure_def] >>
   BasicProvers.EVERY_CASE_TAC >>
   fs [] >>
@@ -504,7 +511,8 @@ val dest_closure_length = Q.prove (
   Cases_on `LENGTH args + LENGTH l < q` >>
   fs [] >>
   rw [] >>
-  decide_tac);
+  decide_tac
+QED
 
 val clos_env_def = Define `
   clos_env restrict names env =

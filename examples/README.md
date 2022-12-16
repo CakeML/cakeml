@@ -30,7 +30,7 @@ Implementation and verification of diff and patch algorithms
 [divScript.sml](divScript.sml):
 Examples of non-termination.
 
-[doubleProgScript.sml](doubleProgScript.sml):
+[doubleArgProgScript.sml](doubleArgProgScript.sml):
 Examples on the topic of doubling a number.
 
 [echoProgScript.sml](echoProgScript.sml):
