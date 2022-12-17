@@ -12,6 +12,11 @@ val _ = new_theory "loop_to_wordProof";
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"];
 
+val _ = temp_delsimps ["fromAList_def", "domain_union",
+                       "domain_inter", "domain_difference",
+                       "domain_map", "sptree.map_def", "sptree.lookup_rwts",
+                       "sptree.insert_notEmpty", "sptree.isEmpty_union"];
+
 Definition locals_rel_def:
   locals_rel ctxt l1 l2 ⇔
     INJ (find_var ctxt) (domain ctxt) UNIV ∧
