@@ -110,6 +110,31 @@ End
 
 val exp_size_def = definition"exp_size_def";
 
+Definition has_install_def:
+  has_install ((Var t n):closLang$exp) = F ∧
+  has_install (If t e1 e2 e3) = (has_install e1 ∨ has_install e2 ∨ has_install e3) ∧
+  has_install (Let t es e) = (has_install e ∨ has_install_list es) ∧
+  has_install (Op t p es) = (p = Install ∨ has_install_list es) ∧
+  has_install (Raise t e) = has_install e ∧
+  has_install (Tick t e) = has_install e ∧
+  has_install (Fn _ _ _ _ e) = has_install e ∧
+  has_install (Handle t e1 e2) = (has_install e1 ∨ has_install e2) ∧
+  has_install (Call _ _ _ es) = has_install_list es ∧
+  has_install (App _ _ e es) = (has_install e ∨ has_install_list es) ∧
+  has_install (Letrec _ _ _ fns e) = (has_install_list (MAP SND fns) ∨ has_install e) ∧
+  has_install_list [] = F ∧
+  has_install_list (x::xs) = (has_install x ∨ has_install_list xs)
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of INL e => closLang$exp_size e
+                                    | INR es => list_size closLang$exp_size es’
+  \\ fs [fetch "-" "exp_size_eq"] \\ rw []
+  \\ qsuff_tac ‘list_size exp_size (MAP SND fns) ≤ list_size (pair_size (λx. x) exp_size) fns’
+  >- fs []
+  \\ Induct_on ‘fns’ \\ fs []
+  \\ fs [list_size_def,FORALL_PROD]
+  \\ rw [] \\ fs [basicSizeTheory.pair_size_def]
+End
+
 Theorem exp1_size_lemma:
    !fns n x. MEM (n,x) fns ==> exp_size x < exp1_size fns
 Proof

@@ -1983,18 +1983,21 @@ val result = translate fromChars_range_unsafe_alt;
 val res = translate_no_ind (mlintTheory.fromChars_unsafe_def
   |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+Triviality fromChars_unsafe_ind:
+  fromchars_unsafe_ind
+Proof
+  rewrite_tac [fetch "-" "fromchars_unsafe_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (latest_ind ())
   \\ rpt strip_tac
   \\ last_x_assum match_mp_tac
   \\ rpt strip_tac
-  \\ fs [FORALL_PROD]>>
-  fs[padLen_DEC_eq,ADD1]
-  )
-  |> update_precondition;
+  \\ fs [FORALL_PROD]
+  \\ fs [padLen_DEC_eq,ADD1]
+QED
+
+val _ = fromChars_unsafe_ind |> update_precondition;
 
 val result = translate lpr_parsingTheory.fromString_unsafe_def;
 

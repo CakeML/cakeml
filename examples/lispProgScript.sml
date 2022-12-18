@@ -25,19 +25,23 @@ val res = translate quote_def;
 val res = translate parse_def;
 val res = translate end_line_def;
 val res = translate read_num_def;
-val res = translate (REWRITE_RULE [MEMBER_INTRO] lex_def);
+val res = translate_no_ind (REWRITE_RULE [MEMBER_INTRO] lex_def);
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+Triviality lex_ind:
+  lex_ind
+Proof
+  rewrite_tac [fetch "-" "lex_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (latest_ind ())
   \\ rpt strip_tac
   \\ last_x_assum match_mp_tac
   \\ rpt strip_tac
   \\ fs [FORALL_PROD]
-  \\ gvs[MEMBER_def])
-  |> update_precondition;
+  \\ gvs[MEMBER_def]
+QED
+
+val _ = update_precondition lex_ind;
 
 val res = translate lexer_def;
 
