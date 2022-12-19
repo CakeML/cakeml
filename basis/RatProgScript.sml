@@ -263,12 +263,29 @@ val RAT_RAT_BOOL = Q.prove(
   \\ disch_then (qspec_then `refs2` mp_tac)
   \\ strip_tac \\ rpt (asm_exists_tac \\ fs []));
 
+val RAT_BOOL = Q.prove(
+  `(!r1. (f1 r1) = f2 (real_of_rat r1)) ==>
+   !v. (RAT_TYPE --> BOOL) f1 v ==>
+       (REAL_TYPE --> BOOL) f2 v`,
+  strip_tac
+  \\ SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,REAL_TYPE_def,PULL_EXISTS,
+                          FORALL_PROD] \\ rw []);
+
+val RAT_INT = Q.prove(
+  `(!r1. (f1 r1) = f2 (real_of_rat r1)) ==>
+   !v. (RAT_TYPE --> INT) f1 v ==>
+       (REAL_TYPE --> INT) f2 v`,
+  strip_tac
+  \\ SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,REAL_TYPE_def,PULL_EXISTS,
+                          FORALL_PROD] \\ rw []);
+
+
 (* -- *)
 
 val rational_of_num_def = Define `
   rational_of_num (n:num) = RatPair (&n) 1`;
 
-val _ = next_ml_names := ["fromInt"];
+val _ = next_ml_names := ["fromNum"];
 val rational_of_num_v_thm = translate rational_of_num_def;
 
 val Eval_RAT_NUM = Q.prove(
@@ -295,6 +312,44 @@ val Eval_REAL_NUM = Q.prove(
   \\ fs [] \\ asm_exists_tac
   \\ fs [real_of_rat_int])
   |> (fn th => MATCH_MP th Eval_RAT_NUM)
+  |> add_user_proved_v_thm;
+
+val rational_of_int_def = Define `
+  rational_of_int (n:int) = RatPair n 1`;
+
+val _ = next_ml_names := ["fromInt"];
+val rational_of_int_v_thm = translate rational_of_int_def;
+
+val Eval_RAT_INT = Q.prove(
+  `!v. (INT --> RATIONAL_TYPE) rational_of_int v ==>
+       (INT --> RAT_TYPE) rat_of_int v`,
+  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,
+                       FORALL_PROD] \\ rw [] \\ res_tac >>
+  rename [‘empty_state with refs := R’] >>
+  pop_assum (qspec_then ‘R’ strip_assume_tac) >>
+  fs [] >> asm_exists_tac >> fs [] >>
+  qexists_tac `x` >> qexists_tac `1` >>
+  fs [rational_of_int_def])
+  |> (fn th => MATCH_MP th rational_of_int_v_thm)
+  |> add_user_proved_v_thm;
+
+Theorem real_of_int_of_rat:
+  real_of_int i = real_of_rat (rat_of_int i)
+Proof
+  simp[real_of_rat_def]
+QED
+
+val Eval_REAL_INT = Q.prove(
+  `!v. (INT --> RAT_TYPE) rat_of_int v ==>
+       (INT --> REAL_TYPE) real_of_int v`,
+  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,
+    REAL_TYPE_def,PULL_EXISTS,FORALL_PROD] \\ rw [] \\ res_tac
+  \\ rename [‘empty_state with refs := R’]
+  \\ pop_assum (qspec_then ‘R’ strip_assume_tac)
+  \\ fs [] \\ asm_exists_tac
+  \\ fs [] \\ asm_exists_tac
+  \\ fs [real_of_int_of_rat])
+  |> (fn th => MATCH_MP th Eval_RAT_INT)
   |> add_user_proved_v_thm;
 
 val pair_le_def = Define `
@@ -760,6 +815,117 @@ End
 val _ = (next_ml_names := ["pp_rat"]);
 val v = translate pp_rat_def;
 
+Theorem rat_of_int_MUL_num:
+  rat_of_int n * &(m:num) = rat_of_int (n * &m) ∧
+  &(m:num) * rat_of_int n = rat_of_int (&m * n)
+Proof
+  `&(m:num) = rat_of_int (&m)` by
+    fs[]>>
+  pop_assum SUBST_ALL_TAC>>
+  simp[rat_of_int_MUL]
+QED
+
+Theorem SGN_ABS:
+  SGN n * ABS n = n
+Proof
+  EVAL_TAC>>
+  rw[]
+QED
+
+Theorem Int_Num_ABS:
+  &Num(ABS n) = ABS n
+Proof
+  simp[integerTheory.INT_OF_NUM]
+QED
+
+Theorem Num_le:
+  x ≤ y ∧ x ≥ 0 ⇒
+  Num x ≤ Num y
+Proof
+  intLib.ARITH_TAC
+QED
+
+Theorem int_divides_ABS:
+  x int_divides y ⇒
+  x int_divides (ABS y)
+Proof
+  `ABS y = SGN y * y` by
+    (EVAL_TAC>>
+    rw[])>>
+  rw[]
+QED
+
+Theorem gcd_RATND:
+  gcd (Num (ABS n)) d = 1 ∧ 0 < d ⇒
+  RATN (rat_of_int n / &d) = n ∧
+  RATD (rat_of_int n / &d) = d
+Proof
+  qmatch_goalsub_abbrev_tac`RATN r`>>
+  strip_tac>>
+  Cases_on`RATN r = 0`
+  >- (
+    fs[Abbr`r`]>>
+    pop_assum mp_tac>>
+    `&d ≠ 0` by
+      fs[]>>
+    drule RAT_DIV_EQ0>>
+    simp[]>>
+    rw[]>>
+    fs[gcd_def])>>
+  `ABS (RATN r) ≤ ABS n` by
+    metis_tac[RATND_THM]>>
+  `Num (ABS (RATN r)) ≤ Num (ABS n)` by
+    fs[Num_le]>>
+  `rat_of_int n / &d = rat_of_int (RATN r) / &RATD r` by
+    fs[]>>
+  pop_assum mp_tac>>
+  DEP_REWRITE_TAC [RAT_LDIV_EQ] >>
+  CONJ_TAC >- simp[] >>
+  PURE_REWRITE_TAC[RDIV_MUL_OUT]>>
+  DEP_REWRITE_TAC [RAT_RDIV_EQ] >>
+  simp[rat_of_int_MUL_num]>>
+  strip_tac>>
+  `SGN n = SGN (RATN r)` by (
+    pop_assum (mp_tac o Q.AP_TERM `SGN` )>>
+    simp[intExtensionTheory.INT_SGN_MUL2]>>
+    `SGN (&RATD r) = 1 ∧ SGN (&d) = 1` by
+      (EVAL_TAC>>rw[])>>
+    simp[])>>
+  `(ABS n) int_divides &d * RATN r` by
+    (simp[integerTheory.INT_DIVIDES]>>
+    qexists_tac`&RATD r * SGN n `>>
+    `&RATD r * SGN n * ABS n = &RATD r * (SGN n * ABS n)` by
+      intLib.ARITH_TAC>>
+    simp[SGN_ABS])>>
+  `ABS n int_divides RATN r` by
+    (drule int_arithTheory.INT_DIVIDES_RELPRIME_MUL>>
+    simp[]>>
+    disch_then(qspec_then`RATN r` assume_tac)>>
+    fs[Int_Num_ABS])>>
+  drule int_divides_ABS>>
+  strip_tac>>
+  `divides (Num (ABS n)) (Num (ABS (RATN r)))` by
+    metis_tac[int_arithTheory.INT_NUM_DIVIDES,Int_Num_ABS]>>
+  `Num (ABS n) ≤ Num (ABS (RATN r))` by (
+    `ABS (RATN r) > 0` by
+      intLib.ARITH_TAC>>
+    CCONTR_TAC>>fs[NOT_LESS_EQUAL]>>
+    drule_at Any ( dividesTheory.NOT_LT_DIVIDES)>>
+    fs[]>>
+    intLib.ARITH_TAC)>>
+  `ABS (RATN r) = ABS n` by
+    intLib.ARITH_TAC>>
+  CONJ_ASM1_TAC >-
+    metis_tac[SGN_ABS]>>
+  rw[] >>
+  qpat_x_assum`_ = _` mp_tac>>
+  simp[Once integerTheory.INT_MUL_COMM]>>
+  strip_tac>>
+  drule integerTheory.INT_EQ_RMUL_IMP>>
+  disch_then drule>>
+  simp[]
+QED
+
 Definition pair_num_def:
   pair_num (RatPair i n) = i
 End
@@ -767,12 +933,172 @@ End
 val _ = next_ml_names := ["numerator"];
 val v = translate pair_num_def;
 
+val Eval_RAT_RATN = Q.prove(
+  `(RATIONAL_TYPE --> INT) pair_num v ⇒
+   (RAT_TYPE --> INT) RATN v`,
+ rw[]
+  \\ FULL_SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,FORALL_PROD] \\ rw []
+  \\ first_x_assum drule
+  \\ disch_then (qspec_then `refs` mp_tac)
+  \\ rw[]
+  \\ asm_exists_tac \\ fs[]
+  \\ asm_exists_tac \\ fs[]
+  \\ fs[pair_num_def]
+  \\ simp[gcd_RATND])
+  |> (fn th => MATCH_MP th v)
+  |> add_user_proved_v_thm;
+
 Definition pair_denom_def:
   pair_denom (RatPair i n) = n
 End
 
 val _ = next_ml_names := ["denominator"];
 val v = translate pair_denom_def;
+
+val Eval_RAT_RATD = Q.prove(
+  `(RATIONAL_TYPE --> NUM) pair_denom v ⇒
+   (RAT_TYPE --> NUM) RATD v`,
+ rw[]
+  \\ FULL_SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,FORALL_PROD] \\ rw []
+  \\ first_x_assum drule
+  \\ disch_then (qspec_then `refs` mp_tac)
+  \\ rw[]
+  \\ asm_exists_tac \\ fs[]
+  \\ asm_exists_tac \\ fs[]
+  \\ fs[pair_denom_def]
+  \\ simp[gcd_RATND])
+  |> (fn th => MATCH_MP th v)
+  |> add_user_proved_v_thm;
+
+Definition pair_floor_def:
+  pair_floor (RatPair n d) = n / & d
+End
+
+val _ = next_ml_names := ["floor"];
+val v = translate pair_floor_def;
+
+Definition RAT_INT_FLOOR_def[nocompute]:
+  RAT_INT_FLOOR r = INT_FLOOR (real_of_rat r)
+End
+
+Theorem RAT_INT_FLOOR_compute:
+  RAT_INT_FLOOR r =
+  RATN r / & RATD r
+Proof
+  rw[RAT_INT_FLOOR_def]>>
+  simp[real_of_rat_def]>>
+  Cases_on`RATN r`>>
+  simp[]>>
+  DEP_REWRITE_TAC[intrealTheory.INT_FLOOR_EQNS]>>
+  simp[]
+QED
+
+val Eval_RAT_FLOOR = Q.prove(
+  `(!r. (PRECONDITION (pair_floor_side r) ==>
+      (Eq RATIONAL_TYPE r --> INT) pair_floor v)) ==>
+   (RAT_TYPE --> INT) RAT_INT_FLOOR v`,
+  rw[]
+  \\ FULL_SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,FORALL_PROD] \\ rw []
+  \\ fs [PRECONDITION_def,Eq_def] \\ rveq
+  \\ fs[ fetch "-" "pair_floor_side_def"]
+  \\ first_x_assum(qspec_then `RatPair n d` mp_tac)
+  \\ simp[]
+  \\ disch_then drule
+  \\ disch_then (qspec_then `refs` mp_tac)
+  \\ rw[]
+  \\ asm_exists_tac \\ fs[]
+  \\ asm_exists_tac \\ fs[]
+  \\ fs[pair_floor_def,RAT_INT_FLOOR_compute]
+  \\ simp[gcd_RATND])
+  |> (fn th => MATCH_MP th (DISCH_ALL v |> GEN_ALL))
+  |> add_user_proved_v_thm;
+
+val Eval_REAL_FLOOR = Q.prove(
+  `!v. (RAT_TYPE --> INT) RAT_INT_FLOOR v ⇒
+    (REAL_TYPE --> INT) INT_FLOOR v`,
+  match_mp_tac RAT_INT>>
+  fs[RAT_INT_FLOOR_def])
+  |> (fn th => MATCH_MP th Eval_RAT_FLOOR)
+  |> add_user_proved_v_thm;
+
+Definition RAT_INT_CEILING_def[nocompute]:
+  RAT_INT_CEILING r = INT_CEILING (real_of_rat r)
+End
+
+Theorem RAT_INT_CEILING_compute:
+  RAT_INT_CEILING r =
+  let i = RAT_INT_FLOOR r in
+    if rat_of_int i = r then i else i + 1
+Proof
+  rw[RAT_INT_CEILING_def,RAT_INT_FLOOR_def]>>
+  fs[intrealTheory.INT_CEILING_INT_FLOOR]>>
+  fs[real_of_int_of_rat]
+QED
+
+val _ = next_ml_names := ["ceiling"];
+val v = translate RAT_INT_CEILING_compute;
+
+val Eval_REAL_CEILING = Q.prove(
+  `!v. (RAT_TYPE --> INT) RAT_INT_CEILING v ⇒
+    (REAL_TYPE --> INT) INT_CEILING v`,
+  match_mp_tac RAT_INT>>
+  fs[RAT_INT_CEILING_def])
+  |> (fn th => MATCH_MP th v)
+  |> add_user_proved_v_thm;
+
+Definition pair_is_int_def:
+  pair_is_int (RatPair n d) <=> d = 1
+End
+
+val _ = next_ml_names := ["is_int"];
+val v = translate pair_is_int_def;
+
+Definition RAT_is_int_def:
+  RAT_is_int (x:rat) ⇔
+  x = rat_of_int (RAT_INT_FLOOR x)
+End
+
+Theorem INT_FLOOR_real_of_int:
+  INT_FLOOR (real_of_int i) = i
+Proof
+  simp[intrealTheory.INT_FLOOR]
+QED
+
+Theorem RAT_is_int_compute:
+  RAT_is_int x ⇔ RATD x = 1
+Proof
+  rw[RAT_is_int_def,EQ_IMP_THM]
+  >-
+    metis_tac[RATN_RATD_RAT_OF_INT]>>
+  fs[RAT_INT_FLOOR_def,real_of_rat_def,INT_FLOOR_real_of_int]>>
+  `x = rat_of_int (RATN x) / &1` by
+    metis_tac[RATND_THM]>>
+  fs[]
+QED
+
+val Eval_RAT_is_int = Q.prove(
+  `(RATIONAL_TYPE --> BOOL) pair_is_int v ⇒
+   (RAT_TYPE --> BOOL) RAT_is_int v`,
+ rw[]
+  \\ FULL_SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,FORALL_PROD] \\ rw []
+  \\ first_x_assum drule
+  \\ disch_then (qspec_then `refs` mp_tac)
+  \\ rw[]
+  \\ asm_exists_tac \\ fs[]
+  \\ asm_exists_tac \\ fs[]
+  \\ fs[RAT_is_int_compute,pair_is_int_def]
+  \\ simp[gcd_RATND])
+  |> (fn th => MATCH_MP th v)
+  |> add_user_proved_v_thm;
+
+val Eval_REAL_is_int = Q.prove(
+   `(RAT_TYPE --> BOOL) RAT_is_int v ⇒
+   (REAL_TYPE --> BOOL) is_int v`,
+  match_mp_tac RAT_BOOL>>
+  fs[RAT_is_int_def,intrealTheory.is_int_def,RAT_INT_FLOOR_def]>>
+  metis_tac[real_of_rat_eq,real_of_int_of_rat])
+  |> (fn th => MATCH_MP th Eval_RAT_is_int)
+  |> add_user_proved_v_thm;
 
 val RATIONAL_TYPE_def = fetch "-" "RATIONAL_TYPE_def"
 
