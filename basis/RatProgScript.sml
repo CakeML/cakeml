@@ -285,35 +285,6 @@ val RAT_INT = Q.prove(
 val rational_of_num_def = Define `
   rational_of_num (n:num) = RatPair (&n) 1`;
 
-val _ = next_ml_names := ["fromNum"];
-val rational_of_num_v_thm = translate rational_of_num_def;
-
-val Eval_RAT_NUM = Q.prove(
-  `!v. (NUM --> RATIONAL_TYPE) rational_of_num v ==>
-       (NUM --> RAT_TYPE) ($&) v`,
-  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,
-                       FORALL_PROD] \\ rw [] \\ res_tac >>
-  rename [‘empty_state with refs := R’] >>
-  pop_assum (qspec_then ‘R’ strip_assume_tac) >>
-  fs [] >> asm_exists_tac >> fs [] >>
-  qexists_tac `& x` >> qexists_tac `1` >>
-  fs [rational_of_num_def])
-  |> (fn th => MATCH_MP th rational_of_num_v_thm)
-  |> add_user_proved_v_thm;
-
-val Eval_REAL_NUM = Q.prove(
-  `!v. (NUM --> RAT_TYPE) ($&) v ==>
-       (NUM --> REAL_TYPE) ($&) v`,
-  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,
-    REAL_TYPE_def,PULL_EXISTS,FORALL_PROD] \\ rw [] \\ res_tac
-  \\ rename [‘empty_state with refs := R’]
-  \\ pop_assum (qspec_then ‘R’ strip_assume_tac)
-  \\ fs [] \\ asm_exists_tac
-  \\ fs [] \\ asm_exists_tac
-  \\ fs [real_of_rat_int])
-  |> (fn th => MATCH_MP th Eval_RAT_NUM)
-  |> add_user_proved_v_thm;
-
 val rational_of_int_def = Define `
   rational_of_int (n:int) = RatPair n 1`;
 
@@ -333,6 +304,13 @@ val Eval_RAT_INT = Q.prove(
   |> (fn th => MATCH_MP th rational_of_int_v_thm)
   |> add_user_proved_v_thm;
 
+val Eval_RAT_NUM = Q.prove(
+  `(NUM --> RAT_TYPE) rat_of_num rational_of_int_v`,
+  rw [] \\ assume_tac Eval_RAT_INT
+  \\ fs [NUM_def,Arrow_def,rat_of_int_def] \\ rw []
+  \\ pop_assum $ qspec_then ‘&x’ mp_tac \\ fs [])
+  |> add_user_proved_v_thm;
+
 Theorem real_of_int_of_rat:
   real_of_int i = real_of_rat (rat_of_int i)
 Proof
@@ -350,6 +328,13 @@ val Eval_REAL_INT = Q.prove(
   \\ fs [] \\ asm_exists_tac
   \\ fs [real_of_int_of_rat])
   |> (fn th => MATCH_MP th Eval_RAT_INT)
+  |> add_user_proved_v_thm;
+
+val Eval_REAL_NUM = Q.prove(
+  `(NUM --> REAL_TYPE) real_of_num rational_of_int_v`,
+  rw [] \\ assume_tac Eval_REAL_INT
+  \\ fs [NUM_def,Arrow_def,rat_of_int_def] \\ rw []
+  \\ pop_assum $ qspec_then ‘&x’ mp_tac \\ fs [])
   |> add_user_proved_v_thm;
 
 val pair_le_def = Define `
