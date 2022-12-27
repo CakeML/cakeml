@@ -49,18 +49,27 @@ Definition unsatisfiable_def:
   unsatisfiable pbf ⇔ ¬satisfiable pbf
 End
 
-(* Optimality of an assignment *)
+Definition eval_obj_def:
+  eval_obj fopt w =
+    case fopt of NONE => 0
+    | SOME f => SUM (MAP (eval_term w) f)
+End
+
+(* Optimality of an assignment
+  Here, the special case with no objective is treated as 0
+*)
 Definition optimal_def:
-  optimal w pbf f ⇔
+  optimal w pbf fopt ⇔
     satisfies w pbf ∧
     ∀w'.
-      satisfies w' pbf ⇒ SUM (MAP (eval_term w) f) ≤ SUM (MAP (eval_term w') f)
+      satisfies w' pbf ⇒
+      eval_obj fopt w ≤ eval_obj fopt w'
 End
 
 Definition optimal_val_def:
-  optimal_val pbf f =
+  optimal_val pbf fopt =
     if satisfiable pbf then
-      SOME (SUM (MAP (eval_term (@w. optimal w pbf f)) f))
+      SOME (eval_obj fopt (@w. optimal w pbf fopt))
     else
       NONE
 End
@@ -397,6 +406,19 @@ Proof
   \\ Cases_on ‘p_1’ \\ gvs []
   \\ Cases_on ‘n ≤ r’ \\ fs []
   \\ last_x_assum (qspec_then ‘r-n’ assume_tac) \\ gvs []
+QED
+
+Theorem compact_not:
+  compact c ⇒ compact (not c)
+Proof
+  Cases_on ‘c’ \\
+  rename1`(l,r)` \\
+  reverse (rw [not_def,compact_def])
+  THEN1 gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  \\ Induct_on ‘l’ \\ fs [FORALL_PROD]
+  \\ Cases_on ‘l’ \\ fs []
+  \\ Cases_on ‘t’ \\ fs []
+  \\ PairCases_on ‘h’ \\ fs []
 QED
 
 (* multiplication *)
@@ -1160,12 +1182,11 @@ QED
 Theorem optimal_exists:
   satisfies w pbf ⇒
   ∃w'.
-    optimal w' pbf f
+    optimal w' pbf fopt
 Proof
   rw[]>>
   qabbrev_tac`objs =
-    IMAGE (λw. SUM (MAP (eval_term w) f))
-    {w | satisfies w pbf}`>>
+    IMAGE (eval_obj fopt) {w | satisfies w pbf}`>>
   qabbrev_tac`opt = MIN_SET objs`>>
   `objs ≠ {}` by (
     unabbrev_all_tac>>
@@ -1174,7 +1195,7 @@ Proof
   drule MIN_SET_LEM>>
   rw[]>>
   unabbrev_all_tac>>fs[]>>
-  qexists_tac`w'`>>
+  qexists_tac`x`>>
   fs[optimal_def,PULL_EXISTS]>>rw[]>>
   first_x_assum drule>>
   rw[]
