@@ -411,13 +411,6 @@ Datatype:
     *)
 End
 
-(* the constraint is given by f >= 0 + -f|w ≥ 0 *)
-Definition obj_constraint_def:
-  obj_constraint f l =
-    add (l,0)
-    (subst f (MAP (λ(c,l). (0 - c,l)) l,0))
-End
-
 (* Apply a substitution where needed *)
 Definition extract_clauses_def:
   (extract_clauses f def fml obj [] acc = SOME (REVERSE acc)) ∧
@@ -618,6 +611,20 @@ Proof
   metis_tac[]
 QED
 
+Theorem extract_clauses_MEM_INR_1:
+  ∀s fml obj pfs acc res pf.
+  extract_clauses s def fml (SOME obj) pfs acc = SOME res ∧
+  MEM (SOME (INR 1), pf) pfs ⇒
+  MEM (SOME (obj_constraint s obj),pf) res
+Proof
+  Induct_on`pfs`>>rw[extract_clauses_def]>>fs[]>>
+  every_case_tac>>fs[]
+  >- (
+    drule extract_clauses_MEM_acc>>
+    simp[]) >>
+  metis_tac[]
+QED
+
 Theorem lookup_mk_BS:
   lookup i (mk_BS t1 a t2) = lookup i (BS t1 a t2)
 Proof
@@ -646,14 +653,26 @@ Definition opt_le_def:
   (opt_le x y ⇔ x = y ∨ opt_lt x y)
 End
 
-(* Preserving satisfiability and optimality*)
-Definition sat_obj_def:
-  sat_obj fopt s t ⇔
-  ∀w.
-    satisfies w s ⇒
-    ∃w'. satisfies w' t ∧
-      eval_obj fopt w' ≤ eval_obj fopt w
-End
+Theorem satisfies_SUBSET:
+  Y ⊆ X ⇒
+  (satisfies w X ⇒ satisfies w Y)
+Proof
+  rw[satisfies_def]>>
+  metis_tac[SUBSET_DEF]
+QED
+
+Theorem sat_obj_fml_SUBSET:
+  sat_obj obj a y ∧
+  x ⊆ y ⇒
+  sat_obj obj a x
+Proof
+  rw[sat_obj_def]>>
+  first_x_assum drule>>
+  rw[]>>
+  drule_all satisfies_SUBSET>>
+  rw[]>>
+  asm_exists_tac >> simp[]
+QED
 
 Theorem check_sstep_correct:
   ∀step obj core fml id.
@@ -697,23 +716,35 @@ Proof
       last_x_assum(qspec_then`id` assume_tac)>>
       fs[]>>
       metis_tac[])>>
-    cheat)
-    (*
     rename1`insert id' c fml`>>
-    qsuff_tac ‘c redundant_wrt (range fml)’
+    qsuff_tac ‘redundant_wrt_obj (range fml) obj c’
     >- (
-      fs [redundant_wrt_def] \\ rw []
-      \\ irule satisfiable_subset
+      fs [redundant_wrt_obj_def] \\ rw []
+      \\ irule sat_obj_fml_SUBSET
       \\ pop_assum $ irule_at Any
       \\ rw [SUBSET_DEF] \\ imp_res_tac range_insert_2 \\ fs [])
-    \\ rw[substitution_redundancy]
+    \\ match_mp_tac (GEN_ALL substitution_redundancy_obj)
     \\ qexists_tac ‘subst_fun s’ \\ fs []
     \\ fs[EVERY_MEM,MEM_MAP,EXISTS_PROD]
     \\ `id ∉ domain fml` by fs[id_ok_def]
     \\ fs[range_insert]
     \\ simp [Once implies_explode] \\ reverse (rw [])
+    >- (
+      Cases_on`obj`>>fs[check_red_obj_def]
+      \\ drule extract_clauses_MEM_INR_1
+      \\ fs[MEM_MAP]
+      \\ Cases_on`y'` \\ gs[]
+      \\ strip_tac
+      \\ first_x_assum drule \\ strip_tac
+      \\ first_x_assum drule
+      \\ simp[]
+      \\ fs[lookup_insert]
+      \\ simp[Once INSERT_SING_UNION,UNION_COMM])
     THEN1 (
-      drule extract_clauses_MEM_INR
+      fs[check_red_obj_def]
+      \\ drule extract_clauses_MEM_INR_0
+      \\ fs[MEM_MAP]
+      \\ Cases_on`y` \\ gs[]
       \\ strip_tac
       \\ first_x_assum drule \\ strip_tac
       \\ first_x_assum drule
@@ -739,7 +770,7 @@ Proof
     \\ strip_tac
     \\ first_x_assum drule
     \\ gvs[]
-    \\ metis_tac[INSERT_SING_UNION,UNION_COMM]) *)
+    \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
 QED
 
 Definition sstep_ok_def[simp]:
@@ -866,16 +897,35 @@ Definition coref_def:
       case lookup k fml of NONE => ([],0):npbc | SOME res => res) core
 End
 
+(* There are many variants of checked deletions possible:
+
+Suppose we delete D1 D2
+
+* Current option:
+1) Check C \ D1 |- E (satisfiability implies)
+   where C is core (can not be deleted)
+  and D1 ∈ E as the last ID.
+  Then check C \ {D1,D2} |- ...
+
+2) Check C \ {D1,D2} |- E (satisfiability implies)
+  and D1,D2 ∈ E (by search)
+
+3) Check C \ D1 U not D1 |- F (etc.)
+  This is not good
+*)
 Definition check_del_def:
-  (check_del [] obj cf id = SOME id) ∧
-  (check_del ((n,pf)::pfs) obj cf id =
+  (check_del [] obj c cf id = SOME id) ∧
+  (check_del ((n,pf)::pfs) obj c cf id =
     case lookup n cf of
       NONE => NONE
-    | SOME c =>
-      (let ncf = delete n cf in
-      let cfml = insert id (not c) ncf in
-      case check_ssteps pf obj LN cfml (id+1) of
-        Unsat id' => check_del pfs obj ncf id'
+    | SOME cl =>
+      (let nc = delete n c in
+      let ncf = delete n cf in
+      case check_ssteps pf obj nc ncf id of
+        Cont ncf' id' =>
+        if lookup (id'-1) ncf' = SOME cl
+        then check_del pfs obj nc ncf id'
+        else NONE
       | res => NONE))
 End
 
@@ -884,7 +934,8 @@ Definition hide_def:
 End
 
 Theorem range_delete_IN:
-  lookup n f = SOME c ∧ c' ∈ range f ⇒
+  c' ∈ range f ∧
+  lookup n f = SOME c ⇒
   c = c' ∨ c' ∈ range (delete n f)
 Proof
   rw[range_def,lookup_delete]>>
@@ -893,9 +944,10 @@ Proof
 QED
 
 Theorem check_del_correct:
-  ∀pfs obj cf id id'.
+  ∀pfs obj c cf id id'.
   id_ok cf id ∧
-  check_del pfs obj cf id = SOME id' ⇒
+  domain c = domain cf ∧
+  check_del pfs obj c cf id = SOME id' ⇒
     hide (id ≤ id' ∧
     set (MAP FST pfs) ⊆ domain cf ∧
     sat_obj obj
@@ -908,10 +960,8 @@ Proof
     simp[hide_def,sat_obj_refl]>>
   every_case_tac>>gs[]>>
   `id_ok (delete n cf) id` by fs[id_ok_def]>>
-  drule id_ok_insert_1>>
-  disch_then (qspec_then `not x` assume_tac)>>
   drule check_ssteps_correct>>
-  disch_then (qspecl_then [`pf`,`obj`,`LN`] assume_tac)>>
+  disch_then (qspecl_then [`pf`,`obj`,`delete n c`] assume_tac)>>
   gs[]>>
   qpat_x_assum`_ ⇒ _` mp_tac>>
   impl_tac >-
@@ -921,18 +971,23 @@ Proof
     fs[domain_lookup,SUBSET_DEF]>>
   drule sat_obj_trans>>
   disch_then match_mp_tac>>
-  simp[sat_obj_def]>>
-  rw[]>>
-  fs[satisfiable_def]>>
-  qexists_tac`w`>>fs[satisfies_def]>>
-  qpat_x_assum`!w. ∃c. _` mp_tac>>
-  DEP_REWRITE_TAC[range_insert]>>
-  CONJ_TAC >-
-    fs[domain_delete,id_ok_def]>>
-  rw[]>>
+  match_mp_tac (GEN_ALL sat_obj_fml_SUBSET)>>
+  asm_exists_tac>>
+  fs[SUBSET_DEF]>>rw[]>>
   drule range_delete_IN>>
   disch_then drule>>
-  metis_tac[not_thm]
+  rw[]
+  >-
+    (fs[range_def]>>metis_tac[])>>
+  fs[range_def,domain_lookup,PULL_EXISTS,lookup_delete]>>
+  first_x_assum drule_all>>
+  strip_tac>>
+  rename1`lookup xxx a = _`>>
+  last_x_assum(qspec_then`xxx` assume_tac)>>
+  gs[lookup_inter,lookup_delete]>>
+  `xxx ∈ domain c` by metis_tac[domain_lookup]>>
+  gs[domain_lookup]>>
+  metis_tac[]
 QED
 
 Definition check_obj_def:
@@ -957,8 +1012,7 @@ Definition model_improving_def:
     SOME f =>
        not ((f,v):npbc)
   | _ =>
-    (* This should never happen *)
-    ([],0)
+       not (([],v):npbc)
 End
 
 Definition check_cstep_def:
@@ -974,7 +1028,7 @@ Definition check_cstep_def:
       Cont (core, FOLDL (λa b. delete b a) fml ls, bound) id
     else (
       let cf = coref core fml in
-      case check_del pfs obj cf id of NONE => Fail
+      case check_del pfs obj core cf id of NONE => Fail
       | SOME id' =>
       let pids = MAP FST pfs in (* optimize and change later *)
       if EVERY (λid. MEM id pids) cdel then
@@ -1069,6 +1123,22 @@ Proof
   rpt(TOP_CASE_TAC>>fs[])
 QED
 
+Theorem range_coref_insert_2:
+  h ∉ domain fml ∧ domain core ⊆ domain fml ⇒
+  range (coref (insert h () core) (insert h c fml)) =
+  c INSERT range (coref core fml)
+Proof
+  DEP_REWRITE_TAC [range_coref_insert]>>
+  simp[lookup_insert]>>
+  rw[]>>AP_TERM_TAC>>
+  match_mp_tac range_coref_cong>>
+  fs[lookup_inter,lookup_insert]>>
+  rw[]>>
+  fs[domain_lookup,SUBSET_DEF]>>
+  every_case_tac>>fs[]>>
+  metis_tac[option_CLAUSES]
+QED
+
 Theorem range_coref_delete:
   h ∉ domain core ⇒
   range (coref core (delete h fml)) =
@@ -1124,14 +1194,6 @@ Proof
   rw[valid_conf_def]
   >- fs[SUBSET_DEF]>>
   metis_tac[sat_obj_trans]
-QED
-
-Theorem satisfies_SUBSET:
-  Y ⊆ X ⇒
-  (satisfies w X ⇒ satisfies w Y)
-Proof
-  rw[satisfies_def]>>
-  metis_tac[SUBSET_DEF]
 QED
 
 Theorem satisfiable_SUBSET:
@@ -1248,6 +1310,15 @@ Proof
   metis_tac[]
 QED
 
+Theorem satisfies_npbc_model_improving:
+  satisfies_npbc w (model_improving obj ov) ⇔
+  eval_obj obj w < ov
+Proof
+  fs[model_improving_def,eval_obj_def]>>
+  every_case_tac>>
+  rw[not_thm,satisfies_npbc_def]
+QED
+
 Theorem check_cstep_correct:
   ∀cstep obj bound core fml id.
   id_ok fml id ∧
@@ -1328,7 +1399,8 @@ Proof
       fs[id_ok_def,domain_coref,valid_conf_def]>>
       metis_tac[SUBSET_DEF])>>
     drule check_del_correct>>
-    disch_then drule>>
+    disch_then (drule_at Any)>>
+    simp[domain_coref]>>
     strip_tac>>fs[hide_def,range_FOLDL_delete_coref]>>
     CONJ_TAC >- (
       `id_ok fml x` by fs[id_ok_def]>>
@@ -1390,16 +1462,38 @@ Proof
     ntac 6 strip_tac>>
     simp[check_obj_def]>>
     IF_CASES_TAC>>fs[opt_le_def]>>
+    qmatch_goalsub_abbrev_tac`model_improving obj ov`>>
     CONJ_TAC >- fs[id_ok_def]>>
-    CONJ_TAC >- cheat>>
-    CONJ_ASM1_TAC
+    CONJ_TAC >- (
+      fs[valid_conf_def]>>rw[]
+      >-
+        fs[SUBSET_DEF]>>
+      fs[sat_obj_def]>>rw[]>>
+      `id ∉ domain fml` by fs[id_ok_def]>>
+      drule_all range_coref_insert_2>>
+      rw[]>>gs[]>>
+      first_x_assum drule>>
+      rw[]>>
+      qexists_tac`w'`>>simp[range_insert]>>
+      fs[satisfies_npbc_model_improving])>>
+    CONJ_TAC
     >- (
       simp[sat_obj_le_def]>>
-      qmatch_goalsub_abbrev_tac`_ ≤ (eval_obj obj w)`>>
+      qmatch_asmsub_abbrev_tac`eval_obj obj w`>>
       qexists_tac`w`>>simp[opt_le_def]>>
       fs[range_toAList,satisfies_def,EVERY_MEM])>>
-    simp[equi_obj_def]>>
-    cheat
+    `id ∉ domain fml` by fs[id_ok_def]>>
+    fs[valid_conf_def]>>
+    drule_all range_coref_insert_2>>
+    rw[]>>
+    simp[equi_obj_def,imp_obj_def]>>
+    rw[]
+    >- (
+      fs[sat_obj_le_def,satisfies_npbc_model_improving,opt_lt_def]>>
+      first_assum (irule_at Any)>>
+      fs[])>>
+    fs[sat_obj_le_def]>>
+    metis_tac[]
   )
 QED
 

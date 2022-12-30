@@ -390,22 +390,45 @@ QED
 
 Definition not_def:
   not ((l,n):npbc) =
-    (MAP (λ(c,l). (0 - c,l)) l,
+    (MAP (λ(c,l). (-c,l)) l,
       SUM (MAP (λi. Num (ABS (FST i))) l) + 1 - n)
 End
+
+Theorem ADD_SUB:
+  B ≥ C ⇒
+  A + (B - C) = A + B - C
+Proof
+  rw[]
+QED
+
+Theorem ABS_coeff_ge:
+  SUM (MAP (λi. Num (ABS (FST i))) l) ≥ SUM (MAP (eval_term w) l)
+Proof
+  Induct_on`l`>>fs[FORALL_PROD]>>rw[]
+  \\ Cases_on ‘w p_2’ \\ fs []
+QED
+
+Theorem not_lhs:
+  SUM (MAP (eval_term w) (MAP (λ(c,l). (-c,l)) l)) =
+  SUM (MAP (λi. Num (ABS (FST i))) l) -
+  SUM (MAP (eval_term w) l)
+Proof
+  Induct_on`l`>>fs[FORALL_PROD]>>rw[]
+  >- intLib.ARITH_TAC
+  \\ Cases_on ‘w p_2’ \\ fs []
+  \\ TRY (last_x_assum (fn th => rewrite_tac [GSYM th]) \\ gvs [] \\ NO_TAC)
+  \\ Cases_on ‘p_1’ \\ gvs []
+  \\ DEP_REWRITE_TAC[ADD_SUB]
+  \\ metis_tac[ABS_coeff_ge]
+QED
 
 Theorem not_thm:
   satisfies_npbc w (not c) ⇔ ~satisfies_npbc w c
 Proof
   Cases_on ‘c’ \\ fs [not_def,satisfies_npbc_def,GREATER_EQ]
-  \\ qid_spec_tac ‘r’
-  \\ qid_spec_tac ‘q’
-  \\ Induct \\ fs [FORALL_PROD] \\ rw []
-  \\ Cases_on ‘w p_2’ \\ fs []
-  \\ TRY (last_x_assum (fn th => rewrite_tac [GSYM th]) \\ gvs [] \\ NO_TAC)
-  \\ Cases_on ‘p_1’ \\ gvs []
-  \\ Cases_on ‘n ≤ r’ \\ fs []
-  \\ last_x_assum (qspec_then ‘r-n’ assume_tac) \\ gvs []
+  \\ simp[not_lhs]
+  \\ DEP_REWRITE_TAC[ADD_SUB]
+  \\ simp[ABS_coeff_ge]
 QED
 
 Theorem compact_not:
@@ -717,28 +740,35 @@ Definition subst_aux_def:
       | SOME (INR (Neg n)) => (old,(0-c,n)::new,k)
 End
 
-Definition subst_def:
-  subst f (l,n) =
+Definition subst_lhs_def:
+  subst_lhs f l =
     let (old,new,k) = subst_aux f l in
     let (sorted,k2) = clean_up new in
     let (result,k3) = add_lists old sorted in
-      (result, n - (k + k2 + k3))
+    (result, k + k2 + k3)
 End
 
-Theorem subst_thm:
-  satisfies_npbc w (subst f c) = satisfies_npbc (assign f w) c
+Definition subst_def:
+  subst f (l,n) =
+  let (result,k) = subst_lhs f l in
+      (result, n - k)
+End
+
+Theorem subst_lhs_thm:
+  subst_lhs f l = (result,k) ⇒
+  SUM (MAP (eval_term (assign f w)) l) =
+  SUM (MAP (eval_term w) result) + k
 Proof
-  Cases_on ‘c’ \\
-  rename1‘(l,n)’ \\
-  fs [satisfies_npbc_def,subst_def]
-  \\ rpt (pairarg_tac \\ gvs [satisfies_npbc_def,GREATER_EQ])
+  fs [subst_lhs_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ rw[]
   \\ qsuff_tac
     ‘∀l old new k.
         subst_aux f l = (old,new,k) ⇒
         SUM (MAP (eval_term (assign f w)) l) =
         k + SUM (MAP (eval_term w) old ++ MAP (eval_term w) new)’
-  >-
-   (disch_then $ drule_then assume_tac \\ fs [SUM_APPEND]
+  >- (
+    disch_then $ drule_then assume_tac \\ fs [SUM_APPEND]
     \\ drule_then (qspec_then ‘w’ assume_tac) clean_up_thm
     \\ drule_then (qspec_then ‘w’ assume_tac) add_lists_thm
     \\ gvs [])
@@ -750,6 +780,17 @@ Proof
   \\ fs[SUM_APPEND]
   \\ rename1`b2n (w a)`
   \\ Cases_on ‘w a’ \\ fs [SUM_APPEND]
+QED
+
+Theorem subst_thm:
+  satisfies_npbc w (subst f c) = satisfies_npbc (assign f w) c
+Proof
+  Cases_on ‘c’ \\
+  rename1‘(l,n)’ \\
+  fs [satisfies_npbc_def,subst_def] \\
+  pairarg_tac \\ fs[] \\
+  drule subst_lhs_thm \\ strip_tac \\
+  simp[satisfies_npbc_def]
 QED
 
 (* The returned flag is T if any literal touched by the constraint is
@@ -847,7 +888,7 @@ QED
 Theorem subst_opt_SOME:
   subst_opt f c = SOME v ⇒ v = subst f c
 Proof
-  Cases_on ‘c’ \\ fs [subst_opt_def,subst_def]
+  Cases_on ‘c’ \\ fs [subst_opt_def,subst_def,subst_lhs_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ drule_all subst_opt_aux_thm_1
   \\ rw [] \\ gvs []
@@ -876,7 +917,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ rw[]
   >- (
-    simp[subst_def]>>
+    simp[subst_def,subst_lhs_def]>>
     rpt (pairarg_tac \\ fs [])>>
     drule subst_opt_aux_thm_1>>
     rw[]>>fs[]>>rw[]>>
@@ -897,7 +938,7 @@ Theorem compact_subst:
 Proof
   Cases_on ‘c’ \\
   rename1`(l,n)` \\
-  fs [compact_def,subst_def]
+  fs [compact_def,subst_def,subst_lhs_def]
   \\ rpt (pairarg_tac \\ fs []) \\ strip_tac
   \\ qsuff_tac ‘∀l old new k.
        SORTED $< (MAP SND l) ∧ EVERY (λc. c ≠ 0) (MAP FST l) ∧ subst_aux f l = (old,new,k) ⇒
@@ -1199,6 +1240,83 @@ Proof
   fs[optimal_def,PULL_EXISTS]>>rw[]>>
   first_x_assum drule>>
   rw[]
+QED
+
+(* Preserving satisfiability and optimality *)
+Definition sat_obj_def:
+  sat_obj fopt s t ⇔
+  ∀w.
+    satisfies w s ⇒
+    ∃w'. satisfies w' t ∧
+      eval_obj fopt w' ≤ eval_obj fopt w
+End
+
+Definition redundant_wrt_obj_def:
+  redundant_wrt_obj f obj c ⇔
+    sat_obj obj f (f ∪ {c})
+End
+
+(* the solution improving constraint is given by
+  l + -l|w ≥ 0 *)
+Definition obj_constraint_def:
+  obj_constraint f l =
+    let (result, k) = subst_lhs f (MAP (λ(c,l). (-c,l)) l) in
+    let (add,n) = add_lists l result in
+    (add, SUM (MAP (λi. Num (ABS (FST i))) l) - (k + n))
+End
+
+Theorem add_ge:
+  x ≥ y - z ⇔
+  x + z ≥ y
+Proof
+  rw[]
+QED
+
+Theorem add_ge_2:
+  y ≥ z ⇒
+  (x + (y-z) ≥ y ⇔ x ≥ z)
+Proof
+  rw[]
+QED
+
+Theorem satisfies_npbc_obj_constraint:
+  satisfies_npbc s (obj_constraint w obj) ⇔
+  eval_obj (SOME obj) (assign w s) ≤ eval_obj (SOME obj) s
+Proof
+  rw[obj_constraint_def,eval_obj_def]>>
+  rpt(pairarg_tac>>fs[])>>
+  simp[satisfies_npbc_def,add_ge]>>
+  `n + SUM (MAP (eval_term s) add') = SUM (MAP (eval_term s) add') + n` by fs[]>>
+  pop_assum SUBST_ALL_TAC>>
+  drule add_lists_thm >>
+  disch_then(qspec_then `s` sym_sub_tac)>>
+  `k + (SUM (MAP (eval_term s) obj) + SUM (MAP (eval_term s) result)) = SUM (MAP (eval_term s) obj) + (SUM (MAP (eval_term s) result) + k)` by fs[]>>
+  pop_assum SUBST_ALL_TAC>>
+  drule subst_lhs_thm>>
+  disch_then(qspec_then `s` sym_sub_tac)>>
+  simp[not_lhs]>>
+  DEP_REWRITE_TAC [add_ge_2]>>
+  simp[ABS_coeff_ge]
+QED
+
+Theorem substitution_redundancy_obj:
+  f ∪ {not c} ⊨ ((f ∪ {c}) ⇂ w ∪
+    (case obj of NONE => {} | SOME obj => {obj_constraint w obj}))
+  ⇒
+  redundant_wrt_obj f obj c
+Proof
+  rw[redundant_wrt_obj_def, sat_obj_def,not_thm,sat_implies_def]
+  \\ rename1`satisfies s f`
+  \\ Cases_on ‘satisfies_npbc s c’
+  >-
+    metis_tac[LESS_EQ_REFL]
+  \\ first_x_assum drule_all
+  \\ rw [subst_thm]
+  \\ first_x_assum $ irule_at Any
+  \\ every_case_tac
+  >-
+    fs [eval_obj_def,satisfies_def,PULL_EXISTS,subst_thm]
+  \\ fs [satisfies_def,PULL_EXISTS,subst_thm,satisfies_npbc_obj_constraint]
 QED
 
 val _ = export_theory();
