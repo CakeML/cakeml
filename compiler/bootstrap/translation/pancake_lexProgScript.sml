@@ -60,28 +60,77 @@ val _ = register_type “:panLexer$token”;
 
 val _ = ml_translatorLib.use_string_type false;
 
-Theorem num_from_dec_string_side_lemma:
-  ∀x. num_from_dec_string_side x
-Proof
+val _ = translate pancake_lex_def;
 
+Theorem unhex_alt_1_side[local]:
+  ∀x. unhex_alt_1_side x
+Proof
+  simp[Once (fetch "-" "unhex_alt_1_side_def"),
+       Once (fetch "lexerProg" "unhex_side_def"),
+       isHexDigit_def]>>
+  Cases>>
+  fs[ORD_CHR]>>
+  strip_tac>>
+  fs[]
 QED
 
-Theorem next_token_2_side_lemma:
-  ∀x. next_token_2 x
-Proof
+val _ = update_precondition unhex_alt_1_side;
 
+Theorem num_from_dec_string_alt_1_side[local]:
+  ∀x. num_from_dec_string_alt_1_side x
+Proof
+  simp[Once (fetch"-""num_from_dec_string_alt_1_side_def")]>>
+  strip_tac>>CONJ_TAC
+  >-
+    simp[Once (fetch"lexerProg""s2n_side_def"), (fetch "lexerProg" "l2n_side")]
+  >>
+    simp[Once (fetch"-""unhex_alt_1_side_def"),Once (fetch"lexerProg""unhex_side_def"),isDigit_def,isHexDigit_def]>>Cases>>
+    fs[ORD_CHR]>>
+    strip_tac>>
+    fs[]
 QED
 
-Theorem pancake_lex_aux_side_lemma:
-  ∀x. pancake_lex_aux x
-Proof
+val _ = update_precondition num_from_dec_string_alt_1_side;
 
+Theorem next_atom_side[local]:
+  ∀x y. next_atom_side x y
+Proof
+  ho_match_mp_tac next_atom_ind>>
+  rw []>>
+  simp [Once (fetch "-" "next_atom_side_def")]>>
+  rpt strip_tac >>
+  fs [num_from_dec_string_alt_1_side]
 QED
 
-Theorem pancake_lex_side_lemma:
+val _ = update_precondition next_atom_side;
+
+Theorem next_token_2_side[local]:
+  ∀x y. next_token_2_side x y
+Proof
+  simp [Once (fetch "-" "next_token_2_side_def"), next_atom_side]
+QED
+
+val _ = update_precondition next_token_2_side;
+
+Theorem pancake_lex_aux_side[local]:
+  ∀s n. pancake_lex_aux_side s n
+Proof
+  ho_match_mp_tac pancake_lex_aux_ind>>rw[]>>
+  simp [Once (fetch "-" "pancake_lex_aux_side_def"), next_token_2_side]
+QED
+
+val _ = update_precondition pancake_lex_aux_side;
+
+Theorem pancake_lex_side[local]:
   ∀x. pancake_lex_side x
 Proof
-
+  simp[Once (fetch "-" "pancake_lex_side_def"), pancake_lex_aux_side]
 QED
 
-val _ = translate pancake_lex_def;
+val _ = update_precondition pancake_lex_side;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
+
+val _ = (ml_translatorLib.clean_on_exit := true);
+
+val _ = export_theory();

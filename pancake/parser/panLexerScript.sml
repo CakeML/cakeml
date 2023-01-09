@@ -170,6 +170,14 @@ Proof
   >> fs[LE]
 QED
 
+Definition unhex_alt_def:
+  unhex_alt x = if isHexDigit x then UNHEX x else 0n
+End
+
+Definition num_from_dec_string_alt_def:
+  num_from_dec_string_alt = s2n 10 unhex_alt
+End
+
 Definition next_atom_def:
   next_atom "" _ = NONE ∧
   next_atom (c::cs) loc =
@@ -179,12 +187,12 @@ Definition next_atom_def:
       next_atom cs (next_loc 1 loc)
     else if isDigit c then
       let (n, cs') = read_while isDigit cs [c] in
-        SOME (NumberA &(toNum n),
+        SOME (NumberA &(num_from_dec_string_alt n),
               Locs loc (next_loc (LENGTH n) loc),
               cs')
     else if c = #"-" ∧ cs ≠ "" ∧ isDigit (HD cs) then
       let (n, rest) = read_while isDigit cs [] in
-      SOME (NumberA (0 - &(toNum n)),
+      SOME (NumberA (0 - &(num_from_dec_string_alt n)),
             Locs loc (next_loc (LENGTH n) loc),
             rest)
     else if isPREFIX "//" (c::cs) then (* comment *)
