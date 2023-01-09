@@ -9,9 +9,8 @@ open caml_parserProgTheory;
 val _ = new_theory "pancake_lexProg"
 
 val _ = translation_extends "caml_parserProg";
-val _ = ml_translatorLib.use_string_type true;
-val _ = register_type “:panLexer$token”;
-val _ = ml_translatorLib.use_string_type false;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "pancake_lexerProg");
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
@@ -56,23 +55,33 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-val _ = translate IMPLODE_def;
+val _ = ml_translatorLib.use_string_type true;
+val _ = register_type “:panLexer$token”;
 
-val _ = translate read_while_def
+val _ = ml_translatorLib.use_string_type false;
 
-val res = translate_no_ind (next_atom_def |> SIMP_RULE std_ss [low_row_def])
+Theorem num_from_dec_string_side_lemma:
+  ∀x. num_from_dec_string_side x
+Proof
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ fs [FORALL_PROD, low_row_def])
-  |> update_precondition;
+QED
 
-val _ = translate next_token_def
+Theorem next_token_2_side_lemma:
+  ∀x. next_token_2 x
+Proof
 
-val _ = translate pancake_lex_def
+QED
+
+Theorem pancake_lex_aux_side_lemma:
+  ∀x. pancake_lex_aux x
+Proof
+
+QED
+
+Theorem pancake_lex_side_lemma:
+  ∀x. pancake_lex_side x
+Proof
+
+QED
+
+val _ = translate pancake_lex_def;
