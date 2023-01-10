@@ -1615,6 +1615,7 @@ val type_e_subst_lem = Q.prove (
  >> disch_then (qspec_then `Bind_name x 0 t1 Empty` mp_tac)
  >> simp [db_merge_def, deBruijn_subst_tenvE_def, deBruijn_inc0]);
 
+
  (*
 (* ---------- tid_exn_to_tc ---------- *)
 
