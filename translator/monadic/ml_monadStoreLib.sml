@@ -14,6 +14,8 @@ open ml_monadBaseTheory ml_monad_translatorBaseTheory ml_monad_translatorTheory 
 open Redblackmap AC_Sort Satisfy
 open ml_translatorLib
 
+val filter = List.filter (* reverse masking by Redblackmap's filter *)
+
 (* COPY/PASTE from other manual eval_rel proofs *)
 fun derive_eval_thm for_eval v_name e = let
   val env = get_ml_prog_state () |> get_env
