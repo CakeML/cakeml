@@ -275,4 +275,39 @@ Definition pat_bindings_def:
   pats_bindings ps (pat_bindings p already_bound)
 End
 
+Definition every_exp_def[simp]:
+  (every_exp p (Raise e) ⇔
+             p (Raise e) ∧ every_exp p e) ∧
+  (every_exp p (Handle e pes) ⇔
+             p (Handle e pes) ∧ every_exp p e ∧ EVERY (λ(pat,e). every_exp p e) pes) ∧
+  (every_exp p (ast$Lit l) ⇔
+             p (ast$Lit l)) ∧
+  (every_exp p (Con cn es) ⇔
+             p (Con cn es) ∧ EVERY (every_exp p) es) ∧
+  (every_exp p (Var v) ⇔
+             p (Var v)) ∧
+  (every_exp p (Fun x e) ⇔
+             p (Fun x e) ∧ every_exp p e) ∧
+  (every_exp p (App op es) ⇔
+             p (App op es) ∧ EVERY (every_exp p) es) ∧
+  (every_exp p (Log lop e1 e2) ⇔
+             p (Log lop e1 e2) ∧ every_exp p e1 ∧ every_exp p e2) ∧
+  (every_exp p (If e1 e2 e3) ⇔
+             p (If e1 e2 e3) ∧ every_exp p e1 ∧ every_exp p e2 ∧ every_exp p e3) ∧
+  (every_exp p (Mat e pes) ⇔
+             p (Mat e pes) ∧ every_exp p e ∧ EVERY (λ(pat,e). every_exp p e) pes) ∧
+  (every_exp p (Let x e1 e2) ⇔
+             p (Let x e1 e2) ∧ every_exp p e1 ∧ every_exp p e2) ∧
+  (every_exp p (Tannot e a) ⇔
+             p (Tannot e a) ∧ every_exp p e) ∧
+  (every_exp p (Lannot e a) ⇔
+             p (Lannot e a) ∧ every_exp p e) ∧
+  (every_exp p (FpOptimise sc e) ⇔
+             p (FpOptimise sc e) ∧ every_exp p e) ∧
+  (every_exp p (Letrec funs e) ⇔
+             p (Letrec funs e) ∧ every_exp p e ∧ EVERY (λ(n,v,e). every_exp p e) funs)
+Termination
+  WF_REL_TAC ‘measure $ exp_size o SND’
+End
+
 val _ = export_theory()
