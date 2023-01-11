@@ -1,7 +1,7 @@
 (*
   Formalisation of a syntax and semantics for MILP
 *)
-open preamble RatProgTheory;
+open preamble RatProgTheory sptree_unionWithTheory;
 
 val _ = new_theory "milp";
 
@@ -9,8 +9,6 @@ val _ = numLib.prefer_num();
 
 (* x |-> r *)
 Type lin_term = ``: real num_map``;
-(* x |-> r or i *)
-Type mix_val = ``: (num -> real) # (num -> int)``;
 
 Definition eval_real_term_def:
   eval_real_term w (x,r:real) = (r * w x):real
@@ -135,9 +133,13 @@ Definition check_sol_def:
   check_obj obj r sol
 End
 
-(* Syntactic formulae are given by a sptree of (milc list, milc) *)
+(* Syntactic formulae are given by a sptree of implication
+  constraints with type (milc list, milc)
+  TODO: add support for deletion *)
 Datatype:
   vipr = Assum milc
+  | Lin milc ((num,real) alist)
+  | Round milc ((num,real) alist)
 End
 
 (* Check that a given LHS is int valued *)
@@ -207,9 +209,120 @@ Proof
   metis_tac[realTheory.REAL_LE_TRANS,realaxTheory.real_ge]
 QED
 
+Definition add_r_def:
+  add_r r v v' =
+  let s = v + r *v in if s = 0:real then NONE else SOME s
+End
+
+Definition add_def:
+  add (lhs,n) (r:real) (lhs',n') =
+  (unionWith (add_r r) lhs lhs', n + r * n')
+End
+
+Definition slop_def:
+  (slop Equal = 0:real) ∧
+  (slop GreaterEqual = 1) ∧
+  (slop LessEqual = -1)
+End
+
+Definition compat_def:
+  (compat GreaterEqual lop r ⇔ r * slop lop ≥ 0) ∧
+  (compat Equal lop r ⇔ r * slop lop = 0) ∧
+  (compat LessEqual lop r ⇔ r * slop lop ≤ 0)
+End
+
+(* NOTE: This currently adds back to front.
+  The linear combination must be compatible with the final lop *)
+Definition lin_comb_def:
+  (lin_comb lop [] = SOME (LN,0)) ∧
+  (lin_comb lop (((lop',c),r)::xs) =
+    case lin_comb lop xs of
+    NONE => NONE
+  | SOME ys =>
+    if compat lop lop' r then
+      SOME (add ys r c)
+    else NONE
+  )
+End
+
+(* TODO seems nasty, maybe avoid toAList *)
+Theorem eval_lhs_unionWith:
+  eval_lhs w
+  (unionWith (add_r r) lhs lhs') =
+  eval_lhs w lhs + r * eval_lhs w lhs'
+Proof
+  rw[eval_lhs_def]>>
+  cheat
+QED
+
+Theorem mul_neg_le[simp]:
+  (r * -1 ≤ 0:real ⇔ 0 ≤ r) ∧
+  (0 ≤ r * -1 ⇔ r ≤ 0)
+Proof
+  simp[realTheory.REAL_MUL_SIGN]
+QED
+
+Theorem compat_add_sound:
+  satisfies_milc w (lop,x) ∧
+  satisfies_milc w (lop',y) ∧
+  compat lop lop' r ⇒
+  satisfies_milc w (lop,add x r y)
+Proof
+  Cases_on`lop`>>Cases_on`lop'`>>
+  Cases_on`x`>>Cases_on`y`>>rw[]>>
+  fs[compat_def,satisfies_milc_def,slop_def,add_def]>>
+  fs[eval_lhs_unionWith,realaxTheory.real_ge]>>
+  metis_tac[realTheory.REAL_LE_LMUL1,realTheory.REAL_LE_ADD2,realTheory.REAL_LE_LMUL_NEG_IMP]
+QED
+
+Theorem lin_comb_sound:
+  ∀xs ys.
+  lin_comb lop xs = SOME ys ∧
+  EVERY (satisfies_milc w) (MAP FST xs) ⇒
+  satisfies_milc w (lop,ys)
+Proof
+  Induct>>rw[lin_comb_def]
+  >- (
+    Cases_on`lop`>>rw[satisfies_milc_def]>>
+    EVAL_TAC>>
+    simp[realTheory.REAL_LE_REFL,realaxTheory.real_ge])>>
+  PairCases_on`h`>>
+  fs[lin_comb_def]>>
+  every_case_tac>>fs[]>>
+  metis_tac[compat_add_sound]
+QED
+
+(* TODO: change to accumulator and union assms instead *)
+Definition lookup_all_lhs_def:
+  (lookup_all_lhs fml [] = SOME ([],[])) ∧
+  (lookup_all_lhs fml ((i,r)::xs) =
+  case lookup_all_lhs fml xs of NONE => NONE
+  | SOME (assms,ys) =>
+    case lookup i fml of NONE => NONE
+    | SOME (assm,y) => SOME (assm ++ assms,(y,r)::ys))
+End
+
+Definition do_lin_def:
+  do_lin fml lop lhs =
+  case lookup_all_lhs fml lhs of NONE => NONE
+  | SOME (assms,xs) =>
+    case lin_comb lop xs of NONE => NONE
+    | SOME res => SOME (assms,(lop,res))
+End
+
 Definition check_vipr_def:
-  check_vipr fml id (Assum milc) =
-    SOME (insert id ([id],milc) fml, id+1)
+  (check_vipr intv fml id (Assum milc) =
+    SOME (insert id ([id],milc) fml, id+1)) ∧
+  (check_vipr intv fml id (Lin milc lhs) =
+    case do_lin fml (FST milc) lhs of NONE => NONE
+    | SOME res =>
+      SOME (insert id res fml, id+1)) ∧
+  (check_vipr intv fml id (Round milc lhs) =
+    case do_lin fml (FST milc) lhs of NONE => NONE
+    | SOME (assms,milc) =>
+      case round_milc intv milc of NONE => NONE
+      | SOME milc' =>
+      SOME (insert id (assms,milc') fml, id+1))
 End
 
 Theorem is_int_add_mul:
@@ -379,43 +492,73 @@ Definition id_ok_def:
   ∀n. id ≤ n ⇒ n ∉ domain fml
 End
 
-(* check the main body of a VIPR proof *)
-Theorem check_vipr_sound:
-  check_vipr fml id vipr = SOME (fml',id') ∧
+Theorem satisfies_imp_milp_insert:
+  satisfies_imp_milp w
+  (IMAGE (get_assms fml) (range fml)) ∧
   id_ok fml id ∧
   good_fml fml ∧
-  satisfies_imp_milp w (IMAGE (get_assms fml) (range fml)) ⇒
-  satisfies_imp_milp w (IMAGE (get_assms fml') (range fml'))
+  ((∀id'.
+  MEM id' (FST x) ⇒
+  satisfies_milc w (SND (THE (lookup id' (insert id x fml))))) ⇒
+  satisfies_milc w (SND x))
+  ⇒
+  satisfies_imp_milp w
+  (IMAGE (get_assms (insert id x fml)) (range (insert id x fml)))
 Proof
-  Cases_on`vipr`>>rw[check_vipr_def]
+  fs[satisfies_imp_milp_def,id_ok_def,PULL_EXISTS]>>
+  rw[]>>
+  rename1`y ∈ _`>>
+  Cases_on`y`>>fs[get_assms_def]>>rw[]>>
+  pop_assum mp_tac>>
+  DEP_REWRITE_TAC [range_insert]>>
+  fs[]>>rw[]
+  >-
+    (fs[satisfies_imp_milc_def,MEM_MAP,PULL_EXISTS])
   >- (
-    fs[satisfies_imp_milp_def]>>
-    rw[]>>
-    Cases_on`x`>>fs[get_assms_def]>>rw[]>>
-    pop_assum mp_tac>>
-    DEP_REWRITE_TAC [range_insert]>>
-    fs[id_ok_def]>>
-    rw[]
-    >-
-      (fs[]>>rw[satisfies_imp_milc_def])>>
-    fs[good_fml_def]>>
-    first_x_assum drule>>rw[]>>
-    fs[PULL_EXISTS]>>
     first_x_assum (drule_at Any)>>
     simp[get_assms_def]>>rw[]>>
     fs[satisfies_imp_milc_def,MEM_MAP,lookup_insert,PULL_EXISTS]>>
     rw[]>>
     first_x_assum match_mp_tac>>
     rw[]>>
+    fs[good_fml_def]>>
+    first_x_assum drule>>rw[]>>
     first_x_assum drule>>
-    fs[EVERY_MEM]>>
-    `id' ≠ id` by (
-      first_x_assum drule>>
-      fs[is_assm_def,domain_lookup]>>
-      every_case_tac>>rw[]>>
-      first_x_assum(qspec_then`id` assume_tac)>>fs[]>>
-      metis_tac[option_CLAUSES])>>
+    fs[EVERY_MEM]>>rw[]>>
+    first_x_assum drule>>
+    fs[is_assm_def]>>
+    every_case_tac>>fs[domain_lookup]>>
+    last_x_assum(qspec_then`id` assume_tac)>>fs[])
+QED
+
+(* check the main body of a VIPR proof *)
+Theorem check_vipr_sound:
+  check_vipr intv fml id vipr = SOME (fml',id') ∧
+  id_ok fml id ∧
+  good_fml fml ∧
+  (∀v. v ∈ domain intv ⇒ is_int (w v)) ∧
+  satisfies_imp_milp w (IMAGE (get_assms fml) (range fml)) ⇒
+  satisfies_imp_milp w (IMAGE (get_assms fml') (range fml'))
+Proof
+  Cases_on`vipr`>>rw[check_vipr_def]
+  >- (
+    match_mp_tac satisfies_imp_milp_insert>>
     simp[])
+  >- (
+    every_case_tac>>fs[]>>
+    rw[]>>
+    match_mp_tac satisfies_imp_milp_insert>>
+    rw[]>>
+    fs[do_lin_def]>>every_case_tac>>fs[]>>
+    rw[]>>
+    match_mp_tac lin_comb_sound>>
+    asm_exists_tac>>fs[]>>
+    (* TODO: prove stuff about combining implications *)
+    cheat)
+  >- (
+    every_case_tac>>fs[]>>
+    rw[]>>
+    cheat)
 QED
 
 val _ = export_theory();

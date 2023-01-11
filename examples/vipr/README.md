@@ -6,3 +6,6 @@ Formalisation of a syntax and semantics for MILP
 
 [real_plusScript.sml](real_plusScript.sml):
 Addition of linear terms with real-valued coefficients
+
+[sptree_unionWithScript.sml](sptree_unionWithScript.sml):
+Define unionWith for sptrees

@@ -1,7 +1,7 @@
 (*
   Define unionWith for sptrees
 *)
-open preamble sptreeTheory realTheory
+open preamble sptreeTheory
 
 val _ = new_theory "sptree_unionWith"
 
@@ -9,7 +9,7 @@ Definition unionWith_def:
   unionWith f LN t = t ∧
   unionWith f (LS x) t =
     (case t of
-     | LN => LS (x:real)
+     | LN => LS x
      | BN t1 t2 => mk_BS t1 x t2
      | LS y =>
         (case f x y of NONE => LN | SOME r => LS r)
@@ -37,7 +37,8 @@ Theorem lookup_mk_BN_BS:
   lookup n (mk_BN t1 t2) = lookup n (BN t1 t2) ∧
   lookup n (mk_BS t1 x t2) = lookup n (BS t1 x t2)
 Proof
-  Cases_on ‘t1’ \\ Cases_on ‘t2’ \\ fs [mk_BS_def,mk_BN_def,lookup_def]
+  Cases_on ‘t1’ \\ Cases_on ‘t2’
+  \\ fs [mk_BS_def,mk_BN_def,lookup_def]
 QED
 
 Theorem wf_unionWith:
