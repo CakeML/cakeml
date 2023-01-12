@@ -1,17 +1,22 @@
 (*
   Formalisation of a syntax and semantics for MILP
 *)
-open preamble RatProgTheory sptree_unionWithTheory;
+open preamble RatProgTheory real_sigmaTheory sptree_unionWithTheory;
 
 val _ = new_theory "milp";
 
 val _ = numLib.prefer_num();
 
-(* x |-> r *)
+(* this should really be a finite map x |-> r *)
 Type lin_term = ``: real num_map``;
 
 Definition eval_real_term_def:
   eval_real_term w (x,r:real) = (r * w x):real
+End
+
+Definition eval_lhs_def:
+  eval_lhs w (lhs:lin_term) =
+  REAL_SUM_IMAGE (eval_real_term w) {(k,v) | lookup k lhs = SOME v}
 End
 
 Definition rSUM_def:
@@ -19,11 +24,32 @@ Definition rSUM_def:
   (rSUM (x::xs) = x + rSUM xs)
 End
 
-Definition eval_lhs_def:
+Theorem rSUM_REAL_SUM_IMAGE:
+  ALL_DISTINCT ls ⇒
+  rSUM (MAP f ls) =
+  REAL_SUM_IMAGE f (set ls)
+Proof
+  Induct_on`ls`>>rw[rSUM_def]>>
+  fs[]>>
+  fs[REAL_SUM_IMAGE_THM]>>
+  `set ls DELETE h = set ls` by
+    simp[GSYM DELETE_NON_ELEMENT]>>
+  simp[]
+QED
+
+Theorem eval_lhs_eq:
   eval_lhs w lhs =
     let xs = toAList lhs in
     rSUM (MAP (eval_real_term w) xs)
-End
+Proof
+  rw[eval_lhs_def]>>
+  DEP_REWRITE_TAC[rSUM_REAL_SUM_IMAGE]>>
+  rw[]
+  >-
+    metis_tac[ALL_DISTINCT_MAP_FST_toAList,ALL_DISTINCT_MAP]>>
+  AP_TERM_TAC>>
+  simp[EXTENSION,MEM_toAList,FORALL_PROD]
+QED
 
 (*
   Constraints have the form:
@@ -140,6 +166,7 @@ Datatype:
   vipr = Assum milc
   | Lin milc ((num,real) alist)
   | Round milc ((num,real) alist)
+  | Unsplit milc num num num num
 End
 
 (* Check that a given LHS is int valued *)
@@ -210,13 +237,18 @@ Proof
 QED
 
 Definition add_r_def:
-  add_r r v v' =
-  let s = v + r *v in if s = 0:real then NONE else SOME s
+  add_r v v' =
+  let s = v + v' in if s = 0:real then NONE else SOME s
+End
+
+Definition cmul_def:
+  cmul (r:real) (lhs: real num_map) =
+  (map (λv. (r * v)) lhs)
 End
 
 Definition add_def:
   add (lhs,n) (r:real) (lhs',n') =
-  (unionWith (add_r r) lhs lhs', n + r * n')
+  (unionWith add_r lhs (cmul r lhs'), n + r * n')
 End
 
 Definition slop_def:
@@ -245,14 +277,175 @@ Definition lin_comb_def:
   )
 End
 
-(* TODO seems nasty, maybe avoid toAList *)
-Theorem eval_lhs_unionWith:
-  eval_lhs w
-  (unionWith (add_r r) lhs lhs') =
-  eval_lhs w lhs + r * eval_lhs w lhs'
+Theorem kv_set_eq:
+  {(k,v) | lookup k lhs = SOME v} =
+  set (toAList lhs)
+Proof
+  rw[EXTENSION,FORALL_PROD,MEM_toAList]
+QED
+
+Theorem eval_lhs_sum:
+  eval_lhs w (lhs:lin_term) =
+  sum {(k,v) | lookup k lhs = SOME v}
+    (eval_real_term w)
 Proof
   rw[eval_lhs_def]>>
-  cheat
+  DEP_REWRITE_TAC[REAL_SUM_IMAGE_sum]>>
+  simp[kv_set_eq]
+QED
+
+Theorem eval_lhs_cmul:
+  eval_lhs w (cmul r lhs) =
+  r * eval_lhs w lhs
+Proof
+  simp[eval_lhs_sum,cmul_def,lookup_map]>>
+  simp[GSYM iterateTheory.SUM_LMUL]>>
+  Cases_on`r=0`
+  >- (
+    simp[iterateTheory.SUM_0']>>
+    match_mp_tac iterateTheory.SUM_EQ_0'>>
+    simp[PULL_EXISTS,eval_real_term_def])>>
+  match_mp_tac iterateTheory.SUM_EQ_GENERAL_INVERSES>>
+  rw[PULL_EXISTS]>>
+  qexists_tac`(λ(x,v).(x, r⁻¹ * v) )`>>
+  qexists_tac`(λ(x,v).(x, r * v) )`>> simp[]>>
+  simp[realTheory.REAL_MUL_ASSOC,realTheory.REAL_MUL_LINV,eval_real_term_def]
+QED
+
+Theorem eval_lhs_sum_2:
+  eval_lhs w (lhs:lin_term) =
+  sum (domain lhs)
+    (λk. eval_real_term w (k,THE (lookup k lhs)) )
+Proof
+  simp[eval_lhs_sum]>>
+  match_mp_tac iterateTheory.SUM_EQ_GENERAL_INVERSES>>
+  simp[PULL_EXISTS,domain_lookup]>>
+  qexists_tac`FST`>>simp[]>>
+  qexists_tac`λk. (k, THE (lookup k lhs))`>>simp[]
+QED
+
+Definition add_n_def:
+  add_n v v' =
+  SOME (v + v':real)
+End
+
+Theorem eval_lhs_unionWith_add_r_add_n:
+  eval_lhs w (unionWith add_r lhs lhs') =
+  eval_lhs w (unionWith add_n lhs lhs')
+Proof
+  rw[eval_lhs_sum] >>
+  simp[EQ_SYM_EQ]>>
+  match_mp_tac iterateTheory.SUM_SUPERSET>>
+  simp[SUBSET_DEF,PULL_EXISTS,lookup_unionWith]>>
+  rw[]>>
+  every_case_tac>>fs[add_r_def,add_n_def,eval_real_term_def]>>
+  metis_tac[]
+QED
+
+Theorem union_split_3:
+  (X ∪ Y) = (X DIFF Y) ∪ (Y DIFF X) ∪ X ∩ Y
+Proof
+  rw[EXTENSION,EQ_IMP_THM]>>
+  metis_tac[]
+QED
+
+Theorem domain_unionWith_add_n:
+  domain (unionWith add_n lhs lhs') =
+  (domain lhs DIFF domain lhs') ∪
+  (domain lhs' DIFF domain lhs) ∪
+  (domain lhs ∩ domain lhs')
+Proof
+  simp[GSYM union_split_3]>>
+  simp[EXTENSION,domain_lookup,lookup_unionWith]>>
+  rw[]>>EQ_TAC>>rw[]>>
+  fs[]>>
+  every_case_tac>>fs[add_n_def]
+QED
+
+Theorem DISJOINT_DIFF_INTER:
+  DISJOINT (X DIFF Y) (X ∩ Y) ∧
+  DISJOINT (Y DIFF X) (X ∩ Y) ∧
+  DISJOINT (X DIFF Y) (Y DIFF X)
+Proof
+  metis_tac[DISJOINT_DIFF,DISJOINT_SUBSET,INTER_SUBSET,DIFF_SUBSET]
+QED
+
+Theorem set_split_2:
+  X = X DIFF Y ∪ (X ∩ Y)
+Proof
+  rw[EXTENSION,EQ_IMP_THM]
+QED
+
+Theorem arith:
+  a + b + (c + d:real) =
+  a + c + (b + d)
+Proof
+  simp[realaxTheory.REAL_ADD_AC]
+QED
+
+Theorem arith2:
+  a = a' ∧ b = b' ⇒
+  a + b = a' + b':real
+Proof
+  simp[]
+QED
+
+Theorem eval_lhs_unionWith_add_r:
+  eval_lhs w lhs + eval_lhs w lhs' =
+  eval_lhs w (unionWith add_r lhs lhs')
+Proof
+  simp[eval_lhs_unionWith_add_r_add_n]>>
+  rw[eval_lhs_sum_2]>>
+  `domain lhs =
+    domain lhs DIFF domain lhs' ∪
+    domain lhs INTER domain lhs'` by
+    metis_tac[set_split_2]>>
+  `domain lhs' =
+    domain lhs' DIFF domain lhs ∪
+    domain lhs INTER domain lhs'` by
+    metis_tac[set_split_2,INTER_COMM]>>
+  pop_assum SUBST1_TAC>>
+  qmatch_goalsub_abbrev_tac`_ + A = _`>>
+  last_x_assum SUBST1_TAC>>
+  unabbrev_all_tac>>
+  simp[domain_unionWith_add_n]>>
+  DEP_REWRITE_TAC [iterateTheory.SUM_UNION]>>
+  simp[]>>
+  CONJ_TAC >-
+    simp[DISJOINT_DIFF_INTER]>>
+  simp[arith]>>
+  match_mp_tac arith2>>
+  reverse CONJ_TAC>-(
+    DEP_REWRITE_TAC[GSYM iterateTheory.SUM_ADD']>>
+    simp[]>>
+    match_mp_tac iterateTheory.SUM_EQ'>>
+    simp[lookup_unionWith,FORALL_PROD,domain_lookup]>>
+    rw[]>>
+    simp[eval_real_term_def,add_n_def]>>
+    simp[realaxTheory.REAL_RDISTRIB])>>
+  match_mp_tac arith2>>
+  CONJ_TAC>- (
+    match_mp_tac iterateTheory.SUM_EQ'>>
+    simp[lookup_unionWith,FORALL_PROD,domain_lookup]>>
+    rw[]>>
+    `lookup x lhs' = NONE` by
+      metis_tac[option_CLAUSES]>>
+    fs[])>>
+  match_mp_tac iterateTheory.SUM_EQ'>>
+  simp[lookup_unionWith,FORALL_PROD,domain_lookup]>>
+  rw[]>>
+  `lookup x lhs = NONE` by
+    metis_tac[option_CLAUSES]>>
+  fs[]
+QED
+
+Theorem eval_lhs_unionWith:
+  eval_lhs w (unionWith add_r lhs (cmul r lhs'))
+   =
+  eval_lhs w lhs + r * eval_lhs w lhs'
+Proof
+  simp[GSYM eval_lhs_cmul]>>
+  simp[eval_lhs_unionWith_add_r]
 QED
 
 Theorem mul_neg_le[simp]:
@@ -284,7 +477,7 @@ Proof
   Induct>>rw[lin_comb_def]
   >- (
     Cases_on`lop`>>rw[satisfies_milc_def]>>
-    EVAL_TAC>>
+    simp[eval_lhs_def]>>
     simp[realTheory.REAL_LE_REFL,realaxTheory.real_ge])>>
   PairCases_on`h`>>
   fs[lin_comb_def]>>
@@ -292,14 +485,14 @@ Proof
   metis_tac[compat_add_sound]
 QED
 
-(* TODO: change to accumulator and union assms instead *)
+(* TODO: change to accumulator and union assms instead of nub *)
 Definition lookup_all_lhs_def:
   (lookup_all_lhs fml [] = SOME ([],[])) ∧
   (lookup_all_lhs fml ((i,r)::xs) =
   case lookup_all_lhs fml xs of NONE => NONE
   | SOME (assms,ys) =>
     case lookup i fml of NONE => NONE
-    | SOME (assm,y) => SOME (assm ++ assms,(y,r)::ys))
+    | SOME (assm,y) => SOME (nub(assm ++ assms),(y,r)::ys))
 End
 
 Definition do_lin_def:
@@ -308,6 +501,40 @@ Definition do_lin_def:
   | SOME (assms,xs) =>
     case lin_comb lop xs of NONE => NONE
     | SOME res => SOME (assms,(lop,res))
+End
+
+Definition resolvable_def:
+  resolvable intv (lop,lhs,n) (lop',lhs',n') ⇔
+  lop = LessEqual ∧ lop'= GreaterEqual ∧ n' = (n+1:real) ∧
+  int_valued intv lhs ∧ lhs = lhs' ∧ is_int n
+End
+
+Definition lookup_2_def:
+  lookup_2 fml x y =
+  (case lookup x fml of NONE => NONE
+  | SOME x =>
+  (case lookup y fml of NONE => NONE
+  | SOME y => SOME (x,y)))
+End
+
+Definition delete_mem_def:
+  delete_mem l xs =
+  FILTER (λx. x <> l) xs
+End
+
+Definition unsplit_def:
+  unsplit intv fml i1 l1 i2 l2 milc =
+  case lookup_2 fml i1 i2 of NONE => NONE
+  | SOME ((a1,is1),(a2,is2)) =>
+  if MEM l1 a1 ∧ MEM l2 a2 then
+  (case lookup_2 fml l1 l2 of NONE => NONE
+  | SOME (ll1,ll2) =>
+    if resolvable intv (SND ll1) (SND ll2) ∧
+        dominates is1 milc ∧
+        dominates is2 milc
+    then SOME (nub (delete_mem l1 a1 ++ delete_mem l2 a2), milc)
+    else NONE)
+  else NONE
 End
 
 Definition check_vipr_def:
@@ -322,7 +549,11 @@ Definition check_vipr_def:
     | SOME (assms,milc) =>
       case round_milc intv milc of NONE => NONE
       | SOME milc' =>
-      SOME (insert id (assms,milc') fml, id+1))
+      SOME (insert id (assms,milc') fml, id+1)) ∧
+  (check_vipr intv fml id (Unsplit milc i1 l1 i2 l2) =
+    case unsplit intv fml i1 l1 i2 l2 milc of NONE => NONE
+    | SOME res =>
+      SOME (insert id res fml, id+1))
 End
 
 Theorem is_int_add_mul:
@@ -347,7 +578,7 @@ Theorem int_valued_is_int:
   ⇒
   is_int (eval_lhs w milc)
 Proof
-  rw[int_valued_def,eval_lhs_def]>>
+  rw[int_valued_def,eval_lhs_eq]>>
   rename1`is_int (rSUM (MAP _ ls))`>>
   Induct_on`ls`>>fs[rSUM_def]
   >-
@@ -531,6 +762,120 @@ Proof
     last_x_assum(qspec_then`id` assume_tac)>>fs[])
 QED
 
+Theorem satisfies_imp_milp_insert_2:
+  satisfies_imp_milp w
+  (IMAGE (get_assms fml) (range fml)) ∧
+  id_ok fml id ∧
+  good_fml fml ∧
+  EVERY (is_assm fml) (FST x) ∧
+  ((∀id'.
+  MEM id' (FST x) ⇒
+  satisfies_milc w (SND (THE (lookup id' fml)))) ⇒
+  satisfies_milc w (SND x))
+  ⇒
+  satisfies_imp_milp w
+  (IMAGE (get_assms (insert id x fml)) (range (insert id x fml)))
+Proof
+  rw[]>>
+  match_mp_tac satisfies_imp_milp_insert>>
+  rw[]>>
+  first_x_assum match_mp_tac>>rw[]>>
+  first_x_assum drule>>
+  fs[lookup_insert,EVERY_MEM,FORALL_PROD,is_assm_def]>>
+  first_x_assum drule>>
+  every_case_tac>>rw[]>>
+  fs[id_ok_def,domain_lookup]>>
+  first_x_assum(qspec_then`id` assume_tac)>>fs[]
+QED
+
+Theorem lookup_all_lhs_is_assm:
+  ∀ls x.
+  good_fml fml ∧
+  lookup_all_lhs fml ls = SOME x ⇒
+  EVERY (is_assm fml) (FST x)
+Proof
+  Induct>>rw[lookup_all_lhs_def]>>
+  Cases_on`h`>>
+  fs[lookup_all_lhs_def]>>
+  every_case_tac>>
+  gvs[]>>
+  fs[EVERY_MEM,good_fml_def,range_def,PULL_EXISTS]>>
+  metis_tac[FST]
+QED
+
+Theorem do_lin_is_assm:
+  good_fml fml ∧
+  do_lin fml lop lhs = SOME x ⇒
+  EVERY (is_assm fml) (FST x)
+Proof
+  rw[do_lin_def]>>
+  every_case_tac>>
+  gvs[]>>
+  drule_all lookup_all_lhs_is_assm>>
+  simp[]
+QED
+
+Theorem lookup_all_lhs_imp:
+  ∀l fml assms ys.
+  lookup_all_lhs fml l = SOME (assms,ys) ∧
+  satisfies_imp_milp w (IMAGE (get_assms fml) (range fml)) ∧
+  (∀id. MEM id assms ⇒ satisfies_milc w (SND (THE (lookup id fml)))) ⇒
+  EVERY (satisfies_milc w) (MAP FST ys)
+Proof
+  Induct>>rw[lookup_all_lhs_def]>>
+  Cases_on`h`>>
+  fs[lookup_all_lhs_def]>>
+  every_case_tac>>
+  gvs[]>>
+  last_x_assum drule>> simp[]>> rw[]>>
+  fs[satisfies_imp_milp_def,PULL_EXISTS,get_assms_def,satisfies_imp_milc_def,range_def]>>
+  first_x_assum (drule_at Any)>>
+  simp[get_assms_def]>>
+  disch_then match_mp_tac>>
+  simp[MEM_MAP,PULL_EXISTS]
+QED
+
+Theorem do_lin_imp:
+  do_lin fml lop lhs = SOME x ∧
+  satisfies_imp_milp w (IMAGE (get_assms fml) (range fml)) ∧
+  (∀id. MEM id (FST x) ⇒ satisfies_milc w (SND (THE (lookup id fml)))) ⇒
+  satisfies_milc w (SND x)
+Proof
+  rw[do_lin_def]>>
+  every_case_tac>>gvs[]>>
+  drule lin_comb_sound>>
+  disch_then match_mp_tac>>
+  irule lookup_all_lhs_imp>>
+  asm_exists_tac>>simp[]>>
+  metis_tac[]
+QED
+
+Theorem resolvable_splits:
+  (∀v. v ∈ domain intv ⇒ is_int (w v)) ∧
+  resolvable intv x y ⇒
+  satisfies_milc w x ∨ satisfies_milc w y
+Proof
+  PairCases_on`x`>>PairCases_on`y`>>rw[resolvable_def]>>
+  drule int_valued_is_int>>
+  disch_then drule>>
+  rw[satisfies_milc_def]>>
+  fs[intrealTheory.is_int_def]>>
+  pop_assum SUBST_ALL_TAC>>
+  pop_assum SUBST_ALL_TAC>>
+  simp[realaxTheory.real_ge]>>
+  `1:real = (real_of_int 1)` by simp[]>>
+  pop_assum SUBST_ALL_TAC>>
+  PURE_REWRITE_TAC [GSYM intrealTheory.real_of_int_add]>>
+  simp[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem MEM_delete_mem[simp]:
+  MEM x (delete_mem y ls) ⇔ x ≠ y ∧ MEM x ls
+Proof
+  rw[delete_mem_def,MEM_FILTER]
+QED
+
 (* check the main body of a VIPR proof *)
 Theorem check_vipr_sound:
   check_vipr intv fml id vipr = SOME (fml',id') ∧
@@ -542,23 +887,60 @@ Theorem check_vipr_sound:
 Proof
   Cases_on`vipr`>>rw[check_vipr_def]
   >- (
+    (* assm *)
     match_mp_tac satisfies_imp_milp_insert>>
     simp[])
   >- (
+    (* lin *)
     every_case_tac>>fs[]>>
     rw[]>>
-    match_mp_tac satisfies_imp_milp_insert>>
+    match_mp_tac satisfies_imp_milp_insert_2>>
+    simp[]>>
+    rw[]
+    >-
+      metis_tac[do_lin_is_assm]>>
+    metis_tac[do_lin_imp])
+  >- (
+    (* rounding *)
+    every_case_tac>>fs[]>>
     rw[]>>
-    fs[do_lin_def]>>every_case_tac>>fs[]>>
-    rw[]>>
-    match_mp_tac lin_comb_sound>>
-    asm_exists_tac>>fs[]>>
-    (* TODO: prove stuff about combining implications *)
-    cheat)
+    match_mp_tac satisfies_imp_milp_insert_2>>
+    simp[]>>
+    rw[]
+    >-
+      metis_tac[do_lin_is_assm,FST]>>
+    drule do_lin_imp>>
+    disch_then drule>>
+    simp[]>>
+    metis_tac[round_milc_sound])
   >- (
     every_case_tac>>fs[]>>
     rw[]>>
-    cheat)
+    match_mp_tac satisfies_imp_milp_insert_2>>
+    simp[]>>
+    fs[unsplit_def,lookup_2_def]>>every_case_tac>>fs[]>>
+    gvs[]>>
+    fs[good_fml_def,range_def,PULL_EXISTS]>>
+    res_tac>>
+    fs[EVERY_MEM,is_assm_def]>>
+    ntac 2 (pop_assum kall_tac)>>
+    pop_assum drule>>
+    pop_assum drule>>
+    fs[]>>
+    every_case_tac>>fs[]>>
+    ntac 2 strip_tac>>gvs[]>>
+    CONJ_TAC >-
+      metis_tac[FST]>>
+    rw[]>>
+    fs[satisfies_imp_milp_def,PULL_EXISTS,get_assms_def,satisfies_imp_milc_def]>>
+    qpat_x_assum`lookup _ _ = _` mp_tac>>
+    qpat_x_assum`lookup _ _ = _` mp_tac>>
+    first_assum (drule_at Any)>>
+    qpat_x_assum`lookup _ _ = _` kall_tac>>
+    first_x_assum (drule_at Any)>>
+    simp[get_assms_def]>>
+    simp[MEM_MAP,PULL_EXISTS]>>
+    metis_tac[dominates_imp,SND,THE_DEF,resolvable_splits])
 QED
 
 val _ = export_theory();
