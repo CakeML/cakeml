@@ -1,7 +1,7 @@
 (*
   Formalisation of a syntax and semantics for MILP
 *)
-open preamble RatProgTheory real_sigmaTheory sptree_unionWithTheory;
+open preamble RatProgTheory real_sigmaTheory sptree_unionWithTheory realLib;
 
 val _ = new_theory "milp";
 
@@ -14,7 +14,7 @@ Definition eval_real_term_def:
   eval_real_term w (x,r:real) = (r * w x):real
 End
 
-Definition eval_lhs_def:
+Definition eval_lhs_def[nocompute]:
   eval_lhs w (lhs:lin_term) =
   REAL_SUM_IMAGE (eval_real_term w) {(k,v) | lookup k lhs = SOME v}
 End
@@ -37,7 +37,7 @@ Proof
   simp[]
 QED
 
-Theorem eval_lhs_eq:
+Theorem eval_lhs_eq[compute]:
   eval_lhs w lhs =
     let xs = toAList lhs in
     rSUM (MAP (eval_real_term w) xs)
@@ -98,21 +98,35 @@ Definition optimal_def:
   )
 End
 
+(* NONE represents +infinity *)
+Definition le_inf_def:
+  le_inf ubopt (r:real) ⇔
+  (case ubopt of NONE => T
+  | SOME ub => r ≤ ub)
+End
+
+(* NONE represents -infinity *)
+Definition inf_le_def:
+  inf_le lbopt (r:real) ⇔
+  (case lbopt of NONE => T
+  | SOME lb => lb ≤ r)
+End
+
 (*
   intv: set of integer variables
   milp: the MILP constraints
   min: boolean flag, true to minimize obj (or maximize if false)
   obj: objective linear term
 *)
-Definition rtp_def:
-  (rtp intv milp min obj Infeasible ⇔
+Definition satisfies_rtp_def:
+  (satisfies_rtp intv milp min obj Infeasible ⇔
     ∀w. ¬satisfies w intv milp) ∧
-  (rtp intv milp min obj (Range lb ub) ⇔
+  (satisfies_rtp intv milp min obj (Range lb ub) ⇔
     (* Satisfiable *)
     (∃w. satisfies w intv milp) ∧
     ∀w. optimal intv milp min obj w ⇒
-      (case lb of NONE => T | SOME lb => lb ≤ eval_lhs w obj) ∧
-      (case ub of NONE => T | SOME ub => eval_lhs w obj ≤ ub))
+      inf_le lb (eval_lhs w obj) ∧
+      le_inf ub (eval_lhs w obj))
 End
 
 (* Implication constraints *)
@@ -146,27 +160,20 @@ Definition check_milp_def:
   EVERY (satisfies_milc solc) milp
 End
 
-Definition check_obj_def:
-  check_obj obj r sol =
-  let solc = mk_sol sol in
-  eval_lhs solc obj = r
-End
-
 Definition check_sol_def:
-  check_sol intv milp obj r (sol: real num_map) ⇔
+  check_sol intv milp (sol: real num_map) ⇔
   check_dom intv sol ∧
-  check_milp milp sol ∧
-  check_obj obj r sol
+  check_milp milp sol
 End
 
 (* Syntactic formulae are given by a sptree of implication
   constraints with type (milc list, milc)
   TODO: add support for deletion *)
 Datatype:
-  vipr = Assum milc
-  | Lin milc ((num,real) alist)
-  | Round milc ((num,real) alist)
-  | Unsplit milc num num num num
+  vipr = Assum
+  | Lin ((num,real) alist)
+  | Round ((num,real) alist)
+  | Unsplit num num num num
 End
 
 (* Check that a given LHS is int valued *)
@@ -233,7 +240,7 @@ Proof
     metis_tac[absurdity_unsat]>>
   every_case_tac>>fs[satisfies_milc_def]>>rw[]>>
   fs[do_op_def]>>
-  metis_tac[realTheory.REAL_LE_TRANS,realaxTheory.real_ge]
+  realLib.REAL_ASM_ARITH_TAC
 QED
 
 Definition add_r_def:
@@ -309,7 +316,7 @@ Proof
   rw[PULL_EXISTS]>>
   qexists_tac`(λ(x,v).(x, r⁻¹ * v) )`>>
   qexists_tac`(λ(x,v).(x, r * v) )`>> simp[]>>
-  simp[realTheory.REAL_MUL_ASSOC,realTheory.REAL_MUL_LINV,eval_real_term_def]
+  rw[eval_real_term_def]
 QED
 
 Theorem eval_lhs_sum_2:
@@ -380,7 +387,7 @@ Theorem arith:
   a + b + (c + d:real) =
   a + c + (b + d)
 Proof
-  simp[realaxTheory.REAL_ADD_AC]
+  realLib.REAL_ASM_ARITH_TAC
 QED
 
 Theorem arith2:
@@ -422,7 +429,7 @@ Proof
     simp[lookup_unionWith,FORALL_PROD,domain_lookup]>>
     rw[]>>
     simp[eval_real_term_def,add_n_def]>>
-    simp[realaxTheory.REAL_RDISTRIB])>>
+    realLib.REAL_ASM_ARITH_TAC)>>
   match_mp_tac arith2>>
   CONJ_TAC>- (
     match_mp_tac iterateTheory.SUM_EQ'>>
@@ -452,7 +459,7 @@ Theorem mul_neg_le[simp]:
   (r * -1 ≤ 0:real ⇔ 0 ≤ r) ∧
   (0 ≤ r * -1 ⇔ r ≤ 0)
 Proof
-  simp[realTheory.REAL_MUL_SIGN]
+  realLib.REAL_ASM_ARITH_TAC
 QED
 
 Theorem compat_add_sound:
@@ -477,8 +484,7 @@ Proof
   Induct>>rw[lin_comb_def]
   >- (
     Cases_on`lop`>>rw[satisfies_milc_def]>>
-    simp[eval_lhs_def]>>
-    simp[realTheory.REAL_LE_REFL,realaxTheory.real_ge])>>
+    simp[eval_lhs_def])>>
   PairCases_on`h`>>
   fs[lin_comb_def]>>
   every_case_tac>>fs[]>>
@@ -538,22 +544,82 @@ Definition unsplit_def:
 End
 
 Definition check_vipr_def:
-  (check_vipr intv fml id (Assum milc) =
+  (check_vipr intv (fml,id) (milc, Assum) =
     SOME (insert id ([id],milc) fml, id+1)) ∧
-  (check_vipr intv fml id (Lin milc lhs) =
+  (check_vipr intv (fml,id) (milc, Lin lhs) =
     case do_lin fml (FST milc) lhs of NONE => NONE
     | SOME res =>
       SOME (insert id res fml, id+1)) ∧
-  (check_vipr intv fml id (Round milc lhs) =
+  (check_vipr intv (fml,id) (milc, Round lhs) =
     case do_lin fml (FST milc) lhs of NONE => NONE
     | SOME (assms,milc) =>
       case round_milc intv milc of NONE => NONE
       | SOME milc' =>
       SOME (insert id (assms,milc') fml, id+1)) ∧
-  (check_vipr intv fml id (Unsplit milc i1 l1 i2 l2) =
+  (check_vipr intv (fml,id) (milc, Unsplit i1 l1 i2 l2) =
     case unsplit intv fml i1 l1 i2 l2 milc of NONE => NONE
     | SOME res =>
       SOME (insert id res fml, id+1))
+End
+
+Definition check_viprs_def:
+  (check_viprs intv acc [] = SOME acc) ∧
+  (check_viprs intv acc (v::vs) =
+  case check_vipr intv acc v of NONE => NONE
+  | SOME acc' =>
+    check_viprs intv acc' vs)
+End
+
+Definition get_obj_def:
+  get_obj obj sol =
+  let solc = mk_sol sol in
+  let xs = toAList obj in
+    rSUM (MAP (eval_real_term solc) xs)
+End
+
+Definition check_rtp_bound_def:
+  (check_rtp_bound min obj sols Infeasible ⇔ T) ∧
+  (check_rtp_bound min obj sols (Range lb ub) =
+  let ov = MAP (get_obj obj) sols in
+  if min then
+    EXISTS (le_inf ub) ov
+  else
+    EXISTS (inf_le lb) ov)
+End
+
+Definition build_fml_def:
+  (build_fml id [] acc = (acc,id)) ∧
+  (build_fml id (x::xs) acc =
+    build_fml (id+1) xs (insert id ([]:num list,x) acc))
+End
+
+Definition check_last_def:
+  check_last min obj rtp (fml,id) =
+  case lookup (id-1) fml of
+    NONE => F
+  | SOME (assms,milc) =>
+    assms = [] ∧
+    (case rtp of
+      Infeasible => absurdity milc
+    | Range lb ub =>
+    if min then
+      case lb of NONE => T
+      | SOME lb => dominates milc (GreaterEqual,obj,lb)
+    else
+      case ub of NONE => T
+      | SOME ub => dominates milc (LessEqual,obj,ub))
+End
+
+Definition check_rtp_def:
+  check_rtp intv milp min obj rtp sols viprs =
+  if EVERY (check_sol intv milp) sols ∧
+     check_rtp_bound min obj sols rtp
+  then
+    let acc = build_fml 0 milp LN in
+    case check_viprs intv acc viprs of
+      NONE => F
+    | SOME acc' => check_last min obj rtp acc'
+  else F
 End
 
 Theorem is_int_add_mul:
@@ -878,7 +944,7 @@ QED
 
 (* check the main body of a VIPR proof *)
 Theorem check_vipr_sound:
-  check_vipr intv fml id vipr = SOME (fml',id') ∧
+  check_vipr intv (fml,id) (milc,vipr) = SOME (fml',id') ∧
   id_ok fml id ∧
   good_fml fml ∧
   (∀v. v ∈ domain intv ⇒ is_int (w v)) ∧
@@ -942,5 +1008,326 @@ Proof
     simp[MEM_MAP,PULL_EXISTS]>>
     metis_tac[dominates_imp,SND,THE_DEF,resolvable_splits])
 QED
+
+Theorem id_ok_good_fml_insert:
+  id_ok fml id ∧
+  good_fml fml ∧
+  EVERY (is_assm fml) (FST asx)
+  ⇒
+  good_fml (insert id asx fml)
+Proof
+  rw[good_fml_def]>>
+  pop_assum mp_tac>>
+  DEP_REWRITE_TAC [range_insert]>>
+  fs[]>>rw[]>>fs[EVERY_MEM]
+  >-
+    fs[id_ok_def]
+  >- (
+    fs[FORALL_PROD,is_assm_def]>>
+    rw[lookup_insert]>>
+    first_x_assum drule>>
+    TOP_CASE_TAC>>simp[]>>
+    fs[id_ok_def,domain_lookup]>>
+    last_x_assum(qspec_then`e` assume_tac)>>fs[])
+  >- (
+    first_x_assum drule>>
+    fs[FORALL_PROD,is_assm_def,lookup_insert]>>
+    rw[]>>
+    first_x_assum drule>>
+    TOP_CASE_TAC>>simp[]>>
+    TOP_CASE_TAC>>simp[]>>
+    rw[]>>
+    fs[id_ok_def,domain_lookup]>>
+    last_x_assum(qspec_then`e` assume_tac)>>fs[])
+QED
+
+Theorem id_ok_good_fml_insert_2:
+  id_ok fml id ∧
+  good_fml fml
+  ⇒
+  good_fml (insert id ([id],milc) fml)
+Proof
+  rw[good_fml_def]>>
+  pop_assum mp_tac>>
+  DEP_REWRITE_TAC [range_insert]>>
+  fs[]>>rw[]>>fs[EVERY_MEM]
+  >-
+    fs[id_ok_def]
+  >- (
+    fs[FORALL_PROD,is_assm_def]>>
+    rw[lookup_insert]>>
+    first_x_assum drule>>
+    TOP_CASE_TAC>>simp[]>>
+    fs[id_ok_def,domain_lookup]>>
+    last_x_assum(qspec_then`e` assume_tac)>>fs[])
+  >- (
+    first_x_assum drule>>
+    fs[FORALL_PROD,is_assm_def,lookup_insert]>>
+    rw[]>>
+    first_x_assum drule>>
+    TOP_CASE_TAC>>simp[]>>
+    TOP_CASE_TAC>>simp[]>>
+    rw[]>>
+    fs[id_ok_def,domain_lookup]>>
+    last_x_assum(qspec_then`e` assume_tac)>>fs[])
+QED
+
+Theorem check_vipr_ok:
+  check_vipr intv (fml,id) (milc,vipr) = SOME (fml',id') ∧
+  id_ok fml id ∧
+  good_fml fml ⇒
+  id_ok fml' id' ∧ good_fml fml'
+Proof
+  Cases_on`vipr`>>fs[check_vipr_def]
+  >- (
+    strip_tac>>gvs[]>>
+    CONJ_TAC >- fs[id_ok_def]>>
+    simp[id_ok_good_fml_insert_2])
+  >- (
+    every_case_tac>>simp[]>>strip_tac>>
+    gvs[]>>
+    CONJ_TAC >- fs[id_ok_def] >>
+    match_mp_tac id_ok_good_fml_insert>>
+    metis_tac[do_lin_is_assm])
+  >- (
+    every_case_tac>>simp[]>>strip_tac>>
+    gvs[]>>
+    CONJ_TAC >- fs[id_ok_def] >>
+    match_mp_tac id_ok_good_fml_insert>>
+    metis_tac[do_lin_is_assm,FST])
+  >- (
+    simp[unsplit_def,lookup_2_def]>>
+    every_case_tac>>simp[]>>strip_tac>>
+    gvs[]>>
+    CONJ_TAC >- fs[id_ok_def] >>
+    match_mp_tac id_ok_good_fml_insert>>
+    fs[good_fml_def,range_def,PULL_EXISTS]>>
+    res_tac>>
+    fs[EVERY_MEM]>>
+    metis_tac[])
+QED
+
+Theorem check_viprs_sound:
+  ∀viprs fml id fml' id.
+  check_viprs intv (fml,id) viprs = SOME (fml',id') ∧
+  id_ok fml id ∧
+  good_fml fml ∧
+  (∀v. v ∈ domain intv ⇒ is_int (w v)) ∧
+  satisfies_imp_milp w (IMAGE (get_assms fml) (range fml)) ⇒
+  satisfies_imp_milp w (IMAGE (get_assms fml') (range fml'))
+Proof
+  Induct>>rw[check_viprs_def]>>fs[]>>
+  every_case_tac>>fs[]>>
+  Cases_on`h`>> Cases_on`x`>>
+  last_x_assum match_mp_tac>>
+  asm_exists_tac>>simp[]>>
+  drule check_vipr_sound>>
+  simp[]>>
+  drule check_vipr_ok>>
+  simp[]
+QED
+
+Theorem satisfies_milp_build_fml:
+  ∀milp id fml fml' id'.
+  build_fml id milp fml = (fml',id') ∧
+  id_ok fml id ∧
+  good_fml fml ⇒
+  id_ok fml' id' ∧
+  good_fml fml' ∧
+  (EVERY (satisfies_milc w) milp ∧
+  satisfies_imp_milp w (IMAGE (get_assms fml) (range fml)) ⇒
+  satisfies_imp_milp w (IMAGE (get_assms fml') (range fml')))
+Proof
+  Induct>>simp[build_fml_def]>>fs[]>>
+  ntac 6 strip_tac>>
+  last_x_assum drule>>
+  simp[]>>
+  impl_tac >- (
+    CONJ_TAC >-
+      fs[id_ok_def]>>
+    match_mp_tac id_ok_good_fml_insert>>
+    fs[])>>
+  rw[]>>
+  first_x_assum match_mp_tac>>
+  simp[]>>
+  match_mp_tac satisfies_imp_milp_insert>>
+  fs[]
+QED
+
+Theorem check_sol_satisfies:
+  check_sol intv milp x ⇒
+  satisfies (mk_sol x) (domain intv) (set milp)
+Proof
+  rw[check_sol_def,satisfies_def,check_dom_def,check_milp_def]
+  >- (
+    fs[domain_lookup,EVERY_MEM,FORALL_PROD,MEM_toAList]>>
+    simp[mk_sol_def]>>
+    every_case_tac>>rw[]
+    >-  EVAL_TAC>>
+    metis_tac[])>>
+  fs[EVERY_MEM]
+QED
+
+Theorem le_inf_real_le:
+  le_inf x y ∧ z ≤ y ⇒
+  le_inf x z
+Proof
+  simp[le_inf_def]>>
+  Cases_on`x`>>rw[]>>
+  realLib.REAL_ASM_ARITH_TAC
+QED
+
+Theorem inf_le_real_le:
+  inf_le x y ∧ y ≤ z ⇒
+  inf_le x z
+Proof
+  simp[inf_le_def]>>
+  Cases_on`x`>>rw[]>>
+  realLib.REAL_ASM_ARITH_TAC
+QED
+
+Theorem get_obj_eq:
+  get_obj obj x =
+  eval_lhs (mk_sol x) obj
+Proof
+  rw[get_obj_def]>>
+  simp[eval_lhs_eq]
+QED
+
+Theorem check_rtp_sound:
+  check_rtp intv milp min obj rtp sols viprs ⇒
+  satisfies_rtp (domain intv) (set milp) min obj rtp
+Proof
+  rw[check_rtp_def]>>
+  every_case_tac>>fs[]>>
+  rw[satisfies_rtp_def]>>
+  `?fml id. build_fml 0 milp LN = (fml,id)` by
+    metis_tac[PAIR]>>
+  drule satisfies_milp_build_fml>>
+  simp[GSYM PULL_FORALL]>>
+  impl_tac >-
+    simp[id_ok_def,good_fml_def,range_def]>>
+  strip_tac>>
+  qpat_x_assum`_ = _` SUBST_ALL_TAC>>
+  Cases_on`x`>>drule check_viprs_sound>>
+  simp[]>>
+  strip_tac>>
+  Cases_on`rtp`>>simp[satisfies_rtp_def]
+  >- (
+    (* Unsat *)
+    CCONTR_TAC>>fs[satisfies_def]>>
+    first_x_assum drule>>
+    rfs[EVERY_MEM]>>
+    first_x_assum drule>>
+    impl_tac >-
+      simp[range_def,satisfies_imp_milp_def]>>
+    simp[]>>
+    fs[check_last_def]>>
+    every_case_tac>>fs[]>>
+    rw[satisfies_imp_milp_def,range_def,PULL_EXISTS]>>
+    first_x_assum (irule_at Any)>>
+    simp[get_assms_def,satisfies_imp_milc_def]>>
+    metis_tac[absurdity_unsat])>>
+  Cases_on`min`>>
+  fs[check_rtp_bound_def]
+  >- (
+    (* minimization *)
+    gvs[EXISTS_MEM,MEM_MAP,EVERY_MEM]>>
+    last_x_assum drule>>
+    strip_tac>>
+    drule check_sol_satisfies>>
+    strip_tac>>
+    CONJ_TAC >-
+      metis_tac[]>>
+    reverse (rw[optimal_def])
+    (* upper bound on min *)
+    >-
+      metis_tac[get_obj_eq,le_inf_real_le]>>
+    (* lower bound on min *)
+    fs[check_last_def]>>
+    every_case_tac>>fs[]>>
+    simp[inf_le_def]>>
+    qpat_x_assum`satisfies (mk_sol _) _ _` kall_tac>>
+    fs[satisfies_def]>>
+    last_x_assum drule>>
+    impl_tac >-
+      simp[range_def,satisfies_imp_milp_def]>>
+    strip_tac>>
+    last_x_assum (drule_all)>>
+    rw[satisfies_imp_milp_def,range_def,PULL_EXISTS]>>
+    first_x_assum (drule_at Any)>>
+    simp[get_assms_def,satisfies_imp_milc_def]>>
+    strip_tac>>
+    drule dominates_imp >>
+    disch_then drule>>
+    simp[satisfies_milc_def]>>
+    realLib.REAL_ASM_ARITH_TAC)
+  >- (
+    (* maximization *)
+    gvs[EXISTS_MEM,MEM_MAP,EVERY_MEM]>>
+    last_x_assum drule>>
+    strip_tac>>
+    drule check_sol_satisfies>>
+    strip_tac>>
+    CONJ_TAC >-
+      metis_tac[]>>
+    rw[optimal_def]
+    (* lower bound on max *)
+    >-
+      metis_tac[get_obj_eq,inf_le_real_le]>>
+    (* upper bound on max *)
+    fs[check_last_def]>>
+    every_case_tac>>fs[]>>
+    simp[le_inf_def]>>
+    qpat_x_assum`satisfies (mk_sol _) _ _` kall_tac>>
+    fs[satisfies_def]>>
+    last_x_assum drule>>
+    impl_tac >-
+      simp[range_def,satisfies_imp_milp_def]>>
+    strip_tac>>
+    last_x_assum (drule_all)>>
+    rw[satisfies_imp_milp_def,range_def,PULL_EXISTS]>>
+    first_x_assum (drule_at Any)>>
+    simp[get_assms_def,satisfies_imp_milc_def]>>
+    strip_tac>>
+    drule dominates_imp >>
+    disch_then drule>>
+    simp[satisfies_milc_def]>>
+    realLib.REAL_ASM_ARITH_TAC)
+QED
+
+(*
+  Problems are 5 tuples: (intv, milp, min, obj, rtp)
+    intv : set of int variables represented as sptree
+    milp : list of mixed integer constraints
+    min  : boolean flag (min or max objective)
+    obj  : objective value
+    rtp  : "required to proof" either infeasible or given bounds
+
+  val intv = rconc (EVAL ``fromAList [(0,());(1,())]``)
+
+  val c1 = rconc (EVAL ``(GreaterEqual,fromAList [(0,2:real);(1,1:real)],1:real)``)
+  val c2 = rconc (EVAL ``(LessEqual,fromAList [(0,2:real);(1,-3:real)],1:real)``)
+  val milp = rconc (EVAL ``[^c1;^c2]``)
+
+  val min = rconc (EVAL ``T``)
+
+  val obj = rconc (EVAL ``fromAList [(1,1:real)]``)
+
+  val rtp = rconc (EVAL ``Range (SOME 1) (SOME 1)``)
+
+  val sols = rconc (EVAL ``[fromAList [(1,1:real)]]``)
+
+  val d1 = rconc (EVAL ``((LessEqual,fromAList [(0,1:real)] ,0:real),Assum)``)
+  val d2 = rconc (EVAL ``((GreaterEqual,fromAList [(0,1:real)] ,1:real),Assum)``)
+  val d3 = rconc (EVAL ``((GreaterEqual,^obj ,1:real),Lin [(0,1);(2,-2)])``)
+  val d4 = rconc (EVAL ``((GreaterEqual,^obj ,1/3:real),Lin [(1,-1/3);(3,2/3)])``)
+  val d5 = rconc (EVAL ``((GreaterEqual,^obj ,1:real),Round [(5,1)])``)
+  val d6 = rconc (EVAL ``((GreaterEqual,^obj ,1:real),Unsplit 4 2 6 3)``)
+  val viprs = rconc (EVAL ``[^d1;^d2;^d3;^d4;^d5;^d6]``)
+
+  val res = EVAL ``check_rtp ^intv ^milp ^min ^obj ^rtp ^sols ^viprs``
+
+*)
 
 val _ = export_theory();
