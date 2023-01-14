@@ -13,6 +13,12 @@ val _ = set_grammar_ancestry [
   "semanticPrimitivesProps", "misc", "semantics"
   ];
 
+Triviality env_c_lemma:
+  (<|v := build_rec_env q env env1; c := nsEmpty|> +++ env).c = env.c
+Proof
+  fs [extend_dec_env_def]
+QED
+
 Theorem evaluate_lift_let:
   evaluate_decs s env [d] = (s', res) ∧
   res ≠ Rerr (Rabort Rtype_error) ∧
@@ -25,8 +31,13 @@ Proof
     TOP_CASE_TAC \\ gs []
     \\ TOP_CASE_TAC \\ gvs [dest_Letrec_SOME]
     \\ rw [] \\ gs [evaluate_decs_def, evaluate_def]
-    \\ IF_CASES_TAC \\ gs []
-    \\ IF_CASES_TAC \\ gs []
+    \\ reverse IF_CASES_TAC \\ gs [env_c_lemma]
+    >-
+     (qsuff_tac ‘~EVERY (λ(n,v,e'). every_exp (one_con_check env.c) e') q’
+      \\ rpt strip_tac \\ full_simp_tac bool_ss [] \\ fs []
+      \\ fs [EVERY_MEM,EXISTS_MEM,EXISTS_PROD,FORALL_PROD,SF SFY_ss]
+      \\ res_tac \\ fs [])
+    \\ IF_CASES_TAC \\ gs [env_c_lemma]
     \\ gs [extend_dec_env_def]
     \\ ‘<| v := nsAppend (build_rec_env q env nsEmpty) env.v;
            c := env.c|> =
@@ -151,4 +162,3 @@ Proof
 QED
 
 val _ = export_theory ();
-
