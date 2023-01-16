@@ -754,6 +754,18 @@ Proof
   \\ fs [write_def,merge_env_def,empty_env_def,sem_env_component_equality]
 QED
 
+Theorem ML_code_Dlet_var_lit:
+  ∀loc name l. ML_code env0 ((comm, s1, prog, env1)::bls) s2 ⇒
+    let env2 = write name (Litv l) env1 in let s3_abbrev = s2 in
+      ML_code env0 ((comm,s1,SNOC (Dlet loc (Pvar name) (Lit l)) prog,env2)::bls) s3_abbrev
+Proof
+  rpt strip_tac
+  \\ irule ML_code_Dlet_var \\ fs []
+  \\ pop_assum $ irule_at Any
+  \\ fs [eval_rel_def,evaluateTheory.evaluate_def]
+  \\ fs [semanticPrimitivesTheory.state_component_equality]
+QED
+
 Theorem ML_code_Dlet_Fun:
   ∀n v e locs. ML_code env0 ((comm, s1, prog, env1) :: bls) s2 ==>
     every_exp (one_con_check (merge_env env1 (ML_code_env env0 bls)).c) e ==>

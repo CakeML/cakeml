@@ -4197,7 +4197,7 @@ fun hide_ind_goal_rule name th1 =
 
 val _ = (next_ml_names := ["+","+","+","+","+"]);
 
-val def = Define `foo n = if n = 0 then 0 else foo (n-1n)`
+val def = Define `foo n = if n = 0 then 0:num else foo (n-1n)`
 
 val def = listTheory.APPEND;
 val def = sortingTheory.PART_DEF;
@@ -4452,7 +4452,7 @@ val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
    in raise e end;
 
 (*
-val def = Define `d = 5:num`
+val def = Define `d = [5:num]`
 val options = tl [NoInd]
 val options = [NoInd]
 *)
@@ -4524,6 +4524,7 @@ fun translate_options options def =
         val _ = (end_timing start_fun; end_timing start)
         in save_thm(fname ^ "_v_thm",v_thm) end
       else let (* not is_fun *)
+
         val start_v = start_timing "processing val case"
         val th = th |> INST [env_tm |-> get_curr_env()]
         val th = UNDISCH_ALL (clean_assumptions (D th))
