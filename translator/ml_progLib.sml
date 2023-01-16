@@ -155,7 +155,10 @@ fun prove_assum_by_conv conv th = let
 
 val prove_assum_by_eval = prove_assum_by_conv reduce_conv
 
-fun eval_every_exp_one_con_check tm = EVAL tm;
+val eval_every_exp_one_con_check =
+  SIMP_CONV (srw_ss()) [semanticPrimitivesTheory.do_con_check_def,ML_code_env_def]
+  THENC DEPTH_CONV nsLookup_conv
+  THENC reduce_conv;
 
 fun is_const_str str = can prim_mk_const {Thy=current_theory(), Name=str};
 
@@ -669,7 +672,8 @@ fun pick_name str =
 val s = init_state
 val dec1_tm = ``Dlet (ARB 1) (Pvar "f") (Lit (IntLit 5))``
 val dec2_tm = ``Dlet (ARB 2) (Pvar "g") (Fun "x" (Var (Short "x")))``
-val dec3_tm = ``Dletrec (ARB 3) [("foo","n",Var (Short "n"))]``
+val dec3_tm = ``Dletrec (ARB 3) [("foo","n",Con (SOME (Short "::"))
+                  [Var (Short "n");Var (Short "n")])]``
 val prog_tm = ``[^dec1_tm; ^dec2_tm; ^dec3_tm]``
 
 val s = (add_prog prog_tm pick_name init_state)
