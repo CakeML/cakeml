@@ -396,11 +396,16 @@ val _ = Define `
     Decl d =>
       (case d of
         Dlet locs p e =>
-          if ALL_DISTINCT (pat_bindings p []) then
+          if ALL_DISTINCT (pat_bindings p []) ∧
+             every_exp (one_con_check (collapse_env benv c).c) e
+          then
             Dstep (st, ExpVal (collapse_env benv c) (Exp e) [] locs p, c)
           else Dabort (st.fp_state, Rtype_error)
       | Dletrec locs funs =>
-          if ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) then
+          if ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) ∧
+             EVERY (\ (x,y,z) .
+               every_exp (one_con_check (collapse_env benv c).c) z) funs
+          then
             Dstep (st,
               Env <| v := (build_rec_env funs (collapse_env benv c) nsEmpty); c := nsEmpty |>,
               c)

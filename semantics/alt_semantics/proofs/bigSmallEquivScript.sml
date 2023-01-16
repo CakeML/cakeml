@@ -1483,7 +1483,8 @@ Proof
   rw[Once evaluate_dec_cases, Once dec_diverges_cases, GSYM untyped_safety_exp] >>
   gvs[]
   >- (
-    Cases_on `ALL_DISTINCT (pat_bindings p [])` >>
+    Cases_on `ALL_DISTINCT (pat_bindings p []) ∧
+              every_exp (one_con_check env.c) e` >>
     gvs[GSYM small_big_exp_equiv, to_small_st_def] >>
     eq_tac >- metis_tac[] >> rw[] >>
     PairCases_on `r` >>
@@ -1504,7 +1505,7 @@ Proof
       goal_assum drule >> simp[]
       )
     )
-  >- metis_tac[]
+  >- metis_tac[NOT_EVERY]
   >- metis_tac[NOT_EVERY]
   >- (
     eq_tac >> rw[] >> gvs[EXISTS_PROD, PULL_EXISTS] >>
@@ -1663,6 +1664,8 @@ Proof
     )
   >- (qexists_tac ‘st.fp_state’ >> simp[] >>
       irule_at Any RTC_REFL >> simp[decl_step_def])
+  >- (qexists_tac ‘st.fp_state’ >> simp[] >>
+      irule_at Any RTC_REFL >> simp[decl_step_def,collapse_env_def])
   >- (
     Cases_on `err` >> gvs[small_eval_dec_def] >>
       simp[Once RTC_CASES1, SF decl_step_ss] >>
@@ -1685,6 +1688,10 @@ Proof
   >- (irule RTC_SINGLE >> simp[SF decl_step_ss, collapse_env_def])
   >- (qexists_tac ‘st.fp_state’ >> simp[] >>
       irule_at Any RTC_REFL >> simp[decl_step_def])
+  >- (qexists_tac ‘st.fp_state’ >> simp[] >>
+      irule_at Any RTC_REFL >> simp[decl_step_def] >>
+      IF_CASES_TAC >> fs [collapse_env_def] >>
+      gvs [EVERY_MEM,EXISTS_MEM])
   >- (irule RTC_SINGLE >> simp[SF decl_step_ss])
   >- (
     qexists_tac ‘st.fp_state’ >> simp[] >>

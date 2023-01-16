@@ -1027,10 +1027,12 @@ Proof
   >- (irule_at Any OR_INTRO_THM1 >> goal_assum drule >> simp[])
   >- (irule_at Any OR_INTRO_THM1 >> goal_assum drule >> simp[])
   >- (irule_at Any EQ_REFL)
+  >- (irule_at Any EQ_REFL)
   >- (
     irule_at Any OR_INTRO_THM2 >> irule_at Any OR_INTRO_THM2 >>
     goal_assum drule >> simp[]
     )
+  >- irule_at Any EQ_REFL
   >- irule_at Any EQ_REFL
   >- irule_at Any EQ_REFL
   >- irule_at Any EQ_REFL
@@ -1109,11 +1111,13 @@ Proof
   PairCases_on `cd` >> rename1 `clk,d` >> gvs[FORALL_PROD, LEX_DEF_THM, SF DNF_ss] >>
   Cases_on `d` >> rw[Once evaluate_dec_cases, SF DNF_ss]
   >- ( (* Dlet *)
-    Cases_on `ALL_DISTINCT (pat_bindings p [])` >> gvs[] >>
+    Cases_on `ALL_DISTINCT (pat_bindings p []) ∧
+              every_exp (one_con_check env.c) e` >> gvs[] >>
     qspecl_then [`st with clock := clk`,`env`,`e`] assume_tac big_clocked_total >>
     gvs[] >> Cases_on `r` >> gvs[SF SFY_ss] >>
     Cases_on `pmatch env.c s'.refs p a []` >> gvs[SF SFY_ss]
     )
+  >- rw[DISJ_EQ_IMP]
   >- rw[DISJ_EQ_IMP]
   >- (
     gvs[astTheory.dec_size_def] >>
