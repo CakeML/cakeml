@@ -1154,7 +1154,7 @@ Proof
   \\ fs [evaluate_decs_def,astTheory.pat_bindings_def]
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,evaluate_Lit]
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [do_con_check_def]
   \\ rewrite_tac [main_v_def]
   \\ rewrite_tac [EVAL “semanticPrimitives$do_opapp
        [Recclosure env [("main","u", e)] "main"; Conv NONE []]”] \\ simp []
