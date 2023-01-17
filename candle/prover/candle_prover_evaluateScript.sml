@@ -1065,10 +1065,9 @@ QED
 Theorem evaluate_v_ok_decs_Dlet:
   ^(get_goal "Dlet")
 Proof
-  rw [evaluate_decs_def]
-  >~ [‘¬ALL_DISTINCT _’] >- (
-    gs [state_ok_def]
-    \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
+  reverse $ rw [evaluate_decs_def]
+  >- (gs [state_ok_def]
+      \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
   \\ gvs [CaseEqs ["prod", "semanticPrimitives$result"]]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
   \\ first_x_assum (drule_all_then strip_assume_tac)
@@ -1086,10 +1085,9 @@ QED
 Theorem evaluate_v_ok_decs_Dletrec:
   ^(get_goal "Dletrec")
 Proof
-  rw [evaluate_decs_def]
-  >~ [‘¬ALL_DISTINCT _’] >- (
-    gs [state_ok_def]
-    \\ first_assum (irule_at Any) \\ gs [])
+  reverse $ rw [evaluate_decs_def]
+  >- (gs [state_ok_def]
+      \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
   \\ gvs [CaseEqs ["prod", "semanticPrimitives$result"]]
   \\ first_assum (irule_at Any) \\ gs []
   \\ gs [extend_dec_env_def, build_rec_env_merge, env_ok_def,
