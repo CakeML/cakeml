@@ -645,11 +645,14 @@ End
 
 Definition dstep_def:
   dstep benv st (Decl $ Dlet locs p e) c = (
-    if ALL_DISTINCT (pat_bindings p []) then
+    if ALL_DISTINCT (pat_bindings p []) ∧
+       every_exp (one_con_check (collapse_env benv c).c) e then
       dreturn st c (ExpVal (collapse_env benv c) (Exp e) [] locs p)
     else Dtype_error st.fp_state) ∧
   dstep benv st (Decl $ Dletrec locs funs) c = (
-    if ALL_DISTINCT (MAP FST funs) then
+    if ALL_DISTINCT (MAP FST funs) ∧
+       EVERY (\ (x,y,z) .
+         every_exp (one_con_check (collapse_env benv c).c) z) funs then
       dreturn st c (Env $
         <| v := build_rec_env funs (collapse_env benv c) nsEmpty; c := nsEmpty |>)
     else Dtype_error st.fp_state) ∧

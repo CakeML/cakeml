@@ -497,7 +497,8 @@ QED
 
 Definition run_eval_dec_def:
   (run_eval_dec env ^st (Dlet _ p e) =
-   if ALL_DISTINCT (pat_bindings p []) then
+   if ALL_DISTINCT (pat_bindings p []) ∧
+      every_exp (one_con_check env.c) e then
      case run_eval env e st of
      | (st', Rval v) =>
          (case pmatch env.c st'.refs p v [] of
@@ -508,7 +509,8 @@ Definition run_eval_dec_def:
    else
      (st, Rerr (Rabort Rtype_error))) ∧
   (run_eval_dec env ^st (Dletrec _ funs) =
-   if ALL_DISTINCT (MAP FST funs) then
+   if ALL_DISTINCT (MAP FST funs) ∧
+      EVERY (λ(_,_,e). every_exp (one_con_check env.c) e) funs then
      (st, Rval <| v := build_rec_env funs env nsEmpty; c := nsEmpty |>)
    else
      (st, Rerr (Rabort Rtype_error))) ∧

@@ -2266,12 +2266,28 @@ Proof
   \\ gs [SF SFY_ss]
 QED
 
+Theorem env_rel_one_con_check:
+  env_rel fr ft fe env env1 ⇒
+  one_con_check env1.c = one_con_check env.c
+Proof
+  fs [one_con_check_def,FUN_EQ_THM]
+  \\ strip_tac \\ Cases \\ fs [one_con_check_def]
+  \\ rename [‘do_con_check _ a’] \\ Cases_on ‘a’ \\ fs [do_con_check_def]
+  \\ fs [env_rel_def,ctor_rel_def]
+  \\ pop_assum kall_tac
+  \\ drule namespacePropsTheory.nsAll2_nsLookup_none
+  \\ disch_then $ qspec_then ‘x’ assume_tac
+  \\ rpt (CASE_TAC \\ fs [])
+  \\ drule_all namespacePropsTheory.nsAll2_nsLookup2 \\ fs []
+QED
+
 Theorem evaluate_update_decs_Dlet:
   ^(get_goal "Dlet")
 Proof
-  rw [evaluate_decs_def]
-  >~ [‘¬ALL_DISTINCT _’] >- (
-    first_assum (irule_at Any) \\ gs [SF SFY_ss])
+  reverse $ rw [evaluate_decs_def]
+  >- (first_assum (irule_at Any) \\ gs [SF SFY_ss]
+      \\ imp_res_tac env_rel_one_con_check \\ fs [])
+  \\ imp_res_tac env_rel_one_con_check
   \\ gvs [CaseEqs ["prod", "result"], PULL_EXISTS]
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
   \\ Cases_on ‘res1’ \\ gs []
@@ -2297,9 +2313,13 @@ QED
 Theorem evaluate_update_decs_Dletrec:
   ^(get_goal "Dletrec")
 Proof
-  rw [evaluate_decs_def]
-  >~ [‘¬ALL_DISTINCT _’] >- (
-    first_assum (irule_at Any) \\ gs [])
+  reverse $ rw [evaluate_decs_def]
+  >- (first_assum (irule_at Any) \\ gs [SF SFY_ss])
+  >- (CCONTR_TAC \\ fs []
+      \\ imp_res_tac env_rel_one_con_check \\ fs []
+      \\ gvs [EVERY_MEM,EXISTS_MEM] \\ res_tac \\ fs [])
+  >- (imp_res_tac env_rel_one_con_check \\ fs []
+      \\ gvs [EVERY_MEM,EXISTS_MEM] \\ res_tac \\ fs [])
   \\ gvs [CaseEqs ["prod", "result"], PULL_EXISTS]
   \\ first_assum (irule_at Any) \\ gs []
   \\ gs [env_rel_def, ctor_rel_def, PULL_EXISTS, SF SFY_ss,

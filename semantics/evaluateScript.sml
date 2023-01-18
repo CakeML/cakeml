@@ -243,7 +243,9 @@ Definition evaluate_def[nocompute]:
      | (st1,Rerr v7) => (st1,Rerr v7))
   ∧
   evaluate_decs st env [Dlet locs p e] =
-    (if ALL_DISTINCT (pat_bindings p []) then
+    (if ALL_DISTINCT (pat_bindings p []) ∧
+        every_exp (one_con_check env.c) e
+     then
        case evaluate st env [e] of
          (st',Rval v) =>
            (st',
@@ -257,7 +259,9 @@ Definition evaluate_def[nocompute]:
   ∧
   evaluate_decs st env [Dletrec locs funs] =
     (st,
-     if ALL_DISTINCT (MAP (λ(x,y,z). x) funs) then
+     if ALL_DISTINCT (MAP (λ(x,y,z). x) funs) ∧
+        EVERY (λ(f,n,e). every_exp (one_con_check env.c) e) funs
+     then
        Rval <|v := build_rec_env funs env nsEmpty; c := nsEmpty|>
      else Rerr (Rabort Rtype_error))
   ∧
