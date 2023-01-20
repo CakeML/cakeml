@@ -3,6 +3,9 @@ A checker for pseudo-boolean constraints
 [array](array):
 Improving the pseudoboolean proof checker with arrays (manually)
 
+[cnf_to_pbScript.sml](cnf_to_pbScript.sml):
+Parsing CNFs and convert into npbc
+
 [graph_encoding](graph_encoding):
 Encoders for various graph problems
 

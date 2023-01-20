@@ -637,9 +637,9 @@ Theorem full_normalise_optimal_val:
   pbf_vars (set pbf) ⊆ goodString ∧
   set (MAP (lit_var ∘ SND) f) ⊆ goodString ∧
   normalise_lhs
-    (MAP (λ(a,b). (a, map_lit hashString b)) f) [] 0 = (f',m')  ⇒
+    (MAP (λ(a,b). (a, map_lit hashString b)) f) [] 0 = (f',m') ⇒
   (
-    OPTION_MAP (λn. (&n:int) + m') (optimal_val (set (full_normalise pbf)) f') =
+    OPTION_MAP (λn. (&n:int) + m') (optimal_val (set (full_normalise pbf)) (SOME f')) =
     optimal_val (set pbf) f
   )
 Proof
@@ -647,14 +647,14 @@ Proof
   >- (
     fs[pbcTheory.optimal_val_def,satisfiable_def,pbcTheory.satisfiable_def]>>
     metis_tac[full_normalise_satisfies])>>
-  qmatch_goalsub_abbrev_tac`eval_term w`>>
+  qmatch_goalsub_abbrev_tac`eval_obj _ w`>>
   qsuff_tac `optimal (w o hashString) (set pbf) f`
   >- (
     drule normalise_lhs_normalises>>
     simp[GSYM eval_lin_term_def,eval_lin_term_MAP]>>
     rw[]>>drule optimal_optimal_val>>
-    simp[])>>
-  `optimal w (set (full_normalise pbf)) f'` by
+    simp[eval_obj_def])>>
+  `optimal w (set (full_normalise pbf)) (SOME f')` by
     (fs[satisfiable_def]>>
     imp_res_tac optimal_exists>>
     simp[Abbr`w`]>>
@@ -672,9 +672,11 @@ Proof
   drule full_normalise_satisfies>>
   disch_then(qspec_then `w'` assume_tac)>>fs[]>>
   first_x_assum drule>>
-  qmatch_goalsub_abbrev_tac`_ <= SUM (MAP (eval_term ww) f')`>>
+  qmatch_goalsub_abbrev_tac`_ <= eval_obj _ ww`>>
   first_x_assum(qspec_then`ww` mp_tac)>>
-  qsuff_tac` eval_lin_term (ww ∘ hashString) f = eval_lin_term w' f`>>
+  qsuff_tac` eval_lin_term (ww ∘ hashString) f = eval_lin_term w' f`
+  >-
+    simp[eval_obj_def]>>
   simp[Abbr`ww`]>>
   simp[eval_lin_term_def]>>
   AP_TERM_TAC>>
