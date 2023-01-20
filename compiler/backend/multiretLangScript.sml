@@ -1,9 +1,8 @@
 (*
   The MultiRet intermediate language. This language is similar to BVL,
   but with two notable differences: (1) this language allows for
-  multi-value returns fomr function calls; and (2) exception handling
-  is bundled together with function calls: exceptions can only be
-  caught at the point of function calls.
+  multi-value returns from function calls; and (2) exceptions can only
+  be caught at the point of function calls.
 *)
 open preamble closLangTheory;
 
@@ -57,6 +56,7 @@ Datatype:
                     (* destination of call: *) num
                               (* arguments: *) (exp list)
                              (* RHS of let: *) exp
+      | TailCall (* same as above, minus the last exp: *) num num num (exp list)
 End
 
 val _ = export_theory();

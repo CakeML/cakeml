@@ -239,6 +239,7 @@ Definition evaluate_def:
                      (case handler of
                       | SOME x => evaluate ([x],v::env,s)
                       | NONE => (Rerr(Rraise v),s))
+                | (Rret _,s) => (Rerr(Rabort Rtype_error),s)
                 | res => res)
      | res => res) /\
   (evaluate ([LetCall ticks ret_count dest xs x],env,s1) =
@@ -260,6 +261,26 @@ Definition evaluate_def:
                       (Rerr(Rabort Rtype_error),s)
                     else
                       evaluate ([x],ret_vals ++ env,s))
+     | res => res) /\
+  (evaluate ([TailCall ticks ret_count dest xs],env,s1) =
+     case fix_clock s1 (evaluate (xs,env,s1)) of
+     | (Rval vs,s) =>
+         (case find_code (SOME dest) vs s.code of
+          | NONE => (Rerr(Rabort Rtype_error),s)
+          | SOME (args,exp) =>
+              if (s.clock < ticks + 1) then
+                (Rerr(Rabort Rtimeout_error),s with clock := 0)
+              else
+                case            fix_clock (dec_clock (ticks+1) s)
+                     (evaluate ([exp],args,dec_clock (ticks+1) s))
+                of
+                | (Rval _,s) => (Rerr(Rabort Rtype_error),s)
+                | (Rerr e,s) => (Rerr e,s)
+                | (Rret ret_vals,s) =>
+                    if LENGTH ret_vals ≠ ret_count then
+                      (Rerr(Rabort Rtype_error),s)
+                    else
+                      (Rret ret_vals,s))
      | res => res)
 Termination
   WF_REL_TAC `(inv_image (measure I LEX measure exp2_size)
@@ -289,11 +310,10 @@ Theorem evaluate_clock:
   ∀xs env s1 vs s2.
     (multiretSem$evaluate (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock
 Proof
-  recInduct evaluate_ind >> rw[evaluate_def] >>
-  every_case_tac >> fs[dec_clock_def] >> rw[] >> rfs[] >>
-  imp_res_tac fix_clock_IMP >>
-  imp_res_tac do_app_const >> fs[]
-  \\ cheat
+  recInduct evaluate_ind \\ rw[evaluate_def]
+  \\ gvs [AllCaseEqs(),dec_clock_def]
+  \\ imp_res_tac fix_clock_IMP
+  \\ imp_res_tac do_app_const \\ fs[]
 QED
 
 Theorem fix_clock_evaluate:
