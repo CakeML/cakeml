@@ -736,16 +736,10 @@ Theorem lookup_some_el:
   ∀xs n x. lookup n (fromAList xs) = SOME x ==>
    ∃m. m < LENGTH xs ∧ EL m xs = (n,x)
 Proof
-  Induct >> rw []
-  >- fs [fromAList_def, lookup_def] >>
-  cases_on ‘h’ >> fs [] >>
-  fs [fromAList_def] >>
-  fs [lookup_insert] >>
-  every_case_tac >> fs [] >> rveq >> gs []
-  >- (
-  qexists_tac ‘0’ >> fs []) >>
-  res_tac >> fs [] >> rveq >> gs [] >>
-  qexists_tac ‘SUC m’ >> fs []
+  rw [lookup_fromAList]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ gvs [MEM_EL]
+  \\ first_x_assum $ irule_at Any \\ fs []
 QED
 
 Theorem max_foldr_lt:

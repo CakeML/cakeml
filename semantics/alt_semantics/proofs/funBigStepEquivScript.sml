@@ -103,7 +103,8 @@ Proof
   imp_res_tac evaluatePropsTheory.eval_no_eval_simulation >> gvs [] >>
   rpt (qpat_x_assum ‘∀x. _’ kall_tac) >>
   gvs [evaluate_eq_run_eval_list] >>
-  gvs [run_eval_def,result_return_def,result_bind_def]
+  gvs [run_eval_def,result_return_def,result_bind_def] >>
+  gvs [EVERY_MEM,EXISTS_MEM]
 QED
 
 Theorem functional_evaluate_decs:

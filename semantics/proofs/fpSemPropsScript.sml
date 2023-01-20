@@ -417,6 +417,7 @@ Proof
   >- (
     reverse TOP_CASE_TAC \\ fs[]
     >- solve_simple
+    >- solve_simple
     \\ ntac 2 (reverse TOP_CASE_TAC \\ gs[])
     >- solve_simple
     \\ TOP_CASE_TAC \\ gs[]
@@ -760,6 +761,7 @@ Proof
     \\ solve_complex)
   >- (
     reverse TOP_CASE_TAC \\ gs[]
+    >- gs[fpState_component_equality, semState_comp_eq]
     >- gs[fpState_component_equality, semState_comp_eq]
     \\ ntac 2 $ reverse TOP_CASE_TAC \\ gs[]
     >- solve_simple

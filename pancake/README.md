@@ -50,6 +50,9 @@ Compiler from Pancake to machine code
 [pan_to_wordScript.sml](pan_to_wordScript.sml):
 Compiler from pan to word
 
+[parser](parser):
+The Pancake parser.
+
 [proofs](proofs):
 Proofs files for compiling Pancake.
 
@@ -58,9 +61,6 @@ Semantics for Pancake and its intermediate languages.
 
 [taParserScript.sml](taParserScript.sml):
 Parser for compactDSL programs
-
-[ta_comp_exampleScript.sml](ta_comp_exampleScript.sml):
-This is an example compilation of a TA program
 
 [ta_progs](ta_progs):
 Some sample timed automata (TA) programs.
