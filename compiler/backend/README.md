@@ -231,6 +231,13 @@ compiler configuration.
 [mips](mips):
 This directory contains the mips-specific part of the compiler backend.
 
+[multiretLangScript.sml](multiretLangScript.sml):
+The MultiRet intermediate language. This language is similar to BVL,
+but with two notable differences: (1) this language allows for
+multi-value returns fomr function calls; and (2) exception handling
+is bundled together with function calls: exceptions can only be
+caught at the point of function calls.
+
 [pattern_matching](pattern_matching):
 The CakeML pattern matching expressions compiler
 
