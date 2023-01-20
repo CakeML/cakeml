@@ -32,16 +32,16 @@ Proof
   rw [dec_clock_def]
 QED
 
-Definition bvi_to_bvl_def:
-  (bvi_to_bvl:('c,'ffi) state->('c,'ffi) bvlSem$state) s =
+Definition multiret_to_bvl_def:
+  (multiret_to_bvl:('c,'ffi) state->('c,'ffi) bvlSem$state) s =
     <| refs := s.refs
      ; clock := s.clock
      ; code := map (K ARB) s.code
      ; ffi := s.ffi |>
 End
 
-Definition bvl_to_bvi_def:
-  (bvl_to_bvi:('c,'ffi) bvlSem$state->('c,'ffi) state->('c,'ffi) state) s t =
+Definition bvl_to_multiret_def:
+  (bvl_to_multiret:('c,'ffi) bvlSem$state->('c,'ffi) state->('c,'ffi) state) s t =
     t with <| refs := s.refs
             ; clock := s.clock
             ; ffi := s.ffi |>
@@ -161,9 +161,9 @@ Definition do_app_def:
     case do_app_aux op vs s of
     | NONE => Rerr(Rabort Rtype_error)
     | SOME (SOME (v,t)) => Rval (v,t)
-    | SOME NONE => (case bvlSem$do_app op vs (bvi_to_bvl s) of
+    | SOME NONE => (case bvlSem$do_app op vs (multiret_to_bvl s) of
                     | Rerr e => Rerr e
-                    | Rval (v,t) => Rval (v, bvl_to_bvi t s))
+                    | Rval (v,t) => Rval (v, bvl_to_multiret t s))
 End
 
 (* The evaluation is defined as a clocked functional version of
@@ -302,7 +302,7 @@ Proof
   \\ fs [AllCaseEqs()] \\ rw [] \\ gvs []
   \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
   \\ imp_res_tac bvlSemTheory.do_app_const \\ fs []
-  \\ SRW_TAC [] [bvl_to_bvi_def,bvi_to_bvl_def]
+  \\ SRW_TAC [] [bvl_to_multiret_def,multiret_to_bvl_def]
   \\ gvs [do_app_aux_def,AllCaseEqs()]
 QED
 
