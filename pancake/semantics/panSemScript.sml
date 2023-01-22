@@ -7,7 +7,7 @@ local open alignmentTheory
            miscTheory     (* for read_bytearray *)
            wordLangTheory (* for word_op and word_sh *)
            ffiTheory
-           itreeTheory in end;
+           itreeTauTheory in end;
 
 val _ = new_theory"panSem";
 val _ = set_grammar_ancestry [
@@ -57,6 +57,13 @@ End
 
 val s = ``(s:('a,'ffi) panSem$state)``
 
+CoInductive ITREE_ORDER:
+            ILEQ (Ret a) (Ret a) ∧
+            ((t ≠ (Ret a)) ⇒ (ILEQ (Ret a) t)) ∧
+            ((ILEQ t1 t2) ⇒ (ILEQ (Tau t1) (Tau t2))) ∧
+            (ILEQ t1 t2 ⇒ ILEQ (Vis e λt. t1) (Vis e λt. t2))
+End
+
 Definition eval_exp_itree_def:
   (eval_exp_itree (Const w) =
    λs. Ret (SOME (ValWord w))) ∧
@@ -86,13 +93,6 @@ Definition post_call_binder_def:
   (post_call_binder ctype (Ret (s, _)) = Ret (s, SOME Error))
 End
 
-Definition next_iter_binder_def:
-  (next_iter_binder p b (s, SOME Break) =
-   Ret (s, NONE)) ∧
-  (next_iter_binder p b (s, _) =
-   eval_prog_itree (While b p) s)
-End
-
 Definition eval_prog_itree_def:
   (eval_prog_itree (Skip) =
    λs. Ret (s, NONE)) ∧
@@ -101,7 +101,7 @@ Definition eval_prog_itree_def:
         | Ret (st, SOME val) => eval_prog_itree p (st with locals := st.locals |+ (var, val))
         | Ret (st, NONE) => Ret (st, SOME Error)) ∧
   (eval_prog_itree (Store dst src) =
-   λs. case (eval_exp_itree dst s, eval_exp_itree src s) of
+   λs. case (eval_exp_itree dst s, eval_exp_itree src s) )
         | (Ret (SOME (ValWord addr)), Ret (SOME val)) =>
            (case mem_stores addr (flatten value) s.memaddrs s.memory of
             | SOME m => Ret (s with memory := m, NONE)
@@ -170,8 +170,15 @@ Definition eval_prog_itree_def:
         | _ => (s, SOME Error)) ∧
   (eval_prog_itree (Tick) =
    λs. Ret (s, NONE))
+Termination
 End
-(* Needs termination proof *)
+
+Definition next_iter_binder_def:
+  (next_iter_binder p b (s, SOME Break) =
+   Ret (s, NONE)) ∧
+  (next_iter_binder p b (s, _) =
+   eval_prog_itree (While b p) s)
+End
 
 Definition semantics_itree_def:
 End
