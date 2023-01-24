@@ -7,6 +7,25 @@ val _ = new_theory "npbc_check";
 
 val _ = numLib.prefer_num();
 
+(* Proof steps are classified in a hierachy of three descending levels
+
+  "Core" steps csteps
+    |
+    |--> "SAT" steps ssteps
+            |
+            |--> "Logical" steps lsteps
+
+  lstep: These steps preserve logical implication for F = C U D
+         Includes cutting planes and contradiction proof steps
+         Deletions allowed in D only
+
+  sstep: These steps preserve satisfiability of F = C U D
+         Includes redundancy, and redundancy subproofs can only use lsteps
+
+  cstep: These steps manipulate the core
+         Includes objective updates, core transfer, checked deletion, dominance (TODO)
+*)
+
 (* TODO: move *)
 Theorem lookup_spt_size:
   ∀n x a. lookup n x = SOME a ⇒ ∀f. f a < spt_size f x
@@ -42,17 +61,18 @@ End
 (* Steps that preserve logical implication *)
 Datatype:
   lstep =
-  | Contradiction num (* Id representing a contradiction *)
   | Delete (num list) (* Ids to delete *)
   | Cutting constr    (* Adds a constraint using cutting planes, written in reverse polish notation *)
-  | Con npbc (lstep list) (* Prove constraint by contradiction *)
-  | Check num npbc    (* Debugging / other steps are parsed as no ops *)
+  | Con npbc (lstep list) num
+    (* Prove constraint by contradiction, indicated by the id *)
+  | Check num npbc
+    (* Debugging / other steps are parsed as no ops *)
   | NoOp              (* Other steps are parsed as no ops *)
 End
 
 Definition lstep_ok_def[simp]:
-  (lstep_ok (Con n pfs) ⇔
-    compact n ∧ (EVERY lstep_ok pfs)) ∧
+  (lstep_ok (Con c pfs n) ⇔
+    compact c ∧ (EVERY lstep_ok pfs)) ∧
   (lstep_ok _ ⇔ T)
 Termination
   WF_REL_TAC ‘measure lstep_size’ \\ rw []
@@ -82,47 +102,42 @@ Definition check_cutting_def:
     OPTION_MAP (λc. weaken c var) (check_cutting fml c))
 End
 
-(* The result of a checking step is either:
-  Fail        : proof step failed
-  Unsat num   : unsatisfiability proved, continue with next ID
-  Cont 'a num : continue with state 'a and next ID
-*)
-Datatype:
-  pbpres = Unsat num | Fail | Cont 'a num
+Definition check_contradiction_fml_def:
+  check_contradiction_fml fml n =
+  (case lookup n fml of
+      NONE => F
+    | SOME c =>
+      check_contradiction c)
 End
 
 Definition check_lstep_def:
   (check_lstep lstep (core:num_set) (fml:pbf) (id:num) =
   case lstep of
-    Contradiction n =>
-    (case lookup n fml of
-      NONE => Fail
-    | SOME c =>
-      if check_contradiction c
-      then Unsat id
-      else Fail)
   | Check n c =>
     if lookup n fml = SOME c
-    then Cont fml id
-    else Fail
-  | NoOp => Cont fml id
+    then SOME (fml,id)
+    else NONE
+  | NoOp => SOME(fml,id)
   | Delete ls =>
     if EVERY (λid. lookup id core = NONE) ls
-    then Cont (FOLDL (λa b. delete b a) fml ls) id
-    else Fail
+    then SOME (FOLDL (λa b. delete b a) fml ls, id)
+    else NONE
   | Cutting constr =>
     (case check_cutting fml constr of
-      NONE => Fail
-    | SOME c => Cont (insert id c fml) (id+1))
-  | Con c pf =>
+      NONE => NONE
+    | SOME c => SOME (insert id c fml,id+1))
+  | Con c pf n =>
     let fml_not_c = insert id (not c) fml in
     (case check_lsteps pf core fml_not_c (id+1) of
-      Unsat id' => Cont (insert id' c fml) (id'+1)
-    | _ => Fail)) ∧
-  (check_lsteps [] core fml id = Cont fml id) ∧
+      SOME (fml',id') =>
+      if check_contradiction_fml fml' n
+      then SOME (insert id' c fml,id'+1)
+      else NONE
+    | _ => NONE)) ∧
+  (check_lsteps [] core fml id = SOME (fml,id)) ∧
   (check_lsteps (step::steps) core fml id =
     case check_lstep step core fml id of
-      Cont fml' id' => check_lsteps steps core fml' id'
+      SOME(fml',id') => check_lsteps steps core fml' id'
     | res => res)
 Termination
   WF_REL_TAC ‘measure (
@@ -277,33 +292,38 @@ Proof
   every_case_tac>>fs[]
 QED
 
+Theorem check_contradiction_fml_unsat:
+  check_contradiction_fml fml n ⇒
+  unsatisfiable (range fml)
+Proof
+  rw[check_contradiction_fml_def]>>
+  every_case_tac>>fs[]>>
+  drule check_contradiction_unsat>>
+  rw[unsatisfiable_def,satisfiable_def,range_def,satisfies_def]>>
+  metis_tac[]
+QED
+
 Theorem check_lstep_correct:
   (∀step core fml id.
      id_ok fml id ∧ domain core ⊆ domain fml ⇒
      case check_lstep step core fml id of
-     | Cont fml' id' =>
+       SOME (fml',id') =>
          id ≤ id' ∧
          id_ok fml' id' ∧
          domain core ⊆ domain fml' ∧
          inter fml' core = inter fml core ∧
          range fml ⊨ range fml'
-     | Unsat id' =>
-         id ≤ id' ∧
-         ¬ satisfiable (range fml)
-     | Fail => T) ∧
+     | NONE => T) ∧
   (∀steps core fml id.
      id_ok fml id ∧ domain core ⊆ domain fml ⇒
      case check_lsteps steps core fml id of
-     | Cont fml' id' =>
+     | SOME (fml',id') =>
          id ≤ id' ∧
          id_ok fml' id' ∧
          domain core ⊆ domain fml' ∧
          inter fml' core = inter fml core ∧
          range fml ⊨ range fml'
-     | Unsat id' =>
-         id ≤ id' ∧
-          ¬ satisfiable (range fml)
-     | Fail => T)
+     | NONE => T)
 Proof
   ho_match_mp_tac check_lstep_ind \\
   reverse (rpt strip_tac)
@@ -312,15 +332,9 @@ Proof
     every_case_tac>>gs[]>>
     metis_tac[sat_implies_def,satisfiable_def])
   >- simp[Once check_lstep_def]
-  \\ Cases_on ‘∃n. step = Contradiction n’
-  THEN1 (
-    rw[check_lstep_def] \\ every_case_tac \\ fs [] >>
-    rw[satisfiable_def,range_def,satisfies_def]>>
-    drule check_contradiction_unsat>>
-    metis_tac[])
   \\ Cases_on ‘∃n c. step = Check n c’
-  THEN1
-   (rw[check_lstep_def] \\ every_case_tac \\ fs [] \\ metis_tac[sat_implies_refl])
+  >- (
+    rw[check_lstep_def] \\ every_case_tac \\ fs [] \\ metis_tac[sat_implies_refl])
   \\ Cases_on ‘∃n. step = Delete n’
   THEN1 (
     rw[check_lstep_def] \\ every_case_tac \\ rw []
@@ -351,22 +365,23 @@ Proof
     fs [range_insert,SUBSET_DEF]>>
     metis_tac[] )
   (* Proof by contradiction *)
-  \\ Cases_on ‘∃c steps. step = Con c steps’
+  \\ Cases_on ‘∃c steps n. step = Con c steps n’
   THEN1 (
     fs[check_lstep_def]
     \\ every_case_tac \\ gs[id_ok_insert_1]
     \\ fs[SUBSET_DEF]
-    \\ `id_ok fml n` by fs[id_ok_def]
-    \\ fs[sat_implies_def,satisfies_def]
-    \\ `n ∉ domain fml’ by fs [id_ok_def]
-    \\ simp[id_ok_insert_1, range_insert]
+    \\ CONJ_TAC >-
+      fs[id_ok_def]
+    \\ `r ∉ domain fml’ by fs [id_ok_def]
     \\ CONJ_TAC >- (
       DEP_REWRITE_TAC[inter_insert_NOTIN]>>
       fs[id_ok_def,SUBSET_DEF]>>
       last_x_assum(qspec_then`id` assume_tac)>>fs[]>>
       metis_tac[])
-    \\ fs[satisfiable_def,range_insert,id_ok_def,not_thm]
-    \\ metis_tac[satisfies_def])
+    \\ drule check_contradiction_fml_unsat
+    \\ rw[] \\ fs[unsatisfiable_def,sat_implies_def]
+    \\ fs[range_insert,id_ok_def,not_thm,PULL_FORALL]
+    \\ metis_tac[satisfies_def,satisfiable_def])
   THEN1 (
     rw[Once check_lstep_def]
     \\ every_case_tac \\ gvs [])
@@ -375,16 +390,16 @@ QED
 Theorem check_lstep_compact:
   (∀step core fml id fml' id'.
      (∀c. c ∈ range fml ⇒ compact c) ∧ lstep_ok step ∧
-     check_lstep step core fml id = Cont fml' id' ⇒
+     check_lstep step core fml id = SOME(fml',id') ⇒
      (∀c. c ∈ range fml' ⇒ compact c)) ∧
   (∀steps core fml id fml' id'.
      (∀c. c ∈ range fml ⇒ compact c) ∧ EVERY lstep_ok steps ∧
-     check_lsteps steps core fml id = Cont fml' id' ⇒
+     check_lsteps steps core fml id = SOME(fml',id') ⇒
      (∀c. c ∈ range fml' ⇒ compact c))
 Proof
   ho_match_mp_tac check_lstep_ind \\ reverse (rw [])
   >- (
-    qpat_x_assum`_ = Cont _ _` mp_tac>>
+    qpat_x_assum`_ = SOME _` mp_tac>>
     simp[Once check_lstep_def]>>
     every_case_tac>>fs[])
   >- fs[Once check_lstep_def]>>
@@ -403,11 +418,13 @@ Datatype:
   sstep =
   | Lstep lstep (* Id representing a contradiction *)
   | Red npbc subst
-    (( (num + num) option,lstep list) alist)
+    (( ((num + num) # num) option, (lstep list)) alist)
     (* Ordered list of proofs for subgoals
       NONE -> global subproof steps
-      SOME (INL n) -> the subgoal for constraint id n
-      SOME (INR n) -> the specific subgoals for Red
+      SOME (INL n, id) -> the subgoal for constraint id n
+      SOME (INR n, id) -> the specific subgoals for Red
+      In the latter two cases, id indicates the constraint
+      to check for contradiction after the proof
     *)
 End
 
@@ -417,19 +434,19 @@ Definition extract_clauses_def:
   (extract_clauses f def fml obj (cpf::pfs) acc =
     case cpf of
       (NONE,pf) => extract_clauses f def fml obj pfs ((NONE,pf)::acc)
-    | (SOME (INL n),pf) =>
+    | (SOME (INL n,i),pf) =>
       (case lookup n fml of
         NONE => NONE
-      | SOME c => extract_clauses f def fml obj pfs ((SOME (subst f c),pf)::acc))
-    | (SOME (INR u),pf) =>
+      | SOME c => extract_clauses f def fml obj pfs ((SOME (subst f c,i),pf)::acc))
+    | (SOME (INR u,i),pf) =>
       if u = 0 then
         extract_clauses f def fml obj pfs
-          ((SOME (subst f def),pf)::acc)
+          ((SOME (subst f def,i),pf)::acc)
       else if u = 1 then
         case obj of NONE => NONE
         | SOME l =>
         extract_clauses f def fml obj pfs
-          ((SOME (obj_constraint f l),pf)::acc)
+          ((SOME (obj_constraint f l,i),pf)::acc)
       else NONE)
 End
 
@@ -448,16 +465,19 @@ QED
   But I think we just throw away the fml even for dominance *)
 Definition check_red_def:
   (check_red [] core fml id = SOME id) ∧
-  (check_red ((copt,pf)::pfs) core fml id =
-    case copt of
+  (check_red ((cnopt,pf)::pfs) core fml id =
+    case cnopt of
       NONE => (* no clause given *)
       (case check_lsteps pf core fml id of
-        Cont fml' id' => check_red pfs core fml' id'
+        SOME (fml',id') => check_red pfs core fml' id'
       | res => NONE)
-    | SOME c =>
+    | SOME (c,n) =>
       (let cfml = insert id (not c) fml in
       case check_lsteps pf core cfml (id+1) of
-        Unsat id' => check_red pfs core fml id'
+        SOME(fml',id') =>
+        if check_contradiction_fml fml' n
+        then check_red pfs core fml id'
+        else NONE
       | res => NONE))
 End
 
@@ -475,11 +495,20 @@ Definition map_opt_def:
     | SOME a => mk_BS (map_opt f t1) a (map_opt f t2)
 End
 
+(* Extract the ids which are proved by a list of proofs*)
+Definition extract_pids_def:
+  (extract_pids [] = []) ∧
+  (extract_pids (cpf::pfs) =
+  case FST cpf of
+    NONE => extract_pids pfs
+  | SOME (i,n) => i::extract_pids pfs)
+End
+
 (* Check that the redundancy subgoals are covered *)
 Definition check_red_obj_def:
   check_red_obj obj pids ⇔
-  MEM (SOME (INR 0)) pids ∧
-  (obj ≠ NONE ⇒ MEM (SOME (INR 1)) pids)
+  MEM (INR 0) pids ∧
+  (obj ≠ NONE ⇒ MEM (INR 1) pids)
 End
 
 Definition check_sstep_def:
@@ -491,19 +520,19 @@ Definition check_sstep_def:
     (let fml_not_c = insert id (not c) fml in
       let w = subst_fun s in
       case extract_clauses w c fml obj pfs [] of
-        NONE => Fail
+        NONE => NONE
       | SOME cpfs =>
       (case check_red cpfs core fml_not_c (id+1) of
         SOME id' =>
         let goals = MAP FST (toAList (map_opt (subst_opt w) fml)) in
-        let pids = MAP FST pfs in (* optimize and change later *)
+        let pids = extract_pids pfs in (* optimize and change later *)
           if
             check_red_obj obj pids ∧
-            EVERY (λid. MEM (SOME (INL id)) pids) goals
+            EVERY (λid. MEM (INL id) pids) goals
           then
-            Cont (insert id' c fml) (id'+1)
-          else Fail
-      | _ => Fail) ))
+            SOME (insert id' c fml,id'+1)
+          else NONE
+      | _ => NONE) ))
 End
 
 Theorem sat_implies_transitive:
@@ -522,18 +551,18 @@ QED
 
 Theorem check_red_correct:
   ∀pfs core fml id.
-    id_ok fml id ∧ domain core ⊆ domain fml ⇒
-    case check_red pfs core fml id of
-      SOME id' =>
-       id ≤ id' ∧
-       EVERY (λ(copt,pf).
-         case copt of
-           NONE => T
-         | SOME c => range fml ⊨ {c}
-       ) pfs
-    | NONE => T
+  id_ok fml id ∧ domain core ⊆ domain fml ⇒
+  case check_red pfs core fml id of
+    SOME id' =>
+     id ≤ id' ∧
+     EVERY (λ(cnopt,pf).
+       case cnopt of
+         NONE => T
+       | SOME (c,n) => range fml ⊨ {c}
+     ) pfs
+  | NONE => T
 Proof
-  Induct>-rw[check_red_def]>>
+  Induct>- rw[check_red_def]>>
   Cases>>rw[check_red_def]>>
   Cases_on`q`>>fs[]
   >- (
@@ -549,17 +578,23 @@ Proof
     Cases>>simp[]>>every_case_tac>>
     metis_tac[sat_implies_transitive])>>
   every_case_tac>>fs[]>>
-  `id_ok (insert id (not x) fml) (id + 1)` by
+  rename1`not c`>>
+  `id_ok (insert id (not c) fml) (id + 1)` by
     fs[id_ok_def]>>
   drule (CONJUNCT2 check_lstep_correct)>>
   disch_then (qspecl_then[`r`,`core`] assume_tac)>>
   gs[SUBSET_DEF]>>
+  rename1 `id+1 ≤ n`>>
   `id_ok fml n` by
     fs[id_ok_def]>>
   first_x_assum drule>>
   disch_then drule>>
   simp[]>>
-  gs[range_insert,id_ok_def,unsat_iff_implies]
+  gs[range_insert,id_ok_def,unsat_iff_implies]>>
+  rw[]>>
+  drule check_contradiction_fml_unsat>>
+  fs[unsatisfiable_def,sat_implies_def,not_thm]>>
+  metis_tac[satisfiable_def]
 QED
 
 Theorem implies_explode:
@@ -584,10 +619,10 @@ QED
 Theorem extract_clauses_MEM_INL:
   ∀s fml obj pfs acc res id pf.
   extract_clauses s def fml obj pfs acc = SOME res ∧
-  MEM (SOME (INL id), pf) pfs ⇒
+  MEM (SOME (INL id,n), pf) pfs ⇒
   ∃c.
     lookup id fml = SOME c ∧
-    MEM (SOME (subst s c),pf) res
+    MEM (SOME (subst s c,n),pf) res
 Proof
   Induct_on`pfs`>>rw[extract_clauses_def]>>fs[]>>
   every_case_tac>>fs[]
@@ -600,8 +635,8 @@ QED
 Theorem extract_clauses_MEM_INR_0:
   ∀s fml obj pfs acc res pf.
   extract_clauses s def fml obj pfs acc = SOME res ∧
-  MEM (SOME (INR 0), pf) pfs ⇒
-  MEM (SOME (subst s def),pf) res
+  MEM (SOME (INR 0,n), pf) pfs ⇒
+  MEM (SOME (subst s def,n),pf) res
 Proof
   Induct_on`pfs`>>rw[extract_clauses_def]>>fs[]>>
   every_case_tac>>fs[]
@@ -614,8 +649,8 @@ QED
 Theorem extract_clauses_MEM_INR_1:
   ∀s fml obj pfs acc res pf.
   extract_clauses s def fml (SOME obj) pfs acc = SOME res ∧
-  MEM (SOME (INR 1), pf) pfs ⇒
-  MEM (SOME (obj_constraint s obj),pf) res
+  MEM (SOME (INR 1,n), pf) pfs ⇒
+  MEM (SOME (obj_constraint s obj,n),pf) res
 Proof
   Induct_on`pfs`>>rw[extract_clauses_def]>>fs[]>>
   every_case_tac>>fs[]
@@ -674,20 +709,29 @@ Proof
   asm_exists_tac >> simp[]
 QED
 
+Theorem MEM_extract_pids:
+  ∀ls i.
+  MEM i (extract_pids ls) ⇒
+  ∃n pf.
+  MEM (SOME (i,n),pf) ls
+Proof
+  Induct>>rw[extract_pids_def]>>
+  Cases_on`h`>>fs[]>>
+  every_case_tac>>fs[]>>
+  metis_tac[]
+QED
+
 Theorem check_sstep_correct:
   ∀step obj core fml id.
   id_ok fml id ∧ domain core ⊆ domain fml ⇒
   case check_sstep step obj core fml id of
-  | Cont fml' id' =>
+  | SOME (fml',id') =>
       id ≤ id' ∧
       id_ok fml' id' ∧
       domain core ⊆ domain fml' ∧
       inter fml' core = inter fml core ∧
       sat_obj obj (range fml) (range fml')
-  | Unsat id' =>
-      id ≤ id' ∧
-       ¬ satisfiable (range fml)
-  | Fail => T
+  | NONE => T
 Proof
   Cases>>rw[check_sstep_def]
   >- (
@@ -731,26 +775,26 @@ Proof
     \\ simp [Once implies_explode] \\ reverse (rw [])
     >- (
       Cases_on`obj`>>fs[check_red_obj_def]
-      \\ drule extract_clauses_MEM_INR_1
-      \\ fs[MEM_MAP]
-      \\ Cases_on`y'` \\ gs[]
+      \\ drule MEM_extract_pids
       \\ strip_tac
+      \\ drule extract_clauses_MEM_INR_1
+      \\ disch_then drule
+      \\ fs[MEM_MAP]
+      \\ rw[]
       \\ first_x_assum drule \\ strip_tac
-      \\ first_x_assum drule
-      \\ simp[]
-      \\ fs[lookup_insert]
-      \\ simp[Once INSERT_SING_UNION,UNION_COMM])
+      \\ fs[]
+      \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
     THEN1 (
       fs[check_red_obj_def]
-      \\ drule extract_clauses_MEM_INR_0
-      \\ fs[MEM_MAP]
-      \\ Cases_on`y` \\ gs[]
+      \\ drule MEM_extract_pids
       \\ strip_tac
+      \\ drule extract_clauses_MEM_INR_0
+      \\ disch_then drule
+      \\ fs[MEM_MAP]
+      \\ rw[]
       \\ first_x_assum drule \\ strip_tac
-      \\ first_x_assum drule
-      \\ simp[]
-      \\ fs[lookup_insert]
-      \\ simp[Once INSERT_SING_UNION,UNION_COMM])
+      \\ fs[]
+      \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
     \\ gvs [GSYM unsat_iff_implies]
     \\ pop_assum mp_tac
     \\ simp [Once range_def] \\ rw []
@@ -765,6 +809,7 @@ Proof
       \\ metis_tac[])
     \\ Cases_on`x'` \\ fs[]
     \\ strip_tac
+    \\ drule MEM_extract_pids \\ strip_tac
     \\ drule extract_clauses_MEM_INL
     \\ disch_then drule
     \\ strip_tac
@@ -785,7 +830,7 @@ End
 Theorem check_sstep_compact:
   ∀sstep obj core fml id fml' id'.
   (∀c. c ∈ range fml ⇒ compact c) ∧ sstep_ok sstep ∧
-  check_sstep sstep obj core fml id = Cont fml' id' ⇒
+  check_sstep sstep obj core fml id = SOME(fml',id') ⇒
   (∀c. c ∈ range fml' ⇒ compact c)
 Proof
   Cases>>rw[]>>fs[check_sstep_def]
@@ -801,11 +846,11 @@ QED
   ...
 *)
 Definition check_ssteps_def:
-  (check_ssteps [] obj core fml id = Cont fml id) ∧
+  (check_ssteps [] obj core fml id = SOME(fml,id)) ∧
   (check_ssteps (s::ss) obj core fml id =
     case check_sstep s obj core fml id of
-      Cont fml' id' => check_ssteps ss obj core fml' id'
-    | res => res)
+      SOME(fml',id') => check_ssteps ss obj core fml' id'
+    | NONE => NONE)
 End
 
 Theorem sat_obj_refl:
@@ -856,28 +901,26 @@ Theorem check_ssteps_correct:
   ∀ss obj core fml id.
   id_ok fml id ∧ domain core ⊆ domain fml ⇒
   case check_ssteps ss obj core fml id of
-  | Cont fml' id' =>
+  | SOME(fml',id') =>
       id ≤ id' ∧
       id_ok fml' id' ∧
       domain core ⊆ domain fml' ∧
       inter fml' core = inter fml core ∧
       sat_obj obj (range fml) (range fml')
-  | Unsat id' =>
-     id ≤ id' ∧
-      ¬ satisfiable (range fml)
   | Fail => T
 Proof
   Induct>>rw[check_ssteps_def,sat_obj_refl]>>
   drule check_sstep_correct>>
   disch_then(qspecl_then [`h`,`obj`,`core`] mp_tac)>>
   TOP_CASE_TAC>>simp[]>>
+  TOP_CASE_TAC>>simp[]>>
   rw[]>>
   first_x_assum drule>>
   disch_then drule>>
   disch_then(qspec_then`obj` mp_tac)>>
   TOP_CASE_TAC>>simp[]>>
-  rw[]
-  >- fs[sat_obj_def,satisfiable_def]>>
+  TOP_CASE_TAC>>simp[]>>
+  rw[]>>
   metis_tac[sat_obj_trans]
 QED
 
@@ -922,7 +965,7 @@ Definition check_del_def:
       (let nc = delete n c in
       let ncf = delete n cf in
       case check_ssteps pf obj nc ncf id of
-        Cont ncf' id' =>
+        SOME(ncf',id') =>
         if lookup (id'-1) ncf' = SOME cl
         then check_del pfs obj nc ncf id'
         else NONE
@@ -1020,34 +1063,33 @@ Definition check_cstep_def:
   case cstep of
     Transfer ls =>
     if EVERY (λid. lookup id fml ≠ NONE) ls
-    then Cont (FOLDL (λa b. insert b () a) core ls, fml, bound) id
-    else Fail
+    then SOME (FOLDL (λa b. insert b () a) core ls, fml, bound,id)
+    else NONE
   | CheckedDelete ls pfs =>
     let cdel = FILTER (λid. lookup id core ≠ NONE) ls in
     if cdel = [] then
-      Cont (core, FOLDL (λa b. delete b a) fml ls, bound) id
+      SOME (core, FOLDL (λa b. delete b a) fml ls, bound, id)
     else (
       let cf = coref core fml in
-      case check_del pfs obj core cf id of NONE => Fail
+      case check_del pfs obj core cf id of NONE => NONE
       | SOME id' =>
       let pids = MAP FST pfs in (* optimize and change later *)
       if EVERY (λid. MEM id pids) cdel then
-        Cont (FOLDL (λa b. delete b a) core cdel,
-              FOLDL (λa b. delete b a) fml ls, bound) id'
-      else Fail)
+        SOME (FOLDL (λa b. delete b a) core cdel,
+              FOLDL (λa b. delete b a) fml ls, bound,id')
+      else NONE)
   | Sstep sstep =>
     (case check_sstep sstep obj core fml id of
-      Cont fml' id' => Cont (core,fml',bound) id'
-    | Unsat id => Unsat id
-    | Fail => Fail)
+      SOME(fml',id') => SOME (core,fml',bound,id')
+    | NONE => NONE)
   | Obj w =>
     (case check_obj obj bound w (coref core fml) of
-      NONE => Fail
+      NONE => NONE
     | SOME new =>
       let c = model_improving obj new in
-      Cont (
+      SOME (
         insert id () core,
-        insert id c fml,SOME new) (id+1)))
+        insert id c fml,SOME new,id+1)))
 End
 
 Definition valid_conf_def:
@@ -1324,7 +1366,7 @@ Theorem check_cstep_correct:
   id_ok fml id ∧
   valid_conf obj core fml ⇒
   case check_cstep cstep obj bound core fml id of
-  | Cont (core',fml',bound') id' =>
+  | SOME (core',fml',bound',id') =>
       id ≤ id' ∧
       id_ok fml' id' ∧
       valid_conf obj core' fml' ∧
@@ -1334,10 +1376,7 @@ Theorem check_cstep_correct:
       equi_obj obj bound'
         (range (coref core fml))
         (range (coref core' fml'))
-  | Unsat id' =>
-      id ≤ id' ∧
-       ¬ satisfiable (range fml)
-  | Fail => T
+  | NONE => T
 Proof
   Cases>>fs[check_cstep_def]
   >- (
@@ -1452,6 +1491,7 @@ Proof
     disch_then drule>>
     disch_then (qspecl_then [`s`,`obj`] mp_tac)>>
     TOP_CASE_TAC>>fs[]>>
+    TOP_CASE_TAC>>fs[]>>
     strip_tac>>
     drule range_coref_cong>>
     simp[equi_obj_refl,opt_le_def,opt_lt_irref]>>
@@ -1497,14 +1537,13 @@ Proof
   )
 QED
 
-(* TODO: decide what to do for UNSAT *)
 Definition check_csteps_def:
-  (check_csteps [] obj bound core fml id = Cont (core,fml,bound) id) ∧
+  (check_csteps [] obj bound core fml id = SOME (core,fml,bound,id)) ∧
   (check_csteps (s::ss) obj bound core fml id =
     case check_cstep s obj bound core fml id of
-      Cont (core',fml',bound') id' =>
+      SOME (core',fml',bound',id') =>
       check_csteps ss obj bound' core' fml' id'
-    | res => Fail)
+    | NONE => NONE)
 End
 
 Theorem opt_lt_le:
@@ -1538,7 +1577,7 @@ Theorem check_csteps_correct:
   id_ok fml id ∧
   valid_conf obj core fml ∧
   check_csteps csteps obj bound core fml id =
-    Cont (core',fml',bound') id' ⇒
+    SOME(core',fml',bound',id') ⇒
     hide (id ≤ id' ∧
     id_ok fml' id' ∧
     valid_conf obj core' fml' ∧
@@ -1665,7 +1704,7 @@ Theorem check_csteps_optimal:
   id_ok fml id ∧
   valid_conf obj core fml ∧
   check_csteps csteps obj NONE core fml id =
-    Cont (core',fml',bound') id' ∧
+    SOME (core',fml',bound',id') ∧
   unsatisfiable (range fml') ⇒
   optimal_val (range (coref core fml)) obj = bound'
 Proof
