@@ -178,44 +178,61 @@ End
   Parsing a proof file
 *)
 
+Type name_fun[pp] = “:(mlstring -> α -> (num # α) option) # α”
+
+Definition apply_lit_def:
+  apply_lit ((f,ns):'a name_fun) (Pos x) =
+    (case f x ns of
+     | NONE => NONE
+     | SOME (y,ns1) => SOME (Pos y,f,ns1)) ∧
+  apply_lit (f,ns) (Neg x) =
+    (case f x ns of
+     | NONE => NONE
+     | SOME (y,ns1) => SOME (Neg y,f,ns1))
+End
+
 (* The stack is formed from constraints, where factors and variables are
   also encoded using Id *)
 Definition parse_lit_num_def:
-  parse_lit_num s = OPTION_MAP (map_lit hashString) (parse_lit s)
+  parse_lit_num (f_ns:'a name_fun) s =
+    case parse_lit s of
+    | NONE => NONE
+    | SOME l => apply_lit f_ns l
 End
 
 Definition parse_cutting_def:
-  (parse_cutting (x::xs) stack =
+  (parse_cutting f_ns (x::xs) stack =
   case x of INR n =>
     if n ≥ 0 then
-      parse_cutting xs (Id (Num n) :: stack)
+      parse_cutting f_ns xs (Id (Num n) :: stack)
     else NONE
   | INL s =>
   if s = str #"+" then
     (case stack of
-      a::b::rest => parse_cutting xs (Add b a::rest)
+      a::b::rest => parse_cutting f_ns xs (Add b a::rest)
     | _ => NONE)
   else if s = str #"*" then
     (case stack of
-      Id a::b::rest => parse_cutting xs (Mul b a::rest)
+      Id a::b::rest => parse_cutting f_ns xs (Mul b a::rest)
     | _ => NONE)
   else if s = str #"d" then
     (case stack of
-      Id a::b::rest => parse_cutting xs (Div b a::rest)
+      Id a::b::rest => parse_cutting f_ns xs (Div b a::rest)
     | _ => NONE)
   else if s = str #"s" then
     (case stack of
-      a::rest => parse_cutting xs (Sat a::rest)
+      a::rest => parse_cutting f_ns xs (Sat a::rest)
     | _ => NONE)
   else if s = str #"w" then
     (case stack of
-      Lit (Pos v)::a::rest => parse_cutting xs (Weak a v::rest)
+      Lit (Pos v)::a::rest => parse_cutting f_ns xs (Weak a v::rest)
     | _ => NONE)
   else
-    case parse_lit_num s of SOME l => parse_cutting xs (Lit l::stack)
+    case parse_lit_num f_ns s of
+    | SOME (l,f_ns1)=> parse_cutting f_ns1 xs (Lit l::stack)
     | NONE => NONE) ∧
-  (parse_cutting [] [c] = SOME c) ∧
-  (parse_cutting [] _ = NONE)
+  (parse_cutting f_ns [] [c] = SOME (c,f_ns)) ∧
+  (parse_cutting f_ns [] _ = NONE)
 End
 
 Definition strip_numbers_def:
@@ -229,27 +246,27 @@ Definition strip_numbers_def:
 End
 
 Definition parse_var_def:
-  parse_var v =
-  case parse_lit_num v of SOME (Pos n) => SOME n | _ => NONE
+  parse_var f_ns v =
+  case parse_lit_num f_ns v of SOME (Pos n,f_ns) => SOME (n,f_ns) | _ => NONE
 End
 
 (* Parse a substitution {var -> lit} *)
 Definition parse_subst_def:
-  (parse_subst (INL v :: INL arr :: r ::rest) acc =
+  (parse_subst f_ns (INL v :: INL arr :: r ::rest) acc =
   if arr = strlit "->" then
-    case parse_var v of
-      NONE => ([],LN)
-    | SOME v =>
+    case parse_var f_ns v of
+      NONE => ([],LN,f_ns)
+    | SOME (v,f_ns) =>
     (case r of
         INR r =>
-          if r = 0:int then parse_subst rest (insert v (INL F) acc)
-          else if r = 1 then parse_subst rest (insert v (INL T) acc)
-          else ([],LN)
+          if r = 0:int then parse_subst f_ns rest (insert v (INL F) acc)
+          else if r = 1 then parse_subst f_ns rest (insert v (INL T) acc)
+          else ([],LN,f_ns)
       | INL r =>
-          (case parse_lit_num r of NONE => ([],LN)
-          | SOME l => parse_subst rest (insert v (INR l) acc)))
-  else ([],LN)) ∧
-  (parse_subst ls acc = (ls, acc))
+          (case parse_lit_num f_ns r of NONE => ([],LN,f_ns)
+          | SOME (l, f_ns)  => parse_subst f_ns rest (insert v (INR l) acc)))
+  else ([],LN,f_ns)) ∧
+  (parse_subst f_ns ls acc = (ls, acc,f_ns))
 End
 
 Definition parse_constraint_npbc_def:
@@ -264,14 +281,14 @@ Definition parse_constraint_npbc_def:
 End
 
 Definition parse_red_header_def:
-  parse_red_header line =
+  parse_red_header f_ns line =
   case parse_constraint_npbc line of
     SOME (constr,rest) =>
-      (case parse_subst rest LN of (rest,ss) =>
+      (case parse_subst f_ns rest LN of (rest,ss,f_ns) =>
        (case rest of
         [INL term; INL beg] =>
           if term = strlit";" ∧ beg = strlit"begin" then
-            SOME (constr,ss)
+            SOME (constr,ss,f_ns)
           else NONE
       | _ => NONE))
   | _ => NONE
