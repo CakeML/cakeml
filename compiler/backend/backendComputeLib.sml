@@ -70,6 +70,7 @@ val add_backend_compset = computeLib.extend_compset
     ]
       (* ---- source_to_source ---- *)
   ,computeLib.Defs (theory_computes "source_let")
+  ,computeLib.Defs (theory_computes "source_lift_consts")
   ,computeLib.Defs (theory_computes "source_to_source")
   ,computeLib.Defs
     [ (* ---- source_to_flat ---- *)

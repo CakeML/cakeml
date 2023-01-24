@@ -3,15 +3,17 @@
  *)
 
 open preamble;
-open source_letTheory;
+open source_letTheory source_lift_constsTheory;
 
 val _ = new_theory "source_to_source";
 
-val _ = set_grammar_ancestry ["source_let", "misc"];
+val _ = set_grammar_ancestry ["source_let", "source_lift_consts", "misc"];
 
 Definition compile_def:
-  compile = source_let$compile_decs
+  compile prog =
+    let prog = source_let$compile_decs prog in
+    let prog = source_lift_consts$compile_decs prog in
+      prog
 End
 
 val _ = export_theory ();
-
