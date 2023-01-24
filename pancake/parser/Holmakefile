@@ -6,7 +6,8 @@ INCLUDES = $(HOLDIR)/examples/machine-code/multiword\
 					 $(CAKEMLDIR)/compiler/\
 					 $(CAKEMLDIR)/examples/\
 					 $(CAKEMLDIR)/semantics/\
-					 $(CAKEMLDIR)/compiler/encoders/asm
+					 $(CAKEMLDIR)/compiler/encoders/asm\
+				     $(HOLDIR)/examples/formal-languages/context-free
 
 
 all: $(DEFAULT_TARGETS) README.md

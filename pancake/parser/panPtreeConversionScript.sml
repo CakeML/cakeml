@@ -11,9 +11,8 @@ open HolKernel Parse boolLib bossLib stringLib numLib intLib;
 open arithmeticTheory;
 open preamble pegTheory pegexecTheory;
 open grammarTheory;
-open panLexerTheory panLangTheory panPEGTheory
+open panLexerTheory panLangTheory panPEGTheory;
 open ASCIInumbersLib combinTheory;
-open helperLib;
 
 val _ = new_theory "panPtreeConversion";
 
@@ -402,9 +401,19 @@ val src = ‘var a = @base {
      return 0;
  }}}}’;
 
+local
+  val f =
+    List.mapPartial
+       (fn s => case remove_whitespace s of "" => NONE | x => SOME x) o
+    String.tokens (fn c => c = #"\n")
+in
+  fun quote_to_strings q =
+    f (Portable.quote_to_string (fn _ => raise General.Bind) q)
+end
+
 fun parse_pancake q =
   let
-    val code = quote_to_strings q |> concat |> fromMLstring
+    val code = quote_to_strings q |> String.concatWith "\n" |> fromMLstring
   in
     EVAL “parse_to_ast ^code”
   end
