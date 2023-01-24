@@ -4,7 +4,7 @@
 open preamble;
 open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
-open to_target64ProgTheory
+open from_pancake64ProgTheory
 open x64_targetTheory x64Theory;
 open inliningLib;
 
@@ -12,7 +12,7 @@ val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "x64Prog"
 
-val _ = translation_extends "to_target64Prog";
+val _ = translation_extends "from_pancake64Prog";
 val _ = ml_translatorLib.use_string_type true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "x64Prog");

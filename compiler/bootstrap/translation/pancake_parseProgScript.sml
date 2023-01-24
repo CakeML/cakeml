@@ -1,16 +1,15 @@
 (*
   Translate pancake's lexer
 *)
-open preamble;
-open ml_translatorLib ml_translatorTheory;
-open panPEGTheory ;
-open caml_parserProgTheory;
+open preamble
+     panPEGTheory
+     pancake_lexProgTheory
+     ml_translatorLib ml_translatorTheory
 
 val _ = new_theory "pancake_parseProg"
+val _ = translation_extends "pancake_lexProg";
 
-val _ = translation_extends "caml_parserProg";
-
-val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "pancake_parserProg");
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "pancake_parseProg");
 val _ = ml_translatorLib.use_string_type true;
 
 val RW = REWRITE_RULE
@@ -131,4 +130,3 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = (ml_translatorLib.clean_on_exit := true);
 
 val _ = export_theory();
-

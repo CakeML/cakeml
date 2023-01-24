@@ -49,6 +49,12 @@ Translate the compiler's lexer.
 [mipsProgScript.sml](mipsProgScript.sml):
 Translate the MIPS instruction encoder and MIPS-specific config.
 
+[pancake_lexProgScript.sml](pancake_lexProgScript.sml):
+Translate pancake's lexer
+
+[pancake_parseProgScript.sml](pancake_parseProgScript.sml):
+Translate pancake's lexer
+
 [parserProgScript.sml](parserProgScript.sml):
 Translate the compiler's parser.
 
