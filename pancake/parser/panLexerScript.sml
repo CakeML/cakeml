@@ -41,7 +41,7 @@ Definition isAtom_singleton_def:
 End
 
 Definition isAtom_begin_group_def:
-  isAtom_begin_group c = MEM c "#=>"
+  isAtom_begin_group c = MEM c "#=><"
 End
 
 Definition isAtom_in_group_def:
