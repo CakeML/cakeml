@@ -1,16 +1,15 @@
 (*
   Translate pancake's lexer
 *)
-open preamble;
-open ml_translatorLib ml_translatorTheory;
-open panLexerTheory locationTheory;
-open caml_parserProgTheory;
+open preamble
+     panLexerTheory locationTheory
+     caml_parserProgTheory
+     ml_translatorLib ml_translatorTheory
 
 val _ = new_theory "pancake_lexProg"
-
 val _ = translation_extends "caml_parserProg";
 
-val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "pancake_lexerProg");
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "pancake_lexProg");
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
@@ -129,8 +128,9 @@ QED
 
 val _ = update_precondition pancake_lex_side;
 
-val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
+val () = Feedback.set_trace "TheoryPP.include_docs" 0
 
-val _ = (ml_translatorLib.clean_on_exit := true);
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
+val _ = ml_translatorLib.clean_on_exit := true;
 
 val _ = export_theory();
