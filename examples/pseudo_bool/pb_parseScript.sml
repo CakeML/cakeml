@@ -485,7 +485,7 @@ Definition parse_top_def:
 End
 *)
 
-val fromString_unsafe_def = Define`
+Definition fromString_unsafe_def:
   fromString_unsafe str =
     if strlen str = 0
     then 0i
@@ -493,16 +493,18 @@ val fromString_unsafe_def = Define`
             strsub str 0 = #"-"
       then ~&fromChars_unsafe (strlen str - 1)
                               (substring str 1 (strlen str - 1))
-      else &fromChars_unsafe (strlen str) str`;
+      else &fromChars_unsafe (strlen str) str
+End
 
-val tokenize_fast_def = Define`
+Definition tokenize_fast_def:
   tokenize_fast (s:mlstring) =
   if strlen s = 0 then INL s
   else
   let c = ORD (strsub s 0) in
   if 48 ≤ c ∧ c ≤ 57
   then INR (fromString_unsafe s)
-  else INL s`
+  else INL s
+End
 
 Definition toks_fast_def:
   toks_fast s = MAP tokenize_fast (tokens blanks s)
