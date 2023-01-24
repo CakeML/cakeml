@@ -355,7 +355,7 @@ Definition parse_lsteps_aux_def:
           else NONE
         else NONE)
 Termination
-  WF_REL_TAC `measure (LENGTH o FST)’
+  WF_REL_TAC ‘measure (LENGTH o FST)’
   \\ rw[] \\ fs[]
 End
 
@@ -440,7 +440,7 @@ Definition parse_red_aux_def:
         else NONE))
   )
 Termination
-  WF_REL_TAC `measure (LENGTH o FST)’
+  WF_REL_TAC ‘measure (LENGTH o FST)’
   \\ rw[] \\ fs[]>>
   imp_res_tac parse_lsteps_aux_LENGTH>>
   fs[]
@@ -461,6 +461,7 @@ Proof
 QED
 
 (* Parse 1 top level step until EOF *)
+(* TODO: needs fixing
 Definition parse_top_def:
   (parse_top [] = SOME NONE) ∧
   (parse_top (s::ss) =
@@ -482,6 +483,7 @@ Definition parse_top_def:
           SOME (SOME (Red c s pf,rest))
         ))
 End
+*)
 
 val fromString_unsafe_def = Define`
   fromString_unsafe str =
