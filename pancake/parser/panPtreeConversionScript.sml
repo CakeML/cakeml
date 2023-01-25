@@ -13,6 +13,7 @@ open preamble pegTheory pegexecTheory;
 open grammarTheory;
 open panLexerTheory panLangTheory panPEGTheory;
 open ASCIInumbersLib combinTheory;
+open helperLib;
 
 val _ = new_theory "panPtreeConversion";
 
@@ -309,6 +310,46 @@ Definition conv_NonRecStmt_def:
     else NONE
 End
 
+Definition butlast_def:
+  (butlast [] = []) ∧
+  (butlast (x::xs) = (if xs = [] then [] else x::(butlast xs)))
+End
+
+Theorem butlast_length:
+  ∀xs. LENGTH (butlast xs) = LENGTH xs - 1
+Proof
+  Induct>>rw[]>>gs[butlast_def]>>
+  Cases_on ‘xs’>>gs[]
+QED
+
+Theorem butlast_tl[simp]:
+  ∀xs. butlast (TL xs) = TL (butlast xs)
+Proof
+  Induct>>rw[]>>gs[butlast_def]>>
+  Cases_on ‘xs’>>gs[butlast_def]
+QED
+
+Theorem butlast_append[simp]:
+  ∀xs ys. butlast (xs ++ ys) = (if ys = [] then butlast xs else xs ++ butlast ys)
+Proof
+  Induct>>rw[]>>gs[butlast_def]
+QED
+
+Theorem list_size_butlast:
+  ∀xs f. list_size f (butlast xs) ≤ list_size f xs
+Proof
+  Induct>>rw[]>>gs[butlast_def]>>
+  IF_CASES_TAC>>gs[list_size_def]
+QED
+
+Theorem list_size_MEM:
+  ∀xs x. MEM x xs ⇒ f x ≤ list_size f xs
+Proof
+  Induct>>rw[]>>gs[list_size_def]>>
+  last_x_assum (qspec_then ‘x’ assume_tac)>>
+  gs[]
+QED
+
 Definition conv_Prog_def:
   (conv_Handle tree =
     case argsNT tree HandleNT of
@@ -372,8 +413,10 @@ Definition conv_Prog_def:
        | _ => NONE
      else if isNT nodeNT ProgNT then
        case args of
-         t::ts => FOLDR (λt p. lift2 Seq p (conv_Prog t))
-                        (conv_Prog t) ts
+         t::ts => if ts ≠ []
+                  then FOLDR (λt' p. lift2 Seq t' p) (conv_Prog (LAST ts))
+                             (MAP conv_Prog (t::(butlast ts)))
+                  else conv_Prog t
        | _ => NONE
      else conv_NonRecStmt (Nd nodeNT args)) ∧
   conv_Prog leaf = conv_NonRecStmt leaf
@@ -381,7 +424,23 @@ Termination
   WF_REL_TAC ‘measure (λx. case x of
                              INR x => sum_CASE x ptree_size ptree_size
                            | INL x => ptree_size x)’
-  >> rw[] >> Cases_on ‘tree’ >> gvs[argsNT_def,parsetree_size_def]
+  >> rw[] >> gvs[argsNT_def,parsetree_size_def]>>
+  TRY (Cases_on ‘tree’ >> gvs[argsNT_def,parsetree_size_def])
+  >- (
+  drule mem_ptree_thm>>strip_tac>>
+  gs[parsetree_size_eq]>>
+  gvs[parsetree_size_def]>>
+  ‘list_size ptree_size (butlast ts) ≤ list_size ptree_size ts’
+    by irule list_size_butlast>>
+  gs[])>>
+  gs[parsetree_size_eq]>>
+  gvs[parsetree_size_def]>>
+  ‘ptree_size (LAST ts) ≤ list_size ptree_size ts’
+    by (irule list_size_MEM>>
+        gs[LAST_EL, MEM_EL]>>
+        qexists_tac ‘PRE (LENGTH ts)’>>gs[]>>
+        Cases_on ‘ts’>>gs[])>>
+  gs[]
 End
 
 Definition parse_to_ast_def:
