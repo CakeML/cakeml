@@ -99,9 +99,16 @@ val res = translate source_to_flatTheory.compile_prog_def;
 
 val _ = (length (hyp res) = 0)
         orelse failwith "Unproved side condition: source_to_flat_compile_prog";
+
 (* ------------------------------------------------------------------------- *)
 (* source_to_source                                                          *)
 (* ------------------------------------------------------------------------- *)
+
+val _ = ml_translatorLib.use_string_type false;
+val r = translate source_lift_constsTheory.make_name_def;
+val _ = ml_translatorLib.use_string_type true;
+
+val r = translate source_lift_constsTheory.compile_dec_def;
 
 val res = translate source_to_sourceTheory.compile_def;
 

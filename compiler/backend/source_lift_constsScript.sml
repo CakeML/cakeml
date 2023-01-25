@@ -63,7 +63,7 @@ Definition delete_all_def:
   delete_all (n::ns) s = delete (delete_all ns s) (implode n)
 End
 
-Definition disjoiint_def:
+Definition disjoint_def:
   disjoint [] s = T ∧
   disjoint (n::ns) s = case lookup s (implode n) of
                        | NONE => disjoint ns s
