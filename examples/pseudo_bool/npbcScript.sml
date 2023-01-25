@@ -1144,57 +1144,86 @@ Proof
   metis_tac[]
 QED
 
+(* the solution improving constraint is given by
+  l + -l|w ≥ 0 *)
+Definition obj_constraint_def:
+  obj_constraint f l =
+    let (result, k) = subst_lhs f (MAP (λ(c,l). (-c,l)) l) in
+    let (add,n) = add_lists l result in
+    (add, SUM (MAP (λi. Num (ABS (FST i))) l) - (k + n))
+End
+
+(* Preserving satisfiability and optimality *)
+Definition sat_obj_def:
+  sat_obj fopt s t ⇔
+  ∀w.
+    satisfies w s ⇒
+    ∃w'. satisfies w' t ∧
+      eval_obj fopt w' ≤ eval_obj fopt w
+End
+
+Definition redundant_wrt_obj_def:
+  redundant_wrt_obj f obj c ⇔
+    sat_obj obj f (f ∪ {c})
+End
+
 Theorem dominance_conf_valid:
   transitive po ∧
   finite_support po z ∧ FINITE z ∧
   C ∪ D ∪ {not c} ⊨ C ⇂ w ∧
   sat_strict_ord (C ∪ D ∪ {not c}) po w ∧
+  (case obj of
+   | NONE => T
+   | SOME obj => C ∪ D ∪ {not c} ⊨ {obj_constraint w obj}) ∧
   conf_valid C D po ⇒
-  conf_valid C (D ∪ {c}) po
+  conf_valid C (D ∪ {c}) po ∧
+  redundant_wrt_obj (C ∪ D) obj c
 Proof
-  rw[conf_valid_def]>>
-  CCONTR_TAC>>
-  gs[]>>
-  fs[METIS_PROVE [] ``(A ∨ ¬B) ⇔ (¬A ⇒ ¬B)``]>>
-  qabbrev_tac`s =
+  rw[conf_valid_def]
+  >-
+   (CCONTR_TAC>>
+    gs[]>>
+    fs[METIS_PROVE [] ``(A ∨ ¬B) ⇔ (¬A ⇒ ¬B)``]>>
+    qabbrev_tac`s =
     {p |
-    satisfies p C ∧
-    ∀p'. po p' p ⇒
-      ¬satisfies p' (C ∪ D ∪ {c})}`>>
-  `s <> {}` by (
-    rw[Abbr`s`,EXTENSION]>>
-    metis_tac[])>>
-  rename1`satisfies pold C`>>
-  `∃p. p ∈ s ∧
-    ∀p'. p' ∈ s ∧ po p' p ⇒ po p p'` by
-    (match_mp_tac FINITE_support_find_min>>
-    fs[])>>
-  qpat_x_assum`s ≠ _ ` kall_tac>>
-  `satisfies p C ∧
-  ∀p'.
-    po p' p ⇒
-    (¬satisfies p' C ∨ ¬satisfies p' D)
-      ∨ ¬satisfies_npbc p' c` by fs[Abbr`s`]>>
-  last_x_assum drule>>strip_tac>>
-  gvs[]>>
-  `~satisfies_npbc p' c` by metis_tac[]>>
-  fs[sat_strict_ord_def,sat_ord_def,not_thm]>>
-  last_x_assum drule_all>>
-  strip_tac>>
-  qabbrev_tac`p'' = assign w p'`>>
-  `po p'' p` by
-    metis_tac[relationTheory.transitive_def]>>
-  `¬po p p''` by
-    metis_tac[relationTheory.transitive_def]>>
-  `satisfies p'' C` by (
-    fs[sat_implies_def,Abbr`p''`]>>
-    fs[satisfies_def,PULL_EXISTS,subst_thm,not_thm])>>
-  `p'' ∉ s` by metis_tac[]>>
-  gs[Abbr`s`]>>
-  rename1`satisfies_npbc pprime c`>>
-  `po pprime p` by
-    metis_tac[transitive_def]>>
-  metis_tac[]
+     satisfies p C ∧
+     ∀p'. po p' p ⇒
+          ¬satisfies p' (C ∪ D ∪ {c})}`>>
+    `s <> {}` by (
+      rw[Abbr`s`,EXTENSION]>>
+      metis_tac[])>>
+    rename1`satisfies pold C`>>
+    `∃p. p ∈ s ∧
+      ∀p'. p' ∈ s ∧ po p' p ⇒ po p p'` by
+      (match_mp_tac FINITE_support_find_min>>
+      fs[])>>
+    qpat_x_assum`s ≠ _ ` kall_tac>>
+    `satisfies p C ∧
+    ∀p'.
+      po p' p ⇒
+      (¬satisfies p' C ∨ ¬satisfies p' D)
+        ∨ ¬satisfies_npbc p' c` by fs[Abbr`s`]>>
+    last_x_assum drule>>strip_tac>>
+    gvs[]>>
+    `~satisfies_npbc p' c` by metis_tac[]>>
+    fs[sat_strict_ord_def,sat_ord_def,not_thm]>>
+    last_x_assum drule_all>>
+    strip_tac>>
+    qabbrev_tac`p'' = assign w p'`>>
+    `po p'' p` by
+      metis_tac[relationTheory.transitive_def]>>
+    `¬po p p''` by
+      metis_tac[relationTheory.transitive_def]>>
+    `satisfies p'' C` by (
+      fs[sat_implies_def,Abbr`p''`]>>
+      fs[satisfies_def,PULL_EXISTS,subst_thm,not_thm])>>
+    `p'' ∉ s` by metis_tac[]>>
+    gs[Abbr`s`]>>
+    rename1`satisfies_npbc pprime c`>>
+    `po pprime p` by
+      metis_tac[transitive_def]>>
+    metis_tac[])
+  \\ cheat
 QED
 
 Theorem redundancy_conf_valid:
@@ -1241,29 +1270,6 @@ Proof
   first_x_assum drule>>
   rw[]
 QED
-
-(* Preserving satisfiability and optimality *)
-Definition sat_obj_def:
-  sat_obj fopt s t ⇔
-  ∀w.
-    satisfies w s ⇒
-    ∃w'. satisfies w' t ∧
-      eval_obj fopt w' ≤ eval_obj fopt w
-End
-
-Definition redundant_wrt_obj_def:
-  redundant_wrt_obj f obj c ⇔
-    sat_obj obj f (f ∪ {c})
-End
-
-(* the solution improving constraint is given by
-  l + -l|w ≥ 0 *)
-Definition obj_constraint_def:
-  obj_constraint f l =
-    let (result, k) = subst_lhs f (MAP (λ(c,l). (-c,l)) l) in
-    let (add,n) = add_lists l result in
-    (add, SUM (MAP (λi. Num (ABS (FST i))) l) - (k + n))
-End
 
 Theorem add_ge:
   x ≥ y - z ⇔
