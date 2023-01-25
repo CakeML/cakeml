@@ -294,56 +294,41 @@ Definition parse_red_header_def:
   | _ => NONE
 End
 
-Definition parse_subgoal_num_def:
-  parse_subgoal_num line =
-  case line of
-    [INR n] => if n>=0 then SOME (INL (Num n)) else NONE
-  | [INL s] =>
-     if s = strlit "#1"
-     then SOME (INR ())
-     else NONE
-  | _ => NONE
-End
-
 (* Parse a single line of an lstep,
-  Except "Red", which might be a
-  top-level Red step
-*)
+  Except "Red", which will be handled later *)
 Definition parse_lstep_aux_def:
-  (parse_lstep_aux s =
+  (parse_lstep_aux f_ns s =
     case s of [] => NONE
     | (r::rs) =>
-      if r = INL (strlit "c") then
-        (case rs of
-          [INR id] =>
-          if id ≥ 0 then SOME (INL (Contradiction (Num id)))
-          else NONE
-        | _ => NONE)
-      else if r = INL (strlit "d") then
+      if r = INL (strlit "d") then
         (case strip_numbers rs [] of NONE => NONE
-        | SOME n => SOME (INL (Delete n)))
+        | SOME n => SOME (INL (Delete n),f_ns))
       else if r = INL (strlit "pol") then
-        (case parse_cutting rs [] of NONE => NONE
-        | SOME p => SOME (INL (Cutting p)))
+        (case parse_cutting f_ns rs [] of NONE => NONE
+        | SOME (p,f_ns') => SOME (INL (Cutting p),f_ns'))
+      else if r = INL (strlit "red") then
+        case parse_red_header f_ns rs of NONE => NONE
+        | SOME (c,s,f_ns') =>
+          SOME (INR (c,s),f_ns')
       else if r = INL (strlit "e") then
         (case rs of
           INR id::rest =>
           if id ≥ 0 then
             (case parse_constraint_npbc rest of
-              SOME (c,[]) => SOME (INL (Check (Num id) c))
+              SOME (c,[]) => SOME (INL (Check (Num id) c),f_ns)
             | _ => NONE)
           else NONE
         | _ => NONE)
-      else if r = INL (strlit "*") then SOME (INL NoOp)
-      else if r = INL (strlit "red") then
-        case parse_red_header rs of NONE => NONE
-        | SOME (c,s) =>
-          SOME (INR (c,s))
+      else if r = INL (strlit "*") then SOME (INL NoOp,f_ns)
       else NONE)
 End
 
 Definition check_end_def:
-  check_end (h:(mlstring + int) list ) = (h = [INL (strlit"end")])
+  check_end (h:(mlstring + int) list ) =
+  case h of
+    [INL e; INR n] =>
+    if e = (strlit"end") ∧ n ≥ 0 then SOME (Num n) else NONE
+  | _ => NONE
 End
 
 (* Parsing lsteps in a subproof until parsing
@@ -352,33 +337,34 @@ End
   redundancy steps can not appear in subproofs
 *)
 Definition parse_lsteps_aux_def:
-  (parse_lsteps_aux
+  (parse_lsteps_aux f_ns
     ([]:(mlstring + int) list list)
     (acc:lstep list) = NONE) ∧
-  (parse_lsteps_aux (s::ss) acc =
-    case parse_lstep_aux s of
-    | NONE => SOME (REVERSE acc, s, ss)
-    | SOME (INL step) =>
-      parse_lsteps_aux ss (step::acc)
-    | SOME (INR (c,s)) =>
+  (parse_lsteps_aux f_ns (s::ss) acc =
+    case parse_lstep_aux f_ns s of
+    | NONE => SOME (REVERSE acc, f_ns, s, ss)
+    | SOME (INL step, f_ns') =>
+      parse_lsteps_aux f_ns' ss (step::acc)
+    | SOME (INR (c,s), f_ns') =>
       if s ≠ LN then NONE
       else
-      case parse_lsteps_aux ss [] of
-        NONE => NONE
-      | SOME (pf,s,rest) =>
+        case parse_lsteps_aux f_ns' ss [] of
+          NONE => NONE
+        | SOME (pf,f_ns'',s,rest) =>
         if LENGTH rest < LENGTH ss then
-          if check_end s then
-            parse_lsteps_aux rest (Con c pf::acc)
-          else NONE
+          case check_end s of
+            NONE => NONE
+          | SOME id =>
+            parse_lsteps_aux f_ns'' rest (Con c pf id::acc)
         else NONE)
 Termination
-  WF_REL_TAC ‘measure (LENGTH o FST)’
+  WF_REL_TAC ‘measure (LENGTH o FST o SND)’
   \\ rw[] \\ fs[]
 End
 
 Theorem parse_lsteps_aux_LENGTH:
-  ∀ss acc acc' s ss'.
-  parse_lsteps_aux ss acc = SOME(acc',s,ss') ⇒
+  ∀f_ns ss acc acc' f_ns' s ss'.
+  parse_lsteps_aux f_ns ss acc = SOME(acc',f_ns' ,s,ss') ⇒
   LENGTH ss' < LENGTH ss
 Proof
   ho_match_mp_tac parse_lsteps_aux_ind>>
@@ -388,23 +374,26 @@ Proof
 QED
 
 Theorem parse_lsteps_aux_thm:
-  (∀acc. parse_lsteps_aux
-    ([]:(mlstring + int) list list) acc = NONE) ∧
-  (∀s ss acc.
-    parse_lsteps_aux (s::ss) acc =
-    case parse_lstep_aux s of
-    | NONE => SOME (REVERSE acc, s, ss)
-    | SOME (INL step) =>
-      parse_lsteps_aux ss (step::acc)
-    | SOME (INR (c,s)) =>
+  (∀f_ns acc.
+    parse_lsteps_aux f_ns
+    ([]:(mlstring + int) list list)
+    (acc:lstep list) = NONE) ∧
+  (∀f_ns s ss acc.
+    parse_lsteps_aux f_ns (s::ss) acc =
+    case parse_lstep_aux f_ns s of
+    | NONE => SOME (REVERSE acc, f_ns, s, ss)
+    | SOME (INL step, f_ns') =>
+      parse_lsteps_aux f_ns' ss (step::acc)
+    | SOME (INR (c,s), f_ns') =>
       if s ≠ LN then NONE
       else
-      case parse_lsteps_aux ss [] of
-        NONE => NONE
-      | SOME (pf,s,rest) =>
-          if check_end s then
-            parse_lsteps_aux rest (Con c pf::acc)
-          else NONE)
+        case parse_lsteps_aux f_ns' ss [] of
+          NONE => NONE
+        | SOME (pf,f_ns'',s,rest) =>
+          case check_end s of
+            NONE => NONE
+          | SOME id =>
+            parse_lsteps_aux f_ns'' rest (Con c pf id::acc))
 Proof
   rw[]
   >-
@@ -418,54 +407,85 @@ QED
 (* parse the body of a redundancy proof, which is of the form:
   lsteps
   proofgoal ... begin
-  end
+  end (id)
   lsteps
   proofgoal ... begin
-  end
-end
+  end (id)
+end (NO ID HERE)
 *)
-Definition parse_red_body_def:
-  (parse_red_body [] = NONE) ∧
-  (parse_red_body (r::rs) =
-    if r = INL (strlit"end") then SOME (INL ())
-    else
-    if r = INL (strlit"proofgoal") then
-       case parse_subgoal_num rs of NONE => NONE
-       | SOME ind => SOME (INR ind)
+
+(* #n -> n *)
+Definition parse_hash_num_def:
+  parse_hash_num s =
+  if strlen s ≥ 1 ∧ strsub s 0 = #"#" then
+    mlint$fromNatString (substring s 1 (strlen s - 1))
+  else NONE
+End
+
+Definition parse_subgoal_num_def:
+  parse_subgoal_num line =
+  case line of
+    [INR n] => if n>=0 then SOME (INL (Num n)) else NONE
+  | [INL s] =>
+    (case parse_hash_num s of
+      SOME n => SOME (INR n)
+    | NONE => NONE)
+  | _ => NONE
+End
+
+Definition parse_proofgoal_def:
+  parse_proofgoal (h:(mlstring + int) list ) =
+  case h of
+    INL e::rs =>
+    (if e = (strlit"proofgoal") then
+      parse_subgoal_num rs
     else NONE)
+  | _ => NONE
+End
+
+Definition parse_red_body_def:
+  (parse_red_body (h:(mlstring + int) list ) =
+    if h = [INL (strlit "end")] then SOME (INL ())
+    else
+    case parse_proofgoal h of
+      SOME ind => SOME (INR ind)
+    | NONE => NONE)
 End
 
 Definition mk_acc_def:
-  mk_acc pf (acc:(( (num + unit) option,lstep list) alist)) = if pf = [] then acc else (NONE,pf)::acc
+  mk_acc pf (acc:(( ((num + num) # num) option,lstep list) alist)) = if pf = [] then acc else (NONE,pf)::acc
 End
 
 Definition parse_red_aux_def:
-  (parse_red_aux ss
-    (acc:(( (num + unit) option,lstep list) alist)) =
-  case parse_lsteps_aux ss [] of
+  (parse_red_aux f_ns ss
+    (acc:(( ((num + num) # num) option,lstep list) alist)) =
+  case parse_lsteps_aux f_ns ss [] of
     NONE => NONE
-  | SOME (pf,s,rest) =>
+  | SOME (pf,f_ns',s,rest) =>
     let acc' = mk_acc pf acc in
     (case parse_red_body s of
       NONE => NONE
-    | SOME (INL u) => SOME (REVERSE acc', rest)
+    | SOME (INL u) => SOME (REVERSE acc', f_ns', rest)
     | SOME (INR ind) =>
-      (case parse_lsteps_aux rest [] of
+      (case parse_lsteps_aux f_ns' rest [] of
         NONE => NONE
-      | SOME (pf,s,rest2) =>
-        if check_end s then parse_red_aux rest2 ((SOME ind,pf)::acc')
-        else NONE))
+      | SOME (pf,f_ns'',s,rest2) =>
+        case check_end s of
+          NONE => NONE
+        | SOME id =>
+        parse_red_aux f_ns'' rest2 ((SOME (ind,id),pf)::acc')
+       ))
   )
 Termination
-  WF_REL_TAC ‘measure (LENGTH o FST)’
+  WF_REL_TAC ‘measure (LENGTH o FST o SND)’
   \\ rw[] \\ fs[]>>
   imp_res_tac parse_lsteps_aux_LENGTH>>
   fs[]
 End
 
 Theorem parse_red_aux_LENGTH:
-  ∀ss acc acc' ss'.
-  parse_red_aux ss acc = SOME(acc',ss') ⇒
+  ∀f_ns ss acc acc' f_ns' ss'.
+  parse_red_aux f_ns ss acc = SOME(acc',f_ns',ss') ⇒
   LENGTH ss' < LENGTH ss
 Proof
   ho_match_mp_tac (fetch "-" "parse_red_aux_ind")>>
@@ -476,31 +496,6 @@ Proof
   rw[]>>imp_res_tac parse_lsteps_aux_LENGTH>>
   fs[]
 QED
-
-(* Parse 1 top level step until EOF *)
-(* TODO: needs fixing
-Definition parse_top_def:
-  (parse_top [] = SOME NONE) ∧
-  (parse_top (s::ss) =
-    case parse_lstep_aux s of NONE => NONE
-    | SOME (INL step) =>
-        SOME (SOME (Lstep step,ss))
-    | SOME (INR (c,s)) =>
-      if s = LN then
-        (case parse_lsteps_aux ss [] of
-          NONE => NONE
-        | SOME (pf,s,rest) =>
-          if check_end s then
-            SOME (SOME (Lstep (Con c pf),rest))
-          else NONE)
-      else
-        (case parse_red_aux ss [] of
-          NONE => NONE
-        | SOME (pf,rest) =>
-          SOME (SOME (Red c s pf,rest))
-        ))
-End
-*)
 
 Definition fromString_unsafe_def:
   fromString_unsafe str =
@@ -527,34 +522,72 @@ Definition toks_fast_def:
   toks_fast s = MAP tokenize_fast (tokens blanks s)
 End
 
-val headertrm = rconc (EVAL``toks_fast (strlit"pseudo-Boolean proof version 1.2")``);
+val headertrm = rconc (EVAL``toks_fast (strlit"pseudo-Boolean proof version 2.0")``);
 
-Definition parse_header_line_fast_def:
-  parse_header_line_fast s = (s = ^headertrm)
+(* We could check that the constraint id is correct here *)
+Definition check_f_line_def:
+  check_f_line s =
+  case s of [] => F
+  | x::xs => x = INL(strlit "f")
+End
+
+Definition parse_header_def:
+  parse_header ss =
+  case ss of
+    x::y::rest =>
+    if x = ^headertrm ∧ check_f_line y
+      then SOME rest
+      else NONE
+  | _ => NONE
 End
 
 (*
+(* Parse 1 top level step until EOF *)
+Definition parse_top_def:
+  (parse_top f_ns [] = SOME NONE) ∧
+  (parse_top f_ns (s::ss) =
+    case parse_lstep_aux f_ns s of NONE => NONE
+    | SOME (INL step,f_ns') =>
+        SOME (SOME (Lstep step,f_ns',ss))
+    | SOME (INR (c,s),f_ns') =>
+      if s = LN then
+        (case parse_lsteps_aux f_ns' ss [] of
+          NONE => NONE
+        | SOME (pf,f_ns'',s,rest) =>
+          case check_end s of
+            NONE => NONE
+          | SOME id =>
+            SOME (SOME (Lstep (Con c pf id),f_ns'',rest)))
+      else
+        (case parse_red_aux f_ns' ss [] of
+          NONE => NONE
+        | SOME (pf,f_ns'',rest) =>
+          SOME (SOME (Red c s pf,f_ns'',rest))))
+End
 
 (* Parse a list of strings in pbf format *)
 Definition parse_tops_def:
-  (parse_tops ss =
+  (parse_tops f_ns ss =
     case ss of [] => SOME []
     | _ =>
-    case parse_top ss of NONE => NONE
-    | (SOME (step,rest)) =>
-      case parse_tops rest of NONE => NONE
+    case parse_top f_ns ss of NONE => NONE
+    | SOME (SOME (step,f_ns',rest)) =>
+      case parse_tops f_ns' rest of NONE => NONE
       | SOME sts => SOME (step::sts))
+Termination
+End
+
+Definition hashString_nf_def:
+  hashString_nf s t = SOME(hashString s,t)
+End
 
 (* Parse the tokenized pbf file *)
 Definition parse_pbp_toks_def:
   parse_pbp_toks tokss =
-  let nocomments = FILTER nocomment_line tokss in
-  case nocomments of
-    s::ss =>
-    if parse_header_line_fast s then
-      parse_tops ss
-    else NONE
-  | [] => NONE
+  case parse_header tokss of
+    SOME rest =>
+      parse_tops (hashString_nf,()) rest
+  | NONE => NONE
 End
 
 Definition parse_pbp_def:
@@ -575,55 +608,37 @@ val pbfraw = ``[
   val pbf = rconc (EVAL ``build_fml 1 (full_normalise (SND (THE (parse_pbf ^(pbfraw)))))``);
 
   val pbpraw = ``[
-  strlit"pseudo-Boolean proof version 1.2";
+  strlit"pseudo-Boolean proof version 2.0";
   strlit"f 7";
   strlit"pol 1 s";
   strlit"pol 8 2 + 3 +";
   strlit"pol 9 2 d";
+  strlit"red 1 x1 >= 1 ; ; begin";
+  strlit"end 500";
   strlit"red 1 x1 >= 1 ; x1 -> x3 x3 -> x5 x5 -> x1 x2 -> x4 x4 -> x6 x6 -> x2 ; begin";
   strlit"e 11 1 ~x1 >= 1 ;";
-  strlit"red 1 x1 >= 1 ; ; begin";
-  strlit"end";
-  strlit"red 1 x1 >= 1 ; ; begin";
-  strlit"end";
   strlit"proofgoal #1";
   strlit"e 12 1 ~x3 >= 1 ;";
   strlit"pol 12 11 + 5 + 6 +";
   strlit"red 1 x1 >= 1 ; ; begin";
   strlit"red 1 x1 >= 1 ; ; begin";
-  strlit"end";
-  strlit"end";
+  strlit"end 1";
+  strlit"end 2";
   strlit"red 1 x1 >= 1 ; ; begin";
-  strlit"end";
+  strlit"end 3";
   strlit"pol 13 4 +";
   strlit"pol 14 x6 +";
-  strlit"c 15";
-  strlit"end";
+  strlit"end 15";
+  strlit"e 11 1 ~x1 >= 1 ;";
   strlit"proofgoal 1";
-  strlit"red 1 x1 >= 1 ; ; begin";
-  strlit"end";
   strlit"pol 16 2 +";
-  strlit"c 17";
+  strlit"end 17";
   strlit"end";
-  strlit"red 1 x1 >= 1 ; ; begin";
-  strlit"red 1 x1 >= 1 ; ; begin";
-  strlit"end";
-  strlit"end";
-  strlit"end";
-  ]``
+  strlit"e 11 1 ~x1 >= 1 ;";
+]``
 
   val steps = rconc (EVAL``(parse_pbp ^(pbpraw))``)
 
-  val pbpraw = ``MAP toks_fast [
-  strlit"red 1 x1 >= 1 ; ; begin";
-  strlit"end";
-  strlit"end";
-  ]``
-
-  EVAL`` parse_lstep_aux (HD ^(pbpraw))``
-
-  EVAL`` parse_lsteps_aux ^(pbpraw) []``
-  parse_lsteps_aux_def
 *)
 
 val _ = export_theory();
