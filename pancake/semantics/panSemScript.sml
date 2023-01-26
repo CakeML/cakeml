@@ -366,16 +366,16 @@ Definition evaluate_def:
               | (SOME Continue,st) => (SOME Error,st)
               | (SOME (Return retv),st) =>
                   (case caltyp of
-                    | Tail      => (SOME (Return retv),empty_locals st)
-                    | Ret rt  _ =>
+                    | NONE      => (SOME (Return retv),empty_locals st)
+                    | SOME (rt,  _) =>
                        if is_valid_value s.locals rt retv
                        then (NONE, set_var rt retv (st with locals := s.locals))
                        else (SOME Error,st))
               | (SOME (Exception eid exn),st) =>
                   (case caltyp of
-                    | Tail        => (SOME (Exception eid exn),empty_locals st)
-                    | Ret _ NONE => (SOME (Exception eid exn),empty_locals st)
-                    | Ret _ (SOME (Handle eid' evar p)) =>
+                    | NONE        => (SOME (Exception eid exn),empty_locals st)
+                    | SOME (_, NONE) => (SOME (Exception eid exn),empty_locals st)
+                    | SOME (_, (SOME (eid', evar, p))) =>
                       if eid = eid' then
                        case FLOOKUP s.eshapes eid of
                         | SOME sh =>
@@ -467,7 +467,7 @@ val evaluate_def = save_thm("evaluate_def[compute]",
 
 Definition semantics_def:
   semantics ^s start =
-   let prog = Call Tail (Label start) [] in
+   let prog = Call NONE (Label start) [] in
     if ∃k. case FST (evaluate (prog,s with clock := k)) of
             | SOME TimeOut => F
             | SOME (FinalFFI _) => F

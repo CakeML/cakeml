@@ -266,8 +266,8 @@ Proof
    fs [panSemTheory.mem_store_def, state_component_equality] >> NO_TAC) >>
   TRY
   (cases_on ‘caltyp’ >>
-   fs [evaluate_def, assigned_vars_def, CaseEq "option",  CaseEq "ret", CaseEq "word_lab"]  >>
-   rveq >> cases_on ‘v6’ >> fs[] >>
+   fs [evaluate_def, assigned_vars_def, CaseEq "option",  CaseEq "word_lab"]  >>
+   rveq >> rename1 ‘lookup_code _ _ _ _ = SOME v6’ >> cases_on ‘v6’ >> fs[] >>
    every_case_tac >> fs [set_var_def, state_component_equality, assigned_vars_def] >>
    TRY (qpat_x_assum ‘s.locals |+ (_,_) = t.locals’ (mp_tac o GSYM) >>
         fs [FLOOKUP_UPDATE] >> NO_TAC) >>
@@ -985,9 +985,10 @@ Proof
    rveq >> fs [] >>
    imp_res_tac evaluate_io_events_mono >>
    fs [] >>
-   TRY (cases_on ‘evaluate (p,r' with locals := s.locals)’) >> fs [] >>
-   TRY (cases_on ‘evaluate (p',r' with locals := s.locals)’) >> fs [] >>
-   TRY (cases_on ‘evaluate (p,r' with locals := s.locals |+ (x',w))’) >> fs [] >>
+   TRY (rename1 ‘evaluate (p,s' with locals := s.locals)’>>
+        cases_on ‘evaluate (p,s' with locals := s.locals)’) >> fs [] >>
+   TRY (rename1 ‘evaluate (p,s' with locals := s.locals |+ (x',w))’>>
+        cases_on ‘evaluate (p,s' with locals := s.locals |+ (x',w))’) >> fs [] >>
    imp_res_tac evaluate_io_events_mono >>
    fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
   fs [dec_clock_def] >>
@@ -1001,18 +1002,23 @@ Proof
    TOP_CASE_TAC >> fs [] >> rveq >> fs []
    >- (
     TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+    TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+    TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
     TOP_CASE_TAC >> fs [] >> rveq >> fs []
     >- (
+     rename1 ‘evaluate (p,r'' with locals := s.locals)’ >>
      cases_on ‘evaluate (p,r'' with locals := s.locals)’ >>
      fs [] >>
      imp_res_tac evaluate_io_events_mono >>
      fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
     TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+    rename1 ‘evaluate (p,r'' with locals := s.locals |+ (x',w))’ >>
     cases_on ‘evaluate (p,r'' with locals := s.locals |+ (x',w))’ >>
     fs [] >>
     imp_res_tac evaluate_io_events_mono >>
     fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
    every_case_tac >> fs [] >> rveq >> fs [] >>
+   rename1 ‘evaluate (p,r'' with locals := s.locals)’ >>
    cases_on ‘evaluate (p,r'' with locals := s.locals)’ >>
    fs [] >>
    imp_res_tac evaluate_io_events_mono >>
@@ -1034,15 +1040,18 @@ Proof
     first_x_assum (qspec_then ‘extra’ mp_tac) >>
     strip_tac >> fs [] >> rfs []
     >- (
+     rename1 ‘evaluate (p,r'' with locals := s.locals)’ >>
      cases_on ‘evaluate (p,r'' with locals := s.locals)’ >>
      imp_res_tac evaluate_io_events_mono >>
      fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
+    rename1 ‘evaluate (p,r'' with locals := s.locals |+ (x',w))’ >>
     cases_on ‘evaluate (p,r'' with locals := s.locals |+ (x',w))’ >>
     imp_res_tac evaluate_io_events_mono >>
     fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
    every_case_tac >> fs [] >> rveq >> fs [] >>
    first_x_assum (qspec_then ‘extra’ mp_tac) >>
    strip_tac >> fs [] >> rfs [] >>
+   rename1 ‘evaluate (p,r'' with locals := s.locals)’ >>
    cases_on ‘evaluate (p,r'' with locals := s.locals)’ >>
    imp_res_tac evaluate_io_events_mono >>
    fs [] >> metis_tac [IS_PREFIX_TRANS])
@@ -1051,16 +1060,19 @@ Proof
    >- (
     first_x_assum (qspec_then ‘extra’ mp_tac) >>
     strip_tac >> fs [] >>
+    rename1 ‘evaluate (q,s with <|locals := r; clock := extra + s.clock - 1|>)’ >>
     cases_on ‘evaluate (q,s with <|locals := r; clock := extra + s.clock - 1|>)’ >>
     fs [] >>
     TOP_CASE_TAC >> fs [] >>
     TOP_CASE_TAC >> fs [] >> rveq >> fs [])
    >- (
+    TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
+    TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
     TOP_CASE_TAC >> fs [] >> rveq >> fs []
     >- (drule evaluate_add_clock_eq >> fs []) >>
     TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
     drule evaluate_add_clock_eq >> fs []) >>
-   drule evaluate_add_clock_eq >> fs []) >>
+   drule evaluate_add_clock_eq >> fs []) >> (* ? *)
   TOP_CASE_TAC >> fs [] >> rveq >> fs []
   >- (
    first_x_assum (qspec_then ‘extra’ mp_tac) >>
@@ -1069,6 +1081,8 @@ Proof
    fs [] >>
    TOP_CASE_TAC >> fs [] >>
    TOP_CASE_TAC >> fs [] >> rveq >> fs []) >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
   TOP_CASE_TAC >> fs [] >> rveq >> fs []
   >- (
    first_x_assum (qspec_then ‘extra’ mp_tac) >>

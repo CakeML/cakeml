@@ -771,6 +771,7 @@ Proof
         strip_tac >> gs [] >>
         imp_res_tac evaluate_clock_mono >>
         gs [dec_clock_def, state_component_equality]) >>
+      TOP_CASE_TAC >> gs []>>
       TOP_CASE_TAC >> gs []
       >- (
         strip_tac >> rveq >>
@@ -802,6 +803,7 @@ Proof
         strip_tac >> gs [] >>
         imp_res_tac evaluate_clock_mono >>
         gs [dec_clock_def, state_component_equality]) >>
+      TOP_CASE_TAC >> gs []>>
       TOP_CASE_TAC >> gs []
       >- (
         strip_tac >> rveq >>
@@ -814,6 +816,7 @@ Proof
         imp_res_tac evaluate_clock_mono >>
         gs [dec_clock_def, state_component_equality]) >>
       TOP_CASE_TAC >> gs [] >>
+      TOP_CASE_TAC >> gs []>>
       TOP_CASE_TAC >> gs []
       >- (
         TOP_CASE_TAC >> gs []
@@ -1053,6 +1056,7 @@ Proof
    rveq >> fs [] >>
    imp_res_tac evaluate_io_events_mono >>
    fs [] >>
+   rename1 ‘evaluate (p,r' with locals := s.locals |+ (m'',v))’>>
    TRY (cases_on ‘evaluate (p,r' with locals := s.locals |+ (m'',v))’) >> fs [] >>
    imp_res_tac evaluate_io_events_mono >>
    fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
@@ -1067,8 +1071,10 @@ Proof
    TOP_CASE_TAC >> fs [] >> rveq >> fs []
    >- (
     TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+    TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
     TOP_CASE_TAC >> fs [] >> rveq >> fs [set_var_def]) >>
    every_case_tac >> fs [] >> rveq >> fs [set_var_def] >>
+   rename1 ‘evaluate (p,r'' with locals := s.locals |+ (m'',v))’>>
    cases_on ‘evaluate (p,r'' with locals := s.locals |+ (m'',v))’ >>
    fs [] >>
    imp_res_tac evaluate_io_events_mono >>
@@ -1092,6 +1098,7 @@ Proof
    every_case_tac >> fs [] >> rveq >> fs [] >>
    first_x_assum (qspec_then ‘extra’ mp_tac) >>
    strip_tac >> fs [set_var_def] >> rfs [] >>
+   rename1 ‘evaluate (p,r'' with locals := s.locals |+ (m'',v))’ >>
    cases_on ‘evaluate (p,r'' with locals := s.locals |+ (m'',v))’ >>
    imp_res_tac evaluate_io_events_mono >>
    fs [] >> metis_tac [IS_PREFIX_TRANS])
@@ -1109,6 +1116,7 @@ Proof
     drule evaluate_add_clock_eq >> fs [] >> NO_TAC) >>
     first_x_assum (qspec_then ‘extra’ mp_tac) >>
     strip_tac >> fs [] >> rfs []) >>
+   TOP_CASE_TAC >> fs [set_var_def] >> rveq >> fs []>>
    TOP_CASE_TAC >> fs [set_var_def] >> rveq >> fs []
    >- (
     TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
@@ -1132,6 +1140,7 @@ Proof
    fs [] >>
    TOP_CASE_TAC >> fs [] >>
    TOP_CASE_TAC >> fs [] >> rveq >> fs []) >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
   TOP_CASE_TAC >> fs [] >> rveq >> fs []
   >- (
    first_x_assum (qspec_then ‘extra’ mp_tac) >>
@@ -1142,6 +1151,7 @@ Proof
    TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
    pop_assum mp_tac >>
    drule evaluate_add_clock_eq >> fs []) >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
   TOP_CASE_TAC >> fs [] >> rveq >> fs []
   >- (
