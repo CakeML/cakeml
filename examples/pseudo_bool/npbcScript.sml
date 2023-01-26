@@ -1167,71 +1167,6 @@ Definition redundant_wrt_obj_def:
     sat_obj obj f (f ∪ {c})
 End
 
-Definition conf_valid'_def:
-  conf_valid' C D po (obj,v) ⇔
-    ∀p.
-      satisfies p C ⇒
-      ∃p'. satisfies p' (C ∪ D) ∧
-           po p' p ∧
-           eval_obj obj p' ≤ v
-End
-
-Theorem dominance_conf_valid:
-  transitive po ∧
-  finite_support po z ∧ FINITE z ∧
-  C ∪ D ∪ {not c} ⊨ C ⇂ w ∧
-  sat_strict_ord (C ∪ D ∪ {not c}) po w ∧
-  (case obj of
-   | NONE => T
-   | SOME obj => C ∪ D ∪ {not c} ⊨ {obj_constraint w obj}) ∧
-  conf_valid' C D po (obj,v) ⇒
-  conf_valid' C (D ∪ {c}) po (obj,v)
-Proof
-  rw[conf_valid'_def]>>
-  CCONTR_TAC>>
-  gs[]>>
-  fs[METIS_PROVE [] ``(A ∨ ¬B) ⇔ (¬A ⇒ ¬B)``]>>
-  qabbrev_tac`s =
-  {p |
-   satisfies p C ∧
-   ∀p'. po p' p ∧ eval_obj obj p' ≤ v ⇒
-        ¬satisfies p' (C ∪ D ∪ {c})}`>>
-  `s <> {}` by (
-    rw[Abbr`s`,EXTENSION]>>
-    metis_tac[])>>
-  rename1`satisfies pold C`>>
-  `∃p. p ∈ s ∧
-    ∀p'. p' ∈ s ∧ po p' p ⇒ po p p'` by
-    (match_mp_tac FINITE_support_find_min>>
-    fs[])>>
-  qpat_x_assum`s ≠ _ ` kall_tac>>
-  `satisfies p C ∧
-  ∀p'.
-    po p' p ∧ eval_obj obj p' ≤ v ⇒
-    (¬satisfies p' C ∨ ¬satisfies p' D)
-      ∨ ¬satisfies_npbc p' c` by fs[Abbr`s`]>>
-  last_x_assum drule>>strip_tac>>
-  gvs[]>>
-  `~satisfies_npbc p' c` by metis_tac[]>>
-  fs[sat_strict_ord_def,sat_ord_def,not_thm]>>
-  last_x_assum drule_all>>
-  strip_tac>>
-  qabbrev_tac`p'' = assign w p'`>>
-  `po p'' p` by
-    metis_tac[relationTheory.transitive_def]>>
-  `¬po p p''` by
-    metis_tac[relationTheory.transitive_def]>>
-  `satisfies p'' C` by (
-    fs[sat_implies_def,Abbr`p''`]>>
-    fs[satisfies_def,PULL_EXISTS,subst_thm,not_thm])>>
-  `p'' ∉ s` by metis_tac[]>>
-  gs[Abbr`s`]>>
-  rename1`satisfies_npbc pprime c`>>
-  `po pprime p` by
-    metis_tac[transitive_def]>>
-  metis_tac[]
-QED
-
 Theorem redundancy_conf_valid:
   transitive po ∧
   C ∪ D ∪ {not c} ⊨ (C ∪ D ∪ {c}) ⇂ w ∧
@@ -1329,6 +1264,76 @@ Proof
   >-
     fs [eval_obj_def,satisfies_def,PULL_EXISTS,subst_thm]
   \\ fs [satisfies_def,PULL_EXISTS,subst_thm,satisfies_npbc_obj_constraint]
+QED
+
+Definition conf_valid'_def:
+  conf_valid' C D po obj ⇔
+    ∀p.
+      satisfies p C ⇒
+      ∃p'. satisfies p' (C ∪ D) ∧
+           po p' p ∧
+           eval_obj obj p' ≤ eval_obj obj p
+End
+
+Theorem dominance_conf_valid:
+  transitive po ∧
+  finite_support po z ∧ FINITE z ∧
+  C ∪ D ∪ {not c} ⊨ C ⇂ w ∧
+  sat_strict_ord (C ∪ D ∪ {not c}) po w ∧
+  (case obj of
+   | NONE => T
+   | SOME obj => C ∪ D ∪ {not c} ⊨ {obj_constraint w obj}) ∧
+  conf_valid' C D po obj ⇒
+  conf_valid' C (D ∪ {c}) po obj
+Proof
+  rw[conf_valid'_def]>>
+  CCONTR_TAC>>
+  gs[]>>
+  fs[METIS_PROVE [] ``(A ∨ ¬B) ⇔ (¬A ⇒ ¬B)``]>>
+  qabbrev_tac`s =
+  {p |
+   satisfies p C ∧
+   ∀p'. po p' p ∧ eval_obj obj p' ≤ eval_obj obj p ⇒
+        ¬satisfies p' (C ∪ D ∪ {c})}`>>
+  `s <> {}` by (
+    rw[Abbr`s`,EXTENSION]>>
+    metis_tac[])>>
+  rename1`satisfies pold C`>>
+  `∃p. p ∈ s ∧
+    ∀p'. p' ∈ s ∧ po p' p ⇒ po p p'` by
+    (match_mp_tac FINITE_support_find_min>>
+    fs[])>>
+  qpat_x_assum`s ≠ _ ` kall_tac>>
+  `satisfies p C ∧
+  ∀p'.
+    po p' p ∧ eval_obj obj p' ≤ eval_obj obj p ⇒
+    (¬satisfies p' C ∨ ¬satisfies p' D)
+      ∨ ¬satisfies_npbc p' c` by fs[Abbr`s`]>>
+  last_x_assum drule>>strip_tac>>
+  gvs[]>>
+  `~satisfies_npbc p' c` by metis_tac[]>>
+  fs[sat_strict_ord_def,sat_ord_def,not_thm]>>
+  last_x_assum drule_all>>
+  strip_tac>>
+  qabbrev_tac`p'' = assign w p'`>>
+  `po p'' p` by
+    metis_tac[relationTheory.transitive_def]>>
+  `¬po p p''` by
+    metis_tac[relationTheory.transitive_def]>>
+  `satisfies p'' C` by (
+    fs[sat_implies_def,Abbr`p''`]>>
+    fs[satisfies_def,PULL_EXISTS,subst_thm,not_thm])>>
+  `p'' ∉ s` by metis_tac[]>>
+  ‘eval_obj obj p'' ≤ eval_obj obj p'’ by
+    (Cases_on ‘obj’ >- fs [eval_obj_def]
+     \\ gvs [sat_implies_def,Abbr‘p''’]
+     \\ rewrite_tac [GSYM satisfies_npbc_obj_constraint]
+     \\ first_x_assum irule \\ fs [not_thm]) >>
+  gs[Abbr`s`]>>
+  rename1`satisfies_npbc pprime c`>>
+  `po pprime p` by
+    metis_tac[transitive_def]>>
+  metis_tac[LESS_EQ_TRANS]
 QED
 
 val _ = export_theory();
