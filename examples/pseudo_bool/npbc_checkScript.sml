@@ -428,6 +428,17 @@ Datatype:
     *)
 End
 
+Definition get_red_constraint_def:
+  get_red_constraint u s def obj =
+  if u = 0 then
+    SOME (subst s def)
+  else if u = (1:num) then
+    case obj of NONE => NONE
+    | SOME l =>
+    SOME (obj_constraint s l)
+  else NONE
+End
+
 (* Apply a substitution where needed *)
 Definition extract_clauses_def:
   (extract_clauses f def fml obj [] acc = SOME (REVERSE acc)) ∧
@@ -439,15 +450,11 @@ Definition extract_clauses_def:
         NONE => NONE
       | SOME c => extract_clauses f def fml obj pfs ((SOME (subst f c,i),pf)::acc))
     | (SOME (INR u,i),pf) =>
-      if u = 0 then
+      case get_red_constraint u f def obj of
+        NONE => NONE
+      | SOME c =>
         extract_clauses f def fml obj pfs
-          ((SOME (subst f def,i),pf)::acc)
-      else if u = 1 then
-        case obj of NONE => NONE
-        | SOME l =>
-        extract_clauses f def fml obj pfs
-          ((SOME (obj_constraint f l,i),pf)::acc)
-      else NONE)
+          ((SOME (c,i),pf)::acc))
 End
 
 Theorem extract_clauses_MAP_SND:
@@ -642,7 +649,8 @@ Proof
   every_case_tac>>fs[]
   >- (
     drule extract_clauses_MEM_acc>>
-    simp[]) >>
+    fs[get_red_constraint_def]>>
+    metis_tac[])>>
   metis_tac[]
 QED
 
@@ -656,7 +664,8 @@ Proof
   every_case_tac>>fs[]
   >- (
     drule extract_clauses_MEM_acc>>
-    simp[]) >>
+    fs[get_red_constraint_def]>>
+    metis_tac[])>>
   metis_tac[]
 QED
 

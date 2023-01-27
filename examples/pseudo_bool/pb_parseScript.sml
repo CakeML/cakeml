@@ -541,6 +541,30 @@ Definition parse_header_def:
   | _ => NONE
 End
 
+(* Parse only UNSAT conclusions for now *)
+val outputtrm = rconc (EVAL``toks_fast (strlit"output NONE")``);
+val endtrm = rconc (EVAL``toks_fast (strlit"end pseudo-Boolean proof")``);
+
+Definition parse_conc_unsat_def:
+  parse_conc_unsat s =
+  case s of
+    [x;y;INR n] =>
+    if x = INL (strlit "conclusion") ∧
+      y = INL (strlit "UNSAT") ∧ n ≥ 0
+    then SOME (Num n) else NONE
+  | _ => NONE
+End
+
+Definition parse_conc_def:
+  parse_conc rest =
+  case rest of
+    [x;y;z] =>
+    if x = ^outputtrm ∧ z = ^endtrm then
+      parse_conc_unsat y
+    else NONE
+  | _ => NONE
+End
+
 (*
 (* Parse 1 top level step until EOF *)
 Definition parse_top_def:
@@ -568,12 +592,13 @@ End
 (* Parse a list of strings in pbf format *)
 Definition parse_tops_def:
   (parse_tops f_ns ss =
-    case ss of [] => SOME []
+    case ss of [] => ([],ss)
     | _ =>
-    case parse_top f_ns ss of NONE => NONE
-    | SOME (SOME (step,f_ns',rest)) =>
-      case parse_tops f_ns' rest of NONE => NONE
-      | SOME sts => SOME (step::sts))
+    case parse_top f_ns ss of
+      SOME (SOME (step,f_ns',rest)) =>
+      (case parse_tops f_ns' rest of
+      (sts,ss') => (step::sts,ss'))
+    | _ => ([],ss))
 Termination
 End
 
@@ -586,7 +611,11 @@ Definition parse_pbp_toks_def:
   parse_pbp_toks tokss =
   case parse_header tokss of
     SOME rest =>
-      parse_tops (hashString_nf,()) rest
+      (case parse_tops (hashString_nf,()) rest of
+        (pf,rest') =>
+        (case parse_conc rest' of
+          NONE => NONE
+        | SOME res => SOME(pf,res)))
   | NONE => NONE
 End
 
@@ -635,6 +664,9 @@ val pbfraw = ``[
   strlit"end 17";
   strlit"end";
   strlit"e 11 1 ~x1 >= 1 ;";
+  strlit"output NONE";
+  strlit"conclusion UNSAT 5";
+  strlit"end pseudo-Boolean proof";
 ]``
 
   val steps = rconc (EVAL``(parse_pbp ^(pbpraw))``)
