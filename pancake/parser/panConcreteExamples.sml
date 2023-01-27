@@ -1,5 +1,6 @@
 open HolKernel Parse boolLib bossLib stringLib numLib intLib;
 open preamble panPtreeConversionTheory;
+open helperLib;
 
 val _ = new_theory "panConcreteExamples";
 
@@ -76,6 +77,7 @@ val ex4 = ‘while b | c {
                strb y, 8; // store byte
                #foo(x y k z); // ffi function call with pointer args
                x = x + 1;
+               y = x + 1;
              }
            }’;
 
