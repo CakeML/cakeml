@@ -556,23 +556,21 @@ Definition parse_conc_unsat_def:
 End
 
 Definition parse_conc_def:
-  parse_conc rest =
-  case rest of
-    [x;y;z] =>
-    if x = ^outputtrm ∧ z = ^endtrm then
-      parse_conc_unsat y
-    else NONE
-  | _ => NONE
+  parse_conc s y z =
+  if s = ^outputtrm ∧ z = ^endtrm then
+    parse_conc_unsat y
+  else NONE
 End
 
-(*
-(* Parse 1 top level step until EOF *)
+(* Parse 1 top level step,
+  until an unparseable line is reached *)
 Definition parse_top_def:
-  (parse_top f_ns [] = SOME NONE) ∧
+  (parse_top f_ns [] = NONE) ∧
   (parse_top f_ns (s::ss) =
-    case parse_lstep_aux f_ns s of NONE => NONE
+    case parse_lstep_aux f_ns s of
+      NONE => SOME (INL s,f_ns,ss)
     | SOME (INL step,f_ns') =>
-        SOME (SOME (Lstep step,f_ns',ss))
+        SOME (INR (Lstep step),f_ns',ss)
     | SOME (INR (c,s),f_ns') =>
       if s = LN then
         (case parse_lsteps_aux f_ns' ss [] of
@@ -581,24 +579,25 @@ Definition parse_top_def:
           case check_end s of
             NONE => NONE
           | SOME id =>
-            SOME (SOME (Lstep (Con c pf id),f_ns'',rest)))
+            SOME (INR (Lstep (Con c pf id)),f_ns'',rest))
       else
         (case parse_red_aux f_ns' ss [] of
           NONE => NONE
         | SOME (pf,f_ns'',rest) =>
-          SOME (SOME (Red c s pf,f_ns'',rest))))
+          SOME (INR (Red c s pf),f_ns'',rest)))
 End
 
-(* Parse a list of strings in pbf format *)
+(*
+(* Parse a list of strings in pbf format, not used *)
 Definition parse_tops_def:
-  (parse_tops f_ns ss =
-    case ss of [] => ([],ss)
-    | _ =>
+  (parse_tops f_ns ss acc =
     case parse_top f_ns ss of
-      SOME (SOME (step,f_ns',rest)) =>
-      (case parse_tops f_ns' rest of
-      (sts,ss') => (step::sts,ss'))
-    | _ => ([],ss))
+      NONE => NONE
+    | SOME (res,f_ns',rest) =>
+      case res of
+        INL s => SOME(REVERSE acc, s, f_ns', rest)
+      | INR st =>
+        parse_tops f_ns' rest (st::acc))
 Termination
 End
 
@@ -611,9 +610,9 @@ Definition parse_pbp_toks_def:
   parse_pbp_toks tokss =
   case parse_header tokss of
     SOME rest =>
-      (case parse_tops (hashString_nf,()) rest of
-        (pf,rest') =>
-        (case parse_conc rest' of
+      (case parse_tops (hashString_nf,()) rest [] of
+        SOME (pf, s, f_ns', rest') =>
+        (case parse_conc s rest' of
           NONE => NONE
         | SOME res => SOME(pf,res)))
   | NONE => NONE
