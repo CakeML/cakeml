@@ -1034,9 +1034,9 @@ Proof
                           ``:'b``|->``:'b``]
                panPropsTheory.evaluate_add_clock_io_events_mono) >>
    first_assum (qspecl_then
-                [‘Call Tail (Label start) []’, ‘t with clock := k1’, ‘p’] mp_tac) >>
+                [‘TailCall (Label start) []’, ‘t with clock := k1’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
-                [‘Call Tail (Label start) []’, ‘t with clock := k2’, ‘p’] mp_tac) >>
+                [‘TailCall (Label start) []’, ‘t with clock := k2’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
                 [‘TailCall (Label start) []’, ‘s with clock := k1’, ‘p’] mp_tac) >>
    first_assum (qspecl_then

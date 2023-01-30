@@ -1086,13 +1086,16 @@ Proof
   rpt (TOP_CASE_TAC >> fs []) >>
   TRY (fs [assigned_vars_def]) >>
   TRY (
-  cases_on ‘q’ >>
+  rename1 ‘ret_var q' r'’>>
+  cases_on ‘q'’ >>
   fs [ret_var_def] >>
   TRY (TOP_CASE_TAC) >>
   fs [] >>
   TRY (
   fs [ret_hdl_def] >>
-  cases_on ‘r’ >>
+  TRY (rename1 ‘oHD r'’) >>
+  TRY (rename1 ‘ret_hdl _ r'’)>>
+  cases_on ‘r'’ >>
   fs [assigned_vars_def, wrap_rt_def,
       CaseEq "option", CaseEq "prod", CaseEq "shape",
       CaseEq "list"] >>
@@ -1119,13 +1122,14 @@ Proof
    drule nested_seq_assigned_vars_eq >>
    fs [] >> strip_tac >>
    res_tac >> fs []) >>
-  cases_on ‘q’ >>
+  rename1 ‘ret_var q' r'’>>
+  cases_on ‘q'’ >>
   fs [ret_var_def] >>
   TRY (TOP_CASE_TAC) >>
   fs [] >>
   TRY (
   fs [ret_hdl_def] >>
-  cases_on ‘r’ >>
+  cases_on ‘r'’ >>
   fs [assigned_vars_def, wrap_rt_def,
       CaseEq "option", CaseEq "prod", CaseEq "shape",
       CaseEq "list"] >>
@@ -2433,8 +2437,10 @@ val ret_call_shape_retv_one_tac =
 val ret_call_shape_retv_comb_zero_tac =
      fs [ret_var_def, ret_hdl_def] >>
      fs [evaluate_def] >>
+     rename1 ‘eval t x0’>>
      cases_on ‘eval t x0’ >> fs [] >>
-     cases_on ‘x'’ >> fs [] >>
+     rename1 ‘eval t x0 = SOME x''’>>
+     cases_on ‘x''’ >> fs [] >>
      ‘OPT_MMAP (eval t)
       (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
        fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
@@ -2460,7 +2466,8 @@ val ret_call_shape_retv_comb_zero_tac =
       fs [Abbr ‘ns’, ALL_DISTINCT_GENLIST]) >>
      strip_tac >> fs [] >>
      cases_on ‘res1’ >> fs [] >>
-     cases_on ‘x'’ >> fs [] >> rveq >> fs [] >>
+     rename1 ‘x'' = Return (Word _)’>>
+     cases_on ‘x''’ >> fs [] >> rveq >> fs [] >>
      fs [shape_of_def, panLangTheory.size_of_shape_def,
          panSemTheory.set_var_def, set_var_def] >>
      conj_tac >- fs [state_rel_def] >>
@@ -2474,7 +2481,7 @@ val ret_call_shape_retv_comb_zero_tac =
       conj_asm1_tac
       >- (
        fs [locals_rel_def] >> res_tac >> fs []) >>
-      ‘LENGTH (flatten v) = 0 /\ LENGTH r' = 0’ suffices_by fs [OPT_MMAP_def] >>
+      ‘LENGTH (flatten v) = 0 /\ LENGTH r'' = 0’ suffices_by fs [OPT_MMAP_def] >>
       conj_asm1_tac
       >- (
        rewrite_tac [length_flatten_eq_size_of_shape] >>
@@ -2561,8 +2568,10 @@ val ret_call_shape_retv_comb_one_tac =
 val ret_call_shape_retv_comb_gt_one_tac =
     fs [ret_var_def, ret_hdl_def] >>
     fs [evaluate_def, assign_ret_def] >>
+    rename1 ‘eval t x0’>>
     cases_on ‘eval t x0’ >> fs [] >>
-    cases_on ‘x'’ >> fs [] >>
+    rename1 ‘eval t x0 = SOME x''’>>
+    cases_on ‘x''’ >> fs [] >>
     ‘OPT_MMAP (eval t)
      (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
       fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
@@ -2588,7 +2597,8 @@ val ret_call_shape_retv_comb_gt_one_tac =
      fs [Abbr ‘ns’, ALL_DISTINCT_GENLIST]) >>
     strip_tac >> fs [] >>
     cases_on ‘res1’ >> fs [] >>
-    cases_on ‘x'’ >> fs [] >> rveq >> fs [] >>
+    rename1 ‘x'' = Return (Word _)’>>
+    cases_on ‘x''’ >> fs [] >> rveq >> fs [] >>
     fs [shape_of_def, panLangTheory.size_of_shape_def,
         panSemTheory.set_var_def, set_var_def] >>
     ‘1 < size_of_shape (shape_of x)’ by (
@@ -2598,6 +2608,7 @@ val ret_call_shape_retv_comb_gt_one_tac =
       fs [panLangTheory.size_of_shape_def] >>
       DECIDE_TAC) >>
     fs [] >>
+    rename1 ‘SOME  (Comb l, r')’>>
     ‘ALL_DISTINCT r'’ by
       (fs [locals_rel_def] >> imp_res_tac all_distinct_flookup_all_distinct) >>
     fs [globals_lookup_def] >>
@@ -2689,7 +2700,9 @@ val ret_call_excp_reult_handle_none_tac =
      strip_tac >> fs [] >>
      ‘nctxt.eids = ctxt.eids’ by
        fs [Abbr ‘nctxt’, ctxt_fc_eids_eq] >>
+     rename1 ‘FLOOKUP ctxt.eids m'’ >>
      cases_on ‘FLOOKUP ctxt.eids m'’ >> fs [] >>
+     rename1 ‘FLOOKUP ctxt.eids m' = SOME x’ >>
      cases_on ‘x’ >> fs [] >>
      cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
      >- rels_empty_tac >>
@@ -2701,7 +2714,9 @@ val ret_call_excp_reult_handle_none_tac =
      strip_tac >> fs [] >>
      ‘nctxt.eids = ctxt.eids’ by
        fs [Abbr ‘nctxt’, ctxt_fc_eids_eq] >>
+     rename1 ‘FLOOKUP ctxt.eids m'’ >>
      cases_on ‘FLOOKUP ctxt.eids m'’ >> fs [] >>
+     rename1 ‘FLOOKUP ctxt.eids m' = SOME x’ >>
      cases_on ‘x’ >> fs [] >>
      cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
      >- rels_empty_tac >>
@@ -2713,7 +2728,9 @@ val ret_call_excp_reult_handle_none_tac =
      strip_tac >> fs [] >>
      ‘nctxt.eids = ctxt.eids’ by
        fs [Abbr ‘nctxt’, ctxt_fc_eids_eq] >>
+     rename1 ‘FLOOKUP ctxt.eids m'’ >>
      cases_on ‘FLOOKUP ctxt.eids m'’ >> fs [] >>
+     rename1 ‘FLOOKUP ctxt.eids m' = SOME x’ >>
      cases_on ‘x’ >> fs [] >>
      cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
      >- rels_empty_tac >>
@@ -2724,7 +2741,9 @@ val ret_call_excp_reult_handle_none_tac =
     strip_tac >> fs [] >>
     ‘nctxt.eids = ctxt.eids’ by
       fs [Abbr ‘nctxt’, ctxt_fc_eids_eq] >>
+    rename1 ‘FLOOKUP ctxt.eids m'’ >>
     cases_on ‘FLOOKUP ctxt.eids m'’ >> fs [] >>
+    rename1 ‘FLOOKUP ctxt.eids m' = SOME x’ >>
     cases_on ‘x’ >> fs [] >>
     cases_on ‘res1’ >> fs [] >> rveq >> fs [] >>
     TRY (cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
@@ -2892,16 +2911,20 @@ Proof
   >- tail_call_tac >>
   (* Return case *)
   cases_on ‘evaluate (prog,dec_clock s with locals := newlocals)’ >>
+  rename1 ‘evaluate _ = (q, r)’>>
   cases_on ‘q’ >> fs [] >>
-  cases_on ‘x’ >> fs [] >> rveq >>
+  rename1 ‘evaluate _ = (SOME x', r)’>>
+  cases_on ‘x'’ >> fs [] >> rveq >>
   TRY (cases_on ‘FLOOKUP s.locals m’ >> fs [] >> NO_TAC)
   (* timed-out in Ret call *)
   >- (TRY (rpt TOP_CASE_TAC) >> fs [] >> call_tail_ret_impl_tac)
   (* return in Ret call *)
   >- (
-   cases_on ‘is_valid_value s.locals m v’ >> fs [] >> rveq >>
+   cases_on ‘x’>> fs[]>>
+   rename1 ‘is_valid_value s.locals q v’ >>
+   cases_on ‘is_valid_value s.locals q v’ >> fs [] >> rveq >>
    fs [is_valid_value_def] >>
-   cases_on ‘FLOOKUP s.locals m’ >> fs [] >>
+   cases_on ‘FLOOKUP s.locals q’ >> fs [] >>
    fs [wrap_rt_def] >>
    TOP_CASE_TAC >> fs []
    >- (
@@ -2913,6 +2936,7 @@ Proof
     disch_then drule >> strip_tac >> fs [] >>
     rveq >> fs [OPT_MMAP_def] >> rveq >>
     pop_assum (assume_tac o GSYM) >>
+    rename1 ‘ FLOOKUP s.locals q = SOME x’>>
     ‘size_of_shape (shape_of x) = 1’ by
       fs [panLangTheory.size_of_shape_def] >>
     rfs [GSYM length_flatten_eq_size_of_shape]) >>
@@ -2922,7 +2946,7 @@ Proof
    >- (
     (* shape-rtv: One *)
     TRY (rpt TOP_CASE_TAC) >> fs [] >> ret_call_shape_retv_one_tac) >>
-   qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.vars m = SOME (Comb l,r')’ >>
+   qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.vars m = SOME (Comb l,r'')’ >>
    cases_on ‘size_of_shape (Comb l) = 0’ >> fs []
    >- (TRY (rpt TOP_CASE_TAC) >> fs [] >> ret_call_shape_retv_comb_zero_tac) >>
    cases_on ‘size_of_shape (Comb l) = 1’ >> fs []
@@ -2933,10 +2957,15 @@ Proof
   >- (
    (* Exception result *)
    fs [wrap_rt_def] >>
-   fs [] >> cases_on ‘o'’ >> fs []
+   fs [] >> 
+   rename1 ‘x = (_, _)’>>cases_on ‘x’ >> fs[] >>
+   rename1 ‘r' = SOME (_, _, _)’>>cases_on ‘r'’ >>
+   fs []
    (* NONE exp-handler *)
    >- ret_call_excp_reult_handle_none_tac >>
-   cases_on ‘x’ >> fs [] >> rveq >>
+   rename1 ‘x = (m', _, _)’>>PairCases_on ‘x’ >> fs [] >> rveq >>
+   rename1 ‘FLOOKUP ctxt.vars m’ >>
+   rename1 ‘FLOOKUP ctxt.eids m0’ >>
    reverse (cases_on ‘m' = m0’) >> fs []
    (* eids mismatch *)
    >- ret_call_excp_reult_handle_uneq_exp_tac >>
@@ -2944,20 +2973,23 @@ Proof
    rename [‘geid = eid’] >>
    cases_on ‘FLOOKUP s.eshapes eid’ >> fs [] >> rveq >>
    cases_on ‘shape_of v = x’ >> fs [] >>
+   rename1 ‘is_valid_value s.locals m'' v’ >>
    cases_on ‘is_valid_value s.locals m'' v’ >> fs [] >>
    cases_on ‘FLOOKUP ctxt.eids eid’ >> fs []
    >- (
     fs [excp_rel_def] >>
     imp_res_tac fdoms_eq_flookup_some_none >> fs []) >>
+   rename1 ‘FLOOKUP ctxt.eids eid = SOME x'’>>
    cases_on ‘x'’ >> fs [] >> rveq >>
    TOP_CASE_TAC >> fs []
    >- ret_call_excp_handler_tac >>
    TOP_CASE_TAC >> fs [] >>
    ret_call_excp_handler_tac) >>
   (* FFI *)
-  cases_on ‘o'’ >> fs []
+  cases_on ‘x’ >> fs []>>
+  cases_on ‘r'’ >> fs []
   >- (TRY (rpt TOP_CASE_TAC) >> fs [] >> call_tail_ret_impl_tac) >>
-  cases_on ‘x’ >>
+  PairCases_on ‘x’ >>
   TRY (rpt TOP_CASE_TAC) >> fs [] >> call_tail_ret_impl_tac
 QED
 
