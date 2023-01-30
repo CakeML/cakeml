@@ -3508,13 +3508,13 @@ Proof
                           ``:'b``|->``:'b``]
                crepPropsTheory.evaluate_add_clock_io_events_mono) >>
    first_assum (qspecl_then
-                [‘Call Tail (Label start) []’, ‘t with clock := k1’, ‘p’] mp_tac) >>
+                [‘Call NONE (Label start) []’, ‘t with clock := k1’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
-                [‘Call Tail (Label start) []’, ‘t with clock := k2’, ‘p’] mp_tac) >>
+                [‘Call NONE (Label start) []’, ‘t with clock := k2’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
-                [‘TailCall (Label start) []’, ‘s with clock := k1’, ‘p’] mp_tac) >>
+                [‘Call NONE (Label start) []’, ‘s with clock := k1’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
-                [‘TailCall (Label start) []’, ‘s with clock := k2’, ‘p’] mp_tac) >>
+                [‘Call NONE (Label start) []’, ‘s with clock := k2’, ‘p’] mp_tac) >>
    fs []) >>
   simp [equiv_lprefix_chain_thm] >>
   fs [Abbr ‘l1’, Abbr ‘l2’]  >> simp[PULL_EXISTS] >>
@@ -3551,7 +3551,7 @@ Proof
                           ``:'b``|->``:'b``]
                crepPropsTheory.evaluate_add_clock_io_events_mono) >>
    first_x_assum (qspecl_then
-                  [‘Call Tail (Label start) []’,
+                  [‘Call NONE (Label start) []’,
                    ‘t with clock := k’, ‘ck’] mp_tac) >>
    strip_tac >> rfs [] >>
    fs [state_rel_def, IS_PREFIX_THM]) >>
@@ -3574,7 +3574,7 @@ Proof
                          ``:'b``|->``:'b``]
               crepPropsTheory.evaluate_add_clock_io_events_mono) >>
   first_x_assum (qspecl_then
-                 [‘Call Tail (Label start) []’,
+                 [‘Call NONE (Label start) []’,
                   ‘t with clock := k’, ‘ck’] mp_tac) >>
   strip_tac >> rfs [] >>
   qexists_tac ‘k’ >>
