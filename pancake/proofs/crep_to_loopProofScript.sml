@@ -5150,9 +5150,9 @@ Proof
    first_assum (qspecl_then
                 [‘Call NONE (SOME lc) [] NONE’, ‘t with clock := k2’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
-                [‘Call Tail (Label start) []’, ‘s with clock := k1’, ‘p’] mp_tac) >>
+                [‘Call NONE (Label start) []’, ‘s with clock := k1’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
-                [‘Call Tail (Label start) []’, ‘s with clock := k2’, ‘p’] mp_tac) >>
+                [‘Call NONE (Label start) []’, ‘s with clock := k2’, ‘p’] mp_tac) >>
    fs []) >>
   simp [equiv_lprefix_chain_thm] >>
   fs [Abbr ‘l1’, Abbr ‘l2’]  >> simp[PULL_EXISTS] >>
