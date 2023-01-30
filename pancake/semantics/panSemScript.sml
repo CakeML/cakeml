@@ -7,7 +7,8 @@ local open alignmentTheory
            miscTheory     (* for read_bytearray *)
            wordLangTheory (* for word_op and word_sh *)
            ffiTheory
-           itreeTauTheory in end;
+           itreeTauTheory
+           posetTheory in end;
 
 val _ = new_theory"panSem";
 val _ = set_grammar_ancestry [
@@ -60,127 +61,48 @@ val s = ``(s:('a,'ffi) panSem$state)``
 CoInductive ITREE_ORDER:
             ILEQ (Ret a) (Ret a) ∧
             ((t ≠ (Ret a)) ⇒ (ILEQ (Ret a) t)) ∧
-            ((ILEQ t1 t2) ⇒ (ILEQ (Tau t1) (Tau t2))) ∧
+            (ILEQ t1 t2 ⇒ (ILEQ (Tau t1) (Tau t2))) ∧
             (ILEQ t1 t2 ⇒ ILEQ (Vis e λt. t1) (Vis e λt. t2))
 End
 
-Definition eval_exp_itree_def:
-  (eval_exp_itree (Const w) =
-   λs. Ret (SOME (ValWord w))) ∧
-  (eval_exp_itree (Var n) =
-   λs. Ret (FLOOKUP s.locals n)) ∧
-  (eval_exp_itree (Label fname) =
-   λs. case FLOOKUP s.code fname of
-         | SOME _ => Ret (SOME (ValLabel fname))
-         | _ => Ret NONE)
-End
+(* Generalisation of the set of ITrees dealt with by this semantics. *)
+val itree_set = “univ(:(α, β, (γ v option)) itree)”;
 
 (* As with lookup_code only where args are ITrees. *)
-Definition lookup_code_itree_def:
-  (lookup_code_itree code fname = FLOOKUP code fname)
+(* Definition lookup_code_itree_def: *)
+(*   (lookup_code_itree code fname = FLOOKUP code fname) *)
+(* End *)
+
+(* Simple example: define a monotone function on the nats and show that its LFP
+must be omega. *)
+Definition simple_monotone_def:
+  (simple_monotone (x:num) = x + 1)
 End
 
-(* TOOD: Namespace conflict with Ret term in fcall type and Ret in itree. *)
-Definition post_call_binder_def:
-  (post_call_binder ctype (Ret (s, SOME (Return val))) =
-   case ctype of
-    | Tail => Ret (empty_locals s, SOME (Return val))
-    | Ret rt _ =>
-       if is_valid_value s.locals rt val
-       then Ret (set_var rt val s, NONE)
-       else Ret (s, SOME Error)) ∧
-  (* TODO: Add exception handling. *)
-  (post_call_binder ctype (Ret (s, _)) = Ret (s, SOME Error))
+Theorem SIMPLE_MT_LFP:
+  (@x. po_lfp (univ(:num),$≤) simple_monotone x) = ω
+Proof
+QED
+
+(* Define an inductive relation that describes the set constructed inductively from some tree t. *)
+Inductive itree_iter_def:
+  ITREE_ITER (b:itree) (t:itree) ∧
+             (ITREE_ITER b t ∧ ILEQ b t
 End
 
+(* Define a function to describe a set as being the set of all itrees given a starting itree which are extensions
+ of that ITree. Without being specifically related to while loop execution. *)
+Definition itree_ext_set_def:
+  (itree_ext_set base t = ILEQ base t)
+End
+
+(* While loop sem is as we want it: need only to figure out how to express GFP of the RHS. *)
 Definition eval_prog_itree_def:
-  (eval_prog_itree (Skip) =
-   λs. Ret (s, NONE)) ∧
-  (eval_prog_itree (Dec var e p) =
-   λs. case eval_exp_itree e s of
-        | Ret (st, SOME val) => eval_prog_itree p (st with locals := st.locals |+ (var, val))
-        | Ret (st, NONE) => Ret (st, SOME Error)) ∧
-  (eval_prog_itree (Store dst src) =
-   λs. case (eval_exp_itree dst s, eval_exp_itree src s) )
-        | (Ret (SOME (ValWord addr)), Ret (SOME val)) =>
-           (case mem_stores addr (flatten value) s.memaddrs s.memory of
-            | SOME m => Ret (s with memory := m, NONE)
-            | NONE => (s, SOME Error))) ∧
-  (eval_prog_itree (StoreByte dst src) =
-   λs. case (eval_exp_itree dst s, eval_exp_itree src s) of
-        | (Ret (SOME (ValWord addr)), Ret (SOME (ValWord w))) =>
-           (case mem_store_byte s.memory s.memaddrs s.be addr (w2w w) of
-             | SOME m => (s with memory := m, NONE)
-             | NONE => (s, SOME Error))) ∧
-  (eval_prog_itree (Seq p1 p2) =
-   λs. (eval_prog_itree p1 s) itree_bind λr. if r = (st, NONE)
-                                             then eval_prog_itree p2 st
-                                             else r) ∧
-  (eval_prog_itree (If b pt pf) =
-   λs. case eval_exp_itree b of
-        | Ret (SOME (ValWord w)) =>
-           eval_prog_itree (if w ≠ 0w then pt else pf) s
-        | _ => (s, SOME Error)) ∧
-  (eval_prog_itree (While b p) =
-   λs. case eval_exp_itree b of
-        | Ret (SOME (ValWord w)) =>
-           if (w ≠ 0w)
-           then (eval_exp_itree p) itree_bind next_iter_binder
-           else Ret (s, NONE)
-        | _ => (s, SOME Error)) ∧
-  (eval_prog_itree (Break) =
-   λs. Ret (s, SOME Break)) ∧
-  (eval_prog_itree (Continue) =
-   λs. Ret (s, SOME Continue)) ∧
-  (eval_prog_itree (Call caltyp trgt args) =
-   λs. case (eval_exp_itree trgt s, MAP eval_exp_itree args) of
-        | (Ret (st, SOME (ValLabel fname)), eargs) =>
-           (case (lookup_code_itree st.code fname) of =>
-                                                    | (locals, callee_prog) => itree_bind (eval_prog_itree callee_prog st) post_call_binder caltyp
-                                                    | (_, _) => Ret (s, SOME Error))
-
-        | (_, _) => Ret (s, SOME Error)) ∧
-  (eval_prog_itree (ExtCall ffi_index ptr1 len ptr2 len2) =
-   λs. case (FLOOKUP s.locals len1, FLOOKUP s.locals ptr1, FLOOKUP s.locals len2, FLOOKUP s.locals ptr2) of
-        | (SOME (ValWord sz1), SOME (ValWord ad1), SOME (ValWord sz2), SOME (ValWord ad2)) =>
-           (case (read_bytearray ad1 (w2n sz1) (mem_load_byte s.memory s.memaddrs s.be),
-                  read_bytearray ad2 (w2n sz2) (mem_load_byte s.memory s.memaddrs s.be)) of
-             | (SOME bytes, SOME bytes2) =>
-                (case call_FFI s.ffi (explode ffi_index) bytes bytes2 of
-                  | FFI_final outcome => Vis (FFIEvent ffi_index ad1 ad2, λa. Ret (empty_locals s, SOME FinalFFI r))
-                  | FFI_return new_ffi new_bytes =>
-                     let nmem = write_bytearray ad2 new_bytes s.memory s.memaddrs s.be in
-                     Vis (FFIEvent ffi_index ad1 ad2, λa. Ret (s with <| memory := nmem; ffi := new_ffi |>, NONE)))
-             | _ => Ret (s, SOME Error))
-        | _ => Ret (s, SOME Error)) ∧
-  (eval_prog_itree (Raise eid e) =
-   λs. case (FLOOKUP s.eshapes eid, eval_exp_itree e s) of
-        | (SOME sh, Ret (SOME val)) =>
-           if shape_of val = sh ∧
-              size_of_shape (shape_of val) ≤ 32
-           then Ret (empty_locals s, SOME (Exception eid val))
-           else (s, SOME Error)
-        | _ => (s, SOME Error)) ∧
-  (eval_prog_itree (Return e) =
-   λs. case (eval_exp_itree e s) of
-        | Ret (SOME val) =>
-           if size_of_shape (size_of val) ≤ 32
-           then Ret (s, SOME (Return val))
-           else (s, SOME Error)
-        | _ => (s, SOME Error)) ∧
-  (eval_prog_itree (Tick) =
-   λs. Ret (s, NONE))
-Termination
-End
-
-Definition next_iter_binder_def:
-  (next_iter_binder p b (s, SOME Break) =
-   Ret (s, NONE)) ∧
-  (next_iter_binder p b (s, _) =
-   eval_prog_itree (While b p) s)
-End
-
-Definition semantics_itree_def:
+  (eval_prog_itree Skip = λt. t) ∧
+  (eval_prog_itree (While b p) = λt. (@x. po_lfp (itree_ext_set t, ILEQ) (λt'. itree_bind t' (λr. case (eval (FST r) b) of
+                                                        | SOME (ValWord w) =>
+                                                           (if w ≠ 0w then (Tau (eval_prog_itree p (Ret r))) else (Ret r))
+                                                        | NONE => (Ret r))) x))
 End
 
 Theorem MEM_IMP_v_size:
@@ -204,7 +126,7 @@ Overload bytes_in_word = “byte$bytes_in_word”
 
 Definition mem_load_byte_def:
   mem_load_byte m dm be w =
-  case m (byte_align w) of
+  case m (byte_align w) ofj
     | Label _ => NONE
     | Word v =>
        if byte_align w IN dm
