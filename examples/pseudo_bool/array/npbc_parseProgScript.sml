@@ -81,6 +81,7 @@ val pbc_to_npbc_side = Q.prove(
 val r = translate parse_constraint_LHS_def;
 
 val r = translate pbcTheory.map_pbc_def;
+val r = translate map_f_ns_def;
 val r = translate parse_constraint_npbc_def;
 
 val r = translate parse_red_header_def;

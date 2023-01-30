@@ -512,7 +512,7 @@ Definition plainVar_nf_def:
     NONE
 End
 
-val plain_ns_v_thm = translate plainVar_nf_def;
+val r = translate plainVar_nf_def;
 
 val plainvar_nf_side = Q.prove(`
    ∀x y. plainvar_nf_side x y = T`,
@@ -524,7 +524,7 @@ Definition plain_ns_def:
   plain_ns = (plainVar_nf,())
 End
 
-val r = translate plain_ns_def;
+val plain_ns_v_thm = translate plain_ns_def;
 
 val check_unsat_2 = (append_prog o process_topdecs) `
   fun check_unsat_2 f1 f2 =

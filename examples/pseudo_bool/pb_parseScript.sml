@@ -269,12 +269,28 @@ Definition parse_subst_def:
   (parse_subst f_ns ls acc = (ls, acc,f_ns))
 End
 
+Definition map_f_ns_def:
+  (map_f_ns f_ns [] = SOME ([],f_ns)) ∧
+  (map_f_ns f_ns ((c,l)::xs) =
+  case apply_lit f_ns l of
+    NONE => NONE
+  | SOME (l',f_ns') =>
+    case map_f_ns f_ns' xs of NONE => NONE
+    | SOME (ys,f_ns'') =>
+      SOME ((c,l')::ys,f_ns''))
+End
+
 Definition parse_constraint_npbc_def:
-  parse_constraint_npbc line =
+  parse_constraint_npbc f_ns line =
   case parse_constraint_LHS line [] of (rest,lhs) =>
   (case rest of (INL cmp :: INR deg :: INL term :: rest) =>
     if term = str #";" ∧ cmp = strlit">=" then
-      SOME (pbc_to_npbc (map_pbc hashString (GreaterEqual,lhs,deg)),rest)
+      case map_f_ns f_ns lhs of NONE => NONE
+      | SOME (lhs',f_ns') =>
+        SOME (
+          pbc_to_npbc (GreaterEqual,lhs',deg),
+          rest,
+          f_ns')
     else
       NONE
   | _ => NONE)
@@ -282,13 +298,13 @@ End
 
 Definition parse_red_header_def:
   parse_red_header f_ns line =
-  case parse_constraint_npbc line of
-    SOME (constr,rest) =>
-      (case parse_subst f_ns rest LN of (rest,ss,f_ns) =>
+  case parse_constraint_npbc f_ns line of
+    SOME (constr,rest,f_ns') =>
+      (case parse_subst f_ns' rest LN of (rest,ss,f_ns'') =>
        (case rest of
         [INL term; INL beg] =>
           if term = strlit";" ∧ beg = strlit"begin" then
-            SOME (constr,ss,f_ns)
+            SOME (constr,ss,f_ns'')
           else NONE
       | _ => NONE))
   | _ => NONE
@@ -314,8 +330,8 @@ Definition parse_lstep_aux_def:
         (case rs of
           INR id::rest =>
           if id ≥ 0 then
-            (case parse_constraint_npbc rest of
-              SOME (c,[]) => SOME (INL (Check (Num id) c),f_ns)
+            (case parse_constraint_npbc f_ns rest of
+              SOME (c,[],f_ns') => SOME (INL (Check (Num id) c),f_ns')
             | _ => NONE)
           else NONE
         | _ => NONE)
@@ -605,16 +621,24 @@ Definition hashString_nf_def:
   hashString_nf s t = SOME(hashString s,t)
 End
 
+Definition plainVar_nf_def:
+  plainVar_nf s (u:unit) =
+  if strlen s ≥ 1 ∧ strsub s 0 = #"x" then
+    case mlint$fromNatString (substring s 1 (strlen s - 1)) of
+      NONE => NONE
+    | SOME n => SOME (n,())
+  else
+    NONE
+End
+
 (* Parse the tokenized pbf file *)
 Definition parse_pbp_toks_def:
   parse_pbp_toks tokss =
   case parse_header tokss of
     SOME rest =>
-      (case parse_tops (hashString_nf,()) rest [] of
+      (case parse_tops (plainVar_nf,()) rest [] of
         SOME (pf, s, f_ns', rest') =>
-        (case parse_conc s rest' of
-          NONE => NONE
-        | SOME res => SOME(pf,res)))
+        SOME pf)
   | NONE => NONE
 End
 
