@@ -2976,6 +2976,11 @@ val fcalled_timed_out_tac =
     rfs [wlab_wloc_def]) >>
    fs [code_rel_def, ctxt_fc_def];
 
+Theorem triple_cases:
+  ∀triple. (∃o0 p $o. triple = (o0,p,$o))
+Proof
+  metis_tac[option_CASES,pair_CASES]
+QED
 
 Theorem compile_Call:
   ^(get_goal "compile _ _ (crepLang$Call _ _ _)")
@@ -2984,6 +2989,8 @@ Proof
   cases_on ‘caltyp’ >> fs []
   (* Tail case *)
   >- tail_case_tac >>
+  rename1 ‘Call (SOME rett)’ >>
+  Cases_on ‘rett’ using triple_cases >>
   (* Return case *)
   fs [crepSemTheory.evaluate_def,
       CaseEq "option", CaseEq "word_lab",CaseEq "prod"] >>
@@ -3000,7 +3007,7 @@ Proof
   strip_tac >>
   fs [opt_mmap_eq_some] >>
   (* Keep progressing in crep's Call to estimate clock *)
-  fs [lookup_code_def, CaseEq "option", CaseEq "prod"] >>
+  gvs [lookup_code_def, CaseEq "option", CaseEq "prod"] >>
   rveq >> fs [] >>
   cases_on ‘evaluate
             (prog,dec_clock s with locals := FEMPTY |++ ZIP (ns,args))’ >>
@@ -3460,8 +3467,9 @@ Proof
     fs [crepSemTheory.empty_locals_def, ctxt_fc_def] >>
     fs [state_rel_def, code_rel_def]) >>
    (* SOME case of excp handler *)
-   cases_on ‘v3’ >> fs [] >>
+   cases_on ‘v5’ >> fs [] >>
    fs [Abbr ‘lns’] >>
+   rename1 ‘Imm c'’ >>
    (* cannot delay case split on exp values
       because of clock inst *)
    reverse (cases_on ‘c = c'’) >> fs []
@@ -3569,6 +3577,7 @@ Proof
     fs [call_env_def] >>
     fs [crepSemTheory.empty_locals_def, ctxt_fc_def] >>
     fs [state_rel_def, code_rel_def]) >>
+   rename1 ‘evaluate (p'',_ with locals := _.locals) = (_,_)’ >>
    (* handling exception *)
    last_x_assum (qspecl_then
                  [‘t1 with locals :=
