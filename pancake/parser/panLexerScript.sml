@@ -1,11 +1,14 @@
 (**
  * The beginnings of a lexer for the Pancake language.
- *
+ *)
+
+(**
  * We take significant inspiration from the Spark ADA development.
  *
  * Author: Craig McLaughlin
  * Date: March--April 2022
  *)
+
 open HolKernel Parse boolLib bossLib stringLib numLib;
 
 open arithmeticTheory stringTheory intLib listTheory locationTheory;

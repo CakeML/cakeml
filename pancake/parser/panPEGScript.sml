@@ -1,8 +1,11 @@
 (**
  * The beginnings of a PEG parser for the Pancake language.
- *
+ *)
+
+(*
  * We take significant inspiration from the Spark ADA development.
  *)
+
 open HolKernel Parse boolLib bossLib stringLib numLib intLib;
 
 open pegTheory pegexecTheory panLexerTheory;

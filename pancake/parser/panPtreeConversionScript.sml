@@ -1,11 +1,14 @@
 (**
  * Theory for translating the Pancake parse tree into the Pancake AST.
- *
+ *)
+
+(*
  * We take some inspiration from the existing conversion theory
  * for CakeML.
  *
  * Created by Craig McLaughlin on 6/5/2022.
  *)
+
 open HolKernel Parse boolLib bossLib stringLib numLib intLib;
 
 open arithmeticTheory;
