@@ -3,8 +3,6 @@ INCLUDES = $(HOLDIR)/examples/machine-code/multiword\
 					 $(CAKEMLDIR)/pancake\
                                          $(CAKEMLDIR)/basis/pure\
 					 $(CAKEMLDIR)/compiler/backend/\
-					 $(CAKEMLDIR)/compiler/\
-					 $(CAKEMLDIR)/examples/\
 					 $(CAKEMLDIR)/semantics/\
 					 $(CAKEMLDIR)/compiler/encoders/asm\
 				     $(HOLDIR)/examples/formal-languages/context-free
