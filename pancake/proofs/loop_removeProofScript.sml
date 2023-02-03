@@ -1889,7 +1889,7 @@ Proof
   qpat_x_assum ‘comp_with_loop _ _ _ _ = _’ mp_tac>>
   rewrite_tac[loop_removeTheory.comp_with_loop_def]>>
   strip_tac>>fs[]>>
-  TRY (rpt (pairarg_tac>>fs[]))
+  rpt (pairarg_tac>>fs[])
   >- metis_tac[store_const_lab_min]
   >- metis_tac[store_const_lab_min]
   >- (Cases_on ‘handler’>>fs[]>>

@@ -1498,7 +1498,7 @@ Proof
   TRY (pairarg_tac>>gs[]>>
        pairarg_tac>>gs[]>>
        gs[wordPropsTheory.no_install_def])>>
-  TRY (rpt (CASE_TAC>>gs[wordPropsTheory.no_install_def]))>>
+  rpt (CASE_TAC>>gs[wordPropsTheory.no_install_def])>>
   rpt (pairarg_tac>>gs[wordPropsTheory.no_install_def])
 QED
 
@@ -1509,17 +1509,8 @@ Proof
   gs[comp_func_def]>>
   gs[comp_def, wordPropsTheory.no_install_def]>>
   rw[loop_to_word_comp_no_install]>>
-  TRY (last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
+  rpt (last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
        gs[loopLangTheory.acc_vars_def])>>
-  TRY (last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
-       pairarg_tac>>gs[]>>
-       pairarg_tac>>
-       gs[wordPropsTheory.no_install_def]>>
-       last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
-       rpt (qpat_x_assum ‘comp _ _ _ = _’ (assume_tac o GSYM))>>
-       drule loop_to_word_comp_no_install>>gs[]>>
-       qpat_x_assum ‘(wp, _) = _’ kall_tac>>
-       drule loop_to_word_comp_no_install>>gs[])>>
   rpt (CASE_TAC>>gs[wordPropsTheory.no_install_def])>>
   pairarg_tac>>gs[]>>
   pairarg_tac>>
@@ -1565,7 +1556,7 @@ Proof
   TRY (pairarg_tac>>gs[]>>
        pairarg_tac>>gs[]>>
        gs[wordPropsTheory.no_alloc_def])>>
-  TRY (rpt (CASE_TAC>>gs[wordPropsTheory.no_alloc_def]))>>
+  rpt (CASE_TAC>>gs[wordPropsTheory.no_alloc_def])>>
   rpt (pairarg_tac>>gs[wordPropsTheory.no_alloc_def])
 QED
 
@@ -1576,17 +1567,8 @@ Proof
   gs[comp_func_def]>>
   gs[comp_def, wordPropsTheory.no_alloc_def]>>
   rw[loop_to_word_comp_no_alloc]>>
-  TRY (last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
+  rpt (last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
        gs[loopLangTheory.acc_vars_def])>>
-  TRY (last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
-       pairarg_tac>>gs[]>>
-       pairarg_tac>>
-       gs[wordPropsTheory.no_alloc_def]>>
-       last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
-       rpt (qpat_x_assum ‘comp _ _ _ = _’ (assume_tac o GSYM))>>
-       drule loop_to_word_comp_no_alloc>>gs[]>>
-       qpat_x_assum ‘(wp, _) = _’ kall_tac>>
-       drule loop_to_word_comp_no_alloc>>gs[])>>
   rpt (CASE_TAC>>gs[wordPropsTheory.no_alloc_def])>>
   pairarg_tac>>gs[]>>
   pairarg_tac>>
@@ -1632,7 +1614,7 @@ Proof
   TRY (pairarg_tac>>gs[]>>
        pairarg_tac>>gs[]>>
        gs[wordPropsTheory.no_mt_def])>>
-  TRY (rpt (CASE_TAC>>gs[wordPropsTheory.no_mt_def]))>>
+  rpt (CASE_TAC>>gs[wordPropsTheory.no_mt_def])>>
   rpt (pairarg_tac>>gs[wordPropsTheory.no_mt_def])
 QED
 
@@ -1643,17 +1625,8 @@ Proof
   gs[comp_func_def]>>
   gs[comp_def, wordPropsTheory.no_mt_def]>>
   rw[loop_to_word_comp_no_mt]>>
-  TRY (last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
+  rpt (last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
        gs[loopLangTheory.acc_vars_def])>>
-  TRY (last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
-       pairarg_tac>>gs[]>>
-       pairarg_tac>>
-       gs[wordPropsTheory.no_mt_def]>>
-       last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
-       rpt (qpat_x_assum ‘comp _ _ _ = _’ (assume_tac o GSYM))>>
-       drule loop_to_word_comp_no_mt>>gs[]>>
-       qpat_x_assum ‘(wp, _) = _’ kall_tac>>
-       drule loop_to_word_comp_no_mt>>gs[])>>
   rpt (CASE_TAC>>gs[wordPropsTheory.no_mt_def])>>
   pairarg_tac>>gs[]>>
   pairarg_tac>>
@@ -1735,7 +1708,7 @@ Theorem loop_to_word_comp_SND_LE:
 Proof
   ho_match_mp_tac loop_to_wordTheory.comp_ind>>
   rw[loop_to_wordTheory.comp_def]>>
-  rpt (FULL_CASE_TAC>>gs[])>>TRY (rveq>>gs[])>>
+  rpt (FULL_CASE_TAC>>gs[])>>gvs[]>>
   pairarg_tac>>gs[]>>pairarg_tac>>gs[]>>
   rveq>>gs[]
 QED
@@ -1748,30 +1721,30 @@ Proof
   ho_match_mp_tac loop_to_wordTheory.comp_ind>>
   rw[loop_to_wordTheory.comp_def]>>
   gs[wordPropsTheory.extract_labels_def]
-  >- (
-  pairarg_tac>>gs[]>>
-  pairarg_tac>>gs[]>>
-  rveq>>gs[wordPropsTheory.extract_labels_def]>>
-  drule loop_to_word_comp_SND_LE>>strip_tac>>
-  qpat_x_assum ‘_= (_, l')’ assume_tac>>
-  drule loop_to_word_comp_SND_LE>>strip_tac>>
-  gs[])
-  >- (
-  pairarg_tac>>gs[]>>
-  pairarg_tac>>gs[]>>
-  rveq>>gs[wordPropsTheory.extract_labels_def]>>
-  drule loop_to_word_comp_SND_LE>>strip_tac>>
-  qpat_x_assum ‘_= (_, l')’ assume_tac>>
-  drule loop_to_word_comp_SND_LE>>strip_tac>>
-  gs[])>>
+  >- (pairarg_tac>>gs[]>>
+      pairarg_tac>>gs[]>>
+      rveq>>gs[wordPropsTheory.extract_labels_def]>>
+      drule loop_to_word_comp_SND_LE>>strip_tac>>
+      qpat_x_assum ‘_= (_, l')’ assume_tac>>
+      drule loop_to_word_comp_SND_LE>>strip_tac>>
+      gs[])
+  >- (pairarg_tac>>gs[]>>
+      pairarg_tac>>gs[]>>
+      rveq>>gs[wordPropsTheory.extract_labels_def]>>
+      drule loop_to_word_comp_SND_LE>>strip_tac>>
+      qpat_x_assum ‘_= (_, l')’ assume_tac>>
+      drule loop_to_word_comp_SND_LE>>strip_tac>>
+      gs[])>>
   rpt (FULL_CASE_TAC>>gs[])>>
-  rveq>>gs[wordPropsTheory.extract_labels_def]>>
-  TRY (CASE_TAC>>gs[])>>
+  rveq>>gs[wordPropsTheory.extract_labels_def]
+  >~[‘LENGTH _ = 1’]>- (Cases_on ‘l’>>gs[])>>
   pairarg_tac>>gs[]>>pairarg_tac>>gs[]>>
   rveq>>gs[wordPropsTheory.extract_labels_def]>>
-  rpt (CASE_TAC>>gs[])>>
+  Cases_on ‘l’>>gs[]>>
+  rename1 ‘comp _ _ l1 = (_, l1')’>>
+  Cases_on ‘l1'’>>gs[]>>
   drule loop_to_word_comp_SND_LE>>strip_tac>>gs[]>>
-  qpat_x_assum ‘_= (_, (_, r))’ assume_tac>>
+  qpat_x_assum ‘_= (_, l1)’ assume_tac>>
   drule loop_to_word_comp_SND_LE>>strip_tac>>gs[]
 QED
 
@@ -1803,19 +1776,18 @@ Proof
       conj_tac>>gs[EVERY_EL]>>strip_tac>>strip_tac>>pairarg_tac>>gs[]
       >- (first_x_assum $ qspec_then ‘n’ assume_tac>>gs[])>>
       last_x_assum $ qspec_then ‘n’ assume_tac>>gs[])>>
-  rpt (FULL_CASE_TAC>>gs[])>>
-  rveq>>gs[wordPropsTheory.extract_labels_def]>>
-  TRY (CASE_TAC>>gs[])>>
-  pairarg_tac>>gs[]>>
-  pairarg_tac>>gs[]>>
-  rveq>>gs[wordPropsTheory.extract_labels_def]>>
-  rpt (CASE_TAC>>gs[])>>
-  ‘q''' = FST l1’
-    by (drule comp_l_invariant>>gs[])>>gs[]>>
-  drule loop_to_word_comp_SND_LE>>strip_tac>>
-  qpat_x_assum ‘_= (_, (_, r))’ assume_tac>>
-  drule loop_to_word_comp_SND_LE>>strip_tac>>
-  gs[]>>
+  gs[CaseEq"option",CaseEq"prod"]>>rpt (pairarg_tac>>gs[])>>
+  gvs[wordPropsTheory.extract_labels_def]>>
+  Cases_on ‘l’>>gs[]>>
+  rename1 ‘comp _ _ l1 = (_, l1')’>>
+  Cases_on ‘l1'’>>gs[]>>
+  drule loop_to_word_comp_SND_LE>>strip_tac>>gs[]>>
+  qpat_x_assum ‘_= (_, l1)’ assume_tac>>
+  drule loop_to_word_comp_SND_LE>>strip_tac>>gs[]>>
+  Cases_on ‘l1’>>gs[]>>
+  drule comp_l_invariant>>gs[]>>
+  strip_tac>>gs[]>>
+  qpat_x_assum ‘_= (_, _, r')’ assume_tac>>
   drule comp_l_invariant>>gs[]>>strip_tac>>
   conj_tac>>gs[EVERY_EL]>>strip_tac>>strip_tac>>pairarg_tac>>gs[]
   >- (last_x_assum $ qspec_then ‘n’ assume_tac>>gs[])>>
@@ -1856,26 +1828,27 @@ Proof
       gs[EVERY_MEM]>>
       rpt (first_x_assum $ qspec_then ‘e’ assume_tac)>>gs[]>>
       Cases_on ‘e’>>gs[])>>
-  rpt (FULL_CASE_TAC>>gs[])>>
-  rveq>>gs[wordPropsTheory.extract_labels_def]>>
-  TRY (CASE_TAC>>gs[])>>
-  pairarg_tac>>gs[]>>
-  pairarg_tac>>gs[]>>
-  rveq>>gs[wordPropsTheory.extract_labels_def]>>
-  rpt (CASE_TAC>>gs[])>>
-  ‘q''' = FST l1’
-    by (drule comp_l_invariant>>gs[])>>gs[]>>
+  rename1 ‘_ = (q, r)’>>
+  gs[CaseEq"option", CaseEq"prod"]>>
+  rpt (pairarg_tac>>gs[])>>
+  gvs[wordPropsTheory.extract_labels_def]>>
+  Cases_on ‘l’>>gs[]>>
+  rename1 ‘comp _ _ l1 = (_, l1')’>>
+  Cases_on ‘l1'’>>gs[]>>
+  rename1 ‘comp _ _ l1 = (_, q', r')’>>
   drule loop_to_word_comp_extract_labels>>strip_tac>>
   drule loop_to_word_comp_SND_LE>>strip_tac>>
-  qpat_x_assum ‘_= (_, (_, r))’ assume_tac>>
+  rename1 ‘_= (p1', l1)’>>
+  qpat_x_assum ‘_= (p1', l1)’ assume_tac>>
   drule loop_to_word_comp_extract_labels>>strip_tac>>
   drule loop_to_word_comp_SND_LE>>strip_tac>>
   gs[]>>
+  Cases_on ‘l1’>>gs[]>>
   gs[ALL_DISTINCT_APPEND, EVERY_MEM]>>rw[]
-  >- (first_x_assum $ qspec_then ‘(FST l1, r')’ assume_tac>>gs[])
-  >- (last_x_assum $ qspec_then ‘(FST l1, r')’ assume_tac>>gs[])
+  >- (last_x_assum $ qspec_then ‘(q, r)’ assume_tac>>gs[])
   >- (first_x_assum $ qspec_then ‘(q, r)’ assume_tac>>gs[])
-  >- (last_x_assum $ qspec_then ‘(q, r)’ assume_tac>>gs[])>>
+  >- (last_x_assum $ qspec_then ‘(q', r')’ assume_tac>>gs[])
+  >- (first_x_assum $ qspec_then ‘(q', r')’ assume_tac>>gs[])>>
   first_x_assum $ qspec_then ‘e’ assume_tac>>gs[]>>
   first_x_assum $ qspec_then ‘e’ assume_tac>>gs[]>>
   Cases_on ‘e’>>gs[]
@@ -1963,7 +1936,10 @@ Proof
   rw[wordPropsTheory.full_inst_ok_less_def,
      wordPropsTheory.inst_ok_less_def,
      wordPropsTheory.every_inst_def]>>
-  rpt (CASE_TAC>>gs[])
+  Cases_on ‘ret’>-gs[]>>
+  rename1 ‘SOME x’>>PairCases_on ‘x’>>gs[]>>
+  Cases_on ‘handler’>-gs[]>>
+  rename1 ‘SOME x’>>PairCases_on ‘x’>>gs[]
 QED
 
 Theorem loop_to_word_comp_every_inst_ok_less:
@@ -1975,8 +1951,11 @@ Proof
   rw[loop_to_wordTheory.comp_def,
      wordPropsTheory.every_inst_def,
      wordPropsTheory.inst_ok_less_def] >>
-  gs[]>>TRY (rpt (CASE_TAC>>gs[]))>>
-  TRY (rpt (pairarg_tac>>gs[]))>>
+  TRY (Cases_on ‘ret’>-gs[wordPropsTheory.every_inst_def]>>
+       rename1 ‘SOME x’>>PairCases_on ‘x’>>gs[]>>
+       Cases_on ‘handler’>-gs[wordPropsTheory.every_inst_def]>>
+       rename1 ‘SOME x’>>PairCases_on ‘x’)>>
+  gs[]>>rpt (pairarg_tac>>gs[])>>
   gs[wordPropsTheory.every_inst_def]
 QED
 
