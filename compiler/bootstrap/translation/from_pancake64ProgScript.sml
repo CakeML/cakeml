@@ -168,8 +168,8 @@ val _ = translate $ INST_TYPE[alpha|->“:64”,
 val res = translate_no_ind $ spec64 compile_def;
 
 val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+  `^(hd (hyp res))`,
+  PURE_REWRITE_TAC [fetch "-" "loop_live_shrink_ind_def"]  rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (latest_ind ())
   \\ rpt strip_tac
@@ -212,8 +212,8 @@ val _ = translate $ spec64 vars_of_exp_def;
 val res = translate $ spec64 shrink_def;
 
 val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+  `^(hd (hyp res))`,
+  PURE_REWRITE_TAC [fetch "-" "loop_live_shrink_ind_def"]  rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (latest_ind ())
   \\ rpt strip_tac
@@ -277,3 +277,6 @@ val _ = translate $ spec64 from_word_def;
 open pan_to_targetTheory;
 
 val _ = translate $ spec64 compile_prog_def;
+
+val _ = export_theory();
+
