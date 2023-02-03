@@ -280,4 +280,6 @@ open pan_to_targetTheory;
 
 val _ = translate $ spec32 compile_prog_def;
 
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
+
 val _ = export_theory();
