@@ -227,10 +227,48 @@ Proof
   cheat
 QED
 
+Theorem pmatch_thm:
+  pmatch env_c s.refs p v1 vs1 = m ∧
+  v_rel v1 v2 ∧ LIST_REL ((=) ### v_rel) vs1 vs2 ∧ state_rel (:'a) s t ⇒
+  case m of
+  | No_match => pmatch env_c t.refs p v2 vs2 = No_match
+  | Match new1 =>
+      (∃new2. pmatch env_c t.refs p v2 vs2 = Match new2 ∧
+              LIST_REL ((=) ### v_rel) new1 new2)
+  | _ => T
+Proof
+  cheat
+QED
+
+Triviality alist_to_ns_eq:
+  alist_to_ns xs = nsBindList xs nsEmpty
+Proof
+  Induct_on ‘xs’ \\ fs [namespaceTheory.nsBindList_def,FORALL_PROD]
+QED
+
 Triviality eval_simulation_Dlet:
   ^(#get_goal eval_simulation_setup `Case (Dlet, [_])`)
 Proof
-  cheat
+  rpt strip_tac
+  \\ gvs [CaseEq"bool"]
+  \\ gvs [id_rel_def,CaseEq"prod"]
+  >-
+   (Cases_on ‘v2 = Rerr (Rabort Rtype_error)’ >- gvs []
+    \\ last_x_assum drule_all
+    \\ ‘env'.c = env.c’ by fs [env_rel_def]
+    \\ strip_tac \\ fs [evaluate_decs_def]
+    \\ gvs [AllCaseEqs(),PULL_EXISTS,v_rel_refl]
+    \\ imp_res_tac evaluate_sing \\ gvs []
+    \\ drule pmatch_thm
+    \\ disch_then drule \\ fs []
+    \\ disch_then drule \\ fs []
+    \\ rpt strip_tac \\ fs [alist_to_ns_eq]
+    \\ drule_at Any source_evalProofTheory.env_rel_add_nsBindList
+    \\ disch_then $ qspecl_then [‘nsEmpty’,‘nsEmpty’,
+         ‘<| v := nsEmpty ; c := nsEmpty |>’,
+         ‘<| v := nsEmpty ; c := nsEmpty |>’] mp_tac
+    \\ fs [env_rel_def,SF SFY_ss])
+  \\ cheat
 QED
 
 Triviality eval_simulation_Dletrec:
