@@ -10,6 +10,10 @@ local open wordSemTheory in end
 
 val _ = new_theory "loop_liveProof";
 
+val _ = temp_delsimps ["fromAList_def", "domain_union",
+                       "domain_inter", "domain_difference",
+                       "domain_map", "sptree.map_def", "sptree.lookup_rwts",
+                       "sptree.insert_notEmpty", "sptree.isEmpty_union"];
 
 val goal =
   “λ(prog, s). ∀res s1 p l0 locals prog1 l1.

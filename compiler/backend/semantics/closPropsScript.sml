@@ -58,6 +58,45 @@ Proof
   \\ fs [list_to_v_def]
 QED
 
+Triviality forall_sum:
+  (∀x. P x) ⇔ (∀a. P (INL a)) ∧ ∀ b. P (INR b)
+Proof
+  eq_tac \\ fs [] \\ rw [] \\ Cases_on ‘x’ \\ fs []
+QED
+
+Theorem evaluate_better_ind:
+  (∀xs s1.
+    (∀ys s2. s2.clock ≤ s1.clock ∧ (s2.clock = s1.clock ⇒  exp3_size ys < exp3_size xs) ⇒ P1 ys s2) ⇒
+    (∀args s2. s2.clock ≤ s1.clock ∧ (s2.clock = s1.clock ⇒  LENGTH args < exp3_size xs) ⇒ P2 args s2) ⇒
+    P1 xs s1) ∧
+  (∀args s1.
+    (∀ys s2. s2.clock ≤ s1.clock ∧ (s2.clock = s1.clock ⇒  exp3_size ys < LENGTH args) ⇒ P1 ys s2) ⇒
+    (∀args' s2. s2.clock ≤ s1.clock ∧ (s2.clock = s1.clock ⇒  LENGTH args' < LENGTH args) ⇒ P2 args' s2) ⇒
+    P2 args s1) ⇒
+  (∀(xs:closLang$exp list) (s1:('c,'ffi) closSem$state). P1 xs s1) ∧
+  (∀(args:v list) (s1:('c,'ffi) closSem$state). P2 args s1)
+Proof
+  strip_tac
+  \\ qsuff_tac ‘∀(s1:('c,'ffi) closSem$state) x. case x of INL xs => P1 xs s1 | INR args => P2 args s1’
+  >- (rpt $ pop_assum kall_tac \\ simp [forall_sum])
+  \\ gen_tac
+  \\ completeInduct_on ‘s1.clock’
+  \\ strip_tac
+  \\ strip_tac
+  \\ strip_tac
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘s1’
+  \\ completeInduct_on ‘case x of INL xs => exp3_size xs | INR args => LENGTH args’
+  \\ rw []
+  \\ gvs [forall_sum,SF DNF_ss, AND_IMP_INTRO, GSYM CONJ_ASSOC]
+  \\ Cases_on ‘x’ \\ simp []
+  \\ last_x_assum irule
+  \\ rw []
+  \\ last_x_assum kall_tac
+  \\ gvs []
+  \\ gvs [LESS_OR_EQ]
+QED
+
 val ref_rel_def = Define`
   (ref_rel R (ValueArray vs) (ValueArray ws) ⇔ LIST_REL R vs ws) ∧
   (ref_rel R (ByteArray f as) (ByteArray g bs) ⇔ f = g ∧ as = bs) ∧
@@ -838,16 +877,6 @@ Proof
   simp[evaluate_def] >>
   simp[Once evaluate_CONS] >>
   simp[evaluate_def,do_app_def]
-QED
-
-Theorem evaluate_REPLICATE_Op_AllocGlobal:
-   ∀n env s. evaluate (REPLICATE n (Op tra AllocGlobal []),env,s) =
-              (Rval (GENLIST (K Unit) n),s with globals := s.globals ++ GENLIST (K NONE) n)
-Proof
-  Induct >> simp[evaluate_def,REPLICATE] >- (
-    simp[state_component_equality] ) >>
-  simp[Once evaluate_CONS,evaluate_def,do_app_def,GENLIST_CONS] >>
-  simp[state_component_equality]
 QED
 
 Theorem lookup_vars_NONE:
@@ -2323,8 +2352,11 @@ Proof
     \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
     \\ drule (GEN_ALL simple_state_rel_get_global)
     \\ rpt (disch_then drule \\ fs [])
-    \\ disch_then (qspec_then `n` mp_tac) \\ fs []
-    \\ strip_tac \\ fs [])
+    \\ TRY (disch_then (qspec_then `n` mp_tac) \\ fs [] \\ strip_tac \\ fs [] \\ NO_TAC)
+    \\ gvs [simple_val_rel_def] \\ gvs []
+    \\ disch_then (qspec_then `Num i` mp_tac) \\ fs [] \\ strip_tac \\ fs []
+    \\ gvs [simple_val_rel_def] \\ res_tac
+    \\ Cases_on ‘x’ \\ fs [isClos_def])
   \\ Cases_on `opp = Equal` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
@@ -2352,8 +2384,11 @@ Proof
     \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
     \\ rfs [simple_val_rel_def] \\ rveq \\ fs []
     \\ fs [closSemTheory.Unit_def]
-    \\ match_mp_tac simple_state_rel_update_globals \\ fs []
-    \\ fs [OPTREL_def] \\ fs [simple_state_rel_def])
+    >- (match_mp_tac simple_state_rel_update_globals \\ fs []
+        \\ fs [OPTREL_def] \\ fs [simple_state_rel_def]
+        \\ irule LIST_REL_APPEND_suff \\ fs []
+        \\ rename [‘REPLICATE n’] \\ qid_spec_tac ‘n’ \\ Induct \\ fs [])
+    \\ res_tac \\ Cases_on ‘x’ \\ fs [isClos_def])
   \\ Cases_on `opp = RefArray \/ opp = Ref \/ (?b. opp = RefByte b)` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq

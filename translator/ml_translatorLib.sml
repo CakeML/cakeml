@@ -1516,7 +1516,7 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
     | build_measure (t1::t2::ts) = let
         val s1 = build_measure [t1]
         val s2 = build_measure (t2::ts)
-        in "sum_case ("^s1^") ("^s2^")" end
+        in "\\x. sum_CASE x ("^s1^") ("^s2^")" end
   val MEM_pat = MEM |> CONJUNCT2 |> SPEC_ALL |> concl |> rand |> rand
   val tac =
     (WF_REL_TAC [QUOTE ("measure (" ^ build_measure tys ^ ")")]
@@ -1533,7 +1533,13 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
   val inv_def = if is_list_type then LIST_TYPE_def else
                 if is_pair_type then PAIR_TYPE_def else
                 if is_unit_type then UNIT_TYPE_def else
-                  tDefine name [ANTIQUOTE (get_def_tm ())] tac
+                 (tDefine name [ANTIQUOTE (get_def_tm ())] tac (*handle HOL_ERR _ =>
+                  let
+                    val d = Defn.mk_defn name (get_def_tm ())
+                    val (def,ind) = Defn.tprove(d,tac)
+                  in
+                    def
+                  end *))
   val clean_rule = CONV_RULE (DEPTH_CONV (fn tm =>
                    if not (is_abs tm) then NO_CONV tm else
                    if fst (dest_abs tm) ~~ tmp_v_var then ALPHA_CONV real_v_var tm
@@ -1562,8 +1568,8 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
                    (ml_ty_name,xs,ty,sub lhs th,input)) (zip inv_defs ys)
   val _ = map reg_type ys2
   (* equality type and type rep *)
-  val eq_lemmas = map (fn ty => (ty, mk_EqualityType_thm is_exn_type ty
-        |> simp_eq_lemma)) tys
+  val eq_lemmas = (map (fn ty => (ty, mk_EqualityType_thm is_exn_type ty
+        |> simp_eq_lemma)) tys handle HOL_ERR _ => map (fn ty => (ty,TRUTH)) tys)
   val res = map (fn ((th,inv_def),(_,eq_lemma)) => (th,inv_def,eq_lemma))
                 (zip inv_defs eq_lemmas)
   val type_rep_lemmas = filter (not o same_const T o concl o snd) eq_lemmas
@@ -4083,17 +4089,14 @@ fun break_line_at k prefix text = let
   val lines = break_lines_at k words
   in map (fn str => prefix ^ str) lines end;
 
-fun print_unable_to_prove_ind_thm ind original_def ml_name = let
+fun print_unable_to_prove_ind_thm ind_goal_def original_def ml_name = let
   val name = guess_def_name original_def
   val thy_const = original_def |> SPEC_ALL |> CONJUNCTS |> hd |>
                   SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
                   |> dest_thy_const
-  val _ = print ("\nERROR: Unable to prove induction for "^name^"\n")
+  val _ = print ("\nERROR: Unable to prove induction for "^name^".")
   val _ = print ("\n")
-  val t = (!show_types)
-  val _ = (show_types := true)
-  val _ = print_term (concl (the ind))
-  val _ = (show_types := t)
+  val ind_name = ind_goal_def |> concl |> dest_eq |> fst |> repeat rator |> dest_const |> fst
   val line_length = 53
   val _ = map print (break_line_at line_length "\n  "
     ("This induction goal has been left as an assumption on the theorem "^
@@ -4103,26 +4106,24 @@ fun print_unable_to_prove_ind_thm ind original_def ml_name = let
   val _ = print ("\n")
   val _ = print ("\nval res = translate_no_ind "^name^";")
   val _ = print ("\n")
-  val _ = print ("\nval ind_lemma = Q.prove(")
-  val _ = print ("\n  `^(first is_forall (hyp res))`,")
-  val _ = print ("\n  rpt gen_tac")
+  val _ = print ("\nTriviality " ^ ind_name ^ ":")
+  val _ = print ("\n  " ^ ind_name)
+  val _ = print ("\nProof")
+  val _ = print ("\n  once_rewrite_tac [fetch \"-\" \"" ^ ind_name ^ "_def\"]")
+  val _ = print ("\n  \\\\ rpt gen_tac")
   val _ = print ("\n  \\\\ rpt (disch_then strip_assume_tac)")
   val _ = print ("\n  \\\\ match_mp_tac (latest_ind ())")
   val _ = print ("\n  \\\\ rpt strip_tac")
   val _ = print ("\n  \\\\ last_x_assum match_mp_tac")
   val _ = print ("\n  \\\\ rpt strip_tac")
-  val _ = print ("\n  \\\\ fs [FORALL_PROD])")
-  val _ = print ("\n  |> update_precondition;")
+  val _ = print ("\n  \\\\ gvs [FORALL_PROD]")
+  val _ = print ("\nQED")
+  val _ = print ("\n")
+  val _ = print ("\nval _ = " ^ ind_name ^ " |> update_precondition;")
   val _ = print ("\n")
   val _ = map print (break_line_at line_length "\n  "
     ("Here `translate_no_ind` does the same as `translate` " ^
      "except it does not attempt the induction proof."))
-  val _ = print ("\n")
-  val _ = map print (break_line_at line_length "\n  "
-    ("Alternatively, you can keep on using `translate` if you " ^
-     " prove the induction goal from above and save it in " ^
-     (#Thy thy_const)^"Theory as "^(#Name thy_const)^"_trans_ind " ^
-     "or "^(#Name thy_const)^"_ind."))
   val _ = print ("\n")
   val _ = print ("\n")
   in () end;
@@ -4172,11 +4173,31 @@ fun instantiate_cons_name th =
     INST tyis th
   end
 
+(* assumes ind_goal is fst (dest_imp (concl th1)),
+   packages it up as a constant and moves out it to assumptions *)
+fun hide_ind_goal_rule name th1 =
+  let
+    val name_ind = name ^ "_ind"
+    val ind_goal = th1 |> concl |> dest_imp |> fst
+    fun mk_itself a = mk_type("itself",[a])
+    val tys = type_vars_in_term ind_goal
+    val vs = map mk_itself tys
+    val ty = foldr (uncurry mk_fun_type) bool vs
+    val args = map (curry mk_const "the_value") vs
+    val lhs_ = foldl (fn (x,y) => mk_comb(y,x)) (mk_var(name_ind,ty)) args
+    val def_tm = mk_eq(lhs_,ind_goal)
+    val def_thm = zDefine [ANTIQUOTE def_tm]
+  in
+      ((th1 |> CONV_RULE ((RATOR_CONV o RAND_CONV) (REWR_CONV (GSYM def_thm)))
+            |> UNDISCH),
+       def_thm)
+  end
+
 (*
 
 val _ = (next_ml_names := ["+","+","+","+","+"]);
 
-val def = Define `foo n = if n = 0 then 0 else foo (n-1n)`
+val def = Define `foo n = if n = 0 then 0:num else foo (n-1n)`
 
 val def = listTheory.APPEND;
 val def = sortingTheory.PART_DEF;
@@ -4185,6 +4206,19 @@ val def = mlstringTheory.explode_aux_def;
 val def = Define `
   (ZIP2 ([],[]) z = []) /\
   (ZIP2 (x::xs,y::ys) z = (x,y) :: ZIP2 (xs, ys) (5:int))`
+
+
+val word64_msb_thm = Q.prove(
+  `!w. word_msb (w:word64) =
+         ((w && 0x8000000000000000w) = 0x8000000000000000w)`,
+  blastLib.BBLAST_TAC);
+
+val res = translate word64_msb_thm;
+
+val def = (miscTheory.arith_shift_right_def
+                     |> INST_TYPE [alpha|->``:64``]
+                     |> PURE_REWRITE_RULE [wordsTheory.dimindex_64]
+                     |> CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV));
 
 *)
 
@@ -4357,11 +4391,19 @@ val (fname,ml_fname,def,th,v) = hd thms
 
     (* attempt to prove induction assumption *)
     val _ = set_latest_ind ind
-    val th = if mem NoInd options then th
+    val th = if mem NoInd options then let
+               val name = thms |> hd |> #1
+               val th1 = DISCH ind_thm_goal th
+               in fst (hide_ind_goal_rule name th1) end
              else (MP (DISCH ind_thm_goal th) (prove_ind_thm ind ind_thm_goal)
                    handle HOL_ERR _ => let
                      val (_,ml_name,_,_,_) = hd thms
-                     in (print_unable_to_prove_ind_thm ind original_def ml_name; th) end)
+                     val name = thms |> hd |> #1
+                     val th1 = DISCH ind_thm_goal th
+                     val (th2,ind_goal_def) = hide_ind_goal_rule name th1
+                     in (print_unable_to_prove_ind_thm ind_goal_def original_def ml_name;
+                         th2)
+                   end)
 
     val results = th |> CONJUNCTS |> map SPEC_ALL
 (*
@@ -4410,8 +4452,9 @@ val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
    in raise e end;
 
 (*
-val def = Define `d = 5:num`
+val def = Define `d = [5:num]`
 val options = tl [NoInd]
+val options = [NoInd]
 *)
 
 fun translate_options options def =
@@ -4481,6 +4524,7 @@ fun translate_options options def =
         val _ = (end_timing start_fun; end_timing start)
         in save_thm(fname ^ "_v_thm",v_thm) end
       else let (* not is_fun *)
+
         val start_v = start_timing "processing val case"
         val th = th |> INST [env_tm |-> get_curr_env()]
         val th = UNDISCH_ALL (clean_assumptions (D th))

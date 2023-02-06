@@ -196,9 +196,10 @@ val def =
 val res = translate_no_ind def;
 
 Triviality ind_lemma:
-  ^(first is_forall (hyp res))
+  ptree_decl_ind
 Proof
-  rpt gen_tac
+  rewrite_tac [fetch "-" "ptree_decl_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac
       (cmlPtreeConversionTheory.ptree_Decl_ind

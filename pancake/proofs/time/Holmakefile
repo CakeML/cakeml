@@ -2,9 +2,10 @@ INCLUDES = $(HOLDIR)/examples/machine-code/multiword\
 					 $(CAKEMLDIR)/misc\
                                          $(CAKEMLDIR)/basis/pure\
 					 $(CAKEMLDIR)/compiler/backend/\
-					 $(CAKEMLDIR)/compiler/\
-					 $(CAKEMLDIR)/examples/\
-					 $(CAKEMLDIR)/compiler/encoders/asm
+					 $(CAKEMLDIR)/compiler/backend/proofs\
+					 $(CAKEMLDIR)/compiler/encoders/asm\
+                                         $(CAKEMLDIR)/pancake\
+                                         $(CAKEMLDIR)/pancake/semantics
 
 
 all: $(DEFAULT_TARGETS) README.md
@@ -12,5 +13,5 @@ all: $(DEFAULT_TARGETS) README.md
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
 DIRS = $(wildcard */)
-README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(README_SOURCES)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)

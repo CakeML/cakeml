@@ -13,6 +13,11 @@ open preambleFloVer;
 
 val _ = new_theory "IEEE_connection";
 
+val _ = temp_delsimps ["fromAList_def", "domain_union",
+                       "domain_inter", "domain_difference",
+                       "domain_map", "sptree.map_def", "sptree.lookup_rwts",
+                       "sptree.insert_notEmpty", "sptree.isEmpty_union"]
+
 Overload abs[local] = “realax$abs”
 
 (** FloVer assumes rounding with ties to even, thus we exprlicitly define

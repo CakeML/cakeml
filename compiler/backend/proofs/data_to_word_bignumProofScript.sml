@@ -13,7 +13,10 @@ local open gen_gcTheory in end
 
 val _ = new_theory "data_to_word_bignumProof";
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "fromAList_def", "domain_union",
+                       "domain_inter", "domain_difference",
+                       "domain_map", "sptree.map_def", "sptree.lookup_rwts",
+                       "sptree.insert_notEmpty", "sptree.isEmpty_union"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 

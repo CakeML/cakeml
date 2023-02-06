@@ -24,5 +24,5 @@ Correctness proof for --
 [pan_to_wordProofScript.sml](pan_to_wordProofScript.sml):
 Correctness proof for --
 
-[time_to_panProofScript.sml](time_to_panProofScript.sml):
-Correctness proof for timeLang to panLang
+[time](time):
+Proof files for compiling TimeLang.

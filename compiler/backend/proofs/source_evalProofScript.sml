@@ -1180,6 +1180,12 @@ Proof
   \\ insts_tac
 QED
 
+Triviality env_rel_imp_c:
+  env_rel x env env' ⇒ env'.c = env.c
+Proof
+  fs [env_rel_def]
+QED
+
 Triviality eval_simulation_Dletrec:
   ^(#get_goal eval_simulation_setup `Case (_, [Dletrec _ _])`)
 Proof
@@ -1187,6 +1193,7 @@ Proof
   \\ eval_cases_tac
   \\ insts_tac
   \\ fs [miscTheory.FST_triple, MAP_MAP_o, o_DEF, ELIM_UNCURRY, ETA_THM]
+  \\ imp_res_tac env_rel_imp_c
   \\ simp [build_rec_env_merge, nsAppend_to_nsBindList]
   \\ irule env_rel_add_nsBindList
   \\ simp []
@@ -1329,6 +1336,7 @@ Proof
     (* big hammer for similar cases *)
     eval_cases_tac
     \\ fs []
+    \\ imp_res_tac env_rel_imp_c
     \\ insts_tac
     \\ fs [do_con_check_def, build_conv_def, do_log_def, do_if_def]
     \\ TRY (drule_then (drule_then assume_tac) can_pmatch_all)

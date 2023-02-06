@@ -300,9 +300,10 @@ val res = translate (word_cseTheory.word_cseInst_def |> spec64);
 val res = translate_no_ind (word_cseTheory.word_cse_def |> spec64);
 
 Theorem word_cse_ind[local]:
-  ^(hyp res |> first is_forall)
+  word_cse_word_cse_ind
 Proof
-  rpt strip_tac
+  rewrite_tac [fetch "-" "word_cse_word_cse_ind_def"]
+  \\ rpt strip_tac
   \\ rename [‘P x y’]
   \\ qid_spec_tac ‘x’
   \\ qid_spec_tac ‘y’
@@ -369,9 +370,11 @@ val _ = translate (asmTheory.offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.
 val _ = translate (is_Lookup_CurrHeap_pmatch |> conv64)
 val res = translate_no_ind (inst_select_exp_pmatch |> conv64 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv64)
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+Triviality inst_select_exp_ind:
+  word_inst_inst_select_exp_ind
+Proof
+  rewrite_tac [fetch "-" "word_inst_inst_select_exp_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (latest_ind ())
   \\ rpt strip_tac
@@ -390,8 +393,10 @@ val ind_lemma = Q.prove(
     \\ Cases_on `h'` \\ fs []
     \\ Cases_on `t'` \\ fs [])
   \\ fs []
-  \\ Cases_on `e2` \\ fs [])
-  |> update_precondition;
+  \\ Cases_on `e2` \\ fs []
+QED
+
+val _ = inst_select_exp_ind |> update_precondition;
 
 val _ = translate (op_consts_pmatch|>conv64|>econv)
 
@@ -433,17 +438,21 @@ val _ = translate (INST_TYPE [alpha|->``:64``,beta|->``:64``]  word_alloc_def)
 
 val res = translate_no_ind (spec64 three_to_two_reg_pmatch);
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+Triviality three_to_two_reg_ind:
+  word_inst_three_to_two_reg_ind
+Proof
+  rewrite_tac [fetch "-" "word_inst_three_to_two_reg_ind_def"]
+  \\ rpt gen_tac
   \\ disch_then strip_assume_tac
   \\ match_mp_tac (latest_ind ())
   \\ rpt strip_tac
   \\ last_x_assum match_mp_tac
   \\ rpt strip_tac \\ fs []
   \\ rveq \\ fs []
-  \\ rename1 `NONE <> a` \\ Cases_on `a` \\ fs [] \\ PairCases_on `x` \\ fs [])
-  |> update_precondition;
+  \\ rename1 `NONE <> a` \\ Cases_on `a` \\ fs [] \\ PairCases_on `x` \\ fs []
+QED
+
+val _ = three_to_two_reg_ind |> update_precondition;
 
 val word_inst_three_to_two_reg_side = Q.prove(`
 ∀prog. word_inst_three_to_two_reg_side prog ⇔ T`,
@@ -466,9 +475,11 @@ val word_inst_three_to_two_reg_side = Q.prove(`
 
 val res = translate_no_ind (spec64 word_removeTheory.remove_must_terminate_pmatch);
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+Triviality remove_must_terminate_ind:
+  word_remove_remove_must_terminate_ind
+Proof
+  rewrite_tac [fetch "-" "word_remove_remove_must_terminate_ind_def"]
+  \\ rpt gen_tac
   \\ disch_then strip_assume_tac
   \\ match_mp_tac (latest_ind ())
   \\ rpt strip_tac
@@ -478,8 +489,10 @@ val ind_lemma = Q.prove(
   \\ rveq \\ fs []
   \\ rename1 `NONE <> a`
   \\ Cases_on `a` \\ fs []
-  \\ PairCases_on `x` \\ fs [])
-  |> update_precondition;
+  \\ PairCases_on `x` \\ fs []
+QED
+
+val _ = remove_must_terminate_ind |> update_precondition;
 
 val word_remove_remove_must_terminate_side = Q.prove(`
 ∀prog. word_remove_remove_must_terminate_side prog ⇔ T`,
