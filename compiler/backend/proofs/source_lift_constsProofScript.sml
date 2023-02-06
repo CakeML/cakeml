@@ -61,16 +61,37 @@ Inductive v_rel:
     v_rel (Env env1 id) (Env env2 id))
 End
 
+Theorem v_rel_refl:
+  v_rel x x
+Proof
+  cheat
+QED
+
 Definition id_rel_def:
   id_rel x f y ⇔ y = x ∨ y = f x
 End
 
+Inductive eval_state_rel:
+  (∀s. eval_state_rel (:'a) (EvalDecs s) (EvalDecs s)) ∧
+  (∀e1 e2.
+    e1.generation = e2.generation ∧
+    e1.oracle = e2.oracle ∧
+    LIST_REL (LIST_REL $ env_rel v_rel) e1.envs e2.envs ∧
+    (e1.custom_do_eval = e2.custom_do_eval ∨
+     ∃(ci:'a source_evalProof$compiler_instance) (f : dec list -> dec list).
+       e1.custom_do_eval = source_evalProof$do_eval_oracle
+                             (source_evalProof$mk_compiler_fun_from_ci ci) f ∧
+       s2.custom_do_eval = source_evalProof$do_eval_oracle
+           (source_evalProof$mk_compiler_fun_from_ci ci) (compile_decs ∘ f)) ⇒
+    eval_state_rel (:'a) (EvalOracle e1) (EvalOracle e2))
+End
+
 Definition state_rel_def:
-  state_rel ^s ^s' <=>
+  state_rel (:'a) ^s ^s' <=>
     LIST_REL (sv_rel v_rel) s.refs s'.refs ∧
     s'.next_type_stamp = s.next_type_stamp ∧
-    s'.next_exn_stamp = s.next_exn_stamp
-    (* TODO: add more here *)
+    s'.next_exn_stamp = s.next_exn_stamp ∧
+    OPTREL (eval_state_rel (:'a)) s.eval_state s'.eval_state
 End
 
 (*-----------------------------------------------------------------------*
@@ -80,35 +101,35 @@ End
 val eval_simulation_setup = setup (`
   (∀ ^s env exps s' res es t env'.
      evaluate s env exps = (s', res) ∧
-     state_rel s t ∧
+     state_rel (:'a) s t ∧
      env_rel v_rel env env' ∧
      res <> Rerr (Rabort Rtype_error) ==>
      ∃t' res'.
        evaluate t env' exps = (t', res') ∧
-       state_rel s' t' ∧
+       state_rel (:'a) s' t' ∧
        result_rel (LIST_REL v_rel) v_rel res res')
   ∧
   (∀ ^s env x pes err_x s' res es t env' y err_y.
      evaluate_match s env x pes err_x = (s', res) ∧
-     state_rel s t ∧
+     state_rel (:'a) s t ∧
      env_rel v_rel env env' ∧
      v_rel x y ∧
      v_rel err_x err_y ∧
      res <> Rerr (Rabort Rtype_error) ==>
      ∃t' res'.
        evaluate_match t env' y pes err_y = (t', res') ∧
-       state_rel s' t' ∧
+       state_rel (:'a) s' t' ∧
        result_rel (LIST_REL v_rel) v_rel res res')
   ∧
   (∀ ^s env decs decs' s' res t env'.
      evaluate_decs s env decs = (s', res) ∧
-     state_rel s t ∧
+     state_rel (:'a) s t ∧
      env_rel v_rel env env' ∧
      id_rel decs compile_decs decs' ∧
      res <> Rerr (Rabort Rtype_error) ==>
      ∃t' res'.
        evaluate_decs t env' decs' = (t', res') ∧
-       state_rel s' t' ∧
+       state_rel (:'a) s' t' ∧
        result_rel (env_rel v_rel) v_rel res res')
   `,
   ho_match_mp_tac (name_ind_cases [``()``, ``()``, ``Dlet``] full_evaluate_ind)
@@ -298,10 +319,50 @@ Proof
   \\ gvs [env_rel_def,SF SFY_ss]
 QED
 
+Theorem LLOOKUP_LIST_REL:
+  ∀n xs ys x.
+    LLOOKUP xs n = SOME x ∧ LIST_REL R xs ys ⇒
+    ∃y. LLOOKUP ys n = SOME y ∧ R x y
+Proof
+  Induct \\ Cases_on ‘xs’ \\ fs [oEL_def,PULL_EXISTS]
+  \\ rw [] \\ res_tac \\ fs []
+QED
+
 Triviality eval_simulation_Denv:
   ^(#get_goal eval_simulation_setup `Case (Dlet, [Denv _])`)
 Proof
-  cheat
+  rw [] \\ gvs [AllCaseEqs()]
+  \\ ‘decs' = [Denv n]’ by fs [id_rel_def,compile_dec_def]
+  \\ gvs [full_evaluate_def]
+  \\ Cases_on ‘s.eval_state’ \\ gvs [declare_env_def]
+  \\ rename [‘SOME x1’]
+  \\ ‘∃x2. eval_state_rel (:'a) x1 x2 ∧ t.eval_state = SOME x2’ by
+       (fs [state_rel_def] \\ Cases_on ‘t.eval_state’ \\ fs [])
+  \\ gvs []
+  \\ qpat_x_assum ‘eval_state_rel (:'a) x1 x2’ mp_tac
+  \\ simp [eval_state_rel_cases]
+  \\ strip_tac \\ gvs [PULL_EXISTS]
+  \\ gvs [AllCaseEqs()]
+  >~ [‘EvalDecs’]
+  >- (gvs [state_rel_def]
+      \\ simp [eval_state_rel_cases]
+      \\ fs [env_rel_def]
+      \\ simp [Once v_rel_cases]
+      \\ fs [env_rel_def, SF SFY_ss])
+  \\ gvs [PULL_EXISTS,state_rel_def,env_rel_def]
+  \\ simp [Once v_rel_cases]
+  \\ drule_all LLOOKUP_LIST_REL
+  \\ strip_tac
+  \\ first_x_assum $ irule_at Any
+  \\ fs [eval_state_rel_cases]
+  \\ irule_at Any EVERY2_LUPDATE_same \\ fs []
+  \\ fs [env_rel_def,SF SFY_ss]
+  \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+  \\ fs [nat_to_v_def]
+  \\ simp [Once v_rel_cases]
+  \\ simp [Once v_rel_cases]
+  \\ qexists_tac ‘s2’ \\ fs []
+  \\ metis_tac []
 QED
 
 (*-----------------------------------------------------------------------*
@@ -330,10 +391,10 @@ QED
 
 Theorem compile_decs_correct:
   ∀s env decs decs' s' res t env'.
-    evaluate_decs s env decs = (s',res) ∧ state_rel s t ∧
+    evaluate_decs s env decs = (s',res) ∧ state_rel (:'a) s t ∧
     env_rel v_rel env env' ∧ res ≠ Rerr (Rabort Rtype_error) ⇒
     ∃t' res'.
-      evaluate_decs t env' (compile_decs decs) = (t',res') ∧ state_rel s' t' ∧
+      evaluate_decs t env' (compile_decs decs) = (t',res') ∧ state_rel (:'a) s' t' ∧
       result_rel (env_rel v_rel) v_rel res res'
 Proof
   rw [] \\ irule $ last (CONJUNCTS eval_simulation) \\ fs []
@@ -344,12 +405,43 @@ QED
    top-level semantics proofs
  *-----------------------------------------------------------------------*)
 
+Theorem compile_semantics_state_rel:
+  state_rel (:'a) s t ∧ id_rel prog compile_decs prog1 ⇒
+  ¬semantics_prog s env prog Fail ⇒
+  semantics_prog s env prog outcome ⇒
+    semantics_prog t env prog1 outcome
+Proof
+  cheat
+QED
+
+Triviality sv_rel_refl:
+  ∀xs. LIST_REL (sv_rel v_rel) xs xs
+Proof
+  Induct \\ fs []
+  \\ Cases \\ fs [v_rel_refl]
+  \\ Induct_on ‘l’ \\ fs [v_rel_refl]
+QED
+
+Triviality eval_state_rel_refl:
+  eval_state_rel (:'a) x x
+Proof
+  Cases_on ‘x’ \\ fs [eval_state_rel_cases]
+  \\ rename [‘LIST_REL _ xs _’]
+  \\ Induct_on ‘xs’ \\ fs []
+  \\ Induct \\ fs []
+  \\ fs [env_rel_def]
+  \\ rw [] \\ fs [v_rel_refl]
+QED
+
 Theorem compile_semantics:
   ¬semantics_prog s env prog Fail ∧
   semantics_prog s env prog outcome ⇒
     semantics_prog s env (compile_decs prog) outcome
 Proof
-  cheat
+  rewrite_tac [GSYM AND_IMP_INTRO]
+  \\ match_mp_tac compile_semantics_state_rel
+  \\ fs [state_rel_def,sv_rel_refl,id_rel_def]
+  \\ Cases_on ‘s.eval_state’ \\ fs [eval_state_rel_refl]
 QED
 
 Theorem compile_semantics_oracle:
@@ -362,7 +454,30 @@ Theorem compile_semantics_oracle:
               source_evalProof$adjust_oracle ci (compile_decs ∘ f))
           env prog outcome
 Proof
-  cheat
+  rpt strip_tac
+  \\ pop_assum mp_tac
+  \\ pop_assum mp_tac
+  \\ match_mp_tac compile_semantics_state_rel
+  \\ fs [id_rel_def,state_rel_def,sv_rel_refl]
+  \\ Cases_on ‘s.eval_state’
+  \\ fs [source_evalProofTheory.adjust_oracle_def]
+  \\ Cases_on ‘x’ \\ fs []
+  \\ simp [Once eval_state_rel_cases]
+  \\ fs [source_evalProofTheory.is_insert_oracle_def]
+  \\ Cases_on ‘es'’ \\ fs []
+  \\ fs [source_evalProofTheory.insert_gen_oracle_def]
+  \\ gvs [AllCaseEqs()]
+  \\ Q.REFINE_EXISTS_TAC ‘<| custom_do_eval := xx |>’
+  \\ fs [GSYM PULL_EXISTS]
+  \\ conj_tac
+  >-
+   (rename [‘LIST_REL _ xs’]
+    \\ Induct_on ‘xs’ \\ fs []
+    \\ Induct \\ fs []
+    \\ fs [env_rel_def]
+    \\ rw [] \\ fs [v_rel_refl])
+  \\ irule_at Any (METIS_PROVE [] “b ⇒ a ∨ b”)
+  \\ fs [] \\ metis_tac []
 QED
 
 val _ = export_theory ();
