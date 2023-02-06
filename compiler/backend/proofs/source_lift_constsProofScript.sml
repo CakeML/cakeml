@@ -4,7 +4,8 @@
 
 open preamble astTheory evaluateTheory evaluatePropsTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     semanticsTheory source_lift_constsTheory source_evalProofTheory;
+     semanticsTheory source_lift_constsTheory source_evalProofTheory
+     semanticsPropsTheory;
 
 val _ = new_theory "source_lift_constsProof";
 
@@ -44,6 +45,7 @@ val env_rel_def = source_evalProofTheory.env_rel_def;
 val _ = IndDefLib.add_mono_thm source_evalProofTheory.env_rel_mono_rel;
 
 Inductive v_rel:
+  (∀v. v_rel v v) ∧
   (LIST_REL v_rel xs ys ==>
     v_rel (Vectorv xs) (Vectorv ys)) ∧
   (LIST_REL v_rel xs ys ==>
@@ -52,11 +54,6 @@ Inductive v_rel:
     v_rel (Closure env nm x) (Closure env' nm x)) ∧
   (env_rel v_rel env env' ==>
     v_rel (Recclosure env funs nm) (Recclosure env' funs nm)) ∧
-  (v_rel (Litv l) (Litv l)) ∧
-  (v_rel (Loc n) (Loc n)) ∧
-  (v_rel (FP_BoolTree b) (FP_BoolTree b)) ∧
-  (v_rel (FP_WordTree w) (FP_WordTree w)) ∧
-  (v_rel (Real r) (Real r)) ∧
   (env_rel v_rel env1 env2 ⇒
     v_rel (Env env1 id) (Env env2 id))
 End
@@ -64,7 +61,7 @@ End
 Theorem v_rel_refl:
   v_rel x x
 Proof
-  cheat
+  simp [Once v_rel_cases]
 QED
 
 Definition id_rel_def:
@@ -91,6 +88,8 @@ Definition state_rel_def:
     LIST_REL (sv_rel v_rel) s.refs s'.refs ∧
     s'.next_type_stamp = s.next_type_stamp ∧
     s'.next_exn_stamp = s.next_exn_stamp ∧
+    s'.ffi = s.ffi ∧
+    s'.clock = s.clock ∧
     OPTREL (eval_state_rel (:'a)) s.eval_state s'.eval_state
 End
 
@@ -392,13 +391,14 @@ QED
 Theorem compile_decs_correct:
   ∀s env decs decs' s' res t env'.
     evaluate_decs s env decs = (s',res) ∧ state_rel (:'a) s t ∧
-    env_rel v_rel env env' ∧ res ≠ Rerr (Rabort Rtype_error) ⇒
+    env_rel v_rel env env' ∧ id_rel decs compile_decs decs' ∧
+    res ≠ Rerr (Rabort Rtype_error) ⇒
     ∃t' res'.
-      evaluate_decs t env' (compile_decs decs) = (t',res') ∧ state_rel (:'a) s' t' ∧
+      evaluate_decs t env' decs' = (t',res') ∧ state_rel (:'a) s' t' ∧
       result_rel (env_rel v_rel) v_rel res res'
 Proof
   rw [] \\ irule $ last (CONJUNCTS eval_simulation) \\ fs []
-  \\ last_x_assum $ irule_at Any \\ fs [id_rel_def]
+  \\ last_x_assum $ irule_at Any \\ fs []
 QED
 
 (*-----------------------------------------------------------------------*
@@ -411,7 +411,46 @@ Theorem compile_semantics_state_rel:
   semantics_prog s env prog outcome ⇒
     semantics_prog t env prog1 outcome
 Proof
-  cheat
+  rw []
+  \\ Cases_on ‘outcome = Fail’
+  >- metis_tac [semantics_prog_deterministic]
+  \\ ‘env_rel v_rel env env’ by (fs [env_rel_def] \\ rw [] \\ fs [v_rel_refl])
+  \\ Cases_on ‘outcome’ \\ gvs []
+  >~ [‘Terminate res ll’] >-
+   (fs [semantics_prog_def,evaluate_prog_with_clock_def]
+    \\ qexists_tac ‘k’ \\ fs []
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ ‘state_rel (:'a) (s with clock := k) (t with clock := k)’ by fs [state_rel_def]
+    \\ drule_all compile_decs_correct \\ fs [] \\ strip_tac
+    \\ Cases_on ‘r’ \\ gvs [state_rel_def]
+    \\ every_case_tac \\ fs [])
+  >~ [‘Diverge ll’]
+  \\ fs [semantics_prog_def]
+  \\ conj_tac
+  >-
+   (rw [] \\ first_x_assum $ qspec_then ‘k’ strip_assume_tac
+    \\ fs [evaluate_prog_with_clock_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ ‘state_rel (:'a) (s with clock := k) (t with clock := k)’ by fs [state_rel_def]
+    \\ drule compile_decs_correct
+    \\ disch_then drule
+    \\ disch_then drule
+    \\ disch_then drule \\ fs [])
+  \\ qpat_x_assum ‘lprefix_lub _ _’ mp_tac
+  \\ match_mp_tac EQ_IMPLIES
+  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ rw [FUN_EQ_THM]
+  \\ fs [evaluate_prog_with_clock_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ ‘state_rel (:'a) (s with clock := k) (t with clock := k)’ by fs [state_rel_def]
+  \\ drule_at (Pos $ el 2) compile_decs_correct
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ impl_tac
+  >- (first_x_assum $ qspec_then ‘k’ mp_tac \\ fs [])
+  \\ strip_tac \\ gvs []
+  \\ fs [state_rel_def]
 QED
 
 Triviality sv_rel_refl:
