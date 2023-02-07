@@ -143,8 +143,11 @@ Definition annotate_exp_def:
   (annotate_exps t n [] = ([],n,str_empty)) ∧
   (annotate_exps t n (e::es) =
      let (e,n,fvs) = annotate_exp t n e in
-     let (es,n,fvs1) = annotate_exps t n es in
-       (e::es,n,union fvs fvs1)) ∧
+       if NULL es then
+         ([e],n,fvs)
+       else
+         let (es,n,fvs1) = annotate_exps t n es in
+           (e::es,n,union fvs fvs1)) ∧
   (annotate_pes t n [] = ([],n,str_empty)) ∧
   (annotate_pes t n ((p,e)::pes) =
      let pbs = pat_bindings p [] in

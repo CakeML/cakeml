@@ -106,15 +106,32 @@ End
  *-----------------------------------------------------------------------*)
 
 val eval_simulation_setup = setup (`
-  (∀ ^s env exps s' res es t env'.
-     evaluate s env exps = (s', res) ∧
-     state_rel (:'a) s t ∧
-     env_rel v_rel env env' ∧
-     res <> Rerr (Rabort Rtype_error) ==>
-     ∃t' res'.
-       evaluate t env' exps = (t', res') ∧
-       state_rel (:'a) s' t' ∧
-       result_rel (LIST_REL v_rel) v_rel res res')
+  (∀ ^s env exps.
+     (∀ s' res t env'.
+         evaluate s env exps = (s', res) ∧
+         state_rel (:'a) s t ∧
+         env_rel v_rel env env' ∧
+         res <> Rerr (Rabort Rtype_error) ==>
+         ∃t' res' ws.
+           evaluate t env' exps = (t', res') ∧
+           state_rel (:'a) s' t' ∧
+           result_rel (LIST_REL v_rel) v_rel res res') ∧
+     (∀ s' res t env' exps1 exps2 exps3 n1 n2 n3 n4 xs xs0 binders fvs locs.
+         evaluate s env exps = (s', res) ∧
+         state_rel (:'a) s t ∧
+         annotate_exps binders n1 exps = (exps1,n2,fvs) ∧ n2 ≤ n3 ∧
+         lift_exps F xs0 n3 exps1 = (exps3,n4,xs) ∧
+         EVERY (every_exp (one_con_check env.c)) exps ∧
+         env_rel v_rel env env' ∧
+         res <> Rerr (Rabort Rtype_error) ==>
+         ∃t' res' ws.
+           evaluate t (<|v := alist_to_ns ws; c := nsEmpty|> +++ env') exps3 = (t', res') ∧
+           state_rel (:'a) s' t' ∧
+           result_rel (LIST_REL v_rel) v_rel res res' ∧
+           EVERY (every_exp (one_con_check env.c)) exps3 ∧
+           evaluate_decs t env'
+             (MAP (λ(n,e). Dlet locs (Pvar (explode n)) e) (REVERSE xs)) =
+             (t,Rval (<|v := alist_to_ns ws; c := nsEmpty|>))))
   ∧
   (∀ ^s env x pes err_x s' res es t env' y err_y.
      evaluate_match s env x pes err_x = (s', res) ∧
@@ -147,6 +164,30 @@ val eval_simulation_setup = setup (`
          Excl "getOpClass_def"]
   \\ rveq \\ fs [Excl "getOpClass_def"]
   );
+
+(*-----------------------------------------------------------------------*
+   automatic rewrites
+ *-----------------------------------------------------------------------*)
+
+Theorem annotate_exps_sing[simp]:
+  annotate_exps t n [e] = (es,n1,fvs) ⇔
+  ∃e1. annotate_exp t n e = (e1,n1,fvs) ∧ es = [e1]
+Proof
+  fs [annotate_exp_def] \\ pairarg_tac \\ gvs [] \\ eq_tac \\ gvs []
+QED
+
+Theorem lift_exps_sing[simp]:
+  lift_exps t n b [e] = (es,n1,x) ⇔
+  ∃e1. lift_exp t n b e = (e1,n1,x) ∧ es = [e1]
+Proof
+  fs [lift_exp_def] \\ pairarg_tac \\ gvs [] \\ eq_tac \\ rw []
+QED
+
+Triviality get_c_simp[simp]:
+  (<|v := alist_to_ns ws; c := nsEmpty|> +++ env).c = env.c
+Proof
+  fs [extend_dec_env_def]
+QED
 
 (*-----------------------------------------------------------------------*
    proofs of individual cases
@@ -327,7 +368,7 @@ Proof
   \\ gvs [CaseEq"bool"]
   \\ gvs [id_rel_def,CaseEq"prod"]
   >-
-   (Cases_on ‘v2 = Rerr (Rabort Rtype_error)’ >- gvs []
+   (Cases_on ‘v2 = Rerr (Rabort Rtype_error)’ >- gvs [] \\ fs []
     \\ last_x_assum drule_all
     \\ ‘env'.c = env.c’ by fs [env_rel_def]
     \\ strip_tac \\ fs [evaluate_decs_def]
@@ -343,10 +384,31 @@ Proof
          ‘<| v := nsEmpty ; c := nsEmpty |>’] mp_tac
     \\ fs [env_rel_def,SF SFY_ss])
   \\ fs [compile_dec_def]
+  \\ last_x_assum kall_tac
   \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [evaluate_decs_make_local,evaluate_decs_def]
-  \\ Cases_on ‘v2 = Rerr (Rabort Rtype_error)’ \\ gvs []
-  \\ cheat
+  \\ Cases_on ‘v2 = Rerr (Rabort Rtype_error)’ \\ gvs [PULL_EXISTS]
+  \\ last_x_assum $ drule_then $ drule_then $ drule_at $ Pos $ el 2
+  \\ disch_then $ qspecl_then [‘env'’,‘locs’] mp_tac
+  \\ impl_tac >- fs []
+  \\ strip_tac \\ fs []
+  \\ ‘env'.c = env.c’ by fs [env_rel_def] \\ fs []
+  \\ reverse (gvs [CaseEq"result"])
+  \\ imp_res_tac evaluate_sing \\ gvs []
+  \\ rename [‘v_rel v5 v6’]
+  \\ rename [‘state_rel (:α) s7 t7’]
+  \\ ‘∃m. pmatch env.c s7.refs p v5 [] = m’ by fs []
+  \\ drule pmatch_thm
+  \\ disch_then drule \\ fs []
+  \\ disch_then drule \\ fs []
+  \\ strip_tac
+  \\ Cases_on ‘m’ \\ gvs [v_rel_refl]
+  \\ rpt strip_tac \\ fs [alist_to_ns_eq]
+  \\ drule_at Any source_evalProofTheory.env_rel_add_nsBindList
+  \\ disch_then $ qspecl_then [‘nsEmpty’,‘nsEmpty’,
+                               ‘<| v := nsEmpty ; c := nsEmpty |>’,
+                               ‘<| v := nsEmpty ; c := nsEmpty |>’] mp_tac
+  \\ fs [env_rel_def,SF SFY_ss]
 QED
 
 Triviality eval_simulation_Dletrec:
@@ -496,12 +558,17 @@ Proof
     eval_simulation_cons_decs, eval_simulation_Dletrec, eval_simulation_Dmod,
     eval_simulation_Dtype, eval_simulation_Dexn, eval_simulation_Dlet,
     eval_simulation_Dlocal, eval_simulation_Scope]
+  \\ simp [annotate_exp_def,lift_exp_def]
+  \\ rpt disch_tac
+  \\ rpt conj_tac
+  \\ rpt gen_tac
   \\ rpt disch_tac
   \\ gvs [AllCaseEqs()]
+  \\ cheat (*
   \\ res_tac \\ gvs []
   \\ imp_res_tac evaluate_sing \\ gvs []
   \\ gvs [id_rel_def,compile_dec_def]
-  \\ gvs [env_rel_def,full_evaluate_def]
+  \\ gvs [env_rel_def,full_evaluate_def] *)
 QED
 
 Theorem compile_decs_correct:
