@@ -64,6 +64,14 @@ Proof
   simp [Once v_rel_cases]
 QED
 
+Theorem v_rel_Conv:
+  v_rel (Conv x vs) v ⇔ ∃ws. v = Conv x ws ∧ LIST_REL v_rel vs ws
+Proof
+  simp [Once v_rel_cases] \\ Cases_on ‘v’ \\ fs []
+  \\ eq_tac \\ rw [] \\ fs []
+  \\ rename [‘LIST_REL _ l’] \\ Induct_on ‘l’ \\ fs [v_rel_refl]
+QED
+
 Definition id_rel_def:
   id_rel x f y ⇔ y = x ∨ y = f x
 End
@@ -134,9 +142,10 @@ val eval_simulation_setup = setup (`
   ho_match_mp_tac (name_ind_cases [``()``, ``()``, ``Dlet``] full_evaluate_ind)
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
-  \\ fs [full_evaluate_def]
-  \\ fs [Q.prove (`Case ((), x) = Case (x)`, simp [markerTheory.Case_def])]
-  \\ rveq \\ fs []
+  \\ fs [full_evaluate_def,Excl "getOpClass_def"]
+  \\ fs [Q.prove (`Case ((), x) = Case (x)`, simp [markerTheory.Case_def]),
+         Excl "getOpClass_def"]
+  \\ rveq \\ fs [Excl "getOpClass_def"]
   );
 
 (*-----------------------------------------------------------------------*
@@ -227,10 +236,117 @@ Proof
   cheat
 QED
 
+Triviality store_lookup_LIST_REL:
+  ∀s_refs t_refs l1 R x.
+    store_lookup l1 s_refs = SOME x ∧
+    LIST_REL R s_refs t_refs ⇒
+    ∃y. store_lookup l1 t_refs = SOME y ∧ R x y
+Proof
+  Induct \\ fs [store_lookup_def,PULL_EXISTS]
+  \\ strip_tac \\ Cases \\ fs [] \\ rw []
+  \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+QED
+
+Theorem pmatch_thm:
+  pmatch env_c s.refs p v1 vs1 = m ∧
+  v_rel v1 v2 ∧ LIST_REL ((=) ### v_rel) vs1 vs2 ∧ state_rel (:'a) s t ⇒
+  case m of
+  | No_match => pmatch env_c t.refs p v2 vs2 = No_match
+  | Match new1 =>
+      (∃new2. pmatch env_c t.refs p v2 vs2 = Match new2 ∧
+              LIST_REL ((=) ### v_rel) new1 new2)
+  | _ => T
+Proof
+  qsuff_tac ‘
+   (∀env_c s_refs p v1 vs1 v2 vs2 t_refs.
+      v_rel v1 v2 ∧ LIST_REL ((=) ### v_rel) vs1 vs2 ∧
+      LIST_REL (sv_rel v_rel) s_refs t_refs ⇒
+      case pmatch env_c s_refs p v1 vs1 of
+      | No_match => pmatch env_c t_refs p v2 vs2 = No_match
+      | Match new1 =>
+         (∃new2. pmatch env_c t_refs p v2 vs2 = Match new2 ∧
+                 LIST_REL ((=) ### v_rel) new1 new2)
+      | _ => T) ∧
+   (∀env_c s_refs ps v1 vs1 v2 vs2 t_refs.
+      LIST_REL v_rel v1 v2 ∧ LIST_REL ((=) ### v_rel) vs1 vs2 ∧
+      LIST_REL (sv_rel v_rel) s_refs t_refs ⇒
+      case pmatch_list env_c s_refs ps v1 vs1 of
+      | No_match => pmatch_list env_c t_refs ps v2 vs2 = No_match
+      | Match new1 =>
+         (∃new2. pmatch_list env_c t_refs ps v2 vs2 = Match new2 ∧
+                 LIST_REL ((=) ### v_rel) new1 new2)
+      | _ => T)’
+  >-
+   (rw [state_rel_def]
+    \\ last_x_assum drule_all
+    \\ disch_then irule)
+  \\ ho_match_mp_tac pmatch_ind
+  \\ rpt conj_tac
+  \\ rpt gen_tac
+  \\ fs [pmatch_def]
+  >~ [‘Litv l1’] >-
+   (simp [Once v_rel_cases] \\ rw [] \\ fs [pmatch_def])
+  >~ [‘Loc l1’] >-
+   (strip_tac \\simp [Once v_rel_cases] \\ rw [] \\ fs [pmatch_def]
+    \\ CASE_TAC \\ fs []
+    \\ drule_all store_lookup_LIST_REL
+    \\ strip_tac \\ fs []
+    \\ Cases_on ‘x’ \\ fs [sv_rel_def]
+    \\ Cases_on ‘y’ \\ fs [sv_rel_def]
+    \\ first_x_assum drule_all \\ rw []
+    \\ CASE_TAC \\ fs [])
+  \\ rpt strip_tac
+  \\ gvs [v_rel_Conv,pmatch_def]
+  \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
+  \\ rpt IF_CASES_TAC \\ gvs []
+  >-
+   (Cases_on ‘nsLookup env_c n’ \\ gvs []
+    \\ PairCases_on ‘x’ \\ gvs [] \\ rw [] \\ fs [])
+  \\ reverse (Cases_on ‘pmatch env_c s_refs p v1 vs1’) \\ gvs []
+  \\ res_tac \\ fs [] \\ CASE_TAC \\ fs []
+QED
+
+Triviality alist_to_ns_eq:
+  alist_to_ns xs = nsBindList xs nsEmpty
+Proof
+  Induct_on ‘xs’ \\ fs [namespaceTheory.nsBindList_def,FORALL_PROD]
+QED
+
+Triviality evaluate_decs_make_local:
+  evaluate_decs st env [make_local l xs d] =
+  evaluate_decs st env [Dlocal (MAP (λ(n,e). Dlet l (Pvar (explode n)) e) (REVERSE xs)) [d]]
+Proof
+  rw [make_local_def] \\ Cases_on ‘xs’ \\ fs []
+  \\ gvs [evaluate_decs_def,extend_dec_env_def]
+QED
+
 Triviality eval_simulation_Dlet:
   ^(#get_goal eval_simulation_setup `Case (Dlet, [_])`)
 Proof
-  cheat
+  rpt strip_tac
+  \\ gvs [CaseEq"bool"]
+  \\ gvs [id_rel_def,CaseEq"prod"]
+  >-
+   (Cases_on ‘v2 = Rerr (Rabort Rtype_error)’ >- gvs []
+    \\ last_x_assum drule_all
+    \\ ‘env'.c = env.c’ by fs [env_rel_def]
+    \\ strip_tac \\ fs [evaluate_decs_def]
+    \\ gvs [AllCaseEqs(),PULL_EXISTS,v_rel_refl]
+    \\ imp_res_tac evaluate_sing \\ gvs []
+    \\ drule pmatch_thm
+    \\ disch_then drule \\ fs []
+    \\ disch_then drule \\ fs []
+    \\ rpt strip_tac \\ fs [alist_to_ns_eq]
+    \\ drule_at Any source_evalProofTheory.env_rel_add_nsBindList
+    \\ disch_then $ qspecl_then [‘nsEmpty’,‘nsEmpty’,
+         ‘<| v := nsEmpty ; c := nsEmpty |>’,
+         ‘<| v := nsEmpty ; c := nsEmpty |>’] mp_tac
+    \\ fs [env_rel_def,SF SFY_ss])
+  \\ fs [compile_dec_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ fs [evaluate_decs_make_local,evaluate_decs_def]
+  \\ Cases_on ‘v2 = Rerr (Rabort Rtype_error)’ \\ gvs []
+  \\ cheat
 QED
 
 Triviality eval_simulation_Dletrec:
