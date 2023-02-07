@@ -116,13 +116,16 @@ val eval_simulation_setup = setup (`
            evaluate t env' exps = (t', res') ∧
            state_rel (:'a) s' t' ∧
            result_rel (LIST_REL v_rel) v_rel res res') ∧
-     (∀ s' res t env' exps1 exps2 exps3 n1 n2 n3 n4 xs xs0 binders fvs locs.
+     (∀ s' res t env' exps1 exps2 exps3 n1 n2 n3 n4 xs xs0 binders fvs locs xs0 ws0.
          evaluate s env exps = (s', res) ∧
          state_rel (:'a) s t ∧
          annotate_exps binders n1 exps = (exps1,n2,fvs) ∧ n2 ≤ n3 ∧
          lift_exps F xs0 n3 exps1 = (exps3,n4,xs) ∧
          EVERY (every_exp (one_con_check env.c)) exps ∧
          env_rel v_rel env env' ∧
+         evaluate_decs t env'
+           (MAP (λ(n,e). Dlet locs (Pvar (explode n)) e) (REVERSE xs0)) =
+           (t,Rval (<|v := alist_to_ns ws0; c := nsEmpty|>)) ∧
          res <> Rerr (Rabort Rtype_error) ==>
          ∃t' res' ws.
            evaluate t (<|v := alist_to_ns ws; c := nsEmpty|> +++ env') exps3 = (t', res') ∧
@@ -277,6 +280,24 @@ Proof
   cheat
 QED
 
+Triviality eval_simulation_cons_cons:
+  ^(#get_goal eval_simulation_setup `Case ((e1:exp)::e2::es)`)
+Proof
+  cheat
+QED
+
+Triviality eval_simulation_Tannot:
+  ^(#get_goal eval_simulation_setup `Case [Tannot _ _]`)
+Proof
+  cheat
+QED
+
+Triviality eval_simulation_Lannot:
+  ^(#get_goal eval_simulation_setup `Case [Lannot _ _]`)
+Proof
+  cheat
+QED
+
 Triviality store_lookup_LIST_REL:
   ∀s_refs t_refs l1 R x.
     store_lookup l1 s_refs = SOME x ∧
@@ -389,7 +410,8 @@ Proof
   \\ fs [evaluate_decs_make_local,evaluate_decs_def]
   \\ Cases_on ‘v2 = Rerr (Rabort Rtype_error)’ \\ gvs [PULL_EXISTS]
   \\ last_x_assum $ drule_then $ drule_then $ drule_at $ Pos $ el 2
-  \\ disch_then $ qspecl_then [‘env'’,‘locs’] mp_tac
+  \\ fs []
+  \\ disch_then $ qspecl_then [‘env'’,‘locs’,‘[]’] mp_tac
   \\ impl_tac >- fs []
   \\ strip_tac \\ fs []
   \\ ‘env'.c = env.c’ by fs [env_rel_def] \\ fs []
@@ -542,6 +564,24 @@ Proof
   \\ metis_tac []
 QED
 
+Triviality eval_simulation_Dlet_Dtabbrev:
+  ^(#get_goal eval_simulation_setup `Case (_,[Dtabbrev _ _ _ _])`)
+Proof
+  gvs [id_rel_def,compile_dec_def,evaluate_decs_def,env_rel_def]
+QED
+
+Triviality eval_simulation_nil:
+  ^(#get_goal eval_simulation_setup `Case []`)
+Proof
+  fs [annotate_exp_def,lift_exp_def]
+QED
+
+Triviality eval_simulation_Dlet_nil:
+  ^(#get_goal eval_simulation_setup `Case (_,[])`)
+Proof
+  fs [annotate_exp_def,lift_exp_def,id_rel_def,compile_dec_def,env_rel_def]
+QED
+
 (*-----------------------------------------------------------------------*
    evaluation proof: putting all cases together
  *-----------------------------------------------------------------------*)
@@ -557,18 +597,9 @@ Proof
     eval_simulation_Letrec, eval_simulation_Letrec, eval_simulation_match,
     eval_simulation_cons_decs, eval_simulation_Dletrec, eval_simulation_Dmod,
     eval_simulation_Dtype, eval_simulation_Dexn, eval_simulation_Dlet,
-    eval_simulation_Dlocal, eval_simulation_Scope]
-  \\ simp [annotate_exp_def,lift_exp_def]
-  \\ rpt disch_tac
-  \\ rpt conj_tac
-  \\ rpt gen_tac
-  \\ rpt disch_tac
-  \\ gvs [AllCaseEqs()]
-  \\ cheat (*
-  \\ res_tac \\ gvs []
-  \\ imp_res_tac evaluate_sing \\ gvs []
-  \\ gvs [id_rel_def,compile_dec_def]
-  \\ gvs [env_rel_def,full_evaluate_def] *)
+    eval_simulation_Dlocal, eval_simulation_Scope, eval_simulation_nil,
+    eval_simulation_cons_cons, eval_simulation_Tannot, eval_simulation_Lannot,
+    eval_simulation_Dlet_nil, eval_simulation_Dlet_Dtabbrev]
 QED
 
 Theorem compile_decs_correct:
