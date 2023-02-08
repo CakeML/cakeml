@@ -180,6 +180,7 @@ End
 
 Definition conv_Shift_def:
   conv_Shift [] e = SOME e ∧
+  conv_Shift [x] e = NONE ∧
   (conv_Shift (t1::t2::ts) e =
     do op <- conv_shift t1;
        n <- conv_nat t2;
@@ -201,7 +202,8 @@ Definition conv_Exp_def:
   (conv_Exp (Nd nodeNT args) =
     if isNT nodeNT EBaseNT then
       case args of
-        [t] => conv_const t ++ conv_var t ++ conv_Exp t
+        [] => NONE
+      | [t] => conv_const t ++ conv_var t ++ conv_Exp t
       | t::ts => FOLDR (λt. lift2 Field (conv_nat t)) (conv_Exp t) ts
     else if isNT nodeNT LabelNT then
       case args of

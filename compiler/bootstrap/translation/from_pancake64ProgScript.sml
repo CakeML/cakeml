@@ -23,6 +23,11 @@ val NOT_NIL_AND_LEMMA = Q.prove(
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
+fun preprocess def =
+  def |> RW (!extra_preprocessing)
+      |> CONV_RULE (DEPTH_CONV BETA_CONV)
+      |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]
+      |> REWRITE_RULE [NOT_NIL_AND_LEMMA];
 
 val matches = ref ([]: term list);
 
@@ -163,7 +168,7 @@ val _ = translate $ spec64 comp_field_def;
 val _ = translate $ spec64 exp_hdl_def;
 
 val _ = translate $ INST_TYPE[alpha|->“:64”,
-                              beta|->“:64”] compile_exp_def;
+                              beta|->“:64”] compile_exp_def
 
 val res = translate_no_ind $ spec64 compile_def;
 
@@ -253,6 +258,7 @@ val _ = translate $ spec64 compile_prog_def;
 
 open word_to_wordTheory;
 
+(* TODO: duplicate *)     
 val _ = translate $ spec64 compile_single_def;
 
 val _ = translate $ spec64 full_compile_single_def;
@@ -261,6 +267,7 @@ val _ = translate $ spec64 compile_def;
 
 open backendTheory;
 
+(* TODO: duplicated from compiler64ProgScript. *)
 val _ = translate $ INST_TYPE[alpha|->“:word8 list”,
                               beta|->“:word64 list”,
                               gamma|->“:64”,
@@ -279,6 +286,212 @@ val _ = translate $ spec64 from_word_def;
 open pan_to_targetTheory;
 
 val _ = translate $ spec64 compile_prog_def;
+
+open panPtreeConversionTheory;
+
+val res = translate argsNT_def;
+
+val res = translate destLf_def;    
+
+val res = translate destTOK_def;
+
+val res = translate $ PURE_REWRITE_RULE [GSYM mlstringTheory.implode_def] conv_ident_def;
+
+val res = translate isNT_def;
+
+val res = translate conv_int_def;
+
+Theorem conv_const_thm:
+  conv_const t =
+  case conv_int t of NONE => (NONE:'a panLang$exp option)
+         | SOME x => SOME(Const(i2w x))
+Proof
+  Cases_on ‘conv_int t’ \\ rw[conv_const_def]
+QED
+
+val res = translate $ spec64 conv_const_thm;        
+        
+val res = translate conv_nat_def;
+
+Theorem conv_nat_side[local]:
+  ∀x. panptreeconversion_conv_nat_side x
+Proof
+  rw [fetch "-" "panptreeconversion_conv_nat_side_def"]
+  >> gs[integerTheory.INT_GE_CALCULATE]
+QED
+
+val _ = update_precondition conv_nat_side;
+
+Theorem option_map_thm[local]:
+  OPTION_MAP f x = case x of NONE => NONE | SOME y => SOME(f y) 
+Proof
+  Cases_on ‘x’ \\ rw[]
+QED
+
+val res = translate $ PURE_REWRITE_RULE [option_map_thm] $ spec64 conv_var_def;
+
+val res = translate $ conv_shift_def;
+
+Overload ptree_size[local] = ``parsetree_size (K 0) (K 0) (K 0)``;
+Overload ptree1_size[local] = ``parsetree1_size (K 0) (K 0) (K 0)``;
+
+Definition conv_ShapeList_def:
+  (
+        conv_Shape_alt tree =
+        case argsNT tree ShapeNT of
+          NONE => NONE
+        | SOME [] => NONE
+        | SOME [t] => if tokcheck t StarT then SOME One else conv_ShapeComb_alt t
+        | SOME (t::v8::v9) => NONE) ∧
+  (
+     conv_ShapeComb_alt tree =
+     case argsNT tree ShapeCombNT of
+       NONE => NONE
+     | SOME ts =>
+         case conv_ShapeList ts of NONE => NONE | SOME y => SOME (Comb y))
+  ∧
+  conv_ShapeList l =
+  (case l of
+     [] => SOME []
+   | x::xs =>
+       (case conv_Shape_alt x of
+          NONE => NONE
+        | SOME y =>
+            (case conv_ShapeList xs of
+               SOME ys => SOME(y::ys)
+             | NONE => NONE)))
+Termination
+  WF_REL_TAC ‘measure (λx. sum_CASE x ptree_size (λx. sum_CASE x ptree_size (ptree1_size)))’ >> rw[]
+  >> Cases_on ‘tree’
+  >> gvs[argsNT_def,grammarTheory.parsetree_size_def]
+End
+
+val tree = “tree:(token, pancakeNT, α) parsetree”
+
+Triviality conv_Shapelist_thm:
+  (∀tree. conv_Shape_alt tree = conv_Shape ^tree)
+  ∧
+  (∀tree. conv_ShapeComb_alt tree = conv_ShapeComb ^tree)
+  ∧
+  (∀xs. conv_ShapeList xs = OPT_MMAP (λtree. conv_Shape ^tree) xs)
+Proof
+  ho_match_mp_tac (fetch "-" "conv_ShapeList_ind") \\ rpt strip_tac \\
+  rw[Once conv_ShapeList_def]
+  THEN1 (rw[Once conv_Shape_def] \\
+         rpt(PURE_FULL_CASE_TAC \\ gvs[]))
+  THEN1 (rw[Once conv_Shape_def] \\
+         rpt(PURE_FULL_CASE_TAC \\ gvs[])) \\
+  Cases_on ‘xs’
+  THEN1 (ntac 2 $ rw[Once conv_ShapeList_def]) \\
+  rw[] \\ rw[Once conv_ShapeList_def] \\
+  rpt(PURE_FULL_CASE_TAC \\ gvs[]) \\
+  last_x_assum (simp o single o GSYM)
+QED
+        
+val res = translate_no_ind $ conv_ShapeList_def;
+
+val ind_lemma = Q.prove(
+  `^(hd (hyp res))`,
+  PURE_REWRITE_TAC [fetch "-" "from_pancake64prog_conv_shape_alt_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ TRY (last_x_assum match_mp_tac
+          \\ rpt strip_tac
+          \\ fs [FORALL_PROD] \\ NO_TAC))
+  |> update_precondition;
+
+val res = translate $ GSYM $ cj 1 conv_Shapelist_thm;
+
+val res = translate $ conv_binop_def;
+
+Theorem OPTION_MAP2_thm:
+  OPTION_MAP2 f x y =
+  case x of
+    NONE => NONE
+  | SOME x =>
+      (case y of
+         NONE => NONE
+       | SOME y => SOME(f x y))
+Proof
+  Cases_on ‘x’ \\ Cases_on ‘y’ \\ rw[]
+QED
+
+Triviality FOLDR_eta:
+  FOLDR (λt. f t) = FOLDR (λt e. f t e)
+Proof
+  CONV_TAC(DEPTH_CONV ETA_CONV) \\ rw[]
+QED
+
+val res = translate conv_cmp_def;
+
+val res = translate kw_def;
+
+val res = translate $ spec64 isSubOp_def;
+
+val res = translate_no_ind $ spec64 panPtreeConversionTheory.conv_Shift_def;
+
+Triviality panptreeconversion_conv_shift_1_ind:
+  panptreeconversion_conv_shift_1_ind
+Proof
+  once_rewrite_tac [fetch "-" "panptreeconversion_conv_shift_1_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+QED
+
+val _ = panptreeconversion_conv_shift_1_ind |> update_precondition;
+
+fetch "-" "panptreeconversion_conv_shift_1_ind_def"
+
+
+Theorem conv_shift_1_side[local]:
+  ∀x y. panptreeconversion_conv_shift_1_side x y
+Proof
+  once_rewrite_tac [fetch "-" "panptreeconversion_conv_shift_1_side_def"]
+  >> rw[]
+  >> gs[integerTheory.INT_GE_CALCULATE]
+QED
+
+
+val ind_lemma = Q.prove(
+  `^(hd (hyp res))`,
+  PURE_REWRITE_TAC [fetch "-" "panptreeconversion_conv_shift_1_ind_def"]
+  >> ONCE_REWRITE_TAC [fetch "-" "panptreeconversion_conv_shift_1_side_def"]>>
+     rw[PRECONDITION_DEF]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ TRY (last_x_assum match_mp_tac
+          \\ rpt strip_tac
+          \\ fs [FORALL_PROD] \\ NO_TAC))
+  |> update_precondition;
+
+
+
+Theorem conv_shift_1_side[local]:
+  ∀x. panptreeconversion_conv_shift_1_side x
+Proof
+  rw [fetch "-" "panptreeconversion_conv_shift_1_side_def"]
+  >> gs[integerTheory.INT_GE_CALCULATE]
+QED
+
+val _ = update_precondition conv_nat_side;
+
+
+val res = translate_no_ind $ spec64 $ SIMP_RULE std_ss [option_map_thm,OPTION_MAP2_thm,FOLDR_eta] $ conv_Exp_def;
+
+val res = translate $ INST_TYPE[beta|->``:64``] conv_NonRecStmt_def;
+
+val res = translate $ spec64 conv_Prog_def;
+    
+val res = translate $ spec64 parse_to_ast_def;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

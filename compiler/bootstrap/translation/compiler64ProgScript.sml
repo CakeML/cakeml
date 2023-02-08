@@ -264,6 +264,59 @@ val res = format_compiler_result_def
 
 val res = translate compile_64_def;
 
+val res = translate panPtreeConversionTheory.argsNT_def;
+
+val res = translate panPtreeConversionTheory.destLf_def;    
+
+val res = translate panPtreeConversionTheory.destTOK_def;
+
+val res = translate $ PURE_REWRITE_RULE [GSYM implode_def] panPtreeConversionTheory.conv_ident_def;
+
+val res = translate panPtreeConversionTheory.isNT_def;
+
+val res = translate panPtreeConversionTheory.conv_int_def;
+
+Theorem conv_const_thm:
+  conv_const t =
+  case conv_int t of NONE => (NONE:'a panLang$exp option)
+         | SOME x => SOME(Const(i2w x))
+Proof
+  Cases_on ‘conv_int t’ \\ rw[panPtreeConversionTheory.conv_const_def]
+QED
+
+val conv64 = GEN_ALL o CONV_RULE (wordsLib.WORD_CONV) o spec64 o SPEC_ALL        
+val res = translate $ spec64 conv_const_thm;        
+        
+Definition conv_c_thm:
+  conv_ct t =
+  case conv_int t of NONE => (NONE:'a wordLang$exp option)
+         | SOME x => SOME(Const(i2w x))
+End
+
+Definition conv_cd_thm:
+  conv_cd t =
+  case conv_int t of NONE => (NONE:'a panLang$exp option)
+         | SOME x => SOME(Const(i2w x))
+End                        
+
+val res = translate $ spec64 conv_cd_thm;
+                   
+val res = translate $ conv64 conv_const_thm;
+
+val res = translate panPtreeConversionTheory.conv_nat_def;
+    
+val res = translate $ INST_TYPE[beta|->``:64``] panPtreeConversionTheory.conv_Exp_def;
+
+val res = translate $ INST_TYPE[beta|->``:64``] panPtreeConversionTheory.conv_NonRecStmt_def;
+
+val res = translate $ spec64 panPtreeConversionTheory.conv_Prog_def;
+    
+val res = translate $ spec64 panPtreeConversionTheory.parse_to_ast_def;
+    
+val res = translate $ spec64 compile_pancake_def;
+    
+val res = translate compile_pancake_64_def;
+
 val res = translate (has_version_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 val res = translate (has_help_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 val res = translate print_option_def
@@ -466,6 +519,9 @@ End
 val _ = (next_ml_names := ["compiler_has_repl_flag"]);
 val res = translate (has_repl_flag_def |> REWRITE_RULE [MEMBER_INTRO]);
 
+val _ = (next_ml_names := ["compiler_has_pancake_flag"]);
+val res = translate (has_pancake_flag_def |> REWRITE_RULE [MEMBER_INTRO]);
+    
 val main = process_topdecs`
   fun main u =
     let
@@ -477,7 +533,10 @@ val main = process_topdecs`
         print compiler_help_string
       else if compiler_has_version_flag cl then
         print compiler_current_build_info_str
-      else
+      else if compiler_has_pancake_flag
+        case compiler_compile_64 cl (TextIO.inputAll TextIO.stdIn)  of
+          (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
+                     compiler64prog_nonzero_exit_code_for_error_msg e)      else
         case compiler_compile_64 cl (TextIO.inputAll TextIO.stdIn)  of
           (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
                      compiler64prog_nonzero_exit_code_for_error_msg e)
@@ -554,8 +613,11 @@ Proof
   \\ fs [full_compile_64_def]
   \\ pairarg_tac
   \\ fs[ml_translatorTheory.PAIR_TYPE_def]
+  \\ gvs[CaseEq "bool"]
   \\ xmatch
   \\ xlet_auto >- xsimpl
+
+
   \\ qmatch_goalsub_abbrev_tac `STDIO fs'`
   \\ xlet `POSTv uv. &UNIT_TYPE () uv * STDIO (add_stderr fs' err) *
                      COMMANDLINE cl`
