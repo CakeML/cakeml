@@ -95,10 +95,10 @@ Proof
 QED
 
 (* Define an inductive relation that describes the set constructed inductively from some tree t. *)
-Inductive itree_iter_def:
-  ITREE_ITER (b:itree) (t:itree) ∧
-             (ITREE_ITER b t ∧ ILEQ b t
-End
+(* Inductive itree_iter_def: *)
+(*   ITREE_ITER (b:itree) (t:itree) ∧ *)
+(*              (ITREE_ITER b t ∧ ILEQ b t *)
+(* End *)
 
 (* Define a function to describe a set as being the set of all itrees given a starting itree which are extensions
  of that ITree. Without being specifically related to while loop execution. *)
@@ -107,12 +107,28 @@ Definition itree_ext_set_def:
 End
 
 (* While loop sem is as we want it: need only to figure out how to express GFP of the RHS. *)
+(* val eval_prog_itree_defn = Hol_defn "eval_prog_itree" ‘(eval_prog_itree (While b p) = λt. (@x. po_lfp (itree_ext_set t, ILEQ) (λt'. itree_bind t' (λr. case (eval (FST r) b) of *)
+(*                                                         | SOME (ValWord w) => *)
+(*                                                            (if w ≠ 0w then (Tau (eval_prog_itree p (Ret r))) else (Ret r)) *)
+(*                                                         | NONE => (Ret r))) x))’; *)
+
+(* Means to construct ITress by linking a Tau to some other dynamically
+ evaluated ITree. *)
+Definition itree_link_def:
+  itree_link d seed [] = Silence ∧
+  itree_link d seed (NONE::path) = (itree_rep (d seed)) path ∧
+  itree_link d seed (SOME n::rest) = Silence
+End
+
 Definition eval_prog_itree_def:
-  (eval_prog_itree Skip = λt. t) ∧
-  (eval_prog_itree (While b p) = λt. (@x. po_lfp (itree_ext_set t, ILEQ) (λt'. itree_bind t' (λr. case (eval (FST r) b) of
-                                                        | SOME (ValWord w) =>
-                                                           (if w ≠ 0w then (Tau (eval_prog_itree p (Ret r))) else (Ret r))
-                                                        | NONE => (Ret r))) x))
+  (eval_prog_itree Skip = λt. itree_bind t (λr. Tau (Ret r))) ∧
+  (eval_prog_itree (panLang$Call caltyp target argexps) = λt. itree_bind t (λ(s,r). case (eval s target, OPT_MMAP (eval s) argexps) of
+                                                                                     | (SOME (ValLabel fname), SOME args) =>
+                                                                                        (case lookup_code s.code fname args of
+                                                                                          | SOME (prog,newlocals) =>
+                                                                                                 itree_abs (itree_link (eval_prog_itree prog) (Ret (s,r)))
+                                                                                          | NONE => Ret (s, SOME Error))
+                                                                                     | (_,_) => Ret (s, SOME Error)))
 End
 
 Theorem MEM_IMP_v_size:
