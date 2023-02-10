@@ -73,6 +73,16 @@ val itree_set = “univ(:(α, β, (γ v option)) itree)”;
 (*   (lookup_code_itree code fname = FLOOKUP code fname) *)
 (* End *)
 
+(* Prove the existence of infinite ITrees: as being expressed through fixed-points. *)
+Definition monotone_itree_def:
+  monotone_itree t = itree_bind t (λr. Tau (Ret r))
+End
+
+Theorem inf_itree_fp_exists:
+  ∃t. gfp (itree_set, ILEQ) monotone_itree t
+Proof
+QED
+
 (* Simple example: define a monotone function on the nats and show that its LFP
 must be omega. *)
 Definition simple_monotone_def:
