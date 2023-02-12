@@ -1381,12 +1381,12 @@ Proof
 QED
 
 (* Syntactic representation of a po used in dominance proofs:
-  (f, us, vs, xs)
+  ((f, us, vs), xs)
   such that:
   - |us| = |vs| = |xs| and all lists distinct
   - vars(f) = us ∪ vs
 *)
-Type spo = ``: npbc list # var list # var list # var list``
+Type spo = ``: (npbc list # var list # var list) # var list``
 
 (* The assignment mapping
   us -> w (xs)
@@ -1395,7 +1395,7 @@ Type spo = ``: npbc list # var list # var list # var list``
   satisfies f
 *)
 Definition po_of_spo_def:
-  po_of_spo ((f,us,vs,xs):spo) ⇔
+  po_of_spo (((f,us,vs),xs):spo) ⇔
   λw w'.
   let ss = ALOOKUP
     (ZIP (us,MAP (INL o w) xs) ++
@@ -1410,8 +1410,9 @@ Proof
 QED
 
 Theorem finite_support_po_of_spo:
-  finite_support (po_of_spo (f,us,vs,xs)) (set xs)
+  finite_support (po_of_spo (fuv,xs)) (set xs)
 Proof
+  PairCases_on`fuv`>>
   rw[finite_support_def,po_of_spo_def]>>
   qmatch_goalsub_abbrev_tac`satisfies (assign ww _) _ ⇔ satisfies (assign ww' _) _`>>
   qsuff_tac`ww = ww'`>>simp[]>>
@@ -1460,7 +1461,7 @@ Theorem good_ord_reflexive_po_of_spo:
   (set f) ⇂
     ALOOKUP
      (ZIP (vs,MAP (INR o Pos) us)) ⇒
-  reflexive (po_of_spo (f,us,vs,xs))
+  reflexive (po_of_spo ((f,us,vs),xs))
 Proof
   rw[reflexive_def,po_of_spo_def,sat_implies_def]>>
   fs[satisfies_subst_thm]>>
@@ -1513,7 +1514,7 @@ Theorem transitive_po_of_spo:
   (set f) ⇂
     ALOOKUP
      (ZIP (vs,MAP (INR o Pos) ws)) ⇒
-  transitive (po_of_spo (f,us,vs,xs))
+  transitive (po_of_spo ((f,us,vs),xs))
 Proof
   rw[transitive_def,po_of_spo_def,sat_implies_def]>>
   fs[satisfies_subst_thm]>>
@@ -1630,14 +1631,14 @@ QED
 Theorem imp_sat_ord_po_of_spo:
   good_ord (f,us,vs) ∧
   LENGTH xs = LENGTH us ∧
-  C ∪ D ∪ {not c} ⊨
+  C ∪ {not c} ⊨
   (set f) ⇂
   (λn.
     case ALOOKUP (ZIP (us,xs)) n of
       SOME v =>
         (case w v of NONE => SOME (INR (Pos v)) | r => r)
     | NONE => ALOOKUP (ZIP (vs, MAP (INR o Pos) xs)) n) ⇒
-  sat_ord (C ∪ D ∪ {not c}) (po_of_spo (f,us,vs,xs)) w
+  sat_ord (C ∪ {not c}) (po_of_spo ((f,us,vs),xs)) w
 Proof
   rw[sat_ord_def,po_of_spo_def]>>
   gvs[sat_implies_def]>>
@@ -1680,7 +1681,7 @@ Theorem imp_sat_strict_ord_po_of_spo:
         SOME v =>
           (case w v of NONE => SOME (INR (Pos v)) | r => r)
       | NONE => ALOOKUP (ZIP (us, MAP (INR o Pos) xs)) n)) ⇒
-  sat_strict_ord (C ∪ D ∪ {not c}) (po_of_spo (f,us,vs,xs)) w
+  sat_strict_ord (C ∪ D ∪ {not c}) (po_of_spo ((f,us,vs),xs)) w
 Proof
   rw[sat_strict_ord_def]
   >-
@@ -1709,6 +1710,81 @@ Proof
     CONJ_TAC>- metis_tac[]>>
     simp[assign_def]>>
     Cases_on`w x`>>simp[])
+QED
+
+Definition sat_obj_po_def:
+  sat_obj_po spoopt fopt s t ⇔
+  ∀w.
+    satisfies w s ⇒
+    ∃w'.
+      satisfies w' t ∧
+      OPTION_ALL (λspo. (po_of_spo spo) w' w) spoopt ∧
+      eval_obj fopt w' ≤ eval_obj fopt w
+End
+
+Definition redundant_wrt_obj_po_def:
+  redundant_wrt_obj_po f ord obj c ⇔
+    sat_obj_po ord obj f (f ∪ {c})
+End
+
+(* The substituted order formula used in dominance order *)
+Definition dom_subst_def:
+  (dom_subst w NONE = []) ∧
+  (dom_subst w (SOME ((f,us,vs),xs)) =
+  let ww = (λn.
+    case ALOOKUP (ZIP (us,xs)) n of
+      SOME v =>
+        (case w v of NONE => SOME (INR (Pos v)) | r => r)
+    | NONE => ALOOKUP (ZIP (vs, MAP (INR o Pos) xs)) n) in
+  MAP (subst ww) f)
+End
+
+(* Any installed spo must satisfy these conditions *)
+Definition good_spo_def:
+  good_spo spo ⇔
+  good_ord (FST spo) ∧
+  reflexive (po_of_spo spo) ∧
+  transitive (po_of_spo spo) ∧
+  LENGTH (SND spo) = LENGTH (FST (SND (FST spo)))
+End
+
+Theorem substitution_redundancy_obj_po:
+  OPTION_ALL good_spo ord ∧
+  f ∪ {not c} ⊨ ((f ∪ {c}) ⇂ w ∪
+    (case obj of NONE => {}
+      | SOME obj => {obj_constraint w obj})) ∧
+  f ∪ {not c} ⊨ set (dom_subst w ord)
+  ⇒
+  redundant_wrt_obj_po f ord obj c
+Proof
+  simp[Once sat_implies_def]
+  \\ rw[redundant_wrt_obj_po_def, sat_obj_po_def,not_thm]
+  \\ rename1`satisfies s f`
+  \\ Cases_on ‘satisfies_npbc s c’
+  >- (
+    qexists_tac`s`>>simp[]>>
+    Cases_on`ord`>>
+    fs[good_spo_def,reflexive_def])
+  \\ first_x_assum drule_all
+  \\ rw [subst_thm]
+  \\ first_x_assum $ irule_at Any
+  \\ rw[]
+  >-
+    fs[eval_obj_def,satisfies_def,PULL_EXISTS,subst_thm]
+  >- (
+    Cases_on`ord`>>fs[good_spo_def]>>
+    PairCases_on`x`>>fs[]>>
+    drule imp_sat_ord_po_of_spo>>
+    disch_then drule>>
+    fs[dom_subst_def,LIST_TO_SET_MAP]>>
+    disch_then drule>>
+    simp[sat_ord_def]>>
+    disch_then match_mp_tac>>
+    fs[not_thm])
+  >- (
+    every_case_tac
+    >- fs [eval_obj_def] >>
+    fs [satisfies_def,PULL_EXISTS,subst_thm,satisfies_npbc_obj_constraint])
 QED
 
 val _ = export_theory();
