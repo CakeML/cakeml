@@ -94,17 +94,21 @@ Theorem SIMPLE_MT_LFP:
 Proof
 QED
 
-(* Define an inductive relation that describes the set constructed inductively from some tree t. *)
-(* Inductive itree_iter_def: *)
-(*   ITREE_ITER (b:itree) (t:itree) ∧ *)
-(*              (ITREE_ITER b t ∧ ILEQ b t *)
-(* End *)
-
 (* Define a function to describe a set as being the set of all itrees given a starting itree which are extensions
  of that ITree. Without being specifically related to while loop execution. *)
 Definition itree_ext_set_def:
   (itree_ext_set base t = ILEQ base t)
 End
+
+Inductive CALL_CFG_ORDER:
+  CCFG_LEQ (prog,t) (prog,t) ∧
+  (prog = prog' ∧ ILEQ t t') ⇒ CCFG_LEQ (prog,t) (prog',t')
+End
+
+Definition call_cfg_ext_set_def:
+  call_cfg_ext_set base c = CCFG_LEQ base c
+End
+
 
 (* While loop sem is as we want it: need only to figure out how to express GFP of the RHS. *)
 (* val eval_prog_itree_defn = Hol_defn "eval_prog_itree" ‘(eval_prog_itree (While b p) = λt. (@x. po_lfp (itree_ext_set t, ILEQ) (λt'. itree_bind t' (λr. case (eval (FST r) b) of *)
@@ -112,24 +116,58 @@ End
 (*                                                            (if w ≠ 0w then (Tau (eval_prog_itree p (Ret r))) else (Ret r)) *)
 (*                                                         | NONE => (Ret r))) x))’; *)
 
-(* Means to construct ITress by linking a Tau to some other dynamically
+(* Means to construct ITrees by linking a Tau to some other dynamically
  evaluated ITree. *)
 Definition itree_link_def:
-  itree_link d seed [] = Silence ∧
-  itree_link d seed (NONE::path) = (itree_rep (d seed)) path ∧
-  itree_link d seed (SOME n::rest) = Silence
+  itree_link f t seed [] = Silence ∧
+  itree_link f t seed (NONE::path) = (itree_rep ((f t) seed)) path ∧
+  itree_link f t seed (SOME n::rest) = Silence
 End
 
-Definition eval_prog_itree_def:
-  (eval_prog_itree Skip = λt. itree_bind t (λr. Tau (Ret r))) ∧
-  (eval_prog_itree (panLang$Call caltyp target argexps) = λt. itree_bind t (λ(s,r). case (eval s target, OPT_MMAP (eval s) argexps) of
-                                                                                     | (SOME (ValLabel fname), SOME args) =>
-                                                                                        (case lookup_code s.code fname args of
-                                                                                          | SOME (prog,newlocals) =>
-                                                                                                 itree_abs (itree_link (eval_prog_itree prog) (Ret (s,r)))
-                                                                                          | NONE => Ret (s, SOME Error))
-                                                                                     | (_,_) => Ret (s, SOME Error)))
+(* It seems inexorable, until I figure out this recrusion issue, that a fixed-point approach must be taken when defining
+ (potentially) recursive terms, such as function calls. *)
+(* My solution for the fixed-point semantics of function calls takes the small-step approach to define the monotone operator
+ and take its fixed point. *)
+(* Define the operator as being a function between configurations (prog, itree) *)
+(* It maps a prog (the function call) to its callee prog with a new state defining the locals needed for the function call (depending on call type) *)
+(* The operator returns the same configuration when the prog type is not itself a function call
+ Thus we iterate until we reach a non-recursive prog term, at which point we stop because that term will return. *)
+(* The operator extends the ITree with a Tau and updates the original Ret leaves with any necessary "locals" changes. *)
+(* We take the second element of the GFP of that operator; an infinite recursion will result in an infinite tree of Tau:s *)
+
+Definition fnc_call_iter_def:
+  fnc_call_iter (panLang$Call caltyp target argexps,Ret (s,r)) = (case (eval s target, OPT_MMAP (eval s) argexps) of
+                                                                   | (SOME (ValLabel fname), SOME args) =>
+                                                                      (case lookup_code s.code fname args of
+                                                                        | SOME (prog,newlocals) => (prog,Tau (Ret (s,r)))
+                                                                        | NONE => (panLang$Call caltyp target argexps,Ret (s,SOME Error)))
+                                                                   | (_,_) => (panLang$Call caltyp target argexps,Ret (s,SOME Error))) ∧
+  fnc_call_iter (prog,t) = (prog,t)
 End
+
+
+Definition eval_prog_itree_def:
+  (* (eval_prog_itree Skip = λt. itree_bind t (λr. Tau (Ret r))) ∧ *)
+  (eval_prog_itree (panLang$Call caltyp target argexps) = λt. let cfg = (@c. po_gfp (call_cfg_ext_set c,CCFG_LEQ) fnc_call_iter c) in
+                                                              eval_prog_itree (FST cfg) (SND cfg))
+End
+
+(* The below was the fnc call semantics approach using the itree_link combinator.
+ TODO: See if this can still be included or worked out as it provides a nice definition
+       of the ITree using the underlying representation.
+*)
+(* Definition eval_prog_itree_def: *)
+(*   (eval_prog_itree Skip = λt. itree_bind t (λr. Tau (Ret r))) ∧ *)
+(*   (eval_prog_itree (panLang$Call caltyp target argexps) = λt. itree_abs (itree_link eval_prog_itree Skip (Ret ()))) *)
+
+(*   (* (eval_prog_itree (panLang$Call caltyp target argexps) = λt. itree_bind t (λ(s,r). case (eval s target, OPT_MMAP (eval s) argexps) of *) *)
+(*   (*                                                                                    | (SOME (ValLabel fname), SOME args) => *) *)
+(*   (*                                                                                       (case lookup_code s.code fname args of *) *)
+(*   (*                                                                                         | SOME (prog,newlocals) => *) *)
+(*   (*                                                                                                itree_abs (itree_link eval_prog_itree prog (Ret (s,r))) *) *)
+(*   (*                                                                                         | NONE => Ret (s, SOME Error)) *) *)
+(*   (*                                                                                    | (_,_) => Ret (s, SOME Error))) *) *)
+(* End *)
 
 Theorem MEM_IMP_v_size:
    !xs a. MEM a xs ==> (v_size l a < 1 + v1_size l xs)
