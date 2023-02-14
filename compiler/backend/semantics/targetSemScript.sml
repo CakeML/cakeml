@@ -98,6 +98,7 @@ val evaluate_def = Define `
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => (Error,ms,ffi)
         | SOME ffi_index =>
+          (* TODO *)
           case read_ffi_bytearrays mc ms of
           | SOME bytes, SOME bytes2 =>
             (case call_FFI ffi (EL ffi_index mc.ffi_names) bytes bytes2 of
@@ -149,6 +150,32 @@ val target_configured_def = Define`
     (case mc_conf.target.config.link_reg of NONE => T | SOME r => t.lr = r)
     `;
 
+val get_reg_value_def = Define `
+  (get_reg_value NONE w f = w) /\
+  (get_reg_value (SOME v) _ f = f v)`
+
+val ffi_names_ok_def = Define`
+  ffi_names_ok ffi_names =
+  ?i.
+    (i <= LENGTH ffi_names) /\
+    (!j. j < i ==>
+      EL j ffi_names <> "MappedRead" /\ 
+      EL j ffi_names <> "MappedWrite") /\
+    (!j. j >= i ==>
+      EL j ffi_names = "MappedRead" \/
+      EL j ffi_names = "MappedWrite")`
+
+val mmio_pcs_min_index_def = Define`
+  mmio_pcs_min_index ffi_names =
+  εi.
+    (i <= LENGTH ffi_names) /\
+    (!j. j < i ==>
+      EL j ffi_names <> "MappedRead" /\ 
+      EL j ffi_names <> "MappedWrite") /\
+    (!j. j >= i ==>
+      EL j ffi_names = "MappedRead" \/
+      EL j ffi_names = "MappedWrite")`
+
 (* start_pc_ok: machine configuration's saved pcs and initial pc are ok *)
 val start_pc_ok_def = Define`
   start_pc_ok mc_conf pc ⇔
@@ -157,8 +184,9 @@ val start_pc_ok_def = Define`
     pc - n2w ffi_offset = mc_conf.halt_pc /\
     pc - n2w (2*ffi_offset) = mc_conf.ccache_pc /\
     (1w && pc) = 0w /\
+    ffi_names_ok mc_conf.ffi_names /\
     (!index.
-       index < LENGTH mc_conf.ffi_names ==>
+       index < mmio_pcs_min_index mc_conf.ffi_names ==>
        pc - n2w ((3 + index) * ffi_offset) NOTIN
        mc_conf.prog_addresses /\
        pc - n2w ((3 + index) * ffi_offset) <>
@@ -167,11 +195,18 @@ val start_pc_ok_def = Define`
        mc_conf.ccache_pc /\
        find_index
          (pc - n2w ((3 + index) * ffi_offset))
-         mc_conf.ffi_entry_pcs 0 = SOME index)`;
+         mc_conf.ffi_entry_pcs 0 = SOME index) /\
+     (!index.
+        index < LENGTH mc_conf.ffi_names /\
+        index >= mmio_pcs_min_index mc_conf.ffi_names ==>
+        EL index mc_conf.ffi_entry_pcs NOTIN mc_conf.prog_addresses /\
+        EL index mc_conf.ffi_entry_pcs <> mc_conf.halt_pc /\
+        EL index mc_conf.ffi_entry_pcs <> mc_conf.ccache_pc)`;
 
-val get_reg_value_def = Define `
-  (get_reg_value NONE w f = w) /\
-  (get_reg_value (SOME v) _ f = f v)`
+(* assume the byte array to be in little endian *)
+val bytes2word_def = Define`
+  bytes2word [] = 0w /\
+  bytes2word (b:bs) = n2w b + (bytes2word bs) <<< 8`;
 
 (* ffi_interfer_ok: the FFI interference oracle is ok:
    target_state_rel is preserved for any FFI behaviour *)
@@ -179,25 +214,58 @@ val ffi_interfer_ok_def = Define`
   ffi_interfer_ok pc io_regs mc_conf ⇔
     (∀ms2 k index new_bytes t1 bytes bytes2.
        index < LENGTH mc_conf.ffi_names ∧
-       read_ffi_bytearrays mc_conf ms2 = (SOME bytes, SOME bytes2) ∧
-       LENGTH new_bytes = LENGTH bytes2 ∧
-       (EL index mc_conf.ffi_names = "" ⇒ new_bytes = bytes2) ∧
-       (mc_conf.prog_addresses = t1.mem_domain) ∧
-       target_state_rel mc_conf.target
-         (t1 with pc := -n2w ((3 + index) * ffi_offset) + pc) ms2 ∧
-       aligned mc_conf.target.config.code_alignment
-        (t1.regs (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n))
-    ⇒ target_state_rel mc_conf.target
-        (t1 with
-         <|regs :=
-            (λa.
-             get_reg_value
-               (if MEM a mc_conf.callee_saved_regs then NONE else io_regs k (EL index mc_conf.ffi_names) a)
-               (t1.regs a) I);
-           mem := asm_write_bytearray (t1.regs mc_conf.ptr2_reg) new_bytes t1.mem;
-           pc := t1.regs (case mc_conf.target.config.link_reg of NONE => 0
-                  | SOME n => n)|>)
-        (mc_conf.ffi_interfer k (index,new_bytes,ms2)))`;
+       mc_conf.prog_addresses = t1.mem_domain ==> 
+         (index < mmio_pcs_min_index mc_conf.ffi_names ==>
+           read_ffi_bytearrays mc_conf ms2 = (SOME bytes, SOME bytes2) ∧
+           LENGTH new_bytes = LENGTH bytes2 ∧
+           (EL index mc_conf.ffi_names = "" ⇒ new_bytes = bytes2) ∧
+           target_state_rel mc_conf.target
+             (t1 with pc := -n2w ((3 + index) * ffi_offset) + pc) ms2 ∧
+           aligned mc_conf.target.config.code_alignment
+            (t1.regs (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n))
+        ⇒
+        target_state_rel mc_conf.target
+            (t1 with
+             <|regs :=
+                (λa.
+                 get_reg_value
+                   (if MEM a mc_conf.callee_saved_regs then NONE else io_regs k (EL index mc_conf.ffi_names) a)
+                   (t1.regs a) I);
+               mem := asm_write_bytearray (t1.regs mc_conf.ptr2_reg) new_bytes t1.mem;
+               pc := t1.regs (case mc_conf.target.config.link_reg of NONE => 0
+                      | SOME n => n)|>)
+            (mc_conf.ffi_interfer k (index,new_bytes,ms2))) /\ 
+         (index >= mmio_pcs_min_index mc_conf.ffi_names /\
+           target_state_rel mc_conf.target
+            (t1 with pc := EL index mc_conf.ffi_entry_pcs) ms2 ==>
+               (EL index mc_conf.ffi_names = "MappedRead" ==>
+               ?m reg_num a asmi.
+               addr a t1 NOTIN mc_conf.prog_addresses /\
+               asmi = Inst (Mem m reg_num a) /\
+               (m = Load \/ m = Load8 \/ m = Load32) /\
+               bytes_in_memory (EL index mc_conf.ffi_entry_pcs) (t1.encode asmi) t1.mem 
+                 (UNIV DIFF t1.prog_addresses) /\
+               target_state_rel mc_conf.target
+                (t1 with
+                <|pc := EL index mc_conf.ffi_entry_pcs + LENGTH (t1.encode asmi)
+                (* it is possible that there is a side effect that
+                * affects other register e.g. temp in arm8, but we don't have to
+                * worry about it as target_state_rel ignore members of
+                * avoid_regs *)
+                  regs := \n. if n = reg_num then new_bytes else t1.regs n)
+                (mc_conf.ffi_interfer k (index,new_bytes,ms2))) /\
+
+               (EL index mc_conf.ffi_names = "MappedWrite" ==>
+               ?m reg_num a asmi.
+               addr a t1 NOTIN mc_conf.prog_addresses /\
+               asmi = Inst (Mem m reg_num a) /\
+               (m = Store \/ m = Store8 \/ m = Store32) /\
+               bytes_in_memory (EL index mc_conf.ffi_entry_pcs) (t1.encode asmi) t1.mem 
+                 (UNIV DIFF t1.prog_addresses) /\
+               target_state_rel mc_conf.target
+                 (t1 with
+                 <|pc := EL index mc_conf.ffi_entry_pcs + LENGTH (t1.encode asmi) |>)
+               (mc_conf.ffi_interfer k (index,new_bytes,ms2)))))`;
 
 val ccache_interfer_ok_def = Define`
   ccache_interfer_ok pc cc_regs mc_conf ⇔
