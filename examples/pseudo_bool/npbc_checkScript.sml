@@ -1162,7 +1162,7 @@ Definition dom_subgoals_def:
 End
 
 Definition check_cstep_def:
-  (check_cstep cstep ord obj bound core (fml:pbf) (id:num) =
+  (check_cstep cstep chk ord obj bound core (fml:pbf) (id:num) =
   case cstep of
   | Dom c s pfs =>
     (case ord of NONE => NONE
@@ -1191,18 +1191,25 @@ Definition check_cstep_def:
     then SOME (FOLDL (λa b. insert b () a) core ls, fml, bound,id)
     else NONE
   | CheckedDelete ls pfs =>
-    let cdel = FILTER (λid. lookup id core ≠ NONE) ls in
-    if cdel = [] then
-      SOME (core, FOLDL (λa b. delete b a) fml ls, bound, id)
-    else (
-      let cf = coref core fml in
-      case check_del pfs ord obj core cf id of NONE => NONE
-      | SOME id' =>
-      let pids = MAP FST pfs in (* optimize and change later *)
-      if EVERY (λid. MEM id pids) cdel then
-        SOME (FOLDL (λa b. delete b a) core cdel,
-              FOLDL (λa b. delete b a) fml ls, bound,id')
-      else NONE)
+    if EVERY (λid. lookup id core ≠ NONE) ls then
+      if chk then
+        (let cf = coref core fml in
+        case check_del pfs ord obj core cf id of NONE => NONE
+        | SOME id' =>
+        let pids = MAP FST pfs in (* optimize and change later *)
+        if EVERY (λid. MEM id pids) ls then
+          SOME (FOLDL (λa b. delete b a) core ls,
+                FOLDL (λa b. delete b a) fml ls, bound, id')
+        else
+          NONE)
+      else
+        (* All ids are in core*)
+        if difference fml core = LN then
+          SOME (FOLDL (λa b. delete b a) core ls,
+                FOLDL (λa b. delete b a) fml ls, bound, id)
+        else NONE
+    else
+      NONE
   | Sstep sstep =>
     (case check_sstep sstep ord obj core fml id of
       SOME(fml',id') => SOME (core,fml',bound,id')
@@ -1443,15 +1450,15 @@ Definition imp_obj_def:
 End
 
 Definition equi_obj_def:
-  equi_obj fopt bound C1 C2 ⇔
+  equi_obj chk fopt bound C1 C2 ⇔
   ∀v. opt_lt (SOME v) bound ⇒
     imp_obj fopt v C1 C2 ∧
-    imp_obj fopt v C2 C1
+    (chk ⇒ imp_obj fopt v C2 C1)
 End
 
 Theorem equi_obj_refl:
   x = y ⇒
-  equi_obj obj bound x y
+  equi_obj chk obj bound x y
 Proof
   rw[equi_obj_def,imp_obj_def]>>
   every_case_tac>>fs[]>>
@@ -1486,7 +1493,7 @@ QED
 Theorem sat_obj_po_equi_obj:
   sat_obj_po ord obj A B ∧
   A ⊆ B ⇒
-  equi_obj obj b A B
+  equi_obj chk obj b A B
 Proof
   rw[equi_obj_def,imp_obj_def,sat_obj_le_def,sat_obj_po_def]
   >- (
@@ -1498,8 +1505,8 @@ Proof
 QED
 
 Theorem equi_obj_sym:
-  equi_obj obj b A B ⇔
-  equi_obj obj b B A
+  equi_obj T obj b A B ⇔
+  equi_obj T obj b B A
 Proof
   rw[equi_obj_def]>>
   metis_tac[]
@@ -1524,12 +1531,40 @@ Proof
   metis_tac[option_CLAUSES]
 QED
 
+Theorem trivial_valid_conf:
+  OPTION_ALL good_spo ord ∧
+  domain core = domain fml ⇒
+  valid_conf ord obj core fml
+Proof
+  rw[valid_conf_def]>>
+  `range (coref core fml) = range fml` by (
+    rw[coref_def,range_def,EXTENSION,lookup_mapi]>>
+    fs[EXTENSION,domain_lookup,PULL_EXISTS]>>
+    rw[]>>eq_tac>>rw[]>>
+    qexists_tac`n`>>simp[])>>
+  metis_tac[sat_obj_po_refl]
+QED
+
+Theorem toAList_empty_difference:
+  domain a ⊆ domain b
+  ⇒
+  toAList (difference a b) = []
+Proof
+  CCONTR_TAC>>
+  fs[]>>
+  Cases_on`toAList (difference a b)`>>fs[]>>
+  `MEM h (toAList (difference a b))` by fs[]>>
+  Cases_on`h`>>fs[MEM_toAList,lookup_difference]>>
+  fs[SUBSET_DEF,domain_lookup]>>
+  metis_tac[option_CLAUSES]
+QED
+
 Theorem check_cstep_correct:
-  ∀cstep ord obj bound core fml id.
+  ∀cstep chk ord obj bound core fml id.
   id_ok fml id ∧
   OPTION_ALL good_spo ord ∧
   valid_conf ord obj core fml ⇒
-  case check_cstep cstep ord obj bound core fml id of
+  case check_cstep cstep chk ord obj bound core fml id of
   | SOME (core',fml',bound',id') =>
       id ≤ id' ∧
       id_ok fml' id' ∧
@@ -1537,14 +1572,14 @@ Theorem check_cstep_correct:
       opt_le bound' bound ∧
       (opt_lt bound' bound ⇒
         sat_obj_le obj (THE bound') (range (coref core fml))) ∧
-      equi_obj obj bound'
+      equi_obj chk obj bound'
         (range (coref core fml))
         (range (coref core' fml'))
   | NONE => T
 Proof
   Cases>>fs[check_cstep_def]
   >- ( (* Dominance *)
-    ntac 7 strip_tac>>
+    ntac 8 strip_tac>>
     Cases_on`ord`>>fs[]>>
     every_case_tac>>simp[]>>
     `id_ok (insert id (not p) fml) (id + 1)` by
@@ -1663,7 +1698,7 @@ Proof
     \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
   >- (
     (* Transfer *)
-    ntac 7 strip_tac>>
+    ntac 8 strip_tac>>
     IF_CASES_TAC>>fs[valid_conf_def]>>
     simp[GSYM CONJ_ASSOC]>>
     CONJ_TAC
@@ -1701,21 +1736,23 @@ Proof
     simp[imp_obj_def,sat_obj_le_def]>>
     metis_tac[])
   >- ( (* CheckedDelete *)
-    ntac 7 strip_tac>>
-    IF_CASES_TAC >- (
-      (* Simple case *)
-      simp[opt_le_def]>>
+    ntac 8 strip_tac>>
+    IF_CASES_TAC >> simp[]>>
+    reverse IF_CASES_TAC >> simp[]
+    >- (
+      (* Unchecked deletion *)
+      IF_CASES_TAC>>simp[]>>
+      simp[opt_le_def,opt_lt_irref]>>
       CONJ_TAC >- metis_tac[id_ok_FOLDL_delete] >>
       CONJ_TAC >- (
-        match_mp_tac valid_conf_FOLDL_delete>>
-        fs[FILTER_EQ_NIL,EVERY_MEM,domain_lookup] )>>
-      CONJ_TAC >-
-        simp[opt_lt_irref]>>
-      match_mp_tac equi_obj_refl>>
-      match_mp_tac range_coref_cong>>
-      strip_tac>>
-      match_mp_tac lookup_inter_FOLDL_delete>>
-      fs[FILTER_EQ_NIL])>>
+        match_mp_tac trivial_valid_conf>>
+        simp[domain_FOLDL_delete]>>
+        fs[valid_conf_def]>>
+        drule difference_sub>>
+        fs[SUBSET_DEF,EXTENSION]>>
+        metis_tac[])>>
+      simp[equi_obj_def]>>
+      cheat)>>
     (* Actual checked deletion *)
     every_case_tac>>simp[]>>
     `id_ok (coref core fml) id` by (
@@ -1729,7 +1766,7 @@ Proof
       `id_ok fml x` by fs[id_ok_def]>>
       metis_tac[id_ok_FOLDL_delete]) >>
     simp[opt_lt_irref,opt_le_def]>>
-    qmatch_goalsub_abbrev_tac`equi_obj _ _ _ (range (coref coreS _))`>>
+    qmatch_goalsub_abbrev_tac`equi_obj _ _ _ _ (range (coref coreS _)) `>>
     qmatch_asmsub_abbrev_tac`range (coref coreT _)`>>
     `sat_obj_po ord obj
       (range (coref coreS fml))
@@ -1750,7 +1787,7 @@ Proof
       match_mp_tac valid_conf_del_core>>
       fs[domain_FOLDL_delete,Abbr`coreT`]>>
       metis_tac[sat_obj_po_trans])>>
-    `equi_obj obj bound
+    `equi_obj T obj bound
       (range (coref coreS fml))
       (range (coref core fml))` by (
       match_mp_tac sat_obj_po_equi_obj>>
@@ -1929,11 +1966,12 @@ Proof
 QED
 
 Theorem equi_obj_NONE:
-  equi_obj obj NONE C1 C2 ⇒
-  (satisfiable C1 ⇔ satisfiable C2)
+  equi_obj b obj NONE C1 C2 ⇒
+  (satisfiable C1 ⇒ satisfiable C2) ∧
+  (b ⇒ (satisfiable C2 ⇒ satisfiable C1))
 Proof
   rw[equi_obj_def,imp_obj_def,sat_obj_le_def]>>
-  rw[satisfiable_def,EQ_IMP_THM]>>
+  fs[satisfiable_def]>>
   metis_tac[opt_le_exists]
 QED
 
