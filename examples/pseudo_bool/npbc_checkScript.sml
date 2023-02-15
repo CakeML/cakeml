@@ -1005,6 +1005,7 @@ Datatype:
     (( ((num + num) # num) option, (lstep list)) alist)
     (* Ordered list of proofs for subgoals, interpreted like Red *)
   | LoadOrder mlstring (num list)
+  | UnloadOrder
   | StoreOrder mlstring (npbc list # var list # var list)
       (var list)
       (( ((num + num) # num) option, (lstep list)) alist)
@@ -1255,6 +1256,10 @@ Definition check_cstep_def:
           SOME (core, fml, bound, id, SOME (ord',xs) , orders)
         else NONE
     else NONE
+  | UnloadOrder =>
+    (case ord of NONE => NONE
+    | SOME spo =>
+        SOME (core, fml, bound, id, NONE , orders))
   | StoreOrder name spo ws pfs =>
     NONE
   | Transfer ls =>
@@ -1857,6 +1862,10 @@ Proof
       first_x_assum drule>>rw[]>>simp[]>>
       asm_exists_tac>>simp[])>>
     simp[sat_obj_po_refl,bimp_obj_refl])
+  >- ( (* UnloadOrder *)
+    rw[]>>
+    every_case_tac>>
+    fs[valid_conf_def,opt_le_def,opt_lt_irref,bimp_obj_refl])
   >- (
     (* Transfer *)
     ntac 9 strip_tac>>
