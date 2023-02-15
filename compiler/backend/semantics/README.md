@@ -3,6 +3,9 @@ intermediate language that is used in the compiler backend. This
 directory also contains generic properties about the semantics of each
 intermediate language.
 
+[SanScript.sml](SanScript.sml):
+* A simple instantiation of machin_config for sanity check
+
 [backendPropsScript.sml](backendPropsScript.sml):
 General definitions and theorems that are useful within the proofs
 about the compiler backend.
