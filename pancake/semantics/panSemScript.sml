@@ -58,116 +58,36 @@ End
 
 val s = ``(s:('a,'ffi) panSem$state)``
 
-CoInductive ITREE_ORDER:
-            ILEQ (Ret a) (Ret a) ∧
-            ((t ≠ (Ret a)) ⇒ (ILEQ (Ret a) t)) ∧
-            (ILEQ t1 t2 ⇒ (ILEQ (Tau t1) (Tau t2))) ∧
-            (ILEQ t1 t2 ⇒ ILEQ (Vis e λt. t1) (Vis e λt. t2))
-End
-
-(* Generalisation of the set of ITrees dealt with by this semantics. *)
-val itree_set = “univ(:(α, β, (γ v option)) itree)”;
-
-(* As with lookup_code only where args are ITrees. *)
-(* Definition lookup_code_itree_def: *)
-(*   (lookup_code_itree code fname = FLOOKUP code fname) *)
-(* End *)
-
-(* Prove the existence of infinite ITrees: as being expressed through fixed-points. *)
-Definition monotone_itree_def:
-  monotone_itree t = itree_bind t (λr. Tau (Ret r))
-End
-
-Theorem inf_itree_fp_exists:
-  ∃t. gfp (itree_set, ILEQ) monotone_itree t
-Proof
-QED
-
-(* Simple example: define a monotone function on the nats and show that its LFP
-must be omega. *)
-Definition simple_monotone_def:
-  (simple_monotone (x:num) = x + 1)
-End
-
-Theorem SIMPLE_MT_LFP:
-  (@x. po_lfp (univ(:num),$≤) simple_monotone x) = ω
-Proof
-QED
-
-(* Define a function to describe a set as being the set of all itrees given a starting itree which are extensions
- of that ITree. Without being specifically related to while loop execution. *)
-Definition itree_ext_set_def:
-  (itree_ext_set base t = ILEQ base t)
-End
-
-Inductive CALL_CFG_ORDER:
-  CCFG_LEQ (prog,t) (prog,t) ∧
-  (prog = prog' ∧ ILEQ t t') ⇒ CCFG_LEQ (prog,t) (prog',t')
-End
-
-Definition call_cfg_ext_set_def:
-  call_cfg_ext_set base c = CCFG_LEQ base c
-End
-
-
-(* While loop sem is as we want it: need only to figure out how to express GFP of the RHS. *)
-(* val eval_prog_itree_defn = Hol_defn "eval_prog_itree" ‘(eval_prog_itree (While b p) = λt. (@x. po_lfp (itree_ext_set t, ILEQ) (λt'. itree_bind t' (λr. case (eval (FST r) b) of *)
-(*                                                         | SOME (ValWord w) => *)
-(*                                                            (if w ≠ 0w then (Tau (eval_prog_itree p (Ret r))) else (Ret r)) *)
-(*                                                         | NONE => (Ret r))) x))’; *)
-
-(* Means to construct ITrees by linking a Tau to some other dynamically
- evaluated ITree. *)
-Definition itree_link_def:
-  itree_link f t seed [] = Silence ∧
-  itree_link f t seed (NONE::path) = (itree_rep ((f t) seed)) path ∧
-  itree_link f t seed (SOME n::rest) = Silence
-End
-
-(* It seems inexorable, until I figure out this recrusion issue, that a fixed-point approach must be taken when defining
- (potentially) recursive terms, such as function calls. *)
-(* My solution for the fixed-point semantics of function calls takes the small-step approach to define the monotone operator
- and take its fixed point. *)
-(* Define the operator as being a function between configurations (prog, itree) *)
-(* It maps a prog (the function call) to its callee prog with a new state defining the locals needed for the function call (depending on call type) *)
-(* The operator returns the same configuration when the prog type is not itself a function call
- Thus we iterate until we reach a non-recursive prog term, at which point we stop because that term will return. *)
-(* The operator extends the ITree with a Tau and updates the original Ret leaves with any necessary "locals" changes. *)
-(* We take the second element of the GFP of that operator; an infinite recursion will result in an infinite tree of Tau:s *)
-
-Definition fnc_call_iter_def:
-  fnc_call_iter (panLang$Call caltyp target argexps,Ret (s,r)) = (case (eval s target, OPT_MMAP (eval s) argexps) of
-                                                                   | (SOME (ValLabel fname), SOME args) =>
-                                                                      (case lookup_code s.code fname args of
-                                                                        | SOME (prog,newlocals) => (prog,Tau (Ret (s,r)))
-                                                                        | NONE => (panLang$Call caltyp target argexps,Ret (s,SOME Error)))
-                                                                   | (_,_) => (panLang$Call caltyp target argexps,Ret (s,SOME Error))) ∧
-  fnc_call_iter (prog,t) = (prog,t)
-End
-
-
+(* TODO: convert into CoRecursive definition style to permit compositionality in definition. *)
 Definition eval_prog_itree_def:
-  (* (eval_prog_itree Skip = λt. itree_bind t (λr. Tau (Ret r))) ∧ *)
-  (eval_prog_itree (panLang$Call caltyp target argexps) = λt. let cfg = (@c. po_gfp (call_cfg_ext_set c,CCFG_LEQ) fnc_call_iter c) in
-                                                              eval_prog_itree (FST cfg) (SND cfg))
+  eval_prog_itree p s = itree_unfold
+                        (λ(ps, s, cs). if ps ≠ [] then
+                                          case HD ps of
+                                        | (Seq p1 p2) =>
+                                           Tau' (p1::p2::TL ps, s, cs)
+                                        | (Call calltyp target argexps) =>
+                                           (case (eval s target, OPT_MMAP (eval s) argexps) of
+                                              (SOME (ValLabel fname), SOME args) =>
+                                               (case lookup_code s.code fname args of
+                                                  SOME (prog, newlocals) =>
+                                                   Tau' (prog::(TL ps), s with locals := newlocals, (calltyp,s)::cs)
+                                                 | _ => Ret' ((SOME Error), s))
+                                             | (_,_) => Ret' ((SOME Error), s))
+                                        | (Return e) =>
+                                           (case (eval s e) of
+                                              SOME val =>
+                                               if size_of_shape (shape_of val) ≤ 32
+                                               then (let (calltyp,st) = HD cs in
+                                                     case calltyp of
+                                                       Tail => Tau' (TL ps, empty_locals s, TL cs)
+                                                      | panLang$Ret retvar _ => if is_valid_value s.locals retvar val
+                                                                                then Tau' (TL ps, set_var retvar val (s with locals := st.locals), TL cs)
+                                                                                else Ret' (SOME Error, s))
+                                               else Ret' (SOME Error, s)
+                                             | _ => Ret' (SOME Error, s))
+                                       else Ret' (NONE, s))
+                        ([p], s, [])
 End
-
-(* The below was the fnc call semantics approach using the itree_link combinator.
- TODO: See if this can still be included or worked out as it provides a nice definition
-       of the ITree using the underlying representation.
-*)
-(* Definition eval_prog_itree_def: *)
-(*   (eval_prog_itree Skip = λt. itree_bind t (λr. Tau (Ret r))) ∧ *)
-(*   (eval_prog_itree (panLang$Call caltyp target argexps) = λt. itree_abs (itree_link eval_prog_itree Skip (Ret ()))) *)
-
-(*   (* (eval_prog_itree (panLang$Call caltyp target argexps) = λt. itree_bind t (λ(s,r). case (eval s target, OPT_MMAP (eval s) argexps) of *) *)
-(*   (*                                                                                    | (SOME (ValLabel fname), SOME args) => *) *)
-(*   (*                                                                                       (case lookup_code s.code fname args of *) *)
-(*   (*                                                                                         | SOME (prog,newlocals) => *) *)
-(*   (*                                                                                                itree_abs (itree_link eval_prog_itree prog (Ret (s,r))) *) *)
-(*   (*                                                                                         | NONE => Ret (s, SOME Error)) *) *)
-(*   (*                                                                                    | (_,_) => Ret (s, SOME Error))) *) *)
-(* End *)
 
 Theorem MEM_IMP_v_size:
    !xs a. MEM a xs ==> (v_size l a < 1 + v1_size l xs)
