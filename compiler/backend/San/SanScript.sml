@@ -4,45 +4,6 @@
 open preamble targetSemTheory riscv_targetTheory riscvTheory;
 
 val _ = new_theory "San";
-(*
-val san_asm_config = Define`
-  san_asm_config =
-    <| ISA            : architecture
-     ; encode         : 'a asm -> word8 list
-     ; big_endian     : bool
-     ; code_alignment : num
-     ; link_reg       : num option
-     ; avoid_regs     : num list
-     ; reg_count      : num
-     ; fp_reg_count   : num  (* set to 0 if float not available *)
-     ; two_reg_arith  : bool
-     ; valid_imm      : (binop + cmp) -> 'a word -> bool
-     ; addr_offset    : 'a word # 'a word
-     ; byte_offset    : 'a word # 'a word
-     ; jump_offset    : 'a word # 'a word
-     ; cjump_offset   : 'a word # 'a word
-     ; loc_offset     : 'a word # 'a word
-     |>`
-
-val san_target = Define`
-  san_target =
-  <| config : 'a asm_config
-   ; next : 'b -> 'b
-   ; get_pc : 'b -> 'a word
-   ; get_reg : 'b -> num -> 'a word
-   ; get_fp_reg : 'b -> num -> word64
-   ; get_byte : 'b -> 'a word -> word8
-   ; state_ok : 'b -> bool
-   ; proj : 'a word set -> 'b -> 'c
-   |>`*)
-
-val riscv_alt_enc_def = Define`
-  riscv_alt_enc =
-  FLAT o (MAP riscv_encode) o riscv_ast`;
-
-val riscv_enc_whole_def = Define`
-  riscv_enc_whole =
-  FLAT o (MAP riscv_alt_enc)`;
 
 (* the bool is used as indicating whether the pc is accessing shared memory *)
 val san_prog_asm_def = Define`
@@ -71,19 +32,19 @@ val san_flat_def = Define`
     let (pcs,pcs',prog) = san_flat xss (n+LENGTH xs) in
     (n::pcs,n+LENGTH xs::pcs', xs++prog))`;
 
-val san_result_def = Define`
-    san_result =
+val san_enc_result_def = Define`
+    san_enc_result =
       flip san_flat 0 o add_halt_and_ccache o asts_encode $
       asm2ast san_prog_asm`;
 
 val san_ffi_pcs_def = Define`
-  san_ffi_pcs = MAP n2w o FST $ san_result`;
+  san_ffi_pcs = MAP n2w o FST $ san_enc_result`;
 
 val san_end_ffi_pcs_def = Define`
-  san_end_ffi_pcs = MAP n2w o FST o SND $ san_result`;
+  san_end_ffi_pcs = MAP n2w o FST o SND $ san_enc_result`;
 
 val san_program_def = Define`
-  san_program = SND o SND $ san_result`;
+  san_program = SND o SND $ san_enc_result`;
 
 val san_ffi_interfer_def = Define`
   san_ffi_interfer info_func = K (\((n:num),bytes,state).
@@ -92,7 +53,7 @@ val san_ffi_interfer_def = Define`
       state with
       <|c_gpr := (\pid r.
           if pid = state.procID /\ r = n2w reg
-          then 20w
+          then n2w (bytes2num bytes)
           else state.c_gpr pid r);
         c_PC := (state.procID =+ new_pc) state.c_PC |>
     else state)`;
@@ -122,6 +83,39 @@ val san_config_def = Define`
    ; target := riscv_target
    ; mmio_info := san_mmio_info|>`;
 
-val san_init_ffi_state = Define``;
-val san_init_machine_state = Define``;
+val san_oracle_def = Define`
+  san_oracle s () l1 l2 =
+    Oracle_return () 
+      (PAD_RIGHT 0w (LENGTH l2) [20w])`; 
 
+val san_init_ffi_state_def = Define`
+  san_init_ffi_state =
+    <|oracle := san_oracle;
+      ffi_state := ();
+      io_events := []|>`;
+
+val san_init_pc_def = Define`
+  san_init_pc = n2w $ ffi_offset * 2`;
+
+val word_EL_def = Define`
+  word_EL l start w = EL (w2n (w - start)) l`;
+
+val san_init_machine_state_def = Define`
+  san_init_machine_state =
+    ARB with
+    <|c_PC := (0w =+ san_init_pc) ARB;
+      procID := 0w;
+      MEM8 := word_EL san_program 0w|>`;
+
+val san_result_def = Define`
+  san_result n =
+  evaluate san_config san_init_ffi_state n san_init_machine_state`;
+
+val all_riscv_Defs = map fst o filter (fn n => snd n = Def ) o 
+  map snd $ DB.match ["riscv"] ``_``;
+
+val _ = computeLib.add_funs all_riscv_Defs;
+
+EVAL ``san_program``;
+EVAL ``san_result 0``;
+(* EVAL ``san_result 1``; *)
