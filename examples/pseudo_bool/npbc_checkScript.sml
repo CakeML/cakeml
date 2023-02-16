@@ -1209,7 +1209,7 @@ QED
 
 (* the substituted LHS and RHS for transitivity *)
 Definition trans_subst_def:
-  (trans_subst w ((f,us,vs),ws) =
+  (trans_subst (f,us,vs) ws =
   let lsubst =
     ALOOKUP
     (ZIP (us,MAP (INR o Pos) vs) ++
@@ -1220,6 +1220,39 @@ Definition trans_subst_def:
      (ZIP (vs,MAP (INR o Pos) ws)) in
   let rhs = MAP (subst rsubst) f in
   (lhs,rhs))
+End
+
+Definition check_good_ord_def:
+  check_good_ord (f,us,vs) ⇔
+  LENGTH us = LENGTH vs ∧
+  let uvs = us ++ vs in
+  ALL_DISTINCT uvs ∧
+  EVERY (λx. MEM x uvs) (FLAT (MAP (MAP SND o FST) f))
+End
+
+Theorem check_good_ord_good_ord:
+  check_good_ord ord ⇒
+  good_ord ord
+Proof
+  PairCases_on`ord`>>EVAL_TAC>>
+  simp[EVERY_MEM,MEM_FLAT,SUBSET_DEF,PULL_EXISTS,FORALL_PROD,npbc_vars_def,MEM_MAP]>>rw[]>>
+  metis_tac[]
+QED
+
+Definition check_transitivity_def:
+  check_transitivity ord ws pfs =
+  let (lhs,rhs) = trans_subst ord ws in
+  let fml = build_fml 1 lhs in
+  let id = LENGTH lhs + 1 in
+  let dsubs = MAP (λc. [not c]) rhs in
+  case extract_clauses (λn. NONE) LN dsubs pfs [] of
+    NONE => F
+  | SOME cpfs =>
+  (case check_subproofs cpfs LN fml id of
+    SOME id' =>
+    let pids = extract_pids pfs in
+      EVERY (λid. MEM (INR id) pids) (COUNT_LIST (LENGTH dsubs))
+  | _ => F)
 End
 
 Definition check_cstep_def:
@@ -1259,9 +1292,13 @@ Definition check_cstep_def:
   | UnloadOrder =>
     (case ord of NONE => NONE
     | SOME spo =>
-        SOME (core, fml, bound, id, NONE , orders))
+        SOME (core, fml, bound, id, ord, orders))
   | StoreOrder name spo ws pfs =>
-    NONE
+    if check_good_ord spo ∧ check_ws spo ws ∧
+       check_transitivity spo ws pfs then
+        SOME (core, fml, bound, id, ord, (name,spo)::orders)
+    else
+      NONE
   | Transfer ls =>
     if EVERY (λid. lookup id fml ≠ NONE) ls
     then SOME (FOLDL (λa b. insert b () a) core ls, fml,
@@ -1693,6 +1730,14 @@ Proof
   simp[]
 QED
 
+Theorem id_ok_build_fml:
+  ∀ls n.
+  n + LENGTH ls ≤ id ⇒
+  id_ok (build_fml n ls) id
+Proof
+  Induct>>rw[]>>fs[build_fml_def,id_ok_def]
+QED
+
 Theorem check_cstep_correct:
   ∀cstep chk ord obj bound core fml id orders.
   id_ok fml id ∧
@@ -1866,6 +1911,46 @@ Proof
     rw[]>>
     every_case_tac>>
     fs[valid_conf_def,opt_le_def,opt_lt_irref,bimp_obj_refl])
+  >- ( (* StoreOrder *)
+    rw[]>>fs[opt_le_def,opt_lt_irref,bimp_obj_refl]>>
+    rw[good_ord_t_def,good_spo_def]
+    >-
+      metis_tac[check_good_ord_good_ord]>>
+    PairCases_on`p`>>
+    match_mp_tac (transitive_po_of_spo |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
+    gvs[check_transitivity_def,check_ws_def]>>
+    rename1`ALL_DISTINCT ws`>>
+    qexists_tac`ws`>>fs[EVERY_MEM]>>
+    rw[]
+    >-
+      metis_tac[check_good_ord_good_ord]>>
+    fs[trans_subst_def]>>
+    every_case_tac>>fs[]>>
+    qmatch_asmsub_abbrev_tac`check_subproofs _ coree fmll idd`>>
+    `id_ok fmll idd ∧ domain coree ⊆ domain fmll` by
+      (unabbrev_all_tac>>simp[]>>
+      match_mp_tac id_ok_build_fml>>
+      simp[])>>
+    drule check_subproofs_correct>>
+    disch_then drule>>
+    disch_then (qspec_then`x` mp_tac)>>simp[]>>
+    rw[]>>
+    simp[GSYM LIST_TO_SET_MAP]>>
+    rw[sat_implies_EL]>>
+    fs[MEM_COUNT_LIST]>>
+    first_x_assum drule>>
+    rw[]>>
+    drule MEM_extract_pids>>
+    rw[]>>
+    drule extract_clauses_MEM_INR>>
+    disch_then drule>>
+    simp[EL_MAP]>>
+    rw[]>>
+    fs[EVERY_MEM]>>
+    first_x_assum drule>>
+    simp[]>>rw[]>>
+    drule unsatisfiable_not_sat_implies>>
+    simp[range_build_fml,Abbr`fmll`])
   >- (
     (* Transfer *)
     ntac 9 strip_tac>>
