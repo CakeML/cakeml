@@ -406,16 +406,23 @@ Definition conv_Prog_def:
        | _ => NONE
      else if isNT nodeNT CallNT then
        case args of
-         [r; e; args] => do r' <- conv_Ret r;
-                            e' <- conv_Exp e;
-                            args' <- conv_ArgList args ++ SOME [];
-                            SOME $ Call r' e' args'
-                         od
-       | e::args => do e' <- conv_Exp e;
-                       args' <- conv_ArgList (HD args) ++ SOME [];
-                       SOME $ TailCall e' args'
-                    od
-       | _ => NONE
+         [] => NONE
+       | r::ts =>
+           (case conv_Ret r of
+              NONE => do e' <- conv_Exp r;
+                         args' <- (case ts of [] => SOME []
+                                           | args::_ => conv_ArgList args);
+                         SOME $ TailCall e' args'
+                      od
+            | SOME r' =>
+                (case ts of
+                   [] => NONE
+                 | e::xs =>
+                     do e' <- conv_Exp e;
+                        args' <- (case xs of [] => SOME []
+                                          | args::_ => conv_ArgList args);
+                        SOME $ Call r' e' args'
+                     od))
      else if isNT nodeNT ProgNT then
        case args of
          t::ts => if ts ≠ []
