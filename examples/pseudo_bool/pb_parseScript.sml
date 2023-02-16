@@ -316,7 +316,7 @@ Definition parse_lstep_aux_def:
   (parse_lstep_aux f_ns s =
     case s of [] => NONE
     | (r::rs) =>
-      if r = INL (strlit "d") then
+      if r = INL (strlit "deld") then
         (case strip_numbers rs [] of NONE => NONE
         | SOME n => SOME (INL (Delete n),f_ns))
       else if r = INL (strlit "pol") then
@@ -578,11 +578,11 @@ Definition parse_conc_def:
   else NONE
 End
 
-(* Parse 1 top level step,
+(* Parse 1 sstep,
   until an unparseable line is reached *)
-Definition parse_top_def:
-  (parse_top f_ns [] = NONE) ∧
-  (parse_top f_ns (s::ss) =
+Definition parse_sstep_def:
+  (parse_sstep f_ns [] = NONE) ∧
+  (parse_sstep f_ns (s::ss) =
     case parse_lstep_aux f_ns s of
       NONE => SOME (INL s,f_ns,ss)
     | SOME (INL step,f_ns') =>
@@ -603,22 +603,259 @@ Definition parse_top_def:
           SOME (INR (Red c s pf),f_ns'',rest)))
 End
 
+Definition parse_pre_order_head_def:
+  parse_preorder_head s =
+  case s of
+    [x;INL name] =>
+      if x = INL (strlit"pre_order") then
+        SOME name
+      else NONE
+  | _ => NONE
+End
+
+Definition parse_lit_def:
+  parse_lit s =
+  if strlen s ≥ 2 ∧ strsub s 0 = #"~" then
+    (let ss = substring s 1 (strlen s - 1) in
+    if goodString ss then
+      SOME (Neg ss)
+    else NONE)
+  else if strlen s ≥ 1 then
+    (if goodString s then SOME (Pos s)
+    else NONE)
+  else NONE
+End
+
+Definition hashString_nf_def:
+  hashString_nf s t = SOME(hashString s,t)
+End
+
+Definition parse_vars_line_aux_def:
+  (parse_vars_line_aux f_ns [] = SOME ([],f_ns)) ∧
+  (parse_vars_line_aux f_ns (x::xs) =
+  case x of
+    INL v =>
+    (case parse_var f_ns v of
+      NONE => NONE
+    | SOME (vv,f_ns') =>
+      (case parse_vars_line_aux f_ns' xs of NONE => NONE
+      | SOME (vvs,f_ns'') => SOME (vv::vvs,f_ns'')))
+  | _ => NONE)
+End
+
+Definition parse_vars_line_def:
+  parse_vars_line n l =
+  case l of
+    h::rest =>
+    if h = INL n then
+      OPTION_MAP FST (parse_vars_line_aux (hashString_nf,()) rest)
+    else NONE
+  | _ => NONE
+End
+
+Definition parse_vars_aux_def:
+  parse_vars_aux v l r a e =
+    if v = [INL (strlit"vars")] ∧
+       a = [INL (strlit"aux")] ∧
+       e = [INL (strlit"end")] then
+      case parse_vars_line (strlit "left") l of NONE => NONE
+      | SOME us =>
+      case parse_vars_line (strlit "right") r of NONE => NONE
+      | SOME vs => SOME (us,vs)
+    else NONE
+End
+
+Definition parse_vars_block_def:
+  parse_vars_block ss =
+  case ss of
+    v::l::r::a::e::rest =>
+    (case parse_vars_aux v l r a e of NONE => NONE
+    | SOME res => SOME (res,rest))
+  | _ => NONE
+End
+
+(* parse constraints *)
+Definition parse_def_aux_def:
+  (parse_def_aux [] acc = NONE) ∧
+  (parse_def_aux (s::ss) acc =
+    if s = [INL (strlit"end")] then
+      SOME(REVERSE acc,ss)
+    else
+      case parse_constraint_npbc (hashString_nf,()) s of
+        NONE => NONE
+      | SOME (c,_) => parse_def_aux ss (c::acc))
+End
+
+Definition parse_def_block_def:
+  parse_def_block ss =
+  case ss of
+    h::rest =>
+    if h = [INL (strlit"def")] then
+      parse_def_aux rest []
+    else NONE
+  | _ => NONE
+End
+
+Definition parse_trans_aux_def:
+  parse_trans_aux t v f e p =
+    if t = [INL (strlit"transitivity")] ∧
+       v = [INL (strlit"vars")] ∧
+       e = [INL (strlit"end")] ∧
+       p = [INL (strlit"proof")]
+    then
+      case parse_vars_line (strlit "fresh_right") f of NONE => NONE
+      | SOME ws => SOME ws
+    else NONE
+End
+
+Definition parse_trans_block_def:
+  parse_trans_block ss =
+  case ss of
+    t::v::f::e::p::rest =>
+    (case parse_trans_aux t v f e p of NONE => NONE
+    | SOME res => SOME (res,rest))
+  | _ => NONE
+End
+
+Definition parse_proof_block_def:
+  parse_proof_block ss =
+  case parse_red_aux (hashString_nf,()) ss [] of
+    NONE => NONE
+  | SOME (pf,_,rest) => SOME (pf,rest)
+End
+
+Definition parse_end_block_def:
+  parse_end_block ss =
+  case ss of
+    x::y::rest =>
+    if x = [INL(strlit "end")] ∧ x = y then SOME rest else NONE
+  | _ => NONE
+End
+
+Definition parse_pre_order_def:
+  parse_pre_order ss =
+  case parse_vars_block ss of NONE => NONE
+  | SOME ((us,vs), ss) =>
+  case parse_def_block ss of NONE => NONE
+  | SOME (f, ss) =>
+  case parse_trans_block ss of NONE => NONE
+  | SOME (ws, ss) =>
+  case parse_proof_block ss of NONE => NONE
+  | SOME (pf, ss) =>
+  case parse_end_block ss of NONE => NONE
+  | SOME ss =>
+     SOME ((f,us,vs),ws,pf,ss)
+End
+
+(*
+EVAL ``
+  parse_pre_order (MAP toks [
+  strlit"  vars";
+  strlit"  left u1";
+  strlit"  right v1";
+  strlit"  aux";
+  strlit"  end";
+  strlit"  def";
+  strlit"  1 ~u1 1 v1 >= 1 ;";
+  strlit"  1 ~u1 1 v1 >= 1 ;";
+  strlit"  1 ~u1 1 v1 >= 1 ;";
+  strlit"  end";
+  strlit"  transitivity";
+  strlit"  vars";
+  strlit"  fresh_right w1";
+  strlit"  end";
+  strlit"  proof";
+  strlit"  proofgoal #1";
+  strlit"  pol 2 1 + 3 +";
+  strlit"  end 4";
+  strlit"  end";
+  strlit"  end";
+  strlit"  end";
+])``
+*)
+
+Datatype:
+  par =
+  | Done cstep
+  | Dompar npbc subst
+  | StoreOrderpar mlstring
+  | CheckedDeletepar (num list)
+End
+
+Definition parse_load_order_def:
+  (parse_load_order f_ns [] = SOME (Done UnloadOrder,f_ns)) ∧
+  (parse_load_order f_ns (INL r::rs) =
+    case parse_vars_line_aux f_ns rs of
+      NONE => NONE
+    | SOME (ws,f_ns') => SOME (Done (LoadOrder r ws),f_ns'))
+End
+
+(* Partial parse *)
+(* TODO: support Obj *)
+(* Parse the first line of a cstep, sstep supported differently *)
+Definition parse_cstep_head_def:
+  parse_cstep_head f_ns s =
+  case s of [] => NONE
+  | (r::rs) =>
+    if r = INL (strlit "load_order") then
+      parse_load_order f_ns rs
+    else if r = INL (strlit"core") then
+      (case rs of [] => NONE
+      | r::rs =>
+        if r = INL(strlit"id") then
+          case strip_numbers rs [] of NONE => NONE
+          | SOME n => SOME (Done (Transfer n),f_ns)
+        else NONE)
+    else if r = INL (strlit "dom") then
+      case parse_red_header f_ns rs of NONE => NONE
+      | SOME (c,s,f_ns') =>
+        SOME (Dompar c s,f_ns')
+    else if r = INL (strlit "delc") then
+      (case strip_numbers rs [] of NONE => NONE
+      | SOME n => SOME (CheckedDeletepar n,f_ns))
+    else if r = INL (strlit "pre_order") then
+      case rs of [INL name] => SOME (StoreOrderpar name, f_ns)
+      | _ => NONE
+    else NONE
+End
+
+(* TODO: support subproofs in checked delete *)
+Definition parse_cstep_def:
+  (parse_cstep f_ns ss =
+    case parse_sstep f_ns ss of
+      NONE => NONE
+    | SOME (INR sstep, f_ns',rest) =>
+      SOME (INR (Sstep sstep), f_ns', rest)
+    | SOME (INL s,f_ns',rest) =>
+      case parse_cstep_head f_ns' s of
+        NONE => SOME (INL s,f_ns',rest)
+      | SOME(Done cstep,f_ns'') => SOME (INR cstep, f_ns'', rest)
+      | SOME (Dompar c s,f_ns'') =>
+        (case parse_red_aux f_ns'' rest [] of
+          NONE => NONE
+        | SOME (pf,f_ns'',rest) => SOME (INR (Dom c s pf), f_ns'', rest))
+      | SOME (CheckedDeletepar n, f_ns'') =>
+        SOME (INR (CheckedDelete n []), f_ns'',rest)
+      | SOME (StoreOrderpar name, f_ns'') =>
+        (case parse_pre_order rest of NONE => NONE
+        | SOME (spo,ws,pf,rest) =>
+          SOME (INR (StoreOrder name spo ws pf), f_ns'',rest))
+    )
+End
+
 (*
 (* Parse a list of strings in pbf format, not used *)
-Definition parse_tops_def:
-  (parse_tops f_ns ss acc =
-    case parse_top f_ns ss of
+Definition parse_csteps_def:
+  (parse_csteps f_ns ss acc =
+    case parse_cstep f_ns ss of
       NONE => NONE
     | SOME (res,f_ns',rest) =>
       case res of
         INL s => SOME(REVERSE acc, s, f_ns', rest)
       | INR st =>
-        parse_tops f_ns' rest (st::acc))
+        parse_csteps f_ns' rest (st::acc))
 Termination
-End
-
-Definition hashString_nf_def:
-  hashString_nf s t = SOME(hashString s,t)
+  cheat
 End
 
 Definition plainVar_nf_def:
@@ -636,9 +873,9 @@ Definition parse_pbp_toks_def:
   parse_pbp_toks tokss =
   case parse_header tokss of
     SOME rest =>
-      (case parse_tops (plainVar_nf,()) rest [] of
+      (case parse_csteps (plainVar_nf,()) rest [] of
         SOME (pf, s, f_ns', rest') =>
-        SOME pf)
+        SOME (pf, s, rest'))
   | NONE => NONE
 End
 
@@ -692,8 +929,54 @@ val pbfraw = ``[
   strlit"end pseudo-Boolean proof";
 ]``
 
-  val steps = rconc (EVAL``(parse_pbp ^(pbpraw))``)
+  val pbpraw2 = ``[
+  strlit"pseudo-Boolean proof version 2.0";
+  strlit"f 10";
+  strlit"pre_order simple";
+  strlit"    vars";
+  strlit"        left u1";
+  strlit"        right v1";
+  strlit"        aux ";
+  strlit"  end";
+  strlit"    def";
+  strlit"        1 ~u1 1 v1 >= 1 ;";
+  strlit"  end";
+  strlit"    transitivity";
+  strlit"        vars";
+  strlit"            fresh_right w1";
+  strlit"    end";
+  strlit"        proof";
+  strlit"      proofgoal #1";
+  strlit"      pol 2 1 + 3 + ";
+  strlit"      end 4";
+  strlit"    end";
+  strlit"  end";
+  strlit"end";
+  strlit"load_order simple x1";
+  strlit"pol 1 2 + ";
+  strlit"red 1 x3 1 x1 >= 1 ; x3 -> 1 ; begin";
+  strlit"    * autoproven: goal is implied by negated constraint";
+  strlit"    proofgoal #1";
+  strlit"        pol 13 12 +";
+  strlit"    end 14";
+  strlit"end";
+  strlit"dom 1 ~x1 1 x2 >= 1 ; x1 -> x2 x2 -> x1 ; begin";
+  strlit"    * autoproven: goal is implied by negated constraint";
+  strlit"    proofgoal #1";
+  strlit"        pol 17 16 +";
+  strlit"    end 18";
+  strlit"    * autoproven: implied by RUP";
+  strlit"    proofgoal #2";
+  strlit"        pol  19 16 ~x1 + 2 d + s 16 x2 + 2 d + s";
+  strlit"    end 20";
+  strlit"end";
+  strlit"load_order simple x1";
+  strlit"output NONE";
+  strlit"conclusion NONE";
+  strlit"end pseudo-Boolean proof";]``
 
+val steps = rconc (EVAL``(parse_pbp ^(pbpraw))``)
+val steps = rconc (EVAL``(parse_pbp ^(pbpraw2))``)
 *)
 
 val _ = export_theory();
