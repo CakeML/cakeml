@@ -23,7 +23,7 @@ val NOT_NIL_AND_LEMMA = Q.prove(
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
 
 Theorem option_map_thm[local]:
-  OPTION_MAP f x = case x of NONE => NONE | SOME y => SOME(f y) 
+  OPTION_MAP f x = case x of NONE => NONE | SOME y => SOME(f y)
 Proof
   Cases_on ‘x’ \\ rw[]
 QED

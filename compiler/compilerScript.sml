@@ -740,6 +740,44 @@ val compile_32_def = Define`
   | _ =>
     (List[], error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))`
 
+Definition compile_pancake_32_def:
+  compile_pancake_32 cl input =
+  let confexp = parse_target_32 cl in
+  case confexp of
+  | INR err => (List[], error_to_str (ConfigError err))
+  | INL (conf, export) =>
+      let topconf = parse_top_config cl in
+      case (topconf) of
+      | INR err => (List[], error_to_str (ConfigError err))
+      | INL (sexp, prelude, sexpprint) =>
+          let ext_conf = extend_conf cl conf in
+          case ext_conf of
+          | INR err =>
+              (List[], error_to_str (ConfigError (get_err_str ext_conf)))
+          | INL ext_conf =>
+              case compiler$compile_pancake ext_conf input of
+              | (Failure err) =>
+                  (List[], error_to_str err)
+              | (Success (bytes, data, c)) =>
+                  (export (the [] c.lab_conf.ffi_names) bytes data c.symbols, implode "")
+End
+
+Definition full_compile_32_def:
+  full_compile_32 cl inp fs =
+  if has_help_flag cl then
+    add_stdout fs help_string
+  else if has_version_flag cl then
+    add_stdout fs current_build_info_str
+  else
+    let (out, err) =
+        if has_pancake_flag cl then
+          compile_pancake_32 cl inp
+        else
+          compile_32 cl inp
+    in
+      add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err
+End
+(*
 val full_compile_32_def = Define `
   full_compile_32 cl inp fs =
     if has_help_flag cl then
@@ -749,5 +787,5 @@ val full_compile_32_def = Define `
     else
       let (out, err) = compile_32 cl inp in
       add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err`
-
+*)
 val _ = export_theory();
