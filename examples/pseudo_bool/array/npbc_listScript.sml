@@ -634,22 +634,56 @@ Proof
       drule (el 2 (CONJUNCTS check_lstep_list_id))>> simp[any_el_update_resize]))
 QED
 
-Definition check_red_list_def:
-  (check_red_list [] core fml inds mindel id = SOME(fml,id)) ∧
-  (check_red_list ((cnopt,pf)::pfs) core fml inds mindel id =
+(* Inline subst fun *)
+Definition subst_subst_fun_def:
+  subst_subst_fun s c = subst (subst_fun s) c
+End
+
+Definition extract_clauses_list_def:
+  (extract_clauses_list s fml rsubs [] acc = SOME (REVERSE acc)) ∧
+  (extract_clauses_list s fml rsubs (cpf::pfs) acc =
+    case cpf of
+      (NONE,pf) =>
+      extract_clauses_list s fml rsubs pfs ((NONE,pf)::acc)
+    | (SOME (INL n,i),pf) =>
+      (case any_el n fml NONE of
+        NONE => NONE
+      | SOME c =>
+        extract_clauses_list s fml rsubs pfs
+          ((SOME ([not (subst_subst_fun s c)],i),pf)::acc))
+    | (SOME (INR u,i),pf) =>
+      if u < LENGTH rsubs then
+        extract_clauses_list s fml rsubs pfs
+          ((SOME (EL u rsubs,i),pf)::acc)
+      else NONE)
+End
+
+Definition list_insert_list_def:
+  (list_insert_list [] id fml inds = (id,fml,inds)) ∧
+  (list_insert_list (c::cs) id fml inds =
+    list_insert_list cs (id+1)
+      (update_resize fml NONE (SOME c) id )
+      (sorted_insert id inds))
+End
+
+Definition check_subproofs_list_def:
+  (check_subproofs_list [] core fml inds mindel id =
+    SOME(fml,id)) ∧
+  (check_subproofs_list ((cnopt,pf)::pfs) core fml inds mindel id =
     case cnopt of
       NONE => (* no clause given *)
       (case check_lsteps_list pf core fml inds mindel id of
         SOME (fml', id', inds') =>
-        check_red_list pfs core fml' inds' mindel id'
+        check_subproofs_list pfs core fml' inds' mindel id'
       | res => NONE)
-    | SOME (c,n) =>
-      let cfml = update_resize fml NONE (SOME (npbc$not c)) id in
-      case check_lsteps_list pf core cfml (sorted_insert id inds) id (id+1) of
+    | SOME (cs,n) =>
+      let (cid,cfml,cinds) = list_insert_list cs id fml inds in
+      (* no deletions below id *)
+      case check_lsteps_list pf core cfml cinds id cid of
         SOME (fml', id', inds') =>
         if check_contradiction_fml_list fml' n then
           let rfml = rollback fml' id id' in
-            check_red_list pfs core rfml inds' mindel id'
+            check_subproofs_list pfs core rfml inds' mindel id'
         else NONE
       | _ => NONE)
 End
@@ -677,55 +711,28 @@ Definition subst_indexes_def:
     | SOME c => i::subst_indexes s fml is)
 End
 
-Definition subst_subst_fun_def:
-  subst_subst_fun s c = subst (subst_fun s) c
-End
-
-Definition get_red_constraint_subst_fun_def:
-  get_red_constraint_subst_fun u s def obj =
-  if u = 0 then
-    SOME (subst (subst_fun s) def)
-  else if u = (1:num) then
-    case obj of NONE => NONE
-    | SOME l =>
-    SOME (obj_constraint (subst_fun s) l)
-  else NONE
-End
-
-Definition extract_clauses_list_def:
-  (extract_clauses_list s def fml obj [] acc = SOME (REVERSE acc)) ∧
-  (extract_clauses_list s def fml obj (cpf::pfs) acc =
-    case cpf of
-      (NONE,pf) => extract_clauses_list s def fml obj pfs ((NONE,pf)::acc)
-    | (SOME (INL n,i),pf) =>
-      (case any_el n fml NONE of
-        NONE => NONE
-      | SOME c => extract_clauses_list s def fml obj pfs ((SOME (subst_subst_fun s c,i),pf)::acc))
-    | (SOME (INR u,i),pf) =>
-      case get_red_constraint_subst_fun u s def obj of
-        NONE => NONE
-      | SOME c =>
-        extract_clauses_list s def fml obj pfs
-          ((SOME (c,i),pf)::acc))
-End
-
 Definition check_sstep_list_def:
-  (check_sstep_list (sstep:sstep) obj core (fml: npbc option list) (inds:num list) (id:num) =
+  (check_sstep_list (sstep:sstep) ord obj core
+    (fml: npbc option list) (inds:num list) (id:num) =
   case sstep of
   | Lstep lstep =>
     check_lstep_list lstep core fml inds 0 id
   | Red c s pfs =>
     (let rinds = reindex fml inds in
      let fml_not_c = update_resize fml NONE (SOME (not c)) id in
-      case extract_clauses_list s c fml obj pfs [] of
+     let rsubs = red_subgoals ord (subst_fun s) c obj in
+      case extract_clauses_list s fml rsubs pfs [] of
         NONE => NONE
       | SOME cpfs =>
-        case check_red_list cpfs core fml_not_c (sorted_insert id rinds) id (id+1) of
+        case check_subproofs_list cpfs core fml_not_c (sorted_insert id rinds) id (id+1) of
           SOME(fml', id') =>
           let rfml = rollback fml' id id' in
           let pids = extract_pids pfs in
-          if check_red_obj obj pids ∧
-            EVERY (λid. MEM (INL id) pids) (subst_indexes s rfml rinds)
+          if
+            EVERY (λid. MEM (INR id) pids)
+              (COUNT_LIST (LENGTH rsubs)) ∧
+            EVERY (λid. MEM (INL id) pids)
+              (subst_indexes s rfml rinds)
           then
             SOME(update_resize rfml NONE (SOME c) id', (id'+1), sorted_insert id' rinds)
           else NONE
@@ -733,15 +740,15 @@ Definition check_sstep_list_def:
 End
 
 Theorem fml_rel_extract_clauses_list:
-  ∀ls s def fml fmlls obj acc.
+  ∀ls s fml fmlls rsubs acc.
   fml_rel fml fmlls ⇒
-  extract_clauses (subst_fun s) def fml obj ls acc =
-  extract_clauses_list s def fmlls obj ls acc
+  extract_clauses (subst_fun s) fml rsubs ls acc =
+  extract_clauses_list s fmlls rsubs ls acc
 Proof
   Induct>>rw[extract_clauses_def,extract_clauses_list_def]>>
-  every_case_tac>>fs[]>>
-  fs[fml_rel_def,subst_subst_fun_def,get_red_constraint_subst_fun_def,get_red_constraint_def]>>
-  metis_tac[SOME_11,NOT_SOME_NONE]
+  every_case_tac>>
+  fs[fml_rel_def,subst_subst_fun_def]>>
+  metis_tac[option_CLAUSES]
 QED
 
 Theorem ind_rel_rollback:
@@ -752,17 +759,72 @@ Proof
   metis_tac[ind_rel_list_delete_list]
 QED
 
-Theorem fml_rel_check_red_list:
+Theorem list_insert_list_id:
+  ∀cs id fmlls inds cid cfmlls cinds.
+  list_insert_list cs id fmlls inds = (cid,cfmlls,cinds) ⇒
+  id ≤ cid
+Proof
+  Induct>>rw[list_insert_list_def]>>
+  first_x_assum drule>>
+  simp[]
+QED
+
+Theorem list_insert_list_id_upper:
+  ∀cs id fmlls inds cid cfmlls cinds.
+  list_insert_list cs id fmlls inds = (cid,cfmlls,cinds) ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ⇒
+  (∀n. n ≥ cid ⇒ any_el n cfmlls NONE = NONE)
+Proof
+  Induct>>rw[list_insert_list_def]>>
+  first_x_assum drule>>
+  simp[any_el_update_resize]
+QED
+
+Theorem list_insert_list_mindel:
+  ∀cs id fmlls inds cid cfmlls cinds.
+  list_insert_list cs id fmlls inds = (cid,cfmlls,cinds) ⇒
+  (∀n. n < id ⇒ any_el n cfmlls NONE = any_el n fmlls NONE)
+Proof
+  Induct>>rw[list_insert_list_def]>>
+  first_x_assum drule>>
+  simp[any_el_update_resize]
+QED
+
+Theorem fml_rel_list_insert_list:
+  ∀cs id fml fmlls inds cid cfml cid' cfmlls cinds.
+  fml_rel fml fmlls ∧
+  ind_rel fmlls inds ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
+  list_insert cs id fml = (cid,cfml) ∧
+  list_insert_list cs id fmlls inds = (cid',cfmlls,cinds) ⇒
+  cid = cid' ∧
+  fml_rel cfml cfmlls ∧
+  ind_rel cfmlls cinds ∧
+  (∀n. n ≥ cid ⇒ any_el n cfmlls NONE = NONE) ∧
+  (∀n. n < id ⇒ any_el n cfmlls NONE = any_el n fmlls NONE) ∧
+  id ≤ cid
+Proof
+  Induct>>simp[list_insert_def,list_insert_list_def]>>
+  ntac 11 strip_tac>>
+  first_x_assum (drule_at Any)>>
+  disch_then (drule_at Any)>>
+  impl_tac >- (
+    simp[fml_rel_update_resize,ind_rel_update_resize_sorted_insert]>>
+    simp[any_el_update_resize])>>
+  rw[any_el_update_resize]
+QED
+
+Theorem fml_rel_check_subproofs_list:
   ∀pfs core fmlls inds mindel id fmlls' id' fml.
     fml_rel fml fmlls ∧
     ind_rel fmlls inds ∧
     (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
     mindel ≤ id ∧
-    check_red_list pfs core fmlls inds mindel id = SOME (fmlls', id') ⇒
-    check_red pfs core fml id = SOME id'
+    check_subproofs_list pfs core fmlls inds mindel id = SOME (fmlls', id') ⇒
+    check_subproofs pfs core fml id = SOME id'
 Proof
-  ho_match_mp_tac check_red_list_ind>>rw[]>>
-  fs[check_red_def,check_red_list_def]>>
+  ho_match_mp_tac check_subproofs_list_ind>>rw[]>>
+  fs[check_subproofs_def,check_subproofs_list_def]>>
   gvs[AllCaseEqs()]
   >- (
     drule (CONJUNCT2 fml_rel_check_lstep_list)>>
@@ -774,13 +836,13 @@ Proof
     drule (CONJUNCT2 check_lstep_list_mindel)>>
     simp[]>>
     rw[]>>every_case_tac>>fs[])>>
-  `fml_rel (insert id (not c) fml)  (update_resize fmlls NONE (SOME (not c)) id)` by
-    metis_tac[fml_rel_update_resize]>>
-  drule (CONJUNCT2 fml_rel_check_lstep_list)>>
-  disch_then (drule_at Any)>>
-  simp[any_el_update_resize]>>
-  rw[]>>
-  simp[]>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  gvs[AllCaseEqs()]>>
+  drule_all fml_rel_list_insert_list>>
+  strip_tac>>gvs[]>>
+  drule_all (CONJUNCT2 fml_rel_check_lstep_list)>>
+  rw[]>> simp[]>>
   CONJ_TAC >- metis_tac[fml_rel_check_contradiction_fml]>>
   first_x_assum match_mp_tac>>
   rw[]
@@ -788,7 +850,7 @@ Proof
     match_mp_tac fml_rel_rollback>>rw[]
     >- (
       drule (CONJUNCT2 check_lstep_list_mindel)>>
-      simp[any_el_update_resize])>>
+      rw[])>>
     first_assum(qspec_then`n` mp_tac)>>
     drule (CONJUNCT2 check_lstep_list_id)>>
     simp[]>>rw[]>>
@@ -796,11 +858,7 @@ Proof
     disch_then match_mp_tac>>
     simp[any_el_update_resize])
   >- (
-    drule ind_rel_update_resize_sorted_insert>>
-    disch_then(qspecl_then[`SOME (not c)`,`id`] assume_tac)>>
-    drule (CONJUNCT2 ind_rel_check_lstep_list)>>
-    disch_then (drule_at Any)>>
-    simp[any_el_update_resize]>>
+    drule_all (CONJUNCT2 ind_rel_check_lstep_list)>>
     metis_tac[ind_rel_rollback])
   >- (
     fs[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
@@ -811,58 +869,69 @@ Proof
   fs[]
 QED
 
-Theorem check_red_list_id:
+Theorem check_subproofs_list_id:
   ∀pfs core fmlls inds mindel id fmlls' id'.
-    check_red_list pfs core fmlls inds mindel id = SOME (fmlls', id') ⇒
+    check_subproofs_list pfs core fmlls inds mindel id = SOME (fmlls', id') ⇒
     id ≤ id'
 Proof
-  ho_match_mp_tac check_red_list_ind>>rw[check_red_list_def]>>
+  ho_match_mp_tac check_subproofs_list_ind>>
+  rw[check_subproofs_list_def]>>
+  gvs[AllCaseEqs()]>>
+  rpt(pairarg_tac>>fs[])>>
   gvs[AllCaseEqs()]>>
   imp_res_tac check_lstep_list_id>>
+  imp_res_tac list_insert_list_id>>
   fs[]
 QED
 
-Theorem check_red_list_id_upper:
+Theorem check_subproofs_list_id_upper:
   ∀pfs core fmlls inds mindel id fmlls' id'.
-  check_red_list pfs core fmlls inds mindel id = SOME (fmlls', id') ∧
+  check_subproofs_list pfs core fmlls inds mindel id = SOME (fmlls', id') ∧
   (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ⇒
   (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE)
 Proof
-  ho_match_mp_tac check_red_list_ind>>
-  simp[check_red_list_def]>>
+  ho_match_mp_tac check_subproofs_list_ind>>
+  simp[check_subproofs_list_def]>>
   ntac 11 strip_tac>>
   simp[AllCaseEqs()]>>
   strip_tac>>gvs[]
   >- (
     first_x_assum match_mp_tac>>
     match_mp_tac (CONJUNCT2 check_lstep_list_id_upper)>>
+    first_x_assum (irule_at Any)>>
     metis_tac[])>>
+  rpt(pairarg_tac>>fs[])>>
+  gvs[AllCaseEqs()]>>
   first_x_assum match_mp_tac>>
   simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
   match_mp_tac (CONJUNCT2 check_lstep_list_id_upper)>>
   first_x_assum (irule_at Any)>>
-  simp[any_el_update_resize]
+  metis_tac[list_insert_list_id_upper]
 QED
 
-Theorem check_red_list_mindel:
+Theorem check_subproofs_list_mindel:
   ∀pfs core fmlls inds mindel id fmlls' id' n.
-  check_red_list pfs core fmlls inds mindel id = SOME (fmlls', id') ∧
+  check_subproofs_list pfs core fmlls inds mindel id = SOME (fmlls', id') ∧
   mindel ≤ id ∧
   n < mindel ⇒
   any_el n fmlls NONE = any_el n fmlls' NONE
 Proof
-  ho_match_mp_tac check_red_list_ind>>
-  simp[check_red_list_def]>>rw[]>>
+  ho_match_mp_tac check_subproofs_list_ind>>
+  simp[check_subproofs_list_def]>>rw[]>>
   gvs[AllCaseEqs()]
   >- (
     drule (CONJUNCT2 check_lstep_list_mindel)>>fs[]>>
     drule (CONJUNCT2 check_lstep_list_id)>>fs[]>>
     disch_then drule>>
     simp[])>>
+  rpt(pairarg_tac>>fs[])>>
+  gvs[AllCaseEqs()]>>
   drule (CONJUNCT2 check_lstep_list_mindel)>>fs[]>>
-  simp[any_el_update_resize]>>
-  fs[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
-  drule (CONJUNCT2 check_lstep_list_id)>>fs[]
+  drule (list_insert_list_mindel)>>fs[]>>
+  rw[]>>
+  drule (list_insert_list_id)>>
+  drule (CONJUNCT2 check_lstep_list_id)>>rw[]>>
+  gvs[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]
 QED
 
 Theorem reindex_characterize:
@@ -896,13 +965,14 @@ Proof
 QED
 
 Theorem fml_rel_check_sstep_list:
-  ∀sstep obj core fmlls inds id fmlls' id' inds' fml.
+  ∀sstep ord obj core fmlls inds id fmlls' id' inds' fml.
     fml_rel fml fmlls ∧
     ind_rel fmlls inds ∧
     (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
-    check_sstep_list sstep obj core fmlls inds id = SOME (fmlls',id',inds') ⇒
+    check_sstep_list sstep ord obj core fmlls inds id =
+      SOME (fmlls',id',inds') ⇒
     ∃fml'.
-      check_sstep sstep obj core fml id = SOME(fml',id') ∧
+      check_sstep sstep ord obj core fml id = SOME(fml',id') ∧
       fml_rel fml' fmlls' ∧
       ind_rel fmlls' inds' ∧
       (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE) ∧
@@ -927,7 +997,7 @@ Proof
     gvs[AllCaseEqs()]>>
     `fml_rel (insert id (not p) fml) (update_resize fmlls NONE (SOME (not p)) id)` by
       metis_tac[fml_rel_update_resize]>>
-    drule fml_rel_check_red_list>>
+    drule fml_rel_check_subproofs_list>>
     disch_then (drule_at Any)>>
     impl_tac>- (
       rw[]
@@ -936,9 +1006,9 @@ Proof
         metis_tac[ind_rel_reindex] )>>
       simp[any_el_update_resize])>>
     simp[]>>strip_tac>>
-    drule check_red_list_id>>
-    drule check_red_list_id_upper>>
-    drule check_red_list_mindel>>
+    drule check_subproofs_list_id>>
+    drule check_subproofs_list_id_upper>>
+    drule check_subproofs_list_mindel>>
     simp[any_el_update_resize]>>
     ntac 3 strip_tac>>
     CONJ_ASM1_TAC >- (
@@ -977,22 +1047,24 @@ Proof
 QED
 
 Definition check_ssteps_list_def:
-  (check_ssteps_list [] obj core (fml: npbc option list) (inds:num list) (id:num) = SOME (fml, id, inds)) ∧
-  (check_ssteps_list (s::ss) obj core fml inds id =
-  case check_sstep_list s obj core fml inds id of
+  (check_ssteps_list [] ord obj core
+    (fml: npbc option list) (inds:num list) (id:num) =
+    SOME (fml, id, inds)) ∧
+  (check_ssteps_list (s::ss) ord obj core fml inds id =
+  case check_sstep_list s ord obj core fml inds id of
     SOME (fml',id',inds') =>
-      check_ssteps_list ss obj core fml' inds' id'
+      check_ssteps_list ss ord obj core fml' inds' id'
   | res => res)
 End
 
 Theorem fml_rel_check_ssteps_list:
-  ∀ss obj core fmlls inds id fmlls' id' inds' fml.
+  ∀ss ord obj core fmlls inds id fmlls' id' inds' fml.
     fml_rel fml fmlls ∧
     ind_rel fmlls inds ∧
     (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
-    check_ssteps_list ss obj core fmlls inds id = SOME (fmlls',id',inds') ⇒
+    check_ssteps_list ss ord obj core fmlls inds id = SOME (fmlls',id',inds') ⇒
     ∃fml'.
-      check_ssteps ss obj core fml id = SOME(fml',id') ∧
+      check_ssteps ss ord obj core fml id = SOME(fml',id') ∧
       fml_rel fml' fmlls' ∧
       ind_rel fmlls' inds' ∧
       (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE) ∧
@@ -1010,6 +1082,248 @@ Proof
   first_x_assum drule_all>>
   rw[]>>
   fs[]
+QED
+
+Definition read_coref_list_def:
+  (read_coref_list [] fml = []) ∧
+  (read_coref_list (i::is) fml =
+    case any_el i fml NONE of
+      NONE => (i,([],0):npbc)::read_coref_list is fml
+    | SOME res => (i,res) :: read_coref_list is fml)
+End
+
+Theorem ALOOKUP_read_coref_list:
+  ∀ids fml n.
+  ALL_DISTINCT ids ⇒
+  ALOOKUP (read_coref_list ids fml) n =
+  if MEM n ids then
+     (case any_el n fml NONE of
+      NONE => SOME (([],0):npbc)
+    | SOME res => SOME res)
+  else NONE
+Proof
+  Induct>>rw[read_coref_list_def]
+  >-
+    (TOP_CASE_TAC>>simp[])
+  >- (
+    `h ≠ n` by metis_tac[]>>
+    TOP_CASE_TAC>>fs[])>>
+  fs[]>>
+  every_case_tac>>fs[]
+QED
+
+(* TODO: this can be made more efficient with imperative mapi *)
+Definition coref_list_def:
+  coref_list core fmlls =
+  let ids = MAP FST (toAList core) in
+  fromAList (read_coref_list ids fmlls)
+End
+
+Theorem coref_coref_list:
+  fml_rel fml fmlls ⇒
+  coref core fml = coref_list core fmlls
+Proof
+  rw[fml_rel_def,coref_list_def,coref_def]>>
+  DEP_REWRITE_TAC[spt_eq_thm]>>
+  rw[wf_mapi,wf_fromAList,lookup_fromAList,lookup_mapi]>>
+  DEP_REWRITE_TAC[ALOOKUP_read_coref_list]>>
+  simp[ALL_DISTINCT_MAP_FST_toAList,toAList_domain,domain_lookup]>>
+  rw[]>>fs[]
+  >- (TOP_CASE_TAC>>fs[])>>
+  Cases_on`lookup n core`>>fs[]
+QED
+
+Definition all_core_def:
+  all_core fml inds core ⇔
+  let inds' = reindex fml inds in
+  (EVERY (λn. lookup n core ≠ NONE) inds', inds')
+End
+
+Theorem fml_rel_all_core:
+  fml_rel fml fmlls ∧
+  ind_rel fmlls inds ∧
+  all_core fmlls inds core = (T,inds') ⇒
+  domain fml ⊆ domain core ∧
+  ind_rel fmlls inds'
+Proof
+  reverse (rw[all_core_def])
+  >-
+    fs[ind_rel_reindex]>>
+  fs[reindex_characterize,EVERY_FILTER]>>
+  fs[fml_rel_def,ind_rel_def,SUBSET_DEF,domain_lookup]>>
+  rw[]>>
+  first_x_assum(qspec_then`x` assume_tac)>>
+  first_x_assum(qspec_then`x` assume_tac)>>
+  gs[EVERY_MEM]>>
+  first_x_assum drule>>
+  simp[]>>
+  Cases_on`lookup x core`>>simp[]
+QED
+
+(* TODO: except dominance *)
+Definition check_cstep_list_def:
+  check_cstep_list cstep chk ord obj bound
+    core fml inds id orders =
+  case cstep of
+  | LoadOrder nn xs =>
+    let (ac,inds') = all_core fml inds core in
+    if ac then
+      case ALOOKUP orders nn of NONE => NONE
+      | SOME ord' =>
+        if LENGTH xs = LENGTH (FST (SND ord')) then
+          SOME (fml,inds',id,core,bound,SOME (ord',xs),orders)
+        else NONE
+    else NONE
+  | UnloadOrder =>
+    (case ord of NONE => NONE
+    | SOME spo =>
+        SOME (fml,inds,id,core,bound, ord, orders))
+  | StoreOrder nn spo ws pfs =>
+    if check_good_ord spo ∧ check_ws spo ws ∧
+       check_transitivity spo ws pfs then
+        SOME (fml,inds, id, core, bound, ord, (nn,spo)::orders)
+    else
+      NONE
+  | Transfer ls =>
+    if EVERY (λid. any_el id fml NONE ≠ NONE) ls
+    then SOME (fml, inds, id,
+               FOLDL (λa b. insert b () a) core ls,
+               bound, ord, orders)
+    else NONE
+  | CheckedDelete ls pfs =>
+    if EVERY (λid. lookup id core ≠ NONE) ls then
+      if chk then
+        (let cf = coref_list core fml in
+        case check_del pfs ord obj core cf id of NONE => NONE
+        | SOME id' =>
+        let pids = MAP FST pfs in (* optimize and change later *)
+        if EVERY (λid. MEM id pids) ls then
+          SOME (list_delete_list ls fml, inds, id',
+                FOLDL (λa b. delete b a) core ls,
+                bound, ord, orders)
+        else
+          NONE)
+      else
+        (* Either no order or all ids are in core *)
+        if ord = NONE then
+          SOME (list_delete_list ls fml, inds, id,
+                FOLDL (λa b. delete b a) core ls,
+                bound, ord, orders)
+        else
+          let (ac,inds') = all_core fml inds core in
+          if ac then
+            SOME (list_delete_list ls fml, inds', id,
+                FOLDL (λa b. delete b a) core ls,
+                bound, ord, orders)
+          else NONE
+    else
+      NONE
+  | Sstep sstep =>
+    (case check_sstep_list sstep ord obj core fml inds id of
+      SOME(fml',id',inds') =>
+      SOME (fml',inds',id',core,bound,ord, orders)
+    | NONE => NONE)
+  | Obj w =>
+    (case check_obj obj bound w (coref_list core fml) of
+      NONE => NONE
+    | SOME new =>
+      let c = model_improving obj new in
+      SOME (
+        update_resize fml NONE (SOME c) id,
+        sorted_insert id inds,
+        id+1,
+        insert id () core,
+        SOME new, ord, orders))
+End
+
+Theorem check_del_id:
+  ∀ls c f id id'.
+    check_del ls ord obj c f id = SOME id' ⇒
+    id ≤ id'
+Proof
+  Induct>>rw[check_del_def]>>
+  Cases_on`h`>>gvs[check_del_def,AllCaseEqs()]>>
+  first_x_assum drule>>
+  (* Annoying property of ssteps *)
+  `id ≤ id''` by cheat>>
+  simp[]
+QED
+
+Theorem fml_rel_check_cstep_list:
+  ∀cstep chk ord obj bound core fmlls inds id orders
+    fmlls' id' inds' fml rest.
+    fml_rel fml fmlls ∧
+    ind_rel fmlls inds ∧
+    (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
+    check_cstep_list cstep chk ord obj bound core
+      fmlls inds id orders =
+      SOME (fmlls',inds',id',rest) ⇒
+    ∃fml'.
+      check_cstep cstep chk ord obj bound core
+        fml id orders = SOME (fml', id', rest) ∧
+      fml_rel fml' fmlls' ∧
+      ind_rel fmlls' inds' ∧
+      (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE) ∧
+      id ≤ id'
+Proof
+  Cases>>rw[]
+  >-
+    (* Dom *)
+    cheat
+  >- ( (* LoadOrder *)
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
+    pairarg_tac>>gvs[AllCaseEqs()]>>
+    drule_all fml_rel_all_core>>
+    simp[])
+  >- ( (* UnloadOrder *)
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def])
+  >- ( (* StoreOrder *)
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def])
+  >- ( (* Transfer *)
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
+    fs[EVERY_MEM,fml_rel_def]>>
+    rw[]>>first_x_assum drule>>
+    metis_tac[option_CLAUSES])
+  >- ( (* CheckedDelete *)
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]
+    >- (
+      drule coref_coref_list>>
+      disch_then(qspec_then`core` assume_tac)>>fs[]>>
+      CONJ_TAC >-
+        metis_tac[fml_rel_list_delete_list]>>
+      CONJ_TAC >-
+        metis_tac[ind_rel_list_delete_list]>>
+      CONJ_ASM2_TAC>-
+        simp[any_el_list_delete_list]>>
+      metis_tac[check_del_id])
+    >- (
+      CONJ_TAC >-
+        metis_tac[fml_rel_list_delete_list]>>
+      CONJ_TAC >-
+        metis_tac[ind_rel_list_delete_list]>>
+      simp[any_el_list_delete_list])
+    >- (
+      pairarg_tac>>gvs[]>>
+      drule_all fml_rel_all_core>>strip_tac>>
+      simp[]>>
+      CONJ_TAC >-
+        metis_tac[fml_rel_list_delete_list]>>
+      CONJ_TAC >-
+        metis_tac[ind_rel_list_delete_list]>>
+      simp[any_el_list_delete_list]))
+  >- ( (* Sstep *)
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
+    drule_all fml_rel_check_sstep_list>>
+    rw[])
+  >- ( (* Obj *)
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
+    drule coref_coref_list>>
+    disch_then(qspec_then`core` assume_tac)>>fs[]>>
+    CONJ_TAC>-
+      metis_tac[fml_rel_update_resize]>>
+    CONJ_TAC>-
+      metis_tac[ind_rel_update_resize_sorted_insert]>>
+    simp[any_el_update_resize])
 QED
 
 Theorem LENGTH_FOLDR_update_resize2:
@@ -1131,19 +1445,19 @@ Proof
   gs[EL_REPLICATE]
 QED
 
-(* Specialized for UNSAT checking *)
+(* Specialized for redundancy-only UNSAT checking *)
 Theorem check_ssteps_list_unsat:
-  check_ssteps_list ss NONE LN
+  check_ssteps_list ss NONE NONE LN
     (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i)
-             (REPLICATE (2 * (LENGTH fml + 1)) NONE) (enumerate 1 fml))
+      (REPLICATE (2 * (LENGTH fml + 1)) NONE) (enumerate 1 fml))
     (REVERSE (MAP FST (enumerate 1 fml)))
-    (LENGTH fml + 1 )= SOME(fml',b,c) ∧
+    (LENGTH fml + 1) = SOME(fml',b,c) ∧
   check_contradiction_fml_list fml' n
   ⇒
   unsatisfiable (set fml)
 Proof
   rw[]>>
-  qmatch_asmsub_abbrev_tac`check_ssteps_list ss NONE LN fmlls inds id = _`>>
+  qmatch_asmsub_abbrev_tac`check_ssteps_list ss NONE NONE LN fmlls inds id = _`>>
   `fml_rel (build_fml 1 fml) fmlls` by
     simp[Abbr`fmlls`,fml_rel_FOLDL_update_resize]>>
   `ind_rel fmlls inds` by
@@ -1158,9 +1472,10 @@ Proof
   `id_ok (build_fml 1 fml) id` by
     fs[id_ok_def,domain_build_fml]>>
   drule check_ssteps_correct>>
-  disch_then(qspecl_then[`ss`,`NONE`,`LN`] mp_tac)>>simp[]>>
+  disch_then(qspecl_then[`ss`,`NONE`,`NONE`,`LN`] mp_tac)>>simp[]>>
   simp[range_build_fml,npbcTheory.sat_obj_def]>>
   drule_all fml_rel_check_contradiction_fml>>
+  rw[npbcTheory.sat_obj_po_def]>>
   metis_tac[check_contradiction_fml_unsat,npbcTheory.unsatisfiable_def,npbcTheory.satisfiable_def]
 QED
 

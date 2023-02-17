@@ -1255,6 +1255,13 @@ Definition check_transitivity_def:
   | _ => F)
 End
 
+Definition check_ws_def:
+  check_ws (f,us,vs) ws ⇔
+  LENGTH us = LENGTH ws ∧
+  ALL_DISTINCT ws ∧
+  EVERY (λy. ¬ MEM y us ∧ ¬ MEM y vs) ws
+End
+
 Definition check_cstep_def:
   (check_cstep cstep chk ord obj bound
     core (fml:pbf) (id:num) orders =
@@ -1278,31 +1285,32 @@ Definition check_cstep_def:
 
             EVERY (λid. MEM (INL id) pids) goals
           then
-            SOME (core, insert id' c fml, bound, id'+1, ord, orders)
+            SOME (insert id' c fml, id'+1, core, bound, ord, orders)
           else NONE
       | _ => NONE) ))
   | LoadOrder name xs =>
-    if difference fml core = LN then
+    if domain fml ⊆ domain core then
       case ALOOKUP orders name of NONE => NONE
       | SOME ord' =>
         if LENGTH xs = LENGTH (FST (SND ord')) then
-          SOME (core, fml, bound, id, SOME (ord',xs) , orders)
+          SOME (fml, id, core, bound, SOME (ord',xs) , orders)
         else NONE
     else NONE
   | UnloadOrder =>
     (case ord of NONE => NONE
     | SOME spo =>
-        SOME (core, fml, bound, id, ord, orders))
+        SOME (fml, id, core, bound, ord, orders))
   | StoreOrder name spo ws pfs =>
     if check_good_ord spo ∧ check_ws spo ws ∧
        check_transitivity spo ws pfs then
-        SOME (core, fml, bound, id, ord, (name,spo)::orders)
+        SOME (fml, id, core, bound, ord, (name,spo)::orders)
     else
       NONE
   | Transfer ls =>
     if EVERY (λid. lookup id fml ≠ NONE) ls
-    then SOME (FOLDL (λa b. insert b () a) core ls, fml,
-               bound, id, ord, orders)
+    then SOME (fml, id,
+               FOLDL (λa b. insert b () a) core ls,
+               bound, ord, orders)
     else NONE
   | CheckedDelete ls pfs =>
     if EVERY (λid. lookup id core ≠ NONE) ls then
@@ -1312,23 +1320,23 @@ Definition check_cstep_def:
         | SOME id' =>
         let pids = MAP FST pfs in (* optimize and change later *)
         if EVERY (λid. MEM id pids) ls then
-          SOME (FOLDL (λa b. delete b a) core ls,
-                FOLDL (λa b. delete b a) fml ls,
-                bound, id', ord, orders)
+          SOME (FOLDL (λa b. delete b a) fml ls, id',
+                FOLDL (λa b. delete b a) core ls,
+                bound, ord, orders)
         else
           NONE)
       else
         (* Either no order or all ids are in core *)
-        if ord = NONE ∨ difference fml core = LN then
-          SOME (FOLDL (λa b. delete b a) core ls,
-                FOLDL (λa b. delete b a) fml ls,
-                bound, id, ord, orders)
+        if ord = NONE ∨ domain fml ⊆ domain core then
+          SOME (FOLDL (λa b. delete b a) fml ls, id,
+                FOLDL (λa b. delete b a) core ls,
+                bound, ord, orders)
         else NONE
     else
       NONE
   | Sstep sstep =>
     (case check_sstep sstep ord obj core fml id of
-      SOME(fml',id') => SOME (core,fml',bound,id',ord, orders)
+      SOME(fml',id') => SOME (fml',id',core,bound,ord, orders)
     | NONE => NONE)
   | Obj w =>
     (case check_obj obj bound w (coref core fml) of
@@ -1336,8 +1344,9 @@ Definition check_cstep_def:
     | SOME new =>
       let c = model_improving obj new in
       SOME (
+        insert id c fml,id+1,
         insert id () core,
-        insert id c fml,SOME new,id+1, ord, orders)))
+        SOME new, ord, orders)))
 End
 
 Theorem domain_coref:
@@ -1666,20 +1675,6 @@ Proof
   metis_tac[sat_obj_po_refl]
 QED
 
-Theorem toAList_empty_difference:
-  domain a ⊆ domain b
-  ⇒
-  toAList (difference a b) = []
-Proof
-  CCONTR_TAC>>
-  fs[]>>
-  Cases_on`toAList (difference a b)`>>fs[]>>
-  `MEM h (toAList (difference a b))` by fs[]>>
-  Cases_on`h`>>fs[MEM_toAList,lookup_difference]>>
-  fs[SUBSET_DEF,domain_lookup]>>
-  metis_tac[option_CLAUSES]
-QED
-
 (* good_ord *)
 Definition good_ord_t_def:
   good_ord_t ord ⇔
@@ -1745,7 +1740,7 @@ Theorem check_cstep_correct:
   EVERY (good_ord_t o SND) orders ∧
   valid_conf ord obj core fml ⇒
   case check_cstep cstep chk ord obj bound core fml id orders of
-  | SOME (core',fml',bound',id',ord',orders') =>
+  | SOME (fml',id',core',bound',ord',orders') =>
       id ≤ id' ∧
       id_ok fml' id' ∧
       valid_conf ord' obj core' fml' ∧
@@ -1895,15 +1890,15 @@ Proof
     strip_tac>>first_x_assum drule>>
     simp[good_ord_t_def]>>strip_tac>>
     fs[valid_conf_def]>>
-    `range (coref core fml) = range fml` by
-      (simp[range_def,coref_def,lookup_mapi,EXTENSION]>>
-      drule difference_sub>>
+    `range (coref core fml) = range fml` by (
+      simp[range_def,coref_def,lookup_mapi,EXTENSION]>>
       rw[]>>eq_tac>>rw[]
       >- (
         fs[SUBSET_DEF,domain_lookup]>>
         last_x_assum drule>>rw[]>>simp[]>>
         metis_tac[])>>
       fs[SUBSET_DEF,domain_lookup,PULL_EXISTS]>>
+      first_x_assum drule>>rw[]>>simp[]>>
       first_x_assum drule>>rw[]>>simp[]>>
       asm_exists_tac>>simp[])>>
     simp[sat_obj_po_refl,bimp_obj_refl])
@@ -2002,7 +1997,6 @@ Proof
         match_mp_tac trivial_valid_conf>>
         simp[domain_FOLDL_delete]>>
         fs[valid_conf_def]>>
-        drule difference_sub>>
         fs[SUBSET_DEF,EXTENSION]>>
         metis_tac[])>>
       simp[bimp_obj_def]>>rw[]>>
@@ -2115,10 +2109,10 @@ QED
 
 Definition check_csteps_def:
   (check_csteps [] chk ord obj bound core fml id orders =
-    SOME (core,fml,bound,id,ord,orders)) ∧
+    SOME (fml,id,core,bound,ord,orders)) ∧
   (check_csteps (s::ss) chk ord obj bound core fml id orders =
     case check_cstep s chk ord obj bound core fml id orders of
-      SOME (core',fml',bound',id',ord',orders') =>
+      SOME (fml',id',core',bound',ord',orders') =>
       check_csteps ss chk ord' obj bound' core' fml' id' orders'
     | NONE => NONE)
 End
@@ -2174,7 +2168,7 @@ Theorem check_csteps_correct:
   EVERY (good_ord_t ∘ SND) orders ∧
   valid_conf ord obj core fml ∧
   check_csteps csteps chk ord obj bound core fml id orders =
-    SOME(core',fml',bound',id',ord',orders') ⇒
+    SOME(fml',id',core',bound',ord',orders') ⇒
     hide (
     id ≤ id' ∧
     id_ok fml' id' ∧
@@ -2315,7 +2309,7 @@ Theorem check_csteps_optimal:
   ∀csteps chk obj bound fml id core' fml' bound' id' ord' orders'.
   id_ok fml id ∧
   check_csteps csteps chk NONE obj NONE (map (λv. ()) fml) fml id [] =
-    SOME (core',fml',bound',id',ord',orders') ∧
+    SOME (fml',id',core',bound',ord',orders') ∧
   unsatisfiable (range fml') ⇒
   case bound' of
     NONE =>

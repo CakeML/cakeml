@@ -430,11 +430,12 @@ QED
 end (NO ID HERE)
 *)
 
-(* #n -> n *)
+(* #n -> n-1 *)
 Definition parse_hash_num_def:
   parse_hash_num s =
   if strlen s ≥ 1 ∧ strsub s 0 = #"#" then
-    mlint$fromNatString (substring s 1 (strlen s - 1))
+    OPTION_MAP (λn. n-1)
+      (mlint$fromNatString (substring s 1 (strlen s - 1)))
   else NONE
 End
 
