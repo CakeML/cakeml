@@ -7,12 +7,11 @@ local open alignmentTheory
            miscTheory     (* for read_bytearray *)
            wordLangTheory (* for word_op and word_sh *)
            ffiTheory
-           itreeTauTheory
-           posetTheory in end;
+           itreeTauTheory in end;
 
 val _ = new_theory"panSem";
 val _ = set_grammar_ancestry [
-  "panLang", "alignment",
+  "panLang", "itreeTau", "alignment",
   "finite_map", "misc", "wordLang",  "ffi", "lprefix_lub"]
 
 Datatype:
@@ -58,36 +57,6 @@ End
 
 val s = ``(s:('a,'ffi) panSem$state)``
 
-(* TODO: convert into CoRecursive definition style to permit compositionality in definition. *)
-Definition eval_prog_itree_def:
-  eval_prog_itree p s = itree_unfold
-                        (λ(ps, s, cs). if ps ≠ [] then
-                                          case HD ps of
-                                        | (Seq p1 p2) =>
-                                           Tau' (p1::p2::TL ps, s, cs)
-                                        | (Call calltyp target argexps) =>
-                                           (case (eval s target, OPT_MMAP (eval s) argexps) of
-                                              (SOME (ValLabel fname), SOME args) =>
-                                               (case lookup_code s.code fname args of
-                                                  SOME (prog, newlocals) =>
-                                                   Tau' (prog::(TL ps), s with locals := newlocals, (calltyp,s)::cs)
-                                                 | _ => Ret' ((SOME Error), s))
-                                             | (_,_) => Ret' ((SOME Error), s))
-                                        | (Return e) =>
-                                           (case (eval s e) of
-                                              SOME val =>
-                                               if size_of_shape (shape_of val) ≤ 32
-                                               then (let (calltyp,st) = HD cs in
-                                                     case calltyp of
-                                                       Tail => Tau' (TL ps, empty_locals s, TL cs)
-                                                      | panLang$Ret retvar _ => if is_valid_value s.locals retvar val
-                                                                                then Tau' (TL ps, set_var retvar val (s with locals := st.locals), TL cs)
-                                                                                else Ret' (SOME Error, s))
-                                               else Ret' (SOME Error, s)
-                                             | _ => Ret' (SOME Error, s))
-                                       else Ret' (NONE, s))
-                        ([p], s, [])
-End
 
 Theorem MEM_IMP_v_size:
    !xs a. MEM a xs ==> (v_size l a < 1 + v1_size l xs)
@@ -110,7 +79,7 @@ Overload bytes_in_word = “byte$bytes_in_word”
 
 Definition mem_load_byte_def:
   mem_load_byte m dm be w =
-  case m (byte_align w) ofj
+  case m (byte_align w) of
     | Label _ => NONE
     | Word v =>
        if byte_align w IN dm
@@ -445,6 +414,58 @@ End
 
 val evaluate_ind = theorem"evaluate_ind";
 
+(* TODO: convert into CoRecursive definition style to permit compositionality in definition. *)
+Definition eval_prog_itree_def:
+  eval_prog_itree p s = itree_unfold
+                        (λ(ps, s, cs). if ps ≠ [] then
+                                          case HD ps of
+                                        | (Seq p1 p2) =>
+                                           Tau' (p1::p2::TL ps, s, cs)
+                                        | (Call calltyp target argexps) =>
+                                           (case (eval s target, OPT_MMAP (eval s) argexps) of
+                                              (SOME (ValLabel fname), SOME args) =>
+                                               (case lookup_code s.code fname args of
+                                                  SOME (prog, newlocals) =>
+                                                   Tau' (prog::(TL ps), s with locals := newlocals, (calltyp,s)::cs)
+                                                 | _ => Ret' ((SOME Error), s))
+                                             | (_,_) => Ret' ((SOME Error), s))
+                                        | (Return e) =>
+                                           (case (eval s e) of
+                                              SOME val =>
+                                               if size_of_shape (shape_of val) ≤ 32
+                                               then (let (calltyp,st) = HD cs in
+                                                     case calltyp of
+                                                       Tail => Tau' (TL ps, empty_locals s, TL cs)
+                                                      | panLang$Ret retvar _ => if is_valid_value s.locals retvar val
+                                                                                then Tau' (TL ps, set_var retvar val (s with locals := st.locals), TL cs)
+                                                                                else Ret' (SOME Error, s))
+                                               else Ret' (SOME Error, s)
+                                             | _ => Ret' (SOME Error, s))
+                                       else Ret' (NONE, s))
+                        ([p], s, [])
+End
+
+val dummy_ffi_state = “<| oracle := (λs x y z. Oracle_final FFI_failed):unit oracle;
+                        ffi_state := ();
+                        io_events := NIL |>”;
+
+val sem_self_rec_st = “<| locals := FEMPTY;
+                          code := FUN_FMAP_DEF (λs:mlstring. (NIL:(varname # shape) list, panLang$Call Tail (Label «main») (NIL:('a panLang$exp) list))) univ(:mlstring);
+                          eshapes := FEMPTY;
+                          memory := λw:('a word). Word w;
+                          memaddrs := EMPTY;
+                          clock := 0:num;
+                          be := F;
+                          ffi := ^dummy_ffi_state;
+                          base_addr := ARB |>”;
+
+(* Self-recursing functions produce infinite skinny trees of Tau:s *)
+Theorem sem_recursive_self_tail_call:
+  t = (eval_prog_itree (panLang$Call Tail (Label «main») NIL)) ^sem_self_rec_st ⇒ Tau t = t
+Proof
+  rw [] >>
+  rw [eval_prog_itree_def]
+QED
 
 Theorem vshapes_args_rel_imp_eq_len_MAP:
   !vshapes args.
