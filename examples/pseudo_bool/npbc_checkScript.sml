@@ -1299,7 +1299,7 @@ Definition check_cstep_def:
   | UnloadOrder =>
     (case ord of NONE => NONE
     | SOME spo =>
-        SOME (fml, id, core, bound, ord, orders))
+        SOME (fml, id, core, bound, NONE, orders))
   | StoreOrder name spo ws pfs =>
     if check_good_ord spo ∧ check_ws spo ws ∧
        check_transitivity spo ws pfs then

@@ -1160,11 +1160,36 @@ Proof
   Cases_on`lookup x core`>>simp[]
 QED
 
-(* TODO: except dominance *)
 Definition check_cstep_list_def:
   check_cstep_list cstep chk ord obj bound
     core fml inds id orders =
   case cstep of
+    Dom c s pfs =>
+    (case ord of NONE => NONE
+    | SOME spo =>
+    ( let fml_not_c = update_resize fml NONE (SOME (not c)) id in
+      let w = subst_fun s in
+      let dsubs = dom_subgoals spo w c obj in
+      case extract_clauses_list s fml dsubs pfs [] of
+        NONE => NONE
+      | SOME cpfs =>
+        (case check_subproofs_list cpfs core fml_not_c (sorted_insert id inds) id (id+1) of
+          SOME (fml',id') =>
+          let rfml = rollback fml' id id' in
+          let cf = coref_list core fml in
+          let goals = MAP FST (toAList (map_opt (subst_opt w) cf)) in
+          let pids = extract_pids pfs in
+            if
+              EVERY (λid. MEM (INR id) pids)
+                (COUNT_LIST (LENGTH dsubs)) ∧
+              EVERY (λid. MEM (INL id) pids) goals
+            then
+              SOME(
+                update_resize rfml NONE (SOME c) id',
+                sorted_insert id' inds,
+                id'+1, core, bound, ord, orders)
+            else NONE
+        | _ => NONE) ))
   | LoadOrder nn xs =>
     let (ac,inds') = all_core fml inds core in
     if ac then
@@ -1177,7 +1202,7 @@ Definition check_cstep_list_def:
   | UnloadOrder =>
     (case ord of NONE => NONE
     | SOME spo =>
-        SOME (fml,inds,id,core,bound, ord, orders))
+        SOME (fml,inds,id,core,bound, NONE, orders))
   | StoreOrder nn spo ws pfs =>
     if check_good_ord spo ∧ check_ws spo ws ∧
        check_transitivity spo ws pfs then
@@ -1236,6 +1261,62 @@ Definition check_cstep_list_def:
         SOME new, ord, orders))
 End
 
+Theorem check_lstep_id:
+  (∀s c f id fml' id'.
+  check_lstep s c f id = SOME (fml',id') ⇒
+  id ≤ id') ∧
+  (∀s c f id fml' id'.
+  check_lsteps s c f id = SOME (fml',id') ⇒
+  id ≤ id')
+Proof
+  ho_match_mp_tac check_lstep_ind>>rw[check_lstep_def]>>
+  gvs[AllCaseEqs()]
+QED
+
+Theorem list_insert_id:
+  ∀cs id fml cid cfml.
+  list_insert cs id fml = (cid,cfml) ⇒
+  id ≤ cid
+Proof
+  Induct>>rw[list_insert_def]>>
+  first_x_assum drule>>
+  simp[]
+QED
+
+Theorem check_subproofs_id:
+  ∀ls c f id id'.
+  check_subproofs ls c f id = SOME id' ⇒
+  id ≤ id'
+Proof
+  Induct>>simp[FORALL_PROD]>>rw[check_subproofs_def]>>
+  gvs[AllCaseEqs()]
+  >- (
+    imp_res_tac check_lstep_id>>
+    first_x_assum drule>>
+    fs[])>>
+  pairarg_tac>>gvs[AllCaseEqs()]>>
+  first_x_assum drule>>
+  drule list_insert_id>>
+  imp_res_tac check_lstep_id>>
+  fs[]
+QED
+
+Theorem check_ssteps_id:
+  ∀r f id f' id'.
+  check_ssteps r ord obj c f id = SOME (f', id') ⇒
+  id ≤ id'
+Proof
+  Induct>>rw[check_ssteps_def]>>
+  Cases_on`h`>>
+  gvs[AllCaseEqs(),check_sstep_def]>>
+  first_x_assum drule
+  >- (
+    imp_res_tac check_lstep_id>>
+    fs[])>>
+  drule check_subproofs_id>>
+  simp[]
+QED
+
 Theorem check_del_id:
   ∀ls c f id id'.
     check_del ls ord obj c f id = SOME id' ⇒
@@ -1244,8 +1325,7 @@ Proof
   Induct>>rw[check_del_def]>>
   Cases_on`h`>>gvs[check_del_def,AllCaseEqs()]>>
   first_x_assum drule>>
-  (* Annoying property of ssteps *)
-  `id ≤ id''` by cheat>>
+  drule check_ssteps_id>>
   simp[]
 QED
 
@@ -1267,9 +1347,31 @@ Theorem fml_rel_check_cstep_list:
       id ≤ id'
 Proof
   Cases>>rw[]
-  >-
-    (* Dom *)
-    cheat
+  >- ((* Dom *)
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
+    DEP_REWRITE_TAC[fml_rel_extract_clauses_list]>>
+    simp[]>>
+    CONJ_TAC >- (
+      match_mp_tac fml_rel_check_subproofs_list>>
+      first_x_assum (irule_at Any)>>
+      simp[fml_rel_update_resize,ind_rel_update_resize_sorted_insert]>>
+      simp[any_el_update_resize])>>
+    CONJ_TAC >- (
+      DEP_REWRITE_TAC[coref_coref_list]>>
+      fs[])>>
+    drule check_subproofs_list_id>>
+    drule check_subproofs_list_id_upper>>
+    drule check_subproofs_list_mindel>>
+    simp[any_el_update_resize]>>
+    ntac 3 strip_tac>>
+    CONJ_TAC>- (
+      match_mp_tac fml_rel_update_resize>>
+      match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
+    CONJ_TAC >- (
+      match_mp_tac ind_rel_update_resize_sorted_insert>>
+      match_mp_tac ind_rel_rollback_2>>
+      simp[])>>
+    simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST])
   >- ( (* LoadOrder *)
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     pairarg_tac>>gvs[AllCaseEqs()]>>
@@ -1324,6 +1426,50 @@ Proof
     CONJ_TAC>-
       metis_tac[ind_rel_update_resize_sorted_insert]>>
     simp[any_el_update_resize])
+QED
+
+Definition check_csteps_list_def:
+  (check_csteps_list [] chk ord obj bound
+    core fml inds id orders =
+    SOME(fml,inds,id,core,bound,ord,orders)) ∧
+  (check_csteps_list (c::cs) chk ord obj bound
+    core fml inds id orders =
+    case check_cstep_list c chk ord obj bound
+      core fml inds id orders of
+      NONE => NONE
+    | SOME(fml',inds',id',core',bound',ord',orders') =>
+      check_csteps_list cs chk ord' obj bound'
+      core' fml' inds' id' orders')
+End
+
+Theorem fml_rel_check_csteps_list:
+  ∀csteps chk ord obj bound core fmlls inds id orders
+    fmlls' id' inds' fml rest.
+    fml_rel fml fmlls ∧
+    ind_rel fmlls inds ∧
+    (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
+    check_csteps_list csteps chk ord obj bound core
+      fmlls inds id orders =
+      SOME (fmlls',inds',id',rest) ⇒
+    ∃fml'.
+      check_csteps csteps chk ord obj bound core
+        fml id orders = SOME (fml', id', rest) ∧
+      fml_rel fml' fmlls' ∧
+      ind_rel fmlls' inds' ∧
+      (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE) ∧
+      id ≤ id'
+Proof
+  Induct>>simp[]
+  >- (
+    rw[check_csteps_list_def,check_csteps_def]>>
+    metis_tac[])>>
+  rw[]>>
+  fs[check_csteps_list_def,check_csteps_def]>>
+  gvs[AllCaseEqs()]>>
+  drule_all fml_rel_check_cstep_list>>
+  rw[]>>simp[]>>
+  first_x_assum drule_all>>
+  rw[]>>simp[]
 QED
 
 Theorem LENGTH_FOLDR_update_resize2:
@@ -1477,6 +1623,70 @@ Proof
   drule_all fml_rel_check_contradiction_fml>>
   rw[npbcTheory.sat_obj_po_def]>>
   metis_tac[check_contradiction_fml_unsat,npbcTheory.unsatisfiable_def,npbcTheory.satisfiable_def]
+QED
+
+(* Specialized for dominance UNSAT checking:
+  chk = F --> unchecked deletions
+  ord = NONE --> no order initially
+  obj = NONE --> no objective
+  bound = NONE --> infinity objective bond
+  core --> all ids in initial formula
+  fml --> the initial formula
+  inds --> all ids in initial formula
+  id --> LENGTH (fml+1)
+  orders = [] --> empty initially
+*)
+Theorem wf_build_fml:
+  ∀fml n.
+  wf (build_fml n fml)
+Proof
+  Induct>>rw[build_fml_def]>>
+  simp[wf_insert]
+QED
+
+Theorem check_csteps_list_unsat:
+  check_csteps_list cs F NONE NONE NONE
+    (fromAList (MAP (λ(x,y). (x,())) (enumerate 1 fml)))
+    (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i)
+      (REPLICATE (2 * (LENGTH fml + 1)) NONE) (enumerate 1 fml))
+    (REVERSE (MAP FST (enumerate 1 fml)))
+    (LENGTH fml + 1) [] =
+    SOME(fml',a,b,c,NONE,d) ∧
+  check_contradiction_fml_list fml' n
+  ⇒
+  unsatisfiable (set fml)
+Proof
+  rw[]>>
+  qmatch_asmsub_abbrev_tac`
+    check_csteps_list cs F NONE NONE NONE core fmlls inds id orders = _`>>
+  `fml_rel (build_fml 1 fml) fmlls` by
+    simp[Abbr`fmlls`,fml_rel_FOLDL_update_resize]>>
+  `ind_rel fmlls inds` by
+    (unabbrev_all_tac>>
+    simp[ind_rel_FOLDL_update_resize])>>
+  `∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE` by (
+    rw[Abbr`id`,Abbr`fmlls`,any_el_ALT]>>
+    DEP_REWRITE_TAC [FOLDL_update_resize_lookup]>>
+    simp[ALOOKUP_enumerate,ALL_DISTINCT_MAP_FST_enumerate])>>
+  drule_all fml_rel_check_csteps_list>>
+  rw[]>>
+  `id_ok (build_fml 1 fml) id` by
+    fs[id_ok_def,domain_build_fml]>>
+  drule check_csteps_optimal>>
+  `core = map (λv. ()) (build_fml 1 fml)` by (
+    fs[Abbr`core`]>>
+    DEP_REWRITE_TAC[spt_eq_thm]>>
+    simp[wf_map,wf_fromAList,wf_build_fml]>>
+    simp[lookup_fromAList,lookup_map,lookup_build_fml]>>
+    simp[ALOOKUP_MAP,ALOOKUP_enumerate])>>
+  gvs[]>>
+  PairCases_on`d`>>
+  disch_then drule>>
+  impl_tac >- (
+    drule_all fml_rel_check_contradiction_fml>>
+    metis_tac[check_contradiction_fml_unsat])>>
+  simp[npbcTheory.optimal_val_def,npbcTheory.eval_obj_def]>>
+  simp[npbcTheory.unsatisfiable_def,range_build_fml]
 QED
 
 val _ = export_theory();
