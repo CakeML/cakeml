@@ -614,19 +614,6 @@ Definition parse_pre_order_head_def:
   | _ => NONE
 End
 
-Definition parse_lit_def:
-  parse_lit s =
-  if strlen s ≥ 2 ∧ strsub s 0 = #"~" then
-    (let ss = substring s 1 (strlen s - 1) in
-    if goodString ss then
-      SOME (Neg ss)
-    else NONE)
-  else if strlen s ≥ 1 then
-    (if goodString s then SOME (Pos s)
-    else NONE)
-  else NONE
-End
-
 Definition hashString_nf_def:
   hashString_nf s t = SOME(hashString s,t)
 End
@@ -788,7 +775,8 @@ Definition parse_load_order_def:
   (parse_load_order f_ns (INL r::rs) =
     case parse_vars_line_aux f_ns rs of
       NONE => NONE
-    | SOME (ws,f_ns') => SOME (Done (LoadOrder r ws),f_ns'))
+    | SOME (ws,f_ns') => SOME (Done (LoadOrder r ws),f_ns')) ∧
+  (parse_load_order f_ns _ = NONE)
 End
 
 (* Partial parse *)
@@ -815,7 +803,7 @@ Definition parse_cstep_head_def:
       (case strip_numbers rs [] of NONE => NONE
       | SOME n => SOME (CheckedDeletepar n,f_ns))
     else if r = INL (strlit "pre_order") then
-      case rs of [INL name] => SOME (StoreOrderpar name, f_ns)
+      case rs of [INL n] => SOME (StoreOrderpar n, f_ns)
       | _ => NONE
     else NONE
 End
