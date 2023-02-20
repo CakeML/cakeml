@@ -1953,9 +1953,6 @@ Proof
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])
 QED
 
- cstep chk ord obj bound
-    core fml inds id orders
-
 val check_unsat'' = process_topdecs `
   fun check_unsat'' fns fd lno chk ord obj bound
     core fml inds id orders =
@@ -2292,7 +2289,7 @@ val check_conc = process_topdecs`
     val n = TextIO.b_inputLineTokens fd blanks tokenize_fast
   in
     case parse_conc_full s y z n of
-      None => Inl "Unable to parse output / conclusion section"
+      None => Inl "Unable to parse output / conclusion section\n"
     | Some n =>
       Inr (check_contradiction_fml_arr fml n)
   end` |> append_prog;
@@ -2364,7 +2361,7 @@ Proof
     qexists_tac`k`>>
     qexists_tac`TL (TL (TL lines))`>>
     xsimpl>>
-    qexists_tac`INL (strlit "Unable to parse output / conclusion section")`>>
+    qexists_tac`INL (strlit "Unable to parse output / conclusion section\n")`>>
     simp[SUM_TYPE_def])>>
   xlet_autop>>
   xcon>>
@@ -2444,7 +2441,7 @@ val check_unsat' = process_topdecs `
       core arr inds id orders of
       (fml', (None, s)) =>
         check_conc fd s fml'
-    | _ => Inl "Invalid UNSAT proof, logged a solution")
+    | _ => Inl "Invalid UNSAT proof, logged a solution\n")
     handle Fail s => Inl s
   end` |> append_prog
 

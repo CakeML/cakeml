@@ -565,9 +565,11 @@ val endtrm = rconc (EVAL``toks_fast (strlit"end pseudo-Boolean proof")``);
 Definition parse_conc_unsat_def:
   parse_conc_unsat s =
   case s of
-    [x;y;INR n] =>
+    [x;y;z;INR n] =>
     if x = INL (strlit "conclusion") ∧
-      y = INL (strlit "UNSAT") ∧ n ≥ 0
+      y = INL (strlit "UNSAT") ∧
+      z = INL (strlit ":") ∧
+      n ≥ 0
     then SOME (Num n) else NONE
   | _ => NONE
 End

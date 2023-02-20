@@ -1053,6 +1053,43 @@ val res = translate COUNT_LIST_AUX_def;
 val res = translate COUNT_LIST_compute;
 val res = translate (red_cond_check_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
 
+Definition print_subgoal_def:
+  (print_subgoal (INL n) = (toString (n:num))) ∧
+  (print_subgoal (INR n) = (strlit"#" ^ toString (n:num)))
+End
+
+Definition print_subproofs_def:
+  (print_subproofs ls =
+    concatWith (strlit " ") (MAP print_subgoal ls))
+End
+
+Definition print_expected_subproofs_def:
+  (print_expected_subproofs rsubs (si:num list) =
+    strlit ("#[1-") ^
+    toString (LENGTH rsubs) ^ strlit "] and " ^
+    concatWith (strlit" ") (MAP toString si))
+End
+
+Definition print_subproofs_err_def:
+  print_subproofs_err rsubs si pids =
+  strlit"Expected: " ^
+  print_expected_subproofs rsubs si ^
+  strlit " Got: " ^
+  print_subproofs pids
+End
+
+val res = translate print_subgoal_def;
+val res = translate print_subproofs_def;
+val res = translate print_expected_subproofs_def;
+val res = translate print_subproofs_err_def;
+
+val format_failure_2_def = Define`
+  format_failure_2 (lno:num) s s2 =
+  strlit "c Checking failed for top-level proof step starting at line: " ^ toString lno ^ strlit ". Reason: " ^ s
+  ^ strlit ". Info: " ^ s2 ^ strlit"\n"`
+
+val r = translate format_failure_2_def;
+
 val check_sstep_arr = process_topdecs`
   fun check_sstep_arr lno step ord obj core fml inds id =
   case step of
@@ -1071,7 +1108,7 @@ val check_sstep_arr = process_topdecs`
                if red_cond_check pids rsubs si
                then
                  (Array.updateResize fml' None id' (Some c), ((id'+1), sorted_insert id' rinds))
-               else raise Fail (format_failure lno ("Redundancy subproofs did not cover all subgoals"))
+               else raise Fail (format_failure_2 lno ("Redundancy subproofs did not cover all subgoals.") (print_subproofs_err rsubs si pids))
            end
     end)
   ` |> append_prog
@@ -1446,15 +1483,14 @@ val res = translate npbc_checkTheory.neg_dom_subst_def;
 val res = translate npbc_checkTheory.dom_subgoals_def;
 val res = translate do_dso_def;
 
-Definition dom_cond_check_def:
-  dom_cond_check pids dsubs s cf =
-  let goals = MAP FST (toAList (map_opt (subst_opt (subst_fun s)) cf)) in
-  EVERY (λid. MEM (INR id) pids) (COUNT_LIST (LENGTH dsubs)) ∧
-  EVERY (λid. MEM (INL id) pids) goals
+Definition core_subgoals_def:
+  core_subgoals s cf =
+  MAP FST (toAList (map_opt (subst_opt (subst_fun s)) cf))
 End
 
+val res = translate core_subgoals_def;
+
 val res = translate npbc_checkTheory.map_opt_def;
-val res = translate (dom_cond_check_def |> REWRITE_RULE [MEMBER_INTRO]);
 
 val check_cstep_arr = process_topdecs`
   fun check_cstep_arr lno cstep chk ord obj bound
@@ -1472,13 +1508,14 @@ val check_cstep_arr = process_topdecs`
          case check_subproofs_arr lno cpfs core fml_not_c (sorted_insert id inds) id (id+1) of
            (fml', id') =>
            let val u = rollback_arr fml' id id'
-               val pids = extract_pids pfs in
-               if dom_cond_check pids dsubs s cf
+               val pids = extract_pids pfs
+               val si = core_subgoals s cf in
+               if red_cond_check pids dsubs si
                then
                  (Array.updateResize fml' None id' (Some c),
                  (sorted_insert id' inds,
                  (id'+1, (core, (bound, (ord,orders))))))
-               else raise Fail (format_failure lno ("Redundancy subproofs did not cover all subgoals"))
+               else raise Fail (format_failure_2 lno ("Dominance subproofs did not cover all subgoals") (print_subproofs_err dsubs si pids))
            end
     end)
   | Loadorder nn xs =>
@@ -1635,12 +1672,12 @@ Proof
     xmatch>>
     rpt xlet_autop>>
     fs[constraint_TYPE_def]>>
-    xlet_autop>>
+    rpt xlet_autop>>
     reverse xif>>gs[]
     >- (
       rpt xlet_autop>>
       xraise>>xsimpl>>
-      fs[dom_cond_check_def]>>rw[]>>
+      fs[core_subgoals_def,red_cond_check_def]>>rw[]>>
       metis_tac[ARRAY_refl,Fail_exn_def,NOT_EVERY])>>
     rpt xlet_autop>>
     xlet_auto>>
@@ -1653,7 +1690,7 @@ Proof
       unabbrev_all_tac>>
       match_mp_tac LIST_REL_update_resize>>
       fs[OPTION_TYPE_def,constraint_TYPE_def])>>
-    fs[dom_cond_check_def]>>rw[]>>
+    fs[core_subgoals_def,red_cond_check_def]>>rw[]>>
     metis_tac[ARRAY_refl,Fail_exn_def,NOT_EVERY])
   >- ( (* LoadOrder*)
     xmatch>>
