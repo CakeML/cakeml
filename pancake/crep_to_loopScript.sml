@@ -203,7 +203,7 @@ Definition comp_func_def:
 End
 
 Definition first_name_def:
-  first_name = 60:num
+  first_name = 62:num
 End
 
 Definition make_funcs_def:
