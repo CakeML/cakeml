@@ -25,7 +25,10 @@ val () = Datatype `
                (* following have no label, but have similar semantics *)
                | CallFFI string
                | Install
-               | Halt`;
+               | Halt
+               (* address, register used, number of bytes *)
+               | ShareLoad ('a word) reg num
+               | ShareStore ('a word) reg num`;
 
 val _ = Datatype`
   asm_or_cbw = Asmi ('a asm) | Cbw reg reg`; (* Either an asm inst/jumpreg or code-buffer-write *)

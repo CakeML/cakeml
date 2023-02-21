@@ -69,12 +69,10 @@ val w2wlist_le_def = Define`
   (w2wlist_le w (0) = []) /\
   (w2wlist_le w (SUC n) = (w2w w)::w2wlist_le (w >>> 8) n)`;
 
-val w2wlist_def = Define`
-  (w2wlist F w n = w2wlist_le w n) /\
-  (w2wlist T w n = REVERSE ( w2wlist_le w n))`;
-
+(* ffi use little endian to represent addresses so the upper languages' semantics
+* don't need to know the endianess of the target *)
 val addr2w8list_def = Define`
-  addr2w8list be (adr: 'a word) = w2wlist be adr (dimindex (:'a) DIV 8)`;
+  addr2w8list (adr: 'a word) = w2wlist_le adr (dimindex (:'a) DIV 8)`;
 
 val evaluate_def = Define `
   evaluate mc (ffi:'ffi ffi_state) k (ms:'a) =
@@ -115,7 +113,7 @@ val evaluate_def = Define `
             let (nb,ad,reg,_) = mc.mmio_info ffi_index in
             case call_FFI ffi (EL ffi_index mc.ffi_names)
               [n2w (dimindex (:'a) DIV 8);nb]
-              (addr2w8list mc.target.config.big_endian ad) of
+              (addr2w8list ad) of
              | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
              | FFI_return new_ffi new_bytes =>
                 let (ms1,new_oracle) = apply_oracle mc.ffi_interfer
@@ -126,9 +124,8 @@ val evaluate_def = Define `
             let (nb,ad,reg,_) = mc.mmio_info ffi_index in
             case call_FFI ffi (EL ffi_index mc.ffi_names)
               [n2w (dimindex (:'a) DIV 8); nb]
-              (w2wlist mc.target.config.big_endian
-                (mc.target.get_reg ms reg) (w2n nb)
-                ++ (addr2w8list mc.target.config.big_endian ad)) of
+              (w2wlist_le (mc.target.get_reg ms reg) (w2n nb)
+                ++ (addr2w8list ad)) of
              | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
              | FFI_return new_ffi new_bytes =>
                 let (ms1,new_oracle) = apply_oracle mc.ffi_interfer

@@ -471,6 +471,29 @@ val evaluate_def = tDefine "evaluate" `
                                    clock := s.clock - 1 |>))
           | _ => (Error,s))
         | _ => (Error,s))
+     (* Should we combine ShareLoad/ShareStore with CallFFI ? *)
+    | SOME (LabAsm (ShareLoad ad r nb)) =>
+        (case call_FFI s.ffi "MappedRead"
+          [n2w (dimindex (:'a) DIV 8);nb]
+          (addr2w8list ad) of
+        | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
+        | FFI_return new_ffi new_bytes =>
+            evaluate (s with <|
+              ffi := new_ffi;
+              regs := (reg := Word (n2w $ bytes2num new_bytes)) s.regs;
+              pc := s.pc + ARB s ad r nb;
+              clock := s.clock - 1 |>))
+    | SOME (LabAsm (ShareStore ad r nb)) =>
+        (case call_FFI s.ffi "MappedWrite"
+          [n2w (dimindex (:'a) DIV 8);nb]
+          (w2wlist (s.regs reg) (w2n nb)
+            ++ (addr2w8list ad)) of
+        | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
+        | FFI_return new_ffi new_bytes =>
+            evaluate (s with <|
+              ffi := new_ffi;
+              pc := s.pc + ARB s ad r nb;
+              clock := s.clock - 1 |>))
     | _ => (Error,s)`
  (WF_REL_TAC `measure (\s. s.clock)`
   \\ fs [inc_pc_def] \\ rw [] \\ IMP_RES_TAC asm_fetch_IMP

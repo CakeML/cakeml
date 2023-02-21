@@ -214,7 +214,7 @@ Proof
   simp[san_mmio_info_simp,APPLY_UPDATE_THM] \\
   simp[call_FFI_def,san_init_ffi_state_def,san_oracle_def] \\
   simp[length_pad_right,
-    EVAL ``LENGTH (addr2w8list riscv_config.big_endian (20000w:word64))``] \\
+    EVAL ``LENGTH (addr2w8list (20000w:word64))``] \\
   simp[apply_oracle_def,san_ffi_interfer_def,APPLY_UPDATE_THM] \\
   simp[Once evaluate_def,APPLY_UPDATE_THM] \\
   encoded_bytes_in_mem_tac `SND $ EL 2 san_prog_asm` `0` \\
@@ -226,8 +226,8 @@ Proof
   simp[san_mmio_info_simp,APPLY_UPDATE_THM] \\
   simp[call_FFI_def,san_init_ffi_state_def,san_oracle_def] \\
   simp[length_pad_right,
-    EVAL ``LENGTH (addr2w8list riscv_config.big_endian 20008w)``,
-    EVAL ``LENGTH (w2wlist riscv_config.big_endian 21w 8)``] \\
+    EVAL ``LENGTH (addr2w8list 20008w)``,
+    EVAL ``LENGTH (w2wlist_le 21w 8)``] \\
   simp[apply_oracle_def,shift_seq_def] \\
   simp[Once evaluate_def,APPLY_UPDATE_THM] \\
   encoded_bytes_in_mem_tac `SND $ EL 4 san_prog_asm` `0` \\
