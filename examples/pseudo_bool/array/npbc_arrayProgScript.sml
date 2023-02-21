@@ -826,7 +826,8 @@ val subst_indexes_arr = process_topdecs`
     | Some res =>
     (case subst_opt_subst_fun s res of
       None => subst_indexes_arr s fml is
-    | Some c => i::subst_indexes_arr s fml is))` |> append_prog;
+    | Some c => (i,c)::subst_indexes_arr s fml is))`
+    |> append_prog;
 
 Theorem subst_indexes_arr_spec:
   ∀is isv s sv fmlls fmllsv fmlv.
@@ -840,7 +841,7 @@ Theorem subst_indexes_arr_spec:
     (ARRAY fmlv fmllsv)
     (POSTv v.
       ARRAY fmlv fmllsv *
-      &(LIST_TYPE NUM (subst_indexes s fmlls is) v))
+      &(LIST_TYPE (PAIR_TYPE NUM constraint_TYPE) (subst_indexes s fmlls is) v))
 Proof
   Induct>>
   xcf"subst_indexes_arr"(get_ml_prog_state ())>>
@@ -869,10 +870,10 @@ Proof
     xmatch>>xapp>>
     metis_tac[])>>
   xmatch>>
-  xlet_autop>>
+  rpt xlet_autop>>
   xcon>>
   xsimpl>>
-  simp[LIST_TYPE_def]
+  simp[LIST_TYPE_def,PAIR_TYPE_def]
 QED
 
 val list_insert_arr = process_topdecs`
@@ -1031,6 +1032,7 @@ Proof
   metis_tac[]
 QED
 
+val res = translate insert_def;
 val res = translate npbc_checkTheory.extract_pids_def;
 
 Definition do_rso_def:
@@ -1043,17 +1045,20 @@ val res = translate npbc_checkTheory.red_subgoals_def;
 val res = translate do_rso_def;
 
 Definition red_cond_check_def:
-  red_cond_check pids rsubs si =
-  (EVERY (λid. MEM (INR id) pids)
-    (COUNT_LIST (LENGTH rsubs)) ∧
-  EVERY (λid. MEM (INL id) pids) si)
+  red_cond_check pfs rsubs goals =
+  let (l,r) = extract_pids pfs LN LN in
+  split_goals l goals ∧
+  EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs))
 End
 
 val res = translate COUNT_LIST_AUX_def;
 val res = translate COUNT_LIST_compute;
+val res = translate PART_DEF;
+val res = translate PARTITION_DEF;
+val res = translate (npbc_checkTheory.split_goals_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
 val res = translate (red_cond_check_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
 
-Definition print_subgoal_def:
+(* Definition print_subgoal_def:
   (print_subgoal (INL n) = (toString (n:num))) ∧
   (print_subgoal (INR n) = (strlit"#" ^ toString (n:num)))
 End
@@ -1061,32 +1066,33 @@ End
 Definition print_subproofs_def:
   (print_subproofs ls =
     concatWith (strlit " ") (MAP print_subgoal ls))
-End
+End *)
 
 Definition print_expected_subproofs_def:
-  (print_expected_subproofs rsubs (si:num list) =
+  (print_expected_subproofs rsubs (si: (num # 'a) list) =
     strlit ("#[1-") ^
     toString (LENGTH rsubs) ^ strlit "] and " ^
-    concatWith (strlit" ") (MAP toString si))
+    concatWith (strlit" ") (MAP (toString o FST) si))
 End
 
 Definition print_subproofs_err_def:
-  print_subproofs_err rsubs si pids =
+  print_subproofs_err rsubs si =
   strlit"Expected: " ^
-  print_expected_subproofs rsubs si ^
+  print_expected_subproofs rsubs si
+  (* ^
   strlit " Got: " ^
-  print_subproofs pids
+  print_subproofs pfs *)
 End
 
-val res = translate print_subgoal_def;
-val res = translate print_subproofs_def;
+(* val res = translate print_subgoal_def;
+val res = translate print_subproofs_def; *)
 val res = translate print_expected_subproofs_def;
 val res = translate print_subproofs_err_def;
 
 val format_failure_2_def = Define`
   format_failure_2 (lno:num) s s2 =
-  strlit "c Checking failed for top-level proof step starting at line: " ^ toString lno ^ strlit ". Reason: " ^ s
-  ^ strlit ". Info: " ^ s2 ^ strlit"\n"`
+  strlit "c Checking failed for top-level proof step starting at line: " ^ toString lno ^ strlit " Reason: " ^ s
+  ^ strlit " Info: " ^ s2 ^ strlit"\n"`
 
 val r = translate format_failure_2_def;
 
@@ -1103,12 +1109,11 @@ val check_sstep_arr = process_topdecs`
          case check_subproofs_arr lno cpfs core fml_not_c (sorted_insert id rinds) id (id+1) of
            (fml', id') =>
            let val u = rollback_arr fml' id id'
-               val pids = extract_pids pfs
-               val si = subst_indexes_arr s fml' rinds in
-               if red_cond_check pids rsubs si
+               val goals = subst_indexes_arr s fml' rinds in
+               if red_cond_check pfs rsubs goals
                then
                  (Array.updateResize fml' None id' (Some c), ((id'+1), sorted_insert id' rinds))
-               else raise Fail (format_failure_2 lno ("Redundancy subproofs did not cover all subgoals.") (print_subproofs_err rsubs si pids))
+               else raise Fail (format_failure_2 lno ("Redundancy subproofs did not cover all subgoals.") (print_subproofs_err rsubs goals))
            end
     end)
   ` |> append_prog
@@ -1194,6 +1199,7 @@ Proof
       metis_tac[ARRAY_refl])>>
     pop_assum mp_tac>>TOP_CASE_TAC>>gvs[]>>
     strip_tac>>
+    fs[do_rso_def]>>
     rpt xlet_autop>>
     xlet_auto>>
     rpt xlet_autop>>
@@ -1214,15 +1220,21 @@ Proof
     strip_tac>>
     xmatch>>
     rpt xlet_autop>>
+    xlet_auto
+    >- (
+      xsimpl>>simp[constraint_TYPE_def]>>
+      metis_tac[ml_translatorTheory.EqualityType_NUM_BOOL,EqualityType_PAIR_TYPE,EqualityType_LIST_TYPE])>>
     reverse xif
     >- (
       rpt xlet_autop>>
+      fs[red_cond_check_def]>>
+      pairarg_tac>>fs[]>>
       xraise>>
       xsimpl>>
-      fs[do_rso_def,Fail_exn_def,red_cond_check_def]>>
       rw[]>>fs[]>>
-      metis_tac[ARRAY_refl,NOT_EVERY]) >>
-    fs[do_rso_def,red_cond_check_def]>>
+      metis_tac[ARRAY_refl,NOT_EVERY,Fail_exn_def]) >>
+    fs[red_cond_check_def]>>
+    pairarg_tac>>fs[]>>
     rpt xlet_autop>>
     xlet_auto>>
     xcon>>xsimpl>>
@@ -1289,7 +1301,6 @@ val res = translate lrnext_def;
 val res = translate foldi_def;
 val res = translate toAList_def;
 
-val res = translate insert_def;
 val res = translate fromAList_def;
 
 Definition mapfsttoalist_def:
@@ -1485,12 +1496,18 @@ val res = translate do_dso_def;
 
 Definition core_subgoals_def:
   core_subgoals s cf =
-  MAP FST (toAList (map_opt (subst_opt (subst_fun s)) cf))
+  toAList (map_opt (subst_opt (subst_fun s)) cf)
 End
 
+val res = translate npbc_checkTheory.map_opt_def;
 val res = translate core_subgoals_def;
 
-val res = translate npbc_checkTheory.map_opt_def;
+Definition do_core_del_def:
+  do_core_del (core:num_set) ls =
+  FOLDL (λa b. delete b a) core ls
+End
+
+val res = translate do_core_del_def;
 
 val check_cstep_arr = process_topdecs`
   fun check_cstep_arr lno cstep chk ord obj bound
@@ -1508,14 +1525,13 @@ val check_cstep_arr = process_topdecs`
          case check_subproofs_arr lno cpfs core fml_not_c (sorted_insert id inds) id (id+1) of
            (fml', id') =>
            let val u = rollback_arr fml' id id'
-               val pids = extract_pids pfs
-               val si = core_subgoals s cf in
-               if red_cond_check pids dsubs si
+               val goals = core_subgoals s cf in
+               if red_cond_check pfs dsubs goals
                then
                  (Array.updateResize fml' None id' (Some c),
                  (sorted_insert id' inds,
                  (id'+1, (core, (bound, (ord,orders))))))
-               else raise Fail (format_failure_2 lno ("Dominance subproofs did not cover all subgoals") (print_subproofs_err dsubs si pids))
+               else raise Fail (format_failure_2 lno ("Dominance subproofs did not cover all subgoals") (print_subproofs_err dsubs goals))
            end
     end)
   | Loadorder nn xs =>
@@ -1549,8 +1565,30 @@ val check_cstep_arr = process_topdecs`
        (bound, (ord, orders))))))
     else
      raise Fail (format_failure lno ("core transfer invalid ids")))
-  | Checkeddelete ls pfs => ()
-  | Sstep sstep => (
+  | Checkeddelete ls pfs => (
+    if all_core_every core ls then
+    (
+      if chk then
+        raise Fail (format_failure lno ("core del with explicit subproofs not yet supported"))
+      else
+      if ord = None then
+        (list_delete_arr ls fml;
+          (fml, (inds, (id,
+                (do_core_del core ls,
+                (bound, (ord, orders)))))))
+      else
+        case all_core_arr fml inds core of (ac,inds') =>
+        if ac then
+          (list_delete_arr ls fml;
+            (fml, (inds', (id,
+                  (do_core_del core ls,
+                  (bound, (ord, orders)))))))
+        else
+           raise Fail (format_failure lno ("not all constraints in core")))
+    else
+      raise Fail (format_failure lno ("not all core del ids in core"))
+    )
+    | Sstep sstep => (
     case check_sstep_arr lno sstep ord obj core fml inds id of
       (fml',(id',inds')) =>
       (fml',(inds',(id',(core,(bound,(ord,orders)))))))
@@ -1570,6 +1608,25 @@ val check_cstep_arr = process_topdecs`
   |> append_prog;
 
 val NPBC_CHECK_CSTEP_TYPE_def = theorem "NPBC_CHECK_CSTEP_TYPE_def";
+
+Theorem EqualityType_OPTION_TYPE:
+  EqualityType a ⇒
+  EqualityType (OPTION_TYPE a)
+Proof
+  EVAL_TAC>>
+  rw[]>>
+  Cases_on`x1`>>fs[OPTION_TYPE_def]>>
+  TRY(Cases_on`x2`>>fs[OPTION_TYPE_def])>>
+  EVAL_TAC>>
+  metis_tac[]
+QED
+
+Theorem EqualityType_ord_TYPE:
+  EqualityType ord_TYPE
+Proof
+  rw[ord_TYPE_def,spo_TYPE_def,constraint_TYPE_def]>>
+  metis_tac[EqualityType_OPTION_TYPE,EqualityType_PAIR_TYPE,EqualityType_LIST_TYPE,EqualityType_NUM_BOOL]
+QED
 
 Theorem check_cstep_arr_spec:
   NPBC_CHECK_CSTEP_TYPE cstep cstepv ∧
@@ -1676,22 +1733,21 @@ Proof
     reverse xif>>gs[]
     >- (
       rpt xlet_autop>>
+      fs[red_cond_check_def]>>pairarg_tac>>fs[core_subgoals_def]>>
       xraise>>xsimpl>>
-      fs[core_subgoals_def,red_cond_check_def]>>rw[]>>
+      fs[red_cond_check_def]>>rw[]>>
       metis_tac[ARRAY_refl,Fail_exn_def,NOT_EVERY])>>
     rpt xlet_autop>>
     xlet_auto>>
+    pairarg_tac>>fs[red_cond_check_def,core_subgoals_def]>>
     xcon>>
-    xsimpl>>rw[]
-    >- (
-      fs[PAIR_TYPE_def,OPTION_TYPE_def]>>
-      qmatch_goalsub_abbrev_tac`ARRAY _ A`>>
-      qexists_tac`A`>>xsimpl>>
-      unabbrev_all_tac>>
-      match_mp_tac LIST_REL_update_resize>>
-      fs[OPTION_TYPE_def,constraint_TYPE_def])>>
-    fs[core_subgoals_def,red_cond_check_def]>>rw[]>>
-    metis_tac[ARRAY_refl,Fail_exn_def,NOT_EVERY])
+    xsimpl>>rw[]>>
+    fs[PAIR_TYPE_def,OPTION_TYPE_def]>>
+    qmatch_goalsub_abbrev_tac`ARRAY _ A`>>
+    qexists_tac`A`>>xsimpl>>
+    unabbrev_all_tac>>
+    match_mp_tac LIST_REL_update_resize>>
+    fs[OPTION_TYPE_def,constraint_TYPE_def])
   >- ( (* LoadOrder*)
     xmatch>>
     xlet_autop>>
@@ -1767,7 +1823,53 @@ Proof
     fs[Fail_exn_def]>>
     metis_tac[ARRAY_refl])
   >- ( (* CheckedDelete*)
-    cheat
+    xmatch>>
+    xlet_autop>>
+    reverse(xif>>fs[all_core_every_def])
+    >- (
+      rpt xlet_autop>>
+      qpat_x_assum`EXISTS _ _` mp_tac>>
+      REWRITE_TAC [GSYM NOT_EVERY]>>
+      strip_tac>>
+      simp[]>>
+      xraise >> xsimpl>>
+      fs[Fail_exn_def]>>
+      metis_tac[ARRAY_refl])>>
+    xif
+    >- (
+      rpt xlet_autop>>
+      xraise >> xsimpl>>
+      fs[Fail_exn_def]>>
+      metis_tac[ARRAY_refl])>>
+    rpt xlet_autop>>
+    xlet`POSTv v. ARRAY fmlv fmllsv * &(BOOL (ord = NONE) v)`
+    >- (
+      xapp_spec (mlbasicsProgTheory.eq_v_thm |> INST_TYPE [alpha |-> ``:((((int # num) list # num) list # num list # num list) # num list) option``])>>
+      xsimpl>>
+      first_x_assum (irule_at Any)>>
+      qexists_tac`NONE`>>simp[OPTION_TYPE_def]>>
+      rw[] >- metis_tac[EqualityType_ord_TYPE]>>
+      EVAL_TAC)>>
+    xif
+    >- (
+      rpt xlet_autop>>
+      xcon>>xsimpl>>
+      simp[PAIR_TYPE_def]>>
+      fs[do_core_del_def,ord_TYPE_def,ord_TYPE_def]>>
+      metis_tac[ARRAY_refl])>>
+    rpt xlet_autop>>
+    pairarg_tac>>fs[PAIR_TYPE_def]>>
+    xmatch>>
+    xif
+    >- (
+      rpt xlet_autop>>
+      xcon>>xsimpl>>
+      simp[PAIR_TYPE_def]>>
+      fs[do_core_del_def,ord_TYPE_def,ord_TYPE_def]>>
+      metis_tac[ARRAY_refl])>>
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    metis_tac[Fail_exn_def,ARRAY_refl]
   )
   >- ( (* Sstep *)
     xmatch>>

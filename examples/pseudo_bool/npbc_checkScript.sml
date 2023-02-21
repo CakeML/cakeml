@@ -501,13 +501,29 @@ Definition map_opt_def:
     | SOME a => mk_BS (map_opt f t1) a (map_opt f t2)
 End
 
-(* Extract the ids which are proved by a list of proofs*)
+(* Extract the INL and INR
+  ids which were proved by a list of proofs *)
 Definition extract_pids_def:
-  (extract_pids [] = []) ∧
-  (extract_pids (cpf::pfs) =
+  (extract_pids [] l r = (l,r)) ∧
+  (extract_pids (cpf::pfs) l r =
   case FST cpf of
-    NONE => extract_pids pfs
-  | SOME (i,n) => i::extract_pids pfs)
+    NONE => extract_pids pfs l r
+  | SOME (i,n) =>
+    (case i of
+      INL i => extract_pids pfs (insert i () l) r
+    | INR i => extract_pids pfs l (insert i () r)))
+End
+
+(* Partition the formula goals into proved and non-proved
+  For each non-proved goal, check if
+  it was already proved by another proofgoal (excluding #)
+*)
+Definition split_goals_def:
+  split_goals (proved:num_set) goals =
+  let (lp,lf) =
+    PARTITION (λ(i,c). lookup i proved ≠ NONE) goals in
+  let proved = MAP SND lp in
+  EVERY (λ(i,c). MEM c proved) lf
 End
 
 (* TODO: Figure out exactly
@@ -526,12 +542,11 @@ Definition check_sstep_def:
       | SOME cpfs =>
       (case check_subproofs cpfs core fml_not_c (id+1) of
         SOME id' =>
-        let goals = MAP FST (toAList (map_opt (subst_opt w) fml)) in
-        let pids = extract_pids pfs in
+        let goals = toAList (map_opt (subst_opt w) fml) in
+        let (l,r) = extract_pids pfs LN LN in
           if
-            EVERY (λid. MEM (INR id) pids) (COUNT_LIST (LENGTH rsubs)) ∧
-
-            EVERY (λid. MEM (INL id) pids) goals
+            split_goals l goals ∧
+            EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs))
           then
             SOME (insert id' c fml,id'+1)
           else NONE
@@ -723,16 +738,32 @@ Proof
   asm_exists_tac >> simp[]
 QED
 
-Theorem MEM_extract_pids:
-  ∀ls i.
-  MEM i (extract_pids ls) ⇒
+Theorem lookup_extract_pids_l:
+  ∀ls accl accr l r.
+  extract_pids ls accl accr = (l,r) ∧
+  lookup i l ≠ NONE ⇒
+  lookup i accl ≠ NONE ∨
   ∃n pf.
-  MEM (SOME (i,n),pf) ls
+    MEM (SOME (INL i,n),pf) ls
 Proof
   Induct>>rw[extract_pids_def]>>
-  Cases_on`h`>>fs[]>>
-  every_case_tac>>fs[]>>
-  metis_tac[]
+  gvs[AllCaseEqs()]>>
+  first_x_assum drule>>rw[lookup_insert]>>
+  metis_tac[PAIR]
+QED
+
+Theorem lookup_extract_pids_r:
+  ∀ls accl accr l r.
+  extract_pids ls accl accr = (l,r) ∧
+  lookup i r ≠ NONE ⇒
+  lookup i accr ≠ NONE ∨
+  ∃n pf.
+    MEM (SOME (INR i,n),pf) ls
+Proof
+  Induct>>rw[extract_pids_def]>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum drule>>rw[lookup_insert]>>
+  metis_tac[PAIR]
 QED
 
 Theorem sat_implies_EL:
@@ -750,6 +781,29 @@ Theorem unsatisfiable_not_sat_implies:
 Proof
   rw[sat_implies_def,unsatisfiable_def,satisfiable_def]>>
   metis_tac[not_thm]
+QED
+
+Theorem split_goals_checked:
+  split_goals proved goals ∧
+  MEM (n,yy) goals ⇒
+  ∃i.
+    lookup i proved ≠ NONE ∧
+    MEM (i,yy) goals
+Proof
+  rw[split_goals_def]>>
+  pairarg_tac>>fs[PARTITION_DEF]>>
+  pop_assum (ASSUME_TAC o SYM)>>
+  drule PARTs_HAVE_PROP>>
+  drule PART_MEM>>rw[]>>
+  last_x_assum(qspec_then`(n,yy)` assume_tac)>>gvs[]>>
+  first_x_assum drule>>
+  rw[]
+  >- metis_tac[]>>
+  fs[EVERY_MEM]>>
+  last_x_assum drule>>rw[MEM_MAP]>>
+  first_x_assum drule>>rw[]>>
+  pairarg_tac>>gvs[]>>
+  metis_tac[]
 QED
 
 Theorem check_sstep_correct:
@@ -781,6 +835,7 @@ Proof
     metis_tac[good_spo_def,reflexive_def,reflexive_po_of_spo,PAIR])
   >- ( (* Red *)
     every_case_tac>>
+    pairarg_tac>>gvs[]>>
     gs[id_ok_insert_1]>>
     `id_ok (insert id (not p) fml) (id + 1)` by
       fs[id_ok_def]>>
@@ -817,8 +872,7 @@ Proof
       rw[sat_implies_EL]>>
       last_x_assum(qspec_then`SUC n` assume_tac)>>
       gvs[]>>
-      drule MEM_extract_pids>>
-      rw[]
+      drule_all lookup_extract_pids_r>>rw[]
       \\ drule extract_clauses_MEM_INR
       \\ disch_then drule
       \\ fs[EL]
@@ -833,8 +887,7 @@ Proof
       Cases_on`obj`>>
       last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun s) ord))` assume_tac)>>
       fs[]>>
-      drule MEM_extract_pids>>
-      rw[]
+      drule_all lookup_extract_pids_r>>rw[]
       \\ drule extract_clauses_MEM_INR
       \\ disch_then drule
       \\ fs[EL]
@@ -849,8 +902,7 @@ Proof
       (* redundancy #0 *)
       last_x_assum(qspec_then`0` assume_tac)>>
       fs[]>>
-      drule MEM_extract_pids>>
-      rw[]
+      drule_all lookup_extract_pids_r>>rw[]
       \\ drule extract_clauses_MEM_INR
       \\ disch_then drule
       \\ fs[]
@@ -864,24 +916,23 @@ Proof
     \\ pop_assum mp_tac
     \\ simp [Once range_def] \\ rw []
     \\ rename [‘lookup a fml = SOME xx’]
-    \\ fs [MEM_toAList,lookup_map_opt,CaseEq"option",PULL_EXISTS]
-    \\ last_x_assum drule
     \\ Cases_on ‘subst_opt (subst_fun s) xx’ \\ fs []
     THEN1
      (imp_res_tac subst_opt_NONE
       \\ CCONTR_TAC \\ gvs [satisfiable_def,not_thm]
       \\ fs [satisfies_def,range_def,PULL_EXISTS]
       \\ metis_tac[])
-    \\ rename1`yy = (_,_)`
-    \\ Cases_on`yy` \\ fs[]
-    \\ strip_tac
-    \\ drule MEM_extract_pids \\ strip_tac
+    \\ rename1`subst_opt _ _ = SOME yy`
+    \\ `MEM (a,yy) (toAList (map_opt (subst_opt (subst_fun s)) fml))` by
+      simp[MEM_toAList,lookup_map_opt]
+    \\ drule_all split_goals_checked \\ rw[]
+    \\ drule_all lookup_extract_pids_l>>rw[]
     \\ drule extract_clauses_MEM_INL
     \\ disch_then drule
     \\ strip_tac
     \\ first_x_assum drule
-    \\ gvs[unsatisfiable_def]
-    \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
+    \\ gvs[unsatisfiable_def, MEM_toAList,lookup_map_opt]
+    \\ metis_tac[INSERT_SING_UNION,UNION_COMM,subst_opt_SOME])
 QED
 
 Definition sstep_ok_def[simp]:
@@ -903,6 +954,7 @@ Proof
   >-
     metis_tac[check_lstep_compact] >>
   every_case_tac>>gvs[]>>
+  pairarg_tac>>gvs[]>>
   drule range_insert_2>>rw[]>>
   metis_tac[]
 QED
@@ -1250,8 +1302,8 @@ Definition check_transitivity_def:
   | SOME cpfs =>
   (case check_subproofs cpfs LN fml id of
     SOME id' =>
-    let pids = extract_pids pfs in
-      EVERY (λid. MEM (INR id) pids) (COUNT_LIST (LENGTH dsubs))
+    let (l,r) = extract_pids pfs LN LN in
+       EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH dsubs))
   | _ => F)
 End
 
@@ -1278,12 +1330,11 @@ Definition check_cstep_def:
       (case check_subproofs cpfs core fml_not_c (id+1) of
         SOME id' =>
         let cf = coref core fml in
-        let goals = MAP FST (toAList (map_opt (subst_opt w) cf)) in
-        let pids = extract_pids pfs in
+        let goals = toAList (map_opt (subst_opt w) cf) in
+        let (l,r) = extract_pids pfs LN LN in
           if
-            EVERY (λid. MEM (INR id) pids) (COUNT_LIST (LENGTH dsubs)) ∧
-
-            EVERY (λid. MEM (INL id) pids) goals
+            split_goals l goals ∧
+            EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH dsubs))
           then
             SOME (insert id' c fml, id'+1, core, bound, ord, orders)
           else NONE
@@ -1761,6 +1812,7 @@ Proof
     ntac 9 strip_tac>>
     Cases_on`ord`>>fs[]>>
     every_case_tac>>gs[]>>
+    pairarg_tac>>gvs[]>>
     `id_ok (insert id (not p) fml) (id + 1)` by
       fs[id_ok_def]>>
     drule check_subproofs_correct>>
@@ -1804,26 +1856,27 @@ Proof
         rw[sat_implies_def,range_def,satisfies_def]
         \\ gs[PULL_EXISTS]
         \\ rename [‘lookup a _ = SOME xx’]
-        \\ fs [MEM_toAList,lookup_map_opt,CaseEq"option",PULL_EXISTS]
         \\ drule_all lookup_coref
         \\ strip_tac
-        \\ last_x_assum drule
         \\ Cases_on ‘subst_opt (subst_fun s) xx’ \\ fs []
         THEN1 (
           imp_res_tac subst_opt_NONE
           \\ CCONTR_TAC \\ gvs [satisfiable_def,not_thm]
           \\ fs [satisfies_def,range_def,PULL_EXISTS]
           \\ metis_tac[])
-        \\ rename1`yy = (_,_)`
-        \\ Cases_on`yy` \\ fs[]
-        \\ strip_tac
-        \\ drule MEM_extract_pids \\ strip_tac
+        \\ rename1`subst_opt _ _ = SOME yy`
+        \\ `MEM (a,yy) (toAList (map_opt (subst_opt (subst_fun s)) (coref core fml)))` by simp[MEM_toAList,lookup_map_opt]
+        \\ drule_all split_goals_checked \\ rw[]
+        \\ drule_all lookup_extract_pids_l>>rw[]
         \\ drule extract_clauses_MEM_INL
         \\ disch_then drule
         \\ strip_tac
         \\ last_x_assum drule
-        \\ gvs[unsatisfiable_def,satisfiable_def,satisfies_def]
-        \\ fs[not_thm,range_def]
+        \\ gvs[unsatisfiable_def,satisfiable_def, MEM_toAList,lookup_map_opt,AllCaseEqs(),satisfies_def]
+        \\ fs[not_thm,range_def,PULL_EXISTS]
+        \\ drule_all lookup_coref \\ rw[]
+        \\ `subst (subst_fun s) c = subst (subst_fun s) xx` by
+          metis_tac[subst_opt_SOME,lookup_coref]
         \\ metis_tac[])>>
       CONJ_TAC >- (
         (* order constraints *)
@@ -1831,7 +1884,7 @@ Proof
         rw[sat_implies_EL,EL_MAP]>>
         last_x_assum(qspec_then`n` assume_tac)>>
         gvs[dom_subst_def]>>
-        drule MEM_extract_pids>>
+        drule_all lookup_extract_pids_r>>
         rw[]>>
         drule extract_clauses_MEM_INR>>
         disch_then drule>>
@@ -1848,8 +1901,8 @@ Proof
         (* negated order constraint *)
         last_x_assum(qspec_then`LENGTH (dom_subst (subst_fun s) (SOME ((x0,x1,x2),x3)))` assume_tac)>>
         gs[ADD1]>>
-        drule MEM_extract_pids>>
-        rw[]
+        drule_all lookup_extract_pids_r>>
+        simp[]>> rw[]
         \\ drule extract_clauses_MEM_INR
         \\ disch_then drule
         \\ fs[]
@@ -1864,8 +1917,8 @@ Proof
       simp[]>>
       last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun s) (SOME ((x0,x1,x2),x3))))` assume_tac)>>
       gs[ADD1]>>
-      drule MEM_extract_pids>>
-      rw[]
+      drule_all lookup_extract_pids_r>>
+      simp[]>>rw[]
       \\ drule extract_clauses_MEM_INR
       \\ disch_then drule
       \\ fs[]
@@ -1933,9 +1986,11 @@ Proof
     simp[GSYM LIST_TO_SET_MAP]>>
     rw[sat_implies_EL]>>
     fs[MEM_COUNT_LIST]>>
+    pairarg_tac>>gs[]>>
     first_x_assum drule>>
     rw[]>>
-    drule MEM_extract_pids>>
+    drule_all lookup_extract_pids_r>>
+    simp[Abbr`coree`]>>
     rw[]>>
     drule extract_clauses_MEM_INR>>
     disch_then drule>>

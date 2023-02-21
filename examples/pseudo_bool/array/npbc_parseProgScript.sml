@@ -189,18 +189,20 @@ val parse_lsteps_aux = process_topdecs`
     case TextIO.b_inputLineTokens fd blanks tokenize_fast of
       None => raise Fail (format_failure lno "reached EOF while reading PBP steps")
     | Some s =>
-    case parse_lstep_aux f_ns s of None => (List.rev acc,(f_ns,(s,lno)))
-    | Some (Inl step,f_ns') => parse_lsteps_aux f_ns' fd (lno+1) (step::acc)
+    case parse_lstep_aux f_ns s of
+      None => (List.rev acc,(f_ns,(s,lno+1)))
+    | Some (Inl step,f_ns') =>
+        parse_lsteps_aux f_ns' fd (lno+1) (step::acc)
     | Some (Inr (c,s),f_ns') =>
       if not_isempty s then
-          raise Fail (format_failure lno "only contradiction steps allowed in nested proof steps")
+        raise Fail (format_failure (lno+1) "only contradiction steps allowed in nested proof steps")
       else
         (case parse_lsteps_aux f_ns' fd (lno+1) [] of
           (pf,(f_ns'',(s,lno'))) =>
           case check_end s of
             None => raise Fail (format_failure lno' "subproof not terminated with contradiction id")
           | Some id =>
-            parse_lsteps_aux f_ns'' fd (lno+1) (Con c pf id::acc))`
+            parse_lsteps_aux f_ns'' fd (lno'+1) (Con c pf id::acc))`
     |> append_prog;
 
 val blanks_v_thm = theorem "blanks_v_thm";
@@ -501,7 +503,7 @@ val parse_red_aux = process_topdecs`
           (case parse_lsteps_aux f_ns' fd lno' [] of
             (pf,(f_ns'',(s,lno''))) =>
             case check_end s of
-              None => raise Fail (format_failure lno' "subproof not terminated with contradiction id")
+              None => raise Fail (format_failure lno'' "subproof not terminated with contradiction id")
           | Some id =>
               parse_red_aux f_ns'' fd lno'' ((Some (ind,id),pf)::acc')
               )
@@ -661,7 +663,7 @@ val parse_sstep = process_topdecs`
       raise Fail (format_failure lno "Unexpected EOF when parsing proof steps")
     | Some s =>
     (case parse_lstep_aux fns s of
-      None => (Inl s, (fns, lno))
+      None => (Inl s, (fns, lno+1))
     | Some (Inl step,fns') => (Inr (Lstep step),(fns',lno+1))
     | Some (Inr (c,s),fns') =>
       if not_isempty s then
@@ -1778,15 +1780,15 @@ val parse_cstep = process_topdecs`
     | (Inl s, (fns',lno')) =>
     (case parse_cstep_head fns' s of
       None => (Inl s, (fns',lno'))
-    | Some (Done cstep,fns'') => (Inr cstep, (fns'', lno'+1))
+    | Some (Done cstep,fns'') => (Inr cstep, (fns'', lno'))
     | Some (Dompar c s,fns'') =>
-        (case parse_red_aux fns'' fd (lno'+1) [] of
+        (case parse_red_aux fns'' fd (lno') [] of
             (pf,(fns''',lno'')) =>
             (Inr (Dom c s pf),(fns''',lno'')))
     | Some (Checkeddeletepar n, fns'') =>
-        (Inr (Checkeddelete n []), (fns'', lno'+1))
+        (Inr (Checkeddelete n []), (fns'', lno'))
     | Some (Storeorderpar name, fns'') =>
-        (case parse_pre_order fd (lno'+1) of
+        (case parse_pre_order fd lno' of
           (spo,(ws,(pf,lno''))) =>
           (Inr (Storeorder name spo ws pf), (fns'', lno''))))
   `|>append_prog
@@ -1911,7 +1913,7 @@ Proof
     unabbrev_all_tac>>simp[forwardFD_o]>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])
   >- (
-    xlet_autop>>
+    rpt xlet_autop>>
     qmatch_goalsub_abbrev_tac`INSTREAM_LINES _ _ lines1 fs1`>>
     xlet`(POSTve
       (λv.
@@ -1960,7 +1962,7 @@ val check_unsat'' = process_topdecs `
       (Inl s, (fns', lno)) =>
         (fml, (bound, s))
     | (Inr cstep, (fns', lno')) =>
-      (case check_cstep_arr lno' cstep chk ord obj
+      (case check_cstep_arr lno cstep chk ord obj
         bound core fml inds id orders of
         (fml', (inds', (id', (core', (bound', (ord', orders')))))) =>
         check_unsat'' fns' fd lno' chk ord' obj bound'
@@ -2738,7 +2740,7 @@ val check_unsat_top = process_topdecs `
       Inl (format_failure n "Unable to parse header"))
     | None =>
       let val res =
-        result_string success_string (check_unsat' fns fd 2 fml)
+        result_string success_string (check_unsat' fns fd 3 fml)
         val close = TextIO.b_closeIn fd;
       in
         res
