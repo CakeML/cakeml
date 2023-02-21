@@ -7,11 +7,21 @@ val _ = new_theory "milp";
 
 val _ = numLib.prefer_num();
 
-(* this should really be a finite map x |-> r *)
+(* this should really be a finite map x |-> r
+
+  this representation forces each variable to have at most one coefficient, i.e., no (x0,5.0) (x0,4.0) (x1,3.0)
+
+  But
+
+  x0 |-> 9.0
+  x1 |-> 3.0
+
+*)
 Type lin_term = ``: real num_map``;
 
 Definition eval_real_term_def:
-  eval_real_term w (x,r:real) = (r * w x):real
+  eval_real_term (w:num ->real) (x:num,r:real) =
+  (r * w x):real
 End
 
 Definition eval_lhs_def[nocompute]:
@@ -62,7 +72,7 @@ Datatype:
 End
 
 (* A linear constraint *)
-Type milc = ``:(linop # lin_term # real)``
+Type lc = ``:(linop # lin_term # real)``
 
 Definition do_op_def[simp]:
   (do_op Equal (l:real) (r:real) ⇔ l = r) ∧
@@ -70,42 +80,48 @@ Definition do_op_def[simp]:
   (do_op LessEqual l r ⇔ l ≤ r)
 End
 
-(* satisfaction of a mixed integer linear constraint *)
-Definition satisfies_milc_def:
-  (satisfies_milc w (lop,lhs,n) ⇔
+(* satisfaction of a linear constraint *)
+Definition satisfies_lc_def:
+  (satisfies_lc w ((lop,lhs,n):lc) ⇔
     do_op lop (eval_lhs w lhs) n)
 End
 
-(* satisfaction of an MILP *)
+(* satisfaction of a mixed integer program (MILP)
+  which consists of
+  intv: a set of integer valued variables
+  lcs: a list of linear constraints
+MILP *)
 Definition satisfies_def:
-  satisfies w intv milp ⇔
+  satisfies w intv lcs ⇔
   (∀v. v ∈ intv ⇒ is_int (w v)) ∧
-  (∀c. c ∈ milp ⇒ satisfies_milc w c)
+  (∀c. c ∈ lcs ⇒ satisfies_lc w c)
 End
 
 Datatype:
   result = Infeasible | Range (real option) (real option)
 End
 
-(* The assignment w gives an optimal value for min/max problem *)
+(* The assignment w gives an optimal value for min/max problem
 Definition optimal_def:
-  (optimal intv milp min obj w ⇔
-  satisfies w intv milp ∧
+  (optimal intv lcs min obj w ⇔
+  satisfies w intv lcs ∧
   ∀w'.
-    satisfies w' intv milp ⇒
+    satisfies w' intv lcs ⇒
     (min ⇒ eval_lhs w obj ≤ eval_lhs w' obj) ∧
     (¬min ⇒ eval_lhs w' obj ≤ eval_lhs w obj)
   )
-End
+End *)
 
-(* NONE represents +infinity *)
+(* r ≤ ubopt
+  where NONE represents +infinity *)
 Definition le_inf_def:
   le_inf ubopt (r:real) ⇔
   (case ubopt of NONE => T
   | SOME ub => r ≤ ub)
 End
 
-(* NONE represents -infinity *)
+(* lbopt ≤ r
+  where NONE represents -infinity *)
 Definition inf_le_def:
   inf_le lbopt (r:real) ⇔
   (case lbopt of NONE => T
@@ -114,30 +130,39 @@ End
 
 (*
   intv: set of integer variables
-  milp: the MILP constraints
+  lcs: the MILP constraints
   min: boolean flag, true to minimize obj (or maximize if false)
   obj: objective linear term
 *)
 Definition satisfies_rtp_def:
-  (satisfies_rtp intv milp min obj Infeasible ⇔
-    ∀w. ¬satisfies w intv milp) ∧
-  (satisfies_rtp intv milp min obj (Range lb ub) ⇔
-    (* Satisfiable *)
-    (∃w. satisfies w intv milp) ∧
-    ∀w. optimal intv milp min obj w ⇒
-      inf_le lb (eval_lhs w obj) ∧
-      le_inf ub (eval_lhs w obj))
+  (satisfies_rtp intv lcs min obj Infeasible ⇔
+    ∀w. ¬satisfies w intv lcs) ∧
+  (satisfies_rtp intv lcs min obj (Range lb ub) ⇔
+    if min then
+      (* For a minimization problem,
+        LB is a lower bound on any satisfying assignment
+        UB (if not infinity) means the objective is attained
+          at least at UB *)
+      (∀w. satisfies w intv lcs ⇒ inf_le lb (eval_lhs w obj)) ∧
+      (∃w. satisfies w intv lcs ∧ le_inf ub (eval_lhs w obj))
+    else
+      (* For a maximization problem,
+        UB is an upper bound on any satisfying assignment
+        LB (if not -infinity) means the objective is attained
+          at least at LB *)
+      (∀w. satisfies w intv lcs ⇒ le_inf ub (eval_lhs w obj)) ∧
+      (∃w. satisfies w intv lcs ∧ inf_le lb (eval_lhs w obj)))
 End
 
 (* Implication constraints *)
-Definition satisfies_imp_milc_def:
-  satisfies_imp_milc w assms milc ⇔
-  ((∀c. c ∈ assms ⇒ satisfies_milc w c) ⇒ satisfies_milc w milc)
+Definition satisfies_imp_lc_def:
+  satisfies_imp_lc w assms lc ⇔
+  ((∀c. c ∈ assms ⇒ satisfies_lc w c) ⇒ satisfies_lc w lc)
 End
 
-Definition satisfies_imp_milp_def:
-  satisfies_imp_milp w imilp ⇔
-  ∀i c. (i,c) ∈ imilp ⇒ satisfies_imp_milc w i c
+Definition satisfies_imp_lcs_def:
+  satisfies_imp_lcs w ilcs ⇔
+  ∀i c. (i,c) ∈ ilcs ⇒ satisfies_imp_lc w i c
 End
 
 (* Syntactic stuff *)
@@ -154,20 +179,20 @@ Definition mk_sol_def:
   case lookup x sol of NONE => 0 | SOME r => (r:real)
 End
 
-Definition check_milp_def:
-  check_milp milp sol =
+Definition check_lcs_def:
+  check_lcs lcs sol =
   let solc = mk_sol sol in
-  EVERY (satisfies_milc solc) milp
+  EVERY (satisfies_lc solc) lcs
 End
 
 Definition check_sol_def:
-  check_sol intv milp (sol: real num_map) ⇔
+  check_sol intv lcs (sol: real num_map) ⇔
   check_dom intv sol ∧
-  check_milp milp sol
+  check_lcs lcs sol
 End
 
 (* Syntactic formulae are given by a sptree of implication
-  constraints with type (milc list, milc)
+  constraints with type (lc list, lc)
   TODO: add support for deletion *)
 Datatype:
   vipr = Assum
@@ -183,8 +208,8 @@ Definition int_valued_def:
   EVERY (λ(x,r). IS_SOME (lookup x intv) ∧ is_int r) xs
 End
 
-Definition round_milc_def:
-  round_milc intv (lop,lhs,n) =
+Definition round_lc_def:
+  round_lc intv (lop,lhs,n) =
   if int_valued intv lhs then
     case lop of
       GreaterEqual => SOME (lop,lhs,real_of_int (INT_CEILING n))
@@ -194,7 +219,7 @@ Definition round_milc_def:
 End
 
 Definition absurdity_def:
-  absurdity ((lop,xs,n):milc) ⇔
+  absurdity ((lop,xs,n):lc) ⇔
   xs = LN ∧
   case lop of
     GreaterEqual => n > 0
@@ -203,11 +228,11 @@ Definition absurdity_def:
 End
 
 Theorem absurdity_unsat:
-  absurdity milc ⇒
-  ¬satisfies_milc w milc
+  absurdity lc ⇒
+  ¬satisfies_lc w lc
 Proof
-  PairCases_on`milc`>>
-  simp[absurdity_def,satisfies_milc_def,eval_lhs_def]>>
+  PairCases_on`lc`>>
+  simp[absurdity_def,satisfies_lc_def,eval_lhs_def]>>
   EVAL_TAC>>
   every_case_tac>>fs[do_op_def,realaxTheory.real_ge]>>
   PURE_REWRITE_TAC[realaxTheory.REAL_NOT_LE]>>
@@ -229,16 +254,16 @@ Definition dominates_def:
 End
 
 Theorem dominates_imp:
-  dominates milc1 milc2 ∧
-  satisfies_milc w milc1 ⇒
-  satisfies_milc w milc2
+  dominates lc1 lc2 ∧
+  satisfies_lc w lc1 ⇒
+  satisfies_lc w lc2
 Proof
-  PairCases_on`milc1`>>
-  PairCases_on`milc2`>>
+  PairCases_on`lc1`>>
+  PairCases_on`lc2`>>
   rw[dominates_def]
   >-
     metis_tac[absurdity_unsat]>>
-  every_case_tac>>fs[satisfies_milc_def]>>rw[]>>
+  every_case_tac>>fs[satisfies_lc_def]>>rw[]>>
   fs[do_op_def]>>
   realLib.REAL_ASM_ARITH_TAC
 QED
@@ -285,8 +310,7 @@ Definition lin_comb_def:
 End
 
 Theorem kv_set_eq:
-  {(k,v) | lookup k lhs = SOME v} =
-  set (toAList lhs)
+  {(k,v) | lookup k lhs = SOME v} = set (toAList lhs)
 Proof
   rw[EXTENSION,FORALL_PROD,MEM_toAList]
 QED
@@ -463,14 +487,14 @@ Proof
 QED
 
 Theorem compat_add_sound:
-  satisfies_milc w (lop,x) ∧
-  satisfies_milc w (lop',y) ∧
+  satisfies_lc w (lop,x) ∧
+  satisfies_lc w (lop',y) ∧
   compat lop lop' r ⇒
-  satisfies_milc w (lop,add x r y)
+  satisfies_lc w (lop,add x r y)
 Proof
   Cases_on`lop`>>Cases_on`lop'`>>
   Cases_on`x`>>Cases_on`y`>>rw[]>>
-  fs[compat_def,satisfies_milc_def,slop_def,add_def]>>
+  fs[compat_def,satisfies_lc_def,slop_def,add_def]>>
   fs[eval_lhs_unionWith,realaxTheory.real_ge]>>
   metis_tac[realTheory.REAL_LE_LMUL1,realTheory.REAL_LE_ADD2,realTheory.REAL_LE_LMUL_NEG_IMP]
 QED
@@ -478,12 +502,12 @@ QED
 Theorem lin_comb_sound:
   ∀xs ys.
   lin_comb lop xs = SOME ys ∧
-  EVERY (satisfies_milc w) (MAP FST xs) ⇒
-  satisfies_milc w (lop,ys)
+  EVERY (satisfies_lc w) (MAP FST xs) ⇒
+  satisfies_lc w (lop,ys)
 Proof
   Induct>>rw[lin_comb_def]
   >- (
-    Cases_on`lop`>>rw[satisfies_milc_def]>>
+    Cases_on`lop`>>rw[satisfies_lc_def]>>
     simp[eval_lhs_def])>>
   PairCases_on`h`>>
   fs[lin_comb_def]>>
@@ -529,35 +553,35 @@ Definition delete_mem_def:
 End
 
 Definition unsplit_def:
-  unsplit intv fml i1 l1 i2 l2 milc =
+  unsplit intv fml i1 l1 i2 l2 lc =
   case lookup_2 fml i1 i2 of NONE => NONE
   | SOME ((a1,is1),(a2,is2)) =>
   if MEM l1 a1 ∧ MEM l2 a2 then
   (case lookup_2 fml l1 l2 of NONE => NONE
   | SOME (ll1,ll2) =>
     if resolvable intv (SND ll1) (SND ll2) ∧
-        dominates is1 milc ∧
-        dominates is2 milc
-    then SOME (nub (delete_mem l1 a1 ++ delete_mem l2 a2), milc)
+        dominates is1 lc ∧
+        dominates is2 lc
+    then SOME (nub (delete_mem l1 a1 ++ delete_mem l2 a2), lc)
     else NONE)
   else NONE
 End
 
 Definition check_vipr_def:
-  (check_vipr intv (fml,id) (milc, Assum) =
-    SOME (insert id ([id],milc) fml, id+1)) ∧
-  (check_vipr intv (fml,id) (milc, Lin lhs) =
-    case do_lin fml (FST milc) lhs of NONE => NONE
+  (check_vipr intv (fml,id) (lc, Assum) =
+    SOME (insert id ([id],lc) fml, id+1)) ∧
+  (check_vipr intv (fml,id) (lc, Lin lhs) =
+    case do_lin fml (FST lc) lhs of NONE => NONE
     | SOME res =>
       SOME (insert id res fml, id+1)) ∧
-  (check_vipr intv (fml,id) (milc, Round lhs) =
-    case do_lin fml (FST milc) lhs of NONE => NONE
-    | SOME (assms,milc) =>
-      case round_milc intv milc of NONE => NONE
-      | SOME milc' =>
-      SOME (insert id (assms,milc') fml, id+1)) ∧
-  (check_vipr intv (fml,id) (milc, Unsplit i1 l1 i2 l2) =
-    case unsplit intv fml i1 l1 i2 l2 milc of NONE => NONE
+  (check_vipr intv (fml,id) (lc, Round lhs) =
+    case do_lin fml (FST lc) lhs of NONE => NONE
+    | SOME (assms,lc) =>
+      case round_lc intv lc of NONE => NONE
+      | SOME lc' =>
+      SOME (insert id (assms,lc') fml, id+1)) ∧
+  (check_vipr intv (fml,id) (lc, Unsplit i1 l1 i2 l2) =
+    case unsplit intv fml i1 l1 i2 l2 lc of NONE => NONE
     | SOME res =>
       SOME (insert id res fml, id+1))
 End
@@ -597,25 +621,25 @@ Definition check_last_def:
   check_last min obj rtp (fml,id) =
   case lookup (id-1) fml of
     NONE => F
-  | SOME (assms,milc) =>
+  | SOME (assms,lc) =>
     assms = [] ∧
     (case rtp of
-      Infeasible => absurdity milc
+      Infeasible => absurdity lc
     | Range lb ub =>
     if min then
       case lb of NONE => T
-      | SOME lb => dominates milc (GreaterEqual,obj,lb)
+      | SOME lb => dominates lc (GreaterEqual,obj,lb)
     else
       case ub of NONE => T
-      | SOME ub => dominates milc (LessEqual,obj,ub))
+      | SOME ub => dominates lc (LessEqual,obj,ub))
 End
 
 Definition check_rtp_def:
-  check_rtp intv milp min obj rtp sols viprs =
-  if EVERY (check_sol intv milp) sols ∧
+  check_rtp intv lcs min obj rtp sols viprs =
+  if EVERY (check_sol intv lcs) sols ∧
      check_rtp_bound min obj sols rtp
   then
-    let acc = build_fml 0 milp LN in
+    let acc = build_fml 0 lcs LN in
     case check_viprs intv acc viprs of
       NONE => F
     | SOME acc' => check_last min obj rtp acc'
@@ -640,9 +664,9 @@ QED
 
 Theorem int_valued_is_int:
   (∀v. v ∈ domain intv ⇒ is_int (w v)) ∧
-  int_valued intv milc
+  int_valued intv lc
   ⇒
-  is_int (eval_lhs w milc)
+  is_int (eval_lhs w lc)
 Proof
   rw[int_valued_def,eval_lhs_eq]>>
   rename1`is_int (rSUM (MAP _ ls))`>>
@@ -709,16 +733,16 @@ Proof
   metis_tac[intrealTheory.real_of_int_le,realaxTheory.REAL_LE_TRANS]
 QED
 
-Theorem round_milc_sound:
+Theorem round_lc_sound:
   (∀v. v ∈ domain intv ⇒ is_int (w v)) ∧
-  satisfies_milc w milc ∧
-  round_milc intv milc = SOME milc'
+  satisfies_lc w lc ∧
+  round_lc intv lc = SOME lc'
   ⇒
-  satisfies_milc w milc'
+  satisfies_lc w lc'
 Proof
-  PairCases_on`milc`>>fs[round_milc_def]>>
+  PairCases_on`lc`>>fs[round_lc_def]>>
   TOP_CASE_TAC>>rw[]>>
-  fs[satisfies_milc_def]
+  fs[satisfies_lc_def]
   >- (
     match_mp_tac round_up>>
     fs[]>>
@@ -730,7 +754,7 @@ QED
 
 (* Lookup the assumptions corresponding to the list of indices *)
 Definition get_assms_def:
-  get_assms (fml: (num list # milc) num_map) (ls,c) =
+  get_assms (fml: (num list # lc) num_map) (ls,c) =
   (set (MAP (λid. SND (THE (lookup id fml))) ls),c)
 End
 
@@ -789,20 +813,20 @@ Definition id_ok_def:
   ∀n. id ≤ n ⇒ n ∉ domain fml
 End
 
-Theorem satisfies_imp_milp_insert:
-  satisfies_imp_milp w
+Theorem satisfies_imp_lcs_insert:
+  satisfies_imp_lcs w
   (IMAGE (get_assms fml) (range fml)) ∧
   id_ok fml id ∧
   good_fml fml ∧
   ((∀id'.
   MEM id' (FST x) ⇒
-  satisfies_milc w (SND (THE (lookup id' (insert id x fml))))) ⇒
-  satisfies_milc w (SND x))
+  satisfies_lc w (SND (THE (lookup id' (insert id x fml))))) ⇒
+  satisfies_lc w (SND x))
   ⇒
-  satisfies_imp_milp w
+  satisfies_imp_lcs w
   (IMAGE (get_assms (insert id x fml)) (range (insert id x fml)))
 Proof
-  fs[satisfies_imp_milp_def,id_ok_def,PULL_EXISTS]>>
+  fs[satisfies_imp_lcs_def,id_ok_def,PULL_EXISTS]>>
   rw[]>>
   rename1`y ∈ _`>>
   Cases_on`y`>>fs[get_assms_def]>>rw[]>>
@@ -810,11 +834,11 @@ Proof
   DEP_REWRITE_TAC [range_insert]>>
   fs[]>>rw[]
   >-
-    (fs[satisfies_imp_milc_def,MEM_MAP,PULL_EXISTS])
+    (fs[satisfies_imp_lc_def,MEM_MAP,PULL_EXISTS])
   >- (
     first_x_assum (drule_at Any)>>
     simp[get_assms_def]>>rw[]>>
-    fs[satisfies_imp_milc_def,MEM_MAP,lookup_insert,PULL_EXISTS]>>
+    fs[satisfies_imp_lc_def,MEM_MAP,lookup_insert,PULL_EXISTS]>>
     rw[]>>
     first_x_assum match_mp_tac>>
     rw[]>>
@@ -828,22 +852,22 @@ Proof
     last_x_assum(qspec_then`id` assume_tac)>>fs[])
 QED
 
-Theorem satisfies_imp_milp_insert_2:
-  satisfies_imp_milp w
+Theorem satisfies_imp_lcs_insert_2:
+  satisfies_imp_lcs w
   (IMAGE (get_assms fml) (range fml)) ∧
   id_ok fml id ∧
   good_fml fml ∧
   EVERY (is_assm fml) (FST x) ∧
   ((∀id'.
   MEM id' (FST x) ⇒
-  satisfies_milc w (SND (THE (lookup id' fml)))) ⇒
-  satisfies_milc w (SND x))
+  satisfies_lc w (SND (THE (lookup id' fml)))) ⇒
+  satisfies_lc w (SND x))
   ⇒
-  satisfies_imp_milp w
+  satisfies_imp_lcs w
   (IMAGE (get_assms (insert id x fml)) (range (insert id x fml)))
 Proof
   rw[]>>
-  match_mp_tac satisfies_imp_milp_insert>>
+  match_mp_tac satisfies_imp_lcs_insert>>
   rw[]>>
   first_x_assum match_mp_tac>>rw[]>>
   first_x_assum drule>>
@@ -884,9 +908,9 @@ QED
 Theorem lookup_all_lhs_imp:
   ∀l fml assms ys.
   lookup_all_lhs fml l = SOME (assms,ys) ∧
-  satisfies_imp_milp w (IMAGE (get_assms fml) (range fml)) ∧
-  (∀id. MEM id assms ⇒ satisfies_milc w (SND (THE (lookup id fml)))) ⇒
-  EVERY (satisfies_milc w) (MAP FST ys)
+  satisfies_imp_lcs w (IMAGE (get_assms fml) (range fml)) ∧
+  (∀id. MEM id assms ⇒ satisfies_lc w (SND (THE (lookup id fml)))) ⇒
+  EVERY (satisfies_lc w) (MAP FST ys)
 Proof
   Induct>>rw[lookup_all_lhs_def]>>
   Cases_on`h`>>
@@ -894,7 +918,7 @@ Proof
   every_case_tac>>
   gvs[]>>
   last_x_assum drule>> simp[]>> rw[]>>
-  fs[satisfies_imp_milp_def,PULL_EXISTS,get_assms_def,satisfies_imp_milc_def,range_def]>>
+  fs[satisfies_imp_lcs_def,PULL_EXISTS,get_assms_def,satisfies_imp_lc_def,range_def]>>
   first_x_assum (drule_at Any)>>
   simp[get_assms_def]>>
   disch_then match_mp_tac>>
@@ -903,9 +927,9 @@ QED
 
 Theorem do_lin_imp:
   do_lin fml lop lhs = SOME x ∧
-  satisfies_imp_milp w (IMAGE (get_assms fml) (range fml)) ∧
-  (∀id. MEM id (FST x) ⇒ satisfies_milc w (SND (THE (lookup id fml)))) ⇒
-  satisfies_milc w (SND x)
+  satisfies_imp_lcs w (IMAGE (get_assms fml) (range fml)) ∧
+  (∀id. MEM id (FST x) ⇒ satisfies_lc w (SND (THE (lookup id fml)))) ⇒
+  satisfies_lc w (SND x)
 Proof
   rw[do_lin_def]>>
   every_case_tac>>gvs[]>>
@@ -919,12 +943,12 @@ QED
 Theorem resolvable_splits:
   (∀v. v ∈ domain intv ⇒ is_int (w v)) ∧
   resolvable intv x y ⇒
-  satisfies_milc w x ∨ satisfies_milc w y
+  satisfies_lc w x ∨ satisfies_lc w y
 Proof
   PairCases_on`x`>>PairCases_on`y`>>rw[resolvable_def]>>
   drule int_valued_is_int>>
   disch_then drule>>
-  rw[satisfies_milc_def]>>
+  rw[satisfies_lc_def]>>
   fs[intrealTheory.is_int_def]>>
   pop_assum SUBST_ALL_TAC>>
   pop_assum SUBST_ALL_TAC>>
@@ -944,23 +968,23 @@ QED
 
 (* check the main body of a VIPR proof *)
 Theorem check_vipr_sound:
-  check_vipr intv (fml,id) (milc,vipr) = SOME (fml',id') ∧
+  check_vipr intv (fml,id) (lc,vipr) = SOME (fml',id') ∧
   id_ok fml id ∧
   good_fml fml ∧
   (∀v. v ∈ domain intv ⇒ is_int (w v)) ∧
-  satisfies_imp_milp w (IMAGE (get_assms fml) (range fml)) ⇒
-  satisfies_imp_milp w (IMAGE (get_assms fml') (range fml'))
+  satisfies_imp_lcs w (IMAGE (get_assms fml) (range fml)) ⇒
+  satisfies_imp_lcs w (IMAGE (get_assms fml') (range fml'))
 Proof
   Cases_on`vipr`>>rw[check_vipr_def]
   >- (
     (* assm *)
-    match_mp_tac satisfies_imp_milp_insert>>
+    match_mp_tac satisfies_imp_lcs_insert>>
     simp[])
   >- (
     (* lin *)
     every_case_tac>>fs[]>>
     rw[]>>
-    match_mp_tac satisfies_imp_milp_insert_2>>
+    match_mp_tac satisfies_imp_lcs_insert_2>>
     simp[]>>
     rw[]
     >-
@@ -970,7 +994,7 @@ Proof
     (* rounding *)
     every_case_tac>>fs[]>>
     rw[]>>
-    match_mp_tac satisfies_imp_milp_insert_2>>
+    match_mp_tac satisfies_imp_lcs_insert_2>>
     simp[]>>
     rw[]
     >-
@@ -978,11 +1002,11 @@ Proof
     drule do_lin_imp>>
     disch_then drule>>
     simp[]>>
-    metis_tac[round_milc_sound])
+    metis_tac[round_lc_sound])
   >- (
     every_case_tac>>fs[]>>
     rw[]>>
-    match_mp_tac satisfies_imp_milp_insert_2>>
+    match_mp_tac satisfies_imp_lcs_insert_2>>
     simp[]>>
     fs[unsplit_def,lookup_2_def]>>every_case_tac>>fs[]>>
     gvs[]>>
@@ -998,7 +1022,7 @@ Proof
     CONJ_TAC >-
       metis_tac[FST]>>
     rw[]>>
-    fs[satisfies_imp_milp_def,PULL_EXISTS,get_assms_def,satisfies_imp_milc_def]>>
+    fs[satisfies_imp_lcs_def,PULL_EXISTS,get_assms_def,satisfies_imp_lc_def]>>
     qpat_x_assum`lookup _ _ = _` mp_tac>>
     qpat_x_assum`lookup _ _ = _` mp_tac>>
     first_assum (drule_at Any)>>
@@ -1045,7 +1069,7 @@ Theorem id_ok_good_fml_insert_2:
   id_ok fml id ∧
   good_fml fml
   ⇒
-  good_fml (insert id ([id],milc) fml)
+  good_fml (insert id ([id],lc) fml)
 Proof
   rw[good_fml_def]>>
   pop_assum mp_tac>>
@@ -1073,7 +1097,7 @@ Proof
 QED
 
 Theorem check_vipr_ok:
-  check_vipr intv (fml,id) (milc,vipr) = SOME (fml',id') ∧
+  check_vipr intv (fml,id) (lc,vipr) = SOME (fml',id') ∧
   id_ok fml id ∧
   good_fml fml ⇒
   id_ok fml' id' ∧ good_fml fml'
@@ -1113,8 +1137,8 @@ Theorem check_viprs_sound:
   id_ok fml id ∧
   good_fml fml ∧
   (∀v. v ∈ domain intv ⇒ is_int (w v)) ∧
-  satisfies_imp_milp w (IMAGE (get_assms fml) (range fml)) ⇒
-  satisfies_imp_milp w (IMAGE (get_assms fml') (range fml'))
+  satisfies_imp_lcs w (IMAGE (get_assms fml) (range fml)) ⇒
+  satisfies_imp_lcs w (IMAGE (get_assms fml') (range fml'))
 Proof
   Induct>>rw[check_viprs_def]>>fs[]>>
   every_case_tac>>fs[]>>
@@ -1127,16 +1151,16 @@ Proof
   simp[]
 QED
 
-Theorem satisfies_milp_build_fml:
-  ∀milp id fml fml' id'.
-  build_fml id milp fml = (fml',id') ∧
+Theorem satisfies_lcs_build_fml:
+  ∀lcs id fml fml' id'.
+  build_fml id lcs fml = (fml',id') ∧
   id_ok fml id ∧
   good_fml fml ⇒
   id_ok fml' id' ∧
   good_fml fml' ∧
-  (EVERY (satisfies_milc w) milp ∧
-  satisfies_imp_milp w (IMAGE (get_assms fml) (range fml)) ⇒
-  satisfies_imp_milp w (IMAGE (get_assms fml') (range fml')))
+  (EVERY (satisfies_lc w) lcs ∧
+  satisfies_imp_lcs w (IMAGE (get_assms fml) (range fml)) ⇒
+  satisfies_imp_lcs w (IMAGE (get_assms fml') (range fml')))
 Proof
   Induct>>simp[build_fml_def]>>fs[]>>
   ntac 6 strip_tac>>
@@ -1150,15 +1174,15 @@ Proof
   rw[]>>
   first_x_assum match_mp_tac>>
   simp[]>>
-  match_mp_tac satisfies_imp_milp_insert>>
+  match_mp_tac satisfies_imp_lcs_insert>>
   fs[]
 QED
 
 Theorem check_sol_satisfies:
-  check_sol intv milp x ⇒
-  satisfies (mk_sol x) (domain intv) (set milp)
+  check_sol intv lcs x ⇒
+  satisfies (mk_sol x) (domain intv) (set lcs)
 Proof
-  rw[check_sol_def,satisfies_def,check_dom_def,check_milp_def]
+  rw[check_sol_def,satisfies_def,check_dom_def,check_lcs_def]
   >- (
     fs[domain_lookup,EVERY_MEM,FORALL_PROD,MEM_toAList]>>
     simp[mk_sol_def]>>
@@ -1195,15 +1219,15 @@ Proof
 QED
 
 Theorem check_rtp_sound:
-  check_rtp intv milp min obj rtp sols viprs ⇒
-  satisfies_rtp (domain intv) (set milp) min obj rtp
+  check_rtp intv lcs min obj rtp sols viprs ⇒
+  satisfies_rtp (domain intv) (set lcs) min obj rtp
 Proof
   rw[check_rtp_def]>>
   every_case_tac>>fs[]>>
   rw[satisfies_rtp_def]>>
-  `?fml id. build_fml 0 milp LN = (fml,id)` by
+  `?fml id. build_fml 0 lcs LN = (fml,id)` by
     metis_tac[PAIR]>>
-  drule satisfies_milp_build_fml>>
+  drule satisfies_lcs_build_fml>>
   simp[GSYM PULL_FORALL]>>
   impl_tac >-
     simp[id_ok_def,good_fml_def,range_def]>>
@@ -1220,14 +1244,15 @@ Proof
     rfs[EVERY_MEM]>>
     first_x_assum drule>>
     impl_tac >-
-      simp[range_def,satisfies_imp_milp_def]>>
+      simp[range_def,satisfies_imp_lcs_def]>>
     simp[]>>
     fs[check_last_def]>>
     every_case_tac>>fs[]>>
-    rw[satisfies_imp_milp_def,range_def,PULL_EXISTS]>>
+    rw[satisfies_imp_lcs_def,range_def,PULL_EXISTS]>>
     first_x_assum (irule_at Any)>>
-    simp[get_assms_def,satisfies_imp_milc_def]>>
+    simp[get_assms_def,satisfies_imp_lc_def]>>
     metis_tac[absurdity_unsat])>>
+  rename1`Range lb ub`>>
   Cases_on`min`>>
   fs[check_rtp_bound_def]
   >- (
@@ -1237,9 +1262,7 @@ Proof
     strip_tac>>
     drule check_sol_satisfies>>
     strip_tac>>
-    CONJ_TAC >-
-      metis_tac[]>>
-    reverse (rw[optimal_def])
+    reverse (rw[])
     (* upper bound on min *)
     >-
       metis_tac[get_obj_eq,le_inf_real_le]>>
@@ -1251,16 +1274,16 @@ Proof
     fs[satisfies_def]>>
     last_x_assum drule>>
     impl_tac >-
-      simp[range_def,satisfies_imp_milp_def]>>
+      simp[range_def,satisfies_imp_lcs_def]>>
     strip_tac>>
     last_x_assum (drule_all)>>
-    rw[satisfies_imp_milp_def,range_def,PULL_EXISTS]>>
+    rw[satisfies_imp_lcs_def,range_def,PULL_EXISTS]>>
     first_x_assum (drule_at Any)>>
-    simp[get_assms_def,satisfies_imp_milc_def]>>
+    simp[get_assms_def,satisfies_imp_lc_def]>>
     strip_tac>>
     drule dominates_imp >>
     disch_then drule>>
-    simp[satisfies_milc_def]>>
+    simp[satisfies_lc_def]>>
     realLib.REAL_ASM_ARITH_TAC)
   >- (
     (* maximization *)
@@ -1269,9 +1292,7 @@ Proof
     strip_tac>>
     drule check_sol_satisfies>>
     strip_tac>>
-    CONJ_TAC >-
-      metis_tac[]>>
-    rw[optimal_def]
+    reverse(rw[])
     (* lower bound on max *)
     >-
       metis_tac[get_obj_eq,inf_le_real_le]>>
@@ -1283,23 +1304,23 @@ Proof
     fs[satisfies_def]>>
     last_x_assum drule>>
     impl_tac >-
-      simp[range_def,satisfies_imp_milp_def]>>
+      simp[range_def,satisfies_imp_lcs_def]>>
     strip_tac>>
     last_x_assum (drule_all)>>
-    rw[satisfies_imp_milp_def,range_def,PULL_EXISTS]>>
+    rw[satisfies_imp_lcs_def,range_def,PULL_EXISTS]>>
     first_x_assum (drule_at Any)>>
-    simp[get_assms_def,satisfies_imp_milc_def]>>
+    simp[get_assms_def,satisfies_imp_lc_def]>>
     strip_tac>>
     drule dominates_imp >>
     disch_then drule>>
-    simp[satisfies_milc_def]>>
+    simp[satisfies_lc_def]>>
     realLib.REAL_ASM_ARITH_TAC)
 QED
 
 (*
-  Problems are 5 tuples: (intv, milp, min, obj, rtp)
+  Problems are 5 tuples: (intv, lcs, min, obj, rtp)
     intv : set of int variables represented as sptree
-    milp : list of mixed integer constraints
+    lcs : list of mixed integer constraints
     min  : boolean flag (min or max objective)
     obj  : objective value
     rtp  : "required to proof" either infeasible or given bounds
@@ -1308,7 +1329,7 @@ QED
 
   val c1 = rconc (EVAL ``(GreaterEqual,fromAList [(0,2:real);(1,1:real)],1:real)``)
   val c2 = rconc (EVAL ``(LessEqual,fromAList [(0,2:real);(1,-3:real)],1:real)``)
-  val milp = rconc (EVAL ``[^c1;^c2]``)
+  val lcs = rconc (EVAL ``[^c1;^c2]``)
 
   val min = rconc (EVAL ``T``)
 
@@ -1326,7 +1347,33 @@ QED
   val d6 = rconc (EVAL ``((GreaterEqual,^obj ,1:real),Unsplit 4 2 6 3)``)
   val viprs = rconc (EVAL ``[^d1;^d2;^d3;^d4;^d5;^d6]``)
 
-  val res = EVAL ``check_rtp ^intv ^milp ^min ^obj ^rtp ^sols ^viprs``
+  val res = EVAL ``check_rtp ^intv ^lcs ^min ^obj ^rtp ^sols ^viprs``
+
+  An infeasible problem
+
+  val intv = rconc (EVAL ``sptree$fromList [();()]``)
+
+  val c1 = rconc (EVAL ``(GreaterEqual,fromAList [(0,2:real);(1,1:real)],1:real)``)
+  val c2 = rconc (EVAL ``(GreaterEqual,fromAList [(0,-2:real);(1,3:real)],0:real)``)
+  val c3 = rconc (EVAL ``(LessEqual,fromAList [(0,-1:real);(1,4:real)],2:real)``)
+  val lcs = rconc (EVAL ``[^c1;^c2;^c3]``)
+
+  val min = rconc (EVAL ``T``)
+
+  val LN = ``LN:real num_map``
+
+  val obj = LN
+
+  val rtp = rconc (EVAL ``Infeasible``)
+
+  val d1 = rconc (EVAL ``((LessEqual,fromAList [(1,1:real)] ,0:real),Assum)``)
+  val d2 = rconc (EVAL ``((GreaterEqual,fromAList [(1,1:real)] ,1:real),Assum)``)
+  val d3 = rconc (EVAL ``((GreaterEqual,^LN ,1:real),Lin [(0,1);(1,1);(3,-4)])``)
+  val d4 = rconc (EVAL ``((GreaterEqual,^LN,1:real),Lin [(1,1);(2,-2);(4,5)])``)
+  val d6 = rconc (EVAL ``((GreaterEqual,^LN ,1:real),Unsplit 5 3 6 4)``)
+  val viprs = rconc (EVAL ``[^d1;^d2;^d3;^d4;^d5;^d6]``)
+
+  val res = EVAL ``check_rtp ^intv ^lcs ^min ^obj ^rtp [] ^viprs``
 
 *)
 
