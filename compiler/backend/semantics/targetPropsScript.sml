@@ -301,7 +301,7 @@ Proof
       IF_CASES_TAC >> fs[IS_PREFIX_APPEND] \\
       rw[] \\
       qexists `[IO_event "MappedRead" [n2w (dimindex (:β) DIV 8); q]
-        (ZIP (addr2w8list mc_conf.target.config.big_endian r0,l))] ++ l''` \\
+        (ZIP (addr2w8list r0,l))] ++ l''` \\
       rw[]
     )) \\
   IF_CASES_TAC \\
@@ -317,9 +317,8 @@ Proof
       rw[] \\
       qexists `[IO_event "MappedWrite" [n2w (dimindex (:β) DIV 8); q]
         (ZIP
-           (w2wlist mc_conf.target.config.big_endian
-              (mc_conf.target.get_reg ms r1) (w2n q) ++
-            addr2w8list mc_conf.target.config.big_endian r0,l))] ++ l''` \\
+           (w2wlist_le (mc_conf.target.get_reg ms r1) (w2n q) ++
+            addr2w8list r0,l))] ++ l''` \\
       rw[]
   ) \\
   TOP_CASE_TAC >> fs[] \\
