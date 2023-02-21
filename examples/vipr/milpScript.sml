@@ -144,14 +144,18 @@ Definition satisfies_rtp_def:
         UB (if not infinity) means the objective is attained
           at least at UB *)
       (∀w. satisfies w intv lcs ⇒ inf_le lb (eval_lhs w obj)) ∧
-      (∃w. satisfies w intv lcs ∧ le_inf ub (eval_lhs w obj))
+      (case ub of NONE => T
+      | SOME ub =>
+        ∃w. satisfies w intv lcs ∧ eval_lhs w obj ≤ ub)
     else
       (* For a maximization problem,
         UB is an upper bound on any satisfying assignment
         LB (if not -infinity) means the objective is attained
           at least at LB *)
       (∀w. satisfies w intv lcs ⇒ le_inf ub (eval_lhs w obj)) ∧
-      (∃w. satisfies w intv lcs ∧ inf_le lb (eval_lhs w obj)))
+      (case lb of NONE => T
+      | SOME lb =>
+        ∃w. satisfies w intv lcs ∧ lb ≤ eval_lhs w obj))
 End
 
 (* Implication constraints *)
@@ -606,9 +610,9 @@ Definition check_rtp_bound_def:
   (check_rtp_bound min obj sols (Range lb ub) =
   let ov = MAP (get_obj obj) sols in
   if min then
-    EXISTS (le_inf ub) ov
+    IS_SOME ub ⇒ EXISTS (le_inf ub) ov
   else
-    EXISTS (inf_le lb) ov)
+    IS_SOME lb ⇒ EXISTS (inf_le lb) ov)
 End
 
 Definition build_fml_def:
@@ -1258,19 +1262,20 @@ Proof
   >- (
     (* minimization *)
     gvs[EXISTS_MEM,MEM_MAP,EVERY_MEM]>>
-    last_x_assum drule>>
-    strip_tac>>
-    drule check_sol_satisfies>>
-    strip_tac>>
     reverse (rw[])
-    (* upper bound on min *)
-    >-
-      metis_tac[get_obj_eq,le_inf_real_le]>>
-    (* lower bound on min *)
+    >- (
+      (* upper bound *)
+      TOP_CASE_TAC>>
+      gvs[le_inf_def]>>
+      last_x_assum drule>>
+      strip_tac>>
+      drule check_sol_satisfies>>
+      strip_tac>>
+      metis_tac[get_obj_eq,le_inf_real_le])>>
+    (* lower bound *)
     fs[check_last_def]>>
     every_case_tac>>fs[]>>
     simp[inf_le_def]>>
-    qpat_x_assum`satisfies (mk_sol _) _ _` kall_tac>>
     fs[satisfies_def]>>
     last_x_assum drule>>
     impl_tac >-
@@ -1288,19 +1293,20 @@ Proof
   >- (
     (* maximization *)
     gvs[EXISTS_MEM,MEM_MAP,EVERY_MEM]>>
-    last_x_assum drule>>
-    strip_tac>>
-    drule check_sol_satisfies>>
-    strip_tac>>
     reverse(rw[])
-    (* lower bound on max *)
-    >-
-      metis_tac[get_obj_eq,inf_le_real_le]>>
-    (* upper bound on max *)
+    >- (
+      (* lower bound *)
+      TOP_CASE_TAC>>
+      gvs[inf_le_def]>>
+      last_x_assum drule>>
+      strip_tac>>
+      drule check_sol_satisfies>>
+      strip_tac>>
+      metis_tac[get_obj_eq,inf_le_real_le])>>
+    (* upper bound *)
     fs[check_last_def]>>
     every_case_tac>>fs[]>>
     simp[le_inf_def]>>
-    qpat_x_assum`satisfies (mk_sol _) _ _` kall_tac>>
     fs[satisfies_def]>>
     last_x_assum drule>>
     impl_tac >-
