@@ -286,7 +286,7 @@ Proof
     IF_CASES_TAC >> fs[ELIM_UNCURRY] \\
     Cases_on `(mc_conf.mmio_info x)` \\
     PairCases_on `r` \\
-    TOP_CASE_TAC >> fs[]) \\
+    rpt (TOP_CASE_TAC >> fs[])) \\
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[ELIM_UNCURRY] >>
   TOP_CASE_TAC >> fs[] >>
@@ -295,6 +295,7 @@ Proof
     Cases_on `(mc_conf.mmio_info x)` \\
     PairCases_on `r` \\
     gvs[call_FFI_def] >- (
+      TOP_CASE_TAC >> fs[] \\
       qpat_x_assum `(case _ of Oracle_return _ _ => _ | Oracle_final _ => _) =
       FFI_return _ _` mp_tac \\
       TOP_CASE_TAC \\
@@ -310,6 +311,7 @@ Proof
   fs[call_FFI_def] \\
   TOP_CASE_TAC >> gvs[] >- (
     simp[call_FFI_def] \\
+    TOP_CASE_TAC >> fs[] \\
     qpat_x_assum `(case _ of Oracle_return _ _ => _ | Oracle_final _ => _) =
       FFI_return _ _` mp_tac \\
       TOP_CASE_TAC \\
@@ -356,7 +358,7 @@ Proof
   ) >>
   namedCases_on `mc_conf.mmio_info x` ["r0 r1 r2 r3"] >>
   gvs[] >>
-  TOP_CASE_TAC >> fs[]
+  rpt (TOP_CASE_TAC >> fs[])
 QED
 
 Theorem machine_sem_total:
