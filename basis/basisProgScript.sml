@@ -24,13 +24,13 @@ val () = ml_prog_update (add_Dlet eval_thm "print");
 
 val _ = ml_prog_update open_local_block;
 
+val _ = (use_full_type_names := false);
 val r = translate mlstringTheory.sum_sizes_def;
 val r = translate mlstringTheory.make_app_list_ann_def;
-val r = translate miscTheory.append_aux_def;
-val r = translate miscTheory.append_def;
 val r = translate mlstringTheory.shrink_def;
 val _ = (next_ml_names := ["str_app_list_opt"]);
 val r = translate mlstringTheory.str_app_list_opt_def;
+val _ = (use_full_type_names := true);
 
 val _ = (append_prog o process_topdecs) `
   fun print_app_list_aux ls =
