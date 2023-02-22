@@ -347,6 +347,8 @@ val good_init_state_def = Define `
     sdm SUBSET mc_conf.shared_addresses /\
     (!a. byte_align a IN sdm ==> a IN sdm) /\
     DISJOINT mc_conf.prog_addresses mc_conf.shared_addresses /\
+    ~ (MEM "MappedWrite" mc_conf.ffi_names) /\
+    ~ (MEM "MappedRead" mc_conf.ffi_names) /\
     (!a. ∃w.
       t.mem a = get_byte a w mc_conf.target.config.big_endian ∧
       m (byte_align a) = Word w) /\
