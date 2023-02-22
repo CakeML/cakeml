@@ -9,3 +9,6 @@ Addition of linear terms with real-valued coefficients
 
 [sptree_unionWithScript.sml](sptree_unionWithScript.sml):
 Define unionWith for sptrees
+
+[viprProgScript.sml](viprProgScript.sml):
+Produces a verified CakeML program that checks VIPR proofs
