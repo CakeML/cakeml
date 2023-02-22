@@ -15,3 +15,6 @@ Define unionWith for sptrees
 
 [viprProgScript.sml](viprProgScript.sml):
 Produces a verified CakeML program that checks VIPR proofs
+
+[vipr_checkerScript.sml](vipr_checkerScript.sml):
+A pure version of the VIPR checker
