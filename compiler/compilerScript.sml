@@ -285,7 +285,7 @@ Definition compile_pancake_def:
       | NONE => (Failure AssembleError)
       | SOME (bytes,data,c) => (Success (bytes,data,c))
 End
-                                                                     
+
 (* The top-level compiler *)
 val error_to_str_def = Define`
   (error_to_str (ParseError s) =

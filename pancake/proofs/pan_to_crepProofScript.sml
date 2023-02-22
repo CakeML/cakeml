@@ -2957,7 +2957,7 @@ Proof
   >- (
    (* Exception result *)
    fs [wrap_rt_def] >>
-   fs [] >> 
+   fs [] >>
    rename1 ‘x = (_, _)’>>cases_on ‘x’ >> fs[] >>
    rename1 ‘r' = SOME (_, _, _)’>>cases_on ‘r'’ >>
    fs []
