@@ -77,6 +77,7 @@ val san_config_def = Define`
   san_config =
   <| prog_addresses := {x | x < 1000w} DELETE 0w DELETE n2w ffi_offset DIFF
   flip MEM san_ffi_pcs
+   ; shared_addresses := {20000w;20008w}
    ; ffi_entry_pcs := san_ffi_pcs
    ; ffi_names := ["MappedRead";"MappedWrite"]
    ; ptr_reg := ARB
