@@ -15,6 +15,7 @@ val _ = Datatype `
      ; fp_regs    : num -> word64
      ; mem        : 'a word -> 'a word_loc
      ; mem_domain : 'a word set
+     ; shared_mem_domain: 'a word set
      ; pc         : num
      ; be         : bool
      ; ffi        : 'ffi ffi_state  (* oracle *)
@@ -364,6 +365,55 @@ val get_lab_after_pos_def = Define `
 val get_ret_Loc_def = Define `
   get_ret_Loc s = get_lab_after s.pc s.code`;
 
+val share_mem_load_def = Define `
+  share_mem_load r ad (s: ('a,'c,'ffi) labSem$state) n =
+    case addr ad s of
+    | NONE => NONE
+    | SOME v =>
+        if (w2n v MOD n) = 0 /\ (byte_align v IN s.shared_mem_domain)
+        then
+          (case call_FFI s.ffi "MappedRead"
+            [n2w (dimindex (:'a) DIV 8);n2w n]
+            (addr2w8list v) of
+          | FFI_final outcome => SOME (FFI_final outcome, s)
+          | FFI_return new_ffi new_bytes =>
+              SOME (FFI_return new_ffi new_bytes,
+                s with <|
+                  ffi := new_ffi;
+                  regs := (r =+ Word (n2w $ bytes2num new_bytes)) s.regs;
+                  pc := s.pc + 1;
+                  clock := s.clock - 1 |>))
+        else NONE`;
+
+val share_mem_store_def = Define `
+  share_mem_load r ad (s: ('a,'c,'ffi) labSem$state) n =
+    case s.regs r of
+    | Word w =>
+      (case addr ad s of
+       | NONE => NONE
+       | SOME v =>
+           if (w2n v MOD n) = 0 /\ (byte_align v IN s.shared_mem_domain)
+           then
+             (case call_FFI s.ffi "MappedWrite"
+               [n2w (dimindex (:'a) DIV 8);n2w n]
+               (w2wlist_le w n ++ (addr2w8list v)) of
+              | FFI_final outcome => SOME (FFI_final outcome,s)
+              | FFI_return new_ffi new_bytes =>
+                 SOME ((FFI_return new_ffi new_bytes),
+                   inc_pc (dec_clock (s with ffi := new_ffi))))
+           else NONE)
+    | _ => NONE`;
+
+val share_mem_op_def = Define `
+  (share_mem_op Load r ad (s: ('a,'c,'ffi) labSem$state) =
+    share_mem_load r ad s (dimindex (:'a) DIV 8)) /\
+  (share_mem_op Load8 r ad s = share_mem_load r ad s 1) /\
+  (share_mem_op Load32 r ad s = share_mem_load r ad s 4) /\
+  (share_mem_op Store r ad s = share_mem_store r ad s
+    (dimindex (:'a) DIV 8)) /\
+  (share_mem_op Store8 r ad s = share_mem_store r ad s 1) /\
+  (share_mem_op Store32 r ad s = share_mem_store r ad s 4)`;
+
 val evaluate_def = tDefine "evaluate" `
   evaluate (s:('a,'c,'ffi) labSem$state) =
     if s.clock = 0 then (TimeOut,s) else
@@ -391,6 +441,11 @@ val evaluate_def = tDefine "evaluate" `
           evaluate (inc_pc (dec_clock (s with code_buffer:= new_cb)))
         | _ => (Error,s))
       | _ => (Error,s))
+    | SOME (Asm (ShareMem m r ad) _ _) =>
+       (case share_mem_op m r ad s of
+        | SOME (FFI_final outcome,s') => (Halt (FFI_outcome outcome),s')
+        | SOME (FFI_return _ _,s') => evaluate s'
+        | NONE => (Error, s))
     | SOME (LabAsm Halt _ _ _) =>
        (case s.regs s.ptr_reg of
         | Word 0w => (Halt Success,s)
@@ -471,33 +526,11 @@ val evaluate_def = tDefine "evaluate" `
                                    clock := s.clock - 1 |>))
           | _ => (Error,s))
         | _ => (Error,s))
-     (* Should we combine ShareLoad/ShareStore with CallFFI ? *)
-    | SOME (LabAsm (ShareLoad ad r nb)) =>
-        (case call_FFI s.ffi "MappedRead"
-          [n2w (dimindex (:'a) DIV 8);nb]
-          (addr2w8list ad) of
-        | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
-        | FFI_return new_ffi new_bytes =>
-            evaluate (s with <|
-              ffi := new_ffi;
-              regs := (reg := Word (n2w $ bytes2num new_bytes)) s.regs;
-              pc := s.pc + ARB s ad r nb;
-              clock := s.clock - 1 |>))
-    | SOME (LabAsm (ShareStore ad r nb)) =>
-        (case call_FFI s.ffi "MappedWrite"
-          [n2w (dimindex (:'a) DIV 8);nb]
-          (w2wlist (s.regs reg) (w2n nb)
-            ++ (addr2w8list ad)) of
-        | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
-        | FFI_return new_ffi new_bytes =>
-            evaluate (s with <|
-              ffi := new_ffi;
-              pc := s.pc + ARB s ad r nb;
-              clock := s.clock - 1 |>))
     | _ => (Error,s)`
  (WF_REL_TAC `measure (\s. s.clock)`
-  \\ fs [inc_pc_def] \\ rw [] \\ IMP_RES_TAC asm_fetch_IMP
-  \\ fs [asm_inst_consts,upd_reg_def,upd_pc_def,dec_clock_def]
+  \\ fs [inc_pc_def,share_mem_store_def,share_mem_load_def,share_mem_op_def] \\ rw [] \\ IMP_RES_TAC asm_fetch_IMP
+  \\ fs[asm_inst_consts,upd_reg_def,upd_pc_def,dec_clock_def,
+    share_mem_store_def,share_mem_load_def,share_mem_op_def,inc_pc_def]
   \\ decide_tac)
 
 val semantics_def = Define `
