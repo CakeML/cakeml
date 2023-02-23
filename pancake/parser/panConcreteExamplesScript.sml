@@ -1,3 +1,6 @@
+(**
+ * Pancake concrete syntax examples
+ *)
 open HolKernel Parse boolLib bossLib stringLib numLib intLib;
 open preamble panPtreeConversionTheory;
 open helperLib;
@@ -36,7 +39,7 @@ fun parse_pancake q =
     EVAL “parse_to_ast ^code”
   end
 
-val check_success = assert $ is_some o rhs o concl
+val check_success = assert $ optionSyntax.is_some o rhs o concl
 
 (** Examples can be written using quoted strings and passed to the ML
     function parse_pancake. *)
