@@ -372,7 +372,7 @@ Proof
     \\ fs[SUBSET_DEF]
     \\ CONJ_TAC >-
       fs[id_ok_def]
-    \\ `r ∉ domain fml’ by fs [id_ok_def]
+    \\ ‘r ∉ domain fml’ by fs [id_ok_def]
     \\ CONJ_TAC >- (
       DEP_REWRITE_TAC[inter_insert_NOTIN]>>
       fs[id_ok_def,SUBSET_DEF]>>
@@ -514,17 +514,61 @@ Definition extract_pids_def:
     | INR i => extract_pids pfs l (insert i () r)))
 End
 
+Definition list_pair_eq_def:
+  list_pair_eq xs ys =
+    case xs of
+    | [] => (case ys of [] => T | _ => F)
+    | (x1,x2)::xs => (case ys of
+                      | [] => F
+                      | ((y1,y2)::ys) =>
+                        if x1 = y1 ∧ x2 = y2 then list_pair_eq xs ys else F)
+End
+
+Definition equal_constraint_def:
+  equal_constraint (x2,x3) ((y2,y3):(int # num) list # num) ⇔
+    if x3 = y3 then
+      list_pair_eq x2 y2
+    else F
+End
+
+Definition mem_constraint_def:
+  mem_constraint (c:(int # num) list # num) [] = F ∧
+  mem_constraint c (x::xs) =
+    if equal_constraint c x then T else mem_constraint c xs
+End
+
 (* Partition the formula goals into proved and non-proved
   For each non-proved goal, check if
   it was already proved by another proofgoal (excluding #)
 *)
 Definition split_goals_def:
-  split_goals (proved:num_set) goals =
+  split_goals (proved:num_set) (goals:(num # (int # num) list # num) list) =
   let (lp,lf) =
     PARTITION (λ(i,c). lookup i proved ≠ NONE) goals in
   let proved = MAP SND lp in
-  EVERY (λ(i,c). MEM c proved) lf
+  EVERY (λ(i,c). mem_constraint c proved) lf
 End
+
+Triviality list_pair_eq_thm:
+  ∀xs ys. list_pair_eq xs ys ⇔ xs = ys
+Proof
+  Induct \\ rw []
+  \\ Cases_on ‘ys’
+  \\ simp [Once list_pair_eq_def]
+  \\ PairCases_on ‘h’ \\ gvs []
+  \\ CASE_TAC \\ fs []
+QED
+
+Theorem mem_constraint_thm:
+  ∀xs c. mem_constraint c xs = MEM c xs
+Proof
+  Induct \\ fs [mem_constraint_def] \\ rw []
+  \\ qsuff_tac ‘equal_constraint c h ⇔ c = h’ >- fs []
+  \\ PairCases_on ‘c’
+  \\ PairCases_on ‘h’
+  \\ fs [equal_constraint_def,list_pair_eq_thm]
+  \\ rw [] \\ eq_tac \\ rw []
+QED
 
 (* TODO: Figure out exactly
   when we need to account for skipped subproofs *)
@@ -790,7 +834,7 @@ Theorem split_goals_checked:
     lookup i proved ≠ NONE ∧
     MEM (i,yy) goals
 Proof
-  rw[split_goals_def]>>
+  rw[split_goals_def,mem_constraint_thm]>>
   pairarg_tac>>fs[PARTITION_DEF]>>
   pop_assum (ASSUME_TAC o SYM)>>
   drule PARTs_HAVE_PROP>>
