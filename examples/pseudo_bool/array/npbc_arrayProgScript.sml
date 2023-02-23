@@ -1508,6 +1508,7 @@ Definition do_core_del_def:
 End
 
 val res = translate do_core_del_def;
+val res = translate core_from_inds_def;
 
 val check_cstep_arr = process_topdecs`
   fun check_cstep_arr lno cstep chk ord obj bound
@@ -1535,18 +1536,16 @@ val check_cstep_arr = process_topdecs`
            end
     end)
   | Loadorder nn xs =>
-    (case all_core_arr fml inds core of (ac,inds') =>
-    if ac then
-      (case Alist.lookup orders nn of
-        None =>
-          raise Fail (format_failure lno ("invalid order: " ^ nn))
-      | Some ord' =>
-        if List.length xs = List.length (fst (snd ord')) then
-          (fml,(inds',(id,(core,(bound,(Some (ord',xs),orders))))))
-        else
-          raise Fail (format_failure lno ("invalid order: " ^ nn)))
-    else
-     raise Fail (format_failure lno ("not all constraints in core")))
+    let val inds' = reindex_arr fml inds in
+    case Alist.lookup orders nn of
+      None =>
+        raise Fail (format_failure lno ("no such order: " ^ nn))
+    | Some ord' =>
+      if List.length xs = List.length (fst (snd ord')) then
+        (fml,(inds',(id,(core_from_inds inds',(bound,(Some (ord',xs),orders))))))
+      else
+        raise Fail (format_failure lno ("invalid order instantiation"))
+    end
   | Unloadorder =>
     (case ord of None =>
      raise Fail (format_failure lno ("no order loaded"))
@@ -1750,19 +1749,7 @@ Proof
     fs[OPTION_TYPE_def,constraint_TYPE_def])
   >- ( (* LoadOrder*)
     xmatch>>
-    xlet_autop>>
-    pairarg_tac>>gs[PAIR_TYPE_def]>>
-    xmatch>>
-    reverse(Cases_on`ac`)>>fs[]>>
-    xif>>asm_exists_tac>>simp[]
-    >- (
-      xlet_autop>>
-      xlet_auto>-
-        (xcon>>xsimpl)>>
-      xraise>>xsimpl>>
-      simp[Fail_exn_def]>>
-      metis_tac[ARRAY_refl])>>
-    xlet_autop>>
+    rpt xlet_autop>>
     Cases_on`ALOOKUP orders m`>>fs[OPTION_TYPE_def]>>xmatch
     >- (
       rpt xlet_autop>>

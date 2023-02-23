@@ -1209,6 +1209,10 @@ Proof
   Cases_on`lookup x core`>>simp[]
 QED
 
+Definition core_from_inds_def:
+  core_from_inds inds = fromAList (MAP (λx. (x,())) inds)
+End
+
 Definition check_cstep_list_def:
   check_cstep_list cstep chk ord obj bound
     core fml inds id orders =
@@ -1239,14 +1243,13 @@ Definition check_cstep_list_def:
             else NONE
         | _ => NONE) ))
   | LoadOrder nn xs =>
-    let (ac,inds') = all_core fml inds core in
-    if ac then
+    (let inds' = reindex fml inds in
       case ALOOKUP orders nn of NONE => NONE
       | SOME ord' =>
         if LENGTH xs = LENGTH (FST (SND ord')) then
-          SOME (fml,inds',id,core,bound,SOME (ord',xs),orders)
-        else NONE
-    else NONE
+          SOME (fml,inds',id,
+            core_from_inds inds',bound,SOME (ord',xs),orders)
+        else NONE)
   | UnloadOrder =>
     (case ord of NONE => NONE
     | SOME spo =>
@@ -1380,6 +1383,23 @@ Proof
   simp[]
 QED
 
+Theorem fromAList_toAList_core_from_inds:
+  fml_rel fml fmlls ∧
+  ind_rel fmlls inds ⇒
+  fromAList (MAP (λ(x,y). (x,())) (toAList fml)) =
+  core_from_inds (reindex fmlls inds)
+Proof
+  DEP_REWRITE_TAC[spt_eq_thm]>>
+  simp[core_from_inds_def,wf_fromAList,lookup_fromAList,ALOOKUP_MAP,reindex_characterize,ALOOKUP_toAList]>>rw[]>>
+  Cases_on`lookup n fml`>>fs[fml_rel_def]>>
+  last_x_assum(qspec_then`n` assume_tac)
+  >-
+    simp[ALOOKUP_NONE,MEM_MAP,PULL_FORALL,MEM_FILTER]>>
+  qmatch_goalsub_abbrev_tac`ALOOKUP ls n`>>
+  Cases_on`ALOOKUP ls n`>>
+  gvs[ALOOKUP_NONE,MEM_MAP,PULL_FORALL,MEM_FILTER,Abbr`ls`,ind_rel_def]
+QED
+
 Theorem fml_rel_check_cstep_list:
   ∀cstep chk ord obj bound core fmlls inds id orders
     fmlls' id' inds' fml rest.
@@ -1426,9 +1446,7 @@ Proof
     simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST])
   >- ( (* LoadOrder *)
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    pairarg_tac>>gvs[AllCaseEqs()]>>
-    drule_all fml_rel_all_core>>
-    simp[])
+    simp[ind_rel_reindex,fromAList_toAList_core_from_inds])
   >- ( (* UnloadOrder *)
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def])
   >- ( (* StoreOrder *)

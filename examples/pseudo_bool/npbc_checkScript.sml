@@ -1340,13 +1340,12 @@ Definition check_cstep_def:
           else NONE
       | _ => NONE) ))
   | LoadOrder name xs =>
-    if domain fml ⊆ domain core then
-      case ALOOKUP orders name of NONE => NONE
+      (case ALOOKUP orders name of NONE => NONE
       | SOME ord' =>
         if LENGTH xs = LENGTH (FST (SND ord')) then
-          SOME (fml, id, core, bound, SOME (ord',xs) , orders)
-        else NONE
-    else NONE
+          SOME (fml, id, fromAList (MAP (λ(x,y). (x,())) (toAList fml)),
+            bound, SOME (ord',xs) , orders)
+        else NONE)
   | UnloadOrder =>
     (case ord of NONE => NONE
     | SOME spo =>
@@ -1784,6 +1783,23 @@ Proof
   Induct>>rw[]>>fs[build_fml_def,id_ok_def]
 QED
 
+Theorem range_coref_map_fml:
+  range (coref (map (λv. ()) fml) fml) = range fml
+Proof
+  simp[range_def,lookup_mapi,coref_def,lookup_map,EXTENSION]>>
+  rw[]>>eq_tac>>rw[]>>simp[PULL_EXISTS]>>
+  asm_exists_tac>>simp[]
+QED
+
+Theorem coref_fromAList_fml:
+  range (coref (fromAList (MAP (λ(x,y). (x,())) (toAList fml))) fml) =
+  range fml
+Proof
+  simp[range_def,lookup_mapi,coref_def,lookup_fromAList,ALOOKUP_MAP,EXTENSION,ALOOKUP_toAList]>>
+  rw[]>>eq_tac>>rw[]>>simp[PULL_EXISTS]>>
+  asm_exists_tac>>simp[]
+QED
+
 Theorem check_cstep_correct:
   ∀cstep chk ord obj bound core fml id orders.
   id_ok fml id ∧
@@ -1943,18 +1959,12 @@ Proof
     strip_tac>>first_x_assum drule>>
     simp[good_ord_t_def]>>strip_tac>>
     fs[valid_conf_def]>>
-    `range (coref core fml) = range fml` by (
-      simp[range_def,coref_def,lookup_mapi,EXTENSION]>>
-      rw[]>>eq_tac>>rw[]
-      >- (
-        fs[SUBSET_DEF,domain_lookup]>>
-        last_x_assum drule>>rw[]>>simp[]>>
-        metis_tac[])>>
-      fs[SUBSET_DEF,domain_lookup,PULL_EXISTS]>>
-      first_x_assum drule>>rw[]>>simp[]>>
-      first_x_assum drule>>rw[]>>simp[]>>
-      asm_exists_tac>>simp[])>>
-    simp[sat_obj_po_refl,bimp_obj_refl])
+    simp[coref_fromAList_fml,sat_obj_po_refl,bimp_obj_refl]>>
+    CONJ_TAC>- (
+      simp[domain_fromAList,SUBSET_DEF,MEM_MAP,PULL_EXISTS,FORALL_PROD,MEM_toAList]>>
+      simp[domain_lookup])>>
+    rw[]>>match_mp_tac bimp_obj_SUBSET>>
+    metis_tac[range_coref_SUBSET])
   >- ( (* UnloadOrder *)
     rw[]>>
     every_case_tac>>
@@ -2390,11 +2400,7 @@ Proof
     fs[unsatisfiable_def,valid_conf_def,satisfiable_def])
   >- (
     match_mp_tac optimal_val_eq>>fs[opt_lt_def]>>
-    `range (coref (map (λv. ()) fml) fml) = range fml` by
-      (simp[range_def,lookup_mapi,coref_def,lookup_map,EXTENSION]>>
-      rw[]>>eq_tac>>rw[]>>simp[PULL_EXISTS]>>
-      asm_exists_tac>>simp[])>>
-    fs[]>>
+    fs[range_coref_map_fml]>>
     match_mp_tac (GEN_ALL bimp_obj_SOME_bound)>>
     asm_exists_tac>>
     fs[unsatisfiable_def,valid_conf_def,satisfiable_def])
