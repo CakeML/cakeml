@@ -107,7 +107,7 @@ Definition compTerm_def:
                 («ptr2»,BaseAddr (* Const ffiBufferAddr *));
                 («len2»,Const ffiBufferSize)
                ] (Seq
-                  (ExtCall (num_to_str outsig) «ptr1» «len1» «ptr2» «len2»)
+                  (ExtCall (num_to_str outsig) (Var «ptr1») (Var «len1») (Var «ptr2») (Var «len2»))
                   return)
           ])
 End

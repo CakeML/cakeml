@@ -288,10 +288,10 @@ Definition conv_NonRecStmt_def:
       case args of
         [name; ptr; clen; array; alen] =>
           do name' <- conv_ident name;
-             ptr' <- conv_ident ptr;
-             clen' <- conv_ident clen;
-             array' <- conv_ident array;
-             alen' <- conv_ident alen;
+             ptr' <- conv_Exp ptr;
+             clen' <- conv_Exp clen;
+             array' <- conv_Exp array;
+             alen' <- conv_Exp alen;
              SOME $ ExtCall name' ptr' clen' array' alen'
           od
       | _ => NONE

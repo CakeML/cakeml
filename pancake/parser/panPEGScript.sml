@@ -156,8 +156,11 @@ Definition pancake_peg_def[nocompute]:
                              consume_kw HandleK]
                             (mksubtree HandleNT));
         (INL ExtCallNT, seql [consume_tok HashT; keep_ident;
-                              consume_tok LParT; keep_ident; keep_ident;
-                              keep_ident; keep_ident; consume_tok RParT]
+                              consume_tok LParT; mknt ExpNT;
+                              consume_tok CommaT; mknt ExpNT;
+                              consume_tok CommaT; mknt ExpNT;
+                              consume_tok CommaT; mknt ExpNT;
+                              consume_tok RParT]
                              (mksubtree ExtCallNT));
         (INL RaiseNT, seql [consume_kw RaiseK; keep_ident; mknt ExpNT]
                            (mksubtree RaiseNT));

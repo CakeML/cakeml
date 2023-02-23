@@ -974,180 +974,119 @@ Proof
   metis_tac [flookup_fupdate_zip_not_mem]
 QED
 
-
-
 Theorem not_mem_context_assigned_mem_gt:
   !ctxt p x.
    ctxt_max ctxt.vmax ctxt.vars /\
    (!v sh ns'. FLOOKUP ctxt.vars v = SOME (sh, ns') ==> ~MEM x ns') ∧
    x <= ctxt.vmax  ==>
-   ~MEM x (assigned_vars (compile ctxt p))
+   ~MEM x (assigned_free_vars (compile ctxt p))
 Proof
   ho_match_mp_tac compile_ind >> rw []
-  >- fs [compile_def, assigned_vars_def]
+  >- fs [compile_def, assigned_free_vars_def]
+  >- (fs [compile_def, assigned_free_vars_def] >>
+      pairarg_tac >> fs [] >> rveq >>
+      FULL_CASE_TAC >> fs [assigned_free_vars_def] >>
+      qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
+      ‘LENGTH dvs = LENGTH es’ by (unabbrev_all_tac >> fs []) >>
+      drule assigned_free_vars_nested_decs_append >>
+      qmatch_goalsub_abbrev_tac ‘compile nctxt p’ >>
+      disch_then (qspec_then ‘compile nctxt p’ assume_tac) >>
+      rw [MEM_FILTER,DISJ_EQ_IMP] >>
+      last_x_assum match_mp_tac >>
+      gvs[ctxt_max_def] >> rw[FLOOKUP_UPDATE,Abbr ‘dvs’] \\ gvs[MEM_GENLIST] \\
+      res_tac \\ DECIDE_TAC)
   >- (
-   fs [compile_def, assigned_vars_def] >>
+   fs [compile_def, assigned_free_vars_def] >>
    pairarg_tac >> fs [] >> rveq >>
-   FULL_CASE_TAC >> fs [assigned_vars_def] >>
-   qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
-   ‘LENGTH dvs = LENGTH es’ by (unabbrev_all_tac >> fs []) >>
-   drule assigned_vars_nested_decs_append >>
-   qmatch_goalsub_abbrev_tac ‘compile nctxt p’ >>
-   disch_then (qspec_then ‘compile nctxt p’ assume_tac) >>
-   fs [] >>
-   pop_assum kall_tac >>
-   conj_asm1_tac
-   >- (fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
-   last_x_assum match_mp_tac >>
-   rename [‘(vname,sh,dvs)’] >>
-   conj_tac
-   >- (
-    fs [ctxt_max_def] >>
-    rw [] >>
-    fs [FLOOKUP_UPDATE] >>
-    FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs [] >>
-    fs [Abbr ‘dvs’, MEM_GENLIST]) >>
-   rw [] >>
-   fs [FLOOKUP_UPDATE] >>
-   FULL_CASE_TAC >> rveq >> fs [] >> res_tac >> fs [])
-  >- (
-   fs [compile_def, assigned_vars_def] >>
-   pairarg_tac >> fs [] >> rveq >>
-   FULL_CASE_TAC >> fs [assigned_vars_def] >>
+   FULL_CASE_TAC >> fs [assigned_free_vars_def] >>
    FULL_CASE_TAC >> FULL_CASE_TAC >> fs []
    >- (
-    FULL_CASE_TAC >> fs [assigned_vars_def] >>
-    drule nested_seq_assigned_vars_eq >>
+    FULL_CASE_TAC >> fs [assigned_free_vars_def] >>
+    drule nested_seq_assigned_free_vars_eq >>
     fs [] >> res_tac >> fs []) >>
-   FULL_CASE_TAC >> fs [assigned_vars_def] >>
+   FULL_CASE_TAC >> fs [assigned_free_vars_def] >>
    qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
    ‘LENGTH dvs = LENGTH es’ by (unabbrev_all_tac >> fs []) >>
-   drule assigned_vars_nested_decs_append >>
+   drule assigned_free_vars_nested_decs_append >>
    disch_then (qspec_then ‘nested_seq (MAP2 Assign r (MAP Var dvs))’ assume_tac) >>
    fs [] >>
-   pop_assum kall_tac >>
-   conj_asm1_tac
-   >- (
-    fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
+   rw[MEM_FILTER,DISJ_EQ_IMP] >>
    ‘LENGTH r = LENGTH (MAP Var dvs)’ by fs [Abbr ‘dvs’, LENGTH_GENLIST] >>
-   drule nested_seq_assigned_vars_eq >>
+   drule nested_seq_assigned_free_vars_eq >>
    fs [] >> res_tac >> fs [])
   >- (
    fs [compile_def] >>
-   TOP_CASE_TAC >> fs [] >>
-   TOP_CASE_TAC >> fs [assigned_vars_def] >>
-   pairarg_tac >> fs [] >>
-   TOP_CASE_TAC >> fs [assigned_vars_def] >>
+   rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
+   pairarg_tac >> rw [] >>
    fs [nested_decs_def] >>
-   fs [assigned_vars_def] >>
-   qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
-   ‘LENGTH dvs = LENGTH es’ by (unabbrev_all_tac >> fs []) >>
-   drule assigned_vars_nested_decs_append >>
-   disch_then (qspec_then ‘nested_seq (stores (Var (ctxt.vmax + 1))
-                                       (MAP Var dvs) 0w)’ assume_tac) >>
-   fs [] >>
-   pop_assum kall_tac >>
-   conj_asm1_tac
-   >- (
-    fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
-   fs [assigned_vars_seq_store_empty]) >>
-  TRY (fs [compile_def, assigned_vars_def] >> every_case_tac >>
-       fs [assigned_vars_def] >> metis_tac [] >> NO_TAC)
+   fs [assigned_free_vars_def] >>
+   rw[MEM_FILTER,DISJ_EQ_IMP] >>
+   dep_rewrite.DEP_ONCE_REWRITE_TAC[assigned_free_vars_nested_decs_append] >>
+   rw[MEM_FILTER,DISJ_EQ_IMP] >>
+   gvs[MEM_GENLIST] >>
+   gvs[assigned_free_vars_seq_store_empty])
+  >- (
+   fs [compile_def] >>
+   rpt (TOP_CASE_TAC >> fs [assigned_free_vars_def]))
+  >- (
+   fs [compile_def] >>
+   pairarg_tac >> fs[] >>
+   ntac 4 (TOP_CASE_TAC >> fs [assigned_free_vars_def]) >>
+   dep_rewrite.DEP_ONCE_REWRITE_TAC[assigned_free_vars_nested_decs_append] \\
+   rw[MEM_FILTER,DISJ_EQ_IMP] \\
+   fs [assigned_free_vars_store_globals_empty])
   >- (
    fs [compile_def] >>
    pairarg_tac >> fs [] >>
-   ntac 4 (TOP_CASE_TAC >> fs [assigned_vars_def]) >>
-   qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
-   ‘LENGTH dvs = LENGTH es’ by (unabbrev_all_tac >> fs []) >>
-   drule assigned_vars_nested_decs_append >>
-   disch_then (qspec_then ‘nested_seq (store_globals 0w (MAP Var dvs))’ assume_tac) >>
-   fs [] >>
-   pop_assum kall_tac >>
-   conj_asm1_tac
-   >- (
-    fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
-   fs [assigned_vars_store_globals_empty])
-  >- (
-   fs [compile_def] >>
-   pairarg_tac >> fs [] >>
-   ntac 2 (TOP_CASE_TAC >> fs [assigned_vars_def]) >>
-   qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
-   ‘LENGTH dvs = LENGTH es’ by (unabbrev_all_tac >> fs []) >>
-   drule assigned_vars_nested_decs_append >>
-   disch_then (qspec_then ‘nested_seq (store_globals 0w (MAP Var dvs))’ assume_tac) >>
-   fs [] >>
-   pop_assum kall_tac >>
-   conj_asm1_tac
-   >- (
-    fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
-   fs [assigned_vars_store_globals_empty]) >>
-  fs [compile_def] >>
-  pairarg_tac >> fs [] >>
-  rpt (TOP_CASE_TAC >> fs []) >>
-  TRY (fs [assigned_vars_def]) >>
-  TRY (
-  rename1 ‘ret_var q' r'’>>
-  cases_on ‘q'’ >>
-  fs [ret_var_def] >>
-  TRY (TOP_CASE_TAC) >>
-  fs [] >>
-  TRY (
-  fs [ret_hdl_def] >>
-  TRY (rename1 ‘oHD r'’) >>
-  TRY (rename1 ‘ret_hdl _ r'’)>>
-  cases_on ‘r'’ >>
-  fs [assigned_vars_def, wrap_rt_def,
-      CaseEq "option", CaseEq "prod", CaseEq "shape",
-      CaseEq "list"] >>
-  res_tac >> fs []) >>
-  TOP_CASE_TAC >>
-  fs [assign_ret_def, nested_seq_def, assigned_vars_def] >>
-  ‘LENGTH (h'::t') = LENGTH (load_globals 0w (SUC (LENGTH t')))’ by
-    fs [GSYM length_load_globals_eq_read_size] >>
-  drule nested_seq_assigned_vars_eq >>
-  fs [] >> strip_tac >>
-  res_tac >> fs [])
-  >- (
-   reverse conj_tac
-   >- (
-    first_x_assum match_mp_tac >>
-    fs [] >> rw [] >>
-    res_tac >> fs []) >>
-   fs [exp_hdl_def] >>
-   TOP_CASE_TAC >> fs [] >>
-   fs [assigned_vars_def] >>
-   TOP_CASE_TAC >> fs [] >>
-   ‘LENGTH r = LENGTH (load_globals 0w (LENGTH r))’ by
-     fs [GSYM length_load_globals_eq_read_size] >>
-   drule nested_seq_assigned_vars_eq >>
-   fs [] >> strip_tac >>
-   res_tac >> fs []) >>
-  rename1 ‘ret_var q' r'’>>
-  cases_on ‘q'’ >>
-  fs [ret_var_def] >>
-  TRY (TOP_CASE_TAC) >>
-  fs [] >>
-  TRY (
-  fs [ret_hdl_def] >>
-  cases_on ‘r'’ >>
-  fs [assigned_vars_def, wrap_rt_def,
-      CaseEq "option", CaseEq "prod", CaseEq "shape",
-      CaseEq "list"] >>
-  res_tac >> fs []) >>
-  TRY TOP_CASE_TAC >> fs [] >>
-  fs [assign_ret_def, nested_seq_def, assigned_vars_def] >>
-  fs [exp_hdl_def] >>
-  rpt TOP_CASE_TAC >> fs [] >>
-  fs [assigned_vars_def] >>
-  TRY (
-  ‘LENGTH r = LENGTH (load_globals 0w (LENGTH r))’ by
-    fs [GSYM length_load_globals_eq_read_size]) >>
-  TRY (
-  ‘LENGTH (h'::t') = LENGTH (load_globals 0w (SUC (LENGTH t')))’ by
-    fs [GSYM length_load_globals_eq_read_size]) >>
-  imp_res_tac nested_seq_assigned_vars_eq >>
-  fs [] >> strip_tac >>
-  res_tac >> fs []
+   ntac 2 (TOP_CASE_TAC >> fs [assigned_free_vars_def]) >>
+   dep_rewrite.DEP_ONCE_REWRITE_TAC[assigned_free_vars_nested_decs_append] \\
+   rw[MEM_FILTER,DISJ_EQ_IMP] \\
+   fs [assigned_free_vars_store_globals_empty])
+  >- (fs [compile_def,assigned_free_vars_def] >>
+      metis_tac[])
+  >- (fs [compile_def,assigned_free_vars_def] >>
+      rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
+      metis_tac[])
+  >- (fs [compile_def,assigned_free_vars_def] >>
+      rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
+      metis_tac[])
+  >- (fs [compile_def,assigned_free_vars_def] >>
+      rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
+      metis_tac[])
+  >- (fs [compile_def,assigned_free_vars_def] >>
+      rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
+      metis_tac[])
+  >- (fs [compile_def,assigned_free_vars_def] >>
+      pairarg_tac \\ gvs[] \\
+      rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def])
+      THEN1 (conj_asm1_tac
+             THEN1 (gvs[exp_hdl_def] \\
+                    rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
+                    dep_rewrite.DEP_ONCE_REWRITE_TAC[nested_seq_assigned_free_vars_eq] \\
+                    gvs[length_load_globals_eq_read_size] \\
+                    metis_tac[]) \\
+             metis_tac[]) \\
+      gvs[ret_var_def,assigned_free_vars_def,wrap_rt_def,AllCaseEqs(),ret_hdl_def] \\
+      rw[] \\
+      res_tac \\ gvs[assigned_free_vars_def,assign_ret_def] \\
+      TRY(rename1 ‘oHD ret’ \\ Cases_on ‘ret’ \\ gvs[assigned_free_vars_def] \\
+          gvs[exp_hdl_def] \\
+          rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
+          dep_rewrite.DEP_ONCE_REWRITE_TAC[nested_seq_assigned_free_vars_eq] \\
+          gvs[length_load_globals_eq_read_size] \\
+          metis_tac[] \\ NO_TAC) \\
+      dep_rewrite.DEP_ONCE_REWRITE_TAC[nested_seq_assigned_free_vars_eq] \\
+      gvs[length_load_globals_eq_read_size] \\
+      TRY(qmatch_goalsub_abbrev_tac ‘exp_hdl’ \\
+          gvs[exp_hdl_def] \\
+          rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
+          dep_rewrite.DEP_ONCE_REWRITE_TAC[nested_seq_assigned_free_vars_eq] \\
+          gvs[length_load_globals_eq_read_size] \\
+          metis_tac[]))
+  >- (gvs[compile_def] \\
+      rpt(pairarg_tac \\ gvs[]) \\
+      rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def])) \\
+  gvs[compile_def,assigned_free_vars_def]
 QED
 
 Theorem rewritten_context_unassigned:
@@ -1161,7 +1100,7 @@ Theorem rewritten_context_unassigned:
   no_overlap nctxt.vars ∧
   ctxt_max nctxt.vmax nctxt.vars /\
   distinct_lists nvars ns ==>
-  distinct_lists ns (assigned_vars (compile nctxt p))
+  distinct_lists ns (assigned_free_vars (compile nctxt p))
 Proof
   rw [] >> fs [] >>
   fs [distinct_lists_def] >>
@@ -2993,6 +2932,18 @@ Proof
   TRY (rpt TOP_CASE_TAC) >> fs [] >> call_tail_ret_impl_tac
 QED
 
+Theorem list_max_APPEND:
+  list_max(a ++ b) = MAX (list_max a) (list_max b)
+Proof
+  Induct_on ‘a’ \\ rw[list_max_def] \\
+  intLib.COOPER_TAC
+QED
+
+Theorem list_max_NOT_MEM:
+  x > list_max l ⇒ ¬MEM x l
+Proof
+  Induct_on ‘l’ \\ gvs[list_max_def]
+QED
 
 Theorem compile_ExtCall:
   ^(get_goal "compile _ (panLang$ExtCall _ _ _ _ _)")
@@ -3002,18 +2953,65 @@ Proof
   fs [compile_def] >>
   fs [CaseEq "option", CaseEq "v", CaseEq "word_lab", CaseEq "prod"] >>
   rveq >> fs [] >>
-  imp_res_tac locals_rel_lookup_ctxt >> fs [flatten_def] >> rveq >>
-  TOP_CASE_TAC >> fs [shape_of_def, OPT_MMAP_def] >>
-  TOP_CASE_TAC >> fs [shape_of_def, OPT_MMAP_def] >>
-  TOP_CASE_TAC >> fs [shape_of_def, OPT_MMAP_def] >>
-  TOP_CASE_TAC >> fs [shape_of_def, OPT_MMAP_def] >> rveq >>
-  fs [evaluate_def] >>
-  ‘t.memory = s.memory ∧ t.memaddrs = s.memaddrs ∧ t.be = s.be ∧ t.ffi = s.ffi’ by
-    fs [state_rel_def] >>
-  fs [] >>
-  TOP_CASE_TAC >> fs [] >> rveq
-  >- fs [state_rel_def, code_rel_def] >>
-  fs [state_rel_def, code_rel_def, excp_rel_def, panSemTheory.empty_locals_def]
+  ntac 4 (pairarg_tac \\ fs[]) \\
+  imp_res_tac compile_exp_val_rel \\
+  gvs[shape_of_def,panLangTheory.size_of_shape_def,
+      quantHeuristicsTheory.LIST_LENGTH_1,flatten_def] \\
+  ntac 4 $ qpat_x_assum ‘SOME _ = eval _ _’ (mp_tac o GSYM) \\ rpt strip_tac \\
+  simp[Once evaluate_def] \\
+  qmatch_goalsub_abbrev_tac ‘Dec (freshv + 2)’ \\
+  rename1 ‘var_cexp e1 ++ var_cexp e2 ++ var_cexp e3 ++ var_cexp e4’ \\
+  ‘¬MEM (freshv + 1) (var_cexp e2)’
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+       rw[MAX_DEF] \\
+       match_mp_tac list_max_NOT_MEM \\
+       intLib.COOPER_TAC) \\
+  simp[Once evaluate_def] \\
+  simp[update_locals_not_vars_eval_eq'] \\
+  ‘¬MEM (freshv + 1) (var_cexp e3)’
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+       rw[MAX_DEF] \\
+       match_mp_tac list_max_NOT_MEM \\
+       intLib.COOPER_TAC) \\
+  ‘¬MEM (freshv + 2) (var_cexp e3)’
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+       rw[MAX_DEF] \\
+       match_mp_tac list_max_NOT_MEM \\
+       intLib.COOPER_TAC) \\
+  simp[Once evaluate_def] \\
+  simp[update_locals_not_vars_eval_eq',update_locals_not_vars_eval_eq''] \\
+  ‘¬MEM (freshv + 1) (var_cexp e4)’
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+       rw[MAX_DEF] \\
+       match_mp_tac list_max_NOT_MEM \\
+       intLib.COOPER_TAC) \\
+  ‘¬MEM (freshv + 2) (var_cexp e4)’
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+       rw[MAX_DEF] \\
+       match_mp_tac list_max_NOT_MEM \\
+       intLib.COOPER_TAC) \\
+  ‘¬MEM (freshv + 3) (var_cexp e4)’
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+       rw[MAX_DEF] \\
+       match_mp_tac list_max_NOT_MEM \\
+       intLib.COOPER_TAC) \\
+  simp[Once evaluate_def] \\
+  simp[update_locals_not_vars_eval_eq',update_locals_not_vars_eval_eq''] \\
+  simp[evaluate_def,FLOOKUP_UPDATE] \\
+  ‘t.memory = s.memory ∧ t.memaddrs = s.memaddrs ∧ t.be = s.be ∧ t.ffi = s.ffi’ by gvs[state_rel_def] \\
+  simp[] \\
+  gvs[AllCaseEqs()] \\
+  gvs[state_rel_def] \\
+  gvs[locals_rel_def,panSemTheory.empty_locals_def] \\
+  rw[] \\
+  res_tac \\ gvs[] \\
+  gvs[opt_mmap_eq_some] \\
+  simp[Once LIST_EQ_REWRITE] \\
+  conj_asm1_tac THEN1 gvs[LIST_EQ_REWRITE] \\
+  rw[EL_MAP] \\
+  rw[flookup_res_var_thm] \\
+  gvs[LIST_EQ_REWRITE,EL_MAP,FLOOKUP_UPDATE] \\
+  metis_tac[]
 QED
 
 

@@ -131,6 +131,22 @@ Termination
   decide_tac
 End
 
+Definition assigned_free_vars_def:
+  (assigned_free_vars Skip = ([]:num list)) ∧
+  (assigned_free_vars (Dec n e p) = (FILTER ($≠ n) $ assigned_free_vars p)) ∧
+  (assigned_free_vars (Assign n e) = [n]) ∧
+  (assigned_free_vars (Seq p p') = assigned_free_vars p ++ assigned_free_vars p') ∧
+  (assigned_free_vars (If e p p') = assigned_free_vars p ++ assigned_free_vars p') ∧
+  (assigned_free_vars (While e p) = assigned_free_vars p) ∧
+  (assigned_free_vars (Call (SOME (NONE, rp, (SOME (_, p)))) e es) =
+     assigned_free_vars rp ++ assigned_free_vars p) ∧
+  (assigned_free_vars (Call (SOME (NONE, rp, NONE)) e es) = assigned_free_vars rp) ∧
+  (assigned_free_vars (Call (SOME ((SOME rt), rp, (SOME (_, p)))) e es) =
+     rt :: assigned_free_vars rp ++ assigned_free_vars p) ∧
+  (assigned_free_vars (Call (SOME ((SOME rt), rp, NONE)) e es) = rt :: assigned_free_vars rp) ∧
+  (assigned_free_vars _ = [])
+End
+
 Definition assigned_vars_def:
   (assigned_vars Skip = ([]:num list)) ∧
   (assigned_vars (Dec n e p) = (n::assigned_vars p)) ∧
