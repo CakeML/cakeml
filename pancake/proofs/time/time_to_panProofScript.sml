@@ -413,7 +413,7 @@ Definition mem_read_ffi_results_def:
     i < cycles ∧
     t.ffi.ffi_state = nexts_ffi i ffi ∧
     evaluate
-    (ExtCall «get_time_input» «ptr1» «len1» «ptr2» «len2» , t) =
+    (ExtCall «get_time_input» (Var «ptr1») (Var «len1») (Var «ptr2») (Var «len2») , t) =
     (NONE,t') ⇒
     t'.memory t'.base_addr =
     Word (n2w (FST (nexts_ffi i ffi 1))) ∧
@@ -1885,7 +1885,7 @@ QED
 Theorem ffi_eval_state_thm:
   !ffi_name s (res:'a result option) t nbytes.
     evaluate
-    (ExtCall ffi_name «ptr1» «len1» «ptr2» «len2»,s) = (res,t)∧
+    (ExtCall ffi_name (Var «ptr1») (Var «len1») (Var «ptr2») (Var «len2»),s) = (res,t)∧
     well_behaved_ffi ffi_name s
                      (w2n (ffiBufferSize:'a word)) (dimword (:α))  /\
     FLOOKUP s.locals «ptr1» = SOME (ValWord 0w) ∧
@@ -1899,7 +1899,7 @@ Proof
   rpt gen_tac >>
   strip_tac >>
   fs [well_behaved_ffi_def] >>
-  gs [evaluate_def] >>
+  gs [evaluate_def,eval_def] >>
   gs [read_bytearray_def] >>
   dxrule LESS_MOD >>
   strip_tac >> rfs [] >>
@@ -3713,7 +3713,7 @@ QED
 
 Theorem evaluate_ext_call:
   ∀(t :('a, time_input) panSem$state) res t' outs bytes.
-    evaluate (ExtCall «get_time_input» «ptr1» «len1» «ptr2» «len2» ,t) = (res,t') ∧
+    evaluate (ExtCall «get_time_input» (Var «ptr1») (Var «len1») (Var «ptr2») (Var «len2») ,t) = (res,t') ∧
     read_bytearray t.base_addr (w2n (ffiBufferSize:α word))
                    (mem_load_byte t.memory t.memaddrs t.be) = SOME bytes ∧
     t.ffi = build_ffi (:'a) t.be outs t.ffi.ffi_state t.ffi.io_events ∧
@@ -3726,7 +3726,7 @@ Proof
   rpt gen_tac >>
   strip_tac >>
   fs [good_dimindex_def] >>
-  (fs [evaluate_def, ffi_vars_def, read_bytearray_def] >>
+  (fs [evaluate_def, eval_def, ffi_vars_def, read_bytearray_def] >>
    gs [build_ffi_def, ffiTheory.call_FFI_def] >>
    gs [ffiTheory.ffi_state_component_equality] >>
    fs [time_input_def] >>

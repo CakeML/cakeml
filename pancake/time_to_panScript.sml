@@ -216,7 +216,7 @@ Definition check_input_time_def:
                             Const bytes_in_word])
   in
     nested_seq [
-        ExtCall «get_time_input» «ptr1» «len1» «ptr2» «len2» ;
+        ExtCall «get_time_input» (Var «ptr1») (Var «len1») (Var «ptr2») (Var «len2») ;
         Assign  «sysTime» time ;
         Assign  «event»   input;
         Assign  «isInput» (Cmp Equal input (Const 0w));
