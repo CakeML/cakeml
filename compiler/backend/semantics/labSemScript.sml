@@ -528,10 +528,11 @@ val evaluate_def = tDefine "evaluate" `
         | _ => (Error,s))
     | _ => (Error,s)`
  (WF_REL_TAC `measure (\s. s.clock)`
-  \\ fs [inc_pc_def,share_mem_store_def,share_mem_load_def,share_mem_op_def] \\ rw [] \\ IMP_RES_TAC asm_fetch_IMP
-  \\ fs[asm_inst_consts,upd_reg_def,upd_pc_def,dec_clock_def,
-    share_mem_store_def,share_mem_load_def,share_mem_op_def,inc_pc_def]
-  \\ decide_tac)
+  \\ fs [inc_pc_def] \\ rw [] \\ IMP_RES_TAC asm_fetch_IMP
+  \\ fs[asm_inst_consts,upd_reg_def,upd_pc_def,dec_clock_def,inc_pc_def]
+  \\ Cases_on `m`
+  \\ fs[share_mem_op_def,share_mem_load_def,share_mem_store_def]
+  \\ gvs[AllCaseEqs(),inc_pc_def,dec_clock_def])
 
 val semantics_def = Define `
   semantics s =
