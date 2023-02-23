@@ -324,11 +324,11 @@ val _ = append_prog
                     [(Pcon NONE [Pvar "env"; Pvar "s1"; Pvar "decs";
                                  Pvar "s2"; Pvar "bs"; Pvar "ws"],
                       App Eval [Var (Short "env"); Var (Short "s1"); Var (Short "decs");
-                                Var (Short "s2"); Var (Short "bs"); Var (Short "ws")])]))]”
+                                Var (Short "s2"); Var (Short "bs"); Var (Short "ws")])]))]”;
 
-        Datatype:
-          eval_res = Compile_error 'a | Eval_result 'b 'c | Eval_exn 'd 'e
-        End
+Datatype:
+  eval_res = Compile_error 'a | Eval_result 'b 'c | Eval_exn 'd 'e
+End
 
 val _ = register_type “:('a,'b,'c,'d,'e) eval_res”;
 
