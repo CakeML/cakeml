@@ -121,11 +121,12 @@ Definition pancake_peg_def[nocompute]:
                               keep_kw BrK; keep_kw ContK;
                               mknt CallNT; mknt ExtCallNT;
                               mknt RaiseNT; mknt ReturnNT;
-                              keep_kw TicK]);
+                              keep_kw TicK;
+                              seql [consume_tok LCurT; mknt ProgNT; consume_tok RCurT] I
+                              ]);
         (INL DecNT,seql [consume_kw VarK; keep_ident;
                          consume_tok AssignT; mknt ExpNT;
-                         consume_tok LCurT; mknt ProgNT;
-                         consume_tok RCurT]
+                         consume_tok SemiT;mknt ProgNT]
                          (mksubtree DecNT));
         (INL AssignNT, seql [keep_ident; consume_tok AssignT;
                              mknt ExpNT] (mksubtree AssignNT));

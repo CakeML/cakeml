@@ -36,6 +36,8 @@ fun parse_pancake q =
     EVAL “parse_to_ast ^code”
   end
 
+val check_success = assert $ is_some o rhs o concl
+
 (** Examples can be written using quoted strings and passed to the ML
     function parse_pancake. *)
 
@@ -48,7 +50,7 @@ fun parse_pancake q =
     statement). NB: Statements end with a semi-colon, blocks do not. *)
 val ex1 = ‘if 2 >= 1 { x = 2; }’;
 
-val treeEx1 = parse_pancake ex1;
+val treeEx1 = check_success $ parse_pancake ex1;
 
 (** We also have a selection of boolean operators and we can call
     functions. A struct value encloses expressions within chevrons
@@ -66,7 +68,7 @@ val treeEx2 = parse_pancake ex2;
 (** FIXME: Add ‘true’ and ‘false’ to EBaseNT *)
 val ex3 = ‘if b & (a ^ c) & d { return true; } else { return false; }’;
 
-val treeEx3 = parse_pancake ex3;
+val treeEx3 = (* check_success $ *) parse_pancake ex3;
 
 (** Loops: standard looping construct. *)
 
@@ -75,25 +77,34 @@ val ex4 = ‘while b | c {
                break;
              } else {
                strb y, 8; // store byte
-               #foo(x y k z); // ffi function call with pointer args
+               #foo(x,y,k,z); // ffi function call with pointer args
                x = x + 1;
                y = x + 1;
              }
            }’;
 
-val treeEx4 = parse_pancake ex4;
+val treeEx4 = check_success $ parse_pancake ex4;
 
-(** Declarations: intended semantics is the variable is in-scope
-    in the body. *)
+(** Declarations: intended semantics is the variable scope extends as
+    far left as possible. *)
 
-val ex5 = ‘var b = 5 {
-             b = b + 1;
-             if b >= 5 {
-               raise Err 5;
-             }
+val ex5 = ‘var b = 5;
+           b = b + 1;
+           if b >= 5 {
+             raise Err 5;
            }’;
 
-val treeEx5 = parse_pancake ex5;
+val treeEx5 = check_success $ parse_pancake ex5;
+
+(** Scope can be indicated with curly brackets *)
+
+val ex6 = ‘{var b = 5;
+            b = b + 1;};
+           if b >= 5 {
+             raise Err 5;
+           }’;
+
+val treeEx6 = check_success $ parse_pancake ex6;
 
 (** Statments. *)
 
@@ -102,6 +113,6 @@ val treeEx5 = parse_pancake ex5;
 (** Expected: Xor (And b a) (And c d) *)
 val exN = ‘x = b & a ^ c & d;’;
 
-val treeExN = parse_pancake exN;
+val treeExN = check_success $ parse_pancake exN;
 
 val _ = export_theory();
