@@ -221,11 +221,22 @@ Definition compile_def:
                               (SOME (Handle neid hndlr))) ce args))))
     | [] => Skip) /\
   (compile ctxt (ExtCall f ptr1 len1 ptr2 len2) =
-   case (FLOOKUP ctxt.vars ptr1, FLOOKUP ctxt.vars len1,
-         FLOOKUP ctxt.vars ptr2, FLOOKUP ctxt.vars len2) of
-    | (SOME (One, pc::pcs), SOME (One, lc::lcs),
-       SOME (One, pc'::pcs'), SOME (One, lc'::lcs')) => ExtCall f pc lc pc' lc'
-    | _ => Skip) /\
+   let
+     (ptr1',sh1) = compile_exp ctxt ptr1;
+     (len1',sh2) = compile_exp ctxt len1;
+     (ptr2',sh3) = compile_exp ctxt ptr2;
+     (len2',sh4) = compile_exp ctxt len2;
+     n = FOLDR MAX 0 (FLAT(MAP var_cexp (FLAT [ptr1';len1';ptr2';len2'])))
+   in
+     case ((sh1,ptr1'),(sh2,len1'),(sh3,ptr2'),(sh4,len2')) of
+     | ((One, pc::pcs), (One, lc::lcs),
+        (One, pc'::pcs'), (One, lc'::lcs')) =>
+         Dec (n+1) pc
+         $ Dec (n+2) lc
+         $ Dec (n+3) pc'
+         $ Dec (n+4) lc'
+         $ crepLang$ExtCall f (n+1) (n+2) (n+3) (n+4)
+     | _ => Skip) /\
   (compile ctxt Tick = Tick)
 End
 

@@ -748,9 +748,7 @@ Proof
   fs [evaluate_def] >> rveq >> fs [] >>
   last_x_assum mp_tac >>
   rpt (TOP_CASE_TAC >> fs []) >>
-  TRY (
-  rfs [state_rel_def, state_component_equality,
-       empty_locals_def, dec_clock_def] >> rveq >> fs [] >> NO_TAC) >>
+  MAP_EVERY imp_res_tac [compile_eval_correct,compile_eval_correct_none] >> gvs[] >>
   rfs [state_rel_def, state_component_equality,
        empty_locals_def, dec_clock_def] >> rveq >> fs [] >>
   rveq >> fs [] >> rveq >> rfs [] >>
