@@ -178,7 +178,7 @@ val evaluate_def = Define `
               else (Error,ms,ffi)
           else if EL ffi_index mc.ffi_names = "MappedWrite" then
             let (nb,ad,reg,pc') = mc.mmio_info ffi_index in
-              if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\ 
+              if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
                 is_valid_mapped_write (mc.target.get_pc ms) nb ad reg pc'
                   mc.target ms
               then
@@ -256,7 +256,7 @@ val mmio_pcs_min_index_def = Define`
     (!j. j < x ==>
       EL j ffi_names <> "MappedRead" /\
       EL j ffi_names <> "MappedWrite") /\
-    (!j. j >= x ==>
+    (!j. j >= x /\ j < LENGTH ffi_names ==>
       EL j ffi_names = "MappedRead" \/
       EL j ffi_names = "MappedWrite"))`
 
