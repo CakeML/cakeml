@@ -1045,7 +1045,7 @@ val res = translate npbc_checkTheory.red_subgoals_def;
 val res = translate do_rso_def;
 
 Definition red_cond_check_def:
-  red_cond_check pfs rsubs goals =
+  red_cond_check (pfs:(( ((num + num) # num) option, (lstep list)) alist)) (rsubs:((int # num) list # num) list list) goals =
   let (l,r) = extract_pids pfs LN LN in
   split_goals l goals ∧
   EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs))
@@ -1055,7 +1055,30 @@ val res = translate COUNT_LIST_AUX_def;
 val res = translate COUNT_LIST_compute;
 val res = translate PART_DEF;
 val res = translate PARTITION_DEF;
-val res = translate (npbc_checkTheory.split_goals_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
+
+Theorem split_goals_eq:
+  split_goals proved goals =
+  let (lp,lf) =
+    PARTITION (λ(i,c). IS_SOME(lookup i proved)) goals in
+  lf = [] ∨
+  (let proved = MAP SND lp in
+  EVERY (λ(i,c). mem_constraint c proved) lf)
+Proof
+  rw[npbc_checkTheory.split_goals_def]>>
+  pairarg_tac>>fs[]>>
+  qmatch_goalsub_abbrev_tac`PARTITION P _`>>
+  `(λ(i,c). lookup i proved ≠ NONE) = P` by (
+    rw[FUN_EQ_THM,Abbr`P`]>>
+    Cases_on`lookup i proved`>>fs[])>>
+  gs[]>>
+  Cases_on`lf`>>simp[]
+QED
+
+val res = translate npbc_checkTheory.list_pair_eq_def;
+val res = translate npbc_checkTheory.equal_constraint_def;
+val res = translate npbc_checkTheory.mem_constraint_def;
+val res = translate split_goals_eq
+
 val res = translate (red_cond_check_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
 
 (* Definition print_subgoal_def:
@@ -1101,13 +1124,15 @@ val check_sstep_arr = process_topdecs`
   case step of
     Lstep lstep =>
     check_lstep_arr lno lstep core fml inds 0 id
-  | Red c s pfs =>
+  | Red c s pfs idopt =>
     (let val rinds = reindex_arr fml inds
          val rsubs = do_rso ord s c obj
          val cpfs = extract_clauses_arr lno s fml rsubs pfs []
          val fml_not_c = Array.updateResize fml None id (Some (not_1 c)) in
          case check_subproofs_arr lno cpfs core fml_not_c (sorted_insert id rinds) id (id+1) of
            (fml', id') =>
+         (case idopt of
+           None =>
            let val u = rollback_arr fml' id id'
                val goals = subst_indexes_arr s fml' rinds in
                if red_cond_check pfs rsubs goals
@@ -1115,6 +1140,12 @@ val check_sstep_arr = process_topdecs`
                  (Array.updateResize fml' None id' (Some c), ((id'+1), sorted_insert id' rinds))
                else raise Fail (format_failure_2 lno ("Redundancy subproofs did not cover all subgoals.") (print_subproofs_err rsubs goals))
            end
+        | Some cid =>
+          if check_contradiction_fml_arr fml' cid then
+            let val u = rollback_arr fml' id id' in
+              (Array.updateResize fml' None id' (Some c), ((id'+1), sorted_insert id' rinds))
+            end
+          else raise Fail (format_failure lno ("did not derive contradiction from index:" ^ Int.toString cid)))
     end)
   ` |> append_prog
 
@@ -1219,22 +1250,40 @@ Proof
     Cases_on`x'`>>simp[PAIR_TYPE_def]>>
     strip_tac>>
     xmatch>>
-    rpt xlet_autop>>
-    xlet_auto
+    rename1`OPTION_TYPE NUM idopt _`>>
+    Cases_on`idopt`>>fs[OPTION_TYPE_def,do_red_check_def]>>xmatch
     >- (
-      xsimpl>>simp[constraint_TYPE_def]>>
-      metis_tac[ml_translatorTheory.EqualityType_NUM_BOOL,EqualityType_PAIR_TYPE,EqualityType_LIST_TYPE])>>
+      rpt xlet_autop>>
+      fs[constraint_TYPE_def]>>
+      xlet_autop>>
+      reverse xif
+      >- (
+        rpt xlet_autop>>
+        fs[red_cond_check_def]>>
+        pairarg_tac>>fs[]>>
+        xraise>>
+        xsimpl>>
+        rw[]>>fs[]>>
+        metis_tac[ARRAY_refl,NOT_EVERY,Fail_exn_def]) >>
+      fs[red_cond_check_def]>>
+      pairarg_tac>>fs[]>>
+      rpt xlet_autop>>
+      xlet_auto>>
+      xcon>>xsimpl>>
+      simp[PAIR_TYPE_def]>>
+      qmatch_goalsub_abbrev_tac`ARRAY _ vvvv`>>
+      qexists_tac`vvvv`>>xsimpl>>
+      simp[Abbr`vvvv`]>>
+      match_mp_tac LIST_REL_update_resize>>
+      fs[OPTION_TYPE_def,constraint_TYPE_def])>>
+    rpt xlet_autop>>
     reverse xif
     >- (
       rpt xlet_autop>>
-      fs[red_cond_check_def]>>
-      pairarg_tac>>fs[]>>
       xraise>>
       xsimpl>>
       rw[]>>fs[]>>
       metis_tac[ARRAY_refl,NOT_EVERY,Fail_exn_def]) >>
-    fs[red_cond_check_def]>>
-    pairarg_tac>>fs[]>>
     rpt xlet_autop>>
     xlet_auto>>
     xcon>>xsimpl>>
@@ -1514,7 +1563,7 @@ val check_cstep_arr = process_topdecs`
   fun check_cstep_arr lno cstep chk ord obj bound
     core fml inds id orders =
   case cstep of
-    Dom c s pfs =>
+    Dom c s pfs idopt =>
     (case ord of None =>
       raise Fail (format_failure lno "no order loaded for dominance")
     | Some spo =>
@@ -1525,15 +1574,25 @@ val check_cstep_arr = process_topdecs`
         val fml_not_c = Array.updateResize fml None id (Some (not_1 c)) in
          case check_subproofs_arr lno cpfs core fml_not_c (sorted_insert id inds) id (id+1) of
            (fml', id') =>
-           let val u = rollback_arr fml' id id'
-               val goals = core_subgoals s cf in
-               if red_cond_check pfs dsubs goals
-               then
+           (case idopt of
+             None =>
+             let val u = rollback_arr fml' id id'
+                 val goals = core_subgoals s cf in
+                 if red_cond_check pfs dsubs goals
+                 then
+                   (Array.updateResize fml' None id' (Some c),
+                   (sorted_insert id' inds,
+                   (id'+1, (core, (bound, (ord,orders))))))
+                 else raise Fail (format_failure_2 lno ("Dominance subproofs did not cover all subgoals") (print_subproofs_err dsubs goals))
+             end
+           | Some cid =>
+             if check_contradiction_fml_arr fml' cid then
+               let val u = rollback_arr fml' id id' in
                  (Array.updateResize fml' None id' (Some c),
-                 (sorted_insert id' inds,
-                 (id'+1, (core, (bound, (ord,orders))))))
-               else raise Fail (format_failure_2 lno ("Dominance subproofs did not cover all subgoals") (print_subproofs_err dsubs goals))
-           end
+                   (sorted_insert id' inds,
+                   (id'+1, (core, (bound, (ord,orders))))))
+               end
+             else raise Fail (format_failure lno ("did not derive contradiction from index:" ^ Int.toString cid)))
     end)
   | Loadorder nn xs =>
     let val inds' = reindex_arr fml inds in
@@ -1726,25 +1785,48 @@ Proof
     Cases_on`x'`>>simp[PAIR_TYPE_def]>>
     strip_tac>>
     xmatch>>
-    rpt xlet_autop>>
-    fs[constraint_TYPE_def]>>
-    rpt xlet_autop>>
-    reverse xif>>gs[]
+    rename1`do_dom_check idopt _`>>
+    Cases_on`idopt`>>
+    fs[OPTION_TYPE_def,do_dom_check_def]>>
+    xmatch
     >- (
       rpt xlet_autop>>
-      fs[red_cond_check_def]>>pairarg_tac>>fs[core_subgoals_def]>>
-      xraise>>xsimpl>>
-      fs[red_cond_check_def]>>rw[]>>
-      metis_tac[ARRAY_refl,Fail_exn_def,NOT_EVERY])>>
+      fs[constraint_TYPE_def]>>
+      rpt xlet_autop>>
+      reverse xif>>gs[]
+      >- (
+        rpt xlet_autop>>
+        fs[red_cond_check_def]>>pairarg_tac>>fs[core_subgoals_def]>>
+        xraise>>xsimpl>>
+        fs[red_cond_check_def]>>rw[]>>
+        metis_tac[ARRAY_refl,Fail_exn_def,NOT_EVERY])>>
+      rpt xlet_autop>>
+      xlet_auto>>
+      pairarg_tac>>fs[red_cond_check_def,core_subgoals_def]>>
+      xcon>>
+      xsimpl>>rw[]>>
+      fs[PAIR_TYPE_def,OPTION_TYPE_def]>>
+      qmatch_goalsub_abbrev_tac`ARRAY _ A`>>
+      qexists_tac`A`>>xsimpl>>
+      unabbrev_all_tac>>
+      match_mp_tac LIST_REL_update_resize>>
+      fs[OPTION_TYPE_def,constraint_TYPE_def])>>
+    rpt xlet_autop>>
+    reverse xif
+    >- (
+      rpt xlet_autop>>
+      xraise>>
+      xsimpl>>
+      rw[]>>fs[]>>
+      metis_tac[ARRAY_refl,NOT_EVERY,Fail_exn_def]) >>
     rpt xlet_autop>>
     xlet_auto>>
-    pairarg_tac>>fs[red_cond_check_def,core_subgoals_def]>>
-    xcon>>
-    xsimpl>>rw[]>>
-    fs[PAIR_TYPE_def,OPTION_TYPE_def]>>
+    xcon>>xsimpl>>
+    simp[PAIR_TYPE_def]>>
     qmatch_goalsub_abbrev_tac`ARRAY _ A`>>
     qexists_tac`A`>>xsimpl>>
     unabbrev_all_tac>>
+    fs[OPTION_TYPE_def,constraint_TYPE_def]>>
     match_mp_tac LIST_REL_update_resize>>
     fs[OPTION_TYPE_def,constraint_TYPE_def])
   >- ( (* LoadOrder*)

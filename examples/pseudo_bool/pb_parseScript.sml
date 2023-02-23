@@ -460,13 +460,24 @@ Definition parse_proofgoal_def:
   | _ => NONE
 End
 
+Definition check_end_opt_def:
+  check_end_opt (h:(mlstring + int) list ) =
+  case h of
+    [INL e; INR n] =>
+    if e = (strlit"end") ∧ n ≥ 0 then SOME (SOME (Num n)) else NONE
+  | [INL e] =>
+    if e = (strlit"end") then SOME NONE else NONE
+  | _ => NONE
+End
+
 Definition parse_red_body_def:
   (parse_red_body (h:(mlstring + int) list ) =
-    if h = [INL (strlit "end")] then SOME (INL ())
-    else
-    case parse_proofgoal h of
-      SOME ind => SOME (INR ind)
-    | NONE => NONE)
+    case check_end_opt h of
+      NONE =>
+      (case parse_proofgoal h of
+        SOME ind => SOME (INR ind)
+      | NONE => NONE)
+    | SOME res => SOME (INL res))
 End
 
 Definition mk_acc_def:
@@ -482,7 +493,7 @@ Definition parse_red_aux_def:
     let acc' = mk_acc pf acc in
     (case parse_red_body s of
       NONE => NONE
-    | SOME (INL u) => SOME (REVERSE acc', f_ns', rest)
+    | SOME (INL res) => SOME (res,REVERSE acc', f_ns', rest)
     | SOME (INR ind) =>
       (case parse_lsteps_aux f_ns' rest [] of
         NONE => NONE
@@ -501,8 +512,8 @@ Termination
 End
 
 Theorem parse_red_aux_LENGTH:
-  ∀f_ns ss acc acc' f_ns' ss'.
-  parse_red_aux f_ns ss acc = SOME(acc',f_ns',ss') ⇒
+  ∀f_ns ss acc res acc' f_ns' ss'.
+  parse_red_aux f_ns ss acc = SOME(res,acc',f_ns',ss') ⇒
   LENGTH ss' < LENGTH ss
 Proof
   ho_match_mp_tac (fetch "-" "parse_red_aux_ind")>>
@@ -602,8 +613,8 @@ Definition parse_sstep_def:
       else
         (case parse_red_aux f_ns' ss [] of
           NONE => NONE
-        | SOME (pf,f_ns'',rest) =>
-          SOME (INR (Red c s pf),f_ns'',rest)))
+        | SOME (res, pf,f_ns'',rest) =>
+          SOME (INR (Red c s pf res),f_ns'',rest)))
 End
 
 Definition parse_pre_order_head_def:
@@ -710,8 +721,8 @@ End
 Definition parse_proof_block_def:
   parse_proof_block ss =
   case parse_red_aux (hashString_nf,()) ss [] of
-    NONE => NONE
-  | SOME (pf,_,rest) => SOME (pf,rest)
+  | SOME (NONE,pf,_,rest) => SOME (pf,rest)
+  | _ => NONE
 End
 
 Definition parse_end_block_def:
@@ -824,7 +835,8 @@ Definition parse_cstep_def:
       | SOME (Dompar c s,f_ns'') =>
         (case parse_red_aux f_ns'' rest [] of
           NONE => NONE
-        | SOME (pf,f_ns'',rest) => SOME (INR (Dom c s pf), f_ns'', rest))
+        | SOME (res,pf,f_ns'',rest) =>
+          SOME (INR (Dom c s pf res), f_ns'', rest))
       | SOME (CheckedDeletepar n, f_ns'') =>
         SOME (INR (CheckedDelete n []), f_ns'',rest)
       | SOME (StoreOrderpar name, f_ns'') =>
@@ -846,7 +858,6 @@ Definition parse_csteps_def:
       | INR st =>
         parse_csteps f_ns' rest (st::acc))
 Termination
-  cheat
 End
 
 Definition plainVar_nf_def:
@@ -950,7 +961,7 @@ val pbfraw = ``[
   strlit"    proofgoal #1";
   strlit"        pol 13 12 +";
   strlit"    end 14";
-  strlit"end";
+  strlit"end 5678";
   strlit"dom 1 ~x1 1 x2 >= 1 ; x1 -> x2 x2 -> x1 ; begin";
   strlit"    * autoproven: goal is implied by negated constraint";
   strlit"    proofgoal #1";
@@ -960,7 +971,7 @@ val pbfraw = ``[
   strlit"    proofgoal #2";
   strlit"        pol  19 16 ~x1 + 2 d + s 16 x2 + 2 d + s";
   strlit"    end 20";
-  strlit"end";
+  strlit"end 1234";
   strlit"load_order simple x1";
   strlit"output NONE";
   strlit"conclusion NONE";

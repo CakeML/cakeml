@@ -417,8 +417,7 @@ Type subst = ``:(bool + num lit) num_map``;
 Datatype:
   sstep =
   | Lstep lstep (* Id representing a contradiction *)
-  | Red npbc subst
-    (( ((num + num) # num) option, (lstep list)) alist)
+  | Red npbc subst (( ((num + num) # num) option, (lstep list)) alist) (num option)
 End
 
 (* The list of subgoals for redundancy
@@ -470,7 +469,7 @@ End
 
 (* Check a list of subproofs *)
 Definition check_subproofs_def:
-  (check_subproofs [] core fml id = SOME id) ∧
+  (check_subproofs [] core fml id = SOME (fml,id)) ∧
   (check_subproofs ((cnopt,pf)::pfs) core fml id =
     case cnopt of
       NONE => (* no clause given *)
@@ -570,14 +569,12 @@ Proof
   \\ rw [] \\ eq_tac \\ rw []
 QED
 
-(* TODO: Figure out exactly
-  when we need to account for skipped subproofs *)
 Definition check_sstep_def:
   (check_sstep sstep ord obj core (fml:pbf) (id:num) =
   case sstep of
     Lstep lstep =>
     check_lstep lstep core fml id
-  | Red c s pfs =>
+  | Red c s pfs idopt =>
     (let fml_not_c = insert id (not c) fml in
       let w = subst_fun s in
       let rsubs = red_subgoals ord w c obj in
@@ -585,16 +582,19 @@ Definition check_sstep_def:
         NONE => NONE
       | SOME cpfs =>
       (case check_subproofs cpfs core fml_not_c (id+1) of
-        SOME id' =>
-        let goals = toAList (map_opt (subst_opt w) fml) in
-        let (l,r) = extract_pids pfs LN LN in
-          if
-            split_goals l goals ∧
-            EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs))
-          then
-            SOME (insert id' c fml,id'+1)
-          else NONE
-      | _ => NONE) ))
+        NONE => NONE
+      | SOME (fml',id') =>
+        let chk =
+          (case idopt of NONE =>
+            (let goals = toAList (map_opt (subst_opt w) fml) in
+            let (l,r) = extract_pids pfs LN LN in
+              split_goals l goals ∧
+              EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs)))
+          | SOME cid =>
+            check_contradiction_fml fml' cid) in
+        if chk then
+          SOME (insert id' c fml,id'+1)
+        else NONE) ))
 End
 
 Theorem sat_implies_transitive:
@@ -633,8 +633,9 @@ Theorem check_subproofs_correct:
   ∀pfs core fml id.
   id_ok fml id ∧ domain core ⊆ domain fml ⇒
   case check_subproofs pfs core fml id of
-    SOME id' =>
+    SOME (fml',id') =>
      id ≤ id' ∧
+     range fml ⊨ range fml' ∧
      EVERY (λ(cnopt,pf).
        case cnopt of
          NONE => T
@@ -653,7 +654,9 @@ Proof
     gs[]>>
     first_x_assum drule>>simp[]>>
     disch_then drule>>
-    rw[]>>
+    rw[]
+    >-
+      metis_tac[sat_implies_def]>>
     pop_assum mp_tac>>
     match_mp_tac MONO_EVERY>>
     simp[FORALL_PROD]>>
@@ -850,6 +853,21 @@ Proof
   metis_tac[]
 QED
 
+Theorem sat_obj_po_insert_contr:
+  id ∉ domain fml ∧
+  unsatisfiable (range fml ∪ {not c}) ⇒
+  sat_obj_po ord obj (range fml) (range (insert id c fml))
+Proof
+  rw[range_insert,sat_obj_po_def,unsatisfiable_def,satisfiable_def]>>
+  first_assum (irule_at Any)>>
+  rw[]
+  >-
+    metis_tac[not_thm]>>
+  Cases_on`ord`>>
+  fs[]>>
+  metis_tac[reflexive_def,reflexive_po_of_spo,PAIR]
+QED
+
 Theorem check_sstep_correct:
   ∀step ord obj core fml id.
   id_ok fml id ∧
@@ -878,13 +896,18 @@ Proof
     fs[]>>
     metis_tac[good_spo_def,reflexive_def,reflexive_po_of_spo,PAIR])
   >- ( (* Red *)
-    every_case_tac>>
-    pairarg_tac>>gvs[]>>
+    TOP_CASE_TAC>>
+    pop_assum mp_tac>>
+    TOP_CASE_TAC>>
+    TOP_CASE_TAC>>
+    TOP_CASE_TAC>>
+    pairarg_tac>>gvs[]>>rw[]>>simp[]>>
     gs[id_ok_insert_1]>>
     `id_ok (insert id (not p) fml) (id + 1)` by
       fs[id_ok_def]>>
     drule check_subproofs_correct>>
-    disch_then(qspecl_then [`x`,`core`] assume_tac)>>
+    rename1`check_subproofs pfs`>>
+    disch_then(qspecl_then [`pfs`,`core`] assume_tac)>>
     gs[SUBSET_DEF]>>
     CONJ_TAC>-
       gvs[id_ok_def,SUBSET_DEF]>>
@@ -895,6 +918,12 @@ Proof
       fs[]>>
       metis_tac[])>>
     rename1`insert id' c fml`>>
+    reverse every_case_tac
+    >- (
+      match_mp_tac sat_obj_po_insert_contr>>fs[id_ok_def]>>
+      drule check_contradiction_fml_unsat>>
+      gs[sat_implies_def,satisfiable_def,unsatisfiable_def,range_insert]>>
+      metis_tac[])>>
     qsuff_tac ‘redundant_wrt_obj_po (range fml) ord obj c’
     >- (
       fs [redundant_wrt_obj_po_def] \\ rw []
@@ -981,7 +1010,7 @@ QED
 
 Definition sstep_ok_def[simp]:
   (sstep_ok (Lstep l) ⇔ lstep_ok l) ∧
-  (sstep_ok (Red n _ pfs) ⇔
+  (sstep_ok (Red n _ pfs idopt) ⇔
     compact n)
   (* TODO: should this be added?
   it checks that the subproofs are compact...
@@ -998,7 +1027,6 @@ Proof
   >-
     metis_tac[check_lstep_compact] >>
   every_case_tac>>gvs[]>>
-  pairarg_tac>>gvs[]>>
   drule range_insert_2>>rw[]>>
   metis_tac[]
 QED
@@ -1097,9 +1125,7 @@ QED
 (* Top-level steps that manipulate the core *)
 Datatype:
   cstep =
-  | Dom npbc subst
-    (( ((num + num) # num) option, (lstep list)) alist)
-    (* Ordered list of proofs for subgoals, interpreted like Red *)
+  | Dom npbc subst (( ((num + num) # num) option, (lstep list)) alist) (num option)
   | LoadOrder mlstring (num list)
   | UnloadOrder
   | StoreOrder mlstring (npbc list # var list # var list)
@@ -1345,7 +1371,7 @@ Definition check_transitivity_def:
     NONE => F
   | SOME cpfs =>
   (case check_subproofs cpfs LN fml id of
-    SOME id' =>
+    SOME (fml',id') =>
     let (l,r) = extract_pids pfs LN LN in
        EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH dsubs))
   | _ => F)
@@ -1362,7 +1388,7 @@ Definition check_cstep_def:
   (check_cstep cstep chk ord obj bound
     core (fml:pbf) (id:num) orders =
   case cstep of
-  | Dom c s pfs =>
+  | Dom c s pfs idopt =>
     (case ord of NONE => NONE
     | SOME spo =>
     (let fml_not_c = insert id (not c) fml in
@@ -1372,17 +1398,20 @@ Definition check_cstep_def:
         NONE => NONE
       | SOME cpfs =>
       (case check_subproofs cpfs core fml_not_c (id+1) of
-        SOME id' =>
-        let cf = coref core fml in
-        let goals = toAList (map_opt (subst_opt w) cf) in
-        let (l,r) = extract_pids pfs LN LN in
-          if
-            split_goals l goals ∧
-            EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH dsubs))
-          then
-            SOME (insert id' c fml, id'+1, core, bound, ord, orders)
-          else NONE
-      | _ => NONE) ))
+        NONE => NONE
+      | SOME (fml',id') =>
+        let chk =
+          (case idopt of NONE =>
+            let cf = coref core fml in
+            let goals = toAList (map_opt (subst_opt w) cf) in
+            let (l,r) = extract_pids pfs LN LN in
+              split_goals l goals ∧
+              EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH dsubs))
+          | SOME cid =>
+            check_contradiction_fml fml' cid) in
+        if chk then
+          SOME (insert id' c fml, id'+1, core, bound, ord, orders)
+        else NONE )))
   | LoadOrder name xs =>
       (case ALOOKUP orders name of NONE => NONE
       | SOME ord' =>
@@ -1871,8 +1900,13 @@ Proof
   >- ( (* Dominance *)
     ntac 9 strip_tac>>
     Cases_on`ord`>>fs[]>>
-    every_case_tac>>gs[]>>
-    pairarg_tac>>gvs[]>>
+    TOP_CASE_TAC>>
+    pop_assum mp_tac>>
+    TOP_CASE_TAC>>
+    TOP_CASE_TAC>>
+    TOP_CASE_TAC>>
+    TOP_CASE_TAC>>
+    rw[]>>gvs[]>>
     `id_ok (insert id (not p) fml) (id + 1)` by
       fs[id_ok_def]>>
     drule check_subproofs_correct>>
@@ -1894,6 +1928,15 @@ Proof
     CONJ_TAC >-
       fs[SUBSET_DEF]>>
     CONJ_ASM1_TAC>- (
+      reverse (every_case_tac)
+      >- (
+        `sat_obj_po (SOME x) obj (range fml) (range (insert cc p fml))` by (
+        match_mp_tac sat_obj_po_insert_contr>>fs[id_ok_def]>>
+        drule check_contradiction_fml_unsat>>
+        gs[sat_implies_def,satisfiable_def,unsatisfiable_def,range_insert]>>
+        metis_tac[])>>
+        metis_tac[OPTION_ALL_def,sat_obj_po_trans])>>
+      pairarg_tac>>fs[]>>
       simp[sat_obj_po_def]>>
       DEP_REWRITE_TAC[range_insert]>>
       CONJ_TAC >- fs[id_ok_def]>>
@@ -2036,6 +2079,7 @@ Proof
     drule check_subproofs_correct>>
     disch_then drule>>
     disch_then (qspec_then`x` mp_tac)>>simp[]>>
+    TOP_CASE_TAC>>
     rw[]>>
     simp[GSYM LIST_TO_SET_MAP]>>
     rw[sat_implies_EL]>>

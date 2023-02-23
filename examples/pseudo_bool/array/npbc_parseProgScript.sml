@@ -487,6 +487,13 @@ val parse_subgoal_num_side = Q.prove(
 
 val r = translate parse_proofgoal_def;
 
+val r = translate check_end_opt_def;
+
+val check_end_opt_side = Q.prove(
+  `∀x. check_end_opt_side x <=> T`,
+  EVAL_TAC>>rw[]>>
+  intLib.ARITH_TAC) |> update_precondition;
+
 val r = translate parse_red_body_def;
 
 val r = translate mk_acc_def;
@@ -668,8 +675,8 @@ val parse_sstep = process_topdecs`
     | Some (Inr (c,s),fns') =>
       if not_isempty s then
         case parse_red_aux fns' fd (lno+1) [] of
-          (pf,(fns'',lno')) =>
-          (Inr (Red c s pf),(fns'',lno'))
+          (res,(pf,(fns'',lno'))) =>
+          (Inr (Red c s pf res),(fns'',lno'))
       else
         case parse_lsteps_aux fns' fd (lno+1) [] of
           (pf,(fns'',(s,lno'))) =>
@@ -1783,8 +1790,8 @@ val parse_cstep = process_topdecs`
     | Some (Done cstep,fns'') => (Inr cstep, (fns'', lno'))
     | Some (Dompar c s,fns'') =>
         (case parse_red_aux fns'' fd (lno') [] of
-            (pf,(fns''',lno'')) =>
-            (Inr (Dom c s pf),(fns''',lno'')))
+            (res,(pf,(fns''',lno''))) =>
+            (Inr (Dom c s pf res),(fns''',lno'')))
     | Some (Checkeddeletepar n, fns'') =>
         (Inr (Checkeddelete n []), (fns'', lno'))
     | Some (Storeorderpar name, fns'') =>
