@@ -505,7 +505,7 @@ val parse_red_aux = process_topdecs`
       let val acc' = mk_acc pf acc in
         case parse_red_body s of
           None => raise Fail (format_failure lno' "unable to parse subproof")
-        | Some (Inl u) => (List.rev acc', (f_ns', lno'))
+        | Some (Inl res) => (res,(List.rev acc', (f_ns', lno')))
         | Some (Inr ind) =>
           (case parse_lsteps_aux f_ns' fd lno' [] of
             (pf,(f_ns'',(s,lno''))) =>
@@ -529,14 +529,15 @@ Theorem parse_red_aux_spec:
     (STDIO fs * INSTREAM_LINES fd fdv lines fs)
     (POSTve
       (λv.
-         SEP_EXISTS k lines' acc' fns' s lno' rest.
+         SEP_EXISTS k lines' res acc' fns' s lno' rest.
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
          &(
-            PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
+            PAIR_TYPE (OPTION_TYPE NUM)
+            (PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
               (PAIR_TYPE (PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a)
-              NUM) (acc',fns',lno') v ∧
-            parse_red_aux fns ss acc = SOME(acc',fns',rest) ∧
+              NUM)) (res,acc',fns',lno') v ∧
+            parse_red_aux fns ss acc = SOME(res,acc',fns',rest) ∧
             MAP toks_fast lines' = rest))
       (λe.
          SEP_EXISTS k lines'.
@@ -590,8 +591,7 @@ Proof
   TOP_CASE_TAC>>fs[SUM_TYPE_def]
   >- ( (* INL*)
     xmatch>>
-    xlet_autop>>
-    xlet_autop>>
+    rpt xlet_autop>>
     xcon>>xsimpl
     >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
     rw[]>>
@@ -793,7 +793,7 @@ Proof
     rpt xlet_autop>>
     xlet`(POSTve
       (λv.
-         SEP_EXISTS k lines' acc' fns' s lno' rest.
+         SEP_EXISTS k lines' res acc' fns' s lno' rest.
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
          &(
@@ -843,14 +843,15 @@ Proof
   rpt xlet_autop>>
   xlet`(POSTve
       (λv.
-         SEP_EXISTS k lines' acc' fns' s lno' rest.
+         SEP_EXISTS k lines' res acc' fns' s lno' rest.
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
          &(
-            PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
+            PAIR_TYPE (OPTION_TYPE NUM)
+              (PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
               (PAIR_TYPE (PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a)
-              NUM) (acc',fns',lno') v ∧
-            parse_red_aux (x1,x2) t [] = SOME(acc',fns',rest) ∧
+              NUM)) (res,acc',fns',lno') v ∧
+            parse_red_aux (x1,x2) t [] = SOME(res,acc',fns',rest) ∧
             MAP toks_fast lines' = rest))
       (λe.
          SEP_EXISTS k lines'.
@@ -1455,7 +1456,8 @@ QED
 val parse_proof_block = process_topdecs`
   fun parse_proof_block fd lno =
   case parse_red_aux (hashstring_nf,()) fd lno [] of
-    (pf,(u,lno')) => (pf, lno')` |> append_prog
+    (None,(pf,(u,lno'))) => (pf, lno')
+  | u => raise Fail (format_failure lno "transitivity proof block cannot be terminated by contradiction id")` |> append_prog
 
 Theorem parse_proof_block_spec:
   NUM lno lnov ∧
@@ -1487,14 +1489,15 @@ Proof
   rpt xlet_autop>>
   xlet`(POSTve
       (λv.
-         SEP_EXISTS k lines' acc' fns' s lno' rest.
+         SEP_EXISTS k lines' res acc' fns' s lno' rest.
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
          &(
-            PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
+            PAIR_TYPE (OPTION_TYPE NUM)
+            (PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
               (PAIR_TYPE (PAIR_TYPE (STRING_TYPE --> UNIT_TYPE --> OPTION_TYPE (PAIR_TYPE NUM UNIT_TYPE)) UNIT_TYPE)
-              NUM) (acc',fns',lno') v ∧
-            parse_red_aux (hashString_nf,()) (MAP toks_fast lines) [] = SOME(acc',fns',rest) ∧
+              NUM)) (res,acc',fns',lno') v ∧
+            parse_red_aux (hashString_nf,()) (MAP toks_fast lines) [] = SOME(res,acc',fns',rest) ∧
             MAP toks_fast lines' = rest))
       (λe.
          SEP_EXISTS k lines'.
@@ -1510,10 +1513,17 @@ Proof
     simp[parse_proof_block_def]>>
     metis_tac[STDIO_INSTREAM_LINES_refl])>>
   fs[PAIR_TYPE_def]>>
-  xmatch>>
+  Cases_on`res`>>fs[OPTION_TYPE_def]>>
+  xmatch
+  >- (
+    simp[parse_proof_block_def]>>
+    xcon>>xsimpl>>
+    metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+  rpt xlet_autop>>
   simp[parse_proof_block_def]>>
-  xcon>>xsimpl>>
-  metis_tac[STDIO_INSTREAM_LINES_refl_gc]
+  xraise>>
+  xsimpl>>
+  metis_tac[STDIO_INSTREAM_LINES_refl_gc,Fail_exn_def]
 QED
 
 Definition all_is_end_def:
@@ -1891,14 +1901,15 @@ Proof
     qmatch_goalsub_abbrev_tac`INSTREAM_LINES _ _ lines1 fs1`>>
     xlet`(POSTve
       (λv.
-         SEP_EXISTS k lines' acc' fns' s lno' rest.
+         SEP_EXISTS k lines' res acc' fns' s lno' rest.
          STDIO (forwardFD fs1 fd k) *
          INSTREAM_LINES fd fdv lines' (forwardFD fs1 fd k) *
          &(
-            PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
+            PAIR_TYPE (OPTION_TYPE NUM)
+            (PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
               (PAIR_TYPE (PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a)
-              NUM) (acc',fns',lno') v ∧
-            parse_red_aux r (MAP toks_fast lines1) [] = SOME(acc',fns',rest) ∧
+              NUM)) (res,acc',fns',lno') v ∧
+            parse_red_aux r (MAP toks_fast lines1) [] = SOME(res,acc',fns',rest) ∧
             MAP toks_fast lines' = rest))
       (λe.
          SEP_EXISTS k lines'.
