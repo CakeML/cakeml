@@ -75,6 +75,56 @@ val w2wlist_le_def = Define`
 val addr2w8list_def = Define`
   addr2w8list (adr: 'a word) = w2wlist_le adr (dimindex (:'a) DIV 8)`;
 
+val is_valid_mapped_read_def = Define`
+  is_valid_mapped_read pc (nb: word8) (ad: 'a word) r pc' t ms =
+    if nb = 1w
+    then
+      ?r2 w.
+        (bytes_in_memory pc (t.config.encode (Inst (Mem Load8 r (Addr r2 w))))
+          (t.get_byte ms) {a | a >= pc /\ a < pc'}) /\
+        (LENGTH (t.config.encode (Inst (Mem Load8 r (Addr r2 w)))) = w2n pc' - w2n pc) /\
+        (t.get_reg ms r2 + w = ad)
+    else if nb = n2w (dimindex (:'a) DIV 8)
+    then
+      ?r2 w.
+        (bytes_in_memory pc (t.config.encode (Inst (Mem Load r (Addr r2 w))))
+          (t.get_byte ms) {a | a >= pc /\ a < pc'}) /\
+        (LENGTH (t.config.encode (Inst (Mem Load r (Addr r2 w)))) = w2n pc' - w2n pc) /\
+        (t.get_reg ms r2 + w = ad)
+    (* else if nb = 4w
+    then
+      ?r2 w.
+        (bytes_in_memory pc (t.config.encode (Inst (Mem Load32 r (Addr r2 w))))
+          (t.get_byte ms) {a | a >= pc /\ a < pc'}) /\
+        (LENGTH (t.config.encode (Inst (Mem Load32 r (Addr r2 w)))) = w2n pc' - w2n pc) /\
+        (t.get_reg ms r2 + w = ad) *)
+    else F`;
+
+val is_valid_mapped_write_def = Define`
+  is_valid_mapped_write pc (nb:word8) (ad: 'a word) r pc' t ms =
+    if nb = 1w
+    then
+      ?r2 w.
+        (bytes_in_memory pc (t.config.encode (Inst (Mem Store8 r (Addr r2 w))))
+          (t.get_byte ms) {a | a >= pc /\ a < pc'}) /\
+        (LENGTH (t.config.encode (Inst (Mem Store8 r (Addr r2 w)))) = w2n pc' - w2n pc) /\
+        (t.get_reg ms r2 + w = ad)
+    else if nb = n2w (dimindex (:'a) DIV 8)
+    then
+      ?r2 w.
+        (bytes_in_memory pc (t.config.encode (Inst (Mem Store r (Addr r2 w))))
+          (t.get_byte ms) {a | a >= pc /\ a < pc'}) /\
+        (LENGTH (t.config.encode (Inst (Mem Store r (Addr r2 w)))) = w2n pc' - w2n pc) /\
+        (t.get_reg ms r2 + w = ad)
+    (* else if nb = 4w
+    then
+      ?r2 w.
+        (bytes_in_memory pc (t.config.encode (Inst (Mem Store32 r (Addr r2 w))))
+          (t.get_byte ms) {a | a >= pc /\ a < pc'}) /\
+        (LENGTH (t.config.encode (Inst (Mem Store32 r (Addr r2 w)))) = w2n pc' - w2n pc) /\
+        (t.get_reg ms r2 + w = ad) *)
+    else F`;
+
 val evaluate_def = Define `
   evaluate mc (ffi:'ffi ffi_state) k (ms:'a) =
     if k = 0 then (TimeOut,ms,ffi)
@@ -111,8 +161,10 @@ val evaluate_def = Define `
         | NONE => (Error,ms,ffi)
         | SOME ffi_index =>
           if EL ffi_index mc.ffi_names = "MappedRead" then
-            let (nb,ad,reg,_) = mc.mmio_info ffi_index in
-              if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses)
+            let (nb,ad,reg,pc') = mc.mmio_info ffi_index in
+              if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
+                is_valid_mapped_read (mc.target.get_pc ms) nb ad reg pc'
+                  mc.target ms
               then
                 (case call_FFI ffi (EL ffi_index mc.ffi_names)
                   [n2w (dimindex (:'a) DIV 8);nb]
@@ -125,8 +177,10 @@ val evaluate_def = Define `
                       evaluate mc new_ffi (k - 1:num) ms1)
               else (Error,ms,ffi)
           else if EL ffi_index mc.ffi_names = "MappedWrite" then
-            let (nb,ad,reg,_) = mc.mmio_info ffi_index in
-              if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses)
+            let (nb,ad,reg,pc') = mc.mmio_info ffi_index in
+              if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\ 
+                is_valid_mapped_write (mc.target.get_pc ms) nb ad reg pc'
+                  mc.target ms
               then
                 (case call_FFI ffi (EL ffi_index mc.ffi_names)
                   [n2w (dimindex (:'a) DIV 8); nb]
@@ -221,6 +275,8 @@ val start_pc_ok_def = Define`
        index < i ==>
        pc - n2w ((3 + index) * ffi_offset) NOTIN
        mc_conf.prog_addresses /\
+       pc - n2w ((3 + index) * ffi_offset) NOTIN
+       mc_conf.shared_addresses /\
        pc - n2w ((3 + index) * ffi_offset) <>
        mc_conf.halt_pc /\
        pc - n2w ((3 + index) * ffi_offset) <>
@@ -230,9 +286,20 @@ val start_pc_ok_def = Define`
          mc_conf.ffi_entry_pcs 0 = SOME index) /\
      (!index.
         index < LENGTH mc_conf.ffi_names /\ index >= i ==>
-        EL index mc_conf.ffi_entry_pcs NOTIN mc_conf.prog_addresses /\
-        EL index mc_conf.ffi_entry_pcs <> mc_conf.halt_pc /\
-        EL index mc_conf.ffi_entry_pcs <> mc_conf.ccache_pc)`;
+        DISJOINT
+          {a| a >= EL index mc_conf.ffi_entry_pcs /\
+              a < SND (SND (SND (mc_conf.mmio_info index)))}
+          mc_conf.prog_addresses /\
+        DISJOINT
+          {a| a >= EL index mc_conf.ffi_entry_pcs /\
+              a < SND (SND (SND (mc_conf.mmio_info index)))}
+          mc_conf.shared_addresses /\
+        mc_conf.halt_pc NOTIN
+          {a| a >= EL index mc_conf.ffi_entry_pcs /\
+              a < SND (SND (SND (mc_conf.mmio_info index)))} /\
+        mc_conf.ccache_pc NOTIN
+          {a| a >= EL index mc_conf.ffi_entry_pcs /\
+              a < SND (SND (SND (mc_conf.mmio_info index)))})`;
 
 (* assume the byte array to be in little endian *)
 val bytes2num_def = Define`
@@ -274,8 +341,7 @@ val ffi_interfer_ok_def = Define`
                !new_bytes.
                target_state_rel mc_conf.target
                  (t1 with
-                 <|pc := EL index mc_conf.ffi_entry_pcs +
-                   SND(SND(SND(mc_conf.mmio_info index)))
+                 <|pc := SND(SND(SND(mc_conf.mmio_info index)))
                   (* it is possible that there is a side effect that
                   * affects other register e.g. temp in arm8, but we don't have to
                   * worry about it as target_state_rel ignore members of
@@ -286,8 +352,7 @@ val ffi_interfer_ok_def = Define`
                (EL index mc_conf.ffi_names = "MappedWrite" ==>
                target_state_rel mc_conf.target
                  (t1 with
-                 <|pc := EL index mc_conf.ffi_entry_pcs +
-                  SND(SND(SND(mc_conf.mmio_info index)))|>)
+                 <|pc := SND(SND(SND(mc_conf.mmio_info index)))|>)
                  (mc_conf.ffi_interfer k (index,new_bytes,ms2)))))`;
 
 val ccache_interfer_ok_def = Define`

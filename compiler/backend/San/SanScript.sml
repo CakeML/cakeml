@@ -197,6 +197,80 @@ val san_prog_addr_simp =
 
 val san_mmio_info_simp = EVAL ``san_mmio_info``;
 
+Theorem valid_mapped_read_simp:
+   is_valid_mapped_read 36w 8w 20000w 6 40w
+     <|config := riscv_config; next := riscv_next;
+       get_pc := (λs. s.c_PC s.procID);
+       get_reg := (λs. s.c_gpr s.procID ∘ n2w);
+       get_byte := riscv_state_MEM8; state_ok := riscv_ok;
+       proj := riscv_proj|>
+     <|MEM8 :=
+         word_EL
+           [0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w;
+            0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w;
+            0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 147w; 98w; 0w;
+            0w; 3w; 179w; 2w; 226w; 147w; 3w; 19w; 0w; 35w;
+            180w; 114w; 226w; 103w; 128w; 2w; 0w] 0w;
+       c_MCSR :=
+         ARB⦇
+           0w ↦
+             <|mcpuid := <|ArchBase := 2w|>;
+               mstatus := <|VM := 0w|> |>
+         ⦈; c_NextFetch := ARB⦇0w ↦ NONE⦈;
+       c_PC := (K 0w)⦇0w ↦ 36w⦈;
+       c_Skip := ARB.c_Skip⦇0w ↦ 4w⦈;
+       c_gpr := ARB.c_gpr⦇0w ↦ (ARB.c_gpr 0w)⦇5w ↦ 0w⦈⦈;
+       exception := NoException; procID := 0w|>
+Proof
+  simp[is_valid_mapped_read_def] \\
+  qexistsl [`5`, `20000w`] \\
+  simp[riscv_config_def, riscv_enc_def,riscv_ast_def,LIST_BIND_def] \\
+  EVAL_TAC
+QED
+
+Theorem valid_mapped_write_simp:
+  is_valid_mapped_write 44w 8w 20008w 7 48w
+     <|config := riscv_config; next := riscv_next;
+       get_pc := (λs. s.c_PC s.procID);
+       get_reg := (λs. s.c_gpr s.procID ∘ n2w);
+       get_byte := riscv_state_MEM8; state_ok := riscv_ok;
+       proj := riscv_proj|>
+     <|MEM8 :=
+         word_EL
+           [0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w;
+            0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w;
+            0w; 0w; 0w; 0w; 0w; 0w; 0w; 0w; 147w; 98w; 0w;
+            0w; 3w; 179w; 2w; 226w; 147w; 3w; 19w; 0w; 35w;
+            180w; 114w; 226w; 103w; 128w; 2w; 0w] 0w;
+       c_MCSR :=
+         ARB⦇
+           0w ↦
+             <|mcpuid := <|ArchBase := 2w|>;
+               mstatus := <|VM := 0w|> |>
+         ⦈; c_NextFetch := ARB⦇0w ↦ NONE⦈;
+       c_PC := (K 0w)⦇0w ↦ 44w⦈;
+       c_Skip := ARB.c_Skip⦇0w ↦ 4w⦈;
+       c_gpr :=
+         (λpid r.
+              if pid = 0w ∧ r = 6w then 20w
+              else
+                (if pid = 0w then (ARB.c_gpr 0w)⦇5w ↦ 0w⦈
+                 else ARB.c_gpr pid) r)⦇
+           0w ↦
+             (λr.
+                  if r = 6w then 20w
+                  else if r = 5w then 0w
+                  else ARB.c_gpr 0w r)⦇
+               7w ↦ 21w
+             ⦈
+         ⦈; exception := NoException; procID := 0w|>
+Proof
+  simp[is_valid_mapped_write_def] \\
+  qexistsl [`5`, `20008w`] \\
+  simp[riscv_config_def, riscv_enc_def,riscv_ast_def,LIST_BIND_def] \\
+  EVAL_TAC
+QED
+
 Theorem san_io_event_length:
   LENGTH (SND(SND(san_result 10))).io_events = 2
 Proof
@@ -213,6 +287,7 @@ Proof
   simp[Once evaluate_def,APPLY_UPDATE_THM] \\
   simp[find_index_def, san_ffi_pcs_simp] \\
   simp[san_mmio_info_simp,APPLY_UPDATE_THM] \\
+  simp[valid_mapped_read_simp] \\
   simp[call_FFI_def,san_init_ffi_state_def,san_oracle_def] \\
   simp[length_pad_right,
     EVAL ``LENGTH (addr2w8list (20000w:word64))``] \\
@@ -225,6 +300,7 @@ Proof
   simp[Once evaluate_def,APPLY_UPDATE_THM] \\
   simp[find_index_def,san_ffi_pcs_simp] \\
   simp[san_mmio_info_simp,APPLY_UPDATE_THM] \\
+  simp[valid_mapped_write_simp] \\
   simp[call_FFI_def,san_init_ffi_state_def,san_oracle_def] \\
   simp[length_pad_right,
     EVAL ``LENGTH (addr2w8list 20008w)``,
