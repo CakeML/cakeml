@@ -1,7 +1,8 @@
 (*
 * A simple instantiation of machin_config for sanity check
 *)
-open preamble targetSemTheory riscv_targetTheory riscvTheory ffiTheory bitstringTheory;
+open preamble targetSemTheory riscv_targetTheory riscvTheory ffiTheory
+  bitstringTheory asmPropsTheory;
 
 val _ = new_theory "San";
 
@@ -12,7 +13,7 @@ val san_prog_asm_def = Define`
     T, (Inst (Mem Load 6 (Addr 5 20000w)));
     F, (Inst (Arith (Binop Add 7 6 (Imm 1w))));
     T, (Inst (Mem Store 7 (Addr 5 20008w)));
-    F, (Jump 16w)]`; (* jump to the halt pc *)
+    F, (Jump (-32w: word64))]`; (* jump to the halt pc *)
 
 val asm2ast_def = Define`
   asm2ast = MAP (\(b,asm). (b,riscv_ast asm))`;
@@ -76,8 +77,8 @@ val san_end_pcs_simp = EVAL ``san_end_ffi_pcs``;
 val san_config_def = Define`
   san_config =
   <| prog_addresses := {x | x < 1000w} DELETE 0w DELETE n2w ffi_offset
-    DIFF {a| a >= EL 0 ffi_entry_pcs /\ a < EL 0 san_end_ffi_pcs}
-    DIFF {a| a >= EL 1 ffi_entry_pcs /\ a < EL 1 san_end_ffi_pcs}
+    DIFF {a| a >= EL 0 san_ffi_pcs /\ a < EL 0 san_end_ffi_pcs}
+    DIFF {a| a >= EL 1 san_ffi_pcs /\ a < EL 1 san_end_ffi_pcs}
    ; shared_addresses := {a| a >= 20000w /\ a < 20016w}
    ; ffi_entry_pcs := san_ffi_pcs
    ; ffi_names := ["MappedRead";"MappedWrite"]
@@ -139,7 +140,7 @@ val riscv_inst_defs = map (fst o snd) $
   filter (fn n => snd (snd n) = Def) $ DB.match ["riscv"] ``_``;
 
 val _ = computeLib.add_funs
-  [Encode_def,Itype_def,Stype_def,UJtype,opc_def,word_concat_def];
+  [Encode_def,Itype_def,Stype_def,UJtype_def,opc_def,word_concat_def,v2w_def];
 
 val san_program_simp = EVAL ``san_program``;
 
@@ -161,8 +162,6 @@ val riscv_ok_tac = simp[
 
 val decode_conv =
   SIMP_CONV (srw_ss()) [Decode_def,boolify32_def,LET_DEF] THENC
-  EVAL THENC
-  SIMP_CONV (srw_ss()) [v2w_def] THENC
   EVAL;
 
 fun pattern_conv pat conv_f = DEPTH_CONV
@@ -181,9 +180,10 @@ val next_state_conv = EVAL THENC
   pattern_conv ``Decode`` decode_conv THENC
   SIMP_CONV (srw_ss())
     ([Run_def,GPR_def,write'GPR_def,write'gpr_def,LET_THM,branchTo_def,
-      write'NextFetch_def] @ riscv_inst_defs) THENC
+      write'NextFetch_def,asImm20_def,word_concat_def,PC_def,word_bit_def]
+      @ riscv_inst_defs) THENC
   SIMP_CONV (srw_ss())
-    [NextFetch_def,write'PC_def,Skip_def,APPLY_UPDATE_THM,gpr_def];
+    [NextFetch_def,write'PC_def,Skip_def,APPLY_UPDATE_THM,gpr_def,PC_def];
 
 val next_state_tac = qpat_abbrev_tac `_y = riscv_next _` \\
   pop_assum(assume_tac o (CONV_RULE (RAND_CONV (RHS_CONV next_state_conv)))) \\
@@ -197,7 +197,7 @@ val san_prog_addr_simp =
 val san_mmio_info_simp = EVAL ``san_mmio_info``;
 
 fun valid_mapped_read_tac reg address =
-  qpat_abbrev_tac `_r = is_valid_mapped_read _` \\
+  qpat_abbrev_tac `_r = is_valid_mapped_read _ _ _ _ _ _ _` \\
   `_r` by (
     qunabbrev_tac `_r` \\
     simp[is_valid_mapped_read_def] \\
@@ -208,7 +208,7 @@ fun valid_mapped_read_tac reg address =
   qunabbrev_tac `_r`;
 
 fun valid_mapped_write_tac reg address =
- qpat_abbrev_tac `_w = is_valid_mapped_read _` \\
+ qpat_abbrev_tac `_w = is_valid_mapped_write _ _ _ _ _ _ _` \\
   `_w` by (
     qunabbrev_tac `_w` \\
     simp[is_valid_mapped_write_def] \\
@@ -224,8 +224,9 @@ Proof
   simp[san_result_def, Once evaluate_def]\\
   rewrite_tac[san_config_def,san_init_pc_def,san_procID_def,
     san_init_machine_state_def,san_MCSR_def] \\
-  simp[PC_def,riscv_target_def,APPLY_UPDATE_THM,
-    san_ffi_pcs_def,EVAL ``n2w (2 * ffi_offset)``,san_prog_addr_simp] \\
+  simp[PC_def,riscv_target_def,APPLY_UPDATE_THM,san_ffi_pcs_def,
+    san_ffi_pcs_simp,EVAL ``n2w (2 * ffi_offset)``,san_prog_addr_simp,
+    san_end_pcs_simp, EVAL ``ffi_offset``] \\
   encoded_bytes_in_mem_tac `SND $ EL 0 san_prog_asm` `0` \\
   simp[apply_oracle_def] \\
   next_state_tac \\
@@ -261,25 +262,71 @@ Proof
   simp[Once evaluate_def, APPLY_UPDATE_THM]
 QED
 
+Theorem leq_2_cases:
+  x <= (2:num) <=> x = 1 \/ x = 0 \/ x = 2
+Proof
+  simp[LE]
+QED
+
+Theorem lt_2_cases:
+  x < (2:num) ==> x = 1 \/ x = 0
+Proof
+  simp[LT]
+QED
+
+Theorem san_mmio_pcs_min_index_0:
+  SOME 0 = mmio_pcs_min_index ["MappedRead";"MappedWrite"]
+Proof
+  fs[mmio_pcs_min_index_def] \\
+  irule some_intro \\
+  rw[] >- (
+    `x = 1 \/ x = 0 \/ x = 2` by metis_tac[leq_2_cases] \\ fs[] \\
+    first_x_assum $ qspec_then `1` mp_tac \\
+    simp[]
+  ) >- (
+    qexists `0` \\
+    rw[] \\
+    Cases_on `j` \\ simp[] \\
+    Cases_on `n` \\ simp[]
+  )
+QED
+
 Theorem san_start_pc_ok:
   start_pc_ok san_config 32w
 Proof
   rw[start_pc_ok_def] \\
   fs[san_config_def, EVAL ``ffi_offset``] \\
   qexists `0` \\
+  fs[san_mmio_pcs_min_index_0] \\
   rw[san_ffi_pcs_def,san_ffi_pcs_simp,san_mmio_info_def,
     san_prog_addr_simp,DISJOINT_DEF] \\
-  >- (
-    fs[mmio_pcs_min_index_def] \\
-    irule some_intro \\
-    rw[] \\
-
-  )
+  fs[DELETE_DEF,DIFF_DEF,san_end_pcs_simp,INTER_applied,EXTENSION,
+    APPLY_UPDATE_THM] \\
+  drule lt_2_cases \\
+  rw[DISJ_IMP_THM] \\
+  fs[WORD_GE,WORD_LT] \\
+  Cases_on `word_msb x` \\
+  simp[]
+  >~ [`index1 <> 1`] >-
+    (drule lt_2_cases \\
+    strip_tac \\
+    gvs[])
+  >~ [`index1 <> 0`] >-
+    (drule lt_2_cases \\
+    strip_tac \\
+    gvs[]) \\
+  metis_tac[]
 QED
 
 Theorem san_ffi_interfer_ok:
-  ffi_interfer_ok 
+  ffi_interfer_ok (32w: word64) ARB san_config
 Proof
+  rw[ffi_interfer_ok_def,san_config_def] \\
+  gvs[GSYM san_mmio_pcs_min_index_0] \\
+  drule lt_2_cases \\
+  rw[DISJ_IMP_THM,san_mmio_info_simp,APPLY_UPDATE_THM,san_ffi_interfer_def] \\
+  fs[target_state_rel_def,riscv_ok_def, aligned_w2n,
+    APPLY_UPDATE_THM,riscv_config_def,riscv_target_def]
 QED
 
 val () = export_theory();
