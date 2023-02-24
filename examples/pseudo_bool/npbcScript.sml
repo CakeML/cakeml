@@ -1768,15 +1768,33 @@ Definition redundant_wrt_obj_po_def:
     sat_obj_po ord obj f (f ∪ {c})
 End
 
+Definition list_list_insert_def:
+  list_list_insert [] ys = LN ∧
+  list_list_insert xs [] = LN ∧
+  list_list_insert (x::xs) (y::ys) = insert x y (list_list_insert xs ys)
+End
+
+Theorem lookup_list_list_insert:
+  ∀xs ys. lookup n (list_list_insert xs ys) = ALOOKUP (ZIP(xs,ys)) n
+Proof
+  Induct_on ‘xs’ \\ Cases_on ‘ys’ \\ fs [list_list_insert_def,ZIP_def]
+  \\ rw [lookup_insert]
+QED
+
 (* The substituted order formula used in dominance order *)
 Definition dom_subst_def:
   (dom_subst w NONE = []) ∧
   (dom_subst w (SOME ((f,us,vs),xs)) =
+  let us_xs = list_list_insert us xs in
+  let vs_xs = list_list_insert vs xs in
   let ww = (λn.
-    case ALOOKUP (ZIP (us,xs)) n of
+    case lookup n us_xs of
       SOME v =>
         (case w v of NONE => SOME (INR (Pos v)) | r => r)
-    | NONE => ALOOKUP (ZIP (vs, MAP (INR o Pos) xs)) n) in
+    | NONE =>
+        (case lookup n vs_xs of
+         | SOME v => SOME (INR (Pos v))
+         | NONE => NONE)) in
   MAP (subst ww) f)
 End
 
@@ -1787,6 +1805,16 @@ Definition good_spo_def:
   transitive (po_of_spo spo) ∧
   LENGTH (SND spo) = LENGTH (FST (SND (FST spo)))
 End
+
+Theorem ALOOKUP_ZIP_MAP:
+  ∀xs ys f n.
+    ALOOKUP (ZIP (xs,MAP f ys)) n =
+    case ALOOKUP (ZIP (xs,ys)) n of
+    | NONE => NONE
+    | SOME v => SOME (f v)
+Proof
+  Induct \\ Cases_on ‘ys’ \\ gvs [ZIP_def] \\ rw []
+QED
 
 Theorem substitution_redundancy_obj_po:
   OPTION_ALL good_spo ord ∧
@@ -1817,7 +1845,7 @@ Proof
     PairCases_on`x`>>fs[]>>
     drule imp_sat_ord_po_of_spo>>
     disch_then drule>>
-    fs[dom_subst_def,LIST_TO_SET_MAP]>>
+    fs[dom_subst_def,LIST_TO_SET_MAP,lookup_list_list_insert,ALOOKUP_ZIP_MAP]>>
     disch_then drule>>
     simp[sat_ord_def]>>
     disch_then match_mp_tac>>

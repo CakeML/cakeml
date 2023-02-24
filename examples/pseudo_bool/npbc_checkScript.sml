@@ -1270,11 +1270,16 @@ End
   numbered #0 ... *)
 Definition neg_dom_subst_def:
   (neg_dom_subst w ((f,us,vs),xs) =
+  let us_xs = list_list_insert us xs in
+  let vs_xs = list_list_insert vs xs in
   let ww = (λn.
-      case ALOOKUP (ZIP (vs,xs)) n of
-        SOME v =>
-          (case w v of NONE => SOME (INR (Pos v)) | r => r)
-      | NONE => ALOOKUP (ZIP (us, MAP (INR o Pos) xs)) n) in
+    case lookup n vs_xs of
+      SOME v =>
+        (case w v of NONE => SOME (INR (Pos v)) | r => r)
+    | NONE =>
+        (case lookup n us_xs of
+         | SOME v => SOME (INR (Pos v))
+         | NONE => NONE)) in
   MAP (subst ww) f)
 End
 
@@ -1332,14 +1337,19 @@ QED
 (* the substituted LHS and RHS for transitivity *)
 Definition trans_subst_def:
   (trans_subst (f,us,vs) ws =
+  let us_vs = list_list_insert us vs in
+  let vs_ws = list_list_insert vs ws in
   let lsubst =
-    ALOOKUP
-    (ZIP (us,MAP (INR o Pos) vs) ++
-     ZIP (vs,MAP (INR o Pos) ws)) in
+    (λn. case lookup n us_vs of
+         | SOME x => SOME (INR (Pos x))
+         | NONE => case lookup n vs_ws of
+                   | SOME x => SOME (INR (Pos x))
+                   | NONE => NONE) in
   let lhs = f ++ MAP (subst lsubst) f in
   let rsubst =
-    ALOOKUP
-     (ZIP (vs,MAP (INR o Pos) ws)) in
+    (λn. case lookup n vs_ws of
+         | SOME x => SOME (INR (Pos x))
+         | NONE => NONE) in
   let rhs = MAP (subst rsubst) f in
   (lhs,rhs))
 End
@@ -1873,6 +1883,12 @@ Proof
   asm_exists_tac>>simp[]
 QED
 
+Triviality subst_eta:
+  subst f = subst (λx. f x)
+Proof
+  fs [SF ETA_ss]
+QED
+
 Theorem check_cstep_correct:
   ∀cstep chk ord obj bound core fml id orders.
   id_ok fml id ∧
@@ -1998,7 +2014,7 @@ Proof
         first_x_assum drule >> strip_tac>>
         gs[]>>
         drule unsatisfiable_not_sat_implies>>
-        simp[]>>
+        simp[lookup_list_list_insert,ALOOKUP_ZIP_MAP]>>
         metis_tac[INSERT_SING_UNION,UNION_COMM])>>
       CONJ_TAC >- (
         (* negated order constraint *)
@@ -2013,7 +2029,7 @@ Proof
         \\ simp[]
         \\ rw[]
         \\ first_x_assum drule \\ strip_tac
-        \\ gs[neg_dom_subst_def]
+        \\ gs[neg_dom_subst_def,lookup_list_list_insert,ALOOKUP_ZIP_MAP]
         \\ metis_tac[INSERT_SING_UNION,UNION_COMM,LIST_TO_SET_MAP])>>
       (* objective constraint *)
       Cases_on`obj`>>
@@ -2069,7 +2085,7 @@ Proof
     rw[]
     >-
       metis_tac[check_good_ord_good_ord]>>
-    fs[trans_subst_def]>>
+    fs[trans_subst_def,lookup_list_list_insert]>>
     every_case_tac>>fs[]>>
     qmatch_asmsub_abbrev_tac`check_subproofs _ coree fmll idd`>>
     `id_ok fmll idd ∧ domain coree ⊆ domain fmll` by
@@ -2098,7 +2114,15 @@ Proof
     first_x_assum drule>>
     simp[]>>rw[]>>
     drule unsatisfiable_not_sat_implies>>
-    simp[range_build_fml,Abbr`fmll`])
+    simp[range_build_fml,Abbr`fmll`] >>
+    once_rewrite_tac [subst_eta] >> fs [] >>
+    gvs [ALOOKUP_APPEND,ALOOKUP_ZIP_MAP] >>
+    qmatch_goalsub_abbrev_tac ‘subst f1’ >> strip_tac >>
+    qmatch_goalsub_abbrev_tac ‘subst f2’ >>
+    qsuff_tac ‘f1 = f2’ >- (rw [] >> gvs []) >>
+    unabbrev_all_tac >>
+    fs [FUN_EQ_THM] >> rw [] >>
+    ntac 4 (CASE_TAC >> fs []))
   >- (
     (* Transfer *)
     ntac 9 strip_tac>>
