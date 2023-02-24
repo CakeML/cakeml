@@ -450,10 +450,10 @@ Definition eval_prog_itree_def:
                                                         | Ret _ NONE => Tau' (TL ps, empty_locals s, TL cs)
                                                         | Ret _ (SOME (Handle eid' evar hprog)) =>
                                                            if eid = eid'
-                                                           then (case FLOOKUP s.eshapes eid of
+                                                           then (case (FLOOKUP s.eshapes eid) of
                                                                   | SOME sh =>
-                                                                     if shape_of exn = sh ∧ is_valid_value s.locals evar exn
-                                                                     then Tau' (hprog::TL ps, set_var evar exn (s with locals := st))
+                                                                     if shape_of value = sh ∧ is_valid_value s.locals evar value
+                                                                     then Tau' (hprog::TL ps, set_var evar value (s with locals := st.locals), cs)
                                                                      else Ret' (SOME Error, s)
                                                                   | NONE => Ret' (SOME Error, s))
                                                            else Tau' (ps, empty_locals s, TL cs)))
@@ -504,6 +504,19 @@ Definition eval_prog_itree_def:
                                                 then Tau' (c::(While e c)::TL ps, s, cs)
                                                 else Tau' (TL ps, s, cs)
                                              | _ => Ret' (SOME Error, s))
+                                        | (ExtCall ffi_index ptr1 len1 ptr2 len2) =>
+                                          (case (FLOOKUP s.locals len1, FLOOKUP s.locals ptr1, FLOOKUP s.locals len2, FLOOKUP s.locals ptr2) of
+                                            | (SOME (ValWord sz1), SOME (ValWord ad1), SOME (ValWord sz2), SOME (ValWord ad2)) =>
+                                               (case (read_bytearray ad1 (w2n sz1) (mem_load_byte s.memory s.memaddrs s.be),
+                                                      read_bytearray ad2 (w2n sz2) (mem_load_byte s.memory s.memaddrs s.be)) of
+                                                 | (SOME bytes, SOME bytes2) =>
+                                                    (case (call_FFI s.ffi (explode ffi_index) bytes bytes2) of
+                                                      | FFI_final outcome => Ret' (SOME (FinalFFI outcome), empty_locals s)
+                                                      | FFI_return new_ffi new_bytes =>
+                                                         let nmem = write_bytearray ad2 new_bytes s.memory s.memaddrs s.be in
+                                                         Vis' () λf. (TL ps, s with <| memory := nmem; ffi := new_ffi |>, cs))
+                                                 | _ => Ret' (SOME Error, s))
+                                            | _ => Ret' (SOME Error, s))
                                        else Ret' (NONE, s))
                         ([p], s, [])
 End
