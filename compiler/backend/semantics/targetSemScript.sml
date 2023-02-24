@@ -299,7 +299,19 @@ val start_pc_ok_def = Define`
               a < SND (SND (SND (mc_conf.mmio_info index)))} /\
         mc_conf.ccache_pc NOTIN
           {a| a >= EL index mc_conf.ffi_entry_pcs /\
-              a < SND (SND (SND (mc_conf.mmio_info index)))})`;
+              a < SND (SND (SND (mc_conf.mmio_info index)))} /\
+        EL index mc_conf.ffi_entry_pcs <=
+          SND $ SND $ SND $ mc_conf.mmio_info index) /\
+     (!index1 index2.
+        index1 <> index2 /\
+        index1 < LENGTH mc_conf.ffi_names /\ index1 >= i /\
+        index2 < LENGTH mc_conf.ffi_names /\ index2 >= i
+        ==>
+        DISJOINT
+        {a| a >= EL index1 mc_conf.ffi_entry_pcs /\
+          a < SND $ SND $ SND $ mc_conf.mmio_info index1}
+        {a| a >= EL index2 mc_conf.ffi_entry_pcs /\
+          a < SND $ SND $ SND $ mc_conf.mmio_info index2})`;
 
 (* assume the byte array to be in little endian *)
 val bytes2num_def = Define`
@@ -407,13 +419,18 @@ val good_init_state_def = Define `
     code_loaded bytes mc_conf ms /\
     bytes_in_mem t.pc bytes t.mem t.mem_domain dm /\
     (* data memory relation -- note that this implies m contains no labels *)
-    dm SUBSET t.mem_domain /\
+    (?i.
+      SOME i = mmio_pcs_min_index mc_conf.ffi_names /\
+      dm SUBSET
+      (t.mem_domain UNION (BIGUNION $ {pcs|
+        ?index. index >= i /\ index < LENGTH mc_conf.ffi_entry_pcs /\
+        pcs = {a|
+          a > EL index mc_conf.ffi_entry_pcs /\
+          a <= SND $ SND $ SND $ mc_conf.mmio_info index}}))) /\
     (!a. byte_align a ∈ dm ==> a ∈ dm) /\
     sdm SUBSET mc_conf.shared_addresses /\
     (!a. byte_align a IN sdm ==> a IN sdm) /\
     DISJOINT mc_conf.prog_addresses mc_conf.shared_addresses /\
-    ~ (MEM "MappedWrite" mc_conf.ffi_names) /\
-    ~ (MEM "MappedRead" mc_conf.ffi_names) /\
     (!a. ∃w.
       t.mem a = get_byte a w mc_conf.target.config.big_endian ∧
       m (byte_align a) = Word w) /\
