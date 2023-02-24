@@ -1040,6 +1040,7 @@ Definition do_rso_def:
   red_subgoals ord (subst_fun s) c obj
 End
 
+val res = translate list_list_insert_def;
 val res = translate npbcTheory.dom_subst_def;
 val res = translate npbc_checkTheory.red_subgoals_def;
 val res = translate do_rso_def;
