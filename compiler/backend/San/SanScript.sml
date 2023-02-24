@@ -77,9 +77,9 @@ val san_end_pcs_simp = EVAL ``san_end_ffi_pcs``;
 val san_config_def = Define`
   san_config =
   <| prog_addresses := {x | x < 1000w} DELETE 0w DELETE n2w ffi_offset
-    DIFF {a| a >= EL 0 san_ffi_pcs /\ a < EL 0 san_end_ffi_pcs}
-    DIFF {a| a >= EL 1 san_ffi_pcs /\ a < EL 1 san_end_ffi_pcs}
-   ; shared_addresses := {a| a >= 20000w /\ a < 20016w}
+    DIFF {a| EL 0 san_ffi_pcs <= a /\ a < EL 0 san_end_ffi_pcs}
+    DIFF {a| EL 1 san_ffi_pcs <= a /\ a < EL 1 san_end_ffi_pcs}
+   ; shared_addresses := {a| 20000w <= a /\ a < 20016w}
    ; ffi_entry_pcs := san_ffi_pcs
    ; ffi_names := ["MappedRead";"MappedWrite"]
    ; ptr_reg := ARB
@@ -304,7 +304,7 @@ Proof
     APPLY_UPDATE_THM] \\
   drule lt_2_cases \\
   rw[DISJ_IMP_THM] \\
-  fs[WORD_GE,WORD_LT] \\
+  fs[WORD_LE,WORD_LT] \\
   Cases_on `word_msb x` \\
   simp[]
   >~ [`index1 <> 1`] >-
