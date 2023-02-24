@@ -711,12 +711,92 @@ Definition subst_indexes_def:
     | SOME c => (i,c)::subst_indexes s fml is)
 End
 
+Definition splim_def:
+  splim = 65537:num
+End
+
+Definition hash_pair_def:
+  hash_pair (i:int,n:num) =
+  if i < 0 then
+    2 * (Num(ABS i)) + 7 * n
+  else
+    Num (ABS i) + 7 * n
+End
+
+Definition hash_list_def:
+  (hash_list [] = 0n) ∧
+  (hash_list (x::xs) =
+    (hash_pair x + 7 * hash_list xs) MOD splim)
+End
+
+Definition hash_constraint_def:
+  hash_constraint (c,n) =
+  (n + 7 * hash_list c) MOD splim
+End
+
+Definition mk_hashset_def:
+  (mk_hashset [] acc = acc) ∧
+  (mk_hashset (p::ps) acc =
+  let h = hash_constraint p in
+  case lookup h acc of
+    NONE => mk_hashset ps (insert h [p] acc)
+  | SOME ls => mk_hashset ps (insert h (p::ls) acc))
+End
+
+Definition in_hashset_def:
+  in_hashset p hs =
+  let h = hash_constraint p in
+  case lookup h hs of
+    NONE => F
+  | SOME ls => mem_constraint p ls
+End
+
+Definition split_goals_hash_def:
+  split_goals_hash (proved:num_set) (goals:(num # (int # num) list # num) list) =
+  let (lp,lf) =
+    PARTITION (λ(i,c). lookup i proved ≠ NONE) goals in
+  let proved = MAP SND lp in
+  let hs = mk_hashset proved LN in
+  EVERY (λ(i,c). in_hashset c hs) lf
+End
+
+Theorem in_hashset_mk_hashset:
+  ∀cs c acc.
+  in_hashset c (mk_hashset cs acc) ⇒
+  MEM c cs ∨ in_hashset c acc
+Proof
+  Induct>>rw[mk_hashset_def]>>
+  Cases_on`lookup (hash_constraint h) acc`>>fs[]>>
+  first_x_assum drule>>rw[]
+  >- metis_tac[]
+  >- (
+    fs[in_hashset_def,lookup_insert]>>
+    every_case_tac>>fs[mem_constraint_thm])
+  >- metis_tac[]
+  >- (
+    fs[in_hashset_def,lookup_insert]>>
+    every_case_tac>>fs[mem_constraint_thm])
+QED
+
+Theorem split_goals_hash_imp_split_goals:
+  split_goals_hash proved goals ⇒
+  split_goals proved goals
+Proof
+  rw[split_goals_def,split_goals_hash_def]>>
+  pairarg_tac>>fs[]>>
+  last_x_assum mp_tac>> match_mp_tac MONO_EVERY>>
+  simp[FORALL_PROD]>>
+  rw[]>>
+  drule in_hashset_mk_hashset>>
+  simp[in_hashset_def,mem_constraint_thm]
+QED
+
 Definition do_red_check_def:
   do_red_check idopt fml s rfml rinds pfs rsubs =
   case idopt of NONE =>
     let goals = subst_indexes s rfml rinds in
     let (l,r) = extract_pids pfs LN LN in
-      split_goals l goals ∧
+      split_goals_hash l goals ∧
       EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs))
   | SOME cid =>
      check_contradiction_fml_list fml cid
@@ -1057,7 +1137,7 @@ Proof
       fs[do_red_check_def]>>
       TOP_CASE_TAC>>fs[]
       >- (
-        qpat_x_assum`split_goals _ _` mp_tac>>
+        drule split_goals_hash_imp_split_goals>>
         match_mp_tac split_goals_same_goals>>
         simp[EXTENSION,FORALL_PROD]>>
         rw[]>>eq_tac>>rw[]
@@ -1232,7 +1312,7 @@ Definition do_dom_check_def:
   case idopt of NONE =>
     let goals = toAList (map_opt (subst_opt w) cf) in
     let (l,r) = extract_pids pfs LN LN in
-      split_goals l goals ∧
+      split_goals_hash l goals ∧
       EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH dsubs))
   | SOME cid =>
      check_contradiction_fml_list fml cid
@@ -1457,6 +1537,7 @@ Proof
     CONJ_TAC>- (
       fs[do_dom_check_def]>>every_case_tac>>fs[]
       >- (
+        drule split_goals_hash_imp_split_goals>>
         DEP_REWRITE_TAC[coref_coref_list]>>
         fs[])>>
       metis_tac[fml_rel_check_contradiction_fml]

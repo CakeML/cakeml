@@ -1047,7 +1047,7 @@ val res = translate do_rso_def;
 Definition red_cond_check_def:
   red_cond_check (pfs:(( ((num + num) # num) option, (lstep list)) alist)) (rsubs:((int # num) list # num) list list) goals =
   let (l,r) = extract_pids pfs LN LN in
-  split_goals l goals ∧
+  split_goals_hash l goals ∧
   EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs))
 End
 
@@ -1056,15 +1056,16 @@ val res = translate COUNT_LIST_compute;
 val res = translate PART_DEF;
 val res = translate PARTITION_DEF;
 
-Theorem split_goals_eq:
-  split_goals proved goals =
+Theorem split_goals_hash_eq:
+  split_goals_hash proved goals =
   let (lp,lf) =
     PARTITION (λ(i,c). IS_SOME(lookup i proved)) goals in
-  lf = [] ∨
+  NULL lf ∨
   (let proved = MAP SND lp in
-  EVERY (λ(i,c). mem_constraint c proved) lf)
+  let hs = mk_hashset proved LN in
+  EVERY (λ(i,c). in_hashset c hs) lf)
 Proof
-  rw[npbc_checkTheory.split_goals_def]>>
+  rw[split_goals_hash_def]>>
   pairarg_tac>>fs[]>>
   qmatch_goalsub_abbrev_tac`PARTITION P _`>>
   `(λ(i,c). lookup i proved ≠ NONE) = P` by (
@@ -1077,7 +1078,13 @@ QED
 val res = translate npbc_checkTheory.list_pair_eq_def;
 val res = translate npbc_checkTheory.equal_constraint_def;
 val res = translate npbc_checkTheory.mem_constraint_def;
-val res = translate split_goals_eq
+
+val res = translate hash_pair_def;
+val res = translate (hash_list_def |> REWRITE_RULE [splim_def]);
+val res = translate (hash_constraint_def |> REWRITE_RULE [splim_def]);
+val res = translate mk_hashset_def;
+val res = translate in_hashset_def;
+val res = translate split_goals_hash_eq;
 
 val res = translate (red_cond_check_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
 
