@@ -497,6 +497,12 @@ Definition eval_prog_itree_def:
                                            case next of
                                             | (While e c)::rest => Tau' (rest, s, cs)
                                             | _ => Tau' (ps, s, cs))
+                                        | Continue =>
+                                           (let next = TL ps in
+                                            case next of
+                                             | NIL => Ret' (SOME Error, s)
+                                             | (While e c)::rest => Tau' ((While e c)::rest, s, cs)
+                                             | _ => Tau' (Continue::TL next, s, cs))
                                         | (While e c) =>
                                            (case eval s e of
                                              | SOME (ValWord w) =>
@@ -517,6 +523,8 @@ Definition eval_prog_itree_def:
                                                          Vis' () λf. (TL ps, s with <| memory := nmem; ffi := new_ffi |>, cs))
                                                  | _ => Ret' (SOME Error, s))
                                             | _ => Ret' (SOME Error, s))
+                                        | Tick => Tau' (TL ps, s, cs)
+                                        | Skip => Tau' (TL ps, s, cs)
                                        else Ret' (NONE, s))
                         ([p], s, [])
 End
