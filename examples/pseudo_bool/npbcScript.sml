@@ -793,6 +793,24 @@ Proof
   simp[satisfies_npbc_def]
 QED
 
+Definition subst_opt_aux_acc_def:
+  subst_opt_aux_acc f [] a1 a2 k same =
+    (if same then ([],[],k,T) else (REVERSE a1,REVERSE a2,k,same)) ∧
+  subst_opt_aux_acc f ((c,l)::rest) a1 a2 k same =
+    case f l of
+    | NONE =>
+        subst_opt_aux_acc f rest ((c,l)::a1) a2 k same
+    | SOME (INL b) =>
+      if is_Pos c = b then
+        subst_opt_aux_acc f rest a1 a2 (k + Num (ABS c)) same
+      else
+        subst_opt_aux_acc f rest a1 a2 k F
+    | SOME (INR (Pos n)) =>
+        subst_opt_aux_acc f rest a1 ((c,n)::a2) k F
+    | SOME (INR (Neg n)) =>
+        subst_opt_aux_acc f rest a1 ((0-c,n)::a2) k F
+End
+
 (* The returned flag is T if any literal touched by the constraint is
    itself assigned to T under the substitution *)
 Definition subst_opt_aux_def:
@@ -809,6 +827,23 @@ Definition subst_opt_aux_def:
       | SOME (INR (Pos n)) => (old,(c,n)::new,k,F)
       | SOME (INR (Neg n)) => (old,(0-c,n)::new,k,F)
 End
+
+Theorem subst_opt_aux_acc:
+  ∀xs f a1 a2 k b.
+    subst_opt_aux_acc f xs a1 a2 k b =
+      let (x1,x2,k1,b1) = subst_opt_aux f xs in
+        if b ∧ b1 then  ([],[],k + k1, b ∧ b1) else
+          (REVERSE a1 ++ x1, REVERSE a2 ++ x2, k + k1, b ∧ b1)
+Proof
+  Induct
+  \\ fs [subst_opt_aux_acc_def,subst_opt_aux_def,FORALL_PROD]
+  \\ rw [] \\ CASE_TAC \\ fs []
+  >- rpt (pairarg_tac \\ gvs [] \\ IF_CASES_TAC \\ fs [])
+  \\ CASE_TAC \\ fs []
+  >- (IF_CASES_TAC \\ fs [] \\ rpt (pairarg_tac \\ gvs []))
+  \\ CASE_TAC \\ fs []
+  \\ rpt (pairarg_tac \\ gvs [])
+QED
 
 (* Computes the LHS term of the slack of a constraint under
    a partial assignment p (list of literals) *)
@@ -863,7 +898,7 @@ QED
 
 Definition subst_opt_def:
   subst_opt f (l,n) =
-    let (old,new,k,same) = subst_opt_aux f l in
+    let (old,new,k,same) = subst_opt_aux_acc f l [] [] 0 T in
       if same then NONE else
         let (sorted,k2) = clean_up new in
         let (result,k3) = add_lists old sorted in
@@ -871,6 +906,22 @@ Definition subst_opt_def:
         if imp (l,n) res then NONE
         else SOME res
 End
+
+Theorem subst_opt_eq:
+  subst_opt f (l,n) =
+    let (old,new,k,same) = subst_opt_aux f l in
+      if same then NONE else
+        let (sorted,k2) = clean_up new in
+        let (result,k3) = add_lists old sorted in
+        let res = (result,n - (k + k2 + k3)) in
+        if imp (l,n) res then NONE
+        else SOME res
+Proof
+  fs [subst_opt_aux_acc,subst_opt_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ ‘same = same'’ by (every_case_tac \\ fs [])
+  \\ gvs [] \\ IF_CASES_TAC \\ gvs []
+QED
 
 Theorem subst_opt_aux_thm_1:
   ∀rest f old new k same.
@@ -888,7 +939,7 @@ QED
 Theorem subst_opt_SOME:
   subst_opt f c = SOME v ⇒ v = subst f c
 Proof
-  Cases_on ‘c’ \\ fs [subst_opt_def,subst_def,subst_lhs_def]
+  Cases_on ‘c’ \\ fs [subst_opt_eq,subst_def,subst_lhs_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ drule_all subst_opt_aux_thm_1
   \\ rw [] \\ gvs []
@@ -913,7 +964,7 @@ Theorem subst_opt_NONE:
   subst_opt f c = NONE ⇒
   satisfies_npbc w c ⇒ satisfies_npbc w (subst f c)
 Proof
-  Cases_on ‘c’ \\ fs [subst_opt_def]
+  Cases_on ‘c’ \\ fs [subst_opt_eq]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rw[]
   >- (

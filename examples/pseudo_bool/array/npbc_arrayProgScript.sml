@@ -812,7 +812,7 @@ Proof
   metis_tac[]
 QED
 
-val res = translate subst_opt_aux_def;
+val res = translate subst_opt_aux_acc_def;
 val res = translate imp_def;
 val res = translate subst_opt_def;
 val res = translate subst_opt_subst_fun_def;
