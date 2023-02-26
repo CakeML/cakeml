@@ -7,47 +7,56 @@ open preamble targetSemTheory riscv_targetTheory riscvTheory ffiTheory
 val _ = new_theory "San";
 
 (* the bool is used as indicating whether the pc is accessing shared memory *)
-val san_prog_asm_def = Define`
+Definition san_prog_asm_def:
   san_prog_asm = [
     F, (Inst (Const 5 0w));
     T, (Inst (Mem Load 6 (Addr 5 20000w)));
     F, (Inst (Arith (Binop Add 7 6 (Imm 1w))));
     T, (Inst (Mem Store 7 (Addr 5 20008w)));
-    F, (Jump (-32w: word64))]`; (* jump to the halt pc *)
+    F, (Jump (-32w: word64))] (* jump to the halt pc *)
+End
 
-val asm2ast_def = Define`
-  asm2ast = MAP (\(b,asm). (b,riscv_ast asm))`;
+Definition asm2ast_def:
+  asm2ast = MAP (\(b,asm). (b,riscv_ast asm))
+End
 
-val asts_encode_def = Define`
-  asts_encode = MAP (\(b,ast). (b,FLAT $ MAP riscv_encode ast))`;
+Definition asts_encode_def:
+  asts_encode = MAP (\(b,ast). (b,FLAT $ MAP riscv_encode ast))
+End
 
-val add_halt_and_ccache_def = Define`
-  add_halt_and_ccache = (++) (GENLIST (K (F,GENLIST (K 0w) ffi_offset)) 2)`;
+Definition add_halt_and_ccache_def:
+  add_halt_and_ccache = (++) (GENLIST (K (F,GENLIST (K 0w) ffi_offset)) 2)
+End
 
-val san_flat_def = Define`
+Definition san_flat_def:
   (san_flat [] n = ([],[],[])) /\
   (san_flat ((F,xs)::xss) n =
     let (pcs,pcs',prog) = san_flat xss (n+LENGTH xs) in
     (pcs,pcs',xs++prog)) /\
   (san_flat ((T,xs)::xss) n =
     let (pcs,pcs',prog) = san_flat xss (n+LENGTH xs) in
-    (n::pcs,n+LENGTH xs::pcs', xs++prog))`;
+    (n::pcs,n+LENGTH xs::pcs', xs++prog))
+End
 
-val san_enc_result_def = Define`
+Definition san_enc_result_def:
     san_enc_result =
       flip san_flat 0 o add_halt_and_ccache o asts_encode $
-      asm2ast san_prog_asm`;
+      asm2ast san_prog_asm
+End
 
-val san_ffi_pcs_def = Define`
-  san_ffi_pcs = MAP n2w o FST $ san_enc_result`;
+Definition san_ffi_pcs_def:
+  san_ffi_pcs = MAP n2w o FST $ san_enc_result
+End
 
-val san_end_ffi_pcs_def = Define`
-  san_end_ffi_pcs = MAP n2w o FST o SND $ san_enc_result`;
+Definition  san_end_ffi_pcs_def:
+  san_end_ffi_pcs = MAP n2w o FST o SND $ san_enc_result
+End
 
-val san_program_def = Define`
-  san_program = ((SND o SND $ san_enc_result):word8 list)`;
+Definition san_program_def:
+  san_program = ((SND o SND $ san_enc_result):word8 list)
+End
 
-val san_ffi_interfer_def = Define`
+Definition san_ffi_interfer_def:
   san_ffi_interfer info_func = K (\((n:num),bytes,state).
     if n = 0 then
       let (nb,ad,reg,new_pc) = info_func n in
@@ -61,20 +70,22 @@ val san_ffi_interfer_def = Define`
       let (_,_,_,new_pc) = info_func n in
         state with
       <|c_PC := (state.procID =+ new_pc) state.c_PC |>
-    else state)`;
+    else state)
+End
 
-val san_mmio_info_def = Define`
+Definition san_mmio_info_def:
   san_mmio_info =
     let max_size = dimindex (:64) DIV 8 in
     ((0:num) =+ (n2w max_size,20000w,(6:num),EL 0 san_end_ffi_pcs)) $
     (1 =+ (n2w max_size,20008w,7,EL 1 san_end_ffi_pcs)) $
-    K ARB`;
+    K ARB
+End
 
 val san_ffi_pcs_simp = CONV_RULE (SIMP_CONV (srw_ss()) [san_ffi_pcs_def]) $
   EVAL ``san_ffi_pcs``;
 val san_end_pcs_simp = EVAL ``san_end_ffi_pcs``;
 
-val san_config_def = Define`
+Definition san_config_def:
   san_config =
   <| prog_addresses := {x | x < 1000w} DELETE 0w DELETE n2w ffi_offset
     DIFF {a| EL 0 san_ffi_pcs <= a /\ a < EL 0 san_end_ffi_pcs}
@@ -93,35 +104,42 @@ val san_config_def = Define`
    ; ccache_pc := 0w
    ; ccache_interfer :=ARB
    ; target := riscv_target
-   ; mmio_info := san_mmio_info|>`;
+   ; mmio_info := san_mmio_info|>
+End
 
-val san_oracle_def = Define`
+Definition san_oracle_def:
   san_oracle s () l1 l2 =
     Oracle_return ()
-      (PAD_RIGHT 0w (LENGTH l2) [20w])`;
+      (PAD_RIGHT 0w (LENGTH l2) [20w])
+End
 
-val san_init_ffi_state_def = Define`
+Definition san_init_ffi_state_def:
   san_init_ffi_state =
     <|oracle := san_oracle;
       ffi_state := ();
-      io_events := []|>`;
+      io_events := []|>
+End
 
-val san_init_pc_def = Define`
-  san_init_pc = n2w $ ffi_offset * 2`;
+Definition san_init_pc_def:
+  san_init_pc = n2w $ ffi_offset * 2
+End
 
-val word_EL_def = Define`
+Definition word_EL_def:
   word_EL l start w = if w2n (w - start) < LENGTH l
-          then EL (w2n (w - start)) l else 0w`;
+          then EL (w2n (w - start)) l else 0w
+End
 
-val san_procID_def = Define`
-  san_procID = 0w`;
+Definition san_procID_def:
+  san_procID = 0w
+End
 
-val san_MCSR_def = Define`
+Definition san_MCSR_def:
   san_MCSR = (san_procID =+
       <|mstatus := <| VM := 0w |>;
-      mcpuid := <|ArchBase := 2w |> |>) ARB`;
+      mcpuid := <|ArchBase := 2w |> |>) ARB
+End
 
-val san_init_machine_state_def = Define`
+Definition san_init_machine_state_def:
   san_init_machine_state =
     ARB with
     <|c_PC := (san_procID =+ san_init_pc) (K 0w);
@@ -129,11 +147,13 @@ val san_init_machine_state_def = Define`
       MEM8 := word_EL san_program 0w;
       c_MCSR := san_MCSR;
       exception := NoException;
-      c_NextFetch := (san_procID =+ NONE) ARB|>`;
+      c_NextFetch := (san_procID =+ NONE) ARB|>
+End
 
-val san_result_def = Define`
+Definition san_result_def:
   san_result n =
-  evaluate san_config san_init_ffi_state n san_init_machine_state`;
+  evaluate san_config san_init_ffi_state n san_init_machine_state
+End
 
 val riscv_inst_defs = map (fst o snd) $
   filter (fn n => substring (snd (fst n),0, 4) = "dfn'") $
