@@ -433,7 +433,7 @@ val parse_and_enc = (append_prog o process_topdecs) `
   case parse_dimacs_full f1 of
     Inl err => Inl err
   | Inr (a,(b,fml)) =>
-    Inr (fml_to_pbf fml)`
+    Inr (fml_to_pbf fml,(a,b))`
 
 Definition get_fml_def:
   get_fml fs f =
@@ -454,11 +454,13 @@ Theorem parse_and_enc_spec:
     STDIO fs *
     & ∃res.
        SUM_TYPE STRING_TYPE
-         (LIST_TYPE constraint_TYPE) res v ∧
+         (PAIR_TYPE
+          (LIST_TYPE constraint_TYPE)
+          (PAIR_TYPE NUM NUM)) res v ∧
       case res of
         INL err =>
           get_fml fs f1 = NONE
-      | INR pbf =>
+      | INR (pbf,nvars,ncl) =>
         ∃fml.
         get_fml fs f1 = SOME fml ∧
         fml_to_pbf fml = pbf)
@@ -488,11 +490,11 @@ Proof
   rw[SUM_TYPE_def]>>
   PairCases_on`x`>>fs[PAIR_TYPE_def]>>
   xmatch>>
-  xlet_autop>>
+  rpt xlet_autop>>
   xcon>>
   xsimpl>>
-  qexists_tac`INR (fml_to_pbf x2)`>>
-  fs[SUM_TYPE_def,npbc_arrayProgTheory.constraint_TYPE_def]>>
+  qexists_tac`INR (fml_to_pbf x2,x0,x1)`>>
+  fs[SUM_TYPE_def,npbc_arrayProgTheory.constraint_TYPE_def,PAIR_TYPE_def]>>
   simp[get_fml_def,parse_dimacs_def]
 QED
 
@@ -502,6 +504,82 @@ End
 
 val success_string_v_thm = translate success_string_def;
 
+Definition hash_string_def:
+  hash_string (s:mlstring) =
+  FOLDL (λe x. (7 * e + ORD x) MOD splim) 0 (explode s)
+End
+
+Definition insert_hashmap_def:
+  insert_hashmap p v hm =
+  let h = hash_string p in
+  case lookup h hm of
+    NONE =>
+    insert h [(p,v)] hm
+  | SOME ls =>
+    (* This is not optimal but we should never insert duplicates *)
+    insert h ((p,v)::ls) hm
+End
+
+Definition lookup_hashmap_def:
+  lookup_hashmap p hm =
+  let h = hash_string p in
+  case lookup h hm of
+    NONE => NONE
+  | SOME ls =>
+    ALOOKUP ls p
+End
+
+Theorem lookup_hashmap_insert_hashmap:
+  lookup_hashmap p (insert_hashmap k v hm) =
+  if p = k then SOME v
+  else lookup_hashmap p hm
+Proof
+  rw[lookup_hashmap_def,insert_hashmap_def]>>
+  every_case_tac>>gvs[lookup_insert]>>
+  every_case_tac>>gvs[]
+QED
+
+(* n is next ID to use *)
+Definition hashmap_nf_def:
+  hashmap_nf s (n,hm) =
+  case lookup_hashmap s hm of
+    NONE => (n,(n+1:num,insert_hashmap s n hm))
+  | SOME v => (v,(n,hm))
+End
+
+(* x1 ... xl maps to 1...l respectively
+  everything else uses the mapping *)
+Definition plainLim_nf_def:
+  plainLim_nf l s nhm =
+  if strlen s ≥ 1 ∧ strsub s 0 = #"x" then
+    case mlint$fromNatString (substring s 1 (strlen s - 1)) of
+      NONE => NONE
+    | SOME n =>
+      if n ≤ l then SOME (n,nhm)
+      else SOME(hashmap_nf s nhm)
+  else
+    SOME(hashmap_nf s nhm)
+End
+
+val res = translate (hash_string_def|>SIMP_RULE std_ss [npbc_listTheory.splim_def]);
+val res = translate lookup_hashmap_def;
+val res = translate insert_hashmap_def;
+val res = translate hashmap_nf_def;
+val res = translate plainLim_nf_def;
+
+val plainlim_nf_side = Q.prove(`
+   ∀x y z. plainlim_nf_side x y z = T`,
+  EVAL_TAC>>
+  rw[])
+  |> update_precondition;
+
+Definition plainLim_ns_def:
+  plainLim_ns n = (plainLim_nf n,(n+1,LN:(mlstring # num) list num_map))
+End
+
+val plainlim_ns_v_thm = translate plainLim_ns_def;
+
+(*
 Definition plainVar_nf_def:
   plainVar_nf s (u:unit) =
   if strlen s ≥ 1 ∧ strsub s 0 = #"x" then
@@ -525,13 +603,14 @@ Definition plain_ns_def:
 End
 
 val plain_ns_v_thm = translate plain_ns_def;
+*)
 
 val check_unsat_2 = (append_prog o process_topdecs) `
   fun check_unsat_2 f1 f2 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr fml =>
-    (case check_unsat_top plain_ns success_string fml f2 of
+  | Inr (fml,(nv,nc)) =>
+    (case check_unsat_top (plainlim_ns nv) success_string fml f2 of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s)`
 
@@ -581,7 +660,11 @@ Proof
     fs[success_string_not_nil,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   fs[SUM_TYPE_def]>>
+  Cases_on`y`>>
+  Cases_on`r`>>
+  fs[PAIR_TYPE_def]>>
   xmatch>>
+  xlet_autop>>
   xlet`POSTv v.STDIO fs *
     SEP_EXISTS res.
     &(SUM_TYPE STRING_TYPE STRING_TYPE res v ∧
@@ -589,8 +672,7 @@ Proof
         (s = success_string ∧
         unsatisfiable (set (fml_to_pbf fml)))))`
   >- (
-    assume_tac plain_ns_v_thm>>
-    drule check_unsat_top_spec>>
+    drule (check_unsat_top_spec)>>
     strip_tac>>
     xapp>>
     simp[success_string_v_thm ]>>
