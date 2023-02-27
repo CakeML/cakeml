@@ -365,7 +365,7 @@ val get_lab_after_pos_def = Define `
 val get_ret_Loc_def = Define `
   get_ret_Loc s = get_lab_after s.pc s.code`;
 
-val share_mem_load_def = Define `
+Definition share_mem_load_def:
   share_mem_load r ad (s: ('a,'c,'ffi) labSem$state) n =
     case addr ad s of
     | NONE => NONE
@@ -383,10 +383,11 @@ val share_mem_load_def = Define `
                   regs := (r =+ Word (n2w $ bytes2num new_bytes)) s.regs;
                   pc := s.pc + 1;
                   clock := s.clock - 1 |>))
-        else NONE`;
+        else NONE
+End
 
-val share_mem_store_def = Define `
-  share_mem_load r ad (s: ('a,'c,'ffi) labSem$state) n =
+Definition share_mem_store_def:
+  share_mem_store r ad (s: ('a,'c,'ffi) labSem$state) n =
     case s.regs r of
     | Word w =>
       (case addr ad s of
@@ -402,9 +403,10 @@ val share_mem_store_def = Define `
                  SOME ((FFI_return new_ffi new_bytes),
                    inc_pc (dec_clock (s with ffi := new_ffi))))
            else NONE)
-    | _ => NONE`;
+    | _ => NONE
+End
 
-val share_mem_op_def = Define `
+Definition share_mem_op_def:
   (share_mem_op Load r ad (s: ('a,'c,'ffi) labSem$state) =
     share_mem_load r ad s (dimindex (:'a) DIV 8)) /\
   (share_mem_op Load8 r ad s = share_mem_load r ad s 1) /\
@@ -413,6 +415,7 @@ val share_mem_op_def = Define `
     (dimindex (:'a) DIV 8)) /\
   (share_mem_op Store8 r ad s = share_mem_store r ad s 1) /\
   (share_mem_op Store32 r ad s = share_mem_store r ad s 4)`;
+End
 
 val evaluate_def = tDefine "evaluate" `
   evaluate (s:('a,'c,'ffi) labSem$state) =
