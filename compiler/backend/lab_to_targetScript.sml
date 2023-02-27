@@ -314,6 +314,7 @@ Proof
 QED
 
 (* compile labels *)
+Type shmem_info = ``:('a word # word8 # 'a addr # num # 'a word) list``
 
 val _ = Datatype`
   config = <| labels : num num_map num_map
@@ -322,6 +323,10 @@ val _ = Datatype`
             ; asm_conf : 'a asm_config
             ; init_clock : num
             ; ffi_names : string list option
+            (* shmem_info is 
+            * a list of (entry pc, no. of bytes, address of the shared memory, register
+            * to be load/store and the end pc)s for each share memory access *)
+            ; shmem_info: ('a word # word8 # 'a addr # num # 'a word) list
             ; hash_size : num
             |>`;
 
@@ -339,6 +344,38 @@ val find_ffi_names_def = Define `
        list_add_if_fresh s (find_ffi_names (Section k xs::rest))
    | _ => find_ffi_names (Section k xs::rest)))`
 
+Definition get_memop_info_def:
+  get_memop_info Load a = ("SharedRead", n2w $ dimindex a DIV 8) /\
+  get_memop_info Load32 a = ("SharedRead",4w) /\
+  get_memop_info Load8 a = ("SharedRead",1w) /\
+  get_memop_info Store a = ("SharedWrite", n2w $ dimindex a DIV 8) /\
+  get_memop_info Store32 a = ("SharedWrite",4w) /\
+  get_memop_info Store8 a = ("SharedWrite",1w)
+End
+
+Definition get_lines_shmem_info_def:
+  (get_lines_shmem_info [] pos ffi_names (shmem_info: 'a shmem_info) = (pos,ffi_names,shmem_info)) /\
+  (get_lines_shmem_info ((Asm (ShareMem m r ad) bytes _)::rest) pos ffi_names shmem_info =
+    let (name,nb) = get_memop_info m (:'a) in
+    get_lines_shmem_info rest (pos+LENGTH bytes) (ffi_names ++ [name])
+      (shmem_info ++ [(n2w pos,nb,ad,r,n2w $ pos+LENGTH bytes)])) /\
+  (get_lines_shmem_info ((Asm _ bytes _)::rest) pos ffi_names shmem_info =
+    get_lines_shmem_info rest (pos+LENGTH bytes) ffi_names shmem_info) /\
+  (get_lines_shmem_info ((Label _ _ _)::rest) pos ffi_names shmem_info =
+    get_lines_shmem_info rest pos ffi_names shmem_info) /\
+  (get_lines_shmem_info ((LabAsm _ _ bytes _)::rest) pos ffi_names shmem_info =
+    get_lines_shmem_info rest (pos+LENGTH bytes) ffi_names shmem_info)
+End
+
+Definition get_shmem_info_def:
+  get_shmem_info [] pos ffi_names shmem_info = (ffi_names,shmem_info) /\
+  get_shmem_info ((Section _ lines)::rest) pos ffi_names shmem_info =
+    let (new_pos,new_ffi_names,new_shmem_info) =
+      get_lines_shmem_info lines pos ffi_names shmem_info
+    in
+    get_shmem_info rest new_pos new_ffi_names new_shmem_info
+End
+
 val compile_lab_def = Define `
   compile_lab c sec_list =
     let current_ffis = find_ffi_names sec_list in
@@ -348,11 +385,14 @@ val compile_lab_def = Define `
     if ffis_ok then
       case remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list of
       | SOME (sec_list,l1) =>
+          let (new_ffi_names,new_shmem_info) =
+            get_shmem_info sec_list c.pos ffis [] in
           let bytes = prog_to_bytes sec_list in
           SOME (bytes,
                 c with <| labels := l1; pos := LENGTH bytes + c.pos;
                           sec_pos_len := get_symbols c.pos sec_list;
-                          ffi_names := SOME ffis |>)
+                          ffi_names := SOME $ new_ffi_names;
+                          shmem_info := new_shmem_info |>)
       | NONE => NONE
     else NONE`;
 
@@ -370,6 +410,7 @@ Datatype:
     ; inc_pos : num
     ; inc_init_clock : num
     ; inc_ffi_names : string list option
+    ; inc_shmem_info: ('a word # word8 # 'a addr # num # 'a word) list
     ; inc_hash_size : num
     |>
 End
@@ -378,15 +419,17 @@ Definition config_to_inc_config_def:
   config_to_inc_config (c : 'a config) = <|
     inc_labels := c.labels; inc_sec_pos_len := c.sec_pos_len;
     inc_pos := c.pos; inc_init_clock := c.init_clock;
-    inc_ffi_names := c.ffi_names; inc_hash_size := c.hash_size
+    inc_ffi_names := c.ffi_names; inc_hash_size := c.hash_size;
+    inc_shmem_info := c.shmem_info
   |>
 End
 
 Definition inc_config_to_config_def:
-  inc_config_to_config (asm : 'a asm_config) (c : inc_config) = <|
+  inc_config_to_config (asm : 'a asm_config) (c : 'a inc_config) = <|
     labels := c.inc_labels; sec_pos_len := c.inc_sec_pos_len;
     pos := c.inc_pos; asm_conf := asm; init_clock := c.inc_init_clock;
-    ffi_names := c.inc_ffi_names; hash_size := c.inc_hash_size
+    ffi_names := c.inc_ffi_names; hash_size := c.inc_hash_size;
+    shmem_info := c.inc_shmem_info
   |>
 End
 
