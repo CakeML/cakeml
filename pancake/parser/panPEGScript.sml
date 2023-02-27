@@ -218,9 +218,10 @@ Definition pancake_peg_def[nocompute]:
         (INL LoadByteNT, seql [consume_kw LdbK; mknt ExpNT]
                               (mksubtree LoadByteNT));
         (INL ShapeNT, choicel [keep_tok StarT;
-                               seql [consume_tok LessT;
+                               seql [consume_tok LCurT;
                                      mknt ShapeCombNT;
-                                     consume_tok GreaterT] I]);
+                                     consume_tok RCurT] I
+                              ]);
         (INL ShapeCombNT, seql [mknt ShapeNT;
                                 rpt (seq (consume_tok CommaT)
                                      (mknt ShapeNT) (flip K)) FLAT]

@@ -165,16 +165,13 @@ QED
 
 Definition conv_Shape_def:
   (conv_Shape tree =
-    case argsNT tree ShapeNT of
-      SOME [t] => if tokcheck t panLexer$StarT then SOME One
-                  else conv_ShapeComb t
-    | _ => NONE) ∧
-  (conv_ShapeComb tree =
-     case argsNT tree ShapeCombNT of
+    if tokcheck tree StarT then
+       SOME One
+    else case argsNT tree ShapeCombNT of
        SOME ts => lift Comb $ OPT_MMAP conv_Shape ts
      | _ => NONE)
 Termination
-  WF_REL_TAC ‘measure (λx. sum_CASE x ptree_size ptree_size)’ >> rw[]
+  WF_REL_TAC ‘measure ptree_size’ >> rw[]
   >> Cases_on ‘tree’
   >> gvs[argsNT_def,parsetree_size_def]
   >> drule_then assume_tac mem_ptree_thm >> gvs[]
