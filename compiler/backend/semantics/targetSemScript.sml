@@ -37,8 +37,8 @@ val _ = Datatype `
     ; ccache_interfer : num -> 'a word # 'a word # 'b -> 'b
     (* target next-state function etc. *)
     ; target : ('a,'b,'c) target
-    (* byte_size, address, register to be updated/ stored, new pc value *)
-    ; mmio_info : num -> word8 # 'a word # num # 'a word
+    (* ffi_index -> byte_size, address, register to be updated/ stored, new pc value *)
+    ; mmio_info : num -> word8 # 'a addr # num # 'a word
     |>`
 
 val apply_oracle_def = Define `
@@ -126,7 +126,7 @@ val is_valid_mapped_write_def = Define`
     else F`;
 
 val evaluate_def = Define `
-  evaluate mc (ffi:'ffi ffi_state) k (ms:'a) =
+  evaluate (mc: ('w,'a,'c) machine_config) (ffi:'ffi ffi_state) k (ms:'a) =
     if k = 0 then (TimeOut,ms,ffi)
     else
       if mc.target.get_pc ms IN mc.prog_addresses then
@@ -161,13 +161,16 @@ val evaluate_def = Define `
         | NONE => (Error,ms,ffi)
         | SOME ffi_index =>
           if EL ffi_index mc.ffi_names = "MappedRead" then
-            let (nb,ad,reg,pc') = mc.mmio_info ffi_index in
-              if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
+            let (nb,a,reg,pc') = mc.mmio_info ffi_index in
+            case a of
+            | Addr r off =>
+            let ad = mc.target.get_reg ms r + off in
+              (if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
                 is_valid_mapped_read (mc.target.get_pc ms) nb ad reg pc'
                   mc.target ms
               then
                 (case call_FFI ffi (EL ffi_index mc.ffi_names)
-                  [n2w (dimindex (:'a) DIV 8);nb]
+                  [n2w (dimindex (:'w) DIV 8);nb]
                   (addr2w8list ad) of
                  | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
                  | FFI_return new_ffi new_bytes =>
@@ -175,15 +178,18 @@ val evaluate_def = Define `
                       (ffi_index,new_bytes,ms) in
                     let mc = mc with ffi_interfer := new_oracle in
                       evaluate mc new_ffi (k - 1:num) ms1)
-              else (Error,ms,ffi)
+              else (Error,ms,ffi))
           else if EL ffi_index mc.ffi_names = "MappedWrite" then
-            let (nb,ad,reg,pc') = mc.mmio_info ffi_index in
-              if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
+            let (nb,a,reg,pc') = mc.mmio_info ffi_index in
+            case a of
+            | Addr r off =>
+            let ad = (mc.target.get_reg ms r) + off in
+              (if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
                 is_valid_mapped_write (mc.target.get_pc ms) nb ad reg pc'
                   mc.target ms
               then
                 (case call_FFI ffi (EL ffi_index mc.ffi_names)
-                  [n2w (dimindex (:'a) DIV 8); nb]
+                  [n2w (dimindex (:'w) DIV 8); nb]
                   (w2wlist_le (mc.target.get_reg ms reg) (w2n nb)
                     ++ (addr2w8list ad)) of
                  | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
@@ -192,7 +198,7 @@ val evaluate_def = Define `
                       (ffi_index,new_bytes,ms) in
                     let mc = mc with ffi_interfer := new_oracle in
                       evaluate mc new_ffi (k - 1:num) ms1)
-              else (Error,ms,ffi)
+              else (Error,ms,ffi))
            else
             case read_ffi_bytearrays mc ms of
             | SOME bytes, SOME bytes2 =>
