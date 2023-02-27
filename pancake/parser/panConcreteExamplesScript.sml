@@ -109,6 +109,17 @@ val ex6 = ‘{var b = 5;
 
 val treeEx6 = check_success $ parse_pancake ex6;
 
+(* Load data of a fixed shape.
+   The below example loads a triple where the first
+   two components are words, and the third is a tuple of words.
+ *)
+
+val ex7 = ‘x = lds {{*,*,{*,*}}} y;’;
+
+val treeEx7 = lex_pancake ex7;
+
+val treeEx7 = check_success $ parse_pancake ex7;
+
 (** Statments. *)
 
 (** We can assign boolean expressions to variables. *)
