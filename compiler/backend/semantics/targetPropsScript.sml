@@ -262,11 +262,7 @@ Proof
   Cases_on `(mc_conf.mmio_info x)` \\
   PairCases_on `r'` \\
   IF_CASES_TAC >> fs[ELIM_UNCURRY] \\
-  TOP_CASE_TAC >> gvs[] \\
-  TOP_CASE_TAC >> gvs[] \\
-  TOP_CASE_TAC >> gvs[] \\
-  TOP_CASE_TAC >> gvs[] \\
-  TOP_CASE_TAC >> gvs[]
+  rpt (TOP_CASE_TAC >> gvs[])
 QED
 
 Theorem evaluate_io_events_mono:
@@ -292,38 +288,36 @@ Proof
   TOP_CASE_TAC >> fs[] >>
   IF_CASES_TAC >> fs[] >- (
     TOP_CASE_TAC \\
-    Cases_on `(mc_conf.mmio_info x)` \\
-    PairCases_on `r` \\
-    gvs[call_FFI_def] >- (
-      TOP_CASE_TAC >> fs[] \\
-      qpat_x_assum `(case _ of Oracle_return _ _ => _ | Oracle_final _ => _) =
-      FFI_return _ _` mp_tac \\
-      TOP_CASE_TAC \\
-      IF_CASES_TAC >> fs[IS_PREFIX_APPEND] \\
-      rw[] \\
-      qexists `[IO_event "MappedRead" [n2w (dimindex (:β) DIV 8); q]
-        (ZIP (addr2w8list r0,l))] ++ l''` \\
-      rw[]
-    )) \\
-  IF_CASES_TAC \\
-  Cases_on `mc_conf.mmio_info x` \\
-  PairCases_on `r` \\
-  fs[call_FFI_def] \\
-  TOP_CASE_TAC >> gvs[] >- (
-    simp[call_FFI_def] \\
+    TOP_CASE_TAC >> fs[] \\
+    namedCases_on `(mc_conf.mmio_info x)` ["r0 r1 r2 r3"]\\
+    gvs[call_FFI_def] \\
     TOP_CASE_TAC >> fs[] \\
     qpat_x_assum `(case _ of Oracle_return _ _ => _ | Oracle_final _ => _) =
       FFI_return _ _` mp_tac \\
       TOP_CASE_TAC \\
       IF_CASES_TAC >> fs[IS_PREFIX_APPEND] \\
       rw[] \\
-      qexists `[IO_event "MappedWrite" [n2w (dimindex (:β) DIV 8); q]
+      qexists `[IO_event "MappedRead" [n2w (dimindex (:'a) DIV 8); r0]
+        (ZIP (addr2w8list (c + mc_conf.target.get_reg ms n),l))] ++ l''` \\
+      rw[]
+    ) \\
+  IF_CASES_TAC \\
+  namedCases_on `mc_conf.mmio_info x` ["r0 r1 r2 r3"] \\
+  fs[call_FFI_def] \\
+  TOP_CASE_TAC >> fs[] \\
+  TOP_CASE_TAC >> gvs[] >- (
+    TOP_CASE_TAC >> fs[] \\
+    qpat_x_assum `(case _ of Oracle_return _ _ => _ | Oracle_final _ => _) =
+      FFI_return _ _` mp_tac \\
+      TOP_CASE_TAC \\
+      IF_CASES_TAC >> fs[IS_PREFIX_APPEND] \\
+      rw[] \\
+      qexists `[IO_event "MappedWrite" [n2w (dimindex (:'a) DIV 8); r0]
         (ZIP
-           (w2wlist_le (mc_conf.target.get_reg ms r1) (w2n q) ++
-            addr2w8list r0,l))] ++ l''` \\
+           (w2wlist_le (mc_conf.target.get_reg ms r2) (w2n r0) ++
+            addr2w8list (c + mc_conf.target.get_reg ms n),l))] ++ l''` \\
       rw[]
   ) \\
-  TOP_CASE_TAC >> fs[] \\
   TOP_CASE_TAC >> fs[] \\
   TOP_CASE_TAC >> fs[] \\
   first_x_assum (fn t => mp_tac t \\ IF_CASES_TAC \\ fs[]) \\
