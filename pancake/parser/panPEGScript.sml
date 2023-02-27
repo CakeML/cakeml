@@ -116,10 +116,11 @@ Definition pancake_peg_def[nocompute]:
                          (mksubtree ProgNT o FLAT));
         (INL BlockNT, choicel [mknt DecNT; mknt IfNT; mknt WhileNT]);
         (INL StmtNT, choicel [keep_kw SkipK;
+                              mknt CallNT;
                               mknt AssignNT; mknt StoreNT;
                               mknt StoreByteNT;
                               keep_kw BrK; keep_kw ContK;
-                              mknt CallNT; mknt ExtCallNT;
+                              mknt ExtCallNT;
                               mknt RaiseNT; mknt ReturnNT;
                               keep_kw TicK;
                               seql [consume_tok LCurT; mknt ProgNT; consume_tok RCurT] I
