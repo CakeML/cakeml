@@ -376,13 +376,13 @@ Definition get_shmem_info_def:
     get_shmem_info rest new_pos new_ffi_names new_shmem_info
 End
 
-val compile_lab_def = Define `
+Definition compile_lab_def:
   compile_lab c sec_list =
     let current_ffis = find_ffi_names sec_list in
     let (ffis,ffis_ok) =
       case c.ffi_names of SOME ffis => (ffis, list_subset current_ffis ffis) | _ => (current_ffis,T)
     in
-    if ffis_ok then
+    if ffis_ok /\ ~MEM "MappedRead" ffis /\ ~MEM "MappedWrite" ffis then
       case remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list of
       | SOME (sec_list,l1) =>
           let (new_ffi_names,new_shmem_info) =
@@ -394,7 +394,8 @@ val compile_lab_def = Define `
                           ffi_names := SOME $ new_ffi_names;
                           shmem_info := new_shmem_info |>)
       | NONE => NONE
-    else NONE`;
+    else NONE
+End
 
 (* compile labLang *)
 
@@ -410,9 +411,21 @@ Datatype:
     ; inc_pos : num
     ; inc_init_clock : num
     ; inc_ffi_names : string list option
-    ; inc_shmem_info: ('a word # word8 # 'a addr # num # 'a word) list
+    (* use num instead of 'w word and num # num instead of 'a addr
+    * so we don't have to add type parameter *)
+    ; inc_shmem_info: (num # word8 # num # num # num # num) list
     ; inc_hash_size : num
     |>
+End
+
+Definition to_inc_shmem_info_def:
+  to_inc_shmem_info (entry, nb, (Addr ad_reg ad_off), reg, end_pc) =
+    (w2n entry, nb, ad_reg, w2n ad_off, reg, w2n end_pc)
+End
+
+Definition to_shmem_info_def:
+  to_shmem_info (entry, nb, ad_reg, ad_off, reg, end_pc) =
+    (n2w entry, nb, Addr ad_reg $ n2w ad_off, reg, n2w end_pc)
 End
 
 Definition config_to_inc_config_def:
@@ -420,16 +433,16 @@ Definition config_to_inc_config_def:
     inc_labels := c.labels; inc_sec_pos_len := c.sec_pos_len;
     inc_pos := c.pos; inc_init_clock := c.init_clock;
     inc_ffi_names := c.ffi_names; inc_hash_size := c.hash_size;
-    inc_shmem_info := c.shmem_info
+    inc_shmem_info := MAP to_inc_shmem_info c.shmem_info
   |>
 End
 
 Definition inc_config_to_config_def:
-  inc_config_to_config (asm : 'a asm_config) (c : 'a inc_config) = <|
+  inc_config_to_config (asm : 'a asm_config) (c : inc_config) = <|
     labels := c.inc_labels; sec_pos_len := c.inc_sec_pos_len;
     pos := c.inc_pos; asm_conf := asm; init_clock := c.inc_init_clock;
     ffi_names := c.inc_ffi_names; hash_size := c.inc_hash_size;
-    shmem_info := c.inc_shmem_info
+    shmem_info := MAP to_shmem_info c.inc_shmem_info
   |>
 End
 
