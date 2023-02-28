@@ -467,14 +467,4 @@ Definition parse_to_ast_def:
     | _ => NONE
 End
 
-(** Small test modelled after the minimal working example. *)
-val src = ‘var a = @base {
- var b = 8 {
-  var c = @base + 16 {
-   var d = 1 {
-     #out_morefun(a b c d);
-     str @base, ic;
-     return 0;
- }}}}’;
-
 val _ = export_theory();
