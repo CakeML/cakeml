@@ -24,7 +24,7 @@ End
 
 Datatype:
   token = AndT | OrT | XorT | NotT
-  | EqT | NeqT | LessT | GreaterT | GeqT
+  | EqT | NeqT | LessT | GreaterT | GeqT | LeqT
   | PlusT | MinusT | HashT | DotT | StarT
   | LslT | LsrT | AsrT | RorT
   | TrueT | FalseT | IntT int | IdentT string
@@ -65,6 +65,7 @@ Definition get_token_def:
   if s = "<" then LessT else
   if s = ">" then GreaterT else
   if s = ">=" then GeqT else
+  if s = "<=" then LeqT else
   if s = "=>" then DArrowT else
   if s = "!" then NotT else
   if s = "+" then PlusT else

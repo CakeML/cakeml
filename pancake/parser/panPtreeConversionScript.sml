@@ -146,10 +146,12 @@ Definition conv_cmp_def:
        | _ => NONE
      else NONE) ∧
   conv_cmp leaf =
-   if tokcheck leaf EqT then SOME Equal
-   else if tokcheck leaf NeqT then SOME NotEqual
-   else if tokcheck leaf LessT then SOME Less
-   else if tokcheck leaf GeqT then SOME NotLess
+   if tokcheck leaf EqT then SOME(Equal,F)
+   else if tokcheck leaf NeqT then SOME(NotEqual,F)
+   else if tokcheck leaf LessT then SOME(Less,F)
+   else if tokcheck leaf GeqT then SOME(NotLess,F)
+   else if tokcheck leaf GreaterT then SOME(Less,T)
+   else if tokcheck leaf LeqT then SOME(NotLess,T)
    else NONE
 End
 
@@ -230,9 +232,10 @@ Definition conv_Exp_def:
       case args of
         [e] => conv_Exp e
       | [e1; op; e2] => do e1' <- conv_Exp e1;
-                           op' <- conv_cmp op;
+                           (op',b) <- conv_cmp op;
                            e2' <- conv_Exp e2;
-                           SOME $ Cmp op' e1' e2'
+                           SOME $ if b then Cmp op' e2' e1'
+                                  else Cmp op' e1' e2'
                         od
       | _ => NONE
     else if isNT nodeNT EShiftNT then

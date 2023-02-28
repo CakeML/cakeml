@@ -109,6 +109,14 @@ val ex6 = ‘{var b = 5;
 
 val treeEx6 = check_success $ parse_pancake ex6;
 
+(* Comparison operators may be rotated *)
+val ex8 = ‘x = a < b;
+           x = b > a;
+           x =  b >= a;
+           x = a <= b;’;
+
+val treeEx8 = check_success $ parse_pancake ex8;
+
 (** Statments. *)
 
 (** We can assign boolean expressions to variables. *)
@@ -117,5 +125,5 @@ val treeEx6 = check_success $ parse_pancake ex6;
 val exN = ‘x = b & a ^ c & d;’;
 
 val treeExN = check_success $ parse_pancake exN;
-
+    
 val _ = export_theory();
