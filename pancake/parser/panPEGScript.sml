@@ -217,7 +217,7 @@ Definition pancake_peg_def[nocompute]:
                           (mksubtree LoadNT));
         (INL LoadByteNT, seql [consume_kw LdbK; mknt ExpNT]
                               (mksubtree LoadByteNT));
-        (INL ShapeNT, choicel [keep_tok StarT;
+        (INL ShapeNT, choicel [keep_int;
                                seql [consume_tok LCurT;
                                      mknt ShapeCombNT;
                                      consume_tok RCurT] I

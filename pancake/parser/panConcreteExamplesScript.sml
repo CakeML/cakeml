@@ -109,18 +109,28 @@ val ex6 = ‘{var b = 5;
 
 val treeEx6 = check_success $ parse_pancake ex6;
 
-(* Load data of a fixed shape.
-   The below example loads a triple where the first
-   two components are words, and the third is a tuple of words.
+(* Load data of a fixed shape. The below example loads a triple where
+   the first two components are single words, and the third is a tuple
+   of words.
  *)
-
-val ex7 = ‘x = lds {{*,*,{*,*}}} y;’;
-
-val treeEx7 = lex_pancake ex7;
+val ex7 = ‘x = lds {1,1,2} y;’;
 
 val treeEx7 = check_success $ parse_pancake ex7;
-    
-(* Comparison operators may be rotated *)
+
+(* These can be nested arbitrarily deep *)
+val ex7_and_a_half = ‘x = lds {3,1,{1,{2,1}}} y;’;
+
+val treeEx7_and_a_half = check_success $ parse_pancake ex7_and_a_half;
+
+(* Note that {1} and 1 are distinct shapes *)
+val ex7_and_three_quarters = ‘x = lds {1,{1}} y;’;
+
+val treeEx7_and_three_quarters = check_success $ parse_pancake ex7_and_three_quarters;
+
+(* Comparison operators. Only two of these exist in the concrete syntax,
+   so the parser may rotate them. This shouldn't matter since expressions
+   are bad.
+ *)
 val ex8 = ‘x = a < b;
            x = b > a;
            x =  b >= a;
@@ -129,6 +139,18 @@ val ex8 = ‘x = a < b;
 val treeEx8 = check_success $ parse_pancake ex8;
 
 (** Statments. *)
+
+(** Small test modelled after the minimal working example. *)
+val ex10 = ‘
+ var a = @base;
+ var b = 8;
+ var c = @base + 16;
+ var d = 1;
+ #out_morefun(a,b,c,d);
+ str @base, ic;
+ return 0;’;
+
+val treeEx10 = check_success $ parse_pancake ex10;
 
 (** We can assign boolean expressions to variables. *)
 (** FIXME: Does not parse correctly. *)

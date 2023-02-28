@@ -164,12 +164,17 @@ Proof
 QED
 
 Definition conv_Shape_def:
-  (conv_Shape tree =
-    if tokcheck tree StarT then
-       SOME One
-    else case argsNT tree ShapeCombNT of
-       SOME ts => lift Comb $ OPT_MMAP conv_Shape ts
-     | _ => NONE)
+  conv_Shape tree =
+  case conv_int tree of
+    SOME n =>
+      if n < 1 then NONE
+      else if n = 1 then SOME One
+      else
+        SOME $ Comb $ REPLICATE (Num n) One
+  | NONE =>
+      (case argsNT tree ShapeCombNT of
+         SOME ts => lift Comb $ OPT_MMAP conv_Shape ts
+       | _ => NONE)
 Termination
   WF_REL_TAC ‘measure ptree_size’ >> rw[]
   >> Cases_on ‘tree’
@@ -471,22 +476,5 @@ val src = ‘var a = @base {
      str @base, ic;
      return 0;
  }}}}’;
-
-local
-  val f =
-    List.mapPartial
-       (fn s => case remove_whitespace s of "" => NONE | x => SOME x) o
-    String.tokens (fn c => c = #"\n")
-in
-  fun quote_to_strings q =
-    f (Portable.quote_to_string (fn _ => raise General.Bind) q)
-end
-
-fun parse_pancake q =
-  let
-    val code = quote_to_strings q |> String.concatWith "\n" |> fromMLstring
-  in
-    EVAL “parse_to_ast ^code”
-  end
 
 val _ = export_theory();
