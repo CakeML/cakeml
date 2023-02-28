@@ -353,7 +353,20 @@ Proof
   Cases_on`asm_fetch s1`>>fs[] >>
   Cases_on`x`>>fs[] >- (
     every_case_tac >> rw[] >> fs[] >>
-    fs[inc_pc_def,dec_clock_def,asm_inst_consts] ) >>
+    fs[inc_pc_def,dec_clock_def,asm_inst_consts] >>
+    Cases_on `m` >>
+    fs[share_mem_op_def,share_mem_load_def,share_mem_store_def] >>
+    qpat_x_assum `(case _ of NONE => _ | SOME v => _) = _` mp_tac >>
+    TOP_CASE_TAC >>
+    TOP_CASE_TAC >>
+    TOP_CASE_TAC >>
+    qpat_x_assum `call_FFI _ _ _ _ = _` mp_tac >>
+    gvs[inc_pc_def,dec_clock_def,call_FFI_def] >>
+    TOP_CASE_TAC >>
+    TOP_CASE_TAC >>
+    rw[] >>
+    fs[IS_PREFIX_APPEND]
+  ) >>
   Cases_on`a`>>fs[case_eq_thms] >> rw[] >> fs[] >>
   fs[inc_pc_def,dec_clock_def,asm_inst_consts,upd_reg_def] >>
   TRY(qpat_x_assum`(_,_) = _`(assume_tac o SYM)) \\ fs[] \\
@@ -375,13 +388,42 @@ Proof
   ho_match_mp_tac evaluate_ind >> rw[] >>
   qhdtm_x_assum`evaluate`mp_tac >>
   simp[Once evaluate_def] >>
-  IF_CASES_TAC >> fs[] >> strip_tac >>
-  simp[Once evaluate_def] >>
+  IF_CASES_TAC >> gvs[] >> strip_tac >>
   fs[asm_fetch_def,case_eq_thms] >> rw[] >>
-  fs[inc_pc_def,dec_clock_def,asm_inst_consts,upd_pc_def,get_pc_value_def,get_ret_Loc_def,upd_reg_def] >>
-  fsrw_tac[ARITH_ss][] >> rw[] >> fs[] >> rfs[] >>
-  TRY pairarg_tac >> fs[case_eq_thms] >> rw[]>>
-  first_x_assum(qspec_then`k`mp_tac)>>simp[]
+  fsrw_tac[ARITH_ss][] >> rw[] >> gvs[] >>
+  simp[Once evaluate_def] >>
+  gvs[asm_fetch_def] >>
+  gvs[inc_pc_def,dec_clock_def,asm_inst_consts,upd_pc_def,get_pc_value_def,get_ret_Loc_def,upd_reg_def]
+  >~ [`s.compile_oracle`] 
+  >-(pairarg_tac >> fs[case_eq_thms] >> rw[]) >>
+  qpat_x_assum `share_mem_op _ _ _ _ = _` mp_tac >>
+  Cases_on `m` >>
+  Cases_on `ad` >>
+  fs[share_mem_op_def,share_mem_load_def,share_mem_store_def,addr_def] >>
+  rpt (TOP_CASE_TAC >> fs[]) >>
+  rw[] >> gvs[]
+QED
+
+Theorem addr_add_clock_eq:
+  addr a (s with clock := extra + s.clock) = addr a s
+Proof
+  Cases_on `a` >> simp[addr_def]
+QED
+
+Theorem share_mem_op_add_clock_same:
+   (s.clock <> 0 /\ share_mem_op m n a s = NONE ==>
+    share_mem_op m n a (s with clock := extra + s.clock) = NONE) /\
+   (s.clock <> 0 /\ share_mem_op m n a s = SOME (FFI_return f l', r) ==>
+    share_mem_op m n a (s with clock := extra + s.clock) =
+      SOME (FFI_return f l', r with clock := extra + r.clock)) /\
+   (s.clock <> 0 /\ share_mem_op m n a s = SOME (FFI_final f2, r2) ==>
+    share_mem_op m n a (s with clock := extra + s.clock) =
+      SOME (FFI_final f2, (r2 with clock := extra + r2.clock)))
+Proof
+  Cases_on `m` >>
+  rw[share_mem_op_def,share_mem_load_def,share_mem_store_def] >>
+  rpt (TOP_CASE_TAC >> fs[addr_add_clock_eq]) >>
+  gvs[state_component_equality]
 QED
 
 Theorem evaluate_add_clock_io_events_mono:
@@ -408,13 +450,47 @@ Proof
        unabbrev_all_tac >> simp[] >> EVAL_TAC >>
        simp[asm_inst_consts] >> NO_TAC) >>
     simp[] >>
-    fs[call_FFI_def] >>
+    fs[call_FFI_def]
+    >~ [`read_bytearray`] >- (
     qmatch_abbrev_tac`s0.ffi.io_events ≼ (SND(evaluate s1)).ffi.io_events` >>
     Cases_on`evaluate s1` >>
     drule (GEN_ALL evaluate_io_events_mono) >>
     unabbrev_all_tac >> fs[] >>
     every_case_tac >> fs[] >> rw[] >>
-    fs[IS_PREFIX_APPEND,IS_SOME_EXISTS] ) >>
+    fs[IS_PREFIX_APPEND,IS_SOME_EXISTS] )
+    >- (
+      Cases_on `m` >>
+      fs[share_mem_op_def,share_mem_load_def,share_mem_store_def] >>
+      qpat_x_assum `(case _ of NONE => _ | SOME v => _) = _` mp_tac >>
+      TOP_CASE_TAC >>
+      TOP_CASE_TAC >>
+      TOP_CASE_TAC >>
+      qpat_x_assum `call_FFI _ _ _ _ = _` mp_tac >>
+      gvs[inc_pc_def,dec_clock_def,call_FFI_def] >>
+      TOP_CASE_TAC >>
+      TOP_CASE_TAC >>
+      rw[] >>
+      qmatch_abbrev_tac `s0.ffi.io_events ≼ (SND(evaluate s1)).ffi.io_events` >>
+      Cases_on `evaluate s1` >>
+      drule evaluate_io_events_mono >>
+      unabbrev_all_tac >> fs[] >>
+      rw[] >>
+      fs[IS_PREFIX_APPEND,IS_SOME_EXISTS]
+    )
+    >- (
+      Cases_on `m` >>
+      fs[share_mem_op_def,share_mem_load_def,share_mem_store_def] >>
+      qpat_x_assum `(case _ of NONE => _ | SOME v => _) = _` mp_tac >>
+      TOP_CASE_TAC >>
+      TOP_CASE_TAC >>
+      TOP_CASE_TAC >>
+      qpat_x_assum `call_FFI _ _ _ _ = _` mp_tac >>
+      gvs[inc_pc_def,dec_clock_def,call_FFI_def] >>
+      rpt TOP_CASE_TAC >>
+      rw[] >>
+      fs[IS_PREFIX_APPEND]
+    )
+  ) >>
   fs[asm_fetch_def] >>
   Cases_on`asm_fetch_aux s.pc s.code`>>fs[] >>
   Cases_on`x`>>fs[] >>
@@ -423,7 +499,22 @@ Proof
   every_case_tac >> fs[] >>
   fs[inc_pc_def,dec_clock_def,asm_inst_consts,upd_pc_def,get_pc_value_def,get_ret_Loc_def,upd_reg_def] >>
   fsrw_tac[ARITH_ss][] >> rw[] >> fs[] >> rfs[] >>
-  rev_full_simp_tac(srw_ss()++ARITH_ss)[]
+  rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
+  rpt (
+    drule_all $ cj 1 share_mem_op_add_clock_same >>
+    disch_then $ qspecl_then [`extra`] assume_tac >>
+    gvs[]
+  ) >>
+  rpt (
+    drule_all $ cj 2 share_mem_op_add_clock_same >>
+    disch_then $ qspecl_then [`extra`] assume_tac >>
+    gvs[]
+  ) >>
+  rpt (
+    drule_all $ cj 3 share_mem_op_add_clock_same >>
+    disch_then $ qspecl_then [`extra`] assume_tac >>
+    gvs[]
+  )
 QED
 
 val align_dm_def = Define `
@@ -720,6 +811,19 @@ Proof
   \\ imp_res_tac mem_store_byte_aux_align_dm \\ fs[]
 QED
 
+Theorem share_mem_op_align_dm_simp[simp]:
+  (share_mem_op m r a s = NONE ==> share_mem_op m r a (align_dm s) = NONE) /\
+  (share_mem_op m r a s = SOME (FFI_final f, s') ==>
+  share_mem_op m r a (align_dm s) = SOME (FFI_final f, align_dm s')) /\
+  (share_mem_op m r a s = SOME (FFI_return fs l, s') ==>
+  share_mem_op m r a (align_dm s) = SOME (FFI_return fs l, align_dm s'))
+Proof
+  Cases_on `m` \\
+  rw[share_mem_op_def,share_mem_load_def,share_mem_store_def] \\
+  rpt (TOP_CASE_TAC >> fs[]) \\
+  gvs[align_dm_def]
+QED
+
 Theorem evaluate_align_dm:
    good_dimindex(:α) ⇒
    ∀(s:(α,'c,'ffi) labSem$state).
@@ -743,7 +847,24 @@ Proof
     \\ rw[]
     \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
-    \\ fs[inc_pc_def,align_dm_def,dec_clock_def])
+    \\ fs[inc_pc_def,align_dm_def,dec_clock_def]
+    >- (
+      drule $ cj 3 $ PURE_REWRITE_RULE [align_dm_def] share_mem_op_align_dm_simp
+      \\ disch_then assume_tac >> gvs[]
+    )
+    >- (
+      drule $ cj 2 $ PURE_REWRITE_RULE [align_dm_def] share_mem_op_align_dm_simp
+      \\ disch_then assume_tac >> gvs[]
+    )
+    >> (
+      namedCases_on `x` ["q s'"] >> gvs[ELIM_UNCURRY]
+      \\ TOP_CASE_TAC 
+      >- (drule $ cj 3 $ PURE_REWRITE_RULE [align_dm_def] share_mem_op_align_dm_simp
+         \\ disch_then assume_tac >> gvs[])
+      >- (drule $ cj 2 $ PURE_REWRITE_RULE [align_dm_def] share_mem_op_align_dm_simp
+         \\ disch_then assume_tac >> gvs[])
+    )
+  )
   \\ BasicProvers.TOP_CASE_TAC
   \\ simp[Once evaluate_def,SimpRHS]
   \\ simp[case_eq_thms]
