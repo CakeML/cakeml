@@ -536,6 +536,7 @@ Definition fromString_unsafe_def:
       else &fromChars_unsafe (strlen str) str
 End
 
+(* TODO: need to be more careful for negative numbers *)
 Definition tokenize_fast_def:
   tokenize_fast (s:mlstring) =
   if strlen s = 0 then INL s
@@ -546,8 +547,9 @@ Definition tokenize_fast_def:
   else INL s
 End
 
+(* TODO: use tokenize_fast *)
 Definition toks_fast_def:
-  toks_fast s = MAP tokenize_fast (tokens blanks s)
+  toks_fast s = MAP tokenize (tokens blanks s)
 End
 
 val headertrm = rconc (EVAL``toks_fast (strlit"pseudo-Boolean proof version 2.0")``);

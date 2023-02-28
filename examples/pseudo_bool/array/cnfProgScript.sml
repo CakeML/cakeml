@@ -22,7 +22,7 @@ val _ = translate lpr_parsingTheory.blanks_def;
 val _ = translate lpr_parsingTheory.tokenize_def;
 
 val blanks_1_v_thm = theorem "blanks_1_v_thm";
-val tokenize_v_thm = theorem "tokenize_v_thm";
+val tokenize_1_v_thm = theorem "tokenize_1_v_thm";
 
 val _ = translate parse_header_line_def;
 
@@ -48,13 +48,13 @@ val b_inputLineTokens_specialize =
   |> Q.GEN `f` |> Q.SPEC`lpr_parsing$blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_1_v`
   |> Q.GEN `g` |> Q.ISPEC`lpr_parsing$tokenize`
-  |> Q.GEN `gv` |> Q.ISPEC`tokenize_v`
+  |> Q.GEN `gv` |> Q.ISPEC`tokenize_1_v`
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
-  |> SIMP_RULE std_ss [blanks_1_v_thm,tokenize_v_thm,blanks_def] ;
+  |> SIMP_RULE std_ss [blanks_1_v_thm,tokenize_1_v_thm,blanks_def] ;
 
 val parse_dimacs_body_arr = process_topdecs`
   fun parse_dimacs_body_arr lno maxvar fd acc =
-  case TextIO.b_inputLineTokens fd blanks_1 tokenize of
+  case TextIO.b_inputLineTokens fd blanks_1 tokenize_1 of
     None => Inr (List.rev acc)
   | Some l =>
     if nocomment_line l then
@@ -170,7 +170,7 @@ QED
 
 val parse_dimacs_toks_arr = process_topdecs`
   fun parse_dimacs_toks_arr lno fd =
-  case TextIO.b_inputLineTokens fd blanks_1 tokenize of
+  case TextIO.b_inputLineTokens fd blanks_1 tokenize_1 of
     None => Inl (format_dimacs_failure lno "failed to find header")
   | Some l =>
     if nocomment_line l then

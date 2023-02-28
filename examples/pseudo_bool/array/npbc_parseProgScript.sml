@@ -170,6 +170,7 @@ val fromString_unsafe_side = Q.prove(
   \\ match_mp_tac fromchars_unsafe_side_thm
   \\ rw[]) |> update_precondition;
 
+(*
 val _ = translate tokenize_fast_def;
 
 val tokenize_fast_side = Q.prove(
@@ -177,6 +178,8 @@ val tokenize_fast_side = Q.prove(
   EVAL_TAC >> fs[]>>
   Cases>>simp[fromchars_unsafe_side_thm]
   ) |> update_precondition;
+*)
+val _ = translate tokenize_def;
 
 Definition not_isEmpty_def:
   not_isEmpty s ⇔ s ≠ LN
@@ -186,7 +189,7 @@ val r = translate not_isEmpty_def;
 
 val parse_lsteps_aux = process_topdecs`
   fun parse_lsteps_aux f_ns fd lno acc =
-    case TextIO.b_inputLineTokens fd blanks tokenize_fast of
+    case TextIO.b_inputLineTokens fd blanks tokenize of
       None => raise Fail (format_failure lno "reached EOF while reading PBP steps")
     | Some s =>
     case parse_lstep_aux f_ns s of
@@ -206,16 +209,16 @@ val parse_lsteps_aux = process_topdecs`
     |> append_prog;
 
 val blanks_v_thm = theorem "blanks_v_thm";
-val tokenize_fast_v_thm = theorem "tokenize_fast_v_thm";
+val tokenize_v_thm = theorem "tokenize_v_thm";
 
 val b_inputLineTokens_specialize =
   b_inputLineTokens_spec_lines
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
-  |> Q.GEN `g` |> Q.ISPEC`tokenize_fast`
-  |> Q.GEN `gv` |> Q.ISPEC`tokenize_fast_v`
+  |> Q.GEN `g` |> Q.ISPEC`tokenize`
+  |> Q.GEN `gv` |> Q.ISPEC`tokenize_v`
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
-  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_fast_v_thm,blanks_def] ;
+  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm,blanks_def] ;
 
 Theorem EqualityType_SUM_TYPE:
   EqualityType t1 ∧ EqualityType t2 ⇒
@@ -665,7 +668,7 @@ QED
 
 val parse_sstep = process_topdecs`
   fun parse_sstep fns fd lno =
-    case TextIO.b_inputLineTokens fd blanks tokenize_fast of
+    case TextIO.b_inputLineTokens fd blanks tokenize of
       None =>
       raise Fail (format_failure lno "Unexpected EOF when parsing proof steps")
     | Some s =>
@@ -895,7 +898,7 @@ val read_n_lines = process_topdecs`
   fun read_n_lines n fd lno =
   if n = 0 then []
   else
-  let val l = TextIO.b_inputLineTokens fd blanks tokenize_fast in
+  let val l = TextIO.b_inputLineTokens fd blanks tokenize in
     case l of None =>
     raise Fail (format_failure lno "Unexpected EOF when reading lines")
     | Some l =>
@@ -921,7 +924,7 @@ Theorem read_n_lines_spec:
             LIST_TYPE
             (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
             (MAP
-              (MAP tokenize_fast ∘ tokens blanks)
+              (MAP tokenize ∘ tokens blanks)
               (TAKE n lines)) v))
       (λe.
          SEP_EXISTS k lines'.
@@ -990,7 +993,7 @@ Proof
             LIST_TYPE
             (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
             (MAP
-              (MAP tokenize_fast ∘ tokens blanks)
+              (MAP tokenize ∘ tokens blanks)
               (TAKE n t)) v))
       (λe.
          SEP_EXISTS k t'.
@@ -1048,7 +1051,7 @@ Proof
 QED
 
 Theorem toks_fast_eq:
-  toks_fast = MAP tokenize_fast ∘ tokens blanks
+  toks_fast = MAP tokenize ∘ tokens blanks
 Proof
   rw[FUN_EQ_THM,toks_fast_def]
 QED
@@ -1091,7 +1094,7 @@ Proof
             LIST_TYPE
             (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
             (MAP
-              (MAP tokenize_fast ∘ tokens blanks)
+              (MAP tokenize ∘ tokens blanks)
               (TAKE 5 lines)) v))
       (λe.
          SEP_EXISTS k lines'.
@@ -1143,7 +1146,7 @@ val res = translate is_end_def;
 
 val parse_def_aux = process_topdecs`
   fun parse_def_aux fd lno acc =
-  case TextIO.b_inputLineTokens fd blanks tokenize_fast of
+  case TextIO.b_inputLineTokens fd blanks tokenize of
     None =>
     raise Fail (format_failure lno "Unable to parse def block in order definition")
   | Some s =>
@@ -1254,7 +1257,7 @@ val res = translate is_def_def;
 
 val parse_def_block = process_topdecs`
   fun parse_def_block fd lno =
-  case TextIO.b_inputLineTokens fd blanks tokenize_fast of
+  case TextIO.b_inputLineTokens fd blanks tokenize of
     None =>
     raise Fail (format_failure lno "Unable to parse def block in order definition")
   | Some s =>
@@ -1416,7 +1419,7 @@ Proof
             LIST_TYPE
             (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
             (MAP
-              (MAP tokenize_fast ∘ tokens blanks)
+              (MAP tokenize ∘ tokens blanks)
               (TAKE 5 lines)) v))
       (λe.
          SEP_EXISTS k lines'.
@@ -1573,7 +1576,7 @@ Proof
             LIST_TYPE
             (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
             (MAP
-              (MAP tokenize_fast ∘ tokens blanks)
+              (MAP tokenize ∘ tokens blanks)
               (TAKE 2 lines)) v))
       (λe.
          SEP_EXISTS k lines'.
@@ -2304,9 +2307,9 @@ val res = translate parse_conc_full_def;
 val check_conc = process_topdecs`
   fun check_conc fd s fml =
   let
-    val y = TextIO.b_inputLineTokens fd blanks tokenize_fast
-    val z = TextIO.b_inputLineTokens fd blanks tokenize_fast
-    val n = TextIO.b_inputLineTokens fd blanks tokenize_fast
+    val y = TextIO.b_inputLineTokens fd blanks tokenize
+    val z = TextIO.b_inputLineTokens fd blanks tokenize
+    val n = TextIO.b_inputLineTokens fd blanks tokenize
   in
     case parse_conc_full s y z n of
       None => Inl "Unable to parse output / conclusion section\n"
@@ -2341,7 +2344,7 @@ Proof
           INSTREAM_LINES fd fdv (TL lines) (forwardFD fs fd k) *
           ARRAY fmlv fmllsv *
           &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
-            (OPTION_MAP (MAP tokenize_fast ∘ tokens blanks) (oHD lines)) v)’
+            (OPTION_MAP (MAP tokenize ∘ tokens blanks) (oHD lines)) v)’
   >- (
     xapp_spec b_inputLineTokens_specialize
     \\ qexists_tac ‘ARRAY fmlv fmllsv’
@@ -2353,7 +2356,7 @@ Proof
           INSTREAM_LINES fd fdv (TL (TL lines)) (forwardFD fs fd k) *
           ARRAY fmlv fmllsv *
           &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
-            (OPTION_MAP (MAP tokenize_fast ∘ tokens blanks) (oHD (TL lines))) v)’
+            (OPTION_MAP (MAP tokenize ∘ tokens blanks) (oHD (TL lines))) v)’
   >- (
     xapp_spec b_inputLineTokens_specialize
     \\ qexists_tac ‘ARRAY fmlv fmllsv’
@@ -2365,7 +2368,7 @@ Proof
           INSTREAM_LINES fd fdv (TL (TL (TL lines))) (forwardFD fs fd k) *
           ARRAY fmlv fmllsv *
           &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
-            (OPTION_MAP (MAP tokenize_fast ∘ tokens blanks) (oHD (TL (TL lines)))) v)’
+            (OPTION_MAP (MAP tokenize ∘ tokens blanks) (oHD (TL (TL lines)))) v)’
   >- (
     xapp_spec b_inputLineTokens_specialize
     \\ qexists_tac ‘ARRAY fmlv fmllsv’
@@ -2674,8 +2677,8 @@ val r = translate check_header_full_def;
 val check_header = process_topdecs`
   fun check_header fd =
   let
-    val s1 = TextIO.b_inputLineTokens fd blanks tokenize_fast
-    val s2 = TextIO.b_inputLineTokens fd blanks tokenize_fast
+    val s1 = TextIO.b_inputLineTokens fd blanks tokenize
+    val s2 = TextIO.b_inputLineTokens fd blanks tokenize
   in
   check_header_full s1 s2
   end` |> append_prog;
@@ -2684,10 +2687,10 @@ val b_inputLineTokens_specialize =
   b_inputLineTokens_spec_lines
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
-  |> Q.GEN `g` |> Q.ISPEC`tokenize_fast`
-  |> Q.GEN `gv` |> Q.ISPEC`tokenize_fast_v`
+  |> Q.GEN `g` |> Q.ISPEC`tokenize`
+  |> Q.GEN `gv` |> Q.ISPEC`tokenize_v`
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
-  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_fast_v_thm,blanks_def] ;
+  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm,blanks_def] ;
 
 Theorem check_header_spec:
   !ss fd fdv lines fs.
@@ -2708,7 +2711,7 @@ Proof
           STDIO (forwardFD fs fd k) *
           INSTREAM_LINES fd fdv (TL lines) (forwardFD fs fd k) *
           &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
-            (OPTION_MAP (MAP tokenize_fast ∘ tokens blanks) (oHD lines)) v)’
+            (OPTION_MAP (MAP tokenize ∘ tokens blanks) (oHD lines)) v)’
   >- (
     xapp_spec b_inputLineTokens_specialize
     \\ qexists_tac ‘emp’
@@ -2718,7 +2721,7 @@ Proof
           STDIO (forwardFD fs fd k) *
           INSTREAM_LINES fd fdv (TL (TL lines)) (forwardFD fs fd k) *
           &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
-            (OPTION_MAP (MAP tokenize_fast ∘ tokens blanks) (oHD (TL lines))) v)’
+            (OPTION_MAP (MAP tokenize ∘ tokens blanks) (oHD (TL lines))) v)’
   >- (
     xapp_spec b_inputLineTokens_specialize
     \\ qexists_tac ‘emp’
