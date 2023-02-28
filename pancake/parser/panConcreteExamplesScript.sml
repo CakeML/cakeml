@@ -129,7 +129,7 @@ val treeEx7_and_three_quarters = check_success $ parse_pancake ex7_and_three_qua
 
 (* Comparison operators. Only two of these exist in the concrete syntax,
    so the parser may rotate them. This shouldn't matter since expressions
-   are bad.
+   are pure.
  *)
 val ex8 = ‘x = a < b;
            x = b > a;
