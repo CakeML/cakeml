@@ -125,5 +125,5 @@ val treeEx8 = check_success $ parse_pancake ex8;
 val exN = ‘x = b & a ^ c & d;’;
 
 val treeExN = check_success $ parse_pancake exN;
-    
+
 val _ = export_theory();
