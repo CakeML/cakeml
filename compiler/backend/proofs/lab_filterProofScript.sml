@@ -526,6 +526,77 @@ val upd_pc_tac =
   full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
   metis_tac[arithmeticTheory.ADD_COMM,arithmeticTheory.ADD_ASSOC];
 
+Theorem share_mem_op_NONE_filter_correct:
+  all_skips t1.pc t1.code k /\
+  share_mem_op m r a
+    (t1 with
+     <|pc := adjust_pc t1.pc t1.code; code := filter_skip t1.code;
+       compile := arb_compile;
+       compile_oracle := arb_oracle |>) = NONE
+  ==>
+  share_mem_op m r a (t1 with pc := k + t1.pc) = NONE
+Proof
+  Cases_on `m` >>
+  fs[share_mem_op_def, share_mem_store_def, share_mem_load_def] >>
+  Cases_on `a` >>
+  rpt (TOP_CASE_TAC >> fs[labSemTheory.addr_def])
+QED
+
+Theorem share_mem_op_FFI_return_filter_correct:
+  (all_skips t1.pc t1.code k /\ t1.clock <> 0 /\
+  t1.compile = (λc p. s1compile c (filter_skip p)) /\ ~t1.failed /\
+  share_mem_op m r a
+    (t1 with
+     <|pc := adjust_pc t1.pc t1.code; code := filter_skip t1.code;
+       compile := s1compile;
+       compile_oracle := (λn. (λ(a,b). (a,filter_skip b)) (t1.compile_oracle n))
+     |>) = SOME (FFI_return f l, s))
+  ==>
+  (?s2. !k'. share_mem_op m r a (t1 with pc := k + t1.pc) =
+    SOME (FFI_return f l, s2) /\
+  state_rel s s2 /\ ~s.failed /\ ~s2.failed /\
+  share_mem_op m r a (t1 with <|pc := k + t1.pc; clock := k' + t1.clock|>) =
+    SOME (FFI_return f l, s2 with clock := k' + s2.clock))
+Proof
+  Cases_on `m` >>
+  fs[share_mem_op_def, share_mem_store_def, share_mem_load_def] >> rw[] >>
+  Cases_on `a` >>
+  rpt (TOP_CASE_TAC >>
+    fs[labSemTheory.addr_def,AllCaseEqs(),state_rel_def]) >>
+  gvs[] >>
+  qexists `t1 with
+          <|regs := t1.regs⦇r ↦ Word (n2w (bytes2num l))⦈;
+            pc := k + (t1.pc + 1); ffi := f; clock := t1.clock − 1|>` >>
+  rw[] >>
+  qexists `s1compile` >>
+  rw[state_component_equality] >>
+  drule adjust_pc_all_skips >>
+  gvs[]
+QED
+
+Theorem share_mem_op_FFI_final_filter_correct:
+  (all_skips t1.pc t1.code k /\ t1.clock <> 0 /\
+  t1.compile = (λc p. s1compile c (filter_skip p)) /\ ~t1.failed /\
+  share_mem_op m r a
+    (t1 with
+     <|pc := adjust_pc t1.pc t1.code; code := filter_skip t1.code;
+       compile := s1compile;
+       compile_oracle := (λn. (λ(a,b). (a,filter_skip b)) (t1.compile_oracle n))
+     |>) = SOME (FFI_final f, s))
+  ==>
+  (?s2. share_mem_op m r a (t1 with pc := k + t1.pc) = SOME (FFI_final f, s2) /\
+  s.ffi = s2.ffi)
+Proof
+  Cases_on `m` >>
+  fs[share_mem_op_def, share_mem_store_def, share_mem_load_def] >> rw[] >>
+  Cases_on `a` >>
+  rpt (TOP_CASE_TAC >>
+    fs[labSemTheory.addr_def,AllCaseEqs(),state_rel_def]) >>
+  gvs[] >>
+  rpt strip_tac >>
+  qexists `s1compile`
+QED
+
 Theorem filter_correct:
    !(s1:('a,'c,'ffi) labSem$state) t1 res s2.
       (evaluate s1 = (res,s2)) /\ state_rel s1 t1 /\ ~t1.failed ==>
@@ -597,7 +668,7 @@ Proof
         metis_tac[ADD_ASSOC]))
       >-
         (Cases_on`a`>>Cases_on`m`>>
-        fs[mem_op_def,mem_load_def,addr_def,mem_load_byte_def,mem_store_def,upd_mem_def,mem_store_byte_def]>>
+        fs[mem_op_def,mem_load_def,labSemTheory.addr_def,mem_load_byte_def,mem_store_def,upd_mem_def,mem_store_byte_def]>>
         EVERY_CASE_TAC>>
         fs[upd_reg_def,inc_pc_def,dec_clock_def,assert_def]>>
         rw[]>>fs[]>>
@@ -672,7 +743,44 @@ Proof
         metis_tac[ADD_ASSOC])
       >>
         (first_x_assum(qspec_then`0` (assume_tac o SYM))>>
-        fs[]>>qexists_tac`k`>>fs[])))
+        fs[]>>qexists_tac`k`>>fs[]))
+      >- (* TODO: share_mem_op *)
+        (TOP_CASE_TAC >> fs[]
+        >- (* share_mem_op returns NONE *)
+          (disch_then $ qspec_then `0` mp_tac >> fs[] >>
+          drule_all share_mem_op_NONE_filter_correct >>
+          fs[] >>
+          rpt strip_tac >>
+          qexistsl [`k`, `t1 with pc := k + t1.pc`] >>
+          fs[state_component_equality]
+        )
+        >- (* share_mem_op returns SOME x *) 
+          (rpt (TOP_CASE_TAC >> fs[])
+          >- (* FFI_return *)
+            (drule_all share_mem_op_FFI_return_filter_correct >>
+            rw[] >>
+            first_x_assum $ qspecl_then [`s2'`,`res`,`s2`] assume_tac >>
+            gvs[] >>
+            last_x_assum $ qspec_then `0` assume_tac >>
+            gvs[state_rel_def] >>
+            gvs[PULL_EXISTS] >>
+            first_x_assum $ qspec_then `s1compile'` assume_tac >>
+            rw[] >>
+            first_x_assum $ qspec_then `k'` assume_tac >>
+            qexistsl [`k + k'`, `t2`] >>
+            gvs[]
+          )
+          >- (
+            drule_all share_mem_op_FFI_final_filter_correct >>
+            rw[] >>
+            first_x_assum $ qspec_then `0` assume_tac >>
+            gvs[] >>
+            qexistsl [`k`,`s2'`] >>
+            gvs[]
+          )
+        )
+      )
+    )
   >>
     Cases_on`a`>>
     full_simp_tac(srw_ss())[asm_fetch_def,state_rel_def]>>rev_full_simp_tac(srw_ss())[]>>
