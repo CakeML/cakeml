@@ -413,122 +413,78 @@ Termination
 End
 
 val evaluate_ind = theorem"evaluate_ind";
-(* TODO: convert into CoRecursive definition style to permit compositionality in definition. *)
-Definition eval_prog_itree_def:
-  eval_prog_itree p s = itree_unfold
-                        (λ(ps, s, cs). if ps ≠ [] then
-                                          case HD ps of
-                                        | (Seq p1 p2) =>
-                                           Tau' (p1::p2::TL ps, s, cs)
-                                        | (Call calltyp target argexps) =>
-                                           (case (eval s target, OPT_MMAP (eval s) argexps) of
-                                              (SOME (ValLabel fname), SOME args) =>
-                                               (case lookup_code s.code fname args of
-                                                  SOME (prog, newlocals) =>
-                                                   Tau' (prog::(TL ps), s with locals := newlocals, (calltyp,s)::cs)
-                                                 | _ => Ret' ((SOME Error), s))
-                                             | (_,_) => Ret' ((SOME Error), s))
-                                        | (Return e) =>
-                                           (case (eval s e) of
-                                              SOME val =>
-                                               if size_of_shape (shape_of val) ≤ 32
-                                               then (let (calltyp,st) = HD cs in
-                                                     case calltyp of
-                                                       Tail => Tau' (TL ps, empty_locals s, TL cs)
-                                                      | panLang$Ret retvar _ => if is_valid_value s.locals retvar val
-                                                                                then Tau' (TL ps, set_var retvar val (s with locals := st.locals), TL cs)
-                                                                                else Ret' (SOME Error, s))
-                                               else Ret' (SOME Error, s)
-                                             | _ => Ret' (SOME Error, s))
-                                        | (Raise eid handler) =>
-                                           (case (FLOOKUP s.eshapes eid, eval s handler) of
-                                             | (SOME sh, SOME value) =>
-                                                if shape_of value = sh ∧ size_of_shape (shape_of value) ≤ 32
-                                                then (let (calltyp, st) = HD cs in
-                                                      (case calltyp of
-                                                        | Tail => Tau' (TL ps, empty_locals s, TL cs)
-                                                        | Ret _ NONE => Tau' (TL ps, empty_locals s, TL cs)
-                                                        | Ret _ (SOME (Handle eid' evar hprog)) =>
-                                                           if eid = eid'
-                                                           then (case (FLOOKUP s.eshapes eid) of
-                                                                  | SOME sh =>
-                                                                     if shape_of value = sh ∧ is_valid_value s.locals evar value
-                                                                     then Tau' (hprog::TL ps, set_var evar value (s with locals := st.locals), cs)
-                                                                     else Ret' (SOME Error, s)
-                                                                  | NONE => Ret' (SOME Error, s))
-                                                           else Tau' (ps, empty_locals s, TL cs)))
-                                                else Ret' (SOME Error, s))
-                                        | (Dec v e prog) =>
-                                           (case (eval s e) of
-                                            | SOME value =>
-                                               Tau' (prog::TL ps, s with locals := s.locals |+ (v,value), cs)
-                                            | NONE => Ret' (SOME Error, s))
-                                        | (Assign v e) =>
-                                           (case (eval s e) of
-                                            | SOME value =>
-                                               if is_valid_value s.locals v value
-                                               then Tau' (TL ps, s with locals := s.locals |+ (v, value), cs)
-                                               else Ret' (SOME Error, s)
-                                            | NONE => Ret' (SOME Error, s))
-                                        | (Store dst src) =>
-                                           (case (eval s dst, eval s src) of
-                                            | (SOME (ValWord addr), SOME value) =>
-                                               (case mem_stores addr (flatten value) s.memaddrs s.memory of
-                                                 | SOME m => Tau' (TL ps, s with memory := m, cs)
-                                                 | NONE => Ret' (SOME Error, s))
-                                            | _ => Ret' (SOME Error, s))
-                                        | (StoreByte dst src) =>
-                                           (case (eval s dst, eval s src) of
-                                             | (SOME (ValWord addr), SOME (ValWord w)) =>
-                                                (case mem_store_byte s.memory s.memaddrs s.be addr (w2w w) of
-                                                  | SOME m => Tau' (TL ps, s with memory := m, cs)
-                                                  | NONE => Ret' (SOME Error, s))
-                                             | _ => Ret' (SOME Error, s))
-                                        | (If e c1 c2) =>
-                                           (case eval s e of
-                                             | SOME (ValWord w) =>
-                                                Tau' (if w ≠ 0w
-                                                      then c1::TL ps
-                                                      else c2::TL ps,
-                                                      s, cs)
-                                             | _ => Ret' (SOME Error, s))
-                                        | Break =>
-                                           (let next = TL ps in
-                                           case next of
-                                            | (While e c)::rest => Tau' (rest, s, cs)
-                                            | _ => Tau' (ps, s, cs))
-                                        | Continue =>
-                                           (let next = TL ps in
-                                            case next of
-                                             | NIL => Ret' (SOME Error, s)
-                                             | (While e c)::rest => Tau' ((While e c)::rest, s, cs)
-                                             | _ => Tau' (Continue::TL next, s, cs))
-                                        | (While e c) =>
-                                           (case eval s e of
-                                             | SOME (ValWord w) =>
-                                                if (w ≠ 0w)
-                                                then Tau' (c::(While e c)::TL ps, s, cs)
-                                                else Tau' (TL ps, s, cs)
-                                             | _ => Ret' (SOME Error, s))
-                                        | (ExtCall ffi_index ptr1 len1 ptr2 len2) =>
-                                          (case (FLOOKUP s.locals len1, FLOOKUP s.locals ptr1, FLOOKUP s.locals len2, FLOOKUP s.locals ptr2) of
-                                            | (SOME (ValWord sz1), SOME (ValWord ad1), SOME (ValWord sz2), SOME (ValWord ad2)) =>
-                                               (case (read_bytearray ad1 (w2n sz1) (mem_load_byte s.memory s.memaddrs s.be),
-                                                      read_bytearray ad2 (w2n sz2) (mem_load_byte s.memory s.memaddrs s.be)) of
-                                                 | (SOME bytes, SOME bytes2) =>
-                                                    (case (call_FFI s.ffi (explode ffi_index) bytes bytes2) of
-                                                      | FFI_final outcome => Ret' (SOME (FinalFFI outcome), empty_locals s)
-                                                      | FFI_return new_ffi new_bytes =>
-                                                         let nmem = write_bytearray ad2 new_bytes s.memory s.memaddrs s.be in
-                                                         Vis' () λf. (TL ps, s with <| memory := nmem; ffi := new_ffi |>, cs))
-                                                 | _ => Ret' (SOME Error, s))
-                                            | _ => Ret' (SOME Error, s))
-                                        | Tick => Tau' (TL ps, s, cs)
-                                        | Skip => Tau' (TL ps, s, cs)
-                                       else Ret' (NONE, s))
-                        ([p], s, [])
+
+(* Extension of itreeTauTheory *)
+val _ = temp_set_fixity "\226\139\134" (Infixl 500);
+Overload "\226\139\134" = “itree_bind”;
+
+Definition itree_trigger_def:
+  itree_trigger event = Vis event Ret
 End
 
+Definition itree_cat_def:
+  itree_cat t1 t2 = itree_bind t1 (K t2)
+End
+
+Theorem itree_cat_ret:
+  itree_cat (Ret x) (Ret y) = (Ret y)
+Proof
+  rw [itree_cat_def, itreeTauTheory.itree_bind_def] >>
+  rw [Once itreeTauTheory.itree_unfold]
+QED
+
+val _ = set_fixity "\226\140\162" (Infixl 500);
+Overload "\226\140\162" = “itree_cat”;
+
+Definition itree_mrec_def:
+  itree_mrec rh seed =
+  itree_iter
+  (λt. case t of
+        | Ret r => Ret (INR r)
+        | Tau t => Ret (INL t)
+        | Vis (INL seed') k => Ret (INL (itree_bind (rh seed') k))
+        | Vis (INR e) k => itree_bind (itree_trigger e) (λx. Ret (INL (k x))))
+  (rh seed)
+End
+
+(* Semantics validation functions *)
+Definition handle_call_ret_def:
+  handle_call_ret calltyp (res,s) = ARB
+End
+
+(* Recursive event handler for program commands *)
+Definition h_prog_def:
+  (h_prog ((Seq p1 p2),s) = itree_trigger (INL (p1,s)) ⌢ itree_trigger (INL (p2,s))) ∧
+  (h_prog (Assign v e,s) =
+   case (eval s e) of
+    | SOME value =>
+       if is_valid_value s.locals v value
+       then Ret (NONE,s with locals := s.locals |+ (v,value))
+       else Ret (SOME Error,s)
+    | NONE => Ret (SOME Error,s)) ∧
+  (h_prog ((Call calltyp tgtexp argexps), s) =
+   case (eval s tgtexp, OPT_MMAP (eval s) argexps) of
+     | (SOME (ValLabel fname), SOME args) =>
+        (case lookup_code s.code fname args of
+          | SOME (callee_prog, newlocals) =>
+             itree_trigger (INL (callee_prog,s)) ⋆ (handle_call_ret calltyp)
+          | _ => Ret (SOME Error,s))
+     | (_,_) => Ret (SOME Error,s))
+End
+
+(* ITree semantics for program commands *)
+Definition evaluate_itree_def:
+  evaluate_itree p s = itree_mrec h_prog (p,s)
+End
+
+(* Observational ITree semantics *)
+Definition semantics_itree_def:
+  semantics_itree ^s entry =
+  let prog = Call Tail (Label entry) [] in
+  evaluate_itree prog s ⋆ (Ret o FST)
+End
+
+(* Infrastructure for ITree-semantics-based program verification. *)
 val dummy_ffi_state = “<| oracle := (λs x y z. Oracle_final FFI_failed):unit oracle;
                         ffi_state := ();
                         io_events := NIL |>”;
@@ -593,7 +549,8 @@ Proof
 QED
 
 (* Self-recursing functions produce infinite skinny trees of Tau:s *)
-(* TODO: Requires proof that accumulation of call stack preserves equality  *)
+(* TODO: Requires proof that in recursive self-call scenario the two unfolds with accumulating call stack
+ do in fact produce the same tree. Then itree_wbisim_tau will apply.*)
 Theorem sem_recursive_self_tail_call:
   ((eval_prog_itree (panLang$Call Tail (Label «main») NIL)) ^sem_self_rec_st) =
   Tau ((eval_prog_itree (panLang$Call Tail (Label «main») NIL)) ^sem_self_rec_st)
@@ -601,7 +558,8 @@ Proof
   rw [Once itreeTauTheory.itree_bisimulation] >>
   qexists_tac ‘itree_wbisim’ >>
   rw [] >>
-  rw [itreeTauTheory.itree_wbisim_tau]
+  rw [itreeTauTheory.itree_wbisim_tau] >>
+  rw [eval_prog_itree_def]
 QED
 
 Theorem vshapes_args_rel_imp_eq_len_MAP:
