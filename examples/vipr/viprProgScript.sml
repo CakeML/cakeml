@@ -14,7 +14,7 @@ val _ = translation_extends "basisProg";
 
 val init_state_v_thm = translate init_state_def;
 val checker_step_v_thm = translate checker_step_def;
-val r = translate print_outcome_def;
+val print_outcome_v_thm = translate print_outcome_def;
 
 (* ---- *)
 
@@ -36,11 +36,6 @@ val _ = (append_prog o process_topdecs) `
     handle e => TextIO.output TextIO.stdErr usage_message`;
 
 val main_v_def = fetch "-" "main_v_def";
-
-Definition run_vipr_def:
-  run_vipr lines =
-    print_outcome (foldl checker_step init_state lines)
-End
 
 Theorem main_spec_stdin:
    hasFreeFD fs ∧ stdin_content fs = SOME text ∧ LENGTH cl < 2
