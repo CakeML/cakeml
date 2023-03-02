@@ -1331,6 +1331,10 @@ QED
     obj  : objective value
     rtp  : "required to proof" either infeasible or given bounds
 
+  ---
+  ip.vipr
+  ---
+
   val intv = rconc (EVAL ``fromAList [(0,());(1,())]``)
 
   val c1 = rconc (EVAL ``(GreaterEqual,fromAList [(0,2:real);(1,1:real)],1:real)``)
@@ -1355,7 +1359,9 @@ QED
 
   val res = EVAL ``check_rtp ^intv ^lcs ^min ^obj ^rtp ^sols ^viprs``
 
-  An infeasible problem
+  ---
+  infeasbb.vipr
+  ---
 
   val intv = rconc (EVAL ``sptree$fromList [();()]``)
 
@@ -1381,6 +1387,32 @@ QED
 
   val res = EVAL ``check_rtp ^intv ^lcs ^min ^obj ^rtp [] ^viprs``
 
+  ---
+  cg.vipr
+  ---
+
+  val intv = rconc (EVAL ``sptree$fromList [();()]``)
+
+  val c1 = rconc (EVAL ``(GreaterEqual,fromAList [(0,4:real);(1,1:real)],1:real)``)
+  val c2 = rconc (EVAL ``(LessEqual,fromAList [(0,4:real);(1,-1:real)],2:real)``)
+  val lcs = rconc (EVAL ``[^c1;^c2]``)
+
+  val min = rconc (EVAL ``T``)
+
+  val obj = rconc (EVAL ``fromAList [(0,1:real);(1,1:real)]``)
+
+  val rtp = rconc (EVAL ``Range (SOME 1) (SOME 1)``)
+
+  val sols = rconc (EVAL ``[fromAList [(0,1);(1,2:real)];fromAList [(1,1:real)]]``)
+
+  val d1 = rconc (EVAL ``((GreaterEqual,fromAList [(1,1:real)] ,-1/2:real),Lin [(0,1/2);(1,-1/2)])``)
+  val d2 = rconc (EVAL ``((GreaterEqual,fromAList [(1,1:real)] ,0:real),Round [(2,1)])``)
+  val d3 = rconc (EVAL ``((GreaterEqual,fromAList [(0,1:real);(1,1:real)] ,1/4:real),Lin [(0,1/4);(3,3/4)])``)
+  val d4 = rconc (EVAL ``((GreaterEqual,fromAList [(0,1:real);(1,1:real)] ,1:real),Round [(4,1)])``)
+
+  val viprs = rconc (EVAL ``[^d1;^d2;^d3;^d4]``)
+
+  val res = EVAL ``check_rtp ^intv ^lcs ^min ^obj ^rtp ^sols ^viprs``
 *)
 
 val _ = export_theory();
