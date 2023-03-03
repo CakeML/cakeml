@@ -52,7 +52,8 @@ Definition str_to_real_def:
     case tokens (λc. MEM c "/") s of
     | [x;y] =>
       (case fromString x, fromNatString y of
-       | (SOME (i:int), SOME j) => SOME (real_of_int i / & j :real)
+       | (SOME (i:int), SOME j) =>
+           (if j = 0 then NONE else SOME (real_of_int i / & j :real))
        | _ => NONE)
     | [x] => (case fromString x of
               | (SOME (i:int)) => SOME (real_of_int i)
@@ -359,14 +360,16 @@ End
 Definition checker_step_def:
   checker_step (line:mlstring) (s:reader_state) =
     let ts = tokens_spaces line in
-      if NULL ts then s else
+      case ts of
+      | [] => s (* empty line, reader state unchanged *)
+      | (x::xs) =>
         case s of
         | Init =>
             (if isPrefix (strlit "%") line then s else
              if ts = [strlit "VER"; strlit "1.0"] then Reading [] else
                Error (strlit "Unable to find VER 1.0 after initial comments."))
         | Reading acc =>
-            (if HD ts ≠ strlit "DER" then Reading (ts::acc) else
+            (if x ≠ strlit "DER" then Reading (ts::acc) else
                let input = FLAT (REVERSE acc) in
                  case read_var input of
                  | INL e => Error e
@@ -376,7 +379,7 @@ Definition checker_step_def:
                      else if ~ check_rtp_bound c.min c.obj c.sols c.rtp then
                        Error (strlit "check_rtp_bound failed.")
                      else
-                       case read_num (TL ts) of
+                       case read_num xs of
                        | NONE => Error der_error
                        | SOME (der_count,ts) =>
                            if NULL ts then Der c (build_fml 0 c.lcs LN) der_count

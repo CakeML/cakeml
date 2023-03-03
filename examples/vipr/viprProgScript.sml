@@ -13,33 +13,85 @@ val _ = translation_extends "basisProg";
  * ----------------------------------------------------------------- *)
 
 val r = translate sptreeTheory.insert_def;
+val r = translate sptreeTheory.lookup_def;
+val r = translate sptreeTheory.lrnext_def;
+val r = translate sptreeTheory.foldi_def;
+val r = translate sptreeTheory.toAList_def;
+val r = translate sptreeTheory.mk_BS_def;
+val r = translate sptreeTheory.mk_BN_def;
+val r = translate sptree_unionWithTheory.unionWith_def;
+val r = translate sptreeTheory.map_def;
 
 (* ----------------------------------------------------------------- *
     translation of definitions from milp
  * ----------------------------------------------------------------- *)
 
+val r = translate check_dom_def;
+val r = translate mk_sol_def;
+val r = translate do_op_def;
+val r = translate rSUM_def;
+val r = translate eval_real_term_def;
+val r = translate eval_lhs_eq;
+val r = translate satisfies_lc_def;
+val r = translate check_lcs_def;
+val r = translate check_sol_def;
+val r = translate absurdity_def;
+val r = translate dominates_def;
+val r = translate check_last_def;
+val r = translate get_obj_def;
+val r = translate le_inf_def;
+val r = translate inf_le_def;
+val r = translate check_rtp_bound_def;
+val r = translate build_fml_def;
+val r = translate (nub_def |> REWRITE_RULE [MEMBER_INTRO]);
+val r = translate lookup_all_lhs_def;
+val r = translate slop_def;
+val r = translate compat_def;
+val r = translate add_r_def;
+val r = translate cmul_def;
+val r = translate add_def;
+val r = translate lin_comb_def;
+val r = translate do_lin_def;
+val r = translate int_valued_def;
+val r = translate round_lc_def;
+val r = translate lookup_2_def;
+val r = translate resolvable_def;
+val r = translate delete_mem_def;
+val r = translate (unsplit_def |> REWRITE_RULE [MEMBER_INTRO]);
+val r = translate check_vipr_def;
+
 (* ----------------------------------------------------------------- *
     translation of definitions from vipr_checker
  * ----------------------------------------------------------------- *)
 
+val r = translate empty_conf_def;
 val r = translate (is_white_space_def |> REWRITE_RULE [MEMBER_INTRO]);
 val r = translate tokens_spaces_def;
-
 val r = translate read_n_strings_def;
 val r = translate read_n_nums_def;
-
 val r = translate (str_to_real_def |> SIMP_RULE std_ss [MEM]);
-
+val r = translate read_num_def;
 val r = translate read_lin_def;
 val r = translate read_lin_term_simple_def;
 val r = translate read_lin_term_def;
-
+val r = translate read_linop_def;
+val r = translate read_real_def;
+val r = translate read_lc_def;
+val r = translate read_n_constraints_def;
+val r = translate read_n_solutions_def;
+val r = translate read_bound_def;
+val r = translate read_goal_def;
+val r = translate read_sol_def;
+val r = translate read_rtp_def;
 val r = translate read_con_def;
 val r = translate (read_obj_def |> SIMP_RULE std_ss [MEM]);
 val r = translate read_int_def;
 val r = translate read_var_def;
-
-(* checker_step_def *)
+val r = translate read_end_def;
+val r = translate read_vipr_lin_aux_def;
+val r = translate read_vipr_lin_def;
+val r = translate read_vipr_def;
+val r = translate read_der_line_def;
 
 val init_state_v_thm = translate init_state_def;
 val checker_step_v_thm = translate checker_step_def;

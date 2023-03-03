@@ -781,9 +781,56 @@ val Eval_REAL_INV = Q.prove(
 val _ = (next_ml_names := ["/"])
 val Eval_RAT_DIV = translate ratTheory.RAT_DIV_MULMINV;
 
-val pair_div_side_def = Eval_RAT_DIV
+val rat_div_side_def = Eval_RAT_DIV
   |> hyp |> hd |> rand |> repeat rator |> DB.match [] |> hd |> snd |> fst
   |> update_precondition;
+
+Theorem real_of_rat_eq_0:
+  real_of_rat r ≠ 0 ⇒ r ≠ 0
+Proof
+  simp [GSYM (real_of_rat_int |> GEN_ALL |> Q.SPEC ‘0’)]
+QED
+
+Theorem real_of_rat_div:
+  x ≠ 0 ⇒ real_of_rat (x' / x) = real_of_rat x' / real_of_rat x
+Proof
+  cheat
+QED
+
+Theorem Eval_REAL_DIV_lemma[local]:
+  !v. (∀v1 v2. PRECONDITION (rat_div_side v1 v2) ⇒
+               (Eq RAT_TYPE v1 --> Eq RAT_TYPE v2 --> RAT_TYPE) (/) v) ==>
+      PRECONDITION (r ≠ 0) ⇒ (REAL_TYPE --> Eq REAL_TYPE r --> REAL_TYPE) (/) v
+Proof
+  rpt strip_tac
+  \\ fs [rat_div_side_def,PRECONDITION_def,PULL_FORALL]
+  \\ fs [Arrow_def,AppReturns_def,REAL_TYPE_def,PULL_EXISTS, FORALL_PROD, Eq_def]
+  \\ fs [rat_div_side_def,PRECONDITION_def,PULL_FORALL]
+  \\ rw []
+  \\ rename [‘empty_state with refs := R’]
+  \\ last_x_assum $ drule_at Any
+  \\ disch_then (fn th => mp_tac th \\ qspecl_then [‘1’,‘R’] strip_assume_tac th)
+  \\ gvs [GSYM PULL_FORALL]
+  \\ pop_assum kall_tac
+  \\ strip_tac
+  \\ first_assum $ irule_at Any
+  \\ rw [] \\ gvs []
+  \\ ‘x ≠ 0’ by fs [real_of_rat_eq_0]
+  \\ first_x_assum drule
+  \\ disch_then $ qspec_then ‘R’ strip_assume_tac
+  \\ qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
+  \\ first_x_assum drule
+  \\ disch_then (qspec_then `refs2` mp_tac)
+  \\ strip_tac \\ fs []
+  \\ rpt $ first_assum $ irule_at Any
+  \\ fs [real_of_rat_div]
+  \\ imp_res_tac eval_rel_11 \\ fs []
+QED
+
+val Eval_REAL_DIV =
+  Eval_RAT_DIV |> DISCH_ALL |> Q.GENL [‘v1’,‘v2’]
+  |> MATCH_MP Eval_REAL_DIV_lemma |> UNDISCH_ALL
+  |> add_user_proved_v_thm;
 
 val toString_def = Define `
   toString (RatPair i n) =
