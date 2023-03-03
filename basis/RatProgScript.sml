@@ -794,7 +794,7 @@ QED
 Theorem real_of_rat_div:
   x ≠ 0 ⇒ real_of_rat (x' / x) = real_of_rat x' / real_of_rat x
 Proof
-  cheat
+  simp [RAT_DIV_MULMINV,real_of_rat_mul,real_of_rat_inv,realTheory.real_div]
 QED
 
 Theorem Eval_REAL_DIV_lemma[local]:
