@@ -9,8 +9,37 @@ val _ = new_theory "viprProg"
 val _ = translation_extends "basisProg";
 
 (* ----------------------------------------------------------------- *
+    translation of definitions from background theories
+ * ----------------------------------------------------------------- *)
+
+val r = translate sptreeTheory.insert_def;
+
+(* ----------------------------------------------------------------- *
+    translation of definitions from milp
+ * ----------------------------------------------------------------- *)
+
+(* ----------------------------------------------------------------- *
     translation of definitions from vipr_checker
  * ----------------------------------------------------------------- *)
+
+val r = translate (is_white_space_def |> REWRITE_RULE [MEMBER_INTRO]);
+val r = translate tokens_spaces_def;
+
+val r = translate read_n_strings_def;
+val r = translate read_n_nums_def;
+
+val r = translate (str_to_real_def |> SIMP_RULE std_ss [MEM]);
+
+val r = translate read_lin_def;
+val r = translate read_lin_term_simple_def;
+val r = translate read_lin_term_def;
+
+val r = translate read_con_def;
+val r = translate (read_obj_def |> SIMP_RULE std_ss [MEM]);
+val r = translate read_int_def;
+val r = translate read_var_def;
+
+(* checker_step_def *)
 
 val init_state_v_thm = translate init_state_def;
 val checker_step_v_thm = translate checker_step_def;

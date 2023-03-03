@@ -47,20 +47,15 @@ Definition tokens_spaces_def:
   tokens_spaces s = mlstring$tokens is_white_space s
 End
 
-Definition int_to_real_def:
-  int_to_real i =
-    if i < 0 then - & (Num (ABS i)) else & Num i :real
-End
-
 Definition str_to_real_def:
   str_to_real s =
     case tokens (λc. MEM c "/") s of
     | [x;y] =>
       (case fromString x, fromNatString y of
-       | (SOME (i:int), SOME j) => SOME (int_to_real i / & j :real)
+       | (SOME (i:int), SOME j) => SOME (real_of_int i / & j :real)
        | _ => NONE)
     | [x] => (case fromString x of
-              | (SOME (i:int)) => SOME (int_to_real i)
+              | (SOME (i:int)) => SOME (real_of_int i)
               | NONE => NONE)
     | _ => NONE
 End
