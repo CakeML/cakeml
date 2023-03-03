@@ -338,6 +338,7 @@ pre: int -> int
 while: ('a -> bool) -> ('a -> 'a) -> 'a -> 'a
 owhile: ('a -> bool) -> ('a -> 'a) -> 'a -> 'a option
 least: (int -> bool) -> int
+append: 'a app_list -> 'a list
 repeat: ('a -> 'a) -> 'a -> 'b
 +: int -> int -> int
 -: int -> int -> int

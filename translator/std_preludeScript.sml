@@ -122,6 +122,16 @@ val least_side_thm = Q.prove(
   THEN METIS_TAC [IS_SOME_DEF])
   |> update_precondition;
 
+(* app_list *)
+
+val _ = ml_prog_update open_local_block;
+val r = translate miscTheory.append_aux_def;
+val _ = ml_prog_update open_local_in_block;
+
+val r = translate miscTheory.append_def;
+
+val _ = ml_prog_update close_local_blocks;
+
 val _ = (print_asts := true);
 
 val _ = export_theory();
