@@ -257,9 +257,10 @@ Definition real_to_str_def:
 End
 
 Theorem real_of_int_div_eq:
-  gcd (Num (ABS n')) d' = 1 ∧ d' ≠ 0 ∧
-  gcd (Num (ABS n)) d = 1 ∧ d ≠ 0 ⇒
-  (real_of_int n / &d = real_of_int n' / &d' ⇔ n = n' ∧ d = d')
+  ∀n d n' d'.
+    gcd (Num (ABS n')) d' = 1 ∧ d' ≠ 0 ∧
+    gcd (Num (ABS n)) d = 1 ∧ d ≠ 0 ⇒
+    (real_of_int n / &d = real_of_int n' / &d' ⇔ n = n' ∧ d = d')
 Proof
   rw [] \\ eq_tac \\ gvs [] \\ strip_tac
   \\ irule rat_of_int_eq \\ fs []
@@ -270,6 +271,82 @@ Proof
   \\ dxrule $ real_of_rat_div
   \\ once_rewrite_tac [EQ_SYM_EQ]
   \\ rpt strip_tac \\ fs []
+QED
+
+Theorem real_to_str_num[compute]:
+  real_to_str (& n) = toString (RatPair (&n) 1)
+Proof
+  fs [real_to_str_def] \\ AP_TERM_TAC
+  \\ fs [real_to_rational_def]
+  \\ pairarg_tac \\ fs []
+  \\ qspecl_then [‘&n’,‘1’] mp_tac real_of_int_div_eq
+  \\ fs [gcdTheory.GCD_1]
+  \\ strip_tac \\ gvs [SF CONJ_ss]
+QED
+
+Theorem real_to_str_neg_num[compute]:
+  real_to_str (-& n) = toString (RatPair (-&n) 1)
+Proof
+  fs [real_to_str_def] \\ AP_TERM_TAC
+  \\ fs [real_to_rational_def]
+  \\ pairarg_tac \\ fs []
+  \\ qspecl_then [‘-&n’,‘1’] mp_tac real_of_int_div_eq
+  \\ fs [gcdTheory.GCD_1]
+  \\ strip_tac \\ gvs [SF CONJ_ss]
+QED
+
+Theorem real_to_str_rat[compute]:
+  real_to_str (& n / & d) =
+  toString (if d = 0 then real_to_rational (& n / & d)
+            else let k = gcd n d in RatPair (& (n DIV k)) (d DIV k))
+Proof
+  fs [real_to_str_def] \\ AP_TERM_TAC
+  \\ IF_CASES_TAC \\ fs []
+  \\ fs [real_to_rational_def]
+  \\ pairarg_tac \\ fs []
+  \\ Cases_on ‘n = 0’
+  >-
+   (gvs [realTheory.REAL_DIV_LZERO,realTheory.REAL_DIV_ZERO,SF CONJ_ss]
+    \\ fs [DIV_EQ_X])
+  \\ qspecl_then [‘n’,‘d’] mp_tac gcdTheory.FACTOR_OUT_GCD
+  \\ impl_tac >- fs []
+  \\ strip_tac
+  \\ qabbrev_tac ‘k = gcd n d’ \\ gvs []
+  \\ full_simp_tac std_ss [GSYM realTheory.REAL_MUL]
+  \\ ‘& k ≠ 0:real’ by gvs []
+  \\ full_simp_tac std_ss [realTheory.REAL_DIV_LMUL_CANCEL]
+  \\ once_rewrite_tac [MULT_COMM]
+  \\ fs [MULT_DIV]
+  \\ qspecl_then [‘&p’,‘q’] mp_tac real_of_int_div_eq \\ fs []
+  \\ strip_tac \\ gvs [SF CONJ_ss]
+QED
+
+Theorem real_to_str_neg_rat[compute]:
+  real_to_str (-& n / & d) =
+  toString (if d = 0 then real_to_rational (-& n / & d)
+            else let k = gcd n d in RatPair (-& (n DIV k)) (d DIV k))
+Proof
+  fs [real_to_str_def] \\ AP_TERM_TAC
+  \\ IF_CASES_TAC \\ fs []
+  \\ fs [real_to_rational_def]
+  \\ pairarg_tac \\ fs []
+  \\ Cases_on ‘n = 0’
+  >-
+   (gvs [realTheory.REAL_DIV_LZERO,realTheory.REAL_DIV_ZERO,SF CONJ_ss]
+    \\ fs [DIV_EQ_X])
+  \\ qspecl_then [‘n’,‘d’] mp_tac gcdTheory.FACTOR_OUT_GCD
+  \\ impl_tac >- fs []
+  \\ strip_tac
+  \\ qabbrev_tac ‘k = gcd n d’ \\ gvs []
+  \\ full_simp_tac std_ss [GSYM realTheory.REAL_MUL]
+  \\ ‘& k ≠ 0:real’ by gvs []
+  \\ full_simp_tac std_ss [realTheory.REAL_DIV_LMUL_CANCEL,
+                           GSYM (CONJUNCT1 realTheory.neg_rat)]
+  \\ full_simp_tac std_ss [realTheory.neg_rat]
+  \\ once_rewrite_tac [MULT_COMM]
+  \\ fs [MULT_DIV]
+  \\ qspecl_then [‘-&p’,‘q’] mp_tac real_of_int_div_eq \\ fs []
+  \\ strip_tac \\ gvs [SF CONJ_ss]
 QED
 
 val _ = export_theory ();
