@@ -519,36 +519,59 @@ Proof
   metis_tac[compat_add_sound]
 QED
 
+Definition id_not_in_def:
+  id_not_in (n:num) =
+  strlit"Invalid constraint ID: " ^ toString n
+End
+
+(* TODO should print something here... *)
+Definition print_lc_def:
+  print_lc ((lop,lhs,n):lc) =
+  strlit" constraint "
+End
+
 (* TODO: change to accumulator and union assms instead of nub *)
 Definition lookup_all_lhs_def:
-  (lookup_all_lhs fml [] = SOME ([],[])) ∧
+  (lookup_all_lhs fml [] = INR ([],[])) ∧
   (lookup_all_lhs fml ((i,r)::xs) =
-  case lookup_all_lhs fml xs of NONE => NONE
-  | SOME (assms,ys) =>
-    case lookup i fml of NONE => NONE
-    | SOME (assm,y) => SOME (nub(assm ++ assms),(y,r)::ys))
+  case lookup i fml of
+    NONE => INL (id_not_in i)
+  | SOME (assm,y) =>
+    (case lookup_all_lhs fml xs of
+      INL err => INL err
+    | INR (assms,ys) =>
+      INR (nub(assm ++ assms),(y,r)::ys)))
 End
 
 Definition do_lin_def:
   do_lin fml lop lhs =
-  case lookup_all_lhs fml lhs of NONE => NONE
-  | SOME (assms,xs) =>
-    case lin_comb lop xs of NONE => NONE
-    | SOME res => SOME (assms,(lop,res))
+  case lookup_all_lhs fml lhs of
+    INL err => INL err
+  | INR (assms,xs) =>
+    case lin_comb lop xs of
+      NONE => INL (strlit "Unsuitable linear combination")
+    | SOME res => INR (assms,(lop,res))
+End
+
+Definition resolvable_aux_def:
+  resolvable_aux intv (lop,lhs,n) (lop',lhs',n') ⇔
+  (lop = LessEqual ∧ lop'= GreaterEqual ∧ n' = (n+1:real)) ∧
+  int_valued intv lhs ∧ lhs = lhs' ∧ is_int n
 End
 
 Definition resolvable_def:
-  resolvable intv (lop,lhs,n) (lop',lhs',n') ⇔
-  lop = LessEqual ∧ lop'= GreaterEqual ∧ n' = (n+1:real) ∧
-  int_valued intv lhs ∧ lhs = lhs' ∧ is_int n
+  resolvable intv a1 a2 ⇔
+  resolvable_aux intv a1 a2 ∨ resolvable_aux intv a2 a1
 End
 
 Definition lookup_2_def:
   lookup_2 fml x y =
-  (case lookup x fml of NONE => NONE
+  (case lookup x fml of NONE =>
+    INL (id_not_in x)
   | SOME x =>
-  (case lookup y fml of NONE => NONE
-  | SOME y => SOME (x,y)))
+  (case lookup y fml of NONE =>
+    INL (id_not_in y)
+  | SOME y => INR (x,y)))
 End
 
 Definition delete_mem_def:
@@ -556,45 +579,65 @@ Definition delete_mem_def:
   FILTER (λx. x <> l) xs
 End
 
+Definition b_to_string_def:
+  (b_to_string T = strlit"T") ∧
+  (b_to_string F = strlit"F")
+End
+
+Definition bs_to_string_def:
+  bs_to_string bs =
+    concatWith (strlit " ") (MAP b_to_string bs)
+End
+
+Definition assum_err_def:
+  assum_err (l:num) (a:num list) =
+  strlit"Expect: " ^ toString l ^ strlit " in: " ^ concatWith (strlit " ") (MAP toString a)
+End
+
 Definition unsplit_def:
   unsplit intv fml i1 l1 i2 l2 lc =
-  case lookup_2 fml i1 i2 of NONE => NONE
-  | SOME ((a1,is1),(a2,is2)) =>
-  if MEM l1 a1 ∧ MEM l2 a2 then
-  (case lookup_2 fml l1 l2 of NONE => NONE
-  | SOME (ll1,ll2) =>
+  case lookup_2 fml i1 i2 of
+    INL err => INL err
+  | INR ((a1,is1),(a2,is2)) =>
+  (case lookup_2 fml l1 l2 of
+    INL err => INL err
+  | INR (ll1,ll2) =>
     if resolvable intv (SND ll1) (SND ll2) ∧
-        dominates is1 lc ∧
-        dominates is2 lc
-    then SOME (nub (delete_mem l1 a1 ++ delete_mem l2 a2), lc)
-    else NONE)
-  else NONE
+       dominates is1 lc ∧
+       dominates is2 lc
+    then INR (nub (delete_mem l1 a1 ++ delete_mem l2 a2), lc)
+    else
+     INL (strlit "res,dom1,dom2: "^ bs_to_string[resolvable intv (SND ll1) (SND ll2) ; dominates is1 lc ;dominates is2 lc] ))
 End
 
 Definition check_vipr_def:
   (check_vipr intv (fml,id) (lc, Assum) =
-    SOME (insert id ([id],lc) fml, id+1)) ∧
+    INR (insert id ([id],lc) fml, id+1)) ∧
   (check_vipr intv (fml,id) (lc, Lin lhs) =
-    case do_lin fml (FST lc) lhs of NONE => NONE
-    | SOME res =>
-      SOME (insert id res fml, id+1)) ∧
+    case do_lin fml (FST lc) lhs of
+      INL err => INL err
+    | INR res =>
+      INR (insert id res fml, id+1)) ∧
   (check_vipr intv (fml,id) (lc, Round lhs) =
-    case do_lin fml (FST lc) lhs of NONE => NONE
-    | SOME (assms,lc) =>
-      case round_lc intv lc of NONE => NONE
+    case do_lin fml (FST lc) lhs of
+      INL err => INL err
+    | INR (assms,lc) =>
+      case round_lc intv lc of
+        NONE => INL (strlit "Unable to round ")
       | SOME lc' =>
-      SOME (insert id (assms,lc') fml, id+1)) ∧
+        INR (insert id (assms,lc') fml, id+1)) ∧
   (check_vipr intv (fml,id) (lc, Unsplit i1 l1 i2 l2) =
-    case unsplit intv fml i1 l1 i2 l2 lc of NONE => NONE
-    | SOME res =>
-      SOME (insert id res fml, id+1))
+    case unsplit intv fml i1 l1 i2 l2 lc of
+      INL err => INL err
+    | INR res =>
+      INR (insert id res fml, id+1))
 End
 
 Definition check_viprs_def:
-  (check_viprs intv acc [] = SOME acc) ∧
+  (check_viprs intv acc [] = INR acc) ∧
   (check_viprs intv acc (v::vs) =
-  case check_vipr intv acc v of NONE => NONE
-  | SOME acc' =>
+  case check_vipr intv acc v of INL err => INL err
+  | INR acc' =>
     check_viprs intv acc' vs)
 End
 
@@ -645,8 +688,8 @@ Definition check_rtp_def:
   then
     let acc = build_fml 0 lcs LN in
     case check_viprs intv acc viprs of
-      NONE => F
-    | SOME acc' => check_last min obj rtp acc'
+      INL _ => F
+    | INR acc' => check_last min obj rtp acc'
   else F
 End
 
@@ -885,7 +928,7 @@ QED
 Theorem lookup_all_lhs_is_assm:
   ∀ls x.
   good_fml fml ∧
-  lookup_all_lhs fml ls = SOME x ⇒
+  lookup_all_lhs fml ls = INR x ⇒
   EVERY (is_assm fml) (FST x)
 Proof
   Induct>>rw[lookup_all_lhs_def]>>
@@ -899,7 +942,7 @@ QED
 
 Theorem do_lin_is_assm:
   good_fml fml ∧
-  do_lin fml lop lhs = SOME x ⇒
+  do_lin fml lop lhs = INR x ⇒
   EVERY (is_assm fml) (FST x)
 Proof
   rw[do_lin_def]>>
@@ -911,7 +954,7 @@ QED
 
 Theorem lookup_all_lhs_imp:
   ∀l fml assms ys.
-  lookup_all_lhs fml l = SOME (assms,ys) ∧
+  lookup_all_lhs fml l = INR (assms,ys) ∧
   satisfies_imp_lcs w (IMAGE (get_assms fml) (range fml)) ∧
   (∀id. MEM id assms ⇒ satisfies_lc w (SND (THE (lookup id fml)))) ⇒
   EVERY (satisfies_lc w) (MAP FST ys)
@@ -930,7 +973,7 @@ Proof
 QED
 
 Theorem do_lin_imp:
-  do_lin fml lop lhs = SOME x ∧
+  do_lin fml lop lhs = INR x ∧
   satisfies_imp_lcs w (IMAGE (get_assms fml) (range fml)) ∧
   (∀id. MEM id (FST x) ⇒ satisfies_lc w (SND (THE (lookup id fml)))) ⇒
   satisfies_lc w (SND x)
@@ -944,12 +987,12 @@ Proof
   metis_tac[]
 QED
 
-Theorem resolvable_splits:
+Theorem resolvable_aux_splits:
   (∀v. v ∈ domain intv ⇒ is_int (w v)) ∧
-  resolvable intv x y ⇒
+  resolvable_aux intv x y ⇒
   satisfies_lc w x ∨ satisfies_lc w y
 Proof
-  PairCases_on`x`>>PairCases_on`y`>>rw[resolvable_def]>>
+  PairCases_on`x`>>PairCases_on`y`>>rw[resolvable_aux_def]>>
   drule int_valued_is_int>>
   disch_then drule>>
   rw[satisfies_lc_def]>>
@@ -964,6 +1007,15 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Theorem resolvable_splits:
+  (∀v. v ∈ domain intv ⇒ is_int (w v)) ∧
+  resolvable intv x y ⇒
+  satisfies_lc w x ∨ satisfies_lc w y
+Proof
+  rw[resolvable_def]>>
+  metis_tac[resolvable_aux_splits]
+QED
+
 Theorem MEM_delete_mem[simp]:
   MEM x (delete_mem y ls) ⇔ x ≠ y ∧ MEM x ls
 Proof
@@ -972,7 +1024,7 @@ QED
 
 (* check the main body of a VIPR proof *)
 Theorem check_vipr_sound:
-  check_vipr intv (fml,id) (lc,vipr) = SOME (fml',id') ∧
+  check_vipr intv (fml,id) (lc,vipr) = INR (fml',id') ∧
   id_ok fml id ∧
   good_fml fml ∧
   (∀v. v ∈ domain intv ⇒ is_int (w v)) ∧
@@ -1008,32 +1060,26 @@ Proof
     simp[]>>
     metis_tac[round_lc_sound])
   >- (
+    (* unsplit *)
     every_case_tac>>fs[]>>
     rw[]>>
     match_mp_tac satisfies_imp_lcs_insert_2>>
     simp[]>>
-    fs[unsplit_def,lookup_2_def]>>every_case_tac>>fs[]>>
+    fs[unsplit_def,lookup_2_def]>>every_case_tac>>
     gvs[]>>
     fs[good_fml_def,range_def,PULL_EXISTS]>>
     res_tac>>
     fs[EVERY_MEM,is_assm_def]>>
     ntac 2 (pop_assum kall_tac)>>
-    pop_assum drule>>
-    pop_assum drule>>
-    fs[]>>
-    every_case_tac>>fs[]>>
-    ntac 2 strip_tac>>gvs[]>>
-    CONJ_TAC >-
-      metis_tac[FST]>>
+    CONJ_TAC >- (
+      rw[]>>
+      metis_tac[])>>
     rw[]>>
-    fs[satisfies_imp_lcs_def,PULL_EXISTS,get_assms_def,satisfies_imp_lc_def]>>
-    qpat_x_assum`lookup _ _ = _` mp_tac>>
-    qpat_x_assum`lookup _ _ = _` mp_tac>>
+    fs[satisfies_imp_lcs_def,PULL_EXISTS,satisfies_imp_lc_def]>>
     first_assum (drule_at Any)>>
-    qpat_x_assum`lookup _ _ = _` kall_tac>>
+    qpat_x_assum`lookup _ _ = _` mp_tac>>
     first_x_assum (drule_at Any)>>
-    simp[get_assms_def]>>
-    simp[MEM_MAP,PULL_EXISTS]>>
+    fs[get_assms_def,MEM_MAP,PULL_EXISTS]>>
     metis_tac[dominates_imp,SND,THE_DEF,resolvable_splits])
 QED
 
@@ -1101,7 +1147,7 @@ Proof
 QED
 
 Theorem check_vipr_ok:
-  check_vipr intv (fml,id) (lc,vipr) = SOME (fml',id') ∧
+  check_vipr intv (fml,id) (lc,vipr) = INR (fml',id') ∧
   id_ok fml id ∧
   good_fml fml ⇒
   id_ok fml' id' ∧ good_fml fml'
@@ -1137,7 +1183,7 @@ QED
 
 Theorem check_viprs_sound:
   ∀viprs fml id fml' id.
-  check_viprs intv (fml,id) viprs = SOME (fml',id') ∧
+  check_viprs intv (fml,id) viprs = INR (fml',id') ∧
   id_ok fml id ∧
   good_fml fml ∧
   (∀v. v ∈ domain intv ⇒ is_int (w v)) ∧
@@ -1146,7 +1192,8 @@ Theorem check_viprs_sound:
 Proof
   Induct>>rw[check_viprs_def]>>fs[]>>
   every_case_tac>>fs[]>>
-  Cases_on`h`>> Cases_on`x`>>
+  Cases_on`h`>>
+  Cases_on`y`>>
   last_x_assum match_mp_tac>>
   asm_exists_tac>>simp[]>>
   drule check_vipr_sound>>
@@ -1237,7 +1284,7 @@ Proof
     simp[id_ok_def,good_fml_def,range_def]>>
   strip_tac>>
   qpat_x_assum`_ = _` SUBST_ALL_TAC>>
-  Cases_on`x`>>drule check_viprs_sound>>
+  Cases_on`y`>>drule check_viprs_sound>>
   simp[]>>
   strip_tac>>
   Cases_on`rtp`>>simp[satisfies_rtp_def]

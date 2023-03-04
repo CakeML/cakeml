@@ -390,8 +390,8 @@ Definition checker_step_def:
             | NONE => Error (der_error ^ line)
             | SOME (lc,vipr,index) =>
                 case check_vipr c.ints acc (lc,vipr) of
-                | NONE => Error (der_proof_fail ^ line)
-                | SOME acc' => Der c acc' (der_count-1)
+                | INL err => Error (der_proof_fail ^ line ^ strlit"Reason: " ^ err)
+                | INR acc' => Der c acc' (der_count-1)
 End
 
 Definition print_outcome_def:

@@ -44,6 +44,8 @@ val r = translate inf_le_def;
 val r = translate check_rtp_bound_def;
 val r = translate build_fml_def;
 val r = translate (nub_def |> REWRITE_RULE [MEMBER_INTRO]);
+
+val r = translate id_not_in_def;
 val r = translate lookup_all_lhs_def;
 val r = translate slop_def;
 val r = translate compat_def;
@@ -57,6 +59,9 @@ val r = translate round_lc_def;
 val r = translate lookup_2_def;
 val r = translate resolvable_def;
 val r = translate delete_mem_def;
+val r = translate b_to_string_def;
+val r = translate bs_to_string_def;
+val r = translate assum_err_def;
 val r = translate (unsplit_def |> REWRITE_RULE [MEMBER_INTRO]);
 val r = translate check_vipr_def;
 
