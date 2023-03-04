@@ -832,13 +832,107 @@ val Eval_REAL_DIV =
   |> MATCH_MP Eval_REAL_DIV_lemma |> UNDISCH_ALL
   |> add_user_proved_v_thm;
 
+Theorem rat_of_int_eq:
+  gcd (Num (ABS n1)) d1 = 1 ∧ d1 ≠ 0 ∧
+  gcd (Num (ABS n2)) d2 = 1 ∧ d2 ≠ 0 ∧
+  rat_of_int n1 / &d1 = rat_of_int n2 / &d2 ⇒
+  n1 = n2 ∧ d1 = d2
+Proof
+  rpt strip_tac >>
+  Cases_on `d1 = d2` >> rveq
+  >- rfs[RAT_MINV_EQ_0, RAT_DIV_MULMINV, RAT_EQ_RMUL] >>
+  fs[] >>
+  `(rat_of_int n1 / &d1) * (&d1 * &d2) = (rat_of_int n2 / &d2) * (&d1 * &d2)`
+    by fs [RAT_EQ_RMUL] >>
+  `rat_of_int n1 / &d1 * &d1 = rat_of_int n1`
+     by (simp_tac bool_ss [RAT_DIV_MULMINV] >>
+         metis_tac[RAT_MUL_LINV, RAT_MUL_ASSOC, RAT_MUL_RID,
+                   RAT_EQ_NUM_CALCULATE]) >>
+  `rat_of_int n2 / &d2 * &d2 = rat_of_int n2`
+     by (simp_tac bool_ss [RAT_DIV_MULMINV] >>
+         metis_tac[RAT_MUL_LINV, RAT_MUL_ASSOC, RAT_MUL_RID,
+                   RAT_EQ_NUM_CALCULATE]) >>
+  `rat_of_int n1 * & d2 = rat_of_int n2 * & d1`
+     by metis_tac [RAT_MUL_ASSOC,RAT_MUL_COMM] >>
+  pop_assum mp_tac >>
+  ntac 3 (pop_assum kall_tac) >> fs [] >>
+  Cases_on `n1` >> Cases_on `n2` >>
+  fs [integerTheory.INT_ABS_NUM, integerTheory.INT_ABS_NEG,
+      rat_of_int_ainv, RAT_MUL_NUM_CALCULATE] >>
+  rfs [RAT_DIV_EQ0] >> strip_tac >>
+  rename [`d1 * n1 = d2 * n2:num`]
+  \\ `divides d2 (d1 * n1) /\
+      divides n2 (d1 * n1) /\
+      divides d1 (d2 * n2) /\
+      divides n1 (d2 * n2)` by
+     (fs [dividesTheory.divides_def] \\ metis_tac [MULT_COMM])
+  \\ `gcd d1 n2 = 1 /\ gcd d2 n1 = 1` by metis_tac [GCD_SYM]
+  \\ fs []
+  \\ imp_res_tac L_EUCLIDES
+  \\ imp_res_tac dividesTheory.DIVIDES_ANTISYM
+  \\ rveq \\ rfs [arithmeticTheory.EQ_MULT_RCANCEL]
+QED
+
 val toString_def = Define `
   toString (RatPair i n) =
     if n = 1 then mlint$toString i else
       concat [mlint$toString i ; implode"/" ; mlint$toString (&n)]`
 
 val _ = (next_ml_names := ["toString"]);
-val v = translate toString_def;
+val toString_v_thm = translate toString_def;
+
+Definition real_to_rational_def[nocompute]:
+  real_to_rational (r:real) =
+    let (n,d) = (@x. ∃n d. x = (n,d) ∧
+                           r = real_of_int n / & d ∧
+                           gcd (Num (ABS n)) d = 1 ∧
+                           d ≠ 0) in
+      RatPair n d
+End
+
+Definition real_to_str_def:
+  real_to_str r = toString (real_to_rational r)
+End
+
+Theorem real_of_int_div_eq:
+  gcd (Num (ABS n')) d' = 1 ∧ d' ≠ 0 ∧
+  gcd (Num (ABS n)) d = 1 ∧ d ≠ 0 ⇒
+  (real_of_int n / &d = real_of_int n' / &d' ⇔ n = n' ∧ d = d')
+Proof
+  rw [] \\ eq_tac \\ gvs [] \\ strip_tac
+  \\ irule rat_of_int_eq \\ fs []
+  \\ fs [real_of_int_of_rat]
+  \\ gvs [GSYM real_of_rat_int]
+  \\ ‘&d ≠ 0:rat ∧ &d' ≠ 0:rat’ by gvs []
+  \\ dxrule $ real_of_rat_div
+  \\ dxrule $ real_of_rat_div
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ rpt strip_tac \\ fs []
+QED
+
+Theorem real_to_str_lemma[local]:
+  (RATIONAL_TYPE --> STRING_TYPE) toString v ⇒
+  (REAL_TYPE --> STRING_TYPE) real_to_str v
+Proof
+  fs [Arrow_def,AppReturns_def,REAL_TYPE_def,RAT_TYPE_def] \\ rw []
+  \\ first_x_assum drule
+  \\ disch_then $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ irule_at Any
+  \\ pop_assum mp_tac
+  \\ match_mp_tac EQ_IMPLIES
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ fs [real_to_str_def]
+  \\ gvs [real_to_rational_def]
+  \\ AP_TERM_TAC
+  \\ pairarg_tac \\ gvs []
+  \\ ‘&d ≠ 0:rat’ by fs []
+  \\ gvs [real_of_rat_div,GSYM real_of_int_of_rat,real_of_rat_int]
+  \\ gvs [real_of_int_div_eq,SF CONJ_ss]
+QED
+
+Theorem real_to_str_v_thm = toString_v_thm
+  |> MATCH_MP real_to_str_lemma |> UNDISCH_ALL
+  |> add_user_proved_v_thm;
 
 Definition pp_rat_def:
   pp_rat r = mlprettyprinter$pp_token (toString r)
@@ -1140,40 +1234,9 @@ Theorem EqualityType_RAT_TYPE = Q.prove(`
   \\ fs [RAT_TYPE_def,RATIONAL_TYPE_def,INT_def,NUM_def] \\ EVAL_TAC
   \\ rveq \\ fs []
   \\ EQ_TAC \\ strip_tac \\ fs []
-  \\ fs [GSYM rat_of_int_def] >>
-  rename [‘rat_of_int n1 / &d1 = rat_of_int n2 / &d2’] >>
-  Cases_on `d1 = d2` >> rveq
-  >- rfs[RAT_MINV_EQ_0, RAT_DIV_MULMINV, RAT_EQ_RMUL] >>
-  fs[] >>
-  `(rat_of_int n1 / &d1) * (&d1 * &d2) = (rat_of_int n2 / &d2) * (&d1 * &d2)`
-    by fs [RAT_EQ_RMUL] >>
-  `rat_of_int n1 / &d1 * &d1 = rat_of_int n1`
-     by (simp_tac bool_ss [RAT_DIV_MULMINV] >>
-         metis_tac[RAT_MUL_LINV, RAT_MUL_ASSOC, RAT_MUL_RID,
-                   RAT_EQ_NUM_CALCULATE]) >>
-  `rat_of_int n2 / &d2 * &d2 = rat_of_int n2`
-     by (simp_tac bool_ss [RAT_DIV_MULMINV] >>
-         metis_tac[RAT_MUL_LINV, RAT_MUL_ASSOC, RAT_MUL_RID,
-                   RAT_EQ_NUM_CALCULATE]) >>
-  `rat_of_int n1 * & d2 = rat_of_int n2 * & d1`
-     by metis_tac [RAT_MUL_ASSOC,RAT_MUL_COMM] >>
-  pop_assum mp_tac >>
-  ntac 3 (pop_assum kall_tac) >> fs [] >>
-  Cases_on `n1` >> Cases_on `n2` >>
-  fs [integerTheory.INT_ABS_NUM, integerTheory.INT_ABS_NEG,
-      rat_of_int_ainv, RAT_MUL_NUM_CALCULATE] >>
-  rfs [RAT_DIV_EQ0] >> strip_tac >>
-  rename [`d1 * n1 = d2 * n2:num`]
-  \\ `divides d2 (d1 * n1) /\
-      divides n2 (d1 * n1) /\
-      divides d1 (d2 * n2) /\
-      divides n1 (d2 * n2)` by
-     (fs [dividesTheory.divides_def] \\ metis_tac [MULT_COMM])
-  \\ `gcd d1 n2 = 1 /\ gcd d2 n1 = 1` by metis_tac [GCD_SYM]
-  \\ fs []
-  \\ imp_res_tac L_EUCLIDES
-  \\ imp_res_tac dividesTheory.DIVIDES_ANTISYM
-  \\ rveq \\ rfs [arithmeticTheory.EQ_MULT_RCANCEL])
+  \\ fs [GSYM rat_of_int_def]
+  \\ irule rat_of_int_eq
+  \\ fs [])
   |> store_eq_thm;
 
 Theorem EqualityType_REAL_TYPE = Q.prove(`
