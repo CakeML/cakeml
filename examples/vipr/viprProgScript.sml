@@ -57,6 +57,7 @@ val r = translate do_lin_def;
 val r = translate int_valued_def;
 val r = translate round_lc_def;
 val r = translate lookup_2_def;
+val r = translate resolvable_aux_def;
 val r = translate resolvable_def;
 val r = translate delete_mem_def;
 val r = translate b_to_string_def;
