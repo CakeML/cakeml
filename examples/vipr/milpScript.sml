@@ -299,17 +299,35 @@ Definition compat_def:
   (compat LessEqual lop r ⇔ r * slop lop ≤ 0)
 End
 
+Definition op_str_def:
+  (op_str GreaterEqual = strlit" >= ") ∧
+  (op_str LessEqual = strlit" <= ") ∧
+  (op_str Equal = strlit" = ")
+End
+
+(* Using default names x_i for variables, i.e., c * x_i *)
+Definition print_coeff_var_def:
+  print_coeff_var (x:num,c:real) =
+  real_to_str c ^ strlit " * x_" ^ toString x
+End
+
+Definition print_lc_def:
+  print_lc ((lop,lhs,n):lc) =
+  let ls = toSortedAList lhs in
+  concatWith (strlit " + ") (MAP print_coeff_var ls) ^ op_str lop ^ real_to_str n
+End
+
 (* NOTE: This currently adds back to front.
   The linear combination must be compatible with the final lop *)
 Definition lin_comb_def:
-  (lin_comb lop [] = SOME (LN,0)) ∧
+  (lin_comb lop [] = INR (LN,0)) ∧
   (lin_comb lop (((lop',c),r)::xs) =
     case lin_comb lop xs of
-    NONE => NONE
-  | SOME ys =>
+    INL err => INL err
+  | INR ys =>
     if compat lop lop' r then
-      SOME (add ys r c)
-    else NONE
+      INR (add ys r c)
+    else INL (strlit"Incompatible constraint: " ^ print_lc ((lop',c)))
   )
 End
 
@@ -505,7 +523,7 @@ QED
 
 Theorem lin_comb_sound:
   ∀xs ys.
-  lin_comb lop xs = SOME ys ∧
+  lin_comb lop xs = INR ys ∧
   EVERY (satisfies_lc w) (MAP FST xs) ⇒
   satisfies_lc w (lop,ys)
 Proof
@@ -522,12 +540,6 @@ QED
 Definition id_not_in_def:
   id_not_in (n:num) =
   strlit"Invalid constraint ID: " ^ toString n
-End
-
-(* TODO should print something here... *)
-Definition print_lc_def:
-  print_lc ((lop,lhs,n):lc) =
-  strlit" constraint "
 End
 
 (* TODO: change to accumulator and union assms instead of nub *)
@@ -549,8 +561,8 @@ Definition do_lin_def:
     INL err => INL err
   | INR (assms,xs) =>
     case lin_comb lop xs of
-      NONE => INL (strlit "Unsuitable linear combination")
-    | SOME res => INR (assms,(lop,res))
+      INL err => INL err
+    | INR res => INR (assms,(lop,res))
 End
 
 Definition resolvable_aux_def:
@@ -579,19 +591,17 @@ Definition delete_mem_def:
   FILTER (λx. x <> l) xs
 End
 
-Definition b_to_string_def:
-  (b_to_string T = strlit"T") ∧
-  (b_to_string F = strlit"F")
-End
-
-Definition bs_to_string_def:
-  bs_to_string bs =
-    concatWith (strlit " ") (MAP b_to_string bs)
-End
-
 Definition assum_err_def:
   assum_err (l:num) (a:num list) =
   strlit"Expect: " ^ toString l ^ strlit " in: " ^ concatWith (strlit " ") (MAP toString a)
+End
+
+Definition resolv_dom_err_def:
+  resolv_dom_err intv a1 a2 is1 is2 lc =
+  strlit "Unable to unsplit resolving assms: (" ^
+  print_lc a1 ^ strlit " , " ^ print_lc a2 ^
+  strlit ") with constraints (" ^
+  print_lc is1 ^ strlit " , " ^ print_lc is2 ^ strlit ") target " ^ print_lc lc
 End
 
 Definition unsplit_def:
@@ -607,7 +617,7 @@ Definition unsplit_def:
        dominates is2 lc
     then INR (nub (delete_mem l1 a1 ++ delete_mem l2 a2), lc)
     else
-     INL (strlit "res,dom1,dom2: "^ bs_to_string[resolvable intv (SND ll1) (SND ll2) ; dominates is1 lc ;dominates is2 lc] ))
+     INL (resolv_dom_err intv (SND ll1) (SND ll2) is1 is2 lc))
 End
 
 Definition check_vipr_def:

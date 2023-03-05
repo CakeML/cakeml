@@ -280,8 +280,8 @@ Definition read_int_def:
     | _ => INL int_error
 End
 
-Definition read_var_def:
-  read_var ts =
+Definition read_problem_def:
+  read_problem ts =
     case ts of
     | (x::y::ts) =>
         (if x ≠ strlit "VAR" then INL var_error else
@@ -371,7 +371,7 @@ Definition checker_step_def:
         | Reading acc =>
             (if x ≠ strlit "DER" then Reading (ts::acc) else
                let input = FLAT (REVERSE acc) in
-                 case read_var input of
+                 case read_problem input of
                  | INL e => Error e
                  | INR c =>
                      if ~ EVERY (check_sol c.ints c.lcs) c.sols then
@@ -413,6 +413,126 @@ Definition run_vipr_def:
   run_vipr lines =
     print_outcome (foldl checker_step init_state lines)
 End
+
+Theorem checker_step_Error:
+  ∀lines e.
+  foldl checker_step (Error e) lines =
+    Error e
+Proof
+  Induct>>rw[foldl_def,checker_step_def]>>
+  every_case_tac>>fs[]
+QED
+
+Theorem checker_step_Der:
+  ∀lines c acc der_count c' acc' der_count'.
+  foldl checker_step (Der c acc der_count) lines =
+    Der c' acc' der_count' ⇒
+  c = c' ∧
+  ∃viprs.
+    check_viprs c.ints acc viprs = INR acc'
+Proof
+  Induct>>simp[foldl_def,checker_step_def]
+  >- (
+    rw[]>>
+    qexists_tac`[]`>>simp[check_viprs_def])>>
+  ntac 8 strip_tac>>
+  every_case_tac>>fs[checker_step_Error]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- metis_tac[]>>
+  first_x_assum drule>>rw[]>>
+  rename1`check_vipr _ _ (a,b) = _`>>
+  qexists_tac`(a,b)::viprs`>>
+  simp[check_viprs_def]
+QED
+
+Theorem tokens_spaces_head:
+  tokens_spaces h = ls ⇒
+  FLAT (MAP tokens_spaces (h::prob_lines)) =
+  ls ++ FLAT (MAP tokens_spaces prob_lines)
+Proof
+  rw[]
+QED
+
+Theorem checker_step_Reading:
+  ∀lines acc c res b.
+  foldl checker_step (Reading acc) lines = Der c res b ⇒
+  ∃prob_lines der_lines.
+    lines = prob_lines ++ der_lines ∧
+    read_problem (FLAT (REVERSE acc ++ (MAP tokens_spaces prob_lines))) = INR c ∧
+    EVERY (check_sol c.ints c.lcs) c.sols ∧
+    check_rtp_bound c.min c.obj c.sols c.rtp ∧
+    ∃viprs.
+      check_viprs c.ints (build_fml 0 c.lcs LN) viprs = INR res
+Proof
+  Induct>>rw[foldl_def,checker_step_def]>>
+  pop_assum mp_tac>>
+  TOP_CASE_TAC>>fs[]
+  >- (
+    rw[]>>first_x_assum drule>>
+    metis_tac[APPEND,tokens_spaces_head] )>>
+  TOP_CASE_TAC>>fs[]
+  >- (
+    rw[]>>first_x_assum drule>>
+    rw[]>>
+    qexists_tac`h::prob_lines`>>
+    simp[]>>
+    metis_tac[APPEND_ASSOC,APPEND])>>
+  every_case_tac>>fs[checker_step_Error]>>
+  rw[]>>
+  drule checker_step_Der>>rw[]>>
+  fs[EVERY_MEM]>>
+  qexists_tac`[]`>>fs[]>>
+  metis_tac[]
+QED
+
+Theorem checker_step_Init:
+  ∀lines c res b.
+  foldl checker_step Init lines = Der c res b ⇒
+  ∃init_lines prob_lines der_lines.
+    lines = init_lines ++ prob_lines ++ der_lines ∧
+    read_problem (FLAT (MAP tokens_spaces prob_lines)) = INR c ∧
+    EVERY (check_sol c.ints c.lcs) c.sols ∧
+    check_rtp_bound c.min c.obj c.sols c.rtp ∧
+    ∃viprs.
+      check_viprs c.ints (build_fml 0 c.lcs LN) viprs = INR res
+Proof
+  Induct>>rw[foldl_def,checker_step_def]
+  >- (
+    every_case_tac>>fs[]>>
+    metis_tac[APPEND])
+  >- (
+    drule checker_step_Reading>>
+    rw[]>>
+    metis_tac[APPEND])>>
+  every_case_tac>>gs[checker_step_Error]>>
+  metis_tac[APPEND]
+QED
+
+Theorem run_vipr_satisfies_rtp:
+  run_vipr lines = strlit "PASSED ALL CHECKS.\n" ⇒
+  ∃init_lines prob_lines der_lines c.
+    lines = init_lines ++ prob_lines ++ der_lines ∧
+    read_problem (FLAT (MAP tokens_spaces prob_lines)) = INR c ∧
+    satisfies_rtp (domain c.ints) (set c.lcs) c.min c.obj c.rtp
+Proof
+  rw[run_vipr_def,print_outcome_def]>>
+  reverse (every_case_tac>>fs[])
+  >- (
+    pop_assum mp_tac>>
+    EVAL_TAC)>>
+  fs[init_state_def]>>
+  drule checker_step_Init>>
+  rw[]>>
+  qexists_tac`init_lines`>>
+  qexists_tac`prob_lines`>>
+  qexists_tac`der_lines`>>
+  simp[]>>
+  match_mp_tac (GEN_ALL check_rtp_sound)>>
+  fs[check_rtp_def]>>
+  asm_exists_tac>>fs[]>>
+  qexists_tac`viprs`>>simp[]
+QED
 
 (* ==================================================================== *
     Testing below this line
