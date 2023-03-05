@@ -1,7 +1,7 @@
 (*
   Formalisation of a syntax and semantics for MILP
 *)
-open preamble RatProgTheory real_sigmaTheory sptree_unionWithTheory realLib;
+open preamble mlratTheory real_sigmaTheory sptree_unionWithTheory realLib;
 
 val _ = new_theory "milp";
 

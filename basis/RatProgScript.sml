@@ -926,12 +926,6 @@ Definition RAT_is_int_def:
   x = rat_of_int (RAT_INT_FLOOR x)
 End
 
-Theorem INT_FLOOR_real_of_int:
-  INT_FLOOR (real_of_int i) = i
-Proof
-  simp[intrealTheory.INT_FLOOR]
-QED
-
 Theorem RAT_is_int_compute:
   RAT_is_int x ⇔ RATD x = 1
 Proof

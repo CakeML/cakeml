@@ -349,4 +349,10 @@ Proof
   \\ strip_tac \\ gvs [SF CONJ_ss]
 QED
 
+Theorem INT_FLOOR_real_of_int:
+  INT_FLOOR (real_of_int i) = i
+Proof
+  simp[intrealTheory.INT_FLOOR]
+QED
+
 val _ = export_theory ();
