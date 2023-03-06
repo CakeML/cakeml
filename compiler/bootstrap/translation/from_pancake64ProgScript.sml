@@ -507,10 +507,11 @@ Definition conv_Exp_alt_def:
                | SOME e1' =>
                    (case conv_cmp op of
                       NONE => NONE
-                    | SOME op' =>
+                    | SOME (op', b) =>
                         (case conv_Exp_alt e2 of
                            NONE => NONE
-                         | SOME e2' => SOME (Cmp op' e1' e2'))))
+                         | SOME e2' => if b then SOME (Cmp op' e2' e1')
+                                       else SOME (Cmp op' e1' e2'))))
           | e::op::e2::v14::v15 => NONE
         else if isNT nodeNT EShiftNT then
           case args of
