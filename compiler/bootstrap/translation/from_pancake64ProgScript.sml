@@ -51,7 +51,8 @@ DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>
 val def = def_from_thy (#Thy res) name handle HOL_ERR _ =>
   failwith ("Unable to find definition of " ^ name)
 
-val insts = if exists (fn term => can (find_term (can (match_term term))) (concl def)) (!matches)
+val insts = if exists (fn term => can (find_term (can (match_term term))) (concl def))
+                      (!matches)
             then [alpha |-> ``:64``,beta|->``:64``] else []
 
 val def = def |> RW (!extra_preprocessing)
@@ -193,8 +194,7 @@ val ind_lemma = Q.prove(
   \\ rpt strip_tac
   \\ FULL_SIMP_TAC bool_ss[panLangTheory.prog_11, panLangTheory.prog_distinct]
   \\ rveq
-  \\ metis_tac [])
-                  |> update_precondition;
+  \\ metis_tac []) |> update_precondition;
 
 val _ = translate $ spec64 mk_ctxt_def;
 
@@ -218,8 +218,7 @@ val loop_call_comp_side = Q.prove(
   ho_match_mp_tac comp_ind
   \\ rw[]
   \\ simp[Once (fetch "-" "loop_call_comp_side_def")]
-  \\ TRY (metis_tac []))
-                            |> update_precondition;
+  \\ TRY (metis_tac [])) |> update_precondition;
 
 open loop_liveTheory;
 
@@ -239,8 +238,7 @@ val ind_lemma = Q.prove(
           \\ fs [FORALL_PROD] \\ NO_TAC)
   \\ last_x_assum (match_mp_tac o MP_CANON)
   \\ rpt strip_tac
-  \\ fs [FORALL_PROD])
-                  |> update_precondition;
+  \\ fs [FORALL_PROD]) |> update_precondition;
 
 val _ = translate $ spec64 mark_all_def;
 
@@ -343,56 +341,49 @@ Overload ptree_size[local] = ``parsetree_size (K 0) (K 0) (K 0)``;
 Overload ptree1_size[local] = ``parsetree1_size (K 0) (K 0) (K 0)``;
 
 Definition conv_ShapeList_def:
-  (
-  conv_Shape_alt tree =
-  case argsNT tree ShapeNT of
-    NONE => NONE
-  | SOME [] => NONE
-  | SOME [t] => if tokcheck t StarT then SOME One else conv_ShapeComb_alt t
-  | SOME (t::v8::v9) => NONE) ∧
-  (
-  conv_ShapeComb_alt tree =
-  case argsNT tree ShapeCombNT of
-    NONE => NONE
-  | SOME ts =>
-      case conv_ShapeList ts of NONE => NONE | SOME y => SOME (Comb y))
-  ∧
-  conv_ShapeList l =
-  (case l of
-     [] => SOME []
-   | x::xs =>
-       (case conv_Shape_alt x of
+  (conv_Shape_alt tree =
+   case conv_int tree of
+     NONE =>
+       (case argsNT tree ShapeCombNT of
           NONE => NONE
-        | SOME y =>
-            (case conv_ShapeList xs of
-               SOME ys => SOME(y::ys)
-             | NONE => NONE)))
+        | SOME ts =>
+            (case conv_ShapeList ts of
+               NONE => NONE
+             | SOME x => SOME (Comb x)))
+   | SOME n =>
+       if n < 1 then NONE
+       else if n = 1 then SOME One
+       else SOME (Comb (REPLICATE (num_of_int n) One))) ∧
+  (conv_ShapeList [] = SOME []) ∧
+  (conv_ShapeList (x::xs) =
+   (case conv_Shape_alt x of
+      NONE => NONE
+    | SOME y =>
+        (case conv_ShapeList xs of
+           SOME ys => SOME(y::ys)
+         | NONE => NONE)))
 Termination
-  WF_REL_TAC ‘measure (λx. sum_CASE x ptree_size (λx. sum_CASE x ptree_size (ptree1_size)))’ >> rw[]
+  WF_REL_TAC ‘measure (λx. sum_CASE x ptree_size (ptree1_size))’ >> rw[]
   >> Cases_on ‘tree’
   >> gvs[argsNT_def,grammarTheory.parsetree_size_def]
 End
 
-val tree = “tree:(token, pancakeNT, α) parsetree”
+val tree = “tree:(token, pancakeNT, α) parsetree”;
 
-           Triviality conv_Shapelist_thm:
-             (∀tree. conv_Shape_alt tree = conv_Shape ^tree)
-             ∧
-             (∀tree. conv_ShapeComb_alt tree = conv_ShapeComb ^tree)
-             ∧
-             (∀xs. conv_ShapeList xs = OPT_MMAP (λtree. conv_Shape ^tree) xs)
+Triviality conv_Shapelist_thm:
+  (∀tree. conv_Shape_alt tree = conv_Shape ^tree)
+  ∧
+  (∀xs. conv_ShapeList xs = OPT_MMAP (λtree. conv_Shape ^tree) xs)
 Proof
   ho_match_mp_tac (fetch "-" "conv_ShapeList_ind") \\ rpt strip_tac \\
   rw[Once conv_ShapeList_def]
   THEN1 (rw[Once conv_Shape_def] \\
-         rpt(PURE_FULL_CASE_TAC \\ gvs[]))
-  THEN1 (rw[Once conv_Shape_def] \\
-         rpt(PURE_FULL_CASE_TAC \\ gvs[])) \\
-  Cases_on ‘xs’
-  THEN1 (ntac 2 $ rw[Once conv_ShapeList_def]) \\
-  rw[] \\ rw[Once conv_ShapeList_def] \\
-  rpt(PURE_FULL_CASE_TAC \\ gvs[]) \\
-  last_x_assum (simp o single o GSYM)
+         rpt(PURE_FULL_CASE_TAC \\gvs[]) >>
+         gs[num_of_int_def,integerTheory.INT_ABS,
+            integerTheory.INT_NOT_LT]>>
+         rename1 ‘conv_int _ = SOME n’>>
+         ‘¬(n < 0)’ by intLib.COOPER_TAC>>gs[])>>
+  TOP_CASE_TAC >> gs[parserProgTheory.OPTION_BIND_THM]
 QED
 
 val res = translate_no_ind $ preprocess conv_ShapeList_def;
@@ -565,17 +556,17 @@ Termination
   >> gvs[argsNT_def,grammarTheory.parsetree_size_def]
 End
 
-val tree = “tree:(token, pancakeNT, β) parsetree”
-val trees = “trees:(token, pancakeNT, β) parsetree list”
+val tree = “tree:(token, pancakeNT, β) parsetree”;
+val trees = “trees:(token, pancakeNT, β) parsetree list”;
 
-            Triviality conv_Exp_thm:
-              (∀trees. (conv_mmap_exp ^trees:'a panLang$exp list option) = OPT_MMAP (λtree. conv_Exp ^tree) ^trees)
-              ∧
-              (∀tree. conv_ArgList_alt ^tree = (conv_ArgList ^tree: 'a panLang$exp list option))
-              ∧
-              (∀tree. conv_Exp_alt ^tree = (conv_Exp ^tree:'a panLang$exp option))
-              ∧
-              (∀trees res. conv_binaryExps_alt ^trees res = (conv_binaryExps ^trees res: 'a panLang$exp option))
+Triviality conv_Exp_thm:
+  (∀trees. (conv_mmap_exp ^trees:'a panLang$exp list option) = OPT_MMAP (λtree. conv_Exp ^tree) ^trees)
+  ∧
+  (∀tree. conv_ArgList_alt ^tree = (conv_ArgList ^tree: 'a panLang$exp list option))
+  ∧
+  (∀tree. conv_Exp_alt ^tree = (conv_Exp ^tree:'a panLang$exp option))
+  ∧
+  (∀trees res. conv_binaryExps_alt ^trees res = (conv_binaryExps ^trees res: 'a panLang$exp option))
 Proof
   ho_match_mp_tac (fetch "-" "conv_Exp_alt_ind") \\ rpt strip_tac
   >- (Cases_on ‘trees’>-(fs[]>>gs[conv_Exp_alt_def])>>

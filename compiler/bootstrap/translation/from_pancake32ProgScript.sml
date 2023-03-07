@@ -337,32 +337,29 @@ Overload ptree_size[local] = ``parsetree_size (K 0) (K 0) (K 0)``;
 Overload ptree1_size[local] = ``parsetree1_size (K 0) (K 0) (K 0)``;
 
 Definition conv_ShapeList_def:
-  (
-        conv_Shape_alt tree =
-        case argsNT tree ShapeNT of
+  (conv_Shape_alt tree =
+   case conv_int tree of
+     NONE =>
+       (case argsNT tree ShapeCombNT of
           NONE => NONE
-        | SOME [] => NONE
-        | SOME [t] => if tokcheck t StarT then SOME One else conv_ShapeComb_alt t
-        | SOME (t::v8::v9) => NONE) ∧
-  (
-     conv_ShapeComb_alt tree =
-     case argsNT tree ShapeCombNT of
-       NONE => NONE
-     | SOME ts =>
-         case conv_ShapeList ts of NONE => NONE | SOME y => SOME (Comb y))
-  ∧
-  conv_ShapeList l =
-  (case l of
-     [] => SOME []
-   | x::xs =>
-       (case conv_Shape_alt x of
-          NONE => NONE
-        | SOME y =>
-            (case conv_ShapeList xs of
-               SOME ys => SOME(y::ys)
-             | NONE => NONE)))
+        | SOME ts =>
+            (case conv_ShapeList ts of
+               NONE => NONE
+             | SOME x => SOME (Comb x)))
+   | SOME n =>
+       if n < 1 then NONE
+       else if n = 1 then SOME One
+       else SOME (Comb (REPLICATE (num_of_int n) One))) ∧
+  (conv_ShapeList [] = SOME []) ∧
+  (conv_ShapeList (x::xs) =
+   (case conv_Shape_alt x of
+      NONE => NONE
+    | SOME y =>
+        (case conv_ShapeList xs of
+           SOME ys => SOME(y::ys)
+         | NONE => NONE)))
 Termination
-  WF_REL_TAC ‘measure (λx. sum_CASE x ptree_size (λx. sum_CASE x ptree_size (ptree1_size)))’ >> rw[]
+  WF_REL_TAC ‘measure (λx. sum_CASE x ptree_size (ptree1_size))’ >> rw[]
   >> Cases_on ‘tree’
   >> gvs[argsNT_def,grammarTheory.parsetree_size_def]
 End
@@ -372,24 +369,20 @@ val tree = “tree:(token, pancakeNT, α) parsetree”
 Triviality conv_Shapelist_thm:
   (∀tree. conv_Shape_alt tree = conv_Shape ^tree)
   ∧
-  (∀tree. conv_ShapeComb_alt tree = conv_ShapeComb ^tree)
-  ∧
   (∀xs. conv_ShapeList xs = OPT_MMAP (λtree. conv_Shape ^tree) xs)
 Proof
   ho_match_mp_tac (fetch "-" "conv_ShapeList_ind") \\ rpt strip_tac \\
   rw[Once conv_ShapeList_def]
   THEN1 (rw[Once conv_Shape_def] \\
-         rpt(PURE_FULL_CASE_TAC \\ gvs[]))
-  THEN1 (rw[Once conv_Shape_def] \\
-         rpt(PURE_FULL_CASE_TAC \\ gvs[])) \\
-  Cases_on ‘xs’
-  THEN1 (ntac 2 $ rw[Once conv_ShapeList_def]) \\
-  rw[] \\ rw[Once conv_ShapeList_def] \\
-  rpt(PURE_FULL_CASE_TAC \\ gvs[]) \\
-  last_x_assum (simp o single o GSYM)
+         rpt(PURE_FULL_CASE_TAC \\gvs[]) >>
+         gs[num_of_int_def,integerTheory.INT_ABS,
+            integerTheory.INT_NOT_LT]>>
+         rename1 ‘conv_int _ = SOME n’>>
+         ‘¬(n < 0)’ by intLib.COOPER_TAC>>gs[])>>
+  TOP_CASE_TAC >> gs[parserProgTheory.OPTION_BIND_THM]
 QED
 
-val res = translate_no_ind $ conv_ShapeList_def;
+val res = translate_no_ind $ preprocess $ conv_ShapeList_def;
 
 Theorem conv_shape_alt_ind:
   from_pancake32prog_conv_shape_alt_ind (:'a)
