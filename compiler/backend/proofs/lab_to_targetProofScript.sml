@@ -1703,6 +1703,7 @@ Proof
           rw[] >>
           gvs[IMP_CONJ_THM, AND_IMP_INTRO]
           >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
+
           >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
        )
        >- metis_tac[]
@@ -1882,8 +1883,7 @@ Proof
     ntac 2 (TOP_CASE_TAC>>fs[])>>
     ntac 3 strip_tac>>
     fs[state_rel_def]>>
-    qpat_x_assum `!a. byte_align a IN s1.mem_domain ==> _`
-      (fn thm => assume_tac thm >> imp_res_tac thm) >>
+    qpat_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>
     fs[word_loc_val_byte_def]>>
     FULL_CASE_TAC>>fs[]>>
     first_x_assum(qspec_then`n'` kall_tac)>>
@@ -1918,8 +1918,13 @@ Proof
       qexists_tac`t1.mem`>>rfs[]>>
       rw[APPLY_UPDATE_THM]>>
       rfs[])
-    >- 
-      ))
+    >- (
+      fs[inc_pc_def,read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
+      rw[] >>
+      gvs[IMP_CONJ_THM, AND_IMP_INTRO]
+      >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
+      >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
+    )))
   THEN1 (
   (strip_tac>>CONJ_ASM1_TAC>-
     (Cases_on`f`>>TRY(EVAL_TAC>>fs[state_rel_def]>>NO_TAC)
@@ -1946,9 +1951,17 @@ Proof
   conj_tac >- ( srw_tac[][] >> first_x_assum drule >> simp[] ) >>
   conj_tac >- metis_tac[] >>
   simp[CONJ_ASSOC] >>
+  reverse conj_tac
+  >- (
+    fs[fp_upd_def,upd_pc_def,inc_pc_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
+    rw[] >>
+    gvs[IMP_CONJ_THM, AND_IMP_INTRO]
+    >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
+    >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
+  ) >>
   reverse conj_tac >- metis_tac[] >>
   reverse conj_tac >- (
-    rw[] >> fs[] >> res_tac >> fs[GSYM word_add_n2w] ) >>
+    rw[] >> fs[] >> fs[GSYM word_add_n2w] ) >>
   match_mp_tac fp_upd_lemma>> fs[]))
 QED
 
@@ -5508,15 +5521,16 @@ QED
 
 val say = say0 "compile_correct";
 
-val compile_correct = Q.prove(
-  `!^s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
+Theorem compile_correct:
+  !^s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
      (evaluate s1 = (res,s2)) /\ (res <> Error) /\
      encoder_correct mc_conf.target /\
      state_rel (mc_conf,code2,labs,p) s1 t1 ms1 ==>
      ?k t2 ms2.
        (evaluate mc_conf s1.ffi (s1.clock + k) ms1 =
           (res,
-           ms2,s2.ffi))`,
+           ms2,s2.ffi))
+Proof
   HO_MATCH_MP_TAC labSemTheory.evaluate_ind \\ NTAC 2 STRIP_TAC
   \\ ONCE_REWRITE_TAC [labSemTheory.evaluate_def]
   \\ Cases_on `s1.clock = 0` \\ full_simp_tac(srw_ss())[]
@@ -5626,6 +5640,13 @@ val compile_correct = Q.prove(
         \\ Q.PAT_X_ASSUM `xx = t1.regs r1` (fn th => full_simp_tac(srw_ss())[GSYM th])
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l1`,`l2`]) \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
         \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ res_tac \\ srw_tac[][]
+        >~ [`share_mem_state_rel`] >- (
+          \\ fs[share_mem_state_rel_def]
+          \\ rw[]
+          \\ gvs[IMP_CONJ_THM, AND_IMP_INTRO]
+          >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
+          >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[]))
+        )
         \\ (alignmentTheory.aligned_add_sub_cor
             |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> irule)
         \\ conj_tac >- fs[alignmentTheory.aligned_bitwise_and]
@@ -6517,7 +6538,8 @@ val compile_correct = Q.prove(
     \\ first_x_assum (qspec_then `s1.ptr_reg` mp_tac)
     \\ first_x_assum (qspec_then `s1.ptr_reg` mp_tac)
     \\ full_simp_tac(srw_ss())[reg_ok_def]
-    \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]));
+    \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
+QED
 
 (* relating observable semantics *)
 
