@@ -5640,12 +5640,12 @@ Proof
         \\ Q.PAT_X_ASSUM `xx = t1.regs r1` (fn th => full_simp_tac(srw_ss())[GSYM th])
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l1`,`l2`]) \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
         \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ res_tac \\ srw_tac[][]
-        >~ [`share_mem_state_rel`] >- (
-          \\ fs[share_mem_state_rel_def]
+        >~ [`share_mem_state_rel _ (s1 with <|pc := p'; clock := s1.clock − 1|>) _ _`] >- (
+          fs[share_mem_state_rel_def]
           \\ rw[]
           \\ gvs[IMP_CONJ_THM, AND_IMP_INTRO]
           >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
-          >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[]))
+          >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[]) 
         )
         \\ (alignmentTheory.aligned_add_sub_cor
             |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> irule)
@@ -5668,7 +5668,7 @@ Proof
       \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock - 1 + k`MP_TAC) \\ srw_tac[][]
       \\ `s1.clock - 1 + k + l' = s1.clock + (k + l' - 1)` by DECIDE_TAC
       \\ Q.EXISTS_TAC `k + l' - 1` \\ full_simp_tac(srw_ss())[]
-      \\ Q.EXISTS_TAC `ms2'` \\ fs[state_rel_def,shift_interfer_def]))
+      \\ Q.EXISTS_TAC `ms2'` \\ fs[state_rel_def,shift_interfer_def] ))
   THEN1 ( (* CBW *)
     say "CBW" >>
     fs[case_eq_thms]>>
@@ -5752,7 +5752,15 @@ Proof
           simp[bytes_in_mem_def,APPLY_UPDATE_THM]>>
           first_x_assum drule>>fs[])
       \\
-        simp[GSYM word_add_n2w])
+        simp[GSYM word_add_n2w]
+      >- (
+        fs[upd_pc_def, inc_pc_def, share_mem_state_rel_def] >>
+        rw[] >>
+        gvs[IMP_CONJ_THM, AND_IMP_INTRO]
+        >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
+        >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
+        )
+      )
     \\ rpt strip_tac \\ full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,labSemTheory.upd_reg_def]
     \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock - 1 + k` mp_tac)
     \\ rpt strip_tac
