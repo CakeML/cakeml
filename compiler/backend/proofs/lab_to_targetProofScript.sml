@@ -562,7 +562,7 @@ val good_code_def = Define`
    restrict_nonzero (get_labels code) ⊆ get_code_labels code ∪ labs_domain labs ∧
    all_enc_ok_pre c code`;
 
-val share_mem_state_rel_def = Define`
+Definition share_mem_state_rel_def:
   share_mem_state_rel mc_conf (s1:('a, 'a lab_to_target$config,'ffi) labSem$state) t1 ms1 <=>
      (!ms2 k index new_bytes t1 nb ad offs re pc' ad' st new_st i.
       mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
@@ -600,6 +600,16 @@ val share_mem_state_rel_def = Define`
             (t1 with pc := pc')
             (mc_conf.ffi_interfer k (index,new_bytes,ms2)))
     ) /\
+   (!op re a ei len i.
+      (asm_fetch s1 = SOME (Asm (ShareMem op re a) ei len) /\
+      mmio_pcs_min_index mc_conf.ffi_names = SOME i) ==>
+      (?index.
+        i <= index /\ mc_conf.target.get_pc ms1 NOTIN mc_conf.prog_addresses /\
+        find_index (mc_conf.target.get_pc ms1) mc_conf.ffi_entry_pcs 0 = SOME
+        index)
+   ) /\
+   (!a. byte_align a IN s1.shared_mem_domain ==> a IN s1.shared_mem_domain) /\
+   (mc_conf.shared_addresses = s1.shared_mem_domain) /\
    (* requirements for share memory access pcs *)
    (!index i. mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
       index < LENGTH mc_conf.ffi_names /\ i <= index ==>
@@ -629,7 +639,7 @@ val share_mem_state_rel_def = Define`
         a < SND $ SND $ SND $ mc_conf.mmio_info index1}
       {a| EL index2 mc_conf.ffi_entry_pcs <= a /\
         a < SND $ SND $ SND $ mc_conf.mmio_info index2})
-`;
+End
 
 (* The code buffer is set-up to immediately follow the current code:
   |---code---|---cb---|
@@ -5772,7 +5782,13 @@ Proof
    \\ gvs[pair_case_eq,option_case_eq, ffi_result_case_eq]
    >- (
     say "share_mem_op FFI_return"
-    \\
+    \\ Cases_on `m`
+    \\ fs[share_mem_op_def,share_mem_load_def,share_mem_store_def,AllCaseEqs(),call_FFI_def]
+    \\ simp[Once targetSemTheory.evaluate_def]
+    \\ TOP_CASE_TAC
+      >- (
+        fs[state_rel_def]
+      )
    )
   )
   THEN1 (* Jump *)
