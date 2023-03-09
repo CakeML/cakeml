@@ -422,19 +422,12 @@ Definition itree_trigger_def:
   itree_trigger event = Vis event Ret
 End
 
-Definition itree_cat_def:
-  itree_cat t1 t2 = itree_bind t1 (K t2)
-End
+(* Definition itree_cat_def: *)
+(*   itree_cat t1 t2 = itree_bind t1 (λx. t2) *)
+(* End *)
 
-Theorem itree_cat_ret:
-  itree_cat (Ret x) (Ret y) = (Ret y)
-Proof
-  rw [itree_cat_def, itreeTauTheory.itree_bind_def] >>
-  rw [Once itreeTauTheory.itree_unfold]
-QED
-
-val _ = set_fixity "\226\140\162" (Infixl 500);
-Overload "\226\140\162" = “itree_cat”;
+(* val _ = set_fixity "\226\140\162" (Infixl 500); *)
+(* Overload "\226\140\162" = “itree_cat”; *)
 
 Definition itree_mrec_def:
   itree_mrec rh seed =
@@ -452,9 +445,27 @@ Definition handle_call_ret_def:
   handle_call_ret calltyp (res,s) = ARB
 End
 
+Definition make_vis_def:
+  make_vis p s = Vis (INL (p,s)) k
+End
+
+(* Inf ITree of Vis nodes, with inf many branches allowing
+ termination of the loop; when the guard is false. *)
+Definition while_vis_def:
+  while_vis g p s = itree_iter
+                     (λseed'. (Vis (INL seed')
+                               (λ(res,s'). case (eval s' g) of
+                                            | SOME (ValWord w) =>
+                                               if (w ≠ 0w)
+                                               then Ret (INL (p,s'))
+                                               else Ret (INR (res,s'))
+                                            | _ => Ret (INR (SOME Error,s')))))
+                     (p,s)
+End
+
 (* Recursive event handler for program commands *)
 Definition h_prog_def:
-  (h_prog ((Seq p1 p2),s) = itree_trigger (INL (p1,s)) ⌢ itree_trigger (INL (p2,s))) ∧
+  (h_prog ((Seq p1 p2),s) = itree_trigger (INL (p1,s)) ⋆ λ(r,s'). itree_trigger (INL (p2,s'))) ∧
   (h_prog (Assign v e,s) =
    case (eval s e) of
     | SOME value =>
@@ -462,15 +473,39 @@ Definition h_prog_def:
        then Ret (NONE,s with locals := s.locals |+ (v,value))
        else Ret (SOME Error,s)
     | NONE => Ret (SOME Error,s)) ∧
-  (h_prog ((Call calltyp tgtexp argexps), s) =
+  (h_prog ((Call calltyp tgtexp argexps),s) =
    case (eval s tgtexp, OPT_MMAP (eval s) argexps) of
      | (SOME (ValLabel fname), SOME args) =>
         (case lookup_code s.code fname args of
           | SOME (callee_prog, newlocals) =>
              itree_trigger (INL (callee_prog,s)) ⋆ (handle_call_ret calltyp)
           | _ => Ret (SOME Error,s))
-     | (_,_) => Ret (SOME Error,s))
+     | (_,_) => Ret (SOME Error,s)) ∧
+  (h_prog ((While gexp p),s) = while_vis gexp p s)
 End
+
+(* Solution to While Loop semantics is to construct an infinite Vis object - using some mechanism - whereby
+ the K-tree in each is the original Vis object when the loop guard is true and otherwise produces a Ret. *)
+
+Definition special_vis_def:
+  special_vis = itree_iter
+                (K (Vis () (λx. Ret (INL ()))))
+                ()
+End
+
+Theorem special_vis_tau:
+  special_vis = Vis () f ⇒ ∀x. f x = Tau special_vis
+Proof
+  rw [special_vis_def]
+QED
+
+(* Perhaps another solution is to have multiple layers of handler, one for looping constructs and then
+ the mrec combinator. Use func comp to define the semantics: sem = (mrec o looper) ... *)
+
+(* A third option is to define ITrees to represent the chain of events that manipulate state.
+ Vis events represent handlers of some sort and k-trees the handlers that manipulate state? *)
+(* This seems to be what's described in S 2.2.1 of the dissertation *)
+
 
 (* ITree semantics for program commands *)
 Definition evaluate_itree_def:
