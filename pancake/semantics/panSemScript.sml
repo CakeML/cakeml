@@ -414,6 +414,31 @@ End
 
 val evaluate_ind = theorem"evaluate_ind";
 
+(* Infrastructure for ITree-semantics-based program verification. *)
+val dummy_ffi_state = “<| oracle := (λs x y z. Oracle_final FFI_failed):unit oracle;
+                        ffi_state := ();
+                        io_events := NIL |>”;
+
+val sem_self_rec_st = “<| locals := FEMPTY;
+                          code := FEMPTY |+ («main»,(NIL:(varname # shape) list, panLang$Call Tail (Label «main») (NIL:('a panLang$exp) list)));
+                          eshapes := FEMPTY;
+                          memory := λw:('a word). Word w;
+                          memaddrs := EMPTY;
+                          clock := 0:num;
+                          be := F;
+                          ffi := ^dummy_ffi_state;
+                          base_addr := ARB |>”;
+
+val sem_no_code = “<| locals := FEMPTY;
+                      code := FEMPTY;
+                      eshapes := FEMPTY;
+                      memory := λw:('a word). Word w;
+                      memaddrs := EMPTY;
+                      clock := 0:num;
+                      be := F;
+                      ffi := ^dummy_ffi_state;
+                      base_addr := ARB |>”;
+
 (* Extension of itreeTauTheory *)
 val _ = temp_set_fixity "\226\139\134" (Infixl 500);
 Overload "\226\139\134" = “itree_bind”;
@@ -449,39 +474,156 @@ Definition make_vis_def:
   make_vis p s = Vis (INL (p,s)) k
 End
 
+
+(* The rules for the recursive event handler, that decide
+ how to evaluate each term of the program command grammar. *)
+
+Definition h_prog_rule_dec_def:
+  h_prog_rule_dec vname e p s =
+  case (eval s e) of
+   | SOME value => Vis (INL (p,s with locals := s.locals |+ (vname,value)))
+                       (λ(res,s'). Ret (res,s' with locals := res_var s'.locals (vname, FLOOKUP s.locals vname)))
+   | NONE => Ret (SOME Error,s)
+End
+
+Definition h_prog_rule_seq_def:
+  h_prog_rule_seq p1 p2 s = Vis (INL (p1,s))
+                                (λ(res,s'). if res = NONE
+                                            then itree_trigger (INL (p2,s'))
+                                            else Ret (res,s'))
+End
+
+Definition h_prog_rule_assign_def:
+  h_prog_rule_assign vname e s =
+  case (eval s e) of
+   | SOME value =>
+      if is_valid_value s.locals vname value
+      then Ret (NONE,s with locals := s.locals |+ (vname,value))
+      else Ret (SOME Error,s)
+   | NONE => Ret (SOME Error,s)
+End
+
+Definition h_prog_rule_store_def:
+  h_prog_rule_store dst src s =
+  case (eval s dst,eval s src) of
+   | (SOME (ValWord addr),SOME value) =>
+      (case mem_stores addr (flatten value) s.memaddrs s.memory of
+        | SOME m => Ret (NONE,s with memory := m)
+        | NONE => Ret (SOME Error,s))
+   | _ => Ret (SOME Error,s)
+End
+
+Definition h_prog_rule_store_byte_def:
+  h_prog_rule_store_byte dst src s =
+  case (eval s dst,eval s src) of
+   | (SOME (ValWord addr),SOME (ValWord w)) =>
+      (case mem_store_byte s.memory s.memaddrs s.be addr (w2w w) of
+        | SOME m => Ret (NONE,s with memory := m)
+        | NONE => Ret (SOME Error,s))
+   | _ => Ret (SOME Error,s)
+End
+
+Definition h_prog_rule_cond_def:
+  h_prog_rule_cond gexp p1 p2 s =
+  case (eval s gexp) of
+   | SOME (ValWord g) => itree_trigger (INL (if g ≠ 0w then p1 else p2,s))
+   | _ => Ret (SOME Error,s)
+End
+
 (* Inf ITree of Vis nodes, with inf many branches allowing
  termination of the loop; when the guard is false. *)
-Definition while_vis_def:
-  while_vis g p s = itree_iter
-                     (λseed'. (Vis (INL seed')
-                               (λ(res,s'). case (eval s' g) of
-                                            | SOME (ValWord w) =>
-                                               if (w ≠ 0w)
-                                               then Ret (INL (p,s'))
-                                               else Ret (INR (res,s'))
-                                            | _ => Ret (INR (SOME Error,s')))))
-                     (p,s)
+Definition h_prog_rule_while_def:
+  h_prog_rule_while gexp p s = itree_iter
+                               (λseed. Vis (INL seed)
+                                           (λ(res,s'). case res of
+                                                        | SOME Break => Ret (INR (NONE,s'))
+                                                        | SOME Continue => Ret (INL (p,s'))
+                                                        | NONE => (case (eval s' gexp) of
+                                                                    | SOME (ValWord w) =>
+                                                                       if w ≠ 0w
+                                                                       then Ret (INL (p,s'))
+                                                                       else Ret (INR (res,s'))
+                                                                    | _ => Ret (INR (SOME Error,s')))
+                                                        | _ => Ret (INR (res,s'))))
+                               (p,s)
+End
+
+Theorem while_tree_true_branch:
+  h_prog_rule_while (Const 1w) Skip s = Vis e k ⇒ k (NONE,s) = Tau (Vis e k)
+Proof
+  rw [h_prog_rule_while_def] >>
+  rw [Once itreeTauTheory.itree_bisimulation]
+QED
+
+Definition h_prog_rule_call_def:
+  h_prog_rule_call calltyp tgtexp argexps s =
+  case (eval s tgtexp,OPT_MMAP (eval s) argexps) of
+   | (SOME (ValLabel fname),SOME args) =>
+      (case lookup_code s.code fname args of
+        | SOME (callee_prog,newlocals) =>
+           Vis (INL (callee_prog,s)) (handle_call_ret calltyp)
+        | _ => Ret (SOME Error,s))
+   | (_,_) => Ret (SOME Error,s)
+End
+
+(* XXX: Needs improvement *)
+Definition h_prog_rule_ext_call_def:
+  h_prog_rule_ext_call ffi_name ptr1 len1 ptr2 len2 s =
+  case (FLOOKUP s.locals len1,FLOOKUP s.locals ptr1,FLOOKUP s.locals len2,FLOOKUP s.locals ptr2) of
+   | SOME (ValWord sz1),SOME (ValWord ad1),SOME (ValWord sz2),SOME (ValWord ad2) =>
+                                                               (case (read_bytearray ad1 (w2n sz1) (mem_load_byte s.memory s.memaddrs s.be),
+                                                                      read_bytearray ad2 (w2n sz2) (mem_load_byte s.memory s.memaddrs s.be)) of
+                                                                 | SOME bytes,SOME bytes2 =>
+                                                                               (case call_FFI s.ffi (explode ffi_name) bytes bytes2 of
+                                                                                 | FFI_final outcome =>
+                                                                                    Vis (INR (FFI_final outcome))
+                                                                                             (λa. empty_locals s)
+                                                                                 | FFI_return new_ffi new_bytes =>
+                                                                                    let nmem = write_bytearray ad2 new_bytes s.memory s.memaddrs s.be in
+                                                                                    (NONE, s with <| memory := nmem; ffi := new_ffi |>))
+                                                                              | _ => (SOME Error,s))
+                                                              | res => (SOME Error,s))
+
+End
+
+Definition h_prog_rule_raise_def:
+  h_prog_rule_raise eid e s =
+  case (FLOOKUP s.eshapes eid, eval s e) of
+   | (SOME sh, SOME value) =>
+      if shape_of value = sh ∧
+         size_of_shape (shape_of value) <= 32
+      then Ret (SOME (Exception eid value),empty_locals s)
+      else Ret (SOME Error,s)
+   | _ => Ret (SOME Error,s)
+End
+
+Definition h_prog_rule_return_def:
+  h_prog_rule_return e s =
+  case (eval s e) of
+   | SOME value =>
+      if size_of_shape (shape_of value) <= 32
+      then Ret (SOME (Return value),empty_locals s)
+      else Ret (SOME Error,s)
+   | _ => Ret (SOME Error,s)
 End
 
 (* Recursive event handler for program commands *)
 Definition h_prog_def:
-  (h_prog ((Seq p1 p2),s) = itree_trigger (INL (p1,s)) ⋆ λ(r,s'). itree_trigger (INL (p2,s'))) ∧
-  (h_prog (Assign v e,s) =
-   case (eval s e) of
-    | SOME value =>
-       if is_valid_value s.locals v value
-       then Ret (NONE,s with locals := s.locals |+ (v,value))
-       else Ret (SOME Error,s)
-    | NONE => Ret (SOME Error,s)) ∧
-  (h_prog ((Call calltyp tgtexp argexps),s) =
-   case (eval s tgtexp, OPT_MMAP (eval s) argexps) of
-     | (SOME (ValLabel fname), SOME args) =>
-        (case lookup_code s.code fname args of
-          | SOME (callee_prog, newlocals) =>
-             itree_trigger (INL (callee_prog,s)) ⋆ (handle_call_ret calltyp)
-          | _ => Ret (SOME Error,s))
-     | (_,_) => Ret (SOME Error,s)) ∧
-  (h_prog ((While gexp p),s) = while_vis gexp p s)
+  (h_prog (Skip,s) = Ret (NONE,s)) ∧
+  (h_prog (Dec vname e p,s) = h_prog_rule_dec vname e p s) ∧
+  (h_prog (Assign vname e,s) = h_prog_rule_assign vname e s) ∧
+  (h_prog (Store dst src,s) = h_prog_rule_store dst src s) ∧
+  (h_prog (StoreByte dst src,s) = h_prog_rule_store_byte dst src s) ∧
+  (h_prog (Seq p1 p2,s) = h_prog_rule_seq p1 p2 s) ∧
+  (h_prog (If gexp p1 p2,s) = h_prog_rule_cond gexp p1 p2 s) ∧
+  (h_prog (While gexp p,s) = h_prog_rule_while gexp p s) ∧
+  (h_prog (Break,s) = Ret (SOME Break,s)) ∧
+  (h_prog (Continue,s) = Ret (SOME Continue,s)) ∧
+  (h_prog (Call calltyp tgtexp argexps,s) = h_prog_rule_call calltyp tgtexp argexps s) ∧
+  (h_prog (ExtCall ffi_name ptr1 len1 ptr2 len2,s) = h_prog_rule_ext_call ffi_name ptr1 len1 ptr2 len2 s) ∧
+  (h_prog (Raise eid e,s) = h_prog_rule_raise eid e s) ∧
+  (h_prog (Return e,s) = h_prog_rule_return e s) ∧
+  (h_prog (Tick,s) = Ret (NONE,s))
 End
 
 (* Solution to While Loop semantics is to construct an infinite Vis object - using some mechanism - whereby
@@ -506,7 +648,6 @@ QED
  Vis events represent handlers of some sort and k-trees the handlers that manipulate state? *)
 (* This seems to be what's described in S 2.2.1 of the dissertation *)
 
-
 (* ITree semantics for program commands *)
 Definition evaluate_itree_def:
   evaluate_itree p s = itree_mrec h_prog (p,s)
@@ -519,30 +660,6 @@ Definition semantics_itree_def:
   evaluate_itree prog s ⋆ (Ret o FST)
 End
 
-(* Infrastructure for ITree-semantics-based program verification. *)
-val dummy_ffi_state = “<| oracle := (λs x y z. Oracle_final FFI_failed):unit oracle;
-                        ffi_state := ();
-                        io_events := NIL |>”;
-
-val sem_self_rec_st = “<| locals := FEMPTY;
-                          code := FEMPTY |+ («main»,(NIL:(varname # shape) list, panLang$Call Tail (Label «main») (NIL:('a panLang$exp) list)));
-                          eshapes := FEMPTY;
-                          memory := λw:('a word). Word w;
-                          memaddrs := EMPTY;
-                          clock := 0:num;
-                          be := F;
-                          ffi := ^dummy_ffi_state;
-                          base_addr := ARB |>”;
-
-val sem_no_code = “<| locals := FEMPTY;
-                      code := FEMPTY;
-                      eshapes := FEMPTY;
-                      memory := λw:('a word). Word w;
-                      memaddrs := EMPTY;
-                      clock := 0:num;
-                      be := F;
-                      ffi := ^dummy_ffi_state;
-                      base_addr := ARB |>”;
 
 (* Need to know how FUN_FMAP works in order to prove this *)
 Triviality flookup_ne_fun_name:
