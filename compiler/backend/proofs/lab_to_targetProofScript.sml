@@ -1570,8 +1570,8 @@ Theorem Inst_share_mem_pc_update_helper:
   share_mem_state_rel mc_conf (s1 with <|pc := s1.pc + 1; clock := s1.clock − 1|>)
     (t1 with pc := pc') ms2
 Proof
-  rw[share_mem_state_rel_def,target_state_rel_def]
-  >>
+  rw[share_mem_state_rel_def, share_mem_domain_code_rel_def]
+  >> metis_tac[]
 QED
 
 Theorem Inst_share_mem_reg_update_helper:
@@ -1582,7 +1582,26 @@ Theorem Inst_share_mem_reg_update_helper:
     <| regs := (n =+ Word c) s1.regs; pc := s1.pc + 1; clock := s1.clock − 1|>)
     (t1 with <|regs := (n =+ c) t1.regs; pc := pc'|>) ms2
 Proof
-  rw[share_mem_state_rel_def, target_state_rel_def]
+  rw[share_mem_state_rel_def, share_mem_domain_code_rel_def]
+  >> metis_tac[]
+QED
+
+Theorem arith_upd_share_mem_domain_unchange:
+  (arith_upd a s1).shared_mem_domain = s1.shared_mem_domain
+Proof
+  Cases_on `a`
+  \\ fs[arith_upd_def]
+  \\ rpt (TOP_CASE_TAC >> fs[labSemTheory.upd_reg_def,labSemTheory.assert_def])
+  \\ Cases_on `b`
+  \\ fs[labSemTheory.binop_upd_def, labSemTheory.upd_reg_def]
+QED
+
+Theorem fp_upd_share_mem_domain_unchange:
+  (fp_upd f s1).shared_mem_domain = s1.shared_mem_domain
+Proof
+  Cases_on `f` >> fs[fp_upd_def,labSemTheory.upd_reg_def, labSemTheory.upd_fp_reg_def]
+  \\ rpt (TOP_CASE_TAC >>
+  fs[labSemTheory.assert_def,labSemTheory.upd_fp_reg_def,APPLY_UPDATE_THM])
 QED
 
 Theorem Inst_lemma:
@@ -1650,7 +1669,13 @@ Proof
     fs[upd_pc_def, inc_pc_def, arith_upd_def, share_mem_state_rel_def] >> rw[]>>
     gvs[IMP_CONJ_THM, AND_IMP_INTRO]
     >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
-    >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[]))
+    >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
+    >-
+      (fs[arith_upd_share_mem_domain_unchange,share_mem_domain_code_rel_def]
+      \\ rpt strip_tac
+      \\ `t1.mem_domain = mc_conf.prog_addresses` by metis_tac[]
+      \\ fs[]
+      \\ metis_tac[]))
   THEN1
     (strip_tac >>
     Cases_on`m`>>fs[mem_op_def,labSemTheory.assert_def]
@@ -1685,6 +1710,13 @@ Proof
           gvs[IMP_CONJ_THM, AND_IMP_INTRO]
           >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
           >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
+          >- (fs[share_mem_domain_code_rel_def]
+            \\ rpt strip_tac
+            \\ `t1.mem_domain = mc_conf.prog_addresses` by metis_tac[]
+            \\ fs[]
+            \\ first_x_assum irule
+            \\ metis_tac[]
+          )
        )
        >- metis_tac[]
        >- 
@@ -1724,8 +1756,15 @@ Proof
           rw[] >>
           gvs[IMP_CONJ_THM, AND_IMP_INTRO]
           >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
-
           >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
+          >- (
+            fs[share_mem_domain_code_rel_def]
+            \\ rpt strip_tac
+            \\ `t1.mem_domain = mc_conf.prog_addresses` by metis_tac[]
+            \\ fs[]
+            \\ first_x_assum irule
+            \\ metis_tac[]
+          )
        )
        >- metis_tac[]
        >-
@@ -1775,6 +1814,14 @@ Proof
           gvs[IMP_CONJ_THM, AND_IMP_INTRO]
           >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
           >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
+          >- (
+            fs[share_mem_domain_code_rel_def]
+            \\ rpt strip_tac
+            \\ `t1.mem_domain = mc_conf.prog_addresses` by metis_tac[]
+            \\ fs[]
+            \\ first_x_assum irule
+            \\ metis_tac[]
+          )
        ))
   >-
     (*Store*)
@@ -1842,6 +1889,15 @@ Proof
           gvs[IMP_CONJ_THM, AND_IMP_INTRO]
           >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
           >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
+          >- (
+            fs[share_mem_domain_code_rel_def]
+            \\ rpt strip_tac
+            \\ `t1.mem_domain = mc_conf.prog_addresses` by metis_tac[]
+            \\ fs[]
+            \\ first_x_assum irule
+            \\ metis_tac[]
+          )
+
         )))
      >>
        (`aligned 3 x` by fs [aligned_w2n]>>
@@ -1894,6 +1950,15 @@ Proof
           gvs[IMP_CONJ_THM, AND_IMP_INTRO]
           >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
           >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
+          >- (
+            fs[share_mem_domain_code_rel_def]
+            \\ rpt strip_tac
+            \\ `t1.mem_domain = mc_conf.prog_addresses` by metis_tac[]
+            \\ fs[]
+            \\ first_x_assum irule
+            \\ metis_tac[]
+          )
+
        ))))
   >-
     (Cases_on`a`>>last_x_assum mp_tac>>
@@ -1945,6 +2010,15 @@ Proof
       gvs[IMP_CONJ_THM, AND_IMP_INTRO]
       >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
       >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
+      >- (
+            fs[share_mem_domain_code_rel_def]
+            \\ rpt strip_tac
+            \\ `t1.mem_domain = mc_conf.prog_addresses` by metis_tac[]
+            \\ fs[]
+            \\ first_x_assum irule
+            \\ metis_tac[]
+      )
+
     )))
   THEN1 (
   (strip_tac>>CONJ_ASM1_TAC>-
@@ -1979,7 +2053,15 @@ Proof
     gvs[IMP_CONJ_THM, AND_IMP_INTRO]
     >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
     >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
-  ) >>
+    >- (
+        fs[fp_upd_share_mem_domain_unchange]
+        \\ fs[share_mem_domain_code_rel_def]
+        \\ rpt strip_tac
+        \\ `t1.mem_domain = mc_conf.prog_addresses` by metis_tac[]
+        \\ fs[]
+        \\ first_x_assum irule
+        \\ metis_tac[]
+  )) >>
   reverse conj_tac >- metis_tac[] >>
   reverse conj_tac >- (
     rw[] >> fs[] >> fs[GSYM word_add_n2w] ) >>
