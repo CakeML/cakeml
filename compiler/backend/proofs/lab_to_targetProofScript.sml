@@ -562,6 +562,23 @@ val good_code_def = Define`
    restrict_nonzero (get_labels code) ⊆ get_code_labels code ∪ labs_domain labs ∧
    all_enc_ok_pre c code`;
 
+Definition share_mem_domain_code_rel_def:
+  share_mem_domain_code_rel mc_conf s1_code (s1_shared_mem_domain: ('a
+  word->bool)) ms <=>
+    (!pc ms1 op re a ei len i.
+        (asm_fetch_aux pc s1_code = SOME (Asm (ShareMem op re a) ei len) /\
+        mmio_pcs_min_index mc_conf.ffi_names = SOME i) ==>
+        (?index.
+          i <= index /\ mc_conf.target.get_pc ms1 NOTIN mc_conf.prog_addresses /\
+          find_index (mc_conf.target.get_pc ms1) mc_conf.ffi_entry_pcs 0 = SOME index /\
+          (let (name, nb) = get_memop_info op (:'a) in
+            EL index mc_conf.ffi_names = name /\
+            mc_conf.mmio_info index = 
+              (nb, a, re, mc_conf.target.get_pc ms1 + n2w len)))) /\
+     (!a. byte_align a IN s1_shared_mem_domain ==> a IN s1_shared_mem_domain) /\
+     (mc_conf.shared_addresses = s1_shared_mem_domain)
+End
+
 Definition share_mem_state_rel_def:
   share_mem_state_rel mc_conf (s1:('a, 'a lab_to_target$config,'ffi) labSem$state) t1 ms1 <=>
      (!ms2 k index new_bytes t1 nb ad offs re pc' ad' st new_st i.
@@ -600,16 +617,7 @@ Definition share_mem_state_rel_def:
             (t1 with pc := pc')
             (mc_conf.ffi_interfer k (index,new_bytes,ms2)))
     ) /\
-   (!op re a ei len i.
-      (asm_fetch s1 = SOME (Asm (ShareMem op re a) ei len) /\
-      mmio_pcs_min_index mc_conf.ffi_names = SOME i) ==>
-      (?index.
-        i <= index /\ mc_conf.target.get_pc ms1 NOTIN mc_conf.prog_addresses /\
-        find_index (mc_conf.target.get_pc ms1) mc_conf.ffi_entry_pcs 0 = SOME
-        index)
-   ) /\
-   (!a. byte_align a IN s1.shared_mem_domain ==> a IN s1.shared_mem_domain) /\
-   (mc_conf.shared_addresses = s1.shared_mem_domain) /\
+   share_mem_domain_code_rel mc_conf s1.code s1.shared_mem_domain ms1 /\
    (* requirements for share memory access pcs *)
    (!index i. mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
       index < LENGTH mc_conf.ffi_names /\ i <= index ==>
@@ -763,7 +771,8 @@ Theorem state_rel_clock:
 Proof
   PairCases_on `x`
   \\ full_simp_tac(srw_ss())[state_rel_def, share_mem_state_rel_def]
-  \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] 
+  \\ full_simp_tac(srw_ss())[]
   \\ metis_tac []
 QED
 
@@ -772,8 +781,9 @@ Theorem share_mem_state_rel_shift_interfer:
     share_mem_state_rel (mc_conf with next_interfer := (λi. mc_conf.next_interfer (i + l)))
       s1 t1 x
 Proof
-  fs[share_mem_state_rel_def]
-  \\ rpt strip_tac >> res_tac
+  rpt strip_tac
+  \\ fs[share_mem_state_rel_def, share_mem_domain_code_rel_def]
+  \\ metis_tac[]
 QED
 
 Theorem state_rel_shift_interfer:
@@ -1560,7 +1570,8 @@ Theorem Inst_share_mem_pc_update_helper:
   share_mem_state_rel mc_conf (s1 with <|pc := s1.pc + 1; clock := s1.clock − 1|>)
     (t1 with pc := pc') ms2
 Proof
-  rw[share_mem_state_rel_def, target_state_rel_def]
+  rw[share_mem_state_rel_def,target_state_rel_def]
+  >>
 QED
 
 Theorem Inst_share_mem_reg_update_helper:
