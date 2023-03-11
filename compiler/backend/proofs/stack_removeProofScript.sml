@@ -2922,6 +2922,7 @@ Theorem init_code_thm:
     | (NONE,t) =>
          (∃w2 w3 w4.
          FLOOKUP s.regs 2 = SOME (Word w2) ∧ byte_aligned w2 ∧
+         FLOOKUP t.regs (k+2) = SOME (Word w2) ∧
          FLOOKUP s.regs 4 = SOME (Word w4) ∧ byte_aligned w4 ∧ w2 <+ w4 ∧
          FLOOKUP s.regs 3 = SOME (Word w3)) ∧
          state_rel jump off k (init_reduce gen_gc jump off k code bitmaps data_sp coracle t) t /\
@@ -3241,6 +3242,7 @@ Proof
   \\ reverse IF_CASES_TAC \\ fs[]
   >- ( fs[Abbr`s7`,loc_check_def] )
   \\ qpat_abbrev_tac `s8 = s7 with <|regs := _ ; memory := _ |>`
+  \\ conj_tac >- gs[Abbr ‘s7’, FLOOKUP_UPDATE, FUPDATE_LIST]
   \\ fs [state_rel_def,GSYM CONJ_ASSOC]
   \\ rpt (conj_tac THEN1 (fs [init_reduce_def] \\ unabbrev_all_tac \\ fs []))
   \\ conj_tac >- (
