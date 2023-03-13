@@ -4,7 +4,7 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open optionTheory relationTheory pairTheory listTheory arithmeticTheory llistTheory;
 open namespaceTheory astTheory ffiTheory lprefix_lubTheory semanticPrimitivesTheory
-     semanticsTheory evaluatePropsTheory smallStepTheory smallStepPropsTheory;
+     semanticsTheory evaluatePropsTheory smallStepTheory smallStepPropsTheory primSemEnvTheory;
 open itreeTheory itree_semanticsTheory itree_semanticsPropsTheory;
 
 val _ = new_theory "itree_semanticsEquiv";
@@ -1840,6 +1840,35 @@ Proof
     rw[semanticPrimitivesTheory.state_component_equality,
        ffi_state_component_equality]) >>
   unabbrev_all_tac >> gvs[] >> goal_assum drule >> simp[]
+QED
+
+
+(******************** Initial state/environment ********************)
+
+Theorem start_dstate:
+  ∀ffi:'ffi ffi_state. dstate_of (FST $ THE $ prim_sem_env ffi) = start_dstate
+Proof
+  rw[prim_sem_env_eq, dstate_of_def, start_dstate_def]
+QED
+
+Theorem start_env:
+  ∀ffi:'ffi ffi_state. SND $ THE $ prim_sem_env ffi = start_env
+Proof
+  rw[prim_sem_env_eq, start_env_def]
+QED
+
+Theorem prim_sem_env_change_ffi[simp]:
+  (FST $ THE $ prim_sem_env f) with ffi := f' = (FST $ THE $ prim_sem_env f')
+Proof
+  rw[prim_sem_env_eq, semanticPrimitivesTheory.state_component_equality]
+QED
+
+Theorem itree_semantics_itree_of:
+  ∀(ffi:'ffi ffi_state) prog.
+    itree_of (FST $ THE $ prim_sem_env ffi) start_env prog =
+    itree_semantics prog
+Proof
+  rw[itree_semantics_def, itree_of_def, start_dstate]
 QED
 
 

@@ -760,4 +760,34 @@ Definition interp_def:
       e
 End
 
+Definition start_dstate_def:
+  start_dstate : dstate =
+  <| refs := []; next_type_stamp := 2; next_exn_stamp := 4; eval_state := NONE;
+     fp_state := <| rws := []; opts := (λ x. []); choices := 0; canOpt := Strict;
+                    real_sem := F |>
+  |>
+End
+
+Definition start_env_def:
+  start_env : v sem_env =
+  <|v := Bind [] [];
+    c := Bind [("::",2,TypeStamp "::" 1); ("[]",0,TypeStamp "[]" 1);
+               ("True",0,TypeStamp "True" 0); ("False",0,TypeStamp "False" 0);
+               ("Subscript",0,ExnStamp 3); ("Div",0,ExnStamp 2);
+               ("Chr",0,ExnStamp 1); ("Bind",0,ExnStamp 0)] []
+  |>
+End
+
+Definition itree_semantics_def:
+  itree_semantics prog =
+  interp start_env (Dstep start_dstate (Decl (Dlocal [] prog)) [])
+End
+
+CoInductive safe_itree:
+  (safe_itree P (Ret Termination)) ∧
+  (safe_itree P (Ret $ FinalFFI e f)) ∧
+  (safe_itree P Div) ∧
+  ((∀s. P s ⇒ safe_itree P (rest s)) ⇒ safe_itree P (Vis e rest))
+End
+
 val _ = export_theory();

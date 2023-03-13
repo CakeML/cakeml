@@ -79,34 +79,6 @@ CoInductive ffi_respects_convention:
   ⇒ ffi_respects_convention P (f,st)
 End
 
-CoInductive safe_itree:
-  (safe_itree P (Ret itree_semantics$Termination)) ∧
-  (safe_itree P (Ret $ FinalFFI e f)) ∧
-  (safe_itree P Div) ∧
-  ((∀s. P s ⇒ safe_itree P (rest s)) ⇒ safe_itree P (Vis e rest))
-End
-
-val (_,start_env) =
-    prim_sem_env_eq |> Q.INST [`ffi` |-> `ARB`] |>
-      concl |> rhs |> optionSyntax.dest_some |> pairSyntax.dest_pair;
-
-Definition start_dstate_def:
-  start_dstate : dstate =
-  <| refs := []; next_type_stamp := 2; next_exn_stamp := 4; eval_state := NONE;
-     fp_state := <| rws := []; opts := (λ x. []); choices := 0; canOpt := Strict;
-                    real_sem := F |>
-  |>
-End
-
-Definition start_env_def:
-  start_env = ^start_env
-End
-
-Definition itree_semantics_def:
-  itree_semantics prog =
-  interp start_env (Dstep start_dstate (Decl (Dlocal [] prog)) [])
-End
-
 
 (*********** Lemmas **********)
 
@@ -229,32 +201,6 @@ Proof
   qpat_x_assum `ffi_respects_convention _ _` mp_tac >>
   rw[Once ffi_respects_convention_cases] >> res_tac >> gvs[] >>
   first_x_assum $ qspecl_then [`P`,`ffi0,f`,`io'`,`g (INR l)`] assume_tac >> gvs[]
-QED
-
-Theorem start_dstate:
-  ∀ffi:'ffi ffi_state. dstate_of (FST $ THE $ prim_sem_env ffi) = start_dstate
-Proof
-  rw[prim_sem_env_eq, dstate_of_def, start_dstate_def]
-QED
-
-Theorem start_env:
-  ∀ffi:'ffi ffi_state. SND $ THE $ prim_sem_env ffi = start_env
-Proof
-  rw[prim_sem_env_eq, start_env_def]
-QED
-
-Triviality prim_sem_env_change_ffi[simp]:
-  (FST $ THE $ prim_sem_env f) with ffi := f' = (FST $ THE $ prim_sem_env f')
-Proof
-  rw[prim_sem_env_eq, semanticPrimitivesTheory.state_component_equality]
-QED
-
-Theorem itree_semantics_itree_of:
-  ∀(ffi:'ffi ffi_state) prog.
-    itree_of (FST $ THE $ prim_sem_env ffi) start_env prog =
-    itree_semantics prog
-Proof
-  rw[itree_semantics_def, itree_of_def, start_dstate]
 QED
 
 
