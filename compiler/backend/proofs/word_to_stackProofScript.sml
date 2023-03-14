@@ -6,8 +6,7 @@ open preamble semanticsPropsTheory stackSemTheory wordSemTheory
      parmoveTheory;
 
 (* To help interactive proofs *)
-open labPropsTheory helperLib;
-val good_dimindex_def = labPropsTheory.good_dimindex_def;
+open helperLib;
 val get_labels_def = stackSemTheory.get_labels_def;
 val extract_labels_def = stackPropsTheory.extract_labels_def
 
@@ -26,10 +25,10 @@ val _ = set_grammar_ancestry [
   "semanticsProps", (* for extend_with_resource_limit *)
   "stackProps", (* for extract_labels *)
   "wordProps",
-  "labProps", (* for good_dimindex *)
   "stackSem", "wordSem", "word_to_stack"
 ]
 Type state[pp] = “:(α,β,γ)wordSem$state”
+Overload word_cmp[local] = “labSem$word_cmp”;
 val _ = Parse.hide "B"
 
 (* TODO: many things in this file need moving *)

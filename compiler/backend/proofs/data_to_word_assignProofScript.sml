@@ -4,7 +4,7 @@
 open preamble int_bitwiseTheory dataSemTheory dataPropsTheory copying_gcTheory
      data_to_word_memoryProofTheory data_to_word_gcProofTheory
      data_to_word_bignumProofTheory data_to_wordTheory wordPropsTheory
-     labPropsTheory whileTheory set_sepTheory semanticsPropsTheory
+     whileTheory set_sepTheory semanticsPropsTheory
      helperLib alignmentTheory blastLib backendPropsTheory
      word_bignumTheory wordLangTheory word_bignumProofTheory
      gen_gc_partialTheory gc_sharedTheory word_gcFunctionsTheory;
@@ -115,7 +115,7 @@ Theorem get_real_offset_lemma:
 Proof
   fs [get_real_offset_def] \\ every_case_tac \\ fs []
   \\ fs [wordSemTheory.get_var_def,real_offset_def] \\ eval_tac \\ fs []
-  \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw []
+  \\ fs [good_dimindex_def,dimword_def] \\ rw []
 QED
 
 Theorem get_real_byte_offset_lemma:
@@ -476,14 +476,14 @@ QED
 Theorem w2w_shift_shift:
    good_dimindex (:'a) ==> ((w2w (w:word8) ≪ 2 ⋙ 2) : 'a word) = w2w w
 Proof
-  fs [labPropsTheory.good_dimindex_def,fcpTheory.CART_EQ,
+  fs [good_dimindex_def,fcpTheory.CART_EQ,
       word_lsl_def,word_lsr_def,fcpTheory.FCP_BETA,w2w]
   \\ rw [] \\ fs [] \\ EQ_TAC \\ rw [] \\ rfs [fcpTheory.FCP_BETA,w2w]
 QED
 
 fun sort_tac n =
   CONV_TAC(PATH_CONV(String.concat(List.tabulate(n,(K "lr"))))(REWR_CONV set_byte_sort)) \\
-  simp[labPropsTheory.good_dimindex_def]
+  simp[good_dimindex_def]
 
 Theorem evaluate_WriteLastBytes:
    good_dimindex(:'a) ∧ w2n n < dimindex(:'a) DIV 8 ∧
@@ -493,7 +493,7 @@ Theorem evaluate_WriteLastBytes:
    evaluate (WriteLastBytes av bv nv,s) =
      (NONE, s with memory := (a =+ Word (last_bytes (w2n n) (w2w b) 0w w s.be)) s.memory)
 Proof
-  rw[labPropsTheory.good_dimindex_def]
+  rw[good_dimindex_def]
   \\ fs[get_vars_SOME_IFF]
   \\ simp[WriteLastBytes_def]
   \\ simp[WriteLastByte_aux_def]
@@ -508,7 +508,7 @@ Proof
        end) end)
        (List.tabulate(8,I))
   \\ simp_tac std_ss [GSYM byte_align_def,GSYM byte_aligned_def]
-  \\ fs[w2n_add_byte_align_lemma,labPropsTheory.good_dimindex_def]
+  \\ fs[w2n_add_byte_align_lemma,good_dimindex_def]
   \\ fs[dimword_def]
   \\ rpt strip_tac
   \\ fs[wordSemTheory.evaluate_def,wordSemTheory.inst_def,
@@ -521,10 +521,10 @@ Proof
         FUN_EQ_THM,APPLY_UPDATE_THM,
         dimword_def, last_bytes_simp]
   \\ rw[] \\ rw[] \\ rfs[dimword_def]
-  >- ( simp[Once set_byte_sort,labPropsTheory.good_dimindex_def] )
+  >- ( simp[Once set_byte_sort,good_dimindex_def] )
   >- ( map_every sort_tac [1,2,1])
   >- ( Cases_on`n` \\ fs[dimword_def] \\ rfs[] )
-  >- ( simp[Once set_byte_sort,labPropsTheory.good_dimindex_def] )
+  >- ( simp[Once set_byte_sort,good_dimindex_def] )
   >- ( map_every sort_tac [1,2,1] )
   >- ( map_every sort_tac [1,2,3,2,1,2] )
   >- ( map_every sort_tac [1,2,3,4,3,2,1,2,3,2] )
@@ -835,7 +835,7 @@ Proof
     \\ `small_int (:'a) (&tag)`
     by (
       rw[small_int_def,Abbr`tag`]
-      \\ fs[labPropsTheory.good_dimindex_def,dimword_def] )
+      \\ fs[good_dimindex_def,dimword_def] )
     \\ fs[word_addr_def,Smallnum_def]
     \\ match_mp_tac minus_2_word_and_id
     \\ simp[word_index,bitTheory.BIT0_ODD,ODD_MULT]
@@ -866,7 +866,7 @@ Proof
   \\ simp_tac std_ss [Once state_rel_thm] \\ strip_tac \\ fs []
   \\ `w2n wA DIV 4 = byte_len (:'a) i` by
    (unabbrev_all_tac \\ fs [byte_len_def,bytes_in_word_def,w2n_lsr,
-      labPropsTheory.good_dimindex_def,word_add_n2w,dimword_def] \\ rfs []
+      good_dimindex_def,word_add_n2w,dimword_def] \\ rfs []
     \\ fs [GSYM word_add_n2w] \\ fs [word_add_n2w,dimword_def]
     \\ fs [ADD_DIV_EQ,DIV_DIV_DIV_MULT] \\ NO_TAC)
   \\ fs [wordSemTheory.set_var_def,lookup_insert]
@@ -874,12 +874,12 @@ Proof
   \\ disch_then (qspecl_then [`w`,`i`,`fl`] mp_tac) \\ fs []
   \\ impl_tac THEN1
    (unabbrev_all_tac \\ fs []
-    \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
+    \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ strip_tac \\ fs [FLOOKUP_DEF] \\ rveq \\ clean_tac
   \\ `var5 = n2w (byte_len (:α) i)` by
    (unabbrev_all_tac
     \\ rewrite_tac [GSYM w2n_11,w2n_lsr,byte_len_def]
-    \\ fs [bytes_in_word_def,shift_def,labPropsTheory.good_dimindex_def]
+    \\ fs [bytes_in_word_def,shift_def,good_dimindex_def]
     \\ fs [word_add_n2w,ADD_DIV_EQ]
     THEN1
      (sg `i + 4 < dimword (:'a)`
@@ -904,7 +904,7 @@ Proof
   \\ `ppp = Word (make_byte_header c fl i)` by
    (unabbrev_all_tac \\ fs [make_byte_header_def,bytes_in_word_def]
     \\ Cases_on`fl`
-    \\ fs [labPropsTheory.good_dimindex_def,GSYM word_add_n2w,WORD_MUL_LSL]
+    \\ fs [good_dimindex_def,GSYM word_add_n2w,WORD_MUL_LSL]
     \\ fs [word_mul_n2w,word_add_n2w,shift_def,RIGHT_ADD_DISTRIB]
     \\ NO_TAC)
   \\ rveq \\ pop_assum kall_tac
@@ -918,17 +918,17 @@ Proof
   \\ simp[wordSemTheory.evaluate_def,word_exp_rw,
           asmTheory.word_cmp_def,wordSemTheory.get_var_def]
   \\ `(bytes_in_word:'a word) + -1w = n2w (2 ** shift(:'a) - 1)`
-  by ( fs[bytes_in_word_def,labPropsTheory.good_dimindex_def,shift_def] )
+  by ( fs[bytes_in_word_def,good_dimindex_def,shift_def] )
   \\ simp[WORD_AND_EXP_SUB1]
   \\ `i MOD 2 ** (shift(:'a)) < dimword(:'a)`
   by (
     match_mp_tac LESS_LESS_EQ_TRANS
     \\ qexists_tac`2 ** shift(:'a)`
     \\ simp[]
-    \\ fs[labPropsTheory.good_dimindex_def,dimword_def,shift_def] )
+    \\ fs[good_dimindex_def,dimword_def,shift_def] )
   \\ simp[]
   \\ `2 ** shift(:'a) = dimindex(:'a) DIV 8`
-    by ( fs[labPropsTheory.good_dimindex_def,dimword_def,shift_def] )
+    by ( fs[good_dimindex_def,dimword_def,shift_def] )
   \\ simp[]
   \\ simp[(* CONJUNCT2 (CONJUNCT2 list_Seq_def), *)
           wordSemTheory.evaluate_def,word_exp_rw,
@@ -964,7 +964,7 @@ Proof
   \\ simp[wordSemTheory.get_vars_def,wordSemTheory.get_var_def,lookup_insert,APPLY_UPDATE_THM]
   \\ impl_tac
   >- (
-    conj_tac >- fs[labPropsTheory.good_dimindex_def]
+    conj_tac >- fs[good_dimindex_def]
     \\ fs[memory_rel_def,heap_in_memory_store_def,FLOOKUP_UPDATE]
     \\ fs[FLOOKUP_DEF]
     \\ qpat_x_assum `free' + bytes_in_word + _ = _` mp_tac
@@ -1025,7 +1025,7 @@ Proof
   \\ disch_then drule0
   \\ impl_tac THEN1 (
     simp[Abbr`len`,WORD_MUL_LSL,word_mul_n2w,LEFT_SUB_DISTRIB,n2w_sub]
-    \\ fs [labPropsTheory.good_dimindex_def,dimword_def,state_rel_thm] \\ rfs []
+    \\ fs [good_dimindex_def,dimword_def,state_rel_thm] \\ rfs []
     \\ unabbrev_all_tac \\ fs []
     \\ `byte_len (:α) i -1 < dimword (:'a)` by (fs [dimword_def])
     \\ imp_res_tac IMP_LESS_MustTerminate_limit \\ fs[])
@@ -1143,7 +1143,7 @@ Proof
   \\ rpt_drule0 memory_rel_lookup
   \\ fs [wordSemTheory.get_var_def] \\ strip_tac
   \\ `small_int (:'a) 0` by
-     (fs [labPropsTheory.good_dimindex_def,dimword_def,small_int_def] \\ NO_TAC)
+     (fs [good_dimindex_def,dimword_def,small_int_def] \\ NO_TAC)
   \\ rpt_drule0 (IMP_memory_rel_Number
         |> REWRITE_RULE [CONJ_ASSOC]
         |> ONCE_REWRITE_RULE [CONJ_COMM])
@@ -4937,7 +4937,7 @@ Proof
   \\ fs [adjust_var_def] \\ strip_tac \\ fs [] \\ rveq
   \\ `small_int (:α) (&(4 * tag))` by (
     fs [encode_header_def,small_int_def,state_rel_thm,
-        labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [] \\ NO_TAC)
+        good_dimindex_def,dimword_def] \\ rfs [] \\ NO_TAC)
   \\ IF_CASES_TAC THEN1 (
     qpat_assum `get_var 2 s.locals = SOME (Number (&(4*tag)))` assume_tac
     \\ rpt_drule0 state_rel_get_var_Number_IMP \\ fs []
@@ -5074,7 +5074,7 @@ Proof
   \\ qpat_assum `get_var 1 s0.locals = SOME v2` assume_tac
   \\ fs [lookup_insert]
   \\ `~(2 ≥ dimindex (:α)) /\ ~(4 ≥ dimindex (:α))` by
-       (fs [state_rel_def,labPropsTheory.good_dimindex_def] \\ NO_TAC)
+       (fs [state_rel_def,good_dimindex_def] \\ NO_TAC)
   \\ fs [lookup_insert]
   \\ assume_tac (GEN_ALL Make_ptr_bits_thm)
   \\ SEP_I_TAC "evaluate"
@@ -5119,7 +5119,7 @@ Proof
     \\ fs [WORD_MUL_LSL,word_mul_n2w,Smallnum_def,EXP_LEMMA1]
     \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
     \\ fs [memory_rel_def,heap_in_memory_store_def]
-    \\ fs [labPropsTheory.good_dimindex_def] \\ rfs [])
+    \\ fs [good_dimindex_def] \\ rfs [])
   \\ `LENGTH x < s0.space`
        by (fs [Abbr `s0`,SIMP_RULE std_ss [Once MULT_COMM] MULT_DIV])
   \\ rpt_drule0 memory_rel_FromList
@@ -5420,7 +5420,7 @@ Proof
   \\ fs []
   \\ strip_tac
   \\ `w2n (tag) DIV 4 < dimword (:'a) DIV 16`
-  by (fs[Abbr`tag`,labPropsTheory.good_dimindex_def,state_rel_def] \\ rw[dimword_def] )
+  by (fs[Abbr`tag`,good_dimindex_def,state_rel_def] \\ rw[dimword_def] )
   \\ rpt_drule0 state_rel_IMP_Number_arg \\ strip_tac
   \\ rpt_drule0 RefByte_thm
   \\ simp [get_vars_def,call_env_def,get_var_def,lookup_fromList]
@@ -5758,7 +5758,7 @@ Proof
     \\ reverse conj_tac THEN1
      (fs[encode_header_def,memory_rel_def,heap_in_memory_store_def,EXP_SUB]
       \\ unabbrev_all_tac \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]
-      \\ rfs [labPropsTheory.good_dimindex_def,dimword_def])
+      \\ rfs [good_dimindex_def,dimword_def])
     \\ `1 < dimindex (:α) − (c.len_size + 2)` by
      (qpat_assum `c.len_size + _ < dimindex (:α)` mp_tac
       \\ rpt (pop_assum kall_tac) \\ decide_tac)
@@ -6943,7 +6943,7 @@ Theorem small_num_small_int[simp]:
   good_dimindex (:α) ==>
   small_num (dimindex (:α) = 64) = small_int (:α)
 Proof
-  fs [small_num_def,small_int_def,FUN_EQ_THM,labPropsTheory.good_dimindex_def]
+  fs [small_num_def,small_int_def,FUN_EQ_THM,good_dimindex_def]
   \\ rw [] \\ fs [dimword_def]
 QED
 
@@ -7357,7 +7357,7 @@ Proof
     \\ fs [small_int_def]
     \\ qpat_x_assum `dimword (:α) <= _` mp_tac
     \\ simp [GSYM NOT_LESS]
-    \\ fs [labPropsTheory.good_dimindex_def, dimword_def] \\ rfs []
+    \\ fs [good_dimindex_def, dimword_def] \\ rfs []
     \\ fs [quad_times_div_half_double])
   \\ simp [stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
   \\ unabbrev_all_tac
@@ -8006,7 +8006,7 @@ Proof
   \\ pop_assum kall_tac
   \\ simp[]
   \\ `2 < dimindex (:'a)` by (
-    fs [labPropsTheory.good_dimindex_def] \\ fs [])
+    fs [good_dimindex_def] \\ fs [])
   \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
   >- fs [option_le_max_right]
   \\ fs [WORD_MUL_LSL,WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]
@@ -8055,7 +8055,7 @@ Proof
       (fs [memory_rel_def,heap_in_memory_store_def] \\ NO_TAC)
   \\ fs [NOT_LESS]
   \\ `~(dimindex (:α) <= 2)` by
-         (fs [labPropsTheory.good_dimindex_def] \\ NO_TAC)
+         (fs [good_dimindex_def] \\ NO_TAC)
   \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
   >- fs [option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -8098,8 +8098,8 @@ Proof
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ match_mp_tac (IMP_memory_rel_Number |> Q.INST [`i`|->`0`]
           |> SIMP_RULE std_ss [EVAL ``Smallnum 0``])
-    \\ fs [] \\ fs [labPropsTheory.good_dimindex_def,dimword_def]
-    \\ EVAL_TAC \\ rw [labPropsTheory.good_dimindex_def,dimword_def])
+    \\ fs [] \\ fs [good_dimindex_def,dimword_def]
+    \\ EVAL_TAC \\ rw [good_dimindex_def,dimword_def])
   \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
   \\ `word_exp t (real_addr c (adjust_var a1)) = SOME (Word a)` by
        (match_mp_tac (GEN_ALL get_real_addr_lemma)
@@ -8109,7 +8109,7 @@ Proof
       (fs [memory_rel_def,heap_in_memory_store_def] \\ NO_TAC)
   \\ fs [NOT_LESS]
   \\ `~(dimindex (:α) <= 2)` by
-         (fs [labPropsTheory.good_dimindex_def] \\ NO_TAC)
+         (fs [good_dimindex_def] \\ NO_TAC)
   \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
   >- fs [option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -8542,7 +8542,7 @@ Proof
          fromList2_def,wordSemTheory.state_component_equality,word_bit_test,
          option_le_max_right,wordSemTheory.flush_state_def])
   \\ `shift (:'a) <> 0 /\ shift (:'a) < dimindex (:'a)` by
-          (fs [labPropsTheory.good_dimindex_def,shift_def] \\ NO_TAC)
+          (fs [good_dimindex_def,shift_def] \\ NO_TAC)
   \\ strip_tac \\ fs []
   \\ Cases_on `x1 = x2` \\ fs [] \\ rveq
   THEN1
@@ -8589,7 +8589,7 @@ Theorem word_cmp_Less_word_cmp_res:
    !i i'. good_dimindex (:'a) ==>
            (word_cmp Less (word_cmp_res i i') (1w:'a word) <=> i < i')
 Proof
-  rw [] \\ fs [labPropsTheory.good_dimindex_def]
+  rw [] \\ fs [good_dimindex_def]
   \\ fs [word_cmp_res_def,asmTheory.word_cmp_def]
   \\ rw [] \\ fs [WORD_LT] \\ fs [word_msb_def,word_index,dimword_def]
 QED
@@ -8598,7 +8598,7 @@ Theorem word_cmp_NotLess_word_cmp_res:
    !i i'. good_dimindex (:'a) ==>
            (word_cmp NotLess (1w:'a word) (word_cmp_res i i') <=> (i <= i'))
 Proof
-  rw [] \\ fs [labPropsTheory.good_dimindex_def]
+  rw [] \\ fs [good_dimindex_def]
   \\ fs [word_cmp_res_def,asmTheory.word_cmp_def]
   \\ rw [] \\ fs [WORD_LT] \\ fs [word_msb_def,word_index,dimword_def]
   \\ intLib.COOPER_TAC
@@ -8608,7 +8608,7 @@ Theorem word_cmp_not_NotLess_word_cmp_res:
    !i i'. good_dimindex (:'a) ==>
            (~word_cmp NotLess (1w:'a word) (word_cmp_res i i') <=> (i' < i))
 Proof
-  rw [] \\ fs [labPropsTheory.good_dimindex_def]
+  rw [] \\ fs [good_dimindex_def]
   \\ fs [word_cmp_res_def,asmTheory.word_cmp_def]
   \\ rw [] \\ fs [WORD_LT] \\ fs [word_msb_def,word_index,dimword_def]
   \\ intLib.COOPER_TAC
@@ -8618,7 +8618,7 @@ Theorem not_word_cmp_Less_word_cmp_res:
    !i i'. good_dimindex (:'a) ==>
            (~word_cmp Less (word_cmp_res i i') (1w:'a word) <=> (i' <= i))
 Proof
-  rw [] \\ fs [labPropsTheory.good_dimindex_def]
+  rw [] \\ fs [good_dimindex_def]
   \\ fs [word_cmp_res_def,asmTheory.word_cmp_def]
   \\ rw [] \\ fs [WORD_LT] \\ fs [word_msb_def,word_index,dimword_def]
   \\ intLib.COOPER_TAC
@@ -8646,7 +8646,7 @@ Theorem dimword_LESS_MustTerminate_limit:
 Proof
   strip_tac \\ fs [wordSemTheory.MustTerminate_limit_def,dimword_def]
   \\ match_mp_tac (DECIDE ``1 < n ==> n < (2 * n + k) - 1n``)
-  \\ fs [labPropsTheory.good_dimindex_def]
+  \\ fs [good_dimindex_def]
 QED
 
 Theorem assign_Less:
@@ -12549,7 +12549,7 @@ Proof
     \\ match_mp_tac memory_rel_rearrange
     \\ rw [] \\ fs [] \\ NO_TAC)
   \\ fs []
-  \\ `10 < dimindex (:'a)` by (fs [labPropsTheory.good_dimindex_def] \\ NO_TAC)
+  \\ `10 < dimindex (:'a)` by (fs [good_dimindex_def] \\ NO_TAC)
   \\ once_rewrite_tac [list_Seq_def]
   \\ `n2w (4 * tot_len) ⋙ 2 = n2w tot_len:'a word` by
       (rewrite_tac [GSYM w2n_11,w2n_lsr,w2n_n2w] \\ fs [] \\ rfs [] \\ NO_TAC)
@@ -12600,7 +12600,7 @@ Proof
   \\ pop_assum kall_tac
   \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
   \\ `shift (:'a) < dimindex (:'a)` by
-       (fs [labPropsTheory.good_dimindex_def,shift_def] \\ NO_TAC)
+       (fs [good_dimindex_def,shift_def] \\ NO_TAC)
   \\ fs [eq_eval,wordSemTheory.set_store_def]
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
@@ -13673,7 +13673,7 @@ Proof
   \\ ho_match_mp_tac multiwordTheory.n2mw_ind \\ rw [] \\ fs []
   \\ once_rewrite_tac [multiwordTheory.n2mw_def,bignum_digits_def]
   \\ IF_CASES_TAC \\ fs []
-  \\ gvs [labPropsTheory.good_dimindex_def,dimword_def]
+  \\ gvs [good_dimindex_def,dimword_def]
 QED
 
 Theorem assign_Build:
@@ -13720,28 +13720,28 @@ Proof
     THEN1
      (gvs [part_to_words_def,arch_size_def]
       \\ Cases_on ‘l’
-      \\ gvs [labPropsTheory.good_dimindex_def,dimword_def,encode_header_def])
+      \\ gvs [good_dimindex_def,dimword_def,encode_header_def])
     \\ Cases_on ‘∃i. h = Int i’
     THEN1
      (gvs [part_to_words_def,arch_size_def]
       \\ gvs [AllCaseEqs(),multiwordTheory.i2mw_def,encode_header_def]
       THEN1
        (Cases_on ‘i < 0’ \\ fs [b2w_def,EVAL “1w ≪ 2 ‖ 3w”]
-        \\ gvs [labPropsTheory.good_dimindex_def,dimword_def,NOT_LESS]
+        \\ gvs [good_dimindex_def,dimword_def,NOT_LESS]
         \\ ‘7 < 2 ** 4 ∧ 3 < 2 ** 4’ by EVAL_TAC
         \\ drule_all LESS_EQ_LESS_TRANS
         \\ simp [EXP_BASE_LT_MONO]
         \\ fs [heap_in_memory_store_def])
       THEN1
        (qpat_x_assum ‘~(n < m:num)’ mp_tac
-        \\ Cases_on ‘i < 0’ \\ gvs [labPropsTheory.good_dimindex_def,dimword_def]
+        \\ Cases_on ‘i < 0’ \\ gvs [good_dimindex_def,dimword_def]
         \\ ntac 10 (fs [dimword_def] \\ EVAL_TAC))
       \\ gvs [bignum_size]
       \\ qsuff_tac ‘2 ** c.len_size ≤ 2 ** (dimindex (:α) − 4)’
       THEN1 decide_tac
       \\ fs [heap_in_memory_store_def])
     \\ Cases_on ‘h’ \\ gvs [part_to_words_def,arch_size_def]
-    \\ gvs [labPropsTheory.good_dimindex_def,dimword_def,byte_len_def,encode_header_def,
+    \\ gvs [good_dimindex_def,dimword_def,byte_len_def,encode_header_def,
             AllCaseEqs(),NOT_LESS]
     \\ imp_res_tac TWO_POW_LEMMA
     \\ fs [heap_in_memory_store_def,encode_header_def,AllCaseEqs()])

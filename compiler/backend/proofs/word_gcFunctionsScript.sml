@@ -17,7 +17,7 @@ Theorem bytes_in_word_mul_eq_shift:
    (bytes_in_word * w = (w << shift (:'a)):'a word)
 Proof
   fs [bytes_in_word_def,shift_def,WORD_MUL_LSL,word_mul_n2w]
-  \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw [] \\ rfs []
+  \\ fs [good_dimindex_def,dimword_def] \\ rw [] \\ rfs []
 QED
 
 Theorem word_or_eq_0:

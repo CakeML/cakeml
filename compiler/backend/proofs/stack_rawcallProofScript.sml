@@ -13,7 +13,7 @@ val theWord_def = wordSemTheory.theWord_def;
 val isWord_def = wordSemTheory.isWord_def;
 
 val _ = set_grammar_ancestry["stack_rawcall","stackLang","stackSem","stackProps"];
-Overload good_dimindex[local] = ``labProps$good_dimindex``
+Overload good_dimindex[local] = ``misc$good_dimindex``
 Overload comp[local] = ``stack_rawcall$comp``
 Overload compile[local] = ``stack_rawcall$compile``
 Type prog[pp] = “:α stackLang$prog”
