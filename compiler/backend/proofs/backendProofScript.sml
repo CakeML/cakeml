@@ -28,6 +28,7 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 val _ = Parse.set_grammar_ancestry
   [ "backend", "backend_common", "backendProps",
     "primSemEnv", "semanticsProps",
+    "labProps",
     "source_evalProof" (* for compiler instance structure *)
   ];
 
