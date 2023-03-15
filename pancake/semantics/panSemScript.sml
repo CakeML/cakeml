@@ -461,7 +461,7 @@ Definition itree_mrec_def:
         | Ret r => Ret (INR r)
         | Tau t => Ret (INL t)
         | Vis (INL seed') k => Ret (INL (itree_bind (rh seed') k))
-        | Vis (INR e) k => itree_bind (itree_trigger e) (λx. Ret (INL (k x))))
+        | Vis (INR e) k => Vis e (λx. Ret (INL (k x))))
   (rh seed)
 End
 
@@ -469,11 +469,6 @@ End
 Definition handle_call_ret_def:
   handle_call_ret calltyp (res,s) = ARB
 End
-
-Definition make_vis_def:
-  make_vis p s = Vis (INL (p,s)) k
-End
-
 
 (* The rules for the recursive event handler, that decide
  how to evaluate each term of the program command grammar. *)
@@ -548,12 +543,12 @@ Definition h_prog_rule_while_def:
                                (p,s)
 End
 
-Theorem while_tree_true_branch:
-  h_prog_rule_while (Const 1w) Skip s = Vis e k ⇒ k (NONE,s) = Tau (Vis e k)
-Proof
-  rw [h_prog_rule_while_def] >>
-  rw [Once itreeTauTheory.itree_bisimulation]
-QED
+(* Theorem while_tree_true_branch: *)
+(*   h_prog_rule_while (Const 1w) Skip s = Vis e k ⇒ k (NONE,s) = Tau (Vis e k) *)
+(* Proof *)
+(*   rw [h_prog_rule_while_def] >> *)
+(*   rw [Once itreeTauTheory.itree_bisimulation] *)
+(* QED *)
 
 Definition h_prog_rule_call_def:
   h_prog_rule_call calltyp tgtexp argexps s =
@@ -566,25 +561,24 @@ Definition h_prog_rule_call_def:
    | (_,_) => Ret (SOME Error,s)
 End
 
-(* XXX: Needs improvement *)
-Definition h_prog_rule_ext_call_def:
-  h_prog_rule_ext_call ffi_name ptr1 len1 ptr2 len2 s =
-  case (FLOOKUP s.locals len1,FLOOKUP s.locals ptr1,FLOOKUP s.locals len2,FLOOKUP s.locals ptr2) of
-   | SOME (ValWord sz1),SOME (ValWord ad1),SOME (ValWord sz2),SOME (ValWord ad2) =>
-                                                               (case (read_bytearray ad1 (w2n sz1) (mem_load_byte s.memory s.memaddrs s.be),
-                                                                      read_bytearray ad2 (w2n sz2) (mem_load_byte s.memory s.memaddrs s.be)) of
-                                                                 | SOME bytes,SOME bytes2 =>
-                                                                               (case call_FFI s.ffi (explode ffi_name) bytes bytes2 of
-                                                                                 | FFI_final outcome =>
-                                                                                    Vis (INR (FFI_final outcome))
-                                                                                             (λa. empty_locals s)
-                                                                                 | FFI_return new_ffi new_bytes =>
-                                                                                    let nmem = write_bytearray ad2 new_bytes s.memory s.memaddrs s.be in
-                                                                                    (NONE, s with <| memory := nmem; ffi := new_ffi |>))
-                                                                              | _ => (SOME Error,s))
-                                                              | res => (SOME Error,s))
+(* Definition h_prog_rule_ext_call_def: *)
+(*   h_prog_rule_ext_call ffi_name ptr1 len1 ptr2 len2 s = *)
+(*   case (FLOOKUP s.locals len1,FLOOKUP s.locals ptr1,FLOOKUP s.locals len2,FLOOKUP s.locals ptr2) of *)
+(*    | SOME (ValWord sz1),SOME (ValWord ad1),SOME (ValWord sz2),SOME (ValWord ad2) => *)
+(*                                                                (case (read_bytearray ad1 (w2n sz1) (mem_load_byte s.memory s.memaddrs s.be), *)
+(*                                                                       read_bytearray ad2 (w2n sz2) (mem_load_byte s.memory s.memaddrs s.be)) of *)
+(*                                                                  | SOME bytes,SOME bytes2 => *)
+(*                                                                                (case call_FFI s.ffi (explode ffi_name) bytes bytes2 of *)
+(*                                                                                  | FFI_final outcome => *)
+(*                                                                                     Vis (INR (FFI_final outcome)) *)
+(*                                                                                              (λa. empty_locals s) *)
+(*                                                                                  | FFI_return new_ffi new_bytes => *)
+(*                                                                                     let nmem = write_bytearray ad2 new_bytes s.memory s.memaddrs s.be in *)
+(*                                                                                     (NONE, s with <| memory := nmem; ffi := new_ffi |>)) *)
+(*                                                                               | _ => (SOME Error,s)) *)
+(*                                                               | res => (SOME Error,s)) *)
 
-End
+(* End *)
 
 Definition h_prog_rule_raise_def:
   h_prog_rule_raise eid e s =
@@ -620,7 +614,7 @@ Definition h_prog_def:
   (h_prog (Break,s) = Ret (SOME Break,s)) ∧
   (h_prog (Continue,s) = Ret (SOME Continue,s)) ∧
   (h_prog (Call calltyp tgtexp argexps,s) = h_prog_rule_call calltyp tgtexp argexps s) ∧
-  (h_prog (ExtCall ffi_name ptr1 len1 ptr2 len2,s) = h_prog_rule_ext_call ffi_name ptr1 len1 ptr2 len2 s) ∧
+  (* (h_prog (ExtCall ffi_name ptr1 len1 ptr2 len2,s) = h_prog_rule_ext_call ffi_name ptr1 len1 ptr2 len2 s) ∧ *)
   (h_prog (Raise eid e,s) = h_prog_rule_raise eid e s) ∧
   (h_prog (Return e,s) = h_prog_rule_return e s) ∧
   (h_prog (Tick,s) = Ret (NONE,s))
@@ -628,18 +622,6 @@ End
 
 (* Solution to While Loop semantics is to construct an infinite Vis object - using some mechanism - whereby
  the K-tree in each is the original Vis object when the loop guard is true and otherwise produces a Ret. *)
-
-Definition special_vis_def:
-  special_vis = itree_iter
-                (K (Vis () (λx. Ret (INL ()))))
-                ()
-End
-
-Theorem special_vis_tau:
-  special_vis = Vis () f ⇒ ∀x. f x = Tau special_vis
-Proof
-  rw [special_vis_def]
-QED
 
 (* Perhaps another solution is to have multiple layers of handler, one for looping constructs and then
  the mrec combinator. Use func comp to define the semantics: sem = (mrec o looper) ... *)
@@ -660,58 +642,54 @@ Definition semantics_itree_def:
   evaluate_itree prog s ⋆ (Ret o FST)
 End
 
-
-(* Need to know how FUN_FMAP works in order to prove this *)
-Triviality flookup_ne_fun_name:
-  FLOOKUP FEMPTY «foo» = NONE
+(* ITree equalities *)
+Theorem itree_unfold_eq:
+  itree_unfold (K (Ret' ())) () = Ret ()
 Proof
-  rw [FLOOKUP_DEF]
+  rw [Once itreeTauTheory.itree_unfold]
 QED
 
-(* Non-existent functions cannot be called. *)
-Theorem sem_tail_call_undefined:
-  (eval_prog_itree (panLang$Call Tail (Label «foo») NIL)) ^sem_no_code = Ret (SOME Error, ^sem_no_code)
+Theorem itree_unfold_cplx_eq:
+  itree_unfold (λx. if x = () then Ret' () else Tau' x) () = Ret ()
 Proof
-  rw [eval_prog_itree_def, Once itreeTauTheory.itree_unfold, eval_def]
+  rw [Once itreeTauTheory.itree_unfold]
 QED
 
-Theorem set_membership:
-  2:num ∈ { x:num | x <= 2 }
+Theorem itree_iter_eq:
+  t = itree_iter
+      (λseed. if seed = () then Ret (INL ()) else Ret (INR ()))
+      ()
+  ⇒ t = Tau t
 Proof
-  rw [IN_DEF]
+  rw [itreeTauTheory.itree_iter_def] >>
+  rw [itreeTauTheory.itree_unfold]
 QED
 
-Theorem fun_fmap_app:
-  (FEMPTY |+ (3,4)) ' 3 = 4
+Theorem itree_bind_eq:
+  itree_bind (Ret 1) (λx. Ret 2) = Ret 2
 Proof
-  rw []
+  rw [itreeTauTheory.itree_bind_def] >>
+  rw [Once itreeTauTheory.itree_unfold]
 QED
 
-Theorem fun_fmap_complex_app:
-  (FEMPTY |+ («main»,(NIL:(varname # shape) list, panLang$Call Tail (Label «main») (NIL:('a panLang$exp) list)))) ' «main» =
-  (NIL:(varname # shape) list, panLang$Call Tail (Label «main») (NIL:('a panLang$exp) list))
+Theorem itree_mrec_one_rec_event:
+  itree_mrec
+  (λseed. if seed = 0 then Vis (INL 1) Ret else Ret seed)
+  0 = Tau (Ret 1)
 Proof
-  rw []
+  rw [itree_mrec_def] >>
+  rw [itreeTauTheory.itree_iter_def] >>
+  rw [itreeTauTheory.itree_bind_def] >>
+  rpt (rw [Once itreeTauTheory.itree_unfold])
 QED
 
-Theorem itree_eq:
-  ∀x. Tau (Ret x) = Tau (Ret x)
+(* TODO: Slightly different approach required here. *)
+Theorem itree_mrec_inf_event:
+  t = (itree_mrec (λx. Vis (INL ()) Ret) ()) ⇒ t = Tau t
 Proof
-  rw []
-QED
-
-(* Self-recursing functions produce infinite skinny trees of Tau:s *)
-(* TODO: Requires proof that in recursive self-call scenario the two unfolds with accumulating call stack
- do in fact produce the same tree. Then itree_wbisim_tau will apply.*)
-Theorem sem_recursive_self_tail_call:
-  ((eval_prog_itree (panLang$Call Tail (Label «main») NIL)) ^sem_self_rec_st) =
-  Tau ((eval_prog_itree (panLang$Call Tail (Label «main») NIL)) ^sem_self_rec_st)
-Proof
-  rw [Once itreeTauTheory.itree_bisimulation] >>
-  qexists_tac ‘itree_wbisim’ >>
-  rw [] >>
-  rw [itreeTauTheory.itree_wbisim_tau] >>
-  rw [eval_prog_itree_def]
+  rw [itree_mrec_def] >>
+  rw [itreeTauTheory.itree_iter_def] >>
+  rw [itreeTauTheory.itree_bind_def]
 QED
 
 Theorem vshapes_args_rel_imp_eq_len_MAP:
