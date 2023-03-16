@@ -635,7 +635,7 @@ Definition share_mem_state_rel_def:
       mc_conf.ccache_pc NOTIN
         {a| EL index mc_conf.ffi_entry_pcs <= a /\
             a < SND (SND (SND (mc_conf.mmio_info index)))} /\
-      EL index mc_conf.ffi_entry_pcs <=
+      EL index mc_conf.ffi_entry_pcs <
         SND $ SND $ SND $ mc_conf.mmio_info index) /\
    (!index1 index2 i. mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
       index1 <> index2 /\
@@ -655,7 +655,8 @@ End
 val state_rel_def = Define `
   state_rel (mc_conf, code2, labs, p) (s1:('a,'a lab_to_target$config,'ffi) labSem$state) t1 ms1 <=>
     target_state_rel mc_conf.target t1 ms1 /\ good_dimindex (:'a) /\
-    (mc_conf.prog_addresses = t1.mem_domain) /\
+    (* TODO: *)
+    (mc_conf.prog_addresses UNION _ = t1.mem_domain) /\
     ~(mc_conf.halt_pc IN mc_conf.prog_addresses) /\
     ~(mc_conf.ccache_pc IN mc_conf.prog_addresses) /\
     reg_ok s1.ptr_reg mc_conf.target.config /\ (mc_conf.ptr_reg = s1.ptr_reg) /\
@@ -763,7 +764,8 @@ val state_rel_def = Define `
     all_enc_ok mc_conf.target.config labs mc_conf.ffi_names 0 code2 /\
     EVERY sec_labels_ok code2 /\
     code_similar s1.code code2 /\
-    share_mem_state_rel mc_conf s1 t1 ms1`
+    share_mem_state_rel mc_conf s1 t1 ms1 /\
+    LENGTH mc_conf.ffi_names = LENGTH mc_conf.ffi_entry_pcs`
 
 Theorem state_rel_clock:
   state_rel x s1 t1 ms ==>
@@ -1169,6 +1171,32 @@ val IMP_bytes_in_memory_Install = Q.prove(
   \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
+
+Theorem IMP_bytes_in_memory_ShareMem:
+  (asm_fetch_aux s1.pc s1.code = SOME (Asm (ShareMem mop r ad) l n)) /\
+  code_similar ^s1.code code2 /\
+  all_enc_ok mc_conf.target.config labs mc_conf.ffi_names 0 code2 /\
+  bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain
+  ==>
+  ?bytes.
+    enc_with_nop mc_conf.target.config.encode (Inst (Mem mop r ad)) bytes /\
+    bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
+      bytes t1.mem t1.mem_domain /\
+    bytes_in_mem ((p:'a word) + n2w (pos_val s1.pc 0 code2))
+      bytes t1.mem t1.mem_domain s1.mem_domain /\
+    (pos_val (s1.pc+1) 0 code2 = pos_val s1.pc 0 code2 + LENGTH bytes) /\
+    asm_ok (Inst (Mem mop r ad)) (mc_conf: ('a,'state,'b) machine_config).target.config
+Proof
+  rpt strip_tac
+  \\ drule_all IMP_bytes_in_memory
+  \\ rpt strip_tac
+  \\ Cases_on `j` >> gvs[line_similar_def,line_ok_def,enc_with_nop_thm]
+  \\ rw[PULL_EXISTS]
+  \\ imp_res_tac bytes_in_mem_IMP
+  \\ qexists_tac `n''`
+  \\ fs[asm_fetch_aux_def,prog_to_bytes_def,line_bytes_def,
+    bytes_in_mem_APPEND,line_length_def]
+QED
 
 val bytes_in_mem_IMP_memory = Q.prove(
   `!xs a.
@@ -5602,24 +5630,27 @@ Proof
   rw[shift_interfer_def]
 QED
 
-Theorem share_mem_op_state_rel:
-  state_rel (mc_conf,code2,labs,p) s1 t1 ms1 /\
-  asm_fetch s1 = SOME (Asm (ShareMem m r a) l n) /\
-  encoder_correct mc_conf.target /\
-  s1.clock <> 0 /\
-  share_mem_op m r a s1 = SOME (FFI_return v3 v4,s') /\
-  evaluate s' = (res,s2) ==>
-  (?t1' ms1'.
-    state_rel (mc_conf,code2,labs,p) s' t1' ms1' /\
-    evaluate mc_conf s1.ffi (k + s1.clock) ms1 =
-    evaluate mc_conf s'.ffi (k + s'.clock) ms1')
+Theorem share_mem_access_pcs_lemma:
+  find_index (mc_conf.target.get_pc ms1) mc_conf.ffi_entry_pcs 0 = SOME index /\
+  (DISJOINT
+    {a |
+     EL index mc_conf.ffi_entry_pcs ≤ a ∧
+     a < SND (SND (SND (mc_conf.mmio_info index)))} (t1: 'a asm_state).mem_domain ∧
+  DISJOINT
+    {a |
+     EL index mc_conf.ffi_entry_pcs ≤ a ∧
+     a < SND (SND (SND (mc_conf.mmio_info index)))}
+    (s1: (α, α config, 'ffi) labSem$state).shared_mem_domain ∧
+  (¬(EL index mc_conf.ffi_entry_pcs ≤ mc_conf.halt_pc) ∨
+   ¬(mc_conf.halt_pc < SND (SND (SND (mc_conf.mmio_info index))))) ∧
+  (¬(EL index mc_conf.ffi_entry_pcs ≤ mc_conf.ccache_pc) ∨
+   ¬(mc_conf.ccache_pc < SND (SND (SND (mc_conf.mmio_info index))))) ∧
+  EL index mc_conf.ffi_entry_pcs < SND (SND (SND (mc_conf.mmio_info index)))) ==>
+  mc_conf.target.get_pc ms1 <> mc_conf.ccache_pc /\
+  mc_conf.target.get_pc ms1 <> mc_conf.halt_pc
 Proof
   rpt strip_tac
-  \\ Cases_on `m`
-  \\ fs[share_mem_op_def,share_mem_load_def,share_mem_store_def]
-  \\ Cases_on `a`
-  \\ fs[addr_def,AllCaseEqs()]
-  \\
+  \\ gvs[find_index_INDEX_OF,INDEX_OF_eq_SOME,LESS_OR_EQ]
 QED
 
 val say = say0 "compile_correct";
@@ -5748,7 +5779,15 @@ Proof
           \\ rw[]
           \\ gvs[IMP_CONJ_THM, AND_IMP_INTRO]
           >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
-          >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[]) 
+          >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
+          >- (
+            fs[share_mem_domain_code_rel_def]
+            \\ rpt strip_tac
+            \\ `t1.mem_domain = mc_conf.prog_addresses` by fs[]
+            \\ fs[]
+            \\ first_x_assum irule
+            \\ metis_tac[]
+          ) 
         )
         \\ (alignmentTheory.aligned_add_sub_cor
             |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> irule)
@@ -5862,7 +5901,14 @@ Proof
         gvs[IMP_CONJ_THM, AND_IMP_INTRO]
         >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
         >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
-        )
+        >- (
+          fs[share_mem_domain_code_rel_def] >>
+          rpt strip_tac >>
+          `t1.mem_domain = mc_conf.prog_addresses` by fs[] >>
+          fs[] >>
+          first_x_assum irule >>
+          metis_tac[]
+        ))
       )
     \\ rpt strip_tac \\ full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,labSemTheory.upd_reg_def]
     \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock - 1 + k` mp_tac)
@@ -5878,10 +5924,74 @@ Proof
     \\ Cases_on `m`
     \\ fs[share_mem_op_def,share_mem_load_def,share_mem_store_def,AllCaseEqs(),call_FFI_def]
     \\ simp[Once targetSemTheory.evaluate_def]
+    \\ fs[state_rel_def, share_mem_state_rel_def]
+    \\ fs[share_mem_domain_code_rel_def,asm_fetch_def,ELIM_UNCURRY,get_memop_info_def]
+    \\ qpat_x_assum
+      `!pc ms1 op re a ei len i.
+        asm_fetch_aux _ _ = SOME (Asm (ShareMem _ _ _) _ _) /\ _ ==> _ `
+        drule_all
+    \\ disch_then $ qspec_then `ms1` assume_tac >> gvs[]
+    \\ qpat_x_assum
+      `!index.
+        _ ==> _ /\ _ /\
+        (~(EL index mc_conf.ffi_entry_pcs <= mc_conf.halt_pc) \/ _ ) /\ _ /\ _` $
+       qspec_then `index` assume_tac
+    \\ drule_then assume_tac find_index_in_range
+    \\ fs[]
+    \\ first_x_assum $ drule_then assume_tac
+    \\ `mc_conf.target.get_pc ms1 <> mc_conf.halt_pc /\
+        mc_conf.target.get_pc ms1 <> mc_conf.ccache_pc` by (
+          drule share_mem_access_pcs_lemma
+          \\ metis_tac[]
+        )
+    \\ qabbrev_tac `halt_pc_not_overlap =
+        (¬(EL index mc_conf.ffi_entry_pcs ≤ mc_conf.halt_pc) ∨
+        ¬(mc_conf.halt_pc < SND (SND (SND (mc_conf.mmio_info index)))))`
+    \\ qabbrev_tac `ccache_pc_not_overlap =
+        (¬(EL index mc_conf.ffi_entry_pcs ≤ mc_conf.ccache_pc) ∨
+        ¬(mc_conf.ccache_pc < SND (SND (SND (mc_conf.mmio_info index)))))`
+    \\ fs[]
+    \\ rfs[lab_to_targetTheory.get_memop_info_def]
     \\ TOP_CASE_TAC
-      >- (
-        fs[state_rel_def]
-      )
+    \\ fs[labSemTheory.addr_def,AllCaseEqs()]
+    \\ rw[GSYM PULL_EXISTS]
+    >- (
+      qpat_x_assum `!r. word_loc_val _ _ _ = SOME _` $
+        qspec_then `n''` assume_tac
+      \\ rfs[word_loc_val_def]
+      \\ qpat_assum `target_state_rel _ t1 ms1` $ imp_res_tac o
+           SIMP_CONV (srw_ss()) [target_state_rel_def] o concl
+      \\ drule_all IMP_bytes_in_memory_ShareMem
+      \\ rpt strip_tac
+      \\ fs[asm_ok_def,inst_ok_def,reg_ok_def]
+      \\ rfs[good_dimindex_def]
+      \\ fs[]
+    )
+    >- (
+      qpat_x_assum `!r. word_loc_val _ _ _ = SOME _` $
+        qspec_then `n''` assume_tac
+      \\ rfs[word_loc_val_def]
+      \\ qpat_assum `target_state_rel _ t1 ms1` $ imp_res_tac o
+           SIMP_CONV (srw_ss()) [target_state_rel_def] o concl
+      \\ drule_all IMP_bytes_in_memory_ShareMem
+      \\ rpt strip_tac
+      \\ fs[asm_ok_def,inst_ok_def,reg_ok_def]
+    )
+    >- (
+      fs[is_valid_mapped_read_def,is_valid_mapped_write_def]
+      \\ `(dimindex (:α) DIV 8) MOD 256 <> 1` by (
+        rfs[good_dimindex_def] >> fs[]) >> fs[]
+      \\ qpat_x_assum `!r. word_loc_val _ _ _ = SOME _` $
+        qspec_then `n''` assume_tac
+      \\ rfs[word_loc_val_def]
+      \\ qpat_assum `target_state_rel _ t1 ms1` $ imp_res_tac o
+           SIMP_CONV (srw_ss()) [target_state_rel_def] o concl
+      \\ drule_all IMP_bytes_in_memory_ShareMem
+      \\ rpt strip_tac
+      \\ qexistsl [`n''`, `c`]
+      \\ fs[]
+    )
+    >-
    )
   )
   THEN1 (* Jump *)
