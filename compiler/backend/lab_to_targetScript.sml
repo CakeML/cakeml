@@ -345,12 +345,12 @@ val find_ffi_names_def = Define `
    | _ => find_ffi_names (Section k xs::rest)))`
 
 Definition get_memop_info_def:
-  get_memop_info Load a = ("SharedRead", n2w $ dimindex a DIV 8) /\
-  get_memop_info Load32 a = ("SharedRead",4w) /\
-  get_memop_info Load8 a = ("SharedRead",1w) /\
-  get_memop_info Store a = ("SharedWrite", n2w $ dimindex a DIV 8) /\
-  get_memop_info Store32 a = ("SharedWrite",4w) /\
-  get_memop_info Store8 a = ("SharedWrite",1w)
+  get_memop_info Load a = ("MappedRead", n2w $ dimindex a DIV 8) /\
+  get_memop_info Load32 a = ("MappedRead",4w) /\
+  get_memop_info Load8 a = ("MappedRead",1w) /\
+  get_memop_info Store a = ("MappedWrite", n2w $ dimindex a DIV 8) /\
+  get_memop_info Store32 a = ("MappedWrite",4w) /\
+  get_memop_info Store8 a = ("MappedWrite",1w)
 End
 
 Definition get_lines_shmem_info_def:
@@ -411,9 +411,6 @@ Datatype:
     ; inc_pos : num
     ; inc_init_clock : num
     ; inc_ffi_names : string list option
-    (* use num instead of 'w word and num # num instead of 'a addr
-    * so we don't have to add type parameter *)
-    ; inc_shmem_info: (num # word8 # num # num # num # num) list
     ; inc_hash_size : num
     |>
 End
@@ -433,7 +430,6 @@ Definition config_to_inc_config_def:
     inc_labels := c.labels; inc_sec_pos_len := c.sec_pos_len;
     inc_pos := c.pos; inc_init_clock := c.init_clock;
     inc_ffi_names := c.ffi_names; inc_hash_size := c.hash_size;
-    inc_shmem_info := MAP to_inc_shmem_info c.shmem_info
   |>
 End
 
@@ -442,7 +438,7 @@ Definition inc_config_to_config_def:
     labels := c.inc_labels; sec_pos_len := c.inc_sec_pos_len;
     pos := c.inc_pos; asm_conf := asm; init_clock := c.inc_init_clock;
     ffi_names := c.inc_ffi_names; hash_size := c.inc_hash_size;
-    shmem_info := MAP to_shmem_info c.inc_shmem_info
+    shmem_info := []
   |>
 End
 
