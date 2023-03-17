@@ -250,6 +250,8 @@ Definition conv_Exp_def:
       | (e::es) => conv_binaryExps es ' (conv_Exp e)
     else NONE) ∧
   (conv_Exp leaf = if tokcheck leaf (kw BaseK) then SOME BaseAddr
+                   else if tokcheck leaf (kw TrueK) then SOME $ Const 1w
+                   else if tokcheck leaf (kw FalseK) then SOME $ Const 0w
                   else NONE) ∧
   conv_binaryExps [] e = SOME e ∧
   (conv_binaryExps (t1::t2::ts) res =

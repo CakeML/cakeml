@@ -64,14 +64,14 @@ val ex2 = ‘if b & (a ^ c) & d {
              goo(4, 5, 6);
            }’;
 
-val treeEx2 = parse_pancake ex2;
+val treeEx2 = check_success $ parse_pancake ex2;
 
 (** We also have a selection of boolean operators and
     a ‘return’ statement. *)
 (** FIXME: Add ‘true’ and ‘false’ to EBaseNT *)
 val ex3 = ‘if b & (a ^ c) & d { return true; } else { return false; }’;
 
-val treeEx3 = (* check_success $ *) parse_pancake ex3;
+val treeEx3 = check_success $ parse_pancake ex3;
 
 (** Loops: standard looping construct. *)
 
