@@ -640,15 +640,58 @@ QED
 Theorem check_lstep_arr_spec = CONJUNCT1 check_lstep_arr_spec_aux
 Theorem check_lsteps_arr_spec = CONJUNCT2 check_lstep_arr_spec_aux
 
-val reindex_arr = process_topdecs `
-  fun reindex_arr fml ls =
+val reindex_aux_arr = process_topdecs `
+  fun reindex_aux_arr fml ls iacc vacc =
   case ls of
-    [] => []
+    [] => (List.rev iacc, vacc)
   | (i::is) =>
   case Array.lookup fml None i of
-    None => reindex_arr fml is
+    None => reindex_aux_arr fml is iacc vacc
   | Some v =>
-    (i :: reindex_arr fml is)` |> append_prog;
+    (reindex_aux_arr fml is (i::iacc) (v::vacc))` |> append_prog;
+
+val reindex_arr = process_topdecs `
+  fun reindex_arr fml is = reindex_aux_arr fml is [] []`
+  |> append_prog;
+
+Theorem reindex_aux_spec:
+  ∀inds indsv fmlls fmlv iacc iaccv vacc vaccv.
+  LIST_REL (OPTION_TYPE constraint_TYPE) fmlls fmllsv ∧
+  (LIST_TYPE NUM) inds indsv ∧
+  (LIST_TYPE NUM) iacc iaccv ∧
+  (LIST_TYPE constraint_TYPE) vacc vaccv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "reindex_aux_arr" (get_ml_prog_state()))
+    [fmlv; indsv; iaccv; vaccv]
+    (ARRAY fmlv fmllsv)
+    (POSTv v.
+      ARRAY fmlv fmllsv *
+      &(PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE constraint_TYPE) (reindex_aux fmlls inds iacc vacc) v))
+Proof
+  Induct>>
+  xcf"reindex_aux_arr"(get_ml_prog_state ())>>
+  fs[LIST_TYPE_def]
+  >- (
+    xmatch>>
+    rpt xlet_autop>>
+    xcon>>xsimpl>>
+    simp[reindex_aux_def,LIST_TYPE_def,PAIR_TYPE_def])>>
+  xmatch>>
+  xlet_auto>- (xcon>>xsimpl)>>
+  xlet_auto>>
+  `OPTION_TYPE constraint_TYPE (any_el h fmlls NONE) v'` by (
+   rw[any_el_ALT]>>
+   fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+  rw[]>>
+  simp[reindex_aux_def]>>
+  TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>xmatch
+  >-
+    (xapp>>simp[])>>
+  rpt xlet_autop>>
+  xapp>>
+  fs[LIST_TYPE_def]
+QED
 
 Theorem reindex_arr_spec:
   ∀inds indsv fmlls fmlv.
@@ -661,29 +704,14 @@ Theorem reindex_arr_spec:
     (ARRAY fmlv fmllsv)
     (POSTv v.
       ARRAY fmlv fmllsv *
-      &(LIST_TYPE NUM (reindex fmlls inds) v))
+      &(PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE constraint_TYPE) (reindex fmlls inds) v))
 Proof
-  Induct>>
   xcf"reindex_arr"(get_ml_prog_state ())>>
-  fs[LIST_TYPE_def]
-  >- (
-    xmatch>>
-    xcon>>xsimpl>>
-    simp[reindex_def,LIST_TYPE_def])>>
-  xmatch>>
-  xlet_auto>- (xcon>>xsimpl)>>
-  xlet_auto>>
-  `OPTION_TYPE constraint_TYPE (any_el h fmlls NONE) v'` by (
-   rw[any_el_ALT]>>
-   fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
-  rw[]>>
+  rpt xlet_autop>>
+  xapp>>
+  xsimpl>>
   simp[reindex_def]>>
-  TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>xmatch
-  >-
-    (xapp>>simp[])>>
-  xlet_autop>>
-  xcon>>xsimpl>>
-  simp[LIST_TYPE_def]
+  metis_tac[LIST_TYPE_def]
 QED
 
 val res = translate is_Pos_def;
@@ -1045,37 +1073,6 @@ val res = translate npbcTheory.dom_subst_def;
 val res = translate npbc_checkTheory.red_subgoals_def;
 val res = translate do_rso_def;
 
-Definition red_cond_check_def:
-  red_cond_check (pfs:(( ((num + num) # num) option, (lstep list)) alist)) (rsubs:((int # num) list # num) list list) goals =
-  let (l,r) = extract_pids pfs LN LN in
-  split_goals_hash l goals ∧
-  EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs))
-End
-
-val res = translate COUNT_LIST_AUX_def;
-val res = translate COUNT_LIST_compute;
-val res = translate PART_DEF;
-val res = translate PARTITION_DEF;
-
-Theorem split_goals_hash_eq:
-  split_goals_hash proved goals =
-  let (lp,lf) =
-    PARTITION (λ(i,c). IS_SOME(lookup i proved)) goals in
-  NULL lf ∨
-  (let proved = MAP SND lp in
-  let hs = mk_hashset proved LN in
-  EVERY (λ(i,c). in_hashset c hs) lf)
-Proof
-  rw[split_goals_hash_def]>>
-  pairarg_tac>>fs[]>>
-  qmatch_goalsub_abbrev_tac`PARTITION P _`>>
-  `(λ(i,c). lookup i proved ≠ NONE) = P` by (
-    rw[FUN_EQ_THM,Abbr`P`]>>
-    Cases_on`lookup i proved`>>fs[])>>
-  gs[]>>
-  Cases_on`lf`>>simp[]
-QED
-
 val res = translate npbc_checkTheory.list_pair_eq_def;
 val res = translate npbc_checkTheory.equal_constraint_def;
 val res = translate npbc_checkTheory.mem_constraint_def;
@@ -1083,11 +1080,287 @@ val res = translate npbc_checkTheory.mem_constraint_def;
 val res = translate hash_pair_def;
 val res = translate (hash_list_def |> REWRITE_RULE [splim_def]);
 val res = translate (hash_constraint_def |> REWRITE_RULE [splim_def]);
-val res = translate mk_hashset_def;
-val res = translate in_hashset_def;
-val res = translate split_goals_hash_eq;
 
-val res = translate (red_cond_check_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
+(* TODO: can use Unsafe.update instead *)
+val mk_hashset_arr = process_topdecs`
+  fun mk_hashset_arr ps acc =
+  case ps of [] => ()
+  | p::ps =>
+  let val h = hash_constraint p in
+    Array.update acc h (p::(Array.sub acc h));
+    mk_hashset_arr ps acc
+  end` |> append_prog;
+
+Theorem hash_constraint_splim:
+  hash_constraint h < splim
+Proof
+  Cases_on`h`>>fs[hash_constraint_def]>>
+  match_mp_tac MOD_LESS>>
+  EVAL_TAC
+QED
+
+Theorem mk_hashset_arr_spec:
+  ∀ls lsv hs hsv.
+  (LIST_TYPE constraint_TYPE) ls lsv ∧
+  LENGTH hsv = splim ∧
+  LIST_REL (LIST_TYPE constraint_TYPE) hs hsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "mk_hashset_arr" (get_ml_prog_state()))
+    [lsv; hspv]
+    (ARRAY hspv hsv)
+    (POSTv resv.
+      &UNIT_TYPE () resv *
+      SEP_EXISTS hsv'.
+      ARRAY hspv hsv' *
+      &(LIST_REL (LIST_TYPE constraint_TYPE) (mk_hashset ls hs) hsv') )
+Proof
+  Induct>>
+  rw[]>>simp[mk_hashset_def]>>
+  xcf "mk_hashset_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def]
+  >- (
+    xmatch>>
+    xcon>>xsimpl) >>
+  xmatch>>
+  fs[constraint_TYPE_def]>>
+  rpt xlet_autop>>
+  xlet_auto>- (
+    xsimpl>>
+    simp[hash_constraint_splim])>>
+  rpt xlet_autop>>
+  xlet_auto>- (
+    xsimpl>>
+    simp[hash_constraint_splim])>>
+  xapp>>simp[]>>
+  match_mp_tac EVERY2_LUPDATE_same>>
+  simp[LIST_TYPE_def]>>
+  fs[LIST_REL_EL_EQN]>>
+  first_x_assum match_mp_tac>>
+  gs[hash_constraint_splim]
+QED
+
+val in_hashset_arr = process_topdecs`
+  fun in_hashset_arr p hs =
+  let val h = hash_constraint p in
+    mem_constraint p (Array.sub hs h)
+  end` |> append_prog;
+
+Theorem in_hashset_arr_spec:
+  constraint_TYPE c cv ∧
+  LENGTH hsv = splim ∧
+  LIST_REL (LIST_TYPE constraint_TYPE) hs hsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "in_hashset_arr" (get_ml_prog_state()))
+    [cv; hspv]
+    (ARRAY hspv hsv)
+    (POSTv resv.
+      ARRAY hspv hsv *
+      &BOOL (in_hashset c hs) resv)
+Proof
+  rw[]>>simp[in_hashset_def]>>
+  xcf "in_hashset_arr" (get_ml_prog_state ())>>
+  fs[constraint_TYPE_def]>>
+  xlet_autop>>
+  xlet_auto
+  >- (xsimpl>>simp[hash_constraint_splim])>>
+  xapp>>
+  xsimpl>>
+  first_x_assum (irule_at Any)>>
+  qexists_tac`EL (hash_constraint c) hs`>>simp[]>>
+  fs[LIST_REL_EL_EQN]>>
+  first_x_assum match_mp_tac>>
+  gs[hash_constraint_splim]
+QED
+
+val r = translate splim_def;
+
+val every_snd_hs = process_topdecs`
+  fun every_snd_hs hs ls =
+  case ls of [] => True
+  | l::ls =>
+    in_hashset_arr (snd l) hs andalso
+    every_snd_hs hs ls` |> append_prog
+
+Theorem every_snd_hs_spec:
+  ∀ls lsv.
+  LIST_TYPE (PAIR_TYPE NUM constraint_TYPE) ls lsv ∧
+  LENGTH hsv = splim ∧
+  LIST_REL (LIST_TYPE constraint_TYPE) hs hsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "every_snd_hs" (get_ml_prog_state()))
+    [hspv; lsv]
+    (ARRAY hspv hsv)
+    (POSTv resv.
+      ARRAY hspv hsv *
+      &BOOL (EVERY (λ(i,c). in_hashset c hs) ls) resv)
+Proof
+  Induct>>rw[]>>
+  fs[LIST_TYPE_def]>>
+  xcf "every_snd_hs" (get_ml_prog_state ())>>
+  xmatch
+  >- (xcon>>xsimpl)>>
+  rpt xlet_autop>>
+  xlog>>
+  xsimpl>>rw[]
+  >- (
+    xapp>>xsimpl>>
+    pairarg_tac>>fs[])>>
+  pairarg_tac>>fs[]
+QED
+
+val hash_check = process_topdecs`
+  fun hash_check fmlls proved lf =
+  case lf of
+    [] => True
+  | _ =>
+  let
+    val hs = Array.array splim []
+    val u = mk_hashset_arr proved hs
+    val u = mk_hashset_arr fmlls hs
+  in
+    every_snd_hs hs lf
+  end` |> append_prog
+
+Theorem LENGTH_mk_hashset[simp]:
+  ∀x ls.
+  LENGTH (mk_hashset x ls) = LENGTH ls
+Proof
+  Induct>>rw[mk_hashset_def]
+QED
+
+Theorem hash_check_spec:
+  LIST_TYPE (PAIR_TYPE NUM constraint_TYPE) ls lsv ∧
+  LIST_TYPE constraint_TYPE x xv ∧
+  LIST_TYPE constraint_TYPE y yv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "hash_check" (get_ml_prog_state()))
+    [xv; yv; lsv]
+    emp
+    (POSTv resv.
+      &BOOL (
+        let hs = mk_hashset x
+          (mk_hashset y (REPLICATE splim [])) in
+          EVERY (λ(i,c). in_hashset c hs) ls) resv)
+Proof
+  rw[]>>
+  xcf "hash_check" (get_ml_prog_state ())>>
+  Cases_on`ls`
+  >- (
+    fs[LIST_TYPE_def]>>
+    xmatch>>
+    xcon>>xsimpl)>>
+  fs[LIST_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
+  assume_tac (fetch "-" "splim_v_thm")>>
+  xlet_auto>>
+  qmatch_goalsub_abbrev_tac`ARRAY av hsv`>>
+  `LIST_REL (LIST_TYPE constraint_TYPE) (REPLICATE splim []) hsv` by
+    simp[Abbr`hsv`,LIST_REL_REPLICATE_same,LIST_TYPE_def]>>
+  qmatch_asmsub_abbrev_tac`LIST_REL _ hs _`>>
+  xlet`POSTv resv.
+    &UNIT_TYPE () resv *
+    SEP_EXISTS hsv'.
+    ARRAY av hsv' *
+    &LIST_REL (LIST_TYPE constraint_TYPE) (mk_hashset y hs) hsv'`
+  >-
+    (xapp>>unabbrev_all_tac>>fs[])>>
+  xlet_auto
+  >- (
+    xsimpl>>
+    fs[LIST_REL_EL_EQN,Abbr`hs`])>>
+  xapp>>xsimpl>>
+  first_assum (irule_at Any)>>
+  qexists_tac`h::t`>>simp[LIST_TYPE_def]>>
+  unabbrev_all_tac>>fs[LIST_REL_EL_EQN]
+QED
+
+Definition red_cond_check_def:
+  red_cond_check indfml (pfs:(( ((num + num) # num) option, (lstep list)) alist)) (rsubs:((int # num) list # num) list list) goals =
+  let (l,r) = extract_pids pfs LN LN in
+  split_goals_hash indfml l goals ∧
+  EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs))
+End
+
+Definition red_cond_check_pure_def:
+  red_cond_check_pure (pfs:(( ((num + num) # num) option, (lstep list)) alist)) (rsubs:((int # num) list # num) list list) (goals:(num # (int # num) list # num) list) =
+  let (l,r) = extract_pids pfs LN LN in
+  if
+    EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs))
+  then
+  let (lp,lf) =
+      PARTITION (λ(i,c). lookup i l ≠ NONE) goals in
+    let proved = MAP SND lp in
+    SOME (proved,lf)
+  else NONE
+End
+
+Theorem red_cond_check_eq:
+  red_cond_check indfml pfs rsubs goals =
+  case red_cond_check_pure pfs rsubs goals of
+    NONE => F
+  | SOME (x,ls) =>
+    let hs = mk_hashset indfml (mk_hashset x (REPLICATE splim [])) in
+    EVERY (λ(i,c). in_hashset c hs) ls
+Proof
+  rw[red_cond_check_def,red_cond_check_pure_def]>>
+  pairarg_tac>>fs[split_goals_hash_def]>>
+  IF_CASES_TAC>>fs[]>>
+  rpt (pairarg_tac>>fs[])
+QED
+
+val res = translate COUNT_LIST_AUX_def;
+val res = translate COUNT_LIST_compute;
+val res = translate PART_DEF;
+val res = translate PARTITION_DEF;
+
+val res = translate red_cond_check_pure_def;
+
+val red_cond_check = process_topdecs`
+  fun red_cond_check indfml pfs rsubs goals =
+  case red_cond_check_pure pfs rsubs goals of
+    None => False
+  | Some (x,ls) =>
+    hash_check indfml x ls` |> append_prog
+
+Theorem red_cond_check_spec:
+  LIST_TYPE constraint_TYPE a av ∧
+  LIST_TYPE
+     (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM))
+        (LIST_TYPE NPBC_CHECK_LSTEP_TYPE)) b bv ∧
+  LIST_TYPE (LIST_TYPE constraint_TYPE) c cv ∧
+  LIST_TYPE (PAIR_TYPE NUM constraint_TYPE) d dv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "red_cond_check" (get_ml_prog_state()))
+    [av; bv; cv; dv]
+    emp
+    (POSTv resv.
+      &BOOL (red_cond_check a b c d) resv)
+Proof
+  rw[]>>
+  xcf "red_cond_check" (get_ml_prog_state ())>>
+  fs[constraint_TYPE_def]>>
+  xlet_autop>>
+  simp[red_cond_check_eq]>>
+  TOP_CASE_TAC>>fs[OPTION_TYPE_def]
+  >- (
+    xmatch>>
+    xcon>>xsimpl)>>
+  TOP_CASE_TAC>>fs[PAIR_TYPE_def]>>
+  xmatch>>
+  xapp>>
+  xsimpl>>
+  fs[constraint_TYPE_def]>>
+  first_x_assum (irule_at Any)>>
+  first_x_assum (irule_at Any)>>
+  first_x_assum (irule_at Any)>>
+  simp[]
+QED
 
 (* Definition print_subgoal_def:
   (print_subgoal (INL n) = (toString (n:num))) ∧
@@ -1133,8 +1406,8 @@ val check_sstep_arr = process_topdecs`
     Lstep lstep =>
     check_lstep_arr lno lstep core fml inds 0 id
   | Red c s pfs idopt =>
-    (let val rinds = reindex_arr fml inds
-         val rsubs = do_rso ord s c obj
+    ( case reindex_arr fml inds of (rinds,fmlls) =>
+      let val rsubs = do_rso ord s c obj
          val cpfs = extract_clauses_arr lno s fml rsubs pfs []
          val fml_not_c = Array.updateResize fml None id (Some (not_1 c)) in
          case check_subproofs_arr lno cpfs core fml_not_c (sorted_insert id rinds) id (id+1) of
@@ -1143,7 +1416,7 @@ val check_sstep_arr = process_topdecs`
            None =>
            let val u = rollback_arr fml' id id'
                val goals = subst_indexes_arr s fml' rinds in
-               if red_cond_check pfs rsubs goals
+               if red_cond_check fmlls pfs rsubs goals
                then
                  (Array.updateResize fml' None id' (Some c), ((id'+1), sorted_insert id' rinds))
                else raise Fail (format_failure_2 lno ("Redundancy subproofs did not cover all subgoals.") (print_subproofs_err rsubs goals))
@@ -1215,6 +1488,10 @@ Proof
     metis_tac[])
   >- ((*Red*)
     xmatch>>
+    pairarg_tac>>gs[]>>
+    xlet_autop>>
+    fs[PAIR_TYPE_def]>>
+    xmatch>>
     rpt xlet_autop>>
     fs[spo_TYPE_def,ord_TYPE_def,constraint_TYPE_def]>>
     rpt xlet_autop>>
@@ -1236,6 +1513,7 @@ Proof
       xsimpl>>
       fs[do_rso_def]>>
       metis_tac[ARRAY_refl])>>
+    fs[]>>
     pop_assum mp_tac>>TOP_CASE_TAC>>gvs[]>>
     strip_tac>>
     fs[do_rso_def]>>
@@ -1262,8 +1540,9 @@ Proof
     Cases_on`idopt`>>fs[OPTION_TYPE_def,do_red_check_def]>>xmatch
     >- (
       rpt xlet_autop>>
-      fs[constraint_TYPE_def]>>
+      fs[GSYM constraint_TYPE_def]>>
       xlet_autop>>
+      fs[do_red_check_def]>>
       reverse xif
       >- (
         rpt xlet_autop>>
@@ -1403,7 +1682,7 @@ val res = translate all_core_every_def;
 
 val all_core_arr_def = process_topdecs `
   fun all_core_arr fml inds core =
-  let val inds' = reindex_arr fml inds in
+  let val inds' = fst (reindex_arr fml inds) in
     (all_core_every core inds',inds')
   end` |> append_prog
 
@@ -1430,7 +1709,6 @@ Proof
 QED
 
 val _ = register_type ``:cstep ``
-
 
 val res = translate npbc_checkTheory.trans_subst_def;
 val res = translate npbc_checkTheory.build_fml_def;
@@ -1575,21 +1853,22 @@ val check_cstep_arr = process_topdecs`
     (case ord of None =>
       raise Fail (format_failure lno "no order loaded for dominance")
     | Some spo =>
+    case reindex_arr fml inds of (rinds,fmlls) =>
     let
         val cf = coref_arr core fml
         val dsubs = do_dso spo s c obj
         val cpfs = extract_clauses_arr lno s fml dsubs pfs []
         val fml_not_c = Array.updateResize fml None id (Some (not_1 c)) in
-         case check_subproofs_arr lno cpfs core fml_not_c (sorted_insert id inds) id (id+1) of
+         case check_subproofs_arr lno cpfs core fml_not_c (sorted_insert id rinds) id (id+1) of
            (fml', id') =>
            (case idopt of
              None =>
              let val u = rollback_arr fml' id id'
                  val goals = core_subgoals s cf in
-                 if red_cond_check pfs dsubs goals
+                 if red_cond_check fmlls pfs dsubs goals
                  then
                    (Array.updateResize fml' None id' (Some c),
-                   (sorted_insert id' inds,
+                   (sorted_insert id' rinds,
                    (id'+1, (core, (bound, (ord,orders))))))
                  else raise Fail (format_failure_2 lno ("Dominance subproofs did not cover all subgoals") (print_subproofs_err dsubs goals))
              end
@@ -1597,13 +1876,13 @@ val check_cstep_arr = process_topdecs`
              if check_contradiction_fml_arr fml' cid then
                let val u = rollback_arr fml' id id' in
                  (Array.updateResize fml' None id' (Some c),
-                   (sorted_insert id' inds,
+                   (sorted_insert id' rinds,
                    (id'+1, (core, (bound, (ord,orders))))))
                end
              else raise Fail (format_failure lno ("did not derive contradiction from index:" ^ Int.toString cid)))
     end)
   | Loadorder nn xs =>
-    let val inds' = reindex_arr fml inds in
+    let val inds' = fst (reindex_arr fml inds) in
     case Alist.lookup orders nn of
       None =>
         raise Fail (format_failure lno ("no such order: " ^ nn))
@@ -1747,11 +2026,11 @@ Proof
       rpt xlet_autop>>
       xraise>> xsimpl>>
       metis_tac[Fail_exn_def,ARRAY_refl])>>
+    pairarg_tac>>xlet_autop>>
+    fs[PAIR_TYPE_def]>>
+    xmatch>>
+    rpt xlet_autop>>
     fs[spo_TYPE_def,ord_TYPE_def,constraint_TYPE_def]>>
-    rpt xlet_autop>>
-    fs[GSYM constraint_TYPE_def]>>
-    rpt xlet_autop>>
-    fs[constraint_TYPE_def]>>
     rpt xlet_autop>>
     rename1`do_dso spo _ _ _`>>
     xlet`(POSTve
@@ -1800,7 +2079,9 @@ Proof
     >- (
       rpt xlet_autop>>
       fs[constraint_TYPE_def]>>
-      rpt xlet_autop>>
+      xlet_autop>>
+      fs[GSYM constraint_TYPE_def]>>
+      xlet_autop>>
       reverse xif>>gs[]
       >- (
         rpt xlet_autop>>

@@ -688,14 +688,18 @@ Definition check_subproofs_list_def:
       | _ => NONE)
 End
 
+Definition reindex_aux_def:
+  (reindex_aux fml [] iacc vacc = (REVERSE iacc, vacc)) ∧
+  (reindex_aux fml (i::is) iacc vacc =
+  case any_el i fml NONE of
+    NONE => reindex_aux fml is iacc vacc
+  | SOME v =>
+    reindex_aux fml is (i::iacc) (v::vacc))
+End
+
 (* Make inds non-lazy *)
 Definition reindex_def:
-  (reindex fml [] = []) ∧
-  (reindex fml (i::is) =
-  case any_el i fml NONE of
-    NONE => reindex fml is
-  | SOME v =>
-    i :: reindex fml is)
+  (reindex fml is = reindex_aux fml is [] [])
 End
 
 Definition subst_opt_subst_fun_def:
@@ -711,8 +715,9 @@ Definition subst_indexes_def:
     | SOME c => (i,c)::subst_indexes s fml is)
 End
 
+(* Arbitrarily chosen big prime near 2^20 *)
 Definition splim_def:
-  splim = 65537:num
+  splim = 1048583:num
 End
 
 Definition hash_pair_def:
@@ -738,26 +743,13 @@ Definition mk_hashset_def:
   (mk_hashset [] acc = acc) ∧
   (mk_hashset (p::ps) acc =
   let h = hash_constraint p in
-  case lookup h acc of
-    NONE => mk_hashset ps (insert h [p] acc)
-  | SOME ls => mk_hashset ps (insert h (p::ls) acc))
+  mk_hashset ps (LUPDATE (p::EL h acc) h acc))
 End
 
 Definition in_hashset_def:
   in_hashset p hs =
   let h = hash_constraint p in
-  case lookup h hs of
-    NONE => F
-  | SOME ls => mem_constraint p ls
-End
-
-Definition split_goals_hash_def:
-  split_goals_hash (proved:num_set) (goals:(num # (int # num) list # num) list) =
-  let (lp,lf) =
-    PARTITION (λ(i,c). lookup i proved ≠ NONE) goals in
-  let proved = MAP SND lp in
-  let hs = mk_hashset proved LN in
-  EVERY (λ(i,c). in_hashset c hs) lf
+  mem_constraint p (EL h hs)
 End
 
 Theorem in_hashset_mk_hashset:
@@ -766,37 +758,28 @@ Theorem in_hashset_mk_hashset:
   MEM c cs ∨ in_hashset c acc
 Proof
   Induct>>rw[mk_hashset_def]>>
-  Cases_on`lookup (hash_constraint h) acc`>>fs[]>>
-  first_x_assum drule>>rw[]
-  >- metis_tac[]
-  >- (
-    fs[in_hashset_def,lookup_insert]>>
-    every_case_tac>>fs[mem_constraint_thm])
-  >- metis_tac[]
-  >- (
-    fs[in_hashset_def,lookup_insert]>>
-    every_case_tac>>fs[mem_constraint_thm])
+  first_x_assum drule>>
+  rw[]>>simp[]>>
+  fs[in_hashset_def,mem_constraint_thm,EL_LUPDATE]>>
+  every_case_tac>>fs[]
 QED
 
-Theorem split_goals_hash_imp_split_goals:
-  split_goals_hash proved goals ⇒
-  split_goals proved goals
-Proof
-  rw[split_goals_def,split_goals_hash_def]>>
-  pairarg_tac>>fs[]>>
-  last_x_assum mp_tac>> match_mp_tac MONO_EVERY>>
-  simp[FORALL_PROD]>>
-  rw[]>>
-  drule in_hashset_mk_hashset>>
-  simp[in_hashset_def,mem_constraint_thm]
-QED
+Definition split_goals_hash_def:
+  split_goals_hash fmlls (proved:num_set)
+    (goals:(num # (int # num) list # num) list) =
+  let (lp,lf) =
+    PARTITION (λ(i,c). lookup i proved ≠ NONE) goals in
+  let proved = MAP SND lp in
+  let hs = mk_hashset fmlls (mk_hashset proved (REPLICATE splim [])) in
+  EVERY (λ(i,c). in_hashset c hs) lf
+End
 
 Definition do_red_check_def:
-  do_red_check idopt fml s rfml rinds pfs rsubs =
+  do_red_check idopt fml s rfml rinds fmlls pfs rsubs =
   case idopt of NONE =>
     let goals = subst_indexes s rfml rinds in
     let (l,r) = extract_pids pfs LN LN in
-      split_goals_hash l goals ∧
+      split_goals_hash fmlls l goals ∧
       EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs))
   | SOME cid =>
      check_contradiction_fml_list fml cid
@@ -809,7 +792,7 @@ Definition check_sstep_list_def:
   | Lstep lstep =>
     check_lstep_list lstep core fml inds 0 id
   | Red c s pfs idopt =>
-    (let rinds = reindex fml inds in
+    (let (rinds,fmlls) = reindex fml inds in
      let fml_not_c = update_resize fml NONE (SOME (not c)) id in
      let rsubs = red_subgoals ord (subst_fun s) c obj in
       case extract_clauses_list s fml rsubs pfs [] of
@@ -819,8 +802,10 @@ Definition check_sstep_list_def:
            NONE => NONE
         |  SOME(fml', id') =>
           let rfml = rollback fml' id id' in
-          if do_red_check idopt fml' s rfml rinds pfs rsubs then
-            SOME(update_resize rfml NONE (SOME c) id', (id'+1), sorted_insert id' rinds)
+          if do_red_check idopt fml' s rfml
+              rinds fmlls pfs rsubs then
+            SOME(update_resize rfml NONE (SOME c) id',
+              (id'+1), sorted_insert id' rinds)
           else NONE
         ))
 End
@@ -1022,19 +1007,43 @@ Proof
   gvs[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]
 QED
 
-Theorem reindex_characterize:
-  ∀inds inds'.
-  reindex fmlls inds = FILTER (λx. IS_SOME (any_el x fmlls NONE)) inds
+Theorem reindex_aux:
+  ∀inds iacc vacc.
+  reindex_aux fmlls inds iacc vacc =
+  let is = FILTER (λx. IS_SOME (any_el x fmlls NONE)) inds in
+  let vs = MAP (λx. THE (any_el x fmlls NONE)) is in
+  (REVERSE iacc ++ is, REVERSE vs ++ vacc)
 Proof
-  Induct>>fs[reindex_def] >>
-  rw[]>>every_case_tac>>fs[]
+  Induct>>rw[reindex_aux_def]>>
+  every_case_tac>>fs[]
+QED
+
+Theorem FST_reindex_characterize:
+  reindex fmlls inds = (is,vs) ⇒
+  is = FILTER (λx. IS_SOME (any_el x fmlls NONE)) inds
+Proof
+  rw[reindex_def,reindex_aux]
+QED
+
+Theorem SND_reindex_characterize:
+  fml_rel fml fmlls ∧
+  reindex fmlls inds = (is,vs) ⇒
+  set vs ⊆ range fml
+Proof
+  rw[reindex_def,reindex_aux]>>
+  simp[SUBSET_DEF,MEM_MAP,MEM_FILTER,PULL_EXISTS,range_def]>>
+  rw[]>>
+  fs[fml_rel_def,IS_SOME_EXISTS]>>
+  metis_tac[]
 QED
 
 Theorem ind_rel_reindex:
-  ind_rel fml inds ⇒
-  ind_rel fml (reindex fml inds)
+  ind_rel fml inds ∧
+  reindex fml inds = (is,vs) ⇒
+  ind_rel fml is
 Proof
-  simp[ind_rel_def,reindex_characterize,MEM_FILTER]
+  rw[]>>drule FST_reindex_characterize>>
+  fs[ind_rel_def,MEM_FILTER]
 QED
 
 Theorem MEM_subst_indexes:
@@ -1067,8 +1076,8 @@ QED
 
 Theorem split_goals_same_goals:
   set goals' = set goals ⇒
-  split_goals proved goals ⇒
-  split_goals proved goals'
+  split_goals fml proved goals ⇒
+  split_goals fml proved goals'
 Proof
   rw[split_goals_def,PARTITION_DEF]>>
   pairarg_tac>>rw[]>>
@@ -1083,6 +1092,31 @@ Proof
   fs[EVERY_MEM,FORALL_PROD,EXTENSION]>>rw[]>>
   fs[MEM_MAP,EXISTS_PROD,mem_constraint_thm]>>
   metis_tac[]
+QED
+
+Theorem split_goals_hash_imp_split_goals:
+  set fmlls ⊆ range fml ∧
+  split_goals_hash fmlls proved goals ⇒
+  split_goals fml proved goals
+Proof
+  rw[split_goals_def,split_goals_hash_def]>>
+  pairarg_tac>>fs[]>>
+  qpat_x_assum`EVERY _ _`mp_tac>> match_mp_tac MONO_EVERY>>
+  simp[FORALL_PROD]>>
+  rw[]>>
+  drule in_hashset_mk_hashset>>
+  rw[]
+  >- fs[MEM_MAP,SUBSET_DEF]>>
+  drule in_hashset_mk_hashset>>
+  rw[]
+  >-
+    simp[mem_constraint_thm,MEM_MAP]>>
+  pop_assum mp_tac>>
+  simp[in_hashset_def]>>
+  DEP_REWRITE_TAC[EL_REPLICATE]>>
+  simp[hash_constraint_def,mem_constraint_thm]>>
+  match_mp_tac MOD_LESS>>
+  EVAL_TAC
 QED
 
 Theorem fml_rel_check_sstep_list:
@@ -1114,6 +1148,7 @@ Proof
     drule (CONJUNCT1 check_lstep_list_id)>>
     simp[])
   >- ( (* Red*)
+    rpt (pairarg_tac>>fs[])>>
     DEP_REWRITE_TAC [fml_rel_extract_clauses_list]>> simp[]>>
     gvs[AllCaseEqs()]>>
     `fml_rel (insert id (not p) fml) (update_resize fmlls NONE (SOME (not p)) id)` by
@@ -1127,17 +1162,22 @@ Proof
         metis_tac[ind_rel_reindex] )>>
       simp[any_el_update_resize])>>
     simp[]>>strip_tac>>
-    pairarg_tac>>gvs[]>>
+    gvs[]>>
     drule check_subproofs_list_id>>
     drule check_subproofs_list_id_upper>>
     drule check_subproofs_list_mindel>>
     simp[any_el_update_resize]>>
     ntac 3 strip_tac>>
     CONJ_TAC >- (
-      fs[do_red_check_def]>>
+      gvs[do_red_check_def,AllCaseEqs()]>>
       TOP_CASE_TAC>>fs[]
       >- (
-        drule split_goals_hash_imp_split_goals>>
+        EVERY_CASE_TAC>>gs[]>>
+        (drule_at Any) split_goals_hash_imp_split_goals>>
+        disch_then (qspec_then`fml` mp_tac)>>
+        impl_tac >- (
+          match_mp_tac (GEN_ALL SND_reindex_characterize)>>
+          metis_tac[])>>
         match_mp_tac split_goals_same_goals>>
         simp[EXTENSION,FORALL_PROD]>>
         rw[]>>eq_tac>>rw[]
@@ -1146,7 +1186,8 @@ Proof
           match_mp_tac (GEN_ALL MEM_subst_indexes)>>
           first_x_assum (irule_at Any)>>
           CONJ_TAC>- (
-            simp[reindex_characterize,MEM_FILTER]>>
+            drule FST_reindex_characterize>>
+            simp[MEM_FILTER]>>
             fs[fml_rel_def,ind_rel_def])>>
           simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
           rw[]
@@ -1166,7 +1207,9 @@ Proof
         drule subst_indexes_MEM>>
         rw[MEM_toAList,lookup_map_opt]>>
         rename1`any_el idd _ _ = _`>>
-        fs[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST,reindex_characterize,MEM_FILTER]>>
+        drule FST_reindex_characterize>>
+        strip_tac>>gvs[]>>
+        fs[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST,MEM_FILTER]>>
         `idd < id` by (
           CCONTR_TAC>>fs[]>>
           last_x_assum(qspec_then`idd` mp_tac)>>
@@ -1278,7 +1321,7 @@ QED
 
 Definition all_core_def:
   all_core fml inds core ⇔
-  let inds' = reindex fml inds in
+  let inds' = FST (reindex fml inds) in
   (EVERY (λn. lookup n core ≠ NONE) inds', inds')
 End
 
@@ -1291,8 +1334,10 @@ Theorem fml_rel_all_core:
 Proof
   reverse (rw[all_core_def])
   >-
-    fs[ind_rel_reindex]>>
-  fs[reindex_characterize,EVERY_FILTER]>>
+    metis_tac[ind_rel_reindex,FST,PAIR]>>
+  Cases_on`reindex fmlls inds`>>
+  drule FST_reindex_characterize>>rw[]>>
+  fs[EVERY_FILTER]>>
   fs[fml_rel_def,ind_rel_def,SUBSET_DEF,domain_lookup]>>
   rw[]>>
   first_x_assum(qspec_then`x` assume_tac)>>
@@ -1308,12 +1353,14 @@ Definition core_from_inds_def:
 End
 
 Definition do_dom_check_def:
-  do_dom_check idopt fml rfml w cf pfs dsubs =
+  do_dom_check idopt fml rfml w cf indfml pfs dsubs =
   case idopt of NONE =>
     let goals = toAList (map_opt (subst_opt w) cf) in
     let (l,r) = extract_pids pfs LN LN in
-      split_goals_hash l goals ∧
-      EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH dsubs))
+    if EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH dsubs))
+    then
+      split_goals_hash indfml l goals
+    else F
   | SOME cid =>
      check_contradiction_fml_list fml cid
 End
@@ -1325,25 +1372,26 @@ Definition check_cstep_list_def:
     Dom c s pfs idopt =>
     (case ord of NONE => NONE
     | SOME spo =>
-    ( let fml_not_c = update_resize fml NONE (SOME (not c)) id in
+    ( let (rinds,fmlls) = reindex fml inds in
+      let fml_not_c = update_resize fml NONE (SOME (not c)) id in
       let w = subst_fun s in
       let cf = coref_list core fml in
       let dsubs = dom_subgoals spo w c obj in
       case extract_clauses_list s fml dsubs pfs [] of
         NONE => NONE
       | SOME cpfs =>
-        (case check_subproofs_list cpfs core fml_not_c (sorted_insert id inds) id (id+1) of
+        (case check_subproofs_list cpfs core fml_not_c (sorted_insert id rinds) id (id+1) of
           NONE => NONE
         | SOME (fml',id') =>
           let rfml = rollback fml' id id' in
-          if do_dom_check idopt fml' rfml w cf pfs dsubs then
+          if do_dom_check idopt fml' rfml w cf fmlls pfs dsubs then
             SOME(
               update_resize rfml NONE (SOME c) id',
-              sorted_insert id' inds,
+              sorted_insert id' rinds,
               id'+1, core, bound, ord, orders)
           else NONE)))
   | LoadOrder nn xs =>
-    (let inds' = reindex fml inds in
+    (let inds' = FST (reindex fml inds) in
       case ALOOKUP orders nn of NONE => NONE
       | SOME ord' =>
         if LENGTH xs = LENGTH (FST (SND ord')) then
@@ -1487,10 +1535,13 @@ Theorem fromAList_toAList_core_from_inds:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ⇒
   fromAList (MAP (λ(x,y). (x,())) (toAList fml)) =
-  core_from_inds (reindex fmlls inds)
+  core_from_inds (FST (reindex fmlls inds))
 Proof
   DEP_REWRITE_TAC[spt_eq_thm]>>
-  simp[core_from_inds_def,wf_fromAList,lookup_fromAList,ALOOKUP_MAP,reindex_characterize,ALOOKUP_toAList]>>rw[]>>
+  Cases_on`reindex fmlls inds`>>
+  drule FST_reindex_characterize>>strip_tac>>
+  gvs[]>>
+  simp[core_from_inds_def,wf_fromAList,lookup_fromAList,ALOOKUP_MAP,ALOOKUP_toAList]>>rw[]>>
   Cases_on`lookup n fml`>>fs[fml_rel_def]>>
   last_x_assum(qspec_then`n` assume_tac)
   >-
@@ -1520,14 +1571,16 @@ Proof
   Cases>>rw[]
   >- ((* Dom *)
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    pairarg_tac>>gvs[]>>
+    rpt(pairarg_tac>>gvs[])>>
+    gvs[AllCaseEqs()]>>
     DEP_REWRITE_TAC[fml_rel_extract_clauses_list]>>
     simp[PULL_EXISTS]>>
     (drule_at Any) fml_rel_check_subproofs_list>>
     disch_then(qspec_then`insert id (not p) fml` mp_tac)>>
     impl_tac >- (
-      simp[fml_rel_update_resize,ind_rel_update_resize_sorted_insert]>>
-      simp[any_el_update_resize])>>
+      simp[fml_rel_update_resize,any_el_update_resize]>>
+      match_mp_tac ind_rel_update_resize_sorted_insert>>
+      metis_tac[ind_rel_reindex])>>
     rw[]>>simp[]>>
     drule check_subproofs_list_id>>
     drule check_subproofs_list_id_upper>>
@@ -1535,24 +1588,29 @@ Proof
     simp[any_el_update_resize]>>
     ntac 3 strip_tac>>
     CONJ_TAC>- (
-      fs[do_dom_check_def]>>every_case_tac>>fs[]
+      fs[do_dom_check_def]>>
+      every_case_tac>>fs[]
       >- (
-        drule split_goals_hash_imp_split_goals>>
+        (drule_at Any) split_goals_rem_imp_split_goals>>
         DEP_REWRITE_TAC[coref_coref_list]>>
-        fs[])>>
-      metis_tac[fml_rel_check_contradiction_fml]
-    )>>
+        fs[]>>
+        disch_then match_mp_tac>>
+        match_mp_tac (GEN_ALL SND_reindex_characterize)>>
+        metis_tac[])>>
+      metis_tac[fml_rel_check_contradiction_fml] )>>
     CONJ_TAC>- (
       match_mp_tac fml_rel_update_resize>>
       match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
     CONJ_TAC >- (
       match_mp_tac ind_rel_update_resize_sorted_insert>>
       match_mp_tac ind_rel_rollback_2>>
-      simp[])>>
+      fs[]>>
+      metis_tac[ind_rel_reindex])>>
     simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST])
   >- ( (* LoadOrder *)
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    simp[ind_rel_reindex,fromAList_toAList_core_from_inds])
+    simp[fromAList_toAList_core_from_inds]>>
+    metis_tac[FST_reindex_characterize,PAIR,FST,ind_rel_reindex])
   >- ( (* UnloadOrder *)
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def])
   >- ( (* StoreOrder *)

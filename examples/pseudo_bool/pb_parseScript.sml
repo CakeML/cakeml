@@ -536,20 +536,34 @@ Definition fromString_unsafe_def:
       else &fromChars_unsafe (strlen str) str
 End
 
-(* TODO: need to be more careful for negative numbers *)
+Definition is_numeric_def:
+  is_numeric c =
+  let n = ORD c in
+  48 ≤ n ∧ n ≤ 57
+End
+
+Definition is_num_prefix_def:
+  is_num_prefix c =
+  (c = #"~" ∨ c = #"-")
+End
+
+Definition int_start_def:
+  int_start s =
+  ((strlen s > 0 ∧ is_numeric (strsub s 0)) ∨
+  (strlen s > 1 ∧
+    is_num_prefix (strsub s 0) ∧
+    is_numeric (strsub s 1)))
+End
+
 Definition tokenize_fast_def:
   tokenize_fast (s:mlstring) =
-  if strlen s = 0 then INL s
-  else
-  let c = ORD (strsub s 0) in
-  if 48 ≤ c ∧ c ≤ 57
-  then INR (fromString_unsafe s)
+  if int_start s then
+    INR (fromString_unsafe s)
   else INL s
 End
 
-(* TODO: use tokenize_fast *)
 Definition toks_fast_def:
-  toks_fast s = MAP tokenize (tokens blanks s)
+  toks_fast s = MAP tokenize_fast (tokens blanks s)
 End
 
 val headertrm = rconc (EVAL``toks_fast (strlit"pseudo-Boolean proof version 2.0")``);

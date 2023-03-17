@@ -538,14 +538,16 @@ End
 
 (* Partition the formula goals into proved and non-proved
   For each non-proved goal, check if
-  it was already proved by another proofgoal (excluding #)
+  1) it was already in the formula
+  2) it was already proved by another proofgoal (excluding #)
 *)
 Definition split_goals_def:
-  split_goals (proved:num_set) (goals:(num # (int # num) list # num) list) =
+  split_goals fml (proved:num_set) (goals:(num # (int # num) list # num) list) =
   let (lp,lf) =
     PARTITION (λ(i,c). lookup i proved ≠ NONE) goals in
   let proved = MAP SND lp in
-  EVERY (λ(i,c). mem_constraint c proved) lf
+  let f = range fml in
+  EVERY (λ(i,c). c ∈ f ∨ mem_constraint c proved) lf
 End
 
 Triviality list_pair_eq_thm:
@@ -588,7 +590,7 @@ Definition check_sstep_def:
           (case idopt of NONE =>
             (let goals = toAList (map_opt (subst_opt w) fml) in
             let (l,r) = extract_pids pfs LN LN in
-              split_goals l goals ∧
+              split_goals fml l goals ∧
               EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs)))
           | SOME cid =>
             check_contradiction_fml fml' cid) in
@@ -831,8 +833,9 @@ Proof
 QED
 
 Theorem split_goals_checked:
-  split_goals proved goals ∧
+  split_goals fml proved goals ∧
   MEM (n,yy) goals ⇒
+  yy ∈ range fml ∨
   ∃i.
     lookup i proved ≠ NONE ∧
     MEM (i,yy) goals
@@ -847,10 +850,13 @@ Proof
   rw[]
   >- metis_tac[]>>
   fs[EVERY_MEM]>>
-  last_x_assum drule>>rw[MEM_MAP]>>
-  first_x_assum drule>>rw[]>>
-  pairarg_tac>>gvs[]>>
-  metis_tac[]
+  last_x_assum drule>>rw[MEM_MAP]
+  >-
+    metis_tac[]
+  >- (
+    first_x_assum drule>>rw[]>>
+    pairarg_tac>>gvs[]>>
+    metis_tac[])
 QED
 
 Theorem sat_obj_po_insert_contr:
@@ -999,6 +1005,9 @@ Proof
     \\ `MEM (a,yy) (toAList (map_opt (subst_opt (subst_fun s)) fml))` by
       simp[MEM_toAList,lookup_map_opt]
     \\ drule_all split_goals_checked \\ rw[]
+    >- (
+      fs[satisfiable_def,not_thm,satisfies_def]>>
+      metis_tac[subst_opt_SOME])
     \\ drule_all lookup_extract_pids_l>>rw[]
     \\ drule extract_clauses_MEM_INL
     \\ disch_then drule
@@ -1415,7 +1424,7 @@ Definition check_cstep_def:
             let cf = coref core fml in
             let goals = toAList (map_opt (subst_opt w) cf) in
             let (l,r) = extract_pids pfs LN LN in
-              split_goals l goals ∧
+              split_goals fml l goals ∧
               EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH dsubs))
           | SOME cid =>
             check_contradiction_fml fml' cid) in
@@ -1986,6 +1995,10 @@ Proof
         \\ rename1`subst_opt _ _ = SOME yy`
         \\ `MEM (a,yy) (toAList (map_opt (subst_opt (subst_fun s)) (coref core fml)))` by simp[MEM_toAList,lookup_map_opt]
         \\ drule_all split_goals_checked \\ rw[]
+        >- (
+          fs[satisfiable_def,not_thm,satisfies_def]>>
+          fs[range_def]>>
+          metis_tac[subst_opt_SOME])
         \\ drule_all lookup_extract_pids_l>>rw[]
         \\ drule extract_clauses_MEM_INL
         \\ disch_then drule
