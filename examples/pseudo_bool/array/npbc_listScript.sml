@@ -1591,7 +1591,7 @@ Proof
       fs[do_dom_check_def]>>
       every_case_tac>>fs[]
       >- (
-        (drule_at Any) split_goals_rem_imp_split_goals>>
+        (drule_at Any) split_goals_hash_imp_split_goals>>
         DEP_REWRITE_TAC[coref_coref_list]>>
         fs[]>>
         disch_then match_mp_tac>>
