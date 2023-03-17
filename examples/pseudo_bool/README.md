@@ -24,3 +24,6 @@ pseudo-boolean constraint (un-normalised) with 'a var type
 
 [pbc_normaliseScript.sml](pbc_normaliseScript.sml):
 Normalizes pbc into npbc
+
+[spt_to_vecScript.sml](spt_to_vecScript.sml):
+Converting sptree to vector
