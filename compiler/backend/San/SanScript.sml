@@ -221,7 +221,6 @@ fun valid_mapped_read_tac reg address =
   `_r` by (
     qunabbrev_tac `_r` \\
     simp[is_valid_mapped_read_def] \\
-    qexistsl [reg, address] \\
     simp[riscv_config_def, riscv_enc_def,riscv_ast_def,LIST_BIND_def] \\
     EVAL_TAC
   ) \\
@@ -232,7 +231,6 @@ fun valid_mapped_write_tac reg address =
   `_w` by (
     qunabbrev_tac `_w` \\
     simp[is_valid_mapped_write_def] \\
-    qexistsl [reg, address] \\
     simp[riscv_config_def, riscv_enc_def,riscv_ast_def,LIST_BIND_def] \\
     EVAL_TAC
   ) \\
