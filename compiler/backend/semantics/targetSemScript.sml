@@ -76,53 +76,35 @@ val addr2w8list_def = Define`
   addr2w8list (adr: 'a word) = w2wlist_le adr (dimindex (:'a) DIV 8)`;
 
 val is_valid_mapped_read_def = Define`
-  is_valid_mapped_read pc (nb: word8) (ad: 'a word) r pc' t ms =
+  is_valid_mapped_read pc (nb: word8) (ad: 'a addr) r pc' t ms =
     if nb = 1w
     then
-      ?r2 w.
-        (bytes_in_memory pc (t.config.encode (Inst (Mem Load8 r (Addr r2 w))))
-          (t.get_byte ms) {a | pc <= a /\ a < pc'}) /\
-        (LENGTH (t.config.encode (Inst (Mem Load8 r (Addr r2 w)))) = w2n pc' - w2n pc) /\
-        (t.get_reg ms r2 + w = ad)
+      (bytes_in_memory pc (t.config.encode (Inst (Mem Load8 r ad)))
+        (t.get_byte ms) {a | pc <= a /\ a < pc'})
     else if nb = n2w (dimindex (:'a) DIV 8)
     then
-      ?r2 w.
-        (bytes_in_memory pc (t.config.encode (Inst (Mem Load r (Addr r2 w))))
-          (t.get_byte ms) {a | pc <= a /\ a < pc'}) /\
-        (LENGTH (t.config.encode (Inst (Mem Load r (Addr r2 w)))) = w2n pc' - w2n pc) /\
-        (t.get_reg ms r2 + w = ad)
+      (bytes_in_memory pc (t.config.encode (Inst (Mem Load r ad)))
+        (t.get_byte ms) {a | pc <= a /\ a < pc'})
     (* else if nb = 4w
     then
-      ?r2 w.
-        (bytes_in_memory pc (t.config.encode (Inst (Mem Load32 r (Addr r2 w))))
-          (t.get_byte ms) {a | pc <= a /\ a < pc'}) /\
-        (LENGTH (t.config.encode (Inst (Mem Load32 r (Addr r2 w)))) = w2n pc' - w2n pc) /\
-        (t.get_reg ms r2 + w = ad) *)
+      (bytes_in_memory pc (t.config.encode (Inst (Mem Load32 r ad)))
+        (t.get_byte ms) {a | pc <= a /\ a < pc'}) *)
     else F`;
 
 val is_valid_mapped_write_def = Define`
-  is_valid_mapped_write pc (nb:word8) (ad: 'a word) r pc' t ms =
+  is_valid_mapped_write pc (nb:word8) (ad: 'a addr) r pc' t ms =
     if nb = 1w
     then
-      ?r2 w.
-        (bytes_in_memory pc (t.config.encode (Inst (Mem Store8 r (Addr r2 w))))
-          (t.get_byte ms) {a | pc <= a /\ a < pc'}) /\
-        (LENGTH (t.config.encode (Inst (Mem Store8 r (Addr r2 w)))) = w2n pc' - w2n pc) /\
-        (t.get_reg ms r2 + w = ad)
+        (bytes_in_memory pc (t.config.encode (Inst (Mem Store8 r ad)))
+          (t.get_byte ms) {a | pc <= a /\ a < pc'})
     else if nb = n2w (dimindex (:'a) DIV 8)
     then
-      ?r2 w.
-        (bytes_in_memory pc (t.config.encode (Inst (Mem Store r (Addr r2 w))))
-          (t.get_byte ms) {a | pc <= a /\ a < pc'}) /\
-        (LENGTH (t.config.encode (Inst (Mem Store r (Addr r2 w)))) = w2n pc' - w2n pc) /\
-        (t.get_reg ms r2 + w = ad)
+        (bytes_in_memory pc (t.config.encode (Inst (Mem Store r ad)))
+          (t.get_byte ms) {a | pc <= a /\ a < pc'})
     (* else if nb = 4w
     then
-      ?r2 w.
-        (bytes_in_memory pc (t.config.encode (Inst (Mem Store32 r (Addr r2 w))))
-          (t.get_byte ms) {a | pc <= a /\ a < pc'}) /\
-        (LENGTH (t.config.encode (Inst (Mem Store32 r (Addr r2 w)))) = w2n pc' - w2n pc) /\
-        (t.get_reg ms r2 + w = ad) *)
+        (bytes_in_memory pc (t.config.encode (Inst (Mem Store32 r ad)))
+          (t.get_byte ms) {a | pc <= a /\ a < pc'}) *)
     else F`;
 
 val evaluate_def = Define `
@@ -166,7 +148,7 @@ val evaluate_def = Define `
             | Addr r off =>
             let ad = mc.target.get_reg ms r + off in
               (if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
-                is_valid_mapped_read (mc.target.get_pc ms) nb ad reg pc'
+                is_valid_mapped_read (mc.target.get_pc ms) nb a reg pc'
                   mc.target ms
               then
                 (case call_FFI ffi (EL ffi_index mc.ffi_names)
@@ -185,7 +167,7 @@ val evaluate_def = Define `
             | Addr r off =>
             let ad = (mc.target.get_reg ms r) + off in
               (if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
-                is_valid_mapped_write (mc.target.get_pc ms) nb ad reg pc'
+                is_valid_mapped_write (mc.target.get_pc ms) nb a reg pc'
                   mc.target ms
               then
                 (case call_FFI ffi (EL ffi_index mc.ffi_names)
@@ -292,10 +274,11 @@ val start_pc_ok_def = Define`
          mc_conf.ffi_entry_pcs 0 = SOME index) /\
      (!index.
         index < LENGTH mc_conf.ffi_names /\ i <= index ==>
-        DISJOINT
+     (* DISJOINT
         {a| EL index mc_conf.ffi_entry_pcs <= a/\
               a < SND (SND (SND (mc_conf.mmio_info index)))}
-          mc_conf.prog_addresses /\
+          mc_conf.prog_addresses /\ *)
+        (EL index mc_conf.ffi_entry_pcs) NOTIN mc_conf.prog_addresses /\
         DISJOINT
           {a| EL index mc_conf.ffi_entry_pcs <= a /\
               a < SND (SND (SND (mc_conf.mmio_info index)))}

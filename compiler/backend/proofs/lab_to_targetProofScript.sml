@@ -621,10 +621,11 @@ Definition share_mem_state_rel_def:
    (* requirements for share memory access pcs *)
    (!index i. mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
       index < LENGTH mc_conf.ffi_names /\ i <= index ==>
-      DISJOINT
+(*    DISJOINT
       {a| EL index mc_conf.ffi_entry_pcs <= a/\
             a < SND (SND (SND (mc_conf.mmio_info index)))}
-        mc_conf.prog_addresses /\
+        mc_conf.prog_addresses /\ *)
+      (EL index mc_conf.ffi_entry_pcs) NOTIN mc_conf.prog_addresses /\
       DISJOINT
         {a| EL index mc_conf.ffi_entry_pcs <= a /\
             a < SND (SND (SND (mc_conf.mmio_info index)))}
