@@ -202,9 +202,11 @@ Definition pancake_peg_def[nocompute]:
         (INL EBaseNT, seql [choicel [seql [consume_tok LParT;
                                            mknt ExpNT;
                                            consume_tok RParT] I;
+                                     keep_kw TrueK; keep_kw FalseK;
                                      keep_int; keep_ident; mknt LabelNT;
                                      mknt StructNT; mknt LoadNT;
-                                     mknt LoadByteNT; keep_kw BaseK];
+                                     mknt LoadByteNT; keep_kw BaseK;
+                                     ];
                             rpt (seql [consume_tok DotT; keep_nat] I)
                                 FLAT]
                            (mksubtree EBaseNT));
