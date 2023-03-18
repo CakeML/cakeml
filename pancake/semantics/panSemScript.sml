@@ -576,16 +576,16 @@ End
 
 (* Handles the return value and exception passing of function calls. *)
 Definition h_handle_call_ret_def:
-  (handle_call_ret calltyp s (NONE,s') = Ret (SOME Error,s')) ∧
-  (handle_call_ret calltyp s (SOME Break,s') = Ret (SOME Error,s')) ∧
-  (handle_call_ret calltyp s (SOME Continue,s') = Ret (SOME Error,s')) ∧
-  (handle_call_ret calltyp s (SOME (Return retv),s') = case calltyp of
+  (h_handle_call_ret calltyp s (NONE,s') = Ret (SOME Error,s')) ∧
+  (h_handle_call_ret calltyp s (SOME Break,s') = Ret (SOME Error,s')) ∧
+  (h_handle_call_ret calltyp s (SOME Continue,s') = Ret (SOME Error,s')) ∧
+  (h_handle_call_ret calltyp s (SOME (Return retv),s') = case calltyp of
                                                   Tail => Ret (SOME (Return retv),empty_locals s')
                                                  | Ret dvar _ =>
                                                     if is_valid_value s.locals dvar retv
                                                     then Ret (NONE,set_var dvar retv (s' with locals := s.locals))
                                                     else Ret (SOME Error,s')) ∧
-  (handle_call_ret calltyp s (SOME (Exception eid exn),s') = case calltyp of
+  (h_handle_call_ret calltyp s (SOME (Exception eid exn),s') = case calltyp of
                                                        | Tail => Ret (SOME (Exception eid exn),empty_locals s')
                                                        | Ret _ NONE => Ret (SOME (Exception eid exn),empty_locals s')
                                                        | Ret _ (SOME (Handle eid' evar p)) =>
@@ -597,7 +597,7 @@ Definition h_handle_call_ret_def:
                                                                    else Ret (SOME Error,s')
                                                                  | NONE => Ret (SOME Error,s'))
                                                           else Ret (SOME (Exception eid exn),empty_locals s')) ∧
-  (handle_call_ret calltyp s (res,s') = Ret (res,empty_locals s'))
+  (h_handle_call_ret calltyp s (res,s') = Ret (res,empty_locals s'))
 End
 
 Definition h_prog_rule_call_def:
@@ -699,6 +699,128 @@ Theorem itree_rep_simp_eq:
   itree_el (Tau (Ret 1)) [NONE] = Return 1
 Proof
   rw [itreeTauTheory.itree_el_def]
+QED
+
+Definition itree_ret_val_def:
+  itree_ret_val t p = case (itree_el t p) of
+                        Return r => r
+                       | _ => ARB
+End
+
+
+(* Proof of isomorphism with operational semantics *)
+Theorem itree_sem_evaluate_biject_skip:
+  (case itree_el (evaluate_itree Skip s) [] of
+      Event v2 => ARB
+    | Return r => r
+    | Silence => ARB) = evaluate (Skip,s)
+Proof
+  rw [evaluate_itree_def,itree_mrec_def] >>
+  rw [itreeTauTheory.itree_el_def,itreeTauTheory.itree_iter_def] >>
+  rw [h_prog_def] >>
+  rw [Once itreeTauTheory.itree_unfold] >>
+  rw [evaluate_def]
+QED
+
+(* TODO: Requires recursive proof *)
+(* How can one appeal to the future assumption that the current theorem is proven
+ in order to continue a proof without very many nested cases *)
+
+(* TODO: Possibly need a relation on prog x state such that members have the property that
+h_prog generates an itree for (prog x state) that when applied to itree_mrec produces an itree
+that has in every leaf the same result as in evaluate (prog x state). *)
+
+(* weak termination-exclusive bisimulation *)
+Inductive strip_tau_vis:
+  (strip_tau_vis t t' ⇒ strip_tau_vis (Tau t) t') ∧
+  (strip_tau_vis t t' ⇒ strip_tau_vis (Vis e (λx. t)) t') ∧
+  (strip_tau_vis (Ret v) (Ret v))
+End
+
+Triviality foo:
+
+Proof
+
+QED
+
+(* Path-based proof of isomorphism between semantics *)
+Theorem itree_sem_evaluate_biject:
+  itree_ret_val (evaluate_itree p s) path = evaluate (p,s)
+Proof
+  rw [itree_ret_val_def] >>
+  Induct_on ‘path’ >>
+  Cases_on ‘p’ >>
+  rw [evaluate_itree_def,itree_mrec_def,h_prog_def] >>
+  rw [itreeTauTheory.itree_el_def,itreeTauTheory.itree_iter_def]
+  (* Skip *)
+  >- (rw [Once itreeTauTheory.itree_unfold,evaluate_def])
+  (* Dec *)
+  (* TODO: recrusive term needs a finitary construct to avoid
+     unwanted cases explosion in proof. *)
+  >- (rw [h_prog_rule_dec_def,evaluate_def] >> cheat)
+      (* Cases_on ‘e’ *)
+      (*  (* Const c *) *)
+      (* >- (rw [eval_def] >> *)
+      (*     Cases_on ‘p'’ *)
+      (*     (* Skip, again... :( *) *)
+  (*     >- (rw [h_prog_def,evaluate_def]))) *)
+  (* Assign *)
+  (* TODO: General madness occurring here. *)
+  >- (cheat)
+  (* >- (rw [h_prog_rule_assign_def,evaluate_def] >> *)
+  (*     Cases_on ‘e’ >> *)
+  (*     rw [eval_def] >> *)
+  (*     rw [Once itreeTauTheory.itree_unfold] >> *)
+  (*     rw [FLOOKUP_DEF,is_valid_value_def,shape_of_def] >> *)
+  (*     Cases_on ‘s.locals ' m'’ >> *)
+  (*     Cases_on ‘s.locals ' m’ >> *)
+  (*     rw [shape_of_def]) *)
+     (* Store *)
+  >- (cheat)
+  (* >- (rw [h_prog_rule_store_def,evaluate_def] >> *)
+  (*     Cases_on ‘e’ >> *)
+  (*     Cases_on ‘e0’ >> *)
+  (*     rw [eval_def] >> *)
+  (*     rw [flatten_def,mem_stores_def,mem_store_def] >> *)
+  (*     rw [Once itreeTauTheory.itree_unfold] >> *)
+  (*     rw [FLOOKUP_DEF] >> *)
+  (*     Cases_on ‘s.locals ' m’ >> *)
+  (*     rw [flatten_def,mem_stores_def,mem_store_def] *)
+  (*     >- (rpt (Induct_on ‘l’ >> *)
+  (*         rw [MAP,FLAT] >> *)
+  (*         rw [mem_stores_def,mem_store_def] >> *)
+  (*         Cases_on ‘h’ >> *)
+  (*         Induct_on ‘l’ >> *)
+  (*         rw [flatten_def,MAP,FLAT] >> *)
+  (*         rw [mem_stores_def,mem_store_def]))) *)
+  (* Store byte *)
+  >- (rw [h_prog_rule_store_byte_def,evaluate_def] >>
+      Cases_on ‘eval s e’ >>
+      Cases_on ‘eval s e0’ >>
+      rw [] >>
+      rw [Once itreeTauTheory.itree_unfold] >>
+      Cases_on ‘x’
+      >- (Cases_on ‘w’ >>
+          rw [])
+      >- (Induct_on ‘l’ >>
+          rw [])
+      >- (Cases_on ‘w’ >>
+          rw [] >>
+          Cases_on ‘x'’
+          >- (Cases_on ‘w’ >>
+              rw [] >>
+              Cases_on ‘mem_store_byte s.memory s.memaddrs s.be c (w2w c')’ >>
+              rw [])
+          >- (
+
+             ))
+QED
+
+(* Bisimulation proof of isomorphism between semantics *)
+(* Can be interred once the evaluate_biject is proven by itree_el_eqv. *)
+Theorem itree_sem_evaluate_bisim:
+  evaluate_itree p s = Ret (evaluate (p,s))
+Proof
 QED
 
 Theorem vshapes_args_rel_imp_eq_len_MAP:
