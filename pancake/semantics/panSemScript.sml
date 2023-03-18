@@ -469,17 +469,27 @@ Proof
 QED
 
 (* Two approaches to reasoning about ITrees as processes:
-  - As an equational theory in terms of the ITree datatype.
-  - About the finite paths of ITree terms.
+  - As an equational theory over the itree datatype (the abstraction).
+  - As a function on finite paths to :itree_el terms (the representation).
 
   Each may have their own merits.
  *)
 
+(* Characterisation of infinite itree:s in terms of their paths. *)
+Definition itree_finite_def:
+  itree_finite t = ∃p x. itree_el t p = Return x
+End
+
+Definition itree_infinite_def:
+  itree_infinite t = ¬(itree_finite t)
+End
+
 (* To prove an ITree is infinite, it suffices to show there is no sequence of events
  after which the tree returns some value. *)
 Theorem itree_mrec_inf_event:
-  ¬∃p. itree_el (itree_mrec (λx. Vis (INL rc) Ret) seed) p = Return x
+  itree_infinite (itree_mrec (λx. Vis (INL rc) Ret) seed)
 Proof
+  rw [itree_infinite_def,itree_finite_def] >>
   rw [itree_mrec_def]  >>
   rw [itreeTauTheory.itree_iter_def,
         itreeTauTheory.itree_bind_right_identity] >>
@@ -579,24 +589,23 @@ Definition h_prog_rule_call_def:
    | (_,_) => Ret (SOME Error,s)
 End
 
-(* Definition h_prog_rule_ext_call_def: *)
-(*   h_prog_rule_ext_call ffi_name ptr1 len1 ptr2 len2 s = *)
-(*   case (FLOOKUP s.locals len1,FLOOKUP s.locals ptr1,FLOOKUP s.locals len2,FLOOKUP s.locals ptr2) of *)
-(*    | SOME (ValWord sz1),SOME (ValWord ad1),SOME (ValWord sz2),SOME (ValWord ad2) => *)
-(*                                                                (case (read_bytearray ad1 (w2n sz1) (mem_load_byte s.memory s.memaddrs s.be), *)
-(*                                                                       read_bytearray ad2 (w2n sz2) (mem_load_byte s.memory s.memaddrs s.be)) of *)
-(*                                                                  | SOME bytes,SOME bytes2 => *)
-(*                                                                                (case call_FFI s.ffi (explode ffi_name) bytes bytes2 of *)
-(*                                                                                  | FFI_final outcome => *)
-(*                                                                                     Vis (INR (FFI_final outcome)) *)
-(*                                                                                              (λa. empty_locals s) *)
-(*                                                                                  | FFI_return new_ffi new_bytes => *)
-(*                                                                                     let nmem = write_bytearray ad2 new_bytes s.memory s.memaddrs s.be in *)
-(*                                                                                     (NONE, s with <| memory := nmem; ffi := new_ffi |>)) *)
-(*                                                                               | _ => (SOME Error,s)) *)
-(*                                                               | res => (SOME Error,s)) *)
-
-(* End *)
+Definition h_prog_rule_ext_call_def:
+  h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len s =
+  case (FLOOKUP s.locals conf_len,FLOOKUP s.locals conf_ptr,FLOOKUP s.locals array_len,FLOOKUP s.locals array_ptr) of
+    (SOME (ValWord conf_sz),SOME (ValWord conf_ptr_adr),
+           SOME (ValWord array_sz),SOME (ValWord array_ptr_adr)) =>
+                                    (case (read_bytearray conf_ptr_adr (w2n conf_sz) (mem_load_byte s.memory s.memaddrs s.be),
+                                           read_bytearray array_ptr_adr (w2n array_sz) (mem_load_byte s.memory s.memaddrs s.be)) of
+                                       (SOME conf_bytes,SOME bytes) =>
+                                        (case call_FFI s.ffi (explode ffi_name) conf_bytes bytes of
+                                           FFI_final outcome => Ret (SOME (FinalFFI outcome),empty_locals s)
+                                          | FFI_return new_ffi new_bytes =>
+                                             let nmem = write_bytearray array_ptr_adr new_bytes s.memory s.memaddrs s.be in
+                                             Vis (INR (IO_event (explode ffi_name) conf_bytes (ZIP (bytes,new_bytes))))
+                                                 (λx. Ret (NONE,s with <| memory := nmem; ffi := new_ffi |>)))
+                                      | _ => Ret (SOME Error,s))
+   | _ => Ret (SOME Error,s)
+End
 
 Definition h_prog_rule_raise_def:
   h_prog_rule_raise eid e s =
@@ -632,7 +641,7 @@ Definition h_prog_def:
   (h_prog (Break,s) = Ret (SOME Break,s)) ∧
   (h_prog (Continue,s) = Ret (SOME Continue,s)) ∧
   (h_prog (Call calltyp tgtexp argexps,s) = h_prog_rule_call calltyp tgtexp argexps s) ∧
-  (* (h_prog (ExtCall ffi_name ptr1 len1 ptr2 len2,s) = h_prog_rule_ext_call ffi_name ptr1 len1 ptr2 len2 s) ∧ *)
+  (h_prog (ExtCall ffi_name conf_ptr conf_len array_ptr array_len,s) = h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len s) ∧
   (h_prog (Raise eid e,s) = h_prog_rule_raise eid e s) ∧
   (h_prog (Return e,s) = h_prog_rule_return e s) ∧
   (h_prog (Tick,s) = Ret (NONE,s))
