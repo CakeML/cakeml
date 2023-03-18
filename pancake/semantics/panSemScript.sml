@@ -447,13 +447,6 @@ Definition itree_trigger_def:
   itree_trigger event = Vis event Ret
 End
 
-(* Definition itree_cat_def: *)
-(*   itree_cat t1 t2 = itree_bind t1 (λx. t2) *)
-(* End *)
-
-(* val _ = set_fixity "\226\140\162" (Infixl 500); *)
-(* Overload "\226\140\162" = “itree_cat”; *)
-
 Definition itree_mrec_def:
   itree_mrec rh seed =
   itree_iter
@@ -464,6 +457,38 @@ Definition itree_mrec_def:
         | Vis (INR e) k => Vis e (λx. Ret (INL (k x))))
   (rh seed)
 End
+
+Theorem itree_mrec_one_rec_event:
+  itree_mrec
+  (λseed. if seed = 0 then Vis (INL 1) Ret else Ret seed)
+  0 = Tau (Ret 1)
+Proof
+  rw [itree_mrec_def] >>
+  rw [itreeTauTheory.itree_iter_def,itreeTauTheory.itree_bind_def] >>
+  rpt (rw [Once itreeTauTheory.itree_unfold])
+QED
+
+(* Two approaches to reasoning about ITrees as processes:
+  - As an equational theory in terms of the ITree datatype.
+  - About the finite paths of ITree terms.
+
+  Each may have their own merits.
+ *)
+
+(* To prove an ITree is infinite, it suffices to show there is no sequence of events
+ after which the tree returns some value. *)
+Theorem itree_mrec_inf_event:
+  ¬∃p. itree_el (itree_mrec (λx. Vis (INL rc) Ret) seed) p = Return x
+Proof
+  rw [itree_mrec_def]  >>
+  rw [itreeTauTheory.itree_iter_def,
+        itreeTauTheory.itree_bind_right_identity] >>
+  Induct_on ‘p’ >>
+  rw [Once itreeTauTheory.itree_unfold,
+      itreeTauTheory.itree_bind_right_identity] >>
+  Cases_on ‘h’ >>
+  rw [itreeTauTheory.itree_el_def]
+QED
 
 (* Semantics validation functions *)
 Definition handle_call_ret_def:
@@ -542,13 +567,6 @@ Definition h_prog_rule_while_def:
                                                         | _ => Ret (INR (res,s'))))
                                (p,s)
 End
-
-(* Theorem while_tree_true_branch: *)
-(*   h_prog_rule_while (Const 1w) Skip s = Vis e k ⇒ k (NONE,s) = Tau (Vis e k) *)
-(* Proof *)
-(*   rw [h_prog_rule_while_def] >> *)
-(*   rw [Once itreeTauTheory.itree_bisimulation] *)
-(* QED *)
 
 Definition h_prog_rule_call_def:
   h_prog_rule_call calltyp tgtexp argexps s =
@@ -642,54 +660,15 @@ Definition semantics_itree_def:
   evaluate_itree prog s ⋆ (Ret o FST)
 End
 
-(* ITree equalities *)
-Theorem itree_unfold_eq:
-  itree_unfold (K (Ret' ())) () = Ret ()
-Proof
-  rw [Once itreeTauTheory.itree_unfold]
-QED
 
-Theorem itree_unfold_cplx_eq:
-  itree_unfold (λx. if x = () then Ret' () else Tau' x) () = Ret ()
-Proof
-  rw [Once itreeTauTheory.itree_unfold]
-QED
+(* Reasoning about ITree reps *)
 
-Theorem itree_iter_eq:
-  t = itree_iter
-      (λseed. if seed = () then Ret (INL ()) else Ret (INR ()))
-      ()
-  ⇒ t = Tau t
+(* itree_el can be used to take the abs form of an ITree and reason
+ about its components by path reference. *)
+Theorem itree_rep_simp_eq:
+  itree_el (Tau (Ret 1)) [NONE] = Return 1
 Proof
-  rw [itreeTauTheory.itree_iter_def] >>
-  rw [itreeTauTheory.itree_unfold]
-QED
-
-Theorem itree_bind_eq:
-  itree_bind (Ret 1) (λx. Ret 2) = Ret 2
-Proof
-  rw [itreeTauTheory.itree_bind_def] >>
-  rw [Once itreeTauTheory.itree_unfold]
-QED
-
-Theorem itree_mrec_one_rec_event:
-  itree_mrec
-  (λseed. if seed = 0 then Vis (INL 1) Ret else Ret seed)
-  0 = Tau (Ret 1)
-Proof
-  rw [itree_mrec_def] >>
-  rw [itreeTauTheory.itree_iter_def] >>
-  rw [itreeTauTheory.itree_bind_def] >>
-  rpt (rw [Once itreeTauTheory.itree_unfold])
-QED
-
-(* TODO: Slightly different approach required here. *)
-Theorem itree_mrec_inf_event:
-  t = (itree_mrec (λx. Vis (INL ()) Ret) ()) ⇒ t = Tau t
-Proof
-  rw [itree_mrec_def] >>
-  rw [itreeTauTheory.itree_iter_def] >>
-  rw [itreeTauTheory.itree_bind_def]
+  rw [itreeTauTheory.itree_el_def]
 QED
 
 Theorem vshapes_args_rel_imp_eq_len_MAP:
