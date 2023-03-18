@@ -501,10 +501,6 @@ Proof
 QED
 
 (* Semantics validation functions *)
-Definition handle_call_ret_def:
-  handle_call_ret calltyp (res,s) = ARB
-End
-
 (* The rules for the recursive event handler, that decide
  how to evaluate each term of the program command grammar. *)
 
@@ -578,13 +574,39 @@ Definition h_prog_rule_while_def:
                                (p,s)
 End
 
+(* Handles the return value and exception passing of function calls. *)
+Definition h_handle_call_ret_def:
+  (handle_call_ret calltyp s (NONE,s') = Ret (SOME Error,s')) ∧
+  (handle_call_ret calltyp s (SOME Break,s') = Ret (SOME Error,s')) ∧
+  (handle_call_ret calltyp s (SOME Continue,s') = Ret (SOME Error,s')) ∧
+  (handle_call_ret calltyp s (SOME (Return retv),s') = case calltyp of
+                                                  Tail => Ret (SOME (Return retv),empty_locals s')
+                                                 | Ret dvar _ =>
+                                                    if is_valid_value s.locals dvar retv
+                                                    then Ret (NONE,set_var dvar retv (s' with locals := s.locals))
+                                                    else Ret (SOME Error,s')) ∧
+  (handle_call_ret calltyp s (SOME (Exception eid exn),s') = case calltyp of
+                                                       | Tail => Ret (SOME (Exception eid exn),empty_locals s')
+                                                       | Ret _ NONE => Ret (SOME (Exception eid exn),empty_locals s')
+                                                       | Ret _ (SOME (Handle eid' evar p)) =>
+                                                          if eid = eid'
+                                                          then (case FLOOKUP s.eshapes eid of
+                                                                  SOME sh =>
+                                                                   if shape_of exn = sh ∧ is_valid_value s.locals evar exn
+                                                                   then Vis (INL (p,set_var evar exn (s' with locals := s.locals))) Ret
+                                                                   else Ret (SOME Error,s')
+                                                                 | NONE => Ret (SOME Error,s'))
+                                                          else Ret (SOME (Exception eid exn),empty_locals s')) ∧
+  (handle_call_ret calltyp s (res,s') = Ret (res,empty_locals s'))
+End
+
 Definition h_prog_rule_call_def:
   h_prog_rule_call calltyp tgtexp argexps s =
   case (eval s tgtexp,OPT_MMAP (eval s) argexps) of
    | (SOME (ValLabel fname),SOME args) =>
       (case lookup_code s.code fname args of
         | SOME (callee_prog,newlocals) =>
-           Vis (INL (callee_prog,s)) (handle_call_ret calltyp)
+           Vis (INL (callee_prog,s)) (h_handle_call_ret calltyp s)
         | _ => Ret (SOME Error,s))
    | (_,_) => Ret (SOME Error,s)
 End
@@ -668,7 +690,6 @@ Definition semantics_itree_def:
   let prog = Call Tail (Label entry) [] in
   evaluate_itree prog s ⋆ (Ret o FST)
 End
-
 
 (* Reasoning about ITree reps *)
 
