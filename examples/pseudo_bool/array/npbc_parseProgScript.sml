@@ -63,6 +63,19 @@ val parse_cutting_side = Q.prove(
 
 val r = translate parse_var_def;
 
+val r = translate parse_subst_aux_def;
+val r = translate spt_to_vecTheory.prepend_def;
+val r = translate spt_to_vecTheory.to_flat_def;
+
+val r = translate combine_rle_def;
+val r = translate spt_center_def;
+val r = translate apsnd_cons_def;
+val r = translate spt_centers_def;
+val r = translate spt_right_def;
+val r = translate spt_left_def;
+val r = translate spts_to_alist_def;
+val r = translate toSortedAList_def;
+val r = translate spt_to_vecTheory.spt_to_vec_def;
 val r = translate parse_subst_def;
 
 val r = translate pbcTheory.lit_var_def;
@@ -181,11 +194,11 @@ val int_start_side = Q.prove(
 
 val _ = translate tokenize_fast_def;
 
-Definition not_isEmpty_def:
-  not_isEmpty s ⇔ s ≠ LN
+Definition not_is_empty_vec_def:
+  not_is_empty_vec v ⇔ length v ≠ 0
 End
 
-val r = translate not_isEmpty_def;
+val _ = translate not_is_empty_vec_def;
 
 val parse_lsteps_aux = process_topdecs`
   fun parse_lsteps_aux f_ns fd lno acc =
@@ -197,7 +210,7 @@ val parse_lsteps_aux = process_topdecs`
     | Some (Inl step,f_ns') =>
         parse_lsteps_aux f_ns' fd (lno+1) (step::acc)
     | Some (Inr (c,s),f_ns') =>
-      if not_isempty s then
+      if not_is_empty_vec s then
         raise Fail (format_failure (lno+1) "only contradiction steps allowed in nested proof steps")
       else
         (case parse_lsteps_aux f_ns' fd (lno+1) [] of
@@ -266,6 +279,16 @@ Theorem STDIO_INSTREAM_LINES_refl_gc:
   INSTREAM_LINES B C D E * GC
 Proof
   xsimpl
+QED
+
+Theorem not_is_empty_vec_eq:
+  not_is_empty_vec v ⇔
+  ¬is_empty_vec v
+Proof
+  EVAL_TAC>>
+  Cases_on`v`>>fs[]>>
+  EVAL_TAC>>
+  simp[]
 QED
 
 Theorem parse_lsteps_aux_spec:
@@ -379,15 +402,9 @@ Proof
     simp[Once PAIR_TYPE_def]>>
     strip_tac>>
     xmatch>>
-    xlet_auto
-    >- (
-      xsimpl>>
-      match_mp_tac EqualityType_SUM_TYPE>>
-      simp[EqualityType_NUM_BOOL]>>
-      match_mp_tac EqualityType_PBC_LIT_TYPE>>
-      simp[EqualityType_NUM_BOOL])>>
-    rename1`isEmpty tt`>>
-    reverse (Cases_on`isEmpty tt`>>fs[not_isEmpty_def])
+    xlet_autop>>
+    rename1`is_empty_vec tt`>>
+    reverse (Cases_on`is_empty_vec tt`>>fs[not_is_empty_vec_eq])
     >- (
       xif>>asm_exists_tac>>xsimpl>>
       rpt xlet_autop>>
@@ -676,7 +693,7 @@ val parse_sstep = process_topdecs`
       None => (Inl s, (fns, lno+1))
     | Some (Inl step,fns') => (Inr (Lstep step),(fns',lno+1))
     | Some (Inr (c,s),fns') =>
-      if not_isempty s then
+      if not_is_empty_vec s then
         case parse_red_aux fns' fd (lno+1) [] of
           (res,(pf,(fns'',lno'))) =>
           (Inr (Red c s pf res),(fns'',lno'))
@@ -783,14 +800,8 @@ Proof
   fs[PAIR_TYPE_def]>>
   xmatch>>
   rpt xlet_autop>>
-  xlet_auto
-  >- (
-    xsimpl>>
-    match_mp_tac EqualityType_SUM_TYPE>>
-    simp[EqualityType_NUM_BOOL]>>
-    match_mp_tac EqualityType_PBC_LIT_TYPE>>
-    simp[EqualityType_NUM_BOOL])>>
-  Cases_on`isEmpty r`>>fs[not_isEmpty_def]>>
+  rename1`is_empty_vec tt`>>
+  Cases_on`is_empty_vec tt`>>fs[not_is_empty_vec_eq]>>
   xif>>asm_exists_tac>>simp[]
   >- (
     rpt xlet_autop>>
@@ -2530,11 +2541,8 @@ Proof
     asm_exists_tac>>xsimpl>>
     asm_exists_tac>>xsimpl)>>
   rpt xlet_autop>>
-
   `OPTION_TYPE (LIST_TYPE (PAIR_TYPE INT NUM)) NONE
      (Conv (SOME (TypeStamp "None" 2)) [])` by
-    EVAL_TAC>>
-  `SPTREE_SPT_TYPE UNIT_TYPE LN (Conv (SOME (TypeStamp "Ln" 18)) [])` by
     EVAL_TAC>>
   qmatch_asmsub_abbrev_tac`LIST_REL _ fmlls fmllsv`>>
   qmatch_asmsub_abbrev_tac`LIST_TYPE _ inds indsv`>>

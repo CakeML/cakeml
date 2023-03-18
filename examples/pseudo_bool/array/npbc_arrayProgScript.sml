@@ -745,7 +745,7 @@ val extract_clauses_arr = process_topdecs`
 Theorem extract_clauses_arr_spec:
   ∀pfs pfsv s sv fmlls fmlv fmllsv rsubs rsubsv acc accv lno lnov.
   NUM lno lnov ∧
-  (SPTREE_SPT_TYPE (SUM_TYPE BOOL (PBC_LIT_TYPE NUM))) s sv ∧
+  (VECTOR_TYPE (OPTION_TYPE (SUM_TYPE BOOL (PBC_LIT_TYPE NUM)))) s sv ∧
   LIST_TYPE (LIST_TYPE constraint_TYPE) rsubs rsubsv ∧
   LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE NPBC_CHECK_LSTEP_TYPE)) pfs pfsv ∧
   LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (LIST_TYPE constraint_TYPE) NUM)) (LIST_TYPE NPBC_CHECK_LSTEP_TYPE)) acc accv ∧
@@ -859,7 +859,7 @@ val subst_indexes_arr = process_topdecs`
 
 Theorem subst_indexes_arr_spec:
   ∀is isv s sv fmlls fmllsv fmlv.
-  (SPTREE_SPT_TYPE (SUM_TYPE BOOL (PBC_LIT_TYPE NUM))) s sv ∧
+  (VECTOR_TYPE (OPTION_TYPE (SUM_TYPE BOOL (PBC_LIT_TYPE NUM)))) s sv ∧
   LIST_TYPE NUM is isv ∧
   LIST_REL (OPTION_TYPE constraint_TYPE) fmlls fmllsv
   ⇒
@@ -1495,6 +1495,7 @@ Proof
     rpt xlet_autop>>
     fs[spo_TYPE_def,ord_TYPE_def,constraint_TYPE_def]>>
     rpt xlet_autop>>
+    qmatch_asmsub_abbrev_tac`VECTOR_TYPE _ s _`>>
     qmatch_goalsub_abbrev_tac`ARRAY aa vv`>>
     xlet`(POSTve
       (λv.
@@ -2033,6 +2034,7 @@ Proof
     fs[spo_TYPE_def,ord_TYPE_def,constraint_TYPE_def]>>
     rpt xlet_autop>>
     rename1`do_dso spo _ _ _`>>
+    rename1`VECTOR_TYPE _ s _`>>
     xlet`(POSTve
       (λv.
         ARRAY fmlv fmllsv *

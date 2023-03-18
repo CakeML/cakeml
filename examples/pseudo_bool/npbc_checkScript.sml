@@ -1,7 +1,7 @@
 (*
   Pseudo-boolean constraints proof format and checker
 *)
-open preamble npbcTheory mlstringTheory mlintTheory;
+open preamble npbcTheory mlstringTheory mlintTheory mlvectorTheory;
 
 val _ = new_theory "npbc_check";
 
@@ -411,7 +411,7 @@ Proof
   \\ imp_res_tac range_insert_2 \\ gvs []
 QED
 
-Type subst = ``:(bool + num lit) num_map``;
+Type subst = ``:(bool + num lit) option vector``;
 
 (* Steps that preserve satisfiability *)
 Datatype:
@@ -487,7 +487,10 @@ Definition check_subproofs_def:
 End
 
 Definition subst_fun_def:
-  subst_fun (s:subst) n = lookup n s
+  subst_fun (s:subst) n =
+  if n < length s then
+    sub s n
+  else NONE
 End
 
 Definition map_opt_def:
@@ -542,9 +545,9 @@ End
   2) it was already proved by another proofgoal (excluding #)
 *)
 Definition split_goals_def:
-  split_goals fml (proved:num_set) (goals:(num # (int # num) list # num) list) =
+  split_goals (fml:npbc num_map) (proved:num_set) (goals:(num # (int # num) list # num) list) =
   let (lp,lf) =
-    PARTITION (λ(i,c). lookup i proved ≠ NONE) goals in
+    PARTITION (λ(i,c). sptree$lookup i proved ≠ NONE) goals in
   let proved = MAP SND lp in
   let f = range fml in
   EVERY (λ(i,c). c ∈ f ∨ mem_constraint c proved) lf
@@ -739,7 +742,7 @@ Proof
 QED
 
 Theorem lookup_mk_BS:
-  lookup i (mk_BS t1 a t2) = lookup i (BS t1 a t2)
+  sptree$lookup i (mk_BS t1 a t2) = lookup i (BS t1 a t2)
 Proof
   Cases_on ‘t1’ \\ Cases_on ‘t2’ \\ fs [mk_BS_def,lookup_def]
 QED
@@ -938,7 +941,7 @@ Proof
       \\ rw [SUBSET_DEF] \\ imp_res_tac range_insert_2 \\ fs [])
     \\ match_mp_tac (GEN_ALL substitution_redundancy_obj_po)
     \\ simp[]
-    \\ qexists_tac ‘subst_fun s’ \\ fs []
+    \\ qexists_tac ‘subst_fun v’ \\ fs []
     \\ fs[EVERY_MEM,MEM_MAP,EXISTS_PROD]
     \\ `id ∉ domain fml` by fs[id_ok_def]
     \\ fs[range_insert]
@@ -951,7 +954,7 @@ Proof
       rw[sat_implies_EL]>>
       last_x_assum(qspec_then`SUC n` assume_tac)>>
       gvs[]>>
-      drule_all lookup_extract_pids_r>>rw[]
+      drule_all lookup_extract_pids_r>> rw[]
       \\ drule extract_clauses_MEM_INR
       \\ disch_then drule
       \\ fs[EL]
@@ -964,7 +967,7 @@ Proof
     >- (
       (* objective *)
       Cases_on`obj`>>
-      last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun s) ord))` assume_tac)>>
+      last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun v) ord))` assume_tac)>>
       fs[]>>
       drule_all lookup_extract_pids_r>>rw[]
       \\ drule extract_clauses_MEM_INR
@@ -995,14 +998,14 @@ Proof
     \\ pop_assum mp_tac
     \\ simp [Once range_def] \\ rw []
     \\ rename [‘lookup a fml = SOME xx’]
-    \\ Cases_on ‘subst_opt (subst_fun s) xx’ \\ fs []
+    \\ Cases_on ‘subst_opt (subst_fun v) xx’ \\ fs []
     THEN1
      (imp_res_tac subst_opt_NONE
       \\ CCONTR_TAC \\ gvs [satisfiable_def,not_thm]
       \\ fs [satisfies_def,range_def,PULL_EXISTS]
       \\ metis_tac[])
     \\ rename1`subst_opt _ _ = SOME yy`
-    \\ `MEM (a,yy) (toAList (map_opt (subst_opt (subst_fun s)) fml))` by
+    \\ `MEM (a,yy) (toAList (map_opt (subst_opt (subst_fun v)) fml))` by
       simp[MEM_toAList,lookup_map_opt]
     \\ drule_all split_goals_checked \\ rw[]
     >- (
@@ -1547,7 +1550,7 @@ Proof
 QED
 
 Theorem range_coref_cong:
-  (∀x. lookup x (inter a core) = lookup x (inter fml core))
+  (∀x. sptree$lookup x (inter a core) = lookup x (inter fml core))
   ⇒
   range (coref core fml) = range (coref core a)
 Proof
@@ -1970,7 +1973,7 @@ Proof
       PairCases_on`x`>>
       match_mp_tac (GEN_ALL good_spo_dominance)>>
       simp[]>>
-      qexists_tac ‘subst_fun s’>>fs[]>>
+      qexists_tac ‘subst_fun v’>>fs[]>>
       CONJ_TAC >-
         metis_tac[range_coref_SUBSET]>>
       CONJ_TAC >-
@@ -1986,14 +1989,14 @@ Proof
         \\ rename [‘lookup a _ = SOME xx’]
         \\ drule_all lookup_coref
         \\ strip_tac
-        \\ Cases_on ‘subst_opt (subst_fun s) xx’ \\ fs []
+        \\ Cases_on ‘subst_opt (subst_fun v) xx’ \\ fs []
         THEN1 (
           imp_res_tac subst_opt_NONE
           \\ CCONTR_TAC \\ gvs [satisfiable_def,not_thm]
           \\ fs [satisfies_def,range_def,PULL_EXISTS]
           \\ metis_tac[])
         \\ rename1`subst_opt _ _ = SOME yy`
-        \\ `MEM (a,yy) (toAList (map_opt (subst_opt (subst_fun s)) (coref core fml)))` by simp[MEM_toAList,lookup_map_opt]
+        \\ `MEM (a,yy) (toAList (map_opt (subst_opt (subst_fun v)) (coref core fml)))` by simp[MEM_toAList,lookup_map_opt]
         \\ drule_all split_goals_checked \\ rw[]
         >- (
           fs[satisfiable_def,not_thm,satisfies_def]>>
@@ -2007,7 +2010,7 @@ Proof
         \\ gvs[unsatisfiable_def,satisfiable_def, MEM_toAList,lookup_map_opt,AllCaseEqs(),satisfies_def]
         \\ fs[not_thm,range_def,PULL_EXISTS]
         \\ drule_all lookup_coref \\ rw[]
-        \\ `subst (subst_fun s) c = subst (subst_fun s) xx` by
+        \\ `subst (subst_fun v) c = subst (subst_fun v) xx` by
           metis_tac[subst_opt_SOME,lookup_coref]
         \\ metis_tac[])>>
       CONJ_TAC >- (
@@ -2031,7 +2034,7 @@ Proof
         metis_tac[INSERT_SING_UNION,UNION_COMM])>>
       CONJ_TAC >- (
         (* negated order constraint *)
-        last_x_assum(qspec_then`LENGTH (dom_subst (subst_fun s) (SOME ((x0,x1,x2),x3)))` assume_tac)>>
+        last_x_assum(qspec_then`LENGTH (dom_subst (subst_fun v) (SOME ((x0,x1,x2),x3)))` assume_tac)>>
         gs[ADD1]>>
         drule_all lookup_extract_pids_r>>
         simp[]>> rw[]
@@ -2047,7 +2050,7 @@ Proof
       (* objective constraint *)
       Cases_on`obj`>>
       simp[]>>
-      last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun s) (SOME ((x0,x1,x2),x3))))` assume_tac)>>
+      last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun v) (SOME ((x0,x1,x2),x3))))` assume_tac)>>
       gs[ADD1]>>
       drule_all lookup_extract_pids_r>>
       simp[]>>rw[]

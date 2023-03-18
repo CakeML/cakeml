@@ -1,7 +1,7 @@
 (*
   Parse and print for pbc, npb_check
 *)
-open preamble pbcTheory pbc_normaliseTheory npbc_checkTheory;
+open preamble pbcTheory pbc_normaliseTheory npbc_checkTheory spt_to_vecTheory;
 
 val _ = new_theory "pb_parse";
 
@@ -251,22 +251,28 @@ Definition parse_var_def:
 End
 
 (* Parse a substitution {var -> lit} *)
-Definition parse_subst_def:
-  (parse_subst f_ns (INL v :: INL arr :: r ::rest) acc =
+Definition parse_subst_aux_def:
+  (parse_subst_aux f_ns (INL v :: INL arr :: r ::rest) acc =
   if arr = strlit "->" then
     case parse_var f_ns v of
       NONE => ([],LN,f_ns)
     | SOME (v,f_ns) =>
     (case r of
         INR r =>
-          if r = 0:int then parse_subst f_ns rest (insert v (INL F) acc)
-          else if r = 1 then parse_subst f_ns rest (insert v (INL T) acc)
+          if r = 0:int then parse_subst_aux f_ns rest (insert v (INL F) acc)
+          else if r = 1 then parse_subst_aux f_ns rest (insert v (INL T) acc)
           else ([],LN,f_ns)
       | INL r =>
           (case parse_lit_num f_ns r of NONE => ([],LN,f_ns)
-          | SOME (l, f_ns)  => parse_subst f_ns rest (insert v (INR l) acc)))
+          | SOME (l, f_ns)  => parse_subst_aux f_ns rest (insert v (INR l) acc)))
   else ([],LN,f_ns)) ∧
-  (parse_subst f_ns ls acc = (ls, acc,f_ns))
+  (parse_subst_aux f_ns ls acc = (ls, acc,f_ns))
+End
+
+Definition parse_subst_def:
+  parse_subst f_ns ls =
+  let (ls, acc,f_ns) = parse_subst_aux f_ns ls LN in
+    (ls, spt_to_vec acc, f_ns)
 End
 
 Definition map_f_ns_def:
@@ -300,7 +306,7 @@ Definition parse_red_header_def:
   parse_red_header f_ns line =
   case parse_constraint_npbc f_ns line of
     SOME (constr,rest,f_ns') =>
-      (case parse_subst f_ns' rest LN of (rest,ss,f_ns'') =>
+      (case parse_subst f_ns' rest of (rest,ss,f_ns'') =>
        (case rest of
         [INL term; INL beg] =>
           if term = strlit";" ∧ beg = strlit"begin" then
@@ -347,6 +353,10 @@ Definition check_end_def:
   | _ => NONE
 End
 
+Definition is_empty_vec_def:
+  is_empty_vec v ⇔ v = Vector []
+End
+
 (* Parsing lsteps in a subproof until parsing
   fails and return the failing line
   (note: this expects a failing line)
@@ -362,7 +372,7 @@ Definition parse_lsteps_aux_def:
     | SOME (INL step, f_ns') =>
       parse_lsteps_aux f_ns' ss (step::acc)
     | SOME (INR (c,s), f_ns') =>
-      if s ≠ LN then NONE
+      if ¬(is_empty_vec s) then NONE
       else
         case parse_lsteps_aux f_ns' ss [] of
           NONE => NONE
@@ -401,7 +411,7 @@ Theorem parse_lsteps_aux_thm:
     | SOME (INL step, f_ns') =>
       parse_lsteps_aux f_ns' ss (step::acc)
     | SOME (INR (c,s), f_ns') =>
-      if s ≠ LN then NONE
+      if ¬(is_empty_vec s) then NONE
       else
         case parse_lsteps_aux f_ns' ss [] of
           NONE => NONE
@@ -618,7 +628,7 @@ Definition parse_sstep_def:
     | SOME (INL step,f_ns') =>
         SOME (INR (Lstep step),f_ns',ss)
     | SOME (INR (c,s),f_ns') =>
-      if s = LN then
+      if is_empty_vec s then
         (case parse_lsteps_aux f_ns' ss [] of
           NONE => NONE
         | SOME (pf,f_ns'',s,rest) =>

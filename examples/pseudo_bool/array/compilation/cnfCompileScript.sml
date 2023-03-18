@@ -1,5 +1,5 @@
 (*
-  Compiles the encoder
+  Compiles the CNF + PB checker
 *)
 open preamble compilationLib cnfProgTheory
 
