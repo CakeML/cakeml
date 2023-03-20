@@ -3,7 +3,7 @@
 *)
 open preamble decodeProgTheory
      ml_translatorLib ml_translatorTheory
-     pegTheory simpleSexpTheory simpleSexpPEGTheory simpleSexpParseTheory fromSexpTheory
+     pegTheory simpleSexpTheory simpleSexpPEGTheory simpleSexpParseTheory fromSexpTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
@@ -130,7 +130,7 @@ Proof
   \\ impl_tac >- rw[]
   \\ qspecl_then[`unhex_alt d2`,`16`]mp_tac MOD_LESS
   \\ impl_tac >- rw[]
-  \\ decide_tac
+  \\ intLib.COOPER_TAC
 QED
 (* -- *)
 

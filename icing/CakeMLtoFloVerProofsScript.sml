@@ -5,7 +5,7 @@
 (* HOL4 *)
 open machine_ieeeTheory realTheory realLib RealArith;
 (* CakeML *)
-open semanticPrimitivesTheory evaluateTheory compilerTheory ml_translatorTheory;
+open semanticPrimitivesTheory evaluateTheory ml_translatorTheory;
 (* FloVer *)
 open ExpressionsTheory ExpressionSemanticsTheory CommandsTheory
      EnvironmentsTheory IEEE_connectionTheory
@@ -1967,7 +1967,7 @@ Proof
   \\ rpt (disch_then drule)
   \\ disch_then
      (qspecl_then
-      [‘Enew_real’, ‘env with v := toRspace ext_env’, ‘fVars’, ‘toRExpMap a’, ‘vR'’] mp_tac)
+      [‘Enew_real’, ‘env with v := toRspace ext_env’, ‘fVars’, ‘toRExpMap a’, ‘vR’] mp_tac)
   \\ impl_tac \\ fs[]
   >- (
    rpt conj_tac \\ fs[ExpressionAbbrevsTheory.toRExpMap_def]

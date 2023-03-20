@@ -4,7 +4,7 @@
 open preamble
 open reg_allocTheory reg_allocProofTheory state_transformerTheory
 open ml_monad_translatorLib ml_translatorTheory;
-open caml_parserProgTheory;
+open pancake_parseProgTheory;
 
 (*
 open basisProgTheory
@@ -14,7 +14,7 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = new_theory "reg_allocProg";
 
-val _ = translation_extends "caml_parserProg";
+val _ = translation_extends "pancake_parseProg";
 val _ = ml_translatorLib.use_string_type true;
 (*
 val _ = translation_extends "basisProg";

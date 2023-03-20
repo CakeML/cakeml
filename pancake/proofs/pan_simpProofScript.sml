@@ -748,9 +748,7 @@ Proof
   fs [evaluate_def] >> rveq >> fs [] >>
   last_x_assum mp_tac >>
   rpt (TOP_CASE_TAC >> fs []) >>
-  TRY (
-  rfs [state_rel_def, state_component_equality,
-       empty_locals_def, dec_clock_def] >> rveq >> fs [] >> NO_TAC) >>
+  MAP_EVERY imp_res_tac [compile_eval_correct,compile_eval_correct_none] >> gvs[] >>
   rfs [state_rel_def, state_component_equality,
        empty_locals_def, dec_clock_def] >> rveq >> fs [] >>
   rveq >> fs [] >> rveq >> rfs [] >>
@@ -1034,9 +1032,9 @@ Proof
                           ``:'b``|->``:'b``]
                panPropsTheory.evaluate_add_clock_io_events_mono) >>
    first_assum (qspecl_then
-                [‘Call Tail (Label start) []’, ‘t with clock := k1’, ‘p’] mp_tac) >>
+                [‘TailCall (Label start) []’, ‘t with clock := k1’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
-                [‘Call Tail (Label start) []’, ‘t with clock := k2’, ‘p’] mp_tac) >>
+                [‘TailCall (Label start) []’, ‘t with clock := k2’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
                 [‘TailCall (Label start) []’, ‘s with clock := k1’, ‘p’] mp_tac) >>
    first_assum (qspecl_then

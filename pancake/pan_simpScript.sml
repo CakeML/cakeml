@@ -24,14 +24,14 @@ Definition seq_assoc_def:
     SmartSeq p (If e (seq_assoc Skip q) (seq_assoc Skip r))) /\
   (seq_assoc p (While e q) =
    SmartSeq p (While e (seq_assoc Skip q))) /\
-  (seq_assoc p (Call Tail name args) =
-    SmartSeq p (Call Tail name args)) /\
-  (seq_assoc p (Call (Ret rv exp) name args) =
+  (seq_assoc p (Call NONE name args) =
+    SmartSeq p (Call NONE name args)) /\
+  (seq_assoc p (Call (SOME (rv , exp)) name args) =
     SmartSeq p (Call
                  (dtcase exp of
-                   | NONE => Ret rv NONE
-                   | SOME (Handle eid ev ep) =>
-                      Ret rv (SOME (Handle eid ev (seq_assoc Skip ep))))
+                   | NONE => SOME (rv , NONE)
+                   | SOME (eid , ev , ep) =>
+                      SOME (rv , (SOME (eid , ev , (seq_assoc Skip ep)))))
                  name args)) /\
   (seq_assoc p q = SmartSeq p q)
 End
@@ -39,8 +39,8 @@ End
 Definition seq_call_ret_def:
   seq_call_ret prog =
    dtcase prog of
-    | Seq (RetCall rv NONE trgt args) (Return (Var rv')) =>
-      if rv = rv' then (TailCall trgt args) else prog
+    | Seq (RetCall rv1 NONE trgt args) (Return (Var (rv2:mlstring))) =>
+      if rv1 = rv2 then (TailCall trgt args) else prog
     | other => other
 End
 
@@ -51,14 +51,13 @@ Definition ret_to_tail_def:
     seq_call_ret (Seq (ret_to_tail p) (ret_to_tail q))) /\
   (ret_to_tail (If e p q) = If e (ret_to_tail p) (ret_to_tail q)) /\
   (ret_to_tail (While e p) = While e (ret_to_tail p)) /\
-  (ret_to_tail (Call Tail name args) = Call Tail name args) /\
-  (ret_to_tail (Call (Ret rv exp) name args) =
-    Call
-     (dtcase exp of
-       | NONE => Ret rv NONE
-       | (SOME (Handle eid ev ep)) =>
-          Ret rv (SOME (Handle eid ev (ret_to_tail ep))))
-     name args) /\
+  (ret_to_tail (Call NONE name args) = Call NONE name args) /\
+  (ret_to_tail (Call (SOME (rv , exp)) name args) =
+   Call (SOME (rv, (dtcase exp of
+                    | NONE => NONE
+                    | SOME (eid , ev , ep) =>
+                        SOME (eid, ev, (ret_to_tail ep)))))
+        name args) /\
   (ret_to_tail p = p)
 End
 
@@ -91,10 +90,10 @@ Theorem seq_assoc_pmatch:
    | (Call rtyp name args) =>
       SmartSeq p (Call
                   (dtcase rtyp of
-                   | Tail => Tail
-                   | Ret rv NONE => Ret rv NONE
-                   | Ret rv (SOME (Handle eid ev ep)) =>
-                      Ret rv (SOME (Handle eid ev (seq_assoc Skip ep))))
+                   | NONE => NONE
+                   | SOME (rv , NONE) => SOME (rv,  NONE)
+                   | SOME (rv , (SOME (eid , ev , ep))) =>
+                       SOME (rv , (SOME (eid , ev , (seq_assoc Skip ep)))))
                   name args)
    | q => SmartSeq p q
 Proof
@@ -117,10 +116,10 @@ Theorem ret_to_tail_pmatch:
    | (Call rtyp name args) =>
       Call
       (dtcase rtyp of
-                    | Tail => Tail
-                    | Ret rv NONE => Ret rv NONE
-                    | Ret rv (SOME (Handle eid ev ep)) =>
-                       Ret rv (SOME (Handle eid ev (ret_to_tail ep))))
+                    | NONE => NONE
+                    | SOME (rv , NONE) => SOME (rv , NONE)
+                    | SOME (rv , (SOME (eid , ev , ep))) =>
+                       SOME (rv , (SOME (eid , ev , (ret_to_tail ep)))))
       name args
    | p => p
 Proof
