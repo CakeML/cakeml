@@ -88,8 +88,6 @@ val san_end_pcs_simp = EVAL ``san_end_ffi_pcs``;
 Definition san_config_def:
   san_config =
   <| prog_addresses := {x | x < 1000w} DELETE 0w DELETE n2w ffi_offset
-    DIFF {a| EL 0 san_ffi_pcs <= a /\ a < EL 0 san_end_ffi_pcs}
-    DIFF {a| EL 1 san_ffi_pcs <= a /\ a < EL 1 san_end_ffi_pcs}
    ; shared_addresses := {a| 20000w <= a /\ a < 20016w}
    ; ffi_entry_pcs := san_ffi_pcs
    ; ffi_names := ["MappedRead";"MappedWrite"]
@@ -216,7 +214,7 @@ val san_prog_addr_simp =
 
 val san_mmio_info_simp = EVAL ``san_mmio_info``;
 
-fun valid_mapped_read_tac reg address =
+fun valid_mapped_read_tac =
   qpat_abbrev_tac `_r = is_valid_mapped_read _ _ _ _ _ _ _` \\
   `_r` by (
     qunabbrev_tac `_r` \\
@@ -226,7 +224,7 @@ fun valid_mapped_read_tac reg address =
   ) \\
   qunabbrev_tac `_r`;
 
-fun valid_mapped_write_tac reg address =
+fun valid_mapped_write_tac =
  qpat_abbrev_tac `_w = is_valid_mapped_write _ _ _ _ _ _ _` \\
   `_w` by (
     qunabbrev_tac `_w` \\
@@ -253,7 +251,7 @@ Proof
   simp[Once evaluate_def,APPLY_UPDATE_THM] \\
   simp[find_index_def, san_ffi_pcs_simp] \\
   simp[san_mmio_info_simp,APPLY_UPDATE_THM] \\
-  valid_mapped_read_tac `5` `20000w` \\
+  valid_mapped_read_tac \\
   simp[call_FFI_def,san_init_ffi_state_def,san_oracle_def] \\
   simp[length_pad_right,
     EVAL ``LENGTH (addr2w8list (20000w:word64))``] \\
@@ -266,7 +264,7 @@ Proof
   simp[Once evaluate_def,APPLY_UPDATE_THM] \\
   simp[find_index_def,san_ffi_pcs_simp] \\
   simp[san_mmio_info_simp,APPLY_UPDATE_THM] \\
-  valid_mapped_write_tac `5` `20008w` \\
+  valid_mapped_write_tac \\
   simp[call_FFI_def,san_init_ffi_state_def,san_oracle_def] \\
   simp[length_pad_right,
     EVAL ``LENGTH (addr2w8list 20008w)``,
