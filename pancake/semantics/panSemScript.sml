@@ -611,6 +611,11 @@ Definition h_prog_rule_call_def:
    | (_,_) => Ret (SOME Error,s)
 End
 
+(* The type of visible events in the ITree semantics. *)
+Datatype:
+  sem_vis_event = FFI_call ('ffi ffi_state) string (word8 list) (word8 list)
+End
+
 Definition h_prog_rule_ext_call_def:
   h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len s =
   case (FLOOKUP s.locals conf_len,FLOOKUP s.locals conf_ptr,FLOOKUP s.locals array_len,FLOOKUP s.locals array_ptr) of
@@ -618,13 +623,14 @@ Definition h_prog_rule_ext_call_def:
            SOME (ValWord array_sz),SOME (ValWord array_ptr_adr)) =>
                                     (case (read_bytearray conf_ptr_adr (w2n conf_sz) (mem_load_byte s.memory s.memaddrs s.be),
                                            read_bytearray array_ptr_adr (w2n array_sz) (mem_load_byte s.memory s.memaddrs s.be)) of
-                                       (SOME conf_bytes,SOME bytes) =>
-                                        (case call_FFI s.ffi (explode ffi_name) conf_bytes bytes of
-                                           FFI_final outcome => Ret (SOME (FinalFFI outcome),empty_locals s)
-                                          | FFI_return new_ffi new_bytes =>
-                                             let nmem = write_bytearray array_ptr_adr new_bytes s.memory s.memaddrs s.be in
-                                             Vis (INR (IO_event (explode ffi_name) conf_bytes (ZIP (bytes,new_bytes))))
-                                                 (λx. Ret (NONE,s with <| memory := nmem; ffi := new_ffi |>)))
+                                       (SOME conf_bytes,SOME array_bytes) =>
+                                        Vis (INR (FFI_call s.ffi (explode ffi_name) conf_bytes array_bytes))
+                                            (λres. case res of
+                                                     FFI_final outcome => Ret (SOME (FinalFFI outcome),empty_locals s)
+                                                    | FFI_return new_ffi new_bytes =>
+                                                       let nmem = write_bytearray array_ptr_adr new_bytes s.memory s.memaddrs s.be in
+                                                       Ret (NONE,s with <| memory := nmem; ffi := new_ffi |>)
+                                                       | _ => Ret (SOME Error,s))
                                       | _ => Ret (SOME Error,s))
    | _ => Ret (SOME Error,s)
 End
@@ -737,12 +743,6 @@ Inductive strip_tau_vis:
   (strip_tau_vis (Ret v) (Ret v))
 End
 
-Triviality foo:
-
-Proof
-
-QED
-
 (* Path-based proof of isomorphism between semantics *)
 Theorem itree_sem_evaluate_biject:
   itree_ret_val (evaluate_itree p s) path = evaluate (p,s)
@@ -816,11 +816,40 @@ Proof
              ))
 QED
 
+(* the mrec combinator theory *)
+(* prove useful identities over "mrec handler seed" *)
+
+(* TODO: Proof that mrec Vis (INL) events are equivalent to the clock-bounded recursion
+ used in evaluate *)
+
 (* Bisimulation proof of isomorphism between semantics *)
 (* Can be interred once the evaluate_biject is proven by itree_el_eqv. *)
-Theorem itree_sem_evaluate_bisim:
+
+Theorem hprog_evaluate_wbisim:
   evaluate_itree p s = Ret (evaluate (p,s))
 Proof
+  rw [Once itreeTauTheory.itree_bisimulation] >>
+  qexists_tac ‘strip_tau_vis’ >>
+  rw [strip_tau_vis_ind]
+  rpt CONJ_TAC
+  (* Proving the results of both semantics are in the relation *)
+  >- (Cases_on ‘p’
+      (* Skip *)
+      >- (rw [evaluate_itree_def,itree_mrec_def,h_prog_def,evaluate_def] >>
+          rw [itreeTauTheory.itree_iter_def,Once itreeTauTheory.itree_unfold] >>
+          rw [strip_tau_vis_rules])
+      (* Dec *)
+      >- (rw [evaluate_itree_def,itree_mrec_def,h_prog_def,evaluate_def] >>
+          rw [h_prog_rule_dec_def] >>
+          rw [itreeTauTheory.itree_iter_def] >>
+          Cases_on ‘eval s e’ >>
+          rw []
+          (* eval fail *)
+          >- (rw [Once itreeTauTheory.itree_unfold,strip_tau_vis_rules])
+         (* eval success *)
+          >- (rw [Once itreeTauTheory.itree_unfold] >>
+          )
+
 QED
 
 Theorem vshapes_args_rel_imp_eq_len_MAP:
