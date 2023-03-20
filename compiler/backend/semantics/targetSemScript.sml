@@ -111,7 +111,7 @@ val evaluate_def = Define `
   evaluate (mc: ('w,'a,'c) machine_config) (ffi:'ffi ffi_state) k (ms:'a) =
     if k = 0 then (TimeOut,ms,ffi)
     else
-      if mc.target.get_pc ms IN mc.prog_addresses then
+      if mc.target.get_pc ms IN (mc.prog_addresses DIFF (set mc.ffi_entry_pcs)) then
         if encoded_bytes_in_mem
             mc.target.config (mc.target.get_pc ms)
             (mc.target.get_byte ms) mc.prog_addresses then
@@ -274,11 +274,6 @@ val start_pc_ok_def = Define`
          mc_conf.ffi_entry_pcs 0 = SOME index) /\
      (!index.
         index < LENGTH mc_conf.ffi_names /\ i <= index ==>
-     (* DISJOINT
-        {a| EL index mc_conf.ffi_entry_pcs <= a/\
-              a < SND (SND (SND (mc_conf.mmio_info index)))}
-          mc_conf.prog_addresses /\ *)
-        (EL index mc_conf.ffi_entry_pcs) NOTIN mc_conf.prog_addresses /\
         DISJOINT
           {a| EL index mc_conf.ffi_entry_pcs <= a /\
               a < SND (SND (SND (mc_conf.mmio_info index)))}
