@@ -15,6 +15,7 @@ Definition vars_of_exp_def:
   vars_of_exp (Lookup _) l = l ∧
   vars_of_exp (Load a) l = vars_of_exp a l ∧
   vars_of_exp (Op x vs) l = vars_of_exp_list vs l ∧
+  vars_of_exp (Loopop x vs) l = vars_of_exp_list vs l ∧
   vars_of_exp (Shift _ x _) l = vars_of_exp x l ∧
   vars_of_exp_list xs l =
     (case xs of [] => l

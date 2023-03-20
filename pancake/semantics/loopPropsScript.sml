@@ -186,42 +186,13 @@ Theorem locals_touched_eq_eval_eq:
    (!n. MEM n (locals_touched e) ==> lookup n s.locals = lookup n t.locals) ==>
       eval t e = eval s e
 Proof
-  ho_match_mp_tac eval_ind >> rw []
-  >- fs [eval_def]
-  >- fs [eval_def, locals_touched_def]
-  >- fs [eval_def, locals_touched_def]
-  >- (
-   fs [eval_def, locals_touched_def] >>
-   every_case_tac >> fs [mem_load_def])
-  >- (
-   fs [eval_def, locals_touched_def] >>
-   every_case_tac >> fs []
-   >- (
-    ‘the_words (MAP (λa. eval t a) wexps) = SOME x’ suffices_by fs [] >>
-    pop_assum mp_tac >> pop_assum kall_tac >>
-    rpt (pop_assum mp_tac) >>
-    MAP_EVERY qid_spec_tac [‘x’, ‘t’, ‘s’, ‘wexps’] >>
-    Induct >> rw [] >>
-    fs [wordSemTheory.the_words_def,
-        CaseEq "option", CaseEq "word_loc"] >> rveq >> fs [] >>
-    last_x_assum (qspecl_then [‘s’, ‘t’, ‘xs’] mp_tac) >> fs [])
-   >- (
-    ‘the_words (MAP (λa. eval s a) wexps) = SOME x’ suffices_by fs [] >>
-    pop_assum kall_tac >>
-    rpt (pop_assum mp_tac) >>
-    MAP_EVERY qid_spec_tac [‘x’, ‘t’, ‘s’, ‘wexps’] >>
-    Induct >> rw [] >>
-    fs [wordSemTheory.the_words_def,
-        CaseEq "option", CaseEq "word_loc"] >> rveq >> fs [] >>
-    last_x_assum (qspecl_then [‘s’, ‘t’, ‘xs’] mp_tac) >> fs []) >>
-   ‘x = x'’ suffices_by fs [] >>
-   rpt (pop_assum mp_tac) >>
-   MAP_EVERY qid_spec_tac [‘x'’, ‘x’, ‘t’, ‘s’, ‘wexps’] >>
-   Induct >> rw [] >>
-   fs [wordSemTheory.the_words_def,
-       CaseEq "option", CaseEq "word_loc"] >> rveq >> fs [] >>
-   last_x_assum (qspecl_then [‘s’, ‘t’, ‘xs’] mp_tac) >> fs []) >>
-  fs [eval_def, locals_touched_def]
+  ho_match_mp_tac eval_ind >> rw [] >>
+  gvs[locals_touched_def,MEM_FLAT,MEM_MAP,PULL_EXISTS,eval_def,mem_load_def] >>
+  ntac 2 AP_THM_TAC >> ntac 2 AP_TERM_TAC >>
+  match_mp_tac MAP_CONG >>
+  rw[] >>
+  first_x_assum $ match_mp_tac o MP_CANON >>
+  rw[] >> res_tac
 QED
 
 Theorem loop_eval_nested_assign_distinct_eq:
@@ -798,36 +769,19 @@ Proof
   >- (
    every_case_tac >> fs [] >>
    fs [mem_load_def]) >>
-  qsuff_tac ‘the_words (MAP (λa. eval (t with clock := ck) a) wexps) =
-             the_words (MAP (λa. eval t a) wexps)’ >>
-  fs [] >>
-  pop_assum mp_tac >>
-  qid_spec_tac ‘wexps’ >>
-  Induct >> rw [] >>
-  last_x_assum mp_tac >>
-  impl_tac >- metis_tac [] >>
-  strip_tac >> fs [wordSemTheory.the_words_def]
+  ntac 2 AP_THM_TAC >> ntac 2 AP_TERM_TAC >>
+  match_mp_tac MAP_CONG >>
+  rw[]
 QED
-
-(* should be trivial, but record updates are annoying *)
 
 Theorem eval_upd_locals_clock_eq:
   !t e l ck. eval (t with <|locals := l; clock := ck|>) e =  eval (t with locals := l) e
 Proof
-  ho_match_mp_tac eval_ind >> rw [] >>
-  fs [eval_def]
-  >- (
-   every_case_tac >> fs [] >>
-   fs [mem_load_def]) >>
-  qsuff_tac ‘the_words (MAP (λa. eval (t with <|locals := l; clock := ck|>) a) wexps) =
-             the_words (MAP (λa. eval (t with locals := l) a) wexps)’ >>
-  fs [] >>
-  pop_assum mp_tac >>
-  qid_spec_tac ‘wexps’ >>
-  Induct >> rw [] >>
-  last_x_assum mp_tac >>
-  impl_tac >- metis_tac [] >>
-  strip_tac >> fs [wordSemTheory.the_words_def]
+  rpt strip_tac >>
+  qspec_then ‘ck’
+             (dep_rewrite.DEP_ONCE_REWRITE_TAC o single o GSYM)
+             (CONV_RULE (RESORT_FORALL_CONV List.rev) eval_upd_clock_eq) >>
+  simp[]
 QED
 
 Theorem cut_res_add_clock:

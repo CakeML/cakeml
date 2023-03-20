@@ -70,6 +70,13 @@ Definition mem_load_def:
     else NONE
 End
 
+Definition loop_op_def:
+  loop_op Div [w1;w2] = SOME(w1 / w2) ∧
+  loop_op Mul [w1;w2] = SOME(w1 * w2) ∧
+  loop_op Mod [w1;w2] = SOME(word_mod w1 w2) ∧
+  loop_op _ _ = NONE
+End
+
 Definition eval_def:
   (eval ^s ((Const w):'a loopLang$exp) = SOME (Word w)) /\
   (eval s (Var v) = lookup v s.locals) /\
@@ -82,6 +89,10 @@ Definition eval_def:
      case the_words (MAP (eval s) wexps) of
      | SOME ws => (OPTION_MAP Word (word_op op ws))
      | _ => NONE) /\
+  (eval s (Loopop op es) =
+    case the_words (MAP (eval s) es) of
+     | SOME ws => OPTION_MAP Word (loop_op op ws)
+      | _ => NONE) /\
   (eval s (Shift sh wexp n) =
      case eval s wexp of
      | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)

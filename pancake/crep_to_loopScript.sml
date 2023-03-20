@@ -40,6 +40,11 @@ Definition prog_if_def:
     (Assign n (Const 1w)) (Assign n (Const 0w)) (list_insert [n; m] l)]
 End
 
+Definition compile_crepop_def:
+  compile_crepop crepLang$Div = loopLang$Div ∧
+  compile_crepop crepLang$Mul = loopLang$Mul ∧
+  compile_crepop crepLang$Mod = loopLang$Mod
+End
 
 Definition compile_exp_def:
   (compile_exp ctxt tmp l ((BaseAddr):'a crepLang$exp) = ([], BaseAddr, tmp, l)) /\
@@ -56,6 +61,9 @@ Definition compile_exp_def:
   (compile_exp ctxt tmp l (Op bop es) =
    let (p, les, tmp, l) = compile_exps ctxt tmp l es in
    (p, Op bop les, tmp, l)) /\
+  (compile_exp ctxt tmp l (Crepop cop es) =
+   let (p, les, tmp, l) = compile_exps ctxt tmp l es in
+   (p, Loopop (compile_crepop cop) les, tmp, l)) /\
   (compile_exp ctxt tmp l (Cmp cmp e e') =
    let (p, le, tmp, l) = compile_exp ctxt tmp l e in
    let (p', le', tmp', l) = compile_exp ctxt tmp l e' in

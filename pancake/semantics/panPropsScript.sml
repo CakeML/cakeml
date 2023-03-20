@@ -1192,8 +1192,6 @@ Proof
   fs []
 QED
 
-
-
 Theorem update_locals_not_vars_eval_eq:
   ∀s e v n w.
   ~MEM n (var_exp e) /\
@@ -1258,6 +1256,13 @@ Proof
    rw [] >>
    fs [MEM_FLAT, MEM_MAP] >>
    metis_tac [EL_MEM])
+  >- (
+   rpt gen_tac >>
+   strip_tac >>
+   gvs [var_exp_def, eval_def, AllCaseEqs(),opt_mmap_eq_some,SF DNF_ss,
+        DefnBase.one_line_ify NONE pan_op_def,MAP_EQ_CONS,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+   metis_tac[]
+  )
   >- (
     rw [] >>
     gs [var_exp_def, eval_def] >>

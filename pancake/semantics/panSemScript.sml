@@ -116,6 +116,13 @@ Termination
   fs [list_size_def, shape_size_def]
 End
 
+Definition pan_op_def:
+  pan_op Div [w1;w2] = SOME(w1 / w2) ∧
+  pan_op Mul [w1;w2] = SOME(w1 * w2) ∧
+  pan_op Mod [w1;w2] = SOME(word_mod w1 w2) ∧
+  pan_op _ _ = NONE
+End
+
 Definition eval_def:
   (eval ^s (Const w) = SOME (ValWord w)) /\
   (eval s  (Var v) = FLOOKUP s.locals v) /\
@@ -154,6 +161,13 @@ Definition eval_def:
        if (EVERY (\w. case w of (ValWord _) => T | _ => F) ws)
        then OPTION_MAP ValWord
             (word_op op (MAP (\w. case w of ValWord n => n) ws)) else NONE
+      | _ => NONE) /\
+  (eval s (Panop op es) =
+    case (OPT_MMAP (eval s) es) of
+     | SOME ws =>
+       if (EVERY (\w. case w of (ValWord _) => T | _ => F) ws)
+       then OPTION_MAP ValWord
+            (pan_op op (MAP (\w. case w of ValWord n => n) ws)) else NONE
       | _ => NONE) /\
   (eval s (Cmp cmp e1 e2) =
     case (eval s e1, eval s e2) of

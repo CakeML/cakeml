@@ -10,11 +10,16 @@ val _ = new_theory "loopLang";
 Type shift = ``:ast$shift``
 
 Datatype:
+  loopop = Div | Mul | Mod
+End
+
+Datatype:
   exp = Const ('a word)
       | Var num
       | Lookup (5 word)
       | Load exp
       | Op binop (exp list)
+      | Loopop loopop (exp list)
       | Shift shift exp num
       | BaseAddr
 End
@@ -67,6 +72,7 @@ Definition locals_touched_def:
   (locals_touched (Lookup name) = []) /\
   (locals_touched (Load addr) = locals_touched addr) /\
   (locals_touched (Op op wexps) = FLAT (MAP locals_touched wexps)) /\
+  (locals_touched (Loopop op wexps) = FLAT (MAP locals_touched wexps)) /\
   (locals_touched (Shift sh wexp n) = locals_touched wexp) ∧
   (locals_touched BaseAddr = [])
 Termination

@@ -171,7 +171,14 @@ Proof
        MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
    rw [] >>
    fs [MEM_FLAT, MEM_MAP] >>
-   metis_tac [EL_MEM]) >>
+   metis_tac [EL_MEM])
+  >- (
+   rpt gen_tac >>
+   strip_tac >>
+   gvs [var_cexp_def, eval_def, AllCaseEqs(),opt_mmap_eq_some,SF DNF_ss,
+        DefnBase.one_line_ify NONE crep_op_def,MAP_EQ_CONS,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+   metis_tac[]
+  ) >>
   rpt gen_tac >>
   rpt strip_tac >> fs [var_cexp_def, ETA_AX] >>
   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
@@ -221,7 +228,16 @@ Proof
    rw[]\\
    gvs[var_cexp_def,MEM_MAP,MEM_FLAT] \\
    first_x_assum(match_mp_tac o MP_CANON) \\
-   metis_tac[]) \\
+   metis_tac[])
+  >- (
+   rpt strip_tac >>
+   gvs[eval_def,var_cexp_def,MEM_FLAT,MEM_MAP] >>
+   qmatch_goalsub_abbrev_tac ‘option_CASE a1 _ _ = option_CASE a2 _ _’ >>
+   ‘a1 = a2’ suffices_by simp[] >>
+   unabbrev_all_tac >>
+   match_mp_tac OPT_MMAP_cong >>
+   rw[] >>
+   metis_tac[]) >>
   rpt gen_tac >>
   rpt strip_tac >> fs [var_cexp_def, ETA_AX] >>
   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
@@ -646,7 +662,6 @@ Proof
    fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
    rveq >> metis_tac [])
   >- fs [exps_def, eval_def, CaseEq "option"]
-
   >- (
    rpt gen_tac >>
    strip_tac >> fs [exps_def, ETA_AX] >>
@@ -656,7 +671,16 @@ Proof
        MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
    rw [] >>
    fs [MEM_FLAT, MEM_MAP] >>
-   metis_tac [EL_MEM]) >>
+   metis_tac [EL_MEM])
+  >- (
+   rpt gen_tac >>
+   strip_tac >>
+   gvs [exps_def, eval_def, AllCaseEqs(),opt_mmap_eq_some,SF DNF_ss,
+        MAP_EQ_CONS,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+   first_x_assum $ irule_at $ Pos last >>
+   simp[] >>
+   gvs[MAP_EQ_EVERY2,LIST_REL_EL_EQN] >>
+   metis_tac[EL_MEM]) >>
   rpt gen_tac >>
   rpt strip_tac >> fs [exps_def, ETA_AX] >>
   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
@@ -819,21 +843,14 @@ Proof
   TRY (
   fs [eval_def, var_cexp_def] >>
   FULL_CASE_TAC >> fs [] >> NO_TAC)
-  >- (
-   fs [var_cexp_def, ETA_AX] >>
-   fs [eval_def] >>
-   FULL_CASE_TAC >> fs [ETA_AX] >> rveq >>
-   pop_assum kall_tac >> pop_assum kall_tac >>
-   rpt (pop_assum mp_tac) >>
-   MAP_EVERY qid_spec_tac [`n`,`x`,`s`, `es`] >>
-   Induct >- rw [] >>
-   rpt gen_tac >>
-   rpt strip_tac >>
-   fs [OPT_MMAP_def] >> rveq >> fs [] >>
-   last_x_assum (qspecl_then [‘s’, ‘t’, ‘n’] mp_tac) >>
-   fs [] >>
-   impl_tac >- metis_tac [] >>
-   fs []) >>
+  >- (gvs [var_cexp_def,MEM_FLAT,MEM_MAP,eval_def,AllCaseEqs(),opt_mmap_eq_some,
+           MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+      first_x_assum $ drule_then match_mp_tac >>
+      metis_tac[MEM_EL])
+  >- (gvs [var_cexp_def,MEM_FLAT,MEM_MAP,eval_def,AllCaseEqs(),opt_mmap_eq_some,
+           MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+      first_x_assum $ drule_then match_mp_tac >>
+      metis_tac[MEM_EL]) >>
   fs [var_cexp_def, eval_def] >>
   every_case_tac >> fs []
 QED

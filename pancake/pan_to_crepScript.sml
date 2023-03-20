@@ -32,6 +32,12 @@ Definition comp_field_def:
    else comp_field (i-1) shs (DROP (size_of_shape sh) es))
 End
 
+Definition compile_panop_def:
+  compile_panop panLang$Div = crepLang$Div ∧
+  compile_panop panLang$Mul = crepLang$Mul ∧
+  compile_panop panLang$Mod = crepLang$Mod
+End
+
 Definition compile_exp_def:
   (compile_exp ctxt ((Const c):'a panLang$exp) =
    ([(Const c): 'a crepLang$exp], One)) /\
@@ -63,6 +69,11 @@ Definition compile_exp_def:
    let cexps = MAP FST (MAP (compile_exp ctxt) es) in
    case cexp_heads cexps of
    | SOME es => ([Op bop es], One)
+   | _ => ([Const 0w], One)) /\
+  (compile_exp ctxt (Panop pop es) =
+   let cexps = MAP FST (MAP (compile_exp ctxt) es) in
+   case cexp_heads cexps of
+   | SOME es => ([Crepop (compile_panop pop) es], One)
    | _ => ([Const 0w], One)) /\
   (compile_exp ctxt (Cmp cmp e e') =
    let ce  = FST (compile_exp ctxt e);

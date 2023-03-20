@@ -82,6 +82,13 @@ Definition lookup_code_def:
       | _ => NONE
 End
 
+Definition crep_op_def:
+  crep_op crepLang$Div [w1;w2] = SOME(w1 / w2) ∧
+  crep_op Mul [w1;w2] = SOME(w1 * w2) ∧
+  crep_op Mod [w1;w2] = SOME(word_mod w1 w2) ∧
+  crep_op _ _ = NONE
+End
+
 Definition eval_def:
   (eval (s:('a,'ffi) crepSem$state) ((Const w):'a crepLang$exp) = SOME (Word w)) ∧
   (eval s (Var v) = FLOOKUP s.locals v) ∧
@@ -107,6 +114,13 @@ Definition eval_def:
        if (EVERY (\w. case w of (Word _) => T | _ => F) ws)
        then OPTION_MAP Word
             (word_op op (MAP (\w. case w of Word n => n) ws)) else NONE
+      | _ => NONE) /\
+  (eval s (Crepop op es) =
+    case (OPT_MMAP (eval s) es) of
+     | SOME ws =>
+       if (EVERY (\w. case w of (Word _) => T | _ => F) ws)
+       then OPTION_MAP Word
+            (crep_op op (MAP (\w. case w of Word n => n) ws)) else NONE
       | _ => NONE) /\
   (eval s (Cmp cmp e1 e2) =
     case (eval s e1, eval s e2) of

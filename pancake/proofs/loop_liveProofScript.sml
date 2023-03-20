@@ -192,7 +192,6 @@ Proof
   THEN1 fs [domain_insert,domain_union,EXTENSION]
   THEN1 fs [domain_insert,domain_union,EXTENSION]
   \\ TRY (rpt (pop_assum (qspec_then ‘l’ mp_tac)) \\ fs [] \\ NO_TAC)
-  \\ TRY (rpt (pop_assum (qspec_then ‘l'’ mp_tac)) \\ fs [] \\ NO_TAC)
   \\ Cases_on ‘exp’ \\ fs []
   \\ simp_tac std_ss [domain_union]
   \\ rpt (pop_assum (fn th => once_rewrite_tac [th]))
@@ -220,6 +219,26 @@ Proof
     \\ pop_assum mp_tac
     \\ qid_spec_tac ‘ws’
     \\ Induct_on ‘wexps’ \\ fs [] \\ rw []
+    \\ fs [wordSemTheory.the_words_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
+    \\ rveq \\ fs [] \\ conj_tac
+    \\ fs [PULL_FORALL,AND_IMP_INTRO]
+    \\ first_x_assum match_mp_tac
+    THEN1 (fs [Once vars_of_exp_def] \\ metis_tac [])
+    \\ pop_assum mp_tac \\ simp [Once vars_of_exp_def]
+    \\ rw [] THEN1 metis_tac []
+    \\ fs [subspt_lookup,lookup_inter_alt]
+    \\ pop_assum mp_tac
+    \\ once_rewrite_tac [vars_of_exp_acc]
+    \\ fs [domain_union])
+  THEN1
+   (fs [CaseEq"option",CaseEq"word_loc"] \\ rveq
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ pop_assum mp_tac
+    \\ once_rewrite_tac [vars_of_exp_def]
+    \\ pop_assum kall_tac
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘ws’
+    \\ Induct_on ‘es’ \\ fs [] \\ rw []
     \\ fs [wordSemTheory.the_words_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
     \\ rveq \\ fs [] \\ conj_tac
     \\ fs [PULL_FORALL,AND_IMP_INTRO]

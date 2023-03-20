@@ -33,6 +33,10 @@ Datatype:
 End
 
 Datatype:
+  panop = Div | Mul | Mod
+End
+
+Datatype:
   exp = Const ('a word)
       | Var varname
       | Label funname
@@ -42,6 +46,7 @@ Datatype:
       | Load shape exp (* exp: start addr of value with given shape *)
       | LoadByte exp
       | Op binop (exp list)
+      | Panop panop (exp list)
       | Cmp cmp exp exp
       | Shift shift exp num
       | BaseAddr
@@ -176,6 +181,7 @@ Definition var_exp_def:
   (var_exp (Load sh e) = var_exp e) ∧
   (var_exp (LoadByte e) = var_exp e) ∧
   (var_exp (Op bop es) = FLAT (MAP var_exp es)) ∧
+  (var_exp (Panop op es) = FLAT (MAP var_exp es)) ∧
   (var_exp (Cmp c e1 e2) = var_exp e1 ++ var_exp e2) ∧
   (var_exp (Shift sh e num) = var_exp e)
 Termination
