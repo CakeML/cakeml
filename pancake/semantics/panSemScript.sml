@@ -552,9 +552,13 @@ End
 Definition h_prog_rule_cond_def:
   h_prog_rule_cond gexp p1 p2 s =
   case (eval s gexp) of
-   | SOME (ValWord g) => itree_trigger (INL (if g ≠ 0w then p1 else p2,s))
+   | SOME (ValWord g) => Vis (INL (if g ≠ 0w then p1 else p2,s)) Ret
    | _ => Ret (SOME Error,s)
 End
+
+(* NB The design of this while denotation restricts the type of Vis at this level of the semantics
+ to having k-trees of: (res,state) -> (a,b,c) itree. *)
+(* This is converted to the desired state in the top-level semantics. *)
 
 (* Inf ITree of Vis nodes, with inf many branches allowing
  termination of the loop; when the guard is false. *)
@@ -612,6 +616,8 @@ Definition h_prog_rule_call_def:
 End
 
 (* The type of visible events in the ITree semantics. *)
+Type ktree = “:α -> (α,β,γ) itree”
+
 Datatype:
   sem_vis_event = FFI_call ('ffi ffi_state) string (word8 list) (word8 list)
 End
@@ -624,13 +630,18 @@ Definition h_prog_rule_ext_call_def:
                                     (case (read_bytearray conf_ptr_adr (w2n conf_sz) (mem_load_byte s.memory s.memaddrs s.be),
                                            read_bytearray array_ptr_adr (w2n array_sz) (mem_load_byte s.memory s.memaddrs s.be)) of
                                        (SOME conf_bytes,SOME array_bytes) =>
-                                        Vis (INR (FFI_call s.ffi (explode ffi_name) conf_bytes array_bytes))
+                                        Vis (INR (FFI_call s.ffi (explode ffi_name) conf_bytes array_bytes,
                                             (λres. case res of
                                                      FFI_final outcome => Ret (SOME (FinalFFI outcome),empty_locals s)
                                                     | FFI_return new_ffi new_bytes =>
                                                        let nmem = write_bytearray array_ptr_adr new_bytes s.memory s.memaddrs s.be in
                                                        Ret (NONE,s with <| memory := nmem; ffi := new_ffi |>)
-                                                       | _ => Ret (SOME Error,s))
+                                                       | _ => Ret (SOME Error,s))))
+                                            (λx. case call_FFI s.ffi (explode ffi_name) conf_bytes array_bytes of
+                                                   FFI_final outcome => Ret (SOME (FinalFFI outcome),empty_locals s)
+                                                  | FFI_return new_ffi new_bytes =>
+                                                     let nmem = write_bytearray array_ptr_adr new_bytes s.memory s.memaddrs s.be in
+                                                     Ret (NONE,s with <| memory := nmem; ffi := new_ffi |>))
                                       | _ => Ret (SOME Error,s))
    | _ => Ret (SOME Error,s)
 End
@@ -691,6 +702,9 @@ Definition evaluate_itree_def:
 End
 
 (* Observational ITree semantics *)
+(* TODO: Need a combinator over the type of itree returned from: evaluate_itree p s
+ that produces the final ITree by converting the type of Vis nodes into the proper type
+      and by removing state from the Ret type. *)
 Definition semantics_itree_def:
   semantics_itree ^s entry =
   let prog = Call Tail (Label entry) [] in
@@ -706,13 +720,6 @@ Theorem itree_rep_simp_eq:
 Proof
   rw [itreeTauTheory.itree_el_def]
 QED
-
-Definition itree_ret_val_def:
-  itree_ret_val t p = case (itree_el t p) of
-                        Return r => r
-                       | _ => ARB
-End
-
 
 (* Proof of isomorphism with operational semantics *)
 Theorem itree_sem_evaluate_biject_skip:
@@ -825,13 +832,17 @@ QED
 (* Bisimulation proof of isomorphism between semantics *)
 (* Can be interred once the evaluate_biject is proven by itree_el_eqv. *)
 
+(* NOTE: Because the intermediate semantics has Vis nodes with constant ktrees,
+ we can prove the bijection that our semantics produces in every branch a Ret node
+    containing the result identical to that produced by the operational semantics. *)
+(* The outer-most semantics then modifies this shape by allowing Vis nodes to have ktrees
+ dependent on FFI results. *)
 Theorem hprog_evaluate_wbisim:
   evaluate_itree p s = Ret (evaluate (p,s))
 Proof
   rw [Once itreeTauTheory.itree_bisimulation] >>
   qexists_tac ‘strip_tau_vis’ >>
   rw [strip_tau_vis_ind]
-  rpt CONJ_TAC
   (* Proving the results of both semantics are in the relation *)
   >- (Cases_on ‘p’
       (* Skip *)
