@@ -145,6 +145,8 @@ val evaluate_nop_steps = Q.prove(
   `!n s1 ms1 c.
       encoder_correct c.target /\
       c.prog_addresses = s1.mem_domain /\
+      ffi_entry_pcs_disjoint c s1 (LENGTH $
+        FLAT (REPLICATE n (c.target.config.encode (Inst Skip)))) /\
       interference_ok c.next_interfer (c.target.proj s1.mem_domain) /\
       bytes_in_memory s1.pc
         (FLAT (REPLICATE n (c.target.config.encode (Inst Skip)))) s1.mem
@@ -168,12 +170,39 @@ val evaluate_nop_steps = Q.prove(
   \\ rpt strip_tac \\ full_simp_tac(srw_ss())[REPLICATE,bytes_in_memory_APPEND]
   \\ mp_tac evaluate_nop_step \\ full_simp_tac(srw_ss())[] \\ rpt strip_tac
   \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL]
+  \\ pop_assum mp_tac
+  \\ impl_tac
+  >- (
+    fs[ffi_entry_pcs_disjoint_def,IN_DISJOINT,DISJOINT_SUBSET]
+    \\ rw[]
+    \\ last_x_assum $ qspec_then `x` assume_tac
+    \\ fs[addressTheory.word_arith_lemma1,MULT_SUC]
+    \\ disj2_tac
+    \\ strip_tac
+    \\ first_x_assum $ qspec_then `a` assume_tac
+    \\ disch_then assume_tac
+    \\ first_x_assum $ drule_then assume_tac
+    \\ rw[]
+  )
+  \\ strip_tac
   \\ first_x_assum (mp_tac o
        Q.SPECL [`(upd_pc (s1.pc +
           n2w (LENGTH ((c:('a,'state,'b) machine_config).target.config.encode
             (Inst Skip)))) s1)`,`ms2`,`shift_interfer l c`])
   \\ match_mp_tac IMP_IMP \\ strip_tac
-  THEN1 (full_simp_tac(srw_ss())[shift_interfer_def,upd_pc_def,interference_ok_def,shift_seq_def])
+  THEN1 (
+    fs[shift_interfer_def,upd_pc_def,interference_ok_def,shift_seq_def,
+      ffi_entry_pcs_disjoint_def,IN_DISJOINT,DISJOINT_SUBSET]
+    \\ strip_tac
+    \\ last_x_assum $ qspec_then `x` assume_tac
+    \\ fs[addressTheory.word_arith_lemma1,MULT_SUC]
+    \\ disj2_tac
+    \\ strip_tac
+    \\ first_x_assum $ qspec_then `a + LENGTH (c.target.config.encode (Inst Skip))` assume_tac
+    \\ disch_then assume_tac
+    \\ first_x_assum $ drule_then assume_tac
+    \\ rw[]
+  )
   \\ rpt strip_tac
   \\ `(shift_interfer l c).target = c.target` by full_simp_tac(srw_ss())[shift_interfer_def]
   \\ full_simp_tac(srw_ss())[upd_pc_def]
@@ -186,10 +215,31 @@ val evaluate_nop_steps = Q.prove(
   \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
   \\ gvs [word_add_n2w]);
 
-val asm_step_IMP_evaluate_step_nop = Q.prove(
-  `!c s1 ms1 io i s2 bytes.
+Theorem ffi_entry_pcs_disjoint_LENGTH_shorter:
+!l1 l2.
+  ffi_entry_pcs_disjoint c s1 l1 /\
+  l2 <= l1 ==>
+  ffi_entry_pcs_disjoint c s1 l2
+Proof
+  rpt strip_tac >>
+  fs[ffi_entry_pcs_disjoint_def,IN_DISJOINT] >>
+  strip_tac >>
+  first_x_assum $ qspec_then `x` assume_tac >>
+  fs[] >>
+  disj2_tac >>
+  strip_tac >>
+  disch_then assume_tac >>
+  first_x_assum drule >>
+  rpt strip_tac >>
+  fs[LE_LT1]
+QED
+
+(* TODO *)
+Theorem asm_step_IMP_evaluate_step_nop:
+   !c s1 ms1 io i s2 bytes.
       encoder_correct c.target /\
       c.prog_addresses = s1.mem_domain /\
+      ffi_entry_pcs_disjoint c s1 (LENGTH bytes) /\
       interference_ok c.next_interfer (c.target.proj s1.mem_domain) /\
       bytes_in_memory s1.pc bytes s2.mem s1.mem_domain /\
       asm_step_nop bytes c.target.config s1 i s2 /\
@@ -200,15 +250,23 @@ val asm_step_IMP_evaluate_step_nop = Q.prove(
         !k.
           evaluate c io (k + l) ms1 =
           evaluate (shift_interfer l c) io k ms2 /\
-          target_state_rel c.target s2 ms2 /\ l <> 0`,
+          target_state_rel c.target s2 ms2 /\ l <> 0
+Proof
   full_simp_tac(srw_ss())[asm_step_nop_def] \\ rpt strip_tac
   \\ (asm_step_IMP_evaluate_step
-      |> SIMP_RULE std_ss [asm_step_def] |> SPEC_ALL |> mp_tac) \\ full_simp_tac(srw_ss())[]
+      |> SIMP_RULE std_ss [asm_step_def] |> SPEC_ALL |> mp_tac) \\ fs[]
   \\ full_simp_tac(srw_ss())[enc_with_nop_thm]
   \\ match_mp_tac IMP_IMP \\ strip_tac THEN1
-   (full_simp_tac(srw_ss())[bytes_in_memory_APPEND] \\ Cases_on `i`
-    \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def,
-           LET_DEF,assert_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[])
+   (conj_tac
+    >- (
+      fs[LENGTH_APPEND]
+      \\ drule ffi_entry_pcs_disjoint_LENGTH_shorter
+      \\ disch_then $ qspec_then `LENGTH (c.target.config.encode i)` assume_tac
+      \\ fs[])
+    \\ fs[bytes_in_memory_APPEND]
+    \\ Cases_on `i`
+    \\ fs[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def,LET_DEF,assert_def] 
+    \\ srw_tac[][] \\ fs[] \\ rfs[])
   \\ rpt strip_tac \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL]
   \\ Cases_on `?w. i = Jump w` \\ full_simp_tac(srw_ss())[]
   THEN1 (full_simp_tac(srw_ss())[asm_def] \\ Q.LIST_EXISTS_TAC [`l`,`ms2`] \\ full_simp_tac(srw_ss())[])
@@ -247,7 +305,8 @@ val asm_step_IMP_evaluate_step_nop = Q.prove(
   THEN1 (Cases_on `i'` \\ full_simp_tac(srw_ss())[inst_def,upd_pc_def]
     \\ full_simp_tac std_ss [GSYM WORD_ADD_ASSOC,word_add_n2w])
   \\ full_simp_tac(srw_ss())[jump_to_offset_def,upd_pc_def]
-  \\ full_simp_tac std_ss [GSYM WORD_ADD_ASSOC,word_add_n2w]);
+  \\ full_simp_tac std_ss [GSYM WORD_ADD_ASSOC,word_add_n2w]
+QED
 
 (* define relation between labSem and targetSem states *)
 
@@ -621,11 +680,6 @@ Definition share_mem_state_rel_def:
    (* requirements for share memory access pcs *)
    (!index i. mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
       index < LENGTH mc_conf.ffi_names /\ i <= index ==>
-(*    DISJOINT
-      {a| EL index mc_conf.ffi_entry_pcs <= a/\
-            a < SND (SND (SND (mc_conf.mmio_info index)))}
-        mc_conf.prog_addresses /\ *)
-      (EL index mc_conf.ffi_entry_pcs) NOTIN mc_conf.prog_addresses /\
       DISJOINT
         {a| EL index mc_conf.ffi_entry_pcs <= a /\
             a < SND (SND (SND (mc_conf.mmio_info index)))}
