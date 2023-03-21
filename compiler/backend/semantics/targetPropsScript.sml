@@ -83,6 +83,11 @@ Proof
   )
 QED
 
+Definition ffi_entry_pcs_disjoint_def:
+  ffi_entry_pcs_disjoint mc s1 len =
+    DISJOINT (set mc.ffi_entry_pcs) {s1.pc + n2w a | a < len} 
+End
+
 Theorem evaluate_EQ_evaluate_lemma:
   !n ms1 c.
       c.target.get_pc ms1 IN (c.prog_addresses DIFF (set c.ffi_entry_pcs)) /\
@@ -240,16 +245,14 @@ Theorem asm_step_IMP_evaluate_step = Q.prove(`
   !c s1 ms1 io i s2.
       encoder_correct c.target /\
       (c.prog_addresses = s1.mem_domain) /\
-      DISJOINT (set c.ffi_entry_pcs) {s1.pc + n2w a | a | a < LENGTH
-        (c.target.config.encode i)} /\
+      ffi_entry_pcs_disjoint c s1 (LENGTH $ c.target.config.encode i) /\
       interference_ok c.next_interfer (c.target.proj s1.mem_domain) /\
       asm_step c.target.config s1 i s2 /\
-      (s2 = asm i (s1.pc + n2w (LENGTH (c.target.config.encode i))) s1) /\
       target_state_rel c.target (s1:'a asm_state) (ms1:'state) ==>
       ?l ms2. !k. (evaluate c io (k + l) ms1 =
                    evaluate (shift_interfer l c) io k ms2) /\
                   target_state_rel c.target s2 ms2 /\ l <> 0`,
-  full_simp_tac(srw_ss()) [encoder_correct_def, target_ok_def, LET_DEF]
+  fs[encoder_correct_def,target_ok_def,LET_DEF,ffi_entry_pcs_disjoint_def]
   \\ rw[]
   \\ first_x_assum drule
   \\ disch_then drule
