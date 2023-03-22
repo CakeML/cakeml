@@ -84,6 +84,7 @@ End
 Definition comp_syntax_ok_def:
   (comp_syntax_ok l loopLang$Skip = T) ∧
   (comp_syntax_ok l (Assign n e) = T) ∧
+  (comp_syntax_ok l (Arith arith) = T) ∧
   (comp_syntax_ok l (LocValue n m) = T) ∧
   (comp_syntax_ok l (LoadByte n m) = T) ∧
   (comp_syntax_ok l (Seq p q) = (comp_syntax_ok l p ∧ comp_syntax_ok (cut_sets l p) q)) ∧
@@ -597,6 +598,10 @@ Proof
   rename [‘insert vn () l’] >>
   qexists_tac ‘insert vn () LN’ >>
   fs [Once insert_union, union_num_set_sym] >> NO_TAC)
+  >- (rename1 ‘Arith l’ >> Cases_on ‘l’  >> rw[] >>
+      simp[Once insert_union,union_num_set_sym] >>
+      simp[Once insert_union,SimpR “union”, union_num_set_sym] >>
+      metis_tac[union_num_set_sym,union_assoc])
   >- (
    drule comp_syn_ok_seq >>
    strip_tac >>
@@ -667,6 +672,11 @@ Proof
   TRY (
   fs [evaluate_def] >> rveq >>
   TRY every_case_tac >> fs [set_var_def, state_component_equality] >> NO_TAC)
+  >- (rename1 ‘Arith’ >>
+      gvs[comp_syntax_ok_def,evaluate_def,AllCaseEqs(),
+         DefnBase.one_line_ify NONE loop_arith_def] >>
+      simp[state_component_equality,set_var_def]) >>
+  TRY every_case_tac >> fs [set_var_def, state_component_equality]
   >- (
    drule comp_syn_ok_seq >>
    strip_tac >>
@@ -726,6 +736,13 @@ Proof
   fs [evaluate_def] >>
   every_case_tac >> fs [] >> rveq >>
   fs [set_var_def, assigned_vars_def, lookup_insert] >> NO_TAC)
+  >- (
+    rename1 ‘Arith’ >>
+    gvs[evaluate_def,assigned_vars_def,
+        DefnBase.one_line_ify NONE loop_arith_def,
+        AllCaseEqs(),set_var_def,lookup_insert
+       ]
+     )
   >- (
    drule comp_syn_ok_seq >>
    strip_tac >>
