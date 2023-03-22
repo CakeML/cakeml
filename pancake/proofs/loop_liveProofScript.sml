@@ -231,26 +231,6 @@ Proof
     \\ once_rewrite_tac [vars_of_exp_acc]
     \\ fs [domain_union])
   THEN1
-   (fs [CaseEq"option",CaseEq"word_loc"] \\ rveq
-    \\ goal_assum (first_assum o mp_then Any mp_tac)
-    \\ pop_assum mp_tac
-    \\ once_rewrite_tac [vars_of_exp_def]
-    \\ pop_assum kall_tac
-    \\ pop_assum mp_tac
-    \\ qid_spec_tac ‘ws’
-    \\ Induct_on ‘es’ \\ fs [] \\ rw []
-    \\ fs [wordSemTheory.the_words_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
-    \\ rveq \\ fs [] \\ conj_tac
-    \\ fs [PULL_FORALL,AND_IMP_INTRO]
-    \\ first_x_assum match_mp_tac
-    THEN1 (fs [Once vars_of_exp_def] \\ metis_tac [])
-    \\ pop_assum mp_tac \\ simp [Once vars_of_exp_def]
-    \\ rw [] THEN1 metis_tac []
-    \\ fs [subspt_lookup,lookup_inter_alt]
-    \\ pop_assum mp_tac
-    \\ once_rewrite_tac [vars_of_exp_acc]
-    \\ fs [domain_union])
-  THEN1
    (fs [CaseEq"option",CaseEq"word_loc",vars_of_exp_def,PULL_EXISTS] \\ rveq
     \\ res_tac \\ fs[] \\ fs [mem_load_def])
 QED
@@ -495,12 +475,25 @@ Proof
   \\ res_tac \\ fs [domain_lookup]
 QED
 
+Theorem compile_Arith:
+  ^(get_goal "loopLang$Arith")
+Proof
+  rpt strip_tac >>
+  gvs[evaluate_def, DefnBase.one_line_ify NONE loop_arith_def,
+      AllCaseEqs(),shrink_def,PULL_EXISTS,
+      subspt_lookup,lookup_inter_alt,domain_insert,
+         cut_state_def, domain_inter,arith_vars,SF DNF_ss
+     ] >>
+  rw[state_component_equality,set_var_def,lookup_insert] >>
+  rw[] >> gvs[]
+QED
+        
 Theorem compile_correct:
   ^(compile_correct_tm())
 Proof
   match_mp_tac (the_ind_thm())
   \\ EVERY (map strip_assume_tac [compile_Skip, compile_Continue,
-       compile_Mark, compile_Return, compile_Assign, compile_Store,
+       compile_Mark, compile_Return, compile_Assign, compile_Store, compile_Arith,
        compile_Call, compile_Seq, compile_If, compile_FFI, compile_Loop])
   \\ asm_rewrite_tac [] \\ rw [] \\ rpt (pop_assum kall_tac)
 QED

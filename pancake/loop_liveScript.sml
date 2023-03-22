@@ -15,7 +15,6 @@ Definition vars_of_exp_def:
   vars_of_exp (Lookup _) l = l ∧
   vars_of_exp (Load a) l = vars_of_exp a l ∧
   vars_of_exp (Op x vs) l = vars_of_exp_list vs l ∧
-  vars_of_exp (Loopop x vs) l = vars_of_exp_list vs l ∧
   vars_of_exp (Shift _ x _) l = vars_of_exp x l ∧
   vars_of_exp_list xs l =
     (case xs of [] => l
@@ -47,6 +46,14 @@ Proof
 QED
 
 
+Definition arith_vars:
+  arith_vars (LLongMul r1 r2 r3 r4) l =
+  insert r3 () $ insert r4 () $ delete r1 $ delete r2 l ∧
+  arith_vars (LDiv r1 r2 r3) l = insert r2 () $ insert r3 () $ delete r1 l ∧
+  arith_vars (LLongDiv r1 r2 r3 r4 r5) l =
+  insert r3 () $ insert r4 () $ insert r5 () $ delete r1 $ delete r2 l
+End
+
 (* This optimisation shrinks all cutsets and also deletes assignments
    to unused variables. The Loop case is the interesting one: an
    auxiliary function is used to find a fixed-point. *)
@@ -76,6 +83,9 @@ Definition shrink_def:
   (shrink b Skip l = (Skip,l)) /\
   (shrink b (Return v) l = (Return v, insert v () LN)) /\
   (shrink b (Raise v) l = (Raise v, insert v () LN)) /\
+  (shrink b (Arith arith) l =
+   (Arith arith, arith_vars arith l)
+  ) ∧
   (shrink b (LocValue n m) l =
      case lookup n l of
      | NONE => (Skip,l)

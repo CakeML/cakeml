@@ -41,9 +41,10 @@ Definition prog_if_def:
 End
 
 Definition compile_crepop_def:
-  compile_crepop crepLang$Div = loopLang$Div ∧
-  compile_crepop crepLang$Mul = loopLang$Mul ∧
-  compile_crepop crepLang$Mod = loopLang$Mod
+  compile_crepop crepLang$Div x y tmp = ([Arith (LDiv tmp x y)],tmp) ∧
+  compile_crepop crepLang$Mul x y tmp = ([Arith (LLongMul tmp tmp x y)],tmp) ∧
+  compile_crepop crepLang$Mod x y tmp = ([Assign tmp (Const 0w);Arith (LLongDiv tmp (tmp+1) x y tmp)],
+                                         tmp+1)
 End
 
 Definition compile_exp_def:
@@ -62,8 +63,11 @@ Definition compile_exp_def:
    let (p, les, tmp, l) = compile_exps ctxt tmp l es in
    (p, Op bop les, tmp, l)) /\
   (compile_exp ctxt tmp l (Crepop cop es) =
-   let (p, les, tmp, l) = compile_exps ctxt tmp l es in
-   (p, Loopop (compile_crepop cop) les, tmp, l)) /\
+   let (p, les, tmp, l) = compile_exps ctxt tmp l es;
+       (p',tmp') = compile_crepop cop (tmp) (tmp+1) (tmp+LENGTH les)
+    in
+   (p ++ MAPi (λn. Assign (tmp+n)) les ++ p',
+    Var tmp', tmp'+1, list_insert (GENLIST ($+ tmp) (tmp'-tmp)) l)) /\
   (compile_exp ctxt tmp l (Cmp cmp e e') =
    let (p, le, tmp, l) = compile_exp ctxt tmp l e in
    let (p', le', tmp', l) = compile_exp ctxt tmp l e' in
