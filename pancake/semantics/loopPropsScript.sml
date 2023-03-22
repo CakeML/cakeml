@@ -72,6 +72,12 @@ Definition cut_sets_def:
   (cut_sets l (LoadByte n m) = insert m () l) ∧
   (cut_sets l (Seq p q) = cut_sets (cut_sets l p) q) ∧
   (cut_sets l (If _ _ _ p q nl) = nl) ∧
+  (cut_sets l (Arith arith) =
+   case arith of
+     LLongDiv r1 r2 _ _ _ => insert r1 () $ insert r2 () l
+   | LLongMul r1 r2 _ _ => insert r1 () $ insert r2 () l
+   | LDiv r1 _ _ => insert r1 () l
+  ) ∧
   (cut_sets l _ = l)
 End
 
