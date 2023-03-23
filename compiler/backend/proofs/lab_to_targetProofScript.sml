@@ -1923,9 +1923,9 @@ Proof
       rfs[word_loc_val_def])
     >- metis_tac[]
     >- (fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
-        share_mem_domain_code_rel_tac)
+        share_mem_state_rel_tac)
     >- fs[inc_pc_def])
-  >- (*TODO*)
+  >-
     (*Store*)
     (`good_dimindex(:'a)` by fs[state_rel_def]>>
     fs[good_dimindex_def]>>
@@ -1986,8 +1986,9 @@ Proof
          rw[APPLY_UPDATE_THM]>>
          rfs[])
        >- (
-          fs[inc_pc_def,read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
-          share_mem_domain_code_rel_tac)))
+          fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
+          share_mem_state_rel_tac)
+       >- fs[inc_pc_def]))
      >>
        (`aligned 3 x` by fs [aligned_w2n]>>
        drule aligned_3_imp>>
@@ -2034,9 +2035,11 @@ Proof
          rw[APPLY_UPDATE_THM]>>
          rfs[])
        >- (
-          fs[inc_pc_def,read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
-          share_mem_state_rel_tac)))
+          fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
+          share_mem_state_rel_tac)
+       >- fs[inc_pc_def])))
   >-
+    (* Store8 *)
     (Cases_on`a`>>last_x_assum mp_tac>>
     fs[mem_store_byte_def,labSemTheory.assert_def,mem_store_byte_aux_def,mem_store_def,labSemTheory.addr_def,
        addr_def,write_mem_word_compute,upd_pc_def,read_reg_def,assert_def,upd_mem_def,dec_clock_def]>>
@@ -2081,8 +2084,9 @@ Proof
       rw[APPLY_UPDATE_THM]>>
       rfs[])
     >- (
-      fs[inc_pc_def,read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
-      share_mem_state_rel_tac))
+      fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
+      share_mem_state_rel_tac)
+    >- fs[inc_pc_def]))
   THEN1 (
   (strip_tac>>CONJ_ASM1_TAC>-
     (Cases_on`f`>>TRY(EVAL_TAC>>fs[state_rel_def]>>NO_TAC)
@@ -2113,7 +2117,7 @@ Proof
     fs[fp_upd_def,upd_pc_def,inc_pc_def,APPLY_UPDATE_THM,fp_upd_share_mem_domain_unchange] >>
   reverse conj_tac
   >- (
-    fs[fp_upd_def,upd_pc_def,inc_pc_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
+    fs[fp_upd_def,upd_pc_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
     share_mem_state_rel_tac) >>
   reverse conj_tac >- metis_tac[] >>
   reverse conj_tac >- (
