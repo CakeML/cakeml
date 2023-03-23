@@ -2927,14 +2927,14 @@ QED
 
 (* move? *)
 Theorem word_list_set:
-  ∀xs a. good_dimindex (:'a) ∧ 
+  ∀xs a. good_dimindex (:'a) ∧
          w2n a + LENGTH xs * w2n (bytes_in_word :'a word) < dimword (:'a) ⇒
          word_list a xs (set (GENLIST (λi. a + n2w i * bytes_in_word:'a word, EL i xs) (LENGTH xs)))
 Proof
   Induct>>gs[word_list_def,emp_def]>>
   rpt strip_tac>>
   gs[one_def,STAR_def,SPLIT_EQ,GENLIST]>>
-  conj_tac >- 
+  conj_tac >-
    (Cases_on ‘xs’>>gs[]>>
     irule OR_INTRO_THM2>>gs[MEM_GENLIST]>>qexists_tac ‘0’>>gs[LENGTH])>>
   first_x_assum $ qspec_then ‘a+bytes_in_word’ assume_tac>>
@@ -2992,7 +2992,7 @@ QED
 
 (* move? *)
 Theorem word_list_seteq:
-  ∀xs a. good_dimindex (:'a) ∧ 
+  ∀xs a. good_dimindex (:'a) ∧
          w2n a + LENGTH xs * w2n (bytes_in_word :'a word) < dimword (:'a) ⇒
          word_list a xs = (λs. s = set (GENLIST (λi. a + n2w i * bytes_in_word:'a word, EL i xs) (LENGTH xs)))
 Proof
@@ -3006,7 +3006,7 @@ QED
 
 (* move? *)
 Theorem word_list_EL_in_memory:
-  good_dimindex (:'a) ∧ 
+  good_dimindex (:'a) ∧
   w2n a + LENGTH xs * w2n (bytes_in_word :'a word) < dimword (:'a) ∧
   (r1 * word_list a xs * r2) (fun2set (m, dm)) ∧
   i < LENGTH xs ⇒ m (a + n2w i * bytes_in_word:'a word) = EL i xs
@@ -3028,14 +3028,14 @@ QED
 (* move? *)
 Theorem word_list_in_memory:
   (r1 * word_list a xs * r2) (fun2set (m, dm)) ∧
-  good_dimindex (:'a) ∧ 
+  good_dimindex (:'a) ∧
   w2n a + LENGTH xs * w2n (bytes_in_word :'a word) < dimword (:'a) ⇒
            memory m (addresses a (LENGTH xs)) = word_list (a:'a word) xs
 Proof
   rpt strip_tac>>
   drule_then drule word_list_EL_in_memory>>
   disch_then $ drule_at Any>>strip_tac>>
-  
+
   simp[Once FUN_EQ_THM]>>strip_tac>>
   gs[word_list_seteq,memory_def]>>
 
