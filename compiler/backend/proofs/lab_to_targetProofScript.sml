@@ -145,8 +145,8 @@ val evaluate_nop_steps = Q.prove(
   `!n s1 ms1 c.
       encoder_correct c.target /\
       c.prog_addresses = s1.mem_domain /\
-      ffi_entry_pcs_disjoint c s1 (LENGTH $
-        FLAT (REPLICATE n (c.target.config.encode (Inst Skip)))) /\
+      ffi_entry_pcs_disjoint c s1
+        (n * LENGTH (c.target.config.encode (Inst Skip))) /\
       interference_ok c.next_interfer (c.target.proj s1.mem_domain) /\
       bytes_in_memory s1.pc
         (FLAT (REPLICATE n (c.target.config.encode (Inst Skip)))) s1.mem
@@ -234,7 +234,6 @@ Proof
   fs[LE_LT1]
 QED
 
-(* TODO *)
 Theorem asm_step_IMP_evaluate_step_nop:
    !c s1 ms1 io i s2 bytes.
       encoder_correct c.target /\
@@ -269,19 +268,42 @@ Proof
     \\ srw_tac[][] \\ fs[] \\ rfs[])
   \\ rpt strip_tac \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL]
   \\ Cases_on `?w. i = Jump w` \\ full_simp_tac(srw_ss())[]
-  THEN1 (full_simp_tac(srw_ss())[asm_def] \\ Q.LIST_EXISTS_TAC [`l`,`ms2`] \\ full_simp_tac(srw_ss())[])
+  THEN1 (
+    full_simp_tac(srw_ss())[asm_def]
+    \\ Q.LIST_EXISTS_TAC [`l`,`ms2`]
+    \\ full_simp_tac(srw_ss())[])
   \\ Cases_on `?c n r w. (i = JumpCmp c n r w) /\
-                  word_cmp c (read_reg n s1) (reg_imm r s1)` \\ full_simp_tac(srw_ss())[]
-  THEN1 (srw_tac[][] \\ full_simp_tac(srw_ss())[asm_def] \\ Q.LIST_EXISTS_TAC [`l`,`ms2`] \\ full_simp_tac(srw_ss())[])
-  \\ Cases_on `?r. (i = JumpReg r)` \\ full_simp_tac(srw_ss())[]
-  THEN1 (srw_tac[][] \\ full_simp_tac(srw_ss())[asm_def,LET_DEF] \\ Q.LIST_EXISTS_TAC [`l`,`ms2`]
-               \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[])
+                  word_cmp c (read_reg n s1) (reg_imm r s1)` \\ fs[]
+  THEN1 (
+    srw_tac[][]
+    \\ full_simp_tac(srw_ss())[asm_def]
+    \\ Q.LIST_EXISTS_TAC [`l`,`ms2`]
+    \\ full_simp_tac(srw_ss())[])
+  \\ Cases_on `?r. (i = JumpReg r)` \\ fs[]
+  THEN1 (
+    srw_tac[][] 
+    \\ full_simp_tac(srw_ss())[asm_def,LET_DEF]
+    \\ Q.LIST_EXISTS_TAC [`l`,`ms2`]
+    \\ full_simp_tac(srw_ss())[]
+    \\ rev_full_simp_tac(srw_ss())[])
   \\ qspecl_then
       [`n`,`asm i (s1.pc + n2w (LENGTH (c.target.config.encode i))) s1`,`ms2`,
        `shift_interfer l c`] mp_tac evaluate_nop_steps
   \\ match_mp_tac IMP_IMP \\ strip_tac
   THEN1 (full_simp_tac(srw_ss())[shift_interfer_def] \\ rpt strip_tac
-    THEN1 (full_simp_tac(srw_ss())[interference_ok_def,shift_seq_def])
+    THEN1 (
+      fs[ffi_entry_pcs_disjoint_def,IN_DISJOINT]
+      \\ Cases_on `i`
+      \\ fs[asm_def]
+      \\ rw[]
+      \\ first_x_assum $ qspec_then `x` assume_tac
+      \\ fs[addressTheory.word_arith_lemma1]
+      \\ disj2_tac
+      \\ ntac 2 strip_tac
+      \\ first_x_assum drule
+      \\ gvs[]
+    )
+    THEN1 (fs[interference_ok_def,shift_seq_def])
     THEN1
      (Q.ABBREV_TAC
         `mm = (asm i (s1.pc + n2w (LENGTH (c.target.config.encode i))) s1).mem`
@@ -622,36 +644,55 @@ val good_code_def = Define`
    all_enc_ok_pre c code`;
 
 Definition share_mem_domain_code_rel_def:
-  share_mem_domain_code_rel mc_conf s1_code (s1_shared_mem_domain: ('a
-  word->bool)) ms <=>
-    (!pc ms1 op re a ei len i.
-        (asm_fetch_aux pc s1_code = SOME (Asm (ShareMem op re a) ei len) /\
-        mmio_pcs_min_index mc_conf.ffi_names = SOME i) ==>
+  share_mem_domain_code_rel mc_conf p code2 (s1_shared_mem_domain: ('a word->bool))
+  <=>
+    (* whenever the pc is accessing share mem, the pc is in ffi_entry_pcs
+    * after mmio_pcs_min_index and the mmio_info for it is correct *)
+    (!pc op re a inst len i.
+        (asm_fetch_aux pc code2 = SOME (Asm (ShareMem op re a) inst len) /\
+        mmio_pcs_min_index mc_conf.ffi_names = SOME i)
+        ==>
         (?index.
-          i <= index /\ mc_conf.target.get_pc ms1 NOTIN mc_conf.prog_addresses /\
-          find_index (mc_conf.target.get_pc ms1) mc_conf.ffi_entry_pcs 0 = SOME index /\
+          i <= index /\
+          find_index (p + n2w (pos_val pc 0 code2)) mc_conf.ffi_entry_pcs 0 =
+            SOME index /\
           (let (name, nb) = get_memop_info op (:'a) in
             EL index mc_conf.ffi_names = name /\
-            mc_conf.mmio_info index = 
-              (nb, a, re, mc_conf.target.get_pc ms1 + n2w len)))) /\
-     (!a. byte_align a IN s1_shared_mem_domain ==> a IN s1_shared_mem_domain) /\
+            mc_conf.mmio_info index =
+              (nb, a, re, p + n2w (pos_val pc 0 code2 + len))))) /\
+     (* if the bytes of the instruction intersect with the ffi_entry_pcs,
+     * it must be fetching ShareMem instruction *)
+     (!pc line.
+        (p + n2w (pos_val pc 0 code2)) IN mc_conf.prog_addresses /\
+        asm_fetch_aux pc code2 = SOME line /\
+        ~(DISJOINT (set mc_conf.ffi_entry_pcs)
+          {(p + n2w (pos_val pc 0 code2)) + n2w a
+            | a < (LENGTH $ line_bytes line)}) ==>
+      ?op re a inst len.
+        line = Asm (ShareMem op re a) inst len) /\
+     (* restriction for shared memory domain *)
+     (!a.
+        byte_align a IN s1_shared_mem_domain ==>
+        a IN s1_shared_mem_domain) /\
      (mc_conf.shared_addresses = s1_shared_mem_domain)
 End
 
 Definition share_mem_state_rel_def:
   share_mem_state_rel mc_conf (s1:('a, 'a lab_to_target$config,'ffi) labSem$state) t1 ms1 <=>
+     (* ffi interfers for mapped read/write are ok *)
      (!ms2 k index new_bytes t1 nb ad offs re pc' ad' st new_st i.
       mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
       i <= index /\ index < LENGTH mc_conf.ffi_names /\
       call_FFI_rel^* s1.ffi st /\
       mc_conf.mmio_info index = (nb,Addr ad offs,re,pc') /\
       (mc_conf.prog_addresses = t1.mem_domain) ∧
-      ad' = mc_conf.target.get_reg ms2 ad /\
+      ad' = mc_conf.target.get_reg ms2 ad + offs /\ (* eval the address value *)
       target_state_rel mc_conf.target
         (t1 with pc := EL index mc_conf.ffi_entry_pcs) ms2 ==>
+        (* If we are doing mapped read, and addresses are fine *)
         (EL index mc_conf.ffi_names = "MappedRead" /\
         (w2n ad' MOD w2n nb) = 0 /\ (ad' IN mc_conf.shared_addresses) /\
-         is_valid_mapped_read (mc_conf.target.get_pc ms2) nb ad' re pc'
+         is_valid_mapped_read (mc_conf.target.get_pc ms2) nb (Addr ad offs) re pc'
            mc_conf.target ms2 /\
          call_FFI s1.ffi "MappedRead"
            [n2w (dimindex (:'a) DIV 8); nb]
@@ -663,9 +704,10 @@ Definition share_mem_state_rel_def:
               ; regs := (\n. if n = re then
                    n2w (bytes2num new_bytes) else t1.regs n)|>)
               (mc_conf.ffi_interfer k (index,new_bytes,ms2))) /\
+        (* If we are doing mapped write, and the addresses are fine *)
         (EL index mc_conf.ffi_names = "MappedWrite" /\
          (w2n ad' MOD w2n nb) = 0 /\ (ad' IN mc_conf.shared_addresses) /\
-          is_valid_mapped_write (mc_conf.target.get_pc ms2) nb ad' re pc'
+          is_valid_mapped_write (mc_conf.target.get_pc ms2) nb (Addr ad offs) re pc'
             mc_conf.target ms2 /\
          call_FFI s1.ffi "MappedWrite"
           [n2w (dimindex (:'a) DIV 8);nb]
@@ -676,8 +718,7 @@ Definition share_mem_state_rel_def:
             (t1 with pc := pc')
             (mc_conf.ffi_interfer k (index,new_bytes,ms2)))
     ) /\
-   share_mem_domain_code_rel mc_conf s1.code s1.shared_mem_domain ms1 /\
-   (* requirements for share memory access pcs *)
+   (* requirements for location of share memory access pcs *)
    (!index i. mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
       index < LENGTH mc_conf.ffi_names /\ i <= index ==>
       DISJOINT
@@ -710,8 +751,7 @@ End
 val state_rel_def = Define `
   state_rel (mc_conf, code2, labs, p) (s1:('a,'a lab_to_target$config,'ffi) labSem$state) t1 ms1 <=>
     target_state_rel mc_conf.target t1 ms1 /\ good_dimindex (:'a) /\
-    (* TODO: *)
-    (mc_conf.prog_addresses UNION _ = t1.mem_domain) /\
+    (mc_conf.prog_addresses = t1.mem_domain) /\
     ~(mc_conf.halt_pc IN mc_conf.prog_addresses) /\
     ~(mc_conf.ccache_pc IN mc_conf.prog_addresses) /\
     reg_ok s1.ptr_reg mc_conf.target.config /\ (mc_conf.ptr_reg = s1.ptr_reg) /\
@@ -820,6 +860,7 @@ val state_rel_def = Define `
     EVERY sec_labels_ok code2 /\
     code_similar s1.code code2 /\
     share_mem_state_rel mc_conf s1 t1 ms1 /\
+    share_mem_domain_code_rel mc_conf p code2 s1.shared_mem_domain /\
     LENGTH mc_conf.ffi_names = LENGTH mc_conf.ffi_entry_pcs`
 
 Theorem state_rel_clock:
@@ -839,8 +880,18 @@ Theorem share_mem_state_rel_shift_interfer:
       s1 t1 x
 Proof
   rpt strip_tac
-  \\ fs[share_mem_state_rel_def, share_mem_domain_code_rel_def]
+  \\ fs[share_mem_state_rel_def]
   \\ metis_tac[]
+QED
+
+Theorem share_mem_domain_code_rel_shift_interfer:
+  share_mem_domain_code_rel mc_conf p code2 s1.shared_mem_domain ==>
+  share_mem_domain_code_rel
+    (mc_conf with next_interfer := (λi. mc_conf.next_interfer (i + l)))
+    p code2 s1.shared_mem_domain
+Proof
+  rpt strip_tac >> fs[share_mem_domain_code_rel_def] >>
+  metis_tac[]
 QED
 
 Theorem state_rel_shift_interfer:
@@ -849,7 +900,8 @@ Theorem state_rel_shift_interfer:
 Proof
   full_simp_tac(srw_ss())[state_rel_def,shift_interfer_def]
   \\ rpt strip_tac \\ gvs[]
-  \\ gvs[interference_ok_def,shift_seq_def, share_mem_state_rel_shift_interfer]
+  \\ gvs[interference_ok_def,shift_seq_def,
+    share_mem_state_rel_shift_interfer,share_mem_domain_code_rel_shift_interfer]
   >- (first_x_assum irule
     \\ fs[read_ffi_bytearrays_def, read_ffi_bytearray_def]
     \\ metis_tac[])
@@ -1653,7 +1705,7 @@ Theorem Inst_share_mem_pc_update_helper:
   share_mem_state_rel mc_conf (s1 with <|pc := s1.pc + 1; clock := s1.clock − 1|>)
     (t1 with pc := pc') ms2
 Proof
-  rw[share_mem_state_rel_def, share_mem_domain_code_rel_def]
+  rw[share_mem_state_rel_def]
   >> metis_tac[]
 QED
 
@@ -1665,7 +1717,7 @@ Theorem Inst_share_mem_reg_update_helper:
     <| regs := (n =+ Word c) s1.regs; pc := s1.pc + 1; clock := s1.clock − 1|>)
     (t1 with <|regs := (n =+ c) t1.regs; pc := pc'|>) ms2
 Proof
-  rw[share_mem_state_rel_def, share_mem_domain_code_rel_def]
+  rw[share_mem_state_rel_def]
   >> metis_tac[]
 QED
 
@@ -1686,6 +1738,12 @@ Proof
   \\ rpt (TOP_CASE_TAC >>
   fs[labSemTheory.assert_def,labSemTheory.upd_fp_reg_def,APPLY_UPDATE_THM])
 QED
+
+val share_mem_state_rel_tac =
+  rw[] >>
+  gvs[IMP_CONJ_THM, AND_IMP_INTRO]
+  >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
+  >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
 
 Theorem Inst_lemma:
   ~(asm_inst i s1).failed /\
@@ -1749,16 +1807,12 @@ Proof
     conj_tac>- (match_mp_tac arith_upd_lemma >> srw_tac[][]) >>
     conj_tac>- fs[GSYM word_add_n2w]>>
     conj_tac >- metis_tac[] >>
+    conj_tac >- (
     fs[upd_pc_def, inc_pc_def, arith_upd_def, share_mem_state_rel_def] >> rw[]>>
     gvs[IMP_CONJ_THM, AND_IMP_INTRO]
     >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
-    >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
-    >-
-      (fs[arith_upd_share_mem_domain_unchange,share_mem_domain_code_rel_def]
-      \\ rpt strip_tac
-      \\ `t1.mem_domain = mc_conf.prog_addresses` by metis_tac[]
-      \\ fs[]
-      \\ metis_tac[]))
+    >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])) >>
+    fs[upd_pc_def,inc_pc_def,arith_upd_share_mem_domain_unchange])
   THEN1
     (strip_tac >>
     Cases_on`m`>>fs[mem_op_def,labSemTheory.assert_def]
@@ -1787,20 +1841,9 @@ Proof
        byte_align x ∈ s1.mem_domain` by fs[]>>
        IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
        (reverse (rw[])
-       >- (
-          fs[inc_pc_def,read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
-          rw[] >>
-          gvs[IMP_CONJ_THM, AND_IMP_INTRO]
-          >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
-          >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
-          >- (fs[share_mem_domain_code_rel_def]
-            \\ rpt strip_tac
-            \\ `t1.mem_domain = mc_conf.prog_addresses` by metis_tac[]
-            \\ fs[]
-            \\ first_x_assum irule
-            \\ metis_tac[]
-          )
-       )
+       >- fs[inc_pc_def]
+       >- (fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
+          share_mem_state_rel_tac)
        >- metis_tac[]
        >- 
          (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
@@ -1834,21 +1877,9 @@ Proof
        byte_align x ∈ s1.mem_domain` by fs[]>>
        IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
        (reverse(rw[])
-       >- (
-          fs[inc_pc_def,read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
-          rw[] >>
-          gvs[IMP_CONJ_THM, AND_IMP_INTRO]
-          >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
-          >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
-          >- (
-            fs[share_mem_domain_code_rel_def]
-            \\ rpt strip_tac
-            \\ `t1.mem_domain = mc_conf.prog_addresses` by metis_tac[]
-            \\ fs[]
-            \\ first_x_assum irule
-            \\ metis_tac[]
-          )
-       )
+       >- fs[inc_pc_def]
+       >- (fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
+          share_mem_state_rel_tac)
        >- metis_tac[]
        >-
          (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
@@ -1891,22 +1922,10 @@ Proof
       fs[asmSemTheory.read_mem_def]>>
       rfs[word_loc_val_def])
     >- metis_tac[]
-    >- (
-          fs[inc_pc_def,read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
-          rw[] >>
-          gvs[IMP_CONJ_THM, AND_IMP_INTRO]
-          >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
-          >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
-          >- (
-            fs[share_mem_domain_code_rel_def]
-            \\ rpt strip_tac
-            \\ `t1.mem_domain = mc_conf.prog_addresses` by metis_tac[]
-            \\ fs[]
-            \\ first_x_assum irule
-            \\ metis_tac[]
-          )
-       ))
-  >-
+    >- (fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
+        share_mem_domain_code_rel_tac)
+    >- fs[inc_pc_def])
+  >- (*TODO*)
     (*Store*)
     (`good_dimindex(:'a)` by fs[state_rel_def]>>
     fs[good_dimindex_def]>>
@@ -1968,20 +1987,7 @@ Proof
          rfs[])
        >- (
           fs[inc_pc_def,read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
-          rw[] >>
-          gvs[IMP_CONJ_THM, AND_IMP_INTRO]
-          >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
-          >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
-          >- (
-            fs[share_mem_domain_code_rel_def]
-            \\ rpt strip_tac
-            \\ `t1.mem_domain = mc_conf.prog_addresses` by metis_tac[]
-            \\ fs[]
-            \\ first_x_assum irule
-            \\ metis_tac[]
-          )
-
-        )))
+          share_mem_domain_code_rel_tac)))
      >>
        (`aligned 3 x` by fs [aligned_w2n]>>
        drule aligned_3_imp>>
@@ -2029,20 +2035,7 @@ Proof
          rfs[])
        >- (
           fs[inc_pc_def,read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
-          rw[] >>
-          gvs[IMP_CONJ_THM, AND_IMP_INTRO]
-          >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
-          >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
-          >- (
-            fs[share_mem_domain_code_rel_def]
-            \\ rpt strip_tac
-            \\ `t1.mem_domain = mc_conf.prog_addresses` by metis_tac[]
-            \\ fs[]
-            \\ first_x_assum irule
-            \\ metis_tac[]
-          )
-
-       ))))
+          share_mem_state_rel_tac)))
   >-
     (Cases_on`a`>>last_x_assum mp_tac>>
     fs[mem_store_byte_def,labSemTheory.assert_def,mem_store_byte_aux_def,mem_store_def,labSemTheory.addr_def,
@@ -2089,20 +2082,7 @@ Proof
       rfs[])
     >- (
       fs[inc_pc_def,read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
-      rw[] >>
-      gvs[IMP_CONJ_THM, AND_IMP_INTRO]
-      >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
-      >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
-      >- (
-            fs[share_mem_domain_code_rel_def]
-            \\ rpt strip_tac
-            \\ `t1.mem_domain = mc_conf.prog_addresses` by metis_tac[]
-            \\ fs[]
-            \\ first_x_assum irule
-            \\ metis_tac[]
-      )
-
-    )))
+      share_mem_state_rel_tac))
   THEN1 (
   (strip_tac>>CONJ_ASM1_TAC>-
     (Cases_on`f`>>TRY(EVAL_TAC>>fs[state_rel_def]>>NO_TAC)
@@ -2129,22 +2109,12 @@ Proof
   conj_tac >- ( srw_tac[][] >> first_x_assum drule >> simp[] ) >>
   conj_tac >- metis_tac[] >>
   simp[CONJ_ASSOC] >>
+  reverse conj_tac >-
+    fs[fp_upd_def,upd_pc_def,inc_pc_def,APPLY_UPDATE_THM,fp_upd_share_mem_domain_unchange] >>
   reverse conj_tac
   >- (
     fs[fp_upd_def,upd_pc_def,inc_pc_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
-    rw[] >>
-    gvs[IMP_CONJ_THM, AND_IMP_INTRO]
-    >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
-    >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
-    >- (
-        fs[fp_upd_share_mem_domain_unchange]
-        \\ fs[share_mem_domain_code_rel_def]
-        \\ rpt strip_tac
-        \\ `t1.mem_domain = mc_conf.prog_addresses` by metis_tac[]
-        \\ fs[]
-        \\ first_x_assum irule
-        \\ metis_tac[]
-  )) >>
+    share_mem_state_rel_tac) >>
   reverse conj_tac >- metis_tac[] >>
   reverse conj_tac >- (
     rw[] >> fs[] >> fs[GSYM word_add_n2w] ) >>
@@ -5831,19 +5801,7 @@ Proof
         \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ res_tac \\ srw_tac[][]
         >~ [`share_mem_state_rel _ (s1 with <|pc := p'; clock := s1.clock − 1|>) _ _`] >- (
           fs[share_mem_state_rel_def]
-          \\ rw[]
-          \\ gvs[IMP_CONJ_THM, AND_IMP_INTRO]
-          >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
-          >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
-          >- (
-            fs[share_mem_domain_code_rel_def]
-            \\ rpt strip_tac
-            \\ `t1.mem_domain = mc_conf.prog_addresses` by fs[]
-            \\ fs[]
-            \\ first_x_assum irule
-            \\ metis_tac[]
-          ) 
-        )
+          share_mem_state_rel_tac)
         \\ (alignmentTheory.aligned_add_sub_cor
             |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> irule)
         \\ conj_tac >- fs[alignmentTheory.aligned_bitwise_and]
@@ -5952,18 +5910,7 @@ Proof
         simp[GSYM word_add_n2w]
       >- (
         fs[upd_pc_def, inc_pc_def, share_mem_state_rel_def] >>
-        rw[] >>
-        gvs[IMP_CONJ_THM, AND_IMP_INTRO]
-        >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
-        >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
-        >- (
-          fs[share_mem_domain_code_rel_def] >>
-          rpt strip_tac >>
-          `t1.mem_domain = mc_conf.prog_addresses` by fs[] >>
-          fs[] >>
-          first_x_assum irule >>
-          metis_tac[]
-        ))
+        share_mem_state_rel_tac)
       )
     \\ rpt strip_tac \\ full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,labSemTheory.upd_reg_def]
     \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock - 1 + k` mp_tac)
@@ -6859,7 +6806,7 @@ Proof
         \\ drule (GEN_ALL evaluate_ignore_clocks) \\ full_simp_tac(srw_ss())[]
         \\ pop_assum (K all_tac)
         \\ disch_then drule \\ full_simp_tac(srw_ss())[])
-      \\ srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ asm_exists_tac \\ full_simp_tac(srw_ss())[])
+      \\ srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
     \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[FST_EQ_EQUIV]
     \\ PairCases_on `y`
     \\ drule (GEN_ALL evaluate_ignore_clocks) \\ full_simp_tac(srw_ss())[]
