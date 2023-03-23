@@ -4524,10 +4524,17 @@ Proof
     \\ match_mp_tac memory_rel_insert
     \\ fs [] \\ match_mp_tac memory_rel_Unit \\ fs [])
   \\ fs [SilentFFI_def,wordSemTheory.evaluate_def,eq_eval]
+  \\ ‘∃nf cu hl.
+        FLOOKUP t.store NextFree = SOME (Word nf) ∧
+        FLOOKUP t.store CurrHeap = SOME (Word cu) ∧
+        FLOOKUP t.store HeapLength = SOME (Word hl)’ by
+           fs [state_rel_thm,memory_rel_def,heap_in_memory_store_def]
   \\ fs [wordSemTheory.evaluate_def,SilentFFI_def,wordSemTheory.word_exp_def,
-         wordSemTheory.set_var_def,EVAL ``read_bytearray 0w 0 m``,
+         wordSemTheory.set_var_def,EVAL ``read_bytearray a 0 m``,
          ffiTheory.call_FFI_def,EVAL ``write_bytearray a [] m dm b``,
-         wordSemTheory.get_var_def,lookup_insert]
+         wordSemTheory.get_var_def,lookup_insert,list_Seq_def,
+         wordSemTheory.the_words_def,wordLangTheory.word_op_def,
+         cut_env_adjust_set_insert_ODD]
   \\ Cases_on `names_opt`
   \\ fs [cut_state_opt_def,cut_state_def,case_eq_thms] \\ rveq \\ fs []
   \\ fs [get_names_def]
@@ -4556,6 +4563,17 @@ Proof
   >- (rw[option_le_max_right] >> res_tac >>
       simp[space_consumed_def] >> rfs[cut_locals_def] >>
       simp[NOT_LESS_EQUAL])
+  \\ ‘∃nf cu hl.
+        FLOOKUP x2.store NextFree = SOME (Word nf) ∧
+        FLOOKUP x2.store CurrHeap = SOME (Word cu) ∧
+        FLOOKUP x2.store HeapLength = SOME (Word hl)’ by
+           fs [state_rel_thm,memory_rel_def,heap_in_memory_store_def]
+  \\ fs [wordSemTheory.evaluate_def,SilentFFI_def,wordSemTheory.word_exp_def,
+         wordSemTheory.set_var_def,EVAL ``read_bytearray a 0 m``,
+         ffiTheory.call_FFI_def,EVAL ``write_bytearray a [] m dm b``,
+         wordSemTheory.get_var_def,lookup_insert,list_Seq_def,
+         wordSemTheory.the_words_def,wordLangTheory.word_op_def,
+         cut_env_adjust_set_insert_ODD]
   \\ rveq \\ fs []
   \\ imp_res_tac alloc_NONE_IMP_cut_env \\ fs []
   \\ fs [state_rel_thm,set_var_def]
@@ -12193,20 +12211,6 @@ Theorem get_vars_delete_lemma:
       get_vars (MAP adjust_var t7) s1
 Proof
   Induct \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def,eq_eval]
-QED
-
-Theorem cut_env_adjust_set_insert_ODD:
-   ODD n ==> cut_env (adjust_set the_names) (insert n w s) =
-              cut_env (adjust_set the_names) s
-Proof
-  reverse (rw [wordSemTheory.cut_env_def] \\ fs [SUBSET_DEF])
-  \\ res_tac \\ fs []
-  THEN1 (rveq \\ fs [domain_lookup,lookup_adjust_set]
-         \\ every_case_tac \\ fs [])
-  \\ fs [lookup_inter_alt,lookup_insert]
-  \\ rw [] \\ pop_assum mp_tac
-  \\ simp [domain_lookup,lookup_adjust_set]
-  \\ rw [] \\ fs []
 QED
 
 Theorem INTRO_IS_SOME:
