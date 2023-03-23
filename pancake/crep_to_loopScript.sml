@@ -15,7 +15,9 @@ Datatype:
   context =
   <| vars   : crepLang$varname |-> num;
      funcs  : crepLang$funname |-> num # num;  (* loc, length args *)
-     vmax   : num|>
+     vmax   : num;
+     target : architecture
+     |>
 End
 
 Definition find_var_def:
@@ -41,10 +43,31 @@ Definition prog_if_def:
 End
 
 Definition compile_crepop_def:
-  compile_crepop crepLang$Div x y tmp = ([Arith (LDiv tmp x y)],tmp) ∧
-  compile_crepop crepLang$Mul x y tmp = ([Arith (LLongMul tmp tmp x y)],tmp) ∧
-  compile_crepop crepLang$Mod x y tmp = ([Assign tmp (Const 0w);Arith (LLongDiv tmp (tmp+1) tmp x y)],
-                                         tmp+1)
+  (compile_crepop crepLang$Div target x y tmp =
+  if target = x86_64 then
+    ([Assign tmp (Const 0w);Arith (LLongDiv (tmp+1) tmp tmp x y)],tmp+1)
+  else if target = ARMv8 ∨ target = MIPS ∨ target = RISC_V then
+    ([Arith (LDiv tmp x y)],tmp)
+  else
+    (* TODO: what is sensible behaviour here? *)
+    ([Assign tmp (Const 0w)],tmp)) ∧
+  (compile_crepop crepLang$Mul target x y tmp =
+  if target = ARMv7 then
+    ([Arith (LLongMul (tmp+1) tmp x y)],tmp+1)
+  else
+    ([Arith (LLongMul tmp tmp x y)],tmp)) ∧
+  compile_crepop crepLang$Mod target x y tmp =
+  if target = x86_64 then
+    ([Assign tmp (Const 0w);Arith (LLongDiv tmp (tmp+1) tmp x y)],tmp+1)
+  else if target = ARMv8 ∨ target = MIPS ∨ target = RISC_V then
+    ([Arith (LDiv (tmp+2) x y);
+      Assign (tmp+1) (Const 0w);
+      Arith (LLongMul tmp (tmp+1) (tmp+2) y);
+      Assign (tmp+2) (Op Sub [Var x;Var tmp])
+     ],tmp+2)
+  else
+    (* TODO: what is sensible behaviour here? *)
+    ([Assign tmp (Const 0w)],tmp)
 End
 
 Definition compile_exp_def:
@@ -64,7 +87,7 @@ Definition compile_exp_def:
    (p, Op bop les, tmp, l)) /\
   (compile_exp ctxt tmp l (Crepop cop es) =
    let (p, les, tmp, l) = compile_exps ctxt tmp l es;
-       (p',tmp') = compile_crepop cop (tmp) (tmp+1) (tmp+LENGTH les)
+       (p',tmp') = compile_crepop cop ctxt.target (tmp) (tmp+1) (tmp+LENGTH les)
     in
    (p ++ MAPi (λn. Assign (tmp+n)) les ++ p',
     Var tmp', tmp'+1, insert tmp' () $ list_insert (GENLIST ($+ tmp) (tmp'-tmp)) l)) /\
@@ -195,10 +218,12 @@ End
 
 
 Definition mk_ctxt_def:
-  mk_ctxt vmap fs vmax =
+  mk_ctxt target vmap fs vmax =
      <|vars  := vmap;
        funcs := fs;
-       vmax  := vmax|>
+       vmax  := vmax;
+       target := target
+       |>
 End
 
 Definition make_vmap_def:
@@ -207,11 +232,11 @@ Definition make_vmap_def:
 End
 
 Definition comp_func_def:
-  comp_func fs params body =
+  comp_func target fs params body =
     let vmap = make_vmap params;
         vmax = LENGTH params - 1;
         l = list_to_num_set (GENLIST I (LENGTH params)) in
-    compile (mk_ctxt vmap fs vmax) l body
+    compile (mk_ctxt target vmap fs vmax) l body
 End
 
 Definition first_name_def:
@@ -229,9 +254,9 @@ Definition make_funcs_def:
 End
 
 Definition compile_prog_def:
-  compile_prog prog =
+  compile_prog target prog =
   let fnums  = GENLIST (λn. n + first_name) (LENGTH prog);
-      comp = comp_func (make_funcs prog) in
+      comp = comp_func target (make_funcs prog) in
    MAP2 (λn (name, params, body).
          (n,
           (GENLIST I o LENGTH) params,
