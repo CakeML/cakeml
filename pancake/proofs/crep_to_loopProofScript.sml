@@ -342,6 +342,69 @@ Proof
   fs [evaluate_def]
 QED
 
+Theorem cut_sets_MAPi_Assign:
+  ∀les cs offset.
+    cut_sets cs (nested_seq (MAPi (λn. Assign (n + offset)) les)) =
+    list_insert (GENLIST ($+ offset) (LENGTH les)) cs
+Proof
+  Induct_on ‘les’ \\
+  rw[nested_seq_def,cut_sets_def,list_insert_def,o_DEF,GENLIST_CONS] \\
+  PURE_ONCE_REWRITE_TAC[DECIDE “∀n m. n + SUC m = m + SUC n”] \\
+  first_x_assum $ PURE_REWRITE_TAC o single \\
+  rpt (AP_THM_TAC ORELSE AP_TERM_TAC) \\
+  simp[FUN_EQ_THM]
+QED
+
+Theorem assigned_vars_MAPi_Assign:
+  ∀les offset.
+    assigned_vars (nested_seq (MAPi (λn. Assign (n + offset)) les)) =
+    GENLIST ($+ offset) (LENGTH les)
+Proof
+  Induct_on ‘les’ \\
+  rw[nested_seq_def,assigned_vars_def,o_DEF,GENLIST_CONS] \\
+  PURE_ONCE_REWRITE_TAC[DECIDE “∀n m. n + SUC m = m + SUC n”] \\
+  first_x_assum $ PURE_REWRITE_TAC o single \\
+  rpt (AP_THM_TAC ORELSE AP_TERM_TAC) \\
+  simp[FUN_EQ_THM]
+QED
+
+Theorem survives_MAPi_Assign:
+  ∀n les offset.
+    survives n (nested_seq (MAPi (λn. Assign (n + offset)) les)) = T
+Proof
+  Induct_on ‘les’ \\
+  rw[nested_seq_def,survives_def,o_DEF,GENLIST_CONS] \\
+  PURE_ONCE_REWRITE_TAC[DECIDE “∀n m. n + SUC m = m + SUC n”] \\
+  first_x_assum $ PURE_REWRITE_TAC o single \\
+  rpt (AP_THM_TAC ORELSE AP_TERM_TAC) \\
+  simp[FUN_EQ_THM]
+QED
+
+Theorem insert_insert_eq:
+  insert a b $ insert a b c = insert a b c
+Proof
+  rw[Once insert_insert]
+QED
+
+Theorem list_insert_SNOC:
+  ∀y l x.
+  list_insert (SNOC x y) l =
+  insert x () $ list_insert y l
+Proof
+  Induct_on ‘y’ \\ rw[list_insert_def]
+QED
+
+Theorem compile_exps_alt:
+  compile_exps ctxt tmp l [] = ([],[],tmp,l) ∧
+  compile_exps ctxt tmp l (e::es) =
+  let
+    (p,le,tmp',l') = compile_exp ctxt tmp l e;
+    (p1,les,tmp'',l'') = compile_exps ctxt tmp' l' es
+  in
+    (p ++ p1,le::les,tmp'',l'')
+Proof
+  rw[] \\ rw[Once compile_exp_def]
+QED
 
 Theorem compile_exp_out_rel_cases:
   (!ct tmp l (e:'a crepLang$exp) p le ntmp nl.
@@ -396,12 +459,35 @@ Proof
    fs [Once compile_exp_def])
   >- (
    rename [‘compile_exp _ _ _ (Crepop _ _)’] >>
-   fs [Once compile_exp_def] >>
+   simp [Once compile_exp_def] >>
    pairarg_tac >> fs [] >> rveq >>
-   cases_on ‘e’
-   >- fs [compile_exp_def] >>
-   fs [] >>
-   fs [Once compile_exp_def])
+   rpt gen_tac >> disch_then strip_assume_tac >>
+   Cases_on ‘cop’ >>
+   gvs[DefnBase.one_line_ify NONE compile_crepop_def] >>
+   (conj_asm1_tac
+    >- (rpt (match_mp_tac comp_syn_ok_nested_seq >> conj_tac) >>
+        simp[nested_seq_def,comp_syntax_ok_def]
+        >- (rpt $ pop_assum kall_tac >>
+            rename1 ‘comp_syntax_ok cs’ >>
+            qid_spec_tac ‘cs’ >>
+            qid_spec_tac ‘tmp'’ >>
+            Induct_on ‘les’ >> gvs[nested_seq_def,comp_syntax_ok_def] >>
+            simp[o_DEF] >>
+            rpt strip_tac >>
+            first_x_assum(qspec_then ‘SUC tmp'’ mp_tac) >>
+            rename1 ‘comp_syntax_ok css’ >>
+            disch_then(qspec_then ‘css’ mp_tac) >>
+            qmatch_goalsub_abbrev_tac ‘a1 ⇒ a2’ >>
+            ‘a1 = a2’ suffices_by simp[] >>
+            unabbrev_all_tac >>
+            ntac 2 AP_TERM_TAC >>
+            match_mp_tac MAPi_CONG >>
+            rw[]) >>
+        simp[cut_sets_nested_seq,nested_seq_def,cut_sets_def,cut_sets_MAPi_Assign]) >>
+    simp[cut_sets_nested_seq,nested_seq_def,cut_sets_def,cut_sets_MAPi_Assign] >>
+    simp[insert_insert_eq] >>
+    simp[Once insert_insert,SimpR “$=”,insert_insert_eq] >>
+    simp[insert_insert_eq,GSYM ADD1,GENLIST,list_insert_SNOC]))
   >- (
    rename [‘compile_exp _ _ _ (Cmp _ _ _)’] >>
    rpt gen_tac >> strip_tac >>
@@ -504,8 +590,16 @@ Proof
    once_rewrite_tac [compile_exp_def] >> fs [] >> strip_tac >>
    pairarg_tac >> fs [])
   >- (
-   once_rewrite_tac [compile_exp_def] >> fs [] >> strip_tac >>
-   pairarg_tac >> fs [])
+   once_rewrite_tac [compile_exp_def] >> fs [DefnBase.one_line_ify NONE compile_crepop_def] >> strip_tac >>
+   PURE_TOP_CASE_TAC >> fs[] >>
+   pairarg_tac >> fs [] >>
+   ‘tmp <= tmp'’ by metis_tac [compile_exp_out_rel_cases] >>
+   rw[] >>
+   gvs[assigned_vars_nested_seq_split,nested_seq_def,assigned_vars_def,assigned_vars_MAPi_Assign,
+       MEM_GENLIST] >>
+   res_tac >>
+   DECIDE_TAC
+  )
   >- (
    rpt gen_tac >> strip_tac >>
    fs [compile_exp_def] >>
@@ -570,7 +664,8 @@ Proof
      strip_tac >>
      qpat_x_assum ‘compile_exp _ _ _ _ = _’ mp_tac >>
      once_rewrite_tac [compile_exp_def] >>
-     strip_tac >> fs [] >>
+     strip_tac >> fs [DefnBase.one_line_ify NONE compile_crepop_def] >>
+     Cases_on ‘bop’ >>
      pairarg_tac >> fs [] >> rveq >>
      fs [locals_touched_def, crepLangTheory.var_cexp_def, ETA_AX])
   >~ [‘compile_exps’] >-
@@ -738,100 +833,86 @@ Proof
     pairarg_tac >> fs [] >> rveq >>
     fs [crepSemTheory.eval_def, CaseEq "option"] >> rveq >>
     fs [loopSemTheory.eval_def, wlab_wloc_def] >>
-    qsuff_tac ‘∃ck st.
-                 evaluate (nested_seq p,t with clock := ck + t.clock) = (NONE,st) ∧
-                 the_words (MAP (λa. eval st a) les) =
-                 SOME ((MAP (λw. case w of Word n =>  n | Label v1 => ARB) ws)) /\
-                 state_rel s st ∧ mem_rel ctxt.funcs s.memory st.memory ∧
-                 globals_rel ctxt.funcs s.globals st.globals ∧
-                 code_rel ctxt s.code st.code ∧ locals_rel ctxt l' s.locals st.locals’
-    >- (
-     strip_tac >>
-     qexists_tac ‘ck’ >>
-     fs [wlab_wloc_def] >>
-     gvs[DefnBase.one_line_ify NONE crep_op_def,AllCaseEqs(),compile_crepop_def,loop_op_def]
-     ) >>
-    qpat_x_assum ‘crep_op _ _ = _’ kall_tac >>
-    rpt (pop_assum mp_tac) >>
-    MAP_EVERY qid_spec_tac [‘t’, ‘p’, ‘les’ , ‘tmp’, ‘l’,‘ws’, ‘es’] >>
-    Induct
-    >- (
-     rw [] >>
-     fs [OPT_MMAP_def] >> rveq >>
-     fs [compile_exp_def] >> rveq >>
-     fs [nested_seq_def, loopSemTheory.evaluate_def,
-         wordSemTheory.the_words_def, state_rel_clock_add_zero]) >>
-    rw [] >>
-    last_x_assum mp_tac >>
-    impl_tac >- metis_tac [] >>
-    strip_tac >> fs [] >>
-    qpat_x_assum ‘compile_exps _ _ _ (h::_) = _’ mp_tac >>
-    once_rewrite_tac [compile_exp_def] >>
-    fs [] >> pairarg_tac >> fs [] >>
-    pairarg_tac >> fs [] >>
-    strip_tac >> rveq >>
-    fs [OPT_MMAP_def] >> rveq >>
-    last_x_assum (qspec_then ‘h’ mp_tac) >>
-    fs [] >>
-    disch_then drule_all >>
-    strip_tac >> fs [] >> rveq >>
-    qmatch_asmsub_rename_tac ‘compile_exp _ _ _ h = (p,le,itmp,il)’ >>
-    qmatch_asmsub_rename_tac ‘compile_exps _ _ _ _ = (fp,les,ntmp,nl)’ >>
-    last_x_assum (qspecl_then
-                  [‘t'’, ‘il’, ‘itmp’, ‘les’, ‘fp’, ‘st’] mp_tac) >>
-    fs [] >>
-    imp_res_tac compile_exp_out_rel >>
-    fs [] >>
-    strip_tac >> fs [] >>
-    qpat_x_assum ‘evaluate (nested_seq p, _) = _’ assume_tac >>
-    drule evaluate_add_clock_eq >>
-    fs [] >>
-    disch_then (qspec_then ‘ck'’ assume_tac) >>
-    drule evaluate_comb_seq >>
-    disch_then drule >>
-    fs [evaluate_nested_seq_comb_seq] >>
-    strip_tac >>
-    qexists_tac ‘ck + ck'’ >>
-    qexists_tac ‘st'’ >>
-    fs [] >>
-    cases_on ‘h'’ >> fs [] >>
-    fs [wordSemTheory.the_words_def] >>
-    ‘eval st' le = eval st le’ suffices_by fs [wlab_wloc_def] >>
-    imp_res_tac compile_exps_out_rel >>
-    qpat_x_assum ‘evaluate (nested_seq fp, _) = _’ assume_tac >>
-    drule comp_syn_ok_upd_local_clock >>
-    disch_then drule >>
-    fs [] >> strip_tac >>
-    qpat_x_assum ‘evaluate (nested_seq p,_) = _’ mp_tac >>
-    once_rewrite_tac [ADD_ASSOC] >>
-    strip_tac >>
     fs [wlab_wloc_def] >>
-    assume_tac nested_seq_pure_evaluation >>
-    pop_assum (qspecl_then [‘p’, ‘fp’, ‘t’, ‘st'’, ‘st with clock := ck' + st.clock’, ‘l’,
-                            ‘itmp’, ‘le’, ‘Word c’, ‘ck + ck'’, ‘0’] mp_tac) >>
-    fs [] >>
-    impl_tac
-    >- (
-     fs [eval_upd_clock_eq] >>
-     drule comp_exp_assigned_vars_tmp_bound >> fs [] >>
+    gvs[AllCaseEqs(),DefnBase.one_line_ify NONE crep_op_def,
+        DefnBase.one_line_ify NONE compile_crepop_def,MAP_EQ_CONS,
+        opt_mmap_eq_some,SF DNF_ss,
+        compile_exps_alt
+       ] >>
+    rpt (pairarg_tac >> gvs[]) >>
+    rpt $ qpat_x_assum ‘SOME _ = _’ $ assume_tac o GSYM >>
+    first_x_assum drule_all >> strip_tac >>
+    first_x_assum drule >> rpt $ disch_then drule >>
+    (impl_keep_tac
+     >- (imp_res_tac compile_exp_out_rel_cases >> DECIDE_TAC) >>
      strip_tac >>
-     drule comp_exps_assigned_vars_tmp_bound >> fs [] >>
+     qexists_tac ‘ck + ck'’ >>
+     qpat_x_assum ‘evaluate _ = (NONE,_)’ mp_tac >>
+     drule loopPropsTheory.evaluate_add_clock_eq >>
+     disch_then(qspec_then ‘ck'’ mp_tac) >>
+     impl_tac >> simp[] >>
      strip_tac >>
-     gen_tac >>
-     strip_tac >> fs [] >>
-     imp_res_tac locals_rel_intro >>
-     drule compile_exp_le_tmp_domain >>
-     disch_then (qspecl_then [‘tmp’, ‘l’, ‘h’, ‘p’, ‘le’,
-                              ‘itmp’, ‘cut_sets l (nested_seq p)’, ‘n’] mp_tac) >>
-     fs [] >>
-     impl_tac
-     >- (
-       rw [] >>
-       drule eval_some_var_cexp_local_lookup >>
-       disch_then drule >>
-       strip_tac >> res_tac >> fs []) >>
-     fs []) >>
-    fs [])
+     FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
+     drule_then (PURE_REWRITE_TAC o single) (cj 2 evaluate_nested_seq_cases) >>
+     strip_tac >>
+     drule_then (PURE_REWRITE_TAC o single) (cj 2 evaluate_nested_seq_cases) >>
+     drule_then drule nested_seq_pure_evaluation >>
+     disch_then $ drule_at $ Pos last >>
+     imp_res_tac compile_exp_out_rel_cases >> rveq >>
+     ntac 2 $ disch_then drule >>
+     simp[GSYM PULL_EXISTS] >>
+     impl_tac >-
+      (qexists_tac ‘tmp''’ (* generated name *) >>
+       rw[] >>
+       imp_res_tac comp_exp_assigned_vars_tmp_bound_cases >>
+       TRY DECIDE_TAC >>
+       (*      imp_res_tac locals_rel_intro >>
+      imp_re  s_tac compile_exp_le_tmp_domain >>*)
+       cheat
+      ) >>
+     strip_tac >>
+     simp[evaluate_def,nested_seq_def,eval_def,loop_arith_def] >>
+     rename1 ‘eval(set_var tmp' (wlab_wloc ctxt.funcs (Word ww)) st') le'’ >>
+     ‘eval (set_var tmp' (wlab_wloc ctxt.funcs (Word ww)) st') le'
+      =
+      eval st' le'
+     ’
+       by(match_mp_tac locals_touched_eq_eval_eq >>
+          simp[set_var_def] >>
+          imp_res_tac locals_rel_intro >>
+          drule compile_exp_le_tmp_domain >>
+          disch_then $ drule_then drule >>
+          simp[GSYM AND_IMP_INTRO,GSYM PULL_FORALL] >>
+          impl_tac
+          >- (rw[] >>
+              imp_res_tac eval_some_var_cexp_local_lookup >>
+              metis_tac[]) >>
+          rw[] >>
+          res_tac >>
+          rw[lookup_insert]) >>
+     gvs[] >>
+     simp[set_var_def,wlab_wloc_def,lookup_insert,GSYM word_mul_def] >>
+     TRY(reverse IF_CASES_TAC >-
+          (spose_not_then kall_tac >>
+           gvs[NOT_LESS] >>
+           ‘w2n ww DIV w2n w2'' ≤ w2n ww’
+             by(match_mp_tac DIV_LESS_EQ >>
+                spose_not_then strip_assume_tac >>
+                gvs[]) >>
+           qspec_then ‘ww’ assume_tac w2n_lt >>
+           DECIDE_TAC)) >>
+     simp[set_var_def,wlab_wloc_def,lookup_insert,GSYM word_mul_def,word_mod_def] >>
+     conj_tac >- gvs[state_rel_def] >>
+     gvs[locals_rel_def,list_insert_def] >>
+     conj_tac
+     >- (drule_then match_mp_tac SUBSET_TRANS >>
+         rw[SUBSET_DEF]) >>
+     rw[] >>
+     res_tac >>
+     gvs[] >>
+     gvs[ctxt_max_def] >>
+     res_tac >>
+     rw[lookup_insert]))
   >~ [‘Const w’] >-
    (fs [crepSemTheory.eval_def, compile_exp_def] >> rveq >>
     fs [nested_seq_def, evaluate_def, eval_def,
@@ -1155,8 +1236,14 @@ Proof
   >- (
    rw [] >>
    pop_assum mp_tac >>
-   rw [Once compile_exp_def, AllCaseEqs()] >> rveq >>
-   pairarg_tac >> fs [])
+   rw [Once compile_exp_def, DefnBase.one_line_ify NONE compile_crepop_def, AllCaseEqs()] >> rveq >>
+   Cases_on ‘cop’ >> gvs[] >>
+   pairarg_tac >> gvs[AllCaseEqs()] >>
+   match_mp_tac survives_nested_seq_intro >>
+   simp[nested_seq_def,survives_def] >>
+   match_mp_tac survives_nested_seq_intro >>
+   res_tac >>
+   simp[survives_MAPi_Assign])
   >- (
    rw [] >>
    pop_assum mp_tac >>
@@ -1307,8 +1394,14 @@ Proof
   >- (
    rw [] >>
    qpat_x_assum ‘compile_exp _ _ _ (Crepop _ _) = _’ mp_tac >>
-   rw [Once compile_exp_def, AllCaseEqs()] >> rveq >>
-   pairarg_tac >> fs [])
+   rw [Once compile_exp_def, AllCaseEqs(),DefnBase.one_line_ify NONE compile_crepop_def
+            ] >> rveq >>
+   pairarg_tac >> fs [] >> Cases_on ‘cop’ >>
+   gvs[assigned_vars_MAPi_Assign,assigned_vars_nested_seq_split,MEM_GENLIST,
+       assigned_vars_def,nested_seq_def
+        ] >>
+   imp_res_tac compile_exp_out_rel_cases >>
+   DECIDE_TAC)
   >- (
    rw [] >>
    qpat_x_assum ‘compile_exp _ _ _ (Cmp _ _ _) = _’ mp_tac >>

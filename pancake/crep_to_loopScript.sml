@@ -43,7 +43,7 @@ End
 Definition compile_crepop_def:
   compile_crepop crepLang$Div x y tmp = ([Arith (LDiv tmp x y)],tmp) ∧
   compile_crepop crepLang$Mul x y tmp = ([Arith (LLongMul tmp tmp x y)],tmp) ∧
-  compile_crepop crepLang$Mod x y tmp = ([Assign tmp (Const 0w);Arith (LLongDiv tmp (tmp+1) x y tmp)],
+  compile_crepop crepLang$Mod x y tmp = ([Assign tmp (Const 0w);Arith (LLongDiv tmp (tmp+1) tmp x y)],
                                          tmp+1)
 End
 
@@ -67,7 +67,7 @@ Definition compile_exp_def:
        (p',tmp') = compile_crepop cop (tmp) (tmp+1) (tmp+LENGTH les)
     in
    (p ++ MAPi (λn. Assign (tmp+n)) les ++ p',
-    Var tmp', tmp'+1, list_insert (GENLIST ($+ tmp) (tmp'-tmp)) l)) /\
+    Var tmp', tmp'+1, insert tmp' () $ list_insert (GENLIST ($+ tmp) (tmp'-tmp)) l)) /\
   (compile_exp ctxt tmp l (Cmp cmp e e') =
    let (p, le, tmp, l) = compile_exp ctxt tmp l e in
    let (p', le', tmp', l) = compile_exp ctxt tmp l e' in
