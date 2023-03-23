@@ -662,14 +662,13 @@ Definition share_mem_domain_code_rel_def:
               (nb, a, re, p + n2w (pos_val pc 0 code2 + len))))) /\
      (* if the bytes of the instruction intersect with the ffi_entry_pcs,
      * it must be fetching ShareMem instruction *)
-     (!pc line.
-        (p + n2w (pos_val pc 0 code2)) IN mc_conf.prog_addresses /\
-        asm_fetch_aux pc code2 = SOME line /\
-        ~(DISJOINT (set mc_conf.ffi_entry_pcs)
-          {(p + n2w (pos_val pc 0 code2)) + n2w a
-            | a < (LENGTH $ line_bytes line)}) ==>
-      ?op re a inst len.
-        line = Asm (ShareMem op re a) inst len) /\
+    (!pc line.
+      p + n2w (pos_val pc 0 code2) ∈ mc_conf.prog_addresses ∧
+      asm_fetch_aux pc code2 = SOME line /\
+      (!op re a inst len. line <> Asm (ShareMem op re a) inst len) ==>
+      DISJOINT (set mc_conf.ffi_entry_pcs)
+        {p + n2w a + n2w (pos_val pc 0 code2) |
+          a < LENGTH (line_bytes line)}) /\
      (* restriction for shared memory domain *)
      (!a.
         byte_align a IN s1_shared_mem_domain ==>
@@ -5684,6 +5683,34 @@ QED
 
 val say = say0 "compile_correct";
 
+Theorem NOT_DISJOINT_ffi_entry_pcs_IMP_ShareMem:
+(!pc line.
+  p + n2w (pos_val pc 0 code2) ∈ mc_conf.prog_addresses ∧
+  asm_fetch_aux pc code2 = SOME line /\
+  (!op re a inst len. line <> Asm (ShareMem op re a) inst len) ==>
+  DISJOINT (set mc_conf.ffi_entry_pcs)
+    {p + n2w a + n2w (pos_val pc 0 code2) |
+      a < LENGTH (line_bytes line)}) <=>
+(!pc line.
+  p + n2w (pos_val pc 0 code2) ∈ mc_conf.prog_addresses ∧
+  asm_fetch_aux pc code2 = SOME line ∧
+  (?x. MEM x mc_conf.ffi_entry_pcs /\
+    x IN {p + n2w a + n2w (pos_val pc 0 code2) | a < LENGTH (line_bytes line)}) ⇒
+  ∃op re a inst len. line = Asm (ShareMem op re a) inst len)
+Proof
+  fs[EQ_IMP_THM] >> rpt strip_tac
+  >- (
+    spose_not_then assume_tac >>
+    first_x_assum drule_all >>
+    rpt strip_tac >>
+    fs[IN_DISJOINT] >>
+    metis_tac[])
+  >- (
+    spose_not_then assume_tac >>
+    fs[IN_DISJOINT] >>
+    metis_tac[])
+QED
+
 Theorem compile_correct:
   !^s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
      (evaluate s1 = (res,s2)) /\ (res <> Error) /\
@@ -5724,6 +5751,7 @@ Proof
          \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,upd_reg_def]
          \\ qpat_x_assum `bytes_in_mem ww bytes' t1.mem
                t1.mem_domain s1.mem_domain` mp_tac
+         \\ fs[share_mem_domain_code_rel_def]
          \\ match_mp_tac bytes_in_mem_IMP_memory \\ full_simp_tac(srw_ss())[])
        \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
        \\ qpat_x_assum`(res,s2) = _` (assume_tac o SYM)
