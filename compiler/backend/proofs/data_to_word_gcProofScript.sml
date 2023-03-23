@@ -3,7 +3,7 @@
 *)
 open preamble dataSemTheory dataPropsTheory copying_gcTheory
      int_bitwiseTheory data_to_word_memoryProofTheory finite_mapTheory
-     data_to_wordTheory wordPropsTheory labPropsTheory whileTheory
+     data_to_wordTheory wordPropsTheory whileTheory
      set_sepTheory semanticsPropsTheory
      helperLib alignmentTheory blastLib word_bignumTheory wordLangTheory
      word_bignumProofTheory gen_gc_partialTheory gc_sharedTheory
@@ -19,7 +19,7 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = set_grammar_ancestry
   ["dataSem", "wordSem", "data_to_word", "backendProps",
-   "data_to_word_memoryProof", "labProps" (* good_dimindex *)
+   "data_to_word_memoryProof"
   ];
 
 val shift_def = backend_commonTheory.word_shift_def
@@ -4313,7 +4313,7 @@ Theorem alloc_size_LEQ_IMP:
 Proof
   rw [alloc_size_def]
   \\ rfs [bytes_in_word_def,word_mul_n2w,wordsTheory.word_ls_n2w] \\ fs []
-  \\ fs [labPropsTheory.good_dimindex_def] \\ fs [dimword_def]
+  \\ fs [good_dimindex_def] \\ fs [dimword_def]
   \\ fs [wordsTheory.word_2comp_n2w,dimword_def]
   \\ fs [wordsTheory.word_ls_n2w,dimword_def]
 QED
@@ -4584,12 +4584,12 @@ Proof
   \\ conj_tac THEN1 (fs [limits_inv_def])
   \\ match_mp_tac IMP_memory_rel_Number
   \\ fs [] \\ conj_tac
-  THEN1 (EVAL_TAC \\ fs [labPropsTheory.good_dimindex_def,dimword_def])
+  THEN1 (EVAL_TAC \\ fs [good_dimindex_def,dimword_def])
   \\ fs [memory_rel_def]
   \\ rewrite_tac [CONJ_ASSOC]
   \\ once_rewrite_tac [CONJ_COMM]
   \\ `(limit+3) * (dimindex (:α) DIV 8) + 1 < dimword (:α)` by
-   (fs [labPropsTheory.good_dimindex_def,dimword_def]
+   (fs [good_dimindex_def,dimword_def]
     \\ rfs [shift_def] \\ decide_tac)
   \\ asm_exists_tac \\ fs []
   \\ fs [word_ml_inv_def]
@@ -4615,7 +4615,7 @@ Proof
   \\ fs [heap_in_memory_store_def,heap_length_heap_expand,word_heap_heap_expand]
   \\ fs [glob_real_inv_def]
   \\ fs [FLOOKUP_DEF,EVAL “Smallnum 0”]
-  \\ fs [byte_aligned_def,bytes_in_word_def,labPropsTheory.good_dimindex_def,
+  \\ fs [byte_aligned_def,bytes_in_word_def,good_dimindex_def,
          word_mul_n2w]
   \\ simp_tac bool_ss [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``)]
   \\ once_rewrite_tac [MULT_COMM]
@@ -7409,7 +7409,7 @@ Proof
   \\ fs [wordSemTheory.set_var_def]
   \\ `-1w = alloc_size (dimword (:'a)):'a word` by
    (fs [alloc_size_def,state_rel_def]
-    \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw [])
+    \\ fs [good_dimindex_def,dimword_def] \\ rw [])
   \\ pop_assum (fn th => fs [th])
   \\ drule (alloc_lemma |> Q.INST [`names`|->`LN`,`k`|->`dimword(:'a)`] |> GEN_ALL)
   \\ fs [dataSemTheory.cut_env_def,set_var_def]
@@ -7420,7 +7420,7 @@ Proof
   \\ fs [word_ml_inv_def,abs_ml_inv_def,unused_space_inv_def,heap_ok_def]
   \\ imp_res_tac heap_lookup_SPLIT \\ fs [heap_length_APPEND]
   \\ fs [heap_length_def,el_length_def]
-  \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw []
+  \\ fs [good_dimindex_def,dimword_def] \\ rw []
   \\ rfs [] \\ fs []
 QED
 
@@ -7433,7 +7433,7 @@ QED
 Theorem shift_lsl:
    good_dimindex (:'a) ==> w << shift (:'a) = w * bytes_in_word:'a word
 Proof
-  rw [labPropsTheory.good_dimindex_def,shift_def,bytes_in_word_def]
+  rw [good_dimindex_def,shift_def,bytes_in_word_def]
   \\ fs [WORD_MUL_LSL]
 QED
 
@@ -7920,10 +7920,10 @@ Proof
   \\ match_mp_tac memory_rel_insert
   \\ simp_tac std_ss [APPEND]
   \\ `n2w (4 * n) = Smallnum (&n)` by
-     (fs [labPropsTheory.good_dimindex_def,dimword_def,Smallnum_def] \\ NO_TAC)
+     (fs [good_dimindex_def,dimword_def,Smallnum_def] \\ NO_TAC)
   \\ fs [] \\ match_mp_tac IMP_memory_rel_Number
   \\ full_simp_tac std_ss [SNOC_APPEND,GSYM APPEND_ASSOC,APPEND]
-  \\ fs [small_int_def,labPropsTheory.good_dimindex_def]
+  \\ fs [small_int_def,good_dimindex_def]
   \\ rfs [dimword_def]
 QED
 

@@ -4,7 +4,7 @@
 open preamble astTheory wordLangTheory wordSemTheory tailrecTheory;
 open mc_multiwordTheory set_sepTheory helperLib word_bignumTheory;
 
-val good_dimindex_def = labPropsTheory.good_dimindex_def;
+val good_dimindex_def = miscTheory.good_dimindex_def;
 val env_to_list_lookup_equiv = wordPropsTheory.env_to_list_lookup_equiv;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
