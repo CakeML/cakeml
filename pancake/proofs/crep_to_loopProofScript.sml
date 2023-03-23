@@ -866,10 +866,15 @@ Proof
        rw[] >>
        imp_res_tac comp_exp_assigned_vars_tmp_bound_cases >>
        TRY DECIDE_TAC >>
-       (*      imp_res_tac locals_rel_intro >>
-      imp_re  s_tac compile_exp_le_tmp_domain >>*)
-       cheat
-      ) >>
+       MAP_FIRST match_mp_tac [cj 1 compile_exp_le_tmp_domain,
+                               cj 2 compile_exp_le_tmp_domain] >>
+       imp_res_tac locals_rel_intro >>
+       first_x_assum $ irule_at $ Pos last >>
+       ntac 2 $ first_x_assum $ irule_at $ Pos hd >>
+       simp[] >>
+       rw[] >>
+       drule_all eval_some_var_cexp_local_lookup >>
+       metis_tac[]) >>
      strip_tac >>
      simp[evaluate_def,nested_seq_def,eval_def,loop_arith_def] >>
      rename1 ‘eval(set_var tmp' (wlab_wloc ctxt.funcs (Word ww)) st') le'’ >>
