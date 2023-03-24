@@ -5744,44 +5744,13 @@ Proof
     gvs[])
 QED
 
-Theorem IMP_ffi_entry_pcs_disjoint_Inst:
-!^s1 (mc_conf: ('a,'state,'b) machine_config).
-  code_similar s1.code code2 /\
-  all_enc_ok mc_conf.target.config labs mc_conf.ffi_names 0 code2 /\
-  asm_fetch_aux s1.pc s1.code = SOME (Asm (Asmi (Inst instr)) _bytes _len) /\
-  share_mem_domain_code_rel mc_conf p code2 s1.shared_mem_domain /\
-  enc_with_nop mc_conf.target.config.encode (Inst instr) bytes' /\
-  bytes_in_mem (p + n2w (pos_val s1.pc 0 code2)) bytes' t1.mem
-    t1.mem_domain s1.mem_domain /\
-  pos_val (s1.pc + 1) 0 code2 = LENGTH bytes' + pos_val s1.pc 0 code2 /\
-  t1.pc = p + n2w (pos_val s1.pc 0 code2)
-  ==>
-  ffi_entry_pcs_disjoint (mc_conf: ('a, 'state, 'b) machine_config) t1 (LENGTH bytes')
-Proof
-  rpt strip_tac >>
-  fs[ffi_entry_pcs_disjoint_def, addressTheory.word_arith_lemma1] >>
-  drule code_similar_IMP_asm_fetch_aux_line_similar >>
-  disch_then $ qspec_then `s1.pc` (assume_tac o
-    REWRITE_RULE[OPTREL_def]) >>
-  gvs[] >>
-  Cases_on `y0` >> gvs[line_similar_def] >>
-  gvs[share_mem_domain_code_rel_def] >>
-  first_x_assum drule >>
-  gvs[addressTheory.word_arith_lemma1, line_length_def] >>
-  `LENGTH l = LENGTH bytes'` suffices_by simp[] >>
-  drule_all asm_fetch_aux_pos_val_LENGTH_eq >>
-  PURE_REWRITE_TAC[line_bytes_def] >>
-  simp[]
-QED
-
 Theorem IMP_ffi_entry_pcs_disjoint_Asm:
 !^s1 (mc_conf: ('a,'state,'b) machine_config).
   code_similar s1.code code2 /\
   all_enc_ok mc_conf.target.config labs mc_conf.ffi_names 0 code2 /\
   asm_fetch_aux s1.pc s1.code = SOME (Asm instr _bytes _len) /\
-  (!op re a. inst <> ShareMem op re a) /\
+  (!op re a. instr <> ShareMem op re a) /\
   share_mem_domain_code_rel mc_conf p code2 s1.shared_mem_domain /\
-  enc_with_nop mc_conf.target.config.encode (cbw_to_asm instr) bytes' /\
   bytes_in_mem (p + n2w (pos_val s1.pc 0 code2)) bytes' t1.mem
     t1.mem_domain s1.mem_domain /\
   pos_val (s1.pc + 1) 0 code2 = LENGTH bytes' + pos_val s1.pc 0 code2 /\
@@ -5811,7 +5780,6 @@ Theorem IMP_ffi_entry_pcs_disjoint_LabAsm:
   all_enc_ok mc_conf.target.config labs mc_conf.ffi_names 0 code2 /\
   asm_fetch_aux s1.pc s1.code = SOME (LabAsm instr _pos _bytes _len) /\
   share_mem_domain_code_rel mc_conf p code2 s1.shared_mem_domain /\
-  enc_with_nop mc_conf.target.config.encode (lab_inst w instr) bytes' /\
   bytes_in_mem (p + n2w (pos_val s1.pc 0 code2)) bytes' t1.mem
     t1.mem_domain s1.mem_domain /\
   pos_val (s1.pc + 1) 0 code2 = LENGTH bytes' + pos_val s1.pc 0 code2 /\
@@ -5819,7 +5787,20 @@ Theorem IMP_ffi_entry_pcs_disjoint_LabAsm:
   ==>
   ffi_entry_pcs_disjoint (mc_conf: ('a, 'state, 'b) machine_config) t1 (LENGTH bytes')
 Proof
-
+  rpt strip_tac >>
+  fs[ffi_entry_pcs_disjoint_def, addressTheory.word_arith_lemma1] >>
+  drule code_similar_IMP_asm_fetch_aux_line_similar >>
+  disch_then $ qspec_then `s1.pc` (assume_tac o
+    REWRITE_RULE[OPTREL_def]) >>
+  gvs[] >>
+  Cases_on `y0` >> gvs[line_similar_def] >>
+  gvs[share_mem_domain_code_rel_def] >>
+  first_x_assum drule >>
+  gvs[addressTheory.word_arith_lemma1, line_length_def] >>
+  `LENGTH l = LENGTH bytes'` suffices_by simp[] >>
+  drule_all asm_fetch_aux_pos_val_LENGTH_eq >>
+  PURE_REWRITE_TAC[line_bytes_def] >>
+  simp[]
 QED
 
 val say = say0 "compile_correct";
