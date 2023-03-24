@@ -458,6 +458,68 @@ Definition itree_mrec_def:
   (rh seed)
 End
 
+(* Theorem itree_mrec_cases: *)
+(*   case h s of *)
+(*     Vis (INL s') k => itree_mrec h s = itree_mrec (λs. itree_bind (h s) k) s' *)
+(*    | Ret r => itree_mrec h s = Ret r *)
+(*    | Tau t => itree_mrec h s = Tau (itree_mrec (λs. (h s)) t) *)
+(*    | Vis (INR e) k => itree_mrec h s = Vis e (λx. Tau (itree_mrec (λs. k s) x)) *)
+(* Proof *)
+(* QED *)
+
+Theorem itree_mrec_simps[simp]:
+  (itree_mrec Ret s = Ret s)
+Proof
+  rw [itree_mrec_def] >>
+  rw [itreeTauTheory.itree_iter_def] >>
+  rw [Once itreeTauTheory.itree_unfold]
+QED
+
+Theorem itree_mrec_recurse_once[simp]:
+  (h s) = Vis (INL seed') k ⇔
+  itree_mrec h s = Tau (itree_mrec (λs. itree_bind (h s) k) seed')
+Proof
+  rw [itree_mrec_def] >>
+  rw [itreeTauTheory.itree_iter_def] >>
+  rw [Once itreeTauTheory.itree_unfold] >>
+  (* needs proof that k' = k and then itree_bind_right_identity *)
+  cheat
+QED
+
+(* weak termination-exclusive bisimulation *)
+Inductive strip_tau_vis:
+  (strip_tau_vis t t' ⇒ strip_tau_vis (Tau t) t') ∧
+  ((strip_tau_vis t t') ∧ (∀s. (k s) = t) ⇒ strip_tau_vis (Vis e k) t') ∧
+  (strip_tau_vis (Ret v) (Ret v))
+End
+
+Theorem strip_tau_vis_simps[simp]:
+  (strip_tau_vis (Tau u) t = strip_tau_vis u t) ∧
+  (strip_tau_vis (Vis e k) (Ret r) = ∀s. strip_tau_vis (k s) (Ret r))
+Proof
+  cheat
+QED
+
+CoInductive itree_vwbisim:
+  (strip_tau_vis t t' ⇒ itree_vwbisim t t')
+End
+
+Theorem itree_vwbisim_refl:
+  itree_vwbisim t t
+Proof
+  rw [Once itree_vwbisim_cases] >>
+  rw [Once strip_tau_vis_cases] >>
+  cheat
+QED
+
+(* mrec theory *)
+
+(* Show that mrec Vis (INL) nodes are equivalent to one step of general recursion *)
+Definition simple_rec_def:
+  (simple_rec (0:num) = 0) ∧
+  (simple_rec (SUC a) = 1 + (simple_rec a))
+End
+
 Theorem itree_mrec_one_rec_event:
   itree_mrec
   (λseed. if seed = 0 then Vis (INL 1) Ret else Ret seed)
@@ -667,6 +729,13 @@ Definition h_prog_rule_return_def:
    | _ => Ret (SOME Error,s)
 End
 
+Definition h_prog_rule_tick_def:
+  h_prog_rule_tick s =
+  case s.clock of
+    0 => Ret (SOME TimeOut,empty_locals s)
+   | _ => Ret (NONE,dec_clock s)
+End
+
 (* Recursive event handler for program commands *)
 Definition h_prog_def:
   (h_prog (Skip,s) = Ret (NONE,s)) ∧
@@ -683,8 +752,17 @@ Definition h_prog_def:
   (h_prog (ExtCall ffi_name conf_ptr conf_len array_ptr array_len,s) = h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len s) ∧
   (h_prog (Raise eid e,s) = h_prog_rule_raise eid e s) ∧
   (h_prog (Return e,s) = h_prog_rule_return e s) ∧
-  (h_prog (Tick,s) = Ret (NONE,s))
+  (h_prog (Tick,s) = h_prog_rule_tick s)
 End
+
+(* XXX: This won't work. *)
+Theorem h_prog_evaluate_eq:
+  h_prog (p,s) = Ret (evaluate (p,s))
+Proof
+  rw [Once itreeTauTheory.itree_bisimulation] >>
+  qexists_tac ‘strip_tau_vis’ >>
+  conj_tac >> cheat
+QED
 
 (* Solution to While Loop semantics is to construct an infinite Vis object - using some mechanism - whereby
  the K-tree in each is the original Vis object when the loop guard is true and otherwise produces a Ret. *)
@@ -743,85 +821,7 @@ QED
 h_prog generates an itree for (prog x state) that when applied to itree_mrec produces an itree
 that has in every leaf the same result as in evaluate (prog x state). *)
 
-(* weak termination-exclusive bisimulation *)
-Inductive strip_tau_vis:
-  (strip_tau_vis t t' ⇒ strip_tau_vis (Tau t) t') ∧
-  (strip_tau_vis t t' ⇒ strip_tau_vis (Vis e (λx. t)) t') ∧
-  (strip_tau_vis (Ret v) (Ret v))
-End
-
 (* Path-based proof of isomorphism between semantics *)
-Theorem itree_sem_evaluate_biject:
-  itree_ret_val (evaluate_itree p s) path = evaluate (p,s)
-Proof
-  rw [itree_ret_val_def] >>
-  Induct_on ‘path’ >>
-  Cases_on ‘p’ >>
-  rw [evaluate_itree_def,itree_mrec_def,h_prog_def] >>
-  rw [itreeTauTheory.itree_el_def,itreeTauTheory.itree_iter_def]
-  (* Skip *)
-  >- (rw [Once itreeTauTheory.itree_unfold,evaluate_def])
-  (* Dec *)
-  (* TODO: recrusive term needs a finitary construct to avoid
-     unwanted cases explosion in proof. *)
-  >- (rw [h_prog_rule_dec_def,evaluate_def] >> cheat)
-      (* Cases_on ‘e’ *)
-      (*  (* Const c *) *)
-      (* >- (rw [eval_def] >> *)
-      (*     Cases_on ‘p'’ *)
-      (*     (* Skip, again... :( *) *)
-  (*     >- (rw [h_prog_def,evaluate_def]))) *)
-  (* Assign *)
-  (* TODO: General madness occurring here. *)
-  >- (cheat)
-  (* >- (rw [h_prog_rule_assign_def,evaluate_def] >> *)
-  (*     Cases_on ‘e’ >> *)
-  (*     rw [eval_def] >> *)
-  (*     rw [Once itreeTauTheory.itree_unfold] >> *)
-  (*     rw [FLOOKUP_DEF,is_valid_value_def,shape_of_def] >> *)
-  (*     Cases_on ‘s.locals ' m'’ >> *)
-  (*     Cases_on ‘s.locals ' m’ >> *)
-  (*     rw [shape_of_def]) *)
-     (* Store *)
-  >- (cheat)
-  (* >- (rw [h_prog_rule_store_def,evaluate_def] >> *)
-  (*     Cases_on ‘e’ >> *)
-  (*     Cases_on ‘e0’ >> *)
-  (*     rw [eval_def] >> *)
-  (*     rw [flatten_def,mem_stores_def,mem_store_def] >> *)
-  (*     rw [Once itreeTauTheory.itree_unfold] >> *)
-  (*     rw [FLOOKUP_DEF] >> *)
-  (*     Cases_on ‘s.locals ' m’ >> *)
-  (*     rw [flatten_def,mem_stores_def,mem_store_def] *)
-  (*     >- (rpt (Induct_on ‘l’ >> *)
-  (*         rw [MAP,FLAT] >> *)
-  (*         rw [mem_stores_def,mem_store_def] >> *)
-  (*         Cases_on ‘h’ >> *)
-  (*         Induct_on ‘l’ >> *)
-  (*         rw [flatten_def,MAP,FLAT] >> *)
-  (*         rw [mem_stores_def,mem_store_def]))) *)
-  (* Store byte *)
-  >- (rw [h_prog_rule_store_byte_def,evaluate_def] >>
-      Cases_on ‘eval s e’ >>
-      Cases_on ‘eval s e0’ >>
-      rw [] >>
-      rw [Once itreeTauTheory.itree_unfold] >>
-      Cases_on ‘x’
-      >- (Cases_on ‘w’ >>
-          rw [])
-      >- (Induct_on ‘l’ >>
-          rw [])
-      >- (Cases_on ‘w’ >>
-          rw [] >>
-          Cases_on ‘x'’
-          >- (Cases_on ‘w’ >>
-              rw [] >>
-              Cases_on ‘mem_store_byte s.memory s.memaddrs s.be c (w2w c')’ >>
-              rw [])
-          >- (
-
-             ))
-QED
 
 (* the mrec combinator theory *)
 (* prove useful identities over "mrec handler seed" *)
@@ -837,30 +837,100 @@ QED
     containing the result identical to that produced by the operational semantics. *)
 (* The outer-most semantics then modifies this shape by allowing Vis nodes to have ktrees
  dependent on FFI results. *)
-Theorem hprog_evaluate_wbisim:
+Theorem semantics_evaluate_wbisim:
   evaluate_itree p s = Ret (evaluate (p,s))
 Proof
   rw [Once itreeTauTheory.itree_bisimulation] >>
   qexists_tac ‘strip_tau_vis’ >>
-  rw [strip_tau_vis_ind]
+  conj_tac
   (* Proving the results of both semantics are in the relation *)
-  >- (Cases_on ‘p’
+  >- (Cases_on ‘p’ >>
+      rw [evaluate_itree_def,Once evaluate_def] >>
+      rw [itree_mrec_def,h_prog_def] >>
+      rw [itreeTauTheory.itree_iter_def]
       (* Skip *)
-      >- (rw [evaluate_itree_def,itree_mrec_def,h_prog_def,evaluate_def] >>
-          rw [itreeTauTheory.itree_iter_def,Once itreeTauTheory.itree_unfold] >>
+      >- (rw [Once itreeTauTheory.itree_unfold] >>
           rw [strip_tau_vis_rules])
       (* Dec *)
-      >- (rw [evaluate_itree_def,itree_mrec_def,h_prog_def,evaluate_def] >>
-          rw [h_prog_rule_dec_def] >>
-          rw [itreeTauTheory.itree_iter_def] >>
-          Cases_on ‘eval s e’ >>
-          rw []
-          (* eval fail *)
-          >- (rw [Once itreeTauTheory.itree_unfold,strip_tau_vis_rules])
-         (* eval success *)
+      >- (rw [h_prog_rule_dec_def] >>
+          Cases_on ‘eval s e’ >> rw []
+          (* (eval s e) = NONE *)
           >- (rw [Once itreeTauTheory.itree_unfold] >>
-          )
-
+              rw [strip_tau_vis_rules])
+          (* (eval s e) = SOME x *)
+          (* recursion at this point *)
+          >> cheat)
+      (* Assign *)
+      >- (rw [h_prog_rule_assign_def] >>
+          Cases_on ‘eval s e’ >> rw[] >>
+          rw [Once itreeTauTheory.itree_unfold] >>
+          rw [strip_tau_vis_rules])
+         (* Store *)
+      >- (rw [h_prog_rule_store_def] >>
+          Cases_on ‘eval s e’ >>
+          Cases_on ‘eval s e0’ >>
+          rw [mem_stores_def] >>
+          rw [Once itreeTauTheory.itree_unfold] >>
+          rw [strip_tau_vis_rules] >>
+          (* eval definition is recursive at this point *)
+          cheat)
+      (* Store Byte *)
+      >- (rw [h_prog_rule_store_byte_def] >>
+          Cases_on ‘eval s e’ >>
+          Cases_on ‘eval s e0’
+          >- (rw [mem_store_byte_def] >>
+              rw [Once itreeTauTheory.itree_unfold] >>
+              rw [strip_tau_vis_rules])
+          >- (rw [mem_store_byte_def] >>
+              rw [Once itreeTauTheory.itree_unfold] >>
+              rw [strip_tau_vis_rules])
+          >- (rw [mem_store_byte_def] >>
+              rw [Once itreeTauTheory.itree_unfold] >>
+              (* store byte def is recursive at this point *)
+              cheat) >> cheat)
+      (* Seq *)
+      >- (rw [h_prog_rule_seq_def] >>
+          (* recursive at this point *)
+          cheat)
+      (* Cond *)
+      >- (cheat)
+      (* While *)
+      >- (cheat)
+      >- (cheat)
+         (* Continue *)
+      >- (rw [Once itreeTauTheory.itree_unfold] >>
+          rw [strip_tau_vis_rules])
+      (* Break *)
+      >- (rw [Once itreeTauTheory.itree_unfold] >>
+          rw [strip_tau_vis_rules])
+      (* ExtCall *)
+      >- (cheat)
+      (* Call *)
+      >- (cheat)
+         (* Raise *)
+      >- (rw [h_prog_rule_raise_def] >>
+          rw [Once itreeTauTheory.itree_unfold] >>
+          Cases_on ‘FLOOKUP s.eshapes m’ >>
+          rw [strip_tau_vis_rules] >>
+          Cases_on ‘eval s e’ >> rw [] >>
+          rpt (rw [strip_tau_vis_rules]))
+      (* Return *)
+      >- (rw [h_prog_rule_return_def] >>
+          Cases_on ‘eval s e’ >>
+          rw [Once itreeTauTheory.itree_unfold] >>
+          rpt (rw [strip_tau_vis_rules]))
+      (* Tick *)
+      (* s.clock = 0 *)
+      >- (rw [h_prog_rule_tick_def] >>
+          rw [Once itreeTauTheory.itree_unfold] >>
+          rw [strip_tau_vis_rules])
+      >- (rw [h_prog_rule_tick_def] >>
+          Induct_on ‘s.clock’
+          (* s.clock = 0 *)
+          >- (rw [Once itreeTauTheory.itree_unfold] >>
+              rw [strip_tau_vis_rules])
+          (* s.clock = SUC v *)
+          >- (rw [h_prog_rule_tick_def]))
 QED
 
 Theorem vshapes_args_rel_imp_eq_len_MAP:
