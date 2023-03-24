@@ -663,7 +663,6 @@ Definition share_mem_domain_code_rel_def:
      (* if the bytes of the instruction intersect with the ffi_entry_pcs,
      * it must be fetching ShareMem instruction *)
     (!pc line.
-      p + n2w (pos_val pc 0 code2) ∈ mc_conf.prog_addresses ∧
       asm_fetch_aux pc code2 = SOME line /\
       (!op re a inst len. line <> Asm (ShareMem op re a) inst len) ==>
       DISJOINT (set mc_conf.ffi_entry_pcs)
@@ -5681,18 +5680,14 @@ Proof
   \\ gvs[find_index_INDEX_OF,INDEX_OF_eq_SOME,LESS_OR_EQ]
 QED
 
-val say = say0 "compile_correct";
-
 Theorem NOT_DISJOINT_ffi_entry_pcs_IMP_ShareMem:
 (!pc line.
-  p + n2w (pos_val pc 0 code2) ∈ mc_conf.prog_addresses ∧
   asm_fetch_aux pc code2 = SOME line /\
   (!op re a inst len. line <> Asm (ShareMem op re a) inst len) ==>
   DISJOINT (set mc_conf.ffi_entry_pcs)
     {p + n2w a + n2w (pos_val pc 0 code2) |
       a < LENGTH (line_bytes line)}) <=>
 (!pc line.
-  p + n2w (pos_val pc 0 code2) ∈ mc_conf.prog_addresses ∧
   asm_fetch_aux pc code2 = SOME line ∧
   (?x. MEM x mc_conf.ffi_entry_pcs /\
     x IN {p + n2w a + n2w (pos_val pc 0 code2) | a < LENGTH (line_bytes line)}) ⇒
@@ -5710,6 +5705,124 @@ Proof
     fs[IN_DISJOINT] >>
     metis_tac[])
 QED
+
+Theorem code_similar_IMP_asm_fetch_aux_line_similar:
+!pc code1 code2.
+  code_similar code1 code2 ==>
+  OPTREL line_similar (asm_fetch_aux pc code1) (asm_fetch_aux pc code2)
+Proof
+  ho_match_mp_tac asm_fetch_aux_ind >>
+  rpt strip_tac >>
+  Cases_on `code2` >>
+  fs[code_similar_def] >>
+  Cases_on `h` >> 
+  fs[code_similar_def,line_similar_def,asm_fetch_aux_def] >>
+  Cases_on `y` >>
+  Cases_on `y'` >>
+  fs[line_similar_def,asm_fetch_aux_def,code_similar_def] >>  
+  Cases_on `pc` >>
+  fs[line_similar_def,code_similar_def,asm_fetch_aux_def]
+QED
+
+Theorem asm_fetch_aux_pos_val_LENGTH_eq:
+!pc n code2 line.
+  asm_fetch_aux pc code2 = SOME line /\
+  pos_val (pc + 1) n code2 = LENGTH bytes' + pos_val pc n code2 /\
+  all_enc_ok mc_conf.target.config labs mc_conf.ffi_names n code2 ==>
+  LENGTH (line_bytes line) = LENGTH bytes'
+Proof
+  ho_match_mp_tac pos_val_ind >>
+  rpt strip_tac
+  >- gvs[asm_fetch_aux_def]
+  >- gvs[all_enc_ok_def, pos_val_def,asm_fetch_aux_def]
+  >- (
+    Cases_on `y` >> gvs[is_Label_def]
+    >- gvs[pos_val_def,all_enc_ok_def,asm_fetch_aux_def] >>
+    Cases_on `pc` >>
+    gvs[line_length_def,all_enc_ok_def,pos_val_def,line_ok_def,asm_fetch_aux_def] >>
+    drule pos_val_0 >>
+    gvs[])
+QED
+
+Theorem IMP_ffi_entry_pcs_disjoint_Inst:
+!^s1 (mc_conf: ('a,'state,'b) machine_config).
+  code_similar s1.code code2 /\
+  all_enc_ok mc_conf.target.config labs mc_conf.ffi_names 0 code2 /\
+  asm_fetch_aux s1.pc s1.code = SOME (Asm (Asmi (Inst instr)) _bytes _len) /\
+  share_mem_domain_code_rel mc_conf p code2 s1.shared_mem_domain /\
+  enc_with_nop mc_conf.target.config.encode (Inst instr) bytes' /\
+  bytes_in_mem (p + n2w (pos_val s1.pc 0 code2)) bytes' t1.mem
+    t1.mem_domain s1.mem_domain /\
+  pos_val (s1.pc + 1) 0 code2 = LENGTH bytes' + pos_val s1.pc 0 code2 /\
+  t1.pc = p + n2w (pos_val s1.pc 0 code2)
+  ==>
+  ffi_entry_pcs_disjoint (mc_conf: ('a, 'state, 'b) machine_config) t1 (LENGTH bytes')
+Proof
+  rpt strip_tac >>
+  fs[ffi_entry_pcs_disjoint_def, addressTheory.word_arith_lemma1] >>
+  drule code_similar_IMP_asm_fetch_aux_line_similar >>
+  disch_then $ qspec_then `s1.pc` (assume_tac o
+    REWRITE_RULE[OPTREL_def]) >>
+  gvs[] >>
+  Cases_on `y0` >> gvs[line_similar_def] >>
+  gvs[share_mem_domain_code_rel_def] >>
+  first_x_assum drule >>
+  gvs[addressTheory.word_arith_lemma1, line_length_def] >>
+  `LENGTH l = LENGTH bytes'` suffices_by simp[] >>
+  drule_all asm_fetch_aux_pos_val_LENGTH_eq >>
+  PURE_REWRITE_TAC[line_bytes_def] >>
+  simp[]
+QED
+
+Theorem IMP_ffi_entry_pcs_disjoint_Asm:
+!^s1 (mc_conf: ('a,'state,'b) machine_config).
+  code_similar s1.code code2 /\
+  all_enc_ok mc_conf.target.config labs mc_conf.ffi_names 0 code2 /\
+  asm_fetch_aux s1.pc s1.code = SOME (Asm instr _bytes _len) /\
+  (!op re a. inst <> ShareMem op re a) /\
+  share_mem_domain_code_rel mc_conf p code2 s1.shared_mem_domain /\
+  enc_with_nop mc_conf.target.config.encode (cbw_to_asm instr) bytes' /\
+  bytes_in_mem (p + n2w (pos_val s1.pc 0 code2)) bytes' t1.mem
+    t1.mem_domain s1.mem_domain /\
+  pos_val (s1.pc + 1) 0 code2 = LENGTH bytes' + pos_val s1.pc 0 code2 /\
+  t1.pc = p + n2w (pos_val s1.pc 0 code2)
+  ==>
+  ffi_entry_pcs_disjoint (mc_conf: ('a, 'state, 'b) machine_config) t1 (LENGTH bytes')
+Proof
+  rpt strip_tac >>
+  fs[ffi_entry_pcs_disjoint_def, addressTheory.word_arith_lemma1] >>
+  drule code_similar_IMP_asm_fetch_aux_line_similar >>
+  disch_then $ qspec_then `s1.pc` (assume_tac o
+    REWRITE_RULE[OPTREL_def]) >>
+  gvs[] >>
+  Cases_on `y0` >> gvs[line_similar_def] >>
+  gvs[share_mem_domain_code_rel_def] >>
+  first_x_assum drule >>
+  gvs[addressTheory.word_arith_lemma1, line_length_def] >>
+  `LENGTH l = LENGTH bytes'` suffices_by simp[] >>
+  drule_all asm_fetch_aux_pos_val_LENGTH_eq >>
+  PURE_REWRITE_TAC[line_bytes_def] >>
+  simp[]
+QED
+
+Theorem IMP_ffi_entry_pcs_disjoint_LabAsm:
+!^s1 (mc_conf: ('a,'state,'b) machine_config).
+  code_similar s1.code code2 /\
+  all_enc_ok mc_conf.target.config labs mc_conf.ffi_names 0 code2 /\
+  asm_fetch_aux s1.pc s1.code = SOME (LabAsm instr _pos _bytes _len) /\
+  share_mem_domain_code_rel mc_conf p code2 s1.shared_mem_domain /\
+  enc_with_nop mc_conf.target.config.encode (lab_inst w instr) bytes' /\
+  bytes_in_mem (p + n2w (pos_val s1.pc 0 code2)) bytes' t1.mem
+    t1.mem_domain s1.mem_domain /\
+  pos_val (s1.pc + 1) 0 code2 = LENGTH bytes' + pos_val s1.pc 0 code2 /\
+  t1.pc = p + n2w (pos_val s1.pc 0 code2)
+  ==>
+  ffi_entry_pcs_disjoint (mc_conf: ('a, 'state, 'b) machine_config) t1 (LENGTH bytes')
+Proof
+
+QED
+
+val say = say0 "compile_correct";
 
 Theorem compile_correct:
   !^s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
@@ -5749,9 +5862,13 @@ Proof
          \\ full_simp_tac(srw_ss())[state_rel_def,asm_def,LET_DEF] \\ unabbrev_all_tac \\ full_simp_tac(srw_ss())[]
          \\ full_simp_tac(srw_ss())[asm_step_nop_def,asm_def,LET_DEF]
          \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,upd_reg_def]
+         \\ conj_tac
+         >- (
+          fs[asm_fetch_def] >>
+          drule_all $ GEN_ALL IMP_ffi_entry_pcs_disjoint_Inst >>
+          simp[])
          \\ qpat_x_assum `bytes_in_mem ww bytes' t1.mem
                t1.mem_domain s1.mem_domain` mp_tac
-         \\ fs[share_mem_domain_code_rel_def]
          \\ match_mp_tac bytes_in_mem_IMP_memory \\ full_simp_tac(srw_ss())[])
        \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
        \\ qpat_x_assum`(res,s2) = _` (assume_tac o SYM)
