@@ -214,23 +214,25 @@ val san_prog_addr_simp =
 
 val san_mmio_info_simp = EVAL ``san_mmio_info``;
 
-fun valid_mapped_read_tac =
-  qpat_abbrev_tac `_r = is_valid_mapped_read _ _ _ _ _ _ _` \\
+val valid_mapped_read_tac =
+  qpat_abbrev_tac `_r = is_valid_mapped_read _ _ _ _ _ _ _ _` \\
   `_r` by (
     qunabbrev_tac `_r` \\
     simp[is_valid_mapped_read_def] \\
     simp[riscv_config_def, riscv_enc_def,riscv_ast_def,LIST_BIND_def] \\
-    EVAL_TAC
+    EVAL_TAC \\
+    simp[EXTENSION,DELETE_DEF]
   ) \\
   qunabbrev_tac `_r`;
 
-fun valid_mapped_write_tac =
- qpat_abbrev_tac `_w = is_valid_mapped_write _ _ _ _ _ _ _` \\
+val valid_mapped_write_tac =
+ qpat_abbrev_tac `_w = is_valid_mapped_write _ _ _ _ _ _ _ _` \\
   `_w` by (
     qunabbrev_tac `_w` \\
     simp[is_valid_mapped_write_def] \\
     simp[riscv_config_def, riscv_enc_def,riscv_ast_def,LIST_BIND_def] \\
-    EVAL_TAC
+    EVAL_TAC \\
+    simp[EXTENSION,DELETE_DEF]
   ) \\
   qunabbrev_tac `_w`;
 
