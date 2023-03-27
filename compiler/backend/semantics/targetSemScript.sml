@@ -76,35 +76,35 @@ val addr2w8list_def = Define`
   addr2w8list (adr: 'a word) = w2wlist_le adr (dimindex (:'a) DIV 8)`;
 
 val is_valid_mapped_read_def = Define`
-  is_valid_mapped_read pc (nb: word8) (ad: 'a addr) r pc' t ms =
+  is_valid_mapped_read pc (nb: word8) (ad: 'a addr) r pc' t ms md =
     if nb = 1w
     then
       (bytes_in_memory pc (t.config.encode (Inst (Mem Load8 r ad)))
-        (t.get_byte ms) {a | pc <= a /\ a < pc'})
+        (t.get_byte ms) md)
     else if nb = n2w (dimindex (:'a) DIV 8)
     then
       (bytes_in_memory pc (t.config.encode (Inst (Mem Load r ad)))
-        (t.get_byte ms) {a | pc <= a /\ a < pc'})
+        (t.get_byte ms) md)
     (* else if nb = 4w
     then
       (bytes_in_memory pc (t.config.encode (Inst (Mem Load32 r ad)))
-        (t.get_byte ms) {a | pc <= a /\ a < pc'}) *)
+        (t.get_byte ms) md) *)
     else F`;
 
 val is_valid_mapped_write_def = Define`
-  is_valid_mapped_write pc (nb:word8) (ad: 'a addr) r pc' t ms =
+  is_valid_mapped_write pc (nb:word8) (ad: 'a addr) r pc' t ms md =
     if nb = 1w
     then
         (bytes_in_memory pc (t.config.encode (Inst (Mem Store8 r ad)))
-          (t.get_byte ms) {a | pc <= a /\ a < pc'})
+          (t.get_byte ms) md)
     else if nb = n2w (dimindex (:'a) DIV 8)
     then
         (bytes_in_memory pc (t.config.encode (Inst (Mem Store r ad)))
-          (t.get_byte ms) {a | pc <= a /\ a < pc'})
+          (t.get_byte ms) md)
     (* else if nb = 4w
     then
         (bytes_in_memory pc (t.config.encode (Inst (Mem Store32 r ad)))
-          (t.get_byte ms) {a | pc <= a /\ a < pc'}) *)
+          (t.get_byte ms) md) *)
     else F`;
 
 val evaluate_def = Define `
@@ -149,7 +149,7 @@ val evaluate_def = Define `
             let ad = mc.target.get_reg ms r + off in
               (if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
                 is_valid_mapped_read (mc.target.get_pc ms) nb a reg pc'
-                  mc.target ms
+                  mc.target ms mc.prog_addresses
               then
                 (case call_FFI ffi (EL ffi_index mc.ffi_names)
                   [n2w (dimindex (:'w) DIV 8);nb]
@@ -168,7 +168,7 @@ val evaluate_def = Define `
             let ad = (mc.target.get_reg ms r) + off in
               (if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
                 is_valid_mapped_write (mc.target.get_pc ms) nb a reg pc'
-                  mc.target ms
+                  mc.target ms mc.prog_addresses
               then
                 (case call_FFI ffi (EL ffi_index mc.ffi_names)
                   [n2w (dimindex (:'w) DIV 8); nb]
