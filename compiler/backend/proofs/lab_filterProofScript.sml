@@ -744,7 +744,7 @@ Proof
       >>
         (first_x_assum(qspec_then`0` (assume_tac o SYM))>>
         fs[]>>qexists_tac`k`>>fs[]))
-      >- (* TODO: share_mem_op *)
+      >- (* share_mem_op *)
         (TOP_CASE_TAC >> fs[]
         >- (* share_mem_op returns NONE *)
           (disch_then $ qspec_then `0` mp_tac >> fs[] >>
