@@ -991,6 +991,8 @@ QED
 
 val s1 = ``s1:('a,'a lab_to_target$config,'ffi) labSem$state``;
 
+
+
 val IMP_bytes_in_memory = Q.prove(
   `code_similar code1 code2 /\
     all_enc_ok mc_conf.target.config labs mc_conf.ffi_names 0 code2 /\
@@ -1277,6 +1279,64 @@ val IMP_bytes_in_memory_Install = Q.prove(
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
 
+Theorem all_enc_ok_asm_fetch_aux_IMP_line_ok:
+  !pc n code2.
+    all_enc_ok c labs ffis n code2 /\
+    asm_fetch_aux pc code2 = SOME line ==>
+    line_ok c labs ffis (pos_val pc n code2) line
+Proof
+  ho_match_mp_tac pos_val_ind >>
+  rpt strip_tac
+  >- gvs[asm_fetch_aux_def]
+  >- gvs[asm_fetch_aux_def,all_enc_ok_def,pos_val_def]
+  >- (
+    Cases_on `y` >>
+    fs[is_Label_def,all_enc_ok_def,line_ok_def,pos_val_def,asm_fetch_aux_def] >>
+    Cases_on `pc` >>
+    fs[] >>
+    Cases_on `a` >>
+    gvs[line_ok_def])
+QED
+
+Theorem code_similar_IMP_asm_fetch_aux_line_similar:
+  !pc code1 code2.
+    code_similar code1 code2 ==>
+    OPTREL line_similar (asm_fetch_aux pc code1) (asm_fetch_aux pc code2)
+Proof
+  ho_match_mp_tac asm_fetch_aux_ind >>
+  rpt strip_tac >>
+  Cases_on `code2` >>
+  fs[code_similar_def] >>
+  Cases_on `h` >> 
+  fs[code_similar_def,line_similar_def,asm_fetch_aux_def] >>
+  Cases_on `y` >>
+  Cases_on `y'` >>
+  fs[line_similar_def,asm_fetch_aux_def,code_similar_def] >>  
+  Cases_on `pc` >>
+  fs[line_similar_def,code_similar_def,asm_fetch_aux_def]
+QED
+
+Theorem asm_fetch_aux_pos_val_LENGTH_EQ:
+!pc n code2 line.
+  asm_fetch_aux pc code2 = SOME line /\
+  all_enc_ok (mc_conf: ('a, 'state, 'b) machine_config).target.config labs
+    mc_conf.ffi_names n code2 /\
+  pos_val (pc + 1) n code2 = LENGTH bytes' + pos_val pc n code2 ==>
+  LENGTH (line_bytes line) = LENGTH (bytes': word8 list)
+Proof
+  ho_match_mp_tac pos_val_ind >>
+  rpt strip_tac
+  >- gvs[asm_fetch_aux_def]
+  >- gvs[all_enc_ok_def, pos_val_def,asm_fetch_aux_def]
+  >- (
+    Cases_on `y` >> gvs[is_Label_def]
+    >- gvs[pos_val_def,all_enc_ok_def,asm_fetch_aux_def] >>
+    Cases_on `pc` >>
+    gvs[line_length_def,all_enc_ok_def,pos_val_def,line_ok_def,asm_fetch_aux_def] >>
+    drule pos_val_0 >>
+    gvs[])
+QED
+
 Theorem IMP_bytes_in_memory_ShareMem:
   (asm_fetch_aux s1.pc s1.code = SOME (Asm (ShareMem mop r ad) l n)) /\
   code_similar ^s1.code code2 /\
@@ -1284,6 +1344,8 @@ Theorem IMP_bytes_in_memory_ShareMem:
   bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain
   ==>
   ?bytes.
+    asm_fetch_aux s1.pc code2 = SOME (Asm (ShareMem mop r ad)
+      bytes (LENGTH bytes)) /\
     enc_with_nop mc_conf.target.config.encode (Inst (Mem mop r ad)) bytes /\
     bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
       bytes t1.mem t1.mem_domain /\
@@ -1298,11 +1360,32 @@ Proof
   \\ Cases_on `j` >> gvs[line_similar_def,line_ok_def,enc_with_nop_thm]
   \\ rw[PULL_EXISTS]
   \\ imp_res_tac bytes_in_mem_IMP
-  \\ qexists_tac `n''`
+  \\ qexists `n''`
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,line_bytes_def,
     bytes_in_mem_APPEND,line_length_def]
+  \\ drule_all $ GEN_ALL code_similar_IMP_asm_fetch_aux_line_similar
+  \\ disch_then $ qspec_then `s1.pc` assume_tac o REWRITE_RULE[OPTREL_def]
+  \\ gvs[AllCaseEqs()]
+  \\ drule_all $ GEN_ALL all_enc_ok_asm_fetch_aux_IMP_line_ok
+  \\ Cases_on `y0`
+  \\ gvs[line_similar_def,line_ok_def, cbw_to_asm_def]
+  \\ strip_tac
+  \\ `l' = mc_conf.target.config.encode (Inst (Mem mop r ad)) ++
+        FLAT (REPLICATE n'' (mc_conf.target.config.encode (Inst Skip)))`
+     suffices_by gvs[]
+  \\ qabbrev_tac
+     `bytes = mc_conf.target.config.encode (Inst (Mem mop r ad)) ++
+        FLAT (REPLICATE n'' (mc_conf.target.config.encode (Inst Skip)))`
+  \\ drule $ GEN_ALL asm_fetch_aux_pos_val_LENGTH_EQ
+  \\ disch_then $ qspecl_then [`mc_conf`, `labs`, `bytes`, `0`] mp_tac
+  \\ fs[]
+  \\ impl_tac
+  >- (qunabbrev_tac `bytes` >> fs[LENGTH_APPEND])
+  \\ strip_tac
+  \\ qunabbrev_tac `bytes`
+  \\ gvs[line_length_def,enc_with_nop_thm,FLAT_REPLICATE_NIL]
 QED
-
+       
 val bytes_in_mem_IMP_memory = Q.prove(
   `!xs a.
       (!a. ~(a IN dm1) ==> m a = m1 a) ==>
@@ -5706,44 +5789,6 @@ Proof
     metis_tac[])
 QED
 
-Theorem code_similar_IMP_asm_fetch_aux_line_similar:
-!pc code1 code2.
-  code_similar code1 code2 ==>
-  OPTREL line_similar (asm_fetch_aux pc code1) (asm_fetch_aux pc code2)
-Proof
-  ho_match_mp_tac asm_fetch_aux_ind >>
-  rpt strip_tac >>
-  Cases_on `code2` >>
-  fs[code_similar_def] >>
-  Cases_on `h` >> 
-  fs[code_similar_def,line_similar_def,asm_fetch_aux_def] >>
-  Cases_on `y` >>
-  Cases_on `y'` >>
-  fs[line_similar_def,asm_fetch_aux_def,code_similar_def] >>  
-  Cases_on `pc` >>
-  fs[line_similar_def,code_similar_def,asm_fetch_aux_def]
-QED
-
-Theorem asm_fetch_aux_pos_val_LENGTH_eq:
-!pc n code2 line.
-  asm_fetch_aux pc code2 = SOME line /\
-  pos_val (pc + 1) n code2 = LENGTH bytes' + pos_val pc n code2 /\
-  all_enc_ok mc_conf.target.config labs mc_conf.ffi_names n code2 ==>
-  LENGTH (line_bytes line) = LENGTH bytes'
-Proof
-  ho_match_mp_tac pos_val_ind >>
-  rpt strip_tac
-  >- gvs[asm_fetch_aux_def]
-  >- gvs[all_enc_ok_def, pos_val_def,asm_fetch_aux_def]
-  >- (
-    Cases_on `y` >> gvs[is_Label_def]
-    >- gvs[pos_val_def,all_enc_ok_def,asm_fetch_aux_def] >>
-    Cases_on `pc` >>
-    gvs[line_length_def,all_enc_ok_def,pos_val_def,line_ok_def,asm_fetch_aux_def] >>
-    drule pos_val_0 >>
-    gvs[])
-QED
-
 Theorem IMP_ffi_entry_pcs_disjoint_Asm:
 !^s1 (mc_conf: ('a,'state,'b) machine_config).
   code_similar s1.code code2 /\
@@ -5769,7 +5814,7 @@ Proof
   first_x_assum drule >>
   gvs[addressTheory.word_arith_lemma1, line_length_def] >>
   `LENGTH l = LENGTH bytes'` suffices_by simp[] >>
-  drule_all asm_fetch_aux_pos_val_LENGTH_eq >>
+  drule_all asm_fetch_aux_pos_val_LENGTH_EQ >>
   PURE_REWRITE_TAC[line_bytes_def] >>
   simp[]
 QED
@@ -5798,7 +5843,7 @@ Proof
   first_x_assum drule >>
   gvs[addressTheory.word_arith_lemma1, line_length_def] >>
   `LENGTH l = LENGTH bytes'` suffices_by simp[] >>
-  drule_all asm_fetch_aux_pos_val_LENGTH_eq >>
+  drule_all asm_fetch_aux_pos_val_LENGTH_EQ >>
   PURE_REWRITE_TAC[line_bytes_def] >>
   simp[]
 QED
@@ -5844,9 +5889,9 @@ Proof
          \\ full_simp_tac(srw_ss())[asm_step_nop_def,asm_def,LET_DEF]
          \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,upd_reg_def]
          \\ conj_tac
-         >- (
-          fs[asm_fetch_def] >>
-          drule_all $ GEN_ALL IMP_ffi_entry_pcs_disjoint_Inst >>
+         >- (fs[asm_fetch_def] >>
+          `!op re a. Asmi (Inst i) <> ShareMem op re a` by simp[] >>
+          drule_all $ GEN_ALL IMP_ffi_entry_pcs_disjoint_Asm >>
           simp[])
          \\ qpat_x_assum `bytes_in_mem ww bytes' t1.mem
                t1.mem_domain s1.mem_domain` mp_tac
@@ -5877,6 +5922,21 @@ Proof
            asm_step_IMP_evaluate_step) \\ full_simp_tac(srw_ss())[]
       \\ impl_tac >-
        (full_simp_tac(srw_ss())[state_rel_def,asm_def,LET_DEF]
+        \\ conj_tac
+        >- (fs[asm_fetch_def]
+          \\ drule_all $ GEN_ALL IMP_bytes_in_memory
+          \\ strip_tac
+          \\ fs[]
+          \\ `!op re a. Asmi (JumpReg r1) <> ShareMem op re a` by simp[]
+          \\ drule_all $ GEN_ALL IMP_ffi_entry_pcs_disjoint_Asm
+          \\ `LENGTH ((mc_conf.target.config.encode (JumpReg r1))) <=
+            LENGTH (line_bytes j)`
+            suffices_by metis_tac[ffi_entry_pcs_disjoint_LENGTH_shorter]
+          \\ Cases_on `j`
+          \\ fs[line_similar_def,line_ok_def]
+          \\ fs[enc_with_nop_thm,line_length_def]
+          \\ Cases_on `a` >> fs[]
+          \\ metis_tac[LENGTH_APPEND,LESS_EQ_ADD])
         \\ full_simp_tac(srw_ss())[asm_step_def,asm_def,LET_DEF]
         \\ imp_res_tac bytes_in_mem_IMP
         \\ full_simp_tac(srw_ss())[IMP_bytes_in_memory_JumpReg,asmSemTheory.upd_pc_def,
@@ -5929,26 +5989,25 @@ Proof
         \\ Q.PAT_X_ASSUM `xx = t1.regs r1` (fn th => full_simp_tac(srw_ss())[GSYM th])
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l1`,`l2`]) \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
         \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ res_tac \\ srw_tac[][]
-        >~ [`share_mem_state_rel _ (s1 with <|pc := p'; clock := s1.clock − 1|>) _ _`] >- (
-          fs[share_mem_state_rel_def]
-          share_mem_state_rel_tac)
-        \\ (alignmentTheory.aligned_add_sub_cor
+        >- ((alignmentTheory.aligned_add_sub_cor
             |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> irule)
-        \\ conj_tac >- fs[alignmentTheory.aligned_bitwise_and]
-        \\ simp[aligned_w2n]
-        \\ qmatch_goalsub_abbrev_tac`pv MOD dw MOD _`
-        \\ `pv MOD dw = pv` by (
-          simp[Abbr`pv`,Abbr`dw`]
-          \\ irule LESS_EQ_LESS_TRANS
-          \\ qexists_tac`LENGTH (prog_to_bytes code2)`
+          \\ conj_tac >- fs[alignmentTheory.aligned_bitwise_and]
+          \\ simp[aligned_w2n]
+          \\ qmatch_goalsub_abbrev_tac`pv MOD dw MOD _`
+          \\ `pv MOD dw = pv` by (
+            simp[Abbr`pv`,Abbr`dw`]
+            \\ irule LESS_EQ_LESS_TRANS
+            \\ qexists_tac`LENGTH (prog_to_bytes code2)`
+            \\ simp[]
+            \\ drule pos_val_bound
+            \\ disch_then(qspec_then`0`mp_tac o CONV_RULE SWAP_FORALL_CONV)
+            \\ simp[] )
           \\ simp[]
-          \\ drule pos_val_bound
-          \\ disch_then(qspec_then`0`mp_tac o CONV_RULE SWAP_FORALL_CONV)
-          \\ simp[] )
-        \\ simp[]
-        \\ qunabbrev_tac`pv`
-        \\ match_mp_tac pos_val_MOD_0 \\ fs[]
-        \\ metis_tac[has_odd_inst_alignment] )
+          \\ qunabbrev_tac`pv`
+          \\ match_mp_tac pos_val_MOD_0 \\ fs[]
+          \\ metis_tac[has_odd_inst_alignment])
+        >- (fs[share_mem_state_rel_def] >> share_mem_state_rel_tac)
+        >- fs[share_mem_domain_code_rel_def] )
       \\ rpt strip_tac
       \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock - 1 + k`MP_TAC) \\ srw_tac[][]
       \\ `s1.clock - 1 + k + l' = s1.clock + (k + l' - 1)` by DECIDE_TAC
@@ -5983,6 +6042,17 @@ Proof
       first_x_assum drule>>simp[])
     \\ impl_tac>-
       (fs[state_rel_def]>>
+      conj_tac >- (
+        fs[asm_fetch_def]
+        \\ drule_all $ GEN_ALL IMP_bytes_in_memory
+        \\ strip_tac
+        \\ fs[]
+        \\ `!op re a. Cbw r1 r2 <> ShareMem op re a` by simp[]
+        \\ drule_all $ GEN_ALL IMP_ffi_entry_pcs_disjoint_Asm
+        \\ `LENGTH bytes' <= LENGTH (line_bytes j)` suffices_by
+          metis_tac[ffi_entry_pcs_disjoint_LENGTH_shorter]
+        \\ Cases_on `j`
+        \\ fs[line_similar_def,line_ok_def]) >>
       conj_tac>-
         (match_mp_tac (GEN_ALL bytes_in_mem_IMP)>>
         qexists_tac`s1.mem_domain`>>
@@ -6036,11 +6106,11 @@ Proof
         >>
           simp[bytes_in_mem_def,APPLY_UPDATE_THM]>>
           first_x_assum drule>>fs[])
-      \\
-        simp[GSYM word_add_n2w]
-      >- (
-        fs[upd_pc_def, inc_pc_def, share_mem_state_rel_def] >>
+      \\ simp[GSYM word_add_n2w]
+      \\ conj_tac
+      >- (fs[upd_pc_def, inc_pc_def, share_mem_state_rel_def] >>
         share_mem_state_rel_tac)
+      >- fs[upd_pc_def,inc_pc_def,share_mem_domain_code_rel_def]
       )
     \\ rpt strip_tac \\ full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,labSemTheory.upd_reg_def]
     \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock - 1 + k` mp_tac)
@@ -6056,11 +6126,14 @@ Proof
     \\ Cases_on `m`
     \\ fs[share_mem_op_def,share_mem_load_def,share_mem_store_def,AllCaseEqs(),call_FFI_def]
     \\ simp[Once targetSemTheory.evaluate_def]
-    \\ fs[state_rel_def, share_mem_state_rel_def]
-    \\ fs[share_mem_domain_code_rel_def,asm_fetch_def,ELIM_UNCURRY,get_memop_info_def]
+    \\ fs[state_rel_def,share_mem_domain_code_rel_def,asm_fetch_def,ELIM_UNCURRY,get_memop_info_def]
+    \\ drule code_similar_IMP_asm_fetch_aux_line_similar
+    \\ disch_then $ qspec_then `s1.pc` assume_tac o SIMP_RULE(srw_ss())[OPTREL_def]
+    \\ var_eq_tac
+    \\ fs[AllCaseEqs()]
     \\ qpat_x_assum
-      `!pc ms1 op re a ei len i.
-        asm_fetch_aux _ _ = SOME (Asm (ShareMem _ _ _) _ _) /\ _ ==> _ `
+      `!pc op re a inst len i.
+        asm_fetch_aux pc code2 = SOME (Asm (ShareMem _ _ _) _ _) /\ _ ==> _ `
         drule_all
     \\ disch_then $ qspec_then `ms1` assume_tac >> gvs[]
     \\ qpat_x_assum
