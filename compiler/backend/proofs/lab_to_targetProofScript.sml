@@ -692,7 +692,7 @@ Definition share_mem_state_rel_def:
         (w2n ad' MOD w2n nb) = 0 /\ (ad' IN mc_conf.shared_addresses) /\
          is_valid_mapped_read (mc_conf.target.get_pc ms2) nb (Addr ad offs) re pc'
            mc_conf.target ms2 mc_conf.prog_addresses /\
-         call_FFI s1.ffi "MappedRead"
+         call_FFI st "MappedRead"
            [n2w (dimindex (:'a) DIV 8); nb]
            (addr2w8list ad') =
            FFI_return new_st new_bytes ==>
@@ -707,7 +707,7 @@ Definition share_mem_state_rel_def:
          (w2n ad' MOD w2n nb) = 0 /\ (ad' IN mc_conf.shared_addresses) /\
           is_valid_mapped_write (mc_conf.target.get_pc ms2) nb (Addr ad offs) re pc'
             mc_conf.target ms2 mc_conf.prog_addresses /\
-         call_FFI s1.ffi "MappedWrite"
+         call_FFI st "MappedWrite"
           [n2w (dimindex (:'a) DIV 8);nb]
           (w2wlist_le (mc_conf.target.get_reg ms2 re) (w2n nb)
                     ++ (addr2w8list ad')) =
@@ -5839,22 +5839,6 @@ Proof
   simp[]
 QED
 
-Theorem:
-  ffi_name <> "" /\
-  LENGTH v4 = LENGTH l /\
-  s1.ffi.oracle ffi_name s1.ffi.ffi_state conf l = Oracle_return ffi' v4 ==>
-  call_FFI s1.ffi ffi_name conf l =
-    FFI_return
-      (s1.ffi with
-        <|ffi_state := ffi';
-          io_events :=
-          s1.ffi.io_events ++
-            [IO_event ffi_name conf (ZIP (l,v4))]|>) v4
-Proof
-  rpt strip_tac >>
-  fs[call_FFI_def]
-QED
-
 val say = say0 "compile_correct";
 
 Theorem compile_correct:
@@ -6138,16 +6122,16 @@ Proof
       ELIM_UNCURRY,get_memop_info_def]
     \\ drule_all $ GEN_ALL IMP_bytes_in_memory_ShareMem
     \\ strip_tac
-    \\ qpat_x_assum `!pc op re a inst len i. asm_fetch_aux _ _ = SOME _ /\
+    \\ qpat_assum `!pc op re a inst len i. asm_fetch_aux _ _ = SOME _ /\
         mmio_pcs_min_index _ = SOME _ ==> _` drule_all
     \\ strip_tac
     \\ drule find_index_is_MEM
     \\ fs[target_state_rel_def]
     \\ disch_then kall_tac
     \\ fs[share_mem_state_rel_def]
-    \\ qpat_x_assum `!index' i'. mmio_pcs_min_index _ = SOME i' /\ index' < _ /\
+    \\ qpat_assum `!index' i'. mmio_pcs_min_index _ = SOME i' /\ index' < _ /\
     _ ==> _` $ qspecl_then [`index`, `i`] drule
-    \\ impl_tac
+    \\ (impl_tac
     >- (drule find_index_LESS_LENGTH >> fs[])
     \\ disch_then assume_tac
     \\ `mc_conf.target.get_pc ms1 <> mc_conf.ccache_pc /\
@@ -6184,22 +6168,40 @@ Proof
      \\ fs[]
      \\ qpat_x_assum `!r. word_loc_val _ _ _ = SOME _` $
        qspec_then `n''` assume_tac
-     \\ rfs[word_loc_val_def]
-     \\ fs[enc_with_nop_thm]
-     \\ cheat
+     \\ rfs[word_loc_val_def,enc_with_nop_thm]
+     \\ fs[]
+     \\ drule_then assume_tac $
+        cj 1 $ cj 1 $ PURE_REWRITE_RULE [EQ_IMP_THM] bytes_in_memory_APPEND
+     \\ drule_then assume_tac bytes_in_memory_in_domain 
+     \\ irule bytes_in_memory_change_mem
+     \\ qexists `t1.mem`
+     \\ simp[]
   )
   >- (
-    qpat_x_assum `!r. word_loc_val _ _ _ = SOME _` $
+    `t1.regs n'' = w` by (
+      qpat_x_assum `!r. word_loc_val _ _ _ = SOME _` $
        qspec_then `n''` assume_tac
-    \\ rfs[word_loc_val_def]
+      \\ fs[word_loc_val_def]
+      \\ rfs[word_loc_val_def] )
     \\ qpat_assum `!i. _ ==> mc_conf.target.get_reg ms1 i = t1.regs i` $
       qspec_then `n''` mp_tac
     \\ impl_tac
     >- fs[asm_ok_def,inst_ok_def,reg_ok_def]
     \\ strip_tac
-    \\ fs[call_FFI_def,AllCaseEqs()]
-    \\ TODO
-  )
+    \\ fs[call_FFI_def]
+    \\ last_x_assum irule
+    \\ rw[]
+    >- (first_x_assum $ qspecl_then [`ms2`, `t1'`, `k`, `a1`, `a2`] mp_tac >> simp[])
+    >- (
+      simp[apply_oracle_def,shift_interfer_def,shift_seq_def]
+      \\ fs[IMP_CONJ_THM, AND_IMP_INTRO]
+      \\ first_x_assum $ ho_match_mp_tac o cj 1
+      \\ fs[]
+      \\ qexistsl [`s1.ffi`, `new_st`]
+      \\ simp[]
+
+    )
+  ))
   ))
   THEN1 (* Jump *)
    (say "Jump"
