@@ -5740,6 +5740,12 @@ Proof
   rw[shift_interfer_def]
 QED
 
+Theorem read_ffi_bytearrays_ffi_interfer[simp]:
+  read_ffi_bytearrays (mc with ffi_interfer := ffi) = read_ffi_bytearrays mc
+Proof
+  rw[FUN_EQ_THM, read_ffi_bytearrays_def, read_ffi_bytearray_def]
+QED
+
 Theorem share_mem_access_pcs_NOT_ccache_or_halt:
   find_index (mc_conf.target.get_pc ms1) mc_conf.ffi_entry_pcs 0 = SOME index /\
   ((¬(EL index mc_conf.ffi_entry_pcs ≤ mc_conf.halt_pc) ∨
@@ -5838,6 +5844,21 @@ Proof
   PURE_REWRITE_TAC[line_bytes_def] >>
   simp[]
 QED
+
+val mapped_read_ffi_interfer_tac =
+    irule $ cj 2 RTC_RULES
+    \\ qexists `s1.ffi with
+         <|ffi_state := ffi';
+           io_events :=
+             s1.ffi.io_events ++
+             [IO_event "MappedRead"
+                [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
+                (ZIP (addr2w8list (c + t1.regs n''),v4))]|>`
+    \\ simp[evaluatePropsTheory.call_FFI_rel_def]
+    \\ qexists `"MappedRead"`
+    \\ simp[call_FFI_def, AllCaseEqs()]
+    \\ metis_tac[];
+
 
 val say = say0 "compile_correct";
 
@@ -6189,6 +6210,7 @@ Proof
     >- fs[asm_ok_def,inst_ok_def,reg_ok_def]
     \\ strip_tac
     \\ fs[call_FFI_def]
+    (* MARKER *)
     \\ last_x_assum irule
     \\ rw[]
     >- (first_x_assum $ qspecl_then [`ms2`, `t1'`, `k`, `a1`, `a2`] mp_tac >> simp[])
@@ -6197,12 +6219,247 @@ Proof
       \\ fs[IMP_CONJ_THM, AND_IMP_INTRO]
       \\ first_x_assum $ ho_match_mp_tac o cj 1
       \\ fs[]
-      \\ qexistsl [`s1.ffi`, `new_st`]
+      \\ qexistsl [`st`, `new_st`]
       \\ simp[]
-
+      \\ irule $ cj 2 RTC_RULES
+      \\ qexists `s1.ffi with
+           <|ffi_state := ffi';
+             io_events :=
+               s1.ffi.io_events ++
+               [IO_event "MappedRead"
+                  [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
+                  (ZIP (addr2w8list (c + t1.regs n''),v4))]|>`
+      \\ simp[evaluatePropsTheory.call_FFI_rel_def]
+      \\ qexists `"MappedRead"`
+      \\ simp[call_FFI_def, AllCaseEqs()]
+      \\ metis_tac[] )
+    >- (
+      simp[apply_oracle_def,shift_interfer_def,shift_seq_def]
+      \\ fs[IMP_CONJ_THM, AND_IMP_INTRO]
+      \\ first_x_assum $ ho_match_mp_tac o cj 2
+      \\ fs[]
+      \\ qexistsl [`st`, `new_st`]
+      \\ simp[]
+      \\ irule $ cj 2 RTC_RULES
+      \\ qexists `s1.ffi with
+           <|ffi_state := ffi';
+             io_events :=
+               s1.ffi.io_events ++
+               [IO_event "MappedRead"
+                  [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
+                  (ZIP (addr2w8list (c + t1.regs n''),v4))]|>`
+      \\ simp[evaluatePropsTheory.call_FFI_rel_def]
+      \\ qexists `"MappedRead"`
+      \\ simp[call_FFI_def, AllCaseEqs()]
+      \\ metis_tac[] )
+    >- (
+      simp[apply_oracle_def,shift_interfer_def,shift_seq_def]
+      \\ first_x_assum $ qspecl_then 
+        [`ms2`,`k+1`,`index'`,`new_bytes`,`t1'`,`bytes'`,`bytes2`,`st`,`new_st`] mp_tac
+      \\ rw[]
+      \\ first_x_assum $ ho_match_mp_tac o cj 1
+      \\ fs[]
+      \\ irule $ cj 2 RTC_RULES
+      \\ qexists `s1.ffi with
+           <|ffi_state := ffi';
+             io_events :=
+               s1.ffi.io_events ++
+               [IO_event "MappedRead"
+                  [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
+                  (ZIP (addr2w8list (c + t1.regs n''),v4))]|>`
+      \\ simp[evaluatePropsTheory.call_FFI_rel_def]
+      \\ qexists `"MappedRead"`
+      \\ simp[call_FFI_def, AllCaseEqs()]
+      \\ metis_tac[] )
+  >- (
+    simp[apply_oracle_def,shift_interfer_def,shift_seq_def]
+    \\ first_x_assum $ qspecl_then 
+      [`ms2`,`k+1`,`index'`,`new_bytes`,`t1'`,`bytes'`,`bytes2`,`st`,`new_st`] mp_tac
+    \\ rw[]
+    \\ first_x_assum $ ho_match_mp_tac o cj 2
+    \\ fs[]
+    \\ irule $ cj 2 RTC_RULES
+    \\ qexists `s1.ffi with
+         <|ffi_state := ffi';
+           io_events :=
+             s1.ffi.io_events ++
+             [IO_event "MappedRead"
+                [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
+                (ZIP (addr2w8list (c + t1.regs n''),v4))]|>`
+    \\ simp[evaluatePropsTheory.call_FFI_rel_def]
+    \\ qexists `"MappedRead"`
+    \\ simp[call_FFI_def, AllCaseEqs()]
+    \\ metis_tac[] )
+  >- (
+    simp[apply_oracle_def,shift_interfer_def,shift_seq_def]
+    \\ first_x_assum $ qspecl_then 
+      [`ms2`,`k+1`,`index'`,`new_bytes`,`t1'`,`bytes'`,`bytes2`,`st`,`new_st`] mp_tac
+    \\ rw[]
+    \\ first_x_assum $ mp_tac o cj 3
+    \\ impl_tac
+    >- (fs[]
+      \\ irule $ cj 2 RTC_RULES
+      \\ qexists `s1.ffi with
+           <|ffi_state := ffi';
+             io_events :=
+               s1.ffi.io_events ++
+               [IO_event "MappedRead"
+                  [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
+                  (ZIP (addr2w8list (c + t1.regs n''),v4))]|>`
+      \\ simp[evaluatePropsTheory.call_FFI_rel_def]
+      \\ qexists `"MappedRead"`
+      \\ simp[call_FFI_def, AllCaseEqs()]
+      \\ metis_tac[] )
+   \\ disch_then irule
+   \\ simp[]
+  )
+  >- (
+    simp[apply_oracle_def,shift_interfer_def,shift_seq_def]
+    \\ first_x_assum $ qspecl_then 
+      [`ms2`,`k+1`,`index'`,`new_bytes`,`t1'`,`bytes'`,`bytes2`,`st`,`new_st`] mp_tac
+    \\ rw[]
+    \\ first_x_assum $ mp_tac o cj 4
+    \\ impl_tac
+    >- (fs[]
+      \\ irule $ cj 2 RTC_RULES
+      \\ qexists `s1.ffi with
+           <|ffi_state := ffi';
+             io_events :=
+               s1.ffi.io_events ++
+               [IO_event "MappedRead"
+                  [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
+                  (ZIP (addr2w8list (c + t1.regs n''),v4))]|>`
+      \\ simp[evaluatePropsTheory.call_FFI_rel_def]
+      \\ qexists `"MappedRead"`
+      \\ simp[call_FFI_def, AllCaseEqs()]
+      \\ metis_tac[] )
+    \\ disch_then $ qspec_then `i''` drule_all
+    \\ simp[]
+  )
+  >- (
+    simp[apply_oracle_def,shift_interfer_def,shift_seq_def]
+    \\ first_x_assum $ qspecl_then 
+      [`ms2`,`k+1`,`index'`,`new_bytes`,`t1'`,`bytes'`,`bytes2`,`st`,`new_st`] mp_tac
+    \\ rw[]
+    \\ first_x_assum $ mp_tac o cj 5
+    \\ impl_tac
+    >- (fs[]
+      \\ irule $ cj 2 RTC_RULES
+      \\ qexists `s1.ffi with
+           <|ffi_state := ffi';
+             io_events :=
+               s1.ffi.io_events ++
+               [IO_event "MappedRead"
+                  [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
+                  (ZIP (addr2w8list (c + t1.regs n''),v4))]|>`
+      \\ simp[evaluatePropsTheory.call_FFI_rel_def]
+      \\ qexists `"MappedRead"`
+      \\ simp[call_FFI_def, AllCaseEqs()]
+      \\ metis_tac[] )
+    \\ disch_then irule
+    \\ simp[]
+  )
+  >- (
+    simp[apply_oracle_def,shift_interfer_def,shift_seq_def]
+    \\ first_x_assum $ qspecl_then 
+      [`ms2`,`k+1`,`index'`,`bytes2`,`t1'`,`bytes'`,`bytes2`,`new_st`,`new_st`] mp_tac
+    \\ rw[]
+    \\ first_x_assum $ mp_tac o cj 1
+    \\ disch_then irule
+    \\ irule $ cj 2 RTC_RULES
+    \\ qexists `s1.ffi with
+         <|ffi_state := ffi';
+           io_events :=
+             s1.ffi.io_events ++
+             [IO_event "MappedRead"
+                [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
+                (ZIP (addr2w8list (c + t1.regs n''),v4))]|>`
+    \\ simp[evaluatePropsTheory.call_FFI_rel_def]
+    \\ qexists `"MappedRead"`
+    \\ simp[call_FFI_def, AllCaseEqs()]
+    \\ metis_tac[]
+  )
+  >- (
+    simp[apply_oracle_def,shift_interfer_def,shift_seq_def]
+    \\ first_x_assum $ qspecl_then 
+      [`ms2`,`k+1`,`index'`,`bytes2`,`t1'`,`bytes'`,`bytes2`,`new_st`,`new_st`] mp_tac
+    \\ rw[]
+    \\ first_x_assum $ irule o cj 2
+    \\ irule $ cj 2 RTC_RULES
+    \\ qexists `s1.ffi with
+         <|ffi_state := ffi';
+           io_events :=
+             s1.ffi.io_events ++
+             [IO_event "MappedRead"
+                [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
+                (ZIP (addr2w8list (c + t1.regs n''),v4))]|>`
+    \\ simp[evaluatePropsTheory.call_FFI_rel_def]
+    \\ qexists `"MappedRead"`
+    \\ simp[call_FFI_def, AllCaseEqs()]
+    \\ metis_tac[]
+  )
+  >- (
+    simp[apply_oracle_def,shift_interfer_def,shift_seq_def]
+    \\ first_x_assum $ qspecl_then 
+      [`ms2`,`k+1`,`index'`,`bytes2`,`t1'`,`bytes'`,`bytes2`,`new_st`,`new_st`] mp_tac
+    \\ rw[]
+    \\ first_x_assum $ irule o cj 3
+    \\ simp[]
+    \\ mapped_read_ffi_interfer_tac
+  )
+  >- (
+    simp[apply_oracle_def,shift_interfer_def,shift_seq_def]
+    \\ first_x_assum $ qspecl_then 
+      [`ms2`,`k+1`,`index'`,`bytes2`,`t1'`,`bytes'`,`bytes2`,`new_st`,`new_st`] mp_tac
+    \\ rw[]
+    \\ first_x_assum $ irule o cj 4
+    \\ simp[]
+    \\ mapped_read_ffi_interfer_tac
+  )
+  >- (
+    simp[apply_oracle_def,shift_interfer_def,shift_seq_def]
+    \\ first_x_assum $ qspecl_then 
+      [`ms2`,`k+1`,`index'`,`bytes2`,`t1'`,`bytes'`,`bytes2`,`new_st`,`new_st`] mp_tac
+    \\ rw[]
+    \\ first_x_assum $ irule o cj 5
+    \\ simp[]
+    \\ mapped_read_ffi_interfer_tac
+  )
+  >- (
+    simp[apply_oracle_def,shift_interfer_def,shift_seq_def]
+    \\ first_x_assum $ qspecl_then 
+      [`ms1`, `0`,`index`,`v4`, `t1`, `n2w (dimindex (:α) DIV 8)`,`n''`,`c`,`n'`,
+        `p + n2w (LENGTH bytes + pos_val s1.pc 0 code2)`,`s1.ffi`,
+        `s1.ffi with
+         <|ffi_state := ffi';
+           io_events :=
+             s1.ffi.io_events ++
+             [IO_event "MappedRead"
+                [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
+                (ZIP (addr2w8list (c + t1.regs n''),v4))]|>`] mp_tac
+    \\ rw[]
+    \\ first_x_assum mp_tac
+    \\ impl_tac
+    >- (
+      simp[target_state_rel_def]
+      \\ drule find_index_LESS_LENGTH
+      \\ simp[]
+      \\ disch_then kall_tac
+      \\ fs[find_index_INDEX_OF, INDEX_OF_eq_SOME]
     )
-  ))
-  ))
+    \\ impl_tac
+    >- (
+      gvs[is_valid_mapped_read_def,good_dimindex_def]
+      \\ fs[enc_with_nop_thm]
+      \\ rfs[]
+      \\ drule $ cj 1 $ cj 1 $ PURE_REWRITE_RULE [EQ_IMP_THM] bytes_in_memory_APPEND
+      \\ (* TODO *)
+    )
+    \\ fs[target_state_rel_def]
+  )
+  )))
+  >- ()
+  )
   THEN1 (* Jump *)
    (say "Jump"
     \\ qmatch_assum_rename_tac
