@@ -749,7 +749,8 @@ Definition h_prog_def:
   (h_prog (Break,s) = Ret (SOME Break,s)) ∧
   (h_prog (Continue,s) = Ret (SOME Continue,s)) ∧
   (h_prog (Call calltyp tgtexp argexps,s) = h_prog_rule_call calltyp tgtexp argexps s) ∧
-  (h_prog (ExtCall ffi_name conf_ptr conf_len array_ptr array_len,s) = h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len s) ∧
+  (h_prog (ExtCall ffi_name conf_ptr conf_len array_ptr array_len,s) =
+          h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len s) ∧
   (h_prog (Raise eid e,s) = h_prog_rule_raise eid e s) ∧
   (h_prog (Return e,s) = h_prog_rule_return e s) ∧
   (h_prog (Tick,s) = h_prog_rule_tick s)
@@ -783,10 +784,19 @@ End
 (* TODO: Need a combinator over the type of itree returned from: evaluate_itree p s
  that produces the final ITree by converting the type of Vis nodes into the proper type
       and by removing state from the Ret type. *)
+
 Definition semantics_itree_def:
   semantics_itree ^s entry =
   let prog = Call Tail (Label entry) [] in
-  evaluate_itree prog s ⋆ (Ret o FST)
+  itree_unfold
+  (λt. case t of
+         INL (Ret (res,s)) => Ret' res
+        | INL (Tau t) => Tau' (INL t)
+        | INL (Vis (e,k) g) => Vis' e (λr. INR (k r))
+        | INR (Ret (res,s)) => Ret' res
+        | INR (Tau t) => Tau' (INR t)
+        | INR (Vis e g) => Vis' e (INR o g))
+  (INL (evaluate_itree prog ^s))
 End
 
 (* Reasoning about ITree reps *)
@@ -837,100 +847,192 @@ that has in every leaf the same result as in evaluate (prog x state). *)
     containing the result identical to that produced by the operational semantics. *)
 (* The outer-most semantics then modifies this shape by allowing Vis nodes to have ktrees
  dependent on FFI results. *)
-Theorem semantics_evaluate_wbisim:
-  evaluate_itree p s = Ret (evaluate (p,s))
+
+(* XXX: Equality will not work.
+Need to prove evaluate produces a fininte prefix of the equivalent tree
+ and every tree is in some way equivalent to evaluate.
+
+ Don't use a direct equality!.
+*)
+(* Theorem semantics_evaluate_wbisim: *)
+(*   evaluate_itree p s = Ret (evaluate (p,s)) *)
+(* Proof *)
+(*   rw [Once itreeTauTheory.itree_bisimulation] >> *)
+(*   qexists_tac ‘strip_tau_vis’ >> *)
+(*   conj_tac *)
+(*   (* Proving the results of both semantics are in the relation *) *)
+(*   >- (Cases_on ‘p’ >> *)
+(*       rw [evaluate_itree_def,Once evaluate_def] >> *)
+(*       rw [itree_mrec_def,h_prog_def] >> *)
+(*       rw [itreeTauTheory.itree_iter_def] *)
+(*       (* Skip *) *)
+(*       >- (rw [Once itreeTauTheory.itree_unfold] >> *)
+(*           rw [strip_tau_vis_rules]) *)
+(*       (* Dec *) *)
+(*       >- (rw [h_prog_rule_dec_def] >> *)
+(*           Cases_on ‘eval s e’ >> rw [] *)
+(*           (* (eval s e) = NONE *) *)
+(*           >- (rw [Once itreeTauTheory.itree_unfold] >> *)
+(*               rw [strip_tau_vis_rules]) *)
+(*           (* (eval s e) = SOME x *) *)
+(*           (* recursion at this point *) *)
+(*           >> cheat) *)
+(*       (* Assign *) *)
+(*       >- (rw [h_prog_rule_assign_def] >> *)
+(*           Cases_on ‘eval s e’ >> rw[] >> *)
+(*           rw [Once itreeTauTheory.itree_unfold] >> *)
+(*           rw [strip_tau_vis_rules]) *)
+(*          (* Store *) *)
+(*       >- (rw [h_prog_rule_store_def] >> *)
+(*           Cases_on ‘eval s e’ >> *)
+(*           Cases_on ‘eval s e0’ >> *)
+(*           rw [mem_stores_def] >> *)
+(*           rw [Once itreeTauTheory.itree_unfold] >> *)
+(*           rw [strip_tau_vis_rules] >> *)
+(*           (* eval definition is recursive at this point *) *)
+(*           cheat) *)
+(*       (* Store Byte *) *)
+(*       >- (rw [h_prog_rule_store_byte_def] >> *)
+(*           Cases_on ‘eval s e’ >> *)
+(*           Cases_on ‘eval s e0’ *)
+(*           >- (rw [mem_store_byte_def] >> *)
+(*               rw [Once itreeTauTheory.itree_unfold] >> *)
+(*               rw [strip_tau_vis_rules]) *)
+(*           >- (rw [mem_store_byte_def] >> *)
+(*               rw [Once itreeTauTheory.itree_unfold] >> *)
+(*               rw [strip_tau_vis_rules]) *)
+(*           >- (rw [mem_store_byte_def] >> *)
+(*               rw [Once itreeTauTheory.itree_unfold] >> *)
+(*               (* store byte def is recursive at this point *) *)
+(*               cheat) >> cheat) *)
+(*       (* Seq *) *)
+(*       >- (rw [h_prog_rule_seq_def] >> *)
+(*           (* recursive at this point *) *)
+(*           cheat) *)
+(*       (* Cond *) *)
+(*       >- (cheat) *)
+(*       (* While *) *)
+(*       >- (cheat) *)
+(*       >- (cheat) *)
+(*          (* Continue *) *)
+(*       >- (rw [Once itreeTauTheory.itree_unfold] >> *)
+(*           rw [strip_tau_vis_rules]) *)
+(*       (* Break *) *)
+(*       >- (rw [Once itreeTauTheory.itree_unfold] >> *)
+(*           rw [strip_tau_vis_rules]) *)
+(*       (* ExtCall *) *)
+(*       >- (cheat) *)
+(*       (* Call *) *)
+(*       >- (cheat) *)
+(*          (* Raise *) *)
+(*       >- (rw [h_prog_rule_raise_def] >> *)
+(*           rw [Once itreeTauTheory.itree_unfold] >> *)
+(*           Cases_on ‘FLOOKUP s.eshapes m’ >> *)
+(*           rw [strip_tau_vis_rules] >> *)
+(*           Cases_on ‘eval s e’ >> rw [] >> *)
+(*           rpt (rw [strip_tau_vis_rules])) *)
+(*       (* Return *) *)
+(*       >- (rw [h_prog_rule_return_def] >> *)
+(*           Cases_on ‘eval s e’ >> *)
+(*           rw [Once itreeTauTheory.itree_unfold] >> *)
+(*           rpt (rw [strip_tau_vis_rules])) *)
+(*       (* Tick *) *)
+(*       (* s.clock = 0 *) *)
+(*       >- (rw [h_prog_rule_tick_def] >> *)
+(*           rw [Once itreeTauTheory.itree_unfold] >> *)
+(*           rw [strip_tau_vis_rules]) *)
+(*       >- (rw [h_prog_rule_tick_def] >> *)
+(*           Induct_on ‘s.clock’ >> cheat)) *)
+(*           (* s.clock = 0 *) *)
+(*           (* >- (rw [Once itreeTauTheory.itree_unfold] >> *) *)
+(*           (*     rw [strip_tau_vis_rules]) *) *)
+(*           (* (* s.clock = SUC v *) *) *)
+(*           (* >- (rw [h_prog_rule_tick_def])) *) *)
+(* QED *)
+
+(* Proof of correspondence between operational and ITree semantics *)
+(* observational big-step semantics has three possible outcomes, defined in ffi$behaviour
+ - Terminate
+ - Diverge
+ - Fail
+
+ The isomorphism can be such that:
+
+ Diverge equates to an ITree with infinitely many Tau:s, i.e. t = Tau t
+
+ Terminate requires the outcome of both semantics to be the same (the return value)
+
+ Fail should only happen when it occurs in the other semantics.
+
+ In other words, these behaviours are the properties preserved by the isomorphism.
+ *)
+
+(* The ITree branches represent choices for the ExtCall return value.
+    The oracle mechanism used in the op semantics makes this choice.
+    Hence we need an "oracle choice" function which produces the leaf of an ITree
+    by choosing the correct branch at every Vis.
+
+    This "oracle choice" forms the basis of the isomorphism.
+ *)
+
+(* converts a tree t into a Tau-Ret tree s.t. if the final tree
+ is terminal then the tree t had a terminal path when the oracle or
+    chooses branches; otherwise the final tree with be an infinite (divergent) tau
+    tree, indicating the tree t was divergent. *)
+Definition itree_oracle_walk_def:
+  itree_oracle_walk oracle t =
+  itree_iter
+  (λt'. case t' of
+         Ret r => Ret (INR r)
+        | Tau u => Ret (INL u)
+        | Vis e k => Ret (INL (k (oracle e))))
+  t
+End
+
+Theorem itree_oracle_walk_cases:
+  itree_el (itree_oracle_walk or t) path ≠ Event e
 Proof
-  rw [Once itreeTauTheory.itree_bisimulation] >>
-  qexists_tac ‘strip_tau_vis’ >>
-  conj_tac
-  (* Proving the results of both semantics are in the relation *)
-  >- (Cases_on ‘p’ >>
-      rw [evaluate_itree_def,Once evaluate_def] >>
-      rw [itree_mrec_def,h_prog_def] >>
-      rw [itreeTauTheory.itree_iter_def]
-      (* Skip *)
-      >- (rw [Once itreeTauTheory.itree_unfold] >>
-          rw [strip_tau_vis_rules])
-      (* Dec *)
-      >- (rw [h_prog_rule_dec_def] >>
-          Cases_on ‘eval s e’ >> rw []
-          (* (eval s e) = NONE *)
-          >- (rw [Once itreeTauTheory.itree_unfold] >>
-              rw [strip_tau_vis_rules])
-          (* (eval s e) = SOME x *)
-          (* recursion at this point *)
-          >> cheat)
-      (* Assign *)
-      >- (rw [h_prog_rule_assign_def] >>
-          Cases_on ‘eval s e’ >> rw[] >>
-          rw [Once itreeTauTheory.itree_unfold] >>
-          rw [strip_tau_vis_rules])
-         (* Store *)
-      >- (rw [h_prog_rule_store_def] >>
-          Cases_on ‘eval s e’ >>
-          Cases_on ‘eval s e0’ >>
-          rw [mem_stores_def] >>
-          rw [Once itreeTauTheory.itree_unfold] >>
-          rw [strip_tau_vis_rules] >>
-          (* eval definition is recursive at this point *)
-          cheat)
-      (* Store Byte *)
-      >- (rw [h_prog_rule_store_byte_def] >>
-          Cases_on ‘eval s e’ >>
-          Cases_on ‘eval s e0’
-          >- (rw [mem_store_byte_def] >>
-              rw [Once itreeTauTheory.itree_unfold] >>
-              rw [strip_tau_vis_rules])
-          >- (rw [mem_store_byte_def] >>
-              rw [Once itreeTauTheory.itree_unfold] >>
-              rw [strip_tau_vis_rules])
-          >- (rw [mem_store_byte_def] >>
-              rw [Once itreeTauTheory.itree_unfold] >>
-              (* store byte def is recursive at this point *)
-              cheat) >> cheat)
-      (* Seq *)
-      >- (rw [h_prog_rule_seq_def] >>
-          (* recursive at this point *)
-          cheat)
-      (* Cond *)
-      >- (cheat)
-      (* While *)
-      >- (cheat)
-      >- (cheat)
-         (* Continue *)
-      >- (rw [Once itreeTauTheory.itree_unfold] >>
-          rw [strip_tau_vis_rules])
-      (* Break *)
-      >- (rw [Once itreeTauTheory.itree_unfold] >>
-          rw [strip_tau_vis_rules])
-      (* ExtCall *)
-      >- (cheat)
-      (* Call *)
-      >- (cheat)
-         (* Raise *)
-      >- (rw [h_prog_rule_raise_def] >>
-          rw [Once itreeTauTheory.itree_unfold] >>
-          Cases_on ‘FLOOKUP s.eshapes m’ >>
-          rw [strip_tau_vis_rules] >>
-          Cases_on ‘eval s e’ >> rw [] >>
-          rpt (rw [strip_tau_vis_rules]))
-      (* Return *)
-      >- (rw [h_prog_rule_return_def] >>
-          Cases_on ‘eval s e’ >>
-          rw [Once itreeTauTheory.itree_unfold] >>
-          rpt (rw [strip_tau_vis_rules]))
-      (* Tick *)
-      (* s.clock = 0 *)
-      >- (rw [h_prog_rule_tick_def] >>
-          rw [Once itreeTauTheory.itree_unfold] >>
-          rw [strip_tau_vis_rules])
-      >- (rw [h_prog_rule_tick_def] >>
-          Induct_on ‘s.clock’
-          (* s.clock = 0 *)
-          >- (rw [Once itreeTauTheory.itree_unfold] >>
-              rw [strip_tau_vis_rules])
-          (* s.clock = SUC v *)
-          >- (rw [h_prog_rule_tick_def]))
+  Induct_on ‘path’ >>
+  Cases_on ‘t’ >>
+  rw [itree_oracle_walk_def] >>
+  rw [itreeTauTheory.itree_iter_def] >>
+  rw [Once itreeTauTheory.itree_unfold]
+  >- (Cases_on ‘h’ >>
+      rw[])
+  >- (Cases_on ‘h’ >>
+      Induct_on ‘path’ >>
+     (* TODO *)
+        cheat
+     )
+  >> cheat
+QED
+
+Definition ext_call_oracle_h_def:
+  ext_call_oracle_h (FFI_call fs name args bytes) = call_FFI fs name args bytes
+End
+
+Definition itree_diverges_def:
+  itree_diverges t ⇔ t = Tau t
+End
+
+Definition itree_fails_def:
+  itree_fails t = (∃p. case itree_el (itree_oracle_walk ext_call_oracle_h t) p of
+                         Return (SOME TimeOut) => F
+                        | Return (SOME (FinalFFI _)) => F
+                        | Return (SOME (Return _)) => F
+                        | _ => T)
+End
+
+Definition itree_terminates_def:
+  itree_terminates t ⇔ ∃p v. itree_el (itree_oracle_walk ext_call_oracle_h t) p = Return (SOME (Return v))
+End
+
+(* Correspondence theorem *)
+Theorem semantics_corr:
+  ((semantics s start = Diverge e) ⇔ itree_diverges (semantics_itree s start)) ∧
+  ((semantics s start = Fail) ⇔ itree_fails (semantics_itree s start)) ∧
+  ((semantics s start = (Terminate oc evt)) ⇔ itree_terminates (semantics_itree s start))
+Proof
 QED
 
 Theorem vshapes_args_rel_imp_eq_len_MAP:
