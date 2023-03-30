@@ -759,7 +759,8 @@ Proof
           >- (* FFI_return *)
             (drule_all share_mem_op_FFI_return_filter_correct >>
             rw[] >>
-            first_x_assum $ qspecl_then [`s2'`,`res`,`s2`] assume_tac >>
+            first_x_assum $ qspecl_then
+              [`s2' with io_regs := shift_seq 1 s2'.io_regs`,`res`,`s2`] assume_tac >>
             gvs[] >>
             last_x_assum $ qspec_then `0` assume_tac >>
             gvs[state_rel_def] >>
