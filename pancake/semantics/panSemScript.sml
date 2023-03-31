@@ -989,22 +989,27 @@ Definition itree_oracle_walk_def:
   t
 End
 
-Theorem itree_oracle_walk_cases:
-  itree_el (itree_oracle_walk or t) path ≠ Event e
+Theorem itree_oracle_walk_simps[compute,simp]:
+  (itree_el (itree_oracle_walk or (Ret r)) [] = Ret r) ∧
+  (itree_el (itree_oracle_walk or (Tau u)) [] = Tau u) ∧
+  (itree_el (itree_oracle_walk or (Vis e k)) [] = itree_el (itree_oracle_walk or (Vis e k)) [NONE])
 Proof
-  Induct_on ‘path’ >>
+QED
+
+Theorem itree_oracle_walk_cases:
+  ∀t or. (∃u. itree_oracle_walk or t = Tau u) ∨ (∃r. itree_oracle_walk or t = Ret r)
+Proof
+  rw [] >>
   Cases_on ‘t’ >>
   rw [itree_oracle_walk_def] >>
-  rw [itreeTauTheory.itree_iter_def] >>
-  rw [Once itreeTauTheory.itree_unfold]
-  >- (Cases_on ‘h’ >>
-      rw[])
-  >- (Cases_on ‘h’ >>
-      Induct_on ‘path’ >>
-     (* TODO *)
-        cheat
-     )
-  >> cheat
+  rw [itreeTauTheory.itree_iter_def]
+  >- (DISJ2_TAC >>
+      rw [Once itreeTauTheory.itree_unfold])
+  >- (DISJ1_TAC >>
+      rw [Once itreeTauTheory.itree_unfold])
+  >- (Cases_on ‘g (or a)’ >>
+      DISJ1_TAC >>
+      rw [Once itreeTauTheory.itree_unfold])
 QED
 
 Definition ext_call_oracle_h_def:
@@ -1012,27 +1017,47 @@ Definition ext_call_oracle_h_def:
 End
 
 Definition itree_diverges_def:
-  itree_diverges t ⇔ t = Tau t
+  itree_diverges t = ∀p. itree_el t p = Silence
 End
 
 Definition itree_fails_def:
-  itree_fails t = (∃p. case itree_el (itree_oracle_walk ext_call_oracle_h t) p of
-                         Return (SOME TimeOut) => F
-                        | Return (SOME (FinalFFI _)) => F
-                        | Return (SOME (Return _)) => F
-                        | _ => T)
+  itree_fails t = ∃p. case itree_el t p of
+                        Return (SOME TimeOut) => F
+                       | Return (SOME (FinalFFI _)) => F
+                       | Return (SOME (Return _)) => F
+                       | _ => T
 End
 
 Definition itree_terminates_def:
-  itree_terminates t ⇔ ∃p v. itree_el (itree_oracle_walk ext_call_oracle_h t) p = Return (SOME (Return v))
+  itree_terminates t ⇔ ∃p. case itree_el t p of
+                             Return (SOME (FinalFFI _)) => T
+                            | Return (SOME (Return _)) => T
+                            | _ => F
 End
 
 (* Correspondence theorem *)
 Theorem semantics_corr:
-  ((semantics s start = Diverge e) ⇔ itree_diverges (semantics_itree s start)) ∧
-  ((semantics s start = Fail) ⇔ itree_fails (semantics_itree s start)) ∧
-  ((semantics s start = (Terminate oc evt)) ⇔ itree_terminates (semantics_itree s start))
+  ((semantics s start = Diverge evl) ⇔ itree_diverges (itree_oracle_walk ext_call_oracle_h (semantics_itree s start))) ∧
+  ((semantics s start = Fail) ⇔ itree_fails (itree_oracle_walk ext_call_oracle_h (semantics_itree s start))) ∧
+  ((semantics s start = Terminate oc evt) ⇔ itree_terminates (itree_oracle_walk ext_call_oracle_h (semantics_itree s start)))
 Proof
+  CONJ_TAC
+  (* Diverge *)
+  >- (EQ_TAC >>
+      rw [] >>
+     (* => *)
+      >- (
+       (* show that semantics s start = Diverge evl ⇒ s is such that semantics_itree s start also diverges *)
+       (* in other words, the relation is through state. *)
+       (* proof outline:
+
+        semantics s start = Diverge evl ⇒
+                  evaluate (p,s) = (one of: NONE, SOME Error, SOME TimeOut, SOME Break, SOME Continue, SOME (Exception str))
+                  ⇒ evaluate (p,s) = (SOME TimeOut) (by DISJ_TAC)
+                  ⇒ final_s.clock = 0
+                  ⇒
+       )
+     )
 QED
 
 Theorem vshapes_args_rel_imp_eq_len_MAP:
