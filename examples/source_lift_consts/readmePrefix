@@ -1,0 +1,11 @@
+Benchmarks for the source-level constant-lifting pass, mostly copied from the
+RealCake evaluation
+
+To run the benchmarks, first run Holmake in this directory.
+Then extract a bootstrapped version of the compiler with the
+Makefile and the FFI into the output directory.
+
+Then open a shell in the output folder and run the script `run_eval.sh`.
+The script first compiles the CakeML sexpression files into CakeML binaries, and
+runs them on 3 different sets of inputs, computes the average running time and
+logs it into a file log.csv.
