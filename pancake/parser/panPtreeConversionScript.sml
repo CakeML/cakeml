@@ -1,17 +1,20 @@
 (**
  * Theory for translating the Pancake parse tree into the Pancake AST.
- *
+ *)
+
+(*
  * We take some inspiration from the existing conversion theory
  * for CakeML.
  *
  * Created by Craig McLaughlin on 6/5/2022.
  *)
+
 open HolKernel Parse boolLib bossLib stringLib numLib intLib;
 
 open arithmeticTheory;
 open preamble pegTheory pegexecTheory;
 open grammarTheory;
-open panLexerTheory panLangTheory panPEGTheory
+open panLexerTheory panLangTheory panPEGTheory;
 open ASCIInumbersLib combinTheory;
 open helperLib;
 
@@ -143,10 +146,12 @@ Definition conv_cmp_def:
        | _ => NONE
      else NONE) ∧
   conv_cmp leaf =
-   if tokcheck leaf EqT then SOME Equal
-   else if tokcheck leaf NeqT then SOME NotEqual
-   else if tokcheck leaf LessT then SOME Less
-   else if tokcheck leaf GeqT then SOME NotLess
+   if tokcheck leaf EqT then SOME(Equal,F)
+   else if tokcheck leaf NeqT then SOME(NotEqual,F)
+   else if tokcheck leaf LessT then SOME(Less,F)
+   else if tokcheck leaf GeqT then SOME(NotLess,F)
+   else if tokcheck leaf GreaterT then SOME(Less,T)
+   else if tokcheck leaf LeqT then SOME(NotLess,T)
    else NONE
 End
 
@@ -159,17 +164,19 @@ Proof
 QED
 
 Definition conv_Shape_def:
-  (conv_Shape tree =
-    case argsNT tree ShapeNT of
-      SOME [t] => if tokcheck t panLexer$StarT then SOME One
-                  else conv_ShapeComb t
-    | _ => NONE) ∧
-  (conv_ShapeComb tree =
-     case argsNT tree ShapeCombNT of
-       SOME ts => lift Comb $ OPT_MMAP conv_Shape ts
-     | _ => NONE)
+  conv_Shape tree =
+  case conv_int tree of
+    SOME n =>
+      if n < 1 then NONE
+      else if n = 1 then SOME One
+      else
+        SOME $ Comb $ REPLICATE (Num n) One
+  | NONE =>
+      (case argsNT tree ShapeCombNT of
+         SOME ts => lift Comb $ OPT_MMAP conv_Shape ts
+       | _ => NONE)
 Termination
-  WF_REL_TAC ‘measure (λx. sum_CASE x ptree_size ptree_size)’ >> rw[]
+  WF_REL_TAC ‘measure ptree_size’ >> rw[]
   >> Cases_on ‘tree’
   >> gvs[argsNT_def,parsetree_size_def]
   >> drule_then assume_tac mem_ptree_thm >> gvs[]
@@ -177,6 +184,7 @@ End
 
 Definition conv_Shift_def:
   conv_Shift [] e = SOME e ∧
+  conv_Shift [x] e = NONE ∧
   (conv_Shift (t1::t2::ts) e =
     do op <- conv_shift t1;
        n <- conv_nat t2;
@@ -198,7 +206,8 @@ Definition conv_Exp_def:
   (conv_Exp (Nd nodeNT args) =
     if isNT nodeNT EBaseNT then
       case args of
-        [t] => conv_const t ++ conv_var t ++ conv_Exp t
+        [] => NONE
+      | [t] => conv_const t ++ conv_var t ++ conv_Exp t
       | t::ts => FOLDR (λt. lift2 Field (conv_nat t)) (conv_Exp t) ts
     else if isNT nodeNT LabelNT then
       case args of
@@ -225,9 +234,10 @@ Definition conv_Exp_def:
       case args of
         [e] => conv_Exp e
       | [e1; op; e2] => do e1' <- conv_Exp e1;
-                           op' <- conv_cmp op;
+                           (op',b) <- conv_cmp op;
                            e2' <- conv_Exp e2;
-                           SOME $ Cmp op' e1' e2'
+                           SOME $ if b then Cmp op' e2' e1'
+                                  else Cmp op' e1' e2'
                         od
       | _ => NONE
     else if isNT nodeNT EShiftNT then
@@ -283,10 +293,10 @@ Definition conv_NonRecStmt_def:
       case args of
         [name; ptr; clen; array; alen] =>
           do name' <- conv_ident name;
-             ptr' <- conv_ident ptr;
-             clen' <- conv_ident clen;
-             array' <- conv_ident array;
-             alen' <- conv_ident alen;
+             ptr' <- conv_Exp ptr;
+             clen' <- conv_Exp clen;
+             array' <- conv_Exp array;
+             alen' <- conv_Exp alen;
              SOME $ ExtCall name' ptr' clen' array' alen'
           od
       | _ => NONE
@@ -310,23 +320,65 @@ Definition conv_NonRecStmt_def:
     else NONE
 End
 
+Definition butlast_def:
+  (butlast [] = []) ∧
+  (butlast (x::xs) = (if xs = [] then [] else x::(butlast xs)))
+End
+
+Theorem butlast_length:
+  ∀xs. LENGTH (butlast xs) = LENGTH xs - 1
+Proof
+  Induct>>rw[]>>gs[butlast_def]>>
+  Cases_on ‘xs’>>gs[]
+QED
+
+Theorem butlast_tl[simp]:
+  ∀xs. butlast (TL xs) = TL (butlast xs)
+Proof
+  Induct>>rw[]>>gs[butlast_def]>>
+  Cases_on ‘xs’>>gs[butlast_def]
+QED
+
+Theorem butlast_append[simp]:
+  ∀xs ys. butlast (xs ++ ys) = (if ys = [] then butlast xs else xs ++ butlast ys)
+Proof
+  Induct>>rw[]>>gs[butlast_def]
+QED
+
+Theorem list_size_butlast:
+  ∀xs f. list_size f (butlast xs) ≤ list_size f xs
+Proof
+  Induct>>rw[]>>gs[butlast_def]>>
+  IF_CASES_TAC>>gs[list_size_def]
+QED
+
+Theorem list_size_MEM:
+  ∀xs x. MEM x xs ⇒ f x ≤ list_size f xs
+Proof
+  Induct>>rw[]>>gs[list_size_def]>>
+  last_x_assum (qspec_then ‘x’ assume_tac)>>
+  gs[]
+QED
+
 Definition conv_Prog_def:
   (conv_Handle tree =
     case argsNT tree HandleNT of
-      SOME [eid; id; p] => do excp <- conv_ident eid;
+    | SOME [eid; id; p] => do excp <- conv_ident eid;
                               var <- conv_ident id;
                               prog <- conv_Prog p;
-                              SOME $ Handle excp var prog
+                              SOME $ SOME (excp, var, prog)
                            od
     | _ => NONE) ∧
 
   (conv_Ret tree =
     case argsNT tree RetNT of
-      SOME [id; t] => do var <- conv_ident id;
-                         hdr' <- conv_Handle t;
-                         SOME $ Ret var (SOME hdr')
+    | SOME [id; t] => do var <- conv_ident id;
+                         hdl <- conv_Handle t;
+                         SOME $ SOME (var, hdl)
                       od
-    | SOME [id] => lift2 Ret (conv_ident id) (SOME NONE)
+    | SOME [id] => do var <- conv_ident id;
+                      SOME $ SOME (var, NONE)
+                   od
     | _ => NONE) ∧
 
   (conv_Prog (Nd nodeNT args) =
@@ -359,20 +411,29 @@ Definition conv_Prog_def:
        | _ => NONE
      else if isNT nodeNT CallNT then
        case args of
-         [r; e; args] => do r' <- conv_Ret r;
-                            e' <- conv_Exp e;
-                            args' <- conv_ArgList args ++ SOME [];
-                            SOME $ Call r' e' args'
-                         od
-       | e::args => do e' <- conv_Exp e;
-                       args' <- conv_ArgList (HD args) ++ SOME [];
-                       SOME $ TailCall e' args'
-                    od
-       | _ => NONE
+         [] => NONE
+       | r::ts =>
+           (case conv_Ret r of
+              NONE => do e' <- conv_Exp r;
+                         args' <- (case ts of [] => SOME []
+                                           | args::_ => conv_ArgList args);
+                         SOME $ TailCall e' args'
+                      od
+            | SOME r' =>
+                (case ts of
+                   [] => NONE
+                 | e::xs =>
+                     do e' <- conv_Exp e;
+                        args' <- (case xs of [] => SOME []
+                                          | args::_ => conv_ArgList args);
+                        SOME $ Call r' e' args'
+                     od))
      else if isNT nodeNT ProgNT then
        case args of
-         t::ts => FOLDR (λt p. lift2 Seq p (conv_Prog t))
-                        (conv_Prog t) ts
+         t::ts => if ts ≠ []
+                  then FOLDR (λt' p. lift2 Seq t' p) (conv_Prog (LAST ts))
+                             (MAP conv_Prog (t::(butlast ts)))
+                  else conv_Prog t
        | _ => NONE
      else conv_NonRecStmt (Nd nodeNT args)) ∧
   conv_Prog leaf = conv_NonRecStmt leaf
@@ -380,7 +441,23 @@ Termination
   WF_REL_TAC ‘measure (λx. case x of
                              INR x => sum_CASE x ptree_size ptree_size
                            | INL x => ptree_size x)’
-  >> rw[] >> Cases_on ‘tree’ >> gvs[argsNT_def,parsetree_size_def]
+  >> rw[] >> gvs[argsNT_def,parsetree_size_def]>>
+  TRY (Cases_on ‘tree’ >> gvs[argsNT_def,parsetree_size_def])
+  >- (
+  drule mem_ptree_thm>>strip_tac>>
+  gs[parsetree_size_eq]>>
+  gvs[parsetree_size_def]>>
+  ‘list_size ptree_size (butlast ts) ≤ list_size ptree_size ts’
+    by irule list_size_butlast>>
+  gs[])>>
+  gs[parsetree_size_eq]>>
+  gvs[parsetree_size_def]>>
+  ‘ptree_size (LAST ts) ≤ list_size ptree_size ts’
+    by (irule list_size_MEM>>
+        gs[LAST_EL, MEM_EL]>>
+        qexists_tac ‘PRE (LENGTH ts)’>>gs[]>>
+        Cases_on ‘ts’>>gs[])>>
+  gs[]
 End
 
 Definition parse_to_ast_def:
@@ -389,22 +466,5 @@ Definition parse_to_ast_def:
       SOME e => conv_Prog e
     | _ => NONE
 End
-
-(** Small test modelled after the minimal working example. *)
-val src = ‘var a = @base {
- var b = 8 {
-  var c = @base + 16 {
-   var d = 1 {
-     #out_morefun(a b c d);
-     str @base, ic;
-     return 0;
- }}}}’;
-
-fun parse_pancake q =
-  let
-    val code = quote_to_strings q |> concat |> fromMLstring
-  in
-    EVAL “parse_to_ast ^code”
-  end
 
 val _ = export_theory();

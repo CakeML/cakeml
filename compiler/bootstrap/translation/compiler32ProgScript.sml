@@ -260,6 +260,12 @@ val nonzero_exit_code_for_error_msg_def = Define `
 val res = translate compilerTheory.is_error_msg_def;
 val res = translate nonzero_exit_code_for_error_msg_def;
 
+val res = translate $ spec32 compile_pancake_def;
+
+val res = translate compile_pancake_32_def;
+
+val res = translate (has_pancake_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
+
 val main = process_topdecs`
   fun main u =
     let
@@ -269,6 +275,10 @@ val main = process_topdecs`
         print compiler_help_string
       else if compiler_has_version_flag cl then
         print compiler_current_build_info_str
+      else if compiler_has_pancake_flag cl then
+        case compiler_compile_pancake_32 cl (TextIO.inputAll TextIO.stdIn)  of
+          (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
+                     compiler32prog_nonzero_exit_code_for_error_msg e)
       else
         case compiler_compile_32 cl (TextIO.inputAll TextIO.stdIn)  of
           (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
@@ -340,6 +350,29 @@ Proof
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac`fs`
     \\ xsimpl)
+  >> xlet_auto>-xsimpl
+  >> xif
+  >- (
+     xlet_auto >- (xsimpl \\ fs[INSTREAM_stdin, STD_streams_get_mode])
+     \\ fs [GSYM HOL_STRING_TYPE_def]
+     \\ xlet_auto >- xsimpl
+     \\ fs [full_compile_32_def]
+     \\ pairarg_tac
+     \\ fs[ml_translatorTheory.PAIR_TYPE_def]
+     \\ gvs[CaseEq "bool"]
+     \\ xmatch
+     \\ xlet_auto >- xsimpl
+
+     \\ qmatch_goalsub_abbrev_tac `STDIO fs'`
+     \\ xlet `POSTv uv. &UNIT_TYPE () uv * STDIO (add_stderr fs' err) *
+        COMMANDLINE cl`
+     THEN1
+      (xapp_spec output_stderr_spec \\ xsimpl
+       \\ qexists_tac `COMMANDLINE cl`
+       \\ asm_exists_tac \\ xsimpl
+       \\ qexists_tac `fs'` \\ xsimpl)
+     \\ xapp
+     \\ asm_exists_tac \\ simp [] \\ xsimpl)
   \\ xlet_auto >- (xsimpl \\ fs[INSTREAM_stdin, STD_streams_get_mode])
   \\ fs [GSYM HOL_STRING_TYPE_def]
   \\ xlet_auto >- xsimpl

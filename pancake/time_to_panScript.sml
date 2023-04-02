@@ -107,7 +107,7 @@ Definition compTerm_def:
                 («ptr2»,BaseAddr (* Const ffiBufferAddr *));
                 («len2»,Const ffiBufferSize)
                ] (Seq
-                  (ExtCall (num_to_str outsig) «ptr1» «len1» «ptr2» «len2»)
+                  (ExtCall (num_to_str outsig) (Var «ptr1») (Var «len1») (Var «ptr2») (Var «len2»))
                   return)
           ])
 End
@@ -216,7 +216,7 @@ Definition check_input_time_def:
                             Const bytes_in_word])
   in
     nested_seq [
-        ExtCall «get_time_input» «ptr1» «len1» «ptr2» «len2» ;
+        ExtCall «get_time_input» (Var «ptr1») (Var «len1») (Var «ptr2») (Var «len2») ;
         Assign  «sysTime» time ;
         Assign  «event»   input;
         Assign  «isInput» (Cmp Equal input (Const 0w));
@@ -251,7 +251,7 @@ Definition task_controller_def:
         wait_input_time_limit;
         If (Cmp Equal (Var «sysTime») (Const (n2w (dimword (:α) - 2))))
            check_input_time (Skip:'a prog);
-        Call (Ret «taskRet» NONE) (Var «loc»)
+        Call (SOME («taskRet», NONE)) (Var «loc»)
              [Struct (normalisedClks «sysTime» «clks» clksLength);
              Var «event»];
         Assign «clks» nClks;
@@ -317,8 +317,8 @@ Definition ta_controller_def:
   ]
   (nested_seq
    [
-     Call (Ret «retvar»
-           (SOME (Handle «panic» «excpvar» (Return (Const 1w)))))
+     Call (SOME («retvar»,
+           (SOME («panic», «excpvar», (Return (Const 1w))))))
      (Label «start_controller»)
      [];
      Return (Const 0w)

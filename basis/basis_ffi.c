@@ -198,6 +198,8 @@ struct timeval t1,t2,lastT;
 long microsecs = 0;
 int numGC = 0;
 int hasT = 0;
+long prevOcc = 0;
+long numAllocBytes = 0;
 
 void cml_exit(int arg) {
 
@@ -216,6 +218,7 @@ void cml_exit(int arg) {
       fprintf(stderr,"CakeML stack space exhausted.\n");
     }
     fprintf(stderr,"GCNum: %d, GCTime(us): %ld\n",numGC,microsecs);
+    fprintf(stderr,"Total allocated heap data: %ld bytes\n",numAllocBytes);
   }
   #endif
 
@@ -240,11 +243,19 @@ void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
         microsecs += (t2.tv_usec - t1.tv_usec) + (t2.tv_sec - t1.tv_sec)*1e6;
         numGC++;
         inGC = 0;
+        long occ = (long)c; // number of bytes in occupied in heap (all live after standard GC)
+        // long len = (long)a;
+        // fprintf(stderr,"GC stops  %ld %ld \n",occ,len);
+        prevOcc = occ;
       }
       else
       {
         inGC = 1;
         gettimeofday(&t1, NULL);
+        long occ = (long)c;
+        // long len = (long)a;
+        // fprintf(stderr,"GC starts %ld %ld \n",occ,len);
+        numAllocBytes += (occ - prevOcc);
       }
     } else {
       int indent = 30;

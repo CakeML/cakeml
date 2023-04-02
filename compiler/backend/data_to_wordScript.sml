@@ -269,7 +269,10 @@ val AppendFastLoop_location_eq = save_thm("AppendFastLoop_location_eq",
 val SilentFFI_def = Define `
   SilentFFI c n names =
     if c.call_empty_ffi then
-      Seq (Assign n (Const 0w)) (FFI "" n n n n names)
+      list_Seq [Assign n (Const 0w);
+                Assign 7 (Op Sub [Lookup NextFree; Lookup CurrHeap]);
+                Assign 9 (Lookup HeapLength);
+                FFI "" 7 n 9 n names]
     else Skip`;
 
 val AllocVar_def = Define `
