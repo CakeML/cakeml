@@ -355,11 +355,7 @@ Proof
     every_case_tac >> rw[] >> fs[] >>
     fs[inc_pc_def,dec_clock_def,asm_inst_consts] >>
     Cases_on `m` >>
-    fs[share_mem_op_def,share_mem_load_def,share_mem_store_def] >>
-    qpat_x_assum `(case _ of NONE => _ | SOME v => _) = _` mp_tac >>
-    TOP_CASE_TAC >>
-    TOP_CASE_TAC >>
-    TOP_CASE_TAC >>
+    fs[share_mem_op_def,share_mem_load_def,share_mem_store_def,AllCaseEqs()] >>
     qpat_x_assum `call_FFI _ _ _ _ = _` mp_tac >>
     gvs[inc_pc_def,dec_clock_def,call_FFI_def] >>
     TOP_CASE_TAC >>
@@ -401,7 +397,7 @@ Proof
   Cases_on `ad` >>
   fs[share_mem_op_def,share_mem_load_def,share_mem_store_def,addr_def] >>
   rpt (TOP_CASE_TAC >> fs[]) >>
-  rw[] >> gvs[]
+  rw[] >> gvs[inc_pc_def,dec_clock_def]
 QED
 
 Theorem addr_add_clock_eq:
@@ -423,7 +419,7 @@ Proof
   Cases_on `m` >>
   rw[share_mem_op_def,share_mem_load_def,share_mem_store_def] >>
   rpt (TOP_CASE_TAC >> fs[addr_add_clock_eq]) >>
-  gvs[state_component_equality]
+  gvs[state_component_equality,dec_clock_def,inc_pc_def]
 QED
 
 Theorem evaluate_add_clock_io_events_mono:
@@ -460,11 +456,7 @@ Proof
     fs[IS_PREFIX_APPEND,IS_SOME_EXISTS] )
     >- (
       Cases_on `m` >>
-      fs[share_mem_op_def,share_mem_load_def,share_mem_store_def] >>
-      qpat_x_assum `(case _ of NONE => _ | SOME v => _) = _` mp_tac >>
-      TOP_CASE_TAC >>
-      TOP_CASE_TAC >>
-      TOP_CASE_TAC >>
+      fs[share_mem_op_def,share_mem_load_def,share_mem_store_def,AllCaseEqs()] >>
       qpat_x_assum `call_FFI _ _ _ _ = _` mp_tac >>
       gvs[inc_pc_def,dec_clock_def,call_FFI_def] >>
       TOP_CASE_TAC >>
@@ -479,11 +471,7 @@ Proof
     )
     >- (
       Cases_on `m` >>
-      fs[share_mem_op_def,share_mem_load_def,share_mem_store_def] >>
-      qpat_x_assum `(case _ of NONE => _ | SOME v => _) = _` mp_tac >>
-      TOP_CASE_TAC >>
-      TOP_CASE_TAC >>
-      TOP_CASE_TAC >>
+      fs[share_mem_op_def,share_mem_load_def,share_mem_store_def,AllCaseEqs()] >>
       qpat_x_assum `call_FFI _ _ _ _ = _` mp_tac >>
       gvs[inc_pc_def,dec_clock_def,call_FFI_def] >>
       rpt TOP_CASE_TAC >>
