@@ -626,16 +626,22 @@ Definition check_vipr_def:
   (check_vipr intv (fml,id) (lc, Lin lhs) =
     case do_lin fml (FST lc) lhs of
       INL err => INL err
-    | INR res =>
-      INR (insert id res fml, id+1)) ∧
+    | INR (assms,lc') =>
+      if dominates lc' lc then
+        INR (insert id (assms,lc) fml, id+1)
+      else
+        INL (strlit "Derived constraint does not imply given constraint ")) ∧
   (check_vipr intv (fml,id) (lc, Round lhs) =
     case do_lin fml (FST lc) lhs of
       INL err => INL err
-    | INR (assms,lc) =>
-      case round_lc intv lc of
+    | INR (assms,lc') =>
+      case round_lc intv lc' of
         NONE => INL (strlit "Unable to round ")
-      | SOME lc' =>
-        INR (insert id (assms,lc') fml, id+1)) ∧
+      | SOME lc'' =>
+        if dominates lc'' lc then
+          INR (insert id (assms,lc) fml, id+1)
+        else
+          INL (strlit "Derived constraint does not imply given constraint ")) ∧
   (check_vipr intv (fml,id) (lc, Unsplit i1 l1 i2 l2) =
     case unsplit intv fml i1 l1 i2 l2 lc of
       INL err => INL err
@@ -1054,8 +1060,11 @@ Proof
     simp[]>>
     rw[]
     >-
-      metis_tac[do_lin_is_assm]>>
-    metis_tac[do_lin_imp])
+      metis_tac[do_lin_is_assm,FST]>>
+    drule dominates_imp>>
+    disch_then match_mp_tac>>
+    drule do_lin_imp>>
+    disch_then drule>>simp[])
   >- (
     (* rounding *)
     every_case_tac>>fs[]>>
@@ -1065,6 +1074,8 @@ Proof
     rw[]
     >-
       metis_tac[do_lin_is_assm,FST]>>
+    drule dominates_imp>>
+    disch_then match_mp_tac>>
     drule do_lin_imp>>
     disch_then drule>>
     simp[]>>
@@ -1172,7 +1183,7 @@ Proof
     gvs[]>>
     CONJ_TAC >- fs[id_ok_def] >>
     match_mp_tac id_ok_good_fml_insert>>
-    metis_tac[do_lin_is_assm])
+    metis_tac[do_lin_is_assm,FST])
   >- (
     every_case_tac>>simp[]>>strip_tac>>
     gvs[]>>
