@@ -410,10 +410,10 @@ Definition share_mem_op_def:
   (share_mem_op Load r ad (s: ('a,'c,'ffi) labSem$state) =
     share_mem_load r ad s (dimindex (:'a) DIV 8)) /\
   (share_mem_op Load8 r ad s = share_mem_load r ad s 1) /\
-  (share_mem_op Load32 r ad s = share_mem_load r ad s 4) /\
   (share_mem_op Store r ad s = share_mem_store r ad s
     (dimindex (:'a) DIV 8)) /\
   (share_mem_op Store8 r ad s = share_mem_store r ad s 1) /\
+  (share_mem_op Load32 r ad s = share_mem_load r ad s 4) /\
   (share_mem_op Store32 r ad s = share_mem_store r ad s 4)
 End
 
@@ -447,7 +447,7 @@ val evaluate_def = tDefine "evaluate" `
     | SOME (Asm (ShareMem m r ad) _ _) =>
        (case share_mem_op m r ad s of
         | SOME (FFI_final outcome,s') => (Halt (FFI_outcome outcome),s')
-        | SOME (FFI_return _ _,s') => evaluate s'
+        | SOME (FFI_return _ _,s') => evaluate (s' with io_regs := shift_seq 1 s'.io_regs)
         | NONE => (Error, s))
     | SOME (LabAsm Halt _ _ _) =>
        (case s.regs s.ptr_reg of
