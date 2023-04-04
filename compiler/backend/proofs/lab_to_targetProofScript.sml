@@ -5880,30 +5880,25 @@ fun map_first_cj t =
   MAP_FIRST ho_match_mp_tac $ gen_list 1
 end
 
-val new_ffi = `s1.ffi with
-           <|ffi_state := ffi';
-             io_events :=
-               s1.ffi.io_events ++
-               [IO_event "MappedRead" [n2w (dimindex (:α) DIV 8); 1w]
-                  (ZIP (addr2w8list (c + w),v4))]|>`;
+fun reg_val_tac reg val = `t1.regs ^reg = ^val` by (
+    qpat_x_assum `!r. word_loc_val _ _ _ = SOME _` $
+    qspec_then `^reg` assume_tac
+    \\ fs[word_loc_val_def]
+    \\ rfs[word_loc_val_def] )
+end
 
-val new_t1 = `t1 with 
-          <| regs := (n' =+ n2w (bytes2num v4)) t1.regs;
-             pc := p + n2w (LENGTH bytes + pos_val s1.pc 0 code2)|>`;
+val enc_is_valid_mapped_access_tac =
+    fs[is_valid_mapped_read_def,is_valid_mapped_write_def]
+    \\ rfs[enc_with_nop_thm]
+    \\ fs[]
+    \\ drule_then assume_tac $
+        cj 1 $ cj 1 $ PURE_REWRITE_RULE [EQ_IMP_THM] bytes_in_memory_APPEND
+    \\ drule_then assume_tac bytes_in_memory_in_domain 
+    \\ irule bytes_in_memory_change_mem
+    \\ qexists `t1.mem`
+    \\ simp[];
 
-val new_t1 = `t1 with
-             pc := p + n2w (LENGTH bytes + pos_val s1.pc 0 code2)`;
-
-val new_ffi = `s1.ffi with
-           <|ffi_state := ffi';
-             io_events :=
-               s1.ffi.io_events ++
-               [IO_event "MappedWrite" [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
-                  (ZIP (addr2w8list (c + w),v4))]|>`;
-
-
-
-fun share_mem_compile_correct_tac ffi_name new_t1 nb new_ffi =
+fun share_mem_load_compile_correct_tac ffi_name new_t1 nb new_ffi =
   qpat_assum `!i. _ ==> mc_conf.target.get_reg ms1 i = t1.regs i` $
     qspec_then `n''` drule_all
   \\ strip_tac
@@ -5929,6 +5924,10 @@ fun share_mem_compile_correct_tac ffi_name new_t1 nb new_ffi =
     \\ qexists new_ffi
     \\ simp[evaluatePropsTheory.call_FFI_rel_def]
     \\ qexists ffi_name
+ (* \\ `LENGTH v4 =
+        LENGTH (addr2w8list (c + t1.regs n'') ++
+          w2wlist_le (t1.regs n') (dimindex (:α) DIV 8))` by simp[GSYM LENGTH_APPEND] *)
+    \\ fs[LENGTH_APPEND]
     \\ simp[call_FFI_def, AllCaseEqs()]
     \\ metis_tac[] )
   >- (
@@ -6255,168 +6254,111 @@ Proof
     \\ fs[])
   THEN1 (* share_mem_op *)
   (say "share_mem_op"
-   \\ gvs[pair_case_eq,option_case_eq, ffi_result_case_eq]
-   >- (
-    say "share_mem_op FFI_return"
-    \\ Cases_on `m`
-    \\ fs[share_mem_op_def,share_mem_load_def,share_mem_store_def,AllCaseEqs(),call_FFI_def]
-    \\ simp[Once targetSemTheory.evaluate_def]
-    \\ fs[state_rel_def,share_mem_domain_code_rel_def,asm_fetch_def,
-      ELIM_UNCURRY,get_memop_info_def]
-    \\ drule_all $ GEN_ALL IMP_bytes_in_memory_ShareMem
-    \\ strip_tac
-    \\ qpat_assum `!pc op re a inst len i. asm_fetch_aux _ _ = SOME _ /\
-        mmio_pcs_min_index _ = SOME _ ==> _` drule_all
-    \\ strip_tac
-    \\ drule find_index_is_MEM
-    \\ fs[target_state_rel_def]
-    \\ disch_then kall_tac
-    \\ fs[share_mem_state_rel_def]
-    \\ qpat_assum `!index' i'. mmio_pcs_min_index _ = SOME i' /\ index' < _ /\
-        _ ==> _` $ qspecl_then [`index`, `i`] drule
-    \\ (
-      impl_tac >- (drule find_index_LESS_LENGTH >> fs[])
-      \\ disch_then assume_tac
-      \\ `mc_conf.target.get_pc ms1 <> mc_conf.ccache_pc /\
-          mc_conf.target.get_pc ms1 <> mc_conf.halt_pc` by (
-            irule share_mem_access_pcs_NOT_ccache_or_halt >> fs[])
-      \\ qabbrev_tac `halt_pc_not_overlap =
-          (¬(EL index mc_conf.ffi_entry_pcs ≤ mc_conf.halt_pc) ∨
-          ¬(mc_conf.halt_pc < SND (SND (SND (mc_conf.mmio_info index)))))`
-      \\ qabbrev_tac `ccache_pc_not_overlap =
-          (¬(EL index mc_conf.ffi_entry_pcs ≤ mc_conf.ccache_pc) ∨
-          ¬(mc_conf.ccache_pc < SND (SND (SND (mc_conf.mmio_info index)))))`
-      \\ rfs[lab_to_targetTheory.get_memop_info_def]
-      \\ TOP_CASE_TAC
-      \\ fs[labSemTheory.addr_def,AllCaseEqs()]
-      \\ rw[GSYM PULL_EXISTS]
-      \\ `(dimindex (:'a) DIV 8) MOD 256 <> 1` by (rfs[good_dimindex_def] >> fs[])
-      (*\\ `t1.regs n'' = w` by (* `t1.regs n'' = w'` for mapped write *)
-            qpat_x_assum `!r. word_loc_val _ _ _ = SOME _` $
-            qspec_then `n''` assume_tac
-            \\ fs[word_loc_val_def]
-            \\ rfs[word_loc_val_def] ) *)
-      \\ `t1.regs n'' = w'` by (
-            qpat_x_assum `!r. word_loc_val _ _ _ = SOME _` $
-            qspec_then `n''` assume_tac
-            \\ fs[word_loc_val_def]
-            \\ rfs[word_loc_val_def] )
-
-      \\ fs[asm_ok_def,inst_ok_def,reg_ok_def]
-      >- (rfs[good_dimindex_def] >> fs[]) (* not for Load8 *)
-      >- (
-        fs[is_valid_mapped_read_def,is_valid_mapped_write_def]
-        \\ rfs[enc_with_nop_thm]
-        \\ fs[]
-        \\ drule_then assume_tac $
-           cj 1 $ cj 1 $ PURE_REWRITE_RULE [EQ_IMP_THM] bytes_in_memory_APPEND
-        \\ drule_then assume_tac bytes_in_memory_in_domain 
-        \\ irule bytes_in_memory_change_mem
-        \\ qexists `t1.mem`
-        \\ simp[]
-      ))
-  >- (
-    qpat_assum `!i. _ ==> mc_conf.target.get_reg ms1 i = t1.regs i` $
-      qspec_then `n''` drule_all
-    \\ strip_tac
-    \\ fs[call_FFI_def]
-    \\ last_x_assum irule
-    \\ simp[]
-    \\ conj_tac
-    >- (rpt gen_tac
-        \\ strip_tac
-        \\ first_x_assum $ qspecl_then [`ms2`, `t1'`, `k`, `a1`, `a2`] mp_tac
-        \\ simp[] )
-    \\ conj_tac
-    >- (rpt gen_tac
-      \\ simp[apply_oracle_def,shift_interfer_def,shift_seq_def]
-      \\ fs[IMP_CONJ_THM, AND_IMP_INTRO]
-      \\ conj_tac
-      \\ strip_tac
-      \\ first_x_assum map_first_cj
-      \\ fs[]
-      \\ qexistsl [`st`, `new_st`]
-      \\ simp[]
-      \\ irule $ cj 2 RTC_RULES
-      \\ qexists `s1.ffi with
-           <|ffi_state := ffi';
-             io_events :=
-               s1.ffi.io_events ++
-               [IO_event "MappedRead"
-                  [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
-                  (ZIP (addr2w8list (c + t1.regs n''),v4))]|>`
-      \\ simp[evaluatePropsTheory.call_FFI_rel_def]
-      \\ qexists `"MappedRead"`
-      \\ simp[call_FFI_def, AllCaseEqs()]
-      \\ metis_tac[] )
+    \\ gvs[pair_case_eq,option_case_eq, ffi_result_case_eq]
     >- (
-      rpt gen_tac
-      \\ simp[apply_oracle_def,shift_interfer_def,shift_seq_def]
-      \\ conj_tac
-      >- (
-        rpt gen_tac
-        \\ strip_tac
-        \\ first_x_assum $ qspecl_then 
-          [`ms2`,`k+1`,`index'`,`new_bytes`,`t1'`,`bytes'`,`bytes2`,`st`,`new_st`]
-          assume_tac
-        \\ first_x_assum ho_match_mp_tac
-        \\ fs[]
-        \\ irule $ cj 2 RTC_RULES
-        \\ qexists `s1.ffi with
-             <|ffi_state := ffi';
-               io_events :=
-                 s1.ffi.io_events ++
-                 [IO_event "MappedRead"
-                    [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
-                    (ZIP (addr2w8list (c + t1.regs n''),v4))]|>`
-        \\ simp[evaluatePropsTheory.call_FFI_rel_def]
-        \\ qexists `"MappedRead"`
-        \\ simp[call_FFI_def, AllCaseEqs()]
-        \\ metis_tac[] )
-      >- (
-        simp[apply_oracle_def,shift_interfer_def,shift_seq_def]
-        \\ first_x_assum $ qspecl_then 
-          [`ms1`, `0`,`index`,`v4`, `t1`, `n2w (dimindex (:α) DIV 8)`,`n''`,`c`,`n'`,
-            `p + n2w (LENGTH bytes + pos_val s1.pc 0 code2)`,`s1.ffi`,
-            `s1.ffi with
-             <|ffi_state := ffi';
-               io_events :=
-                 s1.ffi.io_events ++
-                 [IO_event "MappedRead"
-                    [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
-                    (ZIP (addr2w8list (c + t1.regs n''),v4))]|>`] mp_tac
-        \\ simp[]
-        \\ impl_tac
-        >- (
-          simp[target_state_rel_def]
-          \\ drule find_index_LESS_LENGTH
-          \\ simp[]
-          \\ disch_then kall_tac
-          \\ fs[find_index_INDEX_OF, INDEX_OF_eq_SOME] )
-        \\ impl_tac
-        >- (
-          gvs[is_valid_mapped_write_def,is_valid_mapped_read_def,good_dimindex_def]
-          \\ gvs[enc_with_nop_thm]
-          \\ drule $ cj 1 $ cj 1 $ PURE_REWRITE_RULE [EQ_IMP_THM] bytes_in_memory_APPEND
-          \\ strip_tac
-          \\ drule_all bytes_in_memory_eq_mem
-          \\ simp[]
-        )
-        \\ strip_tac
-        \\ fs[target_state_rel_def]
-        \\ qexistsl [`code2`,
-           `t1 with 
-            <| regs := (n' =+ n2w (bytes2num v4)) t1.regs;
-               pc := p + n2w (LENGTH bytes + pos_val s1.pc 0 code2)|>`]
-        \\ rw[]
-        >- (first_x_assum irule >> metis_tac[])
-        \\ simp[APPLY_UPDATE_THM]
-        \\ IF_CASES_TAC
-        \\ fs[word_loc_val_def]
+      say "share_mem_op FFI_return"
+      \\ Cases_on `m`
+      \\ fs[share_mem_op_def,share_mem_load_def,share_mem_store_def,AllCaseEqs(),call_FFI_def]
+      \\ simp[Once targetSemTheory.evaluate_def]
+      \\ fs[state_rel_def,share_mem_domain_code_rel_def,asm_fetch_def,
+        ELIM_UNCURRY,get_memop_info_def]
+      \\ drule_all $ GEN_ALL IMP_bytes_in_memory_ShareMem
+      \\ strip_tac
+      \\ qpat_assum `!pc op re a inst len i. asm_fetch_aux _ _ = SOME _ /\
+          mmio_pcs_min_index _ = SOME _ ==> _` drule_all
+      \\ strip_tac
+      \\ drule find_index_is_MEM
+      \\ fs[target_state_rel_def]
+      \\ disch_then kall_tac
+      \\ fs[share_mem_state_rel_def]
+      \\ qpat_assum `!index' i'. mmio_pcs_min_index _ = SOME i' /\ index' < _ /\
+          _ ==> _` $ qspecl_then [`index`, `i`] drule
+      \\ (
+        impl_tac >- (drule find_index_LESS_LENGTH >> fs[])
+        \\ disch_then assume_tac
+        \\ `mc_conf.target.get_pc ms1 <> mc_conf.ccache_pc /\
+            mc_conf.target.get_pc ms1 <> mc_conf.halt_pc` by (
+              irule share_mem_access_pcs_NOT_ccache_or_halt >> fs[])
+        \\ qabbrev_tac `halt_pc_not_overlap =
+            (¬(EL index mc_conf.ffi_entry_pcs ≤ mc_conf.halt_pc) ∨
+            ¬(mc_conf.halt_pc < SND (SND (SND (mc_conf.mmio_info index)))))`
+        \\ qabbrev_tac `ccache_pc_not_overlap =
+            (¬(EL index mc_conf.ffi_entry_pcs ≤ mc_conf.ccache_pc) ∨
+            ¬(mc_conf.ccache_pc < SND (SND (SND (mc_conf.mmio_info index)))))`
+        \\ rfs[lab_to_targetTheory.get_memop_info_def]
+        \\ TOP_CASE_TAC
+        \\ fs[labSemTheory.addr_def,AllCaseEqs()]
+        \\ rw[GSYM PULL_EXISTS]
+        \\ `(dimindex (:'a) DIV 8) MOD 256 <> 1` by (rfs[good_dimindex_def] >> fs[])
+        \\ fs[asm_ok_def,inst_ok_def,reg_ok_def]
       )
-  ))
-  
-  >- ()
+    >- (rfs[good_dimindex_def] >> fs[])
+    >- enc_is_valid_mapped_access_tac
+    >- (
+      reg_val_tac ``n''`` ``w``
+      \\ share_mem_load_compile_correct_tac `"MappedRead"`
+          `t1 with 
+              <| regs := (n' =+ n2w (bytes2num v4)) t1.regs;
+                pc := p + n2w (LENGTH bytes + pos_val s1.pc 0 code2)|>`
+          `n2w (dimindex (:α) DIV 8)`
+          `s1.ffi with
+            <|ffi_state := ffi';
+              io_events :=
+                s1.ffi.io_events ++
+                [IO_event "MappedRead"
+                  [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
+                  (ZIP (addr2w8list (c + t1.regs n''),v4))]|>` )
+    >- enc_is_valid_mapped_access_tac
+    >- (
+      reg_val_tac ``n''`` ``w``
+      \\ share_mem_load_compile_correct_tac `"MappedRead"`
+          `t1 with 
+            <| regs := (n' =+ n2w (bytes2num v4)) t1.regs;
+              pc := p + n2w (LENGTH bytes + pos_val s1.pc 0 code2)|>`
+          `1w`
+          `s1.ffi with
+            <|ffi_state := ffi';
+              io_events :=
+                s1.ffi.io_events ++
+                [IO_event "MappedRead"
+                  [n2w (dimindex (:α) DIV 8); 1w]
+                  (ZIP (addr2w8list (c + t1.regs n''),v4))]|>` )
+    >- (rfs[good_dimindex_def] >> fs[])
+    >- enc_is_valid_mapped_access_tac
+    >- (
+      reg_val_tac ``n''`` ``w'``
+      \\ reg_val_tac ``n'`` ``w``
+      \\ share_mem_load_compile_correct_tac `"MappedWrite"`
+          `t1 with pc := p + n2w (LENGTH bytes + pos_val s1.pc 0 code2)|>`
+          `n2w (dimindex (:α) DIV 8)`
+          `s1.ffi with
+            <|ffi_state := ffi';
+              io_events :=
+                s1.ffi.io_events ++
+                [IO_event "MappedWrite"
+                  [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
+                  (ZIP (w2wlist_le (t1.regs n') (dimindex (:α) DIV 8) ++
+                        addr2w8list (c + t1.regs n''),v4))]|>` )
+    >- enc_is_valid_mapped_access_tac
+    >- (
+      reg_val_tac ``n''`` ``w'``
+      \\ reg_val_tac ``n'`` ``w``
+      \\ share_mem_load_compile_correct_tac `"MappedWrite"`
+          `t1 with pc := p + n2w (LENGTH bytes + pos_val s1.pc 0 code2)|>`
+          `1w`
+          `s1.ffi with
+            <|ffi_state := ffi';
+              io_events :=
+                s1.ffi.io_events ++
+                [IO_event "MappedWrite"
+                  [n2w (dimindex (:α) DIV 8); 1w]
+                  (ZIP (w2wlist_le (t1.regs n') (dimindex (:α) DIV 8) ++
+                        addr2w8list (c + t1.regs n''),v4))]|>` )
+    )
+    >- (
+      say "share_mem_op FFI_final"
+      \\ cheat
+    )
   )
   THEN1 (* Jump *)
    (say "Jump"
