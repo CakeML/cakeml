@@ -542,6 +542,26 @@ Proof
   rpt (TOP_CASE_TAC >> fs[labSemTheory.addr_def])
 QED
 
+val share_mem_load_filter_correct_tac =
+  qexists `t1 with
+          <|regs := t1.regs⦇r ↦ Word (n2w (bytes2num l))⦈;
+            pc := k + (t1.pc + 1); ffi := f; clock := t1.clock − 1|>` >>
+  rw[] >>
+  qexists `s1compile` >>
+  rw[state_component_equality] >>
+  drule adjust_pc_all_skips >>
+  gvs[];
+
+val share_mem_store_filter_correct_tac =
+  qexists `t1 with
+          <|pc := k + (t1.pc + 1); ffi := f;
+            clock := t1.clock − 1|>` >>
+  rw[] >>
+  qexists `s1compile` >>
+  rw[state_component_equality] >>
+  drule adjust_pc_all_skips >>
+  gvs[];
+
 Theorem share_mem_op_FFI_return_filter_correct:
   (all_skips t1.pc t1.code k /\ t1.clock <> 0 /\
   t1.compile = (λc p. s1compile c (filter_skip p)) /\ ~t1.failed /\
@@ -563,15 +583,11 @@ Proof
   Cases_on `a` >>
   rpt (TOP_CASE_TAC >>
     fs[labSemTheory.addr_def,AllCaseEqs(),state_rel_def]) >>
-  gvs[] >>
-  qexists `t1 with
-          <|regs := t1.regs⦇r ↦ Word (n2w (bytes2num l))⦈;
-            pc := k + (t1.pc + 1); ffi := f; clock := t1.clock − 1|>` >>
-  rw[] >>
-  qexists `s1compile` >>
-  rw[state_component_equality] >>
-  drule adjust_pc_all_skips >>
-  gvs[]
+  gvs[inc_pc_def,dec_clock_def]
+  >- share_mem_load_filter_correct_tac
+  >- share_mem_load_filter_correct_tac
+  >- share_mem_store_filter_correct_tac
+  >- share_mem_store_filter_correct_tac
 QED
 
 Theorem share_mem_op_FFI_final_filter_correct:
@@ -771,8 +787,8 @@ Proof
             qexistsl [`k + k'`, `t2`] >>
             gvs[]
           )
-          >- (
-            drule_all share_mem_op_FFI_final_filter_correct >>
+          >- (* FFI_final *)
+            (drule_all share_mem_op_FFI_final_filter_correct >>
             rw[] >>
             first_x_assum $ qspec_then `0` assume_tac >>
             gvs[] >>
