@@ -5887,7 +5887,23 @@ val new_ffi = `s1.ffi with
                [IO_event "MappedRead" [n2w (dimindex (:α) DIV 8); 1w]
                   (ZIP (addr2w8list (c + w),v4))]|>`;
 
-fun share_mem_compile_correct_tac ffi_name t new_ffi =
+val new_t1 = `t1 with 
+          <| regs := (n' =+ n2w (bytes2num v4)) t1.regs;
+             pc := p + n2w (LENGTH bytes + pos_val s1.pc 0 code2)|>`;
+
+val new_t1 = `t1 with
+             pc := p + n2w (LENGTH bytes + pos_val s1.pc 0 code2)`;
+
+val new_ffi = `s1.ffi with
+           <|ffi_state := ffi';
+             io_events :=
+               s1.ffi.io_events ++
+               [IO_event "MappedWrite" [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
+                  (ZIP (addr2w8list (c + w),v4))]|>`;
+
+
+
+fun share_mem_compile_correct_tac ffi_name new_t1 nb new_ffi =
   qpat_assum `!i. _ ==> mc_conf.target.get_reg ms1 i = t1.regs i` $
     qspec_then `n''` drule_all
   \\ strip_tac
@@ -5912,7 +5928,7 @@ fun share_mem_compile_correct_tac ffi_name t new_ffi =
     \\ irule $ cj 2 RTC_RULES
     \\ qexists new_ffi
     \\ simp[evaluatePropsTheory.call_FFI_rel_def]
-    \\ qexists `"MappedRead"`
+    \\ qexists ffi_name
     \\ simp[call_FFI_def, AllCaseEqs()]
     \\ metis_tac[] )
   >- (
@@ -5930,14 +5946,13 @@ fun share_mem_compile_correct_tac ffi_name t new_ffi =
       \\ irule $ cj 2 RTC_RULES
       \\ qexists new_ffi
       \\ simp[evaluatePropsTheory.call_FFI_rel_def]
-      \\ qexists `"MappedRead"`
+      \\ qexists ffi_name
       \\ simp[call_FFI_def, AllCaseEqs()]
       \\ metis_tac[] )
-    (* TODO *)
     >- (
       simp[apply_oracle_def,shift_interfer_def,shift_seq_def]
       \\ first_x_assum $ qspecl_then 
-        [`ms1`, `0`,`index`,`v4`, `t1`, `n2w (dimindex (:α) DIV 8)`,`n''`,`c`,`n'`,
+        [`ms1`, `0`,`index`,`v4`, `t1`, nb,`n''`,`c`,`n'`,
           `p + n2w (LENGTH bytes + pos_val s1.pc 0 code2)`,`s1.ffi`,
           new_ffi] mp_tac
       \\ simp[]
@@ -5959,10 +5974,7 @@ fun share_mem_compile_correct_tac ffi_name t new_ffi =
       )
       \\ strip_tac
       \\ fs[target_state_rel_def]
-      \\ qexistsl [`code2`,
-         `t1 with 
-          <| regs := (n' =+ n2w (bytes2num v4)) t1.regs;
-             pc := p + n2w (LENGTH bytes + pos_val s1.pc 0 code2)|>`]
+      \\ qexistsl [`code2`, new_t1]
       \\ rw[]
       >- (first_x_assum irule >> metis_tac[])
       \\ simp[APPLY_UPDATE_THM]
@@ -6279,11 +6291,17 @@ Proof
       \\ fs[labSemTheory.addr_def,AllCaseEqs()]
       \\ rw[GSYM PULL_EXISTS]
       \\ `(dimindex (:'a) DIV 8) MOD 256 <> 1` by (rfs[good_dimindex_def] >> fs[])
-      \\ `t1.regs n'' = w` by (
+      (*\\ `t1.regs n'' = w` by (* `t1.regs n'' = w'` for mapped write *)
+            qpat_x_assum `!r. word_loc_val _ _ _ = SOME _` $
+            qspec_then `n''` assume_tac
+            \\ fs[word_loc_val_def]
+            \\ rfs[word_loc_val_def] ) *)
+      \\ `t1.regs n'' = w'` by (
             qpat_x_assum `!r. word_loc_val _ _ _ = SOME _` $
             qspec_then `n''` assume_tac
             \\ fs[word_loc_val_def]
             \\ rfs[word_loc_val_def] )
+
       \\ fs[asm_ok_def,inst_ok_def,reg_ok_def]
       >- (rfs[good_dimindex_def] >> fs[]) (* not for Load8 *)
       >- (
