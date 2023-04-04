@@ -716,7 +716,7 @@ Theorem share_mem_op_align_dm_simp[simp]:
   share_mem_op m r a (align_dm s) = SOME (FFI_return fs l, align_dm s'))
 Proof
   Cases_on `m` \\
-  rw[share_mem_op_def,share_mem_load_def,share_mem_store_def] \\
+  rw[inc_pc_def,dec_clock_def,share_mem_op_def,share_mem_load_def,share_mem_store_def] \\
   rpt (TOP_CASE_TAC >> fs[]) \\
   gvs[align_dm_def]
 QED
