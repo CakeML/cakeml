@@ -6795,7 +6795,20 @@ Proof
            asmSemTheory.upd_pc_def]
       \\ rev_full_simp_tac(srw_ss())[] \\ unabbrev_all_tac
       \\ full_simp_tac(srw_ss())[asmSemTheory.jump_to_offset_def,
-           asmSemTheory.upd_pc_def,asm_def])
+           asmSemTheory.upd_pc_def,asm_def]
+      \\ fs[asm_fetch_def]
+      \\ drule_all $ GEN_ALL IMP_bytes_in_memory
+      \\ strip_tac
+      \\ fs[]
+      \\ drule_all $ GEN_ALL IMP_ffi_entry_pcs_disjoint_LabAsm
+      \\ ho_match_mp_tac (
+        PURE_REWRITE_RULE [satTheory.AND_IMP] o
+        PURE_REWRITE_RULE [Once CONJ_SYM] $
+        GEN_ALL ffi_entry_pcs_disjoint_LENGTH_shorter )
+      \\ Cases_on `j`
+      \\ gvs[line_similar_def,line_ok_def,line_length_def,line_bytes_def]
+      \\ gvs[lab_inst_def,enc_with_nop_thm, LENGTH_APPEND]
+    )
     \\ rpt strip_tac
     \\ Cases_on `loc_to_pc n1 n2 s1.code` \\ full_simp_tac(srw_ss())[]
     \\ qmatch_assum_rename_tac `loc_to_pc n1 n2 s1.code = SOME new_pc`
@@ -6821,7 +6834,11 @@ Proof
         (find_index (mc_conf.target.get_pc ms2) mc_conf.ffi_entry_pcs 0 =
            SOME (get_ffi_index mc_conf.ffi_names s))` by (
        full_simp_tac(srw_ss())[state_rel_def]>>
-       metis_tac[])
+       first_x_assum $ qspecl_then [`s`, `i`] drule >>
+       fs[] >>
+       disch_then irule >>
+       (* TODO: get_ffi_index mc_conf.ffi_names s < i *)
+    )
     \\ `(mc_conf.target.get_reg ms2 mc_conf.ptr_reg = t1.regs mc_conf.ptr_reg) /\
         (mc_conf.target.get_reg ms2 mc_conf.len_reg = t1.regs mc_conf.len_reg) /\
         (mc_conf.target.get_reg ms2 mc_conf.ptr2_reg = t1.regs mc_conf.ptr2_reg) /\
@@ -7023,7 +7040,19 @@ Proof
             asmSemTheory.upd_pc_def]
       \\ rev_full_simp_tac(srw_ss())[] \\ unabbrev_all_tac
       \\ full_simp_tac(srw_ss())[asmSemTheory.jump_to_offset_def,
-            asmSemTheory.upd_pc_def,asm_def])>>
+            asmSemTheory.upd_pc_def,asm_def]
+      \\ fs[asm_fetch_def]
+      \\ drule_all $ GEN_ALL IMP_bytes_in_memory
+      \\ strip_tac
+      \\ fs[]
+      \\ drule_all $ GEN_ALL IMP_ffi_entry_pcs_disjoint_LabAsm
+      \\ ho_match_mp_tac (
+        PURE_REWRITE_RULE [satTheory.AND_IMP] o
+        PURE_REWRITE_RULE [Once CONJ_SYM] $
+        GEN_ALL ffi_entry_pcs_disjoint_LENGTH_shorter )
+      \\ Cases_on `j`
+      \\ gvs[line_similar_def,line_ok_def,line_length_def,line_bytes_def]
+      \\ gvs[enc_with_nop_thm,LENGTH_APPEND] )>>
     strip_tac
     \\ `mc_conf.target.get_pc ms2 = mc_conf.ccache_pc` by
      (
@@ -7308,7 +7337,20 @@ Proof
             asmSemTheory.upd_pc_def]
       \\ rev_full_simp_tac(srw_ss())[] \\ unabbrev_all_tac
       \\ full_simp_tac(srw_ss())[asmSemTheory.jump_to_offset_def,
-            asmSemTheory.upd_pc_def,asm_def])
+            asmSemTheory.upd_pc_def,asm_def]
+      \\ fs[asm_fetch_def]
+      \\ drule_all $ GEN_ALL IMP_bytes_in_memory
+      \\ strip_tac
+      \\ fs[]
+      \\ drule_all $ GEN_ALL IMP_ffi_entry_pcs_disjoint_LabAsm
+      \\ ho_match_mp_tac (
+        PURE_REWRITE_RULE [satTheory.AND_IMP] o
+        PURE_REWRITE_RULE [Once CONJ_SYM] $
+        GEN_ALL ffi_entry_pcs_disjoint_LENGTH_shorter )
+      \\ Cases_on `j`
+      \\ gvs[line_similar_def,line_ok_def,line_length_def,line_bytes_def]
+      \\ gvs[enc_with_nop_thm,LENGTH_APPEND] 
+    )
     \\ rpt strip_tac
     \\ unabbrev_all_tac \\ full_simp_tac(srw_ss())[asm_def]
     \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock`mp_tac) \\ srw_tac[][]
