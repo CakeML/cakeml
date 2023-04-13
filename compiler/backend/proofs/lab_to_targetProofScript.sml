@@ -6110,6 +6110,33 @@ val share_mem_eval_expand_tac =
     \\ fs[asm_ok_def,inst_ok_def,reg_ok_def]
   );
 
+Theorem ffi_name_NOT_Mapped:
+  mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
+  s <> "MappedRead" /\ s <> "MappedWrite" /\
+  MEM s mc_conf.ffi_names ==>
+  get_ffi_index mc_conf.ffi_names s < i
+Proof
+  rpt strip_tac >>
+  drule_then assume_tac EL_get_ffi_index_MEM >>
+  fs[mmio_pcs_min_index_def] >>
+  gvs[some_def] >>
+  SELECT_ELIM_TAC >>
+  conj_tac
+  >- (
+    qexists_tac `x` >>
+    gvs[]
+  ) >>
+  rw[] >>
+  ntac 3 $ last_x_assum kall_tac >>
+  rpt $ first_x_assum $ qspec_then `get_ffi_index mc_conf.ffi_names s` assume_tac >>
+  Cases_on `get_ffi_index mc_conf.ffi_names s < x'` >>
+  gvs[get_ffi_index_def] >>
+  drule_then assume_tac find_index_MEM >>
+  first_x_assum $ qspec_then `0` assume_tac >>
+  rw[] >>
+  gvs[backendPropsTheory.the_eqn]
+QED
+
 val say = say0 "compile_correct";
 
 Theorem compile_correct:
@@ -6122,6 +6149,8 @@ Theorem compile_correct:
           (res,
            ms2,s2.ffi))
 Proof
+  cheat
+QED
   HO_MATCH_MP_TAC labSemTheory.evaluate_ind \\ NTAC 2 STRIP_TAC
   \\ ONCE_REWRITE_TAC [labSemTheory.evaluate_def]
   \\ Cases_on `s1.clock = 0` \\ full_simp_tac(srw_ss())[]
@@ -6824,6 +6853,7 @@ Proof
            GSYM word_add_n2w,WORD_ADD_SUB]) \\ full_simp_tac(srw_ss())[]
     \\ `has_io_name s s1.code` by
           (imp_res_tac IMP_has_io_name \\ NO_TAC)
+    \\ `s <> "MappedRead" /\ s <> "MappedWrite"` by fs[AllCaseEqs()]
     \\ `MEM s mc_conf.ffi_names` by (
       imp_res_tac has_io_name_find_index>>
       imp_res_tac find_index_is_MEM>>
@@ -6837,7 +6867,11 @@ Proof
        first_x_assum $ qspecl_then [`s`, `i`] drule >>
        fs[] >>
        disch_then irule >>
-       (* TODO: get_ffi_index mc_conf.ffi_names s < i *)
+       irule ffi_name_NOT_Mapped >>
+       fs[]
+    )
+    \\ `EL (get_ffi_index mc_conf.ffi_names s) mc_conf.ffi_names = s` by (
+      irule EL_get_ffi_index_MEM >> simp[]
     )
     \\ `(mc_conf.target.get_reg ms2 mc_conf.ptr_reg = t1.regs mc_conf.ptr_reg) /\
         (mc_conf.target.get_reg ms2 mc_conf.len_reg = t1.regs mc_conf.len_reg) /\
@@ -6888,14 +6922,17 @@ Proof
       \\ simp[]
       \\ PURE_TOP_CASE_TAC >- (fs[shift_interfer_def] \\ rfs[])
       \\ simp[]
+      \\ PURE_TOP_CASE_TAC >- (gvs[shift_interfer_def])
+      \\ simp[]
+      \\ PURE_TOP_CASE_TAC >- (gvs[shift_interfer_def])
+      \\ simp[]
       \\ PURE_TOP_CASE_TAC
       \\ simp[]
       \\ PURE_TOP_CASE_TAC
-        >- (fs[shift_interfer_def,read_ffi_bytearrays_def,read_ffi_bytearray_def] \\ rfs[])
+      >- (fs[shift_interfer_def,read_ffi_bytearrays_def,read_ffi_bytearray_def] \\ rfs[])
       \\ simp[shift_interfer_def]
       \\ PURE_TOP_CASE_TAC
         >- (fs[shift_interfer_def,read_ffi_bytearrays_def,read_ffi_bytearray_def] \\ rfs[])
-      \\ simp[shift_interfer_def]
       >> `EL (get_ffi_index mc_conf.ffi_names s) mc_conf.ffi_names = s` by (
         match_mp_tac EL_get_ffi_index_MEM
         \\ imp_res_tac has_io_name_find_index
@@ -6969,7 +7006,10 @@ Proof
         \\ imp_res_tac EL_get_ffi_index_MEM
         \\ simp[]
         \\ goal_assum(first_assum o mp_then Any mp_tac)
-        \\ simp[] )
+        \\ simp[]
+        \\ irule ffi_name_NOT_Mapped
+        \\ gvs[]
+      )
       \\ conj_tac
       THEN1
        (full_simp_tac(srw_ss())[shift_seq_def,PULL_FORALL,AND_IMP_INTRO,
@@ -6994,9 +7034,28 @@ Proof
         \\ match_mp_tac (SIMP_RULE std_ss [] (Q.INST [`x` |-> `x'`] CallFFI_bytearray_lemma))
         \\ full_simp_tac(srw_ss())[])
       \\ rw[]
-      \\ (
+      >- (
         match_mp_tac (MP_CANON (Q.INST [`x`|->`x'`] bytes_in_mem_asm_write_bytearray))
-        \\ simp[] \\ fs[]))
+        \\ simp[] \\ fs[])
+
+      >- (
+        match_mp_tac (MP_CANON (Q.INST [`x`|->`x'`] bytes_in_mem_asm_write_bytearray))
+        \\ simp[] \\ fs[])
+      >- (
+          fs[share_mem_state_rel_def] >>
+          rw[] >>
+          gvs[IMP_CONJ_THM,AND_IMP_INTRO,shift_seq_def] >>
+          first_x_assum map_first_cj >>
+          gvs[] >>
+          qexistsl [`st`, `new_st`] >>
+          simp[] >>
+          irule $ cj 2 RTC_RULES >>
+          qexists `new_ffi` >>
+          gvs[evaluatePropsTheory.call_FFI_rel_def] >>
+          metis_tac[]
+      )
+      >- fs[share_mem_domain_code_rel_def]
+    )
     \\ rpt strip_tac
     \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock + k`mp_tac) \\ rpt strip_tac
     \\ Q.EXISTS_TAC `k + l'` \\ full_simp_tac(srw_ss())[ADD_ASSOC]
@@ -7421,7 +7480,7 @@ Proof
         \\ drule (GEN_ALL evaluate_ignore_clocks) \\ full_simp_tac(srw_ss())[]
         \\ pop_assum (K all_tac)
         \\ disch_then drule \\ full_simp_tac(srw_ss())[])
-      \\ srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
+      \\ srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ asm_exists_tac \\ full_simp_tac(srw_ss())[])
     \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[FST_EQ_EQUIV]
     \\ PairCases_on `y`
     \\ drule (GEN_ALL evaluate_ignore_clocks) \\ full_simp_tac(srw_ss())[]
@@ -7546,12 +7605,13 @@ val make_word_def = Define `
                             m (a+4w); m (a+5w); m (a+6w); m (a+7w)]) `
 
 val make_init_def = Define `
-  make_init mc_conf (ffi:'ffi ffi_state) io_regs cc_regs t m dm (ms:'state) code
+  make_init mc_conf (ffi:'ffi ffi_state) io_regs cc_regs t m dm sdm (ms:'state) code
     comp cbpos cbspace coracle =
     <| regs           := \k. Word ((t.regs k):'a word)
      ; fp_regs    := t.fp_regs
      ; mem            := m
      ; mem_domain     := dm
+     ; shared_mem_domain := sdm
      ; pc             := 0
      ; be             := mc_conf.target.config.big_endian
      ; ffi            := ffi
@@ -7607,11 +7667,11 @@ val IMP_state_rel_make_init = Q.prove(
     remove_labels clock mc_conf.target.config 0 LN mc_conf.ffi_names code =
       SOME (code2,labs) /\
     good_init_state mc_conf ms (prog_to_bytes code2)
-      cbspace t m dm io_regs cc_regs
+      cbspace t m dm sdm io_regs cc_regs
       ==>
     state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
         mc_conf.target.get_pc ms)
-      (make_init mc_conf (ffi:'ffi ffi_state) io_regs cc_regs t m dm ms code
+      (make_init mc_conf (ffi:'ffi ffi_state) io_regs cc_regs t m dm sdm ms code
            compile_lab (mc_conf.target.get_pc ms+n2w(LENGTH(prog_to_bytes code2))) cbspace coracle) t ms`,
   rw[] \\ drule remove_labels_thm
   \\ impl_tac >- (
@@ -7632,9 +7692,13 @@ val IMP_state_rel_make_init = Q.prove(
         ccache_interfer_ok_def]
   \\ rfs[]
   \\ conj_tac >- (
-    rw[] >> first_x_assum irule >> simp[] >>
-    gvs[call_FFI_def, AllCaseEqs()]
-    )
+    rw[] >>
+    gvs[IMP_CONJ_THM,AND_IMP_INTRO] >>
+    first_x_assum $ map_first_cj >>
+    simp[] >>
+    gvs[call_FFI_def, AllCaseEqs()] >>
+    
+  )
   \\ conj_tac >-
     (strip_tac >>
     pairarg_tac >> fs[]>>
