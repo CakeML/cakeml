@@ -382,7 +382,7 @@ Definition compile_lab_def:
     let (ffis,ffis_ok) =
       case c.ffi_names of SOME ffis => (ffis, list_subset current_ffis ffis) | _ => (current_ffis,T)
     in
-    if ffis_ok /\ ~MEM "MappedRead" ffis /\ ~MEM "MappedWrite" ffis then
+    if ffis_ok then
       case remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list of
       | SOME (sec_list,l1) =>
           let (new_ffi_names,new_shmem_info) =
