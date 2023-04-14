@@ -7658,6 +7658,22 @@ val mc_conf_ok_def = Define`
       mc_conf.target.config ∧
     enc_ok mc_conf.target.config`;
 
+Theorem mmio_pcs_min_index_is_SOME:
+  mmio_pcs_min_index mc_conf.ffi_names = SOME i ==>
+  i <= LENGTH mc_conf.ffi_names /\
+  (∀j. j < i ⇒
+    EL j mc_conf.ffi_names ≠ "MappedRead" ∧ EL j mc_conf.ffi_names ≠ "MappedWrite") ∧
+   (∀j. i ≤ j ∧ j < LENGTH mc_conf.ffi_names ⇒
+     EL j mc_conf.ffi_names = "MappedRead" ∨ EL j mc_conf.ffi_names = "MappedWrite")
+Proof
+  strip_tac >>
+  gvs[mmio_pcs_min_index_def,some_def] >>
+  SELECT_ELIM_TAC >>
+  gvs[] >>
+  qexists `x` >>
+  gvs[]
+QED
+
 (* This is set up for the very first compile call *)
 val IMP_state_rel_make_init = Q.prove(
   `good_code mc_conf.target.config LN code ∧
@@ -7697,7 +7713,10 @@ val IMP_state_rel_make_init = Q.prove(
     first_x_assum $ map_first_cj >>
     simp[] >>
     gvs[call_FFI_def, AllCaseEqs()] >>
-    
+    drule mmio_pcs_min_index_is_SOME >>
+    rpt strip_tac >>
+    drule_all LESS_LESS_EQ_TRANS >>
+    gvs[]
   )
   \\ conj_tac >-
     (strip_tac >>
@@ -7710,6 +7729,8 @@ val IMP_state_rel_make_init = Q.prove(
     (ntac 2 strip_tac>>
     `get_ffi_index mc_conf.ffi_names name < LENGTH mc_conf.ffi_names` by
       (simp[get_ffi_index_def]>>
+      drule (GEN_ALL mmio_pcs_min_index_is_SOME) >>
+      strip_tac >> (* TODO *)
       drule find_index_MEM>>
       disch_then (qspec_then`0` strip_assume_tac)>>
       fs[libTheory.the_def])>>
@@ -7724,9 +7745,9 @@ val IMP_state_rel_make_init = Q.prove(
   \\ metis_tac[code_similar_sec_labels_ok]);
 
 Theorem make_init_simp[simp]:
-    (make_init a b d e f g h i j k l m n).ffi = b ∧
-  (make_init a b d e f g h i j k l m n).pc = 0 ∧
-  (make_init a b d e f g h i j k l m n).code = j
+    (make_init a b d e f g h i j k l m n p).ffi = b ∧
+  (make_init a b d e f g h i j k l m n p).pc = 0 ∧
+  (make_init a b d e f g h i j k l m n p).code = k
 Proof
   EVAL_TAC
 QED
