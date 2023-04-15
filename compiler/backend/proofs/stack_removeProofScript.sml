@@ -2920,10 +2920,18 @@ Theorem init_code_thm:
     case evaluate (init_code gen_gc max_heap k,s) of
     | (SOME res,t) => F
     | (NONE,t) =>
-         (∃w2 w3 w4.
+         (∃w2 w3 (w4:'a word).
          FLOOKUP s.regs 2 = SOME (Word w2) ∧ byte_aligned w2 ∧
          FLOOKUP t.regs (k+2) = SOME (Word w2) ∧
          FLOOKUP s.regs 4 = SOME (Word w4) ∧ byte_aligned w4 ∧ w2 <+ w4 ∧
+         FLOOKUP t.regs k = SOME (Word (w4 - bytes_in_word)) ∧
+         (w2 + n2w max_stack_alloc * bytes_in_word ≤₊ w3 ∧
+          w3 ≤₊ w4 - n2w max_stack_alloc * bytes_in_word ∧
+          w2n (-1w * w2 + w3) ≤ max_heap * w2n (bytes_in_word:'a word) ∧
+          (w2n (bytes_in_word:'a word)) * max_heap < dimword (:α) ⇒
+          FLOOKUP t.regs (k+1) =
+          SOME (Word (((w3 + -1w * w2) ⋙ (shift (:α) + 1) ≪ (shift (:α) + 1))
+                      + w2 + (bytes_in_word:'a word) * (n2w (LENGTH store_list))))) ∧
          FLOOKUP s.regs 3 = SOME (Word w3)) ∧
          state_rel jump off k (init_reduce gen_gc jump off k code bitmaps data_sp coracle t) t /\
          t.ffi = s.ffi /\
@@ -3066,13 +3074,13 @@ Proof
     \\ fs [alignmentTheory.aligned_add_sub]
     \\ fs [alignmentTheory.aligned_add_sub |> ONCE_REWRITE_RULE [WORD_ADD_COMM]]
     \\ match_mp_tac aligned_lsl_leq \\ simp [])
-  \\ rveq \\ fs []
   \\ Cases_on `reg3`
   \\ rename [`Abbrev (n2w final_ptr3 = _)`]
   \\ `bytes_in_word * bitmap_ptr ⋙ shift (:α) = bitmap_ptr :'a word` by
    (once_rewrite_tac [WORD_MULT_COMM]
     \\ simp [GSYM lsl_word_shift]
     \\ fs [alignmentTheory.aligned_def,alignmentTheory.align_shift])
+
   \\ qabbrev_tac `d = dimindex (:α) DIV 8`
   \\ `d <> 0 /\ 0 < d /\
       ptr2 MOD d = 0 /\
@@ -3086,8 +3094,9 @@ Proof
   \\ strip_tac \\ rename1 `ptr2 = d * h2`
   \\ strip_tac \\ rename1 `final_ptr3 = d * h3`
   \\ strip_tac \\ rename1 `l = d * l4`
-  \\ rpt var_eq_tac \\ fs []
+  \\ fs []
   \\ qpat_abbrev_tac `pat = get_stack_heap_limit'' _ _ _`
+
   \\ `pat = get_stack_heap_limit'' h2 h3 (h2 + l4)` by
        (fs [Abbr`pat`] \\ drule MULT_DIV \\ fs []
         \\ simp_tac std_ss [GSYM LEFT_ADD_DISTRIB])
@@ -3190,7 +3199,6 @@ Proof
     \\ rfs [dimword_def,LEFT_ADD_DISTRIB])
   \\ rveq \\ fs [LEFT_ADD_DISTRIB,word_add_n2w]
   \\ full_simp_tac std_ss [GSYM ADD_ASSOC]
-  \\ qpat_x_assum `n2w _ ⋙ 1 = n2w _` kall_tac
   \\ rpt (qpat_x_assum `T` kall_tac)
   \\ `LENGTH store_list <= stack_length` by fs []
   \\ pop_assum mp_tac
@@ -3237,12 +3245,28 @@ Proof
     \\ fs [EVERY_MAP]
     \\ fs [store_list_def] \\ EVAL_TAC
     \\ fs [FLOOKUP_DEF] \\ IF_CASES_TAC \\ fs [])
-  \\ rpt (qpat_x_assum `Abbrev (n2w _ = _)` kall_tac)
   \\ strip_tac \\ fs []
   \\ reverse IF_CASES_TAC \\ fs[]
   >- ( fs[Abbr`s7`,loc_check_def] )
-  \\ qpat_abbrev_tac `s8 = s7 with <|regs := _ ; memory := _ |>`
-  \\ conj_tac >- gs[Abbr ‘s7’, FLOOKUP_UPDATE, FUPDATE_LIST]
+   \\ qpat_abbrev_tac `s8 = s7 with <|regs := _ ; memory := _ |>`
+   \\ conj_tac >-
+    (gs[Abbr ‘s7’, FLOOKUP_UPDATE, FUPDATE_LIST,wordsTheory.WORD_LITERAL_ADD]
+     \\ strip_tac
+     \\simp[(GSYM wordsTheory.word_add_n2w)]
+     \\ qpat_x_assum `Abbrev (n2w _ = _)` $ assume_tac o REWRITE_RULE[markerTheory.Abbrev_def]
+     \\ gs[]
+     \\ gs[Abbr ‘ptr3'’]
+     \\ gs[Abbr ‘max_heap_w’]
+     \\ gs[]
+     \\ `w2n (bytes_in_word:'a word) = dimindex (:'a) DIV 8` by
+       (qpat_x_assum ‘Abbr (d = _)’ $ kall_tac>>
+        fs [good_dimindex_def,bytes_in_word_def,dimword_def])>>
+     ‘(bytes_in_word:'a word) * n2w (LENGTH bitst) = n2w (d * LENGTH bitst)’
+       by gs[wordsTheory.word_mul_def]
+     \\ gs[])
+  \\ qpat_x_assum `n2w _ ⋙ 1 = n2w _` kall_tac
+  \\ rpt (qpat_x_assum `Abbrev (n2w _ = _)` kall_tac)
+ \\ rpt var_eq_tac>> rveq>>fs[]
   \\ fs [state_rel_def,GSYM CONJ_ASSOC]
   \\ rpt (conj_tac THEN1 (fs [init_reduce_def] \\ unabbrev_all_tac \\ fs []))
   \\ conj_tac >- (
