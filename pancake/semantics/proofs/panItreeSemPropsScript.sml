@@ -143,7 +143,7 @@ Definition ext_call_oracle_h_def:
 End
 
 Definition itree_diverges_def:
-  itree_diverges t = ∀p. itree_el t p = Silence
+  itree_diverges t = ∀r. ¬∃p. itree_el t p = Return r
 End
 
 Definition itree_fails_def:
@@ -160,5 +160,85 @@ Definition itree_terminates_def:
                             | Return (SOME (Return _)) => T
                             | _ => F
 End
+
+
+(* Relating panSemTheory.evaluate and panItreeSemTheory.mrec *)
+val s = “s:(('a,'ffi) panSem$state)”;
+
+Definition fix_clock_small_def:
+  fix_clock_small old_s (p,r,new_s) =
+  (p,r,new_s with clock :=
+       if old_s.clock < new_s.clock then old_s.clock else new_s.clock)
+End
+
+(* Build a relation between evaluate_small and evaluate *)
+(* Then build a relation between evaluate_small and mrec *)
+(* Thus relating evaluate and mrec in a small-step way. *)
+Inductive evaluate_small_rel:
+  (eval s g = SOME (ValWord w) ∧ w ≠ 0w ⇒
+   evaluate_small (SOME (While g p),NONE,s) (SOME (Seq p (While g p)),r,s)) ∧
+  (eval s g = SOME (ValWord w) ∧ w ≠ 0w ∧ s.clock = 0 ⇒
+        evaluate_small (SOME (While g p),NONE,s) (NONE,SOME TimeOut,s)) ∧
+  (eval s g = SOME (ValWord w) ∧ w = 0w ⇒ evaluate_small (SOME (While g p),NONE,s) (NONE,NONE,s)) ∧
+  (eval s g ≠ SOME (ValWord w) ⇒ evaluate_small (SOME (While g p),NONE,s) (NONE,SOME Error,s))
+End
+
+Theorem evaluate_small_while_error_eq:
+  evaluate (While g p,s) = (SOME Error,s) ⇔
+           evaluate_small (SOME (While g p),NONE,s) (NONE,SOME Error,s)
+Proof
+  EQ_TAC >> rw[]
+  >- (gvs [Once panSemTheory.evaluate_def] >>
+      every_case_tac >>
+      rw [evaluate_small_rel_rules] >>
+      cheat) >>
+      cheat
+QED
+
+Theorem evaluate_small_eq:
+  evaluate (p,s) = (res,s') ⇔
+    evaluate_small^* (SOME p,NONE,s) (NONE,res,s')
+Proof
+  cheat
+QED
+
+Definition itree_mrec_top_def:
+  itree_mrec_top rh seed = itree_el (itree_mrec rh seed) []
+End
+
+Theorem evaluate_itree_while_eq:
+  evaluate (While g p,s) = (SOME Error,s) ⇔
+           strip_tau (itree_mrec h_prog (While g p,s)) (Ret (SOME Error,s))
+Proof
+  EQ_TAC >> rw []
+  >- (gvs [Once panSemTheory.evaluate_def] >>
+      every_case_tac >> rw [] >>
+      rw [panItreeSemTheory.itree_mrec_def,panItreeSemTheory.h_prog_def] >>
+      rw [panItreeSemTheory.h_prog_rule_while_def] >>
+      rw [itreeTauTheory.itree_iter_def] >>
+      rw [Once itreeTauTheory.itree_unfold] >>
+      rw [Once itreeTauTheory.itree_unfold])
+QED
+
+(* Find a way to relate the small-step decisions of evaluate to those of mrec (which are designed in a small-step-manner) *)
+(* Then it will become clear that the isomorphism at this level preserves all relevant decisions to, at the top level,
+ prove presevation of outcomes and (eventually) event traces. *)
+
+(* How to describe evaluate in a small-step way and show preservation of meaning and also connect this description to mrec. *)
+
+Theorem evaluate_while_div_clock:
+  (∃s'. evaluate (p,s) = (_,s') ∧ s'.clock = 0) ⇔
+    ∀s'. ¬∃(n:num). evaluate (p,s with clock := n) ≠ (SOME TimeOut,s')
+Proof
+QED
+
+Theorem evaluate_while_div:
+  evaluate (While g p,s) = (SOME TimeOut,s') ⇔
+    itree_diverges (itree_mrec h_prog (While g p,s))
+Proof
+  EQ_TAC >> rw [] >>
+  simp [panItreeSemTheory.itree_mrec_def,panItreeSemTheory.h_prog_def]  >>
+  simp [panItreeSemTheory.h_prog_rule_while_def] >>
+QED
 
 val _ = export_theory();
