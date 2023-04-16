@@ -34,14 +34,13 @@ Definition itree_mrec_def:
   (rh seed)
 End
 
-(* Theorem itree_mrec_cases: *)
-(*   case h s of *)
-(*     Vis (INL s') k => itree_mrec h s = itree_mrec (λs. itree_bind (h s) k) s' *)
-(*    | Ret r => itree_mrec h s = Ret r *)
-(*    | Tau t => itree_mrec h s = Tau (itree_mrec (λs. (h s)) t) *)
-(*    | Vis (INR e) k => itree_mrec h s = Vis e (λx. Tau (itree_mrec (λs. k s) x)) *)
-(* Proof *)
-(* QED *)
+Theorem itree_mrec_simps2[simp]:
+  ((rh seed) = Ret r ⇒ itree_mrec rh seed = Ret r)
+Proof
+  rw [itree_mrec_def] >>
+  rw [itreeTauTheory.itree_iter_def] >>
+  rw [Once itreeTauTheory.itree_unfold]
+QED
 
 Theorem itree_mrec_simps[simp]:
   (itree_mrec Ret s = Ret s)
@@ -186,18 +185,18 @@ End
 (* Inf ITree of Vis nodes, with inf many branches allowing
  termination of the loop; when the guard is false. *)
 Definition h_prog_rule_while_def:
-  h_prog_rule_while gexp p s = itree_iter
-                               (λseed. Vis (INL seed)
-                                           (λ(res,s'). case res of
-                                                        | SOME Break => Ret (INR (NONE,s'))
-                                                        | SOME Continue => Ret (INL (p,s'))
-                                                        | NONE => (case (eval s' gexp) of
-                                                                    | SOME (ValWord w) =>
-                                                                       if w ≠ 0w
-                                                                       then Ret (INL (p,s'))
-                                                                       else Ret (INR (res,s'))
-                                                                    | _ => Ret (INR (SOME Error,s')))
-                                                        | _ => Ret (INR (res,s'))))
+  h_prog_rule_while g p s = itree_iter
+                               (λseed. case (eval s g) of
+                                        | SOME (ValWord w) =>
+                                           if (w ≠ 0w)
+                                           then (Vis (INL seed)
+                                                 (λ(res,s'). case res of
+                                                              | SOME Break => Ret (INR (NONE,s'))
+                                                              | SOME Continue => Ret (INL (p,s'))
+                                                              | NONE => Ret (INL (p,s'))
+                                                              | _ => Ret (INR (res,s'))))
+                                           else Ret (INR (NONE,s))
+                                        | _ => Ret (INR (SOME Error,s)))
                                (p,s)
 End
 
