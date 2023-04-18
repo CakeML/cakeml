@@ -1,0 +1,2 @@
+This directory contains a formalisation of updatable vectors, i.e.,
+purely functional persistent arrays.

@@ -303,6 +303,10 @@ This compiler phase maps stackLang programs, which has structure
 such as If, While, Return etc, to labLang programs that are a soup
 of goto-like jumps.
 
+[updatable_vectors](updatable_vectors):
+This directory contains a formalisation of updatable vectors, i.e.,
+purely functional persistent arrays.
+
 [wordLangScript.sml](wordLangScript.sml):
 The wordLang intermediate language consists of structured programs
 that overate over machine words, a list-like stack and a flat memory.
