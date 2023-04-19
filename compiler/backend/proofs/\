@@ -648,9 +648,9 @@ Definition share_mem_domain_code_rel_def:
   <=>
     (* whenever the pc is accessing share mem, the pc is in ffi_entry_pcs
     * after mmio_pcs_min_index and the mmio_info for it is correct *)
-    (!pc op re a inst len. ?i.
+    (!pc op re a inst len i.
         (asm_fetch_aux pc code2 = SOME (Asm (ShareMem op re a) inst len) /\
-        mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
+        mmio_pcs_min_index mc_conf.ffi_names = SOME i)
         ==>
         (?index.
           i <= index /\
@@ -7824,42 +7824,14 @@ Proof
   gvs[get_memop_info_def]
 QED
 
-Theorem get_shmem_info_append_lemma1:
-!secs pos ffi_names shmem_info ffis1 ffis2 info1 info2 new_ffi_names new_shmem_info.
-  get_shmem_info secs pos ffi_names (shmem_info: 'a shmem_info) =
-    (new_ffi_names,new_shmem_info) /\
-  ffi_names = ffis1 ++ ffis2 /\
-  shmem_info = info1 ++ info2 ==>
-  new_ffi_names = ffis1 ++ (FST $ get_shmem_info secs pos ffis2 info2) /\
-  new_shmem_info = info1 ++ (SND $ get_shmem_info secs pos ffis2 info2)
-Proof
-  ho_match_mp_tac get_shmem_info_ind >>
-  rpt strip_tac >>
-  gvs[get_shmem_info_def] >>
-  Cases_on `m` >>
-  fs[get_memop_info_def,get_shmem_info_def]
-QED
-
-Theorem get_shmem_info_append_lemma:
-  get_shmem_info secs pos ffi_names (shmem_info: 'a shmem_info) =
+Theorem get_shmem_info_asm_fetch_aux:
+  get_shmem_info secs pos ffi_names (shmem_info:'a shmem_info) =
     (new_ffi_names,new_shmem_info) ==>
-  new_ffi_names = ffi_names ++ (FST $ get_shmem_info secs pos [] []) /\
-  new_shmem_info = shmem_info ++ (SND $ get_shmem_info secs pos [] [])
+  new_ffi_names = ffi_names ++ FST $ get_shmem_info secs pos [] []
+  new_shmem_info = shmem_info ++ SND $ get_memop_info secs pos [] []
 Proof
-  strip_tac >>
-  irule get_shmem_info_append_lemma1 >>
-  fs[]
-QED
 
-Theorem asm_fetch_aux_0_ShareMem_IMP_get_shmem_info:
-  asm_fetch_aux 0 (secs: 'a sec list) = SOME $ Asm (ShareMem m r ad) bytes l /\
-  get_memop_info m (:'a) = (name,nb) ==>
-  get_shmem_info secs p ffi_names shmem_info = get_shmem_info secs (p + LENGTH bytes) (ffi_names++[name])
-    (shmem_info++[(n2w pos,nb,ad,r,n2w (p + LENGTH bytes))])
-Proof
 QED
-
-Theorem asm_fetch_aux_
 
 Theorem mmio_info_ok_lemma:
   lab_to_target$compile c code = SOME (bytes,(c':'a lab_to_target$config)) /\
