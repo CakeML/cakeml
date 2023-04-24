@@ -14,54 +14,28 @@ local open alignmentTheory
 
 val _ = new_theory "panItreeSemEquiv";
 
-(* Proof of correspondence between semantics *)
-(* Proof outline:
- A compositional proof shows the outer most conditions, i.e. divergence, occur only for the same
-   inner conditions.
+(* Prerequisite lemmata *)
 
- For example, semantics = Diverge only when evaluate = TimeOut only when a specific list of conditions are true,
-     and these are exactly the same conditions that cause evaluate_itree to produce a divergent tree, and thus
-     semantics_itree to produce a divergent tree.
+(* find a way to relate the operation of evaluate to the operation of mrec  *)
+(* then the below is easily proven. *)
 
- Likewise for the other cases. *)
-
-(* State sequence theory *)
-
-(* Relating program statements *)
-
-(* there is a seq of states, the guard is true in every one, and that seq
- is transitive: meaning each produces the next under evaluate, the first is the first and the final
-    is the final. *)
-
-Theorem evaluate_timeout_while:
-  ∀g p s s'. (evaluate (While g p,s) = (SOME TimeOut,s')) ⇒
-             ∃trace m. trace = [s] ++ m ++ [s'] ∧ EVERY (λx. x = SOME (ValWord w) ∧ w ≠ 0w) (MAP (flip eval g) trace)
+Theorem evaluate_diverge_eq:
+  evaluate (p,s) = (SOME TimeOut,s') ⇔
+                 itree_diverges (evaluate_itree p s)
 Proof
-  cheat
-(* the proof should be trivial:
-   take sseq as [s,s'] as such a sequence.
-   then clearly eval s g and eval s' g produce the correct results.
-   then any other intermediate sequence [s,...,s'] for s.clock > 1 also holds. *)
 QED
 
-(* Theorem evaluate_timeout_cases: *)
-(*   ∀p s s'. (evaluate (p,s) = (SOME TimeOut,s')) *)
-(* Proof *)
-(*   cheat *)
-(* QED *)
-
-Theorem evaluate_semantics_corr:
-  ∀p s s'. (evaluate (p,s) = (SOME TimeOut,s')) ⇔
-           itree_diverges $ evaluate_itree p s
+Theorem semantics_diverge_eq:
+  semantics s entry = Diverge io ⇔
+            itree_diverges (itree_oracle_walk ext_call_oracle_h (semantics_itree s entry))
 Proof
-  cheat
 QED
 
-Theorem semantics_corr:
-  ∃s entry. (semantics s entry = Diverge evl) ⇔
-             itree_diverges (itree_oracle_walk ext_call_oracle_h (semantics_itree s entry))
-Proof
-  cheat
-QED
+(* After reading Hrutvik's proofs, seems in all likelihood cleanest approach is to draw the obvious
+ correspondence between semantics by relating the steps in evaluate to the steps performed by mrec, possibly in a small-step way.
+                i.e. relate evaluate's recursion to mrec's iterated evaluation.
+
+ This way we can show that divergence in one semantics produces divergence in the other, by necessity of both
+      performing infinite operations. *)
 
 val _ = export_theory();

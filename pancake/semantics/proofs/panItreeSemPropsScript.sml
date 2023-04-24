@@ -171,6 +171,9 @@ Definition fix_clock_small_def:
        if old_s.clock < new_s.clock then old_s.clock else new_s.clock)
 End
 
+(* Relate evaluate and h_prog/mrec by the conditions that lead to the
+ outcomes of interest. *)
+
 (* Build a relation between evaluate_small and evaluate *)
 (* Then build a relation between evaluate_small and mrec *)
 (* Thus relating evaluate and mrec in a small-step way. *)
@@ -202,21 +205,20 @@ Proof
   cheat
 QED
 
-Definition itree_mrec_top_def:
-  itree_mrec_top rh seed = itree_el (itree_mrec rh seed) []
-End
+Theorem evaluate_error_eq:
+  evaluate (p,s) = (SOME Error,s') ⇔
+    h_prog (p,s) = Ret (SOME Error,s')
+Proof
+  cheat
+QED
 
 Theorem evaluate_itree_while_eq:
   evaluate (While g p,s) = (SOME Error,s) ⇔
            strip_tau (itree_mrec h_prog (While g p,s)) (Ret (SOME Error,s))
 Proof
   EQ_TAC >> rw []
-  >- (gvs [Once panSemTheory.evaluate_def] >>
-      every_case_tac >> rw [] >>
-      rw [panItreeSemTheory.itree_mrec_def,panItreeSemTheory.h_prog_def] >>
-      rw [panItreeSemTheory.h_prog_rule_while_def] >>
+  >- (rw [panItreeSemTheory.itree_mrec_def] >>
       rw [itreeTauTheory.itree_iter_def] >>
-      rw [Once itreeTauTheory.itree_unfold] >>
       rw [Once itreeTauTheory.itree_unfold])
 QED
 
@@ -238,7 +240,111 @@ Theorem evaluate_while_div:
 Proof
   EQ_TAC >> rw [] >>
   simp [panItreeSemTheory.itree_mrec_def,panItreeSemTheory.h_prog_def]  >>
-  simp [panItreeSemTheory.h_prog_rule_while_def] >>
+  simp [panItreeSemTheory.h_prog_rule_while_def]
 QED
+
+Theorem itree_iter_simps[simp]:
+  itree_iter (λx. Ret (INR (r))) s = Ret r
+Proof
+  rw [itreeTauTheory.itree_iter_def] >>
+  rw [Once itreeTauTheory.itree_unfold]
+QED
+
+Theorem itree_iter_case_simps[simp]:
+  itree_iter
+  (λt. itree_CASE t (λr. Ret (INR r)) tau vis)
+  (Ret r) = (Ret r)
+Proof
+  rw [itreeTauTheory.itree_iter_def] >>
+  rw [Once itreeTauTheory.itree_unfold]
+QED
+
+(* Define properties that cause mrec outcomes of interest *)
+Theorem while_itree_err_cases:
+  eval s g ≠ SOME (ValWord w) ⇔
+  itree_mrec h_prog (While g p,s) = Ret (SOME Error,s)
+Proof
+  cheat
+QED
+
+Theorem evaluate_while_err_cases:
+  evaluate (While g p,s) = (SOME Error,s) ⇔
+    eval s g ≠ SOME (ValWord w)
+Proof
+  cheat
+QED
+
+Theorem evaluate_itree_while_err_eq:
+  evaluate (While g p,s) = (SOME Error,s) ⇔
+    itree_mrec h_prog (While g p,s) = Ret (SOME Error,s)
+Proof
+  EQ_TAC >> rw[]
+  >- (IMP_RES_TAC evaluate_while_err_cases >>
+      ASSUME_TAC while_itree_err_cases >> gvs[])
+  >- (IMP_RES_TAC while_itree_err_cases >>
+      ASSUME_TAC evaluate_while_err_cases >> gvs[])
+QED
+
+(* Need to say: for every state that comes from one or more evaluations of the while body,
+ the outcome of evaluation is not Break and the guard holds true in the resulting state. *)
+(* This seems to be the exact property that we need also for evaluate.
+ Only the notion of "evaluate" is different between the two semantics so perhaps this is better
+ expressed as existence of a general function or relation which can be instantiated as the respective function
+ for that semantics during the proof.'*)
+
+Theorem evaluate_itree_while_div_cases:
+  itree_diverges (itree_mrec h_prog (While g p,s)) ⇔
+    eval s g = SOME (ValWord w) ∧ w ≠ 0w ∧
+    (∃R. ∀s'. R^* s s' ⇒ (eval s' g = SOME (ValWord w) ∧ w ≠ 0w))
+Proof
+  cheat
+QED
+
+Theorem evaluate_while_div_cases:
+  evaluate (While g p,s) = (SOME TimeOut,s') ⇔
+    eval s g = SOME (ValWord w) ∧ w ≠ 0w ∧
+    (∃R. ∀s'. R^* s s' ⇒ (eval s' g = SOME (ValWord w) ∧ w ≠ 0w))
+Proof
+  cheat
+QED
+
+Theorem evaluate_while_div_eq:
+  evaluate (While g p,s) = (SOME TimeOut,s') ⇔
+    itree_diverges (itree_mrec h_prog (While g p,s))
+Proof
+  EQ_TAC >> rw []
+  >- (IMP_RES_TAC evaluate_while_div_cases >>
+      ASSUME_TAC evaluate_itree_while_div_cases >>
+      gvs [])
+  >- (IMP_RES_TAC evaluate_itree_while_div_cases >>
+      ASSUME_TAC evaluate_while_div_cases >>
+      gvs[])
+QED
+
+Theorem evaluate_itree_while_ret_cases:
+  r = SOME (FinalFFI e) ∨ r = SOME (Return _) ⇒
+  (strip_tau (itree_mrec h_prog (While g p,s)) (Ret (r,s'')) ⇔
+     eval s g = SOME (ValWord w) ∧ w ≠ 0w ∧
+     ∃R s' f. R^* s s' ∧ f (p,s') = (r,s''))
+Proof
+  cheat
+QED
+
+Theorem evaluate_while_ret_cases:
+  r = SOME (FinalFFI e) ∨ r = SOME (Return _) ⇒
+  (evaluate (While g p,s) = (r,s'') ⇔
+     eval s g = SOME (ValWord w) ∧ w ≠ 0w ∧
+     ∃R s' f. R^* s s' ∧ f (p,s') = (r,s''))
+Proof
+  cheat
+QED
+
+Theorem evaluate_while_ret_eq:
+  r = SOME (FinalFFI e) ∨ r = SOME (Return _) ⇒
+  (evaluate (While g p,s) = (r,s') ⇔
+     strip_tau (itree_mrec h_prog (While g p,s)) (Ret (r,s')))
+Proof
+QED
+
 
 val _ = export_theory();
