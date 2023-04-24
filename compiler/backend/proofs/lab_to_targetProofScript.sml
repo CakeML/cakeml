@@ -648,9 +648,9 @@ Definition share_mem_domain_code_rel_def:
   <=>
     (* whenever the pc is accessing share mem, the pc is in ffi_entry_pcs
     * after mmio_pcs_min_index and the mmio_info for it is correct *)
-    (!pc op re a inst len. ?i.
+    (!pc op re a inst len i.
         (asm_fetch_aux pc code2 = SOME (Asm (ShareMem op re a) inst len) /\
-        mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
+        mmio_pcs_min_index mc_conf.ffi_names = SOME i)
         ==>
         (?index.
           i <= index /\
@@ -6076,7 +6076,8 @@ val share_mem_eval_expand_tac =
   \\ fs[target_state_rel_def]
   \\ disch_then kall_tac
   \\ fs[share_mem_state_rel_def]
-  \\ qpat_assum `!index' i'. mmio_pcs_min_index _ = SOME i' /\ index' < _ /\
+(* TODO *)
+  \\ qpat_assum `!index' ?i'. mmio_pcs_min_index _ = SOME i' /\ index' < _ /\
       _ ==> _` $ qspecl_then [`index`, `i`] drule
   \\ (
     impl_tac >- (drule find_index_LESS_LENGTH >> fs[])
@@ -6847,6 +6848,7 @@ QED
         (find_index (mc_conf.target.get_pc ms2) mc_conf.ffi_entry_pcs 0 =
            SOME (get_ffi_index mc_conf.ffi_names s))` by (
        full_simp_tac(srw_ss())[state_rel_def]>>
+  (* TODO *)
        first_x_assum $ qspecl_then [`s`, `i`] drule >>
        fs[] >>
        disch_then irule >>
@@ -7810,7 +7812,7 @@ Proof
   \\ rw[sec_get_code_labels_def, LIST_TO_SET_FILTER]
   \\ AP_THM_TAC \\ AP_TERM_TAC
 
-Theorem ffi_names_MappedRead_or_MappedWrite:
+Theorem get_shmem_info_MappedRead_or_MappedWrite:
 !sec pos ffi_names info new_ffi_names new_info.
   get_shmem_info sec pos ffi_names info =
     (new_ffi_names,new_info) ==>
@@ -7824,7 +7826,7 @@ Proof
   gvs[get_memop_info_def]
 QED
 
-Theorem get_shmem_info_append_lemma1:
+Theorem get_shmem_info_APPEND:
 !secs pos ffi_names shmem_info ffis1 ffis2 info1 info2 new_ffi_names new_shmem_info.
   get_shmem_info secs pos ffi_names (shmem_info: 'a shmem_info) =
     (new_ffi_names,new_shmem_info) /\
@@ -7840,32 +7842,198 @@ Proof
   fs[get_memop_info_def,get_shmem_info_def]
 QED
 
-Theorem get_shmem_info_append_lemma:
+Theorem get_shmem_info_PREPEND:
   get_shmem_info secs pos ffi_names (shmem_info: 'a shmem_info) =
     (new_ffi_names,new_shmem_info) ==>
   new_ffi_names = ffi_names ++ (FST $ get_shmem_info secs pos [] []) /\
   new_shmem_info = shmem_info ++ (SND $ get_shmem_info secs pos [] [])
 Proof
   strip_tac >>
-  irule get_shmem_info_append_lemma1 >>
+  irule get_shmem_info_APPEND >>
   fs[]
 QED
 
-Theorem asm_fetch_aux_0_ShareMem_IMP_get_shmem_info:
-  asm_fetch_aux 0 (secs: 'a sec list) = SOME $ Asm (ShareMem m r ad) bytes l /\
-  get_memop_info m (:'a) = (name,nb) ==>
-  get_shmem_info secs p ffi_names shmem_info = get_shmem_info secs (p + LENGTH bytes) (ffi_names++[name])
-    (shmem_info++[(n2w pos,nb,ad,r,n2w (p + LENGTH bytes))])
+Definition num_pcs_def:
+  num_pcs [] = (0:num) /\
+  num_pcs ((Section _ [])::rest) = num_pcs rest /\
+  num_pcs ((Section k (x::xs))::rest) = if is_Label x
+    then num_pcs ((Section k xs)::rest)
+    else 1 + num_pcs ((Section k xs)::rest)
+End
+
+Theorem asm_fetch_SOME_IMP_LESS_num_pcs:
+  !pc secs x.
+    asm_fetch_aux pc secs = SOME x ==>
+    pc < num_pcs secs
 Proof
+  ho_match_mp_tac asm_fetch_aux_ind >>
+  rpt strip_tac >>
+  gvs[asm_fetch_aux_def,num_pcs_def] >>
+  Cases_on `is_Label y` >>
+  gvs[] >>
+  Cases_on `pc` >>
+  gvs[num_pcs_def]
 QED
 
-Theorem asm_fetch_aux_
+Theorem GENLIST_asm_fetch_aux_next:
+  ~is_Label x ==>
+  GENLIST (\i.
+    (i,asm_fetch_aux i (Section k (x::xs)::rest)))
+    (n+1) =
+  (0,SOME x)::(
+    GENLIST (\i.
+      (i+1, asm_fetch_aux i (Section k xs::rest))) n)
+Proof
+  rpt strip_tac >>
+  Induct_on `n` >>
+  gvs[GENLIST,asm_fetch_aux_def,GSYM ADD1]
+QED
+
+Definition line_to_info_def:
+  line_to_info (secs: 'a sec list) p x = case SND x of
+    SOME (Asm (ShareMem m r ad) bytes l) =>
+      let (name,nb) = get_memop_info m (:'a) in
+      [(name,
+       (n2w (pos_val (FST x) p secs),nb,ad,r,
+          n2w (pos_val (FST x) p secs + LENGTH bytes)
+        ))]
+    | _ => []
+End
+
+Theorem line_to_info_next:
+  ~is_Label x ==>
+  line_to_info ((Section k xs)::rest)
+    (p + line_length x) (i,l) =
+  line_to_info (Section k (x::xs)::rest) p (i+1,l)
+Proof
+  simp[line_to_info_def] >>
+  TOP_CASE_TAC >>
+  TOP_CASE_TAC >>
+  TOP_CASE_TAC >>
+  Cases_on `m` >>
+  gvs[get_memop_info_def,pos_val_def]
+QED
+
+Theorem line_to_info_hd_empty:
+  line_to_info (Section k []::rest) p t =
+    line_to_info rest p t
+Proof
+  gvs[line_to_info_def] >>
+  TOP_CASE_TAC >>
+  TOP_CASE_TAC >>
+  gvs[pos_val_def]
+QED
+
+Theorem pos_val_acc_sum:
+  !i pos secs x y.
+    x + y = pos ==>
+    pos_val i pos secs = x + pos_val i y secs
+Proof
+  ho_match_mp_tac pos_val_ind >>
+  rpt strip_tac >>
+  gvs[pos_val_def] >>
+  Cases_on `is_Label y` >>
+  gvs[pos_val_def] >>
+  Cases_on `i` >>
+  gvs[pos_val_def]
+QED
+
+(*
+Theorem pos_val_0_takeUntil:
+  pos_val 0 pos (secs: 'a sec list) = pos +
+    SUM (
+      MAP line_length $
+      mllist$takeUntil (\x. ~is_Label x) $
+      FLAT $ MAP Section_lines secs)
+Proof
+  Induct_on `secs` >>
+  gvs[pos_val_def,mllistTheory.takeUntil_def] >>
+  strip_tac >>
+  Cases_on `h` >>
+  Induct_on `l` >>
+  gvs[pos_val_def] >>
+  strip_tac >>
+  Cases_on `is_Label h` >>
+  gvs[pos_val_def,mllistTheory.takeUntil_def] >>
+  metis_tac[pos_val_acc_sum,ADD_COMM,ADD_ASSOC]
+QED
+*)
+
+Theorem pos_val_acc_0:
+  !i pos secs.
+  pos_val i pos secs = pos + pos_val i 0 secs
+Proof
+  gvs[pos_val_acc_sum]
+QED
+
+
+(* TODO *)
+Theorem line_to_info_hd_Label:
+  all_enc_ok c labs ffis p
+    (Section k ((Label a b l)::xs)::rest) ==> 
+  line_to_info (Section k ((Label a b l)::xs)::rest)
+    p t
+    = line_to_info (Section k xs::rest) p t
+Proof
+  gvs[line_to_info_def] >>
+  TOP_CASE_TAC >>
+  TOP_CASE_TAC >>
+  TOP_CASE_TAC >>
+  Cases_on `m` >>
+  gvs[pos_val_def,line_length_def,all_enc_ok_def,
+    lines_ok_def]
+QED
+
+Theorem get_shmem_info_thm:
+  !secs p ffi_names shmem_info.
+  all_enc_ok c labs ffis p secs ==> 
+  get_shmem_info secs p ffi_names shmem_info =
+    let (new_ffis, new_info) =
+      UNZIP $ FLAT $
+      MAP (line_to_info secs p) $
+      GENLIST (\i. (i, asm_fetch_aux i secs)) $
+      num_pcs secs
+    in (ffi_names ++ new_ffis, shmem_info ++ new_info)
+Proof
+  ho_match_mp_tac get_shmem_info_ind >>
+  rpt strip_tac
+  >- (
+    gvs[get_shmem_info_def,pos_val_def,
+      asm_fetch_aux_def] >>
+    gvs[GENLIST,line_to_info_def,num_pcs_def]
+  )
+  >- (
+    gvs[get_shmem_info_def,pos_val_def,
+      asm_fetch_aux_def,num_pcs_def] >>
+    metis_tac[line_to_info_hd_empty]
+  )
+  >- (
+    gvs[get_memop_info_def,pos_val_def,
+      asm_fetch_aux_def,num_pcs_def] >>
+    cheat
+  )
+  >- (
+    `~is_Label (Asm(ShareMem m r ad) bytes shmem_info)` 
+      by simp[is_Label_def] >>
+    gvs[num_pcs_def,combinTheory.o_DEF,
+      GENLIST_asm_fetch_aux_next] >>
+    gvs[MAP_GENLIST,combinTheory.o_DEF] >>
+    gvs[asm_fetch_aux_def,line_to_info_def] >>
+    gvs[pos_val_def,line_length_def] >>
+    Cases_on `get_memop_info m (:'a)` >>
+    PairCases_on ``
+    first_x_assum $ qspec_then `q` mp_tac >>
+    gvs[UNZIP_MAP,MAP,SND,FST,AllCaseEqs()] >>
+    
+  ) >>
+  
+QED
 
 Theorem mmio_info_ok_lemma:
   lab_to_target$compile c code = SOME (bytes,(c':'a lab_to_target$config)) /\
   c'.ffi_names = SOME ffi_names ==>
   mmio_pcs_min_index ffi_names = SOME i /\
-  (!pc op re a inst len i.
+  (!pc op re a inst len.
     asm_fetch_aux pc code2 = SOME (Asm (ShareMem op re a) inst len) ==>
     ?index. i <= index /\
     find_index (n2w (pos_val pc 0 code2)) (MAP FST c'.shmem_info) i =
