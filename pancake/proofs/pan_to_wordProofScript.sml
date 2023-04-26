@@ -723,5 +723,82 @@ Proof
   fs []
 QED
 
+(*** no_install/no_alloc/no_mt lemmas ***)
+
+Theorem pan_to_word_compile_prog_no_install_code:
+  compile_prog prog = prog' ⇒
+  no_install_code (fromAList prog')
+Proof
+  gs[compile_prog_def]>>strip_tac>>
+  metis_tac[loop_to_wordProofTheory.loop_compile_no_install_code]
+QED
+
+Theorem pan_to_word_compile_prog_no_alloc_code:
+  compile_prog prog = prog' ⇒
+  no_alloc_code (fromAList prog')
+Proof
+  gs[compile_prog_def]>>strip_tac>>
+  metis_tac[loop_to_wordProofTheory.loop_compile_no_alloc_code]
+QED
+
+Theorem pan_to_word_compile_prog_no_mt_code:
+  compile_prog prog = prog' ⇒
+  no_mt_code (fromAList prog')
+Proof
+  gs[compile_prog_def]>>strip_tac>>
+  metis_tac[loop_to_wordProofTheory.loop_compile_no_mt_code]
+QED
+
+(*** pan_to_word good_handlers ***)
+
+Theorem pan_to_word_good_handlers:
+  compile_prog prog = prog' ⇒
+  EVERY (λ(n,m,pp). good_handlers n pp) prog'
+Proof
+  gs[compile_prog_def,
+     loop_to_wordTheory.compile_def]>>
+  strip_tac>>
+  irule loop_to_wordProofTheory.loop_to_word_good_handlers>>metis_tac[]
+QED
+
+(* lab_pres *)
+
+Theorem pan_to_word_compile_lab_pres:
+  pan_to_word$compile_prog prog = prog' ⇒
+  EVERY
+  (λ(n,m,p).
+     (let
+        labs = extract_labels p
+      in
+        EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧
+        ALL_DISTINCT labs)) prog'
+Proof
+  strip_tac>>gs[pan_to_wordTheory.compile_prog_def]>>
+  gs[loop_to_wordTheory.compile_def]>>
+  drule loop_to_word_compile_prog_lab_pres>>gs[]
+QED
+
+(* first_name offset : lab_min *)
+
+Theorem pan_to_word_compile_prog_lab_min:
+  compile_prog pprog = wprog ⇒
+  EVERY (λprog. 60 ≤ FST prog) wprog
+Proof
+  gs[pan_to_wordTheory.compile_prog_def]>>
+  strip_tac>>
+  drule_then irule loop_to_word_compile_lab_min>>
+  irule crep_to_loop_compile_prog_lab_min>>metis_tac[]
+QED
+
+(* inst_ok_less *)
+
+Theorem pan_to_word_every_inst_ok_less:
+  pan_to_word$compile_prog pan_code = wprog0 ∧
+  byte_offset_ok c 0w ⇒
+  EVERY (λ(n,m,p). every_inst (inst_ok_less c) p) wprog0
+Proof
+  gs[pan_to_wordTheory.compile_prog_def]>>strip_tac>>
+  drule_then irule loop_to_word_every_inst_ok_less>>gs[]
+QED
 
 val _ = export_theory();

@@ -5444,5 +5444,16 @@ Proof
   gs [loop_liveTheory.mark_all_def]
 QED
 
+(* first_name offset *)
+
+Theorem crep_to_loop_compile_prog_lab_min:
+  crep_to_loop$compile_prog cprog = lprog ⇒
+  EVERY (λprog. 60 ≤ FST prog) lprog
+Proof
+  gs[crep_to_loopTheory.compile_prog_def]>>
+  gs[MAP2_MAP, EVERY_MEM]>>
+  rpt strip_tac>>gvs[MEM_MAP,MEM_ZIP]>>
+  pairarg_tac>>gs[crep_to_loopTheory.first_name_def]
+QED
 
 val _ = export_theory();

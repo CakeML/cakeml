@@ -1863,4 +1863,85 @@ Proof
   fs []
 QED
 
+(* first_name offset *)
+
+Theorem store_const_lab_min:
+  x ≤ FST prog ∧
+  EVERY (λp. x ≤ FST p) (SND prog) ∧
+  store_cont s cont prog = (cont',prog') ⇒
+  x ≤ FST prog' ∧ EVERY (λp. x ≤ FST p) (SND prog')
+Proof
+  strip_tac>>
+  PairCases_on ‘prog’>>
+  gs[loop_removeTheory.store_cont_def]>>
+  rveq>>
+  gs[EVERY_MEM]>>strip_tac>>strip_tac>>rveq>>gs[]
+QED
+
+Theorem comp_with_loop_lab_min:
+  comp_with_loop p p' cont prog = (q2, s')∧
+  x ≤ FST prog ∧
+  EVERY (λp. x ≤ FST p) (SND prog) ⇒
+  (x ≤ FST s' ∧ EVERY (λp. x ≤ FST p) (SND s'))
+Proof
+  MAP_EVERY qid_spec_tac [‘s'’, ‘q2’, ‘prog’, ‘cont’, ‘p'’, ‘p’]>>
+  recInduct loop_removeTheory.comp_with_loop_ind>>rw[]>>
+  qpat_x_assum ‘comp_with_loop _ _ _ _ = _’ mp_tac>>
+  rewrite_tac[loop_removeTheory.comp_with_loop_def]>>
+  strip_tac>>fs[]>>
+  rpt (pairarg_tac>>fs[])
+  >- metis_tac[store_const_lab_min]
+  >- metis_tac[store_const_lab_min]
+  >- (Cases_on ‘handler’>>fs[]>>
+      PairCases_on ‘x'’>>fs[]>>
+      rpt (pairarg_tac>>fs[])>>
+      metis_tac[store_const_lab_min])
+  >- (Cases_on ‘handler’>>fs[]>>
+      PairCases_on ‘x'’>>fs[]>>
+      rpt (pairarg_tac>>fs[])>>
+      metis_tac[store_const_lab_min])>>
+  rveq>>gs[]>>
+  drule_all store_const_lab_min>>
+  strip_tac>>gs[]
+QED
+
+Theorem FOLDR_min:
+  EVERY (λp. x ≤ FST p) prog ∧ prog ≠ [] ⇒
+  x ≤ FOLDR MAX 0 (MAP FST prog)
+Proof
+  Induct_on ‘prog’>>gs[]
+QED
+
+Theorem loop_remove_comp_lab_min:
+  FOLDR comp (m + 1,[]) prog = (n, prog') ∧
+  (prog ≠ [] ⇒ x ≤ m) ∧
+  EVERY (λp. x ≤ FST p) prog ⇒
+  (prog ≠[] ⇒ x ≤ n) ∧ EVERY (λp. x ≤ FST p) prog'
+Proof
+  MAP_EVERY qid_spec_tac [‘n’, ‘m’, ‘prog'’, ‘prog’]>>
+  Induct>>gs[]>>ntac 5 strip_tac>>
+  PairCases_on ‘h’>>gs[loop_removeTheory.comp_def]>>
+  pairarg_tac>>gs[]>>rveq>>gs[]>>
+  drule comp_with_loop_lab_min>>
+  disch_then $ qspec_then ‘x’ mp_tac>>
+  qmatch_goalsub_abbrev_tac ‘FST xxx’>>
+  Cases_on ‘xxx’>>gs[]>>
+  first_x_assum $ qspecl_then [‘r’, ‘m’, ‘q’] assume_tac>>
+  gs[]>>
+  Cases_on ‘prog’>>gs[]
+QED
+
+Theorem loop_remove_comp_prog_lab_min:
+  comp_prog prog = prog' ∧
+  EVERY (λp. x ≤ FST p) prog ⇒
+  EVERY (λp. x ≤ FST p) prog'
+Proof
+  gs[loop_removeTheory.comp_prog_def]>>strip_tac>>
+  qmatch_asmsub_abbrev_tac ‘SND xxx’>>
+  Cases_on ‘xxx’>>gs[]>>
+  drule loop_remove_comp_lab_min>>
+  disch_then $ qspec_then ‘x’ mp_tac>>gs[]>>
+  impl_tac >-metis_tac[FOLDR_min]>>rw[]
+QED
+
 val _ = export_theory();
