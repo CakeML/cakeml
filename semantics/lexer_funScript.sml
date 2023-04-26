@@ -73,7 +73,17 @@ Definition read_char_as_3digits_def:
       rest = DROP 3 str ;
   in
     if LENGTH ds < 3 then NONE
-    else SOME (CHR $ num_from_dec_string ds, rest)
+    else
+      case FOLDL (λA d. case A of
+                          NONE => NONE
+                        | SOME A0 => if isDigit d then
+                                       SOME (10 * A0 + (ORD d - 48))
+                                     else NONE)
+                 (SOME 0) ds of
+        NONE => NONE
+      | SOME ci =>
+          if ci < 256 then SOME (CHR ci, rest)
+          else NONE
 End
 
 Theorem read_char_as_3digits_reduces:
@@ -81,9 +91,9 @@ Theorem read_char_as_3digits_reduces:
     read_char_as_3digits str0 = SOME (c, str) ⇒
     LENGTH str0 = LENGTH str + 3
 Proof
-  simp[read_char_as_3digits_def, LENGTH_DROP, NOT_LESS, LENGTH_TAKE_EQ]
+  simp[read_char_as_3digits_def, LENGTH_DROP, NOT_LESS, LENGTH_TAKE_EQ,
+       AllCaseEqs(), PULL_EXISTS]
 QED
-
 
 Definition read_string_def:
   read_string str s (loc:locn) =
