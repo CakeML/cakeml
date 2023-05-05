@@ -7,40 +7,48 @@ val _ = new_theory"mllist"
 
 val _ = set_grammar_ancestry ["indexedLists", "toto"]
 
-val getItem_def = Define`
+Definition getItem_def:
   (getItem [] = NONE) /\
-  (getItem (h::t) = SOME(h, t))`;
+  (getItem (h::t) = SOME(h, t))
+End
 
-val nth_def = Define`
-  nth l i = EL i l`;
+Definition nth_def:
+  nth l i = EL i l
+End
 
-val take_def = Define`
-  take l i = TAKE i l`;
+Definition take_def:
+  take l i = TAKE i l
+End
 
-val drop_def = Define`
-  drop l i = DROP i l`;
+Definition drop_def:
+  drop l i = DROP i l
+End
 
-val takeUntil_def = Define `
+Definition takeUntil_def:
   (takeUntil p [] = []) /\
-  (takeUntil p (x::xs) = if p x then [] else x :: takeUntil p xs)`;
+  (takeUntil p (x::xs) = if p x then [] else x :: takeUntil p xs)
+End
 
-val dropUntil_def = Define `
+Definition dropUntil_def:
   (dropUntil p [] = []) /\
-  (dropUntil p (x::xs) = if p x then x::xs else dropUntil p xs)`;
+  (dropUntil p (x::xs) = if p x then x::xs else dropUntil p xs)
+End
 
-val mapi_def = Define `
+Definition mapi_def:
   (mapi f (n: num) [] = []) /\
-  (mapi f n (h::t) = (let y = f n h in (y::(mapi f (n + 1) t))))`
+  (mapi f n (h::t) = (let y = f n h in (y::(mapi f (n + 1) t))))
+End
 
-val MAPI_thm_gen = Q.prove (
-  `!f l x. MAPi (\a. f (a + x)) l = mapi f x l`,
+Theorem MAPI_thm_gen[local]:
+  ∀f l x. MAPi (\a. f (a + x)) l = mapi f x l
+Proof
   Induct_on `l` \\ rw [MAPi_def, mapi_def] \\
   rw [o_DEF, ADD1] \\
   fs [] \\
   pop_assum (fn th => rw[GSYM th] ) \\
   rw[AC ADD_ASSOC ADD_COMM] \\
   match_mp_tac MAPi_CONG \\ rw[]
-);
+QED
 
 Theorem MAPI_thm:
    !f l. MAPi f l = mapi f 0 l
@@ -49,11 +57,12 @@ Proof
   |> SIMP_RULE (srw_ss()++ETA_ss) [])]
 QED
 
-val mapPartial_def = Define`
+Definition mapPartial_def:
   (mapPartial f [] = []) /\
   (mapPartial f (h::t) = case (f h) of
     NONE => mapPartial f t
-    |(SOME x) => x::mapPartial f t)`;
+    |(SOME x) => x::mapPartial f t)
+End
 
 Theorem mapPartial_thm:
    !f l. mapPartial f l = MAP THE (FILTER IS_SOME (MAP f l))
@@ -74,21 +83,26 @@ Proof
   rw[FIND_def,INDEX_FIND_def,index_find_thm]
 QED
 
-val partition_aux_def = Define`
+Definition partition_aux_def:
   (partition_aux f [] pos neg =
     (REVERSE pos, REVERSE neg)) /\
     (partition_aux f (h::t) pos neg = if f h then partition_aux f t (h::pos) neg
-      else partition_aux f t pos (h::neg))`;
+      else partition_aux f t pos (h::neg))
+End
 
-val partition_def = Define`
-  partition (f : 'a -> bool) l = partition_aux f l [] []`;
+Definition partition_def:
+  partition (f : 'a -> bool) l = partition_aux f l [] []
+End
 
-val partition_aux_thm = Q.prove(
-  `!f l l1 l2. partition_aux f l l1 l2 = (REVERSE l1++(FILTER f l), REVERSE l2++(FILTER ($~ o f) l))`,
+Theorem partition_aux_thm[local]:
+  ∀f l l1 l2.
+    partition_aux f l l1 l2 =
+    (REVERSE l1++(FILTER f l), REVERSE l2++(FILTER ($~ o f) l))
+Proof
   Induct_on `l` \\
   rw [partition_aux_def] \\
   rw [partition_aux_def]
-);
+QED
 
 Theorem partition_pos_thm:
    !f l. FST (partition f l) = FILTER f l
@@ -102,24 +116,28 @@ Proof
   rw [partition_def, FILTER, partition_aux_thm]
 QED
 
-val foldl_def = Define`
+Definition foldl_def:
   (foldl f e [] = e) /\
-  (foldl f e (h::t) = foldl f (f h e) t)`;
+  (foldl f e (h::t) = foldl f (f h e) t)
+End
 
-val foldli_aux_def = Define`
+Definition foldli_aux_def:
   (foldli_aux f e n [] = e) /\
-  (foldli_aux f e n (h::t) = foldli_aux f (f n h e) (SUC n) t)`;
+  (foldli_aux f e n (h::t) = foldli_aux f (f n h e) (SUC n) t)
+End
 
-val foldli_def = Define`
-  foldli f e l = foldli_aux f e 0 l`;
+Definition foldli_def:
+  foldli f e l = foldli_aux f e 0 l
+End
 
-val foldli_aux_thm = Q.prove (
-  `!l f e n.  foldli_aux f e n l = FOLDRi (\n'. f (LENGTH l + n - (SUC n'))) e (REVERSE l)`,
+Theorem foldli_aux_thm[local]:
+  ∀l f e n.  foldli_aux f e n l = FOLDRi (\n'. f (LENGTH l + n - (SUC n'))) e (REVERSE l)
+Proof
   Induct_on `l` \\
   rw [foldli_aux_def] \\
   rw [FOLDRi_APPEND] \\
   rw [ADD1]
-);
+QED
 
 Theorem foldl_intro:
   ∀xs x f. FOLDL f x xs = foldl (λx acc. f acc x) x xs
@@ -138,7 +156,7 @@ QED
    (in addition to the translator-generated ones)
    (the CF specs allow more general arguments f) *)
 
-val tabulate_aux_def = tDefine"tabulate_aux"`
+Definition tabulate_aux_def:
   tabulate_aux n m f acc =
     let b = (n >= m) in
     if b then REVERSE acc
@@ -146,11 +164,14 @@ val tabulate_aux_def = tDefine"tabulate_aux"`
       let v = f n in
       let n = n+1n in
       let acc = v::acc in
-      tabulate_aux n m f acc`
-(wf_rel_tac`measure (λ(n,m,_,_). m-n)`);
+      tabulate_aux n m f acc
+Termination
+  wf_rel_tac`measure (λ(n,m,_,_). m-n)`
+End
 
-val tabulate_def = Define
-  `tabulate n f = let l = [] in tabulate_aux 0 n f l`;
+Definition tabulate_def:
+  tabulate n f = let l = [] in tabulate_aux 0 n f l
+End
 
 Theorem tabulate_aux_GENLIST:
    ∀n m f acc. tabulate_aux n m f acc = REVERSE acc ++ GENLIST (f o FUNPOW SUC n) (m-n)
@@ -170,16 +191,15 @@ Proof
   rw[tabulate_def,tabulate_aux_GENLIST,FUNPOW_SUC_PLUS,o_DEF,ETA_AX]
 QED
 
-val collate_def = Define`
+Definition collate_def:
   (collate f [] [] = EQUAL) /\
   (collate f [] (h::t) = LESS) /\
   (collate f (h::t) [] = GREATER) /\
   (collate f (h1::t1) (h2::t2) =
     if f h1 h2 = EQUAL
       then collate f t1 t2
-    else f h1 h2)`;
-
-val collate_ind = theorem"collate_ind";
+    else f h1 h2)
+End
 
 Theorem collate_equal_thm:
    !l. (!x. MEM x l ==> (f x x = EQUAL)) ==> (collate f l l = EQUAL)
@@ -203,8 +223,9 @@ Proof
   \\ rw[collate_def] \\ fs[]
 QED
 
-val cpn_to_reln_def = Define`
-  cpn_to_reln f x1 x2 = (f x1 x2 = LESS)`;
+Definition cpn_to_reln_def:
+  cpn_to_reln f x1 x2 = (f x1 x2 = LESS)
+End
 
 Theorem collate_cpn_reln_thm:
    !f l1 l2. (!x1 x2. (f x1 x2 = EQUAL) <=>
@@ -216,9 +237,10 @@ Proof
 QED
 
 (* from std_preludeLib *)
-val LENGTH_AUX_def = Define `
+Definition LENGTH_AUX_def:
   (LENGTH_AUX [] n = (n:num)) /\
-  (LENGTH_AUX (x::xs) n = LENGTH_AUX xs (n+1))`;
+  (LENGTH_AUX (x::xs) n = LENGTH_AUX xs (n+1))
+End
 
 Theorem LENGTH_AUX_THM = Q.prove(`
   !xs n. LENGTH_AUX xs n = LENGTH xs + n`,
@@ -303,7 +325,7 @@ Definition flat_rev_def:
   flat_rev xs = flat_rev' xs []
 End
 
-Theorem flat_rev'_lemma:
+Theorem flat_rev'_lemma[local]:
   ∀acc. flat_rev' l acc = (flat_rev' l []) ⧺ acc
 Proof
   Induct_on ‘l’
@@ -319,8 +341,6 @@ Theorem flat_rev_thm:
 Proof
   rw[flat_rev_def]
   \\ Induct_on ‘xs’
-  >- rw[flat_rev'_def]
-  \\ strip_tac
   \\ rw[flat_rev'_def, flat_rev'_lemma, REV_REVERSE_LEM]
 QED
 
