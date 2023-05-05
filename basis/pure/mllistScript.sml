@@ -228,4 +228,100 @@ Theorem LENGTH_AUX_THM = Q.prove(`
 val _ = save_thm("list_compare_def",
   ternaryComparisonsTheory.list_compare_def);
 
+(* tail-recursive MAP *)
+
+Definition map_rev'_def:
+  map_rev' f [] acc = acc ∧
+  map_rev' f (x :: xs) acc = map_rev' f xs (f x :: acc)
+End
+
+Definition map_rev_def:
+  map_rev f xs = map_rev' f xs []
+End
+
+Theorem map_rev'_lemma[local]:
+  ∀acc. map_rev' f xs acc = (map_rev' f xs []) ⧺ acc
+Proof
+  Induct_on ‘xs’
+  >- rw[map_rev'_def]
+  \\ rpt strip_tac
+  \\ rewrite_tac[map_rev'_def]
+  \\ first_assum $ once_rewrite_tac o single
+  \\ rw[]
+QED
+
+Theorem map_rev_thm:
+  map_rev f xs = REVERSE (MAP f xs)
+Proof
+  rw[map_rev_def]
+  \\ Induct_on ‘xs’
+  \\ rw[map_rev'_def, map_rev'_lemma]
+QED
+
+(* tail-recursive FILTER *)
+
+Definition filter_rev'_def:
+  filter_rev' P [] acc = acc ∧
+  filter_rev' P (h::t) acc = if P h then filter_rev' P t (h::acc) else filter_rev' P t acc
+End
+
+Definition filter_rev_def:
+  filter_rev P xs = filter_rev' P xs []
+End
+
+Theorem filter_rev'_lemma[local]:
+  ∀acc. filter_rev' P xs acc = (filter_rev' P xs []) ⧺ acc
+Proof
+  Induct_on ‘xs’
+  >- rw[filter_rev'_def]
+  \\ rpt strip_tac
+  \\ rewrite_tac[filter_rev'_def]
+  \\ Cases_on ‘P h’
+  >- (last_x_assum $ once_rewrite_tac o single
+      \\ rw[])
+  \\ metis_tac[]
+QED
+
+Theorem filter_rev_thm:
+  filter_rev f xs = REVERSE (FILTER f xs)
+Proof
+  rw[filter_rev_def]
+  \\ Induct_on ‘xs’
+  >- rw[filter_rev'_def]
+  \\ strip_tac
+  \\ rw[filter_rev'_def, filter_rev'_lemma]
+QED
+
+(* tail-recursive FLAT *)
+
+Definition flat_rev'_def:
+  flat_rev' [] acc = acc ∧
+  flat_rev' (x::xs) acc = flat_rev' xs (REV x acc)
+End
+
+Definition flat_rev_def:
+  flat_rev xs = flat_rev' xs []
+End
+
+Theorem flat_rev'_lemma:
+  ∀acc. flat_rev' l acc = (flat_rev' l []) ⧺ acc
+Proof
+  Induct_on ‘l’
+  >- rw[flat_rev'_def]
+  \\ rpt strip_tac
+  \\ rewrite_tac[flat_rev'_def]
+  \\ first_assum $ once_rewrite_tac o single
+  \\ rw[REV_REVERSE_LEM]
+QED
+
+Theorem flat_rev_thm:
+  flat_rev xs = REVERSE (FLAT xs)
+Proof
+  rw[flat_rev_def]
+  \\ Induct_on ‘xs’
+  >- rw[flat_rev'_def]
+  \\ strip_tac
+  \\ rw[flat_rev'_def, flat_rev'_lemma, REV_REVERSE_LEM]
+QED
+
 val _ = export_theory()
