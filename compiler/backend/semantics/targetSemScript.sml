@@ -284,7 +284,7 @@ val start_pc_ok_def = Define`
         mc_conf.ccache_pc NOTIN
           {a| EL index mc_conf.ffi_entry_pcs <= a /\
               a < SND (SND (SND (mc_conf.mmio_info index)))} /\
-        EL index mc_conf.ffi_entry_pcs <=
+        EL index mc_conf.ffi_entry_pcs <
           SND $ SND $ SND $ mc_conf.mmio_info index) /\
      (!index1 index2.
         index1 <> index2 /\
@@ -403,14 +403,7 @@ val good_init_state_def = Define `
     code_loaded bytes mc_conf ms /\
     bytes_in_mem t.pc bytes t.mem t.mem_domain dm /\
     (* data memory relation -- note that this implies m contains no labels *)
-    (?i.
-      SOME i = mmio_pcs_min_index mc_conf.ffi_names /\
-      dm SUBSET
-      (t.mem_domain UNION (BIGUNION $ {pcs|
-        ?index. i <= index /\ index < LENGTH mc_conf.ffi_entry_pcs /\
-        pcs = {a|
-          a > EL index mc_conf.ffi_entry_pcs /\
-          a <= SND $ SND $ SND $ mc_conf.mmio_info index}}))) /\
+    dm SUBSET t.mem_domain /\    
     (!a. byte_align a ∈ dm ==> a ∈ dm) /\
     sdm SUBSET mc_conf.shared_addresses /\
     (!a. byte_align a IN sdm ==> a IN sdm) /\

@@ -7901,17 +7901,17 @@ Definition line_to_info_def:
 End
 
 Theorem line_to_info_next:
-  ~is_Label x ==>
-  line_to_info ((Section k xs)::rest)
-    (p + line_length x) (i,l) =
-  line_to_info (Section k (x::xs)::rest) p (i+1,l)
+  line_to_info (Section k1 (LabAsm a b bytes1 len1::xs1)::rest1) p1 (i1+1,l1)
+    = line_to_info ((Section k1 xs1)::rest1) (p1 + LENGTH bytes1) (i1,l1) /\
+  line_to_info (Section k2 (Asm c2 bytes2 len2::xs2)::rest2) p2 (i2+1,l2)
+    = line_to_info ((Section k2 xs2)::rest2) (p2 + LENGTH bytes2) (i2,l2)
 Proof
-  simp[line_to_info_def] >>
+  rw[line_to_info_def] >>
   TOP_CASE_TAC >>
   TOP_CASE_TAC >>
   TOP_CASE_TAC >>
   Cases_on `m` >>
-  gvs[get_memop_info_def,pos_val_def]
+  gvs[get_memop_info_def,pos_val_def,line_length_def]
 QED
 
 Theorem line_to_info_hd_empty:
@@ -7938,27 +7938,6 @@ Proof
   gvs[pos_val_def]
 QED
 
-(*
-Theorem pos_val_0_takeUntil:
-  pos_val 0 pos (secs: 'a sec list) = pos +
-    SUM (
-      MAP line_length $
-      mllist$takeUntil (\x. ~is_Label x) $
-      FLAT $ MAP Section_lines secs)
-Proof
-  Induct_on `secs` >>
-  gvs[pos_val_def,mllistTheory.takeUntil_def] >>
-  strip_tac >>
-  Cases_on `h` >>
-  Induct_on `l` >>
-  gvs[pos_val_def] >>
-  strip_tac >>
-  Cases_on `is_Label h` >>
-  gvs[pos_val_def,mllistTheory.takeUntil_def] >>
-  metis_tac[pos_val_acc_sum,ADD_COMM,ADD_ASSOC]
-QED
-*)
-
 Theorem pos_val_acc_0:
   !i pos secs.
   pos_val i pos secs = pos + pos_val i 0 secs
@@ -7966,12 +7945,8 @@ Proof
   gvs[pos_val_acc_sum]
 QED
 
-
-(* TODO *)
 Theorem line_to_info_hd_Label:
-  all_enc_ok c labs ffis p
-    (Section k ((Label a b l)::xs)::rest) ==> 
-  line_to_info (Section k ((Label a b l)::xs)::rest)
+  line_to_info (Section k ((Label a b 0)::xs)::rest)
     p t
     = line_to_info (Section k xs::rest) p t
 Proof
@@ -7980,9 +7955,12 @@ Proof
   TOP_CASE_TAC >>
   TOP_CASE_TAC >>
   Cases_on `m` >>
-  gvs[pos_val_def,line_length_def,all_enc_ok_def,
-    lines_ok_def]
+  gvs[pos_val_def,line_length_def,get_memop_info_def]
 QED
+
+Theorem line_to_info_hd_not_Label:
+  line_to_info (Section k1 ((LabAsm v9 v10 v11 v12)::xs1)::rest1) p1 t1
+    = line_to_info (Section k1 xs1::rest1) 
 
 Theorem get_shmem_info_thm:
   !secs p ffi_names shmem_info.
@@ -8004,13 +7982,13 @@ Proof
   )
   >- (
     gvs[get_shmem_info_def,pos_val_def,
-      asm_fetch_aux_def,num_pcs_def] >>
+      asm_fetch_aux_def,num_pcs_def,all_enc_ok_def] >>
     metis_tac[line_to_info_hd_empty]
   )
   >- (
-    gvs[get_memop_info_def,pos_val_def,
-      asm_fetch_aux_def,num_pcs_def] >>
-    cheat
+    gvs[get_shmem_info_def,pos_val_def,
+      asm_fetch_aux_def,num_pcs_def,all_enc_ok_def,line_length_def,line_ok_def] >>
+    metis_tac[line_to_info_hd_Label]
   )
   >- (
     `~is_Label (Asm(ShareMem m r ad) bytes shmem_info)` 
@@ -8020,28 +7998,38 @@ Proof
     gvs[MAP_GENLIST,combinTheory.o_DEF] >>
     gvs[asm_fetch_aux_def,line_to_info_def] >>
     gvs[pos_val_def,line_length_def] >>
-    Cases_on `get_memop_info m (:'a)` >>
-    PairCases_on ``
-    first_x_assum $ qspec_then `q` mp_tac >>
-    gvs[UNZIP_MAP,MAP,SND,FST,AllCaseEqs()] >>
-    
+    gvs[all_enc_ok_def,line_ok_def,line_length_def] >>
+    gvs[get_shmem_info_def] >>
+    qpat_abbrev_tac `memop_info = get_memop_info m (:α)` >>
+    Cases_on `memop_info` >>
+    gvs[UNZIP_MAP] 
   ) >>
-  
+  gvs[all_enc_ok_def,line_ok_def,line_length_def] >>
+  gvs[get_shmem_info_def,num_pcs_def] >>
+  gvs[GENLIST_asm_fetch_aux_next] >>
+  gvs[MAP_GENLIST,line_to_info_next,combinTheory.o_DEF,line_to_info_def]
 QED
 
 Theorem mmio_info_ok_lemma:
-  lab_to_target$compile c code = SOME (bytes,(c':'a lab_to_target$config)) /\
-  c'.ffi_names = SOME ffi_names ==>
-  mmio_pcs_min_index ffi_names = SOME i /\
-  (!pc op re a inst len.
-    asm_fetch_aux pc code2 = SOME (Asm (ShareMem op re a) inst len) ==>
-    ?index. i <= index /\
-    find_index (n2w (pos_val pc 0 code2)) (MAP FST c'.shmem_info) i =
-      SOME index /\
-    (let (name,nb) = get_memop_info op (:α) in
-     EL index ffi_names = name ∧
-     SND (EL index c'.shmem_info) =
-     (nb,a,re,n2w (pos_val pc 0 code2 + len))))
+  lab_to_target$compile c code = SOME (bytes,(c':'a lab_to_target$config)) ==>
+  ?ffi_names.
+    c'.ffi_names = SOME ffi_names /\
+  (!pc op re a inst len i.
+    (asm_fetch_aux pc code2 = SOME (Asm (ShareMem op re a) inst len) /\
+    mmio_pcs_min_index ffi_names = SOME i) ==>
+    (?index.
+      find_index (p + n2w (pos_val pc 0 code2)) (MAP FST c'.shmem_info) 0 =
+        SOME index /\
+      (let (name, nb) = get_memop_info op (:'a) in
+        EL (index+i) ffi_names = name /\
+        SND (EL index c'.shmem_info) =
+         (nb,a,re,n2w (pos_val pc 0 code2 + len))))) /\
+  (!pc line.
+    asm_fetch_aux pc code2 = SOME line /\
+    (!op re a inst len. line <> Asm (ShareMem op re a) inst len) ==>
+    DISJOINT (set (MAP FST c'.shmem_info))
+      {p + n2w a + n2w (pos_val pc 0 code2) |
+        a < LENGTH (line_bytes line)})
 Proof
   gvs[AllCaseEqs(),lab_to_targetTheory.compile_def,compile_lab_def,APPLY_UPDATE_THM] >>
   Cases_on `c.ffi_names` >>
