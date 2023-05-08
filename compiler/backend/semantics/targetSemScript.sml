@@ -272,30 +272,11 @@ val start_pc_ok_def = Define`
        find_index
          (pc - n2w ((3 + index) * ffi_offset))
          mc_conf.ffi_entry_pcs 0 = SOME index) /\
-     (!index.
-        index < LENGTH mc_conf.ffi_names /\ i <= index ==>
-        DISJOINT
-          {a| EL index mc_conf.ffi_entry_pcs <= a /\
-              a < SND (SND (SND (mc_conf.mmio_info index)))}
-          mc_conf.shared_addresses /\
-        mc_conf.halt_pc NOTIN
-          {a| EL index mc_conf.ffi_entry_pcs <= a /\
-              a < SND (SND (SND (mc_conf.mmio_info index)))} /\
-        mc_conf.ccache_pc NOTIN
-          {a| EL index mc_conf.ffi_entry_pcs <= a /\
-              a < SND (SND (SND (mc_conf.mmio_info index)))} /\
-        EL index mc_conf.ffi_entry_pcs <
-          SND $ SND $ SND $ mc_conf.mmio_info index) /\
-     (!index1 index2.
-        index1 <> index2 /\
-        index1 < LENGTH mc_conf.ffi_names /\ i <= index1 /\
-        index2 < LENGTH mc_conf.ffi_names /\ i <= index2
-        ==>
-        DISJOINT
-        {a| EL index1 mc_conf.ffi_entry_pcs <= a /\
-          a < SND $ SND $ SND $ mc_conf.mmio_info index1}
-        {a| EL index2 mc_conf.ffi_entry_pcs <= a /\
-          a < SND $ SND $ SND $ mc_conf.mmio_info index2})`;
+    (!index.
+      index < LENGTH mc_conf.ffi_names /\ i <= index ==>
+      mc_conf.halt_pc <> (EL index mc_conf.ffi_entry_pcs) /\
+      mc_conf.ccache_pc <> (EL index mc_conf.ffi_entry_pcs)) /\
+    LENGTH mc_conf.ffi_names = LENGTH mc_conf.ffi_entry_pcs`;
 
 (* assume the byte array to be in little endian *)
 val bytes2num_def = Define`
