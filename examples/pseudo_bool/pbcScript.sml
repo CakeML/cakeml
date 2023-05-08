@@ -91,7 +91,7 @@ Definition unsatisfiable_def:
   unsatisfiable pbf ⇔ ¬satisfiable pbf
 End
 
-(* Optimality of an assignment *)
+(* Optimality of an assignment wrt an affine term *)
 Definition optimal_def:
   optimal w pbf f ⇔
     satisfies w pbf ∧
@@ -100,9 +100,9 @@ Definition optimal_def:
 End
 
 Definition optimal_val_def:
-  optimal_val pbf f =
+  optimal_val pbf (f,c) =
     if satisfiable pbf then
-      SOME (eval_lin_term (@w. optimal w pbf f) f)
+      SOME (eval_lin_term (@w. optimal w pbf f) f + c)
     else
       NONE
 End
@@ -170,7 +170,7 @@ QED
 
 Theorem optimal_optimal_val:
   optimal w pbf f ⇒
-  optimal_val pbf f = SOME (eval_lin_term w f)
+  optimal_val pbf (f,c) = SOME (eval_lin_term w f + c)
 Proof
   rw[]>>
   drule optimal_obj_eq>>
@@ -187,7 +187,7 @@ Theorem optimal_witness:
   satisfies w pbf ∧
   unsatisfiable (
     (Less,f,(eval_lin_term w f)) INSERT pbf) ⇒
-  optimal_val pbf f = SOME (eval_lin_term w f)
+  optimal_val pbf (f,c) = SOME (eval_lin_term w f + c)
 Proof
   rw[]>>
   match_mp_tac optimal_optimal_val>>

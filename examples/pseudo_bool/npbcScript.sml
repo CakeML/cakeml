@@ -52,7 +52,7 @@ End
 Definition eval_obj_def:
   eval_obj fopt w =
     case fopt of NONE => 0
-    | SOME f => SUM (MAP (eval_term w) f)
+    | SOME (f,c:int) => &(SUM (MAP (eval_term w) f)) + c
 End
 
 (* Optimality of an assignment
@@ -1198,7 +1198,7 @@ QED
 (* the solution improving constraint is given by
   l + -l|w ≥ 0 *)
 Definition obj_constraint_def:
-  obj_constraint f l =
+  obj_constraint f (l,b:int) =
     let (result, k) = subst_lhs f (MAP (λ(c,l). (-c,l)) l) in
     let (add,n) = add_lists l result in
     (add, SUM (MAP (λi. Num (ABS (FST i))) l) - (k + n))
@@ -1247,8 +1247,14 @@ Theorem optimal_exists:
     optimal w' npbf fopt
 Proof
   rw[]>>
+  Cases_on`fopt`>>fs[]
+  >- (
+    EVAL_TAC>>fs[]>>
+    metis_tac[satisfies_def])>>
+  Cases_on`x`>>fs[]>>
+  rename1`(f,b)`>>
   qabbrev_tac`objs =
-    IMAGE (eval_obj fopt) {w | satisfies w npbf}`>>
+    IMAGE (λw. SUM (MAP (eval_term w) f)) {w | satisfies w npbf}`>>
   qabbrev_tac`opt = MIN_SET objs`>>
   `objs ≠ {}` by (
     unabbrev_all_tac>>
@@ -1257,10 +1263,10 @@ Proof
   drule MIN_SET_LEM>>
   rw[]>>
   unabbrev_all_tac>>fs[]>>
-  qexists_tac`x`>>
+  qexists_tac`w'`>>
   fs[optimal_def,PULL_EXISTS]>>rw[]>>
   first_x_assum drule>>
-  rw[]
+  rw[eval_obj_def]
 QED
 
 Theorem add_ge:
@@ -1281,6 +1287,8 @@ Theorem satisfies_npbc_obj_constraint:
   satisfies_npbc s (obj_constraint w obj) ⇔
   eval_obj (SOME obj) (assign w s) ≤ eval_obj (SOME obj) s
 Proof
+  Cases_on`obj`>>
+  rename1`(obj,c)`>>
   rw[obj_constraint_def,eval_obj_def]>>
   rpt(pairarg_tac>>fs[])>>
   simp[satisfies_npbc_def,add_ge]>>
@@ -1306,8 +1314,9 @@ Proof
   rw[redundant_wrt_obj_def, sat_obj_def,not_thm,sat_implies_def]
   \\ rename1`satisfies s f`
   \\ Cases_on ‘satisfies_npbc s c’
-  >-
-    metis_tac[LESS_EQ_REFL]
+  >- (
+    first_x_assum (irule_at Any)>>
+    simp[])
   \\ first_x_assum drule_all
   \\ rw [subst_thm]
   \\ first_x_assum $ irule_at Any
@@ -1384,7 +1393,7 @@ Proof
   rename1`satisfies_npbc pprime c`>>
   `po pprime p` by
     metis_tac[transitive_def]>>
-  metis_tac[LESS_EQ_TRANS]
+  metis_tac[integerTheory.INT_LE_TRANS]
 QED
 
 (* set of syntactic variables *)
