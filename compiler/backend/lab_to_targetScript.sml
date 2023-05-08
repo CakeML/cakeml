@@ -341,7 +341,7 @@ val find_ffi_names_def = Define `
      find_ffi_names rest) /\
   (find_ffi_names (Section k (x::xs)::rest) =
    (case x of LabAsm (CallFFI s) _ _ _ =>
-       list_add_if_fresh s (find_ffi_names (Section k xs::rest))
+     list_add_if_fresh s (find_ffi_names (Section k xs::rest))
    | _ => find_ffi_names (Section k xs::rest)))`
 
 Definition get_memop_info_def:
@@ -353,27 +353,22 @@ Definition get_memop_info_def:
   get_memop_info Store8 a = ("MappedWrite",1w)
 End
 
-Definition get_lines_shmem_info_def:
-  (get_lines_shmem_info [] pos ffi_names (shmem_info: 'a shmem_info) = (pos,ffi_names,shmem_info)) /\
-  (get_lines_shmem_info ((Asm (ShareMem m r ad) bytes _)::rest) pos ffi_names shmem_info =
-    let (name,nb) = get_memop_info m (:'a) in
-    get_lines_shmem_info rest (pos+LENGTH bytes) (ffi_names ++ [name])
-      (shmem_info ++ [(n2w pos,nb,ad,r,n2w $ pos+LENGTH bytes)])) /\
-  (get_lines_shmem_info ((Asm _ bytes _)::rest) pos ffi_names shmem_info =
-    get_lines_shmem_info rest (pos+LENGTH bytes) ffi_names shmem_info) /\
-  (get_lines_shmem_info ((Label _ _ _)::rest) pos ffi_names shmem_info =
-    get_lines_shmem_info rest pos ffi_names shmem_info) /\
-  (get_lines_shmem_info ((LabAsm _ _ bytes _)::rest) pos ffi_names shmem_info =
-    get_lines_shmem_info rest (pos+LENGTH bytes) ffi_names shmem_info)
-End
-
 Definition get_shmem_info_def:
-  get_shmem_info [] pos ffi_names shmem_info = (ffi_names,shmem_info) /\
-  get_shmem_info ((Section _ lines)::rest) pos ffi_names shmem_info =
-    let (new_pos,new_ffi_names,new_shmem_info) =
-      get_lines_shmem_info lines pos ffi_names shmem_info
-    in
-    get_shmem_info rest new_pos new_ffi_names new_shmem_info
+  (get_shmem_info [] pos ffi_names (shmem_info: 'a shmem_info) =
+    (ffi_names, shmem_info)) /\
+  (get_shmem_info (Section k []::rest) pos ffi_names shmem_info =
+    get_shmem_info rest pos ffi_names shmem_info) /\
+  (get_shmem_info (Section k ((Label _ _ _)::xs)::rest) pos ffi_names shmem_info =
+    get_shmem_info (Section k xs::rest) pos ffi_names shmem_info) /\
+  (get_shmem_info (Section k ((Asm (ShareMem m r ad) bytes _)::xs)::rest) pos
+  ffi_names shmem_info =
+    let (name,nb) = get_memop_info m (:'a) in
+    get_shmem_info (Section k xs::rest) (pos+LENGTH bytes) (ffi_names ++ [name])
+      (shmem_info ++ [(n2w pos,nb,ad,r,n2w $ pos+LENGTH bytes)])) /\
+  (get_shmem_info (Section k ((LabAsm _ _ bytes _)::xs)::rest) pos ffi_names shmem_info =
+    get_shmem_info (Section k xs::rest) (pos+LENGTH bytes) ffi_names shmem_info) /\
+  (get_shmem_info (Section k ((Asm _ bytes _)::xs)::rest) pos ffi_names shmem_info =
+    get_shmem_info (Section k xs::rest) (pos+LENGTH bytes) ffi_names shmem_info)
 End
 
 Definition compile_lab_def:
@@ -386,7 +381,8 @@ Definition compile_lab_def:
       case remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list of
       | SOME (sec_list,l1) =>
           let (new_ffi_names,new_shmem_info) =
-            get_shmem_info sec_list c.pos ffis [] in
+            get_shmem_info sec_list c.pos
+              (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") ffis) [] in
           let bytes = prog_to_bytes sec_list in
           SOME (bytes,
                 c with <| labels := l1; pos := LENGTH bytes + c.pos;
