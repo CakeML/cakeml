@@ -138,19 +138,30 @@ Definition nocomment_line_def:
   (nocomment_line _ = T)
 End
 
-(* parse objective line *)
+(* parse objective term in pbc ... ; *)
+Definition parse_obj_term_def:
+  parse_obj_term xs =
+  case parse_constraint_LHS xs [] of
+  (rest,obj) =>
+  case rest of
+    [INL s] =>
+      if s = strlit";" then SOME (obj,0:int) else NONE
+  | [INR c;INL s] =>
+      if s = strlit";" then SOME (obj,c:int) else NONE
+  | _ => NONE
+End
+
+(* parse objective line in PBF *)
 Definition parse_obj_def:
   (parse_obj [] = NONE) ∧
   (parse_obj (x::xs) =
     if x = INL (strlit "min:") then
-      case parse_constraint_LHS xs [] of (rest,obj) =>
-        if rest = [INL (strlit ";")] then SOME obj
-        else NONE
+      parse_obj_term xs
     else NONE
   )
 End
 
-(* parse optional objective *)
+(* parse optional objective line *)
 Definition parse_obj_maybe_def:
   (parse_obj_maybe [] = (NONE , [])) ∧
   (parse_obj_maybe (l::ls) =
@@ -578,7 +589,7 @@ End
 
 val headertrm = rconc (EVAL``toks_fast (strlit"pseudo-Boolean proof version 2.0")``);
 
-(* We could check that the constraint id is correct here *)
+(* We could check that the number of constraints is correct here *)
 Definition check_f_line_def:
   check_f_line s =
   case s of [] => F
@@ -593,29 +604,6 @@ Definition parse_header_def:
       then SOME rest
       else NONE
   | _ => NONE
-End
-
-(* Parse only UNSAT conclusions for now *)
-val outputtrm = rconc (EVAL``toks_fast (strlit"output NONE")``);
-val endtrm = rconc (EVAL``toks_fast (strlit"end pseudo-Boolean proof")``);
-
-Definition parse_conc_unsat_def:
-  parse_conc_unsat s =
-  case s of
-    [x;y;z;INR n] =>
-    if x = INL (strlit "conclusion") ∧
-      y = INL (strlit "UNSAT") ∧
-      z = INL (strlit ":") ∧
-      n ≥ 0
-    then SOME (Num n) else NONE
-  | _ => NONE
-End
-
-Definition parse_conc_def:
-  parse_conc s y z =
-  if s = ^outputtrm ∧ z = ^endtrm then
-    parse_conc_unsat y
-  else NONE
 End
 
 (* Parse 1 sstep,
@@ -801,12 +789,13 @@ EVAL ``
 ])``
 *)
 
+(* Partially parsed information *)
 Datatype:
   par =
   | Done cstep
   | Dompar npbc subst
   | StoreOrderpar mlstring
-  | CheckedDeletepar (num list)
+  | CheckedDeletepar num subst
 End
 
 Definition parse_load_order_def:
@@ -818,8 +807,58 @@ Definition parse_load_order_def:
   (parse_load_order f_ns _ = NONE)
 End
 
-(* Partial parse *)
-(* TODO: support Obj *)
+Definition parse_delc_header_def:
+  parse_delc_header f_ns line =
+  case line of
+    INR id::rest =>
+    if id ≥ 0 then
+      (case parse_subst f_ns rest of (rest,ss,f_ns') =>
+       (case rest of
+        [INL term; INL beg] =>
+          if term = strlit";" ∧ beg = strlit"begin" then
+            SOME (Num id,ss,f_ns')
+          else NONE
+      | _ => NONE))
+    else NONE
+  | _ => NONE
+End
+
+Definition insert_lit_def:
+  (insert_lit (Pos v) (f:bool spt) = sptree$insert v T f) ∧
+  (insert_lit (Neg v) f = insert v F f)
+End
+
+Definition parse_assg_def:
+  (parse_assg f_ns [] acc = SOME (acc,f_ns)) ∧
+  (parse_assg f_ns (INL s::ss) acc =
+    case parse_lit_num f_ns s of
+      NONE => NONE
+    | SOME (l,f_ns') => parse_assg f_ns' ss (insert_lit l acc)) ∧
+  (parse_assg f_ns _ acc = NONE)
+End
+
+Definition parse_obj_term_npbc:
+  parse_obj_term_npbc f_ns rest =
+  case parse_obj_term rest of NONE => NONE
+  | SOME (f,c) =>
+    (case map_f_ns f_ns f of NONE => NONE
+     | SOME (f',f_ns') =>
+      case pbc_to_npbc (GreaterEqual,f',0) of
+        (f'',n) => SOME ((f'',c-&n),f_ns'))
+End
+
+Definition parse_obju_def:
+  parse_obju f_ns rest =
+  case rest of
+    INR n1::INR n2::INL s::rest =>
+    if n1 ≥ 0 ∧ n2 ≥ 0 ∧ s = strlit":" then
+      case parse_obj_term_npbc f_ns rest of NONE => NONE
+      | SOME (f',f_ns') =>
+        SOME (Done (ChangeObj f'(Num n1) (Num n2)),f_ns')
+    else NONE
+  | _ => NONE
+End
+
 (* Parse the first line of a cstep, sstep supported differently *)
 Definition parse_cstep_head_def:
   parse_cstep_head f_ns s =
@@ -839,15 +878,24 @@ Definition parse_cstep_head_def:
       | SOME (c,s,f_ns') =>
         SOME (Dompar c s,f_ns')
     else if r = INL (strlit "delc") then
-      (case strip_numbers rs [] of NONE => NONE
-      | SOME n => SOME (CheckedDeletepar n,f_ns))
+      case parse_delc_header f_ns rs of
+      | SOME (n,s,f_ns') =>
+        SOME (CheckedDeletepar n s,f_ns')
+      | NONE =>
+        (case strip_numbers rs [] of NONE => NONE
+        | SOME n => SOME (Done (UncheckedDelete n),f_ns))
+    else if r = INL (strlit "soli") ∨ r = INL (strlit "solx") then
+      case parse_assg f_ns rs LN of NONE => NONE
+      | SOME (assg,f_ns') =>
+        SOME (Done (Obj assg),f_ns')
+    else if r = INL (strlit"obju") then
+      parse_obju f_ns rs
     else if r = INL (strlit "pre_order") then
       case rs of [INL n] => SOME (StoreOrderpar n, f_ns)
       | _ => NONE
     else NONE
 End
 
-(* TODO: support subproofs in checked delete *)
 Definition parse_cstep_def:
   (parse_cstep f_ns ss =
     case parse_sstep f_ns ss of
@@ -857,19 +905,109 @@ Definition parse_cstep_def:
     | SOME (INL s,f_ns',rest) =>
       case parse_cstep_head f_ns' s of
         NONE => SOME (INL s,f_ns',rest)
-      | SOME(Done cstep,f_ns'') => SOME (INR cstep, f_ns'', rest)
+      | SOME (Done cstep,f_ns'') => SOME (INR cstep, f_ns'', rest)
       | SOME (Dompar c s,f_ns'') =>
         (case parse_red_aux f_ns'' rest [] of
           NONE => NONE
         | SOME (res,pf,f_ns'',rest) =>
           SOME (INR (Dom c s pf res), f_ns'', rest))
-      | SOME (CheckedDeletepar n, f_ns'') =>
-        SOME (INR (CheckedDelete n []), f_ns'',rest)
+      | SOME (CheckedDeletepar n s, f_ns'') =>
+        (case parse_red_aux f_ns'' rest [] of
+          NONE => NONE
+        | SOME (res,pf,f_ns'',rest) =>
+          SOME (INR (CheckedDelete n s pf res), f_ns'', rest))
       | SOME (StoreOrderpar name, f_ns'') =>
         (case parse_pre_order rest of NONE => NONE
         | SOME (spo,ws,pf,rest) =>
           SOME (INR (StoreOrder name spo ws pf), f_ns'',rest))
     )
+End
+
+(* Parse only output NONE for now *)
+val outputtrm = rconc (EVAL``toks_fast (strlit"output NONE")``);
+(* Last line *)
+val endtrm = rconc (EVAL``toks_fast (strlit"end pseudo-Boolean proof")``);
+
+(* Conclusion section *)
+Datatype:
+  concl =
+  | NoConcl
+  | DSat (bool spt option)
+  | DUnsat num
+  | OBounds (int option) (int option) num (bool spt option)
+End
+
+Definition parse_unsat_def:
+  parse_unsat rest =
+  case rest of
+    [INL s; INR n] =>
+    if s = strlit":" ∧ n ≥ 0 then SOME (Num n) else NONE
+  | _ => NONE
+End
+
+Definition parse_sat_def:
+  parse_sat f_ns rest =
+  case rest of
+    INL s::rest =>
+    if s = strlit":" then
+      OPTION_MAP (SOME o FST) (parse_assg f_ns rest LN)
+    else NONE
+  | [] => SOME NONE
+  | _ => NONE
+End
+
+(* Parse a number or infinity *)
+Definition parse_int_inf:
+  parse_int_inf l =
+  case l of INR n => SOME (SOME n)
+  | INL s => if s = strlit "INF" then SOME NONE else NONE
+End
+
+Definition parse_bounds_def:
+  parse_bounds s =
+  case s of
+    lb :: ub :: rest =>
+    (case (parse_int_inf lb, parse_int_inf ub) of
+    | (SOME lb,SOME ub) => SOME(lb,ub,rest)
+    | _ => NONE)
+  | _ => NONE
+End
+
+(* parse hints for OBound *)
+Definition parse_obounds_def:
+  parse_obounds f_ns rest =
+  case rest of
+    INL s::INR n::rest =>
+    if s = strlit":" ∧ n ≥ 0 then
+      case rest of [] => SOME(Num n,NONE)
+      | INL s::rest =>
+        if s = strlit":" then
+          (case parse_assg f_ns rest LN of NONE => NONE
+          | SOME (a,f_ns') => SOME(Num n,SOME a))
+        else NONE
+      | _ => NONE
+    else NONE
+  | _ => NONE
+End
+
+Definition parse_concl_def:
+  parse_concl f_ns s =
+  case s of
+  x::y::rest =>
+  if x = INL (strlit "conclusion") then
+    if y = INL (strlit "NONE") ∧ rest = [] then SOME NoConcl
+    else if y = INL (strlit "UNSAT") then
+      OPTION_MAP DUnsat (parse_unsat rest)
+    else if y = INL (strlit "SAT") then
+      OPTION_MAP DSat (parse_sat f_ns rest)
+    else if y = INL (strlit"BOUNDS") then
+      case parse_bounds rest of NONE => NONE
+      | SOME (lb,ub,rest') =>
+        (case parse_obounds f_ns rest' of NONE => NONE
+        | SOME (n,a) => SOME (OBounds lb ub n a))
+    else NONE
+  else NONE
+  | _ => NONE
 End
 
 (*
@@ -922,7 +1060,9 @@ val pbfraw = ``[
   strlit" +1 x5 +1 x6 >= 1 ;"
   ]``;
 
-  val pbf = rconc (EVAL ``build_fml 1 (full_normalise (SND (THE (parse_pbf ^(pbfraw)))))``);
+  val pbf = rconc (EVAL ``(THE (parse_pbf ^(pbfraw)))``);
+
+  val pbff = rconc (EVAL ``build_fml 1 (full_normalise (SND (THE (parse_pbf ^(pbfraw)))))``);
 
   val pbpraw = ``[
   strlit"pseudo-Boolean proof version 2.0";
