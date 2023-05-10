@@ -8093,16 +8093,126 @@ Proof
   )
 QED
 
+Theorem MEM_get_shmem_info:
+  all_enc_ok c labs ffis p (code2: 'a sec list) /\
+  asm_fetch_aux pc code2 = SOME (Asm (ShareMem op re a) inst' len) /\
+  get_memop_info op (:'a) = (q,r) ==>
+  MEM
+    (q,n2w (pos_val pc p code2),r,a,re,n2w (pos_val pc (p+LENGTH inst') code2))
+    (ZIP (get_shmem_info code2 p [] []))
+Proof
+  rw[] >>
+  drule $ get_shmem_info_thm >>
+  disch_then $ qspecl_then [`[]`,`[]`] assume_tac >>
+  gvs[UNZIP_MAP,MAP_GENLIST,combinTheory.o_DEF,ZIP_MAP_FST_SND_EQ] >>
+  simp[GSYM pos_val_acc_0] >>
+  rw[MEM_FLAT,MEM_GENLIST,line_to_info_def] >>
+  qexists_tac `[(q,n2w (pos_val pc p code2),r,a,re,n2w (pos_val pc (p+LENGTH inst') code2))]` >>
+  gvs[] >>
+  drule_then assume_tac asm_fetch_SOME_IMP_LESS_num_pcs >>
+  qexists_tac `pc` >>
+  gvs[AllCaseEqs()] >>
+  `(LENGTH inst' + pos_val pc p code2) = pos_val pc (p + LENGTH inst') code2`
+    suffices_by gvs[] >>
+  irule $ GSYM pos_val_acc_sum >>
+  metis_tac[ADD_COMM]
+QED
+
+Theorem pos_val_GE_pc:
+!i p code2.
+  p <= pos_val i p code2
+Proof
+  ho_match_mp_tac pos_val_ind >>
+  gvs[pos_val_def] >>
+  rw[]
+QED
+
+Theorem pos_val_mono:
+!i p code2 j.
+  i < j /\
+  j < num_pcs code2 /\
+  all_enc_ok c labs ffis p code2
+  ==>
+  pos_val i p code2 < pos_val j p code2
+Proof
+  ho_match_mp_tac pos_val_ind >>
+  rw[] >>
+  gvs[pos_val_def,num_pcs_def,all_enc_ok_def] >>
+  Cases_on `is_Label y` >>
+  gvs[all_enc_ok_def,pos_val_def] >>
+  Cases_on `i = 0` >>
+  gvs[pos_val_def] >>
+  `p < p + line_length y` suffices_by
+    metis_tac[pos_val_GE_pc,LESS_LESS_EQ_TRANS] >>
+  Cases_on `y` >>
+  gvs[is_Label_def,line_length_def,line_ok_def,enc_with_nop_thm]
+  >- cheat >> cheat
+QED
+
+Theorme get_shmem_info_ALL_DISTINCT:
+  all_enc_ok c labs ffis p (code2: 'a sec list) ==>
+  ALL_DISTINCT (MAP FST $ SND $ get_shmem_info code2 p [] [])
+Proof
+  rw[] >>
+  drule get_shmem_info_thm >>
+  disch_then $ qspecl_then [`[]`,`[]`] assume_tac >>
+  gvs[UNZIP_MAP,MAP_GENLIST,combinTheory.o_DEF,MAP_MAP_o,MAP_FLAT,
+    ALL_DISTINCT_FLAT,MEM_GENLIST] >>
+  rw[] >>
+  gvs[line_to_info_def] >>
+  TOP_CASE_TAC >>
+  gvs[] >>
+  TOP_CASE_TAC >>
+  gvs[] >>
+  TOP_CASE_TAC >>
+  gvs[] >>
+  qpat_abbrev_tac `memop_info = get_memop_info m (:'a)` >>
+  Cases_on `memop_info` >>
+  gvs[] >>
+  Cases_on `asm_fetch_aux i code2` >>
+  gvs[] >>
+  Cases_on `x` >>
+  gvs[] >>
+  Cases_on `a` >>
+  gvs[] >>
+  Cases_on `get_memop_info m' (:'a)` >>
+  gvs[] >>
+  `e = n2w (pos_val i p code2)` by (
+    gvs[MEM_MAP] >>
+    Cases_on `m'` >>
+    gvs[get_memop_info_def]
+  ) >>
+  gvs[pos_val_mono] >>
+  cheat
+QED
+
 Theorem IMP_find_index_is_SOME:
-  asm_fetch_aux pc code2 = SOME (Asm (ShareMem op re a) inst' len) ==>
+  asm_fetch_aux pc code2 = SOME (Asm (ShareMem op re a) inst' len) /\
+  get_memop_info op (:'a) = (q,r) ==>
   ∃index.
-    find_index (n2w (p + pos_val pc 0 code2))
-      (FLAT
-         (GENLIST
-            (λx.
-                 MAP (λx. FST (SND x))
-                   (line_to_info code2 p (x,asm_fetch_aux x code2)))
-            (num_pcs code2))) 0 = SOME index
+        find_index (n2w (p + pos_val pc 0 code2))
+          (FLAT
+             (GENLIST
+                (λx.
+                     MAP (λx. FST (SND x))
+                       (line_to_info code2 p (x,asm_fetch_aux x code2)))
+                (num_pcs code2))) 0 = SOME index ∧
+        EL index
+          (FLAT
+             (GENLIST
+                (λx.
+                     MAP FST
+                       (line_to_info code2 p (x,asm_fetch_aux x code2)))
+                (num_pcs code2))) = q ∧
+        SND
+          (EL index
+             (FLAT
+                (GENLIST
+                   (λx.
+                        MAP SND
+                          (line_to_info code2 p (x,asm_fetch_aux x code2)))
+                   (num_pcs code2)))) =
+        (r,a,re,n2w (len + pos_val pc 0 code2))
 Proof
   rpt strip_tac >>
   qspecl_then [
@@ -8110,19 +8220,26 @@ Proof
        (line_to_info code2 p (x,asm_fetch_aux x code2)))
       (num_pcs code2)))`,
     `(n2w (p + pos_val pc 0 code2))`,`0`] mp_tac find_index_MEM >>
-  impl_tac >>
-  rw[] >>
-  gvs[MEM_MAP,MEM_FLAT,line_to_info_def,find_index_is_MEM,MEM_GENLIST] >>
-  qexists_tac `[n2w (pos_val pc p code2)]` >>
-  rw[]
+  impl_tac
   >- (
-    qexists_tac `pc` >>
-    gvs[] >>
-    qpat_abbrev_tac `memop_info = get_memop_info op (:'a)` >>
-    Cases_on `memop_info` >>
-    gvs[asm_fetch_SOME_IMP_LESS_num_pcs]
+    rw[] >>
+    gvs[MEM_MAP,MEM_FLAT,line_to_info_def,find_index_is_MEM,MEM_GENLIST] >>
+    qexists_tac `[n2w (pos_val pc p code2)]` >>
+    rw[]
+    >- (
+      qexists_tac `pc` >>
+      gvs[] >>
+      qpat_abbrev_tac `memop_info = get_memop_info op (:'a)` >>
+      Cases_on `memop_info` >>
+      gvs[asm_fetch_SOME_IMP_LESS_num_pcs]
+    ) >>
+    metis_tac[pos_val_acc_0]
   ) >>
-  metis_tac[pos_val_acc_0]
+  rw[] >>
+  qexists_tac `i` >>
+  rw[]
+  >- cheat
+  
 QED
 
 Theorem get_shmem_info_ok_lemma:
@@ -8160,15 +8277,15 @@ Proof
   first_x_assum $ qspec_then `ffis` assume_tac >>
   gvs[EL_APPEND_EQN]
   >- (
-    drule $ GEN_ALL IMP_find_index_is_SOME >>
+    qpat_abbrev_tac `memop_info = get_memop_info op (:'a)` >>
+    Cases_on `memop_info` >>
+   drule $ GEN_ALL IMP_find_index_is_SOME >>
     disch_then $ qspec_then `p` assume_tac >>
     fs[] >>
     qexists_tac `index` >>
     rw[] >>
     gvs[]
     >- cheat
-    qpat_abbrev_tac `memop_info = get_memop_info op (:'a)` >>
-    Cases_on `memop_info` >>
     gvs[] >>
     gvs[line_to_info_def] >>
     fs
