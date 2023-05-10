@@ -7729,6 +7729,7 @@ val IMP_state_rel_make_init = Q.prove(
     \\ gvs[]
   )
   >- (
+    gvs[share_mem_domain_code_rel_def] >>
   )
 );
 
@@ -7811,6 +7812,44 @@ Proof
   \\ rw[lab_filterTheory.filter_skip_def, get_code_labels_cons]
   \\ rw[sec_get_code_labels_def, LIST_TO_SET_FILTER]
   \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ AP_TERM_TAC \\ AP_TERM_TAC
+  \\ rw[Once EXTENSION, EQ_IMP_THM, PULL_EXISTS]
+  >- metis_tac[]
+  \\ asm_exists_tac \\ rw[]
+  \\ fs[lab_filterTheory.not_skip_def]
+  \\ CASE_TAC \\ fs[]
+QED
+
+Theorem get_labels_filter_skip[simp]:
+   ∀code. get_labels (filter_skip code) = get_labels code
+Proof
+  recInduct lab_filterTheory.filter_skip_ind
+  \\ rw[lab_filterTheory.filter_skip_def, get_labels_def]
+  \\ rw[sec_get_labels_def, LIST_TO_SET_FILTER]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ rw[Once EXTENSION, EQ_IMP_THM, PULL_EXISTS]
+  >- metis_tac[]
+  \\ asm_exists_tac \\ rw[]
+  \\ fs[lab_filterTheory.not_skip_def]
+  \\ CASE_TAC \\ fs[line_get_labels_def]
+QED
+
+Theorem implements_intro_gen:
+   (b /\ x <> Fail ==> y = {x}) ==> b ==> implements' T y {x}
+Proof
+  fs[semanticsPropsTheory.implements'_def,
+     semanticsPropsTheory.extend_with_resource_limit'_def]
+QED
+
+Theorem find_ffi_names_ALL_DISTINCT:
+    ∀code. ALL_DISTINCT (find_ffi_names code)
+Proof
+  ho_match_mp_tac find_ffi_names_ind>>rw[find_ffi_names_def]>>
+  TOP_CASE_TAC>>fs[find_ffi_names_def]>>
+  TOP_CASE_TAC>>fs[find_ffi_names_def]>>
+  fs[list_add_if_fresh_thm]>>
+  IF_CASES_TAC>>fs[ALL_DISTINCT_APPEND]
+QED
 
 Theorem get_shmem_info_MappedRead_or_MappedWrite:
 !sec pos ffi_names info new_ffi_names new_info.
@@ -7958,10 +7997,6 @@ Proof
   gvs[pos_val_def,line_length_def,get_memop_info_def]
 QED
 
-Theorem line_to_info_hd_not_Label:
-  line_to_info (Section k1 ((LabAsm v9 v10 v11 v12)::xs1)::rest1) p1 t1
-    = line_to_info (Section k1 xs1::rest1) 
-
 Theorem get_shmem_info_thm:
   !secs p ffi_names shmem_info.
   all_enc_ok c labs ffis p secs ==> 
@@ -8010,30 +8045,134 @@ Proof
   gvs[MAP_GENLIST,line_to_info_next,combinTheory.o_DEF,line_to_info_def]
 QED
 
-Theorem mmio_info_ok_lemma:
-  lab_to_target$compile c code = SOME (bytes,(c':'a lab_to_target$config)) ==>
-  ?ffi_names.
-    c'.ffi_names = SOME ffi_names /\
+Theorem FILETER_mmio_pcs_min_index:
+  EVERY (\x. x = "MappedRead" \/ x = "MappedWrite") l ==>
+  mmio_pcs_min_index 
+    (FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite") ffis ++ l) =
+  SOME $ LENGTH $
+    FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite") ffis
+Proof
+  rpt strip_tac >>
+  fs[mmio_pcs_min_index_def] >>
+  gvs[some_def] >>
+  SELECT_ELIM_TAC >>
+  rw[]
+  >~ [ `x = LENGTH _`]
+  >- (
+    spose_not_then assume_tac >>
+    Cases_on `x < LENGTH (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") ffis)`>>
+    gvs[]
+    >- (
+      first_x_assum $ qspec_then `x`assume_tac >>
+      gvs[EL_APPEND_EQN,EVERY_EL] >>
+      qspecl_then [
+        `\x. x <> "MappedRead" /\ x <> "MappedWrite"`,
+        `\x. x <> "MappedRead" /\ x <> "MappedWrite"`, `ffis`]
+        assume_tac EVERY_FILTER >>
+      gvs[EVERY_EL]
+    ) >>
+    `LENGTH (FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite") ffis) < x` by gvs[] >>
+    gvs[] >>
+    last_x_assum $ qspec_then
+      `LENGTH (FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite") ffis)` assume_tac >>
+    first_x_assum $ drule >>
+    gvs[EVERY_EL,EL_APPEND_EQN] >>
+    first_x_assum $ qspec_then `0` assume_tac >>
+    gvs[EL]
+  ) >> (
+   qexists_tac `LENGTH $
+     FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite") ffis` >>
+   gvs[] >>
+   rw[] >>
+   gvs[EL_APPEND_EQN,EVERY_EL] >>
+   qspecl_then [
+     `\x. x <> "MappedRead" /\ x <> "MappedWrite"`,
+     `\x. x <> "MappedRead" /\ x <> "MappedWrite"`, `ffis`]
+     assume_tac EVERY_FILTER >>
+   gvs[EVERY_EL]
+  )
+QED
+
+Theorem IMP_find_index_is_SOME:
+  asm_fetch_aux pc code2 = SOME (Asm (ShareMem op re a) inst' len) ==>
+  ∃index.
+    find_index (n2w (p + pos_val pc 0 code2))
+      (FLAT
+         (GENLIST
+            (λx.
+                 MAP (λx. FST (SND x))
+                   (line_to_info code2 p (x,asm_fetch_aux x code2)))
+            (num_pcs code2))) 0 = SOME index
+Proof
+  rpt strip_tac >>
+  qspecl_then [
+    `(FLAT (GENLIST (λx.MAP (λx. FST (SND x))
+       (line_to_info code2 p (x,asm_fetch_aux x code2)))
+      (num_pcs code2)))`,
+    `(n2w (p + pos_val pc 0 code2))`,`0`] mp_tac find_index_MEM >>
+  impl_tac >>
+  rw[] >>
+  gvs[MEM_MAP,MEM_FLAT,line_to_info_def,find_index_is_MEM,MEM_GENLIST] >>
+  qexists_tac `[n2w (pos_val pc p code2)]` >>
+  rw[]
+  >- (
+    qexists_tac `pc` >>
+    gvs[] >>
+    qpat_abbrev_tac `memop_info = get_memop_info op (:'a)` >>
+    Cases_on `memop_info` >>
+    gvs[asm_fetch_SOME_IMP_LESS_num_pcs]
+  ) >>
+  metis_tac[pos_val_acc_0]
+QED
+
+Theorem get_shmem_info_ok_lemma:
+  all_enc_ok c labs ffis p code2 /\
+  get_shmem_info code2 p
+    (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") ffis) [] =
+  (new_ffi_names, new_shmem_info)
+  ==>
   (!pc op re a inst len i.
     (asm_fetch_aux pc code2 = SOME (Asm (ShareMem op re a) inst len) /\
-    mmio_pcs_min_index ffi_names = SOME i) ==>
+    mmio_pcs_min_index new_ffi_names = SOME i) ==>
     (?index.
-      find_index (p + n2w (pos_val pc 0 code2)) (MAP FST c'.shmem_info) 0 =
+      find_index (n2w p + n2w (pos_val pc 0 code2)) (MAP FST new_shmem_info) 0 =
         SOME index /\
       (let (name, nb) = get_memop_info op (:'a) in
-        EL (index+i) ffi_names = name /\
-        SND (EL index c'.shmem_info) =
+        EL (index+i) new_ffi_names = name /\
+        SND (EL index new_shmem_info) =
          (nb,a,re,n2w (pos_val pc 0 code2 + len))))) /\
   (!pc line.
     asm_fetch_aux pc code2 = SOME line /\
     (!op re a inst len. line <> Asm (ShareMem op re a) inst len) ==>
-    DISJOINT (set (MAP FST c'.shmem_info))
-      {p + n2w a + n2w (pos_val pc 0 code2) |
+    DISJOINT (set (MAP FST new_shmem_info))
+      {n2w p + n2w a + n2w (pos_val pc 0 code2) |
         a < LENGTH (line_bytes line)})
 Proof
-  gvs[AllCaseEqs(),lab_to_targetTheory.compile_def,compile_lab_def,APPLY_UPDATE_THM] >>
-  Cases_on `c.ffi_names` >>
-  gvs[AllCaseEqs()] >>
+  rw[] >>
+  drule get_shmem_info_thm >>
+  disch_then $ qspecl_then
+    [`FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite") ffis`,`[]`] assume_tac >>
+  gvs[UNZIP_MAP,MAP_FLAT,MAP_GENLIST,combinTheory.o_DEF,MAP_MAP_o,EL_GENLIST] >>
+  gvs[word_add_n2w] >>
+  drule_then assume_tac get_shmem_info_MappedRead_or_MappedWrite >>
+  gvs[] >>
+  drule_then assume_tac FILETER_mmio_pcs_min_index >>
+  first_x_assum $ qspec_then `ffis` assume_tac >>
+  gvs[EL_APPEND_EQN]
+  >- (
+    drule $ GEN_ALL IMP_find_index_is_SOME >>
+    disch_then $ qspec_then `p` assume_tac >>
+    fs[] >>
+    qexists_tac `index` >>
+    rw[] >>
+    gvs[]
+    >- cheat
+    qpat_abbrev_tac `memop_info = get_memop_info op (:'a)` >>
+    Cases_on `memop_info` >>
+    gvs[] >>
+    gvs[line_to_info_def] >>
+    fs
+  )
 QED
 
 val semantics_compile_lemma = Q.prove(
