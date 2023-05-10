@@ -2911,6 +2911,145 @@ Definition read_pointers_def:
      theWord (THE (FLOOKUP s.regs 4)))
 End
 
+
+(* memory *)
+(* move *)
+Theorem word_list_inj:
+  ∀xs a u u'. word_list a xs u ∧ word_list a xs u' ⇒ u = u'
+Proof
+  Induct>>rw[miscTheory.word_list_def]>- gs[set_sepTheory.emp_def]>>
+  first_x_assum $ qspecl_then [‘a+bytes_in_word’, ‘u DIFF {(a,h)}’, ‘u' DIFF {(a,h)}’] assume_tac>>
+  fs [Once set_sepTheory.STAR_def,set_sepTheory.SPLIT_EQ,word_list_def]>>
+  fs [Once set_sepTheory.STAR_def,set_sepTheory.SPLIT_EQ,word_list_def]>>
+  fs [set_sepTheory.one_def] >> gs[]>>
+  gs[DIFF_DEF,EXTENSION]>>metis_tac[]
+QED
+
+(* move? *)
+Theorem word_list_set:
+  ∀xs a. good_dimindex (:'a) ∧ 
+         w2n a + LENGTH xs * w2n (bytes_in_word :'a word) < dimword (:'a) ⇒
+         word_list a xs (set (GENLIST (λi. a + n2w i * bytes_in_word:'a word, EL i xs) (LENGTH xs)))
+Proof
+  Induct>>gs[word_list_def,emp_def]>>
+  rpt strip_tac>>
+  gs[one_def,STAR_def,SPLIT_EQ,GENLIST]>>
+  conj_tac >- 
+   (Cases_on ‘xs’>>gs[]>>
+    irule OR_INTRO_THM2>>gs[MEM_GENLIST]>>qexists_tac ‘0’>>gs[LENGTH])>>
+  first_x_assum $ qspec_then ‘a+bytes_in_word’ assume_tac>>
+  simp[LIST_TO_SET_SNOC]>>
+  Cases_on ‘xs’>-gs[word_add_def]>>gs[]>>
+  ‘w2n (a + bytes_in_word:'a word) + SUC (LENGTH t) * w2n (bytes_in_word:'a word) < dimword (:'a)’
+    by gs[bytes_in_word_def,good_dimindex_def,dimword_def,word_add_def]>>gs[]>>
+  ‘(bytes_in_word:'a word) * n2w (SUC (LENGTH t)) ≠ 0w’
+    by (rewrite_tac[Once WORD_MULT_COMM]>>
+        irule IMP_F>>
+        simp[word_mul_def]>>
+        gs[bytes_in_word_def,good_dimindex_def,dimword_def])>>gs[]>>
+  ‘set (GENLIST (λi. (a + bytes_in_word:'a word * n2w i,EL i (h::h'::t)))
+        (SUC (LENGTH t))) DIFF {(a,h)} =
+   set
+   (GENLIST (λi. ((a + bytes_in_word + bytes_in_word * n2w i:'a word),EL i (h'::t)))
+    (LENGTH t))’
+    by (simp[EXTENSION]>>strip_tac>>simp[MEM_GENLIST]>>
+        simp[EQ_IMP_THM]>>strip_tac>>gs[]
+        >- (strip_tac>>
+            Cases_on ‘i’>>fs[]>>
+            qexists_tac ‘n’>>fs[]>>
+            simp[n2w_SUC,WORD_LEFT_ADD_DISTRIB])>>
+        rpt strip_tac
+        >- (qexists_tac ‘SUC i’>>fs[]>>
+            simp[n2w_SUC,WORD_LEFT_ADD_DISTRIB])>>
+        Cases_on ‘i’>>gvs[]
+        >- (pop_assum $ assume_tac o GSYM>>
+            drule (iffLR WORD_ADD_INV_0_EQ)>>
+            gs[bytes_in_word_def,good_dimindex_def,dimword_def])>>
+        pop_assum $ mp_tac>>
+        TRY (rewrite_tac[Once (GSYM WORD_ADD_ASSOC)])>>strip_tac>>
+        pop_assum $ assume_tac o GSYM>>
+        drule (iffLR WORD_ADD_INV_0_EQ)>>
+        gs[word_add_def,word_mul_def]>>
+        gs[bytes_in_word_def,good_dimindex_def,dimword_def])>>
+  gs[]>>
+  ‘(a + bytes_in_word * n2w (SUC (LENGTH t)),EL (LENGTH t) (h'::t)) INSERT
+   set (GENLIST
+        (λi. (a + bytes_in_word + bytes_in_word * n2w i,EL i (h'::t)))
+        (LENGTH t)) =
+   set (GENLIST
+        (λi. (a + bytes_in_word + bytes_in_word * n2w i,EL i (h'::t)))
+        (SUC (LENGTH t)))’
+    by (simp[EXTENSION]>>strip_tac>>simp[MEM_GENLIST]>>
+        simp[EQ_IMP_THM]>>strip_tac>>gs[]
+        >- (strip_tac
+            >- (qexists_tac ‘LENGTH t’>>gs[n2w_SUC,WORD_LEFT_ADD_DISTRIB])>>
+            qexists_tac ‘i’>>gs[])>>
+        strip_tac>>
+        Cases_on ‘i = LENGTH t’>>gs[]
+        >- (irule OR_INTRO_THM1>>gs[n2w_SUC,WORD_LEFT_ADD_DISTRIB])>>
+        irule OR_INTRO_THM2>>qexists_tac ‘i’>>gs[])>>gs[]
+QED
+
+(* move? *)
+Theorem word_list_seteq:
+  ∀xs a. good_dimindex (:'a) ∧ 
+         w2n a + LENGTH xs * w2n (bytes_in_word :'a word) < dimword (:'a) ⇒
+         word_list a xs = (λs. s = set (GENLIST (λi. a + n2w i * bytes_in_word:'a word, EL i xs) (LENGTH xs)))
+Proof
+  rpt strip_tac>>rw[Once FUN_EQ_THM]>>
+  drule_all word_list_set>>strip_tac>>
+  simp[Once EQ_IMP_THM]>>strip_tac>>strip_tac>>gs[]>>
+  drule word_list_inj>>
+  qpat_x_assum ‘word_list _ _ (set _)’ $ assume_tac>>
+  disch_then $ drule>>strip_tac>>gs[]
+QED
+
+(* move? *)
+Theorem word_list_EL_in_memory:
+  good_dimindex (:'a) ∧ 
+  w2n a + LENGTH xs * w2n (bytes_in_word :'a word) < dimword (:'a) ∧
+  (r1 * word_list a xs * r2) (fun2set (m, dm)) ∧
+  i < LENGTH xs ⇒ m (a + n2w i * bytes_in_word:'a word) = EL i xs
+Proof
+  rpt strip_tac>>
+  fs [Once set_sepTheory.STAR_def,set_sepTheory.SPLIT_EQ,memory_def,word_list_def]>>
+  fs [Once set_sepTheory.STAR_def,set_sepTheory.SPLIT_EQ,memory_def,word_list_def]>>
+  full_simp_tac(srw_ss())[set_sepTheory.fun2set_def,SUBSET_DEF,PULL_EXISTS]>>
+  gs[word_list_seteq]>>
+  qabbrev_tac ‘x = (a + bytes_in_word* n2w i, EL i xs)’>>
+  ‘x ∈ u DIFF u'’
+    by (
+    qpat_assum ‘_ = _’ $ (fn h => REWRITE_TAC[h])>>
+    gs[MEM_GENLIST,Abbr ‘x’]>>metis_tac[])>>
+  last_x_assum $ qspec_then ‘x’ assume_tac>>
+  gs[Abbr ‘x’]
+QED
+
+(* move? *)
+Theorem word_list_in_memory:
+  (r1 * word_list a xs * r2) (fun2set (m, dm)) ∧
+  good_dimindex (:'a) ∧ 
+  w2n a + LENGTH xs * w2n (bytes_in_word :'a word) < dimword (:'a) ⇒
+           memory m (addresses a (LENGTH xs)) = word_list (a:'a word) xs
+Proof
+  rpt strip_tac>>
+  drule_then drule word_list_EL_in_memory>>
+  disch_then $ drule_at Any>>strip_tac>>
+  
+  simp[Once FUN_EQ_THM]>>strip_tac>>
+  gs[word_list_seteq,memory_def]>>
+
+  qmatch_goalsub_abbrev_tac ‘x = X ⇔ x = Y’>>
+  ‘X=Y’
+    by (gs[Abbr ‘X’, Abbr ‘Y’]>>
+        simp[LIST_TO_SET_GENLIST]>>
+        simp[count_def,IMAGE_DEF,
+             fun2set_def,addresses_thm]>>
+        simp[EXTENSION]>>strip_tac>>
+        simp[EQ_IMP_THM]>>strip_tac>>strip_tac>>metis_tac[])>>
+  gs[]
+QED
+
 Theorem init_code_thm:
    init_code_pre k bitmaps data_sp s /\ code_rel jump off k code s.code /\
     s.compile_oracle = (I ## MAP (prog_comp jump off k) ## I) o coracle /\
@@ -2936,7 +3075,10 @@ Theorem init_code_thm:
          state_rel jump off k (init_reduce gen_gc jump off k code bitmaps data_sp coracle t) t /\
          t.ffi = s.ffi /\
          init_prop gen_gc max_heap data_sp (get_stack_heap_limit max_heap (read_pointers s))
-           (init_reduce gen_gc jump off k code bitmaps data_sp coracle t)
+                   (init_reduce gen_gc jump off k code bitmaps data_sp coracle t) ∧
+         s.mdomain = t.mdomain ∧
+         (let t0 = init_reduce gen_gc jump off k code bitmaps data_sp coracle t in
+            fun2set (s.memory, t0.mdomain) = fun2set (t.memory, t0.mdomain))
 Proof
   simp_tac std_ss [init_code_pre_def] \\ strip_tac
   \\ `k <> 3 /\ k <> 4 /\ k <> 5` by decide_tac
@@ -3214,6 +3356,7 @@ Proof
   \\ qpat_x_assum `LENGTH rest = rest_of_stack_len` mp_tac
   \\ rename1 `LENGTH bitst = LENGTH store_list`
   \\ qpat_x_assum `LENGTH bitst = LENGTH store_list` mp_tac
+
   \\ rename1 `LENGTH heap = heap_length`
   \\ qpat_x_assum `LENGTH heap = heap_length` mp_tac
   \\ rpt strip_tac \\ rpt var_eq_tac
@@ -3407,49 +3550,96 @@ Proof
   \\ `d * (LENGTH heap DIV 2) < dimword (:α)` by
    (`LENGTH heap DIV 2 <= LENGTH heap` by fs [DIV_LE_X]
     \\ fs [Abbr`d`,good_dimindex_def,dimword_def] \\ fs [] \\ rfs [])
-  \\ Cases_on `gen_gc` \\ fs []
-  \\ `?hi. LENGTH heap = 2 * hi` by fs [EVEN_EXISTS]
-  \\ qexists_tac `hi`
-  \\ fs [bytes_in_word_def,word_mul_n2w]
-  \\ `n2w d = bytes_in_word` by fs [bytes_in_word_def]
-  \\ fs [GSYM word_mul_n2w,GSYM word_list_exists_ADD]
-  \\ `(2w * (bytes_in_word * n2w hi)) ⋙ 1 = bytes_in_word * (n2w hi) :'a word` by
-   (once_rewrite_tac [GSYM w2n_11] \\ rewrite_tac [w2n_lsr]
-    \\ fs [bytes_in_word_def,word_mul_n2w] \\ fs [DIV_EQ_X])
-  \\ fs []
-  \\ `b < dimword (:α)` by
-   (unabbrev_all_tac \\ fs []
-    \\ rfs [good_dimindex_def] \\ rfs [dimword_def])
-  \\ simp []
-  \\ `LENGTH bitmaps + (LENGTH xs + 1) < dimword (:α)` by
-   (qmatch_asmsub_abbrev_tac`(a1 * (word_list _ ls1 * (a2 * (a3 * (word_list _ ls2))))) _`>>
-    `(word_list bitmap_ptr (ls1++ls2) * a1*a2*a3) (fun2set (m1,dm))` by
-     (fs[Abbr`ls1`,Abbr`ls2`,word_list_APPEND]>>
-      fs [AC STAR_COMM STAR_ASSOC]) >>
-    qabbrev_tac`ls = ls1++ls2`>>
-    CCONTR_TAC>>
-    `dimword(:'a) ≤ LENGTH ls +1` by
-      (unabbrev_all_tac>>fs[])>>
-    `dimword(:'a) DIV d < LENGTH ls` by
-      (
-      DEP_REWRITE_TAC [DIV_LT_X]>>
-      `2 < d ∧ 0 < LENGTH ls` by
-        fs[Abbr`d`,good_dimindex_def]>>
-      fs[]>>
-      `LENGTH ls +1 < LENGTH ls * d` by
-        (Cases_on`LENGTH ls`>>fs[ADD1]>>
-        Cases_on`d`>>fs[ADD1])>>
-      fs[])>>
-    fs[Abbr`d`]>>
-    Q.ISPECL_THEN [`ls`,`bitmap_ptr`] mp_tac (GEN_ALL word_list_wrap)>>
-    impl_tac>-
-      fs[]>>
-    strip_tac>>
-    ntac 2 (pop_assum mp_tac)>>simp[word_list_def]>>
-    strip_tac>>
-    pop_assum SUBST_ALL_TAC>>
-    SEP_NEQ_TAC>>fs[])
-  \\ simp [] \\ match_mp_tac word_list_exists_addresses \\ fs []
+  \\ conj_tac >- (
+   Cases_on `gen_gc` \\ fs []
+   \\ `?hi. LENGTH heap = 2 * hi` by fs [EVEN_EXISTS]
+   \\ qexists_tac `hi`
+   \\ fs [bytes_in_word_def,word_mul_n2w]
+   \\ `n2w d = bytes_in_word` by fs [bytes_in_word_def]
+   \\ fs [GSYM word_mul_n2w,GSYM word_list_exists_ADD]
+   \\ `(2w * (bytes_in_word * n2w hi)) ⋙ 1 = bytes_in_word * (n2w hi) :'a word` by
+    (once_rewrite_tac [GSYM w2n_11] \\ rewrite_tac [w2n_lsr]
+     \\ fs [bytes_in_word_def,word_mul_n2w] \\ fs [DIV_EQ_X])
+   \\ fs []
+   \\ `b < dimword (:α)` by
+    (unabbrev_all_tac \\ fs []
+     \\ rfs [good_dimindex_def] \\ rfs [dimword_def])
+   \\ simp []
+   \\ `LENGTH bitmaps + (LENGTH xs + 1) < dimword (:α)` by
+    (qmatch_asmsub_abbrev_tac`(a1 * (word_list _ ls1 * (a2 * (a3 * (word_list _ ls2))))) _`>>
+     `(word_list bitmap_ptr (ls1++ls2) * a1*a2*a3) (fun2set (m1,dm))` by
+      (fs[Abbr`ls1`,Abbr`ls2`,word_list_APPEND]>>
+       fs [AC STAR_COMM STAR_ASSOC]) >>
+     qabbrev_tac`ls = ls1++ls2`>>
+     CCONTR_TAC>>
+     `dimword(:'a) ≤ LENGTH ls +1` by
+       (unabbrev_all_tac>>fs[])>>
+     `dimword(:'a) DIV d < LENGTH ls` by
+       (
+       DEP_REWRITE_TAC [DIV_LT_X]>>
+       `2 < d ∧ 0 < LENGTH ls` by
+         fs[Abbr`d`,good_dimindex_def]>>
+       fs[]>>
+       `LENGTH ls +1 < LENGTH ls * d` by
+         (Cases_on`LENGTH ls`>>fs[ADD1]>>
+         Cases_on`d`>>fs[ADD1])>>
+       fs[])>>
+     fs[Abbr`d`]>>
+     Q.ISPECL_THEN [`ls`,`bitmap_ptr`] mp_tac (GEN_ALL word_list_wrap)>>
+     impl_tac>-
+       fs[]>>
+     strip_tac>>
+     ntac 2 (pop_assum mp_tac)>>simp[word_list_def]>>
+     strip_tac>>
+     pop_assum SUBST_ALL_TAC>>
+     SEP_NEQ_TAC>>fs[])
+   \\ simp [] \\ match_mp_tac word_list_exists_addresses \\ fs [])>>
+  qpat_x_assum ‘_ (fun2set (m1,_))’ assume_tac>>
+  qpat_x_assum ‘_ (fun2set (m4,_))’ assume_tac>>
+  pop_assum mp_tac>>
+  simp[Once STAR_ASSOC]>>
+  simp[Once STAR_ASSOC]>>
+  qmatch_goalsub_abbrev_tac ‘(r1 * word_list (n2w (d * h2)) heap * r2) (fun2set (_, _))’>>
+  strip_tac>>drule word_list_in_memory>>gs[]>>
+  ‘w2n (bytes_in_word:'a word) = d’
+  by gs[byteTheory.bytes_in_word_def,Abbr ‘d’]>>
+  ‘d * h2 + LENGTH heap * w2n (bytes_in_word:'a word) < dimword (:α)’
+  by (irule LESS_TRANS>>
+      qpat_assum ‘d  + _ < _’$ irule_at Any>>
+      rewrite_tac[ADD_ASSOC]>>gs[])>>gs[]>>
+  strip_tac>>
+  qpat_x_assum ‘_ (fun2set (m1,_))’ mp_tac>>
+  ntac 2 (simp[Once STAR_ASSOC])>>
+  strip_tac>>drule word_list_in_memory>>gs[]>>
+  strip_tac>>
+  gs[memory_def]>>
+  qpat_x_assum ‘_ = word_list _ heap’ mp_tac>>
+  qpat_x_assum ‘_ = word_list _ heap’ mp_tac>>
+  simp[Once FUN_EQ_THM]>>strip_tac>>
+  simp[Once FUN_EQ_THM]>>strip_tac>>
+  ‘word_list (n2w (d * h2)) heap
+   (fun2set (m4,addresses (n2w (d * h2)) (LENGTH heap)))’
+   by metis_tac[]>>
+  gs[Abbr ‘m4’]>>
+
+  ‘fun2set (m⦇a + n2w (d * LENGTH rest1) ↦ Word 0w⦈,
+            addresses (n2w (d * h2)) (LENGTH heap)) =
+   fun2set (m,addresses (n2w (d * h2)) (LENGTH heap))’
+   by (rewrite_tac[set_sepTheory.fun2set_eq]>>
+      strip_tac>>strip_tac>>
+      gs[addresses_thm,UPDATE_def]>>IF_CASES_TAC>>gs[]>>
+      gs[Abbr ‘a’]>>
+      pop_assum $ mp_tac o GSYM>>
+      ‘bytes_in_word :'a word = n2w d’
+        by (qpat_x_assum ‘_ = d’ $ assume_tac o GSYM>>gs[])>>
+      fs[]>>simp[wordsTheory.word_mul_n2w]>>
+      simp[word_add_n2w]>>
+      ‘d * i < d * LENGTH heap’ by gs[]>>
+      ‘d * h2 + d * i < dimword (:'a)’
+        by (irule LESS_TRANS>>
+            qexists_tac ‘d * h2 + d * LENGTH heap’>>gs[])>>
+      simp[])>>
+  gs[]
 QED
 
 val make_init_opt_def = Define `
