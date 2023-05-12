@@ -665,9 +665,10 @@ Definition share_mem_domain_code_rel_def:
     (!pc line.
       asm_fetch_aux pc code2 = SOME line /\
       (!op re a inst len. line <> Asm (ShareMem op re a) inst len) ==>
-      DISJOINT (set mc_conf.ffi_entry_pcs)
+      (* DISJOINT (set mc_conf.ffi_entry_pcs)
         {p + n2w a + n2w (pos_val pc 0 code2) |
-          a < LENGTH (line_bytes line)}) /\
+          a < LENGTH (line_bytes line)}) *)
+        p + n2w (pos_val pc 0 code2) NOTIN set mc_conf.ffi_entry_pcs) /\
      (* restriction for shared memory domain *)
      (!a.
         byte_align a IN s1_shared_mem_domain ==>
@@ -5736,32 +5737,6 @@ Proof
   rw[FUN_EQ_THM, read_ffi_bytearrays_def, read_ffi_bytearray_def]
 QED
 
-Theorem NOT_DISJOINT_ffi_entry_pcs_IMP_ShareMem:
-(!pc line.
-  asm_fetch_aux pc code2 = SOME line /\
-  (!op re a inst len. line <> Asm (ShareMem op re a) inst len) ==>
-  DISJOINT (set mc_conf.ffi_entry_pcs)
-    {p + n2w a + n2w (pos_val pc 0 code2) |
-      a < LENGTH (line_bytes line)}) <=>
-(!pc line.
-  asm_fetch_aux pc code2 = SOME line ∧
-  (?x. MEM x mc_conf.ffi_entry_pcs /\
-    x IN {p + n2w a + n2w (pos_val pc 0 code2) | a < LENGTH (line_bytes line)}) ⇒
-  ∃op re a inst len. line = Asm (ShareMem op re a) inst len)
-Proof
-  fs[EQ_IMP_THM] >> rpt strip_tac
-  >- (
-    spose_not_then assume_tac >>
-    first_x_assum drule_all >>
-    rpt strip_tac >>
-    fs[IN_DISJOINT] >>
-    metis_tac[])
-  >- (
-    spose_not_then assume_tac >>
-    fs[IN_DISJOINT] >>
-    metis_tac[])
-QED
-
 Theorem IMP_ffi_entry_pcs_disjoint_Asm:
 !^s1 (mc_conf: ('a,'state,'b) machine_config).
   code_similar s1.code code2 /\
@@ -7669,8 +7644,9 @@ val IMP_state_rel_make_init = Q.prove(
     remove_labels clock mc_conf.target.config 0 LN mc_conf.ffi_names code =
       SOME (code2,labs) /\
     good_init_state mc_conf ms (prog_to_bytes code2)
-      cbspace t m dm sdm io_regs cc_regs
-      ==>
+      cbspace t m dm sdm io_regs cc_regs /\
+    share_mem_domain_code_rel mc_conf (mc_conf.target.get_pc ms) code2 sdm
+    ==>
     state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
         mc_conf.target.get_pc ms)
       (make_init mc_conf (ffi:'ffi ffi_state) io_regs cc_regs t m dm sdm ms code
@@ -7719,18 +7695,11 @@ val IMP_state_rel_make_init = Q.prove(
   \\ conj_tac>-
     (drule pos_val_0 \\ simp[])
   \\ conj_tac >- metis_tac[code_similar_sec_labels_ok]
-  \\ conj_tac
-  (* TODO *)
-  >- (
-    gvs[share_mem_state_rel_def]
-    \\ rpt strip_tac
-    \\ gvs[IMP_CONJ_THM, AND_IMP_INTRO]
-    \\ first_x_assum $ qspecl_then [`ms2`, `k`, `index`, `new_bytes`, `t1`, `B`, `C`] mp_tac
-    \\ gvs[]
-  )
-  >- (
-    gvs[share_mem_domain_code_rel_def] >>
-  )
+  \\ gvs[share_mem_state_rel_def]
+  \\ rpt strip_tac
+  \\ gvs[IMP_CONJ_THM, AND_IMP_INTRO]
+  \\ first_x_assum $ qspecl_then [`ms2`, `k`, `index`, `new_bytes`, `t1`, `B`, `C`] mp_tac
+  \\ gvs[]
 );
 
 Theorem make_init_simp[simp]:
@@ -7749,7 +7718,7 @@ val semantics_make_init = save_thm("semantics_make_init",
   |> Q.GEN `t1` |> Q.SPEC `t`
   |> Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).target.get_pc ms`
   |> Q.SPEC `make_init (mc_conf: ('a,'state,'b) machine_config)
-       ffi io_regs cc_regs t m dm (ms:'state) code
+       ffi io_regs cc_regs t m dm sdm (ms:'state) code
        compile_lab (mc_conf.target.get_pc ms + (n2w (LENGTH (prog_to_bytes (code2:'a labLang$prog)))))
        cbspace coracle`
   |> SIMP_RULE std_ss [make_init_simp]
@@ -8096,7 +8065,7 @@ QED
 Theorem MEM_get_shmem_info:
   all_enc_ok c labs ffis p (code2: 'a sec list) /\
   asm_fetch_aux pc code2 = SOME (Asm (ShareMem op re a) inst' len) /\
-  get_memop_info op (:'a) = (q,r) ==>
+  get_memop_info op (:'a) = (q,r:word8) ==>
   MEM
     (q,n2w (pos_val pc p code2),r,a,re,n2w (pos_val pc (p+LENGTH inst') code2))
     (ZIP (get_shmem_info code2 p [] []))
@@ -8130,8 +8099,9 @@ QED
 Theorem pos_val_mono:
 !i p code2 j.
   i < j /\
-  j < num_pcs code2 /\
-  all_enc_ok c labs ffis p code2
+  j <= num_pcs code2 /\
+  all_enc_ok c labs ffis p code2 /\
+  enc_ok c
   ==>
   pos_val i p code2 < pos_val j p code2
 Proof
@@ -8145,11 +8115,35 @@ Proof
   `p < p + line_length y` suffices_by
     metis_tac[pos_val_GE_pc,LESS_LESS_EQ_TRANS] >>
   Cases_on `y` >>
-  gvs[is_Label_def,line_length_def,line_ok_def,enc_with_nop_thm]
-  >- cheat >> cheat
+  gvs[is_Label_def,line_length_def,line_ok_def]
+  >- (
+    gvs[enc_with_nop_def,enc_ok_def] >>
+    rename1 `l = c.encode w ++ rest` >>
+    last_x_assum $ qspec_then `w` assume_tac >>
+    gvs[LENGTH_APPEND,NOT_NIL_EQ_LENGTH_NOT_0]
+  ) >>
+  Cases_on `a` >>
+  gvs[line_ok_def] >>
+  rpt (
+    rename1 `get_label lab` >>
+    Cases_on `get_label lab` >>
+    gvs[] >>
+    Cases_on `lab_lookup n' n0 labs` >>
+    gvs[] >>
+    gvs[enc_ok_def,enc_with_nop_thm] >>
+    rename1 `0 < LENGTH (c.encode w) + len` >>
+    last_x_assum $ qspec_then `w` assume_tac >>
+    gvs[NOT_NIL_EQ_LENGTH_NOT_0]
+  ) >>
+  gvs[LENGTH_APPEND,enc_with_nop_thm,enc_ok_def] >>
+  rename1 `0 < LENGTH (c.encode w) + len` >>
+  last_x_assum $ qspec_then `w` assume_tac >>
+  gvs[NOT_NIL_EQ_LENGTH_NOT_0]
 QED
 
-Theorme get_shmem_info_ALL_DISTINCT:
+Theorem get_shmem_info_ALL_DISTINCT:
+  pos_val (num_pcs code2) p code2 < dimword (:'a) /\ 
+  enc_ok c /\
   all_enc_ok c labs ffis p (code2: 'a sec list) ==>
   ALL_DISTINCT (MAP FST $ SND $ get_shmem_info code2 p [] [])
 Proof
@@ -8182,68 +8176,36 @@ Proof
     Cases_on `m'` >>
     gvs[get_memop_info_def]
   ) >>
-  gvs[pos_val_mono] >>
-  cheat
+  gvs[] >>
+  `pos_val i p code2 < pos_val j p code2` by (
+    irule pos_val_mono >>
+    gvs[] >>
+    metis_tac[]
+  ) >>
+  `pos_val j p code2 < pos_val (num_pcs code2) p code2` by (
+    irule pos_val_mono >>
+    gvs[] >>
+    metis_tac[]
+  ) >>
+  gvs[LESS_MOD,LESS_TRANS]
 QED
 
-Theorem IMP_find_index_is_SOME:
-  asm_fetch_aux pc code2 = SOME (Asm (ShareMem op re a) inst' len) /\
-  get_memop_info op (:'a) = (q,r) ==>
-  ∃index.
-        find_index (n2w (p + pos_val pc 0 code2))
-          (FLAT
-             (GENLIST
-                (λx.
-                     MAP (λx. FST (SND x))
-                       (line_to_info code2 p (x,asm_fetch_aux x code2)))
-                (num_pcs code2))) 0 = SOME index ∧
-        EL index
-          (FLAT
-             (GENLIST
-                (λx.
-                     MAP FST
-                       (line_to_info code2 p (x,asm_fetch_aux x code2)))
-                (num_pcs code2))) = q ∧
-        SND
-          (EL index
-             (FLAT
-                (GENLIST
-                   (λx.
-                        MAP SND
-                          (line_to_info code2 p (x,asm_fetch_aux x code2)))
-                   (num_pcs code2)))) =
-        (r,a,re,n2w (len + pos_val pc 0 code2))
+Theorem get_shmem_info_EMPTY_LENGTH_EQ:
+  all_enc_ok c labs ffis p (code2: 'a sec list) ==>
+  LENGTH (FST (get_shmem_info code2 p [] [])) =
+    LENGTH (SND (get_shmem_info code2 p [] []))
 Proof
+  mp_tac get_shmem_info_thm >>
+  disch_then $ qspecl_then [`code2`, `p`,`[]`,`[]`] assume_tac >>
+  gvs[] >>
   rpt strip_tac >>
-  qspecl_then [
-    `(FLAT (GENLIST (λx.MAP (λx. FST (SND x))
-       (line_to_info code2 p (x,asm_fetch_aux x code2)))
-      (num_pcs code2)))`,
-    `(n2w (p + pos_val pc 0 code2))`,`0`] mp_tac find_index_MEM >>
-  impl_tac
-  >- (
-    rw[] >>
-    gvs[MEM_MAP,MEM_FLAT,line_to_info_def,find_index_is_MEM,MEM_GENLIST] >>
-    qexists_tac `[n2w (pos_val pc p code2)]` >>
-    rw[]
-    >- (
-      qexists_tac `pc` >>
-      gvs[] >>
-      qpat_abbrev_tac `memop_info = get_memop_info op (:'a)` >>
-      Cases_on `memop_info` >>
-      gvs[asm_fetch_SOME_IMP_LESS_num_pcs]
-    ) >>
-    metis_tac[pos_val_acc_0]
-  ) >>
-  rw[] >>
-  qexists_tac `i` >>
-  rw[]
-  >- cheat
-  
+  gvs[UNZIP_MAP]
 QED
 
 Theorem get_shmem_info_ok_lemma:
-  all_enc_ok c labs ffis p code2 /\
+  all_enc_ok c labs ffis p (code2: 'a sec list) /\
+  enc_ok c /\
+  pos_val (num_pcs code2) p code2 < dimword (:'a) /\ 
   get_shmem_info code2 p
     (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") ffis) [] =
   (new_ffi_names, new_shmem_info)
@@ -8257,39 +8219,97 @@ Theorem get_shmem_info_ok_lemma:
       (let (name, nb) = get_memop_info op (:'a) in
         EL (index+i) new_ffi_names = name /\
         SND (EL index new_shmem_info) =
-         (nb,a,re,n2w (pos_val pc 0 code2 + len))))) /\
+         (nb,a,re,n2w p + n2w (pos_val pc 0 code2 + len))))) /\
   (!pc line.
     asm_fetch_aux pc code2 = SOME line /\
     (!op re a inst len. line <> Asm (ShareMem op re a) inst len) ==>
-    DISJOINT (set (MAP FST new_shmem_info))
-      {n2w p + n2w a + n2w (pos_val pc 0 code2) |
-        a < LENGTH (line_bytes line)})
+      n2w p + n2w (pos_val pc 0 code2) NOTIN set (MAP FST new_shmem_info))
 Proof
   rw[] >>
-  drule get_shmem_info_thm >>
-  disch_then $ qspecl_then
-    [`FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite") ffis`,`[]`] assume_tac >>
-  gvs[UNZIP_MAP,MAP_FLAT,MAP_GENLIST,combinTheory.o_DEF,MAP_MAP_o,EL_GENLIST] >>
-  gvs[word_add_n2w] >>
+  drule get_shmem_info_PREPEND >>
   drule_then assume_tac get_shmem_info_MappedRead_or_MappedWrite >>
   gvs[] >>
   drule_then assume_tac FILETER_mmio_pcs_min_index >>
   first_x_assum $ qspec_then `ffis` assume_tac >>
-  gvs[EL_APPEND_EQN]
+  rpt strip_tac >>
+  gvs[EL_APPEND_EQN,word_add_n2w]
   >- (
-    qpat_abbrev_tac `memop_info = get_memop_info op (:'a)` >>
-    Cases_on `memop_info` >>
-   drule $ GEN_ALL IMP_find_index_is_SOME >>
-    disch_then $ qspec_then `p` assume_tac >>
-    fs[] >>
-    qexists_tac `index` >>
-    rw[] >>
-    gvs[]
-    >- cheat
+    Cases_on `(get_memop_info:memop -> 'a itself -> string # word8) op (:'a)` >>
+    drule_all MEM_get_shmem_info >>
+    strip_tac >>
     gvs[] >>
-    gvs[line_to_info_def] >>
-    fs
-  )
+    drule get_shmem_info_ALL_DISTINCT >>
+    gvs[] >>
+    strip_tac >>
+    gvs[find_index_ALL_DISTINCT_EL_eq,MEM_EL] >>
+    qexists `n` >>
+    gvs[EL_ZIP,get_shmem_info_EMPTY_LENGTH_EQ] >>
+    `LENGTH (ZIP (get_shmem_info code2 p [] [])) =
+      LENGTH (SND (get_shmem_info code2 p [] []))` by (
+      drule get_shmem_info_EMPTY_LENGTH_EQ >>
+      Cases_on `get_shmem_info code2 p [] []` >>
+      gvs[LENGTH_ZIP,AllCaseEqs()]
+    ) >>
+    gvs[EL_MAP] >>
+    simp[GSYM pos_val_acc_0] >>
+    drule get_shmem_info_EMPTY_LENGTH_EQ >>
+    strip_tac >>
+    Cases_on `get_shmem_info code2 p [] []` >>
+    gvs[EL_ZIP] >>
+    Cases_on `EL n r'`>>
+    drule_all all_enc_ok_asm_fetch_aux_IMP_line_ok >>
+    disch_then assume_tac >>
+    gvs[line_ok_def] >>
+    `pos_val pc (p + LENGTH inst') code2 = (LENGTH inst' + pos_val pc p code2)`
+      suffices_by gvs[] >>
+    gvs[pos_val_acc_sum]
+  ) >>
+  gvs[GSYM pos_val_acc_0] >>
+  drule get_shmem_info_thm >>
+  disch_then assume_tac >>
+  first_x_assum $ qspecl_then [`[]`,`[]`] assume_tac >>
+  gvs[UNZIP_MAP,MAP_FLAT,MAP_GENLIST,combinTheory.o_DEF,MEM_MAP,MEM_FLAT,MEM_GENLIST] >>
+  qpat_x_assum `!op re a inst len. line <> _` mp_tac >>
+  gvs[line_to_info_def] >>
+  Cases_on `asm_fetch_aux i code2` >>
+  gvs[] >>
+  Cases_on `x` >>
+  gvs[] >>
+  Cases_on `a` >>
+  gvs[] >>
+  qexistsl [`m`,`n'`,`a'`,`l`,`n`] >>
+  gvs[] >>
+  Cases_on `(get_memop_info:memop -> 'a itself -> string # word8) m (:'a)` >>
+  gvs[] >>
+  imp_res_tac asm_fetch_SOME_IMP_LESS_num_pcs >>
+  `pc = i` suffices_by (
+    strip_tac >>
+    gvs[]
+  ) >>
+  `pos_val pc p code2 < pos_val (num_pcs code2) p code2` by (
+    irule pos_val_mono >>
+    gvs[] >>
+    metis_tac[]
+  ) >>
+  `pos_val i p code2 < pos_val (num_pcs code2) p code2` by (
+    irule pos_val_mono >>
+    gvs[] >>
+    metis_tac[]
+  ) >>
+  gvs[X_MOD_Y_EQ_X] >>
+  Cases_on `pc = i` >>
+  gvs[] >>
+  Cases_on `pc < i`
+  >- (
+    drule pos_val_mono >>
+    disch_then $ qspecl_then [`p`,`code2`] assume_tac >>
+    gvs[]
+  ) >>
+  `i < pc` by decide_tac >>
+  gvs[] >>
+  drule pos_val_mono >>
+  disch_then $ qspecl_then [`p`,`code2`] assume_tac >>
+  gvs[]
 QED
 
 val semantics_compile_lemma = Q.prove(
