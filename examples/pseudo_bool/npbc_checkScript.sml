@@ -1276,11 +1276,9 @@ Proof
   intLib.ARITH_TAC
 QED
 
-(* The formula represented by the core *)
 Definition coref_def:
   coref (core:num_set) fml =
-    mapi (λk v.
-      case lookup k fml of NONE => ([],0):npbc | SOME res => res) core
+  inter fml core
 End
 
 (* The list of subgoals for dominance
@@ -1530,17 +1528,19 @@ Definition check_cstep_def:
                chk, obj, bound, ord, orders)
     else NONE
   | CheckedDelete n s pfs idopt => (
-    let cf = coref core fml in
-    case lookup n cf of
+    case lookup n fml of
       NONE => NONE
     | SOME c =>
-      (let nc = delete n core in
-      let ncf = delete n cf in
-      case check_red ord obj nc ncf id c s pfs idopt of
-        SOME id' =>
-        SOME (delete n fml, id', nc,
-              chk, obj, bound, ord, orders)
-      | NONE => NONE))
+      if lookup n core = SOME ()
+      then
+        (let nc = delete n core in
+        let ncf = coref nc fml in
+        case check_red ord obj nc ncf id c s pfs idopt of
+          SOME id' =>
+          SOME (delete n fml, id', nc,
+                chk, obj, bound, ord, orders)
+        | NONE => NONE)
+      else NONE)
   | UncheckedDelete ls =>
       (* Either no order or all ids are in core *)
       if ord = NONE ∨ domain fml ⊆ domain core then
@@ -1570,88 +1570,13 @@ Definition check_cstep_def:
   )
 End
 
-Theorem domain_coref:
-  domain (coref core fml) =
-  domain core
-Proof
-  rw[coref_def]
-QED
-
-Theorem range_coref_SUBSET:
-  domain core ⊆ domain fml ⇒
-  range (coref core fml) ⊆ range fml
-Proof
-  rw[coref_def,SUBSET_DEF,range_def]>>
-  fs[lookup_mapi,domain_lookup]>>
-  first_x_assum drule>>
-  rw[]>>
-  fs[]>>
-  metis_tac[]
-QED
-
-Theorem range_coref_insert:
-  lookup h fml = SOME c ⇒
-  range (coref (insert h () core) fml) =
-  c INSERT range (coref core fml)
-Proof
-  rw[coref_def]>>
-  fs[range_def]>>
-  rw[EXTENSION,EQ_IMP_THM]>>
-  fs[lookup_mapi]>>rw[]>>
-  fs[lookup_insert]
-  >- (
-    every_case_tac>>fs[]>>
-    DISJ2_TAC>>
-    first_x_assum (irule_at Any)>>
-    simp[])
-  >-
-    (qexists_tac`h`>>simp[])
-  >>
-    qexists_tac`n`>>simp[]
-QED
-
-Theorem range_coref_FOLDL_insert:
-  ∀l core.
-  EVERY (λid. lookup id fml ≠ NONE) l ⇒
-  range (coref (FOLDL (λa b. insert b () a) core l) fml) =
-  set (MAP (λid. THE (lookup id fml)) l) ∪ range (coref core fml)
-Proof
-  Induct>>rw[]>>fs[]>>
-  `?c. lookup h fml = SOME c` by
-    metis_tac[option_CLAUSES]>>
-  DEP_REWRITE_TAC[range_coref_insert]>>
-  simp[]>>
-  simp[EXTENSION]>>
-  metis_tac[]
-QED
-
-Theorem range_coref_cong:
-  (∀x. sptree$lookup x (inter a core) = lookup x (inter fml core))
-  ⇒
-  range (coref core fml) = range (coref core a)
-Proof
-  rw[range_def,coref_def,lookup_mapi,EXTENSION,EQ_IMP_THM]>>
-  asm_exists_tac>>simp[]>>
-  first_x_assum(qspec_then`n` assume_tac)>>
-  gs[lookup_inter]>>
-  rpt(TOP_CASE_TAC>>fs[])
-QED
-
-Theorem range_coref_insert_2:
-  h ∉ domain fml ∧ domain core ⊆ domain fml ⇒
-  range (coref (insert h () core) (insert h c fml)) =
-  c INSERT range (coref core fml)
-Proof
-  DEP_REWRITE_TAC [range_coref_insert]>>
-  simp[lookup_insert]>>
-  rw[]>>AP_TERM_TAC>>
-  match_mp_tac range_coref_cong>>
-  fs[lookup_inter,lookup_insert]>>
-  rw[]>>
-  fs[domain_lookup,SUBSET_DEF]>>
-  every_case_tac>>fs[]>>
-  metis_tac[option_CLAUSES]
-QED
+Definition valid_conf_def:
+  valid_conf ord obj core fml ⇔
+  domain core ⊆ domain fml ∧
+  (IS_SOME ord ⇒
+    sat_obj_po ord obj
+      (range (coref core fml)) (range fml))
+End
 
 Theorem range_coref_delete:
   h ∉ domain core ⇒
@@ -1661,10 +1586,10 @@ Proof
   rw[coref_def]>>
   fs[range_def]>>
   rw[EXTENSION,EQ_IMP_THM]>>
-  fs[lookup_mapi]>>rw[]>>
+  fs[lookup_inter]>>rw[]>>
   fs[lookup_delete]>>
-  asm_exists_tac>>fs[domain_lookup]>>
-  IF_CASES_TAC>>fs[]
+  every_case_tac>>gvs[AllCaseEqs(),domain_lookup]>>
+  metis_tac[]
 QED
 
 Theorem range_coref_FOLDL_delete:
@@ -1678,34 +1603,6 @@ Proof
   fs[SUBSET_DEF]>>
   metis_tac[]
 QED
-
-Theorem range_coref_insert_notin:
-  n ∉ domain core ⇒
-  range (coref core (insert n c fml)) =
-  range (coref core fml)
-Proof
-  rw[coref_def]>>
-  fs[range_def]>>
-  rw[EXTENSION,EQ_IMP_THM]>>
-  fs[lookup_mapi]>>rw[]>>
-  fs[domain_lookup]>>
-  `n ≠ n'` by metis_tac[]>>
-  simp[lookup_insert]
-  >- (
-    every_case_tac>>fs[]>>
-    first_x_assum (irule_at Any)>>
-    simp[])
-  >-
-    (asm_exists_tac>>simp[])
-QED
-
-Definition valid_conf_def:
-  valid_conf ord obj core fml ⇔
-  domain core ⊆ domain fml ∧
-  (IS_SOME ord ⇒
-    sat_obj_po ord obj
-      (range (coref core fml)) (range fml))
-End
 
 Theorem valid_conf_FOLDL_delete:
   valid_conf ord obj core fml ∧
@@ -1763,10 +1660,12 @@ Theorem delete_coref:
 Proof
   rw[coref_def]>>
   DEP_REWRITE_TAC[spt_eq_thm]>>
-  simp[lookup_delete,lookup_mapi]>>rw[]>>
-  fs[wf_mapi]>>
-  match_mp_tac wf_delete>>
-  fs[wf_mapi]
+  simp[lookup_delete,lookup_inter]>>rw[]>>
+  fs[AllCaseEqs()]
+  >- (
+    match_mp_tac wf_delete>>
+    simp[])>>
+  metis_tac[option_CLAUSES]
 QED
 
 Theorem range_FOLDL_delete_coref:
@@ -1784,9 +1683,7 @@ Theorem range_coref_SUBSET_core:
   range (coref core' fml)
 Proof
   rw[coref_def,SUBSET_DEF,range_def]>>
-  fs[lookup_mapi,domain_lookup]>>
-  first_x_assum drule>>
-  rw[]>>
+  gvs[lookup_inter,domain_lookup,AllCaseEqs()]>>
   metis_tac[]
 QED
 
@@ -1835,16 +1732,6 @@ Proof
   rw[bimp_obj_def,imp_obj_def]
 QED
 
-Theorem lookup_coref:
-  domain core ⊆ domain fml ∧
-  lookup x (coref core fml) = SOME y ⇒
-  lookup x fml = SOME y
-Proof
-  rw[coref_def,lookup_mapi]>>
-  every_case_tac>>fs[domain_lookup,SUBSET_DEF]>>
-  metis_tac[option_CLAUSES]
-QED
-
 Theorem sat_obj_po_bimp_obj:
   sat_obj_po ord obj A B ⇒
   bimp_obj bound obj A obj B
@@ -1869,9 +1756,10 @@ Theorem coref_fromAList_fml:
   range (coref (fromAList (MAP (λ(x,y). (x,())) (toAList fml))) fml) =
   range fml
 Proof
-  simp[range_def,lookup_mapi,coref_def,lookup_fromAList,ALOOKUP_MAP,EXTENSION,ALOOKUP_toAList]>>
+  simp[range_def,lookup_inter,coref_def,lookup_fromAList,ALOOKUP_MAP,EXTENSION,ALOOKUP_toAList]>>
   rw[]>>eq_tac>>rw[]>>simp[PULL_EXISTS]>>
-  asm_exists_tac>>simp[]
+  fs[AllCaseEqs()]>>
+  metis_tac[]
 QED
 
 Theorem imp_obj_SUBSET:
@@ -1918,10 +1806,10 @@ Theorem trivial_valid_conf:
 Proof
   rw[valid_conf_def]>>
   `range (coref core fml) = range fml` by (
-    rw[coref_def,range_def,EXTENSION,lookup_mapi]>>
-    fs[EXTENSION,domain_lookup,PULL_EXISTS]>>
-    rw[]>>eq_tac>>rw[]>>
-    qexists_tac`n`>>simp[])>>
+    rw[coref_def,range_def,EXTENSION,lookup_inter]>>
+    fs[EXTENSION,domain_lookup,PULL_EXISTS,AllCaseEqs()]>>
+    rw[]>>eq_tac>>rw[]>>gvs[]>>
+    metis_tac[])>>
   metis_tac[sat_obj_po_refl]
 QED
 
@@ -1935,6 +1823,97 @@ Proof
   asm_exists_tac >> simp[]>>
   Cases_on`ord`>>fs[good_spo_def]>>
   metis_tac[reflexive_def,reflexive_po_of_spo,PAIR]
+QED
+
+Theorem lookup_coref_1:
+  lookup x (coref core fml) = SOME y ⇒
+  lookup x fml = SOME y
+Proof
+  simp[coref_def,lookup_inter,domain_lookup,SUBSET_DEF,AllCaseEqs()]
+QED
+
+Theorem lookup_coref_2:
+  lookup x fml = SOME z ∧
+  lookup x core = SOME () ⇒
+  lookup x (coref core fml) = SOME z
+Proof
+  simp[coref_def,lookup_inter,domain_lookup,SUBSET_DEF,AllCaseEqs()]
+QED
+
+Theorem range_coref_insert_notin:
+  n ∉ domain core ⇒
+  range (coref core (insert n c fml)) =
+  range (coref core fml)
+Proof
+  rw[coref_def]>>
+  fs[range_def]>>
+  rw[EXTENSION,EQ_IMP_THM]>>
+  fs[domain_lookup,lookup_inter,lookup_insert,AllCaseEqs()]>>rw[]>>
+  metis_tac[]
+QED
+
+Theorem range_coref_SUBSET:
+  domain core ⊆ domain fml ⇒
+  range (coref core fml) ⊆ range fml
+Proof
+  rw[range_def,SUBSET_DEF]>>
+  metis_tac[lookup_coref_1]
+QED
+
+Theorem range_coref_insert:
+  lookup h fml = SOME c ⇒
+  range (coref (insert h () core) fml) =
+  c INSERT range (coref core fml)
+Proof
+  rw[coref_def,range_def,EXTENSION,lookup_inter,lookup_insert,AllCaseEqs()]>>
+  rw[EQ_IMP_THM]>>fs[]>>
+  metis_tac[]
+QED
+
+Theorem range_coref_FOLDL_insert:
+  ∀l core.
+  EVERY (λid. lookup id fml ≠ NONE) l ⇒
+  range (coref (FOLDL (λa b. insert b () a) core l) fml) =
+  set (MAP (λid. THE (lookup id fml)) l) ∪ range (coref core fml)
+Proof
+  Induct>>rw[]>>fs[]>>
+  `?c. lookup h fml = SOME c` by
+    metis_tac[option_CLAUSES]>>
+  DEP_REWRITE_TAC[range_coref_insert]>>
+  simp[]>>
+  simp[EXTENSION]>>
+  metis_tac[]
+QED
+
+Theorem domain_coref:
+  domain (coref core fml) =
+  domain core ∩ domain fml
+Proof
+  rw[coref_def,INTER_COMM]
+QED
+
+Theorem range_coref_cong:
+  (∀x. sptree$lookup x (inter a core) = lookup x (inter fml core))
+  ⇒
+  range (coref core fml) = range (coref core a)
+Proof
+  rw[range_def,coref_def,EXTENSION,EQ_IMP_THM]
+QED
+
+Theorem range_coref_insert_2:
+  h ∉ domain fml ∧ domain core ⊆ domain fml ⇒
+  range (coref (insert h () core) (insert h c fml)) =
+  c INSERT range (coref core fml)
+Proof
+  DEP_REWRITE_TAC [range_coref_insert]>>
+  simp[lookup_insert]>>
+  rw[]>>AP_TERM_TAC>>
+  match_mp_tac range_coref_cong>>
+  fs[lookup_inter,lookup_insert]>>
+  rw[]>>
+  fs[domain_lookup,SUBSET_DEF]>>
+  every_case_tac>>fs[]>>
+  metis_tac[option_CLAUSES]
 QED
 
 Theorem check_cstep_correct:
@@ -2026,7 +2005,7 @@ Proof
         rw[sat_implies_def,range_def,satisfies_def]
         \\ gs[PULL_EXISTS]
         \\ rename [‘lookup a _ = SOME xx’]
-        \\ drule_all lookup_coref
+        \\ drule_all lookup_coref_1
         \\ strip_tac
         \\ Cases_on ‘subst_opt (subst_fun v) xx’ \\ fs []
         THEN1 (
@@ -2048,9 +2027,9 @@ Proof
         \\ last_x_assum drule
         \\ gvs[unsatisfiable_def,satisfiable_def, MEM_toAList,lookup_map_opt,AllCaseEqs(),satisfies_def]
         \\ fs[not_thm,range_def,PULL_EXISTS]
-        \\ drule_all lookup_coref \\ rw[]
+        \\ drule_all lookup_coref_1 \\ rw[]
         \\ `subst (subst_fun v) c = subst (subst_fun v) xx` by
-          metis_tac[subst_opt_SOME,lookup_coref]
+          metis_tac[subst_opt_SOME,lookup_coref_1]
         \\ metis_tac[])>>
       CONJ_TAC >- (
         (* order constraints *)
@@ -2107,7 +2086,7 @@ Proof
     qexists_tac`SOME x`>>
     drule sat_obj_po_more>>
     disch_then match_mp_tac>>
-    simp[range_coref_SUBSET])
+    metis_tac[range_coref_SUBSET])
   >- ( (* LoadOrder *)
     every_case_tac>>
     simp[]>>
@@ -2211,21 +2190,28 @@ Proof
   >- ( (* CheckedDelete *)
     rw[]>>
     every_case_tac>>fs[]>>
-    `id_ok (delete n (coref core fml)) id` by
+    `id_ok (coref (delete n core) fml) id` by
       (fs[id_ok_def,domain_coref,valid_conf_def]>>
       metis_tac[SUBSET_DEF])>>
-    `domain (delete n core) ⊆ domain (delete n (coref core fml))` by
-      simp[domain_delete,domain_coref]>>
+    `domain (delete n core) ⊆ domain (coref (delete n core) fml)` by
+      fs[domain_delete,domain_coref,valid_conf_def,SUBSET_DEF]>>
     drule_all check_red_correct>>
     simp[]>>strip_tac>>
     CONJ_TAC >-
       fs[id_ok_def]>>
-    `x INSERT range (delete n (coref core fml)) = range (coref core fml)` by (
-      rw[EXTENSION]>>
-      imp_res_tac range_delete_IN>>
-      simp[]>>
-      fs[range_def,lookup_delete]>>
-      metis_tac[])>>
+    `x INSERT range (coref (delete n core) fml) = range (coref core fml)` by (
+      fs[GSYM delete_coref]>>
+      rw[EXTENSION,EQ_IMP_THM]
+      >- (
+        rw[range_def]>>
+        metis_tac[lookup_coref_2])
+      >- (
+        fs[range_def,lookup_delete]>>
+        metis_tac[])>>
+      simp[EQ_SYM_EQ]>>
+      match_mp_tac range_delete_IN>>
+      fs[]>>
+      metis_tac[lookup_coref_2])>>
     pop_assum SUBST_ALL_TAC>>
     CONJ_TAC >-(
       match_mp_tac valid_conf_delete>>
@@ -2338,7 +2324,7 @@ Proof
       last_x_assum(qspec_then`w` mp_tac)>>
       impl_tac >- (
         first_x_assum match_mp_tac>>
-        metis_tac[domain_coref,domain_lookup,lookup_coref])>>
+        metis_tac[lookup_coref_2])>>
       intLib.ARITH_TAC)>>
     CONJ_TAC >- (
       rw[bimp_obj_def,imp_obj_def,sat_obj_le_def]>>
@@ -2355,7 +2341,7 @@ Proof
     fs[satisfies_def,range_def]>>
     impl_tac >- (
       first_x_assum match_mp_tac>>
-      metis_tac[domain_coref,domain_lookup,lookup_coref])>>
+      metis_tac[lookup_coref_2])>>
     intLib.ARITH_TAC)
 QED
 
@@ -2543,9 +2529,8 @@ QED
 Theorem range_coref_map_fml:
   range (coref (map (λv. ()) fml) fml) = range fml
 Proof
-  simp[range_def,lookup_mapi,coref_def,lookup_map,EXTENSION]>>
-  rw[]>>eq_tac>>rw[]>>simp[PULL_EXISTS]>>
-  asm_exists_tac>>simp[]
+  simp[range_def,lookup_inter,coref_def,lookup_map,EXTENSION,AllCaseEqs()]>>
+  metis_tac[]
 QED
 
 (* In the current setup, the

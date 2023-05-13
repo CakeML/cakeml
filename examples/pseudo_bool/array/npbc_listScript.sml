@@ -1309,7 +1309,7 @@ Definition read_coref_list_def:
   (read_coref_list [] fml = []) ∧
   (read_coref_list (i::is) fml =
     case any_el i fml NONE of
-      NONE => (i,([],0):npbc)::read_coref_list is fml
+      NONE => read_coref_list is fml
     | SOME res => (i,res) :: read_coref_list is fml)
 End
 
@@ -1319,7 +1319,7 @@ Theorem ALOOKUP_read_coref_list:
   ALOOKUP (read_coref_list ids fml) n =
   if MEM n ids then
      (case any_el n fml NONE of
-      NONE => SOME (([],0):npbc)
+      NONE => NONE
     | SOME res => SOME res)
   else NONE
 Proof
@@ -1346,11 +1346,11 @@ Theorem coref_coref_list:
 Proof
   rw[fml_rel_def,coref_list_def,coref_def]>>
   DEP_REWRITE_TAC[spt_eq_thm]>>
-  rw[wf_mapi,wf_fromAList,lookup_fromAList,lookup_mapi]>>
+  rw[wf_fromAList,lookup_fromAList,lookup_inter]>>
   DEP_REWRITE_TAC[ALOOKUP_read_coref_list]>>
   simp[ALL_DISTINCT_MAP_FST_toAList,toAList_domain,domain_lookup]>>
-  rw[]>>fs[]
-  >- (TOP_CASE_TAC>>fs[])>>
+  rw[]>>fs[]>>
+  TOP_CASE_TAC>>fs[]>>
   Cases_on`lookup n core`>>fs[]
 QED
 
@@ -1412,6 +1412,20 @@ Definition check_change_obj_list_def:
     | _ => F
 End
 
+Definition load_coref_list_def:
+  (load_coref_list [] fml newfml = newfml) ∧
+  (load_coref_list (i::is) fml newfml =
+    load_coref_list is fml (LUPDATE (EL i fml) i newfml))
+End
+
+(* Extract the core array from a core *)
+Definition arr_from_core_list_def:
+  arr_from_core_list core fmlls =
+  let ids = MAP FST (toAList core) in
+  let newfml = REPLICATE (LENGTH fmlls) NONE in
+  (load_coref_list ids fmlls newfml, ids)
+End
+
 Definition check_cstep_list_def:
   check_cstep_list cstep core chk obj bound
     ord orders fml inds id =
@@ -1466,17 +1480,18 @@ Definition check_cstep_list_def:
                chk, obj, bound, ord, orders)
     else NONE
   | CheckedDelete n s pfs idopt => (
-    let cf = coref_list core fml in
-    case lookup n cf of
+    case any_el n fml NONE of
       NONE => NONE
     | SOME c =>
-      (let nc = delete n core in
-      let ncf = delete n cf in
-      case check_red ord obj nc ncf id c s pfs idopt of
-        SOME id' =>
-        SOME (list_delete_list [n] fml, inds, id',
-              nc, chk, obj, bound, ord, orders)
-      | NONE => NONE))
+      if lookup n core = SOME () then
+        let nc = delete n core in
+        let (ncf,ninds) = arr_from_core_list nc fml in
+        case check_red_list ord obj nc ncf ninds id c s pfs idopt of
+          SOME (ncf',id',ninds') =>
+          SOME (list_delete_list [n] fml, inds, id',
+                nc, chk, obj, bound, ord, orders)
+        | NONE => NONE
+      else NONE)
   | UncheckedDelete ls =>
     if ord = NONE then
       SOME (list_delete_list ls fml, inds, id,
@@ -1599,6 +1614,42 @@ Proof
   gvs[ALOOKUP_NONE,MEM_MAP,PULL_FORALL,MEM_FILTER,Abbr`ls`,ind_rel_def]
 QED
 
+Theorem any_el_load_coref_list:
+  ∀ls fml newfml.
+  LENGTH fml = LENGTH newfml ⇒
+  any_el n (load_coref_list ls fml newfml) NONE =
+  if MEM n ls then
+    any_el n fml NONE
+  else any_el n newfml NONE
+Proof
+  Induct>>rw[load_coref_list_def]>>fs[]>>
+  rw[any_el_ALT,EL_LUPDATE]>>fs[]
+QED
+
+Theorem any_el_REPLICATE:
+  any_el n (REPLICATE l v) def =
+  if n < l then v else def
+Proof
+  rw[any_el_ALT,EL_REPLICATE]
+QED
+
+Theorem arr_from_core_list_rel:
+  fml_rel fml fmlls ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
+  arr_from_core_list core fmlls = (ncf,ninds) ⇒
+  fml_rel (coref core fml) ncf ∧
+  ind_rel ncf ninds ∧
+  (∀n. n ≥ id ⇒ any_el n ncf NONE = NONE)
+Proof
+  rw[fml_rel_def,arr_from_core_list_def,ind_rel_def]>>
+  fs[any_el_load_coref_list,any_el_REPLICATE]>>
+  every_case_tac>>fs[toAList_domain,domain_lookup,IS_SOME_EXISTS]>>
+  simp[coref_def,lookup_inter,AllCaseEqs()]
+  >- metis_tac[option_CLAUSES]>>
+  Cases_on`lookup x core`>>fs[]>>
+  metis_tac[option_CLAUSES]
+QED
+
 Theorem fml_rel_check_cstep_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
@@ -1668,17 +1719,23 @@ Proof
     metis_tac[option_CLAUSES])
   >- ( (* CheckedDelete *)
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    DEP_REWRITE_TAC[coref_coref_list]>>
+    `lookup n fml = SOME c` by
+      metis_tac[fml_rel_def]>>
     simp[]>>
+    pairarg_tac>>gvs[AllCaseEqs()]>>
+    drule_all arr_from_core_list_rel>>
+    strip_tac>>
+    drule_all fml_rel_check_red_list>>
+    strip_tac>>simp[]>>
     CONJ_TAC >- (
+      qpat_x_assum`fml_rel fml _` assume_tac>>
       drule fml_rel_list_delete_list>>
       disch_then(qspec_then`[n]` mp_tac)>>simp[])>>
     CONJ_TAC >- (
+      qpat_x_assum`ind_rel fmlls _` assume_tac>>
       drule ind_rel_list_delete_list>>
       disch_then(qspec_then`[n]` mp_tac)>>simp[])>>
-    CONJ_ASM2_TAC>-
-      simp[any_el_list_delete_list]>>
-    drule check_red_id>>simp[])
+    simp[any_el_list_delete_list])
   >- ((* UncheckedDelete *)
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]
     >- (
