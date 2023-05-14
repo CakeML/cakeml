@@ -1367,8 +1367,8 @@ Proof
      `bytes = mc_conf.target.config.encode (Inst (Mem mop r ad)) ++
         FLAT (REPLICATE n'' (mc_conf.target.config.encode (Inst Skip)))`
   \\ drule $ GEN_ALL asm_fetch_aux_pos_val_LENGTH_EQ
-  \\ disch_then $ qspecl_then [`mc_conf`, `labs`, `bytes`, `0`] mp_tac
-  \\ fs[]
+  \\ disch_then imp_res_tac
+  \\ first_x_assum $ qspec_then `bytes` mp_tac
   \\ impl_tac
   >- (qunabbrev_tac `bytes` >> fs[LENGTH_APPEND])
   \\ strip_tac
