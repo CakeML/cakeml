@@ -7643,8 +7643,9 @@ val IMP_state_rel_make_init = Q.prove(
     remove_labels clock mc_conf.target.config 0 LN mc_conf.ffi_names code =
       SOME (code2,labs) /\
     good_init_state mc_conf ms (prog_to_bytes code2)
-      cbspace t m dm sdm io_regs cc_regs /\
-    share_mem_domain_code_rel mc_conf (mc_conf.target.get_pc ms) code2 sdm
+      cbspace t m dm sdm io_regs cc_regs
+    (* /\
+    share_mem_domain_code_rel mc_conf (mc_conf.target.get_pc ms) code2 sdm *)
     ==>
     state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
         mc_conf.target.get_pc ms)
@@ -7699,6 +7700,8 @@ val IMP_state_rel_make_init = Q.prove(
   \\ gvs[IMP_CONJ_THM, AND_IMP_INTRO]
   \\ first_x_assum $ qspecl_then [`ms2`, `k`, `index`, `new_bytes`, `t1`, `B`, `C`] mp_tac
   \\ gvs[]
+  \\ rpt strip_tac
+  \\ simp[share_mem_domain_code_rel_def]
 );
 
 Theorem make_init_simp[simp]:
@@ -8333,7 +8336,7 @@ Proof
   gvs[]
 QED
 
-Theorem get_shmem_info_ok_lemma
+Theorem get_shmem_info_ok_lemma:
   all_enc_ok c labs ffis p (code2: 'a sec list) /\
   enc_ok c /\
   pos_val (num_pcs code2) p code2 < dimword (:'a) /\ 
@@ -8420,7 +8423,7 @@ Proof
   Cases_on `(get_memop_info:memop -> 'a itself -> string # word8) m (:'a)` >>
   gvs[] >>
   imp_res_tac asm_fetch_SOME_IMP_LESS_num_pcs >>
-  `pc = x'` suffices_by (rpt strip_tac >> gvs[])
+  `pc = x'` suffices_by (rpt strip_tac >> gvs[]) >>
   spose_not_then assume_tac >>
   drule $ GEN_ALL pos_val_asm_fetch_aux_distinct >>
   disch_then $ qspecl_then [`x'`,`pc`,`line`,`a`] mp_tac >>
@@ -8438,14 +8441,13 @@ val semantics_compile_lemma = Q.prove(
     lab_to_target$compile (c:'a lab_to_target$config) code = SOME (bytes,c') /\
     (* FFI is either given or computed *)
     c'.ffi_names = SOME mc_conf.ffi_names /\
-    mc_conf.mmio_info = 
-    good_init_state mc_conf ms bytes cbspace t m dm io_regs cc_regs /\
-    semantics (make_init mc_conf ffi io_regs cc_regs t m dm ms code
+    good_init_state mc_conf ms bytes cbspace t m dm sdm io_regs cc_regs /\
+    semantics (make_init mc_conf ffi io_regs cc_regs t m dm sdm ms code
       lab_to_target$compile (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
       coracle
     ) <> Fail ==>
     machine_sem mc_conf ffi ms =
-    {semantics (make_init mc_conf ffi io_regs cc_regs t m dm ms code
+    {semantics (make_init mc_conf ffi io_regs cc_regs t m dm sdm ms code
       lab_to_target$compile (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
       coracle
     )}`,
@@ -8457,6 +8459,9 @@ val semantics_compile_lemma = Q.prove(
   `compile =  (λc p. compile_lab c (filter_skip p)) ` by
     fs[FUN_EQ_THM,compile_def]>>
   pop_assum SUBST_ALL_TAC>>
+  Cases_on `get_shmem_info q c.pos
+    (FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite") ffis) []` >>
+  gvs[] >>
   fs[GSYM make_init_filter_skip]>>
   SIMP_TAC (bool_ss) [Once WORD_ADD_COMM]>>
   match_mp_tac (GEN_ALL semantics_make_init)>>
@@ -8482,6 +8487,7 @@ val semantics_compile_lemma = Q.prove(
   conj_tac >- (
     last_x_assum mp_tac \\
     CASE_TAC \\ fs[list_subset_def,EVERY_MEM] \\ rw[] \\
+    drule $ GEN_ALL get_shmem_info_thm
     metis_tac[] ) \\
   last_x_assum mp_tac \\
   CASE_TAC \\ fs[] \\ rw[] \\
