@@ -7634,194 +7634,6 @@ Proof
   gvs[]
 QED
 
-(* This is set up for the very first compile call *)
-val IMP_state_rel_make_init = Q.prove(
-  `good_code mc_conf.target.config LN code ∧
-   mc_conf_ok mc_conf ∧
-   compiler_oracle_ok coracle labs (LENGTH (prog_to_bytes code2)) mc_conf.target.config mc_conf.ffi_names ∧
-   list_subset (find_ffi_names code) mc_conf.ffi_names ∧
-    remove_labels clock mc_conf.target.config 0 LN mc_conf.ffi_names code =
-      SOME (code2,labs) /\
-    good_init_state mc_conf ms (prog_to_bytes code2)
-      cbspace t m dm sdm io_regs cc_regs
-    (* /\
-    share_mem_domain_code_rel mc_conf (mc_conf.target.get_pc ms) code2 sdm *)
-    ==>
-    state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
-        mc_conf.target.get_pc ms)
-      (make_init mc_conf (ffi:'ffi ffi_state) io_regs cc_regs t m dm sdm ms code
-           compile_lab (mc_conf.target.get_pc ms+n2w(LENGTH(prog_to_bytes code2))) cbspace coracle) t ms`,
-  rw[] \\ drule remove_labels_thm
-  \\ impl_tac >- (
-    fs[good_code_def,mc_conf_ok_def]
-    \\ rw[lab_lookup_def]>>
-    TOP_CASE_TAC>>fs[lookup_def])
-  \\ rw[]
-  \\ fs[state_rel_def,
-        word_loc_val_def,
-        make_init_def,
-        good_init_state_def,
-        mc_conf_ok_def,
-        compiler_oracle_ok_def,
-        target_configured_def,
-        good_code_def,
-        start_pc_ok_def,
-        ffi_interfer_ok_def,
-        ccache_interfer_ok_def]
-  \\ rfs[]
-  \\ conj_tac >- (
-    rw[] >>
-    gvs[IMP_CONJ_THM,AND_IMP_INTRO] >>
-    first_x_assum $ map_first_cj >>
-    simp[] >>
-    gvs[call_FFI_def, AllCaseEqs()] >>
-    drule mmio_pcs_min_index_is_SOME >>
-    rpt strip_tac >>
-    drule_all LESS_LESS_EQ_TRANS >>
-    gvs[]
-  )
-  \\ conj_tac >-
-    (strip_tac >>
-    pairarg_tac >> fs[]>>
-    qpat_x_assum`!k. _ (coracle k)`(qspec_then`k` assume_tac)>>rfs[]>>
-    strip_tac>>fs[])
-  \\ conj_tac >- metis_tac[EVEN,all_enc_ok_prog_to_bytes_EVEN]
-  \\ conj_tac >- metis_tac[EVEN,all_enc_ok_prog_to_bytes_EVEN]
-  \\ conj_tac >- (
-    simp[word_loc_val_byte_def,case_eq_thms]
-    \\ metis_tac[SUBSET_DEF,word_loc_val_def] )
-  \\ conj_tac >- metis_tac[word_add_n2w]
-  \\ conj_tac>- simp[bytes_in_mem_def]
-  \\ conj_tac>-
-    (drule pos_val_0 \\ simp[])
-  \\ conj_tac >- metis_tac[code_similar_sec_labels_ok]
-  \\ gvs[share_mem_state_rel_def]
-  \\ rpt strip_tac
-  \\ gvs[IMP_CONJ_THM, AND_IMP_INTRO]
-  \\ first_x_assum $ qspecl_then [`ms2`, `k`, `index`, `new_bytes`, `t1`, `B`, `C`] mp_tac
-  \\ gvs[]
-  \\ rpt strip_tac
-  \\ simp[share_mem_domain_code_rel_def]
-);
-
-Theorem make_init_simp[simp]:
-    (make_init a b d e f g h i j k l m n p).ffi = b ∧
-  (make_init a b d e f g h i j k l m n p).pc = 0 ∧
-  (make_init a b d e f g h i j k l m n p).code = k
-Proof
-  EVAL_TAC
-QED
-
-val semantics_make_init = save_thm("semantics_make_init",
-  machine_sem_EQ_sem |> SPEC_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO]
-  |> UNDISCH |> REWRITE_RULE []
-  |> SIMP_RULE std_ss [init_ok_def,PULL_EXISTS,GSYM CONJ_ASSOC,GSYM AND_IMP_INTRO]
-  |> SPEC_ALL |> Q.GEN `s1` |> Q.GEN `p`
-  |> Q.GEN `t1` |> Q.SPEC `t`
-  |> Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).target.get_pc ms`
-  |> Q.SPEC `make_init (mc_conf: ('a,'state,'b) machine_config)
-       ffi io_regs cc_regs t m dm sdm (ms:'state) code
-       compile_lab (mc_conf.target.get_pc ms + (n2w (LENGTH (prog_to_bytes (code2:'a labLang$prog)))))
-       cbspace coracle`
-  |> SIMP_RULE std_ss [make_init_simp]
-  |> MATCH_MP (MATCH_MP IMP_LEMMA IMP_state_rel_make_init)
-  |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
-
-Theorem make_init_filter_skip:
-   semantics
-    (make_init mc_conf ffi io_regs cc_regs t m dm sdm ms (filter_skip code)
-       compile_lab cbpos cbspace((λ(a,b). (a,filter_skip b)) o coracle)) =
-   semantics
-    (make_init mc_conf ffi io_regs cc_regs t m dm sdm ms code
-      (λc p. compile_lab c (filter_skip p)) cbpos cbspace coracle)
-Proof
-  match_mp_tac (filter_skip_semantics)>>
-  rw[]>>
-  simp[make_init_def]>>
-  qexists_tac`compile_lab`>>fs[]
-QED
-
-(* TODO: move *)
-Theorem find_ffi_names_filter_skip:
-   !code. find_ffi_names (filter_skip code) = find_ffi_names code
-Proof
-  recInduct find_ffi_names_ind
-  \\ fs [lab_filterTheory.filter_skip_def,find_ffi_names_def]
-  \\ rpt strip_tac \\ every_case_tac
-  \\ fs [lab_filterTheory.not_skip_def,find_ffi_names_def]
-QED
-
-val all_enc_ok_pre_filter_skip = Q.prove(`
-  ∀code c.
-  all_enc_ok_pre c code ⇒
-  all_enc_ok_pre c (filter_skip code)`,
-  Induct>>TRY(Cases)>>fs[lab_filterTheory.filter_skip_def]>>rw[]>>
-  Induct_on`l`>>fs[]>>rw[])
-
-Theorem MAP_Section_num_filter_skip[simp]:
-   ∀code. MAP Section_num (filter_skip code) = MAP Section_num code
-Proof
-  Induct \\ simp[lab_filterTheory.filter_skip_def]
-  \\ Cases \\ fs[lab_filterTheory.filter_skip_def]
-QED
-
-Theorem filter_skip_extract_labels[simp]:
-   ∀code. MAP (extract_labels o Section_lines) (filter_skip code) =
-   MAP (extract_labels o Section_lines) code
-Proof
-  Induct \\ simp[lab_filterTheory.filter_skip_def]
-  \\ Cases \\ fs[lab_filterTheory.filter_skip_def] \\
-  Induct_on`l` \\ fs[] \\
-  Cases \\ fs[lab_filterTheory.not_skip_def] \\
-  every_case_tac \\ fs[]
-QED
-
-Theorem get_code_labels_filter_skip[simp]:
-   ∀code. get_code_labels (filter_skip code) = get_code_labels code
-Proof
-  recInduct lab_filterTheory.filter_skip_ind
-  \\ rw[lab_filterTheory.filter_skip_def, get_code_labels_cons]
-  \\ rw[sec_get_code_labels_def, LIST_TO_SET_FILTER]
-  \\ AP_THM_TAC \\ AP_TERM_TAC
-  \\ AP_TERM_TAC \\ AP_TERM_TAC
-  \\ rw[Once EXTENSION, EQ_IMP_THM, PULL_EXISTS]
-  >- metis_tac[]
-  \\ asm_exists_tac \\ rw[]
-  \\ fs[lab_filterTheory.not_skip_def]
-  \\ CASE_TAC \\ fs[]
-QED
-
-Theorem get_labels_filter_skip[simp]:
-   ∀code. get_labels (filter_skip code) = get_labels code
-Proof
-  recInduct lab_filterTheory.filter_skip_ind
-  \\ rw[lab_filterTheory.filter_skip_def, get_labels_def]
-  \\ rw[sec_get_labels_def, LIST_TO_SET_FILTER]
-  \\ AP_THM_TAC \\ AP_TERM_TAC
-  \\ rw[Once EXTENSION, EQ_IMP_THM, PULL_EXISTS]
-  >- metis_tac[]
-  \\ asm_exists_tac \\ rw[]
-  \\ fs[lab_filterTheory.not_skip_def]
-  \\ CASE_TAC \\ fs[line_get_labels_def]
-QED
-
-Theorem implements_intro_gen:
-   (b /\ x <> Fail ==> y = {x}) ==> b ==> implements' T y {x}
-Proof
-  fs[semanticsPropsTheory.implements'_def,
-     semanticsPropsTheory.extend_with_resource_limit'_def]
-QED
-
-Theorem find_ffi_names_ALL_DISTINCT:
-    ∀code. ALL_DISTINCT (find_ffi_names code)
-Proof
-  ho_match_mp_tac find_ffi_names_ind>>rw[find_ffi_names_def]>>
-  TOP_CASE_TAC>>fs[find_ffi_names_def]>>
-  TOP_CASE_TAC>>fs[find_ffi_names_def]>>
-  fs[list_add_if_fresh_thm]>>
-  IF_CASES_TAC>>fs[ALL_DISTINCT_APPEND]
-QED
-
 Theorem get_shmem_info_MappedRead_or_MappedWrite:
 !sec pos ffi_names info new_ffi_names new_info.
   get_shmem_info sec pos ffi_names info =
@@ -7969,8 +7781,8 @@ Proof
 QED
 
 Theorem get_shmem_info_thm:
-  !secs p ffi_names shmem_info.
-  all_enc_ok c labs ffis p secs ==> 
+  !secs p ffi_names shmem_info p'.
+  all_enc_ok c labs ffis p' secs ==> 
   get_shmem_info secs p ffi_names shmem_info =
     let (new_ffis, new_info) =
       UNZIP $ FLAT $
@@ -8008,12 +7820,16 @@ Proof
     gvs[get_shmem_info_def] >>
     qpat_abbrev_tac `memop_info = get_memop_info m (:α)` >>
     Cases_on `memop_info` >>
-    gvs[UNZIP_MAP] 
+    gvs[UNZIP_MAP] >>
+    last_x_assum $ qspec_then `p' + LENGTH bytes` mp_tac >>
+    gvs[]
   ) >>
   gvs[all_enc_ok_def,line_ok_def,line_length_def] >>
   gvs[get_shmem_info_def,num_pcs_def] >>
   gvs[GENLIST_asm_fetch_aux_next] >>
-  gvs[MAP_GENLIST,line_to_info_next,combinTheory.o_DEF,line_to_info_def]
+  gvs[MAP_GENLIST,line_to_info_next,combinTheory.o_DEF,line_to_info_def] >>
+  last_x_assum $ qspec_then `p' + LENGTH bytes` mp_tac >>
+  gvs[]
 QED
 
 Theorem FILETER_mmio_pcs_min_index:
@@ -8065,7 +7881,7 @@ Proof
 QED
 
 Theorem MEM_get_shmem_info:
-  all_enc_ok c labs ffis p (code2: 'a sec list) /\
+  all_enc_ok c labs ffis p' (code2: 'a sec list) /\
   asm_fetch_aux pc code2 = SOME (Asm (ShareMem op re a) inst' len) /\
   get_memop_info op (:'a) = (q,r:word8) ==>
   MEM
@@ -8074,7 +7890,7 @@ Theorem MEM_get_shmem_info:
 Proof
   rw[] >>
   drule $ get_shmem_info_thm >>
-  disch_then $ qspecl_then [`[]`,`[]`] assume_tac >>
+  disch_then $ qspecl_then [`p`,`[]`,`[]`] assume_tac >>
   gvs[UNZIP_MAP,MAP_GENLIST,combinTheory.o_DEF,ZIP_MAP_FST_SND_EQ] >>
   simp[GSYM pos_val_acc_0] >>
   rw[MEM_FLAT,MEM_GENLIST,line_to_info_def] >>
@@ -8098,56 +7914,79 @@ Proof
   rw[]
 QED
 
+Theorem enc_ok_LENGTH_GT_0:
+  enc_ok c ==>
+  0 < LENGTH (c.encode l)
+Proof
+  rw[enc_ok_def] >>
+  last_x_assum $ qspec_then `l` mp_tac >>
+  gvs[NOT_NIL_EQ_LENGTH_NOT_0]
+QED
+
 Theorem pos_val_mono:
-!i p code2 j.
+!i p code2 j p'.
   i < j /\
   j <= num_pcs code2 /\
-  all_enc_ok c labs ffis p code2 /\
-  enc_ok c
-  ==>
+  all_enc_ok c labs ffis p' code2 /\
+  enc_ok c ==>
   pos_val i p code2 < pos_val j p code2
 Proof
   ho_match_mp_tac pos_val_ind >>
   rw[] >>
-  gvs[pos_val_def,num_pcs_def,all_enc_ok_def] >>
-  Cases_on `is_Label y` >>
-  gvs[all_enc_ok_def,pos_val_def] >>
-  Cases_on `i = 0` >>
-  gvs[pos_val_def] >>
-  `p < p + line_length y` suffices_by
-    metis_tac[pos_val_GE_pc,LESS_LESS_EQ_TRANS] >>
-  Cases_on `y` >>
-  gvs[is_Label_def,line_length_def,line_ok_def]
+  gvs[pos_val_def,num_pcs_def,all_enc_ok_def]
   >- (
-    gvs[enc_with_nop_def,enc_ok_def] >>
-    rename1 `l = c.encode w ++ rest` >>
-    last_x_assum $ qspec_then `w` assume_tac >>
-    gvs[LENGTH_APPEND,NOT_NIL_EQ_LENGTH_NOT_0]
+    last_x_assum $ qspecl_then [`j`,`p'`] assume_tac >>
+    gvs[]
   ) >>
-  Cases_on `a` >>
-  gvs[line_ok_def] >>
-  rpt (
-    rename1 `get_label lab` >>
-    Cases_on `get_label lab` >>
-    gvs[] >>
-    Cases_on `lab_lookup n' n0 labs` >>
-    gvs[] >>
-    gvs[enc_ok_def,enc_with_nop_thm] >>
-    rename1 `0 < LENGTH (c.encode w) + len` >>
-    last_x_assum $ qspec_then `w` assume_tac >>
-    gvs[NOT_NIL_EQ_LENGTH_NOT_0]
+  Cases_on `is_Label y` >>
+  gvs[all_enc_ok_def,pos_val_def]
+  >- (
+    last_x_assum $ qspecl_then [`j`,`p'+line_length y`] assume_tac >>
+    gvs[num_pcs_def]
   ) >>
-  gvs[LENGTH_APPEND,enc_with_nop_thm,enc_ok_def] >>
-  rename1 `0 < LENGTH (c.encode w) + len` >>
-  last_x_assum $ qspec_then `w` assume_tac >>
-  gvs[NOT_NIL_EQ_LENGTH_NOT_0]
+  Cases_on `i = 0` >>
+  gvs[pos_val_def]
+  >- (
+    simp[Once pos_val_acc_0] >>
+    Cases_on `y` >>
+    gvs[is_Label_def,line_length_def,line_ok_def] >>
+    gvs[enc_with_nop_thm] >>
+    gvs[ZERO_LESS_ADD] >>
+    disj1_tac
+    >- (
+      irule enc_ok_LENGTH_GT_0 >>
+      gvs[]
+    ) >>
+    Cases_on `a` >>
+    gvs[enc_with_nop_thm,is_Label_def,line_length_def,line_ok_def] >>
+    rpt (
+      rename1 `get_label lab` >>
+      Cases_on `get_label lab` >>
+      gvs[] >>
+      Cases_on `lab_lookup n' n0 labs` >>
+      gvs[] >>
+      gvs[enc_with_nop_thm] >>
+      gvs[ZERO_LESS_ADD] >>
+      disj1_tac >>
+      irule enc_ok_LENGTH_GT_0 >>
+      gvs[]
+    ) >>
+    gvs[ZERO_LESS_ADD] >>
+    disj1_tac >>
+    irule enc_ok_LENGTH_GT_0 >>
+    gvs[]
+  ) >>
+  last_x_assum $ qspecl_then [`j-1`,`p' + line_length y`] irule >>
+  gvs[] >>
+  qexists `p'`>>
+  gvs[]
 QED
 
 Theorem pos_val_mono_inv:
 !i p code2 j.
   pos_val i p code2 < pos_val j p code2 /\
   i <= num_pcs code2 /\
-  all_enc_ok c labs ffis p code2 /\
+  all_enc_ok c labs ffis p' code2 /\
   enc_ok c
   ==>
   i < j
@@ -8160,7 +7999,7 @@ Proof
   `j < i` by decide_tac >>
   gvs[] >>
   drule pos_val_mono >>
-  disch_then $ qspecl_then [`p`,`code2`] mp_tac >>
+  disch_then $ qspecl_then [`p`,`code2`,`p'`] mp_tac >>
   gvs[]
 QED
 
@@ -8168,7 +8007,7 @@ Theorem pos_val_inj:
 !p code2 j.
   pos_val i p code2 = pos_val j p code2 /\
   i <= num_pcs code2 /\ j <= num_pcs code2 /\
-  all_enc_ok c labs ffis p code2 /\
+  all_enc_ok c labs ffis p' code2 /\
   enc_ok c ==>
   i = j
 Proof
@@ -8177,24 +8016,24 @@ Proof
   Cases_on `i < j`
   >- (
     drule pos_val_mono >>
-    disch_then $ qspecl_then [`p`,`code2`] mp_tac >>
+    disch_then $ qspecl_then [`p`,`code2`,`p'`] mp_tac >>
     gvs[]
   ) >>
   `j < i` by decide_tac >>
   drule pos_val_mono >>
-  disch_then $ qspecl_then [`p`,`code2`] mp_tac >>
+  disch_then $ qspecl_then [`p`,`code2`,`p'`] mp_tac >>
   gvs[]
 QED
 
 Theorem get_shmem_info_ALL_DISTINCT:
   pos_val (num_pcs code2) p code2 < dimword (:'a) /\ 
   enc_ok c /\
-  all_enc_ok c labs ffis p (code2: 'a sec list) ==>
+  all_enc_ok c labs ffis p' (code2: 'a sec list) ==>
   ALL_DISTINCT (MAP FST $ SND $ get_shmem_info code2 p [] [])
 Proof
   rw[] >>
   drule get_shmem_info_thm >>
-  disch_then $ qspecl_then [`[]`,`[]`] assume_tac >>
+  disch_then $ qspecl_then [`p`,`[]`,`[]`] assume_tac >>
   gvs[UNZIP_MAP,MAP_GENLIST,combinTheory.o_DEF,MAP_MAP_o,MAP_FLAT,
     ALL_DISTINCT_FLAT,MEM_GENLIST] >>
   rw[] >>
@@ -8236,20 +8075,20 @@ Proof
 QED
 
 Theorem get_shmem_info_EMPTY_LENGTH_EQ:
-  all_enc_ok c labs ffis p (code2: 'a sec list) ==>
+  all_enc_ok c labs ffis p' (code2: 'a sec list) ==>
   LENGTH (FST (get_shmem_info code2 p [] [])) =
     LENGTH (SND (get_shmem_info code2 p [] []))
 Proof
   mp_tac get_shmem_info_thm >>
-  disch_then $ qspecl_then [`code2`, `p`,`[]`,`[]`] assume_tac >>
+  disch_then $ qspecl_then [`code2`, `p`,`[]`,`[]`,`p'`] assume_tac >>
   gvs[] >>
   rpt strip_tac >>
   gvs[UNZIP_MAP]
 QED
 
 Theorem pos_val_num_pcs:
-!c labs ffis p code2.
-  all_enc_ok c labs ffis p code2 ==>
+!c labs ffis p' code2.
+  all_enc_ok c labs ffis p' code2 ==>
   pos_val (num_pcs code2) p code2 = p + LENGTH (prog_to_bytes code2)
 Proof
   ho_match_mp_tac all_enc_ok_ind >>
@@ -8258,7 +8097,9 @@ Proof
     line_bytes_def] >>
   Cases_on `y` >>
   gvs[pos_val_def,num_pcs_def,prog_to_bytes_def,all_enc_ok_def,
-    line_bytes_def,line_length_def,line_ok_def] 
+    line_bytes_def,line_length_def,line_ok_def] >>
+  simp[Once pos_val_acc_0] >>
+  fs[Once pos_val_acc_0]
 QED
 
 Theorem pos_val_GE_num_pcs:
@@ -8273,24 +8114,38 @@ Proof
   gvs[num_pcs_def,pos_val_def]
 QED
 
+Theorem pos_val_0_aux:
+!c labs ffis p xs pos.
+  all_enc_ok c labs ffis p xs ==> (pos_val 0 pos xs = pos)
+Proof
+  ho_match_mp_tac all_enc_ok_ind >>
+  gvs[pos_val_def,all_enc_ok_def] >>
+  rpt strip_tac >>
+  res_tac >>
+  Cases_on `y` >>
+  gvs[is_Label_def,line_length_def,line_ok_def,pos_val_def]
+QED
+
 Theorem asm_fetch_aux_pos_val_SUC:
-!pc p code2.
-  all_enc_ok c labs ffi p code2 /\
+!pc p code2 p'.
+  all_enc_ok c labs ffi p' code2 /\
   asm_fetch_aux pc (code2: 'a sec list) = SOME line ==>
   LENGTH (line_bytes line) + pos_val pc p code2 = pos_val (pc+1) p code2
 Proof
   ho_match_mp_tac pos_val_ind >>
   rpt strip_tac >>
-  gvs[asm_fetch_aux_def,pos_val_def,all_enc_ok_def] >>
+  gvs[asm_fetch_aux_def,pos_val_def,all_enc_ok_def]
+  >- res_tac >>
   Cases_on `y` >>
-  gvs[is_Label_def,asm_fetch_aux_def,pos_val_def,all_enc_ok_def] >>
+  gvs[is_Label_def,asm_fetch_aux_def,pos_val_def,all_enc_ok_def]
+  >- res_tac >>
   Cases_on `pc` >>
   gvs[asm_fetch_aux_def,pos_val_def] >>
-  metis_tac[pos_val_0]
+  metis_tac[pos_val_0_aux]
 QED
 
 Theorem pos_val_asm_fetch_aux_distinct:
-  all_enc_ok c labs ffis p (code2: 'a sec list) /\
+  all_enc_ok c labs ffis p' (code2: 'a sec list) /\
   enc_ok c /\
   asm_fetch_aux pc code2 = SOME line /\
   a < LENGTH (line_bytes line) /\
@@ -8302,10 +8157,12 @@ Proof
   drule_then assume_tac pos_val_num_pcs >>
   drule pos_val_bound >>
   disch_then $ qspecl_then [`pc`, `p`] assume_tac >>
+  first_x_assum $ qspec_then `p` assume_tac >>
   drule pos_val_bound >>
   disch_then $ qspecl_then [`pc'`, `p`] assume_tac >>
   drule asm_fetch_aux_pos_val_SUC >>
   disch_then imp_res_tac >>
+  first_x_assum $ qspec_then `p` assume_tac >>
   gvs[] >>
   drule pos_val_bound >>
   disch_then $ qspecl_then [`pc + 1`, `p`] assume_tac >>
@@ -8337,7 +8194,7 @@ Proof
 QED
 
 Theorem get_shmem_info_ok_lemma:
-  all_enc_ok c labs ffis p (code2: 'a sec list) /\
+  all_enc_ok c labs ffis' p' (code2: 'a sec list) /\
   enc_ok c /\
   pos_val (num_pcs code2) p code2 < dimword (:'a) /\ 
   get_shmem_info code2 p
@@ -8373,10 +8230,11 @@ Proof
     Cases_on `(get_memop_info:memop -> 'a itself -> string # word8) op (:'a)` >>
     drule_all MEM_get_shmem_info >>
     strip_tac >>
+    first_x_assum $ qspec_then `p` assume_tac >>
     gvs[] >>
-    drule get_shmem_info_ALL_DISTINCT >>
+    drule $ GEN_ALL get_shmem_info_ALL_DISTINCT >>
     gvs[] >>
-    strip_tac >>
+    disch_then imp_res_tac >>
     gvs[find_index_ALL_DISTINCT_EL_eq,MEM_EL] >>
     qexists `n` >>
     gvs[EL_ZIP,get_shmem_info_EMPTY_LENGTH_EQ] >>
@@ -8403,8 +8261,7 @@ Proof
   gvs[GSYM pos_val_acc_0] >>
   rw[] >>
   drule get_shmem_info_thm >>
-  disch_then assume_tac >>
-  first_x_assum $ qspecl_then [`[]`,`[]`] assume_tac >>
+  disch_then $ qspecl_then [`p`,`[]`,`[]`] assume_tac >>
   gvs[UNZIP_MAP,MAP_FLAT,MAP_GENLIST,combinTheory.o_DEF,MAP_MAP_o] >>
   gvs[IN_DISJOINT,MEM_FLAT,MEM_GENLIST,MEM_MAP] >>
   rpt strip_tac >>
@@ -8426,8 +8283,230 @@ Proof
   `pc = x'` suffices_by (rpt strip_tac >> gvs[]) >>
   spose_not_then assume_tac >>
   drule $ GEN_ALL pos_val_asm_fetch_aux_distinct >>
-  disch_then $ qspecl_then [`x'`,`pc`,`line`,`a`] mp_tac >>
+  disch_then imp_res_tac >>
   gvs[]
+QED
+
+(* This is set up for the very first compile call *)
+val IMP_state_rel_make_init = Q.prove(
+  `good_code mc_conf.target.config LN code ∧
+   mc_conf_ok mc_conf ∧
+   compiler_oracle_ok coracle labs (LENGTH (prog_to_bytes code2)) mc_conf.target.config mc_conf.ffi_names ∧
+   list_subset (find_ffi_names code) mc_conf.ffi_names ∧
+    remove_labels clock mc_conf.target.config 0 LN mc_conf.ffi_names code =
+      SOME (code2,labs) /\
+    good_init_state mc_conf ms (prog_to_bytes code2)
+      cbspace t m dm sdm io_regs cc_regs /\
+    (* TODO *)
+    get_shmem_info code2
+      (w2n $ mc_conf.target.get_pc ms)
+      (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite")
+      (find_ffi_names code)) [] =
+    (new_ffi_names, new_shmem_info) /\
+    mc_conf.ffi_names = new_ffi_names /\
+    mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
+    DROP i (mc_conf.ffi_entry_pcs) = MAP FST new_shmem_info /\
+    (mc_conf.mmio_info = \index. EL (index - i) (MAP SND new_shmem_info))
+    (* /\
+    share_mem_domain_code_rel mc_conf (mc_conf.target.get_pc ms) code2 sdm *)
+    ==>
+    state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
+        mc_conf.target.get_pc ms)
+      (make_init mc_conf (ffi:'ffi ffi_state) io_regs cc_regs t m dm sdm ms code
+           compile_lab (mc_conf.target.get_pc ms+n2w(LENGTH(prog_to_bytes code2))) cbspace coracle) t ms`,
+  rw[] \\ drule remove_labels_thm
+  \\ impl_tac >- (
+    fs[good_code_def,mc_conf_ok_def]
+    \\ rw[lab_lookup_def]>>
+    TOP_CASE_TAC>>fs[lookup_def])
+  \\ rw[]
+  \\ fs[state_rel_def,
+        word_loc_val_def,
+        make_init_def,
+        good_init_state_def,
+        mc_conf_ok_def,
+        compiler_oracle_ok_def,
+        target_configured_def,
+        good_code_def,
+        start_pc_ok_def,
+        ffi_interfer_ok_def,
+        ccache_interfer_ok_def]
+  \\ rfs[]
+  \\ conj_tac >- (
+    rw[] >>
+    gvs[IMP_CONJ_THM,AND_IMP_INTRO] >>
+    first_x_assum $ map_first_cj >>
+    simp[] >>
+    gvs[call_FFI_def, AllCaseEqs()] >>
+    drule mmio_pcs_min_index_is_SOME >>
+    rpt strip_tac >>
+    drule_all LESS_LESS_EQ_TRANS >>
+    gvs[]
+  )
+  \\ conj_tac >-
+    (strip_tac >>
+    pairarg_tac >> fs[]>>
+    qpat_x_assum`!k. _ (coracle k)`(qspec_then`k` assume_tac)>>rfs[]>>
+    strip_tac>>fs[])
+  \\ conj_tac >- metis_tac[EVEN,all_enc_ok_prog_to_bytes_EVEN]
+  \\ conj_tac >- metis_tac[EVEN,all_enc_ok_prog_to_bytes_EVEN]
+  \\ conj_tac >- (
+    simp[word_loc_val_byte_def,case_eq_thms]
+    \\ metis_tac[SUBSET_DEF,word_loc_val_def] )
+  \\ conj_tac >- metis_tac[word_add_n2w]
+  \\ conj_tac>- simp[bytes_in_mem_def]
+  \\ conj_tac>-
+    (drule pos_val_0 \\ simp[])
+  \\ conj_tac >- metis_tac[code_similar_sec_labels_ok]
+  \\ conj_tac >- (
+    gvs[share_mem_state_rel_def]
+    \\ rpt strip_tac
+    \\ gvs[IMP_CONJ_THM, AND_IMP_INTRO]
+    \\ first_x_assum $ qspecl_then [`ms2`, `k`, `index`, `new_bytes`, `t1`, `B`, `C`] mp_tac
+    \\ gvs[] )
+  \\ simp[share_mem_domain_code_rel_def]
+  \\ drule $ GEN_ALL get_shmem_info_ok_lemma
+  \\ disch_then $ qspecl_then [`w2n (mc_conf.target.get_pc ms)`,`new_shmem_info`,`mc_conf.ffi_names`,`find_ffi_names code`] mp_tac
+  \\ gvs[]
+  \\ impl_tac
+  >- (
+    \\ drule $ GEN_ALL pos_val_num_pcs
+    \\ disch_then $ qspec_then
+      `w2n (mc_conf.target.get_pc ms)` assume_tac
+    \\ gvs[]
+    \\ cheat
+  )
+  \\ rw[]
+  >- (
+    qpat_x_assum `!pc op re a inst len. asm_fetch_aux _ _ = _ ==> ?i._` $ imp_res_tac
+    \\ qexists `index + i`
+    \\ drule find_index_LESS_LENGTH
+    \\ gvs[EL_MAP]
+    \\ rpt strip_tac
+    \\ qspecl_then [`i`,`mc_conf.ffi_entry_pcs`] assume_tac TAKE_DROP
+    \\ cheat
+  )
+  \\ gvs[]
+  \\ res_tac
+  \\ (* prove that TAKE i mc_conf.ffi_entry_pcs  *)
+);
+
+Theorem make_init_simp[simp]:
+    (make_init a b d e f g h i j k l m n p).ffi = b ∧
+  (make_init a b d e f g h i j k l m n p).pc = 0 ∧
+  (make_init a b d e f g h i j k l m n p).code = k
+Proof
+  EVAL_TAC
+QED
+
+val semantics_make_init = save_thm("semantics_make_init",
+  machine_sem_EQ_sem |> SPEC_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO]
+  |> UNDISCH |> REWRITE_RULE []
+  |> SIMP_RULE std_ss [init_ok_def,PULL_EXISTS,GSYM CONJ_ASSOC,GSYM AND_IMP_INTRO]
+  |> SPEC_ALL |> Q.GEN `s1` |> Q.GEN `p`
+  |> Q.GEN `t1` |> Q.SPEC `t`
+  |> Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).target.get_pc ms`
+  |> Q.SPEC `make_init (mc_conf: ('a,'state,'b) machine_config)
+       ffi io_regs cc_regs t m dm sdm (ms:'state) code
+       compile_lab (mc_conf.target.get_pc ms + (n2w (LENGTH (prog_to_bytes (code2:'a labLang$prog)))))
+       cbspace coracle`
+  |> SIMP_RULE std_ss [make_init_simp]
+  |> MATCH_MP (MATCH_MP IMP_LEMMA IMP_state_rel_make_init)
+  |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
+
+Theorem make_init_filter_skip:
+   semantics
+    (make_init mc_conf ffi io_regs cc_regs t m dm sdm ms (filter_skip code)
+       compile_lab cbpos cbspace((λ(a,b). (a,filter_skip b)) o coracle)) =
+   semantics
+    (make_init mc_conf ffi io_regs cc_regs t m dm sdm ms code
+      (λc p. compile_lab c (filter_skip p)) cbpos cbspace coracle)
+Proof
+  match_mp_tac (filter_skip_semantics)>>
+  rw[]>>
+  simp[make_init_def]>>
+  qexists_tac`compile_lab`>>fs[]
+QED
+
+(* TODO: move *)
+Theorem find_ffi_names_filter_skip:
+   !code. find_ffi_names (filter_skip code) = find_ffi_names code
+Proof
+  recInduct find_ffi_names_ind
+  \\ fs [lab_filterTheory.filter_skip_def,find_ffi_names_def]
+  \\ rpt strip_tac \\ every_case_tac
+  \\ fs [lab_filterTheory.not_skip_def,find_ffi_names_def]
+QED
+
+val all_enc_ok_pre_filter_skip = Q.prove(`
+  ∀code c.
+  all_enc_ok_pre c code ⇒
+  all_enc_ok_pre c (filter_skip code)`,
+  Induct>>TRY(Cases)>>fs[lab_filterTheory.filter_skip_def]>>rw[]>>
+  Induct_on`l`>>fs[]>>rw[])
+
+Theorem MAP_Section_num_filter_skip[simp]:
+   ∀code. MAP Section_num (filter_skip code) = MAP Section_num code
+Proof
+  Induct \\ simp[lab_filterTheory.filter_skip_def]
+  \\ Cases \\ fs[lab_filterTheory.filter_skip_def]
+QED
+
+Theorem filter_skip_extract_labels[simp]:
+   ∀code. MAP (extract_labels o Section_lines) (filter_skip code) =
+   MAP (extract_labels o Section_lines) code
+Proof
+  Induct \\ simp[lab_filterTheory.filter_skip_def]
+  \\ Cases \\ fs[lab_filterTheory.filter_skip_def] \\
+  Induct_on`l` \\ fs[] \\
+  Cases \\ fs[lab_filterTheory.not_skip_def] \\
+  every_case_tac \\ fs[]
+QED
+
+Theorem get_code_labels_filter_skip[simp]:
+   ∀code. get_code_labels (filter_skip code) = get_code_labels code
+Proof
+  recInduct lab_filterTheory.filter_skip_ind
+  \\ rw[lab_filterTheory.filter_skip_def, get_code_labels_cons]
+  \\ rw[sec_get_code_labels_def, LIST_TO_SET_FILTER]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ AP_TERM_TAC \\ AP_TERM_TAC
+  \\ rw[Once EXTENSION, EQ_IMP_THM, PULL_EXISTS]
+  >- metis_tac[]
+  \\ asm_exists_tac \\ rw[]
+  \\ fs[lab_filterTheory.not_skip_def]
+  \\ CASE_TAC \\ fs[]
+QED
+
+Theorem get_labels_filter_skip[simp]:
+   ∀code. get_labels (filter_skip code) = get_labels code
+Proof
+  recInduct lab_filterTheory.filter_skip_ind
+  \\ rw[lab_filterTheory.filter_skip_def, get_labels_def]
+  \\ rw[sec_get_labels_def, LIST_TO_SET_FILTER]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ rw[Once EXTENSION, EQ_IMP_THM, PULL_EXISTS]
+  >- metis_tac[]
+  \\ asm_exists_tac \\ rw[]
+  \\ fs[lab_filterTheory.not_skip_def]
+  \\ CASE_TAC \\ fs[line_get_labels_def]
+QED
+
+Theorem implements_intro_gen:
+   (b /\ x <> Fail ==> y = {x}) ==> b ==> implements' T y {x}
+Proof
+  fs[semanticsPropsTheory.implements'_def,
+     semanticsPropsTheory.extend_with_resource_limit'_def]
+QED
+
+Theorem find_ffi_names_ALL_DISTINCT:
+    ∀code. ALL_DISTINCT (find_ffi_names code)
+Proof
+  ho_match_mp_tac find_ffi_names_ind>>rw[find_ffi_names_def]>>
+  TOP_CASE_TAC>>fs[find_ffi_names_def]>>
+  TOP_CASE_TAC>>fs[find_ffi_names_def]>>
+  fs[list_add_if_fresh_thm]>>
+  IF_CASES_TAC>>fs[ALL_DISTINCT_APPEND]
 QED
 
 val semantics_compile_lemma = Q.prove(
