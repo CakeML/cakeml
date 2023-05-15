@@ -1,6 +1,6 @@
 (**
  * Pancake concrete syntax examples
- * 8th May 2023: Updated with function declarations
+ * 9th May 2023: Updated with function declarations
  *)
 open HolKernel Parse boolLib bossLib stringLib numLib intLib;
 open preamble panPtreeConversionTheory;
@@ -186,6 +186,26 @@ val ex10 = ‘
  }’;
 
 val treeEx10 = check_success $ parse_pancake ex10;
+
+(** Multiple functions. *)
+
+val ex_much_fun = ‘
+  fun loader() {
+    x = lds {1,{1}} y;
+  }
+
+  fun loader() {
+    x = lds {1,{1}} y;
+  }
+
+  fun cmps () {
+    x = a < b;
+    x = b > a;
+    x =  b >= a;
+    x = a <= b;
+  }’;
+
+val treeExMuchFun = check_success $ parse_pancake ex_much_fun;
 
 (** We can assign boolean expressions to variables. *)
 (** FIXME: Does not parse correctly. *)
