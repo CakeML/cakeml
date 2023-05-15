@@ -386,7 +386,7 @@ val good_init_state_def = Define `
     (* data memory relation -- note that this implies m contains no labels *)
     dm SUBSET t.mem_domain /\    
     (!a. byte_align a ∈ dm ==> a ∈ dm) /\
-    sdm SUBSET mc_conf.shared_addresses /\
+    sdm = mc_conf.shared_addresses /\
     (!a. byte_align a IN sdm ==> a IN sdm) /\
     DISJOINT mc_conf.prog_addresses mc_conf.shared_addresses /\
     (!a. ∃w.
