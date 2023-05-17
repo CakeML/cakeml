@@ -42,21 +42,47 @@ Definition prog_if_def:
     (Assign n (Const 1w)) (Assign n (Const 0w)) (list_insert [n; m] l)]
 End
 
+(* The following code is based on the fact that the code in
+   data_to_wordTheory.LongDiv1_code is based on
+   multiwordTheory.single_div_loop_def *)
+Definition loop_div_def:
+  loop_div m n tmp l =
+  let l = insert tmp () $ insert (tmp+1) () $ insert (tmp+2) () $ insert (tmp+3) () l in
+    ([Assign tmp (Const (n2w(dimindex(:'a)):'a word)); (* k *)
+      Assign (tmp+1) (Var n); (* ns *)
+      Assign (tmp+2) (Const 0w); (* m *)
+      Assign (tmp+3) (Var m); (* is *)
+      Loop l
+           (If Equal tmp (Imm 0w) Break
+            (Seq
+             (Assign (tmp+1) $ Shift Lsr (Var $ tmp+1) 1) $ Seq
+             (Assign (tmp+1) $ Shift Lsl (Var $ tmp+2) 1) $
+             If Equal (tmp+1) (Reg $ tmp+3)
+             (Assign tmp (Op Sub [Var tmp; Const 1w]))
+             (Seq
+              (Assign (tmp+2) (Op Add [Var $ tmp+2; Const 1w])) $ Seq
+              (Assign (tmp+3) (Op Sub [Var $ tmp+3; Var $ tmp+1])) $
+              Assign tmp (Op Add [Var tmp;Const 1w]))
+             l)
+            l)
+           l;
+     Assign (tmp+3) (Var $ tmp + 2)],tmp+3)
+End
+
 Definition compile_crepop_def:
-  (compile_crepop crepLang$Div target x y tmp =
+  (compile_crepop crepLang$Div target x y tmp l =
   if target = x86_64 then
     ([Assign tmp (Const 0w);Arith (LLongDiv (tmp+1) tmp tmp x y)],tmp+1)
   else if target = ARMv8 ∨ target = MIPS ∨ target = RISC_V then
     ([Arith (LDiv tmp x y)],tmp)
   else
-    (* TODO: what is sensible behaviour here? *)
-    ([Assign tmp (Const 0w)],tmp)) ∧
-  (compile_crepop crepLang$Mul target x y tmp =
+    loop_div x y tmp l) ∧
+  (compile_crepop crepLang$Mul target x y tmp l =
   if target = ARMv7 then
     ([Arith (LLongMul (tmp+1) tmp x y)],tmp+1)
   else
     ([Arith (LLongMul tmp tmp x y)],tmp)) ∧
-  compile_crepop crepLang$Mod target x y tmp =
+  compile_crepop crepLang$Mod target x y tmp l =
   if target = x86_64 then
     ([Assign tmp (Const 0w);Arith (LLongDiv tmp (tmp+1) tmp x y)],tmp+1)
   else if target = ARMv8 ∨ target = MIPS ∨ target = RISC_V then
@@ -87,7 +113,7 @@ Definition compile_exp_def:
    (p, Op bop les, tmp, l)) /\
   (compile_exp ctxt tmp l (Crepop cop es) =
    let (p, les, tmp, l) = compile_exps ctxt tmp l es;
-       (p',tmp') = compile_crepop cop ctxt.target (tmp) (tmp+1) (tmp+LENGTH les)
+       (p',tmp') = compile_crepop cop ctxt.target (tmp) (tmp+1) (tmp+LENGTH les) l
     in
    (p ++ MAPi (λn. Assign (tmp+n)) les ++ p',
     Var tmp', tmp'+1, insert tmp' () $ list_insert (GENLIST ($+ tmp) (tmp'-tmp)) l)) /\
