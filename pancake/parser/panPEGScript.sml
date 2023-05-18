@@ -126,7 +126,7 @@ Definition pancake_peg_def[nocompute]:
                                            mknt ShapeNT;
                                            keep_ident] I)
                                            FLAT]
-                               (mksubtree ParamListNT)); 
+                               (mksubtree ParamListNT));
         (INL ProgNT, rpt (choicel [mknt BlockNT;
                                    seql [mknt StmtNT;
                                          consume_tok SemiT] I])
@@ -497,7 +497,7 @@ val topo_nts = [“AddOpsNT”, “ShiftOpsNT”, “CmpOpsNT”,
                 “StoreNT”, “AssignNT”, “DecNT”,
                 “StmtNT”, “BlockNT”, “ParamListNT”, “FunNT”];
 
-(*  “FunNT”, “FunListNT” *)                
+(*  “FunNT”, “FunListNT” *)
 
 (** All non-terminals except the top-level
   * program nonterminal always consume input. *)

@@ -194,7 +194,7 @@ Definition conv_params_def:
        | _ => NONE)
   | [] => SOME []
   | _ => NONE
-End   
+End
 
 Definition conv_Shift_def:
   conv_Shift [] e = SOME e ∧
@@ -475,25 +475,25 @@ Termination
 End
 
 Definition conv_Fun_def:
-  conv_Fun tree = 
+  conv_Fun tree =
   case argsNT tree FunNT of
     SOME [n;c] =>
       (do body <- conv_Prog c;
           n'   <- conv_ident n;
-          SOME (n', [], body) 
-       od) 
+          SOME (n', [], body)
+       od)
   | SOME [n;ps;c] =>
       (case (argsNT ps ParamListNT) of
          SOME args =>
            (do ps'  <- conv_params args;
                body <- conv_Prog c;
                n'   <- conv_ident n;
-               SOME (n', ps', body) 
-            od) 
-       | _ => NONE)                     
+               SOME (n', ps', body)
+            od)
+       | _ => NONE)
   | _ => NONE
 End
-        
+
 Definition conv_FunList_def:
   conv_FunList tree =
    case argsNT tree FunListNT of
@@ -501,7 +501,7 @@ Definition conv_FunList_def:
    | SOME fs => OPT_MMAP conv_Fun fs
    | _ => NONE
 End
-        
+
 Definition parse_to_ast_def:
   parse_to_ast s =
     case parse (pancake_lex s) of
@@ -515,5 +515,5 @@ Definition parse_funs_to_ast_def:
       SOME e => conv_FunList e
     | _ => NONE
 End
-        
+
 val _ = export_theory();

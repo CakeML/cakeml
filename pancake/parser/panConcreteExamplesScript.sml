@@ -39,7 +39,7 @@ fun parse_pancake q =
   in
     EVAL “parse_funs_to_ast ^code”
   end
-  
+
 val check_success = assert $ optionSyntax.is_some o rhs o concl
 
 (** Examples can be written using quoted strings and passed to the ML
@@ -83,7 +83,7 @@ val ex3 = ‘
     else { return false; }
   }’;
 
-val treeEx3 = (* check_success $ *) parse_pancake ex3; 
+val treeEx3 = (* check_success $ *) parse_pancake ex3;
 
 (** Loops: standard looping construct. *)
 
@@ -143,7 +143,7 @@ val treeEx7 = check_success $ parse_pancake ex7;
 
 (* These can be nested arbitrarily deep *)
 val ex7_and_a_half = ‘
-  fun loader() { 
+  fun loader() {
     x = lds {3,1,{1,{2,1}}} y;
   }’;
 
@@ -212,6 +212,6 @@ val treeExMuchFun = check_success $ parse_pancake ex_much_fun;
 (** Expected: Xor (And b a) (And c d) *)
 val exN = ‘fun blah() { x = b & a ^ c & d; }’;
 
-val treeExN = check_success $ parse_pancake exN; 
+val treeExN = check_success $ parse_pancake exN;
 
 val _ = export_theory();
