@@ -84,12 +84,16 @@ End
 Definition comp_syntax_ok_def:
   (comp_syntax_ok l loopLang$Skip = T) ∧
   (comp_syntax_ok l (Assign n e) = T) ∧
+  (comp_syntax_ok l (Loop lin p lout) = (l = lin ∧ l = lout ∧ comp_syntax_ok lin p)) ∧
   (comp_syntax_ok l (Arith arith) = T) ∧
+  (comp_syntax_ok l Break = T) ∧
   (comp_syntax_ok l (LocValue n m) = T) ∧
   (comp_syntax_ok l (LoadByte n m) = T) ∧
   (comp_syntax_ok l (Seq p q) = (comp_syntax_ok l p ∧ comp_syntax_ok (cut_sets l p) q)) ∧
   (comp_syntax_ok l (If c n r p q nl) =
-   (∃m v v'. r = Reg m ∧ p = Assign n v ∧ q = Assign n v' ∧ nl = list_insert [n; m] l)) ∧
+   (comp_syntax_ok l p ∧ comp_syntax_ok l q ∧
+    ∃ns. nl = FOLDL (λsp n. insert n () sp) l ns))
+    ∧
   (comp_syntax_ok _ _ = F)
 End
 
@@ -505,41 +509,6 @@ Proof
   fs [nested_seq_def, survives_def]
 QED
 
-
-
-(* from here *)
-Theorem comp_syn_ok_basic_cases:
-  (!l. comp_syntax_ok l Skip) /\
-  (!l n m. comp_syntax_ok l (LocValue n m)) /\
-  (!l n e. comp_syntax_ok l (Assign n e)) /\
-  (!l n m. comp_syntax_ok l (LoadByte n m)) /\
-  (!l c n m v v'. comp_syntax_ok l (If c n (Reg m)
-       (Assign n v) (Assign n v') (list_insert [n; m] l)))
-Proof
-  rw [] >>
-  ntac 3 (fs [Once comp_syntax_ok_def])
-QED
-
-
-Theorem comp_syn_ok_seq:
-  !l p q. comp_syntax_ok l (Seq p q) ==>
-   comp_syntax_ok l p /\ comp_syntax_ok (cut_sets l p) q
-Proof
-  rw [] >>
-  fs [Once comp_syntax_ok_def]
-QED
-
-
-Theorem comp_syn_ok_if:
-  comp_syntax_ok l (If cmp n ri p q ns) ==>
-    ?v v' m. ri = Reg m /\ p = Assign n v /\
-       q = Assign n v' /\ ns = list_insert [n; m] l
-Proof
-  rw [] >>
-  fs [Once comp_syntax_ok_def]
-QED
-
-
 Theorem comp_syn_ok_seq2:
   !l p q. comp_syntax_ok l p /\ comp_syntax_ok (cut_sets l p) q ==>
    comp_syntax_ok l (Seq p q)
@@ -556,11 +525,7 @@ Theorem comp_syn_ok_nested_seq:
    comp_syntax_ok l (nested_seq (p ++ q))
 Proof
   Induct >> rw [] >>
-  fs [nested_seq_def] >>
-  fs [cut_sets_def] >>
-  drule comp_syn_ok_seq >>
-  strip_tac >> res_tac >> fs [] >>
-  metis_tac [comp_syn_ok_seq2]
+  fs [nested_seq_def,cut_sets_def,comp_syntax_ok_def]
 QED
 
 Theorem comp_syn_ok_nested_seq2:
@@ -569,9 +534,8 @@ Theorem comp_syn_ok_nested_seq2:
    comp_syntax_ok (cut_sets l (nested_seq p)) (nested_seq q)
 Proof
   Induct >> rw [] >>
-  fs [nested_seq_def, comp_syn_ok_basic_cases, cut_sets_def] >>
-  drule comp_syn_ok_seq >> strip_tac >> fs [] >>
-  metis_tac [comp_syn_ok_seq2]
+  fs [nested_seq_def, cut_sets_def,comp_syntax_ok_def] >>
+  metis_tac[comp_syn_ok_nested_seq]
 QED
 
 
@@ -585,10 +549,9 @@ Proof
   fs [cut_sets_def]
 QED
 
-
 Theorem cut_sets_union_accumulate:
-  !p l. comp_syntax_ok l p ==> (* need this assumption for the If case *)
-   ?(l' :sptree$num_set). cut_sets l p = union l l'
+  ∀p l. comp_syntax_ok l p ==> (* need this assumption for the If case *)
+   ∃(l' :sptree$num_set). cut_sets l p = union l l'
 Proof
   Induct >> rw [] >>
   TRY (fs [Once comp_syntax_ok_def] >> NO_TAC) >>
@@ -603,19 +566,20 @@ Proof
       simp[Once insert_union,SimpR “union”, union_num_set_sym] >>
       metis_tac[union_num_set_sym,union_assoc])
   >- (
-   drule comp_syn_ok_seq >>
-   strip_tac >>
-   last_x_assum drule >>
-   strip_tac >> fs [] >>
-   last_x_assum (qspec_then ‘union l l'’ mp_tac) >>
-   fs [] >> strip_tac >>
-   qexists_tac ‘union l' l''’ >>
-   fs [] >> metis_tac [union_assoc]) >>
-  drule comp_syn_ok_if >>
-  strip_tac >> rveq >>
-  qexists_tac ‘insert m () (insert n () LN)’ >>
-  fs [list_insert_def] >>
-  metis_tac [union_insert_LN, insert_union, union_num_set_sym, union_assoc]
+   gvs[comp_syntax_ok_def] >>
+   res_tac >>
+   simp[] >>
+   metis_tac[union_assoc]) >>
+  gvs[comp_syntax_ok_def] >>
+  rpt $ pop_assum kall_tac >>
+  qid_spec_tac ‘l’ >>
+  Induct_on ‘ns’ >>
+  rw[]
+  >- metis_tac[union_LN] >>
+  rename1 ‘insert x () sp’ >>
+  first_x_assum $ qspec_then ‘insert x () sp’ strip_assume_tac >>
+  rw[] >>
+  metis_tac[union_num_set_sym,union_assoc,union_insert_LN]
 QED
 
 
@@ -667,33 +631,28 @@ Theorem comp_syn_ok_upd_local_clock:
     comp_syntax_ok l p ==>
      t = s with <|locals := t.locals; clock := t.clock|>
 Proof
-  recInduct evaluate_ind >> rw [] >>
-  TRY (fs [Once comp_syntax_ok_def, every_prog_def] >> NO_TAC) >>
-  TRY (
-  fs [evaluate_def] >> rveq >>
-  TRY every_case_tac >> fs [set_var_def, state_component_equality] >> NO_TAC)
-  >- (rename1 ‘Arith’ >>
-      gvs[comp_syntax_ok_def,evaluate_def,AllCaseEqs(),
-         DefnBase.one_line_ify NONE loop_arith_def] >>
-      simp[state_component_equality,set_var_def]) >>
-  TRY every_case_tac >> fs [set_var_def, state_component_equality]
-  >- (
-   drule comp_syn_ok_seq >>
-   strip_tac >>
-   fs [evaluate_def] >>
-   pairarg_tac >> fs [] >>
-   FULL_CASE_TAC >> fs []  >> rveq >>
-   res_tac >> fs [state_component_equality]) >>
-  drule comp_syn_ok_if >>
-  strip_tac >> rveq >>
-  fs [evaluate_def] >>
-  every_case_tac >> fs [] >> rveq >>
-  fs [state_component_equality, evaluate_def, comp_syn_ok_basic_cases] >>
-  every_case_tac >>
-  fs [cut_res_def, cut_state_def, dec_clock_def, set_var_def] >>
-  every_case_tac >> fs [] >> rveq >> fs []
+  recInduct evaluate_ind >> rw []
+  >~ [‘Arith’] >-
+   (gvs[comp_syntax_ok_def,evaluate_def,AllCaseEqs(),
+        DefnBase.one_line_ify NONE loop_arith_def] >>
+    simp[state_component_equality,set_var_def])
+  >~ [‘Loop’] >-
+   (qpat_x_assum ‘evaluate _ = _’ $ strip_assume_tac o PURE_ONCE_REWRITE_RULE [evaluate_def] >>
+    gvs[comp_syntax_ok_def,DefnBase.one_line_ify NONE cut_res_def,cut_state_def,
+        AllCaseEqs(),dec_clock_def] >>
+    res_tac >> gvs[state_component_equality])
+  >~ [‘If’] >-
+   (gvs[comp_syntax_ok_def,Once evaluate_def,DefnBase.one_line_ify NONE cut_res_def,cut_state_def,
+        AllCaseEqs(),dec_clock_def] >>
+    simp[state_component_equality] >>
+    Cases_on ‘word_cmp cmp x y’ >> gvs[] >>
+    res_tac >> gvs[state_component_equality]) >>
+  gvs[comp_syntax_ok_def,Once evaluate_def] >>
+  gvs[AllCaseEqs(),set_var_def] >>
+  TRY pairarg_tac >> gvs[AllCaseEqs()] >>
+  res_tac >>
+  gvs[state_component_equality]
 QED
-
 
 Theorem assigned_vars_nested_seq_split:
   !p q.
@@ -730,59 +689,36 @@ Theorem comp_syn_ok_lookup_locals_eq:
     ~MEM n (assigned_vars p) ==>
   lookup n t.locals = lookup n s.locals
 Proof
-  recInduct evaluate_ind >> rw [] >>
-  TRY (fs [Once comp_syntax_ok_def, every_prog_def] >> NO_TAC) >>
-  TRY (
-  fs [evaluate_def] >>
-  every_case_tac >> fs [] >> rveq >>
-  fs [set_var_def, assigned_vars_def, lookup_insert] >> NO_TAC)
-  >- (
-    rename1 ‘Arith’ >>
-    gvs[evaluate_def,assigned_vars_def,
+  recInduct evaluate_ind >> rw []
+  >~ [‘Arith’] >-
+   (gvs[evaluate_def,assigned_vars_def,
         DefnBase.one_line_ify NONE loop_arith_def,
         AllCaseEqs(),set_var_def,lookup_insert
-       ]
-     )
-  >- (
-   drule comp_syn_ok_seq >>
-   strip_tac >>
-   fs [evaluate_def, assigned_vars_def] >>
-   pairarg_tac >> fs [AllCaseEqs ()] >> rveq >> fs []
-   >- (
-    qpat_x_assum ‘evaluate (_,s1) = _’ assume_tac  >>
-    drule evaluate_clock >> fs [] >>
-    strip_tac >> fs [] >>
-    dxrule comp_syn_ok_seq >>
-    strip_tac >>
+       ])
+  >~ [‘Loop’] >-
+   (qpat_x_assum ‘evaluate _ = _’ $ strip_assume_tac o PURE_ONCE_REWRITE_RULE [evaluate_def] >>
+    gvs[comp_syntax_ok_def,DefnBase.one_line_ify NONE cut_res_def,cut_state_def,
+        AllCaseEqs(),dec_clock_def,assigned_vars_def] >>
+    first_x_assum $ drule_then $ drule_at $ Pos last >>
+    rw[lookup_inter_alt])
+  >~ [‘If’] >-
+   (gvs[comp_syntax_ok_def,Once evaluate_def,DefnBase.one_line_ify NONE cut_res_def,cut_state_def,
+        AllCaseEqs(),dec_clock_def,assigned_vars_def] >>
+    Cases_on ‘word_cmp cmp x y’ >>
+    gvs[] >>
+    res_tac >>
+    rw[lookup_inter_alt])
+  >~ [‘Seq’] >-
+   (gvs[comp_syntax_ok_def,assigned_vars_def,Once evaluate_def] >>
+    pairarg_tac >>
+    gvs[AllCaseEqs()] >>
+    last_x_assum drule_all >>
+    rw[] >>
     first_x_assum drule >>
-    disch_then (qspec_then ‘n’ mp_tac) >>
-    fs [] >>
-    strip_tac >>
-    first_x_assum drule >>
-    disch_then (qspec_then ‘n’ mp_tac) >>
-    fs [] >>
-    impl_tac
-    >- (
-     qpat_x_assum ‘comp_syntax_ok l c1’ assume_tac >>
-     drule cut_sets_union_domain_union >>
-     strip_tac >> fs []) >>
+    disch_then $ drule_at $ Pos last >>
+    imp_res_tac cut_sets_union_domain_union >>
     fs []) >>
-   drule comp_syn_ok_seq >>
-   strip_tac >>
-   res_tac >> fs []) >>
-  drule evaluate_clock >> fs [] >>
-  strip_tac >> fs [] >>
-  drule comp_syn_ok_if >>
-  strip_tac >> rveq >> fs [] >>
-  fs [evaluate_def, assigned_vars_def] >>
-  fs [AllCaseEqs()]  >> rveq >> fs [domain_inter] >>
-  cases_on ‘word_cmp cmp x y’ >> fs [] >>
-  fs [evaluate_def, list_insert_def, AllCaseEqs()] >>
-  FULL_CASE_TAC >> fs [cut_res_def, set_var_def, dec_clock_def, cut_state_def] >>
-  FULL_CASE_TAC >> fs [] >> rveq >>
-  every_case_tac >> rfs [] >> rveq >> fs [] >>
-  fs [state_component_equality, lookup_inter, lookup_insert] >>
-  every_case_tac >> rfs [domain_lookup]
+  gvs[comp_syntax_ok_def,assigned_vars_def,Once evaluate_def,AllCaseEqs(),set_var_def,lookup_insert]
 QED
 
 Theorem eval_upd_clock_eq:
