@@ -8334,7 +8334,7 @@ Theorem asm_fetch_NOT_ffi_entry_pcs:
   enc_ok mc_conf.target.config /\
   (∀index.
     index < i ⇒
-    -n2w (ffi_offset * (index + 3)) + mc_conf.target.get_pc ms ∉
+    -n2w (ffi_offset * (index + 3)) + mc_conf.target.get_pc (ms: 'state) ∉
     mc_conf.prog_addresses ∧
     -n2w (ffi_offset * (index + 3)) + mc_conf.target.get_pc ms ∉
     mc_conf.shared_addresses ∧
@@ -8346,25 +8346,19 @@ Theorem asm_fetch_NOT_ffi_entry_pcs:
       (-n2w (ffi_offset * (index + 3)) + mc_conf.target.get_pc ms)
       mc_conf.ffi_entry_pcs 0 = SOME index) /\
   bytes_in_mem (mc_conf.target.get_pc ms) (prog_to_bytes code2) t.mem
-    mc_conf.prog_addresses dm /\
-  asm_fetch_aux pos code2 = SOME line ==>
-  ~MEM (n2w $ pos_val pos (w2n $ mc_conf.target.get_pc ms) code2)
+     (mc_conf:('a,'state,'b) machine_config).prog_addresses dm /\
+  asm_fetch_aux pos code2 = SOME line /\
+  a < LENGTH (line_bytes line) ==>
+  ~MEM (mc_conf.target.get_pc ms + n2w a + (n2w $ pos_val pos 0 code2))
     (TAKE i mc_conf.ffi_entry_pcs)
 Proof
   rw[] >>
-  PURE_ONCE_REWRITE_TAC[pos_val_acc_0] >>
   drule_then assume_tac bytes_in_mem_IMP >>
-  drule_then assume_tac asm_fetch_SOME_IMP_LESS_num_pcs >>
   drule_then assume_tac bytes_in_memory_in_domain >>
   drule_then assume_tac mmio_pcs_min_index_is_SOME >>
   gvs[MEM_EL,LENGTH_TAKE] >>
   rpt strip_tac >>
   gvs[EL_TAKE] >>
-  `pos_val pos 0 code2 < pos_val (num_pcs code2) 0 code2` by (
-    irule pos_val_mono >>
-    gvs[] >>
-    metis_tac[]
-  ) >>
   drule_then (qspec_then `0` assume_tac) pos_val_num_pcs >>
   gvs[] >>
   last_x_assum $ qspec_then `n` assume_tac >>
@@ -8374,21 +8368,20 @@ Proof
   drule find_index_MEM >>
   disch_then $ qspec_then `0` assume_tac >>
   gvs[] >>
-  qpat_x_assum `!k. _ < LENGTH (prog_to_bytes code2) ==> _` imp_res_tac >>
-  `n2w (w2n (mc_conf.target.get_pc ms) + pos_val pos 0 code2) =
-    n2w (pos_val pos 0 code2) + mc_conf.target.get_pc ms` suffices_by (
-    strip_tac >>
-    gvs[]
-  ) >>
-  rpt $ qpat_x_assum `_ = -n2w _ + mc_conf.target.get_pc _` kall_tac >>
-  `pos_val pos 0 code2 = w2n ((n2w $ pos_val pos 0 code2): 'a word)` by gvs[w2n_n2w] >>
-  ONCE_ASM_REWRITE_TAC[] >>
-  simp[GSYM word_add_def]
+  imp_res_tac asm_fetch_aux_pos_val_SUC >>
+  pop_assum $ qspec_then `0` assume_tac >>
+  drule pos_val_bound >>
+  disch_then $ qspecl_then [`pos+1`,`0`] assume_tac >>
+  gvs[] >>
+  qpat_x_assum `!k. _ < LENGTH (prog_to_bytes code2) ==> _` $
+    qspec_then `a+pos_val pos 0 code2` mp_tac >>
+  impl_tac >- gvs[] >>
+  gvs[addressTheory.word_arith_lemma1]
 QED
 
 (* This is set up for the very first compile call *)
 val IMP_state_rel_make_init = Q.prove(
-  `good_code mc_conf.target.config LN code ∧
+  `good_code mc_conf.target.config LN (code: 'a sec list) ∧
    mc_conf_ok mc_conf ∧
    compiler_oracle_ok coracle labs (LENGTH (prog_to_bytes code2)) mc_conf.target.config mc_conf.ffi_names ∧
    list_subset (find_ffi_names code) mc_conf.ffi_names ∧
@@ -8405,7 +8398,7 @@ val IMP_state_rel_make_init = Q.prove(
    mc_conf.ffi_names = new_ffi_names /\
    mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
    MAP FST new_shmem_info = DROP i (mc_conf.ffi_entry_pcs) /\
-   (mc_conf.mmio_info = \index. SND $ EL (index - i) new_shmem_info)
+   (mc_conf.mmio_info = \index. EL (index - i) $ MAP SND new_shmem_info)
    (* /\
    share_mem_domain_code_rel mc_conf (mc_conf.target.get_pc ms) code2 sdm *)
    ==>
@@ -8472,20 +8465,57 @@ val IMP_state_rel_make_init = Q.prove(
     qpat_x_assum `!pc op re a inst len. asm_fetch_aux _ _ = _ ==> ?i._` $ imp_res_tac
     \\ qexists `index + i`
     \\ drule find_index_LESS_LENGTH
-    \\ gvs[LENGTH_DROP]
-    \\ pairarg_tac
+    \\ `LENGTH (MAP FST new_shmem_info) = LENGTH mc_conf.ffi_entry_pcs - i` by
+      metis_tac[LENGTH_DROP]
+    \\ fs[LENGTH_MAP,LESS_SUB_ADD_LESS,EL_MAP]
     \\ rpt strip_tac
-    \\ drule find_index_shift
-    \\ strip_tac
-    \\ pop_assum $ qspec_then `i` assume_tac
+    \\ qspecl_then [`TAKE i (mc_conf: ('a,'state,'b) machine_config).ffi_entry_pcs`,
+      `DROP i (mc_conf: ('a,'state,'b) machine_config).ffi_entry_pcs`,
+      `n2w (pos_val pc 0 code2) + (mc_conf.target.get_pc ms: 'a word)`,
+      `0`] assume_tac find_index_APPEND
+    \\ gvs[AllCaseEqs()]
+    >- (
+      drule find_index_shift
+      \\ rpt strip_tac
+      \\ pop_assum $ qspec_then `i` assume_tac
+      \\ gvs[]
+    )
+    \\ pop_assum $ assume_tac o GSYM
+    \\ `~MEM (n2w (pos_val pc 0 code2) + mc_conf.target.get_pc ms)
+        (TAKE i mc_conf.ffi_entry_pcs)` suffices_by (
+      strip_tac
+      \\ drule_then assume_tac (iffLR find_index_NOT_MEM)
+      \\ pop_assum $ qspec_then `0` assume_tac
+      \\ gvs[]
+    )
+    \\ `LENGTH (prog_to_bytes code2) < dimword (:α)` by gvs[]
+    \\ drule $ GEN_ALL asm_fetch_NOT_ffi_entry_pcs
+    \\ rpt $ disch_then $ drule_at Any
+    \\ disch_then $ qspec_then `0` $ mp_tac o PURE_REWRITE_RULE[WORD_ADD_0]
+    \\ impl_tac
+    >- (
+      drule $ GEN_ALL enc_ok_LENGTH_GT_0
+      \\ drule_all $ GEN_ALL all_enc_ok_asm_fetch_aux_IMP_line_ok
+      \\ gvs[line_ok_def,line_length_def,enc_with_nop_thm]
+      \\ rpt strip_tac
+      \\ pop_assum $ qspec_then `Inst (Mem op re a)` assume_tac
+      \\ gvs[]
+    ) 
     \\ gvs[]
-    \\ qspecl_then [`i`,`mc_conf.ffi_entry_pcs`] assume_tac TAKE_DROP
-(*    \\ irule find_index_APPEND2 *)
-    \\ cheat
   )
+  \\ qpat_x_assum `!pc line. asm_fetch_aux _ _ = _ /\ _ ==> _` imp_res_tac
+  \\ gvs[IN_DISJOINT]
+  \\ rw[]
+  \\ pop_assum $ qspec_then `x` assume_tac
   \\ gvs[]
-  \\ res_tac
-  \\ (* prove that TAKE i mc_conf.ffi_entry_pcs  *)
+  \\ spose_not_then assume_tac
+  \\ `LENGTH (prog_to_bytes code2) < dimword (:α)` by gvs[]
+  \\ drule $ GEN_ALL asm_fetch_NOT_ffi_entry_pcs
+  \\ rpt $ disch_then $ drule_at Any
+  \\ rw[]
+  \\ qexists_tac `a`
+  \\ gvs[]
+  \\ metis_tac[MEM_APPEND,TAKE_DROP]
 );
 
 Theorem make_init_simp[simp]:
