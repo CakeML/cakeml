@@ -2,12 +2,13 @@
   Translation from CakeML floating-point kernels to FloVer input
 *)
 (* CakeML *)
-open compilerTheory;
+open semanticsTheory;
 (* FloVer *)
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory
      CertificateCheckerTheory ExpressionsTheory CommandsTheory
      IEEE_connectionTheory;
 open preamble;
+open updateTheory;
 
 val _ = new_theory "CakeMLtoFloVer";
 

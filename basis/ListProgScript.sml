@@ -27,10 +27,19 @@ val res = translate LENGTH_AUX_THM;
 
 val _ = ml_prog_update open_local_block;
 val res = translate REV_DEF;
+val res = translate map_rev'_def;
+val res = translate filter_rev'_def;
+val res = translate flat_rev'_def;
 val _ = ml_prog_update open_local_in_block;
 
 val result = next_ml_names := ["rev"];
 val res = translate REVERSE_REV;
+val result = next_ml_names := ["mapRev"];
+val res = translate map_rev_def;
+val result = next_ml_names := ["filterRev"];
+val res = translate filter_rev_def;
+val result = next_ml_names := ["flatRev"];
+val res = translate flat_rev_def;
 
 (* New list-append translation *)
 val append_v_thm = trans "@" listSyntax.append_tm;

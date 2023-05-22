@@ -3449,7 +3449,7 @@ Proof
       stack_removeProofTheory.make_init_any_def] \\ strip_tac
   \\ every_case_tac \\ fs []
   \\ fs [word_to_stackProofTheory.init_state_ok_def,data_to_word_gcProofTheory.gc_fun_ok_word_gc_fun]
-  \\ conj_tac THEN1 fs [labPropsTheory.good_dimindex_def]
+  \\ conj_tac THEN1 fs [good_dimindex_def]
   \\ qpat_x_assum`_ = fmis` sym_sub_tac \\ rveq\\ fs[]
   \\ qpat_assum `_` mp_tac
   \\ rewrite_tac [stack_removeProofTheory.make_init_opt_def]

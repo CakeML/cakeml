@@ -225,17 +225,17 @@ Definition evaluate_def:
               | (SOME Continue,st) => (SOME Error,st)
               | (SOME (Return retv),st) =>
                    (case caltyp of
-                    | Tail    => (SOME (Return retv),empty_locals st)
-                    | Ret NONE p _ => evaluate (p, st with locals := s.locals)
-                    | Ret (SOME rt) p _ =>
+                    | NONE    => (SOME (Return retv),empty_locals st)
+                    | SOME (NONE, p, _) => evaluate (p, st with locals := s.locals)
+                    | SOME (SOME rt, p, _) =>
                      (case FLOOKUP s.locals rt of
                        | SOME _ => evaluate (p, st with locals := s.locals |+ (rt,retv))
                        | _ => (SOME Error, st)))
               | (SOME (Exception eid),st) =>
                    (case caltyp of
-                    | Tail    => (SOME (Exception eid),empty_locals st)
-                    | Ret _ _ NONE => (SOME (Exception eid),empty_locals st)
-                    | Ret _ _ (SOME (Handle eid' p)) =>
+                    | NONE    => (SOME (Exception eid),empty_locals st)
+                    | SOME (_, _, NONE) => (SOME (Exception eid),empty_locals st)
+                    | SOME (_, _, SOME (eid', p)) =>
                       if eid = eid' then
                         evaluate (p, st with locals := s.locals)
                       else (SOME (Exception eid), empty_locals st))
@@ -299,7 +299,7 @@ val evaluate_def = save_thm("evaluate_def[compute]",
 
 Definition semantics_def:
   semantics ^s start =
-   let prog = Call Tail (Label start) [] in
+   let prog = Call NONE (Label start) [] in
     if ∃k. case FST (evaluate (prog,s with clock := k)) of
             | SOME TimeOut => F
             | SOME (FinalFFI _) => F

@@ -21,7 +21,7 @@ val is_fwd_ptr_def = wordSemTheory.is_fwd_ptr_def;
 val _ = set_grammar_ancestry["stack_alloc", "stackLang", "stackSem", "stackProps",
   "word_gcFunctions" (* for memcpy *)
 ];
-Overload good_dimindex[local] = ``labProps$good_dimindex``
+Overload good_dimindex[local] = ``misc$good_dimindex``
 val _ = temp_bring_to_front_overload"compile"{Thy="stack_alloc",Name="compile"};
 val drule = old_drule
 
@@ -280,7 +280,7 @@ val isWord_thm = Q.prove(
 
 val lower_2w_eq = Q.prove(
   `!w:'a word. good_dimindex (:'a) ==> (w <+ 2w <=> w = 0w \/ w = 1w)`,
-  Cases \\ fs [labPropsTheory.good_dimindex_def,WORD_LO,dimword_def]
+  Cases \\ fs [good_dimindex_def,WORD_LO,dimword_def]
   \\ rw [] \\ rw []);
 
 val EL_LENGTH_ADD_LEMMA = Q.prove(
@@ -330,7 +330,7 @@ Proof
   strip_tac \\ match_mp_tac bytes_in_word_word_shift
   \\ fs [bytes_in_word_def]
   \\ `(dimindex (:α) DIV 8) < dimword (:α) /\ n < dimword (:α)` by
-       (rfs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
+       (rfs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ fs []
 QED
 
@@ -736,7 +736,7 @@ val word_gc_move_bitmaps_unroll = Q.prove(
   \\ IF_CASES_TAC THEN1
    (sg `F`
     \\ full_simp_tac(srw_ss())[wordsLib.WORD_DECIDE ``w+1w=0w <=> (w = -1w)``]
-    \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[labPropsTheory.good_dimindex_def]
+    \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[good_dimindex_def]
     \\ full_simp_tac(srw_ss())[word_2comp_def] \\ full_simp_tac(srw_ss())[dimword_def]
     \\ imp_res_tac DROP_IMP_LESS_LENGTH \\ decide_tac)
   \\ `DROP (w2n w) bitmaps = t` by
@@ -1205,12 +1205,12 @@ Proof
    (`(dimindex (:α) DIV 8) * LENGTH old < dimword (:α)` by rfs [RIGHT_ADD_DISTRIB]
     \\ drule (bytes_in_word_word_shift_n2w |> GEN_ALL)
     \\ disch_then drule \\ fs [] \\ rw []
-    \\ rfs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
+    \\ rfs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ fs [] \\ reverse CASE_TAC THEN1
     (sg `F` \\ fs []
      \\ pop_assum mp_tac \\ fs [] \\ AP_TERM_TAC
      \\ match_mp_tac (bytes_in_word_word_shift_n2w |> GEN_ALL) \\ fs []
-     \\ rfs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
+     \\ rfs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ fs [] \\ tac \\ fs [EL_LENGTH_ADD_LEMMA]
   \\ qabbrev_tac `s4 = s with <|regs := s.regs |+ (5,h) |+ (7,Word (w ⋙ 1)) |>`
   \\ `s.memory = s4.memory /\ s.mdomain = s4.mdomain` by
@@ -1231,7 +1231,7 @@ Proof
   \\ impl_tac THEN1
    (unabbrev_all_tac \\ tac
     \\ fs [RIGHT_ADD_DISTRIB,word_add_n2w,word_mul_n2w,bytes_in_word_def]
-    \\ rfs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
+    \\ rfs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ strip_tac \\ pop_assum mp_tac
   \\ drule (GEN_ALL evaluate_add_clock) \\ fs []
   \\ disch_then (qspec_then `ck' + 1` mp_tac)
@@ -1477,7 +1477,7 @@ Proof
   \\ `(LENGTH old + (LENGTH x0 + 1)) < dimword (:α)` by
    (imp_res_tac word_gc_move_bitmaps_LENGTH
     \\ rfs [RIGHT_ADD_DISTRIB] \\ fs []
-    \\ rfs [labPropsTheory.good_dimindex_def] \\ rfs [] \\ fs[]) \\ fs []
+    \\ rfs [good_dimindex_def] \\ rfs [] \\ fs[]) \\ fs []
   \\ `0 < LENGTH x1` by
    (Cases_on `x1` \\ fs [word_gc_move_roots_bitmaps_def,enc_stack_def])
   \\ fs [STOP_def] \\ Cases_on `x1` \\ fs []
@@ -1506,7 +1506,7 @@ Proof
    (unabbrev_all_tac \\ fs [] \\ tac \\ fs [ADD1,RIGHT_ADD_DISTRIB]
     \\ rfs [] \\ imp_res_tac word_gc_move_bitmaps_LENGTH
     \\ rfs [RIGHT_ADD_DISTRIB] \\ fs []
-    \\ rfs [labPropsTheory.good_dimindex_def] \\ rfs [] \\ fs[])
+    \\ rfs [good_dimindex_def] \\ rfs [] \\ fs[])
   \\ strip_tac \\ unabbrev_all_tac \\ fs []
   \\ qexists_tac `ck + ck' + 1` \\ fs []
   \\ pop_assum mp_tac
@@ -1569,7 +1569,7 @@ Proof
         (fs [word_gc_fun_assum_def,set_store_def,FAPPLY_FUPDATE_THM] \\ NO_TAC)
   \\ `word_shift (:'a) < dimindex (:'a) /\ 2 < dimindex (:'a) /\
       !w:'a word. w ≪ word_shift (:'a) = w * bytes_in_word` by
-   (fs [word_shift_def,bytes_in_word_def,labPropsTheory.good_dimindex_def]
+   (fs [word_shift_def,bytes_in_word_def,good_dimindex_def]
     \\ fs [WORD_MUL_LSL] \\ NO_TAC)
   \\ fs [isWord_thm] \\ fs [theWord_def]
   \\ rename1 `s.store ' OtherHeap = Word other`
@@ -2221,7 +2221,7 @@ val word_gen_gc_move_bitmaps_unroll = Q.prove(
   \\ IF_CASES_TAC THEN1
    (sg `F`
     \\ full_simp_tac(srw_ss())[wordsLib.WORD_DECIDE ``w+1w=0w <=> (w = -1w)``]
-    \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[labPropsTheory.good_dimindex_def]
+    \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[good_dimindex_def]
     \\ full_simp_tac(srw_ss())[word_2comp_def] \\ full_simp_tac(srw_ss())[dimword_def]
     \\ imp_res_tac DROP_IMP_LESS_LENGTH \\ decide_tac)
   \\ `DROP (w2n w) bitmaps = t` by
@@ -2299,7 +2299,7 @@ val word_gen_gc_partial_move_bitmaps_unroll = Q.prove(
   \\ IF_CASES_TAC THEN1
    (sg `F`
     \\ full_simp_tac(srw_ss())[wordsLib.WORD_DECIDE ``w+1w=0w <=> (w = -1w)``]
-    \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[labPropsTheory.good_dimindex_def]
+    \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[good_dimindex_def]
     \\ full_simp_tac(srw_ss())[word_2comp_def] \\ full_simp_tac(srw_ss())[dimword_def]
     \\ imp_res_tac DROP_IMP_LESS_LENGTH \\ decide_tac)
   \\ `DROP (w2n w) bitmaps = t` by
@@ -2834,12 +2834,12 @@ Proof
    (`(dimindex (:α) DIV 8) * LENGTH old < dimword (:α)` by rfs [RIGHT_ADD_DISTRIB]
     \\ drule (bytes_in_word_word_shift_n2w |> GEN_ALL)
     \\ disch_then drule \\ fs [] \\ rw []
-    \\ rfs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
+    \\ rfs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ fs [] \\ reverse CASE_TAC THEN1
     (sg `F` \\ fs []
      \\ pop_assum mp_tac \\ fs [] \\ AP_TERM_TAC
      \\ match_mp_tac (bytes_in_word_word_shift_n2w |> GEN_ALL) \\ fs []
-     \\ rfs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
+     \\ rfs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ fs [] \\ tac \\ fs [EL_LENGTH_ADD_LEMMA]
   \\ qabbrev_tac `s4 = s with <|regs := s.regs |+ (5,h) |+ (7,Word (w ⋙ 1)) |>`
   \\ `s.memory = s4.memory /\ s.mdomain = s4.mdomain` by
@@ -2871,7 +2871,7 @@ Proof
   \\ impl_tac THEN1
    (unabbrev_all_tac \\ tac
     \\ fs [RIGHT_ADD_DISTRIB,word_add_n2w,word_mul_n2w,bytes_in_word_def]
-    \\ rfs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
+    \\ rfs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ strip_tac \\ pop_assum mp_tac
   \\ drule (GEN_ALL evaluate_add_clock) \\ fs []
   \\ disch_then (qspec_then `ck' + 1` mp_tac)
@@ -2993,12 +2993,12 @@ Proof
    (`(dimindex (:α) DIV 8) * LENGTH old < dimword (:α)` by rfs [RIGHT_ADD_DISTRIB]
     \\ drule (bytes_in_word_word_shift_n2w |> GEN_ALL)
     \\ disch_then drule \\ fs [] \\ rw []
-    \\ rfs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
+    \\ rfs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ fs [] \\ reverse CASE_TAC THEN1
     (sg `F` \\ fs []
      \\ pop_assum mp_tac \\ fs [] \\ AP_TERM_TAC
      \\ match_mp_tac (bytes_in_word_word_shift_n2w |> GEN_ALL) \\ fs []
-     \\ rfs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
+     \\ rfs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ qpat_abbrev_tac `ee = EL _ _`
   \\ `ee = h` by
    (unabbrev_all_tac
@@ -3026,7 +3026,7 @@ Proof
   \\ impl_tac THEN1
    (unabbrev_all_tac \\ tac
     \\ fs [RIGHT_ADD_DISTRIB,word_add_n2w,word_mul_n2w,bytes_in_word_def]
-    \\ rfs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
+    \\ rfs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ strip_tac \\ pop_assum mp_tac
   \\ drule (GEN_ALL evaluate_add_clock) \\ fs []
   \\ disch_then (qspec_then `ck' + 1` mp_tac)
@@ -3433,7 +3433,7 @@ Proof
   \\ `(LENGTH old + (LENGTH x0 + 1)) < dimword (:α)` by
    (imp_res_tac word_gen_gc_move_bitmaps_LENGTH
     \\ rfs [RIGHT_ADD_DISTRIB] \\ fs []
-    \\ rfs [labPropsTheory.good_dimindex_def] \\ rfs [] \\ fs[]) \\ fs []
+    \\ rfs [good_dimindex_def] \\ rfs [] \\ fs[]) \\ fs []
   \\ `0 < LENGTH x1` by
    (Cases_on `x1` \\ fs [word_gen_gc_move_roots_bitmaps_def,enc_stack_def])
   \\ fs [STOP_def] \\ Cases_on `x1` \\ fs []
@@ -3466,7 +3466,7 @@ Proof
    (unabbrev_all_tac \\ fs [] \\ tac \\ fs [ADD1,RIGHT_ADD_DISTRIB]
     \\ rfs [] \\ imp_res_tac word_gen_gc_move_bitmaps_LENGTH
     \\ rfs [RIGHT_ADD_DISTRIB] \\ fs []
-    \\ rfs [labPropsTheory.good_dimindex_def] \\ rfs [] \\ fs[])
+    \\ rfs [good_dimindex_def] \\ rfs [] \\ fs[])
   \\ strip_tac \\ unabbrev_all_tac \\ fs []
   \\ qexists_tac `ck + ck' + 1` \\ fs []
   \\ pop_assum mp_tac
@@ -3578,7 +3578,7 @@ Proof
   \\ `(LENGTH old + (LENGTH x0 + 1)) < dimword (:α)` by
    (imp_res_tac word_gen_gc_partial_move_bitmaps_LENGTH
     \\ rfs [RIGHT_ADD_DISTRIB] \\ fs []
-    \\ rfs [labPropsTheory.good_dimindex_def] \\ rfs [] \\ fs[]) \\ fs []
+    \\ rfs [good_dimindex_def] \\ rfs [] \\ fs[]) \\ fs []
   \\ `0 < LENGTH x1` by
    (Cases_on `x1` \\ fs [word_gen_gc_partial_move_roots_bitmaps_def,enc_stack_def])
   \\ fs [STOP_def] \\ Cases_on `x1` \\ fs []
@@ -3607,7 +3607,7 @@ Proof
    (unabbrev_all_tac \\ fs [] \\ tac \\ fs [ADD1,RIGHT_ADD_DISTRIB]
     \\ rfs [] \\ imp_res_tac word_gen_gc_partial_move_bitmaps_LENGTH
     \\ rfs [RIGHT_ADD_DISTRIB] \\ fs []
-    \\ rfs [labPropsTheory.good_dimindex_def] \\ rfs [] \\ fs[])
+    \\ rfs [good_dimindex_def] \\ rfs [] \\ fs[])
   \\ strip_tac \\ unabbrev_all_tac \\ fs []
   \\ qexists_tac `ck + ck' + 1` \\ fs []
   \\ pop_assum mp_tac
@@ -4453,7 +4453,7 @@ Theorem good_dimindex_byte_aligned_eq:
     (byte_aligned (w:'a word) <=>
      ((w && (if dimindex (:'a) = 32 then 3w else 7w)) = 0w))
 Proof
-  rw [labPropsTheory.good_dimindex_def]
+  rw [good_dimindex_def]
   \\ fs [alignmentTheory.byte_aligned_def,alignmentTheory.aligned_bitwise_and]
 QED
 
@@ -4547,7 +4547,7 @@ Proof
           (fs [word_gc_fun_assum_def,set_store_def,FAPPLY_FUPDATE_THM] \\ NO_TAC)
     \\ `word_shift (:'a) < dimindex (:'a) /\ 2 < dimindex (:'a) /\
         !w:'a word. w ≪ word_shift (:'a) = w * bytes_in_word` by
-     (fs [word_shift_def,bytes_in_word_def,labPropsTheory.good_dimindex_def]
+     (fs [word_shift_def,bytes_in_word_def,good_dimindex_def]
       \\ fs [WORD_MUL_LSL] \\ NO_TAC)
     \\ fs [isWord_thm] \\ fs [theWord_def]
     \\ rename1 `s.store ' OtherHeap = Word other`
@@ -4756,7 +4756,7 @@ Proof
         (fs [word_gc_fun_assum_def,set_store_def,FAPPLY_FUPDATE_THM] \\ NO_TAC)
   \\ `word_shift (:'a) < dimindex (:'a) /\ 2 < dimindex (:'a) /\
       !w:'a word. w ≪ word_shift (:'a) = w * bytes_in_word` by
-   (fs [word_shift_def,bytes_in_word_def,labPropsTheory.good_dimindex_def]
+   (fs [word_shift_def,bytes_in_word_def,good_dimindex_def]
     \\ fs [WORD_MUL_LSL] \\ NO_TAC)
   \\ fs [isWord_thm] \\ fs [theWord_def]
   \\ rename1 `s.store ' OtherHeap = Word other`
@@ -6131,7 +6131,7 @@ Proof
     TRY (EVAL_TAC>>every_case_tac >>
          EVAL_TAC>>every_case_tac >>
          fs [] >> EVAL_TAC >>
-     fs[reg_name_def, labPropsTheory.good_dimindex_def,
+     fs[reg_name_def, good_dimindex_def,
         asmTheory.offset_ok_def, data_to_wordTheory.conf_ok_def,
         data_to_wordTheory.shift_length_def]>>
      pairarg_tac>>fs[]>>NO_TAC)

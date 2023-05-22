@@ -1,8 +1,11 @@
 (**
  * The beginnings of a PEG parser for the Pancake language.
- *
+ *)
+
+(*
  * We take significant inspiration from the Spark ADA development.
  *)
+
 open HolKernel Parse boolLib bossLib stringLib numLib intLib;
 
 open pegTheory pegexecTheory panLexerTheory;
@@ -113,16 +116,18 @@ Definition pancake_peg_def[nocompute]:
                          (mksubtree ProgNT o FLAT));
         (INL BlockNT, choicel [mknt DecNT; mknt IfNT; mknt WhileNT]);
         (INL StmtNT, choicel [keep_kw SkipK;
+                              mknt CallNT;
                               mknt AssignNT; mknt StoreNT;
                               mknt StoreByteNT;
                               keep_kw BrK; keep_kw ContK;
-                              mknt CallNT; mknt ExtCallNT;
+                              mknt ExtCallNT;
                               mknt RaiseNT; mknt ReturnNT;
-                              keep_kw TicK]);
+                              keep_kw TicK;
+                              seql [consume_tok LCurT; mknt ProgNT; consume_tok RCurT] I
+                              ]);
         (INL DecNT,seql [consume_kw VarK; keep_ident;
                          consume_tok AssignT; mknt ExpNT;
-                         consume_tok LCurT; mknt ProgNT;
-                         consume_tok RCurT]
+                         consume_tok SemiT;mknt ProgNT]
                          (mksubtree DecNT));
         (INL AssignNT, seql [keep_ident; consume_tok AssignT;
                              mknt ExpNT] (mksubtree AssignNT));
@@ -153,8 +158,11 @@ Definition pancake_peg_def[nocompute]:
                              consume_kw HandleK]
                             (mksubtree HandleNT));
         (INL ExtCallNT, seql [consume_tok HashT; keep_ident;
-                              consume_tok LParT; keep_ident; keep_ident;
-                              keep_ident; keep_ident; consume_tok RParT]
+                              consume_tok LParT; mknt ExpNT;
+                              consume_tok CommaT; mknt ExpNT;
+                              consume_tok CommaT; mknt ExpNT;
+                              consume_tok CommaT; mknt ExpNT;
+                              consume_tok RParT]
                              (mksubtree ExtCallNT));
         (INL RaiseNT, seql [consume_kw RaiseK; keep_ident; mknt ExpNT]
                            (mksubtree RaiseNT));
@@ -209,16 +217,17 @@ Definition pancake_peg_def[nocompute]:
                           (mksubtree LoadNT));
         (INL LoadByteNT, seql [consume_kw LdbK; mknt ExpNT]
                               (mksubtree LoadByteNT));
-        (INL ShapeNT, choicel [keep_tok StarT;
-                               seql [consume_tok LessT;
+        (INL ShapeNT, choicel [keep_int;
+                               seql [consume_tok LCurT;
                                      mknt ShapeCombNT;
-                                     consume_tok GreaterT] I]);
+                                     consume_tok RCurT] I
+                              ]);
         (INL ShapeCombNT, seql [mknt ShapeNT;
                                 rpt (seq (consume_tok CommaT)
                                      (mknt ShapeNT) (flip K)) FLAT]
                              (mksubtree ShapeCombNT));
         (INL EqOpsNT, choicel [keep_tok EqT; keep_tok NeqT]);
-        (INL CmpOpsNT, choicel [keep_tok LessT; keep_tok GeqT]);
+        (INL CmpOpsNT, choicel [keep_tok LessT; keep_tok GeqT; keep_tok GreaterT; keep_tok LeqT]);
         (INL ShiftOpsNT, choicel [keep_tok LslT; keep_tok LsrT;
                                   keep_tok AsrT; keep_tok RorT]);
         (INL AddOpsNT, choicel [keep_tok PlusT; keep_tok MinusT])]

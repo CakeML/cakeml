@@ -52,7 +52,7 @@ Overload "_NUMERAL" = “λtm. Comb _NUMERAL_TM tm”;
 
 (* Compute expressions *)
 
-Overload Cexp = “Tyapp «cexp» []”;
+Overload Cexp = “Tyapp «cval» []”;
 Overload Cexp_list = “Tyapp «list» [Cexp]”;
 Overload "_P1" = “Var «p1» Cexp”;
 Overload "_P2" = “Var «p2» Cexp”;
@@ -222,4 +222,3 @@ End
 val _ = Parse.add_infix ("SAFEMOD", 500, HOLgrammars.LEFT);
 
 val _ = export_theory ();
-

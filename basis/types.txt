@@ -19,6 +19,9 @@ Option.compare: ('a -> 'b -> ordering) -> 'a option -> 'b option -> ordering
 List.null: 'a list -> bool
 List.length: 'a list -> int
 List.rev: 'a list -> 'a list
+List.mapRev: ('a -> 'b) -> 'a list -> 'b list
+List.filterRev: ('a -> bool) -> 'a list -> 'a list
+List.flatRev: 'a list list -> 'a list
 List.@: 'a list -> 'a list -> 'a list
 List.hd: 'a list -> 'a
 List.tl: 'a list -> 'a list
@@ -338,6 +341,7 @@ pre: int -> int
 while: ('a -> bool) -> ('a -> 'a) -> 'a -> 'a
 owhile: ('a -> bool) -> ('a -> 'a) -> 'a -> 'a option
 least: (int -> bool) -> int
+append: 'a app_list -> 'a list
 repeat: ('a -> 'a) -> 'a -> 'b
 +: int -> int -> int
 -: int -> int -> int
