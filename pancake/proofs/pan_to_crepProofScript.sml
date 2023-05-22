@@ -327,7 +327,7 @@ Proof
    rpt $ qpat_x_assum ‘SOME _ = _’ $ assume_tac o GSYM >>
    rpt $ first_x_assum $ drule_then $ drule_then $ drule_then drule >>
    rpt $ disch_then $ resolve_then Any assume_tac $ GSYM PAIR >>
-   gvs[flatten_def,shape_of_def,compile_panop_def,crep_op_def])
+   gvs[flatten_def,shape_of_def,DefnBase.one_line_ify NONE compile_panop_def,crep_op_def])
   >- (
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def] >>

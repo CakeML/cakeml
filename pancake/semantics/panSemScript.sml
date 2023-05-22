@@ -117,13 +117,7 @@ Termination
 End
 
 Definition pan_op_def:
-  (pan_op Div [w1;w2] =
-   if w2 ≠ 0w then SOME(w1 / w2)
-   else NONE) ∧
-  pan_op Mul [w1;w2] = SOME(w1 * w2) ∧
-  (pan_op Mod [w1;w2] =
-   if w2 ≠ 0w then SOME(word_mod w1 w2)
-   else NONE) ∧
+  pan_op Mul [w1:'a word;w2] = SOME(w1 * w2) ∧
   pan_op _ _ = NONE
 End
 

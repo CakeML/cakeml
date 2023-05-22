@@ -33,9 +33,7 @@ Definition comp_field_def:
 End
 
 Definition compile_panop_def:
-  compile_panop panLang$Div = crepLang$Div ∧
-  compile_panop panLang$Mul = crepLang$Mul ∧
-  compile_panop panLang$Mod = crepLang$Mod
+  compile_panop panLang$Mul = crepLang$Mul
 End
 
 Definition compile_exp_def:

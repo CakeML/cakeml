@@ -19,7 +19,7 @@ Type varname = ``:num``
 Type funname = ``:mlstring``
 
 Datatype:
-  crepop = Div | Mul | Mod
+  crepop = (* Div | *)Mul (*| Mod*)
 End
 
 Datatype:

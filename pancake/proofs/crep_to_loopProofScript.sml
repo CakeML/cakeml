@@ -406,6 +406,20 @@ Proof
   rw[] \\ rw[Once compile_exp_def]
 QED
 
+Theorem list_insert_insert:
+  ∀x xs l. insert x () $ list_insert xs l = list_insert xs $ insert x () l
+Proof
+  Induct_on ‘xs’ \\ rw[list_insert_def] \\
+  rename1 ‘insert a () $ insert b () _’ \\
+  Cases_on ‘a = b’ \\ rw[insert_shadow,insert_swap]
+QED
+
+Theorem list_insert_append:
+  ∀xs ys l. list_insert (xs ++ ys) l = list_insert xs $ list_insert ys l
+Proof
+  Induct \\ rw[list_insert_def,list_insert_insert]
+QED
+
 Theorem compile_exp_out_rel_cases:
   (!ct tmp l (e:'a crepLang$exp) p le ntmp nl.
     compile_exp ct tmp l e = (p,le,ntmp, nl) ==>
@@ -420,13 +434,7 @@ Proof
   TRY (
   fs [Once compile_exp_def] >> rveq >>
   TRY (pairarg_tac >> fs [] >> rveq >> NO_TAC) >>
-  fs [nested_seq_def, comp_syn_ok_basic_cases, cut_sets_def] >> NO_TAC)
-  >- (
-   rename [‘compile_exp _ _ _ (Label f)’] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [nested_seq_def, cut_sets_def] >>
-   match_mp_tac comp_syn_ok_seq2 >>
-   fs [comp_syn_ok_basic_cases])
+  fs [nested_seq_def, comp_syntax_ok_def, cut_sets_def] >> NO_TAC)
   >- (
    rename [‘compile_exp _ _ _ (LoadByte e)’] >>
    rpt gen_tac >> strip_tac >>
@@ -439,7 +447,7 @@ Proof
     fs [nested_seq_def] >>
     rpt (
     match_mp_tac comp_syn_ok_seq2 >>
-    fs [comp_syn_ok_basic_cases])) >>
+    fs [comp_syntax_ok_def])) >>
    fs [compile_exp_def] >>
    pairarg_tac >> fs [] >> rveq >>
    res_tac >> fs [] >>
@@ -463,9 +471,10 @@ Proof
    pairarg_tac >> fs [] >> rveq >>
    rpt gen_tac >> disch_then strip_assume_tac >>
    Cases_on ‘cop’ >>
-   gvs[DefnBase.one_line_ify NONE compile_crepop_def] >>
+   gvs[DefnBase.one_line_ify NONE compile_crepop_def,ELIM_UNCURRY,AllCaseEqs()] >>
    (conj_asm1_tac
     >- (rpt (match_mp_tac comp_syn_ok_nested_seq >> conj_tac) >>
+        rw[] >>
         simp[nested_seq_def,comp_syntax_ok_def]
         >- (rpt $ pop_assum kall_tac >>
             rename1 ‘comp_syntax_ok cs’ >>
@@ -483,11 +492,18 @@ Proof
             ntac 2 AP_TERM_TAC >>
             match_mp_tac MAPi_CONG >>
             rw[]) >>
-        simp[cut_sets_nested_seq,nested_seq_def,cut_sets_def,cut_sets_MAPi_Assign]) >>
-    simp[cut_sets_nested_seq,nested_seq_def,cut_sets_def,cut_sets_MAPi_Assign] >>
-    simp[insert_insert_eq] >>
-    simp[Once insert_insert,SimpR “$=”,insert_insert_eq] >>
-    simp[insert_insert_eq,GSYM ADD1,GENLIST,list_insert_SNOC]))
+        simp[cut_sets_nested_seq,nested_seq_def,cut_sets_def,cut_sets_MAPi_Assign,
+             comp_syntax_ok_def] >>
+        simp[insert_swap] >>
+        conj_tac >> qexists_tac ‘[]’ >> simp[insert_swap,insert_shadow])) >>
+   rw[] >>
+   simp[cut_sets_nested_seq,nested_seq_def,cut_sets_def,cut_sets_MAPi_Assign] >>
+   simp[insert_insert_eq] >>
+   simp[Once insert_insert,SimpR “$=”,insert_insert_eq] >>
+   simp[insert_insert_eq,GSYM ADD1,GENLIST,list_insert_SNOC] >>
+   simp[insert_swap,insert_shadow] >>
+   rw[CONV_RULE (STRIP_QUANT_CONV $ LHS_CONV $ PURE_ONCE_REWRITE_CONV [ADD_SYM]) GENLIST_APPEND] \\
+   rw[list_insert_append,list_insert_insert,list_insert_def,insert_swap,ADD1])
   >- (
    rename [‘compile_exp _ _ _ (Cmp _ _ _)’] >>
    rpt gen_tac >> strip_tac >>
@@ -503,20 +519,14 @@ Proof
      match_mp_tac comp_syn_ok_nested_seq >>
      fs []) >>
     fs [list_insert_def, nested_seq_def, cut_sets_def] >>
-    rpt (match_mp_tac comp_syn_ok_seq2 >>
-         fs [comp_syn_ok_basic_cases]) >>
+    fs [comp_syntax_ok_def] >>
     fs [cut_sets_def] >>
     rw [Once comp_syntax_ok_def, list_insert_def] >>
     fs [cut_sets_nested_seq] >>
     qmatch_goalsub_abbrev_tac ‘insert t2 _ (insert t1 _ cc)’ >>
-    match_mp_tac EQ_SYM >>
-    ‘insert t1 () (insert t2 () (insert t1 () cc)) = insert t2 () (insert t1 () cc)’ by (
-      ‘insert t2 () (insert t1 () cc) = insert t1 () (insert t2 () cc)’
-        by (fs [Abbr ‘t1’, Abbr ‘t2’] >> match_mp_tac insert_swap >> fs []) >>
-      fs [Abbr ‘t1’, Abbr ‘t2’] >> fs [Once insert_insert]) >>
-    fs [] >> pop_assum kall_tac >>
-    fs [Once insert_insert]) >>
-   conj_tac >- (res_tac >> fs []) >>
+    qexists_tac ‘[t1;t2]’ >>
+    simp[] >>
+    Cases_on ‘t1 = t2’ >> simp[insert_swap,insert_shadow]) >>
    res_tac >> fs [] >>
    qmatch_goalsub_abbrev_tac ‘list_insert _ ll’ >>
    fs [prog_if_def] >>
@@ -528,15 +538,11 @@ Proof
      fs [Abbr ‘np’, nested_seq_def] >>
      ntac 3 (rw [Once comp_syntax_ok_def]) >>
      rw [Once comp_syntax_ok_def, cut_sets_def, Abbr ‘l''’, list_insert_def] >>
-     fs [cut_sets_nested_seq] >>
+     fs [cut_sets_nested_seq,comp_syntax_ok_def] >>
      qmatch_goalsub_abbrev_tac ‘insert t2 _ (insert t1 _ cc)’ >>
-     match_mp_tac EQ_SYM >>
-     ‘insert t1 () (insert t2 () (insert t1 () cc)) = insert t2 () (insert t1 () cc)’ by (
-       ‘insert t2 () (insert t1 () cc) = insert t1 () (insert t2 () cc)’
-         by (fs [Abbr ‘t1’, Abbr ‘t2’] >> match_mp_tac insert_swap >> fs []) >>
-       fs [Abbr ‘t1’, Abbr ‘t2’] >> fs [Once insert_insert]) >>
-     fs [] >> pop_assum kall_tac >>
-     fs [Once insert_insert]) >>
+     qexists_tac ‘[t1;t2]’ >>
+     simp[] >>
+     Cases_on ‘t1 = t2’ >> simp[insert_swap,insert_shadow]) >>
    qpat_x_assum ‘comp_syntax_ok l (nested_seq (p' ++ p''))’ assume_tac >>
    fs [cut_sets_nested_seq] >>
    fs [Abbr ‘np’, nested_seq_def, cut_sets_def]) >>
@@ -666,8 +672,9 @@ Proof
      once_rewrite_tac [compile_exp_def] >>
      strip_tac >> fs [DefnBase.one_line_ify NONE compile_crepop_def] >>
      Cases_on ‘bop’ >>
-     pairarg_tac >> fs [] >> rveq >>
-     fs [locals_touched_def, crepLangTheory.var_cexp_def, ETA_AX])
+     rpt(pairarg_tac >> fs [] >> rveq) >>
+     fs [locals_touched_def, crepLangTheory.var_cexp_def, ETA_AX,AllCaseEqs()]
+     )
   >~ [‘compile_exps’] >-
    (rpt gen_tac >>
     strip_tac >>
@@ -840,6 +847,7 @@ Proof
         compile_exps_alt
        ] >>
     rpt (pairarg_tac >> gvs[]) >>
+    gvs[AllCaseEqs()] >>
     rpt $ qpat_x_assum ‘SOME _ = _’ $ assume_tac o GSYM >>
     first_x_assum drule_all >> strip_tac >>
     first_x_assum drule >> rpt $ disch_then drule >>
@@ -876,13 +884,14 @@ Proof
        drule_all eval_some_var_cexp_local_lookup >>
        metis_tac[]) >>
      strip_tac >>
-     simp[evaluate_def,nested_seq_def,eval_def,loop_arith_def] >>
-     rename1 ‘eval(set_var tmp' (wlab_wloc ctxt.funcs (Word ww)) st') le'’ >>
-     ‘eval (set_var tmp' (wlab_wloc ctxt.funcs (Word ww)) st') le'
+     simp[evaluate_def,nested_seq_def,eval_def,loop_arith_def,set_var_def,lookup_insert] >>
+     rename1 ‘eval(st' with locals := insert tmp' (wlab_wloc ctxt.funcs (Word ww)) st'.locals) lee’ >>
+     ‘∀w. eval (set_var tmp' (wlab_wloc ctxt.funcs w) st') lee
       =
-      eval st' le'
+      eval st' lee
      ’
-       by(match_mp_tac locals_touched_eq_eval_eq >>
+       by(strip_tac >>
+          match_mp_tac locals_touched_eq_eval_eq >>
           simp[set_var_def] >>
           imp_res_tac locals_rel_intro >>
           drule compile_exp_le_tmp_domain >>
@@ -895,18 +904,9 @@ Proof
           rw[] >>
           res_tac >>
           rw[lookup_insert]) >>
-     gvs[] >>
+     gvs[set_var_def] >>
      simp[set_var_def,wlab_wloc_def,lookup_insert,GSYM word_mul_def] >>
-     TRY(reverse IF_CASES_TAC >-
-          (spose_not_then kall_tac >>
-           gvs[NOT_LESS] >>
-           ‘w2n ww DIV w2n w2'' ≤ w2n ww’
-             by(match_mp_tac DIV_LESS_EQ >>
-                spose_not_then strip_assume_tac >>
-                gvs[]) >>
-           qspec_then ‘ww’ assume_tac w2n_lt >>
-           DECIDE_TAC)) >>
-     simp[set_var_def,wlab_wloc_def,lookup_insert,GSYM word_mul_def,word_mod_def] >>
+     simp[word_mul_def] >>
      conj_tac >- gvs[state_rel_def] >>
      gvs[locals_rel_def,list_insert_def] >>
      conj_tac
@@ -1242,8 +1242,7 @@ Proof
    rw [] >>
    pop_assum mp_tac >>
    rw [Once compile_exp_def, DefnBase.one_line_ify NONE compile_crepop_def, AllCaseEqs()] >> rveq >>
-   Cases_on ‘cop’ >> gvs[] >>
-   pairarg_tac >> gvs[AllCaseEqs()] >>
+   rpt(pairarg_tac >> gvs[AllCaseEqs()]) >>
    match_mp_tac survives_nested_seq_intro >>
    simp[nested_seq_def,survives_def] >>
    match_mp_tac survives_nested_seq_intro >>
@@ -1401,9 +1400,9 @@ Proof
    qpat_x_assum ‘compile_exp _ _ _ (Crepop _ _) = _’ mp_tac >>
    rw [Once compile_exp_def, AllCaseEqs(),DefnBase.one_line_ify NONE compile_crepop_def
             ] >> rveq >>
-   pairarg_tac >> fs [] >> Cases_on ‘cop’ >>
+   rpt(pairarg_tac >> fs []) >>
    gvs[assigned_vars_MAPi_Assign,assigned_vars_nested_seq_split,MEM_GENLIST,
-       assigned_vars_def,nested_seq_def
+       assigned_vars_def,nested_seq_def,AllCaseEqs()
         ] >>
    imp_res_tac compile_exp_out_rel_cases >>
    DECIDE_TAC)

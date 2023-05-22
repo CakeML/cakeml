@@ -977,6 +977,26 @@ Proof
   fs [mk_new_cutset_def]
 QED
 
+Theorem compile_Arith:
+  ^(get_goal "loopLang$Arith")
+Proof
+  rpt strip_tac >>
+  gvs [loopSemTheory.evaluate_def,
+       comp_def, evaluate_def,DefnBase.one_line_ify NONE loop_arith_def,
+       AllCaseEqs(),inst_def,PULL_EXISTS,get_vars_def,find_var_def,get_var_def,
+       loopSemTheory.set_var_def,wordSemTheory.set_var_def,
+       state_rel_def,SUBSET_DEF,loopLangTheory.acc_vars_def,
+       SF DNF_ss
+      ] >>
+  imp_res_tac locals_rel_intro >>
+  gvs[lookup_insert,lookup_insert,domain_lookup] >>
+  rw[] >>
+  gvs[locals_rel_def,lookup_insert] >>
+  rw[] >>
+  res_tac >> gvs[] >> rw[] >>
+  gvs[INJ_DEF,domain_lookup,PULL_EXISTS,find_var_def]
+QED
+
 Theorem compile_correct:
   ^(compile_correct_tm())
 Proof
@@ -984,7 +1004,7 @@ Proof
   >> EVERY (map strip_assume_tac [compile_Skip, compile_Raise,
        compile_Mark, compile_Return, compile_Assign, compile_Store,
        compile_SetGlobal, compile_Call, compile_Seq, compile_If,
-       compile_FFI, compile_Loop, compile_LoadByte])
+       compile_FFI, compile_Loop, compile_LoadByte, compile_Arith])
   >> asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
 
@@ -1721,6 +1741,7 @@ Proof
   ho_match_mp_tac loop_to_wordTheory.comp_ind>>
   rw[loop_to_wordTheory.comp_def]>>
   gs[wordPropsTheory.extract_labels_def]
+  >- gvs[AllCaseEqs(),extract_labels_def]
   >- (pairarg_tac>>gs[]>>
       pairarg_tac>>gs[]>>
       rveq>>gs[wordPropsTheory.extract_labels_def]>>
@@ -1756,6 +1777,7 @@ Proof
   ho_match_mp_tac loop_to_wordTheory.comp_ind>>
   rw[loop_to_wordTheory.comp_def]>>
   gs[wordPropsTheory.extract_labels_def]
+  >- gvs[AllCaseEqs(),extract_labels_def]
   >- (pairarg_tac>>gs[]>>
       pairarg_tac>>gs[]>>
       rveq>>gs[wordPropsTheory.extract_labels_def]>>
@@ -1802,6 +1824,7 @@ Proof
   ho_match_mp_tac loop_to_wordTheory.comp_ind>>
   rw[loop_to_wordTheory.comp_def]>>
   gs[wordPropsTheory.extract_labels_def]
+  >- gvs[AllCaseEqs(),extract_labels_def]
   >- (pairarg_tac>>gs[]>>
       pairarg_tac>>gs[]>>
       rveq>>
@@ -1954,7 +1977,8 @@ Proof
   TRY (Cases_on ‘ret’>-gs[wordPropsTheory.every_inst_def]>>
        rename1 ‘SOME x’>>PairCases_on ‘x’>>gs[]>>
        Cases_on ‘handler’>-gs[wordPropsTheory.every_inst_def]>>
-       rename1 ‘SOME x’>>PairCases_on ‘x’)>>
+       rename1 ‘SOME x’>>PairCases_on ‘x’)
+  >- (TOP_CASE_TAC \\ gvs[every_inst_def,inst_ok_less_def]
   gs[]>>rpt (pairarg_tac>>gs[])>>
   gs[wordPropsTheory.every_inst_def]
 QED

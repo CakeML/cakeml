@@ -33,7 +33,7 @@ Datatype:
 End
 
 Datatype:
-  panop = Div | Mul | Mod
+  panop = (* Div | *)Mul (* | Mod*)
 End
 
 Datatype:

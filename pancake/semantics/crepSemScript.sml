@@ -83,13 +83,7 @@ Definition lookup_code_def:
 End
 
 Definition crep_op_def:
-  (crep_op crepLang$Div [w1;w2] =
-   if w2 ≠ 0w then SOME(w1 / w2)
-   else NONE) ∧
-  crep_op Mul [w1;w2] = SOME(w1 * w2) ∧
-  (crep_op Mod [w1;w2] =
-   if w2 ≠ 0w then SOME(word_mod w1 w2)
-   else NONE) ∧
+  crep_op crepLang$Mul [w1:'a word;w2] = SOME(w1 * w2) ∧
   crep_op _ _ = NONE
 End
 
