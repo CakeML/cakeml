@@ -78,10 +78,12 @@ End
 
 (* could have been stated differently *)
 Definition ctxt_fc_def:
-  ctxt_fc cvs ns args =
+  ctxt_fc c cvs ns args =
     <|vars := FEMPTY |++ ZIP (ns, args);
       funcs := cvs;
-      vmax := list_max args|>
+      vmax := list_max args;
+      target := c
+      |>
 End
 
 Definition code_rel_def:
@@ -92,7 +94,7 @@ Definition code_rel_def:
      ?loc len. FLOOKUP ctxt.funcs f = SOME (loc, len) /\
        LENGTH ns = len /\
        let args = GENLIST I len;
-           nctxt = ctxt_fc ctxt.funcs ns args in
+           nctxt = ctxt_fc ctxt.target ctxt.funcs ns args in
        lookup loc t_code =
           SOME (args,
                 ocompile nctxt (list_to_num_set args) prog)
@@ -191,7 +193,7 @@ Theorem code_rel_intro:
      ?loc len. FLOOKUP ctxt.funcs f = SOME (loc, len) /\
        LENGTH ns = len /\
        let args = GENLIST I len;
-           nctxt = ctxt_fc ctxt.funcs ns args in
+           nctxt = ctxt_fc ctxt.target ctxt.funcs ns args in
        lookup loc t_code =
           SOME (args,
                 ocompile nctxt (list_to_num_set args) prog)
@@ -2670,7 +2672,7 @@ Theorem call_preserve_state_code_locals_rel:
    FLOOKUP s.code fname = SOME (ns,prog) /\
    FLOOKUP ctxt.funcs fname = SOME (loc,LENGTH lns) /\
    MAP (eval s) argexps = MAP SOME args ==>
-   let nctxt = ctxt_fc ctxt.funcs ns lns in
+   let nctxt = ctxt_fc ctxt.target ctxt.funcs ns lns in
         state_rel
           (s with
            <|locals := FEMPTY |++ ZIP (ns,args); clock := s.clock − 1|>)
@@ -2843,11 +2845,11 @@ val tail_case_tac =
     (qspecl_then [
      ‘dec_clock (st with locals := fromAList
                  (ZIP (lns,FRONT (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0]))))’,
-     ‘(ctxt_fc ctxt.funcs ns lns)’, ‘list_to_num_set lns’] mp_tac) >>
+     ‘(ctxt_fc ctxt.target ctxt.funcs ns lns)’, ‘list_to_num_set lns’] mp_tac) >>
     impl_tac
     >- (
     fs [crepSemTheory.dec_clock_def, dec_clock_def] >>
-    ‘(ctxt_fc ctxt.funcs ns lns).funcs = ctxt.funcs’ by (
+    ‘(ctxt_fc ctxt.target ctxt.funcs ns lns).funcs = ctxt.funcs’ by (
       fs [ctxt_fc_def]) >> fs [] >>
      match_mp_tac (call_preserve_state_code_locals_rel |> SIMP_RULE bool_ss [LET_THM]) >>
      fs [Abbr ‘lns’] >>
@@ -3247,11 +3249,11 @@ Proof
   (qspecl_then [
      ‘dec_clock (st with locals := fromAList
                  (ZIP (lns,FRONT (MAP (wlab_wloc ctxt.funcs) args ++ [Loc loc 0]))))’,
-     ‘(ctxt_fc ctxt.funcs ns lns)’, ‘list_to_num_set lns’] mp_tac) >>
+     ‘(ctxt_fc ctxt.target ctxt.funcs ns lns)’, ‘list_to_num_set lns’] mp_tac) >>
   impl_tac
   >- (
    fs [crepSemTheory.dec_clock_def, dec_clock_def] >>
-   ‘(ctxt_fc ctxt.funcs ns lns).funcs = ctxt.funcs’ by (
+   ‘(ctxt_fc ctxt.target ctxt.funcs ns lns).funcs = ctxt.funcs’ by (
      fs [ctxt_fc_def]) >> fs [] >>
    match_mp_tac (call_preserve_state_code_locals_rel |> SIMP_RULE bool_ss [LET_THM]) >>
    fs [Abbr ‘lns’] >>
@@ -3266,7 +3268,7 @@ Proof
    (* case split on return option variable *)
    fs [CaseEq "option"] >> rveq >>
    fs [rt_var_def] >>
-   ‘(ctxt_fc ctxt.funcs ns lns).funcs = ctxt.funcs’ by (
+   ‘(ctxt_fc ctxt.target ctxt.funcs ns lns).funcs = ctxt.funcs’ by (
      fs [ctxt_fc_def]) >>
    fs [] >> pop_assum kall_tac >>
    TRY (
@@ -4083,7 +4085,6 @@ Proof
    fcalled_timed_out_tac
 QED
 
-
 Theorem ncompile_correct:
    ^(compile_prog_tm ())
 Proof
@@ -4213,8 +4214,8 @@ QED
 
 
 Theorem first_compile_prog_all_distinct:
-  !crep_code.
-    ALL_DISTINCT (MAP FST (compile_prog crep_code))
+  !c crep_code.
+    ALL_DISTINCT (MAP FST (compile_prog c crep_code))
 Proof
   rw [] >>
   fs [crep_to_loopTheory.compile_prog_def] >>
@@ -4232,16 +4233,16 @@ Proof
                       “:'d”|->“:'a crepLang$prog”,
                       “:'e”|-> “:'a prog”] map_map2_fst) >>
   disch_then (qspec_then ‘λparams body. loop_live$optimise
-                          (comp_func (make_funcs crep_code)
+                          (comp_func c (make_funcs crep_code)
                            params body)’ mp_tac) >> fs []
 QED
 
 Theorem mk_ctxt_code_imp_code_rel:
-  !crep_code start np. ALL_DISTINCT (MAP FST crep_code) /\
+  !c crep_code start np. ALL_DISTINCT (MAP FST crep_code) /\
   ALOOKUP crep_code start = SOME ([],np) ==>
-  code_rel (mk_ctxt FEMPTY (make_funcs crep_code) 0)
+  code_rel (mk_ctxt c FEMPTY (make_funcs crep_code) 0)
             (alist_to_fmap crep_code)
-            (fromAList (crep_to_loop$compile_prog crep_code))
+            (fromAList (crep_to_loop$compile_prog c crep_code))
 Proof
   rw [code_rel_def, mk_ctxt_def]
   >- fs [distinct_make_funcs] >>
@@ -4320,7 +4321,7 @@ Proof
                     “:'c”|-> “:num # num list # 'a prog”] EL_MAP2) >>
   disch_then (qspec_then ‘λn' (name,params,body).
        (n',GENLIST I (LENGTH params),
-        loop_live$optimise (comp_func (make_funcs crep_code)
+        loop_live$optimise (comp_func c (make_funcs crep_code)
                   params body))’ mp_tac) >>
   strip_tac >> fs [] >>
   pop_assum kall_tac >> fs [] >>
@@ -4335,8 +4336,8 @@ QED
 
 
 Theorem make_funcs_domain_compile_prog:
-  !start lc crep_code. FLOOKUP (make_funcs crep_code) start = SOME (lc,0) ==>
-    lc ∈ domain (fromAList (compile_prog crep_code))
+  !start lc crep_code c. FLOOKUP (make_funcs crep_code) start = SOME (lc,0) ==>
+    lc ∈ domain (fromAList (compile_prog c crep_code))
 Proof
   rw [] >>
   fs [domain_fromAList] >>
@@ -4455,9 +4456,9 @@ Proof
 QED
 
 Theorem compile_prog_distinct_params:
-  ∀prog.
+  ∀prog c.
     EVERY (λ(name,params,body). ALL_DISTINCT params) prog ⇒
-    EVERY (λ(name,params,body). ALL_DISTINCT params) (compile_prog prog)
+    EVERY (λ(name,params,body). ALL_DISTINCT params) (compile_prog c prog)
 Proof
   rw [] >>
   fs [EVERY_MEM] >>
@@ -4479,14 +4480,14 @@ QED
 
 
 Theorem state_rel_imp_semantics:
-  !s t crep_code start prog lc. s.memaddrs = t.mdomain ∧
+  !s t crep_code start prog lc c. s.memaddrs = t.mdomain ∧
   s.be = t.be ∧
   s.ffi = t.ffi ∧ s.base_addr = t.base_addr ∧
   mem_rel (make_funcs crep_code) s.memory t.memory ∧
   globals_rel (make_funcs crep_code) s.globals t.globals ∧
   ALL_DISTINCT (MAP FST crep_code) ∧
   s.code = alist_to_fmap crep_code ∧
-  t.code = fromAList (crep_to_loop$compile_prog crep_code) ∧
+  t.code = fromAList (crep_to_loop$compile_prog c crep_code) ∧
   s.locals = FEMPTY ∧
   ALOOKUP crep_code start = SOME ([],prog) ∧
   FLOOKUP (make_funcs crep_code) start = SOME (lc, 0) ∧
@@ -4495,7 +4496,7 @@ Theorem state_rel_imp_semantics:
 Proof
   rw [] >>
   drule mk_ctxt_code_imp_code_rel >>
-  disch_then (qspecl_then [‘start’, ‘prog’] mp_tac) >>
+  disch_then (qspecl_then [‘c’,‘start’, ‘prog’] mp_tac) >>
   fs [] >> strip_tac >>
   qmatch_asmsub_abbrev_tac ‘code_rel nctxt _ _’ >>
   reverse (Cases_on ‘semantics s start’) >> fs []
@@ -5569,7 +5570,7 @@ QED
 (* first_name offset *)
 
 Theorem crep_to_loop_compile_prog_lab_min:
-  crep_to_loop$compile_prog cprog = lprog ⇒
+  crep_to_loop$compile_prog c cprog = lprog ⇒
   EVERY (λprog. 60 ≤ FST prog) lprog
 Proof
   gs[crep_to_loopTheory.compile_prog_def]>>
