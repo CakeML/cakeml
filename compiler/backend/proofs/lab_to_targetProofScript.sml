@@ -6084,8 +6084,7 @@ val share_mem_eval_expand_tac =
   \\ fs[target_state_rel_def]
   \\ disch_then kall_tac
   \\ fs[share_mem_state_rel_def]
-(* TODO *)
-  \\ qpat_assum `!index' ?i'. mmio_pcs_min_index _ = SOME i' /\ index' < _ /\
+  \\ qpat_assum `!index' i'. mmio_pcs_min_index _ = SOME i' /\ index' < _ /\
       _ ==> _` $ qspecl_then [`index`, `i`] drule
   \\ (
     impl_tac >- (drule find_index_LESS_LENGTH >> fs[])
@@ -6152,7 +6151,9 @@ Proof
     THEN1 (* Asm Inst *) (
        say "Asm Inst"
        \\ qmatch_assum_rename_tac `asm_fetch s1 = SOME (Asm (Asmi(Inst i)) bytes len)`
-       \\ mp_tac IMP_bytes_in_memory_Inst \\ full_simp_tac(srw_ss())[]
+       \\ qabbrev_tac `ffi_names = TAKE (THE (mmio_pcs_min_index mc_conf.ffi_names)) mc_conf.ffi_names`
+       \\ mp_tac IMP_bytes_in_memory_Inst
+       \\ full_simp_tac(srw_ss())[]
        \\ match_mp_tac IMP_IMP \\ strip_tac
        THEN1 (full_simp_tac(srw_ss())[state_rel_def] \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[])
        \\ rpt strip_tac \\ pop_assum mp_tac \\ pop_assum mp_tac
@@ -6245,7 +6246,8 @@ Proof
           \\ simp[] )
         \\ simp[]
         \\ qunabbrev_tac`pv`
-        \\ match_mp_tac pos_val_MOD_0 \\ fs[]
+        \\ qabbrev_tac `ffi_names = TAKE (THE (mmio_pcs_min_index mc_conf.ffi_names)) mc_conf.ffi_names`
+        \\ match_mp_tac pos_val_MOD_0 \\ gvs[]
         \\ metis_tac[has_odd_inst_alignment] )
       \\ rpt strip_tac
       \\ rfs[] \\ fs[] \\ rfs[]
@@ -6282,7 +6284,7 @@ Proof
             \\ simp[] )
           \\ simp[]
           \\ qunabbrev_tac`pv`
-          \\ match_mp_tac pos_val_MOD_0 \\ fs[]
+          \\ match_mp_tac $ Q.GEN `ffi_names` pos_val_MOD_0 \\ fs[]
           \\ metis_tac[has_odd_inst_alignment])
         >- (fs[share_mem_state_rel_def] >> share_mem_state_rel_tac)
         >- fs[share_mem_domain_code_rel_def] )
@@ -6296,6 +6298,7 @@ Proof
     fs[case_eq_thms]>>
     fs[dec_clock_def]>>
     qmatch_asmsub_rename_tac `Asm (Cbw r1 r2) bytes len`>>
+    qabbrev_tac `ffi_names = TAKE (THE (mmio_pcs_min_index mc_conf.ffi_names)) mc_conf.ffi_names` >>
     mp_tac IMP_bytes_in_memory_Cbw>> impl_tac>-
       fs[state_rel_def]>>
     strip_tac>>
@@ -6344,8 +6347,7 @@ Proof
           fs[])>>
         rw[]>>
         simp[word_add_n2w])>>
-      simp[asm_step_nop_def,asm_def])
-    >>
+      simp[asm_step_nop_def,asm_def]) >>
     strip_tac>>
     first_x_assum (qspecl_then [`shift_interfer l mc_conf`,
           `code2`,`labs`,
@@ -6516,6 +6518,7 @@ Proof
     \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (Jump jtarget) l bytes n)`
     \\ Cases_on `get_pc_value jtarget s1` \\ full_simp_tac(srw_ss())[]
+    \\ qabbrev_tac `ffi_names = TAKE (THE (mmio_pcs_min_index mc_conf.ffi_names)) mc_conf.ffi_names`
     \\ mp_tac IMP_bytes_in_memory_Jump \\ full_simp_tac(srw_ss())[]
     \\ match_mp_tac IMP_IMP \\ strip_tac
     THEN1 (full_simp_tac(srw_ss())[state_rel_def] \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[])
@@ -6590,6 +6593,7 @@ Proof
      (Cases_on `word_cmp cmp (read_reg rr s1) (reg_imm ri s1)` \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac word_cmp_lemma \\ full_simp_tac(srw_ss())[])
     \\ full_simp_tac(srw_ss())[]
+    \\ qabbrev_tac `ffi_names = TAKE (THE (mmio_pcs_min_index mc_conf.ffi_names)) mc_conf.ffi_names`
     \\ Cases_on `word_cmp cmp (read_reg rr t1) (reg_imm ri t1)` \\ full_simp_tac(srw_ss())[]
     THEN1
      (Cases_on `get_pc_value jtarget s1` \\ full_simp_tac(srw_ss())[]
@@ -6706,6 +6710,7 @@ Proof
     \\ Cases_on `lab`
     \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (Call (Lab l1 l2)) l bytes len)`
+    \\ qabbrev_tac `ffi_names = TAKE (THE (mmio_pcs_min_index mc_conf.ffi_names)) mc_conf.ffi_names`
     \\ (Q.SPECL_THEN [`Lab l1 l2`,`len`]mp_tac
             (Q.GENL[`ww`,`n`]IMP_bytes_in_memory_Call))
     \\ match_mp_tac IMP_IMP \\ strip_tac \\ full_simp_tac(srw_ss())[]
@@ -6717,7 +6722,8 @@ Proof
     \\ Cases_on `lab`
     \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (LocValue reg (Lab l1 l2)) ww bytes len)`
-    \\ full_simp_tac(srw_ss())[lab_to_loc_def]
+    \\ full_simp_tac(srw_ss())[lab_to_loc_def] 
+    \\ qabbrev_tac `ffi_names = TAKE (THE (mmio_pcs_min_index mc_conf.ffi_names)) mc_conf.ffi_names`
     \\ mp_tac (Q.INST [`l`|->`ww`,`n`|->`len`]
                IMP_bytes_in_memory_LocValue) \\ full_simp_tac(srw_ss())[]
     \\ match_mp_tac IMP_IMP \\ strip_tac
@@ -6795,6 +6801,7 @@ Proof
     \\ qmatch_asmsub_abbrev_tac `loc_to_pc a1 a2 a3`
     \\ Cases_on `loc_to_pc a1 a2 a3` >- fs[]
     \\ unabbrev_all_tac \\ fs[]
+    \\ qabbrev_tac `ffi_names = TAKE (THE (mmio_pcs_min_index mc_conf.ffi_names)) mc_conf.ffi_names`
     \\ mp_tac (Q.GEN `name` IMP_bytes_in_memory_CallFFI) \\ full_simp_tac(srw_ss())[]
     \\ match_mp_tac IMP_IMP \\ strip_tac
     THEN1 (full_simp_tac(srw_ss())[state_rel_def]
@@ -7368,6 +7375,7 @@ Proof
     \\ srw_tac[][]
     \\ qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm Halt l1 l2 l3)`
     \\ qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm Halt l bytes n)`
+    \\ qabbrev_tac `ffi_names = TAKE (THE (mmio_pcs_min_index mc_conf.ffi_names)) mc_conf.ffi_names`
     \\ mp_tac IMP_bytes_in_memory_Halt \\ full_simp_tac(srw_ss())[]
     \\ match_mp_tac IMP_IMP \\ strip_tac
     THEN1 (full_simp_tac(srw_ss())[state_rel_def]
