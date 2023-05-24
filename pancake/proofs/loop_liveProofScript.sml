@@ -487,7 +487,7 @@ Proof
   rw[state_component_equality,set_var_def,lookup_insert] >>
   rw[] >> gvs[]
 QED
-        
+
 Theorem compile_correct:
   ^(compile_correct_tm())
 Proof
