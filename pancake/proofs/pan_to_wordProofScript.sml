@@ -35,12 +35,12 @@ Definition mk_mem_def:
 End
 
 Definition loop_state_def:
-  loop_state (s:('a,'ffi) crepSem$state) crep_code ck =
+  loop_state (s:('a,'ffi) crepSem$state) c crep_code ck =
   <| locals   := LN;
      globals  := FEMPTY;
      memory   := mk_mem (make_funcs crep_code) s.memory;
      mdomain := s.memaddrs;
-     code     := fromAList (crep_to_loop$compile_prog crep_code);
+     code     := fromAList (crep_to_loop$compile_prog c crep_code);
      clock    := ck;
      be       := s.be;
      ffi      := s.ffi;
@@ -64,7 +64,7 @@ End
 
 Theorem first_compile_prog_all_distinct:
   !prog. ALL_DISTINCT (MAP FST prog) ==>
-   ALL_DISTINCT (MAP FST (pan_to_word$compile_prog prog))
+   ALL_DISTINCT (MAP FST (pan_to_word$compile_prog c prog))
 Proof
   rw [] >>
   fs [pan_to_wordTheory.compile_prog_def] >>
@@ -381,7 +381,7 @@ Theorem state_rel_imp_semantics:
   ALOOKUP pan_code start = SOME ([],prog) ∧
   lc < LENGTH pan_code ∧ EL lc pan_code = (start,[],prog) ∧
   s.code = alist_to_fmap pan_code ∧
-  t.code = fromAList (pan_to_word$compile_prog pan_code) ∧
+  t.code = fromAList (pan_to_word$compile_prog c pan_code) ∧
   s.locals = FEMPTY ∧ size_of_eids pan_code < dimword (:α) ∧
   FDOM s.eshapes = FDOM ((get_eids pan_code):mlstring |-> 'a word) ∧
   lookup 0 t.locals = SOME (Loc 1 0) /\
@@ -496,13 +496,13 @@ Proof
      fs []) >>
     fs [pan_simpTheory.compile_prog_def]) >>
   ‘cst.memaddrs =
-   (loop_state cst ccode t.clock).mdomain’ by
+   (loop_state cst c ccode t.clock).mdomain’ by
     fs [Abbr ‘ccode’, Abbr ‘pcode’, Abbr ‘cst’, Abbr ‘pst’, crep_state_def, loop_state_def] >>
   drule crep_to_loopProofTheory.state_rel_imp_semantics >>
   disch_then (qspecl_then [‘ccode’,
                            ‘start’, ‘comp_func (make_funcs pcode)
                                      (get_eids pcode) [] (compile prog)’,
-                           ‘lc+first_name’] mp_tac) >>
+                           ‘lc+first_name’,‘c’] mp_tac) >>
   impl_tac
   >- (
    fs [Abbr ‘ccode’, Abbr ‘pcode’, Abbr ‘pst’, Abbr ‘cst’,
@@ -527,12 +527,12 @@ Proof
   strip_tac >>
   drule pan_to_crepProofTheory.first_compile_prog_all_distinct >>
   strip_tac >>
-  ‘st_rel lst t (compile_prog ccode)’ by (
+  ‘st_rel lst t (compile_prog c ccode)’ by (
     fs [st_rel_def] >>
     conj_tac
     >- (
      fs [loop_removeProofTheory.state_rel_def] >>
-     qexists_tac ‘fromAList (comp_prog (compile_prog ccode))’ >>
+     qexists_tac ‘fromAList (comp_prog (compile_prog c ccode))’ >>
      fs [] >> rw []
      >- (
       fs [Abbr ‘lst’, loop_state_def] >>
@@ -634,7 +634,7 @@ Proof
     fs []) >>
   drule fstate_rel_imp_semantics >>
   disch_then (qspecl_then [‘lc+first_name’,
-     ‘loop_live$optimise (comp_func (make_funcs ccode) [] cprog)’] mp_tac) >>
+     ‘loop_live$optimise (comp_func c (make_funcs ccode) [] cprog)’] mp_tac) >>
   impl_tac
   >- (
    fs [Abbr ‘lst’, loop_state_def,
@@ -726,7 +726,7 @@ QED
 (*** no_install/no_alloc/no_mt lemmas ***)
 
 Theorem pan_to_word_compile_prog_no_install_code:
-  compile_prog prog = prog' ⇒
+  compile_prog c prog = prog' ⇒
   no_install_code (fromAList prog')
 Proof
   gs[compile_prog_def]>>strip_tac>>
@@ -734,7 +734,7 @@ Proof
 QED
 
 Theorem pan_to_word_compile_prog_no_alloc_code:
-  compile_prog prog = prog' ⇒
+  compile_prog c prog = prog' ⇒
   no_alloc_code (fromAList prog')
 Proof
   gs[compile_prog_def]>>strip_tac>>
@@ -742,7 +742,7 @@ Proof
 QED
 
 Theorem pan_to_word_compile_prog_no_mt_code:
-  compile_prog prog = prog' ⇒
+  compile_prog c prog = prog' ⇒
   no_mt_code (fromAList prog')
 Proof
   gs[compile_prog_def]>>strip_tac>>
@@ -752,7 +752,7 @@ QED
 (*** pan_to_word good_handlers ***)
 
 Theorem pan_to_word_good_handlers:
-  compile_prog prog = prog' ⇒
+  compile_prog c prog = prog' ⇒
   EVERY (λ(n,m,pp). good_handlers n pp) prog'
 Proof
   gs[compile_prog_def,
@@ -764,7 +764,7 @@ QED
 (* lab_pres *)
 
 Theorem pan_to_word_compile_lab_pres:
-  pan_to_word$compile_prog prog = prog' ⇒
+  pan_to_word$compile_prog c prog = prog' ⇒
   EVERY
   (λ(n,m,p).
      (let
@@ -781,7 +781,7 @@ QED
 (* first_name offset : lab_min *)
 
 Theorem pan_to_word_compile_prog_lab_min:
-  compile_prog pprog = wprog ⇒
+  compile_prog c pprog = wprog ⇒
   EVERY (λprog. 60 ≤ FST prog) wprog
 Proof
   gs[pan_to_wordTheory.compile_prog_def]>>
@@ -792,13 +792,473 @@ QED
 
 (* inst_ok_less *)
 
+Theorem every_inst_ok_loop_call:
+  ∀l prog.
+    every_prog (loop_inst_ok c) prog ⇒
+    every_prog (loop_inst_ok c) (FST(loop_call$comp l prog))
+Proof
+  ho_match_mp_tac loop_callTheory.comp_ind \\
+  rw[loopPropsTheory.every_prog_def,loop_callTheory.comp_def,
+     loop_inst_ok_def] \\
+  rpt(pairarg_tac \\ gvs[]) \\
+  rw[loopPropsTheory.every_prog_def,loop_callTheory.comp_def,
+     loop_inst_ok_def] \\
+  every_case_tac \\
+  rw[loopPropsTheory.every_prog_def,loop_callTheory.comp_def,
+     loop_inst_ok_def]
+QED
+
+val prog = “prog:'a loopLang$prog”
+
+Theorem every_inst_ok_loop_live:
+  ∀prog.
+    every_prog (loop_inst_ok c) ^prog ⇒
+    every_prog (loop_inst_ok c) (loop_live$comp prog)
+Proof
+  rw[loop_liveTheory.comp_def] \\
+  ‘(∀p prog q. every_prog (loop_inst_ok c) ^prog ⇒ every_prog (loop_inst_ok c) (FST $ shrink p prog q)) ∧
+   (∀p q r prog. every_prog (loop_inst_ok c) ^prog ⇒ OPTION_ALL (every_prog (loop_inst_ok c) o FST) (fixedpoint p q r prog))
+  ’
+    by(pop_assum kall_tac \\
+       ho_match_mp_tac loop_liveTheory.shrink_ind \\ rw[] \\
+       gvs $ loopPropsTheory.every_prog_def::loop_inst_ok_def::
+              butlast(CONJUNCTS loop_liveTheory.shrink_def) \\
+       rpt(pairarg_tac \\ gvs[]) \\
+       gvs $ loopPropsTheory.every_prog_def::loop_inst_ok_def::
+              butlast(CONJUNCTS loop_liveTheory.shrink_def) \\
+       rpt TOP_CASE_TAC \\ gvs[loopPropsTheory.every_prog_def,loop_inst_ok_def] \\
+       rpt(pairarg_tac \\ gvs[]) \\
+       gvs $ loopPropsTheory.every_prog_def::loop_inst_ok_def::
+              butlast(CONJUNCTS loop_liveTheory.shrink_def) \\
+       simp[Once loop_liveTheory.shrink_def] \\
+       rpt(pairarg_tac \\ gvs[]) \\
+       rw[]) \\
+  ‘∀prog. every_prog (loop_inst_ok c) ^prog ⇒
+          every_prog (loop_inst_ok c) (FST $ mark_all prog)’
+    by(rpt $ pop_assum kall_tac \\
+       ho_match_mp_tac loop_liveTheory.mark_all_ind \\
+       rw[loopPropsTheory.every_prog_def,loop_inst_ok_def,
+          loop_liveTheory.mark_all_def] \\
+       rpt(pairarg_tac \\ gvs[]) \\
+       every_case_tac \\
+       gvs[loopPropsTheory.every_prog_def,loop_inst_ok_def,
+           loop_liveTheory.mark_all_def] \\
+       rpt(pairarg_tac \\ gvs[]) \\
+       rw[loopPropsTheory.every_prog_def,loop_inst_ok_def,
+           loop_liveTheory.mark_all_def]) \\
+  metis_tac[]
+QED
+
+Theorem every_inst_ok_less_optimise:
+  every_prog (loop_inst_ok c) prog ⇒
+  every_prog (loop_inst_ok c) (optimise prog)
+Proof
+  rw[loop_liveTheory.optimise_def] \\
+  metis_tac[every_inst_ok_loop_call,every_inst_ok_loop_live]
+QED
+
+Theorem every_inst_ok_less_crep_to_loop_compile_exp:
+  (∀ctxt n ns (e:'a crepLang$exp).
+     ctxt.target = c.ISA ∧
+     every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2) e
+     ⇒
+     EVERY (every_prog (loop_inst_ok c)) (FST $ crep_to_loop$compile_exp ctxt n ns e)) ∧
+  (∀ctxt n ns (es: 'a crepLang$exp list).
+     ctxt.target = c.ISA ∧
+     EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) es
+     ⇒
+     EVERY (every_prog (loop_inst_ok c)) (FST $ crep_to_loop$compile_exps ctxt n ns es))
+Proof
+  ho_match_mp_tac crep_to_loopTheory.compile_exp_ind \\
+  rw $ [loopPropsTheory.every_prog_def,loop_inst_ok_def,crep_to_loopTheory.prog_if_def,crepPropsTheory.every_exp_def] @ butlast(CONJUNCTS crep_to_loopTheory.compile_exp_def) \\
+  rpt(pairarg_tac \\ gvs[]) \\
+  gvs[loopPropsTheory.every_prog_def,loop_inst_ok_def,crep_to_loopTheory.prog_if_def]
+  THEN1 (gvs[DefnBase.one_line_ify NONE crep_to_loopTheory.compile_crepop_def,AllCaseEqs(),
+             loopPropsTheory.every_prog_def,loop_inst_ok_def] \\
+         rw[EVERY_MEM,MEM_MAPi] \\
+         rw[loopPropsTheory.every_prog_def,loop_inst_ok_def] \\
+         Cases_on ‘es’ \\ gvs[quantHeuristicsTheory.LIST_LENGTH_1,
+                              crep_to_loopProofTheory.compile_exps_alt] \\
+         rpt(pairarg_tac \\ gvs[]) \\
+         metis_tac[EVERY_MEM])
+  THEN1 (gvs[DefnBase.one_line_ify NONE crep_to_loopTheory.compile_crepop_def,AllCaseEqs(),
+             loopPropsTheory.every_prog_def,loop_inst_ok_def] \\
+         rw[EVERY_MEM,MEM_MAPi] \\
+         rw[loopPropsTheory.every_prog_def,loop_inst_ok_def] \\
+         Cases_on ‘es’ \\ gvs[quantHeuristicsTheory.LIST_LENGTH_1,
+                              crep_to_loopProofTheory.compile_exps_alt] \\
+         rpt(pairarg_tac \\ gvs[]) \\
+         metis_tac[EVERY_MEM]) \\
+  Cases_on ‘es’ \\
+  gvs[crep_to_loopProofTheory.compile_exps_alt] \\
+  rpt(pairarg_tac \\ gvs[])
+QED
+
+Theorem every_prog_loop_inst_ok_nested_seq:
+  ∀c ps.
+    every_prog (loop_inst_ok c) $ nested_seq ps = EVERY (every_prog (loop_inst_ok c)) ps
+Proof
+  strip_tac \\ Induct \\
+  gvs[loopPropsTheory.every_prog_def,loopLangTheory.nested_seq_def,
+      loop_to_wordProofTheory.loop_inst_ok_def]
+QED
+
+Theorem every_inst_ok_less_crep_to_loop_compile:
+  ∀ctxt ns body.
+    ctxt.target = c.ISA ∧
+    EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) (exps_of body)
+    ⇒
+    every_prog (loop_inst_ok c) (crep_to_loop$compile ctxt ns body)
+Proof
+  ho_match_mp_tac crep_to_loopTheory.compile_ind \\
+  rw[loopPropsTheory.every_prog_def,loop_inst_ok_def,
+     crep_to_loopTheory.compile_def,crepPropsTheory.exps_of_def] \\
+  rpt(pairarg_tac \\ gvs[]) \\
+  gvs[loopPropsTheory.every_prog_def,loop_inst_ok_def,
+      crep_to_loopTheory.compile_def,
+      every_prog_loop_inst_ok_nested_seq] \\
+  gvs[EVERY_APPEND,loopPropsTheory.every_prog_def,loop_inst_ok_def,
+      crep_to_loopTheory.compile_def]
+  >~ [‘MAP2’] >-
+    (drule $ cj 2 every_inst_ok_less_crep_to_loop_compile_exp \\
+     disch_then $ qspecl_then [‘ctxt.vmax + 1’,‘ns’,‘es ++ [e]’] mp_tac \\
+     rw[MAP2_ZIP,EVERY_MEM,crep_to_loopTheory.gen_temps_def,MEM_MAP,MEM_ZIP,PULL_EXISTS,
+        loopPropsTheory.every_prog_def,loop_inst_ok_def
+       ])
+  >~ [‘MAP2’] >-
+    (conj_asm1_tac
+     >- (drule $ cj 2 every_inst_ok_less_crep_to_loop_compile_exp \\
+         disch_then $ qspecl_then [‘ctxt.vmax + 1’,‘ns’,‘es ++ [e]’] mp_tac \\
+         Cases_on ‘hdl’ \\
+         rw[MAP2_ZIP,EVERY_MEM,crep_to_loopTheory.gen_temps_def,MEM_MAP,MEM_ZIP,PULL_EXISTS,
+            loopPropsTheory.every_prog_def,loop_inst_ok_def
+           ] \\
+         gvs[crepPropsTheory.exps_of_def,EVERY_MEM] \\
+         rename1 ‘SOME (_,_,SOME xx)’ \\ Cases_on ‘xx’ \\
+         gvs[crepPropsTheory.exps_of_def,EVERY_MEM]) \\
+     rpt(PURE_TOP_CASE_TAC \\ gvs[]) \\
+     gvs[loopPropsTheory.every_prog_def,loop_inst_ok_def,
+         crep_to_loopTheory.compile_def,
+         every_prog_loop_inst_ok_nested_seq,
+         crepPropsTheory.exps_of_def
+        ]) \\
+  imp_res_tac (cj 1 every_inst_ok_less_crep_to_loop_compile_exp) \\
+  every_case_tac \\
+  gvs[loopPropsTheory.every_prog_def,loopLangTheory.nested_seq_def,
+      loop_to_wordProofTheory.loop_inst_ok_def,
+      every_prog_loop_inst_ok_nested_seq] \\
+  metis_tac[FST,SND,PAIR]
+QED
+
+Theorem every_inst_ok_less_comp_func:
+  EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) (exps_of body) ⇒
+  every_prog (loop_inst_ok c) (comp_func c.ISA (crep_to_loop$make_funcs prog) params body)
+Proof
+  rw[crep_to_loopTheory.comp_func_def,crep_to_loopTheory.make_funcs_def] \\
+  match_mp_tac every_inst_ok_less_crep_to_loop_compile \\
+  rw[crep_to_loopTheory.mk_ctxt_def]
+QED
+
+Theorem every_inst_ok_nested_decs:
+  ∀ns ps p.
+    LENGTH ns = LENGTH ps ⇒
+    EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) (exps_of(nested_decs ns ps p)) =
+    (EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) ps ∧
+     EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) (exps_of p))
+Proof
+  ho_match_mp_tac crepLangTheory.nested_decs_ind \\
+  rw[crepLangTheory.nested_decs_def,crepPropsTheory.exps_of_def] \\
+  metis_tac[]
+QED
+
+Theorem every_inst_ok_less_pan_to_crep_comp_field:
+  ∀index shapes es es' sh.
+    EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) es ∧
+    comp_field index shapes es = (es',sh) ⇒
+    EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) es'
+Proof
+  Induct_on ‘shapes’ \\
+  rw[pan_to_crepTheory.comp_field_def,crepPropsTheory.every_exp_def,EVERY_TAKE] >>
+  res_tac >>
+  gvs[EVERY_DROP,EVERY_TAKE]
+QED
+
+Theorem every_inst_ok_less_pan_to_crep_load_shape:
+  ∀w n e.
+    every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2) e ⇒
+    EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2))
+          (load_shape w n e)
+Proof
+  Induct_on ‘n’ \\
+  rw[crepLangTheory.load_shape_def,crepPropsTheory.every_exp_def]
+QED
+
+Theorem every_inst_ok_less_pan_to_crep_cexp_heads:
+  ∀ces es.
+    EVERY (EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2))) ces ∧
+    cexp_heads ces = SOME es
+    ⇒
+    EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) es
+Proof
+  Induct_on ‘ces’ \\
+  rw[pan_to_crepTheory.cexp_heads_def] \\
+  gvs[AllCaseEqs()]
+QED
+
+Theorem every_inst_ok_less_pan_to_crep_compile_exp:
+  ∀ctxt e es sh.
+    every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2) e ∧
+    compile_exp ctxt e = (es,sh) ⇒
+    EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) es
+Proof
+  ho_match_mp_tac pan_to_crepTheory.compile_exp_ind \\
+  rw[pan_to_crepTheory.compile_exp_def,
+     crepPropsTheory.every_exp_def,
+     panPropsTheory.every_exp_def
+    ] \\
+  gvs[crepPropsTheory.every_exp_def,
+      panPropsTheory.every_exp_def,
+      AllCaseEqs(),EVERY_MAP,EVERY_FLAT] \\
+  rpt(pairarg_tac \\ gvs[]) \\
+  gvs[AllCaseEqs(),crepPropsTheory.every_exp_def,
+      panPropsTheory.every_exp_def] \\
+  imp_res_tac every_inst_ok_less_pan_to_crep_comp_field \\
+  imp_res_tac every_inst_ok_less_pan_to_crep_load_shape
+  >~ [‘cexp_heads’] >-
+    (drule_at (Pos last) every_inst_ok_less_pan_to_crep_cexp_heads \\
+     reverse impl_tac >- metis_tac[] \\
+     gvs[EVERY_MEM,MEM_MAP,PULL_EXISTS] \\
+     metis_tac[FST,SND,PAIR])
+  >~ [‘cexp_heads’] >-
+    (drule_at (Pos last) every_inst_ok_less_pan_to_crep_cexp_heads \\
+     impl_keep_tac >-
+      (gvs[EVERY_MEM,MEM_MAP,PULL_EXISTS] \\
+       metis_tac[FST,SND,PAIR]) \\
+     reverse $ rw[]
+     >- metis_tac[ETA_AX] \\
+     gvs[crepPropsTheory.cexp_heads_simp_def,pan_to_crepProofTheory.cexp_heads_eq]) \\
+  gvs[EVERY_MEM,PULL_FORALL] \\
+  gvs[EVERY_MAP,MEM_MAP,PULL_FORALL] \\
+  metis_tac[FST,SND,PAIR,EVERY_DEF,MEM]
+QED
+
+Theorem every_inst_ok_less_exps_of_nested_seq:
+  ∀es.
+    EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2))
+          (exps_of (nested_seq es)) =
+    EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2))
+          (FLAT (MAP exps_of es))
+Proof
+  Induct \\
+  gvs[crepLangTheory.nested_seq_def,crepPropsTheory.exps_of_def]
+QED
+
+
+Theorem every_inst_ok_less_stores:
+  ∀e es a.
+    EVERY
+    (λx. EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2))
+               (exps_of x))
+    (stores e es a) ⇔
+      (es ≠ [] ⇒ every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2) e) ∧
+      EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) es
+Proof
+  Induct_on ‘es’ \\
+  rw[crepLangTheory.stores_def,crepPropsTheory.exps_of_def,crepPropsTheory.every_exp_def] \\
+  metis_tac[]
+QED
+
+Theorem every_inst_ok_less_store_globals:
+  ∀w es.
+    EVERY
+    (λx. EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2))
+               (exps_of x))
+    (store_globals w es) ⇔
+      EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) es
+Proof
+  Induct_on ‘es’ \\
+  rw[crepLangTheory.store_globals_def,crepPropsTheory.exps_of_def,crepPropsTheory.every_exp_def]
+QED
+
+Theorem load_globals_alt:
+  ∀ad n. load_globals ad n =
+         GENLIST (λn. LoadGlob $ ad + n2w n) n
+Proof
+  Induct_on ‘n’ \\ rw[crepLangTheory.load_globals_def,GENLIST_CONS,o_DEF,n2w_SUC]
+QED
+
+Theorem every_inst_ok_less_pan_to_crep_compile:
+  ∀ctxt body e.
+    EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of body) ⇒
+    EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) (exps_of(pan_to_crep$compile ctxt body))
+Proof
+  ho_match_mp_tac pan_to_crepTheory.compile_ind \\
+  rw[panPropsTheory.exps_of_def,pan_to_crepTheory.compile_def,
+     crepPropsTheory.exps_of_def] \\
+  rpt(pairarg_tac \\ gvs[]) \\
+  rw[every_inst_ok_nested_decs,crepPropsTheory.exps_of_def] \\
+  rpt(PURE_FULL_CASE_TAC \\ gvs[]) \\
+  gvs[panPropsTheory.exps_of_def,pan_to_crepTheory.compile_def,
+      crepPropsTheory.exps_of_def,every_inst_ok_less_exps_of_nested_seq,
+      EVERY_FLAT,EVERY_MAP,every_inst_ok_nested_decs,every_inst_ok_less_stores,
+      every_inst_ok_less_store_globals
+     ] \\
+  imp_res_tac every_inst_ok_less_pan_to_crep_compile_exp
+  >~ [‘ret_hdl’] >-
+   (gvs[] \\
+    conj_tac >-
+     (gvs[EVERY_MEM,PULL_FORALL] \\
+      metis_tac[every_inst_ok_less_pan_to_crep_compile_exp,EVERY_MEM,FST,SND,PAIR]) \\
+    simp[DefnBase.one_line_ify NONE pan_to_crepTheory.ret_hdl_def] \\
+    PURE_TOP_CASE_TAC \\ rw[crepPropsTheory.exps_of_def,crepLangTheory.assign_ret_def] \\
+    rw[every_inst_ok_less_exps_of_nested_seq,EVERY_FLAT,EVERY_MAP,load_globals_alt,MAP2_MAP,MEM_ZIP] \\
+    gvs[EVERY_MEM,MEM_ZIP,PULL_EXISTS,PULL_FORALL,crepPropsTheory.exps_of_def,
+        crepPropsTheory.every_exp_def])
+  >~ [‘ret_hdl’] >-
+   (gvs[] \\
+    conj_tac >-
+     (gvs[EVERY_MEM,PULL_FORALL] \\
+      metis_tac[every_inst_ok_less_pan_to_crep_compile_exp,EVERY_MEM,FST,SND,PAIR]) \\
+    simp[DefnBase.one_line_ify NONE pan_to_crepTheory.ret_hdl_def] \\
+    PURE_TOP_CASE_TAC \\ rw[crepPropsTheory.exps_of_def,crepLangTheory.assign_ret_def] \\
+    rw[every_inst_ok_less_exps_of_nested_seq,EVERY_FLAT,EVERY_MAP,load_globals_alt,MAP2_MAP,MEM_ZIP] \\
+    gvs[EVERY_MEM,MEM_ZIP,PULL_EXISTS,PULL_FORALL,crepPropsTheory.exps_of_def,
+        crepPropsTheory.every_exp_def])
+  >~ [‘exp_hdl’] >-
+   (gvs[] \\
+    conj_tac >-
+     (gvs[EVERY_MEM,PULL_FORALL] \\
+      metis_tac[every_inst_ok_less_pan_to_crep_compile_exp,EVERY_MEM,FST,SND,PAIR]) \\
+    simp[DefnBase.one_line_ify NONE pan_to_crepTheory.exp_hdl_def] \\
+    rpt(PURE_TOP_CASE_TAC \\ gvs[]) \\ rw[crepPropsTheory.exps_of_def,crepLangTheory.assign_ret_def] \\
+    rw[every_inst_ok_less_exps_of_nested_seq,EVERY_FLAT,EVERY_MAP,load_globals_alt,MAP2_MAP,MEM_ZIP] \\
+    gvs[EVERY_MEM,MEM_ZIP,PULL_EXISTS,PULL_FORALL,crepPropsTheory.exps_of_def,
+        crepPropsTheory.every_exp_def])
+  >~ [‘exp_hdl’] >-
+   (gvs[] \\
+    rpt conj_tac >-
+     (gvs[EVERY_MEM,PULL_FORALL] \\
+      metis_tac[every_inst_ok_less_pan_to_crep_compile_exp,EVERY_MEM,FST,SND,PAIR]) \\
+    simp[DefnBase.one_line_ify NONE pan_to_crepTheory.exp_hdl_def,
+         DefnBase.one_line_ify NONE pan_to_crepTheory.ret_hdl_def] \\
+    rpt(PURE_TOP_CASE_TAC \\ gvs[]) \\ rw[crepPropsTheory.exps_of_def,crepLangTheory.assign_ret_def] \\
+    rw[every_inst_ok_less_exps_of_nested_seq,EVERY_FLAT,EVERY_MAP,load_globals_alt,MAP2_MAP,MEM_ZIP] \\
+    gvs[EVERY_MEM,MEM_ZIP,PULL_EXISTS,PULL_FORALL,crepPropsTheory.exps_of_def,
+        crepPropsTheory.every_exp_def]) \\
+  rw[EVERY_MEM,MAP2_MAP,MEM_ZIP,MEM_MAP,UNCURRY_DEF] \\
+  gvs[UNCURRY_DEF,crepPropsTheory.exps_of_def,EVERY_MEM,MEM_EL,PULL_EXISTS,EL_MAP,
+      crepPropsTheory.every_exp_def,DefnBase.one_line_ify NONE pan_to_crepTheory.ret_hdl_def] \\
+  metis_tac[every_inst_ok_less_pan_to_crep_compile_exp,MEM_EL,EVERY_MEM,
+            FST,SND,PAIR]
+QED
+
+Theorem every_inst_ok_less_pan_to_crep_compile_prog:
+  EVERY (λ(name,params,body). EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of body)) pan_code ⇒
+  EVERY (λ(name,params,body). EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) (exps_of body)) (pan_to_crep$compile_prog pan_code)
+Proof
+  rw[EVERY_MEM] \\ pairarg_tac \\
+  gvs[pan_to_crepTheory.compile_prog_def,MEM_MAP] \\
+  pairarg_tac \\ gvs[] \\
+  pairarg_tac \\ gvs[] \\
+  first_x_assum drule \\
+  rw[pan_to_crepTheory.comp_func_def] \\
+  match_mp_tac $ MP_CANON $ Ho_Rewrite.REWRITE_RULE [EVERY_MEM,PULL_EXISTS,PULL_FORALL] every_inst_ok_less_pan_to_crep_compile \\
+  metis_tac[]
+QED
+
+Theorem every_inst_ok_less_ret_to_tail:
+  ∀p.
+    EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of $ ret_to_tail p) ⇔
+    EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of p)
+Proof
+  ho_match_mp_tac pan_simpTheory.ret_to_tail_ind \\
+  rw[panPropsTheory.exps_of_def,pan_simpTheory.compile_def,
+     pan_simpTheory.ret_to_tail_def,pan_simpTheory.seq_assoc_def,
+     panPropsTheory.every_exp_def,
+     pan_simpTheory.seq_call_ret_def] \\
+  rpt(PURE_TOP_CASE_TAC \\ gvs[]) \\
+  gvs[panPropsTheory.exps_of_def,pan_simpTheory.compile_def,
+      pan_simpTheory.ret_to_tail_def,pan_simpTheory.seq_assoc_def,
+      panPropsTheory.every_exp_def,
+      pan_simpTheory.seq_call_ret_def] \\
+  metis_tac[]
+QED
+
+Theorem every_inst_ok_less_seq_assoc:
+  ∀p q.
+    EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of $ seq_assoc p q) ⇔
+    EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of p ++ exps_of q)
+Proof
+  ho_match_mp_tac pan_simpTheory.seq_assoc_ind \\
+  rw[panPropsTheory.exps_of_def,pan_simpTheory.compile_def,
+     pan_simpTheory.seq_assoc_def,pan_simpTheory.seq_assoc_def,
+     panPropsTheory.every_exp_def,
+     pan_simpTheory.seq_call_ret_def] \\
+  rpt(PURE_TOP_CASE_TAC \\ gvs[]) \\
+  gvs[panPropsTheory.exps_of_def,pan_simpTheory.compile_def,
+      pan_simpTheory.seq_assoc_def,pan_simpTheory.seq_assoc_def,
+      panPropsTheory.every_exp_def,
+      pan_simpTheory.seq_call_ret_def] \\
+  metis_tac[]
+QED
+
+Theorem every_inst_ok_less_pan_simp_compile:
+  ∀body.
+    EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of body) ⇒
+    EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of(compile body))
+Proof
+  Induct \\
+  gvs[panPropsTheory.exps_of_def,pan_simpTheory.compile_def,
+      pan_simpTheory.ret_to_tail_def,pan_simpTheory.seq_assoc_def,
+      every_inst_ok_less_ret_to_tail,
+      every_inst_ok_less_seq_assoc]
+QED
+
+Theorem every_inst_ok_less_pan_simp_compile_prog:
+  EVERY (λ(name,params,body). EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of body)) pan_code ⇒
+  EVERY (λ(name,params,body). EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of body)) (pan_simp$compile_prog pan_code)
+Proof
+  rw[pan_simpTheory.compile_prog_def,EVERY_MAP] >>
+  gvs[EVERY_MEM] >>
+  rw[] >>
+  first_x_assum dxrule >>
+  pairarg_tac >>
+  rw[]>>
+  metis_tac[every_inst_ok_less_pan_simp_compile,EVERY_MEM]
+QED
+
 Theorem pan_to_word_every_inst_ok_less:
-  pan_to_word$compile_prog pan_code = wprog0 ∧
-  byte_offset_ok c 0w ⇒
+  pan_to_word$compile_prog c.ISA pan_code = wprog0 ∧
+  byte_offset_ok c 0w ∧
+  EVERY (λ(name,params,body). EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of body)) pan_code
+  ⇒
   EVERY (λ(n,m,p). every_inst (inst_ok_less c) p) wprog0
 Proof
   gs[pan_to_wordTheory.compile_prog_def]>>strip_tac>>
-  drule_then irule loop_to_word_every_inst_ok_less>>gs[]
+  drule_then irule loop_to_word_every_inst_ok_less>>gs[]>>
+  last_x_assum kall_tac>>
+  simp[crep_to_loopTheory.compile_prog_def,EVERY_MEM]>>
+  dep_rewrite.DEP_ONCE_REWRITE_TAC [MAP2_ZIP]>>simp[]>>
+  rw[MEM_MAP,MEM_ZIP]>>
+  rpt(pairarg_tac>>gvs[])>>
+  match_mp_tac every_inst_ok_less_optimise>>
+  match_mp_tac every_inst_ok_less_comp_func>>
+  rw[EVERY_MEM,MEM_EL]>>
+  drule_at (Pos last) $ MP_CANON $ SIMP_RULE std_ss [MEM_EL,EVERY_MEM,PULL_EXISTS,PULL_FORALL] every_inst_ok_less_pan_to_crep_compile_prog>>
+  simp[] >>
+  disch_then $ match_mp_tac o MP_CANON>>
+  rw[] >>
+  pairarg_tac>>
+  rw[]>>
+  drule_at (Pos last) $ MP_CANON $ SIMP_RULE std_ss [MEM_EL,EVERY_MEM,PULL_EXISTS,PULL_FORALL] every_inst_ok_less_pan_simp_compile_prog>>
+  simp[]>>
+  disch_then $ match_mp_tac o MP_CANON>>
+  rw[]>>
+  pairarg_tac >>
+  rw[]>>
+  gvs[EVERY_MEM,MEM_EL,PULL_EXISTS]>>
+  first_x_assum dxrule>>
+  simp[]
 QED
 
 val _ = export_theory();

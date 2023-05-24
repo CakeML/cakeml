@@ -1265,5 +1265,40 @@ Proof
   fs []
 QED
 
+Definition exps_of_def:
+  (exps_of (Dec _ e p) = e::exps_of p) ∧
+  (exps_of (Seq p q) = exps_of p ++ exps_of q) ∧
+  (exps_of (If e p q) = e::exps_of p ++ exps_of q) ∧
+  (exps_of (While e p) = e::exps_of p) ∧
+  (exps_of (Call NONE e es) = e::es) ∧
+  (exps_of (Call (SOME (_,p,NONE)) e es) = e::es++exps_of p) ∧
+  (exps_of (Call (SOME (_,p,SOME(_,p'))) e es) = e::es++exps_of p++exps_of p') ∧
+  (exps_of (Store e1 e2) = [e1;e2]) ∧
+  (exps_of (StoreByte e1 e2) = [e1;e2]) ∧
+  (exps_of (StoreGlob _ e) = [e]) ∧
+  (exps_of (Return e) = [e]) ∧
+  (exps_of (Assign _ e) = [e]) ∧
+  (exps_of _ = [])
+End
+
+Definition every_exp_def:
+  (every_exp P (crepLang$Const w) = P(Const w)) ∧
+  (every_exp P (Var v) = P(Var v)) ∧
+  (every_exp P (Label f) = P(Label f)) ∧
+  (every_exp P (Load e) = (P(Load e) ∧ every_exp P e)) ∧
+  (every_exp P (LoadByte e) = (P(LoadByte e) ∧ every_exp P e)) ∧
+  (every_exp P (LoadGlob w) = (P(LoadGlob w))) ∧
+  (every_exp P (Op bop es) = (P(Op bop es) ∧ EVERY (every_exp P) es)) ∧
+  (every_exp P (Crepop op es) = (P(Crepop op es) ∧ EVERY (every_exp P) es)) ∧
+  (every_exp P (Cmp c e1 e2) = (P(Cmp c e1 e2) ∧ every_exp P e1 ∧ every_exp P e2)) ∧
+  (every_exp P (Shift sh e num) = (P(Shift sh e num) ∧ every_exp P e)) ∧
+  (every_exp P (BaseAddr) = P BaseAddr)
+Termination
+  wf_rel_tac `measure (exp_size ARB o SND)` >>
+  rpt strip_tac >>
+  imp_res_tac MEM_IMP_exp_size >>
+  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
+  decide_tac
+End
 
 val _ = export_theory();

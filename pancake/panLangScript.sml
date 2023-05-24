@@ -198,5 +198,4 @@ Definition destruct_def:
   (destruct _ = [])
 End
 
-
 val _ = export_theory();
