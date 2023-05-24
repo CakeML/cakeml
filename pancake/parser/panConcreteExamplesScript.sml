@@ -164,8 +164,6 @@ val ex10 = ‘
 val treeEx10 = check_success $ parse_pancake ex10;
 
 (** We can assign boolean expressions to variables. *)
-(** FIXME: Does not parse correctly. *)
-(** Expected: Xor (And b a) (And c d) *)
 val exN = ‘x = b & a ^ c & d;’;
 
 val treeExN = check_success $ parse_pancake exN;
