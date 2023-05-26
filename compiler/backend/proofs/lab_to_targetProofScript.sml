@@ -6125,6 +6125,22 @@ Proof
   res_tac
 QED
 
+Theorem mmio_pcs_min_index_is_SOME:
+  mmio_pcs_min_index mc_conf.ffi_names = SOME i ==>
+  i <= LENGTH mc_conf.ffi_names /\
+  (∀j. j < i ⇒
+    EL j mc_conf.ffi_names ≠ "MappedRead" ∧ EL j mc_conf.ffi_names ≠ "MappedWrite") ∧
+   (∀j. i ≤ j ∧ j < LENGTH mc_conf.ffi_names ⇒
+     EL j mc_conf.ffi_names = "MappedRead" ∨ EL j mc_conf.ffi_names = "MappedWrite")
+Proof
+  strip_tac >>
+  gvs[mmio_pcs_min_index_def,some_def] >>
+  SELECT_ELIM_TAC >>
+  gvs[] >>
+  qexists `x` >>
+  gvs[]
+QED
+
 val say = say0 "compile_correct";
 
 Theorem compile_correct:
@@ -6835,7 +6851,7 @@ Proof
     \\ rpt strip_tac
     \\ Cases_on `loc_to_pc n1 n2 s1.code` \\ full_simp_tac(srw_ss())[]
     \\ qmatch_assum_rename_tac `loc_to_pc n1 n2 s1.code = SOME new_pc`
-    \\ `mc_conf.target.get_pc ms2 = p - n2w ((3 + get_ffi_index mc_conf.ffi_names s) * ffi_offset)` by
+    \\ `mc_conf.target.get_pc ms2 = p - n2w ((3 + get_ffi_index ffi_names s) * ffi_offset)` by
      (full_simp_tac(srw_ss())[GSYM PULL_FORALL]
       \\ full_simp_tac(srw_ss())[state_rel_def] \\ rev_full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())
@@ -6848,22 +6864,47 @@ Proof
     \\ `has_io_name s s1.code` by
           (imp_res_tac IMP_has_io_name \\ NO_TAC)
     \\ `s <> "MappedRead" /\ s <> "MappedWrite"` by fs[AllCaseEqs()]
-    \\ `MEM s mc_conf.ffi_names` by (
+    \\ `MEM s mc_conf.ffi_names /\ MEM s ffi_names` by (
       imp_res_tac has_io_name_find_index>>
       imp_res_tac find_index_is_MEM>>
-      fs[list_subset_def,state_rel_def,EVERY_MEM])
+      gvs[list_subset_def,state_rel_def,EVERY_MEM,Abbr`ffi_names`]>>
+      drule_all mmio_pcs_min_index_is_SOME >>
+      strip_tac >>
+      gvs[MEM_FILTER] >>
+      `MEM s mc_conf.ffi_names` by (
+        first_x_assum irule >> gvs[]) >>
+      gvs[MEM_EL] >>
+      `n'' < i` by (
+        spose_not_then assume_tac >>
+        `i <= n''` by decide_tac >>
+        first_x_assum drule_all >>
+        gvs[]
+      ) >>
+      qexists `n''` >>
+      gvs[] >>
+      irule $ GSYM EL_TAKE >>
+      simp[]
+    )
     \\ `~(mc_conf.target.get_pc ms2 IN mc_conf.prog_addresses) /\
         ~(mc_conf.target.get_pc ms2 = mc_conf.halt_pc) /\
         ~(mc_conf.target.get_pc ms2 = mc_conf.ccache_pc) /\
         (find_index (mc_conf.target.get_pc ms2) mc_conf.ffi_entry_pcs 0 =
-           SOME (get_ffi_index mc_conf.ffi_names s))` by (
+           SOME (get_ffi_index mc_conf.ffi_names s)) /\
+        get_ffi_index mc_conf.ffi_names s = get_ffi_index ffi_names s` by (
        full_simp_tac(srw_ss())[state_rel_def]>>
-  (* TODO *)
        first_x_assum $ qspecl_then [`s`, `i`] drule >>
-       fs[] >>
-       disch_then irule >>
-       irule ffi_name_NOT_Mapped >>
-       fs[]
+       gvs[] >>
+       impl_tac
+       >- (irule ffi_name_NOT_Mapped >> fs[]) >>
+       `get_ffi_index mc_conf.ffi_names s = get_ffi_index ffi_names s`
+         suffices_by gvs[] >>
+       gvs[get_ffi_index_def,backendPropsTheory.the_eqn] >>
+       imp_res_tac find_index_MEM >>
+       ntac 2 (first_x_assum $ qspec_then `0` assume_tac) >>
+       gvs[Abbr`ffi_names`] >>
+       drule find_index_APPEND_same >>
+       disch_then $ qspec_then `DROP i mc_conf.ffi_names` assume_tac >>
+       gvs[]
     )
     \\ `EL (get_ffi_index mc_conf.ffi_names s) mc_conf.ffi_names = s` by (
       irule EL_get_ffi_index_MEM >> simp[]
@@ -6974,19 +7015,25 @@ Proof
        (imp_res_tac read_bytearray_LENGTH
         \\ imp_res_tac evaluatePropsTheory.call_FFI_LENGTH \\ full_simp_tac(srw_ss())[])
       \\ qmatch_goalsub_abbrev_tac`mc_conf.ffi_interfer _ (index,_,_)`
-      \\ `index < LENGTH mc_conf.ffi_names`
-      by(
+      \\ `index < i` by (
         simp[Abbr`index`,get_ffi_index_def]
         \\ imp_res_tac find_index_MEM
-        \\ first_x_assum(qspec_then`0`mp_tac)
-        \\ simp[] \\ strip_tac \\ fs[]
-        \\ simp[libTheory.the_def] )
+        \\ ntac 2 $ first_x_assum(qspec_then`0`mp_tac)
+        \\ simp[] \\ rpt strip_tac \\ fs[]
+        \\ simp[libTheory.the_def]
+        \\ `LENGTH (TAKE i mc_conf.ffi_names) = i` suffices_by simp[]
+        \\ irule LENGTH_TAKE
+        \\ drule mmio_pcs_min_index_is_SOME
+        \\ simp[]
+      )
+      \\ `index < LENGTH mc_conf.ffi_names` by (
+        drule mmio_pcs_min_index_is_SOME >> gvs[]
+      )
       \\ qunabbrev_tac`index`
       \\ conj_tac
       THEN1
        (rw [] \\
-        `s = EL (get_ffi_index mc_conf.ffi_names s) mc_conf.ffi_names` by
-          metis_tac[EL_get_ffi_index_MEM]
+        qpat_x_assum `EL (get_ffi_index (TAKE i mc_conf.ffi_names) s) mc_conf.ffi_names = s` $ assume_tac o GSYM
         \\ first_assum (fn th => CONV_TAC(LAND_CONV(ONCE_REWRITE_CONV[th])))
         \\ first_x_assum match_mp_tac \\ simp []
         \\ pop_assum(SUBST_ALL_TAC o SYM)
@@ -7032,7 +7079,6 @@ Proof
       >- (
         match_mp_tac (MP_CANON (Q.INST [`x`|->`x'`] bytes_in_mem_asm_write_bytearray))
         \\ simp[] \\ fs[])
-
       >- (
         match_mp_tac (MP_CANON (Q.INST [`x`|->`x'`] bytes_in_mem_asm_write_bytearray))
         \\ simp[] \\ fs[])
@@ -7061,13 +7107,9 @@ Proof
     \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC,AC MULT_COMM MULT_ASSOC]
     \\ rev_full_simp_tac(srw_ss())[LET_DEF]
     \\ `k + s1.clock - 1 = k + (s1.clock - 1)` by decide_tac
-    >> `list_subset (find_ffi_names s1.code) mc_conf.ffi_names ` by metis_tac[state_rel_def]
-    >> `EL (get_ffi_index mc_conf.ffi_names s) mc_conf.ffi_names = s` by (
-      match_mp_tac EL_get_ffi_index_MEM
-      \\ pop_assum mp_tac
-      \\ imp_res_tac has_io_name_find_index
-      \\ simp[list_subset_def,EVERY_MEM]
-      \\ metis_tac[find_index_is_MEM] )
+    >> `list_subset
+        (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") $
+        find_ffi_names s1.code) mc_conf.ffi_names ` by metis_tac[state_rel_def]
     \\ full_simp_tac(srw_ss())[apply_oracle_def]
     \\ rewrite_tac[read_ffi_bytearrays_def, read_ffi_bytearray_def]
     \\ asm_simp_tac(srw_ss())[] )
@@ -7654,22 +7696,6 @@ val mc_conf_ok_def = Define`
     reg_ok (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n)
       mc_conf.target.config ∧
     enc_ok mc_conf.target.config`;
-
-Theorem mmio_pcs_min_index_is_SOME:
-  mmio_pcs_min_index mc_conf.ffi_names = SOME i ==>
-  i <= LENGTH mc_conf.ffi_names /\
-  (∀j. j < i ⇒
-    EL j mc_conf.ffi_names ≠ "MappedRead" ∧ EL j mc_conf.ffi_names ≠ "MappedWrite") ∧
-   (∀j. i ≤ j ∧ j < LENGTH mc_conf.ffi_names ⇒
-     EL j mc_conf.ffi_names = "MappedRead" ∨ EL j mc_conf.ffi_names = "MappedWrite")
-Proof
-  strip_tac >>
-  gvs[mmio_pcs_min_index_def,some_def] >>
-  SELECT_ELIM_TAC >>
-  gvs[] >>
-  qexists `x` >>
-  gvs[]
-QED
 
 Definition get_shmem_info_def:
   (get_shmem_info [] pos ffi_names (shmem_info: 'a shmem_info) =
