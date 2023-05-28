@@ -291,9 +291,11 @@ Proof
   simp[]
 QED
 
+Overload "fns_TYPE" = ``λa. PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a``
+
 Theorem parse_lsteps_aux_spec:
   ∀fns ss acc fd fdv lines lno lnov accv fs fnsv.
-  PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a fns fnsv ∧
+  fns_TYPE a fns fnsv ∧
   NUM lno lnov ∧
   LIST_TYPE (NPBC_CHECK_LSTEP_TYPE) acc accv ∧
   MAP toks_fast lines = ss
@@ -309,7 +311,7 @@ Theorem parse_lsteps_aux_spec:
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
          &(
             PAIR_TYPE (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))
-              (PAIR_TYPE (PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a)
+              (PAIR_TYPE (fns_TYPE a)
               (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
                 NUM)) (acc',fns',s,lno') v ∧
             parse_lsteps_aux fns ss acc = SOME(acc',fns',s,rest) ∧
@@ -421,7 +423,7 @@ Proof
                       (forwardFD (forwardFD fs fd k) fd k') *
                       &(
             PAIR_TYPE (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))
-              (PAIR_TYPE (PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a)
+              (PAIR_TYPE (fns_TYPE a)
               (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
               NUM)) (acc',fns',s',lno') v ∧
             parse_lsteps_aux r ss [] = SOME(acc',fns',s',rest) ∧
@@ -538,7 +540,7 @@ val parse_red_aux = process_topdecs`
 
 Theorem parse_red_aux_spec:
   ∀fns ss acc fd fdv lines lno lnov accv fs fnsv.
-  PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a fns fnsv ∧
+  fns_TYPE a fns fnsv ∧
   NUM lno lnov ∧
   LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))) acc accv ∧
   MAP toks_fast lines = ss
@@ -555,8 +557,8 @@ Theorem parse_red_aux_spec:
          &(
             PAIR_TYPE (OPTION_TYPE NUM)
             (PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
-              (PAIR_TYPE (PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a)
-              NUM)) (res,acc',fns',lno') v ∧
+              (PAIR_TYPE (fns_TYPE a)
+                NUM)) (res,acc',fns',lno') v ∧
             parse_red_aux fns ss acc = SOME(res,acc',fns',rest) ∧
             MAP toks_fast lines' = rest))
       (λe.
@@ -577,7 +579,7 @@ Proof
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
          &(
             PAIR_TYPE (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))
-              (PAIR_TYPE (PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a)
+              (PAIR_TYPE (fns_TYPE a)
               (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
                 NUM)) (acc',fns',s,lno') v ∧
             parse_lsteps_aux fns (MAP toks_fast lines) [] = SOME(acc',fns',s,rest) ∧
@@ -626,7 +628,7 @@ Proof
          INSTREAM_LINES fd fdv lines'' (forwardFD fs fd k) *
          &(
             PAIR_TYPE (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))
-              (PAIR_TYPE (PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a)
+              (PAIR_TYPE (fns_TYPE a)
               (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
                 NUM))
               (acc',fns'',s,lno') v ∧
@@ -707,7 +709,7 @@ val parse_sstep = process_topdecs`
 
 Theorem parse_sstep_spec:
   !ss fd fdv lines lno lnov fs fns fnsv.
-  PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a fns fnsv ∧
+  fns_TYPE a fns fnsv ∧
   NUM lno lnov ∧
   MAP toks_fast lines = ss
   ⇒
@@ -727,7 +729,7 @@ Theorem parse_sstep_spec:
                 (PAIR_TYPE
                   (SUM_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NPBC_CHECK_SSTEP_TYPE)
                   (PAIR_TYPE
-                  (PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a)
+                  (fns_TYPE a)
                   NUM)) (res,fns',lno') v ∧
                 MAP toks_fast lines' = rest))
       (λe.
@@ -812,7 +814,7 @@ Proof
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
          &(
             PAIR_TYPE (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))
-              (PAIR_TYPE (PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a)
+              (PAIR_TYPE (fns_TYPE a)
               (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
                 NUM)) (acc',fns',s,lno') v ∧
             parse_lsteps_aux (x1,x2) (MAP toks_fast ls) [] = SOME(acc',fns',s,rest) ∧
@@ -863,7 +865,7 @@ Proof
          &(
             PAIR_TYPE (OPTION_TYPE NUM)
               (PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
-              (PAIR_TYPE (PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a)
+              (PAIR_TYPE (fns_TYPE a)
               NUM)) (res,acc',fns',lno') v ∧
             parse_red_aux (x1,x2) t [] = SOME(res,acc',fns',rest) ∧
             MAP toks_fast lines' = rest))
@@ -1167,7 +1169,7 @@ val parse_def_aux = process_topdecs`
       case parse_def_aux_line s of
         None =>
           raise Fail (format_failure lno "Unable to parse def block in order definition")
-      | Some c => parse_def_aux fd (lno+1) (c::acc)` |> append_prog
+      | Some c => parse_def_aux fd (lno+1) (c::acc)` |> append_prog;
 
 Theorem parse_def_aux_spec:
   ∀lines ss acc accv lno lnov fs.
@@ -1255,7 +1257,7 @@ Proof
   qexists_tac`forwardFD fs fd k`>>
   qexists_tac`c::acc`>>
   asm_exists_tac>>xsimpl>>
-  fs[LIST_TYPE_def,constraint_TYPE_def,PAIR_TYPE_def,forwardFD_o]>>
+  fs[LIST_TYPE_def,PAIR_TYPE_def,forwardFD_o]>>
   rw[]>>
   metis_tac[STDIO_INSTREAM_LINES_refl_gc,STDIO_INSTREAM_LINES_refl]
 QED
@@ -1509,7 +1511,7 @@ Proof
          &(
             PAIR_TYPE (OPTION_TYPE NUM)
             (PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
-              (PAIR_TYPE (PAIR_TYPE (STRING_TYPE --> UNIT_TYPE --> OPTION_TYPE (PAIR_TYPE NUM UNIT_TYPE)) UNIT_TYPE)
+              (PAIR_TYPE (fns_TYPE UNIT_TYPE)
               NUM)) (res,acc',fns',lno') v ∧
             parse_red_aux (hashString_nf,()) (MAP toks_fast lines) [] = SOME(res,acc',fns',rest) ∧
             MAP toks_fast lines' = rest))
@@ -1642,7 +1644,7 @@ val parse_pre_order = process_topdecs`
     (ws,lno) =>
   (case parse_proof_block fd lno of
     (pf,lno) =>
-    ((f,uvs),(ws, (pf,parse_end_block fd lno))) )))` |> append_prog
+    ((f,uvs),(ws, (pf,parse_end_block fd lno))) )))` |> append_prog;
 
 Theorem parse_pre_order_spec:
   NUM lno lnov ∧
@@ -1794,10 +1796,30 @@ Proof
   rpt xlet_autop>>
   gvs[]>>
   xcon>>xsimpl>>
-  simp[spo_TYPE_def,PAIR_TYPE_def]>>
+  simp[PAIR_TYPE_def]>>
   unabbrev_all_tac>>simp[forwardFD_o]>>
   metis_tac[STDIO_INSTREAM_LINES_refl_gc]
 QED
+
+val res = translate parse_delc_header_def;
+
+val parse_delc_header_side = Q.prove(
+  `∀x y. parse_delc_header_side x y <=> T`,
+  simp[fetch "-" "parse_delc_header_side_def"]>>
+  rw[]>>
+  intLib.ARITH_TAC) |> update_precondition;
+
+val res = translate insert_lit_def;
+val res = translate parse_assg_def;
+val res = translate parse_obj_term_def;
+val res = translate parse_obj_term_npbc_def;
+val res = translate parse_obju_def;
+
+val parse_obju_side = Q.prove(
+  `∀x y. parse_obju_side x y <=> T`,
+  simp[fetch "-" "parse_obju_side_def"]>>
+  rw[]>>
+  intLib.ARITH_TAC) |> update_precondition;
 
 val res = translate parse_cstep_head_def;
 
@@ -1816,8 +1838,10 @@ val parse_cstep = process_topdecs`
         (case parse_red_aux fns'' fd (lno') [] of
             (res,(pf,(fns''',lno''))) =>
             (Inr (Dom c s pf res),(fns''',lno'')))
-    | Some (Checkeddeletepar n, fns'') =>
-        (Inr (Checkeddelete n []), (fns'', lno'))
+    | Some (Checkeddeletepar n s, fns'') =>
+        (case parse_red_aux fns'' fd (lno') [] of
+            (res,(pf,(fns''',lno''))) =>
+            (Inr (Checkeddelete n s pf res),(fns''',lno'')))
     | Some (Storeorderpar name, fns'') =>
         (case parse_pre_order fd lno' of
           (spo,(ws,(pf,lno''))) =>
@@ -1826,7 +1850,7 @@ val parse_cstep = process_topdecs`
 
 Theorem parse_cstep_spec:
   !ss fd fdv lines lno lnov fs fns fnsv.
-  PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a fns fnsv ∧
+  fns_TYPE a fns fnsv ∧
   NUM lno lnov ∧
   MAP toks_fast lines = ss
   ⇒
@@ -1844,7 +1868,7 @@ Theorem parse_cstep_spec:
             (PAIR_TYPE
               (SUM_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NPBC_CHECK_CSTEP_TYPE)
               (PAIR_TYPE
-              (PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a)
+              (fns_TYPE a)
               NUM)) (res,fns',lno') v ∧
                 MAP toks_fast lines' = rest))
       (λe.
@@ -1866,7 +1890,7 @@ Proof
                 (PAIR_TYPE
                   (SUM_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NPBC_CHECK_SSTEP_TYPE)
                   (PAIR_TYPE
-                  (PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a)
+                  (fns_TYPE a)
                   NUM)) (res,fns',lno') v ∧
                 MAP toks_fast lines' = rest))
       (λe.
@@ -1921,7 +1945,7 @@ Proof
          &(
             PAIR_TYPE (OPTION_TYPE NUM)
             (PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
-              (PAIR_TYPE (PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a)
+              (PAIR_TYPE (fns_TYPE a)
               NUM)) (res,acc',fns',lno') v ∧
             parse_red_aux r (MAP toks_fast lines1) [] = SOME(res,acc',fns',rest) ∧
             MAP toks_fast lines' = rest))
@@ -1977,28 +2001,64 @@ Proof
     xmatch>>
     rpt xlet_autop>>
     xcon>>xsimpl>>
-    gvs[SUM_TYPE_def,NPBC_CHECK_CSTEP_TYPE_def,spo_TYPE_def,constraint_TYPE_def]>>
+    gvs[SUM_TYPE_def,NPBC_CHECK_CSTEP_TYPE_def]>>
     unabbrev_all_tac>>simp[forwardFD_o]>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])
   >- (
     rpt xlet_autop>>
+    qmatch_goalsub_abbrev_tac`INSTREAM_LINES _ _ lines1 fs1`>>
+    xlet`(POSTve
+      (λv.
+         SEP_EXISTS k lines' res acc' fns' s lno' rest.
+         STDIO (forwardFD fs1 fd k) *
+         INSTREAM_LINES fd fdv lines' (forwardFD fs1 fd k) *
+         &(
+            PAIR_TYPE (OPTION_TYPE NUM)
+            (PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
+              (PAIR_TYPE (fns_TYPE a)
+              NUM)) (res,acc',fns',lno') v ∧
+            parse_red_aux r (MAP toks_fast lines1) [] = SOME(res,acc',fns',rest) ∧
+            MAP toks_fast lines' = rest))
+      (λe.
+         SEP_EXISTS k lines'.
+           STDIO (forwardFD fs1 fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs1 fd k) *
+           &(Fail_exn e ∧ parse_red_aux r (MAP toks_fast lines1) [] = NONE))
+      )`
+    >- (
+      xapp>>xsimpl>>
+      metis_tac[LIST_TYPE_def])
+    >- (
+      xsimpl>>
+      unabbrev_all_tac>>simp[forwardFD_o]>>
+      metis_tac[STDIO_INSTREAM_LINES_refl]) >>
+    fs[PAIR_TYPE_def]>>
+    xmatch>>
+    rpt xlet_autop>>
     xcon>>xsimpl>>
-    gvs[SUM_TYPE_def,NPBC_CHECK_CSTEP_TYPE_def,spo_TYPE_def,constraint_TYPE_def,LIST_TYPE_def]>>
+    simp[SUM_TYPE_def,NPBC_CHECK_CSTEP_TYPE_def]>>
+    unabbrev_all_tac>>simp[forwardFD_o]>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])
 QED
 
+(* returns the necessary information to check the
+  output and conclusion sections
+  (s,(fns'
+*)
 val check_unsat'' = process_topdecs `
-  fun check_unsat'' fns fd lno chk ord obj bound
-    core fml inds id orders =
+  fun check_unsat'' fns fd lno core chk obj bound
+    ord orders fml inds id =
     case parse_cstep fns fd lno of
-      (Inl s, (fns', lno)) =>
-        (fml, (bound, s))
+      (Inl s, (fns', lno')) =>
+      (lno', (s,(fns',(
+        (fml, (inds, (id, (core,
+            (chk, (obj, (bound, (ord, orders))))))))))))
     | (Inr cstep, (fns', lno')) =>
-      (case check_cstep_arr lno cstep chk ord obj
-        bound core fml inds id orders of
-        (fml', (inds', (id', (core', (bound', (ord', orders')))))) =>
-        check_unsat'' fns' fd lno' chk ord' obj bound'
-          core' fml' inds' id' orders')` |> append_prog
+      (case check_cstep_arr lno cstep core chk obj bound
+        ord orders fml inds id of
+        (fml', (inds', (id', (core',
+          (chk', (obj', (bound', (ord', orders')))))))) =>
+        check_unsat'' fns' fd lno' core' chk' obj' bound'
+          ord' orders' fml' inds' id')` |> append_prog
 
 Theorem parse_sstep_LENGTH:
   ∀f ss res f' ss'.
@@ -2038,18 +2098,23 @@ Proof
   fs[ADD1]
 QED
 
-(* Repeatedly parse a line and run the sstep checker
-  TODO: may need to return more information *)
+(* Repeatedly parse a line and run the sstep checker,
+  returning the last encountered state *)
 Definition parse_and_run_def:
-  parse_and_run fns ss chk ord obj bound core fml inds id orders =
+  parse_and_run fns ss
+    core chk obj bound
+    ord orders fml inds id =
   case parse_cstep fns ss of NONE => NONE
-  | SOME (INL s, fns', rest) => SOME (fml, bound, s)
+  | SOME (INL s, fns', rest) =>
+    SOME (rest, s, fns',
+      fml, inds, id, core, chk, obj, bound, ord, orders)
   | SOME (INR cstep, fns', rest) =>
-    (case check_cstep_list cstep chk ord obj bound
-      core fml inds id orders of
-      SOME (fml', inds', id', core', bound', ord', orders') =>
-        parse_and_run fns' rest chk ord' obj bound'
-          core' fml' inds' id' orders'
+    (case check_cstep_list cstep core chk obj bound
+        ord orders fml inds id of
+      SOME (fml', inds', id',
+        core', chk', obj', bound', ord', orders') =>
+        parse_and_run fns' rest core' chk' obj' bound'
+          ord' orders' fml' inds' id'
     | res => NONE)
 Termination
   WF_REL_TAC `measure (LENGTH o FST o SND)`>>
@@ -2088,25 +2153,27 @@ Proof
 QED
 
 Theorem check_unsat''_spec:
-  ∀fns ss chk ord obj bound core fmlls inds id orders
-    fmlv fmllsv indsv idv fd fdv lines lno lnov fs fnsv objv corev ordv boundv ordersv chkv.
-  PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a fns fnsv ∧
+  ∀fns ss core chk obj bound ord orders fmlls inds id
+    fnsv lno lnov corev chkv objv boundv ordv ordersv
+    fmllsv indsv idv lines fs fmlv.
+  fns_TYPE a fns fnsv ∧
   NUM lno lnov ∧
-  BOOL chk chkv ∧
-  ord_TYPE ord ordv ∧
-  OPTION_TYPE (LIST_TYPE (PAIR_TYPE INT NUM)) obj objv ∧
-  OPTION_TYPE NUM bound boundv ∧
   SPTREE_SPT_TYPE UNIT_TYPE core corev ∧
-  NUM id idv ∧
+  BOOL chk chkv ∧
+  obj_TYPE obj objv ∧
+  OPTION_TYPE INT bound boundv ∧
+  ord_TYPE ord ordv ∧
+  LIST_TYPE (PAIR_TYPE STRING_TYPE spo_TYPE) orders ordersv ∧
   LIST_REL (OPTION_TYPE constraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
-  LIST_TYPE (PAIR_TYPE STRING_TYPE spo_TYPE) orders ordersv ∧
+  NUM id idv ∧
+
   MAP toks_fast lines = ss
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
-    [fnsv; fdv; lnov; chkv; ordv; objv; boundv;
-      corev; fmlv; indsv; idv; ordersv]
+    [fnsv; fdv; lnov; corev; chkv; objv; boundv;
+      ordv; ordersv; fmlv; indsv; idv]
     (STDIO fs * INSTREAM_LINES fd fdv lines fs * ARRAY fmlv fmllsv)
     (POSTve
       (λv.
@@ -2115,21 +2182,32 @@ Theorem check_unsat''_spec:
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
          ARRAY fmlv' fmllsv' *
          &(
-          parse_and_run fns ss chk ord obj bound core fmlls inds id orders  = SOME res ∧
+          parse_and_run fns ss core chk obj bound ord orders
+            fmlls inds id = SOME (MAP toks_fast lines',res) ∧
+            PAIR_TYPE NUM (
+            PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (
+            PAIR_TYPE (fns_TYPE a) (
             PAIR_TYPE (λl v.
               LIST_REL (OPTION_TYPE constraint_TYPE) l fmllsv' ∧
               v = fmlv')
-              (PAIR_TYPE (OPTION_TYPE NUM)
-              (LIST_TYPE (SUM_TYPE STRING_TYPE INT))) res v
-          ))
+              (PAIR_TYPE (LIST_TYPE NUM)
+                (PAIR_TYPE NUM
+                (PAIR_TYPE (SPTREE_SPT_TYPE UNIT_TYPE)
+                (PAIR_TYPE BOOL
+                (PAIR_TYPE obj_TYPE
+                (PAIR_TYPE (OPTION_TYPE INT)
+                (PAIR_TYPE ord_TYPE
+                  (LIST_TYPE (PAIR_TYPE STRING_TYPE spo_TYPE)))))))))))) (lno',res) v))
       (λe.
          SEP_EXISTS k lines' fmlv' fmllsv'.
            ARRAY fmlv' fmllsv' *
            STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧
-            parse_and_run fns ss chk ord obj bound core fmlls inds id orders = NONE)))
+            parse_and_run fns ss core chk obj bound ord orders
+            fmlls inds id = NONE)))
 Proof
-  ho_match_mp_tac (fetch "-" "parse_and_run_ind")>>rw[]>>
+  ho_match_mp_tac (fetch "-" "parse_and_run_ind")>>
+  rw[]>>
   xcf "check_unsat''" (get_ml_prog_state ())>>
   simp[Once parse_and_run_def]>>
   Cases_on`parse_cstep fns (MAP toks_fast lines)`>>fs[]
@@ -2143,7 +2221,8 @@ Proof
       xapp>>xsimpl>>
       asm_exists_tac>>simp[]>>
       asm_exists_tac>>simp[]>>
-      qexists_tac`ARRAY fmlv fmllsv`>>qexists_tac`lines`>>simp[]>>
+      qexists_tac`ARRAY fmlv fmllsv`>>
+      qexists_tac`lines`>>simp[]>>
       qexists_tac`fs`>>qexists_tac`fd`>>xsimpl>>
       rw[]>>
       qexists_tac`x`>>qexists_tac`x'`>>xsimpl>>
@@ -2165,7 +2244,7 @@ Proof
                 (PAIR_TYPE
                   (SUM_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NPBC_CHECK_CSTEP_TYPE)
                   (PAIR_TYPE
-                  (PAIR_TYPE (STRING_TYPE --> a --> OPTION_TYPE (PAIR_TYPE NUM a)) a)
+                  (fns_TYPE a)
                   NUM)) (res,fns',lno') v ∧
                 MAP toks_fast lines' = rest))`
   >- (
@@ -2183,13 +2262,16 @@ Proof
   >- (
     (* INL *)
     xmatch>>
-    xlet_autop>>
+    rpt xlet_autop>>
     xcon>>xsimpl>>
-    fs[PAIR_TYPE_def,constraint_TYPE_def]
+    fs[PAIR_TYPE_def]
     >- (
-      asm_exists_tac>>xsimpl>>
-      qexists_tac`k`>>xsimpl>>
-      qexists_tac`lines'`>>xsimpl)>>
+      simp[]>>
+      first_x_assum (irule_at Any)>>
+      first_x_assum (irule_at Any)>>
+      qexists_tac`lines'`>>
+      qexists_tac`k`>>simp[]>>
+      xsimpl)>>
     simp[Once parse_and_run_def])>>
   (* INR *)
   xmatch>>
@@ -2207,20 +2289,24 @@ Proof
     metis_tac[ARRAY_STDIO_INSTREAM_LINES_refl])>>
   pop_assum mp_tac>>TOP_CASE_TAC>>simp[]>>
   strip_tac>>
-  PairCases_on`x`>>fs[PAIR_TYPE_def]>>
+  PairCases_on`x`>>fs[PAIR_TYPE_def,PULL_EXISTS]>>
   xmatch>>
-  xapp>>
+  xapp>>xsimpl>>
+  asm_exists_tac>>simp[]>>
+  asm_exists_tac>>simp[]>>
+  qexists_tac`emp`>>xsimpl>>
+  qexists_tac`(forwardFD fs fd k)`>>
   xsimpl>>
-  asm_exists_tac>>simp[]>>
-  asm_exists_tac>>simp[]>>
-  qexists_tac`emp`>>qexists_tac`(forwardFD fs fd k)`>>
-  qexists_tac`fd`>>xsimpl>>
   rw[]>>simp[forwardFD_o]
-  >-
-    (qexists_tac`k+x`>>qexists_tac`x'`>>xsimpl>>
-    asm_exists_tac>>xsimpl)>>
-  qexists_tac`k+x`>>qexists_tac`x'`>>xsimpl>>
+  >- (
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    qexists_tac`x'`>>
+    simp[]>>
+    qexists_tac`k+x`>>
+xsimpl)>>
   simp[Once parse_and_run_def]>>
+  qexists_tac`k+x`>>qexists_tac`x'`>>xsimpl>>
   qmatch_goalsub_abbrev_tac`ARRAY A B`>>
   qexists_tac`A`>>qexists_tac`B`>>xsimpl
 QED
@@ -2294,6 +2380,28 @@ QED
 
 val _ = translate rev_enum_full_def;
 
+val res = translate parse_unsat_def;
+
+val parse_unsat_side = Q.prove(
+  `∀x. parse_unsat_side x <=> T`,
+  simp[fetch "-" "parse_unsat_side_def"]>>
+  intLib.ARITH_TAC) |> update_precondition;
+
+val res = translate parse_sat_def;
+
+val res = translate parse_int_inf_def;
+val res = translate parse_bounds_def;
+val res = translate parse_obounds_def;
+
+val parse_obounds_side = Q.prove(
+  `∀x y. parse_obounds_side x y <=> T`,
+  simp[fetch "-" "parse_obounds_side_def"]>>
+  rw[]>>
+  intLib.ARITH_TAC) |> update_precondition;
+
+val res = translate parse_concl_def;
+
+(*
 val res = translate parse_conc_unsat_def;
 val parse_conc_unsat_side = Q.prove(
   `∀x. parse_conc_unsat_side x <=> T`,
@@ -2920,5 +3028,6 @@ val r = translate normalise_def;
 
 val r = translate convert_pbf_def;
 val r = translate full_normalise_def;
+*)
 
 val _ = export_theory();
