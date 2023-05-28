@@ -837,7 +837,7 @@ Definition parse_assg_def:
   (parse_assg f_ns _ acc = NONE)
 End
 
-Definition parse_obj_term_npbc:
+Definition parse_obj_term_npbc_def:
   parse_obj_term_npbc f_ns rest =
   case parse_obj_term rest of NONE => NONE
   | SOME (f,c) =>
@@ -957,7 +957,7 @@ Definition parse_sat_def:
 End
 
 (* Parse a number or infinity *)
-Definition parse_int_inf:
+Definition parse_int_inf_def:
   parse_int_inf l =
   case l of INR n => SOME (SOME n)
   | INL s => if s = strlit "INF" then SOME NONE else NONE

@@ -1170,7 +1170,9 @@ Proof
   metis_tac[sat_obj_po_trans]
 QED
 
-(* Top-level steps that manipulate the core *)
+(* Top-level steps that manipulate the core
+  Obj _ T _ = introduce model improving constraint
+  Obj _ F _ = do not introduce model improving constraint *)
 Datatype:
   cstep =
   | Dom npbc subst (( ((num + num) # num) option, (lstep list)) alist) (num option)
@@ -1186,42 +1188,10 @@ Datatype:
       (num option)
   | UncheckedDelete (num list)
   | Sstep sstep
-  | Obj (bool spt)
+  | Obj (bool spt) bool (int option)
   | ChangeObj ((int # var) list # int) num num
     (* Change the objective using the two constraint IDs *)
 End
-
-(* There are many variants of checked deletions possible:
-
-Suppose we delete D1 D2
-
-* Current option:
-1) Check C \ D1 |- E (satisfiability implies)
-   where C is core (can not be deleted)
-  and D1 ∈ E as the last ID.
-  Then check C \ {D1,D2} |- ...
-
-2) Check C \ {D1,D2} |- E (satisfiability implies)
-  and D1,D2 ∈ E (by search)
-
-3) Check C \ D1 U not D1 |- F (etc.)
-  This is not good
-Definition check_del_def:
-  (check_del [] ord obj c cf id = SOME id) ∧
-  (check_del ((n,pf)::pfs) ord obj c cf id =
-    case lookup n cf of
-      NONE => NONE
-    | SOME cl =>
-      (let nc = delete n c in
-      let ncf = delete n cf in
-      case check_ssteps pf ord obj nc ncf id of
-        SOME(ncf',id') =>
-        if lookup (id'-1) ncf' = SOME cl
-        then check_del pfs ord obj nc ncf id'
-        else NONE
-      | res => NONE))
-End
-*)
 
 Definition hide_def:
   hide x = x
@@ -1238,15 +1208,16 @@ Proof
 QED
 
 Definition check_obj_def:
-  check_obj obj bound wm coref =
+  check_obj obj wm cs bopt =
   let w = (λn.
     case lookup n wm of NONE => F | SOME b => b) in
   let new = eval_obj obj w in
-  let cs = MAP SND (toAList coref) in
-  if opt_lt (SOME new) bound ∧
+  if
     EVERY (satisfies_npbc w) cs
   then
-    SOME new
+    case bopt of NONE => SOME new
+    | SOME b =>
+      if b = new then SOME new else NONE
   else NONE
 End
 
@@ -1472,7 +1443,11 @@ Definition check_change_obj_def:
     | _ => F
 End
 
-(* TODO: make chk toggle-able? *)
+Definition update_bound_def:
+  update_bound bound new =
+  if opt_lt (SOME new) bound then SOME new else bound
+End
+
 Definition check_cstep_def:
   (check_cstep cstep
     (fml:pbf) (id:num) core
@@ -1553,15 +1528,21 @@ Definition check_cstep_def:
       SOME(fml',id') =>
         SOME (fml',id',core,chk,obj,bound,ord, orders)
     | NONE => NONE)
-  | Obj w =>
-    (case check_obj obj bound w (coref core fml) of
+  | Obj w mi bopt =>
+    (case check_obj obj w
+      (MAP SND (toAList (coref core fml))) bopt of
       NONE => NONE
     | SOME new =>
-      let c = model_improving obj new in
-      SOME (
-        insert id c fml,id+1,
-        insert id () core,
-        chk, obj, SOME new, ord, orders))
+      let bound' = update_bound bound new in
+      if mi then
+        let c = model_improving obj new in
+        SOME (
+          insert id c fml,id+1,
+          insert id () core,
+          chk, obj, bound', ord, orders)
+      else
+        SOME (fml, id, core,
+          chk, obj, bound', ord, orders))
   | ChangeObj fc' n1 n2 =>
     if check_change_obj fml core chk obj ord fc' n1 n2 then
       SOME (
@@ -1914,6 +1895,17 @@ Proof
   fs[domain_lookup,SUBSET_DEF]>>
   every_case_tac>>fs[]>>
   metis_tac[option_CLAUSES]
+QED
+
+Theorem check_obj_imp:
+  check_obj obj s ls b = SOME v ⇒
+  ∃w.
+  satisfies w (set ls) ∧
+  eval_obj obj w = v
+Proof
+  rw[check_obj_def,AllCaseEqs()]>>
+  fs[satisfies_def,EVERY_MEM]>>
+  asm_exists_tac>>rw[]
 QED
 
 Theorem check_cstep_correct:
@@ -2269,42 +2261,66 @@ Proof
   >- (
     (* Obj *)
     strip_tac>>
-    simp[check_obj_def]>>
-    IF_CASES_TAC>>fs[opt_le_def]>>
-    qmatch_goalsub_abbrev_tac`model_improving obj ov`>>
-    CONJ_TAC >- fs[id_ok_def]>>
-    CONJ_TAC >- (
-      fs[valid_conf_def]>>rw[]
-      >- fs[SUBSET_DEF]>>
-      fs[sat_obj_po_def]>>rw[]>>
-      `id ∉ domain fml` by fs[id_ok_def]>>
-      drule_all range_coref_insert_2>>
-      rw[]>>gs[]>>
-      first_x_assum drule>>
-      rw[]>>
-      qexists_tac`w'`>>simp[range_insert]>>
-      fs[satisfies_npbc_model_improving]>>
-      intLib.ARITH_TAC)>>
-    CONJ_TAC
+    every_case_tac>>simp[]
     >- (
-      simp[sat_obj_le_def]>>
-      qmatch_asmsub_abbrev_tac`eval_obj obj w`>>
-      qexists_tac`w`>>simp[opt_le_def]>>
-      fs[range_toAList,satisfies_def,EVERY_MEM])>>
-    CONJ_TAC >- (
+      (* Adding model improving *)
       `id ∉ domain fml` by fs[id_ok_def]>>
-      simp[bimp_obj_def,imp_obj_def]>>
+      CONJ_TAC >- fs[id_ok_def]>>
+      CONJ_TAC >- (
+        fs[valid_conf_def]>>rw[]
+        >- fs[SUBSET_DEF]>>
+        fs[sat_obj_po_def]>>rw[]>>
+        drule_all range_coref_insert_2>>
+        rw[]>>gs[]>>
+        first_x_assum drule>>
+        rw[]>>
+        qexists_tac`w'`>>simp[range_insert]>>
+        fs[satisfies_npbc_model_improving]>>
+        intLib.ARITH_TAC)>>
+      simp[update_bound_def]>>
+      reverse IF_CASES_TAC>>simp[]
+      >- (
+        CONJ_TAC >- (
+          simp[bimp_obj_def,imp_obj_def]>>
+          rw[]>>
+          simp[range_insert]>>
+          fs[sat_obj_le_def,satisfies_npbc_model_improving,opt_lt_def]>>
+          first_assum (irule_at Any)>>
+          fs[]>>
+          Cases_on`bound`>>fs[opt_lt_def]>>
+          intLib.ARITH_TAC)>>
+        rw[]>>
+        match_mp_tac bimp_obj_SUBSET>>
+        DEP_REWRITE_TAC[range_coref_insert_2]>>
+        fs[SUBSET_DEF,id_ok_def,valid_conf_def])>>
+      drule check_obj_imp>>
+      strip_tac>>
+      simp[opt_le_def]>>
+      CONJ_TAC
+      >- (
+        simp[sat_obj_le_def]>>
+        fs[range_toAList]>>
+        asm_exists_tac>>
+        simp[])>>
+      CONJ_TAC
+      >- (
+        simp[bimp_obj_def,imp_obj_def]>>
+        rw[]>>
+        simp[range_insert]>>
+        fs[sat_obj_le_def,satisfies_npbc_model_improving,opt_lt_def]>>
+        first_assum (irule_at Any)>>
+        fs[]>>
+        intLib.ARITH_TAC)>>
       rw[]>>
-      fs[sat_obj_le_def,satisfies_npbc_model_improving,opt_lt_def]>>
-      simp[range_insert]>>
-      fs[sat_obj_le_def,satisfies_npbc_model_improving,opt_lt_def]>>
-      first_assum (irule_at Any)>>
-      fs[]>>
-      intLib.ARITH_TAC)>>
-    rw[]>>
-    match_mp_tac bimp_obj_SUBSET>>
-    DEP_REWRITE_TAC[range_coref_insert_2]>>
-    fs[SUBSET_DEF,id_ok_def,valid_conf_def])
+      match_mp_tac bimp_obj_SUBSET>>
+      DEP_REWRITE_TAC[range_coref_insert_2]>>
+      fs[SUBSET_DEF,id_ok_def,valid_conf_def])>>
+    simp[update_bound_def]>>IF_CASES_TAC>>simp[opt_le_def]>>
+    simp[sat_obj_le_def]>>
+    drule check_obj_imp>>rw[]>>
+    fs[range_toAList]>>
+    asm_exists_tac>>
+    simp[])
   >- ( (* ChangeObj *)
     strip_tac>>simp[]>>
     IF_CASES_TAC>>fs[check_change_obj_def]>>
@@ -2570,6 +2586,167 @@ Proof
     match_mp_tac (GEN_ALL bimp_obj_SOME_bound)>>
     asm_exists_tac>>
     fs[unsatisfiable_def,valid_conf_def,satisfiable_def])
+QED
+
+(* Checking conclusions with hints given *)
+Datatype:
+  hconcl =
+  | HNoConcl
+  | HDSat (bool spt option)
+  | HDUnsat num
+  | HOBounds (int option) (int option) num (bool spt option)
+End
+
+Definition check_implies_fml_def:
+  check_implies_fml fml n c =
+  (case lookup n fml of
+      NONE => F
+    | SOME ci =>
+      imp ci c)
+End
+
+(* if lower bound is infinity, must prove infeasibility *)
+Definition lower_bound_def:
+  lower_bound obj lb =
+    let ob = case obj of NONE => ([],0) | SOME fc => fc in
+    model_bounding ([],lb) ob
+End
+
+(* fml, obj are the original formula (as a list) and objective
+  all the '-ed variables are after checking *)
+Definition check_hconcl_def:
+  (check_hconcl fml obj fml' chk' obj' bound' HNoConcl = T) ∧
+  (check_hconcl fml obj fml' chk' obj' bound' (HDSat wopt) =
+    case wopt of
+      NONE =>
+      (* Claiming SAT without witness needs
+        unchecked deletion and at least one sol step *)
+      chk' ∧ bound' ≠ NONE
+    | SOME wm =>
+      (* Otherwise, use the witness *)
+      check_obj obj wm fml NONE ≠ NONE) ∧
+  (check_hconcl fml obj fml' chk' obj' bound' (HDUnsat n) =
+    (* Claiming UNSAT requires contradiction
+      derived in the final formula *)
+    (bound' = NONE ∧ check_contradiction_fml fml' n)) ∧
+  (check_hconcl fml obj fml' chk' obj' bound'
+    (HOBounds lbi ubi n wopt) =
+    (
+    ((* Lower bound claimed must be at most the
+      best bound seen in sol steps *)
+    opt_le lbi bound' ∧
+    (* And the lower bound must be syntactically implied
+    *)
+    case lbi of
+      NONE => check_contradiction_fml fml' n
+    | SOME lb => check_implies_fml fml' n (lower_bound obj' lb)) ∧
+    (
+    (* Claiming upper bound is similar to claiming SAT *)
+    case wopt of
+      NONE => chk' ∧ opt_le bound' ubi
+    | SOME wm =>
+      opt_le (check_obj obj wm fml NONE) ubi)))
+End
+
+Definition hconcl_concl_def:
+  (hconcl_concl HNoConcl = NoConcl) ∧
+  (hconcl_concl (HDSat _) = DSat) ∧
+  (hconcl_concl (HDUnsat _) = DUnsat) ∧
+  (hconcl_concl (HOBounds lbi ubi _ _) = OBounds lbi ubi)
+End
+
+Theorem check_csteps_check_hconcl:
+  id_ok fml id ∧
+  check_csteps csteps
+    fml id (map (λv. ()) fml) chk obj NONE NONE [] =
+    SOME (fml',id',core',chk',obj',bound',ord',orders') ∧
+  set fmlls = range fml ∧
+  check_hconcl fmlls obj fml' chk' obj' bound' hconcl ⇒
+  sem_concl fml obj (hconcl_concl hconcl)
+Proof
+  rw[]>>
+  drule check_csteps_correct>>
+  disch_then (drule_at Any)>>
+  simp[valid_conf_setup]>>
+  rw[hide_def]>>
+  Cases_on`hconcl`>>
+  fs[hconcl_concl_def,sem_concl_def,check_hconcl_def]
+  >- ( (* HDSat *)
+    Cases_on`o'`>>gvs[]
+    >- (
+      Cases_on`bound'`>>
+      fs[opt_lt_def,sat_obj_le_def,range_coref_map_fml]>>
+      simp[satisfiable_def]>>
+      metis_tac[])>>
+    Cases_on`check_obj obj x fmlls NONE`>>gvs[]>>
+    drule check_obj_imp>>
+    rw[satisfiable_def]>>
+    metis_tac[])
+  >- ( (* HDUnsat *)
+    drule check_contradiction_fml_unsat>>
+    gvs[]>>
+    drule bimp_obj_NONE>>
+    simp[unsatisfiable_def]>>
+    metis_tac[])
+  >- ((* HOBound *)
+    CONJ_TAC >- (
+      qpat_x_assum`_ o1 _ _` kall_tac>>
+      fs[check_implies_fml_def]>>every_case_tac>>
+      fs[lower_bound_def]
+      >- (
+        Cases_on`bound'`>>fs[opt_le_def,opt_lt_def]>>
+        drule check_contradiction_fml_unsat>>
+        gvs[]>>
+        drule bimp_obj_NONE>>
+        simp[unsatisfiable_def]>>
+        metis_tac[])>>
+      fs[bimp_obj_def,imp_obj_def]>>rw[]>>
+      qpat_x_assum`opt_le _ bound'` mp_tac>>
+      rw[]>>
+      CCONTR_TAC>>fs[]>>
+      last_x_assum(qspec_then`eval_obj obj w` mp_tac)>>
+      impl_tac >- (
+        Cases_on`bound'`>>
+        fs[opt_lt_def]>>
+        ntac 2(pop_assum mp_tac)>>
+        rpt(pop_assum kall_tac)>>
+        simp[opt_le_def,opt_lt_def]>>
+        intLib.ARITH_TAC)>>
+      impl_tac>- (
+        simp[sat_obj_le_def]>>
+        qexists_tac`w`>>simp[])>>
+      strip_tac>>fs[sat_obj_le_def,satisfies_def,range_def]>>
+      drule imp_thm>>
+      disch_then(qspec_then `w'` mp_tac)>>
+      impl_tac>-
+        (first_x_assum match_mp_tac>>metis_tac[])>>
+      fs[satisfies_npbc_model_bounding]>>
+      qmatch_goalsub_abbrev_tac`~(_ ≤ b)`>>
+      simp[eval_obj_def]>>
+      `b = eval_obj obj' w'` by
+        (fs[Abbr`b`]>>
+        TOP_CASE_TAC>>simp[eval_obj_def])>>
+      rw[]>>
+      qpat_x_assum`~(_ ≤ _)` mp_tac>>
+      qpat_x_assum`(_ ≤ (_:int))` mp_tac>>
+      rpt (pop_assum kall_tac)>>
+      intLib.ARITH_TAC)>>
+    qpat_x_assum`_ o' _ _` kall_tac>>
+    EVERY_CASE_TAC>>gvs[]
+    >- (
+      Cases_on`bound'`>-
+        fs[opt_lt_def,opt_le_def]>>
+      fs[sat_obj_le_def,opt_lt_def,range_coref_map_fml]>>
+      asm_exists_tac>>
+      gvs[opt_le_def,opt_lt_def]>>
+      intLib.ARITH_TAC)>>
+    pop_assum mp_tac>>
+    Cases_on`check_obj obj x' fmlls NONE`>>
+    simp[opt_le_def,opt_lt_def]>>
+    drule check_obj_imp>>
+    strip_tac>>
+    gvs[]>>
+    rw[]>>asm_exists_tac>>simp[])
 QED
 
 val _ = export_theory ();

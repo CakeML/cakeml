@@ -391,4 +391,46 @@ Proof
   metis_tac[]
 QED
 
+Definition eval_obj_def:
+  eval_obj fopt w =
+    case fopt of NONE => 0
+    | SOME (f,c:int) =>
+      eval_lin_term w f + c
+End
+
+(* Conclusions about a pseudoboolean formula and
+  optional objective *)
+Datatype:
+  concl =
+  | NoConcl
+  | DSat
+  | DUnsat
+  | OBounds (int option) (int option)
+End
+
+(* Semantics of a conclusion
+  Note: lbi, ubi are optional values where
+    NONE represents (positive) infinity
+
+  if lbi = NONE (infinity), then the formula is unsat
+  else, lbi = SOME lb where lb is a lower bound on the objective
+
+  if ubi = NONE (infinity), no conclusion
+  else, ubi = SOME ub where ub is attained by some assignment
+*)
+Definition sem_concl_def:
+  (sem_concl pbf obj NoConcl = T) ∧
+  (sem_concl pbf obj DSat = satisfiable pbf) ∧
+  (sem_concl pbf obj DUnsat = unsatisfiable pbf) ∧
+  (sem_concl pbf obj (OBounds lbi ubi) =
+    ((case lbi of
+      NONE => unsatisfiable pbf
+    | SOME lb =>
+      (∀w. satisfies w pbf ⇒ lb ≤ eval_obj obj w)) ∧
+    (case ubi of
+      NONE => T
+    | SOME ub =>
+      (∃w. satisfies w pbf ∧ eval_obj obj w ≤ ub))))
+End
+
 val _ = export_theory();
