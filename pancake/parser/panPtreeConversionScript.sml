@@ -182,6 +182,20 @@ Termination
   >> drule_then assume_tac mem_ptree_thm >> gvs[]
 End
 
+Definition conv_params_def:
+  conv_params as =
+  case as of
+    (s::t::ps) =>
+      (case (conv_Shape s) of
+         SOME sh =>
+           (case (conv_ident t) of
+              SOME v => (lift (CONS (v, sh))) (conv_params ps)
+            | _ => NONE)
+       | _ => NONE)
+  | [] => SOME []
+  | _ => NONE
+End
+
 Definition conv_Shift_def:
   conv_Shift [] e = SOME e ∧
   conv_Shift [x] e = NONE ∧
@@ -460,10 +474,45 @@ Termination
   gs[]
 End
 
+Definition conv_Fun_def:
+  conv_Fun tree =
+  case argsNT tree FunNT of
+    SOME [n;c] =>
+      (do body <- conv_Prog c;
+          n'   <- conv_ident n;
+          SOME (n', [], body)
+       od)
+  | SOME [n;ps;c] =>
+      (case (argsNT ps ParamListNT) of
+         SOME args =>
+           (do ps'  <- conv_params args;
+               body <- conv_Prog c;
+               n'   <- conv_ident n;
+               SOME (n', ps', body)
+            od)
+       | _ => NONE)
+  | _ => NONE
+End
+
+Definition conv_FunList_def:
+  conv_FunList tree =
+   case argsNT tree FunListNT of
+     SOME [] => SOME []
+   | SOME fs => OPT_MMAP conv_Fun fs
+   | _ => NONE
+End
+
 Definition parse_to_ast_def:
   parse_to_ast s =
     case parse (pancake_lex s) of
       SOME e => conv_Prog e
+    | _ => NONE
+End
+
+Definition parse_funs_to_ast_def:
+  parse_funs_to_ast s =
+    case parse (pancake_lex s) of
+      SOME e => conv_FunList e
     | _ => NONE
 End
 

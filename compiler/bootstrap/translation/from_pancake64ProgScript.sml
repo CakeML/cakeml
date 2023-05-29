@@ -651,6 +651,12 @@ QED
 
 val _ = conv_Prog_ind  |> update_precondition;
 
+val res  = translate $ spec64 conv_Fun_def;
+
+val res = translate $ spec64 conv_FunList_def;
+
+val res = translate $ spec64 parse_funs_to_ast_def;
+
 val res = translate $ spec64 parse_to_ast_def;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
