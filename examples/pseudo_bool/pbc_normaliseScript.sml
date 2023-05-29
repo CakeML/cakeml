@@ -690,4 +690,8 @@ Proof
   Cases_on`r`>>fs[]
 QED
 
+(* TODO: prove a theorem relating
+  sem_concl from PBC
+to sem_concl from NPBC for the normalised formula *)
+
 val _ = export_theory();

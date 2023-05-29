@@ -884,10 +884,11 @@ Definition parse_cstep_head_def:
       | NONE =>
         (case strip_numbers rs [] of NONE => NONE
         | SOME n => SOME (Done (UncheckedDelete n),f_ns))
-    else if r = INL (strlit "soli") ∨ r = INL (strlit "solx") then
+    else if r = INL (strlit "soli") ∨ r = INL (strlit "sol") then
       case parse_assg f_ns rs LN of NONE => NONE
       | SOME (assg,f_ns') =>
-        SOME (Done (Obj assg),f_ns')
+        let b = (r = INL( strlit "soli")) in
+          SOME (Done (Obj assg b NONE),f_ns')
     else if r = INL (strlit"obju") then
       parse_obju f_ns rs
     else if r = INL (strlit "pre_order") then
@@ -923,20 +924,7 @@ Definition parse_cstep_def:
     )
 End
 
-(* Parse only output NONE for now *)
-val outputtrm = rconc (EVAL``toks_fast (strlit"output NONE")``);
-(* Last line *)
-val endtrm = rconc (EVAL``toks_fast (strlit"end pseudo-Boolean proof")``);
-
-(* Conclusion section *)
-Datatype:
-  concl =
-  | NoConcl
-  | DSat (bool spt option)
-  | DUnsat num
-  | OBounds (int option) (int option) num (bool spt option)
-End
-
+(* parse a hconcl *)
 Definition parse_unsat_def:
   parse_unsat rest =
   case rest of
@@ -995,16 +983,16 @@ Definition parse_concl_def:
   case s of
   x::y::rest =>
   if x = INL (strlit "conclusion") then
-    if y = INL (strlit "NONE") ∧ rest = [] then SOME NoConcl
+    if y = INL (strlit "NONE") ∧ rest = [] then SOME HNoConcl
     else if y = INL (strlit "UNSAT") then
-      OPTION_MAP DUnsat (parse_unsat rest)
+      OPTION_MAP HDUnsat (parse_unsat rest)
     else if y = INL (strlit "SAT") then
-      OPTION_MAP DSat (parse_sat f_ns rest)
+      OPTION_MAP HDSat (parse_sat f_ns rest)
     else if y = INL (strlit"BOUNDS") then
       case parse_bounds rest of NONE => NONE
       | SOME (lb,ub,rest') =>
         (case parse_obounds f_ns rest' of NONE => NONE
-        | SOME (n,a) => SOME (OBounds lb ub n a))
+        | SOME (n,a) => SOME (HOBounds lb ub n a))
     else NONE
   else NONE
   | _ => NONE

@@ -2283,6 +2283,14 @@ Proof
   xsimpl
 QED
 
+Definition mapsndtoalist_def:
+  mapsndtoalist c = MAP SND (toAList c)
+End
+
+val res = translate mapsndtoalist_def;
+
+val res = translate npbc_checkTheory.update_bound_def;
+
 val check_cstep_arr = process_topdecs`
   fun check_cstep_arr lno cstep core chk obj bound
     ord orders fml inds id =
@@ -2368,17 +2376,25 @@ val check_cstep_arr = process_topdecs`
       (fml',(id',inds')) =>
       (fml',(inds',(id',(core,
         (chk,(obj,(bound,(ord,orders)))))))))
-  | Obj w => (
-    case check_obj obj bound w (coref_arr core fml) of
+  | Obj w mi bopt => (
+    case check_obj obj w
+        (mapsndtoalist (coref_arr core fml)) bopt of
       None =>
        raise Fail (format_failure lno ("supplied assignment did not satisfy constraints or did not improve objective"))
     | Some new =>
-      let val c = model_improving obj new in
-        (Array.updateResize fml None id (Some c),
-         (sorted_insert id inds,
-         (id+1,
-         (insert_1 id () core,
-         (chk,(obj,(Some new, (ord, orders))))))))
+      let val bound' = update_bound bound new in
+      if mi
+      then
+        let val c = model_improving obj new in
+          (Array.updateResize fml None id (Some c),
+           (sorted_insert id inds,
+           (id+1,
+           (insert_1 id () core,
+           (chk,(obj,(bound', (ord, orders))))))))
+        end
+      else
+        (fml, (inds, (id,
+           (core,(chk,(obj,(bound',(ord, orders))))))))
       end
     )
   | Changeobj fc' n1 n2 =>
@@ -2671,22 +2687,30 @@ Proof
   >- ( (* Obj *)
     xmatch>>
     rpt xlet_autop>>
-    Cases_on`check_obj obj bound s (coref_list core fmlls)`>>
-    fs[OPTION_TYPE_def]>>xmatch
+    qmatch_goalsub_abbrev_tac`check_obj _ _ lss bopt`>>
+    Cases_on`check_obj obj s lss bopt`>>
+    fs[OPTION_TYPE_def,mapsndtoalist_def]>>xmatch
     >- (
       rpt xlet_autop>>
       xraise >> xsimpl>>
       fs[Fail_exn_def]>>
       metis_tac[ARRAY_refl])>>
     rpt xlet_autop>>
-    xlet_auto>>
+    xif
+    >- ( (* model improving *)
+      rpt xlet_autop>>
+      xlet_auto>>
+      xcon>>xsimpl>>
+      simp[PAIR_TYPE_def,OPTION_TYPE_def]>>
+      qmatch_goalsub_abbrev_tac`ARRAY _ A`>>
+      qexists_tac`A`>>xsimpl>>
+      unabbrev_all_tac>>
+      match_mp_tac LIST_REL_update_resize>>
+      fs[OPTION_TYPE_def])>>
+    rpt xlet_autop>>
     xcon>>xsimpl>>
-    simp[PAIR_TYPE_def,OPTION_TYPE_def]>>
-    qmatch_goalsub_abbrev_tac`ARRAY _ A`>>
-    qexists_tac`A`>>xsimpl>>
-    unabbrev_all_tac>>
-    match_mp_tac LIST_REL_update_resize>>
-    fs[OPTION_TYPE_def])
+    simp[PAIR_TYPE_def]>>
+    asm_exists_tac>>xsimpl)
   >- ( (* ChangeObj *)
     xmatch>>
     rpt xlet_autop

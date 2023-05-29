@@ -1984,17 +1984,17 @@ QED
 
 Definition sem_concl_def:
   (sem_concl fml obj NoConcl = T) ∧
-  (sem_concl fml obj DSat = satisfiable (range fml)) ∧
-  (sem_concl fml obj DUnsat = unsatisfiable (range fml)) ∧
+  (sem_concl fml obj DSat = satisfiable fml) ∧
+  (sem_concl fml obj DUnsat = unsatisfiable fml) ∧
   (sem_concl fml obj (OBounds lbi ubi) =
     ((case lbi of
-      NONE => unsatisfiable (range fml)
+      NONE => unsatisfiable fml
     | SOME lb =>
-      (∀w. satisfies w (range fml) ⇒ lb ≤ eval_obj obj w)) ∧
+      (∀w. satisfies w fml ⇒ lb ≤ eval_obj obj w)) ∧
     (case ubi of
       NONE => T
     | SOME ub =>
-      (∃w. satisfies w (range fml) ∧ eval_obj obj w ≤ ub))))
+      (∃w. satisfies w fml ∧ eval_obj obj w ≤ ub))))
 End
 
 val _ = export_theory();

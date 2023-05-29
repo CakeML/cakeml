@@ -2662,7 +2662,7 @@ Theorem check_csteps_check_hconcl:
     SOME (fml',id',core',chk',obj',bound',ord',orders') ∧
   set fmlls = range fml ∧
   check_hconcl fmlls obj fml' chk' obj' bound' hconcl ⇒
-  sem_concl fml obj (hconcl_concl hconcl)
+  sem_concl (range fml) obj (hconcl_concl hconcl)
 Proof
   rw[]>>
   drule check_csteps_correct>>

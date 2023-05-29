@@ -1510,17 +1510,21 @@ Definition check_cstep_list_def:
       SOME (fml',inds',id',
         core, chk, obj, bound, ord, orders)
     | NONE => NONE)
-  | Obj w =>
-    (case check_obj obj bound w (coref_list core fml) of
+  | Obj w mi bopt =>
+    (case check_obj obj w (MAP SND (toAList (coref_list core fml))) bopt of
       NONE => NONE
     | SOME new =>
-      let c = model_improving obj new in
-      SOME (
-        update_resize fml NONE (SOME c) id,
-        sorted_insert id inds,
-        id+1,
-        insert id () core,
-        chk, obj, SOME new, ord, orders))
+      let bound' = update_bound bound new in
+      if mi then
+        let c = model_improving obj new in
+        SOME (
+          update_resize fml NONE (SOME c) id,
+          sorted_insert id inds,
+          id+1,
+          insert id () core,
+          chk, obj, bound', ord, orders)
+      else
+        SOME(fml,inds,id,core,chk,obj,bound',ord,orders))
   | ChangeObj fc' n1 n2 =>
     if check_change_obj_list fml core chk obj ord fc' n1 n2 then
       SOME (
@@ -1760,11 +1764,9 @@ Proof
   >- ( (* Obj *)
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     drule coref_coref_list>>
-    disch_then(qspec_then`core` assume_tac)>>fs[]>>
-    CONJ_TAC>-
-      metis_tac[fml_rel_update_resize]>>
-    CONJ_TAC>-
-      metis_tac[ind_rel_update_resize_sorted_insert]>>
+    rw[]>>gvs[]
+    >- metis_tac[fml_rel_update_resize]
+    >- metis_tac[ind_rel_update_resize_sorted_insert]>>
     simp[any_el_update_resize])
   >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
@@ -1937,51 +1939,61 @@ Proof
   gs[EL_REPLICATE]
 QED
 
-(* TODO Specialized for redundancy-only UNSAT checking
-Theorem check_ssteps_list_unsat:
-  check_ssteps_list ss NONE NONE LN
-    (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i)
-      (REPLICATE (2 * (LENGTH fml + 1)) NONE) (enumerate 1 fml))
-    (REVERSE (MAP FST (enumerate 1 fml)))
-    (LENGTH fml + 1) = SOME(fml',b,c) ∧
-  check_contradiction_fml_list fml' n
-  ⇒
-  unsatisfiable (set fml)
+Definition check_implies_fml_list_def:
+  check_implies_fml_list fml n c =
+  (case any_el n fml NONE of
+      NONE => F
+    | SOME ci =>
+      imp ci c)
+End
+
+Definition check_hconcl_list_def:
+  (check_hconcl_list fml obj fml' chk' obj' bound' HNoConcl = T) ∧
+  (check_hconcl_list fml obj fml' chk' obj' bound' (HDSat wopt) =
+    case wopt of
+      NONE =>
+      chk' ∧ bound' ≠ NONE
+    | SOME wm =>
+      check_obj obj wm fml NONE ≠ NONE) ∧
+  (check_hconcl_list fml obj fml' chk' obj' bound' (HDUnsat n) =
+    (bound' = NONE ∧ check_contradiction_fml_list fml' n)) ∧
+  (check_hconcl_list fml obj fml' chk' obj' bound'
+    (HOBounds lbi ubi n wopt) =
+    (
+    (opt_le lbi bound' ∧
+    case lbi of
+      NONE => check_contradiction_fml_list fml' n
+    | SOME lb => check_implies_fml_list fml' n (lower_bound obj' lb)) ∧
+    (
+    case wopt of
+      NONE => chk' ∧ opt_le bound' ubi
+    | SOME wm =>
+      opt_le (check_obj obj wm fml NONE) ubi)))
+End
+
+Theorem fml_rel_check_implies_fml:
+  fml_rel fml fmlls ∧
+  check_implies_fml_list fmlls n c ⇒
+  check_implies_fml fml n c
 Proof
-  rw[]>>
-  qmatch_asmsub_abbrev_tac`check_ssteps_list ss NONE NONE LN fmlls inds id = _`>>
-  `fml_rel (build_fml 1 fml) fmlls` by
-    simp[Abbr`fmlls`,fml_rel_FOLDL_update_resize]>>
-  `ind_rel fmlls inds` by
-    (unabbrev_all_tac>>
-    simp[ind_rel_FOLDL_update_resize])>>
-  `∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE` by (
-    rw[Abbr`id`,Abbr`fmlls`,any_el_ALT]>>
-    DEP_REWRITE_TAC [FOLDL_update_resize_lookup]>>
-    simp[ALOOKUP_enumerate,ALL_DISTINCT_MAP_FST_enumerate])>>
-  drule_all fml_rel_check_ssteps_list>>
-  rw[]>>
-  `id_ok (build_fml 1 fml) id` by
-    fs[id_ok_def,domain_build_fml]>>
-  drule check_ssteps_correct>>
-  disch_then(qspecl_then[`ss`,`NONE`,`NONE`,`LN`] mp_tac)>>simp[]>>
-  simp[range_build_fml,npbcTheory.sat_obj_def]>>
-  drule_all fml_rel_check_contradiction_fml>>
-  rw[npbcTheory.sat_obj_po_def]>>
-  metis_tac[check_contradiction_fml_unsat,npbcTheory.unsatisfiable_def,npbcTheory.satisfiable_def]
+  rw[check_implies_fml_list_def,check_implies_fml_def,fml_rel_def]>>
+  every_case_tac>>fs[]>>
+  metis_tac[option_CLAUSES]
 QED
 
-(* Specialized for dominance UNSAT checking:
-  chk = F --> unchecked deletions
-  ord = NONE --> no order initially
-  obj = NONE --> no objective
-  bound = NONE --> infinity objective bond
-  core --> all ids in initial formula
-  fml --> the initial formula
-  inds --> all ids in initial formula
-  id --> LENGTH (fml+1)
-  orders = [] --> empty initially
-*)
+Theorem fml_rel_check_hconcl_list:
+  fml_rel fml' fmlls' ∧
+  check_hconcl_list fml obj fmlls' chk' obj' bound' hconcl ⇒
+  check_hconcl fml obj fml' chk' obj' bound' hconcl
+Proof
+  Cases_on`hconcl`>>
+  fs[check_hconcl_def,check_hconcl_list_def]
+  >-
+    metis_tac[fml_rel_check_contradiction_fml]>>
+  rw[]>>every_case_tac>>fs[]>>
+  metis_tac[fml_rel_check_contradiction_fml,fml_rel_check_implies_fml]
+QED
+
 Theorem wf_build_fml:
   ∀fml n.
   wf (build_fml n fml)
@@ -1990,21 +2002,21 @@ Proof
   simp[wf_insert]
 QED
 
-Theorem check_csteps_list_unsat:
-  check_csteps_list cs F NONE NONE NONE
+Theorem check_csteps_list_concl:
+  check_csteps_list cs
     (fromAList (MAP (λ(x,y). (x,())) (enumerate 1 fml)))
+    T obj NONE NONE []
     (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i)
       (REPLICATE (2 * (LENGTH fml + 1)) NONE) (enumerate 1 fml))
     (REVERSE (MAP FST (enumerate 1 fml)))
-    (LENGTH fml + 1) [] =
-    SOME(fml',a,b,c,NONE,d) ∧
-  check_contradiction_fml_list fml' n
-  ⇒
-  unsatisfiable (set fml)
+    (LENGTH fml + 1) =
+    SOME(fmlls',inds',id',core',chk',obj',bound',ord',orders') ∧
+  check_hconcl_list fml obj fmlls' chk' obj' bound' hconcl ⇒
+  sem_concl (set fml) obj (hconcl_concl hconcl)
 Proof
   rw[]>>
   qmatch_asmsub_abbrev_tac`
-    check_csteps_list cs F NONE NONE NONE core fmlls inds id orders = _`>>
+    check_csteps_list cs core T obj NONE NONE [] fmlls inds id = _`>>
   `fml_rel (build_fml 1 fml) fmlls` by
     simp[Abbr`fmlls`,fml_rel_FOLDL_update_resize]>>
   `ind_rel fmlls inds` by
@@ -2018,7 +2030,7 @@ Proof
   rw[]>>
   `id_ok (build_fml 1 fml) id` by
     fs[id_ok_def,domain_build_fml]>>
-  drule check_csteps_optimal>>
+  drule check_csteps_check_hconcl>>
   `core = map (λv. ()) (build_fml 1 fml)` by (
     fs[Abbr`core`]>>
     DEP_REWRITE_TAC[spt_eq_thm]>>
@@ -2026,14 +2038,11 @@ Proof
     simp[lookup_fromAList,lookup_map,lookup_build_fml]>>
     simp[ALOOKUP_MAP,ALOOKUP_enumerate])>>
   gvs[]>>
-  PairCases_on`d`>>
   disch_then drule>>
-  impl_tac >- (
-    drule_all fml_rel_check_contradiction_fml>>
-    metis_tac[check_contradiction_fml_unsat])>>
-  simp[npbcTheory.optimal_val_def,npbcTheory.eval_obj_def]>>
-  simp[npbcTheory.unsatisfiable_def,range_build_fml]
+  fs[range_build_fml]>>
+  disch_then match_mp_tac>>
+  drule_all fml_rel_check_hconcl_list>>
+  metis_tac[]
 QED
- *)
 
 val _ = export_theory();
