@@ -1,7 +1,7 @@
 (*
   Normalizes pbc into npbc
 *)
-open preamble pbcTheory npbcTheory;
+open preamble pbcTheory npbcTheory mlstringTheory mlmapTheory;
 
 val _ = new_theory "pbc_normalise";
 
@@ -688,6 +688,190 @@ Proof
     metis_tac[hashString_INJ,SUBSET_REFL]>>
   drule LINV_DEF>>
   Cases_on`r`>>fs[]
+QED
+
+(*--------------------------------------------------------------*
+   converting mlstring pbc into num pbc
+ *--------------------------------------------------------------*)
+
+Datatype:
+  convert_state =
+    <| to_num : ((mlstring, num) mlmap$map) num_map
+     ; to_str : mlstring num_map
+     ; next_num : num |>
+End
+
+Definition init_state_def:
+  init_state = <| to_num := LN; to_str := LN; next_num := 0 |>
+End
+
+Definition hash_str_def:
+  hash_str (s:mlstring) =
+    let l = strlen s in
+      if l = 0 then 0:num else
+        l + ORD (strsub s (l-1))
+End
+
+Triviality hash_str_test:
+  hash_str (strlit "x4") ≠ hash_str (strlit "x5") ∧
+  hash_str (strlit "x4") ≠ hash_str (strlit "x14")
+Proof
+  EVAL_TAC
+QED
+
+Definition empty_str_def:
+  empty_str = mlmap$empty mlstring$compare
+End
+
+Definition convert_var_def:
+  convert_var (v:mlstring) (s:convert_state) =
+    let h = hash_str v in
+      case sptree$lookup h s.to_num of
+      | NONE =>
+          (s.next_num,
+           s with <| to_num := insert h (mlmap$insert empty_str v s.next_num) s.to_num ;
+                     to_str := insert s.next_num v s.to_str ;
+                     next_num := s.next_num + 1 |>)
+      | SOME m =>
+          case mlmap$lookup m v of
+          | SOME index => (index,s)
+          | NONE =>
+              (s.next_num,
+               s with <| to_num := insert h (mlmap$insert m v s.next_num) s.to_num ;
+                         to_str := insert s.next_num v s.to_str ;
+                         next_num := s.next_num + 1 |>)
+End
+
+Definition convert_lit_def:
+  convert_lit (Pos v) s = (let (v1,s1) = convert_var v s in (Pos v1,s1)) ∧
+  convert_lit (Neg v) s = (let (v1,s1) = convert_var v s in (Neg v1,s1))
+End
+
+Definition convert_lin_term_def:
+  convert_lin_term [] s acc = (acc,s) ∧
+  convert_lin_term ((i,l)::xs) s acc =
+    let (l1,s1) = convert_lit l s in
+      convert_lin_term xs s1 ((i,l1)::acc)
+End
+
+Definition convert_pbf_def:
+  convert_pbf [] s acc = (acc,s) ∧
+  convert_pbf ((p,l,i)::xs) s acc =
+    let (l1,s1) = convert_lin_term l s [] in
+      convert_pbf xs s1 ((p,l1,i)::acc)
+End
+
+(* ---- verification ---- *)
+
+Definition lookup_index_def:
+  lookup_index s v =
+    let h = hash_str v in
+      case sptree$lookup h s.to_num of
+      | NONE => NONE
+      | SOME m => mlmap$lookup m v
+End
+
+Definition lookup_str_def:
+  lookup_str s n = sptree$lookup n s.to_str
+End
+
+Definition convert_state_ok_def:
+  convert_state_ok s ⇔
+    (∀h m.
+       lookup h s.to_num = SOME m ⇒
+       map_ok m ∧
+       ∀str index.
+         lookup m str = SOME index ⇒
+         hash_str str = h ∧ index < s.next_num) ∧
+    (∀str index.
+       lookup_str s index = SOME str ⇔ lookup_index s str = SOME index)
+End
+
+Definition str_domain_def:
+  str_domain s = { t | ∃index. lookup_index s t = SOME index }
+End
+
+Definition num_domain_def:
+  num_domain s = { index | ∃t. lookup_str s index = SOME t }
+End
+
+Theorem init_state_ok:
+  convert_state_ok init_state
+Proof
+  fs [convert_state_ok_def,init_state_def,lookup_str_def,lookup_index_def]
+QED
+
+Theorem empty_str_thm[simp]:
+  map_ok empty_str ∧ ∀n. lookup empty_str n = NONE
+Proof
+  fs [empty_str_def]
+  \\ fs [map_ok_def,empty_thm]
+  \\ assume_tac TotOrd_compare \\ fs []
+  \\ EVAL_TAC \\ fs []
+QED
+
+Theorem convert_var_thm:
+  convert_state_ok s ∧
+  convert_var v s = (index,s1)
+  ⇒
+  convert_state_ok s1 ∧
+  lookup_str s1 index = SOME v ∧
+  lookup_index s1 v = SOME index ∧
+  (∀w i. lookup_index s w = SOME i ⇒ lookup_index s1 w = SOME i)
+Proof
+  fs [convert_var_def,AllCaseEqs()]
+  \\ reverse strip_tac \\ gvs []
+  >-
+   (conj_asm2_tac >- fs [convert_state_ok_def]
+    \\ fs [lookup_str_def,lookup_index_def])
+  >-
+   (fs [lookup_index_def,lookup_str_def,AllCaseEqs(),
+        sptreeTheory.lookup_insert,PULL_EXISTS]
+    \\ gvs [convert_state_ok_def] \\ res_tac
+    \\ gvs [mlmapTheory.lookup_insert,lookup_index_def,lookup_str_def,
+            sptreeTheory.lookup_insert,AllCaseEqs()]
+    \\ rw [] \\ gvs [insert_thm,lookup_insert]
+    \\ gvs [AllCaseEqs()]
+    \\ res_tac \\ fs []
+    >-
+     (Cases_on ‘v = str'’ \\ gvs []
+      \\ gvs [insert_thm,lookup_insert]
+      \\ Cases_on ‘hash_str str' = hash_str v’ \\ gvs []
+      \\ gvs [insert_thm,lookup_insert]
+      \\ Cases_on ‘lookup m str'’ \\ gvs [] \\ res_tac \\ fs []
+      \\ Cases_on ‘lookup (hash_str str') s.to_num’ \\ gvs []
+      \\ Cases_on ‘lookup x str'’ \\ gvs [] \\ res_tac \\ fs [])
+    \\ Cases_on ‘hash_str w = hash_str v’ \\ gvs []
+    \\ rw [] \\ gvs [insert_thm,lookup_insert]
+    \\ rw [] \\ gvs [])
+  \\ fs [lookup_index_def,lookup_str_def,AllCaseEqs(),
+         sptreeTheory.lookup_insert,PULL_EXISTS]
+  \\ gvs [convert_state_ok_def] \\ res_tac
+  \\ gvs [mlmapTheory.lookup_insert,lookup_index_def,lookup_str_def,
+          sptreeTheory.lookup_insert,AllCaseEqs()]
+  \\ rw [] \\ gvs [insert_thm,lookup_insert]
+  \\ res_tac \\ fs []
+  >- (Cases_on ‘v = str'’ \\ gvs []
+      \\ gvs [insert_thm,lookup_insert]
+      \\ Cases_on ‘hash_str str' = hash_str v’ \\ gvs []
+      \\ gvs [insert_thm,lookup_insert]
+      \\ Cases_on ‘lookup (hash_str str') s.to_num’ \\ gvs []
+      \\ Cases_on ‘lookup x str'’ \\ gvs [] \\ res_tac \\ fs [])
+  \\ Cases_on ‘hash_str w = hash_str v’ \\ gvs []
+  \\ rw [] \\ gvs [insert_thm,lookup_insert]
+QED
+
+(* TODO: continue from here *)
+
+Theorem convert_pbf_thm:
+  ∀(xs: mlstring pbc list) (ys: num pbc list) s t.
+    convert_pbf xs s [] = (ys,t) ⇒
+    satisfiable (set xs) =
+    satisfiable (set ys)
+Proof
+  rw []
+  \\ fs [pbcTheory.satisfiable_def]
+  \\ cheat
 QED
 
 (* TODO: prove a theorem relating
