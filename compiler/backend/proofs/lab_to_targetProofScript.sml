@@ -652,6 +652,14 @@ Definition get_memop_info_def:
   get_memop_info Store7 a = ("MappedWrite",1w)
 End
 
+Definition num_pcs_def:
+  num_pcs [] = (0:num) /\
+  num_pcs ((Section _ [])::rest) = num_pcs rest /\
+  num_pcs ((Section k (x::xs))::rest) = if is_Label x
+    then num_pcs ((Section k xs)::rest)
+    else 1 + num_pcs ((Section k xs)::rest)
+End
+
 Definition share_mem_domain_code_rel_def:
   share_mem_domain_code_rel mc_conf p code2 (s1_shared_mem_domain: ('a word->bool))
   <=>
@@ -759,11 +767,10 @@ End
 
 Definition no_install_or_share_mem_def:
   no_install_or_share_mem code ffi_names <=>
-   (no_share_mem_inst code \/
-      (no_install code /\
-      EVERY (\x. x <> "MappedRead" \/ x <> "MappedWrite") ffi_names))
+   (no_share_mem_inst code /\
+    EVERY (\x. x <> "MappedRead" /\ x <> "MappedWrite") ffi_names) \/
+    no_install code
 End
-
 
 
 (* The code buffer is set-up to immediately follow the current code:
@@ -6126,19 +6133,72 @@ Proof
 QED
 
 Theorem mmio_pcs_min_index_is_SOME:
-  mmio_pcs_min_index mc_conf.ffi_names = SOME i ==>
-  i <= LENGTH mc_conf.ffi_names /\
+!ffi_names.
+  mmio_pcs_min_index ffi_names = SOME i ==>
+  i <= LENGTH ffi_names /\
   (∀j. j < i ⇒
-    EL j mc_conf.ffi_names ≠ "MappedRead" ∧ EL j mc_conf.ffi_names ≠ "MappedWrite") ∧
-   (∀j. i ≤ j ∧ j < LENGTH mc_conf.ffi_names ⇒
-     EL j mc_conf.ffi_names = "MappedRead" ∨ EL j mc_conf.ffi_names = "MappedWrite")
+    EL j ffi_names ≠ "MappedRead" ∧ EL j ffi_names ≠ "MappedWrite") ∧
+   (∀j. i ≤ j ∧ j < LENGTH ffi_names ⇒
+     EL j ffi_names = "MappedRead" ∨ EL j ffi_names = "MappedWrite")
 Proof
-  strip_tac >>
+  ntac 2 strip_tac >>
   gvs[mmio_pcs_min_index_def,some_def] >>
   SELECT_ELIM_TAC >>
   gvs[] >>
   qexists `x` >>
   gvs[]
+QED
+
+Theorem no_share_mem_lemma:
+  mmio_pcs_min_index ffi_names = SOME i /\
+  asm_fetch_aux pc code = SOME (LabAsm Install c l n) /\
+  no_install_or_share_mem code ffi_names ==>
+  i = LENGTH ffi_names
+Proof
+  rpt strip_tac >>
+  drule mmio_pcs_min_index_is_SOME >>
+  rpt strip_tac >>
+  gvs[no_install_or_share_mem_def,no_install_def,no_share_mem_inst_def,EVERY_EL] >>
+  first_x_assum $ qspec_then `i` assume_tac >>
+  gvs[]
+QED
+
+Theorem asm_fetch_aux_APPEND1:
+!pc code.
+  pc < num_pcs code ==>
+  asm_fetch_aux pc code = asm_fetch_aux pc (code ++ sec_list)
+Proof
+  ho_match_mp_tac asm_fetch_aux_ind >>
+  rpt strip_tac >>
+  gvs[num_pcs_def,asm_fetch_aux_def] >>
+  Cases_on `y` >>
+  gvs[is_Label_def,asm_fetch_aux_def,num_pcs_def]
+QED
+
+Theorem asm_fetch_aux_APPEND2:
+!code.
+  asm_fetch_aux pc sec_list = asm_fetch_aux (num_pcs code + pc) (code ++ sec_list)
+Proof
+  ho_match_mp_tac num_pcs_ind >>
+  rpt strip_tac >>
+  gvs[num_pcs_def,asm_fetch_aux_def] >>
+  Cases_on `x` >>
+  gvs[is_Label_def,num_pcs_def,asm_fetch_def]
+QED
+
+Theorem no_share_mem_APPEND:
+  no_share_mem_inst code /\
+  no_share_mem_inst secs ==>
+  no_share_mem_inst (code ++ secs)
+Proof
+  rpt strip_tac >>
+  gvs[no_share_mem_inst_def] >>
+  rpt strip_tac >>
+  Cases_on `p < num_pcs code`
+  >- metis_tac[asm_fetch_aux_APPEND1] >>
+  `num_pcs code <= p` by decide_tac >>
+  drule LESS_EQUAL_ADD >>
+  metis_tac[asm_fetch_aux_APPEND2]
 QED
 
 val say = say0 "compile_correct";
@@ -7120,6 +7180,7 @@ Proof
     pairarg_tac \\ fs[] \\
     ntac 5 (TOP_CASE_TAC \\ fs[]) >>
     strip_tac >> rfs[]>>
+    qabbrev_tac `ffi_names = TAKE (THE (mmio_pcs_min_index mc_conf.ffi_names)) mc_conf.ffi_names` >>
     mp_tac IMP_bytes_in_memory_Install>>
     fs[]>>impl_tac>-
       fs[state_rel_def]>>
@@ -7384,15 +7445,46 @@ Proof
         fs[]>>
         qpat_x_assum`!r. word_loc_val _ _ _ = _` (qspec_then`s1.link_reg` assume_tac)>>
         rfs[word_loc_val_def])
+      (* TODO *)
       \\ conj_tac>-
         (match_mp_tac all_enc_ok_append>>
         rw[]>>fs[]>>
-        match_mp_tac all_enc_ok_labs_mono>>
-        metis_tac[])
+        match_mp_tac all_enc_ok_labs_mono
+        >- metis_tac[] >>
+        gvs[asm_fetch_def] >>
+        rev_drule code_similar_IMP_asm_fetch_aux_line_similar >>
+        simp[OPTREL_def,line_similar_def,AllCaseEqs()] >>
+        disch_then $ qspec_then `s1.pc` assume_tac >>
+        gvs[] >>
+        qmatch_asmsub_rename_tac `asm_fetch_aux s1.pc code2 = SOME z` >>
+        Cases_on `z` >>
+        gvs[line_similar_def] >>
+        drule_all $ GEN_ALL no_share_mem_lemma >>
+        rpt strip_tac >>
+        gvs[Abbr`ffi_names`] >>
+        qexists_tac `l1` >>
+        gvs[] >>
+        metis_tac[TAKE_LENGTH_ID] )
       \\ conj_tac>-
         (fs[good_code_def]>>
         metis_tac[code_similar_sec_labels_ok])
-      \\ metis_tac[code_similar_append])
+      \\ conj_tac >- metis_tac[code_similar_append]
+      \\ conj_tac >-
+        (gvs[share_mem_state_rel_def] >>
+         share_mem_state_rel_tac)
+      \\ conj_tac >-
+         (gvs[share_mem_domain_code_rel_def] >>
+          (* sec_list is the newly installed code *)
+          (* show that DISJOINT (set mc_conf.ffi_entry_pcs)
+            {p + n2w a + n2w (pos_val pc 0 code2 ++ sec_list) |
+             a < LENGTH (line_bytes line)}) is true and no_share_mem_inst sec_list *)
+          cheat)
+      \\ gvs[no_install_or_share_mem_def]
+      \\ disj1_tac
+      (* no_share_mem_inst (code2 ++ sec_list) *)
+      (* show no_share_mem_inst A /\ no_share_mem_inst B => no_share_mem_inst (A ++ B) *)
+      (* show no_share_mem_inst sec_list *)
+    )
     \\ disch_then(qx_choose_then`k`strip_assume_tac)
     \\ first_x_assum(qspec_then`s1.clock+k`assume_tac)
     \\ qmatch_asmsub_rename_tac`s1.clock + k + k0`
@@ -7755,14 +7847,6 @@ Proof
   irule get_shmem_info_APPEND >>
   fs[]
 QED
-
-Definition num_pcs_def:
-  num_pcs [] = (0:num) /\
-  num_pcs ((Section _ [])::rest) = num_pcs rest /\
-  num_pcs ((Section k (x::xs))::rest) = if is_Label x
-    then num_pcs ((Section k xs)::rest)
-    else 1 + num_pcs ((Section k xs)::rest)
-End
 
 Theorem asm_fetch_SOME_IMP_LESS_num_pcs:
   !pc secs x.
