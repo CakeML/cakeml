@@ -741,14 +741,14 @@ Definition convert_lit_def:
 End
 
 Definition convert_lin_term_def:
-  convert_lin_term [] s acc = (acc,s) ∧
+  convert_lin_term [] s acc = (REVERSE acc,s) ∧
   convert_lin_term ((i,l)::xs) s acc =
     let (l1,s1) = convert_lit l s in
       convert_lin_term xs s1 ((i,l1)::acc)
 End
 
 Definition convert_pbf_def:
-  convert_pbf [] s acc = (acc,s) ∧
+  convert_pbf [] s acc = (REVERSE acc,s) ∧
   convert_pbf ((p,l,i)::xs) s acc =
     let (l1,s1) = convert_lin_term l s [] in
       convert_pbf xs s1 ((p,l1,i)::acc)
@@ -864,17 +864,186 @@ Proof
   \\ rw [] \\ gvs [insert_thm,lookup_insert]
 QED
 
-(* TODO: continue from here *)
+Definition map_lin_term_def:
+  map_lin_term f xs = MAP (λ(a,b). (a,map_lit f b)) xs
+End
+
+Theorem convert_lit:
+  ∀x (s:'a convert_state) y t.
+    convert_lit x s = (y,t) ∧ convert_state_ok s
+    ⇒
+    convert_state_ok t  ∧
+    y = map_lit (THE o lookup_index t) x ∧
+    (∀i n. lookup_index s i = SOME n ⇒ lookup_index t i = SOME n) ∧
+    lit_var x ∈ { i | lookup_index t i ≠ NONE }
+Proof
+  Cases \\ fs [convert_lit_def]
+  \\ rpt gen_tac \\ strip_tac \\ gvs []
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ drule_all convert_var_thm
+  \\ strip_tac \\ gvs [map_lit_def]
+QED
+
+Theorem convert_lin_term:
+  ∀xs (s:'a convert_state) zs acc ys t.
+    convert_lin_term xs s acc = (ys,t) ∧ convert_state_ok s ∧
+    acc = map_lin_term (THE o lookup_index s) zs ∧
+    set (MAP (lit_var ∘ SND) zs) ⊆ { i | lookup_index s i ≠ NONE }
+    ⇒
+    convert_state_ok t  ∧
+    ys = REVERSE acc ++ map_lin_term (THE o lookup_index t) xs ∧
+    (∀i n. lookup_index s i = SOME n ⇒ lookup_index t i = SOME n) ∧
+    set (MAP (lit_var ∘ SND) xs) ⊆ { i | lookup_index t i ≠ NONE }
+Proof
+  Induct
+  \\ gvs [convert_lin_term_def,map_lin_term_def,FORALL_PROD]
+  \\ rpt gen_tac \\ strip_tac
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ drule convert_lit
+  \\ strip_tac \\ gvs []
+  \\ last_x_assum $ qspecl_then [‘s1’,‘(p_1,p_2)::zs’] mp_tac \\ fs []
+  \\ ‘MAP (λ(a,b). (a,map_lit (THE ∘ lookup_index s) b)) zs =
+      MAP (λ(a,b). (a,map_lit (THE ∘ lookup_index s1) b)) zs’ by
+    (gvs [MAP_EQ_f,FORALL_PROD,map_lit_def] \\ rw []
+     \\ gvs [SUBSET_DEF,MEM_MAP,PULL_EXISTS]
+     \\ res_tac \\ fs []
+     \\ rename [‘lit_var v’]
+     \\ Cases_on ‘lookup_index s1 (lit_var v)’ \\ gvs []
+     \\ res_tac \\ gvs []
+     \\ Cases_on ‘v’ \\ gvs [map_lit_def]
+     \\ res_tac \\ fs []
+     \\ Cases_on ‘lookup_index s a’ \\ gvs []
+     \\ res_tac \\ gvs [])
+  \\ fs []
+  \\ impl_tac >-
+   (irule SUBSET_TRANS
+    \\ first_x_assum $ irule_at Any
+    \\ fs [SUBSET_DEF]
+    \\ strip_tac \\ Cases_on ‘lookup_index s x’ \\ gvs [] \\ res_tac \\ fs [])
+  \\ strip_tac \\ gvs []
+  \\ Cases_on ‘lookup_index s1 (lit_var p_2)’ \\ gvs []
+  \\ res_tac \\ fs []
+  \\ Cases_on ‘p_2’ \\ gvs [map_lit_def]
+  \\ res_tac \\ fs []
+QED
+
+Theorem convert_pbf_rec:
+  ∀xs (s:'a convert_state) zs acc ys t.
+    convert_pbf xs s acc = (ys,t) ∧ convert_state_ok s ∧
+    acc = MAP (map_pbc (THE o lookup_index s)) zs ∧
+    pbf_vars (set zs) ⊆ { i | lookup_index s i ≠ NONE }
+    ⇒
+    convert_state_ok t  ∧
+    ys = REVERSE acc ++ MAP (map_pbc (THE o lookup_index t)) xs ∧
+    (∀i n. lookup_index s i = SOME n ⇒ lookup_index t i = SOME n) ∧
+    pbf_vars (set xs) ⊆ { i | lookup_index t i ≠ NONE }
+Proof
+  Induct
+  \\ fs [convert_pbf_def,FORALL_PROD]
+  >- fs [pbf_vars_def,GSYM MAP_REVERSE]
+  \\ fs [map_pbc_def]
+  \\ rpt gen_tac
+  \\ strip_tac
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ drule convert_lin_term
+  \\ gvs [map_lin_term_def]
+  \\ strip_tac \\ gvs []
+  \\ rename [‘pbf_vars ((p1,p2,p3) INSERT set xs) ⊆ _’]
+  \\ last_x_assum $ qspecl_then [‘s1’,‘(p1,p2,p3)::zs’] mp_tac
+  \\ fs [map_pbc_def]
+  \\ ‘MAP (map_pbc (THE ∘ lookup_index s)) zs =
+      MAP (map_pbc (THE ∘ lookup_index s1)) zs’ by
+    (gvs [MAP_EQ_f,FORALL_PROD] \\ rw []
+     \\ fs [map_pbc_def,MAP_EQ_f,FORALL_PROD]
+     \\ gvs [pbf_vars_def,pbc_vars_def,SUBSET_DEF,PULL_EXISTS]
+     \\ gvs [pbc_vars_def,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+     \\ rw [] \\ res_tac
+     \\ rename [‘lit_var v’]
+     \\ Cases_on ‘lookup_index s (lit_var v)’ \\ gvs []
+     \\ res_tac \\ gvs []
+     \\ Cases_on ‘v’ \\ gvs [map_lit_def]
+     \\ res_tac \\ fs [])
+  \\ gvs []
+  \\ ‘{i | lookup_index s i ≠ NONE} ⊆ {i | lookup_index s1 i ≠ NONE}’ by
+     (gvs [SUBSET_DEF] \\ strip_tac
+      \\ Cases_on ‘lookup_index s x’ \\ gvs [] \\ res_tac \\ fs [])
+  \\ impl_tac
+  >- (gvs [pbf_vars_def,pbc_vars_def] \\ imp_res_tac SUBSET_TRANS)
+  \\ strip_tac \\ gvs []
+  \\ ‘{i | lookup_index s1 i ≠ NONE} ⊆ {i | lookup_index t i ≠ NONE}’ by
+     (gvs [SUBSET_DEF] \\ strip_tac
+      \\ Cases_on ‘lookup_index s1 x’ \\ gvs [] \\ res_tac \\ fs [])
+  \\ reverse conj_tac
+  >- (gvs [pbf_vars_def,pbc_vars_def] \\ imp_res_tac SUBSET_TRANS \\ gvs [])
+  \\ gvs [MAP_EQ_f,FORALL_PROD] \\ rw []
+  \\ fs [map_pbc_def,MAP_EQ_f,FORALL_PROD]
+  \\ gvs [pbf_vars_def,pbc_vars_def,SUBSET_DEF,PULL_EXISTS]
+  \\ gvs [pbc_vars_def,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+  \\ rw [] \\ res_tac
+  \\ rename [‘lit_var v’]
+  \\ Cases_on ‘lookup_index s1 (lit_var v)’ \\ gvs []
+  \\ res_tac \\ gvs []
+  \\ Cases_on ‘v’ \\ gvs [map_lit_def]
+  \\ res_tac \\ fs []
+QED
 
 Theorem convert_pbf_thm:
   ∀(xs: α pbc list) (ys: num pbc list) s t.
-    convert_pbf xs s [] = (ys,t) ⇒
+    convert_pbf xs s [] = (ys,t) ∧ convert_state_ok s ⇒
     satisfiable (set xs) =
     satisfiable (set ys)
 Proof
-  rw []
-  \\ fs [pbcTheory.satisfiable_def]
-  \\ cheat
+  rpt gen_tac \\ fs [pbcTheory.satisfiable_def]
+  \\ strip_tac
+  \\ drule_then drule convert_pbf_rec \\ fs []
+  \\ impl_tac
+  >- fs [pbf_vars_def]
+  \\ strip_tac \\ gvs [MAP_REVERSE]
+  \\ eq_tac \\ fs [] \\ strip_tac
+  >-
+   (drule_at (Pos $ el 2) (satisfies_INJ |> INST_TYPE [“:'b”|->“:num”])
+    \\ disch_then $ drule_at Any
+    \\ fs [LIST_TO_SET_MAP]
+    \\ disch_then $ irule_at Any
+    \\ gvs [INJ_DEF]
+    \\ rpt gen_tac
+    \\ Cases_on ‘lookup_index t x’ \\ gvs []
+    \\ Cases_on ‘lookup_index t y’ \\ gvs []
+    \\ rw [] \\ metis_tac [lookup_index_inj])
+  \\ fs [LIST_TO_SET_MAP]
+  \\ drule_at (Pos last) (satisfies_INJ |> INST_TYPE [“:'a”|->“:num”,“:'b”|->“:'a”]
+                                        |> Q.GEN ‘s’)
+  \\ qabbrev_tac ‘f = THE ∘ lookup_name t’
+  \\ disch_then $ qspec_then ‘f’ mp_tac
+  \\ disch_then $ qspec_then ‘{i | lookup_name t i ≠ NONE}’ mp_tac
+  \\ impl_tac
+  >-
+   (conj_tac
+    >- (gvs [INJ_DEF]
+        \\ rpt gen_tac
+        \\ Cases_on ‘lookup_name t x’ \\ gvs []
+        \\ Cases_on ‘lookup_name t y’ \\ gvs []
+        \\ gvs [Abbr‘f’]
+        \\ rw [] \\ metis_tac [lookup_name_inj])
+    \\ gvs [pbf_vars_def,SUBSET_DEF,PULL_EXISTS,pbc_vars_map_pbc]
+    \\ rw [] \\ res_tac
+    \\ rename [‘lookup_index t a ≠ NONE’]
+    \\ Cases_on ‘lookup_index t a’ \\ gvs []
+    \\ gvs [convert_state_ok_def]
+    \\ res_tac \\ fs [])
+  \\ fs [IMAGE_IMAGE]
+  \\ fs [GSYM LIST_TO_SET_MAP]
+  \\ ‘MAP (map_pbc f ∘ map_pbc (THE ∘ lookup_index t)) xs = xs’
+        by (fs [MAP_EQ_ID,map_pbc_o] \\ rw []
+            \\ irule map_pbc_I \\ fs [SUBSET_DEF]
+            \\ rw [Abbr‘f’]
+            \\ rename [‘a ∈ pbc_vars x’]
+            \\ ‘lookup_index t a ≠ NONE’ by
+             (first_x_assum irule
+              \\ gvs [pbf_vars_def,PULL_EXISTS] \\ metis_tac [])
+            \\ Cases_on ‘lookup_index t a’ \\ gvs [convert_state_ok_def]
+            \\ res_tac \\ fs [])
+  \\ fs [] \\ disch_then $ irule_at Any
 QED
 
 (* TODO: prove a theorem relating
