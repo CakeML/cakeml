@@ -695,7 +695,7 @@ QED
  *--------------------------------------------------------------*)
 
 Datatype:
-  convert_state =
+  name_to_num_state =
     <| to_num : (('a, num) mlmap$map) num_map
      ; to_str : 'a num_map
      ; hash_fun : 'a -> num
@@ -716,8 +716,8 @@ Definition mk_map_def:
   mk_map s v n = insert (mlmap$empty s.cmp_name) v (n:num)
 End
 
-Definition convert_var_def:
-  convert_var (v:'a) (s:'a convert_state) =
+Definition name_to_num_var_def:
+  name_to_num_var (v:'a) (s:'a name_to_num_state) =
     let h = s.hash_fun v in
       case sptree$lookup h s.to_num of
       | NONE =>
@@ -735,23 +735,23 @@ Definition convert_var_def:
                          next_num := s.next_num + 1 |>)
 End
 
-Definition convert_lit_def:
-  convert_lit (Pos v) s = (let (v1,s1) = convert_var v s in (Pos v1,s1)) ∧
-  convert_lit (Neg v) s = (let (v1,s1) = convert_var v s in (Neg v1,s1))
+Definition name_to_num_lit_def:
+  name_to_num_lit (Pos v) s = (let (v1,s1) = name_to_num_var v s in (Pos v1,s1)) ∧
+  name_to_num_lit (Neg v) s = (let (v1,s1) = name_to_num_var v s in (Neg v1,s1))
 End
 
-Definition convert_lin_term_def:
-  convert_lin_term [] s acc = (REVERSE acc,s) ∧
-  convert_lin_term ((i,l)::xs) s acc =
-    let (l1,s1) = convert_lit l s in
-      convert_lin_term xs s1 ((i,l1)::acc)
+Definition name_to_num_lin_term_def:
+  name_to_num_lin_term [] s acc = (REVERSE acc,s) ∧
+  name_to_num_lin_term ((i,l)::xs) s acc =
+    let (l1,s1) = name_to_num_lit l s in
+      name_to_num_lin_term xs s1 ((i,l1)::acc)
 End
 
-Definition convert_pbf_def:
-  convert_pbf [] s acc = (REVERSE acc,s) ∧
-  convert_pbf ((p,l,i)::xs) s acc =
-    let (l1,s1) = convert_lin_term l s [] in
-      convert_pbf xs s1 ((p,l1,i)::acc)
+Definition name_to_num_pbf_def:
+  name_to_num_pbf [] s acc = (REVERSE acc,s) ∧
+  name_to_num_pbf ((p,l,i)::xs) s acc =
+    let (l1,s1) = name_to_num_lin_term l s [] in
+      name_to_num_pbf xs s1 ((p,l1,i)::acc)
 End
 
 (* ---- verification ---- *)
@@ -768,8 +768,8 @@ Definition lookup_name_def:
   lookup_name s n = sptree$lookup n s.to_str
 End
 
-Definition convert_state_ok_def:
-  convert_state_ok s ⇔
+Definition name_to_num_state_ok_def:
+  name_to_num_state_ok s ⇔
     TotOrd s.cmp_name ∧
     (∀h m.
        lookup h s.to_num = SOME m ⇒
@@ -782,48 +782,48 @@ Definition convert_state_ok_def:
 End
 
 Theorem lookup_name_inj:
-  convert_state_ok s ∧
+  name_to_num_state_ok s ∧
   lookup_name s index1 = SOME name ∧
   lookup_name s index2 = SOME name ⇒
   index1 = index2
 Proof
-  fs [convert_state_ok_def] \\ rw [] \\ gvs []
+  fs [name_to_num_state_ok_def] \\ rw [] \\ gvs []
 QED
 
 Theorem lookup_index_inj:
-  convert_state_ok s ∧
+  name_to_num_state_ok s ∧
   lookup_index s name1 = SOME index ∧
   lookup_index s name2 = SOME index ⇒
   name1 = name2
 Proof
-  fs [convert_state_ok_def] \\ metis_tac [SOME_11]
+  fs [name_to_num_state_ok_def] \\ metis_tac [SOME_11]
 QED
 
 Theorem init_state_ok:
   TotOrd cmp ⇒
-  convert_state_ok (init_state hf cmp)
+  name_to_num_state_ok (init_state hf cmp)
 Proof
-  fs [convert_state_ok_def,init_state_def,lookup_name_def,lookup_index_def]
+  fs [name_to_num_state_ok_def,init_state_def,lookup_name_def,lookup_index_def]
 QED
 
-Theorem convert_var_thm:
-  convert_state_ok s ∧
-  convert_var v s = (index,s1)
+Theorem name_to_num_var_thm:
+  name_to_num_state_ok s ∧
+  name_to_num_var v s = (index,s1)
   ⇒
-  convert_state_ok s1 ∧
+  name_to_num_state_ok s1 ∧
   lookup_name s1 index = SOME v ∧
   lookup_index s1 v = SOME index ∧
   (∀w i. lookup_index s w = SOME i ⇒ lookup_index s1 w = SOME i)
 Proof
-  fs [convert_var_def,AllCaseEqs()]
+  fs [name_to_num_var_def,AllCaseEqs()]
   \\ reverse strip_tac \\ gvs []
   >-
-   (conj_asm2_tac >- fs [convert_state_ok_def]
+   (conj_asm2_tac >- fs [name_to_num_state_ok_def]
     \\ fs [lookup_name_def,lookup_index_def])
   >-
    (fs [lookup_index_def,lookup_name_def,AllCaseEqs(),
         sptreeTheory.lookup_insert,PULL_EXISTS]
-    \\ gvs [convert_state_ok_def] \\ res_tac
+    \\ gvs [name_to_num_state_ok_def] \\ res_tac
     \\ gvs [mlmapTheory.lookup_insert,lookup_index_def,lookup_name_def,
             sptreeTheory.lookup_insert,AllCaseEqs()]
     \\ rw [] \\ gvs [insert_thm,lookup_insert]
@@ -844,12 +844,12 @@ Proof
   \\ qpat_abbrev_tac ‘x = empty s.cmp_name’
   \\ ‘map_ok x ∧ ∀n. lookup x n = NONE’ by
     (unabbrev_all_tac
-     \\ gvs [empty_thm,convert_state_ok_def]
+     \\ gvs [empty_thm,name_to_num_state_ok_def]
      \\ EVAL_TAC \\ fs [])
   \\ unabbrev_all_tac
   \\ fs [lookup_index_def,lookup_name_def,AllCaseEqs(),
          sptreeTheory.lookup_insert,PULL_EXISTS,mk_map_def]
-  \\ gvs [convert_state_ok_def] \\ res_tac
+  \\ gvs [name_to_num_state_ok_def] \\ res_tac
   \\ gvs [mlmapTheory.lookup_insert,lookup_index_def,lookup_name_def,
           sptreeTheory.lookup_insert,AllCaseEqs()]
   \\ rw [] \\ gvs [insert_thm,lookup_insert]
@@ -868,38 +868,38 @@ Definition map_lin_term_def:
   map_lin_term f xs = MAP (λ(a,b). (a,map_lit f b)) xs
 End
 
-Theorem convert_lit:
-  ∀x (s:'a convert_state) y t.
-    convert_lit x s = (y,t) ∧ convert_state_ok s
+Theorem name_to_num_lit:
+  ∀x (s:'a name_to_num_state) y t.
+    name_to_num_lit x s = (y,t) ∧ name_to_num_state_ok s
     ⇒
-    convert_state_ok t  ∧
+    name_to_num_state_ok t  ∧
     y = map_lit (THE o lookup_index t) x ∧
     (∀i n. lookup_index s i = SOME n ⇒ lookup_index t i = SOME n) ∧
     lit_var x ∈ { i | lookup_index t i ≠ NONE }
 Proof
-  Cases \\ fs [convert_lit_def]
+  Cases \\ fs [name_to_num_lit_def]
   \\ rpt gen_tac \\ strip_tac \\ gvs []
   \\ rpt (pairarg_tac \\ gvs [])
-  \\ drule_all convert_var_thm
+  \\ drule_all name_to_num_var_thm
   \\ strip_tac \\ gvs [map_lit_def]
 QED
 
-Theorem convert_lin_term:
-  ∀xs (s:'a convert_state) zs acc ys t.
-    convert_lin_term xs s acc = (ys,t) ∧ convert_state_ok s ∧
+Theorem name_to_num_lin_term:
+  ∀xs (s:'a name_to_num_state) zs acc ys t.
+    name_to_num_lin_term xs s acc = (ys,t) ∧ name_to_num_state_ok s ∧
     acc = map_lin_term (THE o lookup_index s) zs ∧
     set (MAP (lit_var ∘ SND) zs) ⊆ { i | lookup_index s i ≠ NONE }
     ⇒
-    convert_state_ok t  ∧
+    name_to_num_state_ok t  ∧
     ys = REVERSE acc ++ map_lin_term (THE o lookup_index t) xs ∧
     (∀i n. lookup_index s i = SOME n ⇒ lookup_index t i = SOME n) ∧
     set (MAP (lit_var ∘ SND) xs) ⊆ { i | lookup_index t i ≠ NONE }
 Proof
   Induct
-  \\ gvs [convert_lin_term_def,map_lin_term_def,FORALL_PROD]
+  \\ gvs [name_to_num_lin_term_def,map_lin_term_def,FORALL_PROD]
   \\ rpt gen_tac \\ strip_tac
   \\ rpt (pairarg_tac \\ gvs [])
-  \\ drule convert_lit
+  \\ drule name_to_num_lit
   \\ strip_tac \\ gvs []
   \\ last_x_assum $ qspecl_then [‘s1’,‘(p_1,p_2)::zs’] mp_tac \\ fs []
   \\ ‘MAP (λ(a,b). (a,map_lit (THE ∘ lookup_index s) b)) zs =
@@ -927,25 +927,25 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-Theorem convert_pbf_rec:
-  ∀xs (s:'a convert_state) zs acc ys t.
-    convert_pbf xs s acc = (ys,t) ∧ convert_state_ok s ∧
+Theorem name_to_num_pbf_rec:
+  ∀xs (s:'a name_to_num_state) zs acc ys t.
+    name_to_num_pbf xs s acc = (ys,t) ∧ name_to_num_state_ok s ∧
     acc = MAP (map_pbc (THE o lookup_index s)) zs ∧
     pbf_vars (set zs) ⊆ { i | lookup_index s i ≠ NONE }
     ⇒
-    convert_state_ok t  ∧
+    name_to_num_state_ok t  ∧
     ys = REVERSE acc ++ MAP (map_pbc (THE o lookup_index t)) xs ∧
     (∀i n. lookup_index s i = SOME n ⇒ lookup_index t i = SOME n) ∧
     pbf_vars (set xs) ⊆ { i | lookup_index t i ≠ NONE }
 Proof
   Induct
-  \\ fs [convert_pbf_def,FORALL_PROD]
+  \\ fs [name_to_num_pbf_def,FORALL_PROD]
   >- fs [pbf_vars_def,GSYM MAP_REVERSE]
   \\ fs [map_pbc_def]
   \\ rpt gen_tac
   \\ strip_tac
   \\ rpt (pairarg_tac \\ gvs [])
-  \\ drule convert_lin_term
+  \\ drule name_to_num_lin_term
   \\ gvs [map_lin_term_def]
   \\ strip_tac \\ gvs []
   \\ rename [‘pbf_vars ((p1,p2,p3) INSERT set xs) ⊆ _’]
@@ -987,15 +987,15 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-Theorem convert_pbf_thm:
+Theorem name_to_num_pbf_thm:
   ∀(xs: α pbc list) (ys: num pbc list) s t.
-    convert_pbf xs s [] = (ys,t) ∧ convert_state_ok s ⇒
+    name_to_num_pbf xs s [] = (ys,t) ∧ name_to_num_state_ok s ⇒
     satisfiable (set xs) =
     satisfiable (set ys)
 Proof
   rpt gen_tac \\ fs [pbcTheory.satisfiable_def]
   \\ strip_tac
-  \\ drule_then drule convert_pbf_rec \\ fs []
+  \\ drule_then drule name_to_num_pbf_rec \\ fs []
   \\ impl_tac
   >- fs [pbf_vars_def]
   \\ strip_tac \\ gvs [MAP_REVERSE]
@@ -1029,7 +1029,7 @@ Proof
     \\ rw [] \\ res_tac
     \\ rename [‘lookup_index t a ≠ NONE’]
     \\ Cases_on ‘lookup_index t a’ \\ gvs []
-    \\ gvs [convert_state_ok_def]
+    \\ gvs [name_to_num_state_ok_def]
     \\ res_tac \\ fs [])
   \\ fs [IMAGE_IMAGE]
   \\ fs [GSYM LIST_TO_SET_MAP]
@@ -1041,7 +1041,7 @@ Proof
             \\ ‘lookup_index t a ≠ NONE’ by
              (first_x_assum irule
               \\ gvs [pbf_vars_def,PULL_EXISTS] \\ metis_tac [])
-            \\ Cases_on ‘lookup_index t a’ \\ gvs [convert_state_ok_def]
+            \\ Cases_on ‘lookup_index t a’ \\ gvs [name_to_num_state_ok_def]
             \\ res_tac \\ fs [])
   \\ fs [] \\ disch_then $ irule_at Any
 QED
