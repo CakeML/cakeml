@@ -424,10 +424,10 @@ Proof
 QED
 
 (* Translate the encoder *)
-val _ = translate clause_to_pbc_def;
-val _ = translate fml_to_pbf_def;
+val res = translate clause_to_pbc_def;
+val res = translate fml_to_pbf_def;
 
-(* parse input from f1 and run encoder *)
+(* parse input from f1 and run encoder into npbc *)
 val parse_and_enc = (append_prog o process_topdecs) `
   fun parse_and_enc f1 =
   case parse_dimacs_full f1 of
@@ -494,60 +494,13 @@ Proof
   xcon>>
   xsimpl>>
   qexists_tac`INR (fml_to_pbf x2,x0,x1)`>>
-  fs[SUM_TYPE_def,npbc_arrayProgTheory.constraint_TYPE_def,PAIR_TYPE_def]>>
+  fs[SUM_TYPE_def,PAIR_TYPE_def]>>
   simp[get_fml_def,parse_dimacs_def]
 QED
 
-Definition success_string_def:
-  success_string = strlit "s VERIFIED UNSAT\n"
-End
+(* NOTE: Reuse infrastructure from pbc_normalise *)
 
-val success_string_v_thm = translate success_string_def;
-
-Definition hash_string_def:
-  hash_string (s:mlstring) =
-  FOLDL (λe x. (7 * e + ORD x) MOD splim) 0 (explode s)
-End
-
-Definition insert_hashmap_def:
-  insert_hashmap p v hm =
-  let h = hash_string p in
-  case lookup h hm of
-    NONE =>
-    insert h [(p,v)] hm
-  | SOME ls =>
-    (* This is not optimal but we should never insert duplicates *)
-    insert h ((p,v)::ls) hm
-End
-
-Definition lookup_hashmap_def:
-  lookup_hashmap p hm =
-  let h = hash_string p in
-  case lookup h hm of
-    NONE => NONE
-  | SOME ls =>
-    ALOOKUP ls p
-End
-
-Theorem lookup_hashmap_insert_hashmap:
-  lookup_hashmap p (insert_hashmap k v hm) =
-  if p = k then SOME v
-  else lookup_hashmap p hm
-Proof
-  rw[lookup_hashmap_def,insert_hashmap_def]>>
-  every_case_tac>>gvs[lookup_insert]>>
-  every_case_tac>>gvs[]
-QED
-
-(* n is next ID to use *)
-Definition hashmap_nf_def:
-  hashmap_nf s (n,hm) =
-  case lookup_hashmap s hm of
-    NONE => (n,(n+1:num,insert_hashmap s n hm))
-  | SOME v => (v,(n,hm))
-End
-
-(* x1 ... xl maps to 1...l respectively
+(* Variables x1 ... xl maps to 1 ... l respectively
   everything else uses the mapping *)
 Definition plainLim_nf_def:
   plainLim_nf l s nhm =
@@ -556,15 +509,13 @@ Definition plainLim_nf_def:
       NONE => NONE
     | SOME n =>
       if n ≤ l then SOME (n,nhm)
-      else SOME(hashmap_nf s nhm)
+      else SOME(name_to_num_var s nhm)
   else
-    SOME(hashmap_nf s nhm)
+    SOME(name_to_num_var s nhm)
 End
 
-val res = translate (hash_string_def|>SIMP_RULE std_ss [npbc_listTheory.splim_def]);
-val res = translate lookup_hashmap_def;
-val res = translate insert_hashmap_def;
-val res = translate hashmap_nf_def;
+val res = translate pbc_normaliseTheory.mk_map_def;
+val res = translate pbc_normaliseTheory.name_to_num_var_def;
 val res = translate plainLim_nf_def;
 
 val plainlim_nf_side = Q.prove(`
@@ -573,60 +524,69 @@ val plainlim_nf_side = Q.prove(`
   rw[])
   |> update_precondition;
 
+Definition hash_str_def:
+  hash_str (s:mlstring) =
+    let l = strlen s in
+      if l = 0 then 0:num else
+        l + ORD (strsub s (l-1))
+End
+
 Definition plainLim_ns_def:
-  plainLim_ns n = (plainLim_nf n,(n+1,LN:(mlstring # num) list num_map))
+  plainLim_ns n = (plainLim_nf n,
+    init_state hash_str compare)
 End
 
-val plainlim_ns_v_thm = translate plainLim_ns_def;
+val res = translate hash_str_def;
+val res = translate pbc_normaliseTheory.init_state_def;
+val res = translate plainLim_ns_def;
 
-(*
-Definition plainVar_nf_def:
-  plainVar_nf s (u:unit) =
-  if strlen s ≥ 1 ∧ strsub s 0 = #"x" then
-    case mlint$fromNatString (substring s 1 (strlen s - 1)) of
-      NONE => NONE
-    | SOME n => SOME (n,())
-  else
-    NONE
-End
-
-val r = translate plainVar_nf_def;
-
-val plainvar_nf_side = Q.prove(`
-   ∀x y. plainvar_nf_side x y = T`,
+val plainlim_ns_side = Q.prove(`
+   ∀x. plainlim_ns_side x = T`,
   EVAL_TAC>>
   rw[])
   |> update_precondition;
 
-Definition plain_ns_def:
-  plain_ns = (plainVar_nf,())
+val plainlim_ns_v_thm = fetch "-" "plainlim_ns_v_thm";
+
+Definition UNSAT_string_def:
+  UNSAT_string = strlit "s VERIFIED UNSAT\n"
 End
 
-val plain_ns_v_thm = translate plain_ns_def;
-*)
+Definition SAT_string_def:
+  SAT_string = strlit "s VERIFIED SAT\n"
+End
+
+(* Turn result into string *)
+Definition res_to_string_def:
+  (res_to_string (INL s) = INL s) ∧
+  (res_to_string (INR h) =
+    case h of
+      DUnsat => INR UNSAT_string
+    | DSat => INR SAT_string
+    | _ => INL (strlit "c Unexpected conclusion for decision problem.\n"))
+End
+
+val res = translate (res_to_string_def |> SIMP_RULE std_ss [UNSAT_string_def,SAT_string_def]);
 
 val check_unsat_2 = (append_prog o process_topdecs) `
   fun check_unsat_2 f1 f2 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (fml,(nv,nc)) =>
-    (case check_unsat_top (plainlim_ns nv) success_string fml f2 of
+    (case
+      res_to_string (
+        check_unsat_top (plainlim_ns nv) fml None f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s)`
 
-Theorem success_string_not_nil:
-  strlit "" ≠ success_string
-Proof
-  EVAL_TAC
-QED
-
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 out ⇔
-  if out = success_string then
-    ∃fml.
+  (out ≠ strlit"" ⇒
+  ∃fml.
     get_fml fs f1 = SOME fml ∧
-    unsatisfiable (interp fml)
-  else out = strlit""
+    (
+    out = UNSAT_string ∧ unsatisfiable (interp fml) ∨
+    out = SAT_string ∧ satisfiable (interp fml)))
 End
 
 Theorem check_unsat_2_spec:
@@ -657,28 +617,34 @@ Proof
     rw[]>>
     qexists_tac`x`>>
     xsimpl>>rw[]>>
-    fs[success_string_not_nil,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   fs[SUM_TYPE_def]>>
   Cases_on`y`>>
   Cases_on`r`>>
-  fs[PAIR_TYPE_def]>>
+  gvs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
-  xlet`POSTv v.STDIO fs *
+  xlet_autop>>
+  xlet`POSTv v.
+    STDIO fs *
     SEP_EXISTS res.
-    &(SUM_TYPE STRING_TYPE STRING_TYPE res v ∧
-    (∀s. res = INR s ⇒
-        (s = success_string ∧
-        unsatisfiable (set (fml_to_pbf fml)))))`
+     &(
+        SUM_TYPE STRING_TYPE PBC_CONCL_TYPE res v ∧
+        case res of
+          INR concl =>
+            sem_concl (set (fml_to_pbf fml)) NONE concl
+        | INL l => T)`
   >- (
-    drule (check_unsat_top_spec)>>
+    drule check_unsat_top_spec>>
     strip_tac>>
     xapp>>
-    simp[success_string_v_thm ]>>
-    fs[FILENAME_def,validArg_def]>>
+    xsimpl>>
+    fs[FILENAME_def,validArg_def,OPTION_TYPE_def]>>
     metis_tac[])>>
-  Cases_on`res`>>fs[SUM_TYPE_def]>>xmatch
+  xlet_autop>>
+  Cases_on`res_to_string res`>>fs[SUM_TYPE_def]>>
+  xmatch
   >- (
     xapp_spec output_stderr_spec \\ xsimpl>>
     asm_exists_tac>>xsimpl>>
@@ -686,20 +652,31 @@ Proof
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     qexists_tac`strlit ""`>>
+    simp[]>>
     qexists_tac`x`>>
-    xsimpl>>rw[]>>
-    fs[success_string_not_nil,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   xapp>>asm_exists_tac>>xsimpl>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`success_string`>>simp[]>>
+  qexists_tac`y`>>
   qexists_tac`strlit ""`>>
   simp[STD_streams_stderr,add_stdo_nil]>>
-  xsimpl>>
+  reverse CONJ_TAC>- xsimpl>>
+  rw[]>>
+  Cases_on`res`>>
+  gvs[res_to_string_def,AllCaseEqs(),npbc_checkTheory.hconcl_concl_def,npbcTheory.sem_concl_def]
+  >- (
+    DISJ2_TAC>>
+    fs[get_fml_def]>>
+    drule fml_to_pbf_parse_dimacs>>
+    fs[npbcTheory.unsatisfiable_def,npbcTheory.satisfiable_def,satSemTheory.unsatisfiable_def,satSemTheory.satisfiable_def]>>
+    metis_tac[])>>
+  DISJ1_TAC>>
   fs[get_fml_def]>>
   drule fml_to_pbf_parse_dimacs>>
-  fs[npbcTheory.unsatisfiable_def,npbcTheory.satisfiable_def,satSemTheory.unsatisfiable_def,satSemTheory.satisfiable_def]
+  fs[npbcTheory.unsatisfiable_def,npbcTheory.satisfiable_def,satSemTheory.unsatisfiable_def,satSemTheory.satisfiable_def]>>
+  metis_tac[]
 QED
 
 Definition usage_string_def:
@@ -757,7 +734,7 @@ Proof
     simp [theorem "usage_string_v_thm"] >>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    fs[success_string_not_nil,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     metis_tac[STDIO_refl])>>
   Cases_on`t'`>>fs[LIST_TYPE_def]
   >- (
@@ -769,7 +746,7 @@ Proof
     simp [theorem "usage_string_v_thm"] >>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    fs[success_string_not_nil,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     metis_tac[STDIO_refl])>>
   Cases_on`t`>>fs[LIST_TYPE_def]
   >- (
@@ -790,7 +767,7 @@ Proof
   simp [theorem "usage_string_v_thm"] >>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  fs[success_string_not_nil,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+  fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
   metis_tac[STDIO_refl]
 QED
 

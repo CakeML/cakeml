@@ -2536,12 +2536,16 @@ Proof
 QED
 
 val outputtrm = rconc (EVAL``toks_fast (strlit"output NONE")``);
+val endtrm = rconc (EVAL``toks_fast (strlit"end pseudo-Boolean proof")``);
 
 (* Output section is not supported, expected to be empty *)
 Definition parse_concl_output_def:
   parse_concl_output s f_ns ls =
   if s = ^outputtrm then
-    parse_concl f_ns ls
+    case ls of [l;e] =>
+      if e = ^endtrm then parse_concl f_ns l
+      else NONE
+    | _ => NONE
   else NONE
 End
 
@@ -2686,6 +2690,15 @@ QED
 
 val res = translate mk_core_def;
 
+Definition conv_hconcl_def:
+  (conv_hconcl (INL s) = INL s) ∧
+  (conv_hconcl (INR h) =
+    INR (hconcl_concl h))
+End
+
+val res = translate hconcl_concl_def;
+val res = translate conv_hconcl_def;
+
 val check_unsat' = process_topdecs `
   fun check_unsat' fns fd lno fml obj =
   let
@@ -2704,8 +2717,9 @@ val check_unsat' = process_topdecs `
       (lno', (s,(fns',(
         (fml', (inds', (id', (core',
             (chk', (obj', (bound', (ord', orders')))))))))))) =>
-      run_concl_file fd fns' lno' s
-        fml obj fml' chk' obj' bound')
+      conv_hconcl
+        (run_concl_file fd fns' lno' s
+        fml obj fml' chk' obj' bound'))
     handle Fail s => Inl s
   end` |> append_prog;
 
@@ -2766,10 +2780,10 @@ Theorem check_unsat'_spec:
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
          &(
-          SUM_TYPE STRING_TYPE NPBC_CHECK_HCONCL_TYPE res v ∧
+          SUM_TYPE STRING_TYPE PBC_CONCL_TYPE res v ∧
           case res of
-            INR hconcl =>
-              sem_concl (set fml) obj (hconcl_concl hconcl)
+            INR concl =>
+              sem_concl (set fml) obj concl
           | INL l => T))
 Proof
   rw[]>>
@@ -2843,10 +2857,10 @@ Proof
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
          &(
-          SUM_TYPE STRING_TYPE NPBC_CHECK_HCONCL_TYPE res v ∧
+          SUM_TYPE STRING_TYPE PBC_CONCL_TYPE res v ∧
           case res of
-            INR hconcl =>
-              sem_concl (set fml) obj (hconcl_concl hconcl)
+            INR concl =>
+              sem_concl (set fml) obj concl
           | INL l => T)`
   >- (
     xlet`POSTv v.
@@ -2888,35 +2902,57 @@ Proof
     PairCases_on`res`>>
     fs[PAIR_TYPE_def]>>
     xmatch>>
-    xapp>>
-    simp[PULL_EXISTS]>>
-    rpt(asm_exists_tac>>simp[])>>
-    CONV_TAC (RESORT_EXISTS_CONV (List.rev))>>
-    qexists_tac`(res1,res2)`>>simp[PAIR_TYPE_def]>>
-    rpt(asm_exists_tac>>simp[])>>
-    xsimpl>>
-    qexists_tac`fd`>>
-    qexists_tac`forwardFD fs fd k`>>
-    qexists_tac`lines'`>>qexists_tac`emp`>>
-    xsimpl>>rw[]>>
-    first_x_assum(irule_at Any)>>
-    `∃k'.
-      fastForwardFD (forwardFD fs fd k) fd =
-      forwardFD (forwardFD fs fd k) fd k'` by
+    rename1`SOME (_,_,_,fmlls',_,_,_,chk',obj',bound',_)`>>
+    xlet`(POSTv v.
+       SEP_EXISTS res k.
+       STDIO (forwardFD fs fd k) *
+       INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
+       &(
+        SUM_TYPE STRING_TYPE NPBC_CHECK_HCONCL_TYPE res v ∧
+        case res of
+          INR hconcl =>
+            check_hconcl_list fml obj fmlls'
+              chk' obj' bound' hconcl
+        | INL l => T))`
+    >- (
+      xapp>>
+      simp[PULL_EXISTS]>>
+      rpt(asm_exists_tac>>simp[])>>
+      CONV_TAC (RESORT_EXISTS_CONV (List.rev))>>
+      qexists_tac`(res1,res2)`>>simp[PAIR_TYPE_def]>>
+      asm_exists_tac>>xsimpl>>
+      qexists_tac`fd`>>
+      qexists_tac`forwardFD fs fd k`>>
+      qexists_tac`lines'`>>qexists_tac`emp`>>
+      xsimpl>>rw[]>>
+      first_x_assum(irule_at Any)>>
+      simp[]>>
+      `∃k'.
+        fastForwardFD (forwardFD fs fd k) fd =
+        forwardFD (forwardFD fs fd k) fd k'` by
       (match_mp_tac (GEN_ALL fast_forwardFD_forwardFD_exists)>>
       simp[fsFFIPropsTheory.get_file_content_forwardFD])>>
-    simp[forwardFD_o]>>
-    qexists_tac`k+k'`>>
-    qexists_tac`[]`>>
-    xsimpl>>
-    TOP_CASE_TAC>>fs[]>>
+      simp[forwardFD_o]>>
+      qexists_tac`k+k'`>>
+      xsimpl)>>
+    xapp_spec
+    (fetch "-" "conv_hconcl_v_thm" |> INST_TYPE[alpha|->``:mlstring``])>>
+    first_x_assum(irule_at Any)>>
+    xsimpl>>rw[]>>
+    first_x_assum(irule_at Any)>>
+    Cases_on`res`>>fs[conv_hconcl_def]
+    >-
+      metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
     drule parse_and_run_check_csteps_list>>
     rw[]>>fs[]>>
-    match_mp_tac (GEN_ALL npbc_listTheory.check_csteps_list_concl)>>
-    first_x_assum (irule_at Any)>>
-    unabbrev_all_tac>>
-    gs[rev_enum_full_rev_enumerate,mk_core_enumerate_fromAList]>>
-    metis_tac[])>>
+    simp[GSYM PULL_EXISTS]>>
+    CONJ_TAC>-(
+      match_mp_tac (GEN_ALL npbc_listTheory.check_csteps_list_concl)>>
+      first_x_assum (irule_at Any)>>
+      unabbrev_all_tac>>
+      gs[rev_enum_full_rev_enumerate,mk_core_enumerate_fromAList]>>
+      metis_tac[])>>
+    metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
   xsimpl
 QED
 
@@ -3052,10 +3088,10 @@ Theorem check_unsat_top_spec:
      STDIO fs *
      SEP_EXISTS res.
      &(
-        SUM_TYPE STRING_TYPE NPBC_CHECK_HCONCL_TYPE res v ∧
+        SUM_TYPE STRING_TYPE PBC_CONCL_TYPE res v ∧
         case res of
-          INR hconcl =>
-            sem_concl (set fml) obj (hconcl_concl hconcl)
+          INR concl =>
+            sem_concl (set fml) obj concl
         | INL l => T))
 Proof
   xcf"check_unsat_top"(get_ml_prog_state()) >>
@@ -3129,10 +3165,10 @@ Proof
           STDIO (forwardFD fsss fd k) *
           INSTREAM_LINES fd fdv lines' (forwardFD fsss fd k) *
           &(
-          SUM_TYPE STRING_TYPE NPBC_CHECK_HCONCL_TYPE res v ∧
+          SUM_TYPE STRING_TYPE PBC_CONCL_TYPE res v ∧
           case res of
-            INR hconcl =>
-              sem_concl (set fml) obj (hconcl_concl hconcl)
+            INR concl =>
+              sem_concl (set fml) obj concl
           | INL l => T)`
   >- (
     xapp>>xsimpl>>
@@ -3166,17 +3202,5 @@ Proof
   xvar>>xsimpl>>
   asm_exists_tac>>fs[]
 QED
-
-(* TODO
-  shared normalization stuff
-  different top-level checkers may
-  use slightly different normalization
-val r = translate flip_coeffs_def;
-val r = translate pbc_ge_def;
-val r = translate normalise_def;
-
-val r = translate convert_pbf_def;
-val r = translate full_normalise_def;
-*)
 
 val _ = export_theory();
