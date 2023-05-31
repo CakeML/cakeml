@@ -765,13 +765,12 @@ Definition no_share_mem_inst_def:
       SOME (Asm (ShareMem op re a) inst len)
 End
 
-Definition no_install_or_share_mem_def:
-  no_install_or_share_mem code ffi_names <=>
+Definition no_install_or_no_share_mem_def:
+  no_install_or_no_share_mem code ffi_names <=>
    (no_share_mem_inst code /\
     EVERY (\x. x <> "MappedRead" /\ x <> "MappedWrite") ffi_names) \/
     no_install code
 End
-
 
 (* The code buffer is set-up to immediately follow the current code:
   |---code---|---cb---|
@@ -820,6 +819,7 @@ val state_rel_def = Define `
     s1.compile = compile_lab ∧
     (∀k. let (cfg,code) = s1.compile_oracle k in
             good_code mc_conf.target.config cfg.labels code ∧
+            no_share_mem_inst code /\
             (* Initial configuration for oracle
                Note: this should not be stated as a record cfg = <|...|>
                because some parts of it can be freely chosen (e.g. the clock)
@@ -894,7 +894,7 @@ val state_rel_def = Define `
     share_mem_state_rel mc_conf s1 t1 ms1 /\
     share_mem_domain_code_rel mc_conf p code2 s1.shared_mem_domain /\
     LENGTH mc_conf.ffi_names = LENGTH mc_conf.ffi_entry_pcs /\
-    no_install_or_share_mem code2 mc_conf.ffi_names`
+    no_install_or_no_share_mem code2 mc_conf.ffi_names`
 
 Theorem state_rel_clock:
   state_rel x s1 t1 ms ==>
@@ -6152,13 +6152,13 @@ QED
 Theorem no_share_mem_lemma:
   mmio_pcs_min_index ffi_names = SOME i /\
   asm_fetch_aux pc code = SOME (LabAsm Install c l n) /\
-  no_install_or_share_mem code ffi_names ==>
+  no_install_or_no_share_mem code ffi_names ==>
   i = LENGTH ffi_names
 Proof
   rpt strip_tac >>
   drule mmio_pcs_min_index_is_SOME >>
   rpt strip_tac >>
-  gvs[no_install_or_share_mem_def,no_install_def,no_share_mem_inst_def,EVERY_EL] >>
+  gvs[no_install_or_no_share_mem_def,no_install_def,no_share_mem_inst_def,EVERY_EL] >>
   first_x_assum $ qspec_then `i` assume_tac >>
   gvs[]
 QED
@@ -6531,7 +6531,6 @@ Proof
       \\ share_mem_eval_expand_tac
       \\ `t1.regs n'' = w'` by reg_val_tac `n''`
       \\ simp[]
-      >- (rfs[good_dimindex_def] >> fs[])
       >- enc_is_valid_mapped_access_tac
       >- (
         `t1.regs n' = w` by reg_val_tac `n'`
@@ -7479,7 +7478,7 @@ Proof
             {p + n2w a + n2w (pos_val pc 0 code2 ++ sec_list) |
              a < LENGTH (line_bytes line)}) is true and no_share_mem_inst sec_list *)
           cheat)
-      \\ gvs[no_install_or_share_mem_def]
+      \\ gvs[no_install_or_no_share_mem_def]
       \\ disj1_tac
       (* no_share_mem_inst (code2 ++ sec_list) *)
       (* show no_share_mem_inst A /\ no_share_mem_inst B => no_share_mem_inst (A ++ B) *)
@@ -7767,7 +7766,8 @@ val IMP_LEMMA = METIS_PROVE [] ``(a ==> b) ==> (b ==> c) ==> (a ==> c)``
 val compiler_oracle_ok_def = Define`
   compiler_oracle_ok coracle init_labs init_pos c ffis ⇔
     (* Assumptions about initial compile oracle *)
-    (∀k:num. let (cfg,code) = coracle k in good_code c cfg.labels code) ∧
+    (∀k:num. let (cfg,code) = coracle k in good_code c cfg.labels code /\
+      no_share_mem_inst code) ∧
     (let (cfg,code) = coracle 0 in
         cfg.labels = init_labs ∧
         cfg.pos = init_pos ∧
@@ -8886,6 +8886,7 @@ Theorem exists_good_init_state_def:
   (* TODO: shmem_info stuffs *)
   good_init_state mc_conf ms bytes cbspace t m dm io_regs cc_regs
 Proof
+  
 QED
 
 Theorem semantics_compile:
