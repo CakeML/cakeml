@@ -21,8 +21,6 @@ val _ = numLib.prefer_num();
 
   There is a builtin string normalization using hashing for
   the supported characters
-
-  TODO: normalise string names using a hashmap or similar...
 *)
 
 (*
@@ -1046,8 +1044,129 @@ Proof
   \\ fs [] \\ disch_then $ irule_at Any
 QED
 
-(* TODO: prove a theorem relating
-  sem_concl from PBC
-to sem_concl from NPBC for the normalised formula *)
+Definition name_to_num_obj_def:
+  (name_to_num_obj NONE s = (NONE,s)) ∧
+  (name_to_num_obj (SOME (f,c)) s =
+    let (f',t) = name_to_num_lin_term f s [] in
+    (SOME(f',c),t))
+End
+
+Definition name_to_num_obj_pbf_def:
+  name_to_num_obj_pbf (obj,fml) s =
+  let (obj',s') = name_to_num_obj obj s in
+  let (fml',s'') = name_to_num_pbf fml s' [] in
+    ((obj',fml'),s'')
+End
+
+Theorem name_to_num_obj:
+  name_to_num_obj obj s = (obj',t) ∧
+  name_to_num_state_ok s
+  ⇒
+  name_to_num_state_ok t  ∧
+  obj' = map_obj (THE o lookup_index t) obj ∧
+  (∀i n. lookup_index s i = SOME n ⇒ lookup_index t i = SOME n) ∧
+  obj_vars obj ⊆ { i | lookup_index t i ≠ NONE }
+Proof
+  Cases_on`obj`
+  >-
+    (rw[]>>gvs[name_to_num_obj_def,map_obj_def,obj_vars_def])>>
+  strip_tac>>
+  Cases_on`x`>>fs[name_to_num_obj_def]>>
+  pairarg_tac>>gvs[]>>
+  drule name_to_num_lin_term>>
+  simp[]>>
+  disch_then(qspec_then`[]` mp_tac)>>
+  impl_tac>-
+    simp[map_lin_term_def]>>
+  strip_tac>>simp[obj_vars_def,map_obj_def,map_lin_term_def]
+QED
+
+Theorem name_to_num_obj_pbf_thm:
+  ∀concl
+    (fml: α pbc list) (fml': num pbc list)
+    (obj : (α lin_term # int) option)
+    (obj': (num lin_term # int) option)
+    s t.
+    name_to_num_obj_pbf (obj,fml) s = ((obj',fml'),t) ∧
+    name_to_num_state_ok s ⇒
+    sem_concl (set fml) obj concl =
+    sem_concl (set fml') obj' concl
+Proof
+  rw[name_to_num_obj_pbf_def]>>
+  rpt(pairarg_tac>>gvs[])>>
+  fs[name_to_num_obj_def]>>
+  drule name_to_num_obj>>rw[]>>
+  drule_then drule name_to_num_pbf_rec \\ fs []
+  \\ impl_tac
+  >- fs [pbf_vars_def]>>
+  rw[]>>
+  `obj_vars obj ⊆ {i | lookup_index s'' i ≠ NONE}` by
+    (Cases_on`obj`>>fs[obj_vars_def]>>
+    Cases_on`x`>>fs[obj_vars_def,SUBSET_DEF]>>
+    rw[]>>first_x_assum drule>>
+    metis_tac[option_CLAUSES])>>
+  simp[LIST_TO_SET_MAP]>>
+  `map_obj (THE o lookup_index s') obj =
+   map_obj (THE o lookup_index s'') obj` by
+    (Cases_on`obj`>>
+    simp[map_obj_def]>>
+    Cases_on`x`>>
+    fs[map_obj_def,obj_vars_def]>>
+    fs[MAP_EQ_f,FORALL_PROD,SUBSET_DEF,MEM_MAP,PULL_EXISTS]>>
+    rw[]>>first_x_assum drule>>
+    Cases_on`p_2`>>simp[map_lit_def]>>
+    Cases_on`lookup_index s' a`>>rw[]>>
+    first_x_assum drule>>fs[])>>
+  simp[]>>
+  match_mp_tac concl_INJ_iff>>
+  gvs [INJ_DEF] \\ rpt gen_tac
+  \\ Cases_on ‘lookup_index s'' x’ \\ gvs []
+  \\ Cases_on ‘lookup_index s'' y’ \\ gvs []
+  \\ gvs[SUBSET_DEF] \\ metis_tac[lookup_index_inj]
+QED
+
+Definition normalise_obj_def:
+  (normalise_obj NONE = NONE) ∧
+  (normalise_obj (SOME (f,c)) =
+    let (f', c') = normalise_lhs f [] 0 in
+    SOME (f',c + c'))
+End
+
+Definition normalise_obj_pbf_def:
+  normalise_obj_pbf (obj,fml) =
+  (normalise_obj obj,
+  normalise fml)
+End
+
+Theorem eval_obj_normalise_obj:
+  eval_obj (normalise_obj obj) w = eval_obj obj w
+Proof
+  Cases_on`obj`>>
+  simp[normalise_obj_def,eval_obj_def,pbcTheory.eval_obj_def]>>
+  Cases_on`x`>>simp[normalise_obj_def]>>
+  pairarg_tac>>fs[eval_lin_term_def]>>
+  drule normalise_lhs_normalises>>
+  simp[]>>
+  rw[]>>
+  pop_assum kall_tac>>
+  intLib.ARITH_TAC
+QED
+
+Theorem satisfiable_normalise:
+  satisfiable(set fml) ⇔
+  satisfiable(set (normalise fml))
+Proof
+  fs[pbcTheory.satisfiable_def,satisfiable_def]>>
+  metis_tac[normalise_thm]
+QED
+
+Theorem normalise_obj_pbf_sem_concl:
+  normalise_obj_pbf (obj,fml) = (obj',fml') ⇒
+  sem_concl (set fml) obj concl = sem_concl (set fml') obj' concl
+Proof
+  Cases_on`concl`>>
+  rw[normalise_obj_pbf_def,sem_concl_def,pbcTheory.sem_concl_def,satisfiable_normalise,pbcTheory.unsatisfiable_def,unsatisfiable_def,eval_obj_normalise_obj,normalise_thm]>>
+  simp[satisfiable_normalise,eval_obj_normalise_obj,normalise_thm]
+QED
 
 val _ = export_theory();

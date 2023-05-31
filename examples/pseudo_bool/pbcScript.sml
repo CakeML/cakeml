@@ -433,4 +433,124 @@ Definition sem_concl_def:
       (∃w. satisfies w pbf ∧ eval_obj obj w ≤ ub))))
 End
 
+Theorem eval_lin_term_cong:
+  (∀x. MEM x xs ⇒ eval_term f x = eval_term g x) ⇒
+  eval_lin_term f xs = eval_lin_term g xs
+Proof
+  Induct_on`xs`>>rw[]>>
+  fs[eval_lin_term_def,iSUM_def]
+QED
+
+Theorem eval_lin_term_INJ:
+  INJ f s UNIV ∧
+  set (MAP (lit_var o SND) xs) ⊆ s ⇒
+  eval_lin_term w xs =
+  eval_lin_term (w o LINV f s) (MAP (λ(a,b). (a, map_lit f b)) xs)
+Proof
+  rw[]>>
+  simp[eval_lin_term_MAP]>>
+  match_mp_tac eval_lin_term_cong>>
+  fs[FORALL_PROD,SUBSET_DEF,MEM_MAP,PULL_EXISTS]>>
+  rw[]>>
+  first_x_assum drule>>rw[]>>
+  rename1`lit_var l`>>
+  Cases_on`l`>>fs[]>>
+  DEP_REWRITE_TAC[LINV_DEF]>>
+  metis_tac[]
+QED
+
+Definition obj_vars_def:
+  (obj_vars NONE = {}) ∧
+  (obj_vars (SOME (xs,c)) =
+    set (MAP (lit_var o SND) xs))
+End
+
+Definition map_obj_def:
+  (map_obj f NONE = NONE) ∧
+  (map_obj f (SOME (xs,c)) =
+    SOME(MAP (λ(a,b). (a, map_lit f b)) xs,c))
+End
+
+Theorem eval_obj_map_obj:
+  eval_obj (map_obj f obj) w =
+  eval_obj obj (w o f)
+Proof
+  Cases_on`obj`>>rw[map_obj_def,eval_obj_def]>>
+  Cases_on`x`>>simp[map_obj_def,eval_lin_term_MAP]
+QED
+
+Theorem eval_obj_cong:
+  (∀x. x ∈ obj_vars obj ⇒ f x = g x) ⇒
+  eval_obj obj f = eval_obj obj g
+Proof
+  Cases_on`obj`>>rw[eval_obj_def]>>
+  TOP_CASE_TAC>>fs[obj_vars_def,MEM_MAP]>>
+  match_mp_tac eval_lin_term_cong>>
+  fs[PULL_EXISTS,FORALL_PROD]>>rw[]>>first_x_assum drule>>
+  Cases_on`p_2`>>fs[]
+QED
+
+Theorem concl_INJ_iff:
+  INJ f (pbf_vars pbf ∪ obj_vars obj) UNIV
+  ⇒
+  sem_concl pbf obj concl =
+  sem_concl (IMAGE (map_pbc f) pbf) (map_obj f obj) concl
+Proof
+  Cases_on`concl`>>rw[sem_concl_def]
+  >- (
+    match_mp_tac (GSYM satisfiable_INJ_iff)>>
+    match_mp_tac INJ_SUBSET>>
+    asm_exists_tac>>simp[])
+  >- (
+    simp[unsatisfiable_def]>>
+    match_mp_tac (GSYM satisfiable_INJ_iff)>>
+    match_mp_tac INJ_SUBSET>>
+    asm_exists_tac>>simp[])
+  >- (
+    simp[eval_obj_map_obj]>>
+    match_mp_tac
+      (METIS_PROVE [] ``(A ⇔ C) ∧ (B ⇔ D) ⇒ ((A ∧ B) ⇔ (C ∧ D))``)>>
+    CONJ_TAC
+    >- (
+      every_case_tac>>fs[]
+      >- (
+        simp[unsatisfiable_def]>>
+        match_mp_tac (GSYM satisfiable_INJ_iff)>>
+        match_mp_tac INJ_SUBSET>>
+        asm_exists_tac>>simp[])>>
+      rw[EQ_IMP_THM]
+      >- (
+        first_x_assum match_mp_tac>>
+        metis_tac[satisfies_map_pbf])>>
+      (drule_at Any) satisfies_INJ>>
+      disch_then drule>>simp[]>>
+      rw[]>>
+      first_x_assum drule>>
+      qmatch_goalsub_abbrev_tac`_ ≤ A ⇒ _ ≤ B`>>
+      qsuff_tac`A=B`
+      >-
+        rw[]>>
+      unabbrev_all_tac>>
+      match_mp_tac eval_obj_cong>>rw[]>>
+      DEP_REWRITE_TAC[LINV_DEF]>>
+      fs[]>>metis_tac[])>>
+    every_case_tac>>fs[]>>
+    rw[EQ_IMP_THM]
+    >- (
+      (drule_at Any) satisfies_INJ>>
+      disch_then drule>>simp[]>>
+      rw[]>>
+      asm_exists_tac>>simp[]>>
+      qpat_x_assum`_ ≤ _` mp_tac>>
+      qmatch_goalsub_abbrev_tac`A ≤ _ ⇒ B ≤ _`>>
+      qsuff_tac`A=B`
+      >-
+        rw[]>>
+      unabbrev_all_tac>>
+      match_mp_tac eval_obj_cong>>rw[]>>
+      DEP_REWRITE_TAC[LINV_DEF]>>
+      fs[]>>metis_tac[])>>
+    metis_tac[satisfies_map_pbf])
+QED
+
 val _ = export_theory();
