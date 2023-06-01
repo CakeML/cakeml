@@ -679,8 +679,93 @@ Proof
   metis_tac[]
 QED
 
+(* TODO: Move to parse *)
+Definition num_lit_string_def:
+  (num_lit_string (i,n:num) =
+  if i ≥ 0 then
+   toString (Num (ABS i)) ^ strlit" x" ^ toString n
+  else
+   toString (Num (ABS i)) ^ strlit" ~x" ^ toString n)
+End
+
+Definition num_lhs_string_def:
+  num_lhs_string xs =
+  concatWith (strlit" ") (MAP num_lit_string xs)
+End
+
+Definition npbc_string_def:
+  (npbc_string (xs,n:num) =
+    concat [
+      num_lhs_string xs;
+      strlit" >= ";toString n; strlit ";\n"])
+End
+
+Definition print_npbf_def:
+  print_npbf fml = MAP npbc_string fml
+End
+
+val res = translate num_lit_string_def;
+val res = translate num_lhs_string_def;
+val res = translate npbc_string_def;
+val res = translate print_npbf_def;
+
+val check_unsat_1 = (append_prog o process_topdecs) `
+  fun check_unsat_1 f1 =
+  case parse_and_enc f1 of
+    Inl err => TextIO.output TextIO.stdErr err
+  | Inr (fml,(nv,nc)) =>
+    TextIO.print_list (print_npbf fml)`
+
+(* TODO: this isn't a particularly useful spec *)
+Definition check_unsat_1_sem_def:
+  check_unsat_1_sem fs f1 out ⇔
+  (out ≠ strlit"" ⇒
+  ∃fml.
+    get_fml fs f1 = SOME fml ∧
+    out = concat (print_npbf (fml_to_pbf fml)))
+End
+
+Theorem check_unsat_1_spec:
+  STRING_TYPE f1 f1v ∧ validArg f1 ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_1"(get_ml_prog_state()))
+    [f1v]
+    (STDIO fs)
+    (POSTv uv. &UNIT_TYPE () uv *
+    SEP_EXISTS out err.
+      STDIO (add_stdout (add_stderr fs err) out) *
+      &(check_unsat_1_sem fs f1 out))
+Proof
+  rw[check_unsat_1_sem_def]>>
+  xcf "check_unsat_1" (get_ml_prog_state ())>>
+  reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
+  xlet_autop>>
+  pop_assum mp_tac>>
+  every_case_tac>>fs[SUM_TYPE_def,PAIR_TYPE_def]>>rw[]
+  >- (
+    xmatch>>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    rw[]>>
+    qexists_tac`x`>>xsimpl)>>
+  Cases_on`r`>>fs[PAIR_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
+  xapp_spec print_list_spec>>xsimpl>>
+  asm_exists_tac>>xsimpl>>
+  qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
+  rw[]>>
+  qexists_tac`concat(print_npbf(fml_to_pbf fml))`>>
+  qexists_tac`strlit ""`>>
+  simp[STD_streams_stderr,add_stdo_nil]>>
+  xsimpl
+QED
+
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb_cnf <DIMACS formula file> <proof file>\n"
+  usage_string = strlit "Usage: cake_pb_cnf <OPB file> <optional: PB proof file>\n"
 End
 
 val r = translate usage_string_def;
@@ -688,20 +773,22 @@ val r = translate usage_string_def;
 val main = (append_prog o process_topdecs) `
   fun main u =
   case CommandLine.arguments () of
-    [f1,f2] => check_unsat_2 f1 f2
+    [f1] => check_unsat_1 f1
+  | [f1,f2] => check_unsat_2 f1 f2
   | _ => TextIO.output TextIO.stdErr usage_string`
 
 Definition main_sem_def:
   main_sem fs cl out =
-  if LENGTH cl = 3 then
+  if LENGTH cl = 2 then
+    check_unsat_1_sem fs (EL 1 cl) out
+  else if LENGTH cl = 3 then
     check_unsat_2_sem fs (EL 1 cl) out
   else out = strlit ""
 End
 
 Theorem STDIO_refl:
-  (STDIO A ==>> STDIO A) ∧
-  (STDIO A ==>>
-  STDIO A * GC)
+  STDIO A ==>>
+  STDIO A * GC
 Proof
   xsimpl
 QED
@@ -739,26 +826,19 @@ Proof
   Cases_on`t'`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
-    xapp_spec output_stderr_spec \\ xsimpl>>
-    rename1`COMMANDLINE cl`>>
-    qexists_tac`COMMANDLINE cl`>>xsimpl>>
-    qexists_tac `usage_string` >>
-    simp [theorem "usage_string_v_thm"] >>
-    qexists_tac`fs`>>xsimpl>>
-    rw[]>>
-    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-    metis_tac[STDIO_refl])>>
+    xapp>>rw[]>>
+    rpt(first_x_assum (irule_at Any)>>xsimpl)>>
+    fs[wfcl_def]>>
+    rw[]>>metis_tac[STDIO_refl])>>
   Cases_on`t`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
-    xapp>>fs[]>>
-    rw[]>>
+    xapp>>rw[]>>
+    first_x_assum (irule_at Any)>>xsimpl>>
+    first_x_assum (irule_at Any)>>xsimpl>>
+    first_x_assum (irule_at Any)>>xsimpl>>
     fs[wfcl_def]>>
-    first_x_assum (irule_at Any)>>xsimpl>>
-    first_x_assum (irule_at Any)>>xsimpl>>
-    first_x_assum (irule_at Any)>>xsimpl>>
-    rw[]>>
-    metis_tac[STDIO_refl])>>
+    rw[]>>metis_tac[STDIO_refl])>>
   xmatch>>
   xapp_spec output_stderr_spec \\ xsimpl>>
   rename1`COMMANDLINE cl`>>

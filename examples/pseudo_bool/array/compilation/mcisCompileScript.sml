@@ -1,5 +1,5 @@
 (*
-  Compiles the encoder
+  Compiles the MCIS + PB checker
 *)
 open preamble compilationLib mcisProgTheory
 

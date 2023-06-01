@@ -6,6 +6,9 @@ CNF encoder and checker
 [compilation](compilation):
 Compiling the pseudo-boolean constraints checker
 
+[mcisProgScript.sml](mcisProgScript.sml):
+MCIS (connected) encode and checker
+
 [npbc_arrayProgScript.sml](npbc_arrayProgScript.sml):
 Refine npbc_list to npbc_array
 

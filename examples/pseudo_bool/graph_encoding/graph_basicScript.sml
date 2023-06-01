@@ -1,7 +1,7 @@
 (*
   Basic graph notions
 *)
-open preamble mlintTheory pb_parseTheory;
+open preamble mlintTheory;
 
 val _ = new_theory "graph_basic";
 
@@ -9,11 +9,12 @@ val _ = new_theory "graph_basic";
   V number of vertices
   E edge list representation *)
 
-Type graph = ``:num # (num list) num_map``;
+Type edges = ``:(num list) num_map``;
+Type graph = ``:num # edges``;
 
 (* Edge from a -> b in edge list representation e *)
 Definition is_edge_def:
-  is_edge e a b ⇔
+  is_edge (e:edges) (a:num) (b:num) ⇔
   case lookup a e of SOME ns => MEM b ns | _ => F
 End
 
@@ -28,12 +29,12 @@ QED
 Definition good_graph_def:
   good_graph ((v,e):graph) ⇔
   ∀a ns.
-    lookup a e = SOME ns ⇒ a < v ∧
+    sptree$lookup a e = SOME ns ⇒ a < v ∧
     ∀b. is_edge e a b ⇒ is_edge e b a
 End
 
 Definition neighbours_def:
-  neighbours e v =
+  neighbours (e:edges) (v:num) =
   case lookup v e of NONE => [] | SOME ns => ns
 End
 
@@ -67,6 +68,12 @@ Definition tokenize_num_def:
   case mlint$fromNatString s of
     NONE => INL s
   | SOME i => INR i
+End
+
+(* TODO: copied from lpr_parsing *)
+(* Everything recognized as a "blank" *)
+Definition blanks_def:
+  blanks (c:char) ⇔ c = #" " ∨ c = #"\n" ∨ c = #"\t" ∨ c = #"\r"
 End
 
 Definition toks_num_def:
@@ -116,6 +123,22 @@ Theorem check_good_graph:
 Proof
   rw[good_graph_def,check_good_graph_def,is_edge_def]>>
   fs[GSYM MEM_toAList,EVERY_MEM]>>
+  first_x_assum drule>>
+  fs[check_good_edges_def,check_good_edges_inner_def]>>
+  rw[]>>
+  fs[EVERY_MEM]
+QED
+
+Theorem check_good_graph_iff:
+  good_graph g ⇔
+  check_good_graph g
+Proof
+  Cases_on`g`>>
+  simp[EQ_IMP_THM,check_good_graph]>>
+  rw[good_graph_def,check_good_graph_def,is_edge_def]>>
+  fs[GSYM MEM_toAList,EVERY_MEM]>>
+  simp[FORALL_PROD]>>
+  rw[]>>
   first_x_assum drule>>
   fs[check_good_edges_def,check_good_edges_inner_def]>>
   rw[]>>

@@ -59,12 +59,11 @@ QED
   Given graphs G_p := (vp,ep) , G_t := (vt,et)
   f is an injective partial map from v_p to v_t
   - dom f = vs (vs is the set of mapped vertices)
-  - |vs| ≥ k (i.e., at least k vertices are mapped)
   - preserving adjacency and non-adjacency
 *)
 Definition injective_partial_map_def:
-  injective_partial_map f vs k ((vp,ep):graph) ((vt,et):graph) ⇔
-  vs ⊆ count vp ∧ CARD vs ≥ k ∧
+  injective_partial_map f vs ((vp,ep):graph) ((vt,et):graph) ⇔
+  vs ⊆ count vp ∧
   INJ f vs (count vt) ∧
   (∀a b. a ∈ vs ∧ b ∈ vs ∧ is_edge ep a b ⇒ is_edge et (f a) (f b)) ∧
   (∀a b. a ∈ vs ∧ b ∈ vs ∧ ¬(is_edge ep a b) ⇒ ¬ is_edge et (f a) (f b))
@@ -139,17 +138,18 @@ Definition all_full_edge_map_def:
         FLAT (MAP (λb. not_edge_map (a,b) u vt et) (not_neighbours (vp,ep) a) )) vp)) vt)
 End
 
-Definition k_size_def:
-  k_size vp k =
-  (GreaterEqual,GENLIST (λb. (1, Neg (Unmapped b))) vp,&k):enc pbc
+(* Objective is to minimize the number of unmapped vertices *)
+Definition unmapped_obj_def:
+  unmapped_obj vp =
+  SOME((GENLIST (λb. (1, Pos (Unmapped b))) vp), 0)
+    : ((enc lin_term # int) option)
 End
 
 Definition encode_base_def:
-  encode_base (vp,ep) (vt,et) k =
-  k_size vp k ::
-  all_has_mapping vp vt ++
-  all_one_one vp vt ++
-  all_full_edge_map (vp,ep) (vt,et)
+  encode_base (vp,ep) (vt,et) =
+    all_has_mapping vp vt ++
+    all_one_one vp vt ++
+    all_full_edge_map (vp,ep) (vt,et)
 End
 
 Theorem b2i_geq_1[simp]:
@@ -292,7 +292,7 @@ Proof
   first_x_assum(qspec_then`SUC j` assume_tac)>>fs[]
 QED
 
-Theorem iSUM_sub_b2i_geq_0:
+Theorem iSUM_sub_b2i_geq_0':
   (∀x. MEM x ls ⇒ ∃y. x = 1 - b2i y) ⇒
   iSUM ls ≤ &(LENGTH ls)
 Proof
@@ -313,7 +313,7 @@ Proof
   Cases_on`y`>>fs[]
   >- (
     `iSUM ls ≤ &(LENGTH ls)` by
-      metis_tac[iSUM_sub_b2i_geq_0]>>
+      metis_tac[iSUM_sub_b2i_geq_0']>>
     rw[EQ_IMP_THM]
     >-
       (last_x_assum kall_tac>>intLib.ARITH_TAC)>>
@@ -379,97 +379,45 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem iSUM_GENLIST_geq_k:
+Theorem iSUM_GENLIST_eq_k:
   ∀vp vs k.
-  vs ⊆ count vp ∧
-  iSUM (GENLIST (λb. b2i (b ∈ vs)) vp) ≥ &k ⇒
-  CARD vs ≥ k
+  vs ⊆ count vp ⇒
+  iSUM (GENLIST (λb. b2i (b ∉ vs)) vp) = &vp - &CARD vs
 Proof
-  Induct>>rw[iSUM_def]
-  >- intLib.ARITH_TAC>>
-  fs[GENLIST,SUBSET_DEF]>>
-  reverse (Cases_on`vp ∈ vs`>>fs[iSUM_SNOC])
+  Induct>>rw[iSUM_def]>>
+  reverse (Cases_on`vp ∈ vs`>>fs[GENLIST,iSUM_SNOC])
   >- (
-    first_x_assum match_mp_tac>>simp[]>>
-    rw[]>>
-    first_x_assum drule>>fs[prim_recTheory.LESS_THM]>>
-    metis_tac[])>>
-  first_x_assum(qspecl_then[`vs DIFF{vp}`,`k-1`] mp_tac)>>
-  impl_tac>- (
-    rw[]
-    >- (
+    first_x_assum(qspec_then`vs` mp_tac)>>
+    impl_tac>- (
+      fs[SUBSET_DEF]>>
+      rw[]>>
       first_x_assum drule>>fs[prim_recTheory.LESS_THM]>>
-      metis_tac[]) >>
-    Cases_on`k`>>fs[]
-    >- (
-      Cases_on`vp`>>simp[iSUM_def]>>
-      match_mp_tac iSUM_geq>>simp[MEM_GENLIST]>>rw[]>>
-      simp[PULL_EXISTS]>>
-      qexists_tac`n`>>simp[])>>
-    fs[ADD1,intLib.COOPER_PROVE``!n:int. 1 + n ≥ &(k+1) ⇔ n ≥ &k``]>>
-    qmatch_asmsub_abbrev_tac`iSUM ls1`>>
-    qmatch_goalsub_abbrev_tac`iSUM ls2`>>
-    `ls1 = ls2` by
-      (unabbrev_all_tac>>simp[LIST_EQ])>>
-    fs[])>>
-  DEP_REWRITE_TAC[CARD_DIFF]>>
-  `vs ∩ {vp} = {vp}` by
-    (simp[EXTENSION]>>metis_tac[])>>
-  simp[]>>
+      metis_tac[])>>
+    rw[]>>
+    intLib.ARITH_TAC)>>
+  first_x_assum(qspecl_then[`vs DIFF{vp}`] mp_tac)>>
+  impl_tac>- (
+    fs[SUBSET_DEF]>>rw[]>>
+    first_x_assum drule>>fs[prim_recTheory.LESS_THM])>>
+  rw[]>>
+  `(GENLIST (λb. b2i (b ∉ vs ∨ b = vp)) vp) =
+   (GENLIST (λb. b2i (b ∉ vs)) vp)` by
+    (match_mp_tac GENLIST_CONG>>fs[])>>
+  gvs[] >>
   `FINITE vs` by (
     match_mp_tac SUBSET_FINITE_I>>
     qexists_tac`count (SUC vp)`>>
     fs[SUBSET_DEF])>>
-  Cases_on`vs`>>fs[]
-QED
-
-Theorem iSUM_GENLIST_geq_k_rev:
-  ∀vp vs k.
-  vs ⊆ count vp ∧
-  CARD vs ≥ k ⇒
-  iSUM (GENLIST (λb. b2i (b ∈ vs)) vp) ≥ &k
-Proof
-  Induct>>rw[iSUM_def]>>fs[]
-  >- intLib.ARITH_TAC>>
-  fs[GENLIST,SUBSET_DEF]>>
-  reverse (Cases_on`vp ∈ vs`>>fs[iSUM_SNOC])
-  >- (
-    first_x_assum match_mp_tac>>simp[]>>
-    rw[]>>
-    first_x_assum drule>>fs[prim_recTheory.LESS_THM]>>
-    metis_tac[])>>
-  first_x_assum(qspecl_then[`vs DIFF{vp}`,`k-1`] mp_tac)>>
-  impl_tac>- (
-    rw[]
-    >- (
-      first_x_assum drule>>fs[prim_recTheory.LESS_THM]>>
-      metis_tac[]) >>
-    Cases_on`k`>>fs[]>>
-    DEP_REWRITE_TAC[CARD_DIFF]>>
+  `CARD (vs DIFF {vp}) = CARD vs - 1` by
+    (DEP_REWRITE_TAC[CARD_DIFF]>>
     `vs ∩ {vp} = {vp}` by
       (simp[EXTENSION]>>metis_tac[])>>
-    simp[]>>
-    `FINITE vs` by (
-      match_mp_tac SUBSET_FINITE_I>>
-      qexists_tac`count (SUC vp)`>>
-      fs[SUBSET_DEF])>>
-    Cases_on`vs`>>fs[])>>
-  Cases_on`k`
-  >- (
-    simp[]>>strip_tac>>
-    match_mp_tac (intLib.COOPER_PROVE``!n:int. n ≥ 0 ⇒ 1 + n ≥ 0``)>>
-    Cases_on`vp`>>simp[iSUM_def]>>
-    match_mp_tac iSUM_geq>>simp[MEM_GENLIST]>>rw[]>>
-    simp[PULL_EXISTS]>>
-    qexists_tac`n`>>simp[])>>
-  simp[ADD1]>>
-  fs[ADD1,intLib.COOPER_PROVE``!n:int. 1 + n ≥ &(k+1) ⇔ n ≥ &k``]>>
-  qmatch_goalsub_abbrev_tac`iSUM ls1 ≥ _`>>
-  strip_tac>>
-  qmatch_goalsub_abbrev_tac`iSUM ls2 ≥ _`>>
-  `ls1 = ls2` by
-    (unabbrev_all_tac>>simp[LIST_EQ])>>
-  fs[]
+    simp[])>>
+  rw[]>>
+  `CARD vs > 0` by
+    (Cases_on`vs`>>rw[]>>gvs[EXTENSION])>>
+  Cases_on`CARD vs`>>fs[]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem neg_b2i:
@@ -488,11 +436,14 @@ QED
 Theorem encode_base_correct:
   good_graph (vp,ep) ∧
   good_graph (vt,et) ∧
-  encode_base (vp,ep) (vt,et) k = constraints ⇒
+  encode_base (vp,ep) (vt,et) = constraints ⇒
   (
     (∃f vs.
-      injective_partial_map f vs k (vp,ep) (vt,et)) ⇔
-    satisfiable (set constraints)
+      injective_partial_map f vs (vp,ep) (vt,et) ∧
+      CARD vs = k) ⇔
+    (∃w.
+      satisfies w (set constraints) ∧
+      eval_obj (unmapped_obj vp) w = &vp - &k)
   )
 Proof
   rw[EQ_IMP_THM]
@@ -505,11 +456,6 @@ Proof
       | Mapped a u => a ∈ vs ∧ f a = u
       | _ => ARB` >>
     rw[encode_base_def]
-    >- (
-      rename1`k_size`>>
-      simp[k_size_def,satisfies_pbc_def,MAP_GENLIST, o_DEF,eval_lin_term_def]>>
-      simp[neg_b2i]>>
-      metis_tac[iSUM_GENLIST_geq_k_rev])
     >- (
       rename1`all_has_mapping`>>
       simp[all_has_mapping_def,satisfies_def,MEM_GENLIST,has_mapping_def]>>
@@ -618,24 +564,33 @@ Proof
         match_mp_tac iSUM_zero>>
         simp[MEM_MAP,MEM_not_neighbours]>>
         rw[]>>
-        simp[])))>>
+        simp[]))
+    >- (
+      simp[eval_obj_def,unmapped_obj_def,MAP_GENLIST, o_DEF,eval_lin_term_def]>>
+      DEP_REWRITE_TAC[iSUM_GENLIST_eq_k]>>
+      fs[])
+  )>>
   fs[satisfiable_def,injective_partial_map_def]>>
   qexists_tac`λn. @m. m < vt ∧ w (Mapped n m)`>>
   qabbrev_tac`dom = {n | n < vp ∧ ¬ w (Unmapped n)}`>>
   qexists_tac `dom`>>
   simp[]>>
+  reverse CONJ_TAC >-
+    (
+    fs[eval_obj_def,unmapped_obj_def,MAP_GENLIST,o_DEF,neg_b2i,eval_lin_term_def]>>
+    qpat_x_assum`_ = _` mp_tac>>
+    `GENLIST (λb. b2i (w (Unmapped b))) vp =
+      GENLIST (λb. b2i (b ∉ dom)) vp` by
+      (match_mp_tac GENLIST_CONG>>rw[Abbr`dom`])>>
+    simp[]>>
+    DEP_REWRITE_TAC[iSUM_GENLIST_eq_k]>>
+    rw[]
+    >-
+      fs[Abbr`dom`,SUBSET_DEF]>>
+    intLib.ARITH_TAC)>>
   CONJ_TAC>-
     simp[Abbr`dom`,SUBSET_DEF]>>
   fs[satisfies_def,encode_base_def,SF DNF_ss]>>
-  CONJ_TAC>- (
-    fs[k_size_def,satisfies_pbc_def,MAP_GENLIST,o_DEF,neg_b2i,eval_lin_term_def]>>
-    match_mp_tac iSUM_GENLIST_geq_k>>
-    qexists_tac`vp`>>fs[Abbr`dom`,SUBSET_DEF]>>
-    qmatch_asmsub_abbrev_tac`iSUM ls1`>>
-    qmatch_goalsub_abbrev_tac`iSUM ls2`>>
-    `ls1 = ls2` by
-      (unabbrev_all_tac>>simp[LIST_EQ])>>
-    fs[])>>
   `∀n. n < vp ∧ ¬w (Unmapped n) ⇒
    ∃m. m < vt ∧ w (Mapped n m) ∧
    ∀m'. m' < vt ∧ w (Mapped n m') ⇔ m = m'` by (
@@ -1312,8 +1267,8 @@ Definition encode_connected_def:
 End
 
 Definition encode_def:
-  encode (vp,ep) (vt,et) k =
-  encode_base (vp,ep) (vt,et) k ++
+  encode (vp,ep) (vt,et) =
+  encode_base (vp,ep) (vt,et) ++
   encode_connected (vp,ep)
 End
 
@@ -1462,12 +1417,14 @@ QED
 Theorem encode_correct:
   good_graph (vp,ep) ∧
   good_graph (vt,et) ∧
-  encode (vp,ep) (vt,et) k = constraints ⇒
+  encode (vp,ep) (vt,et) = constraints ⇒
   (
     (∃f vs.
-      injective_partial_map f vs k (vp,ep) (vt,et) ∧
-      connected_subgraph vs ep) ⇔
-    satisfiable (set constraints)
+      injective_partial_map f vs (vp,ep) (vt,et) ∧
+      connected_subgraph vs ep ∧
+      CARD vs = k) ⇔
+    (∃w. satisfies w (set constraints) ∧
+      eval_obj (unmapped_obj vp) w = &vp - &k)
   )
 Proof
   rw[EQ_IMP_THM]
@@ -1484,11 +1441,6 @@ Proof
     fs[Abbr`w`]>>
     qexists_tac`w'`>>simp[]>>
     rw[]
-    >- (
-      rename1`k_size`>>
-      simp[k_size_def,satisfies_pbc_def,MAP_GENLIST, o_DEF,eval_lin_term_def]>>
-      simp[neg_b2i]>>
-      metis_tac[iSUM_GENLIST_geq_k_rev])
     >- (
       rename1`all_has_mapping`>>
       simp[all_has_mapping_def,satisfies_def,MEM_GENLIST,has_mapping_def]>>
@@ -1630,13 +1582,30 @@ Proof
         (qspecl_then[`2`,`(2 * vp − 1)`] mp_tac logrootTheory.LOG>>
         simp[]>>rw[]>>
         fs[EXP])>>
-      simp[]))>>
+      simp[])
+    >- (
+      simp[eval_obj_def,unmapped_obj_def,MAP_GENLIST, o_DEF,eval_lin_term_def]>>
+      DEP_REWRITE_TAC[iSUM_GENLIST_eq_k]>>
+      fs[])
+    )>>
   fs[satisfiable_def,injective_partial_map_def]>>
   qexists_tac`λn. @m. m < vt ∧ w (Mapped n m)`>>
   qabbrev_tac`dom = {n | n < vp ∧ ¬ w (Unmapped n)}`>>
   qexists_tac `dom`>>
   simp[]>>
   reverse CONJ_TAC >- (
+    reverse CONJ_TAC >- (
+      fs[eval_obj_def,unmapped_obj_def,MAP_GENLIST,o_DEF,neg_b2i,eval_lin_term_def]>>
+      qpat_x_assum`_ = _` mp_tac>>
+      `GENLIST (λb. b2i (w (Unmapped b))) vp =
+        GENLIST (λb. b2i (b ∉ dom)) vp` by
+        (match_mp_tac GENLIST_CONG>>rw[Abbr`dom`])>>
+      simp[]>>
+      DEP_REWRITE_TAC[iSUM_GENLIST_eq_k]>>
+      rw[]
+      >-
+        fs[Abbr`dom`,SUBSET_DEF]>>
+      intLib.ARITH_TAC)>>
     fs[satisfies_def,encode_def,encode_connected_def]>>
     Cases_on`vp=0`>>fs[]
     >-
@@ -1671,15 +1640,6 @@ Proof
   CONJ_TAC>-
     simp[Abbr`dom`,SUBSET_DEF]>>
   fs[satisfies_def,encode_def,encode_base_def,SF DNF_ss]>>
-  CONJ_TAC>- (
-    fs[k_size_def,satisfies_pbc_def,MAP_GENLIST,o_DEF,neg_b2i,eval_lin_term_def]>>
-    match_mp_tac iSUM_GENLIST_geq_k>>
-    qexists_tac`vp`>>fs[Abbr`dom`,SUBSET_DEF]>>
-    qmatch_asmsub_abbrev_tac`iSUM ls1`>>
-    qmatch_goalsub_abbrev_tac`iSUM ls2`>>
-    `ls1 = ls2` by
-      (unabbrev_all_tac>>simp[LIST_EQ])>>
-    fs[])>>
   `∀n. n < vp ∧ ¬w (Unmapped n) ⇒
    ∃m. m < vt ∧ w (Mapped n m) ∧
    ∀m'. m' < vt ∧ w (Mapped n m') ⇔ m = m'` by (
@@ -1799,9 +1759,6 @@ Proof
     fs[MEM_not_neighbours])
 QED
 
-val pattern = ``(5, fromAList [(0,[1;3;4]); (1,[0;3;4]);  (2,[3]); (3,[0;1;2]); (4,[0;1])]):graph``
-val target = ``(5, fromAList [(0,[1;3;4]); (1,[0;3;4]);  (2,[3]); (3,[0;1;2]); (4,[0;1])]):graph``
-
 Definition enc_string_def:
   (enc_string (Walk f g k) =
     concat [strlit"xconn";toString k;strlit"_";toString f;strlit"_";toString g]) ∧
@@ -1844,40 +1801,140 @@ Proof
   \\ EVAL_TAC
 QED
 
+(* The full encoding *)
 Definition full_encode_def:
-  full_encode gp gt k =
-  MAP (map_pbc enc_string) (encode gp gt k)
+  full_encode gp gt =
+  (map_obj enc_string
+    (unmapped_obj (FST gp)),
+  MAP (map_pbc enc_string) (encode gp gt))
 End
 
-Theorem full_encode_correct:
+(* Convert minimization to maximization *)
+Definition conv_concl_def:
+  (conv_concl n (OBounds lbi ubi) =
+  let ubg =
+    case lbi of NONE => 0 (* Dummy impossible value *)
+    | SOME lb =>
+      if lb ≤ 0 then n else n - Num lb in
+  let lbg =
+    case ubi of NONE => NONE
+    | SOME ub =>
+      SOME (n - Num (ABS ub)) in
+  SOME (lbg,ubg)) ∧
+  (conv_concl _ _ = NONE)
+End
+
+Theorem injective_partial_map_exists:
+  injective_partial_map f {} gp gt ∧
+  connected_subgraph {} (SND gp)
+Proof
+  Cases_on`gp`>>Cases_on`gt`>>
+  simp[injective_partial_map_def,connected_subgraph_def]
+QED
+
+Theorem injective_partial_map_CARD:
+  injective_partial_map f vs gp gt ⇒
+  CARD vs ≤ FST gp
+Proof
+  Cases_on`gp`>>Cases_on`gt`>>
+  rw[injective_partial_map_def]>>
+  `FINITE (count q)` by
+    fs[]>>
+  drule CARD_SUBSET>>
+  disch_then drule>>
+  simp[]
+QED
+
+Theorem eval_obj_unmapped_obj_bounds:
+  eval_obj (unmapped_obj q) w ≥ 0 ∧
+  eval_obj (unmapped_obj q) w ≤ &q
+Proof
+  fs[unmapped_obj_def,eval_obj_def,eval_lin_term_def]>>
+  CONJ_ASM1_TAC
+  >- (
+    match_mp_tac iSUM_zero>>
+    simp[MEM_MAP,MEM_GENLIST,PULL_EXISTS])>>
+  qmatch_goalsub_abbrev_tac`iSUM ls`>>
+  `q = LENGTH ls` by
+    fs[Abbr`ls`]>>
+  rw[]>>
+  DEP_REWRITE_TAC[iSUM_sub_b2i_geq_0']>>
+  simp[Abbr`ls`,MEM_MAP,MEM_GENLIST,PULL_EXISTS]>>rw[]>>
+  Cases_on`w (Unmapped b)`>>rw[]
+QED
+
+Theorem full_encode_sem_concl:
   good_graph gp ∧
   good_graph gt ∧
-  full_encode gp gt k = constraints ⇒
-  (
-    (∃f vs.
-      injective_partial_map f vs k gp gt ∧
-      connected_subgraph vs (SND gp)) ⇔
-    satisfiable (set constraints)
-  )
+  full_encode gp gt = (obj,pbf) ∧
+  sem_concl (set pbf) obj concl ∧
+  conv_concl (FST gp) concl = SOME (lbg, ubg) ⇒
+  (∀f vs.
+    injective_partial_map f vs gp gt ∧
+    connected_subgraph vs (SND gp) ⇒
+    CARD vs ≤ ubg) ∧
+  case lbg of NONE => T
+  | SOME lb =>
+    ∃f vs.
+      injective_partial_map f vs gp gt ∧
+      connected_subgraph vs (SND gp) ∧
+      lb ≤ CARD vs
 Proof
-  rw[full_encode_def]>>
+  strip_tac>>
+  gvs[full_encode_def]>>
+  qpat_x_assum`sem_concl _ _ _` mp_tac>>
   simp[LIST_TO_SET_MAP]>>
-  DEP_REWRITE_TAC[satisfiable_INJ_iff]>>
-  rw[]
-  >- (
+  DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
+  CONJ_TAC >- (
     assume_tac enc_string_INJ>>
     drule INJ_SUBSET>>
     disch_then match_mp_tac>>
     simp[])>>
-  metis_tac[encode_correct,PAIR]
+  Cases_on`concl`>>fs[conv_concl_def]>>
+  rename1`OBounds lbi ubi`>>
+  simp[sem_concl_def]>>
+  Cases_on`gp`>>
+  drule encode_correct>>
+  Cases_on`gt`>>
+  disch_then drule>>
+  rw[]
+  >- ( (* Lower bound optimization *)
+    Cases_on`lbi`>>fs[unsatisfiable_def,satisfiable_def]
+    >- (
+      (* the formula is always satisfiable, so INF lower bound
+         is impossible *)
+      `F` by
+        metis_tac[injective_partial_map_exists])>>
+    fs[SF DNF_ss,EQ_IMP_THM]>>
+    drule injective_partial_map_CARD>>simp[]>>rw[]>>
+    first_x_assum drule_all>>rw[]>>
+    first_x_assum drule>>rw[]>>
+    intLib.ARITH_TAC)>>
+  (* Upper bound optimization *)
+  Cases_on`ubi`>>
+  fs[SF DNF_ss,EQ_IMP_THM]>>
+  `eval_obj (unmapped_obj q) w ≥ 0` by
+    (fs[unmapped_obj_def,eval_obj_def,eval_lin_term_def]>>
+    match_mp_tac iSUM_zero>>
+    simp[MEM_MAP,MEM_GENLIST,PULL_EXISTS])>>
+  first_x_assum drule>>
+  disch_then(qspec_then`q - Num (eval_obj (unmapped_obj q) w)` mp_tac)>>
+  impl_tac >- (
+    DEP_REWRITE_TAC[GSYM integerTheory.INT_SUB]>>
+    mp_tac eval_obj_unmapped_obj_bounds>>
+    intLib.ARITH_TAC)>>
+  rw[]>>
+  asm_exists_tac>>simp[]>>
+  intLib.ARITH_TAC
 QED
 
+(*
 Theorem pbf_vars_full_encode:
-  pbf_vars (set (full_encode gp gt k)) ⊆ goodString
+  pbf_vars (set (full_encode gp gt)) ⊆ goodString
 Proof
   rw[SUBSET_DEF,full_encode_def,LIST_TO_SET_MAP,pbf_vars_IMAGE]>>
   simp[IN_DEF]>>
   metis_tac[enc_string_goodString,PAIR]
-QED
+QED *)
 
 val _ = export_theory();

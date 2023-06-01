@@ -3203,4 +3203,142 @@ Proof
   asm_exists_tac>>fs[]
 QED
 
+(*
+  A string pbc -> npbc normaliser frontend
+
+  This can be used by anything that produces a string pbc
+*)
+
+(* normalise *)
+val res = translate normalise_obj_def;
+val res = translate flip_coeffs_def;
+val res = translate pbc_ge_def;
+val res = translate normalise_def;
+val res = translate normalise_obj_pbf_def;
+
+val res = translate mk_map_def;
+val res = translate name_to_num_var_def;
+val res = translate name_to_num_lit_def;
+val res = translate name_to_num_lin_term_def;
+val res = translate name_to_num_obj_def;
+val res = translate name_to_num_pbf_def;
+val res = translate name_to_num_obj_pbf_def;
+
+Definition hash_str_def:
+  hash_str (s:mlstring) =
+    let l = strlen s in
+      if l = 0 then 0:num else
+        l + ORD (strsub s (l-1))
+End
+
+Definition normalise_full_def:
+  normalise_full objf =
+  let s = init_state hash_str compare in
+  let (objf',t) = name_to_num_obj_pbf objf s in
+  (normalise_obj_pbf objf', t)
+End
+
+val res = translate init_state_def;
+val res = translate hash_str_def;
+
+val hash_str_side = Q.prove(
+  `∀x. hash_str_side x <=> T`,
+  EVAL_TAC>>
+  intLib.ARITH_TAC) |> update_precondition;
+
+val res = translate normalise_full_def;
+
+Definition name_to_num_var_nf_def:
+  name_to_num_var_nf v s =
+  SOME (name_to_num_var v s)
+End
+
+val res = translate name_to_num_var_nf_def;
+
+val check_unsat_top_norm = process_topdecs `
+  fun check_unsat_top_norm objf fname =
+  case normalise_full objf of ((obj,fml),t) =>
+    check_unsat_top (name_to_num_var_nf,t) fml obj fname
+    `|> append_prog
+
+Theorem check_unsat_top_norm_spec:
+  (PAIR_TYPE
+      (OPTION_TYPE (PAIR_TYPE
+        (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
+      INT))
+      (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
+      ) objf objfv ∧
+  FILENAME f fv ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_top_norm"
+    (get_ml_prog_state()))
+  [objfv; fv]
+  (STDIO fs)
+  (POSTv v.
+     STDIO fs *
+     SEP_EXISTS res.
+     &(
+        SUM_TYPE STRING_TYPE PBC_CONCL_TYPE res v ∧
+        case res of
+          INR concl =>
+            sem_concl (set (SND objf)) (FST objf) concl
+        | INL l => T))
+Proof
+  xcf"check_unsat_top_norm"(get_ml_prog_state()) >>
+  xlet_autop>>
+  `∃obj fml t.
+    normalise_full objf = ((obj,fml),t)` by
+    (Cases_on`normalise_full objf`>>Cases_on`q`>>metis_tac[])>>
+  gvs[PAIR_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
+  xapp_spec (check_unsat_top_spec |> INST_TYPE[alpha|->``:mlstring name_to_num_state``])>>
+  rpt(first_x_assum (irule_at Any))>>
+  xsimpl>>
+  first_x_assum (irule_at Any)>>
+  simp[]>>
+  qexists_tac`(name_to_num_var_nf,t)`>>
+  qexists_tac`PBC_NORMALISE_NAME_TO_NUM_STATE_TYPE STRING_TYPE`>>
+  qexists_tac`emp`>>
+  xsimpl>>
+  CONJ_TAC >-(
+    simp[PAIR_TYPE_def]>>
+    metis_tac[fetch "-" "name_to_num_var_nf_v_thm"])>>
+  rw[]>>
+  asm_exists_tac>>simp[]>>
+  TOP_CASE_TAC>>fs[]>>
+  Cases_on`objf`>>fs[normalise_full_def]>>
+  pairarg_tac>>gvs[]>>
+  Cases_on`objf'`>>
+  drule name_to_num_obj_pbf_thm>>
+  disch_then(qspec_then`y` mp_tac)>>
+  impl_tac >- (
+    match_mp_tac init_state_ok>>
+    fs[TotOrd_compare])>>
+  rw[]>>
+  metis_tac[normalise_obj_pbf_sem_concl]
+QED
+
+(* printing a string pbf *)
+Definition obj_string_def:
+  obj_string (f,c:int) =
+  strlit"min: " ^ lhs_string f ^ strlit " " ^
+    int_to_string #"-" c ^ strlit" ;\n"
+End
+
+Definition print_pbf_def:
+  print_pbf (obj,fml) =
+  case obj of NONE => MAP pbc_string fml
+  | SOME fc =>
+    obj_string fc :: MAP pbc_string fml
+End
+
+val res = translate pb_parseTheory.lit_string_def;
+val res = translate pb_parseTheory.lhs_string_def;
+val res = translate pb_parseTheory.op_string_def;
+val res = translate pb_parseTheory.pbc_string_def;
+val res = translate obj_string_def;
+val res = translate print_pbf_def;
+
 val _ = export_theory();
