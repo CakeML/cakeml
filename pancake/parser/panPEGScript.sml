@@ -21,11 +21,11 @@ Datatype:
             | ArgListNT
             | ParamListNT
             | EXorNT | EAndNT | EEqNT | ECmpNT
-            | EShiftNT | EAddNT
+            | EShiftNT | EAddNT | EMulNT
             | EBaseNT
             | StructNT | LoadNT | LoadByteNT | LabelNT
             | ShapeNT | ShapeCombNT
-            | EqOpsNT | CmpOpsNT | ShiftOpsNT | AddOpsNT
+            | EqOpsNT | CmpOpsNT | ShiftOpsNT | AddOpsNT | MulOpsNT
 End
 
 Definition mknt_def:
@@ -212,16 +212,21 @@ Definition pancake_peg_def[nocompute]:
                              rpt (seql [mknt ShiftOpsNT; keep_nat] I)
                                  FLAT]
                             (mksubtree EShiftNT));
-        (INL EAddNT, seql [mknt EBaseNT;
-                           rpt (seql [mknt AddOpsNT; mknt EBaseNT] I)
+        (INL EAddNT, seql [mknt EMulNT;
+                           rpt (seql [mknt AddOpsNT; mknt EMulNT] I)
                                FLAT]
                           (mksubtree EAddNT));
+        (INL EMulNT, seql [mknt EBaseNT;
+                           rpt (seql [mknt MulOpsNT; mknt EBaseNT] I) FLAT]
+                          (mksubtree EMulNT));
         (INL EBaseNT, seql [choicel [seql [consume_tok LParT;
                                            mknt ExpNT;
                                            consume_tok RParT] I;
+                                     keep_kw TrueK; keep_kw FalseK;
                                      keep_int; keep_ident; mknt LabelNT;
                                      mknt StructNT; mknt LoadNT;
-                                     mknt LoadByteNT; keep_kw BaseK];
+                                     mknt LoadByteNT; keep_kw BaseK;
+                                     ];
                             rpt (seql [consume_tok DotT; keep_nat] I)
                                 FLAT]
                            (mksubtree EBaseNT));
@@ -247,7 +252,8 @@ Definition pancake_peg_def[nocompute]:
         (INL CmpOpsNT, choicel [keep_tok LessT; keep_tok GeqT; keep_tok GreaterT; keep_tok LeqT]);
         (INL ShiftOpsNT, choicel [keep_tok LslT; keep_tok LsrT;
                                   keep_tok AsrT; keep_tok RorT]);
-        (INL AddOpsNT, choicel [keep_tok PlusT; keep_tok MinusT])]
+        (INL AddOpsNT, choicel [keep_tok PlusT; keep_tok MinusT]);
+        (INL MulOpsNT, keep_tok StarT)]
         |>
 End
 
@@ -484,11 +490,11 @@ in
   th::acc
 end
 
-val topo_nts = [“AddOpsNT”, “ShiftOpsNT”, “CmpOpsNT”,
+val topo_nts = [“MulOpsNT”, “AddOpsNT”, “ShiftOpsNT”, “CmpOpsNT”,
                 “EqOpsNT”, “ShapeNT”,
                 “ShapeCombNT”, “LabelNT”, “LoadByteNT”,
                 “LoadNT”, “StructNT”,
-                “EBaseNT”, “EAddNT”, “EShiftNT”, “ECmpNT”,
+                “EBaseNT”, “EMulNT”, “EAddNT”, “EShiftNT”, “ECmpNT”,
                 “EEqNT”, “EAndNT”, “EXorNT”,
                 “ExpNT”, “ArgListNT”, “ReturnNT”,
                 “RaiseNT”, “ExtCallNT”,

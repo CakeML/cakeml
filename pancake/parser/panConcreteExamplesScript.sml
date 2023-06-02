@@ -83,7 +83,7 @@ val ex3 = ‘
     else { return false; }
   }’;
 
-val treeEx3 = (* check_success $ *) parse_pancake ex3;
+val treeEx3 = check_success $ parse_pancake ex3;
 
 (** Loops: standard looping construct. *)
 
@@ -171,6 +171,17 @@ val ex8 = ‘
 
 val treeEx8 = check_success $ parse_pancake ex8;
 
+(* Multiplication
+ *)
+
+val ex8_and_a_half = ‘x = a * b;
+                      x = a * b * c;
+                      x =  (a + b) * c;
+                      x = a + b * c;
+                      x = a * b + c;’;
+
+val treeEx8_and_a_half = check_success $ parse_pancake ex8_and_a_half;
+
 (** Statments. *)
 
 (** Small test modelled after the minimal working example. *)
@@ -208,8 +219,6 @@ val ex_much_fun = ‘
 val treeExMuchFun = check_success $ parse_pancake ex_much_fun;
 
 (** We can assign boolean expressions to variables. *)
-(** FIXME: Does not parse correctly. *)
-(** Expected: Xor (And b a) (And c d) *)
 val exN = ‘fun blah() { x = b & a ^ c & d; }’;
 
 val treeExN = check_success $ parse_pancake exN;

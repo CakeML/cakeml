@@ -250,6 +250,8 @@ open crep_to_loopTheory;
 
 val _ = translate $ spec64 prog_if_def;
 
+val _ = translate $ spec64 compile_crepop_def;
+
 val _ = translate $ spec64 compile_exp_def;
 
 val _ = translate $ spec64 compile_def;
@@ -433,6 +435,8 @@ val res = translate $ spec64 isSubOp_def;
 
 val res = translate $ preprocess $ spec64 conv_Shift_def;
 
+val res = translate $ conv_panop_def;
+
 Definition conv_Exp_alt_def:
   (conv_mmap_exp l =
    (case l of
@@ -515,9 +519,19 @@ Definition conv_Exp_alt_def:
               (case conv_Exp_alt e of
                  NONE => NONE
                | SOME a => conv_binaryExps_alt es a)
+        else if EXISTS (isNT nodeNT) panExps then
+          case args of
+            [] => NONE
+          | (e::es) =>
+              (case conv_Exp_alt e of
+                 NONE => NONE
+               | SOME a => conv_panops_alt es a)
         else NONE
     | Lf v12 =>
-        if tokcheck (Lf v12) (kw BaseK) then SOME BaseAddr else NONE)) ∧
+        if tokcheck (Lf v12) (kw BaseK) then SOME BaseAddr
+        else if tokcheck (Lf v12) (kw TrueK) then SOME $ Const 1w
+                   else if tokcheck (Lf v12) (kw FalseK) then SOME $ Const 0w
+        else NONE)) ∧
   (conv_binaryExps_alt trees res =
    (case trees of
       [] => SOME res
@@ -530,25 +544,28 @@ Definition conv_Exp_alt_def:
                 NONE => NONE
               | SOME e' =>
                   (case res of
-                     Const v17 => conv_binaryExps_alt ts (Op op [Const v17; e'])
-                   | Var v18 => conv_binaryExps_alt ts (Op op [Var v18; e'])
-                   | Label v19 => conv_binaryExps_alt ts (Op op [Label v19; e'])
-                   | Struct v20 => conv_binaryExps_alt ts (Op op [Struct v20; e'])
-                   | Field v21 v22 => conv_binaryExps_alt ts (Op op [Field v21 v22; e'])
-                   | Load v23 v24 => conv_binaryExps_alt ts (Op op [Load v23 v24; e'])
-                   | LoadByte v25 => conv_binaryExps_alt ts (Op op [LoadByte v25; e'])
-                   | Op bop es =>
+                     Op bop es =>
                        if bop ≠ op ∨ isSubOp res then
-                         conv_binaryExps_alt ts (Op bop [res; e'])
+                         conv_binaryExps_alt ts (Op op [res; e'])
                        else conv_binaryExps_alt ts (Op bop (es ++ [e']))
-                   | Cmp v28 v29 v30 =>
-                       conv_binaryExps_alt ts (Op op [Cmp v28 v29 v30; e'])
-                   | Shift v31 v32 v33 =>
-                       conv_binaryExps_alt ts (Op op [Shift v31 v32 v33; e'])
-                   | BaseAddr => conv_binaryExps_alt ts (Op op [BaseAddr; e']))))))
+                   | e =>
+                       conv_binaryExps_alt ts (Op op [e; e'])))))) ∧
+  (conv_panops_alt trees res =
+   (case trees of
+      [] => SOME res
+    | [x] => NONE
+    | t1::t2::ts =>
+        (case conv_panop t1 of
+           NONE => NONE
+         | SOME op =>
+             (case conv_Exp_alt t2 of
+                NONE => NONE
+              | SOME e' =>
+                  conv_panops_alt ts (Panop op [res; e'])))))
 Termination
   WF_REL_TAC ‘measure (λx. case x of
-                             INR (INR (INR x)) => ptree1_size (FST x)
+                             INR (INR (INR (INL x))) => ptree1_size (FST x)
+                           | INR (INR (INR (INR x))) => ptree1_size (FST x)
                            | INR (INR (INL x)) => ptree_size x
                            | INR (INL x) => ptree_size x
                            | INL x => ptree1_size x)’ >> rw[]
@@ -566,7 +583,8 @@ Triviality conv_Exp_thm:
   ∧
   (∀tree. conv_Exp_alt ^tree = (conv_Exp ^tree:'a panLang$exp option))
   ∧
-  (∀trees res. conv_binaryExps_alt ^trees res = (conv_binaryExps ^trees res: 'a panLang$exp option))
+  (∀trees res. conv_binaryExps_alt ^trees res = (conv_binaryExps ^trees res: 'a panLang$exp option))  ∧
+  (∀trees res. conv_panops_alt ^trees res = (conv_panops (^trees) res: 'a panLang$exp option))
 Proof
   ho_match_mp_tac (fetch "-" "conv_Exp_alt_ind") \\ rpt strip_tac
   >- (Cases_on ‘trees’>-(fs[]>>gs[conv_Exp_alt_def])>>
@@ -576,7 +594,7 @@ Proof
       simp[conv_Exp_def]>>
       rename1 ‘_ = SOME x’>>Cases_on ‘x’>>gs[])
   >- (Cases_on ‘tree’>>fs[]
-      >- simp[conv_Exp_alt_def, conv_Exp_def]>>
+      >- (simp[conv_Exp_alt_def, conv_Exp_def])>>
       rename1 ‘Nd p l’>>
       rewrite_tac[Once conv_Exp_alt_def,Once conv_Exp_def]>>
       IF_CASES_TAC
@@ -595,11 +613,11 @@ Proof
       IF_CASES_TAC>>fs[]
       >- (rpt (CASE_TAC>>fs[]))>>
       IF_CASES_TAC>>fs[]>>rpt (CASE_TAC>>fs[]))>>
-  Cases_on ‘trees’>>fs[]
-  >- simp[Once conv_Exp_alt_def, Once conv_Exp_def]>>
-  rename1 ‘h::t’>>Cases_on ‘t’>>fs[]>>
-  simp[Once conv_Exp_alt_def, Once conv_Exp_def]>>
-  rpt (CASE_TAC>>fs[parserProgTheory.OPTION_BIND_THM])
+  (Cases_on ‘trees’>>fs[]
+   >- simp[Once conv_Exp_alt_def, Once conv_Exp_def]>>
+   rename1 ‘h::t’>>Cases_on ‘t’>>fs[]>>
+   simp[Once conv_Exp_alt_def, Once conv_Exp_def]>>
+   rpt (CASE_TAC>>fs[parserProgTheory.OPTION_BIND_THM]))
 QED
 
 val res = translate_no_ind $ spec64 $ SIMP_RULE std_ss [option_map_thm, OPTION_MAP2_thm, FOLDR_eta] conv_Exp_alt_def;
@@ -620,9 +638,8 @@ Proof
       ntac 3 strip_tac>>
       rename1 ‘tree = Nd p l’>>
       rpt (first_x_assum (qspecl_then [‘p’, ‘l’] assume_tac))>>
-      rw[]>>fs[])>>
-  last_x_assum match_mp_tac>>
-  ntac 9 strip_tac>>fs[]
+      rw[]>>fs[])
+  \\ last_x_assum match_mp_tac \\ metis_tac[CONS_11]
 QED
 
 val _ = conv_Exp_ind  |> update_precondition;

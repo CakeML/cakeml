@@ -99,6 +99,10 @@ Definition binaryExps_def:
   binaryExps = [ExpNT; EXorNT; EAndNT; EAddNT]
 End
 
+Definition panExps_def:
+  panExps = [EMulNT]
+End
+
 (** Subtraction must apply to only two subexpressions.
   * See the pancake semantics script. *)
 Definition isSubOp_def:
@@ -120,6 +124,18 @@ Definition conv_binop_def:
    else if tokcheck leaf AndT then SOME And
    else if tokcheck leaf OrT then SOME Or
    else if tokcheck leaf XorT then SOME Xor
+   else NONE
+End
+
+Definition conv_panop_def:
+  (conv_panop (Nd nodeNT args) =
+     if isNT nodeNT MulOpsNT then
+       case args of
+         [leaf] => conv_panop leaf
+       | _ => NONE
+     else NONE) ∧
+  conv_panop leaf =
+   if tokcheck leaf StarT then SOME Mul
    else NONE
 End
 
@@ -262,8 +278,14 @@ Definition conv_Exp_def:
       case args of
         [] => NONE
       | (e::es) => conv_binaryExps es ' (conv_Exp e)
+    else if EXISTS (isNT nodeNT) panExps then
+      case args of
+        [] => NONE
+      | (e::es) => conv_panops es ' (conv_Exp e)
     else NONE) ∧
   (conv_Exp leaf = if tokcheck leaf (kw BaseK) then SOME BaseAddr
+                   else if tokcheck leaf (kw TrueK) then SOME $ Const 1w
+                   else if tokcheck leaf (kw FalseK) then SOME $ Const 0w
                   else NONE) ∧
   conv_binaryExps [] e = SOME e ∧
   (conv_binaryExps (t1::t2::ts) res =
@@ -271,16 +293,26 @@ Definition conv_Exp_def:
        e <- conv_Exp t2;
        case res of
          Op bop es => if bop ≠ op ∨ isSubOp res then
-                        conv_binaryExps ts (Op bop [res; e])
+                        conv_binaryExps ts (Op op [res; e])
                       else conv_binaryExps ts (Op bop (APPEND es [e]))
        | e' => conv_binaryExps ts (Op op [e'; e])
     od) ∧
-  conv_binaryExps _ _ = NONE (* Impossible: ruled out by grammar. *)
+  conv_binaryExps _ _ = NONE ∧ (* Impossible: ruled out by grammar. *)
+  conv_panops [] e = SOME e ∧
+  (conv_panops (t1::t2::ts) res =
+    do op <- conv_panop t1;
+       e <- conv_Exp t2;
+       case res of
+         Panop bop es => conv_panops ts (Panop op [res; e])
+       | e' => conv_panops ts (Panop op [e'; e])
+    od) ∧
+  conv_panops _ _ = NONE (* Impossible: ruled out by grammar. *)
 Termination
   WF_REL_TAC ‘measure (λx. case x of
-                             INR (INR x) => ptree1_size (FST x)
                            | INR (INL x) => ptree_size x
-                           | INL x => ptree_size x)’ >> rw[]
+                           | INL x => ptree_size x
+                           | INR (INR(INL x)) => ptree1_size (FST x)
+                           | INR (INR(INR x)) => ptree1_size (FST x))’ >> rw[]
   >> Cases_on ‘tree’
   >> gvs[argsNT_def,parsetree_size_def]
   >> drule_then assume_tac mem_ptree_thm >> gvs[]

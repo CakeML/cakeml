@@ -370,6 +370,16 @@ Proof
   fs [labels_in_def, lookup_def]
 QED
 
+Theorem compile_Arith:
+  ^(get_goal "comp _ (loopLang$Arith _)")
+Proof
+  rpt conj_tac >>
+  rpt gen_tac >> strip_tac >>
+  gvs [evaluate_def, labels_in_def, comp_def,AllCaseEqs(),
+      DefnBase.one_line_ify NONE loop_arith_def
+      ] >>
+  rw[set_var_def,lookup_insert,lookup_delete]
+QED
 
 Theorem compile_others:
   ^(get_goal "comp _ loopLang$Skip") ∧
@@ -398,7 +408,7 @@ Proof
   match_mp_tac (the_ind_thm()) >>
   EVERY (map strip_assume_tac
          [compile_others,compile_LocValue,compile_LoadByte,compile_StoreByte,
-          compile_Mark, compile_Assign, compile_Store,
+          compile_Mark, compile_Assign, compile_Store, compile_Arith,
           compile_Call, compile_Seq, compile_If, compile_FFI, compile_Loop]) >>
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED

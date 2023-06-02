@@ -317,6 +317,18 @@ Proof
        TOP_CASE_TAC >> fs [v2word_def]) >>
      unabbrev_all_tac >> fs [])
   >- (
+   rename1 ‘Panop’ >>
+   rpt gen_tac >> strip_tac >>
+   gvs[compile_exp_def,AllCaseEqs(),eval_def,panLangTheory.size_of_shape_def,
+       panSemTheory.eval_def,crepSemTheory.eval_def,flatten_def,shape_of_def,
+       DefnBase.one_line_ify NONE pan_op_def,MAP_EQ_CONS,opt_mmap_eq_some,
+       cexp_heads_def,PULL_EXISTS, SF DNF_ss
+      ] >>
+   rpt $ qpat_x_assum ‘SOME _ = _’ $ assume_tac o GSYM >>
+   rpt $ first_x_assum $ drule_then $ drule_then $ drule_then drule >>
+   rpt $ disch_then $ resolve_then Any assume_tac $ GSYM PAIR >>
+   gvs[flatten_def,shape_of_def,DefnBase.one_line_ify NONE compile_panop_def,crep_op_def])
+  >- (
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def] >>
    fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
@@ -770,6 +782,19 @@ Proof
     qexists_tac ‘var_cexp y’ >>
     fs [] >> metis_tac []) >>
    fs [])
+  >- (rpt strip_tac >>
+      gvs[panSemTheory.eval_def,AllCaseEqs(),
+         DefnBase.one_line_ify NONE pan_op_def,
+         MAP_EQ_CONS,MEM_MAP,MEM_FLAT,compile_exp_def,
+         opt_mmap_eq_some,cexp_heads_def,PULL_EXISTS,
+         SF DNF_ss,var_cexp_def
+        ] >>
+      rpt $ first_x_assum $ resolve_then (Pat ‘_ = (_,_)’) assume_tac $ GSYM PAIR >>
+      rpt $ qpat_x_assum ‘SOME _ = _’ $ assume_tac o GSYM >>
+      rpt $ first_x_assum $ drule_then $ drule_then $ drule_then $ drule >>
+      rpt strip_tac >>
+      metis_tac[FST,MEM]
+     )
   >- (
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
@@ -1657,6 +1682,16 @@ Proof
    impl_tac >- metis_tac [] >>
    impl_tac >- fs [] >>
    fs [EVERY_MEM])
+  >- (
+   rpt strip_tac >>
+   gvs[panSemTheory.eval_def,compile_exp_def,AllCaseEqs(),cexp_heads_def,
+       DefnBase.one_line_ify NONE pan_op_def,MAP_EQ_CONS,exps_def,
+       opt_mmap_eq_some, SF DNF_ss
+     ] >>
+   rpt $ first_x_assum $ resolve_then (Pos last) assume_tac $ GSYM PAIR >>
+   rpt $ qpat_x_assum ‘SOME _ = _’ $ assume_tac o GSYM >>
+   rpt $ first_x_assum $ drule_then $ drule_then $ drule_then drule >>
+   rw[] >> metis_tac[])
   >- (
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
