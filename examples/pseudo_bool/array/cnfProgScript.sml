@@ -514,8 +514,6 @@ Definition plainLim_nf_def:
     SOME(name_to_num_var s nhm)
 End
 
-val res = translate pbc_normaliseTheory.mk_map_def;
-val res = translate pbc_normaliseTheory.name_to_num_var_def;
 val res = translate plainLim_nf_def;
 
 val plainlim_nf_side = Q.prove(`
@@ -524,29 +522,22 @@ val plainlim_nf_side = Q.prove(`
   rw[])
   |> update_precondition;
 
-Definition hash_str_def:
-  hash_str (s:mlstring) =
-    let l = strlen s in
-      if l = 0 then 0:num else
-        l + ORD (strsub s (l-1))
+
+val res = translate pbc_normaliseTheory.mk_map_def;
+val res = translate pbc_normaliseTheory.name_to_num_var_def;
+
+Definition cnf_init_state_def:
+  cnf_init_state n =
+  <| to_num := LN; to_str := LN; hash_fun := hash_str; cmp_name := compare; next_num := n+1 |>
 End
 
 Definition plainLim_ns_def:
   plainLim_ns n = (plainLim_nf n,
-    init_state hash_str compare)
+    cnf_init_state n)
 End
 
-val res = translate hash_str_def;
-val res = translate pbc_normaliseTheory.init_state_def;
+val res = translate cnf_init_state_def;
 val res = translate plainLim_ns_def;
-
-val plainlim_ns_side = Q.prove(`
-   ∀x. plainlim_ns_side x = T`,
-  EVAL_TAC>>
-  rw[])
-  |> update_precondition;
-
-val plainlim_ns_v_thm = fetch "-" "plainlim_ns_v_thm";
 
 Definition UNSAT_string_def:
   UNSAT_string = strlit "s VERIFIED UNSAT\n"
