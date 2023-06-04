@@ -241,7 +241,7 @@ End
 Type ktree = “:α -> (α,β,γ) itree”
 
 Datatype:
-  sem_vis_event = FFI_call ('ffi ffi_state) string (word8 list) (word8 list)
+  sem_vis_event = FFI_call string (word8 list) (word8 list)
 End
 
 Definition h_prog_rule_ext_call_def:
@@ -252,18 +252,13 @@ Definition h_prog_rule_ext_call_def:
                                     (case (read_bytearray conf_ptr_adr (w2n conf_sz) (mem_load_byte s.memory s.memaddrs s.be),
                                            read_bytearray array_ptr_adr (w2n array_sz) (mem_load_byte s.memory s.memaddrs s.be)) of
                                        (SOME conf_bytes,SOME array_bytes) =>
-                                        Vis (INR (FFI_call s.ffi (explode ffi_name) conf_bytes array_bytes,
+                                        Vis (INR (FFI_call (explode ffi_name) conf_bytes array_bytes,
                                             (λres. case res of
                                                      FFI_final outcome => Ret (SOME (FinalFFI outcome),empty_locals s)
                                                     | FFI_return new_ffi new_bytes =>
                                                        let nmem = write_bytearray array_ptr_adr new_bytes s.memory s.memaddrs s.be in
                                                        Ret (NONE,s with <| memory := nmem; ffi := new_ffi |>)
-                                                       | _ => Ret (SOME Error,s))))
-                                            (λx. case call_FFI s.ffi (explode ffi_name) conf_bytes array_bytes of
-                                                   FFI_final outcome => Ret (SOME (FinalFFI outcome),empty_locals s)
-                                                  | FFI_return new_ffi new_bytes =>
-                                                     let nmem = write_bytearray array_ptr_adr new_bytes s.memory s.memaddrs s.be in
-                                                     Ret (NONE,s with <| memory := nmem; ffi := new_ffi |>))
+                                                       | _ => Ret (SOME Error,s)))) Ret
                                       | _ => Ret (SOME Error,s))
    | _ => Ret (SOME Error,s)
 End
@@ -317,16 +312,16 @@ Definition h_prog_def:
 End
 
 (* ITree semantics for program commands *)
-Definition evaluate_itree_def:
-  evaluate_itree p s = itree_mrec h_prog (p,s)
+Definition itree_evaluate_def:
+  itree_evaluate p s = itree_mrec h_prog (p,s)
 End
 
 (* Observational ITree semantics *)
 
 val s = ``(s:('a,'ffi) panSem$state)``;
 
-Definition semantics_itree_def:
-  semantics_itree ^s entry =
+Definition itree_semantics_def:
+  itree_semantics ^s entry =
   let prog = Call Tail (Label entry) [] in
   itree_unfold
   (λt. case t of
@@ -336,7 +331,7 @@ Definition semantics_itree_def:
         | INR (Ret (res,s)) => Ret' res
         | INR (Tau t) => Tau' (INR t)
         | INR (Vis e g) => Vis' e (INR o g))
-  (INL (evaluate_itree prog ^s))
+  (INL (itree_evaluate prog ^s))
 End
 
 val _ = export_theory();

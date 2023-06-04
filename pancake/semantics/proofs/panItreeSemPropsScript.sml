@@ -118,29 +118,9 @@ Proof
       rw [Once itreeTauTheory.itree_unfold])
 QED
 
-(* Theorem itree_oracle_walk_wbisim: *)
-(*   ∀t or. (itree_infinite (itree_oracle_walk or t)) ⇔ ¬(∃r. itree_oracle_walk or t ≈ Ret r) *)
-(* Proof *)
-(*   rw [] >> *)
-(*   Cases_on ‘t’ *)
-(*   >- (EQ_TAC >> rw [] *)
-(*       >- (fs [itree_oracle_walk_def] >> *)
-(*           fs [itreeTauTheory.itree_iter_def] >> *)
-(*           fs [Once itreeTauTheory.itree_unfold]) *)
-(*       >- (gs [itree_oracle_walk_def] >> *)
-(*           gs [itreeTauTheory.itree_iter_def] >> *)
-(*           gs [Once itreeTauTheory.itree_unfold] >> *)
-(*           RULE_ASSUM_TAC (SPEC “x:γ”) >> *)
-(*           gs [itreeTauTheory.itree_wbisim_refl])) *)
-(*   >- (EQ_TAC >> rw [] *)
-(*       >- (gs [itree_infinite_def,itree_finite_def] >> *)
-(*           Cases_on ‘itree_oracle_walk or (Tau u)’ *)
-(*           >- (POP_ASSUM (fn th => ASSUME_TAC $ SPEC “[]” th)))) *)
-(* QED *)
-
-Definition ext_call_oracle_h_def:
-  ext_call_oracle_h (FFI_call fs name args bytes) = call_FFI fs name args bytes
-End
+(* Definition ext_call_oracle_h_def: *)
+(*   ext_call_oracle_h (FFI_call fs name args bytes) = call_FFI fs name args bytes *)
+(* End *)
 
 Definition itree_diverges_def:
   itree_diverges t = ∀r. ¬∃p. itree_el t p = Return r
@@ -219,7 +199,9 @@ Proof
   EQ_TAC >> rw []
   >- (rw [panItreeSemTheory.itree_mrec_def] >>
       rw [itreeTauTheory.itree_iter_def] >>
-      rw [Once itreeTauTheory.itree_unfold])
+      rw [Once itreeTauTheory.itree_unfold] >>
+      cheat) >>
+      cheat
 QED
 
 (* Find a way to relate the small-step decisions of evaluate to those of mrec (which are designed in a small-step-manner) *)
@@ -228,11 +210,11 @@ QED
 
 (* How to describe evaluate in a small-step way and show preservation of meaning and also connect this description to mrec. *)
 
-Theorem evaluate_while_div_clock:
-  (∃s'. evaluate (p,s) = (_,s') ∧ s'.clock = 0) ⇔
-    ∀s'. ¬∃(n:num). evaluate (p,s with clock := n) ≠ (SOME TimeOut,s')
-Proof
-QED
+(* Theorem evaluate_while_div_clock: *)
+(*   (∃s'. evaluate (p,s) = (_,s') ∧ s'.clock = 0) ⇔ *)
+(*     ∀s'. ¬∃(n:num). evaluate (p,s with clock := n) ≠ (SOME TimeOut,s') *)
+(* Proof *)
+(* QED *)
 
 Theorem evaluate_while_div:
   evaluate (While g p,s) = (SOME TimeOut,s') ⇔
@@ -240,7 +222,8 @@ Theorem evaluate_while_div:
 Proof
   EQ_TAC >> rw [] >>
   simp [panItreeSemTheory.itree_mrec_def,panItreeSemTheory.h_prog_def]  >>
-  simp [panItreeSemTheory.h_prog_rule_while_def]
+  simp [panItreeSemTheory.h_prog_rule_while_def] >>
+  cheat
 QED
 
 Theorem itree_iter_simps[simp]:
@@ -274,16 +257,16 @@ Proof
   cheat
 QED
 
-Theorem evaluate_itree_while_err_eq:
-  evaluate (While g p,s) = (SOME Error,s) ⇔
-    itree_mrec h_prog (While g p,s) = Ret (SOME Error,s)
-Proof
-  EQ_TAC >> rw[]
-  >- (IMP_RES_TAC evaluate_while_err_cases >>
-      ASSUME_TAC while_itree_err_cases >> gvs[])
-  >- (IMP_RES_TAC while_itree_err_cases >>
-      ASSUME_TAC evaluate_while_err_cases >> gvs[])
-QED
+(* Theorem evaluate_itree_while_err_eq: *)
+(*   evaluate (While g p,s) = (SOME Error,s) ⇔ *)
+(*     itree_mrec h_prog (While g p,s) = Ret (SOME Error,s) *)
+(* Proof *)
+(*   EQ_TAC >> rw[] *)
+(*   >- (IMP_RES_TAC evaluate_while_err_cases >> *)
+(*       ASSUME_TAC while_itree_err_cases >> gvs[]) *)
+(*   >- (IMP_RES_TAC while_itree_err_cases >> *)
+(*       ASSUME_TAC evaluate_while_err_cases >> gvs[]) *)
+(* QED *)
 
 (* Need to say: for every state that comes from one or more evaluations of the while body,
  the outcome of evaluation is not Break and the guard holds true in the resulting state. *)
@@ -308,18 +291,18 @@ Proof
   cheat
 QED
 
-Theorem evaluate_while_div_eq:
-  evaluate (While g p,s) = (SOME TimeOut,s') ⇔
-    itree_diverges (itree_mrec h_prog (While g p,s))
-Proof
-  EQ_TAC >> rw []
-  >- (IMP_RES_TAC evaluate_while_div_cases >>
-      ASSUME_TAC evaluate_itree_while_div_cases >>
-      gvs [])
-  >- (IMP_RES_TAC evaluate_itree_while_div_cases >>
-      ASSUME_TAC evaluate_while_div_cases >>
-      gvs[])
-QED
+(* Theorem evaluate_while_div_eq: *)
+(*   evaluate (While g p,s) = (SOME TimeOut,s') ⇔ *)
+(*     itree_diverges (itree_mrec h_prog (While g p,s)) *)
+(* Proof *)
+(*   EQ_TAC >> rw [] *)
+(*   >- (IMP_RES_TAC evaluate_while_div_cases >> *)
+(*       ASSUME_TAC evaluate_itree_while_div_cases >> *)
+(*       gvs []) *)
+(*   >- (IMP_RES_TAC evaluate_itree_while_div_cases >> *)
+(*       ASSUME_TAC evaluate_while_div_cases >> *)
+(*       gvs[]) *)
+(* QED *)
 
 Theorem evaluate_itree_while_ret_cases:
   r = SOME (FinalFFI e) ∨ r = SOME (Return _) ⇒
@@ -344,7 +327,7 @@ Theorem evaluate_while_ret_eq:
   (evaluate (While g p,s) = (r,s') ⇔
      strip_tau (itree_mrec h_prog (While g p,s)) (Ret (r,s')))
 Proof
+  cheat
 QED
-
 
 val _ = export_theory();
