@@ -96,42 +96,48 @@ Definition make_io_event_def[nocompute]:
                 IO_event s conf (ZIP (bytes,rbytes))
 End
 
-(* Maps a path in an itree to an option llist, where Tau:s are represented by NONE
- and IO events by SOME e. *)
-Definition itree_oracle_beh_def:
-  itree_oracle_beh or t = LUNFOLD
-                          (λ(or,t). itree_CASE t
-                                               (K NONE)
-                                               (λu. SOME ((or,u),NONE))
-                                               (λe k. case query_oracle or e of
-                                                        FFI_return or' bytes =>
-                                                          SOME ((or',k (FFI_return or' bytes)),SOME (make_io_event e bytes))
-                                                      | FFI_final (Final_event s conf bytes outcome) =>
-                                                          SOME ((or,k (FFI_final (Final_event s conf bytes outcome))),SOME (make_io_event e bytes))))
-                          (or,t)
-End
-
 (* Maps a path in an itree to the result of computation, when assuming
  the computation terminates. *)
 Definition itree_oracle_outcome_def:
-  itree_oracle_outcome or t = THE $ LHD o LFILTER (λx. x ≠ NONE) $ LUNFOLD
-                              (λs. case s of
-                                     SOME (or,t) =>
-                                       itree_CASE t
-                                                  (λr. SOME (NONE,SOME r))
-                                                  (λu. SOME (SOME (or,u),NONE))
-                                                  (λe k. case query_oracle or e of
-                                                           FFI_return or' bytes =>
-                                                             SOME (SOME (or',k (FFI_return or' bytes)),NONE)
-                                                         | FFI_final (Final_event s conf bytes outcome) =>
-                                                             SOME (SOME (or,k (FFI_final (Final_event s conf bytes outcome))),NONE))
-                                   | NONE => NONE)
-                              (SOME (or,t))
+  itree_oracle_outcome or t =
+  LFLATTEN $ LUNFOLD
+           (λs. case s of
+                  SOME (or,t) =>
+                    itree_CASE t
+                               (λr. SOME (NONE,[|r|]))
+                               (λu. SOME (SOME (or,u),LNIL))
+                               (λe k. case query_oracle or e of
+                                        FFI_return or' bytes =>
+                                          SOME (SOME (or',k (FFI_return or' bytes)),LNIL)
+                                      | FFI_final (Final_event s conf bytes outcome) =>
+                                          SOME (SOME (or,k (FFI_final (Final_event s conf bytes outcome))),LNIL))
+                | NONE => NONE)
+           (SOME (or,t))
 End
 
 (* TBC *)
-Definition same_outcome_def:
+(* Definition same_outcome_def: *)
+(* End *)
+
+(* Maps a path in an itree to an option llist, where Tau:s are represented by NONE
+ and IO events by SOME e. *)
+Definition itree_oracle_beh_def:
+  itree_oracle_beh or t =
+  LFLATTEN $ LUNFOLD
+           (λ(or,t). itree_CASE t
+                                (K NONE)
+                                (λu. SOME ((or,u),LNIL))
+                                (λe k. case query_oracle or e of
+                                         FFI_return or' bytes =>
+                                           SOME ((or',k (FFI_return or' bytes)),[|make_io_event e bytes|])
+                                       | FFI_final (Final_event s conf bytes outcome) =>
+                                           SOME ((or,k (FFI_final (Final_event s conf bytes outcome))),[|make_io_event e bytes|])))
+           (or,t)
 End
+
+(* Goal: find a way to produce a lazy list (possibly from another) s.t. for every NONE, we add nothing to the list
+ and for every SOME e, we add e to the list. *)
+(* Does it require monadic operations? *)
 
 (* same_behaviour: an eqv relation between itree behaviours (repr as llists of IO events)
  and FFI behaviours, a datatype of three elements, the non-divergent of which contain llists of IO events *)
@@ -139,12 +145,12 @@ Definition same_behaviour_def:
   (* Divergence: IO event lists are equiv by weak bisimulation as the itree behaviour contains
      NONE for each Tau. *)
   (same_behaviour or t (Diverge ioll) ⇔
-     (itree_oracle_beh or t) EQUIV ioll) ∧
+     (itree_oracle_beh or t) = ioll) ∧
   (* Termination: Finite IO event list is equiv to itree list by weak bisimulation, up to len of vanilla list.
      NB we lack an ability to compare computed outcomes at this level.
      Thus requiring a separate soundness proof at the evaluate level. *)
   (same_behaviour or t (Terminate outcome iol) ⇔
-     (itree_oracle_beh or t) EQUIV (fromList iol)) ∧
+     (itree_oracle_beh or t) = (fromList iol) ∧ OUTCOMES_ARE_SAME_AT_FFI_LEVEL) ∧
   (* Failure: Covered by evaluate corres. *)
   (same_behaviour or t Fail ⇔ T)
 End
