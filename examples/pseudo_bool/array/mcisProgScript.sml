@@ -520,7 +520,7 @@ Proof
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_mcis <LAD file (pattern)> <LAD file (target)> <optional: PB proof file>\n"
+  usage_string = strlit "Usage: cake_pb_mcis <LAD file (pattern)> <LAD file (target)> <optional: PB proof file>\n"
 End
 
 val r = translate usage_string_def;

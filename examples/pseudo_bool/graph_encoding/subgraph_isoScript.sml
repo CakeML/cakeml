@@ -453,9 +453,8 @@ QED
 
 Theorem full_encode_correct:
   good_graph gp ∧
-  good_graph gt ∧
-  full_encode gp gt = constraints ⇒
-  (has_subgraph_iso gp gt ⇔ satisfiable (set constraints))
+  good_graph gt ⇒
+  (has_subgraph_iso gp gt ⇔ satisfiable (set (full_encode gp gt)))
 Proof
   rw[full_encode_def]>>
   simp[LIST_TO_SET_MAP]>>
@@ -470,20 +469,20 @@ Proof
   metis_tac[encode_correct,PAIR,pbc_ge_thm]
 QED
 
-Theorem pbf_vars_full_encode:
-  pbf_vars (set (full_encode gp gt)) ⊆ goodString
+(* The theorem relating to sem_concl *)
+Theorem full_encode_sem_concl:
+  good_graph gp ∧
+  good_graph gt ∧
+  sem_concl (set (full_encode gp gt)) NONE concl
+  ⇒
+  case concl of
+    DSat => has_subgraph_iso gp gt
+  | DUnsat => ¬ has_subgraph_iso gp gt
+  | _ => T
 Proof
-  rw[SUBSET_DEF,full_encode_def,LIST_TO_SET_MAP,pbf_vars_IMAGE]>>
-  simp[IN_DEF]>>
-  metis_tac[enc_string_goodString,PAIR]
+  rw[]>>
+  assume_tac full_encode_correct>>gs[]>>
+  every_case_tac>>fs[sem_concl_def,unsatisfiable_def]
 QED
-
-(*
-open pb_parseTheory;
-
-val pattern = ``(5, fromAList [(0,[1;3;4]); (1,[0;3;4]);  (2,[3]); (3,[0;1;2]); (4,[0;1])]):graph``
-
-val res = EVAL``MAP pbc_string (full_encode ^pattern ^pattern)``
-*)
 
 val _ = export_theory();

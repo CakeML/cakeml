@@ -1,8 +1,7 @@
 (*
   Subgraph isomorphism encoder and checker
 *)
-open preamble basis subgraph_isoTheory graph_basicTheory npbc_parseProgTheory;
-open cfLib basisFunctionsLib;
+open preamble basis pbc_normaliseTheory npbc_parseProgTheory subgraph_isoTheory graph_basicTheory;
 
 val _ = new_theory "subgraph_isoProg";
 
@@ -10,31 +9,17 @@ val _ = translation_extends "npbc_parseProg";
 
 val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
-Definition notfound_string_def:
-  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]
-End
-
-val r = translate notfound_string_def;
-
-val noparse_string_def = Define`
-  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]`;
-
-val r = translate noparse_string_def;
-
-val _ = translate mlintTheory.fromNatString_def;
-val _ = translate tokenize_num_def;
+(* parsing
+  TODO: duplicated code in mcisProg *)
+val _ = translate graph_basicTheory.tokenize_num_def;
 
 val _ = translate parse_num_list_def;
 val _ = translate parse_edges_def;
 val _ = translate parse_lad_toks_def;
 
-val _ = translate lrnext_def;
-val _ = translate foldi_def;
-val _ = translate toAList_def;
-
 Theorem check_good_edges_inner_thm:
   check_good_edges_inner u v es ⇔
-       case lookup u es of NONE => F | SOME edges => MEMBER v edges
+  case lookup u es of NONE => F | SOME edges => MEMBER v edges
 Proof
   fs[check_good_edges_inner_def,MEMBER_INTRO]>>
   metis_tac[]
@@ -44,6 +29,22 @@ val _ = translate check_good_edges_inner_thm;
 
 val _ = translate (check_good_edges_def |> SIMP_RULE std_ss [GSYM check_good_edges_inner_def]);
 val _ = translate check_good_graph_def;
+
+val tokenize_num_v_thm = theorem "tokenize_num_v_thm";
+
+val b_inputAllTokensFrom_spec_specialize =
+  b_inputAllTokensFrom_spec
+  |> Q.GEN `f` |> Q.SPEC`blanks`
+  |> Q.GEN `fv` |> Q.SPEC`blanks_v`
+  |> Q.GEN `g` |> Q.ISPEC`tokenize_num`
+  |> Q.GEN `gv` |> Q.ISPEC`tokenize_num_v`
+  |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE NUM`
+  |> REWRITE_RULE [blanks_v_thm,tokenize_num_v_thm] ;
+
+val noparse_string_def = Define`
+  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]`;
+
+val r = translate noparse_string_def;
 
 val parse_lad = (append_prog o process_topdecs) `
   fun parse_lad f =
@@ -55,27 +56,27 @@ val parse_lad = (append_prog o process_topdecs) `
   | Some x =>
     if check_good_graph x then
       Inr x
-    else Inl ("Input graph file (" ^ f ^ ") fails undirectedness check\n")))`
+    else Inl ("c Input graph " ^ f ^ " fails undirectedness check\n")))`
 
-val tokenize_num_v_thm = theorem "tokenize_num_v_thm";
+Theorem blanks_eq[simp]:
+  graph_basic$blanks = pb_parse$blanks
+Proof
+  rw[FUN_EQ_THM]>>
+  simp[pb_parseTheory.blanks_def,blanks_def]
+QED
 
-val b_inputAllTokensFrom_spec_specialize =
-  b_inputAllTokensFrom_spec
-  |> Q.GEN `f` |> Q.SPEC`blanks`
-  |> Q.GEN `fv` |> Q.SPEC`blanks_v`
-  |> Q.GEN `g` |> Q.ISPEC`graph_basic$tokenize_num`
-  |> Q.GEN `gv` |> Q.ISPEC`tokenize_num_v`
-  |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE NUM`
-  |> REWRITE_RULE [blanks_v_thm,tokenize_num_v_thm] ;
+Overload "graph_TYPE" = ``PAIR_TYPE NUM (SPTREE_SPT_TYPE (LIST_TYPE NUM))``;
 
+(* get_graph *)
 Definition get_graph_def:
   get_graph fs f =
   if inFS_fname fs f then
-    (case parse_lad (all_lines fs f) of
+    case parse_lad (all_lines fs f) of
       NONE => NONE
-    | SOME x =>
-      if check_good_graph x then SOME x
-      else NONE)
+    | SOME g =>
+      if good_graph g then
+        SOME g
+      else NONE
   else NONE
 End
 
@@ -88,13 +89,10 @@ Theorem parse_lad_spec:
     [fv]
     (STDIO fs)
     (POSTv v.
-    & (∃res.
-      SUM_TYPE STRING_TYPE (PAIR_TYPE NUM (SPTREE_SPT_TYPE (LIST_TYPE NUM))) res v ∧
-      case res of
-        INR g => get_graph fs f = SOME g
-      | INL err => get_graph fs f = NONE
-      )
-      * STDIO fs)
+    & (∃err. SUM_TYPE STRING_TYPE graph_TYPE
+      (case get_graph fs f of
+        NONE => INL err
+      | SOME res => INR res) v) * STDIO fs)
 Proof
   rw[]>>
   xcf"parse_lad"(get_ml_prog_state())>>
@@ -109,43 +107,35 @@ Proof
   >- (
     xapp_spec b_inputAllTokensFrom_spec_specialize >>
     xsimpl>>
-    fs[FILENAME_def,validArg_def]>>
+    fs[FILENAME_def,validArg_def,blanks_v_thm]>>
     EVAL_TAC)>>
-  pop_assum mp_tac>>
-  TOP_CASE_TAC>>
-  fs[OPTION_TYPE_def]>>
-  strip_tac>>
-  xmatch
+  simp[get_graph_def]>>
+  reverse IF_CASES_TAC>>fs[OPTION_TYPE_def]>>xmatch
   >- (
     xlet_autop>>
-    `toks_num = (MAP tokenize_num ∘ tokens blanks)` by
-      metis_tac[toks_num_def,ETA_AX,o_DEF]>>
-    simp[get_graph_def,parse_lad_def]>>
-    TOP_CASE_TAC>>
-    fs[OPTION_TYPE_def]
-    >- (
-      xmatch >>
-      xlet_autop>>
-      xcon>>xsimpl>>
-      qmatch_asmsub_abbrev_tac`STRING_TYPE err _`>>
-      qexists_tac`INL err`>>simp[SUM_TYPE_def])>>
-    xmatch>>
-    xlet_autop>>
-    Cases_on`check_good_graph x`>>xif>>
-    asm_exists_tac>>simp[]
-    >- (
-      xcon>>xsimpl>>
-      qexists_tac`INR x`>>
-      simp[SUM_TYPE_def])>>
-    rpt xlet_autop>>
     xcon>>xsimpl>>
-    qmatch_asmsub_abbrev_tac`STRING_TYPE err _`>>
-    qexists_tac`INL err`>>simp[SUM_TYPE_def])>>
+    simp[SUM_TYPE_def]>>metis_tac[])>>
   xlet_autop>>
+  `toks_num = (MAP tokenize_num ∘ tokens blanks)` by
+    metis_tac[toks_num_def,ETA_AX,o_DEF]>>
+  Cases_on`parse_lad (all_lines fs f)`>>
+  gvs[parse_lad_def,OPTION_TYPE_def]
+  >- (
+    xmatch >>
+    xlet_autop>>
+    xcon>>xsimpl>>
+    simp[SUM_TYPE_def]>>metis_tac[])>>
+  xmatch>>
+  xlet_autop>>
+  fs[check_good_graph_iff]>>
+  xif
+  >- (
+    xcon>>xsimpl>>
+    simp[SUM_TYPE_def])>>
+  rpt xlet_autop>>
   xcon>>xsimpl>>
-  qmatch_asmsub_abbrev_tac`STRING_TYPE err _`>>
-  qexists_tac`INL err`>>simp[SUM_TYPE_def]>>
-  fs[get_graph_def]
+  simp[SUM_TYPE_def]>>
+  metis_tac[]
 QED
 
 (* Translate the encoder *)
@@ -205,64 +195,63 @@ Proof
   rw[]>>
   xcf"parse_and_enc"(get_ml_prog_state())>>
   xlet_autop>>
-  Cases_on`res`>>fs[SUM_TYPE_def]>>xmatch
+  every_case_tac>>fs[SUM_TYPE_def]>>xmatch
   >- (
     xcon>>xsimpl>>
-    qmatch_asmsub_abbrev_tac`STRING_TYPE err _`>>
     qexists_tac`INL err`>>simp[SUM_TYPE_def])>>
   xlet_autop>>
-  Cases_on`res`>>fs[SUM_TYPE_def]>>xmatch
+  every_case_tac>>fs[SUM_TYPE_def]>>xmatch
   >- (
     xcon>>xsimpl>>
-    qmatch_asmsub_abbrev_tac`STRING_TYPE err _`>>
     qexists_tac`INL err`>>simp[SUM_TYPE_def])>>
-  xlet_autop>>
-  xcon>>
-  xsimpl>>
-  qexists_tac`INR (full_encode y y')`>>
-  simp[SUM_TYPE_def]
+  rpt xlet_autop>>
+  xcon>>xsimpl >>
+  rename1`_ (full_encode gpp gtt)`>>
+  qexists_tac`INR (full_encode gpp gtt)`>>
+  simp[SUM_TYPE_def,PAIR_TYPE_def]
 QED
 
-Definition success_string_def:
-  success_string = strlit "Verified pattern graph NOT subgraph isomorphic to target graph\n"
+Definition UNSAT_string_def:
+  UNSAT_string = strlit "s VERIFIED NOT SUBGRAPH ISOMORPHIC\n"
 End
 
-val success_string_v_thm = translate success_string_def;
+Definition SAT_string_def:
+  SAT_string = strlit "s VERIFIED SUBGRAPH ISOMORPHIC\n"
+End
+
+Definition check_unsat_3_sem_def:
+  check_unsat_3_sem fs f1 f2 out ⇔
+  (out ≠ strlit"" ⇒
+  ∃gp gt.
+    get_graph fs f1 = SOME gp ∧
+    get_graph fs f2 = SOME gt ∧
+    (
+    out = UNSAT_string ∧ ¬ has_subgraph_iso gp gt ∨
+    out = SAT_string ∧ has_subgraph_iso gp gt
+    ))
+End
+
+(* Turn result into string *)
+Definition res_to_string_def:
+  (res_to_string (INL s) = INL s) ∧
+  (res_to_string (INR h) =
+    case h of
+      DUnsat => INR UNSAT_string
+    | DSat => INR SAT_string
+    | _ => INL (strlit "c Unexpected conclusion for subgraph isomorphism problem.\n"))
+End
+
+val res = translate (res_to_string_def |> SIMP_RULE std_ss [UNSAT_string_def,SAT_string_def]);
 
 val check_unsat_3 = (append_prog o process_topdecs) `
   fun check_unsat_3 f1 f2 f3 =
   case parse_and_enc f1 f2 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr fml =>
-    (case check_unsat_top success_string fml f3 of
+    (case
+        res_to_string (check_unsat_top_norm (None,fml) f3) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s)`
-
-Theorem success_string_not_nil:
-  strlit "" ≠ success_string
-Proof
-  EVAL_TAC
-QED
-
-Definition check_unsat_3_sem_def:
-  check_unsat_3_sem fs f1 f2 out ⇔
-  if out = success_string then
-    ∃pattern target.
-    get_graph fs f1 = SOME pattern ∧
-    get_graph fs f2 = SOME target ∧
-    ¬ has_subgraph_iso pattern target
-  else out = strlit""
-End
-
-Theorem get_graph_good_graph:
-  get_graph fs f = SOME g ⇒
-  good_graph g
-Proof
-  rw[get_graph_def]>>
-  every_case_tac>>
-  fs[]>>
-  metis_tac[check_good_graph,PAIR]
-QED
 
 Theorem check_unsat_3_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -282,32 +271,65 @@ Proof
   xcf "check_unsat_3" (get_ml_prog_state ())>>
   reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
   xlet_autop>>
-  Cases_on`res`
+  Cases_on`res`>>fs[SUM_TYPE_def]
   >- (
-    fs[SUM_TYPE_def]>>
     xmatch>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     asm_exists_tac>>xsimpl>>
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`x`>>
-    xsimpl>>rw[]>>
-    fs[success_string_not_nil,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    qexists_tac`x`>>xsimpl>>rw[]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    xsimpl)
+  >- (
+    xmatch>>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    qexists_tac`x`>>xsimpl>>rw[]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
-  fs[SUM_TYPE_def]>>
   xmatch>>
-  xlet`POSTv v.STDIO fs *
-    SEP_EXISTS res.
-    &(SUM_TYPE STRING_TYPE STRING_TYPE res v ∧
-    ∀s. res = INR s ⇒ s = success_string ∧
-      unsatisfiable (set (full_encode g1 g2)))`
+  rpt xlet_autop>>
+  xlet`(POSTv v.
+     STDIO fs *
+     SEP_EXISTS res.
+     &(
+        SUM_TYPE STRING_TYPE PBC_CONCL_TYPE res v ∧
+        case res of
+          INR concl =>
+            sem_concl (set y) NONE concl
+        | INL l => T))`
   >- (
     xapp>>xsimpl>>
-    rw[]>>fs[pbf_vars_full_encode,success_string_v_thm ]>>
-    fs[FILENAME_def,validArg_def]>>
+    fs[validArg_def]>>
+    asm_exists_tac>>simp[]>>
+    qexists_tac`emp`>>simp[]>>
+    qexists_tac`(NONE,y)`>>
+    simp[PAIR_TYPE_def,OPTION_TYPE_def]>>
+    qexists_tac`f3`>>fs[FILENAME_def]>>
+    xsimpl>>
     metis_tac[])>>
-  Cases_on`res`>>fs[SUM_TYPE_def]>>xmatch
+  xlet_autop>>
+  every_case_tac>>gvs[SUM_TYPE_def]
+  >- (
+    fs[res_to_string_def,SUM_TYPE_def]>>
+    xmatch>>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    qexists_tac`strlit ""`>>
+    rename1`add_stderr _ err`>>
+    qexists_tac`err`>>xsimpl>>rw[]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    xsimpl)>>
+  fs[res_to_string_def]>>
+  every_case_tac>>fs[SUM_TYPE_def]>>xmatch
   >- (
     xapp_spec output_stderr_spec \\ xsimpl>>
     asm_exists_tac>>xsimpl>>
@@ -315,47 +337,67 @@ Proof
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     qexists_tac`strlit ""`>>
-    qexists_tac`x`>>
-    xsimpl>>rw[]>>
-    fs[success_string_not_nil,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-    xsimpl)>>
-  xapp>>asm_exists_tac>>xsimpl>>
-  qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
+    rename1`add_stderr _ err`>>
+    qexists_tac`err`>>xsimpl>>rw[]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    xsimpl)
+  >- (
+    xapp>>xsimpl>>
+    asm_exists_tac>>simp[]>>
+    qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    qexists_tac`SAT_string`>>simp[]>>
+    qexists_tac`strlit ""`>>
+    simp[STD_streams_stderr,add_stdo_nil]>>
+    xsimpl>>
+    (drule_at Any) full_encode_sem_concl>>
+    fs[]>>
+    impl_tac >-
+      (fs[get_graph_def]>>every_case_tac>>gvs[])>>
+    simp[])
+  >- (
+    xapp>>xsimpl>>
+    asm_exists_tac>>simp[]>>
+    qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    qexists_tac`UNSAT_string`>>simp[]>>
+    qexists_tac`strlit ""`>>
+    simp[STD_streams_stderr,add_stdo_nil]>>
+    xsimpl>>
+    (drule_at Any) full_encode_sem_concl>>
+    fs[]>>
+    impl_tac >-
+      (fs[get_graph_def]>>every_case_tac>>gvs[])>>
+    simp[])>>
+  xapp_spec output_stderr_spec \\ xsimpl>>
+  asm_exists_tac>>xsimpl>>
+  qexists_tac`emp`>>xsimpl>>
+  qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`success_string`>>simp[]>>
   qexists_tac`strlit ""`>>
-  simp[STD_streams_stderr,add_stdo_nil]>>
-  xsimpl>>
-  metis_tac[get_graph_good_graph,full_encode_correct,pbcTheory.unsatisfiable_def]
+  rename1`add_stderr _ err`>>
+  qexists_tac`err`>>xsimpl>>rw[]>>
+  fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+  xsimpl
 QED
-
-Definition print_pbf_def:
-  print_pbf f = MAP pbc_string f
-End
-
-val res = translate pb_parseTheory.lit_string_def;
-val res = translate pb_parseTheory.lhs_string_def;
-val res = translate pb_parseTheory.op_string_def;
-val res = translate pb_parseTheory.pbc_string_def;
-val res = translate print_pbf_def;
-
-val check_unsat_2 = (append_prog o process_topdecs) `
-  fun check_unsat_2 f1 f2 =
-    case parse_and_enc f1 f2 of
-    Inl err => TextIO.output TextIO.stdErr err
-  | Inr fml =>
-    TextIO.print_list (print_pbf fml)`
 
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 f2 out ⇔
   case get_graph fs f1 of
     NONE => out = strlit ""
-  | SOME pattern =>
+  | SOME gpp =>
   case get_graph fs f2 of
     NONE => out = strlit ""
-  | SOME target =>
-    out = concat (print_pbf (full_encode pattern target))
+  | SOME gtt =>
+    out = concat (print_pbf (NONE, full_encode gpp gtt))
 End
+
+val check_unsat_2 = (append_prog o process_topdecs) `
+  fun check_unsat_2 f1 f2 =
+  case parse_and_enc f1 f2 of
+    Inl err => TextIO.output TextIO.stdErr err
+  | Inr fml =>
+    TextIO.print_list (print_pbf (None,fml))`
 
 Theorem check_unsat_2_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -363,7 +405,7 @@ Theorem check_unsat_2_spec:
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_2"(get_ml_prog_state()))
-    [f1v; f2v]
+    [f1v;f2v]
     (STDIO fs)
     (POSTv uv. &UNIT_TYPE () uv *
     SEP_EXISTS out err.
@@ -374,23 +416,32 @@ Proof
   xcf "check_unsat_2" (get_ml_prog_state ())>>
   reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
   xlet_autop>>
-  Cases_on`res`
+  Cases_on`res`>>fs[SUM_TYPE_def]
   >- (
-    fs[SUM_TYPE_def]>>
-    every_case_tac>>fs[]>>
     xmatch>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     asm_exists_tac>>xsimpl>>
-    qexists_tac`emp`>>xsimpl>>
-    qexists_tac`fs`>>xsimpl>>
+    qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     rw[]>>
-    qexists_tac`x`>>
-    xsimpl>>rw[]>>
-    fs[success_string_not_nil,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-    xsimpl)>>
-  fs[SUM_TYPE_def]>>
+    qexists_tac`x`>>xsimpl)
+  >- (
+    xmatch>>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
+    every_case_tac>>xsimpl>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    rw[]>>
+    qexists_tac`x`>>xsimpl)>>
   xmatch>>
   xlet_autop>>
+  xlet_autop>>
+  xlet`POSTv v. STDIO fs *
+    &(LIST_TYPE STRING_TYPE (print_pbf (NONE,y)) v)`
+  >- (
+    xapp>>xsimpl>>
+    qexists_tac`(NONE,y)`>>simp[PAIR_TYPE_def,OPTION_TYPE_def])>>
   xapp_spec print_list_spec>>xsimpl>>
   asm_exists_tac>>xsimpl>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
@@ -401,7 +452,7 @@ Proof
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: subgraph_iso_encode <LAD file (pattern)> <LAD file (target)> <optional: proof file>\n"
+  usage_string = strlit "Usage: cake_pb_iso <LAD file (pattern)> <LAD file (target)> <optional: PB proof file>\n"
 End
 
 val r = translate usage_string_def;
@@ -423,9 +474,8 @@ Definition main_sem_def:
 End
 
 Theorem STDIO_refl:
-  (STDIO A ==>> STDIO A) ∧
-  (STDIO A ==>>
-  STDIO A * GC)
+  STDIO A ==>>
+  STDIO A * GC
 Proof
   xsimpl
 QED
@@ -458,7 +508,7 @@ Proof
     simp [theorem "usage_string_v_thm"] >>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    fs[success_string_not_nil,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     metis_tac[STDIO_refl])>>
   Cases_on`t'`>>fs[LIST_TYPE_def]
   >- (
@@ -470,26 +520,21 @@ Proof
     simp [theorem "usage_string_v_thm"] >>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    fs[success_string_not_nil,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     metis_tac[STDIO_refl])>>
   Cases_on`t`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
-    xapp>>fs[]>>
-    rw[]>>
+    xapp>>rw[]>>
+    rpt(first_x_assum (irule_at Any)>>xsimpl)>>
     fs[wfcl_def]>>
-    first_x_assum (irule_at Any)>>xsimpl>>
-    first_x_assum (irule_at Any)>>xsimpl>>
-    first_x_assum (irule_at Any)>>xsimpl>>
-    rw[]>>
-    metis_tac[STDIO_refl])>>
+    rw[]>>metis_tac[STDIO_refl])>>
   Cases_on`t'`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
     xapp>>rw[]>>
+    rpt(first_x_assum (irule_at Any)>>xsimpl)>>
     fs[wfcl_def]>>
-    rename1`COMMANDLINE cl`>>
-    qexists_tac`COMMANDLINE cl`>>xsimpl>>
     rw[]>>metis_tac[STDIO_refl])>>
   xmatch>>
   xapp_spec output_stderr_spec \\ xsimpl>>
@@ -499,7 +544,7 @@ Proof
   simp [theorem "usage_string_v_thm"] >>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  fs[success_string_not_nil,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+  fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
   metis_tac[STDIO_refl]
 QED
 
