@@ -8269,42 +8269,37 @@ Proof
             pos_val_APPEND2 >>
           gvs[] >>
           pop_assum kall_tac >>
-          
-(*          drule_then drule $ GEN_ALL no_share_mem_lemma >>
+          drule_then drule $ GEN_ALL no_share_mem_lemma >>
           impl_tac >- (
-            rev_drule_then assume_tac code_similar_sym >>
-            drule $ GEN_ALL code_similar_IMP_both_no_install_or_no_share_mem >>
-            metis_tac[]
-          ) >> *)
+            irule code_similar_IMP_both_no_install_or_no_share_mem >>
+            metis_tac[code_similar_sym]
+          ) >>
+          strip_tac >>
+          drule_then assume_tac bytes_in_mem_IMP >>
+          drule_then assume_tac bytes_in_memory_in_domain >>
+          gvs[buffer_flush_def] >>
+          drule_all $ GEN_ALL asm_fetch_aux_pos_val_SUC >>
+          disch_then $ qspec_then `0` assume_tac >>
+          drule_then (qspecl_then [`pc'+1`,`0`] (assume_tac o SIMP_RULE(srw_ss())[]))
+            pos_val_bound >>
+          `a + pos_val pc' 0 sec_list < LENGTH (prog_to_bytes sec_list)` by
+            gvs[addressTheory.word_arith_lemma1] >>
+          first_x_assum drule >>
+          gvs[addressTheory.word_arith_lemma1] >>
+          qmatch_goalsub_abbrev_tac `ffi_pc IN _` >> 
           (* sec_list is the newly installed code *)
           (* show that DISJOINT (set mc_conf.ffi_entry_pcs)
             {p + n2w a + n2w (pos_val pc 0 code2 ++ sec_list) |
              a < LENGTH (line_bytes line)}) is true*)
           cheat)
-      \\ gvs[no_install_or_no_share_mem_def]
-      >- (
-        disj1_tac
-        \\ irule no_share_mem_APPEND
-        \\ simp[] )
-      >-(
-        (*`no_install_or_no_share_mem code2 mc_conf.ffi_names` by (
-          gvs[no_install_or_no_share_mem_def]) *)
-        disj1_tac 
-        \\ rw[]
-        >- (
-          irule no_share_mem_APPEND >>
-          simp[] >>
-          gvs[no_install_or_no_share_mem_def,asm_fetch_def,no_install_def] >>
-          rev_drule code_similar_IMP_asm_fetch_aux_line_similar >>
-          simp[OPTREL_def,line_similar_def,AllCaseEqs()] >>
-          disch_then $ qspec_then `s1.pc` assume_tac >>
-          gvs[] >>
-          qmatch_assum_rename_tac `asm_fetch_aux s1.pc code2 = SOME z0` >>
-          Cases_on `z0` >>
-          gvs[line_similar_def]
-        )
-      )
-      
+      \\ gvs[no_install_def,no_install_or_no_share_mem_def,asm_fetch_def]
+      \\ spose_not_then kall_tac
+      \\ rev_drule code_similar_IMP_asm_fetch_aux_line_similar
+      \\ disch_then $ qspec_then `s1.pc` assume_tac
+      \\ gvs[OPTREL_def]
+      \\ rename1 `line_similar _ line0`
+      \\ Cases_on `line0`
+      \\ gvs[line_similar_def]
     )
     \\ disch_then(qx_choose_then`k`strip_assume_tac)
     \\ first_x_assum(qspec_then`s1.clock+k`assume_tac)
@@ -8394,7 +8389,7 @@ Proof
     \\ full_simp_tac(srw_ss())[reg_ok_def]
     \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
 QED
-*)
+
 
 (* relating observable semantics *)
 
