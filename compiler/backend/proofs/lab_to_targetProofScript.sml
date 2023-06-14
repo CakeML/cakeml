@@ -9272,6 +9272,16 @@ Proof
   gvs[]
 QED
 
+Theorem code_similar_IMP_get_shmem_info_same:
+!code p l l'.
+  code_similar code code2 ==>
+  get_shmem_info code p l l' = get_shmem_info code2 p l l'
+Proof
+  rw[] >>
+  drule_all code_similar_IMP_asm_fetch_aux_line_similar >>
+  
+QED
+
 Theorem make_init_mmio_pcs_min_index:
   mc_conf_ok mc_conf /\
   good_code mc_conf.target.config LN code /\
@@ -9279,7 +9289,7 @@ Theorem make_init_mmio_pcs_min_index:
     SOME (code2,labs) /\
   good_init_state mc_conf ms (prog_to_bytes code2)
     cbspace t m dm sdm io_regs cc_regs /\
-  get_shmem_info code2
+  get_shmem_info code
     (w2n $ mc_conf.target.get_pc ms)
     (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite")
     (find_ffi_names code)) [] =
@@ -9312,7 +9322,7 @@ Theorem asm_fetch_NOT_ffi_entry_pcs:
   LENGTH (prog_to_bytes code2) < dimword (:'a) /\
   mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
   LENGTH mc_conf.ffi_names = LENGTH mc_conf.ffi_entry_pcs /\
-  all_enc_ok mc_conf.target.config labs mc_conf.ffi_names 0 (code2:'a sec list) /\
+  all_enc_ok mc_conf.target.config labs ffi_names 0 (code2:'a sec list) /\
   enc_ok mc_conf.target.config /\
   (∀index.
     index < i ⇒
@@ -9366,21 +9376,20 @@ val IMP_state_rel_make_init = Q.prove(
   `good_code mc_conf.target.config LN (code: 'a sec list) ∧
    mc_conf_ok mc_conf ∧
    compiler_oracle_ok coracle labs (LENGTH (prog_to_bytes code2)) mc_conf.target.config mc_conf.ffi_names ∧
-   list_subset (find_ffi_names code) mc_conf.ffi_names ∧
-   remove_labels clock mc_conf.target.config 0 LN mc_conf.ffi_names code =
+   list_subset (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") (find_ffi_names code)) mc_conf.ffi_names ∧
+   remove_labels clock mc_conf.target.config 0 LN (TAKE i mc_conf.ffi_names) code =
       SOME (code2,labs) /\
    good_init_state mc_conf ms (prog_to_bytes code2)
       cbspace t m dm sdm io_regs cc_regs /\
-    (* TODO *)
    get_shmem_info code2
      (w2n $ mc_conf.target.get_pc ms)
      (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite")
      (find_ffi_names code)) [] =
-   (new_ffi_names, new_shmem_info) /\
-   mc_conf.ffi_names = new_ffi_names /\
+   (mc_conf.ffi_names, new_shmem_info) /\
    mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
    MAP FST new_shmem_info = DROP i (mc_conf.ffi_entry_pcs) /\
-   (mc_conf.mmio_info = \index. EL (index - i) $ MAP SND new_shmem_info)
+   (mc_conf.mmio_info = \index. EL (index - i) $ MAP SND new_shmem_info) /\
+   no_install_or_no_share_mem code mc_conf.ffi_names
    (* /\
    share_mem_domain_code_rel mc_conf (mc_conf.target.get_pc ms) code2 sdm *)
    ==>
@@ -9388,7 +9397,7 @@ val IMP_state_rel_make_init = Q.prove(
        mc_conf.target.get_pc ms)
      (make_init mc_conf (ffi:'ffi ffi_state) io_regs cc_regs t m dm sdm ms code
       compile_lab (mc_conf.target.get_pc ms+n2w(LENGTH(prog_to_bytes code2))) cbspace coracle) t ms`,
-  rw[] \\ drule remove_labels_thm
+  rw[] \\ drule $ GEN_ALL remove_labels_thm
   \\ impl_tac >- (
     fs[good_code_def,mc_conf_ok_def]
     \\ rw[lab_lookup_def]>>
@@ -9485,19 +9494,22 @@ val IMP_state_rel_make_init = Q.prove(
     )
     \\ gvs[]
   )
-  \\ qpat_x_assum `!pc line. asm_fetch_aux _ _ = _ /\ _ ==> _` imp_res_tac
-  \\ gvs[IN_DISJOINT]
-  \\ rw[]
-  \\ pop_assum $ qspec_then `x` assume_tac
-  \\ gvs[]
-  \\ spose_not_then assume_tac
-  \\ `LENGTH (prog_to_bytes code2) < dimword (:α)` by gvs[]
-  \\ drule $ GEN_ALL asm_fetch_NOT_ffi_entry_pcs
-  \\ rpt $ disch_then $ drule_at Any
-  \\ rw[]
-  \\ qexists_tac `a`
-  \\ gvs[]
-  \\ metis_tac[MEM_APPEND,TAKE_DROP]
+  >- (
+    qpat_x_assum `!pc line. asm_fetch_aux _ _ = _ /\ _ ==> _` imp_res_tac
+    \\ gvs[IN_DISJOINT]
+    \\ rw[]
+    \\ pop_assum $ qspec_then `x` assume_tac
+    \\ gvs[]
+    \\ spose_not_then assume_tac
+    \\ `LENGTH (prog_to_bytes code2) < dimword (:α)` by gvs[]
+    \\ drule $ GEN_ALL asm_fetch_NOT_ffi_entry_pcs
+    \\ rpt $ disch_then $ drule_at Any
+    \\ rw[]
+    \\ qexists_tac `a`
+    \\ gvs[]
+    \\ metis_tac[MEM_APPEND,TAKE_DROP]
+  )
+  \\ drule_then (drule_then irule) $ GEN_ALL code_similar_IMP_both_no_install_or_no_share_mem
 );
 
 Theorem make_init_simp[simp]:
@@ -9618,6 +9630,106 @@ Proof
   IF_CASES_TAC>>fs[ALL_DISTINCT_APPEND]
 QED
 
+Theorem not_not_skip_IMP_Skip:
+  ~not_skip inst' ==> ?l n. inst' = Asm (Asmi (Inst Skip)) l n
+Proof
+  Cases_on `inst'` >>
+  gvs[lab_filterTheory.not_skip_def] >>
+  Cases_on `a` >>
+  gvs[lab_filterTheory.not_skip_def] >>
+  Cases_on `a'` >>
+  gvs[lab_filterTheory.not_skip_def] >>
+  Cases_on `i` >> 
+  gvs[lab_filterTheory.not_skip_def]
+QED
+
+Theorem asm_fetch_aux_filter_skip:
+!code p.
+  not_skip inst' /\
+  asm_fetch_aux p (filter_skip code) = SOME inst' ==>
+  ?p'. asm_fetch_aux p' code = SOME inst'
+Proof
+  ho_match_mp_tac num_pcs_ind >>
+  gvs[asm_fetch_aux_def,lab_filterTheory.filter_skip_def] >>
+  rw[] >>
+  rename1 `is_Label x` >>
+  Cases_on `x`
+  >- (gvs[lab_filterTheory.not_skip_def,asm_fetch_aux_def] >> metis_tac[])
+  >- (
+    gvs[asm_fetch_aux_def] >>
+    Cases_on `p`
+    >- (gvs[] >- metis_tac[]) >>
+    gvs[] >>
+    res_tac >>
+    qexists `p'+1` >>
+    gvs[]
+  )
+  >- (
+    gvs[lab_filterTheory.not_skip_def,asm_fetch_aux_def] >>
+    Cases_on `p`
+    >- metis_tac[] >>
+    gvs[asm_fetch_aux_def] >>
+    res_tac >>
+    qexists `p'+1` >>
+    gvs[]
+  )
+  >- gvs[lab_filterTheory.not_skip_def,asm_fetch_aux_def]
+  >- (
+    drule_then assume_tac not_not_skip_IMP_Skip >>
+    gvs[] >>
+    res_tac >>
+    qexists `p'+1` >>
+    gvs[]
+  )
+  >- gvs[lab_filterTheory.not_skip_def,asm_fetch_aux_def]
+QED
+
+Theorem no_share_mem_IMP_no_share_mem_filter_skip:
+!code.
+  no_share_mem_inst code ==> no_share_mem_inst (filter_skip code)
+Proof
+  gvs[no_share_mem_inst_def] >>
+  rw[] >>
+  spose_not_then assume_tac >>
+  last_x_assum mp_tac >>
+  fs[] >>
+  drule_at (Pos $ el 2) asm_fetch_aux_filter_skip >>
+  gvs[lab_filterTheory.not_skip_def] >>
+  metis_tac[]
+QED
+
+Theorem list_subset_refl:
+!i xs.
+  list_subset xs xs
+Proof
+  Induct_on  >>
+  gvs[] >>
+  rw[] >>
+  drule_at_then Any irule MONO_EVERY >>
+  simp[]
+QED
+
+Theorem list_subset_TAKE:
+!i xs.
+  list_subset (TAKE i xs) xs
+Proof
+  Induct_on `xs` >>
+  gvs[list_subset_def] >>
+  Induct_on `i` >>
+  gvs[] >>
+  rw[] >>
+  first_x_assum $ qspec_then `i` assume_tac >>
+  drule_at_then Any irule MONO_EVERY >>
+  gvs[]
+QED
+
+Theorem no_install_or_no_share_mem_filter_skip:
+  no_install_or_no_share_mem code ffi_names ==>
+  no_install_or_no_share_mem (filter_skip code) ffi_names
+Proof
+  
+QED
+
 val semantics_compile_lemma = Q.prove(
   ` mc_conf_ok mc_conf ∧
     compiler_oracle_ok coracle c'.labels (LENGTH bytes) c.asm_conf mc_conf.ffi_names ∧
@@ -9627,16 +9739,16 @@ val semantics_compile_lemma = Q.prove(
     c.asm_conf = mc_conf.target.config /\
     c.labels = LN ∧ c.pos = 0 ∧
     lab_to_target$compile (c:'a lab_to_target$config) code = SOME (bytes,c') /\
-    get_shmem_info q
-     (w2n $ mc_conf.target.get_pc ms)
-     old_ffi_names [] = (new_ffi_names, shmem_info) /\
+    mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
+    remove_labels c.init_clock mc_conf.target.config 0 LN (TAKE i mc_conf.ffi_names) (filter_skip code)
+      = SOME (code2,labs) /\
     (* FFI is either given or computed *)
-    c'.ffi_names = SOME $ old_ffi_names /\
-    mc_conf.ffi_names = new_ffi_names /\
+    c'.ffi_names = SOME $ C_FFI_NAMES /\ (* probably TAKE i mc_conf.ffi_names *)
     good_init_state mc_conf ms bytes cbspace t m dm sdm io_regs cc_regs /\
     (* set up mmio_info and ffi_entry_pcs for mmio *)
     MAP FST shmem_info = DROP i mc_conf.ffi_entry_pcs /\
     mc_conf.mmio_info = (λindex. EL (index − i) (MAP SND shmem_info)) /\
+    no_install_or_no_share_mem code mc_conf.ffi_names /\
     semantics (make_init mc_conf ffi io_regs cc_regs t m dm sdm ms code
       lab_to_target$compile (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
       coracle
@@ -9654,8 +9766,6 @@ val semantics_compile_lemma = Q.prove(
   `compile =  (λc p. compile_lab c (filter_skip p)) ` by
     fs[FUN_EQ_THM,compile_def]>>
   pop_assum SUBST_ALL_TAC>>
-  Cases_on `get_shmem_info q (w2n $ mc_conf.target.get_pc ms)
-    (FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite") ffis) []` >>
   gvs[] >>
   fs[GSYM make_init_filter_skip]>>
   SIMP_TAC (bool_ss) [Once WORD_ADD_COMM]>>
@@ -9667,7 +9777,7 @@ val semantics_compile_lemma = Q.prove(
     fs[good_code_def] >>
     fs[sec_ends_with_label_filter_skip,all_enc_ok_pre_filter_skip]>>
     fs[GSYM ALL_EL_MAP])>>
-  qexistsl [`r'`,`r`]>>fs[good_init_state_def]>>
+  qexistsl [`shmem_info`,`labs`]>>fs[good_init_state_def]>>
   conj_tac >- (
     fs[compiler_oracle_ok_def] >>
     pairarg_tac>> fs[]>>
@@ -9678,11 +9788,23 @@ val semantics_compile_lemma = Q.prove(
     pairarg_tac \\ fs[] \\ rw[] \\
     fs[good_code_def]>>
     fs[sec_ends_with_label_filter_skip,all_enc_ok_pre_filter_skip]>>
-    fs[GSYM ALL_EL_MAP])>>
-  conj_tac >- cheat >>
+    fs[GSYM ALL_EL_MAP] >>
+    metis_tac[no_share_mem_IMP_no_share_mem_filter_skip]
+  )>>
+  conj_tac >- (
+    Cases_on `c.ffi_names` >>
+    gvs[] >>
+    (* use FILTER_mmio_pcs_min_index to prove FILTER ...(find_ffi_names code) = TAKE i mc_conf.ffi_names *)
+  ) >>
   conj_tac >- (
     qexists `c.init_clock` >> gvs[]
-  )
+    (* if C_FFI_NAMES = TAKE i mc_conf.ffi_names then this can be solved *)
+  ) >>
+  conj_tac >- (
+   cheat  
+  ) >>
+  gvs[] >>
+  rw[]
   last_x_assum mp_tac \\
   CASE_TAC \\ fs[] \\ rw[] \\
   metis_tac[])
