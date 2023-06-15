@@ -834,7 +834,6 @@ Proof
   first_x_assum $ qspec_then ‘m’ assume_tac>>gs[]
 QED
 
-(* new *)
 Theorem pan_to_target_compile_semantics:
   pan_to_target$compile_prog c pan_code = SOME (bytes, bitmaps, c') ∧
   pancake_good_code pan_code ∧
@@ -1820,6 +1819,190 @@ Proof
         drule_all word_to_word_compile_no_install>>strip_tac>>gs[]>>
         drule_all word_to_word_compile_no_mt>>strip_tac>>gs[])>>
   drule no_alloc_word_evaluate>>gs[]
+QED
+
+Theorem inst_stack_size_const_panLang:
+  ∀i s t.
+  wordSem$inst i s = SOME t ∧
+  no_install_code s.code ∧
+  no_alloc_code s.code ∧
+  no_mt_code s.code ⇒
+  t.stack_size = s.stack_size
+Proof
+  Induct>>rw[wordSemTheory.inst_def,wordSemTheory.assign_def]>>
+  rpt (FULL_CASE_TAC>>
+       fs[wordSemTheory.word_exp_def,
+          wordSemTheory.set_var_def,
+          wordSemTheory.mem_store_def,
+          wordSemTheory.get_fp_var_def,
+          wordSemTheory.get_var_def,
+          wordSemTheory.get_vars_def])>>gvs[]
+QED
+
+Theorem inst_stack_limit_const_panLang:
+  ∀i s t.
+  wordSem$inst i s = SOME t ∧
+  no_install_code s.code ∧
+  no_alloc_code s.code ∧
+  no_mt_code s.code ⇒
+  t.stack_limit = s.stack_limit
+Proof
+  Induct>>rw[wordSemTheory.inst_def,wordSemTheory.assign_def]>>
+  rpt (FULL_CASE_TAC>>
+       fs[wordSemTheory.word_exp_def,
+          wordSemTheory.set_var_def,
+          wordSemTheory.mem_store_def,
+          wordSemTheory.get_fp_var_def,
+          wordSemTheory.get_var_def,
+          wordSemTheory.get_vars_def])>>gvs[]
+QED
+
+Theorem inst_stack_max_const_panLang:
+  ∀i s t.
+  wordSem$inst i s = SOME t ∧
+  no_install_code s.code ∧
+  no_alloc_code s.code ∧
+  no_mt_code s.code ⇒
+  t.stack_max = s.stack_max
+Proof
+  Induct>>rw[wordSemTheory.inst_def,wordSemTheory.assign_def]>>
+  rpt (FULL_CASE_TAC>>
+       fs[wordSemTheory.word_exp_def,
+          wordSemTheory.set_var_def,
+          wordSemTheory.mem_store_def,
+          wordSemTheory.get_fp_var_def,
+          wordSemTheory.get_var_def,
+          wordSemTheory.get_vars_def])>>gvs[]
+QED
+
+Theorem evaluate_stack_size_const_panLang:
+  ∀prog s res t.
+  wordSem$evaluate (prog, s) = (res,t) ∧
+  no_install prog ∧ no_install_code s.code ∧
+  no_alloc prog ∧ no_alloc_code s.code ∧
+  no_mt prog ∧ no_mt_code s.code ⇒
+  t.stack_size = s.stack_size
+Proof
+  recInduct wordSemTheory.evaluate_ind>>
+  rw[wordSemTheory.evaluate_def,wordSemTheory.flush_state_def]>>
+  gs[wordPropsTheory.no_install_def,
+     wordPropsTheory.no_alloc_def,
+     wordPropsTheory.no_mt_def]
+  >- (FULL_CASE_TAC>>gs[wordSemTheory.get_var_def]>>
+      FULL_CASE_TAC>>gs[wordSemTheory.set_var_def]>>
+      rpt (FULL_CASE_TAC>>gs[])>>gvs[])
+  >- (rpt (FULL_CASE_TAC>>gs[])>>gvs[])
+  >- (FULL_CASE_TAC>>gs[]>>
+      drule_all inst_stack_size_const_panLang>>rw[])
+  >- (FULL_CASE_TAC>>gs[]>>gvs[])
+  >- (FULL_CASE_TAC>>gs[]>>gvs[])
+  >- (FULL_CASE_TAC>>gs[]>>gvs[])
+  >- (FULL_CASE_TAC>>gs[wordSemTheory.set_var_def]>>gvs[])
+  >- (rpt (FULL_CASE_TAC>>gs[])>>
+      gvs[wordSemTheory.get_var_def,wordSemTheory.mem_store_def])
+  >- (pairarg_tac>>gs[]>>
+      rename1 ‘evaluate _ = (res', s1)’>>Cases_on ‘res'’>>gs[]>>
+      drule_all wordPropsTheory.no_install_evaluate_const_code>>
+      strip_tac>>gs[])
+  >- (rpt (FULL_CASE_TAC>>gs[wordSemTheory.get_var_def])>>gvs[])
+  >- (rpt (FULL_CASE_TAC>>
+           gs[wordSemTheory.get_var_def,
+              wordSemTheory.jump_exc_def])>>gvs[])
+  >- (rpt (FULL_CASE_TAC>>
+           gs[wordSemTheory.get_var_def,
+              wordSemTheory.get_var_imm_def])>>gvs[])
+  >- (rpt (FULL_CASE_TAC>>
+           gs[wordSemTheory.get_var_def,
+              wordSemTheory.buffer_write_def])>>gvs[])
+  >- (rpt (FULL_CASE_TAC>>
+           gs[wordSemTheory.get_var_def,
+              wordSemTheory.buffer_write_def])>>gvs[])
+  >- (rpt (FULL_CASE_TAC>>
+           gs[wordSemTheory.get_var_def,
+              miscTheory.read_bytearray_def,
+              wordSemTheory.mem_load_byte_aux_def,
+              wordSemTheory.cut_env_def])>>
+      gvs[wordSemTheory.flush_state_def])>>
+  Cases_on ‘get_vars args s’>>gs[]>>
+  Cases_on ‘bad_dest_args dest args’>>gs[]>>
+  Cases_on ‘find_code dest (add_ret_loc ret x) s.code s.stack_size’>>gs[]>>
+  rename1 ‘SOME q’>>PairCases_on ‘q’>>gs[]>>
+  drule_at Any wordPropsTheory.no_install_find_code>>strip_tac>>
+  drule_all wordPropsTheory.no_alloc_find_code>>strip_tac>>
+  drule_all wordPropsTheory.no_mt_find_code>>strip_tac>>
+  gs[wordSemTheory.set_var_def,
+     wordSemTheory.call_env_def,
+     wordSemTheory.pop_env_def]>>
+  Cases_on ‘ret’>>Cases_on ‘handler’>>rename1 ‘SOME x'’>>gs[]
+  >- (rpt (FULL_CASE_TAC>>gs[])>>gvs[])>>
+  rename1 ‘add_ret_loc (SOME x') _’>>PairCases_on ‘x'’>>gs[]>>
+  rpt (FULL_CASE_TAC>>gs[])>>gvs[]>>
+  rev_drule wordPropsTheory.no_install_evaluate_const_code>>strip_tac>>gs[]
+QED
+
+Theorem evaluate_stack_limit_const_panLang:
+  ∀prog s res t.
+  wordSem$evaluate (prog, s) = (res,t) ∧
+  no_install prog ∧ no_install_code s.code ∧
+  no_alloc prog ∧ no_alloc_code s.code ∧
+  no_mt prog ∧ no_mt_code s.code ⇒
+  t.stack_limit = s.stack_limit
+Proof
+  recInduct wordSemTheory.evaluate_ind>>
+  rw[wordSemTheory.evaluate_def,wordSemTheory.flush_state_def]>>
+  gs[wordPropsTheory.no_install_def,
+     wordPropsTheory.no_alloc_def,
+     wordPropsTheory.no_mt_def]
+  >- (FULL_CASE_TAC>>gs[wordSemTheory.get_var_def]>>
+      FULL_CASE_TAC>>gs[wordSemTheory.set_var_def]>>
+      rpt (FULL_CASE_TAC>>gs[])>>gvs[])
+  >- (rpt (FULL_CASE_TAC>>gs[])>>gvs[])
+  >- (FULL_CASE_TAC>>gs[]>>
+      drule_all inst_stack_limit_const_panLang>>rw[])
+  >- (FULL_CASE_TAC>>gs[]>>gvs[])
+  >- (FULL_CASE_TAC>>gs[]>>gvs[])
+  >- (FULL_CASE_TAC>>gs[]>>gvs[])
+  >- (FULL_CASE_TAC>>gs[wordSemTheory.set_var_def]>>gvs[])
+  >- (rpt (FULL_CASE_TAC>>gs[])>>
+      gvs[wordSemTheory.get_var_def,wordSemTheory.mem_store_def])
+  >- (pairarg_tac>>gs[]>>
+      rename1 ‘evaluate _ = (res', s1)’>>Cases_on ‘res'’>>gs[]>>
+      drule_all wordPropsTheory.no_install_evaluate_const_code>>
+      strip_tac>>gs[])
+  >- (rpt (FULL_CASE_TAC>>gs[wordSemTheory.get_var_def])>>gvs[])
+  >- (rpt (FULL_CASE_TAC>>
+           gs[wordSemTheory.get_var_def,
+              wordSemTheory.jump_exc_def])>>gvs[])
+  >- (rpt (FULL_CASE_TAC>>
+           gs[wordSemTheory.get_var_def,
+              wordSemTheory.get_var_imm_def])>>gvs[])
+  >- (rpt (FULL_CASE_TAC>>
+           gs[wordSemTheory.get_var_def,
+              wordSemTheory.buffer_write_def])>>gvs[])
+  >- (rpt (FULL_CASE_TAC>>
+           gs[wordSemTheory.get_var_def,
+              wordSemTheory.buffer_write_def])>>gvs[])
+  >- (rpt (FULL_CASE_TAC>>
+           gs[wordSemTheory.get_var_def,
+              miscTheory.read_bytearray_def,
+              wordSemTheory.mem_load_byte_aux_def,
+              wordSemTheory.cut_env_def])>>
+      gvs[wordSemTheory.flush_state_def])>>
+  Cases_on ‘get_vars args s’>>gs[]>>
+  Cases_on ‘bad_dest_args dest args’>>gs[]>>
+  Cases_on ‘find_code dest (add_ret_loc ret x) s.code s.stack_size’>>gs[]>>
+  rename1 ‘SOME q’>>PairCases_on ‘q’>>gs[]>>
+  drule_at Any wordPropsTheory.no_install_find_code>>strip_tac>>
+  drule_all wordPropsTheory.no_alloc_find_code>>strip_tac>>
+  drule_all wordPropsTheory.no_mt_find_code>>strip_tac>>
+  gs[wordSemTheory.set_var_def,
+     wordSemTheory.call_env_def,
+     wordSemTheory.pop_env_def]>>
+  Cases_on ‘ret’>>Cases_on ‘handler’>>rename1 ‘SOME x'’>>gs[]
+  >- (rpt (FULL_CASE_TAC>>gs[])>>gvs[])>>
+  rename1 ‘add_ret_loc (SOME x') _’>>PairCases_on ‘x'’>>gs[]>>
+  rpt (FULL_CASE_TAC>>gs[])>>gvs[]>>
+  rev_drule wordPropsTheory.no_install_evaluate_const_code>>strip_tac>>gs[]
 QED
 
 val _ = export_theory();
