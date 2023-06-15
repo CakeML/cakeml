@@ -12077,7 +12077,8 @@ Proof
   \\ qpat_x_assum `LENGTH xs = _` (assume_tac o GSYM)
   \\ rw []
   \\ match_mp_tac (Q.INST [`sp`|->`sp+sp1`] (SPEC_ALL v_inv_list_to_v))
-  \\ unlength_tac [heap_expand_def]);
+  \\ unlength_tac [heap_expand_def]
+QED
 
 Theorem memory_rel_append:
    memory_rel c be ts refs sp st m1 dm
