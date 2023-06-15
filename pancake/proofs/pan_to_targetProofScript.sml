@@ -2005,4 +2005,13 @@ Proof
   rev_drule wordPropsTheory.no_install_evaluate_const_code>>strip_tac>>gs[]
 QED
 
+Definition compile_prog_max_def:
+  compile_prog_max c prog =
+    let prog = pan_to_word$compile_prog prog in
+    let (col,wprog) = word_to_word$compile c.word_to_word_conf c.lab_conf.asm_conf prog in
+    let (bm,c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf wprog in
+    let max = max_depth c'.stack_frame_size (full_call_graph InitGlobals_location (fromAList wprog)) in
+      (from_stack c LN p bm, max)
+End
+
 val _ = export_theory();
