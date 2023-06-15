@@ -13587,7 +13587,10 @@ QED
 
 Theorem assign_Build:
    (∃parts. op = Build parts) ==> ^assign_thm_goal
-Proof
+Proof[exclude_simps = EXP_LE_LOG_SIMP EXP_LT_LOG_SIMP LE_EXP_LOG_SIMP
+                      LT_EXP_LOG_SIMP LOG_NUMERAL EXP_LT_1
+                      ONE_LE_EXP TWO_LE_EXP
+]
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
