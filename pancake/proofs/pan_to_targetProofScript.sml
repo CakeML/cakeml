@@ -2014,4 +2014,15 @@ Definition compile_prog_max_def:
       (from_stack c LN p bm, max)
 End
 
+Definition option_lt_def[simp]:
+  (option_lt n0 NONE ⇔ T) ∧ (option_lt NONE (SOME n1) ⇔ F) ∧
+  (option_lt (SOME n1) (SOME n2) ⇔ n1 < n2:num)
+End
+
+Theorem option_lt_SOME:
+  option_lt x (SOME n) = (∃m. x = SOME m ∧ m < n)
+Proof
+  Cases_on ‘x’>>fs[]
+QED
+
 val _ = export_theory();
