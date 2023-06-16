@@ -2025,13 +2025,6 @@ Proof
   Cases_on ‘x’>>fs[]
 QED
 
-Theorem read_mem_length:
-  ∀len ptr m.
-  LENGTH (read_mem ptr m len) = len
-Proof
-  Induct>>gs[stack_removeProofTheory.read_mem_def]
-QED
-
 (* resource_limit' *)
 Theorem pan_to_target_compile_semantics':
   compile_prog_max c pan_code = (SOME (bytes, bitmaps, c'), stack_max) ∧
@@ -2905,7 +2898,7 @@ Proof
   qpat_x_assum ‘_ = sst’ $ assume_tac o GSYM>>gs[]>>
   qpat_x_assum ‘_ = x’ $ assume_tac o GSYM>>gs[]>>
   gs[stack_removeProofTheory.init_reduce_def]>>
-  gs[read_mem_length]>>
+  gs[stack_removeProofTheory.LENGTH_read_mem]>>
   pop_assum kall_tac>>
   pop_assum kall_tac>>
 
