@@ -18,13 +18,19 @@ Overload word_to_stack_compile[local] = ``word_to_stack$compile``
 Overload stack_to_lab_compile[local] = ``stack_to_lab$compile``
 Overload pan_to_word_compile_prog[local] = ``pan_to_word$compile_prog``
 
+Definition pancake_good_code_def:
+  pancake_good_code pan_code =
+  EVERY (λ(name,params,body). EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of body)) pan_code
+End
+
 Theorem pan_to_lab_good_code_lemma:
   compile c.stack_conf c.data_conf lim1 lim2 offs stack_prog = code ∧
   compile asm_conf3 word_prog = (bm, wc, fs, stack_prog) ∧
   word_to_word$compile word_conf asm_conf3 word_prog0 = (col, word_prog) ∧
-  compile_prog pan_prog = word_prog0 ∧
+  compile_prog asm_conf3.ISA pan_prog = word_prog0 ∧
   stack_to_labProof$labels_ok code ∧
-  all_enc_ok_pre conf code ⇒
+  all_enc_ok_pre conf code
+  ⇒
   lab_to_targetProof$good_code conf LN code
 Proof
   (* start of 'good_code' proof for initial compilation *)
@@ -81,7 +87,7 @@ Proof
 QED
 
 Theorem pan_to_stack_first_ALL_DISTINCT:
-  pan_to_word_compile_prog pan_code = wprog0 ∧
+  pan_to_word_compile_prog mc.target.config.ISA pan_code = wprog0 ∧
   word_to_word_compile c.word_to_word_conf mc.target.config wprog0 = (col,wprog) ∧
   word_to_stack_compile mc.target.config wprog = (bitmaps,c'',fs,p) ∧
   ALL_DISTINCT (MAP FST pan_code) ⇒
@@ -98,11 +104,12 @@ Proof
   strip_tac>>
   gs[GSYM EVERY_MAP]>>EVAL_TAC>>gs[EVERY_MEM]>>
   rw[]>- (first_x_assum $ qspec_then ‘5’ assume_tac>>gs[])>>
-  first_x_assum $ qspec_then ‘6’ assume_tac>>gs[]
+  first_x_assum $ qspec_then ‘6’ assume_tac>>gs[]>>
+  metis_tac[FST,SND,PAIR]
 QED
 
 Theorem pan_to_stack_compile_lab_pres:
-  pan_to_word$compile_prog pan_code = wprog0 ∧
+  pan_to_word$compile_prog mc.target.config.ISA pan_code = wprog0 ∧
   word_to_word_compile c.word_to_word_conf mc.target.config wprog0 =(col,wprog) ∧
   word_to_stack_compile mc.target.config wprog = (bitmaps,c'',fs,p) ∧
   ALL_DISTINCT (MAP FST pan_code) ⇒
@@ -159,7 +166,7 @@ Proof
 QED
 
 Theorem pan_to_lab_labels_ok:
-  pan_to_word_compile_prog pan_code = wprog0 ∧
+  pan_to_word_compile_prog mc.target.config.ISA pan_code = wprog0 ∧
   word_to_word_compile c.word_to_word_conf mc.target.config wprog0 = (col,wprog) ∧
   word_to_stack_compile mc.target.config wprog = (bitmaps,c'',fs,p) ∧
   stack_to_lab_compile c.stack_conf c.data_conf max_heap sp mc.target.config.addr_offset p = lprog ∧
@@ -176,7 +183,7 @@ QED
 
 Theorem word_to_stack_good_code_lemma:
   word_to_word_compile c.word_to_word_conf mc.target.config
-  (pan_to_word_compile_prog pan_code) = (col,wprog) ∧
+  (pan_to_word_compile_prog mc.target.config.ISA pan_code) = (col,wprog) ∧
   word_to_stack_compile mc.target.config wprog = (bitmaps,c'',fs,p) ∧
   LENGTH mc.target.config.avoid_regs + 13 ≤ mc.target.config.reg_count ∧
   (* from backend_config_ok c *)
@@ -187,7 +194,8 @@ Proof
   gs[stack_to_labProofTheory.good_code_def]>>strip_tac>>
   qmatch_asmsub_abbrev_tac ‘word_to_word_compile _ _ wprog0 = _’>>
   qpat_x_assum ‘Abbrev (wprog0 = _)’ (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])>>
-  drule_all pan_to_stack_compile_lab_pres>>strip_tac>>gs[]>>
+  drule_at (Pat ‘word_to_word_compile _ _ _ = _’) pan_to_stack_compile_lab_pres>>
+  disch_then drule_all>>strip_tac>>gs[]>>
   drule backendProofTheory.compile_to_word_conventions2>>
   strip_tac>>
   drule pan_to_wordProofTheory.first_compile_prog_all_distinct>>
@@ -829,6 +837,7 @@ QED
 (* new *)
 Theorem pan_to_target_compile_semantics:
   pan_to_target$compile_prog c pan_code = SOME (bytes, bitmaps, c') ∧
+  pancake_good_code pan_code ∧
   distinct_params pan_code ∧
   consistent_labels s.memory pan_code ∧
   ALL_DISTINCT (MAP FST pan_code) ∧
@@ -968,7 +977,7 @@ Proof
      qpat_assum ‘EVERY _ wprog’ $ irule_at Any>>
      rpt strip_tac>>pairarg_tac>>gs[]>>
      first_x_assum $ irule>>
-     irule pan_to_word_every_inst_ok_less>>metis_tac[])>>
+     irule pan_to_word_every_inst_ok_less>>metis_tac[pancake_good_code_def])>>
     gs[])>>gs[]>>
   first_assum $ irule_at Any>>
   qmatch_goalsub_abbrev_tac ‘labSem$semantics labst’>>
@@ -1211,12 +1220,12 @@ Proof
   (* word_to_word *)
   drule (word_to_wordProofTheory.word_to_word_compile_semantics |> INST_TYPE [beta |-> “: num # 'a lab_to_target$config”])>>
 
-  disch_then (qspecl_then [‘wst’, ‘InitGlobals_location’, ‘wst with code := fromAList (pan_to_word_compile_prog pan_code)’] mp_tac)>>
+  disch_then (qspecl_then [‘wst’, ‘InitGlobals_location’, ‘wst with code := fromAList (pan_to_word_compile_prog mc.target.config.ISA pan_code)’] mp_tac)>>
   gs[]>>
   ‘gc_fun_const_ok wst.gc_fun ∧
-   no_install_code (fromAList (pan_to_word_compile_prog pan_code)) ∧
-   no_alloc_code (fromAList (pan_to_word_compile_prog pan_code)) ∧
-   no_mt_code (fromAList (pan_to_word_compile_prog pan_code))’
+   no_install_code (fromAList (pan_to_word_compile_prog mc.target.config.ISA pan_code)) ∧
+   no_alloc_code (fromAList (pan_to_word_compile_prog mc.target.config.ISA pan_code)) ∧
+   no_mt_code (fromAList (pan_to_word_compile_prog mc.target.config.ISA pan_code))’
     by (conj_tac >- (
          gs[Abbr ‘wst’, word_to_stackProofTheory.make_init_def]>>
          gs[stack_to_labProofTheory.full_make_init_def,
@@ -1237,7 +1246,7 @@ Proof
          metis_tac[])>>
         irule pan_to_word_compile_prog_no_mt_code>>
         metis_tac[])>>gs[]>>
-  ‘ALL_DISTINCT (MAP FST (pan_to_word_compile_prog pan_code)) ∧
+  ‘ALL_DISTINCT (MAP FST (pan_to_word_compile_prog mc.target.config.ISA pan_code)) ∧
    wst.stack = [] ∧ wst.code = fromAList wprog ∧
    lookup 0 wst.locals = SOME (Loc 1 0) ∧
    wst = wst with code := wst.code’
@@ -1374,7 +1383,7 @@ Proof
     reverse conj_asm2_tac>-gs[ALOOKUP_MAP]>>
     gs[stack_removeTheory.init_stubs_def]>>
     mp_tac (GEN_ALL pan_to_wordProofTheory.pan_to_word_compile_prog_lab_min)>>
-    disch_then $ qspecl_then [‘wprog0’,‘pan_code’] mp_tac>>
+    disch_then $ qspecl_then [‘wprog0’,‘pan_code’,‘mc.target.config.ISA’] mp_tac>>
     impl_tac>- gs[Abbr ‘wprog0’]>>
     simp[GSYM EVERY_MAP]>>
     qpat_assum ‘MAP FST wprog = MAP FST _’ (fn h => PURE_REWRITE_TAC[GSYM h])>>
@@ -1575,7 +1584,7 @@ Proof
 
   (* pan_to_word *)
   qpat_x_assum ‘lc + _ = _’ (SUBST_ALL_TAC o GSYM)>>
-  ‘(wst0 with memory := m0).code = fromAList (pan_to_word_compile_prog pan_code)’
+  ‘(wst0 with memory := m0).code = fromAList (pan_to_word_compile_prog mc.target.config.ISA pan_code)’
     by gs[Abbr ‘wst0’, wordSemTheory.state_component_equality]>>
 
   drule_at Any (INST_TYPE [beta|-> “:num # α lab_to_target$config”] pan_to_wordProofTheory.state_rel_imp_semantics)>>gs[]>>

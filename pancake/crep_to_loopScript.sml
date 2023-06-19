@@ -15,7 +15,9 @@ Datatype:
   context =
   <| vars   : crepLang$varname |-> num;
      funcs  : crepLang$funname |-> num # num;  (* loc, length args *)
-     vmax   : num|>
+     vmax   : num;
+     target : architecture
+     |>
 End
 
 Definition find_var_def:
@@ -40,6 +42,13 @@ Definition prog_if_def:
     (Assign n (Const 1w)) (Assign n (Const 0w)) (list_insert [n; m] l)]
 End
 
+Definition compile_crepop_def:
+  (compile_crepop crepLang$Mul target x y tmp l =
+  if target = ARMv7 then
+    ([Arith (LLongMul tmp (tmp+1) x y)],tmp+1)
+  else
+    ([Arith (LLongMul tmp tmp x y)],tmp))
+End
 
 Definition compile_exp_def:
   (compile_exp ctxt tmp l ((BaseAddr):'a crepLang$exp) = ([], BaseAddr, tmp, l)) /\
@@ -56,6 +65,12 @@ Definition compile_exp_def:
   (compile_exp ctxt tmp l (Op bop es) =
    let (p, les, tmp, l) = compile_exps ctxt tmp l es in
    (p, Op bop les, tmp, l)) /\
+  (compile_exp ctxt tmp'' l (Crepop cop es) =
+   let (p, les, tmp, l) = compile_exps ctxt tmp'' l es;
+       (p',tmp') = compile_crepop cop ctxt.target (tmp) (tmp+1) (tmp+LENGTH les) $ list_insert (GENLIST ($+ tmp) (LENGTH les)) l
+    in
+   (p ++ MAPi (λn. Assign (tmp+n)) les ++ p',
+    Var tmp', tmp'+1, insert tmp' () $ list_insert (GENLIST ($+ tmp) (tmp'-tmp)) l)) /\
   (compile_exp ctxt tmp l (Cmp cmp e e') =
    let (p, le, tmp, l) = compile_exp ctxt tmp l e in
    let (p', le', tmp', l) = compile_exp ctxt tmp l e' in
@@ -183,10 +198,12 @@ End
 
 
 Definition mk_ctxt_def:
-  mk_ctxt vmap fs vmax =
+  mk_ctxt target vmap fs vmax =
      <|vars  := vmap;
        funcs := fs;
-       vmax  := vmax|>
+       vmax  := vmax;
+       target := target
+       |>
 End
 
 Definition make_vmap_def:
@@ -195,11 +212,11 @@ Definition make_vmap_def:
 End
 
 Definition comp_func_def:
-  comp_func fs params body =
+  comp_func target fs params body =
     let vmap = make_vmap params;
         vmax = LENGTH params - 1;
         l = list_to_num_set (GENLIST I (LENGTH params)) in
-    compile (mk_ctxt vmap fs vmax) l body
+    compile (mk_ctxt target vmap fs vmax) l body
 End
 
 Definition first_name_def:
@@ -217,9 +234,9 @@ Definition make_funcs_def:
 End
 
 Definition compile_prog_def:
-  compile_prog prog =
+  compile_prog target prog =
   let fnums  = GENLIST (λn. n + first_name) (LENGTH prog);
-      comp = comp_func (make_funcs prog) in
+      comp = comp_func target (make_funcs prog) in
    MAP2 (λn (name, params, body).
          (n,
           (GENLIST I o LENGTH) params,

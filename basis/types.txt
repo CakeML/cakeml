@@ -171,6 +171,9 @@ Rat.toString: rat -> string
 Rat.pp_rat: rat -> PrettyPrinter.pp_data
 Rat.numerator: rat -> int
 Rat.denominator: rat -> int
+Rat.floor: rat -> int
+Rat.ceiling: rat -> int
+Rat.is_int: rat -> bool
 Char.ord: char -> int
 Char.chr: int -> char
 Char.<: char -> char -> bool
