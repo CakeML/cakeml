@@ -15,80 +15,31 @@ local open alignmentTheory
 
 val _ = new_theory "panItreeSemEquiv";
 
-(* Prerequisite lemmata *)
+(* Type itree_play_set[local] = “:(itree_el) path -> bool”; *)
 
-(* find a way to relate the operation of evaluate to the operation of mrec  *)
-(* then the below is easily proven. *)
-
-(* Theorem evaluate_diverge_eq: *)
-(*   evaluate (p,s) = (SOME TimeOut,s') ⇔ *)
-(*                  itree_diverges (evaluate_itree p s) *)
-(* Proof *)
-(* QED *)
-
-(* Theorem semantics_diverge_eq: *)
-(*   semantics s entry = Diverge io ⇔ *)
-(*             itree_diverges (itree_oracle_walk ext_call_oracle_h (itree_semantics s entry)) *)
-(* Proof *)
-(* QED *)
-
-Type itree_play_set[local] = “:(itree_el) path -> bool”;
-
-(* Need an ITree fold? or some function to produce the ITree rooted after traversing a particular
- possibly infinite path (llist)... *)
-(* This is required to complete the itree_plays definition *)
-
-CoInductive itree_plays:
-  (t = Ret r ⇒ itree_plays t (stopped_at (INR r))) ∧
-  (t = Vis e k ⇒ itree_plays t (stopped_at (INL e))) ∧
-  (itree_plays t p ∧
-   (toList (LAPPEND (labels p) [|a|]) = SOME labList ⇒
-    itree_el t (MAP (λx. SOME x) lablist) = Event e) ⇒
-   itree_plays t (pcons (INL e) a p))
-End
-
-CoInductive itree_max_plays:
-(t = Ret r ⇒ itree_max_plays t (stopped_at (INR r))) ∧
-(itree_plays t p ∧
- (toList (LAPPEND (labels p) [|a|]) = SOME lablist ⇒
-  itree_el t (MAP (λx. SOME x) lablist) = Return r) ⇒
- itree_max_plays t (pcons (INR r) a p)) ∧
-(itree_max_plays t p ∧
- (toList (LAPPEND (labels p) [|a|]) = SOME lablist ⇒
-  itree_el t (MAP (λx. SOME x) lablist) = Event e) ⇒
- itree_max_plays t (pcons (INL e) a p))
-End
-
-(* Defines an equivalence between FFI behaviours and maximal ITree paths. *)
-(* Definition same_behaviour_def: *)
+(* CoInductive itree_plays: *)
+(*   (t = Ret r ⇒ itree_plays t (stopped_at (INR r))) ∧ *)
+(*   (t = Vis e k ⇒ itree_plays t (stopped_at (INL e))) ∧ *)
+(*   (itree_plays t p ∧ *)
+(*    (toList (LAPPEND (labels p) [|a|]) = SOME labList ⇒ *)
+(*     itree_el t (MAP (λx. SOME x) lablist) = Event e) ⇒ *)
+(*    itree_plays t (pcons (INL e) a p)) *)
 (* End *)
 
-(* Design like fold:
- Fold an itree into an FFI behaviour, where the oracle choice determines which behaviour is selected for folding.
- (possibly performed as the comp of two functions: behaviour = fold o select)
- Then the equivalence becomes trivial equivalence in the same datatype.
- Read up on coinductive selection and fold algorithms.
- *)
-
-(* Maps an ITree into the llist representing the path taken by a given oracle. *)
-
-(* Need an itree_unfold (or fold) like mechanism to convert an itree
- into a llist, accounting for Tau values.
-
- How to relate llist type to nodes in an itree, where each
-     Vis node becomes an element of the ITree (by choosing a path using the oracle) and using
-     the response to create an IO event. *)
-(* Need a co-recursive function for this... *)
-
-(* Seems _interp_ provides a good example of "folding over an ITree"
- in order to produce some other (possibly Monadic) datatype. *)
-(* Requires llist to support an iter operation and to be monadic with
- bind and ret operators. *)
-(* Use LUNFOLD to create the llist *)
-(* The "oracle" here is of type ffi_state *)
+(* CoInductive itree_max_plays: *)
+(* (t = Ret r ⇒ itree_max_plays t (stopped_at (INR r))) ∧ *)
+(* (itree_plays t p ∧ *)
+(*  (toList (LAPPEND (labels p) [|a|]) = SOME lablist ⇒ *)
+(*   itree_el t (MAP (λx. SOME x) lablist) = Return r) ⇒ *)
+(*  itree_max_plays t (pcons (INR r) a p)) ∧ *)
+(* (itree_max_plays t p ∧ *)
+(*  (toList (LAPPEND (labels p) [|a|]) = SOME lablist ⇒ *)
+(*   itree_el t (MAP (λx. SOME x) lablist) = Event e) ⇒ *)
+(*  itree_max_plays t (pcons (INL e) a p)) *)
+(* End *)
 
 Definition query_oracle_def[nocompute]:
-  query_oracle fs (FFI_call s conf bytes) = call_FFI fs s conf bytes
+  query_oracle ffis (FFI_call s conf bytes) = call_FFI ffis s conf bytes
 End
 
 Definition make_io_event_def[nocompute]:
@@ -96,11 +47,11 @@ Definition make_io_event_def[nocompute]:
                 IO_event s conf (ZIP (bytes,rbytes))
 End
 
-(* Maps a path in an itree to the result of computation, when assuming
- the computation terminates. *)
+(* Performs oracle trace selection and folds trace into
+ result of computation, or NONE if divergent. *)
 Definition itree_oracle_outcome_def:
   itree_oracle_outcome or t =
-  LFLATTEN $ LUNFOLD
+  LHD $ LFLATTEN $ LUNFOLD
            (λs. case s of
                   SOME (or,t) =>
                     itree_CASE t
@@ -115,12 +66,39 @@ Definition itree_oracle_outcome_def:
            (SOME (or,t))
 End
 
-(* TBC *)
-(* Definition same_outcome_def: *)
-(* End *)
+CoInductive itree_oracle_term_path:
+  (∀x. itree_oracle_term_path or (Ret x)) ∧
+  (∀u. itree_oracle_term_path or u ⇒ itree_oracle_term_path or (Tau u)) ∧
+  (∀e g. (itree_oracle_term_path or (g (query_oracle or e)) ⇒ itree_oracle_term_path or (Vis e g)))
+End
 
-(* Maps a path in an itree to an option llist, where Tau:s are represented by NONE
- and IO events by SOME e. *)
+Definition simple_unfold_def:
+  simple_unfold = LUNFOLD
+                  (λs. case s of
+                         LNIL => NONE
+                       | (a:::as) => SOME (as,[|a|]))
+End
+
+Theorem simple_unfold_terminates:
+  ∀ll. LFINITE ll ⇒ LFINITE $ simple_unfold ll
+Proof
+  rw[] >>
+  rw [simple_unfold_def] >>
+  fs [LFINITE] >>
+     cheat
+QED
+
+Theorem lunfold_f_terminates:
+  ∀f z. (∃n. ((FUNPOW (FST o THE o f) n z) = NONE)) ⇒ LFINITE (LUNFOLD f z)
+Proof
+  REPEAT GEN_TAC >>
+  disch_tac >>
+  rw [LFINITE] >>
+  rw [LUNFOLD_def] >>
+     cheat
+QED
+
+(* Maps a path in an itree to an io_event llist *)
 Definition itree_oracle_beh_def:
   itree_oracle_beh or t =
   LFLATTEN $ LUNFOLD
@@ -135,12 +113,10 @@ Definition itree_oracle_beh_def:
            (or,t)
 End
 
-(* Goal: find a way to produce a lazy list (possibly from another) s.t. for every NONE, we add nothing to the list
- and for every SOME e, we add e to the list. *)
-(* Does it require monadic operations? *)
+(* An eqv relation between itree behaviours (io_event llist) and FFI behaviours;
+ a datatype of three elements, the non-divergent of which contain llists of IO
+ events *)
 
-(* same_behaviour: an eqv relation between itree behaviours (repr as llists of IO events)
- and FFI behaviours, a datatype of three elements, the non-divergent of which contain llists of IO events *)
 Definition same_behaviour_def:
   (* Divergence: IO event lists are equiv by weak bisimulation as the itree behaviour contains
      NONE for each Tau. *)
@@ -150,9 +126,20 @@ Definition same_behaviour_def:
      NB we lack an ability to compare computed outcomes at this level.
      Thus requiring a separate soundness proof at the evaluate level. *)
   (same_behaviour or t (Terminate outcome iol) ⇔
-     (itree_oracle_beh or t) = (fromList iol) ∧ OUTCOMES_ARE_SAME_AT_FFI_LEVEL) ∧
+     (∃iotrace. LTAKE (LENGTH iol) (itree_oracle_beh or t) = SOME iotrace ∧ iotrace = iol) ∧
+     (∃r. outcome = Success ⇔ (itree_oracle_outcome or t) = SOME (SOME (Return r))) ∧
+     (∃e. outcome = (FFI_outcome e) ⇔ (itree_oracle_outcome or t) = SOME (SOME (FinalFFI e)))) ∧
   (* Failure: Covered by evaluate corres. *)
-  (same_behaviour or t Fail ⇔ T)
+  (same_behaviour or t Fail ⇔ ∃r. (itree_oracle_outcome or t) = SOME r ∧
+                                  ∀e res. r ≠ SOME (FinalFFI e) ∧ r ≠ SOME (Return res))
+End
+
+(* An eqv relation between evaluate and evaluate_itree outcomes; which we expect
+ to match as follow the same pattern of rules for computing state and final
+ outcomes. *)
+Definition same_outcome_def:
+  same_outcome or t (r,s) ⇔
+    (itree_oracle_outcome or t) = SOME (r,s)
 End
 
 (* Main correspondence *)
@@ -163,11 +150,21 @@ End
  for allowing generisation over every possible Pancake program (stored in state and accessed by an entrypoint). *)
 Theorem itree_semantics_corres:
   ∀s entry or.
-  same_behaviour or
-  (itree_semantics s entry)
-  (semantics (s with <| ffi with <| oracle := or |>|>) entry)
+  same_behaviour or (itree_semantics s entry) (semantics (s with ffi := or) entry)
 Proof
-  cheat
+  rw [same_behaviour_def] >>
+  rw [panItreeSemTheory.itree_semantics_def] >>
+  rw [panSemTheory.semantics_def]
+  (* Functional semantics converges *)
+  >- (
+  rw [same_behaviour_def] >>
+  rw [itree_oracle_outcome_def] >>
+  rw [panItreeSemTheory.itree_evaluate_def] >>
+  rw [panItreeSemTheory.itree_mrec_def] >>
+  rw [panItreeSemTheory.h_prog_def,panItreeSemTheory.h_prog_rule_call_def] >>
+  )
+  (* Functional semantics diverges *)
+  >- ()
 QED
 
 (* Evaluate correspondence *)
@@ -175,10 +172,8 @@ QED
 the two semantics produce identical results. *)
 Theorem itree_semantics_evaluate_corres:
   ∀s p or.
-  ∃k. SND (evaluate p,s with <| clock := k; ffi with <|oracle := or |>|>) ≠ SOME TimeOut ⇒
-      same_outcome or
-                   (itree_evaluate p s)
-                   (evaluate p,s with <| clock := k; ffi with <| oracle := or |>|>)
+  ∃k. FST (evaluate (p,s with <| clock := k; ffi := or |>)) ≠ SOME TimeOut ⇒
+      same_outcome or (itree_evaluate p s) (evaluate (p,s with <| clock := k; ffi := or |>))
 Proof
   cheat
 QED
@@ -220,7 +215,7 @@ QED
     - Termination (failure and return), as indicated by a finite trace.
         - Need to show that the leaf in the tree reachable by this trace produces the same outcome (failure or return value) as
         produced by some oracle in the functional big step semantics.
- *)
+*)
 
 (*
     To solve the final goal in the ≤= direction, we need to show that the oracle producing any result in

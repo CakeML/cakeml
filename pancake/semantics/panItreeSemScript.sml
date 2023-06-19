@@ -313,7 +313,16 @@ End
 
 (* ITree semantics for program commands *)
 Definition itree_evaluate_def:
-  itree_evaluate p s = itree_mrec h_prog (p,s)
+  itree_evaluate p s =
+  itree_unfold
+  (λt. case t of
+         INL (Ret (res,s)) => Ret' res
+        | INL (Tau t) => Tau' (INL t)
+        | INL (Vis (e,k) g) => Vis' e (λr. INR (k r))
+        | INR (Ret (res,s)) => Ret' res
+        | INR (Tau t) => Tau' (INR t)
+        | INR (Vis e g) => Vis' e (INR o g))
+  (INL (itree_mrec h_prog (p,s)))
 End
 
 (* Observational ITree semantics *)
@@ -323,15 +332,7 @@ val s = ``(s:('a,'ffi) panSem$state)``;
 Definition itree_semantics_def:
   itree_semantics ^s entry =
   let prog = Call Tail (Label entry) [] in
-  itree_unfold
-  (λt. case t of
-         INL (Ret (res,s)) => Ret' res
-        | INL (Tau t) => Tau' (INL t)
-        | INL (Vis (e,k) g) => Vis' e (λr. INR (k r))
-        | INR (Ret (res,s)) => Ret' res
-        | INR (Tau t) => Tau' (INR t)
-        | INR (Vis e g) => Vis' e (INR o g))
-  (INL (itree_evaluate prog ^s))
+  (itree_evaluate prog ^s)
 End
 
 val _ = export_theory();
