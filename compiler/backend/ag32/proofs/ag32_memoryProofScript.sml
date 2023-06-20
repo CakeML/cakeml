@@ -24,15 +24,15 @@ Theorem get_byte_word_of_bytes:
   (get_byte (n2w i) (word_of_bytes be (0w:'a word) ls) be = EL i ls)
 Proof
   strip_tac
-  \\ `∃k. dimindex(:'a) DIV 8 = 2 ** k` by(
+  \\ ‘∃k. dimindex(:'a) DIV 8 = 2 ** k’ by(
     fs[good_dimindex_def]
     \\ TRY(qexists_tac`2` \\ EVAL_TAC \\ NO_TAC)
     \\ TRY(qexists_tac`3` \\ EVAL_TAC \\ NO_TAC) )
   \\ strip_tac
   \\ Q.ISPECL_THEN[`be`,`0w`,`ls`,`2 ** k`]mp_tac word_of_bytes_bytes_to_word
   \\ impl_keep_tac >- (
-    rfs[bytes_in_word_def, dimword_def]
-    \\ fs[good_dimindex_def] \\ rfs[])
+    gvs[bytes_in_word_def, dimword_def,good_dimindex_def] \\
+    qpat_x_assum ‘_ = 2 ** k’ (assume_tac o SYM) >> gvs[])
   \\ rw[]
   \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_bytes_to_word]
   \\ rw[]
