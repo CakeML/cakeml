@@ -869,7 +869,9 @@ val state_rel_def = Define `
       n < s1.code_buffer.space_left ⇒
       let addr = s1.code_buffer.position + n2w (LENGTH (s1.code_buffer.buffer) + n) in
       addr ∈ t1.mem_domain ∧
-      addr ∉ s1.mem_domain) ∧
+      addr ∉ s1.mem_domain /\
+      (* no addr in the code buffer is a ffi_entry_pc *)
+      addr NOTIN set mc_conf.ffi_entry_pcs) ∧
     (* Position of code memory *)
     bytes_in_mem p (prog_to_bytes code2)
       t1.mem t1.mem_domain s1.mem_domain /\
