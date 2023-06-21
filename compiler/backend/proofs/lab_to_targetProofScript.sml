@@ -8029,9 +8029,10 @@ Proof
     \\ TOP_CASE_TAC
     \\ split_pair_case_tac \\ fs[]
     \\ strip_tac
-    \\ first_x_assum(qspecl_then[`mc_conf2 with ccache_interfer := shift_seq 1 mc_conf.ccache_interfer`,
-                                 `code2 ++ sec_list`,
-                                 `new_cfg.labels`,`t2`,`ms12`]mp_tac)
+    \\ first_x_assum(qspecl_then
+        [`mc_conf2 with ccache_interfer := shift_seq 1 mc_conf.ccache_interfer`,
+         `code2 ++ sec_list`,
+         `new_cfg.labels`,`t2`,`ms12`]mp_tac)
     \\ impl_tac
     >- (
        fs[Abbr`mc_conf2`,shift_interfer_def]
@@ -8264,7 +8265,7 @@ Proof
             decide_tac
           ) >>
           gvs[GSYM $ PURE_ONCE_REWRITE_RULE[ADD_COMM]
-            asm_fetch_aux_APPEND2] >> 
+            asm_fetch_aux_APPEND2] >>
           rev_drule_then (qspecl_then [`sec_list`,`pc'`] assume_tac)
             pos_val_APPEND2 >>
           gvs[] >>
@@ -8286,7 +8287,22 @@ Proof
             gvs[addressTheory.word_arith_lemma1] >>
           first_x_assum drule >>
           gvs[addressTheory.word_arith_lemma1] >>
-          qmatch_goalsub_abbrev_tac `ffi_pc IN _` >> 
+          qmatch_goalsub_abbrev_tac `ffi_pc IN _` >>
+          fs[MEM_EL] >>
+          qmatch_asmsub_rename_tac `ffi_pc=EL ffi_n mc_conf.ffi_entry_pcs` >>
+          last_x_assum $ qspec_then `EL ffi_n mc_conf.ffi_names` mp_tac >>
+          impl_tac >- (
+            conj_tac
+            >- (qexists_tac `ffi_n` >> simp[]) >>
+            `ffi_n < LENGTH (mc_conf.ffi_names)` by simp[] >>
+            drule EL_MEM >>
+            simp[get_ffi_index_def,backendPropsTheory.the_eqn]
+            disch_then assume_tac >>
+            drule_then(qspec_then `0`$ mp_tac o SIMP_RULE(srw_ss())[]) find_index_MEM >>
+            rpt strip_tac >>
+            simp[]
+          ) >>
+          rw[] >>
           (* sec_list is the newly installed code *)
           (* show that DISJOINT (set mc_conf.ffi_entry_pcs)
             {p + n2w a + n2w (pos_val pc 0 code2 ++ sec_list) |
@@ -9272,6 +9288,7 @@ Proof
   gvs[]
 QED
 
+(*
 Theorem code_similar_IMP_get_shmem_info_same:
 !code p l l'.
   code_similar code code2 ==>
@@ -9281,6 +9298,7 @@ Proof
   drule_all code_similar_IMP_asm_fetch_aux_line_similar >>
   
 QED
+*)
 
 Theorem make_init_mmio_pcs_min_index:
   mc_conf_ok mc_conf /\
@@ -9699,11 +9717,11 @@ Proof
 QED
 
 Theorem list_subset_refl:
-!i xs.
+!xs.
   list_subset xs xs
 Proof
-  Induct_on  >>
-  gvs[] >>
+  Induct_on `xs` >>
+  gvs[list_subset_def] >>
   rw[] >>
   drule_at_then Any irule MONO_EVERY >>
   simp[]
@@ -9723,11 +9741,114 @@ Proof
   gvs[]
 QED
 
+Theorem list_subset_trans:
+  list_subset a b /\ list_subset b c ==>
+  list_subset a c
+Proof
+  gvs[list_subset_def] >>
+  Induct_on `a` >>
+  gvs[] >>
+  rw[] >>
+  gvs[EVERY_MEM]
+QED
+
+Theorem all_pc_adjust_pc:
+!code p.
+  p < num_pcs (filter_skip code) ==>
+  ?k. adjust_pc k code = p
+Proof
+  ho_match_mp_tac num_pcs_ind >>
+  gvs[num_pcs_def,lab_filterTheory.filter_skip_MAP] >>
+  rw[]
+  >- (
+    first_x_assum $ drule_then assume_tac >>
+    gvs[] >>
+    qexists `k` >>
+    Cases_on `k` >>
+    rpt $ simp[Once adjust_pc_def]
+  )
+  >- (
+    Cases_on `p`
+    >- (
+      qexists`0` >>
+      rpt $ simp[Once adjust_pc_def]
+    ) >>
+    Cases_on `is_Label x` >>
+    gvs[num_pcs_def]
+    >- (
+      first_x_assum $ drule_then assume_tac >>
+      gvs[] >>
+      Cases_on `k'`
+      >- (
+        spose_not_then kall_tac >>
+        pop_assum mp_tac >>
+        simp[Once adjust_pc_def]
+      ) >>
+      qexists`SUC n'`>>
+      simp[Once adjust_pc_def]
+    ) >>
+    first_x_assum $ qspec_then `n` assume_tac >>
+    gvs[] >>
+    Cases_on `k'`
+    >- (
+      DEP_ONCE_REWRITE_TAC[adjust_pc_def] >>
+      simp[] >>
+      qexists `1` >>
+      gvs[] >>
+      simp[Once adjust_pc_def]
+    ) >>
+    qexists `SUC(SUC n)` >>
+    simp[Once adjust_pc_def]
+  ) >>
+  Cases_on `is_Label x` >>
+  gvs[] >>
+  first_x_assum $ drule_then assume_tac >>
+  gvs[]
+  >- (
+    Cases_on `k'`
+    >- (
+      qexists `0` >>
+      rpt $ simp[Once adjust_pc_def]
+    ) >>
+    simp[Once adjust_pc_def] >>
+    qexists `SUC n` >> gvs[]
+  )
+  >- (
+    Cases_on `k'`
+    >- (
+      qexists `0` >>
+      rpt $ simp[Once adjust_pc_def]
+    ) >>
+    simp[Once adjust_pc_def] >>
+    qexists `SUC(SUC n)` >> gvs[]
+  )
+QED
+
 Theorem no_install_or_no_share_mem_filter_skip:
   no_install_or_no_share_mem code ffi_names ==>
   no_install_or_no_share_mem (filter_skip code) ffi_names
 Proof
-  
+  gvs[no_install_or_no_share_mem_def,no_install_def,no_share_mem_inst_def] >>
+  rw[] >>
+  gvs[]
+  >- (
+    disj1_tac >>
+    rw[] >>
+    spose_not_then assume_tac >>
+    last_x_assum mp_tac >> simp[] >>
+    drule_then assume_tac asm_fetch_SOME_IMP_LESS_num_pcs >>
+    drule_then assume_tac all_pc_adjust_pc >>
+    gvs[] >>
+    metis_tac[asm_fetch_aux_eq]
+  ) >>
+  disj2_tac >>
+  rw[] >>
+  spose_not_then assume_tac >>
+  last_x_assum mp_tac >> simp[] >>
+  drule_then assume_tac asm_fetch_SOME_IMP_LESS_num_pcs >>
+  drule_then assume_tac all_pc_adjust_pc >>
+  gvs[] >>
+  metis_tac[asm_fetch_aux_eq]
 QED
 
 val semantics_compile_lemma = Q.prove(
@@ -9741,9 +9862,13 @@ val semantics_compile_lemma = Q.prove(
     lab_to_target$compile (c:'a lab_to_target$config) code = SOME (bytes,c') /\
     mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
     remove_labels c.init_clock mc_conf.target.config 0 LN (TAKE i mc_conf.ffi_names) (filter_skip code)
-      = SOME (code2,labs) /\
+      = SOME (code2,(FST (coracle 0)).labels) /\
+    get_shmem_info code2
+     (w2n $ mc_conf.target.get_pc ms)
+     (FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite")
+             (find_ffi_names code)) [] = (mc_conf.ffi_names, shmem_info) /\
     (* FFI is either given or computed *)
-    c'.ffi_names = SOME $ C_FFI_NAMES /\ (* probably TAKE i mc_conf.ffi_names *)
+    c'.ffi_names = SOME $ TAKE i mc_conf.ffi_names /\
     good_init_state mc_conf ms bytes cbspace t m dm sdm io_regs cc_regs /\
     (* set up mmio_info and ffi_entry_pcs for mmio *)
     MAP FST shmem_info = DROP i mc_conf.ffi_entry_pcs /\
@@ -9777,7 +9902,7 @@ val semantics_compile_lemma = Q.prove(
     fs[good_code_def] >>
     fs[sec_ends_with_label_filter_skip,all_enc_ok_pre_filter_skip]>>
     fs[GSYM ALL_EL_MAP])>>
-  qexistsl [`shmem_info`,`labs`]>>fs[good_init_state_def]>>
+  qexists `(FST $ coracle 0).labels`>>fs[good_init_state_def]>>
   conj_tac >- (
     fs[compiler_oracle_ok_def] >>
     pairarg_tac>> fs[]>>
@@ -9793,53 +9918,69 @@ val semantics_compile_lemma = Q.prove(
   )>>
   conj_tac >- (
     Cases_on `c.ffi_names` >>
-    gvs[] >>
+    gvs[list_subset_TAKE] >>
+    metis_tac[list_subset_TAKE,list_subset_trans]
     (* use FILTER_mmio_pcs_min_index to prove FILTER ...(find_ffi_names code) = TAKE i mc_conf.ffi_names *)
   ) >>
   conj_tac >- (
     qexists `c.init_clock` >> gvs[]
     (* if C_FFI_NAMES = TAKE i mc_conf.ffi_names then this can be solved *)
   ) >>
-  conj_tac >- (
-   cheat  
-  ) >>
-  gvs[] >>
-  rw[]
-  last_x_assum mp_tac \\
-  CASE_TAC \\ fs[] \\ rw[] \\
-  metis_tac[])
+  gvs[no_install_or_no_share_mem_filter_skip])
   |> REWRITE_RULE [CONJ_ASSOC]
   |> MATCH_MP implements_intro_gen
   |> REWRITE_RULE [GSYM CONJ_ASSOC]
 
 (* to prove that the condition of semantics_compile is not vacuous *)
 Theorem exists_good_init_state_def:
-?mc_conf.
-  mc_conf_ok mc_conf /\
-  compiler_oracle_ok coracle c'.labels (LENGTH bytes) c.asm_conf mc_conf.ffi_names /\
-  c.asm_conf = mc_conf.target.config /\
-  c.labels = NN /\ c.pos = 0 /\
-  c.labels = NN /\ c.pos = 0 /\
-  compile c code = SOME (bytes,c') /\
-  c'.ffi_names = SOME (mc_conf.ffi_names) /\
-  (* TODO: shmem_info stuffs *)
-  good_init_state mc_conf ms bytes cbspace t m dm io_regs cc_regs
-Proof
-
-QED
-
-Theorem semantics_compile:
-     mc_conf_ok mc_conf ∧
+!code.
+?mc_conf i c code2 bytes c'.
+   mc_conf_ok mc_conf ∧
    compiler_oracle_ok coracle c'.labels (LENGTH bytes) c.asm_conf mc_conf.ffi_names ∧
    good_code c.asm_conf c.labels code ∧
    c.asm_conf = mc_conf.target.config ∧
    c.labels = LN ∧ c.pos = 0 ∧
    compile c code = SOME (bytes,c') ∧
    c'.ffi_names = SOME (mc_conf.ffi_names) /\
-   good_init_state mc_conf ms bytes cbspace t m dm io_regs cc_regs ⇒
+   good_init_state mc_conf ms bytes cbspace t m dm sdm io_regs cc_regs /\
+   mmio_pcs_min_index mc_conf.ffi_names = SOME i ∧
+   remove_labels c.init_clock mc_conf.target.config 0 LN
+     (TAKE i mc_conf.ffi_names) (filter_skip code) =
+     SOME (code2,(FST (coracle 0)).labels) ∧
+   get_shmem_info code2 (w2n (mc_conf.target.get_pc ms))
+   (FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite")
+      (find_ffi_names code)) [] = (mc_conf.ffi_names,shmem_info) ∧
+   LENGTH mc_conf.ffi_names ≤ i ∧
+   MAP FST shmem_info = DROP i mc_conf.ffi_entry_pcs ∧
+   mc_conf.mmio_info = (λindex. EL (index − i) (MAP SND shmem_info)) ∧
+   no_install_or_no_share_mem code mc_conf.ffi_names
+Proof
+  rpt strip_tac
+QED
+
+Theorem semantics_compile:
+   mc_conf_ok mc_conf ∧
+   compiler_oracle_ok coracle c'.labels (LENGTH bytes) c.asm_conf mc_conf.ffi_names ∧
+   good_code c.asm_conf c.labels code ∧
+   c.asm_conf = mc_conf.target.config ∧
+   c.labels = LN ∧ c.pos = 0 ∧
+   compile c code = SOME (bytes,c') ∧
+   c'.ffi_names = SOME (mc_conf.ffi_names) /\
+   good_init_state mc_conf ms bytes cbspace t m dm sdm io_regs cc_regs /\
+   mmio_pcs_min_index mc_conf.ffi_names = SOME i ∧
+   remove_labels c.init_clock mc_conf.target.config 0 LN
+     (TAKE i mc_conf.ffi_names) (filter_skip code) =
+     SOME (code2,(FST (coracle 0)).labels) ∧
+   get_shmem_info code2 (w2n (mc_conf.target.get_pc ms))
+   (FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite")
+      (find_ffi_names code)) [] = (mc_conf.ffi_names,shmem_info) ∧
+   LENGTH mc_conf.ffi_names ≤ i ∧
+   MAP FST shmem_info = DROP i mc_conf.ffi_entry_pcs ∧
+   mc_conf.mmio_info = (λindex. EL (index − i) (MAP SND shmem_info)) ∧
+   no_install_or_no_share_mem code mc_conf.ffi_names ⇒
    implements' T (machine_sem mc_conf ffi ms)
      {semantics
-        (make_init mc_conf ffi io_regs cc_regs t m (dm ∩ byte_aligned) ms code
+        (make_init mc_conf ffi io_regs cc_regs t m (dm ∩ byte_aligned) sdm ms code
            compile (mc_conf.target.get_pc ms + n2w (LENGTH bytes))
            cbspace coracle)}
 Proof
