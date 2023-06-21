@@ -54,11 +54,12 @@ evaluate pc code with k for a clock = evaluate (pc+k) code
 
 (* 1)
 There is probably a neater way to prove this*)
-val asm_fetch_aux_eq = Q.prove(`
+Theorem asm_fetch_aux_eq:
   ∀pc code.
   ∃k.
     asm_fetch_aux (pc+k) code = asm_fetch_aux (adjust_pc pc code) (filter_skip code) ∧
-    all_skips pc code k`,
+    all_skips pc code k
+Proof
   Induct_on`code`
   >-
     (simp[Once adjust_pc_def,filter_skip_def,asm_fetch_aux_def,all_skips_def]>>
@@ -111,8 +112,8 @@ val asm_fetch_aux_eq = Q.prove(`
     first_x_assum(qspecl_then[`n`,`pc-1`] assume_tac)>>full_simp_tac(srw_ss())[]>>
     `∀x. pc - 1 + x = pc + x -1` by DECIDE_TAC>>
     `∀x. pc - 1 + x = x + pc -1` by DECIDE_TAC>>
-    metis_tac[]))
-
+    metis_tac[])
+QED
 (*For any adjusted fetch, the original fetch is either equal or is a skip
 This is probably the wrong direction*)
 val asm_fetch_not_skip_adjust_pc = Q.prove(
