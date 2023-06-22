@@ -1,6 +1,7 @@
-INCLUDES = $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc $(HOLDIR)/examples/algorithms \
-					 $(CAKEMLDIR)/semantics $(CAKEMLDIR)/basis/pure $(CAKEMLDIR)/basis $(CAKEMLDIR)/examples \
-					 $(CAKEMLDIR)/translator $(CAKEMLDIR)/characteristic .. ../graph_encoding ../cnf_encoding
+INCLUDES = $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc\
+					 $(CAKEMLDIR)/semantics $(CAKEMLDIR)/basis/pure $(CAKEMLDIR)/basis\
+					 $(CAKEMLDIR)/translator $(CAKEMLDIR)/characteristic .. \
+					 ../../lpr_checker
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

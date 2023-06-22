@@ -23,3 +23,6 @@ Add shared pbp parsing, normalization and other common stuff to npbc_arrayProg
 
 [subgraph_isoProgScript.sml](subgraph_isoProgScript.sml):
 Subgraph isomorphism encoder and checker
+
+[wcnfProgScript.sml](wcnfProgScript.sml):
+CNF encoder and checker
