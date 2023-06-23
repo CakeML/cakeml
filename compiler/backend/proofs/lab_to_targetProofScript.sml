@@ -869,9 +869,7 @@ val state_rel_def = Define `
       n < s1.code_buffer.space_left ⇒
       let addr = s1.code_buffer.position + n2w (LENGTH (s1.code_buffer.buffer) + n) in
       addr ∈ t1.mem_domain ∧
-      addr ∉ s1.mem_domain /\
-      (* no addr in the code buffer is a ffi_entry_pc *)
-      addr NOTIN set mc_conf.ffi_entry_pcs) ∧
+      addr ∉ s1.mem_domain ) ∧
     (* Position of code memory *)
     bytes_in_mem p (prog_to_bytes code2)
       t1.mem t1.mem_domain s1.mem_domain /\
@@ -882,6 +880,10 @@ val state_rel_def = Define `
       t1.mem t1.mem_domain s1.mem_domain /\
     (* Code buffer writes do not overwrite memory *)
     LENGTH (prog_to_bytes code2) + LENGTH s1.code_buffer.buffer + s1.code_buffer.space_left < dimword(:'a) /\
+    (* code buffer does not intersect with ffi_entry_pcs *)
+    (∀bn.
+      bn < LENGTH s1.code_buffer.buffer + s1.code_buffer.space_left ==>
+      ~MEM (s1.code_buffer.position + n2w bn) mc_conf.ffi_entry_pcs ) /\
     ~s1.failed /\ ~t1.failed /\ (s1.be = t1.be) /\
     (t1.pc = p + n2w (pos_val s1.pc 0 code2)) /\
     ((p && n2w (2 ** t1.align - 1)) = 0w) /\
