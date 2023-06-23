@@ -14,3 +14,6 @@ Prove end-to-end correctness theorem for PB checker with arrays
 
 [subgraph_isoCompileScript.sml](subgraph_isoCompileScript.sml):
 Compiles the encoder
+
+[wcnfCompileScript.sml](wcnfCompileScript.sml):
+Compiles the WCNF + PB checker

@@ -70,12 +70,19 @@ Theorem machine_code_sound:
     extract_fs fs (cake_pb_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
     (out ≠ strlit"" ⇒
-      LENGTH cl = 3 ∧
       inFS_fname fs (EL 1 cl) ∧
-      ∃obj fml concl.
-        parse_pbf (all_lines fs (EL 1 cl)) = SOME (obj, fml) ∧
-        out = concl_to_string concl ∧
-        pbc$sem_concl (set fml) obj concl)
+      (
+        (LENGTH cl = 2 ∧
+        ∃objf.
+          parse_pbf (all_lines fs (EL 1 cl)) = SOME objf ∧
+          out = concat (print_pbf objf)) ∨
+        (LENGTH cl = 3 ∧
+        ∃obj fml concl.
+          parse_pbf (all_lines fs (EL 1 cl)) = SOME (obj, fml) ∧
+          out = concl_to_string concl ∧
+          pbc$sem_concl (set fml) obj concl)
+      )
+    )
 Proof
   strip_tac>>
   fs[installed_x64_def,cake_pb_code_def,cake_pb_run_def]>>
@@ -90,7 +97,12 @@ Proof
     qexists_tac`out`>>qexists_tac`err`>>simp[]>>
     fs[check_unsat_2_sem_def,get_fml_def]>>
     strip_tac>>gvs[]>>
-    metis_tac[])>>
+    metis_tac[])
+  >- (
+    qexists_tac`out`>>qexists_tac`err`>>simp[]>>
+    fs[check_unsat_1_sem_def,get_fml_def]>>
+    strip_tac>>gvs[]>>
+    every_case_tac>>fs[])>>
   metis_tac[]
 QED
 
