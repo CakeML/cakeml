@@ -908,7 +908,11 @@ Proof
   \\ full_simp_tac(srw_ss())[state_rel_def, share_mem_state_rel_def]
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[]
-  \\ metis_tac []
+  >~ [`¬MEM (_ + _ + _) _.ffi_entry_pcs`]
+  >- (
+    qpat_x_assum `!bn. bn < _ ==> ~(MEM _ _)` mp_tac
+    \\ simp[] )
+  \\ metis_tac[]
 QED
 
 Theorem share_mem_state_rel_shift_interfer:
@@ -1897,12 +1901,14 @@ Proof
       (*Div*)
       >-
         (unabbrev_all_tac \\ fs[]
+        \\ qpat_x_assum `!bn. bn < _ ==> ~(MEM _ _)` kall_tac
         \\ first_x_assum(qspec_then`n1`mp_tac)>>
         first_x_assum(qspec_then`n1`mp_tac)>>
         simp[]>>EVAL_TAC>>metis_tac[])
       (*LongDiv*)
       >>
       unabbrev_all_tac \\ fs[]
+      \\ qpat_x_assum `!bn. bn < _ ==> ~(MEM _ _)` kall_tac
       \\ first_x_assum(qspec_then`n0`kall_tac)
       \\ first_assum(qspec_then`n0`mp_tac)
       \\ first_assum(qspec_then`n1`mp_tac)
@@ -1923,6 +1929,7 @@ Proof
     conj_tac>- (match_mp_tac arith_upd_lemma >> srw_tac[][]) >>
     conj_tac>- fs[GSYM word_add_n2w]>>
     conj_tac >- metis_tac[] >>
+    conj_tac >- rfs[] >>
     conj_tac >- (
     fs[upd_pc_def, inc_pc_def, arith_upd_def, share_mem_state_rel_def] >> rw[]>>
     gvs[IMP_CONJ_THM, AND_IMP_INTRO]
@@ -1943,7 +1950,9 @@ Proof
     pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
     ntac 2 strip_tac>>fs[state_rel_def]>>
     `t1.regs n' = c'` by
-      (first_x_assum(qspec_then`n'` assume_tac)>>
+      ( 
+      qpat_x_assum `!bn. bn < _ ==> ~(MEM _ _)` kall_tac>>
+      first_x_assum(qspec_then`n'` assume_tac)>>
       first_x_assum(qspec_then`n'` assume_tac)>>
       rfs[word_loc_val_def])>>
     fs[]
@@ -1960,6 +1969,7 @@ Proof
        >- fs[inc_pc_def]
        >- (fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
           share_mem_state_rel_tac)
+       >- rfs[]
        >- metis_tac[]
        >-
          (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
@@ -1996,6 +2006,7 @@ Proof
        >- fs[inc_pc_def]
        >- (fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
           share_mem_state_rel_tac)
+       >- rfs[]
        >- metis_tac[]
        >-
          (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
@@ -2025,8 +2036,8 @@ Proof
     qpat_x_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>
     fs[word_loc_val_byte_def]>>
     FULL_CASE_TAC>>fs[]>>
-    first_x_assum(qspec_then`n'` kall_tac)>>
-    first_assum(qspec_then`n'` assume_tac)>>
+    qpat_x_assum `!n. n < s1.code_buffer.space_left ==> _` kall_tac >>
+    qpat_assum `!r.word_loc_val _ _ _ = SOME _` (qspec_then`n'` assume_tac)>>
     qpat_x_assum`_=Word c'` SUBST_ALL_TAC>>
     fs[word_loc_val_def,GSYM word_add_n2w,alignmentTheory.aligned_extract]>>
     rw[]
@@ -2038,6 +2049,7 @@ Proof
       fs[asmSemTheory.read_mem_def]>>
       rfs[word_loc_val_def])
     >- metis_tac[]
+    >- rfs[]
     >- (fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
         share_mem_state_rel_tac)
     >- fs[inc_pc_def])
@@ -2053,7 +2065,9 @@ Proof
     pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
     ntac 2 strip_tac>>fs[state_rel_def]>>
     `t1.regs n' = c'` by
-      (first_x_assum(qspec_then`n'` assume_tac)>>
+      (
+      qpat_x_assum `!bn.bn < _ ==> ~(MEM _ _)`kall_tac>>
+      first_x_assum(qspec_then`n'` assume_tac)>>
       first_x_assum(qspec_then`n'` assume_tac)>>
       rfs[word_loc_val_def])>>
     fs[]
@@ -2101,6 +2115,7 @@ Proof
          qexists_tac`t1.mem`>>rfs[]>>
          rw[APPLY_UPDATE_THM]>>
          rfs[])
+       >- rfs[]
        >- (
           fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
           share_mem_state_rel_tac)
@@ -2150,6 +2165,7 @@ Proof
          qexists_tac`t1.mem`>>rfs[]>>
          rw[APPLY_UPDATE_THM]>>
          rfs[])
+       >-rfs[]
        >- (
           fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
           share_mem_state_rel_tac)
@@ -2167,8 +2183,8 @@ Proof
     qpat_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>
     fs[word_loc_val_byte_def]>>
     FULL_CASE_TAC>>fs[]>>
-    first_x_assum(qspec_then`n'` kall_tac)>>
-    first_assum(qspec_then`n'` assume_tac)>>
+    qpat_x_assum `!n. n < s1.code_buffer.space_left ==> _` kall_tac >>
+    qpat_assum `!r.word_loc_val _ _ _ = SOME _` (qspec_then`n'` assume_tac)>>
     qpat_x_assum`_=Word c''` SUBST_ALL_TAC>>
     fs[word_loc_val_def,GSYM word_add_n2w,alignmentTheory.aligned_extract]>>
     rw[]
@@ -2184,7 +2200,9 @@ Proof
         IF_CASES_TAC>>fs[]
         >-
           (simp[good_dimindex_get_byte_set_byte]>>
-          first_x_assum(qspec_then`n` assume_tac)>>rfs[word_loc_val_def])
+          qpat_x_assum `!r. word_loc_val _ _ (read_reg r _) = SOME _`
+            (qspec_then`n` assume_tac)>>
+          rfs[word_loc_val_def])
         >>
         simp[get_byte_set_byte_diff]>>
         first_x_assum(qspec_then`a` mp_tac)>>
@@ -2199,6 +2217,7 @@ Proof
       qexists_tac`t1.mem`>>rfs[]>>
       rw[APPLY_UPDATE_THM]>>
       rfs[])
+    >- rfs[]
     >- (
       fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
       share_mem_state_rel_tac)
@@ -2235,6 +2254,7 @@ Proof
   >- (
     fs[fp_upd_def,upd_pc_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
     share_mem_state_rel_tac) >>
+  reverse conj_tac >- rfs[] >>
   reverse conj_tac >- metis_tac[] >>
   reverse conj_tac >- (
     rw[] >> fs[] >> fs[GSYM word_add_n2w] ) >>
@@ -2320,6 +2340,7 @@ val word_cmp_lemma = Q.prove(
   \\ TRY (Cases_on `s1.regs n`) \\ full_simp_tac(srw_ss())[] \\ Cases_on `cmp`
   \\ full_simp_tac(srw_ss())[labSemTheory.word_cmp_def,asmTheory.word_cmp_def]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[state_rel_def]
+  \\ qpat_x_assum `!bn. bn < _ ==> ~(MEM _ _)` kall_tac
   \\ first_x_assum (kall_tac o Q.SPEC `rr:num`)
   \\ first_assum (assume_tac o Q.SPEC `rr:num`)
   \\ first_x_assum (assume_tac o Q.SPEC `n:num`)
@@ -7054,8 +7075,8 @@ Proof
         \\ full_simp_tac(srw_ss())[asmSemTheory.read_reg_def]
         \\ full_simp_tac(srw_ss())[interference_ok_def,shift_seq_def]
         \\ FIRST_X_ASSUM (kall_tac o Q.SPEC `r1:num`)
-        \\ FIRST_X_ASSUM (kall_tac o Q.SPEC `r1:num`)
-        \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `r1:num`)
+        \\ qpat_x_assum `!n. n<s1.code_buffer.space_left ==> _` kall_tac
+        \\ qpat_x_assum `!r. word_loc_val _ _ (read_reg r _) = _` (MP_TAC o Q.SPEC `r1:num`)
         \\ strip_tac \\ rev_full_simp_tac(srw_ss())[]
         \\ full_simp_tac(srw_ss())[word_loc_val_def]
         \\ Cases_on `lab_lookup l1 l2 labs` \\ full_simp_tac(srw_ss())[]
@@ -7090,6 +7111,7 @@ Proof
                asmSemTheory.read_reg_def,dec_clock_def,labSemTheory.upd_pc_def,
                labSemTheory.assert_def]
         \\ full_simp_tac(srw_ss())[interference_ok_def,shift_seq_def]
+        \\ FIRST_X_ASSUM (K ALL_TAC o Q.SPEC `r1:num`)
         \\ FIRST_X_ASSUM (K ALL_TAC o Q.SPEC `r1:num`)
         \\ FIRST_X_ASSUM (K ALL_TAC o Q.SPEC `r1:num`)
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `r1:num`)
@@ -7199,7 +7221,7 @@ Proof
         fs[])
       \\ conj_tac>-
         (strip_tac>>
-        qpat_x_assum`!n. b <s1.code_buffer.space_left ⇒ _`
+        qpat_x_assum`!n. n <s1.code_buffer.space_left ⇒ _`
           (qspec_then`n+1` assume_tac)>>
         fs[])
       \\ conj_tac >-
@@ -8189,6 +8211,14 @@ Proof
       \\ conj_tac >-
         (fs[buffer_flush_def] \\ rw[] >>
         fs[LENGTH_prog_to_bytes2,prog_to_bytes_APPEND])
+      \\ conj_tac >- (
+         gvs[buffer_flush_def] >>
+         rw[] >>
+         qpat_x_assum `!bn. bn < _ + _ ==> ~(MEM _ _)` $
+           qspec_then `bn + LENGTH (prog_to_bytes sec_list)` mp_tac >>
+         gvs[GSYM word_add_n2w] >>
+         metis_tac[WORD_ADD_ASSOC]
+      )
       \\ conj_tac>- (
         `EVERY sec_label_zero sec_list` by
           metis_tac[all_enc_ok_imp_sec_label_zero]>>
@@ -8230,7 +8260,6 @@ Proof
       \\ conj_tac >-
         (gvs[share_mem_state_rel_def] >>
          share_mem_state_rel_tac)
-      (* TODO *)
       \\ `no_share_mem_inst sec_list` by
           metis_tac[code_similar_IMP_both_no_share_mem]
       \\ `no_share_mem_inst (code2 ++ sec_list)` by (
@@ -8280,38 +8309,17 @@ Proof
             metis_tac[code_similar_sym]
           ) >>
           strip_tac >>
-          drule_then assume_tac bytes_in_mem_IMP >>
-          drule_then assume_tac bytes_in_memory_in_domain >>
           gvs[buffer_flush_def] >>
           drule_all $ GEN_ALL asm_fetch_aux_pos_val_SUC >>
           disch_then $ qspec_then `0` assume_tac >>
           drule_then (qspecl_then [`pc'+1`,`0`] (assume_tac o SIMP_RULE(srw_ss())[]))
             pos_val_bound >>
-          `a + pos_val pc' 0 sec_list < LENGTH (prog_to_bytes sec_list)` by
-            gvs[addressTheory.word_arith_lemma1] >>
-          first_x_assum drule >>
-          gvs[addressTheory.word_arith_lemma1] >>
-          qmatch_goalsub_abbrev_tac `ffi_pc IN _` >>
-          fs[MEM_EL] >>
-          qmatch_asmsub_rename_tac `ffi_pc=EL ffi_n mc_conf.ffi_entry_pcs` >>
-          last_x_assum $ qspec_then `EL ffi_n mc_conf.ffi_names` mp_tac >>
-          impl_tac >- (
-            conj_tac
-            >- (qexists_tac `ffi_n` >> simp[]) >>
-            `ffi_n < LENGTH (mc_conf.ffi_names)` by simp[] >>
-            drule EL_MEM >>
-            simp[get_ffi_index_def,backendPropsTheory.the_eqn]
-            disch_then assume_tac >>
-            drule_then(qspec_then `0`$ mp_tac o SIMP_RULE(srw_ss())[]) find_index_MEM >>
-            rpt strip_tac >>
-            simp[]
-          ) >>
-          rw[] >>
-          (* sec_list is the newly installed code *)
-          (* show that DISJOINT (set mc_conf.ffi_entry_pcs)
-            {p + n2w a + n2w (pos_val pc 0 code2 ++ sec_list) |
-             a < LENGTH (line_bytes line)}) is true*)
-          cheat)
+          qpat_x_assum `!bn. bn < _ + _ ==> ~(MEM _ _)` mp_tac >>
+          simp[] >>
+          qexists `a + pos_val pc' 0 sec_list` >>
+          simp[GSYM word_add_n2w] >>
+          metis_tac[word_add_n2w,WORD_ADD_ASSOC,WORD_ADD_COMM]
+      )
       \\ gvs[no_install_def,no_install_or_no_share_mem_def,asm_fetch_def]
       \\ spose_not_then kall_tac
       \\ rev_drule code_similar_IMP_asm_fetch_aux_line_similar
