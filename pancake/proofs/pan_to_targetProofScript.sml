@@ -2038,8 +2038,8 @@ Theorem pan_to_target_compile_semantics':
   FDOM s.eshapes = FDOM ((get_eids pan_code):mlstring |-> 'a word) ∧
   backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧
   mc_init_ok c mc ∧
-  0w ≤ mc.target.get_reg ms mc.ptr2_reg ∧
-  0w ≤ mc.target.get_reg ms mc.len_reg ∧
+  0w <₊ mc.target.get_reg ms mc.len_reg ∧
+  mc.target.get_reg ms mc.len_reg  <₊ mc.target.get_reg ms mc.ptr2_reg ∧
   mc.target.get_reg ms mc.len_reg = s.base_addr ∧
   heap_len = w2n ((mc.target.get_reg ms mc.ptr2_reg) + -1w * s.base_addr) DIV (dimindex (:α) DIV 8) ∧
   s.memaddrs = addresses (mc.target.get_reg ms mc.len_reg) heap_len ∧
@@ -2052,11 +2052,15 @@ Theorem pan_to_target_compile_semantics':
   w2n (bytes_in_word:'a word) * (2 * max_heap_limit (:'a) c.data_conf -1) ∧
   w2n (bytes_in_word:'a word) * (2 * max_heap_limit (:'a) c.data_conf -1) < dimword (:'a) ∧
   s.ffi = ffi ∧ mc.target.config.big_endian = s.be ∧
-  pan_installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names (heap_regs c.stack_conf.reg_names)
-                mc ms (mk_mem (make_funcs (compile_prog pan_code)) s.memory) s.memaddrs ∧
+  pan_installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
+                (heap_regs c.stack_conf.reg_names) mc ms
+                (mk_mem (make_funcs (compile_prog pan_code)) s.memory)
+                s.memaddrs ∧
   semantics s start ≠ Fail ⇒
   machine_sem (mc:(α,β,γ) machine_config) (ffi:'ffi ffi_state) ms ⊆
-              extend_with_resource_limit' (option_lt stack_max (SOME (FST (read_limits c mc ms)))) {semantics (s:('a,'ffi) panSem$state) start}
+              extend_with_resource_limit'
+              (option_lt stack_max (SOME (FST (read_limits c mc ms))))
+              {semantics (s:('a,'ffi) panSem$state) start}
 Proof
   strip_tac>>
   last_x_assum mp_tac>>
@@ -2077,7 +2081,8 @@ Proof
                   REWRITE_RULE [semanticsPropsTheory.implements'_def,
                                 semanticsPropsTheory.extend_with_resource_limit'_def])>>
 
-  qpat_x_assum ‘Abbrev (tprog = _)’ (assume_tac o GSYM o REWRITE_RULE[markerTheory.Abbrev_def])>>
+  qpat_x_assum ‘Abbrev (tprog = _)’
+               (assume_tac o GSYM o REWRITE_RULE[markerTheory.Abbrev_def])>>
   Cases_on ‘tprog’>>gs[backendTheory.attach_bitmaps_def]>>
   rename1 ‘compile _ _ = SOME x’>>Cases_on ‘x’>>
   rename1 ‘compile _ _ = SOME (tprog, ltconf)’>>
@@ -2087,14 +2092,15 @@ Proof
 
   (* compiler_orackle_ok *)
   qmatch_asmsub_abbrev_tac ‘stack_to_lab_compile _ _ max_heap sp _ _’>>
-
-  qabbrev_tac ‘lorac = λn:num. (ltconf, []:(num # 'a stack_rawcallProof$prog) list, []:'a word list)’>>
+  qabbrev_tac ‘lorac = λn:num.
+                         (ltconf, []:(num # 'a stack_rawcallProof$prog) list, []:'a word list)’>>
   qabbrev_tac ‘sorac =
                (λn:num.
                   (λ(c',p,b:'a word list).
                      (c',
                       compile_no_stubs c.stack_conf.reg_names
-                                       c.stack_conf.jump mc.target.config.addr_offset sp p))
+                                       c.stack_conf.jump
+                                       mc.target.config.addr_offset sp p))
                   (lorac n))’>>
 
   imp_res_tac backendProofTheory.compile_to_word_conventions2>>
@@ -2129,10 +2135,12 @@ Proof
     irule (INST_TYPE [beta|->alpha] pan_to_lab_good_code_lemma)>>
     gs[]>>
     rpt (first_assum $ irule_at Any)>>
-    qpat_x_assum ‘Abbrev (lprog = _)’ (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])>>
+    qpat_x_assum ‘Abbrev (lprog = _)’
+                 (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])>>
     first_assum $ irule_at Any>>
     qmatch_asmsub_abbrev_tac ‘word_to_word_compile _ _ wprog0 = _’>>
-    qpat_x_assum ‘Abbrev (wprog0 = _)’ (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])>>
+    qpat_x_assum ‘Abbrev (wprog0 = _)’
+                 (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])>>
     (* labels_ok *)
     drule_all pan_to_lab_labels_ok>>strip_tac>>gs[]>>
     (* all_enc_ok_pre mc.target.config lprog *)
@@ -2158,7 +2166,8 @@ Proof
                (λ(n,p). stack_asm_remove mc.target.config p) x) x’
        by (rw[]>>pairarg_tac>>gs[])>>
      drule_then irule EVERY_MONOTONIC>>
-     ‘p = SND (SND (SND (word_to_stack_compile mc.target.config wprog)))’ by gs[]>>
+     ‘p = SND (SND (SND (word_to_stack_compile mc.target.config wprog)))’
+       by gs[]>>
      pop_assum $ (fn h => rewrite_tac[h])>>
      irule word_to_stackProofTheory.word_to_stack_stack_asm_convs>>
      gs[]>>
@@ -2171,7 +2180,8 @@ Proof
   first_assum $ irule_at Any>>
   qmatch_goalsub_abbrev_tac ‘labSem$semantics labst’>>
 
-  mp_tac (GEN_ALL stack_to_labProofTheory.full_make_init_semantics |> INST_TYPE [beta|-> “:α lab_to_target$config”, gamma|-> “:'ffi”])>>
+  mp_tac (GEN_ALL stack_to_labProofTheory.full_make_init_semantics
+            |> INST_TYPE [beta|-> “:α lab_to_target$config”, gamma|-> “:'ffi”])>>
 
   gs[lab_to_targetProofTheory.mc_conf_ok_def]>>
   disch_then (qspec_then ‘labst’ mp_tac)>>gs[]>>
@@ -2646,18 +2656,21 @@ Proof
   disch_then $ qspec_then ‘gck’ assume_tac>>gs[]>>
   (***)
 
+  ‘(w2n:'a word -> num) bytes_in_word = dimindex (:α) DIV 8’
+    by fs[good_dimindex_def,bytes_in_word_def,dimword_def]>>
+
   ‘sss.regs ' (sp + 2) = Word (s.base_addr) ∧
    sss.regs ' (sp + 1) = Word (mc.target.get_reg ms mc.ptr2_reg
                                + 48w * bytes_in_word:'a word) ∧
    mc.target.get_reg ms mc.ptr2_reg = w3 ∧
    mc.target.get_reg ms mc.len2_reg = w4 ∧
    t.regs mc.len_reg = w2 ∧
-   t.regs mc.len2_reg = w4 ∧
+   t.regs mc.len2_reg = w4 (*∧
    w2n (theWord (sss.regs ' (sp + 1)) +
         -1w * theWord (sss.regs ' (sp + 2))) DIV
        (dimindex (:α) DIV 8) − LENGTH store_list =
    w2n (-1w * s.base_addr + mc.target.get_reg ms mc.ptr2_reg) DIV
-       (dimindex (:α) DIV 8)’
+       (dimindex (:α) DIV 8)*)’
     by (
     gs[Abbr ‘ssx’, Abbr ‘labst’]>>
     fs[lab_to_targetProofTheory.make_init_def]>>
@@ -2731,45 +2744,120 @@ Proof
      = w3 + -1w * s.base_addr’
       by (irule data_to_word_gcProofTheory.lsr_lsl>>gs[])>>
     gs[backendProofTheory.heap_regs_def]>>
-    ‘s.base_addr ≤₊ w3’
-      by
-      (irule WORD_LOWER_EQ_TRANS>>
-       qpat_assum ‘_ + _  ≤₊ w3’ $ irule_at Any>>
-       simp[WORD_LS]>>
-       ‘0w ≤ bytes_in_word * n2w max_stack_alloc:'a word’
-         by (
-         simp[WORD_LE]>>
-         simp[word_msb_def]>>
-         gs[bytes_in_word_def,stack_removeTheory.max_stack_alloc_def,
-            good_dimindex_def,dimword_def,word_index])>>
-       ‘w2n (s.base_addr + bytes_in_word * n2w max_stack_alloc:'a word)
-        = w2n (s.base_addr) + w2n (bytes_in_word * n2w max_stack_alloc:'a word)’
-         by (irule w2n_add>>fs[word_msb_neg,WORD_NOT_LESS])>>
-       fs[])>>
-    drule_all (iffLR (GSYM WORD_LE_EQ_LS))>>strip_tac>>
-    ‘w2n (w3 + -1w * s.base_addr + 48w * bytes_in_word) =
-     w2n (w3 + -1w * s.base_addr) + 48 * (dimindex (:'a) DIV 8)’
-      by
-      (irule EQ_TRANS>>
-       irule_at Any w2n_add>>
-       conj_tac >-
-        (simp[word_msb_neg,WORD_NOT_LESS]>>
-         drule_all WORD_SUB_LE>>gs[])>>
-       gs[bytes_in_word_def,good_dimindex_def,
-          word_msb_def,word_index,dimword_def])>>
-    fs[]>>
-    ‘0 < dimindex (:'a) DIV 8’ by gs[good_dimindex_def]>>
-    rewrite_tac[Once ADD_COMM]>>
-    simp[ADD_DIV_ADD_DIV])>>
+    qpat_x_assum ‘w2 = _’ $ assume_tac o GSYM>>fs[])>>
   (* memory domain done *)
 
   (* memory shift *)
+    qpat_x_assum ‘FLOOKUP sss.regs (sp + 2) = _’ mp_tac>>
+    gs[flookup_thm]>>strip_tac>>gs[]>>
+    ‘(w3 + -1w * s.base_addr) ⋙ (shift (:α) + 1) ≪ (shift (:α) + 1)
+     = w3 + -1w * s.base_addr’
+      by (irule data_to_word_gcProofTheory.lsr_lsl>>gs[])>>
+  gs[]>>
+
+  ‘w2n (-1w * w2 + w3 + bytes_in_word * n2w (LENGTH store_list)) DIV
+   (dimindex (:α) DIV 8)  − LENGTH store_list =
+   w2n (-1w * w2 + w3) DIV (dimindex (:α) DIV 8)’
+    by
+    (simp[SUB_RIGHT_EQ]>>
+     irule OR_INTRO_THM1>>
+     irule EQ_TRANS>>
+     irule_at Any ADD_DIV_ADD_DIV>>
+     ‘0 < dimindex (:'a) DIV 8’ by gs[good_dimindex_def]>>fs[]>>
+     ‘(LENGTH store_list) * (dimindex (:'a) DIV 8)
+      = w2n (bytes_in_word:'a word * n2w (LENGTH store_list))’
+       by fs[good_dimindex_def,bytes_in_word_def,dimword_def,
+             word_mul_def,stack_removeTheory.store_list_def]>>
+     pop_assum (fn h => rewrite_tac[h])>>
+
+     rewrite_tac[Once word_add_def]>>
+     rewrite_tac[w2n_n2w]>>
+     ‘w2n (w3 − w2) + w2n (bytes_in_word:'a word * n2w (LENGTH store_list)) < dimword (:'a)’
+       by (irule LESS_EQ_LESS_TRANS>>
+           qexists_tac ‘w2n w4’>>
+           simp[w2n_lt]>>
+           ‘w2n (-1w * w2 + w3) ≤ w2n w4 - w2n (bytes_in_word:'a word * n2w (LENGTH store_list))’
+             by (irule LESS_EQ_TRANS>>
+                 qexists_tac ‘w2n (w4 + -1w * (bytes_in_word:'a word * n2w max_stack_alloc))’>>
+                 rewrite_tac[Once WORD_ADD_COMM]>>
+                 rewrite_tac[Once (GSYM WORD_NEG_MUL)]>>
+                 rewrite_tac[GSYM word_sub_def]>>
+                 ‘w3 - w2  <₊ w4 + -1w * (bytes_in_word * n2w max_stack_alloc)’
+                   by (irule WORD_LOWER_LOWER_EQ_TRANS>>
+                       last_assum $ irule_at Any>>
+                       simp[]>>
+                       rewrite_tac[Once WORD_ADD_LEFT_LO2]>>
+                       conj_tac >-
+                        (rewrite_tac[GSYM (cj 1 WORD_LO_word_0)]>>
+                         irule WORD_LOWER_EQ_LOWER_TRANS>>
+                         last_assum $ irule_at Any>>simp[])>>
+                       irule OR_INTRO_THM1>>
+                       rewrite_tac[GSYM WORD_NEG_MUL]>>
+                       rewrite_tac[WORD_NEG_NEG]>>
+                       simp[]>>
+                       rewrite_tac[GSYM (cj 1 WORD_LO_word_0)]>>simp[])>>
+                 drule (iffLR WORD_LO)>>strip_tac>>
+                 drule LESS_IMP_LESS_OR_EQ>>strip_tac>>
+                 fs[]>>
+                 rewrite_tac[Once word_add_def]>>
+                 rewrite_tac[w2n_n2w]>>
+                 rewrite_tac[Once word_mul_def]>>
+                 simp[w2n_minus1]>>
+                 simp[LEFT_SUB_DISTRIB]>>
+                 ‘w2n (bytes_in_word:'a word * n2w max_stack_alloc) ≤
+                  dimword (:α) * w2n (bytes_in_word:'a word * n2w max_stack_alloc)’
+                   by fs[good_dimindex_def,bytes_in_word_def,dimword_def,
+                         stack_removeTheory.max_stack_alloc_def]>>
+                 simp[GSYM LESS_EQ_ADD_SUB]>>
+                 rewrite_tac[Once ADD_COMM]>>
+                 ‘w2n (bytes_in_word:'a word * n2w max_stack_alloc) ≤ w2n w4’
+                   by (
+                   ‘1024w * bytes_in_word:'a word ≤₊ w4’
+                      by (irule WORD_LOWER_EQ_TRANS>>
+                          first_assum $ irule_at Any>>
+                          rewrite_tac[WORD_ADD_LEFT_LS2]>>
+                          irule OR_INTRO_THM2>>
+                          qpat_assum ‘w2 ≤₊ w4’ $
+                                     assume_tac o REWRITE_RULE[WORD_LOWER_OR_EQ]>>
+                          gs[]>>
+                          strip_tac>>gs[])>>
+                   drule (iffLR WORD_LS)>>strip_tac>>
+                   gs[good_dimindex_def,bytes_in_word_def,dimword_def,
+                      stack_removeTheory.max_stack_alloc_def])>>
+                 drule LESS_EQ_ADD_SUB>>
+                 disch_then $ qspec_then
+                            ‘dimword(:'a) *
+                             w2n (bytes_in_word:'a word * n2w max_stack_alloc)’
+                            assume_tac>>
+                 pop_assum (fn h => rewrite_tac[h])>>
+                 rewrite_tac[Once MULT_COMM]>>
+                 assume_tac ZERO_LT_dimword>>
+                 simp[MOD_TIMES]>>
+                 ‘w2n w4 - w2n (bytes_in_word:'a word * n2w max_stack_alloc)
+                  < dimword(:'a)’
+                   by (simp[SUB_RIGHT_LESS]>>
+                       irule LESS_TRANS>>
+                       irule_at Any w2n_lt>>
+                       fs[good_dimindex_def,bytes_in_word_def,dimword_def,
+                          stack_removeTheory.max_stack_alloc_def])>>
+                 simp[LESS_MOD]>>
+                 fs[good_dimindex_def,bytes_in_word_def,dimword_def,
+                    stack_removeTheory.max_stack_alloc_def,
+                    stack_removeTheory.store_list_def])>>
+           fs[SUB_LEFT_LESS_EQ]>>
+           fs[WORD_SUM_ZERO])>>
+     rewrite_tac[Once (GSYM WORD_ADD_COMM)]>>
+     rewrite_tac[GSYM WORD_NEG_MUL]>>
+     rewrite_tac[GSYM word_sub_def]>>
+     simp[LESS_MOD])>>
 
   ‘fun2set (wst0.memory,wst0.mdomain) =
    fun2set (mk_mem (make_funcs (compile_prog pan_code)) s.memory,wst0.mdomain)’
     by (gs[Abbr ‘wst0’, Abbr ‘wst’]>>
         gs[word_to_stackProofTheory.make_init_def]>>
-        gs[stack_removeProofTheory.init_reduce_def]>>gvs[]>>
+        qpat_x_assum ‘_ = sst’ $ assume_tac o GSYM>>gs[]>>
+        qpat_x_assum ‘_ = x’ $ assume_tac o GSYM>>
+        gs[stack_removeProofTheory.init_reduce_def]>>
         qpat_x_assum ‘fun2set (ssx.memory,_) = _’ $ assume_tac o GSYM>>
         gs[wordSemTheory.theWord_def]>>
         gs[Abbr ‘ssx’, Abbr ‘labst’]>>
@@ -2782,6 +2870,7 @@ Proof
   disch_then $ qspec_then ‘InitGlobals_location’ mp_tac>>
   ‘no_alloc_code wst0.code ∧ no_install_code wst0.code’
     by gs[Abbr ‘wst0’]>>gs[]>>
+
   strip_tac>>
   ‘semantics (wst0 with memory := m0) InitGlobals_location ≠ Fail ⇒
    semantics wst0 InitGlobals_location ≠ Fail’
@@ -2803,7 +2892,8 @@ Proof
   ‘(wst0 with memory := m0).code = fromAList (pan_to_word_compile_prog pan_code)’
     by gs[Abbr ‘wst0’, wordSemTheory.state_component_equality]>>
 
-  drule_at Any (INST_TYPE [beta|-> “:num # α lab_to_target$config”] pan_to_wordProofTheory.state_rel_imp_semantics)>>gs[]>>
+  drule_at Any (INST_TYPE [beta|-> “:num # α lab_to_target$config”]
+                pan_to_wordProofTheory.state_rel_imp_semantics)>>gs[]>>
   rpt $ disch_then $ drule_at Any>>gs[]>>
 
   impl_tac
@@ -2813,10 +2903,10 @@ Proof
 
       (***)
       gs[Abbr ‘wst’, Abbr ‘worac’,
-         word_to_stackProofTheory.make_init_def]>>
-      gvs[]>>
+         word_to_stackProofTheory.make_init_def]>>gvs[]>>
       fs[lab_to_targetProofTheory.make_init_def]>>
       fs[stack_removeProofTheory.init_reduce_def]>>
+      gs[wordSemTheory.theWord_def]>>
 
       ‘store_init gck sp CurrHeap =
        (INR (sp + 2) :'a word + num)’
@@ -2837,7 +2927,7 @@ Proof
       gs[flookup_fupdate_list]>>
       gs[ALOOKUP_APPEND]>>
       gs[alookup_distinct_reverse]>>
-      gs[stack_removeTheory.store_list_def,
+      fs[stack_removeTheory.store_list_def,
          stack_removeTheory.store_init_def,
          APPLY_UPDATE_LIST_ALOOKUP,
          wordSemTheory.theWord_def])>>
@@ -2925,17 +3015,6 @@ Proof
   strip_tac>>gs[wordSemTheory.stack_size_def]>>
   gs[data_to_wordProofTheory.option_le_SOME]>>
   qpat_x_assum ‘m' < _’ assume_tac>>
-
- ‘theWord (sss.regs ' sp) = w4 + -1w * (bytes_in_word:'a word)’
-    by (qpat_x_assum ‘FLOOKUP sss.regs sp = SOME _’ mp_tac>>
-        simp[FLOOKUP_DEF]>>strip_tac>>
-        simp[wordSemTheory.theWord_def])>>
-  gs[]>>
-
- ‘theWord (sss.regs ' (sp + 2)) = w2’
-    by (qpat_x_assum ‘FLOOKUP sss.regs (sp + 2) = SOME _’ mp_tac>>
-        simp[FLOOKUP_DEF]>>strip_tac>>
-        simp[wordSemTheory.theWord_def])>>
   gs[wordSemTheory.theWord_def]>>
   qpat_x_assum ‘w2n _ ≤ max_heap * _’ assume_tac>>
   qpat_x_assum ‘aligned _ _’ assume_tac>>
@@ -2946,11 +3025,13 @@ Proof
   irule LESS_LESS_EQ_TRANS>>
   first_assum $ irule_at Any>>
   rewrite_tac[LESS_OR_EQ]>>
-  irule OR_INTRO_THM2>>
-  gs[]>>
-  simp[stack_removeTheory.store_list_def]>>
+  irule OR_INTRO_THM2>>simp[]>>
+  qpat_x_assum ‘48w * _ = _ * _’ $ assume_tac>>
+  ‘LENGTH store_list = 48’
+  by simp[stack_removeTheory.store_list_def]>>
+  fs[]>>
 
-  ‘0 < dimindex (:'a) DIV 8’ by gs[good_dimindex_def]>>
+  ‘0 < dimindex (:'a) DIV 8’ by fs[good_dimindex_def]>>
   qpat_x_assum ‘w3 ≤₊ w4 + _’ assume_tac>>
   qpat_x_assum ‘_ ≤ max_heap’ assume_tac>>
   qpat_x_assum ‘max_heap * _ < _’ assume_tac>>
