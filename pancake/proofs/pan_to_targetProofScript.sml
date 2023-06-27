@@ -1872,12 +1872,7 @@ Proof
    mc.target.get_reg ms mc.ptr2_reg = w3 ∧
    mc.target.get_reg ms mc.len2_reg = w4 ∧
    t.regs mc.len_reg = w2 ∧
-   t.regs mc.len2_reg = w4 (*∧
-   w2n (theWord (sss.regs ' (sp + 1)) +
-        -1w * theWord (sss.regs ' (sp + 2))) DIV
-       (dimindex (:α) DIV 8) − LENGTH store_list =
-   w2n (-1w * s.base_addr + mc.target.get_reg ms mc.ptr2_reg) DIV
-       (dimindex (:α) DIV 8)*)’
+   t.regs mc.len2_reg = w4’
     by (
     gs[Abbr ‘ssx’, Abbr ‘labst’]>>
     fs[lab_to_targetProofTheory.make_init_def]>>
