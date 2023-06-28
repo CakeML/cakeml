@@ -101,7 +101,7 @@ Proof
   >- (
     qexists_tac`out`>>qexists_tac`err`>>simp[]>>
     fs[check_unsat_1_sem_def,get_fml_def]>>
-    strip_tac>>gvs[])
+    strip_tac>>gvs[])>>
   metis_tac[]
 QED
 
