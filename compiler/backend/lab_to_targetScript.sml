@@ -325,8 +325,8 @@ val _ = Datatype`
             ; ffi_names : string list option
             (* shmem_info is 
             * a list of (entry pc, no. of bytes, address of the shared memory, register
-            * to be load/store and the end pc)s for each share memory access
-            * ; shmem_info: ('a word # word8 # 'a addddr # num # 'a word) list *)
+            * to be load/store and the end pc)s for each share memory access *)
+            ; shmem_extra: string list # 'a shmem_info
             ; hash_size : num
             |>`;
 
@@ -344,6 +344,33 @@ val find_ffi_names_def = Define `
      list_add_if_fresh s (find_ffi_names (Section k xs::rest))
    | _ => find_ffi_names (Section k xs::rest)))`
 
+Definition get_memop_info_def:
+  get_memop_info Load a = ("MappedRead", n2w $ dimindex a DIV 8) /\
+  (* get_memop_info Load32 a = ("MappedRead",4w) /\ *)
+  get_memop_info Load8 a = ("MappedRead",1w) /\
+  get_memop_info Store a = ("MappedWrite", n2w $ dimindex a DIV 8) /\
+  (* get_memop_info Store32 a = ("MappedWrite",4w) /\ *)
+  get_memop_info Store8 a =("MappedWrite",1w)
+End
+
+Definition get_shmem_info_def:
+  (get_shmem_info [] pos ffi_names (shmem_info: 'a shmem_info) =
+    (ffi_names, shmem_info)) /\
+  (get_shmem_info (Section k []::rest) pos ffi_names shmem_info =
+    get_shmem_info rest pos ffi_names shmem_info) /\
+  (get_shmem_info (Section k ((Label _ _ _)::xs)::rest) pos ffi_names shmem_info =
+    get_shmem_info (Section k xs::rest) pos ffi_names shmem_info) /\
+  (get_shmem_info (Section k ((Asm (ShareMem m r ad) bytes _)::xs)::rest) pos
+  ffi_names shmem_info =
+    let (name,nb) = get_memop_info m (:'a) in
+    get_shmem_info (Section k xs::rest) (pos+LENGTH bytes) (ffi_names ++ [name])
+      (shmem_info ++ [(n2w pos,nb,ad,r,n2w $ pos+LENGTH bytes)])) /\
+  (get_shmem_info (Section k ((LabAsm _ _ bytes _)::xs)::rest) pos ffi_names shmem_info =
+    get_shmem_info (Section k xs::rest) (pos+LENGTH bytes) ffi_names shmem_info) /\
+  (get_shmem_info (Section k ((Asm _ bytes _)::xs)::rest) pos ffi_names shmem_info =
+    get_shmem_info (Section k xs::rest) (pos+LENGTH bytes) ffi_names shmem_info)
+End
+
 Definition compile_lab_def:
   compile_lab c sec_list =
     let current_ffis = FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") $
@@ -358,7 +385,8 @@ Definition compile_lab_def:
           SOME (bytes,
                 c with <| labels := l1; pos := LENGTH bytes + c.pos;
                           sec_pos_len := get_symbols c.pos sec_list;
-                          ffi_names := SOME $ ffis |>)
+                          ffi_names := SOME $ ffis;
+                          shmem_extra := get_shmem_info sec_list c.pos [] [] |>)
       | NONE => NONE
     else NONE
 End
@@ -403,7 +431,7 @@ Definition inc_config_to_config_def:
   inc_config_to_config (asm : 'a asm_config) (c : inc_config) = <|
     labels := c.inc_labels; sec_pos_len := c.inc_sec_pos_len;
     pos := c.inc_pos; asm_conf := asm; init_clock := c.inc_init_clock;
-    ffi_names := c.inc_ffi_names; hash_size := c.inc_hash_size
+    ffi_names := c.inc_ffi_names; hash_size := c.inc_hash_size; shmem_extra := ([],[])
   |>
 End
 
