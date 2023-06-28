@@ -643,15 +643,6 @@ val good_code_def = Define`
    restrict_nonzero (get_labels code) ⊆ get_code_labels code ∪ labs_domain labs ∧
    all_enc_ok_pre c code`;
 
-Definition get_memop_info_def:
-  get_memop_info Load a = ("MappedRead", n2w $ dimindex a DIV 8) /\
-  (* get_memop_info Load32 a = ("MappedRead",4w) /\ *)
-  get_memop_info Load8 a = ("MappedRead",1w) /\
-  get_memop_info Store a = ("MappedWrite", n2w $ dimindex a DIV 8) /\
-  (* get_memop_info Store32 a = ("MappedWrite",4w) /\ *)
-  get_memop_info Store8 a = ("MappedWrite",1w)
-End
-
 Definition num_pcs_def:
   num_pcs [] = (0:num) /\
   num_pcs ((Section _ [])::rest) = num_pcs rest /\
@@ -9300,18 +9291,6 @@ Proof
   gvs[]
 QED
 
-(*
-Theorem code_similar_IMP_get_shmem_info_same:
-!code p l l'.
-  code_similar code code2 ==>
-  get_shmem_info code p l l' = get_shmem_info code2 p l l'
-Proof
-  rw[] >>
-  drule_all code_similar_IMP_asm_fetch_aux_line_similar >>
-  
-QED
-*)
-
 Theorem make_init_mmio_pcs_min_index:
   mc_conf_ok mc_conf /\
   good_code mc_conf.target.config LN code /\
@@ -9419,9 +9398,11 @@ val IMP_state_rel_make_init = Q.prove(
    mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
    MAP FST new_shmem_info = DROP i (mc_conf.ffi_entry_pcs) /\
    (mc_conf.mmio_info = \index. EL (index - i) $ MAP SND new_shmem_info) /\
-   no_install_or_no_share_mem code mc_conf.ffi_names
-   (* /\
-   share_mem_domain_code_rel mc_conf (mc_conf.target.get_pc ms) code2 sdm *)
+   no_install_or_no_share_mem code mc_conf.ffi_names /\
+   (!bn. bn < cbspace ==>
+    ~(MEM (mc_conf.target.get_pc ms + 
+      n2w (LENGTH (prog_to_bytes code2)) + n2w bn)
+      mc_conf.ffi_entry_pcs))
    ==>
    state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
        mc_conf.target.get_pc ms)
@@ -9467,7 +9448,7 @@ val IMP_state_rel_make_init = Q.prove(
     simp[word_loc_val_byte_def,case_eq_thms]
     \\ metis_tac[SUBSET_DEF,word_loc_val_def] )
   \\ conj_tac >- metis_tac[word_add_n2w]
-  \\ conj_tac>- simp[bytes_in_mem_def]
+  \\ conj_tac >- simp[bytes_in_mem_def]
   \\ conj_tac>-
     (drule pos_val_0 \\ simp[])
   \\ conj_tac >- metis_tac[code_similar_sec_labels_ok]
@@ -9938,7 +9919,9 @@ val semantics_compile_lemma = Q.prove(
     qexists `c.init_clock` >> gvs[]
     (* if C_FFI_NAMES = TAKE i mc_conf.ffi_names then this can be solved *)
   ) >>
-  gvs[no_install_or_no_share_mem_filter_skip])
+  gvs[no_install_or_no_share_mem_filter_skip]>>
+  rw[]
+  )
   |> REWRITE_RULE [CONJ_ASSOC]
   |> MATCH_MP implements_intro_gen
   |> REWRITE_RULE [GSYM CONJ_ASSOC]
