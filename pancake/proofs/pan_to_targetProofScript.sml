@@ -1233,7 +1233,7 @@ Proof
 QED
 
 (* resource_limit' *)
-Theorem pan_to_target_compile_semantics':
+Theorem pan_to_target_compile_semantics:
   compile_prog_max c pan_code = (SOME (bytes, bitmaps, c'), stack_max) ∧
   distinct_params pan_code ∧
   consistent_labels s.memory pan_code ∧
