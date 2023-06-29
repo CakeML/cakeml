@@ -314,7 +314,15 @@ Proof
 QED
 
 (* compile labels *)
-Type shmem_info = ``:('a word # word8 # 'a addr # num # 'a word) list``
+val _ = Datatype`
+  shmem_rec = <| entry_pc: 'a word
+               ; nbytes: word8
+               ; access_addr: 'a addr
+               ; reg: num
+               ; exit_pc: 'a word
+               |>`;
+
+Type shmem_info = ``:'a shmem_rec list``;
 
 val _ = Datatype`
   config = <| labels : num num_map num_map
@@ -364,7 +372,12 @@ Definition get_shmem_info_def:
   ffi_names shmem_info =
     let (name,nb) = get_memop_info m (:'a) in
     get_shmem_info (Section k xs::rest) (pos+LENGTH bytes) (ffi_names ++ [name])
-      (shmem_info ++ [(n2w pos,nb,ad,r,n2w $ pos+LENGTH bytes)])) /\
+      (shmem_info ++ [
+        <|entry_pc:=n2w pos
+        ; nbytes:=nb
+        ;access_addr:=ad
+        ;reg:=r
+        ;exit_pc:=n2w $ pos+LENGTH bytes|>])) /\
   (get_shmem_info (Section k ((LabAsm _ _ bytes _)::xs)::rest) pos ffi_names shmem_info =
     get_shmem_info (Section k xs::rest) (pos+LENGTH bytes) ffi_names shmem_info) /\
   (get_shmem_info (Section k ((Asm _ bytes _)::xs)::rest) pos ffi_names shmem_info =
