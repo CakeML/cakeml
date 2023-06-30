@@ -959,6 +959,16 @@ Proof
   \\ fs [call_env_def]
 QED
 
+Theorem compile_Arith:
+  ^(get_goal "loopLang$Arith")
+Proof
+  fs [syntax_ok_def,no_Loop_def,every_prog_def] \\ rpt strip_tac
+  \\ gvs[evaluate_def,AllCaseEqs(),DefnBase.one_line_ify NONE loop_arith_def,
+         comp_no_loop_def,PULL_EXISTS
+        ]
+  \\ gvs[state_rel_def,set_var_def,state_component_equality] \\ metis_tac[]
+QED
+
 Theorem compile_correct:
   ^(compile_correct_tm())
 Proof
@@ -966,7 +976,7 @@ Proof
   \\ EVERY (map strip_assume_tac [compile_Skip, compile_Continue,
        compile_Mark, compile_Return, compile_Assign, compile_Store,
        compile_SetGlobal, compile_Call, compile_Seq, compile_If,
-       compile_FFI, compile_Loop])
+       compile_FFI, compile_Loop,compile_Arith])
   \\ asm_rewrite_tac [] \\ rw [] \\ rpt (pop_assum kall_tac)
 QED
 

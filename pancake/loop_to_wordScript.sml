@@ -61,6 +61,16 @@ Definition comp_def:
   (comp ctxt Skip l = (wordLang$Skip,l)) /\
   (comp ctxt (Assign n e) l =
      (Assign (find_var ctxt n) (comp_exp ctxt e),l)) /\
+  (comp ctxt (Arith arith) l =
+     (case arith of
+        LLongMul r1 r2 r3 r4 =>
+        (Inst(Arith(LongMul (find_var ctxt r1) (find_var ctxt r2)
+                    (find_var ctxt r3) (find_var ctxt r4))),l)
+      | LLongDiv r1 r2 r3 r4 r5 =>
+        (Inst(Arith(LongDiv (find_var ctxt r1) (find_var ctxt r2)
+                    (find_var ctxt r3) (find_var ctxt r4) (find_var ctxt r5))),l)
+      | LDiv r1 r2 r3 =>
+        (Inst(Arith(Div (find_var ctxt r1) (find_var ctxt r2) (find_var ctxt r3))),l))) /\
   (comp ctxt (Store e v) l =
      (Store (comp_exp ctxt e) (find_var ctxt v), l)) /\
   (comp ctxt (SetGlobal a e) l =

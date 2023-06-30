@@ -8464,7 +8464,8 @@ Proof
     \\ imp_res_tac ALOOKUP_MEM
     \\ metis_tac[] )
   \\ Q.ISPECL_THEN [`cc`, `es`, `co`] drule syntax_oracle_ok_to_oracle_inv
-  \\ fs []);
+  \\ fs []
+QED
 
 Theorem compile_inc_phases_all_distinct:
   SND (SND (orac i)) = [] ==>

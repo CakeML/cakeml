@@ -20,8 +20,13 @@ Datatype:
 End
 
 Datatype:
+  loop_arith = LLongMul num num num num | LLongDiv num num num num num | LDiv num num num
+End
+
+Datatype:
   prog = Skip
        | Assign num ('a exp)           (* dest, source *)
+       | Arith loop_arith
        | Store ('a exp) num            (* dest, source *)
        | SetGlobal (5 word) ('a exp)   (* dest, source *)
        | LoadByte num num               (* TODISC: have removed imm, why num num? *)
@@ -80,6 +85,11 @@ End
 Definition assigned_vars_def:
   (assigned_vars Skip = []) ∧
   (assigned_vars (Assign n e) = [n]) ∧
+  (assigned_vars (Arith arith) =
+   case arith of
+     LLongMul v1 v2 v3 v4 => [v1;v2]
+   | LLongDiv v1 v2 v3 v4 v5 => [v1;v2]
+   | LDiv v1 v2 v3 => [v1]) ∧
   (assigned_vars (LoadByte n m) = [m]) ∧
   (assigned_vars (Seq p q) = assigned_vars p ++ assigned_vars q) ∧
   (assigned_vars (If cmp n r p q ns) = assigned_vars p ++ assigned_vars q) ∧
@@ -99,6 +109,11 @@ Definition acc_vars_def:
   (acc_vars Continue l = l) ∧
   (acc_vars (Loop l1 body l2) l = acc_vars body l) ∧
   (acc_vars (If x1 x2 x3 p1 p2 l1) l = acc_vars p1 (acc_vars p2 l)) ∧
+  (acc_vars (Arith arith) l =
+   case arith of
+     LLongMul v1 v2 v3 v4 => insert v1 () $ insert v2 () l
+   | LLongDiv v1 v2 v3 v4 v5 => insert v1 () $ insert v2 () l
+   | LDiv v1 v2 v3 => insert v1 () l) ∧
   (acc_vars (Mark p1) l = acc_vars p1 l) /\
   (acc_vars Tick l = l) /\
   (acc_vars Skip l = l) /\
