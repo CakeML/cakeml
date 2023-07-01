@@ -160,11 +160,12 @@ val eval_simulation_setup = setup (‘
            evaluate_decs t0 env0
              (MAP (λ(n,e). Dlet locs (Pvar (explode n)) e) (REVERSE xs)) =
              (t0,Rval (<|v := alist_to_ns ws; c := nsEmpty|> )) ∧
-           (EVERY (can_lookup env'.v) ws ⇒
-            ∃t' res'.
-              evaluate t env' exps3 = (t', res') ∧
-              state_rel (:'a) s' t' ∧
-              result_rel (LIST_REL v_rel) v_rel res res')))
+           (∀env3.
+              EVERY (can_lookup env3.v) ws ∧ weak_env_rel fvs env env3 ⇒
+              ∃t' res'.
+                evaluate t env3 exps3 = (t', res') ∧
+                state_rel (:'a) s' t' ∧
+                result_rel (LIST_REL v_rel) v_rel res res')))
   ∧
   (∀ ^s env x pes err_x s' res es t env' y err_y.
      evaluate_match s env x pes err_x = (s', res) ∧
@@ -274,6 +275,7 @@ Proof
     \\ strip_tac \\ fs [])
   \\ reverse (gvs [annotate_exp_def,AllCaseEqs(),lift_exp_def,evaluate_def])
   \\ qexists_tac ‘[]’ \\ fs [namespaceTheory.nsBindList_def]
+  \\ rw []
   >- (gvs [alist_to_ns_eq,weak_env_rel_def]
       \\ res_tac \\ fs [nsLookup_nsBindList]
       \\ Cases \\ fs [])
@@ -293,8 +295,8 @@ Proof
   \\ gvs [evaluate_decs_def,pat_bindings_def,evaluate_def,pmatch_def]
   \\ qexists_tac ‘[(explode (make_name n3),Litv l)]’
   \\ gvs [namespaceTheory.nsBind_def,extend_dec_env_def]
-  \\ fs [can_lookup_def]
-  \\ fs [Once v_rel_cases]
+  \\ rw [can_lookup_def]
+  \\ fs [Once v_rel_cases] \\ fs []
 QED
 
 Triviality eval_simulation_App:
@@ -542,12 +544,12 @@ Proof
     \\ drule_all source_evalProofTheory.env_rel_nsLookup_v \\ rw [] \\ fs [])
   \\ strip_tac \\ fs []
   \\ ‘env'.c = env.c’ by fs [env_rel_def] \\ fs []
-  (* need to be able to instantiate for any env' that is sufficiently similar *)
-  \\ cheat (*
-  \\ first_x_assum $ qspec_then ‘env'’ mp_tac
-  \\ simp [GSYM PULL_FORALL]
-  \\ impl_tac >- fs [const_env_rel_def]
-  \\ simp [] \\ disch_then kall_tac
+  \\ qabbrev_tac ‘env3 = <|v := alist_to_ns ws; c := nsEmpty|> +++ env'’
+  \\ first_x_assum $ qspec_then ‘env3’ mp_tac
+  \\ impl_tac
+  >- cheat (* ought to be true *)
+  \\ gvs []
+  \\ strip_tac \\ gvs []
   \\ reverse (gvs [CaseEq"result"])
   \\ imp_res_tac evaluate_sing \\ gvs []
   \\ rename [‘v_rel v5 v6’]
@@ -563,7 +565,7 @@ Proof
   \\ disch_then $ qspecl_then [‘nsEmpty’,‘nsEmpty’,
                                ‘<| v := nsEmpty ; c := nsEmpty |>’,
                                ‘<| v := nsEmpty ; c := nsEmpty |>’] mp_tac
-  \\ fs [env_rel_def,SF SFY_ss] *)
+  \\ fs [env_rel_def,SF SFY_ss]
 QED
 
 Triviality eval_simulation_Dletrec:
