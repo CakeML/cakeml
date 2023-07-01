@@ -81,93 +81,106 @@ Definition is_Constant_def:
   is_Constant _ = F
 End
 
+Definition max_list_def:
+  (max_list [] = 0) ∧
+  (max_list (x::xs) = MAX x (max_list xs))
+End
+
 Definition annotate_exp_def:
-  (annotate_exp (t:string list) n (ast$Lit l) =
-     (Constant (Lit l),n,str_empty)) ∧
-  (annotate_exp t n (Con cn es) =
-     let (es,n,fvs) = annotate_exps t n es in
+  (annotate_exp (t:string list) (ast$Lit l) =
+     (Constant (Lit l),0,str_empty)) ∧
+  (annotate_exp t (Con cn es) =
+     let (es,n,fvs) = annotate_exps t es in
        if EVERY is_Constant es then
          (Constant (Con cn es),n,fvs)
        else (Con cn es,n,fvs)) ∧
-  (annotate_exp t n (Fun x e) =
-     let (e,n,fvs1) = annotate_exp (x :: t) n e in
+  (annotate_exp t (Fun x e) =
+     let (e,n,fvs1) = annotate_exp (x :: t) e in
      let fvs = delete fvs1 (implode x) in
        if disjoint t fvs then
          (Constant (Fun x e),n,fvs)
        else
          (Fun x e,n,fvs)) ∧
-  (annotate_exp t n (ast$Letrec funs e) =
+  (annotate_exp t (ast$Letrec funs e) =
      let names = MAP FST funs in
-     let (funs1,n,fvs1) = annotate_funs (names ++ t) n funs in
-     let (e,n,fvs) = annotate_exp (names ++ t) n e in
-       (Letrec funs1 e,n, delete_all names (union fvs fvs1))) ∧
-  (annotate_exp t n (Var x) =
+     let (funs1,n,fvs1) = annotate_funs (names ++ t) funs in
+     let (e,n',fvs) = annotate_exp (names ++ t) e in
+       (Letrec funs1 e,MAX n n',
+         delete_all names (union fvs fvs1))) ∧
+  (annotate_exp t (Var x) =
      case x of
-     | Short vname => (Var x,bump (implode vname) n,insert str_empty (implode vname) ())
-     | _ => (Var x,n,str_empty)) ∧
-  (annotate_exp t n (ast$App op es) =
-     let (es,n,fvs) = annotate_exps t n es in
+     | Short vname =>
+        (Var x, bump (implode vname) 0,
+          insert str_empty (implode vname) ())
+     | _ => (Var x,0,str_empty)) ∧
+  (annotate_exp t (ast$App op es) =
+     let (es,n,fvs) = annotate_exps t es in
        (App op es,n,fvs)) ∧
-  (annotate_exp t n (Log lop e1 e2) =
-     let (e1,n,fvs1) = annotate_exp t n e1 in
-     let (e2,n,fvs2) = annotate_exp t n e2 in
-       (Log lop e1 e2,n,union fvs1 fvs2)) ∧
-  (annotate_exp t n (If e1 e2 e3) =
-     let (e1,n,fvs1) = annotate_exp t n e1 in
-     let (e2,n,fvs2) = annotate_exp t n e2 in
-     let (e3,n,fvs3) = annotate_exp t n e3 in
-       (If e1 e2 e3,n,union fvs1 $ union fvs2 fvs3)) ∧
-  (annotate_exp t n (Let (SOME x) e1 e2) =
-     let (e1,n,fvs1) = annotate_exp t n e1 in
-     let (e2,n,fvs2) = annotate_exp t n e2 in
-       (Let (SOME x) e1 e2,n,union fvs1 (delete fvs2 (implode x)))) ∧
-  (annotate_exp t n (Let NONE e1 e2) =
-     let (e1,n,fvs1) = annotate_exp t n e1 in
-     let (e2,n,fvs2) = annotate_exp t n e2 in
-       (Let NONE e1 e2,n,union fvs1 fvs2)) ∧
-  (annotate_exp t n (Raise e) =
-     let (e,n,fvs) = annotate_exp t n e in
+  (annotate_exp t (Log lop e1 e2) =
+     let (e1,n1,fvs1) = annotate_exp t e1 in
+     let (e2,n2,fvs2) = annotate_exp t e2 in
+       (Log lop e1 e2,MAX n1 n2,union fvs1 fvs2)) ∧
+  (annotate_exp t (If e1 e2 e3) =
+     let (e1,n1,fvs1) = annotate_exp t e1 in
+     let (e2,n2,fvs2) = annotate_exp t e2 in
+     let (e3,n3,fvs3) = annotate_exp t e3 in
+       (If e1 e2 e3,MAX n1 (MAX n2 n3),
+         union fvs1 $ union fvs2 fvs3)) ∧
+  (annotate_exp t (Let (SOME x) e1 e2) =
+     let (e1,n1,fvs1) = annotate_exp t e1 in
+     let (e2,n2,fvs2) = annotate_exp t e2 in
+       (Let (SOME x) e1 e2, MAX n1 n2,
+         union fvs1 (delete fvs2 (implode x)))) ∧
+  (annotate_exp t (Let NONE e1 e2) =
+     let (e1,n1,fvs1) = annotate_exp t e1 in
+     let (e2,n2,fvs2) = annotate_exp t e2 in
+       (Let NONE e1 e2, MAX n1 n2,
+         union fvs1 fvs2)) ∧
+  (annotate_exp t (Raise e) =
+     let (e,n,fvs) = annotate_exp t e in
        (Raise e,n,fvs)) ∧
-  (annotate_exp t n (Mat e pes) =
-     let (e,n,fvs) = annotate_exp t n e in
-     let (pes,n,fvs1) = annotate_pes t n pes in
-       (Mat e pes,n,union fvs fvs1)) ∧
-  (annotate_exp t n (Handle e pes) =
-     let (e,n,fvs) = annotate_exp t n e in
-     let (pes,n,fvs1) = annotate_pes t n pes in
-       (Handle e pes,n,union fvs fvs1)) ∧
-  (annotate_exp t n (Tannot e _) = annotate_exp t n e) ∧
-  (annotate_exp t n (Lannot e _) = annotate_exp t n e) ∧
-  (annotate_exp t n (FpOptimise sc e) = annotate_exp t n e) /\
+  (annotate_exp t (Mat e pes) =
+     let (e,n,fvs) = annotate_exp t e in
+     let (pes,n',fvs1) = annotate_pes t pes in
+       (Mat e pes,MAX n n',
+         union fvs fvs1)) ∧
+  (annotate_exp t (Handle e pes) =
+     let (e,n,fvs) = annotate_exp t e in
+     let (pes,n',fvs1) = annotate_pes t pes in
+       (Handle e pes,MAX n n',
+         union fvs fvs1)) ∧
+  (annotate_exp t (Tannot e _) = annotate_exp t e) ∧
+  (annotate_exp t (Lannot e _) = annotate_exp t e) ∧
+  (annotate_exp t (FpOptimise sc e) = annotate_exp t e) /\
   (* -- boilerplate -- *)
-  (annotate_exps t n [] = ([],n,str_empty)) ∧
-  (annotate_exps t n (e::es) =
-     let (e,n,fvs) = annotate_exp t n e in
+  (annotate_exps t [] = ([],0,str_empty)) ∧
+  (annotate_exps t (e::es) =
+     let (e,n,fvs) = annotate_exp t e in
        if NULL es then
          ([e],n,fvs)
        else
-         let (es,n,fvs1) = annotate_exps t n es in
-           (e::es,n,union fvs fvs1)) ∧
-  (annotate_pes t n [] = ([],n,str_empty)) ∧
-  (annotate_pes t n ((p,e)::pes) =
+         let (es,n',fvs1) = annotate_exps t es in
+           (e::es,MAX n n',union fvs fvs1)) ∧
+  (annotate_pes t [] = ([],0,str_empty)) ∧
+  (annotate_pes t ((p,e)::pes) =
      let pbs = pat_bindings p [] in
-     let (e,n,fvs) = annotate_exp (pbs ++ t) n e in
+     let (e,n,fvs) = annotate_exp (pbs ++ t) e in
      let fvs' = delete_all pbs fvs in
-     let (pes,n,fvs1) = annotate_pes t n pes in
-       ((p,e)::pes,n,union fvs' fvs1)) ∧
-  (annotate_funs t n [] = ([],n,str_empty)) ∧
-  (annotate_funs t n ((f,x,e)::funs) =
-     let (e,n,fvs) = annotate_exp (x :: t) n e in
+     let (pes,n',fvs1) = annotate_pes t pes in
+       ((p,e)::pes,MAX n n',union fvs' fvs1)) ∧
+  (annotate_funs t [] = ([],0,str_empty)) ∧
+  (annotate_funs t ((f,x,e)::funs) =
+     let (e,n,fvs) = annotate_exp (x :: t) e in
      let fvs' = delete fvs (implode x) in
-     let (funs,n,fvs1) = annotate_funs t n funs in
-       ((f,x,e)::funs,n,union fvs' fvs1))
+     let (funs,n',fvs1) = annotate_funs t funs in
+       ((f,x,e)::funs,MAX n n',union fvs' fvs1))
 Termination
   WF_REL_TAC ‘inv_image $< $ λx. case x of
-   | INL (t,x,e) => exp_size e
-   | INR (INL (t,x,es)) => list_size exp_size es
-   | INR (INR (INL (t,x,pes))) =>
+   | INL (t,e) => exp_size e
+   | INR (INL (t,es)) => list_size exp_size es
+   | INR (INR (INL (t,pes))) =>
        list_size (pair_size pat_size exp_size) pes
-   | INR (INR (INR (t,x,funs))) =>
+   | INR (INR (INR (t,funs))) =>
        list_size (pair_size (list_size char_size)
                   (pair_size (list_size char_size) exp_size)) funs’
 End
@@ -294,13 +307,15 @@ End
 
 Definition compile_dec_def:
   compile_dec (Dlet l p e) =
-    (let (e,n,fvs) = annotate_exp [] (bump_pat 0 p) e in
-     let (e,n,xs) = lift_exp F [] n e in
+    (let (e,n,fvs) = annotate_exp [] e in
+     let np = MAX n (bump_pat 0 p) in
+     let (e,n,xs) = lift_exp F [] (MAX n np) e in
        make_local l xs (Dlet l p e)) ∧
   compile_dec (Dletrec l funs) =
     (let names = MAP FST funs in
-     let (funs,n,fvs) = annotate_funs names (bump_all names 0) funs in
-     let (funs,n,xs) = lift_funs T [] n funs in
+     let (funs,n,fvs) = annotate_funs names funs in
+    let np = MAX n (bump_all names 0) in
+     let (funs,n,xs) = lift_funs T [] np funs in
        make_local l xs (Dletrec l funs)) ∧
   compile_dec (Dtype l tds) = Dtype l tds ∧
   compile_dec (Dtabbrev l x y z) = Dtabbrev l x y z ∧
@@ -315,5 +330,206 @@ Termination
                             | INL x => dec_size y
                             | INR y => list_size dec_size x’
 End
+
+Theorem map_ok_str_empty_cmp:
+  map_ok str_empty ∧
+  cmp_of str_empty = compare
+Proof
+  fs [str_empty_def,mlmapTheory.empty_thm,mlstringTheory.TotOrd_compare]
+QED
+
+Theorem map_ok_delete_all_cmp:
+  ∀ls m.
+    (map_ok m ⇒ map_ok (delete_all ls m)) ∧
+    cmp_of (delete_all ls m) = cmp_of m
+Proof
+  Induct>>rw[delete_all_def]>>
+  metis_tac[delete_thm]
+QED
+
+Theorem map_ok_annotate_exp_cmp:
+  (∀t e.
+    map_ok (SND (SND (annotate_exp t e))) ∧
+    cmp_of (SND (SND (annotate_exp t e))) = compare
+  ) ∧
+  (∀t es.
+    map_ok (SND (SND (annotate_exps t es))) ∧
+    cmp_of (SND (SND (annotate_exps t es))) = compare
+  ) ∧
+  (∀t pes.
+    map_ok (SND (SND (annotate_pes t pes))) ∧
+    cmp_of (SND (SND (annotate_pes t pes))) = compare
+  ) ∧
+  (∀t funs.
+    map_ok (SND (SND (annotate_funs t funs))) ∧
+    cmp_of (SND (SND (annotate_funs t funs))) = compare
+  )
+Proof
+  ho_match_mp_tac annotate_exp_ind>>
+  rw[annotate_exp_def,map_ok_str_empty_cmp]>>
+  rpt(pairarg_tac>>fs[])>>every_case_tac>>
+  rw[map_ok_str_empty_cmp]
+  >- metis_tac[delete_thm]
+  >- metis_tac[delete_thm]
+  >- metis_tac[map_ok_delete_all_cmp,union_thm]
+  >- metis_tac[map_ok_delete_all_cmp,union_thm]
+  >- metis_tac[insert_thm,map_ok_str_empty_cmp]
+  >- metis_tac[union_thm]
+  >- metis_tac[union_thm]
+  >- metis_tac[union_thm]
+  >- metis_tac[union_thm]
+  >- metis_tac[union_thm,delete_thm,cmp_of_delete]
+  >- metis_tac[union_thm,delete_thm,cmp_of_delete]
+  >- metis_tac[union_thm]
+  >- metis_tac[union_thm]
+  >- metis_tac[union_thm]
+  >- metis_tac[union_thm]
+  >- metis_tac[union_thm]
+  >- metis_tac[union_thm]
+  >- metis_tac[union_thm]
+  >- metis_tac[union_thm]
+  >- metis_tac[map_ok_delete_all_cmp,union_thm]
+  >- metis_tac[map_ok_delete_all_cmp,union_thm]
+  >- metis_tac[union_thm,delete_thm,cmp_of_delete]
+  >- metis_tac[union_thm,delete_thm,cmp_of_delete]
+QED
+
+Definition map_eq_def:
+  map_eq (map1:('a,'b) map) (map2:('a,'b) map) ⇔
+  to_fmap map1 = to_fmap map2
+End
+
+Theorem annotate_exps_CONS:
+  annotate_exp t x = (e,n,fv1) ∧
+  annotate_exps t xs = (es,n',fv2) ⇒
+  ∃fvs.
+    annotate_exps t (x::xs) = (e::es, MAX n n', fvs) ∧
+    map_eq fvs (union fv1 fv2)
+Proof
+  rw[annotate_exp_def]>>
+  Cases_on`xs`>>gvs[annotate_exp_def,map_eq_def]>>
+  DEP_REWRITE_TAC
+    (CONJUNCTS (SIMP_RULE std_ss [IMP_CONJ_THM] mlmapTheory.union_thm))>>
+  CONJ_TAC>- (
+    simp[map_ok_str_empty_cmp]>>
+    metis_tac[map_ok_annotate_exp_cmp,SND,PAIR])>>
+  EVAL_TAC>>
+  metis_tac[FUNION_FEMPTY_2]
+QED
+
+Theorem map_eq_trans:
+  map_eq a b ∧
+  map_eq b c ⇒
+  map_eq a c
+Proof
+  rw[map_eq_def]
+QED
+
+Theorem map_eq_cong:
+  map_eq a a' ∧
+  map_eq b b' ∧
+  map_eq a' b' ⇒
+  map_eq a b
+Proof
+  rw[map_eq_def]
+QED
+
+Theorem annotate_exps_APPEND:
+  ∀xs' xn xfvs.
+  annotate_exps t xs = (xs',xn,xfvs) ∧
+  annotate_exps t ys = (ys',yn,yfvs) ⇒
+  ∃fvs.
+    annotate_exps t (xs ++ ys) = (xs'++ys', MAX xn yn, fvs) ∧
+    map_eq fvs (union xfvs yfvs)
+Proof
+  Induct_on`xs`
+  >- (
+    simp[map_eq_def]>>
+    rw[annotate_exp_def]>>
+    DEP_REWRITE_TAC
+      (CONJUNCTS (SIMP_RULE std_ss [IMP_CONJ_THM] mlmapTheory.union_thm))>>
+    CONJ_TAC>- (
+      simp[map_ok_str_empty_cmp]>>
+      metis_tac[map_ok_annotate_exp_cmp,SND,PAIR])>>
+    EVAL_TAC>>
+    metis_tac[FUNION_FEMPTY_1])>>
+  rw[]>>
+  qpat_x_assum`_ _ (h::xs) = _ `mp_tac>>
+  simp[Once annotate_exp_def]>>
+  rpt(pairarg_tac>>fs[])>>rw[]
+  >- (
+    Cases_on`xs`>>fs[]>>
+    metis_tac[annotate_exps_CONS])>>
+  drule annotate_exps_CONS>>
+  last_x_assum assume_tac>>
+  disch_then drule>>
+  rw[]>>simp[]>>
+  CONJ_TAC >-
+    rw[MAX_DEF]>>
+  drule map_eq_trans>>
+  disch_then match_mp_tac>>
+  last_x_assum mp_tac>>
+  simp[map_eq_def]>>
+  DEP_REWRITE_TAC
+      (CONJUNCTS (SIMP_RULE std_ss [IMP_CONJ_THM] mlmapTheory.union_thm))>>
+  CONJ_TAC>- (
+    metis_tac[map_ok_annotate_exp_cmp,SND,PAIR])>>
+  CONJ_TAC>- (
+    metis_tac[map_ok_annotate_exp_cmp,SND,PAIR])>>
+  simp[FUNION_ASSOC]
+QED
+
+Theorem FUNION_UNIT_COMM:
+  FUNION (f1 : 'a |-> unit) (f2 : 'a |-> unit) =
+  FUNION f2 f1
+Proof
+  Induct_on`f1`>>rw[]>>
+  simp[FUNION_FUPDATE_1,FUNION_FUPDATE_2]>>
+  rw[]
+  >- (
+    last_x_assum SUBST_ALL_TAC>>
+    match_mp_tac FUPDATE_ELIM>>
+    fs[])
+  >- metis_tac[]
+QED
+
+Theorem annotate_exps_REVERSE:
+  ∀es t es' n fvs.
+  annotate_exps t es = (es',n,fvs) ⇒
+  ∃fvs'.
+    annotate_exps t (REVERSE es) = (REVERSE es', n, fvs') ∧
+    map_eq fvs fvs'
+Proof
+  Induct
+  >- (
+    rw[annotate_exp_def]>>
+    EVAL_TAC)>>
+  rw[]>>
+  `∃a1 b1 c1 a2 b2 c2.
+    annotate_exps t es = (a2,b2,c2) ∧
+    annotate_exps t [h] = (a1,b1,c1)` by metis_tac[PAIR]>>
+  drule annotate_exps_APPEND>>
+  qpat_x_assum`_ _ es = _` assume_tac>>
+  disch_then drule>>
+  rw[]>>
+  last_x_assum drule>>rw[]>>
+  drule annotate_exps_APPEND>>
+  qpat_x_assum`_ _ [h] = _` assume_tac>>
+  disch_then drule>>
+  rw[]>>simp[]>>
+  CONJ_TAC >- (
+    fs[annotate_exp_def]>>
+    rpt(pairarg_tac>>fs[])>>gvs[])>>
+  CONJ_TAC >-
+    rw[MAX_DEF]>>
+  rpt(qpat_x_assum`map_eq _ _` mp_tac)>>
+  simp[map_eq_def]>>
+  DEP_REWRITE_TAC
+      (CONJUNCTS (SIMP_RULE std_ss [IMP_CONJ_THM] mlmapTheory.union_thm))>>
+  CONJ_TAC>- (
+    metis_tac[map_ok_annotate_exp_cmp,SND,PAIR])>>
+  rw[]>>
+  metis_tac[FUNION_ASSOC,FUNION_UNIT_COMM]
+QED
 
 val _ = export_theory ();
