@@ -145,7 +145,7 @@ val eval_simulation_setup = setup (‘
            state_rel (:'a) s' t' ∧
            result_rel (LIST_REL v_rel) v_rel res res') ∧
      (* running altered code: *)
-     (∀ s' b res t env' exps1 exps2 exps3 n2 n3 n4 xs binders fvs locs ws0 env0
+     (∀ s' b n3 res t env' exps1 exps2 exps3 n2 n4 xs binders fvs locs ws0 env0
        (t0:'ffi semanticPrimitives$state).
          evaluate s env exps = (s', res) ∧
          state_rel (:'a) s t ∧
@@ -210,12 +210,14 @@ Proof
   fs [annotate_exp_def] \\ pairarg_tac \\ gvs [] \\ eq_tac \\ gvs []
 QED
 
+(*
 Theorem lift_exps_sing[simp]:
   lift_exps t b [e] = (es,n1,x) ⇔
   ∃e1. lift_exp t b e = (e1,n1,x) ∧ es = [e1]
 Proof
   fs [lift_exp_def] \\ pairarg_tac \\ gvs [] \\ eq_tac \\ rw []
 QED
+*)
 
 Triviality get_c_simp[simp]:
   (<|v := alist_to_ns ws; c := nsEmpty|> +++ env).c = env.c
@@ -291,8 +293,11 @@ Triviality eval_simulation_Lit:
 Proof
   simp [v_rel_refl] \\ rw []
   \\ gvs [annotate_exp_def,lift_exp_def,evaluate_def,v_rel_refl,AllCaseEqs()]
-  \\ rpt (qexists_tac ‘[]’ \\ fs [namespaceTheory.nsBindList_def] \\ NO_TAC)
-  \\ gvs [evaluate_decs_def,pat_bindings_def,evaluate_def,pmatch_def]
+  \\ pairarg_tac \\ gvs [AllCaseEqs()]
+  \\ rpt (qexists_tac ‘[]’ \\ fs [namespaceTheory.nsBindList_def,v_rel_refl]
+          \\ gvs [evaluate_decs_def,pat_bindings_def,evaluate_def,pmatch_def,v_rel_refl]
+          \\ NO_TAC)
+  \\ gvs [evaluate_decs_def,pat_bindings_def,evaluate_def,pmatch_def,v_rel_refl]
   \\ qexists_tac ‘[(explode (make_name n3),Litv l)]’
   \\ gvs [namespaceTheory.nsBind_def,extend_dec_env_def]
   \\ rw [can_lookup_def]
@@ -534,7 +539,11 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [evaluate_decs_make_local,evaluate_decs_def]
   \\ Cases_on ‘v2 = Rerr (Rabort Rtype_error)’ \\ gvs [PULL_EXISTS]
-  \\ last_x_assum $ drule_then $ drule_then $ drule_at $ Pos $ el 2
+  \\ last_x_assum $ drule_then mp_tac
+  \\ disch_then drule
+  \\ simp [lift_exp_def]
+  \\ fs [MAX_ASSOC]
+  \\ disch_then $ qspecl_then [‘F’,‘MAX n (bump_pat 0 p)’] mp_tac
   \\ fs []
   \\ disch_then $ qspecl_then [‘env'’,‘locs’,‘env'’,‘t’] mp_tac
   \\ impl_tac >-
