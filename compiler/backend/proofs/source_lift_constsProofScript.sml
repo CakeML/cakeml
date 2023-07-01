@@ -149,7 +149,7 @@ val eval_simulation_setup = setup (‘
        (t0:'ffi semanticPrimitives$state).
          evaluate s env exps = (s', res) ∧
          state_rel (:'a) s t ∧
-         annotate_exps binders exps = (exps1,n2,fvs) ∧ n2 ≤ n3 ∧
+         annotate_exps binders (REVERSE exps) = (exps1,n2,fvs) ∧ n2 ≤ n3 ∧
          lift_exps b [] n3 exps1 = (exps3,n4,xs) ∧
          EVERY (every_exp (one_con_check env.c)) exps ∧
          weak_env_rel fvs env env' ∧
@@ -332,8 +332,9 @@ Proof
   fs[annotate_exp_def]>>
   rpt (pairarg_tac \\ fs [])>>
   gvs[]>>
+  (*
   drule annotate_exps_REVERSE>>
-  strip_tac>>
+  strip_tac>> *)
   (* still doesn't work because lift_exp also needs to be reversed *)
   cheat
 QED
