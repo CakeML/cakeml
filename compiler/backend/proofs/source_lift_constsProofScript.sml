@@ -145,11 +145,11 @@ val eval_simulation_setup = setup (‘
            state_rel (:'a) s' t' ∧
            result_rel (LIST_REL v_rel) v_rel res res') ∧
      (* running altered code: *)
-     (∀ s' b res t env' exps1 exps2 exps3 n1 n2 n3 n4 xs binders fvs locs ws0 env0
+     (∀ s' b res t env' exps1 exps2 exps3 n2 n3 n4 xs binders fvs locs ws0 env0
        (t0:'ffi semanticPrimitives$state).
          evaluate s env exps = (s', res) ∧
          state_rel (:'a) s t ∧
-         annotate_exps binders n1 exps = (exps1,n2,fvs) ∧ n2 ≤ n3 ∧
+         annotate_exps binders exps = (exps1,n2,fvs) ∧ n2 ≤ n3 ∧
          lift_exps b [] n3 exps1 = (exps3,n4,xs) ∧
          EVERY (every_exp (one_con_check env.c)) exps ∧
          weak_env_rel fvs env env' ∧
@@ -203,15 +203,15 @@ val eval_simulation_setup = setup (‘
  *-----------------------------------------------------------------------*)
 
 Theorem annotate_exps_sing[simp]:
-  annotate_exps t n [e] = (es,n1,fvs) ⇔
-  ∃e1. annotate_exp t n e = (e1,n1,fvs) ∧ es = [e1]
+  annotate_exps t [e] = (es,n1,fvs) ⇔
+  ∃e1. annotate_exp t e = (e1,n1,fvs) ∧ es = [e1]
 Proof
   fs [annotate_exp_def] \\ pairarg_tac \\ gvs [] \\ eq_tac \\ gvs []
 QED
 
 Theorem lift_exps_sing[simp]:
-  lift_exps t n b [e] = (es,n1,x) ⇔
-  ∃e1. lift_exp t n b e = (e1,n1,x) ∧ es = [e1]
+  lift_exps t b [e] = (es,n1,x) ⇔
+  ∃e1. lift_exp t b e = (e1,n1,x) ∧ es = [e1]
 Proof
   fs [lift_exp_def] \\ pairarg_tac \\ gvs [] \\ eq_tac \\ rw []
 QED
@@ -247,6 +247,18 @@ Proof
   \\ CCONTR_TAC \\ gvs []
   \\ last_x_assum mp_tac
   \\ EVAL_TAC \\ fs [ADD1]
+QED
+
+Theorem build_conv_v_rel:
+  LIST_REL v_rel vs vs' ∧
+  build_conv envc cn vs = SOME v
+  ⇒
+  ∃v'.
+    build_conv envc cn vs' = SOME v' ∧
+    v_rel v v'
+Proof
+  rw[build_conv_def,AllCaseEqs()]>>
+  simp[v_rel_cases]
 QED
 
 (*-----------------------------------------------------------------------*
@@ -294,6 +306,28 @@ QED
 Triviality eval_simulation_Con:
   ^(#get_goal eval_simulation_setup `Case ([Con _ _])`)
 Proof
+  rw[]
+  >- (
+    (* Normal *)
+    reverse IF_CASES_TAC
+    >-
+      fs[env_rel_def]>>
+    gvs[AllCaseEqs(),PULL_EXISTS]
+    >- (
+      last_x_assum drule_all>>
+      rw[]>>simp[]>>
+      gvs[env_rel_def]>>
+      irule build_conv_v_rel>>
+      metis_tac[LIST_REL_REVERSE_EQ])>>
+    last_x_assum drule_all>>
+    rw[]>>simp[]) >>
+  (* Altered *)
+  fs[annotate_exp_def]>>
+  rpt (pairarg_tac \\ fs [])>>
+  gvs[]>>
+  drule annotate_exps_REVERSE>>
+  strip_tac>>
+  (* still doesn't work because lift_exp also needs to be reversed *)
   cheat
 QED
 
