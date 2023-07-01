@@ -339,10 +339,43 @@ Proof
   cheat
 QED
 
+Triviality sing_lam_prod_lemma:
+  (λ(a,b,c). ([a],b,c)) t = (x,y,z)
+  ⇔
+  ∃a1. t = (a1,y,z) ∧ x = [a1]
+Proof
+  PairCases_on ‘t’ \\ fs []
+  \\ rw [] \\ eq_tac \\ rw [] \\ gvs []
+QED
+
 Triviality eval_simulation_Let:
   ^(#get_goal eval_simulation_setup `Case ([Let _ _ _])`)
 Proof
-  cheat
+  rw[]
+  >- cheat (* no change case *)
+  \\ gvs [CaseEq"prod"]
+  \\ Cases_on ‘v2 = Rerr (Rabort Rtype_error)’ \\ gvs []
+  \\ first_x_assum drule \\ gvs [PULL_EXISTS]
+  \\ rename [‘Let xo’]
+  \\ Cases_on ‘xo’
+  >- cheat (* similar to below, but simpler *)
+  \\ gvs [annotate_exp_def,lift_exp_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [annotate_exp_def,lift_exp_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ disch_then drule
+  \\ gvs [sing_lam_prod_lemma,PULL_EXISTS]
+  \\ disch_then $ drule_at $ Pos $ el 2
+  \\ gvs []
+  \\ ‘weak_env_rel fvs1 env env'’ by cheat (* definitely true *)
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ disch_then $ qspecl_then [‘locs’,‘t0’] strip_assume_tac
+  \\ fs []
+  \\ reverse (Cases_on ‘v2’) \\ gvs []
+  >- cheat (* easier case *)
+  \\ gvs [PULL_EXISTS]
+  \\ cheat (* might be possible *)
 QED
 
 Triviality eval_simulation_Fun:
