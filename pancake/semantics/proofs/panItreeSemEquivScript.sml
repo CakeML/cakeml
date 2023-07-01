@@ -72,32 +72,6 @@ CoInductive itree_oracle_term_path:
   (∀e g. (itree_oracle_term_path or (g (query_oracle or e)) ⇒ itree_oracle_term_path or (Vis e g)))
 End
 
-Definition simple_unfold_def:
-  simple_unfold = LUNFOLD
-                  (λs. case s of
-                         LNIL => NONE
-                       | (a:::as) => SOME (as,[|a|]))
-End
-
-Theorem simple_unfold_terminates:
-  ∀ll. LFINITE ll ⇒ LFINITE $ simple_unfold ll
-Proof
-  rw[] >>
-  rw [simple_unfold_def] >>
-  fs [LFINITE] >>
-     cheat
-QED
-
-Theorem lunfold_f_terminates:
-  ∀f z. (∃n. ((FUNPOW (FST o THE o f) n z) = NONE)) ⇒ LFINITE (LUNFOLD f z)
-Proof
-  REPEAT GEN_TAC >>
-  disch_tac >>
-  rw [LFINITE] >>
-  rw [LUNFOLD_def] >>
-     cheat
-QED
-
 (* Maps a path in an itree to an io_event llist *)
 Definition itree_oracle_beh_def:
   itree_oracle_beh or t =
@@ -118,18 +92,12 @@ End
  events *)
 
 Definition same_behaviour_def:
-  (* Divergence: IO event lists are equiv by weak bisimulation as the itree behaviour contains
-     NONE for each Tau. *)
   (same_behaviour or t (Diverge ioll) ⇔
      (itree_oracle_beh or t) = ioll) ∧
-  (* Termination: Finite IO event list is equiv to itree list by weak bisimulation, up to len of vanilla list.
-     NB we lack an ability to compare computed outcomes at this level.
-     Thus requiring a separate soundness proof at the evaluate level. *)
   (same_behaviour or t (Terminate outcome iol) ⇔
      (∃iotrace. LTAKE (LENGTH iol) (itree_oracle_beh or t) = SOME iotrace ∧ iotrace = iol) ∧
      (∃r. outcome = Success ⇔ (itree_oracle_outcome or t) = SOME (SOME (Return r))) ∧
      (∃e. outcome = (FFI_outcome e) ⇔ (itree_oracle_outcome or t) = SOME (SOME (FinalFFI e)))) ∧
-  (* Failure: Covered by evaluate corres. *)
   (same_behaviour or t Fail ⇔ ∃r. (itree_oracle_outcome or t) = SOME r ∧
                                   ∀e res. r ≠ SOME (FinalFFI e) ∧ r ≠ SOME (Return res))
 End
@@ -143,29 +111,35 @@ Definition same_outcome_def:
 End
 
 (* Main correspondence *)
-(* Proves soundness: there is always an equivalent behaviour in the itree semantics that can be selected
- using the oracle that produced the behaviour in the big-step semantics. *)
+(* Proves soundness: there is always an equivalent behaviour in the itree
+ semantics that can be selected using the oracle that produced the behaviour in
+ the big-step semantics. *)
+
+CoInductive ioe_trace_rel:
+  ffis.oracle e ffis.ffi_state conf bytes = Oracle_return ffi' bytes' ∧
+  LHD l1 = SOME (IO_event e conf (ZIP (bytes,bytes'))) ∧
+  LHD l2 = SOME (IO_event e conf (ZIP (bytes,bytes'))) ∧
+  ioe_trace_rel (ffis with ffi_state := ffi') (THE (LTL l1)) (THE (LTL l2)) ⇒
+  ioe_trace_rel ffis l1 l2
+End
 
 (* NB the choice of state (s) is irrelevant in the itree semantics and is provided only
  for allowing generisation over every possible Pancake program (stored in state and accessed by an entrypoint). *)
 Theorem itree_semantics_corres:
-  ∀s entry or.
   same_behaviour or (itree_semantics s entry) (semantics (s with ffi := or) entry)
 Proof
-  rw [same_behaviour_def] >>
-  rw [panItreeSemTheory.itree_semantics_def] >>
-  rw [panSemTheory.semantics_def]
-  (* Functional semantics converges *)
-  >- (
-  rw [same_behaviour_def] >>
-  rw [itree_oracle_outcome_def] >>
-  rw [panItreeSemTheory.itree_evaluate_def] >>
-  rw [panItreeSemTheory.itree_mrec_def] >>
-  rw [panItreeSemTheory.h_prog_def,panItreeSemTheory.h_prog_rule_call_def] >>
-  )
-  (* Functional semantics diverges *)
-  >- ()
+  Cases_on ‘semantics (s with ffi := or) entry’
+  (* FBS divergence *)
+  >- (rw [same_behaviour_def] >>
+      rw [Once LLIST_BISIMULATION] >>
+      qexists_tac ‘ioe_trace_rel or’ >>
+      CONJ_TAC
+      >- ())
 QED
+
+(* XXX: How to make subgoal a type instance (assms and concl) so I can apply
+ ho_match_mp_tac with the coind thm for the rel, so I can proceed to prove the props
+                 of the relation hold. *)
 
 (* Evaluate correspondence *)
 (* Proves partial soundness: if a computation terminates,
