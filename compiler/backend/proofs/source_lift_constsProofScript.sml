@@ -124,11 +124,15 @@ Definition const_env_rel_def:
       nsLookup env2.v (Short n) = SOME v1)
 End
 
+Definition can_lookup_def:
+  can_lookup env_v (n,v) ⇔ nsLookup env_v (Short n) = SOME v
+End
+
 (*-----------------------------------------------------------------------*
    statement of evaluate theorem
  *-----------------------------------------------------------------------*)
 
-val eval_simulation_setup = setup (`
+val eval_simulation_setup = setup (‘
   (∀ ^s env exps.
      (* running the same code: *)
      (∀ s' res t env'.
@@ -141,24 +145,26 @@ val eval_simulation_setup = setup (`
            state_rel (:'a) s' t' ∧
            result_rel (LIST_REL v_rel) v_rel res res') ∧
      (* running altered code: *)
-     (∀ s' b res t env' exps1 exps2 exps3 n1 n2 n3 n4 xs binders fvs locs ws0.
+     (∀ s' b res t env' exps1 exps2 exps3 n1 n2 n3 n4 xs binders fvs locs ws0 env0
+       (t0:'ffi semanticPrimitives$state).
          evaluate s env exps = (s', res) ∧
          state_rel (:'a) s t ∧
          annotate_exps binders n1 exps = (exps1,n2,fvs) ∧ n2 ≤ n3 ∧
          lift_exps b [] n3 exps1 = (exps3,n4,xs) ∧
          EVERY (every_exp (one_con_check env.c)) exps ∧
          weak_env_rel fvs env env' ∧
+         const_env_rel binders env' env0 ∧
          res <> Rerr (Rabort Rtype_error) ==>
-         ∃t' res' ws.
-           evaluate t (<|v := alist_to_ns ws; c := nsEmpty|> +++ env') exps3 = (t', res') ∧
-           state_rel (:'a) s' t' ∧
-           result_rel (LIST_REL v_rel) v_rel res res' ∧
+         ∃ws.
            EVERY (every_exp (one_con_check env.c)) exps3 ∧
-           ∀env0 (t0 :'ffi semanticPrimitives$state).
-             const_env_rel binders env' env0 ⇒
-             evaluate_decs t0 env0
-               (MAP (λ(n,e). Dlet locs (Pvar (explode n)) e) (REVERSE xs)) =
-               (t0,Rval (<|v := alist_to_ns ws; c := nsEmpty|>))))
+           evaluate_decs t0 env0
+             (MAP (λ(n,e). Dlet locs (Pvar (explode n)) e) (REVERSE xs)) =
+             (t0,Rval (<|v := alist_to_ns ws; c := nsEmpty|> )) ∧
+           (EVERY (can_lookup env'.v) ws ⇒
+            ∃t' res'.
+              evaluate t env' exps3 = (t', res') ∧
+              state_rel (:'a) s' t' ∧
+              result_rel (LIST_REL v_rel) v_rel res res')))
   ∧
   (∀ ^s env x pes err_x s' res es t env' y err_y.
      evaluate_match s env x pes err_x = (s', res) ∧
@@ -183,15 +189,14 @@ val eval_simulation_setup = setup (`
        evaluate_decs t env' decs' = (t', res') ∧
        state_rel (:'a) s' t' ∧
        result_rel (env_rel v_rel) v_rel res res')
-  `,
+  ’,
   ho_match_mp_tac (name_ind_cases [``()``, ``()``, ``Dlet``] full_evaluate_ind)
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
   \\ fs [full_evaluate_def,Excl "getOpClass_def"]
   \\ fs [Q.prove (`Case ((), x) = Case (x)`, simp [markerTheory.Case_def]),
          Excl "getOpClass_def"]
-  \\ rveq \\ fs [Excl "getOpClass_def"]
-  );
+  \\ rveq \\ fs [Excl "getOpClass_def"]);
 
 (*-----------------------------------------------------------------------*
    automatic rewrites and misc lemmas
@@ -256,13 +261,10 @@ Proof
    (drule_all source_evalProofTheory.env_rel_nsLookup_v
     \\ strip_tac \\ fs [])
   \\ reverse (gvs [annotate_exp_def,AllCaseEqs(),lift_exp_def,evaluate_def])
-  >-
-   (gvs [extend_dec_env_def,namespacePropsTheory.nsLookup_nsAppend_some]
-    \\ qexists_tac ‘[]’ \\ fs [namespaceTheory.nsBindList_def]
-    \\ gvs [alist_to_ns_eq,weak_env_rel_def]
-    \\ res_tac \\ fs [nsLookup_nsBindList]
-    \\ Cases \\ fs [])
   \\ qexists_tac ‘[]’ \\ fs [namespaceTheory.nsBindList_def]
+  >- (gvs [alist_to_ns_eq,weak_env_rel_def]
+      \\ res_tac \\ fs [nsLookup_nsBindList]
+      \\ Cases \\ fs [])
   \\ gvs [extend_dec_env_def,namespacePropsTheory.nsLookup_nsAppend_some,
           namespaceTheory.id_to_mods_def,weak_env_rel_def]
   \\ first_x_assum $ drule_at Any
@@ -275,11 +277,11 @@ Triviality eval_simulation_Lit:
 Proof
   simp [v_rel_refl] \\ rw []
   \\ gvs [annotate_exp_def,lift_exp_def,evaluate_def,v_rel_refl,AllCaseEqs()]
-  \\ gvs [PULL_EXISTS,evaluate_decs_append]
   \\ rpt (qexists_tac ‘[]’ \\ fs [namespaceTheory.nsBindList_def] \\ NO_TAC)
   \\ gvs [evaluate_decs_def,pat_bindings_def,evaluate_def,pmatch_def]
   \\ qexists_tac ‘[(explode (make_name n3),Litv l)]’
   \\ gvs [namespaceTheory.nsBind_def,extend_dec_env_def]
+  \\ fs [can_lookup_def]
   \\ fs [Once v_rel_cases]
 QED
 
@@ -312,7 +314,17 @@ Proof
   \\ gvs [lift_exp_def]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ gvs [evaluate_def,is_trivial_def]
-  \\ cheat
+  >- cheat (* uninteresting case? *)
+  \\ reverse $ Cases_on ‘b’ \\ gvs []
+  >- cheat (* uninteresting case? *)
+  \\ gvs [evaluate_decs_def,pat_bindings_def]
+  \\ ‘env0.c = env.c’ by gvs [const_env_rel_def,weak_env_rel_def]
+  \\ ‘every_exp (one_con_check env.c) e'’ by cheat
+  \\ fs [evaluate_def,pmatch_def]
+  \\ qexists_tac ‘[(explode (make_name n3)),(Closure env0 x e')]’
+  \\ fs [namespaceTheory.alist_to_ns_def,can_lookup_def]
+  \\ rw []
+  \\ cheat (* make sure v_rel relates these closures *)
 QED
 
 Triviality eval_simulation_Letrec:
@@ -488,14 +500,16 @@ Proof
   \\ Cases_on ‘v2 = Rerr (Rabort Rtype_error)’ \\ gvs [PULL_EXISTS]
   \\ last_x_assum $ drule_then $ drule_then $ drule_at $ Pos $ el 2
   \\ fs []
-  \\ disch_then $ qspecl_then [‘env'’,‘locs’] mp_tac
+  \\ disch_then $ qspecl_then [‘env'’,‘locs’,‘env'’,‘t’] mp_tac
   \\ impl_tac >-
-   (gvs [weak_env_rel_def,GSYM CONJ_ASSOC]
+   (gvs [weak_env_rel_def,GSYM CONJ_ASSOC,const_env_rel_def]
     \\ conj_tac >- fs [env_rel_def]
     \\ rw []
     \\ drule_all source_evalProofTheory.env_rel_nsLookup_v \\ rw [] \\ fs [])
   \\ strip_tac \\ fs []
   \\ ‘env'.c = env.c’ by fs [env_rel_def] \\ fs []
+  (* need to be able to instantiate for any env' that is sufficiently similar *)
+  \\ cheat (*
   \\ first_x_assum $ qspec_then ‘env'’ mp_tac
   \\ simp [GSYM PULL_FORALL]
   \\ impl_tac >- fs [const_env_rel_def]
@@ -515,7 +529,7 @@ Proof
   \\ disch_then $ qspecl_then [‘nsEmpty’,‘nsEmpty’,
                                ‘<| v := nsEmpty ; c := nsEmpty |>’,
                                ‘<| v := nsEmpty ; c := nsEmpty |>’] mp_tac
-  \\ fs [env_rel_def,SF SFY_ss]
+  \\ fs [env_rel_def,SF SFY_ss] *)
 QED
 
 Triviality eval_simulation_Dletrec:
