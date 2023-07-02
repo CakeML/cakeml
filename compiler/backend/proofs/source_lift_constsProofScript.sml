@@ -199,6 +199,67 @@ val eval_simulation_setup = setup (‘
          Excl "getOpClass_def"]
   \\ rveq \\ fs [Excl "getOpClass_def"]);
 
+(*
+val eval_simulation_setup = setup (‘
+  (∀ ^s env exps.
+     (* running altered code: *)
+     (∀ s' b n3 res t env' exps1 exps2 exps3 n2 n4 xs binders fvs ws0 env0
+       (t0:'ffi semanticPrimitives$state).
+         evaluate s env exps = (s', res) ∧
+         state_rel (:'a) s t ∧
+         annotate_exps binders (REVERSE exps) = (exps1,n2,fvs) ∧
+         n2 ≤ n3 ∧
+         lift_exps b [] n3 exps1 = (exps3,n4,xs) ∧
+         EVERY (every_exp (one_con_check env.c)) exps ∧
+         weak_env_rel fvs env env' ∧
+         const_env_rel binders env' env0 ∧
+         res <> Rerr (Rabort Rtype_error) ==>
+         ∃ws.
+           EVERY (every_exp (one_con_check env.c)) exps3 ∧
+           LIST_REL (λ(n,x) w.
+             evaluate t0 env0 [x] = (t0,Rval [w])) xs ws ∧
+           (∀env3.
+              EVERY (can_lookup env3.v)
+                (ZIP (MAP (explode o FST) xs,ws)) ∧
+              weak_env_rel fvs env env3 ⇒
+              ∃t' res'.
+                evaluate t env3 (REVERSE exps3) = (t', res') ∧
+                state_rel (:'a) s' t' ∧
+                result_rel (LIST_REL v_rel) v_rel res res')))
+  ∧
+  (∀ ^s env x pes err_x s' res es t env' y err_y.
+     evaluate_match s env x pes err_x = (s', res) ∧
+     state_rel (:'a) s t ∧
+     env_rel v_rel env env' ∧
+     v_rel x y ∧
+     v_rel err_x err_y ∧
+     res <> Rerr (Rabort Rtype_error) ==>
+     ∃t' res'.
+       evaluate_match t env' y pes err_y = (t', res') ∧
+       state_rel (:'a) s' t' ∧
+       result_rel (LIST_REL v_rel) v_rel res res')
+  ∧
+  (∀ ^s env decs decs' s' res t env'.
+     (* declaration-level execution: *)
+     evaluate_decs s env decs = (s', res) ∧
+     state_rel (:'a) s t ∧
+     env_rel v_rel env env' ∧
+     id_rel decs compile_decs decs' ∧
+     res <> Rerr (Rabort Rtype_error) ==>
+     ∃t' res'.
+       evaluate_decs t env' decs' = (t', res') ∧
+       state_rel (:'a) s' t' ∧
+       result_rel (env_rel v_rel) v_rel res res')
+  ’,
+  ho_match_mp_tac (name_ind_cases [``()``, ``()``, ``Dlet``] full_evaluate_ind)
+  \\ rpt conj_tac
+  \\ rpt (gen_tac ORELSE disch_tac)
+  \\ fs [full_evaluate_def,Excl "getOpClass_def"]
+  \\ fs [Q.prove (`Case ((), x) = Case (x)`, simp [markerTheory.Case_def]),
+         Excl "getOpClass_def"]
+  \\ rveq \\ fs [Excl "getOpClass_def"]);
+*)
+
 (*-----------------------------------------------------------------------*
    automatic rewrites and misc lemmas
  *-----------------------------------------------------------------------*)
@@ -264,9 +325,71 @@ Proof
   simp[v_rel_cases]
 QED
 
+Theorem annotate_exps_LENGTH:
+  ∀es binders es' n fvs.
+  annotate_exps binders es = (es',n,fvs)
+  ⇒
+  LENGTH es' = LENGTH es
+Proof
+  Induct_on`es`>>rw[annotate_exp_def]>>
+  rpt(pairarg_tac>>fs[])>>
+  every_case_tac>>gvs[]
+  >- (Cases_on`es`>>fs[])>>
+  metis_tac[]
+QED
+
+Theorem lift_exps_LENGTH:
+  ∀es b xs n es' n' xs'.
+  lift_exps b xs n es = (es',n',xs') ⇒
+  LENGTH es' = LENGTH es
+Proof
+  Induct_on`es`>>rw[lift_exp_def]>>
+  rpt(pairarg_tac>>fs[])>>
+  gvs[]>>
+  metis_tac[]
+QED
+
+Theorem FDOM_SUBSET_SUBMAP:
+  FDOM f ⊆ FDOM (g: 'a |-> unit) ⇒
+  f SUBMAP g
+Proof
+  rw[SUBMAP_FLOOKUP_EQN]>>
+  fs[SUBSET_DEF,FDOM_FLOOKUP]
+QED
+
+Theorem weak_env_rel_less:
+  map_ok f ∧ map_ok g ∧
+  FDOM (to_fmap f) ⊆ FDOM (to_fmap g) ∧
+  weak_env_rel g env env' ⇒
+  weak_env_rel f env env'
+Proof
+  rw[weak_env_rel_def]>>
+  first_x_assum match_mp_tac>>
+  qpat_x_assum`lookup _ _ = _` mp_tac>>
+  DEP_REWRITE_TAC[mlmapTheory.lookup_thm]>>
+  simp[]>>
+  `(to_fmap f) SUBMAP (to_fmap g)` by
+    (match_mp_tac FDOM_SUBSET_SUBMAP>>
+    fs[])>>
+  fs[SUBMAP_FLOOKUP_EQN]
+QED
+
 (*-----------------------------------------------------------------------*
    proofs of individual cases
  *-----------------------------------------------------------------------*)
+
+(*
+Triviality eval_simulation_Var:
+  ^(#get_goal eval_simulation_setup `Case ([Var _])`)
+Proof
+  rw [] \\ gvs [AllCaseEqs(),PULL_EXISTS]
+  \\ reverse (gvs [annotate_exp_def,AllCaseEqs(),lift_exp_def,evaluate_def])
+  \\ rw[] \\ gvs[weak_env_rel_def]
+  \\ first_x_assum $ drule_at Any
+  \\ impl_tac >- fs [map_ok_str_empty,mlmapTheory.lookup_insert]
+  \\ strip_tac \\ fs []
+QED
+*)
 
 Triviality eval_simulation_Var:
   ^(#get_goal eval_simulation_setup `Case ([Var _])`)
@@ -287,6 +410,17 @@ Proof
   \\ impl_tac >- fs [map_ok_str_empty,mlmapTheory.lookup_insert]
   \\ strip_tac \\ fs []
 QED
+
+(*
+Triviality eval_simulation_Lit:
+  ^(#get_goal eval_simulation_setup `Case ([Lit _])`)
+Proof
+  simp [] \\ rw []
+  \\ gvs [annotate_exp_def,lift_exp_def,evaluate_def,v_rel_refl,AllCaseEqs()]
+  \\ pairarg_tac \\ gvs [AllCaseEqs()]
+  \\ simp[evaluate_def,v_rel_refl,can_lookup_def]
+QED
+*)
 
 Triviality eval_simulation_Lit:
   ^(#get_goal eval_simulation_setup `Case ([Lit _])`)
@@ -313,31 +447,84 @@ QED
 Triviality eval_simulation_Con:
   ^(#get_goal eval_simulation_setup `Case ([Con _ _])`)
 Proof
-  rw[]
-  >- (
-    (* Normal *)
-    reverse IF_CASES_TAC
-    >-
-      fs[env_rel_def]>>
-    gvs[AllCaseEqs(),PULL_EXISTS]
-    >- (
-      last_x_assum drule_all>>
-      rw[]>>simp[]>>
-      gvs[env_rel_def]>>
-      irule build_conv_v_rel>>
-      metis_tac[LIST_REL_REVERSE_EQ])>>
-    last_x_assum drule_all>>
-    rw[]>>simp[]) >>
+  cheat
+QED
+
+(*
+Triviality eval_simulation_Con:
+  ^(#get_goal eval_simulation_setup `Case ([Con _ _])`)
+Proof
+  rw[]>>
   (* Altered *)
   fs[annotate_exp_def]>>
   rpt (pairarg_tac \\ fs [])>>
+  gvs[Once (AllCaseEqs())]>>
+  (* Instantiate IH *)
+  first_x_assum drule>>
+  disch_then drule>>
+  (* Better case split *)
+  reverse (Cases_on`EVERY is_Constant es'`)>>
+  gvs[]
+  >- (
+    (* No Tannot *)
+    disch_then drule>>
+    fs[lift_exp_def]>>
+    rpt (pairarg_tac \\ fs [])>>
+    gvs[]>>
+    rpt(disch_then (drule_at Any))>>
+    simp[GSYM PULL_FORALL]>>
+    impl_tac>- (
+      every_case_tac>>gvs[]>>
+      metis_tac[ETA_AX])>>
+    disch_then(qspecl_then[`t0`] assume_tac)>>
+    rfs[]>>
+    first_x_assum (irule_at Any)>>
+    CONJ_ASM1_TAC >-
+      metis_tac[annotate_exps_LENGTH,lift_exps_LENGTH]>>
+    CONJ_TAC >-
+      metis_tac[ETA_AX]>>
+    rw[]>>first_x_assum drule_all>>
+    strip_tac>>
+    simp[evaluate_def]>>
+    gvs[weak_env_rel_def,AllCaseEqs()]>>
+    simp[PULL_EXISTS]>>
+    drule_at (Pos last) build_conv_v_rel>>
+    disch_then match_mp_tac>>
+    metis_tac[LIST_REL_REVERSE_EQ])>>
+  (* Tannot *)
+  disch_then drule>>
+  fs[lift_exp_def]>>
+  rpt (pairarg_tac \\ fs [])>>
   gvs[]>>
-  (*
-  drule annotate_exps_REVERSE>>
-  strip_tac>> *)
-  (* still doesn't work because lift_exp also needs to be reversed *)
+  rpt(disch_then (drule_at Any))>>
+  simp[GSYM PULL_FORALL]>>
+  impl_tac>- (
+    every_case_tac>>gvs[]>>
+    metis_tac[ETA_AX])>>
+  reverse (Cases_on`b`)>>gvs[]
+  >- (
+    disch_then(qspecl_then[`t0`] assume_tac)>>
+    rfs[]>>
+    first_x_assum (irule_at Any)>>
+    CONJ_ASM1_TAC >-
+      metis_tac[annotate_exps_LENGTH,lift_exps_LENGTH]>>
+    CONJ_TAC >-
+      metis_tac[ETA_AX]>>
+    rw[]>>first_x_assum drule_all>>
+    strip_tac>>
+    simp[evaluate_def]>>
+    gvs[weak_env_rel_def,AllCaseEqs()]>>
+    simp[PULL_EXISTS]>>
+    drule_at (Pos last) build_conv_v_rel>>
+    disch_then match_mp_tac>>
+    metis_tac[LIST_REL_REVERSE_EQ])>>
+  Cases_on`is_trivial (Con cn es')`>>gvs[]
+  >- cheat >>
+  (* Need to know that all elems of the tuple eval to
+    some constant value *)
   cheat
 QED
+*)
 
 Triviality sing_lam_prod_lemma:
   (λ(a,b,c). ([a],b,c)) t = (x,y,z)
@@ -367,10 +554,17 @@ Proof
   \\ gvs [sing_lam_prod_lemma,PULL_EXISTS]
   \\ disch_then $ drule_at $ Pos $ el 2
   \\ gvs []
-  \\ ‘weak_env_rel fvs1 env env'’ by cheat (* definitely true *)
+  \\ ‘weak_env_rel fvs1 env env'’ by (
+    (drule_at Any) weak_env_rel_less>>
+    disch_then match_mp_tac>>
+    DEP_REWRITE_TAC
+      (CONJUNCTS (SIMP_RULE std_ss [IMP_CONJ_THM] mlmapTheory.union_thm))>>
+    simp[]>>
+    rw[]>>
+    metis_tac[map_ok_annotate_exp_cmp,SND,mlmapTheory.delete_thm])
   \\ disch_then drule
   \\ disch_then drule
-  \\ disch_then $ qspecl_then [‘locs’,‘t0’] strip_assume_tac
+  \\ disch_then $ qspecl_then [‘loc’,‘t0’] strip_assume_tac
   \\ fs []
   \\ reverse (Cases_on ‘v2’) \\ gvs []
   >- cheat (* easier case *)
