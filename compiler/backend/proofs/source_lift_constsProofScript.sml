@@ -349,6 +349,26 @@ Proof
   metis_tac[]
 QED
 
+Theorem lift_exp_acc:
+  ∀e b xs n e' n' xs'.
+    lift_exp b xs n e = (e',n',xs') ⇒
+    ∃ys.
+      xs' = ys ++ xs ∧
+      lift_exp b [] n e = (e',n',ys)
+Proof
+  cheat
+QED
+
+Theorem lift_exps_acc:
+  ∀es b xs n es' n' xs'.
+    lift_exps b xs n es = (es',n',xs') ⇒
+    ∃ys.
+      xs' = ys ++ xs ∧
+      lift_exps b [] n es = (es',n',ys)
+Proof
+  cheat
+QED
+
 Theorem FDOM_SUBSET_SUBMAP:
   FDOM f ⊆ FDOM (g: 'a |-> unit) ⇒
   f SUBMAP g
@@ -372,6 +392,28 @@ Proof
     (match_mp_tac FDOM_SUBSET_SUBMAP>>
     fs[])>>
   fs[SUBMAP_FLOOKUP_EQN]
+QED
+
+Triviality sing_lam_prod_lemma:
+  (λ(a,b,c). ([a],b,c)) t = (x,y,z)
+  ⇔
+  ∃a1. t = (a1,y,z) ∧ x = [a1]
+Proof
+  PairCases_on ‘t’ \\ fs []
+  \\ rw [] \\ eq_tac \\ rw [] \\ gvs []
+QED
+
+Triviality ann_list_exp_imp_eval_consts:
+  every_exp (one_con_check env.c) e2 ∧
+  annotate_exp binders e2 = (e3,n2',fvs2) ∧
+  lift_exp b [] n'' e3 = (e4,n',xs) ⇒
+  every_exp (one_con_check env.c) e4 ∧
+  ∃ws1.
+    evaluate_decs (t0: 'ffi semanticPrimitives$state) env0
+      (MAP (λ(n,e). Dlet locs (Pvar (explode n)) e) (REVERSE xs)) =
+    (t0,Rval <|v := alist_to_ns ws1; c := nsEmpty|>)
+Proof
+  cheat (* is this true as stated? *)
 QED
 
 (*-----------------------------------------------------------------------*
@@ -526,15 +568,6 @@ Proof
 QED
 *)
 
-Triviality sing_lam_prod_lemma:
-  (λ(a,b,c). ([a],b,c)) t = (x,y,z)
-  ⇔
-  ∃a1. t = (a1,y,z) ∧ x = [a1]
-Proof
-  PairCases_on ‘t’ \\ fs []
-  \\ rw [] \\ eq_tac \\ rw [] \\ gvs []
-QED
-
 Triviality eval_simulation_Let:
   ^(#get_goal eval_simulation_setup `Case ([Let _ _ _])`)
 Proof
@@ -564,12 +597,37 @@ Proof
     metis_tac[map_ok_annotate_exp_cmp,SND,mlmapTheory.delete_thm])
   \\ disch_then drule
   \\ disch_then drule
-  \\ disch_then $ qspecl_then [‘loc’,‘t0’] strip_assume_tac
+  \\ disch_then $ qspecl_then [‘locs’,‘t0’] strip_assume_tac
   \\ fs []
   \\ reverse (Cases_on ‘v2’) \\ gvs []
   >- cheat (* easier case *)
   \\ gvs [PULL_EXISTS]
-  \\ cheat (* might be possible *)
+  \\ drule lift_exp_acc
+  \\ strip_tac \\ gvs [REVERSE_APPEND,evaluate_decs_append]
+  \\ drule_all ann_list_exp_imp_eval_consts
+  \\ disch_then $ qspecl_then
+       [‘t0’,‘locs’,‘<|v := alist_to_ns ws; c := nsEmpty|> +++ env0’] strip_assume_tac
+  \\ gvs [combine_dec_result_def]
+  \\ rpt strip_tac
+  \\ first_x_assum $ qspec_then ‘env3’ mp_tac
+  \\ impl_tac
+  >- cheat
+  \\ strip_tac \\ fs []
+  \\ last_x_assum kall_tac
+  \\ last_x_assum drule
+  \\ disch_then drule
+  \\ disch_then $ drule_at $ Pos $ el 2
+  \\ gvs [namespaceTheory.nsOptBind_def]
+  \\ drule evaluate_sing \\ strip_tac \\ gvs []
+  \\ rename [‘v_rel v1 v2’]
+  \\ disch_then $ qspecl_then [‘<|v := alist_to_ns ws; c := nsEmpty|> +++ env3
+                with v := nsBind x v1 (<|v := alist_to_ns ws; c := nsEmpty|> +++ env3).v’,
+            ‘locs’,‘<|v := alist_to_ns ws; c := nsEmpty|> +++ env0’,‘t0’] mp_tac
+  \\ impl_tac >- cheat
+  \\ fs []
+  \\ disch_then $ qspec_then ‘env3 with v := nsBind x v2 env3.v’ mp_tac
+  \\ impl_tac >- cheat
+  \\ strip_tac \\ fs [evaluate_def,namespaceTheory.nsOptBind_def]
 QED
 
 Triviality eval_simulation_Fun:
@@ -593,7 +651,8 @@ Proof
   \\ qexists_tac ‘[(explode (make_name n3)),(Closure env0 x e')]’
   \\ fs [namespaceTheory.alist_to_ns_def,can_lookup_def]
   \\ rw []
-  \\ cheat (* make sure v_rel relates these closures *)
+  \\ cheat (* this seems a bit off, the inside exp ought to be e''',
+              we might need a better induction if we recurse into the lambda *)
 QED
 
 Triviality eval_simulation_Letrec:

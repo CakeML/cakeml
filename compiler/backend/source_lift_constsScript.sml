@@ -128,7 +128,7 @@ Definition annotate_exp_def:
          union fvs1 $ union fvs2 fvs3)) ∧
   (annotate_exp t (Let (SOME x) e1 e2) =
      let (e1,n1,fvs1) = annotate_exp t e1 in
-     let (e2,n2,fvs2) = annotate_exp t e2 in
+     let (e2,n2,fvs2) = annotate_exp (x::t) e2 in
        (Let (SOME x) e1 e2, MAX n1 n2,
          union fvs1 (delete fvs2 (implode x)))) ∧
   (annotate_exp t (Let NONE e1 e2) =
