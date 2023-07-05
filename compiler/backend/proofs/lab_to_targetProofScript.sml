@@ -9638,13 +9638,15 @@ val semantics_compile_lemma = Q.prove(
     c.asm_conf = mc_conf.target.config /\
     c.labels = LN ∧ c.pos = 0 ∧
     lab_to_target$compile (c:'a lab_to_target$config) code = SOME (bytes,c') /\
-    mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
     (* FFI is either given or computed *)
-    c'.ffi_names = SOME $ TAKE i mc_conf.ffi_names /\
+    c'.ffi_names = SOME $ old_ffi_names /\
     good_init_state mc_conf ms bytes cbspace t m dm sdm io_regs cc_regs /\
     (* set up mmio_info and ffi_entry_pcs for mmio *)
-    MAP FST (SND c'.shmem_extra) = DROP i mc_conf.ffi_entry_pcs /\
-    mc_conf.mmio_info = (λindex. EL (index − i) (MAP SND (SND c'.shmem_extra))) /\
+    mc_conf.ffi_names = old_ffi_names ++ FST c'.shmem_extra /\
+    MAP (\rec. rec.entry_pc) (SND c'.shmem_extra) = DROP i mc_conf.ffi_entry_pcs /\
+    mc_conf.mmio_info = (λindex. EL (index − i) (MAP
+      (\rec. (rec.nbytes, rec.access_addr, rec.reg, rec.exit_pc))
+      $ SND c'.shmem_extra)) /\
     no_install_or_no_share_mem code mc_conf.ffi_names /\
     semantics (make_init mc_conf ffi io_regs cc_regs t m dm sdm ms code
       lab_to_target$compile (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
