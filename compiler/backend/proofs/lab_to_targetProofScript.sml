@@ -8538,12 +8538,17 @@ Proof
   gvs[]
 QED
 
-Theorem FILTER_mmio_pcs_min_index:
-  EVERY (\x. x = "MappedRead" \/ x = "MappedWrite") l ==>
-  mmio_pcs_min_index
-    (FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite") ffis ++ l) =
-  SOME $ LENGTH $
-    FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite") ffis
+Theorem FILTER_NOT_MEM_Mapped:
+  ~MEM "MappedRead" (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") l) /\
+  ~MEM "MappedWrite" (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") l)
+Proof
+  gvs[MEM_FILTER]
+QED
+
+Theorem mmio_pcs_min_index_APPEND_thm:
+  EVERY (\x. x = "MappedRead" \/ x = "MappedWrite") l /\
+  ~MEM "MappedRead" ffis /\ ~MEM "MappedWrite" ffis ==>
+  mmio_pcs_min_index (ffis ++ l) = SOME $ LENGTH ffis
 Proof
   rpt strip_tac >>
   fs[mmio_pcs_min_index_def] >>
@@ -8553,36 +8558,25 @@ Proof
   >~ [ `x = LENGTH _`]
   >- (
     spose_not_then assume_tac >>
-    Cases_on `x < LENGTH (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") ffis)`>>
+    Cases_on `x < LENGTH ffis`>>
     gvs[]
     >- (
       first_x_assum $ qspec_then `x`assume_tac >>
-      gvs[EL_APPEND_EQN,EVERY_EL] >>
-      qspecl_then [
-        `\x. x <> "MappedRead" /\ x <> "MappedWrite"`,
-        `\x. x <> "MappedRead" /\ x <> "MappedWrite"`, `ffis`]
-        assume_tac EVERY_FILTER >>
-      gvs[EVERY_EL]
+      gvs[EL_APPEND_EQN,EVERY_EL,MEM_EL]
     ) >>
-    `LENGTH (FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite") ffis) < x` by gvs[] >>
+    `LENGTH ffis < x` by gvs[] >>
     gvs[] >>
-    last_x_assum $ qspec_then
-      `LENGTH (FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite") ffis)` assume_tac >>
-    first_x_assum $ drule >>
+    last_x_assum $ qspec_then `LENGTH ffis` assume_tac >>
+    first_x_assum drule >>
     gvs[EVERY_EL,EL_APPEND_EQN] >>
     first_x_assum $ qspec_then `0` assume_tac >>
     gvs[EL]
   ) >> (
-   qexists_tac `LENGTH $
-     FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite") ffis` >>
-   gvs[] >>
-   rw[] >>
-   gvs[EL_APPEND_EQN,EVERY_EL] >>
-   qspecl_then [
-     `\x. x <> "MappedRead" /\ x <> "MappedWrite"`,
-     `\x. x <> "MappedRead" /\ x <> "MappedWrite"`, `ffis`]
-     assume_tac EVERY_FILTER >>
-   gvs[EVERY_EL]
+    qexists_tac `LENGTH ffis` >>
+    gvs[EL_APPEND_EQN,EVERY_EL,MEM_EL,EL_MEM] >>
+    rpt strip_tac >>
+    first_x_assum $ assume_tac o GSYM >>
+    res_tac
   )
 QED
 
@@ -8958,13 +8952,28 @@ Proof
   gvs[line_to_info_offset_FST_eq,line_to_info_offset_SND_eq]
 QED
 
+Theorem mmio_pcs_min_index_get_shmem_info_ok:
+  all_enc_ok c labs ffis' p' (code2: 'a sec list) /\
+  enc_ok c /\
+  ~MEM "MappedRead" ffis /\ ~MEM "MappedWrite" ffis /\
+  get_shmem_info code2 p ffis [] = (new_ffi_names, new_shmem_info) ==>
+  mmio_pcs_min_index new_ffi_names = SOME $ LENGTH ffis
+Proof
+  rpt strip_tac >>
+  drule get_shmem_info_PREPEND >>
+  drule_then assume_tac get_shmem_info_MappedRead_or_MappedWrite >>
+  gvs[] >>
+  rpt strip_tac >>
+  drule_then assume_tac mmio_pcs_min_index_APPEND_thm >>
+  gvs[]
+QED
+
 Theorem get_shmem_info_ok_lemma:
   all_enc_ok c labs ffis' p' (code2: 'a sec list) /\
   enc_ok c /\
   LENGTH (prog_to_bytes code2) < dimword (:'a) /\
-  get_shmem_info code2 p
-    (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") ffis) [] =
-  (new_ffi_names, new_shmem_info)
+  ~MEM "MappedRead" ffis /\ ~MEM "MappedWrite" ffis /\
+  get_shmem_info code2 p ffis [] = (new_ffi_names, new_shmem_info)
   ==>
   (!pc op re a inst len i.
     (asm_fetch_aux pc code2 = SOME (Asm (ShareMem op re a) inst len) /\
@@ -8988,11 +8997,10 @@ Theorem get_shmem_info_ok_lemma:
           a < LENGTH (line_bytes line)})
 Proof
   rw[] >>
+  drule_all mmio_pcs_min_index_get_shmem_info_ok >>
   drule get_shmem_info_PREPEND >>
   drule_then assume_tac get_shmem_info_MappedRead_or_MappedWrite >>
   gvs[] >>
-  drule_then assume_tac FILTER_mmio_pcs_min_index >>
-  first_x_assum $ qspec_then `ffis` assume_tac >>
   rpt strip_tac >>
   gvs[EL_APPEND_EQN,word_add_n2w]
   >- (
@@ -9023,7 +9031,7 @@ Proof
     gvs[shmem_rec_accessors] >>
     drule_all all_enc_ok_asm_fetch_aux_IMP_line_ok >>
     disch_then assume_tac >>
-    gvs[line_ok_def] >>
+    gvs[line_ok_def] >> 
     `pos_val pc (p + LENGTH inst') code2 = (LENGTH inst' + pos_val pc p code2)`
       suffices_by gvs[] >>
     gvs[pos_val_acc_sum]
@@ -9053,6 +9061,7 @@ Proof
   gvs[]
 QED
 
+(*
 Theorem make_init_mmio_pcs_min_index:
   mc_conf_ok mc_conf /\
   good_code mc_conf.target.config LN code /\
@@ -9088,6 +9097,7 @@ Proof
   \\ drule_then assume_tac FILTER_mmio_pcs_min_index
   \\ metis_tac[]
 QED
+*)
 
 Theorem asm_fetch_NOT_ffi_entry_pcs:
   LENGTH (prog_to_bytes code2) < dimword (:'a) /\
@@ -9142,13 +9152,50 @@ Proof
   gvs[addressTheory.word_arith_lemma1]
 QED
 
+Theorem list_subset_refl:
+!xs.
+  list_subset xs xs
+Proof
+  Induct_on `xs` >>
+  gvs[list_subset_def] >>
+  rw[] >>
+  drule_at_then Any irule MONO_EVERY >>
+  simp[]
+QED
+
+Theorem list_subset_TAKE:
+!i xs.
+  list_subset (TAKE i xs) xs
+Proof
+  Induct_on `xs` >>
+  gvs[list_subset_def] >>
+  Induct_on `i` >>
+  gvs[] >>
+  rw[] >>
+  first_x_assum $ qspec_then `i` assume_tac >>
+  drule_at_then Any irule MONO_EVERY >>
+  gvs[]
+QED
+
+Theorem list_subset_trans:
+  list_subset a b /\ list_subset b c ==>
+  list_subset a c
+Proof
+  gvs[list_subset_def] >>
+  Induct_on `a` >>
+  gvs[] >>
+  rw[] >>
+  gvs[EVERY_MEM]
+QED
+
 
 (* This is set up for the very first compile call *)
 val IMP_state_rel_make_init = Q.prove(
   `good_code mc_conf.target.config LN (code: 'a sec list) ∧
    mc_conf_ok mc_conf ∧
    compiler_oracle_ok coracle labs (LENGTH (prog_to_bytes code2)) mc_conf.target.config mc_conf.ffi_names ∧
-   list_subset (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") (find_ffi_names code)) mc_conf.ffi_names ∧
+   list_subset (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") $
+      find_ffi_names code) $ TAKE i mc_conf.ffi_names ∧
    remove_labels clock mc_conf.target.config 0 LN (TAKE i mc_conf.ffi_names) code =
       SOME (code2,labs) /\
    good_init_state mc_conf ms (prog_to_bytes code2)
@@ -9157,8 +9204,7 @@ val IMP_state_rel_make_init = Q.prove(
    new_shmem_info = MAP (\rec. rec with
     <|entry_pc:= mc_conf.target.get_pc ms + rec.entry_pc
      ;exit_pc:= mc_conf.target.get_pc ms + rec.exit_pc|>) shmem_info /\
-   mc_conf.ffi_names = (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite")
-     (find_ffi_names code)) ++ new_ffi_names /\ 
+   DROP i mc_conf.ffi_names = new_ffi_names /\ 
    mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
    MAP (\rec. rec.entry_pc) new_shmem_info = DROP i (mc_conf.ffi_entry_pcs) /\
    (mc_conf.mmio_info = \index. EL (index - i) $
@@ -9211,6 +9257,7 @@ val IMP_state_rel_make_init = Q.prove(
     qpat_x_assum`!k. _ (coracle k)`(qspec_then`k` assume_tac)>>rfs[]>>
     strip_tac>>fs[])
   \\ conj_tac >- metis_tac[EVEN,all_enc_ok_prog_to_bytes_EVEN]
+  \\ conj_tac >- metis_tac[list_subset_TAKE,list_subset_trans]
   \\ conj_tac >- metis_tac[EVEN,all_enc_ok_prog_to_bytes_EVEN]
   \\ conj_tac >- (
     simp[word_loc_val_byte_def,case_eq_thms]
@@ -9229,20 +9276,32 @@ val IMP_state_rel_make_init = Q.prove(
   \\ simp[share_mem_domain_code_rel_def]
   \\ fs[MAP_MAP_o,o_DEF,ELIM_UNCURRY]
   \\ drule $ GEN_ALL get_shmem_info_ok_lemma
-  \\ disch_then $ qspecl_then [`w2n (mc_conf.target.get_pc ms)`,`new_shmem_info`,`mc_conf.ffi_names`,`find_ffi_names code`] mp_tac
+  \\ disch_then $ qspecl_then [
+      `w2n (mc_conf.target.get_pc ms)`,`new_shmem_info`,`mc_conf.ffi_names`,
+      `TAKE i mc_conf.ffi_names`] mp_tac
   \\ gvs[]
   \\ impl_tac
   >- (
-    qpat_abbrev_tac `info = get_shmem_info _ _ _ _` >>
-    first_x_assum $ assume_tac o GSYM o ONCE_REWRITE_RULE[markerTheory.Abbrev_def] >>
-    Cases_on `info` >>
-    drule $ GEN_ALL get_shmem_info_PREPEND >>
-    gvs[] >>
+    drule mmio_pcs_min_index_is_SOME >>
     strip_tac >>
-    drule $ GEN_ALL get_shmem_info_init_pc_offset >>
-    disch_then $ qspec_then `w2n (mc_conf.target.get_pc ms)` mp_tac >>
-    strip_tac >>
-    gvs[markerTheory.Abbrev_def]
+    reverse $ rw[MEM_EL]
+   >- (
+      qpat_abbrev_tac `info = get_shmem_info _ _ _ _` >>
+      first_x_assum $ assume_tac o GSYM o ONCE_REWRITE_RULE[markerTheory.Abbrev_def] >>
+      Cases_on `info` >>
+      drule $ GEN_ALL get_shmem_info_PREPEND >>
+      gvs[] >>
+      strip_tac >>
+      drule $ GEN_ALL get_shmem_info_init_pc_offset >>
+      disch_then $ qspec_then `w2n (mc_conf.target.get_pc ms)` mp_tac >>
+      strip_tac >>
+      gvs[markerTheory.Abbrev_def] >>
+      metis_tac[TAKE_DROP] ) >>
+    first_x_assum $ mp_tac o GSYM >>
+    spose_not_then assume_tac >>
+    fs[] >>
+    qpat_x_assum`EL _ (TAKE i mc_conf.ffi_names) = _` $ mp_tac >>
+    fs[EL_TAKE]
   )
   \\ rw[]
   >- ( 
@@ -9493,42 +9552,6 @@ Proof
   metis_tac[]
 QED
 
-Theorem list_subset_refl:
-!xs.
-  list_subset xs xs
-Proof
-  Induct_on `xs` >>
-  gvs[list_subset_def] >>
-  rw[] >>
-  drule_at_then Any irule MONO_EVERY >>
-  simp[]
-QED
-
-Theorem list_subset_TAKE:
-!i xs.
-  list_subset (TAKE i xs) xs
-Proof
-  Induct_on `xs` >>
-  gvs[list_subset_def] >>
-  Induct_on `i` >>
-  gvs[] >>
-  rw[] >>
-  first_x_assum $ qspec_then `i` assume_tac >>
-  drule_at_then Any irule MONO_EVERY >>
-  gvs[]
-QED
-
-Theorem list_subset_trans:
-  list_subset a b /\ list_subset b c ==>
-  list_subset a c
-Proof
-  gvs[list_subset_def] >>
-  Induct_on `a` >>
-  gvs[] >>
-  rw[] >>
-  gvs[EVERY_MEM]
-QED
-
 Theorem all_pc_adjust_pc:
 !code p.
   p < num_pcs (filter_skip code) ==>
@@ -9643,11 +9666,16 @@ val semantics_compile_lemma = Q.prove(
     good_init_state mc_conf ms bytes cbspace t m dm sdm io_regs cc_regs /\
     (* set up mmio_info and ffi_entry_pcs for mmio *)
     mc_conf.ffi_names = old_ffi_names ++ FST c'.shmem_extra /\
-    MAP (\rec. rec.entry_pc) (SND c'.shmem_extra) = DROP i mc_conf.ffi_entry_pcs /\
-    mc_conf.mmio_info = (λindex. EL (index − i) (MAP
-      (\rec. (rec.nbytes, rec.access_addr, rec.reg, rec.exit_pc))
+    MAP (\rec. rec.entry_pc + mc_conf.target.get_pc ms) (SND c'.shmem_extra) =
+      DROP (LENGTH old_ffi_names) mc_conf.ffi_entry_pcs /\
+    mc_conf.mmio_info = (λindex. EL (index − (LENGTH old_ffi_names)) (MAP
+      (\rec. (rec.nbytes, rec.access_addr, rec.reg,
+        rec.exit_pc + mc_conf.target.get_pc ms))
       $ SND c'.shmem_extra)) /\
     no_install_or_no_share_mem code mc_conf.ffi_names /\
+    (!ffis. c.ffi_names = SOME ffis ==>
+      ~MEM "MappedRead" ffis /\ ~MEM "MappedWrite" ffis /\
+      ALL_DISTINCT ffis ) /\
     semantics (make_init mc_conf ffi io_regs cc_regs t m dm sdm ms code
       lab_to_target$compile (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
       coracle
@@ -9668,21 +9696,25 @@ val semantics_compile_lemma = Q.prove(
   gvs[] >>
   fs[GSYM make_init_filter_skip]>>
   SIMP_TAC (bool_ss) [Once WORD_ADD_COMM]>>
+  qabbrev_tac `info=get_shmem_info q 0 [] []` >>
+  first_x_assum $ assume_tac o GSYM o ONCE_REWRITE_RULE[markerTheory.Abbrev_def] >>
+  Cases_on `info` >>
   match_mp_tac (GEN_ALL semantics_make_init)>>
   fs[sec_ends_with_label_filter_skip,all_enc_ok_pre_filter_skip]>>
-  fs[find_ffi_names_filter_skip,GSYM PULL_EXISTS]>>
+  fs[find_ffi_names_filter_skip,GSYM PULL_EXISTS,MAP_MAP_o,o_DEF]>>
   conj_tac >- fs[mc_conf_ok_def] >>
   conj_tac >- (
     fs[good_code_def] >>
     fs[sec_ends_with_label_filter_skip,all_enc_ok_pre_filter_skip]>>
     fs[GSYM ALL_EL_MAP])>>
-  
-  qexists `(FST $ coracle 0).labels`>>fs[good_init_state_def]>>
+  qexists `r` >>
+  fs[good_init_state_def] >>
   conj_tac >- (
     fs[compiler_oracle_ok_def] >>
     pairarg_tac>> fs[]>>
     pairarg_tac>> fs[]>>
     rw[] >>
+    rename1 `coracle k` >>
     last_x_assum(qspec_then`k` assume_tac)>>rfs[]>>
     pairarg_tac \\ fs[] \\
     pairarg_tac \\ fs[] \\ rw[] \\
@@ -9691,18 +9723,50 @@ val semantics_compile_lemma = Q.prove(
     fs[GSYM ALL_EL_MAP] >>
     metis_tac[no_share_mem_IMP_no_share_mem_filter_skip]
   )>>
+  qexists `LENGTH ffis` >>
   conj_tac >- (
+    gvs[TAKE_LENGTH_APPEND] >>
     Cases_on `c.ffi_names` >>
-    gvs[list_subset_TAKE] >>
-    metis_tac[list_subset_TAKE,list_subset_trans]
-    (* use FILTER_mmio_pcs_min_index to prove FILTER ...(find_ffi_names code) = TAKE i mc_conf.ffi_names *)
+    gvs[list_subset_TAKE,list_subset_refl]
   ) >>
   conj_tac >- (
-    qexists `c.init_clock` >> gvs[]
-    (* if C_FFI_NAMES = TAKE i mc_conf.ffi_names then this can be solved *)
+    qexists `c.init_clock` >>
+    gvs[TAKE_LENGTH_APPEND]
   ) >>
-  gvs[no_install_or_no_share_mem_filter_skip]>>
-  rw[]
+  simp[DROP_LENGTH_APPEND,TAKE_LENGTH_APPEND] >>
+  simp[no_install_or_no_share_mem_filter_skip]>>
+  `mmio_pcs_min_index (ffis ++ q') = SOME (LENGTH ffis)` by (
+    Cases_on `c.ffi_names` >>
+    gvs[]
+    >- (
+      drule_then assume_tac get_shmem_info_MappedRead_or_MappedWrite >>
+      gvs[] >>
+      rpt strip_tac >>
+      drule_then irule mmio_pcs_min_index_APPEND_thm >>
+      gvs[FILTER_NOT_MEM_Mapped]
+    ) >>
+    drule_then assume_tac get_shmem_info_MappedRead_or_MappedWrite >>
+    gvs[] >>
+    rpt strip_tac >>
+    drule_then irule mmio_pcs_min_index_APPEND_thm >>
+    gvs[start_pc_ok_def]
+  ) >>
+  gvs[start_pc_ok_def,MEM_EL] >>
+  rw[] >>
+  spose_not_then assume_tac >>
+  Cases_on `n < LENGTH ffis`
+  >- (
+    Cases_on`c.ffi_names`>>
+    gvs[] >>
+    qspec_then `code` assume_tac find_ffi_names_ALL_DISTINCT >>
+    drule FILTER_ALL_DISTINCT >>
+    disch_then $ qspec_then `\x. x <> "MappedRead" /\ x <> "MappedWrite"` assume_tac >>
+    first_x_assum $ drule_then assume_tac >>
+    first_x_assum $ drule_then assume_tac >>
+    gvs[] >>
+    gvs[find_index_ALL_DISTINCT_EL_eq,find_index_APPEND1] >>
+    (* TODO *)
+  )
   )
   |> REWRITE_RULE [CONJ_ASSOC]
   |> MATCH_MP implements_intro_gen
