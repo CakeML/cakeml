@@ -134,7 +134,9 @@ Proof
       rw [Once LLIST_BISIMULATION] >>
       qexists_tac ‘ioe_trace_rel or’ >>
       CONJ_TAC
-      >- ())
+      >- (pop_assum MP_TAC >>
+          MAP_EVERY qid_spec_tac [‘s’,‘or’,‘entry’,‘l’] >>
+          ho_match_mp_tac ioe_trace_rel_coind)
 QED
 
 (* XXX: How to make subgoal a type instance (assms and concl) so I can apply
