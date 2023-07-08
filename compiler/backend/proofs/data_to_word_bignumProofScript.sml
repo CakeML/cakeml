@@ -4,7 +4,7 @@
 open preamble dataSemTheory dataPropsTheory
      copying_gcTheory int_bitwiseTheory finite_mapTheory
      data_to_word_memoryProofTheory data_to_word_gcProofTheory
-     data_to_wordTheory wordPropsTheory labPropsTheory
+     data_to_wordTheory wordPropsTheory
      set_sepTheory semanticsPropsTheory
      helperLib alignmentTheory blastLib word_bignumTheory
      wordLangTheory word_bignumProofTheory gen_gc_partialTheory
@@ -13,14 +13,16 @@ local open gen_gcTheory in end
 
 val _ = new_theory "data_to_word_bignumProof";
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "fromAList_def", "domain_union",
+                       "domain_inter", "domain_difference",
+                       "domain_map", "sptree.map_def", "sptree.lookup_rwts",
+                       "sptree.insert_notEmpty", "sptree.isEmpty_union"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = set_grammar_ancestry
   ["dataSem", "wordSem", "data_to_word",
-   "data_to_word_memoryProof", "data_to_word_gcProof", "word_bignumProof",
-   "labProps" (* good_dimindex *)
+   "data_to_word_memoryProof", "data_to_word_gcProof", "word_bignumProof"
   ];
 
 val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="wordSem"};
@@ -486,7 +488,7 @@ Proof
   \\ fs [wordSemTheory.get_var_def,real_addr_def]
   \\ eval_tac \\ fs [] \\ rw []
   \\ eval_tac \\ fs [] \\ rw [] \\ fs []
-  \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw []
+  \\ fs [good_dimindex_def,dimword_def] \\ rw []
   \\ rfs [backend_commonTheory.word_shift_def] \\ fs []
 QED
 
@@ -1125,8 +1127,8 @@ Proof
   \\ rw []
   \\ once_rewrite_tac [multiwordTheory.n2mw_def,bignum_digits_def]
   \\ IF_CASES_TAC \\ fs []
-  \\ rfs [labPropsTheory.good_dimindex_def,dimword_def,ADD1]
-  \\ rfs [labPropsTheory.good_dimindex_def,dimword_def,ADD1]
+  \\ rfs [good_dimindex_def,dimword_def,ADD1]
+  \\ rfs [good_dimindex_def,dimword_def,ADD1]
 QED
 
 val s = ``s:('c,'ffi)dataSem$state``;
@@ -2210,7 +2212,7 @@ Proof
   \\ `index < dimword (:'a) DIV 16` by (
       `good_dimindex (:'a)` by full_simp_tac std_ss [state_rel_def]
        \\ ntac 2 (pop_assum mp_tac) \\ rpt (pop_assum kall_tac)
-       \\ rw [labPropsTheory.good_dimindex_def,dimword_def] \\ fs [])
+       \\ rw [good_dimindex_def,dimword_def] \\ fs [])
   \\ rpt_drule state_rel_IMP_Number_arg
   \\ strip_tac
   \\ `state_rel c n l

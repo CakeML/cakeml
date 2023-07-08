@@ -19,6 +19,10 @@ Type varname = ``:num``
 Type funname = ``:mlstring``
 
 Datatype:
+  crepop = (* Div | *)Mul (*| Mod*)
+End
+
+Datatype:
   exp = Const ('a word)
       | Var varname
       | Label funname
@@ -26,6 +30,7 @@ Datatype:
       | LoadByte exp
       | LoadGlob  (5 word)
       | Op binop (exp list)
+      | Crepop crepop (exp list)
       | Cmp cmp exp exp
       | Shift shift exp num
       | BaseAddr
@@ -43,16 +48,17 @@ Datatype:
        | While ('a exp) prog
        | Break
        | Continue
-       | Call ret ('a exp) (('a exp) list)
+       | Call (((varname option) # prog # ((('a word) # prog) option)) option)
+              ('a exp) (('a exp) list)
        | ExtCall funname varname varname varname varname
        | Raise ('a word)
        | Return ('a exp)
        | Tick;
-
-  ret = Tail | Ret (varname option) prog (handler option);
-
-  handler = Handle ('a word) prog
 End
+
+(* NONE is Tail *)
+(* SOME (((varname option) # prog # ((('a word) # prog) option))) is Ret *)
+(* (('a word) # prog) is handler *)
 
 (* we can make return varaiable an option, but then might not be able to
    compile to loopLang *)
@@ -119,6 +125,7 @@ Definition var_cexp_def:
   (var_cexp (LoadByte e) = var_cexp e) ∧
   (var_cexp (LoadGlob a) = []) ∧
   (var_cexp (Op bop es) = FLAT (MAP var_cexp es)) ∧
+  (var_cexp (Crepop cop es) = FLAT (MAP var_cexp es)) ∧
   (var_cexp (Cmp c e1 e2) = var_cexp e1 ++ var_cexp e2) ∧
   (var_cexp (Shift sh e num) = var_cexp e) ∧
   (var_cexp BaseAddr = [])
@@ -130,6 +137,22 @@ Termination
   decide_tac
 End
 
+Definition assigned_free_vars_def:
+  (assigned_free_vars Skip = ([]:num list)) ∧
+  (assigned_free_vars (Dec n e p) = (FILTER ($≠ n) $ assigned_free_vars p)) ∧
+  (assigned_free_vars (Assign n e) = [n]) ∧
+  (assigned_free_vars (Seq p p') = assigned_free_vars p ++ assigned_free_vars p') ∧
+  (assigned_free_vars (If e p p') = assigned_free_vars p ++ assigned_free_vars p') ∧
+  (assigned_free_vars (While e p) = assigned_free_vars p) ∧
+  (assigned_free_vars (Call (SOME (NONE, rp, (SOME (_, p)))) e es) =
+     assigned_free_vars rp ++ assigned_free_vars p) ∧
+  (assigned_free_vars (Call (SOME (NONE, rp, NONE)) e es) = assigned_free_vars rp) ∧
+  (assigned_free_vars (Call (SOME ((SOME rt), rp, (SOME (_, p)))) e es) =
+     rt :: assigned_free_vars rp ++ assigned_free_vars p) ∧
+  (assigned_free_vars (Call (SOME ((SOME rt), rp, NONE)) e es) = rt :: assigned_free_vars rp) ∧
+  (assigned_free_vars _ = [])
+End
+
 Definition assigned_vars_def:
   (assigned_vars Skip = ([]:num list)) ∧
   (assigned_vars (Dec n e p) = (n::assigned_vars p)) ∧
@@ -137,12 +160,12 @@ Definition assigned_vars_def:
   (assigned_vars (Seq p p') = assigned_vars p ++ assigned_vars p') ∧
   (assigned_vars (If e p p') = assigned_vars p ++ assigned_vars p') ∧
   (assigned_vars (While e p) = assigned_vars p) ∧
-  (assigned_vars (Call (Ret NONE rp (SOME (Handle _ p))) e es) =
+  (assigned_vars (Call (SOME (NONE, rp, (SOME (_, p)))) e es) =
      assigned_vars rp ++ assigned_vars p) ∧
-  (assigned_vars (Call (Ret NONE rp NONE) e es) = assigned_vars rp) ∧
-  (assigned_vars (Call (Ret (SOME rt) rp (SOME (Handle _ p))) e es) =
+  (assigned_vars (Call (SOME (NONE, rp, NONE)) e es) = assigned_vars rp) ∧
+  (assigned_vars (Call (SOME ((SOME rt), rp, (SOME (_, p)))) e es) =
      rt :: assigned_vars rp ++ assigned_vars p) ∧
-  (assigned_vars (Call (Ret (SOME rt) rp NONE) e es) = rt :: assigned_vars rp) ∧
+  (assigned_vars (Call (SOME ((SOME rt), rp, NONE)) e es) = rt :: assigned_vars rp) ∧
   (assigned_vars _ = [])
 End
 
@@ -168,6 +191,7 @@ Definition exps_def:
   (exps (LoadByte e) = exps e) ∧
   (exps (LoadGlob a) = [LoadGlob a]) ∧
   (exps (Op bop es) = FLAT (MAP exps es)) ∧
+  (exps (Crepop pop es) = FLAT (MAP exps es)) ∧
   (exps (Cmp c e1 e2) = exps e1 ++ exps e2) ∧
   (exps (Shift sh e num) = exps e) ∧
   (exps BaseAddr = [BaseAddr])
@@ -192,17 +216,17 @@ Definition acc_vars_def:
   (acc_vars (While e p) l = acc_vars p (list_insert (var_cexp e) l)) ∧
   (acc_vars (Return e) l  = list_insert (var_cexp e) l) ∧
   (acc_vars (ExtCall f v1 v2 v3 v4) l  = list_insert [v1; v2; v3; v4] l) ∧
-  (acc_vars (Call Tail trgt args) l = list_insert (FLAT (MAP var_cexp (trgt::args))) l) ∧
-  (acc_vars (Call (Ret NONE rp NONE) trgt args) l =
+  (acc_vars (Call NONE trgt args) l = list_insert (FLAT (MAP var_cexp (trgt::args))) l) ∧
+  (acc_vars (Call (SOME (NONE, rp, NONE)) trgt args) l =
    let nl = list_insert (FLAT (MAP var_cexp (trgt::args))) l in
       acc_vars rp nl) ∧
-  (acc_vars (Call (Ret NONE rp (SOME (Handle w ep))) trgt args) l =
+  (acc_vars (Call (SOME (NONE, rp, (SOME (w, ep)))) trgt args) l =
    let nl = list_insert (FLAT (MAP var_cexp (trgt::args))) l in
       acc_vars rp (acc_vars ep nl)) ∧
-  (acc_vars (Call (Ret (SOME rv) rp NONE) trgt args) l =
+  (acc_vars (Call (SOME ((SOME rv), rp, NONE)) trgt args) l =
    let nl = list_insert (rv :: FLAT (MAP var_cexp (trgt::args))) l in
       acc_vars rp nl) ∧
-  (acc_vars (Call (Ret (SOME rv) rp (SOME (Handle w ep))) trgt args) l =
+  (acc_vars (Call (SOME ((SOME rv), rp, (SOME (w, ep)))) trgt args) l =
    let nl = list_insert (rv :: FLAT (MAP var_cexp (trgt::args))) l in
       acc_vars rp (acc_vars ep nl)) ∧
   (acc_vars _ l = l)

@@ -13,7 +13,9 @@ local open
   bvi_tailrecProofTheory
 in end;
 
-val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj",
+                       "fromAList_def", "domain_union", "domain_insert",
+                       "domain_inter"]
 
 val _ = new_theory"bvl_to_bviProof";
 
@@ -1642,7 +1644,7 @@ Proof
   Induct >> simp[aux_code_installed_def] >>
   qx_gen_tac`p`>>PairCases_on`p`>>
   Cases >> simp[IS_SUBLIST] >> strip_tac >- (
-    simp[aux_code_installed_def,lookup_fromAList] >>
+    simp[aux_code_installed_def,lookup_fromAList, Excl "fromAList_def"] >>
     first_x_assum match_mp_tac >>
     var_eq_tac >> full_simp_tac(srw_ss())[] >>
     full_simp_tac(srw_ss())[IS_SUBLIST_APPEND,IS_PREFIX_APPEND] >>
@@ -2437,7 +2439,7 @@ Proof
         \\ fs [domain_fromAList]
         \\ drule (GEN_ALL compile_inc_next_range) \\ fs []
         \\ disch_then drule \\ fs []
-        \\ rw [] \\ fs [])
+        \\ rw [] \\ fs [] \\ gvs[Abbr‘prog1’])
       \\ reverse (rpt strip_tac) \\ rveq \\ fs []
       THEN1
        (first_x_assum drule \\ strip_tac

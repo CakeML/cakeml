@@ -11,6 +11,8 @@ val _ = bring_to_front_overload"comp"{Name="comp",Thy="stack_names"};
 
 val _ = new_theory"stack_namesProof";
 
+val _ = temp_delsimps ["fromAList_def"]
+
 val rename_state_def = Define `
   rename_state compile_rest f s =
    s with

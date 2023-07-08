@@ -2261,6 +2261,40 @@ Proof
   \\ metis_tac [nsAll2_nsAppend]
 QED
 
+Theorem type_e_con_check:
+ (!tenv tenvE e t.
+   type_e tenv tenvE e t ⇒
+   nsAll2 (type_ctor ctMap) envc tenv.c ⇒
+   every_exp (one_con_check envc) e) ∧
+ (!tenv tenvE es ts.
+   type_es tenv tenvE es ts ⇒
+   nsAll2 (type_ctor ctMap) envc tenv.c ⇒
+   EVERY (every_exp (one_con_check envc)) es) ∧
+ (!tenv tenvE funs env.
+   type_funs tenv tenvE funs env ⇒
+   nsAll2 (type_ctor ctMap) envc tenv.c ⇒
+   EVERY (λ(f,n,e). every_exp (one_con_check envc) e) funs)
+Proof
+  ho_match_mp_tac type_e_strongind >>
+  rw[]>>fs[]
+  >- (
+    fs [FORALL_PROD, RES_FORALL,EVERY_MEM]>>
+    metis_tac[])
+  >- (
+    imp_res_tac nsAll2_nsLookup2>>
+    fs[do_con_check_def]>>
+    TOP_CASE_TAC>>rw[]>>
+    fs[type_ctor_def]>>
+    drule type_es_length>>simp[])
+  >- metis_tac[ETA_AX]
+  >- simp[do_con_check_def]
+  >- metis_tac[ETA_AX]
+  >- metis_tac[ETA_AX]
+  >- (
+    fs [FORALL_PROD, RES_FORALL,EVERY_MEM]>>
+    metis_tac[])
+QED
+
 Theorem decs_type_sound_no_check:
   ∀(st:'ffi semanticPrimitives$state) env ds st' r ctMap tenvS tenv tids tenv'.
    evaluate_decs st env ds = (st',r) ∧
@@ -2383,7 +2417,8 @@ Proof
    >- let_tac)
  >- ( (* case let, duplicate bindings *)
    fs [Once type_d_cases]
-   >> fs [])
+   >> fs [type_sound_invariant_def,type_all_env_def]
+   >> metis_tac[type_e_con_check])
  >- ( (* case letrec *)
    drule type_d_tenv_ok
    >> fs [Once type_d_cases]
@@ -2410,7 +2445,9 @@ Proof
    >> rfs [EVERY2_MAP, tenv_add_tvs_def])
  >- ( (* case letrec duplicate bindings *)
    fs [Once type_d_cases]
-   >> metis_tac [type_funs_distinct])
+   >- metis_tac [type_funs_distinct]
+   >> fs [type_sound_invariant_def,type_all_env_def]
+   >> metis_tac[type_e_con_check,NOT_EVERY])
  >- ( (* case type definition *)
    drule type_d_tenv_ok
    >> fs [Once type_d_cases]

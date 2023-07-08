@@ -645,11 +645,14 @@ End
 
 Definition dstep_def:
   dstep benv st (Decl $ Dlet locs p e) c = (
-    if ALL_DISTINCT (pat_bindings p []) then
+    if ALL_DISTINCT (pat_bindings p []) ∧
+       every_exp (one_con_check (collapse_env benv c).c) e then
       dreturn st c (ExpVal (collapse_env benv c) (Exp e) [] locs p)
     else Dtype_error st.fp_state) ∧
   dstep benv st (Decl $ Dletrec locs funs) c = (
-    if ALL_DISTINCT (MAP FST funs) then
+    if ALL_DISTINCT (MAP FST funs) ∧
+       EVERY (\ (x,y,z) .
+         every_exp (one_con_check (collapse_env benv c).c) z) funs then
       dreturn st c (Env $
         <| v := build_rec_env funs (collapse_env benv c) nsEmpty; c := nsEmpty |>)
     else Dtype_error st.fp_state) ∧
@@ -755,6 +758,36 @@ Definition interp_def:
                 dreturn (st with refs := LUPDATE (W8array r) n st.refs) c
                   (ExpVal env (Val $ Conv NONE []) cs locs p)))
       e
+End
+
+Definition start_dstate_def:
+  start_dstate : dstate =
+  <| refs := []; next_type_stamp := 2; next_exn_stamp := 4; eval_state := NONE;
+     fp_state := <| rws := []; opts := (λ x. []); choices := 0; canOpt := Strict;
+                    real_sem := F |>
+  |>
+End
+
+Definition start_env_def:
+  start_env : v sem_env =
+  <|v := Bind [] [];
+    c := Bind [("::",2,TypeStamp "::" 1); ("[]",0,TypeStamp "[]" 1);
+               ("True",0,TypeStamp "True" 0); ("False",0,TypeStamp "False" 0);
+               ("Subscript",0,ExnStamp 3); ("Div",0,ExnStamp 2);
+               ("Chr",0,ExnStamp 1); ("Bind",0,ExnStamp 0)] []
+  |>
+End
+
+Definition itree_semantics_def:
+  itree_semantics prog =
+  interp start_env (Dstep start_dstate (Decl (Dlocal [] prog)) [])
+End
+
+CoInductive safe_itree:
+  (safe_itree P (Ret Termination)) ∧
+  (safe_itree P (Ret $ FinalFFI e f)) ∧
+  (safe_itree P Div) ∧
+  ((∀s. P s ⇒ safe_itree P (rest s)) ⇒ safe_itree P (Vis e rest))
 End
 
 val _ = export_theory();

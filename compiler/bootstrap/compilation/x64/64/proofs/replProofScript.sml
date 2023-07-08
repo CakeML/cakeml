@@ -625,7 +625,7 @@ Proof
            namespaceTheory.nsOptBind_def]
   \\ qmatch_goalsub_abbrev_tac ‘evaluate st6 env6’
   \\ ‘st6.eval_state = SOME (EvalDecs s)’ by fs [Abbr‘st6’]
-  \\ drule (evaluate_eval |> Q.INST [‘arg_str’|->‘"f"’]) \\ simp []
+  \\ drule (evaluate_eval |> Q.INST [‘arg_str’|->‘" v5"’]) \\ simp []
   \\ ‘nsLookup env6.v (Short "eval") = SOME eval_v’ by
    (fs [Abbr‘env6’]
     \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [])
@@ -1154,7 +1154,7 @@ Proof
   \\ fs [evaluate_decs_def,astTheory.pat_bindings_def]
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,evaluate_Lit]
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [do_con_check_def]
   \\ rewrite_tac [main_v_def]
   \\ rewrite_tac [EVAL “semanticPrimitives$do_opapp
        [Recclosure env [("main","u", e)] "main"; Conv NONE []]”] \\ simp []
@@ -1245,7 +1245,7 @@ Proof
            namespaceTheory.nsOptBind_def,evaluate_Lit]
   \\ qmatch_goalsub_abbrev_tac ‘evaluate st8 env8’
   \\ qspecl_then
-       [‘st8’,‘env8’,‘Short "start_repl"’,‘Short "a"’,‘basis_ffi cl fs’,‘TL cl’] mp_tac
+       [‘st8’,‘env8’,‘Short "start_repl"’,‘Short " v0"’,‘basis_ffi cl fs’,‘TL cl’] mp_tac
     (Q.GENL [‘st’,‘env’,‘start_repl_str’,‘arg_str’,‘ffi’,‘cl’,‘s1’,‘s’] evaluate_start_repl)
   \\ simp [Abbr‘st8’,Abbr‘env8’,Abbr‘ev’]
   \\ fs [backend_enc_decTheory.encode_backend_config_thm]

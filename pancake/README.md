@@ -10,6 +10,9 @@ struct-layout to word-layout
 [crep_to_loopScript.sml](crep_to_loopScript.sml):
 Compilation from crepLang to panLang.
 
+[examples](examples):
+A few examples of timeLang programs
+
 [ffi](ffi):
 FFI for Pancake
 
@@ -50,6 +53,9 @@ Compiler from Pancake to machine code
 [pan_to_wordScript.sml](pan_to_wordScript.sml):
 Compiler from pan to word
 
+[parser](parser):
+The Pancake parser.
+
 [proofs](proofs):
 Proofs files for compiling Pancake.
 
@@ -59,9 +65,6 @@ Semantics for Pancake and its intermediate languages.
 [taParserScript.sml](taParserScript.sml):
 Parser for compactDSL programs
 
-[ta_comp_exampleScript.sml](ta_comp_exampleScript.sml):
-This is an example compilation of a TA program
-
 [ta_progs](ta_progs):
 Some sample timed automata (TA) programs.
 
@@ -70,9 +73,6 @@ Temporary files
 
 [timeLangScript.sml](timeLangScript.sml):
 Abstract syntax for timeLang
-
-[time_evalScript.sml](time_evalScript.sml):
-Evaluation of compilation of a timeLang program
 
 [time_to_panScript.sml](time_to_panScript.sml):
 Compilation from timeLang to panLang

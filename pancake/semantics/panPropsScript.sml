@@ -771,6 +771,7 @@ Proof
         strip_tac >> gs [] >>
         imp_res_tac evaluate_clock_mono >>
         gs [dec_clock_def, state_component_equality]) >>
+      TOP_CASE_TAC >> gs []>>
       TOP_CASE_TAC >> gs []
       >- (
         strip_tac >> rveq >>
@@ -802,6 +803,7 @@ Proof
         strip_tac >> gs [] >>
         imp_res_tac evaluate_clock_mono >>
         gs [dec_clock_def, state_component_equality]) >>
+      TOP_CASE_TAC >> gs []>>
       TOP_CASE_TAC >> gs []
       >- (
         strip_tac >> rveq >>
@@ -814,6 +816,7 @@ Proof
         imp_res_tac evaluate_clock_mono >>
         gs [dec_clock_def, state_component_equality]) >>
       TOP_CASE_TAC >> gs [] >>
+      TOP_CASE_TAC >> gs []>>
       TOP_CASE_TAC >> gs []
       >- (
         TOP_CASE_TAC >> gs []
@@ -1053,6 +1056,7 @@ Proof
    rveq >> fs [] >>
    imp_res_tac evaluate_io_events_mono >>
    fs [] >>
+   rename1 ‘evaluate (p,r' with locals := s.locals |+ (m'',v))’>>
    TRY (cases_on ‘evaluate (p,r' with locals := s.locals |+ (m'',v))’) >> fs [] >>
    imp_res_tac evaluate_io_events_mono >>
    fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
@@ -1067,8 +1071,10 @@ Proof
    TOP_CASE_TAC >> fs [] >> rveq >> fs []
    >- (
     TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+    TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
     TOP_CASE_TAC >> fs [] >> rveq >> fs [set_var_def]) >>
    every_case_tac >> fs [] >> rveq >> fs [set_var_def] >>
+   rename1 ‘evaluate (p,r'' with locals := s.locals |+ (m'',v))’>>
    cases_on ‘evaluate (p,r'' with locals := s.locals |+ (m'',v))’ >>
    fs [] >>
    imp_res_tac evaluate_io_events_mono >>
@@ -1092,6 +1098,7 @@ Proof
    every_case_tac >> fs [] >> rveq >> fs [] >>
    first_x_assum (qspec_then ‘extra’ mp_tac) >>
    strip_tac >> fs [set_var_def] >> rfs [] >>
+   rename1 ‘evaluate (p,r'' with locals := s.locals |+ (m'',v))’ >>
    cases_on ‘evaluate (p,r'' with locals := s.locals |+ (m'',v))’ >>
    imp_res_tac evaluate_io_events_mono >>
    fs [] >> metis_tac [IS_PREFIX_TRANS])
@@ -1109,6 +1116,7 @@ Proof
     drule evaluate_add_clock_eq >> fs [] >> NO_TAC) >>
     first_x_assum (qspec_then ‘extra’ mp_tac) >>
     strip_tac >> fs [] >> rfs []) >>
+   TOP_CASE_TAC >> fs [set_var_def] >> rveq >> fs []>>
    TOP_CASE_TAC >> fs [set_var_def] >> rveq >> fs []
    >- (
     TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
@@ -1132,6 +1140,7 @@ Proof
    fs [] >>
    TOP_CASE_TAC >> fs [] >>
    TOP_CASE_TAC >> fs [] >> rveq >> fs []) >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
   TOP_CASE_TAC >> fs [] >> rveq >> fs []
   >- (
    first_x_assum (qspec_then ‘extra’ mp_tac) >>
@@ -1142,6 +1151,7 @@ Proof
    TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
    pop_assum mp_tac >>
    drule evaluate_add_clock_eq >> fs []) >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
   TOP_CASE_TAC >> fs [] >> rveq >> fs []
   >- (
@@ -1181,8 +1191,6 @@ Proof
       dec_clock_def, empty_locals_def] >> rveq >>
   fs []
 QED
-
-
 
 Theorem update_locals_not_vars_eval_eq:
   ∀s e v n w.
@@ -1249,6 +1257,13 @@ Proof
    fs [MEM_FLAT, MEM_MAP] >>
    metis_tac [EL_MEM])
   >- (
+   rpt gen_tac >>
+   strip_tac >>
+   gvs [var_exp_def, eval_def, AllCaseEqs(),opt_mmap_eq_some,SF DNF_ss,
+        DefnBase.one_line_ify NONE pan_op_def,MAP_EQ_CONS,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+   metis_tac[]
+  )
+  >- (
     rw [] >>
     gs [var_exp_def, eval_def] >>
     every_case_tac >> gvs []) >>
@@ -1312,5 +1327,44 @@ Proof
      gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,dec_clock_def,set_var_def] >>
      metis_tac[PAIR,FST,SND])
 QED
+
+
+Definition every_exp_def:
+  (every_exp P (panLang$Const w) = P(Const w)) ∧
+  (every_exp P (Var v) = P(Var v)) ∧
+  (every_exp P (Label f) = P(Label f)) ∧
+  (every_exp P (Struct es) = (P(Struct es) ∧ EVERY (every_exp P) es)) ∧
+  (every_exp P (Field i e) = (P(Field i e) ∧ every_exp P e)) ∧
+  (every_exp P (Load sh e) = (P(Load sh e) ∧ every_exp P e)) ∧
+  (every_exp P (LoadByte e) = (P(LoadByte e) ∧ every_exp P e)) ∧
+  (every_exp P (Op bop es) = (P(Op bop es) ∧ EVERY (every_exp P) es)) ∧
+  (every_exp P (Panop op es) = (P(Panop op es) ∧ EVERY (every_exp P) es)) ∧
+  (every_exp P (Cmp c e1 e2) = (P(Cmp c e1 e2) ∧ every_exp P e1 ∧ every_exp P e2)) ∧
+  (every_exp P (Shift sh e num) = (P(Shift sh e num) ∧ every_exp P e)) ∧
+  (every_exp P BaseAddr = P BaseAddr)
+Termination
+  wf_rel_tac `measure (exp_size ARB o SND)` >>
+  rpt strip_tac >>
+  imp_res_tac MEM_IMP_exp_size >>
+  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
+  decide_tac
+End
+
+Definition exps_of_def:
+  (exps_of (Raise _ e) = [e]) ∧
+  (exps_of (Dec _ e p) = e::exps_of p) ∧
+  (exps_of (Seq p q) = exps_of p ++ exps_of q) ∧
+  (exps_of (If e p q) = e::exps_of p ++ exps_of q) ∧
+  (exps_of (While e p) = e::exps_of p) ∧
+  (exps_of (Call NONE e es) = e::es) ∧
+  (exps_of (Call (SOME (_ , (SOME (_ ,  _ , ep)))) e es) = e::es++exps_of ep) ∧
+  (exps_of (Call (SOME (_ , NONE)) e es) = e::es) ∧
+  (exps_of (Store e1 e2) = [e1;e2]) ∧
+  (exps_of (StoreByte e1 e2) = [e1;e2]) ∧
+  (exps_of (Return e) = [e]) ∧
+  (exps_of (ExtCall _ e1 e2 e3 e4) = [e1;e2;e3;e4]) ∧
+  (exps_of (Assign _ e) = [e]) ∧
+  (exps_of _ = [])
+End
 
 val _ = export_theory();

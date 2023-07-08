@@ -21,8 +21,11 @@ Correctness proof for pan_simp
 [pan_to_crepProofScript.sml](pan_to_crepProofScript.sml):
 Correctness proof for --
 
+[pan_to_targetProofScript.sml](pan_to_targetProofScript.sml):
+composing semantics correctness from pan to target
+
 [pan_to_wordProofScript.sml](pan_to_wordProofScript.sml):
 Correctness proof for --
 
-[time_to_panProofScript.sml](time_to_panProofScript.sml):
-Correctness proof for timeLang to panLang
+[time](time):
+Proof files for compiling TimeLang.

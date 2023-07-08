@@ -10,6 +10,10 @@ local open wordSemTheory in end
 
 val _ = new_theory "loop_liveProof";
 
+val _ = temp_delsimps ["fromAList_def", "domain_union",
+                       "domain_inter", "domain_difference",
+                       "domain_map", "sptree.map_def", "sptree.lookup_rwts",
+                       "sptree.insert_notEmpty", "sptree.isEmpty_union"];
 
 val goal =
   “λ(prog, s). ∀res s1 p l0 locals prog1 l1.
@@ -188,7 +192,6 @@ Proof
   THEN1 fs [domain_insert,domain_union,EXTENSION]
   THEN1 fs [domain_insert,domain_union,EXTENSION]
   \\ TRY (rpt (pop_assum (qspec_then ‘l’ mp_tac)) \\ fs [] \\ NO_TAC)
-  \\ TRY (rpt (pop_assum (qspec_then ‘l'’ mp_tac)) \\ fs [] \\ NO_TAC)
   \\ Cases_on ‘exp’ \\ fs []
   \\ simp_tac std_ss [domain_union]
   \\ rpt (pop_assum (fn th => once_rewrite_tac [th]))
@@ -472,12 +475,25 @@ Proof
   \\ res_tac \\ fs [domain_lookup]
 QED
 
+Theorem compile_Arith:
+  ^(get_goal "loopLang$Arith")
+Proof
+  rpt strip_tac >>
+  gvs[evaluate_def, DefnBase.one_line_ify NONE loop_arith_def,
+      AllCaseEqs(),shrink_def,PULL_EXISTS,
+      subspt_lookup,lookup_inter_alt,domain_insert,
+         cut_state_def, domain_inter,arith_vars,SF DNF_ss
+     ] >>
+  rw[state_component_equality,set_var_def,lookup_insert] >>
+  rw[] >> gvs[]
+QED
+
 Theorem compile_correct:
   ^(compile_correct_tm())
 Proof
   match_mp_tac (the_ind_thm())
   \\ EVERY (map strip_assume_tac [compile_Skip, compile_Continue,
-       compile_Mark, compile_Return, compile_Assign, compile_Store,
+       compile_Mark, compile_Return, compile_Assign, compile_Store, compile_Arith,
        compile_Call, compile_Seq, compile_If, compile_FFI, compile_Loop])
   \\ asm_rewrite_tac [] \\ rw [] \\ rpt (pop_assum kall_tac)
 QED

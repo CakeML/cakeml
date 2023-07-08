@@ -67,6 +67,34 @@ Definition next_line_def:
   next_line x = x
 End
 
+Definition read_char_as_3digits_def:
+  read_char_as_3digits str =
+  let ds = TAKE 3 str ;
+      rest = DROP 3 str ;
+  in
+    if LENGTH ds < 3 then NONE
+    else
+      case FOLDL (λA d. case A of
+                          NONE => NONE
+                        | SOME A0 => if isDigit d then
+                                       SOME (10 * A0 + (ORD d - 48))
+                                     else NONE)
+                 (SOME 0) ds of
+        NONE => NONE
+      | SOME ci =>
+          if ci < 256 then SOME (CHR ci, rest)
+          else NONE
+End
+
+Theorem read_char_as_3digits_reduces:
+  ∀str0 c str.
+    read_char_as_3digits str0 = SOME (c, str) ⇒
+    LENGTH str0 = LENGTH str + 3
+Proof
+  simp[read_char_as_3digits_def, LENGTH_DROP, NOT_LESS, LENGTH_TAKE_EQ,
+       AllCaseEqs(), PULL_EXISTS]
+QED
+
 Definition read_string_def:
   read_string str s (loc:locn) =
     if str = "" then (ErrorS, loc, "") else
@@ -80,10 +108,17 @@ Definition read_string_def:
       | #"\""::cs => read_string cs (s ++ "\"") (next_loc 2 loc)
       | #"n"::cs => read_string cs (s ++ "\n") (next_loc 2 loc)
       | #"t"::cs => read_string cs (s ++ "\t") (next_loc 2 loc)
+      | c::cs => if isDigit c then
+                   case read_char_as_3digits (c::cs) of
+                     NONE => (ErrorS, loc, c::cs)
+                   | SOME (c, cs') => read_string cs' (s ++ [c])
+                                                      (next_loc 4 loc)
+                 else (ErrorS, loc, TL str)
       | _ => (ErrorS, loc, TL str)
 Termination
-  WF_REL_TAC `measure (LENGTH o FST)` THEN REPEAT STRIP_TAC
-  THEN Cases_on `str` THEN FULL_SIMP_TAC (srw_ss()) [] THEN DECIDE_TAC
+  WF_REL_TAC `measure (LENGTH o FST)` THEN REPEAT STRIP_TAC THEN
+  Cases_on `str` THEN FULL_SIMP_TAC (srw_ss()) [] THEN
+  imp_res_tac read_char_as_3digits_reduces >> gs[]
 End
 
 Theorem read_string_thm:
@@ -102,7 +137,7 @@ Proof
   \\ SIMP_TAC std_ss [] \\ SRW_TAC [] []
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ RES_TAC \\ TRY DECIDE_TAC \\ CCONTR_TAC
-  \\ FULL_SIMP_TAC std_ss [LENGTH] \\ DECIDE_TAC
+  \\ gvs[AllCaseEqs()] \\ drule read_char_as_3digits_reduces >> simp[]
 QED
 
 Definition skip_comment_def:

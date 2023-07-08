@@ -6,8 +6,7 @@ open preamble semanticsPropsTheory stackSemTheory wordSemTheory
      parmoveTheory;
 
 (* To help interactive proofs *)
-open labPropsTheory helperLib;
-val good_dimindex_def = labPropsTheory.good_dimindex_def;
+open helperLib;
 val get_labels_def = stackSemTheory.get_labels_def;
 val extract_labels_def = stackPropsTheory.extract_labels_def
 
@@ -15,17 +14,21 @@ val _ = new_theory "word_to_stackProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj",
+                       "fromAList_def", "domain_union", "domain_insert",
+                       "domain_inter", "domain_map", "domain_difference",
+                       "sptree.map_def", "sptree.lookup_rwts",
+                       "sptree.insert_notEmpty"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = set_grammar_ancestry [
   "semanticsProps", (* for extend_with_resource_limit *)
   "stackProps", (* for extract_labels *)
   "wordProps",
-  "labProps", (* for good_dimindex *)
   "stackSem", "wordSem", "word_to_stack"
 ]
 Type state[pp] = “:(α,β,γ)wordSem$state”
+Overload word_cmp[local] = “labSem$word_cmp”;
 val _ = Parse.hide "B"
 
 (* TODO: many things in this file need moving *)

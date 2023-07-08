@@ -14,17 +14,16 @@ val _ = new_theory "backend_itreeProof"
 (*********** Definitions **********)
 
 CoInductive prune:
-  prune exact Div                          Div                  ∧
-  prune exact (Ret Termination)            (Ret Termination)    ∧
-  prune exact (Ret itree_semantics$Error) (Ret Error)          ∧
-  prune F     t                            (Ret OutOfMemory)    ∧
-  prune exact (Ret (FinalFFI x y))         (Ret (FinalFFI x y)) ∧
-  ((∀x. prune exact (f x) (g x)) ⇒ prune exact (Vis d f) (Vis d g))
+  prune P exact Div                          Div                  ∧
+  prune P exact (Ret Termination)            (Ret Termination)    ∧
+  prune P exact (Ret itree_semantics$Error)  (Ret Error)          ∧
+  prune P F     t                            (Ret OutOfMemory)    ∧
+  prune P exact (Ret (FinalFFI x y))         (Ret (FinalFFI x y)) ∧
+  ((∀x. P x ⇒ prune P exact (f x) (g x)) ⇒ prune P exact (Vis d f) (Vis d g))
 End
 
 Definition same_up_to_oom_def:
-  (same_up_to_oom exact a b [] = T) ∧
-  (same_up_to_oom exact a b (x::xs) ⇔
+  (same_up_to_oom exact a b ys ⇔
      (a = Div ∧ b = Div) ∨
      (a = Ret Termination ∧ b = Ret Termination) ∨
      (a = Ret (itree_semantics$Error) ∧ b = Ret Error) ∨
@@ -32,11 +31,11 @@ Definition same_up_to_oom_def:
      (∃x y. a = Ret (FinalFFI x y) ∧ b = Ret (FinalFFI x y)) ∨
      ∃d f g.
        a = Vis d f ∧ b = Vis d g ∧
-       same_up_to_oom exact (f x) (g x) xs)
+       case ys of [] => T | x::xs => same_up_to_oom exact (f x) (g x) xs)
 End
 
 Definition bisimilar_up_to_oom_def:
-  bisimilar_up_to_oom exact a b = ∀xs. same_up_to_oom exact a b xs
+  bisimilar_up_to_oom exact P a b = ∀xs. EVERY P xs ⇒ same_up_to_oom exact a b xs
 End
 
 Definition list_oracle_def:
@@ -72,52 +71,32 @@ CoInductive ffi_invariant:
       ⇒ ffi_invariant f (Vis e g))
 End
 
-CoInductive safe_itree:
-  (safe_itree (Ret itree_semantics$Termination)) ∧
-  (safe_itree (Ret $ FinalFFI e f)) ∧
-  (safe_itree Div) ∧
-  ((∀s. safe_itree (rest s)) ⇒ safe_itree (Vis e rest))
-End
-
-val (_,start_env) =
-    prim_sem_env_eq |> Q.INST [`ffi` |-> `ARB`] |>
-      concl |> rhs |> optionSyntax.dest_some |> pairSyntax.dest_pair;
-
-Definition start_dstate_def:
-  start_dstate : dstate =
-  <| refs := []; next_type_stamp := 2; next_exn_stamp := 4; eval_state := NONE;
-     fp_state := <| rws := []; opts := (λ x. []); choices := 0; canOpt := Strict;
-                    real_sem := F |>
-  |>
-End
-
-Definition start_env_def:
-  start_env = ^start_env
-End
-
-Definition itree_semantics_def:
-  itree_semantics prog =
-  interp start_env (Dstep start_dstate (Decl (Dlocal [] prog)) [])
+CoInductive ffi_respects_convention:
+  (∀s ws1 ws2 st' ws final.
+    (f s st ws1 ws2 = Oracle_return st' ws ⇒
+      P (INR ws) ∧ ffi_respects_convention P (f,st')) ∧
+    (f s st ws1 ws2 = Oracle_final final ⇒ P (INL final)))
+  ⇒ ffi_respects_convention P (f,st)
 End
 
 
 (*********** Lemmas **********)
 
 Theorem prune_eq_bisimilar_up_to_oom:
-  bisimilar_up_to_oom exact a b ⇔ prune exact a b
+  bisimilar_up_to_oom exact P a b ⇔ prune P exact a b
 Proof
   eq_tac >> rw[]
   >- (
     pop_assum mp_tac >> map_every qid_spec_tac [`b`,`a`,`exact`] >>
     ho_match_mp_tac prune_coind >> rw[bisimilar_up_to_oom_def] >>
-    pop_assum $ qspec_then `x::xs` $ assume_tac o GEN_ALL >>
-    gvs[same_up_to_oom_def] >> Cases_on `a` >> gvs[] >> Cases_on `b` >> gvs[]
+    first_assum $ qspec_then `[]` assume_tac >> fs[Once same_up_to_oom_def] >> rw[] >>
+    first_x_assum $ qspec_then `x::xs` mp_tac >> simp[] >> simp[Once same_up_to_oom_def]
     )
   >- (
     rw[bisimilar_up_to_oom_def] >>
-    pop_assum mp_tac >> map_every qid_spec_tac [`b`,`a`,`xs`] >>
-    Induct >> rw[same_up_to_oom_def] >>
-    pop_assum mp_tac >> rw[Once prune_cases]
+    ntac 2 $ pop_assum mp_tac >> map_every qid_spec_tac [`b`,`a`,`xs`] >>
+    Induct >> rw[Once same_up_to_oom_def] >>
+    qpat_x_assum `prune _ _ _ _` mp_tac >> rw[Once prune_cases]
     )
 QED
 
@@ -202,41 +181,26 @@ Proof
 QED
 
 Theorem safe_itree_trace_prefix_Error:
-  ∀n ffi io t.
-    safe_itree t ⇒ trace_prefix n ffi t ≠ (io, SOME Error)
+  ∀n P ffi io t.
+    ffi_respects_convention P ffi ∧
+    safe_itree P t
+  ⇒ trace_prefix n ffi t ≠ (io, SOME Error)
 Proof
   Induct >> rw[] >> PairCases_on `ffi` >> gvs[] >>
   simp[trace_prefix_def] >> Cases_on `t` >> gvs[trace_prefix_def] >>
   pop_assum mp_tac >> rw[Once safe_itree_cases] >>
-  PairCases_on `a` >> simp[trace_prefix_def] >> CASE_TAC >> gvs[] >>
+  PairCases_on `a` >> simp[trace_prefix_def] >> reverse CASE_TAC >> gvs[]
+  >- (
+    first_x_assum $ qspec_then `INL f` assume_tac >> gvs[] >>
+    qsuff_tac `P (INL f)` >- (rw[] >> gvs[] >> metis_tac[]) >>
+    qpat_x_assum `ffi_respects_convention _ _` mp_tac >>
+    rw[Once ffi_respects_convention_cases] >> res_tac >> gvs[]
+    ) >>
   pairarg_tac >> gvs[] >> qsuff_tac `res ≠ SOME Error` >> rw[] >> gvs[] >>
-  first_x_assum $ qspecl_then [`ffi0,f`,`io'`,`g (INR l)`] assume_tac >> gvs[]
-QED
-
-Theorem start_dstate:
-  ∀ffi:'ffi ffi_state. dstate_of (FST $ THE $ prim_sem_env ffi) = start_dstate
-Proof
-  rw[prim_sem_env_eq, dstate_of_def, start_dstate_def]
-QED
-
-Theorem start_env:
-  ∀ffi:'ffi ffi_state. SND $ THE $ prim_sem_env ffi = start_env
-Proof
-  rw[prim_sem_env_eq, start_env_def]
-QED
-
-Triviality prim_sem_env_change_ffi[simp]:
-  (FST $ THE $ prim_sem_env f) with ffi := f' = (FST $ THE $ prim_sem_env f')
-Proof
-  rw[prim_sem_env_eq, semanticPrimitivesTheory.state_component_equality]
-QED
-
-Theorem itree_semantics_itree_of:
-  ∀(ffi:'ffi ffi_state) prog.
-    itree_of (FST $ THE $ prim_sem_env ffi) start_env prog =
-    itree_semantics prog
-Proof
-  rw[itree_semantics_def, itree_of_def, start_dstate]
+  first_x_assum $ qspec_then `INR l` assume_tac >> gvs[] >>
+  qpat_x_assum `ffi_respects_convention _ _` mp_tac >>
+  rw[Once ffi_respects_convention_cases] >> res_tac >> gvs[] >>
+  first_x_assum $ qspecl_then [`P`,`ffi0,f`,`io'`,`g (INR l)`] assume_tac >> gvs[]
 QED
 
 
@@ -246,17 +210,38 @@ Theorem trace_rel_IMP_bisimilar_up_to_oom:
   ∀exact ffi_st src trgt.
     ffi_invariant FinalFFI src ∧
     ffi_invariant FinalFFI trgt ∧
+    EVERY P ffi_st ∧
     (∀n.
       trace_rel exact
         (trace_prefix n (list_oracle, ffi_st) src)
         (trace_prefix n (list_oracle, ffi_st) trgt))
   ⇒ same_up_to_oom exact src trgt ffi_st
 Proof
-  gen_tac >> Induct >> rw[same_up_to_oom_def] >>
+  gen_tac >> Induct >>
+  rw[Once same_up_to_oom_def] >>
   Cases_on `trgt = Ret OutOfMemory` >> gvs[]
   >- (
     CCONTR_TAC >> gvs[] >>
-    pop_assum $ qspec_then `SUC n` mp_tac >> simp[trace_prefix_def, Once trace_rel_cases]
+    first_x_assum $ qspec_then `SUC n` mp_tac >>
+    simp[trace_prefix_def, Once trace_rel_cases]
+    )
+  >- (
+    reverse $ Cases_on `src` >> gvs[] >>
+    first_x_assum $ qspec_then `SUC n` $ mp_tac o GEN_ALL >>
+    gvs[trace_prefix_def, trace_rel_cases] >>
+    reverse $ Cases_on `trgt` >> gvs[trace_prefix_def] >>
+    PairCases_on `a` >> gvs[trace_prefix_def, list_oracle_apply]
+    >- (
+      PairCases_on `a'` >> gvs[] >>
+      disch_then $ qspec_then `SUC n` mp_tac >>
+      gvs[trace_prefix_def, list_oracle_apply]
+      ) >>
+    qrefine `SUC n` >> gvs[trace_prefix_def]
+    )
+  >- (
+    CCONTR_TAC >> gvs[] >>
+    first_x_assum $ qspec_then `SUC n` mp_tac >>
+    simp[trace_prefix_def, Once trace_rel_cases]
     ) >>
   Cases_on `src` >> gvs[]
   >- ( (* Ret *)
@@ -284,7 +269,7 @@ Proof
       simp[trace_prefix_def, Once trace_rel_cases] >>
       Cases_on `trgt` >> simp[trace_prefix_def] >> gvs[] >>
       PairCases_on `a` >> simp[trace_prefix_def, list_oracle_apply] >>
-      rw[] >> gvs[] >> Cases_on `ffi_st` >> simp[same_up_to_oom_def]
+      rw[] >> gvs[] >> Cases_on `ffi_st` >> simp[Once same_up_to_oom_def]
       ) >>
     reverse $ Cases_on `LENGTH a2 = LENGTH y` >> gvs[]
     >- (
@@ -293,7 +278,7 @@ Proof
       Cases_on `trgt` >> gvs[trace_prefix_def] >>
       PairCases_on `a` >> simp[trace_prefix_def, list_oracle_apply, UNCURRY] >>
       strip_tac >> `LENGTH a2' ≠ LENGTH y` by (CCONTR_TAC >> gvs[]) >> gvs[] >>
-      Cases_on `ffi_st` >> simp[same_up_to_oom_def]
+      Cases_on `ffi_st` >> simp[Once same_up_to_oom_def]
       ) >>
     first_x_assum $ qspec_then `SUC n` $ mp_tac o GEN_ALL >>
     Cases_on `trgt` >> gvs[]
@@ -321,24 +306,35 @@ Proof
     )
 QED
 
+Overload inr = ``λP. SUM_ALL (K T) P``
+
 Theorem oracle_IMP_itree_preservation:
   s.eval_state = NONE ∧
-  (∀f:((ffi_outcome + word8 list) list) ffi_state.
+  (∀f:(((ffi_outcome + word8 list) list) ffi_state).
+    ffi_respects_convention (inr P) (f.oracle, f.ffi_state) ⇒
     Fail ∉ semantics_prog (s with ffi := f) env prog ∧
     machine_sem (mc:(α,β,γ) machine_config) f ms ⊆
       extend_with_resource_limit' safe_for_space
         (semantics_prog (s with ffi := f) env prog))
-  ⇒ prune safe_for_space (itree_of s env prog) (machine_sem_itree (mc,ms))
+  ⇒ prune (inr P) safe_for_space (itree_of s env prog) (machine_sem_itree (mc,ms))
 Proof
   rw[GSYM prune_eq_bisimilar_up_to_oom, bisimilar_up_to_oom_def] >>
-  irule trace_rel_IMP_bisimilar_up_to_oom >> reverse conj_asm2_tac
+  first_x_assum $ qspec_then `make_ffi xs` assume_tac >> gvs[GSYM PULL_FORALL] >>
+  pop_assum mp_tac >> impl_tac
+  >- (
+    Induct_on `xs` >> rw[Once ffi_respects_convention_cases, list_oracle_apply] >>
+    gvs[AllCaseEqs()]
+    ) >>
+  strip_tac >> gvs[] >>
+  irule trace_rel_IMP_bisimilar_up_to_oom >> simp[SF SFY_ss] >> reverse conj_asm2_tac
   >- simp[ffi_invariant_itree_of, ffi_invariant_machine_sem_itree] >>
-  first_x_assum $ qspec_then `make_ffi xs` assume_tac >> gvs[] >>
   qabbrev_tac `st = s with ffi := make_ffi xs` >>
   `st.eval_state = NONE` by (unabbrev_all_tac >> gvs[]) >> last_x_assum kall_tac >>
-  `∀n io. trace_prefix n (list_oracle,xs) (itree_of st env prog) ≠ (io, SOME Error)` by (
-    drule $ cj 3 itree_semantics >> disch_then $ qspecl_then [`prog`,`env`] assume_tac >>
-    unabbrev_all_tac >> gvs[IN_DEF]) >>
+  `∀n io. trace_prefix n (list_oracle,xs) (itree_of st env prog) ≠ (io, SOME Error)`
+    by (
+      drule $ cj 3 itree_semantics >>
+      disch_then $ qspecl_then [`prog`,`env`] assume_tac >>
+      unabbrev_all_tac >> gvs[IN_DEF]) >>
   qpat_x_assum `Fail ∉ _` kall_tac >>
   qspecl_then [`make_ffi xs`,`ms`,`mc`] assume_tac $ GEN_ALL machine_sem_total >>
   gvs[SUBSET_DEF, IN_DEF] >> last_x_assum drule >> strip_tac >>
@@ -599,24 +595,25 @@ Proof
 QED
 
 Theorem itree_compile_correct:
-  safe_itree (itree_semantics prog) ∧
+  safe_itree (inr P) (itree_semantics prog) ∧
   compile c prog = SOME (bytes,bitmaps,c') ∧
   backend_config_ok c ∧ mc_conf_ok mc ∧ mc_init_ok c mc ∧
   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
     (heap_regs c.stack_conf.reg_names) mc ms
-  ⇒ prune F (itree_semantics prog) (machine_sem_itree (mc,ms))
+  ⇒ prune (inr P) F (itree_semantics prog) (machine_sem_itree (mc,ms))
 Proof
   rw[] >>
   simp[Q.ISPEC `ARB:((ffi_outcome + word8 list) list) ffi_state` $
         GSYM itree_semantics_itree_of] >>
   irule oracle_IMP_itree_preservation >> simp[extend_with_resource_limit'_def] >>
   reverse conj_tac >- simp[prim_sem_env_eq] >>
-  gen_tac >>
+  gen_tac >> strip_tac >>
   `(FST $ THE $ prim_sem_env f).eval_state = NONE` by simp[prim_sem_env_eq] >>
   conj_asm1_tac >> gvs[IN_DEF]
   >- (
     simp[itree_semantics, itree_semantics_itree_of] >>
-    irule safe_itree_trace_prefix_Error >> simp[]
+    irule safe_itree_trace_prefix_Error >> simp[] >>
+    goal_assum $ drule_at Any >> simp[EVAL ``prim_sem_env f``]
     ) >>
   irule $ SRULE [LET_THM, UNCURRY, start_env] compile_correct >> simp[SF SFY_ss]
 QED

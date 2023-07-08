@@ -33,6 +33,10 @@ Datatype:
 End
 
 Datatype:
+  panop = (* Div | *)Mul (* | Mod*)
+End
+
+Datatype:
   exp = Const ('a word)
       | Var varname
       | Label funname
@@ -42,6 +46,7 @@ Datatype:
       | Load shape exp (* exp: start addr of value with given shape *)
       | LoadByte exp
       | Op binop (exp list)
+      | Panop panop (exp list)
       | Cmp cmp exp exp
       | Shift shift exp num
       | BaseAddr
@@ -58,20 +63,26 @@ Datatype:
        | While ('a exp) prog
        | Break
        | Continue
-       | Call ret ('a exp) (('a exp) list)
-       | ExtCall funname varname varname varname varname
+       | Call ((varname # ((eid # varname # prog) option)) option) ('a exp) (('a exp) list)
+       | ExtCall funname ('a exp) ('a exp) ('a exp) ('a exp)
          (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
        | Raise eid ('a exp)
        | Return ('a exp)
        | Tick;
-
-  ret = Tail | Ret varname (handler option);
-
-  handler = Handle eid varname prog (* excp id and var *)
 End
 
-Overload TailCall = “Call Tail”
-Overload RetCall = “\s h. Call (Ret s h)”
+(*
+Datatype:
+  handler = Handle eid varname ('a prog)
+End
+
+Datatype:
+  ret = Tail | Ret varname ('a handler option)
+End
+*)
+
+Overload TailCall = “Call NONE”
+Overload RetCall = “\s h. Call (SOME (s , h))”
 
 (*
 Datatype:
@@ -124,7 +135,7 @@ Definition exp_ids_def:
   (exp_ids (Seq p q) = exp_ids p ++ exp_ids q) ∧
   (exp_ids (If _ p q) = exp_ids p ++ exp_ids q) ∧
   (exp_ids (While _ p) = exp_ids p) ∧
-  (exp_ids (Call (Ret _ (SOME (Handle e _ ep))) _ _) = e::exp_ids ep) ∧
+  (exp_ids (Call (SOME (_ , (SOME (e ,  _ , ep)))) _ _) = e::exp_ids ep) ∧
   (exp_ids _ = [])
 End
 
@@ -170,6 +181,7 @@ Definition var_exp_def:
   (var_exp (Load sh e) = var_exp e) ∧
   (var_exp (LoadByte e) = var_exp e) ∧
   (var_exp (Op bop es) = FLAT (MAP var_exp es)) ∧
+  (var_exp (Panop op es) = FLAT (MAP var_exp es)) ∧
   (var_exp (Cmp c e1 e2) = var_exp e1 ++ var_exp e2) ∧
   (var_exp (Shift sh e num) = var_exp e)
 Termination
@@ -185,6 +197,5 @@ Definition destruct_def:
   (destruct (Struct es) = es) /\
   (destruct _ = [])
 End
-
 
 val _ = export_theory();

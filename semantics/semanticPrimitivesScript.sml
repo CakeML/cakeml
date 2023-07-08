@@ -249,6 +249,11 @@ Definition do_con_check_def:
     | SOME n => case nsLookup cenv n of NONE => F | SOME (l',v2) => l = l'
 End
 
+Definition one_con_check_def[simp]:
+  one_con_check envc (Con cn es) = do_con_check envc cn (LENGTH es) ∧
+  one_con_check envc _ = T
+End
+
 Definition build_conv_def:
   build_conv (envC:((string),(string),(num#stamp))namespace) cn vs =
   case cn of

@@ -155,6 +155,11 @@ fun prove_assum_by_conv conv th = let
 
 val prove_assum_by_eval = prove_assum_by_conv reduce_conv
 
+val eval_every_exp_one_con_check =
+  SIMP_CONV (srw_ss()) [semanticPrimitivesTheory.do_con_check_def,ML_code_env_def]
+  THENC DEPTH_CONV nsLookup_conv
+  THENC reduce_conv;
+
 fun is_const_str str = can prim_mk_const {Thy=current_theory(), Name=str};
 
 fun find_name name = let
@@ -393,20 +398,17 @@ fun add_Dlet eval_thm var_str = let
         @ [stringSyntax.fromMLstring var_str,unknown_loc])
   in ML_code_upd "add_Dlet" mp_thm
     [solve_ml_imp_mp eval_thm,
-        solve_ml_imp_conv (SIMP_CONV bool_ss []
-            THENC SIMP_CONV bool_ss [ML_code_env_def]),
-        let_env_abbrev ALL_CONV, let_st_abbrev reduce_conv]
+     solve_ml_imp_conv (SIMP_CONV bool_ss []
+                        THENC SIMP_CONV bool_ss [ML_code_env_def]),
+     solve_ml_imp_conv eval_every_exp_one_con_check,
+     let_env_abbrev ALL_CONV, let_st_abbrev reduce_conv]
   end
 
-fun add_Dlet_lit loc n exp =
+fun add_Dlet_lit loc n l =
   let
-    val theVal = EVAL (Parse.Term ‘case evaluate s env [^exp] of |(_, Rval [v]) => v’) |> concl |> rhs
-    val mp_thm =
-      SPECL [exp,“s2:'a semanticPrimitives$state”, theVal, n, loc] (SIMP_RULE std_ss [] ML_code_Dlet_var)
-    val eval_rel_proof = prove (UNDISCH mp_thm |> concl |> dest_imp |> fst, EVAL_TAC >> ntac 2 $ qexists_tac ‘s2.clock’ >> simp[])
-    val clean_mp_thm = UNDISCH mp_thm |> (fn th => MP th eval_rel_proof) |> DISCH_ALL
+    val mp_thm = SPECL [loc,n,l] ML_code_Dlet_var_lit
   in
-    ML_code_upd "add_Dlet_lit" clean_mp_thm [let_env_abbrev ALL_CONV, let_env_abbrev ALL_CONV]
+    ML_code_upd "add_Dlet_lit" mp_thm [let_env_abbrev ALL_CONV, let_env_abbrev ALL_CONV]
 end
 
 fun add_Denv eval_thm var_str = let
@@ -427,8 +429,10 @@ val (n,v,exp) = (v_tm,w,body)
 
 fun add_Dlet_Fun loc n v exp v_name = ML_code_upd "add_Dlet_Fun"
     (SPECL [n, v, exp, loc] ML_code_Dlet_Fun)
-    [let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
-        let_v_abbrev v_name ALL_CONV, let_env_abbrev ALL_CONV]
+    [solve_ml_imp_conv eval_every_exp_one_con_check,
+     let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
+     let_v_abbrev v_name ALL_CONV,
+     let_env_abbrev ALL_CONV]
 
 fun add_Dlet_Var_Var loc n var_name = ML_code_upd "add_Dlet_Var_Var"
     (SPECL [n, var_name, loc] ML_code_Dlet_Var_Var)
@@ -465,8 +469,10 @@ fun add_Dletrec loc funs v_names = let
         (th, ML_code (ss,envs,v_defs @ vs,mlth)) end
   in ML_code_upd "add_Dletrec"
     (SPECL [funs, loc] ML_code_Dletrec)
-    [solve_ml_imp_conv EVAL, let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
-        proc]
+    [solve_ml_imp_conv EVAL,
+     solve_ml_imp_conv eval_every_exp_one_con_check,
+     let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
+     proc]
   end
 
 fun get_block_names (ML_code (ss,envs,vs,th))
@@ -519,9 +525,10 @@ fun add_dec dec_tm pick_name s =
   else if is_Dlet dec_tm
           andalso is_Lit (rand dec_tm)
           andalso is_Pvar (rand (rator dec_tm)) then let
-    val (loc,p,l) = dest_Dlet dec_tm
-    val v_tm = dest_Pvar p
-    in add_Dlet_lit loc v_tm l s end
+    val (loc,p,lit) = dest_Dlet dec_tm
+    val l = dest_Lit lit
+    val n = dest_Pvar p
+    in add_Dlet_lit loc n l s end
   else if is_Dlet dec_tm
           andalso is_Var (rand dec_tm)
           andalso is_Pvar (rand (rator dec_tm)) then let
@@ -663,9 +670,11 @@ fun pick_name str =
 (*
 
 val s = init_state
-val dec1_tm = ``Dlet (ARB 1) (Pvar "f") (Fun "x" (Var (Short "x")))``
+val dec1_tm = ``Dlet (ARB 1) (Pvar "f") (Lit (IntLit 5))``
 val dec2_tm = ``Dlet (ARB 2) (Pvar "g") (Fun "x" (Var (Short "x")))``
-val prog_tm = ``[^dec1_tm; ^dec2_tm]``
+val dec3_tm = ``Dletrec (ARB 3) [("foo","n",Con (SOME (Short "::"))
+                  [Var (Short "n");Var (Short "n")])]``
+val prog_tm = ``[^dec1_tm; ^dec2_tm; ^dec3_tm]``
 
 val s = (add_prog prog_tm pick_name init_state)
 

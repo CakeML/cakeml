@@ -3188,8 +3188,6 @@ Proof
       (`EL v s'''.node_tag ≠ Atemp` by fs[]>>
       res_tac>>fs[]>>
       rfs[extract_tag_def]))>>
-  CONJ_TAC>-
-    fs[domain_map]>>
   fs[EVERY_MEM,FORALL_PROD]>>rw[]>>
   last_x_assum drule>>
   strip_tac>>

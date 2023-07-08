@@ -27,10 +27,19 @@ val res = translate LENGTH_AUX_THM;
 
 val _ = ml_prog_update open_local_block;
 val res = translate REV_DEF;
+val res = translate map_rev'_def;
+val res = translate filter_rev'_def;
+val res = translate flat_rev'_def;
 val _ = ml_prog_update open_local_in_block;
 
 val result = next_ml_names := ["rev"];
 val res = translate REVERSE_REV;
+val result = next_ml_names := ["mapRev"];
+val res = translate map_rev_def;
+val result = next_ml_names := ["filterRev"];
+val res = translate filter_rev_def;
+val result = next_ml_names := ["flatRev"];
+val res = translate flat_rev_def;
 
 (* New list-append translation *)
 val append_v_thm = trans "@" listSyntax.append_tm;
@@ -239,7 +248,29 @@ val result = translate ZIP_eq;
 val result = translate MEMBER_def;
 
 val result = translate SUM;
-val result = translate UNZIP;
+
+Theorem UNZIP_eq:
+  !xs.
+    UNZIP xs =
+      case xs of
+        [] => ([], [])
+      | (y,z)::xs =>
+          let (ys,zs) = UNZIP xs in
+            (y::ys, z::zs)
+Proof
+  Induct \\ simp [ELIM_UNCURRY, FORALL_PROD]
+QED
+
+Theorem UNZIP_ind:
+  ∀P. (∀v. (∀x4 x3. v = x4::x3 ⇒ ∀x2 x1. x4 = (x2,x1) ⇒ P x3) ⇒ P v) ⇒ ∀v. P v
+Proof
+  simp [FORALL_PROD]
+  \\ gen_tac \\ strip_tac
+  \\ Induct \\ rw []
+QED
+
+val result = translate UNZIP_eq;
+
 val result = translate PAD_RIGHT;
 val result = translate PAD_LEFT;
 val result = translate (ALL_DISTINCT |> REWRITE_RULE [MEMBER_INTRO]);

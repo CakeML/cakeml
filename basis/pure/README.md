@@ -25,6 +25,9 @@ Pure functions for the Option module.
 [mlprettyprinterScript.sml](mlprettyprinterScript.sml):
 Types and pure functions for pretty printing
 
+[mlratScript.sml](mlratScript.sml):
+Pure functions for the Rat module.
+
 [mlstringLib.sml](mlstringLib.sml):
 More ML functions for manipulating HOL terms involving mlstrings.
 
