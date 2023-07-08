@@ -4,32 +4,55 @@
 %%% TeX-engine: xetex
 %%% End:
 
-\documentclass[graybox,envcountsect]{SVMonoEnhanced}
+% \documentclass[graybox,envcountsect]{SVMonoEnhanced}
+\documentclass[a4paper]{amsbook}
 
-\usepackage{amssymb,amscd}
+\usepackage{amsfonts}
+\usepackage{amsbooka}
+
+\usepackage{fontspec}
+\newfontfamily{\emojifont}{Noto Emoji}
+
+\usepackage{twemojis}
+
+% \usepackage{amsrefs}
+\usepackage{graphicx}
+\usepackage{mathrsfs}
+\usepackage{mathtools}
+\usepackage{stmaryrd}
+\usepackage{tikz}
 \usepackage{hyperref}
+\usepackage{xypic}
 \usepackage{wallpaper}
 \usepackage{listings}
 \usepackage{float}
 
-\bibliographystyle{acm}
-
-% \usepackage{biblatex}
-% \addbibresource{refs.bib}
+\newcommand{\sem}[1]{\llbracket #1 \rrbracket}
 
 \lstdefinelanguage{pancakeAbs}%
 {morekeywords={Skip,Dec,Assign,Store,StoreByte,Seq,If,While,Break,Continue,Call,ExtCall,Raise,Return,Tick},%
-basicstyle=\ttfamily}
+  basicstyle=\ttfamily}
+
+\lstdefinelanguage{pancakeConcrete}%
+{morekeywords={skip,str,strb,if,else,while,break,continue,raise,return,tick,var,in,with,handle,lds,ldb,@base,true,false},%
+  basicstyle=\ttfamily}
 
 \begin{document}
 
 \ThisLRCornerWallPaper{1.1}{cover-bg.png}~
-\author{Ben Nott\\ \small b.nott@student.unsw.edu.au}
+
 \title{The definition of Standard Pancake\footnote{Where a ``Standard Pancake'' is understood not to include toppings or syrup.}}
-\subtitle{}
+
 \date{March 2023}
-\university{The University of New South Wales,\\Sydney}
-\unilogo{unsw-logo-landscape.png}
+
+% Authors and corresponding address tags.
+\author[bnott]{Ben Nott} \email{b.nott@student.unsw.edu.au} \address{UNSW, Sydney}
+
+\subjclass[2010]{Primary Programming languages; Secondary Semantics}
+\keywords{Pancake,interaction tree,semantics,imperative,device driver}
+
+% \university{The University of New South Wales,\\Sydney}
+% \unilogo{unsw-logo-landscape.png}
 \maketitle
 
 \frontmatter
@@ -47,22 +70,46 @@ Pancake is an imperative programming language designed for the creation of forma
 
 \mainmatter
 
-\part{Syntax}
-\label{part:syntax}
+\chapter{Introduction}
+\label{cha:introduction}
 
-\section{Concrete syntax}
-\label{sec:concrete-syntax}
+\section{The language}
+\label{sec:language}
 
-\section{Abstract syntax}
-\label{sec:abstract-syntax}
+Pancake is an imperative programming language intended for the development of formally verified device drivers.
 
-\part{Semantics}
-\label{part:semantics}
+\section{File naming}
+\label{sec:file-naming}
 
-\section{Informal rules of the semantics}
-\label{sec:informal-rules}
+The names of Pancake source files \emph{must} be suffixed with one of
+\begin{enumerate}
+  \item \verb|.p|
+  \item \verb|.|{\Huge\texttwemoji{pancakes}}\footnote{Where the symbol is the ``Pancakes'' emoji represented by the UTF-8 codepoint \texttt{1F95E}.};
+\end{enumerate}
+chosen per the support of the operating system.
 
-The informal rules define the intention behind the design of the individual semantics provided for Pancake. They guide the extension of existing and development of new semantics for the language. These rules however cannot be taken to be any true semantic of the language.
+\chapter{Syntax}
+\label{cha:syntax}
+
+\section{Keywords}
+\label{sec:keywords}
+\lstset{language=pancakeConcrete}
+
+The following are the keywords of the syntax and thus may not be used as identifiers.
+
+\begin{lstlisting}
+  skip str strb if else while break continue
+  raise return tick var in handle lds ldb @base
+  true false
+\end{lstlisting}
+
+\chapter{Semantics}
+\label{cha:semantics}
+
+\section{Specification}
+\label{sec:semantics-spec}
+
+Any semantics for Pancake must adhere to the \emph{specification}; an informal description of the intention behind Pancake program behaviour.
 
 \subsection{Expressions}
 \label{sec:expressions}
@@ -140,7 +187,17 @@ The final state is that of the original state with the address specified by the 
 \subsubsection{External function call}
 \label{sec:external-call}
 
-\newcommand{\sem}[1]{\llbracket #1 \rrbracket}
+External function calls are the principal mechanic of the Pancake Foreign Function Interface (FFI). They enable Pancake programs to call functions defined outside of the local program state.
+
+An external call
+\begin{lstlisting}
+  ExtCall name conf_ptr conf_len array_ptr array_len
+\end{lstlisting}
+is valid when
+\begin{enumerate}
+  \item each of \lstinline!conf_ptr, conf_len, array_ptr, array_len! evaluate under the current state,
+  \item the evaluated results of \lstinline!conf_ptr! and \lstinline!array_ptr! are readable prior to the FFI call.
+\end{enumerate}
 
 \section{Operational semantics}
 \label{sec:oper-semant}
@@ -182,31 +239,53 @@ A denotation for a program command is a function
   \sem{\cdot}_{p} : \text{state} \to (\alpha, \beta, (\gamma\ \text{result}\ \text{option} \times \text{state}))\ \text{itree}.
 \end{equation*}
 
-We define $\sem{\cdot}_{p}$ in terms of the \verb|mrec| combinator and a \emph{recursive event handler} as follows.
-\begin{figure}[H]
-  \centering
-  \begin{align*}
-    \sem{\cdot}_{p} =
-  \end{align*}
-  \caption{Definition of program statement semantics}
-  \label{fig:sem_itree_prog}
-\end{figure}
+We define $\sem{\cdot}_{p}$ in terms of the \verb|mrec| combinator and a \emph{recursive event handler}, \verb|h_prog|, as
+\begin{equation*}
+  \sem{P}_{p} = \text{\lstinline!itree\_mrec!}\ \text{\lstinline!h\_prog!}\ P.
+\end{equation*}
 
 There exists a nontrivial challenge in defining a denotational semantics with the domain of ITrees, that supports looping and function calls. To overcome this challenge, the executable nature of ITrees is leveraged to define the program command semantics in terms of a recursive event handler.
 
 \subsubsection{Recursive event handlers}
 \label{sec:event-handlers}
 
-\emph{Recursive event handlers} are functions
+A function
 \begin{equation*}
   h : \alpha \to (\beta, \alpha + \epsilon, \gamma)\ \text{itree},
 \end{equation*}
-that map a seed of type $\alpha$ to an ITree with an event type $\alpha$.
+that maps a seed of type $\alpha$ to an ITree with an event type $\alpha$, is called an \emph{recursive event handler}.
 
-The handler \emph{raises} an event by producing a $\text{Vis}\ (\text{INL}\ e)$ node, indicating that the seed $e$ is to be passed again to the event handler for further processing. The handler terminates computation by producing a $\text{Ret}\ r$ node. Regular Vis nodes can be created in the tree by the handler producing a $\text{Vis}\ (\text{INR}\ e')$ node.
+The handler \emph{raises} an event by producing a
+\begin{equation*}
+  \text{Vis (INL } e:\alpha \text{)}
+\end{equation*}
+node, indicating that the seed $e$ is to be passed again to the event handler for further processing. The handler terminates computation by producing a
+\begin{equation*}
+  \text{Ret}\ r
+\end{equation*}
+node.
 
-The \verb|mrec| combinator \cite{xia_executable_nodate} interprets the ITree produced by the recursive event handler and unfolds it over a regular ITree of type $(\beta, \epsilon, \gamma)\ \text{itree}$.
+Regular Vis nodes can be created in the tree by the handler producing a
+\begin{equation*}
+  \text{Vis}\ (\text{INR}\ e':\epsilon)
+\end{equation*}
+node.
 
+The \verb|mrec| combinator \cite{xia_executable_nodate} interprets the ITree produced by the recursive event handler and unfolds it over an ITree of type
+\begin{equation*}
+  (\beta, \epsilon, \gamma)\ \text{itree}.
+\end{equation*}
+
+\subsubsection{Recurisve program handler}
+\label{sec:recur-progr-handl}
+
+The program command semantics is defined compositionally at the level of the recursive event handler.
+
+Let
+\begin{equation*}
+  \text{\lstinline!h\_prog!} : \text{prog} \to (\alpha,\beta,(\gamma\ \text{result option} \times \text{state}))\ \text{itree},
+\end{equation*}
+be a function defined over the abstract syntax of program commands.
 
 \subsection{Observational semantics}
 \label{sec:observ-semant}
