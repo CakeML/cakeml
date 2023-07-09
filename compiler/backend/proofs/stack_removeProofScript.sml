@@ -2604,9 +2604,11 @@ val addresses_def = Define `
   (addresses a 0 = {}) /\
   (addresses a (SUC n) = a INSERT addresses (a + bytes_in_word) n)`
 
-val LENGTH_read_mem = Q.prove(
-  `!n a m. LENGTH (read_mem a m n) = n`,
-  Induct \\ fs [read_mem_def]);
+Theorem LENGTH_read_mem:
+  !n a m. LENGTH (read_mem a m n) = n
+Proof
+  Induct \\ fs [read_mem_def]
+QED
 
 val IN_addresses = Q.prove(
   `!n a x. x IN addresses a n <=>
