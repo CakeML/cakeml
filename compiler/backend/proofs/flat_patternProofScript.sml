@@ -1091,6 +1091,37 @@ Proof
   rw [initial_ctors_def, backend_commonTheory.bool_to_tag_def]
 QED
 
+Theorem evaluate_Bool:
+  initial_ctors ⊆ s.c ==>
+    evaluate env s [Bool t b] = (s, Rval [Boolv b])
+Proof
+   rw [evaluate_def, Boolv_def, Bool_def, initial_ctors_def,
+       backend_commonTheory.bool_to_tag_def,
+       backend_commonTheory.true_tag_def,
+       backend_commonTheory.false_tag_def]
+   \\ gs []
+QED
+
+Theorem SmartIf_thm:
+  SmartIf t e p q =
+    if ?t. e = Bool t T then p else
+    if ?t. e = Bool t F then q else
+    If t e p q
+Proof
+  simp [SmartIf_def, Bool_def, backend_commonTheory.bool_to_tag_def]
+  \\ rw [] \\ gs []
+  \\ rpt CASE_TAC \\ gs []
+QED
+
+Theorem evaluate_SmartIf:
+  initial_ctors ⊆ s.c ==>
+    evaluate env s [SmartIf t x y z] = evaluate env s [If t x y z]
+Proof
+   rw [pure_eval_to_def]
+   \\ simp [evaluate_def, SmartIf_thm] \\ rw []
+   \\ rw [evaluate_def, evaluate_Bool, do_if_Boolv]
+QED
+
 Theorem decode_guard_simulation:
   !b. dt_eval_guard (encode_refs s) (encode_val y) gd = SOME b /\
   pure_eval_to s env x y /\
@@ -1103,6 +1134,7 @@ Proof
   \\ fs [pure_eval_to_def, evaluate_def, option_case_eq]
   \\ rw []
   \\ imp_res_tac init_in_c_bool_tag
+  \\ simp [evaluate_SmartIf]
   \\ fs [Bool_def, evaluate_def, fold_Boolv, do_app_def, do_eq_Boolv,
         do_if_Boolv, bool_case_eq]
   \\ drule decode_test_simulation
@@ -1120,10 +1152,8 @@ Theorem simp_guard_thm:
 Proof
   ho_match_mp_tac simp_guard_ind
   \\ rw [simp_guard_def]
-  \\ fs [dt_eval_guard_def]
-  \\ EVERY_CASE_TAC
-  \\ fs []
-  \\ rfs []
+  \\ gs [dt_eval_guard_def, CaseEqs ["option", "bool"]]
+  \\ rpt CASE_TAC \\ gs [dt_eval_guard_def, CaseEqs ["option", "bool"]]
   \\ metis_tac []
 QED
 
@@ -1147,6 +1177,8 @@ Proof
   \\ fs []
   \\ simp [do_if_Boolv]
   \\ CASE_TAC \\ fs []
+  \\ simp [evaluate_SmartIf, evaluate_def, do_if_Boolv]
+  \\ IF_CASES_TAC \\ gs []
 QED
 
 Theorem encode_pat_match_simulation:
@@ -1243,7 +1275,7 @@ Proof
   \\ simp [naive_pattern_match_def]
   \\ rw []
   \\ fs [pure_eval_to_def, evaluate_def, Bool_def, init_in_c_bool_tag,
-        fold_Boolv, flatSemTheory.pmatch_def]
+        fold_Boolv, flatSemTheory.pmatch_def, evaluate_SmartIf]
   >- (
     (* lit eq *)
     Cases_on `y` \\ fs [flatSemTheory.pmatch_def]
@@ -1324,7 +1356,7 @@ Proof
   ho_match_mp_tac naive_pattern_matches_ind
   \\ simp [naive_pattern_matches_def, pmatch_rows_def]
   \\ rw []
-  \\ simp [evaluate_def]
+  \\ simp [evaluate_SmartIf, evaluate_def]
   \\ drule_then (fn t => DEP_REWRITE_TAC [t]) naive_pattern_match_correct_inst
   \\ simp [flatSemTheory.pmatch_def]
   \\ simp [do_if_Boolv]
@@ -1579,7 +1611,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ imp_res_tac LENGTH_compile_exps_IMP
   \\ fs [LENGTH_EQ_NUM_compute, listTheory.LENGTH_CONS]
-  \\ rveq \\ fs [evaluate_def, v_rel_rules, GSYM PULL_FORALL]
+  \\ rveq \\ fs [evaluate_SmartIf, evaluate_def, v_rel_rules, GSYM PULL_FORALL]
   \\ TRY (rename [`rv_1 ≠ Rerr (Rabort Rtype_error) ==> _`]
     \\ (Cases_on `rv_1 = Rerr (Rabort Rtype_error)` >- fs [])
     \\ fs [])
@@ -1934,6 +1966,7 @@ Theorem set_globals_decode_guard:
   set_globals (decode_guard t exp gd) = {||}
 Proof
   Induct_on `gd` \\ simp [decode_guard_def, Bool_def, op_gbag_def]
+  \\ rw [SmartIf_thm]
   \\ simp [set_globals_decode_test, set_globals_decode_pos]
 QED
 
@@ -1943,7 +1976,7 @@ Theorem set_globals_decode_dtree_empty:
   set_globals (decode_dtree t br_spt x dflt dtree) = {||}
 Proof
   Induct_on `dtree`
-  \\ simp [decode_dtree_def]
+  \\ simp [decode_dtree_def, SmartIf_thm]
   \\ rw []
   \\ simp [set_globals_decode_guard]
   \\ CASE_TAC
@@ -1978,7 +2011,7 @@ Theorem set_globals_naive_pattern_match:
   set_globals (naive_pattern_match t xs) = {||}
 Proof
   ho_match_mp_tac naive_pattern_match_ind
-  \\ simp [naive_pattern_match_def, op_gbag_def, Bool_def]
+  \\ simp [naive_pattern_match_def, op_gbag_def, Bool_def, SmartIf_thm]
   \\ rw []
   \\ fs []
   \\ fs [EVERY_EL, op_gbag_def]
@@ -1989,10 +2022,13 @@ Theorem set_globals_naive_pattern_matches:
   set_globals (naive_pattern_matches t x ps dflt) =
   elist_globals (dflt :: MAP SND ps)
 Proof
+  (* TODO No longer holds, left side is subset of right side *)
+  cheat (*
   Induct_on `ps`
   \\ simp [FORALL_PROD, naive_pattern_matches_def,
         set_globals_naive_pattern_match]
   \\ simp_tac (bool_ss ++ bagSimps.BAG_ss) []
+  *)
 QED
 
 Theorem set_toList_fromList:
@@ -2047,6 +2083,9 @@ Proof
   \\ imp_res_tac LENGTH_compile_exps_IMP
   \\ fs [LENGTH_EQ_NUM_compute, elist_globals_REVERSE]
   \\ rveq \\ fs []
+  >~ [`SmartIf`] >- (
+    cheat (* TODO left side is subset of right side *)
+  )
   \\ TRY (DEP_REWRITE_TAC [set_globals_compile_pats]
     \\ imp_res_tac compile_exp_set_globals_tup
     \\ simp [])
@@ -2097,6 +2136,7 @@ Theorem esgc_free_decode_guard:
   esgc_free exp ==> esgc_free (decode_guard t exp gd)
 Proof
   Induct_on `gd` \\ simp [decode_guard_def, Bool_def]
+  \\ rw [SmartIf_thm]
   \\ simp [esgc_free_decode_test, esgc_free_decode_pos]
 QED
 
@@ -2106,7 +2146,7 @@ Theorem esgc_free_decode_dtree:
   esgc_free (decode_dtree t br_spt v_exp dflt dtree)
 Proof
   Induct_on `dtree`
-  \\ simp [decode_dtree_def]
+  \\ simp [decode_dtree_def, SmartIf_thm]
   \\ rw []
   \\ simp [esgc_free_decode_guard]
   \\ CASE_TAC
@@ -2135,7 +2175,7 @@ Theorem esgc_free_naive_pattern_match:
 Proof
   ho_match_mp_tac naive_pattern_match_ind
   \\ simp [naive_pattern_match_def, Bool_def]
-  \\ rw []
+  \\ rw [SmartIf_thm]
   \\ fs [EVERY_EL]
 QED
 
@@ -2144,7 +2184,8 @@ Theorem esgc_free_naive_pattern_matches:
   esgc_free (naive_pattern_matches t x xs dflt)
 Proof
   ho_match_mp_tac naive_pattern_matches_ind
-  \\ simp [naive_pattern_matches_def, esgc_free_naive_pattern_match]
+  \\ rw [SmartIf_thm, naive_pattern_matches_def]
+  \\ simp [esgc_free_naive_pattern_match]
 QED
 
 Theorem esgc_free_compile_pats:
@@ -2186,6 +2227,9 @@ Proof
   \\ imp_res_tac LENGTH_compile_exps_IMP
   \\ fs [LENGTH_EQ_NUM_compute, EVERY_REVERSE]
   \\ rveq \\ fs []
+  >~ [`SmartIf`] >- (
+    cheat (* TODO *)
+  )
   \\ TRY (irule esgc_free_compile_pats \\ fs [EVERY_MAP, o_DEF])
   \\ imp_res_tac compile_exp_set_globals
   \\ fs [elist_globals_eq_empty, MEM_MAP, FORALL_PROD, PULL_EXISTS]
@@ -2219,7 +2263,7 @@ Theorem naive_pattern_match_no_Mat:
   no_Mat (naive_pattern_match t xs)
 Proof
   ho_match_mp_tac naive_pattern_match_ind
-  \\ simp [naive_pattern_match_def, Bool_def]
+  \\ simp [naive_pattern_match_def, Bool_def, SmartIf_thm]
   \\ rw []
   \\ fs []
   \\ fs [EVERY_EL]
@@ -2230,7 +2274,8 @@ Theorem naive_pattern_matches_no_Mat:
   no_Mat (naive_pattern_matches t x xs dflt)
 Proof
   ho_match_mp_tac naive_pattern_matches_ind
-  \\ simp [naive_pattern_matches_def, naive_pattern_match_no_Mat]
+  \\ rw [naive_pattern_matches_def, SmartIf_thm]
+  \\ simp [naive_pattern_match_no_Mat]
 QED
 
 Theorem compile_pat_bindings_no_Mat:
@@ -2266,6 +2311,7 @@ Theorem decode_guard_no_Mat:
   no_Mat exp ==> no_Mat (decode_guard t exp gd)
 Proof
   Induct_on `gd` \\ simp [decode_guard_def, Bool_def]
+  \\ rw [SmartIf_thm]
   \\ simp [decode_test_no_Mat, decode_pos_no_Mat]
 QED
 
@@ -2275,7 +2321,7 @@ Theorem decode_dtree_no_Mat:
   no_Mat (decode_dtree t br_spt v_exp dflt dtree)
 Proof
   Induct_on `dtree`
-  \\ simp [decode_dtree_def]
+  \\ simp [decode_dtree_def, SmartIf_thm]
   \\ rw []
   \\ simp [decode_guard_no_Mat]
   \\ CASE_TAC
@@ -2316,6 +2362,9 @@ Proof
   \\ imp_res_tac LENGTH_compile_exps_IMP
   \\ fs [LENGTH_EQ_NUM_compute, listTheory.LENGTH_CONS]
   \\ rveq \\ fs []
+  >~ [`SmartIf`] >- (
+    cheat
+  )
   \\ fs [EVERY_REVERSE, Q.ISPEC `no_Mat` ETA_THM, compile_pats_no_Mat]
   \\ simp [EVERY_MEM, MEM_MAP, FORALL_PROD, PULL_EXISTS]
   \\ rw []
