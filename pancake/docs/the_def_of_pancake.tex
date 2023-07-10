@@ -4,18 +4,22 @@
 %%% TeX-engine: xetex
 %%% End:
 
-% \documentclass[graybox,envcountsect]{SVMonoEnhanced}
-\documentclass[a4paper]{amsbook}
+\documentclass[12pt,a4paper]{report}
 
 \usepackage{amsfonts}
-\usepackage{amsbooka}
 
 \usepackage{fontspec}
 \newfontfamily{\emojifont}{Noto Emoji}
+\setmonofont[Scale=.9]{Inconsolata}
+
+\usepackage{biblatex}
+\addbibresource{refs.bib}
+
+\usepackage{titlesec}
+
+\usepackage[nounderscore]{syntax}
 
 \usepackage{twemojis}
-
-% \usepackage{amsrefs}
 \usepackage{graphicx}
 \usepackage{mathrsfs}
 \usepackage{mathtools}
@@ -37,38 +41,36 @@
 {morekeywords={skip,str,strb,if,else,while,break,continue,raise,return,tick,var,in,with,handle,lds,ldb,@base,true,false},%
   basicstyle=\ttfamily}
 
-\begin{document}
+% Chapter styling.
+\titleformat{\chapter}[display]
+{\bfseries\Huge}
+{\Large{\chaptertitlename\ \thechapter}}
+{\4ex}
+{\titlerule%
+  \vspace{2ex}%
+  \filright}
+[\vspace{2ex}%
+\titlerule]
 
+\begin{document}
+\pagenumbering{gobble}
 \ThisLRCornerWallPaper{1.1}{cover-bg.png}~
 
-\title{The definition of Standard Pancake\footnote{Where a ``Standard Pancake'' is understood not to include toppings or syrup.}}
+\title{The definition of Standard Pancake%
+  \footnote{Where a ``Standard Pancake'' is understood not to include toppings or syrup.}}
+\date{July 2023}
+\author{Ben Nott\\%
+  \small{b.nott@student.unsw.edu.au}\\%
+  \small{UNSW, Sydney}}
 
-\date{March 2023}
-
-% Authors and corresponding address tags.
-\author[bnott]{Ben Nott} \email{b.nott@student.unsw.edu.au} \address{UNSW, Sydney}
-
-\subjclass[2010]{Primary Programming languages; Secondary Semantics}
-\keywords{Pancake,interaction tree,semantics,imperative,device driver}
-
-% \university{The University of New South Wales,\\Sydney}
-% \unilogo{unsw-logo-landscape.png}
 \maketitle
 
-\frontmatter
+\pagenumbering{arabic}
 
 \section*{Preface}
 \label{sec:preface}
 
-Pancake is an imperative programming language designed for the creation of formally verified device drivers. The language is built upon the CakeML project, which provides a verified implementation of a substantial subset of Standard ML.
-
-\tableofcontents
-\setcounter{secnumdepth}{1}
-% \listoffigures
-% \listoflistings
-\setcounter{secnumdepth}{0}
-
-\mainmatter
+Pancake is an imperative programming language designed for the development of formally verified device drivers. The language is built upon the CakeML project, which provides a verified implementation of a substantial subset of Standard ML.
 
 \chapter{Introduction}
 \label{cha:introduction}
@@ -81,215 +83,302 @@ Pancake is an imperative programming language intended for the development of fo
 \section{File naming}
 \label{sec:file-naming}
 
-The names of Pancake source files \emph{must} be suffixed with one of
+The names of Pancake source files \emph{must} be suffixed with one of the following filename extensions:
 \begin{enumerate}
   \item \verb|.p|
   \item \verb|.|{\Huge\texttwemoji{pancakes}}\footnote{Where the symbol is the ``Pancakes'' emoji represented by the UTF-8 codepoint \texttt{1F95E}.};
 \end{enumerate}
-chosen per the support of the operating system.
+
+It is recommended to use the emoji filename extension (option 2) where operating system support is available.
 
 \chapter{Syntax}
 \label{cha:syntax}
 
-\section{Keywords}
-\label{sec:keywords}
+\section{Concrete syntax}
+\label{sec:concrete-syntax}
+
+The Pancake concrete syntax is defined across the \texttt{panLexer} and \texttt{panPEG} theories. Here, the lexical analysis and PEG parsing constrain the initial shape and overall form of all Pancake programs.
+
+The Pancake syntax is by design similar to that of the C programming language. The language of Pancake programs $\mathcal{L}_{P}$ is defined by the following grammar.
+
+\begin{grammar}
+  <P> ::= \lit{fun} \lit*{IDENT} \lit{(} <ParamList> \lit{)} \lit{\{} <Prog> \lit{\}}
+  \alt <P> <P>
+
+  <ParamList> ::= <Shape> \lit*{IDENT}
+  \alt <Shape> \lit*{IDENT} \lit{,} <ParamList>
+
+  <Prog> ::= <Block>
+  \alt <Stmt> \lit{;}
+
+  <Block> ::= <Dec> | <If> | <While>
+
+  <Stmt> ::= \lit{skip}
+  \alt <Call>
+  \alt <Assign>
+  \alt <Store>
+  \alt <StoreByte>
+  \alt \lit{break}
+  \alt \lit{continue}
+  \alt <ExtCall>
+  \alt <Raise>
+  \alt <Return>
+  \alt \lit{tick}
+  \alt \lit{\{} <Prog> \lit{\}}
+
+  <Dec> ::= \lit{var} \lit*{IDENT} \lit{=} <Exp> \lit{;} <Prog>
+
+  <Assign> ::= \lit*{IDENT} \lit{=} <Exp>
+
+  <Store> ::= \lit{str} <Exp> \lit{,} <Exp>
+
+  <StoreByte> ::= \lit{strb} <Exp> \lit{,} <Exp>
+
+  <If> ::= \lit{if} <Exp> \lit{\{} <Prog> \lit{\}}
+  \alt \lit{if} <Exp> \lit{\{} <Prog> \lit{\}} \lit{else} \lit{\{} <Prog> \lit{\}}
+
+  <While> ::= \lit{while} <Exp> \lit{\{} <Prog> \lit{\}}
+
+  <Call> ::= <Ret> <Exp> \lit{(} <CallArgList> \lit{)}
+  \alt <Exp> \lit{(} <CallArgList> \lit{)}
+
+  <CallArgList> ::= <ArgList> | $\epsilon$
+
+  <Ret> ::= \lit*{IDENT} \lit{=} <Handle>
+  \alt \lit*{IDENT} \lit{=}
+
+  <Handle> ::= \lit{with} \lit*{IDENT} \lit{in} \lit*{IDENT} \lit{=>} <Prog> \lit{handle}
+
+  <Raise> ::= \lit{raise} \lit*{IDENT} <Exp>
+
+  <Return> ::= \lit{return} <Exp>
+
+  <ArgList> ::= <Exp>
+  \alt <Exp> \lit{,} <ArgList>
+
+  <Exp> ::= <EXor>
+  \alt <EXor> \lit{|} <Exp>
+
+  <EXor> ::= <EAnd>
+  \alt <EAnd> \lit{\^{}} <EXor>
+
+  <EAnd> ::= <EEq>
+  \alt <EEq> \lit{\&{}} <EAnd> <EAnd>
+
+  <EEq> :;= <ECmp>
+  \alt <ECmp> <EqOps> <ECmp>
+
+  <ECmp> ::= <EShift>
+  \alt <EShift> <CmpOps> <EShift>
+
+  <EShift> ::= <EAdd>
+  \alt <EAdd> <ShiftOps> \lit*{NUMBER} <EShift>
+
+  <EAdd> ::= <EMul>
+  \alt <EMul> <AddOps> <EMul> <EAdd>
+
+  <EMul> ::= <EBase>
+  \alt <EBase> <MulOps> <EBase> <EMul>
+
+  % This looks like it reads wrong in panLexerScript.sml
+  <EBase> ::= \lit{(} <Exp> \lit{)}
+  \alt \lit{true}
+  \alt \lit{false}
+  \alt \lit*{INTEGER}
+  \alt \lit*{IDENT}
+  \alt <Label>
+  \alt <Struct>
+  \alt <Load>
+  \alt <LoadByte>
+  \alt \lit{@base}
+
+
+  <Label> ::= \lit{!} \lit*{IDENT}
+
+  <Struct> ::= \lit{\string<} <ArgList> \lit{\string>}
+
+  <Load> ::= \lit{lds} <Shape> <Exp>
+
+  <LoadByte> ::= \lit{ldb} <Exp>
+
+  <Shape> ::= \lit*{INT}
+  \alt \lit{\{} <ShapeComb> \lit{\}}
+
+  <ShapeComb> ::= <Shape>
+  \alt <Shape> \lit{,} <ShapeComb>
+
+  <EqOps> ::= \lit{==}
+  \alt \lit{\string<\string>}
+
+  <CmpOps> ::= \lit{\string<}
+  \alt \lit{\string>=}
+  \alt \lit{\string>}
+  \alt \lit{\string<=}
+
+  <ShiftOps> ::= \lit{\verb|<<|}
+  \alt \lit{>>>}
+  \alt \lit{>>}
+  \alt \lit{#>>}
+
+  <AddOps> ::= \lit{+}
+  \alt \lit{-}
+
+  <MulOps> ::= \lit{*}
+\end{grammar}
+
+The following \emph{keywords} are reserved by the language and may not be used by identifiers.
+
 \lstset{language=pancakeConcrete}
-
-The following are the keywords of the syntax and thus may not be used as identifiers.
-
 \begin{lstlisting}
   skip str strb if else while break continue
   raise return tick var in handle lds ldb @base
   true false
 \end{lstlisting}
 
+\section{Abstract syntax}
+\label{sec:abstract-syntax}
+
+The abstract syntax is broken into two main categories: \emph{expressions} and \emph{program commands} (commands for short). These are the objects over which the semantics for Pancake are defined. The abstract syntax is defined in the theory \texttt{panLang}.
+
+Unlike in the concrete syntax, there is no strict requirement for a Pancake program to take any particular initial shape. We can analyse the abstract syntax of any program fragment at the expression or command level.
+
 \chapter{Semantics}
 \label{cha:semantics}
 
-\section{Specification}
-\label{sec:semantics-spec}
+The semantics of Pancake programs is defined on two levels; an observational level, which concerns the externally visible events of executed programs; and the evaluation level, which concerns the computation of the program text and its outcome.
 
-Any semantics for Pancake must adhere to the \emph{specification}; an informal description of the intention behind Pancake program behaviour.
+Two approaches have been taken to defining a semantics for Pancake. The \emph{functional big-step} semantics \cite{owens_functional_2016} describes the meaning of Pancake programs by defining the evaluation result of each term in the abstract syntax. The \emph{interaction tree} semantics defines the meaning of Pancake programs as a infinitely-branching tree of possible behaviour where each leaf is the result of evaluation and internal nodes represent observable events.
 
-\subsection{Expressions}
-\label{sec:expressions}
+\section{Functional big-step semantics}
+\label{sec:functional-big-step}
 
-\subsection{Program commands}
-\label{sec:program-commands}
+The functional big-step (FBS) semantics is defined in the \texttt{panSem} theory. It describes the meaning of Pancake programs by assigning an evaluation result to each term in the abstract syntax.
 
-\lstset{language=pancakeAbs}
+This approach requires defining a recursive function for each of the types of program terms: program commands and expressions. Consequently, the semantics uses a clock value, decremented at each recursive operation, to preserve well-foundedness.
 
-\subsubsection{Skip}
-\label{sec:skip}
+\subsection{Program state}
+\label{sec:program-state}
 
-The \lstinline!Skip! command shall produce no result and effect no change of the state. Hence, this command is always valid.
+Along with the FBS semantics, the shape of program state is defined by the \texttt{state} datatype in the \texttt{panSem} theory.
 
-\subsubsection{Variable declaration}
-\label{sec:variable-declaration}
+Functions defined in the program text are treated as a map
+\begin{equation*}
+  \text{code} : \text{string} \to (\text{arg list} \times \text{prog})
+\end{equation*}
+and are made available through the \texttt{code} field.
 
-A variable declaration \lstinline!Dec v e p! is valid when the expression \lstinline!e! evaluates under the current state.
+\subsection{Foreign function interface}
+\label{sec:fore-funct-interf}
 
-A declaration binds the result of the expression \lstinline!e! to the variable name \lstinline!v!; overwriting any previous binding of the same name, possibly in an outer scope. The program \lstinline!p! is then evaluated in a new state with the aforementioned binding present.
+To permit Pancake programs to execute external code, the language allows for use of a foreign function interface (FFI). The Pancake semantics models the FFI in the \texttt{ffi} state field; an element of \texttt{ffi\_state} defined in the \texttt{ffi} theory.
 
-The final state does not contain the binding created by the declaration. However, if there was a binding to the same name in an outer scope, then the outer binding is restored in the final state.
+An FFI state contains both a state element and an oracle. The oracle serves to represent the remote end of the FFI and the \texttt{call\_FFI} method utilises this oracle to compute the outcome of calling a foreign function.
 
-The result of the command is the result of the evaluation of the program \lstinline!p! in the context of the new binding.
+Notably, a non-terminal call to a foreign function, results in an updated FFI state, thus advancing the behaviour of the oracle upon the next FFI call.
 
-\subsubsection{Variable assignment}
-\label{sec:variable-assign}
-
-A variable assignment \lstinline!Assign v e! is valid when
-\begin{enumerate}
-  \item the expression \lstinline!e! evaluates under the current state, and
-  \item the shape of any existing value stored at the location bound to the variable name \lstinline!v! is of the same shape as the result of evaluating the expression \lstinline!e!.
-\end{enumerate}
-
-When valid, the command never produces a result.
-
-The final state is that of the initial state with the variable \lstinline!v! updated to contain the value of the evaluated expression \lstinline!e!.
-
-\subsubsection{Sequential composition}
-\label{sec:sequ-comp}
-
-A sequential composition \lstinline!Seq p1 p2! is valid when the program command \lstinline!p1! is valid.
-
-The result of the command is the result of the evaluation of \lstinline!p2! when program \lstinline!p1! does not produce a result and otherwise just the result of \lstinline!p1!.
-
-The final state is that of the program command whose result is final for the sequential composition.
-
-\subsubsection{Memory write}
-\label{sec:memory-write}
-
-A write to memory \lstinline!Store dst src! is valid when
-\begin{enumerate}
-  \item the expressions \lstinline!dst! and \lstinline!src! evaluate under the current state, and
-  \item the \lstinline!dst! expression evaluates only to a valid memory address.
-\end{enumerate}
-
-A valid memory write command never produces a result.
-
-The final state is that of the original state with the address specified by the evaluation of \lstinline!dst! updated with the value produced by the evaluation of \lstinline!src!.
-
-% more to add here about the mem_stores func.
-
-\subsubsection{Store byte}
-\label{sec:store-byte}
-
-\subsubsection{Program control flow}
-\label{sec:program-control-flow}
-
-\subsubsection{While loop}
-\label{sec:while-loop}
-
-\subsubsection{Function call}
-\label{sec:function-call}
-
-\subsubsection{External function call}
-\label{sec:external-call}
-
-External function calls are the principal mechanic of the Pancake Foreign Function Interface (FFI). They enable Pancake programs to call functions defined outside of the local program state.
-
-An external call
-\begin{lstlisting}
-  ExtCall name conf_ptr conf_len array_ptr array_len
-\end{lstlisting}
-is valid when
-\begin{enumerate}
-  \item each of \lstinline!conf_ptr, conf_len, array_ptr, array_len! evaluate under the current state,
-  \item the evaluated results of \lstinline!conf_ptr! and \lstinline!array_ptr! are readable prior to the FFI call.
-\end{enumerate}
-
-\section{Operational semantics}
-\label{sec:oper-semant}
-
-\section{ITree semantics}
+\section{Interaction tree (itree) semantics}
 \label{sec:itree-semantics}
 
-Being a language intended for the development of device drivers, it follows that a more natural semantics would be one that captures the reactive nature of typical driver design. Thus a tree-based semantics was developed for Pancake using the coinductive and monadic datatype known as ITrees \cite{xia_executable_nodate}.
+Being a language intended for device driver development, it follows that a more natural semantics would be one that captures the reactive nature of typical driver operation. Thus a tree-based semantics was developed for Pancake using interaction trees \cite{xia_executable_nodate}.
+
+The ITree semantics are defined in the \texttt{panItreeSem} theory.
+
+\subsection{Recursive event handlers}
+\label{sec:recursive-handlers}
+
+The ITree semantics is designed around a mutual recursion combinator first described by Xia \cite{xia_executable_nodate}
+\begin{equation*}
+  \text{mrec} : (\alpha \to (\alpha, \beta + \epsilon, \delta)\ \text{itree}) \to \alpha \to (\gamma, \epsilon, \delta)\ \text{itree}.
+\end{equation*}
+
+This combinator allows one to corecursively construct an itree from a seed by appling an algorithm; known as the \emph{recursive event handler}. The combinator was designed to leverage the executable features of the itree \texttt{Vis} nodes to allow the modelling of mutual recursion by the corecursive unfolding of a seed into a final itree.
+
+The recursive event handler
+\begin{equation*}
+  \text{rh} : (\alpha \to (\alpha, \beta + \epsilon, \delta)\ \text{itree})
+\end{equation*}
+uses the $\beta + \epsilon$ option type for the argument type to \texttt{Vis}. When the recursive event handler returns \texttt{Vis} (\texttt{INL} $v$) $k$, the \texttt{mrec} operator continues iteration, taking $v:\alpha$ as the seed, appling it to \texttt{rh} and binding the result to $k:(\alpha \to (\alpha, \beta + \epsilon, \delta)\ \text{itree}$. The constructed itree thus takes as its node for the current depth
+\begin{equation*}
+  \texttt{rh}\ v \star k.
+\end{equation*}
+
+When the handler returns \texttt{Vis} (\texttt{INR} $v'$) $k'$, \texttt{mrec} inserts a \texttt{Vis} node into the tree with the event $v':\epsilon$ and ktree $k':(\gamma, \epsilon, \delta)\ \text{itree}$, by requiring that \texttt{mrec} be reinvoked to produce the result of
+\begin{equation*}
+  x\ k'
+\end{equation*}
+for any $x:\gamma$.
+
+The \texttt{mrec} combinator terminates production of the tree when \texttt{rh} returns \texttt{Ret} $r$, for $r:\delta$, adding this node as the leaf.
 
 \subsection{Layout}
-\label{sec:layout}
+\label{sec:layout-1}
 
-The ITree semantics is separated into three layers:
+The itree semantics are separated into two main components
 \begin{enumerate}
-  \item The expression semantics.
-  \item The program command semantics.
-  \item The observational semantics.
+  \item the top-level semantics, given by the \texttt{itree\_semantics} definition; and
+  \item the evaluation semantics, given by the \texttt{itree\_evaluate} definition.
 \end{enumerate}
 
-The first two layers are denotational semantics for the corresponding type of term. The last serves as the final ITree semantics for Pancake programs and captures only the notion of external events and final result and state.
+The top-level semantics, in the same fashion as the FBS semantics, defines the meaning of Pancake programs in terms of a tail call to a single entrypoint, with a state, the captures namely the loaded program text (in the \texttt{code} field) and the FFI state (in the \texttt{ffi} field).
 
-\subsection{Expression semantics}
-\label{sec:expression-semantics}
+The evaluation semantics uses the \texttt{mrec} combinator to construct a complete itree from the terms of the abstract syntax. It is most closely related to the \texttt{evaluate} definition in the FBS semantics.
 
-The \emph{expression} semantics is carried over from the Pancake big-step functional semantics. Thus a denotation for an expression is a function
+\subsection{Evaluation semantics}
+\label{sec:evaluation-semantics}
+
+The evaluation semantics is defined by \texttt{itree\_evaluate} and utilises the \texttt{mrec} combinator to corecursively construct an itree from a Pancake program and initial state.
+
+The \texttt{mrec} operator unfolds a seed into a complete itree using a \emph{recursive event handler}. We define the recursive event handler
 \begin{equation*}
-  \sem{\cdot}_{e} : \text{state} \to \alpha\ \text{v}\ \text{option}.
+  \text{h\_prog} : \text{prog} \times \text{state} \to (\alpha, \beta, \gamma)\ \text{itree}
+\end{equation*}
+over the program command terms of the abstract syntax so as to achieve the compositionality desired of a denotational semantics.
+
+To allow recursive behaviour to be expressed as the \texttt{Vis} nodes required by the \texttt{mrec} operator, we must correspond the type of our seed values with the answer type of the itree. Hence, the itrees produced by the \texttt{mrec} operator take as their answer type
+\begin{equation*}
+  \alpha = \text{prog} \times \text{state}.
 \end{equation*}
 
-The definition of the expression semantics follows from that of the functional big-step semantics. Thus the definition is omitted here.
-
-\subsection{Program command semantics}
-\label{sec:progr-comm-semant-1}
-
-The \emph{program command} semantics describes the meaning of Pancake programs in terms of ITrees. The trees carry the result of evaluation and final state.
-
-A denotation for a program command is a function
+Because of this, the ktree of each \texttt{Vis} node must have the type
 \begin{equation*}
-  \sem{\cdot}_{p} : \text{state} \to (\alpha, \beta, (\gamma\ \text{result}\ \text{option} \times \text{state}))\ \text{itree}.
+  k : (\text{prog} \times \text{state}) \to (\text{prog} \times \text{state}, \beta, \gamma)\ \text{itree}
+\end{equation*}
+and so we cannot define a ktree mapping the response of FFI calls to an itree, as we might naturally desire. To overcome this limitation, we embed the desired ktree in the event of the constructed itree and later massage the tree into the desired type. Thus we have that for our desired event type $\epsilon$ and answer type $\alpha'$
+\begin{equation*}
+  \beta = \epsilon \times (\alpha' \to (\alpha', \epsilon, \gamma)\ \text{itree}).
 \end{equation*}
 
-We define $\sem{\cdot}_{p}$ in terms of the \verb|mrec| combinator and a \emph{recursive event handler}, \verb|h_prog|, as
+Because we propagate state in the seed value to \texttt{mrec}, which uses the bind operator to continue itree production, we must have the argument type to our \texttt{Ret} node as
 \begin{equation*}
-  \sem{P}_{p} = \text{\lstinline!itree\_mrec!}\ \text{\lstinline!h\_prog!}\ P.
+  \gamma = (\eta\ \text{result}\ \text{option} \times \text{state}).
 \end{equation*}
 
-There exists a nontrivial challenge in defining a denotational semantics with the domain of ITrees, that supports looping and function calls. To overcome this challenge, the executable nature of ITrees is leveraged to define the program command semantics in terms of a recursive event handler.
+\subsubsection{Massaging final itree shape}
+\label{sec:massaging-final-tree}
 
-\subsubsection{Recursive event handlers}
-\label{sec:event-handlers}
-
-A function
+It is in the definition \texttt{itree\_evaluate} where we massage the type of itree produced by \texttt{mrec} into our desired type of
 \begin{equation*}
-  h : \alpha \to (\beta, \alpha + \epsilon, \gamma)\ \text{itree},
-\end{equation*}
-that maps a seed of type $\alpha$ to an ITree with an event type $\alpha$, is called an \emph{recursive event handler}.
-
-The handler \emph{raises} an event by producing a
-\begin{equation*}
-  \text{Vis (INL } e:\alpha \text{)}
-\end{equation*}
-node, indicating that the seed $e$ is to be passed again to the event handler for further processing. The handler terminates computation by producing a
-\begin{equation*}
-  \text{Ret}\ r
-\end{equation*}
-node.
-
-Regular Vis nodes can be created in the tree by the handler producing a
-\begin{equation*}
-  \text{Vis}\ (\text{INR}\ e':\epsilon)
-\end{equation*}
-node.
-
-The \verb|mrec| combinator \cite{xia_executable_nodate} interprets the ITree produced by the recursive event handler and unfolds it over an ITree of type
-\begin{equation*}
-  (\beta, \epsilon, \gamma)\ \text{itree}.
+  (\text{ffi\_behaviour}, \text{sem\_vis\_event}, \eta\ \text{result}\ \text{option})\ \text{itree}.
 \end{equation*}
 
-\subsubsection{Recurisve program handler}
-\label{sec:recur-progr-handl}
+We do so by taking our \texttt{mrec} produced itree and applying it as a seed to an unfold operation which
+\begin{enumerate}
+  \item converts the type $\gamma$ into $\gamma' = \eta\ \text{result}\ \text{option}$ so that \texttt{Ret} nodes no longer contain program state; and which
+  \item converts \texttt{Vis} ($\epsilon \times (\alpha' \to (\alpha', \epsilon, \gamma)\ \text{itree})$) ($\alpha \to (\alpha, \beta, \gamma)\ \text{itree}$) nodes into \texttt{Vis} $\epsilon$ ($\alpha' \to (\alpha', \epsilon, \gamma')$) nodes.
+\end{enumerate}
 
-The program command semantics is defined compositionally at the level of the recursive event handler.
+\subsubsection{Compositional definition}
+\label{sec:comp-defin}
 
-Let
-\begin{equation*}
-  \text{\lstinline!h\_prog!} : \text{prog} \to (\alpha,\beta,(\gamma\ \text{result option} \times \text{state}))\ \text{itree},
-\end{equation*}
-be a function defined over the abstract syntax of program commands.
+Our recursive handler \texttt{h\_prog} follows nearly identical semantic behaviour for each of the program command terms of the abstract syntax, as occurs in the FBS semantics. In fact, before the massaging of the itree type into its final shape, the type of \texttt{Ret} nodes is identical to that of the FBS semantics and the results produced are identical. This is an important component of the design that establishes soundness of the itree semantics.
 
-\subsection{Observational semantics}
-\label{sec:observ-semant}
+\subsection{Top-level semantics}
+\label{sec:top-level-semantics}
 
-\bibliography{refs.bib}
+The top-level semantics is defined by \texttt{itree\_semantics} and follows a nearly identical design to that of the FBS semantics. The meaning of a Pancake program is defined in terms of tail call to a single entrypoint and a state\footnote{the entrypoint is assumed to be defined in the \texttt{code} field of the state}.
+
+The type of itree in the top-level semantics is identical to that of the massaged type produced in the evaluation semantics by \texttt{itree\_evaluate}.
+
+\printbibliography
 
 \end{document}
