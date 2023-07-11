@@ -2019,16 +2019,24 @@ QED
 
 Theorem set_globals_naive_pattern_matches:
   set_globals x = {||} ==>
-  set_globals (naive_pattern_matches t x ps dflt) =
-  elist_globals (dflt :: MAP SND ps)
+  (set_globals (naive_pattern_matches t x ps dflt)) ≤
+  (elist_globals (dflt :: MAP SND ps))
 Proof
-  (* TODO No longer holds, left side is subset of right side *)
-  cheat (*
   Induct_on `ps`
   \\ simp [FORALL_PROD, naive_pattern_matches_def,
         set_globals_naive_pattern_match]
   \\ simp_tac (bool_ss ++ bagSimps.BAG_ss) []
-  *)
+  \\ rw[SmartIf_thm]
+  \\ full_simp_tac (bool_ss ++ bagSimps.BAG_ss) []
+  >- (
+    match_mp_tac SUB_BAG_TRANS
+    \\ first_x_assum (irule_at Any)
+    \\ simp[elist_globals_append])
+  \\ DEP_REWRITE_TAC[set_globals_naive_pattern_match]
+  \\ simp[]
+  \\ match_mp_tac SUB_BAG_TRANS
+  \\ first_x_assum (irule_at Any)
+  \\ simp[elist_globals_append]
 QED
 
 Theorem set_toList_fromList:
@@ -2041,14 +2049,19 @@ QED
 Theorem set_globals_compile_pats:
   (~ naive ==> elist_globals (dflt :: MAP SND ps) = {||}) /\
   set_globals x = {||} ==>
-  set_globals (compile_pats cfg naive t N x dflt ps) =
+  set_globals (compile_pats cfg naive t N x dflt ps) ≤
   elist_globals (dflt :: MAP SND ps)
 Proof
   simp [compile_pats_def]
   \\ rw []
   >- (
-    simp [set_globals_naive_pattern_matches, MAP_ZIP]
-    \\ simp [elist_globals_FOLDR]
+    match_mp_tac SUB_BAG_TRANS
+    \\ drule set_globals_naive_pattern_matches
+    \\ disch_then (irule_at Any)
+    \\ simp [MAP_ZIP,elist_globals_FOLDR]
+    \\ qmatch_goalsub_abbrev_tac`A ≤ B`
+    \\ qsuff_tac`A=B`
+    \\ simp[] \\ unabbrev_all_tac
     \\ irule FOLDR_CONG
     \\ simp [MAP_MAP_o]
     \\ irule MAP_CONG
@@ -2061,41 +2074,65 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem SUB_BAG_2:
+  x ≤ y ∧ x' ≤ y' ⇒
+  x ⊎ x' ≤ y ⊎ y'
+Proof
+  metis_tac[SUB_BAG_UNION]
+QED
+
 Theorem compile_exp_set_globals:
   (!cfg exp N sg exp'. compile_exp cfg exp = (N, sg, exp')
   ==>
-  set_globals exp' = set_globals exp)
+  set_globals exp' ≤ set_globals exp)
   /\
   (!cfg exps N sg exps'. compile_exps cfg exps = (N, sg, exps')
   ==>
-  elist_globals exps' = elist_globals exps)
+  elist_globals exps' ≤ elist_globals exps)
   /\
   (!cfg m N sg m'. compile_match cfg m = (N, sg, m')
   ==>
-  elist_globals (MAP SND m') = elist_globals (MAP SND m))
+  elist_globals (MAP SND m') ≤ elist_globals (MAP SND m))
 Proof
   ho_match_mp_tac compile_exp_ind
   \\ fs [compile_exp_def]
   \\ fs [miscTheory.UNCURRY_eq_pair, PULL_EXISTS]
   \\ rw []
   \\ rpt (pairarg_tac \\ fs [])
-  \\ rveq \\ fs []
+  \\ gvs[]
   \\ imp_res_tac LENGTH_compile_exps_IMP
   \\ fs [LENGTH_EQ_NUM_compute, elist_globals_REVERSE]
   \\ rveq \\ fs []
   >~ [`SmartIf`] >- (
-    cheat (* TODO left side is subset of right side *)
+    rw[SmartIf_thm]
+    \\ metis_tac[SUB_BAG_UNION]
   )
-  \\ TRY (DEP_REWRITE_TAC [set_globals_compile_pats]
-    \\ imp_res_tac compile_exp_set_globals_tup
-    \\ simp [])
-  \\ simp [elist_globals_FOLDR] \\ irule FOLDR_CONG
-  \\ simp [MAP_MAP_o] \\ irule MAP_CONG
-  \\ simp [FORALL_PROD] \\ rw []
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ first_x_assum drule
-  \\ imp_res_tac LENGTH_compile_exps_IMP
-  \\ fs [LENGTH_EQ_NUM_compute, elist_globals_REVERSE]
+  >~ [`SND o SND`] >- (
+    match_mp_tac SUB_BAG_2
+    \\ simp[elist_globals_FOLDR]
+    \\ qmatch_goalsub_abbrev_tac`FOLDR _ bb _ `
+    \\ qid_spec_tac`bb`
+    \\ last_x_assum mp_tac
+    \\ rpt(pop_assum kall_tac)
+    \\ Induct_on`fs`\\rw[]
+    \\ rpt (pairarg_tac \\ fs[]) \\ gvs[PULL_FORALL]
+    \\ match_mp_tac SUB_BAG_2
+    \\ CONJ_TAC
+    >- (
+      first_x_assum (drule_at Any)
+      \\ disch_then match_mp_tac
+      \\ metis_tac[] )
+    \\ first_x_assum match_mp_tac
+    \\ metis_tac[])
+  (* 5 subgoals *)
+  \\ match_mp_tac SUB_BAG_2
+  \\ simp[]
+  \\ match_mp_tac SUB_BAG_TRANS
+  \\ (irule_at Any) set_globals_compile_pats
+  \\ simp[]
+  \\ imp_res_tac compile_exp_set_globals_tup
+  \\ simp[]
+  \\ metis_tac[SUB_BAG_EMPTY]
 QED
 
 Theorem FST_SND_EQ_CASE:
@@ -2106,7 +2143,7 @@ QED
 
 Theorem compile_decs_elist_globals:
   !decs.
-  elist_globals (MAP dest_Dlet (FILTER is_Dlet (MAP (compile_dec cfg) decs))) =
+  elist_globals (MAP dest_Dlet (FILTER is_Dlet (MAP (compile_dec cfg) decs))) ≤
   elist_globals (MAP dest_Dlet (FILTER is_Dlet decs))
 Proof
   Induct
@@ -2116,6 +2153,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
   \\ imp_res_tac compile_exp_set_globals
+  \\ metis_tac[SUB_BAG_2]
 QED
 
 Theorem esgc_free_decode_pos:
@@ -2228,7 +2266,7 @@ Proof
   \\ fs [LENGTH_EQ_NUM_compute, EVERY_REVERSE]
   \\ rveq \\ fs []
   >~ [`SmartIf`] >- (
-    cheat (* TODO *)
+    rw[SmartIf_thm]
   )
   \\ TRY (irule esgc_free_compile_pats \\ fs [EVERY_MAP, o_DEF])
   \\ imp_res_tac compile_exp_set_globals
@@ -2240,6 +2278,7 @@ Proof
   \\ imp_res_tac compile_exp_set_globals
   \\ imp_res_tac LENGTH_compile_exps_IMP
   \\ fs [LENGTH_EQ_NUM_compute, EVERY_REVERSE]
+  \\ metis_tac[SUB_BAG_EMPTY]
 QED
 
 Theorem compile_decs_esgc_free:
@@ -2363,7 +2402,7 @@ Proof
   \\ fs [LENGTH_EQ_NUM_compute, listTheory.LENGTH_CONS]
   \\ rveq \\ fs []
   >~ [`SmartIf`] >- (
-    cheat
+    rw[SmartIf_thm]
   )
   \\ fs [EVERY_REVERSE, Q.ISPEC `no_Mat` ETA_THM, compile_pats_no_Mat]
   \\ simp [EVERY_MEM, MEM_MAP, FORALL_PROD, PULL_EXISTS]
