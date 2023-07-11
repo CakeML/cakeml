@@ -951,31 +951,41 @@ Definition parse_int_inf_def:
   | INL s => if s = strlit "INF" then SOME NONE else NONE
 End
 
-Definition parse_bounds_def:
-  parse_bounds s =
+(* lb : id ub [: optional assignment] *)
+Definition parse_lb_def:
+  parse_lb s =
   case s of
-    lb :: ub :: rest =>
-    (case (parse_int_inf lb, parse_int_inf ub) of
-    | (SOME lb,SOME ub) => SOME(lb,ub,rest)
-    | _ => NONE)
+    lb :: INL s :: INR n :: rest =>
+    if s = strlit":" ∧ n ≥ 0 then
+      case parse_int_inf lb of NONE => NONE
+      | SOME lb => SOME ((lb,Num n), rest)
+    else NONE
   | _ => NONE
 End
 
+Definition parse_ub_def:
+  parse_ub f_ns s =
+  case s of
+    ub :: rest =>
+      (case parse_int_inf ub of NONE => NONE
+      | SOME ub =>
+        (case rest of [] => SOME(ub, NONE)
+        | INL s::rest =>
+          if s = strlit":" then
+            (case parse_assg f_ns rest LN of NONE => NONE
+            | SOME (a,f_ns') => SOME(ub,SOME a))
+          else NONE
+        | _ => NONE))
+    | _ => NONE
+End
+
 (* parse hints for OBound *)
-Definition parse_obounds_def:
-  parse_obounds f_ns rest =
-  case rest of
-    INL s::INR n::rest =>
-    if s = strlit":" ∧ n ≥ 0 then
-      case rest of [] => SOME(Num n,NONE)
-      | INL s::rest =>
-        if s = strlit":" then
-          (case parse_assg f_ns rest LN of NONE => NONE
-          | SOME (a,f_ns') => SOME(Num n,SOME a))
-        else NONE
-      | _ => NONE
-    else NONE
-  | _ => NONE
+Definition parse_bounds_def:
+  parse_bounds f_ns rest =
+  case parse_lb rest of NONE => NONE
+  | SOME ((lb,n),rest') =>
+    (case parse_ub f_ns rest' of NONE => NONE
+    | SOME (ub,a) => SOME (lb,ub,n,a))
 End
 
 Definition parse_concl_def:
@@ -989,17 +999,54 @@ Definition parse_concl_def:
     else if y = INL (strlit "SAT") then
       OPTION_MAP HDSat (parse_sat f_ns rest)
     else if y = INL (strlit"BOUNDS") then
-      case parse_bounds rest of NONE => NONE
-      | SOME (lb,ub,rest') =>
-        (case parse_obounds f_ns rest' of NONE => NONE
-        | SOME (n,a) => SOME (HOBounds lb ub n a))
+      case parse_bounds f_ns rest of NONE => NONE
+      | SOME (lb,ub,n,a) => SOME (HOBounds lb ub n a)
     else NONE
   else NONE
   | _ => NONE
 End
 
-(*
 (* Parse a list of strings in pbf format, not used *)
+Theorem parse_lsteps_aux_length:
+  ∀f_ns ss acc a b c ss'.
+  parse_lsteps_aux f_ns ss acc = SOME(a,b,c,ss') ⇒
+  LENGTH ss' < LENGTH ss
+Proof
+  ho_match_mp_tac parse_lsteps_aux_ind>>
+  rw[parse_lsteps_aux_def]>>
+  gvs[AllCaseEqs()]
+QED
+
+Theorem parse_red_aux_length:
+  ∀f_ns ss acc a b c ss'.
+  parse_red_aux f_ns ss acc = SOME(a,b,c,ss') ⇒
+  LENGTH ss' < LENGTH ss
+Proof
+  ho_match_mp_tac parse_red_aux_ind>>
+  rw[]>>
+  pop_assum mp_tac>>
+  simp[Once parse_red_aux_def]>>
+  rw[AllCaseEqs()]
+  >-
+    metis_tac[parse_lsteps_aux_length]>>
+  first_x_assum drule_all>>
+  imp_res_tac parse_lsteps_aux_length>>
+  simp[]
+QED
+
+Theorem parse_sstep_length:
+  parse_sstep f_ns ss = SOME(a,b,ss') ⇒
+  LENGTH ss' < LENGTH ss
+Proof
+  Cases_on`ss`>>rw[parse_sstep_def]>>
+  gvs[AllCaseEqs()]
+  >- (
+    drule parse_lsteps_aux_length>>
+    simp[])>>
+  drule parse_red_aux_length>>
+  simp[]
+QED
+
 Definition parse_csteps_def:
   (parse_csteps f_ns ss acc =
     case parse_cstep f_ns ss of
@@ -1010,6 +1057,16 @@ Definition parse_csteps_def:
       | INR st =>
         parse_csteps f_ns' rest (st::acc))
 Termination
+  WF_REL_TAC `measure (LENGTH o FST o SND)`>>
+  rw[parse_cstep_def]>>
+  gvs[AllCaseEqs()]>>
+  drule parse_sstep_length>>simp[]
+  >-
+    (drule parse_red_aux_length>>simp[])
+  >-
+    cheat
+  >-
+    (drule parse_red_aux_length>>simp[])
 End
 
 Definition plainVar_nf_def:
@@ -1037,7 +1094,7 @@ Definition parse_pbp_def:
   parse_pbp strs = parse_pbp_toks (MAP toks_fast strs)
 End
 
-val pbfraw = ``[
+  val pbfraw = ``[
   strlit" * #variable= 4 #constraint= 7";
   strlit" 2 ~x1 1 ~x3 >= 1 ;";
   strlit" 1 ~x3 1 ~x5 >= 1 ;";
@@ -1081,9 +1138,9 @@ val pbfraw = ``[
   strlit"end";
   strlit"e 11 1 ~x1 >= 1 ;";
   strlit"output NONE";
-  strlit"conclusion UNSAT 5";
+  strlit"conclusion UNSAT : 5";
   strlit"end pseudo-Boolean proof";
-]``
+  ]``
 
   val pbpraw2 = ``[
   strlit"pseudo-Boolean proof version 2.0";
@@ -1128,11 +1185,14 @@ val pbfraw = ``[
   strlit"end 1234";
   strlit"load_order simple x1";
   strlit"output NONE";
-  strlit"conclusion NONE";
+  strlit"conclusion BOUNDS INF : 1 5 : x3 x4 ~x5";
   strlit"end pseudo-Boolean proof";]``
 
-val steps = rconc (EVAL``(parse_pbp ^(pbpraw))``)
-val steps = rconc (EVAL``(parse_pbp ^(pbpraw2))``)
+  val steps = rconc (EVAL``(parse_pbp ^(pbpraw))``)
+  val steps2 = rconc (EVAL``(parse_pbp ^(pbpraw2))``)
+
+  val conc = rconc (EVAL``parse_concl (plainVar_nf,()) (HD (SND (SND (THE (parse_pbp ^(pbpraw))))))``)
+  val conc2 = rconc (EVAL``parse_concl (plainVar_nf,()) (HD (SND (SND (THE (parse_pbp ^(pbpraw2))))))``)
 *)
 
 val _ = export_theory();

@@ -492,7 +492,8 @@ Proof
   Induct>>fs[parse_until_nn_def]>>
   rw[]>>every_case_tac>>fs[]>>
   first_x_assum drule>>
-  fs[]);
+  fs[]
+QED
 
 (* Gets the rest of the witness *)
 val parse_until_zero_def = Define`

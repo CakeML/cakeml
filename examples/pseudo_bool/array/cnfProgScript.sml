@@ -707,7 +707,6 @@ val check_unsat_1 = (append_prog o process_topdecs) `
   | Inr (fml,(nv,nc)) =>
     TextIO.print_list (print_npbf fml)`
 
-(* TODO: this isn't a particularly useful spec *)
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs f1 out ⇔
   (out ≠ strlit"" ⇒

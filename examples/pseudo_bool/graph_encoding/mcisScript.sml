@@ -1801,9 +1801,9 @@ Proof
   \\ EVAL_TAC
 QED
 
-(* The full encoding *)
-Definition full_encode_def:
-  full_encode gp gt =
+(* The full encoding for MCCIS *)
+Definition full_encode_mccis_def:
+  full_encode_mccis gp gt =
   (map_obj enc_string
     (unmapped_obj (FST gp)),
   MAP (map_pbc enc_string) (encode gp gt))
@@ -1863,10 +1863,10 @@ Proof
   Cases_on`w (Unmapped b)`>>rw[]
 QED
 
-Theorem full_encode_sem_concl:
+Theorem full_encode_mccis_sem_concl:
   good_graph gp ∧
   good_graph gt ∧
-  full_encode gp gt = (obj,pbf) ∧
+  full_encode_mccis gp gt = (obj,pbf) ∧
   sem_concl (set pbf) obj concl ∧
   conv_concl (FST gp) concl = SOME (lbg, ubg) ⇒
   (∀f vs.
@@ -1881,7 +1881,7 @@ Theorem full_encode_sem_concl:
       lb ≤ CARD vs
 Proof
   strip_tac>>
-  gvs[full_encode_def]>>
+  gvs[full_encode_mccis_def]>>
   qpat_x_assum`sem_concl _ _ _` mp_tac>>
   simp[LIST_TO_SET_MAP]>>
   DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
@@ -1928,13 +1928,75 @@ Proof
   intLib.ARITH_TAC
 QED
 
-(*
-Theorem pbf_vars_full_encode:
-  pbf_vars (set (full_encode gp gt)) ⊆ goodString
+(* The simpler, full encoding for MCIS (unconnected) *)
+Definition full_encode_mcis_def:
+  full_encode_mcis gp gt =
+  (map_obj enc_string
+    (unmapped_obj (FST gp)),
+  MAP (map_pbc enc_string) (encode_base gp gt))
+End
+
+Theorem full_encode_mcis_sem_concl:
+  good_graph gp ∧
+  good_graph gt ∧
+  full_encode_mcis gp gt = (obj,pbf) ∧
+  sem_concl (set pbf) obj concl ∧
+  conv_concl (FST gp) concl = SOME (lbg, ubg) ⇒
+  (∀f vs.
+    injective_partial_map f vs gp gt ⇒
+    CARD vs ≤ ubg) ∧
+  case lbg of NONE => T
+  | SOME lb =>
+    ∃f vs.
+      injective_partial_map f vs gp gt ∧
+      lb ≤ CARD vs
 Proof
-  rw[SUBSET_DEF,full_encode_def,LIST_TO_SET_MAP,pbf_vars_IMAGE]>>
-  simp[IN_DEF]>>
-  metis_tac[enc_string_goodString,PAIR]
-QED *)
+  strip_tac>>
+  gvs[full_encode_mcis_def]>>
+  qpat_x_assum`sem_concl _ _ _` mp_tac>>
+  simp[LIST_TO_SET_MAP]>>
+  DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
+  CONJ_TAC >- (
+    assume_tac enc_string_INJ>>
+    drule INJ_SUBSET>>
+    disch_then match_mp_tac>>
+    simp[])>>
+  Cases_on`concl`>>fs[conv_concl_def]>>
+  rename1`OBounds lbi ubi`>>
+  simp[sem_concl_def]>>
+  Cases_on`gp`>>
+  drule encode_base_correct>>
+  Cases_on`gt`>>
+  disch_then drule>>
+  rw[]
+  >- ( (* Lower bound optimization *)
+    Cases_on`lbi`>>fs[unsatisfiable_def,satisfiable_def]
+    >- (
+      (* the formula is always satisfiable, so INF lower bound
+         is impossible *)
+      `F` by
+        metis_tac[injective_partial_map_exists])>>
+    fs[SF DNF_ss,EQ_IMP_THM]>>
+    drule injective_partial_map_CARD>>simp[]>>rw[]>>
+    first_x_assum drule_all>>rw[]>>
+    first_x_assum drule>>rw[]>>
+    intLib.ARITH_TAC)>>
+  (* Upper bound optimization *)
+  Cases_on`ubi`>>
+  fs[SF DNF_ss,EQ_IMP_THM]>>
+  `eval_obj (unmapped_obj q) w ≥ 0` by
+    (fs[unmapped_obj_def,eval_obj_def,eval_lin_term_def]>>
+    match_mp_tac iSUM_zero>>
+    simp[MEM_MAP,MEM_GENLIST,PULL_EXISTS])>>
+  first_x_assum drule>>
+  disch_then(qspec_then`q - Num (eval_obj (unmapped_obj q) w)` mp_tac)>>
+  impl_tac >- (
+    DEP_REWRITE_TAC[GSYM integerTheory.INT_SUB]>>
+    mp_tac eval_obj_unmapped_obj_bounds>>
+    intLib.ARITH_TAC)>>
+  rw[]>>
+  asm_exists_tac>>simp[]>>
+  intLib.ARITH_TAC
+QED
 
 val _ = export_theory();

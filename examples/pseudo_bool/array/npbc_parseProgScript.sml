@@ -2388,14 +2388,16 @@ val parse_unsat_side = Q.prove(
 val res = translate parse_sat_def;
 
 val res = translate parse_int_inf_def;
-val res = translate parse_bounds_def;
-val res = translate parse_obounds_def;
+val res = translate parse_lb_def;
 
-val parse_obounds_side = Q.prove(
-  `∀x y. parse_obounds_side x y <=> T`,
-  simp[fetch "-" "parse_obounds_side_def"]>>
+val parse_lb_side = Q.prove(
+  `∀x. parse_lb_side x <=> T`,
+  simp[fetch "-" "parse_lb_side_def"]>>
   rw[]>>
   intLib.ARITH_TAC) |> update_precondition;
+
+val res = translate parse_ub_def;
+val res = translate parse_bounds_def;
 
 val res = translate parse_concl_def;
 

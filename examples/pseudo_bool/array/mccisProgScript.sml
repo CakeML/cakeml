@@ -1,9 +1,9 @@
 (*
-  MCIS (unconnected) encode and checker
+  MCIS (connected) encode and checker
 *)
 open preamble basis pbc_normaliseTheory npbc_parseProgTheory mcisTheory graph_basicTheory;
 
-val _ = new_theory "mcisProg"
+val _ = new_theory "mccisProg"
 
 val _ = translation_extends"npbc_parseProg";
 
@@ -168,13 +168,65 @@ val _ = translate all_full_edge_map_def;
 
 val _ = translate encode_base_def;
 
+val _ = translate pbcTheory.negate_def;
+val _ = translate iff_and_def;
+val _ = translate iff_or_def;
+val _ = translate walk_base_def;
+val _ = translate walk_aux_def;
+val _ = translate walk_ind_def;
+val _ = translate walk_k_def;
+
+(* TODO: use PRECONDITION *)
+Definition log2_def:
+  log2 n =
+  if n < 2 then 0:num
+  else (log2 (n DIV 2))+1
+End
+
+Theorem LOG2_log2:
+  ∀n.
+  n ≥ 1 ⇒
+  LOG 2 n = log2 n
+Proof
+  ho_match_mp_tac log2_ind>>rw[]>>
+  simp[Once log2_def]>>rw[]
+  >- (
+    `n=1`by fs[]>>
+    rw[])>>
+  REWRITE_TAC[Once numeral_bitTheory.LOG_compute]>>
+  fs[ADD1]>>
+  first_x_assum match_mp_tac>>
+  intLib.ARITH_TAC
+QED
+
+Theorem encode_connected_thm:
+  encode_connected (vp,ep) =
+  if vp = 0 then []
+  else
+  let k = log2 (vp*2-1) in
+  walk_k (vp,ep) k ++
+  FLAT (GENLIST (λf.
+    FLAT (GENLIST (λg.
+      if f < g then
+        [(GreaterEqual, [(1, Pos(Unmapped f));(1, Pos(Unmapped g));(1, Pos(Walk f g k))], 1)]
+      else []) vp)) vp)
+Proof
+  rw[encode_connected_def]>>
+  DEP_REWRITE_TAC [LOG2_log2]>>
+  fs[]
+QED
+
+val _ = translate log2_def;
+val _ = translate (encode_connected_thm);
+val _ = translate encode_def;
+
 (* Translate the string converter *)
 val res = translate enc_string_def;
 
 val _ = translate pbcTheory.map_obj_def;
 val _ = translate unmapped_obj_def;
 
-val _ = translate full_encode_mcis_def;
+val _ = translate full_encode_mccis_def;
 
 (* parse input from f1 f2 and run encoder into pbc *)
 val parse_and_enc = (append_prog o process_topdecs) `
@@ -185,7 +237,7 @@ val parse_and_enc = (append_prog o process_topdecs) `
   (case parse_lad f2 of
     Inl err => Inl err
   | Inr gt =>
-    Inr (fst gp, full_encode_mcis gp gt))`
+    Inr (fst gp, full_encode_mccis gp gt))`
 
 Theorem parse_and_enc_spec:
   STRING_TYPE f1 f1v ∧
@@ -215,7 +267,7 @@ Theorem parse_and_enc_spec:
         ∃gp gt.
         get_graph fs f1 = SOME gp ∧
         get_graph fs f2 = SOME gt ∧
-        full_encode_mcis gp gt = objf ∧
+        full_encode_mccis gp gt = objf ∧
         FST gp = n)
 Proof
   rw[]>>
@@ -232,8 +284,8 @@ Proof
     qexists_tac`INL err`>>simp[SUM_TYPE_def])>>
   rpt xlet_autop>>
   xcon>>xsimpl >>
-  rename1`_ (full_encode_mcis gpp gtt)`>>
-  qexists_tac`INR (FST gpp,full_encode_mcis gpp gtt)`>>
+  rename1`_ (full_encode_mccis gpp gtt)`>>
+  qexists_tac`INR (FST gpp,full_encode_mccis gpp gtt)`>>
   simp[SUM_TYPE_def,PAIR_TYPE_def]
 QED
 
@@ -244,8 +296,8 @@ Definition int_inf_to_string_def:
     toString i)
 End
 
-Definition print_mcis_bound_def:
-  print_mcis_bound (lbg:num option,ubg:num) =
+Definition print_mccis_bound_def:
+  print_mccis_bound (lbg:num option,ubg:num) =
   case lbg of
     NONE =>
     strlit "s VERIFIED MCIS BOUNDS " ^ strlit "|MCIS| <= " ^ toString ubg ^ strlit"\n"
@@ -253,15 +305,17 @@ Definition print_mcis_bound_def:
     strlit "s VERIFIED MCIS BOUNDS " ^ toString l ^ strlit " <= |MCIS| <= " ^ toString ubg ^ strlit"\n"
 End
 
-Definition mcis_sem_def:
-  mcis_sem gp gt (lbg,ubg) ⇔
+Definition mccis_sem_def:
+  mccis_sem gp gt (lbg,ubg) ⇔
   (∀f vs.
-    injective_partial_map f vs gp gt ⇒
+    injective_partial_map f vs gp gt ∧
+    connected_subgraph vs (SND gp) ⇒
     CARD vs ≤ ubg) ∧
   case lbg of NONE => T
   | SOME lb =>
     ∃f vs.
       injective_partial_map f vs gp gt ∧
+      connected_subgraph vs (SND gp) ∧
       lb ≤ CARD vs
 End
 
@@ -271,15 +325,15 @@ Definition check_unsat_3_sem_def:
   ∃gp gt bounds.
     get_graph fs f1 = SOME gp ∧
     get_graph fs f2 = SOME gt ∧
-    out = print_mcis_bound bounds ∧
-    mcis_sem gp gt bounds)
+    out = print_mccis_bound bounds ∧
+    mccis_sem gp gt bounds)
 End
 
 Definition map_concl_to_string_def:
   (map_concl_to_string n (INL s) = (INL s)) ∧
   (map_concl_to_string n (INR c) =
     case conv_concl n c of
-      SOME bounds => INR (print_mcis_bound bounds)
+      SOME bounds => INR (print_mccis_bound bounds)
     | NONE => INL (strlit "c Unexpected conclusion for MCIS problem.\n"))
 End
 
@@ -291,7 +345,7 @@ val conv_concl_side = Q.prove(
   rw[]>>
   intLib.ARITH_TAC) |> update_precondition;
 
-val res = translate print_mcis_bound_def;
+val res = translate print_mccis_bound_def;
 val res = translate map_concl_to_string_def;
 
 val check_unsat_3 = (append_prog o process_topdecs) `
@@ -384,11 +438,11 @@ Proof
     asm_exists_tac>>simp[]>>
     qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`print_mcis_bound x`>>simp[]>>
+    qexists_tac`print_mccis_bound x`>>simp[]>>
     qexists_tac`strlit ""`>>
     rw[]>>simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
-    (drule_at Any) full_encode_mcis_sem_concl>>
+    (drule_at Any) full_encode_mccis_sem_concl>>
     fs[]>>
     Cases_on`x`>> disch_then (drule_at Any)>>
     disch_then(qspec_then`gt'` mp_tac)>>
@@ -396,7 +450,7 @@ Proof
       fs[get_graph_def,AllCaseEqs()]>>
     rw[]>>
     qexists_tac`(q,r)`>>
-    simp[mcis_sem_def]>>
+    simp[mccis_sem_def]>>
     metis_tac[])
 QED
 
@@ -408,7 +462,7 @@ Definition check_unsat_2_sem_def:
   case get_graph fs f2 of
     NONE => out = strlit ""
   | SOME gtt =>
-    out = concat (print_pbf (full_encode_mcis gpp gtt))
+    out = concat (print_pbf (full_encode_mccis gpp gtt))
 End
 
 val check_unsat_2 = (append_prog o process_topdecs) `
@@ -466,7 +520,7 @@ Proof
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb_mcis <LAD file (pattern)> <LAD file (target)> <optional: PB proof file>\n"
+  usage_string = strlit "Usage: cake_pb_mccis <LAD file (pattern)> <LAD file (target)> <optional: PB proof file>\n"
 End
 
 val r = translate usage_string_def;
