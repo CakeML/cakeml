@@ -788,7 +788,8 @@ End
 Definition check_red_list_def:
   check_red_list ord obj core fml inds id c s pfs idopt =
   let (rinds,fmlls) = reindex fml inds in
-  let fml_not_c = update_resize fml NONE (SOME (not c)) id in
+  let nc = not c in
+  let fml_not_c = update_resize fml NONE (SOME nc) id in
   let rsubs = red_subgoals ord (subst_fun s) c obj in
   case extract_clauses_list s fml rsubs pfs [] of
     NONE => NONE
@@ -798,7 +799,7 @@ Definition check_red_list_def:
     |  SOME(fml', id') =>
       let rfml = rollback fml' id id' in
       if do_red_check idopt fml' s rfml
-          rinds fmlls pfs rsubs then
+          rinds (nc::fmlls) pfs rsubs then
           SOME (rfml,id',rinds)
       else NONE)
 End
@@ -1084,8 +1085,8 @@ QED
 
 Theorem split_goals_same_goals:
   set goals' = set goals ⇒
-  split_goals fml proved goals ⇒
-  split_goals fml proved goals'
+  split_goals fml nc proved goals ⇒
+  split_goals fml nc proved goals'
 Proof
   rw[split_goals_def,PARTITION_DEF]>>
   pairarg_tac>>rw[]>>
@@ -1104,8 +1105,8 @@ QED
 
 Theorem split_goals_hash_imp_split_goals:
   set fmlls ⊆ range fml ∧
-  split_goals_hash fmlls proved goals ⇒
-  split_goals fml proved goals
+  split_goals_hash (nc::fmlls) proved goals ⇒
+  split_goals fml nc proved goals
 Proof
   rw[split_goals_def,split_goals_hash_def]>>
   pairarg_tac>>fs[]>>
@@ -1433,8 +1434,9 @@ Definition check_cstep_list_def:
     Dom c s pfs idopt =>
     (case ord of NONE => NONE
     | SOME spo =>
-    ( let (rinds,fmlls) = reindex fml inds in
-      let fml_not_c = update_resize fml NONE (SOME (not c)) id in
+    ( let nc = not c in
+      let (rinds,fmlls) = reindex fml inds in
+      let fml_not_c = update_resize fml NONE (SOME nc) id in
       let w = subst_fun s in
       let cf = coref_list core fml in
       let dsubs = dom_subgoals spo w c obj in
@@ -1445,7 +1447,7 @@ Definition check_cstep_list_def:
           NONE => NONE
         | SOME (fml',id') =>
           let rfml = rollback fml' id id' in
-          if do_dom_check idopt fml' rfml w cf fmlls pfs dsubs then
+          if do_dom_check idopt fml' rfml w cf (nc::fmlls) pfs dsubs then
             SOME(
               update_resize rfml NONE (SOME c) id',
               sorted_insert id' rinds,

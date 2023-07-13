@@ -63,19 +63,17 @@ End
 Definition parse_lit_def:
   parse_lit s =
   if strlen s ≥ 2 ∧ strsub s 0 = #"~" then
-    (let ss = substring s 1 (strlen s - 1) in
-    if goodString ss then
+    let ss = substring s 1 (strlen s - 1) in
       SOME (Neg ss)
-    else NONE)
   else if strlen s ≥ 1 then
-    (if goodString s then SOME (Pos s)
-    else NONE)
+    SOME (Pos s)
   else NONE
 End
 
 (*
   EVAL ``parse_lit (strlit "xaAa_-1")``
   EVAL ``parse_lit (strlit "~x1234")``
+  EVAL ``parse_lit (strlit "fancy_{1}^[-42]")``
 *)
 
 (* Parse the LHS of a constraint and returns the remainder of the line *)
@@ -810,8 +808,8 @@ End
 Definition parse_delc_header_def:
   parse_delc_header f_ns line =
   case line of
-    INR id::rest =>
-    if id ≥ 0 then
+    INR id::INL term::rest =>
+    if term = str #";" ∧ id ≥ 0 then
       (case parse_subst f_ns rest of (rest,ss,f_ns') =>
        (case rest of
         [INL term; INL beg] =>
@@ -1047,6 +1045,7 @@ Proof
   simp[]
 QED
 
+(*
 Definition parse_csteps_def:
   (parse_csteps f_ns ss acc =
     case parse_cstep f_ns ss of
@@ -1064,7 +1063,6 @@ Termination
   >-
     (drule parse_red_aux_length>>simp[])
   >-
-    cheat
   >-
     (drule parse_red_aux_length>>simp[])
 End
@@ -1102,12 +1100,18 @@ End
   strlit" 1 ~x2 1 ~x4 1 ~x6 >= 2 ;";
   strlit" +1 x1 +1 x2 >= 1 ;";
   strlit" +1 x3 +1 x4 >= 1 ;";
-  strlit" +1 x5 +1 x6 >= 1 ;"
+  strlit" +1 fancy_{1}^[-42] +1 x6 >= 1 ;"
   ]``;
 
   val pbf = rconc (EVAL ``(THE (parse_pbf ^(pbfraw)))``);
 
   val pbff = rconc (EVAL ``build_fml 1 (full_normalise (SND (THE (parse_pbf ^(pbfraw)))))``);
+
+  val pbpraw = ``[
+  strlit"delc 1 ;  ; begin";
+  strlit"end 5";]``
+
+  val steps = rconc (EVAL``(parse_pbp ^(pbpraw))``)
 
   val pbpraw = ``[
   strlit"pseudo-Boolean proof version 2.0";

@@ -545,16 +545,16 @@ End
 
 (* Partition the formula goals into proved and non-proved
   For each non-proved goal, check if
-  1) it was already in the formula
+  1) it was already in the formula (extra = ¬ C)
   2) it was already proved by another proofgoal (excluding #)
 *)
 Definition split_goals_def:
-  split_goals (fml:npbc num_map) (proved:num_set) (goals:(num # (int # num) list # num) list) =
+  split_goals (fml:npbc num_map) (extra:npbc) (proved:num_set) (goals:(num # (int # num) list # num) list) =
   let (lp,lf) =
     PARTITION (λ(i,c). sptree$lookup i proved ≠ NONE) goals in
   let proved = MAP SND lp in
   let f = range fml in
-  EVERY (λ(i,c). c ∈ f ∨ mem_constraint c proved) lf
+  EVERY (λ(i,c). c ∈ f ∨ c = extra ∨ mem_constraint c proved) lf
 End
 
 Triviality list_pair_eq_thm:
@@ -580,7 +580,8 @@ QED
 
 Definition check_red_def:
   check_red ord obj core fml id c s pfs idopt =
-  (let fml_not_c = insert id (not c) fml in
+  ( let nc = not c in
+    let fml_not_c = insert id nc fml in
     let w = subst_fun s in
     let rsubs = red_subgoals ord w c obj in
     case extract_clauses w fml rsubs pfs [] of
@@ -593,7 +594,7 @@ Definition check_red_def:
         (case idopt of NONE =>
           (let goals = toAList (map_opt (subst_opt w) fml) in
           let (l,r) = extract_pids pfs LN LN in
-            split_goals fml l goals ∧
+            split_goals fml nc l goals ∧
             EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs)))
         | SOME cid =>
           check_contradiction_fml fml' cid) in
@@ -601,6 +602,17 @@ Definition check_red_def:
         SOME id'
       else NONE) )
 End
+
+subst_opt_def
+EVAL ``imp ([(1,1);(1,2)],1) (THE(subst_opt (ALOOKUP [(1,INL T);(2,INL F);(3,INL F)]) ([(1,1);(1,2)],1)))``
+
+EVAL``not([],0)``
+
+EVAL ``imp (THE(subst_opt (ALOOKUP [(1,INL T);(2,INL F);(3,INL F)]) ([(1,1);(2,2)],1))) ([],0)``
+
+y2,y3):(int # num) list # num)
+subst_opt_def
+map_of ()
 
 Definition check_sstep_def:
   (check_sstep sstep ord obj core (fml:pbf) (id:num) =
@@ -847,9 +859,9 @@ Proof
 QED
 
 Theorem split_goals_checked:
-  split_goals fml proved goals ∧
+  split_goals fml e proved goals ∧
   MEM (n,yy) goals ⇒
-  yy ∈ range fml ∨
+  yy ∈ range fml ∨ yy = e ∨
   ∃i.
     lookup i proved ≠ NONE ∧
     MEM (i,yy) goals
@@ -992,7 +1004,12 @@ Proof
   \\ drule_all split_goals_checked \\ rw[]
   >- (
     fs[satisfiable_def,not_thm,satisfies_def]>>
-    metis_tac[subst_opt_SOME])
+    drule subst_opt_SOME >>
+    metis_tac[])
+  >- (
+    fs[satisfiable_def,not_thm,satisfies_def]>>
+    drule subst_opt_SOME >>
+    metis_tac[not_thm])
   \\ drule_all lookup_extract_pids_l>>rw[]
   \\ drule extract_clauses_MEM_INL
   \\ disch_then drule
@@ -1457,7 +1474,8 @@ Definition check_cstep_def:
   | Dom c s pfs idopt =>
     (case ord of NONE => NONE
     | SOME spo =>
-    (let fml_not_c = insert id (not c) fml in
+    ( let nc = not c in
+      let fml_not_c = insert id nc fml in
       let w = subst_fun s in
       let dsubs = dom_subgoals spo w c obj in
       case extract_clauses w fml dsubs pfs [] of
@@ -1471,7 +1489,7 @@ Definition check_cstep_def:
             let cf = coref core fml in
             let goals = toAList (map_opt (subst_opt w) cf) in
             let (l,r) = extract_pids pfs LN LN in
-              split_goals fml l goals ∧
+              split_goals fml nc l goals ∧
               EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH dsubs))
           | SOME cid =>
             check_contradiction_fml fml' cid) in
@@ -2010,8 +2028,14 @@ Proof
         \\ drule_all split_goals_checked \\ rw[]
         >- (
           fs[satisfiable_def,not_thm,satisfies_def]>>
+          drule subst_opt_SOME >>
           fs[range_def]>>
-          metis_tac[subst_opt_SOME])
+          rw[]>> metis_tac[not_thm])
+        >- (
+          fs[satisfiable_def,not_thm,satisfies_def]>>
+          drule subst_opt_SOME >>
+          fs[range_def]>>
+          rw[]>> metis_tac[not_thm])
         \\ drule_all lookup_extract_pids_l>>rw[]
         \\ drule extract_clauses_MEM_INL
         \\ disch_then drule

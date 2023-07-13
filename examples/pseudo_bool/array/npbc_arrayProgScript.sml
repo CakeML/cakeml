@@ -1423,26 +1423,29 @@ val r = translate format_failure_2_def;
 val check_red_arr = process_topdecs`
   fun check_red_arr lno ord obj core fml inds id c s pfs idopt =
   (case reindex_arr fml inds of (rinds,fmlls) =>
-      let val rsubs = do_rso ord s c obj
-         val cpfs = extract_clauses_arr lno s fml rsubs pfs []
-         val fml_not_c = Array.updateResize fml None id (Some (not_1 c)) in
-         case check_subproofs_arr lno cpfs core fml_not_c (sorted_insert id rinds) id (id+1) of
-           (fml', id') =>
-         (case idopt of
-           None =>
-           let val u = rollback_arr fml' id id'
-               val goals = subst_indexes_arr s fml' rinds in
-               if red_cond_check fmlls pfs rsubs goals
-               then
-                 (fml', (id', rinds))
-               else raise Fail (format_failure_2 lno ("Redundancy subproofs did not cover all subgoals.") (print_subproofs_err rsubs goals))
-           end
-        | Some cid =>
-          if check_contradiction_fml_arr fml' cid then
-            let val u = rollback_arr fml' id id' in
-              (fml', (id', rinds))
-            end
-          else raise Fail (format_failure lno ("did not derive contradiction from index:" ^ Int.toString cid)))
+  let
+    val nc = not_1 c
+    val rsubs = do_rso ord s c obj
+    val cpfs = extract_clauses_arr lno s fml rsubs pfs []
+    val fml_not_c = Array.updateResize fml None id (Some nc) in
+     case check_subproofs_arr lno cpfs core fml_not_c (sorted_insert id rinds) id (id+1) of
+       (fml', id') =>
+     (case idopt of
+       None =>
+       let val u = rollback_arr fml' id id'
+           val goals = subst_indexes_arr s fml' rinds
+           val nfmlls = nc :: fmlls in
+           if red_cond_check nfmlls pfs rsubs goals
+           then
+             (fml', (id', rinds))
+           else raise Fail (format_failure_2 lno ("Redundancy subproofs did not cover all subgoals.") (print_subproofs_err rsubs goals))
+       end
+    | Some cid =>
+      if check_contradiction_fml_arr fml' cid then
+        let val u = rollback_arr fml' id id' in
+          (fml', (id', rinds))
+        end
+      else raise Fail (format_failure lno ("did not derive contradiction from index:" ^ Int.toString cid)))
     end)` |> append_prog;
 
 (* Overloads all the _TYPEs that we will reuse *)
@@ -1545,7 +1548,14 @@ Proof
   xmatch>>
   Cases_on`idopt`>>fs[OPTION_TYPE_def,do_red_check_def]>>xmatch
   >- (
-    rpt xlet_autop>>
+    ntac 2 xlet_autop>>
+    (* avoid silly Cons... *)
+    xlet`POSTv v. ARRAY fmlv' fmllsv'' *
+      &LIST_TYPE constraint_TYPE (not n::fmlls') v`
+    >- (
+      xcon>>xsimpl>>
+      simp[LIST_TYPE_def])>>
+    xlet_autop>>
     fs[do_red_check_def]>>
     reverse xif
     >- (
@@ -2015,7 +2025,8 @@ QED
 Definition check_dom_list_def:
   check_dom_list spo obj core fml inds id c s pfs idopt =
   let (rinds,fmlls) = reindex fml inds in
-  let fml_not_c = update_resize fml NONE (SOME (not c)) id in
+  let nc = not c in
+  let fml_not_c = update_resize fml NONE (SOME nc) id in
   let w = subst_fun s in
   let cf = coref_list core fml in
   let dsubs = dom_subgoals spo w c obj in
@@ -2026,7 +2037,7 @@ Definition check_dom_list_def:
       NONE => NONE
     | SOME (fml',id') =>
       let rfml = rollback fml' id id' in
-      if do_dom_check idopt fml' rfml w cf fmlls pfs dsubs then
+      if do_dom_check idopt fml' rfml w cf (nc::fmlls) pfs dsubs then
         SOME (rfml,id',rinds)
       else NONE)
 End
@@ -2035,27 +2046,29 @@ val check_dom_arr = process_topdecs`
   fun check_dom_arr lno spo obj core fml inds id c s pfs idopt =
   (case reindex_arr fml inds of (rinds,fmlls) =>
     let
-        val cf = coref_arr core fml
-        val dsubs = do_dso spo s c obj
-        val cpfs = extract_clauses_arr lno s fml dsubs pfs []
-        val fml_not_c = Array.updateResize fml None id (Some (not_1 c)) in
-         case check_subproofs_arr lno cpfs core fml_not_c (sorted_insert id rinds) id (id+1) of
-           (fml', id') =>
-           (case idopt of
-             None =>
-             let val u = rollback_arr fml' id id'
-                 val goals = core_subgoals s cf in
-                 if red_cond_check fmlls pfs dsubs goals
-                 then
-                   (fml',(id',rinds))
-                 else raise Fail (format_failure_2 lno ("Dominance subproofs did not cover all subgoals") (print_subproofs_err dsubs goals))
-             end
-           | Some cid =>
-             if check_contradiction_fml_arr fml' cid then
-               let val u = rollback_arr fml' id id' in
-                 (fml', (id', rinds))
-               end
-             else raise Fail (format_failure lno ("did not derive contradiction from index:" ^ Int.toString cid)))
+    val cf = coref_arr core fml
+    val dsubs = do_dso spo s c obj
+    val cpfs = extract_clauses_arr lno s fml dsubs pfs []
+    val nc = not_1 c
+    val fml_not_c = Array.updateResize fml None id (Some nc) in
+     case check_subproofs_arr lno cpfs core fml_not_c (sorted_insert id rinds) id (id+1) of
+       (fml', id') =>
+       (case idopt of
+         None =>
+         let val u = rollback_arr fml' id id'
+             val goals = core_subgoals s cf
+             val nfmlls = nc::fmlls in
+             if red_cond_check nfmlls pfs dsubs goals
+             then
+               (fml',(id',rinds))
+             else raise Fail (format_failure_2 lno ("Dominance subproofs did not cover all subgoals") (print_subproofs_err dsubs goals))
+         end
+       | Some cid =>
+         if check_contradiction_fml_arr fml' cid then
+           let val u = rollback_arr fml' id id' in
+             (fml', (id', rinds))
+           end
+         else raise Fail (format_failure lno ("did not derive contradiction from index:" ^ Int.toString cid)))
     end)` |> append_prog;
 
 Theorem check_dom_arr_spec:
@@ -2145,7 +2158,14 @@ Proof
   fs[OPTION_TYPE_def,do_dom_check_def]>>
   xmatch
   >- (
-    rpt xlet_autop>>
+    ntac 2 xlet_autop>>
+    (* avoid silly Cons... *)
+    xlet`POSTv v. ARRAY fmlv' fmllsv'' *
+      &LIST_TYPE constraint_TYPE (not n::fmlls') v`
+    >- (
+      xcon>>xsimpl>>
+      simp[LIST_TYPE_def])>>
+    xlet_autop>>
     reverse xif>>gs[]
     >- (
       rpt xlet_autop>>
