@@ -685,6 +685,16 @@ Proof
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])
 QED
 
+Theorem is_empty_vec_thm:
+  is_empty_vec v ⇔ length v = 0
+Proof
+  EVAL_TAC>>Cases_on`v`>>fs[mlvectorTheory.length_def]
+QED
+
+val res = translate is_empty_vec_thm;
+
+val res = translate reduce_pf_def;
+
 val parse_sstep = process_topdecs`
   fun parse_sstep fns fd lno =
     case TextIO.b_inputLineTokens fd blanks tokenize_fast of
@@ -695,17 +705,12 @@ val parse_sstep = process_topdecs`
       None => (Inl s, (fns, lno+1))
     | Some (Inl step,fns') => (Inr (Lstep step),(fns',lno+1))
     | Some (Inr (c,s),fns') =>
-      if not_is_empty_vec s then
         case parse_red_aux fns' fd (lno+1) [] of
-          (res,(pf,(fns'',lno'))) =>
-          (Inr (Red c s pf res),(fns'',lno'))
-      else
-        case parse_lsteps_aux fns' fd (lno+1) [] of
-          (pf,(fns'',(s,lno'))) =>
-          case check_end s of
-            None => raise Fail (format_failure lno' "subproof not terminated with contradiction id")
-          | Some n => (Inr (Lstep (Con c pf n)), (fns'', lno')))
-            ` |> append_prog
+        (res,(pf,(fns'',lno'))) =>
+        (case reduce_pf s pf res of
+          None => (Inr (Red c s pf res),(fns'',lno'))
+        | Some ((pf,n)) => (Inr (Lstep (Con c pf n)), (fns'', lno')))
+        )` |> append_prog
 
 Theorem parse_sstep_spec:
   !ss fd fdv lines lno lnov fs fns fnsv.
@@ -802,61 +807,6 @@ Proof
   fs[PAIR_TYPE_def]>>
   xmatch>>
   rpt xlet_autop>>
-  rename1`is_empty_vec tt`>>
-  Cases_on`is_empty_vec tt`>>fs[not_is_empty_vec_eq]>>
-  xif>>asm_exists_tac>>simp[]
-  >- (
-    rpt xlet_autop>>
-    xlet`(POSTve
-      (λv.
-         SEP_EXISTS k lines' res acc' fns' s lno' rest.
-         STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
-         &(
-            PAIR_TYPE (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))
-              (PAIR_TYPE (fns_TYPE a)
-              (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
-                NUM)) (acc',fns',s,lno') v ∧
-            parse_lsteps_aux (x1,x2) (MAP toks_fast ls) [] = SOME(acc',fns',s,rest) ∧
-            MAP toks_fast lines' = rest))
-      (λe.
-         SEP_EXISTS k lines'.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
-           &(Fail_exn e ∧ parse_lsteps_aux (x1,x2) (MAP toks_fast ls) [] = NONE))
-      )`
-    >- (
-      xapp>>xsimpl>>
-      asm_exists_tac>>xsimpl>>
-      qexists_tac`emp`>>qexists_tac`ls`>>
-      qexists_tac`forwardFD fs fd k`>>
-      qexists_tac`(x1,x2)`>>
-      qexists_tac`fd`>>xsimpl>>
-      qexists_tac`[]`>>
-      simp[LIST_TYPE_def,PAIR_TYPE_def]>>
-      asm_exists_tac>>xsimpl>>
-      rw[]
-      >-(
-        simp[forwardFD_o]>>
-        metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
-      simp[forwardFD_o]>>
-      metis_tac[STDIO_INSTREAM_LINES_refl_gc])
-    >- (
-      xsimpl>>
-      metis_tac[STDIO_INSTREAM_LINES_refl])>>
-    fs[PAIR_TYPE_def]>>
-    xmatch>>
-    rpt xlet_autop>>
-    Cases_on`check_end s`>>fs[OPTION_TYPE_def]>>xmatch
-    >- (
-      rpt xlet_autop>>
-      xraise>>xsimpl>>
-      simp[Fail_exn_def]>>
-      metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
-    rpt xlet_autop>>
-    xcon>>xsimpl>>
-    simp[NPBC_CHECK_SSTEP_TYPE_def,NPBC_CHECK_LSTEP_TYPE_def,SUM_TYPE_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
-  rpt xlet_autop>>
   xlet`(POSTve
       (λv.
          SEP_EXISTS k lines' res acc' fns' s lno' rest.
@@ -895,9 +845,17 @@ Proof
   fs[PAIR_TYPE_def]>>
   xmatch>>
   rpt xlet_autop>>
-  xcon>>xsimpl>>
-  simp[NPBC_CHECK_SSTEP_TYPE_def,NPBC_CHECK_LSTEP_TYPE_def,SUM_TYPE_def]>>
-  metis_tac[STDIO_INSTREAM_LINES_refl_gc]
+  every_case_tac>>fs[OPTION_TYPE_def,PAIR_TYPE_def]>>xmatch
+  >- (
+    rpt xlet_autop>>
+    xcon>>xsimpl>>
+    simp[NPBC_CHECK_SSTEP_TYPE_def,NPBC_CHECK_LSTEP_TYPE_def,SUM_TYPE_def]>>
+    metis_tac[STDIO_INSTREAM_LINES_refl_gc])
+  >- (
+    rpt xlet_autop>>
+    xcon>>xsimpl>>
+    simp[NPBC_CHECK_SSTEP_TYPE_def,NPBC_CHECK_LSTEP_TYPE_def,SUM_TYPE_def]>>
+    metis_tac[STDIO_INSTREAM_LINES_refl_gc])
 QED
 
 val res = translate pb_parseTheory.parse_vars_line_aux_def;

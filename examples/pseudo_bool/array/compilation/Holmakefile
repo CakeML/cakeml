@@ -12,3 +12,5 @@ README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmeP
 ifndef CC
 CC=gcc
 endif
+
+cake_pb.S : *npbc_fullCompileScript.sml

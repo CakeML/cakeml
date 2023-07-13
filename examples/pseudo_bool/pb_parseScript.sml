@@ -604,6 +604,19 @@ Definition parse_header_def:
   | _ => NONE
 End
 
+(* Check special cases whether a Red step can be converted to a Con step *)
+Definition reduce_pf_def:
+  reduce_pf s pf res =
+  if is_empty_vec s then
+    case res of NONE => NONE
+    | SOME id =>(
+      case pf of
+      | [(NONE,pf)] => SOME (pf,id)
+      | [] => SOME ([],id)
+      | _ => NONE)
+  else NONE
+End
+
 (* Parse 1 sstep,
   until an unparseable line is reached *)
 Definition parse_sstep_def:
@@ -614,19 +627,15 @@ Definition parse_sstep_def:
     | SOME (INL step,f_ns') =>
         SOME (INR (Lstep step),f_ns',ss)
     | SOME (INR (c,s),f_ns') =>
-      if is_empty_vec s then
-        (case parse_lsteps_aux f_ns' ss [] of
-          NONE => NONE
-        | SOME (pf,f_ns'',s,rest) =>
-          case check_end s of
-            NONE => NONE
-          | SOME id =>
-            SOME (INR (Lstep (Con c pf id)),f_ns'',rest))
-      else
-        (case parse_red_aux f_ns' ss [] of
+      (
+        case parse_red_aux f_ns' ss [] of
           NONE => NONE
         | SOME (res, pf,f_ns'',rest) =>
-          SOME (INR (Red c s pf res),f_ns'',rest)))
+          case reduce_pf s pf res of
+            NONE => SOME (INR (Red c s pf res),f_ns'',rest)
+          | SOME (pf,id) =>
+            SOME (INR (Lstep (Con c pf id)),f_ns'',rest)
+      ))
 End
 
 Definition parse_pre_order_head_def:
@@ -1037,10 +1046,7 @@ Theorem parse_sstep_length:
   LENGTH ss' < LENGTH ss
 Proof
   Cases_on`ss`>>rw[parse_sstep_def]>>
-  gvs[AllCaseEqs()]
-  >- (
-    drule parse_lsteps_aux_length>>
-    simp[])>>
+  gvs[AllCaseEqs()]>>
   drule parse_red_aux_length>>
   simp[]
 QED
@@ -1106,12 +1112,6 @@ End
   val pbf = rconc (EVAL ``(THE (parse_pbf ^(pbfraw)))``);
 
   val pbff = rconc (EVAL ``build_fml 1 (full_normalise (SND (THE (parse_pbf ^(pbfraw)))))``);
-
-  val pbpraw = ``[
-  strlit"delc 1 ;  ; begin";
-  strlit"end 5";]``
-
-  val steps = rconc (EVAL``(parse_pbp ^(pbpraw))``)
 
   val pbpraw = ``[
   strlit"pseudo-Boolean proof version 2.0";
@@ -1188,6 +1188,11 @@ End
   strlit"    end 20";
   strlit"end 1234";
   strlit"load_order simple x1";
+  strlit"red 1 ~x1 1 ~x2 >= 0 ;  ; begin";
+  strlit"proofgoal #1";
+  strlit"pol 14 13 +";
+  strlit"end 15";
+  strlit"end";
   strlit"output NONE";
   strlit"conclusion BOUNDS INF : 1 5 : x3 x4 ~x5";
   strlit"end pseudo-Boolean proof";]``
