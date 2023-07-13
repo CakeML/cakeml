@@ -545,7 +545,8 @@ End
 
 (* Partition the formula goals into proved and non-proved
   For each non-proved goal, check if
-  1) it was already in the formula (extra = ¬ C)
+  0) it is implied by extra (= ¬ C)
+  1) it was already in the formula
   2) it was already proved by another proofgoal (excluding #)
 *)
 Definition split_goals_def:
@@ -554,7 +555,7 @@ Definition split_goals_def:
     PARTITION (λ(i,c). sptree$lookup i proved ≠ NONE) goals in
   let proved = MAP SND lp in
   let f = range fml in
-  EVERY (λ(i,c). c ∈ f ∨ c = extra ∨ mem_constraint c proved) lf
+  EVERY (λ(i,c). c ∈ f ∨ imp extra c ∨ mem_constraint c proved) lf
 End
 
 Triviality list_pair_eq_thm:
@@ -850,7 +851,7 @@ QED
 Theorem split_goals_checked:
   split_goals fml e proved goals ∧
   MEM (n,yy) goals ⇒
-  yy ∈ range fml ∨ yy = e ∨
+  yy ∈ range fml ∨ imp e yy ∨
   ∃i.
     lookup i proved ≠ NONE ∧
     MEM (i,yy) goals
@@ -866,6 +867,8 @@ Proof
   >- metis_tac[]>>
   fs[EVERY_MEM]>>
   last_x_assum drule>>rw[MEM_MAP]
+  >-
+    metis_tac[]
   >-
     metis_tac[]
   >- (
@@ -998,7 +1001,7 @@ Proof
   >- (
     fs[satisfiable_def,not_thm,satisfies_def]>>
     drule subst_opt_SOME >>
-    metis_tac[not_thm])
+    metis_tac[not_thm,imp_thm])
   \\ drule_all lookup_extract_pids_l>>rw[]
   \\ drule extract_clauses_MEM_INL
   \\ disch_then drule
@@ -2024,7 +2027,7 @@ Proof
           fs[satisfiable_def,not_thm,satisfies_def]>>
           drule subst_opt_SOME >>
           fs[range_def]>>
-          rw[]>> metis_tac[not_thm])
+          rw[]>> metis_tac[not_thm,imp_thm])
         \\ drule_all lookup_extract_pids_l>>rw[]
         \\ drule extract_clauses_MEM_INL
         \\ disch_then drule

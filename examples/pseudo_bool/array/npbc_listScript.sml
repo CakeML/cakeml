@@ -765,21 +765,22 @@ Proof
 QED
 
 Definition split_goals_hash_def:
-  split_goals_hash fmlls (proved:num_set)
+  split_goals_hash fmlls extra (proved:num_set)
     (goals:(num # (int # num) list # num) list) =
   let (lp,lf) =
     PARTITION (λ(i,c). lookup i proved ≠ NONE) goals in
+  let lf = FILTER (λc. ¬(imp extra c)) (MAP SND lf) in
   let proved = MAP SND lp in
   let hs = mk_hashset fmlls (mk_hashset proved (REPLICATE splim [])) in
-  EVERY (λ(i,c). in_hashset c hs) lf
+  EVERY (λc. in_hashset c hs) lf
 End
 
 Definition do_red_check_def:
-  do_red_check idopt fml s rfml rinds fmlls pfs rsubs =
+  do_red_check idopt fml s rfml rinds fmlls extra pfs rsubs =
   case idopt of NONE =>
     let goals = subst_indexes s rfml rinds in
     let (l,r) = extract_pids pfs LN LN in
-      split_goals_hash fmlls l goals ∧
+      split_goals_hash fmlls extra l goals ∧
       EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs))
   | SOME cid =>
      check_contradiction_fml_list fml cid
@@ -799,7 +800,7 @@ Definition check_red_list_def:
     |  SOME(fml', id') =>
       let rfml = rollback fml' id id' in
       if do_red_check idopt fml' s rfml
-          rinds (nc::fmlls) pfs rsubs then
+          rinds fmlls nc pfs rsubs then
           SOME (rfml,id',rinds)
       else NONE)
 End
@@ -1105,14 +1106,17 @@ QED
 
 Theorem split_goals_hash_imp_split_goals:
   set fmlls ⊆ range fml ∧
-  split_goals_hash (nc::fmlls) proved goals ⇒
+  split_goals_hash fmlls nc proved goals ⇒
   split_goals fml nc proved goals
 Proof
   rw[split_goals_def,split_goals_hash_def]>>
   pairarg_tac>>fs[]>>
+  fs[EVERY_FILTER,EVERY_MAP]>>
   qpat_x_assum`EVERY _ _`mp_tac>> match_mp_tac MONO_EVERY>>
-  simp[FORALL_PROD]>>
-  rw[]>>
+  simp[FORALL_PROD, METIS_PROVE []``(¬P ⇒ Q) ⇔ P ∨ Q``]>>
+  rw[]
+  >-
+    simp[]>>
   drule in_hashset_mk_hashset>>
   rw[]
   >- fs[MEM_MAP,SUBSET_DEF]>>
@@ -1389,13 +1393,13 @@ Definition core_from_inds_def:
 End
 
 Definition do_dom_check_def:
-  do_dom_check idopt fml rfml w cf indfml pfs dsubs =
+  do_dom_check idopt fml rfml w cf indfml extra pfs dsubs =
   case idopt of NONE =>
     let goals = toAList (map_opt (subst_opt w) cf) in
     let (l,r) = extract_pids pfs LN LN in
     if EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH dsubs))
     then
-      split_goals_hash indfml l goals
+      split_goals_hash indfml extra l goals
     else F
   | SOME cid =>
      check_contradiction_fml_list fml cid
@@ -1447,7 +1451,7 @@ Definition check_cstep_list_def:
           NONE => NONE
         | SOME (fml',id') =>
           let rfml = rollback fml' id id' in
-          if do_dom_check idopt fml' rfml w cf (nc::fmlls) pfs dsubs then
+          if do_dom_check idopt fml' rfml w cf fmlls nc pfs dsubs then
             SOME(
               update_resize rfml NONE (SOME c) id',
               sorted_insert id' rinds,

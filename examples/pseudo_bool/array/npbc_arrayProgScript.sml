@@ -1196,39 +1196,39 @@ QED
 
 val r = translate splim_def;
 
-val every_snd_hs = process_topdecs`
-  fun every_snd_hs hs ls =
+val every_hs = process_topdecs`
+  fun every_hs hs ls =
   case ls of [] => True
   | l::ls =>
-    in_hashset_arr (snd l) hs andalso
-    every_snd_hs hs ls` |> append_prog
+    in_hashset_arr l hs andalso
+    every_hs hs ls` |> append_prog
 
-Theorem every_snd_hs_spec:
+Theorem every_hs_spec:
   ∀ls lsv.
-  LIST_TYPE (PAIR_TYPE NUM constraint_TYPE) ls lsv ∧
+  LIST_TYPE constraint_TYPE ls lsv ∧
   LENGTH hsv = splim ∧
   LIST_REL (LIST_TYPE constraint_TYPE) hs hsv
   ⇒
   app (p : 'ffi ffi_proj)
-    ^(fetch_v "every_snd_hs" (get_ml_prog_state()))
+    ^(fetch_v "every_hs" (get_ml_prog_state()))
     [hspv; lsv]
     (ARRAY hspv hsv)
     (POSTv resv.
       ARRAY hspv hsv *
-      &BOOL (EVERY (λ(i,c). in_hashset c hs) ls) resv)
+      &BOOL (EVERY (λc. in_hashset c hs) ls) resv)
 Proof
   Induct>>rw[]>>
   fs[LIST_TYPE_def]>>
-  xcf "every_snd_hs" (get_ml_prog_state ())>>
+  xcf "every_hs" (get_ml_prog_state ())>>
   xmatch
   >- (xcon>>xsimpl)>>
-  rpt xlet_autop>>
+  xlet_auto>>
   xlog>>
   xsimpl>>rw[]
   >- (
     xapp>>xsimpl>>
     pairarg_tac>>fs[])>>
-  pairarg_tac>>fs[]
+  gvs[]
 QED
 
 val hash_check = process_topdecs`
@@ -1241,7 +1241,7 @@ val hash_check = process_topdecs`
     val u = mk_hashset_arr proved hs
     val u = mk_hashset_arr fmlls hs
   in
-    every_snd_hs hs lf
+    every_hs hs lf
   end` |> append_prog
 
 Theorem LENGTH_mk_hashset[simp]:
@@ -1252,7 +1252,7 @@ Proof
 QED
 
 Theorem hash_check_spec:
-  LIST_TYPE (PAIR_TYPE NUM constraint_TYPE) ls lsv ∧
+  LIST_TYPE constraint_TYPE ls lsv ∧
   LIST_TYPE constraint_TYPE x xv ∧
   LIST_TYPE constraint_TYPE y yv
   ⇒
@@ -1264,7 +1264,7 @@ Theorem hash_check_spec:
       &BOOL (
         let hs = mk_hashset x
           (mk_hashset y (REPLICATE splim [])) in
-          EVERY (λ(i,c). in_hashset c hs) ls) resv)
+          EVERY (λc. in_hashset c hs) ls) resv)
 Proof
   rw[]>>
   xcf "hash_check" (get_ml_prog_state ())>>
@@ -1300,32 +1300,37 @@ Proof
 QED
 
 Definition red_cond_check_def:
-  red_cond_check indfml (pfs:(( ((num + num) # num) option, (lstep list)) alist)) (rsubs:((int # num) list # num) list list) goals =
+  red_cond_check indfml extra
+    (pfs:(( ((num + num) # num) option, (lstep list)) alist))
+    (rsubs:((int # num) list # num) list list) goals =
   let (l,r) = extract_pids pfs LN LN in
-  split_goals_hash indfml l goals ∧
+  split_goals_hash indfml extra l goals ∧
   EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs))
 End
 
 Definition red_cond_check_pure_def:
-  red_cond_check_pure (pfs:(( ((num + num) # num) option, (lstep list)) alist)) (rsubs:((int # num) list # num) list list) (goals:(num # (int # num) list # num) list) =
+  red_cond_check_pure extra
+  (pfs:(( ((num + num) # num) option, (lstep list)) alist))
+  (rsubs:((int # num) list # num) list list) (goals:(num # (int # num) list # num) list) =
   let (l,r) = extract_pids pfs LN LN in
   if
     EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs))
   then
-  let (lp,lf) =
+    let (lp,lf) =
       PARTITION (λ(i,c). lookup i l ≠ NONE) goals in
+    let lf = FILTER (λc. ¬(imp extra c)) (MAP SND lf) in
     let proved = MAP SND lp in
     SOME (proved,lf)
   else NONE
 End
 
 Theorem red_cond_check_eq:
-  red_cond_check indfml pfs rsubs goals =
-  case red_cond_check_pure pfs rsubs goals of
+  red_cond_check indfml extra pfs rsubs goals =
+  case red_cond_check_pure extra pfs rsubs goals of
     NONE => F
   | SOME (x,ls) =>
     let hs = mk_hashset indfml (mk_hashset x (REPLICATE splim [])) in
-    EVERY (λ(i,c). in_hashset c hs) ls
+    EVERY (λc. in_hashset c hs) ls
 Proof
   rw[red_cond_check_def,red_cond_check_pure_def]>>
   pairarg_tac>>fs[split_goals_hash_def]>>
@@ -1341,14 +1346,15 @@ val res = translate PARTITION_DEF;
 val res = translate red_cond_check_pure_def;
 
 val red_cond_check = process_topdecs`
-  fun red_cond_check indfml pfs rsubs goals =
-  case red_cond_check_pure pfs rsubs goals of
+  fun red_cond_check indfml extra pfs rsubs goals =
+  case red_cond_check_pure extra pfs rsubs goals of
     None => False
   | Some (x,ls) =>
     hash_check indfml x ls` |> append_prog
 
 Theorem red_cond_check_spec:
   LIST_TYPE constraint_TYPE a av ∧
+  constraint_TYPE aa aav ∧
   LIST_TYPE
      (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM))
         (LIST_TYPE NPBC_CHECK_LSTEP_TYPE)) b bv ∧
@@ -1357,10 +1363,10 @@ Theorem red_cond_check_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "red_cond_check" (get_ml_prog_state()))
-    [av; bv; cv; dv]
+    [av; aav; bv; cv; dv]
     emp
     (POSTv resv.
-      &BOOL (red_cond_check a b c d) resv)
+      &BOOL (red_cond_check a aa b c d) resv)
 Proof
   rw[]>>
   xcf "red_cond_check" (get_ml_prog_state ())>>
@@ -1433,9 +1439,8 @@ val check_red_arr = process_topdecs`
      (case idopt of
        None =>
        let val u = rollback_arr fml' id id'
-           val goals = subst_indexes_arr s fml' rinds
-           val nfmlls = nc :: fmlls in
-           if red_cond_check nfmlls pfs rsubs goals
+           val goals = subst_indexes_arr s fml' rinds in
+           if red_cond_check fmlls nc pfs rsubs goals
            then
              (fml', (id', rinds))
            else raise Fail (format_failure_2 lno ("Redundancy subproofs did not cover all subgoals.") (print_subproofs_err rsubs goals))
@@ -1548,14 +1553,7 @@ Proof
   xmatch>>
   Cases_on`idopt`>>fs[OPTION_TYPE_def,do_red_check_def]>>xmatch
   >- (
-    ntac 2 xlet_autop>>
-    (* avoid silly Cons... *)
-    xlet`POSTv v. ARRAY fmlv' fmllsv'' *
-      &LIST_TYPE constraint_TYPE (not n::fmlls') v`
-    >- (
-      xcon>>xsimpl>>
-      simp[LIST_TYPE_def])>>
-    xlet_autop>>
+    rpt xlet_autop>>
     fs[do_red_check_def]>>
     reverse xif
     >- (
@@ -2037,7 +2035,7 @@ Definition check_dom_list_def:
       NONE => NONE
     | SOME (fml',id') =>
       let rfml = rollback fml' id id' in
-      if do_dom_check idopt fml' rfml w cf (nc::fmlls) pfs dsubs then
+      if do_dom_check idopt fml' rfml w cf fmlls nc pfs dsubs then
         SOME (rfml,id',rinds)
       else NONE)
 End
@@ -2056,9 +2054,8 @@ val check_dom_arr = process_topdecs`
        (case idopt of
          None =>
          let val u = rollback_arr fml' id id'
-             val goals = core_subgoals s cf
-             val nfmlls = nc::fmlls in
-             if red_cond_check nfmlls pfs dsubs goals
+             val goals = core_subgoals s cf in
+             if red_cond_check fmlls nc pfs dsubs goals
              then
                (fml',(id',rinds))
              else raise Fail (format_failure_2 lno ("Dominance subproofs did not cover all subgoals") (print_subproofs_err dsubs goals))
@@ -2158,14 +2155,7 @@ Proof
   fs[OPTION_TYPE_def,do_dom_check_def]>>
   xmatch
   >- (
-    ntac 2 xlet_autop>>
-    (* avoid silly Cons... *)
-    xlet`POSTv v. ARRAY fmlv' fmllsv'' *
-      &LIST_TYPE constraint_TYPE (not n::fmlls') v`
-    >- (
-      xcon>>xsimpl>>
-      simp[LIST_TYPE_def])>>
-    xlet_autop>>
+    rpt xlet_autop>>
     reverse xif>>gs[]
     >- (
       rpt xlet_autop>>
