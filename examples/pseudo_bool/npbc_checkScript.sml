@@ -603,17 +603,6 @@ Definition check_red_def:
       else NONE) )
 End
 
-subst_opt_def
-EVAL ``imp ([(1,1);(1,2)],1) (THE(subst_opt (ALOOKUP [(1,INL T);(2,INL F);(3,INL F)]) ([(1,1);(1,2)],1)))``
-
-EVAL``not([],0)``
-
-EVAL ``imp (THE(subst_opt (ALOOKUP [(1,INL T);(2,INL F);(3,INL F)]) ([(1,1);(2,2)],1))) ([],0)``
-
-y2,y3):(int # num) list # num)
-subst_opt_def
-map_of ()
-
 Definition check_sstep_def:
   (check_sstep sstep ord obj core (fml:pbf) (id:num) =
   case sstep of
