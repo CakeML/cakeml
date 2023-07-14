@@ -10,7 +10,7 @@ local open alignmentTheory
 
 val _ = new_theory"panSem";
 val _ = set_grammar_ancestry [
-  "panLang", "itreeTau", "alignment",
+  "panLang", "alignment",
   "finite_map", "misc", "wordLang",  "ffi", "lprefix_lub"]
 
 Datatype:

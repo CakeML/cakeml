@@ -15,29 +15,6 @@ local open alignmentTheory
 
 val _ = new_theory "panItreeSemEquiv";
 
-(* Type itree_play_set[local] = “:(itree_el) path -> bool”; *)
-
-(* CoInductive itree_plays: *)
-(*   (t = Ret r ⇒ itree_plays t (stopped_at (INR r))) ∧ *)
-(*   (t = Vis e k ⇒ itree_plays t (stopped_at (INL e))) ∧ *)
-(*   (itree_plays t p ∧ *)
-(*    (toList (LAPPEND (labels p) [|a|]) = SOME labList ⇒ *)
-(*     itree_el t (MAP (λx. SOME x) lablist) = Event e) ⇒ *)
-(*    itree_plays t (pcons (INL e) a p)) *)
-(* End *)
-
-(* CoInductive itree_max_plays: *)
-(* (t = Ret r ⇒ itree_max_plays t (stopped_at (INR r))) ∧ *)
-(* (itree_plays t p ∧ *)
-(*  (toList (LAPPEND (labels p) [|a|]) = SOME lablist ⇒ *)
-(*   itree_el t (MAP (λx. SOME x) lablist) = Return r) ⇒ *)
-(*  itree_max_plays t (pcons (INR r) a p)) ∧ *)
-(* (itree_max_plays t p ∧ *)
-(*  (toList (LAPPEND (labels p) [|a|]) = SOME lablist ⇒ *)
-(*   itree_el t (MAP (λx. SOME x) lablist) = Event e) ⇒ *)
-(*  itree_max_plays t (pcons (INL e) a p)) *)
-(* End *)
-
 Definition query_oracle_def[nocompute]:
   query_oracle ffis (FFI_call s conf bytes) = call_FFI ffis s conf bytes
 End
@@ -107,7 +84,7 @@ End
  outcomes. *)
 Definition same_outcome_def:
   same_outcome or t (r,s) ⇔
-    (itree_oracle_outcome or t) = SOME (r,s)
+    (itree_oracle_outcome or t) = SOME r
 End
 
 (* Main correspondence *)
@@ -128,15 +105,16 @@ End
 Theorem itree_semantics_corres:
   same_behaviour or (itree_semantics s entry) (semantics (s with ffi := or) entry)
 Proof
-  Cases_on ‘semantics (s with ffi := or) entry’
-  (* FBS divergence *)
-  >- (rw [same_behaviour_def] >>
-      rw [Once LLIST_BISIMULATION] >>
-      qexists_tac ‘ioe_trace_rel or’ >>
-      CONJ_TAC
-      >- (pop_assum MP_TAC >>
-          MAP_EVERY qid_spec_tac [‘s’,‘or’,‘entry’,‘l’] >>
-          ho_match_mp_tac ioe_trace_rel_coind)
+  (* Cases_on ‘semantics (s with ffi := or) entry’ *)
+  (* (* FBS divergence *) *)
+  (* >- (rw [same_behaviour_def] >> *)
+  (*     rw [Once LLIST_BISIMULATION] >> *)
+  (*     qexists_tac ‘ioe_trace_rel or’ >> *)
+  (*     CONJ_TAC *)
+  (*     >- (pop_assum MP_TAC >> *)
+  (*         MAP_EVERY qid_spec_tac [‘s’,‘or’,‘entry’,‘l’] >> *)
+  (*         cheat)) *)
+  cheat
 QED
 
 (* XXX: How to make subgoal a type instance (assms and concl) so I can apply

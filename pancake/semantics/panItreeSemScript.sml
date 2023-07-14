@@ -206,22 +206,23 @@ Definition h_handle_call_ret_def:
   (h_handle_call_ret calltyp s (SOME Break,s') = Ret (SOME Error,s')) ∧
   (h_handle_call_ret calltyp s (SOME Continue,s') = Ret (SOME Error,s')) ∧
   (h_handle_call_ret calltyp s (SOME (Return retv),s') = case calltyp of
-                                                  Tail => Ret (SOME (Return retv),empty_locals s')
-                                                 | Ret dvar _ =>
-                                                    if is_valid_value s.locals dvar retv
-                                                    then Ret (NONE,set_var dvar retv (s' with locals := s.locals))
+                                                  NONE => Ret (SOME (Return retv),empty_locals s')
+                                                 | SOME (rt,_) =>
+                                                    if is_valid_value s.locals rt retv
+                                                    then Ret (NONE,set_var rt retv (s' with locals := s.locals))
                                                     else Ret (SOME Error,s')) ∧
   (h_handle_call_ret calltyp s (SOME (Exception eid exn),s') = case calltyp of
-                                                       | Tail => Ret (SOME (Exception eid exn),empty_locals s')
-                                                       | Ret _ NONE => Ret (SOME (Exception eid exn),empty_locals s')
-                                                       | Ret _ (SOME (Handle eid' evar p)) =>
+                                                        NONE => Ret (SOME (Exception eid exn),empty_locals s')
+                                                       | SOME (_,NONE) => Ret (SOME (Exception eid exn),empty_locals s')
+                                                       | SOME (_,(SOME (eid', evar, p))) =>
                                                           if eid = eid'
-                                                          then (case FLOOKUP s.eshapes eid of
-                                                                  SOME sh =>
-                                                                   if shape_of exn = sh ∧ is_valid_value s.locals evar exn
-                                                                   then Vis (INL (p,set_var evar exn (s' with locals := s.locals))) Ret
-                                                                   else Ret (SOME Error,s')
-                                                                 | NONE => Ret (SOME Error,s'))
+                                                          then
+                                                            (case FLOOKUP s.eshapes eid of
+                                                              SOME sh =>
+                                                               if shape_of exn = sh ∧ is_valid_value s.locals evar exn
+                                                               then Vis (INL (p,set_var evar exn (s' with locals := s.locals))) Ret
+                                                               else Ret (SOME Error,s')
+                                                             | NONE => Ret (SOME Error,s'))
                                                           else Ret (SOME (Exception eid exn),empty_locals s')) ∧
   (h_handle_call_ret calltyp s (res,s') = Ret (res,empty_locals s'))
 End
@@ -246,20 +247,20 @@ End
 
 Definition h_prog_rule_ext_call_def:
   h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len s =
-  case (FLOOKUP s.locals conf_len,FLOOKUP s.locals conf_ptr,FLOOKUP s.locals array_len,FLOOKUP s.locals array_ptr) of
+  case (eval s conf_ptr,eval s conf_len,eval s array_ptr,eval s array_len) of
     (SOME (ValWord conf_sz),SOME (ValWord conf_ptr_adr),
-           SOME (ValWord array_sz),SOME (ValWord array_ptr_adr)) =>
-                                    (case (read_bytearray conf_ptr_adr (w2n conf_sz) (mem_load_byte s.memory s.memaddrs s.be),
-                                           read_bytearray array_ptr_adr (w2n array_sz) (mem_load_byte s.memory s.memaddrs s.be)) of
-                                       (SOME conf_bytes,SOME array_bytes) =>
-                                        Vis (INR (FFI_call (explode ffi_name) conf_bytes array_bytes,
-                                            (λres. case res of
-                                                     FFI_final outcome => Ret (SOME (FinalFFI outcome),empty_locals s)
-                                                    | FFI_return new_ffi new_bytes =>
-                                                       let nmem = write_bytearray array_ptr_adr new_bytes s.memory s.memaddrs s.be in
-                                                       Ret (NONE,s with <| memory := nmem; ffi := new_ffi |>)
-                                                       | _ => Ret (SOME Error,s)))) Ret
-                                      | _ => Ret (SOME Error,s))
+     SOME (ValWord array_sz),SOME (ValWord array_ptr_adr)) =>
+     (case (read_bytearray conf_ptr_adr (w2n conf_sz) (mem_load_byte s.memory s.memaddrs s.be),
+            read_bytearray array_ptr_adr (w2n array_sz) (mem_load_byte s.memory s.memaddrs s.be)) of
+        (SOME conf_bytes,SOME array_bytes) =>
+         Vis (INR (FFI_call (explode ffi_name) conf_bytes array_bytes,
+                   (λres. case res of
+                            FFI_final outcome => Ret (SOME (FinalFFI outcome),empty_locals s)
+                           | FFI_return new_ffi new_bytes =>
+                              let nmem = write_bytearray array_ptr_adr new_bytes s.memory s.memaddrs s.be in
+                              Ret (NONE,s with <| memory := nmem; ffi := new_ffi |>)
+                              | _ => Ret (SOME Error,s)))) Ret
+       | _ => Ret (SOME Error,s))
    | _ => Ret (SOME Error,s)
 End
 
@@ -331,7 +332,7 @@ val s = ``(s:('a,'ffi) panSem$state)``;
 
 Definition itree_semantics_def:
   itree_semantics ^s entry =
-  let prog = Call Tail (Label entry) [] in
+  let prog = Call NONE (Label entry) [] in
   (itree_evaluate prog ^s)
 End
 
