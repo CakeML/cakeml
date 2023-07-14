@@ -30,37 +30,6 @@ val format_failure_def = Define`
   format_failure (lno:num) s =
   strlit "c Checking failed for top-level proof step starting at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"`
 
-Definition fib_def:
-  fib n = if n ≤ (1:num) then (1:num) else fib (n-1) + fib(n-2)
-End
-
-val r = translate fib_def;
-
-val f = process_topdecs`
-  fun f x = fib x` |>append_prog;
-
-Theorem f_spec:
-  INT x xv
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "f" (get_ml_prog_state()))
-    [xv]
-    (&(x ≥ 0)) (* Precondition *)
-    (POSTve
-      (λv. &(INT (&(fib (Num x))) v))
-      (λe. &F)
-    )
-Proof
-  rw[]>>
-  xcf "f" (get_ml_prog_state ())>>
-  xpull>>
-  xapp>>
-  xsimpl>>
-  fs[NUM_def,INT_def]>>
-  qexists_tac`Num x`>>simp[]>>
-  intLib.ARITH_TAC
-QED
-
 val r = translate format_failure_def;
 
 val r = translate OPTION_MAP2_DEF;
@@ -390,11 +359,17 @@ Proof
   fs[EL_REPLICATE]
 QED
 
+Definition coeff_lit_string_def:
+  coeff_lit_string (c,v:var) =
+    if c < 0
+    then toString (Num ~c) ^ strlit" ~x"^ toString v
+    else toString (Num c) ^ strlit" x"^ toString v
+End
+
 Definition npbc_lhs_string_def:
   npbc_lhs_string (xs: ((int # var) list)) =
   concatWith (strlit" ")
-    (MAP(λ(i,v).
-      if i < 0 then strlit"x"^ toString v else strlit"~x"^ toString v) xs)
+    (MAP coeff_lit_string xs)
 End
 
 Definition npbc_string_def:
@@ -413,6 +388,14 @@ Definition err_check_string_def:
     strlit" got: ";
     npbc_string c']
 End
+
+val res = translate coeff_lit_string_def;
+
+val coeff_lit_string_side = Q.prove(
+  `∀n. coeff_lit_string_side n ⇔ T`,
+  EVAL_TAC>>rw[]>>
+  intLib.ARITH_TAC
+) |> update_precondition;
 
 val res = translate npbc_lhs_string_def;
 val res = translate npbc_string_def;
