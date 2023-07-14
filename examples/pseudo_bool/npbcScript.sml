@@ -811,8 +811,8 @@ Definition subst_opt_aux_acc_def:
         subst_opt_aux_acc f rest a1 ((0-c,n)::a2) k F
 End
 
-(* The returned flag is T if any literal touched by the constraint is
-   itself assigned to T under the substitution *)
+(* The returned flag is T if any literal touched by the
+    constraint is itself assigned to T under the substitution *)
 Definition subst_opt_aux_def:
   subst_opt_aux f [] = ([],[],0,T) ∧
   subst_opt_aux f ((c,l)::rest) =
@@ -903,7 +903,7 @@ Definition subst_opt_def:
         let (sorted,k2) = clean_up new in
         let (result,k3) = add_lists old sorted in
         let res = (result,n - (k + k2 + k3)) in
-        if imp (l,n) res then NONE
+        if SND res = 0 ∨ imp (l,n) res then NONE
         else SOME res
 End
 
@@ -914,7 +914,7 @@ Theorem subst_opt_eq:
         let (sorted,k2) = clean_up new in
         let (result,k3) = add_lists old sorted in
         let res = (result,n - (k + k2 + k3)) in
-        if imp (l,n) res then NONE
+        if SND res = 0 ∨ imp (l,n) res then NONE
         else SOME res
 Proof
   fs [subst_opt_aux_acc,subst_opt_def]
@@ -967,6 +967,13 @@ Proof
   Cases_on ‘c’ \\ fs [subst_opt_eq]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rw[]
+  >- (
+    simp[subst_def,subst_lhs_def]>>
+    rpt (pairarg_tac \\ fs [])>>
+    drule subst_opt_aux_thm_1>>
+    rw[]>>fs[]>>rw[]>>
+    simp[satisfies_npbc_def]>>
+    gvs[])
   >- (
     simp[subst_def,subst_lhs_def]>>
     rpt (pairarg_tac \\ fs [])>>

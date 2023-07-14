@@ -14,3 +14,9 @@ CC=gcc
 endif
 
 cake_pb.S : *npbc_fullCompileScript.sml
+
+cake_pb_iso.S : *subgraph_isoCompileScript.sml
+
+cake_pb_mcis.S : *mcisCompileScript.sml
+
+cake_pb_mccis.S : *mccisCompileScript.sml

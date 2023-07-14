@@ -2511,6 +2511,23 @@ End
 
 val res = translate parse_concl_output_def;
 
+Definition cons_line_def:
+  cons_line ls =
+  concatWith (strlit" ")
+  (MAP
+    (λn. case n of INL s => s | INR i => int_to_string #"-" i) ls)
+End
+
+val res = translate cons_line_def;
+
+Definition mk_parse_err_def:
+  mk_parse_err s =
+    strlit "unable to parse line (or conclusion) at: " ^
+    cons_line s
+End
+
+val res = translate mk_parse_err_def;
+
 (* Parse the conclusion from the rest of the file and check it *)
 val run_concl_file = process_topdecs`
   fun run_concl_file fd f_ns lno s
@@ -2520,7 +2537,7 @@ val run_concl_file = process_topdecs`
     val ls = TextIO.b_inputAllTokens fd blanks tokenize_fast
   in
     case parse_concl_output s f_ns ls of
-      None => Inl (format_failure lno "failed to parse output / conclusion section")
+      None => Inl (format_failure lno (mk_parse_err s))
     | Some hconcl =>
       if check_hconcl_arr fml obj fml' chk' obj' bound' hconcl
       then
@@ -2586,7 +2603,7 @@ Proof
   rename1`OPTION_TYPE _ hconcls`>>
   Cases_on`hconcls`>>fs[OPTION_TYPE_def]>>xmatch
   >- (
-    xlet_autop>>
+    rpt xlet_autop>>
     xcon>>xsimpl>>
     rename1`STRING_TYPE ss _`>>
     qexists_tac`INL ss`>>simp[SUM_TYPE_def])>>
