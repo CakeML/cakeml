@@ -390,6 +390,34 @@ Proof
   fs[EL_REPLICATE]
 QED
 
+Definition npbc_lhs_string_def:
+  npbc_lhs_string (xs: ((int # var) list)) =
+  concatWith (strlit" ")
+    (MAP(λ(i,v).
+      if i < 0 then strlit"x"^ toString v else strlit"~x"^ toString v) xs)
+End
+
+Definition npbc_string_def:
+  (npbc_string (xs,i:num) =
+    concat [
+      npbc_lhs_string xs;
+      strlit" >= ";
+      toString  i; strlit ";"])
+End
+
+Definition err_check_string_def:
+  err_check_string c c' =
+  concat[
+    strlit"constraint id check failed. expect: ";
+    npbc_string c;
+    strlit" got: ";
+    npbc_string c']
+End
+
+val res = translate npbc_lhs_string_def;
+val res = translate npbc_string_def;
+val res = translate err_check_string_def;
+
 val check_lstep_arr = process_topdecs`
   fun check_lstep_arr lno step core fml inds mindel id =
   case step of
@@ -398,7 +426,7 @@ val check_lstep_arr = process_topdecs`
       None => raise Fail (format_failure lno ("invalid constraint id: " ^ Int.toString n))
     | Some c' =>
       if c = c' then (fml, (id, inds))
-      else raise Fail (format_failure lno ("constraint id check failed")))
+      else raise Fail (format_failure lno (err_check_string c c')))
   | Noop => (fml, (id, inds))
   | Delete ls =>
       if every_less mindel core ls then
