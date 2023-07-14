@@ -9651,6 +9651,14 @@ Proof
   metis_tac[asm_fetch_aux_eq]
 QED
 
+Theorem
+(!index. index < l /\ l < LENGTH mc_conf.ffi_entry_pcs ==>
+  find_index (-n2w (ffi_offset * (index + 3)) + mc_conf.target.get_pc ms)
+  mc_conf.ffi_entry_pcs 0 = SOME index) ==>
+EL index mc_conf.ffi_entry_pcs = (-n2w (ffi_offset * (index + 3)) + mc_conf.target.get_pc ms)
+Proof
+QED
+
 (* TODO *)
 val semantics_compile_lemma = Q.prove(
   ` mc_conf_ok mc_conf ∧
@@ -9754,16 +9762,23 @@ val semantics_compile_lemma = Q.prove(
   gvs[start_pc_ok_def,MEM_EL] >>
   rw[] >>
   spose_not_then assume_tac >>
-  Cases_on `n < LENGTH ffis`
+  gvs[] >>
+  Cases_on`c.ffi_names`>>
   >- (
-    Cases_on`c.ffi_names`>>
-    gvs[] >>
-    qspec_then `code` assume_tac find_ffi_names_ALL_DISTINCT >>
+    Cases_on `n < LENGTH ffis` >- (
+(*    qspec_then `code` assume_tac find_ffi_names_ALL_DISTINCT >>
     drule FILTER_ALL_DISTINCT >>
-    disch_then $ qspec_then `\x. x <> "MappedRead" /\ x <> "MappedWrite"` assume_tac >>
-    first_x_assum $ drule_then assume_tac >>
-    first_x_assum $ drule_then assume_tac >>
-    gvs[] >>
+    disch_then $ qspec_then `\x. x <> "MappedRead" /\ x <> "MappedWrite"` assume_tac >>*)
+      first_x_assum $ drule_then assume_tac >>
+      first_x_assum $ drule_then assume_tac >>
+      first_x_assum $ drule_then assume_tac >>
+      rw[]>>
+      gvs[find_index_LEAST_EL] >>
+      `-n2w (ffi_offset * (n + 3)) + mc_conf.target.get_pc ms =
+           EL n mc_conf.ffi_entry_pcs` by cheat >>
+      first_x_assum $ assume_tac o GSYM
+      gvs[addressTheory.word_arith_lemma1,WORD_LITERAL_ADD,word_eq_n2w]
+    )
     gvs[find_index_ALL_DISTINCT_EL_eq,find_index_APPEND1] >>
     (* TODO *)
   )
