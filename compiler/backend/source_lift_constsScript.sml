@@ -218,8 +218,9 @@ Definition lift_exp_def:
        if is_trivial e then
          (e,n,xs)
        else
-         let new_name = make_name n in
-           (Var (Short (explode new_name)),n+1,(new_name,e)::xs)
+         let (e1,n1,xs1) = lift_exp F xs n e in
+         let new_name = make_name n1 in
+           (Var (Short (explode new_name)),n1+1,(new_name,e1)::xs1)
      else lift_exp allow xs n e) ∧
   (lift_exp allow xs n (ast$Lit l) =
      (Lit l,n,xs)) ∧
@@ -300,9 +301,10 @@ End
  * --------------------------------------------------------- *)
 
 Definition make_local_def:
-  make_local l xs d =
+  make_local xs d =
     if NULL xs then d else
-      Dlocal (MAP (λ(n,e). Dlet l (Pvar (explode n)) e) (REVERSE xs)) [d]
+      Dlocal (MAP (λ(n,e).
+        Dlet unknown_loc (Pvar (explode n)) e) (REVERSE xs)) [d]
 End
 
 Definition compile_dec_def:
@@ -310,13 +312,13 @@ Definition compile_dec_def:
     (let (e,n,fvs) = annotate_exp [] e in
      let np = MAX n (bump_pat 0 p) in
      let (e,n,xs) = lift_exp F [] (MAX n np) e in
-       make_local l xs (Dlet l p e)) ∧
+       make_local xs (Dlet l p e)) ∧
   compile_dec (Dletrec l funs) =
     (let names = MAP FST funs in
      let (funs,n,fvs) = annotate_funs names funs in
     let np = MAX n (bump_all names 0) in
      let (funs,n,xs) = lift_funs T [] np funs in
-       make_local l xs (Dletrec l funs)) ∧
+       make_local xs (Dletrec l funs)) ∧
   compile_dec (Dtype l tds) = Dtype l tds ∧
   compile_dec (Dtabbrev l x y z) = Dtabbrev l x y z ∧
   compile_dec (Dexn l x y) = Dexn l x y ∧

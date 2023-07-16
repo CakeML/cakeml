@@ -145,8 +145,7 @@ val eval_simulation_setup = setup (‘
            state_rel (:'a) s' t' ∧
            result_rel (LIST_REL v_rel) v_rel res res') ∧
      (* running altered code: *)
-     (∀ s' b n3 res t env' exps1 exps2 exps3 n2 n4 xs binders fvs locs ws0 env0
-       (t0:'ffi semanticPrimitives$state).
+     (∀ s' b n3 res t env' exps1 exps2 exps3 n2 n4 xs binders fvs ws0 env0.
          evaluate s env exps = (s', res) ∧
          state_rel (:'a) s t ∧
          annotate_exps binders (REVERSE exps) = (exps1,n2,fvs) ∧ n2 ≤ n3 ∧
@@ -157,15 +156,20 @@ val eval_simulation_setup = setup (‘
          res <> Rerr (Rabort Rtype_error) ==>
          ∃ws.
            EVERY (every_exp (one_con_check env.c)) exps3 ∧
-           evaluate_decs t0 env0
-             (MAP (λ(n,e). Dlet locs (Pvar (explode n)) e) (REVERSE xs)) =
-             (t0,Rval (<|v := alist_to_ns ws; c := nsEmpty|> )) ∧
+           (∀(t0:'ffi semanticPrimitives$state).
+             evaluate_decs t0 env0
+               (MAP (λ(n,e). Dlet unknown_loc (Pvar (explode n)) e) (REVERSE xs)) =
+               (t0,Rval (<|v := alist_to_ns ws; c := nsEmpty|>))) ∧
            (∀env3.
               EVERY (can_lookup env3.v) ws ∧ weak_env_rel fvs env env3 ⇒
               ∃t' res'.
-                evaluate t env3 exps3 = (t', res') ∧
+                evaluate t env3 (REVERSE exps3) = (t', res') ∧
                 state_rel (:'a) s' t' ∧
-                result_rel (LIST_REL v_rel) v_rel res res')))
+                result_rel (LIST_REL v_rel) v_rel res res' ∧
+                (EVERY is_Constant exps1 ⇒
+                 ∀(t_any:'ffi semanticPrimitives$state).
+                   evaluate t_any env3 (REVERSE exps3) = (t_any, res') ∧
+                   ∃success. res' = Rval success))))
   ∧
   (∀ ^s env x pes err_x s' res es t env' y err_y.
      evaluate_match s env x pes err_x = (s', res) ∧
@@ -489,84 +493,75 @@ QED
 Triviality eval_simulation_Con:
   ^(#get_goal eval_simulation_setup `Case ([Con _ _])`)
 Proof
-  cheat
+  rpt strip_tac
+  >- cheat (* no change case *)
+  \\ fs [CaseEq"prod"]
+  \\ gvs [annotate_exp_def]
+  \\ pairarg_tac \\ gvs [CaseEq"bool"]
+  >~ [‘EXISTS ($¬ ∘ is_Constant) es2’] >-
+   (last_x_assum kall_tac
+    \\ last_x_assum drule
+    \\ disch_then drule
+    \\ gvs [lift_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ disch_then $ drule_at $ Pos $ el 2 \\ fs [SF ETA_ss]
+    \\ disch_then drule
+    \\ disch_then drule
+    \\ impl_tac >- (strip_tac \\ gvs [])
+    \\ strip_tac \\ fs []
+    \\ imp_res_tac annotate_exps_LENGTH
+    \\ imp_res_tac lift_exps_LENGTH
+    \\ gvs [] \\ rpt strip_tac
+    \\ fs [evaluate_def]
+    \\ ‘env3.c = env.c’ by gvs [weak_env_rel_def,const_env_rel_def]
+    \\ gvs []
+    \\ first_assum $ drule_all
+    \\ strip_tac \\ gvs [is_Constant_def]
+    \\ Cases_on ‘v2’ \\ gvs []
+    \\ imp_res_tac evaluate_length \\ gvs [build_conv_def]
+    \\ gvs [AllCaseEqs(),v_rel_Conv])
+  \\ rename [‘EVERY is_Constant es2’]
+  \\ fs [lift_exp_def,is_trivial_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ Cases_on ‘~b’ \\ gvs []
+  >- cheat (* uninteresting case *)
+  \\ gvs [CaseEq"bool"]
+  >-
+   (Cases_on ‘es2’ \\ gvs [evaluate_def,lift_exp_def]
+    \\ imp_res_tac annotate_exps_LENGTH \\ gvs []
+    \\ qexists_tac ‘[]’ \\ gvs [build_conv_def]
+    \\ gvs [do_con_check_def,weak_env_rel_def]
+    \\ rpt strip_tac \\ gvs []
+    \\ Cases_on ‘cn’ \\ gvs [v_rel_Conv]
+    \\ gvs [AllCaseEqs(),v_rel_Conv])
+  \\ last_x_assum kall_tac
+  \\ last_x_assum drule
+  \\ disch_then drule
+  \\ disch_then $ drule_at $ Pos $ el 2
+  \\ fs [SF ETA_ss]
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ impl_tac >- (strip_tac \\ gvs [])
+  \\ strip_tac \\ gvs []
+  \\ gvs [evaluate_decs_append,evaluate_decs_def,pat_bindings_def,SF ETA_ss]
+  \\ gvs [evaluate_def,pmatch_def]
+  \\ ‘env0.c = env.c’ by gvs [weak_env_rel_def,const_env_rel_def]
+  \\ imp_res_tac annotate_exps_LENGTH
+  \\ imp_res_tac lift_exps_LENGTH
+  \\ gvs []
+  \\ first_x_assum $ qspec_then ‘<|v := alist_to_ns ws; c := nsEmpty|> +++ env0’ mp_tac
+  \\ impl_tac >- cheat
+  \\ strip_tac \\ gvs [is_Constant_def]
+  \\ Cases_on ‘v2’ \\ gvs []
+  \\ gvs [build_conv_def]
+  \\ Cases_on ‘cn’ \\ gvs []
+  \\ gvs [AllCaseEqs(),combine_dec_result_def,PULL_EXISTS]
+  \\ rename [‘nsBind (explode (make_name n6)) (Conv _ (REVERSE v6))’]
+  \\ qpat_abbrev_tac ‘v66 = Conv _ (REVERSE v6)’
+  \\ qexists_tac ‘(explode (make_name n6),v66)::ws’
+  \\ fs [namespacePropsTheory.alist_to_ns_cons]
+  \\ fs [can_lookup_def,v_rel_Conv,Abbr‘v66’]
 QED
-
-(*
-Triviality eval_simulation_Con:
-  ^(#get_goal eval_simulation_setup `Case ([Con _ _])`)
-Proof
-  rw[]>>
-  (* Altered *)
-  fs[annotate_exp_def]>>
-  rpt (pairarg_tac \\ fs [])>>
-  gvs[Once (AllCaseEqs())]>>
-  (* Instantiate IH *)
-  first_x_assum drule>>
-  disch_then drule>>
-  (* Better case split *)
-  reverse (Cases_on`EVERY is_Constant es'`)>>
-  gvs[]
-  >- (
-    (* No Tannot *)
-    disch_then drule>>
-    fs[lift_exp_def]>>
-    rpt (pairarg_tac \\ fs [])>>
-    gvs[]>>
-    rpt(disch_then (drule_at Any))>>
-    simp[GSYM PULL_FORALL]>>
-    impl_tac>- (
-      every_case_tac>>gvs[]>>
-      metis_tac[ETA_AX])>>
-    disch_then(qspecl_then[`t0`] assume_tac)>>
-    rfs[]>>
-    first_x_assum (irule_at Any)>>
-    CONJ_ASM1_TAC >-
-      metis_tac[annotate_exps_LENGTH,lift_exps_LENGTH]>>
-    CONJ_TAC >-
-      metis_tac[ETA_AX]>>
-    rw[]>>first_x_assum drule_all>>
-    strip_tac>>
-    simp[evaluate_def]>>
-    gvs[weak_env_rel_def,AllCaseEqs()]>>
-    simp[PULL_EXISTS]>>
-    drule_at (Pos last) build_conv_v_rel>>
-    disch_then match_mp_tac>>
-    metis_tac[LIST_REL_REVERSE_EQ])>>
-  (* Tannot *)
-  disch_then drule>>
-  fs[lift_exp_def]>>
-  rpt (pairarg_tac \\ fs [])>>
-  gvs[]>>
-  rpt(disch_then (drule_at Any))>>
-  simp[GSYM PULL_FORALL]>>
-  impl_tac>- (
-    every_case_tac>>gvs[]>>
-    metis_tac[ETA_AX])>>
-  reverse (Cases_on`b`)>>gvs[]
-  >- (
-    disch_then(qspecl_then[`t0`] assume_tac)>>
-    rfs[]>>
-    first_x_assum (irule_at Any)>>
-    CONJ_ASM1_TAC >-
-      metis_tac[annotate_exps_LENGTH,lift_exps_LENGTH]>>
-    CONJ_TAC >-
-      metis_tac[ETA_AX]>>
-    rw[]>>first_x_assum drule_all>>
-    strip_tac>>
-    simp[evaluate_def]>>
-    gvs[weak_env_rel_def,AllCaseEqs()]>>
-    simp[PULL_EXISTS]>>
-    drule_at (Pos last) build_conv_v_rel>>
-    disch_then match_mp_tac>>
-    metis_tac[LIST_REL_REVERSE_EQ])>>
-  Cases_on`is_trivial (Con cn es')`>>gvs[]
-  >- cheat >>
-  (* Need to know that all elems of the tuple eval to
-    some constant value *)
-  cheat
-QED
-*)
 
 Triviality eval_simulation_Let:
   ^(#get_goal eval_simulation_setup `Case ([Let _ _ _])`)
@@ -597,8 +592,7 @@ Proof
     metis_tac[map_ok_annotate_exp_cmp,SND,mlmapTheory.delete_thm])
   \\ disch_then drule
   \\ disch_then drule
-  \\ disch_then $ qspecl_then [‘locs’,‘t0’] strip_assume_tac
-  \\ fs []
+  \\ fs [is_Constant_def]
   \\ reverse (Cases_on ‘v2’) \\ gvs []
   >- cheat (* easier case *)
   \\ gvs [PULL_EXISTS]
@@ -622,12 +616,14 @@ Proof
   \\ rename [‘v_rel v1 v2’]
   \\ disch_then $ qspecl_then [‘<|v := alist_to_ns ws; c := nsEmpty|> +++ env3
                 with v := nsBind x v1 (<|v := alist_to_ns ws; c := nsEmpty|> +++ env3).v’,
-            ‘locs’,‘<|v := alist_to_ns ws; c := nsEmpty|> +++ env0’,‘t0’] mp_tac
+            ‘<|v := alist_to_ns ws; c := nsEmpty|> +++ env0’] mp_tac
   \\ impl_tac >- cheat
   \\ fs []
+  \\ strip_tac \\ fs []
+  \\ cheat (*
   \\ disch_then $ qspec_then ‘env3 with v := nsBind x v2 env3.v’ mp_tac
   \\ impl_tac >- cheat
-  \\ strip_tac \\ fs [evaluate_def,namespaceTheory.nsOptBind_def]
+  \\ strip_tac \\ fs [evaluate_def,namespaceTheory.nsOptBind_def] *)
 QED
 
 Triviality eval_simulation_Fun:
@@ -648,11 +644,14 @@ Proof
   \\ ‘env0.c = env.c’ by gvs [const_env_rel_def,weak_env_rel_def]
   \\ ‘every_exp (one_con_check env.c) e'’ by cheat
   \\ fs [evaluate_def,pmatch_def]
-  \\ qexists_tac ‘[(explode (make_name n3)),(Closure env0 x e')]’
-  \\ fs [namespaceTheory.alist_to_ns_def,can_lookup_def]
-  \\ rw []
-  \\ cheat (* this seems a bit off, the inside exp ought to be e''',
-              we might need a better induction if we recurse into the lambda *)
+  \\ drule_all ann_list_exp_imp_eval_consts
+  \\ disch_then $ qspecl_then [‘t0’,‘locs’,‘env0’] strip_assume_tac
+  \\ fs [evaluate_decs_append]
+  \\ fs [evaluate_decs_def,evaluate_def,pat_bindings_def,pmatch_def,
+         combine_dec_result_def,namespaceTheory.nsBind_def,
+         namespaceTheory.alist_to_ns_def]
+  \\ rw [] \\ fs [can_lookup_def]
+  \\ cheat (* v_rel clos *)
 QED
 
 Triviality eval_simulation_Letrec:
@@ -694,7 +693,9 @@ QED
 Triviality eval_simulation_cons_cons:
   ^(#get_goal eval_simulation_setup `Case ((e1:exp)::e2::es)`)
 Proof
-  cheat
+  rpt strip_tac
+  >- cheat
+  \\ cheat
 QED
 
 Triviality eval_simulation_Tannot:
@@ -792,8 +793,9 @@ Proof
 QED
 
 Triviality evaluate_decs_make_local:
-  evaluate_decs st env [make_local l xs d] =
-  evaluate_decs st env [Dlocal (MAP (λ(n,e). Dlet l (Pvar (explode n)) e) (REVERSE xs)) [d]]
+  evaluate_decs st env [make_local xs d] =
+  evaluate_decs st env [Dlocal (MAP (λ(n,e).
+    Dlet unknown_loc (Pvar (explode n)) e) (REVERSE xs)) [d]]
 Proof
   rw [make_local_def] \\ Cases_on ‘xs’ \\ fs []
   \\ gvs [evaluate_decs_def,extend_dec_env_def]
@@ -832,7 +834,7 @@ Proof
   \\ fs [MAX_ASSOC]
   \\ disch_then $ qspecl_then [‘F’,‘MAX n (bump_pat 0 p)’] mp_tac
   \\ fs []
-  \\ disch_then $ qspecl_then [‘env'’,‘locs’,‘env'’,‘t’] mp_tac
+  \\ disch_then $ qspecl_then [‘env'’,‘env'’] mp_tac
   \\ impl_tac >-
    (gvs [weak_env_rel_def,GSYM CONJ_ASSOC,const_env_rel_def]
     \\ conj_tac >- fs [env_rel_def]
