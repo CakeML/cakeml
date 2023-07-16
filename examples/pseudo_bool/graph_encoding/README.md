@@ -1,5 +1,8 @@
 Encoders for various graph problems
 
+[cliqueScript.sml](cliqueScript.sml):
+Formalization of the max clique problem
+
 [graph_basicScript.sml](graph_basicScript.sml):
 Basic graph notions
 

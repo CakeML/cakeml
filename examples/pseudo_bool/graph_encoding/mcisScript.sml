@@ -509,7 +509,7 @@ Proof
         gvs[edge_map_def,MEM_if,MEM_neighbours]>>
         simp[satisfies_pbc_def,MAP_MAP_o,o_DEF,eval_lin_term_def]>>
         `b < vp` by
-          (fs[good_graph_def,is_edge_thm]>>
+          (fs[good_graph_eq,is_edge_thm]>>
           metis_tac[])>>
         simp[]>>
         reverse (Cases_on`b ∈ vs`)>>fs[]
@@ -635,7 +635,7 @@ Proof
     disch_then(qspec_then`n` mp_tac)>>
     simp[])
   >- (
-    fs[Abbr`dom`,good_graph_def]>>
+    fs[Abbr`dom`,good_graph_eq]>>
     first_assum(qspec_then`a` mp_tac)>>
     first_x_assum(qspec_then`b` drule)>>
     simp[]>> rw[]>>
@@ -674,7 +674,7 @@ Proof
     fs[MEM_neighbours]>>
     metis_tac[is_edge_thm])
   >- (
-    fs[Abbr`dom`,good_graph_def]>>
+    fs[Abbr`dom`,good_graph_eq]>>
     first_assum(qspec_then`a` mp_tac)>>
     first_x_assum(qspec_then`b` drule)>>
     simp[]>> rw[]>>
@@ -927,7 +927,7 @@ Proof
   strip_tac>>
   drule is_walk_SNOC>>
   `is_edge e h a` by
-    (fs[good_graph_def,is_edge_def]>>
+    (fs[good_graph_eq,is_edge_def]>>
     Cases_on`lookup a e`>>fs[])>>
   disch_then drule>>
   simp[SNOC_APPEND]>>
@@ -1494,7 +1494,7 @@ Proof
         gvs[edge_map_def,MEM_if,MEM_neighbours]>>
         simp[satisfies_pbc_def,MAP_MAP_o,o_DEF,eval_lin_term_def]>>
         `b < vp` by
-          (fs[good_graph_def,is_edge_thm]>>
+          (fs[good_graph_eq,is_edge_thm]>>
           metis_tac[])>>
         simp[]>>
         reverse (Cases_on`b ∈ vs`)>>fs[]
@@ -1684,7 +1684,7 @@ Proof
     disch_then(qspec_then`n` mp_tac)>>
     simp[])
   >- (
-    fs[Abbr`dom`,good_graph_def]>>
+    fs[Abbr`dom`,good_graph_eq]>>
     first_assum(qspec_then`a` mp_tac)>>
     first_x_assum(qspec_then`b` drule)>>
     simp[]>> rw[]>>
@@ -1723,7 +1723,7 @@ Proof
     fs[MEM_neighbours]>>
     metis_tac[is_edge_thm])
   >- (
-    fs[Abbr`dom`,good_graph_def]>>
+    fs[Abbr`dom`,good_graph_eq]>>
     first_assum(qspec_then`a` mp_tac)>>
     first_x_assum(qspec_then`b` drule)>>
     simp[]>> rw[]>>

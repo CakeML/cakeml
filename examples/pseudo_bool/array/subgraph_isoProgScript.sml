@@ -1,151 +1,21 @@
 (*
   Subgraph isomorphism encoder and checker
 *)
-open preamble basis pbc_normaliseTheory npbc_parseProgTheory subgraph_isoTheory graph_basicTheory;
+open preamble basis pbc_normaliseTheory graphProgTheory subgraph_isoTheory graph_basicTheory;
 
 val _ = new_theory "subgraph_isoProg";
 
-val _ = translation_extends "npbc_parseProg";
+val _ = translation_extends "graphProg";
 
 val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
-(* parsing
-  TODO: duplicated code in mcisProg *)
-val _ = translate graph_basicTheory.tokenize_num_def;
-
-val _ = translate parse_num_list_def;
-val _ = translate parse_edges_def;
-val _ = translate parse_lad_toks_def;
-
-Theorem check_good_edges_inner_thm:
-  check_good_edges_inner u v es ⇔
-  case lookup u es of NONE => F | SOME edges => MEMBER v edges
-Proof
-  fs[check_good_edges_inner_def,MEMBER_INTRO]>>
-  metis_tac[]
-QED
-
-val _ = translate check_good_edges_inner_thm;
-
-val _ = translate (check_good_edges_def |> SIMP_RULE std_ss [GSYM check_good_edges_inner_def]);
-val _ = translate check_good_graph_def;
-
-val tokenize_num_v_thm = theorem "tokenize_num_v_thm";
-
-val b_inputAllTokensFrom_spec_specialize =
-  b_inputAllTokensFrom_spec
-  |> Q.GEN `f` |> Q.SPEC`blanks`
-  |> Q.GEN `fv` |> Q.SPEC`blanks_v`
-  |> Q.GEN `g` |> Q.ISPEC`tokenize_num`
-  |> Q.GEN `gv` |> Q.ISPEC`tokenize_num_v`
-  |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE NUM`
-  |> REWRITE_RULE [blanks_v_thm,tokenize_num_v_thm] ;
-
-val noparse_string_def = Define`
-  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]`;
-
-val r = translate noparse_string_def;
-
-val parse_lad = (append_prog o process_topdecs) `
-  fun parse_lad f =
-  (case TextIO.b_inputAllTokensFrom f blanks tokenize_num of
-    None => Inl (notfound_string f)
-  | Some lines =>
-  (case parse_lad_toks lines of
-    None => Inl (noparse_string f "LAD")
-  | Some x =>
-    if check_good_graph x then
-      Inr x
-    else Inl ("c Input graph " ^ f ^ " fails undirectedness check\n")))`
-
-Theorem blanks_eq[simp]:
-  graph_basic$blanks = pb_parse$blanks
-Proof
-  rw[FUN_EQ_THM]>>
-  simp[pb_parseTheory.blanks_def,blanks_def]
-QED
-
-Overload "graph_TYPE" = ``PAIR_TYPE NUM (SPTREE_SPT_TYPE (LIST_TYPE NUM))``;
-
-(* get_graph *)
-Definition get_graph_def:
-  get_graph fs f =
-  if inFS_fname fs f then
-    case parse_lad (all_lines fs f) of
-      NONE => NONE
-    | SOME g =>
-      if good_graph g then
-        SOME g
-      else NONE
-  else NONE
-End
-
-Theorem parse_lad_spec:
-  STRING_TYPE f fv ∧
-  validArg f ∧
-  hasFreeFD fs
-  ⇒
-  app (p:'ffi ffi_proj) ^(fetch_v"parse_lad"(get_ml_prog_state()))
-    [fv]
-    (STDIO fs)
-    (POSTv v.
-    & (∃err. SUM_TYPE STRING_TYPE graph_TYPE
-      (case get_graph fs f of
-        NONE => INL err
-      | SOME res => INR res) v) * STDIO fs)
-Proof
-  rw[]>>
-  xcf"parse_lad"(get_ml_prog_state())>>
-  reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
-  reverse (Cases_on`consistentFS fs`) >- (
-    fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def]
-    \\ xpull \\ metis_tac[]) >>
-  xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE NUM)))
-            (if inFS_fname fs f then
-               SOME(MAP (MAP tokenize_num o tokens blanks) (all_lines fs f))
-             else NONE) sv * STDIO fs)`
-  >- (
-    xapp_spec b_inputAllTokensFrom_spec_specialize >>
-    xsimpl>>
-    fs[FILENAME_def,validArg_def,blanks_v_thm]>>
-    EVAL_TAC)>>
-  simp[get_graph_def]>>
-  reverse IF_CASES_TAC>>fs[OPTION_TYPE_def]>>xmatch
-  >- (
-    xlet_autop>>
-    xcon>>xsimpl>>
-    simp[SUM_TYPE_def]>>metis_tac[])>>
-  xlet_autop>>
-  `toks_num = (MAP tokenize_num ∘ tokens blanks)` by
-    metis_tac[toks_num_def,ETA_AX,o_DEF]>>
-  Cases_on`parse_lad (all_lines fs f)`>>
-  gvs[parse_lad_def,OPTION_TYPE_def]
-  >- (
-    xmatch >>
-    xlet_autop>>
-    xcon>>xsimpl>>
-    simp[SUM_TYPE_def]>>metis_tac[])>>
-  xmatch>>
-  xlet_autop>>
-  fs[check_good_graph_iff]>>
-  xif
-  >- (
-    xcon>>xsimpl>>
-    simp[SUM_TYPE_def])>>
-  rpt xlet_autop>>
-  xcon>>xsimpl>>
-  simp[SUM_TYPE_def]>>
-  metis_tac[]
-QED
-
-(* Translate the encoder *)
+(* The encoder *)
 val _ = translate has_mapping_def;
 val _ = translate all_has_mapping_def;
 
 val _ = translate one_one_def;
 val _ = translate all_one_one_def;
 
-val _ = translate graph_basicTheory.neighbours_def;
 val _ = translate edge_map_def;
 val _ = translate all_edge_map_def;
 val _ = translate encode_def;
@@ -185,11 +55,11 @@ Theorem parse_and_enc_spec:
           (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT))) res v ∧
       case res of
         INL err =>
-        get_graph fs f1 = NONE ∨ get_graph fs f2 = NONE
+        get_graph_lad fs f1 = NONE ∨ get_graph_lad fs f2 = NONE
       | INR pbf =>
         ∃g1 g2.
-        get_graph fs f1 = SOME g1 ∧
-        get_graph fs f2 = SOME g2 ∧
+        get_graph_lad fs f1 = SOME g1 ∧
+        get_graph_lad fs f2 = SOME g2 ∧
         full_encode g1 g2 = pbf)
 Proof
   rw[]>>
@@ -223,8 +93,8 @@ Definition check_unsat_3_sem_def:
   check_unsat_3_sem fs f1 f2 out ⇔
   (out ≠ strlit"" ⇒
   ∃gp gt.
-    get_graph fs f1 = SOME gp ∧
-    get_graph fs f2 = SOME gt ∧
+    get_graph_lad fs f1 = SOME gp ∧
+    get_graph_lad fs f2 = SOME gt ∧
     (
     out = UNSAT_string ∧ ¬ has_subgraph_iso gp gt ∨
     out = SAT_string ∧ has_subgraph_iso gp gt
@@ -353,7 +223,7 @@ Proof
     (drule_at Any) full_encode_sem_concl>>
     fs[]>>
     impl_tac >-
-      (fs[get_graph_def]>>every_case_tac>>gvs[])>>
+      (fs[get_graph_lad_def]>>every_case_tac>>gvs[])>>
     simp[])
   >- (
     xapp>>xsimpl>>
@@ -367,7 +237,7 @@ Proof
     (drule_at Any) full_encode_sem_concl>>
     fs[]>>
     impl_tac >-
-      (fs[get_graph_def]>>every_case_tac>>gvs[])>>
+      (fs[get_graph_lad_def]>>every_case_tac>>gvs[])>>
     simp[])>>
   xapp_spec output_stderr_spec \\ xsimpl>>
   asm_exists_tac>>xsimpl>>
@@ -383,10 +253,10 @@ QED
 
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 f2 out ⇔
-  case get_graph fs f1 of
+  case get_graph_lad fs f1 of
     NONE => out = strlit ""
   | SOME gpp =>
-  case get_graph fs f2 of
+  case get_graph_lad fs f2 of
     NONE => out = strlit ""
   | SOME gtt =>
     out = concat (print_pbf (NONE, full_encode gpp gtt))

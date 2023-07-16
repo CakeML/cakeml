@@ -1,168 +1,22 @@
 (*
   MCIS (unconnected) encode and checker
 *)
-open preamble basis pbc_normaliseTheory npbc_parseProgTheory mcisTheory graph_basicTheory;
+open preamble basis pbc_normaliseTheory graphProgTheory mcisTheory graph_basicTheory;
 
 val _ = new_theory "mcisProg"
 
-val _ = translation_extends"npbc_parseProg";
+val _ = translation_extends"graphProg";
 
 val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
-(* parsing
-  TODO: blanks already translated using the copy in pb_parse
-  val _ = translate graph_basicTheory.blanks_def; *)
-val _ = translate graph_basicTheory.tokenize_num_def;
-
-val _ = translate parse_num_list_def;
-val _ = translate parse_edges_def;
-val _ = translate parse_lad_toks_def;
-
-Theorem check_good_edges_inner_thm:
-  check_good_edges_inner u v es ⇔
-  case lookup u es of NONE => F | SOME edges => MEMBER v edges
-Proof
-  fs[check_good_edges_inner_def,MEMBER_INTRO]>>
-  metis_tac[]
-QED
-
-val _ = translate check_good_edges_inner_thm;
-
-val _ = translate (check_good_edges_def |> SIMP_RULE std_ss [GSYM check_good_edges_inner_def]);
-val _ = translate check_good_graph_def;
-
-val tokenize_num_v_thm = theorem "tokenize_num_v_thm";
-
-val b_inputAllTokensFrom_spec_specialize =
-  b_inputAllTokensFrom_spec
-  |> Q.GEN `f` |> Q.SPEC`blanks`
-  |> Q.GEN `fv` |> Q.SPEC`blanks_v`
-  |> Q.GEN `g` |> Q.ISPEC`tokenize_num`
-  |> Q.GEN `gv` |> Q.ISPEC`tokenize_num_v`
-  |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE NUM`
-  |> REWRITE_RULE [blanks_v_thm,tokenize_num_v_thm] ;
-
-val noparse_string_def = Define`
-  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]`;
-
-val r = translate noparse_string_def;
-
-val parse_lad = (append_prog o process_topdecs) `
-  fun parse_lad f =
-  (case TextIO.b_inputAllTokensFrom f blanks tokenize_num of
-    None => Inl (notfound_string f)
-  | Some lines =>
-  (case parse_lad_toks lines of
-    None => Inl (noparse_string f "LAD")
-  | Some x =>
-    if check_good_graph x then
-      Inr x
-    else Inl ("c Input graph " ^ f ^ " fails undirectedness check\n")))`
-
-Theorem blanks_eq[simp]:
-  graph_basic$blanks = pb_parse$blanks
-Proof
-  rw[FUN_EQ_THM]>>
-  simp[pb_parseTheory.blanks_def,blanks_def]
-QED
-
-Overload "graph_TYPE" = ``PAIR_TYPE NUM (SPTREE_SPT_TYPE (LIST_TYPE NUM))``;
-
-(* get_graph *)
-Definition get_graph_def:
-  get_graph fs f =
-  if inFS_fname fs f then
-    case parse_lad (all_lines fs f) of
-      NONE => NONE
-    | SOME g =>
-      if good_graph g then
-        SOME g
-      else NONE
-  else NONE
-End
-
-Theorem parse_lad_spec:
-  STRING_TYPE f fv ∧
-  validArg f ∧
-  hasFreeFD fs
-  ⇒
-  app (p:'ffi ffi_proj) ^(fetch_v"parse_lad"(get_ml_prog_state()))
-    [fv]
-    (STDIO fs)
-    (POSTv v.
-    & (∃err. SUM_TYPE STRING_TYPE graph_TYPE
-      (case get_graph fs f of
-        NONE => INL err
-      | SOME res => INR res) v) * STDIO fs)
-Proof
-  rw[]>>
-  xcf"parse_lad"(get_ml_prog_state())>>
-  reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
-  reverse (Cases_on`consistentFS fs`) >- (
-    fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def]
-    \\ xpull \\ metis_tac[]) >>
-  xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE NUM)))
-            (if inFS_fname fs f then
-               SOME(MAP (MAP tokenize_num o tokens blanks) (all_lines fs f))
-             else NONE) sv * STDIO fs)`
-  >- (
-    xapp_spec b_inputAllTokensFrom_spec_specialize >>
-    xsimpl>>
-    fs[FILENAME_def,validArg_def,blanks_v_thm]>>
-    EVAL_TAC)>>
-  simp[get_graph_def]>>
-  reverse IF_CASES_TAC>>fs[OPTION_TYPE_def]>>xmatch
-  >- (
-    xlet_autop>>
-    xcon>>xsimpl>>
-    simp[SUM_TYPE_def]>>metis_tac[])>>
-  xlet_autop>>
-  `toks_num = (MAP tokenize_num ∘ tokens blanks)` by
-    metis_tac[toks_num_def,ETA_AX,o_DEF]>>
-  Cases_on`parse_lad (all_lines fs f)`>>
-  gvs[parse_lad_def,OPTION_TYPE_def]
-  >- (
-    xmatch >>
-    xlet_autop>>
-    xcon>>xsimpl>>
-    simp[SUM_TYPE_def]>>metis_tac[])>>
-  xmatch>>
-  xlet_autop>>
-  fs[check_good_graph_iff]>>
-  xif
-  >- (
-    xcon>>xsimpl>>
-    simp[SUM_TYPE_def])>>
-  rpt xlet_autop>>
-  xcon>>xsimpl>>
-  simp[SUM_TYPE_def]>>
-  metis_tac[]
-QED
 
 (* The encoder *)
 val _ = translate has_mapping_def;
 val _ = translate all_has_mapping_def;
 val _ = translate one_one_def;
 val _ = translate all_one_one_def;
-val _ = translate lookup_def;
-val _ = translate graph_basicTheory.neighbours_def;
-
-Theorem is_edge_compute:
-  is_edge e a b =
-  case lookup a e of NONE => F
-  | SOME ns => MEMBER b ns
-Proof
-  simp[graph_basicTheory.is_edge_def]>>
-  every_case_tac>>metis_tac[MEMBER_INTRO]
-QED
-
-val _ = translate is_edge_compute;
 
 val _ = translate edge_map_def;
 
-val _ = translate COUNT_LIST_AUX_def;
-val _ = translate COUNT_LIST_compute;
-val _ = translate (graph_basicTheory.not_neighbours_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
 val _ = translate not_edge_map_def;
 val _ = translate all_full_edge_map_def;
 
@@ -209,12 +63,12 @@ Theorem parse_and_enc_spec:
             )) res v ∧
        case res of
         INL err =>
-          get_graph fs f1 = NONE ∨
-          get_graph fs f2 = NONE
+          get_graph_lad fs f1 = NONE ∨
+          get_graph_lad fs f2 = NONE
       | INR (n,objf) =>
         ∃gp gt.
-        get_graph fs f1 = SOME gp ∧
-        get_graph fs f2 = SOME gt ∧
+        get_graph_lad fs f1 = SOME gp ∧
+        get_graph_lad fs f2 = SOME gt ∧
         full_encode_mcis gp gt = objf ∧
         FST gp = n)
 Proof
@@ -269,8 +123,8 @@ Definition check_unsat_3_sem_def:
   check_unsat_3_sem fs f1 f2 out ⇔
   (out ≠ strlit"" ⇒
   ∃gp gt bounds.
-    get_graph fs f1 = SOME gp ∧
-    get_graph fs f2 = SOME gt ∧
+    get_graph_lad fs f1 = SOME gp ∧
+    get_graph_lad fs f2 = SOME gt ∧
     out = print_mcis_bound bounds ∧
     mcis_sem gp gt bounds)
 End
@@ -393,7 +247,7 @@ Proof
     Cases_on`x`>> disch_then (drule_at Any)>>
     disch_then(qspec_then`gt'` mp_tac)>>
     impl_tac>-
-      fs[get_graph_def,AllCaseEqs()]>>
+      fs[get_graph_lad_def,AllCaseEqs()]>>
     rw[]>>
     qexists_tac`(q,r)`>>
     simp[mcis_sem_def]>>
@@ -402,10 +256,10 @@ QED
 
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 f2 out ⇔
-  case get_graph fs f1 of
+  case get_graph_lad fs f1 of
     NONE => out = strlit ""
   | SOME gpp =>
-  case get_graph fs f2 of
+  case get_graph_lad fs f2 of
     NONE => out = strlit ""
   | SOME gtt =>
     out = concat (print_pbf (full_encode_mcis gpp gtt))

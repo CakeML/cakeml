@@ -289,7 +289,7 @@ Proof
       fs[MEM_neighbours]>>
       simp[satisfies_pbc_def,MAP_MAP_o,o_DEF,eval_lin_term_def]>>
       `b < vp` by
-        (fs[good_graph_def,is_edge_thm]>>
+        (fs[good_graph_eq,is_edge_thm]>>
         metis_tac[MEM_neighbours])>>
       reverse (Cases_on`f a = u`>>rw[]>>simp[iSUM_def])
       >- (
@@ -349,7 +349,7 @@ Proof
     simp[EL_GENLIST]>>
     disch_then(qspec_then`n` mp_tac)>>
     simp[])>>
-  fs[good_graph_def]>>
+  fs[good_graph_eq]>>
   `a < vp ∧ b < vp` by
     (fs[is_edge_thm]>>
     metis_tac[])>>

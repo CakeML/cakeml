@@ -183,6 +183,21 @@ Definition full_encode_def:
   MAP (map_pbc enc_string) (encode g))
 End
 
+(* Convert minimization to maximization *)
+Definition conv_concl_def:
+  (conv_concl n (OBounds lbi ubi) =
+  let ubg =
+    case lbi of NONE => 0 (* Dummy impossible value *)
+    | SOME lb =>
+      if lb ≤ 0 then n else n - Num lb in
+  let lbg =
+    case ubi of NONE => NONE
+    | SOME ub =>
+      SOME (n - Num (ABS ub)) in
+  SOME (lbg,ubg)) ∧
+  (conv_concl _ _ = NONE)
+End
+
 Theorem is_clique_exists:
   is_clique {} g
 Proof

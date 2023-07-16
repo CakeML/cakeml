@@ -20,3 +20,5 @@ cake_pb_iso.S : *subgraph_isoCompileScript.sml
 cake_pb_mcis.S : *mcisCompileScript.sml
 
 cake_pb_mccis.S : *mccisCompileScript.sml
+
+cake_pb_clique.S : *cliqueCompileScript.sml
