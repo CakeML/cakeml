@@ -1941,7 +1941,7 @@ Proof
     pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
     ntac 2 strip_tac>>fs[state_rel_def]>>
     `t1.regs n' = c'` by
-      ( 
+      (
       qpat_x_assum `!bn. bn < _ ==> ~(MEM _ _)` kall_tac>>
       first_x_assum(qspec_then`n'` assume_tac)>>
       first_x_assum(qspec_then`n'` assume_tac)>>
@@ -9031,7 +9031,7 @@ Proof
     gvs[shmem_rec_accessors] >>
     drule_all all_enc_ok_asm_fetch_aux_IMP_line_ok >>
     disch_then assume_tac >>
-    gvs[line_ok_def] >> 
+    gvs[line_ok_def] >>
     `pos_val pc (p + LENGTH inst') code2 = (LENGTH inst' + pos_val pc p code2)`
       suffices_by gvs[] >>
     gvs[pos_val_acc_sum]
@@ -9204,16 +9204,15 @@ val IMP_state_rel_make_init = Q.prove(
    new_shmem_info = MAP (\rec. rec with
     <|entry_pc:= mc_conf.target.get_pc ms + rec.entry_pc
      ;exit_pc:= mc_conf.target.get_pc ms + rec.exit_pc|>) shmem_info /\
-   DROP i mc_conf.ffi_names = new_ffi_names /\ 
+   DROP i mc_conf.ffi_names = new_ffi_names /\
    mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
    MAP (\rec. rec.entry_pc) new_shmem_info = DROP i (mc_conf.ffi_entry_pcs) /\
    (mc_conf.mmio_info = \index. EL (index - i) $
       MAP (\rec. (rec.nbytes,rec.access_addr,rec.reg,rec.exit_pc)) new_shmem_info) /\
    no_install_or_no_share_mem code mc_conf.ffi_names /\
    (!bn. bn < cbspace ==>
-    ~(MEM (mc_conf.target.get_pc ms + 
-      n2w (LENGTH (prog_to_bytes code2)) + n2w bn)
-      mc_conf.ffi_entry_pcs))
+      ~MEM (n2w bn + n2w (LENGTH (prog_to_bytes code2)) +
+             mc_conf.target.get_pc ms) (TAKE i mc_conf.ffi_entry_pcs))
    ==>
    state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
        mc_conf.target.get_pc ms)
@@ -9264,6 +9263,24 @@ val IMP_state_rel_make_init = Q.prove(
     \\ metis_tac[SUBSET_DEF,word_loc_val_def] )
   \\ conj_tac >- metis_tac[word_add_n2w]
   \\ conj_tac >- simp[bytes_in_mem_def]
+  \\ conj_tac >- (
+    rpt strip_tac >>
+    qpat_x_assum `!bn. bn < cbspace ==> _` $ imp_res_tac >>
+    gvs[MEM_EL] >>
+    drule_then assume_tac $ cj 1 mmio_pcs_min_index_is_SOME>>
+    gvs[LENGTH_TAKE] >>
+    first_x_assum $ qspec_then`n` assume_tac >>
+    Cases_on `n < i`
+    >- gvs[EL_TAKE] >>
+    `i <= n` by decide_tac >>
+    gvs[] >>
+    drule get_shmem_info_thm >>
+    disch_then $ qspecl_then [`0`,`[]`,`[]`] assume_tac >>
+    gvs[UNZIP_MAP,MAP_GENLIST,combinTheory.o_DEF,ZIP_MAP_FST_SND_EQ,MAP_MAP_o,
+      Abbr`new_shmem_info`,line_to_info_def,EL_MAP] >>
+    
+    
+  )
   \\ conj_tac>-
     (drule pos_val_0 \\ simp[])
   \\ conj_tac >- metis_tac[code_similar_sec_labels_ok]
@@ -9304,7 +9321,7 @@ val IMP_state_rel_make_init = Q.prove(
     fs[EL_TAKE]
   )
   \\ rw[]
-  >- ( 
+  >- (
     qpat_x_assum `!pc op re a inst len. asm_fetch_aux _ _ = _ ==> ?i._` $ imp_res_tac
     \\ qexists `index + i`
     \\ drule find_index_LESS_LENGTH
@@ -9493,7 +9510,7 @@ Proof
   gvs[lab_filterTheory.not_skip_def] >>
   Cases_on `a'` >>
   gvs[lab_filterTheory.not_skip_def] >>
-  Cases_on `i` >> 
+  Cases_on `i` >>
   gvs[lab_filterTheory.not_skip_def]
 QED
 
@@ -9652,10 +9669,10 @@ Proof
 QED
 
 Theorem
-(!index. index < l /\ l < LENGTH mc_conf.ffi_entry_pcs ==>
-  find_index (-n2w (ffi_offset * (index + 3)) + mc_conf.target.get_pc ms)
-  mc_conf.ffi_entry_pcs 0 = SOME index) ==>
-EL index mc_conf.ffi_entry_pcs = (-n2w (ffi_offset * (index + 3)) + mc_conf.target.get_pc ms)
+  all_enc_ok c labs ffis p prog /\
+  get_shmem_info prog 0 [] [] = (ffi_names,ffi_info) ==>
+  
+  
 Proof
 QED
 
@@ -9681,9 +9698,9 @@ val semantics_compile_lemma = Q.prove(
         rec.exit_pc + mc_conf.target.get_pc ms))
       $ SND c'.shmem_extra)) /\
     no_install_or_no_share_mem code mc_conf.ffi_names /\
+    cbspace + LENGTH bytes + ffi_offset * (LENGTH mc_conf.ffi_entry_pcs + 3) < dimword (:'a) /\
     (!ffis. c.ffi_names = SOME ffis ==>
-      ~MEM "MappedRead" ffis /\ ~MEM "MappedWrite" ffis /\
-      ALL_DISTINCT ffis ) /\
+      ~MEM "MappedRead" ffis /\ ~MEM "MappedWrite" ffis ) /\
     semantics (make_init mc_conf ffi io_regs cc_regs t m dm sdm ms code
       lab_to_target$compile (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
       coracle
@@ -9763,23 +9780,47 @@ val semantics_compile_lemma = Q.prove(
   rw[] >>
   spose_not_then assume_tac >>
   gvs[] >>
-  Cases_on`c.ffi_names`>>
+  Cases_on`c.ffi_names`
   >- (
     Cases_on `n < LENGTH ffis` >- (
-(*    qspec_then `code` assume_tac find_ffi_names_ALL_DISTINCT >>
-    drule FILTER_ALL_DISTINCT >>
-    disch_then $ qspec_then `\x. x <> "MappedRead" /\ x <> "MappedWrite"` assume_tac >>*)
       first_x_assum $ drule_then assume_tac >>
       first_x_assum $ drule_then assume_tac >>
       first_x_assum $ drule_then assume_tac >>
       rw[]>>
       gvs[find_index_LEAST_EL] >>
-      `-n2w (ffi_offset * (n + 3)) + mc_conf.target.get_pc ms =
-           EL n mc_conf.ffi_entry_pcs` by cheat >>
-      first_x_assum $ assume_tac o GSYM
-      gvs[addressTheory.word_arith_lemma1,WORD_LITERAL_ADD,word_eq_n2w]
-    )
-    gvs[find_index_ALL_DISTINCT_EL_eq,find_index_APPEND1] >>
+      qpat_x_assum `(LEAST n'. _) = n` mp_tac >>
+      DEEP_INTRO_TAC whileTheory.LEAST_ELIM >>
+      conj_tac
+      >- (
+        fs[MEM_EL] >>
+        metis_tac[]
+      ) >>
+      simp[] >>
+      strip_tac >>
+      spose_not_then kall_tac >>
+      first_x_assum $ assume_tac o GSYM >> 
+      gvs[addressTheory.word_arith_lemma1,WORD_LITERAL_ADD] >>
+      qpat_x_assum `n2w _ = -n2w _ ` $ assume_tac >>
+      drule $ iffLR o GSYM $ cj 1 addressTheory.WORD_EQ_ADD_CANCEL >>
+      disch_then $ qspec_then `n2w (ffi_offset * (n + 3))` mp_tac >>
+      first_x_assum kall_tac >>
+      PURE_REWRITE_TAC[cj 1 addressTheory.word_arith_lemma1,WORD_LITERAL_ADD,WORD_ADD_COMM] >>
+      simp[] >>
+      `cbspace + (LENGTH (prog_to_bytes q) + ffi_offset * (n + 3)) < dimword (:'a)`
+        by (
+          drule_at_then Any irule LESS_TRANS >>
+          simp[ADD_COMM,ffi_offset_def]
+      ) >>
+      `bn  + (LENGTH (prog_to_bytes q) + ffi_offset * (n + 3)) < dimword (:'a)`
+        by (
+          drule_at_then (Pos $ el 2) irule LESS_TRANS >>
+          simp[LESS_MONO_ADD]
+      ) >>
+      gvs[ffi_offset_def] 
+    ) >>
+    `LENGTH ffis <= n` by decide_tac >>
+    gvs[] >>
+    
     (* TODO *)
   )
   )
