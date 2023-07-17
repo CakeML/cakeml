@@ -36,25 +36,28 @@ Definition empty_state_def:
     eval_state := NONE|>
 End
 
-val Eval_def = Define `
+Definition Eval_def:
   Eval env exp P =
     !refs. ?res refs'.
       eval_rel (empty_state with refs := refs) env exp
                (empty_state with refs := refs ++ refs') res /\
-      P (res:v)`;
+      P (res:v)
+End
 
-val AppReturns_def = Define ` (* think of this as a Hoare triple {P} cl {Q} *)
+Definition AppReturns_def: (* think of this as a Hoare triple {P} cl {Q} *)
   AppReturns P cl Q =
     !v. P v ==>
       !refs. ?env exp refs' u.
         do_opapp [cl;v] = SOME (env,exp) /\
         eval_rel (empty_state with refs := refs) env exp
                  (empty_state with refs := refs++refs') u /\
-        Q u`;
+        Q u
+End
 
-val Arrow_def = Define `
+Definition Arrow_def:
   Arrow a b =
-    \f v. !x. AppReturns (a x) v (b (f x))`;
+    \f v. !x. AppReturns (a x) v (b (f x))
+End
 
 Overload "-->" = ``Arrow``
 
@@ -376,18 +379,21 @@ QED
 
 (* Equality *)
 
-val no_closures_def = tDefine "no_closures" `
-  (no_closures (Litv l) = T) /\
-  (no_closures (Conv name vs) = EVERY no_closures vs) /\
-  (no_closures (FP_WordTree _) = T) /\
-  (no_closures (FP_BoolTree _) = T) /\
-  (no_closures _ = F)`
- (WF_REL_TAC `measure v_size` \\ REPEAT STRIP_TAC
+Definition no_closures_def:
+  (no_closures (Conv _ vs) = EVERY no_closures vs) /\
+  (no_closures (Vectorv vs) = EVERY no_closures vs) /\
+  (no_closures (Closure _ _ _) = F) /\
+  (no_closures (Recclosure _ _ _) = F) /\
+  (no_closures (Env _ _) = F) /\
+  (no_closures _ = T)
+Termination
+  WF_REL_TAC `measure v_size` \\ REPEAT STRIP_TAC
   \\ Induct_on `vs` \\ FULL_SIMP_TAC (srw_ss()) [MEM]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) [MEM,v_size_def]
-  \\ DECIDE_TAC)
+  \\ DECIDE_TAC
+End
 
-val types_match_def = tDefine "types_match" `
+Definition types_match_def:
   (types_match (Litv l1) (Litv l2) = lit_same_type l1 l2) /\
   (types_match (Loc l1) (Loc l2) = T) /\
   (types_match (Conv cn1 vs1) (Conv cn2 vs2) =
@@ -399,15 +405,18 @@ val types_match_def = tDefine "types_match" `
     (types_match v1 v2 /\ types_match_list vs1 vs2)) /\
 (* We could change this case to T, or change the semantics to have a type error
  * when equality reaches unequal-length lists *)
-  (types_match_list _ _ = F)`
-  (WF_REL_TAC `measure (\x. case x of INL (v1,v2) => v_size v1 |
-                                      INR (vs1,vs2) => v1_size vs1)`);
+  (types_match_list _ _ = F)
+Termination
+  WF_REL_TAC `measure (\x. case x of INL (v1,v2) => v_size v1 |
+                                     INR (vs1,vs2) => v1_size vs1)`
+End
 
-val EqualityType_def = Define `
+Definition EqualityType_def:
   EqualityType (abs:'a->v->bool) <=>
     (!x1 v1. abs x1 v1 ==> no_closures v1) /\
     (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> ((v1 = v2) = (x1 = x2))) /\
-    (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> types_match v1 v2)`;
+    (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> types_match v1 v2)
+End
 
 Triviality LSL_n2w_eq:
   a < 2 ** (dimindex (:'a) - n) /\ b < 2 ** (dimindex (:'a) - n) /\
@@ -2078,9 +2087,10 @@ QED
 
 (* vectors *)
 
-val VECTOR_TYPE_def = Define `
+Definition VECTOR_TYPE_def:
   VECTOR_TYPE a (Vector l) v <=>
-    ?l'. v = Vectorv l' /\ LENGTH l = LENGTH l' /\ LIST_REL a l l'`;
+    ?l'. v = Vectorv l' /\ LENGTH l = LENGTH l' /\ LIST_REL a l l'
+End
 
 Definition VECTOR_v_def:
   VECTOR_v v_a (Vector l) = Vectorv (MAP v_a l)
@@ -2190,9 +2200,9 @@ QED
 
 (* This is useful to force the type inferencer to give the type unit
    to an unused argument. *)
-val force_unit_type_def = Define `
-  force_unit_type (u:unit) x = x`
-  |> curry save_thm "force_unit_type_def[simp,compute]";
+Definition force_unit_type_def[simp,compute]:
+  force_unit_type (u:unit) x = x
+End
 
 Theorem Eval_force_unit_type:
     Eval env x1 (UNIT_TYPE u) ==>
@@ -2214,8 +2224,9 @@ Proof
   \\ fs [can_pmatch_all_def,pmatch_def]
 QED
 
-val force_gc_to_run_def = Define `
-  force_gc_to_run (i1:int) (i2:int) = ()`;
+Definition force_gc_to_run_def:
+  force_gc_to_run (i1:int) (i2:int) = ()
+End
 
 Theorem Eval_force_gc_to_run:
     Eval env x1 (INT i1) ==>
@@ -2225,8 +2236,9 @@ Proof
   tac2 \\ fs [do_app_def,INT_def,UNIT_TYPE_def]
 QED
 
-val force_out_of_memory_error_def = Define `
-  force_out_of_memory_error (x:'a) = x`;
+Definition force_out_of_memory_error_def:
+  force_out_of_memory_error (x:'a) = x
+End
 
 val two_pow_64 = EVAL ``2i**64`` |> concl |> rand
 
@@ -2346,13 +2358,16 @@ Proof
   SIMP_TAC (srw_ss()) [Eval_Val_BOOL_T,TRUE_def]
 QED
 
-val MEMBER_def = Define `
+Definition MEMBER_def:
   (MEMBER (x:'a) [] <=> F) /\
-  (MEMBER x (y::ys) <=> (x = y) \/ MEMBER x ys)`;
+  (MEMBER x (y::ys) <=> (x = y) \/ MEMBER x ys)
+End
 
-val MEM_EQ_MEMBER = Q.prove(
-  `!ys x. MEM x ys = MEMBER x ys`,
-  Induct \\ FULL_SIMP_TAC (srw_ss()) [MEMBER_def]);
+Triviality MEM_EQ_MEMBER:
+  !ys x. MEM x ys = MEMBER x ys
+Proof
+  Induct \\ FULL_SIMP_TAC (srw_ss()) [MEMBER_def]
+QED
 
 Theorem MEMBER_INTRO:
    (MEM = MEMBER) /\ (MEM x = MEMBER x) /\ (MEM x ys = MEMBER x ys)
@@ -2380,15 +2395,17 @@ QED
 
 (* removing shadowed elements from an alist *)
 
-val ASHADOW_def = tDefine "ASHADOW" `
+Definition ASHADOW_def:
   (ASHADOW [] = []) /\
   (ASHADOW (x::xs) =
      if EXISTS (\y. FST x = FST y) xs
      then x :: ASHADOW (FILTER (\y. FST x <> FST y) xs)
-     else x :: ASHADOW xs)`
- (WF_REL_TAC `measure LENGTH` \\ fs [LENGTH] \\ REPEAT STRIP_TAC
+     else x :: ASHADOW xs)
+Termination
+  WF_REL_TAC `measure LENGTH` \\ fs [LENGTH] \\ REPEAT STRIP_TAC
   \\ MATCH_MP_TAC LESS_EQ_LESS_TRANS
-  \\ Q.EXISTS_TAC `LENGTH xs` \\ fs [rich_listTheory.LENGTH_FILTER_LEQ])
+  \\ Q.EXISTS_TAC `LENGTH xs` \\ fs [rich_listTheory.LENGTH_FILTER_LEQ]
+End
 
 val ASHADOW_PREFIX = Q.prove(
   `!xs ys.
@@ -2456,49 +2473,24 @@ val ALL_DISTINCT_MAP_FST_ASHADOW = Q.prove(
 
 (* size lemmas *)
 
-val v1_size = Q.prove(
-  `!vs v. (MEM v vs ==> v_size v < v1_size vs)`,
-  Induct \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
-  \\ RES_TAC \\ DECIDE_TAC);
-
-(* TODO: what are the correct size lemmas? One of them should be replacin lists with namespaces
-
-val v3_size = Q.prove(
-  `!env x v. (MEM (x,v) env ==> v_size v < v5_size env)`,
-  Induct \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
-  \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
-  \\ RES_TAC \\ DECIDE_TAC);
-
-val v2_size = Q.prove(
-  `!xs a. MEM a xs ==> v3_size a < v1_size xs`,
-  Induct \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
-  \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
-  \\ RES_TAC \\ DECIDE_TAC);
-
-Theorem v_size_lemmas:
-   (MEM (x,y) envE ==> v_size y <= v3_size envE) /\
-    (MEM (x,y) xs /\ MEM (t,xs) p1 ==> v_size y <= v2_size p1) /\
-    (MEM v vs ==> v_size v < v7_size vs)
+Triviality v1_size:
+  !vs v. (MEM v vs ==> v_size v < v1_size vs)
 Proof
-  FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
-  \\ IMP_RES_TAC v4_size
-  \\ IMP_RES_TAC v2_size
-  \\ IMP_RES_TAC v6_size
-  \\ FULL_SIMP_TAC std_ss [semanticPrimitivesTheory.v_size_def]
-  \\ DECIDE_TAC
+  Induct \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
+  \\ RES_TAC \\ DECIDE_TAC
 QED
-*)
 
 (* introducing a module (Tmod) *)
 
-val type_names_def = Define `
+Definition type_names_def:
   (type_names [] names = names) /\
   (type_names (Dtype _ tds :: xs) names =
      type_names xs (MAP (FST o SND) tds ++ names)) /\
-  (type_names (x :: xs) names = type_names xs names)`;
+  (type_names (x :: xs) names = type_names xs names)
+End
 
-val type_names_eq = Q.prove(
-  `!ds names .
+Triviality type_names_eq:
+   !ds names .
       type_names ds names =
       (FLAT (REVERSE (MAP (\d.
                 case d of
@@ -2509,9 +2501,11 @@ val type_names_eq = Q.prove(
                 | Dtabbrev _ tvs tn t => []
                 | Dlocal _ _ => []
                 | Denv _ => []
-                | Dexn _ v10 v11 => []) ds))) ++ names`,
+                | Dexn _ v10 v11 => []) ds))) ++ names
+Proof
   Induct \\ fs [type_names_def] \\ Cases_on `h`
-  \\ fs [type_names_def] \\ fs [FORALL_PROD,listTheory.MAP_EQ_f]);
+  \\ fs [type_names_def] \\ fs [FORALL_PROD,listTheory.MAP_EQ_f]
+QED
 
 val lookup_APPEND = Q.prove(
   `!xs ys n. ~(MEM n (MAP FST ys)) ==>
@@ -2828,19 +2822,21 @@ QED
 
 (* pattern match translation *)
 
-val Mat_cases_def = Define `
+Definition Mat_cases_def:
   Mat_cases (INL (vars,x:exp)) = [(Pcon NONE (MAP Pvar vars),x)] /\
   Mat_cases (INR ps) =
     MAP (\ (name,vars,x:exp,t:stamp).
-      (Pcon (SOME name) (MAP Pvar vars),x)) ps`;
+      (Pcon (SOME name) (MAP Pvar vars),x)) ps
+End
 
-val good_cons_env_def = Define `
+Definition good_cons_env_def:
   good_cons_env ps env <=>
     EVERY (\ (name,vars,x,t).
       ALL_DISTINCT (pats_bindings (MAP Pvar vars) []) /\
       lookup_cons name env = SOME (LENGTH vars, t)) ps /\
     let (name,vars,x,t1) = HD ps in
-      EVERY (\ (name,vars,x,t2). same_type t1 t2) ps`
+      EVERY (\ (name,vars,x,t2). same_type t1 t2) ps
+End
 
 Theorem evaluate_match_MAP = Q.prove(`
   !l1 xs.
@@ -2875,9 +2871,10 @@ Proof
   Induct \\ Cases_on `vals` \\ fs [] \\ fs [pmatch_def]
 QED
 
-val write_list_def = Define `
+Definition write_list_def:
   write_list [] (env:v sem_env) = env /\
-  write_list ((n,v)::xs) env = write_list xs (write n v env)`;
+  write_list ((n,v)::xs) env = write_list xs (write n v env)
+End
 
 Theorem write_list_thm:
    !xs env.
