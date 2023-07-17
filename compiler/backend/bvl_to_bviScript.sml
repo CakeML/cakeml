@@ -410,11 +410,13 @@ Definition get_names_def:
       if n = ConcatByte_location then mlstring$strlit "ConcatByte" else
       if n < num_stubs then mlstring$strlit "bvi_unknown" else
         let k = n - num_stubs in
-          if k MOD nss = 0 then
-            dtcase lookup (k DIV nss) old_names of
-            | NONE => mlstring$strlit "bvi_unmapped"
-            | SOME name => name
-          else mlstring$strlit "bvi_aux")) final_nums)
+        let kd = k DIV nss in
+        let km = k MOD nss in
+        let n = (dtcase lookup kd old_names of
+          | NONE => mlstring$strlit "bvi_unmapped"
+          | SOME name => name) in
+        let aux = (if km = 0 then mlstring$strlit "" else mlstring$strlit "bvi_aux") in
+          n ^ aux)) final_nums)
 End
 
 Definition compile_def:
