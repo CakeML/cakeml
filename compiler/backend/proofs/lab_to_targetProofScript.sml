@@ -9278,8 +9278,21 @@ val IMP_state_rel_make_init = Q.prove(
     disch_then $ qspecl_then [`0`,`[]`,`[]`] assume_tac >>
     gvs[UNZIP_MAP,MAP_GENLIST,combinTheory.o_DEF,ZIP_MAP_FST_SND_EQ,MAP_MAP_o,
       Abbr`new_shmem_info`,line_to_info_def,EL_MAP] >>
-    
-    
+    qspecl_then [`n - i`, `i`,`mc_conf.ffi_entry_pcs`]
+      assume_tac $ GSYM EL_DROP >>
+    gvs[] >>
+    pop_assum kall_tac >>
+    gvs[] >>
+    qpat_x_assum `_ = DROP i mc_conf.ffi_entry_pcs` $ assume_tac o GSYM >>
+    gvs[] >>
+    qmatch_assum_abbrev_tac `DROP i mc_conf.ffi_entry_pcs = MAP offset_func flatten_genlist` >>
+    `n - i < LENGTH (MAP offset_func flatten_genlist)` by (
+      qpat_x_assum `DROP i mc_conf.ffi_entry_pcs = _` $ assume_tac o GSYM >>
+      asm_rewrite_tac[LENGTH_DROP] >>
+      simp[]
+    ) >>
+    gvs[EL_MAP,Abbr`offset_func`] >>
+    (* TODO *)
   )
   \\ conj_tac>-
     (drule pos_val_0 \\ simp[])
@@ -9698,7 +9711,9 @@ val semantics_compile_lemma = Q.prove(
         rec.exit_pc + mc_conf.target.get_pc ms))
       $ SND c'.shmem_extra)) /\
     no_install_or_no_share_mem code mc_conf.ffi_names /\
-    cbspace + LENGTH bytes + ffi_offset * (LENGTH mc_conf.ffi_entry_pcs + 3) < dimword (:'a) /\
+    (* to avoid the ffi_entry_pc wraps around and overlaps with the program or code buffer *)
+    cbspace + LENGTH bytes + ffi_offset * (LENGTH old_ffi_names + 3) < dimword (:'a) /\
+    (* the original ffi names provided does not contain MappedRead or MappedWrite *)
     (!ffis. c.ffi_names = SOME ffis ==>
       ~MEM "MappedRead" ffis /\ ~MEM "MappedWrite" ffis ) /\
     semantics (make_init mc_conf ffi io_regs cc_regs t m dm sdm ms code
