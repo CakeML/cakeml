@@ -415,7 +415,7 @@ Definition get_names_def:
         let n = (dtcase lookup kd old_names of
           | NONE => mlstring$strlit "bvi_unmapped"
           | SOME name => name) in
-        let aux = (if km = 0 then mlstring$strlit "" else mlstring$strlit "bvi_aux") in
+        let aux = (if km = 0 then mlstring$strlit "" else mlstring$strlit "_bvi_aux") in
           n ^ aux)) final_nums)
 End
 
