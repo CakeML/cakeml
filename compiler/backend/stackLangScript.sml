@@ -46,6 +46,7 @@ val _ = Datatype `
        | LocValue num num num   (* assign v1 := Loc v2 v3 *)
        | Install num num num num num (* code buffer start, length of new code,
                                       data buffer start, length of new data, ret_addr *)
+       | ShMemOp memop num ('a addr) (* code buffer address, byte to write *)
        | CodeBufferWrite num num (* code buffer address, byte to write *)
        | DataBufferWrite num num (* data buffer address, word to write *)
        (* new in stackLang, compared to wordLang, below *)
