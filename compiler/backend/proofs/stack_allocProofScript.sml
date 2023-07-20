@@ -5732,6 +5732,15 @@ Proof
       metis_tac[SUBMAP_DOMSUB,SUBMAP_TRANS,SUBMAP_DRESTRICT_MONOTONE,
                 SUBSET_REFL])>>
     fs[wordSemTheory.buffer_flush_def]>>rw[])
+  (* ShMemOp *)
+  \\ conj_tac >- (
+    rw[Once comp_def,evaluate_def,get_var_def] \\
+    Cases_on ‘op’>>
+    fs[word_exp_def,sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,IS_SOME_EXISTS,
+       wordLangTheory.word_op_def,sh_mem_load_byte_def,sh_mem_store_byte_def]>>
+    fs[case_eq_thms] \\ rw[] \\
+    imp_res_tac FLOOKUP_SUBMAP \\ gs[] \\
+    simp[state_component_equality] )
   (* CodeBufferWrite *)
   \\ conj_tac >- (
     rw[Once comp_def,evaluate_def,get_var_def] \\

@@ -161,6 +161,7 @@ val state_rel_def = Define `
     s2.ffi_save_regs = s1.ffi_save_regs /\
     s2.fp_regs = s1.fp_regs /\
     s2.code_buffer = s1.code_buffer /\
+    s2.sh_mdomain = s1.sh_mdomain ∧
     s1.compile = (λc p. s2.compile c (MAP (prog_comp jump off k) p)) /\
     (* s2.data_buffer = empty_buffer /\ *)
     s2.compile_oracle = (λn. (I ## MAP (prog_comp jump off k) ## I (*K []*)) (s1.compile_oracle n)) /\
@@ -211,6 +212,7 @@ val state_rel_with_clock = Q.prove(
 Theorem state_rel_const:
    state_rel jump off k s t ⇒
    t.code_buffer = s.code_buffer ∧
+   t.sh_mdomain = s.sh_mdomain ∧
    ¬t.use_stack ∧ s.use_stack ∧
    t.compile_oracle = (λn. (I ## MAP (prog_comp jump off k) ## I (*K []*)) (s.compile_oracle n)) ∧
    s.compile = (λc p. t.compile c (MAP (prog_comp jump off k) p))
@@ -1890,6 +1892,23 @@ Proof
     \\ conj_tac >- metis_tac[]
     \\ fs[wordSemTheory.buffer_flush_def]
     \\ rveq \\ fs[])
+  THEN1 ( (* ShMemOp *)
+    rw[comp_def]
+    \\ fs[evaluate_def]
+    \\ fs[reg_bound_def]
+    \\ imp_res_tac state_rel_get_var
+    \\ imp_res_tac state_rel_const
+    \\ fs[get_var_def,word_exp_def,IS_SOME_EXISTS,
+         wordLangTheory.word_op_def]
+    \\ Cases_on ‘op’
+    \\ fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
+          sh_mem_load_byte_def,sh_mem_store_byte_def]
+    \\ rpt (CASE_TAC>>fs[])
+    \\ FULL_CASE_TAC \\ fs[]
+    \\ rveq \\ fs[]
+    \\ TRY (qexists_tac`0`)
+    \\ fs[state_rel_def,ffiTheory.call_FFI_def] >> rpt (FULL_CASE_TAC >> fs[])
+    \\ rveq \\ gs[])
   THEN1 ( (* CodeBufferWrite *)
     rw[comp_def]
     \\ fs[evaluate_def]
