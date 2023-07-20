@@ -370,11 +370,14 @@ Definition share_mem_load_def:
     case addr ad s of
     | NONE => NONE
     | SOME v =>
-        if (w2n v MOD n) = 0 /\ (byte_align v IN s.shared_mem_domain)
+        if (if n = 0
+            then (w2n v MOD (dimindex (:'a) DIV 8) = 0
+                 ∧ (v IN s.shared_mem_domain))
+            else byte_align v IN s.shared_mem_domain)
         then
           (case call_FFI s.ffi "MappedRead"
             [n2w n]
-            (addr2w8list v) of
+            (word_to_bytes v F) of
           | FFI_final outcome => SOME (FFI_final outcome, s)
           | FFI_return new_ffi new_bytes =>
               SOME (FFI_return new_ffi new_bytes,
@@ -393,11 +396,16 @@ Definition share_mem_store_def:
       (case addr ad s of
        | NONE => NONE
        | SOME v =>
-           if (w2n v MOD n) = 0 /\ (byte_align v IN s.shared_mem_domain)
+        if (if n = 0
+            then (w2n v MOD (dimindex (:'a) DIV 8) = 0
+                 ∧ (v IN s.shared_mem_domain))
+            else byte_align v IN s.shared_mem_domain)
            then
              (case call_FFI s.ffi "MappedWrite"
                [n2w n]
-               (w2wlist_le w n ++ (addr2w8list v)) of
+               ((if n = 0
+                 then word_to_bytes w F
+                 else [get_byte 0w w F]) ++ (word_to_bytes v F)) of
               | FFI_final outcome => SOME (FFI_final outcome,s)
               | FFI_return new_ffi new_bytes =>
                  SOME ((FFI_return new_ffi new_bytes),
@@ -408,10 +416,9 @@ End
 
 Definition share_mem_op_def:
   (share_mem_op Load r ad (s: ('a,'c,'ffi) labSem$state) =
-    share_mem_load r ad s (dimindex (:'a) DIV 8)) /\
+    share_mem_load r ad s 0) /\
   (share_mem_op Load8 r ad s = share_mem_load r ad s 1) /\
-  (share_mem_op Store r ad s = share_mem_store r ad s
-    (dimindex (:'a) DIV 8)) /\
+  (share_mem_op Store r ad s = share_mem_store r ad s 0) /\
   (share_mem_op Store8 r ad s = share_mem_store r ad s 1)
   (*(share_mem_op Load32 r ad s = share_mem_load r ad s 4) /\
   (share_mem_op Store32 r ad s = share_mem_store r ad s 4) *)
