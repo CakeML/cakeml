@@ -9712,7 +9712,6 @@ Proof
   metis_tac[asm_fetch_aux_eq]
 QED
 
-(* TODO *)
 val semantics_compile_lemma = Q.prove(
   ` mc_conf_ok mc_conf ∧
     compiler_oracle_ok coracle c'.labels (LENGTH bytes) c.asm_conf mc_conf.ffi_names ∧
@@ -9848,15 +9847,50 @@ val semantics_compile_lemma = Q.prove(
         drule_at_then (Pos $ el 2) irule LESS_TRANS >>
         simp[LESS_MONO_ADD]
     ) >>
-    gvs[ffi_offset_def]
+    gvs[ffi_offset_def] ) >>
+  gvs[] >>
+  drule_all $ SIMP_RULE(srw_ss())[MEM_EL] mmio_pcs_min_index_APPEND_thm >>
+  strip_tac >>
+  gvs[] >>
+  last_x_assum $ drule_then assume_tac >>
+  rw[] >>
+  gvs[find_index_LEAST_EL] >>
+  qpat_x_assum `(LEAST n'. _) = n` mp_tac >>
+  DEEP_INTRO_TAC whileTheory.LEAST_ELIM >>
+  conj_tac
+  >- (
+    fs[MEM_EL] >>
+    metis_tac[]
   ) >>
-    (* TODO *)
+  simp[] >>
+  strip_tac >>
+  spose_not_then kall_tac >>
+  first_x_assum $ assume_tac o GSYM >> 
+  gvs[addressTheory.word_arith_lemma1,EL_TAKE] >>
+  qpat_x_assum `n2w _ = -n2w _ ` $ assume_tac >>
+  drule $ iffLR o GSYM $ cj 1 addressTheory.WORD_EQ_ADD_CANCEL >>
+  disch_then $ qspec_then `n2w (ffi_offset * (n + 3))` mp_tac >>
+  first_x_assum kall_tac >>
+  PURE_REWRITE_TAC[cj 1 addressTheory.word_arith_lemma1,WORD_LITERAL_ADD,WORD_ADD_COMM] >>
+  simp[] >>
+  `cbspace + (LENGTH (prog_to_bytes q) + ffi_offset * (n + 3)) < dimword (:'a)`
+    by (
+      drule_at_then Any irule LESS_TRANS >>
+      simp[ADD_COMM,ffi_offset_def]
+  ) >>
+  `bn  + (LENGTH (prog_to_bytes q) + ffi_offset * (n + 3)) < dimword (:'a)`
+    by (
+      drule_at_then (Pos $ el 2) irule LESS_TRANS >>
+      simp[LESS_MONO_ADD]
+  ) >>
+  gvs[ffi_offset_def]
   )
   |> REWRITE_RULE [CONJ_ASSOC]
   |> MATCH_MP implements_intro_gen
   |> REWRITE_RULE [GSYM CONJ_ASSOC]
 
 (* to prove that the condition of semantics_compile is not vacuous *)
+(*
 Theorem exists_good_init_state_def:
 !code.
 ?mc_conf i c code2 bytes c'.
@@ -9882,6 +9916,7 @@ Theorem exists_good_init_state_def:
 Proof
   rpt strip_tac
 QED
+*)
 
 Theorem semantics_compile:
    mc_conf_ok mc_conf ∧
@@ -9889,20 +9924,22 @@ Theorem semantics_compile:
    good_code c.asm_conf c.labels code ∧
    c.asm_conf = mc_conf.target.config ∧
    c.labels = LN ∧ c.pos = 0 ∧
-   compile c code = SOME (bytes,c') ∧
-   c'.ffi_names = SOME (mc_conf.ffi_names) /\
+   compile c (code: 'a sec list) = SOME (bytes,c') ∧
+   c'.ffi_names = SOME (old_ffi_names) /\
+   mc_conf.ffi_names = old_ffi_names ++ FST c'.shmem_extra /\
    good_init_state mc_conf ms bytes cbspace t m dm sdm io_regs cc_regs /\
-   mmio_pcs_min_index mc_conf.ffi_names = SOME i ∧
-   remove_labels c.init_clock mc_conf.target.config 0 LN
-     (TAKE i mc_conf.ffi_names) (filter_skip code) =
-     SOME (code2,(FST (coracle 0)).labels) ∧
-   get_shmem_info code2 (w2n (mc_conf.target.get_pc ms))
-   (FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite")
-      (find_ffi_names code)) [] = (mc_conf.ffi_names,shmem_info) ∧
-   LENGTH mc_conf.ffi_names ≤ i ∧
-   MAP FST shmem_info = DROP i mc_conf.ffi_entry_pcs ∧
-   mc_conf.mmio_info = (λindex. EL (index − i) (MAP SND shmem_info)) ∧
-   no_install_or_no_share_mem code mc_conf.ffi_names ⇒
+   MAP (\rec. rec.entry_pc + mc_conf.target.get_pc ms) (SND c'.shmem_extra) =
+    DROP (LENGTH old_ffi_names) mc_conf.ffi_entry_pcs /\
+   mc_conf.mmio_info = (λindex. EL (index − (LENGTH old_ffi_names)) (MAP
+    (\rec. (rec.nbytes, rec.access_addr, rec.reg,
+      rec.exit_pc + mc_conf.target.get_pc ms))
+    $ SND c'.shmem_extra)) /\
+  no_install_or_no_share_mem code mc_conf.ffi_names /\
+  (* to avoid the ffi_entry_pc wraps around and overlaps with the program or code buffer *)
+  cbspace + LENGTH bytes + ffi_offset * (LENGTH old_ffi_names + 3) < dimword (:'a) /\
+  (* the original ffi names provided does not contain MappedRead or MappedWrite *)
+  (!ffis. c.ffi_names = SOME ffis ==>
+    ~MEM "MappedRead" ffis /\ ~MEM "MappedWrite" ffis ) ⇒
    implements' T (machine_sem mc_conf ffi ms)
      {semantics
         (make_init mc_conf ffi io_regs cc_regs t m (dm ∩ byte_aligned) sdm ms code
@@ -9918,8 +9955,8 @@ Proof
   pop_assum SUBST_ALL_TAC \\
   conj_tac >- (
     match_mp_tac implements_align_dm \\
-    fs[mc_conf_ok_def] ) \\
-  simp[Abbr`P`,Abbr`ss`] \\
+      fs[mc_conf_ok_def] ) \\
+    simp[Abbr`P`,Abbr`ss`] \\
   PURE_REWRITE_TAC[Once WORD_ADD_COMM] \\
   match_mp_tac semantics_compile_lemma \\
   fs[good_code_def]
