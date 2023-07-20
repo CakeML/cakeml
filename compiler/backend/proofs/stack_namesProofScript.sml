@@ -33,6 +33,7 @@ Theorem rename_state_const[simp]:
    (rename_state c f s).memory = s.memory ∧
    (rename_state c f s).be = s.be ∧
    (rename_state c f s).mdomain = s.mdomain ∧
+   (rename_state c f s).sh_mdomain = s.sh_mdomain ∧
    (rename_state c f s).code_buffer = s.code_buffer ∧
    (rename_state c f s).clock = s.clock ∧
    (rename_state c f s).compile = c ∧
@@ -62,6 +63,30 @@ QED
 
 Theorem mem_store_rename_state[simp]:
    mem_store x y (rename_state c f s) = OPTION_MAP (rename_state c f) (mem_store x y s)
+Proof
+  EVAL_TAC >> rw[] >> EVAL_TAC >> rw[]
+QED
+
+Theorem sh_mem_load_rename_state[simp]:
+  sh_mem_load x y (rename_state c f s) = sh_mem_load x y s
+Proof
+  EVAL_TAC
+QED
+
+Theorem sh_mem_store_rename_state[simp]:
+  sh_mem_store x y (rename_state c f s) = sh_mem_store x y s
+Proof
+  EVAL_TAC >> rw[] >> EVAL_TAC >> rw[]
+QED
+
+Theorem sh_mem_load_byte_rename_state[simp]:
+  sh_mem_load_byte x y (rename_state c f s) = sh_mem_load_byte x y s
+Proof
+  EVAL_TAC
+QED
+
+Theorem sh_mem_store_byte_rename_state[simp]:
+  sh_mem_store_byte x y (rename_state c f s) = sh_mem_store_byte x y s
 Proof
   EVAL_TAC >> rw[] >> EVAL_TAC >> rw[]
 QED
@@ -193,8 +218,8 @@ val comp_STOP_While = Q.prove(
 val get_labels_comp = Q.prove(
   `!f p. get_labels (comp f p) = get_labels p`,
   HO_MATCH_MP_TAC stack_namesTheory.comp_ind \\ rw []
-  \\ Cases_on `p` \\ once_rewrite_tac [comp_def] \\ fs [get_labels_def]
-  \\ every_case_tac \\ fs []);
+  \\ Cases_on `p` \\ once_rewrite_tac [comp_def] \\ fs []
+  \\ every_case_tac \\ fs [get_labels_def]);
 
 val loc_check_rename_state = Q.prove(
   `loc_check (rename_state c f s).code (l1,l2) =
@@ -299,7 +324,8 @@ Proof
             (simp_tac std_ss [find_code_def,dest_find_name_def] \\ fs [])
     \\ simp [] \\ fs [find_code_def]
     \\ fs [evaluate_def,CaseEq"option",CaseEq"bool",pair_case_eq] \\ rveq \\ fs []
-    THEN1 (disj1_tac \\ Cases_on `prog` \\ fs [dest_Seq_def,Once comp_def])
+    THEN1 (disj1_tac \\ Cases_on `prog` \\ fs [dest_Seq_def,Once comp_def]
+           \\ CASE_TAC \\ fs [dest_Seq_def])
     \\ Cases_on `prog` \\ fs [dest_Seq_def] \\ rveq \\ fs []
     \\ once_rewrite_tac [comp_def] \\ fs [dest_Seq_def]
     THEN1 (fs [empty_env_def,rename_state_def])
@@ -392,6 +418,18 @@ Proof
     gen_tac \\
     TOP_CASE_TAC \\ fs[] \\
     TOP_CASE_TAC \\ fs[] )
+  THEN1 (
+  (* ShMemOp *)
+   simp[Once comp_def] \\
+   fs[evaluate_def] \\
+   fs[word_exp_def]>>
+   TOP_CASE_TAC \\ fs[] \\
+   TOP_CASE_TAC \\ fs[] \\
+   TOP_CASE_TAC \\ fs[] \\
+   Cases_on ‘op’>>gs[sh_mem_op_def]>>
+   TOP_CASE_TAC \\ fs[] \\
+   TOP_CASE_TAC \\ fs[] \\ rw[] \\
+   EVAL_TAC)
   THEN1 (
   (* CodeBufferWrite *)
     simp[Once comp_def] \\
@@ -491,8 +529,8 @@ Theorem stack_names_lab_pres:
   extract_labels p = extract_labels (comp f p)
 Proof
   HO_MATCH_MP_TAC comp_ind>>Cases_on`p`>>rw[]>>
-  once_rewrite_tac [comp_def]>>fs[extract_labels_def]>>
-  BasicProvers.EVERY_CASE_TAC>>fs[]
+  once_rewrite_tac [comp_def]>>fs[]>>
+  BasicProvers.EVERY_CASE_TAC>>fs[extract_labels_def]
 QED
 
 val names_ok_imp = Q.prove(`
@@ -541,6 +579,8 @@ val stack_names_comp_stack_asm_ok = Q.prove(`
     metis_tac[names_ok_imp,asmTheory.reg_ok_def])
   >- metis_tac[names_ok_imp,asmTheory.reg_ok_def]
   >- metis_tac[names_ok_imp,asmTheory.reg_ok_def]
+  >- (CASE_TAC>>gs[stack_asm_ok_def]>>
+      metis_tac[names_ok_imp,asmTheory.reg_ok_def,addr_ok_def,addr_name_def])
   >- metis_tac[names_ok_imp,asmTheory.reg_ok_def]);
 
 Theorem stack_names_stack_asm_ok:
@@ -570,8 +610,8 @@ Proof
   ho_match_mp_tac comp_ind>>
   Cases_on`p_2`>>rw[]>>
   ONCE_REWRITE_TAC [comp_def]>>
-  fs[call_args_def]>>
-  BasicProvers.EVERY_CASE_TAC>>fs[]
+  fs[]>>fs[call_args_def]>>
+  BasicProvers.EVERY_CASE_TAC>>fs[call_args_def]
 QED
 
 val _ = export_theory();
