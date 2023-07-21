@@ -771,7 +771,7 @@ Proof
           qexistsl [`k`, `t1 with pc := k + t1.pc`] >>
           fs[state_component_equality]
         )
-        >- (* share_mem_op returns SOME x *) 
+        >- (* share_mem_op returns SOME x *)
           (rpt (TOP_CASE_TAC >> fs[])
           >- (* FFI_return *)
             (drule_all share_mem_op_FFI_return_filter_correct >>

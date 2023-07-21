@@ -888,9 +888,9 @@ Proof
   \\ full_simp_tac(srw_ss())[state_rel_def, share_mem_state_rel_def]
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[]
-  >~ [`¬MEM (_ + _ + _) _.ffi_entry_pcs`]
-  >- (
-    qpat_x_assum `!bn. bn < _ ==> ~(MEM _ _)` mp_tac
+  \\ TRY (
+    Q.MATCH_GOALSUB_RENAME_TAC `~ MEM _ _.ffi_entry_pcs`
+    \\ qpat_x_assum `!bn. bn < _ ==> ~(MEM _ _)` mp_tac
     \\ simp[] )
   \\ metis_tac[]
 QED
@@ -9541,9 +9541,8 @@ Proof
   ) >>
   qspecl_then [`q`,`c.pos`,`[]`,`[]`] assume_tac get_shmem_info_FST_SND_LENGTH_eq >>
   gvs[] >>
-  qmatch_assum_abbrev_tac `MAP offset_func rest = DROP (LENGTH ffis) mc_conf.ffi_entry_pcs` >>
-  `LENGTH (MAP offset_func rest) = LENGTH (DROP (LENGTH ffis) mc_conf.ffi_entry_pcs)`
-    by metis_tac[]>>
+  qpat_x_assum `MAP _ _ = DROP _ _` $
+    assume_tac o Q.AP_TERM `LENGTH` >> 
   gvs[LENGTH_MAP,LENGTH_DROP]
 QED
 
