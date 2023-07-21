@@ -3318,7 +3318,7 @@ Definition obj_string_def:
     if c = 0 then strlit"" else
     strlit " " ^
       int_to_string #"-" c in
-  strlit"min: " ^ lhs_string f ^ c_string ^ strlit";\n"
+  strlit"min: " ^ lhs_string f ^ c_string ^ strlit" ;\n"
 End
 
 Definition print_pbf_def:

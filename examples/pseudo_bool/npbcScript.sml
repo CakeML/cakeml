@@ -541,13 +541,26 @@ Proof
   \\ PairCases_on ‘h’ \\ fs []
 QED
 
+(*
 Definition weaken_aux_def:
   (weaken_aux v [] n = ([],n)) ∧
   (weaken_aux v ((c:int,l)::xs) n =
     let (xs',n') = weaken_aux v xs n in
-    if l = v then
+     if l = v then
       (xs',n'-Num(ABS c))
     else
+      ((c,l)::xs',n'))
+End
+*)
+
+(* Faster weaken_aux, if the constraint is compact *)
+Definition weaken_aux_def:
+  (weaken_aux v [] n = ([],n)) ∧
+  (weaken_aux v ((c:int,l)::xs) n =
+    if l = v then
+      (xs,n-Num(ABS c))
+    else
+    let (xs',n') = weaken_aux v xs n in
       ((c,l)::xs',n'))
 End
 
@@ -563,7 +576,7 @@ Theorem weaken_aux_theorem:
   n' ≤ SUM (MAP (eval_term w) l') + a
 Proof
   ho_match_mp_tac weaken_aux_ind \\ rw[weaken_aux_def]
-  \\ pairarg_tac \\ fs[]
+  \\ rpt (pairarg_tac \\ fs[])
   \\ every_case_tac \\ fs[] \\ rw[]
   \\ qmatch_goalsub_abbrev_tac`SUM A`
   \\ TRY(qmatch_goalsub_abbrev_tac`B + SUM A`)
@@ -573,10 +586,12 @@ Proof
     (unabbrev_all_tac>>
     simp[])
   \\ pop_assum SUBST1_TAC
-  \\ first_x_assum match_mp_tac
+  >- (
+    first_x_assum match_mp_tac
+    \\ fs[])
   \\ fs[]
   \\ Cases_on`w l`
-  \\ fs[]
+  \\ fs[Abbr`rhs`]
 QED
 
 (* set a = 0 *)
@@ -613,7 +628,7 @@ Theorem SORTED_weaken_aux:
   SORTED $< (MAP SND ls')
 Proof
   ho_match_mp_tac weaken_aux_ind \\ rw[weaken_aux_def]
-  \\ pairarg_tac \\ fs[]
+  \\ rpt (pairarg_tac \\ fs[])
   \\ every_case_tac \\ fs[] \\ rw[]
   >-
     metis_tac[SORTED_TL]
