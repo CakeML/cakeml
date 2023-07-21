@@ -36,7 +36,7 @@ val arm7_data_conf = ``<| tag_bits:=0; len_bits:=0; pad_bits:=1; len_size:=20; h
 val arm7_word_conf = ``<| bitmaps_length := 0; stack_frame_size := LN |>``
 val arm7_stack_conf = ``<|jump:=T;reg_names:=arm7_names|>``
 val arm7_lab_conf =
-  ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=arm7_config;init_clock:=5;hash_size:=104729n;shmem_info:=[]|>``
+  ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=arm7_config;init_clock:=5;hash_size:=104729n;|>``
 
 val arm7_backend_config_def = Define`
   arm7_backend_config =
