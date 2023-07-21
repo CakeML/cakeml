@@ -89,6 +89,7 @@ candle/prover
 pancake
 pancake/ffi
 pancake/semantics
+pancake/parser
 pancake/proofs
 
 # examples and tests
