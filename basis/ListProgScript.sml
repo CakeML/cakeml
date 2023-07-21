@@ -239,7 +239,29 @@ val result = translate ZIP_eq;
 val result = translate MEMBER_def;
 
 val result = translate SUM;
-val result = translate UNZIP;
+
+Theorem UNZIP_eq:
+  !xs.
+    UNZIP xs =
+      case xs of
+        [] => ([], [])
+      | (y,z)::xs =>
+          let (ys,zs) = UNZIP xs in
+            (y::ys, z::zs)
+Proof
+  Induct \\ simp [ELIM_UNCURRY, FORALL_PROD]
+QED
+
+Theorem UNZIP_ind:
+  ∀P. (∀v. (∀x4 x3. v = x4::x3 ⇒ ∀x2 x1. x4 = (x2,x1) ⇒ P x3) ⇒ P v) ⇒ ∀v. P v
+Proof
+  simp [FORALL_PROD]
+  \\ gen_tac \\ strip_tac
+  \\ Induct \\ rw []
+QED
+
+val result = translate UNZIP_eq;
+
 val result = translate PAD_RIGHT;
 val result = translate PAD_LEFT;
 val result = translate (ALL_DISTINCT |> REWRITE_RULE [MEMBER_INTRO]);
