@@ -1,11 +1,14 @@
 (**
  * The beginnings of a lexer for the Pancake language.
- *
+ *)
+
+(**
  * We take significant inspiration from the Spark ADA development.
  *
  * Author: Craig McLaughlin
  * Date: March--April 2022
  *)
+
 open HolKernel Parse boolLib bossLib stringLib numLib;
 
 open arithmeticTheory stringTheory intLib listTheory locationTheory;
@@ -16,15 +19,15 @@ val _ = new_theory "panLexer";
 Datatype:
   keyword = SkipK | StoreK | StoreBK | IfK | ElseK | WhileK
   | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK
-  | LdsK | LdbK | BaseK | InK
+  | LdsK | LdbK | BaseK | InK | FunK | TrueK | FalseK
 End
 
 Datatype:
   token = AndT | OrT | XorT | NotT
-  | EqT | NeqT | LessT | GreaterT | GeqT
+  | EqT | NeqT | LessT | GreaterT | GeqT | LeqT
   | PlusT | MinusT | HashT | DotT | StarT
   | LslT | LsrT | AsrT | RorT
-  | TrueT | FalseT | IntT int | IdentT string
+  | IntT int | IdentT string
   | LParT | RParT | CommaT | SemiT | ColonT | DArrowT | AddrT
   | LBrakT | RBrakT | LCurT | RCurT
   | AssignT
@@ -41,7 +44,7 @@ Definition isAtom_singleton_def:
 End
 
 Definition isAtom_begin_group_def:
-  isAtom_begin_group c = MEM c "#=>"
+  isAtom_begin_group c = MEM c "#=><"
 End
 
 Definition isAtom_in_group_def:
@@ -62,6 +65,7 @@ Definition get_token_def:
   if s = "<" then LessT else
   if s = ">" then GreaterT else
   if s = ">=" then GeqT else
+  if s = "<=" then LeqT else
   if s = "=>" then DArrowT else
   if s = "!" then NotT else
   if s = "+" then PlusT else
@@ -106,8 +110,9 @@ Definition get_keyword_def:
   if s = "lds" then (KeywordT LdsK) else
   if s = "ldb" then (KeywordT LdbK) else
   if s = "@base" then (KeywordT BaseK) else
-  if s = "true" then TrueT else
-  if s = "false" then FalseT else
+  if s = "true" then (KeywordT TrueK) else
+  if s = "false" then (KeywordT FalseK) else
+  if s = "fun" then (KeywordT FunK) else
   if isPREFIX "@" s ∨ s = "" then LexErrorT else
   IdentT s
 End
@@ -136,12 +141,26 @@ Proof
   >> metis_tac[DECIDE “x ≤ y ⇒ x ≤ SUC y”]
 QED
 
+Definition next_loc_def:
+  next_loc n (POSN r c) = POSN r (c+n) ∧
+  next_loc n x = x
+End
+
+Definition next_line_def:
+  next_line (POSN r c) = POSN (r+1) 0 ∧
+  next_line x = x
+End
+
+Definition loc_row_def:
+  loc_row n = POSN n 1
+End
+
 Definition skip_comment_def:
   skip_comment "" _ = NONE ∧
   skip_comment (x::xs) loc =
   (case x of
-   | #"\n" => SOME (xs, loc with col := loc.col + 1)
-   | _ => skip_comment xs (loc with col := loc.col + 1))
+   | #"\n" => SOME (xs, next_loc 1 loc)
+   | _ => skip_comment xs (next_loc 1 loc))
 End
 
 Theorem skip_comment_thm:
@@ -156,49 +175,43 @@ Proof
   >> fs[LE]
 QED
 
-Definition next_loc_def:
-  next_loc n (POSN r c) = POSN r (c+n) ∧
-  next_loc n x = x
+Definition unhex_alt_def:
+  unhex_alt x = if isHexDigit x then UNHEX x else 0n
 End
 
-Definition next_line_def:
-  next_line (POSN r c) = POSN (r+1) 0 ∧
-  next_line x = x
-End
-
-Definition low_row_def:
-  loc_row n = POSN n 1
+Definition num_from_dec_string_alt_def:
+  num_from_dec_string_alt = s2n 10 unhex_alt
 End
 
 Definition next_atom_def:
   next_atom "" _ = NONE ∧
   next_atom (c::cs) loc =
     if c = #"\n" then (* Skip Newline *)
-      next_atom cs (loc_row (loc.row + 1))
+      next_atom cs (next_line loc)
     else if isSpace c then
-      next_atom cs (loc with col := loc.col + 1)
+      next_atom cs (next_loc 1 loc)
     else if isDigit c then
       let (n, cs') = read_while isDigit cs [c] in
-        SOME (NumberA &(toNum n),
-              Locs loc (loc with col := loc.col + LENGTH n),
+        SOME (NumberA &(num_from_dec_string_alt n),
+              Locs loc (next_loc (LENGTH n) loc),
               cs')
     else if c = #"-" ∧ cs ≠ "" ∧ isDigit (HD cs) then
       let (n, rest) = read_while isDigit cs [] in
-      SOME (NumberA (0 - &(toNum n)),
-            Locs loc (loc with col := loc.col + LENGTH n),
+      SOME (NumberA (0 - &(num_from_dec_string_alt n)),
+            Locs loc (next_loc (LENGTH n) loc),
             rest)
     else if isPREFIX "//" (c::cs) then (* comment *)
-      (case (skip_comment (TL cs) (loc with col := loc.col + 2)) of
-       | NONE => SOME (ErrA, Locs loc (loc with col := loc.col + 2), "")
+      (case (skip_comment (TL cs) (next_loc 2 loc)) of
+       | NONE => SOME (ErrA, Locs loc (next_loc 2 loc), "")
        | SOME (rest, loc') => next_atom rest loc')
     else if isAtom_singleton c then
       SOME (SymA (STRING c []), Locs loc loc, cs)
     else if isAtom_begin_group c then
       let (n, rest) = read_while isAtom_in_group cs [c] in
-      SOME (SymA n, Locs loc (loc with col := loc.col + LENGTH n - 1), rest)
+      SOME (SymA n, Locs loc (next_loc (LENGTH n - 1) loc), rest)
     else if isAlpha c ∨ c = #"@" then (* read identifier *)
       let (n, rest) = read_while isAlphaNumOrWild cs [c] in
-      SOME (WordA n, Locs loc (loc with col := loc.col + LENGTH n), rest)
+      SOME (WordA n, Locs loc (next_loc (LENGTH n) loc), rest)
     else (* input not recognised *)
       SOME (ErrA, Locs loc loc, cs)
 Termination
@@ -254,7 +267,7 @@ Definition pancake_lex_aux_def:
  (case next_token input loc of
   | NONE => []
   | SOME (token, Locs locB locE, rest) =>
-      (token, Locs locB locE) :: pancake_lex_aux rest (locE with col := locE.col + 1))
+      (token, Locs locB locE) :: pancake_lex_aux rest (next_loc 1 loc))
 Termination
   WF_REL_TAC ‘measure (LENGTH o FST)’ >> rw[]
   >> imp_res_tac next_token_LESS

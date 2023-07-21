@@ -89,6 +89,7 @@ candle/prover
 pancake
 pancake/ffi
 pancake/semantics
+pancake/parser
 pancake/proofs
 
 # examples and tests
@@ -120,6 +121,8 @@ examples/sat_encodings/translation/compilation
 examples/deflate
 examples/deflate/translation
 examples/deflate/translation/compilation
+examples/vipr
+examples/vipr/compilation
 
 translator/okasaki-examples
 translator/other-examples

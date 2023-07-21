@@ -82,6 +82,11 @@ Definition lookup_code_def:
       | _ => NONE
 End
 
+Definition crep_op_def:
+  crep_op crepLang$Mul [w1:'a word;w2] = SOME(w1 * w2) ∧
+  crep_op _ _ = NONE
+End
+
 Definition eval_def:
   (eval (s:('a,'ffi) crepSem$state) ((Const w):'a crepLang$exp) = SOME (Word w)) ∧
   (eval s (Var v) = FLOOKUP s.locals v) ∧
@@ -107,6 +112,13 @@ Definition eval_def:
        if (EVERY (\w. case w of (Word _) => T | _ => F) ws)
        then OPTION_MAP Word
             (word_op op (MAP (\w. case w of Word n => n) ws)) else NONE
+      | _ => NONE) /\
+  (eval s (Crepop op es) =
+    case (OPT_MMAP (eval s) es) of
+     | SOME ws =>
+       if (EVERY (\w. case w of (Word _) => T | _ => F) ws)
+       then OPTION_MAP Word
+            (crep_op op (MAP (\w. case w of Word n => n) ws)) else NONE
       | _ => NONE) /\
   (eval s (Cmp cmp e1 e2) =
     case (eval s e1, eval s e2) of
@@ -225,17 +237,17 @@ Definition evaluate_def:
               | (SOME Continue,st) => (SOME Error,st)
               | (SOME (Return retv),st) =>
                    (case caltyp of
-                    | Tail    => (SOME (Return retv),empty_locals st)
-                    | Ret NONE p _ => evaluate (p, st with locals := s.locals)
-                    | Ret (SOME rt) p _ =>
+                    | NONE    => (SOME (Return retv),empty_locals st)
+                    | SOME (NONE, p, _) => evaluate (p, st with locals := s.locals)
+                    | SOME (SOME rt, p, _) =>
                      (case FLOOKUP s.locals rt of
                        | SOME _ => evaluate (p, st with locals := s.locals |+ (rt,retv))
                        | _ => (SOME Error, st)))
               | (SOME (Exception eid),st) =>
                    (case caltyp of
-                    | Tail    => (SOME (Exception eid),empty_locals st)
-                    | Ret _ _ NONE => (SOME (Exception eid),empty_locals st)
-                    | Ret _ _ (SOME (Handle eid' p)) =>
+                    | NONE    => (SOME (Exception eid),empty_locals st)
+                    | SOME (_, _, NONE) => (SOME (Exception eid),empty_locals st)
+                    | SOME (_, _, SOME (eid', p)) =>
                       if eid = eid' then
                         evaluate (p, st with locals := s.locals)
                       else (SOME (Exception eid), empty_locals st))
@@ -299,7 +311,7 @@ val evaluate_def = save_thm("evaluate_def[compute]",
 
 Definition semantics_def:
   semantics ^s start =
-   let prog = Call Tail (Label start) [] in
+   let prog = Call NONE (Label start) [] in
     if ∃k. case FST (evaluate (prog,s with clock := k)) of
             | SOME TimeOut => F
             | SOME (FinalFFI _) => F

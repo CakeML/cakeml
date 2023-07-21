@@ -171,11 +171,98 @@ Proof
        MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
    rw [] >>
    fs [MEM_FLAT, MEM_MAP] >>
-   metis_tac [EL_MEM]) >>
+   metis_tac [EL_MEM])
+  >- (
+   rpt gen_tac >>
+   strip_tac >>
+   gvs [var_cexp_def, eval_def, AllCaseEqs(),opt_mmap_eq_some,SF DNF_ss,
+        DefnBase.one_line_ify NONE crep_op_def,MAP_EQ_CONS,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+   metis_tac[]
+  ) >>
   rpt gen_tac >>
   rpt strip_tac >> fs [var_cexp_def, ETA_AX] >>
   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
   rveq >> metis_tac []
+QED
+
+Triviality update_locals_not_vars_eval_eq':
+  ∀s e v n w res.
+  ~MEM n (var_cexp e) ∧
+   eval s e = res
+  ==>
+  eval (s with locals := s.locals |+ (n,w)) e = res
+Proof
+  ho_match_mp_tac eval_ind >>
+  rpt conj_tac >> rpt gen_tac >> strip_tac
+  >- (fs [eval_def])
+  >- fs [eval_def, var_cexp_def, FLOOKUP_UPDATE]
+  >- fs [eval_def]
+  >- (
+   rpt strip_tac >> fs [var_cexp_def] >>
+   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+   rveq >> fs [mem_load_def]
+   )
+  >- (
+   rpt gen_tac >>
+   strip_tac >> fs [var_cexp_def] >>
+   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+   rveq >> fs [mem_load_def])
+  >- fs [var_cexp_def, eval_def, CaseEq "option"]
+  >- (
+   rpt strip_tac \\
+   fs[eval_def,AllCaseEqs()] \\
+   gvs[]
+   THEN1 (disj1_tac \\
+          pop_assum (rw o single o GSYM) \\
+          match_mp_tac OPT_MMAP_CONG \\
+          rw[]\\
+          gvs[var_cexp_def,MEM_MAP,MEM_FLAT] \\
+          first_x_assum(match_mp_tac o MP_CANON) \\
+          metis_tac[]) \\
+   disj2_tac \\
+   qexists_tac ‘ws’ \\
+   simp[] \\
+   FULL_SIMP_TAC std_ss [GSYM NOT_EVERY] \\
+   qpat_x_assum ‘_ = SOME ws’ (rw o single o GSYM) \\
+   match_mp_tac OPT_MMAP_CONG \\
+   rw[]\\
+   gvs[var_cexp_def,MEM_MAP,MEM_FLAT] \\
+   first_x_assum(match_mp_tac o MP_CANON) \\
+   metis_tac[])
+  >- (
+   rpt strip_tac >>
+   gvs[eval_def,var_cexp_def,MEM_FLAT,MEM_MAP] >>
+   qmatch_goalsub_abbrev_tac ‘option_CASE a1 _ _ = option_CASE a2 _ _’ >>
+   ‘a1 = a2’ suffices_by simp[] >>
+   unabbrev_all_tac >>
+   match_mp_tac OPT_MMAP_cong >>
+   rw[] >>
+   metis_tac[]) >>
+  rpt gen_tac >>
+  rpt strip_tac >> fs [var_cexp_def, ETA_AX] >>
+  fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+  rveq >> metis_tac []
+QED
+
+Theorem update_locals_not_vars_eval_eq':
+  ∀s e v n w.
+  ~MEM n (var_cexp e)
+  ==>
+  eval (s with locals := s.locals |+ (n,w)) e = eval s e
+Proof
+  metis_tac[update_locals_not_vars_eval_eq']
+QED
+
+Theorem update_locals_not_vars_eval_eq'':
+  ∀s e v n w locals.
+  ~MEM n (var_cexp e)
+  ==>
+  eval (s with locals := locals |+ (n,w)) e = eval (s with locals := locals) e
+Proof
+  rpt strip_tac \\
+  ‘(s with locals := locals |+ (n,w)) = (s with locals := locals) with locals := (s with locals := locals).locals |+ (n,w)’ by simp[state_component_equality] \\
+  pop_assum $ SUBST_TAC o single \\
+  metis_tac[update_locals_not_vars_eval_eq']
 QED
 
 Theorem var_exp_load_shape:
@@ -220,66 +307,91 @@ Proof
   fs [res_var_def, FLOOKUP_UPDATE, DOMSUB_FLOOKUP_NEQ]
 QED
 
-Theorem unassigned_vars_evaluate_same:
+Theorem flookup_res_var_thm:
+  FLOOKUP (res_var l (m,v)) n =
+  if n = m then
+    v
+  else
+    FLOOKUP l n
+Proof
+  Cases_on ‘v’ \\ rw[res_var_def,DOMSUB_FLOOKUP_THM,FLOOKUP_UPDATE]
+QED
+
+Theorem unassigned_free_vars_evaluate_same:
   !p s res t n.
    evaluate (p,s) = (res,t) /\
    (res = NONE ∨ res = SOME Continue ∨ res = SOME Break) /\
-    ~MEM n (assigned_vars p) ==>
+    ~MEM n (assigned_free_vars p) ==>
   FLOOKUP t.locals n = FLOOKUP s.locals n
 Proof
   recInduct evaluate_ind >> rw [] >> fs [] >>
-  TRY (
-  rename1 ‘While _ _’ >>
-  qpat_x_assum ‘evaluate (While _ _,_) = (_,_)’ mp_tac >>
-  once_rewrite_tac [evaluate_def] >>
-  ntac 4 (TOP_CASE_TAC >> fs []) >>
-  pairarg_tac >> fs [] >>
-  fs [] >>
-  TOP_CASE_TAC >> fs [] >>
-  strip_tac
-  >- (
-   first_x_assum drule >>
-   fs [] >>
-   disch_then drule >>
-   fs [assigned_vars_def] >>
-   first_x_assum drule >>
-   fs [dec_clock_def]) >>
-  FULL_CASE_TAC >> fs [] >>
-  fs [assigned_vars_def] >>
-  first_x_assum drule >>
-  fs [dec_clock_def] >> NO_TAC) >>
+  TRY(qpat_x_assum ‘evaluate (While _ _,_) = (_,_)’ mp_tac >>
+      once_rewrite_tac [evaluate_def] >>
+      ntac 4 (TOP_CASE_TAC >> fs []) >>
+      pairarg_tac >> fs [] >>
+      fs [] >>
+      TOP_CASE_TAC >> fs [] >>
+      strip_tac
+      >- (
+       first_x_assum drule >>
+       fs [] >>
+       disch_then drule >>
+       fs [assigned_free_vars_def] >>
+       first_x_assum drule >>
+       fs [dec_clock_def]) >>
+      FULL_CASE_TAC >> fs [] >>
+      fs [assigned_free_vars_def] >>
+      first_x_assum drule >>
+      fs [dec_clock_def]) >>
   TRY
-  (fs [evaluate_def, assigned_vars_def, CaseEq "option", CaseEq "word_lab",
+  (fs [evaluate_def, assigned_free_vars_def, AllCaseEqs(),
        set_globals_def, state_component_equality] >>
    TRY (pairarg_tac) >> rveq >> fs [] >> rveq >>
    FULL_CASE_TAC >> metis_tac [] >>
    NO_TAC) >>
   TRY
-  (fs [evaluate_def, assigned_vars_def] >> fs [CaseEq "option"] >>
-   pairarg_tac >> fs [] >> rveq >>
-   first_x_assum drule  >>
+  (fs [evaluate_def, assigned_free_vars_def,MEM_FILTER] >> fs [CaseEq "option"] >>
+   pairarg_tac >> fs [] >> rveq >> gvs[flookup_res_var_thm] >>
+   first_x_assum drule >>
    fs [state_component_equality, FLOOKUP_UPDATE] >>
-   metis_tac [flookup_res_var_diff_eq] >> NO_TAC) >>
+   metis_tac[] >> NO_TAC) >>
   TRY
-  (fs [evaluate_def, assigned_vars_def] >> fs [CaseEq "option", CaseEq "word_lab"] >>
+  (fs [evaluate_def, assigned_free_vars_def,MEM_FILTER] >> fs [CaseEq "option", CaseEq "word_lab"] >>
    rveq >> fs [state_component_equality, FLOOKUP_UPDATE] >>
    fs [panSemTheory.mem_store_def, state_component_equality] >> NO_TAC) >>
   TRY
   (cases_on ‘caltyp’ >>
-   fs [evaluate_def, assigned_vars_def, CaseEq "option",  CaseEq "ret", CaseEq "word_lab"]  >>
-   rveq >> cases_on ‘v6’ >> fs[] >>
-   every_case_tac >> fs [set_var_def, state_component_equality, assigned_vars_def] >>
+   fs [evaluate_def, assigned_free_vars_def, CaseEq "option",  CaseEq "word_lab"]  >>
+   rveq >> rename1 ‘lookup_code _ _ _ _ = SOME v6’ >> cases_on ‘v6’ >> fs[] >>
+   every_case_tac >> fs [set_var_def, state_component_equality, assigned_free_vars_def] >>
    TRY (qpat_x_assum ‘s.locals |+ (_,_) = t.locals’ (mp_tac o GSYM) >>
         fs [FLOOKUP_UPDATE] >> NO_TAC) >>
    res_tac >> fs [FLOOKUP_UPDATE] >> NO_TAC) >>
   TRY
-  (fs [evaluate_def, assigned_vars_def] >> fs [CaseEq "option"] >>
+  (fs [evaluate_def, assigned_free_vars_def,MEM_FILTER] >> fs [CaseEq "option"] >>
    pairarg_tac >> fs [] >> rveq >>
    FULL_CASE_TAC >>
    metis_tac [] >> NO_TAC) >>
-  fs [evaluate_def, assigned_vars_def, dec_clock_def, CaseEq "option",
+  fs [evaluate_def, assigned_free_vars_def, dec_clock_def, CaseEq "option",
       CaseEq "word_lab", CaseEq "ffi_result"]  >>
   rveq >> TRY (FULL_CASE_TAC) >>fs [state_component_equality]
+QED
+
+Theorem assigned_free_vars_IMP_assigned_vars:
+  ∀prog x. MEM x (assigned_free_vars prog) ⇒ MEM x (assigned_vars prog)
+Proof
+  Induct using assigned_vars_ind \\ rw[assigned_free_vars_def,assigned_vars_def,MEM_FILTER] \\
+  gvs[]
+QED
+
+Theorem unassigned_vars_evaluate_same:
+  !p s res t n.
+   evaluate (p,s) = (res,t) /\
+   (res = NONE ∨ res = SOME Continue ∨ res = SOME Break) /\
+    ~MEM n (assigned_free_vars p) ==>
+  FLOOKUP t.locals n = FLOOKUP s.locals n
+Proof
+  metis_tac[assigned_free_vars_IMP_assigned_vars,unassigned_free_vars_evaluate_same]
 QED
 
 Theorem assigned_vars_nested_decs_append:
@@ -292,6 +404,16 @@ Proof
   fs [nested_decs_def, assigned_vars_def]
 QED
 
+Theorem assigned_free_vars_nested_decs_append:
+  !ns es p.
+  LENGTH ns = LENGTH es ==>
+  assigned_free_vars (nested_decs ns es p) = FILTER (λx. ¬MEM x ns) $ assigned_free_vars p
+Proof
+  Induct >> rw [] >> fs [nested_decs_def] >>
+  cases_on ‘es’ >>
+  fs [nested_decs_def, assigned_free_vars_def,FILTER_FILTER] >>
+  rpt(AP_TERM_TAC ORELSE AP_THM_TAC) >> metis_tac[]
+QED
 
 Theorem nested_seq_assigned_vars_eq:
   !ns vs.
@@ -302,6 +424,14 @@ Proof
   cases_on ‘vs’ >> fs [nested_seq_def, assigned_vars_def]
 QED
 
+Theorem nested_seq_assigned_free_vars_eq:
+  !ns vs.
+  LENGTH ns = LENGTH vs ==>
+  assigned_free_vars (nested_seq (MAP2 Assign ns vs)) = ns
+Proof
+  Induct >> rw [] >- fs [nested_seq_def, assigned_free_vars_def] >>
+  cases_on ‘vs’ >> fs [nested_seq_def, assigned_free_vars_def]
+QED
 
 Theorem assigned_vars_seq_store_empty:
   !es ad a.
@@ -310,6 +440,16 @@ Proof
   Induct >> rw [] >>
   fs [stores_def, assigned_vars_def, nested_seq_def] >>
   FULL_CASE_TAC >> fs [stores_def, assigned_vars_def,
+                       nested_seq_def]
+QED
+
+Theorem assigned_free_vars_seq_store_empty:
+  !es ad a.
+  assigned_free_vars (nested_seq (stores ad es a)) =  []
+Proof
+  Induct >> rw [] >>
+  fs [stores_def, assigned_free_vars_def, nested_seq_def] >>
+  FULL_CASE_TAC >> fs [stores_def, assigned_free_vars_def,
                        nested_seq_def]
 QED
 
@@ -322,13 +462,21 @@ Proof
   fs [store_globals_def, assigned_vars_def, nested_seq_def]
 QED
 
+Theorem assigned_free_vars_store_globals_empty:
+  !es ad.
+  assigned_free_vars (nested_seq (store_globals ad es)) =  []
+Proof
+  Induct >> rw [] >>
+  fs [store_globals_def, assigned_free_vars_def, nested_seq_def] >>
+  fs [store_globals_def, assigned_free_vars_def, nested_seq_def]
+QED
+
 Theorem length_load_globals_eq_read_size:
   !ads a.
    LENGTH (load_globals a ads) = ads
 Proof
   Induct >> rw [] >> fs [load_globals_def]
 QED
-
 
 Theorem el_load_globals_elem:
   !ads a n.
@@ -514,7 +662,6 @@ Proof
    fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
    rveq >> metis_tac [])
   >- fs [exps_def, eval_def, CaseEq "option"]
-
   >- (
    rpt gen_tac >>
    strip_tac >> fs [exps_def, ETA_AX] >>
@@ -524,7 +671,16 @@ Proof
        MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
    rw [] >>
    fs [MEM_FLAT, MEM_MAP] >>
-   metis_tac [EL_MEM]) >>
+   metis_tac [EL_MEM])
+  >- (
+   rpt gen_tac >>
+   strip_tac >>
+   gvs [exps_def, eval_def, AllCaseEqs(),opt_mmap_eq_some,SF DNF_ss,
+        MAP_EQ_CONS,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+   first_x_assum $ irule_at $ Pos last >>
+   simp[] >>
+   gvs[MAP_EQ_EVERY2,LIST_REL_EL_EQN] >>
+   metis_tac[EL_MEM]) >>
   rpt gen_tac >>
   rpt strip_tac >> fs [exps_def, ETA_AX] >>
   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
@@ -687,21 +843,14 @@ Proof
   TRY (
   fs [eval_def, var_cexp_def] >>
   FULL_CASE_TAC >> fs [] >> NO_TAC)
-  >- (
-   fs [var_cexp_def, ETA_AX] >>
-   fs [eval_def] >>
-   FULL_CASE_TAC >> fs [ETA_AX] >> rveq >>
-   pop_assum kall_tac >> pop_assum kall_tac >>
-   rpt (pop_assum mp_tac) >>
-   MAP_EVERY qid_spec_tac [`n`,`x`,`s`, `es`] >>
-   Induct >- rw [] >>
-   rpt gen_tac >>
-   rpt strip_tac >>
-   fs [OPT_MMAP_def] >> rveq >> fs [] >>
-   last_x_assum (qspecl_then [‘s’, ‘t’, ‘n’] mp_tac) >>
-   fs [] >>
-   impl_tac >- metis_tac [] >>
-   fs []) >>
+  >- (gvs [var_cexp_def,MEM_FLAT,MEM_MAP,eval_def,AllCaseEqs(),opt_mmap_eq_some,
+           MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+      first_x_assum $ drule_then match_mp_tac >>
+      metis_tac[MEM_EL])
+  >- (gvs [var_cexp_def,MEM_FLAT,MEM_MAP,eval_def,AllCaseEqs(),opt_mmap_eq_some,
+           MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+      first_x_assum $ drule_then match_mp_tac >>
+      metis_tac[MEM_EL]) >>
   fs [var_cexp_def, eval_def] >>
   every_case_tac >> fs []
 QED
@@ -985,9 +1134,10 @@ Proof
    rveq >> fs [] >>
    imp_res_tac evaluate_io_events_mono >>
    fs [] >>
-   TRY (cases_on ‘evaluate (p,r' with locals := s.locals)’) >> fs [] >>
-   TRY (cases_on ‘evaluate (p',r' with locals := s.locals)’) >> fs [] >>
-   TRY (cases_on ‘evaluate (p,r' with locals := s.locals |+ (x',w))’) >> fs [] >>
+   TRY (rename1 ‘evaluate (p,s' with locals := s.locals)’>>
+        cases_on ‘evaluate (p,s' with locals := s.locals)’) >> fs [] >>
+   TRY (rename1 ‘evaluate (p,s' with locals := s.locals |+ (x',w))’>>
+        cases_on ‘evaluate (p,s' with locals := s.locals |+ (x',w))’) >> fs [] >>
    imp_res_tac evaluate_io_events_mono >>
    fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
   fs [dec_clock_def] >>
@@ -1001,18 +1151,23 @@ Proof
    TOP_CASE_TAC >> fs [] >> rveq >> fs []
    >- (
     TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+    TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+    TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
     TOP_CASE_TAC >> fs [] >> rveq >> fs []
     >- (
+     rename1 ‘evaluate (p,r'' with locals := s.locals)’ >>
      cases_on ‘evaluate (p,r'' with locals := s.locals)’ >>
      fs [] >>
      imp_res_tac evaluate_io_events_mono >>
      fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
     TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+    rename1 ‘evaluate (p,r'' with locals := s.locals |+ (x',w))’ >>
     cases_on ‘evaluate (p,r'' with locals := s.locals |+ (x',w))’ >>
     fs [] >>
     imp_res_tac evaluate_io_events_mono >>
     fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
    every_case_tac >> fs [] >> rveq >> fs [] >>
+   rename1 ‘evaluate (p,r'' with locals := s.locals)’ >>
    cases_on ‘evaluate (p,r'' with locals := s.locals)’ >>
    fs [] >>
    imp_res_tac evaluate_io_events_mono >>
@@ -1034,15 +1189,18 @@ Proof
     first_x_assum (qspec_then ‘extra’ mp_tac) >>
     strip_tac >> fs [] >> rfs []
     >- (
+     rename1 ‘evaluate (p,r'' with locals := s.locals)’ >>
      cases_on ‘evaluate (p,r'' with locals := s.locals)’ >>
      imp_res_tac evaluate_io_events_mono >>
      fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
+    rename1 ‘evaluate (p,r'' with locals := s.locals |+ (x',w))’ >>
     cases_on ‘evaluate (p,r'' with locals := s.locals |+ (x',w))’ >>
     imp_res_tac evaluate_io_events_mono >>
     fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
    every_case_tac >> fs [] >> rveq >> fs [] >>
    first_x_assum (qspec_then ‘extra’ mp_tac) >>
    strip_tac >> fs [] >> rfs [] >>
+   rename1 ‘evaluate (p,r'' with locals := s.locals)’ >>
    cases_on ‘evaluate (p,r'' with locals := s.locals)’ >>
    imp_res_tac evaluate_io_events_mono >>
    fs [] >> metis_tac [IS_PREFIX_TRANS])
@@ -1051,16 +1209,19 @@ Proof
    >- (
     first_x_assum (qspec_then ‘extra’ mp_tac) >>
     strip_tac >> fs [] >>
+    rename1 ‘evaluate (q,s with <|locals := r; clock := extra + s.clock - 1|>)’ >>
     cases_on ‘evaluate (q,s with <|locals := r; clock := extra + s.clock - 1|>)’ >>
     fs [] >>
     TOP_CASE_TAC >> fs [] >>
     TOP_CASE_TAC >> fs [] >> rveq >> fs [])
    >- (
+    TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
+    TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
     TOP_CASE_TAC >> fs [] >> rveq >> fs []
     >- (drule evaluate_add_clock_eq >> fs []) >>
     TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
     drule evaluate_add_clock_eq >> fs []) >>
-   drule evaluate_add_clock_eq >> fs []) >>
+   drule evaluate_add_clock_eq >> fs []) >> (* ? *)
   TOP_CASE_TAC >> fs [] >> rveq >> fs []
   >- (
    first_x_assum (qspec_then ‘extra’ mp_tac) >>
@@ -1069,6 +1230,8 @@ Proof
    fs [] >>
    TOP_CASE_TAC >> fs [] >>
    TOP_CASE_TAC >> fs [] >> rveq >> fs []) >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
   TOP_CASE_TAC >> fs [] >> rveq >> fs []
   >- (
    first_x_assum (qspec_then ‘extra’ mp_tac) >>
@@ -1102,5 +1265,40 @@ Proof
   fs []
 QED
 
+Definition exps_of_def:
+  (exps_of (Dec _ e p) = e::exps_of p) ∧
+  (exps_of (Seq p q) = exps_of p ++ exps_of q) ∧
+  (exps_of (If e p q) = e::exps_of p ++ exps_of q) ∧
+  (exps_of (While e p) = e::exps_of p) ∧
+  (exps_of (Call NONE e es) = e::es) ∧
+  (exps_of (Call (SOME (_,p,NONE)) e es) = e::es++exps_of p) ∧
+  (exps_of (Call (SOME (_,p,SOME(_,p'))) e es) = e::es++exps_of p++exps_of p') ∧
+  (exps_of (Store e1 e2) = [e1;e2]) ∧
+  (exps_of (StoreByte e1 e2) = [e1;e2]) ∧
+  (exps_of (StoreGlob _ e) = [e]) ∧
+  (exps_of (Return e) = [e]) ∧
+  (exps_of (Assign _ e) = [e]) ∧
+  (exps_of _ = [])
+End
+
+Definition every_exp_def:
+  (every_exp P (crepLang$Const w) = P(Const w)) ∧
+  (every_exp P (Var v) = P(Var v)) ∧
+  (every_exp P (Label f) = P(Label f)) ∧
+  (every_exp P (Load e) = (P(Load e) ∧ every_exp P e)) ∧
+  (every_exp P (LoadByte e) = (P(LoadByte e) ∧ every_exp P e)) ∧
+  (every_exp P (LoadGlob w) = (P(LoadGlob w))) ∧
+  (every_exp P (Op bop es) = (P(Op bop es) ∧ EVERY (every_exp P) es)) ∧
+  (every_exp P (Crepop op es) = (P(Crepop op es) ∧ EVERY (every_exp P) es)) ∧
+  (every_exp P (Cmp c e1 e2) = (P(Cmp c e1 e2) ∧ every_exp P e1 ∧ every_exp P e2)) ∧
+  (every_exp P (Shift sh e num) = (P(Shift sh e num) ∧ every_exp P e)) ∧
+  (every_exp P (BaseAddr) = P BaseAddr)
+Termination
+  wf_rel_tac `measure (exp_size ARB o SND)` >>
+  rpt strip_tac >>
+  imp_res_tac MEM_IMP_exp_size >>
+  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
+  decide_tac
+End
 
 val _ = export_theory();

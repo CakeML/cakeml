@@ -323,6 +323,10 @@ Theorem cake_extract_writes:
      (out = explode help_string) ∧ (err = "")
    else if has_version_flag (TL cl) then
      (out = explode current_build_info_str) ∧ (err = "")
+   else if has_pancake_flag (TL cl) then
+     let (cout, cerr) = compile_pancake_32 (TL cl) inp in
+     (out = explode (concat (append cout))) ∧
+     (err = explode cerr)
    else
      let (cout, cerr) = compile_32 (TL cl) inp in
      (out = explode (concat (append cout))) ∧
@@ -364,8 +368,9 @@ Proof
         pop_assum mp_tac
         \\ rw[] \\ fs[] \\ rw[]
         \\ pop_assum mp_tac \\ rw[])
-      >- ( rw[] \\ rw[OPTREL_def]))))
-  \\ simp[TextIOProofTheory.add_stdout_fastForwardFD, STD_streams_stdin_fs]
+      >- ( rw[] \\ rw[OPTREL_def]))))>>
+  IF_CASES_TAC>>fs[]
+  \\ (simp[TextIOProofTheory.add_stdout_fastForwardFD, STD_streams_stdin_fs]
   \\ DEP_REWRITE_TAC[TextIOProofTheory.add_stderr_fastForwardFD]
   \\ simp[TextIOProofTheory.STD_streams_add_stdout, STD_streams_stdin_fs]
   \\ strip_tac
@@ -481,7 +486,7 @@ Proof
   \\ simp[STD_streams_stdin_fs]
   \\ DEP_REWRITE_TAC[ALOOKUP_add_stdout_infds]
   \\ simp[STD_streams_stdin_fs]
-  \\ simp[stdin_fs_def]
+  \\ simp[stdin_fs_def])
 QED
 
 Theorem cake_ag32_next:

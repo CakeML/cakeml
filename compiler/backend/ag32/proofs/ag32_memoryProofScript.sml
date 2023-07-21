@@ -24,15 +24,15 @@ Theorem get_byte_word_of_bytes:
   (get_byte (n2w i) (word_of_bytes be (0w:'a word) ls) be = EL i ls)
 Proof
   strip_tac
-  \\ `∃k. dimindex(:'a) DIV 8 = 2 ** k` by(
-    fs[labPropsTheory.good_dimindex_def]
+  \\ ‘∃k. dimindex(:'a) DIV 8 = 2 ** k’ by(
+    fs[good_dimindex_def]
     \\ TRY(qexists_tac`2` \\ EVAL_TAC \\ NO_TAC)
     \\ TRY(qexists_tac`3` \\ EVAL_TAC \\ NO_TAC) )
   \\ strip_tac
   \\ Q.ISPECL_THEN[`be`,`0w`,`ls`,`2 ** k`]mp_tac word_of_bytes_bytes_to_word
   \\ impl_keep_tac >- (
-    rfs[bytes_in_word_def, dimword_def]
-    \\ fs[labPropsTheory.good_dimindex_def] \\ rfs[])
+    gvs[bytes_in_word_def, dimword_def,good_dimindex_def] \\
+    qpat_x_assum ‘_ = 2 ** k’ (assume_tac o SYM) >> gvs[])
   \\ rw[]
   \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_bytes_to_word]
   \\ rw[]
@@ -50,7 +50,7 @@ Proof
   \\ rw[words_of_bytes_def]
   \\ qmatch_goalsub_abbrev_tac`MAX 1 bw`
   \\ `0 < bw` by (
-     fs[Abbr`bw`,labPropsTheory.good_dimindex_def]
+     fs[Abbr`bw`,good_dimindex_def]
      \\ EVAL_TAC \\ fs[dimword_def] )
   \\ `MAX 1 bw = bw` by rw[MAX_DEF] \\ fs[]
   \\ Cases_on`i < bw` \\ fs[]
@@ -59,7 +59,7 @@ Proof
     by(
       simp[alignmentTheory.byte_align_def]
       \\ irule lt_align_eq_0
-      \\ fs[labPropsTheory.good_dimindex_def,Abbr`bw`]
+      \\ fs[good_dimindex_def,Abbr`bw`]
       \\ rfs[bytes_in_word_def,dimword_def] )
     \\ simp[ZERO_DIV]
     \\ DEP_REWRITE_TAC[UNDISCH get_byte_word_of_bytes]
@@ -83,19 +83,19 @@ Proof
   >- (
     simp[Abbr`bw`]
     \\ reverse conj_tac >- (
-      fs[labPropsTheory.good_dimindex_def,
+      fs[good_dimindex_def,
          bytes_in_word_def]
       \\ EVAL_TAC \\ fs[] \\ EVAL_TAC )
     \\ simp[alignmentTheory.byte_align_def]
     \\ DEP_REWRITE_TAC[word_msb_align]
-    \\ conj_tac >- ( fs[labPropsTheory.good_dimindex_def])
+    \\ conj_tac >- ( fs[good_dimindex_def])
     \\ simp[word_msb_n2w]
     \\ qmatch_assum_abbrev_tac`bw * r ≤ dimword _`
     \\ `r ≤ dimword (:'a) DIV bw` by fs[X_LE_DIV]
     \\ `p < dimword(:'a) DIV bw` by fs[]
     \\ match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP
     \\ fs[dimword_def, bytes_in_word_def]
-    \\ fs[Abbr`bw`, labPropsTheory.good_dimindex_def]
+    \\ fs[Abbr`bw`, good_dimindex_def]
     \\ rfs[] )
   \\ `bw < dimword(:'a)` by fs[Abbr`bw`, bytes_in_word_def]
   \\ simp[]
@@ -106,7 +106,7 @@ Proof
   \\ `n2w bw = byte_align (n2w bw)`
   by(
     fs[Abbr`bw`,bytes_in_word_def,alignmentTheory.byte_align_def]
-    \\ fs[labPropsTheory.good_dimindex_def]
+    \\ fs[good_dimindex_def]
     \\ EVAL_TAC \\ fs[dimword_def] \\ EVAL_TAC )
   \\ pop_assum SUBST1_TAC
   \\ once_rewrite_tac[WORD_ADD_COMM]

@@ -143,7 +143,7 @@ Proof
   xcf' "is_none" \\ Cases_on `opt` \\
   fs [OPTION_TYPE_def] \\
   xmatch \\ xcon \\ xsimpl
-)
+QED
 
 val example_eq = (append_prog o process_topdecs)
   `fun example_eq x = (x = 3)`

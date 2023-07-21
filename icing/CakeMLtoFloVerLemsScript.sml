@@ -6,7 +6,7 @@
 (* HOL4 *)
 open machine_ieeeTheory realTheory realLib RealArith;
 (* CakeML *)
-open compilerTheory;
+open backendTheory;
 (* FloVer *)
 open ExpressionsTheory CommandsTheory IEEE_connectionTheory;
 (* Icing *)

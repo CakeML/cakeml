@@ -22,29 +22,45 @@ val eval_thm = let
   in v_thm end
 val () = ml_prog_update (add_Dlet eval_thm "print");
 
-val print_app_list = process_topdecs
-  `fun print_app_list ls =
-   (case ls of
-      Nil => ()
-    | List ls => TextIO.print_list ls
-    | Append l1 l2 => (print_app_list l1; print_app_list l2))`;
-val () = append_prog print_app_list;
+val _ = ml_prog_update open_local_block;
 
-Theorem print_app_list_spec:
+val _ = (use_full_type_names := false);
+val r = translate mlstringTheory.sum_sizes_def;
+val r = translate mlstringTheory.make_app_list_ann_def;
+val r = translate mlstringTheory.shrink_def;
+val _ = (next_ml_names := ["str_app_list_opt"]);
+val r = translate mlstringTheory.str_app_list_opt_def;
+val _ = (use_full_type_names := true);
+
+val _ = (append_prog o process_topdecs) `
+  fun print_app_list_aux ls =
+    (case ls of
+       Nil => ()
+     | List ls => TextIO.print_list ls
+     | Append l1 l2 => (print_app_list_aux l1; print_app_list_aux l2))`;
+
+val _ = ml_prog_update open_local_in_block;
+
+val _ = (append_prog o process_topdecs) `
+  fun print_app_list ls = print_app_list_aux (str_app_list_opt ls)`;
+
+val _ = ml_prog_update close_local_blocks;
+
+Theorem print_app_list_aux_spec[local]:
    ∀ls lv out. APP_LIST_TYPE STRING_TYPE ls lv ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v "print_app_list" (get_ml_prog_state())) [lv]
+   app (p:'ffi ffi_proj) print_app_list_aux_v [lv]
      (STDIO fs) (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (concat (append ls))))
 Proof
   reverse(Cases_on`STD_streams fs`) >- (rw[STDIO_def] \\ xpull) \\
   pop_assum mp_tac \\ simp[PULL_FORALL] \\ qid_spec_tac`fs` \\
   reverse (Induct_on`ls`) \\ rw[APP_LIST_TYPE_def]
   >- (
-    xcf "print_app_list" (get_ml_prog_state())
+    xcf_with_def () (fetch "-" "print_app_list_aux_v_def")
     \\ xmatch \\ xcon
     \\ DEP_REWRITE_TAC[GEN_ALL add_stdo_nil]
     \\ xsimpl \\ metis_tac[STD_streams_stdout])
   >- (
-    xcf "print_app_list" (get_ml_prog_state())
+    xcf_with_def () (fetch "-" "print_app_list_aux_v_def")
     \\ xmatch
     \\ xlet_auto >- xsimpl
     \\ xapp
@@ -55,10 +71,22 @@ Proof
     \\ simp[mlstringTheory.concat_thm,mlstringTheory.strcat_thm]
     \\ xsimpl
     \\ metis_tac[STD_streams_stdout])
-  \\ xcf "print_app_list" (get_ml_prog_state())
+  \\ xcf_with_def () (fetch "-" "print_app_list_aux_v_def")
   \\ xmatch
   \\ xapp
   \\ simp[]
+QED
+
+Theorem print_app_list_spec:
+   ∀ls lv out. APP_LIST_TYPE STRING_TYPE ls lv ⇒
+   app (p:'ffi ffi_proj) print_app_list_v [lv]
+     (STDIO fs) (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (concat (append ls))))
+Proof
+  rw []
+  \\ xcf_with_def () (fetch "-" "print_app_list_v_def")
+  \\ xlet_auto >- xsimpl
+  \\ once_rewrite_tac [GSYM mlstringTheory.str_app_list_opt_thm]
+  \\ xapp_spec print_app_list_aux_spec \\ fs []
 QED
 
 val _ = (append_prog o process_topdecs)

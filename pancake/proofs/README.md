@@ -21,6 +21,9 @@ Correctness proof for pan_simp
 [pan_to_crepProofScript.sml](pan_to_crepProofScript.sml):
 Correctness proof for --
 
+[pan_to_targetProofScript.sml](pan_to_targetProofScript.sml):
+composing semantics correctness from pan to target
+
 [pan_to_wordProofScript.sml](pan_to_wordProofScript.sml):
 Correctness proof for --
 

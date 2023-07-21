@@ -34,6 +34,12 @@ Translate the compiler's state decoder.
 [explorerProgScript.sml](explorerProgScript.sml):
 Translate the compiler explorer parts of the compiler.
 
+[from_pancake32ProgScript.sml](from_pancake32ProgScript.sml):
+Translate the pan_to_target part of the 32-bit compiler.
+
+[from_pancake64ProgScript.sml](from_pancake64ProgScript.sml):
+Translate the pan_to_target part of the 64-bit compiler.
+
 [inferProgScript.sml](inferProgScript.sml):
 Translate the compiler's type inferencer.
 
@@ -45,6 +51,12 @@ Translate the compiler's lexer.
 
 [mipsProgScript.sml](mipsProgScript.sml):
 Translate the MIPS instruction encoder and MIPS-specific config.
+
+[pancake_lexProgScript.sml](pancake_lexProgScript.sml):
+Translate pancake's lexer
+
+[pancake_parseProgScript.sml](pancake_parseProgScript.sml):
+Translate pancake's lexer
 
 [parserProgScript.sml](parserProgScript.sml):
 Translate the compiler's parser.

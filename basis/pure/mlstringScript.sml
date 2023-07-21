@@ -1094,6 +1094,77 @@ Proof
 QED
 val _ = export_rewrites["ALL_DISTINCT_MAP_explode"]
 
+(* optimising mlstring app_list *)
+
+Datatype:
+  app_list_ann = BigList ('a list)
+               | BigAppend app_list_ann app_list_ann
+               | Small ('a app_list)
+End
+
+Definition sum_sizes_def:
+  sum_sizes [] k = k ∧
+  sum_sizes (l::ls) k = sum_sizes ls (strlen l + k)
+End
+
+Overload size_limit[local] = “2048:num”
+
+Definition make_app_list_ann_def:
+  make_app_list_ann input =
+    case input of
+    | Nil => (Small input, 0)
+    | Append l1 l2 =>
+        (let (x1,n1) = make_app_list_ann l1 in
+         let (x2,n2) = make_app_list_ann l2 in
+         let n = n1+n2 in
+           if n < size_limit then
+             (Small input,n)
+           else
+             (BigAppend x1 x2,n))
+    | List ls =>
+        (let n = sum_sizes ls 0 in
+           if n < size_limit then
+             (Small input,n)
+           else (BigList ls,n))
+End
+
+Definition shrink_def:
+  shrink (Small t) = List [concat (append t)] ∧
+  shrink (BigList ls) = List ls ∧
+  shrink (BigAppend l1 l2) = Append (shrink l1) (shrink l2)
+End
+
+Definition str_app_list_opt_def:
+  str_app_list_opt l =
+    let (t,n) = make_app_list_ann l in
+      shrink t
+End
+
+Triviality str_app_list_opt_test:
+  str_app_list_opt (Append (List [strlit "Hello"; strlit " there"])
+                           (List [strlit "!"])) =
+  List [strlit "Hello there!"]
+Proof
+  EVAL_TAC
+QED
+
+Theorem str_app_list_opt_thm:
+  concat (append (str_app_list_opt l)) = concat (append l)
+Proof
+  ‘str_app_list_opt l = shrink $ FST $ make_app_list_ann l’
+       by fs [str_app_list_opt_def,UNCURRY]
+  \\ fs [] \\ pop_assum kall_tac
+  \\ Induct_on ‘l’
+  >~ [‘Nil’] >- EVAL_TAC
+  >~ [‘Append’] >-
+   (simp [Once make_app_list_ann_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ IF_CASES_TAC
+    \\ gvs [shrink_def,concat_cons,concat_nil,concat_append])
+  \\ simp [Once make_app_list_ann_def] \\ rw []
+  \\ gvs [shrink_def,concat_cons,concat_nil,concat_append]
+QED
+
 (* The translator turns each `empty_ffi s` into a call to the FFI with
    an empty name and passing `s` as the argument. The empty FFI is
    used for logging/timing purposes. *)

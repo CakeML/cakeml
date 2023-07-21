@@ -416,6 +416,12 @@ Proof
    rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq >>
    fs [])
   >- (
+   rename [‘eval s (Panop op es)’] >>
+   rw[eval_def] \\
+   gvs[AllCaseEqs(),DefnBase.one_line_ify NONE pan_op_def,MAP_EQ_CONS,PULL_EXISTS,
+       pan_commonPropsTheory.opt_mmap_eq_some,SF DNF_ss] \\
+   metis_tac[])
+  >- (
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def] >>
    fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
@@ -426,6 +432,24 @@ Proof
   fs [state_rel_def, state_component_equality]
 QED
 
+(* TODO: move *)
+Theorem OPT_MMAP_NONE:
+  OPT_MMAP f xs = NONE ⇒
+  ∃x. MEM x xs ∧ f x = NONE
+Proof
+  Induct_on ‘xs’ \\ rw[PULL_EXISTS] \\
+  metis_tac[]
+QED
+
+(* TODO: move *)
+Theorem OPT_MMAP_NONE':
+  MEM x xs ∧ f x = NONE ⇒ OPT_MMAP f xs = NONE
+Proof
+  Induct_on ‘xs’ \\ rw[PULL_EXISTS]
+  THEN1 metis_tac[] \\
+  Cases_on ‘x = h’ \\ gvs[] \\
+  Cases_on ‘f h’ \\ gvs[]
+QED
 
 Theorem compile_eval_correct_none:
   ∀s e t.
@@ -512,6 +536,34 @@ Proof
    fs [] >>
    imp_res_tac compile_eval_correct >>
    fs [])
+  >- (
+   rename [‘eval s (Panop op es)’] >>
+   rw[eval_def] \\
+   PURE_TOP_CASE_TAC
+   THEN1 (gvs[AllCaseEqs(),DefnBase.one_line_ify NONE pan_op_def,MAP_EQ_CONS,PULL_EXISTS,
+              SF DNF_ss] \\
+          imp_res_tac OPT_MMAP_NONE \\
+          gvs[] \\
+          res_tac \\
+          disj1_tac \\
+          metis_tac[OPT_MMAP_NONE']) \\
+   gvs[] \\
+   strip_tac \\
+   gvs[eval_def,AllCaseEqs()]
+   THEN1 (imp_res_tac OPT_MMAP_NONE \\
+          fs[] \\
+          metis_tac[NOT_NONE_SOME,OPT_MMAP_NONE']) \\
+   qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_keep_tac
+   THEN1 (gvs[EVERY_MEM] \\
+          rw[] \\
+          gvs[pan_commonPropsTheory.opt_mmap_eq_some,MAP_EQ_EVERY2,LIST_REL_EL_EQN,MEM_EL,PULL_EXISTS] \\
+          res_tac \\
+          drule_all_then strip_assume_tac compile_eval_correct \\
+          gvs[]) \\
+   imp_res_tac pan_commonPropsTheory.opt_mmap_length_eq \\
+   rw[DefnBase.one_line_ify NONE pan_op_def,AllCaseEqs(),MAP_EQ_CONS,PULL_EXISTS] \\
+   gvs[quantHeuristicsTheory.LIST_LENGTH_1,LENGTH_CONS] \\
+   every_case_tac \\ gvs[])
   >- (
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def] >>
@@ -748,9 +800,7 @@ Proof
   fs [evaluate_def] >> rveq >> fs [] >>
   last_x_assum mp_tac >>
   rpt (TOP_CASE_TAC >> fs []) >>
-  TRY (
-  rfs [state_rel_def, state_component_equality,
-       empty_locals_def, dec_clock_def] >> rveq >> fs [] >> NO_TAC) >>
+  MAP_EVERY imp_res_tac [compile_eval_correct,compile_eval_correct_none] >> gvs[] >>
   rfs [state_rel_def, state_component_equality,
        empty_locals_def, dec_clock_def] >> rveq >> fs [] >>
   rveq >> fs [] >> rveq >> rfs [] >>
@@ -1034,9 +1084,9 @@ Proof
                           ``:'b``|->``:'b``]
                panPropsTheory.evaluate_add_clock_io_events_mono) >>
    first_assum (qspecl_then
-                [‘Call Tail (Label start) []’, ‘t with clock := k1’, ‘p’] mp_tac) >>
+                [‘TailCall (Label start) []’, ‘t with clock := k1’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
-                [‘Call Tail (Label start) []’, ‘t with clock := k2’, ‘p’] mp_tac) >>
+                [‘TailCall (Label start) []’, ‘t with clock := k2’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
                 [‘TailCall (Label start) []’, ‘s with clock := k1’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
