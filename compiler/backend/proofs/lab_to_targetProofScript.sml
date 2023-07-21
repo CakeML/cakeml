@@ -8802,9 +8802,9 @@ Proof
 QED
 
 Theorem genlist_line_to_info_entry_pc_max:
-  all_enc_ok c labs ffis p' code2 /\ enc_ok c ==> 
+  all_enc_ok c labs ffis p' code2 /\ enc_ok c ==>
   EVERY (\x. w2n (SND x).entry_pc < pos_val (num_pcs code2) 0 code2)
-    (FLAT (GENLIST 
+    (FLAT (GENLIST
       (λi. line_to_info code2 0 (i,asm_fetch_aux i code2))
       (num_pcs code2)))
 Proof
@@ -9441,7 +9441,7 @@ val semantics_compile_lemma = Q.prove(
     simp[] >>
     strip_tac >>
     spose_not_then kall_tac >>
-    first_x_assum $ assume_tac o GSYM >> 
+    first_x_assum $ assume_tac o GSYM >>
     gvs[addressTheory.word_arith_lemma1,EL_TAKE] >>
     qpat_x_assum `n2w _ = -n2w _ ` $ assume_tac >>
     drule $ iffLR o GSYM $ cj 1 addressTheory.WORD_EQ_ADD_CANCEL >>
@@ -9472,7 +9472,80 @@ val semantics_compile_lemma = Q.prove(
   |> MATCH_MP implements_intro_gen
   |> REWRITE_RULE [GSYM CONJ_ASSOC]
 
-(* to prove that the condition of semantics_compile is not vacuous *)
+(* try to show the condition of semantics_compile is not vacuous *)
+(* prove that mmio_min_min_index actually exists,
+  and LENGTH ffi_names = LENGTH ffi_entry_pcs,
+  which are stated in start_pc_ok *)
+Theorem get_shmem_info_FST_eq:
+!q p names info p' info'.
+  FST (get_shmem_info q p names info) = FST (get_shmem_info q p' names info')
+Proof
+  ho_match_mp_tac get_shmem_info_ind >>
+  rpt strip_tac >>
+  gvs[get_shmem_info_def] >>
+  pairarg_tac >>
+  gvs[get_shmem_info_def]
+QED
+
+Theorem get_shmem_info_FST_SND_LENGTH_eq:
+!q p names info.
+  LENGTH (FST (get_shmem_info q p names info)) + LENGTH info =
+  LENGTH (SND (get_shmem_info q p names info)) + LENGTH names
+Proof
+  ho_match_mp_tac get_shmem_info_ind >>
+  rpt strip_tac >>
+  gvs[get_shmem_info_def] >>
+  pairarg_tac >>
+  gvs[get_shmem_info_def]
+QED
+
+Theorem start_pc_ok_not_vacuous_lemma:
+  (* ?x. mc_conf.ffi_entry_pcs = x ++ MAP (\rec. rec.entry_pc + mc_conf.target.get_pc ms) (SND c'.shmem_extra) /\ LENGTH x = LENGTH old_ffi_names *)
+  LENGTH old_ffi_names <= LENGTH mc_conf.ffi_entry_pcs /\
+  compile c (code: 'a sec list) = SOME (bytes,c') ∧
+  c'.ffi_names = SOME old_ffi_names /\
+  mc_conf.ffi_names = old_ffi_names ++ FST c'.shmem_extra /\
+  MAP (\rec. rec.entry_pc + mc_conf.target.get_pc ms) (SND c'.shmem_extra) =
+    DROP (LENGTH old_ffi_names) mc_conf.ffi_entry_pcs /\
+  (!ffis. c.ffi_names = SOME ffis ==>
+    ~MEM "MappedRead" ffis /\ ~MEM "MappedWrite" ffis )
+  ==>
+  ?i. mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
+  LENGTH mc_conf.ffi_names = LENGTH mc_conf.ffi_entry_pcs
+Proof
+  fs[compile_def,compile_lab_def]>>
+  pairarg_tac \\ fs[] >>
+  CASE_TAC>>fs[]>>
+  CASE_TAC>>fs[]>>
+  rw[]>>
+  `compile =  (λc p. compile_lab c (filter_skip p)) ` by
+    fs[FUN_EQ_THM,compile_def]>>
+  pop_assum SUBST_ALL_TAC>>
+  fs[find_ffi_names_filter_skip,GSYM PULL_EXISTS,MAP_MAP_o,o_DEF]>>
+  SIMP_TAC (bool_ss) [Once WORD_ADD_COMM]>>
+  qabbrev_tac `info=get_shmem_info q 0 [] []` >>
+  first_x_assum $ assume_tac o GSYM o ONCE_REWRITE_RULE[markerTheory.Abbrev_def] >>
+  Cases_on `info` >>
+  gvs[] >>
+  `FST(get_shmem_info q c.pos [] []) = FST(get_shmem_info q 0 [] [])`
+    by metis_tac[get_shmem_info_FST_eq] >>
+  simp[] >>
+  conj_tac >- (
+    qexists_tac `LENGTH ffis` >>
+    irule mmio_pcs_min_index_APPEND_thm >>
+    gvs[] >>
+    drule_then assume_tac get_shmem_info_MappedRead_or_MappedWrite >>
+    gvs[] >>
+    Cases_on `c.ffi_names` >>
+    gvs[FILTER_NOT_MEM_Mapped]
+  ) >>
+  qspecl_then [`q`,`c.pos`,`[]`,`[]`] assume_tac get_shmem_info_FST_SND_LENGTH_eq >>
+  gvs[] >>
+  qmatch_assum_abbrev_tac `MAP offset_func rest = DROP (LENGTH ffis) mc_conf.ffi_entry_pcs` >>
+  `LENGTH (MAP offset_func rest) = LENGTH (DROP (LENGTH ffis) mc_conf.ffi_entry_pcs)`
+    by metis_tac[]>>
+  gvs[LENGTH_MAP,LENGTH_DROP]
+QED
 
 Theorem semantics_compile:
    mc_conf_ok mc_conf ∧
@@ -9481,7 +9554,7 @@ Theorem semantics_compile:
    c.asm_conf = mc_conf.target.config ∧
    c.labels = LN ∧ c.pos = 0 ∧
    compile c (code: 'a sec list) = SOME (bytes,c') ∧
-   c'.ffi_names = SOME (old_ffi_names) /\
+   c'.ffi_names = SOME old_ffi_names /\
    mc_conf.ffi_names = old_ffi_names ++ FST c'.shmem_extra /\
    good_init_state mc_conf ms bytes cbspace t m dm sdm io_regs cc_regs /\
    MAP (\rec. rec.entry_pc + mc_conf.target.get_pc ms) (SND c'.shmem_extra) =
