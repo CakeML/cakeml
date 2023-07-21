@@ -25,6 +25,10 @@ to the front-end, i.e. parsing and type inference.
 [backend_commonScript.sml](backend_commonScript.sml):
 Definitions that are common for many parts of the compiler backend.
 
+[backend_passesScript.sml](backend_passesScript.sml):
+Reformulates compile definition to expose the result of each internal
+compiler pass
+
 [bviScript.sml](bviScript.sml):
 The BVI intermediate language. This language is very similar to BVL.
 One of the more notable differences is that exception handling is

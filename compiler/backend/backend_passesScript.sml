@@ -1,5 +1,6 @@
 (*
-  Reformulates compile definition to expose each internal compiler phase
+  Reformulates compile definition to expose the result of each internal
+  compiler pass
 *)
 
 open preamble backendTheory
@@ -91,7 +92,7 @@ Definition to_bvl_all_def:
     let func_names =
             make_name_alist (MAP FST prog') prog (num_stubs c1.max_app)
               c0.next_loc (LENGTH es0) in
-    let ps = ps ++ [(strlit "after bvl_to_clos",Bvl prog' func_names)] in
+    let ps = ps ++ [(strlit "after clos_to_bvl",Bvl prog' func_names)] in
     let c2 = c1 with start := num_stubs c1.max_app − 1 in
     let p = code_sort prog' in
     let c = c with clos_conf := c2 in
@@ -106,10 +107,6 @@ Proof
          clos_to_bvlTheory.compile_common_def]
   \\ rpt (pairarg_tac \\ gvs [])
 QED
-
-(*
-bvl_inlineTheory.optimise_def
-*)
 
 Definition to_bvi_all_def:
   to_bvi_all (c:'a config) p =
