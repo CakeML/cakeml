@@ -20,21 +20,36 @@ val _ = numLib.prefer_num();
 
 
   There is a builtin string normalization using hashing for
-  the supported characters
+  the supported characters, but this is (should be) unused
 *)
 
 (*
   Injective mapping from mlstring into num, supports
 
-  a-z, A-Z, 0-9, _ -
+  a-z, A-Z, 0-9, []{}_^-
 
-  EVAL ``MAP ORD (explode (strlit "_-"))``
 *)
+val non_list = (EVAL ``fromAList (MAP SWAP (enumerate 63 (MAP ORD (explode (strlit "[]{}_^-")))))``);
+
+Definition non_list_def:
+  non_list = ^(rconc non_list)
+End
+
+Theorem non_list_eq = non_list_def |> SIMP_RULE std_ss [GSYM non_list];
+
+Theorem lookup_non_list:
+  sptree$lookup n non_list = SOME v ⇔
+  SOME n = (ALOOKUP (enumerate 63 (MAP ORD (explode (strlit "[]{}_^-")))) v)
+Proof
+  simp[non_list_eq,lookup_fromAList]>>
+  EVAL_TAC>>rw[]
+QED
+
 Definition hashNon_def:
   hashNon n =
-  if n = 45 then 63
-  else if n = 95 then 64
-  else 0
+  case sptree$lookup n non_list of
+    NONE => 0n
+  | SOME v => v
 End
 
 Definition hashChar_def:
@@ -52,7 +67,7 @@ End
 Definition hashChars_alt_def:
   (hashChars_alt [] = 0) ∧
   (hashChars_alt (c::cs) =
-    hashChar c + 65 * hashChars_alt cs)
+    hashChar c + 70 * hashChars_alt cs)
 End
 
 Definition hashString_def:
@@ -100,9 +115,11 @@ Proof
 QED
 
 Triviality hashChar_bound:
-  ∀h. hashChar h < 65
+  ∀h. hashChar h < 70
 Proof
-  rw [hashChar_def,hashNon_def]
+  rw [hashChar_def,hashNon_def,non_list_eq,lookup_fromAList]>>
+  EVAL_TAC>>
+  rw[]
 QED
 
 Triviality hashChar_11:
@@ -120,10 +137,34 @@ Proof
   \\ asm_rewrite_tac []
   \\ simp_tac std_ss [LET_THM,hashNon_def]
   \\ rename [‘ORD (CHR m) = m’]
-  \\ Cases_on ‘m = 45’ \\ asm_rewrite_tac [] >- fs []
-  \\ Cases_on ‘n = 45’ \\ asm_rewrite_tac [] >- fs []
-  \\ Cases_on ‘m = 95’ \\ asm_rewrite_tac [] >- fs []
-  \\ Cases_on ‘n = 95’ \\ asm_rewrite_tac [] >- fs []
+  \\ reverse (Cases_on `lookup n non_list`)
+  >- (
+    FULL_SIMP_TAC std_ss [lookup_non_list]>>
+    pop_assum mp_tac>>
+    qmatch_goalsub_abbrev_tac`_ ⇒ P`>>
+    EVAL_TAC>>
+    ntac 7 (IF_CASES_TAC>- (
+      simp[]>>
+      unabbrev_all_tac>>
+      SIMP_TAC std_ss []>>
+      rw[]>>fs[AllCaseEqs()]>>
+      pop_assum mp_tac >> simp[lookup_non_list]>>
+      EVAL_TAC>>rw[]))>>
+    simp[])
+  \\ reverse (Cases_on `lookup m non_list`)
+  >- (
+    FULL_SIMP_TAC std_ss [lookup_non_list]>>
+    pop_assum mp_tac>>
+    qmatch_goalsub_abbrev_tac`_ ⇒ P`>>
+    EVAL_TAC>>
+    ntac 7 (IF_CASES_TAC>- (
+      simp[]>>
+      unabbrev_all_tac>>
+      SIMP_TAC std_ss []>>
+      rw[]>>fs[AllCaseEqs()]>>
+      pop_assum mp_tac >> simp[lookup_non_list]>>
+      EVAL_TAC>>rw[]))>>
+    simp[])
   \\ reverse $ Cases_on ‘48 <= n’ \\ asm_rewrite_tac []
   >-
    (Cases_on ‘48 <= m’ \\ asm_rewrite_tac []
@@ -163,9 +204,9 @@ Proof
   \\ Cases_on ‘h = h'’ \\ fs []
   \\ qsuff_tac ‘hashChar h = hashChar h'’
   >- fs [hashChar_11,goodChar_def]
-  \\ ‘(hashChar h' + 65 * hashChars_alt s) MOD 65 =
-      (hashChar h + 65 * hashChars_alt t) MOD 65’ by metis_tac []
-  \\ ‘0 < 65:num’ by fs []
+  \\ ‘(hashChar h' + 70 * hashChars_alt s) MOD 70 =
+      (hashChar h + 70 * hashChars_alt t) MOD 70’ by metis_tac []
+  \\ ‘0 < 70:num’ by fs []
   \\ drule arithmeticTheory.MOD_TIMES
   \\ once_rewrite_tac [ADD_COMM]
   \\ once_rewrite_tac [MULT_COMM]

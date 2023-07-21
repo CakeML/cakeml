@@ -1520,8 +1520,10 @@ Definition check_cstep_list_def:
     (case check_obj obj w (MAP SND (toAList (coref_list core fml))) bopt of
       NONE => NONE
     | SOME new =>
-      let bound' = update_bound bound new in
+      let bound' = update_bound chk bound new in
       if mi then
+        (* no model improving constraint in unchecked *)
+        if ¬chk then NONE else
         let c = model_improving obj new in
         SOME (
           update_resize fml NONE (SOME c) id,
@@ -1954,16 +1956,16 @@ Definition check_implies_fml_list_def:
 End
 
 Definition check_hconcl_list_def:
-  (check_hconcl_list fml obj fml' chk' obj' bound' HNoConcl = T) ∧
-  (check_hconcl_list fml obj fml' chk' obj' bound' (HDSat wopt) =
+  (check_hconcl_list fml obj fml' obj' bound' HNoConcl = T) ∧
+  (check_hconcl_list fml obj fml' obj' bound' (HDSat wopt) =
     case wopt of
       NONE =>
-      chk' ∧ bound' ≠ NONE
+      bound' ≠ NONE
     | SOME wm =>
       check_obj obj wm fml NONE ≠ NONE) ∧
-  (check_hconcl_list fml obj fml' chk' obj' bound' (HDUnsat n) =
+  (check_hconcl_list fml obj fml' obj' bound' (HDUnsat n) =
     (bound' = NONE ∧ check_contradiction_fml_list fml' n)) ∧
-  (check_hconcl_list fml obj fml' chk' obj' bound'
+  (check_hconcl_list fml obj fml' obj' bound'
     (HOBounds lbi ubi n wopt) =
     (
     (opt_le lbi bound' ∧
@@ -1972,7 +1974,7 @@ Definition check_hconcl_list_def:
     | SOME lb => check_implies_fml_list fml' n (lower_bound obj' lb)) ∧
     (
     case wopt of
-      NONE => chk' ∧ opt_le bound' ubi
+      NONE => opt_le bound' ubi
     | SOME wm =>
       opt_le (check_obj obj wm fml NONE) ubi)))
 End
@@ -1989,8 +1991,8 @@ QED
 
 Theorem fml_rel_check_hconcl_list:
   fml_rel fml' fmlls' ∧
-  check_hconcl_list fml obj fmlls' chk' obj' bound' hconcl ⇒
-  check_hconcl fml obj fml' chk' obj' bound' hconcl
+  check_hconcl_list fml obj fmlls' obj' bound' hconcl ⇒
+  check_hconcl fml obj fml' obj' bound' hconcl
 Proof
   Cases_on`hconcl`>>
   fs[check_hconcl_def,check_hconcl_list_def]
@@ -2017,7 +2019,7 @@ Theorem check_csteps_list_concl:
     (REVERSE (MAP FST (enumerate 1 fml)))
     (LENGTH fml + 1) =
     SOME(fmlls',inds',id',core',chk',obj',bound',ord',orders') ∧
-  check_hconcl_list fml obj fmlls' chk' obj' bound' hconcl ⇒
+  check_hconcl_list fml obj fmlls' obj' bound' hconcl ⇒
   sem_concl (set fml) obj (hconcl_concl hconcl)
 Proof
   rw[]>>

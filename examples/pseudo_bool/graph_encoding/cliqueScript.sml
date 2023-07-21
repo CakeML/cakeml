@@ -12,6 +12,21 @@ Definition is_clique_def:
     is_edge e x y)
 End
 
+(* A max clique size *)
+Definition max_clique_size_def:
+  max_clique_size g =
+  MAX_SET ({CARD vs | is_clique vs g})
+End
+
+Theorem CARD_clique_bound:
+  is_clique vs g ⇒
+  CARD vs ≤ FST g
+Proof
+  Cases_on`g`>>rw[is_clique_def]>>
+  (drule_at Any) CARD_SUBSET>>
+  simp[]
+QED
+
 Definition mk_constraint_def:
   mk_constraint e x y =
   if y ≤ x ∨ is_edge e x y then []
@@ -321,6 +336,48 @@ Proof
   rw[]>>
   asm_exists_tac>>simp[]>>
   intLib.ARITH_TAC
+QED
+
+Theorem MAX_SET_eq_intro:
+  FINITE s ∧
+  (∀x. x ∈ s ⇒ x ≤ n) ∧
+  n ∈ s ⇒
+  MAX_SET s = n
+Proof
+  rw[]>>
+  DEEP_INTRO_TAC MAX_SET_ELIM>>
+  simp[]>>
+  rw[]>>
+  fs[]>>
+  res_tac>>fs[]
+QED
+
+Theorem full_encode_sem_concl_check:
+  good_graph g ∧
+  full_encode g = (obj,pbf) ∧
+  sem_concl (set pbf) obj concl ∧
+  conv_concl (FST g) concl = SOME (lbg, ubg) ∧
+  lbg = SOME mc ∧ ubg = mc ⇒
+  max_clique_size g = mc
+Proof
+  rw[]>>
+  drule_all  full_encode_sem_concl>>
+  simp[max_clique_size_def]>>
+  rw[]>>
+  match_mp_tac MAX_SET_eq_intro>>
+  CONJ_TAC >- (
+    `FINITE (count (FST g + 1))` by fs[]>>
+    drule_then match_mp_tac SUBSET_FINITE>>
+    rw[SUBSET_DEF]>>
+    drule CARD_clique_bound>>
+    simp[])>>
+  rw[]
+  >-
+    metis_tac[]>>
+  first_assum drule>>
+  strip_tac>>
+  first_x_assum (irule_at Any)>>
+  fs[]
 QED
 
 val _ = export_theory();

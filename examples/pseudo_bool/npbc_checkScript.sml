@@ -1453,8 +1453,8 @@ Definition check_change_obj_def:
 End
 
 Definition update_bound_def:
-  update_bound bound new =
-  if opt_lt (SOME new) bound then SOME new else bound
+  update_bound chk bound new =
+  if chk ∧ opt_lt (SOME new) bound then SOME new else bound
 End
 
 Definition check_cstep_def:
@@ -1543,14 +1543,18 @@ Definition check_cstep_def:
       (MAP SND (toAList (coref core fml))) bopt of
       NONE => NONE
     | SOME new =>
-      let bound' = update_bound bound new in
+      let bound' = update_bound chk bound new in
       if mi then
-        let c = model_improving obj new in
-        SOME (
-          insert id c fml,id+1,
-          insert id () core,
-          chk, obj, bound', ord, orders)
+        (* no model improving constraint in unchecked *)
+        if ¬chk then NONE
+        else
+          let c = model_improving obj new in
+          SOME (
+            insert id c fml,id+1,
+            insert id () core,
+            chk, obj, bound', ord, orders)
       else
+        (* when chk=F, this is a no-op on proof state *)
         SOME (fml, id, core,
           chk, obj, bound', ord, orders))
   | ChangeObj fc' n1 n2 =>
@@ -1937,7 +1941,7 @@ Theorem check_cstep_correct:
       bimp_obj bound'
         obj' (range (coref core' fml'))
         obj (range (coref core fml))) ∧
-      (chk' ⇒ chk) ∧
+      (chk' ⇒ chk) ∧ (¬chk' ⇒ bound = bound') ∧
       OPTION_ALL good_spo ord' ∧
       EVERY (good_ord_t o SND) orders'
   | NONE => T
@@ -2278,6 +2282,7 @@ Proof
     (* Obj *)
     strip_tac>>
     every_case_tac>>simp[]
+    >- simp[update_bound_def]
     >- (
       (* Adding model improving *)
       `id ∉ domain fml` by fs[id_ok_def]>>
@@ -2428,14 +2433,14 @@ Theorem check_csteps_correct:
     id_ok fml' id' ∧
     valid_conf ord' obj' core' fml' ∧
     opt_le bound' bound ∧
-    (chk' ∧ opt_lt bound' bound ⇒
+    (opt_lt bound' bound ⇒
       sat_obj_le obj (THE bound') (range (coref core fml))) ∧
     bimp_obj bound'
       obj (range fml) obj' (range fml') ∧
     (chk' ⇒ bimp_obj bound'
         obj' (range (coref core' fml'))
         obj (range (coref core fml))) ∧
-    (chk' ⇒ chk) ∧
+    (chk' ⇒ chk) ∧ (¬chk ⇒ bound = bound') ∧
     OPTION_ALL good_spo ord' ∧
     EVERY (good_ord_t o SND) orders' )
 Proof
@@ -2470,6 +2475,9 @@ Proof
     fs[bimp_obj_def,imp_obj_def]>>
     `opt_lt (SOME (THE A)) B` by
       (Cases_on`A`>>fs[opt_lt_def])>>
+    Cases_on`chk'`>>fs[]>>
+    Cases_on`x3`>>fs[]>>
+    gvs[]>>
     fs[])>>
   rw[]>>fs[]>>
   metis_tac[bimp_obj_trans,bimp_obj_le]
@@ -2631,21 +2639,21 @@ End
 (* fml, obj are the original formula (as a list) and objective
   all the '-ed variables are after checking *)
 Definition check_hconcl_def:
-  (check_hconcl fml obj fml' chk' obj' bound' HNoConcl = T) ∧
-  (check_hconcl fml obj fml' chk' obj' bound' (HDSat wopt) =
+  (check_hconcl fml obj fml' obj' bound' HNoConcl = T) ∧
+  (check_hconcl fml obj fml' obj' bound' (HDSat wopt) =
     case wopt of
       NONE =>
       (* Claiming SAT without witness needs
         unchecked deletion and at least one sol step *)
-      chk' ∧ bound' ≠ NONE
+      bound' ≠ NONE
     | SOME wm =>
       (* Otherwise, use the witness *)
       check_obj obj wm fml NONE ≠ NONE) ∧
-  (check_hconcl fml obj fml' chk' obj' bound' (HDUnsat n) =
+  (check_hconcl fml obj fml' obj' bound' (HDUnsat n) =
     (* Claiming UNSAT requires contradiction
       derived in the final formula *)
     (bound' = NONE ∧ check_contradiction_fml fml' n)) ∧
-  (check_hconcl fml obj fml' chk' obj' bound'
+  (check_hconcl fml obj fml' obj' bound'
     (HOBounds lbi ubi n wopt) =
     (
     ((* Lower bound claimed must be at most the
@@ -2659,7 +2667,7 @@ Definition check_hconcl_def:
     (
     (* Claiming upper bound is similar to claiming SAT *)
     case wopt of
-      NONE => chk' ∧ opt_le bound' ubi
+      NONE => opt_le bound' ubi
     | SOME wm =>
       opt_le (check_obj obj wm fml NONE) ubi)))
 End
@@ -2677,7 +2685,7 @@ Theorem check_csteps_check_hconcl:
     fml id (map (λv. ()) fml) chk obj NONE NONE [] =
     SOME (fml',id',core',chk',obj',bound',ord',orders') ∧
   set fmlls = range fml ∧
-  check_hconcl fmlls obj fml' chk' obj' bound' hconcl ⇒
+  check_hconcl fmlls obj fml' obj' bound' hconcl ⇒
   sem_concl (range fml) obj (hconcl_concl hconcl)
 Proof
   rw[]>>

@@ -222,6 +222,161 @@ Proof
     metis_tac[])
 QED
 
+Definition print_max_clique_size_def:
+  print_max_clique_size (n:num) =
+  strlit "s VERIFIED MAX CLIQUE SIZE " ^ (toString n) ^ strlit"\n"
+End
+
+Definition check_unsat_3_sem_def:
+  check_unsat_3_sem fs f s out ⇔
+  (out ≠ strlit"" ⇒
+  ∃g mc.
+    get_graph_dimacs fs f = SOME g ∧
+    fromNatString s = SOME mc ∧
+    out = print_max_clique_size mc ∧
+    max_clique_size g = mc)
+End
+
+val res = translate print_max_clique_size_def;
+
+Definition check_concl_to_string_def:
+  (check_concl_to_string mc n (INL s) = (INL s)) ∧
+  (check_concl_to_string mc n (INR c) =
+    case conv_concl n c of
+      SOME (lbg,ubg) =>
+        if lbg = SOME mc ∧ ubg = mc
+        then INR (print_max_clique_size mc)
+        else INL (strlit "c Conclusion did not correspond to claimed max clique size.\n")
+    | NONE => INL (strlit "c Unexpected conclusion for max clique problem.\n"))
+End
+
+val res = translate check_concl_to_string_def;
+
+val check_unsat_3 = (append_prog o process_topdecs) `
+  fun check_unsat_3 f1 f2 s =
+  case parse_and_enc f1 of
+    Inl err => TextIO.output TextIO.stdErr err
+  | Inr (n,objf) =>
+    case Int.fromNatString s of None =>
+      TextIO.output TextIO.stdErr "c Invalid max clique size claim.\n"
+    | Some mc =>
+    (case
+      check_concl_to_string mc n
+        (check_unsat_top_norm objf f2) of
+      Inl err => TextIO.output TextIO.stdErr err
+    | Inr s => TextIO.print s)`
+
+Theorem STDIO_refl:
+  STDIO A ==>>
+  STDIO A * GC
+Proof
+  xsimpl
+QED
+
+Theorem check_unsat_3_spec:
+  STRING_TYPE f1 f1v ∧ validArg f1 ∧
+  STRING_TYPE f2 f2v ∧ validArg f2 ∧
+  STRING_TYPE f3 f3v ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_3"(get_ml_prog_state()))
+    [f1v; f2v; f3v]
+    (STDIO fs)
+    (POSTv uv. &UNIT_TYPE () uv *
+    SEP_EXISTS out err.
+      STDIO (add_stdout (add_stderr fs err) out) *
+      &(check_unsat_3_sem fs f1 f3 out))
+Proof
+  rw[check_unsat_3_sem_def]>>
+  xcf "check_unsat_3" (get_ml_prog_state ())>>
+  reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
+  xlet_autop>>
+  Cases_on`res`>>fs[SUM_TYPE_def]
+  >- (
+    xmatch>>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    qexists_tac`x`>>xsimpl>>rw[]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    xsimpl)>>
+  Cases_on`y`>>fs[PAIR_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
+  Cases_on`fromNatString f3`>>fs[OPTION_TYPE_def]>>xmatch
+  >- (
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    metis_tac[STDIO_refl])>>
+  xlet_auto
+  >- (
+    xsimpl>>
+    fs[validArg_def]>>
+    metis_tac[])>>
+  xlet_autop>>
+  every_case_tac>>gvs[SUM_TYPE_def]
+  >- (
+    fs[check_concl_to_string_def,SUM_TYPE_def]>>
+    xmatch>>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    qexists_tac`strlit ""`>>
+    rename1`add_stderr _ err`>>
+    qexists_tac`err`>>xsimpl>>rw[]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    xsimpl)>>
+  fs[check_concl_to_string_def]>>
+  every_case_tac>>fs[SUM_TYPE_def]>>xmatch
+  >- (
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    qexists_tac`strlit ""`>>
+    rename1`add_stderr _ err`>>
+    qexists_tac`err`>>xsimpl>>rw[]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    xsimpl)
+  >- (
+    xapp>>xsimpl>>
+    asm_exists_tac>>simp[]>>
+    qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    `max_clique_size g = r` by (
+      match_mp_tac (GEN_ALL full_encode_sem_concl_check)>>
+      simp[]>>
+      first_x_assum (irule_at Any)>>
+      first_x_assum (irule_at Any)>>
+      simp[]>>
+      fs[get_graph_dimacs_def,AllCaseEqs()]>>
+      metis_tac[parse_dimacs_good_graph]) >>
+    simp[]>>
+    qexists_tac`print_max_clique_size r`>>simp[]>>
+    qexists_tac`strlit ""`>>
+    rw[]>>simp[STD_streams_stderr,add_stdo_nil]>>
+    xsimpl)
+  >- (
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    qexists_tac`strlit ""`>>
+    rename1`add_stderr _ err`>>
+    qexists_tac`err`>>xsimpl>>rw[]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    xsimpl)
+QED
+
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs f1 out ⇔
   case get_graph_dimacs fs f1 of
@@ -275,7 +430,7 @@ Proof
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb_clique <DIMACS file> <optional: PB proof file>\n"
+  usage_string = strlit "Usage: cake_pb_clique <DIMACS file> <optional: PB proof file> <optional: max clique size>\n"
 End
 
 val r = translate usage_string_def;
@@ -285,6 +440,7 @@ val main = (append_prog o process_topdecs) `
   case CommandLine.arguments () of
     [f1] => check_unsat_1 f1
   | [f1,f2] => check_unsat_2 f1 f2
+  | [f1,f2,f3] => check_unsat_3 f1 f2 f3
   | _ => TextIO.output TextIO.stdErr usage_string`
 
 Definition main_sem_def:
@@ -293,15 +449,10 @@ Definition main_sem_def:
     check_unsat_1_sem fs (EL 1 cl) out
   else if LENGTH cl = 3 then
     check_unsat_2_sem fs (EL 1 cl) out
+  else if LENGTH cl = 4 then
+    check_unsat_3_sem fs (EL 1 cl) (EL 3 cl) out
   else out = strlit ""
 End
-
-Theorem STDIO_refl:
-  STDIO A ==>>
-  STDIO A * GC
-Proof
-  xsimpl
-QED
 
 Theorem main_spec:
   hasFreeFD fs
@@ -341,6 +492,13 @@ Proof
     fs[wfcl_def]>>
     rw[]>>metis_tac[STDIO_refl])>>
   Cases_on`t`>>fs[LIST_TYPE_def]
+  >- (
+    xmatch>>
+    xapp>>rw[]>>
+    rpt(first_x_assum (irule_at Any)>>xsimpl)>>
+    fs[wfcl_def]>>
+    rw[]>>metis_tac[STDIO_refl])>>
+  Cases_on`t'`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
     xapp>>rw[]>>

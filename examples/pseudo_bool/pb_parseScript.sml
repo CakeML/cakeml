@@ -57,16 +57,18 @@ End
 
 (* OPB parser
   Parses a literal s, ~s
-  Valid names may contain a-zA-Z0-9-_ characters
-  Any good string (length >= 1) is parsed to a Neg-ated literal if it starts with ~
+  Valid names may contain a-z,A-Z,0-9,[]{}_^- characters
 *)
 Definition parse_lit_def:
   parse_lit s =
   if strlen s ≥ 2 ∧ strsub s 0 = #"~" then
     let ss = substring s 1 (strlen s - 1) in
-      SOME (Neg ss)
+    if goodString ss then
+        SOME (Neg ss)
+    else NONE
   else if strlen s ≥ 1 then
-    SOME (Pos s)
+    if goodString s then SOME (Pos s)
+    else NONE
   else NONE
 End
 
@@ -84,7 +86,14 @@ Definition parse_constraint_LHS_def:
   (parse_constraint_LHS ls acc = (ls,REVERSE acc))
 End
 
-(* strip ; from the end of a number *)
+(* strip ; from the end of a string/number *)
+Definition strip_term_def:
+  strip_term s =
+  if strlen s ≥ 1 ∧ strsub s (strlen s - 1) = #";"
+  then SOME (substring s 0 (strlen s - 1))
+  else NONE
+End
+
 Definition strip_terminator_def:
   strip_terminator s =
   if strlen s ≥ 1 ∧ strsub s (strlen s - 1) = #";"
@@ -136,6 +145,13 @@ Definition nocomment_line_def:
   (nocomment_line _ = T)
 End
 
+(* Allow the min objective to end with either:
+  lin_term constant ;
+  lin_term constant;
+  lin_term ;
+  lin_term;
+*)
+
 (* parse objective term in pbc ... ; *)
 Definition parse_obj_term_def:
   parse_obj_term xs =
@@ -143,11 +159,26 @@ Definition parse_obj_term_def:
   (rest,obj) =>
   case rest of
     [INL s] =>
-      if s = strlit";" then SOME (obj,0:int) else NONE
+      if s = strlit";" then SOME (obj,0:int)
+      else
+        (case strip_terminator s of NONE => NONE
+        | SOME i => SOME (obj,i))
   | [INR c;INL s] =>
-      if s = strlit";" then SOME (obj,c:int) else NONE
+      if s = strlit";" then SOME (obj,c:int) else
+      (case strip_term s of NONE => NONE
+      | SOME v =>
+        case parse_lit v of NONE => NONE
+        | SOME lit =>
+          SOME(SNOC (c,lit) obj, 0))
   | _ => NONE
 End
+
+(*
+EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2 ~5 ;"))``
+EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2 ;"))``
+EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2;"))``
+EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2 5;"))``
+*)
 
 (* parse objective line in PBF *)
 Definition parse_obj_def:

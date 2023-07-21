@@ -18,7 +18,7 @@ val strip_numbers_side = Q.prove(
 
 val r = translate pbcTheory.map_lit_def;
 
-val r = translate hashNon_def;
+val r = translate (hashNon_def |> SIMP_RULE std_ss [non_list_def]);
 val r = translate hashChar_def;
 val r = translate hashChars_alt_def;
 val r = translate hashString_def;
@@ -1767,6 +1767,22 @@ val parse_delc_header_side = Q.prove(
   rw[]>>
   intLib.ARITH_TAC) |> update_precondition;
 
+val r = translate strip_terminator_def;
+
+val strip_terminator_side_def = definition"strip_terminator_side_def";
+val strip_terminator_side = Q.prove(
+  `∀x. strip_terminator_side x <=> T`,
+  rw[strip_terminator_side_def])
+  |> update_precondition;
+
+val r = translate strip_term_def;
+
+val strip_term_side_def = definition"strip_term_side_def";
+val strip_term_side = Q.prove(
+  `∀x. strip_term_side x <=> T`,
+  rw[strip_term_side_def])
+  |> update_precondition;
+
 val res = translate insert_lit_def;
 val res = translate parse_assg_def;
 val res = translate parse_obj_term_def;
@@ -2399,17 +2415,17 @@ Proof
 QED
 
 Definition check_sat_def:
-  check_sat fml obj chk' bound' wopt =
+  check_sat fml obj bound' wopt =
   case wopt of
-    NONE => chk' ∧ bound' ≠ NONE
+    NONE => bound' ≠ NONE
   | SOME wm =>
     check_obj obj wm fml NONE ≠ NONE
 End
 
 Definition check_ub_def:
-  check_ub fml obj chk' bound' ubi wopt =
+  check_ub fml obj bound' ubi wopt =
     case wopt of
-      NONE => chk' ∧ opt_le bound' ubi
+      NONE => opt_le bound' ubi
     | SOME wm =>
       opt_le (check_obj obj wm fml NONE) ubi
 End
@@ -2418,16 +2434,16 @@ val res = translate check_sat_def;
 val res = translate check_ub_def;
 
 val check_hconcl_arr = process_topdecs`
-  fun check_hconcl_arr fml obj fml' chk' obj' bound' hconcl =
+  fun check_hconcl_arr fml obj fml' obj' bound' hconcl =
   case hconcl of
     Hnoconcl => True
-  | Hdsat wopt => check_sat fml obj chk' bound' wopt
+  | Hdsat wopt => check_sat fml obj bound' wopt
   | Hdunsat n =>
     (bound' = None andalso
       check_contradiction_fml_arr fml' n)
   | Hobounds lbi ubi n wopt =>
     if opt_le lbi bound' then
-    check_ub fml obj chk' bound' ubi wopt andalso
+      check_ub fml obj bound' ubi wopt andalso
     (case lbi of
       None => check_contradiction_fml_arr fml' n
     | Some lb => check_implies_fml_arr fml' n (lower_bound obj' lb)
@@ -2439,7 +2455,6 @@ val NPBC_CHECK_HCONCL_TYPE_def = theorem"NPBC_CHECK_HCONCL_TYPE_def";
 Theorem check_hconcl_arr_spec:
   LIST_TYPE constraint_TYPE fml fmlv ∧
   obj_TYPE obj objv ∧
-  BOOL chk1 chk1v ∧
   obj_TYPE obj1 obj1v ∧
   OPTION_TYPE INT bound1 bound1v ∧
   NPBC_CHECK_HCONCL_TYPE hconcl hconclv ∧
@@ -2447,13 +2462,13 @@ Theorem check_hconcl_arr_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_hconcl_arr" (get_ml_prog_state()))
-    [fmlv; objv; fml1v; chk1v; obj1v; bound1v; hconclv]
+    [fmlv; objv; fml1v; obj1v; bound1v; hconclv]
     (ARRAY fml1v fmllsv)
     (POSTv v.
         ARRAY fml1v fmllsv *
         &(
-        BOOL (check_hconcl_list fml obj fmlls
-          chk1 obj1 bound1 hconcl) v))
+        BOOL (check_hconcl_list fml obj fmlls obj1
+          bound1 hconcl) v))
 Proof
   rw[]>>
   xcf"check_hconcl_arr"(get_ml_prog_state ())>>
@@ -2532,14 +2547,14 @@ val res = translate mk_parse_err_def;
 val run_concl_file = process_topdecs`
   fun run_concl_file fd f_ns lno s
     fml obj
-    fml' chk' obj' bound' =
+    fml' obj' bound' =
   let
     val ls = TextIO.b_inputAllTokens fd blanks tokenize_fast
   in
     case parse_concl_output s f_ns ls of
       None => Inl (format_failure lno (mk_parse_err s))
     | Some hconcl =>
-      if check_hconcl_arr fml obj fml' chk' obj' bound' hconcl
+      if check_hconcl_arr fml obj fml' obj' bound' hconcl
       then
         Inr hconcl
       else Inl (format_failure lno "failed to check conclusion section")
@@ -2563,7 +2578,6 @@ Theorem run_concl_file_spec:
   NUM lno lnov ∧
   LIST_TYPE constraint_TYPE fml fmlv ∧
   obj_TYPE obj objv ∧
-  BOOL chk1 chk1v ∧
   obj_TYPE obj1 obj1v ∧
   OPTION_TYPE INT bound1 bound1v ∧
   LIST_REL (OPTION_TYPE constraint_TYPE) fmlls fmllsv
@@ -2571,7 +2585,7 @@ Theorem run_concl_file_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "run_concl_file" (get_ml_prog_state()))
     [fdv; fnsv;lnov;sv;
-      fmlv; objv; fml1v; chk1v; obj1v; bound1v]
+      fmlv; objv; fml1v; obj1v; bound1v]
     (STDIO fs * INSTREAM_LINES fd fdv lines fs * ARRAY fml1v fmllsv)
     (POSTv v.
        SEP_EXISTS res.
@@ -2582,7 +2596,7 @@ Theorem run_concl_file_spec:
         case res of
           INR hconcl =>
             check_hconcl_list fml obj fmlls
-              chk1 obj1 bound1 hconcl
+              obj1 bound1 hconcl
         | INL l => T))
 Proof
   rw[]>>
@@ -2696,7 +2710,7 @@ val check_unsat' = process_topdecs `
             (chk', (obj', (bound', (ord', orders')))))))))))) =>
       conv_hconcl
         (run_concl_file fd fns' lno' s
-        fml obj fml' chk' obj' bound'))
+        fml obj fml' obj' bound'))
     handle Fail s => Inl s
   end` |> append_prog;
 
@@ -2879,7 +2893,7 @@ Proof
     PairCases_on`res`>>
     fs[PAIR_TYPE_def]>>
     xmatch>>
-    rename1`SOME (_,_,_,fmlls',_,_,_,chk',obj',bound',_)`>>
+    rename1`SOME (_,_,_,fmlls',_,_,_,_,obj',bound',_)`>>
     xlet`(POSTv v.
        SEP_EXISTS res k.
        STDIO (forwardFD fs fd k) *
@@ -2889,7 +2903,7 @@ Proof
         case res of
           INR hconcl =>
             check_hconcl_list fml obj fmlls'
-              chk' obj' bound' hconcl
+              obj' bound' hconcl
         | INL l => T))`
     >- (
       xapp>>
@@ -3300,8 +3314,11 @@ QED
 (* printing a string pbf *)
 Definition obj_string_def:
   obj_string (f,c:int) =
-  strlit"min: " ^ lhs_string f ^ strlit " " ^
-    int_to_string #"-" c ^ strlit" ;\n"
+  let c_string =
+    if c = 0 then strlit"" else
+    strlit " " ^
+      int_to_string #"-" c in
+  strlit"min: " ^ lhs_string f ^ c_string ^ strlit";\n"
 End
 
 Definition print_pbf_def:

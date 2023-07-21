@@ -2403,9 +2403,12 @@ val check_cstep_arr = process_topdecs`
       None =>
        raise Fail (format_failure lno ("supplied assignment did not satisfy constraints or did not improve objective"))
     | Some new =>
-      let val bound' = update_bound bound new in
+      let val bound' = update_bound chk bound new in
       if mi
       then
+        if not chk then
+          raise Fail (format_failure lno ("cannot improve objective after unchecked core deletions"))
+        else
         let val c = model_improving obj new in
           (Array.updateResize fml None id (Some c),
            (sorted_insert id inds,
@@ -2716,9 +2719,15 @@ Proof
       xraise >> xsimpl>>
       fs[Fail_exn_def]>>
       metis_tac[ARRAY_refl])>>
-    rpt xlet_autop>>
+    xlet_autop>>
     xif
     >- ( (* model improving *)
+      xlet_autop>>
+      xif >- (
+        rpt xlet_autop>>
+        xraise >> xsimpl>>
+        fs[Fail_exn_def]>>
+        metis_tac[ARRAY_refl])>>
       rpt xlet_autop>>
       xlet_auto>>
       xcon>>xsimpl>>
@@ -2726,6 +2735,8 @@ Proof
       qmatch_goalsub_abbrev_tac`ARRAY _ A`>>
       qexists_tac`A`>>xsimpl>>
       unabbrev_all_tac>>
+      reverse CONJ_TAC >-
+        fs[]>>
       match_mp_tac LIST_REL_update_resize>>
       fs[OPTION_TYPE_def])>>
     rpt xlet_autop>>

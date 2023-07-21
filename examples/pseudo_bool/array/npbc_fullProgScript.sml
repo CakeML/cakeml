@@ -19,14 +19,6 @@ val nocomment_line_side = Q.prove(
   rw[nocomment_line_side_def])
   |> update_precondition;
 
-val r = translate strip_terminator_def;
-
-val strip_terminator_side_def = definition"strip_terminator_side_def";
-val strip_terminator_side = Q.prove(
-  `∀x. strip_terminator_side x <=> T`,
-  rw[strip_terminator_side_def])
-  |> update_precondition;
-
 val r = translate parse_op_def;
 val r = translate parse_constraint_def;
 val r = translate parse_constraints_def;
