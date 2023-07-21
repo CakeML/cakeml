@@ -81,9 +81,26 @@ Definition is_Constant_def:
   is_Constant _ = F
 End
 
+Definition dest_Constant_def:
+  dest_Constant (Tannot e _) = SOME e ∧
+  dest_Constant _ = NONE
+End
+
 Definition max_list_def:
   (max_list [] = 0) ∧
   (max_list (x::xs) = MAX x (max_list xs))
+End
+
+Definition is_Fun_def:
+  is_Fun (Fun _ _) = T ∧
+  is_Fun _ = F
+End
+
+Definition no_const_fun_def:
+  no_const_fun e =
+    case dest_Constant e of
+    | NONE => e
+    | SOME e1 => if is_Fun e1 then e1 else e
 End
 
 Definition annotate_exp_def:
@@ -98,9 +115,9 @@ Definition annotate_exp_def:
      let (e,n,fvs1) = annotate_exp (x :: t) e in
      let fvs = delete fvs1 (implode x) in
        if disjoint t fvs then
-         (Constant (Fun x e),n,fvs)
+         (Constant (Fun x (no_const_fun e)),n,fvs)
        else
-         (Fun x e,n,fvs)) ∧
+         (Fun x (no_const_fun e),n,fvs)) ∧
   (annotate_exp t (ast$Letrec funs e) =
      let names = MAP FST funs in
      let (funs1,n,fvs1) = annotate_funs (names ++ t) funs in
@@ -189,13 +206,6 @@ End
     Pass 2
  * --------------------------------------------------------- *)
 
-(* TODO:
- - be careful about Equality, don't pull out a constant that's
-   an operand to Equality
- - make it recurse into the lifted constants?
- - make it not split curried functions
-*)
-
 Definition is_trivial_def:
   is_trivial (Con _ es) = NULL es ∧
   is_trivial (Lit l) =
@@ -210,6 +220,12 @@ End
 Definition make_name_def:
   make_name n =
     constant_prefix ^ implode (REPLICATE n #"_")
+End
+
+Definition allow_lift_def:
+  allow_lift op (es:exp list) ⇔
+    op ≠ Equality
+    (* TODO: make also flag Opapp of Var (Short "=") *)
 End
 
 Definition lift_exp_def:
@@ -237,7 +253,7 @@ Definition lift_exp_def:
   (lift_exp allow xs n (Var v) =
     (Var v,n,xs)) ∧
   (lift_exp allow xs n (ast$App op es) =
-     let (es,n,xs) = lift_exps allow xs n es in
+     let (es,n,xs) = lift_exps (allow ∧ allow_lift op es) xs n es in
        (App op es,n,xs)) ∧
   (lift_exp allow xs n (Log lop e1 e2) =
      let (e1,n,xs) = lift_exp allow xs n e1 in
@@ -532,6 +548,79 @@ Proof
     metis_tac[map_ok_annotate_exp_cmp,SND,PAIR])>>
   rw[]>>
   metis_tac[FUNION_ASSOC,FUNION_UNIT_COMM]
+QED
+
+(* --------------------------------------------------------- *
+    Some simple sanity tests
+ * --------------------------------------------------------- *)
+
+Triviality test1: (* no lift outside of closures *)
+  compile_dec (Dlet unknown_loc (Pvar "a") (Con NONE [Lit (IntLit 1); Lit (IntLit 2)]))
+  =
+  Dlet unknown_loc (Pvar "a") (Con NONE [Lit (IntLit 1); Lit (IntLit 2)])
+Proof
+  EVAL_TAC
+QED
+
+Triviality test2: (* constants lifted from within closures *)
+  compile_dec (Dlet unknown_loc (Pvar "a")
+    (Fun "a" (Con NONE [Lit (IntLit 1); Lit (IntLit 2)])))
+  =
+  Dlocal
+     [Dlet unknown_loc (Pvar "constant_") (Con NONE [Lit (IntLit 1); Lit (IntLit 2)])]
+     [Dlet unknown_loc (Pvar "a") (Fun "a" (Var (Short "constant_")))]
+Proof
+  EVAL_TAC
+QED
+
+Triviality test3: (* constants are *not* lifted under Equality *)
+  compile_dec
+    (Dlet unknown_loc (Pvar "a")
+      (Fun "a" (App Equality [Var (Short "a");
+                              Con NONE [Lit (IntLit 1); Lit (IntLit 2)]])))
+  =
+    (Dlet unknown_loc (Pvar "a")
+      (Fun "a" (App Equality [Var (Short "a");
+                              Con NONE [Lit (IntLit 1); Lit (IntLit 2)]])))
+Proof
+  EVAL_TAC
+QED
+
+Triviality test4: (* constants are lifted under App *)
+  compile_dec
+    (Dlet unknown_loc (Pvar "a")
+      (Fun "a" (App ListAppend [Var (Short "a");
+                                Con NONE [Lit (IntLit 1); Lit (IntLit 2)]])))
+  =
+  Dlocal
+     [Dlet unknown_loc (Pvar "constant_")
+        (Con NONE [Lit (IntLit 1); Lit (IntLit 2)])]
+     [Dlet unknown_loc (Pvar "a")
+        (Fun "a" (App ListAppend [Var (Short "a"); Var (Short "constant_")]))]
+Proof
+  EVAL_TAC
+QED
+
+Triviality test5: (* curried functions are not taken apart *)
+  compile_dec
+    (Dlet unknown_loc (Pvar "a") (Fun "a" (Fun "b" (Lit (IntLit 5)))))
+  =
+  Dlet unknown_loc (Pvar "a") (Fun "a" (Fun "b" (Lit (IntLit 5))))
+Proof
+  EVAL_TAC
+QED
+
+Triviality test6: (* constants from within closures are lifted *)
+  compile_dec
+    (Dlet unknown_loc (Pvar "a") (Fun "a" (Con NONE [Fun "b" (Lit (IntLit 5))])))
+  =
+  Dlocal
+     [Dlet unknown_loc (Pvar "constant_")
+        (Con NONE [Fun "b" (Lit (IntLit 5))])]
+     [Dlet unknown_loc (Pvar "a")
+        (Fun "a" (Var (Short "constant_")))]
+Proof
+  EVAL_TAC
 QED
 
 val _ = export_theory ();
