@@ -1959,20 +1959,34 @@ open mlintTheory;
 (* TODO: Mostly copied from mlintTheory *)
 val result = translate fromChar_unsafe_def;
 
-val fromChars_range_unsafe_tail_def = Define`
-  fromChars_range_unsafe_tail l 0       str mul acc = acc ∧
-  fromChars_range_unsafe_tail l (SUC n) str mul acc =
-    fromChars_range_unsafe_tail l n str (mul * 10)  (acc + fromChar_unsafe (strsub str (l + n)) * mul)`;
+Definition fromChars_range_unsafe_tail_def:
+  fromChars_range_unsafe_tail b n str mul acc =
+  if n ≤ b then acc
+  else
+    let m = sub_nocheck n 1 in
+    fromChars_range_unsafe_tail b m str (mul * 10)
+      (acc + fromChar_unsafe (strsub str m) * mul)
+Termination
+  WF_REL_TAC`measure (λ(b,n,_). n)`>>
+  rw[sub_nocheck_def]
+End
 
 Theorem fromChars_range_unsafe_tail_eq:
   ∀n l s mul acc.
-  fromChars_range_unsafe_tail l n s mul acc = (fromChars_range_unsafe l n s) * mul + acc
+  fromChars_range_unsafe_tail l (n+l) s mul acc =
+  (fromChars_range_unsafe l n s) * mul + acc
 Proof
-  Induct>>rw[fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]
+  Induct
+  >-
+    rw[Once fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]>>
+  rw[]>>
+  simp[Once fromChars_range_unsafe_tail_def,ADD1,fromChars_range_unsafe_def,sub_nocheck_def]>>
+  fs[ADD1]
 QED
 
 Theorem fromChars_range_unsafe_alt:
-  fromChars_range_unsafe l n s = fromChars_range_unsafe_tail l n s 1 0
+  fromChars_range_unsafe l n s =
+  fromChars_range_unsafe_tail l (n+l) s 1 0
 Proof
   rw[fromChars_range_unsafe_tail_eq]
 QED
@@ -2004,6 +2018,21 @@ val result = translate lpr_parsingTheory.fromString_unsafe_def;
 val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
 val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
 val fromchars_range_unsafe_tail_side_def = theorem"fromchars_range_unsafe_tail_side_def";
+
+Theorem fromchars_range_unsafe_tail_side_def:
+  ∀a1 a0 a2 a3 a4.
+  fromchars_range_unsafe_tail_side a0 a1 a2 a3 a4 ⇔
+   ¬(a1 ≤ a0) ⇒
+   (T ∧ a1 < 1 + strlen a2 ∧ 0 < strlen a2) ∧
+   fromchars_range_unsafe_tail_side a0 (a1 − 1) a2 (a3 * 10)
+     (a4 + fromChar_unsafe (strsub a2 (a1 − 1)) * a3)
+Proof
+  Induct>>
+  rw[Once fromchars_range_unsafe_tail_side_def]>>
+  simp[sub_nocheck_def]>>eq_tac>>rw[ADD1]>>
+  gvs[]
+QED
+
 val fromchars_range_unsafe_side_def = fetch "-" "fromchars_range_unsafe_side_def";
 
 Theorem fromchars_unsafe_side_thm:

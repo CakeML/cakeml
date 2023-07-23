@@ -2466,9 +2466,8 @@ Proof
     \\ rw[]
     >-(xsimpl \\ fs[std_preludeTheory.OPTION_TYPE_def]))
   >-(simp[INSTREAM_BUFFERED_BL_FD_RW_def, REF_NUM_def] \\ xpull
+    \\ gvs[]
     \\ xlet_auto >- xsimpl
-    \\ rveq \\ xlet_auto >- xsimpl
-    \\ rveq \\ xlet_auto >- xsimpl
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- (xsimpl \\ fs[instream_buffered_inv_def])
     \\ xlet_auto >- xsimpl \\ fs [CharProgTheory.fromByte_def]
