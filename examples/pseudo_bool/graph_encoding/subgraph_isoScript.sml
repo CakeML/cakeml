@@ -21,19 +21,9 @@ Definition has_mapping_def:
   (Equal, (GENLIST (λv. (1, Pos (a,v))) vt), 1):map_var pbc
 End
 
-Definition all_has_mapping_def:
-  all_has_mapping vp vt =
-  GENLIST (λa. has_mapping a vt) vp
-End
-
 Definition one_one_def:
   one_one u vp =
   (GreaterEqual, GENLIST (λb. (1, Neg (b,u))) vp, &vp-1): map_var pbc
-End
-
-Definition all_one_one_def:
-  all_one_one vp vt =
-  GENLIST (λu. one_one u vp) vt
 End
 
 Definition edge_map_def:
@@ -43,11 +33,22 @@ Definition edge_map_def:
     1): map_var pbc
 End
 
+Definition all_has_mapping_def:
+  all_has_mapping vp vt =
+  GENLIST (λa. has_mapping a vt) vp
+End
+
+Definition all_one_one_def:
+  all_one_one vp vt =
+  GENLIST (λu. one_one u vp) vt
+End
+
 Definition all_edge_map_def:
   all_edge_map (vp,ep) (vt,et) =
-  FLAT (GENLIST (λu.
-    FLAT (GENLIST (λa.
-      MAP (λb. edge_map (a,b) u et) (neighbours ep a)) vp)) vt)
+  FLAT
+  (FLAT (GENLIST (λu.
+    (GENLIST (λa.
+      MAP (λb. edge_map (a,b) u et) (neighbours ep a)) vp)) vt))
 End
 
 Definition encode_def:
@@ -483,6 +484,148 @@ Proof
   rw[]>>
   assume_tac full_encode_correct>>gs[]>>
   every_case_tac>>fs[sem_concl_def,unsatisfiable_def]
+QED
+
+Definition GENLIST_AUX_gen_def:
+  (GENLIST_AUX_gen f 0 l = l) ∧
+  (GENLIST_AUX_gen f (SUC n) l =
+    GENLIST_AUX_gen f n (f n l))
+End
+
+Theorem GENLIST_AUX_gen_append:
+  ∀xs.
+  GENLIST_AUX_gen ($++ o f) n xs ++ y =
+  GENLIST_AUX_gen ($++ o f) n (xs ++ y)
+Proof
+  Induct_on`n`>>simp[GENLIST_AUX_gen_def]
+QED
+
+Theorem FLAT_GENLIST_GENLIST_AUX_gen:
+  ∀y.
+  FLAT (GENLIST f n) ++ y =
+  GENLIST_AUX_gen ($++ o f) n y
+Proof
+  Induct_on`n`>>rw[GENLIST_AUX_gen_def,GENLIST]>>
+  simp[GENLIST_AUX_gen_append]
+QED
+
+Theorem FLAT_GENLIST_GENLIST_AUX_gen_nil:
+  FLAT (GENLIST f n) =
+  GENLIST_AUX_gen ($++ o f) n []
+Proof
+  simp[GSYM FLAT_GENLIST_GENLIST_AUX_gen]
+QED
+
+Theorem GENLIST_FLAT:
+  GENLIST (λx. FLAT (f x)) n =
+  MAP FLAT (GENLIST f n)
+Proof
+  simp[MAP_GENLIST,o_DEF]
+QED
+
+Definition FLAT2_def:
+  FLAT2 [] = [] ∧
+  FLAT2 (ls::lss) =
+    FOLDR $++ (FLAT2 lss) ls
+End
+
+Theorem FOLDR_APPEND_FOLDR:
+  FOLDR $++ y x ++ z =
+  FOLDR $++ (y ++ z) x
+Proof
+  Induct_on`x`>>rw[]
+QED
+
+Theorem FLAT_APPEND_FOLDR:
+  FLAT x ++ y =
+  FOLDR $++ y x
+Proof
+  rw[FLAT_FOLDR,FOLDR_APPEND_FOLDR]
+QED
+
+Theorem FLAT2_FLAT_FLAT:
+  ∀ls.
+  FLAT (FLAT ls) = FLAT2 ls
+Proof
+  Induct>>rw[FLAT2_def]>>
+  pop_assum sym_sub_tac>>
+  simp[FLAT_APPEND_FOLDR]
+QED
+
+Theorem GENLIST_AUX_gen_SmartAppend:
+  ∀ls ls'.
+  append ls' = ls ⇒
+  GENLIST_AUX_gen ($++ o f) n ls =
+  append (GENLIST_AUX_gen (SmartAppend o List o f) n ls')
+Proof
+  Induct_on`n`>>rw[GENLIST_AUX_gen_def]
+QED
+
+Theorem GENLIST_AUX_gen_SmartAppend_Nil:
+  GENLIST_AUX_gen ($++ o f) n [] =
+  append (GENLIST_AUX_gen (SmartAppend o List o f) n Nil)
+Proof
+  match_mp_tac GENLIST_AUX_gen_SmartAppend>>simp[]
+QED
+
+Theorem GENLIST_AUX_gen_SmartAppend_append:
+  GENLIST_AUX_gen ($++ o f) n (append ls') =
+  append (GENLIST_AUX_gen (SmartAppend o List o f) n ls')
+Proof
+  match_mp_tac GENLIST_AUX_gen_SmartAppend>>simp[]
+QED
+
+Theorem GENLIST_AUX_gen_cancel_List_append:
+  ∀y.
+  append (GENLIST_AUX_gen (SmartAppend o List o append o f) n y) =
+  append (GENLIST_AUX_gen (SmartAppend o f) n y)
+Proof
+  Induct_on`n`>>rw[GENLIST_AUX_gen_def]>>
+  cheat
+QED
+
+Theorem full_encode_eq:
+  full_encode (q,r) (q',r') =
+  append
+     (GENLIST_AUX_gen
+        (λx.
+             SmartAppend
+               (List
+                  [map_pbc enc_string
+                     (GreaterEqual,GENLIST (λx'. (1,Pos (x,x'))) q',1);
+                   map_pbc enc_string
+                     (GreaterEqual,
+                      flip_coeffs (GENLIST (λx'. (1,Pos (x,x'))) q'),-1)])) q
+        (GENLIST_AUX_gen
+           (λx.
+                SmartAppend
+                  (List
+                     [map_pbc enc_string
+                        (GreaterEqual,GENLIST (λx'. (1,Neg (x',x))) q,&q − 1)]))
+           q'
+           (GENLIST_AUX_gen
+              (λu.
+                   SmartAppend
+                     (GENLIST_AUX_gen
+                        (λx.
+                             SmartAppend
+                               (List
+                                  (MAP
+                                     (λx'.
+                                          map_pbc enc_string
+                                            (GreaterEqual,
+                                             (1,Neg (x,u))::
+                                               MAP (λx. (1,Pos (x',x)))
+                                                 (neighbours r' u),1))
+                                     (neighbours r x)))) q Nil)) q' Nil)))
+Proof
+  rw[full_encode_def,encode_def]>>
+  simp[MAP_FLAT,all_edge_map_def,MAP_GENLIST,o_DEF,MAP_MAP_o,edge_map_def,pbc_ge_def,FLAT_FLAT,FLAT_MAP_SING,all_has_mapping_def,has_mapping_def,all_one_one_def,one_one_def]>>
+  simp[FLAT_GENLIST_GENLIST_AUX_gen_nil,GENLIST_AUX_gen_append]>>
+  simp[GENLIST_AUX_gen_SmartAppend_Nil,GSYM o_DEF]>>
+  simp[GENLIST_AUX_gen_cancel_List_append]>>
+  simp[GENLIST_AUX_gen_SmartAppend_append]>>
+  simp[o_DEF]
 QED
 
 val _ = export_theory();
