@@ -1258,12 +1258,12 @@ Definition encode_connected_def:
   if vp = 0 then []
   else
   let k = LOG 2 (vp*2-1) in
-  walk_k (vp,ep) k ++
   FLAT (GENLIST (λf.
     FLAT (GENLIST (λg.
       if f < g then
         [(GreaterEqual, [(1, Pos(Unmapped f));(1, Pos(Unmapped g));(1, Pos(Walk f g k))], 1)]
-      else []) vp)) vp)
+      else []) vp)) vp) ++
+  walk_k (vp,ep) k
 End
 
 Definition encode_def:
@@ -1271,12 +1271,6 @@ Definition encode_def:
   encode_base (vp,ep) (vt,et) ++
   encode_connected (vp,ep)
 End
-
-Theorem MAP_if:
-  MAP f (if P then A else B) = if P then MAP f A else MAP f B
-Proof
-  rw[]
-QED
 
 Theorem walk_k_free:
   ∀k c.
@@ -1998,5 +1992,83 @@ Proof
   asm_exists_tac>>simp[]>>
   intLib.ARITH_TAC
 QED
+
+Theorem full_encode_mcis_eq =
+  full_encode_mcis_def
+  |> SIMP_RULE (srw_ss()) [FORALL_PROD,encode_base_def]
+  |> SIMP_RULE (srw_ss()) [all_has_mapping_def,all_one_one_def,all_full_edge_map_def,has_mapping_def,one_one_def,edge_map_def,not_edge_map_def]
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
+  |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN,FOLDN_APPEND,FOLDN_APPEND_op]
+  |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
+  |> SIMP_RULE (srw_ss()) [];
+
+(* TODO: use PRECONDITION *)
+Definition log2_def:
+  log2 n =
+  if n < 2 then 0:num
+  else (log2 (n DIV 2))+1
+End
+
+Theorem LOG2_log2:
+  ∀n.
+  n ≥ 1 ⇒
+  LOG 2 n = log2 n
+Proof
+  ho_match_mp_tac log2_ind>>rw[]>>
+  simp[Once log2_def]>>rw[]
+  >- (
+    `n=1`by fs[]>>
+    rw[])>>
+  REWRITE_TAC[Once numeral_bitTheory.LOG_compute]>>
+  fs[ADD1]>>
+  first_x_assum match_mp_tac>>
+  intLib.ARITH_TAC
+QED
+
+Theorem encode_connected_thm:
+  encode_connected (vp,ep) =
+  if vp = 0 then []
+  else
+  let k = log2 (vp*2-1) in
+  FLAT (GENLIST (λf.
+    FLAT (GENLIST (λg.
+      if f < g then
+        [(GreaterEqual, [(1, Pos(Unmapped f));(1, Pos(Unmapped g));(1, Pos(Walk f g k))], 1)]
+      else []) vp)) vp) ++
+  walk_k (vp,ep) k
+Proof
+  rw[encode_connected_def]>>
+  DEP_REWRITE_TAC [LOG2_log2]>>
+  fs[]
+QED
+
+Theorem walk_k_eq =
+  walk_k_def
+  |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN,FOLDN_APPEND]
+  |> SIMP_RULE (srw_ss()) [FOLDN_APPEND_op]
+  |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
+  |> SIMP_RULE (srw_ss()) [if_APPEND];
+
+val enc_encode_connected =
+  ``MAP (map_pbc enc_string) (encode_connected (p_1,p_2))``
+  |> SIMP_CONV (srw_ss()) [encode_connected_thm]
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,LET_DEF,MAP_if]
+  |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN]
+  |> PURE_REWRITE_RULE[GSYM APPEND_ASSOC]
+  |> SIMP_RULE std_ss [FOLDN_APPEND]
+  |> SIMP_RULE (srw_ss()) [FOLDN_APPEND_op]
+  |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF];
+
+Theorem full_encode_mccis_eq =
+  full_encode_mccis_def
+  |> SIMP_RULE (srw_ss()) [FORALL_PROD,encode_def,encode_base_def]
+  |> SIMP_RULE (srw_ss()) [all_has_mapping_def,all_one_one_def,all_full_edge_map_def,has_mapping_def,one_one_def,edge_map_def,not_edge_map_def]
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,LET_DEF,MAP_if]
+  |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN]
+  |> PURE_REWRITE_RULE[GSYM APPEND_ASSOC]
+  |> SIMP_RULE std_ss [FOLDN_APPEND]
+  |> SIMP_RULE (srw_ss()) [FOLDN_APPEND_op]
+  |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
+  |> SIMP_RULE (srw_ss()) [enc_encode_connected];
 
 val _ = export_theory();

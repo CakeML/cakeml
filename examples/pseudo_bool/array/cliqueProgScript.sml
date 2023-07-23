@@ -9,17 +9,12 @@ val _ = translation_extends"graphProg";
 
 val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
-(* The encoder *)
-val _ = translate mk_constraint_def;
-val _ = translate encode_def;
-
-(* The string converter *)
 val res = translate enc_string_def;
+val res = translate pbcTheory.map_obj_def;
+val res = translate clique_obj_def;
+val res = translate FOLDN_def;
 
-val _ = translate pbcTheory.map_obj_def;
-val _ = translate clique_obj_def;
-
-val _ = translate full_encode_def;
+val res = translate full_encode_eq;
 
 (* parse input from f and run encoder into pbc *)
 val parse_and_enc = (append_prog o process_topdecs) `

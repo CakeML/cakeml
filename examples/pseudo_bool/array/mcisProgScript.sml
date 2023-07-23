@@ -10,25 +10,14 @@ val _ = translation_extends"graphProg";
 val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
 (* The encoder *)
-val _ = translate has_mapping_def;
-val _ = translate all_has_mapping_def;
-val _ = translate one_one_def;
-val _ = translate all_one_one_def;
-
-val _ = translate edge_map_def;
-
-val _ = translate not_edge_map_def;
-val _ = translate all_full_edge_map_def;
-
-val _ = translate encode_base_def;
-
-(* Translate the string converter *)
 val res = translate enc_string_def;
 
-val _ = translate pbcTheory.map_obj_def;
-val _ = translate unmapped_obj_def;
+val res = translate pbcTheory.map_obj_def;
+val res = translate unmapped_obj_def;
 
-val _ = translate full_encode_mcis_def;
+val res = translate FOLDN_def;
+
+val res = translate full_encode_mcis_eq;
 
 (* parse input from f1 f2 and run encoder into pbc *)
 val parse_and_enc = (append_prog o process_topdecs) `

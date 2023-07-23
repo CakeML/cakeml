@@ -335,6 +335,61 @@ Proof
   every_case_tac>>fs[]
 QED
 
+(* This is just FOLD over naturals *)
+Definition FOLDN_def:
+  (FOLDN f 0 l = l) ∧
+  (FOLDN f (SUC n) l = FOLDN f n (f n l))
+End
+
+Theorem FOLDN_APPEND:
+  ∀xs.
+  FOLDN (λu. $++ (f u)) n xs ++ y =
+  FOLDN (λu. $++ (f u)) n (xs ++ y)
+Proof
+  Induct_on`n`>>simp[FOLDN_def]
+QED
+
+Theorem FOLDN_APPEND_op:
+  $++ (FOLDN (λu. $++ (f u)) n xs) =
+  λy. FOLDN (λu. $++ (f u)) n (xs ++ y)
+Proof
+  simp[FUN_EQ_THM,FOLDN_APPEND]
+QED
+
+Theorem FLAT_GENLIST_APPEND_FOLDN:
+  ∀y.
+  FLAT (GENLIST f n) ++ y =
+  FOLDN (λu. $++ (f u)) n y
+Proof
+  Induct_on`n`>>rw[FOLDN_def,GENLIST]>>
+  simp[FOLDN_APPEND]
+QED
+
+Theorem FLAT_GENLIST_FOLDN:
+  FLAT (GENLIST f n) =
+  FOLDN (λu. $++ (f u)) n []
+Proof
+  simp[GSYM FLAT_GENLIST_APPEND_FOLDN]
+QED
+
+Theorem APPEND_OP_DEF:
+  $++ = λx y. x ++ y
+Proof
+  metis_tac[ETA_AX]
+QED
+
+Theorem MAP_if:
+  MAP f (if p then a else b) = if p then MAP f a else MAP f b
+Proof
+  rw[]
+QED
+
+Theorem if_APPEND:
+  (if p then a else b) ++ c = if p then a ++ c else b ++ c
+Proof
+  rw[]
+QED
+
 val ladraw = ``[
   strlit"5";
   strlit"3 1 3 4";

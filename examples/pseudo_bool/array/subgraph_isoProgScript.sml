@@ -10,20 +10,12 @@ val _ = translation_extends "graphProg";
 val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
 (* The encoder *)
-val _ = translate has_mapping_def;
-val _ = translate all_has_mapping_def;
-
-val _ = translate one_one_def;
-val _ = translate all_one_one_def;
-
-val _ = translate edge_map_def;
-val _ = translate all_edge_map_def;
-val _ = translate encode_def;
 
 (* Translate the string converter *)
 val res = translate enc_string_def;
+val res = translate FOLDN_def;
 
-val _ = translate full_encode_def;
+val res = translate full_encode_eq;
 
 (* parse input from f1 f2 and run encoder *)
 val parse_and_enc = (append_prog o process_topdecs) `

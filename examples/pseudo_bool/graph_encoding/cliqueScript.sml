@@ -380,4 +380,13 @@ Proof
   fs[]
 QED
 
+Theorem full_encode_eq =
+  full_encode_def
+  |> SIMP_RULE (srw_ss()) [FORALL_PROD,encode_def]
+  |> SIMP_RULE (srw_ss()) [mk_constraint_def]
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
+  |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN,FOLDN_APPEND_op]
+  |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
+  |> SIMP_RULE (srw_ss()) [if_APPEND];
+
 val _ = export_theory();

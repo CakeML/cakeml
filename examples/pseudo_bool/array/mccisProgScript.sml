@@ -10,17 +10,14 @@ val _ = translation_extends"graphProg";
 val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
 (* The encoder *)
-val _ = translate has_mapping_def;
-val _ = translate all_has_mapping_def;
-val _ = translate one_one_def;
-val _ = translate all_one_one_def;
+val res = translate enc_string_def;
 
-val _ = translate edge_map_def;
+val res = translate pbcTheory.map_obj_def;
+val res = translate unmapped_obj_def;
 
-val _ = translate not_edge_map_def;
-val _ = translate all_full_edge_map_def;
+val res = translate log2_def;
 
-val _ = translate encode_base_def;
+val res = translate FOLDN_def;
 
 val _ = translate pbcTheory.negate_def;
 val _ = translate iff_and_def;
@@ -28,59 +25,10 @@ val _ = translate iff_or_def;
 val _ = translate walk_base_def;
 val _ = translate walk_aux_def;
 val _ = translate walk_ind_def;
-val _ = translate walk_k_def;
 
-(* TODO: use PRECONDITION *)
-Definition log2_def:
-  log2 n =
-  if n < 2 then 0:num
-  else (log2 (n DIV 2))+1
-End
+val res = translate walk_k_eq;
 
-Theorem LOG2_log2:
-  ∀n.
-  n ≥ 1 ⇒
-  LOG 2 n = log2 n
-Proof
-  ho_match_mp_tac log2_ind>>rw[]>>
-  simp[Once log2_def]>>rw[]
-  >- (
-    `n=1`by fs[]>>
-    rw[])>>
-  REWRITE_TAC[Once numeral_bitTheory.LOG_compute]>>
-  fs[ADD1]>>
-  first_x_assum match_mp_tac>>
-  intLib.ARITH_TAC
-QED
-
-Theorem encode_connected_thm:
-  encode_connected (vp,ep) =
-  if vp = 0 then []
-  else
-  let k = log2 (vp*2-1) in
-  walk_k (vp,ep) k ++
-  FLAT (GENLIST (λf.
-    FLAT (GENLIST (λg.
-      if f < g then
-        [(GreaterEqual, [(1, Pos(Unmapped f));(1, Pos(Unmapped g));(1, Pos(Walk f g k))], 1)]
-      else []) vp)) vp)
-Proof
-  rw[encode_connected_def]>>
-  DEP_REWRITE_TAC [LOG2_log2]>>
-  fs[]
-QED
-
-val _ = translate log2_def;
-val _ = translate (encode_connected_thm);
-val _ = translate encode_def;
-
-(* Translate the string converter *)
-val res = translate enc_string_def;
-
-val _ = translate pbcTheory.map_obj_def;
-val _ = translate unmapped_obj_def;
-
-val _ = translate full_encode_mccis_def;
+val res = translate full_encode_mccis_eq;
 
 (* parse input from f1 f2 and run encoder into pbc *)
 val parse_and_enc = (append_prog o process_topdecs) `
