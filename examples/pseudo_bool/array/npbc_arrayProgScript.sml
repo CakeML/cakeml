@@ -37,6 +37,21 @@ val r = translate OPTION_MAP2_DEF;
 (* Translate steps in check_cutting *)
 val r = translate listTheory.REV_DEF;
 val r = translate offset_def;
+val res = translate mk_BN_def;
+val res = translate mk_BS_def;
+val res = translate delete_def;
+val res = translate insert_def;
+val res = translate lookup_def;
+val res = translate map_def;
+val r = translate combine_rle_def;
+val r = translate spt_center_def;
+val r = translate apsnd_cons_def;
+val r = translate spt_centers_def;
+val r = translate spt_right_def;
+val r = translate spt_left_def;
+val r = translate spts_to_alist_def;
+val r = translate toSortedAList_def;
+
 val r = translate add_terms_def;
 val r = translate add_lists'_def;
 val r = translate add_lists'_thm;
@@ -195,6 +210,60 @@ Proof
     metis_tac[EqualityType_NUM_BOOL])
 QED
 
+(*
+val res = translate npbcTheory.add_terms_spt_def;
+val res = translate npbcTheory.lookup_default_def;
+val res = translate npbcTheory.add_lists_spt_def;
+val res = translate npbcTheory.add_spt_def;
+val res = translate npbc_checkTheory.spt_of_list_def;
+
+val res = translate npbcTheory.multiply_spt_def;
+val res = translate npbcTheory.divide_spt_def;
+
+val divide_spt_side = Q.prove(
+  `∀x y. divide_spt_side x y ⇔ y ≠ 0`,
+  Cases>>
+  EVAL_TAC>>
+  rw[EQ_IMP_THM]>>
+  intLib.ARITH_TAC
+  ) |> update_precondition
+
+val res = translate npbcTheory.saturate_spt_def;
+val res = translate npbcTheory.weaken_spt_def;
+val res = translate npbc_checkTheory.spt_of_lit_def
+
+val check_cutting_spt_arr = process_topdecs`
+  fun check_cutting_spt_arr lno fml constr =
+  case constr of
+    Id n =>
+    (case Array.lookup fml None n of
+      None =>
+        raise Fail (format_failure lno ("invalid constraint id: " ^ Int.toString n))
+    | Some c => spt_of_list c)
+  | Add c1 c2 =>
+    add_spt
+      (check_cutting_spt_arr lno fml c1)
+      (check_cutting_arr lno fml c2)
+  | Mul c k =>
+    multiply_spt (check_cutting_spt_arr lno fml c) k
+  | Div_1 c k =>
+    if k <> 0 then
+      divide_spt (check_cutting_spt_arr lno fml c) k
+    else raise Fail (format_failure lno ("divide by zero"))
+  | Sat c =>
+    saturate_spt (check_cutting_spt_arr lno fml c)
+  | Weak c var =>
+    weaken_spt (check_cutting_spt_arr lno fml c) var
+  | Lit l => spt_of_lit l
+    ` |> append_prog
+
+val res = translate npbc_checkTheory.constraint_of_spt_def;
+
+val check_cutting_alt_arr = process_topdecs`
+  fun check_cutting_alt_arr lno fml constr =
+  constraint_of_spt (check_cutting_spt_arr lno fml constr)` |> append_prog;
+*)
+
 (* Translation for pb checking *)
 
 val r = translate (lslack_def |> SIMP_RULE std_ss [MEMBER_INTRO, o_DEF]);
@@ -249,8 +318,6 @@ QED
 val every_less_def = Define`
   every_less (mindel:num) core cls ⇔
   EVERY (λid. mindel ≤ id ∧ lookup id core = NONE) cls`
-
-val res = translate lookup_def;
 
 val _ = translate every_less_def;
 
@@ -1091,7 +1158,6 @@ Proof
   metis_tac[]
 QED
 
-val res = translate insert_def;
 val res = translate npbc_checkTheory.extract_pids_def;
 
 Definition do_rso_def:
@@ -1803,9 +1869,6 @@ val el_side = Q.prove(
 val res = translate npbc_checkTheory.extract_clauses_def;
 
 val res = translate FOLDL;
-val res = translate mk_BN_def;
-val res = translate mk_BS_def;
-val res = translate delete_def;
 val res = translate npbc_checkTheory.check_cutting_def;
 val res = translate npbc_checkTheory.check_contradiction_fml_def;
 val res = translate npbc_checkTheory.check_lstep_def;

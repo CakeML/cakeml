@@ -96,7 +96,7 @@ Definition add_terms_def:
   let c = c1 + c2 in
   if c = 0 then (zs, k + Num(ABS c1))
   else
-    ((c1+c2,v)::zs, k+ offset c1 c2)
+    ((c,v)::zs, k+ offset c1 c2)
 End
 
 Definition add_lists_def:
@@ -2017,6 +2017,61 @@ Definition sem_concl_def:
       NONE => T
     | SOME ub =>
       (∃w. satisfies w fml ∧ eval_obj obj w ≤ ub))))
+End
+
+(* EXPERIMENTAL UNUSED *)
+Type npbcspt = ``: (int spt) #num``
+
+Definition lookup_default_def:
+  lookup_default k t =
+  case lookup k t of NONE => (0:int) | SOME v => v
+End
+
+Definition add_terms_spt_def:
+  add_terms_spt c1 c2 v t (k:num) =
+  let c = c1 + c2 in
+  if c = 0 then (delete v t, k + Num (ABS c1))
+  else
+    (insert v c t, k + offset c1 c2)
+End
+
+Definition add_lists_spt_def:
+  (add_lists_spt t [] = (t,0)) ∧
+  (add_lists_spt t ((c,x)::xs) =
+  let (t',n) = add_lists_spt t xs in
+  add_terms_spt
+    c (lookup_default x t') x t' n)
+End
+
+Definition add_spt_def:
+  add_spt ((xs,m):npbcspt) (ys,n) =
+    let (xs,d) = add_lists_spt xs ys in
+      (xs,((m + n) - d))
+End
+
+Definition divide_spt_def:
+  divide_spt ((l,n):npbcspt) k =
+    (map (λc. div_ceiling c k) l,n \\ k)
+End
+
+Definition multiply_spt_def:
+  multiply_spt ((l,n):npbcspt) k =
+    if k = 0 then (LN,0) else
+      (map (λc. c * & k) l,n * k)
+End
+
+Definition saturate_spt_def:
+  saturate_spt ((l,n):npbcspt) =
+    if n = 0 then (LN,n)
+    else (map (λc. abs_min c n) l, n)
+End
+
+Definition weaken_spt_def:
+  weaken_spt ((l,n):npbcspt) v =
+  case lookup v l of
+    NONE => (l,n)
+  | SOME c =>
+    (delete v l, n-Num(ABS c))
 End
 
 val _ = export_theory();

@@ -67,14 +67,6 @@ val r = translate parse_subst_aux_def;
 val r = translate spt_to_vecTheory.prepend_def;
 val r = translate spt_to_vecTheory.to_flat_def;
 
-val r = translate combine_rle_def;
-val r = translate spt_center_def;
-val r = translate apsnd_cons_def;
-val r = translate spt_centers_def;
-val r = translate spt_right_def;
-val r = translate spt_left_def;
-val r = translate spts_to_alist_def;
-val r = translate toSortedAList_def;
 val r = translate spt_to_vecTheory.spt_to_vec_def;
 val r = translate parse_subst_def;
 

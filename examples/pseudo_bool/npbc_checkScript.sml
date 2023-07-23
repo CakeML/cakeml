@@ -2773,4 +2773,42 @@ Proof
     rw[]>>asm_exists_tac>>simp[])
 QED
 
+(* EXPERIMENTAL UNUSED *)
+Definition spt_of_list_def:
+  spt_of_list c = add_spt (LN,0) c
+End
+
+Definition spt_of_lit_def:
+  (spt_of_lit (Pos v) = add_spt (LN,0) ([(1,v)],0)) ∧
+  (spt_of_lit (Neg v) = add_spt (LN,0) ([(-1,v)],0))
+End
+
+Definition check_cutting_spt_def:
+  (check_cutting_spt fml (Id n) =
+    OPTION_MAP spt_of_list (lookup n fml)) ∧
+  (check_cutting_spt fml (Add c1 c2) =
+    OPTION_MAP2
+      add_spt
+      (check_cutting_spt fml c1)
+      (check_cutting fml c2)) ∧
+  (check_cutting_spt fml (Mul c k) =
+       OPTION_MAP (λc. multiply_spt c k)
+        (check_cutting_spt fml c)) ∧
+  (check_cutting_spt fml (Div c k) =
+    if k ≠ 0 then
+      OPTION_MAP (λc. divide_spt c k) (check_cutting_spt fml c)
+    else NONE) ∧
+  (check_cutting_spt fml (Sat c) =
+    OPTION_MAP saturate_spt (check_cutting_spt fml c)) ∧
+  (check_cutting_spt fml (Weak c var) =
+    OPTION_MAP (λc. weaken_spt c var) (check_cutting_spt fml c)) ∧
+  (check_cutting_spt fml (Lit l) = SOME (spt_of_lit l))
+End
+
+Definition constraint_of_spt_def:
+  constraint_of_spt (t,n) =
+  let ls = toSortedAList t in
+    (MAP (λ(v,c). (c,v)) ls,n)
+End
+
 val _ = export_theory ();
