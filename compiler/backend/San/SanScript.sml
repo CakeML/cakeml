@@ -1,5 +1,5 @@
 (*
-* A simple instantiation of machin_config for sanity check
+* A simple instantiation of machin_config for sanity check share memory access
 *)
 open preamble targetSemTheory riscv_targetTheory riscvTheory ffiTheory
   bitstringTheory asmPropsTheory;
@@ -322,18 +322,7 @@ Proof
     APPLY_UPDATE_THM] \\
   drule lt_2_cases \\
   rw[DISJ_IMP_THM] \\
-  fs[WORD_LE,WORD_LT] \\
-  Cases_on `word_msb x` \\
-  simp[]
-  >~ [`index1 <> 1`] >-
-    (drule lt_2_cases \\
-    strip_tac \\
-    gvs[])
-  >~ [`index1 <> 0`] >-
-    (drule lt_2_cases \\
-    strip_tac \\
-    gvs[]) \\
-  metis_tac[]
+  fs[WORD_LE,WORD_LT]
 QED
 
 Theorem san_ffi_interfer_ok:
