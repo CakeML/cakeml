@@ -70,24 +70,20 @@ Theorem machine_code_sound:
     extract_fs fs (cake_pb_iso_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
     (out ≠ strlit"" ⇒
-      inFS_fname fs (EL 1 cl) ∧
-      inFS_fname fs (EL 2 cl) ∧
-      (
-        (LENGTH cl = 3 ∧
-        ∃gp gt.
-          get_graph_lad fs (EL 1 cl) = SOME gp ∧
-          get_graph_lad fs (EL 2 cl) = SOME gt ∧
-          out = concat (print_pbf (NONE, full_encode gp gt))) ∨
-        (LENGTH cl = 4 ∧
-        ∃gp gt.
-          get_graph_lad fs (EL 1 cl) = SOME gp ∧
-          get_graph_lad fs (EL 2 cl) = SOME gt ∧
-          (
-            (out = «s VERIFIED NOT SUBGRAPH ISOMORPHIC\n» ∧
-              ¬ has_subgraph_iso gp gt) ∨
-            (out = «s VERIFIED SUBGRAPH ISOMORPHIC\n» ∧
-              has_subgraph_iso gp gt)))
-      )
+      ∃gp gt.
+        get_graph_lad fs (EL 1 cl) = SOME gp ∧
+        get_graph_lad fs (EL 2 cl) = SOME gt ∧
+        (
+          (LENGTH cl = 3 ∧
+            out = concat (print_pbf (NONE, full_encode gp gt))) ∨
+          (LENGTH cl = 4 ∧
+            (
+              (out = «s VERIFIED NOT SUBGRAPH ISOMORPHIC\n» ∧
+                ¬ has_subgraph_iso gp gt) ∨
+              (out = «s VERIFIED SUBGRAPH ISOMORPHIC\n» ∧
+                has_subgraph_iso gp gt)
+            ))
+        )
     )
 Proof
   strip_tac>>
@@ -103,14 +99,13 @@ Proof
     qexists_tac`out`>>qexists_tac`err`>>simp[]>>
     fs[check_unsat_3_sem_def]>>
     strip_tac>>
-    gvs[graphProgTheory.get_graph_lad_def,AllCaseEqs()]>>
+    gvs[]>>
     EVAL_TAC)
   >- (
     qexists_tac`out`>>qexists_tac`err`>>simp[]>>
     fs[check_unsat_2_sem_def]>>
     strip_tac>>
-    every_case_tac>>fs[]>>
-    gvs[graphProgTheory.get_graph_lad_def,AllCaseEqs()])>>
+    every_case_tac>>fs[])>>
   metis_tac[]
 QED
 

@@ -65,33 +65,47 @@ Proof
   simp[SUM_TYPE_def,PAIR_TYPE_def]
 QED
 
-(* Printing answer *)
-Definition int_inf_to_string_def:
-  (int_inf_to_string NONE = strlit "INF") ∧
-  (int_inf_to_string (SOME (i:int)) =
-    toString i)
+(* Pretty print conclusion *)
+Definition clique_eq_str_def:
+  clique_eq_str (n:num) =
+  strlit "s VERIFIED MAX CLIQUE SIZE |CLIQUE| = " ^
+    toString n ^ strlit"\n"
+End
+
+Definition clique_upper_str_def:
+  clique_upper_str (n:num) =
+  strlit "s VERIFIED MAX CLIQUE SIZE BOUND |CLIQUE| <= " ^
+    toString n ^ strlit"\n"
+End
+
+Definition clique_bound_str_def:
+  clique_bound_str (l:num) (u:num) =
+  strlit "s VERIFIED MAX CLIQUE SIZE BOUND "^
+    toString l ^ strlit " <= |CLIQUE| <= " ^
+    toString u ^ strlit"\n"
 End
 
 Definition print_clique_bound_def:
   print_clique_bound (lbg:num option,ubg:num) =
+  if lbg = SOME ubg then clique_eq_str ubg
+  else
   case lbg of
-    NONE =>
-    strlit "s VERIFIED MAX CLIQUE BOUNDS " ^ strlit "|CLIQUE| <= " ^ toString ubg ^ strlit"\n"
-  | SOME l =>
-    strlit "s VERIFIED MAX CLIQUE BOUNDS " ^ toString l ^ strlit " <= |CLIQUE| <= " ^ toString ubg ^ strlit"\n"
+    NONE => clique_upper_str ubg
+  | SOME l => clique_bound_str l ubg
 End
 
 Definition clique_sem_def:
   clique_sem g (lbg,ubg) ⇔
-  (∀vs.
-    is_clique vs g ⇒
-    CARD vs ≤ ubg) ∧
-  case lbg of
-    NONE => T
-  | SOME lb =>
-    ∃vs.
-      is_clique vs g ∧
-      lb ≤ CARD vs
+  if lbg = SOME ubg then
+    max_clique_size g = ubg
+  else
+    (∀vs. is_clique vs g ⇒ CARD vs ≤ ubg) ∧
+    case lbg of
+      NONE => T
+    | SOME lb =>
+      ∃vs.
+        is_clique vs g ∧
+        lb ≤ CARD vs
 End
 
 Definition check_unsat_2_sem_def:
@@ -119,6 +133,9 @@ val conv_concl_side = Q.prove(
   rw[]>>
   intLib.ARITH_TAC) |> update_precondition;
 
+val res = translate clique_eq_str_def;
+val res = translate clique_upper_str_def;
+val res = translate clique_bound_str_def;
 val res = translate print_clique_bound_def;
 val res = translate map_concl_to_string_def;
 
@@ -214,14 +231,24 @@ Proof
     rw[]>>
     qexists_tac`(q,r)`>>
     simp[clique_sem_def]>>
-    metis_tac[])
+    rw[max_clique_size_def]>>
+    match_mp_tac MAX_SET_eq_intro>>
+    CONJ_TAC >- (
+      `FINITE (count (FST g + 1))` by fs[]>>
+      drule_then match_mp_tac SUBSET_FINITE>>
+      rw[SUBSET_DEF]>>
+      drule CARD_clique_bound>>
+      simp[])>>
+    rw[]
+    >-
+      metis_tac[]>>
+    fs[]>>first_assum drule>>
+    strip_tac>>
+    first_x_assum (irule_at Any)>>
+    fs[])
 QED
 
-Definition print_max_clique_size_def:
-  print_max_clique_size (n:num) =
-  strlit "s VERIFIED MAX CLIQUE SIZE " ^ (toString n) ^ strlit"\n"
-End
-
+(*
 Definition check_unsat_3_sem_def:
   check_unsat_3_sem fs f s out ⇔
   (out ≠ strlit"" ⇒
@@ -371,6 +398,7 @@ Proof
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)
 QED
+*)
 
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs f1 out ⇔
@@ -425,7 +453,7 @@ Proof
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb_clique <DIMACS file> <optional: PB proof file> <optional: max clique size>\n"
+  usage_string = strlit "Usage: cake_pb_clique <DIMACS file> <optional: PB proof file>\n"
 End
 
 val r = translate usage_string_def;
@@ -435,7 +463,6 @@ val main = (append_prog o process_topdecs) `
   case CommandLine.arguments () of
     [f1] => check_unsat_1 f1
   | [f1,f2] => check_unsat_2 f1 f2
-  | [f1,f2,f3] => check_unsat_3 f1 f2 f3
   | _ => TextIO.output TextIO.stdErr usage_string`
 
 Definition main_sem_def:
@@ -444,10 +471,15 @@ Definition main_sem_def:
     check_unsat_1_sem fs (EL 1 cl) out
   else if LENGTH cl = 3 then
     check_unsat_2_sem fs (EL 1 cl) out
-  else if LENGTH cl = 4 then
-    check_unsat_3_sem fs (EL 1 cl) (EL 3 cl) out
   else out = strlit ""
 End
+
+Theorem STDIO_refl:
+  STDIO A ==>>
+  STDIO A * GC
+Proof
+  xsimpl
+QED
 
 Theorem main_spec:
   hasFreeFD fs
@@ -493,13 +525,14 @@ Proof
     rpt(first_x_assum (irule_at Any)>>xsimpl)>>
     fs[wfcl_def]>>
     rw[]>>metis_tac[STDIO_refl])>>
+  (*
   Cases_on`t'`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
     xapp>>rw[]>>
     rpt(first_x_assum (irule_at Any)>>xsimpl)>>
     fs[wfcl_def]>>
-    rw[]>>metis_tac[STDIO_refl])>>
+    rw[]>>metis_tac[STDIO_refl])>> *)
   xmatch>>
   xapp_spec output_stderr_spec \\ xsimpl>>
   rename1`COMMANDLINE cl`>>
