@@ -61,13 +61,6 @@ val cake_pb_clique_run_def = Define`
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
   installed_x64 cake_pb_clique_code mc ms`
 
-Definition clique_bnd_str_def:
-  clique_bnd_str l u =
-  case l of
-    NONE => clique_upper_str u
-  | SOME l => clique_bound_str l u
-End
-
 Theorem machine_code_sound:
   cake_pb_clique_run cl fs mc ms ⇒
   machine_sem mc (basis_ffi cl fs) ms ⊆
@@ -86,12 +79,9 @@ Theorem machine_code_sound:
             (
               out = clique_eq_str (max_clique_size g) ∨
               ∃l u.
-                out = clique_bnd_str l u ∧
+                out = clique_bound_str l u ∧
                 (∀vs. is_clique vs g ⇒ CARD vs ≤ u) ∧
-                (case l of
-                  NONE => T
-                | SOME l =>
-                  ∃vs. is_clique vs g ∧ l ≤ CARD vs)
+                (∃vs. is_clique vs g ∧ l ≤ CARD vs)
             ))
         )
     )
@@ -118,14 +108,9 @@ Proof
     gvs[]>>
     Cases_on`bounds`>>
     qpat_x_assum`clique_sem _ _` mp_tac>>
-    simp[clique_sem_def]>>
-    IF_CASES_TAC>>strip_tac>>gvs[print_clique_bound_def]>>
-    DISJ2_TAC>>
-    every_case_tac>>gvs[clique_bnd_str_def]
-    >-
-      (qexists_tac`NONE`>>simp[]>>metis_tac[])
-    >-
-      (qexists_tac`SOME x`>>simp[]>>metis_tac[]))>>
+    simp[clique_sem_def,print_clique_str_def]>>
+    rw[]>>
+    metis_tac[])>>
   metis_tac[]
 QED
 

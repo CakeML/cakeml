@@ -12,7 +12,6 @@ Definition is_clique_def:
     is_edge e x y)
 End
 
-(* A max clique size *)
 Definition max_clique_size_def:
   max_clique_size g =
   MAX_SET ({CARD vs | is_clique vs g})
@@ -198,7 +197,7 @@ Definition full_encode_def:
   MAP (map_pbc enc_string) (encode g))
 End
 
-(* Convert minimization to maximization *)
+(* Convert minimization to maximization and add default 0 lb *)
 Definition conv_concl_def:
   (conv_concl n (OBounds lbi ubi) =
   let ubg =
@@ -206,10 +205,9 @@ Definition conv_concl_def:
     | SOME lb =>
       if lb ≤ 0 then n else n - Num lb in
   let lbg =
-    case ubi of NONE => NONE
-    | SOME ub =>
-      SOME (n - Num (ABS ub)) in
-  SOME (lbg,ubg)) ∧
+    case ubi of NONE => (0:num)
+    | SOME ub => (n - Num (ABS ub)) in
+    SOME (lbg,ubg)) ∧
   (conv_concl _ _ = NONE)
 End
 
@@ -285,12 +283,8 @@ Theorem full_encode_sem_concl:
   full_encode g = (obj,pbf) ∧
   sem_concl (set pbf) obj concl ∧
   conv_concl (FST g) concl = SOME (lbg, ubg) ⇒
-  (∀vs.
-    is_clique vs g ⇒ CARD vs ≤ ubg) ∧
-  case lbg of
-    NONE => T
-  | SOME lb =>
-    ∃vs. is_clique vs g ∧ lb ≤ CARD vs
+  (∀vs. is_clique vs g ⇒ CARD vs ≤ ubg) ∧
+  (∃vs. is_clique vs g ∧ lbg ≤ CARD vs)
 Proof
   strip_tac>>
   gvs[full_encode_def]>>
@@ -322,7 +316,9 @@ Proof
     intLib.ARITH_TAC)>>
   (* Upper bound optimization *)
   Cases_on`ubi`>>
-  fs[SF DNF_ss,EQ_IMP_THM]>>
+  fs[SF DNF_ss,EQ_IMP_THM]
+  >-
+    metis_tac[is_clique_exists]>>
   `eval_obj (clique_obj q) w ≥ 0` by
     (fs[clique_obj_def,eval_obj_def,eval_lin_term_def]>>
     match_mp_tac iSUM_zero>>
@@ -356,8 +352,7 @@ Theorem full_encode_sem_concl_check:
   good_graph g ∧
   full_encode g = (obj,pbf) ∧
   sem_concl (set pbf) obj concl ∧
-  conv_concl (FST g) concl = SOME (lbg, ubg) ∧
-  lbg = SOME mc ∧ ubg = mc ⇒
+  conv_concl (FST g) concl = SOME (mc,mc) ⇒
   max_clique_size g = mc
 Proof
   rw[]>>

@@ -72,12 +72,6 @@ Definition clique_eq_str_def:
     toString n ^ strlit"\n"
 End
 
-Definition clique_upper_str_def:
-  clique_upper_str (n:num) =
-  strlit "s VERIFIED MAX CLIQUE SIZE BOUND |CLIQUE| <= " ^
-    toString n ^ strlit"\n"
-End
-
 Definition clique_bound_str_def:
   clique_bound_str (l:num) (u:num) =
   strlit "s VERIFIED MAX CLIQUE SIZE BOUND "^
@@ -85,27 +79,20 @@ Definition clique_bound_str_def:
     toString u ^ strlit"\n"
 End
 
-Definition print_clique_bound_def:
-  print_clique_bound (lbg:num option,ubg:num) =
-  if lbg = SOME ubg then clique_eq_str ubg
-  else
-  case lbg of
-    NONE => clique_upper_str ubg
-  | SOME l => clique_bound_str l ubg
+Definition print_clique_str_def:
+  print_clique_str (lbg:num,ubg:num) =
+  if lbg = ubg
+  then clique_eq_str ubg
+  else clique_bound_str lbg ubg
 End
 
 Definition clique_sem_def:
   clique_sem g (lbg,ubg) ⇔
-  if lbg = SOME ubg then
+  if lbg = ubg then
     max_clique_size g = ubg
   else
     (∀vs. is_clique vs g ⇒ CARD vs ≤ ubg) ∧
-    case lbg of
-      NONE => T
-    | SOME lb =>
-      ∃vs.
-        is_clique vs g ∧
-        lb ≤ CARD vs
+    (∃vs. is_clique vs g ∧ lbg ≤ CARD vs)
 End
 
 Definition check_unsat_2_sem_def:
@@ -113,7 +100,7 @@ Definition check_unsat_2_sem_def:
   (out ≠ strlit"" ⇒
   ∃g bounds.
     get_graph_dimacs fs f = SOME g ∧
-    out = print_clique_bound bounds ∧
+    out = print_clique_str bounds ∧
     clique_sem g bounds)
 End
 
@@ -121,7 +108,7 @@ Definition map_concl_to_string_def:
   (map_concl_to_string n (INL s) = (INL s)) ∧
   (map_concl_to_string n (INR c) =
     case conv_concl n c of
-      SOME bounds => INR (print_clique_bound bounds)
+      SOME bounds => INR (print_clique_str bounds)
     | NONE => INL (strlit "c Unexpected conclusion for max clique problem.\n"))
 End
 
@@ -134,9 +121,8 @@ val conv_concl_side = Q.prove(
   intLib.ARITH_TAC) |> update_precondition;
 
 val res = translate clique_eq_str_def;
-val res = translate clique_upper_str_def;
 val res = translate clique_bound_str_def;
-val res = translate print_clique_bound_def;
+val res = translate print_clique_str_def;
 val res = translate map_concl_to_string_def;
 
 val check_unsat_2 = (append_prog o process_topdecs) `
@@ -218,34 +204,25 @@ Proof
     asm_exists_tac>>simp[]>>
     qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`print_clique_bound x`>>simp[]>>
+    qexists_tac`print_clique_str x`>>simp[]>>
     qexists_tac`strlit ""`>>
     rw[]>>simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
-    (drule_at Any) full_encode_sem_concl>>
-    fs[]>>
-    Cases_on`x`>> disch_then (drule_at Any)>>
-    impl_tac>- (
-      fs[get_graph_dimacs_def,AllCaseEqs()]>>
+    qexists_tac`x`>>simp[]>>
+    Cases_on`x`>>fs[print_clique_str_def,clique_sem_def]>>
+    IF_CASES_TAC
+    >- (
+      gvs[]>>
+      (drule_at Any) full_encode_sem_concl_check>>
+      disch_then (drule_at Any)>>simp[]>>
+      disch_then match_mp_tac>>
+      gvs[get_graph_dimacs_def,AllCaseEqs()]>>
       metis_tac[parse_dimacs_good_graph])>>
-    rw[]>>
-    qexists_tac`(q,r)`>>
-    simp[clique_sem_def]>>
-    rw[max_clique_size_def]>>
-    match_mp_tac MAX_SET_eq_intro>>
-    CONJ_TAC >- (
-      `FINITE (count (FST g + 1))` by fs[]>>
-      drule_then match_mp_tac SUBSET_FINITE>>
-      rw[SUBSET_DEF]>>
-      drule CARD_clique_bound>>
-      simp[])>>
-    rw[]
-    >-
-      metis_tac[]>>
-    fs[]>>first_assum drule>>
-    strip_tac>>
-    first_x_assum (irule_at Any)>>
-    fs[])
+    (drule_at Any) full_encode_sem_concl>>
+    disch_then (drule_at Any)>>simp[]>>
+    disch_then match_mp_tac>>
+    gvs[get_graph_dimacs_def,AllCaseEqs()]>>
+    metis_tac[parse_dimacs_good_graph])
 QED
 
 (*
