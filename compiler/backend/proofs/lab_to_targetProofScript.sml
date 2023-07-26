@@ -701,7 +701,7 @@ Definition share_mem_state_rel_def:
          is_valid_mapped_read (mc_conf.target.get_pc ms2) nb (Addr ad offs) re pc'
            mc_conf.target ms2 mc_conf.prog_addresses /\
          call_FFI st "MappedRead"
-           [n2w (dimindex (:'a) DIV 8); nb]
+           [nb]
            (addr2w8list ad') =
            FFI_return new_st new_bytes ==>
           target_state_rel mc_conf.target
@@ -716,7 +716,7 @@ Definition share_mem_state_rel_def:
           is_valid_mapped_write (mc_conf.target.get_pc ms2) nb (Addr ad offs) re pc'
             mc_conf.target ms2 mc_conf.prog_addresses /\
          call_FFI st "MappedWrite"
-          [n2w (dimindex (:'a) DIV 8);nb]
+          [nb]
           (w2wlist_le (mc_conf.target.get_reg ms2 re) (w2n nb)
                     ++ (addr2w8list ad')) =
           FFI_return new_st new_bytes ==>
@@ -6175,20 +6175,6 @@ Proof
   gvs[]
 QED
 
-val mapped_read_ffi_interfer_tac =
-    irule $ cj 2 RTC_RULES
-    \\ qexists `s1.ffi with
-         <|ffi_state := ffi';
-           io_events :=
-             s1.ffi.io_events ++
-             [IO_event "MappedRead"
-                [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
-                (ZIP (addr2w8list (c + t1.regs n''),v4))]|>`
-    \\ simp[evaluatePropsTheory.call_FFI_rel_def]
-    \\ qexists `"MappedRead"`
-    \\ simp[call_FFI_def, AllCaseEqs()]
-    \\ metis_tac[];
-
 Theorem bytes_in_memory_eq_mem:
   !pc bytes.
     (∀a. a ∈ t1.mem_domain ⇒ mc_conf.target.get_byte ms1 a = t1.mem a) /\
@@ -6343,7 +6329,7 @@ fun share_mem_store_compile_correct_tac ffi_name new_t1 (nb: term frag list) new
     \\ qexists ffi_name
     \\ simp[call_FFI_def, AllCaseEqs()]
     \\ qexistsl [
-      `[n2w (dimindex (:α) DIV 8);` @ wnb @ `]`,
+      `[` @ wnb @ `]`,
       `w2wlist_le (t1.regs n') (`  @ nb @ `) ++ addr2w8list (c + t1.regs n'')`,
       `v4`, `ffi'`]
     \\ gvs[LENGTH_APPEND] )
@@ -6365,7 +6351,7 @@ fun share_mem_store_compile_correct_tac ffi_name new_t1 (nb: term frag list) new
       \\ qexists ffi_name
       \\ simp[call_FFI_def, AllCaseEqs()]
       \\ qexistsl [
-        `[n2w (dimindex (:α) DIV 8);` @ wnb @ `]`,
+        `[` @ wnb @ `]`,
         `w2wlist_le (t1.regs n') (`  @ nb @ `) ++ addr2w8list (c + t1.regs n'')`,
         `v4`, `ffi'`]
       \\ fs[LENGTH_APPEND] )
@@ -6918,7 +6904,7 @@ Proof
               io_events :=
                 s1.ffi.io_events ++
                 [IO_event "MappedRead"
-                  [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
+                  [n2w (dimindex (:α) DIV 8)]
                   (ZIP (addr2w8list (c + t1.regs n''),v4))]|>`
       >- (rfs[good_dimindex_def] >> fs[])
       >- enc_is_valid_mapped_access_tac
@@ -6943,7 +6929,7 @@ Proof
               io_events :=
                 s1.ffi.io_events ++
                 [IO_event "MappedRead"
-                  [n2w (dimindex (:α) DIV 8); 1w]
+                  [1w]
                   (ZIP (addr2w8list (c + t1.regs n''),v4))]|>`
       >- enc_is_valid_mapped_access_tac
       >- gvs[apply_oracle_def,call_FFI_def]
@@ -6967,7 +6953,7 @@ Proof
                 io_events :=
                   s1.ffi.io_events ++
                   [IO_event "MappedWrite"
-                    [n2w (dimindex (:α) DIV 8); n2w (dimindex (:α) DIV 8)]
+                    [n2w (dimindex (:α) DIV 8)]
                     (ZIP (w2wlist_le (t1.regs n') (dimindex (:α) DIV 8) ++
                           addr2w8list (c + t1.regs n''),v4))]|>` )
       >- (rfs[good_dimindex_def] >> fs[])
@@ -6998,7 +6984,7 @@ Proof
                 io_events :=
                   s1.ffi.io_events ++
                   [IO_event "MappedWrite"
-                    [n2w (dimindex (:α) DIV 8); 1w]
+                    [1w]
                     (ZIP (w2wlist_le (t1.regs n') 1 ++
                           addr2w8list (c + t1.regs n''),v4))]|>` )
       >- enc_is_valid_mapped_access_tac
