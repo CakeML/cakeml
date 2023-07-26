@@ -708,7 +708,7 @@ Definition share_mem_state_rel_def:
             (t1 with
             <|pc := pc'
               ; regs := (\n. if n = re then
-                   n2w (bytes2num new_bytes) else t1.regs n)|>)
+                   (word_of_bytes F 0w new_bytes) else t1.regs n)|>)
               (mc_conf.ffi_interfer k (index,new_bytes,ms2))) /\
         (* If we are doing mapped write, and the addresses are fine *)
         (EL index mc_conf.ffi_names = "MappedWrite" /\
@@ -6896,7 +6896,7 @@ Proof
       >- enc_is_valid_mapped_access_tac
       >- share_mem_load_compile_correct_tac `"MappedRead"`
           `t1 with
-              <| regs := (n' =+ n2w (bytes2num v4)) t1.regs;
+              <| regs := (n' =+ (word_of_bytes F 0w v4)) t1.regs;
                 pc := p + n2w (LENGTH bytes + pos_val s1.pc 0 code2)|>`
           `n2w (dimindex (:α) DIV 8)`
           `s1.ffi with
@@ -6921,7 +6921,7 @@ Proof
       >- enc_is_valid_mapped_access_tac
       >- share_mem_load_compile_correct_tac `"MappedRead"`
           `t1 with
-              <| regs := (n' =+ n2w (bytes2num v4)) t1.regs;
+              <| regs := (n' =+ (word_of_bytes F 0w v4)) t1.regs;
                 pc := p + n2w (LENGTH bytes + pos_val s1.pc 0 code2)|>`
           `1w`
           `s1.ffi with

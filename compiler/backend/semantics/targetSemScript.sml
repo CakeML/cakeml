@@ -280,12 +280,6 @@ val start_pc_ok_def = Define`
       mc_conf.ccache_pc <> (EL index mc_conf.ffi_entry_pcs)) /\
     LENGTH mc_conf.ffi_names = LENGTH mc_conf.ffi_entry_pcs`;
 
-(* assume the byte array to be in little endian *)
-val bytes2num_def = Define`
-  bytes2num [] = (0:num) /\
-  bytes2num (b::bs) = w2n b + bytes2num bs * 2 ** 8`;
-(* TODO: change it to word_of_bytes F 0w *)
-
 (* ffi_interfer_ok: the FFI interference oracle is ok:
    target_state_rel is preserved for any FFI behaviour *)
 val ffi_interfer_ok_def = Define`
@@ -326,8 +320,9 @@ val ffi_interfer_ok_def = Define`
                   * affects other register e.g. temp in arm8, but we don't have to
                   * worry about it as target_state_rel ignore members of
                   * avoid_regs *)
+                  (* assume the byte array to be in little endian *)
                   ;regs := (\n. if n = FST(SND(SND (mc_conf.mmio_info index))) then
-                      n2w (bytes2num new_bytes) else t1.regs n)|>)
+                      (word_of_bytes F 0w new_bytes) else t1.regs n)|>)
                   (mc_conf.ffi_interfer k (index,new_bytes,ms2))) /\
                (EL index mc_conf.ffi_names = "MappedWrite" ==>
                target_state_rel mc_conf.target

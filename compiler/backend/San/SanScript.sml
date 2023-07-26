@@ -63,7 +63,7 @@ Definition san_ffi_interfer_def:
       state with
       <|c_gpr := (\pid r.
           if pid = state.procID /\ r = n2w reg
-          then n2w (bytes2num bytes)
+          then (word_of_bytes F 0w bytes)
           else state.c_gpr pid r);
         c_PC := (state.procID =+ new_pc) state.c_PC |>
     else if n = 1 then
