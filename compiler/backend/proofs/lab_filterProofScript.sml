@@ -545,7 +545,7 @@ QED
 
 val share_mem_load_filter_correct_tac =
   qexists `t1 with
-          <|regs := t1.regs⦇r ↦ Word (n2w (bytes2num l))⦈;
+          <|regs := t1.regs⦇r ↦ Word (word_of_bytes F 0w l)⦈;
             pc := k + (t1.pc + 1); ffi := f; clock := t1.clock − 1|>` >>
   rw[] >>
   qexists `s1compile` >>

@@ -380,7 +380,7 @@ Definition share_mem_load_def:
               SOME (FFI_return new_ffi new_bytes,
                 s with <|
                   ffi := new_ffi;
-                  regs := (r =+ Word (n2w $ bytes2num new_bytes)) s.regs;
+                  regs := (r =+ Word (word_of_bytes F 0w new_bytes)) s.regs;
                   pc := s.pc + 1;
                   clock := s.clock - 1 |>))
         else NONE
