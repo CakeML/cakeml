@@ -66,6 +66,8 @@ val read_ffi_bytearrays_def = Define`
     (read_ffi_bytearray mc mc.ptr_reg mc.len_reg ms,
      read_ffi_bytearray mc mc.ptr2_reg mc.len2_reg ms)`;
 
+(* word to list of bytes (little endian)
+  The second argument is the size of the list*)
 val w2wlist_le_def = Define`
   (w2wlist_le w (0) = []) /\
   (w2wlist_le w (SUC n) = (w2w w)::w2wlist_le (w >>> 8) n)`;
@@ -152,7 +154,7 @@ val evaluate_def = Define `
                   mc.target ms mc.prog_addresses
               then
                 (case call_FFI ffi (EL ffi_index mc.ffi_names)
-                  [n2w (dimindex (:'w) DIV 8);nb]
+                  [nb]
                   (addr2w8list ad) of
                  | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
                  | FFI_return new_ffi new_bytes =>
@@ -171,7 +173,7 @@ val evaluate_def = Define `
                   mc.target ms mc.prog_addresses
               then
                 (case call_FFI ffi (EL ffi_index mc.ffi_names)
-                  [n2w (dimindex (:'w) DIV 8); nb]
+                  [nb]
                   (w2wlist_le (mc.target.get_reg ms reg) (w2n nb)
                     ++ (addr2w8list ad)) of
                  | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
@@ -282,6 +284,7 @@ val start_pc_ok_def = Define`
 val bytes2num_def = Define`
   bytes2num [] = (0:num) /\
   bytes2num (b::bs) = w2n b + bytes2num bs * 2 ** 8`;
+(* TODO: change it to word_of_bytes F 0w *)
 
 (* ffi_interfer_ok: the FFI interference oracle is ok:
    target_state_rel is preserved for any FFI behaviour *)

@@ -373,7 +373,7 @@ Definition share_mem_load_def:
         if (w2n v MOD n) = 0 /\ (byte_align v IN s.shared_mem_domain)
         then
           (case call_FFI s.ffi "MappedRead"
-            [n2w (dimindex (:'a) DIV 8);n2w n]
+            [n2w n]
             (addr2w8list v) of
           | FFI_final outcome => SOME (FFI_final outcome, s)
           | FFI_return new_ffi new_bytes =>
@@ -396,7 +396,7 @@ Definition share_mem_store_def:
            if (w2n v MOD n) = 0 /\ (byte_align v IN s.shared_mem_domain)
            then
              (case call_FFI s.ffi "MappedWrite"
-               [n2w (dimindex (:'a) DIV 8);n2w n]
+               [n2w n]
                (w2wlist_le w n ++ (addr2w8list v)) of
               | FFI_final outcome => SOME (FFI_final outcome,s)
               | FFI_return new_ffi new_bytes =>
