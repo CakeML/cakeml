@@ -80,32 +80,34 @@ Proof
   simp[SUM_TYPE_def,PAIR_TYPE_def]
 QED
 
-(* Printing answer *)
-Definition int_inf_to_string_def:
-  (int_inf_to_string NONE = strlit "INF") ∧
-  (int_inf_to_string (SOME (i:int)) =
-    toString i)
+(* Pretty print conclusion *)
+Definition mcis_eq_str_def:
+  mcis_eq_str (n:num) =
+  strlit "s VERIFIED MAX CIS SIZE |CIS| = " ^
+    toString n ^ strlit"\n"
 End
 
-Definition print_mcis_bound_def:
-  print_mcis_bound (lbg:num option,ubg:num) =
-  case lbg of
-    NONE =>
-    strlit "s VERIFIED MCIS BOUNDS " ^ strlit "|MCIS| <= " ^ toString ubg ^ strlit"\n"
-  | SOME l =>
-    strlit "s VERIFIED MCIS BOUNDS " ^ toString l ^ strlit " <= |MCIS| <= " ^ toString ubg ^ strlit"\n"
+Definition mcis_bound_str_def:
+  mcis_bound_str (l:num) (u:num) =
+  strlit "s VERIFIED MAX CIS SIZE BOUND "^
+    toString l ^ strlit " <= |CIS| <= " ^
+    toString u ^ strlit"\n"
+End
+
+Definition print_mcis_str_def:
+  print_mcis_str (lbg:num,ubg:num) =
+  if lbg = ubg
+  then mcis_eq_str ubg
+  else mcis_bound_str lbg ubg
 End
 
 Definition mcis_sem_def:
   mcis_sem gp gt (lbg,ubg) ⇔
-  (∀f vs.
-    injective_partial_map f vs gp gt ⇒
-    CARD vs ≤ ubg) ∧
-  case lbg of NONE => T
-  | SOME lb =>
-    ∃f vs.
-      injective_partial_map f vs gp gt ∧
-      lb ≤ CARD vs
+  if lbg = ubg then
+    max_cis_size gp gt = ubg
+  else
+    (∀vs. is_cis vs gp gt ⇒ CARD vs ≤ ubg) ∧
+    (∃vs. is_cis vs gp gt ∧ lbg ≤ CARD vs)
 End
 
 Definition check_unsat_3_sem_def:
@@ -114,7 +116,7 @@ Definition check_unsat_3_sem_def:
   ∃gp gt bounds.
     get_graph_lad fs f1 = SOME gp ∧
     get_graph_lad fs f2 = SOME gt ∧
-    out = print_mcis_bound bounds ∧
+    out = print_mcis_str bounds ∧
     mcis_sem gp gt bounds)
 End
 
@@ -122,7 +124,7 @@ Definition map_concl_to_string_def:
   (map_concl_to_string n (INL s) = (INL s)) ∧
   (map_concl_to_string n (INR c) =
     case conv_concl n c of
-      SOME bounds => INR (print_mcis_bound bounds)
+      SOME bounds => INR (print_mcis_str bounds)
     | NONE => INL (strlit "c Unexpected conclusion for MCIS problem.\n"))
 End
 
@@ -134,7 +136,9 @@ val conv_concl_side = Q.prove(
   rw[]>>
   intLib.ARITH_TAC) |> update_precondition;
 
-val res = translate print_mcis_bound_def;
+val res = translate mcis_eq_str_def;
+val res = translate mcis_bound_str_def;
+val res = translate print_mcis_str_def;
 val res = translate map_concl_to_string_def;
 
 val check_unsat_3 = (append_prog o process_topdecs) `
@@ -227,7 +231,7 @@ Proof
     asm_exists_tac>>simp[]>>
     qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`print_mcis_bound x`>>simp[]>>
+    qexists_tac`print_mcis_str x`>>simp[]>>
     qexists_tac`strlit ""`>>
     rw[]>>simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>

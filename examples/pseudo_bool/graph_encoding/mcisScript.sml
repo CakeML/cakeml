@@ -5,11 +5,32 @@ open preamble pbcTheory graph_basicTheory pbc_normaliseTheory;
 
 val _ = new_theory "mcis";
 
-(* Additional graph notions *)
+(* Given graphs G_p , G_t
+  A subset of vertices of G_p is a common induced subgraph in G_t
+  iff there is an injection from that set into G_t
+  that preserves adjacency and non-adjacency *)
+Definition injective_partial_map_def:
+  injective_partial_map f vs ((vp,ep):graph) ((vt,et):graph) ⇔
+  vs ⊆ count vp ∧
+  INJ f vs (count vt) ∧
+  (∀a b. a ∈ vs ∧ b ∈ vs ∧ is_edge ep a b ⇒
+    is_edge et (f a) (f b)) ∧
+  (∀a b. a ∈ vs ∧ b ∈ vs ∧ ¬(is_edge ep a b) ⇒
+    ¬ is_edge et (f a) (f b))
+End
 
-(* Vertex a is connected to vertex b with respect to vertices vs and edges e
-   iff a R* b where R* is the induced adjacency relation
-*)
+(* vs is a common induced subgraph of gp and gt *)
+Definition is_cis_def:
+  is_cis vs (vp,ep) (vt,et) ⇔
+  ∃f. injective_partial_map f vs (vp,ep) (vt,et)
+End
+
+Definition max_cis_size_def:
+  max_cis_size gp gt =
+  MAX_SET ({CARD vs | is_cis vs gp gt})
+End
+
+(* Vertex a is connected to vertex b with respect to vertices vs and edges e iff a R* b where R* is the RTC over edges *)
 Definition is_connected_def:
   is_connected vs e a b ⇔
   (λx y. y ∈ vs ∧ is_edge e x y)꙳ a b
@@ -19,6 +40,18 @@ End
 Definition connected_subgraph_def:
   connected_subgraph vs e ⇔
   ∀a b. a ∈ vs ∧ b ∈ vs ⇒ is_connected vs e a b
+End
+
+(* vs is a common --connected-- induced subgraph of gp and gt *)
+Definition is_ccis_def:
+  is_ccis vs (vp,ep) (vt,et) ⇔
+  is_cis vs (vp,ep) (vt,et) ∧
+  connected_subgraph vs ep
+End
+
+Definition max_ccis_size_def:
+  max_ccis_size gp gt =
+  MAX_SET ({CARD vs | is_ccis vs gp gt})
 End
 
 Definition is_walk_def:
@@ -54,20 +87,6 @@ Proof
   simp[Once RTC_CASES1]>>
   metis_tac[]
 QED
-
-(*
-  Given graphs G_p := (vp,ep) , G_t := (vt,et)
-  f is an injective partial map from v_p to v_t
-  - dom f = vs (vs is the set of mapped vertices)
-  - preserving adjacency and non-adjacency
-*)
-Definition injective_partial_map_def:
-  injective_partial_map f vs ((vp,ep):graph) ((vt,et):graph) ⇔
-  vs ⊆ count vp ∧
-  INJ f vs (count vt) ∧
-  (∀a b. a ∈ vs ∧ b ∈ vs ∧ is_edge ep a b ⇒ is_edge et (f a) (f b)) ∧
-  (∀a b. a ∈ vs ∧ b ∈ vs ∧ ¬(is_edge ep a b) ⇒ ¬ is_edge et (f a) (f b))
-End
 
 (* Encoding *)
 Datatype:
@@ -1811,9 +1830,8 @@ Definition conv_concl_def:
     | SOME lb =>
       if lb ≤ 0 then n else n - Num lb in
   let lbg =
-    case ubi of NONE => NONE
-    | SOME ub =>
-      SOME (n - Num (ABS ub)) in
+    case ubi of NONE => 0
+    | SOME ub => n - Num (ABS ub) in
   SOME (lbg,ubg)) ∧
   (conv_concl _ _ = NONE)
 End
@@ -1857,22 +1875,40 @@ Proof
   Cases_on`w (Unmapped b)`>>rw[]
 QED
 
+Theorem MAX_SET_eq_intro:
+  FINITE s ∧
+  (∀x. x ∈ s ⇒ x ≤ n) ∧
+  n ∈ s ⇒
+  MAX_SET s = n
+Proof
+  rw[]>>
+  DEEP_INTRO_TAC MAX_SET_ELIM>>
+  simp[]>>
+  rw[]>>
+  fs[]>>
+  res_tac>>fs[]
+QED
+
+Theorem CARD_is_cis_bound:
+  is_cis vs gp gt ⇒
+  CARD vs ≤ (FST gp)
+Proof
+  Cases_on`gp`>>
+  Cases_on`gt`>>
+  rw[is_cis_def,injective_partial_map_def]>>
+  (drule_at Any) CARD_SUBSET>>
+  simp[]
+QED
+
 Theorem full_encode_mccis_sem_concl:
   good_graph gp ∧
   good_graph gt ∧
   full_encode_mccis gp gt = (obj,pbf) ∧
   sem_concl (set pbf) obj concl ∧
   conv_concl (FST gp) concl = SOME (lbg, ubg) ⇒
-  (∀f vs.
-    injective_partial_map f vs gp gt ∧
-    connected_subgraph vs (SND gp) ⇒
-    CARD vs ≤ ubg) ∧
-  case lbg of NONE => T
-  | SOME lb =>
-    ∃f vs.
-      injective_partial_map f vs gp gt ∧
-      connected_subgraph vs (SND gp) ∧
-      lb ≤ CARD vs
+  (lbg = ubg ⇒ max_ccis_size gp gt = lbg) ∧
+  (∀vs. is_ccis vs gp gt ⇒ CARD vs ≤ ubg) ∧
+  (∃vs. is_ccis vs gp gt ∧ lbg ≤ CARD vs)
 Proof
   strip_tac>>
   gvs[full_encode_mccis_def]>>
@@ -1891,22 +1927,46 @@ Proof
   drule encode_correct>>
   Cases_on`gt`>>
   disch_then drule>>
+  simp[]>>
+  ntac 2 strip_tac>>
+  CONJ_ASM2_TAC
+  >- (
+    qpat_x_assum`_=lbg`kall_tac>>
+    qpat_x_assum`_=ubg`kall_tac>>
+    rw[]>>fs[max_ccis_size_def]>>
+    match_mp_tac MAX_SET_eq_intro>>
+    CONJ_TAC >- (
+       `FINITE (count (q+1))` by fs[]>>
+       drule_then match_mp_tac SUBSET_FINITE>>
+       rw[SUBSET_DEF]>>
+       fs[is_ccis_def]>>
+       drule CARD_is_cis_bound>>
+       simp[])>>
+    simp[]>>
+    first_assum drule>>
+    strip_tac>>
+    first_x_assum (irule_at Any)>>
+    fs[]>>
+    metis_tac[])>>
   rw[]
   >- ( (* Lower bound optimization *)
     Cases_on`lbi`>>fs[unsatisfiable_def,satisfiable_def]
     >- (
       (* the formula is always satisfiable, so INF lower bound
          is impossible *)
+      fs[is_ccis_def,is_cis_def]>>
       `F` by
         metis_tac[injective_partial_map_exists])>>
-    fs[SF DNF_ss,EQ_IMP_THM]>>
+    fs[SF DNF_ss,EQ_IMP_THM,is_ccis_def,is_cis_def]>>
     drule injective_partial_map_CARD>>simp[]>>rw[]>>
     first_x_assum drule_all>>rw[]>>
     first_x_assum drule>>rw[]>>
     intLib.ARITH_TAC)>>
   (* Upper bound optimization *)
   Cases_on`ubi`>>
-  fs[SF DNF_ss,EQ_IMP_THM]>>
+  fs[SF DNF_ss,EQ_IMP_THM,is_ccis_def,is_cis_def]
+  >-
+    metis_tac[injective_partial_map_exists,SND]>>
   `eval_obj (unmapped_obj q) w ≥ 0` by
     (fs[unmapped_obj_def,eval_obj_def,eval_lin_term_def]>>
     match_mp_tac iSUM_zero>>
@@ -1936,14 +1996,9 @@ Theorem full_encode_mcis_sem_concl:
   full_encode_mcis gp gt = (obj,pbf) ∧
   sem_concl (set pbf) obj concl ∧
   conv_concl (FST gp) concl = SOME (lbg, ubg) ⇒
-  (∀f vs.
-    injective_partial_map f vs gp gt ⇒
-    CARD vs ≤ ubg) ∧
-  case lbg of NONE => T
-  | SOME lb =>
-    ∃f vs.
-      injective_partial_map f vs gp gt ∧
-      lb ≤ CARD vs
+  (lbg = ubg ⇒ max_cis_size gp gt = lbg) ∧
+  (∀vs. is_cis vs gp gt ⇒ CARD vs ≤ ubg) ∧
+  (∃vs. is_cis vs gp gt ∧ lbg ≤ CARD vs)
 Proof
   strip_tac>>
   gvs[full_encode_mcis_def]>>
@@ -1962,9 +2017,29 @@ Proof
   drule encode_base_correct>>
   Cases_on`gt`>>
   disch_then drule>>
+  simp[]>>
+  ntac 2 strip_tac>>
+  CONJ_ASM2_TAC
+  >- (
+    qpat_x_assum`_=lbg`kall_tac>>
+    qpat_x_assum`_=ubg`kall_tac>>
+    rw[]>>fs[max_cis_size_def]>>
+    match_mp_tac MAX_SET_eq_intro>>
+    CONJ_TAC >- (
+       `FINITE (count (q+1))` by fs[]>>
+       drule_then match_mp_tac SUBSET_FINITE>>
+       rw[SUBSET_DEF]>>
+       drule CARD_is_cis_bound>>
+       simp[])>>
+    simp[]>>
+    first_assum drule>>
+    strip_tac>>
+    first_x_assum (irule_at Any)>>
+    fs[]>>
+    metis_tac[])>>
   rw[]
   >- ( (* Lower bound optimization *)
-    Cases_on`lbi`>>fs[unsatisfiable_def,satisfiable_def]
+    Cases_on`lbi`>>fs[unsatisfiable_def,satisfiable_def,is_cis_def]
     >- (
       (* the formula is always satisfiable, so INF lower bound
          is impossible *)
@@ -1977,7 +2052,9 @@ Proof
     intLib.ARITH_TAC)>>
   (* Upper bound optimization *)
   Cases_on`ubi`>>
-  fs[SF DNF_ss,EQ_IMP_THM]>>
+  fs[SF DNF_ss,EQ_IMP_THM,is_cis_def]
+  >-
+    metis_tac[injective_partial_map_exists]>>
   `eval_obj (unmapped_obj q) w ≥ 0` by
     (fs[unmapped_obj_def,eval_obj_def,eval_lin_term_def]>>
     match_mp_tac iSUM_zero>>
