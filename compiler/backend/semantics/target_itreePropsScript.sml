@@ -72,7 +72,7 @@ Definition eval_to'_def:
   eval_to' k mc (ms:'a) =
     if k = 0n then (Div',mc,ms)
     else
-      if mc.target.get_pc ms IN mc.prog_addresses then
+      if mc.target.get_pc ms IN (mc.prog_addresses DIFF set mc.ffi_entry_pcs) then
         if encoded_bytes_in_mem
             mc.target.config (mc.target.get_pc ms)
             (mc.target.get_byte ms) mc.prog_addresses then
@@ -103,15 +103,47 @@ Definition eval_to'_def:
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => (Ret' Error,mc,ms)
         | SOME ffi_index =>
-          case read_ffi_bytearrays mc ms of
-          | SOME bytes, SOME bytes2 =>
-             let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
-             if EL ffi_index mc.ffi_names = "" then
-              eval_to' (k - 1) mc1 (mc.ffi_interfer 0 (ffi_index,bytes2,ms))
-             else (Vis' (EL ffi_index mc.ffi_names, bytes, bytes2)
-                    (λnew_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms))),
-                   mc1,ms)
-          | _ => (Ret' Error,mc,ms)
+          if EL ffi_index mc.ffi_names = "MappedRead" then
+            let (nb,a,reg,pc') = mc.mmio_info ffi_index in
+            case a of
+            | Addr r off =>
+            let ad = mc.target.get_reg ms r + off in
+              if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
+                is_valid_mapped_read (mc.target.get_pc ms) nb a reg pc'
+                  mc.target ms mc.prog_addresses
+              then
+                let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
+                  (Vis' ("MappedRead",[nb],addr2w8list ad)
+                    (\new_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms))),
+                  mc1,ms)
+              else (Ret' Error,mc,ms)
+          else if EL ffi_index mc.ffi_names = "MappedWrite" then
+            let (nb,a,reg,pc') = mc.mmio_info ffi_index in
+            case a of
+            | Addr r off =>
+            let ad = (mc.target.get_reg ms r) + off in
+              if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
+                is_valid_mapped_write (mc.target.get_pc ms) nb a reg pc'
+                  mc.target ms mc.prog_addresses
+              then
+                let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
+                  (Vis'
+                    ("MappedWrite",[nb],
+                      (w2wlist_le (mc.target.get_reg ms reg) (w2n nb) ++
+                        (addr2w8list ad)))
+                    (\new_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms))),
+                  mc1,ms)
+              else (Ret' Error,mc,ms)
+            else
+              case read_ffi_bytearrays mc ms of
+              | SOME bytes, SOME bytes2 =>
+                 let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
+                 if EL ffi_index mc.ffi_names = "" then
+                  eval_to' (k - 1) mc1 (mc.ffi_interfer 0 (ffi_index,bytes2,ms))
+                 else (Vis' (EL ffi_index mc.ffi_names, bytes, bytes2)
+                        (λnew_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms))),
+                      mc1,ms)
+              | _ => (Ret' Error,mc,ms)
 End
 
 Theorem eval_to'_0[simp]:
@@ -127,7 +159,8 @@ Proof
   simp[Once eval_to_def, Once eval_to'_def] >>
   IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[] >>
   IF_CASES_TAC >> gvs[apply_oracle_def] >> IF_CASES_TAC >> gvs[] >>
-  rpt (TOP_CASE_TAC >> gvs[])
+  rpt (TOP_CASE_TAC >> gvs[]) >>
+  pairarg_tac >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[])
 QED
 
 Theorem eval_to'_step:
@@ -139,7 +172,11 @@ Theorem eval_to'_step:
 Proof
   simp[] >> simp[Once eval_to'_def, SimpRHS] >> simp[Once eval_to'_def] >>
   IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[apply_oracle_def] >>
-  IF_CASES_TAC >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[])
+  IF_CASES_TAC >> gvs[] >>
+  TOP_CASE_TAC >> gvs[] >-
+    (TOP_CASE_TAC >> gvs[] >>
+    pairarg_tac >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[])) >>
+  pairarg_tac >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[])
 QED
 
 Theorem eval_to'_step_alt:
@@ -240,17 +277,42 @@ Theorem eval_to'_Ret_FinalFFI:
 Proof
   ho_match_mp_tac eval_to'_ind >> rw[] >> simp[Once eval_to'_def] >>
   gvs[AllCaseEqs(), apply_oracle_def] >>
-  rw[DISJ_EQ_IMP] >> gvs[] >> metis_tac[]
+  rw[DISJ_EQ_IMP] >> gvs[]
+  >>~ [`EL ffi_index mc.ffi_names = _`]
+  >- ( pairarg_tac >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) )
+  >- ( pairarg_tac >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) )
+  >> metis_tac[]
 QED
 
 Theorem eval_to'_1_Vis:
   eval_to' 1 mc ms = (Vis' (s,conf,ws) f,mc',ms') ⇔
-    mc.target.get_pc ms ∉ mc.prog_addresses ∧
+    mc.target.get_pc ms ∉ (mc.prog_addresses DIFF set mc.ffi_entry_pcs) ∧
     mc.target.get_pc ms ≠ mc.halt_pc ∧
     mc.target.get_pc ms ≠ mc.ccache_pc ∧
     ∃n.
       find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME n ∧
-      read_ffi_bytearrays mc ms = (SOME conf,SOME ws) ∧
+      ((s="MappedRead" /\
+        ?nb ad r off reg pc'.
+          mc.mmio_info n = (nb,Addr r off,reg,pc') /\
+          ad = mc.target.get_reg ms r + off /\
+          w2n ad MOD w2n nb = 0 /\ ad IN mc.shared_addresses /\
+          is_valid_mapped_read (mc.target.get_pc ms) nb (Addr r off) reg
+            pc' mc.target ms mc.prog_addresses /\
+          conf = [nb] /\
+          ws = addr2w8list ad
+       ) \/
+      (s="MappedWrite" /\
+      ?nb ad r off reg pc'.
+        mc.mmio_info n = (nb,Addr r off,reg,pc') /\
+        ad = mc.target.get_reg ms r + off /\
+        w2n ad MOD w2n nb = 0 /\ ad IN mc.shared_addresses /\
+        is_valid_mapped_write (mc.target.get_pc ms) nb (Addr r off) reg
+          pc' mc.target ms mc.prog_addresses /\
+        conf = [nb] /\
+         ws = w2wlist_le (mc.target.get_reg ms reg) (w2n nb) ++
+            addr2w8list ad) \/
+      (s≠"MappedRead" /\ s≠"MappedWrite" /\
+        read_ffi_bytearrays mc ms = (SOME conf,SOME ws))) ∧
       s ≠ "" ∧ s = EL n mc.ffi_names ∧
       mc' = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer ∧ ms' = ms ∧
       f = (λnew_bytes. (mc', mc.ffi_interfer 0 (n,new_bytes,ms)))
@@ -258,6 +320,8 @@ Proof
   simp[Once eval_to'_def] >>
   IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[apply_oracle_def] >>
   IF_CASES_TAC >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
+  (* we need pairarg_tac for MappedRead and MappedWrite *)
+  TRY (pairarg_tac >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[])) >>
   eq_tac >> rw[] >> gvs[]
 QED
 
@@ -266,7 +330,7 @@ QED
 
 Theorem eval:
   eval (mc, ms) =
-    if mc.target.get_pc ms IN mc.prog_addresses
+    if mc.target.get_pc ms IN (mc.prog_addresses DIFF set mc.ffi_entry_pcs)
     then
       if encoded_bytes_in_mem
           mc.target.config (mc.target.get_pc ms)
@@ -297,14 +361,44 @@ Theorem eval:
       case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
       | NONE => Ret' Error
       | SOME ffi_index =>
-        case read_ffi_bytearrays mc ms of
-        | SOME bytes, SOME bytes2 =>
-           let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
-           if EL ffi_index mc.ffi_names = "" then
-            eval (mc1, mc.ffi_interfer 0 (ffi_index,bytes2,ms))
-           else Vis' (EL ffi_index mc.ffi_names, bytes, bytes2)
-                  (λnew_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms)))
-        | _ => Ret' Error
+        if EL ffi_index mc.ffi_names = "MappedRead" then
+          let (nb,a,reg,pc') = mc.mmio_info ffi_index in
+          case a of
+          | Addr r off =>
+          let ad = mc.target.get_reg ms r + off in
+            if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
+              is_valid_mapped_read (mc.target.get_pc ms) nb a reg pc'
+                mc.target ms mc.prog_addresses
+            then
+              let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
+                Vis' ("MappedRead",[nb],addr2w8list ad)
+                  (\new_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms)))
+            else Ret' Error
+        else if EL ffi_index mc.ffi_names = "MappedWrite" then
+          let (nb,a,reg,pc') = mc.mmio_info ffi_index in
+          case a of
+          | Addr r off =>
+          let ad = (mc.target.get_reg ms r) + off in
+            if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
+              is_valid_mapped_write (mc.target.get_pc ms) nb a reg pc'
+                mc.target ms mc.prog_addresses
+            then
+              let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
+                Vis'
+                  ("MappedWrite",[nb],
+                    (w2wlist_le (mc.target.get_reg ms reg) (w2n nb) ++
+                      (addr2w8list ad)))
+                  (\new_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms)))
+            else Ret' Error
+          else
+            case read_ffi_bytearrays mc ms of
+            | SOME bytes, SOME bytes2 =>
+               let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
+               if EL ffi_index mc.ffi_names = "" then
+                eval (mc1, mc.ffi_interfer 0 (ffi_index,bytes2,ms))
+               else Vis' (EL ffi_index mc.ffi_names, bytes, bytes2)
+                      (λnew_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms)))
+            | _ => Ret' Error
 Proof
   simp[Once eval_def] >>
   DEEP_INTRO_TAC some_intro >> simp[] >> conj_tac >> rpt strip_tac >> gvs[]
