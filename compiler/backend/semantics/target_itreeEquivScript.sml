@@ -14,10 +14,10 @@ val _ = new_theory "target_itreeEquiv"
 (*********** evaluate' **********)
 
 Definition evaluate'_def:
-  evaluate' mc (ffi:'ffi ffi_state) k (ms:'a) =
+  evaluate' mc (ffi:'ffi ffi_state) (k:num) (ms:'a) =
     if k = 0 then (TimeOut,mc,ms,ffi)
     else
-      if mc.target.get_pc ms ∈ mc.prog_addresses then
+      if mc.target.get_pc ms ∈ mc.prog_addresses DIFF set mc.ffi_entry_pcs then
         if encoded_bytes_in_mem
             mc.target.config (mc.target.get_pc ms)
             (mc.target.get_byte ms) mc.prog_addresses then
@@ -48,16 +48,56 @@ Definition evaluate'_def:
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => (Error,mc,ms,ffi)
         | SOME ffi_index =>
-          case read_ffi_bytearrays mc ms of
-          | SOME bytes, SOME bytes2 =>
-            (case call_FFI ffi (EL ffi_index mc.ffi_names) bytes bytes2 of
-             | FFI_final outcome => (Halt (FFI_outcome outcome),mc,ms,ffi)
-             | FFI_return new_ffi new_bytes =>
-                let (ms1,new_oracle) = apply_oracle mc.ffi_interfer
-                  (ffi_index,new_bytes,ms) in
-                let mc = mc with ffi_interfer := new_oracle in
-                  evaluate' mc new_ffi (k - 1:num) ms1)
-          | _ => (Error,mc,ms,ffi)
+          if EL ffi_index mc.ffi_names = "MappedRead" then
+            let (nb,a,reg,pc') = mc.mmio_info ffi_index in
+            case a of
+            | Addr r off =>
+            let ad = mc.target.get_reg ms r + off in
+              (if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
+                is_valid_mapped_read (mc.target.get_pc ms) nb a reg pc'
+                  mc.target ms mc.prog_addresses
+              then
+                (case call_FFI ffi (EL ffi_index mc.ffi_names)
+                  [nb]
+                  (addr2w8list ad) of
+                 | FFI_final outcome => (Halt (FFI_outcome outcome),mc,ms,ffi)
+                 | FFI_return new_ffi new_bytes =>
+                    let (ms1,new_oracle) = apply_oracle mc.ffi_interfer
+                      (ffi_index,new_bytes,ms) in
+                    let mc = mc with ffi_interfer := new_oracle in
+                      evaluate' mc new_ffi (k - 1) ms1)
+              else (Error,mc,ms,ffi))
+          else if EL ffi_index mc.ffi_names = "MappedWrite" then
+            let (nb,a,reg,pc') = mc.mmio_info ffi_index in
+            case a of
+            | Addr r off =>
+            let ad = (mc.target.get_reg ms r) + off in
+              (if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
+                is_valid_mapped_write (mc.target.get_pc ms) nb a reg pc'
+                  mc.target ms mc.prog_addresses
+              then
+                (case call_FFI ffi (EL ffi_index mc.ffi_names)
+                  [nb]
+                  (w2wlist_le (mc.target.get_reg ms reg) (w2n nb)
+                    ++ (addr2w8list ad)) of
+                 | FFI_final outcome => (Halt (FFI_outcome outcome),mc,ms,ffi)
+                 | FFI_return new_ffi new_bytes =>
+                    let (ms1,new_oracle) = apply_oracle mc.ffi_interfer
+                      (ffi_index,new_bytes,ms) in
+                    let mc = mc with ffi_interfer := new_oracle in
+                      evaluate' mc new_ffi (k - 1) ms1)
+              else (Error,mc,ms,ffi))
+           else
+            case read_ffi_bytearrays mc ms of
+            | SOME bytes, SOME bytes2 =>
+              (case call_FFI ffi (EL ffi_index mc.ffi_names) bytes bytes2 of
+               | FFI_final outcome => (Halt (FFI_outcome outcome),mc,ms,ffi)
+               | FFI_return new_ffi new_bytes =>
+                  let (ms1,new_oracle) = apply_oracle mc.ffi_interfer
+                    (ffi_index,new_bytes,ms) in
+                  let mc = mc with ffi_interfer := new_oracle in
+                    evaluate' mc new_ffi (k - 1) ms1)
+            | _ => (Error,mc,ms,ffi)
 End
 
 Theorem evaluate'_0[simp]:
@@ -73,7 +113,8 @@ Proof
   simp[Once evaluate_def, Once evaluate'_def] >>
   IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[] >>
   IF_CASES_TAC >> gvs[apply_oracle_def] >> IF_CASES_TAC >> gvs[] >>
-  rpt (TOP_CASE_TAC >> gvs[])
+  rpt (TOP_CASE_TAC >> gvs[]) >>
+  pairarg_tac >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[])
 QED
 
 Theorem evaluate'_step:
@@ -85,7 +126,8 @@ Theorem evaluate'_step:
 Proof
   simp[] >> simp[Once evaluate'_def, SimpRHS] >> simp[Once evaluate'_def] >>
   IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[apply_oracle_def] >>
-  IF_CASES_TAC >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[])
+  IF_CASES_TAC >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
+  pairarg_tac >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[])
 QED
 
 Theorem evaluate'_step_alt:
@@ -124,13 +166,18 @@ Proof
   once_rewrite_tac[ADD_COMM] >> simp[evaluate'_add]
 QED
 
+(* TODO *)
 Theorem evaluate'_io_events_mono:
    ∀mc ffi k ms res mc' ms' ffi'.
     evaluate' mc ffi k ms = (res,mc',ms',ffi') ⇒ io_events_mono ffi ffi'
 Proof
-  ho_match_mp_tac evaluate'_ind >> rw[] >>
+  ho_match_mp_tac evaluate'_ind >>
+  strip_tac >>
+  qabbrev_tac `prog_pcs=mc.prog_addresses DIFF set mc.ffi_entry_pcs`>>
+  rw[] >>
   pop_assum mp_tac >> simp[Once evaluate'_def] >>
   ntac 4 (IF_CASES_TAC >> gvs[apply_oracle_def]) >>
+  gvs[Abbr`prog_pcs`]
   ntac 5 (TOP_CASE_TAC >> gvs[]) >> rw[] >> gvs[] >>
   irule io_events_mono_trans >> goal_assum $ drule_at Any >>
   irule call_FFI_rel_io_events_mono >>
