@@ -166,19 +166,18 @@ Proof
   once_rewrite_tac[ADD_COMM] >> simp[evaluate'_add]
 QED
 
-(* TODO *)
 Theorem evaluate'_io_events_mono:
    ∀mc ffi k ms res mc' ms' ffi'.
     evaluate' mc ffi k ms = (res,mc',ms',ffi') ⇒ io_events_mono ffi ffi'
 Proof
   ho_match_mp_tac evaluate'_ind >>
   strip_tac >>
-  qabbrev_tac `prog_pcs=mc.prog_addresses DIFF set mc.ffi_entry_pcs`>>
   rw[] >>
   pop_assum mp_tac >> simp[Once evaluate'_def] >>
   ntac 4 (IF_CASES_TAC >> gvs[apply_oracle_def]) >>
-  gvs[Abbr`prog_pcs`]
-  ntac 5 (TOP_CASE_TAC >> gvs[]) >> rw[] >> gvs[] >>
+  ntac 2 (TOP_CASE_TAC >> gvs[]) >>
+  pairarg_tac >> gvs[AllCaseEqs()] >>
+  rw[] >> gvs[] >>
   irule io_events_mono_trans >> goal_assum $ drule_at Any >>
   irule call_FFI_rel_io_events_mono >>
   irule RTC_SUBSET >> simp[call_FFI_rel_def, SF SFY_ss]
@@ -193,6 +192,8 @@ Proof
   qpat_x_assum `FST _ ≠ _` mp_tac >> once_rewrite_tac[evaluate'_def] >>
   IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[] >>
   IF_CASES_TAC >> gvs[apply_oracle_def] >> IF_CASES_TAC >> gvs[] >>
+  rpt (TOP_CASE_TAC >> gvs[]) >>
+  pairarg_tac >> gvs[] >>
   rpt (TOP_CASE_TAC >> gvs[])
 QED
 
@@ -247,9 +248,13 @@ Theorem evaluate'_1_ffi_unchanged:
 Proof
   simp[Once evaluate'_def] >>
   IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[apply_oracle_def] >>
-  IF_CASES_TAC >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) >> rw[] >> gvs[]
+  IF_CASES_TAC >> gvs[] >>
+  rpt (TOP_CASE_TAC >> gvs[]) >>
+  rw[] >> gvs[] >>
+  pairarg_tac >> gvs[AllCaseEqs()]
 QED
 
+(* TODO *)
 Theorem evaluate'_1_ffi_changed:
   evaluate' mc (ffi:'ffi ffi_state) 1 ms = (res,mc',ms',ffi') ∧ ffi' ≠ ffi ⇔
     res = TimeOut ∧
@@ -267,9 +272,11 @@ Proof
   simp[Once evaluate'_def] >>
   IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[apply_oracle_def] >>
   IF_CASES_TAC >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
+  pairarg_tac >> gvs[AllCaseEqs()] >>
   eq_tac >> rw[] >>
   gvs[call_FFI_def, AllCaseEqs(), ffi_state_component_equality] >>
-  qpat_x_assum `_ = f.io_events` $ assume_tac o GSYM >> simp[]
+  qpat_x_assum `_ = f.io_events` $ assume_tac o GSYM >> simp[] >>
+  metis_tac[]
 QED
 
 Theorem evaluate'_1_ffi_failed:
