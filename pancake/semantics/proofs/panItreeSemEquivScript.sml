@@ -83,8 +83,10 @@ End
  to match as follow the same pattern of rules for computing state and final
  outcomes. *)
 Definition same_outcome_def:
-  same_outcome or t (r,s) ⇔
-    (itree_oracle_outcome or t) = SOME r
+  (same_outcome or t (NONE,s) ⇔
+     itree_oracle_outcome or t = SOME NONE) ∧
+  (same_outcome or t (SOME r,s) ⇔
+     itree_oracle_outcome or t = SOME (SOME r))
 End
 
 (* Main correspondence *)
@@ -92,44 +94,82 @@ End
  semantics that can be selected using the oracle that produced the behaviour in
  the big-step semantics. *)
 
-CoInductive ioe_trace_rel:
-  ffis.oracle e ffis.ffi_state conf bytes = Oracle_return ffi' bytes' ∧
-  LHD l1 = SOME (IO_event e conf (ZIP (bytes,bytes'))) ∧
-  LHD l2 = SOME (IO_event e conf (ZIP (bytes,bytes'))) ∧
-  ioe_trace_rel (ffis with ffi_state := ffi') (THE (LTL l1)) (THE (LTL l2)) ⇒
-  ioe_trace_rel ffis l1 l2
+(* Bisimulation relation on io_event llists *)
+CoInductive ioe_trace_bisim:
+  (ioe_trace_bisim ffis LNIL LNIL) ∧
+  (ffis.oracle e ffis.ffi_state conf bytes = Oracle_return ffi' bytes' ∧
+   LHD l1 = SOME (IO_event e conf (ZIP (bytes,bytes'))) ∧
+   LHD l2 = SOME (IO_event e conf (ZIP (bytes,bytes'))) ∧
+   ioe_trace_bisim (ffis with ffi_state := ffi') (THE (LTL l1)) (THE (LTL l2)) ⇒
+   ioe_trace_bisim ffis l1 l2)
 End
 
 (* NB the choice of state (s) is irrelevant in the itree semantics and is provided only
- for allowing generisation over every possible Pancake program (stored in state and accessed by an entrypoint). *)
+ for allowing generalisation over every possible Pancake program (stored in state and accessed by an entrypoint). *)
+
+(* Theorem foo_lemma: *)
+(* Proof *)
+(* QED *)
+
+Theorem fbs_sem_div_eq_itree_lemma:
+  ∀s entry or. semantics (s with ffi := or) entry = Diverge l ⇒
+               ioe_trace_bisim or (itree_oracle_beh or (itree_semantics s entry)) l
+Proof
+  rpt gen_tac >>
+  disch_tac >>
+  (* how to prove objects are in a coinductive relation? *)
+(* prove that the singleton set containing the pair of compared elements is a subset of the relation *)
+(* by showing it satisfies all the rules?*)
+  (* This is one approach taken in the Sangiorgi Coinduction book. *)
+QED
+
+Theorem foo:
+  ∀ffis. IN $ {(ffis,[||],[||])} ffis [||] [||] ⇒ ioe_trace_bisim ffis [||] [||]
+Proof
+QED
+
 Theorem itree_semantics_corres:
   same_behaviour or (itree_semantics s entry) (semantics (s with ffi := or) entry)
 Proof
-  (* Cases_on ‘semantics (s with ffi := or) entry’ *)
-  (* (* FBS divergence *) *)
-  (* >- (rw [same_behaviour_def] >> *)
-  (*     rw [Once LLIST_BISIMULATION] >> *)
-  (*     qexists_tac ‘ioe_trace_rel or’ >> *)
-  (*     CONJ_TAC *)
-  (*     >- (pop_assum MP_TAC >> *)
-  (*         MAP_EVERY qid_spec_tac [‘s’,‘or’,‘entry’,‘l’] >> *)
-  (*         cheat)) *)
-  cheat
-QED
+  Cases_on ‘semantics (s with ffi := or) entry’
+  (* FBS divergence *)
+  >- (rw [same_behaviour_def] >>
+      rw [Once LLIST_BISIMULATION] >>
+      qexists_tac ‘ioe_trace_bisim or’ >>
+      CONJ_TAC
+      >- ()
+     (* Need to rethink how I use a coind relation to prove bisimulation of the two
+      llists.
+      LLIST_BISIMULATION notably contains all suffix lists that are also bisimilar.
+      So the bisimulation we construct must have the same property.
+      Which means if we want to prove that two llists under some oracle are in our bisim,
+      we need to construct the relation closed backwards under the rules starting at our two llists.
+      This relation will be one of the post-fixed points of ioe_trace_bisim and thus contained in ioe_trace_bisim.
 
-(* XXX: How to make subgoal a type instance (assms and concl) so I can apply
- ho_match_mp_tac with the coind thm for the rel, so I can proceed to prove the props
-                 of the relation hold. *)
+      So how do we construct a relation that is closed-backwards under some rules starting at specific constants?
+      Seems like we need a corecursive construction that generates this relation and that we can expand in our proof
+      to show that the relation is a subset of ioe_trace_bisim.
+         *)
+            (* Need to construct a relation between or, itree_sem and sem, then *)
+(*                 convert the goal into the implication required of HO_MATCH_MP_TAC, *)
+(*                 then it will require that I prove my constructed relation has all the properties of *)
+(*                 the ioe_trace_rel relation. *)
+(*              *)
+        )
+End
 
 (* Evaluate correspondence *)
 (* Proves partial soundness: if a computation terminates,
 the two semantics produce identical results. *)
 Theorem itree_semantics_evaluate_corres:
-  ∀s p or.
-  ∃k. FST (evaluate (p,s with <| clock := k; ffi := or |>)) ≠ SOME TimeOut ⇒
-      same_outcome or (itree_evaluate p s) (evaluate (p,s with <| clock := k; ffi := or |>))
+  ∀s p ffis k. FST (evaluate (p,s with <| clock := k; ffi := ffis |>)) ≠ SOME TimeOut ⇒
+      same_outcome ffis (itree_evaluate p s) (evaluate (p,s with <| clock := k; ffi := ffis |>))
 Proof
-  cheat
+  rw[] >>
+  Cases_on ‘FST (evaluate (p,s with <|clock := k; ffi := ffis|>))’
+  (* FBS evaluates to NONE *)
+  >- (rw [same_outcome_def] >>
+           )
 QED
 
 (* We can consider this in terms of Game semantics:
