@@ -126,7 +126,7 @@ Proof
   Induct
   \\ simp [FORALL_PROD, EXISTS_PROD]
   \\ rw []
-  \\ fs [namespaceTheory.nsBindList_def, quotient_pairTheory.PAIR_REL_THM]
+  \\ fs [namespaceTheory.nsBindList_def]
   \\ irule env_rel_add_nsBind
   \\ simp []
 QED
@@ -428,8 +428,7 @@ Theorem pmatch:
 Proof
   disch_tac
   \\ ho_match_mp_tac pmatch_ind
-  \\ rw [pmatch_def, match_result_rel_def,
-    quotient_pairTheory.PAIR_REL_THM]
+  \\ rw [pmatch_def, match_result_rel_def]
   \\ rveq \\ fs []
   \\ imp_res_tac v_to_env_id_SOME
   \\ fs [pmatch_def]
@@ -1010,7 +1009,7 @@ Proof
     \\ simp [build_rec_env_merge, nsAppend_to_nsBindList]
     \\ irule env_rel_add_nsBindList
     \\ simp [LIST_REL_MAP1, SIMP_RULE (bool_ss ++ ETA_ss) [] LIST_REL_MAP2]
-    \\ simp [ELIM_UNCURRY, quotient_pairTheory.PAIR_REL_THM, EVERY2_refl]
+    \\ simp [ELIM_UNCURRY, EVERY2_refl]
   )
   >~ [‘getOpClass op = Icing’]
   >- (
@@ -1141,7 +1140,7 @@ Proof
   \\ simp [build_rec_env_merge, nsAppend_to_nsBindList]
   \\ irule env_rel_add_nsBindList
   \\ simp [LIST_REL_MAP1, SIMP_RULE (bool_ss ++ ETA_ss) [] LIST_REL_MAP2]
-  \\ simp [quotient_pairTheory.PAIR_REL_THM, ELIM_UNCURRY]
+  \\ simp [ELIM_UNCURRY]
   \\ simp [GSYM pairarg_to_pair_map, ELIM_UNCURRY, EVERY2_refl]
 QED
 
@@ -1198,7 +1197,7 @@ Proof
   \\ irule env_rel_add_nsBindList
   \\ simp []
   \\ simp [LIST_REL_MAP1, SIMP_RULE (bool_ss ++ ETA_ss) [] LIST_REL_MAP2]
-  \\ simp [quotient_pairTheory.PAIR_REL_THM, ELIM_UNCURRY]
+  \\ simp [ELIM_UNCURRY]
   \\ simp [EVERY2_refl]
 QED
 
