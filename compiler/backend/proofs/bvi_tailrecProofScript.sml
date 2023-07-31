@@ -1070,7 +1070,7 @@ Proof
     \\ fs[state_rel_def] )
   \\ imp_res_tac state_rel_const
   \\ fs[case_eq_thms]
-  \\ rveq \\ fs[OPTREL_def,quotient_pairTheory.PAIR_REL_THM]
+  \\ rveq \\ fs[OPTREL_def,PAIR_REL_THM]
   \\ fs[state_rel_def]
 QED
 
@@ -1087,7 +1087,7 @@ Proof
   \\ first_x_assum(qspec_then`vs`strip_assume_tac)
   \\ fs[case_eq_thms,OPTREL_def] \\ rw[] \\ rfs[]
   \\ fs[PULL_EXISTS]
-  \\ rveq \\ fs[quotient_pairTheory.PAIR_REL]
+  \\ rveq \\ fs[PAIR_REL]
   \\ TRY(pairarg_tac \\ fs[])
   \\ imp_res_tac state_rel_const
   \\ fs[bvlSemTheory.do_app_def,case_eq_thms,bvl_to_bvi_id]

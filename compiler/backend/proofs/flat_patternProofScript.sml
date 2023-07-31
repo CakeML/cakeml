@@ -685,9 +685,6 @@ Theorem v_rel_l_cases = TypeBase.nchotomy_of ``: v``
 val env_rel_def = ``env_rel N env1 env2``
     |> SIMP_CONV bool_ss [v_rel_cases]
 
-val add_q = augment_srw_ss [simpLib.named_rewrites "pair_rel_thm"
-  [quotient_pairTheory.PAIR_REL_THM]];
-
 Definition install_conf_rel_def:
   install_conf_rel pat_cfg ic1 ic2 <=>
     (ic2.compile_oracle =
