@@ -69,7 +69,7 @@ val sorted_insert_def = Define`
 
 Definition check_contradiction_fml_list_def:
   check_contradiction_fml_list b core fml n =
-  if ¬b ∨ lookup n core = SOME ()
+  if core_only b core n
   then
     case any_el n fml NONE of
       NONE => F
@@ -1367,7 +1367,7 @@ Definition check_cstep_list_def:
       case extract_clauses_list s F LN fml dsubs pfs [] of
         NONE => NONE
       | SOME cpfs =>
-        (case check_subproofs_list cpfs F core fml_not_c (sorted_insert id rinds) id (id+1) of
+        (case check_subproofs_list cpfs F LN fml_not_c (sorted_insert id rinds) id (id+1) of
           NONE => NONE
         | SOME (fml',id',core') =>
           let rfml = rollback fml' id id' in
@@ -1479,6 +1479,7 @@ Proof
   gvs[ALOOKUP_NONE,MEM_MAP,PULL_FORALL,MEM_FILTER,Abbr`ls`,ind_rel_def]
 QED
 
+(*
 Theorem any_el_load_coref_list:
   ∀ls fml newfml.
   LENGTH fml = LENGTH newfml ⇒
@@ -1498,7 +1499,6 @@ Proof
   rw[any_el_ALT,EL_REPLICATE]
 QED
 
-(*
 Theorem arr_from_core_list_rel:
   fml_rel fml fmlls ∧
   (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧

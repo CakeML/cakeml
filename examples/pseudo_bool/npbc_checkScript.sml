@@ -114,7 +114,7 @@ End
 
 Definition check_contradiction_fml_def:
   check_contradiction_fml b core fml n =
-  if ¬b ∨ lookup n core = SOME ()
+  if core_only b core n
   then
     (case lookup n fml of
         NONE => F
@@ -460,7 +460,7 @@ Theorem check_contradiction_fml_unsat:
   check_contradiction_fml b core fml n ⇒
   unsatisfiable (range (core_only_fml b core fml))
 Proof
-  rw[check_contradiction_fml_def,core_only_fml_def]>>
+  rw[check_contradiction_fml_def,core_only_fml_def,core_only_def]>>
   every_case_tac>>fs[]>>
   drule check_contradiction_unsat>>
   rw[unsatisfiable_def,satisfiable_def,range_def,satisfies_def]>>
@@ -1743,7 +1743,7 @@ Definition check_cstep_def:
       case extract_clauses w F LN fml dsubs pfs [] of
         NONE => NONE
       | SOME cpfs =>
-      (case check_subproofs cpfs F core fml_not_c (id+1) of
+      (case check_subproofs cpfs F LN fml_not_c (id+1) of
         NONE => NONE
       | SOME (fml',core',id') =>
         let check =
@@ -2112,8 +2112,8 @@ Proof
     `id_ok (insert id (not p) fml) (id + 1)` by
       fs[id_ok_def]>>
     drule check_subproofs_correct>>
-    rename1`check_subproofs pfs _ core`>>
-    disch_then(qspecl_then [`pfs`,`F`,`core`] mp_tac)>>
+    rename1`check_subproofs pfs _ _`>>
+    disch_then(qspecl_then [`pfs`,`F`,`LN`] mp_tac)>>
     impl_tac >- (
       gs[valid_conf_def,SUBSET_DEF])>>
     strip_tac>>gs[]>>
