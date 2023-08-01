@@ -1478,21 +1478,48 @@ Proof
   metis_tac[]
 QED
 
+Triviality all_core_list_mem:
+  ∀inds fmlls acc inds'.
+    all_core_list fmlls inds acc = SOME inds' ⇒
+    MEM x inds' ⇒ MEM x acc ∨ MEM x inds
+Proof
+  Induct
+  \\ fs [all_core_list_def,AllCaseEqs()]
+  \\ rw [] \\ res_tac \\ gvs []
+QED
+
 Theorem fml_rel_all_core:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
-  all_core_list fmlls inds acc = SOME inds' ⇒
+  all_core_list fmlls inds [] = SOME inds' ⇒
   all_core fml ∧
   ind_rel fmlls inds'
 Proof
-  cheat
+  qsuff_tac ‘
+  ∀inds acc (fmlls:(α # bool) option list) inds' fml acc xs.
+    fml_rel fml fmlls ∧
+    ind_rel fmlls (xs ++ inds) ∧
+    all_core_list fmlls inds acc = SOME inds' ⇒
+    all_core fml ∧
+    ind_rel fmlls (xs ++ acc ++ inds')’
+  >- metis_tac [APPEND]
+  \\ Induct
+  >- cheat
+  \\ gvs [all_core_list_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ ‘ind_rel fmlls ((xs ++ [h]) ++ inds)’ by
+       asm_rewrite_tac [GSYM APPEND_ASSOC,APPEND]
+  \\ last_x_assum drule_all
+  \\ gvs [fml_rel_def] \\ rw []
+  \\ cheat (* false? *)
 QED
 
 Theorem check_obj_cong:
   set ls = set ls' ⇒
   check_obj obj s ls ob = check_obj obj s ls' ob
 Proof
-  cheat
+  fs [check_obj_def,EVERY_MEM]
 QED
 
 Theorem fml_rel_check_cstep_list:
