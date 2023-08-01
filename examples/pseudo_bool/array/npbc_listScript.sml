@@ -23,7 +23,6 @@ Definition lookup_core_only_list_def:
     else NONE
 End
 
-
 (* TODO: optimize this using arrays instead of lists
   alternative:
     collapse all adds into one big list before normalizing
