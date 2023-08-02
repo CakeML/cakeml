@@ -238,6 +238,9 @@ This directory contains the mips-specific part of the compiler backend.
 [pattern_matching](pattern_matching):
 The CakeML pattern matching expressions compiler
 
+[presLangLib.sml](presLangLib.sml):
+Library that helps pretty print code
+
 [presLangScript.sml](presLangScript.sml):
 Functions for converting various intermediate languages
 into displayLang representations.
@@ -306,6 +309,9 @@ load/store operations.
 This compiler phase maps stackLang programs, which has structure
 such as If, While, Return etc, to labLang programs that are a soup
 of goto-like jumps.
+
+[str_treeScript.sml](str_treeScript.sml):
+A Lisp inspired tree of mlstrings and a pretty printing function
 
 [wordLangScript.sml](wordLangScript.sml):
 The wordLang intermediate language consists of structured programs

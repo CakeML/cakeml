@@ -11,7 +11,7 @@ open preamble backendTheory
      riscv_compileLib export_riscvTheory
      ag32_compileLib export_ag32Theory
      x64_compileLib export_x64Theory
-    mlstringSyntax
+    mlstringSyntax presLangLib
 
 val _ = Globals.max_print_depth := 20;
 
@@ -47,7 +47,25 @@ in
          uninteresting_consts then false else true;
 end
 
+val output_ILs = ref (NONE : string option);
+
+fun output_IL prog transform filename_suffix title =
+  case !output_ILs of
+    NONE => ()
+  | SOME filename =>
+    let
+        val fname = filename ^ "_" ^ filename_suffix
+        val _ = print "Writing file "
+        val _ = print fname
+        val _ = print " ... "
+        val strs = ("# " ^ title ^ "\n\n") :: transform prog
+        val _ = write_strs_to_file fname strs
+        val _ = print "done.\n"
+    in () end
+
 (*
+
+val _ = (output_ILs := SOME "hello")
 
   lab_prog_def
   |> concl |> rand |> find_terms is_const |> filter interesting
@@ -123,6 +141,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
                             REWR_CONV(SYM bvl_names_def)))));
     val () = computeLib.extend_compset [computeLib.Defs
                                          [bvl_prog_def,bvl_names_def]] cs;
+    val _ = output_IL p (bvl_to_strs names) "bvl.txt" "BVL"
 
     val bvl_conf_clos_conf_start =
       ``bvl_conf.clos_conf.start``
@@ -168,6 +187,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
       |> timez "to_data" (CONV_RULE(RAND_CONV(RAND_CONV eval)))
     val (_,rest) = to_data_thm0 |> rconc |> dest_pair
     val (p,names) = rest |> dest_pair
+    val _ = output_IL p (data_to_strs names) "data.txt" "DataLang"
 
     val data_prog_def = mk_abbrev data_prog_name p
     val to_data_thm =

@@ -37,7 +37,7 @@ Definition to_flat_all_def:
       ((ps: (mlstring # 'a any_prog) list),c,p)
 End
 
-Triviality to_flat_thm:
+Theorem to_flat_thm:
   SND (to_flat_all c p) = to_flat c p
 Proof
   fs [to_flat_all_def,to_flat_def,source_to_sourceTheory.compile_def,
@@ -55,7 +55,7 @@ Definition to_clos_all_def:
       ((ps: (mlstring # 'a any_prog) list),c,p)
 End
 
-Triviality to_clos_thm:
+Theorem to_clos_thm:
   SND (to_clos_all c p) = to_clos c p
 Proof
   assume_tac to_flat_thm
@@ -99,7 +99,7 @@ Definition to_bvl_all_def:
       ((ps: (mlstring # 'a any_prog) list),c,p,func_names)
 End
 
-Triviality to_bvl_thm:
+Theorem to_bvl_thm:
   SND (to_bvl_all c p ) = to_bvl c p
 Proof
   assume_tac to_clos_thm
@@ -138,7 +138,7 @@ Definition to_bvi_all_def:
      ((ps: (mlstring # 'a any_prog) list),c,p,names)
 End
 
-Triviality to_bvi_thm:
+Theorem to_bvi_thm:
   SND (to_bvi_all c p ) = to_bvi c p
 Proof
   assume_tac to_bvl_thm
@@ -169,7 +169,7 @@ Definition to_data_all_def:
       ((ps: (mlstring # 'a any_prog) list),c,p,names)
 End
 
-Triviality to_data_thm:
+Theorem to_data_thm:
   SND (to_data_all (c:'a config) p) = to_data c p
 Proof
   assume_tac to_bvi_thm
@@ -228,7 +228,7 @@ Definition to_word_all_def:
       ((ps: (mlstring # 'a any_prog) list),c,p,names)
 End
 
-Triviality to_word_thm:
+Theorem to_word_thm:
   SND (to_word_all (c:'a config) p) = to_word c p
 Proof
   assume_tac to_data_thm
@@ -249,7 +249,7 @@ Definition to_stack_all_def:
       ((ps: (mlstring # 'a any_prog) list),bm,c,p,names)
 End
 
-Triviality to_stack_thm:
+Theorem to_stack_thm:
   SND (to_stack_all (c:'a config) p) = to_stack c p
 Proof
   assume_tac to_word_thm
@@ -279,7 +279,7 @@ Definition to_lab_all_def:
       ((ps: (mlstring # 'a any_prog) list),bm,c,p:'a prog,names)
 End
 
-Triviality to_lab_thm:
+Theorem to_lab_thm:
   SND (to_lab_all (c:'a config) p) = to_lab c p
 Proof
   assume_tac to_stack_thm
@@ -296,7 +296,7 @@ Definition to_target_all_def:
       ((ps: (mlstring # 'a any_prog) list), attach_bitmaps names c bm p)
 End
 
-Triviality to_target_thm:
+Theorem to_target_thm:
   SND (to_target_all c p) = to_target c p
 Proof
   assume_tac to_lab_thm
