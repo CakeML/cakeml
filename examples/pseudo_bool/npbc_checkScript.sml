@@ -1623,8 +1623,14 @@ End
  *)
 
 Definition update_bound_def:
-  update_bound chk bound new =
-  if chk ∧ opt_lt (SOME new) bound then SOME new else bound
+  update_bound chk bound dbound new =
+  let dbound =
+    if opt_lt (SOME new) dbound then
+      SOME new else dbound in
+  let bound =
+    if chk ∧ opt_lt (SOME new) bound then
+      SOME new else bound in
+  (bound,dbound)
 End
 
 Definition do_transfer_def:
@@ -1640,10 +1646,11 @@ Definition all_core_def:
   EVERY (λ(n,(c,b)). b) (toAList fml)
 End
 
+(* TODO: ChangeObj, dbound behavior *)
 Definition check_cstep_def:
   (check_cstep cstep
     (fml:pbf) (id:num)
-    chk obj (bound:int option)
+    chk obj (bound:int option) (dbound:int option)
     ord orders =
   case cstep of
   | Dom c s pfs idopt =>
@@ -1672,7 +1679,7 @@ Definition check_cstep_def:
             check_contradiction_fml F fml' cid) in
         if check then
           SOME (insert id' (c,F) fml,
-             id'+1, chk, obj, bound, ord, orders)
+             id'+1, chk, obj, bound, dbound, ord, orders)
         else NONE )))
   | LoadOrder name xs =>
       (case ALOOKUP orders name of NONE => NONE
@@ -1680,16 +1687,17 @@ Definition check_cstep_def:
         if LENGTH xs = LENGTH (FST (SND ord')) then
           SOME (
             map (λ(c,b). (c,T)) fml, id,
-            chk, obj, bound, SOME (ord',xs) , orders)
+            chk, obj, bound, dbound, SOME (ord',xs) , orders)
         else NONE)
   | UnloadOrder =>
     (case ord of NONE => NONE
     | SOME spo =>
-        SOME (fml, id, chk, obj, bound, NONE, orders))
+        SOME (fml, id, chk, obj, bound, dbound,NONE, orders))
   | StoreOrder name spo ws pfs =>
     if check_good_ord spo ∧ check_ws spo ws ∧
       check_transitivity spo ws pfs then
-      SOME (fml, id, chk, obj, bound, ord, (name,spo)::orders)
+      SOME (fml, id, chk, obj, bound, dbound,
+        ord, (name,spo)::orders)
     else
       NONE
   | Transfer ls =>
@@ -1697,7 +1705,7 @@ Definition check_cstep_def:
       NONE => NONE
     | SOME fml' =>
       SOME (fml',
-        id, chk, obj, bound, ord, orders))
+        id, chk, obj, bound, dbound, ord, orders))
   | CheckedDelete n s pfs idopt =>
     (case lookup_core_only T fml n of
       NONE => NONE
@@ -1705,36 +1713,32 @@ Definition check_cstep_def:
       (let nfml = delete n fml in
       case check_red ord obj T nfml id c s pfs idopt of
         SOME id' =>
-        SOME (nfml, id',chk, obj, bound, ord, orders)
+        SOME (nfml, id',chk, obj, bound, dbound, ord, orders)
       | NONE => NONE))
   | UncheckedDelete ls =>
       (* Either no order or all ids are in core *)
       if ord = NONE ∨ all_core fml then
           SOME (FOLDL (λa b. delete b a) fml ls, id,
-                F, obj, bound, ord, orders)
+                F, obj, bound, dbound, ord, orders)
       else NONE
   | Sstep sstep =>
     (case check_sstep sstep ord obj fml id of
       SOME(fml',id') =>
-        SOME (fml',id',chk,obj,bound,ord, orders)
+        SOME (fml',id',chk,obj,bound,dbound,ord, orders)
     | NONE => NONE)
   | Obj w mi bopt =>
     (case check_obj obj w
       (MAP SND (toAList (mk_core_fml T fml))) bopt of
       NONE => NONE
     | SOME new =>
-      let bound' = update_bound chk bound new in
+      let (bound',dbound') = update_bound chk bound dbound new in
       if mi then
-        (* no model improving constraint in unchecked *)
-        if ¬chk then NONE
-        else
-          let c = model_improving obj new in
-          SOME (
-            insert id (c,T) fml,id+1,
-            chk, obj, bound', ord, orders)
+        let c = model_improving obj new in
+        SOME (
+          insert id (c,T) fml,id+1,
+          chk, obj, bound', dbound', ord, orders)
       else
-        (* when chk=F, this is a no-op on proof state *)
-        SOME (fml, id, chk, obj, bound', ord, orders))
+        SOME (fml, id, chk, obj, bound', dbound', ord, orders))
   | ChangeObj fc' n1 n2 =>
     NONE
     (*
@@ -2089,15 +2093,16 @@ Theorem check_cstep_correct:
   OPTION_ALL good_spo ord ∧
   EVERY (good_ord_t o SND) orders ∧
   valid_conf ord obj fml ⇒
-  case check_cstep cstep fml id chk obj bound ord orders of
-  | SOME (fml',id',chk',obj',bound',ord',orders') =>
+  case check_cstep cstep fml id chk obj bound dbound ord orders of
+  | SOME (fml',id',chk',obj',bound',dbound',ord',orders') =>
       id ≤ id' ∧
       id_ok fml' id' ∧
       valid_conf ord' obj' fml' ∧
       opt_le bound' bound ∧
+      opt_le dbound' dbound ∧
       (opt_lt bound' bound ⇒
         sat_obj_le obj (THE bound') (core_only_fml T fml)) ∧
-      bimp_obj bound'
+      bimp_obj dbound'
         obj (core_only_fml F fml)
         obj' (core_only_fml F fml') ∧
       (chk' ⇒
@@ -2471,9 +2476,9 @@ Proof
     (* Obj *)
     strip_tac>>
     every_case_tac>>simp[]
-    >- simp[update_bound_def]
     >- (
       (* Adding model improving *)
+      gvs[update_bound_def]>>
       `id ∉ domain fml` by fs[id_ok_def]>>
       CONJ_TAC >- fs[id_ok_def]>>
       CONJ_TAC >- (
@@ -2485,45 +2490,36 @@ Proof
         qexists_tac`w'`>>simp[range_insert]>>
         fs[satisfies_npbc_model_improving]>>
         intLib.ARITH_TAC)>>
-      simp[update_bound_def]>>
-      reverse IF_CASES_TAC>>simp[]
-      >- (
-        CONJ_TAC >- (
-          simp[bimp_obj_def,imp_obj_def]>>
-          rw[]>>
-          DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
-          fs[sat_obj_le_def,satisfies_npbc_model_improving,opt_lt_def]>>
-          first_assum (irule_at Any)>>
-          fs[]>>
-          Cases_on`bound`>>fs[opt_lt_def]>>
-          intLib.ARITH_TAC)>>
+      CONJ_TAC >- rw[opt_le_def]>>
+      CONJ_TAC >- rw[opt_le_def]>>
+      CONJ_TAC >- (
         rw[]>>
-        match_mp_tac bimp_obj_SUBSET>>
-        DEP_REWRITE_TAC[core_only_fml_T_insert_T]>>
-        fs[SUBSET_DEF,id_ok_def,valid_conf_def])>>
-      drule check_obj_imp>>
-      strip_tac>>
-      simp[opt_le_def]>>
-      CONJ_TAC
-      >- (
-        simp[sat_obj_le_def,GSYM range_mk_core_fml]>>
-        fs[range_toAList]>>
+        drule check_obj_imp>>rw[]>>
+        fs[GSYM range_mk_core_fml,range_toAList,sat_obj_le_def]>>
         asm_exists_tac>>
-        simp[])>>
-      CONJ_TAC
-      >- (
-        simp[bimp_obj_def,imp_obj_def]>>
-        rw[]>>
+        simp[]) >>
+      CONJ_TAC>- (
+        reverse IF_CASES_TAC>>simp[]
+        >- (
+          DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
+          fs[bimp_obj_def,imp_obj_def]>>
+          rw[]>>
+          fs[sat_obj_le_def,satisfies_npbc_model_improving,opt_lt_def]>>
+          first_assum (irule_at Any)>> simp[]>>
+          Cases_on`dbound`>>fs[opt_lt_def]>>
+          intLib.ARITH_TAC)>>
         DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
+        fs[bimp_obj_def,imp_obj_def]>>
+        rw[]>>
         fs[sat_obj_le_def,satisfies_npbc_model_improving,opt_lt_def]>>
-        first_assum (irule_at Any)>>
-        fs[]>>
+        first_assum (irule_at Any)>> simp[]>>
         intLib.ARITH_TAC)>>
-      rw[]>>
+      strip_tac>>
       match_mp_tac bimp_obj_SUBSET>>
       DEP_REWRITE_TAC[core_only_fml_T_insert_T]>>
       fs[SUBSET_DEF,id_ok_def,valid_conf_def])>>
-    simp[update_bound_def]>>IF_CASES_TAC>>simp[opt_le_def]>>
+    gvs[update_bound_def]>>
+    IF_CASES_TAC>>simp[opt_le_def]>>
     simp[sat_obj_le_def]>>
     drule check_obj_imp>>rw[]>>
     fs[GSYM range_mk_core_fml,range_toAList]>>
@@ -2571,12 +2567,12 @@ Proof
 QED
 
 Definition check_csteps_def:
-  (check_csteps [] fml id chk obj bound ord orders =
-    SOME (fml,id,chk,obj,bound,ord,orders)) ∧
-  (check_csteps (s::ss) fml id chk obj bound ord orders =
-    case check_cstep s fml id chk obj bound ord orders of
-      SOME (fml',id',chk',obj',bound',ord',orders') =>
-      check_csteps ss fml' id' chk' obj' bound' ord' orders'
+  (check_csteps [] fml id chk obj bound dbound ord orders =
+    SOME (fml,id,chk,obj,bound,dbound,ord,orders)) ∧
+  (check_csteps (s::ss) fml id chk obj bound dbound ord orders =
+    case check_cstep s fml id chk obj bound dbound ord orders of
+    SOME (fml',id',chk',obj',bound',dbound',ord',orders') =>
+    check_csteps ss fml' id' chk' obj' bound' dbound' ord' orders'
     | NONE => NONE)
 End
 
@@ -2607,23 +2603,25 @@ Proof
 QED
 
 Theorem check_csteps_correct:
-  ∀csteps fml id chk obj bound ord orders
-    fml' id' chk' obj' bound' ord' orders'.
+  ∀csteps fml id chk obj bound dbound ord orders
+    fml' id' chk' obj' bound' dbound' ord' orders'.
   id_ok fml id ∧
   OPTION_ALL good_spo ord ∧
   EVERY (good_ord_t ∘ SND) orders ∧
   valid_conf ord obj fml ∧
-  check_csteps csteps fml id chk obj bound ord orders =
-    SOME(fml',id',chk',obj',bound',ord',orders') ⇒
+  check_csteps csteps fml id chk obj bound dbound ord orders =
+    SOME(fml',id',chk',obj',bound',dbound',ord',orders') ⇒
     hide (
     id ≤ id' ∧
     id_ok fml' id' ∧
     valid_conf ord' obj' fml' ∧
     opt_le bound' bound ∧
+    opt_le dbound' dbound ∧
     (opt_lt bound' bound ⇒
       sat_obj_le obj (THE bound') (core_only_fml T fml)) ∧
-    bimp_obj bound'
-      obj (core_only_fml F fml) obj' (core_only_fml F fml') ∧
+    (bimp_obj dbound'
+      obj (core_only_fml F fml)
+      obj' (core_only_fml F fml')) ∧
     (chk' ⇒ bimp_obj bound'
         obj' (core_only_fml T fml')
         obj (core_only_fml T fml)) ∧
@@ -2643,7 +2641,7 @@ Proof
   strip_tac>>
   drule check_cstep_correct>>
   rpt (disch_then drule)>>
-  disch_then(qspecl_then [`h`,`chk`,`bound`] mp_tac)>>
+  disch_then(qspecl_then [`dbound`,`h`,`chk`,`bound`] mp_tac)>>
   simp[]>>
   strip_tac>>
   first_x_assum drule>>
@@ -2651,17 +2649,20 @@ Proof
   strip_tac>>fs[hide_def]>>
   CONJ_TAC >-
     metis_tac[opt_le_trans]>>
+  CONJ_TAC >-
+    metis_tac[opt_le_trans]>>
   CONJ_TAC >- (
     rw[]>>
-    rename1`opt_le A B`>>
-    qpat_x_assum`opt_le A B` mp_tac>>simp[opt_le_def]>>
+    rename1`opt_le bound' B`>>
+    qpat_x_assum`opt_le bound' B` mp_tac>>
+    simp[opt_le_def]>>
     strip_tac
     >-
       fs[bimp_obj_def]>>
     gs[]>>
     fs[bimp_obj_def,imp_obj_def]>>
-    `opt_lt (SOME (THE A)) B` by
-      (Cases_on`A`>>fs[opt_lt_def])>>
+    `opt_lt (SOME (THE bound')) B` by
+      (Cases_on`bound'`>>fs[opt_lt_def])>>
     Cases_on`chk'`>>fs[]>>
     Cases_on`x2`>>fs[]>>
     gvs[]>>
@@ -2829,28 +2830,27 @@ End
 (* fml, obj are the original formula (as a list) and objective
   all the '-ed variables are after checking *)
 Definition check_hconcl_def:
-  (check_hconcl fml obj fml' obj' bound' HNoConcl = T) ∧
-  (check_hconcl fml obj fml' obj' bound' (HDSat wopt) =
+  (check_hconcl fml obj fml' obj' bound' dbound' HNoConcl = T) ∧
+  (check_hconcl fml obj fml' obj' bound' dbound' (HDSat wopt) =
     case wopt of
       NONE =>
       (* Claiming SAT without witness needs
-        unchecked deletion and at least one sol step *)
+        at least one checked sol step *)
       bound' ≠ NONE
     | SOME wm =>
       (* Otherwise, use the witness *)
       check_obj obj wm fml NONE ≠ NONE) ∧
-  (check_hconcl fml obj fml' obj' bound' (HDUnsat n) =
+  (check_hconcl fml obj fml' obj' bound' dbound' (HDUnsat n) =
     (* Claiming UNSAT requires contradiction
       derived in the final formula *)
-    (bound' = NONE ∧ check_contradiction_fml F fml' n)) ∧
-  (check_hconcl fml obj fml' obj' bound'
+    (dbound' = NONE ∧ check_contradiction_fml F fml' n)) ∧
+  (check_hconcl fml obj fml' obj' bound' dbound'
     (HOBounds lbi ubi n wopt) =
     (
     ((* Lower bound claimed must be at most the
       best bound seen in sol steps *)
-    opt_le lbi bound' ∧
-    (* And the lower bound must be syntactically implied
-    *)
+    opt_le lbi dbound' ∧
+    (* And the lower bound must be syntactically implied *)
     case lbi of
       NONE => check_contradiction_fml F fml' n
     | SOME lb => check_implies_fml fml' n (lower_bound obj' lb)) ∧
@@ -2872,11 +2872,11 @@ End
 Theorem check_csteps_check_hconcl:
   id_ok fml id ∧
   check_csteps csteps
-    fml id chk obj NONE NONE [] =
-    SOME (fml',id',chk',obj',bound',ord',orders') ∧
+    fml id chk obj NONE NONE NONE [] =
+    SOME (fml',id',chk',obj',bound',dbound',ord',orders') ∧
   all_core fml ∧
   set fmlls = core_only_fml T fml ∧
-  check_hconcl fmlls obj fml' obj' bound' hconcl ⇒
+  check_hconcl fmlls obj fml' obj' bound' dbound' hconcl ⇒
   sem_concl (set fmlls) obj (hconcl_concl hconcl)
 Proof
   rw[]>>
@@ -2909,19 +2909,19 @@ Proof
       fs[check_implies_fml_def]>>every_case_tac>>
       fs[lower_bound_def]
       >- (
-        Cases_on`bound'`>>fs[opt_le_def,opt_lt_def]>>
+        Cases_on`dbound'`>>fs[opt_le_def,opt_lt_def]>>
         drule check_contradiction_fml_unsat>>
         gvs[]>>
         drule bimp_obj_NONE>>
         fs[all_core_core_only_fml_eq,unsatisfiable_def]>>
         metis_tac[])>>
       fs[bimp_obj_def,imp_obj_def]>>rw[]>>
-      qpat_x_assum`opt_le _ bound'` mp_tac>>
+      qpat_x_assum`opt_le _ dbound'` mp_tac>>
       rw[]>>
       CCONTR_TAC>>fs[]>>
       last_x_assum(qspec_then`eval_obj obj w` mp_tac)>>
       impl_tac >- (
-        Cases_on`bound'`>>
+        Cases_on`dbound'`>>
         fs[opt_lt_def]>>
         ntac 2(pop_assum mp_tac)>>
         rpt(pop_assum kall_tac)>>
