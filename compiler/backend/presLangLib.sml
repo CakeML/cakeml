@@ -32,9 +32,28 @@ fun dest_app_list tm = let
 fun mlstring_app_list_to_string_list tm =
   map (stringSyntax.fromHOLstring o dest_strlit) (dest_app_list tm);
 
+fun flat_to_strs flat_prog_tm =
+  presLangTheory.flat_to_strs_def
+      |> SPECL [flat_prog_tm]
+      |> concl |> dest_eq |> fst |> EVAL |> concl |> rand
+      |> mlstring_app_list_to_string_list;
+
+fun clos_to_strs clos_prog_tm =
+  presLangTheory.clos_to_strs_def
+      |> SPECL [clos_prog_tm]
+      |> Q.SPEC ‘[]’
+      |> concl |> dest_eq |> fst |> EVAL |> concl |> rand
+      |> mlstring_app_list_to_string_list;
+
 fun bvl_to_strs names_tm bvl_prog_tm =
   presLangTheory.bvl_to_strs_def
       |> SPECL [names_tm,bvl_prog_tm]
+      |> concl |> dest_eq |> fst |> EVAL |> concl |> rand
+      |> mlstring_app_list_to_string_list;
+
+fun bvi_to_strs names_tm bvi_prog_tm =
+  presLangTheory.bvi_to_strs_def
+      |> SPECL [names_tm,bvi_prog_tm]
       |> concl |> dest_eq |> fst |> EVAL |> concl |> rand
       |> mlstring_app_list_to_string_list;
 

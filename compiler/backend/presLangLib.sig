@@ -3,8 +3,11 @@ sig
 
    include Abbrev
 
-   val data_to_strs : term (* names *) -> term (* prog *) -> string list
+   val flat_to_strs : term (* prog *) -> string list
+   val clos_to_strs : term (* prog *) -> string list
    val bvl_to_strs : term (* names *) -> term (* prog *) -> string list
+   val bvi_to_strs : term (* names *) -> term (* prog *) -> string list
+   val data_to_strs : term (* names *) -> term (* prog *) -> string list
 
    val print_strs : string list -> unit
 

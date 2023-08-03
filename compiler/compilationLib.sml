@@ -93,6 +93,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
         FORK_CONV(REWR_CONV(SYM flat_conf_def),
                   REWR_CONV(SYM flat_prog_def))));
     val () = computeLib.extend_compset [computeLib.Defs [flat_prog_def]] cs;
+    val _ = output_IL p flat_to_strs "flat.txt" "FlatLang"
 
     val flat_conf_source_conf =
       ``flat_conf.source_conf``
@@ -120,6 +121,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
       to_clos_thm0 |> CONV_RULE(RAND_CONV(
         RAND_CONV(REWR_CONV(SYM clos_prog_def))));
     val () = computeLib.extend_compset [computeLib.Defs [clos_prog_def]] cs;
+    val _ = output_IL p clos_to_strs "clos.txt" "ClosLang"
 
     val to_bvl_thm0 =
       ``to_bvl ^conf_tm ^prog_tm``
@@ -176,6 +178,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
                             REWR_CONV(SYM bvi_names_def)))));
     val () = computeLib.extend_compset
       [computeLib.Defs [bvi_prog_def,bvi_names_def]] cs;
+    val _ = output_IL p (bvi_to_strs names) "bvi.txt" "BVI"
 
     val to_data_thm0 =
       ``to_data ^conf_tm ^prog_tm``

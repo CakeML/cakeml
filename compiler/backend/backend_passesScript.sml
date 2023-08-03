@@ -328,7 +328,7 @@ Definition any_prog_pp_def:
   any_prog_pp p = case p of
     | Source p => source_to_strs p
     | Flat p => flat_to_strs p
-    | Clos decs funs => clos_to_strs LN (funs,decs)
+    | Clos decs funs => clos_to_strs (decs,funs)
     | Bvl p names => bvl_to_strs names p
     | Bvi p names => bvi_to_strs names p
     | Data p names => data_to_strs names p
