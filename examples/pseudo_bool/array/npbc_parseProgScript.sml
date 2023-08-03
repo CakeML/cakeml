@@ -2009,19 +2009,19 @@ QED
 (* returns the necessary information to check the
   output and conclusion sections *)
 val check_unsat'' = process_topdecs `
-  fun check_unsat'' fns fd lno core chk obj bound
+  fun check_unsat'' fns fd lno chk obj bound dbound
     ord orders fml inds id =
     case parse_cstep fns fd lno of
       (Inl s, (fns', lno')) =>
       (lno', (s,(fns',(
-        (fml, (inds, (id, (core,
-            (chk, (obj, (bound, (ord, orders))))))))))))
+        (fml, (inds, (id,
+          (chk, (obj, (bound, (dbound, (ord, orders))))))))))))
     | (Inr cstep, (fns', lno')) =>
-      (case check_cstep_arr lno cstep core chk obj bound
+      (case check_cstep_arr lno cstep chk obj bound dbound
         ord orders fml inds id of
-        (fml', (inds', (id', (core',
-          (chk', (obj', (bound', (ord', orders')))))))) =>
-        check_unsat'' fns' fd lno' core' chk' obj' bound'
+        (fml', (inds', (id',
+          (chk', (obj', (bound', (dbound', (ord', orders')))))))) =>
+        check_unsat'' fns' fd lno' chk' obj' bound' dbound'
           ord' orders' fml' inds' id')` |> append_prog
 
 Theorem parse_sstep_LENGTH:
@@ -2066,18 +2066,18 @@ QED
   returning the last encountered state *)
 Definition parse_and_run_def:
   parse_and_run fns ss
-    core chk obj bound
+    chk obj bound dbound
     ord orders fml inds id =
   case parse_cstep fns ss of NONE => NONE
   | SOME (INL s, fns', rest) =>
     SOME (rest, s, fns',
-      fml, inds, id, core, chk, obj, bound, ord, orders)
+      fml, inds, id, chk, obj, bound, dbound, ord, orders)
   | SOME (INR cstep, fns', rest) =>
-    (case check_cstep_list cstep core chk obj bound
+    (case check_cstep_list cstep chk obj bound dbound
         ord orders fml inds id of
       SOME (fml', inds', id',
-        core', chk', obj', bound', ord', orders') =>
-        parse_and_run fns' rest core' chk' obj' bound'
+        chk', obj', bound', dbound', ord', orders') =>
+        parse_and_run fns' rest chk' obj' bound' dbound'
           ord' orders' fml' inds' id'
     | res => NONE)
 Termination
@@ -2117,26 +2117,25 @@ Proof
 QED
 
 Theorem check_unsat''_spec:
-  ∀fns ss core chk obj bound ord orders fmlls inds id
-    fnsv lno lnov corev chkv objv boundv ordv ordersv
+  ∀fns ss chk obj bound dbound ord orders fmlls inds id
+    fnsv lno lnov chkv objv boundv dboundv ordv ordersv
     fmllsv indsv idv lines fs fmlv.
   fns_TYPE a fns fnsv ∧
   NUM lno lnov ∧
-  SPTREE_SPT_TYPE UNIT_TYPE core corev ∧
   BOOL chk chkv ∧
   obj_TYPE obj objv ∧
   OPTION_TYPE INT bound boundv ∧
+  OPTION_TYPE INT dbound dboundv ∧
   ord_TYPE ord ordv ∧
   LIST_TYPE (PAIR_TYPE STRING_TYPE spo_TYPE) orders ordersv ∧
-  LIST_REL (OPTION_TYPE constraint_TYPE) fmlls fmllsv ∧
+  LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
   NUM id idv ∧
-
   MAP toks_fast lines = ss
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
-    [fnsv; fdv; lnov; corev; chkv; objv; boundv;
+    [fnsv; fdv; lnov; chkv; objv; boundv; dboundv;
       ordv; ordersv; fmlv; indsv; idv]
     (STDIO fs * INSTREAM_LINES fd fdv lines fs * ARRAY fmlv fmllsv)
     (POSTve
@@ -2146,19 +2145,19 @@ Theorem check_unsat''_spec:
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
          ARRAY fmlv' fmllsv' *
          &(
-          parse_and_run fns ss core chk obj bound ord orders
+          parse_and_run fns ss chk obj bound dbound ord orders
             fmlls inds id = SOME (MAP toks_fast lines',res) ∧
             PAIR_TYPE NUM (
             PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (
             PAIR_TYPE (fns_TYPE a) (
             PAIR_TYPE (λl v.
-              LIST_REL (OPTION_TYPE constraint_TYPE) l fmllsv' ∧
+              LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
               v = fmlv')
               (PAIR_TYPE (LIST_TYPE NUM)
                 (PAIR_TYPE NUM
-                (PAIR_TYPE (SPTREE_SPT_TYPE UNIT_TYPE)
                 (PAIR_TYPE BOOL
                 (PAIR_TYPE obj_TYPE
+                (PAIR_TYPE (OPTION_TYPE INT)
                 (PAIR_TYPE (OPTION_TYPE INT)
                 (PAIR_TYPE ord_TYPE
                   (LIST_TYPE (PAIR_TYPE STRING_TYPE spo_TYPE)))))))))))) (lno',res) v))
@@ -2167,7 +2166,7 @@ Theorem check_unsat''_spec:
            ARRAY fmlv' fmllsv' *
            STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧
-            parse_and_run fns ss core chk obj bound ord orders
+            parse_and_run fns ss chk obj bound dbound ord orders
             fmlls inds id = NONE)))
 Proof
   ho_match_mp_tac (fetch "-" "parse_and_run_ind")>>
@@ -2279,21 +2278,22 @@ val fill_arr = process_topdecs`
   fun fill_arr arr i ls =
     case ls of [] => arr
     | (v::vs) =>
-      fill_arr (Array.updateResize arr None i (Some v)) (i+1) vs` |> append_prog
+      fill_arr (Array.updateResize arr None i (Some (v,True))) (i+1) vs` |> append_prog
 
 Theorem fill_arr_spec:
   ∀ls lsv arrv arrls arrlsv i iv.
   NUM i iv ∧
   LIST_TYPE constraint_TYPE ls lsv ∧
-  LIST_REL (OPTION_TYPE constraint_TYPE) arrls arrlsv
+  LIST_REL (OPTION_TYPE bconstraint_TYPE) arrls arrlsv
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v"fill_arr"(get_ml_prog_state()))
   [arrv; iv; lsv]
   (ARRAY arrv arrlsv)
   (POSTv resv.
   SEP_EXISTS arrlsv'. ARRAY resv arrlsv' *
-    & LIST_REL (OPTION_TYPE constraint_TYPE)
-    (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) arrls (enumerate i ls)) arrlsv')
+    & LIST_REL (OPTION_TYPE bconstraint_TYPE)
+    (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,T)) i)
+      arrls (enumerate i ls)) arrlsv')
 Proof
   Induct>>rw[]>>
   xcf "fill_arr" (get_ml_prog_state ())>>
@@ -2304,7 +2304,8 @@ Proof
   xlet_auto>>
   xapp>>fs[]>>
   match_mp_tac LIST_REL_update_resize>>fs[]>>
-  simp[OPTION_TYPE_def]
+  simp[OPTION_TYPE_def,PAIR_TYPE_def]>>
+  EVAL_TAC
 QED
 
 Definition rev_enum_def:
@@ -2404,14 +2405,14 @@ val res = translate mk_parse_err_def;
 val run_concl_file = process_topdecs`
   fun run_concl_file fd f_ns lno s
     fml obj
-    fml' obj' bound' =
+    fml' obj' bound' dbound' =
   let
     val ls = TextIO.b_inputAllTokens fd blanks tokenize_fast
   in
     case parse_concl_output s f_ns ls of
       None => Inl (format_failure lno (mk_parse_err s))
     | Some hconcl =>
-      if check_hconcl_arr fml obj fml' obj' bound' hconcl
+      if check_hconcl_arr fml obj fml' obj' bound' dbound' hconcl
       then
         Inr hconcl
       else Inl (format_failure lno "failed to check conclusion section")
@@ -2437,12 +2438,13 @@ Theorem run_concl_file_spec:
   obj_TYPE obj objv ∧
   obj_TYPE obj1 obj1v ∧
   OPTION_TYPE INT bound1 bound1v ∧
-  LIST_REL (OPTION_TYPE constraint_TYPE) fmlls fmllsv
+  OPTION_TYPE INT dbound1 dbound1v ∧
+  LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "run_concl_file" (get_ml_prog_state()))
     [fdv; fnsv;lnov;sv;
-      fmlv; objv; fml1v; obj1v; bound1v]
+      fmlv; objv; fml1v; obj1v; bound1v; dbound1v]
     (STDIO fs * INSTREAM_LINES fd fdv lines fs * ARRAY fml1v fmllsv)
     (POSTv v.
        SEP_EXISTS res.
@@ -2453,7 +2455,7 @@ Theorem run_concl_file_spec:
         case res of
           INR hconcl =>
             check_hconcl_list fml obj fmlls
-              obj1 bound1 hconcl
+              obj1 bound1 dbound1 hconcl
         | INL l => T))
 Proof
   rw[]>>
@@ -2489,55 +2491,6 @@ Proof
   qexists_tac`INR x`>>simp[SUM_TYPE_def]
 QED
 
-Definition mk_core_def:
-  mk_core ls =
-  FOLDL (λacc i. insert (i+1) () acc) LN (COUNT_LIST (LENGTH ls))
-End
-
-Theorem wf_mk_core:
-  wf (mk_core ls)
-Proof
-  rw[mk_core_def]>>
-  qmatch_goalsub_abbrev_tac`FOLDL _ acc lss`>>
-  `wf acc` by
-    fs[Abbr`acc`]>>
-  pop_assum mp_tac>>
-  ntac 2 (pop_assum kall_tac)>>
-  qid_spec_tac`acc`>>Induct_on`lss`>>rw[]>>
-  first_x_assum match_mp_tac>>
-  simp[wf_insert]
-QED
-
-Theorem lookup_mk_core_prop:
-  ∀n i acc.
-  lookup i
-  (FOLDL (λacc i. insert (i+1) () acc) acc (COUNT_LIST n)) =
-  if 1 ≤ i ∧ i ≤ n then SOME () else lookup i acc
-Proof
-  Induct>>rw[COUNT_LIST_SNOC,FOLDL_SNOC]>>
-  simp[lookup_insert]
-QED
-
-Theorem lookup_mk_core:
-  lookup i (mk_core ls) =
-  if 1 ≤ i ∧ i ≤ LENGTH ls then SOME () else NONE
-Proof
-  rw[mk_core_def,lookup_mk_core_prop]
-QED
-
-Theorem mk_core_enumerate_fromAList:
-  mk_core ls =
-  (fromAList (MAP (λ(x,y). (x,())) (enumerate 1 ls)))
-Proof
-  DEP_REWRITE_TAC[spt_eq_thm]>>
-  simp[wf_mk_core,wf_fromAList]>>
-  simp[lookup_mk_core,lookup_fromAList,ALOOKUP_MAP]>>
-  simp[ALOOKUP_enumerate]>>
-  rw[]
-QED
-
-val res = translate mk_core_def;
-
 Definition conv_hconcl_def:
   (conv_hconcl (INL s) = INL s) ∧
   (conv_hconcl (INR h) =
@@ -2555,32 +2508,28 @@ val check_unsat' = process_topdecs `
     val arr = fill_arr arr 1 fml
     val inds = rev_enum_full 1 fml
     val chk = True
-    val ord = None
-    val bound = None
-    val core = mk_core fml
+    val nn = None
     val orders = []
   in
-    (case check_unsat'' fns fd lno core chk obj bound
-      ord orders arr inds id of
+    (case check_unsat'' fns fd lno chk obj nn nn nn orders arr inds id of
       (lno', (s,(fns',(
-        (fml', (inds', (id', (core',
-            (chk', (obj', (bound', (ord', orders')))))))))))) =>
+        (fml', (inds', (id',
+            (chk', (obj', (bound', (dbound', (ord', orders')))))))))))) =>
       conv_hconcl
         (run_concl_file fd fns' lno' s
-        fml obj fml' obj' bound'))
+        fml obj fml' obj' bound' dbound'))
     handle Fail s => Inl s
   end` |> append_prog;
 
 Theorem parse_and_run_check_csteps_list:
-  ∀fns ss core chk obj bound ord orders fml inds id
+  ∀fns ss chk obj bound dbound ord orders fml inds id
     rest s fns' res.
-  parse_and_run fns ss
-    core chk obj bound
+  parse_and_run fns ss chk obj bound dbound
     ord orders fml inds id =
   SOME
     (rest, s, fns', res) ⇒
   ∃csteps.
-  check_csteps_list csteps core chk obj bound
+  check_csteps_list csteps chk obj bound dbound
     ord orders fml inds id = SOME res
 Proof
   ho_match_mp_tac parse_and_run_ind>>
@@ -2644,14 +2593,14 @@ Proof
   xcf "check_unsat'" (get_ml_prog_state ())>>
   rpt xlet_autop>>
   qmatch_goalsub_abbrev_tac`ARRAY av avs`>>
-  `LIST_REL (OPTION_TYPE constraint_TYPE) (REPLICATE (2 * (LENGTH fml + 1)) NONE) avs` by
-    simp[Abbr`avs`,LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
+  `LIST_REL (OPTION_TYPE bconstraint_TYPE) (REPLICATE (2 * (LENGTH fml + 1)) NONE) avs` by
+    simp[Abbr`avs`,LIST_REL_REPLICATE_same,OPTION_TYPE_def,PAIR_TYPE_def]>>
   xlet`
   (POSTv resv.
     SEP_EXISTS arrlsv'. ARRAY resv arrlsv' *
       STDIO fs * INSTREAM_LINES fd fdv lines fs *
-      & LIST_REL (OPTION_TYPE constraint_TYPE)
-      (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i)
+      & LIST_REL (OPTION_TYPE bconstraint_TYPE)
+      (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,T)) i)
       (REPLICATE (2 * (LENGTH fml + 1)) NONE)
       (enumerate 1 fml)) arrlsv')`
   >- (
@@ -2670,7 +2619,7 @@ Proof
   OPTION_TYPE INT NONE (Conv (SOME (TypeStamp "None" 2)) [])` by EVAL_TAC>>
 
   Cases_on`
-    parse_and_run fns (MAP toks_fast lines) (mk_core fml) T obj NONE NONE [] fmlls inds (LENGTH fml + 1)`
+    parse_and_run fns (MAP toks_fast lines) T obj NONE NONE NONE [] fmlls inds (LENGTH fml + 1)`
   >- (
     (* fail to parse and run *)
     xhandle`POSTe e.
@@ -2717,21 +2666,21 @@ Proof
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
          ARRAY fmlv' fmllsv' *
          &(
-          parse_and_run fns (MAP toks_fast lines) (mk_core fml)
-            T obj NONE NONE []
+          parse_and_run fns (MAP toks_fast lines)
+            T obj NONE NONE NONE []
             fmlls inds (LENGTH fml + 1)=
               SOME (MAP toks_fast lines',res) ∧
             PAIR_TYPE NUM (
             PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (
             PAIR_TYPE (fns_TYPE a) (
             PAIR_TYPE (λl v.
-              LIST_REL (OPTION_TYPE constraint_TYPE) l fmllsv' ∧
+              LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
               v = fmlv')
               (PAIR_TYPE (LIST_TYPE NUM)
                 (PAIR_TYPE NUM
-                (PAIR_TYPE (SPTREE_SPT_TYPE UNIT_TYPE)
                 (PAIR_TYPE BOOL
                 (PAIR_TYPE obj_TYPE
+                (PAIR_TYPE (OPTION_TYPE INT)
                 (PAIR_TYPE (OPTION_TYPE INT)
                 (PAIR_TYPE ord_TYPE
                   (LIST_TYPE (PAIR_TYPE STRING_TYPE spo_TYPE)))))))))))) (lno',res) v)`
@@ -2750,7 +2699,7 @@ Proof
     PairCases_on`res`>>
     fs[PAIR_TYPE_def]>>
     xmatch>>
-    rename1`SOME (_,_,_,fmlls',_,_,_,_,obj',bound',_)`>>
+    rename1`SOME (_,_,_,fmlls',_,_,_,obj',bound',dbound',_)`>>
     xlet`(POSTv v.
        SEP_EXISTS res k.
        STDIO (forwardFD fs fd k) *
@@ -2760,7 +2709,7 @@ Proof
         case res of
           INR hconcl =>
             check_hconcl_list fml obj fmlls'
-              obj' bound' hconcl
+              obj' bound' dbound' hconcl
         | INL l => T))`
     >- (
       xapp>>
@@ -2798,7 +2747,7 @@ Proof
       match_mp_tac (GEN_ALL npbc_listTheory.check_csteps_list_concl)>>
       first_x_assum (irule_at Any)>>
       unabbrev_all_tac>>
-      gs[rev_enum_full_rev_enumerate,mk_core_enumerate_fromAList]>>
+      gs[rev_enum_full_rev_enumerate]>>
       metis_tac[])>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
   xsimpl

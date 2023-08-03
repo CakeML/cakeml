@@ -1924,7 +1924,8 @@ Proof
   rw[]>>
   `id_ok (build_fml T 1 fml) id` by
     fs[id_ok_def,domain_build_fml]>>
-  `all_core (build_fml T 1 fml)` by cheat>>
+  `all_core (build_fml T 1 fml)` by
+    fs[all_core_def,EVERY_MEM,MEM_toAList,FORALL_PROD,lookup_build_fml]>>
   drule check_csteps_check_hconcl>>
   rpt(disch_then drule)>>
   disch_then match_mp_tac>>simp[core_only_fml_build_fml]>>
