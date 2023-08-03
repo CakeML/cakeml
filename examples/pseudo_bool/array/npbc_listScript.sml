@@ -676,24 +676,55 @@ Definition do_red_check_def:
      check_contradiction_fml_list b fml cid
 End
 
-Definition check_red_list_def:
-  check_red_list ord obj b fml inds id c s pfs idopt =
-  let (rinds,fmlls) = reindex b fml inds in
+(* Fast path for a special case *)
+Definition red_fast_def:
+  red_fast s idopt pfs = (
+  if s = Vector [] then
+  case idopt of NONE => NONE
+  | SOME id =>(
+    case pfs of
+    | [(NONE,pf)] => SOME (pf,id)
+    | [] => SOME ([],id)
+    | _ => NONE)
+  else NONE)
+End
+
+Definition check_red_list_fast_def:
+  check_red_list_fast b fml inds id c pf cid =
   let nc = not c in
   let fml_not_c = update_resize fml NONE (SOME (nc,b)) id in
-  let rsubs = red_subgoals ord (subst_fun s) c obj in
-  case extract_clauses_list s b fml rsubs pfs [] of
+  case check_lsteps_list pf b fml_not_c inds id (id+1) of
     NONE => NONE
-  | SOME cpfs =>
-    (case check_subproofs_list cpfs b
-      fml_not_c (sorted_insert id rinds) id (id+1) of
-       NONE => NONE
-    |  SOME(fml', id') =>
-      let rfml = rollback fml' id id' in
-      if do_red_check idopt b fml'
-          s rfml rinds fmlls nc pfs rsubs then
-          SOME (rfml,rinds,id')
-      else NONE)
+  | SOME (fml', inds', id') =>
+  if check_contradiction_fml_list b fml' cid then
+    let rfml = rollback fml' id id' in
+      SOME (rfml,inds,id')
+  else
+    NONE
+End
+
+Definition check_red_list_def:
+  check_red_list ord obj b fml inds id c s pfs idopt =
+  case red_fast s idopt pfs of
+    NONE => (
+    let (rinds,fmlls) = reindex b fml inds in
+    let nc = not c in
+    let fml_not_c = update_resize fml NONE (SOME (nc,b)) id in
+    let rsubs = red_subgoals ord (subst_fun s) c obj in
+    case extract_clauses_list s b fml rsubs pfs [] of
+      NONE => NONE
+    | SOME cpfs =>
+      (case check_subproofs_list cpfs b
+        fml_not_c (sorted_insert id rinds) id (id+1) of
+         NONE => NONE
+      |  SOME(fml', id') =>
+        let rfml = rollback fml' id id' in
+        if do_red_check idopt b fml'
+            s rfml rinds fmlls nc pfs rsubs then
+            SOME (rfml,rinds,id')
+        else NONE))
+  | SOME (pf,cid) =>
+    check_red_list_fast b fml inds id c pf cid
 End
 
 Definition check_sstep_list_def:
@@ -1081,101 +1112,141 @@ Theorem fml_rel_check_red_list:
 Proof
   strip_tac>>
   fs[check_red_list_def]>>
-  pairarg_tac>>fs[]>>
-  every_case_tac>>gvs[]>>
-  simp[check_red_def]>>
-  DEP_REWRITE_TAC [fml_rel_extract_clauses_list]>> simp[]>>
-  gvs[AllCaseEqs()]>>
-  `fml_rel (insert id ((not c,b)) fml)
-    (update_resize fmlls NONE (SOME (not c,b)) id)` by
-    metis_tac[fml_rel_update_resize]>>
-  drule fml_rel_check_subproofs_list>>
-  disch_then (drule_at Any)>>
-  impl_tac>- (
-    rw[]
-    >- (
-      match_mp_tac ind_rel_update_resize_sorted_insert>>
-      metis_tac[ind_rel_reindex] )>>
-    simp[any_el_update_resize])>>
-  simp[]>>strip_tac>>
-  gvs[]>>
-  drule check_subproofs_list_id>>
-  drule check_subproofs_list_id_upper>>
-  drule check_subproofs_list_mindel>>
-  simp[any_el_update_resize]>>
-  ntac 3 strip_tac>>
-  CONJ_TAC >- (
-    gvs[do_red_check_def,AllCaseEqs(),insert_fml_def]>>
-    TOP_CASE_TAC>>fs[]
-    >- (
-      rpt (pairarg_tac>>fs[])>>
-      (drule_at Any) split_goals_hash_imp_split_goals>>
-      disch_then (qspec_then`mk_core_fml b fml` mp_tac)>>
-      impl_tac >- (
-        simp[range_mk_core_fml]>>
-        match_mp_tac (GEN_ALL SND_reindex_characterize)>>
-        metis_tac[])>>
-      match_mp_tac split_goals_same_goals>>
-      simp[EXTENSION,FORALL_PROD]>>
-      rw[]>>eq_tac>>rw[]
+  gvs[AllCaseEqs()]
+  >- (
+    pairarg_tac>>fs[]>>
+    every_case_tac>>gvs[]>>
+    simp[check_red_def]>>
+    DEP_REWRITE_TAC [fml_rel_extract_clauses_list]>> simp[]>>
+    gvs[AllCaseEqs()]>>
+    `fml_rel (insert id ((not c,b)) fml)
+      (update_resize fmlls NONE (SOME (not c,b)) id)` by
+      metis_tac[fml_rel_update_resize]>>
+    drule fml_rel_check_subproofs_list>>
+    disch_then (drule_at Any)>>
+    impl_tac>- (
+      rw[]
       >- (
-        fs[MEM_toAList,lookup_map_opt,AllCaseEqs()]>>
-        match_mp_tac (GEN_ALL MEM_subst_indexes)>>
-        gvs[lookup_mk_core_fml]>>
-        first_x_assum (irule_at Any)>>
-        `∃b'.
-          lookup p_1 fml = SOME (x',b') ∧
-          (b ⇒ b')` by (
-          gvs[lookup_core_only_def,AllCaseEqs()])>>
-        CONJ_TAC>- (
-          drule FST_reindex_characterize>>
-          simp[MEM_FILTER]>>
-          fs[fml_rel_def,ind_rel_def])>>
-        simp[rollback_def,lookup_core_only_list_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
-        rw[]
+        match_mp_tac ind_rel_update_resize_sorted_insert>>
+        metis_tac[ind_rel_reindex] )>>
+      simp[any_el_update_resize])>>
+    simp[]>>strip_tac>>
+    gvs[]>>
+    drule check_subproofs_list_id>>
+    drule check_subproofs_list_id_upper>>
+    drule check_subproofs_list_mindel>>
+    simp[any_el_update_resize]>>
+    ntac 3 strip_tac>>
+    CONJ_TAC >- (
+      gvs[do_red_check_def,AllCaseEqs(),insert_fml_def]>>
+      TOP_CASE_TAC>>fs[]
+      >- (
+        rpt (pairarg_tac>>fs[])>>
+        (drule_at Any) split_goals_hash_imp_split_goals>>
+        disch_then (qspec_then`mk_core_fml b fml` mp_tac)>>
+        impl_tac >- (
+          simp[range_mk_core_fml]>>
+          match_mp_tac (GEN_ALL SND_reindex_characterize)>>
+          metis_tac[])>>
+        match_mp_tac split_goals_same_goals>>
+        simp[EXTENSION,FORALL_PROD]>>
+        rw[]>>eq_tac>>rw[]
         >- (
-          last_x_assum(qspec_then`id+y` assume_tac)>>
-          fs[fml_rel_def]>>
-          last_x_assum(qspec_then`id+y` assume_tac)>>
-          fs[])
-        >- (
-          `p_1 < id` by (
-            CCONTR_TAC>>fs[]>>
-            last_x_assum(qspec_then`p_1` mp_tac)>>
-            impl_tac>-fs[]>>
-            fs[fml_rel_def])>>
-          first_x_assum drule>>
+          fs[MEM_toAList,lookup_map_opt,AllCaseEqs()]>>
+          match_mp_tac (GEN_ALL MEM_subst_indexes)>>
+          gvs[lookup_mk_core_fml]>>
+          first_x_assum (irule_at Any)>>
+          `∃b'.
+            lookup p_1 fml = SOME (x',b') ∧
+            (b ⇒ b')` by (
+            gvs[lookup_core_only_def,AllCaseEqs()])>>
+          CONJ_TAC>- (
+            drule FST_reindex_characterize>>
+            simp[MEM_FILTER]>>
+            fs[fml_rel_def,ind_rel_def])>>
+          simp[rollback_def,lookup_core_only_list_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
+          rw[]
+          >- (
+            last_x_assum(qspec_then`id+y` assume_tac)>>
+            fs[fml_rel_def]>>
+            last_x_assum(qspec_then`id+y` assume_tac)>>
+            fs[])
+          >- (
+            `p_1 < id` by (
+              CCONTR_TAC>>fs[]>>
+              last_x_assum(qspec_then`p_1` mp_tac)>>
+              impl_tac>-fs[]>>
+              fs[fml_rel_def])>>
+            first_x_assum drule>>
+            qpat_x_assum`fml_rel fml _` assume_tac>>
+            drule (GSYM fml_rel_lookup_core_only)>>
+            strip_tac>>fs[]>>
+            gvs[lookup_core_only_list_def,AllCaseEqs()]>>
+            metis_tac[]))>>
+        drule subst_indexes_MEM>>
+        rw[MEM_toAList,lookup_map_opt]>>
+        drule FST_reindex_characterize>>
+        strip_tac>>gvs[]>>
+        fs[rollback_def,lookup_core_only_list_list_delete_list,MEM_MAP,MEM_COUNT_LIST,MEM_FILTER]>>
+        `p_1 < id` by (
+          CCONTR_TAC>>fs[]>>
+          last_x_assum(qspec_then`p_1` mp_tac)>>
+          impl_tac>-fs[]>>
+          metis_tac[option_CLAUSES])>>
+        simp[lookup_mk_core_fml]>>
+        `lookup_core_only b fml p_1 = SOME c'` by (
           qpat_x_assum`fml_rel fml _` assume_tac>>
           drule (GSYM fml_rel_lookup_core_only)>>
           strip_tac>>fs[]>>
-          gvs[lookup_core_only_list_def,AllCaseEqs()]>>
-          metis_tac[]))>>
-      drule subst_indexes_MEM>>
-      rw[MEM_toAList,lookup_map_opt]>>
-      drule FST_reindex_characterize>>
-      strip_tac>>gvs[]>>
-      fs[rollback_def,lookup_core_only_list_list_delete_list,MEM_MAP,MEM_COUNT_LIST,MEM_FILTER]>>
-      `p_1 < id` by (
-        CCONTR_TAC>>fs[]>>
-        last_x_assum(qspec_then`p_1` mp_tac)>>
-        impl_tac>-fs[]>>
-        metis_tac[option_CLAUSES])>>
-      simp[lookup_mk_core_fml]>>
-      `lookup_core_only b fml p_1 = SOME c'` by (
-        qpat_x_assum`fml_rel fml _` assume_tac>>
-        drule (GSYM fml_rel_lookup_core_only)>>
-        strip_tac>>fs[]>>
-        gvs[lookup_core_only_list_def,AllCaseEqs()])>>
-      fs[])>>
-    match_mp_tac (GEN_ALL fml_rel_check_contradiction_fml)>>
-    metis_tac[])>>
-  CONJ_TAC>- (
-    match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
+          gvs[lookup_core_only_list_def,AllCaseEqs()])>>
+        fs[])>>
+      match_mp_tac (GEN_ALL fml_rel_check_contradiction_fml)>>
+      metis_tac[])>>
+    CONJ_TAC>- (
+      match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
+    CONJ_TAC >- (
+      match_mp_tac ind_rel_rollback_2>>
+      simp[]>>
+      metis_tac[ind_rel_reindex])>>
+    simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST])>>
+  gvs[check_red_list_fast_def,AllCaseEqs(),check_red_def,red_fast_def,extract_clauses_def,check_subproofs_def,insert_fml_def,check_lstep_list_def]
+  >- (
+    drule fml_rel_update_resize>>
+    disch_then(qspecl_then[`id`,`(not c,b)`] assume_tac)>>
+    drule_all fml_rel_check_contradiction_fml>>
+    simp[]>>
+    strip_tac>>
+    rw[]
+    >- (
+      match_mp_tac fml_rel_rollback>>
+      simp[]>>
+      rw[any_el_update_resize])
+    >- (
+      match_mp_tac ind_rel_rollback_2>>
+      simp[any_el_update_resize])>>
+    simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST,any_el_update_resize])>>
+  `fml_rel (insert id ((not c,b)) fml)
+    (update_resize fmlls NONE (SOME (not c,b)) id)` by
+    metis_tac[fml_rel_update_resize]>>
+  drule (CONJUNCT2 fml_rel_check_lstep_list)>>
+  disch_then (drule_at Any)>>
+  impl_tac >- simp[any_el_update_resize]>>
+  strip_tac>>simp[]>>
+  drule (CONJUNCT2 check_lstep_list_id)>>
+  drule (CONJUNCT2 check_lstep_list_id_upper)>>
+  drule (CONJUNCT2 check_lstep_list_mindel)>>
+  simp[any_el_update_resize]>>
+  ntac 3 strip_tac>>
+  CONJ_TAC >- metis_tac[fml_rel_check_contradiction_fml]>>
+  CONJ_TAC >- (
+    match_mp_tac fml_rel_rollback>>
+    fs[]>>
+    rw[]>- metis_tac[]>>
+    first_x_assum drule >> simp[] )>>
   CONJ_TAC >- (
     match_mp_tac ind_rel_rollback_2>>
-    simp[]>>
-    metis_tac[ind_rel_reindex])>>
-  simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]
+    simp[])>>
+  simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST,any_el_update_resize]
 QED
 
 Theorem fml_rel_check_sstep_list:

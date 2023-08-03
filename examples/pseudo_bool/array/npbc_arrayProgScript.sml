@@ -1669,8 +1669,32 @@ val format_failure_2_def = Define`
 
 val r = translate format_failure_2_def;
 
+Theorem vec_eq_nil_thm:
+  v = Vector [] ⇔ length v = 0
+Proof
+  EVAL_TAC>>Cases_on`v`>>fs[mlvectorTheory.length_def]
+QED
+
+val r = translate (red_fast_def |> SIMP_RULE std_ss [vec_eq_nil_thm]);
+
+val check_red_arr_fast = process_topdecs`
+  fun check_red_arr_fast lno b fml inds id c pf cid =
+  let
+    val nc = not_1 c
+    val fml_not_c = Array.updateResize fml None id (Some (nc,b)) in
+     case check_lsteps_arr lno pf b fml_not_c inds id (id+1) of
+       (fml', (inds', id')) =>
+      if check_contradiction_fml_arr b fml' cid then
+        let val u = rollback_arr fml' id id' in
+          (fml', (inds, id'))
+        end
+      else raise Fail (format_failure lno ("did not derive contradiction from index:" ^ Int.toString cid))
+    end` |> append_prog;
+
 val check_red_arr = process_topdecs`
   fun check_red_arr lno ord obj b fml inds id c s pfs idopt =
+  case red_fast s idopt pfs of
+  None =>
   (case reindex_arr b fml inds of (rinds,fmlls) =>
   let
     val nc = not_1 c
@@ -1695,7 +1719,9 @@ val check_red_arr = process_topdecs`
           (fml', (rinds, id'))
         end
       else raise Fail (format_failure lno ("did not derive contradiction from index:" ^ Int.toString cid)))
-    end)` |> append_prog;
+    end)
+  | Some (pf,cid) =>
+    check_red_arr_fast lno b fml inds id c pf cid` |> append_prog;
 
 (* Overloads all the _TYPEs that we will reuse *)
 Overload "spo_TYPE" = ``PAIR_TYPE
@@ -1707,6 +1733,72 @@ Overload "ord_TYPE" = ``
 
 Overload "obj_TYPE" = ``
   OPTION_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT NUM)) INT)``
+
+Theorem check_red_arr_fast_spec:
+  NUM lno lnov ∧
+  BOOL b bv ∧
+  LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
+  (LIST_TYPE NUM) inds indsv ∧
+  NUM id idv ∧
+  constraint_TYPE c cv ∧
+  LIST_TYPE NPBC_CHECK_LSTEP_TYPE pfs pfsv ∧
+  NUM cid cidv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "check_red_arr_fast" (get_ml_prog_state()))
+    [lnov; bv; fmlv; indsv; idv;
+      cv; pfsv; cidv]
+    (ARRAY fmlv fmllsv)
+    (POSTve
+      (λv.
+        SEP_EXISTS fmlv' fmllsv'.
+        ARRAY fmlv' fmllsv' *
+        &(
+          case check_red_list_fast b fmlls inds id
+              c pfs cid of NONE => F
+          | SOME res =>
+            PAIR_TYPE (λl v.
+              LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
+              v = fmlv') (PAIR_TYPE (LIST_TYPE NUM) NUM) res v
+          ))
+      (λe.
+        SEP_EXISTS fmlv' fmllsv'.
+        ARRAY fmlv' fmllsv' *
+        & (Fail_exn e ∧
+          check_red_list_fast b fmlls inds id
+              c pfs cid = NONE)))
+Proof
+  rw[]>>
+  xcf "check_red_arr_fast" (get_ml_prog_state ())>>
+  rw[check_red_list_fast_def]>>
+  rpt xlet_autop>>
+  xlet_auto>>
+  xlet_autop>>
+  `LIST_REL (OPTION_TYPE bconstraint_TYPE)
+   (update_resize fmlls NONE (SOME (not c,b)) id)
+   (update_resize fmllsv (Conv (SOME (TypeStamp "None" 2)) [])
+           (Conv (SOME (TypeStamp "Some" 2)) [Conv NONE [v; bv]]) id)` by (
+    match_mp_tac LIST_REL_update_resize>>fs[OPTION_TYPE_def,PAIR_TYPE_def])>>
+  xlet_autop
+  >- (
+    xsimpl>>
+    metis_tac[ARRAY_refl])>>
+  pop_assum mp_tac>>
+  TOP_CASE_TAC>>
+  PairCases_on`x`>>simp[PAIR_TYPE_def]>>
+  strip_tac>>
+  xmatch>>
+  rpt xlet_autop>>
+  xif
+  >- (
+    rpt xlet_autop>>
+    xcon>>xsimpl>>
+    simp[PAIR_TYPE_def]>>
+    metis_tac[ARRAY_refl])>>
+  rpt xlet_autop>>
+  xraise>>xsimpl>>
+  metis_tac[ARRAY_refl,Fail_exn_def]
+QED
 
 Theorem check_red_arr_spec:
   NUM lno lnov ∧
@@ -1747,9 +1839,18 @@ Theorem check_red_arr_spec:
 Proof
   rw[]>>
   xcf "check_red_arr" (get_ml_prog_state ())>>
-  rw[check_red_list_def]>>
   xlet_autop>>
+  rw[check_red_list_def]>>
+  reverse (Cases_on`red_fast s idopt pfs`)
+  >- (
+    simp[]>>Cases_on`x`>>fs[OPTION_TYPE_def,PAIR_TYPE_def]>>
+    xmatch>>
+    xapp>>
+    metis_tac[])>>
+  fs[OPTION_TYPE_def]>>
+  xmatch>>
   pairarg_tac>>gs[]>>
+  xlet_autop>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
   rpt xlet_autop>>
