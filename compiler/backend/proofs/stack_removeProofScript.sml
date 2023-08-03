@@ -213,7 +213,7 @@ Theorem state_rel_const:
    state_rel jump off k s t ⇒
    t.code_buffer = s.code_buffer ∧
    t.sh_mdomain = s.sh_mdomain ∧
-   ¬t.use_stack ∧ s.use_stack ∧
+   ¬t.use_stack ∧ s.use_stack ∧ t.ffi = s.ffi ∧
    t.compile_oracle = (λn. (I ## MAP (prog_comp jump off k) ## I (*K []*)) (s.compile_oracle n)) ∧
    s.compile = (λc p. t.compile c (MAP (prog_comp jump off k) p))
 Proof
@@ -1899,16 +1899,22 @@ Proof
     \\ imp_res_tac state_rel_get_var
     \\ imp_res_tac state_rel_const
     \\ fs[get_var_def,word_exp_def,IS_SOME_EXISTS,
-         wordLangTheory.word_op_def]
+         wordLangTheory.word_op_def]>>
+    ntac 2 (FULL_CASE_TAC>>fs[])
+    \\ fs[CaseEq"bool"]
+    >- (imp_res_tac state_rel_IMP>>
+        gvs[empty_env_def,state_rel_def]>>
+        TRY (qexists_tac`0`)>>gvs[])>>
+    qexists_tac ‘0’>>gs[]>>
+    imp_res_tac state_rel_IMP
     \\ Cases_on ‘op’
     \\ fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
-          sh_mem_load_byte_def,sh_mem_store_byte_def]
-    \\ rpt (CASE_TAC>>fs[])
-    \\ FULL_CASE_TAC \\ fs[]
-    \\ rveq \\ fs[]
-    \\ TRY (qexists_tac`0`)
-    \\ fs[state_rel_def,ffiTheory.call_FFI_def] >> rpt (FULL_CASE_TAC >> fs[])
-    \\ rveq \\ gs[])
+          sh_mem_load_byte_def,sh_mem_store_byte_def,get_var_def]
+    \\ imp_res_tac state_rel_get_var >> fs[get_var_def]
+    \\ ntac 2 (TOP_CASE_TAC>>fs[]) >>TRY (ntac 2 (CASE_TAC>>fs[]))>>
+    rveq>>simp[]>>
+    fs[state_rel_def,state_component_equality,FLOOKUP_UPDATE,dec_clock_def]>>rfs[]>>
+    metis_tac[])
   THEN1 ( (* CodeBufferWrite *)
     rw[comp_def]
     \\ fs[evaluate_def]

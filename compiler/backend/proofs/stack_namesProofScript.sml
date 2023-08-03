@@ -67,30 +67,6 @@ Proof
   EVAL_TAC >> rw[] >> EVAL_TAC >> rw[]
 QED
 
-Theorem sh_mem_load_rename_state[simp]:
-  sh_mem_load x y (rename_state c f s) = sh_mem_load x y s
-Proof
-  EVAL_TAC
-QED
-
-Theorem sh_mem_store_rename_state[simp]:
-  sh_mem_store x y (rename_state c f s) = sh_mem_store x y s
-Proof
-  EVAL_TAC >> rw[] >> EVAL_TAC >> rw[]
-QED
-
-Theorem sh_mem_load_byte_rename_state[simp]:
-  sh_mem_load_byte x y (rename_state c f s) = sh_mem_load_byte x y s
-Proof
-  EVAL_TAC
-QED
-
-Theorem sh_mem_store_byte_rename_state[simp]:
-  sh_mem_store_byte x y (rename_state c f s) = sh_mem_store_byte x y s
-Proof
-  EVAL_TAC >> rw[] >> EVAL_TAC >> rw[]
-QED
-
 Theorem get_var_find_name[simp]:
    BIJ (find_name f) UNIV UNIV ==>
     get_var (find_name f v) (rename_state c f s) = get_var v s
@@ -122,6 +98,55 @@ Proof
   rw[BIJ_DEF] >>
   rw[rename_state_def] >>
   simp[FLOOKUP_MAP_KEYS_MAPPED]
+QED
+
+Theorem sh_mem_load_rename_state[simp]:
+  BIJ (find_name f) UNIV UNIV ⇒
+  sh_mem_load (find_name f x) y (rename_state c f s) =
+  (FST (sh_mem_load x y s), (rename_state c f) (SND (sh_mem_load x y s)))
+Proof
+  rw[sh_mem_load_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  gs[rename_state_def,BIJ_DEF]>>
+  dep_rewrite.DEP_REWRITE_TAC[MAP_KEYS_FUPDATE]>>
+  metis_tac[BIJ_IMP_11,INJ_DEF,IN_UNIV]
+QED
+
+Theorem sh_mem_store_rename_state[simp]:
+  BIJ (find_name f) UNIV UNIV ⇒
+  sh_mem_store (find_name f x) y (rename_state c f s) =
+  (FST (sh_mem_store x y s):'a result option, (rename_state c f) (SND (sh_mem_store x y s)))
+Proof
+  strip_tac>>
+  simp[sh_mem_store_def,ffiTheory.call_FFI_def,get_var_def]>>every_case_tac>>
+  gs[rename_state_def]
+QED
+
+Theorem sh_mem_load_byte_rename_state[simp]:
+  BIJ (find_name f) UNIV UNIV ⇒
+  sh_mem_load_byte (find_name f x) y (rename_state c f s) =
+  (FST (sh_mem_load_byte x y s), (rename_state c f) (SND (sh_mem_load_byte x y s)))
+Proof
+  rw[sh_mem_load_byte_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  gs[rename_state_def,BIJ_DEF]>>
+  dep_rewrite.DEP_REWRITE_TAC[MAP_KEYS_FUPDATE]>>
+  metis_tac[BIJ_IMP_11,INJ_DEF,IN_UNIV]
+QED
+
+Theorem sh_mem_store_byte_rename_state[simp]:
+  BIJ (find_name f) UNIV UNIV ⇒
+  sh_mem_store_byte (find_name f x) y (rename_state c f s) =
+  (FST (sh_mem_store_byte x y s), (rename_state c f) (SND (sh_mem_store_byte x y s)))
+Proof
+  simp[sh_mem_store_byte_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  gs[rename_state_def]
+QED
+
+Theorem sh_mem_op_rename_store[simp]:
+  BIJ (find_name f) UNIV UNIV ⇒
+  sh_mem_op op (find_name f r) a (rename_state c f s) =
+  (FST (sh_mem_op op r a s), (rename_state c f) (SND (sh_mem_op op r a s)))
+Proof
+  Cases_on ‘op’>>rw[sh_mem_op_def]
 QED
 
 val prog_comp_eta = Q.prove(
@@ -422,14 +447,11 @@ Proof
   (* ShMemOp *)
    simp[Once comp_def] \\
    fs[evaluate_def] \\
-   fs[word_exp_def]>>
-   TOP_CASE_TAC \\ fs[] \\
-   TOP_CASE_TAC \\ fs[] \\
-   TOP_CASE_TAC \\ fs[] \\
-   Cases_on ‘op’>>gs[sh_mem_op_def]>>
-   TOP_CASE_TAC \\ fs[] \\
-   TOP_CASE_TAC \\ fs[] \\ rw[] \\
-   EVAL_TAC)
+   fs[word_exp_def,IS_SOME_EXISTS,empty_env_def]>>
+   simp[sh_mem_op_rename_store]>>
+   rpt (CASE_TAC>>gs[])>>
+   gs[wordLangTheory.word_op_def,dec_clock_rename_state]>>
+   rveq>>gs[rename_state_def])
   THEN1 (
   (* CodeBufferWrite *)
     simp[Once comp_def] \\

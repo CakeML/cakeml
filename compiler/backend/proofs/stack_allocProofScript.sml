@@ -5737,10 +5737,16 @@ Proof
     rw[Once comp_def,evaluate_def,get_var_def] \\
     Cases_on ‘op’>>
     fs[word_exp_def,sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,IS_SOME_EXISTS,
-       wordLangTheory.word_op_def,sh_mem_load_byte_def,sh_mem_store_byte_def]>>
+       wordLangTheory.word_op_def,sh_mem_load_byte_def,sh_mem_store_byte_def,
+       get_var_def,dec_clock_def,empty_env_def]>>
     fs[case_eq_thms] \\ rw[] \\
+    TRY (qexists_tac ‘0’)>>
     imp_res_tac FLOOKUP_SUBMAP \\ gs[] \\
-    simp[state_component_equality] )
+    simp[state_component_equality]>>
+    TRY (irule SUBMAP_mono_FUPDATE>>
+         simp[GSYM SUBMAP_DOMSUB_gen]>>
+         metis_tac[SUBMAP_DOMSUB,SUBMAP_TRANS,SUBMAP_DRESTRICT_MONOTONE,
+                   SUBSET_REFL]))
   (* CodeBufferWrite *)
   \\ conj_tac >- (
     rw[Once comp_def,evaluate_def,get_var_def] \\
