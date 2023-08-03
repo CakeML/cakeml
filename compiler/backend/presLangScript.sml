@@ -325,15 +325,18 @@ Termination
 End
 
 Definition flat_to_display_dec_def:
-  flat_to_display_dec d =
+  flat_to_display_dec (d:flatLang$dec) =
     case d of
-       | Dlet exp => Item NONE (strlit "Dlet") [flat_to_display exp]
-       | Dtype mods con_arities => item_with_num (strlit "Dtype") mods
-       | Dexn n1 n2 => item_with_nums (strlit "Dexn") [n1; n2]
+       | Dlet exp => Item NONE (strlit "dlet") [flat_to_display exp]
+       | Dtype mods con_arities => item_with_num (strlit "dtype") mods
+       | Dexn n1 n2 => item_with_nums (strlit "dexn") [n1; n2]
 End
 
-Definition flat_to_display_decs_def:
-  flat_to_display_decs = list_to_display flat_to_display_dec
+(* source to displayLang *)
+
+Definition source_to_display_dec_def:
+  source_to_display_dec (d:ast$dec) =
+    empty_item (strlit "source dec")
 End
 
 (* clos to displayLang *)
@@ -363,6 +366,30 @@ Definition attach_name_def:
     | SOME name => concat [name; strlit "@"; toString d]
 End
 
+Definition const_part_to_display_def:
+  const_part_to_display (Int i : const_part) =
+    Item NONE (strlit "Int") [int_to_display i] ∧
+  const_part_to_display (Con t vs) =
+    Item NONE (strlit "Con") [num_to_display t; Tuple (MAP num_to_display vs)] ∧
+  const_part_to_display (Str s) =
+    Item NONE (strlit "Str") [String (concat [strlit "\""; s; strlit "\""])] ∧
+  const_part_to_display (W64 w) =
+    Item NONE (strlit "W64") [display_word_to_hex_string w]
+End
+
+Definition const_to_display_def:
+  const_to_display (ConstInt i : const) =
+    Item NONE (strlit "ConstInt") [int_to_display i] ∧
+  const_to_display (ConstCons t vs) =
+    Item NONE (strlit "ConstCons") [num_to_display t; Tuple (MAP const_to_display vs)] ∧
+  const_to_display (ConstStr s) =
+    Item NONE (strlit "ConstStr") [String (concat [strlit "\""; s; strlit "\""])] ∧
+  const_to_display (ConstWord64 w) =
+    Item NONE (strlit "ConstWord64") [display_word_to_hex_string w]
+Termination
+  WF_REL_TAC ‘measure const_size’
+End
+
 Definition clos_op_to_display_def:
   clos_op_to_display ns op = case op of
     | Global num => item_with_num (strlit "Global") num
@@ -371,9 +398,9 @@ Definition clos_op_to_display_def:
     | GlobalsPtr => String (strlit "GlobalsPtr")
     | SetGlobalsPtr => String (strlit "SetGlobalsPtr")
     | Cons num => item_with_num (strlit "Cons") num
-    | Constant _ => String(strlit "Constant")
+    | Constant c => Item NONE (strlit "Constant") [const_to_display c]
     | ConsExtend num => item_with_num (strlit "ConsExtend") num
-    | Build _ => String(strlit "Build")
+    | Build bs => Item NONE (strlit "Build") (MAP const_part_to_display bs)
     | El => String (strlit "El")
     | LengthBlock => String (strlit "LengthBlock")
     | Length => String (strlit "Length")
@@ -399,7 +426,7 @@ Definition clos_op_to_display_def:
     | Label num => Item NONE (strlit "Label") [String (attach_name ns (SOME num))]
     | FFI s => Item NONE (strlit "FFI") [string_imp s]
     | Equal => String (strlit "Equal")
-    | EqualConst c => Item NONE (strlit "EqualConst") [] (* TODO: fix *)
+    | EqualConst c => Item NONE (strlit "EqualConst") [const_part_to_display c]
     | Const i => Item NONE (strlit "Const") [int_to_display i]
     | Add => String (strlit "Add")
     | Sub => String (strlit "Sub")
@@ -445,65 +472,80 @@ Definition commas_def:
   commas (x::xs) = x ^ strlit "," ^ commas xs
 End
 
-(* The clos_to_display function uses the same approach to de bruijn
+(* The clos_to_display ns function uses the same approach to de bruijn
    indices as the pat_to_display function *)
 Definition clos_to_display_def:
-  (clos_to_display h (Var t n) =
+  (clos_to_display ns h (Var t n) =
     Item (SOME t) (strlit "var") [display_num_as_varn (h-n-1)]) /\
-  (clos_to_display h (If t x1 x2 x3) =
-    Item (SOME t) (strlit "if") [clos_to_display h x1; clos_to_display h x2;
-        clos_to_display h x3]) /\
-  (clos_to_display h (closLang$Let t xs x) =
-    Item (SOME t) (strlit "let")
-        [Tuple (clos_to_display_lets h (LENGTH xs - 1) xs);
-            clos_to_display (h + LENGTH xs) x]) /\
-  (clos_to_display h (Raise t x) =
-    Item (SOME t) (strlit "raise") [clos_to_display h x]) /\
-  (clos_to_display h (Tick t x) =
-    Item (SOME t) (strlit "tick") [clos_to_display h x]) /\
-  (clos_to_display h (Handle t x y) =
+  (clos_to_display ns h (If t x1 x2 x3) =
+    Item (SOME t) (strlit "if") [clos_to_display ns h x1; clos_to_display ns h x2;
+        clos_to_display ns h x3]) /\
+  (clos_to_display ns h (closLang$Let t xs x) =
+    separate_lines (strlit "let")
+        [Tuple (clos_to_display_lets ns h (LENGTH xs - 1) xs);
+            clos_to_display ns (h + LENGTH xs) x]) /\
+  (clos_to_display ns h (Raise t x) =
+    Item (SOME t) (strlit "raise") [clos_to_display ns h x]) /\
+  (clos_to_display ns h (Tick t x) =
+    Item (SOME t) (strlit "tick") [clos_to_display ns h x]) /\
+  (clos_to_display ns h (Handle t x y) =
     Item (SOME t) (strlit "handle")
-        [clos_to_display h x; display_num_as_varn h;
-            clos_to_display (h+1) y]) /\
-  (clos_to_display h (Call t ticks dest xs) =
-    Item (SOME t) (strlit "call") ([num_to_display ticks; num_to_display dest] ++
-       MAP (clos_to_display h) xs)) /\
-  (clos_to_display h (App t opt_n x xs) =
+        [clos_to_display ns h x; display_num_as_varn h;
+            clos_to_display ns (h+1) y]) /\
+  (clos_to_display ns h (Call t ticks dest xs) =
+    Item (SOME t) (strlit "call")
+      ([num_to_display ticks; String (attach_name ns (SOME dest))] ++
+       MAP (clos_to_display ns h) xs)) /\
+  (clos_to_display ns h (App t opt_n x xs) =
     Item (SOME t) (strlit "app")
         ([option_to_display num_to_display opt_n;
-          clos_to_display h x] ++ MAP (clos_to_display h) xs)) /\
-  (clos_to_display h (Fn name_hint n1 n2 vn x) =
+          clos_to_display ns h x] ++ MAP (clos_to_display ns h) xs)) /\
+  (clos_to_display ns h (Fn name_hint n1 n2 vn x) =
     Item (SOME None) (add_name_hint (strlit "fn") name_hint)
         [option_to_display num_to_display n1;
          option_to_display (list_to_display num_to_display) n2;
          list_to_display string_imp (num_to_varn_list h vn);
-         clos_to_display h x]) /\
-  (clos_to_display h (closLang$Letrec name_hint n1 n2 es e) =
+         clos_to_display ns h x]) /\
+  (clos_to_display ns h (closLang$Letrec name_hint n1 n2 es e) =
     Item (SOME None) (add_name_hint (strlit "letrec") (commas name_hint))
         [option_to_display num_to_display n1;
          option_to_display (list_to_display num_to_display) n2;
-         Tuple (clos_to_display_letrecs h (LENGTH es-1) (LENGTH es) es);
-         clos_to_display h e]) /\
-  (clos_to_display h (Op t op xs) =
+         Tuple (clos_to_display_letrecs ns h (LENGTH es-1) (LENGTH es) es);
+         clos_to_display ns h e]) /\
+  (clos_to_display ns h (Op t op xs) =
     Item (SOME t) (strlit "op") (clos_op_to_display LN op ::
-        MAP (clos_to_display h) xs)) /\
-  (clos_to_display_lets h i [] = []) /\
-  (clos_to_display_lets h i (x::xs) =
-    Tuple [display_num_as_varn (h+i); String (strlit "<-"); clos_to_display h x]
-      :: clos_to_display_lets h (i-1) xs) /\
-  (clos_to_display_letrecs h i len [] = []) /\
-  (clos_to_display_letrecs h i len ((vn,e)::es) =
+        MAP (clos_to_display ns h) xs)) /\
+  (clos_to_display_lets ns h i [] = []) /\
+  (clos_to_display_lets ns h i (x::xs) =
+    Tuple [display_num_as_varn (h+i); String (strlit "<-"); clos_to_display ns h x]
+      :: clos_to_display_lets ns h (i-1) xs) /\
+  (clos_to_display_letrecs ns h i len [] = []) /\
+  (clos_to_display_letrecs ns h i len ((vn,e)::es) =
     Tuple [display_num_as_varn (h+i);
         list_to_display string_imp (num_to_varn_list (h+len-1) vn);
-        clos_to_display (h+len+vn) e]
-    :: clos_to_display_letrecs h (i-1) len es)
+        clos_to_display ns (h+len+vn) e]
+    :: clos_to_display_letrecs ns h (i-1) len es)
 Termination
   WF_REL_TAC `measure (\x. case x of
-    | INL (_,e) => exp_size e
-    | INR (INL (_,_,es)) => exp3_size es
-    | INR (INR (_,_,_,es)) => exp1_size es)`
+    | INL (_,_,e) => exp_size e
+    | INR (INL (_,_,_,es)) => exp3_size es
+    | INR (INR (_,_,_,_,es)) => exp1_size es)`
   \\ rw [closLangTheory.exp_size_def]
   \\ imp_res_tac MEM_clos_exps_size \\ fs []
+End
+
+Definition clos_fun_to_display_def:
+  clos_fun_to_display names (n,argc,body) =
+    Tuple [String «func»;
+           String (attach_name names (SOME n));
+           Tuple (REVERSE $ GENLIST display_num_as_varn argc);
+           clos_to_display names argc body]
+End
+
+Definition clos_dec_to_display_def:
+  clos_dec_to_display names dec =
+    Tuple [String «dec»;
+           clos_to_display names 0 dec]
 End
 
 (* bvl to displayLang *)
@@ -555,6 +597,58 @@ Definition bvl_fun_to_display_def:
            String (attach_name names (SOME n));
            Tuple (REVERSE $ GENLIST display_num_as_varn argc);
            bvl_to_display names argc body]
+End
+
+(* bvi to displayLang *)
+
+Triviality MEM_bvi_exps_size:
+  !exps e. MEM e exps ==> bvi$exp_size e < exp2_size exps
+Proof
+  Induct \\ fs [bviTheory.exp_size_def] \\ rw []
+  \\ fs [bviTheory.exp_size_def] \\ res_tac \\ fs []
+QED
+
+Definition bvi_to_display_def:
+  (bvi_to_display ns h (Var n) =
+    Item NONE (strlit "var") [display_num_as_varn (h-n-1)]) /\
+  (bvi_to_display ns h (If x1 x2 x3) =
+    Item NONE (strlit "if") [bvi_to_display ns h x1; bvi_to_display ns h x2;
+        bvi_to_display ns h x3]) /\
+  (bvi_to_display ns h (bvi$Let xs x) =
+    separate_lines (strlit "let")
+        (bvi_to_display_lets ns h (LENGTH xs - 1) xs ++
+            [bvi_to_display ns (h + LENGTH xs) x])) /\
+  (bvi_to_display ns h (Raise x) =
+    Item NONE (strlit "raise") [bvi_to_display ns h x]) /\
+  (bvi_to_display ns h (Tick x) =
+    Item NONE (strlit "tick") [bvi_to_display ns h x]) /\
+  (bvi_to_display ns h (Call ticks dest xs handler) =
+    Item NONE (strlit "call")
+         (String (attach_name ns dest) ::
+          MAP (bvi_to_display ns h) xs ++
+          (case handler of
+           | NONE => []
+           | SOME e => [Item NONE (strlit "handler") [display_num_as_varn h;
+                                                      empty_item (strlit "->");
+                                                      bvi_to_display ns (h+1) e]]))) /\
+  (bvi_to_display ns h (Op op xs) =
+    Item NONE (strlit "op") (clos_op_to_display ns op ::
+                             MAP (bvi_to_display ns h) xs)) /\
+  (bvi_to_display_lets ns h i [] = []) /\
+  (bvi_to_display_lets ns h i (x::xs) =
+    Tuple [display_num_as_varn (h+i); String (strlit "<-"); bvi_to_display ns h x]
+    :: bvi_to_display_lets ns h (i-1) xs)
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of INL (ns,h,x) => exp_size x
+                                    | INR (ns,h,i,xs) => exp2_size xs’
+End
+
+Definition bvi_fun_to_display_def:
+  bvi_fun_to_display names (n,argc,body) =
+    Tuple [String «func»;
+           String (attach_name names (SOME n));
+           Tuple (REVERSE $ GENLIST display_num_as_varn argc);
+           bvi_to_display names argc body]
 End
 
 (* dataLang *)
@@ -626,28 +720,24 @@ Definition data_fun_to_display_def:
            data_prog_to_display names body]
 End
 
-val data_progs_to_display_def = Define`
-  data_progs_to_display (ps, names) = list_to_display
-    (\(n1, n2, prog). displayLang$Tuple [num_to_display n1;
-        String (getOpt (sptree$lookup n1 names) (strlit "_unmatched"));
-        num_to_display n2; data_prog_to_display names prog]) ps`;
-
 (* asm *)
 
-val asm_binop_to_display_def = Define `
+Definition asm_binop_to_display_def:
   asm_binop_to_display op = case op of
     | asm$Add => empty_item (strlit "Add")
     | Sub => empty_item (strlit "Sub")
     | And => empty_item (strlit "And")
     | Or => empty_item (strlit "Or")
-    | Xor => empty_item (strlit "Xor")`;
+    | Xor => empty_item (strlit "Xor")
+End
 
-val asm_reg_imm_to_display_def = Define `
+Definition asm_reg_imm_to_display_def:
   asm_reg_imm_to_display reg_imm = case reg_imm of
     | asm$Reg reg => item_with_num (strlit "Reg") reg
-    | Imm imm => item_with_num (strlit "Imm") (w2n imm)`;
+    | Imm imm => item_with_num (strlit "Imm") (w2n imm)
+End
 
-val asm_arith_to_display_def = Define `
+Definition asm_arith_to_display_def:
   asm_arith_to_display op = case op of
     | asm$Binop bop n1 n2 reg_imm => Item NONE (strlit "Binop")
         [asm_binop_to_display bop; num_to_display n1; num_to_display n2;
@@ -659,20 +749,23 @@ val asm_arith_to_display_def = Define `
     | LongDiv n1 n2 n3 n4 n5 => item_with_nums (strlit "LongDiv") [n1; n2; n3; n4; n5]
     | AddCarry n1 n2 n3 n4 => item_with_nums (strlit "AddCarry") [n1; n2; n3; n4]
     | AddOverflow n1 n2 n3 n4 => item_with_nums (strlit "AddOverflow") [n1; n2; n3; n4]
-    | SubOverflow n1 n2 n3 n4 => item_with_nums (strlit "SubOverflow") [n1; n2; n3; n4]`;
+    | SubOverflow n1 n2 n3 n4 => item_with_nums (strlit "SubOverflow") [n1; n2; n3; n4]
+End
 
-val asm_addr_to_display_def = Define `
+Definition asm_addr_to_display_def:
   asm_addr_to_display addr = case addr of
-    | Addr reg w => item_with_nums (strlit "Addr") [reg; w2n w]`;
+    | Addr reg w => item_with_nums (strlit "Addr") [reg; w2n w]
+End
 
-val asm_memop_to_display_def = Define `
+Definition asm_memop_to_display_def:
   asm_memop_to_display op = case op of
     | Load => empty_item (strlit "Load")
     | Load8 => empty_item (strlit "Load8")
     | Store => empty_item (strlit "Store")
-    | Store8 => empty_item (strlit "Store8")`;
+    | Store8 => empty_item (strlit "Store8")
+End
 
-val asm_cmp_to_display_def = Define`
+Definition asm_cmp_to_display_def:
   asm_cmp_to_display op = case op of
     | Equal => empty_item «Equal»
     | Lower => empty_item «Lower»
@@ -681,9 +774,10 @@ val asm_cmp_to_display_def = Define`
     | NotEqual => empty_item «NotEqual»
     | NotLower => empty_item «NotLower»
     | NotLess => empty_item «NotLess»
-    | NotTest => empty_item «NotTest»`
+    | NotTest => empty_item «NotTest»
+End
 
-val asm_fp_to_display_def = Define `
+Definition asm_fp_to_display_def:
   asm_fp_to_display op = case op of
     | FPLess n1 n2 n3 => item_with_nums (strlit "FPLess") [n1; n2; n3]
     | FPLessEqual n1 n2 n3 => item_with_nums (strlit "FPLessEqual") [n1; n2; n3]
@@ -700,18 +794,20 @@ val asm_fp_to_display_def = Define `
     | FPMovToReg n1 n2 n3 => item_with_nums (strlit "FPMovToReg") [n1; n2; n3]
     | FPMovFromReg n1 n2 n3 => item_with_nums (strlit "FPMovFromReg") [n1; n2; n3]
     | FPToInt n1 n2 => item_with_nums (strlit "FPToInt") [n1; n2]
-    | FPFromInt n1 n2 => item_with_nums (strlit "FPFromInt") [n1; n2]`;
+    | FPFromInt n1 n2 => item_with_nums (strlit "FPFromInt") [n1; n2]
+End
 
-val asm_inst_to_display_def = Define `
+Definition asm_inst_to_display_def:
   asm_inst_to_display inst = case inst of
     | asm$Skip => empty_item (strlit "Skip")
     | Const reg w => item_with_nums (strlit "Const") [reg; w2n w]
     | Arith a => Item NONE (strlit "Arith") [asm_arith_to_display a]
     | Mem mop r addr => Item NONE (strlit "Mem") [asm_memop_to_display mop;
         num_to_display r; asm_addr_to_display addr]
-    | FP fp => Item NONE (strlit "FP") [asm_fp_to_display fp]`;
+    | FP fp => Item NONE (strlit "FP") [asm_fp_to_display fp]
+End
 
-val asm_asm_to_display_def = Define `
+Definition asm_asm_to_display_def:
   asm_asm_to_display inst = case inst of
     | Inst i => asm_inst_to_display i
     | Jump w => item_with_num «Jump» (w2n w)
@@ -720,11 +816,12 @@ val asm_asm_to_display_def = Define `
        num_to_display (w2n w)]
     | Call w => item_with_num «Call» (w2n w)
     | JumpReg r => item_with_num «JumpReg>» r
-    | Loc r w => item_with_nums «Loc» [r; w2n w]`
+    | Loc r w => item_with_nums «Loc» [r; w2n w]
+End
 
 (* stackLang *)
 
-val store_name_to_display_def = Define `
+Definition store_name_to_display_def:
   store_name_to_display st = case st of
     | NextFree => empty_item «NextFree»
     | EndOfHeap => empty_item «EndOfHeap»
@@ -743,107 +840,165 @@ val store_name_to_display_def = Define `
     | CodeBufferEnd => empty_item «CodeBufferEnd»
     | BitmapBuffer => empty_item «BitmapBuffer»
     | BitmapBufferEnd => empty_item «BitmapBufferEnd»
-    | Temp n => item_with_num «Temp» (w2n n)`;
+    | Temp n => item_with_num «Temp» (w2n n)
+End
 
-val stack_prog_to_display_def = Define`
-  stack_prog_to_display prog = case prog of
-    | stackLang$Skip => empty_item «Skip»
-    | Inst i => asm_inst_to_display i
-    | Get n sn => Item NONE «Get» [num_to_display n;
-        store_name_to_display sn]
-    | Set sn n => Item NONE «Set» [store_name_to_display sn;
-        num_to_display n]
-    | OpCurrHeap b n1 n2 => Item NONE «OpCurrHeap»
-        [asm_binop_to_display b; num_to_display n1; num_to_display n2]
-    | Call rh tgt eh => Item NONE «Call»
-        [(case rh of
-            | NONE => empty_item «Tail»
-            | SOME (p,lr,l1,l2) => Item NONE «Return»
-              [num_to_display lr; num_to_display l1; num_to_display l2;
-               stack_prog_to_display p]);
+Definition stack_seqs_def:
+  stack_seqs z =
+    case z of
+    | stackLang$Seq x y => Append (stack_seqs x) (stack_seqs y)
+    | _ => List [z]
+End
+
+Triviality MEM_append_stack_seqs:
+  ∀x. MEM a (append (stack_seqs x)) ⇒ prog_size ARB a ≤ prog_size ARB x
+Proof
+  Induct \\ simp [Once stack_seqs_def,stackLangTheory.prog_size_def]
+  \\ rw [] \\ res_tac \\ gvs []
+QED
+
+Definition stack_prog_to_display_def:
+  stack_prog_to_display ns stackLang$Skip = empty_item «skip» ∧
+  stack_prog_to_display ns (Inst i) = asm_inst_to_display i ∧
+  stack_prog_to_display ns (Get n sn) =
+    Item NONE «get» [num_to_display n; store_name_to_display sn] ∧
+  stack_prog_to_display ns (Set sn n) =
+    Item NONE «set» [store_name_to_display sn;
+                     num_to_display n] ∧
+  stack_prog_to_display ns (OpCurrHeap b n1 n2) =
+    Item NONE «op_curr_heap»
+         [asm_binop_to_display b; num_to_display n1; num_to_display n2] ∧
+  stack_prog_to_display ns (Call rh tgt eh) =
+    Item NONE «call»
+         [(case rh of
+           | NONE => empty_item «tail»
+           | SOME (p,lr,l1,l2) =>
+               Item NONE «return»
+                    [num_to_display lr;
+                     String (attach_name ns (SOME l1));
+                     num_to_display l2;
+                     stack_prog_to_display ns p]);
          (case tgt of
-            | INL l => item_with_num «Direct» l
-            | INR r => item_with_num «Reg» r);
+          | INL l => item_with_num «direct» l
+          | INR r => item_with_num «reg» r);
          (case eh of
-            | NONE => empty_item «NoHandle»
-            | SOME (p,l1,l2) => Item NONE «Handle»
-              [num_to_display l1; num_to_display l2; stack_prog_to_display p])]
-    | Seq x y => Item NONE «Seq»
-        [stack_prog_to_display x; stack_prog_to_display y]
-    | If c n to x y => Item NONE «If»
+          | NONE => empty_item «no_handle»
+          | SOME (p,l1,l2) =>
+              Item NONE «handle»
+                   [num_to_display l1; num_to_display l2; stack_prog_to_display ns p])] ∧
+   stack_prog_to_display ns (Seq x y) =
+        (let xs = append (Append (stack_seqs x) (stack_seqs y)) in
+           separate_lines (strlit "seq") (MAP (stack_prog_to_display ns) xs)) ∧
+   stack_prog_to_display ns (If c n to x y) = Item NONE «if»
         [asm_cmp_to_display c; num_to_display n;
-         asm_reg_imm_to_display to; stack_prog_to_display x;
-         stack_prog_to_display y]
-    | While c n to x => Item NONE «While»
+         asm_reg_imm_to_display to; stack_prog_to_display ns x;
+         stack_prog_to_display ns y] ∧
+   stack_prog_to_display ns (While c n to x) = Item NONE «while»
         [asm_cmp_to_display c; num_to_display n;
-         asm_reg_imm_to_display to; stack_prog_to_display x]
-    | JumpLower n1 n2 n3 => item_with_nums «JumpLower» [n1; n2; n3]
-    | Alloc n => item_with_num «Alloc» n
-    | StoreConsts n1 n2 _ => item_with_nums «StoreConsts» [n1; n2]
-    | Raise n => item_with_num «Raise» n
-    | Return n1 n2 => item_with_nums «Return» [n1; n2]
-    | FFI nm cp cl ap al ra => Item NONE «FFI»
-        (string_imp nm :: MAP num_to_display [cp; cl; ap; al; ra])
-    | Tick => empty_item «Tick»
-    | LocValue n1 n2 n3 => item_with_nums «LocValue» [n1; n2; n3]
-    | Install n1 n2 n3 n4 n5 => item_with_nums «Install»
-        [n1; n2; n3; n4; n5]
-    | CodeBufferWrite n1 n2 => item_with_nums «CodeBufferWrite»
-        [n1; n2]
-    | DataBufferWrite n1 n2 => item_with_nums «DataBufferWrite»
-        [n1; n2]
-    | RawCall n => item_with_num «RawCall» n
-    | StackAlloc n => item_with_num «StackAlloc» n
-    | StackFree n => item_with_num «StackFree» n
-    | StackStore n m => item_with_nums «StackStore» [n; m]
-    | StackStoreAny n m => item_with_nums «StackStoreAny» [n; m]
-    | StackLoad n m => item_with_nums «StackLoad» [n; m]
-    | StackLoadAny n m => item_with_nums «StackLoadAny» [n; m]
-    | StackGetSize n => item_with_num «RawCall» n
-    | StackSetSize n => item_with_num «RawCall» n
-    | BitmapLoad n m => item_with_nums «BitmapLoad» [n; m]
-    | Halt n => item_with_num «Halt» n`;
+         asm_reg_imm_to_display to; stack_prog_to_display ns x] ∧
+   stack_prog_to_display ns (JumpLower n1 n2 n3) =
+     item_with_nums «jump_lower» [n1; n2; n3] ∧
+   stack_prog_to_display ns (Alloc n) = item_with_num «alloc» n ∧
+   stack_prog_to_display ns (StoreConsts n1 n2 _) = item_with_nums «store_consts» [n1; n2] ∧
+   stack_prog_to_display ns (Raise n) = item_with_num «raise» n ∧
+   stack_prog_to_display ns (Return n1 n2) = item_with_nums «return» [n1; n2] ∧
+   stack_prog_to_display ns (FFI nm cp cl ap al ra) = Item NONE «ffi»
+        (string_imp nm :: MAP num_to_display [cp; cl; ap; al; ra]) ∧
+   stack_prog_to_display ns (Tick) = empty_item «tick» ∧
+   stack_prog_to_display ns (LocValue n1 n2 n3) =
+     Item NONE «loc_value» [num_to_display n1;
+                            String (attach_name ns (SOME n2));
+                            num_to_display n3] ∧
+   stack_prog_to_display ns (Install n1 n2 n3 n4 n5) =
+     item_with_nums «install» [n1; n2; n3; n4; n5] ∧
+   stack_prog_to_display ns (CodeBufferWrite n1 n2) =
+     item_with_nums «code_buffer_write» [n1; n2] ∧
+   stack_prog_to_display ns (DataBufferWrite n1 n2) =
+     item_with_nums «data_buffer_write» [n1; n2] ∧
+   stack_prog_to_display ns (RawCall n) =
+     Item NONE «raw_call» [String (attach_name ns (SOME n))] ∧
+   stack_prog_to_display ns (StackAlloc n) = item_with_num «stack_alloc» n ∧
+   stack_prog_to_display ns (StackFree n) = item_with_num «stack_free» n ∧
+   stack_prog_to_display ns (StackStore n m) = item_with_nums «stack_store» [n; m] ∧
+   stack_prog_to_display ns (StackStoreAny n m) = item_with_nums «stack_store_any» [n; m] ∧
+   stack_prog_to_display ns (StackLoad n m) = item_with_nums «stack_load» [n; m] ∧
+   stack_prog_to_display ns (StackLoadAny n m) = item_with_nums «stack_load_any» [n; m] ∧
+   stack_prog_to_display ns (StackGetSize n) = item_with_num «stack_get_size» n ∧
+   stack_prog_to_display ns (StackSetSize n) = item_with_num «stack_set_size» n ∧
+   stack_prog_to_display ns (BitmapLoad n m) = item_with_nums «bitmap_load» [n; m] ∧
+   stack_prog_to_display ns (Halt n) = item_with_num «halt» n
+Termination
+  WF_REL_TAC ‘measure $ prog_size ARB o SND’
+  \\ gvs [append_thm] \\ rw []
+  \\ imp_res_tac MEM_append_stack_seqs \\ fs []
+End
 
-val stack_progs_to_display_def = Define`
-  stack_progs_to_display (ps,names) = list_to_display
-    (\(n1, prog). displayLang$Tuple [num_to_display n1;
-        String (getOpt (sptree$lookup n1 names) «NOT FOUND»);
-        stack_prog_to_display prog]) ps`;
+Definition stack_fun_to_display_def:
+  stack_fun_to_display names (n,body) =
+    Tuple [String «func»;
+           String (attach_name names (SOME n));
+           stack_prog_to_display names body]
+End
 
 (* labLang *)
 
-val lab_asm_to_display_def = Define`
-  lab_asm_to_display la = case la of
-    | labLang$Jump (Lab s n) => item_with_nums «Jump» [s; n]
-    | JumpCmp c r ri (Lab s n) => Item NONE «JumpCmp»
-      [asm_cmp_to_display c; num_to_display r;
-       asm_reg_imm_to_display ri; num_to_display s; num_to_display n]
-    | Call (Lab s n) => item_with_nums «Call» [s; n]
-    | LocValue r (Lab s n) => item_with_nums «LocValue» [r; s; n]
-    | CallFFI name => Item NONE «CallFFI» [string_imp name]
-    | Install => empty_item «Install»
-    | Halt => empty_item «Halt»`
+Definition lab_asm_to_display_def:
+  lab_asm_to_display ns la = case la of
+    | labLang$Jump (Lab s n) =>
+        Item NONE «jump»
+          [String (attach_name ns (SOME s)); num_to_display n]
+    | JumpCmp c r ri (Lab s n) =>
+        Item NONE «jump_cmp»
+          [Tuple [asm_cmp_to_display c; num_to_display r;
+                  asm_reg_imm_to_display ri];
+           String (attach_name ns (SOME s)); num_to_display n]
+    | Call (Lab s n) =>
+        Item NONE «call»
+          [String (attach_name ns (SOME s)); num_to_display n]
+    | LocValue r (Lab s n) =>
+        Item NONE «loc_value»
+          [num_to_display r; String (attach_name ns (SOME s)); num_to_display n]
+    | CallFFI name => Item NONE «call_FFI» [string_imp name]
+    | Install => empty_item «install»
+    | Halt => empty_item «halt»
+End
 
-val lab_line_to_display_def = Define`
-  lab_line_to_display line = case line of
-    | Label se nu le => item_with_nums «Label» [se; nu; le]
+Definition lab_line_to_display_def:
+  lab_line_to_display ns line = case line of
+    | Label s n le =>
+        Item NONE «label» [String (attach_name ns (SOME s)); num_to_display n]
     | Asm aoc enc len => (case aoc of
-      | Asmi i => Item NONE «Asm» [asm_asm_to_display i]
-      | Cbw r1 r2 => item_with_nums «Cbw» [r1; r2])
-    | LabAsm la pos enc len => lab_asm_to_display la`
+      | Asmi i => Item NONE «asm» [asm_asm_to_display i]
+      | Cbw r1 r2 => item_with_nums «cbw» [r1; r2])
+    | LabAsm la pos enc len => lab_asm_to_display ns la
+End
 
-val lab_secs_to_display_def = Define`
-  lab_secs_to_display (ss,names) = list_to_display (\sec.
-    case sec of Section n lines => displayLang$Tuple [num_to_display n;
-        String (getOpt (sptree$lookup n names) «NOT FOUND»);
-        list_to_display lab_line_to_display lines]) ss`
+Definition lab_fun_to_display_def:
+  lab_fun_to_display names (Section n lines) =
+    List (String (attach_name names (SOME n))
+           :: MAP (lab_line_to_display names) lines)
+End
 
 (* wordLang *)
 
-val MEM_word_exps_size_ARB =
-    wordLangTheory.MEM_IMP_exp_size |> Q.GEN `l` |> Q.SPEC `ARB`;
+Definition word_seqs_def:
+  word_seqs z =
+    case z of
+    | wordLang$Seq x y => Append (word_seqs x) (word_seqs y)
+    | _ => List [z]
+End
 
-val word_exp_to_display_def = tDefine "word_exp_to_display" `
+Triviality MEM_append_word_seqs:
+  ∀x. MEM a (append (word_seqs x)) ⇒ prog_size ARB a ≤ prog_size ARB x
+Proof
+  Induct \\ simp [Once word_seqs_def,wordLangTheory.prog_size_def]
+  \\ rw [] \\ res_tac \\ gvs []
+QED
+
+Triviality MEM_word_exps_size_ARB =
+  wordLangTheory.MEM_IMP_exp_size |> Q.GEN `l` |> Q.SPEC `ARB`;
+
+Definition word_exp_to_display_def:
   (word_exp_to_display (wordLang$Const v)
     = item_with_num (strlit "Const") (w2n v)) /\
   (word_exp_to_display (Var n)
@@ -860,159 +1015,126 @@ val word_exp_to_display_def = tDefine "word_exp_to_display" `
       shift_to_display sh;
       word_exp_to_display exp;
       num_to_display num
-    ])`
- (WF_REL_TAC `measure (wordLang$exp_size ARB)`
+    ])
+Termination
+  WF_REL_TAC `measure (wordLang$exp_size ARB)`
   \\ rw []
   \\ imp_res_tac MEM_word_exps_size_ARB
   \\ rw []
- );
+End
 
-val word_prog_to_display_def = tDefine "word_prog_to_display" `
-  (word_prog_to_display Skip = empty_item (strlit "Skip")) /\
-  (word_prog_to_display (Move n mvs) = Item NONE (strlit "Move")
+Definition word_prog_to_display_def:
+  (word_prog_to_display ns Skip = empty_item (strlit "skip")) /\
+  (word_prog_to_display ns (Move n mvs) = Item NONE (strlit "move")
     [num_to_display n; displayLang$Tuple (MAP (\(n1, n2). Tuple
         [num_to_display n1; num_to_display n2]) mvs)]) /\
-  (word_prog_to_display (Inst i) = empty_item (strlit "Inst")) /\
-  (word_prog_to_display (Assign n exp) = Item NONE (strlit "Assign")
-    [num_to_display n; word_exp_to_display exp]) /\
-  (word_prog_to_display (Get n sn) = Item NONE (strlit "Get")
+  (word_prog_to_display ns (Inst i) =
+    Item NONE (strlit "inst") [asm_inst_to_display i]) /\
+  (word_prog_to_display ns (Assign n exp) =
+     Item NONE (strlit "assign")
+          [num_to_display n; word_exp_to_display exp]) /\
+  (word_prog_to_display ns (Get n sn) = Item NONE (strlit "get")
     [num_to_display n; store_name_to_display sn]) /\
-  (word_prog_to_display (Set sn exp) = Item NONE (strlit "Set")
+  (word_prog_to_display ns (Set sn exp) = Item NONE (strlit "set")
     [store_name_to_display sn; word_exp_to_display exp]) /\
-  (word_prog_to_display (Store exp n) = Item NONE (strlit "Store")
+  (word_prog_to_display ns (Store exp n) = Item NONE (strlit "store")
     [word_exp_to_display exp; num_to_display n]) /\
-  (word_prog_to_display (MustTerminate prog) = Item NONE (strlit "MustTerminate")
-    [word_prog_to_display prog]) /\
-  (word_prog_to_display (Call a b c d) = Item NONE (strlit "Call")
-    [word_prog_to_display_ret a; option_to_display num_to_display b;
-        list_to_display num_to_display c;
-        word_prog_to_display_handler d]) /\
-  (word_prog_to_display (OpCurrHeap b n1 n2) = Item NONE «OpCurrHeap»
+  (word_prog_to_display ns (MustTerminate prog) = Item NONE (strlit "must_terminate")
+    [word_prog_to_display ns prog]) /\
+  (word_prog_to_display ns (Call a b c d) = Item NONE (strlit "call")
+    [word_prog_to_display_ret ns a;
+     option_to_display (λn. String (attach_name ns (SOME n))) b;
+     list_to_display num_to_display c;
+     word_prog_to_display_handler ns d]) /\
+  (word_prog_to_display ns (OpCurrHeap b n1 n2) = Item NONE «op_curr_heap»
     [asm_binop_to_display b; num_to_display n1; num_to_display n2]) /\
-  (word_prog_to_display (Seq prog1 prog2) = Item NONE (strlit "Seq")
-    [word_prog_to_display prog1; word_prog_to_display prog2]) /\
-  (word_prog_to_display (If cmp n reg p1 p2) = Item NONE (strlit "If")
-    [word_prog_to_display p1; word_prog_to_display p2]) /\
-  (word_prog_to_display (Alloc n ns) = Item NONE (strlit "Alloc")
-    [num_to_display n; num_set_to_display ns]) /\
-  (word_prog_to_display (StoreConsts a b c d ws) = Item NONE (strlit "StoreConsts")
+  (word_prog_to_display ns (Seq prog1 prog2) =
+    (let xs = append (Append (word_seqs prog1) (word_seqs prog2)) in
+       separate_lines (strlit "seq") (MAP (word_prog_to_display ns) xs))) /\
+  (word_prog_to_display ns (If cmp n reg p1 p2) = Item NONE (strlit "if")
+    [word_prog_to_display ns p1; word_prog_to_display ns p2]) /\
+  (word_prog_to_display ns (Alloc n ms) = Item NONE (strlit "alloc")
+    [num_to_display n; num_set_to_display ms]) /\
+  (word_prog_to_display ns (StoreConsts a b c d ws) = Item NONE (strlit "store_consts")
     [num_to_display a; num_to_display b; num_to_display c; num_to_display d] (* TODO: include ws *)) /\
-  (word_prog_to_display (Raise n) = item_with_num (strlit "Raise") n) /\
-  (word_prog_to_display (Return n1 n2) = item_with_nums (strlit "Return") [n1; n2]) /\
-  (word_prog_to_display Tick = empty_item (strlit "Tick")) /\
-  (word_prog_to_display (LocValue n1 n2) =
-    item_with_nums (strlit "LocValue") [n1; n2]) /\
-  (word_prog_to_display (Install n1 n2 n3 n4 ns) =
-    Item NONE (strlit "Install") (MAP num_to_display [n1; n2; n3; n4]
-        ++ [num_set_to_display ns])) /\
-  (word_prog_to_display (CodeBufferWrite n1 n2) =
-    item_with_nums (strlit "CodeBufferWrite") [n1; n2]) /\
-  (word_prog_to_display (DataBufferWrite n1 n2) =
-    item_with_nums (strlit "DataBufferWrite") [n1; n2]) /\
-  (word_prog_to_display (FFI nm n1 n2 n3 n4 ns) =
-    Item NONE (strlit "FFI") (string_imp nm :: MAP num_to_display [n1; n2; n3; n4]
-        ++ [num_set_to_display ns])) /\
-  (word_prog_to_display_ret NONE = empty_item (strlit "none")) /\
-  (word_prog_to_display_ret (SOME (n1, ns, prog, n2, n3)) =
-    Item NONE (strlit "some") [Tuple [num_to_display n1; num_set_to_display ns;
-        word_prog_to_display prog; num_to_display n2; num_to_display n3]]) /\
-  (word_prog_to_display_handler NONE = empty_item (strlit "none")) /\
-  (word_prog_to_display_handler (SOME (n1, prog, n2, n3)) =
+  (word_prog_to_display ns (Raise n) = item_with_num (strlit "raise") n) /\
+  (word_prog_to_display ns (Return n1 n2) = item_with_nums (strlit "return") [n1; n2]) /\
+  (word_prog_to_display ns Tick = empty_item (strlit "tick")) /\
+  (word_prog_to_display ns (LocValue n1 n2) =
+    Item NONE (strlit "loc_value") [String (attach_name ns (SOME n1)); num_to_display n2]) /\
+  (word_prog_to_display ns (Install n1 n2 n3 n4 ms) =
+    Item NONE (strlit "install") (MAP num_to_display [n1; n2; n3; n4]
+        ++ [num_set_to_display ms])) /\
+  (word_prog_to_display ns (CodeBufferWrite n1 n2) =
+    item_with_nums (strlit "code_buffer_write") [n1; n2]) /\
+  (word_prog_to_display ns (DataBufferWrite n1 n2) =
+    item_with_nums (strlit "data_buffer_write") [n1; n2]) /\
+  (word_prog_to_display ns (FFI nm n1 n2 n3 n4 ms) =
+    Item NONE (strlit "ffi") (string_imp nm :: MAP num_to_display [n1; n2; n3; n4]
+        ++ [num_set_to_display ms])) /\
+  (word_prog_to_display_ret ns NONE = empty_item (strlit "none")) /\
+  (word_prog_to_display_ret ns (SOME (n1, ms, prog, n2, n3)) =
+    Item NONE (strlit "some") [Tuple [num_to_display n1; num_set_to_display ms;
+        word_prog_to_display ns prog; num_to_display n2; num_to_display n3]]) /\
+  (word_prog_to_display_handler ns NONE = empty_item (strlit "none")) /\
+  (word_prog_to_display_handler ns (SOME (n1, prog, n2, n3)) =
     Item NONE (strlit "some") [Tuple [num_to_display n1;
-        word_prog_to_display prog; num_to_display n2; num_to_display n3]])
-`
-  (WF_REL_TAC `measure (\x. case x of
-        | INL p => wordLang$prog_size ARB p
-        | INR (INL v) => wordLang$prog1_size ARB v
-        | INR (INR v) => wordLang$prog3_size ARB v)`
-    \\ rw []
-  )
-;
+        word_prog_to_display ns prog; num_to_display n2; num_to_display n3]])
+Termination
+  WF_REL_TAC `measure (\x. case x of
+        | INL (_,p) => wordLang$prog_size ARB p
+        | INR (INL (_,v)) => wordLang$prog1_size ARB v
+        | INR (INR (_,v)) => wordLang$prog3_size ARB v)`
+  \\ rw [] \\ imp_res_tac MEM_append_word_seqs \\ rw []
+End
 
-val word_progs_to_display_def = Define`
-  word_progs_to_display (ps,names) = list_to_display
-    (\(n1, n2, prog). displayLang$Tuple [num_to_display n1;
-        String (getOpt (sptree$lookup n1 names) (strlit "NOT FOUND"));
-        num_to_display n2; word_prog_to_display prog]) ps`;
+Definition word_fun_to_display_def:
+  word_fun_to_display names (n,argc,body) =
+    Tuple [String «func»;
+           String (attach_name names (SOME n));
+           Tuple (GENLIST num_to_display argc);
+           word_prog_to_display names body]
+End
 
-(* Function to construct general functions from a language to JSON. Call with
-* the name of the language and what function to use to convert it to
-* displayLang to obtain a wrapper function which exports JSON. *)
-val lang_to_json_def = Define`
-  lang_to_json langN func =
-    \ p . Object [
-      (strlit "lang", String langN);
-      (strlit "prog", display_to_json (func p))]`;
+(* tap configuration *)
 
-(* tap configuration. which bits of compilation should we save?
-   top-level code for assembling the tapped data. *)
+Datatype:
+  tap_config = <| explore_flag : bool |>
+End
 
-val () = Datatype `
-  tap_config = Tap_Config
-    (* save filename prefix *) mlstring
-    (* bits which should be saved. the boolean indicates
-       the presence of a '*' suffix, and matches all suffixes *)
-    ((mlstring # bool) list)`;
-
-val mk_tap_star = Define `
-  mk_tap_star str = if isSuffix (strlit "*") str
-    then (substring str 0 (strlen str - 1), T)
-    else (str, F)`;
-
-val mk_tap_config = Define `
-  mk_tap_config fname taps = Tap_Config (case fname of
-    | NONE => (strlit "default.tap") | SOME s => s) (MAP mk_tap_star taps)`;
-
-val default_tap_config = Define `
-  default_tap_config = mk_tap_config NONE []`;
-
-val should_tap_def = Define `
-  should_tap (conf : tap_config) nm = case conf of
-    | Tap_Config _ taps => EXISTS (\(s, star). if star then
-        isPrefix s nm else s = nm) taps`;
-
-val tap_name_def = Define `
-  tap_name (conf : tap_config) nm = case conf of
-    | Tap_Config fname _ => concat [fname; strlit "."; nm]`;
-
-val () = Datatype `
-  tap_data = Tap_Data mlstring (unit -> jsonLang$obj)`;
-
-val add_tap_def = Define `
-  add_tap conf nm (to_display : 'a -> displayLang$sExp) (v : 'a) tds
-    = if should_tap conf nm
-    then Tap_Data (tap_name conf nm)
-            (\_. lang_to_json nm to_display v) :: tds
-    else tds`;
-
-val tap_data_mlstrings_def = Define `
-  tap_data_mlstrings td = case td of
-    | Tap_Data nm json_f => (nm, json_to_mlstring (json_f ()))`;
-
-val tap_flat_def = Define `
-  tap_flat conf v = add_tap conf (strlit "flat") flat_to_display_decs v`;
-
-val tap_clos_def = Define`
-  tap_clos conf v = add_tap conf (strlit "clos")
-    (list_to_display (clos_to_display 0)) v`;
-
-val tap_data_lang_def = Define `
-  tap_data_lang conf v = add_tap conf (strlit "data") data_progs_to_display v`;
-
-val tap_word_def = Define `
-  tap_word conf v = add_tap conf (strlit "word") word_progs_to_display v`;
-
-val tap_stack_def = Define `
-  tap_stack conf v = add_tap conf (strlit "stack") stack_progs_to_display v`;
-
-val tap_lab_def = Define `
-  tap_lab conf v = add_tap conf (strlit "lab") lab_secs_to_display v`;
+Definition default_tap_config_def:
+  default_tap_config = <| explore_flag := F |>
+End
 
 (* ------------------------- *)
 
 Definition map_to_append_def:
   map_to_append f [] = Nil ∧
   map_to_append f (x::xs) = Append (List (f x)) (map_to_append f xs)
+End
+
+Definition source_to_strs_def:
+  source_to_strs decs =
+    map_to_append (v2strs (strlit "\n\n") o
+                   display_to_str_tree o
+                   source_to_display_dec) decs
+End
+
+Definition flat_to_strs_def:
+  flat_to_strs (decs:flatLang$dec list) =
+    map_to_append (v2strs (strlit "\n\n") o
+                   display_to_str_tree o
+                   flat_to_display_dec) decs
+End
+
+Definition clos_to_strs_def:
+  clos_to_strs names (decs,funs) =
+    Append (map_to_append (v2strs (strlit "\n\n") o
+                           display_to_str_tree o
+                           clos_dec_to_display names) funs)
+           (map_to_append (v2strs (strlit "\n\n") o
+                           display_to_str_tree o
+                           clos_fun_to_display names) decs)
 End
 
 Definition bvl_to_strs_def:
@@ -1029,6 +1151,23 @@ val bvl_test =
               $ Op Add [Var 0; Var 1; Var 2; Var 3]);
       (60,2,Let [Var 0; Var 1]
               $ Call 0 (SOME 50) [Var 2; Var 0])]”
+  |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
+  |> (fn t => (print "\n\n"; print t; print "\n"))
+
+Definition bvi_to_strs_def:
+  bvi_to_strs names xs =
+    map_to_append (v2strs (strlit "\n\n") o
+                   display_to_str_tree o
+                   bvi_fun_to_display names) xs
+End
+
+val bvi_test =
+  “concat $ append $ bvi_to_strs
+     (insert 50 (strlit "foo") (insert 60 (strlit "bar") LN))
+     [(50,2,Let [Var 0]
+              $ Op Add [Var 0; Var 1; Var 2; Var 3]);
+      (60,2,Let [Var 0; Var 1]
+              $ Call 0 (SOME 50) [Var 2; Var 0] (SOME (Var 0)))]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"))
 
@@ -1049,6 +1188,37 @@ val data_test =
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"))
 
+Definition word_to_strs_def:
+  word_to_strs names xs =
+    map_to_append (v2strs (strlit "\n\n") o
+                   display_to_str_tree o
+                   word_fun_to_display names) xs
+End
+
+Definition stack_to_strs_def:
+  stack_to_strs names xs =
+    map_to_append (v2strs (strlit "\n\n") o
+                   display_to_str_tree o
+                   stack_fun_to_display names) xs
+End
+
+Definition lab_to_strs_def:
+  lab_to_strs names xs =
+    map_to_append (v2strs (strlit "\n\n") o
+                   display_to_str_tree o
+                   lab_fun_to_display names) xs
+End
+
+val lab_test =
+  “concat $ append $ lab_to_strs
+     (insert 50 (strlit "foo") (insert 60 (strlit "bar") LN))
+     [Section 50 [Label 50 1 0;
+                  Asm (Asmi (Inst (Const 5 (70w:word32)))) [] 0;
+                  Label 50 2 0];
+      Section 60 [Label 50 5 0]]”
+  |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
+  |> (fn t => (print "\n\n"; print t; print "\n"))
+
 (*
 
 val names_tm = “(insert 50 (strlit "foo") (insert 60 (strlit "bar") LN))”
@@ -1060,6 +1230,16 @@ val data_prog_tm =
       (60n,2n,Skip)]”
 
 val _ = data_to_strs data_prog_tm names_tm |> print_strs
+
+*)
+
+(*
+
+TODO:
+ - do source pp
+ - get names in closLang
+ clos_to_bvlTheory.get_src_names_def
+ clos_to_bvlTheory.add_src_names_def
 
 *)
 

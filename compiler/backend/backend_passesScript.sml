@@ -3,7 +3,7 @@
   compiler pass
 *)
 
-open preamble backendTheory
+open preamble backendTheory presLangTheory
 
 val _ = new_theory"backend_passes";
 
@@ -322,6 +322,41 @@ Proof
   \\ fs [to_bvl_all_def] \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [to_clos_all_def] \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [to_flat_all_def] \\ rpt (pairarg_tac \\ gvs [])
+QED
+
+Definition any_prog_pp_def:
+  any_prog_pp p = case p of
+    | Source p => source_to_strs p
+    | Flat p => flat_to_strs p
+    | Clos decs funs => clos_to_strs LN (funs,decs)
+    | Bvl p names => bvl_to_strs names p
+    | Bvi p names => bvi_to_strs names p
+    | Data p names => data_to_strs names p
+    | Word p names => word_to_strs names p
+    | Stack p names => stack_to_strs names p
+    | Lab p names => lab_to_strs names p
+End
+
+Definition any_prog_pp_with_title_def:
+  any_prog_pp_with_title (title,p) acc =
+    Append (List [strlit "# "; title; strlit "\n\n"]) $
+    Append (any_prog_pp p) acc
+End
+
+Definition compile_tap_def:
+  compile_tap (c:'a config) p =
+    if c.tap_conf.explore_flag then
+      let (ps,out) = to_target_all c p in
+        (out, FOLDR any_prog_pp_with_title Nil ps)
+    else (compile c p, Nil)
+End
+
+Theorem compile_alt:
+  compile c p = FST (compile_tap c p)
+Proof
+  rw [compile_tap_def]
+  \\ mp_tac compile_eq_to_target_all
+  \\ pairarg_tac \\ gvs []
 QED
 
 val _ = export_theory();
