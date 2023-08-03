@@ -159,8 +159,6 @@ Proof
     \\ qexists_tac`2 ** dimindex(:'a)`
     \\ simp[X_LT_EXP_X] )
   \\ simp[words_of_bytes_def]
-  \\ conj_tac
-  >- ( DEP_REWRITE_TAC[ZERO_DIV] \\ fs[] )
   \\ rw[ADD1]
   \\ `MAX 1 (w2n (bytes_in_word:'a word)) = w2n (bytes_in_word:'a word)`
       by rw[MAX_DEF]

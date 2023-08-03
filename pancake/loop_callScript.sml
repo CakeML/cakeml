@@ -50,6 +50,28 @@ Definition comp_def:
   (comp l Tick = (Tick, LN)) /\
   (comp l (Raise n) = (Raise n, LN)) /\
   (comp l (Return n) = (Return n, LN)) /\
+  (comp l (Arith arith) =
+   (Arith arith,
+    case arith of
+      LLongMul r1 r2 r3 r4 =>
+        (case (lookup r1 l, lookup r2 l) of
+           (NONE, NONE) => l
+         | (SOME _ , NONE) => delete r1 l
+         | (NONE, SOME loc) => delete r2 l
+         | _ => delete r1 $ delete r2 l
+        )
+    | LLongDiv r1 r2 r3 r4 r5 =>
+        (case (lookup r1 l, lookup r2 l) of
+           (NONE, NONE) => l
+         | (SOME _ , NONE) => delete r1 l
+         | (NONE, SOME loc) => delete r2 l
+         | _ => delete r1 $ delete r2 l
+        )
+    | LDiv r1 r2 r3 =>
+        (case lookup r1 l of
+           NONE => l
+         | _ => delete r1 l)
+    | _ => l)) ∧
   (comp l p = (p, l))
 End
 

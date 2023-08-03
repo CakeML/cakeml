@@ -526,7 +526,7 @@ val rules = SIMP_CONV (bool_ss ++ ty2frag ``:(α,β,γ,δ)peg``)
 
 val _ = print "Calculating application of cmlPEG rules\n"
 val cmlpeg_rules_applied = let
-  val app0 = finite_mapSyntax.fapply_t
+  val app0 = finite_mapSyntax.fapply_tm
   val theta =
       Type.match_type (type_of app0 |> dom_rng |> #1) (type_of rules_t)
   val app = inst theta app0

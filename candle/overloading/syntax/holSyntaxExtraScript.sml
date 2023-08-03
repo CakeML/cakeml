@@ -6865,7 +6865,7 @@ Proof
   `!l ty1 ty2. equal_upto l ty1 ty2 ==> l = [] ==> ty1 = ty2`
     suffices_by metis_tac[]
   \\ ho_match_mp_tac equal_upto_ind \\  fs[]
-  \\ CONV_TAC(DEPTH_CONV ETA_CONV) \\ fs[quotient_listTheory.LIST_REL_EQ]
+  \\ CONV_TAC(DEPTH_CONV ETA_CONV) \\ fs[]
 
 QED
 

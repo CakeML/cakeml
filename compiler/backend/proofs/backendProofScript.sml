@@ -485,8 +485,8 @@ Proof
   simp [keep_progs_def, FUN_EQ_THM]
 QED
 
-Triviality compile_inc_progs_defs = LIST_CONJ
-  [compile_inc_progs_def, keep_progs_T, quotient_pairTheory.PAIR_MAP_I]
+Triviality compile_inc_progs_defs =
+  LIST_CONJ [compile_inc_progs_def, keep_progs_T]
 
 Theorem cake_orac_eqs:
   state_co (\c (env_id, decs). inc_compile env_id c

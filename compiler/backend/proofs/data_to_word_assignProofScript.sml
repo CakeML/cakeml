@@ -2692,14 +2692,7 @@ Proof
       strip_tac >> spose_not_then strip_assume_tac >>
       fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
          memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
-      rveq >> rfs[]
-      >- (`2 <= 62 - c.len_size` by simp[] >>
-          dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
-          fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
-          pop_assum(qspec_then `p` assume_tac) >>
-          Cases_on `2 ** p` >> fs[]) >>
-      Cases_on `c.len_size` >> fs[EXP] >>
-      Cases_on `2 ** n` >> fs[])
+      rveq >> rfs[])
   THEN1
    (assume_tac (GEN_ALL evaluate_WriteWord64_on_32)
     \\ SEP_I_TAC "evaluate"
@@ -4738,15 +4731,7 @@ Proof
        strip_tac >> spose_not_then strip_assume_tac >>
        fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
           memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
-       rveq >> rfs[]
-       >- (`2 <= 62 - c.len_size` by simp[] >>
-           dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
-           fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
-           pop_assum(qspec_then `p` assume_tac) >>
-           Cases_on `2 ** p` >> fs[])
-       >- (Cases_on `c.len_size` >> fs[EXP] >>
-           Cases_on `2 ** n` >> fs[])
-      )
+       rveq >> rfs[])
   \\ `dimindex (:'a) = 64` by fs [good_dimindex_def] \\ simp []
   \\ simp[list_Seq_def]
   \\ simp[Once wordSemTheory.evaluate_def]
@@ -6020,23 +6005,7 @@ Proof
      strip_tac >> spose_not_then strip_assume_tac >>
      fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
         memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
-     rveq >> rfs[]
-     >- (`2 <= 30 - c.len_size` by simp[] >>
-         dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
-         fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
-         pop_assum(qspec_then `p` assume_tac) >>
-         Cases_on `2 ** p` >> fs[])
-     >- (Cases_on `c.len_size` >> fs[EXP] >> fs[ADD1] >>
-         `2 ** n <= 2 ** 0` by(PURE_REWRITE_TAC[EXP] >> first_assum ACCEPT_TAC) >>
-         fs[])
-     >- (`2 <= 62 - c.len_size` by simp[] >>
-         dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
-         fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
-         pop_assum(qspec_then `p` assume_tac) >>
-         Cases_on `2 ** p` >> fs[])
-     >- (Cases_on `c.len_size` >> fs[EXP] >>
-         Cases_on `2 ** n` >> fs[])
-    )
+     rveq >> rfs[])
   \\ reverse BasicProvers.TOP_CASE_TAC >- (
     simp[Once wordSemTheory.evaluate_def]
     \\ simp[Once wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def]
@@ -10192,13 +10161,7 @@ Proof
       strip_tac >> spose_not_then strip_assume_tac >>
       fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
          memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
-      rveq >> rfs[]
-      >- (`2 <= 30 - c.len_size` by simp[] >>
-          dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
-          fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
-          pop_assum(qspec_then `p` assume_tac) >>
-          Cases_on `2 ** p` >> fs[])
-     )
+      rveq >> rfs[])
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
   \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -10617,23 +10580,7 @@ Proof
      strip_tac >> spose_not_then strip_assume_tac >>
      fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
         memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
-     rveq >> rfs[]
-     >- (`2 <= 30 - c.len_size` by simp[] >>
-         dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
-         fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
-         pop_assum(qspec_then `p` assume_tac) >>
-         Cases_on `2 ** p` >> fs[])
-     >- (Cases_on `c.len_size` >> fs[EXP] >> fs[ADD1] >>
-         `2 ** n <= 2 ** 0` by (PURE_REWRITE_TAC[EXP] >> first_assum ACCEPT_TAC) >>
-         fs[])
-     >- (`2 <= 62 - c.len_size` by simp[] >>
-         dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
-         fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
-         pop_assum(qspec_then `p` assume_tac) >>
-         Cases_on `2 ** p` >> fs[])
-     >- (Cases_on `c.len_size` >> fs[EXP] >> fs[ADD1] >>
-         Cases_on `2 ** n` >> fs[])
-    )
+     rveq >> rfs[])
   \\ TOP_CASE_TAC \\ fs[]
   THEN1 (* dimindex (:'a) = 64 *)
    (`dimindex (:'a) = 64` by fs [state_rel_def,good_dimindex_def]
@@ -10953,15 +10900,7 @@ Proof
         rpt(PRED_ASSUM is_forall kall_tac) >>
         fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
          memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
-        rveq >> rfs[]
-        >- (`2 <= 62 - c.len_size` by simp[] >>
-            dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
-            fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
-            pop_assum(qspec_then `p` assume_tac) >>
-            Cases_on `2 ** p` >> fs[]) >>
-        Cases_on `c.len_size` >> fs[EXP] >>
-        Cases_on `2 ** n` >> fs[]
-       )
+        rveq >> rfs[])
     \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
     \\ rpt_drule0 get_var_get_real_addr_lemma
@@ -11010,13 +10949,6 @@ Proof
      fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
         memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
      rveq >> rfs[]
-     >- (`2 <= 30 - c.len_size` by simp[] >>
-         dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
-         fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
-         pop_assum(qspec_then `p` assume_tac) >>
-         Cases_on `2 ** p` >> fs[]) >>
-     Cases_on `c.len_size` >> fs[EXP] >>
-     Cases_on `2 ** n` >> fs[]
     )
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
@@ -11114,13 +11046,6 @@ Proof
        fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
          memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
        rveq >> rfs[]
-       >- (`2 <= 62 - c.len_size` by simp[] >>
-           dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
-           fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
-           pop_assum(qspec_then `p` assume_tac) >>
-           Cases_on `2 ** p` >> fs[]) >>
-       Cases_on `c.len_size` >> fs[EXP] >>
-       Cases_on `2 ** n` >> fs[]
       )
     \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -11164,13 +11089,6 @@ Proof
      fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
         memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
      rveq >> rfs[]
-     >- (`2 <= 30 - c.len_size` by simp[] >>
-         dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
-         fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
-         pop_assum(qspec_then `p` assume_tac) >>
-         Cases_on `2 ** p` >> fs[]) >>
-     Cases_on `c.len_size` >> fs[EXP] >>
-     Cases_on `2 ** n` >> fs[]
     )
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
@@ -11256,13 +11174,7 @@ Proof
         fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
           memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
         rveq >> rfs[]
-        >- (`2 <= 62 - c.len_size` by simp[] >>
-          dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
-          fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
-          pop_assum(qspec_then `p` assume_tac) >>
-          Cases_on `2 ** p` >> fs[]) >>
-        Cases_on `c.len_size` >> fs[EXP] >>
-        Cases_on `2 ** n` >> fs[])
+       )
     \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
     \\ rpt_drule0 get_var_get_real_addr_lemma
@@ -11298,13 +11210,6 @@ Proof
      fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
         memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
      rveq >> rfs[]
-     >- (`2 <= 30 - c.len_size` by simp[] >>
-         dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
-         fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
-         pop_assum(qspec_then `p` assume_tac) >>
-         Cases_on `2 ** p` >> fs[]) >>
-     Cases_on `c.len_size` >> fs[EXP] >>
-     Cases_on `2 ** n` >> fs[]
     )
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
@@ -13682,7 +13587,10 @@ QED
 
 Theorem assign_Build:
    (∃parts. op = Build parts) ==> ^assign_thm_goal
-Proof
+Proof[exclude_simps = EXP_LE_LOG_SIMP EXP_LT_LOG_SIMP LE_EXP_LOG_SIMP
+                      LT_EXP_LOG_SIMP LOG_NUMERAL EXP_LT_1
+                      ONE_LE_EXP TWO_LE_EXP
+]
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
