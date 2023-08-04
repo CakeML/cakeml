@@ -58,15 +58,6 @@ Definition eval_to_def:
                 is_valid_mapped_read (mc.target.get_pc ms) nb a reg pc'
                   mc.target ms mc.prog_addresses
               then
-                (* (case call_FFI ffi (EL ffi_index mc.ffi_names)
-                  [nb]
-                  (addr2w8list ad) of
-                 | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
-                 | FFI_return new_ffi new_bytes =>
-                    let (ms1,new_oracle) = apply_oracle mc.ffi_interfer
-                      (ffi_index,new_bytes,ms) in
-                    let mc1 = mc with ffi_interfer := new_oracle in
-                      eval_to (k - 1:num) mc1 ms1) *)
                 let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
                   Vis' ("MappedRead",[nb],addr2w8list ad)
                     (\new_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms)))
@@ -80,16 +71,6 @@ Definition eval_to_def:
                 is_valid_mapped_write (mc.target.get_pc ms) nb a reg pc'
                   mc.target ms mc.prog_addresses
               then
-                (* (case call_FFI ffi (EL ffi_index mc.ffi_names)
-                  [nb]
-                  (w2wlist_le (mc.target.get_reg ms reg) (w2n nb)
-                    ++ (addr2w8list ad)) of
-                 | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
-                 | FFI_return new_ffi new_bytes =>
-                    let (ms1,new_oracle) = apply_oracle mc.ffi_interfer
-                      (ffi_index,new_bytes,ms) in
-                    let mc1 = mc with ffi_interfer := new_oracle in
-                      eval_to (k - 1:num) mc1 ms1) *)
                 let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
                   Vis'
                     ("MappedWrite",[nb],
