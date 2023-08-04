@@ -451,10 +451,11 @@ Proof
     pop_assum mp_tac >> simp[Once eval_to'_def, Once evaluate'_def] >>
     IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[]
     >- (IF_CASES_TAC >> gvs[] >> pairarg_tac >> gvs[] >> IF_CASES_TAC >> gvs[])
-    >- (
+    >> (
       IF_CASES_TAC >> gvs[] >- rw[] >>
       IF_CASES_TAC >> gvs[] >- (pairarg_tac >> gvs[]) >>
-      ntac 5 (TOP_CASE_TAC >> gvs[]) >>
+      ntac 2 (TOP_CASE_TAC >> gvs[]) >>
+      pairarg_tac >> gvs[AllCaseEqs()] >>
       strip_tac >> gvs[call_FFI_def, apply_oracle_def]
       )
     )
@@ -464,17 +465,19 @@ Proof
     pop_assum mp_tac >> simp[Once eval_to'_def, Once evaluate'_def] >>
     IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[]
     >- (IF_CASES_TAC >> gvs[] >> pairarg_tac >> gvs[] >> IF_CASES_TAC >> gvs[])
-    >- (
+    >> (
       IF_CASES_TAC >> gvs[] >- (rw[] >> CCONTR_TAC >> gvs[]) >>
       IF_CASES_TAC >> gvs[] >- (pairarg_tac >> gvs[]) >>
-      ntac 5 (TOP_CASE_TAC >> gvs[]) >>
+      ntac 2 (TOP_CASE_TAC >> gvs[]) >>
+      pairarg_tac >> gvs[] >>
+      rpt (TOP_CASE_TAC >> gvs[]) >>
       strip_tac >> gvs[apply_oracle_def] >>
-      qsuff_tac `ffi = f`
+      (qsuff_tac `ffi = f`
       >- (strip_tac >> gvs[call_FFI_def, AllCaseEqs(), ffi_state_component_equality]) >>
       irule io_events_mono_antisym >>
       imp_res_tac evaluate'_io_events_mono >> simp[] >>
       irule call_FFI_rel_io_events_mono >> irule RTC_SUBSET >>
-      simp[call_FFI_rel_def, SF SFY_ss]
+      simp[call_FFI_rel_def, SF SFY_ss] )
       )
     )
 QED
@@ -490,10 +493,11 @@ Proof
     pop_assum mp_tac >> simp[Once eval_to'_def, Once evaluate'_def] >>
     IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[]
     >- (IF_CASES_TAC >> gvs[] >> pairarg_tac >> gvs[] >> IF_CASES_TAC >> gvs[])
-    >- (
+    >> (
       IF_CASES_TAC >> gvs[] >- rw[] >>
       IF_CASES_TAC >> gvs[] >- (pairarg_tac >> gvs[]) >>
-      ntac 5 (TOP_CASE_TAC >> gvs[]) >>
+      ntac 2 (TOP_CASE_TAC >> gvs[]) >>
+      pairarg_tac >> gvs[AllCaseEqs()] >>
       strip_tac >> gvs[call_FFI_def, apply_oracle_def]
       )
     )
@@ -503,17 +507,19 @@ Proof
     pop_assum mp_tac >> simp[Once eval_to'_def, Once evaluate'_def] >>
     IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[]
     >- (IF_CASES_TAC >> gvs[] >> pairarg_tac >> gvs[] >> IF_CASES_TAC >> gvs[])
-    >- (
+    >> (
       IF_CASES_TAC >> gvs[] >- (rw[] >> CCONTR_TAC >> gvs[]) >>
       IF_CASES_TAC >> gvs[] >- (pairarg_tac >> gvs[]) >>
-      ntac 5 (TOP_CASE_TAC >> gvs[]) >>
+      ntac 2 (TOP_CASE_TAC >> gvs[]) >>
+      pairarg_tac >> gvs[] >>
+      rpt (TOP_CASE_TAC >> gvs[]) >>
       strip_tac >> gvs[apply_oracle_def] >>
-      qsuff_tac `ffi = f`
+      (qsuff_tac `ffi = f`
       >- (strip_tac >> gvs[call_FFI_def, AllCaseEqs(), ffi_state_component_equality]) >>
       irule io_events_mono_antisym >>
       imp_res_tac evaluate'_io_events_mono >> simp[] >>
       irule call_FFI_rel_io_events_mono >> irule RTC_SUBSET >>
-      simp[call_FFI_rel_def, SF SFY_ss]
+      simp[call_FFI_rel_def, SF SFY_ss] )
       )
     )
 QED
@@ -618,7 +624,8 @@ Theorem eval_to'_1_ffi_evaluate:
 Proof
   rw[evaluate'_1_ffi_changed, evaluate'_1_ffi_failed,eval_to'_1_Vis] >>
   simp[call_FFI_def, AllCaseEqs(), SF DNF_ss] >>
-  Cases_on `ffi.oracle (EL n mc.ffi_names) ffi.ffi_state conf ws` >> simp[]
+  qmatch_goalsub_abbrev_tac `ffi.oracle ffi_name ffi.ffi_state conf wb` >>
+  Cases_on `ffi.oracle ffi_name ffi.ffi_state conf wb` >> simp[]
 QED
 
 
