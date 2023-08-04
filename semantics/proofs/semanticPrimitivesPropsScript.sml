@@ -265,7 +265,8 @@ Theorem do_app_NONE_ffi:
    do_app (refs,ffi) op args = NONE ⇒
    do_app (refs,ffi') op args = NONE
 Proof
-  Cases_on `op` \\ fs [do_app_def]
+  Cases_on `op`
+  \\ fs [do_app_def]
   \\ gvs [AllCaseEqs()] \\ rpt strip_tac \\ gvs []
   \\ rpt (pairarg_tac \\ gvs[])
   \\ every_case_tac \\ fs[]
@@ -775,7 +776,7 @@ Theorem concrete_v_simps[simp]:
   (concrete_v (Litv l) = T) /\
   (concrete_v (Loc n) = T) /\
   (concrete_v (Conv stmp xs) = EVERY concrete_v xs) /\
-  (concrete_v (Vectorv xs) = EVERY concrete_v xs) /\
+  (concrete_v (Vectorv b xs) = EVERY concrete_v xs) /\
   (concrete_v (Env id e) = F) /\
   (concrete_v (Closure e2 nm x) = F) /\
   (concrete_v (Recclosure e3 funs nm2) = F)

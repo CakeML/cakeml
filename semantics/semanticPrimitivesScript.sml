@@ -41,7 +41,7 @@ Datatype:
    * recursive bundle this closure value represents *)
   | Recclosure (v sem_env) ((varN # varN # exp) list) varN
   | Loc num
-  | Vectorv (v list)
+  | Vectorv bool (v list)  (* true bool means this is a persisent array *)
   | FP_WordTree fp_word_val
   | FP_BoolTree fp_bool_val
   | Real real
@@ -316,7 +316,7 @@ Definition compress_def:
  compress (Env env n) =  (Env env n) ∧
  compress (Recclosure env es x) = (Recclosure env es x) ∧
  compress (Loc n) =  (Loc n) ∧
- compress (Vectorv vs) = (Vectorv (compress_list vs)) ∧
+ compress (Vectorv b vs) = (Vectorv b (compress_list vs)) ∧
  compress_list [] = [] ∧
  compress_list (v::vs) = (compress v)::(compress_list vs)
 End
@@ -412,8 +412,10 @@ Definition do_eq_def:
     (if cn1 = cn2 ∧ LENGTH vs1 = LENGTH vs2 then do_eq_list vs1 vs2
      else if ctor_same_type cn1 cn2 then Eq_val F
      else Eq_type_error) ∧
-  do_eq (Vectorv vs1) (Vectorv vs2) =
-    (if LENGTH vs1 = LENGTH vs2 then do_eq_list vs1 vs2 else Eq_val F) ∧
+  do_eq (Vectorv b1 vs1) (Vectorv b2 vs2) =
+    (if b1 ≠ b2 then Eq_type_error else
+     if b1 then Eq_val T else
+     if LENGTH vs1 = LENGTH vs2 then do_eq_list vs1 vs2 else Eq_val F) ∧
   do_eq (Closure v0 v3 v4) (Closure v5 v6 v7) = Eq_val T ∧
   do_eq (Closure v8 v9 v10) (Recclosure v11 v12 v13) = Eq_val T ∧
   do_eq (Recclosure v14 v15 v16) (Closure v17 v18 v19) = Eq_val T ∧
@@ -622,7 +624,7 @@ Definition concrete_v_def:
      | Loc _ => T
      | Litv _ => T
      | Conv v_ vs => concrete_v_list vs
-     | Vectorv vs => concrete_v_list vs
+     | Vectorv b vs => concrete_v_list vs
      | FP_WordTree fp => T
      | FP_BoolTree fp => T
      | Real r => T
@@ -805,7 +807,7 @@ Definition do_fpoptimise_def:
  do_fpoptimise sc [Closure env x e] = [Closure env x e] ∧
  do_fpoptimise sc [Recclosure env ls x] = [Recclosure env ls x] ∧
  do_fpoptimise sc [Loc n] = [Loc n] ∧
- do_fpoptimise sc [Vectorv vs] = [Vectorv (do_fpoptimise sc vs)] ∧
+ do_fpoptimise sc [Vectorv b vs] = [Vectorv b (do_fpoptimise sc vs)] ∧
  do_fpoptimise sc [Real r]=  [Real r]  ∧
  do_fpoptimise sc [FP_WordTree fp] = [FP_WordTree (Fp_wopt sc fp)] ∧
  do_fpoptimise sc [FP_BoolTree fp] = [FP_BoolTree (Fp_bopt sc fp)] ∧
@@ -1073,14 +1075,21 @@ Definition do_app_def:
             )
         | _ => NONE
         )
+    | (Valloc,[Litv (IntLit n); v]) =>
+        (if n < 0 then
+           SOME ((s,t), Rerr (Rraise sub_exn_v))
+         else
+           let vec = Vectorv T (REPLICATE (Num n) v) in
+             SOME ((s,t), Rval vec))
     | (VfromList, [v]) =>
           (case v_to_list v of
               SOME vs =>
-                SOME ((s,t), Rval (Vectorv vs))
+                SOME ((s,t), Rval (Vectorv F vs))
             | NONE => NONE
           )
-    | (Vsub, [Vectorv vs; Litv (IntLit i)]) =>
-        if i <( 0 : int) then
+    | (Vsub b1, [Vectorv b vs; Litv (IntLit i)]) =>
+        if b ≠ b1 then NONE
+        else if i <( 0 : int) then
           SOME ((s,t), Rerr (Rraise sub_exn_v))
         else
           let n = (Num (ABS (I i))) in
@@ -1088,8 +1097,19 @@ Definition do_app_def:
               SOME ((s,t), Rerr (Rraise sub_exn_v))
             else
               SOME ((s,t), Rval (EL n vs))
-    | (Vlength, [Vectorv vs]) =>
-        SOME ((s,t), Rval (Litv (IntLit (int_of_num (LENGTH vs)))))
+    | (Vlength b1, [Vectorv b vs]) =>
+        if b ≠ b1 then NONE else
+          SOME ((s,t), Rval (Litv (IntLit (int_of_num (LENGTH vs)))))
+    | (Vupdate, [Vectorv b vs; Litv (IntLit i); v]) =>
+       (if ~b then NONE
+        else if i <( 0 : int) then
+          SOME ((s,t), Rerr (Rraise sub_exn_v))
+        else
+          let n = (Num (ABS (I i))) in
+            if n >= LENGTH vs then
+              SOME ((s,t), Rerr (Rraise sub_exn_v))
+            else
+              SOME ((s,t), Rval (Vectorv T (LUPDATE v n vs))))
     | (Aalloc, [Litv (IntLit n); v]) =>
         if n <( 0 : int) then
           SOME ((s,t), Rerr (Rraise sub_exn_v))

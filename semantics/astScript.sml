@@ -109,9 +109,11 @@ Datatype:
   | Strlen
   | Strcat
   (* Vector operations *)
+  | Valloc
   | VfromList
-  | Vsub
-  | Vlength
+  | Vsub bool
+  | Vlength bool
+  | Vupdate (* only allowed for persistent arrays *)
   (* Array operations *)
   | Aalloc
   | AallocEmpty

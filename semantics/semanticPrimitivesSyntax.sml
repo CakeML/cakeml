@@ -50,12 +50,12 @@ structure semanticPrimitivesSyntax = struct
   val (Rval_tm,mk_Rval,dest_Rval,is_Rval) = s "Rval";
   val (Val_tm,mk_Val,dest_Val,is_Val) = s "Val";
   val (Varray_tm,mk_Varray,dest_Varray,is_Varray) = s "Varray"
-  val (Vectorv_tm,mk_Vectorv,dest_Vectorv,is_Vectorv) = s "Vectorv";
   val (W8array_tm,mk_W8array,dest_W8array,is_W8array) = s "W8array"
   end
   local val s = HolKernel.syntax_fns2 "semanticPrimitives" in
   (* two-argument functions *)
   val (Conv_tm,mk_Conv,dest_Conv,is_Conv) = s "Conv";
+  val (Vectorv_tm,mk_Vectorv,dest_Vectorv,is_Vectorv) = s "Vectorv";
   val (TypeStamp_tm,mk_TypeStamp,dest_TypeStamp,is_TypeStamp) = s "TypeStamp";
   end
   local val s = HolKernel.syntax_fns3 "semanticPrimitives" in

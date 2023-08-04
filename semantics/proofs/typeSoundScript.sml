@@ -117,7 +117,7 @@ Theorem prim_canonical_values_thm:
        EVERY (\v. type_v 0 ctMap tenvS v t) vs ∧
        FLOOKUP tenvS n = SOME (Varray_t t))) ∧
    (type_v tvs ctMap tenvS v (Tvector t) ∧ ctMap_ok ctMap ⇒
-     (?vs. v = Vectorv vs ∧ EVERY (\v. type_v tvs ctMap tenvS v t) vs))
+     (?vs. v = Vectorv F vs ∧ EVERY (\v. type_v tvs ctMap tenvS v t) vs))
 Proof
   strip_tac >>
   rpt (conj_tac) >>

@@ -384,8 +384,8 @@ val _ = Define `
     | (Strlen, [t1]) => (t1 = Tstring) /\ (t = Tint)
     | (Strcat, [t1]) => (t1 = Tlist Tstring) /\ (t = Tstring)
     | (VfromList, [Tapp [t1] ctor]) => (ctor = Tlist_num) /\ (t = Tvector t1)
-    | (Vsub, [t1; t2]) => (t2 = Tint) /\ (Tvector t = t1)
-    | (Vlength, [Tapp [t1] ctor]) => (ctor = Tvector_num) /\ (t = Tint)
+    | (Vsub b, [t1; t2]) => (t2 = Tint) /\ (Tvector t = t1) /\ ~b
+    | (Vlength b, [Tapp [t1] ctor]) => (ctor = Tvector_num) /\ (t = Tint) /\ ~b
     | (Aalloc, [t1; t2]) => (t1 = Tint) /\ (t = Tarray t2)
     | (AallocEmpty, [t1]) => (t1 = Ttup []) /\ (? t2. t = Tarray t2)
     | (Asub, [t1; t2]) => (t2 = Tint) /\ (Tarray t = t1)

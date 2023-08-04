@@ -141,7 +141,7 @@ Inductive type_v:
     check_freevars 0 [] t ∧
     EVERY (\v. type_v tvs ctMap tenvS v t) vs
     ⇒
-    type_v tvs ctMap tenvS (Vectorv vs) (Tvector t))
+    type_v tvs ctMap tenvS (Vectorv F vs) (Tvector t))
 End
 
 val type_sv_def = Define `
