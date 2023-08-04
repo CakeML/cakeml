@@ -320,8 +320,8 @@ Proof
   simp[Once eval_to'_def] >>
   IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[apply_oracle_def] >>
   IF_CASES_TAC >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
-  (* we need pairarg_tac for MappedRead and MappedWrite *)
-  TRY (pairarg_tac >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[])) >>
+  rpt (pairarg_tac >> gvs[]) >>
+  rpt (TOP_CASE_TAC >> gvs[]) >>
   eq_tac >> rw[] >> gvs[]
 QED
 

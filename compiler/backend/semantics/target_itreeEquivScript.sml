@@ -294,7 +294,7 @@ Proof
   simp[Once evaluate'_def] >>
   IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[apply_oracle_def] >>
   IF_CASES_TAC >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
-  TRY ( pairarg_tac >> gvs[AllCaseEqs()] ) >>
+  rpt ( pairarg_tac >> gvs[AllCaseEqs()] ) >>
   eq_tac >> rw[] >>
   gvs[call_FFI_def, AllCaseEqs(), ffi_state_component_equality] >>
   qpat_x_assum `_ = f.io_events` $ assume_tac o GSYM >> simp[] >>
@@ -339,7 +339,7 @@ Proof
   simp[Once evaluate'_def] >>
   IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[apply_oracle_def] >>
   IF_CASES_TAC >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
-  TRY (pairarg_tac >> gvs[AllCaseEqs()]) >>
+  rpt (pairarg_tac >> gvs[AllCaseEqs()]) >>
   eq_tac >> rw[] >> gvs[call_FFI_def, AllCaseEqs()]
 QED
 
@@ -386,7 +386,7 @@ Proof
       IF_CASES_TAC >> gvs[] >- (rw[] >> gvs[halt_rel_def]) >>
       IF_CASES_TAC >> gvs[] >- (pairarg_tac >> gvs[]) >>
       rpt (TOP_CASE_TAC >> gvs[]) >>
-      TRY (pairarg_tac >> gvs[AllCaseEqs()]) >>
+      rpt (pairarg_tac >> gvs[AllCaseEqs()]) >>
       rpt (TOP_CASE_TAC >> gvs[]) >>
       strip_tac >> gvs[call_FFI_def, apply_oracle_def]
       )
