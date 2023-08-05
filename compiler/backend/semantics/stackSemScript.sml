@@ -178,8 +178,8 @@ Definition sh_mem_store_def:
   sh_mem_store r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
   (case get_var r s of
      SOME (Word w) =>
-       if w2n a MOD w2n (bytes_in_word:'a word) = 0 ∧ a IN s.sh_mdomain then
-         (case call_FFI s.ffi "MappedWrite" [n2w (w2n (bytes_in_word:'a word)):word8]
+       if a IN s.sh_mdomain then
+         (case call_FFI s.ffi "MappedWrite" [0w:word8]
                         (word_to_bytes w F ++ word_to_bytes a F) of
             FFI_final outcome => (SOME (FinalFFI outcome), s)
           | FFI_return new_ffi new_bytes => (NONE, s with ffi := new_ffi))
@@ -189,8 +189,8 @@ End
 
 Definition sh_mem_load_def:
   sh_mem_load r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
-  if w2n a MOD w2n (bytes_in_word:'a word) = 0 ∧ a IN s.sh_mdomain then
-    (case call_FFI s.ffi "MappedRead" [n2w (w2n (bytes_in_word:'a word)):word8]
+  if a IN s.sh_mdomain then
+    (case call_FFI s.ffi "MappedRead" [0w:word8]
                    (word_to_bytes a F) of
        FFI_final outcome => (SOME (FinalFFI outcome), s)
      | FFI_return new_ffi new_bytes =>
@@ -819,11 +819,12 @@ Definition evaluate_def:
           | _ => (SOME Error,s))
         | _ => (SOME Error,s))) /\
   (evaluate (FFI ffi_index ptr len ptr2 len2 ret,s) =
-    case (get_var len s, get_var ptr s,get_var len2 s, get_var ptr2 s) of
-    | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
+   (if ffi_index <> "MappedRead" /\ ffi_index <> "MappedWrite" then
+     (case (get_var len s, get_var ptr s,get_var len2 s, get_var ptr2 s) of
+     | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
          (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be),
                 read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be)) of
-          | SOME bytes,SOME bytes2 =>
+         | SOME bytes,SOME bytes2 =>
              (case call_FFI s.ffi ffi_index bytes bytes2 of
               | FFI_final outcome => (SOME (FinalFFI outcome),s)
               | FFI_return new_ffi new_bytes =>
@@ -831,8 +832,9 @@ Definition evaluate_def:
                     (NONE, s with <| memory := new_m ;
                                      regs := DRESTRICT s.regs s.ffi_save_regs;
                                      ffi := new_ffi |>))
-          | _ => (SOME Error,s))
-    | res => (SOME Error,s)) /\
+         | _ => (SOME Error,s))
+     | res => (SOME Error,s))
+  else (SOME Error,s))) /\
   (evaluate (LocValue r l1 l2,s) =
      if loc_check s.code (l1,l2) then
        (NONE,set_var r (Loc l1 l2) s)
