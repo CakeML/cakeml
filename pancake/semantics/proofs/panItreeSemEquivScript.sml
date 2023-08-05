@@ -83,10 +83,8 @@ End
  to match as follow the same pattern of rules for computing state and final
  outcomes. *)
 Definition same_outcome_def:
-  (same_outcome or t (NONE,s) ⇔
-     itree_oracle_outcome or t = SOME NONE) ∧
-  (same_outcome or t (SOME r,s) ⇔
-     itree_oracle_outcome or t = SOME (SOME r))
+  same_outcome or t (SOME r,s) ⇔
+     THE (itree_oracle_outcome or t) = (SOME r)
 End
 
 (* Main correspondence *)
@@ -158,68 +156,47 @@ Proof
         )
 End
 
+Theorem fbs_eval_clock_and_ffi_eq:
+  ∀s e k ffis.
+     eval s e = eval (s with <| clock := k; ffi := ffis |>) e
+Proof
+  recInduct panSemTheory.eval_ind >>
+  rw [panSemTheory.eval_def] >>
+  metis_tac [OPT_MMAP_cong]
+QED
+
 (* Evaluate correspondence *)
 (* Proves partial soundness: if a computation terminates,
 the two semantics produce identical results. *)
-Theorem itree_semantics_evaluate_corres:
-  ∀s p ffis k. FST (evaluate (p,s with <| clock := k; ffi := ffis |>)) ≠ SOME TimeOut ⇒
+Theorem itree_semantics_evaluate_corr:
+  ∀p s s' r k ffis. evaluate (p,s with <| clock := k; ffi := ffis |>) = (SOME r,s') ⇒
       same_outcome ffis (itree_evaluate p s) (evaluate (p,s with <| clock := k; ffi := ffis |>))
 Proof
-  rw[] >>
-  Cases_on ‘FST (evaluate (p,s with <|clock := k; ffi := ffis|>))’
-  (* FBS evaluates to NONE *)
+  recInduct panSemTheory.evaluate_ind >>
+  rpt strip_tac
+  (* Skip *)
+  >- (fs [panSemTheory.evaluate_def])
+  (* Dec *)
   >- (rw [same_outcome_def] >>
-           )
+      rw [panItreeSemTheory.itree_evaluate_def] >>
+      rw [panItreeSemTheory.itree_mrec_def] >>
+      rw [panItreeSemTheory.h_prog_def] >>
+      rw [panItreeSemTheory.h_prog_rule_dec_def] >>
+      Cases_on ‘eval s e’
+      (* eval s e = NONE *)
+      >- (rw [] >>
+          fs [panSemTheory.evaluate_def] >>
+          ‘eval (s with <|clock := k; ffi := ffis|>) e = NONE’ by rw [GSYM fbs_eval_clock_and_ffi_eq] >>
+          fs[] >>
+          rw [Once itreeTauTheory.itree_unfold] >>
+          rw [itree_oracle_outcome_def] >>
+          rw [Once LUNFOLD])
+      (* eval s e = SOME x *)
+      >- (
+         rw [] >>
+       )
+      )
 QED
-
-(* We can consider this in terms of Game semantics:
-  - The ITree semantics produces a game tree for every possible Pancake program.
-  - The set of all "moves" is every possible behaviour of that Pancake program.
-  - A strategy σ ⊆ M, is one such behaviour.
-  - The games considered here are "potentially infinite."
-  - An FFI oracle determines a particular strategy in the game tree by representing the O moves.
-
-  ITrees are not quite a game semantics.
-    - The A (answer) type could be seen as representing a subtree wherein O chooses which answer to provide.
-    - The Vis event is the P move which is determined by the FFI function to be called and the arguments provided.
- *)
-
-(* Considered in terms of ITree traces:
-
-    A trace is a possibly infinite sequence of zero or more IO events.
-    - This is effectively a deterministic strategy as each IO event captures the Player move (FFI call)
-    and the Oponent move (the ffi_result).
-
-  Given an ITree, we can produce the set of all plays (all possible interactions) by:
-    - Firstly removing all the Tau nodes.
-    - At each Vis node, building an IO event by:
-        - Noting the event type.
-        - Choosing a term of the response type.
-        - Zipping the last arg from the event with the term of the response type.
-        - Repeating l. 71.
-
-    This algorithm linearises a tree structure into a possibly infinite set of possibly infinite IO event traces.
-    It must be done in a procedural way in order to be decidable.
-    Lazy set of lazy lists?
- *)
-
-(* Then to solve the final goal in the ⇒ direction, we can do case analysis over this possibly infinite set:
-    - Divergence, as indicated by an infinite trace.
-        - Suffices to show the two semantics produce the same IO event trace (every possible finite prefix is equal)
-    - Termination (failure and return), as indicated by a finite trace.
-        - Need to show that the leaf in the tree reachable by this trace produces the same outcome (failure or return value) as
-        produced by some oracle in the functional big step semantics.
-*)
-
-(*
-    To solve the final goal in the ≤= direction, we need to show that the oracle producing any result in
-    the functional semantics, must necessarily produce an equivalent trace (w.r.t. the criteria in the ⇒ direction)
-    that exists in our possibly infinite set.
-
-     This is true because we can show that the oracle which produced some result in the big step semantics, will follow
-     a path in the ITree generation that will result in the same outcome.
-*)
-
 
 (* Final goal:
 
