@@ -56,28 +56,24 @@ QED
 
 val _ = json_to_mlstring_ind |> update_precondition;
 
+(* str_tree and displayLang *)
+
+val r = translate str_treeTheory.v2strs_def;
+val r = translate displayLangTheory.display_to_str_tree_def;
+
+(* presLang *)
+
 val res = translate presLangTheory.num_to_hex_def;
+val res = translate (presLangTheory.word_to_display_def |> INST_TYPE [``:'a``|->``:8``]);
+val res = translate (presLangTheory.word_to_display_def |> INST_TYPE [``:'a``|->``:64``]);
 
-val res = translate
-  (presLangTheory.display_word_to_hex_string_def |> INST_TYPE [``:'a``|->``:8``]);
-val res = translate
-  (presLangTheory.display_word_to_hex_string_def |> INST_TYPE [``:'a``|->``:64``]);
-
-val res = translate displayLangTheory.trace_to_json_def;
-val res = translate displayLangTheory.display_to_json_def;
-
-(* fixme: flat op datatype has been translated with use_string_type, which
-   for compatibility here needs that switch on, and looks like it results
-   in an unnecessary explode/implode pair *)
 val _ = ml_translatorLib.use_string_type true;
-val res = translate (presLangTheory.flat_op_to_display_def);
+val res = translate presLangTheory.source_to_strs_def;
 val _ = ml_translatorLib.use_string_type false;
 
-val _ = translate presLangTheory.lang_to_json_def
-
-(* again *)
 val _ = ml_translatorLib.use_string_type true;
-val r = translate presLangTheory.lit_to_display_def
+val res = translate presLangTheory.flat_to_strs_def;
+val res = translate presLangTheory.clos_op_to_display_def;
 val _ = ml_translatorLib.use_string_type false;
 
 val r = translate presLangTheory.num_to_varn_def
@@ -88,38 +84,55 @@ val num_to_varn_side = Q.prove(`
   `n MOD 26 < 26` by simp[] \\ decide_tac)
   |> update_precondition;
 
-Theorem string_imp_lam:
-  string_imp = \s. String (implode s)
+val r = presLangTheory.display_num_as_varn_def
+          |> REWRITE_RULE [presLangTheory.string_imp_def]
+          |> translate;
+
+val r = translate presLangTheory.data_prog_to_display_def;
+val r = translate presLangTheory.data_fun_to_display_def;
+val r = translate presLangTheory.data_to_strs_def;
+
+val r = translate presLangTheory.bvl_to_display_def;
+val r = translate presLangTheory.bvl_fun_to_display_def;
+val r = translate presLangTheory.bvl_to_strs_def;
+
+val r = translate presLangTheory.bvi_to_display_def;
+val r = translate presLangTheory.bvi_fun_to_display_def;
+val r = translate presLangTheory.bvi_to_strs_def;
+
+val r = translate clos_to_bvlTheory.init_code_def;
+
+Triviality bvl_jump_jumplist_side:
+  ∀x y. bvl_jump_jumplist_side x y
+Proof
+  ho_match_mp_tac bvl_jumpTheory.JumpList_ind
+  \\ rw [] \\ simp [Once to_bvlProgTheory.bvl_jump_jumplist_side_def]
+  \\ Cases_on ‘xs’ \\ fs []
+QED
+
+Triviality init_code_side:
+  init_code_side x
+Proof
+  fs [fetch "-" "init_code_side_def",
+      to_bvlProgTheory.clos_to_bvl_generate_generic_app_side_def,
+      to_bvlProgTheory.bvl_jump_jump_side_def,bvl_jump_jumplist_side]
+QED
+
+Triviality string_imp_thm:
+  string_imp = λs. String (implode s)
 Proof
   fs [FUN_EQ_THM,presLangTheory.string_imp_def]
 QED
 
-val string_imp = SIMP_RULE bool_ss [string_imp_lam];
-
-val r = translate (presLangTheory.display_num_as_varn_def |> string_imp);
 val _ = ml_translatorLib.use_string_type true;
-val res = translate (presLangTheory.flat_to_display_def)
-val _ = ml_translatorLib.use_string_type false;
+val r = presLangTheory.clos_to_display_def
+          |> REWRITE_RULE [string_imp_thm]
+          |> translate
 
-val res = translate presLangTheory.tap_flat_def;
+val r = translate presLangTheory.clos_dec_to_display_def;
+val r = translate presLangTheory.clos_to_strs_def;
 
-val _ = ml_translatorLib.use_string_type true;
-val r = translate (presLangTheory.clos_op_to_display_def |> string_imp);
-val _ = ml_translatorLib.use_string_type false;
-
-val r = translate (presLangTheory.clos_to_display_def |> string_imp);
-
-val res = translate presLangTheory.tap_clos_def;
-
-val res = translate presLangTheory.tap_data_lang_def;
-
-(* we can't translate the tap_word bits yet, because that's 32/64 specific.
-   that's done in the to_word* scripts. *)
-
-(* more parts of the external interface *)
-val res = translate presLangTheory.default_tap_config_def;
-val res = translate presLangTheory.mk_tap_config_def;
-val res = translate presLangTheory.tap_data_mlstrings_def;
+val _ = update_precondition init_code_side;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

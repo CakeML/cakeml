@@ -348,6 +348,18 @@ val res = translate compile_lab_thm;
 
 val res = translate (spec32 compile_def)
 
+(* explorer specific functions *)
+
+val res = presLangTheory.asm_cmp_to_display_def |> spec32 |> translate;
+val res = presLangTheory.asm_asm_to_display_def |> spec32 |> translate;
+val res = presLangTheory.lab_asm_to_display_def |> spec32
+          |> REWRITE_RULE [presLangTheory.string_imp_def] |> translate;
+val res = presLangTheory.lab_line_to_display_def |> spec32 |> translate;
+val res = presLangTheory.lab_fun_to_display_def |> spec32 |> translate;
+val res = presLangTheory.stack_prog_to_display_def |> spec32
+          |> REWRITE_RULE [presLangTheory.string_imp_def] |> translate;
+val res = presLangTheory.stack_fun_to_display_def |> spec32 |> translate;
+
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);

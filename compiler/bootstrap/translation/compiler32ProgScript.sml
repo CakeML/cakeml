@@ -39,26 +39,7 @@ Proof
   rw[FUN_EQ_THM] \\ EVAL_TAC
 QED
 
-(*
-
-val def = spec32 backendTheory.compile_explorer_def
-
-val res = translate def
-
-val backend_compile_explorer_side = Q.prove(`
-  ∀x y. backend_compile_explorer_side x y = T`,
-  simp[definition"backend_compile_explorer_side_def",PULL_FORALL] \\
-  rpt gen_tac \\ ntac 3 strip_tac \\
-  qmatch_goalsub_abbrev_tac`compile c.do_mti c.max_app [z]` \\
-  `∃a. compile c.do_mti c.max_app [z] = [a]` by
-    (Cases_on`c.do_mti`>>fs[clos_mtiTheory.compile_def]>>
-    metis_tac[clos_mtiTheory.intro_multi_sing])>>
-  specl_args_of_then ``renumber_code_locs_list``
-    (clos_numberTheory.renumber_code_locs_length|>CONJUNCT1) assume_tac>>
-  rfs[LENGTH_EQ_NUM_compute] \\
-  strip_tac \\ fs[]) |> update_precondition;
-
-*)
+val r = translate presLangTheory.default_tap_config_def;
 
 val def = spec32
   (backendTheory.attach_bitmaps_def
@@ -67,16 +48,50 @@ val def = spec32
 
 val res = translate def
 
-val def = spec32 backendTheory.compile_tap_def
+val def = spec32 backendTheory.compile_def
   |> REWRITE_RULE[max_heap_limit_32_thm]
 
 val res = translate def
 
-val def = spec32 backendTheory.compile_def
+val _ = register_type “:32 any_prog”
 
-val res = translate def
+val r = backend_passesTheory.to_flat_all_def |> spec32 |> translate;
+val r = backend_passesTheory.to_clos_all_def |> spec32 |> translate;
+val r = backend_passesTheory.to_bvl_all_def |> spec32 |> translate;
+val r = backend_passesTheory.to_bvi_all_def |> spec32 |> translate;
 
-val _ = res |> hyp |> null orelse
+Triviality backend_passes_to_bvi_all_side:
+  backend_passes_to_bvi_all_side c p
+Proof
+  fs [fetch "-" "backend_passes_to_bvi_all_side_def"]
+  \\ rewrite_tac [GSYM LENGTH_NIL,bvl_inlineTheory.LENGTH_remove_ticks]
+  \\ fs []
+QED
+
+val _ = update_precondition backend_passes_to_bvi_all_side
+
+val r = backend_passesTheory.to_data_all_def |> spec32 |> translate;
+
+val r = backend_passesTheory.to_word_all_def |> spec32
+          |> REWRITE_RULE [data_to_wordTheory.stubs_def,APPEND] |> translate;
+
+val r = backend_passesTheory.to_stack_all_def |> spec32
+          |> REWRITE_RULE[max_heap_limit_32_thm] |> translate;
+
+val r = backend_passesTheory.to_lab_all_def |> spec32
+          |> REWRITE_RULE[max_heap_limit_32_thm] |> translate;
+
+val r = backend_passesTheory.to_target_all_def |> spec32 |> translate;
+
+val r = presLangTheory.word_to_strs_def |> spec32 |> translate
+val r = presLangTheory.stack_to_strs_def |> spec32 |> translate
+val r = presLangTheory.lab_to_strs_def |> spec32 |> translate
+
+val r = backend_passesTheory.any_prog_pp_def |> spec32 |> translate;
+val r = backend_passesTheory.any_prog_pp_with_title_def |> spec32 |> translate;
+val r = backend_passesTheory.compile_tap_def |> spec32 |> translate;
+
+val _ = r |> hyp |> null orelse
         failwith "Unproved side condition in the translation of backendTheory.compile_def.";
 
 (* exportTheory *)
@@ -157,7 +172,8 @@ val _ = translate (compilerTheory.parse_sexp_input_def
 val def = spec32 (compilerTheory.compile_def);
 val res = translate def;
 
-val res = translate basisProgTheory.basis_def
+val _ = print "About to translate basis (this takes some time) ";
+val res = translate basisProgTheory.basis_def;
 
 val res = translate (primTypesTheory.prim_tenv_def
                      |> CONV_RULE (RAND_CONV EVAL));
