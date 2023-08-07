@@ -13,11 +13,22 @@ Definition injective_partial_map_def:
   injective_partial_map f vs ((vp,ep):graph) ((vt,et):graph) ⇔
   vs ⊆ count vp ∧
   INJ f vs (count vt) ∧
+  (∀a b. a ∈ vs ∧ b ∈ vs  ⇒
+    (is_edge ep a b ⇔ is_edge et (f a) (f b)))
+End
+
+(* A cleaner definition *)
+Theorem injective_partial_map_eq:
+  injective_partial_map f vs (vp,ep) (vt,et) ⇔
+  vs ⊆ count vp ∧ INJ f vs (count vt) ∧
   (∀a b. a ∈ vs ∧ b ∈ vs ∧ is_edge ep a b ⇒
     is_edge et (f a) (f b)) ∧
   (∀a b. a ∈ vs ∧ b ∈ vs ∧ ¬(is_edge ep a b) ⇒
     ¬ is_edge et (f a) (f b))
-End
+Proof
+  rw[injective_partial_map_def]>>
+  metis_tac[]
+QED
 
 (* vs is a common induced subgraph of gp and gt *)
 Definition is_cis_def:
@@ -467,7 +478,7 @@ Theorem encode_base_correct:
 Proof
   rw[EQ_IMP_THM]
   >- (
-    fs[injective_partial_map_def]>>
+    fs[injective_partial_map_eq]>>
     simp[satisfiable_def]>>
     qexists_tac`λenc.
       case enc of
@@ -589,7 +600,7 @@ Proof
       DEP_REWRITE_TAC[iSUM_GENLIST_eq_k]>>
       fs[])
   )>>
-  fs[satisfiable_def,injective_partial_map_def]>>
+  fs[satisfiable_def,injective_partial_map_eq]>>
   qexists_tac`λn. @m. m < vt ∧ w (Mapped n m)`>>
   qabbrev_tac`dom = {n | n < vp ∧ ¬ w (Unmapped n)}`>>
   qexists_tac `dom`>>
@@ -1442,7 +1453,7 @@ Theorem encode_correct:
 Proof
   rw[EQ_IMP_THM]
   >- (
-    fs[injective_partial_map_def]>>
+    fs[injective_partial_map_eq]>>
     simp[satisfiable_def]>>
     rw[encode_def,encode_base_def]>>
     qabbrev_tac`w = λenc.
@@ -1601,7 +1612,7 @@ Proof
       DEP_REWRITE_TAC[iSUM_GENLIST_eq_k]>>
       fs[])
     )>>
-  fs[satisfiable_def,injective_partial_map_def]>>
+  fs[satisfiable_def,injective_partial_map_eq]>>
   qexists_tac`λn. @m. m < vt ∧ w (Mapped n m)`>>
   qabbrev_tac`dom = {n | n < vp ∧ ¬ w (Unmapped n)}`>>
   qexists_tac `dom`>>
@@ -1841,7 +1852,7 @@ Theorem injective_partial_map_exists:
   connected_subgraph {} (SND gp)
 Proof
   Cases_on`gp`>>Cases_on`gt`>>
-  simp[injective_partial_map_def,connected_subgraph_def]
+  simp[injective_partial_map_eq,connected_subgraph_def]
 QED
 
 Theorem injective_partial_map_CARD:
@@ -1849,7 +1860,7 @@ Theorem injective_partial_map_CARD:
   CARD vs ≤ FST gp
 Proof
   Cases_on`gp`>>Cases_on`gt`>>
-  rw[injective_partial_map_def]>>
+  rw[injective_partial_map_eq]>>
   `FINITE (count q)` by
     fs[]>>
   drule CARD_SUBSET>>
@@ -1895,7 +1906,7 @@ Theorem CARD_is_cis_bound:
 Proof
   Cases_on`gp`>>
   Cases_on`gt`>>
-  rw[is_cis_def,injective_partial_map_def]>>
+  rw[is_cis_def,injective_partial_map_eq]>>
   (drule_at Any) CARD_SUBSET>>
   simp[]
 QED
