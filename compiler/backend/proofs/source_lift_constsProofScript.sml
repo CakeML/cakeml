@@ -145,7 +145,7 @@ val eval_simulation_setup = setup (‘
            state_rel (:'a) s' t' ∧
            result_rel (LIST_REL v_rel) v_rel res res') ∧
      (* running altered code: *)
-     (∀ s' b n3 res t env' exps1 exps2 exps3 n2 n4 xs binders fvs ws0 env0.
+     (∀ s' b n3 res t env' exps1 exps2 exps3 n2 n4 xs binders fvs ws0 env0 ws env3.
          evaluate s env exps = (s', res) ∧
          state_rel (:'a) s t ∧
          annotate_exps binders (REVERSE exps) = (exps1,n2,fvs) ∧ n2 ≤ n3 ∧
@@ -153,23 +153,20 @@ val eval_simulation_setup = setup (‘
          EVERY (every_exp (one_con_check env.c)) exps ∧
          weak_env_rel fvs env env' ∧
          const_env_rel binders env' env0 ∧
-         res <> Rerr (Rabort Rtype_error) ==>
-         ∃ws.
-           EVERY (every_exp (one_con_check env.c)) exps3 ∧
-           (∀(t0:'ffi semanticPrimitives$state).
-             evaluate_decs t0 env0
-               (MAP (λ(n,e). Dlet unknown_loc (Pvar (explode n)) e) (REVERSE xs)) =
-               (t0,Rval (<|v := alist_to_ns ws; c := nsEmpty|>))) ∧
-           (∀env3.
-              EVERY (can_lookup env3.v) ws ∧ weak_env_rel fvs env env3 ⇒
-              ∃t' res'.
-                evaluate t env3 (REVERSE exps3) = (t', res') ∧
-                state_rel (:'a) s' t' ∧
-                result_rel (LIST_REL v_rel) v_rel res res' ∧
-                (EVERY is_Constant exps1 ⇒
-                 ∀(t_any:'ffi semanticPrimitives$state).
-                   evaluate t_any env3 (REVERSE exps3) = (t_any, res') ∧
-                   ∃success. res' = Rval success))))
+         res <> Rerr (Rabort Rtype_error) ∧
+         (∀(t0:'ffi semanticPrimitives$state).
+           evaluate_decs t0 env0
+             (MAP (λ(n,e). Dlet unknown_loc (Pvar (explode n)) e) (REVERSE xs)) =
+             (t0,Rval (<|v := alist_to_ns ws; c := nsEmpty|>))) ∧
+         EVERY (can_lookup env3.v) ws ∧ weak_env_rel fvs env env3 ⇒
+         ∃t' res'.
+           evaluate t env3 (REVERSE exps3) = (t', res') ∧
+           state_rel (:'a) s' t' ∧
+           result_rel (LIST_REL v_rel) v_rel res res' ∧
+           (EVERY is_Constant exps1 ⇒
+            ∀(t_any:'ffi semanticPrimitives$state).
+              evaluate t_any env3 (REVERSE exps3) = (t_any, res') ∧
+              ∃success. res' = Rval success)))
   ∧
   (∀ ^s env x pes err_x s' res es t env' y err_y.
      evaluate_match s env x pes err_x = (s', res) ∧
@@ -274,15 +271,6 @@ Theorem annotate_exps_sing[simp]:
 Proof
   fs [annotate_exp_def] \\ pairarg_tac \\ gvs [] \\ eq_tac \\ gvs []
 QED
-
-(*
-Theorem lift_exps_sing[simp]:
-  lift_exps t b [e] = (es,n1,x) ⇔
-  ∃e1. lift_exp t b e = (e1,n1,x) ∧ es = [e1]
-Proof
-  fs [lift_exp_def] \\ pairarg_tac \\ gvs [] \\ eq_tac \\ rw []
-QED
-*)
 
 Triviality get_c_simp[simp]:
   (<|v := alist_to_ns ws; c := nsEmpty|> +++ env).c = env.c
@@ -409,33 +397,61 @@ QED
 
 Triviality ann_list_exp_imp_eval_consts:
   every_exp (one_con_check env.c) e2 ∧
-  annotate_exp binders e2 = (e3,n2',fvs2) ∧
-  lift_exp b [] n'' e3 = (e4,n',xs) ⇒
+  annotate_exp binders e2 = (e3,n2,fvs2) ∧
+  lift_exp b [] n3 e3 = (e4,n4,xs) ⇒
   every_exp (one_con_check env.c) e4 ∧
-  ∃ws1.
+  ALL_DISTINCT (MAP FST xs) ∧
+  ∃ws1. ∀t0.
     evaluate_decs (t0: 'ffi semanticPrimitives$state) env0
-      (MAP (λ(n,e). Dlet locs (Pvar (explode n)) e) (REVERSE xs)) =
+      (MAP (UNCURRY (λn. Dlet unknown_loc (Pvar (explode n)))) (REVERSE xs)) =
     (t0,Rval <|v := alist_to_ns ws1; c := nsEmpty|>)
 Proof
-  cheat (* is this true as stated? *)
+  cheat (* intuition: the lifted expressions, xs, always evaluate to
+                      some values without depending on / modifying state *)
+QED
+
+Triviality ann_list_exps_imp_eval_consts:
+  EVERY (every_exp (one_con_check env.c)) e2 ∧
+  annotate_exps binders e2 = (e3,n2,fvs2) ∧
+  lift_exps b [] n3 e3 = (e4,n4,xs) ⇒
+  EVERY (every_exp (one_con_check env.c)) e4 ∧
+  ALL_DISTINCT (MAP FST xs) ∧
+  ∃ws1. ∀t0.
+    evaluate_decs (t0: 'ffi semanticPrimitives$state) env0
+      (MAP (UNCURRY (λn. Dlet unknown_loc (Pvar (explode n)))) (REVERSE xs)) =
+    (t0,Rval <|v := alist_to_ns ws1; c := nsEmpty|>)
+Proof
+  cheat (* intuition: the lifted expressions, xs, always evaluate to
+                      some values without depending on / modifying state *)
+QED
+
+Theorem nsBind_EVERY_can_lookup:
+  nsBind n v gs = alist_to_ns ws ∧ EVERY (can_lookup env) ws ⇒
+  nsLookup env (Short n) = SOME v
+Proof
+  Cases_on ‘gs’
+  \\ fs [namespaceTheory.alist_to_ns_def,namespaceTheory.nsBind_def]
+  \\ rw [] \\ gvs [can_lookup_def]
+QED
+
+Theorem nsBind_EVERY_can_lookup_extra:
+  nsBind n v (alist_to_ns ws1) = alist_to_ns ws ∧ EVERY (can_lookup env) ws ⇒
+  EVERY (can_lookup env) ws1
+Proof
+  fs [namespaceTheory.alist_to_ns_def,namespaceTheory.nsBind_def]
+  \\ rw [] \\ gvs []
+QED
+
+Triviality to_UNCURRY:
+  (λ(n,e). Dlet unknown_loc (Pvar (explode n)) e) =
+  UNCURRY (λn. Dlet unknown_loc (Pvar (explode n)))
+Proof
+  fs [FUN_EQ_THM,FORALL_PROD]
 QED
 
 (*-----------------------------------------------------------------------*
    proofs of individual cases
  *-----------------------------------------------------------------------*)
-
-(*
-Triviality eval_simulation_Var:
-  ^(#get_goal eval_simulation_setup `Case ([Var _])`)
-Proof
-  rw [] \\ gvs [AllCaseEqs(),PULL_EXISTS]
-  \\ reverse (gvs [annotate_exp_def,AllCaseEqs(),lift_exp_def,evaluate_def])
-  \\ rw[] \\ gvs[weak_env_rel_def]
-  \\ first_x_assum $ drule_at Any
-  \\ impl_tac >- fs [map_ok_str_empty,mlmapTheory.lookup_insert]
-  \\ strip_tac \\ fs []
-QED
-*)
 
 Triviality eval_simulation_Var:
   ^(#get_goal eval_simulation_setup `Case ([Var _])`)
@@ -445,7 +461,6 @@ Proof
    (drule_all source_evalProofTheory.env_rel_nsLookup_v
     \\ strip_tac \\ fs [])
   \\ reverse (gvs [annotate_exp_def,AllCaseEqs(),lift_exp_def,evaluate_def])
-  \\ qexists_tac ‘[]’ \\ fs [namespaceTheory.nsBindList_def]
   \\ rw []
   >- (gvs [alist_to_ns_eq,weak_env_rel_def]
       \\ res_tac \\ fs [nsLookup_nsBindList]
@@ -457,31 +472,20 @@ Proof
   \\ strip_tac \\ fs []
 QED
 
-(*
-Triviality eval_simulation_Lit:
-  ^(#get_goal eval_simulation_setup `Case ([Lit _])`)
-Proof
-  simp [] \\ rw []
-  \\ gvs [annotate_exp_def,lift_exp_def,evaluate_def,v_rel_refl,AllCaseEqs()]
-  \\ pairarg_tac \\ gvs [AllCaseEqs()]
-  \\ simp[evaluate_def,v_rel_refl,can_lookup_def]
-QED
-*)
-
 Triviality eval_simulation_Lit:
   ^(#get_goal eval_simulation_setup `Case ([Lit _])`)
 Proof
   simp [v_rel_refl] \\ rw []
   \\ gvs [annotate_exp_def,lift_exp_def,evaluate_def,v_rel_refl,AllCaseEqs()]
   \\ pairarg_tac \\ gvs [AllCaseEqs()]
-  \\ rpt (qexists_tac ‘[]’ \\ fs [namespaceTheory.nsBindList_def,v_rel_refl]
+  \\ rpt (fs [namespaceTheory.nsBindList_def,v_rel_refl]
           \\ gvs [evaluate_decs_def,pat_bindings_def,evaluate_def,pmatch_def,v_rel_refl]
           \\ NO_TAC)
   \\ gvs [evaluate_decs_def,pat_bindings_def,evaluate_def,pmatch_def,v_rel_refl]
-  \\ qexists_tac ‘[(explode (make_name n3),Litv l)]’
-  \\ gvs [namespaceTheory.nsBind_def,extend_dec_env_def]
+  \\ gvs [namespaceTheory.nsBind_def,extend_dec_env_def,AllCaseEqs(),is_Constant_def]
   \\ rw [can_lookup_def]
   \\ fs [Once v_rel_cases] \\ fs []
+  \\ drule_all nsBind_EVERY_can_lookup \\ fs []
 QED
 
 Triviality eval_simulation_App:
@@ -505,9 +509,9 @@ Proof
     \\ gvs [lift_exp_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ disch_then $ drule_at $ Pos $ el 2 \\ fs [SF ETA_ss]
-    \\ disch_then drule
-    \\ disch_then drule
-    \\ impl_tac >- (strip_tac \\ gvs [])
+    \\ disch_then $ drule_at $ Pos $ el 2 \\ fs [is_Constant_def]
+    \\ disch_then $ qspec_then ‘env3’ mp_tac
+    \\ impl_tac >- (fs [] \\ CCONTR_TAC \\ fs [])
     \\ strip_tac \\ fs []
     \\ imp_res_tac annotate_exps_LENGTH
     \\ imp_res_tac lift_exps_LENGTH
@@ -515,10 +519,7 @@ Proof
     \\ fs [evaluate_def]
     \\ ‘env3.c = env.c’ by gvs [weak_env_rel_def,const_env_rel_def]
     \\ gvs []
-    \\ first_assum $ drule_all
-    \\ strip_tac \\ gvs [is_Constant_def]
-    \\ Cases_on ‘v2’ \\ gvs []
-    \\ imp_res_tac evaluate_length \\ gvs [build_conv_def]
+    \\ Cases_on ‘v2’ \\ gvs [AllCaseEqs(),build_conv_def]
     \\ gvs [AllCaseEqs(),v_rel_Conv])
   \\ rename [‘EVERY is_Constant es2’]
   \\ fs [lift_exp_def,is_trivial_def]
@@ -529,7 +530,7 @@ Proof
   >-
    (Cases_on ‘es2’ \\ gvs [evaluate_def,lift_exp_def]
     \\ imp_res_tac annotate_exps_LENGTH \\ gvs []
-    \\ qexists_tac ‘[]’ \\ gvs [build_conv_def]
+    \\ gvs [build_conv_def]
     \\ gvs [do_con_check_def,weak_env_rel_def]
     \\ rpt strip_tac \\ gvs []
     \\ Cases_on ‘cn’ \\ gvs [v_rel_Conv]
@@ -539,33 +540,35 @@ Proof
   \\ disch_then drule
   \\ disch_then $ drule_at $ Pos $ el 2
   \\ fs [SF ETA_ss]
+  \\ Cases_on ‘v2 = Rerr (Rabort Rtype_error)’ \\ gvs []
+  \\ disch_then $ drule_at $ Pos $ el 2 \\ fs []
+  \\ drule ann_list_exps_imp_eval_consts
   \\ disch_then drule
   \\ disch_then drule
-  \\ impl_tac >- (strip_tac \\ gvs [])
-  \\ strip_tac \\ gvs []
-  \\ gvs [evaluate_decs_append,evaluate_decs_def,pat_bindings_def,SF ETA_ss]
-  \\ gvs [evaluate_def,pmatch_def]
+  \\ disch_then $ qspec_then ‘env0’ strip_assume_tac
+  \\ gvs [evaluate_decs_append,AllCaseEqs(),PULL_EXISTS,combine_dec_result_def,is_Constant_def]
+  \\ gvs [evaluate_decs_def,AllCaseEqs(),PULL_EXISTS,pmatch_def,evaluate_def]
+  \\ last_assum $ qspec_then ‘t’ strip_assume_tac \\ gvs []
   \\ ‘env0.c = env.c’ by gvs [weak_env_rel_def,const_env_rel_def]
   \\ imp_res_tac annotate_exps_LENGTH
   \\ imp_res_tac lift_exps_LENGTH
-  \\ gvs []
-  \\ first_x_assum $ qspec_then ‘<|v := alist_to_ns ws; c := nsEmpty|> +++ env0’ mp_tac
-  \\ impl_tac >- cheat
-  \\ strip_tac \\ gvs [is_Constant_def]
-  \\ Cases_on ‘v2’ \\ gvs []
-  \\ gvs [build_conv_def]
-  \\ Cases_on ‘cn’ \\ gvs []
-  \\ gvs [AllCaseEqs(),combine_dec_result_def,PULL_EXISTS]
-  \\ rename [‘nsBind (explode (make_name n6)) (Conv _ (REVERSE v6))’]
-  \\ qpat_abbrev_tac ‘v66 = Conv _ (REVERSE v6)’
-  \\ qexists_tac ‘(explode (make_name n6),v66)::ws’
-  \\ fs [namespacePropsTheory.alist_to_ns_cons]
-  \\ fs [can_lookup_def,v_rel_Conv,Abbr‘v66’]
+  \\ gvs [can_lookup_def]
+  \\ drule_all nsBind_EVERY_can_lookup_extra
+  \\ strip_tac
+  \\ drule_all nsBind_EVERY_can_lookup
+  \\ strip_tac
+  \\ fs []
+  >- (disch_then $ qspec_then ‘env3’ mp_tac \\ fs []
+      \\ strip_tac \\ gvs []
+      \\ gvs [build_conv_def,AllCaseEqs(),v_rel_Conv]
+      \\ cheat (* envs not quite right *))
+  \\ qexists_tac ‘env3’ \\ fs [] \\ gvs [EVERY_MEM]
 QED
 
 Triviality eval_simulation_Let:
   ^(#get_goal eval_simulation_setup `Case ([Let _ _ _])`)
 Proof
+  cheat (*
   rw[]
   >- cheat (* no change case *)
   \\ gvs [CaseEq"prod"]
@@ -623,7 +626,7 @@ Proof
   \\ cheat (*
   \\ disch_then $ qspec_then ‘env3 with v := nsBind x v2 env3.v’ mp_tac
   \\ impl_tac >- cheat
-  \\ strip_tac \\ fs [evaluate_def,namespaceTheory.nsOptBind_def] *)
+  \\ strip_tac \\ fs [evaluate_def,namespaceTheory.nsOptBind_def] *) *)
 QED
 
 Triviality eval_simulation_Fun:
@@ -642,15 +645,14 @@ Proof
   >- cheat (* uninteresting case? *)
   \\ gvs [evaluate_decs_def,pat_bindings_def]
   \\ ‘env0.c = env.c’ by gvs [const_env_rel_def,weak_env_rel_def]
-  \\ ‘every_exp (one_con_check env.c) e'’ by cheat
-  \\ fs [evaluate_def,pmatch_def]
+  \\ fs [evaluate_def,pmatch_def,is_Constant_def,PULL_EXISTS,AllCaseEqs()]
   \\ drule_all ann_list_exp_imp_eval_consts
-  \\ disch_then $ qspecl_then [‘t0’,‘locs’,‘env0’] strip_assume_tac
-  \\ fs [evaluate_decs_append]
-  \\ fs [evaluate_decs_def,evaluate_def,pat_bindings_def,pmatch_def,
-         combine_dec_result_def,namespaceTheory.nsBind_def,
-         namespaceTheory.alist_to_ns_def]
-  \\ rw [] \\ fs [can_lookup_def]
+  \\ disch_then $ qspecl_then [‘env0’] strip_assume_tac
+  \\ fs [evaluate_decs_append,to_UNCURRY]
+  \\ gvs [AllCaseEqs(),combine_dec_result_def,PULL_EXISTS]
+  \\ fs [evaluate_decs_def,evaluate_def,pat_bindings_def,pmatch_def]
+  \\ drule_all nsBind_EVERY_can_lookup_extra \\ rw []
+  \\ drule_all nsBind_EVERY_can_lookup \\ rw []
   \\ cheat (* v_rel clos *)
 QED
 
