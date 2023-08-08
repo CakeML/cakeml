@@ -231,6 +231,13 @@ val list_next_var_rename_move_def = Define`
     let (new_ls,ssa',n') = list_next_var_rename ls ssa n in
     (Move 1 (ZIP(new_ls,cur_ls)),ssa',n')`
 
+(* force the renaming map to send x -> y *)
+Definition force_rename_def:
+  (force_rename [] ssa = ssa) ∧
+  (force_rename ((x,y)::xs) ssa =
+    force_rename xs (insert x y ssa))
+End
+
 val ssa_cc_trans_def = Define`
   (ssa_cc_trans Skip ssa na = (Skip,ssa,na)) ∧
   (ssa_cc_trans (Move pri ls) ssa na =
@@ -238,7 +245,7 @@ val ssa_cc_trans_def = Define`
     let ls_2 = MAP SND ls in
     let ren_ls2 = MAP (option_lookup ssa) ls_2 in
     let (ren_ls1,ssa',na') = list_next_var_rename ls_1 ssa na in
-      (Move pri (ZIP(ren_ls1,ren_ls2)),ssa',na')) ∧
+      (Move pri (ZIP(ren_ls1,ren_ls2)),force_rename (ZIP(ls_2,ren_ls1)) ssa',na')) ∧
   (ssa_cc_trans (StoreConsts a b c d ws) ssa na =
     let c1 = option_lookup ssa c in
     let d1 = option_lookup ssa d in

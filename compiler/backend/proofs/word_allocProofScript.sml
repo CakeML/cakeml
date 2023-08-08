@@ -3038,8 +3038,7 @@ val ssa_locals_rel_def = Define`
 val ssa_map_ok_def = Define`
   ssa_map_ok na ssa =
   (∀x y. lookup x ssa = SOME y ⇒
-    ¬is_phy_var y ∧ y < na ∧
-    (∀z. z ≠ x ⇒ lookup z ssa ≠ SOME y))`;
+    ¬is_phy_var y ∧ y < na)`;
 
 val list_next_var_rename_lemma_1 = Q.prove(`
   ∀ls ssa na ls' ssa' na'.
@@ -3121,12 +3120,7 @@ val ssa_map_ok_extend = Q.prove(`
   srw_tac[][]>>full_simp_tac(srw_ss())[lookup_insert]>>
   Cases_on`x=h`>>full_simp_tac(srw_ss())[]>>
   res_tac>-
-    DECIDE_TAC
-  >-
-    (SPOSE_NOT_THEN assume_tac>>res_tac>>
-    DECIDE_TAC)
-  >>
-    Cases_on`z=h`>>full_simp_tac(srw_ss())[]>>DECIDE_TAC);
+    DECIDE_TAC);
 
 val merge_moves_frame = Q.prove(`
   ∀ls na ssaL ssaR.
@@ -3800,17 +3794,6 @@ val list_next_var_rename_move_preserve = Q.prove(`
   full_simp_tac(srw_ss())[list_next_var_rename_move_def,ssa_locals_rel_def]>>
   srw_tac[][]>>
   imp_res_tac list_next_var_rename_lemma_1>>
-  `ALL_DISTINCT cur_ls` by
-    (full_simp_tac(srw_ss())[Abbr`cur_ls`]>>
-    match_mp_tac ALL_DISTINCT_MAP_INJ>>
-    srw_tac[][option_lookup_def]>>
-    TRY(`x ∈ domain st.locals ∧ y ∈ domain st.locals` by
-      (full_simp_tac(srw_ss())[SUBSET_DEF]>>NO_TAC))>>
-    TRY(`x' ∈ domain st.locals ∧ y' ∈ domain st.locals` by
-      (full_simp_tac(srw_ss())[SUBSET_DEF]>>NO_TAC))>>
-    full_simp_tac(srw_ss())[domain_lookup]>>res_tac>>
-    full_simp_tac(srw_ss())[ssa_map_ok_def]>>
-    metis_tac[])>>
   imp_res_tac list_next_var_rename_lemma_2>>
   first_x_assum(qspecl_then[`ssa`,`na`] assume_tac)>>
   full_simp_tac(srw_ss())[LET_THM,evaluate_def]>>rev_full_simp_tac(srw_ss())[]>>
@@ -3955,7 +3938,6 @@ val ssa_locals_rel_ignore_insert = Q.prove(`
   full_simp_tac(srw_ss())[domain_lookup]>>
   metis_tac[]);
 
-
 val ssa_locals_rel_ignore_list_insert = Q.prove(`
   ssa_map_ok na ssa ∧
   ssa_locals_rel na ssa st.locals cst.locals ∧
@@ -4082,13 +4064,7 @@ val list_next_var_rename_props = Q.prove(`
       metis_tac[convention_partitions])
     >-
       (full_simp_tac(srw_ss())[lookup_insert]>>Cases_on`x=h`>>full_simp_tac(srw_ss())[]>>
-      res_tac>>DECIDE_TAC)
-    >>
-      full_simp_tac(srw_ss())[lookup_insert]>>Cases_on`x=h`>>Cases_on`z=h`>>full_simp_tac(srw_ss())[]
-      >-
-        (SPOSE_NOT_THEN assume_tac>>res_tac>>full_simp_tac(srw_ss())[])
-      >>
-        res_tac>>DECIDE_TAC))>>
+      res_tac>>DECIDE_TAC)))>>
   srw_tac[][]>> TRY(DECIDE_TAC)>> full_simp_tac(srw_ss())[]>>
   metis_tac[is_alloc_var_add,is_stack_var_add]);
 
@@ -4199,6 +4175,17 @@ val ssa_map_ok_inter = Q.prove(`
   full_simp_tac(srw_ss())[]>>
   metis_tac[]);
 
+(* TODO FIXME, needs more assumptions
+Theorem ssa_map_ok_force_rename:
+  ∀ls ssa.
+  ssa_map_ok na ssa ∧
+  ⇒
+  ssa_map_ok na (force_rename ls ssa)
+Proof
+  Induct>>simp[FORALL_PROD]>>rw[force_rename_def]>>
+  first_x_assum match_mp_tac
+*)
+
 (*Prove the properties that hold of ssa_cc_trans independent of semantics*)
 Theorem ssa_cc_trans_props[local]:
   ∀prog ssa na prog' ssa' na'.
@@ -4212,10 +4199,16 @@ Theorem ssa_cc_trans_props[local]:
 Proof
   ho_match_mp_tac ssa_cc_trans_ind>>
   full_simp_tac(srw_ss())[ssa_cc_trans_def]>>
-  strip_tac >-
-    (LET_ELIM_TAC>>
-    full_simp_tac(srw_ss())[]>>
-    metis_tac[list_next_var_rename_props])>>
+  strip_tac >- (
+    (* Move *)
+    LET_ELIM_TAC>>
+    full_simp_tac(srw_ss())[]
+    >-
+      metis_tac[list_next_var_rename_props]
+    >-
+      metis_tac[list_next_var_rename_props]
+    >-
+      cheat)>>
   strip_tac >- (
     (* StoreConsts *)
     LET_ELIM_TAC>>fs[next_var_rename_def]
@@ -4563,10 +4556,15 @@ Proof
   Cases_on`prog`
   >-
     exists_tac
-  >-
-    (exists_tac>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[set_vars_def]>>
-    Cases_on`list_next_var_rename (MAP FST l) ssa na`>>
-    Cases_on`r`>>
+  >- (
+    (* Move *)
+    last_x_assum kall_tac>>
+    exists_tac>>
+    EVERY_CASE_TAC>>full_simp_tac(srw_ss())[set_vars_def]>>
+    cheat
+    (* pairarg_tac>>fs[]>>
+    pairarg_tac>>fs[]>>
+    pairarg_tac>>gvs[]>>
     full_simp_tac(srw_ss())[evaluate_def]>>
     imp_res_tac list_next_var_rename_lemma_1>>
     imp_res_tac list_next_var_rename_lemma_2>>
@@ -4637,7 +4635,7 @@ Proof
         `MEM x' (MAP FST l)` by
           metis_tac[ALOOKUP_ZIP_MEM,LENGTH_MAP]>>
         full_simp_tac(srw_ss())[EVERY_MEM]>>
-        metis_tac[DECIDE``x'<na ⇒ x' < na + 4*LENGTH l``])
+        metis_tac[DECIDE``x'<na ⇒ x' < na + 4*LENGTH l``] *))
   >- (*Inst*)
     (exists_tac>>
     Cases_on`i`>> (TRY (Cases_on`a`))>> (TRY(Cases_on`m`))>>
@@ -5070,11 +5068,15 @@ Proof
       full_simp_tac(srw_ss())[ssa_locals_rel_def,strong_locals_rel_def]>>
       ntac 1 (last_x_assum kall_tac)>>
       srw_tac[][INJ_DEF]>-
-        (SPOSE_NOT_THEN assume_tac>>
+        (
+        (* use property of list_next_var_rename_move *)
+        cheat>>
+        SPOSE_NOT_THEN assume_tac>>
         `x'' ∈ domain st.locals ∧ y ∈ domain st.locals` by
           full_simp_tac(srw_ss())[SUBSET_DEF,cut_env_def]>>
         full_simp_tac(srw_ss())[domain_lookup,option_lookup_def,ssa_map_ok_def]>>
         res_tac>>
+        gvs[]>>
         full_simp_tac(srw_ss())[]>>
         metis_tac[])
       >>
@@ -5356,7 +5358,9 @@ Proof
       (rev_full_simp_tac(srw_ss())[Abbr`f`]>>
       full_simp_tac(srw_ss())[ssa_locals_rel_def,strong_locals_rel_def]>>
       srw_tac[][INJ_DEF]>-
-        (SPOSE_NOT_THEN assume_tac>>
+        ((* use property of list_next_var_rename_move *)
+        cheat>>
+        SPOSE_NOT_THEN assume_tac>>
         `x'' ∈ domain st.locals ∧ y ∈ domain st.locals` by
           full_simp_tac(srw_ss())[SUBSET_DEF,cut_env_def]>>
         full_simp_tac(srw_ss())[domain_lookup,option_lookup_def,ssa_map_ok_def]>>
@@ -5917,7 +5921,9 @@ Proof
       (rev_full_simp_tac(srw_ss())[Abbr`f`]>>
       full_simp_tac(srw_ss())[ssa_locals_rel_def,strong_locals_rel_def]>>
       srw_tac[][INJ_DEF]>-
-        (SPOSE_NOT_THEN assume_tac>>
+        ((* use property of list_next_var_rename_move *)
+        cheat>>
+        SPOSE_NOT_THEN assume_tac>>
         `x' ∈ domain st.locals ∧ y ∈ domain st.locals` by
           full_simp_tac(srw_ss())[SUBSET_DEF,cut_env_def]>>
         full_simp_tac(srw_ss())[domain_lookup,option_lookup_def,ssa_map_ok_def]>>
@@ -6202,7 +6208,9 @@ Proof
       fs[ssa_locals_rel_def,strong_locals_rel_def]>>
       rw[INJ_DEF]
       >-
-        (CCONTR_TAC>>
+        ((* use property of list_next_var_rename_move *)
+        cheat>>
+        CCONTR_TAC>>
         `x ∈ domain st.locals ∧ y ∈ domain st.locals` by
           fs[SUBSET_DEF,cut_env_def]>>
         fs[domain_lookup,option_lookup_def,ssa_map_ok_def]>>
@@ -6361,7 +6369,9 @@ Proof
       (rev_full_simp_tac(srw_ss())[Abbr`f`]>>
       full_simp_tac(srw_ss())[ssa_locals_rel_def,strong_locals_rel_def]>>
       srw_tac[][INJ_DEF]>-
-        (SPOSE_NOT_THEN assume_tac>>
+        ((* use property of list_next_var_rename_move *)
+        cheat>>
+        SPOSE_NOT_THEN assume_tac>>
         `x''' ∈ domain st.locals ∧ y ∈ domain st.locals` by
           full_simp_tac(srw_ss())[SUBSET_DEF,cut_env_def]>>
         full_simp_tac(srw_ss())[domain_lookup,option_lookup_def,ssa_map_ok_def]>>
@@ -7196,8 +7206,8 @@ Proof
   ho_match_mp_tac ssa_cc_trans_ind>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>srw_tac[][]>>
   unabbrev_all_tac>>
   full_simp_tac(srw_ss())[full_inst_ok_less_def]
-  >-
-    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+  >- (
+    Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
     TRY(Cases_on`f`)>>
     TRY(full_simp_tac(srw_ss())[ssa_cc_trans_inst_def,LET_THM,next_var_rename_def,ssa_map_ok_def]>>
     every_case_tac>>rw[]>>
@@ -7206,14 +7216,17 @@ Proof
     fs[option_lookup_def]>>every_case_tac>>rw[]>>
     pop_assum (assume_tac o SYM)>>res_tac>>
     fs[is_phy_var_def,is_alloc_var_def]>>CCONTR_TAC>>fs[]>>NO_TAC)>>
-    (* Nasty special case again *)
+    cheat>>
+    (* TODO: add special case for FPMovFromReg
+      Nasty special case again *)
     full_simp_tac(srw_ss())[ssa_cc_trans_inst_def,LET_THM,next_var_rename_def,ssa_map_ok_def]>>
     every_case_tac>>rw[]>>
     full_simp_tac(srw_ss())[EQ_SYM_EQ,inst_ok_less_def,full_inst_ok_less_def,every_var_def,every_var_inst_def]>>
     rw[]>>
     fs[option_lookup_def]>>every_case_tac>>rw[]>>
     pop_assum (assume_tac o SYM)>>res_tac>>
-    fs[is_phy_var_def,is_alloc_var_def]>>CCONTR_TAC>>fs[]>>NO_TAC)
+    fs[is_phy_var_def,is_alloc_var_def]>>CCONTR_TAC>>fs[]>>
+    NO_TAC)
   >>
   (* Some trivial cases *)
   TRY
