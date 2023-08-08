@@ -174,11 +174,14 @@ val treeEx8 = check_success $ parse_pancake ex8;
 (* Multiplication
  *)
 
-val ex8_and_a_half = ‘x = a * b;
-                      x = a * b * c;
-                      x =  (a + b) * c;
-                      x = a + b * c;
-                      x = a * b + c;’;
+val ex8_and_a_half = ‘
+  fun cmps () {
+    x = a * b;
+    x = a * b * c;
+    x =  (a + b) * c;
+    x = a + b * c;
+    x = a * b + c;
+  }’;
 
 val treeEx8_and_a_half = check_success $ parse_pancake ex8_and_a_half;
 
