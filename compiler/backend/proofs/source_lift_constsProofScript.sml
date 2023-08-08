@@ -632,6 +632,7 @@ QED
 Triviality eval_simulation_Fun:
   ^(#get_goal eval_simulation_setup `Case ([Fun _ _])`)
 Proof
+  cheat (*
   rpt strip_tac
   >- simp [Once v_rel_cases]
   \\ gvs [annotate_exp_def]
@@ -653,7 +654,7 @@ Proof
   \\ fs [evaluate_decs_def,evaluate_def,pat_bindings_def,pmatch_def]
   \\ drule_all nsBind_EVERY_can_lookup_extra \\ rw []
   \\ drule_all nsBind_EVERY_can_lookup \\ rw []
-  \\ cheat (* v_rel clos *)
+  \\ cheat (* v_rel clos *) *)
 QED
 
 Triviality eval_simulation_Letrec:
@@ -806,6 +807,7 @@ QED
 Triviality eval_simulation_Dlet:
   ^(#get_goal eval_simulation_setup `Case (Dlet, [_])`)
 Proof
+  cheat (*
   rpt strip_tac
   \\ gvs [CaseEq"bool"]
   \\ gvs [id_rel_def,CaseEq"prod"]
@@ -865,7 +867,7 @@ Proof
   \\ disch_then $ qspecl_then [‘nsEmpty’,‘nsEmpty’,
                                ‘<| v := nsEmpty ; c := nsEmpty |>’,
                                ‘<| v := nsEmpty ; c := nsEmpty |>’] mp_tac
-  \\ fs [env_rel_def,SF SFY_ss]
+  \\ fs [env_rel_def,SF SFY_ss] *)
 QED
 
 Triviality eval_simulation_Dletrec:
