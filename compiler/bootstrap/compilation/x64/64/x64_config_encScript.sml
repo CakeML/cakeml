@@ -5,6 +5,13 @@ open preamble backend_enc_decTheory x64BootstrapTheory;
 
 val _ = new_theory "x64_config_enc";
 
+Theorem tap_config_enc'_comp[compute]:
+  tap_config_enc' c = Tree 0 [bool_enc' (c.explore_flag)]
+Proof
+  Cases_on ‘c’
+  \\ fs [backend_enc_decTheory.tap_config_enc'_def]
+QED
+
 val confs = LIST_CONJ
   [to_dataBootstrapTheory.flat_conf_def,
    to_dataBootstrapTheory.bvl_conf_def,
@@ -25,6 +32,7 @@ Theorem encode_backend_config_cake_config =
 
 val _ = let
   val filename = "config_enc_str.txt"
+(* config_enc_str_def |> concl |> rand |> repeat (snd o stringSyntax.dest_string) *)
   val str = config_enc_str_def |> concl |> rand |> stringSyntax.fromHOLstring
   val n = size str
   fun nice_size_str n =

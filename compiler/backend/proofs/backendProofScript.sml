@@ -56,6 +56,8 @@ QED
 
 (* -- *)
 
+val compile_tap_def = backend_passesTheory.compile_tap_def;
+
 Theorem backend_upper_w2w[simp]:
   backend$upper_w2w = data_to_word_gcProof$upper_w2w
 Proof
@@ -419,7 +421,7 @@ Proof
   \\ TRY (gen_tac \\ pop_assum kall_tac)
   \\ rpt gen_tac
   \\ fs [compile_inc_progs_def, backendTheory.compile_def,
-            backendTheory.compile_tap_def, clos_to_bvlTheory.compile_def,
+            compile_tap_def, clos_to_bvlTheory.compile_def,
             clos_to_bvlTheory.compile_common_def,
             clos_to_bvlTheory.clos_to_bvl_compile_inc_def, lab_to_targetTheory.compile_def,
             bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def ]
@@ -1699,7 +1701,7 @@ Proof
   \\ conj_tac >- (
     fs []
     \\ drule_then drule to_lab_labels_ok
-    \\ fs [backendTheory.compile_def, backendTheory.compile_tap_def]
+    \\ fs [backendTheory.compile_def, compile_tap_def]
     \\ rpt (pairarg_tac \\ fs [])
     \\ drule_then strip_assume_tac attach_bitmaps_SOME
     \\ simp [to_stack_def, to_word_def, to_data_def, to_bvi_def, to_bvl_def,
@@ -1874,7 +1876,7 @@ Proof
     )
     \\ rw []
     \\ TRY (qpat_x_assum `_ < SUC _` mp_tac \\ EVAL_TAC \\ simp [])
-    \\ fs [backendTheory.compile_def, backendTheory.compile_tap_def,
+    \\ fs [backendTheory.compile_def, compile_tap_def,
           to_bvi_def, to_bvl_def, to_clos_def, to_flat_def,
           bvl_to_bviTheory.compile_def]
     \\ rpt (pairarg_tac \\ fs [])
@@ -1920,7 +1922,7 @@ Proof
     )
     \\ simp [FST_state_co, pred_setTheory.IN_PREIMAGE, cake_orac_0,
             config_tuple2_def]
-    \\ fs [backendTheory.compile_def, backendTheory.compile_tap_def,
+    \\ fs [backendTheory.compile_def, compile_tap_def,
           to_bvi_def, to_bvl_def, to_clos_def, to_flat_def,
           bvl_to_bviTheory.compile_def]
     \\ rpt (pairarg_tac \\ fs [])

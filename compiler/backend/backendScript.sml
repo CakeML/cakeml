@@ -44,16 +44,14 @@ val attach_bitmaps_def = Define `
                   |>) /\
   attach_bitmaps names c bm NONE = NONE`
 
-val compile_tap_def = Define`
-  compile_tap c p =
+Definition compile_def:
+  compile c p =
     let p = source_to_source$compile p in
     let _ = empty_ffi (strlit "finished: source_to_source") in
     let (c',p) = source_to_flat$compile c.source_conf p in
-    let td = tap_flat c.tap_conf p [] in
     let _ = empty_ffi (strlit "finished: source_to_flat") in
     let c = c with source_conf := c' in
     let p = flat_to_clos$compile_prog p in
-    let td = tap_clos c.tap_conf p td in
     let _ = empty_ffi (strlit "finished: flat_to_clos") in
     let (c',p,names) = clos_to_bvl$compile c.clos_conf p in
     let c = c with clos_conf := c' in
@@ -63,32 +61,26 @@ val compile_tap_def = Define`
     let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
     let _ = empty_ffi (strlit "finished: bvl_to_bvi") in
     let p = bvi_to_data$compile_prog p in
-    let td = tap_data_lang c.tap_conf (p,names) td in
     let _ = empty_ffi (strlit "finished: bvi_to_data") in
     let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
     let names = sptree$union (sptree$fromAList $ (data_to_word$stub_names () ++
       word_to_stack$stub_names () ++ stack_alloc$stub_names () ++
       stack_remove$stub_names ())) names in
-    let td = tap_word c.tap_conf (p,names) td in
     let _ = empty_ffi (strlit "finished: data_to_word") in
     let (bm,c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
-    let td = tap_stack c.tap_conf (p,names) td in
     let c = c with word_conf := c' in
     let _ = empty_ffi (strlit "finished: word_to_stack") in
     let p = stack_to_lab$compile
       c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
       (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
       (c.lab_conf.asm_conf.addr_offset) p in
-    let td = tap_lab c.tap_conf (p,names) td in
     let _ = empty_ffi (strlit "finished: stack_to_lab") in
     let res = attach_bitmaps names c bm
       (lab_to_target$compile c.lab_conf (p:'a prog)) in
     let _ = empty_ffi (strlit "finished: lab_to_target") in
-      (res, td)`;
-
-val compile_def = Define`
-  compile c p = FST (compile_tap c p)`;
+      res
+End
 
 val to_flat_def = Define`
   to_flat c p =
@@ -175,7 +167,7 @@ val to_target_def = Define`
 Theorem compile_eq_to_target:
    compile = to_target
 Proof
-  srw_tac[][FUN_EQ_THM,compile_def,compile_tap_def,
+  srw_tac[][FUN_EQ_THM,compile_def,
      to_target_def,
      to_lab_def,
      to_stack_def,
@@ -280,7 +272,7 @@ val from_source_def = Define`
 Theorem compile_eq_from_source:
    compile = from_source
 Proof
-  srw_tac[][FUN_EQ_THM,compile_def,compile_tap_def,
+  srw_tac[][FUN_EQ_THM,compile_def,
      from_source_def,
      from_lab_def,
      from_stack_def,
@@ -430,7 +422,7 @@ Proof
      to_bvl_def,
      to_clos_def,
      to_flat_def,to_livesets_def] >>
-  fs[compile_def,compile_tap_def]>>
+  fs[compile_def]>>
   pairarg_tac>>
   fs[data_to_wordTheory.compile_def,word_to_wordTheory.compile_def]>>
   fs[from_livesets_def,from_word_def,from_stack_def,from_lab_def]>>
