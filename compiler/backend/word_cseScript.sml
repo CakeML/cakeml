@@ -82,17 +82,18 @@ Definition map_insert_def:
     insert x y (map_insert xs m)
 End
 
-Definition canonicalMoveRegs3_def:
-  canonicalMoveRegs3 data moves =
-  let moves' = MAP (λ(a,b). (a, canonicalRegs data b)) moves in
+Definition canonicalMoveRegs_def:
+  canonicalMoveRegs data moves =
     if EXISTS (λ(a,b). is_seen a data) moves ∨
        ¬EVERY (λ(a,b). EVEN b ∨ is_seen b data) moves
-    then (empty_data, moves')
+    then
+      (empty_data, moves)
     else
-      let xs = FILTER (λ(a,b).  ¬EVEN a ∧ ¬EVEN b) moves' in
+      let moves' = MAP (λ(a,b). (a, canonicalRegs data b)) moves in
+      let xs = FILTER (λ(a,b). ¬EVEN a ∧ ¬EVEN b) moves' in
       let a_n = list_insert (FILTER ODD (MAP FST moves)) data.all_names in
       let m = map_insert xs data.map in
-        (data with <| all_names := a_n; map := m |>, moves')
+        (data with <| all_names := a_n; map := m |>, moves)
 End
 
 Definition canonicalArith_def:
@@ -275,16 +276,18 @@ Definition add_to_data_aux_def:
     | SOME r' => if EVEN r then
                    (data, Move 0 [(r,r')])
                  else
-                   (data with <| map:=insert r r' data.map; all_names:=insert r () data.all_names |>, Move 0 [(r,r')])
+                   (data with <| map:=insert r r' data.map;
+                                 all_names:=insert r () data.all_names |>, Move 0 [(r,r')])
     | NONE    => if EVEN r then
                    (data, x)
                  else
-                   (data with <| instrs:=insert data.instrs i r; all_names:=insert r () data.all_names |>, x)
+                   (data with <| instrs:=insert data.instrs i r;
+                                 all_names:=insert r () data.all_names |>, x)
 End
 
 Definition add_to_data_def:
-  add_to_data data r x =
-  let i = instToNumList x in
+  add_to_data data r adjusted x =
+  let i = instToNumList adjusted in
     add_to_data_aux data r i (Inst x)
 End
 
@@ -306,22 +309,22 @@ Definition word_cseInst_def:
   (word_cseInst (data:knowledge) Skip = (data, Inst Skip)) ∧
   (word_cseInst data (Const r w) =
    if is_seen r data then (empty_data with all_names:=data.all_names, Inst (Const r w)) else
-       add_to_data data r (Const r w)) ∧
+       add_to_data data r (Const r w) (Const r w)) ∧
   (word_cseInst data (Arith a) =
    let r = firstRegOfArith a in
      let a' = canonicalArith data a in
        if is_seen r data ∨ is_complex a' ∨ ¬are_reads_seen a' data then
          (empty_data with all_names:=data.all_names, Inst (Arith a))
        else
-         add_to_data data r (Arith a')) ∧
+         add_to_data data r (Arith a') (Arith a)) ∧
   (word_cseInst data (Mem op r (Addr r' w)) =
    if is_store op then
-     (data, Inst (Mem op (canonicalRegs data r) (Addr (canonicalRegs data r') w)))
+     (data, Inst (Mem op r (Addr r' w)))
    else
      if is_seen r data then
-       (empty_data with all_names:=data.all_names, Inst (Mem op r (Addr (canonicalRegs data r') w)))
+       (empty_data with all_names:=data.all_names, Inst (Mem op r (Addr r' w)))
      else
-       (data, Inst (Mem op r (Addr (canonicalRegs data r') w))) ) ∧
+       (data, Inst (Mem op r (Addr r' w))) ) ∧
   (word_cseInst data (x:'a inst) =
      (empty_data with all_names:=data.all_names, Inst x))
 End
@@ -350,7 +353,7 @@ Definition word_cse_def:
   (word_cse (data:knowledge) (Skip) =
                 (data, Skip)) ∧
   (word_cse data (Move r rs) =
-            let (data', rs') = canonicalMoveRegs3 data rs in
+            let (data', rs') = canonicalMoveRegs data rs in
                 (data', Move r rs')) ∧
   (word_cse data (Inst i) =
             let (data', p) = word_cseInst data i in
@@ -358,12 +361,15 @@ Definition word_cse_def:
   (word_cse data (Assign r e) =
                 (data, Assign r e)) ∧
   (word_cse data (Get r x) =
-            if is_seen r data then (empty_data with all_names:=data.all_names, Get r x) else (data, Get r x)) ∧
+            if is_seen r data then
+              (empty_data with all_names:=data.all_names, Get r x)
+            else
+              (data, Get r x)) ∧
   (word_cse data (Set x e) =
             if x = CurrHeap then
-                (empty_data with all_names:=data.all_names, Set x e)
+              (empty_data with all_names:=data.all_names, Set x e)
             else
-                (data, Set x e))∧
+              (data, Set x e))∧
   (word_cse data (Store e r) =
                 (data, Store e r)) ∧
   (word_cse data (MustTerminate p) =
@@ -373,7 +379,8 @@ Definition word_cse_def:
             case ret of
             | NONE => (empty_data, Call ret dest args handler)
             | SOME (ret_reg, cut_set, p, l1, k) =>
-                      (empty_data with all_names:=inter data.all_names cut_set, Call ret dest args handler)) ∧
+                (empty_data with all_names:=inter data.all_names cut_set,
+                 Call ret dest args handler)) ∧
   (word_cse data (Seq p1 p2) =
             let (data1, p1') = word_cse data p1 in
             let (data2, p2') = word_cse data1 p2 in
@@ -381,8 +388,9 @@ Definition word_cse_def:
   (word_cse data (If c r1 r2 p1 p2) =
             let (data1, p1') = word_cse data p1 in
             let (data2, p2') = word_cse data p2 in
-                (empty_data with all_names:=inter data1.all_names data2.all_names, If c r1 r2 p1' p2')) ∧
-                (* We don't know what happen in the IF. Intersection would be the best. *)
+              (empty_data with all_names:=inter data1.all_names data2.all_names,
+               If c r1 r2 p1' p2')) ∧
+            (* We don't know what happen in the IF. Intersection would be the best. *)
   (word_cse data (Alloc r m) =
                 (empty_data with all_names:=data.all_names, Alloc r m)) ∧
   (word_cse data (Raise r) =
@@ -395,7 +403,7 @@ Definition word_cse_def:
     if is_seen r1 data ∨ ¬is_seen r2 data then (empty_data with all_names:=data.all_names, OpCurrHeap b r1 r2) else
       let r2' = canonicalRegs' r1 data r2 in
         let pL = OpCurrHeapToNumList b r2' in
-          add_to_data_aux data r1 pL (OpCurrHeap b r1 r2')) ∧
+          add_to_data_aux data r1 pL (OpCurrHeap b r1 r2)) ∧
   (word_cse data (LocValue r l) =
                 if is_seen r data then (empty_data with all_names:=data.all_names, LocValue r l) else (data, LocValue r l)) ∧
   (word_cse data (Install p l dp dl m) =

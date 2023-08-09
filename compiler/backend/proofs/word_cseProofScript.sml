@@ -682,13 +682,12 @@ Proof
   \\ gvs [evaluate_def, word_cse_def]
   \\ Cases_on ‘ALL_DISTINCT (MAP FST moves)’ \\ gvs [flat_exp_conventions_def]
   \\ Cases_on ‘get_vars (MAP SND moves) s’ \\ gvs []
-  \\ pairarg_tac \\ gvs [canonicalMoveRegs3_def]
-  \\ ‘rs' = MAP (λ(a,b). (a,canonicalRegs data b)) moves’ by gvs [AllCaseEqs()]
+  \\ pairarg_tac \\ gvs [canonicalMoveRegs_def]
+  \\ ‘rs' = moves’ by gvs [AllCaseEqs()]
   \\ gvs [evaluate_def, MAP_FST_lemma]
   \\ drule_all MAP_SND_lemma
   \\ strip_tac \\ gvs []
   \\ gvs [AllCaseEqs()]
-  (*\\ gvs [EVERY_MEM, FORALL_PROD]*)
   \\ gvs [data_inv_def]
   (* print_match [] “domain (list_insert _ _)” *)
   \\ gvs [domain_list_insert, MEM_FILTER, ODD_EVEN]
@@ -1601,7 +1600,7 @@ Proof
   Induct \\ gvs [flat_exp_conventions_def, word_cse_def, AllCaseEqs()]
   \\ rpt gen_tac \\ strip_tac
   >- (pairarg_tac \\ gvs []
-      \\ gvs [canonicalMoveRegs3_def, AllCaseEqs()]
+      \\ gvs [canonicalMoveRegs_def, AllCaseEqs()]
       \\ gvs [data_conventions_def]
       \\ rpt conj_tac \\ rpt gen_tac
       >- (strip_tac
@@ -1737,7 +1736,7 @@ Theorem word_cse_flat_exp_conventions:
       flat_exp_conventions p ⇒ flat_exp_conventions p'
 Proof
   Induct \\ gvs [flat_exp_conventions_def, word_cse_def, AllCaseEqs()]
-  >- (Cases_on ‘canonicalMoveRegs3 data l’ \\ gvs [flat_exp_conventions_def])
+  >- (Cases_on ‘canonicalMoveRegs data l’ \\ gvs [flat_exp_conventions_def])
   >- (rpt gen_tac
       \\ pairarg_tac \\ gvs []
       \\ Cases_on ‘i’ \\ gvs [word_cseInst_def, flat_exp_conventions_def,
@@ -1800,7 +1799,7 @@ Theorem word_cse_full_inst_ok_less:
       full_inst_ok_less c p ⇒ full_inst_ok_less c p'
 Proof
   Induct \\ gvs [full_inst_ok_less_def, word_cse_def]
-  >- (Cases_on ‘canonicalMoveRegs3 data l’ \\ gvs [full_inst_ok_less_def])
+  >- (Cases_on ‘canonicalMoveRegs data l’ \\ gvs [full_inst_ok_less_def])
   >- (rpt gen_tac
       \\ Cases_on ‘i’ \\ gvs [word_cseInst_def, full_inst_ok_less_def]
       >- (Cases_on ‘is_seen n data’ \\ gvs [full_inst_ok_less_def, add_to_data_def, add_to_data_aux_def]
