@@ -178,7 +178,7 @@ Definition sh_mem_store_def:
   sh_mem_store r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
   (case get_var r s of
      SOME (Word w) =>
-       if w2n a MOD w2n (bytes_in_word:'a word) = 0 ∧ a IN s.sh_mdomain then
+       if a IN s.sh_mdomain then
          (case call_FFI s.ffi "MappedWrite" [0w:word8]
                         (word_to_bytes w F ++ word_to_bytes a F) of
             FFI_final outcome => (SOME (FinalFFI outcome), s)
@@ -189,7 +189,7 @@ End
 
 Definition sh_mem_load_def:
   sh_mem_load r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
-  if w2n a MOD w2n (bytes_in_word:'a word) = 0 ∧ a IN s.sh_mdomain then
+  if a IN s.sh_mdomain then
     (case call_FFI s.ffi "MappedRead" [0w:word8]
                    (word_to_bytes a F) of
        FFI_final outcome => (SOME (FinalFFI outcome), s)
