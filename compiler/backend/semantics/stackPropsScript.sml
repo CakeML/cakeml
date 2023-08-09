@@ -23,6 +23,7 @@ Theorem set_store_const[simp]:
    (set_store x y z).be = z.be ∧
    (set_store x y z).gc_fun = z.gc_fun ∧
    (set_store x y z).mdomain = z.mdomain ∧
+   (set_store x y z).sh_mdomain = z.sh_mdomain ∧
    (set_store x y z).bitmaps = z.bitmaps ∧
    (set_store x y z).data_buffer = z.data_buffer ∧
    (set_store x y z).code_buffer = z.code_buffer ∧
@@ -50,6 +51,7 @@ Theorem set_var_const[simp]:
    (set_var x y z).be = z.be ∧
    (set_var x y z).gc_fun = z.gc_fun ∧
    (set_var x y z).mdomain = z.mdomain ∧
+   (set_var x y z).sh_mdomain = z.sh_mdomain ∧
    (set_var x y z).bitmaps = z.bitmaps ∧
    (set_var x y z).compile = z.compile ∧
    (set_var x y z).compile_oracle = z.compile_oracle ∧
@@ -82,6 +84,7 @@ Theorem empty_env_const[simp]:
    (empty_env z).be = z.be ∧
    (empty_env z).gc_fun = z.gc_fun ∧
    (empty_env z).mdomain = z.mdomain ∧
+   (empty_env z).sh_mdomain = z.sh_mdomain ∧
    (empty_env z).bitmaps = z.bitmaps ∧
    (empty_env z).data_buffer = z.data_buffer ∧
    (empty_env z).code_buffer = z.code_buffer ∧
@@ -107,6 +110,7 @@ Theorem alloc_const:
     t.be = s.be ∧
     t.gc_fun = s.gc_fun ∧
     t.mdomain = s.mdomain ∧
+    t.sh_mdomain = s.sh_mdomain ∧
     t.bitmaps = s.bitmaps ∧
     t.compile = s.compile ∧
     t.data_buffer = s.data_buffer ∧
@@ -127,6 +131,7 @@ Theorem store_const_sem_const:
     t.be = s.be ∧
     t.gc_fun = s.gc_fun ∧
     t.mdomain = s.mdomain ∧
+    t.sh_mdomain = s.sh_mdomain ∧
     t.bitmaps = s.bitmaps ∧
     t.compile = s.compile ∧
     t.store = s.store ∧
@@ -170,6 +175,34 @@ Proof
   EVAL_TAC >> srw_tac[][]
 QED
 
+Theorem sh_mem_load_with_const[simp]:
+  FST (sh_mem_load r x (y with clock := k)) = FST (sh_mem_load r x y)
+Proof
+  simp[sh_mem_load_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  fs[]
+QED
+
+Theorem sh_mem_store_with_const[simp]:
+   FST (sh_mem_store x y (z with clock := k)) = FST (sh_mem_store x y z)
+Proof
+  gs[sh_mem_store_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  gs[get_var_def]
+QED
+
+Theorem sh_mem_load_byte_with_const[simp]:
+   FST (sh_mem_load_byte r x (y with clock := k)) = FST (sh_mem_load_byte r x y)
+Proof
+  simp[sh_mem_load_byte_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  fs[]
+QED
+
+Theorem sh_mem_store_byte_with_const[simp]:
+   FST (sh_mem_store_byte x y (z with clock := k)) = FST (sh_mem_store_byte x y z)
+Proof
+  gs[sh_mem_store_byte_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  gs[get_var_def]
+QED
+
 Theorem word_exp_with_const[simp]:
    ∀s y k. word_exp (s with clock := k) y = word_exp s y
 Proof
@@ -200,6 +233,7 @@ Theorem inst_const:
     t.be = s.be ∧
     t.gc_fun = s.gc_fun ∧
     t.mdomain = s.mdomain ∧
+    t.sh_mdomain = s.sh_mdomain ∧
     t.bitmaps = s.bitmaps ∧
     t.compile = s.compile ∧
     t.compile_oracle = s.compile_oracle
@@ -230,11 +264,34 @@ Theorem dec_clock_const[simp]:
    (dec_clock z).be = z.be ∧
    (dec_clock z).gc_fun = z.gc_fun ∧
    (dec_clock z).mdomain = z.mdomain ∧
+   (dec_clock z).sh_mdomain = z.sh_mdomain ∧
    (dec_clock z).bitmaps = z.bitmaps ∧
    (dec_clock z).compile = z.compile ∧
    (dec_clock z).compile_oracle = z.compile_oracle
 Proof
   EVAL_TAC
+QED
+
+Theorem sh_mem_op_const[simp]:
+   sh_mem_op op a r s = (res,t) ⇒
+    t.clock = s.clock ∧
+    t.use_alloc = s.use_alloc ∧
+    t.use_store = s.use_store ∧
+    t.use_stack = s.use_stack ∧
+    t.code = s.code ∧
+    t.be = s.be ∧
+    t.gc_fun = s.gc_fun ∧
+    t.mdomain = s.mdomain ∧
+    t.sh_mdomain = s.sh_mdomain ∧
+    t.bitmaps = s.bitmaps ∧
+    t.compile = s.compile ∧
+    t.compile_oracle = s.compile_oracle
+Proof
+  strip_tac>>Cases_on`op` >>
+  fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
+     sh_mem_load_byte_def,sh_mem_store_byte_def,
+     ffiTheory.call_FFI_def] >>
+  every_case_tac >> gvs[get_var_def]
 QED
 
 Theorem evaluate_consts:
@@ -246,6 +303,7 @@ Theorem evaluate_consts:
       s1.be = s.be /\
       s1.gc_fun = s.gc_fun /\
       s1.mdomain = s.mdomain /\
+      s1.sh_mdomain = s.sh_mdomain /\
       s1.compile = s.compile
 Proof
   recInduct evaluate_ind >>
@@ -255,6 +313,7 @@ Proof
   rpt (
     (strip_tac >> CHANGED_TAC(imp_res_tac alloc_const) >> full_simp_tac(srw_ss())[]) ORELSE
     (strip_tac >> CHANGED_TAC(imp_res_tac inst_const) >> full_simp_tac(srw_ss())[]) ORELSE
+    (strip_tac >> CHANGED_TAC(imp_res_tac sh_mem_op_const) >> full_simp_tac(srw_ss())[]) ORELSE
     (strip_tac >> var_eq_tac >> rveq >> full_simp_tac(srw_ss())[]) ORELSE
     (CASE_TAC >> full_simp_tac(srw_ss())[]) ORELSE
     (pairarg_tac >> simp[]))>>
@@ -274,9 +333,11 @@ Proof
   rw[evaluate_def] >>
   TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
   TRY(
-    fs[case_eq_thms,empty_env_def]>>rw[]>>
+    fs[case_eq_thms,empty_env_def,dec_clock_def]>>rw[]>>
+    TRY (qpat_x_assum ‘(r',s1) = _’ $ assume_tac o GSYM)>>
     imp_res_tac alloc_const \\ imp_res_tac inst_const \\
     imp_res_tac store_const_sem_const \\
+    imp_res_tac sh_mem_op_const \\
     qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC)
   (* Seq *)
   >- (
@@ -353,7 +414,7 @@ Proof
   rw[] \\
   imp_res_tac evaluate_code_bitmaps \\
   rw[] \\
-  metis_tac[subspt_FOLDL_union]
+  irule subspt_FOLDL_union
 QED
 
 Theorem evaluate_io_events_mono:
@@ -373,6 +434,11 @@ Proof
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   TRY (CHANGED_TAC(full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]) >>
        every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
+  TRY (Cases_on ‘op’>>fs[sh_mem_op_def]>>
+       fs[sh_mem_load_def,sh_mem_store_def,
+          sh_mem_load_byte_def,sh_mem_store_byte_def]>>
+       fs[ffiTheory.call_FFI_def]>>
+       rpt (FULL_CASE_TAC>>gvs[]))>>
   metis_tac[IS_PREFIX_TRANS]
 QED
 
@@ -458,7 +524,10 @@ Proof
   TRY (
     rename1`call_FFI` >>
     pairarg_tac >> full_simp_tac(srw_ss())[] >> rveq >> simp[] ) >>
-  metis_tac[]
+  Cases_on ‘op’>>fs[sh_mem_op_def]>>
+  gs[sh_mem_load_def,sh_mem_store_def,get_var_def,
+     sh_mem_load_byte_def,sh_mem_store_byte_def,ffiTheory.call_FFI_def]>>
+  rpt (FULL_CASE_TAC>>gvs[])
 QED
 
 Theorem with_clock_ffi:
@@ -511,6 +580,10 @@ Proof
     rename1 `buffer_flush _ _ _ = _`>>
     pairarg_tac>>fs[]>>
     every_case_tac >> fs[get_var_def])>>
+  TRY (Cases_on ‘op’>>fs[sh_mem_op_def]>>
+       gs[sh_mem_load_def,sh_mem_store_def,ffiTheory.call_FFI_def,
+          sh_mem_load_byte_def,sh_mem_store_byte_def,get_var_def]>>
+      rpt (FULL_CASE_TAC>>gvs[]))>>
   metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR]
 QED
 
@@ -669,10 +742,17 @@ Proof
   \\ metis_tac []
 QED
 
+Definition addr_ok_def:
+  addr_ok op (Addr a w) c ⇔
+  (reg_ok a c ∧
+   if op ∈ {Load; Store} then addr_offset_ok c w else byte_offset_ok c w)
+End
+
 (* TODO: This is not updated for Install, CBW and DBW *)
 (* asm_ok out of stack_names *)
 val stack_asm_ok_def = Define`
   (stack_asm_ok c ((Inst i):'a stackLang$prog) ⇔ asm$inst_ok i c) ∧
+  (stack_asm_ok c (ShMemOp op r ad) ⇔ reg_ok r c ∧ addr_ok op ad c) ∧
   (stack_asm_ok c (CodeBufferWrite r1 r2) ⇔ r1 < c.reg_count ∧ r2 < c.reg_count ∧ ¬MEM r1 c.avoid_regs ∧ ¬MEM r2 c.avoid_regs) ∧
   (stack_asm_ok c (Seq p1 p2) ⇔ stack_asm_ok c p1 ∧ stack_asm_ok c p2) ∧
   (stack_asm_ok c (If cmp n r p p') ⇔ stack_asm_ok c p ∧ stack_asm_ok c p') ∧
@@ -786,6 +866,7 @@ val stack_asm_name_def = Define`
   (stack_asm_name c ((Inst i):'a stackLang$prog) ⇔ inst_name c i) ∧
   (stack_asm_name c (OpCurrHeap b r1 r2) ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c) ∧
+  (stack_asm_name c (ShMemOp op r a) ⇔ reg_name r c ∧ addr_name op a c) ∧
   (stack_asm_name c (CodeBufferWrite r1 r2) ⇔ reg_name r1 c ∧ reg_name r2 c) ∧
   (stack_asm_name c (DataBufferWrite r1 r2) ⇔ reg_name r1 c ∧ reg_name r2 c) ∧
   (stack_asm_name c (Seq p1 p2) ⇔ stack_asm_name c p1 ∧ stack_asm_name c p2) ∧
@@ -927,6 +1008,7 @@ val reg_bound_def = Define `
                           (case x2 of SOME (y,_,_) => reg_bound y k | NONE => T))) /\
   (reg_bound (Install ptr len dptr dlen ret) k ⇔
     ptr < k ∧ len < k ∧ dptr < k ∧ dlen < k ∧ ret < k) ∧
+  (reg_bound (ShMemOp op r (Addr a _)) k ⇔ r < k ∧ a < k) ∧
   (reg_bound (CodeBufferWrite r1 r2) k ⇔
     r1 < k ∧ r2 < k) ∧
   (reg_bound (DataBufferWrite r1 r2) k ⇔

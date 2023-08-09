@@ -1018,6 +1018,18 @@ Definition word_lang_safe_for_space_def:
 End
 
 (* clean up *)
+(* length, 'a word, endianness *)
+(* cyclic repeat as get_byte does when length > 'a bytes_in_word *)
+Definition word_to_bytes_aux_def:
+  word_to_bytes_aux 0 (w:'a word) be = [] ∧
+  word_to_bytes_aux (SUC n) w be =
+    (word_to_bytes_aux n w be) ++ [get_byte (n2w n) w be]
+End
+
+Definition word_to_bytes_def:
+  word_to_bytes (w:'a word) be =
+  word_to_bytes_aux (dimindex (:'a) DIV 8) w be
+End
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
 
