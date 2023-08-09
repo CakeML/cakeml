@@ -11,8 +11,7 @@ Type regsE = ``:num list list``
 Type regsM = ``:num num_map``
 Type instrsM = ``:(num list,num)map``
 
-val _ = Datatype `knowledge = <| eq:regsE;
-                                 map:regsM;
+val _ = Datatype `knowledge = <| map:regsM;
                                  instrs:instrsM;
                                  all_names:num_set |>`;
 
@@ -29,8 +28,7 @@ Definition listCmp_def:
 End
 
 Definition empty_data_def:
-  empty_data = <| eq:=[];
-                  map:=LN;
+  empty_data = <| map:=LN;
                   instrs:=empty listCmp;
                   all_names:=LN |>
 End
@@ -49,46 +47,6 @@ End
 Definition regsLookup_def:
   regsLookup r [] = F ∧
   regsLookup r (hd::tl) = if listLookup r hd then T else regsLookup r tl
-End
-
-Definition regsUpdate1Aux_def:
-  regsUpdate1Aux r l (hd::tl) =
-   (if listLookup r hd
-      then (l ++ hd)::tl
-      else hd::(regsUpdate1Aux r l tl)) ∧
-  regsUpdate1Aux r l _ = []
-End
-
-Definition regsUpdate1_def:
-  regsUpdate1 r1 r2 (hd::tl) =
-   (if listLookup r1 hd
-      then if listLookup r2 hd
-        then (hd::tl)
-        else regsUpdate1Aux r2 hd tl
-      else if listLookup r2 hd
-        then regsUpdate1Aux r1 hd tl
-        else hd::(regsUpdate1 r1 r2 tl)) ∧
-  regsUpdate1 r1 r2 _ = []
-End
-
-Definition regsUpdate2_def:
-  regsUpdate2 r1 r2 ((hd::tl)::tl') =
-   (if listLookup r1 (hd::tl)
-      then (hd::r2::tl)::tl'
-      else (hd::tl)::(regsUpdate2 r1 r2 tl')) ∧
-  regsUpdate2 r1 r2 _ = []
-End
-
-Definition regsUpdate_def:
-  regsUpdate r1 r2 [] = [[r1;r2]] ∧
-  regsUpdate r1 r2 (hd::tl) =
-    if regsLookup r1 (hd::tl)
-      then if regsLookup r2 (hd::tl)
-        then regsUpdate1 r1 r2 (hd::tl)
-        else regsUpdate2 r1 r2 (hd::tl)
-      else if regsLookup r2 (hd::tl)
-        then regsUpdate2 r2 r1 (hd::tl)
-        else [r1;r2]::hd::tl
 End
 
 (* REGISTER TRANSFORMATIONS *)
@@ -322,7 +280,7 @@ Definition add_to_data_aux_def:
     | SOME r' => if EVEN r then
                    (data, Move 0 [(r,r')])
                  else
-                   (data with <| eq:=regsUpdate r' r data.eq; map:=insert r r' data.map; all_names:=insert r () data.all_names |>, Move 0 [(r,r')])
+                   (data with <| map:=insert r r' data.map; all_names:=insert r () data.all_names |>, Move 0 [(r,r')])
     | NONE    => if EVEN r then
                    (data, x)
                  else

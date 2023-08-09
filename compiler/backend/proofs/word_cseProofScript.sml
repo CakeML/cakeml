@@ -347,22 +347,6 @@ Proof
   \\ Cases_on ‘lookup n1 data.all_names’ \\ gvs []
 QED
 
-Theorem are_reads_seen_insert_eq_map[simp]:
-  ∀a data n l e. are_reads_seen a data ⇒
-                 are_reads_seen a (data with <| eq:=e ; map:= l ;
-                                                all_names:=insert n () data.all_names |>)
-Proof
-  rpt gen_tac \\ strip_tac
-  \\ Cases_on ‘a’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
-  >- (Cases_on ‘r’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
-      \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
-      \\ Cases_on ‘n0=n’ \\ gvs []
-      \\ Cases_on ‘lookup n'' data.all_names’ \\ gvs []
-      \\ Cases_on ‘n''=r’ \\ gvs [])
-  \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
-  \\ Cases_on ‘lookup n1 data.all_names’ \\ gvs []
-QED
-
 Theorem is_seen_insert[simp]:
   ∀r data r'. is_seen r data ⇒ is_seen r (data with all_names := insert r' () data.all_names)
 Proof
@@ -982,8 +966,7 @@ Theorem Inst_Arith_SOME_lemma:
     inst (Arith a) s = SOME s' ⇒
     ¬is_complex a ⇒ are_reads_seen a data ⇒ ¬is_seen (firstRegOfArith a) data ⇒
     lookup data.instrs (instToNumList (Arith (canonicalArith data a))) = SOME x ⇒
-    data_inv (data with <|eq := regsUpdate x (firstRegOfArith a) data.eq;
-                          map := insert (firstRegOfArith a) x data.map;
+    data_inv (data with <|map := insert (firstRegOfArith a) x data.map;
                           all_names := insert (firstRegOfArith a) () data.all_names|>) s'
 Proof
   rpt strip_tac
