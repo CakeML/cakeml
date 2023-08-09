@@ -70,15 +70,6 @@ Proof
   \\ gvs [canonicalImmReg'_def, word_exp_def, GSYM get_var_def]
 QED
 
-Theorem canonicalExp_correct[simp]:
-  ∀data s exp. data_inv data s ⇒ word_exp s (canonicalExp data exp) = word_exp s exp
-Proof
-  gen_tac \\ gen_tac
-  \\ Cases_on ‘exp’
-  \\ rpt gen_tac \\ strip_tac
-  \\ gvs [canonicalExp_def, word_exp_def]
-QED
-
 Theorem is_seen_canonicalRegs:
   data_inv data s ⇒
   is_seen (canonicalRegs data n') data = is_seen n' data
@@ -1753,7 +1744,7 @@ Proof
                               add_to_data_def, add_to_data_aux_def, AllCaseEqs()]
       \\ Cases_on ‘a’ \\ gvs [word_cseInst_def, flat_exp_conventions_def, AllCaseEqs()])
   >- (Cases_on ‘is_seen n data’ \\ gvs [flat_exp_conventions_def])
-  >- (Cases_on ‘s = CurrHeap’ \\ Cases_on ‘e’ \\ gvs [flat_exp_conventions_def, canonicalExp_def])
+  >- (Cases_on ‘s = CurrHeap’ \\ Cases_on ‘e’ \\ gvs [flat_exp_conventions_def])
   >- (gen_tac \\ first_x_assum (qspec_then ‘data’ assume_tac)
       \\ Cases_on ‘word_cse data p’ \\ gvs [flat_exp_conventions_def])
   >- (Cases_on ‘o'’ \\ gvs [flat_exp_conventions_def]
@@ -1826,7 +1817,7 @@ Proof
       \\ Cases_on ‘is_store m’ \\ gvs [full_inst_ok_less_def]
       \\ Cases_on ‘is_seen n data’ \\ gvs [inst_ok_less_def, full_inst_ok_less_def])
   >- (Cases_on ‘is_seen n data’ \\ gvs [full_inst_ok_less_def])
-  >- (Cases_on ‘s = CurrHeap’ \\ Cases_on ‘e’ \\ gvs [full_inst_ok_less_def, canonicalExp_def])
+  >- (Cases_on ‘s = CurrHeap’ \\ Cases_on ‘e’ \\ gvs [full_inst_ok_less_def])
   >- (gen_tac \\ first_x_assum (qspec_then ‘data’ assume_tac)
       \\ Cases_on ‘word_cse data p’ \\ gvs [full_inst_ok_less_def])
   >- (Cases_on ‘o'’ \\ gvs [full_inst_ok_less_def]

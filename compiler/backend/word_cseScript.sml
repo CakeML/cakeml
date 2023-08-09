@@ -95,11 +95,6 @@ Definition canonicalMoveRegs3_def:
         (data with <| all_names := a_n; map := m |>, moves')
 End
 
-Definition canonicalExp_def:
-  canonicalExp data (Var r) = Var (canonicalRegs data r) ∧
-  canonicalExp data exp = exp
-End
-
 Definition canonicalArith_def:
   canonicalArith data (Binop op r1 r2 r3) =
     Binop op r1 (canonicalRegs' r1 data r2) (canonicalImmReg' r1 data r3) ∧
@@ -365,11 +360,10 @@ Definition word_cse_def:
   (word_cse data (Get r x) =
             if is_seen r data then (empty_data with all_names:=data.all_names, Get r x) else (data, Get r x)) ∧
   (word_cse data (Set x e) =
-            let e' = canonicalExp data e in
             if x = CurrHeap then
-                (empty_data with all_names:=data.all_names, Set x e')
+                (empty_data with all_names:=data.all_names, Set x e)
             else
-                (data, Set x e'))∧
+                (data, Set x e))∧
   (word_cse data (Store e r) =
                 (data, Store e r)) ∧
   (word_cse data (MustTerminate p) =
@@ -385,11 +379,9 @@ Definition word_cse_def:
             let (data2, p2') = word_cse data1 p2 in
                 (data2, Seq p1' p2')) ∧
   (word_cse data (If c r1 r2 p1 p2) =
-            let r1' = canonicalRegs data r1 in
-            let r2' = canonicalImmReg data r2 in
             let (data1, p1') = word_cse data p1 in
             let (data2, p2') = word_cse data p2 in
-                (empty_data with all_names:=inter data1.all_names data2.all_names, If c r1' r2' p1' p2')) ∧
+                (empty_data with all_names:=inter data1.all_names data2.all_names, If c r1 r2 p1' p2')) ∧
                 (* We don't know what happen in the IF. Intersection would be the best. *)
   (word_cse data (Alloc r m) =
                 (empty_data with all_names:=data.all_names, Alloc r m)) ∧
