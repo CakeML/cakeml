@@ -1,7 +1,13 @@
 Compiling the pseudo-boolean constraints checker
 
+[cliqueCompileScript.sml](cliqueCompileScript.sml):
+Compiles the max clique + PB checker
+
 [cnfCompileScript.sml](cnfCompileScript.sml):
 Compiles the CNF + PB checker
+
+[mccisCompileScript.sml](mccisCompileScript.sml):
+Compiles the MCCIS + PB checker
 
 [mcisCompileScript.sml](mcisCompileScript.sml):
 Compiles the MCIS + PB checker

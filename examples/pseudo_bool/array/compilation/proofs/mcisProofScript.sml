@@ -115,4 +115,6 @@ Proof
   metis_tac[]
 QED
 
+val chk = machine_code_sound |> check_thm;
+
 val _ = export_theory();

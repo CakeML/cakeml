@@ -32,7 +32,7 @@ val compile_correct_applied =
 val cake_pb_iso_compiled_thm =
   CONJ compile_correct_applied cake_pb_iso_output
   |> DISCH_ALL
-  |> check_thm
+  (* |> check_thm *)
   |> curry save_thm "cake_pb_iso_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
@@ -108,5 +108,7 @@ Proof
     every_case_tac>>fs[])>>
   metis_tac[]
 QED
+
+val chk = machine_code_sound |> check_thm;
 
 val _ = export_theory();
