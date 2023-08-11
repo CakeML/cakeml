@@ -611,7 +611,15 @@ Proof
   srw_tac[][evaluate_def] >>
   TRY CASE_TAC >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >>
   TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  TRY CASE_TAC >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >>
+  TRY CASE_TAC >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq
+  >>~ [`sh_mem_store`]
+    >- rpt (TOP_CASE_TAC >> gvs[sh_mem_store_def])
+  >>~ [`sh_mem_store_byte`]
+    >- rpt (TOP_CASE_TAC >> gvs[sh_mem_store_byte_def])
+  >>~ [`sh_mem_load`] >- gvs[sh_mem_load_def]
+    >- rpt (TOP_CASE_TAC >> gvs[sh_mem_load_def])
+  >>~ [`sh_mem_load_byte`] >- gvs[sh_mem_load_byte_def]
+    >- rpt (TOP_CASE_TAC >> gvs[sh_mem_load_byte_def]) >>
   TRY (
     rename1`find_code _ (add_ret_loc _ _)` >>
     Cases_on`get_vars args s`>>full_simp_tac(srw_ss())[]>>
@@ -723,6 +731,12 @@ Proof
   >- tac
   >- tac
   >- (tac>>fs[cut_env_def]>> rveq >> fs [])
+  >- (tac>>fs[sh_mem_store_def] >>
+    rpt (TOP_CASE_TAC >> gvs[]))
+  >- (tac>>fs[sh_mem_store_byte_def] >>
+    rpt (TOP_CASE_TAC >> gvs[]))
+  >- (tac>>gvs[sh_mem_load_def,set_var_def])
+  >- (tac>>gvs[sh_mem_load_byte_def,set_var_def])
   >>
     qpat_x_assum`A=(res,rst)` mp_tac>>
     ntac 6 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
@@ -791,7 +805,8 @@ Proof
   imp_res_tac pop_env_const >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[LET_THM] >>
   TRY (pairarg_tac >> full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[]) >>
-  rveq >> full_simp_tac(srw_ss())[] >>
+  rveq >>
+  gvs[sh_mem_store_def,sh_mem_store_byte_def,sh_mem_load_def,sh_mem_load_byte_def,AllCaseEqs()] >>
   TRY (CHANGED_TAC(full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]) >>
        every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
   metis_tac[IS_PREFIX_TRANS]
@@ -871,7 +886,9 @@ Proof
   rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >>
-  rveq >> full_simp_tac(srw_ss())[] >>
+  rveq >> fs[] >>
+  (* fs[sh_mem_store_byte_def,sh_mem_store_byte_def] >>
+  rpt (TOP_CASE_TAC >> gvs[]) >> *)
   imp_res_tac evaluate_io_events_mono >> rev_full_simp_tac(srw_ss())[] >>
   metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]
 QED
