@@ -55,7 +55,9 @@ val _ = Datatype `
        | DataBufferWrite num num (* data buffer address, word to write *)
        | FFI string num num num num num_set (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
        | ShareStore ('a exp) num (* expression to be evaluated to an address, local variable *)
-       | ShareLoad num ('a exp) (* local variable, expression to be evaluated to an address *)`;
+       | ShareStoreByte ('a exp) num
+       | ShareLoad num ('a exp) (* local variable, expression to be evaluated to an address *)
+       | ShareLoadByte num ('a exp)`;
 
 val raise_stub_location_def = Define`
   raise_stub_location = word_num_stubs - 2`;
