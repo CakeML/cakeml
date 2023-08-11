@@ -94,6 +94,7 @@ val _ = Datatype `
      ; stack_size : num num_map (* stack frame size of function, unbounded if unmapped *)
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
+     ; sh_mdomain : ('a word) set
      ; permute : num -> num -> num (* sequence of bijective mappings *)
      ; compile : 'c -> (num # num # 'a wordLang$prog) list -> (word8 list # 'a word list # 'c) option
      ; compile_oracle : num -> 'c # (num # num # 'a wordLang$prog) list
@@ -225,6 +226,56 @@ val flush_state_def = Define `
                               ; locals_size := SOME 0 |>
 /\ flush_state F ^s = s with <| locals := LN
                               ; locals_size := SOME 0 |>`;
+
+(* clean up *)
+(* length, 'a word, endianness *)
+(* cyclic repeat as get_byte does when length > 'a bytes_in_word *)
+Definition word_to_bytes_aux_def:
+  word_to_bytes_aux 0 (w:'a word) be = [] ∧
+  word_to_bytes_aux (SUC n) w be =
+    (word_to_bytes_aux n w be) ++ [get_byte (n2w n) w be]
+End
+
+Definition word_to_bytes_def:
+  word_to_bytes (w:'a word) be =
+  word_to_bytes_aux (dimindex (:'a) DIV 8) w be
+End
+
+Definition sh_mem_store_def:
+  sh_mem_store (a:'a word) (w:'a word) ^s =
+    if a IN s.sh_mdomain then
+      case call_FFI s.ffi "MappedWrite" [0w:word8]
+                    (word_to_bytes w F ++ word_to_bytes a F) of
+      | FFI_final outcome => (SOME (FinalFFI outcome), flush_state T s)
+      | FFI_return new_ffi new_bytes => (NONE, (s with ffi := new_ffi))
+    else (SOME Error, s)
+End
+
+Definition sh_mem_load_def:
+  sh_mem_load (a:'a word) ^s =
+    if a IN s.sh_mdomain then
+      SOME $ call_FFI s.ffi "MappedRead" [0w:word8]
+                    (word_to_bytes a F)
+    else NONE
+End
+
+Definition sh_mem_store_byte_def:
+  sh_mem_store_byte (a:'a word) (w:'a word) ^s =
+    if a IN s.sh_mdomain then
+      case call_FFI s.ffi "MappedWrite" [1w:word8]
+                    ([get_byte 0w w F] ++ word_to_bytes a F) of
+        FFI_final outcome => (SOME (FinalFFI outcome), flush_state T s)
+      | FFI_return new_ffi new_bytes => (NONE, (s with ffi := new_ffi))
+    else (SOME Error, s)
+End
+
+Definition sh_mem_load_byte_def:
+  sh_mem_load_byte (a:'a word) ^s =
+    if a IN s.sh_mdomain then
+      SOME $ call_FFI s.ffi "MappedRead" [1w:word8]
+                    (word_to_bytes a F)
+    else NONE
+End
 
 val call_env_def = Define `
   call_env args size ^s =
@@ -834,6 +885,30 @@ val evaluate_def = tDefine "evaluate" `
                                    ffi := new_ffi |>))
           | _ => (SOME Error,s)))
     | res => (SOME Error,s)) /\
+  (evaluate (ShareStore exp v, s) =
+     (case (word_exp s exp, get_var v s) of
+     | (SOME (Word a), SOME (Word w)) => sh_mem_store a w s
+     | _ => (SOME Error,s))) /\
+  (evaluate (ShareStoreByte exp v, s) =
+     (case (word_exp s exp, get_var v s) of
+     | (SOME (Word a), SOME (Word w)) => sh_mem_store_byte a w s
+     | _ => (SOME Error,s))) /\
+  (evaluate (ShareLoad v exp, s) =
+    (case word_exp s exp of
+    | SOME (Word w) =>
+      (case sh_mem_load w s of
+      | SOME (FFI_final outcome) => (SOME (FinalFFI outcome), flush_state T s)
+      | SOME (FFI_return new_ffi new_bytes) => (NONE, set_var v (Word (word_of_bytes F 0w new_bytes)) s)
+      | _ => (SOME Error, s))
+    | _ => (SOME Error,s))) /\
+  (evaluate (ShareLoadByte v exp, s) =
+    (case word_exp s exp of
+    | SOME (Word w) =>
+      (case sh_mem_load_byte w s of
+      | SOME (FFI_final outcome) => (SOME (FinalFFI outcome), flush_state T s)
+      | SOME (FFI_return new_ffi new_bytes) => (NONE, set_var v (Word (word_of_bytes F 0w new_bytes)) s)
+      | _ => (SOME Error, s))
+    | _ => (SOME Error,s))) /\
   (evaluate (Call ret dest args handler,s) =
     case get_vars args s of
     | NONE => (SOME Error,s)
@@ -950,7 +1025,8 @@ Proof
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[set_vars_def,set_var_def,set_store_def,unset_var_def]
   \\ imp_res_tac inst_clock \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[mem_store_def,call_env_def,dec_clock_def,flush_state_def]
+  \\ full_simp_tac(srw_ss())[mem_store_def,call_env_def,dec_clock_def,flush_state_def,
+    sh_mem_store_def,sh_mem_store_byte_def,sh_mem_load_def,sh_mem_load_byte_def]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[LET_THM] \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ full_simp_tac(srw_ss())[jump_exc_def,pop_env_def]
@@ -1015,20 +1091,6 @@ Definition word_lang_safe_for_space_def:
     let prog = Call NONE (SOME start) [0] NONE in
       (!k res t. wordSem$evaluate (prog, s with clock := k) = (res,t) ==>
         ?max. t.stack_max = SOME max /\ max <= t.stack_limit)
-End
-
-(* clean up *)
-(* length, 'a word, endianness *)
-(* cyclic repeat as get_byte does when length > 'a bytes_in_word *)
-Definition word_to_bytes_aux_def:
-  word_to_bytes_aux 0 (w:'a word) be = [] ∧
-  word_to_bytes_aux (SUC n) w be =
-    (word_to_bytes_aux n w be) ++ [get_byte (n2w n) w be]
-End
-
-Definition word_to_bytes_def:
-  word_to_bytes (w:'a word) be =
-  word_to_bytes_aux (dimindex (:'a) DIV 8) w be
 End
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
