@@ -7,13 +7,45 @@ open preamble wordLangTheory wordsTheory boolTheory mlmapTheory sptreeTheory
 
 val _ = new_theory "word_cse";
 
-Type regsE = ``:num list list``
-Type regsM = ``:num num_map``
-Type instrsM = ``:(num list,num)map``
+(* DATA
 
-val _ = Datatype `knowledge = <| map:regsM;
-                                 instrs:instrsM;
-                                 all_names:num_set |>`;
+  The to_canonical field maps register name r to a canonical name c
+  such that registers r and c hold the same value.
+
+  The to_latest field maps canonical name to latest register name
+  that has that value. The latest name should always be emitted to
+  generate code with as short live ranges as possible (helps register
+  allocation).
+
+  The gets_mem field maps store names to canonical registers.
+
+  The instrs_mem field maps instructions to canonical register holding
+  the value of that this instruction produces. Note that instructions
+  are stored with canonical names only.
+
+  Conventions:
+
+   - The domain of to_canonical include all names that are mentioned
+     anywhere in the data state.
+
+   - The data must be reset to empty, in case we encounter an
+     assignment to a name that's in the main of to_canonical, because
+     such assignments can make the optimisers state out-of-date.
+
+   - All names in the domain and range of to_canonical must be ODD, so
+     that pre-register-allocated registers aren't touched.
+
+*)
+
+Datatype:
+  knowledge =
+  <|
+    to_canonical : num num_map ;
+    to_latest    : num num_map ;
+    gets_mem     : (store_name, num) alist ;
+    instrs_mem   : (num list, num) map
+  |>
+End
 
 (* LIST COMPARISON *)
 
@@ -28,32 +60,28 @@ Definition listCmp_def:
 End
 
 Definition empty_data_def:
-  empty_data = <| map:=LN;
-                  instrs:=empty listCmp;
-                  all_names:=LN |>
+  empty_data = <| to_canonical := LN ;
+                  to_latest    := LN ;
+                  gets_mem     := [] ;
+                  instrs_mem   := empty listCmp |>
 End
 
-Definition is_seen_def:
-  is_seen r data = case sptree$lookup r data.all_names of SOME _ => T | NONE => F
+Definition invalidate_data_def:
+  invalidate_data data (write_to_reg:num) =
+    case lookup write_to_reg data.to_canonical of
+    | NONE => data (* all is fine *)
+    | SOME _ => empty_data (* must forget everything *)
 End
 
-(* REGISTERS EQUIVALENCE MEMORY *)
-
-Definition listLookup_def:
-  listLookup x [] = F ∧
-  listLookup x (y::tl) = if x=y then T else listLookup x tl
-End
-
-Definition regsLookup_def:
-  regsLookup r [] = F ∧
-  regsLookup r (hd::tl) = if listLookup r hd then T else regsLookup r tl
+Definition invalidate_data_list_def:
+  invalidate_data_list data regs = FOLDL invalidate_data data (regs:num list)
 End
 
 (* REGISTER TRANSFORMATIONS *)
 
 Definition canonicalRegs_def:
   canonicalRegs (data:knowledge) (r:num) =
-  lookup_any r data.map r
+  lookup_any r data.to_canonical r
 End
 
 Definition canonicalRegs'_def:
@@ -84,16 +112,13 @@ End
 
 Definition canonicalMoveRegs_def:
   canonicalMoveRegs data moves =
-    if EXISTS (λ(a,b). is_seen a data) moves ∨
-       ¬EVERY (λ(a,b). EVEN b ∨ is_seen b data) moves
-    then
-      (empty_data, moves)
-    else
-      let moves' = MAP (λ(a,b). (a, canonicalRegs data b)) moves in
-      let xs = FILTER (λ(a,b). ¬EVEN a ∧ ¬EVEN b) moves' in
-      let a_n = list_insert (FILTER ODD (MAP FST moves)) data.all_names in
-      let m = map_insert xs data.map in
-        (data with <| all_names := a_n; map := m |>, moves)
+    let data' = invalidate_data_list data (MAP FST moves) in
+    let xs = FILTER (λ(a,b). ¬EVEN a ∧ ¬EVEN b) moves in
+    let ys = MAP (λ(a,b). (a, canonicalRegs data b)) xs in
+    let to_c = map_insert ys data.to_canonical in
+    let zs = MAP (λ(a,b). (b,a)) ys in
+    let to_l = map_insert ys data.to_latest in
+      data' with <| to_canonical := to_c ; to_latest := to_l |>
 End
 
 Definition canonicalArith_def:
@@ -262,33 +287,35 @@ Definition firstRegOfFp_def:
   firstRegOfFp (FPFromInt r _) = r
 End
 
-Definition are_reads_seen_def:
-  are_reads_seen (Binop _ _ r1 (Reg r2)) data = (is_seen r1 data ∧ is_seen r2 data) ∧
-  are_reads_seen (Binop _ _ r1 (Imm _)) data = (is_seen r1 data) ∧
-  are_reads_seen (Div _ r1 r2) data = (is_seen r1 data ∧ is_seen r2 data) ∧
-  are_reads_seen (Shift _ _ r _) data = is_seen r data ∧
-  are_reads_seen _ data = T
-End
-
 Definition add_to_data_aux_def:
   add_to_data_aux data r i x =
-    case mlmap$lookup data.instrs i of
-    | SOME r' => if EVEN r then
-                   (data, Move 0 [(r,r')])
-                 else
-                   (data with <| map:=insert r r' data.map;
-                                 all_names:=insert r () data.all_names |>, Move 0 [(r,r')])
+    case mlmap$lookup data.instrs_mem i of
+    | SOME r' => let k = lookup_any r' data.to_latest r' in
+                   if EVEN r then
+                     (data, Move 0 [(r,k)])
+                   else
+                     (data with <| to_canonical := insert r r' data.to_canonical;
+                                   to_latest := insert r' r data.to_latest |>, Move 0 [(r,k)])
     | NONE    => if EVEN r then
                    (data, x)
                  else
-                   (data with <| instrs:=insert data.instrs i r;
-                                 all_names:=insert r () data.all_names |>, x)
+                   (data with <| instrs_mem := insert data.instrs_mem i r;
+                                 to_canonical := insert r r data.to_canonical;
+                                 to_latest := insert r r data.to_latest |>, x)
 End
 
 Definition add_to_data_def:
   add_to_data data r adjusted x =
-  let i = instToNumList adjusted in
-    add_to_data_aux data r i (Inst x)
+    let i = instToNumList adjusted in
+      add_to_data_aux data r i (Inst x)
+End
+
+Definition can_mem_arith_def:
+  can_mem_arith (Binop _ _ r1 (Reg r2)) = (ODD r1 ∧ ODD r2) ∧
+  can_mem_arith (Binop _ _ r1 (Imm _)) = ODD r1 ∧
+  can_mem_arith (Div _ r1 r2) = (ODD r1 ∧ ODD r2) ∧
+  can_mem_arith (Shift _ _ r _) = ODD r ∧
+  can_mem_arith _ = F
 End
 
 Definition is_store_def:
@@ -298,35 +325,30 @@ Definition is_store_def:
   is_store Store8 = T
 End
 
-Definition is_complex_def:
-  is_complex (Binop _ _ _ _) = F ∧
-  is_complex (Div _ _ _) = F ∧
-  is_complex (Shift _ _ _ _) = F ∧
-  is_complex _ = T
-End
-
 Definition word_cseInst_def:
   (word_cseInst (data:knowledge) Skip = (data, Inst Skip)) ∧
   (word_cseInst data (Const r w) =
-   if is_seen r data then (empty_data with all_names:=data.all_names, Inst (Const r w)) else
-       add_to_data data r (Const r w) (Const r w)) ∧
+     let data = invalidate_data data r in
+       if EVEN r then (data,Inst (Const r w)) else
+         add_to_data data r (Const r w) (Const r w)) ∧
   (word_cseInst data (Arith a) =
-   let r = firstRegOfArith a in
+     let r = firstRegOfArith a in
+     let data = invalidate_data data r in
      let a' = canonicalArith data a in
-       if is_seen r data ∨ is_complex a' ∨ ¬are_reads_seen a' data then
-         (empty_data with all_names:=data.all_names, Inst (Arith a))
+       if can_mem_arith a' then
+         add_to_data data r (Arith a') (Arith a)
        else
-         add_to_data data r (Arith a') (Arith a)) ∧
-  (word_cseInst data (Mem op r (Addr r' w)) =
-   if is_store op then
-     (data, Inst (Mem op r (Addr r' w)))
-   else
-     if is_seen r data then
-       (empty_data with all_names:=data.all_names, Inst (Mem op r (Addr r' w)))
-     else
-       (data, Inst (Mem op r (Addr r' w))) ) ∧
-  (word_cseInst data (x:'a inst) =
-     (empty_data with all_names:=data.all_names, Inst x))
+         (data, Inst (Arith a))) ∧
+  (word_cseInst data (Mem op r ad) =
+     let data = (if is_store op then data else invalidate_data data r) in
+       (data, Inst (Mem op r ad))) ∧
+  (word_cseInst data (FP fp :'a inst) =
+     (invalidate_data data (firstRegOfFp fp), Inst (FP fp)))
+End
+
+Definition dest_Var_def:
+  dest_Var (Var v :'a wordLang$exp) = SOME v ∧
+  dest_Var _ = NONE
 End
 
 (*
@@ -350,73 +372,59 @@ Signification of the terms:
     s -> string
 *)
 Definition word_cse_def:
-  (word_cse (data:knowledge) (Skip) =
-                (data, Skip)) ∧
   (word_cse data (Move r rs) =
-            let (data', rs') = canonicalMoveRegs data rs in
-                (data', Move r rs')) ∧
+    let data' = canonicalMoveRegs data rs in
+      (data', Move r rs)) ∧
   (word_cse data (Inst i) =
-            let (data', p) = word_cseInst data i in
-                (data', p)) ∧
-  (word_cse data (Assign r e) =
-                (data, Assign r e)) ∧
+    let (data', p) = word_cseInst data i in
+      (data', p)) ∧
   (word_cse data (Get r x) =
-            if is_seen r data then
-              (empty_data with all_names:=data.all_names, Get r x)
-            else
-              (data, Get r x)) ∧
+    let data = invalidate_data data r in
+      case ALOOKUP data.gets_mem x of
+      | NONE => if EVEN r then (data,Get r x) else
+                  (data with <| gets_mem := ((x,r)::data.gets_mem);
+                                to_canonical := insert r r data.to_canonical;
+                                to_latest := insert r r data.to_latest|>,
+                   Get r x)
+      | SOME k => (data with <| to_latest := insert k r data.to_latest |>,
+                   Move 3 [(r,lookup_any k data.to_latest k)])) ∧
   (word_cse data (Set x e) =
-            if x = CurrHeap then
-              (empty_data with all_names:=data.all_names, Set x e)
-            else
-              (data, Set x e))∧
-  (word_cse data (Store e r) =
-                (data, Store e r)) ∧
+    if x = CurrHeap then
+      (empty_data, Set x e)
+    else
+      let new_gets_mem = FILTER (λ(m,n). m ≠ x) data.gets_mem in
+        case dest_Var e of
+        | NONE => (data with gets_mem := new_gets_mem, Set x e)
+        | SOME v => (data with
+                          <| gets_mem := (x,v)::new_gets_mem ;
+                             to_canonical := insert v (lookup_any v data.to_canonical v)
+                                                    data.to_canonical |>,
+                     Set x e)) ∧
   (word_cse data (MustTerminate p) =
-            let (data', p') = word_cse data p in
-                (data', MustTerminate p')) ∧
-  (word_cse data (Call ret dest args handler) =
-            case ret of
-            | NONE => (empty_data, Call ret dest args handler)
-            | SOME (ret_reg, cut_set, p, l1, k) =>
-                (empty_data with all_names:=inter data.all_names cut_set,
-                 Call ret dest args handler)) ∧
+    let (data', p') = word_cse data p in
+      (data', MustTerminate p')) ∧
   (word_cse data (Seq p1 p2) =
-            let (data1, p1') = word_cse data p1 in
-            let (data2, p2') = word_cse data1 p2 in
-                (data2, Seq p1' p2')) ∧
+    let (data1, p1') = word_cse data p1 in
+    let (data2, p2') = word_cse data1 p2 in
+      (data2, Seq p1' p2')) ∧
   (word_cse data (If c r1 r2 p1 p2) =
-            let (data1, p1') = word_cse data p1 in
-            let (data2, p2') = word_cse data p2 in
-              (empty_data with all_names:=inter data1.all_names data2.all_names,
-               If c r1 r2 p1' p2')) ∧
-            (* We don't know what happen in the IF. Intersection would be the best. *)
-  (word_cse data (Alloc r m) =
-                (empty_data with all_names:=data.all_names, Alloc r m)) ∧
-  (word_cse data (Raise r) =
-                (data, Raise r)) ∧
-  (word_cse data (Return r1 r2) =
-                (data, Return r1 r2)) ∧
-  (word_cse data (Tick) =
-                (data, Tick)) ∧
+    let (data1, p1') = word_cse data p1 in
+    let (data2, p2') = word_cse data p2 in
+      (empty_data, If c r1 r2 p1' p2')) ∧
   (word_cse data ((OpCurrHeap b r1 r2):'a prog) =
-    if is_seen r1 data ∨ ¬is_seen r2 data then (empty_data with all_names:=data.all_names, OpCurrHeap b r1 r2) else
-      let r2' = canonicalRegs' r1 data r2 in
+    let data = invalidate_data data r1 in
+      if EVEN r2 then (data,OpCurrHeap b r1 r2) else
+        let r2' = canonicalRegs' r1 data r2 in
         let pL = OpCurrHeapToNumList b r2' in
           add_to_data_aux data r1 pL (OpCurrHeap b r1 r2)) ∧
-  (word_cse data (LocValue r l) =
-                if is_seen r data then (empty_data with all_names:=data.all_names, LocValue r l) else (data, LocValue r l)) ∧
-  (word_cse data (Install p l dp dl m) =
-                (empty_data with all_names:=data.all_names, Install p l dp dl m)) ∧
-  (word_cse data (CodeBufferWrite r1 r2) =
-                (empty_data with all_names:=data.all_names, CodeBufferWrite r1 r2)) ∧
-  (word_cse data (DataBufferWrite r1 r2) =
-                (empty_data with all_names:=data.all_names, DataBufferWrite r1 r2)) ∧
-  (word_cse data (FFI s p1 l1 p2 l2 m) =
-                (empty_data with all_names:=data.all_names, FFI s p1 l1 p2 l2 m)) ∧
-  (word_cse data (StoreConsts r1 r2 r3 r4 payload) =
-                (empty_data with all_names:=data.all_names,
-                 StoreConsts r1 r2 r3 r4 payload))
+  (word_cse data (LocValue r l) = (invalidate_data data r, LocValue r l)) ∧
+  (word_cse data (Skip) = (data, Skip)) ∧
+  (word_cse data (Store e r) = (data, Store e r)) ∧
+  (word_cse data (Assign r e) = (data, Assign r e)) ∧
+  (word_cse data (Raise r) = (data, Raise r)) ∧
+  (word_cse data (Return r1 r2) = (data, Return r1 r2)) ∧
+  (word_cse data (Tick) = (data, Tick)) ∧
+  (word_cse data other = (empty_data, other))
 End
 
 Definition word_common_subexp_elim_def:
@@ -424,5 +432,55 @@ Definition word_common_subexp_elim_def:
     let (_,new_prog) = word_cse empty_data prog in
       new_prog
 End
+
+(* tests *)
+
+Definition Seqs_def:
+  (Seqs [] = wordLang$Skip) /\
+  (Seqs [x] = x) /\
+  (Seqs (x::y::xs) = Seq x (Seqs (y::xs)))
+End
+
+Triviality test_latest_name_used:
+  word_common_subexp_elim $
+    Seqs [Inst (Const 1 0w);
+          Inst (Arith (Binop Add 7 1 (Reg 1)));
+          Inst (Arith (Binop Add 9 1 (Reg 1)));
+          Inst (Arith (Binop Add 11 1 (Reg 1)));
+          Inst (Arith (Binop Add 13 1 (Reg 1)))]
+  =
+    Seqs [Inst (Const 1 0w);
+          Inst (Arith (Binop Add 7 1 (Reg 1)));
+          Move 0 [(9,7)];
+          Move 0 [(11,9)];
+          Move 0 [(13,11)]]
+Proof
+  EVAL_TAC
+QED
+
+Triviality test_get_set:
+  word_common_subexp_elim $
+    Seqs [Get 1 NextFree;
+          Inst (Arith (Binop Add 7 1 (Reg 1)));
+          Set NextFree (Var 7);
+          Get 9 NextFree;
+          Inst (Arith (Binop Add 11 1 (Reg 1)));
+          Get 33 NextFree;
+          Get 35 NextFree;
+          Get 37 NextFree]
+  =
+    Seqs [Get 1 NextFree;
+          Inst (Arith (Binop Add 7 1 (Reg 1)));
+          Set NextFree (Var 7);
+          Move 3 [(9,7)];
+          Move 0 [(11,9)];
+          Move 3 [(33,11)];
+          Move 3 [(35,33)];
+          Move 3 [(37,35)]]
+Proof
+  EVAL_TAC
+QED
+
+val _ = Theory.delete_const "Seqs";
 
 val _ = export_theory ();
