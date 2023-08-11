@@ -1284,10 +1284,11 @@ Proof
 QED
 
 Definition encode_connected_def:
-  encode_connected (vp,ep) =
-  if vp = 0 then []
+  encode_connected (vp,ep) vt =
+  let m = MIN vp vt in
+  if m = 0 then []
   else
-  let k = LOG 2 (vp*2-1) in
+  let k = LOG 2 (m*2-1) in
   FLAT (GENLIST (λf.
     FLAT (GENLIST (λg.
       if f < g then
@@ -1299,7 +1300,7 @@ End
 Definition encode_def:
   encode (vp,ep) (vt,et) =
   encode_base (vp,ep) (vt,et) ++
-  encode_connected (vp,ep)
+  encode_connected (vp,ep) vt
 End
 
 Theorem walk_k_free:
@@ -1427,15 +1428,31 @@ Proof
 QED
 
 Theorem ALL_DISTINCT_LENGTH_bound:
-  set ls ⊆ count n ∧
+  FINITE A ∧ set ls ⊆ A ∧
   ALL_DISTINCT ls ⇒
-  LENGTH ls <= n
+  LENGTH ls <= CARD A
 Proof
   rw[]>>drule ALL_DISTINCT_CARD_LIST_TO_SET>>
   strip_tac>>
-  `FINITE (count n)` by fs[]>>
   drule CARD_SUBSET>>
   disch_then drule>>simp[]
+QED
+
+Theorem CARD_LE_count:
+  s ⊆ count n ⇒
+  CARD s ≤ n
+Proof
+  rw[]>>
+  drule_at Any CARD_SUBSET>>
+  simp[]
+QED
+
+Theorem INJ_CARD_count:
+  INJ f s (count n) ⇒
+  CARD s ≤ n
+Proof
+  rw[]>> drule INJ_CARD>>
+  simp[]
 QED
 
 Theorem encode_correct:
@@ -1461,7 +1478,7 @@ Proof
         Unmapped a => a ∉ vs
       | Mapped a u => a ∈ vs ∧ f a = u
       | _ => ARB`>>
-    qspecl_then [`w`,`vp`,`ep`,`LOG 2 (2 * vp − 1)`] assume_tac (GEN_ALL mk_satisfies_walk_k_alt)>>
+    qspecl_then [`w`,`vp`,`ep`,`LOG 2 (2 * (MIN vp vt) − 1)`] assume_tac (GEN_ALL mk_satisfies_walk_k_alt)>>
     fs[Abbr`w`]>>
     qexists_tac`w'`>>simp[]>>
     rw[]
@@ -1596,15 +1613,26 @@ Proof
       drule is_walk_is_path>>strip_tac>>
       fs[is_path_def]>>
       qexists_tac`path`>>simp[]>>rw[]
-      >- (
-        fs[SUBSET_DEF,EVERY_MEM])>>
-      `LENGTH (f'::path) <= vp` by
-        (match_mp_tac ALL_DISTINCT_LENGTH_bound>>
-        fs[]>>metis_tac[SUBSET_TRANS])>>
-      `LENGTH path < vp` by fs[]>>
-      `vp ≤ 2 ** LOG 2 (2 * vp − 1)` by
-        (qspecl_then[`2`,`(2 * vp − 1)`] mp_tac logrootTheory.LOG>>
-        simp[]>>rw[]>>
+      >- fs[SUBSET_DEF,EVERY_MEM]>>
+      `set (f'::path) ⊆ vs` by
+        (fs[]>>metis_tac[SUBSET_TRANS])>>
+      `LENGTH (f'::path) <= CARD vs` by (
+        match_mp_tac ALL_DISTINCT_LENGTH_bound>>
+        simp[]>>
+        match_mp_tac SUBSET_FINITE_I>>
+        qexists_tac`count vp`>>
+        fs[SUBSET_DEF])>>
+      `CARD vs ≤ MIN vp vt` by (
+        simp[MIN_LE]>>
+        CONJ_TAC >-
+          metis_tac[CARD_LE_count]>>
+        metis_tac[INJ_CARD_count])>>
+      `LENGTH path < MIN vp vt` by fs[]>>
+      `MIN vp vt ≤ 2 ** LOG 2 (2 * MIN vp vt − 1)` by (
+        qabbrev_tac`m = MIN vp vt`>>
+        qspecl_then[`2`,`(2 * m − 1)`] mp_tac logrootTheory.LOG>>
+        simp[]>>
+        rw[]>>
         fs[EXP])>>
       simp[])
     >- (
@@ -1617,8 +1645,9 @@ Proof
   qabbrev_tac`dom = {n | n < vp ∧ ¬ w (Unmapped n)}`>>
   qexists_tac `dom`>>
   simp[]>>
-  reverse CONJ_TAC >- (
+  reverse CONJ_ASM1_TAC >- (
     reverse CONJ_TAC >- (
+      pop_assum kall_tac>>
       fs[eval_obj_def,unmapped_obj_def,MAP_GENLIST,o_DEF,neg_b2i,eval_lin_term_def]>>
       qpat_x_assum`_ = _` mp_tac>>
       `GENLIST (λb. b2i (w (Unmapped b))) vp =
@@ -1631,9 +1660,12 @@ Proof
         fs[Abbr`dom`,SUBSET_DEF]>>
       intLib.ARITH_TAC)>>
     fs[satisfies_def,encode_def,encode_connected_def]>>
-    Cases_on`vp=0`>>fs[]
+    Cases_on`MIN vp vt=0`>>fs[]
     >-
-      rw[connected_subgraph_def,Abbr`dom`]>>
+      rw[connected_subgraph_def,Abbr`dom`]
+    >- (
+      fs[]>>
+      simp[connected_subgraph_def])>>
     fs[SF DNF_ss,MEM_FLAT,MEM_GENLIST,PULL_EXISTS,satisfies_pbc_def,eval_lin_term_def]>>
     rw[connected_subgraph_def,Abbr`dom`]>>
     match_mp_tac is_walk_is_connected>>
@@ -2114,10 +2146,11 @@ Proof
 QED
 
 Theorem encode_connected_thm:
-  encode_connected (vp,ep) =
-  if vp = 0 then []
+  encode_connected (vp,ep) vt =
+  let m = MIN vp vt in
+  if m = 0 then []
   else
-  let k = log2 (vp*2-1) in
+  let k = log2 (m*2-1) in
   FLAT (GENLIST (λf.
     FLAT (GENLIST (λg.
       if f < g then
@@ -2127,7 +2160,8 @@ Theorem encode_connected_thm:
 Proof
   rw[encode_connected_def]>>
   DEP_REWRITE_TAC [LOG2_log2]>>
-  fs[]
+  fs[]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem walk_k_eq =
@@ -2138,7 +2172,7 @@ Theorem walk_k_eq =
   |> SIMP_RULE (srw_ss()) [if_APPEND];
 
 val enc_encode_connected =
-  ``MAP (map_pbc enc_string) (encode_connected (p_1,p_2))``
+  ``MAP (map_pbc enc_string) (encode_connected (p_1,p_2) vt)``
   |> SIMP_CONV (srw_ss()) [encode_connected_thm]
   |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,LET_DEF,MAP_if]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN]
