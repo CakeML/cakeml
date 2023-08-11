@@ -353,6 +353,16 @@ val const_fp_loop_def = Define `
   (const_fp_loop (Alloc n names) cs = (Alloc n names, filter_v is_gc_const (inter cs names))) /\
   (const_fp_loop (StoreConsts a b c d ws) cs = (StoreConsts a b c d ws, delete a (delete b (delete c (delete d cs))))) /\
   (const_fp_loop (Install r1 r2 r3 r4 names) cs = (Install r1 r2 r3 r4 names, delete r1 (filter_v is_gc_const (inter cs names)))) /\
+  (const_fp_loop (Store e v) cs =
+    (Store (const_fp_exp e cs) v, cs)) /\
+  (const_fp_loop (ShareStore e v) cs =
+    (ShareStore (const_fp_exp e cs) v, cs)) /\
+  (const_fp_loop (ShareStoreByte e v) cs =
+    (ShareStoreByte (const_fp_exp e cs) v, cs)) /\
+  (const_fp_loop (ShareLoad v e) cs =
+    (ShareLoad v (const_fp_exp e cs), delete v cs)) /\
+  (const_fp_loop (ShareLoadByte v e) cs =
+    (ShareLoadByte v (const_fp_exp e cs), delete v cs)) /\
   (const_fp_loop p cs = (p, cs))`;
 
 Theorem const_fp_loop_pmatch:
@@ -396,6 +406,11 @@ Theorem const_fp_loop_pmatch:
   | (Alloc n names) => (Alloc n names, filter_v is_gc_const (inter cs names))
   | (StoreConsts a b c d ws) => (StoreConsts a b c d ws, delete a (delete b (delete c (delete d cs))))
   | (Install r1 r2 r3 r4 names) => (Install r1 r2 r3 r4 names, delete r1 (filter_v is_gc_const (inter cs names)))
+  | (Store e v) => (Store (const_fp_exp e cs) v, cs)
+  | (ShareStore e v) => (ShareStore (const_fp_exp e cs) v, cs)
+  | (ShareStoreByte e v) => (ShareStoreByte (const_fp_exp e cs) v, cs)
+  | (ShareLoad v e) => (ShareLoad v (const_fp_exp e cs), delete v cs)
+  | (ShareLoadByte v e) => (ShareLoadByte v (const_fp_exp e cs), delete v cs)
   | p => (p, cs)
 Proof
   rpt strip_tac
