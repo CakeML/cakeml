@@ -424,7 +424,7 @@ val word_inst_pull_exp_side = Q.prove(`
 val _ = translate (spec32 inst_select_def(*pmatch*))
 
 val _ = translate (spec32 list_next_var_rename_move_def)
-val _ = translate (spec32 force_rename_def)
+val _ = translate force_rename_def
 
 val _ = translate (conv32 ssa_cc_trans_inst_def)
 val _ = translate (spec32 full_ssa_cc_trans_def)

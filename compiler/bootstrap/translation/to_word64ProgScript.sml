@@ -293,7 +293,8 @@ val _ = translate (comp_def |> conv64 |> wcomp_simp |> conv64 |> SIMP_RULE std_s
 
 open word_simpTheory word_allocTheory word_instTheory
 
-val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``]
+val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,
+                   ``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``]
 
 val res = word_cseTheory.map_insert_def |> DefnBase.one_line_ify NONE |> translate;
 val res = translate (word_cseTheory.word_cseInst_def |> spec64);
@@ -402,7 +403,7 @@ val _ = translate (op_consts_pmatch|>conv64|>econv)
 
 val _ = translate (convert_sub_pmatch |> conv64 |> SIMP_RULE std_ss [word_2comp_def,word_mul_def] |> conv64)
 
-val _ = translate (spec64 pull_exp_def(*_pmatch*)) (* TODO: MAP pull_exp inside pmatch seems to throw the translator into an infinite loop *)
+val r = translate (spec64 pull_exp_def(*_pmatch*)) (* TODO: MAP pull_exp inside pmatch seems to throw the translator into an infinite loop *)
 
 val word_inst_pull_exp_side = Q.prove(`
   ∀x. word_inst_pull_exp_side x ⇔ T`,
@@ -415,7 +416,7 @@ val word_inst_pull_exp_side = Q.prove(`
 val _ = translate (spec64 inst_select_def(*pmatch*))
 
 val _ = translate (spec64 list_next_var_rename_move_def)
-val _ = translate (spec64 force_rename_def)
+val _ = translate force_rename_def
 
 val _ = translate (conv64 ssa_cc_trans_inst_def)
 val _ = translate (spec64 full_ssa_cc_trans_def)
