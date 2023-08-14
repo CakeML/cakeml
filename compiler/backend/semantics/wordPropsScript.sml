@@ -887,8 +887,8 @@ Proof
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >>
   rveq >> fs[] >>
-  (* fs[sh_mem_store_byte_def,sh_mem_store_byte_def] >>
-  rpt (TOP_CASE_TAC >> gvs[]) >> *)
+  fs[sh_mem_store_def,sh_mem_store_byte_def] >>
+  rpt (TOP_CASE_TAC >> gvs[]) >>
   imp_res_tac evaluate_io_events_mono >> rev_full_simp_tac(srw_ss())[] >>
   metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]
 QED
@@ -945,7 +945,8 @@ Proof
   \\ fs[jump_exc_def]
   \\ EVERY_CASE_TAC
   \\ fs[set_vars_def,state_component_equality,set_var_def,flush_state_def
-       ,set_store_def,mem_store_def,call_env_def,flush_state_def,dec_clock_def,unset_var_def]
+       ,set_store_def,mem_store_def,call_env_def,flush_state_def,dec_clock_def,unset_var_def
+       ,sh_mem_store_byte_def,sh_mem_store_def,sh_mem_load_def,sh_mem_load_byte_def]
   \\ TRY(pairarg_tac \\ fs[])
   \\ EVERY_CASE_TAC
   \\ fs[set_vars_def,state_component_equality
@@ -1674,7 +1675,35 @@ Proof
    (full_simp_tac(srw_ss())[evaluate_def]>>
     every_case_tac >> fs [state_component_equality]>>
     TRY (fs [call_env_def,flush_state_def] \\ EVAL_TAC \\ NO_TAC) >>
-    metis_tac[s_key_eq_refl]) >>
+    metis_tac[s_key_eq_refl])
+  >- (*ShareStore*)
+    (gvs[evaluate_def] >>
+    every_case_tac >>
+    fs[sh_mem_store_def] >>
+    every_case_tac >>
+    gvs[state_component_equality,GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl,flush_state_def] >>
+    rpt strip_tac >>
+    HINT_EXISTS_TAC>>
+    gvs[s_key_eq_refl,state_component_equality])
+  >- (* ShareStoreByte *)
+    (gvs[evaluate_def] >>
+    every_case_tac >>
+    fs[sh_mem_store_byte_def] >>
+    every_case_tac >>
+    gvs[state_component_equality,GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl,flush_state_def] >>
+    rpt strip_tac >>
+    HINT_EXISTS_TAC>>
+    gvs[s_key_eq_refl,state_component_equality]) >>
+  >- (* ShareLoad *)
+    (gvs[evaluate_def] >>
+    every_case_tac >>
+    fs[sh_mem_load_def] >>
+    gvs[state_component_equality,GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl,flush_state_def,set_var_def])
+  >- (* ShareLoadByte *)
+   (gvs[evaluate_def] >>
+    every_case_tac >>
+    fs[sh_mem_load_byte_def] >>
+    gvs[state_component_equality,GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl,flush_state_def,set_var_def]) >>
   (*Call*)
   full_simp_tac(srw_ss())[evaluate_def]>>
   Cases_on`get_vars args s`>> full_simp_tac(srw_ss())[]>>
