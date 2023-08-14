@@ -359,6 +359,11 @@ val inst_select_def = Define`
     Seq (inst_select c temp p1) (inst_select c temp p2)) ∧
   (inst_select c temp (MustTerminate p1) =
     MustTerminate (inst_select c temp p1)) ∧
+  (* TODO: compile to ShareInst with the compiled exp *)
+  (inst_select c temp (ShareLoad v exp) =) /\ 
+  (inst_select c temp (ShareLoadByte v exp) =) /\ 
+  (inst_select c temp (ShareStore exp v) =) /\ 
+  (inst_select c temp (ShareStoreByte v exp) =) /\ 
   (inst_select c temp (If cmp r1 ri c1 c2) =
     dtcase ri of
       Imm w =>
@@ -420,6 +425,20 @@ Theorem inst_select_pmatch:
         (If cmp r1 (Reg temp) (inst_select c temp c1) (inst_select c temp c2))
     | Reg r =>
       If cmp r1 (Reg r) (inst_select c temp c1) (inst_select c temp c2))
+  | (inst_select c temp (ShareStore exp var) =
+      let exp = (flatten_exp o pull_exp) exp in
+      dtcase exp of
+      | Op Add [exp';Const w] =>
+        if addr_offset_ok c w then
+          let prog = inst_select_exp c temp temp exp' in
+            (* create new instruction for ShareMem *)
+            (* Seq prog (Inst (Mem Store var (Addr temp w))) *)
+        else
+          let prog = inst_select_exp c temp temp exp in
+            (* Seq prog (Inst (Mem Store var (Addr temp (0w)))) *)
+      | _ =>
+        let prog = inst_select_exp c temp temp exp in
+        (* Seq prog (ShareStore temp var)))) ∧ *)
   | (Call ret dest args handler) =>
     (let retsel =
       case ret of

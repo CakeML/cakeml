@@ -355,6 +355,10 @@ val const_fp_loop_def = Define `
   (const_fp_loop (Install r1 r2 r3 r4 names) cs = (Install r1 r2 r3 r4 names, delete r1 (filter_v is_gc_const (inter cs names)))) /\
   (const_fp_loop (Store e v) cs =
     (Store (const_fp_exp e cs) v, cs)) /\
+  (const_fp_loop (ShareInst Load v ad) cs =
+    (ShareInst Load v ad, delete v cs)) /\
+  (const_fp_loop (ShareInst Load8 v ad) cs =
+    (ShareInst Load8 v ad, delete v cs)) /\
   (const_fp_loop (ShareStore e v) cs =
     (ShareStore (const_fp_exp e cs) v, cs)) /\
   (const_fp_loop (ShareStoreByte e v) cs =
@@ -411,6 +415,10 @@ Theorem const_fp_loop_pmatch:
   | (ShareStoreByte e v) => (ShareStoreByte (const_fp_exp e cs) v, cs)
   | (ShareLoad v e) => (ShareLoad v (const_fp_exp e cs), delete v cs)
   | (ShareLoadByte v e) => (ShareLoadByte v (const_fp_exp e cs), delete v cs)
+  | (ShareInst Load v a) => (ShareInst Load v a, delete v cs)
+  | (ShareInst Load8 v a) => (ShareInst Load8 v a, delete v cs)
+  | (ShareInst Store v a) => (ShareInst Store v a, cs)
+  | (ShareInst Store8 v a) => (ShareInst Store8 v a, cs)
   | p => (p, cs)
 Proof
   rpt strip_tac
@@ -431,7 +439,8 @@ Proof
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
-  >> Cases_on `p` >> fs[const_fp_loop_def] >> every_case_tac >> fs[pairTheory.ELIM_UNCURRY]
+  >> Cases_on `p` >> fs[const_fp_loop_def] >> every_case_tac >> fs[pairTheory.ELIM_UNCURRY] >>
+  Cases_on `m` >> fs[const_fp_loop_def]
 QED
 
 val const_fp_loop_ind = fetch "-" "const_fp_loop_ind";

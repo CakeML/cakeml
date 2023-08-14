@@ -277,6 +277,13 @@ Definition sh_mem_load_byte_def:
     else NONE
 End
 
+(* set variable given the output from ShareLoad(Byte) *)
+Definition sh_mem_set_var_def:
+  (sh_mem_set_var (SOME (FFI_final outcome)) _ ^s = (SOME (FinalFFI outcome), flush_state T s)) /\
+  (sh_mem_set_var (SOME (FFI_return new_ffi new_bytes)) v s = (NONE, set_var v (Word (word_of_bytes F 0w new_bytes)) s)) /\
+  (sh_mem_set_var _ _ s = (SOME Error, s))
+End
+
 val call_env_def = Define `
   call_env args size ^s =
     s with <| locals := fromList2 args; locals_size := size;
@@ -885,6 +892,21 @@ val evaluate_def = tDefine "evaluate" `
                                    ffi := new_ffi |>))
           | _ => (SOME Error,s)))
     | res => (SOME Error,s)) /\
+  (evaluate (ShareInst op v (Addr a w), s) =
+    (case word_exp s (Op Add [Var a; Const w]) of
+    | SOME (Word ad) =>
+      (case op of
+      | Load => sh_mem_set_var (sh_mem_load ad s) v s
+      | Load8 => sh_mem_set_var (sh_mem_load_byte ad s) v s
+      | Store =>
+        (case get_var v s of
+        | SOME (Word v) => sh_mem_store ad v s
+        | _ => (SOME Error,s))
+      | Store8 =>
+        (case get_var v s of
+        | SOME (Word v) => sh_mem_store ad v s
+        | _ => (SOME Error,s)))
+    | _ => (SOME Error,s))) /\
   (evaluate (ShareStore exp v, s) =
      (case (word_exp s exp, get_var v s) of
      | (SOME (Word a), SOME (Word w)) => sh_mem_store a w s
@@ -895,19 +917,11 @@ val evaluate_def = tDefine "evaluate" `
      | _ => (SOME Error,s))) /\
   (evaluate (ShareLoad v exp, s) =
     (case word_exp s exp of
-    | SOME (Word w) =>
-      (case sh_mem_load w s of
-      | SOME (FFI_final outcome) => (SOME (FinalFFI outcome), flush_state T s)
-      | SOME (FFI_return new_ffi new_bytes) => (NONE, set_var v (Word (word_of_bytes F 0w new_bytes)) s)
-      | _ => (SOME Error, s))
+    | SOME (Word w) => sh_mem_set_var (sh_mem_load w s) v s
     | _ => (SOME Error,s))) /\
   (evaluate (ShareLoadByte v exp, s) =
     (case word_exp s exp of
-    | SOME (Word w) =>
-      (case sh_mem_load_byte w s of
-      | SOME (FFI_final outcome) => (SOME (FinalFFI outcome), flush_state T s)
-      | SOME (FFI_return new_ffi new_bytes) => (NONE, set_var v (Word (word_of_bytes F 0w new_bytes)) s)
-      | _ => (SOME Error, s))
+    | SOME (Word w) => sh_mem_set_var (sh_mem_load_byte w s) v s
     | _ => (SOME Error,s))) /\
   (evaluate (Call ret dest args handler,s) =
     case get_vars args s of
@@ -1002,6 +1016,17 @@ Proof
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
 QED
 
+Theorem sh_mem_set_var_clock:
+  !v s1 v2 s2 res.
+    (sh_mem_set_var res v s1 = (v2,s2)) ==>
+    s2.clock <= s1.clock /\ s2.termdep = s1.termdep
+Proof
+  Cases_on `res` >>
+  simp[sh_mem_set_var_def] >>
+  Cases_on `x` >>
+  simp[sh_mem_set_var_def,set_var_def,flush_state_def]
+QED
+
 val inst_clock = Q.prove(
   `inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep`,
   Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,get_vars_def,LET_THM]
@@ -1025,8 +1050,9 @@ Proof
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[set_vars_def,set_var_def,set_store_def,unset_var_def]
   \\ imp_res_tac inst_clock \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[mem_store_def,call_env_def,dec_clock_def,flush_state_def,
-    sh_mem_store_def,sh_mem_store_byte_def,sh_mem_load_def,sh_mem_load_byte_def]
+  \\ imp_res_tac sh_mem_set_var_clock
+  \\ fs[mem_store_def,call_env_def,dec_clock_def,flush_state_def,
+    sh_mem_store_def,sh_mem_store_byte_def,sh_mem_load_def,sh_mem_load_byte_def,sh_mem_set_var_def]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[LET_THM] \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ full_simp_tac(srw_ss())[jump_exc_def,pop_env_def]
@@ -1039,7 +1065,7 @@ Proof
   \\ TRY (PairCases_on `x''`)
   \\ full_simp_tac(srw_ss())[push_env_def,LET_THM]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-  \\ decide_tac
+  \\ TRY decide_tac
 QED
 
 Theorem fix_clock_evaluate[local]:

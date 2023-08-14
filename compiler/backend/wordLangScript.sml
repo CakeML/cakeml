@@ -57,7 +57,8 @@ val _ = Datatype `
        | ShareStore ('a exp) num (* expression to be evaluated to an address, local variable *)
        | ShareStoreByte ('a exp) num
        | ShareLoad num ('a exp) (* local variable, expression to be evaluated to an address *)
-       | ShareLoadByte num ('a exp)`;
+       | ShareLoadByte num ('a exp)
+       | ShareInst memop num ('a addr)`; (* used for instrcution selection for shared memory operations *)
 
 val raise_stub_location_def = Define`
   raise_stub_location = word_num_stubs - 2`;
@@ -157,6 +158,9 @@ val every_var_def = Define `
   (every_var P (Set n exp) = every_var_exp P exp) ∧
   (every_var P (ShareStore exp num) = (P num /\ every_var_exp P exp)) /\
   (every_var P (ShareLoad num exp) = (P num /\ every_var_exp P exp)) /\
+  (every_var P (ShareStoreByte exp num) = (P num /\ every_var_exp P exp)) /\
+  (every_var P (ShareLoadByte num exp) = (P num /\ every_var_exp P exp)) /\
+  (every_var P (ShareInst op num ad) = P num) /\
   (every_var P p = T)`
 
 (*Recursor for stack variables*)
@@ -268,6 +272,9 @@ val max_var_def = Define `
   (max_var (Set n exp) = max_var_exp exp) ∧
   (max_var (ShareStore exp num) = MAX num (max_var_exp exp)) /\
   (max_var (ShareLoad num exp) = MAX num (max_var_exp exp)) /\
+  (max_var (ShareStoreByte exp num) = MAX num (max_var_exp exp)) /\
+  (max_var (ShareLoadByte num exp) = MAX num (max_var_exp exp)) /\
+  (max_var (ShareInst op num ad) = num) /\
   (max_var p = 0)`;
 
 val word_op_def = Define `
