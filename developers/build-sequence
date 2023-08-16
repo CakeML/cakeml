@@ -108,6 +108,7 @@ examples/lpr_checker
 examples/lpr_checker/array
 examples/lpr_checker/array/compilation
 examples/lpr_checker/array/compilation/proofs
+examples/lpr_checker/array/compilation/proofsARM8
 examples/opentheory
 examples/opentheory
 examples/opentheory/compilation
