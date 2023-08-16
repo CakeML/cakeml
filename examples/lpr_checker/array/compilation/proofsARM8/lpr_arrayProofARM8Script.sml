@@ -23,11 +23,11 @@ val compile_correct_applied =
   MATCH_MP compile_correct lpr_array_compiled
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP check_unsat_not_fail
-  |> C MATCH_MP x64_backend_config_ok
+  |> C MATCH_MP arm8_configProofTheory.arm8_backend_config_ok
   |> REWRITE_RULE[check_unsat_sem_sing,AND_IMP_INTRO]
   |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
-  |> C MATCH_MP (CONJ(UNDISCH x64_machine_config_ok)(UNDISCH x64_init_ok))
-  |> DISCH(#1(dest_imp(concl x64_init_ok)))
+  |> C MATCH_MP (CONJ(UNDISCH arm8_asl_machine_config_ok)(UNDISCH arm8_asl_init_ok))
+  |> DISCH(#1(dest_imp(concl arm8_asl_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
 val check_unsat_compiled_thm =
@@ -37,18 +37,18 @@ val check_unsat_compiled_thm =
   |> curry save_thm "check_unsat_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
-val installed_x64_def = Define `
-  installed_x64 ((code, data, cfg) :
+val installed_arm8_asl_def = Define `
+  installed_arm8_asl ((code, data, cfg) :
       (word8 list # word64 list # 64 backend$config))
     mc ms
   <=>
     ?cbspace data_sp.
-      is_x64_machine_config mc /\
+      is_arm8_asl_machine_config mc /\
       installed
         code cbspace
         data data_sp
         cfg.lab_conf.ffi_names
-        (heap_regs x64_backend_config.stack_conf.reg_names) mc ms
+        (heap_regs arm8_backend_config.stack_conf.reg_names) mc ms
     `;
 
 val check_unsat_code_def = Define `
@@ -59,7 +59,7 @@ val check_unsat_code_def = Define `
 val cake_lpr_run_def = Define`
   cake_lpr_run cl fs mc ms ⇔
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  installed_x64 check_unsat_code mc ms`
+  installed_arm8_asl check_unsat_code mc ms`
 
 Theorem concat_success_str:
   ∀a b c. concat [strlit "s VERIFIED INTERVALS COVER 0-"; toString (d:num); strlit "\n"] ≠ success_str a b c
@@ -138,7 +138,7 @@ Theorem machine_code_sound:
     out = strlit ""
 Proof
   strip_tac>>
-  fs[installed_x64_def,check_unsat_code_def,cake_lpr_run_def]>>
+  fs[installed_arm8_asl_def,check_unsat_code_def,cake_lpr_run_def]>>
   drule check_unsat_compiled_thm>>
   simp[AND_IMP_INTRO]>>
   disch_then drule>>
