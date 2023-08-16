@@ -1429,5 +1429,34 @@ val _ = parsetest0 “nStart” “ptree_Start”
           Dletrec L4 [("ref","x", App Opref [V "x"])]]”)
   ;
 
+(* 2023-08-16: add support for type annotations on lets bound to a value-name
+ * without parenthesis:
+ *
+ *   let name : type = ...
+ *
+ * where previously:
+ *
+ *   let (name : type) = ...
+ *
+ * was required. (There, "(name : type)" is parsed as a pattern).
+ *)
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "let x : int = 2 ;;"
+  (SOME “[Dlet L (Pv "x") (Tannot (Lit (IntLit 2)) (Atapp [] (Short "int")))]”)
+  ;
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "let _ = let x : int = 2 in x;;"
+  (SOME “[Dlet L Pany
+          (Let (SOME "x") (Tannot (Lit (IntLit 2)) (Atapp [] (Short "int")))
+               (Var (Short "x")))]”)
+  ;
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "let (x : int) = 2 ;;"
+  (SOME “[Dlet L (Ptannot (Pv "x") (Atapp [] (Short "int"))) (Lit (IntLit 2))]”)
+  ;
+
 val _ = export_theory ();
 

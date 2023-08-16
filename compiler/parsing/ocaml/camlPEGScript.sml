@@ -746,7 +746,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nLetRecBindings));
       (INL nLetBinding,
        pegf (choicel [seql [pnt nPattern; tokeq EqualT; pnt nExpr] I;
-                      seql [pnt nValueName; pnt nPatterns;
+                      seql [pnt nValueName; try (pnt nPatterns);
                             try (seql [tokeq ColonT; pnt nType] I);
                             tokeq EqualT; pnt nExpr] I])
             (bindNT nLetBinding));

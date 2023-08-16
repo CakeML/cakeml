@@ -1904,6 +1904,15 @@ Definition ptree_Expr_def:
               fail (locs, «Or-patterns are not allowed in let (rec) bindings»));
             return $ INR (nm, FLAT ps, bd)
           od
+      | [id; colon; type; eq; bod] =>
+          do
+            expect_tok eq EqualT;
+            expect_tok colon ColonT;
+            nm <- ptree_ValueName id;
+            ty <- ptree_Type type;
+            bd <- ptree_Expr nExpr bod;
+            return $ INL (Pvar nm, Tannot bd ty)
+          od
       | [id; pats; colon; type; eq; bod] =>
           do
             expect_tok eq EqualT;
