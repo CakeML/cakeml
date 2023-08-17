@@ -140,6 +140,18 @@ val _ = update_precondition precparse_side;
 
 val r = preprocess ptree_PPattern_def |> translate;
 
+Theorem ptree_PPattern_side[local]:
+  (∀x. camlptreeconversion_ptree_ppattern_side x) ∧
+  (∀x. camlptreeconversion_ptree_ppatternlist_side x) ∧
+  (∀x y. camlptreeconversion_grabpairs_side x y)
+Proof
+  ho_match_mp_tac ptree_PPattern_ind \\ rw []
+  \\ simp [Once (fetch "-" "camlptreeconversion_ptree_ppattern_side_def")]
+  \\ rw [] \\ gs [caml_lexTheory.isInt_thm, SF SFY_ss]
+QED
+
+val _ = update_precondition ptree_PPattern_side;
+
 val r = preprocess ptree_Pattern_def |> translate;
 
 (* This takes a long time.
@@ -158,7 +170,8 @@ Theorem ptree_Expr_preconds[local]:
   (∀x. camlptreeconversion_ptree_exprlist_side x) ∧
   (∀x. camlptreeconversion_ptree_exprcommas_side x) ∧
   (∀x. camlptreeconversion_ptree_update_side x) ∧
-  (∀x. camlptreeconversion_ptree_updates_side x)
+  (∀x. camlptreeconversion_ptree_updates_side x) ∧
+  (∀x. camlptreeconversion_ptree_index_side x)
 Proof
   ho_match_mp_tac ptree_Expr_ind
   \\ strip_tac
@@ -181,7 +194,6 @@ Proof
 QED
 
 val _ = List.app (ignore o update_precondition) (CONJUNCTS ptree_Expr_preconds);
-
 
 val r = translate partition_types_def;
 
