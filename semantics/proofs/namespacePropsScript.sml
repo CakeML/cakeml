@@ -4,7 +4,6 @@
 open preamble;
 open astTheory;
 open namespaceTheory;
-open terminationTheory;
 
 val _ = new_theory "namespaceProps";
 

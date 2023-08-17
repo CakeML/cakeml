@@ -5,6 +5,8 @@ open preamble
      lexer_funTheory lexer_implTheory to_dataProgTheory
      ml_translatorLib ml_translatorTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "lexerProg"
 
 val _ = translation_extends "to_dataProg";
@@ -67,10 +69,14 @@ val _ = translate (next_token_def |> SIMP_RULE std_ss [next_sym_eq])
 
 val _ = translate lexer_fun_def
 
-val l2n_side = Q.prove(`
-  ∀b a. a ≠ 0 ⇒ l2n_side a b`,
+Theorem l2n_side:
+  ∀b a. a ≠ 0 ⇒ l2n_side a b
+Proof
   Induct>>
-  rw[Once (fetch"-""l2n_side_def")]) |> update_precondition;
+  rw[Once (fetch"-""l2n_side_def")]
+QED
+
+val _ = update_precondition l2n_side;
 
 val num_from_dec_string_alt_side = Q.prove(`
   ∀x. num_from_dec_string_alt_side x ⇔ T`,

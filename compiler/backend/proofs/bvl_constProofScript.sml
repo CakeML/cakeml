@@ -3,6 +3,8 @@
 *)
 open preamble bvl_constTheory bvlSemTheory bvlPropsTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"bvl_constProof";
 
 val v_rel_def = Define `
@@ -140,7 +142,7 @@ val SmartOp_flip_thm = prove(
       fs [dest_simple_eq] \\
       fs [evaluate_def, do_app_def] \\
       fs [case_eq_thms] \\
-      rveq \\ fs [] \\ rveq \\ fs [REVERSE] \\ rveq \\ fs [] \\
+      rveq \\ fs [] \\ rveq \\ fs [REVERSE_DEF] \\ rveq \\ fs [] \\
       intLib.COOPER_TAC
     ) \\
     Cases_on `op` \\
@@ -167,7 +169,7 @@ val SmartOp2_thm = prove(
 
     simp [evaluate_def, do_app_def] \\
     fsrw_tac [DNF_ss] [case_eq_thms] \\
-    rw [REVERSE] \\
+    rw [REVERSE_DEF] \\
     imp_res_tac evaluate_SING  \\
     fs [] \\
     intLib.COOPER_TAC
@@ -186,6 +188,23 @@ val SmartOp2_thm = prove(
   \\ eq_tac \\ fs []);
 
 
+Theorem SmartOp1_thm:
+  evaluate ([Op op [x]],env,s) = (res,s2) /\
+  res ≠ Rerr (Rabort Rtype_error) ==>
+  evaluate ([SmartOp1 op x],env,s) = (res,s2)
+Proof
+  fs [SmartOp1_def]
+  \\ TOP_CASE_TAC \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
+  \\ Cases_on ‘op’ \\ gvs [dest_EqualInt_def]
+  \\ rename [‘EqualConst cc’]
+  \\ Cases_on ‘cc’ \\ gvs [dest_EqualInt_def]
+  \\ gvs [dest_simple_eq]
+  \\ gvs [evaluate_def,do_app_def]
+  \\ rw [] \\ gvs [] \\ eq_tac \\ rw []
+QED
+
+
 Theorem SmartOp_thm:
    evaluate ([Op op xs],env,s) = (res,s2) /\
     res ≠ Rerr (Rabort Rtype_error) ==>
@@ -193,6 +212,7 @@ Theorem SmartOp_thm:
 Proof
   simp [SmartOp_def] \\
   every_case_tac \\
+  fs [SmartOp1_thm] \\
   rename1 `Op op [x1; x2]` \\
   Cases_on `SmartOp_flip op x1 x2` \\
   Cases_on `r` \\
@@ -308,13 +328,24 @@ Proof
   \\ simp[EXTENSION] \\ metis_tac[]
 QED
 
+Theorem SmartOp1_code_labels:
+  get_code_labels (SmartOp1 op x) = get_code_labels (Op op [x])
+Proof
+  fs [SmartOp1_def] \\ every_case_tac \\ fs []
+  \\ gvs [dest_simple_eq]
+  \\ Cases_on ‘op’ \\ fs [dest_EqualInt_def]
+  \\ EVAL_TAC \\ fs []
+  \\ fs [dest_EqualInt_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
+QED
+
 Theorem SmartOp_code_labels[simp]:
-   get_code_labels (SmartOp op xs) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP get_code_labels xs))
+   get_code_labels (SmartOp op xs) =
+   closLang$assign_get_code_label op ∪ BIGUNION (set (MAP get_code_labels xs))
 Proof
   rw[bvl_constTheory.SmartOp_def]
-  \\ PURE_CASE_TAC \\ simp[]
-  \\ PURE_CASE_TAC \\ simp[]
-  \\ PURE_CASE_TAC \\ simp[]
+  \\ PURE_CASE_TAC \\ simp[SmartOp1_code_labels,get_code_labels_def]
+  \\ PURE_CASE_TAC \\ simp[SmartOp1_code_labels,get_code_labels_def]
+  \\ PURE_CASE_TAC \\ simp[SmartOp1_code_labels,get_code_labels_def]
   \\ simp[bvl_constTheory.SmartOp_flip_def]
   \\ PURE_TOP_CASE_TAC \\ fs[]
   >- ( rw[EXTENSION] \\ metis_tac[] )

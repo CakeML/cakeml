@@ -247,6 +247,7 @@ Proof
   \\ `LENGTH cl <= LENGTH cl` by fs []
   \\ asm_exists_tac \\ fs [] \\ xsimpl
   \\ `DROP (LENGTH cl) cl = []` by fs [DROP_NIL]
+  \\ asm_rewrite_tac []
   \\ fs [LIST_TYPE_def]
   \\ fs [wfcl_def] \\ rfs [two_byte_sum]
   \\ rw [] \\ qexists_tac `x` \\ xsimpl
@@ -273,7 +274,7 @@ val tl_v_thm = fetch "ListProg" "tl_v_thm";
 val mlstring_tl_v_thm = tl_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring_ty]
 
 val name_def = Define `
-  name () = (\cl. (Success (HD cl), cl))`;
+  name () = (\cl. (M_success (HD cl), cl))`;
 
 Theorem EvalM_name:
    Eval env exp (UNIT_TYPE u) /\
@@ -303,7 +304,7 @@ Proof
 QED
 
 val arguments_def = Define `
-  arguments () = (\cl. (Success (TL cl), cl))`
+  arguments () = (\cl. (M_success (TL cl), cl))`
 
 Theorem EvalM_arguments:
    Eval env exp (UNIT_TYPE u) /\

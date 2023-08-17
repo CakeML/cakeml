@@ -21,10 +21,7 @@ val bootstrap_conf =
       with clos_conf := ^new_clos_conf)
      with
      bvl_conf updated_by
-       (λc. c with <| inline_size_limit := 3; exp_cut := 200 |>))
-     with
-     data_conf updated_by
-       (λc. c with <| call_empty_ffi := T (* enables logging messages *) |>)``
+       (λc. c with <| inline_size_limit := 3; exp_cut := 200 |>))``
 
 (* coerce the change_config thm to change between configs with the same type
    parameter, which in turn coerces to a particular instance of

@@ -21,9 +21,10 @@ val _ = new_theory "bvl_to_bvi";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
-val destLet_def = Define `
+Definition destLet_def:
   (destLet ((Let xs b):bvl$exp) = (xs,b)) /\
-  (destLet _ = ([],Var 0))`;
+  (destLet _ = ([],Var 0))
+End
 
 Theorem destLet_pmatch:
   ∀exp.
@@ -39,29 +40,12 @@ QED
 
 val large_int = ``268435457:int`` (* 2**28-1 *)
 
-val compile_int_def = tDefine "compile_int" `
+Definition compile_int_def:
   compile_int (i:int) =
-    if 0 <= i then
-      if i <= ^large_int then
-        (Op (Const i) []:bvi$exp)
-      else
-        let x = compile_int (i / ^large_int) in
-        let y = Op (Const (i % ^large_int)) [] in
-        let n = Op (Const ^large_int) [] in
-          Op Add [Op Mult [x; n]; y]
-    else
-      if -^large_int <= i then
-        Op (Const i) []
-      else
-        let i = 0 - i in
-        let x = compile_int (i / ^large_int) in
-        let y = Op (Const (0 - (i % ^large_int))) [] in
-        let n = Op (Const (0 - ^large_int)) [] in
-          Op Add [Op Mult [x; n]; y]`
- (WF_REL_TAC `measure (Num o ABS)`
-  \\ REPEAT STRIP_TAC \\ intLib.COOPER_TAC)
+    bvi$Op (if -^large_int ≤ i ∧ i ≤ ^large_int then Const i else Build [Int i]) []
+End
 
-val alloc_glob_count_def = tDefine "alloc_glob_count" `
+Definition alloc_glob_count_def:
   (alloc_glob_count [] = 0:num) /\
   (alloc_glob_count (x::y::xs) =
      alloc_glob_count [x] + alloc_glob_count (y::xs) /\
@@ -80,8 +64,10 @@ val alloc_glob_count_def = tDefine "alloc_glob_count" `
   (alloc_glob_count [Op op xs] =
      if op = AllocGlobal then 1 + alloc_glob_count xs
                          else alloc_glob_count xs) /\
-  (alloc_glob_count [_] = 0))`
-  (WF_REL_TAC `measure exp1_size`)
+  (alloc_glob_count [_] = 0))
+Termination
+  WF_REL_TAC `measure exp1_size`
+End
 
 val AllocGlobal_location_def = Define`
   AllocGlobal_location = data_num_stubs`;
@@ -117,20 +103,23 @@ val SumListLength_location_eq = save_thm("SumListLength_location_eq",
 val ConcatByte_location_eq = save_thm("ConcatByte_location_eq",
   ``ConcatByte_location`` |> EVAL);
 
-val AllocGlobal_code_def = Define`
-  AllocGlobal_code = (0:num,
-    Let [Op GlobalsPtr []]
-     (Let [Op Deref [Op (Const 0) []; Var 0]]
-       (Let [Op Update [Op Add [Var 0; Op(Const 1)[]]; Op (Const 0) []; Var 1]]
-         (Let [Op Length [Var 2]]
-           (If (Op Less [Var 0; Var 2]) (Var 1)
-               (Let [Op RefArray [Op (Const 0) []; Op Add [Var 0; Var 0]]]
-                 (Let [Op SetGlobalsPtr [Var 0]]
-                   (Call 0 (SOME CopyGlobals_location) [Var 1; Var 5; Op Sub [Op (Const 1) []; Var 4]] NONE))))))))`;
+Definition AllocGlobal_code_def:
+  AllocGlobal_code = (1:num,
+    Let [Op GlobalsPtr []] $
+    Let [Op El [Op (Const 0) []; Var 0]] $
+    Let [Op Add [Var 0; Var 2]] $
+    Let [Op Length [Var 2]] $
+    Let [Op Update [Var 1; Op (Const 0) []; Var 3]] $
+      If (Op Less [Var 1; Var 2]) (Var 0)
+         (Let [Op RefArray [Op (Const 0) []; Op Add [Var 2; Var 2]]] $
+          Let [Op SetGlobalsPtr [Var 0]] $
+            Call 0 (SOME CopyGlobals_location)
+              [Var 1; Var 6; Op Sub [Op (Const 1) []; Var 3]] NONE))
+End
 
 val CopyGlobals_code_def = Define`
   CopyGlobals_code = (3:num, (* ptr to new array, ptr to old array, index to copy *)
-    Let [Op Update [Op Deref [Var 2; Var 1]; Var 2; Var 0]]
+    Let [Op Update [Op El [Var 2; Var 1]; Var 2; Var 0]]
       (If (Op Equal [Op(Const 0)[]; Var 3]) (Var 0)
         (Call 0 (SOME CopyGlobals_location) [Var 1; Var 2; Op Sub [Op(Const 1)[];Var 3]] NONE)))`;
 
@@ -163,7 +152,7 @@ val FromListByte_code_def = Define`
 
 val ToListByte_code_def = Define`
   ToListByte_code = (3n, (* list, current index, byte array *)
-    If (Op (EqualInt 0i) [Var 1]) (Var 0)
+    If (Op (EqualConst (Int 0i)) [Var 1]) (Var 0)
       (Let [Op Sub [Op (Const 1) []; Var 1]]
       (Let [Op DerefByte [Var 0; Var 3]]
         (Call 0 (SOME ToListByte_location)
@@ -209,11 +198,11 @@ local val compile_op_quotation = `
     dtcase op of
     | Const i => (dtcase c1 of [] => compile_int i
                   | _ => Let [Op (Const 0) c1] (compile_int i))
-    | Global n => Op Deref (c1++[compile_int(&(n+1)); Op GlobalsPtr []])
-    | SetGlobal n => Op Update (c1++[compile_int(&(n+1)); Op GlobalsPtr []])
-    | AllocGlobal =>
-        (dtcase c1 of [] => Call 0 (SOME AllocGlobal_location) [] NONE
-         | _ => Let [Op (Const 0) c1] (Call 0 (SOME AllocGlobal_location) [] NONE))
+    | Global n => (if NULL c1 then Op (Global (n+1)) []
+                   else Let c1 (Op El [Op Add [Op (Const 2) []; Var 0];
+                                       Op GlobalsPtr []]))
+    | SetGlobal n => Op (SetGlobal (n+1)) c1
+    | AllocGlobal => Call 0 (SOME AllocGlobal_location) c1 NONE
     | (FromList n) => Let (if NULL c1 then [Op (Const 0) []] else c1)
                         (Op (FromList n)
                         [Var 0; Call 0 (SOME ListLength_location)
@@ -226,10 +215,6 @@ local val compile_op_quotation = `
                          Call 0 (SOME ListLength_location)
                            [Var 1; Op (Const 0) []] NONE;
                          Var 0; Var 1])
-    | String str =>
-        Let [Op (RefByte T) [Op (Const 0) c1; compile_int (&(LENGTH str))]]
-          (Let (MAPi (λn c. Op UpdateByte [Op (Const &(ORD c)) []; compile_int (&n); Var 0]) str)
-            (Var (LENGTH str)))
     | FromListByte =>
         Let (if NULL c1 then [Op (Const 0) []] else c1)
           (Call 0 (SOME FromListByte_location)
@@ -262,6 +247,8 @@ local val compile_op_quotation = `
            (Let [Op (CopyByte F) [Op (Const 0) []; Var 0; Var 1; Var 2; Var 3]]
              (Var 1)))
     | Label l => Op (Label (bvl_num_stubs + bvl_to_bvi_namespaces * l)) c1
+    | Build ps => Op (Build ps) c1
+    | EqualConst p => Op (EqualConst p) c1
     | _ => Op op c1`
 in
 val compile_op_def = Define compile_op_quotation;
@@ -279,11 +266,12 @@ end
 Overload "++"[local] = ``SmartAppend``
 Overload "nss"[local] = ``bvl_to_bvi_namespaces``
 
-val compile_aux_def = Define`
+Definition compile_aux_def:
   compile_aux (k,args,p) =
-    List[(num_stubs + nss * k + 1, args, bvi_let$compile_exp p)]`;
+    List[(num_stubs + nss * k + 1, args, bvi_let$compile_exp p)]
+End
 
-val compile_exps_def = tDefine "compile_exps" `
+Definition compile_exps_def:
   (compile_exps n [] = ([],Nil,n)) /\
   (compile_exps n ((x:bvl$exp)::y::xs) =
      let (c1,aux1,n1) = compile_exps n [x] in
@@ -330,12 +318,14 @@ val compile_exps_def = tDefine "compile_exps" `
        ([Call ticks
               (dtcase dest of
                | NONE => NONE
-               | SOME n => SOME (num_stubs + nss * n)) c1 NONE],aux1,n1))`
- (WF_REL_TAC `measure (exp1_size o SND)`
+               | SOME n => SOME (num_stubs + nss * n)) c1 NONE],aux1,n1))
+Termination
+  WF_REL_TAC `measure (exp1_size o SND)`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
   \\ TRY (Cases_on `x1`) \\ fs [destLet_def]
   \\ TRY (Cases_on `x2`) \\ fs [destLet_def]
-  \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
+  \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
+End
 
 val compile_exps_ind = theorem"compile_exps_ind";
 
@@ -358,40 +348,45 @@ Proof
   \\ Cases_on `c` \\ fs [LENGTH_NIL]
 QED
 
-val compile_single_def = Define `
+Definition compile_single_def:
   compile_single n (name,arg_count,exp) =
     let (c,aux,n1) = compile_exps n [exp] in
       (List [(num_stubs + nss * name,arg_count,bvi_let$compile_exp (HD c))]
-        ++ aux, n1)`
+        ++ aux, n1)
+End
 
-val compile_list_def = Define `
+Definition compile_list_def:
   (compile_list n [] = (List [],n)) /\
   (compile_list n (p::progs) =
      let (code1,n1) = compile_single n p in
      let (code2,n2) = compile_list n1 progs in
-       (code1 ++ code2,n2))`
+       (code1 ++ code2,n2))
+End
 
-val compile_inc_def = Define ` (* incremental version used by Install *)
+Definition compile_inc_def: (* incremental version used by Install *)
   compile_inc n prog =
     let (p1,n1) = bvl_to_bvi$compile_list n prog in
-      (n1,append p1)`
+      (n1,append p1)
+End
 
-val compile_prog_def = Define `
+Definition compile_prog_def:
   compile_prog start n prog =
     let k = alloc_glob_count (MAP (\(_,_,p). p) prog) in
     let (code,n1) = compile_list n prog in
-      (InitGlobals_location, bvl_to_bvi$stubs (num_stubs + nss * start) k ++ append code, n1)`;
+      (InitGlobals_location, bvl_to_bvi$stubs (num_stubs + nss * start) k ++ append code, n1)
+End
 
-val _ = Datatype`
+Datatype:
   config = <| inline_size_limit : num (* zero disables inlining *)
             ; exp_cut : num (* huge number effectively disables exp splitting *)
             ; split_main_at_seq : bool (* split main expression at Seqs *)
             ; next_name1 : num (* there should be as many of       *)
             ; next_name2 : num (* these as bvl_to_bvi_namespaces-1 *)
             ; inlines : (num # bvl$exp) spt
-            |>`;
+            |>
+End
 
-val default_config_def = Define`
+Definition default_config_def:
   default_config =
     <| inline_size_limit := 10
      ; exp_cut := 1000
@@ -399,14 +394,50 @@ val default_config_def = Define`
      ; next_name1 := num_stubs + 1
      ; next_name2 := num_stubs + 2
      ; inlines := LN
-     |>`;
+     |>
+End
 
-val compile_def = Define `
-  compile start c prog =
+Definition get_names_def:
+  get_names final_nums old_names =
+    fromAList (MAP (λn. (n,
+      if n = InitGlobals_location then mlstring$strlit "start" else
+      if n = AllocGlobal_location then mlstring$strlit "AllocGlobal" else
+      if n = CopyGlobals_location then mlstring$strlit "CopyGlobals" else
+      if n = ListLength_location then mlstring$strlit "ListLength" else
+      if n = FromListByte_location then mlstring$strlit "FromListByte" else
+      if n = ToListByte_location then mlstring$strlit "ToListByte" else
+      if n = SumListLength_location then mlstring$strlit "SumListLength" else
+      if n = ConcatByte_location then mlstring$strlit "ConcatByte" else
+      if n < num_stubs then mlstring$strlit "bvi_unknown" else
+        let k = n - num_stubs in
+        let kd = k DIV nss in
+        let km = k MOD nss in
+        let n = (dtcase lookup kd old_names of
+          | NONE => mlstring$strlit "bvi_unmapped"
+          | SOME name => name) in
+        let aux = (if km = 0 then mlstring$strlit "" else mlstring$strlit "_bvi_aux") in
+          n ^ aux)) final_nums)
+End
+
+Definition compile_def:
+  compile start c names prog =
     let (inlines, prog) = bvl_inline$compile_prog c.inline_size_limit
            c.split_main_at_seq c.exp_cut prog in
     let (loc, code, n1) = compile_prog start 0 prog in
     let (n2, code') = bvi_tailrec$compile_prog (num_stubs + 2) code in
-      (loc, code', inlines, n1, n2)`;
+      (loc, code', inlines, n1, n2, get_names (MAP FST code') names)
+End
+
+Definition bvl_to_bvi_compile_inc_all_def:
+  bvl_to_bvi_compile_inc_all c p =
+    let (inl, p) = bvl_inline$compile_inc c.inline_size_limit
+        c.split_main_at_seq c.exp_cut c.inlines p in
+    let c = c with <| inlines := inl |> in
+    let (nn1, p) = bvl_to_bvi$compile_inc c.next_name1 p in
+    let c = c with <| next_name1 := nn1 |> in
+    let (nn2, p) = bvi_tailrec$compile_prog c.next_name2 p in
+    let c = c with <| next_name2 := nn2 |> in
+      (c, p)
+End
 
 val _ = export_theory();

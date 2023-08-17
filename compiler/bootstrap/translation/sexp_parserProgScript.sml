@@ -1,20 +1,20 @@
 (*
   Translate the alternative s-expression parser.
 *)
-open preamble explorerProgTheory
+open preamble decodeProgTheory
      ml_translatorLib ml_translatorTheory
-     pegTheory simpleSexpTheory simpleSexpPEGTheory simpleSexpParseTheory fromSexpTheory
+     pegTheory simpleSexpTheory simpleSexpPEGTheory simpleSexpParseTheory fromSexpTheory;
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = new_theory"sexp_parserProg";
-val _ = translation_extends "explorerProg";
+val _ = translation_extends "decodeProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "sexp_parserProg");
 val _ = ml_translatorLib.use_string_type true;
 
-(* TODO: this is duplicated in parserProgTheory *)
-val monad_unitbind_assert = Q.prove(
-  `!b x. monad_unitbind (assert b) x = if b then x else NONE`,
-  Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
+val monad_unitbind_assert = parserProgTheory.monad_unitbind_assert;
+
 Theorem OPTION_BIND_THM:
    !x y. OPTION_BIND x y = case x of NONE => NONE | SOME i => y i
 Proof
@@ -26,6 +26,7 @@ val r = translate simpleSexpPEGTheory.pnt_def
 val r = translate pegTheory.ignoreR_def
 val r = translate pegTheory.ignoreL_def
 val r = translate simpleSexpTheory.arb_sexp_def
+val r = translate simpleSexpPEGTheory.sumID_def
 val r = translate simpleSexpPEGTheory.choicel_def
 
 val r = translate simpleSexpPEGTheory.tokeq_def
@@ -65,16 +66,16 @@ val parse_sexp_side = Q.prove(
   \\ fs[pegexecTheory.coreloop_def]
   \\ qmatch_abbrev_tac`IS_SOME (OWHILE a b c)`
   \\ qmatch_assum_abbrev_tac`OWHILE a b' c = _`
-  \\ `b = b'`
-  by (
-    simp[Abbr`b`,Abbr`b'`,FUN_EQ_THM]
-    \\ Cases \\ simp[]
-    \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
-    \\ TOP_CASE_TAC \\ simp[]
-    \\ TOP_CASE_TAC \\ simp[]
-    \\ TOP_CASE_TAC \\ simp[]
-    \\ TOP_CASE_TAC \\ simp[] ) \\
-  fs[]) |> update_precondition;
+  \\ qsuff_tac `b = b'` THEN1 fs []
+  \\ simp[Abbr`b`,Abbr`b'`,FUN_EQ_THM]
+  \\ rpt gen_tac
+  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
+  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
+  \\ Cases_on ‘k’ \\ TRY (fs [] \\ NO_TAC)
+  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
+  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
+  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
+  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]) |> update_precondition;
 
 val r = fromSexpTheory.sexplist_def
         |> SIMP_RULE std_ss [OPTION_BIND_THM]
@@ -129,7 +130,7 @@ Proof
   \\ impl_tac >- rw[]
   \\ qspecl_then[`unhex_alt d2`,`16`]mp_tac MOD_LESS
   \\ impl_tac >- rw[]
-  \\ decide_tac
+  \\ intLib.COOPER_TAC
 QED
 (* -- *)
 
@@ -159,9 +160,28 @@ val lemma2 = Q.prove(`
   rw[num_from_hex_string_alt_intro]);
 
 val _ = ml_translatorLib.use_string_type false;
+
+val _ = add_preferred_thy "-";
+
 val r = fromSexpTheory.decode_control_def
         |> SIMP_RULE std_ss [monad_unitbind_assert,lemma,lemma2]
-        |> translate;
+        |> translate_no_ind;
+
+Triviality decode_control_ind:
+  decode_control_ind
+Proof
+  once_rewrite_tac [fetch "-" "decode_control_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+  \\ rfs [num_from_hex_string_alt_intro]
+QED
+
+val _ = decode_control_ind |> update_precondition;
 
 val decode_control_side = Q.prove(
   `∀x. decode_control_side x = T`,
@@ -169,10 +189,11 @@ val decode_control_side = Q.prove(
   rw[Once(theorem"decode_control_side_def")] \\
   rw[Once(theorem"decode_control_side_def")] \\ rfs[] \\
   rw[num_from_hex_string_alt_length_2] \\
+  rfs [num_from_hex_string_alt_intro] \\
   Cases_on`x1` \\ fs[] \\
   rw[Once(theorem"decode_control_side_def")] \\
   rw[Once(theorem"decode_control_side_def")])
-  |> update_precondition;
+  |> update_precondition
 
 val decode_control_wrapper_def = Define `
   decode_control_wrapper s =
@@ -239,6 +260,10 @@ val r = fromSexpTheory.sexpopt_def
         |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
         |> translate;
 
+val r = fromSexpTheory.sexplocpt_def
+        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
+        |> translate;
+
 val r = fromSexpTheory.sexplocn_def
         |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
         |> translate;
@@ -265,6 +290,8 @@ val r = translate (fromSexpTheory.sexpop_def
                    |> REWRITE_RULE [decode_control_eq]);
 
 val r = translate fromSexpTheory.sexplop_def;
+
+val r = translate fromSexpTheory.sexpsc_def;
 
 val r = translate sexpexp_alt_def;
 
@@ -330,8 +357,14 @@ val print_sexp_alt_def = tDefine"print_sexp_alt"`
    \\ imp_res_tac simpleSexpParseTheory.strip_dot_MEM_sizelt
    \\ imp_res_tac simpleSexpParseTheory.strip_dot_last_sizeleq
    \\ fsrw_tac[boolSimps.DNF_ss][] \\ simp[]
-   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rw[] \\ fs[]
+   \\ fs[LENGTH_EQ_NUM_compute] \\ rw[] \\ fs[]
    \\ res_tac \\ simp[]);
+
+Theorem strip_dot_EQ_NILSOME:
+  strip_dot s = ([], SOME x) ⇒ s = x
+Proof
+  Cases_on ‘s’ >> simp[AllCaseEqs()] >> pairarg_tac >> simp[]
+QED
 
 Theorem print_sexp_alt_thm:
   print_sexp s = print_sexp_alt s
@@ -341,31 +374,27 @@ Proof
   qid_spec_tac `s` >> qid_spec_tac `n` >>
   ho_match_mp_tac COMPLETE_INDUCTION >>
   rpt strip_tac >> Cases_on `s` >>
-  fs[simpleSexpParseTheory.print_sexp_def,print_sexp_alt_def,IMPLODE_EXPLODE_I,sexp_size_def] >>
-  pairarg_tac >> fs[] >> every_case_tac >> fs[STRCAT_11] >>
-  TRY(first_x_assum (match_mp_tac o MP_CANON) >>
-      rw[] >>
-      imp_res_tac simpleSexpParseTheory.strip_dot_MEM_sizelt >>
-      rfs[MEM_EL,ELIM_UNCURRY,PULL_EXISTS] >>
-      fs[sexp_size_def]) >>
-  TRY(rename1 `print_sexp x` >>
-      `print_sexp x = print_sexp_alt x`
-        by(first_x_assum (match_mp_tac o MP_CANON) >>
-           rw[] >>
-           imp_res_tac simpleSexpParseTheory.strip_dot_last_sizelt >>
-           fs[sexp_size_def] >> fs[quantHeuristicsTheory.LIST_LENGTH_2] >>
-           fs[Once strip_dot_def,ELIM_UNCURRY] >> rveq >> fs[])) >>
-  fs[STRCAT_11] >>
-  qmatch_goalsub_abbrev_tac `_ a1 = _ a2` >>
-  `a1 = a2` suffices_by simp[] >>
-  unabbrev_all_tac >>
-  match_mp_tac LIST_EQ >>
-  rw[EL_MAP] >>
-  first_x_assum (match_mp_tac o MP_CANON) >>
-  rw[] >>
-  imp_res_tac simpleSexpParseTheory.strip_dot_MEM_sizelt >>
-  rfs[MEM_EL,ELIM_UNCURRY,PULL_EXISTS] >>
-  fs[sexp_size_def]
+  fs[simpleSexpParseTheory.print_sexp_def,print_sexp_alt_def,IMPLODE_EXPLODE_I,
+     sexp_size_def, PULL_FORALL] >>
+  pairarg_tac >> fs[] >> every_case_tac >>
+  gvs[STRCAT_11, LENGTH_EQ_NUM_compute, PULL_EXISTS] >>
+  pairarg_tac >> gvs[]
+  >- (first_x_assum irule >> dxrule strip_dot_MEM_sizelt >> simp[])
+  >- (drule strip_dot_last_sizelt >> dxrule strip_dot_MEM_sizelt >> simp[])
+  >- (dxrule strip_dot_MEM_sizelt >>
+      disch_then (C (resolve_then Any assume_tac)
+                  (DECIDE “x < y ⇒ x < a + (y + 1n)”)) >>
+      pop_assum (first_assum o resolve_then Any assume_tac) >>
+      simp[Cong MAP_CONG] >> simp[SF ETA_ss])
+  >- (drule strip_dot_last_sizelt >> drule strip_dot_MEM_sizelt >> simp[] >>
+      rename [‘strip_dot s0 = (els, SOME _)’] >>
+      Cases_on ‘NULL els’ >> gs[] >>
+      disch_then (C (resolve_then Any assume_tac)
+                  (DECIDE “x < y ⇒ x < a + (y + 1n)”)) >>
+      pop_assum (first_assum o resolve_then Any assume_tac) >>
+      simp[Cong MAP_CONG] >> simp[SF ETA_ss] >>
+      Cases_on ‘els’ >> gs[] >>
+      dxrule strip_dot_EQ_NILSOME >> simp[])
 QED
 
 val _ = translate print_sexp_alt_def;
@@ -374,7 +403,7 @@ val print_sexp_alt_side = Q.prove(
   `!x. print_sexp_alt_side x = T`,
   ho_match_mp_tac print_sexp_ind >> rw[] >>
   rw[Once(fetch "-" "print_sexp_alt_side_def")] >>
-  fs[quantHeuristicsTheory.LIST_LENGTH_2]) |> update_precondition;
+  fs[LENGTH_EQ_NUM_compute]) |> update_precondition;
 
 val _ = translate print_sexp_alt_thm;
 
@@ -459,6 +488,8 @@ val _ = translate typesexp_def;
 val _ = translate patsexp_def;
 val _ = translate opsexp_def;
 val _ = translate lopsexp_def;
+val _ = translate scsexp_def;
+val _ = translate locssexp_def;
 val _ = translate expsexp_def;
 val _ = translate type_defsexp_def;
 val _ = translate decsexp_def;

@@ -1,10 +1,14 @@
 (*
-  Translate the backend phase from patLang to closLang.
+  Translate the backend phase from flatLang to closLang.
 *)
-open preamble ml_translatorLib ml_translatorTheory to_patProgTheory
+open preamble ml_translatorLib ml_translatorTheory to_flatProgTheory
+local open flat_to_closTheory clos_mtiTheory clos_numberTheory
+  clos_knownTheory clos_callTheory clos_annotateTheory in end
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = new_theory "to_closProg";
-val _ = translation_extends "to_patProg";
+val _ = translation_extends "to_flatProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_closProg");
 val _ = ml_translatorLib.use_string_type true;
@@ -59,17 +63,110 @@ val _ = (find_def_for_const := def_of_const);
 val _ = use_long_names:=true;
 
 (* ------------------------------------------------------------------------- *)
-(* pat_to_clos                                                               *)
+(* flat_to_clos                                                               *)
 (* ------------------------------------------------------------------------- *)
 
-val r = translate pat_to_closTheory.compile_def;
+val r = translate flat_to_closTheory.dest_pat_pmatch;
+val r = translate flat_to_closTheory.arg1_pmatch;
+val r = translate flat_to_closTheory.arg2_pmatch;
 
-val pat_to_clos_compile_side = Q.prove(`
-  ∀x. pat_to_clos_compile_side x ⇔ T`,
-  recInduct pat_to_closTheory.compile_ind>>
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
+Definition dest_sing_list_def:
+  dest_sing_list x =
+    dtcase x of [y] => SOME y | _ => NONE
+End
+
+val r = translate dest_sing_list_def;
+
+Definition dest_App_Ord_pmatch:
+  dest_App_Ord x =
+    case x of App _ Ord es => dest_sing_list es | _ => NONE
+End
+
+val r = translate dest_App_Ord_pmatch;
+
+Definition dest_App_WordToIntW8_pmatch:
+  dest_App_WordToIntW8 x =
+    case x of App _ (WordToInt W8) es => dest_sing_list es | _ => NONE
+End
+
+val r = translate dest_App_WordToIntW8_pmatch;
+
+Theorem dest_nop_pmatch:
+  dest_nop op e =
+    case op of
+    | WordFromInt W8 =>
+        (dtcase dest_sing_list e of NONE => NONE | SOME e => dest_App_Ord e)
+    | Chr =>
+        (dtcase dest_sing_list e of NONE => NONE | SOME e => dest_App_WordToIntW8 e)
+    | _ => NONE
+Proof
+  CONV_TAC(ONCE_DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ Cases_on ‘op’ \\ fs [flat_to_closTheory.dest_nop_def]
+  THEN1
+   (Cases_on ‘w’ \\ fs []
+    \\ Cases_on ‘e’ \\ fs [dest_sing_list_def]
+    \\ Cases_on ‘t’ \\ fs [dest_sing_list_def]
+    \\ fs [dest_App_Ord_pmatch,dest_App_WordToIntW8_pmatch]
+    \\ CONV_TAC(ONCE_DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+    \\ every_case_tac \\ fs [flat_to_closTheory.dest_nop_def,dest_sing_list_def])
+  \\ fs [dest_App_Ord_pmatch,dest_App_WordToIntW8_pmatch]
+  \\ CONV_TAC(ONCE_DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ Cases_on ‘e’ \\ fs [dest_sing_list_def]
+  \\ Cases_on ‘t’ \\ fs [dest_sing_list_def]
+  \\ Cases_on ‘h’ \\ fs [dest_sing_list_def]
+  \\ every_case_tac \\ fs [flat_to_closTheory.dest_nop_def,dest_sing_list_def]
+QED
+
+val r = translate dest_nop_pmatch;
+val r = translate flat_to_closTheory.compile_def;
+
+val flat_to_clos_compile_side = Q.prove(
+  `∀m xs. flat_to_clos_compile_side m xs ⇔ T`,
+  recInduct flat_to_closTheory.compile_ind>>
   rw[]>>
-  simp[Once (fetch "-" "pat_to_clos_compile_side_def")]>>
-  Cases_on`es`>>fs[])|>update_precondition;
+  simp[Once (fetch "-" "flat_to_clos_compile_side_def")]>>
+  rw[]>>
+  res_tac
+  ) |> update_precondition
+
+val r = translate flat_to_closTheory.compile_decs_def;
+
+val r = translate (EVAL “clos_interpreter”)
+
+val r = translate optionTheory.IS_NONE_DEF;
+
+val r = translate clos_interpTheory.can_interpret_op_pmatch;
+val r = translate clos_interpTheory.check_size_op_pmatch;
+val r = translate clos_interpTheory.to_constant_op_pmatch;
+
+fun one_line_ify_mutrec def = let
+  val ths = CONJUNCTS def |> map SPEC_ALL
+  val xs = ths |> map (fn th => (th,(th |> concl |> dest_eq |> fst |> repeat rator
+                                        |> dest_const |> fst)))
+  fun nub [] = []
+    | nub (x::xs) = x :: nub (filter (fn y => y <> x) xs)
+  val ys = nub (map snd xs)
+  in ys |> map (fn y => map fst (filter (fn (_,x) => x = y) xs) |> LIST_CONJ
+                        |> DefnBase.one_line_ify NONE |> GEN_ALL) |> LIST_CONJ
+  end
+
+Theorem can_interpret_ind = (DefnBase.lookup_indn “can_interpret” |> valOf |> fst);
+Theorem check_size_ind = (DefnBase.lookup_indn “check_size” |> valOf |> fst);
+
+val r = translate $ one_line_ify_mutrec clos_interpTheory.can_interpret_def;
+val r = translate $ one_line_ify_mutrec clos_interpTheory.check_size_def;
+
+val r = translate clos_interpTheory.insert_interp_def;
+
+val r = translate flat_to_closTheory.inc_compile_decs_def;
+
+val r = translate clos_interpTheory.clos_interpreter_def;
+val r = translate clos_interpTheory.compile_init_def;
+val r = translate closLangTheory.has_install_def;
+val r = translate clos_interpTheory.attach_interpreter_def;
+val r = translate flat_to_closTheory.compile_prog_def;
 
 (* ------------------------------------------------------------------------- *)
 (* clos_mti                                                                  *)
@@ -88,6 +185,9 @@ val clos_mti_intro_multi_side = Q.prove(`
   simp[Once (fetch "-" "clos_mti_intro_multi_side_def")]>>
   metis_tac[])|>update_precondition
 
+val r = translate clos_mtiTheory.compile_inc_def;
+val r = translate clos_mtiTheory.cond_mti_compile_inc_def;
+
 (* ------------------------------------------------------------------------- *)
 (* clos_number                                                               *)
 (* ------------------------------------------------------------------------- *)
@@ -97,6 +197,27 @@ val clos_mti_intro_multi_side = Q.prove(`
  *     to renumber_code_locs_list_def
  *)
 val r = translate clos_numberTheory.renumber_code_locs_def;
+
+val r = translate clos_numberTheory.ignore_table_def;
+val r = translate miscTheory.make_even_def;
+val r = translate clos_numberTheory.compile_inc_def;
+
+(* ------------------------------------------------------------------------- *)
+(* clos_op                                                                   *)
+(* ------------------------------------------------------------------------- *)
+
+val r = translate clos_opTheory.is_Var_pmatch;
+val r = translate clos_opTheory.dest_Const_pmatch;
+val r = translate clos_opTheory.dest_Constant_pmatch;
+val r = translate clos_opTheory.dest_Cons_pmatch;
+val r = translate clos_opTheory.dest_ElemAt_pmatch;
+val r = translate clos_opTheory.dest_TagEq_pmatch;
+val r = translate clos_opTheory.dest_LenEq_pmatch;
+val r = translate clos_opTheory.dest_TagLenEq_pmatch;
+val r = translate clos_opTheory.dest_Op_pmatch;
+val r = translate clos_opTheory.eq_direct_def;
+val r = translate clos_opTheory.eq_pure_list_def;
+val r = translate clos_opTheory.SmartOp_def;
 
 (* ------------------------------------------------------------------------- *)
 (* clos_known                                                                *)
@@ -121,14 +242,14 @@ val clos_known_known_op_side = Q.prove(`
 
 val r = translate clos_knownTheory.free_def;
 
-Theorem clos_known_free_side = Q.prove(`
-  !x. clos_known_free_side x`,
+Theorem clos_known_free_side = Q.prove(
+  `!x. clos_known_free_side x`,
   ho_match_mp_tac clos_knownTheory.free_ind \\ rw []
-  \\ `!xs ys l. free xs = (ys, l) ==> LENGTH xs = LENGTH ys` by
+  \\ `!xs ys l. clos_known$free xs = (ys, l) ==> LENGTH xs = LENGTH ys` by
    (ho_match_mp_tac clos_knownTheory.free_ind
     \\ rw [] \\ fs [clos_knownTheory.free_def]
     \\ rpt (pairarg_tac \\ fs []) \\ rw [])
-  \\ `!x l. free [x] <> ([], l)` by (CCONTR_TAC \\ fs [] \\ last_x_assum drule \\ fs [])
+  \\ `!x l. clos_known$free [x] <> ([], l)` by (CCONTR_TAC \\ fs [] \\ last_x_assum drule \\ fs [])
   \\ once_rewrite_tac [fetch "-" "clos_known_free_side_def"] \\ fs []
   \\ rw [] \\ fs [] \\ metis_tac []) |> update_precondition;
 
@@ -185,6 +306,13 @@ val clos_fvs_remove_fvs_side = Q.prove(`
 
 val r = translate clos_knownTheory.compile_def;
 
+val r = translate clos_knownTheory.reset_inline_factor_def;
+val r = translate clos_knownTheory.compile_inc_def;
+val r = translate clos_knownTheory.known_compile_inc_def;
+val r = translate clos_knownTheory.option_val_approx_spt_def;
+val r = translate clos_knownTheory.option_upd_val_spt_def;
+val r = translate clos_knownTheory.known_static_conf_def;
+
 (* ------------------------------------------------------------------------- *)
 (* clos_call                                                                 *)
 (* ------------------------------------------------------------------------- *)
@@ -216,6 +344,8 @@ val clos_call_calls_side = Q.prove(`
   rw[GSYM LAMBDA_PROD]) |> update_precondition;
 
 val r = translate clos_callTheory.compile_def;
+val r = translate clos_callTheory.compile_inc_def;
+val r = translate clos_callTheory.cond_call_compile_inc_def;
 
 (* ------------------------------------------------------------------------- *)
 (* clos_annotate                                                             *)
@@ -249,6 +379,16 @@ val clos_annotate_compile_side = Q.prove(
   EVAL_TAC \\ rw[clos_annotate_alt_free_side] \\
   METIS_TAC[clos_annotateTheory.shift_SING,clos_annotateTheory.alt_free_SING,
             FST,PAIR,list_distinct]) |> update_precondition;
+
+val r = translate clos_annotateTheory.compile_inc_def;
+
+val clos_annotate_compile_inc_side = Q.prove(
+  `∀x. clos_annotate_compile_inc_side x = T`,
+  EVAL_TAC \\ rw[clos_annotate_alt_free_side]) |> update_precondition;
+
+val r = translate clos_letopTheory.compile_inc_def;
+val r = translate clos_fvsTheory.compile_inc_def;
+val r = translate clos_ticksTheory.compile_inc_def;
 
 (* ------------------------------------------------------------------------- *)
 

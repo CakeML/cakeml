@@ -4,6 +4,9 @@ different phases of the compiler backend.
 [backendProofScript.sml](backendProofScript.sml):
 Composes the correctness theorems for all of the compiler phases.
 
+[backend_itreeProofScript.sml](backend_itreeProofScript.sml):
+Compiler correctness for the itree CakeML semantics
+
 [bvi_letProofScript.sml](bvi_letProofScript.sml):
 Correctness proof for bvi_let
 
@@ -34,8 +37,16 @@ Correctness proof for clos_annotate
 [clos_callProofScript.sml](clos_callProofScript.sml):
 Correctness proof for clos_call
 
+[clos_constantProofScript.sml](clos_constantProofScript.sml):
+Some functions that flatten a closLang/BVL/BVI/dataLang const tree
+into a sequence of operations that share common data.
+
 [clos_fvsProofScript.sml](clos_fvsProofScript.sml):
 Correctness proof for clos_fvs
+
+[clos_interpProofScript.sml](clos_interpProofScript.sml):
+Correctness proof for closLang interpreter used by the REPL, i.e. Install,
+to avoid spending time compiling simple run-once code in declarations.
 
 [clos_knownProofScript.sml](clos_knownProofScript.sml):
 Correctness proof for clos_known
@@ -53,6 +64,9 @@ compilation.
 
 [clos_numberProofScript.sml](clos_numberProofScript.sml):
 Correctness proof for clos_number
+
+[clos_opProofScript.sml](clos_opProofScript.sml):
+Correctness proof for clos_op
 
 [clos_ticksProofScript.sml](clos_ticksProofScript.sml):
 Correctness proof for clos_ticks
@@ -84,20 +98,18 @@ Part of the correctness proof for data_to_word
 [data_to_word_memoryProofScript.sml](data_to_word_memoryProofScript.sml):
 Part of the correctness proof for data_to_word
 
+[experimentalLib.sml](experimentalLib.sml):
+Some proof tools, mostly quite experimental, used in some of
+the proofs in this directory
+
 [flat_elimProofScript.sml](flat_elimProofScript.sml):
 Correctness proof for flatLang dead code elimination
 
-[flat_exh_matchProofScript.sml](flat_exh_matchProofScript.sml):
-Correctness proof for flat_exh_match
+[flat_patternProofScript.sml](flat_patternProofScript.sml):
+Correctness proof for flat_pattern
 
-[flat_reorder_matchProofScript.sml](flat_reorder_matchProofScript.sml):
-Correctness proof for flat_reorder_match
-
-[flat_to_patProofScript.sml](flat_to_patProofScript.sml):
-Correctness proof for flat_to_pat
-
-[flat_uncheck_ctorsProofScript.sml](flat_uncheck_ctorsProofScript.sml):
-Correctness proof for uncheck_ctors
+[flat_to_closProofScript.sml](flat_to_closProofScript.sml):
+Correctness proof for flat_to_clos
 
 [lab_filterProofScript.sml](lab_filterProofScript.sml):
 Correctness proof for lab_filter
@@ -105,17 +117,27 @@ Correctness proof for lab_filter
 [lab_to_targetProofScript.sml](lab_to_targetProofScript.sml):
 Correctness proof for lab_to_target
 
-[pat_to_closProofScript.sml](pat_to_closProofScript.sml):
-Correctness proof for pat_to_clos
+[source_evalProofScript.sml](source_evalProofScript.sml):
+Proofs that the eval mode of the source semantics can
+be switched to one that includes an oracle.
+
+[source_letProofScript.sml](source_letProofScript.sml):
+Correctness for the source_let pass.
 
 [source_to_flatProofScript.sml](source_to_flatProofScript.sml):
 Correctness proof for source_to_flat
+
+[source_to_sourceProofScript.sml](source_to_sourceProofScript.sml):
+Proof of correctness for source_to_source.
 
 [stack_allocProofScript.sml](stack_allocProofScript.sml):
 Correctness proof for stack_alloc
 
 [stack_namesProofScript.sml](stack_namesProofScript.sml):
 Correctness proof for stack_names
+
+[stack_rawcallProofScript.sml](stack_rawcallProofScript.sml):
+Correctness proof for stack_rawcall
 
 [stack_removeProofScript.sml](stack_removeProofScript.sml):
 Correctness proof for stack_remove
@@ -128,6 +150,9 @@ Correctness proof for word_alloc
 
 [word_bignumProofScript.sml](word_bignumProofScript.sml):
 Correctness proof for word_bignum
+
+[word_cseProofScript.sml](word_cseProofScript.sml):
+Correctness proof for word_cse
 
 [word_depthProofScript.sml](word_depthProofScript.sml):
 Proves correctness of the max_depth applied to the call graph of a

@@ -24,22 +24,26 @@ val _ = ml_prog_update (add_dec
 
 val _ = ml_prog_update open_local_block;
 
-val concat_all_def = Define `
-  concat_all (a:word8) b c d e f g h =
-    concat_word_list [a;b;c;d;e;f;g;h]:64 word`
+val replaceMLneg_def = Define ‘replaceMLneg x = if x = #"~" then #"-" else x’;
+val _ = translate replaceMLneg_def;
 
-val concat_all_impl = REWRITE_RULE [concat_word_list_def, dimindex_8, ZERO_SHIFT, WORD_OR_CLAUSES] concat_all_def;
-
-val _ = (next_ml_names := ["concat_all"]);
-val _ = translate concat_all_impl;
+val prepareString_def = Define ‘prepareString (s:mlstring) = translate replaceMLneg s’
+val _ = translate prepareString_def;
 
 val _ = ml_prog_update open_local_in_block;
+
+val _ = append_prog “[Dlet unknown_loc (Pvar "fromWord")
+                        (Fun "v1" (App FpFromWord [Var (Short "v1")]))]”
+
+val _ = append_prog “[Dlet unknown_loc (Pvar "toWord")
+                        (Fun "v1" (App FpToWord [Var (Short "v1")]))]”
 
 val _ = process_topdecs
   `fun fromString s =
     let
+      val sPrepped = preparestring s;
       val iobuff = Word8Array.array 8 (Word8.fromInt 0);
-      val _ = #(double_fromString) s iobuff;
+      val _ = #(double_fromString) sPrepped iobuff;
       val a = Word8Array.sub iobuff 0;
       val b = Word8Array.sub iobuff 1;
       val c = Word8Array.sub iobuff 2;
@@ -49,7 +53,7 @@ val _ = process_topdecs
       val g = Word8Array.sub iobuff 6;
       val h = Word8Array.sub iobuff 7;
     in
-      concat_all a b c d e f g h
+      fromWord (Word64.concatAll a b c d e f g h)
     end;` |> append_prog;
 
 val _ = ml_prog_update close_local_blocks;
@@ -84,15 +88,16 @@ val _ = ml_prog_update open_local_in_block;
 val _ = process_topdecs
   `fun toString d =
     let
+      val w = toWord d
       val iobuff = Word8Array.array (256) (Word8.fromInt 0);
-      val _ = Word8Array.update iobuff 0 (byte_0 d);
-      val _ = Word8Array.update iobuff 1 (byte_1 d);
-      val _ = Word8Array.update iobuff 2 (byte_2 d);
-      val _ = Word8Array.update iobuff 3 (byte_3 d);
-      val _ = Word8Array.update iobuff 4 (byte_4 d);
-      val _ = Word8Array.update iobuff 5 (byte_5 d);
-      val _ = Word8Array.update iobuff 6 (byte_6 d);
-      val _ = Word8Array.update iobuff 7 (byte_7 d);
+      val _ = Word8Array.update iobuff 0 (byte_0 w);
+      val _ = Word8Array.update iobuff 1 (byte_1 w);
+      val _ = Word8Array.update iobuff 2 (byte_2 w);
+      val _ = Word8Array.update iobuff 3 (byte_3 w);
+      val _ = Word8Array.update iobuff 4 (byte_4 w);
+      val _ = Word8Array.update iobuff 5 (byte_5 w);
+      val _ = Word8Array.update iobuff 6 (byte_6 w);
+      val _ = Word8Array.update iobuff 7 (byte_7 w);
       val _ = #(double_toString) "" iobuff;
       val n = fst (Option.valOf (Word8Array.findi is_0_byte iobuff));
     in
@@ -102,23 +107,42 @@ val _ = process_topdecs
 val _ = ml_prog_update close_local_blocks;
 
 (* Ternary operations *)
-val _ = trans "fma" ``fp64_mul_add roundTiesToEven``;
+
+val fma = “[Dlet unknown_loc (Pvar "fma")
+  (Fun "v1" (Fun "v2" (Fun "v3" (FpOptimise NoOpt (App (FP_top FP_Fma)
+  [Var (Short "v3"); Var (Short "v1"); Var (Short "v2")])))))]”
+
+val _ = append_prog fma;
 
 (* Binary operations *)
-val _ = trans "+" ``fp64_add roundTiesToEven``;
-val _ = trans "-" ``fp64_sub roundTiesToEven``;
-val _ = trans "*" ``fp64_mul roundTiesToEven``;
-val _ = trans "/" ``fp64_div roundTiesToEven``;
-val _ = trans "<" ``fp64_lessThan``;
-val _ = trans ">" ``fp64_greaterThan``;
-val _ = trans "<=" ``fp64_lessEqual``;
-val _ = trans ">=" ``fp64_greaterEqual``;
-val _ = trans "=" ``fp64_equal``;
+
+fun binop s b = “[Dlet unknown_loc (Pvar ^s)
+  (Fun "v1" (Fun "v2" (FpOptimise NoOpt (App (FP_bop ^b) [Var (Short
+  "v1"); Var (Short "v2")]))))]”
+
+fun cmp s b = “[Dlet unknown_loc (Pvar ^s)
+  (Fun "v1" (Fun "v2" (FpOptimise NoOpt (App (FP_cmp ^b) [Var (Short
+  "v1"); Var (Short "v2")]))))]”
+
+val _ = append_prog $ binop “"+"” “FP_Add”;
+val _ = append_prog $ binop “"-"” “FP_Sub”;
+val _ = append_prog $ binop “"*"” “FP_Mul”;
+val _ = append_prog $ binop “"/"” “FP_Div”;
+
+val _ = append_prog $ cmp “"<"” “FP_Less”;
+val _ = append_prog $ cmp “"<="” “FP_LessEqual”;
+val _ = append_prog $ cmp “">"” “FP_Greater”;
+val _ = append_prog $ cmp “">="” “FP_GreaterEqual”;
+val _ = append_prog $ cmp “"="” “FP_Equal”;
 
 (* Unary operations *)
-val _ = trans "abs" ``fp64_abs``;
-val _ = trans "sqrt" ``fp64_sqrt roundTiesToEven``;
-val _ = trans "~" ``fp64_negate``;
+
+fun monop s b = “[Dlet unknown_loc (Pvar ^s)
+  (Fun "v1" (FpOptimise NoOpt (App (FP_uop ^b) [Var (Short "v1")])))]”
+
+val _ = append_prog $ monop “"abs"” “FP_Abs”;
+val _ = append_prog $ monop “"sqrt"” “FP_Sqrt”;
+val _ = append_prog $ monop “"~"” “FP_Neg”;
 
 val _ = ml_prog_update (close_module NONE);
 

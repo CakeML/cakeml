@@ -12,6 +12,9 @@ open preamble bviSemTheory bviPropsTheory bvi_tailrecTheory
        * Can inline auxiliary calls more easily
 *)
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "bvi_tailrecProof";
 
 val _ = set_grammar_ancestry ["bvi_tailrec","bviProps","bviSem"];
@@ -1067,7 +1070,7 @@ Proof
     \\ fs[state_rel_def] )
   \\ imp_res_tac state_rel_const
   \\ fs[case_eq_thms]
-  \\ rveq \\ fs[OPTREL_def,quotient_pairTheory.PAIR_REL_THM]
+  \\ rveq \\ fs[OPTREL_def,PAIR_REL_THM]
   \\ fs[state_rel_def]
 QED
 
@@ -1084,18 +1087,24 @@ Proof
   \\ first_x_assum(qspec_then`vs`strip_assume_tac)
   \\ fs[case_eq_thms,OPTREL_def] \\ rw[] \\ rfs[]
   \\ fs[PULL_EXISTS]
-  \\ rveq \\ fs[quotient_pairTheory.PAIR_REL]
+  \\ rveq \\ fs[PAIR_REL]
   \\ TRY(pairarg_tac \\ fs[])
   \\ imp_res_tac state_rel_const
   \\ fs[bvlSemTheory.do_app_def,case_eq_thms,bvl_to_bvi_id]
   \\ rveq \\ fs[bvl_to_bvi_id]
   \\ fs[do_app_aux_def]
   \\ fs[state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def]
+  \\ fs[AllCaseEqs()]
+  \\ TRY(pairarg_tac \\ fs[])
+  \\ gvs []
+  \\ imp_res_tac code_rel_domain
+  \\ gvs [EVERY_MEM,SUBSET_DEF]
+  \\ rw [] \\ res_tac \\ fs []
 QED
 
 Theorem state_rel_do_app_err:
    bviSem$do_app op vs s = Rerr e ∧
-   state_rel s t ∧ op ≠ Install ∧ (∀n. op ≠ Label n)
+   state_rel s t ∧ op ≠ Install ∧ (∀n. op ≠ Label n) ∧ (∀n. op ≠ Build n)
    ⇒
    bviSem$do_app op vs t = Rerr e
 Proof
@@ -1107,7 +1116,9 @@ Proof
   \\ fs[bvi_to_bvl_def]
   \\ fs[bvlSemTheory.do_app_def]
   \\ TOP_CASE_TAC \\ fs[]
+  \\ TRY(pairarg_tac \\ gvs[])
   \\ fs[case_eq_thms,do_app_aux_def]
+  \\ fs[AllCaseEqs()]
 QED
 
 Theorem do_app_to_op_state:
@@ -1671,7 +1682,8 @@ Proof
         \\ conj_asm1_tac
         >- (
           match_mp_tac code_rel_union
-          \\ fs[domain_fromAList,DISJOINT_SYM] )
+          \\ fs[domain_fromAList,DISJOINT_SYM]
+          \\ gvs[Abbr‘prog1’])
         \\ `namespace_rel (fromAList prog1) (fromAList prog2)`
         by (
           match_mp_tac (GEN_ALL compile_prog_namespace_rel)
@@ -1679,7 +1691,8 @@ Proof
         \\ conj_asm1_tac
         >- (
           match_mp_tac namespace_rel_union
-          \\ fs[domain_fromAList,DISJOINT_SYM])
+          \\ fs[domain_fromAList,DISJOINT_SYM]
+          \\ gs[Abbr‘prog1’])
         \\ simp[domain_union]
         \\ imp_res_tac compile_prog_next_mono
         \\ rveq \\ rw[]
@@ -1698,6 +1711,17 @@ Proof
         imp_res_tac code_rel_domain \\
         fs[SUBSET_DEF] \\
         fs[case_eq_thms] \\ rveq \\ fs[] ) \\ fs[]
+      \\ Cases_on`∃n. op = Build n`
+      >-
+       (fs[] \\ rveq \\
+        fs[do_app_def,do_app_aux_def,bvlSemTheory.do_app_def] \\
+        imp_res_tac state_rel_code_rel \\
+        imp_res_tac code_rel_domain \\
+        fs[SUBSET_DEF] \\
+        fs[case_eq_thms] \\ rveq \\ fs[] \\
+        rpt (pairarg_tac \\ fs []) \\ gvs [state_rel_def] \\
+        gvs [bvl_to_bvi_def,bvi_to_bvl_def] \\
+        gvs [EVERY_MEM] \\ rw [] \\ res_tac \\ fs []) \\ fs[]
       \\ fs[case_eq_thms] \\ rveq \\ fs[]
       \\ imp_res_tac state_rel_do_app \\ fs[]
       \\ imp_res_tac state_rel_do_app_err \\ fs[])

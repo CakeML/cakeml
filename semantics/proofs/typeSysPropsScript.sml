@@ -3,10 +3,12 @@
 *)
 
 open preamble
-open libTheory astTheory namespaceTheory typeSystemTheory typeSoundInvariantsTheory terminationTheory;
+open libTheory astTheory namespaceTheory typeSystemTheory typeSoundInvariantsTheory;
 open astPropsTheory;
 open namespacePropsTheory;
 local open semanticPrimitivesPropsTheory in end
+
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "typeSysProps";
 
@@ -32,7 +34,9 @@ val _ = export_rewrites [
   "typeSystem.Tvector_def",
   "typeSystem.Tword64_def",
   "typeSystem.Tword8_def",
-  "typeSystem.Tword8array_def"]
+  "typeSystem.Tword8array_def",
+  "typeSystem.Tdouble_def",
+  "typeSystem.Treal_def"]
 
 (* ----------- Basic stuff ----------- *)
 
@@ -980,10 +984,16 @@ Theorem type_p_bvl:
    (!tvs tenvC ps ts bindings. type_ps tvs tenvC ps ts bindings ⇒
     !tenv'. tenv_val_exp_ok tenv' ⇒ tenv_val_exp_ok (bind_var_list tvs bindings tenv'))
 Proof
- ho_match_mp_tac type_p_ind >>
- srw_tac[][bind_var_list_def, tenv_val_exp_ok_def, num_tvs_def, bind_var_list_append] >>
- `tvs + num_tvs tenv' ≥ tvs` by decide_tac >>
- metis_tac [check_freevars_add]
+  ho_match_mp_tac type_p_strongind >>
+  srw_tac[][bind_var_list_def, tenv_val_exp_ok_def, num_tvs_def, bind_var_list_append]
+  >- (
+    `tvs + num_tvs tenv' ≥ tvs` by decide_tac >>
+    metis_tac [check_freevars_add])
+  >>
+  first_x_assum match_mp_tac>>simp[tenv_val_exp_ok_def]>>
+  imp_res_tac type_p_freevars>>
+  `tvs + num_tvs tenv' ≥ tvs` by decide_tac >>
+  metis_tac [check_freevars_add]
 QED
 
 Theorem type_p_tenvV_indep:
@@ -1296,6 +1306,7 @@ Proof
      full_simp_tac(srw_ss())[type_op_cases] >>
      srw_tac[][] >>
      TRY(cases_on`wz`\\CHANGED_TAC(fs[])) >>
+     TRY (Cases_on ‘v31’ >> fs[]) >>
      full_simp_tac(srw_ss())[deBruijn_subst_def] >>
      metis_tac [])
    >- metis_tac [SIMP_RULE (srw_ss()) [PULL_FORALL] type_e_subst_lem3, ADD_COMM])
@@ -1603,6 +1614,7 @@ val type_e_subst_lem = Q.prove (
  >> rpt (disch_then drule)
  >> disch_then (qspec_then `Bind_name x 0 t1 Empty` mp_tac)
  >> simp [db_merge_def, deBruijn_subst_tenvE_def, deBruijn_inc0]);
+
 
  (*
 (* ---------- tid_exn_to_tc ---------- *)

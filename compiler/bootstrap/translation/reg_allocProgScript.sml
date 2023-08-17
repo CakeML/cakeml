@@ -4,15 +4,17 @@
 open preamble
 open reg_allocTheory reg_allocProofTheory state_transformerTheory
 open ml_monad_translatorLib ml_translatorTheory;
-open parserProgTheory;
+open pancake_parseProgTheory;
 
 (*
 open basisProgTheory
 *)
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "reg_allocProg";
 
-val _ = translation_extends "parserProg";
+val _ = translation_extends "pancake_parseProg";
 val _ = ml_translatorLib.use_string_type true;
 (*
 val _ = translation_extends "basisProg";
@@ -110,6 +112,8 @@ val _ = translate COUNT_LIST_AUX_def
 val _ = translate COUNT_LIST_compute
 
 *)
+
+val _ = translate difference_def;
 
 val _ = translate list_remap_def;
 val _ = translate mk_bij_aux_def;

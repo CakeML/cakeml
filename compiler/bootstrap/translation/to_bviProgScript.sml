@@ -3,6 +3,8 @@
 *)
 open preamble ml_translatorLib ml_translatorTheory to_bvlProgTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "to_bviProg";
 val _ = translation_extends "to_bvlProg";
 
@@ -116,15 +118,6 @@ val r = translate bvi_tailrecTheory.compile_prog_def;
 (* ------------------------------------------------------------------------- *)
 
 val r = translate bvl_to_bviTheory.compile_int_def;
-
-val bvl_to_bvi_compile_int_side = Q.prove(`
-  ∀x. bvl_to_bvi_compile_int_side x ⇔ T`,
-  completeInduct_on`Num(ABS x)`>>
-  simp[Once (fetch "-" "bvl_to_bvi_compile_int_side_def")]>>
-  rw[]>>fs[PULL_FORALL]>>
-  first_assum MATCH_MP_TAC>>
-  intLib.COOPER_TAC) |> update_precondition;
-
 val r = translate bvl_to_bviTheory.compile_aux_def;
 
 (* TODO: better way to translate Boolean pmatch patterns *)
@@ -136,7 +129,7 @@ val r = translate bvl_to_bviTheory.compile_aux_def;
 val def = bvl_to_bviTheory.compile_op_pmatch;
 val rows = def |> SPEC_ALL |> concl |> rhs |> rand
            |> listSyntax.dest_list |> #1
-val bad_row = rows |> List.rev |> el 3
+val bad_row = rows |> List.rev |> el 5
 val default_row = rows |> last
 val (_,_,default_exp) = patternMatchesSyntax.dest_PMATCH_ROW default_row
 val (pat,guard,exp) = patternMatchesSyntax.dest_PMATCH_ROW bad_row
@@ -156,7 +149,7 @@ val new_def = prove(goal,
                  patternMatchesTheory.PMATCH_ROW_def,
                  patternMatchesTheory.PMATCH_ROW_COND_def]
   \\ simp[]
-  \\ PURE_TOP_CASE_TAC
+  \\ TRY PURE_TOP_CASE_TAC
   \\ simp[some_v_T]);
 val r = translate new_def;
 
@@ -180,9 +173,21 @@ val bvl_to_bvi_compile_single_side = Q.prove(`
   \\ imp_res_tac bvl_to_bviTheory.compile_exps_LENGTH
   \\ CCONTR_TAC \\ fs[]) |> update_precondition;
 
+val r = translate bvl_to_bviTheory.get_names_def;
+
+val bvl_to_bvi_get_names_side = Q.prove(`
+  ∀x y. bvl_to_bvi_get_names_side x y ⇔ T`,
+  EVAL_TAC \\ fs []) |> update_precondition;
+
 val r = translate bvl_to_bviTheory.compile_list_def;
 val r = translate bvl_to_bviTheory.compile_prog_def;
 val r = translate bvl_to_bviTheory.compile_def;
+
+val _ = r |> hyp |> null orelse
+        failwith "Unproved side condition in the translation of bvl_to_bviTheory.compile_def.";
+
+val r = translate bvl_to_bviTheory.compile_inc_def;
+val r = translate bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def;
 
 (* ------------------------------------------------------------------------- *)
 

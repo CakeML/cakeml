@@ -8,7 +8,7 @@ open set_relationTheory; (* comes first so relationTheory takes precedence *)
 open ASCIInumbersTheory BasicProvers Defn HolKernel Parse SatisfySimps Tactic
      monadsyntax alistTheory alignmentTheory arithmeticTheory bagTheory boolLib
      boolSimps bossLib byteTheory containerTheory combinTheory dep_rewrite
-     finite_mapTheory indexedListsTheory lcsymtacs listTheory llistTheory
+     finite_mapTheory indexedListsTheory listTheory llistTheory
      lprefix_lubTheory markerLib miscTheory mp_then optionTheory pairLib
      pairTheory pred_setTheory quantHeuristicsLib relationTheory res_quanTheory
      rich_listTheory sortingTheory sptreeTheory stringTheory sumTheory
@@ -24,6 +24,13 @@ fun asm_match q = Q.MATCH_ASSUM_RENAME_TAC q
 val match_exists_tac = part_match_exists_tac (hd o strip_conj)
 val asm_exists_tac = first_assum(match_exists_tac o concl)
 val has_pair_type = can dest_prod o type_of
+fun impl_subgoal_tac th =
+  let
+    val hyp_to_prove = lhand (concl th)
+  in
+    SUBGOAL_THEN hyp_to_prove (fn thm => assume_tac (MP th thm))
+  end;
+
 (* -- *)
 
 fun check_tag t = Tag.isEmpty t orelse Tag.isDisk t

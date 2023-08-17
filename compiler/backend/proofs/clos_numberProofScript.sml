@@ -3,6 +3,8 @@
 *)
 open preamble backendPropsTheory closLangTheory clos_numberTheory closSemTheory closPropsTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"clos_numberProof";
 
 val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
@@ -65,13 +67,14 @@ Proof
   res_tac
 QED
 
-val renumber_code_locs_distinct_lemma = Q.prove(
-  `(∀n es. SORTED $< (code_locs (SND (renumber_code_locs_list n es))) ∧
+Theorem renumber_code_locs_distinct_lemma[local]:
+   (∀n es. SORTED $< (code_locs (SND (renumber_code_locs_list n es))) ∧
             EVERY ($<= n) (code_locs (SND (renumber_code_locs_list n es))) ∧
             EVERY ($> (FST (renumber_code_locs_list n es))) (code_locs (SND (renumber_code_locs_list n es)))) ∧
     (∀n e. SORTED $< (code_locs [SND (renumber_code_locs n e)]) ∧
             EVERY ($<= n) (code_locs [SND (renumber_code_locs n e)]) ∧
-            EVERY ($> (FST (renumber_code_locs n e))) (code_locs [SND (renumber_code_locs n e)]))`,
+            EVERY ($> (FST (renumber_code_locs n e))) (code_locs [SND (renumber_code_locs n e)]))
+Proof
   ho_match_mp_tac renumber_code_locs_ind >>
   simp[renumber_code_locs_def,code_locs_def,pairTheory.UNCURRY] >>
   srw_tac[][] >> rpt (CHANGED_TAC tac >> full_simp_tac(srw_ss())[]) >> srw_tac[][] >>
@@ -88,13 +91,15 @@ val renumber_code_locs_distinct_lemma = Q.prove(
     simp[Once code_locs_cons] >>
     srw_tac[][] >> res_tac >> fsrw_tac[ARITH_ss][] >>
     NO_TAC ) >>
-  rpt(match_mp_tac sortingTheory.SORTED_APPEND >> simp[] >> TRY conj_tac) >>
+  ‘transitive prim_rec$<’ by fs [transitive_def] >>
+  simp [sortingTheory.SORTED_APPEND] >>
+  rpt conj_tac >>
   TRY (
     srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
     NO_TAC) >>
   TRY (
     simp[Once code_locs_cons] >>
-    match_mp_tac sortingTheory.SORTED_APPEND >> simp[] >>
+    simp [sortingTheory.SORTED_APPEND] >> simp[] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
     NO_TAC ) >>
   TRY (
@@ -103,8 +108,7 @@ val renumber_code_locs_distinct_lemma = Q.prove(
     imp_res_tac renumber_code_locs_imp_inc >>
     srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
     NO_TAC) >>
-  fs[times_add_o,GSYM MAP_GENLIST,
-     MATCH_MP sorted_map transitive_LESS,
+  fs[times_add_o,GSYM MAP_GENLIST,sorted_map,
      SORTED_inv_image_LESS_PLUS,
      SORTED_GENLIST_TIMES] >>
   Cases_on `renumber_code_locs_list n (MAP SND fns)` >>
@@ -117,7 +121,8 @@ val renumber_code_locs_distinct_lemma = Q.prove(
   srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
   srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][MAP_ZIP] >>
   rev_full_simp_tac(srw_ss())[MAP_ZIP] >>
-  srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][MAP_ZIP]);
+  srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][MAP_ZIP]
+QED
 
 Theorem renumber_code_locs_distinct:
    ∀n e. ALL_DISTINCT (code_locs [SND (renumber_code_locs n e)]) ∧
@@ -183,15 +188,6 @@ Inductive v_rel:
    ⇒
    v_rel max_app (Recclosure p argenv env es k) (Recclosure p' argenv' env' es' k))
 End
-
-val compile_inc_def = Define `
-  compile_inc n xs =
-    (* leave space in the naming for the daisy chaining of clos_to_bvl *)
-    let n1 = make_even (n + MAX (LENGTH xs) 1) in
-    let (m,ys) = renumber_code_locs_list n1 xs in
-      (* embed the name of the first free slot (n) in the code *)
-      (* no code will be generated for this pure Const expression *)
-      (m, Op None (Const (&n)) [] :: ys)`;
 
 val state_rel_def = Define `
   state_rel (s:(num#'c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
@@ -505,6 +501,13 @@ fun DFOCUS_PAT pat thm = let
       end
     val (thm, P, Ps) = UN [] thm
   in DISCH P (List.foldl (uncurry DISCH) thm Ps) end
+
+Theorem ignore_table_imp:
+   ignore_table f st p = (st',p') ⇒ SND p' = SND p
+Proof
+  Cases_on`p` \\ EVAL_TAC
+  \\ pairarg_tac \\ rw[] \\ rw[]
+QED
 
 val do_install = Q.prove(
   `state_rel s1 s2 ∧

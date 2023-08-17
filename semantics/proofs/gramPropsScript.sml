@@ -5,7 +5,7 @@
 *)
 open HolKernel Parse boolLib bossLib
 
-open lcsymtacs boolSimps
+open boolSimps
 open gramTheory
 open NTpropertiesTheory
 open pred_setTheory
@@ -82,9 +82,8 @@ val NT_rank_def = Define`
         else if n = nTypeName          then  2
         else if n = nUQTyOp            then  1
         else if n = nNonETopLevelDecs  then  4
-        else if n = nTopLevelDec       then  3
         else if n = nDecls             then  3
-        else if n = nStructure         then  2
+        else if n = nStructure         then  1
         else if n = nDecl              then  2
         else if n = nTypeDec           then  1
         else if n = nSpecLineList      then  3
@@ -94,11 +93,12 @@ val NT_rank_def = Define`
         else if n = nPbaseList1        then  4
         else if n = nPapp              then  4
         else if n = nPcons             then  5
-        else if n = nPattern           then  6
-        else if n = nPatternList       then  7
-        else if n = nPEs               then  8
-        else if n = nPE                then  7
-        else if n = nPE'               then  7
+        else if n = nPas               then  6
+        else if n = nPattern           then  7
+        else if n = nPatternList       then  8
+        else if n = nPEs               then  9
+        else if n = nPE                then  8
+        else if n = nPE'               then  8
         else if n = nLetDecs           then  2
         else if n = nLetDec            then  1
         else if n = nDtypeDecl         then  3
@@ -120,7 +120,7 @@ val rules = SIMP_CONV (bool_ss ++ ty2frag ``:(α,β)grammar``)
                       [cmlG_def, combinTheory.K_DEF,
                        finite_mapTheory.FUPDATE_LIST_THM] rules_t
 val cmlG_applied = let
-  val app0 = finite_mapSyntax.fapply_t
+  val app0 = finite_mapSyntax.fapply_tm
   val theta =
       Type.match_type (type_of app0 |> dom_rng |> #1) (type_of rules_t)
   val app = inst theta app0
@@ -252,7 +252,7 @@ val nullacc =
            “nPapp”, “nPattern”, “nRelOps”, “nMultOps”,
            “nAddOps”, “nDconstructor”, “nFDecl”,
            “nPatternList”, “nPbaseList1”, “nElist2”,
-           “nEseq”, “nEtuple”, “nTopLevelDecs”, “nTopLevelDec”]
+           “nEseq”, “nEtuple”, “nTopLevelDecs”]
 
 local
   fun appthis th = let

@@ -10,6 +10,10 @@ This directory contains the ARMv7-specific part of the compiler backend.
 [arm8](arm8):
 This directory contains the ARMv8-specific part of the compiler backend.
 
+[arm8_asl](arm8_asl):
+This directory contains proofs for the ASL-derived ARMv8-specific part of the
+compiler backend.
+
 [backendComputeLib.sml](backendComputeLib.sml):
 A compset for evaluating the compiler backend inside the logic of HOL.
 
@@ -20,6 +24,10 @@ to the front-end, i.e. parsing and type inference.
 
 [backend_commonScript.sml](backend_commonScript.sml):
 Definitions that are common for many parts of the compiler backend.
+
+[backend_passesScript.sml](backend_passesScript.sml):
+Reformulates compile definition to expose the result of each internal
+compiler pass
 
 [bviScript.sml](bviScript.sml):
 The BVI intermediate language. This language is very similar to BVL.
@@ -89,6 +97,9 @@ function calls.
 [clos_fvsScript.sml](clos_fvsScript.sml):
 Replaces free variables with constant type errors.
 
+[clos_interpScript.sml](clos_interpScript.sml):
+Implementation of interpreter for closLang expressions written in closLang.
+
 [clos_knownScript.sml](clos_knownScript.sml):
 This complicated compiler phase tracks where closure values flow
 in a program. It attempts to annotate function applications with the
@@ -113,6 +124,11 @@ functions. This phase is vital for good performance.
 [clos_numberScript.sml](clos_numberScript.sml):
 This simple compiler phase walks the program and gives each closure
 a unique numeric name.
+
+[clos_opScript.sml](clos_opScript.sml):
+This is file implements a "smart" version of ClosLang's Op
+constructor. When possible, this smart constructor breaks
+the operation into faster separate operators.
 
 [clos_ticksScript.sml](clos_ticksScript.sml):
 This simple compiler phase removes all Tick operations. Tick
@@ -178,15 +194,14 @@ replaces it with an alloc call with 0.
 [flat_elimScript.sml](flat_elimScript.sml):
 Implementation for flatLang dead-code elimination.
 
-[flat_exh_matchScript.sml](flat_exh_matchScript.sml):
-This compiler phase ensures that all pattern matches are exhaustive.
+[flat_patternScript.sml](flat_patternScript.sml):
+Interface between flatLang and pattern compiler.
 
-[flat_reorder_matchScript.sml](flat_reorder_matchScript.sml):
-This compiler phase reorders patterns in pattern matches to improve
-code quality.
-
-[flat_to_patScript.sml](flat_to_patScript.sml):
-This phase performs pattern-match compilation.
+[flat_to_closScript.sml](flat_to_closScript.sml):
+Compilation from flatLang to closLang. This compiler phase converts
+explicit variable names of flatLang to de Bruijn indexing of
+closLang. It also makes all division-by-zero and out-of-bounds
+exceptions raised explicitly.
 
 [flat_uncheck_ctorsScript.sml](flat_uncheck_ctorsScript.sml):
 This compiler phase replaces tuples with constructors (with tag 0).
@@ -220,17 +235,11 @@ compiler configuration.
 [mips](mips):
 This directory contains the mips-specific part of the compiler backend.
 
-[patLangScript.sml](patLangScript.sml):
-The patLang intermediate language follows immediately after
-pattern-match compilation from flatLang. The patLang language
-differs from earlier languages in that it uses de Bruijn indices
-for variable names.
+[pattern_matching](pattern_matching):
+The CakeML pattern matching expressions compiler
 
-[pat_to_closScript.sml](pat_to_closScript.sml):
-The translation from patLang to closLang is very simple.
-Its main purpose is simplifying the semantics of some operations,
-for example to explicitly raise an exception for Div so the semantics
-in closLang can make more assumptions about the arguments.
+[presLangLib.sml](presLangLib.sml):
+Library that helps pretty print code
 
 [presLangScript.sml](presLangScript.sml):
 Functions for converting various intermediate languages
@@ -239,9 +248,6 @@ into displayLang representations.
 [proofs](proofs):
 This directory contains the correctness proofs for all of the
 different phases of the compiler backend.
-
-[reachability](reachability):
-Generic reachability operations
 
 [reg_alloc](reg_alloc):
 This directory contains the implementation of the register allocator
@@ -256,9 +262,19 @@ intermediate language that is used in the compiler backend. This
 directory also contains generic properties about the semantics of each
 intermediate language.
 
+[serialiser](serialiser):
+Proofs and automation for serialising HOL values.
+
+[source_letScript.sml](source_letScript.sml):
+This is a source-to-source transformation that lifts Let/Letrec expressions
+that sit at the top of Dlet:s into their own Dlet/Dletrec:s.
+
 [source_to_flatScript.sml](source_to_flatScript.sml):
 This is the compiler phase that translates the CakeML source
 language into flatLang.
+
+[source_to_sourceScript.sml](source_to_sourceScript.sml):
+This phase collects all source-to-source transformations.
 
 [stackLangScript.sml](stackLangScript.sml):
 The stackLang intermediate language is a structured programming
@@ -278,6 +294,13 @@ implementation of the garbage collector.
 This compiler phase renames the registers to fit with the target
 architecture.
 
+[stack_rawcallScript.sml](stack_rawcallScript.sml):
+This compiler phase introduces calls past the stack allocation code
+that is present at almost every start of function. A call past stack
+allocation is called a RawCall. RawCalls are introduced to shortcut
+some bookkeeping during tail-calls to known locations, i.e
+`Call NONE (INL dest) ..`.
+
 [stack_removeScript.sml](stack_removeScript.sml):
 This compiler phase implements all stack operations as normal memory
 load/store operations.
@@ -286,6 +309,9 @@ load/store operations.
 This compiler phase maps stackLang programs, which has structure
 such as If, While, Return etc, to labLang programs that are a soup
 of goto-like jumps.
+
+[str_treeScript.sml](str_treeScript.sml):
+A Lisp inspired tree of mlstrings and a pretty printing function
 
 [wordLangScript.sml](wordLangScript.sml):
 The wordLang intermediate language consists of structured programs
@@ -307,6 +333,10 @@ This is the compiler's regsiter allocator. It supports different modes:
 The bignum library used by the CakeML compiler. Note that the
 implementation is automatically generated from a shallow embedding
 that is part of the HOL distribution in mc_multiwordTheory.
+
+[word_cseScript.sml](word_cseScript.sml):
+Defines a common sub-expression elimination pass on a wordLang program.
+This pass is to run immeidately atfer the SSA-like renaming.
 
 [word_depthScript.sml](word_depthScript.sml):
 Computes the call graph for wordLang program with an acyclic call

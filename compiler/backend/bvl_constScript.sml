@@ -179,8 +179,12 @@ local val SmartOp2_quotation = `
     else if op = Equal then
       dtcase (dest_simple x1, dest_simple x2) of
       | (SOME i, SOME j) => Bool (j = i)
-      | (SOME i, _) => Op (EqualInt i) [x2]
-      | (_, SOME i) => Op (EqualInt i) [x1]
+      | (SOME i, _) => Op (EqualConst (Int i)) [x2]
+      | (_, SOME i) => Op (EqualConst (Int i)) [x1]
+      | _ => default
+    else if op = El then
+      dtcase dest_simple x1 of
+      | SOME i => if i < 0 then default else Op (ElemAt (Num i)) [x2]
       | _ => default
     else default`
 in
@@ -199,16 +203,42 @@ QED
 end
 
 
+Definition dest_EqualInt_def:
+  dest_EqualInt (EqualConst (Int i)) = SOME i ∧
+  dest_EqualInt _ = NONE
+End
+
+Theorem dest_EqualInt_pmatch:
+  dest_EqualInt x = case x of EqualConst (Int i) => SOME i | _ => NONE
+Proof
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ Cases_on ‘x’ \\ EVAL_TAC
+  \\ rename [‘EqualConst cc’] \\ Cases_on ‘cc’ \\ EVAL_TAC
+QED
+
+Definition SmartOp1_def:
+  SmartOp1 op x =
+    dtcase dest_EqualInt op of
+    | NONE => Op op [x]
+    | SOME i =>
+      dtcase dest_simple x of
+      | NONE => Op op [x]
+      | SOME j => Bool (j = i)
+End
+
+
 val SmartOp_def = Define `
   SmartOp op xs =
     dtcase xs of
     | [x1; x2] => SmartOp2 (SmartOp_flip op x1 x2)
+    | [x] => SmartOp1 op x
     | _ => Op op xs`
 
 Theorem SmartOp_pmatch:
       !op xs. SmartOp op xs =
       case xs of
       | [x1;x2] => SmartOp2 (SmartOp_flip op x1 x2)
+      | [x] => SmartOp1 op x
       | _ => Op op xs
 Proof
   rpt strip_tac
@@ -256,7 +286,7 @@ Proof
   >> fs[delete_var_def]
 QED
 
-val compile_def = tDefine "compile" `
+Definition compile_def:
   (compile env [] = []) /\
   (compile env (x::y::xs) = compile env [x] ++ compile env (y::xs)) /\
   (compile env [Var v] =
@@ -282,10 +312,10 @@ val compile_def = tDefine "compile" `
      [Raise (HD (compile env [x1]))]) /\
   (compile env [Op op xs] = [SmartOp op (compile env xs)]) /\
   (compile env [Tick x] = [Tick (HD (compile env [x]))]) /\
-  (compile env [Call t dest xs] = [Call t dest (compile env xs)])`
-  (WF_REL_TAC `measure (exp1_size o SND)`);
-
-val compile_ind = theorem"compile_ind";
+  (compile env [Call t dest xs] = [Call t dest (compile env xs)])
+Termination
+  WF_REL_TAC `measure (exp1_size o SND)`
+End
 
 Theorem compile_length[simp]:
    !n xs. LENGTH (compile n xs) = LENGTH xs
@@ -302,7 +332,9 @@ Proof
   \\ Cases_on `compile n [x]` \\ fs [LENGTH_NIL]
 QED
 
-val compile_exp_def = Define `
-  compile_exp x = dtcase compile [] [x] of (y::_) => y | _ => Var 0 (* impossible *)`;
+Definition compile_exp_def:
+  compile_exp x =
+    dtcase compile [] [x] of (y::_) => y | _ => Var 0 (* impossible *)
+End
 
 val _ = export_theory();

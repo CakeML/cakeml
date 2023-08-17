@@ -4,6 +4,8 @@
 open preamble basis
 open integerTheory cfDivTheory cfDivLib
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "div";
 
 val _ = translation_extends "basisProg";
@@ -153,7 +155,7 @@ Proof
   \\ xlet_auto THEN1 xsimpl
   \\ xif \\ instantiate
   \\ xlet_auto THEN1 xsimpl
-  \\ xvar \\ xsimpl \\ fs [ADD_CLAUSES, ADD_1_SUC]
+  \\ xvar \\ xsimpl \\ fs [ADD_CLAUSES, GSYM ADD1]
 QED
 
 (* A small IO model needed for IO examples *)
@@ -172,7 +174,7 @@ val get_char_event_def = Define `
 val get_char_eof_event_def = Define `
   get_char_eof_event = IO_event "get_char" [] [0w, 0w; 0w, 0w]`;
 
-val update_def = Define `
+val update_def = PmatchHeuristics.with_classic_heuristic Define `
   (update "put_char" cs [] s = SOME (FFIreturn [] s)) /\
   (update "get_char" [] [0w; 0w] s = case destStream s of
      | NONE    => NONE
@@ -316,8 +318,8 @@ QED
 (* TODO: Move REPLICATE_LIST and lemmas to an appropriate theory *)
 
 val REPLICATE_LIST_def = Define `
-  (!l. REPLICATE_LIST l 0 = []) /\
-  (!l n. REPLICATE_LIST l (SUC n) = REPLICATE_LIST l n ++ l)`
+  (REPLICATE_LIST l 0 = []) /\
+  (REPLICATE_LIST l (SUC n) = REPLICATE_LIST l n ++ l)`
 
 Theorem REPLICATE_LIST_SNOC:
   !x n. SNOC x (REPLICATE_LIST [x] n) = REPLICATE_LIST [x] (SUC n)

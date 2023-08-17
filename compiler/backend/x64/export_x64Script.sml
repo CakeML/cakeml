@@ -5,35 +5,50 @@ open preamble exportTheory
 
 val () = new_theory "export_x64";
 
+(*
+CakeML expects 4 arguments in order:
+
+RDI - entry address i.e., the address of cake_main
+RSI - first address of heap
+RDX - first address of stack
+RCX - first address past the stack
+
+In addition, the first address on the heap should store the address of cake_bitmaps
+
+Note: this set up does NOT account for restoring clobbered registers
+*)
 val startup =
   ``(MAP (\n. strlit(n ++ "\n"))
       ["/* Start up code */";
        "";
        "     .text";
-       "     .p2align 3";
-       "     .globl  cdecl(main)";
-       "     .globl  cdecl(argc)";
-       "     .globl  cdecl(argv)";
-       "cdecl(main):";
-       "#if defined(__WIN32)";
-       "     movabs  $cdecl(argc), %rdi";
-       "     movabs  $cdecl(argv), %rsi";
-       "     movq    %rcx, 0(%rdi)  # %rcx stores argc";
-       "     movq    %rdx, 0(%rsi)  # %rdx stores argv";
-       "#else";
-       "     movabs  $cdecl(argc), %rdx";
-       "     movabs  $cdecl(argv), %rcx";
-       "     movq    %rdi, 0(%rdx)  # %rdi stores argc";
-       "     movq    %rsi, 0(%rcx)  # %rsi stores argv";
+       "     .p2align 12";
+       "     .globl  cdecl(cake_text_begin)";
+       "cdecl(cake_text_begin):";
+       "     .globl  cdecl(cml_main)";
+       "     .globl  cdecl(cml_heap)";
+       "     .globl  cdecl(cml_stack)";
+       "     .globl  cdecl(cml_stackend)";
+       "#ifndef __APPLE__";
+       "     .type   cml_main, function";
        "#endif";
-       "     pushq   %rbp        # push base pointer";
-       "     movq    %rsp, %rbp  # save stack pointer";
-       "     movabs  $cake_main, %rdi        # arg1: entry address";
-       "     movabs  $cake_heap, %rsi        # arg2: first address of heap";
-       "     movabs  $cake_bitmaps, %rdx";
-       "     movq    %rdx, 0(%rsi)           # store bitmap pointer";
-       "     movabs  $cake_stack, %rdx       # arg3: first address of stack";
-       "     movabs  $cake_end, %rcx         # arg4: first address past the stack";
+       "cdecl(cml_main):";
+       "     pushq   %rbp                            # push base pointer";
+       "     movq    %rsp, %rbp                      # save stack pointer";
+       "     leaq    cake_main(%rip), %rdi           # arg1: entry address";
+       "     movq    cdecl(cml_heap)(%rip), %rsi     # arg2: first address of heap";
+       "     leaq    cake_bitmaps(%rip), %rax";
+       "     movq    %rax, 0(%rsi)                   # store bitmap pointer";
+       "     leaq    cdecl(cake_bitmaps_buffer_begin)(%rip), %rax";
+       "     movq    %rax, 8(%rsi)                   # store bitmap mutable start pointer";
+       "     leaq    cdecl(cake_bitmaps_buffer_end)(%rip), %rax";
+       "     movq    %rax, 16(%rsi)                  # store bitmap mutable end pointer";
+       "     leaq    cdecl(cake_codebuffer_begin)(%rip), %rax";
+       "     movq    %rax, 24(%rsi)                  # store code mutable start pointer";
+       "     leaq    cdecl(cake_codebuffer_end)(%rip), %rax";
+       "     movq    %rax, 32(%rsi)                  # store code mutable end pointer";
+       "     movq    cdecl(cml_stack)(%rip), %rdx    # arg3: first address of stack";
+       "     movq    cdecl(cml_stackend)(%rip), %rcx # arg4: first address past the stack";
        "     jmp     cake_main";
        ""])`` |> EVAL |> concl |> rand
 
@@ -58,7 +73,11 @@ val ffi_code =
      (ffi_asm (REVERSE ffi_names))
      (List (MAP (\n. strlit(n ++ "\n"))
       ["cake_clear:";
-       "     callq   wcdecl(cml_exit)";
+       "     pushq   %rax";
+       "     pushq   %rdi";
+       "     callq   wcdecl(cml_clear)";
+       "     popq    %rdi";
+       "     ret";
        "     .p2align 4";
        "";
        "cake_exit:";
@@ -100,14 +119,17 @@ val windows_ffi_code =
        ""])))`` |> EVAL |> concl |> rand
 
 val x64_export_def = Define `
-  x64_export ffi_names heap_space stack_space bytes (data:word64 list) =
+  x64_export ffi_names bytes (data:word64 list) syms =
     SmartAppend
       (SmartAppend
       (SmartAppend (List preamble)
-      (SmartAppend (List (data_section ".quad" heap_space stack_space))
+      (SmartAppend (List (data_section ".quad"))
       (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
-      (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code))))
-      (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes))
+      (SmartAppend (List data_buffer)
+      (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code)))))
+      (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
+      (SmartAppend (List code_buffer)
+      (emit_symbols syms))))
       (^windows_ffi_code)`;
 
 (*

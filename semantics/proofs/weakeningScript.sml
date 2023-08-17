@@ -9,7 +9,6 @@ open namespacePropsTheory;
 open semanticPrimitivesTheory;
 open astPropsTheory;
 open typeSoundInvariantsTheory;
-open terminationTheory;
 
 val _ = new_theory "weakening";
 

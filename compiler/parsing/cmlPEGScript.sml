@@ -6,8 +6,8 @@
 open HolKernel Parse boolLib bossLib
      gramTheory pegexecTheory pegTheory
 
+local open tokenUtilsTheory monadsyntax finite_mapSyntax in end
 fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
-local open tokenUtilsTheory in end
 
 val _ = new_theory "cmlPEG"
 val _ = set_grammar_ancestry ["pegexec", "gram", "tokenUtils"]
@@ -200,6 +200,10 @@ val ptPapply_def = Define`
 
 Definition cmlPEG_def[nocompute]:
   cmlPEG = <|
+    anyEOF := "Didn't expect an EOF";
+    tokFALSE := "Failed to see expected token";
+    tokEOF := "Failed to see expected token; saw EOF instead";
+    notFAIL := "Not combinator failed";
     start := pnt nTopLevelDecs;
     rules := FEMPTY |++
              [(mkNT nV, peg_V);
@@ -415,8 +419,12 @@ Definition cmlPEG_def[nocompute]:
                seql [pnt nPapp;
                      try (seql [tokeq (SymbolT "::"); pnt nPcons] I)]
                     (bindNT nPcons));
+              (mkNT nPas,
+               seql [try (seql [pnt nV; tokeq AsT] I);
+                     pnt nPcons]
+                    (bindNT nPas));
               (mkNT nPattern,
-               seql [pnt nPcons; try (seql [tokeq ColonT; pnt nType] I)]
+               seql [pnt nPas; try (seql [tokeq ColonT; pnt nType] I)]
                     (bindNT nPattern));
               (mkNT nPatternList,
                seql [pnt nPattern;
@@ -443,7 +451,8 @@ Definition cmlPEG_def[nocompute]:
                  seql [tokeq LocalT; pnt nDecls; tokeq InT; pnt nDecls;
                        tokeq EndT] (bindNT nDecl);
                  seql [pnt nTypeDec] (bindNT nDecl);
-                 seql [pnt nTypeAbbrevDec] (bindNT nDecl)
+                 seql [pnt nTypeAbbrevDec] (bindNT nDecl);
+                 seql [pnt nStructure] (bindNT nDecl);
                ]);
               (mkNT nTypeAbbrevDec,
                seql [tokeq TypeT; pnt nTypeName; tokeq EqualsT; pnt nType]
@@ -479,24 +488,22 @@ Definition cmlPEG_def[nocompute]:
                seql [tokeq StructureT; pnt nStructName; pnt nOptionalSignatureAscription;
                      tokeq EqualsT; tokeq StructT; pnt nDecls; tokeq EndT]
                     (bindNT nStructure));
-              (mkNT nTopLevelDec,
-               pegf (choicel [pnt nStructure; pnt nDecl]) (bindNT nTopLevelDec));
               (mkNT nTopLevelDecs,
                choicel [
                  seql [pnt nE; tokeq SemicolonT; pnt nTopLevelDecs]
                       (bindNT nTopLevelDecs);
-                 seql [pnt nTopLevelDec; pnt nNonETopLevelDecs]
+                 seql [pnt nDecl; pnt nNonETopLevelDecs]
                       (bindNT nTopLevelDecs);
                  seql [tokeq SemicolonT; pnt nTopLevelDecs]
                       (bindNT nTopLevelDecs);
                  pegf (empty []) (bindNT nTopLevelDecs)]);
               (mkNT nNonETopLevelDecs,
                choicel [
-                 seql [pnt nTopLevelDec; pnt nNonETopLevelDecs]
+                 seql [pnt nDecl; pnt nNonETopLevelDecs]
                       (bindNT nNonETopLevelDecs);
                  seql [tokeq SemicolonT; pnt nTopLevelDecs]
                       (bindNT nNonETopLevelDecs);
-                 pegf (empty []) (bindNT nNonETopLevelDecs)])
+                 pegf (empty []) (bindNT nNonETopLevelDecs)]);
              ] |>
 End
 
@@ -513,13 +520,13 @@ end
         do ... od = SOME ()
    which matches optionTheory.OPTION_BIND_EQUALS_OPTION, putting
    an existential into our rewrite thereby *)
-val rules = SIMP_CONV (bool_ss ++ ty2frag ``:(α,β,γ)peg``)
+val rules = SIMP_CONV (bool_ss ++ ty2frag ``:(α,β,γ,δ)peg``)
                       [cmlPEG_def, combinTheory.K_DEF,
                        finite_mapTheory.FUPDATE_LIST_THM] rules_t
 
 val _ = print "Calculating application of cmlPEG rules\n"
 val cmlpeg_rules_applied = let
-  val app0 = finite_mapSyntax.fapply_t
+  val app0 = finite_mapSyntax.fapply_tm
   val theta =
       Type.match_type (type_of app0 |> dom_rng |> #1) (type_of rules_t)
   val app = inst theta app0
@@ -557,8 +564,11 @@ Theorem cmlPEG_exec_thm[compute] =
                                [sumTheory.INL_11]))
     |> LIST_CONJ;
 
-val test1 = time EVAL ``peg_exec cmlPEG (pnt nErel) (map_loc [IntT 3; StarT;
-IntT 4; SymbolT "/"; IntT (-2); SymbolT ">"; AlphaT "x"] 0) [] done failed``
+val test1 = time EVAL
+             “peg_exec cmlPEG (pnt nErel)
+              (map_loc [IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2);
+                        SymbolT ">"; AlphaT "x"] 0)
+              [] NONE [] done failed”
 
 val frange_image = Q.prove(
   `FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)`,
@@ -665,7 +675,7 @@ end
 
 val npeg0_rwts =
     List.foldl pegnt []
-               [“nTypeDec”, “nTypeAbbrevDec”, “nOpID”,
+               [“nTypeDec”, “nTypeAbbrevDec”, “nOpID”, “nStructure”,
                 “nDecl”, “nV”, “nUQTyOp”,
                 “nUQConstructorName”, “nStructName”, “nConstructorName”,
                 “nTypeName”,
@@ -673,7 +683,7 @@ val npeg0_rwts =
                 “nTyOp”, “nTbase”, “nPTbase”, “nDType”, “nPType”, “nType”,
                 “nTypeList1”, “nTypeList2”,
                 “nRelOps”, “nPtuple”, “nPbase”, “nPapp”,
-                “nPcons”, “nPattern”,
+                “nPcons”, “nPas”, “nPattern”,
                 “nPatternList”, “nPbaseList1”,
                 “nLetDec”, “nMultOps”, “nListOps”,
                 “nFQV”, “nAddOps”, “nCompOps”, “nEliteral”,
@@ -682,7 +692,8 @@ val npeg0_rwts =
                 “nEbefore”,
                 “nEtyped”, “nElogicAND”, “nElogicOR”, “nEhandle”,
                 “nE”, “nE'”, “nElist1”,
-                “nSpecLine”, “nStructure”, “nTopLevelDec”]
+                “nSpecLine”
+               ]
 
 fun wfnt(t,acc) = let
   val th =
@@ -699,12 +710,15 @@ in
   th::acc
 end;
 
-val topo_nts = [“nV”, “nTyvarN”, “nTypeDec”, “nTypeAbbrevDec”, “nDecl”,
+val topo_nts = [“nV”, “nTyvarN”, “nTypeDec”, “nTypeAbbrevDec”,
+                “nSpecLine”, “nSpecLineList”, “nSignatureValue”,
+                “nStructure”,
+                “nDecl”,
                 “nUQTyOp”, “nUQConstructorName”, “nStructName”,
                 “nConstructorName”, “nTyVarList”, “nTypeName”, “nTyOp”,
                 “nTbase”, “nPTbase”, “nTbaseList”, “nDType”, “nPType”,
                 “nListOps”, “nRelOps”, “nPtuple”, “nPbase”, “nPapp”,
-                “nPcons”, “nPattern”,
+                “nPcons”, “nPas”, “nPattern”,
                 “nPatternList”, “nPbaseList1”, “nPE”,
                 “nPE'”, “nPEs”, “nMultOps”, “nLetDec”, “nLetDecs”,
                 “nFQV”,
@@ -716,10 +730,10 @@ val topo_nts = [“nV”, “nTyvarN”, “nTypeDec”, “nTypeAbbrevDec”, �
                 “nType”, “nTypeList1”, “nTypeList2”,
                 “nEseq”, “nElist1”, “nDtypeDecl”,
                 “nOptTypEqn”,
-                “nDecls”, “nDconstructor”, “nAndFDecls”, “nSpecLine”,
-                “nSpecLineList”, “nSignatureValue”,
-                “nOptionalSignatureAscription”, “nStructure”,
-                “nTopLevelDec”, “nTopLevelDecs”, “nNonETopLevelDecs”]
+                “nDecls”, “nDconstructor”, “nAndFDecls”,
+                “nOptionalSignatureAscription”,
+                “nTopLevelDecs”, “nNonETopLevelDecs”
+               ]
 
 val cml_wfpeg_thm = save_thm(
   "cml_wfpeg_thm",
@@ -790,10 +804,11 @@ in
 end
 val NTS_in_PEG_exprs = let
   val exprs_th' = REWRITE_RULE [pnt_def] PEG_exprs
+                                           |> INST_TYPE [alpha |-> “:string”]
   val exprs_t = rhs (concl exprs_th')
   val nt = mk_thy_const{Thy = "peg", Name = "nt",
                         Ty = ``:MMLnonT inf -> (mlptree list -> mlptree list) ->
-                                (token,MMLnonT,mlptree list) pegsym``}
+                                (token,MMLnonT,mlptree list,string) pegsym``}
   val I_t = mk_thy_const{Thy = "combin", Name = "I",
                          Ty = ``:mlptree list -> mlptree list``}
   fun p t = let

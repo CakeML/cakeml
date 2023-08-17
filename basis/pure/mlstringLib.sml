@@ -3,7 +3,7 @@
 *)
 structure mlstringLib :> mlstringLib = struct
 
-open HolKernel boolLib bossLib lcsymtacs
+open HolKernel boolLib bossLib
 
 fun smart_dest_mlstring_case tm =
   let

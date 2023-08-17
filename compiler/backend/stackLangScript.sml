@@ -17,7 +17,7 @@ val _ = set_grammar_ancestry["asm", "backend_common",
 val _ = Datatype `
   store_name =
     NextFree | EndOfHeap | TriggerGC | HeapLength | ProgStart | BitmapBase |
-    CurrHeap | OtherHeap | AllocSize | Globals | Handler | GenStart |
+    CurrHeap | OtherHeap | AllocSize | Globals | GlobReal | Handler | GenStart |
     CodeBuffer | CodeBufferEnd | BitmapBuffer | BitmapBufferEnd |
     Temp (5 word)`
 
@@ -26,6 +26,7 @@ val _ = Datatype `
        | Inst ('a inst)
        | Get num store_name
        | Set store_name num
+       | OpCurrHeap binop num num
        | Call ((stackLang$prog # num # num # num) option)
               (* return-handler code, link reg, labels l1,l2*)
               (num + num) (* target of call *)
@@ -36,6 +37,7 @@ val _ = Datatype `
        | While cmp num ('a reg_imm) stackLang$prog
        | JumpLower num num num (* reg, reg, target name *)
        | Alloc num
+       | StoreConsts num num (num option) (* reg, reg, stub name to call *)
        | Raise num
        | Return num num
        | FFI string num num num num num (* FFI index, conf_ptr, conf_len,
@@ -47,6 +49,7 @@ val _ = Datatype `
        | CodeBufferWrite num num (* code buffer address, byte to write *)
        | DataBufferWrite num num (* data buffer address, word to write *)
        (* new in stackLang, compared to wordLang, below *)
+       | RawCall num            (* tail-call into body of function (past stack alloc) *)
        | StackAlloc num         (* allocate n slots on the stack *)
        | StackFree num          (* free n slots on the stack *)
        | StackStore num num     (* offset, fast *)
@@ -82,7 +85,11 @@ val list_Seq_def = Define `
 
 val gc_stub_location_def = Define`
   gc_stub_location = stack_num_stubs-1`;
+val store_consts_stub_location_def = Define`
+  store_consts_stub_location = gc_stub_location-1`;
 val gc_stub_location_eq = save_thm("gc_stub_location_eq",
   gc_stub_location_def |> CONV_RULE(RAND_CONV EVAL));
+val store_consts_stub_location_eq = save_thm("store_consts_stub_location_eq",
+  store_consts_stub_location_def |> CONV_RULE(RAND_CONV EVAL));
 
 val _ = export_theory();

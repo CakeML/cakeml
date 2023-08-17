@@ -16,7 +16,7 @@ Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
 Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
 Overload return[local] = ``st_ex_return``
 Overload ex_return[local] = ``st_ex_return``
-Overload failwith[local] = ``raise_Fail``
+Overload failwith[local] = ``raise_Failure``
 Overload raise_clash[local] = ``raise_Clash``
 Overload handle_clash[local] = ``handle_Clash``
 

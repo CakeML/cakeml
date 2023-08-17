@@ -71,7 +71,7 @@ End
 
 Definition check_res_def:
   check_res r (n, refs, seen) =
-    if size refs <= size r then (n, refs, seen) else (n, r, seen)
+    if sptree$size refs <= sptree$size r then (n, refs, seen) else (n, r, seen)
 End
 
 Theorem check_res_IMP:
@@ -127,14 +127,14 @@ Definition size_of_def:
     (if small_num lims.arch_64_bit i then 0 else bignum_size lims.arch_64_bit i, refs, seen)) /\
   (size_of lims [CodePtr _] refs seen = (0, refs, seen)) /\
   (size_of lims [RefPtr r] refs seen =
-     case lookup r refs of
+     case sptree$lookup r refs of
      | NONE => (0, refs, seen)
      | SOME (ByteArray _ bs) => (LENGTH bs DIV (arch_size lims DIV 8) + 2, delete r refs, seen)
      | SOME (ValueArray vs) => let (n,refs,seen) = size_of lims vs (delete r refs) seen in
                                  (n + LENGTH vs + 1, refs, seen)) /\
   (size_of lims [Block ts tag []]) refs seen = (0, refs, seen) /\
   (size_of lims [Block ts tag vs] refs seen =
-     if IS_SOME (lookup ts seen) then (0, refs, seen) else
+     if IS_SOME (sptree$lookup ts seen) then (0, refs, seen) else
        let (n,refs,seen) = size_of lims vs refs (insert ts () seen) in
          (n + LENGTH vs + 1, refs, seen))
 Termination
@@ -225,7 +225,7 @@ Overload bignum_limit[local] =
         2 * il + 2 * jl``
 
 (* Gives an upper bound to the memory consuption of an operation *)
-val space_consumed_def = Define `
+Definition space_consumed_def:
   (space_consumed ^s (ConsExtend tag) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
    LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) + 1
   ) /\
@@ -263,7 +263,7 @@ val space_consumed_def = Define `
    | NONE => 0
   ) /\
   (space_consumed s (op:closLang$op) (vs:v list) = 0:num)
-`
+End
 
 val vb_size_def = tDefine"vb_size"`
   (vb_size (Block ts t ls) = 1 + t + SUM (MAP vb_size ls) + LENGTH ls) ∧
@@ -283,7 +283,7 @@ Definition eq_code_stack_max_def:
   eq_code_stack_max n tsz =
   OPTION_MAP ($* n)
     (OPTION_MAP2 MAX
-      (lookup Equal_location tsz)
+      (sptree$lookup Equal_location tsz)
       (OPTION_MAP2 MAX
         (lookup Equal1_location tsz)
         (lookup Compare1_location tsz)))
@@ -292,7 +292,7 @@ End
 Definition stack_consumed_def:
   (stack_consumed  sfs lims (CopyByte _) vs =
     OPTION_MAP2 MAX
-     (lookup ByteCopy_location sfs)
+     (sptree$lookup ByteCopy_location sfs)
      (OPTION_MAP2 MAX
         (lookup ByteCopyAdd_location sfs)
         (lookup ByteCopySub_location sfs))) /\
@@ -438,7 +438,7 @@ val do_eq_def = tDefine"do_eq"`
   (do_eq _ (Word64 _) _ = Eq_type_error) ∧
   (do_eq _ _ (Word64 _) = Eq_type_error) ∧
   (do_eq refs (RefPtr n1) (RefPtr n2) =
-    case (lookup n1 refs, lookup n2 refs) of
+    case (sptree$lookup n1 refs, sptree$lookup n2 refs) of
       (SOME (ByteArray T bs1), SOME (ByteArray T bs2))
         => Eq_val (bs1 = bs2)
     | (SOME (ByteArray T bs1), _) => Eq_type_error
@@ -503,6 +503,27 @@ val with_fresh_ts_def = Define`
                            SOME ts => f ts (s with <| tstamps := SOME (ts + n) |>)
                          | NONE    => f 0 s
 `;
+
+Definition lim_safe_part_def[simp]:
+  (lim_safe_part lims (Con tag xs) ⇔ if xs = []
+                             then tag < 2 ** (arch_size lims) DIV 16
+                             else
+                               LENGTH xs < 2 ** lims.length_limit /\
+                               LENGTH xs < 2 ** (arch_size lims - 4) /\
+                               4 * tag < 2 ** (arch_size lims) DIV 16 /\
+                               4 * tag < 2 ** (arch_size lims - lims.length_limit - 2)) ∧
+  (lim_safe_part lims (Int i) ⇔
+     (if small_num lims.arch_64_bit i
+      then T else
+        let il = bignum_size lims.arch_64_bit i in
+          il <= 2 ** lims.length_limit)) ∧
+  (lim_safe_part lims (Str s) ⇔
+     (let i = strlen s in
+        i DIV (arch_size lims DIV 8) < 2 ** (arch_size lims) DIV arch_size lims /\
+        i DIV (arch_size lims DIV 8) + 1 < 2 ** lims.length_limit /\
+        small_num lims.arch_64_bit (& i))) ∧
+  (lim_safe_part lims (W64 w) ⇔ 1 < lims.length_limit)
+End
 
 Definition lim_safe_def[simp]:
   (lim_safe lims (Cons tag) xs = if xs = []
@@ -599,6 +620,9 @@ Definition lim_safe_def[simp]:
    (LENGTH xs < 2 ** lims.length_limit /\
     LENGTH xs < 2 ** arch_size lims DIV 16)
   )
+∧ (lim_safe lims (Build parts) _ =
+   EVERY (lim_safe_part lims) parts
+  )
 ∧ (lim_safe lims WordToInt _ =
    (1 < lims.length_limit)
   )
@@ -641,7 +665,32 @@ Definition check_lim_def:
                                s.safe_for_space)
 End
 
-val do_app_aux_def = Define `
+Definition do_part_def:
+  do_part m (Int i) s ts = (Number i, s, ts) ∧
+  do_part m (W64 w) s ts = (Word64 w, s, ts) ∧
+  do_part m (Con t ns) s ts =
+    (if ns = [] then (Block 0 t [],s,ts)
+                else case ts of
+                     | NONE => (Block 0 t (MAP m ns),s,ts)
+                     | SOME n => (Block n t (MAP m ns),s,SOME (n+1:num))) ∧
+  do_part m (Str t) s ts =
+    let ptr = (LEAST ptr. ¬(ptr IN domain s)) in
+    let bytes = MAP (n2w o ORD) (mlstring$explode t) in
+      (RefPtr ptr, insert ptr (ByteArray T bytes) s, ts)
+End
+
+Definition do_build_def:
+  do_build m i [] s ts = (m (i-1), s, ts) ∧
+  do_build m i (p::rest) s ts =
+    let (x,s1,ts1) = do_part m p s ts in
+      do_build ((i =+ x) m) (i+1) rest s1 ts1
+End
+
+Definition do_build_const_def:
+  do_build_const xs s ts = do_build (λx. Number 0) 0 xs s ts
+End
+
+Definition do_app_aux_def:
   do_app_aux op ^vs ^s =
     case (op,vs) of
     (* bvi part *)
@@ -658,6 +707,31 @@ val do_app_aux_def = Define `
          | [] => (case s.global of
                   | SOME p => Rval (RefPtr p, s)
                   | NONE => Error)
+         | _ => Error)
+    | (Global n,xs) =>
+        (case xs of
+         | [] => (case s.global of
+                  | SOME ptr =>
+                      (case sptree$lookup ptr s.refs of
+                       | SOME (ValueArray xs) =>
+                           (if n < LENGTH xs
+                            then Rval (EL n xs, s)
+                            else Error)
+                       | _ => Error)
+                  | NONE => Error)
+         | _ => Error)
+    | (SetGlobal n,xs) =>
+        (case xs of
+         | [x] => (case s.global of
+                   | SOME ptr =>
+                       (case lookup ptr s.refs of
+                        | SOME (ValueArray xs) =>
+                            (if n < LENGTH xs
+                             then Rval (Unit, s with refs := insert ptr
+                                          (ValueArray (LUPDATE x n xs)) s.refs)
+                             else Error)
+                        | _ => Error)
+                   | NONE => Error)
          | _ => Error)
     | (SetGlobalsPtr,xs) =>
         (case xs of
@@ -686,16 +760,16 @@ val do_app_aux_def = Define `
                   (ByteArray f (REPLICATE (Num i) (i2w b))) s.refs|>)
             else Rerr (Rabort Rtype_error)
           | _ => Rerr (Rabort Rtype_error))
-    | (Global n, _)      => Rerr (Rabort Rtype_error)
-    | (SetGlobal n, _)   => Rerr (Rabort Rtype_error)
     | (AllocGlobal, _)   => Rerr (Rabort Rtype_error)
-    | (String _, _)      => Rerr (Rabort Rtype_error)
     | (FromListByte, _)  => Rerr (Rabort Rtype_error)
     | (ConcatByteVec, _) => Rerr (Rabort Rtype_error)
     | (CopyByte T, _)    => Rerr (Rabort Rtype_error)
     (* bvl part *)
+    | (Build parts,[]) =>
+        (case do_build_const parts s.refs s.tstamps of
+         | (v,s1,ts1) => Rval (v,s with <| refs := s1 ; tstamps := ts1 |>))
     | (Cons tag,xs) => (if xs = []
-                        then  Rval (Block 0 tag [],s)
+                        then Rval (Block 0 tag [],s)
                         else with_fresh_ts s 1
                                (λts s'. Rval (Block ts tag xs,
                                               check_lim s' (LENGTH xs))))
@@ -709,8 +783,24 @@ val do_app_aux_def = Define `
                                     in Rval (Block ts tag l,
                                              check_lim s' (LENGTH l)))
     | (ConsExtend tag,_) => Error
-    | (El,[Block _ tag xs;Number i]) =>
+    | (El,[Block _ tag xs; Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
+    | (El,[RefPtr ptr; Number i]) =>
+        (case lookup ptr s.refs of
+         | SOME (ValueArray xs) =>
+            (if 0 <= i /\ i < & (LENGTH xs)
+             then Rval (EL (Num i) xs, s)
+             else Error)
+         | _ => Error)
+    | (ElemAt n,[Block _ tag xs]) =>
+        if n < LENGTH xs then Rval (EL n xs, s) else Error
+    | (ElemAt n,[RefPtr ptr]) =>
+        (case lookup ptr s.refs of
+         | SOME (ValueArray xs) =>
+            (if n < LENGTH xs
+             then Rval (EL n xs, s)
+             else Error)
+         | _ => Error)
     | (ListAppend,[x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
          | (SOME xs, SOME ys) =>
@@ -763,11 +853,19 @@ val do_app_aux_def = Define `
          | _ => Error)
     | (TagEq n,[Block _ tag xs]) =>
         Rval (Boolv (tag = n), s)
+    | (LenEq l,[Block _ tag xs]) =>
+        Rval (Boolv (LENGTH xs = l),s)
     | (TagLenEq n l,[Block _ tag xs]) =>
         Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
-    | (EqualInt i,[x1]) =>
-        (case x1 of
-         | Number j => Rval (Boolv (i = j), s)
+    | (EqualConst p,[x1]) =>
+        (case p of
+         | Int i => (case x1 of Number j => Rval (Boolv (i = j), s) | _ => Error)
+         | W64 i => (case x1 of Word64 j => Rval (Boolv (i = j), s) | _ => Error)
+         | Str i => (case x1 of RefPtr p =>
+                       (case lookup p s.refs of SOME (ByteArray T j) =>
+                          Rval (Boolv (j = MAP (n2w ∘ ORD) (explode i)), s)
+                        | _ => Error)
+                     | _ => Error)
          | _ => Error)
     | (Equal,[x1;x2]) =>
         (case do_eq s.refs x1 x2 of
@@ -776,13 +874,6 @@ val do_app_aux_def = Define `
     | (Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
           Rval (RefPtr ptr, s with <| refs := insert ptr (ValueArray xs) s.refs|>)
-    | (Deref,[RefPtr ptr; Number i]) =>
-        (case lookup ptr s.refs of
-         | SOME (ValueArray xs) =>
-            (if 0 <= i /\ i < & (LENGTH xs)
-             then Rval (EL (Num i) xs, s)
-             else Error)
-         | _ => Error)
     | (Update,[RefPtr ptr; Number i; x]) =>
         (case lookup ptr s.refs of
          | SOME (ValueArray xs) =>
@@ -839,22 +930,22 @@ val do_app_aux_def = Define `
             | FFI_final outcome =>
                 Rerr (Rabort (Rffi_error outcome)))
          | _ => Error)
-    | (FP_top top, ws) =>
+    | (FP_top t_op, ws) =>
         (case ws of
          | [Word64 w1; Word64 w2; Word64 w3] =>
-            (Rval (Word64 (fp_top top w1 w2 w3),s))
+            (Rval (Word64 (fp_top_comp t_op w1 w2 w3),s))
          | _ => Error)
     | (FP_bop bop, ws) =>
         (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop bop w1 w2),s))
+         | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop_comp bop w1 w2),s))
          | _ => Error)
     | (FP_uop uop, ws) =>
         (case ws of
-         | [Word64 w] => (Rval (Word64 (fp_uop uop w),s))
+         | [Word64 w] => (Rval (Word64 (fp_uop_comp uop w),s))
          | _ => Error)
     | (FP_cmp cmp, ws) =>
         (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp cmp w1 w2),s))
+         | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp_comp cmp w1 w2),s))
          | _ => Error)
     | (BoundsCheckBlock,xs) =>
         (case xs of
@@ -883,7 +974,8 @@ val do_app_aux_def = Define `
                          then Rval (Boolv (i < &n),s) else Error
          | _ => Error)
     | (ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
-    | _ => Error`;
+    | _ => Error
+End
 
 Overload do_app_safe =
   ``λop vs s. if allowed_op op (LENGTH vs)
@@ -900,7 +992,6 @@ Overload do_app_peak =
               else if MEM op [Greater; GreaterEq] then s.peak_heap_length
               else do_space_peak op vs s``
 
-
 val do_app_def = Define `
   do_app op vs ^s =
     if op = Install then do_install vs (s with <|stack_max := NONE; stack_frame_sizes := LN|>) else
@@ -910,7 +1001,7 @@ val do_app_def = Define `
     | SOME s1 => do_app_aux op vs (do_stack op vs (do_lim_safe s1 op vs))`
 
 val get_var_def = Define `
-  get_var v = lookup v`;
+  get_var v = sptree$lookup v`;
 
 val get_vars_def = Define `
   (get_vars [] s = SOME []) /\
@@ -1035,7 +1126,7 @@ val push_env_clock = Q.prove(
 
 val find_code_def = Define `
   (find_code (SOME p) args code ssize =
-     case lookup p code of
+     case sptree$lookup p code of
      | NONE => NONE
      | SOME (arity,exp) =>
         if LENGTH args = arity
@@ -1160,15 +1251,15 @@ End
 
 val evaluate_ind = theorem"evaluate_ind";
 
-val evaluate_safe_def = Define`
+Definition evaluate_safe_def:
   evaluate_safe c s = let (x,s1) = evaluate (c,s)
                       in s1.safe_for_space
-`;
+End
 
-val evaluate_peak_def = Define`
+Definition evaluate_peak_def:
   evaluate_peak c s = let (x,s1) = evaluate (c,s)
                       in s1.peak_heap_length
-`;
+End
 
 (* We prove that the clock never increases. *)
 
@@ -1194,14 +1285,14 @@ Proof
 QED
 
 Theorem do_app_clock:
-   (dataSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock
+  (dataSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock
 Proof
   rw[ do_app_def
     , do_app_aux_def
     , do_space_def
     , consume_space_def
     , do_install_def
-    , case_eq_thms
+    , AllCaseEqs()
     , PULL_EXISTS
     , with_fresh_ts_def
     , UNCURRY

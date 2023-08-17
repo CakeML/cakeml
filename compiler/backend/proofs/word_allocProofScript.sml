@@ -7,11 +7,17 @@ open preamble
 
 val _ = new_theory "word_allocProof";
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 val _ = set_grammar_ancestry
   ["wordLang", "wordSem", "wordProps", "word_alloc",
    "reg_alloc", "reg_allocProof", "linear_scan", "linear_scanProof"];
-val _ = Parse.bring_to_front_overload"numset_list_insert"{Thy="word_alloc",Name="numset_list_insert"};
+val _ = Parse.bring_to_front_overload"numset_list_insert"
+             {Thy="word_alloc",Name="numset_list_insert"};
 val _ = Parse.hide"mem";
+val _ = temp_delsimps ["fromAList_def", "domain_union"]
 
 (*TODO: Move?*)
 Theorem SUBSET_OF_INSERT:
@@ -618,10 +624,9 @@ val toAList_not_empty = Q.prove(`
   CCONTR_TAC>>full_simp_tac(srw_ss())[GSYM MEMBER_NOT_EMPTY]>>
   full_simp_tac(srw_ss())[GSYM toAList_domain]);
 
-
 (*liveness theorem*)
 Theorem evaluate_apply_colour:
- ∀prog st cst f live.
+  ∀prog st cst f live.
   colouring_ok f prog live ∧
   word_state_eq_rel (st:('a,'c,'ffi) wordSem$state) cst ∧
   strong_locals_rel f (domain (get_live prog live)) st.locals cst.locals
@@ -1193,7 +1198,7 @@ Proof
     impl_tac>-
       (unabbrev_all_tac>>full_simp_tac(srw_ss())[state_component_equality])>>
     srw_tac[][]>>full_simp_tac(srw_ss())[]>>NO_TAC)
-   >- (*Seq*)
+  >- (*Seq*)
     (srw_tac[][]>>fs[evaluate_def,colouring_ok_def,LET_THM,get_live_def]>>
     last_assum(qspecl_then[`p`,`st`,`cst`,`f`,`get_live p0 live`]
       mp_tac)>>
@@ -1327,6 +1332,42 @@ Proof
         rev_full_simp_tac(srw_ss())[state_component_equality]>>
         conj_tac >- fs [s_val_eq_def, s_frame_val_eq_def] >>
         metis_tac[s_val_and_key_eq,s_key_eq_sym,s_val_eq_sym,s_key_eq_trans])
+  >- (* StoreConsts *)
+    (exists_tac>>
+    Cases_on`get_var n1 st`>>fs[]>>
+    imp_res_tac strong_locals_rel_get_var>>
+    simp[]>>
+    TOP_CASE_TAC>> simp[]>>
+    Cases_on`get_var n2 st`>>fs[]>>
+    imp_res_tac strong_locals_rel_get_var>>
+    simp[]>>
+    TOP_CASE_TAC>> simp[]>>
+    rw[]>>simp[set_var_def,unset_var_def]>>
+    match_mp_tac strong_locals_rel_insert>>
+    CONJ_TAC >-
+      (match_mp_tac (GEN_ALL INJ_less)>>
+      asm_exists_tac>>simp[domain_union,get_writes_def])>>
+    match_mp_tac strong_locals_rel_insert>>
+    CONJ_TAC >-
+      (match_mp_tac (GEN_ALL INJ_less)>>
+      asm_exists_tac>>
+      simp[domain_union,get_writes_def]>>
+      simp[SUBSET_DEF])>>
+    fs[get_writes_def,domain_union]>>
+    fs[strong_locals_rel_def]>>
+    rw[lookup_delete]
+    >- (
+      qpat_x_assum `INJ _ _ _` mp_tac>>
+      REWRITE_TAC [INJ_DEF]>>
+      strip_tac>>
+      first_x_assum(qspecl_then[`n`,`n'`] mp_tac)>>
+      simp[])
+    >>
+      qpat_x_assum `INJ _ _ _` mp_tac>>
+      REWRITE_TAC [INJ_DEF]>>
+      strip_tac>>
+      first_x_assum(qspecl_then[`n0`,`n'`] mp_tac)>>
+      simp[])
   >- (* Raise *)
     (exists_tac>>
     Cases_on`get_var n st`>> fs[]>>
@@ -1343,7 +1384,20 @@ Proof
     TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
   >- (* Tick *)
     (exists_tac>>IF_CASES_TAC>>full_simp_tac(srw_ss())[call_env_def, flush_state_def,dec_clock_def])
-  >- (*LocValue*)
+  >- (* OpCurrHeap *)
+    (exists_tac>>
+    full_simp_tac(srw_ss())[evaluate_def,LET_THM,word_state_eq_rel_def,
+      get_live_def,colouring_ok_def,word_exp_def,the_words_def] >>
+    Cases_on ‘lookup n0 st.locals’ THEN1 fs [] >>
+    ‘lookup (f n0) cst.locals = lookup n0 st.locals’ by fs [strong_locals_rel_def] >>
+    fs [] >> Cases_on ‘x’ >> fs [] >>
+    Cases_on ‘FLOOKUP st.store CurrHeap’ >> fs [] >> Cases_on ‘x’ >> fs []>>
+    EVERY_CASE_TAC>>fs [set_var_def]>>
+    match_mp_tac strong_locals_rel_insert >>
+    fs [get_writes_def,domain_union] >>
+    metis_tac[INSERT_SING_UNION,strong_locals_rel_subset,SUBSET_OF_INSERT
+             ,strong_locals_rel_insert,SUBSET_UNION])
+  >- (* LocValue *)
     (exists_tac>>fs[set_var_def,strong_locals_rel_def]>>rw[]>>
     fs[lookup_insert]>>
     Cases_on`n'=n`>>fs[]>>
@@ -1355,7 +1409,7 @@ Proof
       rpt (pop_assum kall_tac)>>
       simp[])>>
     fs[])
-  >-
+  >- (* Install *)
     (exists_tac>>
     pairarg_tac>>fs[case_eq_thms]>>
     pop_assum mp_tac>>pairarg_tac>>strip_tac>>rfs[case_eq_thms]>>rw[]>>
@@ -1385,14 +1439,14 @@ Proof
     match_mp_tac (GEN_ALL strong_locals_rel_subset|>SIMP_RULE std_ss[Once CONJ_COMM])>>
     asm_exists_tac>>
     fs[SUBSET_DEF])
-  >- (*DBW*)
+  >- (* DBW *)
     (exists_tac>>pairarg_tac>>fs[case_eq_thms]>>
     imp_res_tac strong_locals_rel_get_var>>fs[list_insert_def]>>
     rw[]>>fs[]>>
     match_mp_tac (GEN_ALL strong_locals_rel_subset|>SIMP_RULE std_ss[Once CONJ_COMM])>>
     asm_exists_tac>>
     fs[SUBSET_DEF])
-    >> (* FFI *)
+  >> (* FFI *)
      (exists_tac>>Cases_on`get_var n st`>>Cases_on`get_var n0 st`>>
       Cases_on`get_var n1 st`>>Cases_on`get_var n2 st`>>
       full_simp_tac(srw_ss())[get_writes_def,LET_THM,get_var_perm]>>
@@ -1414,6 +1468,7 @@ QED
 
 (* TODO: get_clash_sets, made redundant by clash tree *)
 
+(*
 (*Alternate liveness*)
 val colouring_ok_alt_def = Define`
   colouring_ok_alt f prog live =
@@ -1444,11 +1499,12 @@ val get_clash_sets_hd = Q.prove(
     full_simp_tac(srw_ss())[get_live_def,LET_THM]>>metis_tac[]);
 
 (*The liveset passed in at the back is always satisfied*)
-val get_clash_sets_tl = Q.prove(
-`∀prog live f.
+Theorem get_clash_sets_tl[local]:
+ ∀prog live f.
   let (hd,ls) = get_clash_sets prog live in
   EVERY (λs. INJ f (domain s) UNIV) ls ⇒
-  INJ f (domain live) UNIV`,
+  INJ f (domain live) UNIV
+Proof
   completeInduct_on`prog_size (K 0) prog`>>
   full_simp_tac(srw_ss())[PULL_FORALL]>>
   rpt strip_tac>>
@@ -1475,8 +1531,8 @@ val get_clash_sets_tl = Q.prove(
     TRY(first_x_assum(qspecl_then[`p0`,`live`,`f`]mp_tac)>>
     impl_tac>-size_tac>>srw_tac[][]>>
     full_simp_tac(srw_ss())[UNCURRY])
-  >- metis_tac[INJ_UNION,domain_union,INJ_SUBSET,SUBSET_UNION]
-  >- metis_tac[INJ_UNION,domain_union,INJ_SUBSET,SUBSET_UNION]);
+  >> metis_tac[INJ_UNION,domain_union,INJ_SUBSET,SUBSET_UNION]
+QED
 
 Theorem colouring_ok_alt_thm:
  ∀f prog live.
@@ -1520,9 +1576,10 @@ val fs1 = full_simp_tac(srw_ss())[LET_THM, get_clash_sets_def,
   every_var_def, get_live_def, domain_numset_list_insert,
   domain_union, EVERY_MEM, get_writes_def, every_var_inst_def,
   get_live_inst_def, every_name_def, toAList_domain];
+*)
 
-val every_var_exp_get_live_exp = Q.prove(
-`∀exp.
+val every_var_exp_get_live_exp = Q.prove(`
+  ∀exp.
   every_var_exp (λx. x ∈ domain (get_live_exp exp)) exp`,
   ho_match_mp_tac get_live_exp_ind>>
   srw_tac[][]>>full_simp_tac(srw_ss())[get_live_exp_def,every_var_exp_def]>>
@@ -1917,8 +1974,15 @@ val subset_tac =
   HINT_EXISTS_TAC>>fs[domain_numset_list_insert_eq_union,SUBSET_DEF]>>
   simp[domain_union];
 
+Theorem IMAGE_DIFF:
+  INJ f (s UNION t) UNIV ⇒
+  IMAGE f (s DIFF t) = IMAGE f s DIFF IMAGE f t
+Proof
+  fs [EXTENSION,INJ_DEF] \\ rw [] \\ metis_tac []
+QED
+
 Theorem clash_tree_colouring_ok:
-    ∀prog f live flive livein flivein.
+  ∀prog f live flive livein flivein.
   wf_cutsets prog ∧
   wf live ∧
   domain flive = IMAGE f (domain live) ∧
@@ -1931,7 +1995,8 @@ Theorem clash_tree_colouring_ok:
   livein = get_live prog live ∧
   domain flivein = IMAGE f (domain livein))
 Proof
-  ho_match_mp_tac get_clash_tree_ind>>fs[get_clash_tree_def,check_clash_tree_def,colouring_ok_def,get_live_def,get_writes_def]>>rw[]
+  ho_match_mp_tac get_clash_tree_ind>>
+  fs[get_clash_tree_def,check_clash_tree_def,colouring_ok_def,get_live_def,get_writes_def]>>rw[]
   >-
     fs[hide_def,numset_list_delete_def,check_partial_col_def]
   >-
@@ -2168,7 +2233,7 @@ Proof
     drule check_partial_col_INJ>> rpt (disch_then drule)>>
     rw[hide_def,numset_list_insert_def,list_insert_def]>>
     fs[domain_insert])
-  >-
+  >- (* FFI *)
     (EVERY_CASE_TAC>>fs[]>>
     imp_res_tac check_col_INJ>>
     fs[numset_list_delete_def]>>
@@ -2176,31 +2241,62 @@ Proof
     rpt (qpat_x_assum `!P. Q` kall_tac)>>
     rfs[AND_IMP_INTRO]>>
     fs[hide_def,numset_list_insert_def,wf_cutsets_def])
-  >-
+  >- (* Raise *)
     (start_tac>>
     fs[numset_list_delete_def,numset_list_insert_def]>>
     metis_tac[INSERT_SING_UNION,UNION_COMM])
-  >-
+  >- (* Return *)
     (start_tac>>
     fs[numset_list_delete_def,numset_list_insert_def]>>
     `domain live ∪ {num1;num2} = num1 INSERT num2 INSERT domain live` by
       (fs[EXTENSION]>>metis_tac[])>>
     fs[])
-  >-
+  >- (* Tick *)
     (start_tac>>
     fs[numset_list_delete_def,numset_list_insert_def])
-  >-
+  >- (* LocValue *)
     (start_tac>>
     fs[numset_list_delete_def,numset_list_insert_def,domain_union,DELETE_DEF,UNION_COMM]>>
     CONJ_TAC>- subset_tac>>
     fs[INJ_IMP_IMAGE_DIFF_single])
-  >-
+  >- (* Set *)
     (start_tac>>
     fs[numset_list_delete_def,numset_list_insert_def,domain_union,DELETE_DEF,UNION_COMM,get_reads_exp_get_live_exp]>>
     match_mp_tac numset_list_insert_eq_UNION>>
     fs[wf_get_live_exp,get_reads_exp_get_live_exp])
-  >-
-    (*Call*)
+  >- (* OpCurrHeap *)
+    (start_tac>>
+    fs[numset_list_delete_def,numset_list_insert_def,domain_union,DELETE_DEF,
+       UNION_COMM,get_reads_exp_get_live_exp]>>
+    ‘INJ f (domain live DIFF {dst}) 𝕌(:num)’ by
+      (qpat_x_assum ‘INJ f (domain live ∪ {dst}) 𝕌(:num)’ mp_tac
+       \\ rpt (pop_assum kall_tac)
+       \\ rewrite_tac [INJ_DEF,IN_DIFF,IN_UNION,NOT_IN_EMPTY,IN_UNIV,IN_INSERT]
+       \\ metis_tac [])
+    \\ gvs [IMAGE_DIFF] \\ rw []
+    \\ rpt (pop_assum mp_tac)
+    \\ rewrite_tac [INJ_DEF,IN_UNION,IN_INSERT]
+    \\ metis_tac [])
+  >- ((* StoreConsts *)
+    start_tac
+    >- (
+      CONJ_TAC>- (
+        match_mp_tac (GEN_ALL INJ_less)>>
+        asm_exists_tac>>simp[SUBSET_DEF])>>
+      simp[IMAGE_DIFF])>>
+    strip_tac>>
+    CONJ_TAC>- (
+      simp[domain_union,UNION_COMM]>>
+      match_mp_tac (GEN_ALL INJ_less)>>
+      qpat_x_assum`INJ _ (domain _ ∪ _) _` assume_tac>>
+      asm_exists_tac>>
+      simp[SUBSET_DEF])>>
+    dep_rewrite.DEP_REWRITE_TAC[spt_eq_thm]>>
+    fs[wf_insert,lookup_insert,lookup_delete]>>
+    CONJ_TAC>-
+      metis_tac[wf_insert,wf_delete]>>
+    rw[]>>fs[])
+  >- (*Call*)
     (Cases_on`ret`>>fs[]
     >-
       (fs[check_clash_tree_def,hide_def,wf_cutsets_def,colouring_ok_def,get_live_def,get_writes_def]>>
@@ -2313,7 +2409,7 @@ Theorem select_reg_alloc_correct:
       !alg spillcosts k heu_moves tree forced.
     EVERY (\r1,r2. in_clash_tree tree r1 /\ in_clash_tree tree r2) forced ==>
     ?spcol livein flivein.
-    select_reg_alloc alg spillcosts k heu_moves tree forced = Success spcol /\
+    select_reg_alloc alg spillcosts k heu_moves tree forced = M_success spcol /\
     check_clash_tree (sp_default spcol) tree LN LN = SOME (livein, flivein) /\
     (!r. in_clash_tree tree r ==>
       r IN domain spcol /\
@@ -2506,7 +2602,7 @@ val strong_locals_rel_I_insert_insert = Q.prove(`
   IF_CASES_TAC>>fs[]);
 
 Theorem evaluate_remove_dead:
- ∀prog live prog' livein st t res rst.
+  ∀prog live prog' livein st t res rst.
   strong_locals_rel I (domain livein) st.locals t ∧
   evaluate (prog,st) = (res,rst) ∧
   remove_dead prog live = (prog',livein) ∧
@@ -2681,6 +2777,12 @@ Proof
     rm_tac
   >- (* get *)
     rm_tac
+  >- (* OpCurrHeap *)
+   (rm_tac \\ fs[evaluate_def,state_component_equality,set_var_def,word_exp_def,
+       the_words_def,AllCaseEqs(),PULL_EXISTS,get_live_exp_def,big_union_def]>>
+    first_x_assum (qspecl_then [‘t’,‘delete num live’] mp_tac) >>
+    impl_tac >- (fs [domain_delete] \\ metis_tac []) >>
+    strip_tac \\ fs [] \\ rw [lookup_insert])
   >- (* loc value *)
     rm_tac
   >- (* seq *)
@@ -2702,8 +2804,7 @@ Proof
     rpt var_eq_tac>>fs[evaluate_def]>>
     first_x_assum (qspecl_then [`st with <|clock := MustTerminate_limit (:'a) ; termdep := st.termdep -1|>` ] mp_tac)>>
     fs[]>>disch_then drule>>rw[]>>fs[state_component_equality])
-   >-
-    (* if *)
+  >- (* if *)
     (rpt (pairarg_tac>>fs[])>>
     qpat_x_assum`A=(res,rst)` mp_tac>>
     ntac 4 (TOP_CASE_TAC>>fs[])>>
@@ -2718,10 +2819,6 @@ Proof
     TRY(first_assum match_mp_tac>>fs[strong_locals_rel_def,domain_union]>>
     NO_TAC)>>
     last_assum match_mp_tac>>fs[strong_locals_rel_def,domain_union])
-
-
-
-
   >- (*call*)
     (qpat_x_assum`A=(res,rst)` mp_tac>>
     ntac 7 (TOP_CASE_TAC>>fs[])>>
@@ -2825,6 +2922,20 @@ Proof
     strip_tac>>
     qexists_tac`rst.locals`>>fs[state_component_equality]>>
     FULL_CASE_TAC>>fs[strong_locals_rel_def])
+  >- ( (* StoreConsts *)
+    qpat_x_assum`A=(res,rst)`mp_tac>>
+    TOP_CASE_TAC>>simp[]>>
+    imp_res_tac strong_locals_rel_I_get_var>>fs[]>>
+    TOP_CASE_TAC>>simp[]>>
+    fs[Once INSERT_COMM]>>
+    TOP_CASE_TAC>>simp[]>>
+    imp_res_tac strong_locals_rel_I_get_var>>fs[]>>
+    TOP_CASE_TAC>>simp[]>>
+    every_case_tac>>fs[unset_var_def,state_component_equality]>>
+    rw[]>>
+    qpat_x_assum`_=rst.locals` sym_sub_tac>>
+    fs[strong_locals_rel_def]>>
+    simp[lookup_insert,lookup_delete]>>rw[])
   >- (*raise*)
     (qpat_x_assum`A=(res,rst)`mp_tac>>
     fs[jump_exc_def]>>
@@ -2855,11 +2966,14 @@ Proof
       fs[strong_locals_rel_def,list_insert_def]>>
     rw[]>>
     imp_res_tac strong_locals_rel_I_get_var>>
+    rename1`cut_env sss _ = _`>>
     rpt(
-      pop_assum(qspecl_then[`t`,`domain v40`] mp_tac)>>
+      pop_assum(qspecl_then[`t`,`sss`] mp_tac)>>
       impl_tac>- (fs[strong_locals_rel_def]>>metis_tac[]))>>
     rw[state_component_equality]>>
-    fs[strong_locals_rel_def])
+    fs[strong_locals_rel_def] >>
+    fs [PULL_EXISTS,get_var_def] >>
+    metis_tac [])
   >- (* CBW *)
     (fs[case_eq_thms,list_insert_def]>>
     imp_res_tac strong_locals_rel_I_get_var>>
@@ -3827,6 +3941,21 @@ val ssa_locals_rel_ignore_set_var = Q.prove(`
   full_simp_tac(srw_ss())[domain_lookup]>>
   metis_tac[]);
 
+val ssa_locals_rel_ignore_insert = Q.prove(`
+  ssa_map_ok na ssa ∧
+  ssa_locals_rel na ssa stloc cstloc ∧
+  is_phy_var v
+  ⇒
+  ssa_locals_rel na ssa stloc (insert v a cstloc)`,
+  srw_tac[][ssa_locals_rel_def,ssa_map_ok_def,set_var_def]>>
+  full_simp_tac(srw_ss())[lookup_insert]>-
+    metis_tac[]
+  >>
+  res_tac>>
+  full_simp_tac(srw_ss())[domain_lookup]>>
+  metis_tac[]);
+
+
 val ssa_locals_rel_ignore_list_insert = Q.prove(`
   ssa_map_ok na ssa ∧
   ssa_locals_rel na ssa st.locals cst.locals ∧
@@ -3872,6 +4001,32 @@ val ssa_locals_rel_set_var = Q.prove(`
     (*Finally, this illustrates need for <na assumption on st.locals*)
     full_simp_tac(srw_ss())[ssa_map_ok_def]>>res_tac>>full_simp_tac(srw_ss())[]>>DECIDE_TAC);
 
+val ssa_locals_rel_insert = Q.prove(`
+  ssa_locals_rel na ssa stloc cstloc ∧
+  ssa_map_ok na ssa ∧
+  n < na ⇒
+  ssa_locals_rel (na+4) (insert n na ssa) (insert n w stloc) (insert na w cstloc)`,
+  srw_tac[][ssa_locals_rel_def]>>
+  full_simp_tac(srw_ss())[lookup_insert]>>Cases_on`x=n`>>full_simp_tac(srw_ss())[]
+  >-
+    metis_tac[]
+  >-
+    (res_tac>>
+    full_simp_tac(srw_ss())[domain_lookup,ssa_map_ok_def]>>
+    first_x_assum(qspecl_then[`x`,`v`]assume_tac)>>
+    (*Next part is a key reasoning step --
+      We only have alloc_vars < na in the range of ssa
+      Otherwise, the new one may overwrite an old mapping
+    *)
+    rev_full_simp_tac(srw_ss())[]>>
+    `v ≠ na` by DECIDE_TAC >>
+    full_simp_tac(srw_ss())[])
+  >-
+    DECIDE_TAC
+  >>
+    (*Finally, this illustrates need for <na assumption on st.locals*)
+    full_simp_tac(srw_ss())[ssa_map_ok_def]>>res_tac>>full_simp_tac(srw_ss())[]>>DECIDE_TAC);
+
 val is_alloc_var_add = Q.prove(`
   is_alloc_var na ⇒ is_alloc_var (na+4)`,
   full_simp_tac(srw_ss())[is_alloc_var_def]>>
@@ -3886,21 +4041,23 @@ val is_stack_var_add= Q.prove(`
     pop_assum (qspecl_then [`na`,`4`] assume_tac)>>
     rev_full_simp_tac(srw_ss())[]));
 
-val _ = diminish_srw_ss ["MOD_ss"]
-
 val is_alloc_var_flip = Q.prove(`
   is_alloc_var na ⇒ is_stack_var (na+2)`,
   full_simp_tac(srw_ss())[is_alloc_var_def,is_stack_var_def]>>
-  (qspec_then `4` assume_tac arithmeticTheory.MOD_PLUS>>full_simp_tac(srw_ss())[]>>
-    pop_assum (qspecl_then [`na`,`2`] assume_tac)>>
-    srw_tac[][]>>full_simp_tac(srw_ss())[]));
+  ‘0 < 4:num’ by fs [] >>
+  drule arithmeticTheory.MOD_PLUS >>
+  disch_then $ qspecl_then [`na`,`2`] assume_tac >>
+  full_simp_tac std_ss [EVAL “2 MOD 4”] >>
+  strip_tac >> fs []);
 
 val is_stack_var_flip = Q.prove(`
   is_stack_var na ⇒ is_alloc_var (na+2)`,
   full_simp_tac(srw_ss())[is_alloc_var_def,is_stack_var_def]>>
-  (qspec_then `4` assume_tac arithmeticTheory.MOD_PLUS>>full_simp_tac(srw_ss())[]>>
-    pop_assum (qspecl_then [`na`,`2`] assume_tac)>>
-    srw_tac[][]>>full_simp_tac(srw_ss())[]));
+  ‘0 < 4:num’ by fs [] >>
+  drule arithmeticTheory.MOD_PLUS >>
+  disch_then $ qspecl_then [`na`,`2`] assume_tac >>
+  full_simp_tac std_ss [EVAL “2 MOD 4”] >>
+  strip_tac >> fs []);
 
 val list_next_var_rename_props = Q.prove(`
   ∀ls ssa na ls' ssa' na'.
@@ -4042,9 +4199,8 @@ val ssa_map_ok_inter = Q.prove(`
   full_simp_tac(srw_ss())[]>>
   metis_tac[]);
 
-
 (*Prove the properties that hold of ssa_cc_trans independent of semantics*)
-val ssa_cc_trans_props = Q.prove(`
+Theorem ssa_cc_trans_props[local]:
   ∀prog ssa na prog' ssa' na'.
   ssa_cc_trans prog ssa na = (prog',ssa',na') ∧
   ssa_map_ok na ssa ∧
@@ -4052,13 +4208,31 @@ val ssa_cc_trans_props = Q.prove(`
   ⇒
   na ≤ na' ∧
   is_alloc_var na' ∧
-  ssa_map_ok na' ssa'`,
+  ssa_map_ok na' ssa'
+Proof
   ho_match_mp_tac ssa_cc_trans_ind>>
   full_simp_tac(srw_ss())[ssa_cc_trans_def]>>
   strip_tac >-
     (LET_ELIM_TAC>>
     full_simp_tac(srw_ss())[]>>
     metis_tac[list_next_var_rename_props])>>
+  strip_tac >- (
+    (* StoreConsts *)
+    LET_ELIM_TAC>>fs[next_var_rename_def]
+    >- (
+      rw[]>>
+      `is_alloc_var ((d2+4)+4)` by
+        fs[is_alloc_var_add]>>
+      fs[])>>
+    drule ssa_map_ok_extend >>
+    disch_then(qspec_then `d` mp_tac)>>
+    impl_tac >-
+      metis_tac[convention_partitions]>>
+    rw[]>>
+    drule ssa_map_ok_extend >>
+    disch_then(qspec_then `c` mp_tac)>>
+    impl_tac >- metis_tac[convention_partitions,is_alloc_var_add]>>
+    simp[])>>
   strip_tac >-
     (LET_ELIM_TAC>>
     full_simp_tac(srw_ss())[]>>
@@ -4095,6 +4269,8 @@ val ssa_cc_trans_props = Q.prove(`
     res_tac>>
     imp_res_tac list_next_var_rename_props_2>>
     DECIDE_TAC)>>
+  strip_tac >-
+    exp_tac>>
   strip_tac >-
     exp_tac>>
   strip_tac >-
@@ -4222,7 +4398,8 @@ val ssa_cc_trans_props = Q.prove(`
       full_simp_tac(srw_ss())[next_var_rename_def]>>
       DECIDE_TAC)>>
     imp_res_tac fix_inconsistencies_props>>
-    DECIDE_TAC);
+    DECIDE_TAC
+QED
 
 val PAIR_ZIP_MEM = Q.prove(`
   LENGTH c = LENGTH d ∧
@@ -4332,9 +4509,34 @@ val get_var_set_vars_notin = Q.prove(`
   imp_res_tac ALOOKUP_ZIP_MEM>>
   fs[]);
 
+Theorem ssa_locals_rel_delete_left:
+  ssa_locals_rel na ssa stl cstl ⇒
+  ssa_locals_rel na ssa (delete n stl) cstl
+Proof
+  rw[ssa_locals_rel_def]
+  >-
+    metis_tac[]>>
+  fs[lookup_delete]
+QED
+
+Theorem ssa_locals_rel_delete_right:
+  ssa_map_ok na ssa ∧ ssa_locals_rel na ssa stl cstl ∧ is_phy_var n ⇒
+  ssa_locals_rel na ssa stl (delete n cstl)
+Proof
+  rw[ssa_locals_rel_def]
+  >-
+    metis_tac[]
+  >- (
+    fs[ssa_map_ok_def]>> last_x_assum drule>>simp[]>>
+    metis_tac[])>>
+  first_x_assum drule>>
+  fs[ssa_map_ok_def,domain_lookup]>>rw[]>>
+  last_x_assum drule>>simp[lookup_delete]>>
+  metis_tac[]
+QED
 
 Theorem ssa_cc_trans_correct:
- ∀prog st cst ssa na.
+  ∀prog st cst ssa na.
   word_state_eq_rel st cst ∧
   ssa_locals_rel na ssa st.locals cst.locals ∧
   (*The following 3 assumptions are from the transform properties and
@@ -5104,25 +5306,6 @@ Proof
       pop_assum(qspec_then`envy.stack` mp_tac)>>
       (impl_tac>- (unabbrev_all_tac>>full_simp_tac(srw_ss())[]))>>
       srw_tac[][]>>full_simp_tac(srw_ss())[])
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   >>
     (*Handler reasoning*)
     qpat_x_assum`A=(pp0,pp1,pp2)` mp_tac>>PairCases_on`x''`>>full_simp_tac(srw_ss())[]>>
@@ -5148,16 +5331,12 @@ Proof
       ntac 2 (TOP_CASE_TAC>>fs[])>>rw[]>>
       fs[ssa_locals_rel_def]>>res_tac>>fs[domain_lookup,option_lookup_def]>>
       last_x_assum(qspecl_then[`h`,`x'`] assume_tac)>>rfs[])>>
-
-
     full_simp_tac(srw_ss())[Abbr`names`]>>
     `LENGTH l = LENGTH x` by
       metis_tac[get_vars_length_lemma]>>
     `get_vars conv_args (set_vars conv_args x rcst) = SOME x` by
       (match_mp_tac get_vars_set_vars_eq>>
       full_simp_tac(srw_ss())[Abbr`ls`,get_vars_length_lemma,LENGTH_MAP])>>
-
-
     full_simp_tac(srw_ss())[set_vars_def]>>
     qpat_abbrev_tac `rcst' =
       rcst with locals:= alist_insert conv_args x rcst.locals`>>
@@ -5191,10 +5370,6 @@ Proof
         res_tac>>
         full_simp_tac(srw_ss())[]>>
         qpat_x_assum`A=SOME v` SUBST_ALL_TAC>>full_simp_tac(srw_ss())[])
-
-
-
-
     >>
     srw_tac[][Abbr`rcst'`]>>full_simp_tac(srw_ss())[add_ret_loc_def]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[call_env_def,flush_state_def]
@@ -5211,16 +5386,6 @@ Proof
     >>
     strip_tac>>
     rev_full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def]>>
-
-
-
-
-
-
-
-
-
-
     qabbrev_tac `envx = push_env x' (SOME (x''0,x''1,x''2,x''3))
             (st with <|permute := perm; clock := st.clock − 1|>) with
            <|locals := fromList2 (q) ; locals_size := r';
@@ -5229,10 +5394,6 @@ Proof
                (st with <|permute := perm; clock := st.clock - 1|>)).stack_max
                (OPTION_MAP2 $+ (stack_size(push_env x' (SOME (x''0,x''1,x''2,x''3))
                (st with <|permute := perm; clock := st.clock - 1|>)).stack) r')|>`>>
-
-
-
-
     qpat_abbrev_tac `envy = (push_env y A B) with <| locals := C; locals_size := lsz; stack_max := SM;
                      clock := _ |>`>>
     assume_tac evaluate_stack_swap>>
@@ -5523,16 +5684,6 @@ Proof
       >>
         full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
         metis_tac[s_key_eq_trans,s_val_and_key_eq])>>
-
-
-
-
-
-
-
-
-
-
       `ssa_locals_rel na' ssa_cut r.locals
         (set_var 2 w0 cres).locals` by
         (match_mp_tac ssa_locals_rel_ignore_set_var>>
@@ -5587,9 +5738,6 @@ Proof
       HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[]>>
       DECIDE_TAC)>>
       srw_tac[][]>>
-
-
-
       qspecl_then[`q'`,`push_env x' (SOME (x''0,x''1,x''2,x''3))
             (st with <|permute := perm; clock := st.clock − 1|>) with
           <| locals := fromList2 q; locals_size := r';
@@ -5660,7 +5808,7 @@ Proof
       assume_tac permute_swap_lemma>>
     rev_full_simp_tac(srw_ss())[LET_THM]>>
     qexists_tac`perm'''`>>srw_tac[][]>>full_simp_tac(srw_ss())[])
-  >- (*If*)
+  >-  (*If*)
    (qpat_abbrev_tac `A = ssa_cc_trans B C D` >>
     PairCases_on`A`>>simp[]>>
     pop_assum(mp_tac o SYM o SIMP_RULE std_ss[markerTheory.Abbrev_def]) >>
@@ -5889,7 +6037,6 @@ Proof
          (`x''' ∈ domain s` by metis_tac[domain_lookup]>>
          full_simp_tac(srw_ss())[every_var_def,every_name_def,EVERY_MEM,toAList_domain]>>res_tac>>
          DECIDE_TAC)
-
        >-
          (full_simp_tac(srw_ss())[word_state_eq_rel_def,pop_env_def]>>
          rev_full_simp_tac(srw_ss())[state_component_equality, stack_size_def, stack_size_frame_def]>>
@@ -5927,6 +6074,45 @@ Proof
     simp[] >>
     srw_tac[][]>>full_simp_tac(srw_ss())[word_state_eq_rel_def]) >>
     full_simp_tac(srw_ss())[word_state_eq_rel_def, stack_size_def, stack_size_frame_def] >> srw_tac[][])
+  >- ( (* StoreConsts *)
+    exists_tac>>fs[]>>
+    Cases_on`get_var n1 st`>>fs[]>>
+    imp_res_tac ssa_locals_rel_get_var>>
+    TOP_CASE_TAC>>simp[]>>
+    Cases_on`get_var n2 st`>>fs[]>>
+    imp_res_tac ssa_locals_rel_get_var>>
+    TOP_CASE_TAC>>simp[]>>
+    fs[next_var_rename_def,evaluate_def,get_vars_def]>>
+    simp[get_var_def,set_vars_def,lookup_alist_insert]>>
+    IF_CASES_TAC>>simp[set_var_def,unset_var_def,lookup_insert]>>
+    `n1 ∈ domain ssa ∧ n2 ∈ domain ssa ` by
+      fs[ssa_locals_rel_def,get_var_def]>>
+    fs[domain_lookup,option_lookup_def]>>
+    `~(is_phy_var v') ∧ ¬(is_phy_var v'')` by
+      (fs[ssa_map_ok_def]>>
+      metis_tac[])>>
+    `EVERY is_phy_var [0;2;4;6]` by
+      fs[is_phy_var_def]>>
+    fs[lookup_delete]>>
+    rpt(IF_CASES_TAC>>gs[])>>
+    simp[lookup_alist_insert]>>
+    fs[get_var_def]>>
+    simp[alist_insert_def]>>
+    fs[every_var_def]>>
+    `na+8 = (na+4)+4` by fs[]>>
+    pop_assum SUBST_ALL_TAC>>
+    drule ssa_map_ok_extend >>
+    disch_then(qspec_then`n2` mp_tac)>>
+    impl_tac>-
+      metis_tac[convention_partitions]>>
+    strip_tac>>
+    match_mp_tac ssa_locals_rel_insert>> simp[]>>
+    metis_tac[
+      ssa_locals_rel_insert,
+      ssa_locals_rel_delete_left,
+      ssa_locals_rel_ignore_insert,
+      ssa_locals_rel_delete_right,
+      ssa_locals_rel_ignore_insert])
   >-
     (*Raise*)
     (exists_tac>>fs[]>>
@@ -5956,6 +6142,16 @@ Proof
   >- (* Tick *)
     (exists_tac>>
     EVERY_CASE_TAC>>full_simp_tac(srw_ss())[call_env_def, flush_state_def,dec_clock_def])
+  >- (* OpCurrHeap *)
+    (last_x_assum kall_tac>>
+    exists_tac>>
+    EVERY_CASE_TAC>>full_simp_tac(srw_ss())[next_var_rename_def]>>
+    imp_res_tac ssa_locals_rel_get_var>>
+    imp_res_tac ssa_cc_trans_exp_correct>>full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
+    rev_full_simp_tac(srw_ss())[word_exp_perm,evaluate_def]>>
+    fs[set_var_def,set_store_def,ssa_cc_trans_exp_def]>>
+    match_mp_tac ssa_locals_rel_set_var>>
+    full_simp_tac(srw_ss())[every_var_def])
   >-
     exp_tac
   >- (* Install *)
@@ -6414,7 +6610,7 @@ val limit_var_props = Q.prove(`
    (`x MOD 4 < 4` by full_simp_tac(srw_ss())[]>>
     `(x MOD 4 = 0) ∨ (x MOD 4 = 1) ∨ (x MOD 4 = 2) ∨ (x MOD 4 = 3)` by
       DECIDE_TAC>>
-    full_simp_tac(srw_ss())[]>>
+    full_simp_tac std_ss [EVAL “0<4:num”]>>
     (*Fastest way I could find*)
     `(0 MOD 4 = 0) ∧
     (1 MOD 4 = 1) ∧
@@ -6425,8 +6621,8 @@ val limit_var_props = Q.prove(`
     ((1+3)MOD 4 = 0) ∧
     ((2+2)MOD 4 = 0) ∧
     ((3+1)MOD 4 = 0)` by full_simp_tac(srw_ss())[]>>
-    metis_tac[])>>
-  full_simp_tac(srw_ss())[]>>
+    metis_tac[]) >>
+  full_simp_tac std_ss [EVAL “0<4:num”]>>
   first_x_assum(qspecl_then [`x+(4- x MOD 4)`,`1`] assume_tac)>>
   pop_assum sym_sub_tac>>
   full_simp_tac(srw_ss())[]);
@@ -6780,12 +6976,13 @@ val fake_moves_distinct_tar_reg = Q.prove(`
   unabbrev_all_tac>>
   metis_tac[fake_move_def,every_inst_def,distinct_tar_reg_def]);
 
-val ssa_cc_trans_distinct_tar_reg = Q.prove(`
+Theorem ssa_cc_trans_distinct_tar_reg:
   ∀prog ssa na.
-  is_alloc_var na ∧
-  every_var (λx. x < na) prog ∧
-  ssa_map_ok na ssa ⇒
-  every_inst distinct_tar_reg (FST (ssa_cc_trans prog ssa na))`,
+    is_alloc_var na ∧
+    every_var (λx. x < na) prog ∧
+    ssa_map_ok na ssa ⇒
+    every_inst distinct_tar_reg (FST (ssa_cc_trans prog ssa na))
+Proof
   ho_match_mp_tac ssa_cc_trans_ind>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>srw_tac[][]>>
   unabbrev_all_tac>>
   full_simp_tac(srw_ss())[every_inst_def]>>imp_res_tac ssa_cc_trans_props>>full_simp_tac(srw_ss())[]
@@ -6820,6 +7017,14 @@ val ssa_cc_trans_distinct_tar_reg = Q.prove(`
   >> TRY
     (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
     LET_ELIM_TAC>>full_simp_tac(srw_ss())[every_inst_def,EQ_SYM_EQ]>>NO_TAC)
+  >-
+   (rename [‘OpCurrHeap’]>>
+    full_simp_tac(srw_ss())[ssa_cc_trans_inst_def,LET_THM,next_var_rename_def]>>
+    every_case_tac>> rw[]>>
+    fs[every_var_def,every_var_inst_def,every_var_imm_def,every_inst_def]>>
+    full_simp_tac(srw_ss())[distinct_tar_reg_def,ssa_map_ok_def,option_lookup_def]>>
+    EVERY_CASE_TAC>>srw_tac[][]>>res_tac>>full_simp_tac(srw_ss())[]>>
+    fs[is_alloc_var_def]>>CCONTR_TAC>>fs[])
   >>
   FULL_CASE_TAC>>full_simp_tac(srw_ss())[every_var_def,every_inst_def]
   >-
@@ -6885,11 +7090,12 @@ val ssa_cc_trans_distinct_tar_reg = Q.prove(`
       full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>
       rpt(qpat_x_assum`A=(B,C,D)` mp_tac)>>
       LET_ELIM_TAC>>full_simp_tac(srw_ss())[EQ_SYM_EQ,every_inst_def]>>
-      metis_tac[fake_moves_distinct_tar_reg]);
+      metis_tac[fake_moves_distinct_tar_reg]
+QED
 
 Theorem full_ssa_cc_trans_distinct_tar_reg:
-    ∀n prog.
-  every_inst distinct_tar_reg (full_ssa_cc_trans n prog)
+  ∀n prog.
+    every_inst distinct_tar_reg (full_ssa_cc_trans n prog)
 Proof
   srw_tac[][]>>
   full_simp_tac(srw_ss())[full_ssa_cc_trans_def]>>
@@ -6913,7 +7119,7 @@ Proof
   full_simp_tac(srw_ss())[]
 QED
 
-val fake_moves_conventions2 = Q.prove(`
+Theorem fake_moves_conventions2[local]:
   ∀ls ssal ssar na l r a b c conf.
   fake_moves ls ssal ssar na = (l,r,a,b,c) ⇒
   flat_exp_conventions l ∧
@@ -6921,12 +7127,14 @@ val fake_moves_conventions2 = Q.prove(`
   full_inst_ok_less conf l ∧
   full_inst_ok_less conf r ∧
   every_inst distinct_tar_reg l ∧
-  every_inst distinct_tar_reg r`,
+  every_inst distinct_tar_reg r
+Proof
   Induct>>full_simp_tac(srw_ss())[fake_moves_def]>>srw_tac[][]>>full_simp_tac(srw_ss())[flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def]>>
   pop_assum mp_tac>> LET_ELIM_TAC>> EVERY_CASE_TAC>> full_simp_tac(srw_ss())[LET_THM]>>
   unabbrev_all_tac>>
   rveq>>fs[flat_exp_conventions_def,fake_move_def,full_inst_ok_less_def,inst_ok_less_def,every_inst_def,distinct_tar_reg_def]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
 val ssa_cc_trans_flat_exp_conventions = Q.prove(`
   ∀prog ssa na.
@@ -6977,13 +7185,14 @@ Proof
   metis_tac[ssa_cc_trans_flat_exp_conventions,FST]
 QED
 
-val ssa_cc_trans_full_inst_ok_less = Q.prove(`
+Theorem ssa_cc_trans_full_inst_ok_less[local]:
   ∀prog ssa na c.
-  every_var (λx. x < na) prog ∧
-  is_alloc_var na ∧
-  ssa_map_ok na ssa ∧
-  full_inst_ok_less c prog ⇒
-  full_inst_ok_less c (FST (ssa_cc_trans prog ssa na))`,
+    every_var (λx. x < na) prog ∧
+    is_alloc_var na ∧
+    ssa_map_ok na ssa ∧
+    full_inst_ok_less c prog ⇒
+    full_inst_ok_less c (FST (ssa_cc_trans prog ssa na))
+Proof
   ho_match_mp_tac ssa_cc_trans_ind>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>srw_tac[][]>>
   unabbrev_all_tac>>
   full_simp_tac(srw_ss())[full_inst_ok_less_def]
@@ -7090,7 +7299,8 @@ val ssa_cc_trans_full_inst_ok_less = Q.prove(`
           (match_mp_tac (GEN_ALL ssa_map_ok_more)>>
           qexists_tac`n'`>>fs[])>>
         metis_tac[convention_partitions])
-    >- metis_tac[fake_moves_conventions2,full_inst_ok_less_def]);
+    >- metis_tac[fake_moves_conventions2,full_inst_ok_less_def]
+QED
 
 Theorem full_ssa_cc_trans_full_inst_ok_less:
     ∀prog n c.
@@ -7167,19 +7377,16 @@ val call_arg_convention_preservation = Q.prove(`
   >-
     (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`r`)>>TRY(Cases_on`m`)>>
     TRY(Cases_on`f'`>>every_case_tac)>>
-    fs[inst_arg_convention_def,every_var_inst_def,is_phy_var_def])
-  >>
-  `is_phy_var 2` by is_phy_var_tac>>full_simp_tac(srw_ss())[]>>
-  `is_phy_var 4` by is_phy_var_tac>>full_simp_tac(srw_ss())[]>>
-  `is_phy_var 6` by is_phy_var_tac>>full_simp_tac(srw_ss())[]>>
-  `is_phy_var 8` by is_phy_var_tac>>full_simp_tac(srw_ss())[]>>
+    fs[inst_arg_convention_def,every_var_inst_def,is_phy_var_def]) >>
+  TRY(first_x_assum match_mp_tac>> is_phy_var_tac>>NO_TAC)>>
   `EVERY is_phy_var args` by
     (qpat_x_assum`args=A` SUBST_ALL_TAC>>
     full_simp_tac(srw_ss())[EVERY_GENLIST]>>srw_tac[][]>>
     is_phy_var_tac)>>
   qpat_x_assum`args = A` (SUBST_ALL_TAC o SYM)>>
   full_simp_tac(srw_ss())[EVERY_MEM,miscTheory.MAP_EQ_ID]>>
-  rev_full_simp_tac(srw_ss())[]);
+  rev_full_simp_tac(srw_ss())[]>>
+  first_x_assum match_mp_tac>> is_phy_var_tac);
 
 (*Composing with a function using apply_colour*)
 Theorem every_var_inst_apply_colour_inst:
@@ -7366,16 +7573,19 @@ Proof
 QED
 
 (*word_alloc preserves syntactic conventions*)
-val word_alloc_two_reg_inst_lem = Q.prove(`
+Theorem word_alloc_two_reg_inst_lem[local]:
   ∀f prog.
   every_inst two_reg_inst prog ⇒
-  every_inst two_reg_inst (apply_colour f prog)`,
+  every_inst two_reg_inst (apply_colour f prog)
+Proof
   ho_match_mp_tac apply_colour_ind>>full_simp_tac(srw_ss())[every_inst_def]>>srw_tac[][]
   >-
     (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`f'`)>>
     full_simp_tac(srw_ss())[apply_colour_inst_def,two_reg_inst_def])
   >>
-    EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[every_inst_def]);
+    EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[every_inst_def]>>
+    full_simp_tac(srw_ss())[apply_colour_inst_def,two_reg_inst_def]
+QED
 
 Theorem word_alloc_two_reg_inst:
     ∀fc c alg k prog col_opt.
@@ -7500,14 +7710,16 @@ Proof
   fs[]
 QED
 
-val apply_colour_lab_pres = Q.prove(`
+Theorem apply_colour_lab_pres[local]:
   ∀col prog.
-  extract_labels prog = extract_labels (apply_colour col prog)`,
+    extract_labels prog = extract_labels (apply_colour col prog)
+Proof
   ho_match_mp_tac apply_colour_ind>>fs[extract_labels_def]>>rw[]>>
-  EVERY_CASE_TAC>>fs[]);
+  EVERY_CASE_TAC>>fs[]
+QED
 
 Theorem word_alloc_lab_pres:
-    extract_labels prog = extract_labels (word_alloc fc c alg k prog col_opt)
+  extract_labels prog = extract_labels (word_alloc fc c alg k prog col_opt)
 Proof
   fs[word_alloc_def,oracle_colour_ok_def]>>
   EVERY_CASE_TAC>>fs[]>>
@@ -7520,14 +7732,14 @@ QED
 val convs = [flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def,pre_alloc_conventions_def,call_arg_convention_def,every_stack_var_def,every_var_def,extract_labels_def,wf_cutsets_def];
 
 Theorem remove_dead_conventions:
-   ∀p live c k.
-  let comp = FST (remove_dead p live) in
-  (flat_exp_conventions p ⇒ flat_exp_conventions comp) ∧
-  (full_inst_ok_less c p ⇒ full_inst_ok_less c comp) ∧
-  (pre_alloc_conventions p ⇒ pre_alloc_conventions comp) ∧
-  (every_inst distinct_tar_reg p ⇒ every_inst distinct_tar_reg comp) ∧
-  (wf_cutsets p ⇒ wf_cutsets comp) ∧
-  (extract_labels p = extract_labels comp)
+  ∀p live c k.
+    let comp = FST (remove_dead p live) in
+    (flat_exp_conventions p ⇒ flat_exp_conventions comp) ∧
+    (full_inst_ok_less c p ⇒ full_inst_ok_less c comp) ∧
+    (pre_alloc_conventions p ⇒ pre_alloc_conventions comp) ∧
+    (every_inst distinct_tar_reg p ⇒ every_inst distinct_tar_reg comp) ∧
+    (wf_cutsets p ⇒ wf_cutsets comp) ∧
+    (extract_labels p = extract_labels comp)
 Proof
   ho_match_mp_tac remove_dead_ind>>rw[]>>
   fs[remove_dead_def]>>

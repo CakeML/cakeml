@@ -10,8 +10,23 @@ val _ = new_theory "data_space";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
-val op_space_req_def = Define `
+Definition num_size_def:
+  num_size (n:num) =
+    if n < 2**32 then 2:num else 1 + num_size (n DIV 2 ** 32)
+End
+
+Definition part_space_req_def:
+  part_space_req (W64 s) = 3 ∧
+  part_space_req (Int i) =
+    (if Num (ABS i) < 2**29 then 0 else num_size (Num (ABS i))) ∧
+  part_space_req (Str s) = strlen s DIV 4 + 2 ∧
+  part_space_req (Con t ns) =
+    let l = LENGTH ns in if l = 0n then 0 else l+1
+End
+
+Definition op_space_req_def:
   (op_space_req (Cons _) l = if l = 0n then 0 else l+1) /\
+  (op_space_req (Build parts) l = SUM (MAP part_space_req parts)) /\
   (op_space_req Ref l = l + 1) /\
   (op_space_req (WordOp W64 _) _ = 3) /\
   (op_space_req (WordShift W64 _ _) _ = 3) /\
@@ -21,7 +36,8 @@ val op_space_req_def = Define `
   (op_space_req (FP_uop _) v9 = 3) /\
   (op_space_req (FP_bop _) v9 = 3) /\
   (op_space_req (FP_top _) v9 = 3) /\
-  (op_space_req _ _ = 0)`;
+  (op_space_req _ _ = 0)
+End
 
 (*
 Theorem op_space_req_pmatch:

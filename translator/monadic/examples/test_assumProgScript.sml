@@ -78,12 +78,12 @@ val mf6_v_thm = m_translate mf6_def;
 
 val length_v_thm = translate listTheory.LENGTH;
 val ZIP_def2 = Q.prove(
-  `ZIP (l1,l2) = dtcase (l1,l2) of
+  `ZIP x = dtcase x of
       (x::l1, y::l2) => (x, y) :: ( ZIP (l1,l2) )
     | ([], [])       => []
     | _              => []`,
-Cases_on `l1`
-\\ Cases_on `l2`
+PairCases_on ‘x’ \\ Cases_on `x0`
+\\ Cases_on `x1`
 \\ fs[ZIP_def]);
 
 val zip_v_thm = translate ZIP_def2;

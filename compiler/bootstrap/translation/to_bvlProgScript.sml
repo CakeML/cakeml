@@ -4,6 +4,8 @@
 open preamble ml_translatorLib ml_translatorTheory to_closProgTheory
 local open backendTheory in end
 
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "to_bvlProg";
 val _ = translation_extends "to_closProg";
 
@@ -62,6 +64,11 @@ val _ = use_long_names:=true;
 (* ------------------------------------------------------------------------- *)
 (* clos_to_bvl                                                               *)
 (* ------------------------------------------------------------------------- *)
+
+val r = translate clos_to_bvlTheory.add_part_def;
+val r = translate clos_to_bvlTheory.add_parts_def;
+val r = translate (clos_to_bvlTheory.compile_const_def |> DefnBase.one_line_ify NONE);
+val r = translate clos_to_bvlTheory.compile_op_pmatch;
 
 val r = translate clos_to_bvlTheory.compile_common_def;
 val r = translate clos_to_bvlTheory.compile_def;
@@ -135,20 +142,35 @@ val clos_to_bvl_compile_side = Q.prove(`
          bvl_jump_jumplist_side])
   |> update_precondition;
 
+val r = translate clos_to_bvlTheory.extract_name_pmatch;
+val r = translate clos_to_bvlTheory.compile_inc_def;
+
 (* ------------------------------------------------------------------------- *)
 (* bvl_const                                                                 *)
 (* ------------------------------------------------------------------------- *)
 
 val r = translate bvl_constTheory.dest_simple_pmatch;
+val r = translate bvl_constTheory.dest_EqualInt_pmatch;
 val r = translate bvl_constTheory.case_op_const_pmatch;
 val r = translate bvl_constTheory.SmartOp_flip_pmatch;
 (* val r = translate bvl_constTheory.SmartOp2_pmatch *) (* prove_EvalPatBind *)
 val r = translate bvl_constTheory.SmartOp2_def;
+
+Theorem bvl_const_smartop2_size:
+  bvl_const_smartop2_side v = T
+Proof
+  PairCases_on ‘v’
+  \\ fs [fetch "-" "bvl_const_smartop2_side_def"]
+  \\ Cases_on ‘v0 = El’ \\ fs []
+  \\ rw [] \\ intLib.COOPER_TAC
+QED
+
+val _ = update_precondition bvl_const_smartop2_size;
+
 val r = translate bvl_constTheory.SmartOp_pmatch;
 val r = translate bvl_constTheory.extract_pmatch;
 val r = translate bvl_constTheory.extract_list_def;
 val r = translate bvl_constTheory.delete_var_pmatch;
-
 val r = translate bvl_constTheory.compile_def;
 
 val bvl_const_compile_side = Q.prove(`
@@ -268,6 +290,18 @@ Theorem bvl_inline_compile_prog_side = Q.prove(`
   \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
   \\ fs [bvl_inlineTheory.LENGTH_remove_ticks])
   |> update_precondition;
+
+Theorem bvl_inline_compile_inc_side = Q.prove(`
+  !a b c d e. bvl_inline_compile_inc_side a b c d e`,
+  rw [Once (fetch "-" "bvl_inline_compile_prog_side_def"),
+      Once (fetch "-" "bvl_inline_compile_inc_side_def"),
+      Once (fetch "-" "bvl_inline_optimise_side_def")]
+  \\ strip_tac
+  \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+  \\ fs [bvl_inlineTheory.LENGTH_remove_ticks])
+  |> update_precondition;
+
+val res = translate clos_to_bvlTheory.clos_to_bvl_compile_inc_def
 
 (* ------------------------------------------------------------------------- *)
 

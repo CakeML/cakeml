@@ -8,7 +8,7 @@ open preamble
      lexer_funTheory lexer_implTheory
      cmlParseTheory
      inferTheory
-     backendTheory
+     backendTheory backend_passesTheory
      mlintTheory mlstringTheory basisProgTheory
      fromSexpTheory simpleSexpParseTheory
 
@@ -18,8 +18,97 @@ open riscv_configTheory export_riscvTheory
 open mips_configTheory export_mipsTheory
 open arm7_configTheory export_arm7Theory
 open ag32_configTheory export_ag32Theory
+open panPtreeConversionTheory pan_to_targetTheory
 
 val _ = new_theory"compiler";
+
+val help_string = (* beginning of --help string *) ‘
+
+Usage:  cake [OPTIONS] < input_file > output_file
+
+The cake executable is usually invoked as shown above. The different
+OPTIONS are described in the OPTIONS listing below.
+
+One can also run the cake execuable as follows to print a listing of
+the type of each top-level binding (including the bindings made in
+the standard basis library).
+
+Usage:  cake --types < input_file
+
+One can invoke the cake executable to print this help message (--help)
+or version information (--version) without an input_file:
+
+Usage:  cake --version
+Usage:  cake --help
+
+OPTIONS:
+
+  --repl        starts an interactive read-eval-print loop; all other
+                flags are ignored, when the --repl flag is present
+
+  --reg_alg=N   N is a natural number that specifies the register
+                allocation algorithm to use:
+                   0   - simple allocator, no spill heuristics
+                   1   - simple allocator, spill heuristics
+                   2   - IRC allocator, no spill heuristics (default)
+                   3   - IRC allocator, spill heuristics
+                   >=4 - linear scan allocator
+
+  --gc=G        specifies garbage collector type; here G is one of:
+                   none   - no garbage collector is used
+                   simple - a non-generational Cheney (default)
+                   genN   - a generational Cheney garbage collector is
+                            used; the size of the nursery generation is
+                            N machine words (example: --gc=gen5000)
+
+  --target=T    specifies that compilation should produce code for target
+                T, where T can be one of x64, arm8, mips, riscv for
+                the 64-bit compiler; for the 32-bit compiler T can be
+                one of arm7 and ag32.
+
+  --sexp=B      B can be either true or false; here false means that the
+                input will be parsed as normal CakeML concrete syntax;
+                true means that the input is parsed as an s-expression.
+
+  --print_sexp  causes the cake to print the given program in
+                s-expression format; with this option, the compiler
+                does not generate machine code.
+
+  --exclude_prelude=B   here B can be either true or false; the default
+                is false; setting this to true causes the compiler not
+                to include the standard basis library.
+
+  --skip_type_inference=B   here B can be either true or false; the
+                default is false; true will make the compiler skip
+                type inference. There are no gurantees of safety if
+                the type inferencer is skipped.
+
+  --explore     outputs intermediate forms of the compiled program
+
+  --pancake     takes a pancake program as input
+
+ADDITIONAL OPTIONS:
+
+Optimisations can be configured using the following advanced options.
+
+  --jump=B   true means conditional jumps to be used for out-of-stack checks
+  --multi=B  true means clos_to_bvl phase is to use multi optimisation
+  --known=B  true means clos_to_bvl phase is to use known optimisation
+  --call=B   true means clos_to_bvl phase is to use call optimisation
+  --inline_factor=N  threshold used by for ClosLang inliner in known pass
+  --max_body_size=N  threshold used by for ClosLang inliner in known pass
+  --max_app=N   max number of optimised curried applications in multi pass
+  --inline_size=N  threshold used by for BVL inliner pass
+  --exp_cut=N  threshold for when to cut large expression into subfunctions
+  --split=B  true means main expression will be split at sequencing (;)
+  --tag_bits=N  number of tag bits in every pointer
+  --len_bits=N  number of length bits in every pointer
+  --pad_bits=N  number of zero padding in every pointer
+  --len_size=N  size of length field in heap object header cells
+  --emit_empty_ffi=B  true emits debugging FFI calls for use with DEBUG_FFI
+  --hash_size=N  size of the memoization table used by instruction encoder
+
+’ (* end of --help string *)
 
 (* == Build info =========================================================== *)
 
@@ -49,11 +138,11 @@ val current_build_info_str_tm = EVAL ``
   |> concl |> rhs
 
 val current_build_info_str_def = Define `
-  current_build_info_str = ^current_build_info_str_tm`
+  current_build_info_str = ^current_build_info_str_tm`;
 
 (* ========================================================================= *)
 
-val _ = Datatype`
+Datatype:
   config =
     <| inferencer_config : inf_env
      ; backend_config : α backend$config
@@ -62,39 +151,106 @@ val _ = Datatype`
      ; skip_type_inference : bool
      ; only_print_types    : bool
      ; only_print_sexp     : bool
-     |>`;
+     |>
+End
 
-val _ = Datatype`compile_error = ParseError | TypeError mlstring | AssembleError | ConfigError mlstring`;
+Datatype:
+  compile_error = ParseError | TypeError mlstring | AssembleError | ConfigError mlstring
+End
 
-val locs_to_string_def = Define `
-  (locs_to_string NONE = implode "unknown location") ∧
-  (locs_to_string (SOME (Locs startl endl)) =
-    if Locs startl endl = unknown_loc then
-      implode "unknown location"
+fun drop_until p [] = []
+  | drop_until p (x::xs) = if p x then x::xs else drop_until p xs;
+
+val help_string_tm =
+  help_string |> hd |> (fn QUOTE s => s) |> explode
+  |> drop_until (fn c => c = #"\n") |> tl |> implode
+  |> stringSyntax.fromMLstring;
+
+Definition help_string_def:
+  help_string = strlit ^help_string_tm
+End
+
+Datatype:
+  compile_error = ParseError mlstring
+                | TypeError mlstring
+                | AssembleError
+                | ConfigError mlstring
+End
+
+Definition find_next_newline_def:
+  find_next_newline n s =
+    if strlen s ≤ n then n else
+      if strsub s n = #"\n" then n else
+        find_next_newline (n+1) s
+Termination
+  WF_REL_TAC ‘measure (λ(n,s). strlen s - n)’
+End
+
+Definition safe_substring_def:
+  safe_substring s n l =
+    let k = strlen s in
+      if k ≤ n then strlit "" else
+        if n + l ≤ k then
+          substring s n l
+        else substring s n (k - n)
+End
+
+Definition get_nth_line_def:
+  get_nth_line k s n =
+    if k = 0 then
+      let n1 = find_next_newline n s in
+        safe_substring s n (n1 - n)
     else
-      concat
-        [implode "location starting at row ";
-         toString startl.row;
-         implode " column ";
-         toString startl.col;
-         implode ", ending at row ";
-         toString endl.row;
-         implode " column ";
-         toString endl.col])`;
+      get_nth_line (k-1:num) s (find_next_newline n s + 1)
+End
+
+Definition locs_to_string_def:
+  (locs_to_string input NONE = implode "unknown location") ∧
+  (locs_to_string input (SOME (Locs startl endl)) =
+    case startl of
+    | POSN r c =>
+       (let line = get_nth_line r input 0 in
+        let len = strlen line in
+        let stop =
+          (case endl of POSN r1 c1 => (if r1 = r then c1 else len) | _ => len) in
+        let underline =
+          concat (REPLICATE c (strlit " ") ++ REPLICATE ((stop - c) + 1) (strlit [CHR 94])) in
+          concat [strlit "line "; toString (r+1); strlit "\n\n";
+                  line; strlit "\n";
+                  underline;  strlit "\n"])
+    | _ => implode "unknown location")
+End
 
 (* this is a rather annoying feature of peg_exec requiring locs... *)
 Overload add_locs = ``MAP (λc. (c,unknown_loc))``
 
-val compile_def = Define`
+Definition parse_sexp_input_def:
+  parse_sexp_input input =
+    let err = strlit "Parsing of sexp syntax failed" in
+      case parse_sexp (add_locs input) of
+      | NONE => INL err
+      | SOME x => case sexplist sexpdec x of
+                  | NONE => INL err
+                  | SOME x => INR x
+End
+
+Definition parse_cml_input_def:
+  parse_cml_input input =
+    case parse_prog (lexer_fun input) of
+    | Failure l _ => INL (strlit "Parsing failed at " ^ locs_to_string (implode input) (SOME l))
+    | Success _ x _ => INR x
+End
+
+Definition compile_def:
   compile c prelude input =
     let _ = empty_ffi (strlit "finished: start up") in
     case
       if c.input_is_sexp
-      then OPTION_BIND (parse_sexp (add_locs input)) (sexplist sexpdec)
-      else parse_prog (lexer_fun input)
+      then parse_sexp_input input
+      else parse_cml_input input
     of
-    | NONE => (Failure ParseError, [])
-    | SOME prog =>
+    | INL msg => (Failure (ParseError msg), Nil)
+    | INR prog =>
        let _ = empty_ffi (strlit "finished: lexing and parsing") in
        let full_prog = if c.exclude_prelude then prog else prelude ++ prog in
        case
@@ -104,23 +260,37 @@ val compile_def = Define`
        of
        | Failure (locs, msg) =>
            (Failure (TypeError (concat [msg; implode " at ";
-               locs_to_string locs])), [])
+               locs_to_string (implode input) locs])), Nil)
        | Success ic =>
           let _ = empty_ffi (strlit "finished: type inference") in
           if c.only_print_types then
             (Failure (TypeError (concat ([strlit "\n"] ++
                                          inf_env_to_types_string ic ++
-                                         [strlit "\n"]))), [])
+                                         [strlit "\n"]))), Nil)
           else if c.only_print_sexp then
-            (Failure (TypeError (implode(print_sexp (listsexp (MAP decsexp full_prog))))),[])
+            (Failure (TypeError (implode(print_sexp (listsexp (MAP decsexp full_prog))))),Nil)
           else
-          case backend$compile_tap c.backend_config full_prog of
+          case backend_passes$compile_tap c.backend_config full_prog of
           | (NONE, td) => (Failure AssembleError, td)
-          | (SOME (bytes,c), td) => (Success (bytes,c), td)`;
+          | (SOME (bytes,data,c), td) => (Success (bytes,data,c), td)
+End
+
+Definition compile_pancake_def:
+  compile_pancake c input =
+  let _ = empty_ffi (strlit "finished: start up") in
+  case panPtreeConversion$parse_funs_to_ast input of
+  | NONE => Failure (ParseError (strlit "Failed pancake parsing"))
+  | SOME funs =>
+      let _ = empty_ffi (strlit "finished: lexing and parsing") in
+      case pan_to_target$compile_prog c funs of
+      | NONE => (Failure AssembleError)
+      | SOME (bytes,data,c) => (Success (bytes,data,c))
+End
 
 (* The top-level compiler *)
 val error_to_str_def = Define`
-  (error_to_str ParseError = strlit "### ERROR: parse error\n") /\
+  (error_to_str (ParseError s) =
+     concat [strlit "### ERROR: parse error\n"; s; strlit "\n"]) /\
   (error_to_str (TypeError s) =
      (* if the first char in the message is a newline char then it isn't an error *)
      if (if strlen s = 0 then T else
@@ -357,12 +527,7 @@ val parse_stack_conf_def = Define`
 (* tap *)
 val parse_tap_conf_def = Define`
   parse_tap_conf ls stack =
-  let tap_all = find_str (strlit"--explore") ls in
-  let tap_all_star = (case tap_all of NONE => []
-    | SOME _ => [strlit"*"]) in
-  let taps = find_strs (strlit"--tap=") ls in
-  let fname = find_str (strlit"--tapfname=") ls in
-  INL (mk_tap_config fname (tap_all_star ++ taps))`
+    INL (<| explore_flag := MEMBER (strlit"--explore") ls |>)`
 
 (* lab *)
 val parse_lab_conf_def = Define`
@@ -422,64 +587,56 @@ val parse_target_32_def = Define`
     else if rest = strlit"ag32" then INL (ag32_backend_config,ag32_export)
     else INR (concat [strlit"Unrecognized 32-bit target option: ";rest])`
 
-(* Default stack and heap limits. Unit of measure is mebibytes, i.e. 1024^2B. *)
-val default_heap_sz_def = Define`
-  default_heap_sz = 1000n`
-
-val default_stack_sz_def = Define`
-  default_stack_sz = 1000n`
-
 val parse_top_config_def = Define`
   parse_top_config ls =
-  let heap = find_num (strlit"--heap_size=") ls default_heap_sz in
-  let stack = find_num (strlit"--stack_size=") ls default_stack_sz in
   let sexp = find_bool (strlit"--sexp=") ls F in
   let prelude = find_bool (strlit"--exclude_prelude=") ls F in
   let typeinference = find_bool (strlit"--skip_type_inference=") ls F in
   let sexpprint = MEMBER (strlit"--print_sexp") ls in
   let onlyprinttypes = MEMBER (strlit"--types") ls in
-  case (heap,stack,sexp,prelude,typeinference) of
-    (INL heap,INL stack,INL sexp,INL prelude,INL typeinference) =>
-      INL (heap,stack,sexp,prelude,typeinference,onlyprinttypes,sexpprint)
-  | _ => INR (concat [get_err_str heap;
-               get_err_str stack;
+  case (sexp,prelude,typeinference) of
+    (INL sexp,INL prelude,INL typeinference) =>
+      INL (sexp,prelude,typeinference,onlyprinttypes,sexpprint)
+  | _ => INR (concat [
                get_err_str sexp;
                get_err_str prelude;
                get_err_str typeinference])`
 
-(* Check for version flag
-   TODO: fix this
-*)
+(* Check for version flag *)
 val has_version_flag_def = Define `
   has_version_flag ls = MEM (strlit"--version") ls`
 
+(* Check for version help *)
+val has_help_flag_def = Define `
+  has_help_flag ls = MEM (strlit"--help") ls`
+
+(* Check for pancake flag *)
+Definition has_pancake_flag_def:
+  has_pancake_flag ls = MEM (strlit"--pancake") ls
+End
+
 val format_compiler_result_def = Define`
-  format_compiler_result bytes_export (heap:num) (stack:num) (Failure err) =
+  format_compiler_result bytes_export (Failure err) =
     (List[]:mlstring app_list, error_to_str err) ∧
-  format_compiler_result bytes_export heap stack
+  format_compiler_result bytes_export
     (Success ((bytes:word8 list),(data:'a word list),(c:'a backend$config))) =
-    (bytes_export (the [] c.lab_conf.ffi_names) heap stack bytes data, implode "")`;
+    (bytes_export (the [] c.lab_conf.ffi_names) bytes data, implode "")`;
 
 (* FIXME TODO: this is an awful workaround to avoid implementing a file writer
    right now. *)
 val add_tap_output_def = Define`
-  add_tap_output td out = if NULL td then out
-    else Append (List (strlit "compiler output with tap data\n\n"
-      :: FLAT (MAP (\td. let (nm, data) = tap_data_strings td in
-        [strlit "-- "; nm; strlit " --\n\n"; data;
-          strlit "\n\n"]) td)
-      ++ [strlit "-- compiled data --\n\n"]))
-      out`;
+  add_tap_output td out =
+    if td = Nil then out else td :mlstring app_list`;
 
 (* The top-level compiler with everything instantiated except it doesn't do exporting *)
 
 (* The top-level compiler with almost everything instantiated except the top-level configuration *)
-val compile_64_def = Define`
+Definition compile_64_def:
   compile_64 cl input =
   let confexp = parse_target_64 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
-    (INL (conf,export), INL(heap,stack,sexp,prelude,typeinfer,onlyprinttypes,sexpprint)) =>
+    (INL (conf,export), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint)) =>
     (let ext_conf = extend_conf cl conf in
     case ext_conf of
       INL ext_conf =>
@@ -490,32 +647,64 @@ val compile_64_def = Define`
              exclude_prelude     := prelude;
              skip_type_inference := typeinfer;
              only_print_types    := onlyprinttypes;
-             only_print_sexp     := sexpprint|> in
+             only_print_sexp     := sexpprint;
+             |> in
         (case compiler$compile compiler_conf basis input of
           (Success (bytes,data,c), td) =>
             (add_tap_output td (export (the [] c.lab_conf.ffi_names)
-                heap stack bytes data),
+                bytes data c.symbols),
               implode "")
         | (Failure err, td) => (add_tap_output td (List []), error_to_str err))
     | INR err =>
     (List[], error_to_str (ConfigError (get_err_str ext_conf))))
   | _ =>
-    (List[], error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))`
+    (List[], error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))
+End
 
-val full_compile_64_def = Define `
+Definition compile_pancake_64_def:
+  compile_pancake_64 cl input =
+  let confexp = parse_target_64 cl in
+  case confexp of
+  | INR err => (List[], error_to_str (ConfigError err))
+  | INL (conf, export) =>
+      let topconf = parse_top_config cl in
+      case (topconf) of
+      | INR err => (List[], error_to_str (ConfigError err))
+      | INL (sexp, prelude, sexpprint) =>
+          let ext_conf = extend_conf cl conf in
+          case ext_conf of
+          | INR err =>
+              (List[], error_to_str (ConfigError (get_err_str ext_conf)))
+          | INL ext_conf =>
+              case compiler$compile_pancake ext_conf input of
+              | (Failure err) =>
+                  (List[], error_to_str err)
+              | (Success (bytes, data, c)) =>
+                  (export (the [] c.lab_conf.ffi_names) bytes data c.symbols, implode "")
+End
+
+Definition full_compile_64_def:
   full_compile_64 cl inp fs =
-    if has_version_flag cl then
-      add_stdout fs current_build_info_str
-    else
-      let (out, err) = compile_64 cl inp in
-      add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err`
+  if has_help_flag cl then
+    add_stdout fs help_string
+  else if has_version_flag cl then
+    add_stdout fs current_build_info_str
+  else
+    let (out, err) =
+        if has_pancake_flag cl then
+          compile_pancake_64 cl inp
+        else
+          compile_64 cl inp
+    in
+      add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err
+End
 
-val compile_32_def = Define`
+Definition compile_32_def:
   compile_32 cl input =
   let confexp = parse_target_32 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
-    (INL (conf,export), INL(heap,stack,sexp,prelude,typeinfer,onlyprinttypes,sexpprint)) =>
+    (INL (conf,export), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint)) =>
     (let ext_conf = extend_conf cl conf in
     case ext_conf of
       INL ext_conf =>
@@ -526,25 +715,56 @@ val compile_32_def = Define`
              exclude_prelude     := prelude;
              skip_type_inference := typeinfer;
              only_print_types    := onlyprinttypes;
-             only_print_sexp     := sexpprint
+             only_print_sexp     := sexpprint;
              |> in
         (case compiler$compile compiler_conf basis input of
           (Success (bytes,data,c), td) =>
             (add_tap_output td (export (the [] c.lab_conf.ffi_names)
-                heap stack bytes data),
+                bytes data c.symbols),
               implode "")
         | (Failure err, td) => (List [], error_to_str err))
     | INR err =>
     (List[], error_to_str (ConfigError (get_err_str ext_conf))))
   | _ =>
-    (List[], error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))`
+    (List[], error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))
+End
 
-val full_compile_32_def = Define `
+Definition compile_pancake_32_def:
+  compile_pancake_32 cl input =
+  let confexp = parse_target_32 cl in
+  case confexp of
+  | INR err => (List[], error_to_str (ConfigError err))
+  | INL (conf, export) =>
+      let topconf = parse_top_config cl in
+      case (topconf) of
+      | INR err => (List[], error_to_str (ConfigError err))
+      | INL (sexp, prelude, sexpprint) =>
+          let ext_conf = extend_conf cl conf in
+          case ext_conf of
+          | INR err =>
+              (List[], error_to_str (ConfigError (get_err_str ext_conf)))
+          | INL ext_conf =>
+              case compiler$compile_pancake ext_conf input of
+              | (Failure err) =>
+                  (List[], error_to_str err)
+              | (Success (bytes, data, c)) =>
+                  (export (the [] c.lab_conf.ffi_names) bytes data c.symbols, implode "")
+End
+
+Definition full_compile_32_def:
   full_compile_32 cl inp fs =
-    if has_version_flag cl then
-      add_stdout fs current_build_info_str
-    else
-      let (out, err) = compile_32 cl inp in
-      add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err`
+  if has_help_flag cl then
+    add_stdout fs help_string
+  else if has_version_flag cl then
+    add_stdout fs current_build_info_str
+  else
+    let (out, err) =
+        if has_pancake_flag cl then
+          compile_pancake_32 cl inp
+        else
+          compile_32 cl inp
+    in
+      add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err
+End
 
 val _ = export_theory();

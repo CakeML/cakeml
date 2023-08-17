@@ -198,6 +198,12 @@ Proof
   rw[strcat_def,concat_def] \\ CASE_TAC \\ rw[]
 QED
 
+Theorem concat_append:
+  concat (xs ++ ys) = concat xs ^ concat ys
+Proof
+  Induct_on `xs` \\ simp [concat_cons]
+QED
+
 Theorem implode_STRCAT:
    !l1 l2.
     implode(STRCAT l1 l2) = implode l1 ^ implode l2
@@ -265,7 +271,7 @@ val translate_def = Define`
 
 val translate_aux_thm = Q.prove (
   `!f s n len. (n + len = strlen s) ==> (translate_aux f s n len = MAP f (DROP n (explode s)))`,
-  Cases_on `s` \\ Induct_on `len` \\ rw [translate_aux_def, strlen_def, explode_def] >-
+  Cases_on `s` \\ Induct_on `len` \\ rw [translate_aux_def, strlen_def, explode_def] \\
   rw [DROP_LENGTH_NIL] \\
   rw [strsub_def, DROP_EL_CONS]
 );
@@ -511,6 +517,54 @@ Theorem fields_length:
    !f s. LENGTH (fields f s) = (LENGTH (FILTER f (explode s)) + 1)
 Proof
   rw [fields_def, fields_aux_length]
+QED
+
+Definition str_findi_def:
+  str_findi P i s = if i < strlen s
+    then if P (strsub s i) then SOME i else str_findi P (i + 1) s
+    else NONE
+Termination
+  WF_REL_TAC `measure (\(P, i, s). strlen s - i)`
+End
+
+Theorem str_findi_range:
+  !P i s. str_findi P i s = SOME j ==> i <= j /\ j < strlen s
+Proof
+  recInduct str_findi_ind
+  \\ rpt gen_tac
+  \\ disch_tac
+  \\ simp [Once str_findi_def]
+  \\ rw []
+  \\ fs []
+QED
+
+Theorem OLEAST_LE_STEP:
+  (OLEAST j. i <= j /\ P j) = (if P i then SOME i
+    else (OLEAST j. i + 1 <= j /\ P j))
+Proof
+  rw []
+  \\ simp [whileTheory.OLEAST_EQ_SOME]
+  \\ qmatch_goalsub_abbrev_tac `opt1 = $OLEAST _`
+  \\ Cases_on `opt1`
+  \\ fs [whileTheory.OLEAST_EQ_SOME]
+  \\ rw []
+  \\ fs [LESS_EQ |> REWRITE_RULE [ADD1] |> GSYM, arithmeticTheory.LT_LE]
+  \\ CCONTR_TAC
+  \\ fs []
+  \\ metis_tac []
+QED
+
+Theorem str_findi_OLEAST:
+  !P i s. str_findi P i s = (OLEAST j. i <= j /\ j < strlen s /\ P (strsub s j))
+Proof
+  recInduct str_findi_ind
+  \\ rw []
+  \\ simp [Once OLEAST_LE_STEP]
+  \\ simp [Once str_findi_def]
+  \\ rw []
+  \\ fs []
+  \\ CCONTR_TAC
+  \\ fs []
 QED
 
 val isStringThere_aux_def = Define`
@@ -773,13 +827,13 @@ Proof
   Cases >>
   Cases >>
   simp [mlstring_lt_def, compare_def, compare_aux_spec] >>
-  rpt (qpat_abbrev_tac `x = STRLEN _`) >>
+  qmatch_goalsub_abbrev_tac ‘if x < x' then _ else _’ >>
   rw []
   >- (
     `TAKE x s' ≤ s'` by metis_tac [take_prefix, string_prefix_le] >>
     fs [string_le_def] >>
     `x ≠ x'` by decide_tac >>
-    metis_tac [LENGTH_TAKE, LESS_OR_EQ])
+    unabbrev_all_tac >> fs [])
   >- metis_tac [string_lt_remove_take, TAKE_LENGTH_ID]
   >- metis_tac [string_lt_take_mono, TAKE_LENGTH_ID]
   >- metis_tac [take_prefix, string_prefix_le, LENGTH_TAKE, LESS_OR_EQ, string_lt_antisym, string_le_def]
@@ -995,6 +1049,33 @@ Proof
   rw [collate_def, collate_aux_greater_thm, collate_aux_equal_thm, collate_aux_less_thm]
 QED
 
+Definition char_escape_seq_def:
+  char_escape_seq c =
+    if c = #"\t"
+    then SOME (strlit "\\t")
+    else if c = #"\n"
+    then SOME (strlit "\\n")
+    else if c = #"\\"
+    then SOME (strlit "\\\\")
+    else if c = #"\""
+    then SOME (strlit "\\\"")
+    else NONE
+End
+
+Definition char_escaped_def:
+  char_escaped c = case char_escape_seq c of
+    NONE => [c]
+  | SOME s => explode s
+End
+
+Definition escape_str_def:
+  escape_str s = implode ("\"" ++ FLAT (MAP char_escaped (explode s)) ++ "\"")
+End
+
+Definition escape_char_def:
+  escape_char c = implode ("#\"" ++ char_escaped c ++ "\"")
+End
+
 Theorem ALL_DISTINCT_MAP_implode:
    ALL_DISTINCT ls ⇒ ALL_DISTINCT (MAP implode ls)
 Proof
@@ -1012,6 +1093,77 @@ Proof
   simp[explode_11]
 QED
 val _ = export_rewrites["ALL_DISTINCT_MAP_explode"]
+
+(* optimising mlstring app_list *)
+
+Datatype:
+  app_list_ann = BigList ('a list)
+               | BigAppend app_list_ann app_list_ann
+               | Small ('a app_list)
+End
+
+Definition sum_sizes_def:
+  sum_sizes [] k = k ∧
+  sum_sizes (l::ls) k = sum_sizes ls (strlen l + k)
+End
+
+Overload size_limit[local] = “2048:num”
+
+Definition make_app_list_ann_def:
+  make_app_list_ann input =
+    case input of
+    | Nil => (Small input, 0)
+    | Append l1 l2 =>
+        (let (x1,n1) = make_app_list_ann l1 in
+         let (x2,n2) = make_app_list_ann l2 in
+         let n = n1+n2 in
+           if n < size_limit then
+             (Small input,n)
+           else
+             (BigAppend x1 x2,n))
+    | List ls =>
+        (let n = sum_sizes ls 0 in
+           if n < size_limit then
+             (Small input,n)
+           else (BigList ls,n))
+End
+
+Definition shrink_def:
+  shrink (Small t) = List [concat (append t)] ∧
+  shrink (BigList ls) = List ls ∧
+  shrink (BigAppend l1 l2) = Append (shrink l1) (shrink l2)
+End
+
+Definition str_app_list_opt_def:
+  str_app_list_opt l =
+    let (t,n) = make_app_list_ann l in
+      shrink t
+End
+
+Triviality str_app_list_opt_test:
+  str_app_list_opt (Append (List [strlit "Hello"; strlit " there"])
+                           (List [strlit "!"])) =
+  List [strlit "Hello there!"]
+Proof
+  EVAL_TAC
+QED
+
+Theorem str_app_list_opt_thm:
+  concat (append (str_app_list_opt l)) = concat (append l)
+Proof
+  ‘str_app_list_opt l = shrink $ FST $ make_app_list_ann l’
+       by fs [str_app_list_opt_def,UNCURRY]
+  \\ fs [] \\ pop_assum kall_tac
+  \\ Induct_on ‘l’
+  >~ [‘Nil’] >- EVAL_TAC
+  >~ [‘Append’] >-
+   (simp [Once make_app_list_ann_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ IF_CASES_TAC
+    \\ gvs [shrink_def,concat_cons,concat_nil,concat_append])
+  \\ simp [Once make_app_list_ann_def] \\ rw []
+  \\ gvs [shrink_def,concat_cons,concat_nil,concat_append]
+QED
 
 (* The translator turns each `empty_ffi s` into a call to the FFI with
    an empty name and passing `s` as the argument. The empty FFI is

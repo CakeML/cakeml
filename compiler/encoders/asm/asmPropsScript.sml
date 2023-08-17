@@ -70,9 +70,11 @@ val target_ok_def = Define`
 val interference_ok_def = Define `
   interference_ok env proj <=> !i:num ms. proj (env i ms) = proj ms`;
 
-val all_pcs_def = Define`
+val _ = TotalDefn.temp_export_termsimp "arithmetic.ZERO_LT_EXP"
+Definition all_pcs_def:
   (all_pcs 0n a k = {}) ∧
-  (all_pcs n a k = a INSERT all_pcs (n-(2 ** k)) (a + n2w (2 ** k)) k)`
+  (all_pcs n a k = a INSERT all_pcs (n-(2 ** k)) (a + n2w (2 ** k)) k)
+End
 
 Theorem all_pcs_thm:
    all_pcs n a k = { a + n2w (i * (2 ** k)) | i | i * (2 ** k) < n }

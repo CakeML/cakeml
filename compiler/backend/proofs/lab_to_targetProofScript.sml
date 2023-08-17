@@ -12,6 +12,10 @@ local open stack_removeProofTheory in end
 val _ = new_theory "lab_to_targetProof";
 val drule = old_drule
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
 
 val evaluate_ignore_clocks = Q.prove(
@@ -179,7 +183,8 @@ val evaluate_nop_steps = Q.prove(
   \\ full_simp_tac(srw_ss())[ADD_ASSOC] \\ rpt strip_tac
   \\ first_x_assum (mp_tac o Q.SPEC `k`)
   \\ first_x_assum (mp_tac o Q.SPEC `k+l'`)
-  \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]);
+  \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
+  \\ gvs [word_add_n2w]);
 
 val asm_step_IMP_evaluate_step_nop = Q.prove(
   `!c s1 ms1 io i s2 bytes.
@@ -238,6 +243,7 @@ val asm_step_IMP_evaluate_step_nop = Q.prove(
   \\ Cases_on `i` \\ full_simp_tac(srw_ss())[asm_def]
   \\ full_simp_tac(srw_ss())[LENGTH_FLAT,SUM_REPLICATE,map_replicate]
   \\ full_simp_tac std_ss [GSYM WORD_ADD_ASSOC,word_add_n2w]
+  \\ fs [GSYM word_add_n2w]
   THEN1 (Cases_on `i'` \\ full_simp_tac(srw_ss())[inst_def,upd_pc_def]
     \\ full_simp_tac std_ss [GSYM WORD_ADD_ASSOC,word_add_n2w])
   \\ full_simp_tac(srw_ss())[jump_to_offset_def,upd_pc_def]
@@ -4276,8 +4282,8 @@ Proof
   \\ rveq \\ fs[]
 QED
 
-val lab_lookup_compute_labels_test = Q.prove(
-  `∀pos sec_list acc l1 l2 x2 c labs ffis nop.
+Theorem lab_lookup_compute_labels_test[local]:
+  ∀pos sec_list acc l1 l2 x2 c labs ffis nop.
       EVERY sec_labels_ok sec_list /\
       ALL_DISTINCT (MAP Section_num sec_list) ∧
       EVERY (ALL_DISTINCT o extract_labels o Section_lines) sec_list ∧
@@ -4285,12 +4291,10 @@ val lab_lookup_compute_labels_test = Q.prove(
       all_enc_ok c labs ffis pos sec_list /\
       loc_to_pc l1 l2 sec_list = SOME x2 ==>
       lab_lookup l1 l2 (compute_labels_alt pos sec_list acc) =
-      SOME (pos_val x2 pos sec_list)`,
+      SOME (pos_val x2 pos sec_list)
+Proof
   ho_match_mp_tac compute_labels_alt_ind>>fs[]>>
-  CONJ_TAC
-  >-
-    (rw[]>>
-    fs[compute_labels_alt_def,loc_to_pc_def])
+  CONJ_TAC >- (rw[]>> fs[compute_labels_alt_def,loc_to_pc_def])
   \\ rw[compute_labels_alt_def,pos_val_thm]
   \\ pop_assum mp_tac
   \\ simp[Once loc_to_pc_thm]
@@ -4339,6 +4343,7 @@ val lab_lookup_compute_labels_test = Q.prove(
     \\ disch_then drule \\ simp[]
     \\ disch_then(qspecl_then[`pos`,`[]`]strip_assume_tac) \\ rfs[]
     \\ match_mp_tac EQ_SYM
+    \\ simp[lookup_insert, lookup_fromAList]
     \\ match_mp_tac pos_val_0
     \\ asm_exists_tac \\ fs[])
   \\ strip_tac
@@ -4350,7 +4355,8 @@ val lab_lookup_compute_labels_test = Q.prove(
   \\ simp[] \\ strip_tac
   \\ qspecl_then[`pos`,`lines`,`[]`]mp_tac section_labels_sec_length \\ rw[]
   \\ qspecl_then[`lines`,`pos`]mp_tac sec_length_sum_line_length \\ rw[] \\ fs[]
-  \\ first_x_assum match_mp_tac \\ asm_exists_tac \\ fs[]);
+  \\ first_x_assum match_mp_tac \\ asm_exists_tac \\ fs[]
+QED
 
 Theorem enc_lines_again_simp_ends_with_label:
    ∀labs ffis pos enc ls res ok.
@@ -4919,7 +4925,8 @@ Proof
   >> IF_CASES_TAC
   >- (
     Cases_on`h`>>full_simp_tac(srw_ss())[enc_line_def]
-    >> rev_full_simp_tac(srw_ss())[enc_sec_def] >> full_simp_tac(srw_ss())[])
+    >> rev_full_simp_tac(srw_ss())[enc_sec_def] >> full_simp_tac(srw_ss())[]
+    >> metis_tac [])
   >> IF_CASES_TAC
   >- ( Cases_on`h`>>full_simp_tac(srw_ss())[enc_line_def,LET_THM] )
   >> IF_CASES_TAC
@@ -6551,7 +6558,7 @@ val IMP_state_rel_make_init = Q.prove(
    list_subset (find_ffi_names code) mc_conf.ffi_names ∧
     remove_labels clock mc_conf.target.config 0 LN mc_conf.ffi_names code =
       SOME (code2,labs) /\
-    good_init_state mc_conf ms ffi (prog_to_bytes code2)
+    good_init_state mc_conf ms (prog_to_bytes code2)
       cbspace t m dm io_regs cc_regs
       ==>
     state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
@@ -6577,8 +6584,9 @@ val IMP_state_rel_make_init = Q.prove(
         ccache_interfer_ok_def]
   \\ rfs[]
   \\ conj_tac >- (
-    rw[] \\ first_x_assum irule
-    \\ rw[] \\ asm_exists_tac \\ rw[] )
+    rw[] >> first_x_assum irule >> simp[] >>
+    gvs[call_FFI_def, AllCaseEqs()]
+    )
   \\ conj_tac >-
     (strip_tac >>
     pairarg_tac >> fs[]>>
@@ -6733,7 +6741,7 @@ val semantics_compile_lemma = Q.prove(
     lab_to_target$compile (c:'a lab_to_target$config) code = SOME (bytes,c') /\
     (* FFI is either given or computed *)
     c'.ffi_names = SOME mc_conf.ffi_names /\
-    good_init_state mc_conf ms ffi bytes cbspace t m dm io_regs cc_regs /\
+    good_init_state mc_conf ms bytes cbspace t m dm io_regs cc_regs /\
     semantics (make_init mc_conf ffi io_regs cc_regs t m dm ms code
       lab_to_target$compile (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
       coracle
@@ -6792,7 +6800,7 @@ Theorem semantics_compile:
    c.labels = LN ∧ c.pos = 0 ∧
    compile c code = SOME (bytes,c') ∧
    c'.ffi_names = SOME (mc_conf.ffi_names) /\
-   good_init_state mc_conf ms (ffi:'ffi ffi_state) bytes cbspace t m dm io_regs cc_regs ⇒
+   good_init_state mc_conf ms bytes cbspace t m dm io_regs cc_regs ⇒
    implements' T (machine_sem mc_conf ffi ms)
      {semantics
         (make_init mc_conf ffi io_regs cc_regs t m (dm ∩ byte_aligned) ms code

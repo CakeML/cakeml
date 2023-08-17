@@ -312,8 +312,6 @@ Proof
   >> rpt(first_x_assum(assume_tac o MATCH_MP is_subsequence_cons'))
   >> fs[]
    >- metis_tac[cons_is_subsequence, LESS_EQ_SUC_REFL, LESS_EQ_TRANS]
-   >- metis_tac[cons_is_subsequence, LESS_EQ_SUC_REFL, LESS_EQ_TRANS]
-   >- metis_tac[cons_is_subsequence, LESS_EQ_SUC_REFL, LESS_EQ_TRANS]
    >- (`LENGTH(TL s') ≤ LENGTH l` by metis_tac[cons_is_subsequence, LESS_EQ_SUC_REFL, LESS_EQ_TRANS]
        >> Cases_on `s'`
        >> fs[])

@@ -7,6 +7,8 @@ open preamble ml_translatorTheory ml_translatorLib ml_progLib
      CommandLineProofTheory TextIOProofTheory
      runtimeFFITheory RuntimeProofTheory
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory"basis_ffi";
 
 (*---------------------------------------------------------------------------*)
@@ -420,7 +422,7 @@ Theorem STDIO_precond = Q.prove(`
   rw[STDIO_def,IOFS_precond,SEP_EXISTS_THM,SEP_CLAUSES] >>
   qexists_tac`fs.numchars` >>
   mp_tac (IOFS_precond |> DISCH_ALL |> GEN ``fs : IO_fs``)>>
-  cases_on`fs` >> fs[IO_fs_numchars_fupd]) |> UNDISCH_ALL |> curry save_thm "STDIO_precond";
+  cases_on`fs` >> fs[recordtype_IO_fs_seldef_numchars_fupd_def]) |> UNDISCH_ALL |> curry save_thm "STDIO_precond";
 
 Theorem RUNTIME_precond:
    RUNTIME {FFI_part (encode ()) (mk_ffi_next runtime_ffi_part)
@@ -458,26 +460,38 @@ val whole_prog_ffidiv_spec_def = Define`
       (POSTf n. λc b. STDIO fs' * RUNTIME * &(n = n' /\ c = c' /\ b = b')) ∧
     post n' c' b' (fs' with numchars := fs.numchars)`;
 
-Theorem whole_prog_spec_semantics_prog:
+val whole_prog_spec2_def = Define`
+  whole_prog_spec2 fv cl fs sprop post ⇔
+    app (basis_proj1, basis_proj2) fv [Conv NONE []]
+      (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME p => p)
+      (POSTv uv. &UNIT_TYPE () uv *
+      SEP_EXISTS fs'.
+        STDIO fs' * &(post (fs' with numchars := fs.numchars))
+      )`;
+
+Theorem whole_prog_spec2_semantics_prog:
    ∀fname fv.
-     Decls env1 (init_state (basis_ffi cl fs)) prog env2 st2 ==>
+     Decls env1 (init_state (basis_ffi cl fs) with eval_state := es) prog env2 st2 ==>
      lookup_var fname env2 = SOME fv ==>
-     whole_prog_spec fv cl fs sprop Q ==>
+     whole_prog_spec2 fv cl fs sprop Q ==>
      (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
      (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME Q => Q) h1)
    ==>
    ∃io_events fs'.
-     semantics_prog (init_state (basis_ffi cl fs)) env1
+     semantics_prog (init_state (basis_ffi cl fs) with eval_state := es) env1
        (SNOC ^main_call prog) (Terminate Success io_events) /\
      extract_fs fs io_events = SOME fs' ∧ Q fs'
 Proof
-  rw[whole_prog_spec_def]
+  rw[whole_prog_spec2_def]
   \\ drule (GEN_ALL call_main_thm2)
   \\ rpt(disch_then drule)
   \\ disch_then (qspecl_then [`h2`, `h1`] mp_tac)
   \\ impl_keep_tac
   >- (
     rw[STDIO_def]
+    \\ ho_match_mp_tac FFI_part_hprop_SEP_EXISTS
+    \\ strip_tac
+    \\ match_mp_tac FFI_part_hprop_STAR \\ disj1_tac
     \\ match_mp_tac FFI_part_hprop_STAR \\ disj1_tac
     \\ ho_match_mp_tac FFI_part_hprop_SEP_EXISTS
     \\ metis_tac[IOFS_FFI_part_hprop] )
@@ -490,7 +504,6 @@ Proof
   \\ simp[Once extract_fs_with_numchars_def]
   \\ simp[Once ml_progTheory.init_state_def]
   \\ rw[basis_proj1_write,Once basis_ffi_def]
-  \\ `∃ll. SND st3.ffi.ffi_state = fs' with numchars := ll` suffices_by ( rw[] \\ rw[] )
   \\ fs[STDIO_def, IOFS_def,cfHeapsBaseTheory.IO_def,
         cfHeapsBaseTheory.IOx_def, set_sepTheory.SEP_CLAUSES,
         set_sepTheory.SEP_EXISTS_THM, fsFFITheory.fs_ffi_part_def]
@@ -509,16 +522,44 @@ Proof
   \\ metis_tac[]
 QED
 
+Theorem whole_prog_spec_semantics_prog:
+   ∀fname fv.
+     Decls env1 (init_state (basis_ffi cl fs) with eval_state := es) prog env2 st2 ==>
+     lookup_var fname env2 = SOME fv ==>
+     whole_prog_spec fv cl fs sprop Q ==>
+     (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
+     (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME Q => Q) h1)
+   ==>
+   ∃io_events fs'.
+     semantics_prog (init_state (basis_ffi cl fs) with eval_state := es) env1
+       (SNOC ^main_call prog) (Terminate Success io_events) /\
+     extract_fs fs io_events = SOME fs' ∧ Q fs'
+Proof
+  rw[]>>
+  match_mp_tac (whole_prog_spec2_semantics_prog|> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
+  asm_exists_tac>>
+  simp[]>>
+  qexists_tac`sprop`>>rw[]
+  >- (
+    fs[whole_prog_spec_def,whole_prog_spec2_def]>>
+    drule app_weaken>>
+    disch_then match_mp_tac>>
+    xsimpl>> rw[]>>
+    qexists_tac`fs'`>>xsimpl)
+  >>
+  metis_tac[]
+QED
+
 Theorem whole_prog_spec_semantics_prog_ffidiv:
    ∀fname fv.
-     Decls env1 (init_state (basis_ffi cl fs)) prog env2 st2 ==>
+     Decls env1 (init_state (basis_ffi cl fs) with eval_state := es) prog env2 st2 ==>
      lookup_var fname env2 = SOME fv ==>
      whole_prog_ffidiv_spec fv cl fs Q ==>
      (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
      (COMMANDLINE cl * STDIO fs * RUNTIME) h1)
    ==>
    ∃io_events fs' n c b.
-     semantics_prog (init_state (basis_ffi cl fs)) env1
+     semantics_prog (init_state (basis_ffi cl fs) with eval_state := es) env1
        (SNOC ^main_call prog)
        (Terminate (FFI_outcome(Final_event n c b FFI_diverged)) io_events) /\
      extract_fs fs io_events = SOME fs' ∧ Q n c b fs'
@@ -679,6 +720,12 @@ Proof
   rw[]
   \\ qexists_tac `s` \\ qexists_tac `C DIFF s`
   \\ SPLIT_TAC
+QED
+
+Theorem same_eval_state:
+  (s with eval_state := s.eval_state) = s
+Proof
+  fs [semanticPrimitivesTheory.state_component_equality]
 QED
 
 val _ = export_theory();

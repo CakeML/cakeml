@@ -13,14 +13,32 @@ Translate the ARMv7 instruction encoder and ARMv7-specific config.
 [arm8ProgScript.sml](arm8ProgScript.sml):
 Translate the ARMv8 instruction encoder and ARMv8-specific config.
 
+[caml_lexProgScript.sml](caml_lexProgScript.sml):
+Translation of the OCaml lexer.
+
+[caml_parserProgScript.sml](caml_parserProgScript.sml):
+Translation of the functions in caml_parserScript.sml
+
 [compiler32ProgScript.sml](compiler32ProgScript.sml):
 Finish translation of the 32-bit version of the compiler.
 
 [compiler64ProgScript.sml](compiler64ProgScript.sml):
 Finish translation of the 64-bit version of the compiler.
 
+[decProgScript.sml](decProgScript.sml):
+Translation of CakeML source AST
+
+[decodeProgScript.sml](decodeProgScript.sml):
+Translate the compiler's state decoder.
+
 [explorerProgScript.sml](explorerProgScript.sml):
 Translate the compiler explorer parts of the compiler.
+
+[from_pancake32ProgScript.sml](from_pancake32ProgScript.sml):
+Translate the pan_to_target part of the 32-bit compiler.
+
+[from_pancake64ProgScript.sml](from_pancake64ProgScript.sml):
+Translate the pan_to_target part of the 64-bit compiler.
 
 [inferProgScript.sml](inferProgScript.sml):
 Translate the compiler's type inferencer.
@@ -34,8 +52,17 @@ Translate the compiler's lexer.
 [mipsProgScript.sml](mipsProgScript.sml):
 Translate the MIPS instruction encoder and MIPS-specific config.
 
+[pancake_lexProgScript.sml](pancake_lexProgScript.sml):
+Translate pancake's lexer
+
+[pancake_parseProgScript.sml](pancake_parseProgScript.sml):
+Translate pancake's lexer
+
 [parserProgScript.sml](parserProgScript.sml):
 Translate the compiler's parser.
+
+[printingProgScript.sml](printingProgScript.sml):
+Translate the pretty printing functions for the REPL
 
 [reg_allocProgScript.sml](reg_allocProgScript.sml):
 Translate the compiler's register allocator.
@@ -53,16 +80,13 @@ Translate the backend phase from BVL to BVI.
 Translate the backend phase from closLang to BVL.
 
 [to_closProgScript.sml](to_closProgScript.sml):
-Translate the backend phase from patLang to closLang.
+Translate the backend phase from flatLang to closLang.
 
 [to_dataProgScript.sml](to_dataProgScript.sml):
 Translate the backend phase from BVI to dataLang.
 
 [to_flatProgScript.sml](to_flatProgScript.sml):
 Translate backend phases up to and including flatLang.
-
-[to_patProgScript.sml](to_patProgScript.sml):
-Translate the backend phase from flatLang to patLang.
 
 [to_target32ProgScript.sml](to_target32ProgScript.sml):
 Translate the final part of the compiler backend for 32-bit targets.

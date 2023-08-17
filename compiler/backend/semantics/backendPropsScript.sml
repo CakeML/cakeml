@@ -174,10 +174,18 @@ Theorem is_state_oracle_shift:
         FST (FST (co 1)) = FST (compile_inc_f (FST (FST (co 0))) (SND (co 0))))
 Proof
   fs [is_state_oracle_def, shift_seq_def]
-  \\ EQ_TAC \\ rw [] \\ fs [sptreeTheory.ADD_1_SUC]
+  \\ EQ_TAC \\ rw [] \\ fs [GSYM arithmeticTheory.ADD1]
   \\ full_simp_tac bool_ss [arithmeticTheory.ONE]
   \\ Cases_on `n`
   \\ fs []
+QED
+
+Theorem is_state_oracle_shift_imp:
+  is_state_oracle compile_inc_f co ==>
+  is_state_oracle compile_inc_f (shift_seq n co)
+Proof
+  rw [is_state_oracle_def, shift_seq_def]
+  \\ fs [arithmeticTheory.ADD_CLAUSES]
 QED
 
 Theorem is_state_oracle_k:
@@ -296,7 +304,7 @@ Proof
         (!j. j <= i ==> n_f (FST (FST (orac j))) <= n_f (FST (FST (orac i))))`
   by (
     Induct \\ fs [is_state_oracle_def]
-    \\ fs [PAIR_FST_SND_EQ, seqTheory.LE_SUC]
+    \\ fs [PAIR_FST_SND_EQ, LE]
     \\ rw [] \\ fs []
     \\ metis_tac [LESS_EQ_TRANS]
   )

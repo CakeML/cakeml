@@ -1,9 +1,10 @@
 (*
-  TODO: document
+  Proof about the primitive semantic environment
 *)
 open preamble;
 open libTheory astTheory evaluateTheory semanticPrimitivesTheory;
 open semanticsTheory;
+open evaluateTheory;
 open semanticPrimitivesPropsTheory;
 open evaluateComputeLib;
 open primTypesTheory;
@@ -12,32 +13,24 @@ open typeSoundInvariantsTheory;
 open namespaceTheory;
 open namespacePropsTheory;
 open typeSysPropsTheory;
-open terminationTheory;
 
 val _ = new_theory "primSemEnv";
 
+
 val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
-``add_to_sem_env (<| clock := 0; ffi := (ffi:'ffi ffi_state); refs := [];
-                     next_exn_stamp := 0; next_type_stamp := 0; |>,
-                  <| c := nsEmpty; v := nsEmpty |>)
-                 prim_types_program``
-  |> SIMP_CONV(srw_ss())[add_to_sem_env_def, prim_types_program_def]
-  |> CONV_RULE evaluate_conv
-  |> (fn th => let
-        val pth = SPEC_ALL prim_sem_env_def
-        val th1 = mk_eq(rhs(concl pth),lhs(concl th)) |> EVAL |> EQT_ELIM
-        in TRANS (TRANS pth th1) th end));
+  EVAL ``prim_sem_env (ffi:'ffi ffi_state)``);
 
 Theorem prim_type_sound_invariants:
-   !type_ids sem_st prim_env.
-   (sem_st,prim_env) = THE (prim_sem_env ffi) ∧
-   DISJOINT type_ids {Tlist_num; Tbool_num; Texn_num}
-   ⇒
-   ?ctMap.
-     type_sound_invariant sem_st prim_env ctMap FEMPTY type_ids prim_tenv ∧
-     FRANGE ((SND o SND) o_f ctMap) ⊆ prim_type_ids
+  ∀type_ids sem_st prim_env.
+    (sem_st,prim_env) = THE (prim_sem_env ffi) ∧
+    DISJOINT type_ids {Tlist_num; Tbool_num; Texn_num}
+    ⇒
+    ?ctMap.
+      type_sound_invariant sem_st prim_env ctMap FEMPTY type_ids prim_tenv ∧
+      FRANGE ((SND o SND) o_f ctMap) ⊆ prim_type_ids
 Proof
   rw[type_sound_invariant_def, prim_sem_env_eq, prim_tenv_def] >>
+  gvs [evaluate_decs_def,check_dup_ctors_def,combine_dec_result_def] >>
   qexists_tac`FEMPTY |++ REVERSE [
       (bind_stamp, ([],[],Texn_num));
       (div_stamp, ([],[],Texn_num));
@@ -69,17 +62,17 @@ Proof
          flookup_fupdate_list] >>
     CCONTR_TAC >>
     fs [] >>
-    every_case_tac >>
-    rw [] >>
-    fs [])
+    fs [AllCaseEqs()] >>
+    rw [] >> fs [])
   >- (
     simp [type_all_env_def, GSYM namespaceTheory.nsEmpty_def,
           GSYM namespaceTheory.nsBind_def] >>
+    fs [nsAppend_def,build_tdefs_def,build_constrs_def] >>
     rpt (
       irule nsAll2_nsBind >>
       rw [type_ctor_def, flookup_fupdate_list, bind_stamp_def, div_stamp_def,
-          chr_stamp_def, subscript_stamp_def,
-          bool_type_num_def, list_type_num_def]))
+          chr_stamp_def, subscript_stamp_def,nsSing_def,GSYM nsBind_def,
+          bool_type_num_def, list_type_num_def, GSYM nsEmpty_def]))
   >- simp [type_s_def, store_lookup_def]
   >- (
     simp[SUBSET_DEF]

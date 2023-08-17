@@ -8,6 +8,10 @@ open preamble mlstringTheory setSpecTheory holSyntaxLibTheory holSyntaxTheory ho
 
 val _ = new_theory"holExtension"
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``

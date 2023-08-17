@@ -18,13 +18,21 @@ val _ = ml_prog_update open_local_block;
 (* val get_buffered_in_def = Define `get_out (InstreamBuffered)` *)
 
 
-val _ = Datatype `instream = Instream mlstring`;
-val _ = Datatype `outstream = Outstream mlstring`;
+Datatype:
+  instream = Instream mlstring
+End
 
-val get_out_def = Define `get_out (Outstream s) = s`;
-val get_in_def  = Define `get_in  (Instream s) = s`;
+Datatype:
+  outstream = Outstream mlstring
+End
 
+Definition get_out_def:
+  get_out (Outstream s) = s
+End
 
+Definition get_in_def:
+  get_in (Instream s) = s
+End
 
 val _ = (use_full_type_names := false);
 val _ = register_type ``:instream``;
@@ -39,6 +47,13 @@ val instreamBuffered_def = (append_prog o process_topdecs)
     (int ref)   (* write index *)
     byte_array`;
 
+val cur_env = get_env (get_ml_prog_state());
+val stamp_eval = EVAL ``nsLookup (^cur_env).c (Short "InstreamBuffered")``
+val instreambuffered_con_stamp = rhs (concl stamp_eval)
+
+Definition instreambuffered_con_stamp_def[simp]:
+  instreambuffered_con_stamp = OPTION_MAP SND ^instreambuffered_con_stamp
+End
 
 val _ = (next_ml_names := ["get_out"]);
 val _ = translate get_out_def;
@@ -101,7 +116,7 @@ val eval_thm = let
   val v_def = define_abbrev false "iobuff_loc" v_tm
   in v_thm |> REWRITE_RULE [GSYM v_def] end
 
-val _ = ml_prog_update (add_Dlet eval_thm "iobuff" []);
+val _ = ml_prog_update (add_Dlet eval_thm "iobuff");
 
 val _ = ml_prog_update open_local_in_block;
 
@@ -243,7 +258,7 @@ in input0 off len 0 end
 val _ = ml_prog_update open_local_in_block;
 
 val _ = (append_prog o process_topdecs)`
-  fun input1 fd = Some (Char.chr(Word8.toInt(read_byte (get_in fd)))) handle EndOfFile => None`
+  fun input1 fd = Char.some(Char.fromByte(read_byte (get_in fd))) handle EndOfFile => None`
 
 val _ = ml_prog_update open_local_block;
 
@@ -397,6 +412,21 @@ val _ = (append_prog o process_topdecs)`
 
 (*Buffered IO section*)
 
+(*Open a buffered stdin with a buffer size of bsize.
+  Force 1028 <= size < 256^2*)
+val _ =
+  process_topdecs`
+fun b_openStdInSetBufferSize bsize =
+      InstreamBuffered stdIn (Ref 4) (Ref 4)
+        (Word8Array.array (min 65535 (max (bsize+4) 1028))
+          (Word8.fromInt 48))
+` |> append_prog
+
+val _ =
+  process_topdecs`
+fun b_openStdIn () = b_openStdInSetBufferSize 4096
+` |> append_prog
+
 (*Open a buffered instream with a buffer size of bsize.
   Force 1028 <= size < 256^2*)
 val _ =
@@ -486,12 +516,12 @@ val _ = (append_prog o process_topdecs)`
 val _ = (append_prog o process_topdecs)`
  fun b_input1_aux is =
    case is of InstreamBuffered fd rref wref surplus =>
-          if (!wref) = (!rref) then None
-          else
-            let val readat = (!rref) in
-              rref := (!rref) + 1;
-              Some (Char.chr (Word8.toInt (Word8Array.sub surplus readat)))
-            end`;
+          let val readat = (!rref) in
+            if (!wref) = readat then None
+            else
+              (rref := readat + 1;
+              Char.some (Char.fromByte (Word8Array.sub surplus readat)))
+          end`;
 
 val _ = ml_prog_update open_local_in_block;
 
@@ -508,31 +538,111 @@ val _ = (append_prog o process_topdecs)`
   fun b_inputUntil_aux is (chr:char) =
     case b_input1 is of
       Some c =>  (if c <> chr then (c::b_inputUntil_aux is chr) else (c::[]))
-      |None => []`;
+    | None => []`;
+
+Definition compress_def:
+  compress chrs = mlstring$implode (REVERSE chrs)
+End
+
+val _ = translate compress_def;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputLine_aux is k chrs strs =
+    case b_input1 is of
+      None =>
+        if List.null chrs andalso List.null strs
+        then None
+        else Some (String.concat (List.rev (compress (#"\n"::chrs) :: strs)))
+    | Some c =>
+        if c = #"\n"
+        then Some (String.concat (List.rev (compress (c::chrs) :: strs)))
+        else if k = 0
+             then b_inputLine_aux is 500 [] (compress (c::chrs) :: strs)
+             else b_inputLine_aux is (k-1) (c::chrs) strs`;
+
+Definition some_compress_def:
+  some_compress g is_emp chrs acc =
+    if is_emp then NONE else
+      SOME (REVERSE (if NULL chrs then acc else g (compress chrs) :: acc))
+End
+
+val _ = translate some_compress_def;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputLineTokens_aux is f g is_emp chrs acc =
+    case b_input1 is of
+      None => some_compress g is_emp chrs acc
+    | Some c =>
+        if c = #"\n"
+        then some_compress g False chrs acc
+        else if f c
+             then if List.null chrs
+                  then b_inputLineTokens_aux is f g False [] acc
+                  else b_inputLineTokens_aux is f g False [] (g (compress chrs) :: acc)
+             else b_inputLineTokens_aux is f g False (c::chrs) acc`;
 
 val _ = ml_prog_update open_local_in_block;
 
 val _ = (append_prog o process_topdecs)`
   fun b_inputUntil is chr = String.implode (b_inputUntil_aux is chr)`;
 
+val _ = (append_prog o process_topdecs)`
+  fun b_inputLine is = b_inputLine_aux is 500 [] []`;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputLine is =
-    let
-      val line = b_inputUntil is #"\n"
-      val nlStr = String.str #"\n"
-    in
-      if line = "" then None
-      else
-        (if String.isSuffix nlStr line then Some line
-         else Some (String.strcat line nlStr))
-    end`;
+  fun b_inputLineTokens is f g = b_inputLineTokens_aux is f g True [] []`;
+
+val _ = ml_prog_update open_local_block;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputLines_aux is acc =
+     case b_inputLine is of
+       None => List.rev acc
+     | Some l => b_inputLines_aux is (l::acc)`;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputAllTokens_aux is f g acc =
+     case b_inputLineTokens is f g of
+       None => List.rev acc
+     | Some l => b_inputAllTokens_aux is f g (l::acc)`;
+
+val _ = (append_prog o process_topdecs) `
+  fun b_consume_rest is =
+    case b_input1 is of
+      None => ()
+    | Some c => b_consume_rest is;`;
+
+val _ = (append_prog o process_topdecs) `
+  fun b_open_option stdin_or_fname =
+    case stdin_or_fname of
+      None (* stdin *) =>
+                    (let
+                       val is = b_openStdIn ()
+                     in Some (is, (fn () => b_consume_rest is)) end)
+    | Some fname => (let
+                       val is = b_openIn fname
+                     in Some (is, (fn () => b_closeIn is)) end
+                     handle BadFileName => None)`;
+
+val _ = (append_prog o process_topdecs) `
+  fun fold_chars_loop f is y =
+    case b_input1 is of
+      None => y
+    | Some c => fold_chars_loop f is (f c y);
+  fun fold_lines_loop f is y =
+    case b_inputLine is of
+      None => y
+    | Some c => fold_lines_loop f is (f c y);
+  fun fold_tokens_loop g h f is y =
+    case b_inputLineTokens is g h of
+      None => y
+    | Some c => fold_tokens_loop g h f is (f c y);`;
+
+val _ = ml_prog_update open_local_in_block;
 
 val _ = (append_prog o process_topdecs)`
   fun b_inputLines is =
-     case b_inputLine is of
-       None => []
-       |Some l => (l :: b_inputLines is)`;
+    b_inputLines_aux is []`;
 
 val _ = (append_prog o process_topdecs) `
   fun b_inputLinesFrom fname =
@@ -542,6 +652,69 @@ val _ = (append_prog o process_topdecs) `
     in
       b_closeIn is; Some lines
     end handle BadFileName => None`;
+
+val _ = (append_prog o process_topdecs) `
+  fun b_inputLinesStdIn () =
+    let
+      val is = b_openStdIn ()
+    in
+      b_inputLines is
+    end`;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputAllTokens is f g =
+    b_inputAllTokens_aux is f g []`;
+
+val _ = (append_prog o process_topdecs) `
+  fun b_inputAllTokensFrom fname f g =
+    let
+      val is = b_openIn fname
+      val lines = b_inputAllTokens is f g
+    in
+      b_closeIn is; Some lines
+    end handle BadFileName => None`;
+
+val _ = (append_prog o process_topdecs) `
+  fun b_inputAllTokensStdIn f g =
+    let
+      val is = b_openStdIn ()
+      val lines = b_inputAllTokens is f g
+    in
+      Some lines (* TODO: remove the OPTION on the return value *)
+    end`;
+
+val _ = (append_prog o process_topdecs) `
+  fun foldChars f x stdin_or_fname =
+    case b_open_option stdin_or_fname of
+      None => None
+    | Some (is,close) =>
+      (let
+         val res = fold_chars_loop f is x
+         val _ = close ()
+       in Some res end
+       handle e => (close (); raise e))`;
+
+val _ = (append_prog o process_topdecs) `
+  fun foldLines f x stdin_or_fname =
+    case b_open_option stdin_or_fname of
+      None => None
+    | Some (is,close) =>
+      (let
+         val res = fold_lines_loop f is x
+         val _ = close ()
+       in Some res end
+       handle e => (close (); raise e))`;
+
+val _ = (append_prog o process_topdecs) `
+  fun foldTokens g h f x stdin_or_fname =
+    case b_open_option stdin_or_fname of
+      None => None
+    | Some (is,close) =>
+      (let
+         val res = fold_tokens_loop g h f is x
+         val _ = close ()
+       in Some res end
+       handle e => (close (); raise e))`;
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);

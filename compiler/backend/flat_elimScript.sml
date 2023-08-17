@@ -6,17 +6,17 @@
   Removes unreachable globals from the code.
 *)
 
-open preamble sptreeTheory flatLangTheory reachable_sptTheory
+open preamble sptreeTheory flatLangTheory spt_closureTheory
 
 val _ = new_theory "flat_elim";
 
-val _ = set_grammar_ancestry ["reachable_spt", "flatLang", "misc"]
+val _ = set_grammar_ancestry ["spt_closure", "flatLang", "misc"]
 val _ = temp_tight_equality();
 
 (**************************** ANALYSIS FUNCTIONS *****************************)
 
 (* is_hidden exp = T means there is no direct execution of GlobalVarLookup *)
-val is_hidden_def = tDefine "is_hidden" `
+Definition is_hidden_def:
     (is_hidden (Raise t e) = is_hidden e) ∧
         (* raise exception *)
     (is_hidden (Handle t e pes) = F) ∧
@@ -44,17 +44,26 @@ val is_hidden_def = tDefine "is_hidden" `
     (is_hidden (Letrec t funs e) = is_hidden e) ∧
         (* local def of mutually recursive funs *)
     (is_hidden _ = F)
-`
-    (
-        WF_REL_TAC `measure (λ e . exp_size e)` >> rw[exp_size_def] >>
-        Induct_on `es` >> rw[exp_size_def] >> fs[]
-    );
+Termination
+  WF_REL_TAC `measure (λ e . exp_size e)` >> rw[exp_size_def]
+End
 
-val is_hidden_ind = theorem "is_hidden_ind";
+Definition total_pat_def:
+  total_pat Pany = T /\
+  total_pat (Pvar _) = T /\
+  total_pat (Pcon NONE xs) = total_pat_list xs /\
+  total_pat (Pas p _) = total_pat p /\
+  total_pat _ = F /\
+  total_pat_list [] = T /\
+  total_pat_list (p::ps) = (total_pat p /\ total_pat_list ps)
+Termination
+  WF_REL_TAC `measure (\x. case x of INL p => pat_size p
+                                   | INR ps => pat1_size ps)`
+End
 
 (* check if expression is pure in that it does not make any visible changes
     (other than writing to globals) *)
-val is_pure_def = tDefine "is_pure" `
+Definition is_pure_def:
     (is_pure (Handle t e pes) = is_pure e) ∧
     (is_pure (Lit t l) = T) ∧
     (is_pure (Con t id_option es) = EVERY is_pure es) ∧
@@ -62,19 +71,42 @@ val is_pure_def = tDefine "is_pure" `
     (is_pure (Fun t name body) = T) ∧
     (is_pure (App t (GlobalVarInit g) es) = EVERY is_pure es) ∧
     (is_pure (If t e1 e2 e3) = (is_pure e1 ∧ is_pure e2 ∧ is_pure e3)) ∧
-    (is_pure (Mat t e1 pes) = (is_pure e1 ∧ EVERY is_pure (MAP SND pes))) ∧
+    (is_pure (Mat t e1 pes) =
+      (is_pure e1 ∧ EVERY is_pure (MAP SND pes) ∧ EXISTS total_pat (MAP FST pes))) ∧
     (is_pure (Let t opt e1 e2) = (is_pure e1 ∧ is_pure e2)) ∧
     (is_pure (Letrec t funs e) = is_pure e) ∧
     (is_pure _ = F)
-`
-    (
-        WF_REL_TAC `measure (λ e . exp_size e)` >> rw[exp_size_def] >> fs[] >>
-        TRY (Induct_on `es` >> rw[exp_size_def] >> fs[])
-        >- (Induct_on `pes` >> rw[exp_size_def] >> fs[] >>
-            Cases_on `h` >> fs[exp_size_def])
-    );
+Termination
+  WF_REL_TAC `measure (λ e . exp_size e)` >> rw[exp_size_def] >> fs[] >>
+  fs [MEM_MAP, EXISTS_PROD] >>
+  fs [exp1_size, exp3_size, exp6_size, MEM_SPLIT, SUM_APPEND, exp_size_def]
+End
 
-val is_pure_ind = theorem "is_pure_ind";
+Theorem is_pure_def1 = CONV_RULE (DEPTH_CONV ETA_CONV) is_pure_def
+
+Definition has_Eval_def:
+  (has_Eval (App t op es) ⇔ op = Eval ∨ has_Eval_list es) ∧
+  (has_Eval (Mat _ e pes) ⇔ has_Eval e ∨ has_Eval_pats pes) ∧
+  (has_Eval (Letrec _ funs e) ⇔ has_Eval e ∨ has_Eval_funs funs) ∧
+  (has_Eval (Raise _ e) ⇔ has_Eval e) ∧
+  (has_Eval (Handle _ e pes) ⇔ has_Eval e ∨ has_Eval_pats pes) ∧
+  (has_Eval (Con _ _ es) ⇔ has_Eval_list es) ∧
+  (has_Eval (Fun _ _ e) ⇔ has_Eval e) ∧
+  (has_Eval (If _ e1 e2 e3) ⇔ has_Eval e1 ∨ has_Eval e2 ∨ has_Eval e3) ∧
+  (has_Eval (Let _ _ e1 e2) ⇔ has_Eval e1 ∨ has_Eval e2) ∧
+  (has_Eval _ ⇔ F) ∧
+  (has_Eval_list [] ⇔ F) ∧
+  (has_Eval_list (e::es) ⇔ has_Eval e ∨ has_Eval_list es) ∧
+  (has_Eval_pats [] ⇔ F) ∧
+  (has_Eval_pats ((p,e)::pes) ⇔ has_Eval e ∨ has_Eval_pats pes) ∧
+  (has_Eval_funs [] ⇔ F) ∧
+  (has_Eval_funs ((_,_,e)::fs) ⇔ has_Eval e ∨ has_Eval_funs fs)
+Termination
+  wf_rel_tac `inv_image $< (\x. case x of INL e => exp_size e
+                                | INR (INL es) => exp6_size es
+                                | INR (INR (INL pes)) => exp3_size pes
+                                | INR (INR (INR funs)) => exp1_size funs)`
+End
 
 val dest_GlobalVarInit_def = Define `
     dest_GlobalVarInit (GlobalVarInit n) = SOME n ∧
@@ -104,7 +136,7 @@ Proof
         (Cases_on `h` >> Cases_on `r` >> rw[exp_size_def]) >> rw[]
 QED
 
-val find_loc_def = tDefine "find_loc" `
+Definition find_loc_def:
     (find_loc ((Raise _ er):flatLang$exp) = find_loc er) ∧
     (find_loc (Handle _ eh p_es) =
         union (find_loc eh) (find_locL (MAP SND p_es))) ∧
@@ -123,8 +155,8 @@ val find_loc_def = tDefine "find_loc" `
     (find_loc (Letrec _ vv_es elr1) =
         union (find_locL (MAP (SND o SND) vv_es)) (find_loc elr1)) ∧
     (find_locL [] = LN) ∧
-    (find_locL (e::es) = union (find_loc e) (find_locL es))`
-    (
+    (find_locL (e::es) = union (find_loc e) (find_locL es))
+Termination
         WF_REL_TAC `measure (λ e . case e of
             | INL x => exp_size x
             | INR y => exp6_size y)` >>
@@ -136,14 +168,9 @@ val find_loc_def = tDefine "find_loc" `
         >- (qspec_then `p_es` mp_tac exp_size_map_snd >>
             Cases_on `flatLang$exp6_size(MAP SND p_es) = exp3_size p_es` >>
             rw[])
-        >- (qspec_then `p_es` mp_tac exp_size_map_snd >>
-            Cases_on `exp6_size(MAP SND p_es') = exp3_size p_es` >>
-            rw[])
-    );
+End
 
-val find_loc_ind = theorem "find_loc_ind";
-
-val find_lookups_def = tDefine "find_lookups" `
+Definition find_lookups_def:
     (find_lookups (Raise _ er) = find_lookups er) ∧
     (find_lookups (Handle _ eh p_es) =
         union (find_lookups eh) (find_lookupsL (MAP SND p_es))) ∧
@@ -165,8 +192,7 @@ val find_lookups_def = tDefine "find_lookups" `
         union (find_lookupsL (MAP (SND o SND) vv_es)) (find_lookups elr1)) ∧
     (find_lookupsL [] = LN) ∧
     (find_lookupsL (e::es) = union (find_lookups e) (find_lookupsL es))
-`
-    (
+Termination
         WF_REL_TAC `measure (λ e . case e of
                 | INL x => exp_size x
                 | INR (y:flatLang$exp list) =>
@@ -178,14 +204,9 @@ val find_lookups_def = tDefine "find_lookups" `
         >- (qspec_then `p_es` mp_tac exp_size_map_snd >>
             Cases_on `exp6_size(MAP SND p_es) = exp3_size p_es` >>
             rw[])
-        >- (qspec_then `p_es` mp_tac exp_size_map_snd >>
-            Cases_on `exp6_size(MAP SND p_es) = exp3_size p_es` >>
-            rw[])
-    );
+End
 
-val find_lookups_ind = theorem "find_lookups_ind";
-
-val analyse_exp_def = Define `
+Definition analyse_exp_def:
     analyse_exp e = let locs = (find_loc e) in let lookups = (find_lookups e) in
         if is_pure e then (
             if (is_hidden e) then (LN, map (K lookups) locs)
@@ -193,23 +214,24 @@ val analyse_exp_def = Define `
         ) else (
             (union locs lookups, (map (K LN) (union locs lookups)))
         )
-`
+End
 
-val code_analysis_union_def = Define `
+Definition code_analysis_union_def:
     code_analysis_union (r1, t1) (r2, t2) =
         ((union r1 r2), (num_set_tree_union t1 t2))
-`
+End
 
-val analyse_code_def = Define `
+Definition analyse_code_def:
     analyse_code [] = (LN, LN) ∧
     analyse_code ((Dlet e)::cs) =
         code_analysis_union (analyse_exp e) (analyse_code cs) ∧
     analyse_code (_::cs) = analyse_code cs
-`
+End
+
 
 (**************************** REMOVAL FUNCTIONS *****************************)
 
-val keep_def = Define `
+Definition keep_def:
     (keep reachable (Dlet e) =
         (* if none of the global variables that e may assign to are in
            the reachable set, then e is candidate for removal
@@ -218,20 +240,25 @@ val keep_def = Define `
               then it must be kept *)
         if isEmpty (inter (find_loc e) reachable) then (¬ (is_pure e)) else T) ∧
     (keep reachable _ = T) (* not a Dlet, will be Dtype/Dexn so keep *)
-`
+End
 
-val keep_ind = theorem "keep_ind";
-
-val remove_unreachable_def = Define `
+Definition remove_unreachable_def:
     remove_unreachable reachable l = FILTER (keep reachable) l
-`
+End
 
-val remove_flat_prog_def = Define `
+Definition has_Eval_dec_def:
+  has_Eval_dec (Dlet e) = has_Eval e /\
+  has_Eval_dec _ = F
+End
+
+Definition remove_flat_prog_def:
     remove_flat_prog code =
+      if EXISTS has_Eval_dec code
+      then code
+      else
         let (r, t) = analyse_code code in
-        let reachable = closure_spt r (mk_wf_set_tree t) in
+        let reachable = closure_spt r t in
         remove_unreachable reachable code
-`
-
+End
 
 val _ = export_theory();

@@ -11,7 +11,7 @@ open preamble
      semanticPrimitivesTheory
      ml_translatorTheory ml_translatorLib ml_progLib
      cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib
-     evaluatePropsTheory
+     evaluatePropsTheory evaluateTheory
 
 val _ = new_theory "cfMain";
 
@@ -32,9 +32,9 @@ Theorem call_main_thm1:
 Proof
   rw[SNOC_APPEND,ml_progTheory.Decls_APPEND,PULL_EXISTS]
   \\ simp[ml_progTheory.Decls_def]
-  \\ fs [terminationTheory.evaluate_decs_def,PULL_EXISTS,
+  \\ fs [evaluate_decs_def,PULL_EXISTS,
          EVAL ``(pat_bindings (Pcon NONE []) [])``,pair_case_eq,result_case_eq]
-  \\ fs [terminationTheory.evaluate_def,PULL_EXISTS,pair_case_eq,
+  \\ fs [evaluate_def,PULL_EXISTS,pair_case_eq,
          result_case_eq,do_con_check_def,build_conv_def,bool_case_eq,
          ml_progTheory.lookup_var_def,option_case_eq,match_result_case_eq,
          ml_progTheory.nsLookup_merge_env,app_def,app_basic_def]
@@ -59,7 +59,7 @@ Proof
   \\ `evaluate (st2 with clock := (ck + ck2 + 1) - 1) env [exp] =
         ((st' with clock := st2.clock) with clock := ck2 + st'.clock,
          Rval [Conv NONE []])` by fs []
-  \\ asm_exists_tac \\ fs [terminationTheory.pmatch_def]
+  \\ asm_exists_tac \\ fs [pmatch_def]
   \\ fs [ml_progTheory.merge_env_def]
   \\ fs [cfStoreTheory.st2heap_clock]
   \\ asm_exists_tac \\ fs []
@@ -209,13 +209,13 @@ Proof
       \\ MAP_EVERY qexists_tac [`st4`,`name`,`conf`,`bytes`]
       \\ conj_tac
       >- (fs[semanticsTheory.semantics_prog_def,semanticsTheory.evaluate_prog_with_clock_def,
-             terminationTheory.evaluate_decs_def]
-          \\ simp[Once terminationTheory.evaluate_def]
+             evaluate_decs_def]
+          \\ simp[Once evaluate_def]
           \\ simp[astTheory.pat_bindings_def]
-          \\ simp[Once terminationTheory.evaluate_def]
-          \\ simp[Once terminationTheory.evaluate_def]
+          \\ simp[Once evaluate_def]
+          \\ simp[Once evaluate_def]
           \\ simp[do_con_check_def,build_conv_def]
-          \\ simp[Once terminationTheory.evaluate_def]
+          \\ simp[Once evaluate_def]
           \\ simp[ml_progTheory.nsLookup_merge_env]
           \\ fs[ml_progTheory.lookup_var_def,evaluate_ck_def]
           \\ Q.REFINE_EXISTS_TAC `SUC k` \\ fs[]

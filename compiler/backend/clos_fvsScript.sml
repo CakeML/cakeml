@@ -51,6 +51,9 @@ val remove_fvs_def = tDefine "remove_fvs" `
 val compile_def = Define`
   compile exps = remove_fvs 0 exps`;
 
+val compile_inc_def = Define `
+  compile_inc (e, xs) = (compile e, [])`;
+
 Theorem LENGTH_remove_fvs:
    !fvs xs. LENGTH (remove_fvs fvs xs) = LENGTH xs
 Proof

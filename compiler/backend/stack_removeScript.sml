@@ -3,7 +3,7 @@
   load/store operations.
 *)
 
-open preamble stackLangTheory
+open preamble stackLangTheory mlstringTheory
 
 val _ = new_theory "stack_remove";
 
@@ -20,8 +20,8 @@ val word_offset_def = Define `
 
 val store_list_def = Define `
   store_list = [NextFree; EndOfHeap; HeapLength; OtherHeap; TriggerGC;
-                AllocSize; Handler; Globals; ProgStart; BitmapBase; GenStart;
-                CodeBuffer; CodeBufferEnd; BitmapBuffer; BitmapBufferEnd;
+                AllocSize; Handler; Globals; GlobReal; ProgStart; BitmapBase;
+                GenStart; CodeBuffer; CodeBufferEnd; BitmapBuffer; BitmapBufferEnd;
                 Temp 00w; Temp 01w; Temp 02w; Temp 03w; Temp 04w;
                 Temp 05w; Temp 06w; Temp 07w; Temp 08w; Temp 09w;
                 Temp 10w; Temp 11w; Temp 12w; Temp 13w; Temp 14w;
@@ -115,6 +115,28 @@ val stack_load_def = Define`
   stack_load r n =
     Seq (upshift r n) (Inst (Mem Load r (Addr r 0w))):'a stackLang$prog`
 
+Definition copy_each_def:
+  copy_each t1 t2 =
+    While NotEqual 1 (Imm 1w)
+      (list_Seq [load_inst t1 t2;
+                 add_bytes_in_word_inst t2;
+                 If Test 1 (Imm 1w) Skip (add_inst t1 3);
+                 right_shift_inst 1 1;
+                 store_inst t1 2;
+                 add_bytes_in_word_inst 2])
+End
+
+Definition copy_loop_def:
+  copy_loop t1 t2 =
+    list_Seq [load_inst 1 t2;
+              add_bytes_in_word_inst t2;
+              While Less 1 (Imm 0w)
+                (list_Seq [copy_each t1 t2;
+                           load_inst 1 t2;
+                           add_bytes_in_word_inst t2]);
+              copy_each t1 t2]
+End
+
 val comp_def = Define `
   comp jump off k (p:'a stackLang$prog) =
     case p of
@@ -125,6 +147,8 @@ val comp_def = Define `
     | Set name r =>
         if name = CurrHeap then move (k+2) r
         else Inst (Mem Store r (Addr (k+1) (store_offset name)))
+    | OpCurrHeap op r n =>
+        Inst (Arith (Binop op r n (Reg (k+2))))
     (* remove stack operations *)
     | StackFree n => stack_free k n
     | StackAlloc n => stack_alloc jump k n
@@ -155,6 +179,13 @@ val comp_def = Define `
                   add_inst r v;
                   left_shift_inst r (word_shift (:'a));
                   Inst (Mem Load r (Addr r 0w))]
+    | StoreConsts t1 t2 _ =>
+        list_Seq [Inst (Mem Load t2 (Addr (k+1) (store_offset BitmapBase)));
+                  add_inst t2 1;
+                  left_shift_inst t2 (word_shift (:'a));
+                  copy_loop t1 t2;
+                  move t1 1;
+                  move t2 1]
     (* for the rest, just leave it unchanged *)
     | Seq p1 p2 => Seq (comp jump off k p1) (comp jump off k p2)
     | If c r ri p1 p2 => If c r ri (comp jump off k p1) (comp jump off k p2)
@@ -195,6 +226,7 @@ val store_init_def = Define `
   store_init gen_gc (k:num) =
     (K (INL 0w)) =++
       [(CurrHeap,INR (k+2));
+       (GlobReal,INR (k+2));
        (NextFree,INR (k+2));
        (TriggerGC,INR (if gen_gc then k+2 else 2));
        (EndOfHeap,INR 2);
@@ -272,18 +304,25 @@ val init_stubs_def = Define `
      (1n,halt_inst 0w);
      (2n,halt_inst 2w)]`
 
+val stub_names_def = Define`
+  stub_names () = [
+    (0n,mlstring$strlit "_Init");
+    (1n,mlstring$strlit "_Halt0");
+    (2n,mlstring$strlit "_Halt2")]`
+
 Theorem check_init_stubs_length:
-   LENGTH (init_stubs gen_gc max_heap k start) + 1 (* gc *) =
-   stack_num_stubs
+  LENGTH (init_stubs gen_gc max_heap k start) + 2 (* gc + dummy *) =
+  stack_num_stubs
 Proof
   EVAL_TAC
 QED
 
 (* -- full compiler -- *)
 
-val compile_def = Define `
+Definition compile_def:
   compile jump off gen_gc max_heap k start prog =
     init_stubs gen_gc max_heap k start ++
-    MAP (prog_comp jump off k) prog`;
+    MAP (prog_comp jump off k) prog
+End
 
 val _ = export_theory();

@@ -43,4 +43,4 @@ rm -r temp/
 #For arm6, we need the 32-bit compiler
 #make compiler32
 #mkdir -p arm6
-#CAKECC=cake32 SKIPGCC=T make CAKE_PREFIX=cake_ PATH_PREFIX=./arm6 CAKE_FLAGS="--target=arm6 --heap_size=500 --stack_size=500"
+#CAKECC=cake32 SKIPGCC=T make CAKE_PREFIX=cake_ PATH_PREFIX=./arm6 CAKE_FLAGS="--target=arm6"

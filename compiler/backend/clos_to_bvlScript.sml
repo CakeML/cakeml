@@ -69,6 +69,55 @@ Proof
   EVAL_TAC >> rw[] >> simp[]
 QED
 
+(* Constant flattening *)
+
+Overload PRIME[local] = “999983:num”;
+
+Definition part_hash_def:
+  part_hash (Int i) = Num (ABS i) MOD PRIME ∧
+  part_hash (Str s) =
+    (mlstring$strlen s + 3 * SUM (MAP ORD (mlstring$explode s))) MOD PRIME ∧
+  part_hash (W64 w) = (17 + w2n w) MOD PRIME ∧
+  part_hash (Con t ns) = (18 + 5 * t + 7 * SUM ns) MOD PRIME
+End
+
+Definition add_part_def:
+  add_part n p aux acc =
+    let h = part_hash p in
+      dtcase lookup h aux of
+      | NONE => (n+1n,n,insert h [(p,n)] aux,p::acc)
+      | SOME bucket =>
+          dtcase ALOOKUP bucket p of
+          | NONE => (n+1n,n,insert h ((p,n)::bucket) aux,p::acc)
+          | SOME k => (n,k,aux,acc)
+End
+
+Definition add_parts_def:
+  add_parts (ConstInt i) n aux acc = add_part n (Int i) aux acc ∧
+  add_parts (ConstStr s) n aux acc = add_part n (Str s) aux acc ∧
+  add_parts (ConstWord64 w) n aux acc = add_part n (W64 w) aux acc ∧
+  add_parts (ConstCons t cs) n aux acc =
+    (let (n, rs, aux, acc) = add_parts_list cs n aux acc in
+       add_part n (Con (clos_tag_shift t) rs) aux acc) ∧
+  add_parts_list [] n aux acc = (n,[],aux,acc) ∧
+  add_parts_list (c::cs) n aux acc =
+    let (n,r,aux,acc) = add_parts c n aux acc in
+    let (n,rs,aux,acc) = add_parts_list cs n aux acc in
+      (n,r::rs,aux,acc)
+End
+
+Definition compile_const_def:
+  compile_const (ConstInt i) = Const i ∧
+  compile_const (ConstStr s) = Build [Str s] ∧
+  compile_const (ConstWord64 w) = Build [W64 w] ∧
+  compile_const (ConstCons t cs) =
+    if NULL cs then Cons (clos_tag_shift t) else
+      let (n, rs, aux, acc) = add_parts_list cs 0 LN [] in
+        Build (REVERSE ((Con (clos_tag_shift t) rs)::acc))
+End
+
+(* / Constant flattening *)
+
 val num_added_globals_def = Define
   `num_added_globals = 1n`;
 
@@ -85,6 +134,7 @@ val compile_op_def = Define`
   compile_op DerefByteVec = DerefByte ∧
   compile_op (SetGlobal n) = SetGlobal (n + num_added_globals) ∧
   compile_op (Global n) = Global (n + num_added_globals) ∧
+  compile_op (Constant c) = compile_const c ∧
   compile_op x = x`
 val _ = export_rewrites["compile_op_def"];
 
@@ -101,6 +151,7 @@ Theorem compile_op_pmatch:
       | DerefByteVec => DerefByte
       | SetGlobal n => SetGlobal (n + num_added_globals)
       | Global n => Global (n + num_added_globals)
+      | Constant c => compile_const c
       | x => x
 Proof
   rpt strip_tac
@@ -126,7 +177,7 @@ val code_for_recc_case_def = Define `
   code_for_recc_case n num_args (c:bvl$exp) =
     (num_args + 1,
      Let [mk_el (Var num_args) (mk_const 2)]
-      (Let (GENLIST (\a. Var (a + 1)) num_args ++ GENLIST (\i. Op Deref [mk_const i; Var 0]) n) c))`;
+      (Let (GENLIST (\a. Var (a + 1)) num_args ++ GENLIST (\i. Op El [mk_const i; Var 0]) n) c))`;
 
 val build_aux_def = Define `
   (build_aux i [] aux = (i:num,aux)) /\
@@ -310,7 +361,7 @@ val init_code_def = Define `
 
 val init_globals_def = Define `
   init_globals max_app start_loc =
-    Let [Op AllocGlobal []]
+    Let [Op AllocGlobal [Op (Const 1) []]]
     (Let
       [Op (SetGlobal partial_app_label_table_loc)
         [Op (Cons tuple_tag)
@@ -580,15 +631,111 @@ val compile_common_def = Define `
                  call_state := (g,aux) |>,
        prog)`;
 
+Definition add_src_names_def:
+  add_src_names n [] l = l ∧
+  add_src_names n (x::xs) l =
+    add_src_names (n+2) xs (insert n (mlstring$concat [x; mlstring$strlit "_clos"]) (insert (n+1) x l))
+End
+
+Definition get_src_names_def:
+  get_src_names [] l = l ∧
+  get_src_names (x::y::xs) l = get_src_names (y::xs) (get_src_names [x] l) ∧
+  get_src_names [closLang$If _ x y z] l =
+    get_src_names [x] (get_src_names [y] (get_src_names [z] l)) ∧
+  get_src_names [closLang$Var _ _] l = l ∧
+  get_src_names [closLang$Let _ xs x] l = get_src_names (x::xs) l ∧
+  get_src_names [Raise _ x] l = get_src_names [x] l ∧
+  get_src_names [Handle _ x y] l = get_src_names [x] (get_src_names [y] l) ∧
+  get_src_names [Tick _ x] l = get_src_names [x] l ∧
+  get_src_names [Call _ _ _ xs] l = get_src_names xs l ∧
+  get_src_names [Op _ _ xs] l = get_src_names xs l ∧
+  get_src_names [App _ _ x xs] l = get_src_names (x::xs) l ∧
+  get_src_names [Fn name loc_opt _ _ x] l =
+    (let l1 = get_src_names [x] l in
+       dtcase loc_opt of NONE => l1
+                       | SOME n => add_src_names n [name] l1) ∧
+  get_src_names [Letrec names loc_opt _ funs x] l =
+    (let l0 = get_src_names (MAP SND funs) l in
+     let l1 = get_src_names [x] l0 in
+       dtcase loc_opt of NONE => l1
+                       | SOME n => add_src_names n names l1)
+Termination
+  WF_REL_TAC ‘measure (closLang$exp3_size o FST)’ \\ rw []
+  \\ qsuff_tac ‘exp3_size (MAP SND funs) <= exp1_size funs’ \\ fs []
+  \\ Induct_on ‘funs’ \\ fs [closLangTheory.exp_size_def]
+  \\ fs [FORALL_PROD,closLangTheory.exp_size_def]
+End
+
+Definition make_name_alist_def:
+  make_name_alist nums prog nstubs dec_start (dec_length:num) =
+    let src_names = get_src_names (MAP (SND o SND) prog) LN in
+      fromAList(MAP(λn.(n, if n < nstubs then
+                             if n = nstubs-1 then mlstring$strlit "bvl_init"
+                                             else mlstring$strlit "bvl_stub"
+                           else let clos_name = n - nstubs in
+                             if dec_start ≤ clos_name ∧ clos_name < dec_start + dec_length
+                             then mlstring$strlit "dec" else
+                               dtcase lookup clos_name src_names of
+                               | NONE => mlstring$strlit "unknown_clos_fun"
+                               | SOME s => s)) nums)
+        : mlstring$mlstring num_map
+End
+
 val compile_def = Define `
-  compile c es =
-    let (c, prog) = compile_common c es in
-    let prog =
-      toAList (init_code c.max_app) ++
-      (num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.start)) ::
-      (compile_prog c.max_app prog)
-    in
+  compile c0 es =
+    let (c, prog) = compile_common c0 es in
+    let init_stubs = toAList (init_code c.max_app) in
+    let init_globs = [(num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.start))] in
+    let comp_progs = compile_prog c.max_app prog in
+    let prog' = init_stubs ++ init_globs ++ comp_progs in
+    let func_names = make_name_alist (MAP FST prog') prog (num_stubs c.max_app)
+                       c0.next_loc (LENGTH es) in
     let c = c with start := num_stubs c.max_app - 1 in
-      (c,code_sort prog)`;
+      (c, code_sort prog', func_names)`;
+
+val extract_name_def = Define `
+  extract_name [] = (0,[]) /\
+  extract_name (x :: xs) =
+    dtcase (some n. ?t. x = Op t (Const (& n)) []) of
+    | NONE => (0,x::xs)
+    | SOME n => (n, if xs = [] then [x] else xs)`;
+
+Theorem extract_name_pmatch:
+  extract_name xs =
+    dtcase xs of
+    | [] => (0,xs)
+    | (x::xs) =>
+      case x of
+        (Op t (Const i) []) => (if i < 0 then (0,x::xs) else
+                                 (Num (ABS i), if xs = [] then [x] else xs))
+      | _ => (0,x::xs)
+Proof
+  Cases_on ‘xs’ \\ fs [extract_name_def]
+  \\ Cases_on ‘h’ \\ fs []
+  \\ Cases_on ‘l’ \\ fs []
+  \\ Cases_on ‘o'’ \\ fs []
+  \\ Cases_on ‘i’ \\ fs []
+QED
+
+val compile_inc_def = Define `
+  compile_inc max_app (es,prog) =
+    let (n,real_es) = extract_name es in
+        clos_to_bvl$compile_prog max_app
+          (clos_to_bvl$chain_exps n real_es ++ prog)
+    : (num, num # exp) alist`;
+
+val clos_to_bvl_compile_inc_def = Define`
+  clos_to_bvl_compile_inc c p =
+    let p = clos_mti$cond_mti_compile_inc c.do_mti c.max_app p in
+    let (n, p) = ignore_table clos_number$compile_inc c.next_loc p in
+    let c = c with <| next_loc := n |> in
+    let spt = option_val_approx_spt c.known_conf in
+    let (spt, p) = known_compile_inc (known_static_conf c.known_conf) spt p in
+    let c = c with <| known_conf := option_upd_val_spt spt c.known_conf |> in
+    let (c', p) = clos_call$cond_call_compile_inc c.do_call (FST c.call_state) p in
+    let c = c with <| call_state := (c', []) |> in
+    let p = clos_annotate$compile_inc p in
+    let p = clos_to_bvl$compile_inc c.max_app p in
+      (c, p)`;
 
 val _ = export_theory()

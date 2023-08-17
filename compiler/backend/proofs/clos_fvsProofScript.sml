@@ -4,6 +4,8 @@
 open preamble closLangTheory clos_fvsTheory closSemTheory closPropsTheory;
 local open backendPropsTheory in end;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "clos_fvsProof";
 
 Theorem LENGTH_remove_fvs:
@@ -94,9 +96,6 @@ Inductive ref_rel:
     LIST_REL v_rel xs ys ==>
     ref_rel (ValueArray xs) (ValueArray ys))
 End
-
-val compile_inc_def = Define `
-  compile_inc (e, xs) = (clos_fvs$compile e, [])`;
 
 val state_rel_def = Define `
   state_rel (s:('c, 'ffi) closSem$state) (t:('c, 'ffi) closSem$state) <=>

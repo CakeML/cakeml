@@ -10,13 +10,12 @@ open HolKernel boolLib ml_translatorTheory semanticPrimitivesSyntax;
 val ERR = Feedback.mk_HOL_ERR "ml_translatorSyntax";
 
 val monop = HolKernel.syntax_fns1 "ml_translator"
+val binop = HolKernel.syntax_fns2 "ml_translator"
 
 val (EqualityType,mk_EqualityType,dest_EqualityType,is_EqualityType) = monop "EqualityType";
 val (CONTAINER,mk_CONTAINER,dest_CONTAINER,is_CONTAINER) = monop "CONTAINER";
 val (PRECONDITION,mk_PRECONDITION,dest_PRECONDITION,is_PRECONDITION) = monop "PRECONDITION";
-
-val (_, mk_Conv_args, _, _) = monop "Conv_args"
-val (_, mk_trivial4, dest_trivial4, _) = HolKernel.syntax_fns4 "ml_translator" "trivial4";
+val (IsTypeRep,mk_IsTypeRep,dest_IsTypeRep,is_IsTypeRep) = binop "IsTypeRep";
 
 val BOOL        = prim_mk_const{Thy="ml_translator",Name="BOOL"}
 val WORD       = prim_mk_const{Thy="ml_translator",Name="WORD"}
@@ -25,6 +24,8 @@ val INT         = prim_mk_const{Thy="ml_translator",Name="INT"}
 val CHAR        = prim_mk_const{Thy="ml_translator",Name="CHAR"}
 val STRING_TYPE = prim_mk_const{Thy="ml_translator",Name="STRING_TYPE"}
 val UNIT_TYPE   = prim_mk_const{Thy="ml_translator",Name="UNIT_TYPE"}
+
+val DUMMY_TYPE_REP_v = prim_mk_const{Thy="ml_translator",Name="DUMMY_TYPE_REP_v"}
 
 val (LIST_TYPE,mk_LIST_TYPE,dest_LIST_TYPE,is_LIST_TYPE) = HolKernel.syntax_fns3 "ml_translator" "LIST_TYPE";
 

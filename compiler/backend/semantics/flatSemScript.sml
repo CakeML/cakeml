@@ -1,8 +1,12 @@
 (*
   The formal semantics of flatLang
 *)
-open preamble flatLangTheory;
-open semanticPrimitivesPropsTheory;
+
+open preamble
+open evaluateTheory
+open flatLangTheory semanticPrimitivesPropsTheory
+
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "flatSem";
 
@@ -23,18 +27,28 @@ val _ = new_theory "flatSem";
  * will bind.
  *)
 
-val _ = set_grammar_ancestry ["flatLang", "semanticPrimitives",
-          "semanticPrimitivesProps", "fpSem"];
+val _ = set_grammar_ancestry ["flatLang", "semanticPrimitivesProps", "fpSem"];
 val _ = temp_tight_equality();
+
+val _ = Datatype`
+  (* 'v *) environment = <|
+    v : (varN, 'v) alist
+  |>`;
 
 val _ = Datatype`
   v =
     | Litv lit
     | Conv ((ctor_id # type_id) option) (v list)
-    | Closure ((varN, v) alist) varN exp
-    | Recclosure ((varN, v) alist) ((varN # varN # exp) list) varN
+    | Closure ('v environment) varN exp
+    | Recclosure ('v environment) ((varN # varN # exp) list) varN
     | Loc num
     | Vectorv (v list)`;
+
+val _ = Datatype `
+  install_config =
+   <| compile : 'c -> flatLang$dec list -> (word8 list # word64 list # 'c) option
+    ; compile_oracle : num -> 'c # flatLang$dec list
+    |>`
 
 val _ = Datatype`
   state = <|
@@ -44,16 +58,11 @@ val _ = Datatype`
     globals : (v option) list;
     (* The set of constructors that exist, according to their id, type and arity *)
     c : ((ctor_id # type_id) # num) set;
-    (* T if all patterns are required to be exhaustive *)
-    exh_pat : bool;
-    (* T if constructors must be declared *)
-    check_ctor : bool
+    (* eval or install mode *)
+    eval_config : 'c install_config
   |>`;
 
-val _ = Datatype`
-  environment = <|
-    v : (varN, v) alist;
-  |>`;
+val s = ``s:('c,'ffi) flatSem$state``
 
 val list_id_def = Define `
   list_id = 1n`;
@@ -62,7 +71,7 @@ val Boolv_def = Define`
   Boolv b = Conv (SOME (if b then true_tag else false_tag, SOME bool_id)) []`;
 
 val Unitv_def = Define`
-  Unitv check_ctor = Conv (if check_ctor then NONE else SOME (0,NONE)) []`;
+  Unitv = Conv NONE []`;
 
 val bind_exn_v_def = Define `
   bind_exn_v = Conv (SOME (bind_tag, NONE)) []`;
@@ -86,7 +95,7 @@ val ctor_same_type_def = Define `
   (ctor_same_type NONE NONE ⇔ T) ∧
   (ctor_same_type _ _ ⇔ F)`;
 
-val do_eq_def = tDefine"do_eq"`
+Definition do_eq_def:
   (do_eq (Litv l1) (Litv l2) =
    if lit_same_type l1 l2 then Eq_val (l1 = l2)
    else Eq_type_error)
@@ -128,20 +137,23 @@ val do_eq_def = tDefine"do_eq"`
       else
         Eq_val F))
   ∧
-  (do_eq_list _ _ = Eq_val F)`
-  (WF_REL_TAC `inv_image $< (\x. case x of INL (x,y) => v_size x
-                                         | INR (xs,ys) => v3_size xs)`);
+  (do_eq_list _ _ = Eq_val F)
+Termination
+  WF_REL_TAC `inv_image $< (\x. case x of INL (x,y) => v_size x
+                                        | INR (xs,ys) => v4_size xs)`
+End
 
 (* Do an application *)
 val do_opapp_def = Define `
   do_opapp vs =
   case vs of
     | [Closure env n e; v] =>
-      SOME ((n,v) :: env, e)
+      SOME (env with v updated_by (\env. (n,v) :: env), e)
     | [Recclosure env funs n; v] =>
       if ALL_DISTINCT (MAP FST funs) then
         (case find_recfun n funs of
-         | SOME (n,e) => SOME ((n,v) :: build_rec_env funs env env, e)
+         | SOME (n,e) => SOME (env with v :=
+             (n,v) :: build_rec_env funs env env.v, e)
          | NONE => NONE)
       else NONE
     | _ => NONE`;
@@ -189,8 +201,14 @@ val vs_to_string_def = Define`
    | _ => NONE) ∧
   (vs_to_string _ = NONE)`;
 
+val v_to_bytes_def = Define `
+  v_to_bytes lv = some ns. v_to_list lv = SOME (MAP (Litv o Word8) ns)`;
+
+val v_to_words_def = Define `
+  v_to_words lv = some ns. v_to_list lv = SOME (MAP (Litv o Word64) ns)`;
+
 val do_app_def = Define `
-  do_app check_ctor s op (vs:flatSem$v list) =
+  do_app s op (vs:flatSem$v list) =
   case (op, vs) of
   | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
     if ((op = Divide) ∨ (op = Modulo)) ∧ (n2 = 0) then
@@ -199,14 +217,14 @@ val do_app_def = Define `
       SOME (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
   | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
     SOME (s, Rval (Boolv (opb_lookup op n1 n2)))
-  | (FP_top top, [Litv (Word64 w1); Litv (Word64 w2); Litv (Word64 w3)] =>
-      SOME (s,Rval (Litv (Word64 (fp_top top w1 w2 w3)))))
+  | (FP_top t_op, [Litv (Word64 w1); Litv (Word64 w2); Litv (Word64 w3)] =>
+      SOME (s,Rval (Litv (Word64 (fp_top_comp t_op w1 w2 w3)))))
   | (FP_bop bop, [Litv (Word64 w1); Litv (Word64 w2)]) =>
-      SOME (s,Rval (Litv (Word64 (fp_bop bop w1 w2))))
+      SOME (s,Rval (Litv (Word64 (fp_bop_comp bop w1 w2))))
   | (FP_uop uop, [Litv (Word64 w)]) =>
-      SOME (s,Rval (Litv (Word64 (fp_uop uop w))))
+      SOME (s,Rval (Litv (Word64 (fp_uop_comp uop w))))
   | (FP_cmp cmp, [Litv (Word64 w1); Litv (Word64 w2)]) =>
-      SOME (s,Rval (Boolv (fp_cmp cmp w1 w2)))
+      SOME (s,Rval (Boolv (fp_cmp_comp cmp w1 w2)))
   | (Opw wz op, [Litv w1; Litv w2]) =>
      (case do_word_op op wz w1 w2 of
           | NONE => NONE
@@ -221,15 +239,11 @@ val do_app_def = Define `
      | Eq_val b => SOME (s, Rval (Boolv b)))
   | (Opassign, [Loc lnum; v]) =>
     (case store_assign lnum (Refv v) s.refs of
-     | SOME s' => SOME (s with refs := s', Rval (Unitv check_ctor))
+     | SOME s' => SOME (s with refs := s', Rval Unitv)
      | NONE => NONE)
   | (Opref, [v]) =>
     let (s',n) = (store_alloc (Refv v) s.refs) in
       SOME (s with refs := s', Rval (Loc n))
-  | (Opderef, [Loc n]) =>
-    (case store_lookup n s.refs of
-     | SOME (Refv v) => SOME (s,Rval v)
-     | _ => NONE)
   | (Aw8alloc, [Litv (IntLit n); Litv (Word8 w)]) =>
     if n < 0 then
       SOME (s, Rerr (Rraise subscript_exn_v))
@@ -250,6 +264,18 @@ val do_app_def = Define `
            else
              SOME (s, Rval (Litv (Word8 (EL n ws))))
      | _ => NONE)
+  | (Aw8sub_unsafe, [Loc lnum; Litv (IntLit i)]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (W8array ws) =>
+       if i < 0 then
+         NONE
+       else
+         let n = (Num (ABS i)) in
+           if n >= LENGTH ws then
+             NONE
+           else
+             SOME (s, Rval (Litv (Word8 (EL n ws))))
+     | _ => NONE)
   | (Aw8length, [Loc n]) =>
     (case store_lookup n s.refs of
      | SOME (W8array ws) =>
@@ -267,7 +293,21 @@ val do_app_def = Define `
            else
              (case store_assign lnum (W8array (LUPDATE w n ws)) s.refs of
               | NONE => NONE
-              | SOME s' => SOME (s with refs := s', Rval (Unitv check_ctor)))
+              | SOME s' => SOME (s with refs := s', Rval Unitv))
+     | _ => NONE)
+  | (Aw8update_unsafe, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (W8array ws) =>
+       if i < 0 then
+         NONE
+       else
+         let n = (Num (ABS i)) in
+           if n >= LENGTH ws then
+             NONE
+           else
+             (case store_assign lnum (W8array (LUPDATE w n ws)) s.refs of
+              | NONE => NONE
+              | SOME s' => SOME (s with refs := s', Rval Unitv))
      | _ => NONE)
   | (WordFromInt wz, [Litv (IntLit i)]) =>
     SOME (s, Rval (Litv (do_word_from_int wz i)))
@@ -288,7 +328,7 @@ val do_app_def = Define `
             NONE => SOME (s, Rerr (Rraise subscript_exn_v))
           | SOME cs =>
             (case store_assign dst (W8array (chars_to_ws cs)) s.refs of
-              SOME s' =>  SOME (s with refs := s', Rval (Unitv check_ctor))
+              SOME s' =>  SOME (s with refs := s', Rval Unitv)
             | _ => NONE))
       | _ => NONE)
   | (CopyAw8Str, [Loc src;Litv(IntLit off);Litv(IntLit len)]) =>
@@ -307,7 +347,7 @@ val do_app_def = Define `
           NONE => SOME (s, Rerr (Rraise subscript_exn_v))
         | SOME ws =>
             (case store_assign dst (W8array ws) s.refs of
-              SOME s' => SOME (s with refs := s', Rval (Unitv check_ctor))
+              SOME s' => SOME (s with refs := s', Rval Unitv)
             | _ => NONE))
     | _ => NONE)
   | (Ord, [Litv (Char c)]) =>
@@ -370,6 +410,11 @@ val do_app_def = Define `
         store_alloc (Varray (REPLICATE (Num (ABS n)) v)) s.refs
       in
         SOME (s with refs := s', Rval (Loc lnum))
+  | (AallocFixed, vs) =>
+    let (s',lnum) =
+      store_alloc (Varray vs) s.refs
+    in
+      SOME (s with refs := s', Rval (Loc lnum))
   | (Asub, [Loc lnum; Litv (IntLit i)]) =>
     (case store_lookup lnum s.refs of
      | SOME (Varray vs) =>
@@ -382,7 +427,19 @@ val do_app_def = Define `
          else
            SOME (s, Rval (EL n vs))
      | _ => NONE)
-    | (Alength, [Loc n]) =>
+  | (Asub_unsafe, [Loc lnum; Litv (IntLit i)]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (Varray vs) =>
+     if i < 0 then
+       NONE
+     else
+       let n = (Num (ABS i)) in
+         if n >= LENGTH vs then
+           NONE
+         else
+           SOME (s, Rval (EL n vs))
+     | _ => NONE)
+  | (Alength, [Loc n]) =>
       (case store_lookup n s.refs of
        | SOME (Varray ws) =>
          SOME (s,Rval (Litv (IntLit(int_of_num(LENGTH ws)))))
@@ -399,14 +456,28 @@ val do_app_def = Define `
          else
            (case store_assign lnum (Varray (LUPDATE v n vs)) s.refs of
             | NONE => NONE
-            | SOME s' => SOME (s with refs := s', Rval (Unitv check_ctor)))
+            | SOME s' => SOME (s with refs := s', Rval Unitv))
+     | _ => NONE)
+  | (Aupdate_unsafe, [Loc lnum; Litv (IntLit i); v]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (Varray vs) =>
+     if i < 0 then
+       NONE
+     else
+       let n = (Num (ABS i)) in
+         if n >= LENGTH vs then
+           NONE
+         else
+           (case store_assign lnum (Varray (LUPDATE v n vs)) s.refs of
+            | NONE => NONE
+            | SOME s' => SOME (s with refs := s', Rval Unitv))
      | _ => NONE)
   | (ListAppend, [x1; x2]) =>
     (case (v_to_list x1, v_to_list x2) of
      | (SOME xs, SOME ys) => SOME (s, Rval (list_to_v (xs ++ ys)))
      | _ => NONE)
   | (ConfigGC, [Litv (IntLit n1); Litv (IntLit n2)]) =>
-       SOME (s, Rval (Unitv check_ctor))
+       SOME (s, Rval Unitv)
   | (FFI n, [Litv(StrLit conf); Loc lnum]) =>
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
@@ -414,14 +485,14 @@ val do_app_def = Define `
         | FFI_final outcome => SOME(s, Rerr (Rabort (Rffi_error outcome)))
         | FFI_return t' ws' =>
           (case store_assign lnum (W8array ws') s.refs of
-           | SOME s' => SOME (s with <| refs := s'; ffi := t'|>, Rval (Unitv check_ctor))
+           | SOME s' => SOME (s with <| refs := s'; ffi := t'|>, Rval Unitv)
            | NONE => NONE))
      | _ => NONE)
   | (GlobalVarAlloc n, []) =>
-    SOME (s with globals := s.globals ++ REPLICATE n NONE, Rval (Unitv check_ctor))
+    SOME (s with globals := s.globals ++ REPLICATE n NONE, Rval Unitv)
   | (GlobalVarInit n, [v]) =>
     if n < LENGTH s.globals ∧ IS_NONE (EL n s.globals) then
-      SOME (s with globals := LUPDATE (SOME v) n s.globals, Rval (Unitv check_ctor))
+      SOME (s with globals := LUPDATE (SOME v) n s.globals, Rval Unitv)
     else
       NONE
   | (GlobalVarLookup n, []) =>
@@ -429,6 +500,19 @@ val do_app_def = Define `
       SOME (s, Rval (THE (EL n s.globals)))
     else
       NONE
+  | (TagLenEq n l, [Conv (SOME (tag,_)) xs]) =>
+    SOME (s, Rval (Boolv (tag = n /\ LENGTH xs = l)))
+  | (LenEq l, [Conv _ xs]) =>
+    SOME (s, Rval (Boolv (LENGTH xs = l)))
+ | (El n, [Conv _ vs]) =>
+    (if n < LENGTH vs then SOME (s, Rval (EL n vs)) else NONE)
+  | (El n, [Loc p]) =>
+    (if n <> 0 then NONE else
+       case store_lookup p s.refs of
+       | SOME (Refv v) => SOME (s,Rval v)
+       | _ => NONE)
+  | (Id, [v1]) =>
+    SOME (s, Rval v1)
   | _ => NONE`;
 
 val do_if_def = Define `
@@ -449,24 +533,23 @@ Proof
     Cases_on `v = Boolv F` THEN simp []])
 QED
 
-val pat_bindings_def = Define `
-  (pat_bindings Pany already_bound = already_bound) ∧
-  (pat_bindings (Pvar n) already_bound = n::already_bound) ∧
-  (pat_bindings (Plit l) already_bound = already_bound) ∧
-  (pat_bindings (Pcon _ ps) already_bound = pats_bindings ps already_bound) ∧
-  (pat_bindings (Pref p) already_bound = pat_bindings p already_bound) ∧
-  (pats_bindings [] already_bound = already_bound) ∧
-  (pats_bindings (p::ps) already_bound = pats_bindings ps (pat_bindings p already_bound))`;
+Inductive pmatch_stamps_ok:
+  ( (* exception constructors *)
+    ((cn, NONE), n_ps) ∈ c
+  ==> pmatch_stamps_ok c (SOME (cn, NONE)) (SOME (cn', NONE)) n_ps n_vs) ∧
+  ( (* constructors *)
+    ((cn, SOME ty_id), n_ps) ∈ c ∧
+        ty_id = ty_id' ∧ MEM (cn, n_ps) ctor_set ∧ MEM (cn', n_vs) ctor_set
+  ==> pmatch_stamps_ok c (SOME (cn, (SOME (ty_id, ctor_set))))
+    (SOME (cn', SOME ty_id')) n_ps n_vs) ∧
+  ( (* tuples *)
+    n_ps = n_vs
+  ==> pmatch_stamps_ok c NONE NONE n_ps n_vs)
+End
 
-val same_ctor_def = Define `
-  same_ctor check_type n1 n2 ⇔
-    if check_type then
-      n1 = n2
-    else
-      FST n1 = FST n2`;
-
-val pmatch_def = tDefine "pmatch" `
-  (pmatch s (Pvar x) v' bindings = (Match ((x,v') :: bindings))) ∧
+Definition pmatch_def:
+  (pmatch s (Pvar x) v' bindings =
+    (Match ((x,v') :: bindings))) ∧
   (pmatch s flatLang$Pany v' bindings = Match bindings) ∧
   (pmatch s (Plit l) (Litv l') bindings =
     if l = l' then
@@ -475,19 +558,16 @@ val pmatch_def = tDefine "pmatch" `
       No_match
     else
       Match_type_error) ∧
-  (pmatch s (Pcon (SOME n) ps) (Conv (SOME n') vs) bindings =
-    if s.check_ctor ∧
-       ((n, LENGTH ps) ∉ s.c ∨ ~ctor_same_type (SOME n) (SOME n')) then
+  (pmatch s (Pcon stmp ps) (Conv stmp' vs) bindings =
+    if ~ pmatch_stamps_ok s.c stmp stmp' (LENGTH ps) (LENGTH vs) then
       Match_type_error
-    else if same_ctor s.check_ctor n n' ∧ LENGTH ps = LENGTH vs then
+    else if OPTION_MAP FST stmp = OPTION_MAP FST stmp' ∧
+            LENGTH ps = LENGTH vs then
       pmatch_list s ps vs bindings
     else
       No_match) ∧
-  (pmatch s (Pcon NONE ps) (Conv NONE vs) bindings =
-    if s.check_ctor ∧ LENGTH ps = LENGTH vs then
-      pmatch_list s ps vs bindings
-    else
-      Match_type_error) ∧
+  (pmatch s (Pas p i) v bindings =
+    pmatch s p v ((i,v)::bindings)) ∧
   (pmatch s (Pref p) (Loc lnum) bindings =
     case store_lookup lnum s.refs of
     | SOME (Refv v) => pmatch s p v bindings
@@ -496,16 +576,33 @@ val pmatch_def = tDefine "pmatch" `
   (pmatch_list s [] [] bindings = Match bindings) ∧
   (pmatch_list s (p::ps) (v::vs) bindings =
     case pmatch s p v bindings of
-    | No_match => No_match
     | Match_type_error => Match_type_error
-    | Match bindings' => pmatch_list s ps vs bindings') ∧
-  (pmatch_list s _ _ bindings = Match_type_error)`
- (WF_REL_TAC `inv_image $< (\x. case x of INL (x,p,y,z) => pat_size p
-                                        | INR (x,ps,y,z) => pat1_size ps)` >>
-  srw_tac [ARITH_ss] [terminationTheory.size_abbrevs, astTheory.pat_size_def]);
+    | Match bindings' => pmatch_list s ps vs bindings'
+    | No_match =>
+      case pmatch_list s ps vs bindings of
+      | Match_type_error => Match_type_error
+      | _ => No_match) ∧
+  (pmatch_list s _ _ bindings = Match_type_error)
+Termination
+  WF_REL_TAC `inv_image $< (\x. case x of INL (x,p,y,z) => pat_size p
+                                        | INR (x,ps,y,z) => pat1_size ps)`
+  \\ simp []
+End
+
+Definition pmatch_rows_def:
+  pmatch_rows [] s v = No_match /\
+  pmatch_rows ((p,e)::pes) s v =
+    case pmatch s p v [] of
+    | Match_type_error => Match_type_error
+    | No_match => pmatch_rows pes s v
+    | Match env =>
+       case pmatch_rows pes s v of
+       | Match_type_error => Match_type_error
+       | _ => Match (env, p, e)
+End
 
 val dec_clock_def = Define`
-dec_clock s = s with clock := s.clock -1`;
+  dec_clock s = s with clock := s.clock -1`;
 
 val fix_clock_def = Define `
   fix_clock s (s1,res) = (s1 with clock := MIN s.clock s1.clock,res)`;
@@ -514,8 +611,44 @@ val fix_clock_IMP = Q.prove(
   `fix_clock s x = (s1,res) ==> s1.clock <= s.clock`,
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
 
-val evaluate_def = tDefine "evaluate"`
-  (evaluate (env:flatSem$environment) (s:'ffi flatSem$state) ([]:flatLang$exp list) = (s,Rval [])) ∧
+Theorem pmatch_rows_Match_exp_size:
+  !pes s v env e.
+    pmatch_rows pes s v = Match (env',p,e) ==>
+    exp_size e < exp3_size pes
+Proof
+  Induct \\ fs [pmatch_rows_def,FORALL_PROD,CaseEq"match_result",CaseEq"bool"]
+  \\ rw [] \\ res_tac \\ fs [exp_size_def]
+QED
+
+val is_fresh_type_def = Define `
+  is_fresh_type type_id ctors ⇔
+    !ctor. ctor ∈ ctors ⇒ !arity id. ctor ≠ ((id, SOME type_id), arity)`;
+
+val is_fresh_exn_def = Define `
+  is_fresh_exn exn_id ctors ⇔
+    !ctor. ctor ∈ ctors ⇒ !arity. ctor ≠ ((exn_id, NONE), arity)`;
+
+val do_eval_def = Define `
+  do_eval (vs :v list) eval_config =
+  (case vs of
+    | [v1; v2] =>
+      (case (v_to_bytes v1, v_to_words v2) of
+       | (SOME bytes, SOME data) =>
+         let (st,decs) = eval_config.compile_oracle 0 in
+         let new_oracle = shift_seq 1 eval_config.compile_oracle in
+         (case eval_config.compile st decs of
+          | SOME (bytes',data',st') =>
+            if bytes = bytes' ∧ data = data' ∧ decs <> [] ∧
+                FST (new_oracle 0) = st' then
+              SOME (decs, eval_config with compile_oracle := new_oracle, Unitv)
+            else NONE
+          | _ => NONE)
+       | _ => NONE)
+    | _ => NONE)`;
+
+Definition evaluate_def:
+  (evaluate (env:v flatSem$environment) ^s ([]:flatLang$exp list) =
+    (s,Rval [])) ∧
   (evaluate env s (e1::e2::es) =
     case fix_clock s (evaluate env s [e1]) of
     | (s, Rval v) =>
@@ -530,27 +663,32 @@ val evaluate_def = tDefine "evaluate"`
    | res => res) ∧
   (evaluate env s [Handle _ e pes] =
    case fix_clock s (evaluate env s [e]) of
-   | (s, Rerr (Rraise v)) => evaluate_match env s v pes v
+   | (s, Rerr (Rraise v)) =>
+       (case pmatch_rows pes s v of
+        | Match_type_error => (s, Rerr (Rabort Rtype_error))
+        | No_match => (s, Rerr (Rraise v))
+        | Match (env', p', e') =>
+           if ALL_DISTINCT (pat_bindings p' [])
+           then evaluate (env with v := env' ++ env.v) s [e']
+           else (s, Rerr (Rabort Rtype_error)))
    | res => res) ∧
   (evaluate env s [Con _ NONE es] =
-    if s.check_ctor then
-      case evaluate env s (REVERSE es) of
+    case evaluate env s (REVERSE es) of
       | (s, Rval vs) => (s,Rval [Conv NONE (REVERSE vs)])
-      | res => res
+      | res => res) ∧
+  (evaluate env s [Con _ (SOME cn) es] =
+    if (cn, LENGTH es) ∈ s.c
+    then
+      (case evaluate env s (REVERSE es) of
+      | (s, Rval vs) => (s, Rval [Conv (SOME cn) (REVERSE vs)])
+      | res => res)
     else
       (s, Rerr (Rabort Rtype_error))) ∧
-  (evaluate env s [Con _ (SOME cn) es] =
-    if s.check_ctor ∧ (cn, LENGTH es) ∉ s.c then
-      (s, Rerr (Rabort Rtype_error))
-    else
-      case evaluate env s (REVERSE es) of
-      | (s, Rval vs) => (s, Rval [Conv (SOME cn) (REVERSE vs)])
-      | res => res) ∧
   (evaluate env s [Var_local _ n] = (s,
    case ALOOKUP env.v n of
    | SOME v => Rval [v]
    | NONE => Rerr (Rabort Rtype_error))) ∧
-  (evaluate env s [Fun _ n e] = (s, Rval [Closure env.v n e])) ∧
+  (evaluate env s [Fun _ n e] = (s, Rval [Closure env n e])) ∧
   (evaluate env s [App _ op es] =
    case fix_clock s (evaluate env s (REVERSE es)) of
    | (s, Rval vs) =>
@@ -560,12 +698,22 @@ val evaluate_def = tDefine "evaluate"`
             if s.clock = 0 then
               (s, Rerr (Rabort Rtimeout_error))
             else
-              evaluate (env with v := env') (dec_clock s) [e]
+              evaluate env' (dec_clock s) [e]
+          | NONE => (s, Rerr (Rabort Rtype_error)))
+       else if op = flatLang$Eval then
+         (case do_eval (REVERSE vs) s.eval_config of
+            | SOME (decs, eval_config, retv) =>
+              let s = s with <| eval_config := eval_config |> in
+              if s.clock = 0 then
+                (s, Rerr (Rabort Rtimeout_error))
+              else (case evaluate_decs (dec_clock s) decs of
+               | (s, NONE) => (s, Rval [retv])
+               | (s, SOME e) => (s, Rerr e))
           | NONE => (s, Rerr (Rabort Rtype_error)))
        else
-       (case (do_app s.check_ctor s op (REVERSE vs)) of
+       (case (do_app s op (REVERSE vs)) of
         | NONE => (s, Rerr (Rabort Rtype_error))
-        | SOME (s',r) => (s', list_result r))
+        | SOME (s',r) => (s', evaluate$list_result r))
    | res => res) ∧
   (evaluate env s [If _ e1 e2 e3] =
    case fix_clock s (evaluate env s [e1]) of
@@ -577,7 +725,13 @@ val evaluate_def = tDefine "evaluate"`
   (evaluate env s [Mat _ e pes] =
    case fix_clock s (evaluate env s [e]) of
    | (s, Rval v) =>
-       evaluate_match env s (HD v) pes bind_exn_v
+       (case pmatch_rows pes s (HD v) of
+        | Match_type_error => (s, Rerr (Rabort Rtype_error))
+        | No_match => (s, Rerr (Rraise bind_exn_v))
+        | Match (env', p', e') =>
+           if ALL_DISTINCT (pat_bindings p' [])
+           then evaluate (env with v := env' ++ env.v) s [e']
+           else (s, Rerr (Rabort Rtype_error)))
    | res => res) ∧
   (evaluate env s [Let _ n e1 e2] =
    case fix_clock s (evaluate env s [e1]) of
@@ -585,30 +739,47 @@ val evaluate_def = tDefine "evaluate"`
    | res => res) ∧
   (evaluate env s [Letrec _ funs e] =
    if ALL_DISTINCT (MAP FST funs)
-   then evaluate (env with v := build_rec_env funs env.v env.v) s [e]
-   else (s, Rerr (Rabort Rtype_error))) ∧
-  (evaluate_match (env:flatSem$environment) s v [] err_v =
-    if s.exh_pat then
-      (s, Rerr(Rabort Rtype_error))
+   then evaluate (env with v := build_rec_env funs env env.v) s [e]
+   else (s, Rerr(Rabort Rtype_error))) ∧
+  (evaluate_dec s (Dlet e) =
+   case evaluate <| v := [] |> s [e] of
+   | (s, Rval x) =>
+     if x = [Unitv] then
+       (s, NONE)
+     else
+       (s, SOME (Rabort Rtype_error))
+   | (s, Rerr e) => (s, SOME e)) ∧
+  (evaluate_dec s (Dtype id ctors) =
+    if is_fresh_type id s.c then
+      let new_c = { ((idx, SOME id), arity) |
+          ?max. lookup arity ctors = SOME max ∧ idx < max } in
+      (s with c updated_by $UNION new_c, NONE)
     else
-      (s, Rerr(Rraise err_v))) ∧
-  (evaluate_match env s v ((p,e)::pes) err_v =
-   if ALL_DISTINCT (pat_bindings p []) then
-     case pmatch s p v [] of
-     | Match env_v' => evaluate (env with v := env_v' ++ env.v) s [e]
-     | No_match => evaluate_match env s v pes err_v
-     | _ => (s, Rerr(Rabort Rtype_error))
-   else (s, Rerr(Rabort Rtype_error)))`
-  (wf_rel_tac`inv_image ($< LEX $<)
-                (λx. case x of (INL(_,s,es)) => (s.clock,exp6_size es)
-                             | (INR(_,s,_,pes,_)) => (s.clock,exp3_size pes))`
-  >> rpt strip_tac
-  >> simp[dec_clock_def]
-  >> imp_res_tac fix_clock_IMP
-  >> imp_res_tac do_if_either_or
-  >> rw[]);
-
-val evaluate_ind = theorem"evaluate_ind";
+      (s, SOME (Rabort Rtype_error))) ∧
+  (evaluate_dec s (Dexn id arity) =
+    if is_fresh_exn id s.c then
+      (s with c updated_by $UNION {((id, NONE), arity)}, NONE)
+    else
+      (s, SOME (Rabort Rtype_error))) ∧
+  (evaluate_decs s [] = (s, NONE)) ∧
+  (evaluate_decs s (d::ds) =
+   case fix_clock s (evaluate_dec s d) of
+   | (s, NONE) => evaluate_decs s ds
+   | (s, SOME e) => (s, SOME e))
+Termination
+  wf_rel_tac `inv_image ($< LEX $<)
+    (\x. case x of
+        | INL (env,s,exps) => (s.clock, SUM (MAP exp_size exps) + LENGTH exps)
+        | (INR(INL(s,d))) => (s.clock,dec_size d + 1)
+        | (INR(INR(s,ds))) => (s.clock,SUM (MAP dec_size ds) + LENGTH ds + 1))`
+  \\ simp [exp_size_def, dec_clock_def]
+  \\ rw []
+  \\ imp_res_tac fix_clock_IMP
+  \\ imp_res_tac do_if_either_or
+  \\ imp_res_tac pmatch_rows_Match_exp_size
+  \\ fs []
+  \\ simp [MAP_REVERSE, SUM_REVERSE, exp6_size]
+End
 
 val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def};
 val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def};
@@ -640,13 +811,13 @@ val pair_lam_lem = Q.prove (
  srw_tac[][]);
 
 val do_app_cases = save_thm ("do_app_cases",
-``do_app cc st op vs = SOME (st',v)`` |>
+``do_app st op vs = SOME (st',v)`` |>
   (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
    ALL_CONV));
 
 Theorem do_app_const:
-   do_app cc s op vs = SOME (s',r) ⇒ s.clock = s'.clock
+   do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock ∧ s.c = s'.c
 Proof
   rw [do_app_cases] >>
   rw [] >>
@@ -654,8 +825,9 @@ Proof
 QED
 
 Theorem evaluate_clock:
-   (∀env (s1:'a state) e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
-   (∀env (s1:'a state) v pes v_err r s2. evaluate_match env s1 v pes v_err = (s2,r) ⇒ s2.clock ≤ s1.clock)
+   (∀env ^s e r s2. evaluate env s e = (s2,r) ⇒ s2.clock ≤ s.clock) ∧
+   (∀^s e r s2. evaluate_dec s e = (s2,r) ⇒ s2.clock ≤ s.clock) ∧
+   (∀^s e r s2. evaluate_decs s e = (s2,r) ⇒ s2.clock ≤ s.clock)
 Proof
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[dec_clock_def] >> rw[] >> rfs[] >>
@@ -663,9 +835,13 @@ Proof
 QED
 
 Theorem fix_clock_evaluate:
-   fix_clock s (evaluate env s e) = evaluate env s e
+   fix_clock s (evaluate env s e) = evaluate env s e /\
+   fix_clock s (evaluate_dec s d) = evaluate_dec s d /\
+   fix_clock s (evaluate_decs s ds) = evaluate_decs s ds
 Proof
   Cases_on `evaluate env s e` \\ fs [fix_clock_def]
+  \\ Cases_on `evaluate_dec s d` \\ fs [fix_clock_def]
+  \\ Cases_on `evaluate_decs s ds` \\ fs [fix_clock_def]
   \\ imp_res_tac evaluate_clock
   \\ fs [MIN_DEF,theorem "state_component_equality"]
 QED
@@ -675,50 +851,6 @@ val evaluate_def = save_thm("evaluate_def[compute]",
 
 val evaluate_ind = save_thm("evaluate_ind",
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
-
-val is_fresh_type_def = Define `
-  is_fresh_type type_id ctors ⇔
-    !ctor. ctor ∈ ctors ⇒ !arity id. ctor ≠ ((id, SOME type_id), arity)`;
-
-val is_fresh_exn_def = Define `
-  is_fresh_exn exn_id ctors ⇔
-    !ctor. ctor ∈ ctors ⇒ !arity. ctor ≠ ((exn_id, NONE), arity)`;
-
-val evaluate_dec_def = Define`
-  (evaluate_dec s (Dlet e) =
-   case evaluate <| v := [] |> s [e] of
-   | (s, Rval x) =>
-     if x = [Unitv s.check_ctor] then
-       (s, NONE)
-     else
-       (s, SOME (Rabort Rtype_error))
-   | (s, Rerr e) => (s, SOME e)) ∧
-  (evaluate_dec s (Dtype id ctors) =
-    if s.check_ctor then
-      if is_fresh_type id s.c then
-        (s with
-           c updated_by $UNION
-           { ((idx, SOME id), arity) | ?max. lookup arity ctors = SOME max ∧ idx < max },
-         NONE)
-      else
-        (s, SOME (Rabort Rtype_error))
-    else
-      (s, NONE)) ∧
-  (evaluate_dec s (Dexn id arity) =
-    if s.check_ctor then
-      if is_fresh_exn id s.c then
-        (s with c updated_by $UNION {((id, NONE), arity)}, NONE)
-      else
-        (s, SOME (Rabort Rtype_error))
-    else
-      (s, NONE))`;
-
-val evaluate_decs_def = Define`
-  (evaluate_decs s [] = (s, NONE)) ∧
-  (evaluate_decs s (d::ds) =
-   case evaluate_dec s d of
-   | (s, NONE) => evaluate_decs s ds
-   | (s, SOME e) => (s, SOME e))`;
 
 val bool_ctors_def = Define `
   bool_ctors =
@@ -743,24 +875,24 @@ val initial_ctors_def = Define `
    initial_ctors = bool_ctors UNION list_ctors UNION exn_ctors`;
 
 val initial_state_def = Define `
-  initial_state ffi k exh_pat check_ctor =
-    <| clock   := k
-     ; refs    := []
-     ; ffi     := ffi
-     ; globals := []
-     ; c       := initial_ctors
-     ; exh_pat := exh_pat
-     ; check_ctor := check_ctor |>`;
+  initial_state ffi k ec =
+    <| clock       := k
+     ; refs        := []
+     ; ffi         := ffi
+     ; globals     := []
+     ; c           := initial_ctors
+     ; eval_config := ec
+     |> :('c,'ffi) flatSem$state`;
 
 val semantics_def = Define`
-  semantics exh_pat check_ctor ffi prog =
-    if ∃k. SND (evaluate_decs (initial_state ffi k exh_pat check_ctor) prog) =
-           SOME (Rabort Rtype_error)
+  semantics (ec:'c install_config) (ffi:'ffi ffi_state) prog =
+    if ∃k. SND (evaluate_decs (initial_state ffi k ec) prog)
+           = SOME (Rabort Rtype_error)
       then Fail
     else
     case some res.
       ∃k s r outcome.
-        evaluate_decs (initial_state ffi k exh_pat check_ctor) prog = (s,r) ∧
+        evaluate_decs (initial_state ffi k ec) prog = (s,r) ∧
         (case r of
          | SOME (Rabort (Rffi_error e)) => outcome = FFI_outcome e
          | SOME (Rabort _) => F
@@ -771,12 +903,11 @@ val semantics_def = Define`
        Diverge
          (build_lprefix_lub
            (IMAGE (λk. fromList
-             (FST (evaluate_decs
-               (initial_state ffi k exh_pat check_ctor) prog)).ffi.io_events) UNIV))`;
+             (FST (evaluate_decs (initial_state ffi k ec) prog)).ffi.io_events)
+               UNIV))`;
 
-val _ = map delete_const
+val _ = map (can delete_const)
   ["do_eq_UNION_aux","do_eq_UNION",
-   "pmatch_UNION_aux","pmatch_UNION",
-   "evaluate_UNION_aux","evaluate_UNION"];
+   "pmatch_UNION_aux","pmatch_UNION"];
 
 val _ = export_theory();

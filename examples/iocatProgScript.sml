@@ -91,7 +91,8 @@ Proof
              qmatch_assum_abbrev_tac`MEM (xx,yy) fs0.files` >>
              qexists_tac`(xx,yy)` >> fs[])
           >- res_tac
-          >-(fs[MEM_FST_ALOOKUP_SOME])
+          >- (Cases_on ‘ALOOKUP fs0.files (FST y)’ \\ fs []
+              \\ fs [ALOOKUP_NONE] \\ fs [MEM_MAP] \\ metis_tac [])
           >- res_tac) >> fs[] >> rw[]
     >- fs[fsupdate_def,AFUPDKEY_ALOOKUP,openFileFS_files,ADELKEY_nextFD_openFileFS,
          ADELKEY_AFUPDKEY,ALOOKUP_inFS_fname_openFileFS_nextFD,ADELKEY_fastForwardFD_elim]

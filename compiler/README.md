@@ -34,5 +34,12 @@ The CakeML type inferencer.
 [parsing](parsing):
 The CakeML parser.
 
+[printing](printing):
+The printer mechanism for the CakeML REPL.
+
 [proofs](proofs):
 Correctness proof for the CakeML compiler.
+
+[repl](repl):
+Some definitions and proofs used in the proof of the CakeML
+and Candle read-eval-print loop (REPL).

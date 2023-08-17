@@ -43,9 +43,11 @@ val _ = Datatype `
        | Seq wordLang$prog wordLang$prog
        | If cmp num ('a reg_imm) wordLang$prog wordLang$prog
        | Alloc num num_set
+       | StoreConsts num num num num ((bool # 'a word) list)
        | Raise num
        | Return num num
        | Tick
+       | OpCurrHeap binop num num (* special case compiled well in stackLang *)
        | LocValue num num        (* assign v1 := Loc v2 0 *)
        | Install num num num num num_set (* code buffer start, length of new code,
                                       data buffer start, length of new data, cut-set *)
@@ -54,9 +56,12 @@ val _ = Datatype `
        | FFI string num num num num num_set (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *) `;
 
 val raise_stub_location_def = Define`
-  raise_stub_location = word_num_stubs - 1`;
-val raise_stub_location_eq = save_thm("raise_stub_location_eq",
-  EVAL``raise_stub_location``);
+  raise_stub_location = word_num_stubs - 2`;
+val store_consts_stub_location_def = Define`
+  store_consts_stub_location = word_num_stubs - 1`;
+
+Theorem raise_stub_location_eq = EVAL``raise_stub_location``;
+Theorem store_consts_stub_location_eq = EVAL``store_consts_stub_location``;
 
 (* wordLang uses syntactic invariants compared to stackLang that uses semantic flags
    Some of these are also used to EVAL (e.g. for the oracle)
@@ -139,8 +144,11 @@ val every_var_def = Define `
     (P r1 ∧ every_var_imm P ri ∧ every_var P e2 ∧ every_var P e3)) ∧
   (every_var P (Alloc num numset) =
     (P num ∧ every_name P numset)) ∧
+  (every_var P (StoreConsts a b c d ws) =
+    (P a ∧ P b ∧ P c ∧ P d)) ∧
   (every_var P (Raise num) = P num) ∧
   (every_var P (Return num1 num2) = (P num1 ∧ P num2)) ∧
+  (every_var P (OpCurrHeap _ num1 num2) = (P num1 ∧ P num2)) ∧
   (every_var P Tick = T) ∧
   (every_var P (Set n exp) = every_var_exp P exp) ∧
   (every_var P p = T)`
@@ -236,6 +244,8 @@ val max_var_def = Define `
       max3 r (max_var e2) (max_var e3)) ∧
   (max_var (Alloc num numset) =
     MAX num (list_max (MAP FST (toAList numset)))) ∧
+  (max_var (StoreConsts a b c d ws) =
+    list_max [a;b;c;d]) ∧
   (max_var (Install r1 r2 r3 r4 numset) =
     (list_max (r1::r2::r3::r4::MAP FST (toAList numset)))) ∧
   (max_var (CodeBufferWrite r1 r2) =
@@ -245,6 +255,7 @@ val max_var_def = Define `
   (max_var (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
     list_max (ptr1::len1::ptr2::len2::MAP FST (toAList numset))) ∧
   (max_var (Raise num) = num) ∧
+  (max_var (OpCurrHeap _ num1 num2) = MAX num1 num2) ∧
   (max_var (Return num1 num2) = MAX num1 num2) ∧
   (max_var Tick = 0) ∧
   (max_var (LocValue r l1) = r) ∧
@@ -271,5 +282,9 @@ val word_sh_def = Define `
       | Ror => SOME (word_ror w n)`;
 
 Overload shift = “backend_common$word_shift”
+
+Datatype:
+  word_loc = Word ('a word) | Loc num num
+End
 
 val _ = export_theory();

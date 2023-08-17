@@ -2,22 +2,22 @@
   Translations of various useful HOL functions and datatypes, to serve as a
   starting point for further translations.
 *)
+
 open preamble astTheory libTheory semanticPrimitivesTheory whileTheory;
-open terminationTheory ml_translatorLib ml_translatorTheory ml_progLib;
+open evaluateTheory ml_translatorLib ml_translatorTheory ml_progLib;
 
 val _ = new_theory "std_prelude";
-
-val register_type = abs_register_type;
-val translate = abs_translate;
 
 (* type registration *)
 
 val _ = (use_full_type_names := false)
+
 val _ = register_type ``:ordering``;
 val _ = register_type ``:'a option``;
 val _ = register_type ``:'a list``;
 val _ = register_type ``:'a # 'b``;
 val _ = register_type ``:'a + 'b``;
+val _ = register_type ``:'a app_list``;
 
 (* pair *)
 
@@ -111,7 +111,6 @@ val LEAST_LEMMA = Q.prove(
 
 val res = translate LEAST_LEMMA;
 
-(*
 val FUNPOW_LEMMA = Q.prove(
   `!n m. FUNPOW (\x. x + 1) n m = n + m`,
   Induct THEN FULL_SIMP_TAC std_ss [FUNPOW,ADD1,AC ADD_COMM ADD_ASSOC]);
@@ -122,9 +121,16 @@ val least_side_thm = Q.prove(
   THEN FULL_SIMP_TAC std_ss [OWHILE_def,FUNPOW_LEMMA,FUN_EQ_THM,EMPTY_DEF]
   THEN METIS_TAC [IS_SOME_DEF])
   |> update_precondition;
-*)
 
-val _ = concretise_all () (* needs to be done before module below *)
+(* app_list *)
+
+val _ = ml_prog_update open_local_block;
+val r = translate miscTheory.append_aux_def;
+val _ = ml_prog_update open_local_in_block;
+
+val r = translate miscTheory.append_def;
+
+val _ = ml_prog_update close_local_blocks;
 
 val _ = (print_asts := true);
 

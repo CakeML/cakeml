@@ -15,6 +15,7 @@ Vector
 String
 mlbasics (defines Bool, Pair)
 Int
+PrettyPrinter
 Rat
 Char
 Word64
@@ -26,6 +27,5 @@ Hashtable
 CommandLine
 Double
 TextIO
-PrettyPrinter
 ArgParse
 basis

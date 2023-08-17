@@ -117,6 +117,27 @@ Proof
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]
 QED
 
+Theorem store_const_sem_const:
+   store_const_sem t1 t2 s = (r,t) ⇒ t.ffi = s.ffi ∧
+    t.clock = s.clock ∧
+    t.use_alloc = s.use_alloc ∧
+    t.use_store = s.use_store ∧
+    t.use_stack = s.use_stack ∧
+    t.code = s.code ∧
+    t.be = s.be ∧
+    t.gc_fun = s.gc_fun ∧
+    t.mdomain = s.mdomain ∧
+    t.bitmaps = s.bitmaps ∧
+    t.compile = s.compile ∧
+    t.store = s.store ∧
+    t.data_buffer = s.data_buffer ∧
+    t.code_buffer = s.code_buffer ∧
+    t.compile_oracle = s.compile_oracle
+Proof
+  gvs[store_const_sem_def,gc_def,LET_THM,AllCaseEqs()]
+  \\ rw [] \\ gvs [unset_var_def,set_var_def]
+QED
+
 Theorem gc_with_const[simp]:
    gc (x with clock := k) = OPTION_MAP (λs. s with clock := k) (gc x)
 Proof
@@ -127,6 +148,14 @@ Theorem alloc_with_const[simp]:
    alloc x (y with clock := z) = (I ## (λs. s with clock := z))(alloc x y)
 Proof
   srw_tac[][alloc_def] >> every_case_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]
+QED
+
+Theorem store_const_sem_with_const[simp]:
+   store_const_sem t1 t2 (y with clock := z) =
+   (I ## (λs. s with clock := z))(store_const_sem t1 t2 y)
+Proof
+  srw_tac[][store_const_sem_def,get_var_def] >> every_case_tac >>
+  fs [unset_var_def,set_var_def]
 QED
 
 Theorem mem_load_with_const[simp]:
@@ -229,7 +258,8 @@ Proof
     (strip_tac >> var_eq_tac >> rveq >> full_simp_tac(srw_ss())[]) ORELSE
     (CASE_TAC >> full_simp_tac(srw_ss())[]) ORELSE
     (pairarg_tac >> simp[]))>>
-  (every_case_tac>>fs[]>>rw[])
+  (every_case_tac>>fs[]>>rw[]) >>
+  imp_res_tac store_const_sem_const >> fs []
 QED
 
 Theorem evaluate_code_bitmaps:
@@ -246,6 +276,7 @@ Proof
   TRY(
     fs[case_eq_thms,empty_env_def]>>rw[]>>
     imp_res_tac alloc_const \\ imp_res_tac inst_const \\
+    imp_res_tac store_const_sem_const \\
     qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC)
   (* Seq *)
   >- (
@@ -336,6 +367,7 @@ Proof
   every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >>
   TRY pairarg_tac >> full_simp_tac(srw_ss())[] >>
   imp_res_tac alloc_const >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac store_const_sem_const >> full_simp_tac(srw_ss())[] >>
   imp_res_tac inst_const >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[set_var_def] >> srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
@@ -420,6 +452,7 @@ Proof
   every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >>
   full_simp_tac(srw_ss())[get_var_def] >> rveq >> full_simp_tac(srw_ss())[] >>
   imp_res_tac alloc_const >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac store_const_sem_const >> full_simp_tac(srw_ss())[] >>
   imp_res_tac inst_const >> full_simp_tac(srw_ss())[] >>
   fsrw_tac[ARITH_ss][dec_clock_def] >>
   TRY (
@@ -751,6 +784,8 @@ val inst_name_def = Define`
 
 val stack_asm_name_def = Define`
   (stack_asm_name c ((Inst i):'a stackLang$prog) ⇔ inst_name c i) ∧
+  (stack_asm_name c (OpCurrHeap b r1 r2) ⇔
+    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c) ∧
   (stack_asm_name c (CodeBufferWrite r1 r2) ⇔ reg_name r1 c ∧ reg_name r2 c) ∧
   (stack_asm_name c (DataBufferWrite r1 r2) ⇔ reg_name r1 c ∧ reg_name r2 c) ∧
   (stack_asm_name c (Seq p1 p2) ⇔ stack_asm_name c p1 ∧ stack_asm_name c p2) ∧
@@ -777,6 +812,7 @@ val fixed_names_def = Define`
 
 val stack_asm_remove_def = Define`
   (stack_asm_remove c ((Get n s):'a stackLang$prog) ⇔ reg_name n c) ∧
+  (stack_asm_remove c (OpCurrHeap binop v src) ⇔ reg_name v c ∧ reg_name src c) ∧
   (stack_asm_remove c (Set s n) ⇔ reg_name n c) ∧
   (stack_asm_remove c (StackStore n n0) ⇔ reg_name n c) ∧
   (stack_asm_remove c (StackStoreAny n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
@@ -785,6 +821,7 @@ val stack_asm_remove_def = Define`
   (stack_asm_remove c (StackGetSize n) ⇔ reg_name n c) ∧
   (stack_asm_remove c (StackSetSize n) ⇔ reg_name n c) ∧
   (stack_asm_remove c (BitmapLoad n n0) ⇔ reg_name n c ∧ reg_name n0 c) ∧
+  (stack_asm_remove c (StoreConsts n n0 _) ⇔ reg_name n c ∧ reg_name n0 c) ∧
   (stack_asm_remove c (Seq p1 p2) ⇔ stack_asm_remove c p1 ∧ stack_asm_remove c p2) ∧
   (stack_asm_remove c (If cmp n r p p') ⇔ stack_asm_remove c p ∧ stack_asm_remove c p') ∧
   (stack_asm_remove c (While cmp n r p) ⇔ stack_asm_remove c p) ∧
@@ -859,10 +896,14 @@ val reg_bound_def = Define `
      v1 < k) /\
   (reg_bound (Get v1 n) k <=>
      v1 < k) /\
+  (reg_bound (OpCurrHeap op v1 v2) k <=>
+     v1 < k ∧ v2 < k) /\
   (reg_bound (Set n v1) k <=>
      v1 < k /\ n <> BitmapBase) /\
   (reg_bound (LocValue v1 l1 l2) k <=>
      v1 < k) /\
+  (reg_bound (StoreConsts t1 t2 _) k <=>
+     3 < k ∧ t1 < k ∧ t2 < k) /\
   (reg_bound (Return v1 v2) k <=>
      v1 < k /\ v2 < k) /\
   (reg_bound (JumpLower v1 v2 dest) k <=>
@@ -881,9 +922,9 @@ val reg_bound_def = Define `
   (reg_bound (Call x1 dest x2) k <=>
      (case dest of INR i => i < k | _ => T) /\
      (case x1 of
-      | SOME (y,r,_,_) => reg_bound y k /\ r < k
-      | NONE => T) /\
-     (case x2 of SOME (y,_,_) => reg_bound y k | NONE => T)) /\
+      | NONE => T
+      | SOME (y,r,_,_) => reg_bound y k /\ r < k /\
+                          (case x2 of SOME (y,_,_) => reg_bound y k | NONE => T))) /\
   (reg_bound (Install ptr len dptr dlen ret) k ⇔
     ptr < k ∧ len < k ∧ dptr < k ∧ dlen < k ∧ ret < k) ∧
   (reg_bound (CodeBufferWrite r1 r2) k ⇔
@@ -916,9 +957,10 @@ val call_args_def = Define `
      ptr' = ptr /\ len' = len /\ ptr2' = ptr2 /\ len2' = len2 /\ ret' = ret) /\
   (call_args (Call x1 _ x2) ptr len ptr2 len2 ret <=>
      (case x1 of
-      | SOME (y,r,_,_) => call_args y ptr len ptr2 len2 ret /\ r = ret
-      | NONE => T) /\
-     (case x2 of SOME (y,_,_) => call_args y ptr len ptr2 len2 ret | NONE => T)) /\
+      | NONE => T
+      | SOME (y,r,_,_) =>
+          call_args y ptr len ptr2 len2 ret /\ r = ret /\
+          (case x2 of SOME (y,_,_) => call_args y ptr len ptr2 len2 ret | NONE => T))) /\
   (call_args (Install ptr' len' _ _ ret') ptr len ptr2 len2 ret <=>
      ptr' = ptr /\ len' = len /\ ret' = ret) /\
   (call_args _ ptr len ptr2 len2 ret <=> T)`
@@ -946,7 +988,9 @@ val get_code_labels_def = Define`
   (get_code_labels (If _ _ _ p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
   (get_code_labels (While _ _ _ p) = get_code_labels p) ∧
   (get_code_labels (JumpLower _ _ t) = {(t,0)}) ∧
+  (get_code_labels (RawCall t) = {(t,1)}) ∧
   (get_code_labels (LocValue _ l1 l2) = {(l1,l2)}) ∧
+  (get_code_labels (StoreConsts _ _ (SOME l)) = {(l,0)}) ∧
   (get_code_labels _ = {})`;
 val _ = export_rewrites["get_code_labels_def"];
 
@@ -955,12 +999,13 @@ val stack_good_code_labels_def = Define`
   stack_good_code_labels p elabs ⇔
   BIGUNION (IMAGE get_code_labels (set (MAP SND p))) ⊆
   BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
-  IMAGE (λn. n,0) (set (MAP FST p)) ∪
-  IMAGE (λn. n,0) elabs`
+  IMAGE (λn. n,0) (set (MAP FST p)) ∪ IMAGE (λn. n,0) elabs ∪
+  IMAGE (λn. n,1) (set (MAP FST p)) ∪ IMAGE (λn. n,1) elabs`
 
 val stack_good_handler_labels_def = Define`
   stack_good_handler_labels p ⇔
   restrict_nonzero (BIGUNION (IMAGE get_code_labels (set (MAP SND p)))) ⊆
-  BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p))`
+  BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
+  IMAGE (λn. n,1) (set (MAP FST p))`
 
 val _ = export_theory();

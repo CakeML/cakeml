@@ -15,7 +15,7 @@ val is_riscv_machine_config_def = Define`
   mc.ptr_reg = 10 ∧
   mc.len2_reg = 13  ∧
   mc.ptr2_reg = 12 ∧
-  mc.callee_saved_regs = [25;26;27]`;
+  mc.callee_saved_regs = [24;25;26]`;
 
 val names_tac =
   simp[tlookup_bij_iff] \\ EVAL_TAC

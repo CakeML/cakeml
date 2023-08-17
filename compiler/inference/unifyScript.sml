@@ -12,6 +12,8 @@ open infer_tTheory;
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
+val _ = new_theory "unify";
+
 val option_map_case = Q.prove (
   `!f opt.
     OPTION_MAP f opt =
@@ -20,8 +22,7 @@ val option_map_case = Q.prove (
        | SOME a => SOME (f a)`,
   simp[FUN_EQ_THM] >>
   gen_tac >> Cases >>
-  rw[OPTION_MAP_DEF])
-
+  rw[OPTION_MAP_DEF]);
 
 val option_bind_thm = Q.prove (
 `!x f. OPTION_BIND x f =
@@ -34,8 +35,6 @@ rw [OPTION_BIND_def]);
 val I_o_f = Q.prove (
 `!m. I o_f m = m`,
 rw [GSYM fmap_EQ_THM]);
-
-val _ = new_theory "unify";
 
 Datatype:
   atom
@@ -57,19 +56,20 @@ val encode_infer_t_def = Define `
 (encode_infer_ts (t::ts) =
   Pair (encode_infer_t t) (encode_infer_ts ts))`;
 
-val decode_infer_t_def = Define `
+Definition decode_infer_t_def:
 (decode_infer_t (Var n) =
   Infer_Tuvar n) ∧
 (decode_infer_t (Const (DB_tag n)) =
   Infer_Tvar_db n) ∧
 (decode_infer_t (Pair (Const Tapp_tag) (Pair (Const (TC_tag tc)) s)) =
   Infer_Tapp (decode_infer_ts s) tc) ∧
+(decode_infer_t _ = Infer_Tuvar 5) ∧
 (decode_infer_ts (Const Null_tag) =
   []) ∧
 (decode_infer_ts (Pair s1 s2) =
   decode_infer_t s1 :: decode_infer_ts s2) ∧
-(decode_infer_t _ = Infer_Tuvar 5) ∧
-(decode_infer_ts _ = [])`;
+(decode_infer_ts _ = [])
+End
 
 Theorem decode_infer_t_pmatch:
     (!t. decode_infer_t t =

@@ -171,7 +171,7 @@ val apply_if_opt_def = Define `
               SOME (SmartSeq x0 (If x1 x2 x3 (Seq q1 p2) (Seq q2 p1)))
             else NONE`
 
-val simp_if_def = tDefine "simp_if" `
+Definition simp_if_def:
   (simp_if (Seq x1 x2) =
      let y1 = simp_if x1 in
      let y2 = simp_if x2 in
@@ -188,8 +188,10 @@ val simp_if_def = tDefine "simp_if" `
           (dtcase handler of
            | NONE => NONE
            | SOME (y1,q2,y2,y3) => SOME (y1,simp_if q2,y2,y3))) /\
-  (simp_if x = x)`
-  (WF_REL_TAC `measure (wordLang$prog_size (K 0))` \\ rw [])
+  (simp_if x = x)
+Termination
+  WF_REL_TAC `measure (wordLang$prog_size (K 0))` \\ rw []
+End
 
 Theorem simp_if_pmatch:
   !prog.
@@ -250,7 +252,7 @@ val strip_const_def = Define `
        | _ => NONE) /\
   (strip_const _ = NONE)`;
 
-val const_fp_exp_def = tDefine "const_fp_exp" `
+Definition const_fp_exp_def:
   (const_fp_exp (Var v) cs =
      dtcase lookup v cs of
        | SOME x => Const x
@@ -269,11 +271,10 @@ val const_fp_exp_def = tDefine "const_fp_exp" `
                         | SOME w => Const w
                         | _ => Shift sh (Const c) n)
          | _ => Shift sh e n) /\
-  (const_fp_exp e _ = e)`
-
-  (WF_REL_TAC `measure (exp_size (\x.0) o FST)` \\ conj_tac
-  >- (Induct \\ fs [exp_size_def] \\ rw [] \\ fs [] \\ res_tac \\ fs [])
-  >- (rw []));
+  (const_fp_exp e _ = e)
+Termination
+  WF_REL_TAC `measure (exp_size (\x.0) o FST)`
+End
 
 val const_fp_exp_ind = fetch "-" "const_fp_exp_ind";
 
@@ -322,6 +323,7 @@ val const_fp_loop_def = Define `
          | Const c => (Assign v const_fp_e, insert v c cs)
          | _ => (Assign v const_fp_e, delete v cs)) /\
   (const_fp_loop (Get v name) cs = (Get v name, delete v cs)) /\
+  (const_fp_loop (OpCurrHeap b v w) cs = (OpCurrHeap b v w, delete v cs)) /\
   (const_fp_loop (MustTerminate p) cs =
     let (p', cs') = const_fp_loop p cs in
       (MustTerminate p', cs')) /\
@@ -349,6 +351,7 @@ val const_fp_loop_def = Define `
   (const_fp_loop (FFI x0 x1 x2 x3 x4 names) cs = (FFI x0 x1 x2 x3 x4 names, inter cs names)) /\
   (const_fp_loop (LocValue v x3) cs = (LocValue v x3, delete v cs)) /\
   (const_fp_loop (Alloc n names) cs = (Alloc n names, filter_v is_gc_const (inter cs names))) /\
+  (const_fp_loop (StoreConsts a b c d ws) cs = (StoreConsts a b c d ws, delete a (delete b (delete c (delete d cs))))) /\
   (const_fp_loop (Install r1 r2 r3 r4 names) cs = (Install r1 r2 r3 r4 names, delete r1 (filter_v is_gc_const (inter cs names)))) /\
   (const_fp_loop p cs = (p, cs))`;
 
@@ -363,6 +366,7 @@ Theorem const_fp_loop_pmatch:
        | Const c => (Assign v (Const c), insert v c cs)
        | const_fp_e => (Assign v const_fp_e, delete v cs))
   | (Get v name) => (Get v name, delete v cs)
+  | (OpCurrHeap b v w) => (OpCurrHeap b v w, delete v cs)
   | (MustTerminate p) =>
     (let (p', cs') = const_fp_loop p cs in
       (MustTerminate p', cs'))
@@ -390,6 +394,7 @@ Theorem const_fp_loop_pmatch:
   | (FFI x0 x1 x2 x3 x4 names) => (FFI x0 x1 x2 x3 x4 names, inter cs names)
   | (LocValue v x3) => (LocValue v x3, delete v cs)
   | (Alloc n names) => (Alloc n names, filter_v is_gc_const (inter cs names))
+  | (StoreConsts a b c d ws) => (StoreConsts a b c d ws, delete a (delete b (delete c (delete d cs))))
   | (Install r1 r2 r3 r4 names) => (Install r1 r2 r3 r4 names, delete r1 (filter_v is_gc_const (inter cs names)))
   | p => (p, cs)
 Proof
@@ -400,6 +405,7 @@ Proof
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- (CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
      >> rpt strip_tac >> fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[])
+  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
@@ -415,16 +421,18 @@ QED
 
 val const_fp_loop_ind = fetch "-" "const_fp_loop_ind";
 
-val const_fp_def = Define `
-  const_fp p = FST (const_fp_loop p LN)`;
+Definition const_fp_def:
+  const_fp p = FST (const_fp_loop p LN)
+End
 
 (* all of them together *)
 
-val compile_exp_def = Define `
+Definition compile_exp_def:
   compile_exp (e:'a wordLang$prog) =
     let e = Seq_assoc Skip e in
     let e = simp_if e in
     let e = const_fp e in
-      e`;
+      e
+End
 
 val _ = export_theory();

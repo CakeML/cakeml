@@ -5,6 +5,8 @@ open preamble basis MapProgTheory ml_translatorLib ml_progLib basisFunctionsLib 
      charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory cfTacticsBaseLib
      cfDivTheory cfDivLib;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "filterProg";
 
 (*---------------------------------------------------------------------------*)
@@ -240,7 +242,7 @@ Proof
   >> qhdtm_x_assum `null_index` (mp_tac o PURE_ONCE_REWRITE_RULE [null_index_def])
   >> rw[] >> Cases_on `n ≥ strlen s`
   >> Cases_on `s` >> fs[GREATER_EQ]
-  >> imp_res_tac DROP_LENGTH_TOO_LONG >> fs[]
+  >> imp_res_tac DROP_LENGTH_TOO_LONG >> asm_rewrite_tac[] >> fs[]
   >> `n < STRLEN s'` by fs[]
   >> imp_res_tac DROP_CONS_EL >> fs[]
 QED
@@ -349,7 +351,7 @@ Proof
   >> qhdtm_x_assum `null_index_w` (mp_tac o PURE_ONCE_REWRITE_RULE [null_index_w_def])
   >> rw[] >> Cases_on `n ≥ LENGTH s`
   >> fs[GREATER_EQ]
-  >> imp_res_tac DROP_LENGTH_TOO_LONG >> fs[]
+  >> imp_res_tac DROP_LENGTH_TOO_LONG >> asm_rewrite_tac[] >> fs[]
   >> `n < LENGTH s` by fs[]
   >> imp_res_tac DROP_CONS_EL >> fs[]
 QED
@@ -473,7 +475,7 @@ val eval_thm = let
 
 val dummyarr_loc_def = fetch "-" "dummyarr_loc_def";
 
-val _ = ml_prog_update (add_Dlet eval_thm "dummyarr" []);
+val _ = ml_prog_update (add_Dlet eval_thm "dummyarr");
 
 val forward_matching_lines = process_topdecs`
 fun forward_loop inputarr =
@@ -1215,7 +1217,7 @@ Proof
   rename1 `events ++ events' ++ events''` >>
   rename1 `W8ARRAY a1 a2` >>
   MAP_EVERY qexists_tac [`a1`,`a2`,`events' ++ events''`] >>
-  fs[LFILTER_APPEND,LFINITE_fromList,GSYM LAPPEND_fromList] >>
+  fs[FILTER_APPEND,LFILTER_APPEND,LFINITE_fromList,GSYM LAPPEND_fromList] >>
   xsimpl
 QED
 
@@ -1312,9 +1314,9 @@ Proof
   qexists_tac `events` >>
   rpt strip_tac >-
     (simp[semanticsTheory.evaluate_prog_with_clock_def,
-          terminationTheory.evaluate_decs_def,
+          evaluateTheory.evaluate_decs_def,
           astTheory.pat_bindings_def] >>
-     simp[terminationTheory.evaluate_def] >>
+     simp[evaluateTheory.evaluate_def] >>
      simp[semanticPrimitivesTheory.do_con_check_def,semanticPrimitivesTheory.build_conv_def] >>
      rw[evaluateTheory.dec_clock_def] >>
      fs[evaluate_ck_def] >>
@@ -1326,10 +1328,10 @@ Proof
     (rw[IMAGE_DEF,SUBSET_DEF] >>
      qexists_tac `SUC ck` >>
      simp[semanticsTheory.evaluate_prog_with_clock_def,
-          terminationTheory.evaluate_decs_def,
+          evaluateTheory.evaluate_decs_def,
           astTheory.pat_bindings_def
          ] >>
-     simp[terminationTheory.evaluate_def] >>
+     simp[evaluateTheory.evaluate_def] >>
      simp[semanticPrimitivesTheory.do_con_check_def,semanticPrimitivesTheory.build_conv_def] >>
      rw[evaluateTheory.dec_clock_def] >>
      fs[evaluate_ck_def] >>
@@ -1337,10 +1339,10 @@ Proof
   rw[PULL_EXISTS] >>
   simp[LPREFIX_fromList_fromList] >>
   simp[semanticsTheory.evaluate_prog_with_clock_def,
-       terminationTheory.evaluate_decs_def,
+       evaluateTheory.evaluate_decs_def,
        astTheory.pat_bindings_def
       ] >>
-  simp[terminationTheory.evaluate_def] >>
+  simp[evaluateTheory.evaluate_def] >>
   simp[semanticPrimitivesTheory.do_con_check_def,semanticPrimitivesTheory.build_conv_def] >>
   rw[evaluateTheory.dec_clock_def] >>
   fs[evaluate_ck_def] >>
@@ -1424,9 +1426,9 @@ Proof
   strip_tac >> fs[] >>
   fs[evaluate_to_heap_def,semanticsTheory.semantics_prog_def] >>
   simp[semanticsTheory.evaluate_prog_with_clock_def,
-          terminationTheory.evaluate_decs_def,
+          evaluateTheory.evaluate_decs_def,
           astTheory.pat_bindings_def] >>
-  simp[terminationTheory.evaluate_def] >>
+  simp[evaluateTheory.evaluate_def] >>
   simp[semanticPrimitivesTheory.do_con_check_def,semanticPrimitivesTheory.build_conv_def] >>
   rw[evaluateTheory.dec_clock_def] >>
   PURE_ONCE_REWRITE_TAC[CONJ_SYM] >>
@@ -1473,7 +1475,7 @@ Proof
   >> drule forward_matching_lines_ffidiv_semantics >> asm_rewrite_tac []
   >> disch_then (qspec_then `ffi` mp_tac) >> strip_tac
   >> dxrule(GEN_ALL semanticsPropsTheory.semantics_prog_deterministic)
-  >> disch_then dxrule >> simp[]
+  >> disch_then dxrule >> fs []
   >> metis_tac[]
 QED
 

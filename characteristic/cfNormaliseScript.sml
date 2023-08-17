@@ -7,7 +7,7 @@ open set_sepTheory helperLib ml_translatorTheory ConseqConv
 open semanticPrimitivesTheory cfHeapsTheory
 open cfHeapsBaseLib cfStoreTheory
 open cfTacticsBaseLib;
-open terminationTheory
+open evaluateTheory
 open ASCIInumbersTheory
 
 val _ = new_theory "cfNormalise"
@@ -30,7 +30,7 @@ Theorem exp2v_evaluate:
    !e env st v. exp2v env e = SOME v ==>
     evaluate st env [e] = (st, Rval [v])
 Proof
-  Induct \\ fs [exp2v_def, terminationTheory.evaluate_def]
+  Induct \\ fs [exp2v_def, evaluate_def]
 QED
 
 val exp2v_list_def = Define `
@@ -48,12 +48,12 @@ Theorem exp2v_list_evaluate:
     evaluate st env l = (st, Rval lv)
 Proof
   Induct
-  THEN1 (fs [exp2v_list_def, terminationTheory.evaluate_def])
+  THEN1 (fs [exp2v_list_def, evaluate_def])
   THEN1 (
     rpt strip_tac \\ fs [exp2v_list_def] \\
     every_case_tac \\ fs [] \\ rw [] \\
     first_assum progress \\ progress exp2v_evaluate \\
-    Cases_on `l` \\ fs [terminationTheory.evaluate_def]
+    Cases_on `l` \\ fs [evaluate_def]
   )
 QED
 
@@ -65,13 +65,13 @@ Theorem evaluate_rcons:
 Proof
   Induct_on `l`
   THEN1 (
-    rpt strip_tac \\ fs [terminationTheory.evaluate_def]
+    rpt strip_tac \\ fs [evaluate_def]
   )
   THEN1 (
-    rpt strip_tac \\ fs [terminationTheory.evaluate_def] \\
+    rpt strip_tac \\ fs [evaluate_def] \\
     Cases_on `l` \\ fs []
     THEN1 (
-      fs [terminationTheory.evaluate_def] \\
+      fs [evaluate_def] \\
       last_assum (fn t =>
         progress_with t
           (CONJ_PAIR evaluatePropsTheory.evaluate_length |> fst)) \\
@@ -79,9 +79,9 @@ Proof
     )
     THEN1 (
       qpat_x_assum `evaluate _ _ (_::_::_) = _`
-        (assume_tac o REWRITE_RULE [terminationTheory.evaluate_def]) \\
+        (assume_tac o REWRITE_RULE [evaluate_def]) \\
       every_case_tac \\ fs [] \\ rw [] \\ first_assum progress \\
-      simp [terminationTheory.evaluate_def]
+      simp [evaluate_def]
     )
   )
 QED
@@ -91,7 +91,7 @@ Theorem exp2v_list_REVERSE:
     evaluate st env (REVERSE l) = (st, Rval (REVERSE lv))
 Proof
   Induct \\ rpt gen_tac \\ disch_then (assume_tac o GSYM) \\
-  fs [exp2v_list_def, terminationTheory.evaluate_def] \\
+  fs [exp2v_list_def, evaluate_def] \\
   every_case_tac \\ fs [] \\ rw [] \\ irule evaluate_rcons \\
   metis_tac [exp2v_evaluate]
 QED

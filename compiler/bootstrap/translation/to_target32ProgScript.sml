@@ -2,9 +2,11 @@
   Translate the final part of the compiler backend for 32-bit targets.
 *)
 open preamble;
-open terminationTheory
+open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
 open to_word32ProgTheory std_preludeTheory;
+
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "to_target32Prog"
 
@@ -70,6 +72,11 @@ val _ = inst_tyargs := [alpha]
 
 open word_to_stackTheory
 
+val r = translate (chunk_to_bits_def |> conv32);
+val r = translate (chunk_to_bitmap_def |> conv32);
+Theorem const_words_to_bitmap_ind = const_words_to_bitmap_ind |> conv32;
+val r = translate (const_words_to_bitmap_def |> conv32);
+
 val _ = translate (conv32 write_bitmap_def|> (RW (!extra_preprocessing)))
 
 (* TODO: The paired let trips up the translator's single line def mechanism, unable to find a smaller failing example yet *)
@@ -94,6 +101,16 @@ val _ = translate (spec32 comp_def)
 val _ = translate (compile_word_to_stack_def |> INST_TYPE [beta |-> ``:32``])
 
 val _ = translate (compile_def |> INST_TYPE [alpha|->``:32``,beta|->``:32``]);
+
+(* stack_rawcall *)
+
+val res = translate (stack_rawcallTheory.dest_case_pmatch |> conv32);
+val res = translate (stack_rawcallTheory.comp_seq_def |> conv32);
+val res = translate (stack_rawcallTheory.seq_stack_alloc_pmatch |> conv32);
+val res = translate (stack_rawcallTheory.collect_info_def |> conv32);
+val res = translate (stack_rawcallTheory.comp_pmatch |> conv32);
+val res = translate (stack_rawcallTheory.comp_top_pmatch |> conv32);
+val res = translate (stack_rawcallTheory.compile_def |> conv32);
 
 open stack_allocTheory
 
@@ -159,6 +176,15 @@ val stack_alloc_compile_side = Q.prove(`∀conf prog. stack_alloc_compile_side c
 
 open stack_removeTheory
 
+val each_def =
+  copy_each_def |> inline_simp |> conv32 |> SPEC_ALL |> CONV_RULE (RAND_CONV EVAL);
+val loop_def =
+  (copy_loop_def |> inline_simp |> conv32 |> SPEC_ALL |> CONV_RULE (RAND_CONV EVAL)
+    |> REWRITE_RULE [GSYM each_def]);
+
+val _ = translate each_def;
+val _ = translate loop_def;
+
 (* Might be better to inline this *)
 val _ = translate (conv32 word_offset_def)
 val _ = translate (conv32 store_offset_def |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv32)
@@ -188,7 +214,11 @@ val _ = matches := [``foo:'a labLang$prog``,``foo:'a
 
 val _ = translate (flatten_def |> spec32)
 
+val _ = translate (stack_to_labTheory.is_Seq_def |> spec32)
+
 val _ = translate (compile_def |> spec32)
+
+val _ = translate (stack_to_labTheory.compile_no_stubs_def |> spec32)
 
 open lab_filterTheory lab_to_targetTheory asmTheory
 open monadic_encTheory monadic_enc32Theory ml_monad_translatorLib;
@@ -317,6 +347,18 @@ val compile_lab_thm = compile_lab_def
 val res = translate compile_lab_thm;
 
 val res = translate (spec32 compile_def)
+
+(* explorer specific functions *)
+
+val res = presLangTheory.asm_cmp_to_display_def |> spec32 |> translate;
+val res = presLangTheory.asm_asm_to_display_def |> spec32 |> translate;
+val res = presLangTheory.lab_asm_to_display_def |> spec32
+          |> REWRITE_RULE [presLangTheory.string_imp_def] |> translate;
+val res = presLangTheory.lab_line_to_display_def |> spec32 |> translate;
+val res = presLangTheory.lab_fun_to_display_def |> spec32 |> translate;
+val res = presLangTheory.stack_prog_to_display_def |> spec32
+          |> REWRITE_RULE [presLangTheory.string_imp_def] |> translate;
+val res = presLangTheory.stack_fun_to_display_def |> spec32 |> translate;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

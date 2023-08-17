@@ -8,6 +8,8 @@ open backendPropsTheory;
 val qexistsl_tac = map_every qexists_tac;
 fun bump_assum pat = qpat_x_assum pat assume_tac;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "clos_ticksProof";
 
 Overload remove_ticks[local] = ``clos_ticks$remove_ticks``
@@ -113,9 +115,6 @@ val FMAP_REL_def = Define `
     FDOM f1 = FDOM f2 /\
     !k v. FLOOKUP f1 k = SOME v ==>
           ?v2. FLOOKUP f2 k = SOME v2 /\ r v v2`;
-
-val compile_inc_def = Define `
-  compile_inc (e, xs) = (remove_ticks e, [])`;
 
 val state_rel_def = Define `
   state_rel (s:('c, 'ffi) closSem$state) (t:('c, 'ffi) closSem$state) <=>

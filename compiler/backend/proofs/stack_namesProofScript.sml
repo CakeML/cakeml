@@ -11,6 +11,8 @@ val _ = bring_to_front_overload"comp"{Name="comp",Thy="stack_names"};
 
 val _ = new_theory"stack_namesProof";
 
+val _ = temp_delsimps ["fromAList_def"]
+
 val rename_state_def = Define `
   rename_state compile_rest f s =
    s with
@@ -201,21 +203,24 @@ val loc_check_rename_state = Q.prove(
   \\ simp[lookup_fromAList,compile_def,prog_comp_eta,ALOOKUP_MAP,ALOOKUP_toAList]
   \\ fs [PULL_EXISTS,get_labels_comp]);
 
-val comp_correct = Q.prove(
-  `!p s r t.
+Theorem comp_correct[local]:
+  ∀p s r t.
      evaluate (p,s) = (r,t) /\ BIJ (find_name f) UNIV UNIV /\
      ~s.use_alloc /\ ~s.use_store /\ ~s.use_stack /\
      s.compile = (λcfg. c cfg o (stack_names$compile f))
      ==>
-     evaluate (comp f p, rename_state c f s) = (r, rename_state c f t)`,
+     evaluate (comp f p, rename_state c f s) = (r, rename_state c f t)
+Proof
   recInduct evaluate_ind \\ rpt strip_tac
   THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac)
   THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac \\ CASE_TAC \\ fs []
          \\ rw [] \\ fs [rename_state_def,empty_env_def])
   THEN1 (fs [evaluate_def,comp_def,rename_state_def] \\ rpt var_eq_tac \\ fs [])
+  THEN1 (fs [evaluate_def,comp_def,rename_state_def] \\ rpt var_eq_tac \\ fs [])
   THEN1 (fs [evaluate_def,comp_def] >>
     every_case_tac >> fs[] >> rveq >> fs[] >>
     imp_res_tac inst_rename >> fs[])
+  THEN1 (fs [evaluate_def,comp_def,rename_state_def] >> rveq >> fs[])
   THEN1 (fs [evaluate_def,comp_def,rename_state_def] >> rveq >> fs[])
   THEN1 (fs [evaluate_def,comp_def,rename_state_def] >> rveq >> fs[])
   THEN1 (fs [evaluate_def,comp_def,rename_state_def] \\ rw []
@@ -285,6 +290,20 @@ val comp_correct = Q.prove(
     fs[MEM_toAList] >> rveq >>
     fs[dec_clock_rename_state] >>
     BasicProvers.TOP_CASE_TAC >> fs[])
+  (* RawCall *)
+  THEN1
+   (simp [comp_def,evaluate_def]
+    \\ `lookup dest (rename_state c f s).code =
+        find_code (dest_find_name f (INL dest))
+          (rename_state c f s).regs (rename_state c f s).code` by
+            (simp_tac std_ss [find_code_def,dest_find_name_def] \\ fs [])
+    \\ simp [] \\ fs [find_code_def]
+    \\ fs [evaluate_def,CaseEq"option",CaseEq"bool",pair_case_eq] \\ rveq \\ fs []
+    THEN1 (disj1_tac \\ Cases_on `prog` \\ fs [dest_Seq_def,Once comp_def])
+    \\ Cases_on `prog` \\ fs [dest_Seq_def] \\ rveq \\ fs []
+    \\ once_rewrite_tac [comp_def] \\ fs [dest_Seq_def]
+    THEN1 (fs [empty_env_def,rename_state_def])
+    \\ fs [rename_state_def,dec_clock_def])
   (* Call *)
   THEN1 (
     simp[Once comp_def] >>
@@ -405,7 +424,8 @@ val comp_correct = Q.prove(
     rw[] >> fs[] >> rveq >> fs[set_var_find_name] )
   \\ (
     simp[Once comp_def] >> fs[evaluate_def] >>
-    simp[Once rename_state_def] >> rveq >> simp[] ));
+    simp[Once rename_state_def] >> rveq >> simp[])
+QED
 
 Theorem compile_semantics:
    BIJ (find_name f) UNIV UNIV /\

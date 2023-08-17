@@ -27,10 +27,19 @@ val res = translate LENGTH_AUX_THM;
 
 val _ = ml_prog_update open_local_block;
 val res = translate REV_DEF;
+val res = translate map_rev'_def;
+val res = translate filter_rev'_def;
+val res = translate flat_rev'_def;
 val _ = ml_prog_update open_local_in_block;
 
 val result = next_ml_names := ["rev"];
 val res = translate REVERSE_REV;
+val result = next_ml_names := ["mapRev"];
+val res = translate map_rev_def;
+val result = next_ml_names := ["filterRev"];
+val res = translate filter_rev_def;
+val result = next_ml_names := ["flatRev"];
+val res = translate flat_rev_def;
 
 (* New list-append translation *)
 val append_v_thm = trans "@" listSyntax.append_tm;
@@ -113,16 +122,17 @@ val _ = ml_prog_update open_local_in_block;
 val result = next_ml_names := ["partition"];
 val result = translate mllistTheory.partition_def;
 
-val result = translate FOLDL;
+val result = translate foldl_def;
 
 val _ = ml_prog_update open_local_block;
 val result = translate foldli_aux_def;
 val _ = ml_prog_update open_local_in_block;
 
-val result = next_ml_names := ["foldi"];
+val result = next_ml_names := ["foldli"];
 val result = translate foldli_def;
 
 val result = translate FOLDR;
+val result = next_ml_names := ["foldri"];
 val result = translate (FOLDRi_def |> REWRITE_RULE[o_DEF]);
 
 val result = translate EXISTS_DEF;
@@ -217,12 +227,50 @@ end
 
 val result = translate collate_def;
 
-val result = translate ZIP_def;
+Theorem ZIP_ind:
+  ∀P. (∀v. (∀x4 x3 x2 x1. v = (x4::x3,x2::x1) ⇒ P (x3,x1)) ⇒ P v) ⇒ ∀v. P v
+Proof
+  simp [FORALL_PROD] \\ ntac 2 strip_tac \\ Induct \\ rw []
+QED
+
+Theorem ZIP_eq:
+  ZIP x =
+    case x of
+    | (x::xs,y::ys) => (x,y) :: ZIP (xs,ys)
+    | _ => []
+Proof
+  PairCases_on ‘x’ \\ fs [ZIP_def]
+  \\ Cases_on ‘x0’ \\ Cases_on ‘x1’ \\ fs [ZIP_def]
+QED
+
+val result = translate ZIP_eq;
 
 val result = translate MEMBER_def;
 
 val result = translate SUM;
-val result = translate UNZIP;
+
+Theorem UNZIP_eq:
+  !xs.
+    UNZIP xs =
+      case xs of
+        [] => ([], [])
+      | (y,z)::xs =>
+          let (ys,zs) = UNZIP xs in
+            (y::ys, z::zs)
+Proof
+  Induct \\ simp [ELIM_UNCURRY, FORALL_PROD]
+QED
+
+Theorem UNZIP_ind:
+  ∀P. (∀v. (∀x4 x3. v = x4::x3 ⇒ ∀x2 x1. x4 = (x2,x1) ⇒ P x3) ⇒ P v) ⇒ ∀v. P v
+Proof
+  simp [FORALL_PROD]
+  \\ gen_tac \\ strip_tac
+  \\ Induct \\ rw []
+QED
+
+val result = translate UNZIP_eq;
+
 val result = translate PAD_RIGHT;
 val result = translate PAD_LEFT;
 val result = translate (ALL_DISTINCT |> REWRITE_RULE [MEMBER_INTRO]);
@@ -250,19 +298,86 @@ val nth_side_def = Q.prove(
   THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
   |> update_precondition;
 
+Theorem LUPDATE_ind:
+  ∀P. (∀e n. P e n []) ∧ (∀e n x xs. (∀e n. P e n xs) ⇒ P e n (x::xs)) ⇒ ∀e n xs. P e n xs
+Proof
+  ntac 2 strip_tac \\ Induct_on ‘xs’ \\ fs []
+QED
+
+Theorem LUPDATE_eq:
+  LUPDATE e n xs =
+    case xs of
+    | [] => []
+    | y::ys => if n = 0 then e :: ys else y :: LUPDATE e (n-1) ys
+Proof
+  Cases_on ‘xs’ \\ fs [LUPDATE_DEF,PRE_SUB1]
+QED
+
 val _ = next_ml_names := ["update"];
-val result = translate LUPDATE_def;
+val result = translate LUPDATE_eq;
 
 val _ = (next_ml_names := ["compare"]);
 val _ = translate mllistTheory.list_compare_def;
 
 val _ = ml_prog_update open_local_block;
-val res = translate sortingTheory.PART_DEF;
-val res = translate sortingTheory.PARTITION_DEF;
+
+Definition qsort_part_def:
+  qsort_part ord y [] ys zs = (ys,zs) ∧
+  qsort_part ord y (x::xs) ys zs =
+    if ord x y then qsort_part ord y xs (x::ys) zs
+               else qsort_part ord y xs ys (x::zs)
+End
+
+Triviality qsort_part_length:
+  ∀ord y xs ys zs ys1 zs1.
+    qsort_part ord y xs ys zs = (ys1,zs1) ⇒
+    LENGTH ys1 ≤ LENGTH xs + LENGTH ys ∧
+    LENGTH zs1 ≤ LENGTH xs + LENGTH zs
+Proof
+  Induct_on ‘xs’
+  \\ fs [qsort_part_def,AllCaseEqs()]
+  \\ rw [] \\ res_tac \\ fs []
+QED
+
+Definition qsort_acc_def:
+  qsort_acc ord [] acc = acc ∧
+  qsort_acc ord (x::xs) acc =
+    let (l1,l2) = qsort_part ord x xs [] [] in
+      qsort_acc ord l1 (x::qsort_acc ord l2 acc)
+Termination
+  WF_REL_TAC ‘measure $ λ(ord,xs,acc). LENGTH xs’ \\ rw []
+  \\ imp_res_tac $ GSYM qsort_part_length \\ fs []
+End
+
+val res = translate qsort_part_def;
+val res = translate qsort_acc_def;
+
 val _ = ml_prog_update open_local_in_block;
 
+Triviality qsort_part_thm:
+  ∀xs ys zs ord x.
+    qsort_part ord x xs ys zs = PART (λy. ord y x) xs ys zs
+Proof
+  Induct \\ fs [qsort_part_def,sortingTheory.PART_DEF]
+QED
+
+Triviality qsort_acc:
+  ∀ord xs acc. qsort_acc ord xs acc = QSORT ord xs ++ acc
+Proof
+  ho_match_mp_tac qsort_acc_ind \\ rw []
+  \\ simp [Once QSORT_DEF,Once qsort_acc_def]
+  \\ pairarg_tac \\ fs [sortingTheory.PARTITION_DEF]
+  \\ pairarg_tac \\ fs [qsort_part_thm]
+QED
+
+Triviality qsort_acc_thm:
+  QSORT ord xs = qsort_acc ord xs []
+Proof
+  simp [qsort_acc]
+QED
+
 val _ = next_ml_names := ["sort"];
-val res = translate sortingTheory.QSORT_DEF;
+val res = translate qsort_acc_thm;
 
 val _ =  ml_prog_update close_local_blocks;
 val _ =  ml_prog_update (close_module NONE);

@@ -1,4 +1,4 @@
-INCLUDES = $(CAKEMLDIR)/misc/lem_lib_stub
+INCLUDES = ../../misc
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
@@ -7,15 +7,3 @@ README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax
 DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
-
-LEM_OPT = -wl_unused_vars ign
-
-LEMSRC = ffi simpleIO
-LEMS = $(patsubst %,%.lem,$(LEMSRC))
-GENS = $(patsubst %,%Script.sml,$(LEMSRC))
-all: $(GENS)
-
-$(GENS): $(LEMS)
-	if type lem;\
-	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../../misc/lem_lib_stub/lib.lem -hol $(LEMS);\
-	else touch $(GENS); fi

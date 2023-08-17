@@ -20,6 +20,8 @@ sig
 
     val get_ml_prog_state : unit -> ml_progLib.ml_prog_state
 
+    val declare_new_ref : string -> term -> thm
+
     (* wrapper functions *)
 
     val mlDefine   : term quotation -> thm
@@ -29,6 +31,8 @@ sig
 
     val add_type_inv   : term -> hol_type -> unit
     val get_type_inv   : hol_type -> term
+
+    val fetch_v_fun    : hol_type -> (term * thm list)
 
     val add_eval_thm   : thm -> thm
     val add_user_proved_v_thm : thm -> thm

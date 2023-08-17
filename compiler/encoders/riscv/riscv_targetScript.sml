@@ -252,9 +252,10 @@ val riscv_config_def = Define`
        0 - hardwired zero
        2 - stack pointer
        3 - global pointer
+       4 - thread pointer
        31 - used by encoder above
     *)
-    ; avoid_regs := [0; 2; 3; 31]
+    ; avoid_regs := [0; 2; 3; 4; 31]
     ; fp_reg_count := 0
     ; link_reg := SOME 1
     ; two_reg_arith := F

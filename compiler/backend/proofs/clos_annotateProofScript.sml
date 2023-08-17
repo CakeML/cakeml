@@ -363,7 +363,7 @@ val do_app_err_thm = Q.prove(
           exc_rel v_rel err w`,
   srw_tac[][] >>
   imp_res_tac do_app_err >> fsrw_tac[][] >>
-  Cases_on `?i. op = EqualInt i`
+  Cases_on `?i. op = EqualConst i`
   THEN1 (rw [] \\ fsrw_tac[][do_app_def] \\ every_case_tac >> fs[])
   \\ Cases_on `err` \\ fs []
   \\ fs [do_app_cases_err]
@@ -386,7 +386,7 @@ Proof
   \\ imp_res_tac v_to_list \\ fs[] \\ rw[]
   \\ TRY (strip_tac \\ rw[])
   \\ fs[EVERY2_MAP,v_rel_Number]
-  \\ fsrw_tac[ETA_ss][EQ_SYM_EQ,quotient_listTheory.LIST_REL_EQ]
+  \\ fsrw_tac[ETA_ss][EQ_SYM_EQ]
   \\ fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN] \\ rfs[EL_MAP]
   \\ METIS_TAC[EL_MAP,o_DEF]
 QED
@@ -401,7 +401,7 @@ Proof
   \\ imp_res_tac v_to_list \\ fs[] \\ rw[]
   \\ TRY (strip_tac \\ rw[])
   \\ fs[EVERY2_MAP,v_rel_Number]
-  \\ fsrw_tac[ETA_ss][EQ_SYM_EQ,quotient_listTheory.LIST_REL_EQ]
+  \\ fsrw_tac[ETA_ss][EQ_SYM_EQ]
   \\ fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN] \\ rfs[EL_MAP]
   \\ METIS_TAC[EL_MAP,o_DEF]
 QED
@@ -1493,9 +1493,6 @@ Proof
 QED
 
 (* semantics preservation *)
-
-val compile_inc_def = Define `
-  compile_inc (e,aux) = (annotate 0 e,clos_annotate$compile aux)`;
 
 Theorem semantics_annotate:
    semantics (ffi:'ffi ffi_state) max_app (alist_to_fmap prog) co

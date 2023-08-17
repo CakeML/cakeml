@@ -1,0 +1,8 @@
+Main implementation directory for the RealCake development, presented in
+"Verified Compilation and Optimization of Floating-Point Programs"
+
+===========================================================================
+
+Content in the directory can be build with `Holmake`.
+
+Files contained in this directory:

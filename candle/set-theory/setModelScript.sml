@@ -6,6 +6,10 @@ open preamble bitTheory setSpecTheory
 
 val _ = new_theory"setModel"
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
+
 val is_set_theory_pred_def = Define`
   is_set_theory_pred is_v_rep in_rep ⇔
    (∃x. is_v_rep x) ∧

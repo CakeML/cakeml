@@ -9,6 +9,8 @@
 open preamble basis
      splitwordsTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"wordcountProg";
 
 val _ = translation_extends"basisProg";
@@ -43,12 +45,10 @@ Proof
   xcf"inputLinesFromAny"(get_ml_prog_state())
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull )
   \\ reverse(Cases_on`∃ll. wfFS (fs with numchars := ll)`) >- (fs[STDIO_def,IOFS_def] \\ xpull)
-  \\ xmatch
   \\ Cases_on`fo` \\ fs[OPTION_TYPE_def]
-  \\ (reverse conj_tac >- (EVAL_TAC \\ rw[]))
+  \\ xmatch
   >- (
-    conj_tac >- (EVAL_TAC \\ simp [] \\ EVAL_TAC)
-    \\ `∃cnt. get_file_content fs 0 = SOME (cnt,0)`
+    `∃cnt. get_file_content fs 0 = SOME (cnt,0)`
     by (
       simp[get_file_content_def, PULL_EXISTS]
       \\ fs[STD_streams_def]
@@ -79,7 +79,6 @@ Proof
     \\ drule STD_streams_get_mode
     \\ simp[stdIn_def]
     \\ EVAL_TAC )
-  \\ (reverse conj_tac >- (EVAL_TAC \\ rw[]))
   \\ xapp
   \\ fs[]
 QED

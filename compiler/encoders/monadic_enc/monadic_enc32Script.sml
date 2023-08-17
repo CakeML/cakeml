@@ -115,16 +115,16 @@ val enc_secs_32_aux_def = Define`
 val enc_secs_32_def = Define`
   enc_secs_32 enc n xs =
     case enc_secs_32_aux enc (if n = 0 then 1 else n) xs of
-      Success xs => xs
-    | Failure _ => []`
+      M_success xs => xs
+    | M_failure _ => []`
 
 val msimps = [st_ex_bind_def,st_ex_return_def];
 
 Theorem Msub_eqn[simp]:
     ∀e n ls v.
   Msub e n ls =
-  if n < LENGTH ls then Success (EL n ls)
-                   else Failure e
+  if n < LENGTH ls then M_success (EL n ls)
+                   else M_failure e
 Proof
   ho_match_mp_tac Msub_ind>>rw[]>>
   simp[Once Msub_def]>>
@@ -136,9 +136,9 @@ QED
 Theorem hash_tab_32_sub_eqn[simp]:
     hash_tab_32_sub n s =
   if n < LENGTH s.hash_tab_32 then
-    (Success (EL n s.hash_tab_32),s)
+    (M_success (EL n s.hash_tab_32),s)
   else
-    (Failure (Subscript),s)
+    (M_failure (Subscript),s)
 Proof
   rw[fetch "-" "hash_tab_32_sub_def"]>>
   fs[Marray_sub_def]
@@ -148,9 +148,9 @@ Theorem Mupdate_eqn[simp]:
     ∀e x n ls.
   Mupdate e x n ls =
   if n < LENGTH ls then
-    Success (LUPDATE x n ls)
+    M_success (LUPDATE x n ls)
   else
-    Failure e
+    M_failure e
 Proof
   ho_match_mp_tac Mupdate_ind>>rw[]>>
   simp[Once Mupdate_def]>>
@@ -162,9 +162,9 @@ QED
 Theorem update_hash_tab_32_eqn[simp]:
     update_hash_tab_32 n t s =
   if n < LENGTH s.hash_tab_32 then
-     (Success (),s with hash_tab_32 := LUPDATE t n s.hash_tab_32)
+     (M_success (),s with hash_tab_32 := LUPDATE t n s.hash_tab_32)
   else
-     (Failure (Subscript),s)
+     (M_failure (Subscript),s)
 Proof
   rw[fetch "-" "update_hash_tab_32_def"]>>
   fs[Marray_update_def]
@@ -179,7 +179,7 @@ val lookup_ins_table_32_correct = Q.prove(`
   good_table_32 enc n s ∧
   0 < n ⇒
   ∃s'.
-  lookup_ins_table_32 enc n aa s = (Success (enc aa), s') ∧
+  lookup_ins_table_32 enc n aa s = (M_success (enc aa), s') ∧
   good_table_32 enc n s'`,
   rw[]>>fs[lookup_ins_table_32_def]>>
   simp msimps>>
@@ -208,7 +208,7 @@ val enc_line_hash_32_correct = Q.prove(‘
     good_table_32 enc n s ∧ 0 < n ⇒
     ∃s'.
      enc_line_hash_32 enc skip_len n line s =
-       (Success (enc_line enc skip_len line),s') ∧
+       (M_success (enc_line enc skip_len line),s') ∧
      good_table_32 enc n s'’,
   Cases>>fs[enc_line_hash_32_def,enc_line_def]>>
   fs msimps>>
@@ -221,7 +221,7 @@ val enc_line_hash_32_ls_correct = Q.prove(`
   good_table_32 enc n s ∧ 0 < n ⇒
   ∃s'.
   enc_line_hash_32_ls enc skip_len n xs s =
-  (Success (MAP (enc_line enc skip_len) xs), s') ∧
+  (M_success (MAP (enc_line enc skip_len) xs), s') ∧
   good_table_32 enc n s'`,
   Induct>>fs[enc_line_hash_32_ls_def]>>
   fs msimps>>
@@ -236,7 +236,7 @@ val enc_sec_hash_32_ls_correct = Q.prove(`
   good_table_32 enc n s ∧ 0 < n ⇒
   ∃s'.
   enc_sec_hash_32_ls enc skip_len n xs s =
-  (Success (MAP (enc_sec enc skip_len) xs), s') ∧
+  (M_success (MAP (enc_sec enc skip_len) xs), s') ∧
   good_table_32 enc n s'`,
   Induct>>fs[enc_sec_hash_32_ls_def]>>
   fs msimps>>

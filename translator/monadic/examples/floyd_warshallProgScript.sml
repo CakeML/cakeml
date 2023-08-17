@@ -162,7 +162,7 @@ val _ = temp_tight_equality();
 
 Theorem mk_graph_SUCCESS:
     ∃res.
-    (mk_graph d s = (Success ():(unit,state_exn) exc,res)) ∧
+    (mk_graph d s = (M_success ():(unit,state_exn) exc,res)) ∧
     d*d = LENGTH res.adj_mat ∧ res.dim = d
 Proof
   fs[mk_graph_def]>>
@@ -172,7 +172,7 @@ QED
 
 Theorem set_weight_SUCCESS:
    j + i * s.dim < LENGTH s.adj_mat ⇒
-   ∃r. set_weight i j k s = (Success (), r) ∧
+   ∃r. set_weight i j k s = (M_success (), r) ∧
        LENGTH r.adj_mat = LENGTH s.adj_mat ∧
        r.dim = s.dim
 Proof
@@ -206,7 +206,7 @@ QED
 
 Theorem init_diag_SUCCESS:
    ∀d s. d ≤ s.dim ∧ s.dim * s.dim ≤ LENGTH s.adj_mat ⇒
-   ∃r. init_diag d s = (Success (), r) ∧
+   ∃r. init_diag d s = (M_success (), r) ∧
        LENGTH r.adj_mat = LENGTH s.adj_mat ∧
        r.dim = s.dim
 Proof
@@ -238,8 +238,8 @@ val adj_mat_sub_def = fetch "-" "adj_mat_sub_def"
 Theorem Msub_eqn[simp]:
     ∀e n ls v.
   Msub e n ls =
-  if n < LENGTH ls then Success (EL n ls)
-                   else Failure e
+  if n < LENGTH ls then M_success (EL n ls)
+                   else M_failure e
 Proof
   ho_match_mp_tac Msub_ind>>rw[]>>
   simp[Once Msub_def]>>
@@ -252,7 +252,7 @@ val adj_mat_sub_SUCCESS = Q.prove(`
   ∀s. i < s.dim ∧ j < s.dim ∧
   LENGTH s.adj_mat = s.dim * s.dim ⇒
   ∃v.
-  adj_mat_sub (i + j *s.dim) s = (Success v, s)`,
+  adj_mat_sub (i + j *s.dim) s = (M_success v, s)`,
   rw[]>> drule lemma>>
   disch_then (qspec_then `i` assume_tac)>>rfs[]>>
   rw[adj_mat_sub_def,Marray_sub_def]);
@@ -263,9 +263,9 @@ Theorem Mupdate_eqn[simp]:
     ∀e x n ls.
   Mupdate e x n ls =
   if n < LENGTH ls then
-    Success (LUPDATE x n ls)
+    M_success (LUPDATE x n ls)
   else
-    Failure e
+    M_failure e
 Proof
   ho_match_mp_tac Mupdate_ind>>rw[]>>
   simp[Once Mupdate_def]>>
@@ -279,7 +279,7 @@ val update_adj_mat_SUCCESS = Q.prove(`
     i < s.dim ∧ j < s.dim ∧
     LENGTH s.adj_mat = s.dim * s.dim ⇒
   ∃res.
-  update_adj_mat (j + i *s.dim) v s = (Success (), res) ∧
+  update_adj_mat (j + i *s.dim) v s = (M_success (), res) ∧
   res.dim = s.dim ∧
   LENGTH res.adj_mat = res.dim * res.dim`,
   rw[update_adj_mat_def]>>
@@ -293,7 +293,7 @@ val relax_SUCCESS = Q.prove(`
   j < s.dim ∧
   LENGTH s.adj_mat = s.dim * s.dim ⇒
   ∃res.
-  relax i k j s = (Success (),res) ∧
+  relax i k j s = (M_success (),res) ∧
   res.dim = s.dim ∧
   LENGTH res.adj_mat = res.dim * res.dim`,
   rw[]>>
@@ -310,7 +310,7 @@ val floyd_warshall_SUCCESS_j = Q.prove(`
   LENGTH s.adj_mat = s.dim * s.dim
   ⇒
   ∃res.
-  st_ex_FOR j s.dim (\j. relax i k j) s = (Success (),res) ∧
+  st_ex_FOR j s.dim (\j. relax i k j) s = (M_success (),res) ∧
   res.dim = s.dim ∧
   LENGTH res.adj_mat = res.dim * s.dim`,
   Induct_on`s.dim-j`
@@ -329,7 +329,7 @@ val floyd_warshall_SUCCESS_i = Q.prove(`
   ⇒
   ∃res.
   st_ex_FOR i s.dim (\i. st_ex_FOR 0 s.dim (\j. relax i k j)) s =
-    (Success (),res) ∧
+    (M_success (),res) ∧
   res.dim = s.dim ∧
   LENGTH res.adj_mat = res.dim * s.dim`,
   Induct_on`s.dim-i`
@@ -347,7 +347,7 @@ val floyd_warshall_SUCCESS_k = Q.prove(`
   ∃res.
   st_ex_FOR k s.dim
   (λk. st_ex_FOR 0 s.dim (λi. st_ex_FOR 0 s.dim (λj. relax i k j))) s =
-  (Success (),res) ∧
+  (M_success (),res) ∧
   res.dim = s.dim ∧
   LENGTH res.adj_mat = res.dim * res.dim`,
   Induct_on`s.dim-k`>-
@@ -362,7 +362,7 @@ val floyd_warshall_SUCCESS_k = Q.prove(`
 Theorem do_floyd_SUCCESS:
     EVERY (λ (i,j,w). i < d ∧ j < d) ls ⇒
     ∃res.
-    do_floyd d ls init_g = (Success (),res)
+    do_floyd d ls init_g = (M_success (),res)
 Proof
   rw[]>>
   simp[do_floyd_def,init_g_def]>>
@@ -379,7 +379,7 @@ Proof
   \\ simp[] \\ strip_tac
   \\ simp[]
   \\ qmatch_goalsub_abbrev_tac`st_ex_FOREACH ls f s0`
-  \\ `∃s1. st_ex_FOREACH ls f s0 = (Success (), s1) ∧
+  \\ `∃s1. st_ex_FOREACH ls f s0 = (M_success (), s1) ∧
            s1.dim = s0.dim ∧ LENGTH s1.adj_mat = LENGTH s0.adj_mat`
   by (
     qpat_x_assum`s0.dim = _`(assume_tac o SYM) \\ fs[]

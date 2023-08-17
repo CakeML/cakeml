@@ -497,7 +497,7 @@ rw [is_binomial_tree_def, is_binomial_heap_def, SORTED_DEF] >>
 fs [is_binomial_heap_def, rich_listTheory.ALL_EL_REVERSE, trans_great,
     SORTED_EQ] >-
 metis_tac [] >>
-match_mp_tac SORTED_APPEND >>
+fs [SORTED_APPEND] >>
 rw [trans_less, SORTED_DEF, sorted_reverse, rich_listTheory.MAP_REVERSE,
     GSYM arithmeticTheory.GREATER_DEF] >>
 `(\(x:num) y. x > y) = $>` by metis_tac [] >>

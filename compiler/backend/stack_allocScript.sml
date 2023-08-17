@@ -453,6 +453,12 @@ val word_gc_code_def = Define `
                move 8 1;
                word_gc_move_code conf;
                Set Globals 5;
+               move 7 5;
+               right_shift_inst 7 (shift_length conf);
+               left_shift_inst 7 (word_shift (:'a));
+               Get 9 OtherHeap;
+               add_inst 7 9;
+               Set GlobReal 7;
                const_inst 7 0w;
                StackLoadAny 9 8;
                move 8 7;
@@ -490,6 +496,12 @@ val word_gc_code_def = Define `
                move 6 3;
                word_gen_gc_partial_move_code conf;
                Set Globals 5;
+               move 8 5;
+               right_shift_inst 8 (shift_length conf);
+               left_shift_inst 8 (word_shift (:'a));
+               Get 9 CurrHeap;
+               add_inst 8 9;
+               Set GlobReal 8;
                const_inst 8 0w;
                StackLoadAny 9 8;
                word_gen_gc_partial_move_roots_bitmaps_code conf;
@@ -550,6 +562,12 @@ val word_gc_code_def = Define `
                move 8 1;
                word_gen_gc_move_code conf;
                Set Globals 5;
+               move 7 5;
+               Get 9 OtherHeap;
+               right_shift_inst 7 (shift_length conf);
+               left_shift_inst 7 (word_shift (:'a));
+               add_inst 7 9;
+               Set GlobReal 7;
                const_inst 7 0w;
                StackLoadAny 9 8;
                move 8 7;
@@ -589,8 +607,13 @@ val word_gc_code_def = Define `
                If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip ])
                  :'a stackLang$prog`
 
-val stubs_def = Define `
-  stubs conf = [(gc_stub_location,Seq (word_gc_code conf) (Return 0 0))]`
+Definition stubs_def:
+  stubs conf = [(gc_stub_location, Seq (word_gc_code conf) (Return 0 0))]
+End
+
+Definition stub_names_def:
+  stub_names () = [(gc_stub_location, «_GC»)]
+End
 
 (* compiler *)
 
@@ -602,10 +625,10 @@ val next_lab_quotation = `
     | If _ _ _ p1 p2 => next_lab p1 (next_lab p2 aux)
     | While _ _ _ p => next_lab p aux
     | Call NONE _ NONE => aux
-    | Call NONE _ (SOME (_,_,l2)) => MAX aux (l2 + 1)
-    | Call (SOME (p,_,_,l2)) _ NONE => next_lab p (MAX aux (l2 + 1))
+    | Call NONE _ (SOME (_,_,l2)) => MAX aux (l2 + 2)
+    | Call (SOME (p,_,_,l2)) _ NONE => next_lab p (MAX aux (l2 + 2))
     | Call (SOME (p,_,_,l2)) _ (SOME (p',_,l3)) =>
-          next_lab p (next_lab p' ((MAX (MAX l2 l3 + 1) aux)))
+          next_lab p (next_lab p' ((MAX (MAX l2 l3 + 2) aux)))
     | _ => aux`
 in
 val next_lab_def = Define next_lab_quotation;
@@ -620,7 +643,7 @@ Theorem next_lab_pmatch = Q.prove(
    >> rpt strip_tac
    >> rw[Once next_lab_def]
    >> every_case_tac >> fs[]);
-end
+end;
 
 local
 val comp_quotation = `
@@ -646,6 +669,7 @@ val comp_quotation = `
               let (q2,m) = comp n m p2 in
                 (Call (SOME (q1,lr,l1,l2)) dest (SOME (q2,k1,k2)),m))
     | Alloc k => (Call (SOME (Skip,0,n,m)) (INL gc_stub_location) NONE,m+1)
+    | StoreConsts k1 k2 (SOME loc) => (Call (SOME (Skip,0,n,m)) (INL loc) NONE,m+1)
     | _ => (p,m) `
 in
 val comp_def = Define comp_quotation
@@ -660,8 +684,9 @@ Theorem comp_pmatch = Q.prove(
    >> rpt strip_tac
    >> rw[Once comp_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
 end
+
 val prog_comp_def = Define `
-  prog_comp (n,p) = (n,FST (comp n (next_lab p 1) p))`
+  prog_comp (n,p) = (n,FST (comp n (next_lab p 2) p))`
 
 val compile_def = Define `
   compile c prog = stubs c ++ MAP prog_comp prog`;

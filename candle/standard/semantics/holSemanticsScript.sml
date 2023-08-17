@@ -3,7 +3,7 @@
   i.e. valid sequents, which are those that satisfied by any model of the
   theory context.
 *)
-open HolKernel boolLib boolSimps bossLib lcsymtacs holSyntaxTheory holSyntaxExtraTheory setSpecTheory
+open HolKernel boolLib boolSimps bossLib holSyntaxTheory holSyntaxExtraTheory setSpecTheory
 
 val _ = new_theory"holSemantics"
 

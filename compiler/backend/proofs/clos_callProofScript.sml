@@ -6,7 +6,13 @@ open preamble backendPropsTheory match_goal
      closSemTheory closPropsTheory
      clos_callTheory db_varsTheory
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory"clos_callProof";
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = diminish_srw_ss ["ABBREV"]
+val _ = set_trace "BasicProvers.var_eq_old" 1
 
 (* TODO These are the same. Put in closLang? *)
 val _ = temp_bring_to_front_overload "free" {Name="free", Thy="clos_call"};
@@ -388,7 +394,7 @@ Proof
 QED
 
 Theorem calls_list_MAPi:
-   ∀loc tra n. calls_list tra n loc = MAPi (λi p. (FST p, Call (tra§n+i§0) 0 (loc+2*i+1) (GENLIST_Var (tra§n+i) 1 (FST p))))
+   ∀loc tra n. calls_list t n loc = MAPi (λi p. (FST p, Call t 0 (loc+2*i+1) (GENLIST_Var t 1 (FST p))))
 Proof
   simp[FUN_EQ_THM]
   \\ CONV_TAC(RESORT_FORALL_CONV(List.rev))
@@ -808,7 +814,7 @@ Proof
   \\ rw[calls_def]
   \\ rpt (pairarg_tac \\ fs[])
   \\ imp_res_tac calls_length
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rw[]
+  \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
   \\ every_case_tac \\ rw[]
   \\ fs[SUBSET_DEF,fv1_thm,IN_DEF,fv_GENLIST_Var_tra,fv_append]
   \\ rw[] \\ rw[]
@@ -875,7 +881,7 @@ Proof
   \\ rpt(pairarg_tac \\ fs[])
   \\ rveq \\ fs[]
   \\ imp_res_tac calls_length
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ fs[LENGTH_EQ_NUM_compute]
   \\ rveq \\ fs[]
   \\ TRY (
     qmatch_goalsub_rename_tac`closLang$Letrec`
@@ -1002,7 +1008,7 @@ Theorem calls_el_sing:
 Proof
   ho_match_mp_tac calls_ind \\ rw[]
   \\ imp_res_tac calls_length
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ fs[LENGTH_EQ_NUM_compute]
   \\ TRY (
     rveq \\ asm_exists_tac \\ fs[]
     \\ rpt conj_tac
@@ -1014,7 +1020,7 @@ Proof
   \\ fs[calls_def]
   \\ rpt(pairarg_tac \\ fs[]) \\ rveq
   \\ imp_res_tac calls_length
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rveq
+  \\ fs[LENGTH_EQ_NUM_compute] \\ rveq
   \\ Cases_on`i` \\ fs[]
   >- (
     asm_exists_tac \\ fs[]
@@ -1201,7 +1207,7 @@ Proof
       fs[recclosure_rel_def]
       \\ rpt(pairarg_tac \\ fs[])
       \\ every_case_tac \\ fs[calls_list_MAPi]
-      \\ imp_res_tac calls_length \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] )
+      \\ imp_res_tac calls_length \\ fs[LENGTH_EQ_NUM_compute] )
     \\ fs[] \\ asm_exists_tac
     \\ fs[EVERY_MEM,MEM_EL,LIST_REL_EL_EQN,PULL_EXISTS,env_rel_def]
     \\ simp[exists_list_GENLIST]
@@ -1240,7 +1246,7 @@ Proof
   \\ qexists_tac`g0`
   \\ rpt(pairarg_tac \\ fs[])
   \\ imp_res_tac calls_length
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ fs[LENGTH_EQ_NUM_compute]
   \\ rveq \\ fs[]
   \\ CASE_TAC \\ fs[] \\ rfs[]
   \\ fs[EXISTS_MEM,EXISTS_PROD]
@@ -1277,8 +1283,8 @@ Theorem dest_closure_v_rel_lookup:
      subg (code_list (loc - 2*n) (ZIP (MAP FST xs,ls)) g1) g ∧
      ALOOKUP (SND g) (loc+1) = SOME (LENGTH env1,EL n ls) ∧
      dest_closure max_app (SOME loc) v2 env2 =
-       SOME (Full_app (Call (tra§i§0) 0 (loc+1)
-         (GENLIST_Var (tra§i) 1 (LENGTH env1))) (env2++l1') []) ∧
+       SOME (Full_app (Call tra 0 (loc+1)
+         (GENLIST_Var tra 1 (LENGTH env1))) (env2++l1') []) ∧
      code_includes (SND (code_list (loc - 2*n) (ZIP (MAP FST xs,ls)) g1)) code
 Proof
   rw[dest_closure_def]
@@ -1294,7 +1300,7 @@ Proof
     \\ last_assum(part_match_exists_tac(el 2 o strip_conj) o concl)
     \\ qexists_tac`0` \\ simp[]
     \\ imp_res_tac calls_length \\ fs[]
-    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ fs[LENGTH_EQ_NUM_compute]
     \\ fs[calls_list_def] \\ rveq
     \\ Cases_on`new_g` \\ fs[code_list_def,subg_def,IS_SUFFIX_APPEND]
     \\ fsrw_tac[ETA_ss][]
@@ -1314,8 +1320,6 @@ Proof
   \\ rfs[NOT_LESS_EQUAL]
   \\ fs[indexedListsTheory.EL_MAPi]
   \\ rveq \\ fs[]
-  \\ rename1`tra § n + n1`
-  \\ qexists_tac`tra` \\ qexists_tac`n+n1`
   \\ fs[subg_def]
   \\ first_x_assum match_mp_tac
   \\ simp[ALOOKUP_code_list]
@@ -1365,7 +1369,7 @@ Proof
     fs[revtakerev,revdroprev,recclosure_rel_def]
     \\ rpt(pairarg_tac \\ fs[])
     \\ imp_res_tac calls_length
-    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ fs[LENGTH_EQ_NUM_compute]
     \\ rveq \\ fs[PULL_EXISTS]
     \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["g0'"]))
     \\ map_every qexists_tac [`g0`,`([n,e])`,`loc`]
@@ -1987,17 +1991,12 @@ val env_rel_Op_Install = prove(
 val syntax_ok_def = Define`
   syntax_ok x ⇔ every_Fn_SOME x ∧ every_Fn_vs_NONE x ∧ ALL_DISTINCT (code_locs x)`;
 
-val compile_inc_def = Define `
-  compile_inc d (e,xs) =
-    let (ea, d1, new_code) = calls e (d,[]) in
-      (d1, ea, new_code)`;
-
 val co_ok_def = Define `
   co_ok code co full_gs k <=>
     if k = 0 then T else
       let g = FST (FST (co 0)) in
       let (cfg,exp,aux) = co 0 in
-      let (g',exp',aux1) = compile_inc g (exp,aux) in
+      let (g',exp',aux1) = clos_call$compile_inc g (exp,aux) in
         FST (FST (co 1)) = g' /\
         make_g g code = SOME (full_gs 0) /\
         (∀i. subg (full_gs 0) (full_gs i)) /\
@@ -2049,9 +2048,9 @@ val code_inv_def = Define `
   code_inv g1_opt l1 (s_code:num |-> num # closLang$exp)
         s_cc s_co t_code t_cc t_co <=>
     s_code = FEMPTY /\
-    s_cc = state_cc compile_inc t_cc /\
-    t_co = state_co compile_inc s_co /\
-    (?g aux. wfg (g, aux) /\ is_state_oracle compile_inc s_co /\
+    s_cc = state_cc clos_call$compile_inc t_cc /\
+    t_co = state_co clos_call$compile_inc s_co /\
+    (?g aux. wfg (g, aux) /\
         FST (FST (s_co 0)) = g /\
         oracle_monotonic (set o code_locs o FST o SND) (<)
             (domain g UNION l1) s_co /\
@@ -2112,15 +2111,17 @@ Theorem code_rel_state_rel_install:
       r.code r.compile r.compile_oracle t.code t.compile t.compile_oracle /\
     state_rel g1 l1 r t /\
     r.compile cfg (exps,aux) =
-        SOME (bytes,data,FST (shift_seq 1 r.compile_oracle 0)) /\
+        SOME (bytes,data,next_cfg) /\
     r.compile_oracle 0 = (cfg,exps,aux) /\
     t.compile_oracle 0 = (cfg',progs) /\
+    next_cfg = FST (shift_seq 1 r.compile_oracle 0) /\
     DISJOINT l1 (domain (FST g1)) ==>
-    DISJOINT (FDOM t.code) (set (MAP FST (SND progs))) ∧
+    DISJOINT (FDOM t.code) (set (MAP FST (SND progs))) /\
     ALL_DISTINCT (MAP FST (SND progs)) /\
-    t.compile cfg' progs = SOME (bytes,data,FST (shift_seq 1 t.compile_oracle 0)) /\
-    ?exp1 aux1 g2 l2.
+    ?exp1 aux1 g2 l2 next_cfg'.
+    t.compile cfg' progs = SOME (bytes,data,next_cfg') /\
       progs = (exp1,aux1) /\
+      next_cfg' = FST (shift_seq 1 t.compile_oracle 0) /\
       subg g1 g2 /\ l1 ⊆ l2 /\ DISJOINT l2 (domain (FST g2)) /\
       set (code_locs exps) DIFF domain (FST g2) ⊆ l2 /\
       calls exps g1 = (exp1, g2) /\
@@ -2146,7 +2147,6 @@ Proof
   \\ fs [compile_inc_def]
   \\ pairarg_tac \\ fs []
   \\ rveq \\ fs []
-  \\ Cases_on `r.compile_oracle 1`
   \\ fs [] \\ rveq \\ fs []
   \\ drule_then (fn t => simp [t]) calls_acc
   \\ first_x_assum (fn t => qspec_then `0` assume_tac t
@@ -2171,6 +2171,7 @@ Proof
         ALL_DISTINCT_alist_to_fmap_REVERSE, DISJOINT_SYM]
   \\ qexists_tac `l1 UNION (set (code_locs exps) DIFF domain d')`
   \\ fs [pred_setTheory.DISJOINT_DIFF]
+  \\ simp [compile_inc_def]
   \\ `subg (FST cfg,code) (d',new_code ++ code)` by (
     irule calls_subg
     \\ fs [wfg_def]
@@ -2178,7 +2179,7 @@ Proof
     \\ drule_then (fn t => simp [t]) calls_acc
     \\ fs [DISJOINT_IMAGE_SUC]
   )
-  \\ fs []
+  \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ]
   \\ conj_tac >- (
     drule (Q.SPEC `0` oracle_monotonic_DISJOINT_init)
     \\ fs [irreflexive_def, DISJOINT_SYM]
@@ -2209,11 +2210,6 @@ Proof
     drule_then (qspec_then `code` assume_tac) calls_acc
     \\ drule calls_wfg
     \\ fs [wfg_def, DISJOINT_IMAGE_SUC]
-  )
-  \\ conj_tac >- (
-    qpat_x_assum `is_state_oracle _ _` mp_tac
-    \\ simp [Once is_state_oracle_shift]
-    \\ simp [compile_inc_def]
   )
   \\ fs [wfg_def, DISJOINT_IMAGE_SUC, DISJOINT_SYM]
   \\ drule_then irule (GEN_ALL (Q.SPEC `1` oracle_monotonic_shift_seq))
@@ -2995,7 +2991,7 @@ Proof
     \\ simp [option_case_eq,list_case_eq,PULL_EXISTS,pair_case_eq,bool_case_eq]
     \\ pairarg_tac
     \\ fs [SWAP_REVERSE_SYM,
-Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
+       Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
        option_case_eq,pair_case_eq,PULL_EXISTS]
     \\ rpt gen_tac \\ strip_tac \\ rveq \\ fs []
     \\ `aux = []` by (drule (Q.SPEC `0` code_inv_k) \\ fs [syntax_ok_def])
@@ -3009,6 +3005,7 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
       \\ `?cfg' progs. t.compile_oracle 0 = (cfg',progs)` by metis_tac [PAIR]
       \\ drule (GEN_ALL code_rel_state_rel_install)
       \\ rpt (disch_then drule)
+      \\ simp []
       \\ strip_tac
       \\ fs [shift_seq_def]
       \\ `exp1 <> []` by
@@ -3035,6 +3032,7 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
       \\ `t.clock = 0` by fs [state_rel_def] \\ fs []
       \\ rfs [state_rel_def,FUPDATE_LIST]
       \\ fs [code_inv_def]
+      \\ simp [state_co_def]
       \\ metis_tac [subg_trans, SUBSET_TRANS])
     \\ fs [bool_case_eq] \\ fs []
     \\ rveq \\ fs [FUPDATE_LIST,shift_seq_def]
@@ -3075,7 +3073,7 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
       \\ TOP_CASE_TAC \\ fs []
       \\ FULL_CASE_TAC \\ fs [] \\ rveq \\ fs []
       \\ imp_res_tac evaluate_IMP_LENGTH
-      \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]
+      \\ fs [LENGTH_EQ_NUM_compute]
       \\ rveq \\ fs []
       \\ rename [`EVERY _ aa`]
       \\ `aa = [] ∨ ∃x l. aa = SNOC x l` by metis_tac [SNOC_CASES]
@@ -3117,11 +3115,11 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
     \\ fsrw_tac[ETA_ss][]
     \\ qmatch_asmsub_abbrev_tac`COND b`
     \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["fns2"]))
-    \\ rename1`Fn (tra § 0) (SOME x) NONE num_args`
-    \\ qexists_tac`if b then calls_list tra 0 x [(num_args,exp)] else [(num_args,HD e1')]` \\ fs[]
+    \\ rename1`Fn src_name (SOME x) NONE num_args`
+    \\ qexists_tac`if b then calls_list (None) 0 x [(num_args,exp)] else [(num_args,HD e1')]` \\ fs[]
     \\ simp[PULL_EXISTS,GSYM RIGHT_EXISTS_IMP_THM]
     \\ simp[RIGHT_EXISTS_AND_THM]
-    \\ imp_res_tac calls_length \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ imp_res_tac calls_length \\ fs[LENGTH_EQ_NUM_compute]
     \\ fs[closed_Fn,code_locs_def,IN_EVEN,GSYM ADD1,ALL_DISTINCT_APPEND]
     \\ `subg g0 (insert_each x 1 g0)`
     by ( simp[subg_def,insert_each_subspt] \\ fs[wfg_def])
@@ -3164,7 +3162,7 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
       fs[recclosure_rel_def,recclosure_wf_def,GSYM ADD1]
       \\ qexists_tac`g0` \\ fs[PULL_EXISTS]
       \\ CASE_TAC \\ fs[calls_list_MAPi] \\ rveq
-      \\ TRY(qexists_tac`tra` \\ qexists_tac`0` \\ simp[])
+      \\ TRY(qexists_tac`None` \\ qexists_tac`0` \\ simp[])
       \\ imp_res_tac calls_add_SUC_code_locs
       \\ fs[SUBSET_DEF]
       \\ fs[RIGHT_EXISTS_IMP_THM,GSYM AND_IMP_INTRO]
@@ -3188,16 +3186,16 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
           ALL_DISTINCT_GENLIST,EVERY_GENLIST,PULL_EXISTS]
     \\ rpt(pairarg_tac \\ fs[])
     \\ fsrw_tac[ETA_ss][]
-    \\ imp_res_tac calls_length \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+    \\ imp_res_tac calls_length \\ fs[LENGTH_EQ_NUM_compute]
     \\ rveq \\ fs[]
     \\ qpat_x_assum`_ = (_,g)`mp_tac
     \\ qpat_abbrev_tac`fns2 = calls_list _ _ _ _`
-    \\ qmatch_goalsub_rename_tac`Letrec (tr § 0) _ _ fns2 b2`
+    \\ qmatch_goalsub_rename_tac`Letrec tr _ _ fns2 b2`
     \\ qpat_abbrev_tac`fns0 = ZIP _`
     \\ qmatch_goalsub_rename_tac`Letrec _ _ _ fns0 b0`
     \\ qmatch_goalsub_abbrev_tac`COND b`
     \\ strip_tac
-    \\ `ys = [Letrec (if b then tr § 0 else tr ) (SOME x) NONE
+    \\ `ys = [Letrec tr (SOME x) NONE
                      (if b then fns2 else fns0) (if b then b2 else b0)]`
     by ( Cases_on`b` \\ fs[] \\ rveq )
     \\ rveq
@@ -3350,7 +3348,7 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
         \\ Cases_on`b`\\fs[]
         \\ asm_exists_tac \\ fs[] )
       \\ CASE_TAC \\ fs[PULL_EXISTS] \\ rveq
-      \\ TRY(qexists_tac`tr` >> qexists_tac`1` >> conj_tac >- metis_tac[])
+      \\ TRY(qexists_tac`None` >> qexists_tac`1` >> conj_tac >- metis_tac[])
       \\ (conj_tac >- metis_tac[subg_trans])
       \\ rewrite_tac [CONJ_ASSOC]
       \\ (reverse conj_tac THEN1
@@ -3534,7 +3532,7 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
       \\ simp[evaluate_def]
       \\ imp_res_tac calls_length
       \\ simp[]
-      \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+      \\ fs[LENGTH_EQ_NUM_compute]
       \\ rveq \\ fs[]
       \\ strip_tac
       \\ qpat_x_assum`_ ⇒ _`mp_tac
@@ -3599,14 +3597,12 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
       \\ fs []
       \\ impl_tac >- (fs [] \\ irule subg_trans \\ metis_tac [subg_trans])
       \\ strip_tac \\ rveq
-      \\ drule (Q.GEN`s`pure_correct
-                |> INST_TYPE [``:'c``|->``:abs_calls_state # 'c``])
-      \\ disch_then(qspec_then`r`mp_tac)
+      \\ drule_then drule pure_correct_eq
       \\ simp[]
       \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
       >- (CASE_TAC \\ fs[])
       \\ ntac 2 strip_tac \\ rveq
-      \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ rveq
+      \\ fs[LENGTH_EQ_NUM_compute] \\ rveq
       \\ rfs[] \\ rveq
       \\ qmatch_assum_rename_tac`LIST_REL (v_rel _ _ _) ev1 ev2`
       \\ Cases_on`ev1 = []`
@@ -3714,7 +3710,7 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
     \\ qpat_x_assum `_ = (_,_)` mp_tac
     \\ simp[evaluate_append]
     \\ imp_res_tac calls_length
-    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2,evaluate_GENLIST_Var_tra]
+    \\ fs[LENGTH_EQ_NUM_compute,evaluate_GENLIST_Var_tra]
     \\ rveq \\ fs[]
     \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
     >- (
@@ -3810,7 +3806,7 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
       \\ disch_then (qspec_then `ck'` mp_tac) \\ fs []
       \\ imp_res_tac LIST_REL_LENGTH \\ fs []
       \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
-      \\ fs [quantHeuristicsTheory.LIST_LENGTH_2]
+      \\ fs [LENGTH_EQ_NUM_compute]
       \\ rw []
       \\ asm_exists_tac \\ fs []
       \\ fs [subg_def, subspt_def, SUBSET_DEF])
@@ -4040,7 +4036,7 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
     \\ reverse (fs [CaseEq "result"]) \\ rveq \\ fs []
     >- (qexists_tac`ck` \\ asm_exists_tac \\ simp[] \\ rfs[] \\ NO_TAC)
     \\ imp_res_tac evaluate_IMP_LENGTH
-    \\ fs[quantHeuristicsTheory.LIST_LENGTH_2] \\ fs[]
+    \\ fs[LENGTH_EQ_NUM_compute] \\ fs[]
     \\ first_x_assum drule
     \\ fs []
     \\ `EVERY (wfv g2 l2 t.code) rest1` by
@@ -4243,7 +4239,7 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
     \\ fs []
     \\ asm_exists_tac \\ fs [])
   \\ imp_res_tac evaluate_IMP_LENGTH
-  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+  \\ fs[LENGTH_EQ_NUM_compute]
   \\ rveq \\ fs []
   \\ first_x_assum drule
   \\ fs []
@@ -4431,7 +4427,7 @@ val nth_code_def = Define `
   nth_code code co 0 = code /\
   nth_code code co (SUC k) =
     let (cfg,exp,aux) = co 0 in
-    let (g',exp',aux') = compile_inc (FST cfg) (exp,aux) in
+    let (g',exp',aux') = clos_call$compile_inc (FST cfg) (exp,aux) in
       nth_code (code |++ aux') (shift_seq 1 co) k`
 
 (* TODO: move *)

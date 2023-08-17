@@ -4,12 +4,13 @@
 *)
 
 open preamble
-open astTheory libTheory semanticPrimitivesTheory
+open astTheory libTheory semanticPrimitivesTheory evaluateTheory
      semanticPrimitivesPropsTheory evaluatePropsTheory;
 open mlstringTheory integerTheory;
-open terminationTheory;
 open namespaceTheory;
 open alist_treeTheory;
+
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "ml_prog";
 
@@ -208,7 +209,7 @@ Proof
 QED
 
 val write_conses_def = Define `
-  write_conses ([] :(tvarN, type_ident # stamp) alist) env = env /\
+  write_conses [] env = env /\
   write_conses ((n,y)::xs) env =
     write_cons n y (write_conses xs env)`;
 
@@ -390,7 +391,8 @@ val eval_match_rel_def = Define `
 Theorem Decls_Dlet:
    !env s1 v e s2 env2 locs.
       Decls env s1 [Dlet locs (Pvar v) e] env2 s2 <=>
-      ?x. eval_rel s1 env e s2 x /\ (env2 = write v x empty_env)
+      ?x. eval_rel s1 env e s2 x /\ (env2 = write v x empty_env) /\
+          every_exp (one_con_check env.c) e
 Proof
   simp [Decls_def,evaluate_decs_def,eval_rel_def]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs [bool_case_eq]
@@ -417,6 +419,7 @@ Theorem Decls_Dletrec:
       Decls env s1 [Dletrec locs funs] env2 s2 <=>
       (s2 = s1) /\
       ALL_DISTINCT (MAP (\(x,y,z). x) funs) /\
+      EVERY (λ(f,n,e). every_exp (one_con_check env.c) e) funs /\
       (env2 = write_rec funs env empty_env)
 Proof
   simp [Decls_def,evaluate_decs_def,bool_case_eq,PULL_EXISTS]
@@ -451,6 +454,22 @@ Proof
   \\ rw [pair_case_eq, result_case_eq]
   \\ imp_res_tac evaluate_decs_set_clock
   \\ fs [] \\ metis_tac []
+QED
+
+Theorem Decls_Denv:
+  ∀env s1 v s2 env2.
+    Decls env s1 [Denv v] env2 s2 ⇔
+    ∃env1 es.
+      declare_env s1.eval_state env = SOME (env1, es) ∧
+      s2 = s1 with eval_state := es ∧
+      env2 = write v env1 empty_env
+Proof
+  rw[Decls_def, evaluate_decs_def]
+  \\ TOP_CASE_TAC
+  \\ PairCases_on`x`
+  \\ simp[write_def,empty_env_def,state_component_equality]
+  \\ rw[nsEmpty_def, nsSing_def, nsBind_def]
+  \\ rw[EQ_IMP_THM]
 QED
 
 Theorem Decls_NIL:
@@ -531,6 +550,17 @@ Proof
   METIS_TAC [SNOC_APPEND, Decls_APPEND]
 QED
 
+Theorem Decls_set_eval_state:
+  Decls env1 s1 ds env2 s2 ∧ s1.eval_state = NONE ⇒
+  ∀es.
+    Decls env1 (s1 with eval_state := es) ds env2
+               (s2 with eval_state := es)
+Proof
+  rw [Decls_def]
+  \\ drule_then (qspec_then ‘es’ assume_tac) (CONJUNCTS eval_no_eval_simulation |> last)
+  \\ gvs []
+  \\ pop_assum $ irule_at Any
+QED
 
 (* The translator and CF tools use the following definition of ML_code
    to build (and verify) an ML program within the logic. The goal is to
@@ -541,19 +571,22 @@ QED
    local objects can also be built up one statement at a time.
 *)
 
-val ML_code_env_def = Define `(ML_code_env env [] = env)
-    /\ (ML_code_env env ((comm, st, decls, res_env) :: bls)
-        = merge_env res_env (ML_code_env env bls))`;
+Definition ML_code_env_def:
+  (ML_code_env env [] = env) ∧
+  (ML_code_env env ((comm, st, decls, res_env) :: bls)
+        = merge_env res_env (ML_code_env env bls))
+End
 
-val ML_code_def = Define `(ML_code env [] res_st <=> T)
-    /\ (ML_code env
-        (((comment : string # string), st, decls, res_env) :: bls)
-        res_st <=> (ML_code env bls st
-            /\ Decls (ML_code_env env bls) st decls res_env res_st))`;
+Definition ML_code_def:
+  (ML_code env [] res_st <=> T) ∧
+  (ML_code env (((comment : string # string), st, decls, res_env) :: bls) res_st <=>
+     ML_code env bls st ∧
+     Decls (ML_code_env env bls) st decls res_env res_st)
+End
 
 (* retreive the Decls from a toplevel ML_code *)
 Theorem ML_code_Decls:
-   ML_code env1 [(comm, st1, prog, env2)] st2 ==>
+  ML_code env1 [(comm, st1, prog, env2)] st2 ==>
     Decls env1 st1 prog env2 st2
 Proof
   fs [ML_code_def, ML_code_env_def]
@@ -692,6 +725,9 @@ val build_rec_env_APPEND = Q.prove(
 Theorem ML_code_Dletrec:
    !fns locs. ML_code env0 ((comm, s1, prog, env2) :: bls) s2 ==>
       ALL_DISTINCT (MAP (λ(x,y,z). x) fns) ==>
+      EVERY
+        (λ(f,n,e).
+           every_exp (one_con_check (merge_env env2 (ML_code_env env0 bls)).c) e) fns ==>
       let code_env = ML_code_env env0 ((comm, s1, prog, env2) :: bls) in
       let env3 = write_rec fns code_env env2 in
       ML_code env0 ((comm, s1, SNOC (Dletrec locs fns) prog, env3) :: bls) s2
@@ -705,9 +741,10 @@ QED
 (* appending a Let *)
 
 Theorem ML_code_Dlet_var:
-   !cenv e s3 x n locs. ML_code env0 ((comm, s1, prog, env1) :: bls) s2 ==>
+  ∀cenv e s3 x n locs. ML_code env0 ((comm, s1, prog, env1) :: bls) s2 ==>
     eval_rel s2 cenv e s3 x ==>
     cenv = ML_code_env env0 ((comm, s1, prog, env1) :: bls) ==>
+    every_exp (one_con_check (merge_env env1 (ML_code_env env0 bls)).c) e ==>
     let env2 = write n x env1 in let s3_abbrev = s3 in
     ML_code env0 ((comm, s1, SNOC (Dlet locs (Pvar n) e) prog, env2)
         :: bls) s3_abbrev
@@ -717,8 +754,21 @@ Proof
   \\ fs [write_def,merge_env_def,empty_env_def,sem_env_component_equality]
 QED
 
+Theorem ML_code_Dlet_var_lit:
+  ∀loc name l. ML_code env0 ((comm, s1, prog, env1)::bls) s2 ⇒
+    let env2 = write name (Litv l) env1 in let s3_abbrev = s2 in
+      ML_code env0 ((comm,s1,SNOC (Dlet loc (Pvar name) (Lit l)) prog,env2)::bls) s3_abbrev
+Proof
+  rpt strip_tac
+  \\ irule ML_code_Dlet_var \\ fs []
+  \\ pop_assum $ irule_at Any
+  \\ fs [eval_rel_def,evaluateTheory.evaluate_def]
+  \\ fs [semanticPrimitivesTheory.state_component_equality]
+QED
+
 Theorem ML_code_Dlet_Fun:
-   !n v e locs. ML_code env0 ((comm, s1, prog, env1) :: bls) s2 ==>
+  ∀n v e locs. ML_code env0 ((comm, s1, prog, env1) :: bls) s2 ==>
+    every_exp (one_con_check (merge_env env1 (ML_code_env env0 bls)).c) e ==>
     let code_env = ML_code_env env0 ((comm, s1, prog, env1) :: bls) in
     let v_abbrev = Closure code_env v e in
     let env2 = write n v_abbrev env1 in
@@ -727,6 +777,79 @@ Theorem ML_code_Dlet_Fun:
 Proof
   rw [] \\ imp_res_tac ML_code_Dlet_var
   \\ fs [evaluate_def,state_component_equality,eval_rel_def]
+QED
+
+Theorem ML_code_Dlet_Var_Var:
+  ∀n vname locs. ML_code env0 ((comm, s1, prog, env1) :: bls) s2 ==>
+    let cenv = ML_code_env env0 ((comm, s1, prog, env1) :: bls) in
+    ∀x. nsLookup cenv.v vname = SOME x ==>
+    let env2 = write n x env1 in
+    ML_code env0 ((comm, s1, SNOC (Dlet locs (Pvar n) (Var vname)) prog, env2)
+        :: bls) s2
+Proof
+  rw []
+  \\ irule (SIMP_RULE std_ss [LET_THM] ML_code_Dlet_var) \\ fs []
+  \\ first_x_assum $ irule_at $ Pos hd
+  \\ fs [eval_rel_def,evaluate_def,state_component_equality]
+QED
+
+Theorem ML_code_Dlet_Var_Ref_Var:
+  ∀n vname locs. ML_code env0 ((comm, s1, prog, env1) :: bls) s2 ==>
+    let cenv = ML_code_env env0 ((comm, s1, prog, env1) :: bls) in
+    ∀x. nsLookup cenv.v vname = SOME x ==>
+    let len = LENGTH s2.refs in
+    let loc = Loc len in
+    let env2 = write n loc env1 in
+    let s2_abbrev = s2 with refs := s2.refs ++ [Refv x] in
+    ML_code env0 ((comm, s1, SNOC (Dlet locs (Pvar n) (App Opref [Var vname])) prog, env2)
+        :: bls) s2_abbrev
+Proof
+  rw []
+  \\ irule (SIMP_RULE std_ss [LET_THM] ML_code_Dlet_var) \\ fs []
+  \\ first_x_assum $ irule_at $ Pos hd
+  \\ fs [eval_rel_def,evaluate_def,state_component_equality,AllCaseEqs(),
+         do_app_def,store_alloc_def, isFpBool_def, getOpClass_def]
+QED
+
+(* appending an environment *)
+
+Definition declare_env_rel_def:
+  declare_env_rel s2 env1 s3 envv ⇔
+  ∃es.
+    declare_env s2.eval_state env1 = SOME (envv, es) ∧
+    s3 = s2 with eval_state := es
+End
+
+Theorem ML_code_Denv:
+  ∀n cenv s3 envv.
+    ML_code env0 ((comm,s1,prog,env1)::bls) s2 ⇒
+    declare_env_rel s2 cenv s3 envv ⇒
+    cenv = ML_code_env env0 ((comm,s1,prog,env1)::bls) ⇒
+    let
+      env2 = write n envv env1;
+      s3_abbrev = s3
+    in
+    ML_code env0 ((comm,s1,SNOC (Denv n) prog,env2)::bls) s3_abbrev
+Proof
+  rw[ML_code_def, SNOC_APPEND, Decls_APPEND, Decls_Denv,
+     declare_env_rel_def, ML_code_env_def]
+  \\ first_assum $ irule_at Any
+  \\ first_assum $ irule_at Any
+  \\ rw[write_def, merge_env_def, empty_env_def,
+        sem_env_component_equality]
+QED
+
+(* setting the eval_state *)
+
+Theorem ML_code_set_eval_state: (* only supported at the top-level for simplicity *)
+  ML_code env0 [(comm,s1,prog,env1)] s2 ⇒
+  s1.eval_state = NONE ⇒
+  ∀es. ML_code env0 [(comm,s1 with eval_state := SOME es,prog,env1)]
+                          (s2 with eval_state := SOME es)
+Proof
+  rw [ML_code_def]
+  \\ drule_all Decls_set_eval_state
+  \\ fs []
 QED
 
 (* lookup function definitions *)

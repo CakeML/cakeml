@@ -7,7 +7,7 @@ open HolKernel Parse boolLib bossLib
 
 open tokensTheory grammarTheory locationTheory
 
-open lcsymtacs grammarLib
+open grammarLib
 
 val _ = new_theory "gram"
 val _ = set_grammar_ancestry ["tokens", "grammar", "location"]
@@ -27,6 +27,7 @@ val tokmap0 =
                 ("_", ``UnderbarT``),
                 ("and", ``AndT``),
                 ("andalso", ``AndalsoT``),
+                ("as", ``AsT``),
                 ("before", ``AlphaT "before"``),
                 ("Bind", ``AlphaT "Bind"``),
                 ("case", ``CaseT``),
@@ -152,7 +153,7 @@ val cmlG_def = mk_grammar_def ginfo
        |  ^(``{SymbolT s | s ≠ ""}``)
        |  "*" | "=" ;
 
- Eliteral ::= <IntT> |  <CharT> | <StringT> | <WordT> | <FFIT> ;
+ Eliteral ::= <IntT> | <CharT> | <StringT> | <WordT> | <FFIT> ;
 
  Ebase ::= "(" Eseq ")" | Etuple | "(" ")" | FQV | ConstructorName | Eliteral
         | "let" LetDecs "in" Eseq "end" | "[" "]"
@@ -196,7 +197,8 @@ val cmlG_def = mk_grammar_def ginfo
  PConApp ::= ConstructorName | PConApp Pbase ;
  Papp ::= PConApp Pbase | Pbase ;
  Pcons ::= Papp "::" Pcons | Papp ;
- Pattern ::= Pcons | Pcons ":" Type ;
+ Pas ::= V "as" Pcons | Pcons ;
+ Pattern ::= Pas | Pas ":" Type ;
  Ptuple ::= "(" ")" | "(" PatternList ")";
  PatternList ::= Pattern | Pattern "," PatternList ;
  PbaseList1 ::= Pbase | Pbase PbaseList1 ;
@@ -216,13 +218,15 @@ val cmlG_def = mk_grammar_def ginfo
  OptionalSignatureAscription ::= ":>" SignatureValue | ;
  Decl ::= "val" Pattern "=" E  | "fun" AndFDecls |  TypeDec
        |  "exception" Dconstructor
-       | TypeAbbrevDec | "local" Decls "in" Decls "end";
+       | TypeAbbrevDec | "local" Decls "in" Decls "end" | Structure;
  Decls ::= Decl Decls | ";" Decls | ;
- Structure ::= "structure" StructName OptionalSignatureAscription "=" "struct" Decls "end";
- TopLevelDec ::= Structure | Decl ;
- TopLevelDecs ::= E ";" TopLevelDecs | TopLevelDec NonETopLevelDecs
+ Structure ::= "structure" StructName OptionalSignatureAscription "=" "struct"
+               Decls "end";
+ TopLevelDecs ::= E ";" TopLevelDecs | Decl NonETopLevelDecs
                |  ";" TopLevelDecs | ;
- NonETopLevelDecs ::= TopLevelDec NonETopLevelDecs | ";" TopLevelDecs | ;
+ NonETopLevelDecs ::= Decl NonETopLevelDecs | ";" TopLevelDecs | ; (*
+ REPLCommand ::= <REPLIDT> Ebase ;
+ TopLevel ::= REPLCommand | TopLevelDecs ; *)
 `;
 
 Type NT = ``:MMLnonT inf``

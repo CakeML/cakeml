@@ -6,6 +6,8 @@ open preamble parserProgTheory
      ml_translatorLib ml_translatorTheory
      semanticPrimitivesTheory inferPropsTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "inferProg"
 
 val _ = translation_extends "reg_allocProg";
@@ -239,6 +241,9 @@ Theorem ts_unify_side_def = Q.prove(`
   THEN FULL_SIMP_TAC std_ss [])
   |> update_precondition;
 
+val r = translate alist_nub_def;
+val r = translate (ns_nub_def |> DefnBase.one_line_ify NONE);
+
 val _ = save_thm("anub_ind",REWRITE_RULE[MEMBER_INTRO]miscTheory.anub_ind)
 val _ = translate (REWRITE_RULE[MEMBER_INTRO] miscTheory.anub_def)
 
@@ -306,180 +311,40 @@ val pr_CASE = Q.prove(
   `pair_CASE (x,y) f = f x y`,
   SRW_TAC [] []);
 
-val op_apply = Q.prove(
-  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40 x41 x42) y =
-         (ast$op_CASE op
-            (* Opn 1 *)
-            (\z. x1 z y)
-            (* Opb 1 *)
-            (\z. x2 z y)
-            (* Opw 2 *)
-            (\z1 z2. x3 z1 z2 y)
-            (* Shift 3 *)
-            (\z1 z2 z3. x4 z1 z2 z3 y)
-            (* Equality 0 *)
-            (x5 y)
-            (* FP_cmp 1 *)
-            (\z. x6 z y)
-            (* FP_uop 1 *)
-            (\z. x7 z y)
-            (* FP_bop 1 *)
-            (\z. x8 z y)
-            (* FP_top 1 *)
-            (\z. x9 z y)
-            (* Opapp 0 *)
-            (x10 y)
-            (* Opassign 0 *)
-            (x11 y)
-            (* Opref 0 *)
-            (x12 y)
-            (* Opderef 0 *)
-            (x13 y)
-            (* Aw8alloc *)
-            (x14 y)
-            (* Aw8sub *)
-            (x15 y)
-            (* Aw8length*)
-            (x16 y)
-            (* Aw8update *)
-            (x17 y)
-            (* WfI 1 *)
-            (\z. x18 z y)
-            (* WtI 1 *)
-            (\z. x19 z y)
-            (* CopyStrStr *)
-            (x20 y)
-            (* CopyStrAw8 *)
-            (x21 y)
-            (* CopyAw8Str *)
-            (x22 y)
-            (* CopyAw8Aw8 *)
-            (x23 y)
-            (* Ord *)
-            (x24 y)
-            (* Chr *)
-            (x25 y)
-            (* Chopb 1 *)
-            (\z. x26 z y)
-            (* Implode *)
-            (x27 y)
-            (* Explode *)
-            (x28 y)
-            (* Strsub*)
-            (x29 y)
-            (* Strlen *)
-            (x30 y)
-            (* Strcat *)
-            (x31 y)
-            (* Vfromlist *)
-            (x32 y)
-            (* Vsub *)
-            (x33 y)
-            (* Vlength *)
-            (x34 y)
-            (* Aalloc *)
-            (x35 y)
-            (* AallocEmpty *)
-            (x36 y)
-            (* Asub *)
-            (x37 y)
-            (* Alength*)
-            (x38 y)
-            (* Aupdate *)
-            (x39 y)
-            (* ListAppend *)
-            (x40 y)
-            (* ConfigGC *)
-            (x41 y)
-            (* FFI *)
-            (\z. x42 z y))`,
-  Cases THEN SRW_TAC [] []);
+val op_apply =
+  let
+    val ty = ``:ast$op``
+    val ty_def = {case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty}
+    val rthm = Prim_rec.prove_case_rand_thm ty_def
+    val f = concl rthm |> lhs |> rator
+    val rthm2 = GEN f rthm
+    val rthm3 = Q.ISPEC `\g. g (y : 'b)` rthm2
+  in BETA_RULE rthm3 |> Q.GEN ‘x’ end;
 
 val list_apply = Q.prove(
   `!op. (list_CASE op x1 x2) y =
          (list_CASE op (x1 y) (\z1 z2. x2 z1 z2 y))`,
   Cases THEN SRW_TAC [] []);
 
-(* TODO: duplicated from ml_translatorLib, should go elsewhere*)
-fun list_conv c tm =
-  if listSyntax.is_cons tm then
-    ((RATOR_CONV o RAND_CONV) c THENC
-     RAND_CONV (list_conv c)) tm
-  else if listSyntax.is_nil tm then ALL_CONV tm
-  else NO_CONV tm
-
-(* TODO: is it really necessary to prove this four times? *)
-val pmatch_row_lemmas =
-    map
-      (fn goal =>
-          Q.prove(goal,
-                  Cases_on `(∃v. f v = t ∧ g v)`
-                  >> rw[patternMatchesTheory.PMATCH_def,
-                        patternMatchesTheory.PMATCH_ROW_def,
-                        patternMatchesTheory.PMATCH_ROW_COND_def,
-                        some_def,pairTheory.ELIM_UNCURRY]))
-      [`PMATCH t ((PMATCH_ROW f g (λt x. h t x)) ::r') x
-          = PMATCH t ((PMATCH_ROW f g (λt. h t x))::r)
-       ⇔ (∃v. f v = t ∧ g v)
-          ∨ (PMATCH t r' x = PMATCH t r)`,
-       `PMATCH t ((PMATCH_ROW f g (λ(t,t') x. h t t' x)) ::r') x
-          = PMATCH t ((PMATCH_ROW f g (λ(t,t'). h t t' x))::r)
-       ⇔ (∃v. f v = t ∧ g v)
-          ∨ (PMATCH t r' x = PMATCH t r)`,
-       `PMATCH t ((PMATCH_ROW f g (λ(t,t',t'') x. h t t' t'' x)) ::r') x
-          = PMATCH t ((PMATCH_ROW f g (λ(t,t',t''). h t t' t'' x))::r)
-       ⇔ (∃v. f v = t ∧ g v)
-          ∨ (PMATCH t r' x = PMATCH t r)`,
-       `PMATCH t ((PMATCH_ROW f g (λ(t,t',t'',t''') x. h t t' t'' t''' x)) ::r') x
-          = PMATCH t ((PMATCH_ROW f g (λ(t,t',t'',t'''). h t t' t'' t''' x))::r)
-       ⇔ (∃v. f v = t ∧ g v)
-          ∨ (PMATCH t r' x = PMATCH t r)`,
-       `PMATCH t ((PMATCH_ROW f g (λ(t,t',t'',t''',t'''') x. h t t' t'' t''' t'''' x)) ::r') x
-          = PMATCH t ((PMATCH_ROW f g (λ(t,t',t'',t''',t''''). h t t' t'' t''' t'''' x))::r)
-       ⇔ (∃v. f v = t ∧ g v)
-          ∨ (PMATCH t r' x = PMATCH t r)`
-      ]
-
-(* Attempts to convert (pmatch) expressions of the form
+(* Converts PMATCH case expressions applied to an argument, e.g.
 
      (case x of
        p1 => λ v1. b1 v1
      | p2 => λ v2. b2 v2
      | ....) a
 
-into
+into a case expression with the argument applied in each branch
 
      case x of
        p1 => b1 a
      | p2 => b2 a
      | ....
- *)
-fun pmatch_app_distrib_conv tm =
-  let
-    fun mk_pmatch_beta tm =
-    let
-      val (pm_exp,arg) = dest_comb tm
-      val (pmatch,pml) = dest_comb pm_exp
-      val (rows,row_type) = listSyntax.dest_list pml
-      fun gify arg row =
-        let
-          val (pmatch_row,[pat,guard,body]) = strip_comb row
-          val (binders,term) = dest_pabs body
-        in
-          Term(`PMATCH_ROW ` @ map ANTIQUOTE [pat,guard,mk_pabs(binders,beta_conv(mk_comb(term,arg)))])
-        end
-      val new_rows = map (gify arg) rows
-      val new_row_type = type_of(hd new_rows)
-      val new_list = listSyntax.mk_list(map (gify arg) rows, new_row_type)
-    in
-      mk_eq(tm,
-            Term(`PMATCH` @ [ANTIQUOTE(rand pmatch),ANTIQUOTE(new_list)]))
-    end
-    val g = mk_pmatch_beta tm
-  in
-    prove(g,
-      CONV_TAC(Ho_Rewrite.PURE_REWRITE_CONV pmatch_row_lemmas) >> rw[pairTheory.ELIM_UNCURRY])
-  end
+
+*)
+fun pmatch_app_distrib_conv tm = let
+    val (p, y) = dest_comb tm
+    val _ = patternMatchesSyntax.dest_PMATCH p
+  in patternMatchesLib.PMATCH_LIFT_CONV tm end
 
 fun full_infer_def aggressive const = let
   val def = if aggressive then
@@ -531,6 +396,7 @@ val ty_var_name_side =
 
 val _ = translate infer_tTheory.commas_def;
 val _ = translate infer_tTheory.add_parens_def;
+val _ = translate infer_tTheory.inf_type_to_string_rec_def;
 val _ = translate infer_tTheory.inf_type_to_string_def;
 val _ = translate ns_to_alist_def;
 val _ = translate inf_env_to_types_string_def;
@@ -560,13 +426,18 @@ Proof
   \\ metis_tac[unifyTheory.t_unify_wfs]
 QED
 
-val def = infer_def ``constrain_op``
-(*
-  val tm = def |> SPEC_ALL |> concl |> rand
-*)
+Triviality LET3_APP:
+  (let (a, b, c) = x in y a b c) z = (let (a, b, c) = x in y a b c z)
+Proof
+  simp [ELIM_UNCURRY]
+QED
 
-val r = translate
-  (def |> CONV_RULE(STRIP_QUANT_CONV(RAND_CONV pmatch_app_distrib_conv)));
+val def = infer_def ``constrain_op``
+  |> SIMP_RULE bool_ss [LET3_APP, if_apply]
+  |> CONV_RULE (DEPTH_CONV pmatch_app_distrib_conv)
+  |> SIMP_RULE bool_ss [listTheory.MAP_ID]
+
+val r = translate def
 
 val MAP_type_name_subst = prove(
   ``MAP (type_name_subst tenvT) ts =

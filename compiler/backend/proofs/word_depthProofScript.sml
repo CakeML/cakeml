@@ -5,6 +5,8 @@
 open preamble wordLangTheory wordSemTheory wordPropsTheory word_depthTheory
      backendPropsTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory "word_depthProof";
 
 Triviality option_le_X_MAX_X[simp]:
@@ -34,17 +36,6 @@ Proof
   \\ fs [OPTION_MAP2_DEF] \\ every_case_tac \\ fs []
   \\ fs [IS_SOME_EXISTS] \\ fs [max_depth_def]
 QED
-
-Definition max_depth_graphs_def:
-  max_depth_graphs ss [] all funs all_funs = SOME 0 /\
-  max_depth_graphs ss (n::ns) all funs all_funs =
-    case lookup n all_funs of
-    | NONE => NONE
-    | SOME (a,body) =>
-        OPTION_MAP2 MAX (lookup n ss)
-       (OPTION_MAP2 MAX (max_depth ss (call_graph funs n all (size all_funs) body))
-                        (max_depth_graphs ss ns all funs all_funs))
-End
 
 Theorem MEM_max_depth_graphs:
   !ns name y.
@@ -254,6 +245,8 @@ Proof
     \\ Cases_on `max_depth_graphs s.stack_size ns ns funs funs2`
     \\ TRY (fs [OPTION_MAP2_DEF] \\ NO_TAC)
     \\ fs [MAX_DEF])
+  THEN1 (* StoreConsts *)
+   (gvs [wordSemTheory.evaluate_def,AllCaseEqs()])
   THEN1 (* Move *)
    (fs [wordSemTheory.evaluate_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs [])
@@ -270,6 +263,10 @@ Proof
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
     \\ imp_res_tac assign_const \\ fs [])
   THEN1 (* Set *)
+   (fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
+    \\ fs [])
+  THEN1 (* OpCurrHeap *)
    (fs [wordSemTheory.evaluate_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
     \\ fs [])
@@ -852,7 +849,7 @@ Proof
   \\ Cases_on `stack_size s.stack` THEN1 fs [OPTION_MAP2_DEF]
   \\ Cases_on `lookup dest s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
   \\ Cases_on `(max_depth s.stack_size
-                       (call_graph funs dest [dest] (size funs) exp'))`
+                       (call_graph funs dest [dest] (size funs) exp))`
   THEN1 fs [OPTION_MAP2_DEF]
   \\ Cases_on `s1.stack_max` \\ fs [OPTION_MAP2_DEF,MAX_DEF]
 QED
@@ -884,7 +881,7 @@ Proof
   \\ Cases_on `stack_size s.stack` THEN1 fs [OPTION_MAP2_DEF]
   \\ Cases_on `lookup dest s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
   \\ Cases_on `(max_depth s.stack_size
-                       (call_graph funs dest [dest] (size funs) exp'))`
+                       (call_graph funs dest [dest] (size funs) exp))`
   THEN1 fs [OPTION_MAP2_DEF]
   \\ Cases_on `s1.stack_max` \\ fs [OPTION_MAP2_DEF,MAX_DEF]
 QED

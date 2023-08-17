@@ -98,7 +98,7 @@ Theorem sort_installed:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (init_memory code data (THE config.lab_conf.ffi_names) (cl,inp)) ms0 ⇒
-   installed code 0 data 0 config.lab_conf.ffi_names (basis_ffi cl fs)
+   installed code 0 data 0 config.lab_conf.ffi_names
      (heap_regs ag32_backend_config.stack_conf.reg_names)
      (sort_machine_config) (FUNPOW Next (sort_startup_clock ms0 inp cl) ms0)
 Proof
@@ -114,17 +114,16 @@ Proof
   \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ conj_tac >- (EVAL_TAC)
-  \\ asm_exists_tac
+  \\ rpt $ goal_assum $ drule_at Any
   \\ simp[]
-  \\ fs[ffi_names]
 QED
 
 val sort_machine_sem =
   compile_correct_applied
   |> C MATCH_MP (
       sort_installed
-       |> Q.GENL[`cl`,`fs`]
-       |> Q.SPECL[`[strlit"sort"]`,`stdin_fs inp`]
+       |> Q.GEN `cl`
+       |> Q.SPEC `[strlit"sort"]`
        |> SIMP_RULE(srw_ss())[cline_size_def]
        |> UNDISCH)
   |> DISCH_ALL
@@ -193,19 +192,15 @@ Proof
   \\ conj_tac >- simp[ffi_names]
   \\ conj_tac >- (simp[ffi_names, LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ conj_tac >- (simp[ffi_names] \\ EVAL_TAC)
-  \\ goal_assum(first_assum o mp_then Any mp_tac)
-  \\ goal_assum(first_assum o mp_then Any mp_tac)
-  \\ goal_assum(first_assum o mp_then Any mp_tac)
-  \\ first_assum(mp_then Any mp_tac sort_startup_clock_def)
-  \\ disch_then(first_assum o mp_then Any mp_tac)
+  \\ rpt $ goal_assum $ drule_at Any
+  \\ drule_at Any sort_startup_clock_def
+  \\ simp[]
   \\ impl_tac >- EVAL_TAC
   \\ strip_tac
-  \\ goal_assum(first_assum o mp_then Any mp_tac)
-  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ rpt $ goal_assum $ drule_at Any
   \\ qmatch_goalsub_abbrev_tac`FUNPOW Next clk`
   \\ qexists_tac`clk` \\ simp[]
   \\ EVAL_TAC
-  \\ metis_tac[]
 QED
 
 val _ = export_theory();

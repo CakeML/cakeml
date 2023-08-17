@@ -100,6 +100,9 @@ val fields_side_thm = Q.prove (
   `!f s. fields_side f s`,
   rw [fields_side_def, fields_aux_side_thm] ) |> update_precondition
 
+val _ = next_ml_names := ["findi"];
+val result = translate str_findi_def;
+
 val _ = ml_prog_update open_local_block;
 val result = translate isStringThere_aux_def;
 val isStringThere_aux_side_def = theorem"isstringthere_aux_side_def";
@@ -191,6 +194,13 @@ val collate_aux_side_thm = Q.prove (
 val collate_side_thm = Q.prove (
   `!f s1 s2. collate_1_side f s1 s2`,
   rw [collate_side_def, collate_aux_side_thm] ) |> update_precondition
+
+val _ = translate char_escape_seq_def;
+val _ = ml_prog_update open_local_block;
+val _ = translate char_escaped_def;
+val _ = ml_prog_update open_local_in_block;
+val _ = translate escape_str_def;
+val _ = translate escape_char_def;
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);

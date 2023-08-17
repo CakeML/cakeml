@@ -6,6 +6,8 @@ open preamble
      ml_translatorLib ml_translatorTheory
      semanticPrimitivesTheory
 
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "parserProg"
 
 val _ = translation_extends "lexerProg";
@@ -60,13 +62,27 @@ val _ = (find_def_for_const := def_of_const);
 
 (* parsing: peg_exec and cmlPEG *)
 
-val res = register_type``:(token,MMLnonT,locs) parsetree``;
+val res = register_type``:(tokens$token,MMLnonT,locs) parsetree``;
 val res = register_type``:MMLnonT``;
 
 (* checking GRAMMAR_PARSETREE_TYPE etc is known to be an EqualityType *)
-val EqType_PT_rule = EqualityType_rule [] ``:(token,MMLnonT,locs) parsetree``;
+val EqType_PT_rule = EqualityType_rule [] ``:(tokens$token,MMLnonT,locs) parsetree``;
 
 val _ = translate (def_of_const ``validAddSym``);
+
+Theorem locnle:
+  locnle x y =
+    case (x,y) of
+    | (UNKNOWNpt,_) => T
+    | (_,EOFpt) => T
+    | (POSN x1 x2,POSN y1 y2) => ((x1 < y1) ∨ (x1 = y1) ∧ (x2 ≤ y2))
+    | _ => F
+Proof
+  Cases_on ‘x’ \\ Cases_on ‘y’ \\ fs []
+  \\ fs [locationTheory.locnle_def] \\ EVAL_TAC \\ fs []
+QED
+
+val _ = translate locnle;
 
 Triviality validaddsym_side_lemma:
   ∀x. validaddsym_side x = T
@@ -78,12 +94,12 @@ val _ = update_precondition validaddsym_side_lemma;
 val _ = translate (def_of_const ``cmlPEG``);
 
 Theorem INTRO_FLOOKUP:
-   (if n IN FDOM G.rules
-     then EV (G.rules ' n) i r y fk
-     else Result xx) =
-    (case FLOOKUP G.rules n of
-       NONE => Result xx
-     | SOME x => EV x i r y fk)
+   (if n ∈ FDOM G.rules then
+      pegexec$EV (G.rules ' n) i r eo errs (appf1 tf3 k) fk
+    else Looped) =
+   (case FLOOKUP G.rules n of
+      NONE => Looped
+    | SOME x => pegexec$EV x i r eo errs (appf1 tf3 k) fk)
 Proof
   SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]
 QED
@@ -95,9 +111,11 @@ val _ = translate (def_of_const ``peg_exec``);
 
 (* parsing: cmlvalid *)
 
-val monad_unitbind_assert = Q.prove(
-  `!b x. OPTION_IGNORE_BIND (OPTION_GUARD b) x = if b then x else NONE`,
-  Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
+Theorem monad_unitbind_assert:
+  !b x. OPTION_IGNORE_BIND (OPTION_GUARD b) x = if b then x else NONE
+Proof
+  Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []
+QED
 
 val _ = translate grammarTheory.ptree_head_def
 
@@ -127,7 +145,74 @@ val _ = translate maybe_handleRef_eq
 
 val _ = translate (def_of_const ``ptree_Expr``);
 
-val _ = translate (def_of_const ``ptree_Decl``);
+val _ = translate (def_of_const ``ptree_linfix``);
+
+val _ = translate (def_of_const ``ptree_TypeDec``);
+
+val _ = def_of_const “ptree_DtypeDecl” |> translate;
+
+val def = cmlPtreeConversionTheory.ptree_SpeclineList_def
+  |> SIMP_RULE (srw_ss()) [OPTION_CHOICE_def |> DefnBase.one_line_ify NONE,
+                           OPTION_BIND_def |> DefnBase.one_line_ify NONE,
+                           OPTION_IGNORE_BIND_def |> DefnBase.one_line_ify NONE,
+                           OPTION_GUARD_def |> DefnBase.one_line_ify NONE]
+
+val res = translate def;
+
+val _ = def_of_const “ptree_SignatureValue” |> translate
+
+Triviality ptree_Decls:
+  ptree_Decls x =
+     case x of
+     | Lf t => ptree_Decls (Lf t)
+     | Nd (a1,a2) b => ptree_Decls (Nd (a1,a2) b)
+Proof
+  Cases_on ‘x’ \\ fs []
+  \\ rename [‘Nd p’] \\ PairCases_on ‘p’ \\ fs []
+QED
+
+Triviality ptree_Structure:
+  ptree_Structure x =
+     case x of
+     | Lf t => ptree_Structure (Lf t)
+     | Nd (a1,a2) b => ptree_Structure (Nd (a1,a2) b)
+Proof
+  Cases_on ‘x’ \\ fs []
+  \\ rename [‘Nd p’] \\ PairCases_on ‘p’ \\ fs []
+QED
+
+val def =
+  LIST_CONJ
+    [cmlPtreeConversionTheory.ptree_Decl_def |> CONJUNCT1 |> SPEC_ALL,
+     ptree_Decls
+     |> ONCE_REWRITE_RULE  [cmlPtreeConversionTheory.ptree_Decl_def],
+     ptree_Structure
+     |> ONCE_REWRITE_RULE  [cmlPtreeConversionTheory.ptree_Decl_def]]
+  |> SIMP_RULE (srw_ss()) [OPTION_CHOICE_def |> DefnBase.one_line_ify NONE,
+                           OPTION_BIND_def |> DefnBase.one_line_ify NONE,
+                           OPTION_IGNORE_BIND_def |> DefnBase.one_line_ify NONE,
+                           OPTION_GUARD_def |> DefnBase.one_line_ify NONE]
+
+val res = translate_no_ind def;
+
+Triviality ind_lemma:
+  ptree_decl_ind
+Proof
+  rewrite_tac [fetch "-" "ptree_decl_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac
+      (cmlPtreeConversionTheory.ptree_Decl_ind
+       |> SIMP_RULE (srw_ss()) [AllCaseEqs(),PULL_EXISTS])
+  \\ rpt conj_tac
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ fs []
+  \\ rpt strip_tac
+  \\ gvs [AllCaseEqs()]
+QED
+
+val _ = ind_lemma |> update_precondition;
 
 val _ = translate (def_of_const ``ptree_TopLevelDecs``);
 
@@ -140,7 +225,7 @@ Theorem parse_prog_side_lemma = Q.prove(`
   SIMP_TAC std_ss [fetch "-" "parse_prog_side_def",
     fetch "-" "peg_exec_side_def", fetch "-" "coreloop_side_def"]
   THEN REPEAT STRIP_TAC
-  THEN STRIP_ASSUME_TAC (Q.SPEC `x` owhile_TopLevelDecs_total)
+  THEN STRIP_ASSUME_TAC (Q.SPEC `v1` owhile_TopLevelDecs_total)
   THEN FULL_SIMP_TAC std_ss [INTRO_FLOOKUP] THEN POP_ASSUM MP_TAC
   THEN CONV_TAC (DEPTH_CONV ETA_CONV) THEN FULL_SIMP_TAC std_ss [])
   |> update_precondition;

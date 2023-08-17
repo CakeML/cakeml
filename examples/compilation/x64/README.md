@@ -6,9 +6,6 @@ Compiles the cat example by evaluation inside the logic of HOL
 [diffCompileScript.sml](diffCompileScript.sml):
 Compiles the diff example by evaluation inside the logic of HOL
 
-[divCompileScript.sml](divCompileScript.sml):
-Compiles the divergent examples down to dataLang
-
 [echoCompileScript.sml](echoCompileScript.sml):
 Compiles the echo example by evaluation inside the logic of HOL
 
@@ -33,6 +30,9 @@ x86 machine code.
 
 [sortCompileScript.sml](sortCompileScript.sml):
 Compiles the sort example by evaluation inside the logic of HOL
+
+[test_interpreterScript.sml](test_interpreterScript.sml):
+Test insertion of interpreter
 
 [wordcountCompileScript.sml](wordcountCompileScript.sml):
 Compile the wordcount program to machine code by evaluation of the compiler

@@ -65,4 +65,7 @@ Proof
   \\ rw [] \\ CASE_TAC \\ simp []
 QED
 
+val compile_inc_def = Define `
+  compile_inc (e, xs) = (let_op e, [])`;
+
 val _ = export_theory();

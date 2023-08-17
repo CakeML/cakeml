@@ -1,4 +1,4 @@
-INCLUDES = $(HOLDIR)/examples/unification/triangular/first-order\
+INCLUDES = $(HOLDIR)/examples/algorithms/unification/triangular/first-order\
 					 $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/proofs\
 					 $(CAKEMLDIR)/basis/pure
 

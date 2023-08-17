@@ -12,8 +12,10 @@ sig
   val is_EqualityType   : term -> bool
   val EqualityType      : term
 
-  val dest_trivial4 : term -> (term * term * term * term)
-  val mk_Conv_args  : term -> term
+  val IsTypeRep      : term
+  val dest_IsTypeRep : term -> term * term
+  val is_IsTypeRep   : term -> bool
+  val mk_IsTypeRep   : term * term -> term
 
   val mk_CONTAINER   : term -> term
   val dest_CONTAINER : term -> term
@@ -52,6 +54,8 @@ sig
   val STRING_TYPE : term
   val UNIT_TYPE   : term
   val LIST_TYPE   : term
+
+  val DUMMY_TYPE_REP_v  : term
 
   val mk_LIST_TYPE   : term * term * term -> term
   val dest_LIST_TYPE : term -> term * term * term

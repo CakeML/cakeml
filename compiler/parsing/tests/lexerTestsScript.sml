@@ -52,4 +52,6 @@ val test19 = run_test ``"~55+~4"`` ``[IntT ~55; SymbolT "+~"; IntT 4]``;
 
 val test20 = run_test ``"a."`` ``[LexErrorT]``;
 
+val test21 = run_test “"\"1a\\001\\nb\""” “[StringT "1a\001\nb"]”
+
 val _ = export_theory ();

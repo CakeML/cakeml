@@ -20,6 +20,7 @@ val _ = ml_prog_update (add_dec
 (* to/from int *)
 val _ = trans "fromInt" ``n2w:num->word64``;
 val _ = trans "toInt" ``w2n:word64->num``;
+val _ = trans "toIntSigned" ``w2i:word64->int``;
 
 (* bitwise operations *)
 val _ = trans "andb" ``word_and:word64->word64->word64``;;
@@ -108,8 +109,18 @@ val _ = translate var_word_lsr_def;
 val _ = (next_ml_names := ["~>>"]);
 val _ = translate var_word_asr_def;
 
+val concat_all_def = Define `
+  concat_all (a:word8) b c d e f g h =
+    concat_word_list [a;b;c;d;e;f;g;h]:64 word`
+
+val concat_all_impl =
+  REWRITE_RULE [concat_word_list_def, dimindex_8, ZERO_SHIFT, WORD_OR_CLAUSES] concat_all_def;
+
+val _ = (next_ml_names := ["concatAll"]);
+val _ = translate concat_all_impl;
+
 val sigs = module_signatures ["fromInt", "toInt", "andb",
-  "orb", "xorb", "notb", "+", "-", "<<", ">>", "~>>"];
+  "orb", "xorb", "notb", "+", "-", "<<", ">>", "~>>", "concatAll"];
 
 val _ = ml_prog_update (close_module (SOME sigs));
 

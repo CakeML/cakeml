@@ -1,10 +1,14 @@
 (*
   Translate backend phases up to and including flatLang.
 *)
-open preamble ml_translatorLib ml_translatorTheory basisProgTheory
+open preamble ml_translatorLib ml_translatorTheory decProgTheory
+
+local open source_to_flatTheory in end;
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = new_theory "to_flatProg";
-val _ = translation_extends "basisProg";
+val _ = translation_extends "decProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_flatProg");
 
@@ -57,10 +61,8 @@ val _ = (find_def_for_const := def_of_const);
 
 val _ = use_long_names:=true;
 
-(* translate source AST and use CakeML's string type for HOL's char list *)
+(* use CakeML's string type for HOL's char list *)
 val _ = ml_translatorLib.use_string_type true;
-val _ = register_type ``:ast$dec``;
-val _ = fetch "-" "AST_EXP_TYPE_def";
 
 (* ------------------------------------------------------------------------- *)
 (* source_to_flat                                                            *)
@@ -86,90 +88,62 @@ val res = translate listTheory.DROP_def;
 val res = translate sumTheory.ISL;
 val res = translate sumTheory.ISR;
 
+val res = translate source_to_flatTheory.alloc_tags1_def;
+val res = translate (DefnBase.one_line_ify NONE namespaceTheory.nsMap_def);
+val res = translate source_to_flatTheory.alloc_tags_def;
+val res = translate source_to_flatTheory.alloc_env_ref_def;
+val res = translate source_to_flatTheory.glob_alloc_def;
+
+val res = translate source_to_flatTheory.compile_decs_def;
 val res = translate source_to_flatTheory.compile_prog_def;
 
+val _ = (length (hyp res) = 0)
+        orelse failwith "Unproved side condition: source_to_flat_compile_prog";
 (* ------------------------------------------------------------------------- *)
-(* flat_reorder_match                                                        *)
-(* ------------------------------------------------------------------------- *)
-
-val res = translate flat_reorder_matchTheory.compile_def;
-
-val side_def = fetch "-" "flat_reorder_match_compile_side_def";
-
-val flat_reorder_match_compile_side_simp = prove(
-  ``!x. flat_reorder_match_compile_side x = T``,
-  ho_match_mp_tac flat_reorder_matchTheory.compile_ind
-  \\ rw []
-  \\ once_rewrite_tac [side_def]
-  \\ simp [FORALL_PROD]
-  \\ rw [] \\ res_tac \\ fs [])
-  |> update_precondition;
-
-val res = translate flat_reorder_matchTheory.compile_decs_def;
-
-val side_def = fetch "-" "flat_reorder_match_compile_decs_side_def";
-
-val flat_reorder_match_compile_decs_side_simp = prove(
-  ``!x. flat_reorder_match_compile_decs_side x = T``,
-  Induct THEN1 fs [side_def]
-  \\ Cases
-  \\ once_rewrite_tac [side_def]
-  \\ once_rewrite_tac [side_def] \\ fs [])
-  |> update_precondition;
-
-(* ------------------------------------------------------------------------- *)
-(* flat_uncheck_ctors                                                        *)
+(* source_to_source                                                          *)
 (* ------------------------------------------------------------------------- *)
 
-val res = translate flat_uncheck_ctorsTheory.compile_def;
+val res = translate source_to_sourceTheory.compile_def;
 
-val side_def = fetch "-" "flat_uncheck_ctors_compile_side_def";
-
-val flat_uncheck_ctors_compile_side_simp = prove(
-  ``!x. flat_uncheck_ctors_compile_side x = T``,
-  ho_match_mp_tac flat_uncheck_ctorsTheory.compile_ind
-  \\ rw []
-  \\ once_rewrite_tac [side_def]
-  \\ simp [FORALL_PROD]
-  \\ rw [] \\ res_tac \\ fs [])
-  |> update_precondition;
-
-val res = translate flat_uncheck_ctorsTheory.compile_decs_def;
-
-val side_def = fetch "-" "flat_uncheck_ctors_compile_decs_side_def";
-
-val flat_uncheck_ctors_compile_decs_side_simp = prove(
-  ``!x. flat_uncheck_ctors_compile_decs_side x = T``,
-  Induct THEN1 fs [side_def]
-  \\ Cases
-  \\ once_rewrite_tac [side_def]
-  \\ once_rewrite_tac [side_def] \\ fs [])
-  |> update_precondition;
-
-(* ------------------------------------------------------------------------- *)
-(* flat_exh_match                                                            *)
-(* ------------------------------------------------------------------------- *)
-
-val res = translate flat_exh_matchTheory.compile_exps_def;
-
-val side_def = fetch "-" "flat_exh_match_compile_exps_side_def";
-
-val flat_exh_match_compile_exps_side_simp = prove(
-  ``!y x. flat_exh_match_compile_exps_side y x = T``,
-  ho_match_mp_tac flat_exh_matchTheory.compile_exps_ind
-  \\ rw []
-  \\ once_rewrite_tac [side_def]
-  \\ simp [FORALL_PROD,TRUE_def,FALSE_def]
-  \\ rw [] \\ res_tac \\ fs [])
-  |> update_precondition;
-
-val res = translate flat_exh_matchTheory.compile_decs_def;
+val _ = (length (hyp res) = 0)
+        orelse failwith "Unproved side condition: source_to_source_compile";
 
 (* ------------------------------------------------------------------------- *)
 (* flat_elim                                                                 *)
 (* ------------------------------------------------------------------------- *)
 
+val res = translate sptreeTheory.subspt_eq;
 val res = translate flat_elimTheory.remove_flat_prog_def;
+
+(* ------------------------------------------------------------------------- *)
+(* flat_pattern                                                              *)
+(* ------------------------------------------------------------------------- *)
+
+val _ = translate flatLangTheory.SmartIf_PMATCH
+val _ = translate pattern_compTheory.is_True_def
+val _ = translate pattern_compTheory.is_Any_def
+val _ = translate pattern_compTheory.take_until_Any_def
+val _ = translate pattern_compTheory.comp_def
+
+val res = translate flat_patternTheory.enc_num_to_name_def;
+
+val enc_side = Q.prove(
+  `!n s. flat_pattern_enc_num_to_name_side n s = T`,
+  gen_tac
+  \\ measureInduct_on `I n`
+  \\ simp [fetch "-" "flat_pattern_enc_num_to_name_side_def"]
+  ) |> update_precondition;
+
+val res = translate flat_patternTheory.dec_name_to_num_def;
+
+val dec_side = Q.prove(
+  `!s. flat_pattern_dec_name_to_num_side s = T`,
+  simp [fetch "-" "flat_pattern_dec_name_to_num_side_def"]
+  ) |> update_precondition;
+
+val res = translate rich_listTheory.COUNT_LIST_compute;
+
+val res = translate flat_patternTheory.compile_dec_def;
 
 (* ------------------------------------------------------------------------- *)
 (* source_to_flat                                                            *)
@@ -178,6 +152,8 @@ val res = translate flat_elimTheory.remove_flat_prog_def;
 val res = translate source_to_flatTheory.compile_flat_def;
 
 val res = translate source_to_flatTheory.compile_def;
+
+val res = translate source_to_flatTheory.inc_compile_def;
 
 (* ------------------------------------------------------------------------- *)
 

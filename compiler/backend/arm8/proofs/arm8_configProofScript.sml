@@ -15,7 +15,7 @@ val is_arm8_machine_config_def = Define`
   mc.ptr_reg = 0 ∧
   mc.len2_reg =3  ∧
   mc.ptr2_reg = 2 ∧
-  mc.callee_saved_regs = [27;28;29]`;
+  mc.callee_saved_regs = [19;20;21;22;23;24;25;26;27;28]`;
 
 val names_tac =
   simp[tlookup_bij_iff] \\ EVAL_TAC

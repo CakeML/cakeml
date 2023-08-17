@@ -57,6 +57,8 @@ val MEM_EXISTS_LEM = Q.prove
 (`!x l. MEM x l = EXISTS (\y. y = x) l`,
  Induct_on `l` THEN EVAL_TAC THEN METIS_TAC []);
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "regexpMatch";
 
 (*--------------------------------------------------------------------------*)
@@ -532,10 +534,8 @@ Q.prove
            \/ (?r2 rst. rl = Repeat r2::rst))`
       by METIS_TAC [list_CASES,regexp_cases]
    THEN RW_TAC list_ss []
-   THEN FULL_SIMP_TAC list_ss thms THENL
-   [Cases_on `w` THEN FULL_SIMP_TAC list_ss thms,
-    RW_TAC list_ss [] THEN METIS_TAC thms,
-    RW_TAC list_ss [] THEN METIS_TAC thms])
+   THEN FULL_SIMP_TAC list_ss thms
+   THEN Cases_on `w` THEN FULL_SIMP_TAC list_ss thms)
 end;
 
 (*---------------------------------------------------------------------------*)

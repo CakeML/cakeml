@@ -3,7 +3,7 @@
   produced by the type inferencer is a valid type for the program.
 *)
 open preamble
-open typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory infer_tTheory
+open typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory infer_tTheory
      astPropsTheory inferPropsTheory typeSysPropsTheory infer_eSoundTheory envRelTheory type_eDetermTheory
      infer_eCompleteTheory namespacePropsTheory
 
@@ -672,6 +672,9 @@ Proof
     >> fs [set_ids_def,EXTENSION,DISJOINT_DEF]
   )
   >- (
+    rename [`Denv`]
+    >> fs [infer_d_def,failwith_def])
+  >- (
     (* infer_ds [] *)
     fs[infer_d_def,success_eqns,env_rel_def]>>
     rw[] >> EVAL_TAC)
@@ -1013,14 +1016,14 @@ val check_specs_sound = Q.prove (
     metis_tac [GSYM nsAppend_assoc, nsAppend_nsSing, INSERT_SING_UNION, UNION_ASSOC]));
 
 Theorem infer_top_sound:
-   !idecls ienv top st1 idecls' ienv' st2 tenv.
-    infer_top idecls ienv top st1 = (Success (idecls',ienv'), st2) ∧
+   !idecls ienv t_op st1 idecls' ienv' st2 tenv.
+    infer_top idecls ienv t_op st1 = (Success (idecls',ienv'), st2) ∧
     env_rel tenv ienv
     ⇒
-    type_top T (convert_decls idecls) tenv top (convert_decls idecls') (ienv_to_tenv ienv')
+    type_top T (convert_decls idecls) tenv t_op (convert_decls idecls') (ienv_to_tenv ienv')
 Proof
   rw [] >>
-  Cases_on `top` >>
+  Cases_on `t_op` >>
   fs [infer_top_def, success_eqns, type_top_cases] >>
   pairarg_tac >>
   fs []

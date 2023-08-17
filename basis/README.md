@@ -67,8 +67,8 @@ CakeML foreign-function interface (FFI) uses.
 Module about the option tyoe.
 
 [PrettyPrinterProgScript.sml](PrettyPrinterProgScript.sml):
-Module providing various functions that can be used to efficiently
-pretty-print values of different types.
+Module providing pretty-printer implementation, and setup
+of the global builtin pretty-printer functions.
 
 [RatProgScript.sml](RatProgScript.sml):
 Module for computing over the rational numbers.
@@ -89,6 +89,14 @@ Module for text-based I/O with the underlying file system.
 [TextIOProofScript.sml](TextIOProofScript.sml):
 Proofs about the code in the TextIO module.
 
+[UnsafeProgScript.sml](UnsafeProgScript.sml):
+This module defines functions for accessing CakeML's unsafe
+array primitives, i.e. primitives that crash if the index is
+out of bounds. This is not part of the basis.
+
+[UnsafeProofScript.sml](UnsafeProofScript.sml):
+Proofs about the Unsafe module.
+
 [VectorProgScript.sml](VectorProgScript.sml):
 Module about the built-in 'a vector.
 
@@ -103,6 +111,11 @@ Proof about the code in the byte-array module Word8Array.
 
 [Word8ProgScript.sml](Word8ProgScript.sml):
 Module about the built-in word8 type.
+
+[addPrettyPrintersLib.sml](addPrettyPrintersLib.sml):
+Library code for applying the type-dec to pp-dec functions
+to the ml_progLib state. Used in the basis to install
+default pretty-printers for some of the basis types.
 
 [basisFunctionsLib.sml](basisFunctionsLib.sml):
 Functions that aid building the CakeML code for the basis library.

@@ -419,11 +419,17 @@ in
           val state_term = evalM_term |> strip_comb |> snd |> el 3
           val exc_ty_predicate_term = evalM_term |> strip_comb |> snd |> last |>
                                       strip_comb |> snd |> el 2
+          val disch_access_thm = access_thm |> UNDISCH_ALL
       in
-        MATCH_MP hprop_comb_intro
-          (access_thm |> UNDISCH_ALL |> GEN state_term) |>
-        SPEC_ALL |> DISCH_ALL |> GEN exc_ty_predicate_term |>
-        ISPEC state_exn_predicate
+          if exists (free_in state_term) (hyp disch_access_thm) then
+              (print("Skipped EvalM theorem of unexpected shape:\n");
+              print_thm access_thm;
+              raise Fail "")
+          else
+            MATCH_MP hprop_comb_intro
+            (disch_access_thm |> GEN state_term) |>
+            SPEC_ALL |> DISCH_ALL |> GEN exc_ty_predicate_term |>
+            ISPEC state_exn_predicate
       end
 
     fun save_access_thm (name, thm) =
@@ -437,7 +443,7 @@ in
   in
     save_thm(field_name^"_INTRO", hprop_comb_intro);
     print ("Saved intro theorem for "^field_name^": "^field_name^"_INTRO.\n\n");
-    map save_access_thm access_thm_list;
+    mapfilter save_access_thm access_thm_list;
     ignore_type ``:IO_fs``
   end;
 

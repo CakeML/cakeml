@@ -175,6 +175,20 @@ val test = EVAL ``flatten_exp (pull_exp (Op Sub [Const 1w; Op Sub[Const 2w;Const
  Op Add [Const 4w; Const 5w; Op Add[Const 6w; Const 7w];Op Xor[Const 1w;Var y;Var x]] ; Const (8w:8 word)]))``
 *)
 
+Definition is_Lookup_CurrHeap_def:
+  is_Lookup_CurrHeap (Lookup CurrHeap) = T ∧
+  is_Lookup_CurrHeap _ = F
+End
+
+Theorem is_Lookup_CurrHeap_pmatch:
+  is_Lookup_CurrHeap e =
+    (case e of Lookup CurrHeap => T | _ => F)
+Proof
+  rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
+         PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC) >>
+  fs [is_Lookup_CurrHeap_def]
+QED
+
 (*
   Maximal Munch instruction selection on (binary) expressions
   c is an asm_config to check validity of imms (TODO: assume 0w is accepted?)
@@ -208,6 +222,13 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
     Get tar store_name) ∧
   (*All ops are binary branching*)
   (inst_select_exp c tar temp (Op op [e1;e2]) =
+    if is_Lookup_CurrHeap e2 then
+      (let p1 = inst_select_exp c temp temp e1 in
+        Seq p1 (OpCurrHeap op tar temp))
+    else if is_Lookup_CurrHeap e1 ∧ op ≠ Sub then
+      (let p2 = inst_select_exp c temp temp e2 in
+        Seq p2 (OpCurrHeap op tar temp))
+    else
     let p1 = inst_select_exp c temp temp e1 in
     dtcase e2 of
     | Const w =>
@@ -262,7 +283,14 @@ Theorem inst_select_exp_pmatch:
     Get tar store_name
   (*All ops are binary branching*)
   | Op op [e1;e2] =>
-    (case e2 of
+    (if is_Lookup_CurrHeap e2 then
+      (let p1 = inst_select_exp c temp temp e1 in
+        Seq p1 (OpCurrHeap op tar temp))
+    else if is_Lookup_CurrHeap e1 ∧ op ≠ Sub then
+      (let p2 = inst_select_exp c temp temp e2 in
+        Seq p2 (OpCurrHeap op tar temp))
+    else
+     case e2 of
       Const w =>
       (*t = r op const*)
       if c.valid_imm (INL op) w then
@@ -426,6 +454,8 @@ val three_to_two_reg_def = Define`
     Seq (Move 0 [r1,r2]) (Inst (Arith (AddOverflow r1 r1 r3 r4)))) ∧
   (three_to_two_reg (Inst (Arith (SubOverflow r1 r2 r3 r4))) =
     Seq (Move 0 [r1,r2]) (Inst (Arith (SubOverflow r1 r1 r3 r4)))) ∧
+  (three_to_two_reg (OpCurrHeap bop r1 r2) =
+    Seq (Move 0 [r1,r2]) (OpCurrHeap bop r1 r1)) ∧
   (three_to_two_reg (Seq p1 p2) =
     Seq (three_to_two_reg p1) (three_to_two_reg p2)) ∧
   (three_to_two_reg (MustTerminate p1) =
@@ -459,6 +489,8 @@ Theorem three_to_two_reg_pmatch:
     Seq (Move 0 [r1,r2]) (Inst (Arith (AddOverflow r1 r1 r3 r4)))
   | (Inst (Arith (SubOverflow r1 r2 r3 r4))) =>
     Seq (Move 0 [r1,r2]) (Inst (Arith (SubOverflow r1 r1 r3 r4)))
+  | (OpCurrHeap bop r1 r2) =>
+    Seq (Move 0 [r1,r2]) (OpCurrHeap bop r1 r1)
   | (Seq p1 p2) =>
     Seq (three_to_two_reg p1) (three_to_two_reg p2)
   | (MustTerminate p1) =>

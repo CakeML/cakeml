@@ -239,6 +239,16 @@ val ssa_cc_trans_def = Define`
     let ren_ls2 = MAP (option_lookup ssa) ls_2 in
     let (ren_ls1,ssa',na') = list_next_var_rename ls_1 ssa na in
       (Move pri (ZIP(ren_ls1,ren_ls2)),ssa',na')) ∧
+  (ssa_cc_trans (StoreConsts a b c d ws) ssa na =
+    let c1 = option_lookup ssa c in
+    let d1 = option_lookup ssa d in
+    let (d2,ssa',na') = next_var_rename d ssa na in
+    let (c2,ssa'',na'') = next_var_rename c ssa' na' in
+    let prog = Seq (Move 0 [(4,c1);(6,d1)])
+      (Seq (StoreConsts 0 2 4 6 ws)
+           (Move 0 [(c2,4);(d2,6)])) in
+    (prog, ssa'',na'')
+  ) ∧
   (ssa_cc_trans (Inst i) ssa na =
     let (i',ssa',na') = ssa_cc_trans_inst i ssa na in
       (i',ssa',na')) ∧
@@ -298,6 +308,10 @@ val ssa_cc_trans_def = Define`
     let num' = option_lookup ssa num in
     let mov = Move 0 [(2,num')] in
     (Seq mov (Raise 2),ssa,na)) ∧
+  (ssa_cc_trans (OpCurrHeap b dst src) ssa na=
+    let src' = option_lookup ssa src in
+    let (dst',ssa',na') = next_var_rename dst ssa na in
+      (OpCurrHeap b dst' src',ssa',na')) ∧
   (ssa_cc_trans (Return num1 num2) ssa na=
     let num1' = option_lookup ssa num1 in
     let num2' = option_lookup ssa num2 in
@@ -479,10 +493,13 @@ val apply_colour_def = Define `
     LocValue (f r) l1) ∧
   (apply_colour f (Alloc num numset) =
     Alloc (f num) (apply_nummap_key f numset)) ∧
+  (apply_colour f (StoreConsts a b c d ws) =
+    StoreConsts (f a) (f b) (f c) (f d) ws) ∧
   (apply_colour f (Raise num) = Raise (f num)) ∧
   (apply_colour f (Return num1 num2) = Return (f num1) (f num2)) ∧
   (apply_colour f Tick = Tick) ∧
   (apply_colour f (Set n exp) = Set n (apply_colour_exp f exp)) ∧
+  (apply_colour f (OpCurrHeap b n1 n2) = OpCurrHeap b (f n1) (f n2)) ∧
   (apply_colour f p = p )`
 
 val _ = export_rewrites ["apply_nummap_key_def","apply_colour_exp_def"
@@ -608,6 +625,8 @@ val get_live_def = Define`
        dtcase ri of Reg r2 => insert r2 () (insert r1 () union_live)
       | _ => insert r1 () union_live) ∧
   (get_live (Alloc num numset) live = insert num () numset) ∧
+  (get_live (StoreConsts a b c d ws) live =
+    insert c () (insert d () (delete a (delete b live)))) ∧
   (get_live (Install r1 r2 r3 r4 numset) live =
     list_insert [r1;r2;r3;r4] numset) ∧
   (get_live (CodeBufferWrite r1 r2) live =
@@ -617,11 +636,14 @@ val get_live_def = Define`
   (get_live (FFI ffi_index ptr1 len1 ptr2 len2 numset) live =
    insert ptr1 () (insert len1 ()
      (insert ptr2 () (insert len2 () numset)))) ∧
+  (get_live (StoreConsts a b c d ws) live =
+     (insert c () (insert d () live))) ∧
   (get_live (Raise num) live = insert num () live) ∧
   (get_live (Return num1 num2) live = insert num1 () (insert num2 () live)) ∧
   (get_live Tick live = live) ∧
   (get_live (LocValue r l1) live = delete r live) ∧
   (get_live (Set n exp) live = union (get_live_exp exp) live) ∧
+  (get_live (OpCurrHeap b n1 n2) live = insert n2 () (delete n1 live)) ∧
   (*Cut-set must be live, args input must be live
     For tail calls, there shouldn't be a liveset since control flow will
     never return into the same instance
@@ -680,6 +702,10 @@ val remove_dead_def = Define`
     if lookup num live = NONE then
       (Skip,live)
     else (Get num store,delete num live)) ∧
+  (remove_dead (OpCurrHeap b num src) live =
+    if lookup num live = NONE then
+      (Skip,live)
+    else (OpCurrHeap b num src,insert src () (delete num live))) ∧
   (remove_dead (LocValue r l1) live =
     if lookup r live = NONE then
       (Skip,live)
@@ -733,6 +759,8 @@ val get_writes_def = Define`
   (get_writes (Get num store) = insert num () LN) ∧
   (get_writes (LocValue r l1) = insert r () LN) ∧
   (get_writes (Install r1 _ _ _ _) = insert r1 () LN) ∧
+  (get_writes (OpCurrHeap b r1 _) = insert r1 () LN) ∧
+  (get_writes (StoreConsts a b c d _) = insert a () (insert b () (insert c () (insert d () LN)))) ∧
   (get_writes prog = LN)`
 
 Theorem get_writes_pmatch:
@@ -745,6 +773,8 @@ Theorem get_writes_pmatch:
     | Get num store => insert num () LN
     | LocValue r l1 => insert r () LN
     | Install r1 _ _ _ _ => insert r1 () LN
+    | OpCurrHeap b r1 _ => insert r1 () LN
+    | StoreConsts a b c d _ => insert a () (insert b () (insert c () (insert d () LN)))
     | prog => LN
 Proof
   rpt strip_tac
@@ -753,7 +783,7 @@ Proof
 QED
 
 (* Old representation *)
-val get_clash_sets_def = Define`
+(* val get_clash_sets_def = Define`
   (get_clash_sets (Seq s1 s2) live =
     let (hd,ls) = get_clash_sets s2 live in
     let (hd',ls') = get_clash_sets s1 hd in
@@ -786,6 +816,7 @@ val get_clash_sets_def = Define`
   (get_clash_sets prog live =
     let i_set = union (get_writes prog) live in
       (get_live prog live,[i_set]))`
+*)
 
 (* Potentially more efficient liveset representation for checking / allocation*)
 val get_delta_inst_def = Define`
@@ -863,6 +894,8 @@ val get_clash_tree_def = Define`
   (get_clash_tree Tick = Delta [] []) ∧
   (get_clash_tree (LocValue r l1) = Delta [r] []) ∧
   (get_clash_tree (Set n exp) = Delta [] (get_reads_exp exp)) ∧
+  (get_clash_tree (OpCurrHeap b dst src) = Delta [dst] [src]) ∧
+  (get_clash_tree (StoreConsts a b c d ws) = Delta [a;b;c;d] [c;d]) ∧
   (get_clash_tree (Call ret dest args h) =
     let args_set = numset_list_insert args LN in
     dtcase ret of
@@ -1072,6 +1105,8 @@ val get_heu_def = Define `
     (dtcase exp of (Var r) =>
        (add1_rhs_mem r lr,calls)
     | _ => (lr,calls))) ∧ (* General Set exp ignored *)
+  (get_heu fc (OpCurrHeap b dst src) (lr,calls) =
+    (add1_lhs_reg dst (add1_rhs_reg src lr),calls)) ∧
   (get_heu fc (LocValue r l1) (lr,calls) =
     (add1_lhs_reg r lr,calls)) ∧
   (get_heu fc (Seq s1 s2) lr = get_heu fc s2 (get_heu fc s1 lr)) ∧
@@ -1348,9 +1383,9 @@ val word_alloc_def = Define`
     NONE =>
       let (heu_moves,spillcosts) = get_heuristics alg fc prog in
       (dtcase select_reg_alloc alg spillcosts k heu_moves tree forced of
-        Success col =>
+        M_success col =>
           apply_colour (total_colour col) prog
-      | Failure _ => prog (*cannot happen*))
+      | M_failure _ => prog (*cannot happen*))
   | SOME col_prog =>
       col_prog`
 

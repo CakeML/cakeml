@@ -29,14 +29,11 @@ val _ = new_theory"to_dataBootstrap";
 
 val _ = Globals.max_print_depth := 20;
 
-(* These are evaluated out to avoid the type variable in prim_config *)
 val cs = compilationLib.compilation_compset();
-val eval = computeLib.CBV_CONV cs;
-val default_source_conf = eval ``prim_config.source_conf`` |> rconc;
 
 val init_conf_def = zDefine`
   init_conf = <|
-    source_conf := ^default_source_conf;
+    source_conf := prim_src_config;
     clos_conf   := clos_to_bvl$default_config
                    with known_conf := SOME
                      <| inline_max_body_size := 8; inline_factor := 0;

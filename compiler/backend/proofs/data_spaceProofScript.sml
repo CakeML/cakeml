@@ -3,6 +3,8 @@
 *)
 open preamble data_spaceTheory dataSemTheory dataPropsTheory;
 
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
 val _ = new_theory"data_spaceProof";
 
 val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="dataSem"};

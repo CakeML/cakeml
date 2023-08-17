@@ -6,6 +6,8 @@ open preamble ml_translatorLib ml_translatorTheory
      sexp_parserProgTheory std_preludeTheory
 local open backendTheory in end
 
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "to_word32Prog"
 
 val _ = translation_extends "sexp_parserProg";
@@ -154,12 +156,115 @@ val _ = translate (MemEqList_def |> inline_simp |> conv32)
 val _ = save_thm("n2mw_ind",multiwordTheory.n2mw_ind |> inline_simp |> conv32);
 val _ = translate (multiwordTheory.n2mw_def |> inline_simp |> conv32);
 val _ = translate (multiwordTheory.i2mw_def |> inline_simp |> conv32);
-val _ = translate (bignum_words_def |> inline_simp |> conv32);
+val _ = translate (get_Word_def |> inline_simp |> conv32);
 val _ = translate (BignumHalt_def |> inline_simp |> conv32);
 val _ = translate(Maxout_bits_code_def |> conv32);
 val _ = translate(Make_ptr_bits_code_def |> inline_simp |> conv32);
 val _ = translate(SilentFFI_def |> inline_simp |> wcomp_simp |> conv32);
 val _ = translate(AllocVar_def |> inline_simp |> wcomp_simp |> conv32);
+
+val _ = register_type ``:32 wordLang$word_loc``;
+
+val _ = translate (byteTheory.byte_index_def |> inline_simp |> conv32);
+
+val _ = translate byteTheory.set_byte_32;
+val _ = translate (byteTheory.bytes_to_word_def |> inline_simp |> conv32);
+val _ = translate (data_to_wordTheory.getWords_def
+                   |> INST_TYPE [alpha|->beta, beta |-> alpha] |> conv32);
+val _ = translate (data_to_wordTheory.StoreAnyConsts_def |> inline_simp |> conv32);
+val _ = translate (data_to_wordTheory.lookup_mem_def |> conv32);
+val _ = translate (data_to_wordTheory.write_bytes_def |> inline_simp |> conv32);
+
+Definition my_lsl_shift_def:
+  my_lsl_shift w n = (w << n)
+End
+
+val ugly_lsl_lemma =
+  “my_lsl_shift (w:'a word) n”
+  |> (REWRITE_CONV [my_lsl_shift_def]
+      THENC RATOR_CONV (ONCE_REWRITE_CONV [GSYM n2w_w2n])
+      THENC REWRITE_CONV [word_lsl_n2w]);
+
+val _ = translate (ugly_lsl_lemma |> conv32);
+
+Definition int_to_words_def:
+  int_to_words c i offset =
+    ^(data_to_wordTheory.part_to_words_def |> CONJUNCTS |> el 1
+     |> SPEC_ALL |> concl |> rand)
+End
+
+Definition con_to_words_def:
+  con_to_words c m t ns offset =
+    ^(data_to_wordTheory.part_to_words_def |> CONJUNCTS |> el 2
+     |> SPEC_ALL |> concl |> rand)
+End
+
+Definition w64_to_words_def:
+  w64_to_words c w offset =
+    ^(data_to_wordTheory.part_to_words_def |> CONJUNCTS |> el 3
+     |> SPEC_ALL |> concl |> rand)
+End
+
+Definition str_to_words_def:
+  str_to_words c s offset =
+    ^(data_to_wordTheory.part_to_words_def |> CONJUNCTS |> el 4
+     |> SPEC_ALL |> concl |> rand)
+End
+
+Theorem part_to_words_def =
+  data_to_wordTheory.part_to_words_def
+  |> REWRITE_RULE [GSYM int_to_words_def,
+                   GSYM con_to_words_def,
+                   GSYM w64_to_words_def,
+                   GSYM str_to_words_def];
+
+Theorem word_extract_lemma:
+  ((63 >< 32) (w:word64)) :word32 = w2w (w >> 32) ∧
+  ((31 ><  0) (w:word64)) :word32 = w2w w
+Proof
+  blastLib.BBLAST_TAC
+QED
+
+Definition bytes_of_string_def:
+  bytes_of_string cs = MAP (λc. n2w (ORD c) :word8) (explode cs)
+End
+
+val _ = ml_translatorLib.use_string_type false;
+val _ = translate bytes_of_string_def;
+val _ = ml_translatorLib.use_string_type true;
+
+val r = int_to_words_def
+     |> REWRITE_RULE [data_to_wordTheory.small_int_def,
+                      data_to_wordTheory.make_ptr_def,GSYM my_lsl_shift_def]
+     |> inline_simp |> conv32
+     |> translate;
+
+val r = w64_to_words_def
+     |> SIMP_RULE std_ss [data_to_wordTheory.small_int_def,LET_THM,LENGTH,
+                      data_to_wordTheory.make_ptr_def,GSYM my_lsl_shift_def]
+     |> inline_simp |> conv32 |> SIMP_RULE std_ss [LENGTH,word_extract_lemma]
+     |> translate;
+
+val r = con_to_words_def
+     |> SIMP_RULE std_ss [data_to_wordTheory.small_int_def,LET_THM,LENGTH,
+                      data_to_wordTheory.make_ptr_def,GSYM my_lsl_shift_def]
+     |> inline_simp |> conv32 |> SIMP_RULE std_ss [LENGTH,word_extract_lemma]
+     |> translate;
+
+val r = str_to_words_def
+     |> SIMP_RULE std_ss [data_to_wordTheory.small_int_def,LENGTH,
+                      data_to_wordTheory.byte_len_def,combinTheory.o_DEF,
+                      data_to_wordTheory.make_byte_header_def,
+                      data_to_wordTheory.make_ptr_def,GSYM my_lsl_shift_def]
+     |> inline_simp |> conv32
+     |> SIMP_RULE std_ss [LENGTH,word_extract_lemma,LENGTH_MAP,GSYM bytes_of_string_def]
+     |> translate;
+
+val r = part_to_words_def |> conv32 |> translate;
+
+val r = data_to_wordTheory.parts_to_words_def |> inline_simp
+        |> REWRITE_RULE [word_mul_n2w] |> conv32 |> translate;
+val r = data_to_wordTheory.const_parts_to_words_def |> conv32 |> translate;
 
 val _ = translate arg1_def;
 val _ = translate arg2_pmatch;
@@ -199,6 +304,28 @@ val _ = translate (comp_def |> conv32 |> wcomp_simp |> conv32 |> SIMP_RULE std_s
 open word_simpTheory word_allocTheory word_instTheory
 
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``]
+
+val res = word_cseTheory.map_insert_def |> DefnBase.one_line_ify NONE |> translate;
+val res = translate (word_cseTheory.word_cseInst_def |> spec32);
+val res = translate_no_ind (word_cseTheory.word_cse_def |> spec32);
+
+Theorem word_cse_ind[local]:
+  word_cse_word_cse_ind
+Proof
+  rewrite_tac [fetch "-" "word_cse_word_cse_ind_def"]
+  \\ rpt strip_tac
+  \\ rename [‘P x y’]
+  \\ qid_spec_tac ‘x’
+  \\ qid_spec_tac ‘y’
+  \\ ho_match_mp_tac word_simpTheory.simp_if_ind
+  \\ rpt strip_tac
+  \\ last_x_assum irule
+  \\ fs []
+QED
+
+val _ = word_cse_ind |> update_precondition;
+
+val res = translate (word_cseTheory.word_common_subexp_elim_def |> spec32);
 
 val _ = translate (const_fp_inst_cs_def |> spec32 |> econv)
 
@@ -249,11 +376,14 @@ val _ = translate (spec32 wordLangTheory.max_var_def)
 val _ = translate (conv32_RHS integer_wordTheory.WORD_LEi)
 
 val _ = translate (asmTheory.offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.aligned_bitwise_and] |> conv32)
+val _ = translate (is_Lookup_CurrHeap_pmatch |> conv32)
 val res = translate_no_ind (inst_select_exp_pmatch |> conv32 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv32)
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+Triviality inst_select_exp_ind:
+  word_inst_inst_select_exp_ind
+Proof
+  rewrite_tac [fetch "-" "word_inst_inst_select_exp_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (latest_ind ())
   \\ rpt strip_tac
@@ -272,8 +402,10 @@ val ind_lemma = Q.prove(
     \\ Cases_on `h'` \\ fs []
     \\ Cases_on `t'` \\ fs [])
   \\ fs []
-  \\ Cases_on `e2` \\ fs [])
-  |> update_precondition;
+  \\ Cases_on `e2` \\ fs []
+QED
+
+val _ = inst_select_exp_ind |> update_precondition;
 
 val _ = translate (op_consts_pmatch|>conv32|>econv)
 
@@ -315,17 +447,21 @@ val _ = translate (INST_TYPE [alpha|->``:32``,beta|->``:32``]  word_alloc_def)
 
 val res = translate_no_ind (spec32 three_to_two_reg_pmatch);
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+Triviality three_to_two_reg_ind:
+  word_inst_three_to_two_reg_ind
+Proof
+  rewrite_tac [fetch "-" "word_inst_three_to_two_reg_ind_def"]
+  \\ rpt gen_tac
   \\ disch_then strip_assume_tac
   \\ match_mp_tac (latest_ind ())
   \\ rpt strip_tac
   \\ last_x_assum match_mp_tac
   \\ rpt strip_tac \\ fs []
   \\ rveq \\ fs []
-  \\ rename1 `NONE <> a` \\ Cases_on `a` \\ fs [] \\ PairCases_on `x` \\ fs [])
-  |> update_precondition;
+  \\ rename1 `NONE <> a` \\ Cases_on `a` \\ fs [] \\ PairCases_on `x` \\ fs []
+QED
+
+val _ = three_to_two_reg_ind |> update_precondition;
 
 val word_inst_three_to_two_reg_side = Q.prove(`
 ∀prog. word_inst_three_to_two_reg_side prog ⇔ T`,
@@ -348,9 +484,11 @@ val word_inst_three_to_two_reg_side = Q.prove(`
 
 val res = translate_no_ind (spec32 word_removeTheory.remove_must_terminate_pmatch);
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+Triviality remove_must_terminate_ind:
+  word_remove_remove_must_terminate_ind
+Proof
+  rewrite_tac [fetch "-" "word_remove_remove_must_terminate_ind_def"]
+  \\ rpt gen_tac
   \\ disch_then strip_assume_tac
   \\ match_mp_tac (latest_ind ())
   \\ rpt strip_tac
@@ -360,8 +498,10 @@ val ind_lemma = Q.prove(
   \\ rveq \\ fs []
   \\ rename1 `NONE <> a`
   \\ Cases_on `a` \\ fs []
-  \\ PairCases_on `x` \\ fs [])
-  |> update_precondition;
+  \\ PairCases_on `x` \\ fs []
+QED
+
+val _ = remove_must_terminate_ind |> update_precondition;
 
 val word_remove_remove_must_terminate_side = Q.prove(`
 ∀prog. word_remove_remove_must_terminate_side prog ⇔ T`,
@@ -484,12 +624,37 @@ val _ = translate(LongDiv_code_def|> inline_simp |> conv32)
 
 val _ = translate (word_bignumTheory.generated_bignum_stubs_eq |> inline_simp |> conv32)
 
+val _ = translate data_to_wordTheory.stub_names_def
+val _ = translate word_to_stackTheory.stub_names_def
+val _ = translate stack_allocTheory.stub_names_def
+val _ = translate stack_removeTheory.stub_names_def
 val res = translate (data_to_wordTheory.compile_def
                      |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv32_RHS);
 
-(* translate some 32/64 specific parts of the tap/explorer
-   that can't be translated in explorerProgScript *)
-val res = translate (presLangTheory.tap_word_def |> conv32);
+(* explorer specific functions *)
+
+val _ = ml_translatorLib.use_string_type false;
+val r = presLangTheory.num_to_hex_def |> translate;
+val r = presLangTheory.word_to_display_def |> conv32 |> translate;
+val r = presLangTheory.item_with_word_def |> conv32 |> translate;
+val r = presLangTheory.asm_binop_to_display_def |> translate;
+val r = presLangTheory.asm_reg_imm_to_display_def |> conv32 |> translate;
+val r = presLangTheory.asm_arith_to_display_def |> conv32 |> translate;
+val r = presLangTheory.word_to_display_def |> INST_TYPE [“:'a”|->“:5”] |> translate
+val r = presLangTheory.item_with_word_def |> INST_TYPE [“:'a”|->“:5”] |> translate
+val r = presLangTheory.store_name_to_display_def |> conv32 |> translate
+val r = presLangTheory.word_exp_to_display_def |> conv32 |> translate
+val r = presLangTheory.asm_inst_to_display_def |> conv32 |> translate;
+val r = presLangTheory.ws_to_display_def |> conv32 |> translate
+val r = presLangTheory.word_seqs_def |> conv32 |> translate
+
+val _ = ml_translatorLib.use_string_type true;
+val r = presLangTheory.word_prog_to_display_def
+          |> conv32
+          |> REWRITE_RULE [presLangTheory.string_imp_def]
+          |> translate
+
+val r = presLangTheory.word_fun_to_display_def |> conv32 |> translate
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

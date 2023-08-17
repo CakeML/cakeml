@@ -10,10 +10,19 @@ check that the conversion functions are doing something reasonable.
 TODO: check this description is correct
 
 [evaluateComputeLib.sml](evaluateComputeLib.sml):
-compset for the operational semantics.
+A compset for the operational semantics.
 
 [evaluatePropsScript.sml](evaluatePropsScript.sml):
 Properties of the operational semantics.
+
+[fpOptPropsScript.sml](fpOptPropsScript.sml):
+This file contains proofs about the matching and instantiation functions
+defined in patternScript.sml
+It also contains some compatibility lemmas for rwAllValTree, the value tree
+rewriting function
+
+[fpSemPropsScript.sml](fpSemPropsScript.sml):
+Properties of floating-point value tree semantics
 
 [gramPropsScript.sml](gramPropsScript.sml):
 Properties of the CakeML CFG, including automatically derived
@@ -24,7 +33,7 @@ the grammar’s rules finite map.
 Proofs about the namespace datatype.
 
 [primSemEnvScript.sml](primSemEnvScript.sml):
-TODO: document
+Proof about the primitive semantic environment
 
 [semanticPrimitivesPropsScript.sml](semanticPrimitivesPropsScript.sml):
 Various basic properties of the semantic primitives.

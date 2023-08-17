@@ -142,7 +142,7 @@ val word_exp_def = tDefine "word_exp" `
   (WF_REL_TAC `measure (exp_size ARB o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC wordLangTheory.MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ DECIDE_TAC)
+   \\ DECIDE_TAC);
 
 val get_var_def = Define `
   get_var v (s:('a,'c,'ffi) stackSem$state) = FLOOKUP s.regs v`;
@@ -515,6 +515,72 @@ val loc_check_def = Define `
     (l2 = 0 /\ l1 ∈ domain code) \/
     ?n e. lookup n code = SOME e /\ (l1,l2) IN get_labels e`;
 
+Definition copy_words_for_pattern_def:
+  copy_words_for_pattern (pattern :'a word) (i:num) (a :'a word) (off :'a word) bs dm m =
+    if pattern = 0w then NONE else
+    if pattern = 1w then SOME (i,a,m) else
+      if a IN dm ∧ i < LENGTH bs then
+        let b = pattern ' 0 in
+        let w = EL i bs in
+        let m = (a =+ Word (if b then w + off else w)) m in
+          copy_words_for_pattern
+            (pattern >>> 1) (i + 1) (a + bytes_in_word) off bs dm m
+      else NONE
+End
+
+Theorem copy_words_for_pattern_LESS_EQ:
+  ∀p i a f bs dm m j a1.
+    copy_words_for_pattern p i a f bs dm m = SOME (j,a1) ⇒ i ≤ j
+Proof
+  ho_match_mp_tac copy_words_for_pattern_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [copy_words_for_pattern_def]
+  \\ fs [] \\ rw [] \\ gvs []
+QED
+
+Definition copy_words_def:
+  copy_words i a off bs dm m =
+    if LENGTH bs ≤ i then NONE else
+      let pattern = EL i bs in
+        case copy_words_for_pattern pattern (i + 1) a off bs dm m of
+        | NONE => NONE
+        | SOME (i1,a1,m1) =>
+            if word_msb pattern then copy_words i1 a1 off bs dm m1 else
+              SOME (a1,m1)
+Termination
+  WF_REL_TAC ‘measure (λ(i,a,f,bs,dm,m). LENGTH bs - i)’
+  \\ rw [] \\ imp_res_tac copy_words_for_pattern_LESS_EQ \\ fs []
+End
+
+Definition unset_var_def:
+  unset_var v (s:('a,'c,'ffi) stackSem$state) = s with regs := s.regs \\ v
+End
+
+Definition store_const_sem_def:
+  store_const_sem t1 t2 (s:('a,'c,'ffi) stackSem$state) =
+    if ~ ALL_DISTINCT [0;1;2;3;t1;t2] then (SOME Error, s) else
+      case (get_var 1 s, get_var 2 s, get_var 3 s) of
+      | (SOME (Word i), SOME (Word a), SOME (Word off)) =>
+          (case copy_words (w2n i) a off s.bitmaps s.mdomain s.memory of
+           | NONE => (SOME Error, s)
+           | SOME (a,m) => (NONE,
+              (if s.use_alloc then unset_var 0 else I)
+                (set_var t1 (Word 1w) (set_var t2 (Word 1w)
+                  (set_var 1 (Word 1w) (set_var 2 (Word a) (s with memory := m)))))))
+      | _ => (SOME Error, s)
+End
+
+Definition check_store_consts_opt_def:
+  check_store_consts_opt t1 t2 NONE _ = T ∧
+  check_store_consts_opt t1 t2 (SOME n) c =
+    (lookup n c = SOME (Seq (StoreConsts t1 t2 NONE) (Return 0 0)))
+End
+
+Definition dest_Seq_def:
+  dest_Seq (Seq p1 p2) = SOME (p1,p2:'a stackLang$prog) /\
+  dest_Seq _ = NONE
+End
+
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'c,'ffi) stackSem$state)) /\
   (evaluate (Halt v,s) =
@@ -526,6 +592,11 @@ val evaluate_def = tDefine "evaluate" `
      case get_var n s of
      | SOME (Word w) => alloc w s
      | _ => (SOME Error,s)) /\
+  (evaluate (StoreConsts t1 t2 stub_opt,s) =
+     if ~s.use_store then (SOME Error,s) else
+     if ~s.use_alloc ∧ IS_SOME stub_opt then (SOME Error,s) else
+     if ~check_store_consts_opt t1 t2 stub_opt s.code then (SOME Error,s) else
+       store_const_sem t1 t2 s) /\
   (evaluate (Inst i,s) =
      case inst i s of
      | SOME s1 => (NONE, s1)
@@ -540,6 +611,11 @@ val evaluate_def = tDefine "evaluate" `
      case get_var v s of
      | SOME w => (NONE, set_store name w s)
      | NONE => (SOME Error, s)) /\
+  (evaluate (OpCurrHeap binop v src,s) =
+     if ¬s.use_store then (SOME Error,s) else
+     case word_exp s (Op binop [Var src; Lookup CurrHeap]) of
+     | SOME w => (NONE, set_var v (Word w) s)
+     | _ => (SOME Error, s)) /\
   (evaluate (Tick,s) =
      if s.clock = 0 then (SOME TimeOut,empty_env s)
                     else (NONE,dec_clock s)) /\
@@ -584,6 +660,18 @@ val evaluate_def = tDefine "evaluate" `
               | (NONE,s) => (SOME Error,s)
               | (SOME res,s) => (SOME res,s)))
       else (NONE,s)
+    | _ => (SOME Error,s)) /\
+  (evaluate (RawCall dest,s) =
+    case sptree$lookup dest s.code of
+    | NONE => (SOME Error,s)
+    | SOME prog =>
+       (case dest_Seq prog of
+        | SOME (_,body) =>
+           if s.clock = 0 then (SOME TimeOut,empty_env s) else
+             (case evaluate (body,dec_clock s) of
+              | (NONE,s) => (SOME Error,s)
+              | (SOME res,s) => (SOME res,s))
+        | _ => (SOME Error,s))
     | _ => (SOME Error,s)) /\
   (evaluate (Call ret dest handler,s) =
      case ret of
@@ -769,12 +857,20 @@ Proof
   \\ EVAL_TAC \\ decide_tac
 QED
 
-val inst_clock = Q.prove(
-  `inst i s = SOME s2 ==> s2.clock <= s.clock`,
+Theorem store_const_sem_clock:
+  ∀s1 v s2. (store_const_sem t1 t2 s1 = (v,s2)) ==> s2.clock <= s1.clock
+Proof
+  rw [store_const_sem_def,AllCaseEqs(),unset_var_def] \\ fs [set_var_def]
+QED
+
+Theorem inst_clock[local]:
+  inst i s = SOME s2 ==> s2.clock <= s.clock
+Proof
   Cases_on `i` \\ fs [inst_def,assign_def] \\ every_case_tac
   \\ SRW_TAC [] [set_var_def] \\ fs []
   \\ fs [mem_store_def] \\ SRW_TAC [] []\\
-  EVAL_TAC \\ fs[]);
+  EVAL_TAC \\ fs[]
+QED
 
 Theorem evaluate_clock:
    !xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock
@@ -787,6 +883,7 @@ Proof
     \\ REPEAT STRIP_TAC \\ SRW_TAC [] [empty_env_def]
     \\ IMP_RES_TAC inst_clock
     \\ IMP_RES_TAC alloc_clock
+    \\ IMP_RES_TAC store_const_sem_clock
     \\ fs [set_var_def,set_store_def,dec_clock_def,LET_THM]
     \\ rpt (pairarg_tac \\ fs [])
     \\ every_case_tac \\ fs []
@@ -835,6 +932,16 @@ val semantics_def = Define `
       Diverge
          (build_lprefix_lub
            (IMAGE (λk. fromList (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))`;
+
+(* record accessors *)
+
+Definition read_stack_def:
+  read_stack s = (s:('a,'b,'c) stackSem$state).stack
+End
+
+Definition read_stack_space_def:
+  read_stack_space s = (s:('a,'b,'c) stackSem$state).stack_space
+End
 
 (* clean up *)
 

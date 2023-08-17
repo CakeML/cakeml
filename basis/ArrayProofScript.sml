@@ -87,10 +87,10 @@ Proof
           first_x_assum match_mp_tac \\
           xmatch \\ xret \\
           fs [LENGTH_NIL_SYM] \\
-          fs [terminationTheory.v_to_list_def] \\
+          fs [semanticPrimitivesTheory.v_to_list_def] \\
           xsimpl) \\
         rw[LIST_TYPE_def] \\
-        fs[terminationTheory.v_to_list_def] \\
+        fs[semanticPrimitivesTheory.v_to_list_def] \\
         qpat_x_assum`_ = SOME _`mp_tac \\ CASE_TAC \\ rw[] \\
         last_x_assum match_mp_tac \\
         xmatch \\
@@ -115,7 +115,7 @@ Proof
     rfs [] >>
     xmatch
     >- (
-      fs [terminationTheory.v_to_list_def] >>
+      fs [semanticPrimitivesTheory.v_to_list_def] >>
       rw [] >>
       xlet `POSTv uv. &UNIT_TYPE () uv`
       >- (
@@ -135,7 +135,7 @@ Proof
     >- (
       xapp >>
       simp []) >>
-    fs [terminationTheory.v_to_list_def] >>
+    fs [semanticPrimitivesTheory.v_to_list_def] >>
     every_case_tac >>
     fs [] >>
     rw [] >>
@@ -255,8 +255,7 @@ val less_than_length_thm = Q.prove (
   rw[] \\
   qexists_tac`HD (DROP n xs)` \\
   qexists_tac`TL (DROP n xs)` \\
-  Cases_on`DROP n xs` \\ fs[]
-  >- fs[DROP_NIL] \\
+  Cases_on`DROP n xs` \\ fs[] \\
   metis_tac[TAKE_DROP,APPEND_ASSOC,CONS_APPEND]
 );
 
@@ -376,6 +375,79 @@ Theorem array_app_spec:
 Proof
   rw [] >>
   xcf "Array.app" array_st  >>
+  xlet `POSTv len_v. eff l 0 * ARRAY a_v l * &NUM (LENGTH l) len_v`
+  >- (
+    xapp >>
+    xsimpl) >>
+  xapp >>
+  rw [NUM_def]
+QED
+
+Theorem array_appi_aux_spec:
+   ∀l idx len_v idx_v a_v f_v eff.
+   NUM (LENGTH l) len_v ∧
+   NUM idx idx_v ∧
+   idx ≤ LENGTH l ∧
+   (!n n_v.
+      n < LENGTH l ∧
+      NUM n n_v ⇒
+      app p f_v [n_v; EL n l] (eff l n)
+                (POSTv v. &UNIT_TYPE () v * (eff l (n+1))))
+   ⇒
+   app (p:'ffi ffi_proj) Array_appi_aux_v [f_v; a_v; len_v; idx_v]
+     (eff l idx * ARRAY a_v l)
+     (POSTv v. &UNIT_TYPE () v * (eff l (LENGTH l)) * ARRAY a_v l)
+Proof
+  ntac 2 gen_tac >>
+  completeInduct_on `LENGTH l - idx` >>
+  xcf_with_def "Array.appi_aux" Array_appi_aux_v_def >>
+  rw [] >>
+  xlet `POSTv env_v. eff l idx * ARRAY a_v l * &BOOL (idx = LENGTH l) env_v`
+  >- (
+    xapp_spec eq_num_v_thm >>
+    xsimpl >>
+    fs [NUM_def, BOOL_def, INT_def]) >>
+  xif
+  >- (
+    xret >>
+    xsimpl) >>
+  xlet `POSTv x_v. eff l idx * ARRAY a_v l * &(EL idx l = x_v)`
+  >- (
+    xapp >>
+    xsimpl >>
+    qexists_tac `idx` >>
+    rw []) >>
+  xlet `POSTv u_v. eff l (idx + 1) * ARRAY a_v l`
+  >- (
+    first_x_assum (qspec_then `idx` mp_tac) >>
+    simp [] >>
+    disch_then xapp_spec >>
+    xsimpl) >>
+  xlet `POSTv next_idx_v. eff l (idx + 1) * ARRAY a_v l * & NUM (idx + 1) next_idx_v`
+  >- (
+    xapp >>
+    xsimpl >>
+    fs [NUM_def, INT_def] >>
+    intLib.ARITH_TAC) >>
+  first_x_assum xapp_spec >>
+  simp []
+QED
+
+(* eff is the effect of executing the function on the first n elements of l *)
+Theorem array_appi_spec:
+   ∀l a_v f_v eff.
+   (!n n_v.
+     n < LENGTH l ∧
+     NUM n n_v ⇒
+     app p f_v [n_v; EL n l] (eff l n)
+               (POSTv v. &UNIT_TYPE () v * (eff l (n+1))))
+   ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v "Array.appi" array_st) [f_v; a_v]
+     (eff l 0 * ARRAY a_v l)
+     (POSTv v. &UNIT_TYPE () v * (eff l (LENGTH l)) * ARRAY a_v l)
+Proof
+  rw [] >>
+  xcf "Array.appi" array_st  >>
   xlet `POSTv len_v. eff l 0 * ARRAY a_v l * &NUM (LENGTH l) len_v`
   >- (
     xapp >>
