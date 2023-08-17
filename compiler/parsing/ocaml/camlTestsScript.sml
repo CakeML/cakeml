@@ -1458,5 +1458,29 @@ val _ = parsetest0 “nStart” “ptree_Start”
   (SOME “[Dlet L (Ptannot (Pv "x") (Atapp [] (Short "int"))) (Lit (IntLit 2))]”)
   ;
 
+(* 2023-08-17: add support for OCaml's string and array index shorthands:
+ *   string-expr .[ int-expr ]
+ *   array-expr .( int-expr )
+ *)
+
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "!s.[c]"
+  (SOME “App Opapp [App Opapp [Var (Long "String" (Short "sub"));
+                               App Opapp [V "!"; V "s"]];
+                    V "c"]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "-  a.( i) + 3"
+  (SOME “vbinop (Short "+")
+                (App Opapp [Var (Long "Int" (Short "~"));
+                            App Opapp [
+                                App Opapp [Var (Long "Array" (Short "sub"));
+                                           V "a"];
+                                V "i"]])
+                (Lit (IntLit 3))”)
+  ;
+
 val _ = export_theory ();
 

@@ -1448,13 +1448,29 @@ Definition ptree_Expr_def:
             return $ FOLDL build_record_upd e us
           od
       | _ => fail (locs, «Impossible: nERecUpdate»)
-    else if nterm = INL nERecProj then
+    else if nterm = INL nEIndex then
       case args of
         [arg] => ptree_Expr nEPrefix arg
+      | [arg; idx] =>
+          do
+            pfx <- ptree_Expr nEPrefix arg;
+            idx_expr <- ptree_Index idx;
+            case idx_expr of
+              INL str_idx =>
+                return $ build_funapp (Var (Long "String" (Short "sub")))
+                                      [pfx; str_idx]
+            | INR arr_idx =>
+                return $ build_funapp (Var (Long "Array" (Short "sub")))
+                                      [pfx; arr_idx]
+          od
+      | _ => fail (locs, «Impossible: nEIndex»)
+    else if nterm = INL nERecProj then
+      case args of
+        [arg] => ptree_Expr nEIndex arg
       | [arg; dot; fn] =>
           do
             expect_tok dot DotT;
-            x <- ptree_Expr nEPrefix arg;
+            x <- ptree_Expr nEIndex arg;
             f <- ptree_FieldName fn;
             return $ build_record_proj f x
           od
@@ -2063,7 +2079,30 @@ Definition ptree_Expr_def:
            od
        | _ => fail (locs, «Impossible: nUpdates»)
      else
-       fail (locs, «Expected an updates non-terminal»))
+       fail (locs, «Expected an updates non-terminal»)) ∧
+  (ptree_Index (Lf (_, locs)) =
+    fail (locs, «Expected an index non-terminal»)) ∧
+  (ptree_Index (Nd (nterm,locs) args) =
+     if nterm = INL nArrIdx then
+       case args of
+         [dotp; expr; rpar] =>
+           do
+             expect_tok dotp DotParenT;
+             expect_tok rpar RparT;
+             fmap INR $ ptree_Expr nExpr expr
+           od
+       | _ => fail (locs, «Impossible: nArrIdx»)
+     else if nterm = INL nStrIdx then
+       case args of
+         [dotb; expr; rbrack] =>
+           do
+             expect_tok dotb DotBrackT;
+             expect_tok rbrack RbrackT;
+             fmap INL $ ptree_Expr nExpr expr
+           od
+       | _ => fail (locs, «Impossible: nStrIdx»)
+     else
+    fail (locs, «Expected an index non-terminal»))
 Termination
   WF_REL_TAC ‘measure $ sum_size (pair_size camlNT_size psize)
                       $ sum_size psize
@@ -2074,6 +2113,7 @@ Termination
                       $ sum_size psize
                       $ sum_size (SUC o list_size psize)
                       $ sum_size (SUC o list_size psize)
+                      $ sum_size psize
                       $ sum_size psize psize’
   \\ simp [parsetree_size_lemma]
 End
