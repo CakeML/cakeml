@@ -1463,7 +1463,6 @@ val _ = parsetest0 “nStart” “ptree_Start”
  *   array-expr .( int-expr )
  *)
 
-
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "!s.[c]"
   (SOME “App Opapp [App Opapp [Var (Long "String" (Short "sub"));
@@ -1480,6 +1479,29 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
                                            V "a"];
                                 V "i"]])
                 (Lit (IntLit 3))”)
+  ;
+
+(* 2023-08-17: attempt to deal with let recs/ands without explicit arguments:
+ *   let rec f = function | ...
+ * is a pattern occurring in the HOL Light code, for example.
+ *)
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "let rec f : t = e ;;"
+  (SOME “[Dletrec L [("f","", App Opapp [Tannot (V "e") (Atapp [] (Short "t"));
+                                         V ""])]]”)
+  ;
+
+(* This is a bit strange: OCaml (apparently) supports mixing recursive functions
+ * with values, and its parser would generate code that binds g to 3 (as if we
+ * would've used a let) but unfortunately our hack must create functions always:
+ *)
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "let rec f = e\
+  \ and g = 3;;"
+  (SOME “[Dletrec L [("f","", App Opapp [V "e"; V ""]);
+                     ("g", "", App Opapp [Lit (IntLit 3); V ""])]]”)
   ;
 
 val _ = export_theory ();

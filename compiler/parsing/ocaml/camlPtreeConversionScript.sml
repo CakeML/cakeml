@@ -1158,33 +1158,42 @@ Definition build_fun_lam_def:
             body pats
 End
 
-(* This builds the body of a let rec expression out of a list of patterns
- * (a list instead of one, because of or-patterns) and an expression body.
- *
- * TODO
- * This is sort-of like build_fun_lam but accepts _lists_ of patterns at
- * each level. I think we should replace build_fun_lam with this thing.
- *)
-
 (*
-   each entry is a function name
-                 a list of patterns
-                 a body expression
-
-   a letrec must be a function name, a variable name, and a body expression.
-
-   there's at least one pattern.
-   - if the first pattern is not a variable, invent one and immediately match on
-     it using the first pattern
-   - if the first pattern is a variable, create a fun binding
-
+ * build_letrec is given a list of entries consisting of:
+ * - a function name
+ * - a list of patterns
+ * - a body expression.
+ *
+ * A letrec in the CakeML AST is made from a function name, a variable name, and
+ * a body expression. If there is no pattern in the list given to build_letrec,
+ * then we use the empty variable name ("") and apply the body expression to
+ * this variable (like eta expansion). This enables us to write things like:
+ *   let rec f = function ... -> ...
+ * or
+ *   let rec f x y = ...
+ *   and g = ...
+ *
+ * As a consequence, the parser will turn this:
+ *   let rec f x = ...
+ *   and y = 5
+ * into this:
+ *   let rec f x = ...
+ *   and y x = 5 x
+ * which is different from what OCaml generates (it correctly binds the value 5
+ * to y with a let).
+ *
+ * Patterns are turned into variables using pattern match expressions:
+ * - If the first pattern is not a variable, invent a variable name and
+ *   match on it using the first pattern.
+ * - If the first pattern is a variable, create a lambda.
  *)
 
 Definition build_letrec_def:
   build_letrec =
     MAP (λ(f,ps,x).
            case ps of
-             [] => (f,"", Var (Short " <impossible> "))
+             [] =>
+               (f, "", App Opapp [x; Var (Short "")])
            | Pvar v::ps =>
                (f, v, build_fun_lam x ps)
            | p::ps =>
@@ -1874,6 +1883,22 @@ Definition ptree_Expr_def:
             (if EVERY (λp. case p of [_] => T | _ => F) ps then return () else
               fail (locs, «Or-patterns are not allowed in let (rec) bindings»));
             return (nm, FLAT ps, bd)
+          od
+      | [id; colon; type; eq; expr] =>
+          do
+            expect_tok eq EqualT;
+            expect_tok colon ColonT;
+            nm <- ptree_ValueName id;
+            ty <- ptree_Type type;
+            bd <- ptree_Expr nExpr expr;
+            return (nm, [], Tannot bd ty)
+          od
+      | [id; eq; expr] =>
+          do
+            expect_tok eq EqualT;
+            nm <- ptree_ValueName id;
+            bd <- ptree_Expr nExpr expr;
+            return (nm, [], bd)
           od
       | _ => fail (locs, «Impossible: nLetRecBinding»)
     else

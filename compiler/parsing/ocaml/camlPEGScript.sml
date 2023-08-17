@@ -749,7 +749,8 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPatternMatches));
       (* -- Let bindings --------------------------------------------------- *)
       (INL nLetRecBinding,
-       seql [pnt nValueName; pnt nPatterns;
+       seql [pnt nValueName;
+             try (pnt nPatterns);
              try (seql [tokeq ColonT; pnt nType] I);
              tokeq EqualT; pnt nExpr]
             (bindNT nLetRecBinding));
