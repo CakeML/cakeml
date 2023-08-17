@@ -1,12 +1,12 @@
 (*
   Module for parsing flags given as command-line arguments.
 *)
-open preamble ml_translatorLib ml_progLib PrettyPrinterProgTheory
+open preamble ml_translatorLib ml_progLib TextIOProgTheory
      ArgParseTheory;
 
 val _ = new_theory"ArgParseProg";
 
-val _ = translation_extends "PrettyPrinterProg";
+val _ = translation_extends "TextIO";
 
 val _ = ml_prog_update (open_module "ArgParse");
 
