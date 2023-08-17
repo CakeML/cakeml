@@ -266,7 +266,7 @@ Datatype:
     | nSemis | nExprItem | nExprItems | nDefItem
     (* misc *)
     | nShiftOp | nMultOp | nAddOp | nRelOp | nAndOp | nOrOp | nCatOp | nPrefixOp
-    | nAssignOp | nStart
+    | nAssignOp | nPatLiteral | nStart
     (* Declarations through CakeML pragmas *)
     | nCakeMLPragma
 End
@@ -780,8 +780,12 @@ Definition camlPEG_def[nocompute]:
                         try (seql [tokeq ColonT; pnt nType] I)] I);
              tokeq RparT]
             (bindNT nPPar));
+      (INL nPatLiteral,
+       choicel [pegf (pnt nLiteral) (bindNT nPatLiteral);
+                seql [tokeq MinusT; tok isInt mktokLf]
+                     (bindNT nPatLiteral)]);
       (INL nPBase, (* ::= any / var / lit / list / '(' p ')' *)
-       pegf (choicel [pnt nLiteral; pnt nValueName; pnt nPAny; pnt nPList;
+       pegf (choicel [pnt nPatLiteral; pnt nValueName; pnt nPAny; pnt nPList;
                       pnt nPPar])
             (bindNT nPBase));
       (* -- Pat2 ----------------------------------------------------------- *)
@@ -1012,22 +1016,22 @@ val npeg0_rwts =
         “nUpdate”, “nUpdates”, “nERecUpdate”, “nERecCons”, “nLiteral”,
         “nIdent”, “nEList”, “nEConstr”, “nEBase”, “nEPrefix”, “nArrIdx”,
         “nStrIdx”, “nEIndex”, “nERecProj”, “nELazy”, “nEAssert”, “nEFunapp”,
-        “nEApp”, “nLetBinding”, “nPAny”, “nPList”, “nPPar”, “nPBase”, “nPCons”,
-        “nPAs”, “nPOps”, “nPattern”, “nPatterns”, “nLetBindings”,
-        “nLetRecBinding”, “nLetRecBindings”, “nPatternMatches”, “nPatternMatch”,
-        “nEMatch”, “nETry”, “nEFun”, “nEFunction”, “nELet”, “nELetRec”,
-        “nEWhile”, “nEFor”, “nEUnclosed”, “nENeg”, “nEShift”, “nEMult”, “nEAdd”,
-        “nECons”, “nECat”, “nERel”, “nEAnd”, “nEOr”, “nEHolInfix”, “nEProd”,
-        “nEAssign”, “nEIf”, “nESeq”, “nExpr”, “nTypeDefinition”, “nTypeDef”,
-        “nTypeDefs”, “nTVar”, “nTBase”, “nTConstr”, “nTProd”, “nTFun”, “nType”,
-        “nTypeList”, “nTypeLists”, “nTypeParams”, “nConstrDecl”, “nTypeReprs”,
-        “nTypeRepr”, “nTypeInfo”, “nConstrArgs”, “nExcDefinition”, “nTopLet”,
-        “nTopLetRec”, “nOpen”, “nSemis”, “nExprItem”, “nExprItems”,
-        “nModuleDef”, “nModTypeName”, “nModTypePath”, “nSigSpec”, “nExcType”,
-        “nValType”, “nOpenMod”, “nIncludeMod”, “nModTypeAsc”, “nModTypeAssign”,
-        “nSigItem”, “nSigItems”, “nModuleType”, “nModAscApp”, “nModAscApps”,
-        “nCakeMLPragma”, “nModuleTypeDef”, “nDefinition”, “nDefItem”,
-        “nModExpr”, “nModuleItem”
+        “nEApp”, “nLetBinding”, “nPAny”, “nPList”, “nPPar”, “nPatLiteral”,
+        “nPBase”, “nPCons”, “nPAs”, “nPOps”, “nPattern”, “nPatterns”,
+        “nLetBindings”, “nLetRecBinding”, “nLetRecBindings”, “nPatternMatches”,
+        “nPatternMatch”, “nEMatch”, “nETry”, “nEFun”, “nEFunction”, “nELet”,
+        “nELetRec”, “nEWhile”, “nEFor”, “nEUnclosed”, “nENeg”, “nEShift”,
+        “nEMult”, “nEAdd”, “nECons”, “nECat”, “nERel”, “nEAnd”, “nEOr”,
+        “nEHolInfix”, “nEProd”, “nEAssign”, “nEIf”, “nESeq”, “nExpr”,
+        “nTypeDefinition”, “nTypeDef”, “nTypeDefs”, “nTVar”, “nTBase”,
+        “nTConstr”, “nTProd”, “nTFun”, “nType”, “nTypeList”, “nTypeLists”,
+        “nTypeParams”, “nConstrDecl”, “nTypeReprs”, “nTypeRepr”, “nTypeInfo”,
+        “nConstrArgs”, “nExcDefinition”, “nTopLet”, “nTopLetRec”, “nOpen”,
+        “nSemis”, “nExprItem”, “nExprItems”, “nModuleDef”, “nModTypeName”,
+        “nModTypePath”, “nSigSpec”, “nExcType”, “nValType”, “nOpenMod”,
+        “nIncludeMod”, “nModTypeAsc”, “nModTypeAssign”, “nSigItem”, “nSigItems”,
+        “nModuleType”, “nModAscApp”, “nModAscApps”, “nCakeMLPragma”,
+        “nModuleTypeDef”, “nDefinition”, “nDefItem”, “nModExpr”, “nModuleItem”
       ];
 
 fun wfnt(t,acc) = let
@@ -1051,24 +1055,24 @@ val topo_nts =
         “nModulePath”, “nValuePath”, “nConstr”, “nTypeConstr”, “nFieldName”,
         “nLiteral”, “nIdent”, “nEList”, “nEConstr”, “nERecUpdate”, “nERecCons”,
         “nEBase”, “nEPrefix”, “nEIndex”, “nERecProj”, “nELazy”, “nEAssert”,
-        “nEFunapp”, “nEApp”, “nPAny”, “nPList”, “nPPar”, “nPBase”, “nPCons”,
-        “nPAs”, “nPOps”, “nPattern”, “nPatterns”, “nLetBinding”, “nLetBindings”,
-        “nLetRecBinding”, “nLetRecBindings”, “nPatternMatches”, “nPatternMatch”,
-        “nEMatch”, “nETry”, “nEFun”, “nEFunction”, “nELet”, “nELetRec”,
-        “nEWhile”, “nEFor”, “nEUnclosed”, “nENeg”, “nEShift”, “nEMult”, “nEAdd”,
-        “nECons”, “nECat”, “nERel”, “nEAnd”, “nEOr”, “nEHolInfix”, “nEProd”,
-        “nEAssign”, “nEIf”, “nESeq”, “nExpr”, “nTypeDefinition”, “nTVar”,
-        “nTBase”, “nTConstr”, “nTProd”, “nTFun”, “nType”, “nTypeList”,
-        “nTypeLists”, “nTypeParams”, “nTypeDef”, “nTypeDefs”, “nConstrDecl”,
-        “nTypeReprs”, “nTypeRepr”, “nTypeInfo”, “nUpdate”, “nUpdates”,
-        “nArrIdx”, “nStrIdx”, “nFieldDec”, “nFieldDecs”, “nRecord”,
-        “nConstrArgs”, “nExcDefinition”, “nTopLet”, “nTopLetRec”, “nOpen”,
-        “nSemis”, “nExprItem”, “nExprItems”, “nModuleDef”, “nModTypeName”,
-        “nModTypePath”, “nSigSpec”, “nExcType”, “nValType”, “nOpenMod”,
-        “nIncludeMod”, “nModTypeAsc”, “nModTypeAssign”, “nSigItem”, “nSigItems”,
-        “nModuleType”, “nModAscApp”, “nModAscApps”, “nCakeMLPragma”,
-        “nModuleTypeDef”, “nModExpr”, “nDefinition”, “nDefItem”, “nModuleItem”,
-        “nModuleItems”, “nStart”];
+        “nEFunapp”, “nEApp”, “nPAny”, “nPList”, “nPPar”, “nPatLiteral”,
+        “nPBase”, “nPCons”, “nPAs”, “nPOps”, “nPattern”, “nPatterns”,
+        “nLetBinding”, “nLetBindings”, “nLetRecBinding”, “nLetRecBindings”,
+        “nPatternMatches”, “nPatternMatch”, “nEMatch”, “nETry”, “nEFun”,
+        “nEFunction”, “nELet”, “nELetRec”, “nEWhile”, “nEFor”, “nEUnclosed”,
+        “nENeg”, “nEShift”, “nEMult”, “nEAdd”, “nECons”, “nECat”, “nERel”,
+        “nEAnd”, “nEOr”, “nEHolInfix”, “nEProd”, “nEAssign”, “nEIf”, “nESeq”,
+        “nExpr”, “nTypeDefinition”, “nTVar”, “nTBase”, “nTConstr”, “nTProd”,
+        “nTFun”, “nType”, “nTypeList”, “nTypeLists”, “nTypeParams”, “nTypeDef”,
+        “nTypeDefs”, “nConstrDecl”, “nTypeReprs”, “nTypeRepr”, “nTypeInfo”,
+        “nUpdate”, “nUpdates”, “nArrIdx”, “nStrIdx”, “nFieldDec”, “nFieldDecs”,
+        “nRecord”, “nConstrArgs”, “nExcDefinition”, “nTopLet”, “nTopLetRec”,
+        “nOpen”, “nSemis”, “nExprItem”, “nExprItems”, “nModuleDef”,
+        “nModTypeName”, “nModTypePath”, “nSigSpec”, “nExcType”, “nValType”,
+        “nOpenMod”, “nIncludeMod”, “nModTypeAsc”, “nModTypeAssign”, “nSigItem”,
+        “nSigItems”, “nModuleType”, “nModAscApp”, “nModAscApps”,
+        “nCakeMLPragma”, “nModuleTypeDef”, “nModExpr”, “nDefinition”,
+        “nDefItem”, “nModuleItem”, “nModuleItems”, “nStart”];
 
 val cml_wfpeg_thm = save_thm(
   "cml_wfpeg_thm",

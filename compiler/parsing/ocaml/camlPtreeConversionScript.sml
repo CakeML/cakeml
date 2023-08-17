@@ -988,6 +988,22 @@ Definition ptree_PPattern_def:
             return $ Pp_tannot p ty
           od
       | _ => fail (locs, «Impossible: nPPar»)
+    else if nterm = INL nPatLiteral then
+      case args of
+        [arg] =>
+          fmap Pp_lit (ptree_Literal arg) ++
+          fmap (λb. Pp_con (SOME b) []) (ptree_Bool arg)
+      | [minus; arg] =>
+          do
+            expect_tok minus MinusT;
+            lf <- destLf arg;
+            tk <- option $ destTOK lf;
+            if isInt tk then
+              return $ Pp_lit $ IntLit $ -(THE $ destInt tk)
+            else
+              fail (locs, «Impossible: nPatLiteral»)
+          od
+      | _ => fail (locs, «Impossible: nPatLiteral»)
     else if nterm = INL nPBase then
       case args of
         [arg] =>
@@ -995,9 +1011,8 @@ Definition ptree_PPattern_def:
             n <- nterm_of arg;
             if n = INL nValueName then
               fmap Pp_var (ptree_ValueName arg)
-            else if n = INL nLiteral then
-              fmap Pp_lit (ptree_Literal arg) ++
-              fmap (λb. Pp_con (SOME b) []) (ptree_Bool arg)
+            else if n = INL nPatLiteral then
+              ptree_PPattern arg
             else if n = INL nPAny ∨ n = INL nPList ∨ n = INL nPPar then
               ptree_PPattern arg
             else

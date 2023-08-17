@@ -1504,5 +1504,18 @@ val _ = parsetest0 “nStart” “ptree_Start”
                      ("g", "", App Opapp [Lit (IntLit 3); V ""])]]”)
   ;
 
+(* 2023-08-17: attach - signs to number literals in patterns.
+ *)
+
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "-1"
+  (SOME “[Plit (IntLit (-1))]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "-1"
+  (SOME “App Opapp [Var (Long "Int" (Short "~")); Lit (IntLit 1)]”)
+  ;
+
 val _ = export_theory ();
 
