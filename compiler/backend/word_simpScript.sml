@@ -355,18 +355,14 @@ val const_fp_loop_def = Define `
   (const_fp_loop (Install r1 r2 r3 r4 names) cs = (Install r1 r2 r3 r4 names, delete r1 (filter_v is_gc_const (inter cs names)))) /\
   (const_fp_loop (Store e v) cs =
     (Store (const_fp_exp e cs) v, cs)) /\
-  (const_fp_loop (ShareInst Load v ad) cs =
-    (ShareInst Load v ad, delete v cs)) /\
-  (const_fp_loop (ShareInst Load8 v ad) cs =
-    (ShareInst Load8 v ad, delete v cs)) /\
-  (const_fp_loop (ShareStore e v) cs =
-    (ShareStore (const_fp_exp e cs) v, cs)) /\
-  (const_fp_loop (ShareStoreByte e v) cs =
-    (ShareStoreByte (const_fp_exp e cs) v, cs)) /\
-  (const_fp_loop (ShareLoad v e) cs =
-    (ShareLoad v (const_fp_exp e cs), delete v cs)) /\
-  (const_fp_loop (ShareLoadByte v e) cs =
-    (ShareLoadByte v (const_fp_exp e cs), delete v cs)) /\
+  (const_fp_loop (ShareInst Load v e) cs =
+    (ShareInst Load v (const_fp_exp e cs), delete v cs)) /\
+  (const_fp_loop (ShareInst Load8 v e) cs =
+    (ShareInst Load8 v (const_fp_exp e cs), delete v cs)) /\
+  (const_fp_loop (ShareInst Store v e) cs =
+    (ShareInst Store v (const_fp_exp e cs), cs)) /\
+  (const_fp_loop (ShareInst Store8 v e) cs =
+    (ShareInst Store8 v (const_fp_exp e cs), cs)) /\
   (const_fp_loop p cs = (p, cs))`;
 
 Theorem const_fp_loop_pmatch:
@@ -411,14 +407,10 @@ Theorem const_fp_loop_pmatch:
   | (StoreConsts a b c d ws) => (StoreConsts a b c d ws, delete a (delete b (delete c (delete d cs))))
   | (Install r1 r2 r3 r4 names) => (Install r1 r2 r3 r4 names, delete r1 (filter_v is_gc_const (inter cs names)))
   | (Store e v) => (Store (const_fp_exp e cs) v, cs)
-  | (ShareStore e v) => (ShareStore (const_fp_exp e cs) v, cs)
-  | (ShareStoreByte e v) => (ShareStoreByte (const_fp_exp e cs) v, cs)
-  | (ShareLoad v e) => (ShareLoad v (const_fp_exp e cs), delete v cs)
-  | (ShareLoadByte v e) => (ShareLoadByte v (const_fp_exp e cs), delete v cs)
-  | (ShareInst Load v a) => (ShareInst Load v a, delete v cs)
-  | (ShareInst Load8 v a) => (ShareInst Load8 v a, delete v cs)
-  | (ShareInst Store v a) => (ShareInst Store v a, cs)
-  | (ShareInst Store8 v a) => (ShareInst Store8 v a, cs)
+  | (ShareInst Load v e) => (ShareInst Load v (const_fp_exp e cs), delete v cs)
+  | (ShareInst Load8 v e) => (ShareInst Load8 v (const_fp_exp e cs), delete v cs)
+  | (ShareInst Store v e) => (ShareInst Store v (const_fp_exp e cs), cs)
+  | (ShareInst Store8 v e) => (ShareInst Store8 v (const_fp_exp e cs), cs)
   | p => (p, cs)
 Proof
   rpt strip_tac
