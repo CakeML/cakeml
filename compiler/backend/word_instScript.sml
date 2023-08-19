@@ -359,59 +359,19 @@ val inst_select_def = Define`
     Seq (inst_select c temp p1) (inst_select c temp p2)) ∧
   (inst_select c temp (MustTerminate p1) =
     MustTerminate (inst_select c temp p1)) ∧
-  (* TODO: compile to ShareInst with the compiled exp *)
-  (inst_select c temp (ShareLoad v exp) =
+  (inst_select c temp (ShareInst op v exp) =
     let exp = (flatten_exp o pull_exp) exp in
-    dtcase exp of
+    case exp of
     | Op Add [exp';Const w] =>
       if addr_offset_ok c w then
         let prog = inst_select_exp c temp temp exp' in
-          Seq prog (ShareInst Load v (Addr temp w))
+          Seq prog (ShareInst op v (Op Add [Var temp; Const w]))
       else
         let prog = inst_select_exp c temp temp exp in
-          Seq prog (ShareInst Load v (Addr temp 0w))
+          Seq prog (ShareInst op v (Var temp))
     | _ =>
       let prog = inst_select_exp c temp temp exp in
-      Seq prog (ShareInst Load v (Addr temp 0w))) /\
-  (inst_select c temp (ShareLoadByte v exp) =
-    let exp = (flatten_exp o pull_exp) exp in
-    dtcase exp of
-    | Op Add [exp';Const w] =>
-      if addr_offset_ok c w then
-        let prog = inst_select_exp c temp temp exp' in
-          Seq prog (ShareInst Load8 v (Addr temp w))
-      else
-        let prog = inst_select_exp c temp temp exp in
-          Seq prog (ShareInst Load8 v (Addr temp 0w))
-    | _ =>
-      let prog = inst_select_exp c temp temp exp in
-      Seq prog (ShareInst Load8 v (Addr temp 0w))) /\ 
-  (inst_select c temp (ShareStore exp v) =
-    let exp = (flatten_exp o pull_exp) exp in
-    dtcase exp of
-    | Op Add [exp';Const w] =>
-      if addr_offset_ok c w then
-        let prog = inst_select_exp c temp temp exp' in
-          Seq prog (ShareInst Store v (Addr temp w))
-      else
-        let prog = inst_select_exp c temp temp exp in
-          Seq prog (ShareInst Store v (Addr temp 0w))
-    | _ =>
-      let prog = inst_select_exp c temp temp exp in
-      Seq prog (ShareInst Store v (Addr temp 0w))) /\
-  (inst_select c temp (ShareStoreByte v exp) =
-    let exp = (flatten_exp o pull_exp) exp in
-    dtcase exp of
-    | Op Add [exp';Const w] =>
-      if addr_offset_ok c w then
-        let prog = inst_select_exp c temp temp exp' in
-          Seq prog (ShareInst Store8 v (Addr temp w))
-      else
-        let prog = inst_select_exp c temp temp exp in
-          Seq prog (ShareInst Store8 v (Addr temp 0w))
-    | _ =>
-      let prog = inst_select_exp c temp temp exp in
-      Seq prog (ShareInst Store8 v (Addr temp 0w))) /\
+      Seq prog (ShareInst op v (Var temp))) ∧
   (inst_select c temp (If cmp r1 ri c1 c2) =
     dtcase ri of
       Imm w =>
@@ -473,19 +433,19 @@ Theorem inst_select_pmatch:
         (If cmp r1 (Reg temp) (inst_select c temp c1) (inst_select c temp c2))
     | Reg r =>
       If cmp r1 (Reg r) (inst_select c temp c1) (inst_select c temp c2))
-  | ShareStore exp var =>
-      let exp = (flatten_exp o pull_exp) exp in
-      dtcase exp of
-      | Op Add [exp';Const w] =>
-        if addr_offset_ok c w then
-          let prog = inst_select_exp c temp temp exp' in
-            Seq prog (ShareInst Store var (Addr temp w))
-        else
-          let prog = inst_select_exp c temp temp exp in
-            Seq prog (ShareInst Store var (Addr temp 0w))
-      | _ =>
+  | ShareInst op var exp =>
+    (let exp = (flatten_exp o pull_exp) exp in
+    case exp of
+    | Op Add [exp';Const w] =>
+      if addr_offset_ok c w then
+        let prog = inst_select_exp c temp temp exp' in
+          Seq prog (ShareInst op var (Op Add [Var temp; Const w]))
+      else
         let prog = inst_select_exp c temp temp exp in
-          Seq prog (ShareInst Store var (Addr temp 0w))
+          Seq prog (ShareInst op var (Var temp))
+    | _ =>
+      let prog = inst_select_exp c temp temp exp in
+      Seq prog (ShareInst op var (Var temp)))
   | (Call ret dest args handler) =>
     (let retsel =
       case ret of
@@ -503,7 +463,7 @@ Proof
     rpt strip_tac
     >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
          PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
-    >> fs[inst_select_def])
+    >> fs[inst_select_def] )
 QED
 
 (*
