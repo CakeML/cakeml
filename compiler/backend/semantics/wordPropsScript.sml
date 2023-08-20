@@ -1042,7 +1042,16 @@ Theorem evaluate_add_clock_io_events_mono:
     (SND(evaluate(exps,s with clock := s.clock + extra))).ffi.io_events
 Proof
   recInduct evaluate_ind >>
-  srw_tac[][evaluate_def,LET_THM] >>
+  srw_tac[][evaluate_def,LET_THM]
+  >~ [`share_inst`]
+  >- (
+    every_case_tac >>
+    fs[] >>
+    qpat_abbrev_tac `r = share_inst op v c s` >>
+    Cases_on `r` >>
+    fs[markerTheory.Abbrev_def] >>
+    drule_then (assume_tac o GSYM) $ GSYM share_inst_with_const >>
+    fs[] ) >>
   TRY (
     rename1`find_code` >>
     Cases_on`get_vars args s`>>full_simp_tac(srw_ss())[]>>
@@ -1105,8 +1114,6 @@ Proof
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >>
   rveq >> fs[] >>
-  fs[sh_mem_store_def,sh_mem_store_byte_def] >>
-  rpt (TOP_CASE_TAC >> gvs[]) >>
   imp_res_tac evaluate_io_events_mono >> rev_full_simp_tac(srw_ss())[] >>
   metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]
 QED
@@ -1166,6 +1173,20 @@ Proof
        ,set_store_def,mem_store_def,call_env_def,flush_state_def,dec_clock_def,unset_var_def]
   \\ TRY(pairarg_tac \\ fs[])
   \\ EVERY_CASE_TAC
+  >>~ [`share_inst`]
+  >- (
+    Cases_on `op` >>
+    gvs[share_inst_def]
+    >>~- ([`sh_mem_set_var`],
+      qmatch_asmsub_abbrev_tac `sh_mem_set_var res` >>
+      Cases_on `res` >>
+      gvs[sh_mem_set_var_def] >>
+      rename1 `sh_mem_set_var (SOME res)` >>
+      Cases_on `res` >>
+      gvs[sh_mem_set_var_def,set_var_def,flush_state_def]
+    ) >>
+    gvs[AllCaseEqs(),sh_mem_store_def,sh_mem_store_byte_def,flush_state_def]
+  )
   \\ fs[set_vars_def,state_component_equality
        ,set_var_def,set_store_def,mem_store_def
        ,call_env_def,flush_state_def,dec_clock_def,flush_state_def]
@@ -1893,34 +1914,27 @@ Proof
     every_case_tac >> fs [state_component_equality]>>
     TRY (fs [call_env_def,flush_state_def] \\ EVAL_TAC \\ NO_TAC) >>
     metis_tac[s_key_eq_refl])
-  >- (*ShareStore*)
+  >- (*ShareInst*)
     (gvs[evaluate_def] >>
+    rw[] >> fs[case_eq_thms] >>
+    Cases_on `op` >>
+    gvs[share_inst_def,sh_mem_store_byte_def,sh_mem_store_def,
+      sh_mem_load_def,sh_mem_load_byte_def] >>
+    rpt strip_tac
+    >>~- ([`sh_mem_set_var`],
+      every_case_tac >>
+      rpt strip_tac
+      >>~- ([`sh_mem_set_var (SOME _)`],
+        qmatch_asmsub_abbrev_tac `sh_mem_set_var (SOME ffi_res)` >>
+        Cases_on `ffi_res` >>
+        gvs[sh_mem_set_var_def,state_component_equality,s_key_eq_refl,
+          set_var_def,GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),flush_state_def]) >>
+    gvs[sh_mem_set_var_def,state_component_equality,s_key_eq_refl,
+      set_var_def,GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),flush_state_def]) >>
     every_case_tac >>
-    fs[sh_mem_store_def] >>
-    every_case_tac >>
-    gvs[state_component_equality,GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl,flush_state_def] >>
     rpt strip_tac >>
-    HINT_EXISTS_TAC>>
-    gvs[s_key_eq_refl,state_component_equality])
-  >- (* ShareStoreByte *)
-    (gvs[evaluate_def] >>
-    every_case_tac >>
-    fs[sh_mem_store_byte_def] >>
-    every_case_tac >>
-    gvs[state_component_equality,GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl,flush_state_def] >>
-    rpt strip_tac >>
-    HINT_EXISTS_TAC>>
-    gvs[s_key_eq_refl,state_component_equality]) >>
-  >- (* ShareLoad *)
-    (gvs[evaluate_def] >>
-    every_case_tac >>
-    fs[sh_mem_load_def] >>
-    gvs[state_component_equality,GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl,flush_state_def,set_var_def])
-  >- (* ShareLoadByte *)
-   (gvs[evaluate_def] >>
-    every_case_tac >>
-    fs[sh_mem_load_byte_def] >>
-    gvs[state_component_equality,GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl,flush_state_def,set_var_def]) >>
+    gvs[state_component_equality,s_key_eq_refl,set_var_def,
+      GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),flush_state_def] ) >>
   (*Call*)
   full_simp_tac(srw_ss())[evaluate_def]>>
   Cases_on`get_vars args s`>> full_simp_tac(srw_ss())[]>>
