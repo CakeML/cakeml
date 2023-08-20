@@ -280,7 +280,7 @@ End
 (* set variable given the output from ShareLoad(Byte) *)
 Definition sh_mem_set_var_def:
   (sh_mem_set_var (SOME (FFI_final outcome)) _ ^s = (SOME (FinalFFI outcome), flush_state T s)) /\
-  (sh_mem_set_var (SOME (FFI_return new_ffi new_bytes)) v s = (NONE, set_var v (Word (word_of_bytes F 0w new_bytes)) s)) /\
+  (sh_mem_set_var (SOME (FFI_return new_ffi new_bytes)) v s = (NONE, set_var v (Word (word_of_bytes F 0w new_bytes)) (s with ffi := new_ffi))) /\
   (sh_mem_set_var _ _ s = (SOME Error, s))
 End
 
@@ -291,7 +291,7 @@ Definition share_inst_def:
     | SOME (Word v) => sh_mem_store ad v s
     | _ => (SOME Error,s)) /\
   (share_inst Store8 v ad s = case get_var v s of
-    | SOME (Word v) => sh_mem_store ad v s
+    | SOME (Word v) => sh_mem_store_byte ad v s
     | _ => (SOME Error,s))
 End
 
@@ -1019,7 +1019,7 @@ Proof
   Cases_on `op` >>
   simp[share_inst_def] >>
   rpt strip_tac >>
-  gvs[AllCaseEqs(),sh_mem_store_def,flush_state_def] >>
+  gvs[AllCaseEqs(),sh_mem_store_def,sh_mem_store_byte_def,flush_state_def] >>
   drule sh_mem_set_var_clock >>
   simp[]
 QED
