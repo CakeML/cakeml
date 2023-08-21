@@ -4952,7 +4952,13 @@ Proof
            disch_then $ ASSUME_TAC o GSYM >>
            simp[] >>
            gvs[no_alloc_def,no_install_def])
-      ) >>
+      )
+   >~ [`ShareInst`]
+   >- (
+     gvs[evaluate_def,DefnBase.one_line_ify NONE share_inst_def,AllCaseEqs(),
+      sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def,
+      DefnBase.one_line_ify NONE sh_mem_set_var_def] >>
+     simp[state_component_equality,set_var_def,flush_state_def] ) >>
    (* else *)
    gvs[evaluate_def,AllCaseEqs(),set_var_def,set_store_def,mem_store_def,flush_state_def,
        dec_clock_def,unset_var_def] >>
