@@ -66,24 +66,13 @@ val read_ffi_bytearrays_def = Define`
     (read_ffi_bytearray mc mc.ptr_reg mc.len_reg ms,
      read_ffi_bytearray mc mc.ptr2_reg mc.len2_reg ms)`;
 
-(* word to list of bytes (little endian)
-  The second argument is the size of the list*)
-val w2wlist_le_def = Define`
-  (w2wlist_le w (0) = []) /\
-  (w2wlist_le w (SUC n) = (w2w w)::w2wlist_le (w >>> 8) n)`;
-
-(* ffi use little endian to represent addresses so the upper languages' semantics
-* don't need to know the endianess of the target *)
-val addr2w8list_def = Define`
-  addr2w8list (adr: 'a word) = w2wlist_le adr (dimindex (:'a) DIV 8)`;
-
 val is_valid_mapped_read_def = Define`
   is_valid_mapped_read pc (nb: word8) (ad: 'a addr) r pc' t ms md =
     if nb = 1w
     then
       (bytes_in_memory pc (t.config.encode (Inst (Mem Load8 r ad)))
         (t.get_byte ms) md)
-    else if nb = n2w (dimindex (:'a) DIV 8)
+    else if nb = 0w
     then
       (bytes_in_memory pc (t.config.encode (Inst (Mem Load r ad)))
         (t.get_byte ms) md)
@@ -99,7 +88,7 @@ val is_valid_mapped_write_def = Define`
     then
         (bytes_in_memory pc (t.config.encode (Inst (Mem Store8 r ad)))
           (t.get_byte ms) md)
-    else if nb = n2w (dimindex (:'a) DIV 8)
+    else if nb = 0w
     then
         (bytes_in_memory pc (t.config.encode (Inst (Mem Store r ad)))
           (t.get_byte ms) md)
@@ -110,10 +99,10 @@ val is_valid_mapped_write_def = Define`
     else F`;
 
 val evaluate_def = Define `
-  evaluate (mc: ('w,'a,'c) machine_config) (ffi:'ffi ffi_state) k (ms:'a) =
+  evaluate (mc:('b,'a,'c) machine_config) (ffi:'ffi ffi_state) k (ms:'a) =
     if k = 0 then (TimeOut,ms,ffi)
     else
-      if mc.target.get_pc ms IN (mc.prog_addresses DIFF (set mc.ffi_entry_pcs)) then
+      if (mc.target.get_pc ms) IN (mc.prog_addresses DIFF (set mc.ffi_entry_pcs)) then
         if encoded_bytes_in_mem
             mc.target.config (mc.target.get_pc ms)
             (mc.target.get_byte ms) mc.prog_addresses then
@@ -149,13 +138,14 @@ val evaluate_def = Define `
             case a of
             | Addr r off =>
             let ad = mc.target.get_reg ms r + off in
-              (if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
+              (if (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T)
+                  ∧ (ad IN mc.shared_addresses) /\
                 is_valid_mapped_read (mc.target.get_pc ms) nb a reg pc'
                   mc.target ms mc.prog_addresses
               then
                 (case call_FFI ffi (EL ffi_index mc.ffi_names)
                   [nb]
-                  (addr2w8list ad) of
+                  (word_to_bytes ad F) of
                  | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
                  | FFI_return new_ffi new_bytes =>
                     let (ms1,new_oracle) = apply_oracle mc.ffi_interfer
@@ -168,14 +158,17 @@ val evaluate_def = Define `
             case a of
             | Addr r off =>
             let ad = (mc.target.get_reg ms r) + off in
-              (if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
+              (if (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T)
+                  /\ (ad IN mc.shared_addresses) /\
                 is_valid_mapped_write (mc.target.get_pc ms) nb a reg pc'
                   mc.target ms mc.prog_addresses
               then
                 (case call_FFI ffi (EL ffi_index mc.ffi_names)
                   [nb]
-                  (w2wlist_le (mc.target.get_reg ms reg) (w2n nb)
-                    ++ (addr2w8list ad)) of
+                  ((let w = mc.target.get_reg ms reg in
+                      if nb = 0w then word_to_bytes w F
+                      else word_to_bytes_aux (w2n nb) w F)
+                    ++ (word_to_bytes ad F)) of
                  | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
                  | FFI_return new_ffi new_bytes =>
                     let (ms1,new_oracle) = apply_oracle mc.ffi_interfer
