@@ -867,7 +867,15 @@ Proof
 
     \\ (* Other cases *)
     (rw [] \\ rw []))
-
+  >~ [`ShareInst`]
+  >- (gvs[evaluate_def,DefnBase.one_line_ify NONE share_inst_def,
+      sh_mem_store_def,sh_mem_store_byte_def,
+      sh_mem_load_def,sh_mem_load_byte_def,
+      DefnBase.one_line_ify NONE sh_mem_set_var_def] >>
+    rw[] >>
+    gvs[AllCaseEqs(),set_var_def,flush_state_def] >>
+    irule EVERY2_refl >>
+    metis_tac[sf_gc_consts_refl] )
   \\ (** Easy cases **)
   TRY (rw [evaluate_def] \\ every_case_tac \\
   fs [call_env_def, flush_state_def, dec_clock_def, mem_store_def, set_var_def, set_vars_def, set_store_def] \\
@@ -1080,16 +1088,31 @@ Proof
     rw[]>>
     fs[lookup_inter,case_eq_thms])
 
+  >- (** Store **)
+  (fs [const_fp_loop_def] \\ rw [evaluate_def] \\
+  every_case_tac \\ rw [] \\
+  drule_then assume_tac const_fp_exp_word_exp \\
+  gvs[] \\
+  metis_tac [get_var_mem_store_thm])
+
+  (** ShareInst **)
+  >>~- ([`ShareInst`],
+    fs[const_fp_loop_def] \\
+    gvs[evaluate_def,DefnBase.one_line_ify NONE share_inst_def,
+      sh_mem_store_def,sh_mem_store_byte_def,
+      sh_mem_load_def,sh_mem_load_byte_def,
+      DefnBase.one_line_ify NONE sh_mem_set_var_def] \\
+    rw[] \\
+    gvs[AllCaseEqs(),set_var_def,flush_state_def,
+      get_var_def,lookup_insert,lookup_delete] \\
+    metis_tac[SIMP_RULE(srw_ss())[get_var_def]const_fp_exp_word_exp] )
+
   >- (** Skip **)
   (fs [const_fp_loop_def] \\ rw [evaluate_def] \\ fs [])
 
   >- (** Set **)
   (fs [const_fp_loop_def] \\ rw [evaluate_def] \\
   res_tac \\ every_case_tac \\ rw [] \\ rw [get_var_set_store_thm])
-
-  >- (** Store **)
-  (fs [const_fp_loop_def] \\ rw [evaluate_def] \\
-  every_case_tac \\ rw [] \\ metis_tac [get_var_mem_store_thm])
 
   \\ (** Remaining: Raise, Return and Tick, buffer writes**)
     rw[const_fp_loop_def,evaluate_def] \\ fs[case_eq_thms,evaluate_def] \\
