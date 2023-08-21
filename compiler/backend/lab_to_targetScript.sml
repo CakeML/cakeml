@@ -353,12 +353,12 @@ val find_ffi_names_def = Define `
    | _ => find_ffi_names (Section k xs::rest)))`
 
 Definition get_memop_info_def:
-  get_memop_info Load a = ("MappedRead", n2w $ dimindex a DIV 8) /\
-  (* get_memop_info Load32 a = ("MappedRead",4w) /\ *)
-  get_memop_info Load8 a = ("MappedRead",1w) /\
-  get_memop_info Store a = ("MappedWrite", n2w $ dimindex a DIV 8) /\
-  (* get_memop_info Store32 a = ("MappedWrite",4w) /\ *)
-  get_memop_info Store8 a =("MappedWrite",1w)
+  get_memop_info Load = ("MappedRead", 0w) /\
+  (* get_memop_info Load32 = ("MappedRead",4w) /\ *)
+  get_memop_info Load8 = ("MappedRead",1w) /\
+  get_memop_info Store = ("MappedWrite", 0w) /\
+  (* get_memop_info Store32 = ("MappedWrite",4w) /\ *)
+  get_memop_info Store8 =("MappedWrite",1w)
 End
 
 Definition get_shmem_info_def:
@@ -370,7 +370,7 @@ Definition get_shmem_info_def:
     get_shmem_info (Section k xs::rest) pos ffi_names shmem_info) /\
   (get_shmem_info (Section k ((Asm (ShareMem m r ad) bytes _)::xs)::rest) pos
   ffi_names shmem_info =
-    let (name,nb) = get_memop_info m (:'a) in
+    let (name,nb) = get_memop_info m in
     get_shmem_info (Section k xs::rest) (pos+LENGTH bytes) (ffi_names ++ [name])
       (shmem_info ++ [
         <|entry_pc:=n2w pos
