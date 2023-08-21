@@ -591,8 +591,10 @@ Theorem sh_mem_set_var_const:
    s'.code = s.code ∧
    s'.code_buffer = s.code_buffer ∧
    s'.data_buffer = s.data_buffer ∧
+   s'.permute = s.permute ∧
    s'.handler = s.handler ∧
    s'.stack_limit = s.stack_limit ∧
+   s'.stack_max = s.stack_max ∧
    (r = NONE ==> s'.ffi = s.ffi) ∧
    (r = SOME (FFI_final outcome) ==> s'.ffi = s.ffi) ∧
    (r = NONE ==> s'.locals_size = s.locals_size) ∧
@@ -621,8 +623,10 @@ Theorem sh_mem_store_const:
   s'.code = s.code ∧
   s'.code_buffer = s.code_buffer ∧
   s'.data_buffer = s.data_buffer ∧
+  s'.permute = s.permute ∧
   s'.handler = s.handler ∧
   s'.stack_limit = s.stack_limit ∧
+  s'.stack_max = s.stack_max ∧
   (res = SOME Error ==> s'.locals_size = s.locals_size) ∧
   (res = NONE ==> s'.locals_size = s.locals_size) ∧
   (res = NONE ==> s'.stack_max = s.stack_max) ∧
@@ -646,8 +650,10 @@ Theorem sh_mem_store_byte_const:
   s'.code = s.code ∧
   s'.code_buffer = s.code_buffer ∧
   s'.data_buffer = s.data_buffer ∧
+  s'.permute = s.permute ∧
   s'.handler = s.handler ∧
   s'.stack_limit = s.stack_limit ∧
+  s'.stack_max = s.stack_max ∧
   (res = SOME Error ==> s'.locals_size = s.locals_size) ∧
   (res = NONE ==> s'.locals_size = s.locals_size) ∧
   (res = NONE ==> s'.stack_max = s.stack_max) ∧
@@ -668,9 +674,11 @@ Theorem share_inst_const:
   s'.data_buffer = s.data_buffer ∧
   s'.compile = s.compile ∧
   s'.compile_oracle = s.compile_oracle ∧
+  s'.permute = s.permute ∧
   s'.clock = s.clock ∧
   s'.handler = s.handler ∧
-  s'.stack_limit = s.stack_limit
+  s'.stack_limit = s.stack_limit ∧
+  s'.stack_max = s.stack_max
 Proof
   Cases_on `op` >>
   gvs[share_inst_def]
@@ -2578,6 +2586,19 @@ Proof
     TRY(rename[`call_FFI st.ffi ffi_index conf bytes`] >>
         Cases_on`call_FFI st.ffi ffi_index conf bytes`) >>
     full_simp_tac(srw_ss())[LET_THM,state_component_equality])
+  >- (*ShareInst*)
+    (fs[AllCaseEqs()] >>
+    qexists_tac `perm` >>
+    Cases_on `op` >>
+    gvs[share_inst_def,sh_mem_load_def,sh_mem_load_byte_def,
+      sh_mem_store_def,sh_mem_store_byte_def] >>
+    every_case_tac
+    >>~- ([`sh_mem_set_var (SOME (call_FFI _ _ _ _))`],
+
+    qmatch_asmsub_abbrev_tac `sh_mem_set_var (SOME x)` >>
+    Cases_on `x` >>
+    gvs[sh_mem_set_var_def,flush_state_def]) >>
+    gvs[sh_mem_set_var_def,flush_state_def])
   >- (*Call*)
     (fs[evaluate_def]>>
     ntac 6 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
@@ -3130,6 +3151,30 @@ Proof
     full_case_tac>>fs[state_component_equality,locals_rel_def]>>
     fs[pairTheory.ELIM_UNCURRY] >> rpt strip_tac >> rveq >> fs[case_eq_thms] >>
     rveq >> fs[case_eq_thms,state_component_equality])
+  >- (
+    qpat_x_assum `A = (res,rst)` mp_tac >>
+    imp_res_tac locals_rel_word_exp >>
+    rw[] >>
+    gvs[AllCaseEqs(),every_var_def]>>
+    first_x_assum drule_all>>
+    rpt strip_tac >>
+    rename1 `share_inst op n ad _` >>
+    Cases_on `op` >>
+    gvs[share_inst_def,sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def]
+    >>~- ([`sh_mem_set_var`],
+      IF_CASES_TAC
+      >- (
+        qmatch_goalsub_abbrev_tac `sh_mem_set_var (SOME x)` >>
+        Cases_on `x` >>
+        gvs[sh_mem_set_var_def,set_var_def,locals_rel_def,
+          state_component_equality,flush_state_def] >>
+        metis_tac[lookup_insert]) >>
+      gvs[sh_mem_set_var_def,set_var_def,locals_rel_def]) >>
+    gvs[AllCaseEqs(),locals_rel_def,state_component_equality,flush_state_def] >>
+    imp_res_tac locals_rel_get_var >>
+    first_x_assum drule_all >>
+    rpt strip_tac >>
+    gvs[get_var_def,state_component_equality] )
 QED
 
 val gc_fun_ok_def = Define `
@@ -3141,8 +3186,7 @@ val gc_fun_ok_def = Define `
       ~(Handler IN FDOM s1) /\
       (f (wl,m,d,s) = SOME (wl1,m1,s1 |+ (Handler,s ' Handler)))`
 
-(* do somthing similar to ShareMem *)
-(* wordLang syntactic things, TODO: not updated for install,cbw,dbw *)
+(* The expressions in ShareInst must be Var or Op Add *)
 (* No expressions occur except in Set, where it must be a Var expr *)
 val flat_exp_conventions_def = Define`
   (*These should be converted to Insts*)
@@ -3153,6 +3197,7 @@ val flat_exp_conventions_def = Define`
   (flat_exp_conventions (Set store_name _) ⇔ F) ∧
   (flat_exp_conventions (ShareInst op v (Var r)) ⇔ T) ∧
   (flat_exp_conventions (ShareInst op v (Op Add [Var r;Const c])) ⇔ T) ∧
+  (flat_exp_conventions (ShareInst op v _) ⇔ F) ∧
   (flat_exp_conventions (Seq p1 p2) ⇔
     flat_exp_conventions p1 ∧ flat_exp_conventions p2) ∧
   (flat_exp_conventions (If cmp r1 ri e2 e3) ⇔
@@ -3767,7 +3812,34 @@ Proof
   >- (
     every_case_tac >> fs [] >> rveq >> fs [state_fn_updates, flush_state_def, stack_size_eq2] >>
     Cases_on `s.locals_size` >> Cases_on `stack_size s.stack` >> Cases_on `s.stack_max` >>
-    fs [OPTION_MAP_DEF] >> drule stack_size_some_at_least_one >> DECIDE_TAC) >>
+    fs [OPTION_MAP_DEF] >> drule stack_size_some_at_least_one >> DECIDE_TAC)
+  >- ( (* ShareInst *)
+    every_case_tac >>
+    gvs[] >>
+    Cases_on `op` >>
+    gvs[share_inst_def,sh_mem_store_def,sh_mem_load_def,sh_mem_store_byte_def,sh_mem_load_byte_def]
+    >>~- ([`sh_mem_set_var`],
+      every_case_tac
+      >- (
+        qmatch_asmsub_abbrev_tac `sh_mem_set_var (SOME x)` >>
+        Cases_on `x` >>
+        gvs[sh_mem_set_var_def,flush_state_def,state_fn_updates,stack_size_eq2] >>
+        Cases_on `stack_size s.stack` >>
+        Cases_on `s.stack_max` >>
+        gvs[OPTION_MAP2_DEF,option_le_def] >>
+        drule stack_size_some_at_least_one >>
+        Cases_on `s.locals_size` >>
+        gvs[]
+      ) >>
+      gvs[sh_mem_set_var_def]
+    ) >>
+    gvs[AllCaseEqs(),flush_state_def,state_fn_updates,stack_size_eq2] >>
+    Cases_on `stack_size s.stack` >>
+    Cases_on `s.stack_max` >>
+    gvs[OPTION_MAP2_DEF,option_le_def] >>
+    drule stack_size_some_at_least_one >>
+    Cases_on `s.locals_size` >>
+    gvs[] ) >>
   (* Call *)
   qpat_x_assum `_ = (_,_)` mp_tac >>
   TOP_CASE_TAC >- (strip_tac >>rveq >> fs []) >>
@@ -4034,7 +4106,12 @@ Theorem evaluate_stack_max:
 Proof
   recInduct wordSemTheory.evaluate_ind >>
   rw[wordSemTheory.evaluate_def,CaseEq"option",CaseEq"word_loc"] >>
-  rw[set_vars_const] >>
+  rw[set_vars_const]
+  >~ [`share_inst`] 
+  >- (
+    TOP_CASE_TAC >>
+    drule share_inst_const >>
+    gvs[libTheory.the_def] ) >>
   TRY(EVERY_ASSUM (fn thm => if is_forall(concl thm) then NO_TAC else ALL_TAC) >>
       TOP_CASE_TAC >>
       fs[alloc_def,CaseEq"option",CaseEq"prod",CaseEq"list",CaseEq"stack_frame",CaseEq"bool",
@@ -4086,7 +4163,11 @@ Theorem evaluate_stack_limit:
 Proof
   recInduct wordSemTheory.evaluate_ind >>
   rw[wordSemTheory.evaluate_def,CaseEq"option",CaseEq"word_loc"] >>
-  rw[set_vars_const] >>
+  rw[set_vars_const]
+  >~ [`share_inst`]
+  >- (
+    drule share_inst_const >>
+    gvs[libTheory.the_def] ) >>
   TRY(EVERY_ASSUM (fn thm => if is_forall(concl thm) then NO_TAC else ALL_TAC) >>
       fs[alloc_def,CaseEq"option",CaseEq"prod",CaseEq"list",CaseEq"stack_frame",CaseEq"bool",
          CaseEq"inst",CaseEq"arith",CaseEq"word_loc",CaseEq"addr",CaseEq"memop",assign_def,
@@ -4245,7 +4326,11 @@ Proof
      CaseEq"option",CaseEq"word_loc",CaseEq"bool",
      CaseEq"prod",CaseEq"list",CaseEq"ffi_result",
      ELIM_UNCURRY,flush_state_def] >>
-  rveq >> fs[] >> rveq >> fs[] >> res_tac >>
+  rveq >> fs[] >> rveq >> fs[] >> res_tac
+  >- ( (* ShareInst *)
+    rev_drule_then assume_tac share_inst_with_const >>
+    gvs[]
+  ) >>
   (* The remainder deals with subcases originating from Seq *)
   fs[FST_EQ_EQUIV] >>
   rfs[] >> res_tac >>
@@ -4352,6 +4437,12 @@ Proof
    (fs [wordSemTheory.evaluate_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",CaseEq"bool",CaseEq"ffi_result"]
     \\ rveq \\ fs [set_var_def,flush_state_def])
+  THEN1 (* ShareInst *)
+   (fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ every_case_tac
+    \\ gvs[]
+    \\ drule share_inst_const
+    \\ gvs[] )
   \\ fs [wordSemTheory.evaluate_def] \\ rveq
   \\ fs [CaseEq"option",CaseEq"word_loc",CaseEq"bool",CaseEq"list",
          CaseEq"stack_frame",pair_case_eq,PULL_EXISTS,CaseEq"wordSem$result"]
@@ -4491,6 +4582,10 @@ Proof
     >- (EVERY_CASE_TAC >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> rw[] >> fs[] >> fs[ffiTheory.call_FFI_def] >>
         EVERY_CASE_TAC >> rw[] >> fs[state_component_equality])
+    >- (every_case_tac >>
+      strip_tac >>
+      drule share_inst_const >>
+      simp[] )
     >- (fs[no_install_def, dec_clock_def, call_env_def, flush_state_def, push_env_def,
         cut_env_def, pop_env_def, set_var_def] >>
         EVERY_CASE_TAC >> rw[] >> fs[] >> metis_tac[no_install_find_code])
