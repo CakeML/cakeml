@@ -31,9 +31,9 @@ Datatype:
     | EqualT | TickT | LparT | RparT | HashT | StarT | PlusT | CommaT | MinusT
     | LessT | GreaterT | LbrackT | RbrackT | LbraceT | RbraceT | QuestionT
     | SemiT | SemisT | BarT | OrelseT | AmpT | AndalsoT | NeqT | MinusFT
-    | RarrowT | LarrowT | DotT | DotsT | EscapeT | ColonT | ColonsT | UpdateT
-    | SealT | AnyT | BtickT | TildeT | LqbraceT | RqbraceT | LqbrackT | RqbrackT
-    | RrbrackT | LlbrackT | RlbrackT
+    | RarrowT | LarrowT | DotT | DotsT | DotParenT | DotBrackT | DotBraceT
+    | EscapeT | ColonT | ColonsT | UpdateT | SealT | AnyT | BtickT | TildeT
+    | LqbraceT | RqbraceT | LqbrackT | RqbrackT | RrbrackT | LlbrackT | RlbrackT
     (* special HOL Light tokens (all infixes): *)
     | FuncompT | F_FT
     | THEN_T | THENC_T | THENL_T | THEN_TCL_T
@@ -482,6 +482,8 @@ Definition next_sym_def:
       case skip_comment (TL cs) 0 (next_loc 2 loc) of
       | NONE => SOME (ErrorS, Locs loc (next_loc 2 loc), "")
       | SOME (rest, loc') => next_sym rest loc'
+    else if c = #"." ∧ cs ≠ "" ∧ MEM (HD cs) "([{" then
+      SOME (OtherS (TAKE 2 (c::cs)), Locs loc (next_loc 2 loc), TL cs)
     else if isDelim c then
       SOME (OtherS [c], Locs loc loc, cs)
     else if isSym c then
@@ -610,6 +612,9 @@ Definition get_token_def:
     if s = "<-" then LarrowT else
     if s = "." then DotT else
     if s = ".." then DotsT else
+    if s = ".(" then DotParenT else
+    if s = ".[" then DotBrackT else
+    if s = ".{" then DotBraceT else
     if s = ".~" then EscapeT else
     if s = ":" then ColonT else
     if s = "::" then ColonsT else
