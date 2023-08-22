@@ -33,6 +33,7 @@ Theorem compile_state_const[simp]:
    (compile_state clk c s).fp_regs = s.fp_regs ∧
    (compile_state clk c s).memory = s.memory ∧
    (compile_state clk c s).mdomain = s.mdomain ∧
+   (compile_state clk c s).sh_mdomain = s.sh_mdomain ∧
    (compile_state clk c s).be = s.be ∧
    (compile_state clk c s).gc_fun = s.gc_fun ∧
    (compile_state clk c s).handler = s.handler /\
@@ -268,7 +269,14 @@ Proof
     fs[shift_seq_def] \\
     qexists_tac`0` \\
     simp[compile_state_def,state_component_equality,FUN_EQ_THM,map_union,map_fromAList,map_insert] \\
-    rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\ simp[FUN_EQ_THM,FORALL_PROD] \\ NO_TAC) \\
+    rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\ simp[FUN_EQ_THM,FORALL_PROD] \\ NO_TAC)
+  >~ [`share_inst`]
+  >- ( (* ShareInst *)
+    gvs[DefnBase.one_line_ify NONE share_inst_def,
+      sh_mem_store_def,sh_mem_store_byte_def,
+      sh_mem_load_def,sh_mem_load_byte_def,
+      DefnBase.one_line_ify NONE sh_mem_set_var_def,AllCaseEqs()] \\
+   simp[compile_state_def,state_component_equality,FUN_EQ_THM,map_union,map_fromAList,map_insert] ) \\
   TOP_CASE_TAC \\ fs[] \\
   TOP_CASE_TAC \\ fs[] \\
   qpat_x_assum`_ = (res,rst)`mp_tac \\

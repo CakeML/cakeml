@@ -761,6 +761,7 @@ Theorem pop_env_code_gc_fun_clock:
   r.clock = x.clock ∧
   r.be = x.be ∧
   r.mdomain = x.mdomain ∧
+  r.sh_mdomain = x.sh_mdomain ∧
   r.compile = x.compile ∧
   r.compile_oracle = x.compile_oracle ∧
   r.stack_limit = x.stack_limit ∧
@@ -1135,6 +1136,7 @@ Theorem alloc_code_gc_fun_const:
   t.data_buffer = s.data_buffer /\
   t.gc_fun = s.gc_fun /\
   t.mdomain = s.mdomain /\
+  t.sh_mdomain = s.sh_mdomain /\
   t.be = s.be ∧
   t.compile = s.compile ∧
   t.compile_oracle = s.compile_oracle ∧
@@ -1149,7 +1151,7 @@ QED
 
 val inst_code_gc_fun_const = Q.prove(`
   inst i s = SOME t ⇒
-  s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.mdomain = t.mdomain /\ s.be = t.be ∧ s.compile = t.compile ∧ s.stack_size = t.stack_size ∧ s.stack_limit = t.stack_limit`,
+  s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.sh_mdomain = t.sh_mdomain /\ s.mdomain = t.mdomain /\ s.be = t.be ∧ s.compile = t.compile ∧ s.stack_size = t.stack_size ∧ s.stack_limit = t.stack_limit`,
   Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def,set_fp_var_def]);
 
 Theorem evaluate_consts:
@@ -1157,6 +1159,7 @@ Theorem evaluate_consts:
      evaluate (xs,s1) = (vs,s2) ==>
      s1.gc_fun = s2.gc_fun /\
      s1.mdomain = s2.mdomain /\
+     s1.sh_mdomain = s2.sh_mdomain /\
      s1.be = s2.be ∧
      s1.compile = s2.compile ∧
 (*     s1.stack_size = s2.stack_size ∧*)
