@@ -14,7 +14,7 @@ val _ = new_theory "target_itreeEquiv"
 (*********** evaluate' **********)
 
 Definition evaluate'_def:
-  evaluate' mc (ffi:'ffi ffi_state) (k:num) (ms:'a) =
+  evaluate' (mc:('b,'a,'c) machine_config) (ffi:'ffi ffi_state) (k:num) (ms:'a) =
     if k = 0 then (TimeOut,mc,ms,ffi)
     else
       if mc.target.get_pc ms ∈ mc.prog_addresses DIFF set mc.ffi_entry_pcs then
@@ -53,13 +53,14 @@ Definition evaluate'_def:
             case a of
             | Addr r off =>
             let ad = mc.target.get_reg ms r + off in
-              (if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
+              (if (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T)
+                  ∧ (ad IN mc.shared_addresses) /\
                 is_valid_mapped_read (mc.target.get_pc ms) nb a reg pc'
                   mc.target ms mc.prog_addresses
               then
                 (case call_FFI ffi (EL ffi_index mc.ffi_names)
                   [nb]
-                  (addr2w8list ad) of
+                  (word_to_bytes ad F) of
                  | FFI_final outcome => (Halt (FFI_outcome outcome),mc,ms,ffi)
                  | FFI_return new_ffi new_bytes =>
                     let (ms1,new_oracle) = apply_oracle mc.ffi_interfer
@@ -72,14 +73,17 @@ Definition evaluate'_def:
             case a of
             | Addr r off =>
             let ad = (mc.target.get_reg ms r) + off in
-              (if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
+               (if (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T)
+                  /\ (ad IN mc.shared_addresses) /\
                 is_valid_mapped_write (mc.target.get_pc ms) nb a reg pc'
                   mc.target ms mc.prog_addresses
               then
                 (case call_FFI ffi (EL ffi_index mc.ffi_names)
                   [nb]
-                  (w2wlist_le (mc.target.get_reg ms reg) (w2n nb)
-                    ++ (addr2w8list ad)) of
+                  ((let w = mc.target.get_reg ms reg in
+                      if nb = 0w then word_to_bytes w F
+                      else word_to_bytes_aux (w2n nb) w F)
+                   ++ (word_to_bytes ad F)) of
                  | FFI_final outcome => (Halt (FFI_outcome outcome),mc,ms,ffi)
                  | FFI_return new_ffi new_bytes =>
                     let (ms1,new_oracle) = apply_oracle mc.ffi_interfer
@@ -255,7 +259,8 @@ Proof
 QED
 
 Theorem evaluate'_1_ffi_changed:
-  evaluate' mc (ffi:'ffi ffi_state) 1 ms = (res,mc',ms',ffi') ∧ ffi' ≠ ffi ⇔
+  evaluate' (mc:('b,'a,'c) machine_config) (ffi:'ffi ffi_state) 1 ms
+  = (res,mc',ms',ffi') ∧ ffi' ≠ ffi ⇔
     res = TimeOut ∧
     mc.target.get_pc ms ∉ (mc.prog_addresses DIFF set mc.ffi_entry_pcs) ∧
     mc.target.get_pc ms ≠ mc.halt_pc ∧
@@ -268,21 +273,25 @@ Theorem evaluate'_1_ffi_changed:
         ?nb ad r off reg pc'.
           mc.mmio_info n = (nb, Addr r off,reg,pc') /\
           ad = mc.target.get_reg ms r + off /\
-          w2n ad MOD w2n nb = 0 /\ ad IN mc.shared_addresses /\
+          (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
+          ad IN mc.shared_addresses /\
           is_valid_mapped_read (mc.target.get_pc ms) nb (Addr r off) reg
             pc' mc.target ms mc.prog_addresses /\
           ws1 = [nb] /\
-          ws2 = addr2w8list ad ) \/
+          ws2 = word_to_bytes ad F) \/
          (EL n mc.ffi_names = "MappedWrite" /\
          ?nb ad r off reg pc'.
            mc.mmio_info n = (nb,Addr r off,reg,pc') /\
            ad = mc.target.get_reg ms r + off /\
-           w2n ad MOD w2n nb = 0 /\ ad IN mc.shared_addresses /\
+           (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
+           ad IN mc.shared_addresses /\
            is_valid_mapped_write (mc.target.get_pc ms) nb (Addr r off) reg
              pc' mc.target ms mc.prog_addresses /\
            ws1 = [nb] /\
-           ws2 = w2wlist_le (mc.target.get_reg ms reg) (w2n nb) ++
-            addr2w8list ad ) \/
+           ws2 = (let w = mc.target.get_reg ms reg in
+                      if nb = 0w then word_to_bytes w F
+                      else word_to_bytes_aux (w2n nb) w F) ++
+                 word_to_bytes ad F) \/
          (EL n mc.ffi_names ≠ "MappedRead" /\
           EL n mc.ffi_names ≠ "MappedWrite" /\
           EL n mc.ffi_names ≠ "" /\
@@ -302,7 +311,8 @@ Proof
 QED
 
 Theorem evaluate'_1_ffi_failed:
-  evaluate' mc (ffi:'ffi ffi_state) 1 ms = (Halt (FFI_outcome outcome),mc',ms',ffi') ⇔
+  evaluate' (mc:('b,'a,'c) machine_config) (ffi:'ffi ffi_state) 1 ms
+  = (Halt (FFI_outcome outcome),mc',ms',ffi') ⇔
     mc.target.get_pc ms ∉ (mc.prog_addresses DIFF set mc.ffi_entry_pcs) ∧
     mc.target.get_pc ms ≠ mc.halt_pc ∧
     mc.target.get_pc ms ≠ mc.ccache_pc ∧
@@ -314,21 +324,25 @@ Theorem evaluate'_1_ffi_failed:
         ?nb ad r off reg pc'.
           mc.mmio_info n = (nb, Addr r off,reg,pc') /\
           ad = mc.target.get_reg ms r + off /\
-          w2n ad MOD w2n nb = 0 /\ ad IN mc.shared_addresses /\
+          (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
+          ad IN mc.shared_addresses /\
           is_valid_mapped_read (mc.target.get_pc ms) nb (Addr r off) reg
             pc' mc.target ms mc.prog_addresses /\
           ws1 = [nb] /\
-          ws2 = addr2w8list ad ) \/
+          ws2 = word_to_bytes ad F) \/
          (EL n mc.ffi_names = "MappedWrite" /\
          ?nb ad r off reg pc'.
            mc.mmio_info n = (nb,Addr r off,reg,pc') /\
            ad = mc.target.get_reg ms r + off /\
-           w2n ad MOD w2n nb = 0 /\ ad IN mc.shared_addresses /\
+           (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
+           ad IN mc.shared_addresses /\
            is_valid_mapped_write (mc.target.get_pc ms) nb (Addr r off) reg
              pc' mc.target ms mc.prog_addresses /\
            ws1 = [nb] /\
-           ws2 = w2wlist_le (mc.target.get_reg ms reg) (w2n nb) ++
-            addr2w8list ad ) \/
+           ws2 = (let w = mc.target.get_reg ms reg in
+                      if nb = 0w then word_to_bytes w F
+                      else word_to_bytes_aux (w2n nb) w F) ++
+            word_to_bytes ad F) \/
          (EL n mc.ffi_names ≠ "MappedRead" /\
           EL n mc.ffi_names ≠ "MappedWrite" /\
           EL n mc.ffi_names ≠ "" /\

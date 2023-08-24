@@ -15,7 +15,7 @@ Datatype:
 End
 
 Definition eval_to_def:
-  eval_to k mc (ms:'a) =
+  eval_to k (mc:('b,'a,'c) machine_config) (ms:'a) =
     if k = 0n then Div'
     else
       if mc.target.get_pc ms IN (mc.prog_addresses DIFF (set mc.ffi_entry_pcs)) then
@@ -54,12 +54,13 @@ Definition eval_to_def:
             case a of
             | Addr r off =>
             let ad = mc.target.get_reg ms r + off in
-              if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
+              if (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T)
+                  ∧ (ad IN mc.shared_addresses) /\
                 is_valid_mapped_read (mc.target.get_pc ms) nb a reg pc'
                   mc.target ms mc.prog_addresses
               then
                 let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
-                  Vis' ("MappedRead",[nb],addr2w8list ad)
+                  Vis' ("MappedRead",[nb],word_to_bytes ad F)
                     (\new_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms)))
               else Ret' Error
           else if EL ffi_index mc.ffi_names = "MappedWrite" then
@@ -67,15 +68,18 @@ Definition eval_to_def:
             case a of
             | Addr r off =>
             let ad = (mc.target.get_reg ms r) + off in
-              if (w2n ad MOD w2n nb) = 0 /\ (ad IN mc.shared_addresses) /\
+              if (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T)
+                  ∧ (ad IN mc.shared_addresses) /\
                 is_valid_mapped_write (mc.target.get_pc ms) nb a reg pc'
                   mc.target ms mc.prog_addresses
               then
                 let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
                   Vis'
                     ("MappedWrite",[nb],
-                      (w2wlist_le (mc.target.get_reg ms reg) (w2n nb) ++
-                        (addr2w8list ad)))
+                      ((let w = mc.target.get_reg ms reg in
+                      if nb = 0w then word_to_bytes w F
+                      else word_to_bytes_aux (w2n nb) w F) ++
+                        (word_to_bytes ad F)))
                     (\new_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms)))
               else Ret' Error
             else
