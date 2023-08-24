@@ -834,6 +834,7 @@ Datatype:
   | Dompar npbc subst
   | StoreOrderpar mlstring
   | CheckedDeletepar num subst
+  | ChangeObjpar ((int # num) list # int)
 End
 
 Definition parse_load_order_def:
@@ -867,34 +868,39 @@ Definition insert_lit_def:
 End
 
 Definition parse_assg_def:
-  (parse_assg f_ns [] acc = SOME (acc,f_ns)) ∧
+  (parse_assg f_ns [] acc = SOME (acc,NONE,f_ns)) ∧
   (parse_assg f_ns (INL s::ss) acc =
     case parse_lit_num f_ns s of
-      NONE => NONE
+      NONE =>
+        if s = strlit":" then
+          (case ss of [INR i] => SOME (acc,SOME i,f_ns)
+          | _ => NONE)
+        else NONE
     | SOME (l,f_ns') => parse_assg f_ns' ss (insert_lit l acc)) ∧
   (parse_assg f_ns _ acc = NONE)
 End
 
+Definition strip_obju_end_def:
+  (strip_obju_end [] acc = NONE) ∧
+  (strip_obju_end [x] acc =
+    if x = INL(strlit "begin")
+    then
+      SOME (REVERSE acc)
+    else NONE) ∧
+  (strip_obju_end (x::xs) acc =
+    strip_obju_end xs (x::acc))
+End
+
 Definition parse_obj_term_npbc_def:
   parse_obj_term_npbc f_ns rest =
+  case strip_obju_end rest [] of NONE => NONE
+  | SOME rest =>
   case parse_obj_term rest of NONE => NONE
   | SOME (f,c) =>
     (case map_f_ns f_ns f of NONE => NONE
      | SOME (f',f_ns') =>
       case pbc_to_npbc (GreaterEqual,f',0) of
         (f'',n) => SOME ((f'',c-&n),f_ns'))
-End
-
-Definition parse_obju_def:
-  parse_obju f_ns rest =
-  case rest of
-    INR n1::INR n2::INL s::rest =>
-    if n1 ≥ 0 ∧ n2 ≥ 0 ∧ s = strlit":" then
-      case parse_obj_term_npbc f_ns rest of NONE => NONE
-      | SOME (f',f_ns') =>
-        SOME (Done (ChangeObj f'(Num n1) (Num n2)),f_ns')
-    else NONE
-  | _ => NONE
 End
 
 (* Parse the first line of a cstep, sstep supported differently *)
@@ -924,15 +930,46 @@ Definition parse_cstep_head_def:
         | SOME n => SOME (Done (UncheckedDelete n),f_ns))
     else if r = INL (strlit "soli") ∨ r = INL (strlit "sol") then
       case parse_assg f_ns rs LN of NONE => NONE
-      | SOME (assg,f_ns') =>
+      | SOME (assg,ov,f_ns') =>
         let b = (r = INL( strlit "soli")) in
-          SOME (Done (Obj assg b NONE),f_ns')
+          SOME (Done (Obj assg b ov),f_ns')
     else if r = INL (strlit"obju") then
-      parse_obju f_ns rs
+      case parse_obj_term_npbc f_ns rs of NONE => NONE
+      | SOME (f',f_ns') =>
+      SOME (ChangeObjpar f', f_ns')
     else if r = INL (strlit "pre_order") then
       case rs of [INL n] => SOME (StoreOrderpar n, f_ns)
       | _ => NONE
     else NONE
+End
+
+(* zero-indexed *)
+Definition mk_obju_aux_def:
+  mk_obju_aux (a,n1,p1) (b,n2,p2) =
+  if a = 0 ∧ b = 1 then SOME((p1,n1),(p2,n2))
+  else if a = 1 ∧ b = 0 then SOME((p2,n2),(p1,n1))
+  else NONE
+End
+
+(* Strip all (NONE,[NoOp]) from the proofs
+  -- these are how comment lines get parsed *)
+Definition strip_noop_def:
+  (strip_noop [] = []) ∧
+  (strip_noop (x::xs) =
+    case x of (NONE,ls) =>
+      if EVERY (λx. x = NoOp) ls then strip_noop xs
+      else x::(strip_noop xs)
+    | _ => x:: strip_noop xs)
+End
+
+Definition mk_obju_def:
+  mk_obju (res : num option) (pf:(((num + num) # num) option # lstep list) list) =
+  case res of SOME u => NONE
+  | NONE =>
+    (case strip_noop pf of
+      [ (SOME (INR a,n1), p1) ; (SOME (INR b,n2),p2)] =>
+        mk_obju_aux (a,n1,p1) (b,n2,p2)
+    | _ => NONE)
 End
 
 Definition parse_cstep_def:
@@ -959,6 +996,14 @@ Definition parse_cstep_def:
         (case parse_pre_order rest of NONE => NONE
         | SOME (spo,ws,pf,rest) =>
           SOME (INR (StoreOrder name spo ws pf), f_ns'',rest))
+      | SOME (ChangeObjpar f, f_ns'') =>
+        (case parse_red_aux f_ns'' rest [] of
+          NONE => NONE
+        | SOME (res,pf,f_ns'',rest) =>
+          (case mk_obju res pf of NONE => NONE
+          | SOME(pfn1,pfn2) =>
+            SOME (INR (ChangeObj f pfn1 pfn2), f_ns'', rest))
+        )
     )
 End
 
@@ -1100,6 +1145,9 @@ Termination
   >-
     (drule parse_red_aux_length>>simp[])
   >-
+    cheat
+  >-
+    (drule parse_red_aux_length>>simp[])
   >-
     (drule parse_red_aux_length>>simp[])
 End
@@ -1142,8 +1190,6 @@ End
 
   val pbf = rconc (EVAL ``(THE (parse_pbf ^(pbfraw)))``);
 
-  val pbff = rconc (EVAL ``build_fml 1 (full_normalise (SND (THE (parse_pbf ^(pbfraw)))))``);
-
   val pbpraw = ``[
   strlit"pseudo-Boolean proof version 2.0";
   strlit"f 7";
@@ -1152,6 +1198,16 @@ End
   strlit"pol 9 2 d";
   strlit"red 1 x1 >= 1 ; ; begin";
   strlit"end 500";
+  strlit"obju 1 x1 2 ; begin";
+  strlit" * autoproven: found in database";
+  strlit" proofgoal #1";
+  strlit" pol 18 16 +";
+  strlit" end 19";
+  strlit" * autoproven: found in database";
+  strlit" proofgoal #2";
+  strlit" pol 20 17 +";
+  strlit" end 21";
+  strlit"end";
   strlit"red 1 x1 >= 1 ; x1 -> x3 x3 -> x5 x5 -> x1 x2 -> x4 x4 -> x6 x6 -> x2 ; begin";
   strlit"e 11 1 ~x1 >= 1 ;";
   strlit"proofgoal #1";

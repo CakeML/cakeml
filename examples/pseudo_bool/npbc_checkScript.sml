@@ -23,7 +23,7 @@ val _ = numLib.prefer_num();
          Includes redundancy, and redundancy subproofs can only use lsteps
 
   cstep: These steps manipulate the core
-         Includes objective updates, core transfer, checked deletion, dominance (TODO)
+         Includes objective updates, core transfer, checked deletion, dominance
 *)
 
 (* TODO: move *)
@@ -1347,8 +1347,9 @@ Datatype:
   | UncheckedDelete (num list)
   | Sstep sstep
   | Obj (bool spt) bool (int option)
-  | ChangeObj ((int # var) list # int) num num
-    (* Change the objective using the two constraint IDs *)
+  | ChangeObj ((int # var) list # int)
+      (lstep list # num) (lstep list # num)
+    (* Change the objective using the two core proofs *)
 End
 
 Definition hide_def:
@@ -1608,19 +1609,26 @@ Proof
   fs[satisfies_npbc_model_bounding]
 QED
 
-(* Note: this will be changed
 Definition check_change_obj_def:
-  check_change_obj fml chk obj ord fc' n1 n2 ⇔
-  case obj of NONE => F
+  check_change_obj fml id obj fc' (pf1,n1) (pf2,n2) ⇔
+  case obj of NONE => NONE
   | SOME fc =>
-    case (lookup n1 fml, lookup n2 fml) of
-      (SOME c1, SOME c2) =>
-      (chk ∨ IS_SOME ord ⇒ lookup n1 core = SOME ()) ∧
-      imp c1 (model_bounding fc fc') ∧
-      imp c2 (model_bounding fc' fc)
-    | _ => F
+    let mb1 = model_bounding fc fc' in
+    let (fml_not_c1,id1) = insert_fml T fml id (not mb1) in
+    (case check_lsteps pf1 T fml_not_c1 id1 of NONE => NONE
+    | SOME (fml',id') =>
+      if check_contradiction_fml T fml' n1
+      then
+        let mb2 = model_bounding fc' fc in
+        let (fml_not_c2,id2) = insert_fml T fml id' (not mb2) in
+        case check_lsteps pf2 T fml_not_c2 id2 of NONE => NONE
+        | SOME (fml',id') =>
+          if check_contradiction_fml T fml' n2
+          then
+            SOME id'
+          else NONE
+      else NONE)
 End
- *)
 
 Definition update_bound_def:
   update_bound chk bound dbound new =
@@ -1646,7 +1654,6 @@ Definition all_core_def:
   EVERY (λ(n,(c,b)). b) (toAList fml)
 End
 
-(* TODO: ChangeObj, dbound behavior *)
 Definition check_cstep_def:
   (check_cstep cstep
     (fml:pbf) (id:num)
@@ -1739,13 +1746,11 @@ Definition check_cstep_def:
           chk, obj, bound', dbound', ord, orders)
       else
         SOME (fml, id, chk, obj, bound', dbound', ord, orders))
-  | ChangeObj fc' n1 n2 =>
-    NONE
-    (*
-    if check_change_obj fml core chk obj ord fc' n1 n2 then
+  | ChangeObj fc' pfn1 pfn2 =>
+    case check_change_obj fml id obj fc' pfn1 pfn2 of NONE => NONE
+    | SOME id' =>
       SOME (
-      fml, id, core, chk, SOME fc', bound, ord, orders)
-    else NONE*)
+        fml, id', chk, SOME fc', bound, dbound, ord, orders)
   )
 End
 
@@ -1757,50 +1762,6 @@ Definition valid_conf_def:
       (core_only_fml F fml))
 End
 
-(*
-Theorem valid_conf_FOLDL_delete:
-  valid_conf ord obj core fml ∧
-  EVERY (λid. id ∉ domain core) l ⇒
-  valid_conf ord obj core (FOLDL (λa b. delete b a) fml l)
-Proof
-  strip_tac>>
-  fs[valid_conf_def,domain_FOLDL_delete]>>
-  CONJ_ASM1_TAC >- (
-    fs[SUBSET_DEF,FILTER_EQ_NIL,EVERY_MEM,domain_lookup]>>
-    metis_tac[option_CLAUSES])>>
-  rw[]>>gs[]>>
-  DEP_REWRITE_TAC [range_coref_FOLDL_delete]>>
-  fs[sat_obj_po_def]>>
-  rw[]>>first_x_assum drule>>
-  rw[]>>
-  qexists_tac`w'`>>
-  fs[satisfies_def]>>
-  metis_tac[range_FOLDL_delete,SUBSET_DEF]
-QED
-
-Theorem valid_conf_delete:
-  valid_conf ord obj core fml ∧
-  id ∉ domain core ⇒
-  valid_conf ord obj core (delete id fml)
-Proof
-  rw[]>>drule valid_conf_FOLDL_delete>>
-  disch_then(qspec_then`[id]` mp_tac)>>simp[]
-QED
-
-Theorem valid_conf_del_core:
-  OPTION_ALL good_spo ord ∧
-  valid_conf ord obj core fml ∧
-  domain coreS ⊆ domain core ∧
-  sat_obj_po ord obj (range (coref coreS fml)) (range (coref core fml))
-  ⇒
-  valid_conf ord obj coreS fml
-Proof
-  rw[valid_conf_def]
-  >- fs[SUBSET_DEF]>>
-  metis_tac[sat_obj_po_trans]
-QED
-*)
-
 Theorem satisfiable_SUBSET:
   Y ⊆ X ⇒
   (satisfiable X ⇒ satisfiable Y)
@@ -1808,41 +1769,6 @@ Proof
   rw[satisfiable_def]>>
   metis_tac[satisfies_SUBSET]
 QED
-
-(*
-Theorem delete_coref:
-  delete h (coref core fml) =
-  coref (delete h core) fml
-Proof
-  rw[coref_def]>>
-  DEP_REWRITE_TAC[spt_eq_thm]>>
-  simp[lookup_delete,lookup_inter]>>rw[]>>
-  fs[AllCaseEqs()]
-  >- (
-    match_mp_tac wf_delete>>
-    simp[])>>
-  metis_tac[option_CLAUSES]
-QED
-
-Theorem range_FOLDL_delete_coref:
-  ∀ls core.
-  range (FOLDL (\a b. delete b a) (coref core fml) ls) =
-  range (coref (FOLDL (\a b. delete b a) core ls) fml)
-Proof
-  Induct>>rw[]>>
-  simp[delete_coref]
-QED
-
-Theorem range_coref_SUBSET_core:
-  domain core ⊆ domain core' ⇒
-  range (coref core fml) ⊆
-  range (coref core' fml)
-Proof
-  rw[coref_def,SUBSET_DEF,range_def]>>
-  gvs[lookup_inter,domain_lookup,AllCaseEqs()]>>
-  metis_tac[]
-QED
-*)
 
 (* An assignment satisfying C with objective value ≤ v *)
 Definition sat_obj_le_def:
@@ -1908,18 +1834,6 @@ Proof
   rw[sat_obj_po_def]>>
   metis_tac[satisfies_SUBSET]
 QED
-
-(*
-Theorem coref_fromAList_fml:
-  range (coref (fromAList (MAP (λ(x,y). (x,())) (toAList fml))) fml) =
-  range fml
-Proof
-  simp[range_def,lookup_inter,coref_def,lookup_fromAList,ALOOKUP_MAP,EXTENSION,ALOOKUP_toAList]>>
-  rw[]>>eq_tac>>rw[]>>simp[PULL_EXISTS]>>
-  fs[AllCaseEqs()]>>
-  metis_tac[]
-QED
-*)
 
 Theorem imp_obj_SUBSET:
   B ⊆ A ⇒
@@ -2525,45 +2439,78 @@ Proof
     fs[GSYM range_mk_core_fml,range_toAList]>>
     asm_exists_tac>>
     simp[])
-  (* TODO: ChangeObj
   >- (
-    strip_tac>>simp[]>>
-    IF_CASES_TAC>>fs[check_change_obj_def]>>
+    (* ChangeObj *)
+    strip_tac>>
+    `∃pf1 n1 pf2 n2. p0 = (pf1,n1) ∧ p1 = (pf2,n2)` by
+      metis_tac[PAIR]>>
+    rw[]>>
+    simp[check_change_obj_def,insert_fml_def]>>
     every_case_tac>>fs[]>>
-    drule imp_model_bounding>>
-    qpat_x_assum`imp _ _` mp_tac>>
-    drule imp_model_bounding>>
-    ntac 3 strip_tac>>
+    rename1`model_bounding fnew fold`>>
+    qmatch_asmsub_abbrev_tac`check_lsteps pf1 _ fml1 id1 = _`>>
+    `id_ok fml1 id1` by
+      (unabbrev_all_tac>>fs[id_ok_def])>>
+    drule (CONJUNCT2 check_lstep_correct)>>
+    disch_then(qspecl_then [`pf1`,`T`] mp_tac)>>simp[]>>
+    strip_tac>>
+    drule check_contradiction_fml_unsat>> strip_tac>>
+    `core_only_fml T fml ⊨ {model_bounding fold fnew}` by
+      (fs[sat_implies_def,Abbr`fml1`,unsatisfiable_def,satisfiable_def]>>
+      ntac 2 (pop_assum mp_tac)>>
+      DEP_REWRITE_TAC[core_only_fml_insert]>>fs[id_ok_def]>>
+      simp[not_thm]>>
+      metis_tac[])>>
+    qmatch_asmsub_abbrev_tac`check_lsteps pf2 _ fml2 id2 = _`>>
+    `id_ok fml2 id2` by
+      (unabbrev_all_tac>>fs[id_ok_def])>>
+    drule (CONJUNCT2 check_lstep_correct)>>
+    disch_then(qspecl_then [`pf2`,`T`] mp_tac)>>simp[]>>
+    strip_tac>>
+    qpat_x_assum`_ T _ n1` kall_tac>>
+    drule check_contradiction_fml_unsat>> strip_tac>>
+    `core_only_fml T fml ⊨ {model_bounding fnew fold}` by
+      (fs[sat_implies_def,Abbr`fml2`,unsatisfiable_def,satisfiable_def]>>
+      ntac 2 (pop_assum mp_tac)>>
+      DEP_REWRITE_TAC[core_only_fml_insert]>>
+      unabbrev_all_tac>>
+      fs[id_ok_def]>>
+      simp[not_thm]>>
+      metis_tac[])>>
+    `∀w.
+      satisfies w (core_only_fml T fml) ⇒
+      eval_obj (SOME fold) w =
+      eval_obj (SOME fnew) w` by
+      (
+      fs[sat_implies_def]>>
+      rw[]>>
+      rpt(first_x_assum drule)>>
+      simp[satisfies_npbc_model_bounding]>>
+      intLib.ARITH_TAC)>>
+    CONJ_TAC >-
+      (unabbrev_all_tac>>fs[])>>
+    CONJ_TAC >-
+      (unabbrev_all_tac>>fs[id_ok_def])>>
     CONJ_TAC >- (
-      fs[valid_conf_def,sat_obj_po_def]>>strip_tac>>gs[]>>
-      rw[]>>first_x_assum drule>>rw[]>>
+      fs[sat_implies_def,valid_conf_def,sat_obj_po_def]>>
+      strip_tac>>gs[]>>
+      rw[]>>
+      last_x_assum drule>>
+      rw[]>>
       asm_exists_tac>>simp[]>>
-      fs[satisfies_def,range_def]>>
       first_x_assum(qspec_then`w'` mp_tac)>>
-      impl_tac >-
-        metis_tac[]>>
-      last_x_assum(qspec_then`w` mp_tac)>>
       impl_tac >- (
-        first_x_assum match_mp_tac>>
-        metis_tac[lookup_coref_2])>>
+        fs[core_only_fml_def,satisfies_def]>>
+        metis_tac[])>>
       intLib.ARITH_TAC)>>
     CONJ_TAC >- (
       rw[bimp_obj_def,imp_obj_def,sat_obj_le_def]>>
       asm_exists_tac>>simp[]>>
-      first_x_assum(qspec_then`w` mp_tac)>>
-      fs[satisfies_def,range_def]>>
-      impl_tac >-
-        metis_tac[]>>
-      intLib.ARITH_TAC)>>
+      fs[satisfies_def,core_only_fml_def]>>
+      metis_tac[])>>
     fs[valid_conf_def]>>
     rw[bimp_obj_def,imp_obj_def,sat_obj_le_def]>>
-    asm_exists_tac>>simp[]>>
-    last_x_assum(qspec_then`w` mp_tac)>>
-    fs[satisfies_def,range_def]>>
-    impl_tac >- (
-      first_x_assum match_mp_tac>>
-      metis_tac[lookup_coref_2])>>
-    intLib.ARITH_TAC) *)
+    asm_exists_tac>>simp[])
 QED
 
 Definition check_csteps_def:
