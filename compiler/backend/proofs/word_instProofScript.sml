@@ -633,6 +633,9 @@ val locals_rm = Q.prove(`
   D with locals := D.locals = D`,
   full_simp_tac(srw_ss())[state_component_equality]);
 
+Theorem inst_select_exp_Add_lemma:
+  evaluate (inst_select_exp c temp temp (Op
+
 (*  Main semantics theorem for inst selection:
     The inst-selected program gives same result but
     with possibly more locals used
@@ -651,6 +654,7 @@ Theorem inst_select_thm:
 Proof
   ho_match_mp_tac inst_select_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[inst_select_def,locals_rel_evaluate_thm]
+  >~ [`ShareInst`]
   >- (* Assign *)
     (full_simp_tac(srw_ss())[evaluate_def]>>last_x_assum mp_tac>>FULL_CASE_TAC>>srw_tac[][]>>
     full_simp_tac(srw_ss())[every_var_def]>>
@@ -684,7 +688,7 @@ Proof
     first_assum(qspec_then`temp` assume_tac)>>full_simp_tac(srw_ss())[set_store_def]>>
     full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
     srw_tac[][]>>`x' ≠ temp` by DECIDE_TAC>>metis_tac[])
-  >-(*Set has optimizations*)
+  >-(*Store has optimizations*)
     (full_simp_tac(srw_ss())[evaluate_def]>>last_x_assum mp_tac>>
     ntac 3 FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>strip_tac>>
     qpat_abbrev_tac`expr = flatten_exp (pull_exp exp)`>>
@@ -791,6 +795,70 @@ Proof
     ntac 2 (pop_assum kall_tac)>>
     pop_assum(qspec_then`loc` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
     simp[state_component_equality])
+  >-
+    ( (* TODO: ShareInst *) (* Assign/Store/Set *)
+    gvs[evaluate_def,LET_THM,every_var_def,AllCaseEqs(),
+      DefnBase.one_line_ify NONE share_inst_def,
+      sh_mem_store_def,sh_mem_store_byte_def,
+      sh_mem_load_def,sh_mem_load_byte_def,
+      DefnBase.one_line_ify NONE sh_mem_set_var_def] >>
+    qpat_abbrev_tac`expr = flatten_exp (pull_exp exp)`>>
+    Cases_on`∃w exp'. expr = Op Add [exp';Const w]` >>
+    gvs[]
+    >- (
+      IF_CASES_TAC
+      >- (
+        imp_res_tac pull_exp_every_var_exp>>
+        imp_res_tac pull_exp_ok>>
+        imp_res_tac flatten_exp_ok>>
+        imp_res_tac flatten_exp_every_var_exp>>
+        qspec_then `pull_exp exp` assume_tac flatten_exp_binary_branch_exp >>
+        gvs[binary_branch_exp_def] >>
+        drule inst_select_exp_thm >>
+        gvs[every_var_exp_def] >>
+        ntac 2 (disch_then drule) >>
+        gvs[word_exp_def,the_words_def,AllCaseEqs()] >>
+        disch_then $ qspecl_then [`c`,`temp`] assume_tac >>
+        gvs[AllCaseEqs(),evaluate_def,share_inst_def,sh_mem_load_def] >>
+        gvs[AllCaseEqs(),DefnBase.one_line_ify NONE sh_mem_set_var_def,
+          set_var_def,locals_rel_def,word_exp_def,the_words_def,word_op_def]>>
+        first_assum $ qspec_then `temp` (assume_tac o SIMP_RULE(srw_ss())[]) >>
+        gvs[state_component_equality] >>
+        rpt strip_tac >>
+        first_x_assum $ qspec_then `x'` assume_tac >>
+        gvs[lookup_insert]
+      ) >>
+      imp_res_tac pull_exp_every_var_exp>>
+      imp_res_tac pull_exp_ok>>
+      imp_res_tac flatten_exp_ok>>
+      imp_res_tac flatten_exp_every_var_exp>>
+      qspec_then `pull_exp exp` assume_tac flatten_exp_binary_branch_exp >>
+      drule inst_select_exp_thm >>
+      gvs[every_var_exp_def] >>
+      ntac 3 (disch_then drule) >>
+      disch_then $ qspecl_then [`c`,`temp`] assume_tac >>
+      gvs[evaluate_def,share_inst_def,sh_mem_load_def,AllCaseEqs()] >>
+      gvs[AllCaseEqs(),DefnBase.one_line_ify NONE sh_mem_set_var_def,
+        set_var_def,locals_rel_def,word_exp_def,the_words_def,word_op_def] >>
+      first_assum $ qspec_then `temp` (assume_tac o SIMP_RULE(srw_ss())[]) >>
+      gvs[state_component_equality] >>
+      rpt strip_tac >>
+      first_x_assum $ qspec_then `x'` assume_tac >>
+      gvs[lookup_insert]
+    )
+    gvs[]
+    imp_res_tac pull_exp_every_var_exp>>
+    imp_res_tac flatten_exp_every_var_exp>>
+    imp_res_tac pull_exp_ok>>
+    imp_res_tac flatten_exp_ok>>
+    gvs[]>>
+    qspec_then`pull_exp exp` assume_tac flatten_exp_binary_branch_exp>>
+    drule_all inst_select_exp_thm >>
+    rpt strip_tac >>
+    simp[set_var_def] >>
+    Cases_on `flatten_exp (pull_exp exp)` >>
+    gvs[]
+    )
   >-
     (TOP_CASE_TAC>>TRY(IF_CASES_TAC)>>fs[evaluate_def]>>
     qpat_x_assum`A=(res,rst)` mp_tac>>

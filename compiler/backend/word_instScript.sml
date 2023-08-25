@@ -361,7 +361,7 @@ val inst_select_def = Define`
     MustTerminate (inst_select c temp p1)) ∧
   (inst_select c temp (ShareInst op v exp) =
     let exp = (flatten_exp o pull_exp) exp in
-    case exp of
+    dtcase exp of
     | Op Add [exp';Const w] =>
       if addr_offset_ok c w then
         let prog = inst_select_exp c temp temp exp' in
