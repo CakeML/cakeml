@@ -87,6 +87,11 @@ Definition same_outcome_def:
      THE (itree_oracle_outcome or t) = (SOME r)
 End
 
+(* Theorem same_outcome_bind_ret: *)
+(*   ∀s s' r r' ffis t t' f. same_outcome ffis t (SOME r,s) ∧ t = itree_bind t' f ⇒ *)
+(* Proof *)
+(* QED *)
+
 (* Main correspondence *)
 (* Proves soundness: there is always an equivalent behaviour in the itree
  semantics that can be selected using the oracle that produced the behaviour in
@@ -102,6 +107,15 @@ CoInductive ioe_trace_bisim:
    ioe_trace_bisim ffis l1 l2)
 End
 
+Theorem fbs_eval_clock_and_ffi_eq:
+  ∀s e k ffis.
+     eval s e = eval (s with <| clock := k; ffi := ffis |>) e
+Proof
+  recInduct panSemTheory.eval_ind >>
+  rw [panSemTheory.eval_def] >>
+  metis_tac [OPT_MMAP_cong]
+QED
+
 (* NB the choice of state (s) is irrelevant in the itree semantics and is provided only
  for allowing generalisation over every possible Pancake program (stored in state and accessed by an entrypoint). *)
 
@@ -109,22 +123,17 @@ End
 (* Proof *)
 (* QED *)
 
-Theorem fbs_sem_div_eq_itree_lemma:
-  ∀s entry or. semantics (s with ffi := or) entry = Diverge l ⇒
-               ioe_trace_bisim or (itree_oracle_beh or (itree_semantics s entry)) l
-Proof
-  rpt gen_tac >>
-  disch_tac >>
-  (* how to prove objects are in a coinductive relation? *)
-(* prove that the singleton set containing the pair of compared elements is a subset of the relation *)
-(* by showing it satisfies all the rules?*)
-  (* This is one approach taken in the Sangiorgi Coinduction book. *)
-QED
-
-Theorem foo:
-  ∀ffis. IN $ {(ffis,[||],[||])} ffis [||] [||] ⇒ ioe_trace_bisim ffis [||] [||]
-Proof
-QED
+(* Theorem fbs_sem_div_eq_itree_lemma: *)
+(*   ∀s entry or. semantics (s with ffi := or) entry = Diverge l ⇒ *)
+(*                ioe_trace_bisim or (itree_oracle_beh or (itree_semantics s entry)) l *)
+(* Proof *)
+(*   rpt gen_tac >> *)
+(*   disch_tac >> *)
+(*   (* how to prove objects are in a coinductive relation? *) *)
+(* (* prove that the singleton set containing the pair of compared elements is a subset of the relation *) *)
+(* (* by showing it satisfies all the rules?*) *)
+(*   (* This is one approach taken in the Sangiorgi Coinduction book. *) *)
+(* QED *)
 
 Theorem itree_semantics_corres:
   same_behaviour or (itree_semantics s entry) (semantics (s with ffi := or) entry)
@@ -156,24 +165,85 @@ Proof
         )
 End
 
-Theorem fbs_eval_clock_and_ffi_eq:
-  ∀s e k ffis.
-     eval s e = eval (s with <| clock := k; ffi := ffis |>) e
-Proof
-  recInduct panSemTheory.eval_ind >>
-  rw [panSemTheory.eval_def] >>
-  metis_tac [OPT_MMAP_cong]
-QED
+(* Theorem itree_mrec_recurse: *)
+(*   (h seed) = Vis (INL seed') k ⇒ *)
+(*   itree_mrec h seed = Tau (itree_mrec (λs. itree_bind (h seed) k) seed') *)
+(* Proof *)
+(*   disch_tac >> *)
+(*   rw [panItreeSemTheory.itree_mrec_def] >> *)
+(*   rw [itreeTauTheory.itree_iter_def] >> *)
+(*   rw [Once itreeTauTheory.itree_unfold] *)
+(* QED *)
+
+(* Triviality foo: *)
+(* Proof *)
+(* QED *)
+
 
 (* Evaluate correspondence *)
 (* Proves partial soundness: if a computation terminates,
 the two semantics produce identical results. *)
 Theorem itree_semantics_evaluate_corr:
   ∀p s s' r k ffis. evaluate (p,s with <| clock := k; ffi := ffis |>) = (SOME r,s') ⇒
-      same_outcome ffis (itree_evaluate p s) (evaluate (p,s with <| clock := k; ffi := ffis |>))
+      same_outcome ffis (itree_evaluate p s) (SOME r,s')
 Proof
   recInduct panSemTheory.evaluate_ind >>
-  rpt strip_tac
+  REVERSE (rpt strip_tac)
+  (* ExtCall *)
+  >- (fs [panSemTheory.evaluate_def] >>
+      fs [CaseEqs ["option"]]
+      >- (rw [panItreeSemTheory.itree_evaluate_def] >>
+          rw [panItreeSemTheory.itree_mrec_def] >>
+          rw [panItreeSemTheory.h_prog_def] >>
+          rw [panItreeSemTheory.h_prog_rule_ext_call_def] >>
+          ‘eval s ptr1 = eval (s with <|clock := k; ffi := ffis|>) ptr1’ by rw [fbs_eval_clock_and_ffi_eq] >>
+          fs [] >>
+          rw [Once itreeTauTheory.itree_unfold] >>
+          rw [same_outcome_def] >>
+          rw [itree_oracle_outcome_def] >>
+          rw [Once LUNFOLD]
+         )
+      >- (full_case_tac >>
+          rw [panItreeSemTheory.itree_evaluate_def] >>
+          rw [panItreeSemTheory.itree_mrec_def] >>
+          rw [panItreeSemTheory.h_prog_def] >>
+          rw [panItreeSemTheory.h_prog_rule_ext_call_def] >>
+          ‘eval s len2 = eval (s with <|clock := k; ffi := ffis|>) len2’ by rw [fbs_eval_clock_and_ffi_eq] >>
+          ‘eval s ptr1 = eval (s with <|clock := k; ffi := ffis|>) ptr1’ by rw [fbs_eval_clock_and_ffi_eq] >>
+          fs [] >>
+          (* STILL NEED TO REDUCE CASE EXPR *)
+        )
+        (* Elim all these cases as at least one eval is NONE *)
+        (* rw [panItreeSemTheory.itree_evaluate_def] >> *)
+        (* rw [same_outcome_def] >> *)
+        (* rw [itree_oracle_outcome_def] >> *)
+        (* rw [panItreeSemTheory.itree_mrec_def] >> *)
+        (* rw [panItreeSemTheory.h_prog_def] >> *)
+        (* rw [panItreeSemTheory.h_prog_rule_ext_call_def] >> *)
+        (* ‘eval s len2 = eval (s with <|clock := k; ffi := ffis|>) len2’ by rw [fbs_eval_clock_and_ffi_eq] >> *)
+        (* ASSUM_LIST (fn thl => ‘eval s len2 = NONE’ by (rw thl)) >> *)
+
+
+        (* EVERY_CASE_TAC >> *)
+        (* rw [Once itreeTauTheory.itree_unfold] >> *)
+        (* rw [same_outcome_def] >> *)
+        (* rw [itree_oracle_outcome_def] >> *)
+        (* rw [Once LUNFOLD] *)
+(* How to reduce a case where every outcome is the same to that outcome? *)
+
+(* >- (EVERY_CASE_TAC >> *)
+(*     rw [panItreeSemTheory.itree_evaluate_def] >> *)
+(*     rw [panItreeSemTheory.itree_mrec_def] >> *)
+(*     rw [panItreeSemTheory.h_prog_def] >> *)
+(*     rw [panItreeSemTheory.h_prog_rule_ext_call_def] >> *)
+(*     ‘eval s ptr1 = eval (s with <|clock := k; ffi := ffis|>) ptr1’ by rw [fbs_eval_clock_and_ffi_eq] >> *)
+(*     POP_ASSUM_LIST (fn thl => ‘eval s ptr1 = NONE’ by (rw thl)) >> *)
+(*     rw [] >> *)
+(*     rw [Once itreeTauTheory.itree_unfold] >> *)
+(*     rw [same_outcome_def] >> *)
+(*     rw [itree_oracle_outcome_def] >> *)
+(*         rw [Once LUNFOLD]) *)
+(* ) *)
   (* Skip *)
   >- (fs [panSemTheory.evaluate_def])
   (* Dec *)
@@ -193,7 +263,7 @@ Proof
           rw [Once LUNFOLD])
       (* eval s e = SOME x *)
       >- (
-         rw [] >>
+            rw [] >>
        )
       )
 QED
