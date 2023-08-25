@@ -1778,18 +1778,18 @@ val strip_term_side = Q.prove(
 val res = translate insert_lit_def;
 val res = translate parse_assg_def;
 val res = translate parse_obj_term_def;
+val res = translate strip_obju_end_def;
 val res = translate parse_obj_term_npbc_def;
-val res = translate parse_obju_def;
-
-val parse_obju_side = Q.prove(
-  `∀x y. parse_obju_side x y <=> T`,
-  simp[fetch "-" "parse_obju_side_def"]>>
-  rw[]>>
-  intLib.ARITH_TAC) |> update_precondition;
 
 val res = translate parse_cstep_head_def;
 
 val PB_PARSE_PAR_TYPE_def = theorem"PB_PARSE_PAR_TYPE_def"
+
+val res = translate mk_obju_aux_def;
+
+val res = translate strip_noop_def;
+
+val res = translate mk_obju_def;
 
 val parse_cstep = process_topdecs`
   fun parse_cstep fns fd lno =
@@ -1811,7 +1811,16 @@ val parse_cstep = process_topdecs`
     | Some (Storeorderpar name, fns'') =>
         (case parse_pre_order fd lno' of
           (spo,(ws,(pf,lno''))) =>
-          (Inr (Storeorder name spo ws pf), (fns'', lno''))))
+          (Inr (Storeorder name spo ws pf), (fns'', lno'')))
+    | Some (Changeobjpar f, fns'') =>
+        (case parse_red_aux fns'' fd lno' [] of
+          (res,(pf,(fns''',lno''))) =>
+          (case mk_obju res pf of
+            None =>
+            raise Fail (format_failure (lno'+1) "failed to parse obj change steps")
+          | Some (pfn1,pfn2) =>
+            (Inr (Changeobj f pfn1 pfn2), (fns''', lno'')))
+        ))
   `|>append_prog
 
 Theorem parse_cstep_spec:
@@ -2002,6 +2011,52 @@ Proof
     rpt xlet_autop>>
     xcon>>xsimpl>>
     simp[SUM_TYPE_def,NPBC_CHECK_CSTEP_TYPE_def]>>
+    unabbrev_all_tac>>simp[forwardFD_o]>>
+    metis_tac[STDIO_INSTREAM_LINES_refl_gc])
+  >- (
+    rpt xlet_autop>>
+    qmatch_goalsub_abbrev_tac`INSTREAM_LINES _ _ lines1 fs1`>>
+    xlet`(POSTve
+      (λv.
+         SEP_EXISTS k lines' res acc' fns' s lno' rest.
+         STDIO (forwardFD fs1 fd k) *
+         INSTREAM_LINES fd fdv lines' (forwardFD fs1 fd k) *
+         &(
+            PAIR_TYPE (OPTION_TYPE NUM)
+            (PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
+              (PAIR_TYPE (fns_TYPE a)
+              NUM)) (res,acc',fns',lno') v ∧
+            parse_red_aux r (MAP toks_fast lines1) [] = SOME(res,acc',fns',rest) ∧
+            MAP toks_fast lines' = rest))
+      (λe.
+         SEP_EXISTS k lines'.
+           STDIO (forwardFD fs1 fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs1 fd k) *
+           &(Fail_exn e ∧ parse_red_aux r (MAP toks_fast lines1) [] = NONE))
+      )`
+    >- (
+      xapp>>xsimpl>>
+      metis_tac[LIST_TYPE_def])
+    >- (
+      xsimpl>>
+      unabbrev_all_tac>>simp[forwardFD_o]>>
+      metis_tac[STDIO_INSTREAM_LINES_refl]) >>
+    fs[PAIR_TYPE_def]>>
+    xmatch>>
+    rpt xlet_autop>>
+    TOP_CASE_TAC>>fs[OPTION_TYPE_def]
+    >- (
+      xmatch>>
+      rpt xlet_autop>>
+      xraise>>xsimpl>>
+      unabbrev_all_tac>>
+      simp[Fail_exn_def]>>
+      unabbrev_all_tac>>simp[forwardFD_o]>>
+      metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+    TOP_CASE_TAC>>fs[PAIR_TYPE_def]>>
+    xmatch>>
+    rpt xlet_autop>>
+    xcon>>xsimpl>>
+    gvs[SUM_TYPE_def,NPBC_CHECK_CSTEP_TYPE_def]>>
     unabbrev_all_tac>>simp[forwardFD_o]>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])
 QED
