@@ -2125,18 +2125,20 @@ Definition ptree_Expr_def:
   (ptree_Index (Nd (nterm,locs) args) =
      if nterm = INL nArrIdx then
        case args of
-         [dotp; expr; rpar] =>
+         [dott; lpar; expr; rpar] =>
            do
-             expect_tok dotp DotParenT;
+             expect_tok dott DotT;
+             expect_tok lpar LparT;
              expect_tok rpar RparT;
              fmap INR $ ptree_Expr nExpr expr
            od
        | _ => fail (locs, «Impossible: nArrIdx»)
      else if nterm = INL nStrIdx then
        case args of
-         [dotb; expr; rbrack] =>
+         [dott; lbrack; expr; rbrack] =>
            do
-             expect_tok dotb DotBrackT;
+             expect_tok dott DotT;
+             expect_tok lbrack LbrackT;
              expect_tok rbrack RbrackT;
              fmap INL $ ptree_Expr nExpr expr
            od
