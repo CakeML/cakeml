@@ -10,8 +10,8 @@ local open alignmentTheory
            ffiTheory
            itreeTauTheory
            panSemTheory
-           panItreeSemTheory
-           panItreeSemPropsTheory in end;
+           panItreeSemTheory in end;
+           (* panItreeSemPropsTheory in end; *)
 
 val _ = new_theory "panItreeSemEquiv";
 
@@ -175,9 +175,12 @@ End
 (*   rw [Once itreeTauTheory.itree_unfold] *)
 (* QED *)
 
-(* Triviality foo: *)
-(* Proof *)
-(* QED *)
+Triviality foo:
+  (eval (s with <|clock := k; ffi := ffis|>) ptr1 = NONE) ⇒
+        eval s ptr1 = NONE
+Proof
+  fs [GSYM fbs_eval_clock_and_ffi_eq]
+QED
 
 
 (* Evaluate correspondence *)
@@ -191,59 +194,26 @@ Proof
   REVERSE (rpt strip_tac)
   (* ExtCall *)
   >- (fs [panSemTheory.evaluate_def] >>
-      fs [CaseEqs ["option"]]
-      >- (rw [panItreeSemTheory.itree_evaluate_def] >>
-          rw [panItreeSemTheory.itree_mrec_def] >>
-          rw [panItreeSemTheory.h_prog_def] >>
-          rw [panItreeSemTheory.h_prog_rule_ext_call_def] >>
-          ‘eval s ptr1 = eval (s with <|clock := k; ffi := ffis|>) ptr1’ by rw [fbs_eval_clock_and_ffi_eq] >>
-          fs [] >>
+      every_case_tac >>
+      rw [panItreeSemTheory.itree_evaluate_def] >>
+      rw [panItreeSemTheory.itree_mrec_def] >>
+      rw [panItreeSemTheory.h_prog_def] >>
+      rw [panItreeSemTheory.h_prog_rule_ext_call_def] >>
+      fs [GSYM fbs_eval_clock_and_ffi_eq] >>
+      rw [same_outcome_def] >>
+      rw [itreeTauTheory.itree_iter_def] >>
+      rw [Once itreeTauTheory.itree_unfold] >>
+      rw [Once itreeTauTheory.itree_unfold] >>
+      rw [itree_oracle_outcome_def] >>
+      rw [Once LUNFOLD]
+      (* Case: everything evaluates as expected *)
+      >- (rw [query_oracle_def] >>
+          Cases_on ‘f’ >>
+          rw [] >>
           rw [Once itreeTauTheory.itree_unfold] >>
-          rw [same_outcome_def] >>
-          rw [itree_oracle_outcome_def] >>
-          rw [Once LUNFOLD]
-         )
-      >- (full_case_tac >>
-          rw [panItreeSemTheory.itree_evaluate_def] >>
-          rw [panItreeSemTheory.itree_mrec_def] >>
-          rw [panItreeSemTheory.h_prog_def] >>
-          rw [panItreeSemTheory.h_prog_rule_ext_call_def] >>
-          ‘eval s len2 = eval (s with <|clock := k; ffi := ffis|>) len2’ by rw [fbs_eval_clock_and_ffi_eq] >>
-          ‘eval s ptr1 = eval (s with <|clock := k; ffi := ffis|>) ptr1’ by rw [fbs_eval_clock_and_ffi_eq] >>
-          fs [] >>
-          (* STILL NEED TO REDUCE CASE EXPR *)
-        )
-        (* Elim all these cases as at least one eval is NONE *)
-        (* rw [panItreeSemTheory.itree_evaluate_def] >> *)
-        (* rw [same_outcome_def] >> *)
-        (* rw [itree_oracle_outcome_def] >> *)
-        (* rw [panItreeSemTheory.itree_mrec_def] >> *)
-        (* rw [panItreeSemTheory.h_prog_def] >> *)
-        (* rw [panItreeSemTheory.h_prog_rule_ext_call_def] >> *)
-        (* ‘eval s len2 = eval (s with <|clock := k; ffi := ffis|>) len2’ by rw [fbs_eval_clock_and_ffi_eq] >> *)
-        (* ASSUM_LIST (fn thl => ‘eval s len2 = NONE’ by (rw thl)) >> *)
-
-
-        (* EVERY_CASE_TAC >> *)
-        (* rw [Once itreeTauTheory.itree_unfold] >> *)
-        (* rw [same_outcome_def] >> *)
-        (* rw [itree_oracle_outcome_def] >> *)
-        (* rw [Once LUNFOLD] *)
-(* How to reduce a case where every outcome is the same to that outcome? *)
-
-(* >- (EVERY_CASE_TAC >> *)
-(*     rw [panItreeSemTheory.itree_evaluate_def] >> *)
-(*     rw [panItreeSemTheory.itree_mrec_def] >> *)
-(*     rw [panItreeSemTheory.h_prog_def] >> *)
-(*     rw [panItreeSemTheory.h_prog_rule_ext_call_def] >> *)
-(*     ‘eval s ptr1 = eval (s with <|clock := k; ffi := ffis|>) ptr1’ by rw [fbs_eval_clock_and_ffi_eq] >> *)
-(*     POP_ASSUM_LIST (fn thl => ‘eval s ptr1 = NONE’ by (rw thl)) >> *)
-(*     rw [] >> *)
-(*     rw [Once itreeTauTheory.itree_unfold] >> *)
-(*     rw [same_outcome_def] >> *)
-(*     rw [itree_oracle_outcome_def] >> *)
-(*         rw [Once LUNFOLD]) *)
-(* ) *)
+          rw [Once LUNFOLD]))
+  (* Call *)
+  >- ()
   (* Skip *)
   >- (fs [panSemTheory.evaluate_def])
   (* Dec *)
@@ -267,6 +237,62 @@ Proof
        )
       )
 QED
+
+(* Useful garbage *)
+(* fs [CaseEqs ["option"]] *)
+(* >- (rw [panItreeSemTheory.itree_evaluate_def] >> *)
+(*     rw [panItreeSemTheory.itree_mrec_def] >> *)
+(*     rw [panItreeSemTheory.h_prog_def] >> *)
+(*     rw [panItreeSemTheory.h_prog_rule_ext_call_def] >> *)
+(*     ‘eval s ptr1 = eval (s with <|clock := k; ffi := ffis|>) ptr1’ by rw [fbs_eval_clock_and_ffi_eq] >> *)
+(*     fs [] >> *)
+(*     rw [Once itreeTauTheory.itree_unfold] >> *)
+(*     rw [same_outcome_def] >> *)
+(*     rw [itree_oracle_outcome_def] >> *)
+(*     rw [Once LUNFOLD] *)
+(*    ) *)
+(* >- (full_case_tac >> *)
+(*     rw [panItreeSemTheory.itree_evaluate_def] >> *)
+(*     rw [panItreeSemTheory.itree_mrec_def] >> *)
+(*     rw [panItreeSemTheory.h_prog_def] >> *)
+(*     rw [panItreeSemTheory.h_prog_rule_ext_call_def] >> *)
+(*     ‘eval s len2 = eval (s with <|clock := k; ffi := ffis|>) len2’ by rw [fbs_eval_clock_and_ffi_eq] >> *)
+(*     ‘eval s ptr1 = eval (s with <|clock := k; ffi := ffis|>) ptr1’ by rw [fbs_eval_clock_and_ffi_eq] >> *)
+(*     fs [] >> *)
+(*     (* STILL NEED TO REDUCE CASE EXPR *) *)
+(*   ) *)
+(* Elim all these cases as at least one eval is NONE *)
+(* rw [panItreeSemTheory.itree_evaluate_def] >> *)
+(* rw [same_outcome_def] >> *)
+(* rw [itree_oracle_outcome_def] >> *)
+(* rw [panItreeSemTheory.itree_mrec_def] >> *)
+(* rw [panItreeSemTheory.h_prog_def] >> *)
+(* rw [panItreeSemTheory.h_prog_rule_ext_call_def] >> *)
+(* ‘eval s len2 = eval (s with <|clock := k; ffi := ffis|>) len2’ by rw [fbs_eval_clock_and_ffi_eq] >> *)
+(* ASSUM_LIST (fn thl => ‘eval s len2 = NONE’ by (rw thl)) >> *)
+
+
+(* EVERY_CASE_TAC >> *)
+(* rw [Once itreeTauTheory.itree_unfold] >> *)
+(* rw [same_outcome_def] >> *)
+(* rw [itree_oracle_outcome_def] >> *)
+(* rw [Once LUNFOLD] *)
+(* How to reduce a case where every outcome is the same to that outcome? *)
+
+(* >- (EVERY_CASE_TAC >> *)
+(*     rw [panItreeSemTheory.itree_evaluate_def] >> *)
+(*     rw [panItreeSemTheory.itree_mrec_def] >> *)
+(*     rw [panItreeSemTheory.h_prog_def] >> *)
+(*     rw [panItreeSemTheory.h_prog_rule_ext_call_def] >> *)
+(*     ‘eval s ptr1 = eval (s with <|clock := k; ffi := ffis|>) ptr1’ by rw [fbs_eval_clock_and_ffi_eq] >> *)
+(*     POP_ASSUM_LIST (fn thl => ‘eval s ptr1 = NONE’ by (rw thl)) >> *)
+(*     rw [] >> *)
+(*     rw [Once itreeTauTheory.itree_unfold] >> *)
+(*     rw [same_outcome_def] >> *)
+(*     rw [itree_oracle_outcome_def] >> *)
+(*         rw [Once LUNFOLD]) *)
+(* ) *)
+
 
 (* Final goal:
 

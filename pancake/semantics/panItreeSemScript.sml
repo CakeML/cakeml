@@ -250,8 +250,8 @@ Definition h_prog_rule_ext_call_def:
   case (eval s conf_ptr,eval s conf_len,eval s array_ptr,eval s array_len) of
     (SOME (ValWord conf_sz),SOME (ValWord conf_ptr_adr),
      SOME (ValWord array_sz),SOME (ValWord array_ptr_adr)) =>
-     (case (read_bytearray conf_ptr_adr (w2n conf_sz) (mem_load_byte s.memory s.memaddrs s.be),
-            read_bytearray array_ptr_adr (w2n array_sz) (mem_load_byte s.memory s.memaddrs s.be)) of
+     (case (read_bytearray conf_sz (w2n conf_ptr_adr) (mem_load_byte s.memory s.memaddrs s.be),
+            read_bytearray array_sz (w2n array_ptr_adr) (mem_load_byte s.memory s.memaddrs s.be)) of
         (SOME conf_bytes,SOME array_bytes) =>
          Vis (INR (FFI_call (explode ffi_name) conf_bytes array_bytes,
                    (λres. case res of
