@@ -159,6 +159,12 @@ val wInst_def = Define `
   (wInst (FP f) kf = Inst (FP f)) /\ (*pass through the ones that don't use int registers *)
   (wInst _ kf = Inst Skip)`
 
+Definition wShareInst_def:
+  (wShareInst op v (Var ad) kf = _ (ShMemOp op v (Addr ad 0w))) /\
+  (wShareInst op v (Op Add [Var ad, Const offset]) kf = _ (ShMemOp Mem op v (Addr ad offset))) /\
+  (wShareInst _ _ _ _ = ARB) (* impossible *)
+End
+
 val bits_to_word_def = Define `
   (bits_to_word [] = 0w) /\
   (bits_to_word (T::xs) = (bits_to_word xs << 1 || 1w)) /\
@@ -340,6 +346,7 @@ val comp_def = Define `
       (wStackLoad (l1++l2) (DataBufferWrite r1 r2),bs)) /\
   (comp (FFI i r1 r2 r3 r4 live) bs kf = (FFI i (r1 DIV 2) (r2 DIV 2)
                                                 (r3 DIV 2) (r4 DIV 2) 0,bs)) /\
+  (comp (ShareInst op v exp) bs kf = (wShareInst op v exp kf,bs) /\
   (comp _ bs kf = (Skip,bs) (* impossible *))`
 
 Definition raise_stub_def:
