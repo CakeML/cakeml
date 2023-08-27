@@ -1783,13 +1783,7 @@ val res = translate parse_obj_term_npbc_def;
 
 val res = translate parse_cstep_head_def;
 
-val PB_PARSE_PAR_TYPE_def = theorem"PB_PARSE_PAR_TYPE_def"
-
-val res = translate mk_obju_aux_def;
-
-val res = translate strip_noop_def;
-
-val res = translate mk_obju_def;
+val PB_PARSE_PAR_TYPE_def = theorem"PB_PARSE_PAR_TYPE_def";
 
 val parse_cstep = process_topdecs`
   fun parse_cstep fns fd lno =
@@ -1815,13 +1809,13 @@ val parse_cstep = process_topdecs`
     | Some (Changeobjpar f, fns'') =>
         (case parse_red_aux fns'' fd lno' [] of
           (res,(pf,(fns''',lno''))) =>
-          (case mk_obju res pf of
-            None =>
-            raise Fail (format_failure (lno'+1) "failed to parse obj change steps")
-          | Some (pfn1,pfn2) =>
-            (Inr (Changeobj f pfn1 pfn2), (fns''', lno'')))
+          (case res of Some u =>
+            raise Fail (format_failure (lno'+1) "obj change rule can not end with contradiction")
+          | None =>
+            (Inr (Changeobj f pf), (fns''', lno''))
+          )
         ))
-  `|>append_prog
+  `|> append_prog;
 
 Theorem parse_cstep_spec:
   !ss fd fdv lines lno lnov fs fns fnsv.
@@ -2042,21 +2036,17 @@ Proof
       metis_tac[STDIO_INSTREAM_LINES_refl]) >>
     fs[PAIR_TYPE_def]>>
     xmatch>>
-    rpt xlet_autop>>
-    TOP_CASE_TAC>>fs[OPTION_TYPE_def]
+    TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>xmatch
     >- (
-      xmatch>>
       rpt xlet_autop>>
-      xraise>>xsimpl>>
-      unabbrev_all_tac>>
-      simp[Fail_exn_def]>>
+      xcon>>xsimpl>>
+      gvs[SUM_TYPE_def,NPBC_CHECK_CSTEP_TYPE_def]>>
       unabbrev_all_tac>>simp[forwardFD_o]>>
       metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
-    TOP_CASE_TAC>>fs[PAIR_TYPE_def]>>
-    xmatch>>
     rpt xlet_autop>>
-    xcon>>xsimpl>>
-    gvs[SUM_TYPE_def,NPBC_CHECK_CSTEP_TYPE_def]>>
+    xraise>>xsimpl>>
+    unabbrev_all_tac>>
+    simp[Fail_exn_def]>>
     unabbrev_all_tac>>simp[forwardFD_o]>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])
 QED

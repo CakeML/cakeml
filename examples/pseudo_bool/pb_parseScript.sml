@@ -943,35 +943,6 @@ Definition parse_cstep_head_def:
     else NONE
 End
 
-(* zero-indexed *)
-Definition mk_obju_aux_def:
-  mk_obju_aux (a,n1,p1) (b,n2,p2) =
-  if a = 0 ∧ b = 1 then SOME((p1,n1),(p2,n2))
-  else if a = 1 ∧ b = 0 then SOME((p2,n2),(p1,n1))
-  else NONE
-End
-
-(* Strip all (NONE,[NoOp]) from the proofs
-  -- these are how comment lines get parsed *)
-Definition strip_noop_def:
-  (strip_noop [] = []) ∧
-  (strip_noop (x::xs) =
-    case x of (NONE,ls) =>
-      if EVERY (λx. x = NoOp) ls then strip_noop xs
-      else x::(strip_noop xs)
-    | _ => x:: strip_noop xs)
-End
-
-Definition mk_obju_def:
-  mk_obju (res : num option) (pf:(((num + num) # num) option # lstep list) list) =
-  case res of SOME u => NONE
-  | NONE =>
-    (case strip_noop pf of
-      [ (SOME (INR a,n1), p1) ; (SOME (INR b,n2),p2)] =>
-        mk_obju_aux (a,n1,p1) (b,n2,p2)
-    | _ => NONE)
-End
-
 Definition parse_cstep_def:
   (parse_cstep f_ns ss =
     case parse_sstep f_ns ss of
@@ -1000,9 +971,9 @@ Definition parse_cstep_def:
         (case parse_red_aux f_ns'' rest [] of
           NONE => NONE
         | SOME (res,pf,f_ns'',rest) =>
-          (case mk_obju res pf of NONE => NONE
-          | SOME(pfn1,pfn2) =>
-            SOME (INR (ChangeObj f pfn1 pfn2), f_ns'', rest))
+          case res of NONE =>
+            SOME (INR (ChangeObj f pf), f_ns'', rest)
+          | _ => NONE
         )
     )
 End
@@ -1145,7 +1116,6 @@ Termination
   >-
     (drule parse_red_aux_length>>simp[])
   >-
-    cheat
   >-
     (drule parse_red_aux_length>>simp[])
   >-

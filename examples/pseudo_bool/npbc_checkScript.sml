@@ -1348,8 +1348,7 @@ Datatype:
   | Sstep sstep
   | Obj (bool spt) bool (int option)
   | ChangeObj ((int # var) list # int)
-      (lstep list # num) (lstep list # num)
-    (* Change the objective using the two core proofs *)
+      (( ((num + num) # num) option, (lstep list)) alist)
 End
 
 Definition hide_def:
@@ -1609,25 +1608,30 @@ Proof
   fs[satisfies_npbc_model_bounding]
 QED
 
+Definition change_obj_subgoals_def:
+  change_obj_subgoals fc fc' =
+  let nmb1 = [not(model_bounding fc fc')] in
+  let nmb2 = [not(model_bounding fc' fc)] in
+  [nmb1; nmb2]
+End
+
 Definition check_change_obj_def:
-  check_change_obj fml id obj fc' (pf1,n1) (pf2,n2) ⇔
+  check_change_obj fml id obj fc' pfs ⇔
   case obj of NONE => NONE
   | SOME fc =>
-    let mb1 = model_bounding fc fc' in
-    let (fml_not_c1,id1) = insert_fml T fml id (not mb1) in
-    (case check_lsteps pf1 T fml_not_c1 id1 of NONE => NONE
-    | SOME (fml',id') =>
-      if check_contradiction_fml T fml' n1
-      then
-        let mb2 = model_bounding fc' fc in
-        let (fml_not_c2,id2) = insert_fml T fml id' (not mb2) in
-        case check_lsteps pf2 T fml_not_c2 id2 of NONE => NONE
-        | SOME (fml',id') =>
-          if check_contradiction_fml T fml' n2
-          then
-            SOME id'
-          else NONE
-      else NONE)
+    ( let csubs = change_obj_subgoals fc fc' in
+      case extract_clauses (λx. NONE) T fml csubs pfs [] of
+        NONE => NONE
+      | SOME cpfs =>
+      (case check_subproofs cpfs T fml id of
+        NONE => NONE
+      | SOME (fml',id') =>
+        let (l,r) = extract_pids pfs LN LN in
+        if EVERY (λid. lookup id r ≠ NONE)
+             (COUNT_LIST (LENGTH csubs))
+        then
+          SOME id'
+        else NONE))
 End
 
 Definition update_bound_def:
@@ -1746,8 +1750,8 @@ Definition check_cstep_def:
           chk, obj, bound', dbound', ord, orders)
       else
         SOME (fml, id, chk, obj, bound', dbound', ord, orders))
-  | ChangeObj fc' pfn1 pfn2 =>
-    case check_change_obj fml id obj fc' pfn1 pfn2 of NONE => NONE
+  | ChangeObj fc' pfs =>
+    case check_change_obj fml id obj fc' pfs of NONE => NONE
     | SOME id' =>
       SOME (
         fml, id', chk, SOME fc', bound, dbound, ord, orders)
@@ -2442,55 +2446,39 @@ Proof
   >- (
     (* ChangeObj *)
     strip_tac>>
-    `∃pf1 n1 pf2 n2. p0 = (pf1,n1) ∧ p1 = (pf2,n2)` by
-      metis_tac[PAIR]>>
-    rw[]>>
     simp[check_change_obj_def,insert_fml_def]>>
     every_case_tac>>fs[]>>
-    rename1`model_bounding fnew fold`>>
-    qmatch_asmsub_abbrev_tac`check_lsteps pf1 _ fml1 id1 = _`>>
-    `id_ok fml1 id1` by
-      (unabbrev_all_tac>>fs[id_ok_def])>>
-    drule (CONJUNCT2 check_lstep_correct)>>
-    disch_then(qspecl_then [`pf1`,`T`] mp_tac)>>simp[]>>
+    pairarg_tac>>gvs[]>>
+    drule check_subproofs_correct>>
+    rename1`check_subproofs pfs`>>
+    disch_then(qspecl_then[`pfs`,`T`] mp_tac)>>simp[]>>
     strip_tac>>
-    drule check_contradiction_fml_unsat>> strip_tac>>
-    `core_only_fml T fml ⊨ {model_bounding fold fnew}` by
-      (fs[sat_implies_def,Abbr`fml1`,unsatisfiable_def,satisfiable_def]>>
-      ntac 2 (pop_assum mp_tac)>>
-      DEP_REWRITE_TAC[core_only_fml_insert]>>fs[id_ok_def]>>
-      simp[not_thm]>>
-      metis_tac[])>>
-    qmatch_asmsub_abbrev_tac`check_lsteps pf2 _ fml2 id2 = _`>>
-    `id_ok fml2 id2` by
-      (unabbrev_all_tac>>fs[id_ok_def])>>
-    drule (CONJUNCT2 check_lstep_correct)>>
-    disch_then(qspecl_then [`pf2`,`T`] mp_tac)>>simp[]>>
-    strip_tac>>
-    qpat_x_assum`_ T _ n1` kall_tac>>
-    drule check_contradiction_fml_unsat>> strip_tac>>
-    `core_only_fml T fml ⊨ {model_bounding fnew fold}` by
-      (fs[sat_implies_def,Abbr`fml2`,unsatisfiable_def,satisfiable_def]>>
-      ntac 2 (pop_assum mp_tac)>>
-      DEP_REWRITE_TAC[core_only_fml_insert]>>
-      unabbrev_all_tac>>
+    CONJ_TAC >-
       fs[id_ok_def]>>
-      simp[not_thm]>>
-      metis_tac[])>>
+    fs[EVERY_MEM,MEM_MAP,EXISTS_PROD]>>
+    gvs[change_obj_subgoals_def,MEM_COUNT_LIST,ADD1]>>
+    first_assum(qspec_then`0` mp_tac)>>
+    first_x_assum(qspec_then`1` mp_tac)>>
+    simp[]>>
+    strip_tac>> drule_all lookup_extract_pids_r>>
+    simp[]>> strip_tac>>
+    drule_all extract_clauses_MEM_INR>>
+    simp[]>> strip_tac>>
+    strip_tac>> drule_all lookup_extract_pids_r>>
+    simp[]>> strip_tac>>
+    drule_all extract_clauses_MEM_INR>>
+    simp[]>> strip_tac>>
+    res_tac >>fs[]>>
+    qmatch_asmsub_rename_tac`model_bounding fnew fold`>>
     `∀w.
       satisfies w (core_only_fml T fml) ⇒
       eval_obj (SOME fold) w =
       eval_obj (SOME fnew) w` by
       (
-      fs[sat_implies_def]>>
-      rw[]>>
-      rpt(first_x_assum drule)>>
-      simp[satisfies_npbc_model_bounding]>>
+      fs[unsatisfiable_def,satisfiable_def,satisfies_npbc_model_bounding,not_thm]>>
+      rw[]>>gvs[]>>
+      ntac 2 (first_x_assum (qspec_then `w` mp_tac))>>simp[]>>
       intLib.ARITH_TAC)>>
-    CONJ_TAC >-
-      (unabbrev_all_tac>>fs[])>>
-    CONJ_TAC >-
-      (unabbrev_all_tac>>fs[id_ok_def])>>
     CONJ_TAC >- (
       fs[sat_implies_def,valid_conf_def,sat_obj_po_def]>>
       strip_tac>>gs[]>>

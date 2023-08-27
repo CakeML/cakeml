@@ -2168,110 +2168,7 @@ val res = translate npbc_checkTheory.neg_dom_subst_def;
 val res = translate npbc_checkTheory.dom_subgoals_def;
 val res = translate do_dso_def;
 
-(*
-Definition check_change_obj_pure_def:
-  check_change_obj_pure core chk obj ord fc' n1 fc c1 c2 =
-  ((chk ∨ IS_SOME ord ⇒ sptree$lookup n1 core = SOME ()) ∧
-  imp c1 (model_bounding fc fc') ∧
-  imp c2 (model_bounding fc' fc))
-End
-*)
-
 val res = translate npbc_checkTheory.model_bounding_def;
-
-(*
-val res = translate check_change_obj_pure_def;
-
-val check_change_obj_arr = process_topdecs`
-  fun check_change_obj_arr lno fml core chk obj ord fc' n1 n2 =
-  case obj of None =>
-    raise Fail (format_failure lno ("no objective loaded"))
-  | Some fc =>
-    (case Array.lookup fml None n1 of
-      None => raise Fail (format_failure lno
-          ("invalid constraint ID in objective update"))
-    | Some c1 =>
-      (case Array.lookup fml None n2 of
-      None => raise Fail (format_failure lno
-          ("invalid constraint ID in objective update"))
-    | Some c2 =>
-      if check_change_obj_pure core chk obj ord fc' n1 fc c1 c2
-      then ()
-      else
-      raise Fail (format_failure lno ("objective update check failed"))))` |> append_prog;
-
-Theorem check_change_obj_arr_spec:
-  NUM lno lnov ∧
-  LIST_REL (OPTION_TYPE constraint_TYPE) fmlls fmllsv ∧
-  core_TYPE core corev ∧
-  BOOL chk chkv ∧
-  obj_TYPE obj objv ∧
-  ord_TYPE ord ordv ∧
-  PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT NUM)) INT fc fcv ∧
-  NUM n1 n1vv ∧
-  NUM n2 n2vv
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "check_change_obj_arr" (get_ml_prog_state()))
-    [lnov; fmlv; corev; chkv; objv; ordv; fcv; n1vv; n2vv]
-    (ARRAY fmlv fmllsv)
-    (POSTve
-      (λv.
-      ARRAY fmlv fmllsv *
-        &(check_change_obj_list fmlls core
-          chk obj ord fc n1 n2))
-      (λe.
-      ARRAY fmlv fmllsv *
-        &(Fail_exn e ∧
-          ¬check_change_obj_list fmlls core
-          chk obj ord fc n1 n2 )))
-Proof
-  rw[]>>
-  xcf "check_change_obj_arr" (get_ml_prog_state ())>>
-  simp[check_change_obj_list_def]>>
-  Cases_on`obj`>>fs[OPTION_TYPE_def]>>xmatch
-  >- (
-    rpt xlet_autop>>
-    xraise>>xsimpl>>
-    metis_tac[Fail_exn_def])>>
-  rpt xlet_autop>>
-  xlet_auto>>
-  rename1`cv1 = any_el n1 _ _`>>
-  `OPTION_TYPE constraint_TYPE (any_el n1 fmlls NONE) cv1` by (
-    rw[any_el_ALT]>>
-    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
-  qpat_x_assum`cv1 = _` (assume_tac o SYM)>>
-  TOP_CASE_TAC>>
-  fs[OPTION_TYPE_def]>>xmatch
-  >- (
-    rpt xlet_autop>>
-    xraise>>xsimpl>>
-    metis_tac[Fail_exn_def])>>
-  rpt xlet_autop>>
-  xlet_auto>>
-  rename1`cv2 = any_el n2 _ _`>>
-  `OPTION_TYPE constraint_TYPE (any_el n2 fmlls NONE) cv2` by (
-    rw[any_el_ALT]>>
-    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
-  qpat_x_assum`cv2 = _` (assume_tac o SYM)>>
-  TOP_CASE_TAC>>
-  fs[OPTION_TYPE_def]>>xmatch
-  >- (
-    rpt xlet_autop>>
-    xraise>>xsimpl>>
-    metis_tac[Fail_exn_def])>>
-  xlet_autop>>
-  xif
-  >- (
-    fs[check_change_obj_pure_def] >>
-    xcon>>xsimpl>>
-    metis_tac[])>>
-  rpt xlet_autop>>
-  xraise>>xsimpl>>
-  fs[check_change_obj_pure_def]>>
-  metis_tac[Fail_exn_def]
-QED
-*)
 
 val core_fmlls_arr = process_topdecs`
   fun core_fmlls_arr fml is =
@@ -2683,43 +2580,27 @@ Proof
   simp[OPTION_TYPE_def]
 QED
 
-Definition nmbc_def:
-  nmbc fc fc' = not (model_bounding fc fc')
-End
-
-val res = translate nmbc_def;
+val res = translate npbc_checkTheory.change_obj_subgoals_def;
+val res = translate emp_vec_def;
+val res = translate do_change_obj_check_def;
 
 val check_change_obj_arr = process_topdecs `
-  fun check_change_obj_arr lno fml id obj fc' pfn1 pfn2 =
-  case pfn1 of (pf1,n1) =>
-  case pfn2 of (pf2,n2) =>
+  fun check_change_obj_arr lno fml id obj fc' pfs =
   case obj of None =>
     raise Fail (format_failure lno ("no objective to change"))
   | Some fc =>
     let
-    val nmb1 = nmbc fc fc'
-    val fml_not_c1 = Array.updateResize fml None
-      id (Some (nmb1,True)) in
-    (case check_lsteps_arr lno pf1 True fml_not_c1 id (id+1) of
-      (fml',id') =>
-      if check_contradiction_fml_arr True fml' n1
-      then
-        let
-        val u = rollback_arr fml' id id'
-        val nmb2 = nmbc fc' fc
-        val fml_not_c2 = Array.updateResize fml' None
-          id' (Some (nmb2,True)) in
-        case check_lsteps_arr lno pf2 True fml_not_c2 id (id'+1) of
-          (fml'',id'') =>
-          if check_contradiction_fml_arr True fml'' n2
-          then
-            let val u = rollback_arr fml'' id id'' in
-              (fml'',id'')
-            end
-          else
-            raise Fail (format_failure lno ("#1 contradiction check failed"))
-        end
-      else raise Fail (format_failure lno ("#2 contradiction check failed")))
+    val csubs = change_obj_subgoals fc fc'
+    val b = True
+    val e = []
+    val cpfs = extract_clauses_arr lno emp_vec b fml csubs pfs e in
+    case check_subproofs_arr lno cpfs b fml id id of
+       (fml', id') =>
+      let val u = rollback_arr fml' id id' in
+        if do_change_obj_check pfs then
+          (fml',id')
+       else raise Fail (format_failure lno ("Objective change subproofs did not cover all subgoals. Expected: #[1-2]"))
+       end
     end` |> append_prog
 
 Theorem check_change_obj_arr_spec:
@@ -2728,19 +2609,18 @@ Theorem check_change_obj_arr_spec:
   NUM id idv ∧
   obj_TYPE obj objv ∧
   (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT NUM)) INT) fc fcv ∧
-  PAIR_TYPE (LIST_TYPE NPBC_CHECK_LSTEP_TYPE) NUM pfn1 pfn1v ∧
-  PAIR_TYPE (LIST_TYPE NPBC_CHECK_LSTEP_TYPE) NUM pfn2 pfn2v
+  pfs_TYPE pfs pfsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_change_obj_arr" (get_ml_prog_state()))
-    [lnov; fmlv; idv; objv; fcv; pfn1v; pfn2v ]
+    [lnov; fmlv; idv; objv; fcv; pfsv]
     (ARRAY fmlv fmllsv)
     (POSTve
       (λv.
         SEP_EXISTS fmlv' fmllsv'.
         ARRAY fmlv' fmllsv' *
         &(
-          case check_change_obj_list fmlls id obj fc pfn1 pfn2 of
+          case check_change_obj_list fmlls id obj fc pfs of
             NONE => F
           | SOME res =>
             PAIR_TYPE (λl v.
@@ -2753,13 +2633,10 @@ Theorem check_change_obj_arr_spec:
         SEP_EXISTS fmlv' fmllsv'.
         ARRAY fmlv' fmllsv' *
         & (Fail_exn e ∧
-          check_change_obj_list fmlls id obj fc pfn1 pfn2 = NONE)))
+          check_change_obj_list fmlls id obj fc pfs = NONE)))
 Proof
   rw[]>>
   xcf "check_change_obj_arr" (get_ml_prog_state ())>>
-  Cases_on`pfn1`>>Cases_on`pfn2`>>fs[PAIR_TYPE_def]>>
-  xmatch>>
-  xmatch>>
   simp[check_change_obj_list_def]>>
   Cases_on`obj`>>fs[OPTION_TYPE_def]>>
   xmatch
@@ -2768,102 +2645,67 @@ Proof
     xraise>>xsimpl>>
     metis_tac[ARRAY_refl,Fail_exn_def])>>
   rpt xlet_autop>>
-  xlet_auto>>
-  rpt xlet_autop>>
-  qmatch_goalsub_abbrev_tac`check_lsteps_list A T B C D`>>
-  xlet`POSTve
+  qmatch_goalsub_abbrev_tac`ARRAY aa vv`>>
+  xlet`(POSTve
+    (λv.
+      ARRAY aa vv *
+      &(case extract_clauses_list emp_vec T fmlls
+          (change_obj_subgoals x fc) pfs [] of
+          NONE => F
+        | SOME res => LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (LIST_TYPE constraint_TYPE) NUM)) (LIST_TYPE NPBC_CHECK_LSTEP_TYPE)) res v))
+  (λe.
+    ARRAY aa vv *
+    & (Fail_exn e ∧
+      extract_clauses_list emp_vec T fmlls (change_obj_subgoals x fc) pfs [] = NONE)))`
+  >- (
+    xapp>>xsimpl>>
+    simp[LIST_TYPE_def]>>
+    CONJ_TAC >- EVAL_TAC>>
+    CONJ_TAC >- metis_tac[]>>
+    metis_tac[fetch "-" "emp_vec_v_thm"])
+  >- (
+    xsimpl>>
+    metis_tac[ARRAY_refl])>>
+  pop_assum mp_tac>> TOP_CASE_TAC>>gvs[]>>
+  strip_tac>>
+  rename1`check_subproofs_list xx`>>
+  xlet`(POSTve
       (λv.
         SEP_EXISTS fmlv' fmllsv'.
         ARRAY fmlv' fmllsv' *
         &(
-          case check_lsteps_list A T B C D of
+          case check_subproofs_list xx T fmlls id id of
             NONE => F
           | SOME res =>
             PAIR_TYPE (λl v.
               LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
-              v = fmlv')
-              NUM res v
+              v = fmlv') NUM res v
           ))
       (λe.
         SEP_EXISTS fmlv' fmllsv'.
         ARRAY fmlv' fmllsv' *
         & (Fail_exn e ∧
-        check_lsteps_list A T B C D = NONE))`
+          check_subproofs_list xx T fmlls id id = NONE)))`
   >- (
     xapp>>xsimpl>>
-    CONJ_TAC>- EVAL_TAC>>
-    CONJ_TAC>-metis_tac[] >>
-    unabbrev_all_tac>>simp[]>>
-    match_mp_tac LIST_REL_update_resize>>
-    fs[OPTION_TYPE_def,PAIR_TYPE_def,nmbc_def]>>
-    EVAL_TAC)
+    CONJ_TAC>-EVAL_TAC>>
+    metis_tac[])
   >- (
     xsimpl>>
     metis_tac[ARRAY_refl])>>
-  pop_assum mp_tac>> TOP_CASE_TAC>>
-  Cases_on`x'`>>simp[PAIR_TYPE_def]>>strip_tac>>
+  pop_assum mp_tac>> TOP_CASE_TAC>>fs[]>>
+  Cases_on`x'`>>fs[PAIR_TYPE_def]>>
+  strip_tac>>
   xmatch>>
-  xlet`POSTv v. ARRAY fmlv' fmllsv' * &BOOL T v`
-  >-
-    (xcon>>xsimpl)>>
-  xlet_autop>>
-  reverse xif
-  >- (
-    rpt xlet_autop>>
-    xraise>>xsimpl>>
-    metis_tac[ARRAY_refl,Fail_exn_def])>>
   rpt xlet_autop>>
-  xlet_auto>>
-  rpt xlet_autop>>
-  unabbrev_all_tac>>
-  qmatch_goalsub_abbrev_tac`check_lsteps_list A T B C D`>>
-  xlet`POSTve
-      (λv.
-        SEP_EXISTS fmlv' fmllsv'.
-        ARRAY fmlv' fmllsv' *
-        &(
-          case check_lsteps_list A T B C D of
-            NONE => F
-          | SOME res =>
-            PAIR_TYPE (λl v.
-              LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
-              v = fmlv')
-              NUM res v
-          ))
-      (λe.
-        SEP_EXISTS fmlv' fmllsv'.
-        ARRAY fmlv' fmllsv' *
-        & (Fail_exn e ∧
-        check_lsteps_list A T B C D = NONE))`
+  xif
   >- (
-    xapp>>xsimpl>>
-    CONJ_TAC>- EVAL_TAC>>
-    CONJ_TAC>-metis_tac[] >>
-    unabbrev_all_tac>>simp[]>>
-    match_mp_tac LIST_REL_update_resize>>
-    fs[OPTION_TYPE_def,PAIR_TYPE_def,nmbc_def]>>
-    EVAL_TAC)
-  >- (
-    xsimpl>>
+    xcon>>xsimpl>>
+    fs[PAIR_TYPE_def]>>
     metis_tac[ARRAY_refl])>>
-  pop_assum mp_tac>> TOP_CASE_TAC>>
-  Cases_on`x'`>>simp[PAIR_TYPE_def]>>strip_tac>>
-  xmatch>>
-  rename1`ARRAY fmlvv fmllsvv`>>
-  xlet`POSTv v. ARRAY fmlvv fmllsvv * &BOOL T v`
-  >-
-    (xcon>>xsimpl)>>
-  xlet_autop>>
-  reverse xif
-  >- (
-    rpt xlet_autop>>
-    xraise>>xsimpl>>
-    metis_tac[ARRAY_refl,Fail_exn_def])>>
   rpt xlet_autop>>
-  xcon>>xsimpl>>
-  simp[PAIR_TYPE_def]>>
-  unabbrev_all_tac>>
-  metis_tac[ARRAY_refl]
+  xraise>> xsimpl>>
+  metis_tac[ARRAY_refl,Fail_exn_def]
 QED
 
 val check_cstep_arr = process_topdecs`
@@ -2960,8 +2802,8 @@ val check_cstep_arr = process_topdecs`
         (fml, (inds, (id,
            (chk,(obj,(bound',(dbound',(ord, orders))))))))
     )
-  | Changeobj fc' pfn1 pfn2 =>
-    (case check_change_obj_arr lno fml id obj fc' pfn1 pfn2 of
+  | Changeobj fc' pfs =>
+    (case check_change_obj_arr lno fml id obj fc' pfs of
       (fml',id') =>
         (fml', (inds, (id',
         (chk, (Some fc', (bound, (dbound, (ord, orders)))))))))`

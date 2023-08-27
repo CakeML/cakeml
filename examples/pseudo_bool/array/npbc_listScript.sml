@@ -1490,31 +1490,32 @@ Definition all_core_list_def:
       else NONE)
 End
 
+Definition do_change_obj_check_def:
+  do_change_obj_check pfs =
+  let (l,r) = extract_pids pfs LN LN in
+  lookup 0 r ≠ NONE ∧
+  lookup 1 r ≠ NONE
+End
+
+Definition emp_vec_def:
+  emp_vec = Vector []
+End
+
 Definition check_change_obj_list_def:
-  check_change_obj_list fml id obj fc' (pf1,n1) (pf2,n2) ⇔
+  check_change_obj_list fml id obj fc' pfs ⇔
   case obj of NONE => NONE
   | SOME fc =>
-    let nmb1 = not(model_bounding fc fc') in
-    let fml_not_c1 = update_resize fml NONE (SOME (nmb1,T)) id in
-    (case check_lsteps_list pf1 T fml_not_c1 id (id+1) of
+    let csubs = change_obj_subgoals fc fc' in
+    case extract_clauses_list emp_vec T fml csubs pfs [] of
       NONE => NONE
-    | SOME (fml',id') =>
-      if check_contradiction_fml_list T fml' n1
-      then
-        let rfml' = rollback fml' id id' in
-        let nmb2 = not(model_bounding fc' fc) in
-        let fml_not_c2 = update_resize rfml' NONE
-          (SOME (nmb2,T)) id' in
-        case check_lsteps_list pf2 T fml_not_c2 id (id'+1) of
-          NONE => NONE
-        | SOME (fml'',id'') =>
-          if check_contradiction_fml_list T fml'' n2
-          then
-            (* maybe rollback only from id'? *)
-            let rfml'' = rollback fml'' id id'' in
-            SOME (rfml'',id'')
-          else NONE
-      else NONE)
+    | SOME cpfs =>
+      (case check_subproofs_list cpfs T fml id id of
+        NONE => NONE
+      | SOME (fml',id') =>
+        let rfml = rollback fml' id id' in
+        if do_change_obj_check pfs then
+          SOME (rfml,id')
+        else NONE)
 End
 
 Definition check_cstep_list_def:
@@ -1608,8 +1609,8 @@ Definition check_cstep_list_def:
           chk, obj, bound', dbound', ord, orders)
       else
         SOME(fml,inds,id,chk,obj,bound',dbound',ord,orders))
-  | ChangeObj fc' pfn1 pfn2 =>
-    (case check_change_obj_list fml id obj fc' pfn1 pfn2 of
+  | ChangeObj fc' pfs =>
+    (case check_change_obj_list fml id obj fc' pfs of
       NONE => NONE
     | SOME (fml',id') =>
       SOME (
@@ -1854,50 +1855,35 @@ Proof
     simp[any_el_update_resize])
   >- ( (* ChangeObj *)
     fs[check_cstep_def,check_cstep_list_def]>>
-    Cases_on`p0`>>Cases_on`p1`>>
-    gvs[check_change_obj_list_def,check_change_obj_def]>>
-    Cases_on`obj`>>fs[]>>
-    gvs[AllCaseEqs()]>>
-    simp[insert_fml_def]>>
-    qpat_x_assum`check_lsteps_list _ _ _  _ _ =  _ ` mp_tac>>
-    drule_at (Pos last) (CONJUNCT2 fml_rel_check_lstep_list)>>
-    qmatch_goalsub_abbrev_tac`check_lsteps _ _ fml1 _`>>
-    disch_then (qspec_then `fml1` mp_tac)>>
-    impl_tac >-
-      simp[Abbr`fml1`,fml_rel_update_resize,any_el_update_resize]>>
-    strip_tac>>simp[]>>
-    drule (CONJUNCT2 check_lstep_list_id)>>
-    drule (CONJUNCT2 check_lstep_list_id_upper)>>
-    drule (CONJUNCT2 check_lstep_list_mindel)>>
-    simp[any_el_update_resize]>> ntac 3 strip_tac>>
-    drule_all fml_rel_check_contradiction_fml>>simp[]>>
+    gvs[AllCaseEqs(),check_change_obj_list_def,check_change_obj_def]>>
+    qpat_x_assum`_ = SOME cpfs` mp_tac>>
+    DEP_REWRITE_TAC [GSYM fml_rel_extract_clauses_list]>>
+    simp[]>>
+    `subst_fun emp_vec = (λx:num. NONE)` by
+      (simp[FUN_EQ_THM,subst_fun_def,emp_vec_def]>>
+      EVAL_TAC>>rw[])>>
     strip_tac>>
-    strip_tac>>
-    drule_at (Pos last) (CONJUNCT2 fml_rel_check_lstep_list)>>
-    qmatch_goalsub_abbrev_tac`check_lsteps _ _ fml2 _`>>
-    disch_then (qspec_then `fml2` mp_tac)>>
-    impl_tac >- (
-      simp[Abbr`fml2`,any_el_update_resize]>>
-      CONJ_TAC >- (
-        match_mp_tac fml_rel_update_resize>>
-        match_mp_tac fml_rel_rollback>>
-        simp[]>>
-        rw[]>>fs[])>>
-      fs[rollback_def,any_el_list_delete_list,
-        MEM_MAP,MEM_COUNT_LIST])>>
+    rfs[]>>
+    `id ≤ id` by fs[]>>
+    drule_all fml_rel_check_subproofs_list>>
+    fs[do_change_obj_check_def]>>
+    pairarg_tac>>fs[]>>
     strip_tac>>simp[]>>
-    drule (CONJUNCT2 check_lstep_list_id)>>
-    drule (CONJUNCT2 check_lstep_list_id_upper)>>
-    drule (CONJUNCT2 check_lstep_list_mindel)>>
-    simp[any_el_update_resize,any_el_rollback]>>
-    rw[]
-    >-
-      (drule_all fml_rel_check_contradiction_fml>>simp[])
-    >- (
-      match_mp_tac fml_rel_rollback>>fs[]>>
-      rw[]>>rfs[])>>
-    match_mp_tac ind_rel_rollback_2>>
-    fs[])
+    CONJ_TAC>- (
+      `COUNT_LIST (LENGTH (change_obj_subgoals fc p)) = [0;1]` by
+        EVAL_TAC>>
+      simp[])>>
+    drule check_subproofs_list_id>>
+    drule check_subproofs_list_id_upper>>
+    drule check_subproofs_list_mindel>>
+    ntac 3 strip_tac>>
+    CONJ_TAC >- (
+      match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
+    CONJ_TAC >- (
+      match_mp_tac ind_rel_rollback_2>>
+      simp[]>>
+      metis_tac[ind_rel_reindex])>>
+    simp[any_el_rollback])
 QED
 
 Definition check_csteps_list_def:
