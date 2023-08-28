@@ -159,10 +159,31 @@ val wInst_def = Define `
   (wInst (FP f) kf = Inst (FP f)) /\ (*pass through the ones that don't use int registers *)
   (wInst _ kf = Inst Skip)`
 
+Definition exp_to_addr_def:
+  (exp_to_addr (Var ad) = Addr ad 0w) /\
+  (exp_to_addr (Op Add [Var ad, Const offset]) = Addr ad offset) /\
+  (exp_to_addr _ = ARB)
+End
+
 Definition wShareInst_def:
-  (wShareInst op v (Var ad) kf = _ (ShMemOp op v (Addr ad 0w))) /\
-  (wShareInst op v (Op Add [Var ad, Const offset]) kf = _ (ShMemOp Mem op v (Addr ad offset))) /\
-  (wShareInst _ _ _ _ = ARB) (* impossible *)
+  (wShareInst Load v (Addr ad offset) kf =
+    let (l,n2) = wReg1 ad kf in
+    wStackLoad l
+      (wRegWrite1 (\r. ShMemOp Load r (Addr n2 offset)) v kf)) /\
+  (wShareInst Load8 v (Addr ad offset) kf =
+    let (l,n2) = wReg1 ad kf in
+    wStackLoad l
+      (wRegWrite1 (\r. ShMemOp Load8 r (Addr n2 offset)) v kf)) /\
+  (wShareInst Store v (Addr ad offset) kf =
+    let (l1,n2) = wReg1 ad kf in
+    let (l2,n1) = wReg2 v kf in
+    wStackLoad (l1 ++ l2)
+      (ShMemOp Store n1 (Addr n2 offset))) /\
+  (wShareInst Store8 v (Addr ad offset) kf =
+    let (l1,n2) = wReg1 ad kf in
+    let (l2,n1) = wReg2 v kf in
+    wStackLoad (l1 ++ l2)
+      (ShMemOp Store8 n1 (Addr n2 offset)))
 End
 
 val bits_to_word_def = Define `
@@ -346,7 +367,7 @@ val comp_def = Define `
       (wStackLoad (l1++l2) (DataBufferWrite r1 r2),bs)) /\
   (comp (FFI i r1 r2 r3 r4 live) bs kf = (FFI i (r1 DIV 2) (r2 DIV 2)
                                                 (r3 DIV 2) (r4 DIV 2) 0,bs)) /\
-  (comp (ShareInst op v exp) bs kf = (wShareInst op v exp kf,bs) /\
+  (comp (ShareInst op v exp) bs kf = (wShareInst op v (exp_to_addr exp) kf,bs) /\
   (comp _ bs kf = (Skip,bs) (* impossible *))`
 
 Definition raise_stub_def:
