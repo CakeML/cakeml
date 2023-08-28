@@ -1517,5 +1517,20 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   (SOME “App Opapp [Var (Long "Int" (Short "~")); Lit (IntLit 1)]”)
   ;
 
+(* 2023-08-25: Parse .( as two tokens and make sure structure projection of
+   parenthesized things works and isn't parsed as array indexing.
+ *)
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "a . ( i)"
+  (SOME “App Opapp [App Opapp [Var (Long "Array" (Short "sub")); V "a"];
+                               V "i"]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Double.(-)"
+  (SOME “Var (Long "Double" (Short "-"))”)
+  ;
+
 val _ = export_theory ();
 

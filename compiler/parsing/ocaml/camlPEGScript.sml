@@ -580,10 +580,10 @@ Definition camlPEG_def[nocompute]:
        seql [try (pnt nPrefixOp); pnt nEBase] (bindNT nEPrefix));
       (* -- Expr14.6 ------------------------------------------------------- *)
       (INL nArrIdx,
-       seql [tokeq DotParenT; pnt nExpr; tokeq RparT]
+       seql [tokeq DotT; tokeq LparT; pnt nExpr; tokeq RparT]
             (bindNT nArrIdx));
       (INL nStrIdx,
-       seql [tokeq DotBrackT; pnt nExpr; tokeq RbrackT]
+       seql [tokeq DotT; tokeq LbrackT; pnt nExpr; tokeq RbrackT]
             (bindNT nStrIdx));
       (INL nEIndex,
        seql [pnt nEPrefix; try (choicel [pnt nStrIdx; pnt nArrIdx])]
