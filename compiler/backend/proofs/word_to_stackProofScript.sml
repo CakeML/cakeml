@@ -555,6 +555,7 @@ val state_rel_def = Define `
     (s.clock = t.clock) /\ (s.gc_fun = t.gc_fun) /\ (s.permute = K I) /\
     (t.ffi = s.ffi) /\ t.use_stack /\ t.use_store /\ t.use_alloc /\
     (t.memory = s.memory) /\ (t.mdomain = s.mdomain) /\ 4 < k /\
+    (t.sh_mdomain = s.sh_mdomain) /\
     (s.store = t.store \\ Handler) /\ gc_fun_ok t.gc_fun /\ s.termdep = 0 /\
     t.be = s.be /\ t.ffi = s.ffi /\ Handler ∈ FDOM t.store ∧
     t.fp_regs = s.fp_regs ∧
@@ -6684,7 +6685,8 @@ Proof
    (fs [state_rel_def,LET_DEF,wordSemTheory.get_var_def] \\ res_tac
     \\ `8 < k * 2 /\ 6 < k * 2` by decide_tac \\ fs [DIV_LT_X]) \\ fs []
   \\ `t.be = s.be /\ t.mdomain = s.mdomain /\
-      s.memory = t.memory /\ s.ffi = t.ffi` by
+      s.memory = t.memory /\ s.ffi = t.ffi /\
+      s.sh_mdomain = t.sh_mdomain` by
         fs [state_rel_def] \\ fs [LET_THM]
   \\ qexists_tac `0` \\ fs []
   \\ fs [state_rel_def,LET_THM]
@@ -6699,6 +6701,12 @@ Proof
   \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,DIV_LT_X,FORALL_PROD,MEM_toAList]
   \\ fs [domain_lookup] \\ res_tac
   \\ `~(n' < k * 2)` by decide_tac \\ fs []
+QED
+
+Theorem comp_ShareInst_correct:
+  ^(get_goal "wordLang$ShareInst")
+Proof
+  
 QED
 
 Theorem compile_prog_stack_size:
