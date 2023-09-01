@@ -4325,7 +4325,7 @@ Proof
     \\ simp[]
     \\ disch_then drule
     \\ simp[EQ_MULT_LCANCEL])
-  >- (
+  >- ( (* Mem *)
     last_x_assum mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -6703,10 +6703,165 @@ Proof
   \\ `~(n' < k * 2)` by decide_tac \\ fs []
 QED
 
+Theorem flat_exp_conventions_ShareInst_exp_simp:
+  flat_exp_conventions (ShareInst op v exp) ==>
+  (?ad.exp = Var ad) \/ (?ad offset. exp = Op Add [Var ad; Const offset])
+Proof
+  gvs[DefnBase.one_line_ify NONE flat_exp_conventions_def] >>
+  rpt (every_case_tac >> fs[])
+QED
+
+Theorem word_exp_Op_Add_0:
+  wordSem$word_exp s exp = SOME $ Word x <=>
+  word_exp s (Op Add [exp;Const 0w]) = SOME $ Word x
+Proof
+  eq_tac >>
+  gvs[wordSemTheory.word_exp_def,the_words_def,AllCaseEqs(),
+    wordLangTheory.word_op_def] >>
+  rpt strip_tac >>
+  gvs[]
+QED
+
+Theorem evaluate_ShareInst_Var_eq_Op_Add:
+  wordSem$evaluate (ShareInst op v (Var ad),s) = evaluate (ShareInst op v (Op Add [Var ad;Const 0w]),s)
+Proof
+  gvs[wordSemTheory.evaluate_def] >>
+  TOP_CASE_TAC
+  >- (
+    TOP_CASE_TAC >>
+    drule word_exp_Op_SOME_Word >>
+    rpt strip_tac >>
+    fs[GSYM word_exp_Op_Add_0] ) >>
+  TOP_CASE_TAC
+  >- (
+    drule $ iffLR word_exp_Op_Add_0 >>
+    simp[] ) >>
+  TOP_CASE_TAC  >>
+  drule word_exp_Op_SOME_Word >>
+  rpt strip_tac >>
+  fs[GSYM word_exp_Op_Add_0] >>  
+QED
+
+Theorem share_load_lemma1:
+  share_inst Load (2 * v) ad' s = (res,s1) /\
+  state_rel k f f' s t lens /\
+  v < f' + k /\
+  res <> SOME Error ==>
+  ?t1. sh_mem_op Load v ad' t = (OPTION_MAP compile_result res, t1) /\
+  ((?v. (res = SOME $ wordSem$FinalFFI v) /\ (s1.ffi = t1.ffi) /\ (s1.clock = t1.clock)) \/ (res = NONE /\ state_rel k f f' s1 t1 lens))
+Proof
+  rpt strip_tac >>
+  `s.sh_mdomain = t.sh_mdomain /\ s.ffi = t.ffi /\ s.clock = t.clock` by fs[state_rel_def] >>
+  gvs[share_inst_def,sh_mem_op_def,sh_mem_load_def,stackSemTheory.sh_mem_load_def,DefnBase.one_line_ify NONE sh_mem_set_var_def,AllCaseEqs()] >>
+  rpt strip_tac >>
+  fs[PULL_EXISTS] >>
+  gvs[state_rel_def,set_var_def,state_component_equality] >>
+  conj_tac >- metis_tac[] >>
+  conj_tac >- simp[wf_insert] >>
+  simp[lookup_insert] >>
+  rpt strip_tac >- gvs[AllCaseEqs(),EVEN_DOUBLE] >>
+  gvs[AllCaseEqs()]
+  >-  simp[FLOOKUP_UPDATE] >>
+  IF_CASES_TAC >> 
+  first_x_assum drule >>
+  gvs[FLOOKUP_UPDATE] >>
+  rpt strip_tac >>
+  IF_CASES_TAC >>
+  gvs[EVEN_EXISTS]
+QED
+
+Theorem share_load_lemma2:
+  share_inst Load (2 * v) ad' s = (NONE,s1) /\
+  state_rel k f f' s t lens /\
+  v < f' + k /\
+  k <= v ==>
+  ?t1. sh_mem_op Load k ad' t = (NONE, t1) /\
+  state_rel k f f' s1 (t1 with stack := (LUPDATE (THE $ FLOOKUP t1.regs k) (t1.stack_space + (f + k - (v + 1))) t1.stack)) lens
+Proof
+  rpt strip_tac >>
+  gvs[share_inst_def,sh_mem_op_def,sh_mem_load_def,stackSemTheory.sh_mem_load_def,DefnBase.one_line_ify NONE sh_mem_set_var_def,AllCaseEqs()] >>
+  rpt strip_tac >>
+  fs[PULL_EXISTS] >>
+  gvs[state_rel_def,set_var_def,state_component_equality] >>
+  conj_tac >- metis_tac[] >>
+  conj_tac >- simp[wf_insert] >>
+  simp[lookup_insert,FLOOKUP_UPDATE] >>
+  conj_tac >- simp[DROP_LUPDATE] >>
+  rpt strip_tac >- gvs[AllCaseEqs(),EVEN_DOUBLE] >>
+  gvs[AllCaseEqs()] >>
+  simp[DROP_LUPDATE,LLOOKUP_LUPDATE] >>
+  first_x_assum drule >>
+  rpt strip_tac >>
+  IF_CASES_TAC >>
+  gvs[] >>
+  IF_CASES_TAC >>
+  gvs[EVEN_EXISTS]
+QED
+
+Theorem evaluate_ShareInst_Load:
+  evaluate (ShareInst Load (2 * v)
+    (Op Add [Var (2 * ad);Const offset]),s) = (res,s1) /\
+  res = NONE /\
+  state_rel k f f' s t lens /\
+  v < f' + k /\
+  ad < f' + k
+  ==>
+  ?ck t1 res1.
+  evaluate (wShareInst Load (2 * v) (Addr (2 * ad) offset) (k,f,f'),
+  t with clock := ck + t.clock) = (res1,t1) /\
+  state_rel k f f' s1 t1 lens
+Proo
+  rpt strip_tac >>
+  fs[evaluate_def,wShareInst_def,AllCaseEqs()] >>
+  pairarg_tac >>
+  gvs[word_exp_def,AllCaseEqs(),the_words_def,GSYM get_var_def] >>
+  simp[evaluate_wStackLoad_seq,wStackLoad_append]>>
+  simp[stackSemTheory.evaluate_def] >>
+  simp[evaluate_wStackLoad_clock]>>
+  `EVEN (2 * ad)` by simp[EVEN_DOUBLE] >>
+  drule_all $ GEN_ALL evaluate_wStackLoad_wReg1>>
+  rpt strip_tac >>
+  gvs[] >>
+  simp[wRegWrite1_def] >>
+  IF_CASES_TAC
+  >- (
+    simp[stackSemTheory.evaluate_def,stackSemTheory.dec_clock_def] >>
+    gvs[stackSemTheory.word_exp_def,
+      stackSemTheory.get_var_def] >>
+    
+  ) >>
+  simp[stackSemTheory.evaluate_def]
+QED
+
 Theorem comp_ShareInst_correct:
   ^(get_goal "wordLang$ShareInst")
 Proof
-  
+  rpt strip_tac >>
+  gvs[EVAL ``post_alloc_conventions k (ShareInst op v exp)``,comp_def] >>
+  drule flat_exp_conventions_ShareInst_exp_simp >>
+  strip_tac >>
+  Cases_on `res` >>
+  rpt strip_tac >>
+  gvs[exp_to_addr_def] >>
+  (* drule $ GEN_ALL wRegWrite1_thm1 >> *)
+  gvs[wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,
+      GSYM EVEN_MOD2,EVEN_EXISTS,wordLangTheory.max_var_def,
+      wordLangTheory.max_var_exp_def,GSYM LEFT_ADD_DISTRIB] >>
+  disch_then $ drule_then assume_tac >>
+  gvs[PULL_EXISTS] 
+  gvs[wordSemTheory.evaluate_def] >>
+  gvs[wShareInst_def] >>
+  gvs[get_labels_wStackLoad,wReg1_def] >>
+      disch_then drule >>
+      gvs[AllCaseEqs()] >>
+      gvs[wRegWrite1_def] >>
+      IF_CASES_TAC >>
+      gvs[wStackLoad_def] >>
+      
+      gvs[stackSemTheory.evaluate_def,stackSemTheory.sh_mem_op_def] >>
+      
+      
+  )
 QED
 
 Theorem compile_prog_stack_size:
