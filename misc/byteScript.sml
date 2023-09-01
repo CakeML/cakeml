@@ -298,4 +298,33 @@ Proof
   \\ simp[]
 QED
 
+Definition word_to_bytes_aux_def: (* length, 'a word, endianness *)
+  word_to_bytes_aux 0 (w:'a word) be = [] ∧
+  word_to_bytes_aux (SUC n) w be =
+    (word_to_bytes_aux n w be) ++ [get_byte (n2w n) w be]
+End
+(* cyclic repeat as get_byte does when length > bytes_in_word for 'a*)
+
+Definition word_to_bytes_def:
+  word_to_bytes (w:'a word) be =
+  word_to_bytes_aux (dimindex (:'a) DIV 8) w be
+End
+
+Theorem LENGTH_word_to_bytes:
+  LENGTH (word_to_bytes_aux k (w:'a word) be) = k
+Proof
+  Induct_on ‘k’>>simp[Once word_to_bytes_aux_def]
+QED
+
+Theorem word_to_bytes_EL:
+  ∀i. i < k ⇒ EL i (word_to_bytes_aux k (w:'a word) be) = get_byte (n2w i) w be
+Proof
+  Induct_on ‘k’>>rw[]>>
+  once_rewrite_tac[word_to_bytes_aux_def]>>
+  simp[Once listTheory.EL_APPEND_EQN]>>
+  gs[LENGTH_word_to_bytes]>>
+  IF_CASES_TAC>>fs[NOT_LESS]>>
+  ‘i = k’ by fs[]>>fs[]
+QED
+
 val _ = export_theory();
