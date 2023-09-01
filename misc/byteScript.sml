@@ -477,7 +477,7 @@ Proof
   drule DIV_EQ_0>>strip_tac>>
   first_x_assum $ qspec_then ‘n’ assume_tac>>fs[]
 QED
-  
+
 Theorem get_byte_set_byte_irrelevant:
   16 ≤ dimindex (:'a) ∧
   w2n (a:α word) MOD (dimindex(:α) DIV 8) ≠ w2n a' MOD (dimindex(:α) DIV 8) ⇒
@@ -632,8 +632,7 @@ Proof
   ‘if be then byte_index a be < byte_index a' be
    else byte_index a' be < byte_index a be’ by rw[byte_index_def]>>
   Cases_on ‘be’>>simp[]>-
-   (    
-   ‘byte_index a T + 8 ≤ byte_index a' T’ by simp[byte_index_def]>>
+   (‘byte_index a T + 8 ≤ byte_index a' T’ by simp[byte_index_def]>>
    ‘w3 = 0w ∧ w1 = n2w (w2n w DIV 2 ** byte_index a' T) ∧ w2 = 0w’ by
       (conj_tac >-
         (simp[Abbr ‘w3’]>>
@@ -770,6 +769,122 @@ Proof
               TWO,ONE]>>
   fs[]>>strip_tac>>
   simp[word_of_bytes_def,get_byte_set_byte_irrelevant,get_byte_set_byte]
+QED
+
+Theorem set_byte_get_byte[simp]:
+  8 ≤ dimindex (:'a) ⇒
+  set_byte a (get_byte (a:'a word) (w:'a word) be) w be = w
+Proof
+  strip_tac>>
+  simp[get_byte_def,set_byte_def]>>
+  imp_res_tac byte_index_offset>>
+  first_x_assum $ qspecl_then [‘be’, ‘a’]  assume_tac>>
+  qmatch_goalsub_abbrev_tac ‘w0 ‖ _ ‖ _’>>
+  ‘w0 = word_slice_alt (byte_index a be + 8) (byte_index a be) w’ by
+    (simp[Abbr ‘w0’]>>
+     ‘byte_index a be + 8 = SUC (byte_index a be + 7)’ by simp[]>>
+     simp[word_slice_alt_word_slice]>>
+     simp[WORD_SLICE_THM]>>
+     qmatch_goalsub_abbrev_tac ‘A ≪ _ = B ≪ _’>>
+     ‘A = B’ by
+       (simp[Abbr ‘A’,Abbr ‘B’]>>
+        simp[w2w_w2w,word_lsr_n2w]>>
+        simp[WORD_BITS_COMP_THM]>>
+        simp[MIN_DEF])>>
+     simp[])>>simp[]>>
+  srw_tac[wordsLib.WORD_BIT_EQ_ss][word_slice_alt_def]>>
+  Cases_on ‘i < byte_index a be’>>fs[NOT_LESS]>>
+  Cases_on ‘i < byte_index a be + 8’>>fs[]
+QED
+
+Theorem set_byte_get_byte_copy:
+  8 ≤ dimindex (:'a) ⇒
+  set_byte a (get_byte (a:'a word) (w:'a word) be) w' be =
+  word_slice (byte_index a be + 7) (byte_index a be) w ‖
+  (if byte_index a be + 8 = dimindex (:'a) then 0w
+   else word_slice (dimindex (:α) - 1) (byte_index a be + 8) w') ‖
+  if byte_index a be = 0 then 0w else word_slice (byte_index a be - 1) 0 w'
+Proof
+  strip_tac>>
+  simp[get_byte_def,set_byte_def]>>
+  imp_res_tac byte_index_offset>>
+  first_x_assum $ qspecl_then [‘be’, ‘a’]  assume_tac>>
+  qmatch_goalsub_abbrev_tac ‘w0 ‖ _ ‖ _’>>
+  ‘w0 = word_slice (byte_index a be + 7) (byte_index a be) w’ by
+    (simp[Abbr ‘w0’]>>
+     simp[WORD_SLICE_THM]>>
+     qmatch_goalsub_abbrev_tac ‘A ≪ _ = B ≪ _’>>
+     ‘A = B’ by
+       (simp[Abbr ‘A’,Abbr ‘B’]>>
+        simp[w2w_w2w,word_lsr_n2w]>>
+        simp[WORD_BITS_COMP_THM]>>
+        simp[MIN_DEF])>>
+     simp[])>>simp[]>>
+  Cases_on ‘byte_index a be’>>fs[]>>
+  Cases_on ‘byte_index a be + 8 = dimindex (:'a)’>>fs[]>>
+  srw_tac[wordsLib.WORD_BIT_EQ_ss][word_slice_alt_def]>>
+  Cases_on ‘i ≤ n’>>fs[NOT_LESS]
+QED
+
+Theorem set_byte_get_byte':
+  8 ≤ dimindex (:'a) ⇒
+  set_byte a (get_byte (a:'a word) (w:'a word) be) w be = w
+Proof
+  rw[set_byte_get_byte_copy]>-
+   srw_tac[wordsLib.WORD_BIT_EQ_ss][word_slice_alt_def]>-
+   (simp[WORD_SLICE_COMP_THM]>>
+    srw_tac[wordsLib.WORD_BIT_EQ_ss][word_slice_alt_def])>-
+   (rewrite_tac[Once WORD_OR_COMM]>>
+    simp[WORD_SLICE_COMP_THM]>>
+    srw_tac[wordsLib.WORD_BIT_EQ_ss][word_slice_alt_def])>>
+  qmatch_goalsub_abbrev_tac ‘w2 ‖ w3 ‖ w1’>>
+  ‘w3 ‖ w2 ‖ w1 = w’ by
+    (simp[Abbr ‘w2’]>>
+     simp[Abbr ‘w1’]>>
+     simp[WORD_SLICE_COMP_THM]>>
+     simp[Abbr ‘w3’]>>
+     rewrite_tac[Once WORD_OR_COMM]>>
+     drule byte_index_offset>>
+     disch_then $ qspecl_then [‘be’, ‘a’] assume_tac>>
+     simp[WORD_SLICE_COMP_THM]>>
+     srw_tac[wordsLib.WORD_BIT_EQ_ss][word_slice_alt_def])>>
+  fs[]
+QED
+
+Theorem word_slice_alt_zero[simp]:
+  word_slice_alt h l 0w = 0w
+Proof
+  srw_tac[wordsLib.WORD_BIT_EQ_ss][word_slice_alt_def]
+QED
+
+Theorem word_to_bytes_word_of_bytes_32:
+  word_of_bytes be (0w:word32) (word_to_bytes (w:word32) be) = w
+Proof
+  ‘8 ≤ dimindex (:32)’ by simp[]>>
+  simp[word_to_bytes_def]>>
+  rewrite_tac[numLib.num_CONV “4”,numLib.num_CONV “3”,TWO,ONE,
+              word_to_bytes_aux_def]>>
+  simp[]>>
+  simp[word_of_bytes_def]>>
+  simp[set_byte_get_byte_copy]>>
+  rpt (CASE_TAC>>fs[byte_index_def])>>
+  srw_tac[wordsLib.WORD_BIT_EQ_ss][word_slice_alt_def]
+QED
+
+Theorem word_to_bytes_word_of_bytes_64:
+  word_of_bytes be (0w:word64) (word_to_bytes (w:word64) be) = w
+Proof
+  ‘8 ≤ dimindex (:64)’ by simp[]>>
+  simp[word_to_bytes_def]>>
+  rewrite_tac[numLib.num_CONV “8”,numLib.num_CONV “7”,
+              numLib.num_CONV “6”,numLib.num_CONV “5”,
+              numLib.num_CONV “4”,numLib.num_CONV “3”,
+              TWO,ONE,word_to_bytes_aux_def]>>
+  simp[]>>
+  simp[word_of_bytes_def]>>
+  simp[set_byte_get_byte_copy]>>
+  rpt (CASE_TAC>>fs[byte_index_def])>>
+  srw_tac[wordsLib.WORD_BIT_EQ_ss][word_slice_alt_def]
 QED
 
 val _ = export_theory();
