@@ -470,6 +470,14 @@ Proof
   drule DIV_MULT>>simp[]
 QED
 
+Theorem DIV_not_0:
+  1 < d ⇒ (d ≤ n ⇔ 0 < n DIV d)
+Proof
+  strip_tac>>
+  drule DIV_EQ_0>>strip_tac>>
+  first_x_assum $ qspec_then ‘n’ assume_tac>>fs[]
+QED
+  
 Theorem get_byte_set_byte_irrelevant:
   16 ≤ dimindex (:'a) ∧
   w2n (a:α word) MOD (dimindex(:α) DIV 8) ≠ w2n a' MOD (dimindex(:α) DIV 8) ⇒
@@ -727,7 +735,7 @@ Proof
          simp[])>>simp[]
 QED
 
-Theorem bytes_to_word_word_to_bytes_32:
+Theorem word_to_bytes_word_of_bytes_32:
   LENGTH bs = dimindex (:32) DIV 8 ⇒
   word_to_bytes (word_of_bytes be (0w:word32) bs) be = bs
 Proof
@@ -737,18 +745,14 @@ Proof
   simp[]>>
   Cases_on ‘bs’>>simp[]>>
   rename1 ‘_ ⇒ _ ∧ _ = bs’>>Cases_on ‘bs’>>simp[]>>
-(*  ntac 2 (rewrite_tac[Once CONJ_ASSOC]>>
-       rename1 ‘_ ∧ _ = bs’>>Cases_on ‘bs’>>simp[])>>*)
-  rewrite_tac[Once CONJ_ASSOC]>>
-  rename1 ‘_ ∧ _ = bs’>>Cases_on ‘bs’>>simp[]>>
-  rewrite_tac[Once CONJ_ASSOC]>>
-  rename1 ‘_ ∧ _ = bs’>>Cases_on ‘bs’>>simp[]>>
+  ntac 2 (SIMP_TAC std_ss [Once CONJ_ASSOC]>>
+       rename1 ‘_ ∧ _ = bs’>>Cases_on ‘bs’>>simp[])>>
   rewrite_tac[numLib.num_CONV “4”,numLib.num_CONV “3”,TWO,ONE]>>
   fs[]>>strip_tac>>
   simp[word_of_bytes_def,get_byte_set_byte_irrelevant,get_byte_set_byte]
 QED
 
-Theorem bytes_to_word_word_to_bytes_64:
+Theorem word_to_bytes_word_of_bytes_64:
   LENGTH bs = dimindex (:64) DIV 8 ⇒
   word_to_bytes (word_of_bytes be (0w:word64) bs) be = bs
 Proof
@@ -759,20 +763,8 @@ Proof
   simp[]>>
   Cases_on ‘bs’>>simp[]>>
   rename1 ‘_ ∧ _ = bs’>>Cases_on ‘bs’>>simp[]>>
-(*  ntac 8 (rewrite_tac[Once CONJ_ASSOC]>>
-       rename1 ‘_ ∧ _ = bs’>>Cases_on ‘bs’>>simp[])>>*)
-  rewrite_tac[Once CONJ_ASSOC]>>
-  rename1 ‘_ ∧ _ = bs’>>Cases_on ‘bs’>>simp[]>>
-  rewrite_tac[Once CONJ_ASSOC]>>
-  rename1 ‘_ ∧ _ = bs’>>Cases_on ‘bs’>>simp[]>>
-  rewrite_tac[Once CONJ_ASSOC]>>
-  rename1 ‘_ ∧ _ = bs’>>Cases_on ‘bs’>>simp[]>>
-  rewrite_tac[Once CONJ_ASSOC]>>
-  rename1 ‘_ ∧ _ = bs’>>Cases_on ‘bs’>>simp[]>>
-  rewrite_tac[Once CONJ_ASSOC]>>
-  rename1 ‘_ ∧ _ = bs’>>Cases_on ‘bs’>>simp[]>>
-  rewrite_tac[Once CONJ_ASSOC]>>
-  rename1 ‘_ ∧ _ = bs’>>Cases_on ‘bs’>>simp[]>>
+  ntac 6 (SIMP_TAC std_ss [Once CONJ_ASSOC]>>
+       rename1 ‘_ ∧ _ = bs’>>Cases_on ‘bs’>>simp[])>>
   rewrite_tac[numLib.num_CONV “8”,numLib.num_CONV “7”,numLib.num_CONV “6”,
               numLib.num_CONV “5”,numLib.num_CONV “4”,numLib.num_CONV “3”,
               TWO,ONE]>>
