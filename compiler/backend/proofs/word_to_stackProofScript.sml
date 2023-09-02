@@ -6756,28 +6756,33 @@ Proof
     DefnBase.one_line_ify NONE sh_mem_set_var_def]
 QED
 
-(* TODO: FLOOKUP *)
 Theorem share_load_lemma1:
-  share_inst Load (2 * v) ad' s = (NONE,s1) /\
+  share_inst op (2 * v) ad' s = (res,s1) /\
   state_rel k f f' s t lens /\
   v < f' + k /\
-  k <= v ==>
-  ?t1. sh_mem_op Load k ad' t = (NONE, t1) /\
-  state_rel k f f' s1
-    (t1 with stack := (LUPDATE (THE $ FLOOKUP t1.regs k)
-      (t1.stack_space + (f + k - (v + 1))) t1.stack)) lens /\
-    ?x. FLOOKUP t1.regs k = SOME x
+  k <= v /\
+  (op = Load \/ op = Load8) /\
+  res <> SOME Error ==>
+  ?t1. sh_mem_op op k ad' t =
+      (OPTION_MAP compile_result res, t1) /\
+  (((?f. (res = SOME $ wordSem$FinalFFI f) /\
+    (s1.ffi = t1.ffi) /\ (s1.clock = t1.clock))) \/
+  (res = NONE /\
+    state_rel k f f' s1
+      (t1 with stack := (LUPDATE (THE $ FLOOKUP t1.regs k)
+        (t1.stack_space + (f + k - (v + 1))) t1.stack)) lens /\
+      ?x. FLOOKUP t1.regs k = SOME x))
 Proof
   rpt strip_tac >>
-  gvs[share_inst_def,sh_mem_op_def,sh_mem_load_def,
+  gvs[share_inst_def,sh_mem_op_def,
+    sh_mem_load_def,sh_mem_load_byte_def,
+    stackSemTheory.sh_mem_load_byte_def,
     stackSemTheory.sh_mem_load_def,
     DefnBase.one_line_ify NONE sh_mem_set_var_def,
     AllCaseEqs()] >>
   rpt strip_tac >>
-  fs[PULL_EXISTS] >>
   gvs[state_rel_def,set_var_def,state_component_equality] >>
-  simp[GSYM PULL_EXISTS] >>
-  conj_tac >- metis_tac[] >>
+  (conj_tac >- metis_tac[] >>
   conj_tac >- simp[wf_insert] >>
   simp[lookup_insert,FLOOKUP_UPDATE] >>
   conj_tac >- simp[DROP_LUPDATE] >>
@@ -6789,32 +6794,34 @@ Proof
   IF_CASES_TAC >>
   gvs[] >>
   IF_CASES_TAC >>
-  gvs[EVEN_EXISTS]
+  gvs[EVEN_EXISTS])
 QED
 
 Theorem share_load_lemma2:
-  share_inst Load (2 * v) ad' s = (res,s1) /\
+  share_inst op (2 * v) ad' s = (res,s1) /\
   state_rel k f f' s t lens /\
-  v < f' + k /\
+  v < k /\
+  (op = Load \/ op = Load8) /\
   res <> SOME Error ==>
   ?t1.
-    sh_mem_op Load v ad' t =
+    sh_mem_op op v ad' t =
       (OPTION_MAP compile_result res, t1) /\
     ((?f. (res = SOME $ wordSem$FinalFFI f) /\
       (s1.ffi = t1.ffi) /\ (s1.clock = t1.clock)) \/
     (res = NONE /\
-      (v < k ==>
-        state_rel k f f' s1 t1 lens)))
+      state_rel k f f' s1 t1 lens))
 Proof
   rpt strip_tac >>
   `s.sh_mdomain = t.sh_mdomain /\ s.ffi = t.ffi /\ s.clock = t.clock` by fs[state_rel_def] >>
-  gvs[share_inst_def,sh_mem_op_def,sh_mem_load_def,
+  gvs[share_inst_def,sh_mem_op_def,
+    sh_mem_load_def,sh_mem_load_byte_def,
+    stackSemTheory.sh_mem_load_byte_def,
     stackSemTheory.sh_mem_load_def,AllCaseEqs(),
     DefnBase.one_line_ify NONE sh_mem_set_var_def] >>
   rpt strip_tac >>
   fs[PULL_EXISTS] >>
   gvs[state_rel_def,set_var_def,state_component_equality] >>
-  conj_tac >- metis_tac[] >>
+  (conj_tac >- metis_tac[] >>
   conj_tac >- simp[wf_insert] >>
   simp[lookup_insert] >>
   rpt strip_tac >>
@@ -6825,28 +6832,30 @@ Proof
   gvs[FLOOKUP_UPDATE] >>
   rpt strip_tac >>
   IF_CASES_TAC >>
-  gvs[EVEN_EXISTS]
+  gvs[EVEN_EXISTS])
 QED
 
-Theorem evaluate_ShareInst_Load_res_NONE:
+Theorem evaluate_ShareInst_Load:
   evaluate (ShareInst Load (2 * v)
     (Op Add [Var (2 * ad);Const offset]),s) = (res,s1) /\
-  res = NONE /\
+  res <> SOME Error /\
   state_rel k f f' s t lens /\
   v < f' + k /\
-  ad < f' + k
-  ==>
+  ad < f' + k ==>
   ?ck t1.
-  evaluate
-    (wShareInst Load (2 * v) (Addr (2 * ad) offset) (k,f,f'),
-      t with clock := ck + t.clock) = (NONE,t1) /\
-  state_rel k f f' s1 t1 lens
-Proo
+    evaluate
+      (wShareInst Load (2 * v) (Addr (2 * ad) offset) (k,f,f'),
+        t with clock := ck + t.clock) =
+        (OPTION_MAP compile_result res,t1) /\
+    ((?fv. res = SOME (FinalFFI fv) /\
+        s1.ffi = t1.ffi /\ s1.clock = t1.clock)) \/
+    (res = NONE /\ state_rel k f f' s1 t1 lens)
+Proof
   rpt strip_tac >>
   fs[evaluate_def,wShareInst_def,AllCaseEqs()] >>
   pairarg_tac >>
   gvs[word_exp_def,AllCaseEqs(),the_words_def,GSYM get_var_def] >>
-  simp[evaluate_wStackLoad_seq,wStackLoad_append]>>
+  simp[evaluate_wStackLoad_seq]>>
   simp[stackSemTheory.evaluate_def] >>
   simp[evaluate_wStackLoad_clock]>>
   `EVEN (2 * ad)` by simp[EVEN_DOUBLE] >>
@@ -6854,35 +6863,36 @@ Proo
   rpt strip_tac >>
   gvs[] >>
   simp[wRegWrite1_def] >>
-  IF_CASES_TAC
+  IF_CASES_TAC >>
+  simp[stackSemTheory.evaluate_def,
+    stackSemTheory.dec_clock_def,AllCaseEqs()] >>
+  gvs[stackSemTheory.word_exp_def,
+    stackSemTheory.get_var_def,AllCaseEqs()]
   >- (
-    simp[stackSemTheory.evaluate_def,
-      stackSemTheory.dec_clock_def] >>
     drule $ GEN_ALL share_load_lemma2 >>
     simp[] >>
     disch_then drule >>
     simp[] >>
     rpt strip_tac >>
-    gvs[stackSemTheory.word_exp_def,
-      stackSemTheory.get_var_def,AllCaseEqs()] >>
-    first_assum $ irule_at $ Pos last >>
-    qexists_tac `1` >>
-    simp[]
-  ) >>
-  simp[stackSemTheory.evaluate_def,
-    stackSemTheory.dec_clock_def] >>
+    gvs[]
+    >- (
+      irule_at (Pos last) EQ_REFL >>
+      simp[] >>
+      qexists_tac `1` >>
+      simp[] ) >>
+    metis_tac[] ) >>
   drule $ GEN_ALL share_load_lemma1 >>
   simp[] >>
   disch_then drule >>
   simp[] >>
-  rpt strip_tac >>
-  first_assum $ irule_at Any >>
-  gvs[stackSemTheory.word_exp_def,
-    stackSemTheory.get_var_def,AllCaseEqs()] >>
-  qexists_tac `1` >>
-  simp[AllCaseEqs()] >>
-  strip_tac >>
-  gvs[state_rel_def]
+  rpt strip_tac
+  >- (
+    simp[] >>
+    irule_at (Pos last) EQ_REFL >>
+    simp[] >>
+    qexists_tac `1` >>
+    simp[] ) >>
+  metis_tac[]
 QED
 
 Theorem comp_ShareInst_correct:
