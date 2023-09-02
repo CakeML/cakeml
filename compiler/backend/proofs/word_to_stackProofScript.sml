@@ -6835,6 +6835,24 @@ Proof
   gvs[EVEN_EXISTS])
 QED
 
+Theorem share_store_lemma2:
+  share_inst op (2 * v) ad' s = (res,s1) /\
+  state_rel k f f' s t lens /\
+  v < k /\
+  (op = Store \/ op = Store8) /\
+  res <> SOME Error ==>
+  ?t1.
+    sh_mem_op op v ad' t =
+      (OPTION_MAP compile_result res, t1) /\
+    ((?f. (res = SOME $ wordSem$FinalFFI f) /\
+      (s1.ffi = t1.ffi) /\ (s1.clock = t1.clock)) \/
+    (res = NONE /\
+      state_rel k f f' s1 t1 lens))
+Proof
+  
+QED
+
+
 Theorem evaluate_ShareInst_Load:
   evaluate (ShareInst Load (2 * v)
     (Op Add [Var (2 * ad);Const offset]),s) = (res,s1) /\
@@ -6895,6 +6913,24 @@ Proof
   metis_tac[]
 QED
 
+Theorem evaluate_ShareInst_Store:
+  evaluate (ShareInst Store (2 * v)
+    (Op Add [Var (2 * ad);Const offset]),s) = (res,s1) /\
+  res <> SOME Error /\
+  state_rel k f f' s t lens /\
+  v < f' + k /\
+  ad < f' + k ==>
+  ?ck t1.
+    evaluate
+      (wShareInst Store (2 * v) (Addr (2 * ad) offset) (k,f,f'),
+        t with clock := ck + t.clock) =
+        (OPTION_MAP compile_result res,t1) /\
+    ((?fv. res = SOME (FinalFFI fv) /\
+        s1.ffi = t1.ffi /\ s1.clock = t1.clock)) \/
+    (res = NONE /\ state_rel k f f' s1 t1 lens)
+Proof
+QED
+
 Theorem comp_ShareInst_correct:
   ^(get_goal "wordLang$ShareInst")
 Proof
@@ -6905,7 +6941,6 @@ Proof
   Cases_on `res` >>
   rpt strip_tac >>
   gvs[exp_to_addr_def] >>
-  (* drule $ GEN_ALL wRegWrite1_thm1 >> *)
   gvs[wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,
       GSYM EVEN_MOD2,EVEN_EXISTS,wordLangTheory.max_var_def,
       wordLangTheory.max_var_exp_def,GSYM LEFT_ADD_DISTRIB] >>
