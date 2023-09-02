@@ -463,13 +463,6 @@ Proof
   fs[GSYM DIV_EQ_0]
 QED
 
-Theorem DIV_MULT2[simp]:
-  ∀n q. 0 < n ⇒q * n DIV n = q
-Proof
-  rpt strip_tac>>
-  drule DIV_MULT>>simp[]
-QED
-
 Theorem DIV_not_0:
   1 < d ⇒ (d ≤ n ⇔ 0 < n DIV d)
 Proof
@@ -540,7 +533,7 @@ Proof
            drule LESS_EQUAL_ADD>>strip_tac>>
            simp[EXP_ADD]>>
            ntac 2 (rewrite_tac[Once MULT_ASSOC])>>
-           simp[])>>
+           simp[MULT_DIV])>>
          ‘byte_index a' T + 8 ≤ byte_index a T’ by
            (simp[byte_index_def]>>
             irule LESS_EQ_TRANS>>
@@ -573,12 +566,12 @@ Proof
            simp[Abbr ‘X’]>>
            drule LESS_EQUAL_ADD>>strip_tac>>
            simp[EXP_ADD]>>
-           simp[MOD_MULT_MOD])>>
+           simp[MOD_MULT_MOD,MULT_DIV])>>
          simp[Abbr ‘w2’]>>
          drule LESS_EQUAL_ADD>>strip_tac>>
-         simp[EXP_ADD]>>
+         simp[EXP_ADD,MULT_DIV]>>
          rewrite_tac[Once MULT_ASSOC]>>
-         simp[])>>simp[])>>
+         simp[MULT_DIV])>>simp[])>>
     ‘byte_index a F + 8 ≤ byte_index a' F’ by simp[byte_index_def]>>
     ‘w3 = 0w ∧ w1 = n2w (w2n w DIV 2 ** byte_index a' F) ∧ w2 = 0w’ by
       (conj_tac >-
@@ -591,7 +584,7 @@ Proof
           2 ** (dimindex (:α) − byte_index a F) * 2 ** (byte_index a F)’ by
            fs[dimword_def,GSYM EXP_ADD]>>
          pop_assum (fn h => rewrite_tac[h])>>
-         simp[GSYM DIV_MOD_MOD_DIV,ZERO_LT_EXP]>>
+         simp[GSYM DIV_MOD_MOD_DIV,ZERO_LT_EXP,MULT_DIV]>>
          qmatch_goalsub_abbrev_tac ‘X MOD _’>>
          ‘w2n w MOD 2 ** byte_index a F < 2 ** byte_index a' F’ by
            (irule LESS_TRANS>>
@@ -615,14 +608,14 @@ Proof
          simp[EXP_ADD]>>
          simp[GSYM DIV_DIV_DIV_MULT]>>
          rewrite_tac[Once ADD_COMM]>>
-         simp[DIV_MULT])>>
+         simp[DIV_MULT,MULT_DIV])>>
        simp[Abbr ‘w2’]>>
        drule LESS_EQUAL_ADD>>strip_tac>>
        simp[]>>
        simp[EXP_ADD]>>
        rewrite_tac[MULT_ASSOC]>>
        once_rewrite_tac[MULT_COMM]>>
-       simp[GSYM DIV_DIV_DIV_MULT]>>
+       simp[GSYM DIV_DIV_DIV_MULT,MULT_DIV]>>
        ‘w2n b DIV 256 = 0’ by
          (simp[DIV_EQ_0]>>
           irule LESS_LESS_EQ_TRANS>>
@@ -644,7 +637,7 @@ Proof
           2 ** (dimindex (:α) − byte_index a T) * 2 ** (byte_index a T)’ by
            fs[dimword_def,GSYM EXP_ADD]>>
            pop_assum (fn h => rewrite_tac[h])>>
-         simp[GSYM DIV_MOD_MOD_DIV,ZERO_LT_EXP]>>
+         simp[GSYM DIV_MOD_MOD_DIV,ZERO_LT_EXP,MULT_DIV]>>
          qmatch_goalsub_abbrev_tac ‘X MOD _’>>
          ‘w2n w MOD 2 ** byte_index a T < 2 ** byte_index a' T’ by
            (irule LESS_TRANS>>
@@ -666,7 +659,7 @@ Proof
          simp[]>>
          qabbrev_tac ‘X = byte_index a T + 8’>>
          simp[EXP_ADD]>>
-         simp[GSYM DIV_DIV_DIV_MULT]>>
+         simp[GSYM DIV_DIV_DIV_MULT,MULT_DIV]>>
          rewrite_tac[Once ADD_COMM]>>
          simp[DIV_MULT])>>
        simp[Abbr ‘w2’]>>
@@ -675,7 +668,7 @@ Proof
        simp[EXP_ADD]>>
        rewrite_tac[MULT_ASSOC]>>
        once_rewrite_tac[MULT_COMM]>>
-       simp[GSYM DIV_DIV_DIV_MULT]>>
+       simp[GSYM DIV_DIV_DIV_MULT,MULT_DIV]>>
        ‘w2n b DIV 256 = 0’ by
          (simp[DIV_EQ_0]>>
           irule LESS_LESS_EQ_TRANS>>
@@ -697,7 +690,7 @@ Proof
            drule LESS_EQUAL_ADD>>strip_tac>>
            simp[EXP_ADD]>>
            ntac 2 (rewrite_tac[Once MULT_ASSOC])>>
-           simp[])>>
+           simp[MULT_DIV])>>
          ‘byte_index a' F + 8 ≤ byte_index a F’ by
            (simp[byte_index_def]>>
             irule LESS_EQ_TRANS>>
@@ -726,12 +719,13 @@ Proof
            simp[GSYM DIV_DIV_DIV_MULT]>>
            drule LESS_EQUAL_ADD>>strip_tac>>
            simp[EXP_ADD]>>
-           simp[MOD_MULT_MOD])>>
+           rewrite_tac[Once MULT_COMM]>>
+           simp[MOD_MULT_MOD,MULT_DIV])>>
          simp[Abbr ‘w2’]>>
          drule LESS_EQUAL_ADD>>strip_tac>>
          simp[EXP_ADD]>>
          rewrite_tac[Once MULT_ASSOC]>>
-         simp[])>>simp[]
+         simp[MULT_DIV])>>simp[]
 QED
 
 Theorem word_to_bytes_word_of_bytes_32:
