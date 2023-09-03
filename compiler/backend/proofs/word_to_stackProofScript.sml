@@ -6744,18 +6744,6 @@ Proof
   fs[GSYM word_exp_Op_Add_0] 
 QED
 
-Theorem share_inst_imp_res:
-  share_inst op v ad s = (res,s') ==>
-  res = SOME Error \/ res = NONE \/
-    (?v. res = SOME $ wordSem$FinalFFI v)
-Proof
-  rpt strip_tac >>
-  gvs[DefnBase.one_line_ify NONE share_inst_def,
-    AllCaseEqs(),sh_mem_load_def,sh_mem_load_byte_def,
-    sh_mem_store_def,sh_mem_store_byte_def,
-    DefnBase.one_line_ify NONE sh_mem_set_var_def]
-QED
-
 Theorem share_load_lemma1:
   share_inst op (2 * v) ad' s = (res,s1) /\
   state_rel k f f' s t lens /\
@@ -6771,7 +6759,9 @@ Theorem share_load_lemma1:
     state_rel k f f' s1
       (t1 with stack := (LUPDATE (THE $ FLOOKUP t1.regs k)
         (t1.stack_space + (f + k - (v + 1))) t1.stack)) lens /\
-      ?x. FLOOKUP t1.regs k = SOME x))
+      (?x. FLOOKUP t1.regs k = SOME x) /\
+      (t1.stack_space = t.stack_space) /\
+      (LENGTH t1.stack = LENGTH t.stack)))
 Proof
   rpt strip_tac >>
   gvs[share_inst_def,sh_mem_op_def,
@@ -6812,7 +6802,9 @@ Theorem share_load_lemma2:
       state_rel k f f' s1 t1 lens))
 Proof
   rpt strip_tac >>
-  `s.sh_mdomain = t.sh_mdomain /\ s.ffi = t.ffi /\ s.clock = t.clock` by fs[state_rel_def] >>
+  `s.sh_mdomain = t.sh_mdomain /\
+    s.ffi = t.ffi /\
+    s.clock = t.clock` by fs[state_rel_def] >>
   gvs[share_inst_def,sh_mem_op_def,
     sh_mem_load_def,sh_mem_load_byte_def,
     stackSemTheory.sh_mem_load_byte_def,
@@ -6835,43 +6827,105 @@ Proof
   gvs[EVEN_EXISTS])
 QED
 
-Theorem share_store_lemma2:
-  share_inst op (2 * v) ad' s = (res,s1) /\
+Theorem share_store_lemma1:
+  share_inst Store8 (2 * v) ad' s = (res,s1) /\
   state_rel k f f' s t lens /\
-  v < k /\
-  (op = Store \/ op = Store8) /\
+  ~(v < k) /\
   res <> SOME Error ==>
   ?t1.
-    sh_mem_op op v ad' t =
-      (OPTION_MAP compile_result res, t1) /\
-    ((?f. (res = SOME $ wordSem$FinalFFI f) /\
+    sh_mem_op Store8 (k + 1) ad'
+      (t with
+        regs := t.regs |+
+          (k+1,EL (t.stack_space + (f + k - (v + 1)))
+                t.stack)) =
+      (OPTION_MAP compile_result res,t1) /\
+    ((?fv. (res = SOME $ wordSem$FinalFFI fv) /\
       (s1.ffi = t1.ffi) /\ (s1.clock = t1.clock)) \/
     (res = NONE /\
       state_rel k f f' s1 t1 lens))
 Proof
-  
+  rpt strip_tac >>
+  `s.sh_mdomain = t.sh_mdomain /\
+   s.ffi = t.ffi /\
+   s.clock = t.clock` by fs[state_rel_def] >>
+  gvs[share_inst_def,sh_mem_op_def,
+    sh_mem_store_def,sh_mem_store_byte_def,
+    stackSemTheory.sh_mem_store_byte_def,
+    stackSemTheory.sh_mem_store_def,AllCaseEqs(),
+    PULL_EXISTS] >>
+  gvs[stackSemTheory.get_var_def,FLOOKUP_UPDATE] >>
+  `EL (t.stack_space + (f + k − (v + 1))) t.stack = Word v'` by (
+    gvs[get_var_def,state_rel_def] >>
+    last_x_assum drule >>
+    rpt strip_tac >>
+    gvs[] >>
+    drule LLOOKUP_TAKE_IMP >>
+    simp[LLOOKUP_DROP,LLOOKUP_THM] ) >>
+  rpt strip_tac >>
+  gvs[] >>
+  gvs[state_rel_def,set_var_def,state_component_equality] >>
+  conj_tac >- (rpt strip_tac >> metis_tac[]) >>
+  rpt strip_tac >>
+  IF_CASES_TAC >>
+  simp[FLOOKUP_UPDATE] >>
+  first_x_assum drule >>
+  gvs[]
 QED
 
+Theorem share_store_lemma2:
+  share_inst Store8 (2 * v) ad' s = (res,s1) /\
+  state_rel k f f' s t lens /\
+  v < k /\
+  (* (op = Store \/ op = Store8) /\ *)
+  res <> SOME Error ==>
+  ?t1.
+    sh_mem_op Store8 v ad' t =
+      (OPTION_MAP compile_result res, t1) /\
+    ((?fv. (res = SOME $ wordSem$FinalFFI fv) /\
+      (s1.ffi = t1.ffi) /\ (s1.clock = t1.clock)) \/
+    (res = NONE /\
+      state_rel k f f' s1 t1 lens))
+Proof
+  rpt strip_tac >>
+  `s.sh_mdomain = t.sh_mdomain /\
+    s.ffi = t.ffi /\
+    s.clock = t.clock` by fs[state_rel_def] >>
+  gvs[share_inst_def,sh_mem_op_def,
+    sh_mem_store_def,sh_mem_store_byte_def,
+    stackSemTheory.sh_mem_store_byte_def,
+    stackSemTheory.sh_mem_store_def,AllCaseEqs()] >>
+  rpt strip_tac >>
+  fs[PULL_EXISTS] >>
+  gvs[state_rel_def,set_var_def,state_component_equality] >>
+  simp[GSYM PULL_EXISTS] >>
+  first_assum $ irule_at Any >>
+  fs[GSYM get_var_def,stackSemTheory.get_var_def] >>
+  first_x_assum drule >>
+  gvs[] >>
+  rpt strip_tac >>
+  metis_tac[]
+QED
 
 Theorem evaluate_ShareInst_Load:
-  evaluate (ShareInst Load (2 * v)
+  evaluate (ShareInst op (2 * v)
     (Op Add [Var (2 * ad);Const offset]),s) = (res,s1) /\
   res <> SOME Error /\
   state_rel k f f' s t lens /\
   v < f' + k /\
-  ad < f' + k ==>
+  ad < f' + k /\
+  (op = Load \/ op = Load8) ==>
   ?ck t1.
     evaluate
-      (wShareInst Load (2 * v) (Addr (2 * ad) offset) (k,f,f'),
+      (wShareInst op (2 * v) (Addr (2 * ad) offset) (k,f,f'),
         t with clock := ck + t.clock) =
         (OPTION_MAP compile_result res,t1) /\
     ((?fv. res = SOME (FinalFFI fv) /\
-        s1.ffi = t1.ffi /\ s1.clock = t1.clock)) \/
-    (res = NONE /\ state_rel k f f' s1 t1 lens)
+        s1.ffi = t1.ffi /\ s1.clock = t1.clock) \/
+    (res = NONE /\ state_rel k f f' s1 t1 lens))
 Proof
   rpt strip_tac >>
-  fs[evaluate_def,wShareInst_def,AllCaseEqs()] >>
-  pairarg_tac >>
+  gvs[evaluate_def,wShareInst_def,AllCaseEqs()] >>
+  (pairarg_tac >>
   gvs[word_exp_def,AllCaseEqs(),the_words_def,GSYM get_var_def] >>
   simp[evaluate_wStackLoad_seq]>>
   simp[stackSemTheory.evaluate_def] >>
@@ -6898,23 +6952,22 @@ Proof
       simp[] >>
       qexists_tac `1` >>
       simp[] ) >>
-    metis_tac[] ) >>
+    first_x_assum $ irule_at (Pos last) >>
+    qexists_tac `1` >>
+    simp[] ) >>
   drule $ GEN_ALL share_load_lemma1 >>
   simp[] >>
   disch_then drule >>
   simp[] >>
-  rpt strip_tac
-  >- (
-    simp[] >>
-    irule_at (Pos last) EQ_REFL >>
-    simp[] >>
-    qexists_tac `1` >>
-    simp[] ) >>
-  metis_tac[]
+  rpt strip_tac >>
+  qexists_tac `1` >>
+  simp[] >>
+  first_assum $ irule_at (Pos last) >>
+  gvs[state_rel_def,state_component_equality] )
 QED
 
 Theorem evaluate_ShareInst_Store:
-  evaluate (ShareInst Store (2 * v)
+  evaluate (ShareInst Store8 (2 * v)
     (Op Add [Var (2 * ad);Const offset]),s) = (res,s1) /\
   res <> SOME Error /\
   state_rel k f f' s t lens /\
@@ -6922,14 +6975,69 @@ Theorem evaluate_ShareInst_Store:
   ad < f' + k ==>
   ?ck t1.
     evaluate
-      (wShareInst Store (2 * v) (Addr (2 * ad) offset) (k,f,f'),
+      (wShareInst Store8 (2 * v) (Addr (2 * ad) offset) (k,f,f'),
         t with clock := ck + t.clock) =
         (OPTION_MAP compile_result res,t1) /\
     ((?fv. res = SOME (FinalFFI fv) /\
-        s1.ffi = t1.ffi /\ s1.clock = t1.clock)) \/
-    (res = NONE /\ state_rel k f f' s1 t1 lens)
+        s1.ffi = t1.ffi /\ s1.clock = t1.clock) \/
+    (res = NONE /\ state_rel k f f' s1 t1 lens))
 Proof
+  rpt strip_tac >>
+  gvs[evaluate_def,wShareInst_def,AllCaseEqs()] >>
+  pairarg_tac >>
+  gvs[word_exp_def,AllCaseEqs(),the_words_def,GSYM get_var_def] >>
+  pairarg_tac >>
+  simp[evaluate_wStackLoad_seq,wStackLoad_append]>>
+  simp[stackSemTheory.evaluate_def] >>
+  simp[evaluate_wStackLoad_clock]>>
+  `EVEN (2 * ad)` by simp[EVEN_DOUBLE] >>
+  drule_all $ GEN_ALL evaluate_wStackLoad_wReg1>>
+  rpt strip_tac >>
+  gvs[wReg2_def,AllCaseEqs()] >>
+  simp[wStackLoad_def]
+  >- (
+    qexists_tac `1` >>
+    simp[Once stackSemTheory.evaluate_def,
+      stackSemTheory.dec_clock_def] >>
+    gvs[stackSemTheory.word_exp_def,
+      stackSemTheory.get_var_def] >>
+    drule_all $ GEN_ALL share_store_lemma2 >>
+    rpt strip_tac >>
+    gvs[]
+  ) >>
+  qexists_tac `1` >>
+  simp[stackSemTheory.evaluate_def,stackSemTheory.set_var_def,
+    stackSemTheory.dec_clock_def] >>
+  `t'.use_stack` by gvs[state_rel_def] >>
+  `t.stack_space + (f + k - ( v + 1)) < LENGTH t.stack` by (
+    fs [state_rel_def,get_var_def] >>
+    res_tac >> rfs []
+  ) >>
+  drule_all $ GEN_ALL share_store_lemma1 >>
+  rpt strip_tac >>
+  gvs[stackSemTheory.word_exp_def,
+    stackSemTheory.get_var_def,
+    FLOOKUP_UPDATE]
 QED
+
+Theorem evaluate_ShareInst_correct_lemma:
+  evaluate (ShareInst op (2 * v)
+    (Op Add [Var (2 * ad);Const offset]),s) = (res,s1) /\
+  res <> SOME Error /\
+  state_rel k f f' s t lens /\
+  v < f' + k /\
+  ad < f' + k ==>
+  ?ck t1.
+    evaluate
+      (wShareInst op (2 * v) (Addr (2 * ad) offset) (k,f,f'),
+        t with clock := ck + t.clock) =
+      (OPTION_MAP compile_result res,t1) /\
+    ((res = NONE /\ state_rel k f f' s1 t1 lens) \/
+      (?fv. res = SOME (FinalFFI fv) /\
+        s1.ffi = t1.ffi /\ s1.clock = t1.clock))
+Proof
+  cheat
+QED 
 
 Theorem comp_ShareInst_correct:
   ^(get_goal "wordLang$ShareInst")
@@ -6937,28 +7045,19 @@ Proof
   rpt strip_tac >>
   gvs[EVAL ``post_alloc_conventions k (ShareInst op v exp)``,comp_def] >>
   drule flat_exp_conventions_ShareInst_exp_simp >>
-  strip_tac >>
-  Cases_on `res` >>
   rpt strip_tac >>
-  gvs[exp_to_addr_def] >>
-  gvs[wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,
-      GSYM EVEN_MOD2,EVEN_EXISTS,wordLangTheory.max_var_def,
-      wordLangTheory.max_var_exp_def,GSYM LEFT_ADD_DISTRIB] >>
-  disch_then $ drule_then assume_tac >>
-  gvs[PULL_EXISTS] 
-  gvs[wordSemTheory.evaluate_def] >>
-  gvs[wShareInst_def] >>
-  gvs[get_labels_wStackLoad,wReg1_def] >>
-      disch_then drule >>
-      gvs[AllCaseEqs()] >>
-      gvs[wRegWrite1_def] >>
-      IF_CASES_TAC >>
-      gvs[wStackLoad_def] >>
-      
-      gvs[stackSemTheory.evaluate_def,stackSemTheory.sh_mem_op_def] >>
-      
-      
-  )
+  gvs[exp_to_addr_def,evaluate_ShareInst_Var_eq_Op_Add] >>
+  gvs[wordLangTheory.every_var_exp_def,
+      reg_allocTheory.is_phy_var_def,
+      wordLangTheory.max_var_def,
+      wordLangTheory.max_var_exp_def,
+      GSYM FOLDR_MAX_0_list_max] >>
+  gvs[GSYM EVEN_MOD2,EVEN_EXISTS,GSYM LEFT_ADD_DISTRIB] >>
+  drule_all evaluate_ShareInst_correct_lemma >>
+  rpt strip_tac >>
+  gvs[] >>
+  first_x_assum $ irule_at (Pos hd) >>
+  gvs[]
 QED
 
 Theorem compile_prog_stack_size:
