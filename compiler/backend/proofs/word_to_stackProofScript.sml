@@ -6828,12 +6828,13 @@ Proof
 QED
 
 Theorem share_store_lemma1:
-  share_inst Store8 (2 * v) ad' s = (res,s1) /\
+  share_inst op (2 * v) ad' s = (res,s1) /\
   state_rel k f f' s t lens /\
   ~(v < k) /\
+  (op = Store \/ op = Store8) /\
   res <> SOME Error ==>
   ?t1.
-    sh_mem_op Store8 (k + 1) ad'
+    sh_mem_op op (k + 1) ad'
       (t with
         regs := t.regs |+
           (k+1,EL (t.stack_space + (f + k - (v + 1)))
@@ -6845,7 +6846,7 @@ Theorem share_store_lemma1:
       state_rel k f f' s1 t1 lens))
 Proof
   rpt strip_tac >>
-  `s.sh_mdomain = t.sh_mdomain /\
+  (`s.sh_mdomain = t.sh_mdomain /\
    s.ffi = t.ffi /\
    s.clock = t.clock` by fs[state_rel_def] >>
   gvs[share_inst_def,sh_mem_op_def,
@@ -6869,17 +6870,17 @@ Proof
   IF_CASES_TAC >>
   simp[FLOOKUP_UPDATE] >>
   first_x_assum drule >>
-  gvs[]
+  gvs[])
 QED
 
 Theorem share_store_lemma2:
-  share_inst Store8 (2 * v) ad' s = (res,s1) /\
+  share_inst op (2 * v) ad' s = (res,s1) /\
   state_rel k f f' s t lens /\
   v < k /\
-  (* (op = Store \/ op = Store8) /\ *)
+  (op = Store \/ op = Store8) /\
   res <> SOME Error ==>
   ?t1.
-    sh_mem_op Store8 v ad' t =
+    sh_mem_op op v ad' t =
       (OPTION_MAP compile_result res, t1) /\
     ((?fv. (res = SOME $ wordSem$FinalFFI fv) /\
       (s1.ffi = t1.ffi) /\ (s1.clock = t1.clock)) \/
@@ -6887,7 +6888,7 @@ Theorem share_store_lemma2:
       state_rel k f f' s1 t1 lens))
 Proof
   rpt strip_tac >>
-  `s.sh_mdomain = t.sh_mdomain /\
+  (`s.sh_mdomain = t.sh_mdomain /\
     s.ffi = t.ffi /\
     s.clock = t.clock` by fs[state_rel_def] >>
   gvs[share_inst_def,sh_mem_op_def,
@@ -6903,7 +6904,7 @@ Proof
   first_x_assum drule >>
   gvs[] >>
   rpt strip_tac >>
-  metis_tac[]
+  metis_tac[])
 QED
 
 Theorem evaluate_ShareInst_Load:
@@ -6967,15 +6968,16 @@ Proof
 QED
 
 Theorem evaluate_ShareInst_Store:
-  evaluate (ShareInst Store8 (2 * v)
+  evaluate (ShareInst op (2 * v)
     (Op Add [Var (2 * ad);Const offset]),s) = (res,s1) /\
-  res <> SOME Error /\
   state_rel k f f' s t lens /\
   v < f' + k /\
-  ad < f' + k ==>
+  ad < f' + k /\
+  res <> SOME Error /\
+  (op = Store \/ op = Store8) ==>
   ?ck t1.
     evaluate
-      (wShareInst Store8 (2 * v) (Addr (2 * ad) offset) (k,f,f'),
+      (wShareInst op (2 * v) (Addr (2 * ad) offset) (k,f,f'),
         t with clock := ck + t.clock) =
         (OPTION_MAP compile_result res,t1) /\
     ((?fv. res = SOME (FinalFFI fv) /\
@@ -6983,7 +6985,7 @@ Theorem evaluate_ShareInst_Store:
     (res = NONE /\ state_rel k f f' s1 t1 lens))
 Proof
   rpt strip_tac >>
-  gvs[evaluate_def,wShareInst_def,AllCaseEqs()] >>
+  (gvs[evaluate_def,wShareInst_def,AllCaseEqs()] >>
   pairarg_tac >>
   gvs[word_exp_def,AllCaseEqs(),the_words_def,GSYM get_var_def] >>
   pairarg_tac >>
@@ -7001,9 +7003,8 @@ Proof
       stackSemTheory.dec_clock_def] >>
     gvs[stackSemTheory.word_exp_def,
       stackSemTheory.get_var_def] >>
-    drule_all $ GEN_ALL share_store_lemma2 >>
-    rpt strip_tac >>
-    gvs[]
+    drule_then drule $ GEN_ALL share_store_lemma2 >>
+    simp[]
   ) >>
   qexists_tac `1` >>
   simp[stackSemTheory.evaluate_def,stackSemTheory.set_var_def,
@@ -7013,11 +7014,11 @@ Proof
     fs [state_rel_def,get_var_def] >>
     res_tac >> rfs []
   ) >>
-  drule_all $ GEN_ALL share_store_lemma1 >>
+  drule_then drule $ GEN_ALL share_store_lemma1 >>
   rpt strip_tac >>
   gvs[stackSemTheory.word_exp_def,
     stackSemTheory.get_var_def,
-    FLOOKUP_UPDATE]
+    FLOOKUP_UPDATE])
 QED
 
 Theorem evaluate_ShareInst_correct_lemma:
@@ -7036,7 +7037,15 @@ Theorem evaluate_ShareInst_correct_lemma:
       (?fv. res = SOME (FinalFFI fv) /\
         s1.ffi = t1.ffi /\ s1.clock = t1.clock))
 Proof
-  cheat
+  rpt strip_tac >>
+  drule evaluate_ShareInst_Load >>
+  simp[] >>
+  strip_tac >>
+  drule evaluate_ShareInst_Store >>
+  simp[] >>
+  strip_tac >>
+  Cases_on `op` >>
+  metis_tac[]
 QED 
 
 Theorem comp_ShareInst_correct:
@@ -7736,6 +7745,7 @@ Proof
         simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
       conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
         simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
+      conj_tac >- simp[dec_clock_def] >>
       conj_tac >- metis_tac [] >>
       conj_tac >- (cruft_tac >> rveq >>
                    `m' <= LENGTH t4.stack` by intLib.COOPER_TAC >>
@@ -8591,6 +8601,7 @@ Proof
     PURE_ONCE_REWRITE_TAC[dec_clock_def,call_env_def,push_env_def,env_to_list_def]>>
     fsrw_tac[][Abbr`t6`,stackSemTheory.state_component_equality]>>
     fsrw_tac[][state_rel_def]>>
+    (* TODO: sh_mdomain fail *)
     conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
                  simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
     conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
@@ -8598,6 +8609,8 @@ Proof
     conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
                  simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
     conj_tac >- (fsrw_tac[][push_env_def,LET_THM,ELIM_UNCURRY,dec_clock_def]) >>
+    conj_tac >- (simp[dec_clock_def,push_env_def] >>
+                 simp[env_to_list_def] >> simp[FUN_EQ_THM]) >> 
     conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
                  simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
     conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
@@ -9251,7 +9264,7 @@ Proof
     comp_Seq_correct, comp_Return_correct, comp_Raise_correct,
     comp_If_correct, comp_LocValue_correct, comp_Install_correct,
     comp_CodeBufferWrite_correct, comp_DataBufferWrite_correct,
-    comp_FFI_correct, comp_OpCurrHeap_correct, comp_Call_correct]
+    comp_FFI_correct, comp_OpCurrHeap_correct, comp_Call_correct,comp_ShareInst_correct]
 QED
 
 val evaluate_Seq_Skip = Q.prove(
@@ -9553,6 +9566,7 @@ val make_init_def = Define `
      ; stack   := []
      ; memory  := t.memory
      ; mdomain := t.mdomain
+     ; sh_mdomain := t.sh_mdomain
      ; permute := K I
      ; gc_fun  := t.gc_fun
      ; handler := 0
@@ -9952,6 +9966,16 @@ Proof
   >-
     (fs[wLive_def]>>rpt(pairarg_tac>>fs[])>>
     EVERY_CASE_TAC>>fs[]>>rveq>>fs[]>>EVAL_TAC)
+  >~ [`wShareInst`]
+  >- (
+    gvs[DefnBase.one_line_ify NONE wShareInst_def] >>
+    TOP_CASE_TAC >>
+    TOP_CASE_TAC >>
+    pairarg_tac >>
+    gvs[wRegWrite1_def,wReg1_def,wReg2_def,AllCaseEqs()] >>
+    IF_CASES_TAC >>
+    simp[wStackLoad_def] >>
+    simp[extract_labels_def] )
   >> rpt(pairarg_tac \\ fs[wReg2_def])
   \\ every_case_tac \\ rw[] \\ EVAL_TAC
   \\ EVAL_TAC>>EVERY_CASE_TAC>>EVAL_TAC
@@ -10055,6 +10079,7 @@ val wLive_stack_asm_name = Q.prove(`
   rpt(pairarg_tac>>fs[])>>
   rveq>>EVAL_TAC>>fs[])
 
+(* TODO: ShareInst fail *)
 Theorem word_to_stack_stack_asm_name_lem:
   ∀p bs kf c.
   post_alloc_conventions (FST kf) p ∧
