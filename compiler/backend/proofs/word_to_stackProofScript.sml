@@ -6741,7 +6741,7 @@ Proof
   TOP_CASE_TAC  >>
   drule word_exp_Op_SOME_Word >>
   rpt strip_tac >>
-  fs[GSYM word_exp_Op_Add_0] 
+  fs[GSYM word_exp_Op_Add_0]
 QED
 
 Theorem share_load_lemma1:
@@ -6819,7 +6819,7 @@ Proof
   rpt strip_tac >>
   gvs[AllCaseEqs(),EVEN_DOUBLE]
   >-  simp[FLOOKUP_UPDATE] >>
-  IF_CASES_TAC >> 
+  IF_CASES_TAC >>
   first_x_assum drule >>
   gvs[FLOOKUP_UPDATE] >>
   rpt strip_tac >>
@@ -7046,7 +7046,7 @@ Proof
   strip_tac >>
   Cases_on `op` >>
   metis_tac[]
-QED 
+QED
 
 Theorem comp_ShareInst_correct:
   ^(get_goal "wordLang$ShareInst")
@@ -7055,7 +7055,7 @@ Proof
   gvs[EVAL ``post_alloc_conventions k (ShareInst op v exp)``,comp_def] >>
   drule flat_exp_conventions_ShareInst_exp_simp >>
   rpt strip_tac >>
-  gvs[exp_to_addr_def,evaluate_ShareInst_Var_eq_Op_Add] >>
+  gvs[wordLangTheory.exp_to_addr_def,evaluate_ShareInst_Var_eq_Op_Add] >>
   gvs[wordLangTheory.every_var_exp_def,
       reg_allocTheory.is_phy_var_def,
       wordLangTheory.max_var_def,
@@ -10079,7 +10079,6 @@ val wLive_stack_asm_name = Q.prove(`
   rpt(pairarg_tac>>fs[])>>
   rveq>>EVAL_TAC>>fs[])
 
-(* TODO: ShareInst fail *)
 Theorem word_to_stack_stack_asm_name_lem:
   ∀p bs kf c.
   post_alloc_conventions (FST kf) p ∧
@@ -10105,7 +10104,7 @@ Proof
     TRY(Cases_on`f`)>>
     PairCases_on`kf`>>
     fs wconvs>>
-    fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,two_reg_inst_def,wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,asmTheory.fp_reg_ok_def]>>
+    fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,two_reg_inst_def,wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,asmTheory.fp_reg_ok_def] >>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>fs[]>>
@@ -10173,6 +10172,18 @@ Proof
     (PairCases_on`kf`>>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[])
+  >~[`wShareInst`]
+  >-
+    (PairCases_on`kf` >>
+    Cases_on `THE (exp_to_addr exp)` >>
+    Cases_on `op` >>
+    simp[wShareInst_def] >>
+    fs wconvs >>
+    fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,two_reg_inst_def,wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,asmTheory.fp_reg_ok_def] >>
+    ntac 3 (EVAL_TAC >> rw[]) >>
+    EVERY_CASE_TAC >>
+    fs[wordLangTheory.exp_to_addr_def,asmTheory.offset_ok_def,aligned_def,align_def]
+  )
   >> PairCases_on`kf` \\ EVAL_TAC
   \\ rw[] \\ EVAL_TAC \\ fs[]
 QED
@@ -10272,6 +10283,13 @@ Proof
     (PairCases_on`kf`>>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[])
+  >~ [`wShareInst`]
+  >-
+    (PairCases_on`kf` >>
+    Cases_on `THE(exp_to_addr exp)` >>
+    Cases_on `op` >>
+    every_case_tac >>
+    rpt (EVAL_TAC >> rw[]))
   \\ rpt(pairarg_tac \\ fs[])
   \\ PairCases_on`kf` \\ fs[wReg1_def,wReg2_def]
   \\ every_case_tac \\ fs[] \\ rw[]
@@ -10368,6 +10386,13 @@ Proof
     rpt(pairarg_tac>>fs[StackArgs_def,alloc_arg_def,wStackLoad_def,PushHandler_def,StackHandlerArgs_def,PopHandler_def])>>
     rveq>>fs [alloc_arg_def]>>
     match_mp_tac stack_move_alloc_arg>>fs [alloc_arg_def])
+  >~[`wShareInst`]
+  >- (Cases_on `THE(exp_to_addr exp)` >>
+      Cases_on `op` >>
+      gvs[wShareInst_def,alloc_arg_def] >>
+      fs[wReg1_def,wReg2_def,wRegWrite1_def] >>
+      every_case_tac >> fs[] >>
+      rw[alloc_arg_def,wStackLoad_def])
   >>
     rpt(pairarg_tac>>fs[alloc_arg_def])>>rveq>>fs[alloc_arg_def]
   >> fs[wReg1_def,wReg2_def]
@@ -10437,6 +10462,13 @@ Proof
     rveq>>fs [reg_bound_def]>>
     match_mp_tac stack_move_reg_bound>>fs [reg_bound_def]))
   >- (rpt(pairarg_tac>>fs[reg_bound_def])>>rveq>>fs[reg_bound_def])
+  >~ [`wShareInst`]
+  >- (Cases_on `THE(exp_to_addr exp)` >>
+    Cases_on `op` >>
+    rpt(pairarg_tac>>fs[reg_bound_def])>>rveq>>fs[reg_bound_def] >>
+    fs[wReg1_def,wReg2_def,wRegWrite1_def] >>
+    every_case_tac >>
+    rpt (EVAL_TAC >> rw[])) 
   \\ rpt(pairarg_tac>>fs[reg_bound_def])>>rveq>>fs[reg_bound_def]
   \\ fs[wReg1_def,wReg2_def]
   \\ every_case_tac \\ fs[] \\ rw[] \\ EVAL_TAC \\ fs[]
@@ -10497,6 +10529,14 @@ Proof
     rveq>>fs [call_args_def]>>
     match_mp_tac stack_move_call_args>>fs [call_args_def]))
   >- (rpt(pairarg_tac>>fs[call_args_def])>>rveq>>fs[call_args_def])
+  >~ [`wShareInst`]
+  >- (
+    Cases_on `THE(exp_to_addr exp)` >>
+    Cases_on `op` >>
+    rpt(pairarg_tac>>fs[call_args_def])>>rveq>>fs[call_args_def] >>
+    fs[wReg1_def,wReg2_def,wRegWrite1_def] >>
+    every_case_tac >>
+    rpt (EVAL_TAC >> rw[]))
   \\ rpt(pairarg_tac>>fs[call_args_def])>>rveq>>fs[call_args_def]
   \\ fs[wReg1_def,wReg2_def]
   \\ every_case_tac \\ fs[] \\ rw[] \\ EVAL_TAC \\ fs[]
@@ -10675,6 +10715,15 @@ Proof
     (TOP_CASE_TAC>>fs[]>>pairarg_tac>>fs[get_code_handler_labels_wStackLoad])
   >-
     rpt(dep_rewrite.DEP_REWRITE_TAC [get_code_labels_wReg]>>rw[])
+  >~[`wShareInst`]
+  >- (
+    Cases_on `THE(exp_to_addr exp)` >>
+    Cases_on `op` >>
+    fs[wShareInst_def] >>
+    rpt (pairarg_tac>>fs[])>>
+    fs[get_code_handler_labels_wStackLoad] >>
+    rw[wRegWrite1_def]
+  )
   >> TRY (
     TOP_CASE_TAC>>fs[]>>
     every_case_tac>>fs[call_dest_def]>>

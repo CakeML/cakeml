@@ -284,6 +284,12 @@ val word_sh_def = Define `
       | Asr => SOME (w >> n)
       | Ror => SOME (word_ror w n)`;
 
+Definition exp_to_addr_def:
+  (exp_to_addr (Var ad) = SOME $ Addr ad 0w) /\
+  (exp_to_addr (Op Add [Var ad;Const offset]) = SOME $ Addr ad offset) /\
+  (exp_to_addr _ = NONE)
+End
+
 Overload shift = “backend_common$word_shift”
 
 Datatype:

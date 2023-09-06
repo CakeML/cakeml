@@ -972,14 +972,15 @@ val inst_select_exp_full_inst_ok_less = Q.prove(`
 Theorem inst_select_full_inst_ok_less:
   ∀c temp prog.
     addr_offset_ok c 0w ∧
+    byte_offset_ok c 0w ∧
     every_inst (inst_ok_less c) prog
     ⇒
     full_inst_ok_less c (inst_select c temp prog)
 Proof
-  ho_match_mp_tac inst_select_ind>>
-  rw[inst_select_def,full_inst_ok_less_def,every_inst_def]>>
-  EVERY_CASE_TAC>>
-  fs[inst_select_def,full_inst_ok_less_def,inst_ok_less_def,every_inst_def]>>
+  ho_match_mp_tac inst_select_ind >>
+  rw[inst_select_def,full_inst_ok_less_def,every_inst_def] >>
+  EVERY_CASE_TAC >>
+  fs[inst_select_def,full_inst_ok_less_def,inst_ok_less_def,every_inst_def,exp_to_addr_def]>>
   metis_tac[inst_select_exp_full_inst_ok_less]
 QED
 
