@@ -8573,7 +8573,6 @@ Proof
     t'' with <|regs:=t''.regs|+(0,Loc x3 x4);
               stack_space:=t''.stack_space - (m'-(LENGTH q-k));
               clock:=t.clock-1|>`>>
-  (* **** *)
   `state_rel k m' m word_state stack_state (f'::lens)` by (
     ntac 3 (qpat_x_assum`!a b. P` kall_tac)>>
     `sargs = (LENGTH q -k)` by
@@ -8611,8 +8610,6 @@ Proof
     conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
                  simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
     conj_tac >- (fsrw_tac[][push_env_def,LET_THM,ELIM_UNCURRY,dec_clock_def]) >>
-    conj_tac >- (simp[dec_clock_def,push_env_def] >>
-                 simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
     conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
                  simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
     conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
