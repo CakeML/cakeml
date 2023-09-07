@@ -128,6 +128,7 @@ val word_state_eq_rel_def = Define`
   t.stack_size = s.stack_size /\
   t.memory = s.memory ∧
   t.mdomain = s.mdomain ∧
+  t.sh_mdomain = s.sh_mdomain ∧
   t.gc_fun = s.gc_fun ∧
   t.handler = s.handler ∧
   t.clock = s.clock ∧
@@ -412,6 +413,7 @@ Theorem gc_frame:
   ⇒
   st'.fp_regs = st.fp_regs ∧
   st'.mdomain = st.mdomain ∧
+  st'.sh_mdomain = st.sh_mdomain ∧
   st'.gc_fun = st.gc_fun ∧
   st'.handler = st.handler ∧
   st'.clock = st.clock ∧
