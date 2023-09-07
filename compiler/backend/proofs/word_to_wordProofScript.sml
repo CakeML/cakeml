@@ -608,6 +608,17 @@ Proof
   >- (rename [‘CodeBufferWrite’] \\ tac)
   >- (rename [‘DataBufferWrite’] \\ tac)
   >- (rename [‘FFI’] \\ tac \\ Cases_on`call_FFI st.ffi s x'' x'` \\ simp[])
+  >~ [`ShareInst`]
+  >-
+    (fs[evaluate_def,state_component_equality]>>
+    qexists_tac`st.permute`>>
+    rpt (TOP_CASE_TAC >> fs[state_component_equality]) >>
+    fs[DefnBase.one_line_ify NONE share_inst_def,
+      DefnBase.one_line_ify NONE sh_mem_set_var_def,
+      sh_mem_load_def,sh_mem_load_byte_def,
+      sh_mem_store_def,sh_mem_store_byte_def] >>
+    rpt (TOP_CASE_TAC >>
+      fs[state_component_equality,set_var_def,flush_state_def]))
 QED
 
 Theorem compile_word_to_word_thm:
@@ -673,7 +684,8 @@ Theorem compile_to_word_conventions:
     flat_exp_conventions prog ∧
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
     (EVERY (λ(n,m,prog). every_inst (inst_ok_less ac) prog) p ∧
-     addr_offset_ok ac 0w ⇒ full_inst_ok_less ac prog) ∧
+     addr_offset_ok ac 0w ∧ byte_offset_ok ac 0w ⇒
+      full_inst_ok_less ac prog) ∧
     (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) progs
 Proof
   fs[compile_def]>>pairarg_tac>>fs[]>>
