@@ -310,24 +310,7 @@ Definition word_to_bytes_def:
   word_to_bytes_aux (dimindex (:'a) DIV 8) w be
 End
 
-Theorem LENGTH_word_to_bytes:
-  LENGTH (word_to_bytes_aux k (w:'a word) be) = k
-Proof
-  Induct_on ‘k’>>simp[Once word_to_bytes_aux_def]
-QED
-
-Theorem word_to_bytes_EL:
-  ∀i. i < k ⇒ EL i (word_to_bytes_aux k (w:'a word) be) = get_byte (n2w i) w be
-Proof
-  Induct_on ‘k’>>rw[]>>
-  once_rewrite_tac[word_to_bytes_aux_def]>>
-  simp[Once listTheory.EL_APPEND_EQN]>>
-  gs[LENGTH_word_to_bytes]>>
-  IF_CASES_TAC>>fs[NOT_LESS]>>
-  ‘i = k’ by fs[]>>fs[]
-QED
-
-Theorem byte_index_cycle[simp]:
+Theorem byte_index_cycle:
   8 ≤ dimindex (:'a) ⇒
   byte_index (n2w ((w2n (a:'a word)) MOD (dimindex (:'a) DIV 8)):'a word) be = byte_index a be
 Proof
@@ -343,53 +326,20 @@ Proof
   simp[MOD_MOD]
 QED
 
-Theorem get_byte_cycle[simp]:
+Theorem get_byte_cycle:
   8 ≤ dimindex (:'a) ⇒
   get_byte (n2w ((w2n (a:'a word)) MOD (dimindex (:'a) DIV 8)):'a word) w be
   = get_byte a w be
 Proof
-  rw[get_byte_def]
+  rw[get_byte_def,byte_index_cycle]
 QED
 
-Theorem set_byte_cycle[simp]:
+Theorem set_byte_cycle:
   8 ≤ dimindex (:'a) ⇒
   set_byte (n2w ((w2n (a:'a word)) MOD (dimindex (:'a) DIV 8)):'a word) b w be
   = set_byte a b w be
 Proof
-  rw[set_byte_def]
-QED
-
-Theorem word_to_bytes_cycle:
-  8 ≤ dimindex (:'a) ∧ k < dimword (:'a) ⇒
-  (∀i. i < k ⇒
-       EL (i MOD (dimindex (:'a) DIV 8)) (word_to_bytes_aux k w be) =
-       EL i (word_to_bytes_aux k (w:'a word) be))
-Proof
-  rpt strip_tac>>
-  ‘0 < dimindex (:'a) DIV 8’
-  by (irule LESS_LESS_EQ_TRANS>>
-      irule_at Any DIV_LE_MONOTONE>>
-      first_x_assum $ irule_at Any>>simp[])>>
-  ‘i MOD (dimindex (:'a) DIV 8) ≤ i’ by fs[MOD_LESS_EQ]>>
-  simp[word_to_bytes_EL]>>
-  ‘n2w (i MOD (dimindex (:α) DIV 8)) =
-   n2w ((w2n (n2w i:'a word)) MOD (dimindex (:α) DIV 8)):'a word’
-    by simp[]>>
-  pop_assum (fn h => rewrite_tac[h])>>
-  simp[word_to_bytes_EL]
-QED
-
-Theorem word_to_byte_aux_1[simp]:
-  word_to_bytes_aux 1 (w:'a word) be = [get_byte 0w w be]
-Proof
-  rewrite_tac[ONE]>>
-  rw[word_to_bytes_aux_def]
-QED
-
-Theorem TAKE_SNOC_EQ[simp]:
-  m ≤ LENGTH ls ⇒ TAKE m (SNOC x ls) = TAKE m ls
-Proof
-  rw[TAKE_APPEND1]
+  rw[set_byte_def,byte_index_cycle]
 QED
 
 Theorem word_slice_alt_word_slice:
@@ -765,7 +715,7 @@ Proof
   simp[word_of_bytes_def,get_byte_set_byte_irrelevant,get_byte_set_byte]
 QED
 
-Theorem set_byte_get_byte[simp]:
+Theorem set_byte_get_byte:
   8 ≤ dimindex (:'a) ⇒
   set_byte a (get_byte (a:'a word) (w:'a word) be) w be = w
 Proof
@@ -845,7 +795,7 @@ Proof
   fs[]
 QED
 
-Theorem word_slice_alt_zero[simp]:
+Theorem word_slice_alt_zero:
   word_slice_alt h l 0w = 0w
 Proof
   srw_tac[wordsLib.WORD_BIT_EQ_ss][word_slice_alt_def]
