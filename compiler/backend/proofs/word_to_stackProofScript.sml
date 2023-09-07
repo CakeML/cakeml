@@ -10467,7 +10467,7 @@ Proof
     rpt(pairarg_tac>>fs[reg_bound_def])>>rveq>>fs[reg_bound_def] >>
     fs[wReg1_def,wReg2_def,wRegWrite1_def] >>
     every_case_tac >>
-    rpt (EVAL_TAC >> rw[])) 
+    rpt (EVAL_TAC >> rw[]))
   \\ rpt(pairarg_tac>>fs[reg_bound_def])>>rveq>>fs[reg_bound_def]
   \\ fs[wReg1_def,wReg2_def]
   \\ every_case_tac \\ fs[] \\ rw[] \\ EVAL_TAC \\ fs[]
