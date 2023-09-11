@@ -10861,4 +10861,335 @@ Proof
   simp[]
 QED
 
+(* no_install is preserved *)
+Theorem wMoveAux_no_install_lem:
+  !xs kf. no_install $ wMoveAux xs kf
+Proof
+  ho_match_mp_tac wMoveAux_ind >>
+  rw[wMoveAux_def,no_install_def] >>
+  rw[DefnBase.one_line_ify NONE wMoveSingle_def] >>
+  rpt (TOP_CASE_TAC >> gvs[no_install_def])
+QED
+
+Theorem wStackLoad_no_install_lem:
+  !l prog. no_install (wStackLoad l prog) = no_install prog
+Proof
+  ho_match_mp_tac wStackLoad_ind >>
+  rw[wStackLoad_def,no_install_def]
+QED
+
+Theorem wRegWrite1_no_install_lem:
+  (!reg. no_install $ prog reg) ==>
+  no_install (wRegWrite1 prog r kf)
+Proof
+  PairCases_on `kf` >>
+  gvs[wRegWrite1_def] >>
+  IF_CASES_TAC >>
+  metis_tac[no_install_def]
+QED
+
+Theorem wRegWrite2_no_install_lem:
+  (!reg. no_install $ prog reg) ==>
+  no_install (wRegWrite2 prog r kf)
+Proof
+  PairCases_on `kf` >>
+  gvs[wRegWrite2_def] >>
+  IF_CASES_TAC >>
+  metis_tac[no_install_def]
+QED
+
+Theorem wLive_no_install_lem:
+  no_install $ FST (wLive live bs kf)
+Proof
+  simp[DefnBase.one_line_ify NONE wLive_def] >>
+  rpt (TOP_CASE_TAC >> gvs[no_install_def]) >>
+  pairarg_tac >>
+  gvs[no_install_def]
+QED
+
+Theorem stack_move_no_install_lem:
+  !n start offset i p.
+  no_install (stack_move n start offset i p) = no_install p
+Proof
+  Induct >>
+  gvs[stack_move_def,no_install_def]
+QED
+
+Theorem comp_no_install:
+  !prog bs kf prog' bs'.
+    wordProps$no_install prog /\
+    comp prog bs kf = (prog',bs') ==>
+    stackProps$no_install prog'
+Proof
+  ho_match_mp_tac comp_ind >>
+  simp[no_install_def,comp_def] >>
+  rw[]
+  >- ((* Move *)
+    gvs[no_install_def,DefnBase.one_line_ify NONE wMove_def] >>
+    rpt TOP_CASE_TAC >>
+    metis_tac[wMoveAux_no_install_lem])
+  >- ( (* Inst *)
+    gvs[no_install_def,DefnBase.one_line_ify NONE wInst_def] >>
+    rpt (TOP_CASE_TAC >>
+      gvs[ELIM_UNCURRY,no_install_def,wStackLoad_no_install_lem])
+    >~ [`wRegWrite2`]
+    >- (irule wRegWrite2_no_install_lem >>
+      rw[] >>
+      irule wRegWrite1_no_install_lem >>
+      rw[no_install_def]
+    ) >>
+    irule wRegWrite1_no_install_lem >>
+    rw[no_install_def]
+  )
+  >- ( (* Return *)
+    pairarg_tac >>
+    gvs[wStackLoad_no_install_lem,SeqStackFree_def] >>
+    IF_CASES_TAC >>
+    rw[no_install_def]
+  )
+  >- ( (* OpCurrHeap *)
+    pairarg_tac >>
+    gvs[wStackLoad_no_install_lem] >>
+    irule wRegWrite1_no_install_lem >>
+    rw[no_install_def]
+  )
+  >- gvs[wordPropsTheory.no_install_def] (* MustTerminate *)
+  >- ( (* Seq *)
+    pairarg_tac >>
+    gvs[wordPropsTheory.no_install_def,ELIM_UNCURRY,no_install_def] >>
+    first_x_assum irule >>
+    metis_tac[FST_EQ_EQUIV]
+  )
+  >- (* If *)
+    rpt (
+      pairarg_tac >>
+      gvs[no_install_def,wStackLoad_no_install_lem,
+        wordPropsTheory.no_install_def])
+  >- simp[no_install_def] (* Set BitmapBase *)
+  >- gvs[no_install_def,wStackLoad_no_install_lem,
+    ELIM_UNCURRY,AllCaseEqs()] (* Set *)
+  >- ( (* Get *)
+    irule wRegWrite1_no_install_lem >>
+    rw[no_install_def]
+  )
+  >- ( (* Call *)
+    pairarg_tac >>
+    PairCases_on `kf` >>
+    gvs[AllCaseEqs(),no_install_def,
+      wordPropsTheory.no_install_def,
+      DefnBase.one_line_ify NONE call_dest_def,
+      SeqStackFree_def,ELIM_UNCURRY] >>
+    rpt TOP_CASE_TAC >>
+    gvs[no_install_def,wStackLoad_no_install_lem,
+      wLive_no_install_lem,stack_move_no_install_lem,
+      StackArgs_def,StackHandlerArgs_def,
+      PushHandler_def,PopHandler_def] >>
+    metis_tac[FST_EQ_EQUIV,SND_EQ_EQUIV]
+  )
+  >- ( (* Alloc *)
+    gvs[no_install_def,ELIM_UNCURRY] >>
+    irule wLive_no_install_lem
+  )
+  >- gvs[no_install_def,ELIM_UNCURRY] (* StoreConsts *)
+  >- ( (* LocValue *)
+    irule wRegWrite1_no_install_lem >>
+    rw[no_install_def]
+  )
+  >- fs[wordPropsTheory.no_install_def] (* Install *)
+  >- gvs[no_install_def,wStackLoad_no_install_lem,ELIM_UNCURRY] (* CodeBufferWrite *)
+  >- gvs[no_install_def,wStackLoad_no_install_lem,ELIM_UNCURRY] (* DataBufferWrite *)
+  >- ( (* ShareInst *)
+    Cases_on `THE (exp_to_addr exp)` >>
+    gvs[DefnBase.one_line_ify NONE wShareInst_def,no_install_def,ELIM_UNCURRY] >>
+    TOP_CASE_TAC >>
+    gvs[wStackLoad_no_install_lem,no_install_def] >>
+    irule wRegWrite1_no_install_lem >>
+    rw[no_install_def]
+  )
+QED
+
+Theorem compile_word_to_stack_no_install:
+  !ac prog bs prog' fs' bs'.
+    EVERY (\(n,m,pp). wordProps$no_install pp) prog /\
+    compile_word_to_stack ac prog bs = (prog',fs', bs') ⇒
+    EVERY (\(a,p). no_install p) prog'
+Proof
+  ho_match_mp_tac compile_word_to_stack_ind >>
+  rw[] >>
+  gvs[compile_word_to_stack_def,ELIM_UNCURRY,compile_prog_def] >>
+  conj_tac
+  >- (
+    simp[no_install_def] >>
+    irule comp_no_install >>
+    metis_tac[FST_EQ_EQUIV]
+  ) >>
+  last_x_assum irule >>
+  metis_tac[FST_EQ_EQUIV]
+QED
+
+
+(* no_share_mem is preserved *)
+Theorem wMoveAux_no_shmemop_lem:
+  !xs kf. no_shmemop $ wMoveAux xs kf
+Proof
+  ho_match_mp_tac wMoveAux_ind >>
+  rw[wMoveAux_def,no_shmemop_def] >>
+  rw[DefnBase.one_line_ify NONE wMoveSingle_def] >>
+  rpt (TOP_CASE_TAC >> gvs[no_shmemop_def])
+QED
+
+Theorem wStackLoad_no_shmemop_lem:
+  !l prog. no_shmemop (wStackLoad l prog) = no_shmemop prog
+Proof
+  ho_match_mp_tac wStackLoad_ind >>
+  rw[wStackLoad_def,no_shmemop_def]
+QED
+
+Theorem wRegWrite1_no_shmemop_lem:
+  (!reg. no_shmemop $ prog reg) ==>
+  no_shmemop (wRegWrite1 prog r kf)
+Proof
+  PairCases_on `kf` >>
+  gvs[wRegWrite1_def] >>
+  IF_CASES_TAC >>
+  metis_tac[no_shmemop_def]
+QED
+
+Theorem wRegWrite2_no_shmemop_lem:
+  (!reg. no_shmemop $ prog reg) ==>
+  no_shmemop (wRegWrite2 prog r kf)
+Proof
+  PairCases_on `kf` >>
+  gvs[wRegWrite2_def] >>
+  IF_CASES_TAC >>
+  metis_tac[no_shmemop_def]
+QED
+
+Theorem wLive_no_shmemop_lem:
+  no_shmemop $ FST (wLive live bs kf)
+Proof
+  simp[DefnBase.one_line_ify NONE wLive_def] >>
+  rpt (TOP_CASE_TAC >> gvs[no_shmemop_def]) >>
+  pairarg_tac >>
+  gvs[no_shmemop_def]
+QED
+
+Theorem stack_move_no_shmemop_lem:
+  !n start offset i p.
+  no_shmemop (stack_move n start offset i p) = no_shmemop p
+Proof
+  Induct >>
+  gvs[stack_move_def,no_shmemop_def]
+QED
+
+Theorem comp_no_shmemop:
+  !prog bs kf prog' bs'.
+    no_share_inst prog /\
+    comp prog bs kf = (prog',bs') ==>
+    no_shmemop prog'
+Proof
+  ho_match_mp_tac comp_ind >>
+  simp[no_shmemop_def,comp_def] >>
+  rw[]
+  >- ((* Move *)
+    gvs[no_shmemop_def,DefnBase.one_line_ify NONE wMove_def] >>
+    rpt TOP_CASE_TAC >>
+    metis_tac[wMoveAux_no_shmemop_lem])
+  >- ( (* Inst *)
+    gvs[no_shmemop_def,DefnBase.one_line_ify NONE wInst_def] >>
+    rpt (TOP_CASE_TAC >>
+      gvs[ELIM_UNCURRY,no_shmemop_def,wStackLoad_no_shmemop_lem])
+    >~ [`wRegWrite2`]
+    >- (irule wRegWrite2_no_shmemop_lem >>
+      rw[] >>
+      irule wRegWrite1_no_shmemop_lem >>
+      rw[no_shmemop_def]
+    ) >>
+    irule wRegWrite1_no_shmemop_lem >>
+    rw[no_shmemop_def]
+  )
+  >- ( (* Return *)
+    pairarg_tac >>
+    gvs[wStackLoad_no_shmemop_lem,SeqStackFree_def] >>
+    IF_CASES_TAC >>
+    rw[no_shmemop_def]
+  )
+  >- ( (* OpCurrHeap *)
+    pairarg_tac >>
+    gvs[wStackLoad_no_shmemop_lem] >>
+    irule wRegWrite1_no_shmemop_lem >>
+    rw[no_shmemop_def]
+  )
+  >- gvs[no_share_inst_def] (* MustTerminate *)
+  >- ( (* Seq *)
+    pairarg_tac >>
+    gvs[no_share_inst_def,ELIM_UNCURRY,no_shmemop_def] >>
+    first_x_assum irule >>
+    metis_tac[FST_EQ_EQUIV]
+  )
+  >- (* If *)
+    rpt (
+      pairarg_tac >>
+      gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,
+        no_share_inst_def])
+  >- simp[no_shmemop_def] (* Set BitmapBase *)
+  >- gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,
+    ELIM_UNCURRY,AllCaseEqs()] (* Set *)
+  >- ( (* Get *)
+    irule wRegWrite1_no_shmemop_lem >>
+    rw[no_shmemop_def]
+  )
+  >- ( (* Call *)
+    pairarg_tac >>
+    PairCases_on `kf` >>
+    gvs[AllCaseEqs(),no_shmemop_def,
+      no_share_inst_def,
+      DefnBase.one_line_ify NONE call_dest_def,
+      SeqStackFree_def,ELIM_UNCURRY] >>
+    rpt TOP_CASE_TAC >>
+    gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,
+      wLive_no_shmemop_lem,stack_move_no_shmemop_lem,
+      StackArgs_def,StackHandlerArgs_def,
+      PushHandler_def,PopHandler_def] >>
+    metis_tac[FST_EQ_EQUIV,SND_EQ_EQUIV]
+  )
+  >- ( (* Alloc *)
+    gvs[no_shmemop_def,ELIM_UNCURRY] >>
+    irule wLive_no_shmemop_lem
+  )
+  >- gvs[no_shmemop_def,ELIM_UNCURRY] (* StoreConsts *)
+  >- ( (* LocValue *)
+    irule wRegWrite1_no_shmemop_lem >>
+    rw[no_shmemop_def]
+  )
+  >- ( (* Install *)
+      pairarg_tac >>
+      gvs[] >>
+      pairarg_tac >>
+      gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,
+        no_share_inst_def])
+  >- gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,ELIM_UNCURRY] (* CodeBufferWrite *)
+  >- gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,ELIM_UNCURRY] (* DataBufferWrite *)
+  >- fs[no_share_inst_def] (* ShareInst *)
+QED
+
+Theorem compile_word_to_stack_no_share_inst:
+  !ac prog bs prog' fs' bs'.
+    EVERY (\(n,m,pp). no_share_inst pp) prog /\
+    compile_word_to_stack ac prog bs = (prog',fs', bs') ⇒
+    EVERY (\(a,p). no_shmemop p) prog'
+Proof
+  ho_match_mp_tac compile_word_to_stack_ind >>
+  rw[] >>
+  gvs[compile_word_to_stack_def,ELIM_UNCURRY,compile_prog_def] >>
+  conj_tac
+  >- (
+    simp[no_shmemop_def] >>
+    irule comp_no_shmemop >>
+    metis_tac[FST_EQ_EQUIV]
+  ) >>
+  last_x_assum irule >>
+  metis_tac[FST_EQ_EQUIV]
+QED
+
 val _ = export_theory();

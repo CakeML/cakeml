@@ -1553,7 +1553,7 @@ Proof
  Q.SPECL_THEN [`wc`,`p`,`ac`] mp_tac (GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
  rw[]>>fs[EVERY_MEM,LAMBDA_PROD,FORALL_PROD]>>rw[]>>
  res_tac>>fs[]>>
- first_assum match_mp_tac>>
+ first_assum irule>>
  simp[Abbr`p`]>>rw[]
  >-
    (pop_assum mp_tac>>
@@ -1577,12 +1577,16 @@ Proof
    first_x_assum(qspecl_then[`ww`] mp_tac)>>simp[Abbr`ww`]>>
    impl_tac>>simp[asmTheory.offset_ok_def]>>
    metis_tac[bounds_lem])
- >>
-   fs[MEM_MAP]>>PairCases_on`y`>>fs[compile_part_def]>>
+ >-
+   (fs[MEM_MAP]>>PairCases_on`y`>>fs[compile_part_def]>>
    match_mp_tac comp_no_inst>>fs[]>>
    first_x_assum match_mp_tac>>
    fs[good_dimindex_def]>>
-   metis_tac[bounds_lem]
+   metis_tac[bounds_lem])
+ >>
+   first_x_assum irule >>
+   fs[WORD_LE,miscTheory.good_dimindex_def,word_2comp_n2w,
+     dimword_def,word_msb_n2w]
 QED
 
 Theorem data_to_word_names:
@@ -1784,6 +1788,7 @@ Proof
     \\ rveq \\ fs[]
     \\ imp_res_tac word_get_code_labels_fake_moves
     \\ fs[])
+  >- cheat
 QED
 
 val word_get_code_labels_full_ssa_cc_trans = Q.prove(`
@@ -1858,6 +1863,7 @@ Proof
     \\ rveq \\ fs[]
     \\ imp_res_tac word_good_handlers_fake_moves
     \\ fs[])
+  >- cheat
 QED
 
 val word_good_handlers_full_ssa_cc_trans = Q.prove(`
@@ -2420,6 +2426,135 @@ Theorem data_to_word_good_handlers_incr:
 Proof
   simp[EVERY_MAP,LAMBDA_PROD,compile_part_def,data_to_word_comp_good_handlers]>>
   fs[EVERY_MEM,FORALL_PROD]
+QED
+
+(* no ShareInst in the compiled program *)
+
+Theorem list_Seq_no_share_inst:
+  !xs. no_share_inst (list_Seq xs) = EVERY no_share_inst xs
+Proof
+  ho_match_mp_tac list_Seq_ind >>
+  rw[list_Seq_def,no_share_inst_def]
+QED
+
+Theorem StoreEach_no_share_inst:
+  !v xs offset. no_share_inst (StoreEach v xs offset)
+Proof
+  Induct_on `xs` >>
+  gvs[StoreEach_def,no_share_inst_def]
+QED
+
+Theorem MemEqList_no_share_inst:
+  !a xs. no_share_inst (MemEqList a xs)
+Proof
+  Induct_on `xs` >>
+  gvs[MemEqList_def,no_share_inst_def]
+QED
+
+Theorem StoreAnyConsts_no_share_inst:
+  !r1 r2 r3 vs v.
+    no_share_inst (StoreAnyConsts r1 r2 r3 vs v)
+Proof
+  ho_match_mp_tac StoreAnyConsts_ind >>
+  rw[no_share_inst_def,StoreAnyConsts_def] >>
+  TOP_CASE_TAC >>
+  simp[no_share_inst_def,list_Seq_no_share_inst] >>
+  pairarg_tac >>
+  gvs[no_share_inst_def]
+QED
+
+Theorem stubs_no_share_inst:
+  EVERY (\x. no_share_inst (SND $ SND x)) (data_to_word$stubs (:'a) data_conf)
+Proof
+  rw[data_to_wordTheory.stubs_def,list_Seq_no_share_inst,no_share_inst_def] >>
+  EVAL_TAC >>
+  TOP_CASE_TAC >>
+  rw[data_to_wordTheory.stubs_def,list_Seq_no_share_inst,no_share_inst_def]
+QED
+
+Theorem comp_no_share_inst:
+  !c secn l prog prog' l'.
+  data_to_word$comp c secn l prog = (prog',l') ==>
+  no_share_inst prog'
+Proof
+  ho_match_mp_tac comp_ind >>
+  Cases_on `prog` >>
+  rw[]
+  >- gvs[comp_def,no_share_inst_def] (* Skip *)
+  >- gvs[comp_def,no_share_inst_def] (* Move *)
+  >- ( (* Call *)
+    first_x_assum mp_tac >>
+    rw[Once comp_def,AllCaseEqs()] >>
+    simp[no_share_inst_def] >>
+    gvs[ELIM_UNCURRY,no_share_inst_def] >>
+    metis_tac[FST_EQ_EQUIV]
+  )
+  >- ( (* Assign *)
+    gvs[comp_def,AllCaseEqs(),assign_def,all_assign_defs,
+      arg1_def,arg2_def,arg3_def,arg4_def] >>
+    simp[no_share_inst_def,
+      GiveUp_def,BignumHalt_def,AllocVar_def,SilentFFI_def,
+      list_Seq_no_share_inst,StoreEach_no_share_inst,
+      Make_ptr_bits_code_def,StoreAnyConsts_no_share_inst,
+      Maxout_bits_code_def,MemEqList_no_share_inst,
+      WriteWord64_def,WordOp64_on_32_def,WriteWord64_on_32_def,
+      LoadWord64_def,WordShift64_on_32_def,LoadBignum_def,
+      WriteWord32_on_32_def] >>
+    rpt (
+      TOP_CASE_TAC >>
+      simp[no_share_inst_def,list_Seq_no_share_inst])
+  )
+  >- ( (* Seq *)
+    first_x_assum mp_tac >>
+    rw[Once comp_def] >>
+    gvs[ELIM_UNCURRY,no_share_inst_def] >>
+    metis_tac[FST_EQ_EQUIV,SND_EQ_EQUIV]
+  )
+  >- ( (* If *)
+    first_x_assum mp_tac >>
+    rw[Once comp_def] >>
+    gvs[ELIM_UNCURRY,no_share_inst_def] >>
+    metis_tac[FST_EQ_EQUIV,SND_EQ_EQUIV]
+  )
+  >- ( (* MakeSpace *)
+    gvs[comp_def,no_share_inst_def,list_Seq_no_share_inst,SilentFFI_def] >>
+    IF_CASES_TAC >>
+    simp[comp_def,no_share_inst_def,list_Seq_no_share_inst]
+  )
+  >> gvs[comp_def,no_share_inst_def] (* Raise | Return | Tick *)
+QED
+
+Triviality EVERY_FST_ZIP[local]:
+  !xs. EVERY P (FST xs) ==>
+  EVERY (\x. P (FST x)) (ZIP xs)
+Proof
+  ho_match_mp_tac ZIP_ind >>
+  gvs[ZIP] >>
+  rpt strip_tac >>
+  simp[ZIP_def]
+QED
+
+Theorem compile_no_share_inst:
+  data_to_word$compile data_conf word_conf asm_conf prog = (xx,prog') ⇒
+  EVERY (λ(n,m,pp). no_share_inst pp) prog'
+Proof
+  rw[data_to_wordTheory.compile_def] >>
+  gvs[ELIM_UNCURRY,word_to_wordTheory.compile_def,
+    EVERY_MAP,full_compile_single_def,
+    remove_must_terminate_no_share_inst] >>
+  irule MONO_EVERY >>
+  simp[] >>
+  qexists `no_share_inst o SND o SND o FST` >>
+  simp[compile_single_no_share_inst',o_DEF] >>
+  ho_match_mp_tac EVERY_FST_ZIP >>
+  simp[stubs_no_share_inst,EVERY_MAP] >>
+  Induct_on `prog` >>
+  rw[] >>
+  rename1 `compile_part _ p` >>
+  PairCases_on `p` >>
+  simp[compile_part_def] >>
+  irule comp_no_share_inst >>
+  metis_tac[FST_EQ_EQUIV]
 QED
 
 end

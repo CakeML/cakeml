@@ -5039,4 +5039,23 @@ Proof
   metis_tac[]
 QED
 
+(* no_share_inst: no ShareInst *)
+Definition no_share_inst_def:
+  (no_share_inst (ShareInst _ _ _) = F) /\
+  (no_share_inst (MustTerminate p) = no_share_inst p) ∧
+  (no_share_inst (Call ret _ _ handler) =
+     (case ret of
+      | NONE =>
+          (case handler of
+           | NONE => T
+           | SOME (_,ph,_,_) => no_share_inst ph)
+      | SOME (_,_,pr,_,_) =>
+          (case handler of
+           | NONE => no_share_inst pr
+           | SOME (_,ph,_,_) => no_share_inst ph /\ no_share_inst pr))) /\
+  (no_share_inst (Seq p1 p2) = (no_share_inst p1 /\ no_share_inst p2)) /\
+  (no_share_inst (If _ _ _ p1 p2) = (no_share_inst p1 /\ no_share_inst p2)) /\
+  (no_share_inst _ = T)
+End
+
 val _ = export_theory();
