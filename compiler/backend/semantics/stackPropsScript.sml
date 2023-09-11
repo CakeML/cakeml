@@ -1090,4 +1090,26 @@ val stack_good_handler_labels_def = Define`
   BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
   IMAGE (λn. n,1) (set (MAP FST p))`
 
+Definition no_install_def:
+  (no_install (Call r d h) =
+    ((case r of SOME (x,_,_) => no_install x | _ => T) /\
+    (case h of SOME (x,_,_) => no_install x | _ => T))) /\
+  (no_install (Seq p1 p2) = (no_install p1 /\ no_install p2)) /\
+  (no_install (If _ _ _ p1 p2) = (no_install p2 /\ no_install p2)) /\
+  (no_install (While _ _ _ p) = no_install p) /\
+  (no_install (Install _ _ _ _ _) = F) /\
+  (no_install _ = T)
+End
+
+Definition no_shmemop_def:
+  (no_shmemop (Call r d h) =
+    ((case r of SOME (x,_,_) => no_shmemop x | _ => T) /\
+    (case h of SOME (x,_,_) => no_shmemop x | _ => T))) /\
+  (no_shmemop (Seq p1 p2) = (no_shmemop p1 /\ no_shmemop p2)) /\
+  (no_shmemop (If _ _ _ p1 p2) = (no_shmemop p2 /\ no_shmemop p2)) /\
+  (no_shmemop (While _ _ _ p) = no_shmemop p) /\
+  (no_shmemop (ShMemOp _ _ _) = F) /\
+  (no_shmemop _ = T)
+End
+
 val _ = export_theory();
