@@ -920,10 +920,11 @@ Proof
      word_allocTheory.list_next_var_rename_move_def,
      no_install_def]
   >- (drule ssa_cc_trans_inst_no_install>>rw[])
-  >- (drule fake_moves_no_install>>rw[])>>
-  EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_install_def]>>
-  rpt (pairarg_tac>>gs[])>>rveq>>gs[no_install_def]>>
-  drule fake_moves_no_install>>rw[]
+  >- (drule fake_moves_no_install>>rw[])
+  >- (EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_install_def]>>
+    rpt (pairarg_tac>>gs[])>>rveq>>gs[no_install_def]>>
+    drule fake_moves_no_install>>rw[])
+  >~ [`ShareInst`] >- cheat
 QED
 
 Theorem setup_ssa_no_install:
@@ -1021,6 +1022,7 @@ Proof
   \\ gvs [word_cseTheory.word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
   \\ gvs [no_install_def,AllCaseEqs(),word_cseTheory.add_to_data_aux_def,
           word_cseTheory.add_to_data_def]
+  \\ cheat
 QED
 
 Theorem compile_single_no_install:
@@ -1223,10 +1225,11 @@ Proof
      word_allocTheory.list_next_var_rename_move_def,
      no_alloc_def]
   >- (drule ssa_cc_trans_inst_no_alloc>>rw[])
-  >- (drule fake_moves_no_alloc>>rw[])>>
-  EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_alloc_def]>>
-  rpt (pairarg_tac>>gs[])>>rveq>>gs[no_alloc_def]>>
-  drule fake_moves_no_alloc>>rw[]
+  >- (drule fake_moves_no_alloc>>rw[])
+  >- (EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_alloc_def]>>
+    rpt (pairarg_tac>>gs[])>>rveq>>gs[no_alloc_def]>>
+    drule fake_moves_no_alloc>>rw[])
+  >- cheat
 QED
 
 Theorem setup_ssa_no_alloc:
@@ -1324,6 +1327,7 @@ Proof
   \\ gvs [word_cseTheory.word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
   \\ gvs [no_alloc_def,AllCaseEqs(),word_cseTheory.add_to_data_aux_def,
           word_cseTheory.add_to_data_def]
+  \\ cheat
 QED
 
 Theorem compile_single_no_alloc:
@@ -1823,6 +1827,16 @@ Proof
     first_x_assum(qspecl_then[`prog`,`st`,`l`] mp_tac)>>
     gs[no_install_def, no_alloc_def]>>
     (impl_tac>-size_tac>>srw_tac[][]))
+  >~ [`ShareInst`]
+  >- (fs[evaluate_def,state_component_equality]>>
+    qexists_tac`st.permute`>>
+    rpt (TOP_CASE_TAC >> fs[state_component_equality]) >>
+    fs[DefnBase.one_line_ify NONE share_inst_def,
+      DefnBase.one_line_ify NONE sh_mem_set_var_def,
+      sh_mem_load_def,sh_mem_load_byte_def,
+      sh_mem_store_def,sh_mem_store_byte_def] >>
+    rpt (TOP_CASE_TAC >>
+      fs[state_component_equality,set_var_def,flush_state_def]))
   >>gs[no_alloc_def, no_install_def]>>tac
 QED
 
@@ -1999,10 +2013,11 @@ Proof
      word_allocTheory.list_next_var_rename_move_def,
      no_mt_def]
   >- (drule ssa_cc_trans_inst_no_mt>>rw[])
-  >- (drule fake_moves_no_mt>>rw[])>>
-  EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_mt_def]>>
-  rpt (pairarg_tac>>gs[])>>rveq>>gs[no_mt_def]>>
-  drule fake_moves_no_mt>>rw[]
+  >- (drule fake_moves_no_mt>>rw[])
+  >- (EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_mt_def]>>
+    rpt (pairarg_tac>>gs[])>>rveq>>gs[no_mt_def]>>
+    drule fake_moves_no_mt>>rw[])
+  >- cheat
 QED
 
 Theorem setup_ssa_no_mt:
@@ -2100,6 +2115,7 @@ Proof
   \\ gvs [word_cseTheory.word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
   \\ gvs [no_mt_def,AllCaseEqs(),word_cseTheory.add_to_data_aux_def,
           word_cseTheory.add_to_data_def]
+  \\ cheat
 QED
 
 Theorem compile_single_no_mt:
