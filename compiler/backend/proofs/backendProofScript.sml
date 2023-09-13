@@ -1215,7 +1215,7 @@ Theorem compile_to_word_conventions2:
       (ac.reg_count - (5 + LENGTH ac.avoid_regs)) prog ∧
     (EVERY (λ(n,m,prog).
                       wordProps$every_inst (wordProps$inst_ok_less ac) prog)
-                 p ∧ addr_offset_ok ac 0w ⇒
+                 p ∧ addr_offset_ok ac 0w ∧ byte_offset_ok ac 0w ⇒
                wordProps$full_inst_ok_less ac prog) ∧
               (ac.two_reg_arith ⇒
                wordProps$every_inst wordProps$two_reg_inst prog)) ps
@@ -2075,7 +2075,13 @@ Proof
       \\ simp[Abbr`pp0`, FORALL_PROD]
       \\ simp[MEM_MAP, EXISTS_PROD]
       \\ simp[data_to_wordTheory.compile_part_def]
-      \\ simp[PULL_EXISTS] \\ rw[]
+      \\ simp[PULL_EXISTS]
+      \\ reverse conj_tac
+      >- (
+        first_x_assum irule >>
+        fs[mc_conf_ok_def,WORD_LE,good_dimindex_def,
+          word_2comp_n2w,dimword_def,word_msb_n2w])
+      \\ rw[]
       \\ irule data_to_wordProofTheory.comp_no_inst
       \\ EVAL_TAC
       \\ fs[backend_config_ok_def, asmTheory.offset_ok_def]
@@ -2177,7 +2183,13 @@ Proof
     \\ simp[Abbr`pp0`, FORALL_PROD]
     \\ simp[MEM_MAP, EXISTS_PROD]
     \\ simp[data_to_wordTheory.compile_part_def]
-    \\ simp[PULL_EXISTS] \\ rw[]
+    \\ simp[PULL_EXISTS]
+    \\ reverse conj_tac
+    >- (
+      first_x_assum irule >>
+      fs[mc_conf_ok_def,WORD_LE,good_dimindex_def,
+        word_2comp_n2w,dimword_def,word_msb_n2w])
+    \\ rw[]
     \\ irule data_to_wordProofTheory.comp_no_inst
     \\ drule_then (fn t => simp [t]) cake_orac_config_eqs
     \\ fs[backend_config_ok_def, asmTheory.offset_ok_def, ensure_fp_conf_ok_def]
