@@ -3337,6 +3337,13 @@ val full_inst_ok_less_def = Define`
       (case handler of
         NONE => T
       | SOME (n,h,l1,l2) => full_inst_ok_less c h))) ∧
+  (full_inst_ok_less c (ShareInst op r ad) =
+    case exp_to_addr ad of
+    | SOME (Addr _ w) =>
+      if op IN {Load; Store}
+        then addr_offset_ok c w
+        else byte_offset_ok c w
+    | NONE => F) ∧
   (full_inst_ok_less c prog ⇔ T)`
 
 (* All cutsets are well-formed *)
@@ -4110,7 +4117,7 @@ Proof
   recInduct wordSemTheory.evaluate_ind >>
   rw[wordSemTheory.evaluate_def,CaseEq"option",CaseEq"word_loc"] >>
   rw[set_vars_const]
-  >~ [`share_inst`] 
+  >~ [`share_inst`]
   >- (
     TOP_CASE_TAC >>
     drule share_inst_const >>
