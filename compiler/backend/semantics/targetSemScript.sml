@@ -396,7 +396,7 @@ val good_init_state_def = Define `
    i.e., the range of the data memory
 *)
 val installed_def = Define`
-  installed bytes cbspace bitmaps data_sp ffi_names (r1,r2) mc_conf ms ⇔
+  installed bytes cbspace bitmaps data_sp ffi_names (r1,r2) (mc_conf:('a,'state,'b) machine_config) ms shmem_extra ⇔
     ∃t m io_regs cc_regs bitmap_ptr bitmaps_dm sdm.
       let heap_stack_dm = { w | t.regs r1 <=+ w ∧ w <+ t.regs r2 } in
       good_init_state mc_conf ms bytes cbspace t m (heap_stack_dm ∪ bitmaps_dm) sdm io_regs cc_regs ∧
@@ -419,6 +419,15 @@ val installed_def = Define`
       (word_list bitmap_ptr (MAP Word bitmaps) *
         word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp)
        (fun2set (m,byte_aligned ∩ bitmaps_dm)) ∧
-      ffi_names = SOME mc_conf.ffi_names`;
+      ?old_ffi_names. ffi_names = SOME old_ffi_names ∧
+      ~MEM "MappedRead" old_ffi_names ∧ ~MEM "MappedWrite" old_ffi_names ∧
+      mc_conf.ffi_names = old_ffi_names ++ FST shmem_extra ∧
+      MAP (\rec. rec.entry_pc + mc_conf.target.get_pc ms) (SND shmem_extra) =
+        DROP (LENGTH old_ffi_names) mc_conf.ffi_entry_pcs ∧
+      mc_conf.mmio_info = (λindex. EL (index − (LENGTH old_ffi_names)) (MAP
+        (\rec. (rec.nbytes, rec.access_addr, rec.reg,
+          rec.exit_pc + mc_conf.target.get_pc ms))
+        $ SND shmem_extra)) ∧
+      cbspace + LENGTH bytes + ffi_offset * (LENGTH old_ffi_names + 3) < dimword (:'a)`;
 
 val _ = export_theory();
