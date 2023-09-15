@@ -238,8 +238,12 @@ Definition conv_Exp_def:
       case args of
         [] => NONE
       | [t] => conv_const t ++ conv_var t ++ conv_Exp t
-      | t::ts => FOLDR (λt. lift2 Field (conv_nat t)) (conv_Exp t) ts
+      | t::ts => FOLDR (λt. lift2 Field (conv_nat t)) (conv_var t ++ conv_Exp t) ts
     else if isNT nodeNT LabelNT then
+      case args of
+        [t] => lift Label (conv_ident t)
+      | _ => NONE
+    else if isNT nodeNT FLabelNT then
       case args of
         [t] => lift Label (conv_ident t)
       | _ => NONE

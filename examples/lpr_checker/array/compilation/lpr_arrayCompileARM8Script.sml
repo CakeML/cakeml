@@ -3,9 +3,9 @@
 *)
 open preamble compilationLib lpr_arrayFullProgTheory
 
-val _ = new_theory "lpr_arrayCompile"
+val _ = new_theory "lpr_arrayCompileARM8"
 
 val lpr_array_compiled = save_thm("lpr_array_compiled",
-  compile_x64 "cake_lpr" check_unsat_prog_def);
+  compile_arm8 "cake_lpr_arm8" check_unsat_prog_def);
 
 val _ = export_theory ();

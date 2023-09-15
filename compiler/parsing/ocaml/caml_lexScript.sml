@@ -32,8 +32,8 @@ Datatype:
     | LessT | GreaterT | LbrackT | RbrackT | LbraceT | RbraceT | QuestionT
     | SemiT | SemisT | BarT | OrelseT | AmpT | AndalsoT | NeqT | MinusFT
     | RarrowT | LarrowT | DotT | DotsT | EscapeT | ColonT | ColonsT | UpdateT
-    | SealT | AnyT | BtickT | TildeT | LqbraceT | RqbraceT | LqbrackT | RqbrackT
-    | RrbrackT | LlbrackT | RlbrackT
+    | SealT | AnyT | BtickT | TildeT | LqbraceT | RqbraceT | LqbrackT
+    | RqbrackT | RrbrackT | LlbrackT | RlbrackT
     (* special HOL Light tokens (all infixes): *)
     | FuncompT | F_FT
     | THEN_T | THENC_T | THENL_T | THEN_TCL_T

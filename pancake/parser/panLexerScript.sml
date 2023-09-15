@@ -40,11 +40,11 @@ Datatype:
 End
 
 Definition isAtom_singleton_def:
-  isAtom_singleton c = MEM c "!+-&^|*().,;:[]{}"
+  isAtom_singleton c = MEM c "+-&^|*().,;:[]{}"
 End
 
 Definition isAtom_begin_group_def:
-  isAtom_begin_group c = MEM c "#=><"
+  isAtom_begin_group c = MEM c "#=><!"
 End
 
 Definition isAtom_in_group_def:
@@ -61,7 +61,7 @@ Definition get_token_def:
   if s = "|" then OrT else
   if s = "^" then XorT else
   if s = "==" then EqT else
-  if s = "<>" then NeqT else
+  if s = "!=" then NeqT else
   if s = "<" then LessT else
   if s = ">" then GreaterT else
   if s = ">=" then GeqT else

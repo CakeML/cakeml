@@ -142,10 +142,20 @@ val _ = use_mem_intro := false;
 
 val r = translate compute_default_clock; (* TODO _def *)
 val r = translate indexedListsTheory.findi_def
+val r = translate compute_execTheory.monop_fst_def
+val r = translate compute_execTheory.monop_snd_def
+val r = translate compute_execTheory.monop_ispair_def
 val r = translate compute_execTheory.monop_def
 val r = translate compute_execTheory.to_num_def
 val r = translate compute_execTheory.cv_T_def
 val r = translate compute_execTheory.cv_F_def
+val r = translate compute_execTheory.binop_add_def
+val r = translate compute_execTheory.binop_sub_def
+val r = translate compute_execTheory.binop_mul_def
+val r = translate compute_execTheory.binop_div_def
+val r = translate compute_execTheory.binop_mod_def
+val r = translate compute_execTheory.binop_eq_def
+val r = translate compute_execTheory.binop_less_def
 val r = translate compute_execTheory.binop_def
 val r = translate compute_execTheory.to_ce_def
 val r = translate compute_execTheory.compile_to_ce_def
