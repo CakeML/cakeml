@@ -1477,12 +1477,10 @@ Type spo = ``: (npbc list # var list # var list) # var list``
   vs -> w' (xs)
   _  -> F
   satisfies f
-  ( and take the reflexive closure over xs )
 *)
 Definition po_of_spo_def:
   po_of_spo (((f,us,vs),xs):spo) =
   λw w'.
-  (∀x. x ∈ set xs ⇒ (w x ⇔ w' x)) ∨
   let ss = ALOOKUP
     (ZIP (us,MAP (INL o w) xs) ++
      ZIP (vs,MAP (INL o w') xs)) in
@@ -1541,9 +1539,55 @@ Proof
 QED
 
 Theorem reflexive_po_of_spo:
+  good_ord (f,us,vs) ∧
+  LENGTH xs = LENGTH us ⇒
+  {}
+  ⊨
+  (set f) ⇂
+    ALOOKUP
+    (ZIP (vs,MAP (INR o Pos) us)) ⇒
   reflexive (po_of_spo ((f,us,vs),xs))
 Proof
-  rw[reflexive_def,po_of_spo_def]
+  rw[reflexive_def,po_of_spo_def,sat_implies_def]>>
+  fs[satisfies_subst_thm,good_ord_def]>>
+  qabbrev_tac`
+    ww =
+    assign
+      (ALOOKUP
+         (ZIP (us,MAP (INL ∘ x) xs) ++
+          ZIP (vs,MAP (INL ∘ x) xs)))
+      (λn. F)`>>
+  first_x_assum(qspec_then`ww` mp_tac)>>
+  match_mp_tac (GEN_ALL npbf_vars_satisfies)>>
+  asm_exists_tac>>rw[]>>
+  simp[assign_def,ALOOKUP_ZIP_MAP_SND]
+  >- (
+    DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+    fs[ALL_DISTINCT_APPEND])
+  >- (
+    Cases_on`ALOOKUP (ZIP (vs,us)) n`
+    >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+    simp[Abbr`ww`,assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND]>>
+    rename1`ALOOKUP _ yy`>>
+    `MEM yy us` by (
+      drule ALOOKUP_MEM>>
+      rw[MEM_ZIP,MEM_EL]>>
+      metis_tac[])>>
+    Cases_on`ALOOKUP (ZIP (us,xs)) yy`
+    >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+    simp[]>>
+    Cases_on`ALOOKUP (ZIP (vs,xs)) n`
+    >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+    simp[]>>
+    DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+    fs[ALL_DISTINCT_APPEND]>>
+    CONJ_TAC>- metis_tac[]>>
+    simp[]>>
+    gvs[MEM_EL]>>
+    rpt (qpat_x_assum`ALOOKUP _ _ = SOME _` mp_tac)>>
+    DEP_REWRITE_TAC [ALOOKUP_ALL_DISTINCT_EL_IMP]>>
+    simp[]>>rw[]>>
+    metis_tac[ALL_DISTINCT_EL_IMP])
 QED
 
 Theorem transitive_po_of_spo:
@@ -1564,49 +1608,7 @@ Theorem transitive_po_of_spo:
      (ZIP (vs,MAP (INR o Pos) ws)) ⇒
   transitive (po_of_spo ((f,us,vs),xs))
 Proof
-  rw[transitive_def,po_of_spo_def,sat_implies_def]
-  >-
-    metis_tac[]
-  >- (
-    DISJ2_TAC>>
-    pop_assum mp_tac>>
-    match_mp_tac (GEN_ALL npbf_vars_satisfies)>>
-    fs[good_ord_def,ALL_DISTINCT_APPEND]>>
-    asm_exists_tac>>
-    simp[assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND]>>
-    rw[]
-    >- (
-      Cases_on`ALOOKUP (ZIP (us,xs)) n`>>
-      gs[MAP_ZIP,ALOOKUP_NONE]>>
-      drule ALOOKUP_MEM>>
-      rw[MEM_ZIP,MEM_EL]>>
-      metis_tac[MEM_EL])
-    >- (
-      Cases_on`ALOOKUP (ZIP (vs,xs)) n`>>
-      gs[MAP_ZIP,ALOOKUP_NONE]>>
-      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-      simp[]>>
-      metis_tac[]))
-  >- (
-    DISJ2_TAC>>
-    qpat_x_assum`satisfies _ _` mp_tac>>
-    match_mp_tac (GEN_ALL npbf_vars_satisfies)>>
-    fs[good_ord_def,ALL_DISTINCT_APPEND]>>
-    asm_exists_tac>>
-    simp[assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND]>>
-    rw[]
-    >- (
-      Cases_on`ALOOKUP (ZIP (us,xs)) n`>>
-      gs[MAP_ZIP,ALOOKUP_NONE])
-    >- (
-      Cases_on`ALOOKUP (ZIP (vs,xs)) n`>>
-      gs[MAP_ZIP,ALOOKUP_NONE]>>
-      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-      simp[]>>
-      drule ALOOKUP_MEM>>
-      rw[MEM_ZIP,MEM_EL]>>
-      metis_tac[MEM_EL]))>>
-  DISJ2_TAC>>
+  rw[transitive_def,po_of_spo_def,sat_implies_def]>>
   fs[satisfies_subst_thm]>>
   fs[good_ord_def,ALL_DISTINCT_APPEND]>>
   qabbrev_tac`
@@ -1731,7 +1733,6 @@ Theorem imp_sat_ord_po_of_spo:
   sat_ord (fml ∪ {not c}) (po_of_spo ((f,us,vs),xs)) w
 Proof
   rw[sat_ord_def,po_of_spo_def]>>
-  DISJ2_TAC>>
   gvs[sat_implies_def]>>
   first_x_assum drule>>
   fs[good_ord_def,ALL_DISTINCT_APPEND]>>
@@ -1781,38 +1782,7 @@ Proof
   qpat_x_assum`unsatisfiable _` mp_tac>>
   simp[unsatisfiable_def,satisfiable_def]>>
   asm_exists_tac>>
-  fs[po_of_spo_def]
-  >- (
-    fs[sat_implies_def]>>
-    first_x_assum drule_all>>
-    simp[satisfies_subst_thm]>>
-    fs[good_ord_def,ALL_DISTINCT_APPEND]>>
-    match_mp_tac (GEN_ALL npbf_vars_satisfies)>>
-    asm_exists_tac>>rw[]>>
-    simp[assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND]
-    >- (
-      Cases_on`ALOOKUP (ZIP (us,xs)) n`
-      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
-      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-      fs[assign_def]>>
-      `MEM x xs` by (
-        drule ALOOKUP_MEM>>
-        rw[MEM_ZIP,MEM_EL]>>
-        metis_tac[])>>
-      first_x_assum drule>>
-      Cases_on`w x`>>simp[])
-    >- (
-      Cases_on`ALOOKUP (ZIP (vs,xs)) n`
-      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
-      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-      CONJ_TAC>- metis_tac[]>>
-      `MEM x xs` by (
-        drule ALOOKUP_MEM>>
-        rw[MEM_ZIP,MEM_EL]>>
-        metis_tac[])>>
-      first_x_assum drule>>
-      simp[assign_def]>>
-      Cases_on`w x`>>simp[]))>>
+  fs[po_of_spo_def]>>
   qpat_x_assum`_ ⊨ _` kall_tac>>
   fs[good_ord_def,ALL_DISTINCT_APPEND]>>
   pop_assum mp_tac>>
@@ -1884,6 +1854,7 @@ End
 Definition good_spo_def:
   good_spo spo ⇔
   good_ord (FST spo) ∧
+  reflexive (po_of_spo spo) ∧
   transitive (po_of_spo spo) ∧
   LENGTH (SND spo) = LENGTH (FST (SND (FST spo)))
 End

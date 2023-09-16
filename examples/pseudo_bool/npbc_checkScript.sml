@@ -980,7 +980,9 @@ Proof
 QED
 
 Theorem sat_obj_po_insert_contr:
-  unsatisfiable (rf ∪ {not c}) ⇒
+  unsatisfiable (rf ∪ {not c}) ∧
+  (ord ≠ NONE ⇒ reflexive (po_of_spo (THE ord)))
+  ⇒
   sat_obj_po ord obj rf (c INSERT rf)
 Proof
   rw[sat_obj_po_def,unsatisfiable_def,satisfiable_def]>>
@@ -990,7 +992,7 @@ Proof
     metis_tac[not_thm]>>
   Cases_on`ord`>>
   fs[]>>
-  metis_tac[reflexive_def,reflexive_po_of_spo,PAIR]
+  metis_tac[reflexive_def,PAIR]
 QED
 
 Theorem range_mk_core_fml:
@@ -1441,6 +1443,7 @@ Datatype:
   | StoreOrder mlstring (npbc list # var list # var list)
       (var list)
       (( ((num + num) # num) option, (lstep list)) alist)
+      (( ((num + num) # num) option, (lstep list)) alist)
 
   (* Objective steps *)
   | Obj (bool spt) bool (int option)
@@ -1594,6 +1597,18 @@ Proof
   qexists_tac`n`>>simp[])
 QED
 
+(* the substituted RHS for reflexivity *)
+Definition refl_subst_def:
+  (refl_subst (f,us,vs) =
+  let vs_us = list_list_insert vs us in
+  let rsubst =
+    (λn. case lookup n vs_us of
+         | SOME x => SOME (INR (Pos x))
+         | NONE => NONE) in
+  let rhs = MAP (subst rsubst) f in
+  rhs)
+End
+
 (* the substituted LHS and RHS for transitivity *)
 Definition trans_subst_def:
   (trans_subst (f,us,vs) ws =
@@ -1630,6 +1645,22 @@ Proof
   simp[EVERY_MEM,MEM_FLAT,SUBSET_DEF,PULL_EXISTS,FORALL_PROD,npbc_vars_def,MEM_MAP]>>rw[]>>
   metis_tac[]
 QED
+
+Definition check_reflexivity_def:
+  check_reflexivity ord pfs =
+  let rhs = refl_subst ord in
+  let fml = LN in
+  let id = 1 in
+  let dsubs = MAP (λc. [not c]) rhs in
+  case extract_clauses (λn. NONE) F LN dsubs pfs [] of
+    NONE => F
+  | SOME cpfs =>
+  (case check_subproofs cpfs F fml id of
+    SOME (fml',id') =>
+    let (l,r) = extract_pids pfs LN LN in
+       EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH dsubs))
+  | _ => F)
+End
 
 Definition check_transitivity_def:
   check_transitivity ord ws pfs =
@@ -1853,9 +1884,10 @@ Definition check_cstep_def:
       NONE => NONE
     | SOME spo =>
       SOME (fml, pc with ord := NONE))
-  | StoreOrder name spo ws pfs =>
+  | StoreOrder name spo ws pfsr pfst =>
     if check_good_ord spo ∧ check_ws spo ws ∧
-      check_transitivity spo ws pfs then
+      check_reflexivity spo pfsr ∧
+      check_transitivity spo ws pfst then
       SOME (fml, pc with orders := (name,spo)::pc.orders)
     else
       NONE
@@ -2148,16 +2180,17 @@ Proof
         `sat_obj_po (SOME x) pc.obj
           (core_only_fml F fml)
           (core_only_fml F (insert cc (p,F) fml))` by (
-        DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
-        CONJ_TAC >- fs[id_ok_def]>>
-        match_mp_tac sat_obj_po_insert_contr>>fs[id_ok_def]>>
-        drule check_contradiction_fml_unsat>>
-        qpat_x_assum`sat_implies _ _` mp_tac>>
-        DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
-        simp[]>>
-        fs[core_only_fml_def]>>
-        gs[sat_implies_def,satisfiable_def,unsatisfiable_def]>>
-        metis_tac[])>>
+          DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
+          CONJ_TAC >- fs[id_ok_def]>>
+          match_mp_tac sat_obj_po_insert_contr>>
+          fs[id_ok_def,good_spo_def]>>
+          drule check_contradiction_fml_unsat>>
+          qpat_x_assum`sat_implies _ _` mp_tac>>
+          DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
+          simp[]>>
+          fs[core_only_fml_def]>>
+          gs[sat_implies_def,satisfiable_def,unsatisfiable_def]>>
+          metis_tac[])>>
         metis_tac[OPTION_ALL_def,sat_obj_po_trans])>>
       pairarg_tac>>fs[]>>
       simp[sat_obj_po_def]>>
@@ -2476,7 +2509,43 @@ Proof
     rw[]>>fs[opt_le_def,bimp_obj_refl]>>
     rw[good_ord_t_def,good_spo_def]
     >-
-      metis_tac[check_good_ord_good_ord]>>
+      metis_tac[check_good_ord_good_ord]
+    >- ( (* reflexivity *)
+      PairCases_on`p`>>
+      match_mp_tac (reflexive_po_of_spo |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
+      gvs[check_reflexivity_def]>>
+      rw[]
+      >-
+        metis_tac[check_good_ord_good_ord]>>
+      fs[refl_subst_def,lookup_list_list_insert]>>
+      every_case_tac>>fs[]>>
+      qmatch_asmsub_abbrev_tac`check_subproofs _ _ fmll idd`>>
+      `id_ok fmll idd` by
+        (unabbrev_all_tac>>simp[]>>
+        fs[id_ok_def])>>
+      drule check_subproofs_correct>>
+      disch_then (qspecl_then[`x`,`F`] mp_tac)>>simp[]>>
+      every_case_tac>>
+      rw[]>>
+      simp[GSYM LIST_TO_SET_MAP]>>
+      rw[sat_implies_EL]>>
+      fs[EVERY_MEM,MEM_COUNT_LIST]>>
+      pairarg_tac>>gs[]>>
+      first_x_assum drule>>
+      rw[]>>
+      drule_all lookup_extract_pids_r>>
+      simp[]>>
+      rw[]>>
+      drule extract_clauses_MEM_INR>>
+      disch_then drule>>
+      simp[EL_MAP]>>
+      rw[]>>
+      first_x_assum drule>>
+      simp[]>>rw[]>>
+      drule unsatisfiable_not_sat_implies>>
+      simp[core_only_fml_def,Abbr`fmll`] >>
+      once_rewrite_tac [subst_eta] >> fs [] >>
+      gvs [ALOOKUP_APPEND,ALOOKUP_ZIP_MAP])>>
     PairCases_on`p`>>
     match_mp_tac (transitive_po_of_spo |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
     gvs[check_transitivity_def,check_ws_def]>>

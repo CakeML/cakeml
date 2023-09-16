@@ -749,12 +749,39 @@ Definition parse_def_block_def:
   | _ => NONE
 End
 
+(* parse a regular proof block with an extra "proof" and "end" *)
+Definition parse_proof_block_def:
+  parse_proof_block ss =
+  case ss of [] => NONE
+  | h::ss =>
+  if h = [INL(strlit"proof")] then
+    case parse_red_aux (hashString_nf,()) ss [] of
+    | SOME (NONE,pf,_,rest) =>
+      (case rest of
+        x::rest =>
+        if x = [INL(strlit "end")]
+        then
+          SOME (pf,rest)
+        else NONE
+      | _ => NONE)
+    | _ => NONE
+  else NONE
+End
+
+(* T = reflexivity first then transitivity *)
+Definition refl_trans_def:
+  refl_trans h =
+  if h = [INL (strlit"reflexivity")]
+  then SOME T
+  else if h = [INL (strlit"transitivity")]
+  then SOME F
+  else NONE
+End
+
 Definition parse_trans_aux_def:
-  parse_trans_aux t v f e p =
-    if t = [INL (strlit"transitivity")] ∧
-       v = [INL (strlit"vars")] ∧
-       e = [INL (strlit"end")] ∧
-       p = [INL (strlit"proof")]
+  parse_trans_aux v f e =
+    if v = [INL (strlit"vars")] ∧
+       e = [INL (strlit"end")]
     then
       case parse_vars_line (strlit "fresh_right") f of NONE => NONE
       | SOME ws => SOME ws
@@ -764,25 +791,39 @@ End
 Definition parse_trans_block_def:
   parse_trans_block ss =
   case ss of
-    t::v::f::e::p::rest =>
-    (case parse_trans_aux t v f e p of NONE => NONE
-    | SOME res => SOME (res,rest))
+    v::f::e::ss =>
+    (case parse_trans_aux v f e of NONE => NONE
+    | SOME ws =>
+      case parse_proof_block ss of NONE => NONE
+      | SOME (pf, ss) =>
+        SOME (ws,pf,ss))
   | _ => NONE
 End
 
-Definition parse_proof_block_def:
-  parse_proof_block ss =
-  case parse_red_aux (hashString_nf,()) ss [] of
-  | SOME (NONE,pf,_,rest) => SOME (pf,rest)
-  | _ => NONE
-End
-
-Definition parse_end_block_def:
-  parse_end_block ss =
-  case ss of
-    x::y::rest =>
-    if x = [INL(strlit "end")] ∧ x = y then SOME rest else NONE
-  | _ => NONE
+Definition parse_refl_trans_block_def:
+  parse_refl_trans_block ss =
+  case ss of [] => NONE
+  | h::ss =>
+  (case refl_trans h of NONE => NONE
+  | SOME b =>
+    (if b then
+      case parse_proof_block ss of NONE => NONE
+      | SOME (pfr, ss) =>
+      case ss of [] => NONE
+      | (h::ss) =>
+        if h = [INL (strlit"transitivity")] then
+          case parse_trans_block ss of NONE => NONE
+          | SOME (ws,pft,ss) => SOME (ws, pfr, pft, ss)
+        else NONE
+    else
+      case parse_trans_block ss of NONE => NONE
+      | SOME (ws,pft,ss) =>
+      case ss of [] => NONE
+      | (h::ss) =>
+        if h = [INL (strlit"reflexivity")] then
+          case parse_proof_block ss of NONE => NONE
+          | SOME (pfr,ss) => SOME (ws, pfr, pft, ss)
+        else NONE))
 End
 
 Definition parse_pre_order_def:
@@ -791,39 +832,44 @@ Definition parse_pre_order_def:
   | SOME ((us,vs), ss) =>
   case parse_def_block ss of NONE => NONE
   | SOME (f, ss) =>
-  case parse_trans_block ss of NONE => NONE
-  | SOME (ws, ss) =>
-  case parse_proof_block ss of NONE => NONE
-  | SOME (pf, ss) =>
-  case parse_end_block ss of NONE => NONE
-  | SOME ss =>
-     SOME ((f,us,vs),ws,pf,ss)
+  case parse_refl_trans_block ss of NONE => NONE
+  | SOME (ws, pfr, pft, ss) =>
+  case ss of [] => NONE
+  | h::ss =>
+    if h = [INL (strlit"end")] then
+      SOME ((f,us,vs),ws,pfr,pft,ss)
+    else NONE
 End
 
 (*
 EVAL ``
-  parse_pre_order (MAP toks [
-  strlit"  vars";
-  strlit"  left u1";
-  strlit"  right v1";
-  strlit"  aux";
-  strlit"  end";
-  strlit"  def";
-  strlit"  1 ~u1 1 v1 >= 1 ;";
-  strlit"  1 ~u1 1 v1 >= 1 ;";
-  strlit"  1 ~u1 1 v1 >= 1 ;";
-  strlit"  end";
-  strlit"  transitivity";
-  strlit"  vars";
-  strlit"  fresh_right w1";
-  strlit"  end";
-  strlit"  proof";
-  strlit"  proofgoal #1";
-  strlit"  pol 2 1 + 3 +";
-  strlit"  end 4";
-  strlit"  end";
-  strlit"  end";
-  strlit"  end";
+parse_pre_order (MAP toks [
+strlit"vars";
+strlit"  left u1 u2";
+strlit"  right v1 v2";
+strlit"  aux";
+strlit"end";
+strlit"def";
+strlit"1 v1 >= 1 ;";
+strlit"1 v1 >= 1 ;";
+strlit"end";
+strlit" reflexivity";
+strlit"  proof";
+strlit"   proofgoal #1";
+strlit"   end 5";
+strlit"  end";
+strlit" end";
+strlit"transitivity";
+strlit"vars";
+strlit"   fresh_right w1 w2 w3";
+strlit"end";
+strlit"  proof";
+strlit"proofgoal #1";
+strlit"pol 1 2 + 3 +";
+strlit"end 4";
+strlit"end";
+strlit"end";
+strlit"end";
 ])``
 *)
 
@@ -903,6 +949,14 @@ Definition parse_obj_term_npbc_def:
         (f'',n) => SOME ((f'',c-&n),f_ns'))
 End
 
+Definition parse_strengthen_def:
+  (parse_strengthen f_ns [INL b] =
+    if b = strlit"on" then SOME (Done (StrengthenToCore T), f_ns)
+    else if b = strlit "off" then SOME (Done (StrengthenToCore F), f_ns)
+    else NONE) ∧
+  (parse_strengthen f_ns _ = NONE)
+End
+
 (* Parse the first line of a cstep, sstep supported differently *)
 Definition parse_cstep_head_def:
   parse_cstep_head f_ns s =
@@ -910,6 +964,8 @@ Definition parse_cstep_head_def:
   | (r::rs) =>
     if r = INL (strlit "load_order") then
       parse_load_order f_ns rs
+    else if r = INL (strlit "strengthening_to_core") then
+      parse_strengthen f_ns rs
     else if r = INL (strlit"core") then
       (case rs of [] => NONE
       | r::rs =>
@@ -965,8 +1021,8 @@ Definition parse_cstep_def:
           SOME (INR (CheckedDelete n s pf res), f_ns'', rest))
       | SOME (StoreOrderpar name, f_ns'') =>
         (case parse_pre_order rest of NONE => NONE
-        | SOME (spo,ws,pf,rest) =>
-          SOME (INR (StoreOrder name spo ws pf), f_ns'',rest))
+        | SOME (spo,ws,pfr,pft,rest) =>
+          SOME (INR (StoreOrder name spo ws pfr pft), f_ns'',rest))
       | SOME (ChangeObjpar f, f_ns'') =>
         (case parse_red_aux f_ns'' rest [] of
           NONE => NONE
@@ -1147,118 +1203,6 @@ Definition parse_pbp_def:
   parse_pbp strs = parse_pbp_toks (MAP toks_fast strs)
 End
 
-  val pbfraw = ``[
-  strlit" * #variable= 4 #constraint= 7";
-  strlit" 2 ~x1 1 ~x3 >= 1 ;";
-  strlit" 1 ~x3 1 ~x5 >= 1 ;";
-  strlit" 1 ~x1 1 ~x5 >= 1 ;";
-  strlit" 1 ~x2 1 ~x4 1 ~x6 >= 2 ;";
-  strlit" +1 x1 +1 x2 >= 1 ;";
-  strlit" +1 x3 +1 x4 >= 1 ;";
-  strlit" +1 fancy_{1}^[-42] +1 x6 >= 1 ;"
-  ]``;
-
-  val pbf = rconc (EVAL ``(THE (parse_pbf ^(pbfraw)))``);
-
-  val pbpraw = ``[
-  strlit"pseudo-Boolean proof version 2.0";
-  strlit"f 7";
-  strlit"pol 1 s";
-  strlit"pol 8 2 + 3 +";
-  strlit"pol 9 2 d";
-  strlit"red 1 x1 >= 1 ; ; begin";
-  strlit"end 500";
-  strlit"obju 1 x1 2 ; begin";
-  strlit" * autoproven: found in database";
-  strlit" proofgoal #1";
-  strlit" pol 18 16 +";
-  strlit" end 19";
-  strlit" * autoproven: found in database";
-  strlit" proofgoal #2";
-  strlit" pol 20 17 +";
-  strlit" end 21";
-  strlit"end";
-  strlit"red 1 x1 >= 1 ; x1 -> x3 x3 -> x5 x5 -> x1 x2 -> x4 x4 -> x6 x6 -> x2 ; begin";
-  strlit"e 11 1 ~x1 >= 1 ;";
-  strlit"proofgoal #1";
-  strlit"e 12 1 ~x3 >= 1 ;";
-  strlit"pol 12 11 + 5 + 6 +";
-  strlit"red 1 x1 >= 1 ; ; begin";
-  strlit"red 1 x1 >= 1 ; ; begin";
-  strlit"end 1";
-  strlit"end 2";
-  strlit"red 1 x1 >= 1 ; ; begin";
-  strlit"end 3";
-  strlit"pol 13 4 +";
-  strlit"pol 14 x6 +";
-  strlit"end 15";
-  strlit"e 11 1 ~x1 >= 1 ;";
-  strlit"proofgoal 1";
-  strlit"pol 16 2 +";
-  strlit"end 17";
-  strlit"end";
-  strlit"e 11 1 ~x1 >= 1 ;";
-  strlit"output NONE";
-  strlit"conclusion UNSAT : 5";
-  strlit"end pseudo-Boolean proof";
-  ]``
-
-  val pbpraw2 = ``[
-  strlit"pseudo-Boolean proof version 2.0";
-  strlit"f 10";
-  strlit"pre_order simple";
-  strlit"    vars";
-  strlit"        left u1";
-  strlit"        right v1";
-  strlit"        aux ";
-  strlit"  end";
-  strlit"    def";
-  strlit"        1 ~u1 1 v1 >= 1 ;";
-  strlit"  end";
-  strlit"    transitivity";
-  strlit"        vars";
-  strlit"            fresh_right w1";
-  strlit"    end";
-  strlit"        proof";
-  strlit"      proofgoal #1";
-  strlit"      pol 2 1 + 3 + ";
-  strlit"      end 4";
-  strlit"    end";
-  strlit"  end";
-  strlit"end";
-  strlit"load_order simple x1";
-  strlit"pol 1 2 + ";
-  strlit"red 1 x3 1 x1 >= 1 ; x3 -> 1 ; begin";
-  strlit"    * autoproven: goal is implied by negated constraint";
-  strlit"    proofgoal #1";
-  strlit"        pol 13 12 +";
-  strlit"    end 14";
-  strlit"end 5678";
-  strlit"dom 1 ~x1 1 x2 >= 1 ; x1 -> x2 x2 -> x1 ; begin";
-  strlit"    * autoproven: goal is implied by negated constraint";
-  strlit"    proofgoal #1";
-  strlit"        pol 17 16 +";
-  strlit"    end 18";
-  strlit"    * autoproven: implied by RUP";
-  strlit"    proofgoal #2";
-  strlit"        pol  19 16 ~x1 + 2 d + s 16 x2 + 2 d + s";
-  strlit"    end 20";
-  strlit"end 1234";
-  strlit"load_order simple x1";
-  strlit"red 1 ~x1 1 ~x2 >= 0 ;  ; begin";
-  strlit"proofgoal #1";
-  strlit"pol 14 13 +";
-  strlit"end 15";
-  strlit"end";
-  strlit"output NONE";
-  strlit"conclusion BOUNDS INF : 1 5 : x3 x4 ~x5";
-  strlit"end pseudo-Boolean proof";]``
-
-  val steps = rconc (EVAL``(parse_pbp ^(pbpraw))``)
-  val steps2 = rconc (EVAL``(parse_pbp ^(pbpraw2))``)
-
-  val conc = rconc (EVAL``parse_concl (plainVar_nf,()) (HD (SND (SND (THE (parse_pbp ^(pbpraw))))))``)
-  val conc2 = rconc (EVAL``parse_concl (plainVar_nf,()) (HD (SND (SND (THE (parse_pbp ^(pbpraw2))))))``)
 *)
 
 val _ = export_theory();
