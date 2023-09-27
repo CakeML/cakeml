@@ -334,7 +334,7 @@ val _ = Datatype`
             (* shmem_info is 
             * a list of (entry pc, no. of bytes, address of the shared memory, register
             * to be load/store and the end pc)s for each share memory access *)
-            ; shmem_extra: string list # 'a shmem_info
+            ; shmem_extra: 'a shmem_info
             ; hash_size : num
             |>`;
 
@@ -361,6 +361,8 @@ Definition get_memop_info_def:
   get_memop_info Store8 a =("MappedWrite",1w)
 End
 
+(* produce a list of ffi_names for shared memory instructions and
+  a list of shmem_infos (e.g. pc of the shared memory instruction) *)
 Definition get_shmem_info_def:
   (get_shmem_info [] pos ffi_names (shmem_info: 'a shmem_info) =
     (ffi_names, shmem_info)) /\
@@ -395,11 +397,12 @@ Definition compile_lab_def:
       case remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list of
       | SOME (sec_list,l1) =>
           let bytes = prog_to_bytes sec_list in
+          let (new_ffis,shmem_infos) = get_shmem_info sec_list c.pos [] [] in
           SOME (bytes,
                 c with <| labels := l1; pos := LENGTH bytes + c.pos;
                           sec_pos_len := get_symbols c.pos sec_list;
-                          ffi_names := SOME $ ffis;
-                          shmem_extra := get_shmem_info sec_list c.pos [] [] |>)
+                          ffi_names := SOME $ ffis ++ new_ffis;
+                          shmem_extra := shmem_infos |>)
       | NONE => NONE
     else NONE
 End
@@ -444,7 +447,7 @@ Definition inc_config_to_config_def:
   inc_config_to_config (asm : 'a asm_config) (c : inc_config) = <|
     labels := c.inc_labels; sec_pos_len := c.inc_sec_pos_len;
     pos := c.inc_pos; asm_conf := asm; init_clock := c.inc_init_clock;
-    ffi_names := c.inc_ffi_names; hash_size := c.inc_hash_size; shmem_extra := ([],[])
+    ffi_names := c.inc_ffi_names; hash_size := c.inc_hash_size; shmem_extra := []
   |>
 End
 
