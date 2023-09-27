@@ -3118,7 +3118,7 @@ Theorem compile_correct':
    ¬semantics_prog s env prog Fail ∧
    backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧
    opt_eval_config_wf c' ev ∧
-   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names (heap_regs c.stack_conf.reg_names) mc ms c'.lab_conf.shmem_extra ⇒
+   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names (heap_regs c.stack_conf.reg_names) mc ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit'
          (is_safe_for_space ffi c prog (read_limits c mc ms))
@@ -3535,6 +3535,7 @@ Proof
       \\ drule compile_lab_lab_conf
       \\ drule compile_lab_LENGTH
       \\ simp [cake_orac_0, config_tuple2_def]
+      (* c'4'.ffi = [] *)
     )
     (* ugh have to use metis just to show p7 is compiled from a data prog *)
     \\ qpat_x_assum`Abbrev(p7 = _)` mp_tac
