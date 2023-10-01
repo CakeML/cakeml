@@ -634,10 +634,10 @@ End
 
 (* Not meant to be executed, mainly just abbrevation... *)
 Definition do_red_check_def:
-  do_red_check idopt b fml
+  do_red_check idopt b tcb fml
     s rfml rinds fmlls extra pfs rsubs =
   case idopt of NONE =>
-    let goals = subst_indexes s b rfml rinds in
+    let goals = subst_indexes s (b ∨ tcb) rfml rinds in
     let (l,r) = extract_pids pfs LN LN in
       split_goals_hash fmlls extra l goals ∧
       EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs))
@@ -674,10 +674,10 @@ Definition check_red_list_fast_def:
 End
 
 Definition check_red_list_def:
-  check_red_list ord obj b fml inds id c s pfs idopt =
+  check_red_list ord obj b tcb fml inds id c s pfs idopt =
   case red_fast s idopt pfs of
     NONE => (
-    let (rinds,fmlls) = reindex b fml inds in
+    let (rinds,fmlls) = reindex (b ∨ tcb) fml inds in
     let nc = not c in
     let fml_not_c = update_resize fml NONE (SOME (nc,b)) id in
     let rsubs = red_subgoals ord (subst_fun s) c obj in
@@ -689,7 +689,7 @@ Definition check_red_list_def:
          NONE => NONE
       |  SOME(fml', id') =>
         let rfml = rollback fml' id id' in
-        if do_red_check idopt b fml'
+        if do_red_check idopt b tcb fml'
             s rfml rinds fmlls nc pfs rsubs then
             SOME (rfml,rinds,id')
         else NONE))
@@ -706,7 +706,7 @@ Definition opt_update_inds_def[simp]:
 End
 
 Definition check_sstep_list_def:
-  (check_sstep_list (sstep:sstep) ord obj
+  (check_sstep_list (sstep:sstep) ord obj tcb
     (fml: (npbc # bool) option list) (inds:num list) (id:num) =
   case sstep of
   | Lstep lstep =>
@@ -714,10 +714,10 @@ Definition check_sstep_list_def:
     | SOME (rfml,c,id') =>
       SOME(opt_update_inds rfml c id' inds))
   | Red c s pfs idopt =>
-    case check_red_list ord obj F fml inds id c s pfs idopt of
+    case check_red_list ord obj F tcb fml inds id c s pfs idopt of
       SOME (rfml,rinds,id') =>
       SOME(
-        update_resize rfml NONE (SOME (c,F)) id',
+        update_resize rfml NONE (SOME (c,tcb)) id',
         sorted_insert id' rinds,
         id'+1)
     | NONE => NONE)
@@ -1146,9 +1146,9 @@ Theorem fml_rel_check_red_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
   (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
-  check_red_list ord obj b fmlls inds id c s pfs idopt =
+  check_red_list ord obj b tcb fmlls inds id c s pfs idopt =
     SOME (fmlls', inds', id') ⇒
-    check_red ord obj b fml id c s pfs idopt = SOME id' ∧
+    check_red ord obj b tcb fml id c s pfs idopt = SOME id' ∧
     fml_rel fml fmlls' ∧
     ind_rel fmlls' inds' ∧
     (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE) ∧
@@ -1184,7 +1184,7 @@ Proof
       >- (
         rpt (pairarg_tac>>fs[])>>
         (drule_at Any) split_goals_hash_imp_split_goals>>
-        disch_then (qspec_then`mk_core_fml b fml` mp_tac)>>
+        disch_then (qspec_then`mk_core_fml (b ∨ tcb) fml` mp_tac)>>
         impl_tac >- (
           simp[range_mk_core_fml]>>
           match_mp_tac (GEN_ALL SND_reindex_characterize)>>
@@ -1235,7 +1235,7 @@ Proof
           impl_tac>-fs[]>>
           metis_tac[option_CLAUSES])>>
         simp[lookup_mk_core_fml]>>
-        `lookup_core_only b fml p_1 = SOME c'` by (
+        `lookup_core_only (b ∨ tcb) fml p_1 = SOME c'` by (
           qpat_x_assum`fml_rel fml _` assume_tac>>
           drule (GSYM fml_rel_lookup_core_only)>>
           strip_tac>>fs[]>>
@@ -1328,10 +1328,10 @@ Theorem fml_rel_check_sstep_list:
     fml_rel fml fmlls ∧
     ind_rel fmlls inds ∧
     (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
-    check_sstep_list sstep ord obj fmlls inds id =
+    check_sstep_list sstep ord obj tcb fmlls inds id =
       SOME (fmlls',inds',id') ⇒
     ∃fml'.
-      check_sstep sstep ord obj fml id = SOME(fml',id') ∧
+      check_sstep sstep ord obj tcb fml id = SOME(fml',id') ∧
       fml_rel fml' fmlls' ∧
       ind_rel fmlls' inds' ∧
       (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE) ∧
@@ -1366,41 +1366,6 @@ Proof
     >-
       metis_tac[ind_rel_update_resize_sorted_insert]>>
     simp[any_el_update_resize])
-QED
-
-Definition check_ssteps_list_def:
-  (check_ssteps_list [] ord obj
-    (fml: (npbc # bool) option list) (inds:num list) (id:num) =
-    SOME (fml, inds, id)) ∧
-  (check_ssteps_list (s::ss) ord obj fml inds id =
-  case check_sstep_list s ord obj fml inds id of
-    SOME (fml', inds', id') =>
-      check_ssteps_list ss ord obj fml' inds' id'
-  | res => res)
-End
-
-Theorem fml_rel_check_ssteps_list:
-  ∀ss ord obj fmlls inds id fmlls' id' inds' fml.
-    fml_rel fml fmlls ∧
-    ind_rel fmlls inds ∧
-    (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
-    check_ssteps_list ss ord obj fmlls inds id =
-      SOME (fmlls',inds',id') ⇒
-    ∃fml'.
-      check_ssteps ss ord obj fml id = SOME(fml',id') ∧
-      fml_rel fml' fmlls' ∧
-      ind_rel fmlls' inds' ∧
-      (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE) ∧
-      id ≤ id'
-Proof
-  Induct>>rw[check_ssteps_list_def]>>
-  simp[check_ssteps_def]>>
-  gvs[AllCaseEqs()]>>
-  drule_all fml_rel_check_sstep_list>>
-  rw[]>>
-  first_x_assum drule_all>>
-  rw[]>>
-  fs[]
 QED
 
 Definition MAP_OPT_def:
@@ -1519,18 +1484,19 @@ Definition check_change_obj_list_def:
 End
 
 Definition check_cstep_list_def:
-  check_cstep_list cstep chk obj bound dbound
-    ord orders fml inds id =
+  check_cstep_list cstep fml inds pc =
   case cstep of
     Dom c s pfs idopt =>
-    (case ord of NONE => NONE
+    (case pc.ord of
+      NONE => NONE
     | SOME spo =>
     ( let nc = not c in
+      let id = pc.id in
       let (rinds,fmlls) = reindex F fml inds in
       let corels = core_fmlls fml rinds in
       let fml_not_c = update_resize fml NONE (SOME (nc,F)) id in
       let w = subst_fun s in
-      let dsubs = dom_subgoals spo w c obj in
+      let dsubs = dom_subgoals spo w c pc.obj in
       case extract_clauses_list s F fml dsubs pfs [] of
         NONE => NONE
       | SOME cpfs =>
@@ -1540,82 +1506,101 @@ Definition check_cstep_list_def:
           let rfml = rollback fml' id id' in
           if do_dom_check idopt fml' rfml w corels fmlls nc pfs dsubs then
             SOME(
-              update_resize rfml NONE (SOME (c,F)) id',
+              update_resize rfml NONE (SOME (c,pc.tcb)) id',
               sorted_insert id' rinds,
-              id'+1, chk, obj, bound, dbound, ord, orders)
+              pc with id := id'+1)
           else NONE)))
+  | Sstep sstep =>
+    (case check_sstep_list sstep pc.ord pc.obj pc.tcb
+      fml inds pc.id of
+      SOME(fml',inds',id') =>
+        SOME(fml',inds', pc with id := id')
+    | NONE => NONE)
+  | CheckedDelete n s pfs idopt => (
+    if check_tcb_idopt pc.tcb idopt then
+      (case lookup_core_only_list T fml n of
+        NONE => NONE
+      | SOME c =>
+          (let nfml = delete_list n fml in
+          case check_red_list pc.ord pc.obj T pc.tcb
+            nfml inds pc.id c s pfs idopt of
+            SOME (ncf',inds',id') =>
+            SOME (ncf', inds', pc with <| id := id' |>)
+          | NONE => NONE) )
+    else NONE)
+  | UncheckedDelete ls => (
+    (* Either no order or all ids are in core *)
+    if ¬pc.tcb ∧ pc.ord = NONE
+    then
+      SOME (list_delete_list ls fml, inds, pc with chk := F)
+    else
+    case all_core_list fml inds [] of NONE => NONE
+    | SOME inds' =>
+      SOME (list_delete_list ls fml, inds', pc with chk := F))
+  | Transfer ls =>
+    (case core_from_inds fml ls of NONE => NONE
+    | SOME fml' =>
+      SOME (fml', inds, pc))
+  | StrengthenToCore b =>
+    (let inds' = FST (reindex F fml inds) in
+    let pc' = pc with tcb := b in
+    if b
+    then
+      (case core_from_inds fml inds' of NONE => NONE
+      | SOME fml' => SOME (fml',inds',pc'))
+    else
+      SOME (fml,inds',pc'))
   | LoadOrder nn xs =>
     (let inds' = FST (reindex F fml inds) in
-      case ALOOKUP orders nn of NONE => NONE
+      case ALOOKUP pc.orders nn of NONE => NONE
       | SOME ord' =>
         if LENGTH xs = LENGTH (FST (SND ord')) then
           case core_from_inds fml inds' of NONE => NONE
           | SOME fml' =>
-          SOME (fml',inds',id,
-            chk, obj, bound, dbound, SOME (ord',xs),orders)
+          SOME (fml',inds',pc with ord := SOME (ord',xs))
         else NONE)
   | UnloadOrder =>
-    (case ord of NONE => NONE
+    (case pc.ord of NONE => NONE
     | SOME spo =>
-        SOME (fml,inds,id,chk, obj, bound, dbound, NONE, orders))
-  | StoreOrder nn spo ws pfs =>
-    if check_good_ord spo ∧ check_ws spo ws ∧
-       check_transitivity spo ws pfs then
-        SOME (fml,inds,id,chk, obj, bound, dbound, ord, (nn,spo)::orders)
+        SOME (fml,inds, pc with ord := NONE))
+  | StoreOrder nn spo ws pfsr pfst =>
+    if check_good_ord spo ∧ check_ws spo ws
+    then
+      case check_transitivity spo ws pfst of NONE => NONE
+      | SOME id =>
+        if check_reflexivity spo pfsr id then
+          SOME (fml, inds, pc with orders := (nn,spo)::pc.orders)
+        else NONE
     else
       NONE
-  | Transfer ls =>
-    (case core_from_inds fml ls of NONE => NONE
-    | SOME fml' =>
-      SOME (fml', inds, id,
-           chk, obj, bound, dbound, ord, orders))
-  | CheckedDelete n s pfs idopt => (
-    case lookup_core_only_list T fml n of
-      NONE => NONE
-    | SOME c =>
-        (let nfml = delete_list n fml in
-        case check_red_list ord obj T nfml inds id c s pfs idopt of
-          SOME (ncf',inds',id') =>
-          SOME (ncf', inds', id',
-            chk, obj, bound, dbound, ord, orders)
-        | NONE => NONE) )
-  | UncheckedDelete ls => (
-    if ord = NONE then
-      SOME (list_delete_list ls fml, inds, id,
-            F, obj, bound, dbound, ord, orders)
-    else
-      case all_core_list fml inds [] of NONE => NONE
-      | SOME inds' =>
-        SOME (list_delete_list ls fml, inds', id,
-            F, obj, bound, dbound, ord, orders))
-  | Sstep sstep =>
-    (case check_sstep_list sstep ord obj fml inds id of
-      SOME(fml',inds',id') =>
-        SOME(fml',inds',id', chk, obj, bound, dbound, ord, orders)
-    | NONE => NONE)
-  | Obj w mi bopt =>
-    (
+  | Obj w mi bopt => (
     let corels = core_fmlls fml inds in
-    case check_obj obj w (MAP SND corels) bopt of
+    case check_obj pc.obj w (MAP SND corels) bopt of
       NONE => NONE
     | SOME new =>
-      let (bound',dbound') = update_bound chk bound dbound new in
+      let (bound',dbound') =
+        update_bound pc.chk pc.bound pc.dbound new in
       if mi then
-        let c = model_improving obj new in
+        let c = model_improving pc.obj new in
         SOME (
-          update_resize fml NONE (SOME (c,T)) id,
-          sorted_insert id inds,
-          id+1,
-          chk, obj, bound', dbound', ord, orders)
+          update_resize fml NONE (SOME (c,T)) pc.id,
+          sorted_insert pc.id inds,
+          pc with
+          <| id := pc.id+1;
+             bound := bound';
+             dbound := dbound' |>)
       else
-        SOME(fml,inds,id,chk,obj,bound',dbound',ord,orders))
+        SOME (fml, inds,
+          pc with
+          <| bound := bound';
+             dbound := dbound' |>))
   | ChangeObj fc' pfs =>
-    (case check_change_obj_list fml id obj fc' pfs of
+    (case check_change_obj_list fml pc.id pc.obj fc' pfs of
       NONE => NONE
     | SOME (fml',id') =>
       SOME (
         fml', inds,
-        id', chk, SOME fc', bound, dbound, ord, orders))
+        pc with <| id:=id'; obj:=SOME fc' |>))
 End
 
 Theorem MEM_core_fmlls:
@@ -1718,27 +1703,25 @@ QED
 Theorem fml_rel_check_cstep_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
-  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
-  check_cstep_list cstep chk obj bound bound' ord orders
-    fmlls inds id =
-    SOME (fmlls',inds',id',rest) ⇒
+  (∀n. n ≥ pc.id ⇒ any_el n fmlls NONE = NONE) ∧
+  check_cstep_list cstep fmlls inds pc =
+    SOME (fmlls',inds',pc') ⇒
   ∃fml'.
-    check_cstep cstep fml id chk obj bound bound' ord orders =
-      SOME (fml', id', rest) ∧
+    check_cstep cstep fml pc = SOME (fml', pc') ∧
     fml_rel fml' fmlls' ∧
     ind_rel fmlls' inds' ∧
-    (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE) ∧
-    id ≤ id'
+    (∀n. n ≥ pc'.id ⇒ any_el n fmlls' NONE = NONE) ∧
+    pc.id ≤ pc'.id
 Proof
   Cases_on`cstep`>>rw[]
-  >- ((* Dom *)
+  >- ( (* Dom *)
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     rpt(pairarg_tac>>gvs[])>>
     gvs[AllCaseEqs()]>>
     DEP_REWRITE_TAC[fml_rel_extract_clauses_list]>>
     simp[PULL_EXISTS]>>
     (drule_at Any) fml_rel_check_subproofs_list>>
-    disch_then(qspec_then`insert id (not p,F) fml` mp_tac)>>
+    disch_then(qspec_then`insert pc.id (not p,F) fml` mp_tac)>>
     impl_tac >- (
       simp[fml_rel_update_resize,any_el_update_resize]>>
       match_mp_tac ind_rel_update_resize_sorted_insert>>
@@ -1773,6 +1756,73 @@ Proof
       fs[]>>
       metis_tac[ind_rel_reindex])>>
     simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST])
+  >- ( (* Sstep *)
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
+    drule_all fml_rel_check_sstep_list>>
+    rw[]>>simp[])
+  >- ( (* CheckedDelete *)
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
+    drule fml_rel_lookup_core_only>>
+    rw[]>>gvs[]>>
+    simp[PULL_EXISTS]>>
+    qexists_tac`id'`>>
+    simp[]>>
+    drule_at (Pos last) fml_rel_check_red_list>>
+    disch_then match_mp_tac>>
+    CONJ_TAC >- (
+      drule fml_rel_list_delete_list>>
+      disch_then(qspec_then`[n]` mp_tac)>>
+      simp[list_delete_list_def])>>
+    CONJ_TAC >- (
+      drule ind_rel_list_delete_list>>
+      disch_then(qspec_then`[n]` mp_tac)>>
+      simp[list_delete_list_def])>>
+    metis_tac[any_el_list_delete_list,list_delete_list_def])
+  >- ( (* UncheckedDelete *)
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]
+    >- (
+      CONJ_TAC >-
+        metis_tac[fml_rel_list_delete_list]>>
+      CONJ_TAC >-
+        metis_tac[ind_rel_list_delete_list]>>
+      simp[any_el_list_delete_list])
+    >- (
+      drule_all fml_rel_all_core>>strip_tac>>
+      simp[]>>
+      CONJ_TAC >-
+        metis_tac[fml_rel_list_delete_list]>>
+      CONJ_TAC >-
+        metis_tac[ind_rel_list_delete_list]>>
+      simp[any_el_list_delete_list]))
+  >- ( (* Transfer *)
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
+    drule_all core_from_inds_do_transfer>>
+    drule any_el_core_from_inds>>
+    strip_tac>>fs[]>>
+    fs[ind_rel_def]>>
+    rw[]>>
+    metis_tac[IS_SOME_EXISTS,option_CLAUSES])
+  >- ( (* StrengthenToCore *)
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
+    Cases_on`reindex F fmlls inds`>>
+    drule_all ind_rel_reindex
+    >- (
+      drule any_el_core_from_inds>>
+      rw[]
+      >- (
+        simp[fml_rel_def,lookup_map]>>
+        fs[ind_rel_def]>>rw[]
+        >-
+          metis_tac[fml_rel_def] >>
+        `any_el x fmlls NONE = NONE` by
+          metis_tac[IS_SOME_EXISTS,option_CLAUSES]>>
+        simp[]>>
+        metis_tac[fml_rel_def])>>
+      fs[ind_rel_def]>>
+      rw[]>>
+      metis_tac[IS_SOME_EXISTS,option_CLAUSES])
+    >-
+      fs[])
   >- ( (* LoadOrder *)
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     Cases_on`reindex F fmlls inds`>>
@@ -1796,49 +1846,6 @@ Proof
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def])
   >- ( (* StoreOrder *)
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def])
-  >- ( (* Transfer *)
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    drule_all core_from_inds_do_transfer>>
-    drule any_el_core_from_inds>>
-    strip_tac>>fs[]>>
-    fs[ind_rel_def]>>
-    rw[]>>
-    metis_tac[IS_SOME_EXISTS,option_CLAUSES])
-  >- ( (* CheckedDelete *)
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    drule fml_rel_lookup_core_only>>
-    rw[]>>gvs[]>>
-    drule_at (Pos last) fml_rel_check_red_list>>
-    disch_then match_mp_tac>>
-    CONJ_TAC >- (
-      drule fml_rel_list_delete_list>>
-      disch_then(qspec_then`[n]` mp_tac)>>
-      simp[list_delete_list_def])>>
-    CONJ_TAC >- (
-      drule ind_rel_list_delete_list>>
-      disch_then(qspec_then`[n]` mp_tac)>>
-      simp[list_delete_list_def])>>
-    metis_tac[any_el_list_delete_list,list_delete_list_def])
-  >- ((* UncheckedDelete *)
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]
-    >- (
-      CONJ_TAC >-
-        metis_tac[fml_rel_list_delete_list]>>
-      CONJ_TAC >-
-        metis_tac[ind_rel_list_delete_list]>>
-      simp[any_el_list_delete_list])
-    >- (
-      drule_all fml_rel_all_core>>strip_tac>>
-      simp[]>>
-      CONJ_TAC >-
-        metis_tac[fml_rel_list_delete_list]>>
-      CONJ_TAC >-
-        metis_tac[ind_rel_list_delete_list]>>
-      simp[any_el_list_delete_list]))
-  >- ( (* Sstep *)
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    drule_all fml_rel_check_sstep_list>>
-    rw[])
   >- ( (* Obj *)
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     rw[PULL_EXISTS]>>
@@ -1864,7 +1871,7 @@ Proof
       EVAL_TAC>>rw[])>>
     strip_tac>>
     rfs[]>>
-    `id ≤ id` by fs[]>>
+    `pc.id ≤ pc.id` by fs[]>>
     drule_all fml_rel_check_subproofs_list>>
     fs[do_change_obj_check_def]>>
     pairarg_tac>>fs[]>>
@@ -1887,47 +1894,34 @@ Proof
 QED
 
 Definition check_csteps_list_def:
-  (check_csteps_list [] chk obj bound dbound
-    ord orders fml inds id =
-    SOME
-      (fml, inds, id, chk, obj, bound, dbound, ord, orders)) ∧
-  (check_csteps_list (c::cs) chk obj bound dbound
-    ord orders fml inds id =
-    case check_cstep_list c chk obj bound dbound
-      ord orders fml inds id of
+  (check_csteps_list [] fml inds pc = SOME (fml, inds, pc)) ∧
+  (check_csteps_list (c::cs) fml inds pc =
+    case check_cstep_list c fml inds pc of
       NONE => NONE
-    | SOME(fml', inds', id',
-      chk', obj', bound', dbound', ord', orders') =>
-      check_csteps_list cs chk' obj' bound' dbound'
-        ord' orders' fml' inds' id')
+    | SOME(fml', inds', pc') =>
+      check_csteps_list cs fml' inds' pc')
 End
 
 Theorem fml_rel_check_csteps_list:
-  ∀csteps chk obj bound dbound
-    ord orders fmlls inds id
-    fmlls' inds' id' fml rest.
-    fml_rel fml fmlls ∧
-    ind_rel fmlls inds ∧
-    (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
-    check_csteps_list csteps chk obj bound dbound
-      ord orders fmlls inds id =
-    SOME (fmlls', inds', id', rest) ⇒
-    ∃fml'.
-      check_csteps csteps fml id chk obj
-        bound dbound
-        ord orders = SOME (fml', id', rest) ∧
-      fml_rel fml' fmlls' ∧
-      ind_rel fmlls' inds' ∧
-      (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE) ∧
-      id ≤ id'
+  ∀csteps fml fmlls inds pc fmlls' inds' pc'.
+  fml_rel fml fmlls ∧
+  ind_rel fmlls inds ∧
+  (∀n. n ≥ pc.id ⇒ any_el n fmlls NONE = NONE) ∧
+  check_csteps_list csteps fmlls inds pc =
+    SOME (fmlls', inds', pc') ⇒
+  ∃fml'.
+    check_csteps csteps fml pc = SOME (fml', pc') ∧
+    fml_rel fml' fmlls' ∧
+    ind_rel fmlls' inds' ∧
+    (∀n. n ≥ pc'.id ⇒ any_el n fmlls' NONE = NONE) ∧
+    pc.id ≤ pc'.id
 Proof
   Induct>>simp[]
   >- (
     rw[check_csteps_list_def,check_csteps_def]>>
     metis_tac[])>>
   rw[]>>
-  fs[check_csteps_list_def,check_csteps_def]>>
-  gvs[AllCaseEqs()]>>
+  gvs[check_csteps_list_def,check_csteps_def,AllCaseEqs()]>>
   drule_all fml_rel_check_cstep_list>>
   rw[]>>simp[]>>
   first_x_assum drule_all>>
@@ -2117,37 +2111,37 @@ QED
 
 Theorem check_csteps_list_concl:
   check_csteps_list cs
-    T obj NONE NONE NONE []
     (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,T)) i)
       (REPLICATE m NONE) (enumerate 1 fml))
     (REVERSE (MAP FST (enumerate 1 fml)))
-    (LENGTH fml + 1) =
-    SOME(fmlls',inds',id',chk',obj',bound',dbound',ord',orders') ∧
-  check_hconcl_list fml obj fmlls' obj' bound' dbound' hconcl ⇒
+    (init_conf (LENGTH fml + 1) chk obj) =
+    SOME(fmlls',inds',pc') ∧
+  check_hconcl_list fml obj fmlls'
+    pc'.obj pc'.bound pc'.dbound hconcl ⇒
   sem_concl (set fml) obj (hconcl_concl hconcl)
 Proof
   rw[]>>
-  qmatch_asmsub_abbrev_tac`
-    check_csteps_list cs T obj NONE NONE NONE [] fmlls inds id = _`>>
+  qmatch_asmsub_abbrev_tac`check_csteps_list cs fmlls inds pc = _`>>
   `fml_rel (build_fml T 1 fml) fmlls` by
     simp[Abbr`fmlls`,fml_rel_FOLDL_update_resize]>>
   `ind_rel fmlls inds` by (
     unabbrev_all_tac>>
     simp[ind_rel_FOLDL_update_resize])>>
-  `∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE` by (
-    rw[Abbr`id`,Abbr`fmlls`,any_el_ALT]>>
+  `∀n. n ≥ pc.id ⇒ any_el n fmlls NONE = NONE` by (
+    rw[Abbr`pc`,Abbr`fmlls`,any_el_ALT,init_conf_def]>>
     DEP_REWRITE_TAC [FOLDL_update_resize_lookup]>>
     simp[ALOOKUP_enumerate,ALL_DISTINCT_MAP_FST_enumerate])>>
   drule_all fml_rel_check_csteps_list>>
   rw[]>>
-  `id_ok (build_fml T 1 fml) id` by
-    fs[id_ok_def,domain_build_fml]>>
+  `id_ok (build_fml T 1 fml) pc.id` by
+    fs[Abbr`pc`,init_conf_def,id_ok_def,domain_build_fml]>>
   `all_core (build_fml T 1 fml)` by
     fs[all_core_def,EVERY_MEM,MEM_toAList,FORALL_PROD,lookup_build_fml]>>
   drule check_csteps_check_hconcl>>
   rpt(disch_then drule)>>
   disch_then match_mp_tac>>simp[core_only_fml_build_fml]>>
   drule_all fml_rel_check_hconcl_list>>
+  fs[Abbr`pc`,init_conf_def]>>
   metis_tac[]
 QED
 
