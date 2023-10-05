@@ -13,15 +13,16 @@ local open alignmentTheory
 val _ = new_theory "panItreeSem";
 
 (* Extension of itreeTauTheory *)
-val _ = temp_set_fixity "\226\139\134" (Infixl 500);
-Overload "\226\139\134" = “itree_bind”;
+enable_monadsyntax();
+declare_monad("itree", {unit = “Ret”, bind = “itree_bind”,
+              ignorebind = NONE,
+              choice = NONE,
+              fail = NONE,
+              guard = NONE});
+enable_monad "itree";
 
 val _ = temp_set_fixity "≈" (Infixl 500);
 Overload "≈" = “itree_wbisim”;
-
-Definition itree_trigger_def:
-  itree_trigger event = Vis event Ret
-End
 
 Definition itree_mrec_def:
   itree_mrec rh seed =
@@ -30,9 +31,14 @@ Definition itree_mrec_def:
         | Ret r => Ret (INR r)
         | Tau t => Ret (INL t)
         | Vis (INL seed') k => Ret (INL (itree_bind (rh seed') k))
-        | Vis (INR e) k => Vis e (λx. Ret (INL (k x))))
+        | Vis (INR e) k => Vis e (Ret o INL o k))
+        (* | Vis (INR e) k => Vis e (λx. Ret (INL (k x)))) *)
   (rh seed)
 End
+
+(* For Vis (INR e) k nodes, we need knowledge of both the internal state and the
+ FFI response in order to compute the continuation of the tree. We cannot have only one. *)
+(* How then do we retain both while generating the tree and end up with the correct types? *)
 
 Theorem itree_mrec_simps2[simp]:
   ((rh seed) = Ret r ⇒ itree_mrec rh seed = Ret r)
@@ -48,17 +54,6 @@ Proof
   rw [itree_mrec_def] >>
   rw [itreeTauTheory.itree_iter_def] >>
   rw [Once itreeTauTheory.itree_unfold]
-QED
-
-Theorem itree_mrec_recurse_once[simp]:
-  (h s) = Vis (INL seed') k ⇔
-  itree_mrec h s = Tau (itree_mrec (λs. itree_bind (h s) k) seed')
-Proof
-  rw [itree_mrec_def] >>
-  rw [itreeTauTheory.itree_iter_def] >>
-  rw [Once itreeTauTheory.itree_unfold] >>
-  (* needs proof that k' = k and then itree_bind_right_identity *)
-  cheat
 QED
 
 (* mrec theory *)
@@ -137,7 +132,7 @@ End
 Definition h_prog_rule_seq_def:
   h_prog_rule_seq p1 p2 s = Vis (INL (p1,s))
                                 (λ(res,s'). if res = NONE
-                                            then itree_trigger (INL (p2,s'))
+                                            then Vis (INL (p2,s')) Ret
                                             else Ret (res,s'))
 End
 
@@ -186,10 +181,10 @@ End
  termination of the loop; when the guard is false. *)
 Definition h_prog_rule_while_def:
   h_prog_rule_while g p s = itree_iter
-                               (λseed. case (eval s g) of
+                               (λ(p,s). case (eval s g) of
                                         | SOME (ValWord w) =>
                                            if (w ≠ 0w)
-                                           then (Vis (INL seed)
+                                           then (Vis (INL (p,s))
                                                  (λ(res,s'). case res of
                                                               | SOME Break => Ret (INR (NONE,s'))
                                                               | SOME Continue => Ret (INL (p,s'))
@@ -233,7 +228,7 @@ Definition h_prog_rule_call_def:
    | (SOME (ValLabel fname),SOME args) =>
       (case lookup_code s.code fname args of
         | SOME (callee_prog,newlocals) =>
-           Vis (INL (callee_prog,s)) (h_handle_call_ret calltyp s)
+           Vis (INL (callee_prog,s with locals := newlocals)) (h_handle_call_ret calltyp s)
         | _ => Ret (SOME Error,s))
    | (_,_) => Ret (SOME Error,s)
 End
@@ -245,8 +240,11 @@ Datatype:
   sem_vis_event = FFI_call string (word8 list) (word8 list)
 End
 
+val s = “s:('a,'b) state”;
+val mtree_ans = “:γ result option # ('a,'b) state”;
+
 Definition h_prog_rule_ext_call_def:
-  h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len s =
+  h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len ^s =
   case (eval s conf_ptr,eval s conf_len,eval s array_ptr,eval s array_len) of
     (SOME (ValWord conf_sz),SOME (ValWord conf_ptr_adr),
      SOME (ValWord array_sz),SOME (ValWord array_ptr_adr)) =>
@@ -255,11 +253,10 @@ Definition h_prog_rule_ext_call_def:
         (SOME conf_bytes,SOME array_bytes) =>
          Vis (INR (FFI_call (explode ffi_name) conf_bytes array_bytes,
                    (λres. case res of
-                            FFI_final outcome => Ret (SOME (FinalFFI outcome),empty_locals s)
+                            FFI_final outcome => (SOME (FinalFFI outcome),empty_locals s):(γ result option # ('a,'b) state)
                            | FFI_return new_ffi new_bytes =>
                               let nmem = write_bytearray array_ptr_adr new_bytes s.memory s.memaddrs s.be in
-                              Ret (NONE,s with <| memory := nmem; ffi := new_ffi |>)
-                              | _ => Ret (SOME Error,s)))) Ret
+                              (NONE,s with <| memory := nmem; ffi := new_ffi |>)))) (λ(r:(γ result option # ('a,'b) state)). Ret r)
        | _ => Ret (SOME Error,s))
    | _ => Ret (SOME Error,s)
 End
@@ -319,7 +316,7 @@ Definition itree_evaluate_def:
   (λt. case t of
          INL (Ret (res,s)) => Ret' res
         | INL (Tau t) => Tau' (INL t)
-        | INL (Vis (e,k) g) => Vis' e (λr. INR (k r))
+        | INL (Vis (e,k) g) => Vis' e (INL o g o k)
         | INR (Ret (res,s)) => Ret' res
         | INR (Tau t) => Tau' (INR t)
         | INR (Vis e g) => Vis' e (INR o g))
@@ -335,5 +332,44 @@ Definition itree_semantics_def:
   let prog = Call NONE (Label entry) [] in
   (itree_evaluate prog ^s)
 End
+
+(* mrec theorems *)
+Theorem mrec_evaluate_corres:
+  itree_evaluate p s = Ret NONE ⇔ h_prog (p,s) = Ret (NONE,s')
+Proof
+  cheat
+  (* eq_tac *)
+  (* (* forward *) *)
+  (* >- (CCONTR_TAC >> *)
+  (*     fs [itree_evaluate_def,itree_mrec_def] >> *)
+  (*     Cases_on ‘h_prog (p,s)’ *)
+  (*     >- (fs [itreeTauTheory.itree_iter_def] >> *)
+  (*         fs [itreeTauTheory.itree_CASE])) *)
+  (*            (* itree_CASE should have simplified the subterm to Ret (INR x) *) *)
+QED
+
+(* Simplifications *)
+
+(* Evaluation rules *)
+Theorem seq_term_1:
+  itree_evaluate c1 s = Ret NONE ⇒
+  itree_evaluate (Seq c1 c2) s = itree_evaluate c2 s
+Proof
+  (* disch_tac >> *)
+  (* rw [itree_evaluate_def] >> *)
+  (* rw [itree_mrec_def] >> *)
+  (* rw [h_prog_def] >> *)
+  (* rw [h_prog_rule_seq_def] >> *)
+  (* rw [itree_trigger_def] >> *)
+  (* rw [itreeTauTheory.itree_iter_def] >> *)
+  cheat
+QED
+
+Theorem seq_term_2:
+  itree_evaluate c1 s = Ret (SOME r) ⇒
+  itree_evaluate (Seq c1 c2) s = itree_evaluate c1 s
+Proof
+  cheat
+QED
 
 val _ = export_theory();
