@@ -381,13 +381,13 @@ val evaluate_decs_conjs =
   |> filter (fn th => (th |> SPEC_ALL |> concl |> dest_eq |> fst
                           |> can (match_term decs_pat)));
 
-Theorem evaluate_def = LIST_CONJ (evaluate_conjs @ evaluate_match_conjs);
+Theorem evaluate_def[allow_rebind] = LIST_CONJ (evaluate_conjs @ evaluate_match_conjs);
 
 Theorem evaluate_match_def = LIST_CONJ evaluate_match_conjs;
 
 Theorem evaluate_decs_def = LIST_CONJ evaluate_decs_conjs;
 
-Theorem evaluate_ind =
+Theorem evaluate_ind[allow_rebind] =
   full_evaluate_ind
   |> Q.SPECL [‘P1’,‘P2’,‘λv1 v2 v3. T’]
   |> SIMP_RULE std_ss []
