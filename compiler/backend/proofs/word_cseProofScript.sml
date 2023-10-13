@@ -505,8 +505,9 @@ Proof
   \\ Cases_on ‘get_vars (MAP SND moves) s’ \\ gvs []
 QED
 
-Theorem lookup_map_insert:
-  ∀xs r. lookup r (map_insert xs m) = case ALOOKUP xs r of NONE => lookup r m | SOME r' => SOME r'
+Theorem lookup_map_insert0:
+  ∀xs r. lookup r (map_insert xs m) =
+         case ALOOKUP xs r of NONE => lookup r m | SOME r' => SOME r'
 Proof
   Induct
   >- gvs [map_insert_def, ALOOKUP_def]
@@ -719,7 +720,7 @@ Proof
   \\ gvs [domain_list_insert, MEM_FILTER, ODD_EVEN]
   \\ rpt conj_tac
   >- (rpt gen_tac \\ strip_tac
-      \\ gvs [lookup_map_insert, AllCaseEqs()]
+      \\ gvs [lookup_map_insert0, AllCaseEqs()]
       >- (qpat_x_assum ‘EVERY _ _’ kall_tac
           \\ gvs [ALOOKUP_NONE, MEM_MAP, MEM_FILTER, FORALL_PROD, EXISTS_PROD]
           \\ last_x_assum drule \\ strip_tac
@@ -1557,7 +1558,8 @@ Proof
 QED
 
 Theorem lookup_map_insert:
-  ∀l m r v. lookup r (map_insert l m) = if ∃v. ALOOKUP l r = SOME v then ALOOKUP l r else lookup r m
+  ∀l m r v. lookup r (map_insert l m) =
+            if ∃v. ALOOKUP l r = SOME v then ALOOKUP l r else lookup r m
 Proof
   Induct \\ gvs [map_insert_def]
   \\ rpt gen_tac \\ Cases_on ‘h’

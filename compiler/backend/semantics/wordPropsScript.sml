@@ -62,13 +62,15 @@ Proof
   \\ metis_tac [ALL_DISTINCT_PERM]
 QED
 
-Theorem ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME = Q.prove(`
-  !xs x y. ALL_DISTINCT (MAP FST xs) /\ MEM (x,y) xs ==> ALOOKUP xs x = SOME y`,
-  Induct \\ full_simp_tac(srw_ss())[]
+Theorem ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME:
+  ALL_DISTINCT (MAP FST xs) /\ MEM (x,y) xs ==> ALOOKUP xs x = SOME y
+Proof
+  map_every qid_spec_tac [‘x’, ‘y’] >> Induct_on ‘xs’ >>
+  full_simp_tac(srw_ss())[]
   \\ Cases \\ full_simp_tac(srw_ss())[ALOOKUP_def] \\ srw_tac[][]
   \\ res_tac \\ full_simp_tac(srw_ss())[MEM_MAP,FORALL_PROD]
-  \\ rev_full_simp_tac(srw_ss())[]) |> SPEC_ALL
-  |> curry save_thm "ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME";
+  \\ rev_full_simp_tac(srw_ss())[]
+QED
 
 (* -- *)
 

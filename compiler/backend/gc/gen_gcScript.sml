@@ -1563,20 +1563,6 @@ val heap_lookup_IMP_heap_addresses = save_thm("heap_lookup_IMP_heap_addresses",
       |> SIMP_RULE std_ss []
       |> GEN_ALL);
 
-Theorem gen_gc_LENGTH:
-   roots_ok roots heap /\
-    heap_ok (heap:('a,'b) heap_element list) conf.limit ==>
-    ?roots' state.
-      (gen_gc conf (roots:'a heap_address list,heap) =
-        (roots',state))
-Proof
-  rw []
-  \\ imp_res_tac gen_gc_thm
-  \\ fs []
-  \\ rpt strip_tac
-  \\ fs [gen_gc_def,gc_inv_def,LET_THM]
-QED
-
 val heap_lookup_AND_APPEND_IMP = prove(
   ``!xs n ys d d1.
       (heap_lookup n xs = SOME d) /\

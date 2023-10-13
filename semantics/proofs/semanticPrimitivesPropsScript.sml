@@ -293,59 +293,6 @@ Theorem do_app_ffi_unchanged:
   ⇒ ffi = ffi'
 Proof
   rpt gen_tac >> simp[do_app_def] >>
-  gvs [AllCaseEqs()] >>
-  rpt strip_tac >> gvs [] >>
-  rpt (pairarg_tac \\ gvs [])
-QED
-
-Theorem do_app_ffi_changed:
-  do_app (st, ffi) op vs = SOME ((st', ffi'), res) ∧
-  ffi ≠ ffi' ⇒
-  ∃s conf lnum ws ffi_st ws'.
-    op = FFI s ∧
-    vs = [Litv (StrLit conf); Loc lnum] ∧
-    store_lookup lnum st = SOME (W8array ws) ∧
-    s ≠ "" ∧
-    ffi.oracle s ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
-      Oracle_return ffi_st ws' ∧
-    LENGTH ws = LENGTH ws' ∧
-    st' = LUPDATE (W8array ws') lnum st ∧
-    ffi'.oracle = ffi.oracle ∧
-    ffi'.ffi_state = ffi_st ∧
-    ffi'.io_events =
-      ffi.io_events ++
-        [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))]
-Proof
-  simp[do_app_def,AllCaseEqs(),store_alloc_def,store_assign_def,call_FFI_def] >>
-  rpt strip_tac >> gvs []
-QED
-
-Theorem do_app_not_timeout:
-  do_app s op vs = SOME (s', Rerr (Rabort a))
-  ⇒
-  a ≠ Rtimeout_error
-Proof
-  Cases_on `s` >>
-  srw_tac[][do_app_cases] >>
-  every_case_tac >>
-  srw_tac[][]
-QED
-
-Theorem do_app_type_error:
-  do_app s op es = SOME (x,Rerr (Rabort a)) ⇒ x = s
-Proof
-  PairCases_on `s` >>
-  srw_tac[][do_app_def] >>
-  gvs [AllCaseEqs(),store_alloc_def]
-QED
-
-Theorem do_app_ffi_unchanged:
-  ∀st ffi op vs st' ffi' res.
-    (∀s. op ≠ FFI s) ∧
-    do_app (st, ffi) op vs = SOME ((st', ffi'), res)
-  ⇒ ffi = ffi'
-Proof
-  rpt gen_tac >> simp[do_app_def] >>
   every_case_tac >> gvs[store_alloc_def]
 QED
 
