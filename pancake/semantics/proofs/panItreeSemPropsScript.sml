@@ -9,6 +9,7 @@ local open alignmentTheory
            ffiTheory
            itreeTauTheory
            panSemTheory
+           panLangTheory
            panItreeSemTheory in end;
 
 val _ = new_theory "panItreeSemProps";
@@ -38,21 +39,55 @@ val sem_no_code = “<| locals := FEMPTY;
                       ffi := ^dummy_ffi_state;
                       base_addr := ARB |>”;
 
-(* TODO: Requires recursive proof *)
-(* How can one appeal to the future assumption that the current theorem is proven
- in order to continue a proof without very many nested cases *)
+val seq_ffi_prog = “Seq
+                    (ExtCall «main» (Const 0w) (Const 0w) (Const 0w) (Const 0w))
+                    (ExtCall «main» (Const 0w) (Const 0w) (Const 0w) (Const 0w))”;
 
-(* TODO: Possibly need a relation on prog x state such that members have the property that
-h_prog generates an itree for (prog x state) that when applied to itree_mrec produces an itree
-that has in every leaf the same result as in evaluate (prog x state). *)
+val seq_ffi_itree = “(Tau (Vis (FFI_call "main" NIL NIL) (λr. (Tau (Vis (FFI_call "main" NIL NIL) (K (Ret NONE))))))):('b ffi_result, sem_vis_event, 'a result option) itree”;
 
-(* Path-based proof of isomorphism between semantics *)
+Type h_prog_ty = “:(α result option # (α, β) state,
+                    α panLang$prog # (α, β) state +
+                    sem_vis_event # (β ffi_result -> (β ffi_result, sem_vis_event, 'a result option # (α, β) state) itree),
+                    α result option # (α, β) state) itree”;
 
-(* the mrec combinator theory *)
-(* prove useful identities over "mrec handler seed" *)
+Triviality itree_monad_right_ident:
+  do
+    (res,s') <- Ret (NONE,s');
+    if res = NONE then
+      Vis
+      (INL
+       (ExtCall «main» (Const 0w) (Const 0w)
+                (Const 0w) (Const 0w),s')) Ret
+    else Ret (res,s')
+  od = Vis
+       (INL
+        (ExtCall «main» (Const 0w) (Const 0w)
+                 (Const 0w) (Const 0w),s')) Ret
+Proof
+  rw [itreeTauTheory.itree_bind_thm]
+QED
 
-(* TODO: Proof that mrec Vis (INL) events are equivalent to the clock-bounded recursion
- used in evaluate *)
+
+Theorem seq_ffi:
+  h_prog_rule_ext_call «main» (Const 0w) (Const 0w) (Const 0w) (Const 0w) s = (Ret (NONE,s')):('a,'b) h_prog_ty ∧
+  h_prog_rule_ext_call «main» (Const 0w) (Const 0w) (Const 0w) (Const 0w) s' = (Ret (NONE,s'')):('a,'b) h_prog_ty ⇒
+  itree_evaluate ^seq_ffi_prog s = ^seq_ffi_itree
+Proof
+  disch_tac >>
+  rw [panItreeSemTheory.itree_evaluate_def] >>
+  rw [panItreeSemTheory.itree_mrec_def] >>
+  rw [panItreeSemTheory.h_prog_rule_seq_def] >>
+  rw [panItreeSemTheory.h_prog_def] >>
+  rw [itreeTauTheory.itree_bind_thm] >>
+  rw [Once itreeTauTheory.itree_unfold] >>
+  rw [itreeTauTheory.itree_iter_def] >>
+  rw [panItreeSemTheory.h_prog_def] >>
+  rw [Once itreeTauTheory.itree_unfold] >>
+  rw [itreeTauTheory.itree_bind_thm] >>
+  rw [Once itreeTauTheory.itree_unfold] >>
+
+  (* rw [Once itreeTauTheory.itree_iter_thm] *)
+QED
 
 (* Bisimulation proof of isomorphism between semantics *)
 (* Can be interred once the evaluate_biject is proven by itree_el_eqv. *)
@@ -165,6 +200,8 @@ Inductive evaluate_small_rel:
   (eval s g = SOME (ValWord w) ∧ w = 0w ⇒ evaluate_small (SOME (While g p),NONE,s) (NONE,NONE,s)) ∧
   (eval s g ≠ SOME (ValWord w) ⇒ evaluate_small (SOME (While g p),NONE,s) (NONE,SOME Error,s))
 End
+
+
 
 Theorem evaluate_small_while_error_eq:
   evaluate (While g p,s) = (SOME Error,s) ⇔

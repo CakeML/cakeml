@@ -116,6 +116,15 @@ Proof
   metis_tac [OPT_MMAP_cong]
 QED
 
+Theorem opt_mmap_eval_clock_ffi_eq:
+  ∀s e k ffis.
+     OPT_MMAP (eval s) e = OPT_MMAP (eval (s with <| clock := k; ffi := ffis |>)) e
+Proof
+  rw [] >>
+  ho_match_mp_tac OPT_MMAP_cong >>
+  rw [fbs_eval_clock_and_ffi_eq]
+QED
+
 (* NB the choice of state (s) is irrelevant in the itree semantics and is provided only
  for allowing generalisation over every possible Pancake program (stored in state and accessed by an entrypoint). *)
 
@@ -165,36 +174,43 @@ Proof
         )
 End
 
-(* Theorem itree_mrec_recurse: *)
-(*   (h seed) = Vis (INL seed') k ⇒ *)
-(*   itree_mrec h seed = Tau (itree_mrec (λs. itree_bind (h seed) k) seed') *)
-(* Proof *)
-(*   disch_tac >> *)
-(*   rw [panItreeSemTheory.itree_mrec_def] >> *)
-(*   rw [itreeTauTheory.itree_iter_def] >> *)
-(*   rw [Once itreeTauTheory.itree_unfold] *)
-(* QED *)
-
-Triviality foo:
-  (eval (s with <|clock := k; ffi := ffis|>) ptr1 = NONE) ⇒
-        eval s ptr1 = NONE
+Theorem same_outcome_seq1:
+  same_outcome ffis (itree_evaluate c1 s) (SOME r,s') ⇒
+  same_outcome ffis (itree_evaluate (Seq c1 c2) s) (SOME r,s')
 Proof
-  fs [GSYM fbs_eval_clock_and_ffi_eq]
+  cheat
 QED
 
+Theorem same_outcome_seq2:
+  same_outcome ffis (itree_evaluate c1 s) (NONE,s'') ∧
+  same_outcome ffis (itree_evaluate c2 s'') (r,s') ⇒
+  same_outcome ffis (itree_evaluate (Seq c1 c2) s) (r,s')
+Proof
+  cheat
+QED
+
+Overload "case" = “itree_CASE”;
+
+(* Seq case:
+
+ 1. Prove same_outcome is an equivalence relation.
+ 2. Show that itree_evaluate for Seq is reduced to either c1 or c2 depending on the outcome of
+ individual evaluation.
+ 3. Done
+*)
 
 (* Evaluate correspondence *)
 (* Proves partial soundness: if a computation terminates,
 the two semantics produce identical results. *)
 Theorem itree_semantics_evaluate_corr:
-  ∀p s s' r k ffis. evaluate (p,s with <| clock := k; ffi := ffis |>) = (SOME r,s') ⇒
+  ∀p s s' r k ffis. evaluate (p,s) = (SOME r,s') ∧ r ≠ TimeOut ∧ s.clock = k ∧ s.ffi = ffis ⇒
       same_outcome ffis (itree_evaluate p s) (SOME r,s')
 Proof
   recInduct panSemTheory.evaluate_ind >>
   REVERSE (rpt strip_tac)
   (* ExtCall *)
   >- (fs [panSemTheory.evaluate_def] >>
-      every_case_tac >>
+      fs [AllCaseEqs()] >>
       rw [panItreeSemTheory.itree_evaluate_def] >>
       rw [panItreeSemTheory.itree_mrec_def] >>
       rw [panItreeSemTheory.h_prog_def] >>
@@ -208,12 +224,58 @@ Proof
       rw [Once LUNFOLD]
       (* Case: everything evaluates as expected *)
       >- (rw [query_oracle_def] >>
-          Cases_on ‘f’ >>
-          rw [] >>
+          Cases_on ‘outcome’ >>
           rw [Once itreeTauTheory.itree_unfold] >>
-          rw [Once LUNFOLD]))
+          rw [Once itreeTauTheory.itree_unfold] >>
+          rw [Once itreeTauTheory.itree_unfold] >>
+          rw [Once itreeTauTheory.itree_unfold] >>
+          rw [Once itreeTauTheory.itree_unfold] >>
+          rw [Once LUNFOLD] >>
+          rw [Once LUNFOLD] >>
+          rw [Once LUNFOLD] >>
+          rw [Once LUNFOLD] >>
+          rw [Once LUNFOLD]
+          ))
+  (* Seq *)
+  >- (fs [panSemTheory.evaluate_def] >>
+      Cases_on ‘evaluate (c1,s)’ >>
+      Cases_on ‘q’
+                >- (fs [])
+
+
+ASM_CASES_TAC “∀s'. evaluate (c1,s) = (SOME r,s')”
+      (* First term resolves to value *)
+      >- (pop_assum (fn th => ASSUME_TAC $ SPEC “s':(α,β) state” th) >>
+          res_tac >> rw [same_outcome_seq1])
+      (* First term does not resolve to value *)
+      >- (ASM_CASES_TAC “evaluate (c1,s) = (NONE,s'')”
+          >- (ASM_CASES_TAC “evaluate (c2,s'') = (SOME r,s')”
+              (* Second term resolves to value *)
+              >- (fs [same_outcome_seq2] >>
+                 ))
+         )
+     )
   (* Call *)
-  >- ()
+  >- (fs [panSemTheory.evaluate_def] >>
+      every_case_tac >>
+      rw [panItreeSemTheory.itree_evaluate_def] >>
+      rw [panItreeSemTheory.itree_mrec_def] >>
+      rw [panItreeSemTheory.h_prog_def] >>
+      rw [panItreeSemTheory.h_prog_rule_call_def] >>
+      fs [GSYM fbs_eval_clock_and_ffi_eq] >>
+      fs [GSYM opt_mmap_eval_clock_ffi_eq] >>
+      rw [itreeTauTheory.itree_iter_def] >>
+      rw [Once itreeTauTheory.itree_unfold] >>
+      rw [Once itreeTauTheory.itree_unfold] >>
+      rw [same_outcome_def] >>
+      rw [itree_oracle_outcome_def] >>
+      rw [Once LUNFOLD] >>
+      rw [itreeTauTheory.itree_bind_def]
+      (* Case: evaluating the callee returns (NONE,s') *)
+      >- (
+       )
+      (* TODO: Need to establish recursion thm for same_outcome
+         - To match the recInduct on evaluate_def *)
   (* Skip *)
   >- (fs [panSemTheory.evaluate_def])
   (* Dec *)
