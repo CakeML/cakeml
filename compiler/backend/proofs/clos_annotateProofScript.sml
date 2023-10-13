@@ -386,7 +386,7 @@ Proof
   \\ imp_res_tac v_to_list \\ fs[] \\ rw[]
   \\ TRY (strip_tac \\ rw[])
   \\ fs[EVERY2_MAP,v_rel_Number]
-  \\ fsrw_tac[ETA_ss][EQ_SYM_EQ,quotient_listTheory.LIST_REL_EQ]
+  \\ fsrw_tac[ETA_ss][EQ_SYM_EQ]
   \\ fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN] \\ rfs[EL_MAP]
   \\ METIS_TAC[EL_MAP,o_DEF]
 QED
@@ -401,7 +401,7 @@ Proof
   \\ imp_res_tac v_to_list \\ fs[] \\ rw[]
   \\ TRY (strip_tac \\ rw[])
   \\ fs[EVERY2_MAP,v_rel_Number]
-  \\ fsrw_tac[ETA_ss][EQ_SYM_EQ,quotient_listTheory.LIST_REL_EQ]
+  \\ fsrw_tac[ETA_ss][EQ_SYM_EQ]
   \\ fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN] \\ rfs[EL_MAP]
   \\ METIS_TAC[EL_MAP,o_DEF]
 QED

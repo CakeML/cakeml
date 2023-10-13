@@ -262,23 +262,24 @@ Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [is_rel_def]
 QED
 
-val term_ok_int_def = tDefine "term_ok_int" `
-  (term_ok_int ts expr =
+Definition term_ok_int_def:
+  term_ok_int ts expr =
     dtcase expr of
       Var i => if i < LENGTH ts then EL i ts = Int else F
     | Op op xs =>
         (dtcase get_bin_args expr of
           NONE       => xs = [] /\ is_const op
         | SOME (x,y) => is_arith op /\ term_ok_int ts x /\ term_ok_int ts y)
-    | _ => F)`
-  (WF_REL_TAC `measure (exp_size o SND)` \\ rw []
+    | _ => F
+Termination
+  WF_REL_TAC ‘measure (exp_size o SND)’ \\ rw []
   \\ imp_res_tac exp_size_get_bin_args
-  \\ fs [bviTheory.exp_size_def]);
+  \\ fs [bviTheory.exp_size_def]
+End
 
-val term_ok_int_ind = save_thm ("term_ok_int_ind",
-  theorem "term_ok_int_ind" |> SIMP_RULE (srw_ss()) []);
+Theorem term_ok_int_ind[allow_rebind] = term_ok_int_ind |> SRULE[]
 
-val term_ok_any_def = tDefine "term_ok_any" `
+Definition term_ok_any_def:
   (term_ok_any ts list (Var i) <=>
     if ~list then i < LENGTH ts
     else if i < LENGTH ts then EL i ts = List
@@ -292,10 +293,12 @@ val term_ok_any_def = tDefine "term_ok_any" `
         else if ~list /\ is_rel op   then term_ok_int ts x /\ term_ok_int ts y
         else if op = Cons 0 then term_ok_any ts T x /\ term_ok_any ts F y
         else F) /\
-  (term_ok_any ts list expr <=> F)`
-  (WF_REL_TAC `measure (exp_size o SND o SND)` \\ rw []
+  (term_ok_any ts list expr <=> F)
+Termination
+  WF_REL_TAC `measure (exp_size o SND o SND)` \\ rw []
    \\ imp_res_tac exp_size_get_bin_args
-   \\ fs [bviTheory.exp_size_def, closLangTheory.op_size_def]);
+   \\ fs [bviTheory.exp_size_def, closLangTheory.op_size_def]
+End
 
 Theorem is_op_thms:
    ~is_arith (Cons 0) /\ ~is_arith ListAppend /\
@@ -309,8 +312,7 @@ Proof
   \\ Cases_on `op` \\ fs []
 QED
 
-val term_ok_any_ind = save_thm ("term_ok_any_ind",
-  theorem "term_ok_any_ind" |> SIMP_RULE (srw_ss()) [is_op_thms]);
+Theorem term_ok_any_ind[allow_rebind] = term_ok_any_ind |> SRULE[is_op_thms]
 
 (* TODO the translator does not accept this with the induction theorem
    above (yet):

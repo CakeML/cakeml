@@ -269,7 +269,7 @@ Termination
 End
 
 val val_approx_sgc_free_def = save_thm(
-  "val_approx_sgc_free_def[simp]",
+  "val_approx_sgc_free_def[simp,allow_rebind]",
   val_approx_sgc_free_def |> SIMP_RULE (srw_ss() ++ ETA_ss) []);
 
 Theorem val_approx_sgc_free_merge:
@@ -1639,15 +1639,6 @@ Proof
 QED
 
 
-Theorem known_changed_globals_cases:
-   !c xs aenv g0 alist g.
-     known c xs aenv g0 = (alist,g) ==>
-     !k a. lookup k g = SOME a ==> lookup k g0 = SOME a \/ k ∈ SET_OF_BAG (elist_globals xs)
-Proof
-  rw [] \\ drule known_changed_globals \\ strip_tac
-  \\ fs [domain_lookup, PULL_EXISTS] \\ metis_tac []
-QED
-
 val gapprox_extend_def = Define `
   gapprox_extend g1 gd g2 <=>
     !i. i ∈ domain g2 ∧ (i ∈ domain g1 ==> lookup i g2 ≠ lookup i g1) ==>
@@ -2451,7 +2442,7 @@ Termination
   \\ rpt strip_tac \\ imp_res_tac v_size_lemma \\ simp []
 End
 
-val v_rel_def = save_thm("v_rel_def[simp,compute]",
+val v_rel_def = save_thm("v_rel_def[simp,compute,allow_rebind]",
   v_rel_def |> SIMP_RULE (bool_ss ++ ETA_ss) []);
 
 val v_rel_ind = theorem "v_rel_ind";
@@ -5056,67 +5047,6 @@ Proof
   Induct \\ rw [clos_knownTheory.clos_gen_noinline_def]
   \\ PairCases_on `h`
   \\ rw [clos_knownTheory.clos_gen_noinline_def]
-QED
-
-Theorem known_every_Fn_vs_NONE:
-   ∀a b c d.
-    every_Fn_vs_NONE b ∧ EVERY val_approx_every_Fn_vs_NONE c ∧
-    globals_approx_every_Fn_vs_NONE d
-    ⇒
-    every_Fn_vs_NONE (MAP FST (FST (known a b c d))) ∧
-    EVERY val_approx_every_Fn_vs_NONE (MAP SND (FST (known a b c d))) ∧
-    globals_approx_every_Fn_vs_NONE (SND (known a b c d))
-Proof
-  recInduct clos_knownTheory.known_ind
-  \\ rw[clos_knownTheory.known_def]
-  \\ rpt(pairarg_tac \\ fs[])
-  \\ imp_res_tac clos_knownTheory.known_sing_EQ_E \\ rveq \\ fs[]
-  \\ TRY ( match_mp_tac val_approx_every_Fn_vs_NONE_merge \\ fs[] )
-  \\ fs[IS_SOME_EXISTS, any_el_ALT, EVERY_REPLICATE] \\ rveq \\ fs[]
-  >- ( rw[] \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS] )
-  >- ( imp_res_tac every_Fn_vs_NONE_SmartOp \\ CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[] )
-  >- ( imp_res_tac known_op_every_Fn_vs_NONE \\ fs[EVERY_REVERSE])
-  >- ( imp_res_tac known_op_every_Fn_vs_NONE \\ fs[EVERY_REVERSE])
-  >- (
-    TOP_CASE_TAC \\ fs[]
-    \\ pairarg_tac \\ fs[]
-    \\ pairarg_tac \\ fs[]
-    \\ CASE_TAC \\ fs[]
-    \\ TRY(reverse conj_tac >- fs[Once every_Fn_vs_NONE_EVERY, EVERY_SNOC])
-    \\ match_mp_tac every_Fn_vs_NONE_mk_Ticks
-    \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
-    \\ fs[] \\ rveq
-    \\ imp_res_tac decide_inline_every_Fn_vs_NONE
-    \\ fs[] )
-  >- (
-    TOP_CASE_TAC \\ fs[]
-    \\ pairarg_tac \\ fs[]
-    \\ pairarg_tac \\ fs[]
-    \\ CASE_TAC \\ fs[]
-    \\ imp_res_tac clos_knownTheory.known_sing_EQ_E
-    \\ fs[] \\ rveq
-    \\ imp_res_tac decide_inline_every_Fn_vs_NONE
-    \\ fs[] )
-  >- (
-    TOP_CASE_TAC \\ fs[]
-    \\ pairarg_tac \\ fs[]
-    \\ pairarg_tac \\ fs[]
-    \\ CASE_TAC \\ fs[])
-  >- (
-    rw[clos_knownTheory.clos_approx_def]
-    \\ TOP_CASE_TAC \\ fs[]
-    \\ TOP_CASE_TAC \\ fs[] )
-  \\ last_x_assum mp_tac
-  \\ PURE_TOP_CASE_TAC
-  \\ fs [EVERY_REPLICATE, clos_gen_no_inline_every_Fn_vs_NONE] \\ rw []
-  \\ fs [Once every_Fn_vs_NONE_EVERY]
-  \\ fs [EVERY_MEM] \\ rw []
-  \\ fs [MEM_MAP, FORALL_PROD, EXISTS_PROD, PULL_EXISTS] \\ rw []
-  \\ first_x_assum drule \\ rw []
-  \\ first_x_assum drule \\ fs [MEM_REPLICATE_EQ] \\ rw []
-  \\ rename1 `known c [pp] qq`
-  \\ Cases_on `known c [pp] qq g`
-  \\ imp_res_tac clos_knownTheory.known_sing_EQ_E \\ fs []
 QED
 
 Theorem known_every_Fn_vs_NONE:

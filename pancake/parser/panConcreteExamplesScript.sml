@@ -54,6 +54,10 @@ val check_success = assert $ optionSyntax.is_some o rhs o concl
 (** Conditionals: An if-block without an alternative. The bodies of the
     conditional are Pancake programs (in this case a single assignment
     statement). NB: Statements end with a semi-colon, blocks do not. *)
+
+(** Disclaimer: the next several examples (1-8) exist to showcase the syntax for certain
+    language constructs and may not form well-behaved Pancake programs in practice:
+    ex. missing variable declarations, lack of return statements, etc.*)
 val ex1 = ‘
   fun cond() {
     if 2 >= 1 { x = 2; }
@@ -68,7 +72,7 @@ val ex2 = ‘
   fun main() {
     if b & (a ^ c) & d {
       foo(1, <2, 3>);
-    } else {
+        } else {
       goo(4, 5, 6);
     }
   }’;
@@ -76,7 +80,7 @@ val ex2 = ‘
 val treeEx2 = check_success $ parse_pancake ex2;
 
 (** We also have a selection of boolean operators and
-    a ‘return’ statement. *)
+    a ‘return’ statement. NOTE: all Pancake functions should end with a return statement.*)
 val ex3 = ‘
   fun boolfun() {
     if b & (a ^ c) & d { return true; }
@@ -167,25 +171,28 @@ val ex8 = ‘
     x = b > a;
     x =  b >= a;
     x = a <= b;
+    x = a != b;
   }’;
+
+val treeEx8 = check_success $ parse_tree_pancake ex8;
 
 val treeEx8 = check_success $ parse_pancake ex8;
 
-(* Multiplication
- *)
+(* Multiplication *)
 
-val ex8_and_a_half = ‘x = a * b;
-                      x = a * b * c;
-                      x =  (a + b) * c;
-                      x = a + b * c;
-                      x = a * b + c;’;
+val ex8_and_a_half = ‘
+  fun mul() {
+    x = a * b;
+    x = a * b * c;
+    x =  (a + b) * c;
+    x = a + b * c;
+    x = a * b + c;
+   }’;
 
 val treeEx8_and_a_half = check_success $ parse_pancake ex8_and_a_half;
 
-(** Statments. *)
-
 (** Small test modelled after the minimal working example. *)
-val ex10 = ‘
+val ex9 = ‘
  fun testfun() {
    var a = @base;
    var b = 8;
@@ -196,31 +203,100 @@ val ex10 = ‘
    return 0;
  }’;
 
-val treeEx10 = check_success $ parse_pancake ex10;
+val treeEx10 = check_success $ parse_pancake ex9;
 
-(** Multiple functions. *)
+(** Function call syntax. *)
 
-val ex_much_fun = ‘
-  fun loader() {
-    x = lds {1,{1}} y;
+(** Function call with arguments. *)
+
+val argument_call = ‘
+  fun main() {
+    var x = 0;
+    var r = 0;
+    r = g(x);
+    return r;
   }
 
-  fun loader() {
-    x = lds {1,{1}} y;
-  }
-
-  fun cmps () {
-    x = a < b;
-    x = b > a;
-    x =  b >= a;
-    x = a <= b;
+  fun g(1 v, 1 u) {
+    return v + u + 1;
   }’;
 
-val treeExMuchFun = check_success $ parse_pancake ex_much_fun;
+val arg_call_tree = check_success $ parse_tree_pancake argument_call;
 
-(** We can assign boolean expressions to variables. *)
-val exN = ‘fun blah() { x = b & a ^ c & d; }’;
+val arg_call_parse =  parse_pancake $ argument_call;
 
-val treeExN = check_success $ parse_pancake exN;
+(** Return call example. It is not currently possible to initialise a variable
+    to a value returned from a function as a variable is declared. Instead, the
+    variable has to be declared beforehand as done below. *)
+val ret_call = ‘
+  fun main() {
+    var r = 0;
+    r = g();
+    return r;
+  }
+
+  fun g() {
+    return 1;
+  }’;
+
+val ret_call_parse_tree = check_success $ parse_tree_pancake ret_call;
+
+val ret_call_parse =  parse_pancake $ ret_call;
+
+(** Shapes and Structs. *)
+val struct_access = ‘
+  fun g() {
+    var v = < 0, 1, 2 >;
+    var w = < 9, 9 >.2;
+
+    return v.1;
+  }’;
+
+val struct_access_parse_tree = check_success $ parse_tree_pancake struct_access;
+
+val struct_access_parse =  parse_pancake $ struct_access;
+
+
+(* Writing ‘n’ for a shape is convenient syntax which is equivalent to ‘{1,1,...,1}’
+   where ‘1’ occurs ‘n’ times. In abstract syntax: ‘Cons [One; One; ... ; One]’ *)
+val struct_arguments = ‘
+  fun g() {
+    var v = < 0, 1, < 2, 3, 4 > >;
+    var r = 0;
+    r = f(v);
+    r = l(v);
+
+    var w = < 9, 9 >;
+    r = h(w);
+
+    var u = < < 1, 2>,
+              1,
+              < < 3, 4 > >
+            >;
+    r = k(u);
+
+
+    return 0;
+  }
+
+  fun f({1,1,3} x) {
+    return x.2.1;
+  }
+
+  fun l({1,1,{1,1,1}} x) {
+    return x.2.1;
+  }
+
+  fun k({2,1,{2}} x) {
+    return x.2.0.0;
+  }
+
+  fun h(2 x) {
+    return x.0;
+  }’;
+
+val struct_argument_parse_tree =  parse_tree_pancake $ struct_arguments;
+
+val struct_argument_parse =  parse_pancake $ struct_arguments;
 
 val _ = export_theory();

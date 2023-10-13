@@ -560,7 +560,7 @@ Proof
   \\ pairarg_tac \\ fs[case_eq_thms,pair_case_eq,bool_case_eq]
 QED
 
-val evaluate_def = tDefine "evaluate" `
+Definition evaluate_def[nocompute]:
   (evaluate ([],env:closSem$v list,^s) = (Rval [],s)) /\
   (evaluate (x::y::xs,env,s) =
      case fix_clock s (evaluate ([x],env,s)) of
@@ -667,8 +667,9 @@ val evaluate_def = tDefine "evaluate" `
                     (evaluate ([exp],env,dec_clock (LENGTH args - LENGTH rest_args) s)) of
            | (Rval [v], s1) =>
                evaluate_app loc_opt v rest_args s1
-           | res => res)`
- (WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure I)
+           | res => res)
+Termination
+ WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure I)
                (\x. case x of INL (xs,env,s) => (s.clock,exp3_size xs,0)
                             | INR (l,f,args,s) => (s.clock,0,LENGTH args)))`
   \\ rpt strip_tac
@@ -680,7 +681,8 @@ val evaluate_def = tDefine "evaluate" `
   \\ imp_res_tac dest_closure_length
   \\ imp_res_tac LESS_EQ_dec_clock
   \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ decide_tac);
+  \\ decide_tac
+End
 
 val evaluate_app_NIL = save_thm(
   "evaluate_app_NIL[simp]",
@@ -700,8 +702,6 @@ Proof
   \\ strip_tac \\ fs[] \\ rveq \\ fs[]
   \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
 QED
-
-val evaluate_ind = theorem"evaluate_ind";
 
 val evaluate_clock_help = Q.prove (
   `(!tup vs (s2:('c,'ffi) closSem$state).
@@ -725,7 +725,7 @@ Theorem evaluate_clock:
     (!loc_opt f args s1 vs s2.
       (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)
 Proof
-metis_tac [evaluate_clock_help, SND]
+  metis_tac [evaluate_clock_help, SND]
 QED
 
 Theorem fix_clock_evaluate:
@@ -738,11 +738,11 @@ QED
 
 (* Finally, we remove fix_clock from the induction and definition theorems. *)
 
-val evaluate_def = save_thm("evaluate_def[compute]",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def);
+Theorem evaluate_def[compute,allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def;
 
-val evaluate_ind = save_thm("evaluate_ind",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
+Theorem evaluate_ind[allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
 (* observational semantics *)
 

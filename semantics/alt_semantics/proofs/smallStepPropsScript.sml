@@ -277,7 +277,7 @@ Proof
       )
 QED
 
-Theorem small_eval_err_add_ctxt =
+Theorem small_eval_err_add_ctxt[allow_rebind] =
         SIMP_RULE (srw_ss ())
                   [METIS_PROVE [] ``!x y z. (x ⇒ y ⇒ z) = (x ∧ y ⇒ z)``]
                   small_eval_err_add_ctxt;

@@ -427,20 +427,6 @@ QED
 
 Theorem nsLookup_nsAppend_none:
    ∀e1 id e2.
-    nsLookup e1 id = NONE ∧ nsLookup e2 id = NONE
-    ⇒
-    nsLookup (nsAppend e1 e2) id = NONE
-Proof
- ho_match_mp_tac nsLookup_ind
- >> rw []
- >> Cases_on `e2`
- >> fs [nsAppend_def, nsLookup_def, ALOOKUP_APPEND]
- >> every_case_tac
- >> fs []
-QED
-
-Theorem nsLookup_nsAppend_none:
-   ∀e1 id e2.
     nsLookup (nsAppend e1 e2) id = NONE
     ⇔
     (nsLookup e1 id = NONE ∧
