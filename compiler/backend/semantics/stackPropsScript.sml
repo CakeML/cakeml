@@ -159,12 +159,6 @@ Proof
 QED
 
 Theorem mem_load_with_const[simp]:
-   mem_load x (y with clock := k) = mem_load x y
-Proof
-  EVAL_TAC
-QED
-
-Theorem mem_load_with_const[simp]:
    mem_store x y (z with clock := k) = OPTION_MAP(λs. s with clock := k)(mem_store x y z)
 Proof
   EVAL_TAC >> srw_tac[][]
@@ -180,7 +174,8 @@ Proof
   full_simp_tac(srw_ss())[MEM_MAP,PULL_EXISTS] >>
   res_tac >> full_simp_tac(srw_ss())[IS_SOME_EXISTS] >> full_simp_tac(srw_ss())[] >>
   rpt AP_TERM_TAC >>
-  simp[MAP_EQ_f]
+  simp[MAP_EQ_f] >>
+  gvs [mem_load_def]
 QED
 
 Theorem assign_with_const[simp]:
@@ -218,7 +213,8 @@ Proof
   every_case_tac >> full_simp_tac(srw_ss())[get_var_def] >> rveq >> full_simp_tac(srw_ss())[]>>
   fs[get_vars_def,get_var_def,get_fp_var_def,set_fp_var_def]>>
   every_case_tac>>fs[]>>
-  rw[]>>fs[]>>rw[]>>fs[]
+  rw[]>>fs[]>>rw[]>>fs[] >>
+  gvs [mem_load_def]
 QED
 
 Theorem dec_clock_const[simp]:

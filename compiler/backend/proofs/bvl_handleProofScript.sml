@@ -310,9 +310,9 @@ Theorem compile_correct = Q.prove(`
   |> Q.SPECL [`xs`,`env`,`s1`,`ys`,`env`,`res`,`s2`,`[]`]
   |> SIMP_RULE std_ss [APPEND_NIL,env_rel_refl];
 
-val _ = save_thm("compile_correct",compile_correct);
+val _ = save_thm("compile_correct[allow_rebind]",compile_correct);
 
-Theorem compile_correct:
+Theorem compile_correct[allow_rebind]:
    (evaluate ([x],env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
     k = LENGTH env ==>
     (evaluate ([compile_exp l k x],env,s1) = (res,s2))

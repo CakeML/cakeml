@@ -1557,6 +1557,7 @@ Proof
   \\ rpt gen_tac \\ Cases_on ‘h’ \\ gvs [is_phy_var_canonicalRegs]
 QED
 
+(*
 Theorem lookup_map_insert:
   ∀l m r v. lookup r (map_insert l m) =
             if ∃v. ALOOKUP l r = SOME v then ALOOKUP l r else lookup r m
@@ -1566,6 +1567,7 @@ Proof
   \\ gvs [map_insert_def, lookup_insert]
   \\ Cases_on ‘q=r’ \\ gvs []
 QED
+*)
 
 Theorem ALOOKUP_LOOKUP:
   ∀l r v. ALOOKUP l r = SOME v ⇒ MEM (r,v) l

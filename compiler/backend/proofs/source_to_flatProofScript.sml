@@ -3957,7 +3957,7 @@ Triviality pmatch_rows_drop_4:
   Match ([(w, LAST vs); (b, EL 4 vs)],
     Pcon NONE [Pany; Pany; Pany; Pany; Pvar b; Pvar w], exp)
 Proof
-  simp [pmatch_rows_def, pmatch_def, pmatch_stamps_ok_def]
+  simp [pmatch_rows_def, pmatch_def, pmatch_stamps_ok_cases]
   \\ rpt (
     rename [`pmatch_list _ _ pm_vs _`]
     \\ Cases_on `pm_vs` \\ simp [pmatch_def, ADD1]

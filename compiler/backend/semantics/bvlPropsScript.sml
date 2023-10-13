@@ -594,12 +594,6 @@ Proof
   metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono]
 QED
 
-Theorem Boolv_11[simp]:
-  bvlSem$Boolv b1 = Boolv b2 ⇔ b1 = b2
-Proof
-EVAL_TAC>>srw_tac[][]
-QED
-
 val do_app_inc_clock = Q.prove(
   `do_app op vs (inc_clock x y) =
    map_result (λ(v,s). (v,s with clock := x + y.clock)) I (do_app op vs y)`,
@@ -857,7 +851,8 @@ val get_code_labels_def = tDefine"get_code_labels"
    \\ Induct_on`es`
    \\ rw[bvlTheory.exp_size_def]
    \\ simp[] \\ res_tac \\ simp[]);
-val get_code_labels_def = get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[] |> curry save_thm "get_code_labels_def[simp,compute]"
+val get_code_labels_def =
+  get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[] |> curry save_thm "get_code_labels_def[simp,compute,allow_rebind]"
 
 Theorem mk_tick_code_labels[simp]:
    !n x. get_code_labels (mk_tick n x) = get_code_labels x

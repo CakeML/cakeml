@@ -900,11 +900,11 @@ Proof
   \\ fs [MIN_DEF,GSYM NOT_LESS,theorem "state_component_equality"]
 QED
 
-Theorem evaluate_def[allow_rebind] =
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def
+Theorem evaluate_def[compute,allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def;
 
 Theorem evaluate_ind[allow_rebind] =
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
 (* observational semantics *)
 

@@ -725,7 +725,7 @@ Theorem evaluate_clock:
     (!loc_opt f args s1 vs s2.
       (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)
 Proof
-metis_tac [evaluate_clock_help, SND]
+  metis_tac [evaluate_clock_help, SND]
 QED
 
 Theorem fix_clock_evaluate:
@@ -738,11 +738,11 @@ QED
 
 (* Finally, we remove fix_clock from the induction and definition theorems. *)
 
-Theorem evaluate_def[allow_rebind,compute] =
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def
+Theorem evaluate_def[compute,allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def;
 
 Theorem evaluate_ind[allow_rebind] =
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
 (* observational semantics *)
 
