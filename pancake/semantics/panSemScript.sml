@@ -467,11 +467,11 @@ Proof
 QED
 
 (* we save evaluate theorems without fix_clock *)
-val evaluate_ind = save_thm("evaluate_ind",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
+(* val evaluate_ind = save_thm("evaluate_ind", *)
+(*   REWRITE_RULE [fix_clock_evaluate] evaluate_ind); *)
 
-val evaluate_def = save_thm("evaluate_def[compute]",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def);
+(* val evaluate_def = save_thm("evaluate_def[compute]", *)
+(*   REWRITE_RULE [fix_clock_evaluate] evaluate_def); *)
 
 (* observational semantics *)
 

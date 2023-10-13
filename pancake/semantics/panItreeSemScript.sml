@@ -32,7 +32,6 @@ Definition itree_mrec_def:
         | Tau t => Ret (INL t)
         | Vis (INL seed') k => Ret (INL (itree_bind (rh seed') k))
         | Vis (INR e) k => Vis e (Ret o INL o k))
-        (* | Vis (INR e) k => Vis e (λx. Ret (INL (k x)))) *)
   (rh seed)
 End
 
@@ -234,7 +233,8 @@ Definition h_prog_rule_call_def:
 End
 
 (* The type of visible events in the ITree semantics. *)
-Type ktree = “:α -> (α,β,γ) itree”
+Type ktree = “:α -> (α,β,γ) itree”;
+Type mtree = “:(γ result option # ('a,'b) state) -> ((γ result option # ('a,'b) state),'e,(γ result option # ('a,'b) state)) itree”;
 
 Datatype:
   sem_vis_event = FFI_call string (word8 list) (word8 list)
@@ -256,7 +256,8 @@ Definition h_prog_rule_ext_call_def:
                             FFI_final outcome => (SOME (FinalFFI outcome),empty_locals s):(γ result option # ('a,'b) state)
                            | FFI_return new_ffi new_bytes =>
                               let nmem = write_bytearray array_ptr_adr new_bytes s.memory s.memaddrs s.be in
-                              (NONE,s with <| memory := nmem; ffi := new_ffi |>)))) (λ(r:(γ result option # ('a,'b) state)). Ret r)
+                              (NONE,s with <| memory := nmem; ffi := new_ffi |>)))) Ret
+                              (* (NONE,s with <| memory := nmem; ffi := new_ffi |>)))) (λ(r:(γ result option # ('a,'b) state)). Ret r) *)
        | _ => Ret (SOME Error,s))
    | _ => Ret (SOME Error,s)
 End
@@ -310,17 +311,27 @@ Definition h_prog_def:
 End
 
 (* ITree semantics for program commands *)
+(* Definition itree_evaluate_def: *)
+(*   itree_evaluate p s = *)
+(*   itree_unfold *)
+(*   (λt. case t of *)
+(*          INL (Ret (res,s)) => Ret' res *)
+(*         | INL (Tau t) => Tau' (INL t) *)
+(*         | INL (Vis (e,k) g) => Vis' e (INL o Ret o k) *)
+(*         | INR (Ret (res,s)) => Ret' res *)
+(*         | INR (Tau t) => Tau' (INR t) *)
+(*         | INR (Vis e g) => Vis' e (INR o g)) *)
+(*   (itree_mrec h_prog (p,s)) *)
+(* End *)
+
 Definition itree_evaluate_def:
   itree_evaluate p s =
   itree_unfold
   (λt. case t of
-         INL (Ret (res,s)) => Ret' res
-        | INL (Tau t) => Tau' (INL t)
-        | INL (Vis (e,k) g) => Vis' e (INL o g o k)
-        | INR (Ret (res,s)) => Ret' res
-        | INR (Tau t) => Tau' (INR t)
-        | INR (Vis e g) => Vis' e (INR o g))
-  (INL (itree_mrec h_prog (p,s)))
+         Ret (res,s) => Ret' res
+       | Tau t => Tau' t
+       | Vis (e,k) g => Vis' e (g o k))
+  (itree_mrec h_prog (p,s))
 End
 
 (* Observational ITree semantics *)
