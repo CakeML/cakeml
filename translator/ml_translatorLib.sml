@@ -20,6 +20,8 @@ val ERR = mk_HOL_ERR "ml_translatorLib";
 val RW = REWRITE_RULE;
 val RW1 = ONCE_REWRITE_RULE;
 
+fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
+
 local
 
   structure Parse = struct
@@ -359,7 +361,7 @@ in
              val th = remove_Eq_from_v_thm th2
              val thm_name = name ^ "_v_thm"
              val _ = print ("Updating " ^ thm_name ^ "\n")
-             val _ = save_thm(thm_name,th)
+             val _ = allowing_rebind save_thm(thm_name,th)
              val new_pre = if can (find_term is_PRECONDITION) (concl (SPEC_ALL th))
                            then new_pre else TRUTH
              val th = th |> UNDISCH_ALL
@@ -760,11 +762,15 @@ fun dest_args tm =
   let val (x,y) = dest_comb tm in dest_args x @ [y] end
   handle HOL_ERR _ => []
 
+fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
+
 val quietDefine = (* quiet version of Define -- by Anthony Fox *)
-  Lib.with_flag (Feedback.emit_WARNING, false)
-    (Lib.with_flag (Feedback.emit_ERR, false)
-       (Lib.with_flag (Feedback.emit_MESG, false)
-          (Feedback.trace ("auto Defn.tgoal", 0) TotalDefn.Define)))
+  Lib.with_flag (Feedback.emit_WARNING, false) $
+  Lib.with_flag (Feedback.emit_ERR, false) $
+  Lib.with_flag (Feedback.emit_MESG, false) $
+  Feedback.trace ("auto Defn.tgoal", 0) $
+  allowing_rebind $
+    TotalDefn.Define
 
 (* printing output e.g. SML syntax *)
 
@@ -2055,8 +2061,8 @@ in
     handle UnsupportedType ty1 =>
       (register_type_main abstract_mode ty1;
        register_type_main abstract_mode ty)
-  val register_type = register_type_main false
-  val abs_register_type = register_type_main true
+  val register_type = allowing_rebind (register_type_main false)
+  val abs_register_type = allowing_rebind (register_type_main true)
   fun cons_for tm = let
     val ty = type_of tm
     val conses = conses_of ty
@@ -3921,7 +3927,7 @@ fun reset_translation () =
 fun abbrev_code (fname,ml_fname,def,th,v) = let
   val th = th |> UNDISCH_ALL
   val exp = th |> concl |> rator |> rand
-  val n = Theory.temp_binding ("[[ " ^ fname ^ "_code ]]")
+  val n = Theory.temp_binding ("[[" ^ fname ^ "_code]]")
   val code_def = Definition.new_definition(n,mk_eq(mk_var(n,type_of exp),exp))
   val th = CONV_RULE ((RATOR_CONV o RAND_CONV) (K (GSYM code_def))) th
   in (code_def,(fname,ml_fname,def,th,v)) end
