@@ -1442,7 +1442,9 @@ Datatype:
   | UnloadOrder
   | StoreOrder mlstring (npbc list # var list # var list)
       (var list)
+      (* transitivity proof *)
       (( ((num + num) # num) option, (lstep list)) alist)
+      (* reflexivity proof *)
       (( ((num + num) # num) option, (lstep list)) alist)
 
   (* Objective steps *)

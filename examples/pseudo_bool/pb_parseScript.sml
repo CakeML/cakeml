@@ -768,19 +768,11 @@ Definition parse_proof_block_def:
   else NONE
 End
 
-(* T = reflexivity first then transitivity *)
-Definition refl_trans_def:
-  refl_trans h =
-  if h = [INL (strlit"reflexivity")]
-  then SOME T
-  else if h = [INL (strlit"transitivity")]
-  then SOME F
-  else NONE
-End
-
 Definition parse_trans_aux_def:
-  parse_trans_aux v f e =
-    if v = [INL (strlit"vars")] ∧
+  parse_trans_aux h v f e =
+    if
+       h = [INL (strlit"transitivity")] ∧
+       v = [INL (strlit"vars")] ∧
        e = [INL (strlit"end")]
     then
       case parse_vars_line (strlit "fresh_right") f of NONE => NONE
@@ -791,8 +783,8 @@ End
 Definition parse_trans_block_def:
   parse_trans_block ss =
   case ss of
-    v::f::e::ss =>
-    (case parse_trans_aux v f e of NONE => NONE
+    h::v::f::e::ss =>
+    (case parse_trans_aux h v f e of NONE => NONE
     | SOME ws =>
       case parse_proof_block ss of NONE => NONE
       | SOME (pf, ss) =>
@@ -800,30 +792,22 @@ Definition parse_trans_block_def:
   | _ => NONE
 End
 
-Definition parse_refl_trans_block_def:
-  parse_refl_trans_block ss =
-  case ss of [] => NONE
-  | h::ss =>
-  (case refl_trans h of NONE => NONE
-  | SOME b =>
-    (if b then
-      case parse_proof_block ss of NONE => NONE
-      | SOME (pfr, ss) =>
-      case ss of [] => NONE
-      | (h::ss) =>
-        if h = [INL (strlit"transitivity")] then
-          case parse_trans_block ss of NONE => NONE
-          | SOME (ws,pft,ss) => SOME (ws, pfr, pft, ss)
-        else NONE
-    else
-      case parse_trans_block ss of NONE => NONE
-      | SOME (ws,pft,ss) =>
-      case ss of [] => NONE
-      | (h::ss) =>
-        if h = [INL (strlit"reflexivity")] then
-          case parse_proof_block ss of NONE => NONE
-          | SOME (pfr,ss) => SOME (ws, pfr, pft, ss)
-        else NONE))
+Definition parse_refl_block_def:
+  parse_refl_block ss =
+  case ss of
+    h::ss =>
+    if h = [INL (strlit"reflexivity")] then
+      parse_proof_block ss
+    else NONE
+  | _ => NONE
+End
+
+Definition parse_trans_refl_block_def:
+  parse_trans_refl_block ss =
+  case parse_trans_block ss of NONE => NONE
+  | SOME (ws,pft,ss) =>
+  case parse_refl_block ss of NONE => NONE
+  | SOME(pfr,ss) => SOME (ws, pfr, pft, ss)
 End
 
 Definition parse_pre_order_def:
@@ -832,7 +816,7 @@ Definition parse_pre_order_def:
   | SOME ((us,vs), ss) =>
   case parse_def_block ss of NONE => NONE
   | SOME (f, ss) =>
-  case parse_refl_trans_block ss of NONE => NONE
+  case parse_trans_refl_block ss of NONE => NONE
   | SOME (ws, pfr, pft, ss) =>
   case ss of [] => NONE
   | h::ss =>
@@ -844,14 +828,24 @@ End
 (*
 EVAL ``
 parse_pre_order (MAP toks [
-strlit"vars";
-strlit"  left u1 u2";
-strlit"  right v1 v2";
+strlit" vars";
+strlit"  left u1";
+strlit"  right v1";
 strlit"  aux";
 strlit"end";
-strlit"def";
-strlit"1 v1 >= 1 ;";
-strlit"1 v1 >= 1 ;";
+strlit" def";
+strlit"   >= 1048575 ;";
+strlit"end";
+strlit" transitivity";
+strlit"  vars";
+strlit"   fresh_right w1";
+strlit"end";
+strlit"  proof";
+strlit"* prove provided by user";
+strlit"proofgoal #1";
+strlit"pol 1 2 + 3 +";
+strlit"end 4";
+strlit"end";
 strlit"end";
 strlit" reflexivity";
 strlit"  proof";
@@ -859,16 +853,6 @@ strlit"   proofgoal #1";
 strlit"   end 5";
 strlit"  end";
 strlit" end";
-strlit"transitivity";
-strlit"vars";
-strlit"   fresh_right w1 w2 w3";
-strlit"end";
-strlit"  proof";
-strlit"proofgoal #1";
-strlit"pol 1 2 + 3 +";
-strlit"end 4";
-strlit"end";
-strlit"end";
 strlit"end";
 ])``
 *)
