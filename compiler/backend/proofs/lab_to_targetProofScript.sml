@@ -731,20 +731,6 @@ Definition share_mem_state_rel_def:
       mc_conf.ccache_pc <> (EL index mc_conf.ffi_entry_pcs))
 End
 
-Definition no_install_def:
-  no_install code <=>
-  !p w bytes l.
-    asm_fetch_aux p code <>
-      SOME (LabAsm Install w bytes l)
-End
-
-Definition no_share_mem_inst_def:
-  no_share_mem_inst code <=>
-  !p op re a inst len.
-    asm_fetch_aux p code <>
-      SOME (Asm (ShareMem op re a) inst len)
-End
-
 Definition no_install_or_no_share_mem_def:
   no_install_or_no_share_mem code ffi_names <=>
    (no_share_mem_inst code /\
@@ -9871,6 +9857,7 @@ Proof
   gvs[get_shmem_info_def]
 QED
 
+(*
 Theorem start_pc_ok_not_vacuous_lemma:
   LENGTH  <= LENGTH mc_conf.ffi_entry_pcs /\
   compile c (code: 'a sec list) = SOME (bytes,c') ∧
@@ -9915,16 +9902,19 @@ Proof
     assume_tac o Q.AP_TERM `LENGTH` >>
   gvs[LENGTH_MAP,LENGTH_DROP]
 QED
+*)
 
 Theorem semantics_compile:
    mc_conf_ok mc_conf ∧
-   no_share_mem_inst code ==> compiler_oracle_ok coracle c'.labels (LENGTH bytes) c.asm_conf mc_conf.ffi_names ∧
+   (no_share_mem_inst code ==>
+     compiler_oracle_ok coracle c'.labels (LENGTH bytes) c.asm_conf mc_conf.ffi_names) ∧
    good_code c.asm_conf c.labels code ∧
    c.asm_conf = mc_conf.target.config ∧
    c.labels = LN ∧ c.pos = 0 ∧
    compile c (code: 'a sec list) = SOME (bytes,c') ∧
    c'.ffi_names = SOME mc_conf.ffi_names /\
    good_init_state mc_conf ms bytes cbspace t m dm sdm io_regs cc_regs /\
+   mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
    MAP (\rec. rec.entry_pc + mc_conf.target.get_pc ms) c'.shmem_extra =
     DROP i mc_conf.ffi_entry_pcs /\
    mc_conf.mmio_info = (λindex. EL (index − i) (MAP
@@ -9932,7 +9922,6 @@ Theorem semantics_compile:
       rec.exit_pc + mc_conf.target.get_pc ms))
     c'.shmem_extra)) /\
   no_install_or_no_share_mem code mc_conf.ffi_names /\
-  mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
   (* to avoid the ffi_entry_pc wraps around and overlaps with the program or code buffer *)
   cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a) /\
   (* the original ffi names provided does not contain MappedRead or MappedWrite *)
@@ -9953,8 +9942,8 @@ Proof
   pop_assum SUBST_ALL_TAC \\
   conj_tac >- (
     match_mp_tac implements_align_dm \\
-      fs[mc_conf_ok_def] ) \\
-    simp[Abbr`P`,Abbr`ss`] \\
+    fs[mc_conf_ok_def] ) \\
+  simp[Abbr`P`,Abbr`ss`] \\
   PURE_REWRITE_TAC[Once WORD_ADD_COMM] \\
   match_mp_tac semantics_compile_lemma \\
   fs[good_code_def]
