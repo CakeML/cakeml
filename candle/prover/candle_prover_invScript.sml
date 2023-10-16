@@ -383,20 +383,6 @@ Proof
   \\ gvs [nsLookup_Bind_v_some, CaseEqs ["bool", "option"], kernel_types_def]
 QED
 
-Theorem v_ok_bind_exn_v[simp]:
-  v_ok ctxt bind_exn_v
-Proof
-  fs [bind_exn_v_def]
-  \\ fs [Once v_ok_cases,bind_stamp_def]
-QED
-
-Theorem v_ok_sub_exn_v[simp]:
-  v_ok ctxt sub_exn_v
-Proof
-  rw [v_ok_def, sub_exn_v_def]
-  \\ rw [Once v_ok_cases, subscript_stamp_def, kernel_types_def]
-QED
-
 Theorem v_ok_Cons:
   v_ok ctxt (Conv (SOME (TypeStamp "::" 1)) [x; y]) ⇔ v_ok ctxt x ∧ v_ok ctxt y
 Proof

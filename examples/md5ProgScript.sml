@@ -101,7 +101,7 @@ val _ = (append_prog o process_topdecs) `
       Some s => md5_final s
     | None => None`;
 
-Theorem md5_of_v_def = fetch "-" "md5_of_v_def";
+val md5_of_v_def = fetch "-" "md5_of_v_def";
 
 Theorem md5_of_SOME:
   OPTION_TYPE FILENAME (SOME s) fnv ∧

@@ -993,7 +993,7 @@ Proof
 QED
 
 (* Theorems about mindel *)
-Theorem lookup_FOLDL_delete:
+Theorem lookup_FOLDL_delete':
   ∀l fml.
   lookup n fml = SOME c ∧
   EVERY ($< mindel) l ∧ n ≤ mindel ⇒
@@ -1013,7 +1013,7 @@ Theorem check_lpr_step_mindel:
 Proof
   rw[check_lpr_step_def]>>
   every_case_tac>>fs[]>>rw[lookup_insert]>>
-  match_mp_tac lookup_FOLDL_delete>>
+  match_mp_tac lookup_FOLDL_delete'>>
   fs[EVERY_MEM]
 QED
 

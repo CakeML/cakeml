@@ -223,7 +223,7 @@ Definition THM_TYPE_HEAD_def:
            s ∈ thm_ctors_set
 End
 
-Theorem THM_TYPE_HEAD_def = SIMP_RULE list_ss [] THM_TYPE_HEAD_def;
+Theorem THM_TYPE_HEAD_def[allow_rebind] = SIMP_RULE list_ss [] THM_TYPE_HEAD_def;
 
 Definition LIST_TYPE_HEAD_def:
   LIST_TYPE_HEAD h v = ∃l:unit list. LIST_TYPE (K h) l v
@@ -1144,15 +1144,6 @@ Proof
   prove_head_tac
 QED
 
-Theorem is_type_v_head:
-  do_opapp [is_type_v; v] = SOME (env, exp) ∧
-  evaluate ^s env [exp] = (s', res) ⇒
-    ^safe_error_goal ∨
-    TYPE_TYPE_HEAD v
-Proof
-  prove_head_tac
-QED
-
 Theorem is_vartype_v_head:
   do_opapp [is_vartype_v; v] = SOME (env, exp) ∧
   evaluate ^s env [exp] = (s', res) ⇒
@@ -1261,15 +1252,6 @@ Proof
   prove_head_tac
 QED
 
-Theorem dest_type_v_head:
-  do_opapp [dest_type_v; v] = SOME (env, exp) ∧
-  evaluate ^s env [exp] = (s', res) ⇒
-    ^safe_error_goal ∨
-    TYPE_TYPE_HEAD v
-Proof
-  prove_head_tac
-QED
-
 Theorem dest_eq_v_head:
   do_opapp [dest_eq_v; v] = SOME (env, exp) ∧
   evaluate ^s env [exp] = (s', res) ⇒
@@ -1284,15 +1266,6 @@ Theorem call_tyvars_v_head:
   evaluate ^s env [exp] = (s', res) ⇒
     ^safe_error_goal ∨
     TYPE_TYPE_HEAD v
-Proof
-  prove_head_tac
-QED
-
-Theorem call_type_vars_in_term_v_head:
-  do_opapp [call_type_vars_in_term_v; v] = SOME (env, exp) ∧
-  evaluate ^s env [exp] = (s', res) ⇒
-    ^safe_error_goal ∨
-    TERM_TYPE_HEAD v
 Proof
   prove_head_tac
 QED
@@ -1464,17 +1437,6 @@ Proof
   prove_head_tac
 QED
 
-Theorem vsubst_v_head:
-  do_partial_app vsubst_v v = SOME g ∧
-  do_opapp [g; w] = SOME (env, exp) ∧
-  evaluate ^s env [exp] = (s', res) ⇒
-    ^safe_error_goal ∨
-    LIST_TYPE_HEAD (PAIR_TYPE_HEAD TERM_TYPE_HEAD TERM_TYPE_HEAD) v ∧
-    TERM_TYPE_HEAD w
-Proof
-  prove_head_tac
-QED
-
 Theorem inst_v_head:
   do_partial_app inst_v v = SOME g ∧
   do_opapp [g; w] = SOME (env, exp) ∧
@@ -1595,17 +1557,6 @@ Theorem call_frees_v_head:
   evaluate ^s env [exp] = (s', res) ⇒
     ^safe_error_goal ∨
     TERM_TYPE_HEAD v
-Proof
-  prove_head_tac
-QED
-
-Theorem inst_v_head:
-  do_partial_app inst_v v = SOME g ∧
-  do_opapp [g; w] = SOME (env, exp) ∧
-  evaluate ^s env [exp] = (s', res) ⇒
-    ^safe_error_goal ∨
-    LIST_TYPE_HEAD (PAIR_TYPE_HEAD TYPE_TYPE_HEAD TYPE_TYPE_HEAD) v ∧
-    TERM_TYPE_HEAD w
 Proof
   prove_head_tac
 QED

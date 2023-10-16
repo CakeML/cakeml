@@ -130,14 +130,6 @@ Termination
   \\ imp_res_tac exp_size_lemma \\ gvs []
 End
 
-Definition gather_constants_decl_def:
-  gather_constants_decl [Dlet loc p e] =
-    gather_constants_exp e ∧
-  gather_constants_decl (d1::d2::ds) =
-    gather_constants_decl [d1] ++ gather_constants_decl (d2::ds) ∧
-  gather_constants_decl _ = []
-End
-
 (**
   Walk over an AST and replace constants by variables that globally allocate
   their value
@@ -1881,19 +1873,6 @@ Proof
   >- gs[]
   >> res_tac
   >> gs[]
-QED
-
-Theorem build_cnst_list_unique:
-  DISJOINT (set (FLAT (MAP gather_used_identifiers_exp es)))
-    (set (MAP SND (build_cnst_list ws (FLAT (MAP gather_used_identifiers_exp es)) 0)))
-Proof
-  gs[pred_setTheory.DISJOINT_DEF, INTER_DEF]
-  >> rewrite_tac [FUN_EQ_THM] >> rpt strip_tac >> reverse EQ_TAC
-  >- gs[]
-  >> gs[]
-  >> Cases_on ‘MEM x (MAP SND (build_cnst_list ws (FLAT (MAP gather_used_identifiers_exp es)) 0))’
-  >> gs[]
-  >> imp_res_tac MEM_used_ids_not_mem_vars
 QED
 
 Theorem build_cnst_list_disjoint_res:
