@@ -154,10 +154,6 @@ Datatype:
      |>
 End
 
-Datatype:
-  compile_error = ParseError | TypeError mlstring | AssembleError | ConfigError mlstring
-End
-
 fun drop_until p [] = []
   | drop_until p (x::xs) = if p x then x::xs else drop_until p xs;
 
