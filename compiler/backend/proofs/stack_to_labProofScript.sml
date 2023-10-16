@@ -4465,4 +4465,20 @@ Proof
   simp[]
 QED
 
+Theorem compile_no_share_mem_inst:
+  EVERY (\(a,p). no_shmemop p) prog ∧
+  compile stack_conf data_conf max_heap sp offset prog = prog' ==>
+  labProps$no_share_mem_inst prog'
+Proof
+  cheat
+QED
+
+Theorem compile_no_stubs_no_share_mem_inst:
+  EVERY (\(a,p). no_shmemop p) prog ∧
+  compile_no_stubs f jump offset sp prog = prog' ==>
+  labProps$no_share_mem_inst prog'
+Proof
+  cheat
+QED
+
 val _ = export_theory();

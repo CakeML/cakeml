@@ -11192,4 +11192,18 @@ Proof
   metis_tac[FST_EQ_EQUIV]
 QED
 
+Theorem compile_no_shmemop:
+  compile cf prog = (bs,fs,ns,prog') /\
+  EVERY (\(n,m,pp). no_share_inst pp) prog ==>
+  EVERY (\(a,p). no_shmemop p) prog'
+Proof
+  rw[compile_def] >>
+  pairarg_tac >>
+  gvs[] >>
+  drule_all_then (irule_at $ Pos last) compile_word_to_stack_no_share_inst
+  >>
+  simp[no_shmemop_def,
+    raise_stub_def,store_consts_stub_def]
+QED
+
 val _ = export_theory();

@@ -3111,14 +3111,18 @@ QED
 
 
 Theorem compile_correct':
-
-  compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
+  compile (c:'a config) prog = SOME (bytes,bitmaps,c') ∧
+  (case OPTION_MAP (
+    EVERY (\x. x <> "MappedRead" /\ x <> "MappedWrite"))
+    c.lab_conf.ffi_names of
+  | SOME y => y
+  | NONE => T) ⇒
    let (s0,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
    let s = add_eval_state ev s0 in
    ¬semantics_prog s env prog Fail ∧
    backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧
    opt_eval_config_wf c' ev ∧
-   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names (heap_regs c.stack_conf.reg_names) mc ms ⇒
+   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names (heap_regs c.stack_conf.reg_names) mc c'.lab_conf.shmem_extra ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit'
          (is_safe_for_space ffi c prog (read_limits c mc ms))
@@ -3131,8 +3135,7 @@ Proof
         backend_config_ok_def,heap_regs_def] >>
     assume_tac t) >>
   `c.lab_conf.asm_conf = mc.target.config` by fs[mc_init_ok_def] >>
-  `?old_ffi_names. c'.lab_conf.ffi_names = SOME old_ffi_names /\
-    mc.ffi_names = old_ffi_names ++ FST c'.lab_conf.shmem_extra` by fs[targetSemTheory.installed_def] >>
+  `c'.lab_conf.ffi_names = SOME mc.ffi_names` by fs[targetSemTheory.installed_def] >>
 
   fs [] >>
   rpt (pairarg_tac >> fs []) >>
@@ -3506,11 +3509,38 @@ Proof
   disch_then(old_drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(optionSyntax.is_some o rhs))))) \\
   simp[Abbr`c4`] \\
   disch_then(old_drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``good_init_state`` o fst o strip_comb))))) \\
-  disch_then(qspecl_then[`ffi`,`lab_oracle`]mp_tac)
+  disch_then $ (qspecl_then[`ffi`,`lab_oracle`]mp_tac)
+    o CONV_RULE (RESORT_FORALL_CONV (fn l => append (tl l) [hd l]))
   \\ old_drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_next_mono)
   \\ strip_tac
   \\ pop_assum(assume_tac o Abbrev_intro)
   \\ full_simp_tac (bool_ss ++ simpLib.type_ssfrag ``: 'a config``) []
+
+  \\ rename1 `labcf.ffi_names = SOME mc.ffi_names`
+  \\ `labProps$no_share_mem_inst p7` by (
+    irule compile_no_share_mem_inst >>
+    irule_at (Pos hd) EQ_SYM >>
+    qpat_assum `Abbrev(p7 = _)` $ irule_at (Pos hd) o 
+      PURE_REWRITE_RULE[markerTheory.Abbrev_def] >>
+   drule_then irule compile_no_shmemop >>
+   irule compile_no_share_inst >>
+   simp[data_to_wordTheory.compile_def] >>
+   irule_at (Pos hd) EQ_TRANS >>
+   qpat_assum `_ = (_,p5)` $ irule_at (Pos last) >>
+   qpat_assum `Abbrev(t_code = _)` $ mp_tac o
+     PURE_REWRITE_RULE[markerTheory.Abbrev_def] >>
+   simp[] >>
+   metis_tac[] )
+
+  \\ `?ffi_names. labcf.ffi_names = SOME ffi_names /\
+      mmio_pcs_min_index ffi_names = SOME $ LENGTH ffi_names` by (
+    irule compile_lab_no_share_mem_IMP_mmio_pcs_min_index >>
+    first_x_assum $ irule_at (Pos last) >>
+    drule_then assume_tac $ iffRL no_share_mem_filter_skip >>
+    first_x_assum $ irule_at (Pos hd) >>
+    fs[lab_to_targetTheory.compile_def])
+  \\ `mc.ffi_names = ffi_names` by fs[]
+  \\ simp[]
 
   \\ impl_keep_tac
   >- (
@@ -3522,31 +3552,75 @@ Proof
       \\ conj_tac >- (
         gen_tac
         \\ pairarg_tac \\ simp []
-        conj_tac >- (
-          \\ drule_then (drule_then irule) (GEN_ALL good_code_lab_oracle)
+        \\ conj_tac >- (
+          drule_then (drule_then irule) (GEN_ALL good_code_lab_oracle)
           \\ fs [Abbr `stoff`, backend_config_ok_def, asmTheory.offset_ok_def]
           \\ asm_exists_tac
-          \\ simp []
-        )
-        \\ cheat (* lab_to_targetProof$no_share_mem_inst *)
-      )
+          \\ simp [])
+
+        (* lab_to_targetProof$no_share_mem_inst (newly installed code)*)
+        \\ drule_then (fn t => gvs[t]) stack_to_lab_orac_eq_std_sym
+        \\ pop_assum mp_tac
+        \\ simp[pure_co_def,combinTheory.o_DEF,PAIR_MAP]
+        \\ rpt strip_tac
+        \\ drule_at_then (Pos last) irule compile_no_stubs_no_share_mem_inst
+        \\ qpat_x_assum `Abbrev(stack_oracle = _)` $ assume_tac o
+          PURE_REWRITE_RULE[markerTheory.Abbrev_def]
+        \\ drule_then (fn t => fs[GSYM t]) word_to_stack_orac_eq
+        \\ ntac 2 (pairarg_tac >> simp[])
+        \\ drule_at_then (Pos last) irule compile_word_to_stack_no_share_inst
+        \\ qpat_x_assum `Abbrev(word_oracle = _)` $ assume_tac o
+          PURE_REWRITE_RULE[markerTheory.Abbrev_def]
+        \\ drule_then (fn t => fs[t]) data_to_word_orac_eq_sym_std
+        \\ qpat_x_assum `word_oracle = _` kall_tac
+        \\ qpat_x_assum `pure_co _ _ = (_,prg)` mp_tac
+        \\ simp[pure_co_def,combinTheory.o_DEF,PAIR_MAP]
+        \\ simp[word_to_wordTheory.full_compile_single_def]
+        \\ rw[]
+        \\ simp[EVERY_MAP,EVERY_MEM]
+        \\ rw[]
+        \\ simp[ELIM_UNCURRY]
+        \\ simp[word_to_wordProofTheory.remove_must_terminate_no_share_inst]
+        \\ qpat_abbrev_tac `csing = SND (_ _ _)`
+        \\ Cases_on `csing`
+        \\ simp[]
+        \\ pop_assum $ mp_tac o PURE_REWRITE_RULE[markerTheory.Abbrev_def]
+        \\ qpat_abbrev_tac `cpart = data_to_word$compile_part _ _`
+        \\ PairCases_on `cpart`
+        \\ strip_tac
+        \\ drule_at_then (Pos last) irule word_to_wordProofTheory.compile_single_no_share_inst
+        \\ qpat_x_assum `Abbrev _` $ mp_tac o GSYM o
+          PURE_REWRITE_RULE[markerTheory.Abbrev_def]
+        \\ simp[DefnBase.one_line_ify NONE data_to_wordTheory.compile_part_def]
+        \\ rpt (TOP_CASE_TAC >> simp[])
+        \\ rw[]
+        \\ irule comp_no_share_inst
+        \\ metis_tac[FST_EQ_EQUIV])
       \\ fs [markerTheory.Abbrev_def]
       \\ fs [lab_to_targetTheory.compile_def]
       \\ drule compile_lab_lab_conf
       \\ drule compile_lab_LENGTH
-      \\ simp [cake_orac_0, config_tuple2_def]
-      (* c'4'.ffi = [] *)
-    )
+      \\ simp [cake_orac_0, config_tuple2_def])
     (* ugh have to use metis just to show p7 is compiled from a data prog *)
-    \\ qpat_x_assum`Abbrev(p7 = _)` mp_tac
-    \\ disch_then (assume_tac o SYM o REWRITE_RULE [markerTheory.Abbrev_def])
-    \\ drule_then (drule_then $ irule_at (Pos hd)) (GEN_ALL to_lab_good_code_lemma)
-    \\ qpat_x_assum `all_enc_ok_pre _ _` mp_tac \\ simp []
-    \\ disch_tac
-    \\ simp [data_to_wordTheory.compile_def]
-    \\ fs [markerTheory.Abbrev_def]
-    \\ cheat
-    \\ metis_tac []
+    \\ conj_tac >- (
+      qpat_x_assum`Abbrev(p7 = _)` mp_tac
+      \\ disch_then (assume_tac o SYM o REWRITE_RULE [markerTheory.Abbrev_def])
+      \\ drule_then (drule_then $ irule_at (Pos hd)) (GEN_ALL to_lab_good_code_lemma)
+      \\ qpat_x_assum `all_enc_ok_pre _ _` mp_tac \\ simp []
+      \\ disch_tac
+      \\ simp [data_to_wordTheory.compile_def]
+      \\ fs [markerTheory.Abbrev_def]
+      \\ metis_tac[])
+   \\ conj_tac >- (
+      simp[lab_to_targetProofTheory.no_install_or_no_share_mem_def]
+      \\ disj1_tac
+      \\ drule mmio_pcs_min_index_is_SOME
+      \\ rw[EVERY_MEM,MEM_EL]
+      \\ metis_tac[])
+   \\ ntac 2 strip_tac
+   \\ qpat_x_assum `option_CASE _ _ _` mp_tac
+   \\ simp[EVERY_MEM]
+   \\ metis_tac[]
   )
 
   \\ strip_tac
@@ -3907,12 +3981,17 @@ Triviality compile_correct_no_eval =
     |> SIMP_RULE bool_ss [add_eval_state_def, opt_eval_config_wf_def]
 
 Theorem compile_correct:
-  compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
+  compile (c:'a config) prog = SOME (bytes,bitmaps,c') ∧
+  (case
+      OPTION_MAP (EVERY (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite"))
+        c.lab_conf.ffi_names of
+    | NONE => T
+    | SOME y => y) ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
    ¬semantics_prog s env prog Fail ∧
    backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧
    installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
-        (heap_regs c.stack_conf.reg_names) mc ms ⇒
+        (heap_regs c.stack_conf.reg_names) mc c'.lab_conf.shmem_extra ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit (semantics_prog s env prog)
 Proof
@@ -3932,14 +4011,19 @@ Proof
 QED
 
 Theorem compile_correct_is_safe_for_space:
-  compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
+  compile (c:'a config) prog = SOME (bytes,bitmaps,c') ∧
+  (case
+      OPTION_MAP (EVERY (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite"))
+        c.lab_conf.ffi_names of
+    | NONE => T
+    | SOME y => y) ⇒
   is_safe_for_space ffi c prog (stack_limit,heap_limit) ⇒
   (read_limits c mc ms) = (stack_limit,heap_limit) ⇒
   let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
   ¬semantics_prog s env prog Fail ∧
   backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧
   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
-       (heap_regs c.stack_conf.reg_names) mc ms ⇒
+       (heap_regs c.stack_conf.reg_names) mc c'.lab_conf.shmem_extra ms ⇒
   machine_sem (mc:(α,β,γ) machine_config) ffi ms =
   semantics_prog s env prog
 Proof
@@ -3958,12 +4042,17 @@ Definition the_EvalDecs_def:
 End
 
 Theorem compile_correct_eval:
-  compile c prog = SOME (bytes,bitmaps,c') ⇒
+  compile c prog = SOME (bytes,bitmaps,c') ∧
+  (case
+      OPTION_MAP (EVERY (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite"))
+        c.lab_conf.ffi_names of
+    | NONE => T
+    | SOME y => y) ⇒
    let (s0,env) = THE (prim_sem_env (ffi: 'ffi ffi_state)) in
    ¬semantics_prog (add_eval_state ev s0) env prog Fail ∧ backend_config_ok c ∧
    lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧ opt_eval_config_wf c' ev ∧
    installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
-     (heap_regs c.stack_conf.reg_names) mc ms ⇒
+     (heap_regs c.stack_conf.reg_names) mc c'.lab_conf.shmem_extra ms ⇒
    machine_sem mc ffi ms ⊆
      extend_with_resource_limit
        (semantics_prog (add_eval_state ev s0) env prog)
