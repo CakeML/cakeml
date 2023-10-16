@@ -88,7 +88,7 @@ Theorem eval_expr_cases_old = eval_expr_cases
 (**
   Generate a better case lemma
 **)
-Theorem eval_expr_cases =
+Theorem eval_expr_cases[allow_rebind] =
   map (GEN_ALL o SIMP_CONV (srw_ss()) [Once eval_expr_cases])
     [``eval_expr E Gamma (Var v) res m``,
      ``eval_expr E Gamma (Const m1 n) res m2``,
