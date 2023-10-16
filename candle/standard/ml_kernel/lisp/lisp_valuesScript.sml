@@ -114,7 +114,7 @@ Proof
   Cases_on ‘b’ \\ EVAL_TAC
 QED
 
-Theorem lisp_v_size_def[simp] = fetch "-" "lisp_v_size_def";
+Theorem lisp_v_size_def[simp,allow_rebind] = fetch "-" "lisp_v_size_def";
 
 Theorem all_macro_defs = LIST_CONJ [list_def, cons_def, bool_def,
    map_def, pair_def, option_def];

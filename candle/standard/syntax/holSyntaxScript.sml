@@ -19,7 +19,7 @@ Overload Bool = ``Tyapp (strlit "bool") []``
 val domain_raw = Define `
   domain ty = case ty of Tyapp n (x::xs) => x | _ => ty`;
 
-Theorem domain_def[compute,simp]:
+Theorem domain_def[compute,simp,allow_rebind]:
    !t s. domain (Fun s t) = s
 Proof
   REPEAT STRIP_TAC \\ EVAL_TAC
@@ -28,7 +28,7 @@ QED
 val codomain_raw = Define `
   codomain ty = case ty of Tyapp n (y::x::xs) => x | _ => ty`;
 
-Theorem codomain_def[compute,simp]:
+Theorem codomain_def[compute,simp,allow_rebind]:
    !t s. codomain (Fun s t) = t
 Proof
   REPEAT STRIP_TAC \\ EVAL_TAC

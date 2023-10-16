@@ -135,7 +135,7 @@ Definition compute_thms_def:
   ]
 End
 
-Theorem compute_thms_def = SIMP_RULE list_ss [] compute_thms_def;
+Theorem compute_thms_def[allow_rebind] = SIMP_RULE list_ss [] compute_thms_def;
 
 Definition compute_init_def:
   compute_init ths ⇔ ths = compute_thms

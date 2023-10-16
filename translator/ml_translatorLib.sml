@@ -1556,7 +1556,7 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
   val _ = if is_list_type then inv_def else
           if is_pair_type then inv_def else
           if is_unit_type then inv_def else
-            save_thm(name ^ "_def[compute]",inv_def |> REWRITE_RULE [K_THM])
+            allowing_rebind save_thm(name ^ "_def[compute]",inv_def |> REWRITE_RULE [K_THM])
   val ind = fetch "-" (name ^ "_ind") |> clean_rule
             handle HOL_ERR _ => TypeBase.induction_of (hd tys) |> clean_rule
 (*
@@ -3846,7 +3846,7 @@ val (fname,def,lemma,pre_var) = hd thms2
   val _ = delete_binding (name ^ "_ind") handle NotFound => ()
   val _ = delete_binding (name ^ "_strongind") handle NotFound => ()
   val _ = delete_binding (name ^ "_cases") handle NotFound => ()
-  val _ = save_thm(name ^ "_def", clean_pre_def)
+  val _ = allowing_rebind save_thm(name ^ "_def", clean_pre_def)
   val pre_defs = pre_def |> CONJUNCTS |> map SPEC_ALL
   val thms3 = zip pre_defs thms2
   fun get_sub (pre,(fname,ml_fname,def,lemma,pre_var)) = let
@@ -4498,7 +4498,7 @@ fun translate_options options def =
                     |> clean_assumptions |> UNDISCH_ALL
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
         val _ = add_v_thms (fname,ml_fname,th,pre_def)
-        in save_thm(fname ^ "_v_thm", th) end
+        in allowing_rebind save_thm(fname ^ "_v_thm", th) end
       val v_thm = map inst_envs results |> LIST_CONJ
       val v_thm = v_thm |> DISCH_ALL
                   |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO]
@@ -4528,7 +4528,7 @@ fun translate_options options def =
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
         val _ = add_v_thms (fname,ml_fname,v_thm,pre_def)
         val _ = (end_timing start_fun; end_timing start)
-        in save_thm(fname ^ "_v_thm",v_thm) end
+        in allowing_rebind save_thm(fname ^ "_v_thm",v_thm) end
       else let (* not is_fun *)
 
         val start_v = start_timing "processing val case"
@@ -4559,7 +4559,7 @@ fun translate_options options def =
           val c = SIMP_CONV std_ss [EVERY_DEF,MAP,SND,no_change_refs_def] THENC EVAL
           val ref_def_lemma = CONV_RULE ((RATOR_CONV o RAND_CONV) c) ref_def
           val ref_def = MP ref_def_lemma TRUTH
-          in save_thm(refs_name ^ "_def", ref_def) end
+          in allowing_rebind save_thm(refs_name ^ "_def", ref_def) end
           handle HOL_ERR _ => TRUTH
         val v_thm_temp = CONJUNCT1 v_thm_temp
         val _ = delete_binding "temp"
@@ -4575,7 +4575,7 @@ fun translate_options options def =
                     |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO]
                     |> UNDISCH_ALL
         val _ = (end_timing start_v; end_timing start)
-        in save_thm(fname ^ "_v_thm",v_thm) end end
+        in allowing_rebind save_thm(fname ^ "_v_thm",v_thm) end end
   end
 
 val translate = translate_options [];
@@ -4687,7 +4687,7 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
                   |> SIMP_RULE std_ss [lookup_var_def]
                   |> clean_assumptions |> UNDISCH_ALL
         val _ = replace_v_thm tm th
-        val _ = save_thm(fname ^ "_v_thm", th)
+        val _ = allowing_rebind save_thm(fname ^ "_v_thm", th)
       in state' end
     else if is_Closure v
     then
@@ -4741,7 +4741,7 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
       |> MATCH_MP evaluate_empty_state_IMP
     val state' = add_Dlet eval_thm ml_fname state
     val _ = replace_v_thm tm v_thm
-    val _ = save_thm(fname ^ "_v_thm", v_thm)
+    val _ = allowing_rebind save_thm(fname ^ "_v_thm", v_thm)
   in state' end
 
 fun concretise_main desired_tms = let
@@ -4905,6 +4905,6 @@ fun declare_new_ref name tm = let
   val th = MATCH_MP lemma1 eval_rel_thm |> PURE_REWRITE_RULE [APPEND]
   (* add_Dlet th name (get_ml_prog_state ()) *)
   val _ = ml_prog_update (add_Dlet th name)
-  in save_thm(name ^ "_def",v_def) end
+  in allowing_rebind save_thm(name ^ "_def",v_def) end
 
 end

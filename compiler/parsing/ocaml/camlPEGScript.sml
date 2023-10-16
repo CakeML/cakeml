@@ -134,15 +134,6 @@ Definition validMultOp_def:
         2 ≤ LENGTH s ∧ EVERY validOpChar (TL s)))
 End
 
-Definition validRelOp_def:
-  validRelOp s ⇔
-    s ≠ "" ∧
-    (HD s = #"<" ∨ HD s = #">" ∨ HD s = #"|" ∨
-     HD s = #"&" ∨ HD s = #"$") ∧
-    2 ≤ LENGTH s ∧
-    EVERY validOpChar (TL s)
-End
-
 Definition validAddOp_def:
   validAddOp s ⇔
     s ≠ "" ∧
@@ -1114,4 +1105,3 @@ Theorem owhile_Start_total =
   SIMP_RULE (srw_ss()) [pegexecTheory.coreloop_def] coreloop_Start_total;
 
 val _ = export_theory ();
-

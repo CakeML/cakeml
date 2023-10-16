@@ -12,6 +12,8 @@ open preamble;
 
 val _ = new_theory "backend_enc_dec";
 
+fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f;
+
 (* automation *)
 
 val enc_dec_mapping =
@@ -36,11 +38,11 @@ fun reg_enc_dec enc_dec_lemma = let
   val e_name = enc |> dest_const |> fst |> explode |> butlast |> implode
   val d_name = dec |> dest_const |> fst |> explode |> butlast |> implode
   val e_def = mk_eq(mk_var(e_name,type_of e), e)
-    |> ANTIQUOTE |> single |> Define
+    |> ANTIQUOTE |> single |> allowing_rebind Define
   val d_def = mk_eq(mk_var(d_name,type_of d), d)
-    |> ANTIQUOTE |> single |> Define
+    |> ANTIQUOTE |> single |> allowing_rebind Define
   val th = th |> REWRITE_RULE [GSYM e_def,GSYM d_def]
-  in save_thm(e_name ^ "_dec_ok",th) end
+  in allowing_rebind save_thm(e_name ^ "_dec_ok",th) end
 
 fun get_enc_dec_for ty =
   if can listSyntax.dest_list_type ty then
@@ -111,7 +113,7 @@ fun define_enc_dec ty = let
   val ty_n = type_to_string ty |> explode |> tl |> implode
              |> String.translate (fn c => if c = #"$" then "_" else implode [c])
   val lemma = prove(goal,Cases \\ fs [enc_def,dec_def])
-  val _ = save_thm(ty_n ^ "_enc'_thm[simp]",lemma)
+  val _ = allowing_rebind save_thm(ty_n ^ "_enc'_thm[simp]",lemma)
   val _ = reg_enc_dec lemma
   in (enc_def,dec_def,lemma) end;
 
@@ -345,7 +347,7 @@ fun define_abbrev name tm = let
   val f = mk_var(name,type_of (list_mk_abs(vs,tm)))
   val l = list_mk_comb(f,vs)
   val def = new_definition(thm_name,mk_eq(l,tm)) |> SPEC_ALL
-  val _ = save_thm(thm_name ^ "[compute]",def |> SIMP_RULE std_ss [FUN_EQ_THM,LAMBDA_PROD] |> SPEC_ALL)
+  val _ = allowing_rebind save_thm(thm_name ^ "[compute]",def |> SIMP_RULE std_ss [FUN_EQ_THM,LAMBDA_PROD] |> SPEC_ALL)
   in def end
 
 val builtin = [bool_enc_dec_ok, unit_enc_dec_ok, num_enc_dec_ok,
