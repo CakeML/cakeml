@@ -735,22 +735,9 @@ Proof
   \\ metis_tac[]
 QED
 
-Theorem remap_tenv_LINV:
-   INJ f s t ∧ set_tids_tenv s tenv ⇒
-   tenv_equiv (remap_tenv (LINV f s) (remap_tenv f tenv)) tenv
-Proof
-  rw[remap_tenv_def, tenv_equiv_def, nsMap_compose, nsAll2_def,
-     nsSub_def, nsLookup_nsMap, nsLookupMod_nsMap]
-  \\ fs[UNCURRY, set_tids_tenv_def]
-  \\ imp_res_tac nsLookup_nsAll \\ fs[UNCURRY]
-  \\ fs[MAP_MAP_o, o_DEF]
-  \\ imp_res_tac ts_tid_rename_LINV \\ fs[]
-  \\ imp_res_tac LINV_DEF \\ fs[EVERY_MEM]
-  \\ simp[PAIR_FST_SND_EQ, MAP_EQ_ID]
-QED
-
-val LINVI_def = Define`
-  LINVI f s y = case LINV_OPT f s y of SOME x => x | NONE => f y`;
+Definition LINVI_def:
+  LINVI f s y = case LINV_OPT f s y of SOME x => x | NONE => f y
+End
 
 Theorem remap_tenv_LINV:
    BIJ f s t ∧ set_tids_tenv s tenv ⇒
