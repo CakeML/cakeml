@@ -15,6 +15,8 @@ local open alignmentTheory
 
 val _ = new_theory "panItreeSemEquiv";
 
+Overload "case" = “itree_CASE”;
+
 Definition query_oracle_def[nocompute]:
   query_oracle ffis (FFI_call s conf bytes) = call_FFI ffis s conf bytes
 End
@@ -147,57 +149,70 @@ QED
 Theorem itree_semantics_corres:
   same_behaviour or (itree_semantics s entry) (semantics (s with ffi := or) entry)
 Proof
-  Cases_on ‘semantics (s with ffi := or) entry’
-  (* FBS divergence *)
-  >- (rw [same_behaviour_def] >>
-      rw [Once LLIST_BISIMULATION] >>
-      qexists_tac ‘ioe_trace_bisim or’ >>
-      CONJ_TAC
-      >- ()
-     (* Need to rethink how I use a coind relation to prove bisimulation of the two
-      llists.
-      LLIST_BISIMULATION notably contains all suffix lists that are also bisimilar.
-      So the bisimulation we construct must have the same property.
-      Which means if we want to prove that two llists under some oracle are in our bisim,
-      we need to construct the relation closed backwards under the rules starting at our two llists.
-      This relation will be one of the post-fixed points of ioe_trace_bisim and thus contained in ioe_trace_bisim.
+  cheat
+QED
 
-      So how do we construct a relation that is closed-backwards under some rules starting at specific constants?
-      Seems like we need a corecursive construction that generates this relation and that we can expand in our proof
-      to show that the relation is a subset of ioe_trace_bisim.
-         *)
-            (* Need to construct a relation between or, itree_sem and sem, then *)
+(* Cases_on ‘semantics (s with ffi := or) entry’ >> *)
+(* FBS divergence *)
+(* >- (rw [same_behaviour_def] >> *)
+(*     rw [Once LLIST_BISIMULATION] >> *)
+(*     qexists_tac ‘ioe_trace_bisim or’ >> *)
+(*     CONJ_TAC) *)
+
+(* Need to rethink how I use a coind relation to prove bisimulation of the two
+llists.
+LLIST_BISIMULATION notably contains all suffix lists that are also bisimilar.
+So the bisimulation we construct must have the same property.
+Which means if we want to prove that two llists under some oracle are in our bisim,
+we need to construct the relation closed backwards under the rules starting at our two llists.
+This relation will be one of the post-fixed points of ioe_trace_bisim and thus contained in ioe_trace_bisim.
+
+So how do we construct a relation that is closed-backwards under some rules starting at specific constants?
+Seems like we need a corecursive construction that generates this relation and that we can expand in our proof
+to show that the relation is a subset of ioe_trace_bisim.
+    *)
+    (* Need to construct a relation between or, itree_sem and sem, then *)
 (*                 convert the goal into the implication required of HO_MATCH_MP_TAC, *)
 (*                 then it will require that I prove my constructed relation has all the properties of *)
 (*                 the ioe_trace_rel relation. *)
 (*              *)
-        )
-End
 
 Theorem same_outcome_seq1:
-  same_outcome ffis (itree_evaluate c1 s) (SOME r,s') ⇒
+  same_outcome (ffis:(β ffi_state)) (itree_evaluate (c1:(α panLang$prog)) s) (SOME r,s':((α,β) state)) ⇒
   same_outcome ffis (itree_evaluate (Seq c1 c2) s) (SOME r,s')
 Proof
   cheat
 QED
 
 Theorem same_outcome_seq2:
-  same_outcome ffis (itree_evaluate c1 s) (NONE,s'') ∧
-  same_outcome ffis (itree_evaluate c2 s'') (r,s') ⇒
+  same_outcome ffis (itree_evaluate c1 s) (NONE,s'':((α,β) state)) ∧
+  same_outcome ffis (itree_evaluate c2 s'') (r,s':((α,β) state)) ⇒
   same_outcome ffis (itree_evaluate (Seq c1 c2) s) (r,s')
 Proof
   cheat
 QED
 
-Overload "case" = “itree_CASE”;
+Triviality evaluate_seq_cases:
+  evaluate (Seq c1 c2,s) = (SOME r,s') ⇒
+  fix_clock s (evaluate (c1,s)) = (SOME r,s') ∨
+  ∃s''. (fix_clock s (evaluate (c1,s)) = (NONE,s'') ∧ evaluate (c2,s'') = (SOME r,s'))
+Proof
+  disch_tac >>
+  fs [panSemTheory.evaluate_def] >>
+  pairarg_tac >>
+  Cases_on ‘res’ >>
+  fs []
+QED
 
-(* Seq case:
-
- 1. Prove same_outcome is an equivalence relation.
- 2. Show that itree_evaluate for Seq is reduced to either c1 or c2 depending on the outcome of
- individual evaluation.
- 3. Done
-*)
+Triviality evaluate_fix_clock_res_eq:
+  ∀p. fix_clock s (evaluate (p,s)) = (SOME r,s') ⇒
+      ∃s''. evaluate (p,s) = (SOME r,s'')
+Proof
+  rw [] >>
+  Cases_on ‘evaluate (p,s)’ >>
+  Cases_on ‘q’ >>
+  fs [panSemTheory.fix_clock_def]
+QED
 
 (* Evaluate correspondence *)
 (* Proves partial soundness: if a computation terminates,
@@ -237,10 +252,51 @@ Proof
           rw [Once LUNFOLD]
           ))
   (* Seq *)
-  >- (fs [panSemTheory.evaluate_def] >>
-      Cases_on ‘evaluate (c1,s)’ >>
-      Cases_on ‘q’
-                >- (fs [])
+  >- (imp_res_tac evaluate_seq_cases
+      >- (imp_res_tac evaluate_fix_clock_res_eq >>
+          fs [] >>
+          imp_res_tac same_outcome_seq1))
+  (* TODO: recInduct appears to be broken as it introduces the assum: evaluate (c1,s) = (SOME r,s') when
+   the definition for evaluate (Seq c1 c2,s) is based exclusively on fix_clock s ()*)
+
+  )
+
+(* Notes:
+
+ Case analysis for seq subgoal
+      1. evaluate (c1,s) = (SOME r,s')
+        a. if r = TimeOut, then use a lemma that evaluate (Seq...,s) = (SOME r,s') ∧ r ≠ TimeOut ⇒ evaluation of neither program individually can timeout.
+        b. if r ≠ TimeOut, then we get that itree_evaluate c1 s has outcome (SOME r,s') by same_outcome_seq1 thm.
+      2. evaluate (c1,s) = (NONE,s'')
+        a. this gives us the second part of assumption 1 which says if evaluate (c2,s'') produces a SOME result, then our itree has the same result.
+        b. evaluate (c2,s'') = (SOME r,s') - where s' is the same state as in evaluate (Seq c1 c2,s)
+            i. if r = TimeOut, then use the lemma as above to show this is a contradiction.
+            ii. if r ≠ TimeOut, then we have that itree_evaluate c2 s'' produces the same result as evaluate; namely, (SOME r,s')
+                a. need to ensure this s' is the free variable, i.e. the same state as in evaluate (Seq c1 c2,s)
+        c. evaluate (c2,s'') = (NONE,ARB) - we don't care about the state in this case
+            i. we can show that if evaluate (Seq c1 c2,s) produces some result, then this situation cannot happen.
+
+Proof sketch:
+
+    1. establish a lemma that shows that:
+        evaluate (Seq c1 c2,s) = (SOME r,s') ⇒
+            evaluate (c1,s) = (SOME r,s') ∨ (evaluate (c1,s) = (NONE,s'') ∧ evaluate (c2,s'') = (SOME r,s'))
+    2. use the above lemma to decompose our goal into two subgoals, dependent on which evaluate returns a result.
+    3. for evaluate (c1,s) = (SOME r,s')
+        a. have a lemma that shows that the absence of TimeOut in a Seq result propagates into the individual programs, i.e.
+            evaluate (Seq c1 c2,s) = (SOME r,s') ∧ r ≠ TimeOut ⇒
+            (evaluate (c1,s) = (SOME r,ARB) ⇒ r ≠ TimeOut) ∧
+            (evaluate (c2,s) = (SOME r,ARB) ⇒ r ≠ TimeOut)
+        b. by 3a, we can only have that that r ≠ TimeOut and so we get by assum 1 that itree_evaluate c1 s has the same result: (SOME r,s') for r ≠ TimeOut
+            i. by same_outcome_seq1 we solve the goal.
+    4. for evaluate (c1,s) = (NONE,s'') ∧ evaluate (c2,s'') = (SOME r,s')
+       a. by the assum 0 we get the inner implication
+       b. by lemma of 3a we have that r ≠ TimeOut and so we can derive that itree_evaluate c2 s'' has the same outcome as evaluate: (SOME r,s')
+       c. by same_outcome_seq2 we solve the goal.
+
+*)
+
+(* ----------------------------------- *)
 
 
 ASM_CASES_TAC “∀s'. evaluate (c1,s) = (SOME r,s')”
