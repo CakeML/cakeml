@@ -472,8 +472,8 @@ val res = translate def;
 val _ = translate (valid_immediate_def |> SIMP_RULE bool_ss
 [IN_INSERT,NOT_IN_EMPTY]|> econv)
 
-Theorem arm8_config_v_thm = translate (arm8_config_def |> SIMP_RULE bool_ss
-[IN_INSERT,NOT_IN_EMPTY]|> econv)
+Theorem arm8_config_v_thm[allow_rebind] =
+  translate (arm8_config_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]|> econv)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

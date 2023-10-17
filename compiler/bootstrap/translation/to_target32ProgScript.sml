@@ -295,7 +295,7 @@ val monadic_enc32_enc_sec_hash_32_ls_side_def = Q.prove(`
   simp[Once (fetch "-" "monadic_enc32_enc_sec_hash_32_ls_side_def")]>>
   metis_tac[monadic_enc32_enc_line_hash_32_ls_side_def]);
 
-Theorem monadic_enc32_enc_secs_32_side_def = Q.prove(`
+Theorem monadic_enc32_enc_secs_32_side_def[allow_rebind] = Q.prove(`
   monadic_enc32_enc_secs_32_side a b c ⇔ T`,
   EVAL_TAC>>
   rw[]>>
