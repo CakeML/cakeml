@@ -42,6 +42,7 @@ Definition state_rel_def:
   state_rel s t <=>
     t.memory = s.memory ∧
     t.mdomain = s.mdomain ∧
+    t.sh_mdomain = s.sh_mdomain ∧
     t.clock = s.clock ∧
     t.be = s.be ∧
     t.ffi = s.ffi ∧
@@ -51,11 +52,12 @@ Definition state_rel_def:
 End
 
 val goal =
-  ``λ(prog, s). ∀res s1 t ctxt retv l.
+  ``λ(prog:α loopLang$prog, s). ∀res s1 t ctxt retv l.
       evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
       state_rel s t ∧ locals_rel ctxt s.locals t.locals ∧
       ALOOKUP (fmap_to_alist t.store) CurrHeap = SOME (Word s.base_addr) ∧
       lookup 0 t.locals = SOME retv ∧ no_Loops prog ∧
+      good_dimindex(:'a) ∧
       ~(isWord retv) ∧
       domain (acc_vars prog LN) ⊆ domain ctxt ⇒
       ∃t1 res1.
@@ -466,7 +468,8 @@ Proof
    qpat_x_assum ‘_ ⊆ domain ctxt’ mp_tac >>
    fs [no_Loops_def, no_Loop_def, every_prog_def] >>
    fs [loopLangTheory.acc_vars_def] >>
-   once_rewrite_tac [acc_vars_acc] >> fs []) >>
+   once_rewrite_tac [acc_vars_acc] >> fs []
+   ) >>
   fs [] >> strip_tac >> fs [] >>
   Cases_on ‘res’ >> fs [] >>
   Cases_on ‘x’ >> fs []
@@ -573,87 +576,44 @@ Proof
   rw [FLOOKUP_UPDATE]
 QED
 
+Theorem acc_vars_acc'[local] =
+        acc_vars_acc |> CONV_RULE SWAP_FORALL_CONV |> SPEC “acc_vars q LN”;
+
 Theorem compile_If:
   ^(get_goal "loopLang$If")
 Proof
   rpt strip_tac >>
+  ‘no_Loops c1 ∧ no_Loops c2’ by (gvs[no_Loops_def,no_Loop_def,every_prog_def]) >>
   fs [loopSemTheory.evaluate_def, comp_def] >>
-  fs [CaseEq "option", CaseEq "word_loc"] >>
-  rveq >> fs [] >>
-  pairarg_tac >> fs [] >>
-  pairarg_tac >> fs [] >>
-  fs [evaluate_def] >>
+  rpt(pairarg_tac >> simp[]) >>
   fs [find_var_def, get_var_def] >>
   imp_res_tac locals_rel_intro >> fs [] >>
-  cases_on ‘ri’ >>
-  fs [loopSemTheory.get_var_imm_def] >>
-  fs [find_reg_imm_def, get_var_imm_def] >>
-  fs [find_var_def, get_var_def] >>
-  imp_res_tac locals_rel_intro >> fs [] >> rveq >>
-  pairarg_tac >> fs [] >>
-  rename [‘word_cmp cmp x cy’] >> (
-  cases_on ‘word_cmp cmp x cy’ >> fs [] >>
-  rename [‘cut_res live_out (evaluate (cc,s)) = _’] >>
-  qpat_x_assum ‘comp _ cc _ = _’ mp_tac >>
-  qmatch_goalsub_rename_tac ‘comp _ cc cl = _’ >>
-  strip_tac >> (
-  cases_on ‘evaluate (cc,s)’ >>
-  cases_on ‘q’ >> TRY (cases_on ‘x'’) >>
-  fs [loopSemTheory.cut_res_def,
-      loopSemTheory.cut_state_def] >> rveq >> fs [] >>
-  TRY (
-  last_x_assum drule >>
-  disch_then (qspecl_then [‘ctxt’, ‘retv’, ‘cl’] mp_tac) >>
-  fs [] >>
-  impl_tac
-  >- (
-   fs [loopLangTheory.acc_vars_def, no_Loops_def, no_Loop_def,
-       every_prog_def] >>
-   qpat_x_assum ‘_ ⊆ domain ctxt’ mp_tac >>
-   once_rewrite_tac [acc_vars_acc] >>
-   fs []) >>
-  fs [] >> strip_tac >>
-  fs [state_rel_def, flush_state_def, loopSemTheory.dec_clock_def,
-      dec_clock_def] >> NO_TAC)
-  >- (
-   cases_on ‘domain live_out ⊆ domain r.locals’ >> fs [] >>
-   cases_on ‘r.clock = 0’ >> fs [] >> rveq >> fs [] >> (
-   last_x_assum drule >>
-   disch_then (qspecl_then [‘ctxt’, ‘retv’, ‘cl’] mp_tac) >>
-   fs [] >>
-   impl_tac
-   >- (
-    fs [loopLangTheory.acc_vars_def, no_Loops_def, no_Loop_def,
-        every_prog_def] >>
-    qpat_x_assum ‘_ ⊆ domain ctxt’ mp_tac >>
-    once_rewrite_tac [acc_vars_acc] >>
-    fs []) >>
-   fs [] >> strip_tac >>
-   fs [state_rel_def, flush_state_def, loopSemTheory.dec_clock_def,
-       dec_clock_def] >>
-   TRY (
-   fs [locals_rel_def] >> rw [] >>
-   fs [lookup_inter, CaseEq "option"])))
-  >- (
-   last_x_assum drule >>
-   disch_then (qspecl_then [‘ctxt’, ‘retv’, ‘cl’] mp_tac) >>
-   fs [] >>
-   impl_tac
-   >- (
-    fs [loopLangTheory.acc_vars_def, no_Loops_def, no_Loop_def,
-        every_prog_def] >>
-    qpat_x_assum ‘_ ⊆ domain ctxt’ mp_tac >>
-    once_rewrite_tac [acc_vars_acc] >>
-    fs []) >>
-   fs [] >> strip_tac >>
-   cases_on ‘res' = SOME Error’ >>
-   fs [] >> rw [] >> fs []) >>
-  last_x_assum (qspecl_then [‘t’, ‘ctxt’, ‘retv’] mp_tac) >>
-  fs [] >> CCONTR_TAC >> fs [] >>
-  fs [no_Loops_def, no_Loop_def, loopLangTheory.acc_vars_def, every_prog_def] >>
-  TRY (metis_tac []) >>
-  qpat_x_assum ‘_ ⊆ domain ctxt’ mp_tac >>
-  simp [Once acc_vars_acc]))
+  gvs[AllCaseEqs(),
+      DefnBase.one_line_ify NONE loopSemTheory.cut_res_def,
+      DefnBase.one_line_ify NONE cut_state_def,
+      loopLangTheory.acc_vars_def,
+      acc_vars_acc'
+      ] >>
+  first_assum $ drule_then strip_assume_tac >>
+  gvs[AllCaseEqs(),
+      DefnBase.one_line_ify NONE loopSemTheory.get_var_imm_def] >>
+  first_assum $ drule_then strip_assume_tac >>
+  simp[evaluate_def,get_var_def,find_reg_imm_def,get_var_imm_def,find_var_def] >>
+  rw[] >> fs[] >>
+  last_x_assum drule >> rpt(disch_then drule) >>
+  rename1 ‘comp ctxt cv’ >>
+  rename1 ‘comp ctxt cv the_l’ >>
+  disch_then $ qspec_then ‘the_l’ strip_assume_tac >>
+  gvs[] >>
+  (* the every_case_tac replaces a deeply nested TRY block, so hopefully it's
+     a forgivable sin *)
+  every_case_tac >> gvs[] >>
+  gvs[state_rel_def,flush_state_def,
+      AllCaseEqs(),
+      DefnBase.one_line_ify NONE loopSemTheory.cut_state_def,
+      loopSemTheory.dec_clock_def,wordSemTheory.dec_clock_def
+     ] >>
+  gvs[locals_rel_def,lookup_inter_alt]
 QED
 
 Theorem compile_Call:
@@ -726,7 +686,8 @@ Proof
     >> qmatch_goalsub_abbrev_tac ‘wordSem$evaluate (_,tt)’
     >> first_x_assum (qspecl_then [‘tt’,‘ctxt1’,‘retv’,‘l1’] mp_tac)
     >> impl_tac
-    >- (fs [Abbr‘tt’] >> fs [state_rel_def,loopSemTheory.dec_clock_def])
+    >- (fs [Abbr‘tt’] >>
+        fs [state_rel_def,loopSemTheory.dec_clock_def])
     >> strip_tac >> fs []
     >> Cases_on ‘x’ >> fs [] >> rveq >> fs []
     >- fs [Abbr‘tt’]
@@ -958,6 +919,7 @@ Proof
   rpt strip_tac >>
   fs [loopSemTheory.evaluate_def,
       comp_def, evaluate_def] >>
+  reverse IF_CASES_TAC >- gvs[] >>
   fs [CaseEq "option", CaseEq "word_loc"] >>
   rveq >> fs [] >>
   fs [find_var_def, get_var_def] >>
@@ -997,6 +959,49 @@ Proof
   gvs[INJ_DEF,domain_lookup,PULL_EXISTS,find_var_def]
 QED
 
+Theorem TAKE_1_word_to_bytes:
+  good_dimindex(:'a) ⇒ TAKE 1 (word_to_bytes (w:'a word) F) = [get_byte 0w w F]
+Proof
+  rw[word_to_bytes_def,good_dimindex_def] >> rw[word_to_bytes_aux_compute]
+QED
+
+Theorem compile_ShMem:
+  ^(get_goal "loopLang$ShMem")
+Proof
+  rpt strip_tac >>
+  gvs [loopSemTheory.evaluate_def,comp_def,evaluate_def,
+       DefnBase.one_line_ify NONE loopSemTheory.sh_mem_op_def,
+       AllCaseEqs(),PULL_EXISTS,
+       loopSemTheory.sh_mem_load_def,
+       loopSemTheory.sh_mem_store_def,
+       loopLangTheory.acc_vars_def,
+       domain_lookup
+      ] >>
+  imp_res_tac comp_exp_preserves_eval >>
+  gvs[DefnBase.one_line_ify NONE wordSemTheory.share_inst_def,
+      PULL_EXISTS,
+      sh_mem_load_def,
+      sh_mem_load_byte_def,
+      sh_mem_store_def,
+      sh_mem_store_byte_def,
+      sh_mem_set_var_def,
+      find_var_def,
+      state_rel_def,
+      set_var_def,
+      loopSemTheory.set_var_def,
+      locals_rel_def,
+      lookup_insert,
+      get_var_def
+     ] >>
+  rw[] >>
+  gvs[flush_state_def,loopSemTheory.call_env_def] >>
+  res_tac >>
+  rw[] >>
+  gvs[INJ_DEF,domain_lookup, SF DNF_ss, PULL_EXISTS,find_var_def,
+      TAKE_1_word_to_bytes
+     ]
+QED
+
 Theorem compile_correct:
   ^(compile_correct_tm())
 Proof
@@ -1004,7 +1009,8 @@ Proof
   >> EVERY (map strip_assume_tac [compile_Skip, compile_Raise,
        compile_Mark, compile_Return, compile_Assign, compile_Store,
        compile_SetGlobal, compile_Call, compile_Seq, compile_If,
-       compile_FFI, compile_Loop, compile_LoadByte, compile_Arith])
+       compile_FFI, compile_Loop, compile_LoadByte, compile_Arith,
+       compile_ShMem])
   >> asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
 
@@ -1046,10 +1052,10 @@ fun drule0 th =
   first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 
 Theorem state_rel_imp_semantics:
-  !s t start prog. state_rel s t ∧
-  isEmpty s.locals /\
+  !s t start. state_rel s t ∧
+  isEmpty s.locals /\ good_dimindex(:'a) ∧
   lookup 0 t.locals = SOME (Loc 1 0) (* for the returning code *) /\
-  (∃prog. lookup start s.code = SOME ([], prog)) /\
+  (∃(prog:'a loopLang$prog). lookup start s.code = SOME ([], prog)) /\
   semantics s start <> Fail ==>
   semantics t start = semantics s start
 Proof
@@ -1476,7 +1482,8 @@ Theorem fstate_rel_imp_semantics:
   s.code = fromAList loop_code ∧
   t.code = fromAList (loop_to_word$compile loop_code) ∧
   lookup 0 t.locals = SOME (Loc 1 0) (* for the returning code *) ∧
-  lookup start s.code = SOME ([], prog) ∧
+  lookup start s.code = SOME ([], (prog:'a loopLang$prog)) ∧
+  good_dimindex(:'a) ∧
   semantics s start <> Fail ==>
   semantics t start = semantics s start
 Proof
