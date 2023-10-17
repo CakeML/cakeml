@@ -369,7 +369,8 @@ Definition evaluate_def:
                     | res => res)
              | res => res)))) /\
   (evaluate (FFI ffi_index ptr1 len1 ptr2 len2 cutset,s) =
-    case (lookup len1 s.locals, lookup ptr1 s.locals, lookup len2 s.locals, lookup ptr2 s.locals, cut_state cutset s) of
+   if ffi_index ≠ "MappedRead" ∧ ffi_index ≠ "MappedWrite" then
+     (case (lookup len1 s.locals, lookup ptr1 s.locals, lookup len2 s.locals, lookup ptr2 s.locals, cut_state cutset s) of
     | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4),SOME s =>
        (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be),
                read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be))
@@ -383,6 +384,7 @@ Definition evaluate_def:
                                    ffi := new_ffi |>))
           | _ => (SOME Error,s))
     | res => (SOME Error,s))
+     else (SOME Error,s))
 Termination
   WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
                (\(xs,^s). (s.clock,xs)))`
