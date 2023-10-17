@@ -304,19 +304,24 @@ Theorem do_app_ffi_changed:
     vs = [Litv (StrLit conf); Loc lnum] ∧
     store_lookup lnum st = SOME (W8array ws) ∧
     s ≠ "" ∧
-    ffi.oracle s ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
-      Oracle_return ffi_st ws' ∧
+    ffi.oracle
+       (ExtCall s)
+       ffi.ffi_state
+       (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+       ws =
+    Oracle_return ffi_st ws' ∧
     LENGTH ws = LENGTH ws' ∧
     st' = LUPDATE (W8array ws') lnum st ∧
     ffi'.oracle = ffi.oracle ∧
     ffi'.ffi_state = ffi_st ∧
     ffi'.io_events =
       ffi.io_events ++
-        [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))]
+        [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+                  (ZIP (ws,ws'))]
 Proof
   simp[do_app_def] >> every_case_tac >> gvs[store_alloc_def, store_assign_def] >>
   strip_tac >> gvs[call_FFI_def] >>
-  every_case_tac >> gvs[]
+  every_case_tac >> gvs[combinTheory.o_DEF, IMPLODE_EXPLODE_I]
 QED
 
 Theorem do_app_not_timeout:
