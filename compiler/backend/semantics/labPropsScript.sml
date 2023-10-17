@@ -853,4 +853,18 @@ Proof
   \\ metis_tac[sec_label_ok_extract_labels]
 QED
 
+Definition no_install_def:
+  no_install code <=>
+  !p w bytes l.
+    asm_fetch_aux p code <>
+      SOME (LabAsm Install w bytes l)
+End
+
+Definition no_share_mem_inst_def:
+  no_share_mem_inst code <=>
+  !p op re a inst len.
+    asm_fetch_aux p code <>
+      SOME (Asm (ShareMem op re a) inst len)
+End
+
 val _ = export_theory();
