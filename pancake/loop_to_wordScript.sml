@@ -117,7 +117,9 @@ Definition comp_def:
    (comp ctxt (FFI f ptr1 len1 ptr2 len2 live) l =
       let live = mk_new_cutset ctxt live in
         (FFI f (find_var ctxt ptr1) (find_var ctxt len1)
-               (find_var ctxt ptr2) (find_var ctxt len2) live,l))
+               (find_var ctxt ptr2) (find_var ctxt len2) live,l)) ∧
+   (comp ctxt (ShMem memop n e) l =
+      (ShareInst memop (find_var ctxt n) (comp_exp ctxt e),l))
 End
 
 Definition make_ctxt_def:
