@@ -7,6 +7,8 @@ open preamble ml_monad_translator_interfaceLib
 
 val _ = new_theory "poly_array_sortProg"
 
+fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
+
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 (* TODO still some problems with type variables - if 'a not used below,
    some translations fail *)
@@ -277,14 +279,14 @@ QED
 
 *******************************************************************************)
 
-val scan_lower_def = mtDefine "scan_lower" `
+val scan_lower_def = allowing_rebind (mtDefine "scan_lower" `
   scan_lower (cmp : 'a -> 'a -> bool) pivot lb = do
     elem <- arr_sub lb;
     if cmp elem pivot then
       (scan_lower cmp pivot (lb + 1))
     else (return lb)
   od
-`
+`)
 (
   fs[fetch "-" "arr_sub_def"] >>
   fs[ml_monadBaseTheory.Marray_sub_def] >>
@@ -404,7 +406,7 @@ QED
 
 *******************************************************************************)
 
-val partition_helper_def = mtDefine "partition_helper" `
+val partition_helper_def = allowing_rebind (mtDefine "partition_helper" `
   partition_helper (cmp : 'a -> 'a -> bool) pivot lb ub =
     if ub ≤ lb then return ub else do
     new_lb <- scan_lower cmp pivot lb;
@@ -419,7 +421,7 @@ val partition_helper_def = mtDefine "partition_helper" `
     else
       (return new_ub)
   od
-`
+`)
 (
   WF_REL_TAC `measure ( λ (_,_,lb,ub,_) . ub - lb)` >>
   rw[] >>
@@ -758,7 +760,7 @@ QED
 
 *******************************************************************************)
 
-val quicksort_aux_def = mtDefine "quicksort_aux" `
+val quicksort_aux_def = allowing_rebind (mtDefine "quicksort_aux" `
   quicksort_aux cmp lower upper =
     if lower ≥ upper then return ()
     else do
@@ -770,7 +772,7 @@ val quicksort_aux_def = mtDefine "quicksort_aux" `
       od
       else return ()
     od
-`
+`)
 (
   WF_REL_TAC `measure (λ (_, lower, upper, _) . upper - lower)`
 )
@@ -1314,7 +1316,7 @@ val qsort_v_thm = qsort_v_thm |> DISCH_ALL |>
                     (qsort_v_precond |> SPEC_ALL |> UNDISCH_ALL)) |>
                   DISCH_ALL
 
-val _ = save_thm("qsort_v_thm", qsort_v_thm)
+val _ = save_thm("qsort_v_thm[allow_rebind]", qsort_v_thm)
 
 
 (*******************************************************************************

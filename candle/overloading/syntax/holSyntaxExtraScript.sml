@@ -12576,11 +12576,6 @@ Proof
 QED
 
 (* properties of terminating relationships *)
-Theorem terminating_TC:
-  !R. terminating(TC R) ==> terminating R
-Proof
-  rw[terminating_def,inv_TC,WF_TC_EQN]
-QED
 
 Theorem terminating_TC:
   !R. terminating R ==> terminating(TC R)
@@ -14933,7 +14928,7 @@ Proof
   metis_tac[tyvars_in_allTypes'_lemma]
 QED
 
-Theorem extends_appends:
+Theorem extends_appends[allow_rebind]:
   !a b. a extends b ==> ?c. a = c ++ b
 Proof
   simp[extends_def] >>
@@ -14941,18 +14936,12 @@ Proof
   rw[] >> qexists_tac `upd::c` >> rw[]
 QED
 
-Theorem init_ctxt_extends:
+Theorem init_ctxt_extends[allow_rebind]:
   init_ctxt extends []
 Proof
   fs[extends_def,init_ctxt_def] >>
   rpt(CHANGED_TAC(simp[Once RTC_CASES1])) >>
   fs[updates_cases,type_ok_def,FLOOKUP_UPDATE]
-QED
-
-Theorem is_std_sig_init:
-  is_std_sig(sigof init_ctxt)
-Proof
-  rw[init_ctxt_def,is_std_sig_def,FLOOKUP_UPDATE]
 QED
 
 Theorem extends_DROP:
