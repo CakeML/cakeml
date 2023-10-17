@@ -898,7 +898,7 @@ QED
 
 Theorem call_FFI_return_unchanged:
   call_FFI ffi s conf bytes = FFI_return ffi bytes' <=>
-  (s = "" /\ bytes' = bytes)
+  (s = ExtCall "" /\ bytes' = bytes)
 Proof
   simp [ffiTheory.call_FFI_def]
   \\ every_case_tac
@@ -915,7 +915,8 @@ Proof
   disch_then (strip_assume_tac o REWRITE_RULE [do_app_cases])
   \\ rw [do_app_def] \\ rveq \\ fs []
   \\ every_case_tac \\ rveq \\ fs [] \\ rveq \\ fs []
-  \\ fs [call_FFI_return_unchanged, Q.SPECL [`x`, `[]`] ffiTheory.call_FFI_def]
+  \\ fs [call_FFI_return_unchanged,
+         Q.SPECL [`x`, `ExtCall ""`] ffiTheory.call_FFI_def]
   \\ rveq \\ fs []
   \\ fs [store_assign_def, store_lookup_def]
   \\ rfs [store_v_same_type_def]
