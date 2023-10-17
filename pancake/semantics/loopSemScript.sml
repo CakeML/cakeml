@@ -20,6 +20,7 @@ Datatype:
      ; globals : 5 word  |-> 'a word_loc
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
+     ; sh_mdomain : ('a word) set
      ; clock   : num
      ; code    : (num list # ('a loopLang$prog)) num_map
      ; be      : bool
@@ -195,6 +196,63 @@ Definition cut_res_def:
                   else (res,dec_clock s)
 End
 
+Definition sh_mem_load_def:
+  sh_mem_load v (addr:'a word) nb ^s =
+  if nb = 0 then
+    (if addr IN s.sh_mdomain then
+       (case call_FFI s.ffi "MappedRead" [n2w nb] (word_to_bytes addr F) of
+          FFI_final outcome => (SOME (FinalFFI outcome), call_env [] s)
+        | FFI_return new_ffi new_bytes =>
+            (case lookup v s.locals of
+                 SOME _ =>
+                   (NONE, (set_var v (Word (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)
+             | _ => (SOME Error,s)))
+     else (SOME Error, s))
+  else
+    (if (byte_align addr) IN s.sh_mdomain then
+       (case call_FFI s.ffi "MappedRead" [n2w nb] (word_to_bytes addr F) of
+          FFI_final outcome => (SOME (FinalFFI outcome), call_env [] s)
+        | FFI_return new_ffi new_bytes =>
+            (case lookup v s.locals of
+               SOME _ =>
+                 (NONE, (set_var v (Word (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)
+             | _ => (SOME Error, s)))
+     else (SOME Error, s))
+End
+
+Definition sh_mem_store_def:
+  sh_mem_store v (addr:'a word) nb ^s =
+  case lookup v s.locals of
+    SOME (Word w) =>
+      (if nb = 0 then
+         (if addr IN s.sh_mdomain then
+            (case call_FFI s.ffi "MappedWrite" [n2w nb]
+                           (word_to_bytes w F ++ word_to_bytes addr F) of
+               FFI_final outcome => (SOME (FinalFFI outcome), call_env [] s)
+             | FFI_return new_ffi new_bytes =>
+                 (NONE, s with ffi := new_ffi))
+          else (SOME Error, s))
+       else
+         (if (byte_align addr) IN s.sh_mdomain then
+            (case call_FFI s.ffi "MappedWrite" [n2w nb]
+                           (TAKE nb (word_to_bytes w F)
+                            ++ word_to_bytes addr F) of
+               FFI_final outcome => (SOME (FinalFFI outcome), call_env [] s)
+             | FFI_return new_ffi new_bytes =>
+                 (NONE, s with ffi := new_ffi))
+          else (SOME Error, s)))
+  | _ => (SOME Error, s)
+End
+
+Definition sh_mem_op_def:
+  (sh_mem_op Load r (ad:'a word) (s:('a,'ffi) loopSem$state) = sh_mem_load r ad 0 s) ∧
+  (sh_mem_op Store r ad s = sh_mem_store r ad 0 s) ∧
+  (sh_mem_op Load8 r ad s = sh_mem_load r ad 1 s) ∧
+  (sh_mem_op Store8 r ad s = sh_mem_store r ad 1 s)(* ∧
+  (sh_mem_op Load32 r ad s = sh_mem_load r ad s 4) ∧
+  (sh_mem_op Store32 r ad s = sh_mem_store r ad s 4)*)
+End
+
 Definition evaluate_def:
   (evaluate (Skip:'a loopLang$prog,^s) = (NONE, s)) /\
   (evaluate (Fail:'a loopLang$prog,^s) = (SOME Error, s)) /\
@@ -260,6 +318,11 @@ Definition evaluate_def:
      case lookup n s.locals of
      | SOME v => (SOME (Result v),call_env [] s)
      | _ => (SOME Error,s)) /\
+  (evaluate (ShMem op v ad,s) =
+    case eval s ad of
+     | SOME (Word addr) =>
+         sh_mem_op op v addr s
+     | _ => (SOME Error, s)) /\
   (evaluate (Tick,s) =
      if s.clock = 0 then (SOME TimeOut,s with locals := LN)
      else (NONE,dec_clock s)) /\
@@ -355,7 +418,10 @@ Proof
          pair_case_eq,cut_res_def]
   \\ fs[DefnBase.one_line_ify NONE loop_arith_def,CaseEq "loop_arith",
        CaseEq "option", CaseEq "word_loc",set_var_def] \\ rveq \\ fs[]
-  \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ fs []
+  \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ fs []>>
+  TRY (Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def]>>
+       fs[ffiTheory.call_FFI_def]>>every_case_tac>>fs[]>>
+       rveq>>fs[set_var_def,call_env_def])
   \\ rename [‘cut_res _ xx’] \\ PairCases_on ‘xx’ \\ fs []
   \\ fs [cut_res_def]
   \\ every_case_tac \\ fs [] \\ rveq \\ fs [cut_state_def]
