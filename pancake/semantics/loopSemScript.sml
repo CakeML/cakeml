@@ -203,45 +203,38 @@ Definition sh_mem_load_def:
        (case call_FFI s.ffi "MappedRead" [n2w nb] (word_to_bytes addr F) of
           FFI_final outcome => (SOME (FinalFFI outcome), call_env [] s)
         | FFI_return new_ffi new_bytes =>
-            (case lookup v s.locals of
-                 SOME _ =>
-                   (NONE, (set_var v (Word (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)
-             | _ => (SOME Error,s)))
+            (NONE, (set_var v (Word (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi))
      else (SOME Error, s))
   else
     (if (byte_align addr) IN s.sh_mdomain then
        (case call_FFI s.ffi "MappedRead" [n2w nb] (word_to_bytes addr F) of
           FFI_final outcome => (SOME (FinalFFI outcome), call_env [] s)
         | FFI_return new_ffi new_bytes =>
-            (case lookup v s.locals of
-               SOME _ =>
-                 (NONE, (set_var v (Word (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)
-             | _ => (SOME Error, s)))
+            (NONE, (set_var v (Word (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)
+             | _ => (SOME Error, s))
      else (SOME Error, s))
 End
 
 Definition sh_mem_store_def:
   sh_mem_store v (addr:'a word) nb ^s =
-  case lookup v s.locals of
-    SOME (Word w) =>
-      (if nb = 0 then
-         (if addr IN s.sh_mdomain then
-            (case call_FFI s.ffi "MappedWrite" [n2w nb]
-                           (word_to_bytes w F ++ word_to_bytes addr F) of
-               FFI_final outcome => (SOME (FinalFFI outcome), call_env [] s)
-             | FFI_return new_ffi new_bytes =>
-                 (NONE, s with ffi := new_ffi))
-          else (SOME Error, s))
-       else
-         (if (byte_align addr) IN s.sh_mdomain then
-            (case call_FFI s.ffi "MappedWrite" [n2w nb]
-                           (TAKE nb (word_to_bytes w F)
-                            ++ word_to_bytes addr F) of
-               FFI_final outcome => (SOME (FinalFFI outcome), call_env [] s)
-             | FFI_return new_ffi new_bytes =>
-                 (NONE, s with ffi := new_ffi))
-          else (SOME Error, s)))
-  | _ => (SOME Error, s)
+  (if nb = 0 then
+     (if addr IN s.sh_mdomain then
+        (case call_FFI s.ffi "MappedWrite" [n2w nb]
+                       (word_to_bytes (theWord (THE (lookup v s.locals))) F
+                        ++ word_to_bytes addr F) of
+           FFI_final outcome => (SOME (FinalFFI outcome), call_env [] s)
+         | FFI_return new_ffi new_bytes =>
+             (NONE, s with ffi := new_ffi))
+      else (SOME Error, s))
+   else
+     (if (byte_align addr) IN s.sh_mdomain then
+        (case call_FFI s.ffi "MappedWrite" [n2w nb]
+                       (TAKE nb (word_to_bytes (theWord (THE (lookup v s.locals))) F)
+                        ++ word_to_bytes addr F) of
+           FFI_final outcome => (SOME (FinalFFI outcome), call_env [] s)
+         | FFI_return new_ffi new_bytes =>
+             (NONE, s with ffi := new_ffi))
+      else (SOME Error, s)))
 End
 
 Definition sh_mem_op_def:
