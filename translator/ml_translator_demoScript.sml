@@ -21,7 +21,7 @@ val res = translate qsort;
 (* --- all of the important lemmas about qsort --- *)
 
 (* the value of the qsort closure (qsort_v) behaves like qsort *)
-val qsort_v_thm = save_thm("qsort_v_thm",res);
+Theorem qsort_v_thm[allow_rebind] = res;
 
 val Decls_thm =
   get_ml_prog_state ()

@@ -284,15 +284,15 @@ val test_def = Define`test ids = D (F ids.f) (V ids.v)`;
 val res = translate test_def;
 
 (* Test floating-point support *)
-val test_def = Define `test f = fp64_add roundTiesToEven f f`
+val test1_def = Define `test1 f = fp64_add roundTiesToEven f f`
 
-val res = translate test_def;
+val res = translate test1_def;
 
 (* FMA: *)
 
-val test_def = Define `test f1 f2 f3 = (fp64_mul_add roundTiesToEven) f1 f2 f3`
+val test2_def = Define `test2 f1 f2 f3 = (fp64_mul_add roundTiesToEven) f1 f2 f3`
 
-val res = translate test_def;
+val res = translate test2_def;
 
 (* tricky datatype *)
 
@@ -311,17 +311,17 @@ val _ = register_type ``:tt``;
 
 (* test no_ind again *)
 
-val test_def = xDefine "test" `test x = (case x of
+val test3_def = xDefine "test3" `test3 x = (case x of
   | A1 => [()]
-  | B1 x => test x ++ [()]
+  | B1 x => test3 x ++ [()]
   | C1 NONE => []
-  | C1 (SOME x) => test x ++ REVERSE (test x)
+  | C1 (SOME x) => test3 x ++ REVERSE (test3 x)
   | D1 tts => (case tts of [] => [(); ()]
-        | (tt :: tts) => test (D1 tts) ++ test tt)
-  | E1 (x, y) => REVERSE (test x) ++ test y)`
+        | (tt :: tts) => test3 (D1 tts) ++ test3 tt)
+  | E1 (x, y) => REVERSE (test3 x) ++ test3 y)`
 ;
 
-val r = translate_no_ind test_def;
+val r = translate_no_ind test3_def;
 
 (* registering types inside modules *)
 
