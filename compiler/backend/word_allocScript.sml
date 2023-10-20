@@ -408,7 +408,15 @@ val ssa_cc_trans_def = Define`
             (Seq stack_mov (Seq move_args
             (Call (SOME(2,stack_set,cons_ret_handler,l1,l2))
                dest conv_args (SOME(2,cons_exc_handler,l1',l2'))))) in
-        (prog,ssa_fin,na_fin)))`
+        (prog,ssa_fin,na_fin))) /\
+  (ssa_cc_trans (ShareInst op v exp) ssa na =
+    let exp' = ssa_cc_trans_exp ssa exp in
+      if op IN {Store;Store8}
+      then
+        (ShareInst op (option_lookup ssa v) exp',ssa,na)
+      else
+        let (v',ssa',na') = next_var_rename v ssa na in
+          (ShareInst op v' exp',ssa',na'))`
 
 (*Recursively applying colours to a program*)
 
@@ -500,6 +508,7 @@ val apply_colour_def = Define `
   (apply_colour f Tick = Tick) ∧
   (apply_colour f (Set n exp) = Set n (apply_colour_exp f exp)) ∧
   (apply_colour f (OpCurrHeap b n1 n2) = OpCurrHeap b (f n1) (f n2)) ∧
+  (apply_colour f (ShareInst op v exp) = ShareInst op (f v) (apply_colour_exp f exp)) ∧
   (apply_colour f p = p )`
 
 val _ = export_rewrites ["apply_nummap_key_def","apply_colour_exp_def"
@@ -644,6 +653,11 @@ val get_live_def = Define`
   (get_live (LocValue r l1) live = delete r live) ∧
   (get_live (Set n exp) live = union (get_live_exp exp) live) ∧
   (get_live (OpCurrHeap b n1 n2) live = insert n2 () (delete n1 live)) ∧
+  (get_live (ShareInst mop v exp) live =
+    let sub = get_live_exp exp in
+      if mop IN {Store;Store8}
+      then union sub (insert v () live)
+      else union sub (delete v live)) ∧
   (*Cut-set must be live, args input must be live
     For tail calls, there shouldn't be a liveset since control flow will
     never return into the same instance
@@ -749,6 +763,9 @@ val remove_dead_def = Define`
       | SOME(v',prog,l1,l2) =>
         SOME(v',FST (remove_dead prog live),l1,l2)) in
     (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args h,live_set)) ∧
+  (* we should not remove the ShareInst Load instructions.
+  * It produces a ffi event even if the variable is not in
+  * the live set *)
   (remove_dead prog live = (prog,get_live prog live))`
 
 (*Single step immediate writes by a prog*)
@@ -761,6 +778,8 @@ val get_writes_def = Define`
   (get_writes (Install r1 _ _ _ _) = insert r1 () LN) ∧
   (get_writes (OpCurrHeap b r1 _) = insert r1 () LN) ∧
   (get_writes (StoreConsts a b c d _) = insert a () (insert b () (insert c () (insert d () LN)))) ∧
+  (get_writes (ShareInst Load v _) = insert v () LN) ∧
+  (get_writes (ShareInst Load8 v _) = insert v () LN) ∧
   (get_writes prog = LN)`
 
 Theorem get_writes_pmatch:
@@ -775,6 +794,8 @@ Theorem get_writes_pmatch:
     | Install r1 _ _ _ _ => insert r1 () LN
     | OpCurrHeap b r1 _ => insert r1 () LN
     | StoreConsts a b c d _ => insert a () (insert b () (insert c () (insert d () LN)))
+    | ShareInst Load v _ => insert v () LN
+    | ShareInst Load8 v _ => insert v () LN
     | prog => LN
 Proof
   rpt strip_tac
@@ -896,6 +917,9 @@ val get_clash_tree_def = Define`
   (get_clash_tree (Set n exp) = Delta [] (get_reads_exp exp)) ∧
   (get_clash_tree (OpCurrHeap b dst src) = Delta [dst] [src]) ∧
   (get_clash_tree (StoreConsts a b c d ws) = Delta [a;b;c;d] [c;d]) ∧
+  (get_clash_tree (ShareInst op v exp) = if op IN {Store;Store8}
+    then Delta [] (v::get_reads_exp exp)
+    else Delta [v] $ get_reads_exp exp) ∧
   (get_clash_tree (Call ret dest args h) =
     let args_set = numset_list_insert args LN in
     dtcase ret of
@@ -1139,6 +1163,10 @@ val get_heu_def = Define `
     | SOME (_,e3,_,_) =>
       let (lr3,calls3) = get_heu fc e3 (lr,calls) in
       (heu_max_all lr2 lr3, heu_merge_call calls2 calls3)) ∧
+  (get_heu fs (ShareInst Load r _) (lr,calls) = (add1_lhs_mem r lr,calls)) ∧
+  (get_heu fs (ShareInst Load8 r _) (lr,calls) = (add1_lhs_mem r lr,calls)) ∧
+  (get_heu fs (ShareInst Store r _) (lr,calls) = (add1_rhs_mem r lr,calls)) ∧
+  (get_heu fs (ShareInst Store8 r _) (lr,calls) = (add1_rhs_mem r lr,calls)) ∧
   (* The remaining ones are exps, or otherwise unimportant from the
   pov of register allocation, since all their temps are already forced into
   specific registers
