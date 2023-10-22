@@ -467,11 +467,10 @@ Proof
 QED
 
 (* we save evaluate theorems without fix_clock *)
-(* val evaluate_ind = save_thm("evaluate_ind", *)
-(*   REWRITE_RULE [fix_clock_evaluate] evaluate_ind); *)
-
-(* val evaluate_def = save_thm("evaluate_def[compute]", *)
-(*   REWRITE_RULE [fix_clock_evaluate] evaluate_def); *)
+Theorem evaluate_ind[allow_rebind] =
+        REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
+Theorem evaluate_def[allow_rebind] =
+        REWRITE_RULE [fix_clock_evaluate] evaluate_def;
 
 (* observational semantics *)
 
@@ -501,7 +500,6 @@ Definition semantics_def:
            (IMAGE (λk. fromList
               (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
 End
-
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
 
