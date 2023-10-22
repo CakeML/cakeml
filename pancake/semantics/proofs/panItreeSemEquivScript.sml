@@ -127,24 +127,9 @@ Proof
   rw [fbs_eval_clock_and_ffi_eq]
 QED
 
-(* NB the choice of state (s) is irrelevant in the itree semantics and is provided only
- for allowing generalisation over every possible Pancake program (stored in state and accessed by an entrypoint). *)
-
-(* Theorem foo_lemma: *)
-(* Proof *)
-(* QED *)
-
-(* Theorem fbs_sem_div_eq_itree_lemma: *)
-(*   ∀s entry or. semantics (s with ffi := or) entry = Diverge l ⇒ *)
-(*                ioe_trace_bisim or (itree_oracle_beh or (itree_semantics s entry)) l *)
-(* Proof *)
-(*   rpt gen_tac >> *)
-(*   disch_tac >> *)
-(*   (* how to prove objects are in a coinductive relation? *) *)
-(* (* prove that the singleton set containing the pair of compared elements is a subset of the relation *) *)
-(* (* by showing it satisfies all the rules?*) *)
-(*   (* This is one approach taken in the Sangiorgi Coinduction book. *) *)
-(* QED *)
+(* NB the choice of state (s) is irrelevant in the itree semantics and is
+ provided only for allowing generalisation over every possible Pancake program
+ (stored in state and accessed by an entrypoint). *)
 
 Theorem itree_semantics_corres:
   same_behaviour or (itree_semantics s entry) (semantics (s with ffi := or) entry)
@@ -152,31 +137,9 @@ Proof
   cheat
 QED
 
-(* Cases_on ‘semantics (s with ffi := or) entry’ >> *)
-(* FBS divergence *)
-(* >- (rw [same_behaviour_def] >> *)
-(*     rw [Once LLIST_BISIMULATION] >> *)
-(*     qexists_tac ‘ioe_trace_bisim or’ >> *)
-(*     CONJ_TAC) *)
 
-(* Need to rethink how I use a coind relation to prove bisimulation of the two
-llists.
-LLIST_BISIMULATION notably contains all suffix lists that are also bisimilar.
-So the bisimulation we construct must have the same property.
-Which means if we want to prove that two llists under some oracle are in our bisim,
-we need to construct the relation closed backwards under the rules starting at our two llists.
-This relation will be one of the post-fixed points of ioe_trace_bisim and thus contained in ioe_trace_bisim.
-
-So how do we construct a relation that is closed-backwards under some rules starting at specific constants?
-Seems like we need a corecursive construction that generates this relation and that we can expand in our proof
-to show that the relation is a subset of ioe_trace_bisim.
-    *)
-    (* Need to construct a relation between or, itree_sem and sem, then *)
-(*                 convert the goal into the implication required of HO_MATCH_MP_TAC, *)
-(*                 then it will require that I prove my constructed relation has all the properties of *)
-(*                 the ioe_trace_rel relation. *)
-(*              *)
-
+(* Need to relate same_outcome to h_prog rules
+ possibly using some useful itree theorems; about binding, etc. *)
 Theorem same_outcome_seq1:
   same_outcome (ffis:(β ffi_state)) (itree_evaluate (c1:(α panLang$prog)) s) (SOME r,s':((α,β) state)) ⇒
   same_outcome ffis (itree_evaluate (Seq c1 c2) s) (SOME r,s')
@@ -185,8 +148,8 @@ Proof
 QED
 
 Theorem same_outcome_seq2:
-  same_outcome ffis (itree_evaluate c1 s) (NONE,s'':((α,β) state)) ∧
-  same_outcome ffis (itree_evaluate c2 s'') (r,s':((α,β) state)) ⇒
+  evaluate (c1,s) = (NONE,s'':((α,β) state)) ∧
+  same_outcome s''.ffi (itree_evaluate c2 s'') (r,s':((α,β) state)) ⇒
   same_outcome ffis (itree_evaluate (Seq c1 c2) s) (r,s')
 Proof
   cheat
@@ -194,24 +157,14 @@ QED
 
 Triviality evaluate_seq_cases:
   evaluate (Seq c1 c2,s) = (SOME r,s') ⇒
-  fix_clock s (evaluate (c1,s)) = (SOME r,s') ∨
-  ∃s''. (fix_clock s (evaluate (c1,s)) = (NONE,s'') ∧ evaluate (c2,s'') = (SOME r,s'))
+  evaluate (c1,s) = (SOME r,s') ∨
+  ∃s''. evaluate (c1,s) = (NONE,s'') ∧ evaluate (c2,s'') = (SOME r,s')
 Proof
   disch_tac >>
   fs [panSemTheory.evaluate_def] >>
   pairarg_tac >>
   Cases_on ‘res’ >>
   fs []
-QED
-
-Triviality evaluate_fix_clock_res_eq:
-  ∀p. fix_clock s (evaluate (p,s)) = (SOME r,s') ⇒
-      ∃s''. evaluate (p,s) = (SOME r,s'')
-Proof
-  rw [] >>
-  Cases_on ‘evaluate (p,s)’ >>
-  Cases_on ‘q’ >>
-  fs [panSemTheory.fix_clock_def]
 QED
 
 (* Evaluate correspondence *)
@@ -252,14 +205,10 @@ Proof
           rw [Once LUNFOLD]
           ))
   (* Seq *)
+  (* TODO: Consider using drule / drule all for this... *)
   >- (imp_res_tac evaluate_seq_cases
-      >- (imp_res_tac evaluate_fix_clock_res_eq >>
-          fs [] >>
-          imp_res_tac same_outcome_seq1))
-  (* TODO: recInduct appears to be broken as it introduces the assum: evaluate (c1,s) = (SOME r,s') when
-   the definition for evaluate (Seq c1 c2,s) is based exclusively on fix_clock s ()*)
-
-  )
+      >- (fs [] >> imp_res_tac same_outcome_seq1 >> fs [])
+      >- (fs [] >> imp_res_tac same_outcome_seq2 >> fs []))
 
 (* Notes:
 
@@ -293,24 +242,8 @@ Proof sketch:
        a. by the assum 0 we get the inner implication
        b. by lemma of 3a we have that r ≠ TimeOut and so we can derive that itree_evaluate c2 s'' has the same outcome as evaluate: (SOME r,s')
        c. by same_outcome_seq2 we solve the goal.
-
 *)
-
 (* ----------------------------------- *)
-
-
-ASM_CASES_TAC “∀s'. evaluate (c1,s) = (SOME r,s')”
-      (* First term resolves to value *)
-      >- (pop_assum (fn th => ASSUME_TAC $ SPEC “s':(α,β) state” th) >>
-          res_tac >> rw [same_outcome_seq1])
-      (* First term does not resolve to value *)
-      >- (ASM_CASES_TAC “evaluate (c1,s) = (NONE,s'')”
-          >- (ASM_CASES_TAC “evaluate (c2,s'') = (SOME r,s')”
-              (* Second term resolves to value *)
-              >- (fs [same_outcome_seq2] >>
-                 ))
-         )
-     )
   (* Call *)
   >- (fs [panSemTheory.evaluate_def] >>
       every_case_tac >>
