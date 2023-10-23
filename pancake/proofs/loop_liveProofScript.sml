@@ -199,6 +199,76 @@ Proof
   \\ fs [domain_insert,domain_union,EXTENSION] \\ metis_tac []
 QED
 
+Theorem vars_of_exp_mono:
+  ∀exp l. subspt l (vars_of_exp exp l)
+Proof
+  qsuff_tac ‘
+   (∀(exp:'a loopLang$exp) (l:num_set).
+      subspt l (vars_of_exp exp l)) ∧
+   (∀(exp:'a loopLang$exp list) (l:num_set).
+      subspt l (vars_of_exp_list exp l))’ THEN1 metis_tac []
+  \\ ho_match_mp_tac vars_of_exp_ind \\ rw []
+  \\ once_rewrite_tac [vars_of_exp_def] >>
+  fs [pan_commonPropsTheory.subspt_insert]>>
+  Cases_on ‘exp’ \\ fs []>>
+  irule subspt_trans>>
+  metis_tac[]
+QED
+
+Theorem eval_lemma':
+  ∀s exp w l.
+    eval s exp = SOME w ∧
+    subspt s.locals locals ⇒
+    eval (s with locals := locals) exp = SOME w
+Proof
+  ho_match_mp_tac eval_ind \\ rw [] \\ fs [eval_def]
+  >- fs[subspt_lookup]
+  >- (every_case_tac>>fs[mem_load_def])
+  >- (fs [CaseEq"option",CaseEq"word_loc"] \\ rveq
+      \\ goal_assum (first_assum o mp_then Any mp_tac)
+      \\ pop_assum mp_tac
+      \\ pop_assum kall_tac
+      \\ pop_assum mp_tac
+      \\ qid_spec_tac ‘ws’
+      \\ Induct_on ‘wexps’ \\ fs [] \\ rw []>>
+      fs[wordSemTheory.the_words_def]>>
+      every_case_tac>>fs[]
+      >- (first_x_assum $ qspec_then ‘h’ assume_tac>>fs[]>>
+          first_x_assum $ qspec_then ‘Word c’ assume_tac>>fs[])
+      >- (first_x_assum $ qspec_then ‘h’ assume_tac>>fs[]>>
+          first_x_assum $ qspec_then ‘Word c'’ assume_tac>>gvs[])>>
+      first_x_assum $ qspec_then ‘h’ assume_tac>>fs[]>>
+      first_x_assum $ qspec_then ‘Word c’ assume_tac>>fs[])>>
+  every_case_tac>>fs[]
+QED
+
+Theorem eval_lemma':
+  ∀s exp w l.
+    eval s exp = SOME w ∧
+    subspt s.locals locals ⇒
+    eval (s with locals := locals) exp = SOME w
+Proof
+  ho_match_mp_tac eval_ind \\ rw [] \\ fs [eval_def]
+  >- fs[subspt_lookup]
+  >- (every_case_tac>>fs[mem_load_def])
+  >- (fs [CaseEq"option",CaseEq"word_loc"] \\ rveq
+      \\ goal_assum (first_assum o mp_then Any mp_tac)
+      \\ pop_assum mp_tac
+      \\ pop_assum kall_tac
+      \\ pop_assum mp_tac
+      \\ qid_spec_tac ‘ws’
+      \\ Induct_on ‘wexps’ \\ fs [] \\ rw []>>
+      fs[wordSemTheory.the_words_def]>>
+      every_case_tac>>fs[]
+      >- (first_x_assum $ qspec_then ‘h’ assume_tac>>fs[]>>
+          first_x_assum $ qspec_then ‘Word c’ assume_tac>>fs[])
+      >- (first_x_assum $ qspec_then ‘h’ assume_tac>>fs[]>>
+          first_x_assum $ qspec_then ‘Word c'’ assume_tac>>gvs[])>>
+      first_x_assum $ qspec_then ‘h’ assume_tac>>fs[]>>
+      first_x_assum $ qspec_then ‘Word c’ assume_tac>>fs[])>>
+  every_case_tac>>fs[]
+QED
+
 Theorem eval_lemma:
   ∀s exp w l.
     eval s exp = SOME w ∧
@@ -347,7 +417,7 @@ Proof
       \\ pop_assum mp_tac \\ fs [] \\ metis_tac [])
     \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs [dec_clock_def]
     \\ fs [CaseEq"prod",CaseEq"option"] \\ rveq \\ fs []
-    \\ fs [CaseEq"result"] \\ rveq \\ fs [set_var_def]
+    \\ fs [CaseEq"loopSem$result"] \\ rveq \\ fs [set_var_def]
     \\ fs [state_component_equality]
     \\ fs [subspt_lookup,lookup_insert,lookup_inter_alt]
     \\ rw [] \\ fs [domain_inter,domain_union]
@@ -365,7 +435,7 @@ Proof
   \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
   \\ fs [dec_clock_def,CaseEq"prod",CaseEq"option"] \\ rveq \\ fs []
   \\ qpat_x_assum ‘∀x. _’ kall_tac
-  \\ fs [CaseEq"result"] \\ rveq \\ fs []
+  \\ fs [CaseEq"loopSem$result"] \\ rveq \\ fs []
   \\ rpt (fs [state_component_equality] \\ NO_TAC)
   \\ fs [set_var_def]
   THEN1
@@ -488,11 +558,49 @@ Proof
   rw[] >> gvs[]
 QED
 
+Theorem dom_vars_of_exp_in:
+  v ∈ domain l ⇒ v ∈ domain (vars_of_exp x l)
+Proof
+  qid_spec_tac ‘v’>>
+  simp[GSYM subspt_domain,GSYM SUBSET_DEF, vars_of_exp_mono]
+QED
+
+Theorem compile_ShMem:
+  ^(get_goal "loopLang$ShMem")
+Proof
+  rpt strip_tac >>
+  gvs[evaluate_def,shrink_def,CaseEq"option",CaseEq"word_loc"]>>
+  fs[PULL_EXISTS]>>
+  drule eval_lemma>>strip_tac>>
+  first_assum $ irule_at Any>>
+  cases_on ‘op’>>
+  fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,set_var_def,call_env_def]>>
+  fs[CaseEq"bool",CaseEq"option",CaseEq"ffi_result",CaseEq"word_loc"]>>
+  rveq>>fs[]>>
+  first_assum $ irule_at Any>>
+  qmatch_asmsub_abbrev_tac ‘lookup v s.locals = SOME X’>>
+  ‘lookup v locals = SOME X’ by
+    (fs[subspt_lookup,lookup_inter_alt]>>
+     first_assum $ irule>>fs[]>>
+     irule dom_vars_of_exp_in>>fs[])>>
+  fs[Abbr ‘X’]>>
+  TRY (irule_at Any EQ_REFL)>>
+  gvs[subspt_lookup,lookup_insert,lookup_inter_EQ]>>
+  rpt strip_tac>>
+  every_case_tac>>fs[]>>
+  first_x_assum $ irule_at Any>>fs[]>>
+  ‘∃y. lookup x (vars_of_exp ad (insert v () l0)) = SOME y’ by
+    (simp[GSYM domain_lookup]>>
+     irule dom_vars_of_exp_in>>
+     fs[domain_insert]>>fs[domain_lookup]>>
+     CCONTR_TAC>>Cases_on ‘lookup x l0’>>fs[])>>fs[]
+QED
+
 Theorem compile_correct:
   ^(compile_correct_tm())
 Proof
   match_mp_tac (the_ind_thm())
-  \\ EVERY (map strip_assume_tac [compile_Skip, compile_Continue,
+  \\ EVERY (map strip_assume_tac [compile_Skip, compile_Continue, compile_ShMem,
        compile_Mark, compile_Return, compile_Assign, compile_Store, compile_Arith,
        compile_Call, compile_Seq, compile_If, compile_FFI, compile_Loop])
   \\ asm_rewrite_tac [] \\ rw [] \\ rpt (pop_assum kall_tac)
