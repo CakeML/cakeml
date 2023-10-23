@@ -76,9 +76,6 @@ Termination
   fs [MEM_IMP_v_size]
 End
 
-Overload bytes_in_word = “byte$bytes_in_word”
-Overload word_to_bytes = “byte$word_to_bytes”
-
 Definition mem_load_byte_def:
   mem_load_byte m dm be w =
   case m (byte_align w) of
