@@ -931,6 +931,24 @@ Proof
   \\ res_tac \\ fs []
 QED
 
+Theorem compile_ShMem:
+  ^(get_goal "loopLang$ShMem")
+Proof
+  fs [syntax_ok_def,no_Loop_def,every_prog_def]
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
+  \\ rw [] \\ fs [comp_no_loop_def]
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
+  \\ imp_res_tac eval_lemma \\ fs []>>
+  cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,set_var_def,call_env_def]>>
+  fs [CaseEq"bool",CaseEq"option",CaseEq"word_loc",CaseEq"ffi_result",PULL_EXISTS]>>
+  rpt (CASE_TAC>>fs[])>>
+  rveq \\ gvs [state_rel_def]>>
+  irule_at Any EQ_REFL>>
+  rpt gen_tac>>strip_tac>>
+  res_tac>>
+  rfs[state_component_equality]
+QED
+
 Theorem compile_SetGlobal:
   ^(get_goal "loopLang$SetGlobal")
 Proof
@@ -973,7 +991,7 @@ Theorem compile_correct:
   ^(compile_correct_tm())
 Proof
   match_mp_tac (the_ind_thm())
-  \\ EVERY (map strip_assume_tac [compile_Skip, compile_Continue,
+  \\ EVERY (map strip_assume_tac [compile_Skip, compile_Continue, compile_ShMem,
        compile_Mark, compile_Return, compile_Assign, compile_Store,
        compile_SetGlobal, compile_Call, compile_Seq, compile_If,
        compile_FFI, compile_Loop,compile_Arith])
