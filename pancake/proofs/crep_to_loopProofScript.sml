@@ -35,6 +35,7 @@ val s = ``(s:('a,'ffi) crepSem$state)``
 Definition state_rel_def:
   state_rel (s:('a,'ffi) crepSem$state) (t:('a,'ffi) loopSem$state) <=>
    s.memaddrs = t.mdomain ∧
+   s.sh_memaddrs = t.sh_mdomain ∧
    s.clock = t.clock ∧
    s.be = t.be ∧
    s.ffi = t.ffi ∧
@@ -164,6 +165,7 @@ end
 Theorem state_rel_intro:
   state_rel ^s (t:('a,'ffi) loopSem$state) <=>
   s.memaddrs = t.mdomain ∧
+  s.sh_memaddrs = t.sh_mdomain ∧
   s.clock = t.clock ∧
   s.be = t.be ∧
   s.ffi = t.ffi ∧
@@ -1493,6 +1495,18 @@ Proof
    res_tac >> rfs [])
   >- (
    fs [compile_def, assigned_vars_def] >>
+   TOP_CASE_TAC >> fs [assigned_vars_def] >>
+   pairarg_tac >> fs [] >>
+   fs [assigned_vars_nested_seq_split] >>
+   drule compile_exp_out_rel >> strip_tac >>
+   fs [] >> rveq >>
+   drule not_mem_assigned_mem_gt_comp_exp >> strip_tac >>
+   fs [nested_seq_def, assigned_vars_def] >>
+   CCONTR_TAC >> fs [] >>
+   fs [ctxt_max_def] >>
+   res_tac >> rfs [])
+  >- (
+   fs [compile_def, assigned_vars_def] >>
    pairarg_tac >> fs [] >>
    fs [assigned_vars_def] >>
    conj_tac
@@ -1931,6 +1945,70 @@ Proof
   imp_res_tac mem_rel_intro >>
   drule eval_label_eq_state_contains_label >>
   rw [] >> res_tac >> fs []
+QED
+
+Theorem compile_ShMem:
+  ^(get_goal "compile _ _ (crepLang$ShMem _ _ _)")
+Proof
+  rw [] >>
+  fs [crepSemTheory.evaluate_def, evaluate_def,
+      compile_def,CaseEq"option",CaseEq"word_lab"] >> rveq >>
+  cases_on ‘FLOOKUP s.locals v’>>fs[]>>
+  pairarg_tac >> fs [] >>
+  TOP_CASE_TAC >> fs [] >-
+   (imp_res_tac locals_rel_intro >> fs [])>>
+  rename1 ‘ShMem _ xx _’>>
+  drule comp_exp_preserves_eval >>
+  rpt (disch_then $ drule_at (Pos hd))>>
+  fs [] >> strip_tac >> fs [] >>
+  qexists_tac ‘ck’ >>fs[]>>
+  drule evaluate_none_nested_seq_append >>
+  disch_then (qspec_then ‘[ShMem op xx le]’ assume_tac) >>
+  fs [] >> pop_assum kall_tac >>
+  fs [nested_seq_def, evaluate_def] >>
+  pairarg_tac>>fs[wlab_wloc_def,CaseEq"option"]>>
+  imp_res_tac locals_rel_intro>>
+  rfs[]>>fs[]>>
+  cases_on ‘op’>>
+  fs[crepSemTheory.sh_mem_op_def,
+     crepSemTheory.sh_mem_load_def,crepSemTheory.sh_mem_store_def,
+     sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
+     empty_locals_def,call_env_def,
+     CaseEq"option",CaseEq"bool",CaseEq"ffi_result"]>>
+  fs[wlab_wloc_def]>>
+  rveq>>fs[crepSemTheory.set_var_def,set_var_def]>>
+  fs [state_rel_def]>>
+  ‘wordSem$word_to_bytes = byte$word_to_bytes’ by cheat>>
+  gvs[]>>
+  TRY
+   (rename [‘call_FFI _ "MappedRead" _ _ = _’]>>
+    fs[locals_rel_def]>>rw[]>-
+     (imp_res_tac compile_exp_out_rel >>
+      rveq >>
+      drule cut_sets_union_domain_subset >>strip_tac>>
+      match_mp_tac SUBSET_TRANS >>
+      qexists_tac ‘domain (cut_sets l (nested_seq p))’ >>
+      fs [] >>
+      metis_tac [SUBSET_INSERT_RIGHT]) >>
+    fs[lookup_insert,FLOOKUP_UPDATE]>>
+    FULL_CASE_TAC>-gvs[wlab_wloc_def]>>
+    first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac>>
+    first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac>>
+    rfs[]>>
+    ‘n <> n'’ by
+      (CCONTR_TAC>>fs[distinct_vars_def]>>
+       first_x_assum $ qspecl_then [‘v’, ‘vname’, ‘n'’] assume_tac>>
+       gvs[])>>fs[])>>
+  (*write*)
+  fs[CaseEq"word_lab",CaseEq"word_loc",CaseEq"bool",
+     CaseEq"ffi_result"]>>
+  rveq>>fs[]>>gvs[wlab_wloc_def]>>
+  ‘subspt l l'’ by (
+    imp_res_tac compile_exp_out_rel >> fs [] >>
+    imp_res_tac comp_syn_impl_cut_sets_subspt >> fs [] >>
+    rveq >> metis_tac [subspt_trans]) >>
+  match_mp_tac locals_rel_cutset_prop >>
+  metis_tac []
 QED
 
 Theorem compile_Assign:
@@ -4090,7 +4168,7 @@ Theorem ncompile_correct:
 Proof
   match_mp_tac (the_ind_thm()) >>
   EVERY (map strip_assume_tac
-         [compile_Skip_Break_Continue, compile_Tick,
+         [compile_Skip_Break_Continue, compile_Tick, compile_ShMem,
           compile_Seq, compile_Return, compile_Raise,
           compile_Store, compile_StoreByte, compile_StoreGlob,
           compile_Assign, compile_Dec, compile_If, compile_FFI,
@@ -4481,7 +4559,7 @@ QED
 
 Theorem state_rel_imp_semantics:
   !s t crep_code start prog lc c. s.memaddrs = t.mdomain ∧
-  s.be = t.be ∧
+  s.be = t.be ∧ s.sh_memaddrs = t.sh_mdomain ∧
   s.ffi = t.ffi ∧ s.base_addr = t.base_addr ∧
   mem_rel (make_funcs crep_code) s.memory t.memory ∧
   globals_rel (make_funcs crep_code) s.globals t.globals ∧
