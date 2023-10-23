@@ -312,10 +312,17 @@ Definition evaluate_def:
      | SOME v => (SOME (Result v),call_env [] s)
      | _ => (SOME Error,s)) /\
   (evaluate (ShMem op v ad,s) =
-    case eval s ad of
-     | SOME (Word addr) =>
-         sh_mem_op op v addr s
-     | _ => (SOME Error, s)) /\
+   case eval s ad of
+   | SOME (Word addr) =>
+       (if is_load op then
+          (case lookup v s.locals of
+             SOME _ => sh_mem_op op v addr s
+           | _ => (SOME Error, s))
+        else
+          (case lookup v s.locals of
+             SOME (Word _) => sh_mem_op op v addr s
+           | _ => (SOME Error, s)))
+   | _ => (SOME Error, s)) /\
   (evaluate (Tick,s) =
      if s.clock = 0 then (SOME TimeOut,s with locals := LN)
      else (NONE,dec_clock s)) /\

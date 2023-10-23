@@ -177,11 +177,8 @@ Proof
     \\ fs [cut_res_def,CaseEq"option",CaseEq"bool",cut_state_def] \\ rveq \\ fs []
     \\ rw [] \\ fs [CaseEq"option",CaseEq"bool",CaseEq"prod",CaseEq"result"]
     \\ rveq \\ fs [])
-  \\ fs [CaseEq"prod",CaseEq"option"] \\ rveq \\ fs []
-  THEN1
-   (Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def]>>
-   every_case_tac>>fs[] \\ rveq \\ fs [])
-  THEN1
+  \\ fs [CaseEq"prod",CaseEq"option"] \\ rveq \\ fs [] >>
+  TRY
    (Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def]>>
    every_case_tac>>fs[] \\ rveq \\ fs [])
   THEN1
@@ -854,7 +851,7 @@ Proof
       call_env_def, dec_clock_def,
       sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
       DefnBase.one_line_ify NONE loop_arith_def] >> rveq >>
-  fs [state_component_equality]
+  gvs [state_component_equality]
 QED
 
 Theorem evaluate_nested_seq_comb_seq:
