@@ -34,6 +34,7 @@ Datatype:
      ; eshapes     : eid |-> shape
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
+     ; sh_memaddrs    : ('a word) set
      ; clock       : num
      ; be          : bool
      ; ffi         : 'ffi ffi_state
@@ -76,6 +77,7 @@ Termination
 End
 
 Overload bytes_in_word = “byte$bytes_in_word”
+Overload word_to_bytes = “byte$word_to_bytes”
 
 Definition mem_load_byte_def:
   mem_load_byte m dm be w =
@@ -294,6 +296,57 @@ Definition res_var_def:
   (res_var lc (n, SOME v) = lc |+ (n,v))
 End
 
+Definition sh_mem_load_def:
+  sh_mem_load v (addr:'a word) nb ^s =
+  if nb = 0 then
+    (if addr IN s.sh_memaddrs then
+       (case call_FFI s.ffi "MappedRead" [n2w nb] (word_to_bytes addr F) of
+          FFI_final outcome => (SOME (FinalFFI outcome), empty_locals s)
+        | FFI_return new_ffi new_bytes =>
+            (NONE, (set_var v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi))
+     else (SOME Error, s))
+  else
+    (if (byte_align addr) IN s.sh_memaddrs then
+       (case call_FFI s.ffi "MappedRead" [n2w nb] (word_to_bytes addr F) of
+          FFI_final outcome => (SOME (FinalFFI outcome), empty_locals s)
+        | FFI_return new_ffi new_bytes =>
+            (NONE, (set_var v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi))
+     else (SOME Error, s))
+End
+
+Definition sh_mem_store_def:
+  sh_mem_store v (addr:'a word) nb ^s =
+  case FLOOKUP s.locals v of
+    SOME (ValWord w) =>
+      (if nb = 0 then
+         (if addr IN s.sh_memaddrs then
+            (case call_FFI s.ffi "MappedWrite" [n2w nb]
+                           (word_to_bytes w F ++ word_to_bytes addr F) of
+               FFI_final outcome => (SOME (FinalFFI outcome), s)
+             | FFI_return new_ffi new_bytes =>
+                 (NONE, s with ffi := new_ffi))
+          else (SOME Error, s))
+       else
+         (if (byte_align addr) IN s.sh_memaddrs then
+            (case call_FFI s.ffi "MappedWrite" [n2w nb]
+                           (TAKE nb (word_to_bytes w F)
+                            ++ word_to_bytes addr F) of
+               FFI_final outcome => (SOME (FinalFFI outcome), s)
+             | FFI_return new_ffi new_bytes =>
+                 (NONE, s with ffi := new_ffi))
+          else (SOME Error, s)))
+  | _ => (SOME Error, s)
+End
+
+Definition sh_mem_op_def:
+  (sh_mem_op Load r (ad:'a word) (s:('a,'ffi) panSem$state) = sh_mem_load r ad 0 s) ∧
+  (sh_mem_op Store r ad s = sh_mem_store r ad 0 s) ∧
+  (sh_mem_op Load8 r ad s = sh_mem_load r ad 1 s) ∧
+  (sh_mem_op Store8 r ad s = sh_mem_store r ad 1 s)(* ∧
+  (sh_mem_op Load32 r ad s = sh_mem_load r ad s 4) ∧
+  (sh_mem_op Store32 r ad s = sh_mem_store r ad s 4)*)
+End
+
 Definition evaluate_def:
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
   (evaluate (Dec v e prog, s) =
@@ -322,6 +375,17 @@ Definition evaluate_def:
         (case mem_store_byte s.memory s.memaddrs s.be adr (w2w w) of
           | SOME m => (NONE, s with memory := m)
           | NONE => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
+  (evaluate (ShMem op v ad,s) =
+    case eval s ad of
+    | SOME (ValWord addr) =>
+        (if is_load op
+         then (case FLOOKUP s.locals v of
+                 SOME (Val _) => sh_mem_op op v addr s
+               | _ => (SOME Error, s))
+         else (case FLOOKUP s.locals v of
+                 SOME (ValWord _) => sh_mem_op op v addr s
+               | _ => (SOME Error, s)))
      | _ => (SOME Error, s)) /\
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
@@ -400,18 +464,20 @@ Definition evaluate_def:
          | _ => (SOME Error,s))
     | (_, _) => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
-    case (eval s ptr1, eval s len1, eval s ptr2, eval s len2) of
-    | SOME (ValWord sz1),SOME (ValWord ad1),SOME (ValWord sz2),SOME (ValWord ad2) =>
-       (case (read_bytearray sz1 (w2n ad1) (mem_load_byte s.memory s.memaddrs s.be),
-              read_bytearray sz2 (w2n ad2) (mem_load_byte s.memory s.memaddrs s.be)) of
+   if (explode ffi_index) ≠ "MappedRead" ∧ (explode ffi_index) ≠ "MappedWrite" then
+     (case (eval s ptr1, eval s len1, eval s ptr2, eval s len2) of
+      | SOME (ValWord sz1),SOME (ValWord ad1),SOME (ValWord sz2),SOME (ValWord ad2) =>
+        (case (read_bytearray sz1 (w2n ad1) (mem_load_byte s.memory s.memaddrs s.be),
+               read_bytearray sz2 (w2n ad2) (mem_load_byte s.memory s.memaddrs s.be)) of
          | SOME bytes,SOME bytes2 =>
-            (case call_FFI s.ffi (explode ffi_index) bytes bytes2 of
-              | FFI_final outcome => (SOME (FinalFFI outcome), empty_locals s)
-              | FFI_return new_ffi new_bytes =>
+           (case call_FFI s.ffi (explode ffi_index) bytes bytes2 of
+            | FFI_final outcome => (SOME (FinalFFI outcome), empty_locals s)
+            | FFI_return new_ffi new_bytes =>
                 let nmem = write_bytearray sz2 new_bytes s.memory s.memaddrs s.be in
-                  (NONE, s with <| memory := nmem; ffi := new_ffi |>))
+                 (NONE, s with <| memory := nmem; ffi := new_ffi |>))
          | _ => (SOME Error,s))
-       | res => (SOME Error,s))
+      | res => (SOME Error,s))
+   else (SOME Error, s))
 Termination
   wf_rel_tac `(inv_image (measure I LEX measure (prog_size (K 0)))
                (\(xs,^s). (s.clock,xs)))` >>
@@ -457,7 +523,9 @@ Proof
   imp_res_tac fix_clock_IMP_LESS_EQ >>
   imp_res_tac LESS_EQ_TRANS >> fs [] >> rfs [] >>
   ‘s.clock <= s.clock + 1’ by DECIDE_TAC >>
-  res_tac >> fs []
+  res_tac >> fs []>>
+  Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def]>>
+  every_case_tac>>fs[set_var_def,empty_locals_def]>>rveq>>fs[]
 QED
 
 Theorem fix_clock_evaluate:

@@ -576,6 +576,12 @@ Proof
   pairarg_tac >> fs [] >> rveq >> fs [] >>
   last_x_assum (qspec_then ‘ck’ mp_tac) >>
   fs []) >>
+  TRY (
+    rename [‘ShMem’] >>
+    Cases_on ‘op’>>
+    fs[evaluate_def, eval_upd_clock_eq]>>
+    fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
+       set_var_def,empty_locals_def, AllCaseEqs ()]>>rveq>>fs[]) >>
   fs [evaluate_def, eval_upd_clock_eq, AllCaseEqs () ,
       set_var_def, mem_store_def,
       dec_clock_def, empty_locals_def] >> rveq >>
@@ -881,6 +887,13 @@ Proof
     strip_tac >> gs [] >>
     imp_res_tac evaluate_clock_mono >>
     gs [dec_clock_def, state_component_equality]) >>
+  TRY (
+    rename [‘ShMem’] >>
+    Cases_on ‘op’>>
+    fs[evaluate_def, eval_upd_clock_eq]>>
+    fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
+       set_var_def,empty_locals_def, AllCaseEqs ()]>>rveq>>
+    gs [state_component_equality]) >>
   gs [evaluate_def, AllCaseEqs ()] >> rveq >>
   gs [eval_upd_clock_eq, state_component_equality, empty_locals_def, dec_clock_def]
 QED
@@ -940,6 +953,13 @@ Proof
   rename [‘Dec’] >>
   fs [evaluate_def, AllCaseEqs () ] >>
   pairarg_tac >> fs [] >> rveq >> fs []) >>
+  TRY (
+    rename [‘ShMem’] >>
+    Cases_on ‘op’>>
+    fs [evaluate_def, AllCaseEqs(),sh_mem_op_def,
+        sh_mem_store_def,sh_mem_load_def,
+        set_var_def,empty_locals_def,ffiTheory.call_FFI_def] >>
+    rveq >> fs []) >>
   fs [evaluate_def, eval_upd_clock_eq, AllCaseEqs () ,
       set_var_def, mem_store_def,
       dec_clock_def, empty_locals_def] >> rveq >>
@@ -1185,6 +1205,13 @@ Proof
   fs [evaluate_def, eval_upd_clock_eq,
       empty_locals_def] >>
   every_case_tac >> fs []) >>
+  TRY (
+    rename [‘ShMem’] >>
+    Cases_on ‘op’>>
+    fs [evaluate_def,sh_mem_op_def,
+        sh_mem_store_def,sh_mem_load_def,eval_upd_clock_eq,
+        set_var_def,empty_locals_def,ffiTheory.call_FFI_def] >>
+    rpt (FULL_CASE_TAC>>fs[]))>>
   fs [evaluate_def, eval_upd_clock_eq] >>
   every_case_tac >> fs [] >>
   fs [set_var_def, mem_store_def,
@@ -1315,7 +1342,9 @@ QED
 
 Theorem evaluate_invariants:
   ∀p t res st.
-    evaluate (p,t) = (res,st) ⇒ st.memaddrs = t.memaddrs ∧ st.be = t.be ∧ st.eshapes = t.eshapes ∧ st.base_addr = t.base_addr
+  evaluate (p,t) = (res,st) ⇒
+  st.memaddrs = t.memaddrs ∧ st.sh_memaddrs = t.sh_memaddrs ∧
+  st.be = t.be ∧ st.eshapes = t.eshapes ∧ st.base_addr = t.base_addr
 Proof
   Ho_Rewrite.PURE_REWRITE_TAC[FORALL_AND_THM,IMP_CONJ_THM] >> rpt conj_tac >>
   recInduct evaluate_ind >>
@@ -1323,7 +1352,13 @@ Proof
      >~ [‘While’]
      >- (qpat_x_assum ‘evaluate _ = _’ (strip_assume_tac o ONCE_REWRITE_RULE[evaluate_def]) >>
          gvs[AllCaseEqs(),empty_locals_def,ELIM_UNCURRY,dec_clock_def] >>
-         metis_tac[PAIR,FST,SND]) >>
+         metis_tac[PAIR,FST,SND])
+     >~[‘ShMem’]
+     >- (Cases_on ‘op’>>
+         gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,
+             dec_clock_def,set_var_def,sh_mem_op_def,sh_mem_store_def,
+             sh_mem_load_def] >>
+         metis_tac[PAIR,FST,SND])>>
      gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,dec_clock_def,set_var_def] >>
      metis_tac[PAIR,FST,SND])
 QED
@@ -1364,6 +1399,7 @@ Definition exps_of_def:
   (exps_of (Return e) = [e]) ∧
   (exps_of (ExtCall _ e1 e2 e3 e4) = [e1;e2;e3;e4]) ∧
   (exps_of (Assign _ e) = [e]) ∧
+  (exps_of (ShMem _ _ e) = [e]) ∧
   (exps_of _ = [])
 End
 
