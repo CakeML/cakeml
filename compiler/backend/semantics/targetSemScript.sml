@@ -100,7 +100,12 @@ val evaluate_def = Define `
         | SOME ffi_index =>
           case read_ffi_bytearrays mc ms of
           | SOME bytes, SOME bytes2 =>
-            (case call_FFI ffi (EL ffi_index mc.ffi_names) bytes bytes2 of
+            (case call_FFI
+                    ffi
+                    (ExtCall $ EL ffi_index mc.ffi_names)
+                    bytes
+                    bytes2
+             of
              | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
              | FFI_return new_ffi new_bytes =>
                 let (ms1,new_oracle) = apply_oracle mc.ffi_interfer
