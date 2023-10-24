@@ -6449,7 +6449,7 @@ Proof
     exp_tac
   >-
     exp_tac
-  >>
+  >- (
     (*FFI*)
     exists_tac>>
     last_x_assum kall_tac>>
@@ -6585,7 +6585,36 @@ Proof
         full_simp_tac(srw_ss())[]>>DECIDE_TAC))>>
       full_simp_tac(srw_ss())[LET_THM]>>
       srw_tac[][]>>
-      Cases_on`evaluate(ret_mov,rcstt)`>>unabbrev_all_tac>>full_simp_tac(srw_ss())[state_component_equality,word_state_eq_rel_def]
+      Cases_on`evaluate(ret_mov,rcstt)`>>unabbrev_all_tac>>full_simp_tac(srw_ss())[state_component_equality,word_state_eq_rel_def] )
+  >- ((*ShareInst*)
+    exists_tac >>
+    pairarg_tac >>
+    simp[] >>
+    rename1`m = Store \/ m = Store8`>>
+    qabbrev_tac `mcase = (m = Store \/ m = Store8)`>>
+    fs[AllCaseEqs()] >>
+    IF_CASES_TAC >>
+    gvs[next_var_rename_def,evaluate_def] >>
+    drule_then (drule_at $ Pos last) ssa_cc_trans_exp_correct
+    >- (
+      impl_tac >- simp[word_state_eq_rel_def] >>
+      disch_then (fn t => simp[t]) >>
+      gvs[DefnBase.one_line_ify NONE share_inst_def,
+        DefnBase.one_line_ify NONE sh_mem_store_def,
+        DefnBase.one_line_ify NONE sh_mem_store_byte_def,
+        markerTheory.Abbrev_def,flush_state_def,AllCaseEqs()] >>
+      drule_then (drule_then assume_tac) ssa_locals_rel_get_var >>
+      simp[]) >>
+    impl_tac >- simp[word_state_eq_rel_def] >>
+    disch_then (fn t => simp[t]) >>
+    gvs[DefnBase.one_line_ify NONE share_inst_def,
+      DefnBase.one_line_ify NONE sh_mem_load_def,
+      DefnBase.one_line_ify NONE sh_mem_load_byte_def,
+      DefnBase.one_line_ify NONE sh_mem_set_var_def,
+      set_var_def,flush_state_def,AllCaseEqs(),
+      markerTheory.Abbrev_def] >>
+    irule ssa_locals_rel_set_var >>
+    fs[every_var_def] )
 QED
 
 (*For starting up*)
@@ -7011,34 +7040,37 @@ Proof
     full_simp_tac(srw_ss())[]>>
   disch_then(qspecl_then [`4*x`,`na+2`] assume_tac)>>
   rev_full_simp_tac(srw_ss())[is_stack_var_def])
-  >>
-  (* Install *)
-  fs[Abbr`prog`,every_stack_var_def,call_arg_convention_def,list_next_var_rename_move_def]>>
-  rpt (pairarg_tac>>fs[])>>rw[every_stack_var_def,call_arg_convention_def]>>
-  `ALL_DISTINCT ls` by
-    (fs[Abbr`ls`]>>metis_tac[ALL_DISTINCT_MAP_FST_toAList])>>
-  drule list_next_var_rename_lemma_2>>
-  disch_then(qspecl_then[`ssa`,`na+2`] assume_tac)>>rfs[]>>
-  simp[Abbr`stack_set`,every_name_def,EVERY_MEM,MEM_MAP,MEM_toAList,EXISTS_PROD,lookup_fromAList]>>
-  rw[]>>
-  imp_res_tac ALOOKUP_MEM>>
-  fs[MEM_MAP]>>
-  Cases_on`y`>>fs[MEM_toAList]>>
-  `MEM q ls` by
-    fs[Abbr`ls`,MEM_toAList,MEM_MAP,EXISTS_PROD]>>
-  res_tac>>fs[option_lookup_def]>>
-  drule list_next_var_rename_lemma_1>>rw[]>>
-  fs[LIST_EQ_REWRITE]>>
-  fs[MEM_EL]>>rw[]>>
-  pop_assum drule>>
-  simp[EL_MAP]>>rw[]>>
-  `is_stack_var (na+2)` by metis_tac[is_alloc_var_flip]>>
-  fs[is_stack_var_def]>>
-  qmatch_goalsub_abbrev_tac`na + (4 * aa + 2)`>>
-  `na+(4*aa+2) = aa * 4 + (na+2)` by fs[]>>
-  pop_assum SUBST1_TAC>>
-  DEP_REWRITE_TAC [MOD_TIMES]>>
-  fs[]
+  >- (
+    (* Install *)
+    fs[Abbr`prog`,every_stack_var_def,call_arg_convention_def,list_next_var_rename_move_def]>>
+    rpt (pairarg_tac>>fs[])>>rw[every_stack_var_def,call_arg_convention_def]>>
+    `ALL_DISTINCT ls` by
+      (fs[Abbr`ls`]>>metis_tac[ALL_DISTINCT_MAP_FST_toAList])>>
+    drule list_next_var_rename_lemma_2>>
+    disch_then(qspecl_then[`ssa`,`na+2`] assume_tac)>>rfs[]>>
+    simp[Abbr`stack_set`,every_name_def,EVERY_MEM,MEM_MAP,MEM_toAList,EXISTS_PROD,lookup_fromAList]>>
+    rw[]>>
+    imp_res_tac ALOOKUP_MEM>>
+    fs[MEM_MAP]>>
+    Cases_on`y`>>fs[MEM_toAList]>>
+    `MEM q ls` by
+      fs[Abbr`ls`,MEM_toAList,MEM_MAP,EXISTS_PROD]>>
+    res_tac>>fs[option_lookup_def]>>
+    drule list_next_var_rename_lemma_1>>rw[]>>
+    fs[LIST_EQ_REWRITE]>>
+    fs[MEM_EL]>>rw[]>>
+    pop_assum drule>>
+    simp[EL_MAP]>>rw[]>>
+    `is_stack_var (na+2)` by metis_tac[is_alloc_var_flip]>>
+    fs[is_stack_var_def]>>
+    qmatch_goalsub_abbrev_tac`na + (4 * aa + 2)`>>
+    `na+(4*aa+2) = aa * 4 + (na+2)` by fs[]>>
+    pop_assum SUBST1_TAC>>
+    DEP_REWRITE_TAC [MOD_TIMES]>>
+    fs[] )
+  >> (*ShareInst*)
+   IF_CASES_TAC >>
+   fs[every_stack_var_def,call_arg_convention_def]
 QED
 
 val setup_ssa_props_2 = Q.prove(`
@@ -7752,8 +7784,12 @@ val word_alloc_flat_exp_conventions_lem = Q.prove(`
   ho_match_mp_tac apply_colour_ind>>full_simp_tac(srw_ss())[flat_exp_conventions_def]>>srw_tac[][]
   >-
     (EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[flat_exp_conventions_def])
+  >-
+    (Cases_on`exp`>>full_simp_tac(srw_ss())[flat_exp_conventions_def])
   >>
-    Cases_on`exp`>>full_simp_tac(srw_ss())[flat_exp_conventions_def]);
+    gvs[DefnBase.one_line_ify NONE flat_exp_conventions_def] >>
+    first_x_assum mp_tac >>
+    rpt (TOP_CASE_TAC >> simp[]) );
 
 Theorem word_alloc_flat_exp_conventions:
     ∀fc c alg k prog col_opt.
@@ -7779,8 +7815,9 @@ val word_alloc_full_inst_ok_less_lem = Q.prove(`
     rw[]>>fs[]>>rfs[])
   >>
     EVERY_CASE_TAC>>unabbrev_all_tac>>
-    fs[get_forced_def]>>
-    metis_tac[EVERY_get_forced])
+    gvs[get_forced_def,DefnBase.one_line_ify NONE
+      exp_to_addr_def,AllCaseEqs(),apply_colour_exp_def]>>
+    metis_tac[EVERY_get_forced] );
 
 (*
 val lookup_undir_g_insert_existing = Q.prove(`
