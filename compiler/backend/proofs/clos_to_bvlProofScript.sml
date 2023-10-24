@@ -4123,7 +4123,8 @@ Proof
       \\ Cases_on`x` \\ full_simp_tac(srw_ss())[]
       \\ Cases_on`x'` \\ full_simp_tac(srw_ss())[]
       >- (fs[state_rel_def] >> res_tac >> fs[] >> rfs[] >> rveq)
-      \\ Cases_on`call_FFI p1.ffi n l l''` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+      \\ Cases_on`call_FFI p1.ffi (ExtCall n) l l''`
+      \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
       \\ imp_res_tac evaluate_const
       >- (fs[state_rel_def] >> res_tac >> fs[] >> rfs[] >> rveq)
       \\ `?y m.
