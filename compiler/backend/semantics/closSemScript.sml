@@ -367,7 +367,7 @@ Definition do_app_def:
     | (FFI n, [ByteVector conf; RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray F ws) =>
-           (case call_FFI s.ffi n conf ws of
+           (case call_FFI s.ffi (ExtCall n) conf ws of
             | FFI_return ffi' ws' =>
                 Rval (Unit,
                       s with <| refs := s.refs |+ (ptr,ByteArray F ws')
