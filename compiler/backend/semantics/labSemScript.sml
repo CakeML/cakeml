@@ -456,7 +456,7 @@ val evaluate_def = tDefine "evaluate" `
                 read_bytearray w4 (w2n w3) (mem_load_byte_aux s.mem s.mem_domain s.be),
                 loc_to_pc n1 n2 s.code) of
           | (SOME bytes, SOME bytes2, SOME new_pc) =>
-             (case call_FFI s.ffi ffi_index bytes bytes2 of
+             (case call_FFI s.ffi (ExtCall ffi_index) bytes bytes2 of
               | FFI_final outcome => (Halt (FFI_outcome outcome),s)
               | FFI_return new_ffi new_bytes =>
                   let new_io_regs = shift_seq 1 s.io_regs in
