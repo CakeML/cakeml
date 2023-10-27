@@ -32,10 +32,10 @@ Datatype:
 End
 
 val s = “s:('a,'b) state”;
-val mtree_ans = “:γ result option # ('a,'b) state”;
+val mtree_ans = “:α result option # ('a,'b) state”;
 
 Type mtree[pp] = “:(α result option # (α, β) state,
-     sem_vis_event # (β ffi_result -> γ result option # (α, β) state),
+     sem_vis_event # (β ffi_result -> α result option # (α, β) state),
      α result option # (α, β) state) itree”;
 
 Type semtree[pp] = “:(β ffi_result, sem_vis_event, α result option) itree”;
@@ -251,18 +251,17 @@ End
 Definition h_prog_rule_ext_call_def:
   h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len ^s =
   case (eval s conf_ptr,eval s conf_len,eval s array_ptr,eval s array_len) of
-    (SOME (ValWord conf_sz),SOME (ValWord conf_ptr_adr),
-     SOME (ValWord array_sz),SOME (ValWord array_ptr_adr)) =>
-     (case (read_bytearray conf_sz (w2n conf_ptr_adr) (mem_load_byte s.memory s.memaddrs s.be),
-            read_bytearray array_sz (w2n array_ptr_adr) (mem_load_byte s.memory s.memaddrs s.be)) of
+    (SOME (ValWord conf_ptr_adr),SOME (ValWord conf_sz),
+     SOME (ValWord array_ptr_adr),SOME (ValWord array_sz)) =>
+     (case (read_bytearray conf_ptr_adr (w2n conf_sz) (mem_load_byte s.memory s.memaddrs s.be),
+            read_bytearray array_ptr_adr (w2n array_sz) (mem_load_byte s.memory s.memaddrs s.be)) of
         (SOME conf_bytes,SOME array_bytes) =>
          Vis (INR (FFI_call (explode ffi_name) conf_bytes array_bytes,
                    (λres. case res of
-                            FFI_final outcome => (SOME (FinalFFI outcome),empty_locals s):(γ result option # ('a,'b) state)
+                            FFI_final outcome => (SOME (FinalFFI outcome),empty_locals s):('a result option # ('a,'b) state)
                            | FFI_return new_ffi new_bytes =>
                               let nmem = write_bytearray array_ptr_adr new_bytes s.memory s.memaddrs s.be in
                               (NONE,s with <| memory := nmem; ffi := new_ffi |>)))) Ret
-                              (* (NONE,s with <| memory := nmem; ffi := new_ffi |>)))) (λ(r:(γ result option # ('a,'b) state)). Ret r) *)
        | _ => Ret (SOME Error,s))
    | _ => Ret (SOME Error,s)
 End
