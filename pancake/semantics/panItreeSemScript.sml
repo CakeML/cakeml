@@ -21,8 +21,24 @@ declare_monad("itree", {unit = “Ret”, bind = “itree_bind”,
               guard = NONE});
 enable_monad "itree";
 
+(* Unicode overloads *)
 val _ = temp_set_fixity "≈" (Infixl 500);
 Overload "≈" = “itree_wbisim”;
+
+Overload "case" = “itree_CASE”;
+
+Datatype:
+  sem_vis_event = FFI_call string (word8 list) (word8 list)
+End
+
+val s = “s:('a,'b) state”;
+val mtree_ans = “:γ result option # ('a,'b) state”;
+
+Type mtree[pp] = “:(α result option # (α, β) state,
+     sem_vis_event # (β ffi_result -> γ result option # (α, β) state),
+     α result option # (α, β) state) itree”;
+
+Type semtree[pp] = “:(β ffi_result, sem_vis_event, α result option) itree”;
 
 Definition itree_mrec_def:
   itree_mrec rh seed =
@@ -232,17 +248,6 @@ Definition h_prog_rule_call_def:
    | (_,_) => Ret (SOME Error,s)
 End
 
-(* The type of visible events in the ITree semantics. *)
-Type ktree = “:α -> (α,β,γ) itree”;
-Type mtree = “:(γ result option # ('a,'b) state) -> ((γ result option # ('a,'b) state),'e,(γ result option # ('a,'b) state)) itree”;
-
-Datatype:
-  sem_vis_event = FFI_call string (word8 list) (word8 list)
-End
-
-val s = “s:('a,'b) state”;
-val mtree_ans = “:γ result option # ('a,'b) state”;
-
 Definition h_prog_rule_ext_call_def:
   h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len ^s =
   case (eval s conf_ptr,eval s conf_len,eval s array_ptr,eval s array_len) of
@@ -310,28 +315,20 @@ Definition h_prog_def:
   (h_prog (Tick,s) = h_prog_rule_tick s)
 End
 
-(* ITree semantics for program commands *)
-(* Definition itree_evaluate_def: *)
-(*   itree_evaluate p s = *)
-(*   itree_unfold *)
-(*   (λt. case t of *)
-(*          INL (Ret (res,s)) => Ret' res *)
-(*         | INL (Tau t) => Tau' (INL t) *)
-(*         | INL (Vis (e,k) g) => Vis' e (INL o Ret o k) *)
-(*         | INR (Ret (res,s)) => Ret' res *)
-(*         | INR (Tau t) => Tau' (INR t) *)
-(*         | INR (Vis e g) => Vis' e (INR o g)) *)
-(*   (itree_mrec h_prog (p,s)) *)
-(* End *)
-
-Definition itree_evaluate_def:
-  itree_evaluate p s =
+(* Converts an mtree into a semtree *)
+Definition sem_outer:
+  sem_outer =
   itree_unfold
   (λt. case t of
          Ret (res,s) => Ret' res
-       | Tau t => Tau' t
-       | Vis (e,k) g => Vis' e (g o k))
-  (itree_mrec h_prog (p,s))
+        | Tau t => Tau' t
+        | Vis (e,k) g => Vis' e (g o k))
+End
+
+(* ITree semantics for program commands *)
+Definition itree_evaluate_def:
+  itree_evaluate p s =
+  sem_outer (itree_mrec h_prog (p,s))
 End
 
 (* Observational ITree semantics *)
@@ -343,44 +340,5 @@ Definition itree_semantics_def:
   let prog = Call NONE (Label entry) [] in
   (itree_evaluate prog ^s)
 End
-
-(* mrec theorems *)
-Theorem mrec_evaluate_corres:
-  itree_evaluate p s = Ret NONE ⇔ h_prog (p,s) = Ret (NONE,s')
-Proof
-  cheat
-  (* eq_tac *)
-  (* (* forward *) *)
-  (* >- (CCONTR_TAC >> *)
-  (*     fs [itree_evaluate_def,itree_mrec_def] >> *)
-  (*     Cases_on ‘h_prog (p,s)’ *)
-  (*     >- (fs [itreeTauTheory.itree_iter_def] >> *)
-  (*         fs [itreeTauTheory.itree_CASE])) *)
-  (*            (* itree_CASE should have simplified the subterm to Ret (INR x) *) *)
-QED
-
-(* Simplifications *)
-
-(* Evaluation rules *)
-Theorem seq_term_1:
-  itree_evaluate c1 s = Ret NONE ⇒
-  itree_evaluate (Seq c1 c2) s = itree_evaluate c2 s
-Proof
-  (* disch_tac >> *)
-  (* rw [itree_evaluate_def] >> *)
-  (* rw [itree_mrec_def] >> *)
-  (* rw [h_prog_def] >> *)
-  (* rw [h_prog_rule_seq_def] >> *)
-  (* rw [itree_trigger_def] >> *)
-  (* rw [itreeTauTheory.itree_iter_def] >> *)
-  cheat
-QED
-
-Theorem seq_term_2:
-  itree_evaluate c1 s = Ret (SOME r) ⇒
-  itree_evaluate (Seq c1 c2) s = itree_evaluate c1 s
-Proof
-  cheat
-QED
 
 val _ = export_theory();
