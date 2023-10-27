@@ -35,10 +35,11 @@ val s = “s:('a,'b) state”;
 val mtree_ans = “:α result option # ('a,'b) state”;
 
 Type mtree[pp] = “:(α result option # (α, β) state,
-     sem_vis_event # (β ffi_result -> α result option # (α, β) state),
-     α result option # (α, β) state) itree”;
+                    α panLang$prog # (α, β) state + sem_vis_event # (β ffi_result -> α result option # (α, β) state),
+                    α result option # (α, β) state) itree”;
 
 Type semtree[pp] = “:(β ffi_result, sem_vis_event, α result option) itree”;
+Type sem8tree[pp] = “:(β ffi_result, sem_vis_event, 8 result option) itree”;
 
 Definition itree_mrec_def:
   itree_mrec rh seed =
