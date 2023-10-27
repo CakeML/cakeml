@@ -1978,7 +1978,6 @@ Proof
   fs[wlab_wloc_def]>>
   rveq>>fs[crepSemTheory.set_var_def,set_var_def]>>
   fs [state_rel_def]>>
-  ‘wordSem$word_to_bytes = byte$word_to_bytes’ by cheat>>
   gvs[]>>
   TRY
    (rename [‘call_FFI _ "MappedRead" _ _ = _’]>>
