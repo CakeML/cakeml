@@ -32,7 +32,7 @@ End
 
 (* Dummy definition *)
 Definition DO_NOT_EXPAND:
-  isat_strxor w x = T
+  isat_strxor (w:num assignment) x = T
 End
 
 Definition isat_xfml_def:
@@ -44,7 +44,10 @@ Definition isat_fml_def:
   isat_cfml w cfml ∧ isat_xfml w xfml
 End
 
-
+Definition isatisfiable_def:
+  isatisfiable fml ⇔
+  ∃w. isat_fml w fml
+End
 
 (* Connection to the top-level semantics *)
 Definition conv_lit_def:
@@ -356,6 +359,26 @@ Proof
   rw[]>>
   fs[lookup_build_fml]>>
   qexists_tac`n`>>simp[]
+QED
+
+Theorem check_xlrups_unsat_sound:
+  check_xlrups_unsat xlrups (build_fml id cfml) LN ⇒
+  ¬ isatisfiable (set cfml,set xfml)
+Proof
+  rw[check_xlrups_unsat_def]>>
+  every_case_tac>>fs[]>>
+  `¬∃w. isat_cfml w (values q)` by (
+    fs[isat_cfml_def,contains_emp_def,MEM_MAP]>>
+    Cases_on`y`>>fs[MEM_toAList,values_def,PULL_EXISTS]>>
+    rw[]>>
+    asm_exists_tac>>simp[isat_cclause_def])>>
+  fs[]>>
+  drule check_xlrups_sound>>
+  fs[isatisfiable_def,isat_fml_def]>>
+  `∀w. isat_xfml w (values LN)` by
+    (EVAL_TAC>>rw[])>>
+  rw[]>>
+  metis_tac[values_build_fml]
 QED
 
 Definition wf_clause_def:

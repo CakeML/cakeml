@@ -72,9 +72,6 @@ val list_delete_list_def = Define`
     then list_delete_list is fml
     else list_delete_list is (LUPDATE NONE i fml))`
 
-val safe_hd_def = Define`
-  safe_hd ls = case ls of [] => (0:int) | (x::xs) => x`
-
 val list_max_index_def = Define`
   list_max_index C = 2*list_max (MAP (λc. Num (ABS c)) C) + 1`
 
@@ -91,6 +88,7 @@ Definition check_xlrup_list_def:
     Del cl =>
     SOME (list_delete_list cl cfml, xfml, Clist)
   | RUP n c i0 =>
+    let Clist = resize_Clist c Clist in
     (case is_rup_list cfml i0 c Clist of
       NONE => NONE
     | SOME Clist =>
@@ -98,6 +96,41 @@ Definition check_xlrup_list_def:
   | XDel xl =>
     SOME (cfml, list_delete_list xl xfml, Clist)
   | _ => NONE
+End
+
+(* semantic *)
+Definition check_xlrups_list_def:
+  (check_xlrups_list [] cfml xfml Clist = SOME (cfml, xfml)) ∧
+  (check_xlrups_list (x::xs) cfml xfml Clist =
+    case check_xlrup_list x cfml xfml Clist of
+      NONE => NONE
+    | SOME (cfml', xfml', Clist') =>
+      check_xlrups_list xs cfml' xfml' Clist')
+End
+
+(* Search backwards through the IDs *)
+Definition contains_emp_list_aux_def:
+  contains_emp_list_aux fml i =
+  if i = 0 then F
+  else
+    let i1 = i - 1 in
+    case list_lookup fml NONE i1 of
+      NONE => contains_emp_list_aux fml i1
+    | SOME c =>
+      if c = [] then T
+      else contains_emp_list_aux fml i1
+End
+
+Definition contains_emp_list_def:
+  contains_emp_list fml =
+  contains_emp_list_aux fml (LENGTH fml)
+End
+
+Definition check_xlrups_unsat_list_def:
+  check_xlrups_unsat_list xlrups cfml xfml Clist =
+  case check_xlrups_list xlrups cfml xfml Clist of
+    NONE => F
+  | SOME (cfml', xfml') => contains_emp_list cfml'
 End
 
 (* prove that check_xlrup_list implements check_xlrup *)
@@ -388,71 +421,81 @@ Theorem fml_rel_check_xlrup_list:
     SOME (cfmlls', xfmlls', Clist') =>
     EVERY ($= w8z) Clist' ∧
     ∃cfml' xfml'.
-    check_xlrup xlrup cfml xfml = SOME (cfml',xfml')
+    check_xlrup xlrup cfml xfml = SOME (cfml',xfml') ∧
+    fml_rel cfml' cfmlls' ∧
+    fml_rel xfml' xfmlls'
   | NONE => T
 Proof
   simp[check_xlrup_def,check_xlrup_list_def]>>
   strip_tac>>
   Cases_on`xlrup`>>simp[]
+  >- metis_tac[fml_rel_list_delete_list]
   >- ( (* RUP *)
     every_case_tac>>fs[]>>
+    `EVERY ($= w8z) (resize_Clist l Clist)` by
+      rw[resize_Clist_def]>>
     drule_all fml_rel_is_rup_list>>
-    disch_then (qspecl_then [`l0`,`l`] assume_tac)>>gvs[])
+    disch_then (qspecl_then [`l0`,`l`] assume_tac)>>
+    every_case_tac>>gvs[]>>
+    metis_tac[fml_rel_resize_update_list])
+  >- metis_tac[fml_rel_list_delete_list]
 QED
 
-(*
-Theorem fml_rel_contains_clauses_list:
-  fml_rel fml fmlls ∧
-  ind_rel fmlls inds ∧
-  contains_clauses_list fmlls inds cls ⇒
-  contains_clauses fml cls
+Theorem contains_emp_list_aux:
+  ∀n.
+  n <= LENGTH fml ⇒
+  (contains_emp_list_aux fml n ⇔
+  MEM (SOME []) (TAKE n fml))
 Proof
-  simp[contains_clauses_list_def,contains_clauses_def,MEM_MAP,EXISTS_PROD,MEM_toAList]>>
-  TOP_CASE_TAC>>rw[]>>
-  drule reindex_characterize>>
-  rw[]>>
-  fs[EVERY_MEM]>>rw[]>>first_x_assum drule>>
-  fs[MEM_MAP,MEM_FILTER,list_lookup_def]>>
-  strip_tac>>
-  Cases_on ‘LENGTH fmlls ≤ x’ >> fs [] >>
-  fs[fml_rel_def]>>
-  first_x_assum(qspec_then`x` assume_tac)>>rfs[]>>
-  fs[IS_SOME_EXISTS]>>
-  rfs [] >>
-  fs [] >>
+  Induct>>rw[Once contains_emp_list_aux_def]>>
+  every_case_tac>>rw[]>>
+  `n < LENGTH fml` by fs[]>>
+  drule SNOC_EL_TAKE>>
+  disch_then sym_sub_tac>>
+  fs[list_lookup_def]
+QED
+
+Theorem fml_rel_contains_emp_list:
+  fml_rel fml fmlls ⇒
+  (contains_emp_list fmlls <=> contains_emp fml)
+Proof
+  simp[contains_emp_list_def]>>
+  DEP_REWRITE_TAC[contains_emp_list_aux]>>
+  rw[contains_emp_def,MEM_MAP,EXISTS_PROD,MEM_toAList]>>
+  fs[fml_rel_def,MEM_EL]>>
+  eq_tac>>rw[]
+  >- (
+    first_x_assum(qspec_then`n` assume_tac)>>rfs[]>>
+    metis_tac[])>>
+  rename1`lookup n fml`>>
+  first_x_assum(qspec_then`n` assume_tac)>>rfs[]>>
   metis_tac[]
 QED
 
-Theorem fml_rel_check_lpr_list:
-  ∀steps mindel fml fmlls inds fmlls' inds' Clist earliest.
-  fml_rel fml fmlls ∧
-  ind_rel fmlls inds ∧
-  SORTED $>= inds ∧
-  EVERY ($= w8z) Clist ∧ wf_cfml fml ∧
-  earliest_rel fmlls earliest ∧
-  EVERY wf_lpr steps ∧
-  check_lpr_list mindel steps fmlls inds Clist earliest = SOME (fmlls', inds') ⇒
-  ind_rel fmlls' inds' ∧
-  ∃fml'. check_lpr mindel steps fml = SOME fml' ∧
-    fml_rel fml' fmlls'
+Theorem fml_rel_check_xlrups_list:
+  ∀xlrups cfml cfmlls xfml xfmlls cfmlls' xfmlls' Clist.
+  fml_rel cfml cfmlls ∧
+  fml_rel xfml xfmlls ∧
+  EVERY ($= w8z) Clist ∧ wf_cfml cfml ∧
+  EVERY wf_xlrup xlrups ∧
+  check_xlrups_list xlrups cfmlls xfmlls Clist =
+    SOME (cfmlls', xfmlls') ⇒
+  ∃cfml' xfml'.
+    check_xlrups xlrups cfml xfml = SOME (cfml',xfml') ∧
+    fml_rel cfml' cfmlls' ∧
+    fml_rel xfml' xfmlls'
 Proof
-  Induct>>fs[check_lpr_list_def,check_lpr_def]>>
-  ntac 9 strip_tac>>
-  ntac 4 (TOP_CASE_TAC>>fs[])>>
-  strip_tac>>
+  Induct>>fs[check_xlrups_list_def,check_xlrups_def]>>
+  rw[]>>gvs[AllCaseEqs()]>>
   drule  fml_rel_check_xlrup_list>>
   rpt (disch_then drule)>>
-  disch_then (qspecl_then [`h`,`mindel`] mp_tac)>> simp[]>>
-  strip_tac>>
-  simp[]>>
+  disch_then (qspecl_then [`h`] mp_tac)>> simp[]>>
+  rw[]>>simp[]>>
   first_x_assum match_mp_tac>>
   asm_exists_tac>>fs[]>>
   asm_exists_tac>>fs[]>>
   asm_exists_tac>>fs[]>>
-  qexists_tac`r`>>fs[]>>
-  match_mp_tac check_xlrup_wf_cfml>>
-  metis_tac[]
+  metis_tac[wf_cfml_check_xlrup]
 QED
-*)
 
 val _ = export_theory();

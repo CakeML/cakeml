@@ -23,6 +23,7 @@ val _ = new_theory "cnf_xor";
   An XOR is satisfied by an assignment iff the parity under the assignment is odd
 
   A CNF-XOR formula is satisfied by an assignment iff all its clauses and XORs are satisfied *)
+
 Datatype:
   lit = Pos 'a | Neg 'a
 End
