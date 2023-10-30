@@ -163,12 +163,12 @@ Definition parse_cnf_xor_toks_def:
   case nocomments of
     s::ss =>
     (case parse_header_line s of
-    SOME (vars,clauses) =>
-       if LENGTH ss = clauses then
-        case parse_body vars ss [] []
-          of NONE => NONE
-        | SOME (cacc,xacc) => SOME (vars,clauses,cacc,xacc)
-      else NONE
+    SOME (vars,ncx) =>
+      (case parse_body vars ss [] [] of NONE => NONE
+      | SOME (cacc,xacc) =>
+       if LENGTH cacc + LENGTH xacc = ncx then
+        SOME (vars,ncx,cacc,xacc)
+        else NONE)
     | NONE => NONE)
   | [] => NONE
 End
