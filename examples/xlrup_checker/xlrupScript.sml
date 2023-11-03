@@ -312,14 +312,21 @@ Definition flip_bit_def:
   set_bit s v (¬ get_bit s v)
 End
 
+Definition extend_s_def:
+  extend_s s n =
+  let q = n DIV 8 in
+  if q < strlen s then s
+  else s ^ (implode (REPLICATE (q + 1 - strlen s) (CHR 0)))
+End
+
 Definition conv_xor_aux_def:
   (conv_xor_aux s [] = s) ∧
   (conv_xor_aux s (x::xs) =
   case x of
     Pos v =>
-      conv_xor_aux (flip_bit s v) xs
+      conv_xor_aux (flip_bit (extend_s s v) v) xs
   | Neg v =>
-      conv_xor_aux (flip_bit (flip_bit s v) 0) xs)
+      conv_xor_aux (flip_bit (flip_bit (extend_s s v) v) 0) xs)
 End
 
 Theorem MAPi_MAP:
@@ -517,6 +524,84 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Theorem FLAT_REPLICATE:
+  ∀n.
+  (∀x. MEM x ls ⇒ x = y) ⇒
+  FLAT (REPLICATE n ls) =
+  REPLICATE (n * LENGTH ls) y
+Proof
+  Induct>>rw[] >>
+  simp[ADD1,LEFT_ADD_DISTRIB,GSYM REPLICATE_APPEND]>>
+  rw[LIST_EQ_REWRITE,EL_REPLICATE]>>
+  metis_tac[MEM_EL]
+QED
+
+Theorem string_to_bits_extend_s:
+  string_to_bits (extend_s s n) =
+  string_to_bits s ++ REPLICATE (8 * (n DIV 8 + 1 − strlen s)) F
+Proof
+  rw[extend_s_def,string_to_bits_def]>>
+  DEP_REWRITE_TAC[FLAT_REPLICATE |> Q.GEN `y` |> Q.ISPEC`F`]>>
+  simp[]>>
+  EVAL_TAC
+QED
+
+Theorem sum_bitlist_aux_REPLICATE_F:
+  ∀k. sum_bitlist_aux w (REPLICATE n F) k = 0
+Proof
+  Induct_on`n`>>rw[]>>fs[sum_bitlist_aux_def,o_DEF,ADD1,of_bool_def]>>
+  first_x_assum(qspec_then`k+1` mp_tac)>>simp[]
+QED
+
+Theorem sum_bitlist_aux_APPEND:
+  ∀xs k.
+  sum_bitlist_aux w (xs ++ ys) k =
+  sum_bitlist_aux w xs k +
+  sum_bitlist_aux w ys (k + LENGTH xs)
+Proof
+  simp[sum_bitlist_aux_def]>>
+  Induct>>rw[o_DEF,ADD1]>>
+  first_x_assum(qspec_then`k+1` mp_tac)>>
+  simp[]
+QED
+
+Theorem sum_bitlist_REPLICATE_F:
+  sum_bitlist w (bs ++ REPLICATE n F) =
+  sum_bitlist w bs
+Proof
+  rw[sum_bitlist_def]
+  >-
+    (Cases_on`n`>>simp[]>>EVAL_TAC)
+  >-
+    (Cases_on`n`>>simp[]>>
+    metis_tac[sum_bitlist_aux_REPLICATE_F])>>
+  Cases_on`bs`>>fs[sum_bitlist_aux_APPEND]>>
+  metis_tac[sum_bitlist_aux_REPLICATE_F]
+QED
+
+Theorem isat_strxor_extend_s:
+  isat_strxor w (extend_s s n) ⇔
+  isat_strxor w s
+Proof
+  rw[isat_strxor_def]>>
+  simp[string_to_bits_extend_s,sum_bitlist_REPLICATE_F]
+QED
+
+Theorem strlen_extend_s:
+  a < 8 * strlen (extend_s s a)
+Proof
+  simp[extend_s_def]>>
+  DEP_REWRITE_TAC[DIV_LT_X] >> simp[]>>
+  rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem strlen_flip_bit[simp]:
+  strlen (flip_bit s n) = strlen s
+Proof
+  rw[flip_bit_def,set_bit_def,set_char_def]
+QED
+
 Theorem conv_xor_aux_sound:
   ∀ls s.
   EVERY nz_lit ls ⇒
@@ -531,25 +616,16 @@ Proof
     simp[sat_lit_def]>>
     DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
     CONJ_TAC >-
-       (* deal with padding *)
-       cheat>>
-    fs[]>>
+      simp[strlen_extend_s]>>
+    simp[isat_strxor_extend_s]>>
     metis_tac[]) >>
   simp[sat_lit_def]>>
   DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
-  simp[]>>
-  CONJ_TAC >-
-    (* deal with padding *)
-    cheat>>
-  simp[]>>
+  simp[strlen_extend_s,isat_strxor_extend_s]>>
+  CONJ_TAC >- (
+    assume_tac strlen_extend_s>>
+    fs[])>>
   metis_tac[]
-QED
-
-Theorem sum_bitlist_aux_REPLICATE_F:
-  ∀k. sum_bitlist_aux w (REPLICATE n F) k = 0
-Proof
-  Induct_on`n`>>rw[]>>fs[sum_bitlist_aux_def,o_DEF,ADD1,of_bool_def]>>
-  first_x_assum(qspec_then`k+1` mp_tac)>>simp[]
 QED
 
 Theorem sum_bitlist_first_bit:
@@ -557,21 +633,6 @@ Theorem sum_bitlist_first_bit:
 Proof
   rw[sum_bitlist_def,sum_bitlist_aux_REPLICATE_F]
 QED
-
-Definition conv_lit_def:
-  (conv_lit (Pos n) = (&n):int) ∧
-  (conv_lit (Neg n) = -(&n):int)
-End
-
-
-(* TODO: for XOR... *)
-
-Definition get_bit_def:
-  get_bit (s:strxor) n =
-  let q = n DIV 8 in
-  let r = n MOD 8 in
-  get_bit_char (strsub s q) r
-End
 
 (* Implementation *)
 Datatype:
