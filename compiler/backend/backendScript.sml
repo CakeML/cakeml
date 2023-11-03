@@ -657,7 +657,10 @@ val components = theorem "config_component_equality"
 
 Theorem inc_config_to_config_inv:
   asm_c = c.lab_conf.asm_conf ==>
-  inc_config_to_config asm_c (config_to_inc_config c) = c
+  inc_config_to_config asm_c (config_to_inc_config c) =
+    c with
+      lab_conf := c.lab_conf with
+        shmem_extra := []
 Proof
   simp [config_to_inc_config_def, inc_config_to_config_def, components]
   \\ simp [lab_to_targetTheory.config_to_inc_config_def,
