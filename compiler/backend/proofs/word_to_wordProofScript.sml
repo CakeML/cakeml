@@ -924,7 +924,6 @@ Proof
   >- (EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_install_def]>>
     rpt (pairarg_tac>>gs[])>>rveq>>gs[no_install_def]>>
     drule fake_moves_no_install>>rw[])
-  >~ [`ShareInst`] >- cheat
 QED
 
 Theorem setup_ssa_no_install:
@@ -1022,7 +1021,6 @@ Proof
   \\ gvs [word_cseTheory.word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
   \\ gvs [no_install_def,AllCaseEqs(),word_cseTheory.add_to_data_aux_def,
           word_cseTheory.add_to_data_def]
-  \\ cheat
 QED
 
 Theorem compile_single_no_install:
@@ -1229,7 +1227,6 @@ Proof
   >- (EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_alloc_def]>>
     rpt (pairarg_tac>>gs[])>>rveq>>gs[no_alloc_def]>>
     drule fake_moves_no_alloc>>rw[])
-  >- cheat
 QED
 
 Theorem setup_ssa_no_alloc:
@@ -1327,7 +1324,6 @@ Proof
   \\ gvs [word_cseTheory.word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
   \\ gvs [no_alloc_def,AllCaseEqs(),word_cseTheory.add_to_data_aux_def,
           word_cseTheory.add_to_data_def]
-  \\ cheat
 QED
 
 Theorem compile_single_no_alloc:
@@ -2017,7 +2013,6 @@ Proof
   >- (EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_mt_def]>>
     rpt (pairarg_tac>>gs[])>>rveq>>gs[no_mt_def]>>
     drule fake_moves_no_mt>>rw[])
-  >- cheat
 QED
 
 Theorem setup_ssa_no_mt:
@@ -2115,7 +2110,6 @@ Proof
   \\ gvs [word_cseTheory.word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
   \\ gvs [no_mt_def,AllCaseEqs(),word_cseTheory.add_to_data_aux_def,
           word_cseTheory.add_to_data_def]
-  \\ cheat
 QED
 
 Theorem compile_single_no_mt:

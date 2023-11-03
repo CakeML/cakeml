@@ -7316,6 +7316,18 @@ Proof
   metis_tac[]
 QED
 
+Triviality flat_exp_conventions_ShareInst:
+  flat_exp_conventions (ShareInst op v exp) <=>
+    ((?v c. exp = Op Add [Var v;Const c]) \/ (?v. exp = Var v))
+Proof
+  eq_tac
+  >- (
+    gvs[DefnBase.one_line_ify NONE flat_exp_conventions_def] >>
+    rpt (TOP_CASE_TAC >> simp[])) >>
+  rw[] >>
+  simp[flat_exp_conventions_def]
+QED
+
 val ssa_cc_trans_flat_exp_conventions = Q.prove(`
   ∀prog ssa na.
   flat_exp_conventions prog ⇒
@@ -7343,8 +7355,9 @@ val ssa_cc_trans_flat_exp_conventions = Q.prove(`
   >-
     (fs[list_next_var_rename_move_def]>>rpt (pairarg_tac>>fs[])>>rw[]>>
     fs[flat_exp_conventions_def])
-  >>
-    EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[flat_exp_conventions_def]
+  >-
+   (EVERY_CASE_TAC>>unabbrev_all_tac>>
+     full_simp_tac(srw_ss())[flat_exp_conventions_def]
     >-
       (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
       LET_ELIM_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ])
@@ -7353,7 +7366,12 @@ val ssa_cc_trans_flat_exp_conventions = Q.prove(`
       full_simp_tac(srw_ss())[list_next_var_rename_move_def,flat_exp_conventions_def]>>
       full_simp_tac(srw_ss())[fix_inconsistencies_def]>>
       rpt (pop_assum mp_tac)>> LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
-      metis_tac[fake_moves_conventions2,flat_exp_conventions_def]);
+      metis_tac[fake_moves_conventions2,flat_exp_conventions_def])
+  >> (*ShareInst*)
+    IF_CASES_TAC >>
+    fs[flat_exp_conventions_ShareInst] >>
+    simp[ssa_cc_trans_exp_def]
+);
 
 Theorem full_ssa_cc_trans_flat_exp_conventions:
     ∀prog n.
@@ -7363,6 +7381,19 @@ Proof
   full_simp_tac(srw_ss())[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
   LET_ELIM_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ]>>
   metis_tac[ssa_cc_trans_flat_exp_conventions,FST]
+QED
+
+Triviality exp_to_addr_ShareInst:
+  exp_to_addr exp = SOME (Addr n c) <=>
+    ((exp = Var n /\ c = 0w) \/ (exp = Op Add [Var n; Const c]))
+Proof
+  eq_tac
+  >- (
+    simp[DefnBase.one_line_ify NONE exp_to_addr_def] >>
+    rpt (TOP_CASE_TAC >> simp[])
+  ) >>
+  rw[] >>
+  simp[exp_to_addr_def]
 QED
 
 Theorem ssa_cc_trans_full_inst_ok_less[local]:
@@ -7418,7 +7449,7 @@ Proof
     (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>
     rpt (pop_assum mp_tac)>>
     LET_ELIM_TAC>>full_simp_tac(srw_ss())[full_inst_ok_less_def,EQ_SYM_EQ])
-  >>
+  >- ((*Call SOME*)
     EVERY_CASE_TAC>>unabbrev_all_tac>>
     full_simp_tac(srw_ss())[full_inst_ok_less_def]>>
     (ntac 2 (last_x_assum (assume_tac o SYM))>>
@@ -7479,7 +7510,15 @@ Proof
           (match_mp_tac (GEN_ALL ssa_map_ok_more)>>
           qexists_tac`n'`>>fs[])>>
         metis_tac[convention_partitions])
-    >- metis_tac[fake_moves_conventions2,full_inst_ok_less_def]
+    >- metis_tac[fake_moves_conventions2,full_inst_ok_less_def])
+  >> (*ShareInst*)
+    qpat_x_assum `option_CASE _ _ _` mp_tac >>
+    ntac 2 TOP_CASE_TAC >>
+    strip_tac >>
+    IF_CASES_TAC >>
+    simp[full_inst_ok_less_def] >>
+    gvs[exp_to_addr_ShareInst,ssa_cc_trans_exp_def] >>
+    simp[exp_to_addr_def]
 QED
 
 Theorem full_ssa_cc_trans_full_inst_ok_less:

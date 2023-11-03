@@ -1455,6 +1455,14 @@ Proof
   gvs[word_cse_def, empty_data_def, lookup_def, data_inv_def]
 QED
 
+Theorem comp_ShareInst_correct:
+  ^(get_goal "wordLang$ShareInst")
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  gvs[word_cse_def,empty_data_def,data_inv_def]
+QED
+
 (* DATA EMPTY *)
 
 Theorem comp_correct:
@@ -1471,7 +1479,8 @@ Proof
      comp_LocValue_correct, comp_Install_correct,
      comp_StoreConsts_correct, comp_CodeBufferWrite_correct,
      comp_DataBufferWrite_correct, comp_FFI_correct,
-     comp_OpCurrHeap_correct, comp_Call_correct ]
+     comp_OpCurrHeap_correct, comp_Call_correct,
+     comp_ShareInst_correct ]
 QED
 
 Theorem word_common_subexp_elim_correct:
