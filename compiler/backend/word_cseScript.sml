@@ -458,7 +458,9 @@ Definition word_cse_def:
                 (empty_data with all_names:=data.all_names, FFI s p1 l1 p2 l2 m)) ∧
   (word_cse data (StoreConsts r1 r2 r3 r4 payload) =
                 (empty_data with all_names:=data.all_names,
-                 StoreConsts r1 r2 r3 r4 payload))
+                 StoreConsts r1 r2 r3 r4 payload)) ∧
+  (word_cse data (ShareInst op r exp) =
+                (empty_data with all_names:=data.all_names, ShareInst op r exp))
 End
 
 Definition word_common_subexp_elim_def:
