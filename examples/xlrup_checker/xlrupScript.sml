@@ -5,16 +5,6 @@ open preamble miscTheory mlstringTheory cnf_xorTheory blastLib;
 
 val _ = new_theory "xlrup";
 
-(*
-TODO list:
-1) define the "string" semantics of XORs (supporting overflow bits)
-2) define an XOR/add operation on strings (binary version)
-2.5) binary addition that is only correct when first string is shorter than second string
-3) define the XOR proof step (adds multiple XORs and tests for zero)
-4) prove soundness of 3)
-5) turn "int list" XOR into string XOR and verify correctness
-*)
-
 (* Internal representations *)
 Type cclause = ``:int list``;
 Type strxor = ``:mlstring``;
@@ -39,6 +29,9 @@ End
 Definition isat_cfml_def:
   isat_cfml w cfml ⇔ (∀C. C ∈ cfml ⇒ isat_cclause w C)
 End
+
+(* Satisfiability for XORs uses a string-based
+  internal representation *)
 
 (* This outputs bits in the 'bit order', i.e.,
   MSB is first entry of the list*)
@@ -415,8 +408,8 @@ Definition strxor_aux_def:
 End
 
 (* This is actually fully symmetric, but
-  we'll prove theorems assuming strlen t ≤ strlen s,
-  which is how it will be implemented *)
+  we'll actually always check and
+  pad s to the right length if needed *)
 Definition strxor_def:
   strxor (s:strxor) (t:strxor) =
     implode (strxor_aux (explode s) (explode t))
@@ -491,6 +484,67 @@ Proof
   EVAL_TAC
 QED
 
+Theorem charxor_comm:
+  charxor d c = charxor c d
+Proof
+  rw[charxor_def]
+QED
+
+Theorem strxor_aux_comm:
+  ∀s t.
+  strxor_aux t s = strxor_aux s t
+Proof
+  ho_match_mp_tac strxor_aux_ind>>rw[strxor_aux_def]
+  >-
+    (Cases_on`t`>>simp[strxor_aux_def])>>
+  simp[charxor_comm]
+QED
+
+Theorem strxor_comm:
+  strxor t s = strxor s t
+Proof
+  rw[strxor_def,strxor_aux_comm]
+QED
+
+Theorem charxor_assoc:
+  charxor (charxor a b) c =
+  charxor a (charxor b c)
+Proof
+  rw[charxor_def]
+QED
+
+Theorem strxor_aux_assoc:
+  ∀a c b.
+  strxor_aux (strxor_aux a b) c =
+  strxor_aux a (strxor_aux b c)
+Proof
+  ho_match_mp_tac strxor_aux_ind>>rw[strxor_aux_def]
+  >-
+    (Cases_on`b`>>simp[strxor_aux_def])>>
+  Cases_on`b`>>simp[strxor_aux_def]>>
+  simp[charxor_assoc]
+QED
+
+Theorem strxor_assoc:
+  strxor (strxor a b) c =
+  strxor a (strxor b c)
+Proof
+  rw[strxor_def,strxor_aux_assoc]
+QED
+
+Theorem strxor_compute:
+  strxor s t =
+  implode (
+    strxor_aux (explode (extend_s s (strlen t))) (explode t))
+Proof
+  Cases_on`strlen s < strlen t`
+  >- (
+    simp[strxor_def]>>
+    PURE_ONCE_REWRITE_TAC[strxor_aux_comm]>>
+    DEP_REWRITE_TAC[strxor_aux_prop]>>simp[extend_s_def])>>
+  simp[extend_s_def,strxor_def]
+QED
+
 Theorem strxor_prop:
   strlen t ≤ strlen s ⇒
   string_to_bits (strxor s t) =
@@ -505,22 +559,6 @@ Proof
   DEP_REWRITE_TAC[FLAT_REPLICATE |> Q.GEN `y` |> Q.ISPEC`F`]>>
   simp[]>>
   EVAL_TAC
-QED
-
-Theorem isat_strxor_strxor:
-  strlen t ≤ strlen s ∧
-  isat_strxor w s ∧
-  isat_strxor w t ==>
-  isat_strxor w (strxor s t)
-Proof
-  rw[]>>
-  rw[isat_strxor_def,strxor_prop]>>
-  match_mp_tac sum_bitlist_xor>>
-  fs[]>>
-  CONJ_TAC >-
-    rw[extend_s_def]>>
-  simp[GSYM isat_strxor_def]>>
-  metis_tac[isat_strxor_extend_s]
 QED
 
 Theorem sum_bitlist_aux_REPLICATE_F:
@@ -562,6 +600,24 @@ Theorem isat_strxor_extend_s:
 Proof
   rw[isat_strxor_def]>>
   simp[string_to_bits_extend_s,sum_bitlist_REPLICATE_F]
+QED
+
+Theorem isat_strxor_strxor:
+  isat_strxor w s ∧
+  isat_strxor w t ==>
+  isat_strxor w (strxor s t)
+Proof
+  wlog_tac`strlen t ≤ strlen s` [`s`,`t`]
+  >-
+    simp[Once strxor_comm]>>
+  rw[]>>
+  rw[isat_strxor_def,strxor_prop]>>
+  match_mp_tac sum_bitlist_xor>>
+  fs[]>>
+  CONJ_TAC >-
+    rw[extend_s_def]>>
+  simp[GSYM isat_strxor_def]>>
+  metis_tac[isat_strxor_extend_s]
 QED
 
 Theorem sat_cmsxor_cons[simp]:
@@ -764,6 +820,27 @@ Definition is_rup_def:
   | _ => F)
 End
 
+(* Add together xors *)
+Definition add_xors_aux_def:
+  (add_xors_aux fml [] s = SOME s) ∧
+  (add_xors_aux fml (i::is) s =
+  case lookup i fml of NONE => NONE
+  | SOME x =>
+    add_xors_aux fml is (strxor s x))
+End
+
+Definition is_emp_xor_def:
+  is_emp_xor s =
+  EVERY (λc. c = CHR 0) (explode s)
+End
+
+Definition is_xor_def:
+  is_xor fml is s =
+  case add_xors_aux fml is s
+    of NONE => F
+  | SOME x => is_emp_xor x
+End
+
 Definition check_xlrup_def:
   check_xlrup xlrup cfml xfml =
   case xlrup of
@@ -771,6 +848,10 @@ Definition check_xlrup_def:
   | RUP n C i0 =>
     if is_rup cfml i0 C then
       SOME (insert n C cfml, xfml)
+    else NONE
+  | XAdd n X i0 =>
+    if is_xor xfml i0 X then
+      SOME (cfml, insert n X xfml)
     else NONE
   | XDel xl => SOME (cfml, FOLDL (\a b. delete b a) xfml xl)
   | _ => NONE
@@ -856,6 +937,108 @@ Proof
       intLib.ARITH_TAC))
 QED
 
+Theorem add_xors_aux_acc:
+  ∀is s t.
+  add_xors_aux fml is s = SOME t ⇒
+  add_xors_aux fml is (strxor s u) = SOME (strxor t u)
+Proof
+  Induct>>rw[add_xors_aux_def]>>
+  gvs[AllCaseEqs()]>>
+  `strxor (strxor s u) x = strxor (strxor s x) u` by
+    metis_tac[strxor_comm,strxor_assoc]>>
+  pop_assum SUBST_ALL_TAC>>
+  simp[]
+QED
+
+Theorem add_xors_aux_imp:
+  ∀is s.
+  isat_xfml w (values fml) ∧
+  isat_strxor w s ∧
+  add_xors_aux fml is s = SOME t ⇒
+  isat_strxor w t
+Proof
+  Induct>>rw[add_xors_aux_def]>>fs[AllCaseEqs()]>>
+  first_x_assum match_mp_tac>>
+  first_x_assum (irule_at Any)>>
+  match_mp_tac isat_strxor_strxor>>
+  simp[]>>
+  fs[isat_xfml_def,values_def,PULL_EXISTS]>>
+  metis_tac[]
+QED
+
+Theorem is_emp_xor_eq:
+  is_emp_xor x ⇒
+  (x = extend_s (strlit "") (strlen x))
+Proof
+  rw[extend_s_def,is_emp_xor_def]>>
+  Cases_on`x`>>fs[implode_def]>>
+  rw[LIST_EQ_REWRITE,EL_REPLICATE]>>
+  fs[EVERY_EL]
+QED
+
+Theorem isat_strxor_is_emp_xor:
+  is_emp_xor x ⇒
+  isat_strxor w x
+Proof
+  rw[]>>drule is_emp_xor_eq>>
+  disch_then SUBST_ALL_TAC>>
+  simp[isat_strxor_extend_s]>>
+  EVAL_TAC
+QED
+
+Theorem strxor_aux_empty:
+  ∀xs ys.
+  EVERY (λc. c = CHR 0) ys ∧
+  LENGTH ys ≤ LENGTH xs ⇒
+  strxor_aux xs ys = xs
+Proof
+  ho_match_mp_tac strxor_aux_ind>>rw[strxor_aux_def]
+QED
+
+Theorem isat_stxor_add_is_emp_xor:
+  is_emp_xor x ⇒
+  isat_strxor w (strxor y x) =
+  isat_strxor w y
+Proof
+  rw[strxor_compute]>>
+  DEP_REWRITE_TAC[strxor_aux_empty]>>
+  simp[isat_strxor_extend_s]>>
+  fs[is_emp_xor_def]>>
+  rw[extend_s_def]
+QED
+
+Theorem charxor_self:
+  charxor c c = CHR 0
+Proof
+  rw[charxor_def,fromByte_def]
+QED
+
+Theorem strxor_self:
+  is_emp_xor (strxor X X)
+Proof
+  simp[strxor_def]>>
+  DEP_REWRITE_TAC[strxor_aux_prop,is_emp_xor_def]>>
+  rw[]>>
+  simp[EVERY_MAP,MAP2_MAP,charxor_self]
+QED
+
+Theorem is_xor_sound:
+  isat_xfml w (values fml) ∧
+  is_xor fml is X ⇒
+  isat_strxor w X
+Proof
+  rw[is_xor_def]>>
+  every_case_tac>>fs[]>>
+  drule add_xors_aux_acc>>
+  disch_then (qspec_then `X` assume_tac)>>
+  drule add_xors_aux_imp>>
+  disch_then (drule_at Any)>>
+  impl_tac >-
+    metis_tac[isat_strxor_is_emp_xor,strxor_self]>>
+  strip_tac>>
+  metis_tac[isat_stxor_add_is_emp_xor,strxor_comm]
+QED
+
 Theorem delete_preserves_isat_cfml:
   isat_cfml w (values C) ⇒
   isat_cfml w (values (delete n C))
@@ -904,6 +1087,16 @@ Proof
   metis_tac[]
 QED
 
+Theorem isat_xfml_insert:
+  isat_xfml w (values xfml) ∧
+  isat_strxor w x ⇒
+  isat_xfml w (values (insert n x xfml))
+Proof
+  rw[isat_xfml_def,values_def,lookup_insert]>>
+  gvs[AllCaseEqs()]>>
+  metis_tac[]
+QED
+
 Theorem check_xlrup_sound:
   check_xlrup xlrup cfml xfml = SOME (cfml',xfml') ∧
   isat_fml w (values cfml, values xfml) ⇒
@@ -919,6 +1112,12 @@ Proof
     simp[]>>
     match_mp_tac (GEN_ALL is_rup_sound)>>gvs[]>>
     asm_exists_tac>>simp[])
+  >- ( (* XAdd *)
+    fs[isat_fml_def]>>
+    match_mp_tac isat_xfml_insert>>
+    simp[]>>
+    match_mp_tac (GEN_ALL is_xor_sound)>>gvs[]>>
+    metis_tac[])
   >- (* deleting XORs by ID *)
     metis_tac[delete_xors_sound]
 QED
