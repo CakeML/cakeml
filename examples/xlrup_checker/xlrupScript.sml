@@ -835,34 +835,34 @@ Definition is_emp_xor_def:
 End
 
 Definition is_xor_def:
-  is_xor fml is s =
-  case add_xors_aux fml is s
+  is_xor def fml is s =
+  case add_xors_aux fml is (extend_s s def)
     of NONE => F
   | SOME x => is_emp_xor x
 End
 
 Definition check_xlrup_def:
-  check_xlrup xlrup cfml xfml =
+  check_xlrup xlrup cfml xfml def =
   case xlrup of
-    Del cl => SOME (FOLDL (\a b. delete b a) cfml cl, xfml)
+    Del cl => SOME (FOLDL (\a b. delete b a) cfml cl, xfml, def)
   | RUP n C i0 =>
     if is_rup cfml i0 C then
-      SOME (insert n C cfml, xfml)
+      SOME (insert n C cfml, xfml, def)
     else NONE
   | XAdd n X i0 =>
-    if is_xor xfml i0 X then
-      SOME (cfml, insert n X xfml)
+    if is_xor def xfml i0 X then
+      SOME (cfml, insert n X xfml, MAX def (strlen X))
     else NONE
-  | XDel xl => SOME (cfml, FOLDL (\a b. delete b a) xfml xl)
+  | XDel xl => SOME (cfml, FOLDL (\a b. delete b a) xfml xl, def)
   | _ => NONE
 End
 
 Definition check_xlrups_def:
-  (check_xlrups [] cfml xfml = SOME (cfml,xfml)) ∧
-  (check_xlrups (x::xs) cfml xfml =
-  case check_xlrup x cfml xfml of
+  (check_xlrups [] cfml xfml def = SOME (cfml,xfml,def)) ∧
+  (check_xlrups (x::xs) cfml xfml def =
+  case check_xlrup x cfml xfml def of
     NONE => NONE
-  | SOME (cfml',xfml') => check_xlrups xs cfml' xfml')
+  | SOME (cfml',xfml',def') => check_xlrups xs cfml' xfml' def')
 End
 
 Definition contains_emp_def:
@@ -872,10 +872,10 @@ Definition contains_emp_def:
 End
 
 Definition check_xlrups_unsat_def:
-  check_xlrups_unsat xlrups cfml xfml =
-  case check_xlrups xlrups cfml xfml of
+  check_xlrups_unsat xlrups cfml xfml def =
+  case check_xlrups xlrups cfml xfml def of
     NONE => F
-  | SOME (cfml',xfml') => contains_emp cfml'
+  | SOME (cfml',xfml',def') => contains_emp cfml'
 End
 
 (* Proofs *)
@@ -1024,19 +1024,19 @@ QED
 
 Theorem is_xor_sound:
   isat_xfml w (values fml) ∧
-  is_xor fml is X ⇒
+  is_xor def fml is X ⇒
   isat_strxor w X
 Proof
   rw[is_xor_def]>>
   every_case_tac>>fs[]>>
   drule add_xors_aux_acc>>
-  disch_then (qspec_then `X` assume_tac)>>
+  disch_then (qspec_then `extend_s X def` assume_tac)>>
   drule add_xors_aux_imp>>
   disch_then (drule_at Any)>>
   impl_tac >-
     metis_tac[isat_strxor_is_emp_xor,strxor_self]>>
   strip_tac>>
-  metis_tac[isat_stxor_add_is_emp_xor,strxor_comm]
+  metis_tac[isat_stxor_add_is_emp_xor,strxor_comm,isat_strxor_extend_s]
 QED
 
 Theorem delete_preserves_isat_cfml:
@@ -1098,7 +1098,7 @@ Proof
 QED
 
 Theorem check_xlrup_sound:
-  check_xlrup xlrup cfml xfml = SOME (cfml',xfml') ∧
+  check_xlrup xlrup cfml xfml def = SOME (cfml',xfml',def') ∧
   isat_fml w (values cfml, values xfml) ⇒
   isat_fml w (values cfml', values xfml')
 Proof
@@ -1124,15 +1124,15 @@ QED
 
 (* The main operational theorem about check_xlrups *)
 Theorem check_xlrups_sound:
-  ∀ls cfml xfml.
-  check_xlrups ls cfml xfml = SOME (cfml',xfml') ⇒
+  ∀ls cfml xfml def def'.
+  check_xlrups ls cfml xfml def = SOME (cfml',xfml',def') ⇒
   (isat_fml w (values cfml, values xfml) ⇒
    isat_fml w (values cfml', values xfml'))
 Proof
   Induct>>simp[check_xlrups_def]>>
   ntac 4 strip_tac>>
   every_case_tac>>fs[]>>
-  strip_tac>>
+  rw[]>>
   drule check_xlrup_sound>>
   disch_then drule>>
   strip_tac>>
@@ -1177,7 +1177,7 @@ Proof
 QED
 
 Theorem check_xlrups_unsat_sound:
-  check_xlrups_unsat xlrups (build_fml cid cfml) (build_fml xid xfml) ⇒
+  check_xlrups_unsat xlrups (build_fml cid cfml) (build_fml xid xfml) def ⇒
   ¬ isatisfiable (set cfml,set xfml)
 Proof
   rw[check_xlrups_unsat_def]>>
@@ -1188,7 +1188,7 @@ Proof
     rw[]>>
     asm_exists_tac>>simp[isat_cclause_def])>>
   fs[]>>
-  drule check_xlrups_sound>>
+  Cases_on`r`>>drule check_xlrups_sound>>
   fs[isatisfiable_def,isat_fml_def]>>
   metis_tac[values_build_fml]
 QED
@@ -1234,7 +1234,7 @@ QED
 
 Theorem wf_cfml_check_xlrup:
   wf_cfml cfml ∧ wf_xlrup xlrup ∧
-  check_xlrup xlrup cfml xfml = SOME (cfml',xfml') ⇒
+  check_xlrup xlrup cfml xfml def = SOME (cfml',xfml',def') ⇒
   wf_cfml cfml'
 Proof
   rw[check_xlrup_def]>>gvs[AllCaseEqs()]
@@ -1243,6 +1243,159 @@ Proof
   >- (
     fs[wf_xlrup_def]>>
     metis_tac[wf_cfml_insert])
+QED
+
+Definition var_def:
+  (var (Pos n) = n) ∧
+  (var (Neg n) = n)
+End
+
+Definition max_list_def:
+  (max_list n [] = n) ∧
+  (max_list n (x::xs) = max_list (MAX n x) xs)
+End
+
+Definition max_var_xor_def:
+  max_var_xor xfml =
+  max_list 0 (MAP (λls. max_list 0 (MAP var ls)) xfml)
+End
+
+Definition conv_xfml_def:
+  conv_xfml mv xfml =
+  let s = extend_s (str (CHR 1)) mv in
+  MAP (conv_xor_aux s) xfml
+End
+
+Theorem conv_xor_aux_base:
+  EVERY nz_lit ls ⇒
+ (isat_strxor w (conv_xor_aux (extend_s (str (CHR 1)) n) ls) ⇔
+  sat_cmsxor w ls)
+Proof
+  rw[conv_xor_aux_sound,isat_strxor_extend_s]>>
+  `¬(isat_strxor w (str (CHR 1)))` by
+    EVAL_TAC>>
+  simp[]
+QED
+
+Theorem conv_xfml_sound:
+  EVERY (EVERY nz_lit) xfml ⇒
+  (isat_xfml w (set (conv_xfml mv xfml)) ⇔
+  (∀C. C ∈ set xfml ⇒ sat_cmsxor w C))
+Proof
+  rw[isat_xfml_def,conv_xfml_def,MEM_MAP,PULL_EXISTS,EVERY_MEM]>>
+  metis_tac[conv_xor_aux_base,EVERY_MEM]
+QED
+
+Definition conv_fml_def:
+  conv_fml mv (cfml,xfml) =
+  (conv_cfml cfml, conv_xfml xfml)
+End
+
+(* 1-sided variant of strxor *)
+Definition strxor_aux_1_def:
+  (strxor_aux_1 cs [] = cs) ∧
+  (strxor_aux_1 cs (d::ds) =
+    case cs of [] => []
+    | (c::cs) => (c ⊕ toByte d) :: strxor_aux_1 cs ds)
+End
+
+Theorem strxor_aux_1_strxor_aux:
+  ∀cs ds.
+  LENGTH ds ≤ LENGTH cs ⇒
+  strxor_aux_1 cs ds = MAP toByte (strxor_aux (MAP fromByte cs) ds)
+Proof
+  ho_match_mp_tac strxor_aux_1_ind>>
+  rw[strxor_aux_def,strxor_aux_1_def,MAP_MAP_o,o_DEF]>>
+  fs[charxor_def]
+QED
+
+Theorem strxor_aux_1_SNOC:
+  ∀ds cs.
+  LENGTH ds + 1 ≤ LENGTH cs ⇒
+  strxor_aux_1 cs (SNOC d ds) =
+  strxor_aux_1 (LUPDATE (EL (LENGTH ds) cs ⊕ toByte d) (LENGTH ds) cs) ds
+Proof
+  Induct>>rw[strxor_aux_1_def]
+  >- (
+    TOP_CASE_TAC>>fs[]>>
+    EVAL_TAC)>>
+  TOP_CASE_TAC>>fs[]>>
+  simp[LUPDATE_def]
+QED
+
+Definition strxor_aux_c_def:
+  strxor_aux_c cs ds n =
+  if n = 0 then cs
+  else
+    let n1 = n - 1 in
+    let c = EL n1 cs in
+    let d = toByte (strsub ds n1) in
+    strxor_aux_c (LUPDATE (c ⊕ d) n1 cs) ds n1
+End
+
+Theorem strxor_aux_c_strxor_aux_1:
+  ∀cs ds n.
+  n ≤ strlen ds ∧ strlen ds ≤ LENGTH cs ⇒
+  strxor_aux_c cs ds n =
+  strxor_aux_1 cs (TAKE n (explode ds))
+Proof
+  ho_match_mp_tac strxor_aux_c_ind>>rw[]>>
+  simp[Once strxor_aux_c_def]>>rw[]
+  >-
+    simp[strxor_aux_1_def]>>
+  qabbrev_tac`m = n-1`>>
+  `n = m + 1` by fs[Abbr`m`]>>
+  pop_assum SUBST_ALL_TAC>>
+  DEP_REWRITE_TAC[TAKE_EL_SNOC]>>
+  DEP_REWRITE_TAC[strxor_aux_1_SNOC]>>
+  simp[]>>
+  Cases_on`ds`>>simp[strsub_def]
+QED
+
+Definition strxor_c_def:
+  strxor_c s t =
+  let lt = strlen t in
+  let s =
+    if lt ≤ LENGTH s
+    then s
+    else s ++ REPLICATE (lt - LENGTH s) 0w in
+    strxor_aux_c s t lt
+End
+
+Theorem strxor_aux_c_strxor_aux:
+  strxor_c s t =
+  MAP toByte (explode (strxor (implode (MAP fromByte s)) t))
+Proof
+  rw[strxor_c_def,strxor_compute,extend_s_def]>>fs[]
+  >- (
+    DEP_REWRITE_TAC[strxor_aux_c_strxor_aux_1,strxor_aux_1_strxor_aux]>>
+    simp[]>>
+    Cases_on`t`>>simp[])>>
+  DEP_REWRITE_TAC[strxor_aux_c_strxor_aux_1,strxor_aux_1_strxor_aux]>>
+  simp[]>>
+  simp[fromByte_def]>>
+  Cases_on`t`>>simp[]
+QED
+
+Definition add_xors_aux_c_def:
+  (add_xors_aux_c fml [] s = SOME s) ∧
+  (add_xors_aux_c fml (i::is) s =
+  case lookup i fml of NONE => NONE
+  | SOME x =>
+    add_xors_aux_c fml is (strxor_c s x))
+End
+
+(* This is an equivalence ... *)
+Theorem add_xors_aux_c_add_xors_aux:
+  ∀is s t.
+  add_xors_aux_c fml is s = SOME t ⇒
+  add_xors_aux fml is
+    (implode (MAP fromByte s)) = SOME (implode (MAP fromByte t))
+Proof
+  Induct>>rw[add_xors_aux_c_def,add_xors_aux_def]>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum drule>>
+  simp[strxor_aux_c_strxor_aux,MAP_MAP_o,o_DEF]
 QED
 
 val _ = export_theory ();
