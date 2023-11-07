@@ -457,6 +457,79 @@ val r = translate usage_string_def;
 val r = translate conv_lit_def;
 val r = translate conv_cfml_def;
 
+val r = translate var_def;
+val r = translate max_list_def;
+val r = translate max_var_xor_def;
+
+Definition map_conv_lit_def:
+  map_conv_lit ls = MAP conv_lit ls
+End
+
+val r = translate map_conv_lit_def;
+
+val map_conv_xor_arr = process_topdecs`
+  fun map_conv_xor_arr mv xs =
+  case xs of [] => []
+  | (x::xs) =>
+    conv_rawxor_arr mv (map_conv_lit x) ::
+    map_conv_xor_arr mv xs` |> append_prog;
+
+Theorem map_conv_xor_arr_spec:
+  ∀xs xsv.
+  NUM n nv ∧
+  LL_LIT_TYPE xs xsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "map_conv_xor_arr" (get_ml_prog_state()))
+    [nv; xsv]
+    (emp)
+    (POSTv v.
+      &(LIST_TYPE STRING_TYPE (MAP (conv_rawxor_list n) (MAP map_conv_lit xs)) v))
+Proof
+  Induct>>
+  xcf "map_conv_xor_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def]>>xmatch
+  >- (xcon>>xsimpl)>>
+  first_x_assum drule>>
+  rw[]>>
+  rpt xlet_autop>>
+  xcon>>xsimpl
+QED
+
+val conv_xfml_arr = process_topdecs`
+  fun conv_xfml_arr xfml =
+  let
+    val mv = max_var_xor xfml
+  in
+    (map_conv_xor_arr mv xfml, mv)
+  end` |> append_prog;
+
+Theorem conv_xfml_arr_spec:
+  LL_LIT_TYPE x xv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "conv_xfml_arr" (get_ml_prog_state()))
+    [xv]
+    (emp)
+    (POSTv v.
+      &(
+      PAIR_TYPE (LIST_TYPE STRING_TYPE) NUM
+      (conv_xfml (max_var_xor x) x,max_var_xor x) v))
+Proof
+  xcf "conv_xfml_arr" (get_ml_prog_state ())>>
+  xlet_autop>>
+  xlet_autop>>
+  xcon>>
+  xsimpl>>
+  fs[PAIR_TYPE_def,conv_xfml_def]>>
+  qmatch_asmsub_abbrev_tac`LIST_TYPE STRING_TYPE A _`>>
+  qmatch_goalsub_abbrev_tac`LIST_TYPE STRING_TYPE B _`>>
+  `A = B` by
+    (unabbrev_all_tac>>fs[MAP_MAP_o,o_DEF,MAP_EQ_f]>>rw[]>>
+    simp[conv_rawxor_list_conv_rawxor,conv_rawxor_def,conv_xor_def,map_conv_lit_def])>>
+  fs[]
+QED
+
 (*
   Checker takes up to 2 arguments:
   2 args (CNF XOR file, proof file):
@@ -472,10 +545,12 @@ val check_unsat_2 = (append_prog o process_topdecs) `
       val one = 1
       val carr = Array.array (2*ncx) None
       val carr = fill_arr carr one cfml
-      val xarr = Array.array 0 None
+      val (xfml,def) = conv_xfml_arr xfml
+      val xarr = Array.array (2*ncx) None
+      val xarr = fill_arr xarr one xfml
       val bnd = 2*mv + 3
   in
-    case check_unsat' carr xarr f2 bnd of
+    case check_unsat' carr xarr def f2 bnd of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr b =>
       if b then
@@ -507,15 +582,21 @@ val check_unsat_2_sem_def = Define`
     NONE => add_stderr fs err
   | SOME (mv,ncl,cfml,xfml) =>
     let cfml = conv_cfml cfml in
+    let def = max_var_xor xfml in
+    let xfml = conv_xfml def xfml in
     if inFS_fname fs f2 then
       case parse_xlrups (all_lines fs f2) of
         SOME xlrups =>
         let cfmlls = enumerate 1 cfml in
         let base = REPLICATE (2*ncl) NONE in
-        let bnd = 2*mv+3 in
         let cupd = FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) base cfmlls in
-          if check_xlrups_unsat_list xlrups cupd ([]:strxor option list)
-            (REPLICATE bnd w8z) then
+        let xfmlls = enumerate 1 xfml in
+        let base = REPLICATE (2*ncl) NONE in
+        let xupd = FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) base xfmlls in
+        let bnd = 2*mv+3 in
+          if check_xlrups_unsat_list xlrups cupd xupd
+            def (REPLICATE bnd w8z)
+          then
             add_stdout fs (strlit "s VERIFIED UNSAT\n")
           else
             add_stderr fs err
@@ -561,12 +642,25 @@ Proof
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2 * x1) NONE)
         (REPLICATE (2 * x1) (Conv (SOME (TypeStamp "None" 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
+  qpat_x_assum`NUM 1 _` assume_tac>>
+  disch_then drule>>
+  disch_then drule>>
+  rw[]>>rpt xlet_autop>>
+  fs[PAIR_TYPE_def]>>
+  xmatch>>
+  rpt xlet_autop>>
+  (drule_at (Pos (hd o tl))) fill_arr_spec>>
+  (* help instantiate fill_arr_spec *)
+  `LIST_REL (OPTION_TYPE STRING_TYPE) (REPLICATE (2 * x1) NONE)
+        (REPLICATE (2 * x1) (Conv (SOME (TypeStamp "None" 2)) []))` by
+    simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
+  qpat_x_assum`NUM 1 _` assume_tac>>
   disch_then drule>>
   disch_then drule>>
   rw[]>>
   rpt xlet_autop>>
   simp[check_xlrups_unsat_list_def]>>
-  qmatch_goalsub_abbrev_tac`check_xlrups_list _ a b c`>>
+  qmatch_goalsub_abbrev_tac`check_xlrups_list _ a b c d`>>
   xlet`POSTv v.
     STDIO fs *
     SEP_EXISTS err.
@@ -575,33 +669,31 @@ Proof
          (case parse_xlrups (all_lines fs f2) of
             NONE => INL err
           | SOME xlrups =>
-            (case check_xlrups_list xlrups a b c of
+            (case check_xlrups_list xlrups a b c d of
              NONE => INL err
            | SOME (cfml', xfml') =>
            INR (contains_emp_list cfml')))
        else INL err) v`
   >- (
     xapp_spec (GEN_ALL check_unsat'_spec)>>
-    cheat)
-    (*xsimpl>>
+    xsimpl>>
     asm_exists_tac>>simp[]>>
     fs[FILENAME_def,validArg_def]>>
     asm_exists_tac>>simp[]>>
     asm_exists_tac>>simp[]>>
-    simp[Once (METIS_PROVE [] ``P ∧ Q ∧ C ⇔ Q ∧ C ∧ P``)]>>
     asm_exists_tac>>simp[]>>
-    qexists_tac`emp`>>xsimpl>>
-    reverse CONJ_TAC>- (
-      cheat)>>
-    fs[LENGTH_enumerate,rev_enum_full_rev_enumerate,Abbr`b`]>>
-    rw[]>>
-    qexists_tac`x`>>simp[]
-    metis_tac[] *)>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    xsimpl>>
+    reverse CONJ_TAC >-
+      (rw[]>>metis_tac[])>>
+    (* bounded_cfml *)
+    cheat)>>
   reverse TOP_CASE_TAC>>simp[]
   >- (fs[SUM_TYPE_def]>>xmatch>>err_tac)>>
   TOP_CASE_TAC>>fs[SUM_TYPE_def]
   >- (xmatch>>err_tac)>>
-  Cases_on`check_xlrups_list x a b c`>>fs[SUM_TYPE_def]
+  Cases_on`check_xlrups_list x a b c d`>>fs[SUM_TYPE_def]
   >- (xmatch>>err_tac)>>
   Cases_on`x'`>>fs[]>>
   fs[SUM_TYPE_def]>>

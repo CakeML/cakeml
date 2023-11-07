@@ -8,6 +8,7 @@ val _ = new_theory "xlrup";
 (* Internal representations *)
 Type cclause = ``:int list``;
 Type strxor = ``:mlstring``;
+Type rawxor = ``:int list``;
 
 Definition values_def:
   values s = {v | ∃n. lookup n s = SOME v}
@@ -339,11 +340,16 @@ End
 Definition conv_xor_aux_def:
   (conv_xor_aux s [] = s) ∧
   (conv_xor_aux s (x::xs) =
-  case x of
-    Pos v =>
-      conv_xor_aux (flip_bit (extend_s s (v DIV 8 + 1)) v) xs
-  | Neg v =>
-      conv_xor_aux (flip_bit (flip_bit (extend_s s (v DIV 8 + 1)) v) 0) xs)
+  let v = Num (ABS x) in
+  let s = extend_s s (v DIV 8 + 1) in
+  if x > 0 then
+    conv_xor_aux (flip_bit s v) xs
+  else
+    conv_xor_aux (flip_bit (flip_bit s v) 0) xs)
+End
+
+Definition conv_xor_def:
+  conv_xor s x = conv_xor_aux s (MAP conv_lit x)
 End
 
 Theorem MAPi_MAP:
@@ -754,24 +760,27 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem conv_xor_aux_sound:
+Theorem conv_xor_sound:
   ∀ls s.
   EVERY nz_lit ls ⇒
-  (isat_strxor w (conv_xor_aux s ls) ⇔
+  (isat_strxor w (conv_xor s ls) ⇔
   ((isat_strxor w s) ⇎ (sat_cmsxor w ls)))
 Proof
-  Induct>>rw[conv_xor_aux_def]
+  Induct>>fs[conv_xor_aux_def,conv_xor_def]>>rw[]
   >-
-    simp[sat_cmsxor_def]>>
-  TOP_CASE_TAC>>fs[]
+    simp[sat_cmsxor_def]
   >- (
-    simp[sat_lit_def]>>
+    reverse(Cases_on`h`>>fs[sat_lit_def,conv_lit_def])
+    >-
+      `F` by intLib.ARITH_TAC>>
     DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
     CONJ_TAC >-
       simp[strlen_extend_s]>>
     simp[isat_strxor_extend_s]>>
     metis_tac[]) >>
-  simp[sat_lit_def]>>
+  Cases_on`h`>>fs[sat_lit_def,conv_lit_def]
+  >-
+    `F` by intLib.ARITH_TAC>>
   DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
   simp[strlen_extend_s,isat_strxor_extend_s]>>
   CONJ_TAC >- (
@@ -786,18 +795,19 @@ Proof
   rw[sum_bitlist_def,sum_bitlist_aux_REPLICATE_F]
 QED
 
-(* Implementation *)
+(* Implementation:
+  For fast parsing, XORs are represented "raw" using int lists *)
 Datatype:
   xlrup =
   | Del (num list) (* Clauses to delete *)
   | RUP num cclause (num list)
     (* RUP n C hints : derive clause C by RUP using hints *)
-  | XAdd num strxor (num list)
+  | XAdd num rawxor (num list)
     (* Xadd n C hints derive XOR C by adding XORs using hints *)
   | XDel (num list) (* XORs to delete *)
   | CFromX num cclause (num list)
     (* Derive clause from hint XORs *)
-  | XFromC num strxor (num list)
+  | XFromC num rawxor (num list)
     (* Derive XOR from hint clauses *)
 End
 
@@ -805,9 +815,7 @@ val delete_literals_def = Define`
   delete_literals (C:cclause) (D:cclause) =
   FILTER (λx. ¬MEM x D) C`
 
-(*
-  Checking for RUP
-*)
+(* Checking for RUP *)
 Definition is_rup_def:
   (is_rup fml [] (C:cclause) = F) ∧
   (is_rup fml (i::is) C =
@@ -836,9 +844,17 @@ End
 
 Definition is_xor_def:
   is_xor def fml is s =
-  case add_xors_aux fml is (extend_s s def)
+  let r = extend_s (strlit "") def in
+  case add_xors_aux fml is (strxor r s)
     of NONE => F
   | SOME x => is_emp_xor x
+End
+
+Definition conv_rawxor_def:
+  conv_rawxor mv x =
+  let s = extend_s (strlit "") (MAX 1 mv)  in
+  let s = flip_bit s 0 in
+  conv_xor_aux s x
 End
 
 Definition check_xlrup_def:
@@ -849,7 +865,8 @@ Definition check_xlrup_def:
     if is_rup cfml i0 C then
       SOME (insert n C cfml, xfml, def)
     else NONE
-  | XAdd n X i0 =>
+  | XAdd n rX i0 =>
+    let X = conv_rawxor def rX in
     if is_xor def xfml i0 X then
       SOME (cfml, insert n X xfml, MAX def (strlen X))
     else NONE
@@ -1030,12 +1047,14 @@ Proof
   rw[is_xor_def]>>
   every_case_tac>>fs[]>>
   drule add_xors_aux_acc>>
-  disch_then (qspec_then `extend_s X def` assume_tac)>>
+  disch_then (qspec_then `strxor (extend_s «» def) X` assume_tac)>>
   drule add_xors_aux_imp>>
   disch_then (drule_at Any)>>
   impl_tac >-
     metis_tac[isat_strxor_is_emp_xor,strxor_self]>>
   strip_tac>>
+  `is_emp_xor (extend_s «» def)` by
+    rw[extend_s_def,is_emp_xor_def]>>
   metis_tac[isat_stxor_add_is_emp_xor,strxor_comm,isat_strxor_extend_s]
 QED
 
@@ -1262,19 +1281,20 @@ End
 
 Definition conv_xfml_def:
   conv_xfml mv xfml =
-  let s = extend_s (str (CHR 1)) mv in
-  MAP (conv_xor_aux s) xfml
+  let s = extend_s (strlit "") (MAX 1 mv) in
+  let s = flip_bit s 0 in
+  MAP (conv_xor s) xfml
 End
 
-Theorem conv_xor_aux_base:
+Theorem conv_xor_base:
   EVERY nz_lit ls ⇒
- (isat_strxor w (conv_xor_aux (extend_s (str (CHR 1)) n) ls) ⇔
+ (isat_strxor w (conv_xor (flip_bit (extend_s (strlit "") (MAX 1 n)) 0) ls) ⇔
   sat_cmsxor w ls)
 Proof
-  rw[conv_xor_aux_sound,isat_strxor_extend_s]>>
-  `¬(isat_strxor w (str (CHR 1)))` by
-    EVAL_TAC>>
-  simp[]
+  rw[conv_xor_sound,isat_strxor_extend_s]>>
+  DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
+  simp[isat_strxor_extend_s]>>
+  EVAL_TAC>>rw[]
 QED
 
 Theorem conv_xfml_sound:
@@ -1283,7 +1303,7 @@ Theorem conv_xfml_sound:
   (∀C. C ∈ set xfml ⇒ sat_cmsxor w C))
 Proof
   rw[isat_xfml_def,conv_xfml_def,MEM_MAP,PULL_EXISTS,EVERY_MEM]>>
-  metis_tac[conv_xor_aux_base,EVERY_MEM]
+  metis_tac[conv_xor_base,EVERY_MEM]
 QED
 
 Definition conv_fml_def:
@@ -1300,11 +1320,12 @@ Definition strxor_aux_1_def:
 End
 
 Theorem strxor_aux_1_strxor_aux:
-  ∀cs ds.
+  ∀ds cs.
   LENGTH ds ≤ LENGTH cs ⇒
   strxor_aux_1 cs ds = MAP toByte (strxor_aux (MAP fromByte cs) ds)
 Proof
-  ho_match_mp_tac strxor_aux_1_ind>>
+  Induct>>rw[strxor_aux_1_def]>>
+  Cases_on`cs`>>fs[]>>
   rw[strxor_aux_def,strxor_aux_1_def,MAP_MAP_o,o_DEF]>>
   fs[charxor_def]
 QED

@@ -65,6 +65,28 @@ val is_rup_list_def = Define`
     NONE => NONE
   | SOME (c, Clist) => SOME (set_list Clist w8z c)`
 
+Definition add_xors_aux_c_list_def:
+  (add_xors_aux_c_list fml [] s = SOME s) ∧
+  (add_xors_aux_c_list fml (i::is) s =
+  case list_lookup fml NONE i of NONE => NONE
+  | SOME x =>
+    add_xors_aux_c_list fml is (strxor_c s x))
+End
+
+(* Maybe needs speedup? *)
+Definition is_emp_xor_list_def:
+  is_emp_xor_list ls =
+  EVERY ($= w8z) ls
+End
+
+Definition is_xor_list_def:
+  is_xor_list def fml is s =
+  let r = REPLICATE def w8z in
+  let r = strxor_c r s in
+  case add_xors_aux_c_list fml is r of NONE => F
+  | SOME x => is_emp_xor_list x
+End
+
 val list_delete_list_def = Define`
   (list_delete_list [] fml = fml) ∧
   (list_delete_list (i::is) fml =
@@ -82,30 +104,80 @@ val resize_Clist_def = Define`
     REPLICATE (2 * (list_max_index C )) w8z
   else Clist`
 
+Definition flip_bit_word_def:
+  flip_bit_word w n =
+  let b = ¬ (w ' n) in
+  if b then
+    w ‖ 1w ≪ n
+  else
+    w && ¬(1w ≪ n)
+End
+
+Definition flip_bit_list_def:
+  flip_bit_list s n =
+  let q = n DIV 8 in
+  let r = n MOD 8 in
+  let b = flip_bit_word (EL q s) r in
+  LUPDATE b q s
+End
+
+Definition extend_s_list_def:
+  extend_s_list s n =
+  if n < LENGTH s then s
+  else
+    s ++ REPLICATE (n - LENGTH s) (0w :word8)
+End
+
+Definition conv_xor_aux_list_def:
+  (conv_xor_aux_list s [] = s) ∧
+  (conv_xor_aux_list s (x::xs) =
+  let v = Num (ABS x) in
+  let s = extend_s_list s (v DIV 8 + 1) in
+  if x > 0 then
+    conv_xor_aux_list (flip_bit_list s v) xs
+  else
+    conv_xor_aux_list (flip_bit_list (flip_bit_list s v) 0) xs)
+End
+
+Definition conv_rawxor_list_def:
+  conv_rawxor_list mv x =
+  let r = REPLICATE (MAX 1 mv) w8z in
+  let r = flip_bit_list r 0 in
+    implode (MAP fromByte (conv_xor_aux_list r x))
+End
+
 Definition check_xlrup_list_def:
-  check_xlrup_list xlrup cfml xfml Clist =
+  check_xlrup_list xlrup cfml xfml def Clist =
   case xlrup of
     Del cl =>
-    SOME (list_delete_list cl cfml, xfml, Clist)
+    SOME (list_delete_list cl cfml, xfml, def, Clist)
   | RUP n c i0 =>
     let Clist = resize_Clist c Clist in
     (case is_rup_list cfml i0 c Clist of
       NONE => NONE
     | SOME Clist =>
-      SOME (resize_update_list cfml NONE (SOME c) n, xfml, Clist))
+      SOME (resize_update_list cfml NONE (SOME c) n, xfml,
+        def, Clist))
+  | XAdd n rx i0 =>
+    let X = conv_rawxor_list def rx in
+    if is_xor_list def xfml i0 X then
+      SOME (cfml, resize_update_list xfml NONE (SOME X) n,
+        MAX def (strlen X), Clist)
+    else NONE
   | XDel xl =>
-    SOME (cfml, list_delete_list xl xfml, Clist)
+    SOME (cfml, list_delete_list xl xfml, def, Clist)
   | _ => NONE
 End
 
 (* semantic *)
 Definition check_xlrups_list_def:
-  (check_xlrups_list [] cfml xfml Clist = SOME (cfml, xfml)) ∧
-  (check_xlrups_list (x::xs) cfml xfml Clist =
-    case check_xlrup_list x cfml xfml Clist of
+  (check_xlrups_list [] cfml xfml def Clist =
+    SOME (cfml, xfml, def)) ∧
+  (check_xlrups_list (x::xs) cfml xfml def Clist =
+    case check_xlrup_list x cfml xfml def Clist of
       NONE => NONE
-    | SOME (cfml', xfml', Clist') =>
-      check_xlrups_list xs cfml' xfml' Clist')
+    | SOME (cfml', xfml', def', Clist') =>
+      check_xlrups_list xs cfml' xfml' def' Clist')
 End
 
 (* Search backwards through the IDs *)
@@ -127,10 +199,10 @@ Definition contains_emp_list_def:
 End
 
 Definition check_xlrups_unsat_list_def:
-  check_xlrups_unsat_list xlrups cfml xfml Clist =
-  case check_xlrups_list xlrups cfml xfml Clist of
+  check_xlrups_unsat_list xlrups cfml xfml def Clist =
+  case check_xlrups_list xlrups cfml xfml def Clist of
     NONE => F
-  | SOME (cfml', xfml') => contains_emp_list cfml'
+  | SOME (cfml', xfml', def') => contains_emp_list cfml'
 End
 
 (* prove that check_xlrup_list implements check_xlrup *)
@@ -412,16 +484,124 @@ Proof
   first_x_assum(qspec_then`x` assume_tac)>>rfs[]
 QED
 
+Theorem flip_bit_word_set_get:
+  flip_bit_word w n =
+  toByte (set_bit_char (fromByte w) n (¬get_bit_char (fromByte w) n))
+Proof
+  rw[set_bit_char_def,get_bit_char_def,flip_bit_word_def]
+QED
+
+Theorem EL_explode:
+  EL n (explode s) =
+  strsub s n
+Proof
+  Cases_on`s`>>simp[]
+QED
+
+Theorem strsub_implode:
+  strsub (implode s) n =
+  EL n s
+Proof
+  fs[strsub_def,implode_def]
+QED
+
+Theorem flip_bit_list_flip_bit:
+  n DIV 8 < LENGTH ls ⇒
+  flip_bit_list ls n =
+  MAP toByte (explode (flip_bit (implode (MAP fromByte ls)) n))
+Proof
+  rw[flip_bit_list_def,flip_bit_word_set_get]>>
+  rw[LIST_EQ_REWRITE]>>
+  simp[EL_MAP,flip_bit_def,set_bit_def,get_bit_def,EL_explode]>>
+  simp[set_char_def,get_char_def,strsub_implode]>>
+  rw[EL_LUPDATE,EL_MAP]
+QED
+
+Theorem extend_s_list_extend_s:
+  extend_s_list s n =
+  MAP toByte (explode (extend_s (implode (MAP fromByte s)) n))
+Proof
+  rw[extend_s_list_def,extend_s_def]>>fs[MAP_MAP_o,o_DEF]>>
+  EVAL_TAC
+QED
+
+Theorem conv_xor_aux_list_conv_xor_aux:
+  ∀x ls.
+  conv_xor_aux_list ls x =
+  MAP toByte (explode (conv_xor_aux (implode (MAP fromByte ls)) x))
+Proof
+  Induct>>rw[conv_xor_aux_def,conv_xor_aux_list_def]
+  >-
+    simp[MAP_MAP_o,o_DEF]>>
+  DEP_REWRITE_TAC[flip_bit_list_flip_bit,extend_s_list_extend_s]>>
+  simp[MAP_MAP_o,o_DEF]>>
+  rw[extend_s_def]
+QED
+
+Theorem conv_rawxor_list_conv_rawxor:
+  conv_rawxor_list mv x = conv_rawxor mv x
+Proof
+  rw[conv_rawxor_list_def,conv_rawxor_def]>>
+  simp[conv_xor_aux_list_conv_xor_aux]>>
+  simp[flip_bit_list_flip_bit,MAP_MAP_o,o_DEF]>>
+  simp[extend_s_def]>>
+  rpt(AP_THM_TAC ORELSE AP_TERM_TAC)>>
+  EVAL_TAC
+QED
+
+Theorem add_xors_aux_c_list_add_xors_aux_c:
+  ∀is x y.
+  fml_rel fml fmlls ∧
+  add_xors_aux_c_list fmlls is x = SOME y ⇒
+  add_xors_aux_c fml is x = SOME y
+Proof
+  Induct>>rw[add_xors_aux_c_def,add_xors_aux_c_list_def]>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum (irule_at Any)>>
+  fs[fml_rel_def,list_lookup_def]>>
+  first_x_assum(qspec_then`h` mp_tac)>>simp[]
+QED
+
+Theorem is_emp_xor_list_is_emp_xor:
+  is_emp_xor_list x =
+  is_emp_xor (implode (MAP fromByte x))
+Proof
+  rw[is_emp_xor_list_def,is_emp_xor_def,EVERY_MAP]>>
+  match_mp_tac EVERY_CONG>>rw[]>>
+  EVAL_TAC>>
+  `w2n x' < dimword(:8)` by
+    metis_tac[w2n_lt]>>
+  fs[]
+QED
+
+Theorem is_xor_list_is_xor:
+  fml_rel fml fmlls ∧
+  is_xor_list def fmlls is x ⇒
+  is_xor def fml is x
+Proof
+  rw[is_xor_list_def]>>
+  every_case_tac>>fs[]>>
+  drule_all add_xors_aux_c_list_add_xors_aux_c>>
+  rw[is_xor_def]>>
+  drule add_xors_aux_c_add_xors_aux>>
+  simp[strxor_aux_c_strxor_aux,MAP_MAP_o,o_DEF]>>
+  `implode (REPLICATE def (fromByte w8z)) =
+    extend_s (strlit "") def` by
+    (rw[extend_s_def]>>fs[]>>
+    EVAL_TAC)>>
+  fs[is_emp_xor_list_is_emp_xor]
+QED
+
 Theorem fml_rel_check_xlrup_list:
   fml_rel cfml cfmlls ∧
   fml_rel xfml xfmlls ∧
   EVERY ($= w8z) Clist ∧
   wf_cfml cfml ⇒
-  case check_xlrup_list xlrup cfmlls xfmlls Clist of
-    SOME (cfmlls', xfmlls', Clist') =>
+  case check_xlrup_list xlrup cfmlls xfmlls def Clist of
+    SOME (cfmlls', xfmlls', def', Clist') =>
     EVERY ($= w8z) Clist' ∧
     ∃cfml' xfml'.
-    check_xlrup xlrup cfml xfml = SOME (cfml',xfml') ∧
+    check_xlrup xlrup cfml xfml def = SOME (cfml',xfml',def') ∧
     fml_rel cfml' cfmlls' ∧
     fml_rel xfml' xfmlls'
   | NONE => T
@@ -437,6 +617,11 @@ Proof
     drule_all fml_rel_is_rup_list>>
     disch_then (qspecl_then [`l0`,`l`] assume_tac)>>
     every_case_tac>>gvs[]>>
+    metis_tac[fml_rel_resize_update_list])
+  >- (
+    every_case_tac>>fs[]>>
+    drule_all is_xor_list_is_xor>>
+    simp[conv_rawxor_list_conv_rawxor]>>
     metis_tac[fml_rel_resize_update_list])
   >- metis_tac[fml_rel_list_delete_list]
 QED
@@ -473,15 +658,15 @@ Proof
 QED
 
 Theorem fml_rel_check_xlrups_list:
-  ∀xlrups cfml cfmlls xfml xfmlls cfmlls' xfmlls' Clist.
+  ∀xlrups cfml cfmlls xfml xfmlls cfmlls' xfmlls' def def' Clist.
   fml_rel cfml cfmlls ∧
   fml_rel xfml xfmlls ∧
   EVERY ($= w8z) Clist ∧ wf_cfml cfml ∧
   EVERY wf_xlrup xlrups ∧
-  check_xlrups_list xlrups cfmlls xfmlls Clist =
-    SOME (cfmlls', xfmlls') ⇒
+  check_xlrups_list xlrups cfmlls xfmlls def Clist =
+    SOME (cfmlls', xfmlls', def') ⇒
   ∃cfml' xfml'.
-    check_xlrups xlrups cfml xfml = SOME (cfml',xfml') ∧
+    check_xlrups xlrups cfml xfml def = SOME (cfml',xfml',def') ∧
     fml_rel cfml' cfmlls' ∧
     fml_rel xfml' xfmlls'
 Proof
@@ -489,7 +674,7 @@ Proof
   rw[]>>gvs[AllCaseEqs()]>>
   drule  fml_rel_check_xlrup_list>>
   rpt (disch_then drule)>>
-  disch_then (qspecl_then [`h`] mp_tac)>> simp[]>>
+  disch_then (qspecl_then [`h`,`def`] mp_tac)>> simp[]>>
   rw[]>>simp[]>>
   first_x_assum match_mp_tac>>
   asm_exists_tac>>fs[]>>
