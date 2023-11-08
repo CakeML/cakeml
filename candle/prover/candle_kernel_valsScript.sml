@@ -167,17 +167,17 @@ Inductive inferred:
 [~KernelFuns:]
   (∀ctxt f.
      f ∈ kernel_funs ⇒
-       inferred ctxt f) ∧
+       inferred ctxt f)
 [~TYPE:]
   (∀ctxt ty v.
      TYPE ctxt ty ∧
      TYPE_TYPE ty v ⇒
-       inferred ctxt v) ∧
+       inferred ctxt v)
 [~TERM:]
   (∀ctxt tm v.
      TERM ctxt tm ∧
      TERM_TYPE tm v ⇒
-       inferred ctxt v) ∧
+       inferred ctxt v)
 [~THM:]
   (∀ctxt th v.
      THM ctxt th ∧
