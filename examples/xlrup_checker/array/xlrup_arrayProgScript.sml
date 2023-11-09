@@ -665,24 +665,34 @@ val eq_w8z_def = Define`
 val _ = translate (eq_w8z_def |> SIMP_RULE std_ss [w8z_def]);
 
 val is_emp_xor_arr_aux = process_topdecs`
-  fun is_emp_xor_arr_aux arr n =
+  fun is_emp_xor_arr_aux lno arr n =
   if n > 0
   then
   let
   val n1 = n - 1 in
-    eq_w8z (Unsafe.w8sub arr n1) andalso
-    is_emp_xor_arr_aux arr n1
+    if
+      eq_w8z (Unsafe.w8sub arr n1)
+    then
+      is_emp_xor_arr_aux lno arr n1
+    else
+      raise Fail (format_failure lno ("Index : " ^ Int.toString n1 ^ " not canceled after summing XORs"))
   end
-  else True` |> append_prog;
+  else ()` |> append_prog;
 
 Theorem is_emp_xor_arr_aux_spec:
   ∀n nv.
+  NUM lno lnov ∧
   NUM n nv ∧ n <= LENGTH cs ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_emp_xor_arr_aux" (get_ml_prog_state()))
-    [csv; nv]
+    [lnov; csv; nv]
     (W8ARRAY csv cs)
-    (POSTv v. W8ARRAY csv cs * &BOOL (is_emp_xor_list (TAKE n cs)) v)
+    (POSTve
+      (λv. W8ARRAY csv cs *
+        &(is_emp_xor_list (TAKE n cs)))
+      (λe.
+          W8ARRAY csv cs *
+         &(Fail_exn e ∧ ¬is_emp_xor_list (TAKE n cs))))
 Proof
   Induct>>fs[is_emp_xor_list_def]>>rw[]>>
   xcf "is_emp_xor_arr_aux" (get_ml_prog_state ())
@@ -695,12 +705,14 @@ Proof
   asm_exists_tac>>xsimpl>>
   rpt xlet_autop>>
   DEP_REWRITE_TAC[GSYM SNOC_EL_TAKE]>>
-  fs[EVERY_SNOC,eq_w8z_def]>>
-  xlog>>rw[]
-  >- (
-    xapp>>xsimpl)>>
-  xsimpl>>
-  gvs[]
+  fs[EXISTS_SNOC,EVERY_SNOC,eq_w8z_def]>>
+  xif
+  >-
+    (xapp>>fs[]>>xsimpl)>>
+  rpt xlet_autop>>
+  xraise>>xsimpl>>
+  fs[Fail_exn_def]>>
+  metis_tac[]
 QED
 
 val is_xor_arr = process_topdecs`
@@ -710,9 +722,7 @@ val is_xor_arr = process_topdecs`
     val r = strxor_c_arr r s
     val res = add_xors_aux_c_arr lno fml is r
   in
-    if is_emp_xor_arr_aux res (Word8Array.length res)
-    then ()
-    else raise Fail (format_failure lno ("Did not derive correct xor"))
+    is_emp_xor_arr_aux lno res (Word8Array.length res)
   end` |> append_prog;
 
 Theorem is_xor_arr_spec:
@@ -741,13 +751,9 @@ Proof
     xsimpl>>
   TOP_CASE_TAC>>fs[unwrap_TYPE_def]>>
   rw[]>>
-  xif
-  >-
-    (xcon>>xsimpl)>>
-  rpt xlet_autop>>
-  xraise>>xsimpl>>
-  simp[Fail_exn_def]>>
-  metis_tac[STRING_TYPE_def]
+  xapp>>xsimpl>>
+  first_x_assum (irule_at Any)>>simp[]>>
+  metis_tac[]
 QED
 
 val list_delete_arr = process_topdecs`
@@ -1060,6 +1066,79 @@ Proof
   simp[]
 QED
 
+val strxor_imp_cclause_arr = process_topdecs`
+  fun strxor_imp_cclause_arr lno mv s c =
+  let
+    val t = conv_rawxor_arr mv c
+    val res = strxor_c_arr s t
+  in
+    is_emp_xor_arr_aux lno res (Word8Array.length res)
+  end` |> append_prog;
+
+Theorem strxor_imp_cclause_arr_spec:
+  NUM lno lnov ∧
+  NUM n nv ∧
+  LIST_TYPE INT xs xsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "strxor_imp_cclause_arr" (get_ml_prog_state()))
+    [lnov; nv; csv; xsv]
+    (W8ARRAY csv cs)
+    (POSTve
+      (λv. &(strxor_imp_cclause_list n cs xs))
+      (λe.
+         &(Fail_exn e ∧ ¬strxor_imp_cclause_list n cs xs)))
+Proof
+  rw[]>>
+  xcf "strxor_imp_cclause_arr" (get_ml_prog_state ())>>
+  xlet_autop>>
+  xlet_auto>>
+  xlet_autop>>
+  xapp>>
+  first_x_assum(irule_at Any)>>xsimpl>>
+  gvs[strxor_imp_cclause_list_def]>>
+  metis_tac[]
+QED
+
+val is_cfromx_arr = process_topdecs`
+  fun is_cfromx_arr lno def fml is c =
+  let
+    val r = Word8Array.array def w8z
+    val res = add_xors_aux_c_arr lno fml is r
+  in
+    strxor_imp_cclause_arr lno def res c
+  end` |> append_prog
+
+Theorem is_cfromx_arr_spec:
+  NUM lno lnov ∧
+  NUM def defv ∧
+  (LIST_TYPE NUM) ls lsv ∧
+  LIST_REL (OPTION_TYPE STRING_TYPE) fmlls fmllsv ∧
+  LIST_TYPE INT s sv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "is_cfromx_arr" (get_ml_prog_state()))
+    [lnov; defv; fmlv; lsv; sv]
+    (ARRAY fmlv fmllsv)
+    (POSTve
+      (λv. ARRAY fmlv fmllsv *
+        &(is_cfromx_list def fmlls ls s))
+      (λe.
+         ARRAY fmlv fmllsv *
+         &(Fail_exn e ∧ ¬is_cfromx_list def fmlls ls s)))
+Proof
+  xcf "is_cfromx_arr" (get_ml_prog_state ())>>
+  rw[is_cfromx_list_def]>>
+  assume_tac w8z_v_thm>>
+  rpt xlet_autop
+  >-
+    xsimpl>>
+  TOP_CASE_TAC>>gvs[unwrap_TYPE_def]>>
+  xapp>>
+  xsimpl>>
+  metis_tac[]
+QED
+
 val check_xlrup_arr = process_topdecs`
   fun check_xlrup_arr lno xlrup cfml xfml def carr =
   case xlrup of
@@ -1080,6 +1159,11 @@ val check_xlrup_arr = process_topdecs`
       end
   | Xdel xl =>
       (list_delete_arr xl xfml; (cfml, xfml, def, carr))
+  | Cfromx n c i0 =>
+    let val carr = resize_carr c carr
+        val u = is_cfromx_arr lno def xfml i0 c in
+      (resize_update_arr (Some c) n cfml, xfml, def, carr)
+    end
   | _ =>
       raise Fail (format_failure lno ("Step not supported yet"))
     ` |> append_prog
@@ -1264,12 +1348,40 @@ Proof
     xcon>>xsimpl>>
     simp[unwrap_TYPE_def]>>
     metis_tac[bounded_cfml_list_delete_list])
-  >- ( (* Unimplemented *)
+  >- ( (* Cfromx *)
     xmatch>>
-    rpt xlet_autop>>
-    xraise>>xsimpl>>
-    simp[Fail_exn_def,unwrap_TYPE_def]>>
-    metis_tac[])
+    xlet_autop>>
+    (* xlet_auto creates the wrong frame here *)
+    xlet` POSTve
+          (λv.
+               ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
+               W8ARRAY carrv (resize_Clist l Clist) *
+               &is_cfromx_list def xfmlls l0 l)
+          (λe.
+               ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
+               &(Fail_exn e ∧
+                ¬is_cfromx_list def xfmlls l0 l))`
+    >- (
+      xapp>>xsimpl>>
+      rpt(first_x_assum (irule_at Any))>>simp[])
+    >-
+      xsimpl>>
+    xlet_autop>>
+    xlet`(POSTv resv.
+        W8ARRAY carrv (resize_Clist l Clist) *
+        SEP_EXISTS cfmllsv'.
+        ARRAY resv cfmllsv' *
+        ARRAY xfmlv xfmllsv *
+        &(LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (resize_update_list cfmlls NONE (SOME l) n) cfmllsv'))`
+    >- (
+      xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``(LIST_TYPE INT)``)>>
+      xsimpl>>
+      asm_exists_tac>>simp[]>>
+      asm_exists_tac>>simp[]>>
+      qexists_tac`SOME l`>>simp[OPTION_TYPE_def])>>
+    xcon>>xsimpl>>
+    simp[unwrap_TYPE_def]>>
+    metis_tac[bounded_cfml_resize_update_list,bounded_cfml_leq,LENGTH_resize_Clist,EVERY_index_resize_Clist])
   >- ( (* Unimplemented *)
     xmatch>>
     rpt xlet_autop>>

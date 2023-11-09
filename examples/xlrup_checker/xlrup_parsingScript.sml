@@ -118,16 +118,50 @@ Definition parse_xlrup_def:
         | SOME (n,c,hints) => SOME (XAdd n c hints))
         (* XDel *)
       | SOME ls => SOME (XDel ls)
-    else NONE)
+    else
+    if c = strlit"i"
+    then
+      (* CFromX *)
+      (case parse_id_rest rest of NONE => NONE
+        | SOME (n,c,hints) => SOME (CFromX n c hints))
+    else
+      NONE)
 End
+
+Theorem parse_until_zero_wf_clause:
+  ∀ls acc.
+  parse_until_zero ls acc = SOME(c, rest) ∧
+  wf_clause acc ⇒
+  wf_clause c
+Proof
+  Induct>>rw[parse_until_zero_def]>>
+  gvs[AllCaseEqs(),wf_clause_def]>>
+  first_x_assum match_mp_tac>>
+  last_x_assum (irule_at Any)>>
+  fs[]
+QED
+
+Theorem parse_rest_wf_clause:
+  parse_rest ls = SOME (c,hints) ⇒
+  wf_clause c
+Proof
+ rw[parse_rest_def]>>
+ gvs[AllCaseEqs()]>>
+ drule parse_until_zero_wf_clause>>
+ fs[wf_clause_def]
+QED
 
 Theorem parse_xlrup_wf:
   parse_xlrup ls = SOME line ⇒
   wf_xlrup line
 Proof
-  rw[parse_xlrup_def]>>
-  gvs[AllCaseEqs()]>>
-  cheat
+  Cases_on`ls`>>rw[parse_xlrup_def]>>
+  gvs[AllCaseEqs(),wf_xlrup_def]
+  >- (
+    Cases_on`t`>>fs[parse_id_rest_def]  >>
+    gvs[AllCaseEqs()]>>
+    metis_tac[parse_rest_wf_clause,PAIR,FST,SND])
+  >- metis_tac[parse_rest_wf_clause,PAIR,FST,SND]
 QED
 
 (* Mostly semantic!*)
@@ -170,6 +204,7 @@ val xlrupsraw = ``[
   strlit"14 6 0 9 10 11 7 0";
   strlit"14 d 9 10 11 7 0";
   strlit"16 0 14 12 13 8 0";
+  strlit"i 17 0 14 12 13 8 0";
   ]``;
 
 val xlrups = rconc (EVAL ``THE (parse_xlrups ^(xlrupsraw))``);

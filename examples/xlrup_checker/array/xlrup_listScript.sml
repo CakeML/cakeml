@@ -146,6 +146,22 @@ Definition conv_rawxor_list_def:
     implode (MAP fromByte (conv_xor_aux_list r x))
 End
 
+(* TODO: There is a minor optimization here if we inline
+  conv_rawxor into the addition in is_cfromx_list
+  so that the byte array is allocated only once *)
+Definition strxor_imp_cclause_list_def:
+  strxor_imp_cclause_list mv s c =
+  let t = conv_rawxor_list mv c in
+  is_emp_xor_list (strxor_c s t)
+End
+
+Definition is_cfromx_list_def:
+  is_cfromx_list def fml is c =
+  let r = REPLICATE def w8z in
+  case add_xors_aux_c_list fml is r of NONE => F
+  | SOME x => strxor_imp_cclause_list def x c
+End
+
 Definition check_xlrup_list_def:
   check_xlrup_list xlrup cfml xfml def Clist =
   case xlrup of
@@ -166,6 +182,12 @@ Definition check_xlrup_list_def:
     else NONE
   | XDel xl =>
     SOME (cfml, list_delete_list xl xfml, def, Clist)
+  | CFromX n c i0 =>
+    let Clist = resize_Clist c Clist in
+    if is_cfromx_list def xfml i0 c then
+      SOME (resize_update_list cfml NONE (SOME c) n, xfml,
+        def, Clist)
+    else NONE
   | _ => NONE
 End
 
@@ -592,6 +614,34 @@ Proof
   fs[is_emp_xor_list_is_emp_xor]
 QED
 
+Theorem strxor_imp_cclause_list_strxor_imp_cclause:
+  strxor_imp_cclause_list def x c =
+  strxor_imp_cclause def (implode (MAP fromByte x)) c
+Proof
+  rw[strxor_imp_cclause_list_def,strxor_imp_cclause_def]>>
+  simp[is_emp_xor_list_is_emp_xor,strxor_aux_c_strxor_aux]>>
+  simp[MAP_MAP_o,o_DEF,conv_rawxor_list_conv_rawxor]
+QED
+
+Theorem is_cfromx_list_is_cfromx:
+  fml_rel fml fmlls ∧
+  is_cfromx_list def fmlls is c ⇒
+  is_cfromx def fml is c
+Proof
+  rw[is_cfromx_list_def]>>
+  every_case_tac>>fs[]>>
+  drule_all add_xors_aux_c_list_add_xors_aux_c>>
+  rw[is_cfromx_def]>>
+  drule add_xors_aux_c_add_xors_aux>>
+  simp[]>>
+  `implode (REPLICATE def (fromByte w8z)) =
+    extend_s (strlit "") def` by
+    (rw[extend_s_def]>>fs[]>>
+    EVAL_TAC)>>
+  rw[]>>
+  fs[strxor_imp_cclause_list_strxor_imp_cclause]
+QED
+
 Theorem fml_rel_check_xlrup_list:
   fml_rel cfml cfmlls ∧
   fml_rel xfml xfmlls ∧
@@ -609,7 +659,8 @@ Proof
   simp[check_xlrup_def,check_xlrup_list_def]>>
   strip_tac>>
   Cases_on`xlrup`>>simp[]
-  >- metis_tac[fml_rel_list_delete_list]
+  >- (* Del *)
+    metis_tac[fml_rel_list_delete_list]
   >- ( (* RUP *)
     every_case_tac>>fs[]>>
     `EVERY ($= w8z) (resize_Clist l Clist)` by
@@ -618,12 +669,20 @@ Proof
     disch_then (qspecl_then [`l0`,`l`] assume_tac)>>
     every_case_tac>>gvs[]>>
     metis_tac[fml_rel_resize_update_list])
-  >- (
+  >- ( (* XAdd *)
     every_case_tac>>fs[]>>
     drule_all is_xor_list_is_xor>>
     simp[conv_rawxor_list_conv_rawxor]>>
     metis_tac[fml_rel_resize_update_list])
-  >- metis_tac[fml_rel_list_delete_list]
+  >- (* XDel *)
+    metis_tac[fml_rel_list_delete_list]
+  >- ( (* CFromX *)
+    every_case_tac>>fs[]>>
+    CONJ_TAC >-
+      rw[resize_Clist_def]>>
+    CONJ_TAC >-
+      metis_tac[is_cfromx_list_is_cfromx]>>
+    metis_tac[fml_rel_resize_update_list])
 QED
 
 Theorem contains_emp_list_aux:

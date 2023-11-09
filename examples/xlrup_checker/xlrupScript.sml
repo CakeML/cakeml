@@ -857,6 +857,20 @@ Definition conv_rawxor_def:
   conv_xor_aux s x
 End
 
+Definition strxor_imp_cclause_def:
+  strxor_imp_cclause mv s c =
+  let t = conv_rawxor mv c in
+  is_emp_xor (strxor s t)
+End
+
+Definition is_cfromx_def:
+  is_cfromx def fml is c =
+  let r = extend_s (strlit "") def in
+  case add_xors_aux fml is r of NONE => F
+  | SOME x =>
+    strxor_imp_cclause def x c
+End
+
 Definition check_xlrup_def:
   check_xlrup xlrup cfml xfml def =
   case xlrup of
@@ -871,6 +885,10 @@ Definition check_xlrup_def:
       SOME (cfml, insert n X xfml, MAX def (strlen X))
     else NONE
   | XDel xl => SOME (cfml, FOLDL (\a b. delete b a) xfml xl, def)
+  | CFromX n C i0 =>
+    if is_cfromx def xfml i0 C then
+      SOME (insert n C cfml, xfml, def)
+    else NONE
   | _ => NONE
 End
 
@@ -1116,100 +1134,12 @@ Proof
   metis_tac[]
 QED
 
-Theorem check_xlrup_sound:
-  check_xlrup xlrup cfml xfml def = SOME (cfml',xfml',def') ∧
-  isat_fml w (values cfml, values xfml) ⇒
-  isat_fml w (values cfml', values xfml')
+Theorem isat_cclause_cons:
+  isat_cclause w (x::xs) ⇔
+  x ≠ 0 ∧ sat_lit w (interp_lit x) ∨ isat_cclause w xs
 Proof
-  rw[check_xlrup_def]>>
-  gvs[AllCaseEqs()]
-  >- (* deleting clauses by ID *)
-    metis_tac[delete_clauses_sound]
-  >- ( (* RUP *)
-    fs[isat_fml_def]>>
-    match_mp_tac isat_cfml_insert>>
-    simp[]>>
-    match_mp_tac (GEN_ALL is_rup_sound)>>gvs[]>>
-    asm_exists_tac>>simp[])
-  >- ( (* XAdd *)
-    fs[isat_fml_def]>>
-    match_mp_tac isat_xfml_insert>>
-    simp[]>>
-    match_mp_tac (GEN_ALL is_xor_sound)>>gvs[]>>
-    metis_tac[])
-  >- (* deleting XORs by ID *)
-    metis_tac[delete_xors_sound]
-QED
-
-(* The main operational theorem about check_xlrups *)
-Theorem check_xlrups_sound:
-  ∀ls cfml xfml def def'.
-  check_xlrups ls cfml xfml def = SOME (cfml',xfml',def') ⇒
-  (isat_fml w (values cfml, values xfml) ⇒
-   isat_fml w (values cfml', values xfml'))
-Proof
-  Induct>>simp[check_xlrups_def]>>
-  ntac 4 strip_tac>>
-  every_case_tac>>fs[]>>
-  rw[]>>
-  drule check_xlrup_sound>>
-  disch_then drule>>
-  strip_tac>>
-  first_x_assum drule_all>>
-  rw[]
-QED
-
-(* Build a sptree from a list *)
-Definition build_fml_def:
-  (build_fml (id:num) [] = LN) ∧
-  (build_fml id (cl::cls) =
-    insert id cl (build_fml (id+1) cls))
-End
-
-Theorem lookup_build_fml:
-  ∀ls n acc i.
-  lookup i (build_fml n ls) =
-  if n ≤ i ∧ i < n + LENGTH ls
-  then SOME (EL (i-n) ls)
-  else NONE
-Proof
-  Induct>>rw[build_fml_def,lookup_def,lookup_insert]>>
-  `i-n = SUC(i-(n+1))` by DECIDE_TAC>>
-  simp[]
-QED
-
-Theorem values_build_fml:
-  ∀ls id. values (build_fml id ls) = set ls
-Proof
-  Induct>>fs[build_fml_def,values_def,lookup_def]>>
-  fs[EXTENSION]>>
-  rw[lookup_insert]>>
-  rw[EQ_IMP_THM]
-  >- (
-    every_case_tac>>fs[]>>
-    metis_tac[])
-  >- metis_tac[] >>
-  first_x_assum(qspecl_then[`id+1`,`x`] mp_tac)>>
-  rw[]>>
-  fs[lookup_build_fml]>>
-  qexists_tac`n`>>simp[]
-QED
-
-Theorem check_xlrups_unsat_sound:
-  check_xlrups_unsat xlrups (build_fml cid cfml) (build_fml xid xfml) def ⇒
-  ¬ isatisfiable (set cfml,set xfml)
-Proof
-  rw[check_xlrups_unsat_def]>>
-  every_case_tac>>fs[]>>
-  `¬∃w. isat_cfml w (values q)` by (
-    fs[isat_cfml_def,contains_emp_def,MEM_MAP]>>
-    Cases_on`y`>>fs[MEM_toAList,values_def,PULL_EXISTS]>>
-    rw[]>>
-    asm_exists_tac>>simp[isat_cclause_def])>>
-  fs[]>>
-  Cases_on`r`>>drule check_xlrups_sound>>
-  fs[isatisfiable_def,isat_fml_def]>>
-  metis_tac[values_build_fml]
+  rw[isat_cclause_def]>>
+  metis_tac[]
 QED
 
 Definition wf_clause_def:
@@ -1223,6 +1153,7 @@ End
 
 Definition wf_xlrup_def:
   (wf_xlrup (RUP n C i0) = wf_clause C) ∧
+  (wf_xlrup (CFromX n C i0) = wf_clause C) ∧
   (wf_xlrup _ = T)
 End
 
@@ -1262,6 +1193,186 @@ Proof
   >- (
     fs[wf_xlrup_def]>>
     metis_tac[wf_cfml_insert])
+  >- (
+    fs[wf_xlrup_def]>>
+    metis_tac[wf_cfml_insert])
+QED
+
+Theorem conv_xor_aux_cclause_sound:
+  ∀ls s.
+  wf_clause ls ∧
+  isat_strxor w (conv_xor_aux s ls) ⇒
+  ((isat_strxor w s) ∨ (isat_cclause w ls))
+Proof
+  Induct>>fs[conv_xor_aux_def]>>rw[]
+  >- (
+    fs[isat_cclause_cons,wf_clause_def]>>
+    first_x_assum drule>>
+    DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
+    CONJ_TAC >-
+      simp[strlen_extend_s]>>
+    simp[isat_strxor_extend_s]>>
+    `Num (ABS h) ≠ 0` by intLib.ARITH_TAC>>
+    fs[sat_lit_def,interp_lit_def]>>
+    metis_tac[])>>
+  fs[isat_cclause_cons,wf_clause_def]>>
+  first_x_assum drule>>
+  DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
+  simp[strlen_extend_s,isat_strxor_extend_s]>>
+  CONJ_TAC >- (
+    assume_tac (strlen_extend_s |> Q.GEN `a` |> Q.SPEC `Num (ABS h)`)>>
+    simp[])>>
+  `Num (ABS h) ≠ 0` by intLib.ARITH_TAC>>
+  fs[sat_lit_def,interp_lit_def]>>
+  metis_tac[]
+QED
+
+Theorem strxor_imp_cclause_sound:
+  wf_clause c ∧
+  strxor_imp_cclause mv s c ∧
+  isat_strxor w s ⇒
+  isat_cclause w c
+Proof
+  rw[strxor_imp_cclause_def]>>
+  drule isat_strxor_is_emp_xor>>
+  disch_then (qspec_then `w` assume_tac)>>
+  `isat_strxor w (strxor (conv_rawxor mv c) (strxor s s))` by
+    metis_tac[isat_strxor_strxor,strxor_assoc,strxor_comm] >>
+  pop_assum mp_tac>>
+  DEP_REWRITE_TAC[isat_stxor_add_is_emp_xor]>>simp[strxor_self]>>
+  rw[conv_rawxor_def]>>
+  drule conv_xor_aux_cclause_sound>>
+  disch_then drule>>
+  DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
+  simp[isat_strxor_extend_s]>>
+  CONJ_TAC>-
+    rw[extend_s_def]>>
+  EVAL_TAC
+QED
+
+Theorem is_cfromx_sound:
+  wf_clause C ∧
+  isat_xfml w (values fml) ∧
+  is_cfromx def fml is C ⇒
+  isat_cclause w C
+Proof
+  rw[is_cfromx_def]>>
+  every_case_tac>>fs[]>>
+  match_mp_tac (GEN_ALL strxor_imp_cclause_sound)>>
+  fs[]>>
+  first_x_assum (irule_at Any)>>
+  drule add_xors_aux_imp>>
+  disch_then match_mp_tac>>
+  first_x_assum (irule_at Any)>>
+  simp[isat_strxor_extend_s]>>
+  EVAL_TAC
+QED
+
+Theorem check_xlrup_sound:
+  wf_xlrup xlrup ∧
+  check_xlrup xlrup cfml xfml def = SOME (cfml',xfml',def') ∧
+  isat_fml w (values cfml, values xfml) ⇒
+  isat_fml w (values cfml', values xfml')
+Proof
+  rw[check_xlrup_def]>>
+  gvs[AllCaseEqs()]
+  >- (* deleting clauses by ID *)
+    metis_tac[delete_clauses_sound]
+  >- ( (* RUP *)
+    fs[isat_fml_def]>>
+    match_mp_tac isat_cfml_insert>>
+    simp[]>>
+    match_mp_tac (GEN_ALL is_rup_sound)>>gvs[]>>
+    asm_exists_tac>>simp[])
+  >- ( (* XAdd *)
+    fs[isat_fml_def]>>
+    match_mp_tac isat_xfml_insert>>
+    simp[]>>
+    match_mp_tac (GEN_ALL is_xor_sound)>>gvs[]>>
+    metis_tac[])
+  >- (* deleting XORs by ID *)
+    metis_tac[delete_xors_sound]
+  >- ( (**)
+    fs[isat_fml_def]>>
+    match_mp_tac isat_cfml_insert>>
+    simp[]>>
+    match_mp_tac (GEN_ALL is_cfromx_sound)>>gvs[]>>
+    fs[wf_xlrup_def]>>
+    metis_tac[])
+QED
+
+(* The main operational theorem about check_xlrups *)
+Theorem check_xlrups_sound:
+  ∀ls cfml xfml def def'.
+  EVERY wf_xlrup ls ∧
+  check_xlrups ls cfml xfml def = SOME (cfml',xfml',def') ⇒
+  (isat_fml w (values cfml, values xfml) ⇒
+   isat_fml w (values cfml', values xfml'))
+Proof
+  Induct>>simp[check_xlrups_def]>>
+  ntac 5 strip_tac>>
+  every_case_tac>>fs[]>>
+  rw[]>>
+  drule check_xlrup_sound>>
+  disch_then drule>>
+  strip_tac>>
+  first_x_assum drule_all>>
+  rw[]>>
+  metis_tac[]
+QED
+
+(* Build a sptree from a list *)
+Definition build_fml_def:
+  (build_fml (id:num) [] = LN) ∧
+  (build_fml id (cl::cls) =
+    insert id cl (build_fml (id+1) cls))
+End
+
+Theorem lookup_build_fml:
+  ∀ls n acc i.
+  lookup i (build_fml n ls) =
+  if n ≤ i ∧ i < n + LENGTH ls
+  then SOME (EL (i-n) ls)
+  else NONE
+Proof
+  Induct>>rw[build_fml_def,lookup_def,lookup_insert]>>
+  `i-n = SUC(i-(n+1))` by DECIDE_TAC>>
+  simp[]
+QED
+
+Theorem values_build_fml:
+  ∀ls id. values (build_fml id ls) = set ls
+Proof
+  Induct>>fs[build_fml_def,values_def,lookup_def]>>
+  fs[EXTENSION]>>
+  rw[lookup_insert]>>
+  rw[EQ_IMP_THM]
+  >- (
+    every_case_tac>>fs[]>>
+    metis_tac[])
+  >- metis_tac[] >>
+  first_x_assum(qspecl_then[`id+1`,`x`] mp_tac)>>
+  rw[]>>
+  fs[lookup_build_fml]>>
+  qexists_tac`n`>>simp[]
+QED
+
+Theorem check_xlrups_unsat_sound:
+  EVERY wf_xlrup xlrups ∧
+  check_xlrups_unsat xlrups (build_fml cid cfml) (build_fml xid xfml) def ⇒
+  ¬ isatisfiable (set cfml,set xfml)
+Proof
+  rw[check_xlrups_unsat_def]>>
+  every_case_tac>>fs[]>>
+  `¬∃w. isat_cfml w (values q)` by (
+    fs[isat_cfml_def,contains_emp_def,MEM_MAP]>>
+    Cases_on`y`>>fs[MEM_toAList,values_def,PULL_EXISTS]>>
+    rw[]>>
+    asm_exists_tac>>simp[isat_cclause_def])>>
+  fs[]>>
+  Cases_on`r`>>drule check_xlrups_sound>>
+  fs[isatisfiable_def,isat_fml_def]>>
+  metis_tac[values_build_fml]
 QED
 
 Definition var_def:
