@@ -152,7 +152,7 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem iSUM_sub_b2i_geq_0:
+Theorem iSUM_sub_b2i_geq_0_all:
   (∀x. MEM x ls ⇒ ∃y. x = 1 - b2i y) ⇒
   (iSUM ls ≥ &(LENGTH ls) ⇔
    ∀i. i < LENGTH ls ⇒ EL i ls = 1)
@@ -187,7 +187,7 @@ Proof
   Cases_on`y`>>fs[]>>
   simp[GSYM integerTheory.INT_ADD,intLib.COOPER_PROVE``!n:int. n +1 -1 = n``]
   >- (
-    DEP_REWRITE_TAC[iSUM_sub_b2i_geq_0] >>
+    DEP_REWRITE_TAC[iSUM_sub_b2i_geq_0_all] >>
     CONJ_TAC >- metis_tac[]>>
     rw[EQ_IMP_THM]
     >- (
