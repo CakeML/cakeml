@@ -276,6 +276,12 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_constTheory.compile_def
     ,bvl_constTheory.compile_exp_def
       (* ---- bvl_handle ---- *)
+    ,bvl_handleTheory.can_raise_def
+    ,bvl_handleTheory.dest_handle_Raise_def
+    ,bvl_handleTheory.dest_handle_Let_def
+    ,bvl_handleTheory.dest_handle_If_def
+    ,bvl_handleTheory.handle_adj_vars_def
+    ,bvl_handleTheory.handle_simp_def
     ,bvl_handleTheory.LetLet_def
     ,bvl_handleTheory.SmartLet_def
     ,bvl_handleTheory.OptionalLetLet_def

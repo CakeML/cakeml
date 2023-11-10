@@ -698,21 +698,21 @@ Inductive red_rel:
             ElemAt t1; Constant (ConstInt i); Constant (ConstStr s);
             Constant (ConstWord64 w)] ⇒
     red_rel [Op t op xs] ys)
-  ∧
+[∧]
   (red_rel [] [])
-  ∧
+[∧]
   (∀x. red_rel [x] [x])
-  ∧
+[∧]
   (∀v t. red_rel [Var t v] [])
-  ∧
 [red_rel_multi:]
   (∀x y zs x1 x2.
     red_rel [x] x1 ∧ red_rel (y::zs) x2 ⇒
-    red_rel (x::y::zs) (x1 ++ x2)) ∧
+    red_rel (x::y::zs) (x1 ++ x2))
 [red_rel_Let:]
   (∀xs x x1 t.
     red_rel xs x1 ∧ red_rel [x] [] ⇒
-    red_rel [Let t xs x] x1) ∧
+    red_rel [Let t xs x] x1)
+[∧]
   (∀x y z x1 x2 x3.
     red_rel [x] x1 ∧ red_rel [y] x2 ∧  red_rel [z] x3 ⇒
     red_rel [If t x y z] (x1 ++ x2 ++ x3))

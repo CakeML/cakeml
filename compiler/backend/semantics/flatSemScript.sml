@@ -39,8 +39,8 @@ val _ = Datatype`
   v =
     | Litv lit
     | Conv ((ctor_id # type_id) option) (v list)
-    | Closure ('v environment) varN exp
-    | Recclosure ('v environment) ((varN # varN # exp) list) varN
+    | Closure (v environment) varN exp
+    | Recclosure (v environment) ((varN # varN # exp) list) varN
     | Loc num
     | Vectorv (v list)`;
 

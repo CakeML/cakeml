@@ -87,12 +87,12 @@ Inductive perms_ok:
 [~Conv:]
   (∀ps opt vs.
      EVERY (perms_ok ps) vs ⇒
-       perms_ok ps (Conv opt vs)) ∧
+       perms_ok ps (Conv opt vs))
 [~Closure:]
   (∀ps env n x.
      perms_ok_env ps (freevars x DIFF {Short n}) env ∧
      perms_ok_exp ps x ⇒
-       perms_ok ps (Closure env n x)) ∧
+       perms_ok ps (Closure env n x))
 [~Recclosure:]
   (∀ps env f n.
      perms_ok_env ps
@@ -100,31 +100,31 @@ Inductive perms_ok:
                                                    {Short fn; Short vn}) f)))
                   env ∧
      EVERY (perms_ok_exp ps) (MAP (SND o SND) f) ⇒
-       perms_ok ps (Recclosure env f n)) ∧
+       perms_ok ps (Recclosure env f n))
 [~Vectorv:]
   (∀ps vs.
      EVERY (perms_ok ps) vs ⇒
-       perms_ok ps (Vectorv vs)) ∧
+       perms_ok ps (Vectorv vs))
 [~Litv:]
   (∀ps lit.
-     perms_ok ps (Litv lit)) ∧
+     perms_ok ps (Litv lit))
 [~FP_WordTree:]
   (∀ fp.
-     perms_ok ps (FP_WordTree fp)) ∧
+     perms_ok ps (FP_WordTree fp))
 [~FP_BoolTree:]
   (∀ fp.
-     perms_ok ps (FP_BoolTree fp)) ∧
+     perms_ok ps (FP_BoolTree fp))
 [~Real:]
   (∀ r.
-     perms_ok ps (Real r)) ∧
+     perms_ok ps (Real r))
 [~Loc:]
   (∀ps loc.
      RefMention loc ∈ ps ⇒
-       perms_ok ps (Loc loc)) ∧
+       perms_ok ps (Loc loc))
 [~Env:]
   (∀ps env ns.
      perms_ok_env ps UNIV env  ⇒
-       perms_ok ps (Env env ns)) ∧
+       perms_ok ps (Env env ns))
 [~env:]
   (∀ps fvs env.
      (∀n v.

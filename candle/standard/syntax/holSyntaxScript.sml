@@ -462,48 +462,48 @@ Inductive proves:
 [~ABS:]
   (¬(EXISTS (VFREE_IN (Var x ty)) h) ∧ type_ok (tysof thy) ty ∧
    (thy, h) |- l === r
-   ⇒ (thy, h) |- (Abs (Var x ty) l) === (Abs (Var x ty) r)) ∧
+   ⇒ (thy, h) |- (Abs (Var x ty) l) === (Abs (Var x ty) r))
 
 [~ASSUME:]
   (theory_ok thy ∧ p has_type Bool ∧ term_ok (sigof thy) p
-   ⇒ (thy, [p]) |- p) ∧
+   ⇒ (thy, [p]) |- p)
 
 [~BETA:]
   (theory_ok thy ∧ type_ok (tysof thy) ty ∧ term_ok (sigof thy) t
-   ⇒ (thy, []) |- Comb (Abs (Var x ty) t) (Var x ty) === t) ∧
+   ⇒ (thy, []) |- Comb (Abs (Var x ty) t) (Var x ty) === t)
 
 [~DEDUCT_ANTISYM:]
   ((thy, h1) |- c1 ∧
    (thy, h2) |- c2
    ⇒ (thy, term_union (term_remove c2 h1)
                       (term_remove c1 h2))
-           |- c1 === c2) ∧
+           |- c1 === c2)
 
 [~EQ_MP:]
   ((thy, h1) |- p === q ∧
    (thy, h2) |- p' ∧ ACONV p p'
-   ⇒ (thy, term_union h1 h2) |- q) ∧
+   ⇒ (thy, term_union h1 h2) |- q)
 
 [~INST:]
   ((∀s s'. MEM (s',s) ilist ⇒
              ∃x ty. (s = Var x ty) ∧ s' has_type ty ∧ term_ok (sigof thy) s') ∧
    (thy, h) |- c
-   ⇒ (thy, term_image (VSUBST ilist) h) |- VSUBST ilist c) ∧
+   ⇒ (thy, term_image (VSUBST ilist) h) |- VSUBST ilist c)
 
 [~INST_TYPE:]
   ((EVERY (type_ok (tysof thy)) (MAP FST tyin)) ∧
    (thy, h) |- c
-   ⇒ (thy, term_image (INST tyin) h) |- INST tyin c) ∧
+   ⇒ (thy, term_image (INST tyin) h) |- INST tyin c)
 
 [~MK_COMB:]
   ((thy, h1) |- l1 === r1 ∧
    (thy, h2) |- l2 === r2 ∧
    welltyped(Comb l1 l2)
-   ⇒ (thy, term_union h1 h2) |- Comb l1 l2 === Comb r1 r2) ∧
+   ⇒ (thy, term_union h1 h2) |- Comb l1 l2 === Comb r1 r2)
 
 [~REFL:]
   (theory_ok thy ∧ term_ok (sigof thy) t
-   ⇒ (thy, []) |- t === t) ∧
+   ⇒ (thy, []) |- t === t)
 
 [~axioms:]
   (theory_ok thy ∧ c ∈ (axsof thy)
