@@ -453,17 +453,6 @@ Proof
   rw[GSYM IMP_DISJ_THM] >> fs[LIST_TO_SET_MAP]
 QED
 
-Theorem type_ok_TYPE_SUBSTf:
- !r sig sigma. (∀ty. tyvars (sigma ty) = []) /\
-  (∀ty. type_ok sig (sigma ty)) /\
-  type_ok sig r ==>
-  type_ok sig (TYPE_SUBSTf sigma r)
-Proof
-  ho_match_mp_tac type_ind >> rpt strip_tac
-  >- simp[type_ok_def]
-  >> fs[EVERY_MEM,type_ok_def,MEM_MAP,PULL_EXISTS]
-QED
-
 Theorem consts_of_term_ok:
   !tm q r. term_ok sig tm /\ (q,r) ∈ consts_of_term tm ==> type_ok (tysof sig) r
 Proof

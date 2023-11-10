@@ -371,8 +371,8 @@ QED
 
 (* we store the theorems without fix_clock *)
 
-Theorem evaluate_ind = REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
-Theorem evaluate_def = REWRITE_RULE [fix_clock_evaluate] evaluate_def;
+Theorem evaluate_ind[allow_rebind] = REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
+Theorem evaluate_def[allow_rebind] = REWRITE_RULE [fix_clock_evaluate] evaluate_def;
 
 (* observational semantics *)
 

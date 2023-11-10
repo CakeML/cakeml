@@ -678,6 +678,7 @@ Proof
          simp[MULT_DIV])>>simp[]
 QED
 
+(*
 Theorem word_to_bytes_word_of_bytes_32:
   LENGTH bs = dimindex (:32) DIV 8 ⇒
   word_to_bytes (word_of_bytes be (0w:word32) bs) be = bs
@@ -714,6 +715,7 @@ Proof
   fs[]>>strip_tac>>
   simp[word_of_bytes_def,get_byte_set_byte_irrelevant,get_byte_set_byte]
 QED
+*)
 
 Theorem set_byte_get_byte:
   8 ≤ dimindex (:'a) ⇒

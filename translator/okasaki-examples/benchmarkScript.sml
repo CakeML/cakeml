@@ -12,6 +12,8 @@ open listTheory arithmeticTheory ml_translatorLib ListProgTheory;
 
 val _ = translation_extends "ListProg";
 
+val _ = Globals.interactive := false;
+
 (* copied from ImplicitQueueScript *)
 
 Datatype:
@@ -81,11 +83,11 @@ val is_heap_ordered_def = Define `
   BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag h2))`;
 
 val _ = mlDefine `
-empty = Empty`;
+empty' = Empty`;
 
-val is_empty_def = mlDefine `
-(is_empty Empty = T) ∧
-(is_empty _ = F)`;
+val is_empty'_def = mlDefine `
+(is_empty' Empty = T) ∧
+(is_empty' _ = F)`;
 
 val partition_def = mlDefine `
 (partition get_key leq pivot Empty = (Empty, Empty)) ∧
@@ -170,8 +172,6 @@ val use_heap_def = mlDefine `
   use_heap n (insert (\x.x) ((\x y. x < y) :num->num->bool) n (delete_min (insert (\x.x) ((\x y. x < y) :num->num->bool) (n + 400000) h))))`
 
 val run_heap = mlDefine `
-run_heap ⇔ find_min (use_heap 1000 empty)`;
-
-
+run_heap ⇔ find_min (use_heap 1000 empty')`;
 
 val _ = export_theory ();

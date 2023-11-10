@@ -551,13 +551,6 @@ Definition v_to_word8_list_def:
     | SOME xs => maybe_all_list (MAP v_to_word8 xs)
 End
 
-Definition v_to_word8_list_def:
-  v_to_word8_list v =
-    case v_to_list v of
-    | NONE => NONE
-    | SOME xs => maybe_all_list (MAP v_to_word8 xs)
-End
-
 Definition v_to_word64_def:
   v_to_word64 v =
     case v of

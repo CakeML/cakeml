@@ -35,13 +35,13 @@ Definition step_to_halt_cml_def:
     | SOME n => SOME $ step_n_cml n e
 End
 
-Definition step_n_cml_def:
+Definition step_n_cml_def[allow_rebind]:
   step_n_cml env 0 d = d ∧
   step_n_cml env (SUC n) (Dstep st) = step_n_cml env n (decl_step env st) ∧
   step_n_cml env _ d = d
 End
 
-Definition is_halt_cml_def:
+Definition is_halt_cml_def[allow_rebind]:
   is_halt_cml (Dstep step) = F ∧
   is_halt_cml (Dabort err) = T ∧
   is_halt_cml Ddone = T ∧
@@ -202,13 +202,13 @@ Proof
   Cases >> rw[step_n_def, step_n_cml_def]
 QED
 
-Theorem is_Effi_def:
+Theorem is_Effi_def[allow_rebind]:
   is_Effi e ⇔ ∃ s ws1 ws2 n env st cs. e = Effi s ws1 ws2 n env st cs
 Proof
   Cases_on `e` >> simp[is_Effi_def]
 QED
 
-Theorem is_Dffi_def:
+Theorem is_Dffi_def[allow_rebind]:
   is_Dffi d ⇔ ∃st ev l p dcs. d = Dffi st ev l p dcs
 Proof
   Cases_on `d` >> simp[is_Dffi_def]

@@ -147,15 +147,6 @@ Proof
   \\ simp[ag32Theory.incPC_def]
 QED
 
-Theorem dfn'JumpIfZero_MEM:
-   (dfn'JumpIfZero x s).MEM = s.MEM
-Proof
-  PairCases_on`x`
-  \\ rw[ag32Theory.dfn'JumpIfZero_def]
-  \\ simp[ag32Theory.incPC_def,ag32Theory.ALU_def]
-  \\ rpt (every_case_tac \\ fs [])
-QED
-
 Theorem dfn'JumpIfNotZero_PC:
    ((dfn'JumpIfNotZero (fSnd,Reg i,Imm w,Reg r) s).PC =
       if s.R r <> 0w then s.PC + s.R i else s.PC + 4w) /\

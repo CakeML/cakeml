@@ -2949,21 +2949,6 @@ Proof
   >- (imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP,FORALL_PROD])
 QED
 
-Theorem MEM_NewType_type_ok:
-  ctxt extends [] ∧ MEM (NewType name arity) ctxt ⇒
-  (ALOOKUP (type_list ctxt) name = SOME arity)
-Proof
-  rw[MEM_SPLIT] >>
-  FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND] >>
-  imp_res_tac extends_NIL_DISJOINT >>
-  drule_then strip_assume_tac extends_APPEND_NIL >>
-  fs[extends_NIL_CONS_extends] >>
-  gvs[updates_cases] >>
-  simp[type_ok_def,ALOOKUP_APPEND] >>
-  reverse TOP_CASE_TAC
-  >- (imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP,FORALL_PROD])
-QED
-
 Theorem MEM_TypeDefn_type_ok':
   ctxt extends [] ∧ MEM (TypeDefn name pred abs rep) ctxt ⇒
   (ALOOKUP (type_list ctxt) name = SOME(LENGTH(tvars pred)))

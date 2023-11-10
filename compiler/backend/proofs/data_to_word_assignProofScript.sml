@@ -8105,7 +8105,6 @@ Proof
   \\ match_mp_tac IMP_memory_rel_Number_num \\ fs []
 QED
 
-
 Theorem assign_BoundsCheckBlock:
    assign c secn l dest BoundsCheckBlock args names =
       case args of
@@ -8125,7 +8124,7 @@ Proof
   fs [assign_def] \\ every_case_tac \\ fs []
 QED ;
 
-Theorem assign_BoundsCheckBlock:
+Theorem assign_BoundsCheckBlock[allow_rebind]:
    op = BoundsCheckBlock ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -8210,7 +8209,7 @@ Proof
   fs [assign_def] \\ every_case_tac \\ fs []
 QED
 
-Theorem assign_BoundsCheckArray:
+Theorem assign_BoundsCheckArray[allow_rebind]:
    op = BoundsCheckArray ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -8285,7 +8284,7 @@ Proof
   fs [assign_def] \\ every_case_tac \\ fs []
 QED
 
-Theorem assign_BoundsCheckByte:
+Theorem assign_BoundsCheckByte[allow_rebind]:
    (?leq. op = BoundsCheckByte leq) ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -8354,7 +8353,7 @@ Proof
   fs [assign_def] \\ every_case_tac \\ fs []
 QED
 
-Theorem assign_LessSmallConst:
+Theorem assign_LessSmallConst[allow_rebind]:
    (?i. op = LessConstSmall i) ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -12235,7 +12234,7 @@ Proof
  Induct_on `l` >> rw[list_insert_def] >> rw[UNION_DEF,EQ_IMP_THM,FUN_EQ_THM] >> rw[]
 QED
 
-Theorem assign_ConsExtend:
+Theorem assign_ConsExtend[allow_rebind]:
    (?tag. op = ConsExtend tag) ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
@@ -13442,17 +13441,6 @@ Proof
   \\ once_rewrite_tac [getWords_acc]
   \\ fs [] \\ pairarg_tac \\ gvs []
   \\ rw [] \\ fs []
-QED
-
-Theorem store_list_APPEND:
-  ∀xs ys a m dm.
-    store_list a (xs ++ ys) m dm =
-    case store_list a xs m dm of
-    | NONE => NONE
-    | SOME m0 => store_list (a + bytes_in_word * n2w (LENGTH xs)) ys m0 dm
-Proof
-  Induct \\ fs [store_list_def] \\ rw []
-  \\ CASE_TAC \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
 QED
 
 Theorem store_list_word_cond_add_IMP:

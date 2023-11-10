@@ -1100,7 +1100,7 @@ Termination
   \\ simp [parsetree_size_lemma]
 End
 
-Theorem ptree_PPattern_ind =
+Theorem ptree_PPattern_ind[allow_rebind] =
   SIMP_RULE (srw_ss() ++ CONJ_ss) [] ptree_PPattern_ind;
 
 Definition ptree_Pattern_def:
@@ -2163,7 +2163,8 @@ End
 (* Tidy up the list bits of the induction theorem.
  *)
 
-Theorem ptree_Expr_ind = ptree_Expr_ind |> SIMP_RULE (srw_ss() ++ CONJ_ss) [];
+Theorem ptree_Expr_ind[allow_rebind] =
+  ptree_Expr_ind |> SIMP_RULE (srw_ss() ++ CONJ_ss) [];
 
 Definition ptree_FieldDec_def:
   ptree_FieldDec (Lf (_, locs)) =
@@ -3206,4 +3207,3 @@ Proof
 QED
 
 val _ = export_theory ();
-

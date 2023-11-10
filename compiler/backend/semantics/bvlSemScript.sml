@@ -577,11 +577,11 @@ QED
 
 (* Finally, we remove fix_clock from the induction and definition theorems. *)
 
-val evaluate_def = save_thm("evaluate_def[compute]",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def);
+Theorem evaluate_def[compute,allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def;
 
-val evaluate_ind = save_thm("evaluate_ind",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
+Theorem evaluate_ind[allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
 (* observational semantics *)
 

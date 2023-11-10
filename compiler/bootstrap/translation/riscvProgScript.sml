@@ -364,7 +364,8 @@ val res = CONJUNCTS d1 |> map SPEC_ALL |> map translate;
 
 val res = translate def;
 
-Theorem riscv_config_v_thm = translate (riscv_config_def |> SIMP_RULE bool_ss [IN_INSERT, NOT_IN_EMPTY]|> econv);
+Theorem riscv_config_v_thm[allow_rebind] = translate
+  (riscv_config_def |> SIMP_RULE bool_ss [IN_INSERT, NOT_IN_EMPTY]|> econv);
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

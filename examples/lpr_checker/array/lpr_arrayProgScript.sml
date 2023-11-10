@@ -2019,7 +2019,7 @@ val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
 val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
 val fromchars_range_unsafe_tail_side_def = theorem"fromchars_range_unsafe_tail_side_def";
 
-Theorem fromchars_range_unsafe_tail_side_def:
+Theorem fromchars_range_unsafe_tail_side_def[allow_rebind]:
   ∀a1 a0 a2 a3 a4.
   fromchars_range_unsafe_tail_side a0 a1 a2 a3 a4 ⇔
    ¬(a1 ≤ a0) ⇒

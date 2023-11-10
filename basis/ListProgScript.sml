@@ -43,7 +43,7 @@ val res = translate flat_rev_def;
 
 (* New list-append translation *)
 val append_v_thm = trans "@" listSyntax.append_tm;
-val _ = save_thm("append_v_thm",append_v_thm);
+val _ = save_thm("append_v_thm[allow_rebind]",append_v_thm);
 
 (* Old list-append translation *)
 (*val append_v_thm = translate APPEND;*)

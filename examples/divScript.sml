@@ -485,7 +485,7 @@ val io_events_def = Define `
 
 Overload yes = ``yes_v``
 
-Theorem yes_spec:
+Theorem yes_spec_lemma:
   !uv.
     limited_parts names p ==>
     app (p:'ffi ffi_proj) ^(fetch_v "yes" st) [arg]
@@ -515,7 +515,7 @@ Proof
   \\ irule REPLICATE_LIST_LREPEAT \\ fs []
 QED
 
-val yes_spec = save_thm("yes_spec",yes_spec |> SPEC_ALL |> UNDISCH_ALL);
+val yes_spec = save_thm("yes_spec", yes_spec_lemma |> SPEC_ALL |> UNDISCH_ALL);
 
 (* An IO-conditional loop with side effects *)
 

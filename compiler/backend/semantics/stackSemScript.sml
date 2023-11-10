@@ -581,7 +581,7 @@ Definition dest_Seq_def:
   dest_Seq _ = NONE
 End
 
-val evaluate_def = tDefine "evaluate" `
+Definition evaluate_def:
   (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'c,'ffi) stackSem$state)) /\
   (evaluate (Halt v,s) =
      case get_var v s of
@@ -824,15 +824,15 @@ val evaluate_def = tDefine "evaluate" `
      | SOME (Word w) =>
          if LENGTH s.bitmaps <= w2n w then (SOME Error,s)
          else (NONE, set_var r (Word (EL (w2n w) s.bitmaps)) s)
-     | _ => (SOME Error,s))`
-  (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
+     | _ => (SOME Error,s))
+Termination
+  WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
                              (\(xs,(s:('a,'c,'ffi) stackSem$state)). (s.clock,xs)))`
    \\ rpt strip_tac
    \\ fs[empty_env_def,dec_clock_def,set_var_def,STOP_def]
    \\ imp_res_tac fix_clock_IMP \\ fs []
-   \\ imp_res_tac (GSYM fix_clock_IMP) \\ fs [] \\ decide_tac)
-
-val evaluate_ind = theorem"evaluate_ind";
+   \\ imp_res_tac (GSYM fix_clock_IMP) \\ fs [] \\ decide_tac
+End
 
 (* We prove that the clock never increases. *)
 
@@ -900,11 +900,11 @@ Proof
   \\ fs [MIN_DEF,GSYM NOT_LESS,theorem "state_component_equality"]
 QED
 
-val evaluate_def = save_thm("evaluate_def[compute]",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def);
+Theorem evaluate_def[compute,allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def;
 
-val evaluate_ind = save_thm("evaluate_ind",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
+Theorem evaluate_ind[allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
 (* observational semantics *)
 

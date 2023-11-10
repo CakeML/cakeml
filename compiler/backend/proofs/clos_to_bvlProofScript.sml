@@ -769,13 +769,6 @@ val code_installed_def = Define `
   code_installed aux code =
     EVERY (\(n,num_args,exp). lookup n code = SOME (num_args,exp)) aux`;
 
-Theorem code_installed_fromAList:
-   ALL_DISTINCT (MAP FST ls) ⇒ code_installed ls (fromAList ls)
-Proof
-  srw_tac[][code_installed_def,EVERY_MEM,FORALL_PROD,lookup_fromAList] >>
-  metis_tac[ALOOKUP_ALL_DISTINCT_MEM]
-QED
-
 val closure_code_installed_def = Define `
   closure_code_installed max_app code exps_ps (env:closSem$v list) =
     EVERY (\((n,exp),p).
@@ -8680,7 +8673,7 @@ Proof
   \\ Cases_on `es` \\ fs [clos_to_bvlTheory.chain_exps_def]
 QED
 
-Theorem chain_exps_every_Fn_SOME:
+Theorem chain_exps_every_Fn_SOME[allow_rebind]:
    !es l. every_Fn_SOME es ==>
            every_Fn_SOME (MAP (SND ∘ SND) (chain_exps l es))
 Proof

@@ -87,7 +87,7 @@ Proof
   Cases_on`cmp`>>srw_tac[][labSemTheory.word_cmp_def]
 QED
 
-Theorem word_cmp_negate[simp]:
+Theorem word_cmp_negate_alt[simp]:
    asm$word_cmp (negate cmp) w1 w2 ⇔ ¬word_cmp cmp w1 w2
 Proof
   Cases_on`cmp`>>EVAL_TAC
@@ -2906,7 +2906,7 @@ val MAP_FST_compile_compile = Q.prove(
 
 val sextract_labels_def = stackPropsTheory.extract_labels_def
 
-Theorem next_lab_non_zero:
+Theorem next_lab_non_zero[allow_rebind]:
     ∀p. 1 ≤ next_lab p 1 /\
         2 ≤ next_lab p 2
 Proof
@@ -3304,7 +3304,7 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem full_make_init_semantics =
+Theorem full_make_init_semantics[allow_rebind] =
   full_make_init_semantics |> REWRITE_RULE [markerTheory.Abbrev_def]
 
 Theorem EVERY_sec_ends_with_label_MAP_prog_to_section[simp]:
