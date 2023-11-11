@@ -109,6 +109,13 @@ examples/lpr_checker/array
 examples/lpr_checker/array/compilation
 examples/lpr_checker/array/compilation/proofs
 examples/lpr_checker/array/compilation/proofsARM8
+examples/pseudo_bool
+examples/pseudo_bool/cnf_encoding
+examples/pseudo_bool/graph_encoding
+examples/pseudo_bool/array
+examples/pseudo_bool/array/compilation
+examples/pseudo_bool/array/compilation/proofs
+
 examples/opentheory
 examples/opentheory
 examples/opentheory/compilation
