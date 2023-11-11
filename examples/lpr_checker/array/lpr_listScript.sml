@@ -1417,13 +1417,6 @@ Proof
   IF_CASES_TAC>>simp[]
 QED
 
-Theorem index_11:
-  index i = index x ⇔ i = x
-Proof
-  rw[index_def,EQ_IMP_THM]>>
-  intLib.ARITH_TAC
-QED
-
 Theorem earliest_rel_update_resize0_pre:
   ∀l earliest n z.
     any_el (index z) (update_earliest earliest n l) NONE =
