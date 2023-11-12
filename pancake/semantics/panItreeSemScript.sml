@@ -32,13 +32,18 @@ Datatype:
 End
 
 val s = “s:('a,'b) state”;
-val mtree_ans = “:α result option # ('a,'b) state”;
+val s1 = “s1:('a,'b) state”;
+val p1 = “p1:'a panLang$prog”;
+val p2 = “p2:'a panLang$prog”;
+
+Type mtree_ans[pp] = “:α result option # ('a,'b) state”;
 
 Type mtree[pp] = “:(α result option # (α, β) state,
-                    α panLang$prog # (α, β) state + sem_vis_event # (β ffi_result -> α result option # (α, β) state),
+                    sem_vis_event # (β ffi_result -> α result option # (α, β) state),
                     α result option # (α, β) state) itree”;
 
 Type semtree[pp] = “:(β ffi_result, sem_vis_event, α result option) itree”;
+
 Type sem8tree[pp] = “:(β ffi_result, sem_vis_event, 8 result option) itree”;
 
 Definition itree_mrec_def:
@@ -146,7 +151,7 @@ Definition h_prog_rule_dec_def:
 End
 
 Definition h_prog_rule_seq_def:
-  h_prog_rule_seq p1 p2 s = Vis (INL (p1,s))
+  h_prog_rule_seq ^p1 ^p2 ^s = Vis (INL (p1,s))
                                 (λ(res,s'). if res = NONE
                                             then Vis (INL (p2,s')) Ret
                                             else Ret (res,s'))
@@ -316,7 +321,7 @@ Definition h_prog_def:
 End
 
 (* Converts an mtree into a semtree *)
-Definition sem_outer:
+Definition sem_outer_def:
   sem_outer =
   itree_unfold
   (λt. case t of
@@ -339,6 +344,10 @@ Definition itree_semantics_def:
   itree_semantics ^s entry =
   let prog = Call NONE (Label entry) [] in
   (itree_evaluate prog ^s)
+End
+
+Definition itree_mrec_sem_def:
+  itree_mrec_sem seed = itree_mrec h_prog seed
 End
 
 val _ = export_theory();
