@@ -13724,9 +13724,9 @@ Proof[exclude_simps = EXP_LE_LOG_SIMP EXP_LT_LOG_SIMP LE_EXP_LOG_SIMP
   \\ qexists_tac ‘x.space − LENGTH y2’ \\ fs []
 QED
 
-Definition not_mapped_ffi_def:
-  not_mapped_ffi (op: op) <=>
-    (op <> FFI "MappedRead" /\ op <> FFI "MappedWrite")
+Definition not_mapped_ffi_def[simp]:
+  (not_mapped_ffi ((FFI i):op) = not_mapped_ffi_name i) /\
+  (not_mapped_ffi _ = T)
 End
 
 Theorem assign_thm:
@@ -13743,7 +13743,7 @@ Proof
          (Cases_on `^(th |> concl |> dest_imp |> #1)` THEN1 (fs []
              \\ match_mp_tac th \\ fs [])))
       (DB.match ["-"] ``_ ==> ^assign_thm_goal`` |> map (#1 o #2))
-  \\ fs [not_mapped_ffi_name_def] \\ strip_tac
+  \\ fs [] \\ strip_tac
   \\ Cases_on`op = CopyByte T` >- (
     fs[do_app_def,do_space_def,do_app_aux_def]
     \\ every_case_tac \\ fs[] )
