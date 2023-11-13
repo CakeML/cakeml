@@ -3122,6 +3122,117 @@ Proof
     rw[]>>asm_exists_tac>>simp[])
 QED
 
+(* Every constraint in fml' is in fml *)
+Definition fml_include_def:
+  fml_include fml fml' =
+  EVERY (λc. MEM c fml) fml'
+End
+
+Theorem fml_include_satisfies:
+  fml_include fml fml' ∧
+  satisfies w (set fml) ⇒
+  satisfies w (set fml')
+Proof
+  rw[fml_include_def,EVERY_MEM,satisfies_def]
+QED
+
+Definition check_houtput_def:
+  (check_houtput fml obj bound dbound chk HNoOutput = T) ∧
+  (check_houtput fml obj bound dbound chk (HDerivable fml') =
+    let cls =
+      (MAP SND (toAList (mk_core_fml T fml))) in
+      dbound = NONE ∧ fml_include cls fml') ∧
+  (check_houtput fml obj bound dbound chk (HEquisatisfiable fml') =
+    let cls =
+      (MAP SND (toAList (mk_core_fml T fml))) in
+      dbound = NONE ∧ bound = NONE ∧
+      chk ∧
+      fml_include cls fml' ∧
+      fml_include fml' cls) ∧
+  (check_houtput fml obj bound dbound chk (HEquioptimal fml' obj') =
+    let cls =
+      (MAP SND (toAList (mk_core_fml T fml))) in
+      chk ∧ opt_le bound dbound ∧
+      fml_include cls fml' ∧
+      fml_include fml' cls ∧
+      obj = obj')
+End
+
+Theorem check_csteps_check_houtput:
+  id_ok fml id ∧
+  check_csteps csteps
+    fml (init_conf id chk obj) = SOME (fml',pc') ∧
+  all_core fml ∧
+  check_houtput fml' pc'.obj pc'.bound pc'.dbound pc'.chk houtput ⇒
+  sem_houtput (core_only_fml T fml) obj pc'.bound houtput
+Proof
+  rw[]>>
+  drule_at Any check_csteps_correct>>
+  simp[init_conf_def,valid_conf_setup]>>
+  rw[hide_def]>>
+  Cases_on`houtput`>>
+  fs[sem_houtput_def,check_houtput_def]
+  >- ( (* HDerivable *)
+    rw[satisfiable_def]>>
+    drule fml_include_satisfies>>
+    disch_then (irule_at Any)>>
+    drule all_core_core_only_fml_eq>>rw[]>>
+    gvs[bimp_obj_def,opt_lt_def,imp_obj_def,sat_obj_le_def,PULL_EXISTS]>>
+    first_x_assum drule>>
+    disch_then(qspec_then`eval_obj obj w` assume_tac)>>fs[]>>
+    simp[GSYM range_toAList,range_mk_core_fml]>>
+    fs[range_def,core_only_fml_def,satisfies_def]>>
+    metis_tac[])
+  >- (  (* HEquisatisfiable *)
+    eq_tac>>rw[satisfiable_def]
+    >- (
+      qpat_x_assum`fml_include _ l` assume_tac>>
+      drule fml_include_satisfies>>
+      disch_then (irule_at Any)>>
+      drule all_core_core_only_fml_eq>>rw[]>>
+      gvs[bimp_obj_def,opt_lt_def,imp_obj_def,sat_obj_le_def,PULL_EXISTS]>>
+      first_x_assum drule>>
+      disch_then(qspec_then`eval_obj obj w` assume_tac)>>fs[]>>
+      simp[GSYM range_toAList,range_mk_core_fml]>>
+      fs[range_def,core_only_fml_def,satisfies_def]>>
+      metis_tac[])>>
+    drule_all fml_include_satisfies>>
+    simp[GSYM range_toAList,range_mk_core_fml]>>
+    gvs[bimp_obj_def,opt_lt_def,imp_obj_def,sat_obj_le_def,PULL_EXISTS]>>
+    strip_tac>>first_x_assum drule>>
+    disch_then(qspec_then`eval_obj pc'.obj w` assume_tac)>>fs[]>>
+    metis_tac[])
+  >- (  (* HEquioptimal *)
+    rw[]>>
+    drule all_core_core_only_fml_eq>>rw[]>>
+    `opt_lt (SOME v) pc'.bound` by
+      (Cases_on`pc'.bound`>>fs[opt_lt_def])>>
+    eq_tac>>rw[]
+    >- (
+      gvs[bimp_obj_def,opt_lt_def,imp_obj_def,sat_obj_le_def,PULL_EXISTS]>>
+      `opt_le (SOME (eval_obj obj w)) (SOME v)` by
+        (simp[opt_le_def,opt_lt_def]>>
+        intLib.ARITH_TAC)>>
+      `opt_lt (SOME (eval_obj obj w)) pc'.dbound` by
+        metis_tac[opt_lt_le]>>
+      last_x_assum drule>>
+      disch_then drule>>rw[]>>
+      qexists_tac`w'`>>
+      reverse CONJ_TAC >-
+        intLib.ARITH_TAC>>
+      qpat_x_assum`fml_include _ l` assume_tac>>
+      drule fml_include_satisfies>>
+      disch_then (irule_at Any)>>
+      simp[GSYM range_toAList,range_mk_core_fml]>>
+      fs[range_def,core_only_fml_def,satisfies_def]>>
+      metis_tac[])>>
+    drule_all fml_include_satisfies>>
+    simp[GSYM range_toAList,range_mk_core_fml]>>
+    gvs[bimp_obj_def,opt_lt_def,imp_obj_def,sat_obj_le_def,PULL_EXISTS]>>
+    strip_tac>>first_x_assum drule_all>>
+    metis_tac[])
+QED
+
 (* EXPERIMENTAL UNUSED
 Definition spt_of_list_def:
   spt_of_list c = add_spt (LN,0) c

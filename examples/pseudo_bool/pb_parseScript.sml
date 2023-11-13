@@ -1100,6 +1100,26 @@ Definition parse_concl_def:
   | _ => NONE
 End
 
+(* Parse a PBC output *)
+Definition parse_output_def:
+  parse_output s (obj,pbf) =
+  case s of
+    [x] =>
+    if x = INL(strlit"NONE") then
+      (if pbf = [] ∧ obj = NONE then SOME NoOutput
+      else NONE)
+    else if x = INL(strlit"DERIVABLE") then
+      (if obj = NONE then SOME (Derivable pbf)
+      else NONE)
+    else if x = INL(strlit"EQUI-SATISFIABLE") then
+      (if obj = NONE then SOME (Equisatisfiable pbf)
+      else NONE)
+    else if x = INL(strlit"EQUI-OPTIMAL") then
+      SOME (Equioptimal pbf obj)
+    else NONE
+  | _ => NONE
+End
+
 (* Parse a list of strings in pbf format, not used *)
 Theorem parse_lsteps_aux_length:
   ∀f_ns ss acc a b c ss'.

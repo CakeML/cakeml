@@ -3473,4 +3473,161 @@ Proof
   xapp>>xsimpl
 QED
 
+val fml_include_arr = process_topdecs`
+  fun fml_include_arr fml fml' =
+  let
+    val hs = Array.array splim []
+    val u = mk_hashset_arr fml hs in
+    every_hs hs fml'
+  end` |> append_prog;
+
+Theorem fml_include_arr_spec:
+  (LIST_TYPE constraint_TYPE) ls lsv ∧
+  (LIST_TYPE constraint_TYPE) rs rsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "fml_include_arr" (get_ml_prog_state()))
+    [lsv; rsv]
+    (emp)
+    (POSTv v.
+      &BOOL (fml_include_list ls rs) v)
+Proof
+  rw[fml_include_list_def]>>
+  xcf"fml_include_arr"(get_ml_prog_state ())>>
+  xlet_autop>>
+  assume_tac (fetch "-" "splim_v_thm")>>
+  xlet_auto>>
+  qmatch_goalsub_abbrev_tac`ARRAY av hsv`>>
+  `LIST_REL (LIST_TYPE constraint_TYPE) (REPLICATE splim []) hsv` by
+    simp[Abbr`hsv`,LIST_REL_REPLICATE_same,LIST_TYPE_def]>>
+  xlet_autop>>
+  xapp>>
+  xsimpl>>
+  first_assum (irule_at Any)>>
+  first_assum (irule_at Any)>>
+  fs[LIST_REL_EL_EQN]
+QED
+
+val _ = register_type ``:houtput``
+
+Definition eq_none_def:
+  eq_none (bnd: int option) =
+  (bnd = NONE)
+End
+
+val res = translate eq_none_def;
+
+Definition eq_sat_chk_def:
+  eq_sat_chk (bound:int option) (dbound:int option) chk =
+  (bound = NONE ∧ dbound = NONE ∧ chk)
+End
+
+val res = translate eq_sat_chk_def;
+
+Definition eq_opt_chk_def:
+  eq_opt_chk (bound:int option) (dbound:int option)
+    chk (obj:((int # num) list # int) option) obj' =
+  (chk ∧ opt_le bound dbound ∧ (obj = obj'))
+End
+
+val res = translate eq_opt_chk_def;
+
+(* written in a funny way to make CF easier *)
+val check_houtput_arr = process_topdecs`
+  fun check_houtput_arr fml inds
+    obj bound dbound chk houtput =
+  case houtput of
+    Hnooutput => True
+  | Hderivable fml' =>
+    let val cls = map_snd (core_fmlls_arr fml inds) in
+    if eq_none dbound then fml_include_arr cls fml'
+    else False
+    end
+  | Hequisatisfiable fml' =>
+    let val cls = map_snd (core_fmlls_arr fml inds) in
+    if eq_sat_chk bound dbound chk then
+      fml_include_arr cls fml' andalso
+      fml_include_arr fml' cls
+    else False
+    end
+  | Hequioptimal fml' obj' =>
+    let val cls = map_snd (core_fmlls_arr fml inds) in
+      if eq_opt_chk bound dbound chk obj obj' then
+        fml_include_arr cls fml' andalso
+        fml_include_arr fml' cls
+      else False
+    end` |> append_prog;
+
+val NPBC_HOUTPUT_TYPE_def = theorem"NPBC_HOUTPUT_TYPE_def";
+
+Theorem check_houtput_arr_spec:
+  (LIST_TYPE NUM) inds indsv ∧
+  obj_TYPE obj objv ∧
+  OPTION_TYPE INT bound boundv ∧
+  OPTION_TYPE INT dbound dboundv ∧
+  BOOL chk chkv ∧
+  NPBC_HOUTPUT_TYPE houtput houtputv ∧
+  LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "check_houtput_arr" (get_ml_prog_state()))
+    [fmlv; indsv; objv; boundv; dboundv; chkv; houtputv]
+    (ARRAY fmlv fmllsv)
+    (POSTv v.
+        ARRAY fmlv fmllsv *
+        &(
+        BOOL (check_houtput_list fmlls inds obj
+          bound dbound chk houtput) v))
+Proof
+  rw[]>>
+  xcf"check_houtput_arr"(get_ml_prog_state ())>>
+  Cases_on`houtput`>>
+  fs[npbc_listTheory.check_houtput_list_def,NPBC_HOUTPUT_TYPE_def]>>
+  xmatch
+  >-
+    (xcon>>xsimpl)
+  >- (
+    rpt xlet_autop>>
+    fs[eq_none_def]>>
+    xif>>simp[fml_include_list_def]
+    >- (
+      xapp>>xsimpl>>
+      rpt(first_x_assum (irule_at Any))>>rw[]>>
+      fs[fml_include_list_def,map_snd_def])>>
+    xcon>>xsimpl)
+  >- (
+    rpt xlet_autop>>
+    xif>>simp[]
+    >- (
+      rpt xlet_autop>>
+      xlog>>rw[]>>xsimpl
+      >- (
+        xapp>>xsimpl>>
+        rpt(first_x_assum (irule_at Any))>>rw[]>>
+        fs[fml_include_list_def,map_snd_def,eq_sat_chk_def])>>
+      fs[map_snd_def])>>
+    xcon>>xsimpl>>
+    qmatch_goalsub_abbrev_tac`BOOL ff _`>>
+    `ff = F` by
+      (fs[Abbr`ff`,eq_sat_chk_def])>>
+    xsimpl)
+  >- (
+    rpt xlet_autop>>
+    xif>>simp[]
+    >- (
+      rpt xlet_autop>>
+      xlog>>rw[]>>xsimpl
+      >- (
+        xapp>>xsimpl>>
+        rpt(first_x_assum (irule_at Any))>>rw[]>>
+        fs[fml_include_list_def,map_snd_def,eq_opt_chk_def])>>
+      fs[map_snd_def])>>
+    xcon>>xsimpl>>
+    qmatch_goalsub_abbrev_tac`BOOL ff _`>>
+    `ff = F` by
+      (fs[Abbr`ff`,eq_opt_chk_def]>>
+      metis_tac[])>>
+    xsimpl)
+QED
+
 val _ = export_theory();

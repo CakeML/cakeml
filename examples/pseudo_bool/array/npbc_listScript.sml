@@ -2145,4 +2145,114 @@ Proof
   metis_tac[]
 QED
 
+Definition fml_include_list_def:
+  fml_include_list fml fml' =
+  let hs = mk_hashset fml (REPLICATE splim []) in
+  EVERY (λc. in_hashset c hs) fml'
+End
+
+Theorem fml_include_list_fml_include:
+  fml_include_list fml fml' ⇒
+  npbc_check$fml_include fml fml'
+Proof
+  rw[fml_include_list_def,fml_include_def,EVERY_MEM]>>
+  first_x_assum drule>>
+  rw[]>>
+  drule in_hashset_mk_hashset>>
+  simp[in_hashset_def]>>
+  DEP_REWRITE_TAC[EL_REPLICATE]>>
+  Cases_on`c`>>
+  simp[hash_constraint_def,mem_constraint_thm]>>
+  match_mp_tac MOD_LESS>>
+  EVAL_TAC
+QED
+
+Definition check_houtput_list_def:
+  (check_houtput_list fml inds
+    obj bound dbound chk HNoOutput = T) ∧
+  (check_houtput_list fml inds
+    obj bound dbound chk (HDerivable fml') =
+    let cls = MAP SND (core_fmlls fml inds) in
+      dbound = NONE ∧ fml_include_list cls fml') ∧
+  (check_houtput_list fml inds
+    obj bound dbound chk (HEquisatisfiable fml') =
+    let cls = MAP SND (core_fmlls fml inds) in
+      dbound = NONE ∧ bound = NONE ∧
+      chk ∧
+      fml_include_list cls fml' ∧
+      fml_include_list fml' cls) ∧
+  (check_houtput_list fml inds
+    obj bound dbound chk (HEquioptimal fml' obj') =
+    let cls = MAP SND (core_fmlls fml inds) in
+      chk ∧ opt_le bound dbound ∧
+      fml_include_list cls fml' ∧
+      fml_include_list fml' cls ∧
+      obj = obj')
+End
+
+Theorem fml_include_set:
+  set (ls:'a list) = set ls' ∧
+  set rs = set rs'
+  ⇒
+  fml_include ls rs = fml_include ls' rs'
+Proof
+  rw[fml_include_def,EVERY_MEM]
+QED
+
+Theorem fml_rel_check_houtput_list:
+  fml_rel fml' fmlls' ∧
+  ind_rel fmlls' inds' ∧
+  check_houtput_list fmlls' inds' obj bound dbound chk output ⇒
+  check_houtput fml' obj bound dbound chk output
+Proof
+  rw[]>>
+  `set (MAP SND (core_fmlls fmlls' inds')) =
+   set (MAP SND (toAList (mk_core_fml T fml')))` by (
+   rw[EXTENSION,MEM_MAP,EXISTS_PROD,MEM_toAList,MEM_core_fmlls]>>
+   simp[lookup_mk_core_fml]>>
+   metis_tac[ind_rel_lookup_core_only_list,fml_rel_lookup_core_only])>>
+  Cases_on`output`>>
+  fs[check_houtput_list_def,check_houtput_def]>>rw[]>>
+  imp_res_tac fml_include_list_fml_include>>fs[]>>
+  metis_tac[fml_include_set]
+QED
+
+Theorem check_csteps_list_output:
+  check_csteps_list cs
+    (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,T)) i)
+      (REPLICATE m NONE) (enumerate 1 fml))
+    (REVERSE (MAP FST (enumerate 1 fml)))
+    (init_conf (LENGTH fml + 1) chk obj) =
+    SOME(fmlls',inds',pc') ∧
+  check_houtput_list fmlls' inds'
+    pc'.obj pc'.bound pc'.dbound pc'.chk houtput ⇒
+  sem_houtput (set fml) obj pc'.bound houtput
+Proof
+  rw[]>>
+  qmatch_asmsub_abbrev_tac`check_csteps_list cs fmlls inds pc = _`>>
+  `fml_rel (build_fml T 1 fml) fmlls` by
+    simp[Abbr`fmlls`,fml_rel_FOLDL_update_resize]>>
+  `ind_rel fmlls inds` by (
+    unabbrev_all_tac>>
+    simp[ind_rel_FOLDL_update_resize])>>
+  `∀n. n ≥ pc.id ⇒ any_el n fmlls NONE = NONE` by (
+    rw[Abbr`pc`,Abbr`fmlls`,any_el_ALT,init_conf_def]>>
+    DEP_REWRITE_TAC [FOLDL_update_resize_lookup]>>
+    simp[ALOOKUP_enumerate,ALL_DISTINCT_MAP_FST_enumerate])>>
+  drule_all fml_rel_check_csteps_list>>
+  rw[]>>
+  `id_ok (build_fml T 1 fml) pc.id` by
+    fs[Abbr`pc`,init_conf_def,id_ok_def,domain_build_fml]>>
+  `all_core (build_fml T 1 fml)` by
+    fs[all_core_def,EVERY_MEM,MEM_toAList,FORALL_PROD,lookup_build_fml]>>
+  drule check_csteps_check_houtput>>
+  fs[Abbr`pc`]>>
+  gvs[init_conf_def]>>
+  rpt(disch_then drule)>>
+  simp[core_only_fml_build_fml]>>
+  disch_then match_mp_tac>>
+  drule_all fml_rel_check_houtput_list>>
+  metis_tac[]
+QED
+
 val _ = export_theory();

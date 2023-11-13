@@ -1210,4 +1210,24 @@ Proof
   simp[satisfiable_normalise,eval_obj_normalise_obj,normalise_thm]
 QED
 
+Definition normalise_output_def:
+  (normalise_output NoOutput = HNoOutput) ∧
+  (normalise_output (Derivable fml) = HDerivable (normalise fml)) ∧
+  (normalise_output (Equisatisfiable fml) = HEquisatisfiable (normalise fml)) ∧
+  (normalise_output (Equioptimal fml obj) =
+    let (obj',fml') = normalise_obj_pbf (obj,fml) in
+      HEquioptimal fml' obj')
+End
+
+Theorem normalise_output_sem_output:
+  normalise_obj_pbf (obj,fml) = (obj',fml') ∧
+  normalise_output output = output' ⇒
+  sem_output (set fml) obj bound output =
+  sem_houtput (set fml') obj' bound output'
+Proof
+  Cases_on`output`>>
+  rw[normalise_output_def,sem_output_def,normalise_obj_pbf_def]>>
+  simp[sem_houtput_def,satisfiable_normalise,eval_obj_normalise_obj,normalise_thm]
+QED
+
 val _ = export_theory();

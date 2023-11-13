@@ -1990,6 +1990,30 @@ Definition sem_concl_def:
       (∃w. satisfies w fml ∧ eval_obj obj w ≤ ub))))
 End
 
+Datatype:
+  houtput =
+  | HNoOutput
+  | HDerivable (npbc list)
+  | HEquisatisfiable (npbc list)
+  | HEquioptimal (npbc list) (((int # var) list # int) option)
+End
+
+Definition sem_houtput_def:
+  (sem_houtput fml obj bound HNoOutput = T) ∧
+  (sem_houtput fml obj bound (HDerivable fml') =
+    (npbc$satisfiable fml ⇒ satisfiable (set fml'))) ∧
+  (sem_houtput fml obj bound (HEquisatisfiable fml') =
+    (npbc$satisfiable fml ⇔ satisfiable (set fml'))) ∧
+  (sem_houtput fml obj bound (HEquioptimal fml' obj') =
+    ∀v.
+    (case bound of NONE => T | SOME b => v < b) ⇒
+    (
+      (∃w. npbc$satisfies w fml ∧ npbc$eval_obj obj w ≤ v) ⇔
+      (∃w'. satisfies w' (set fml') ∧ eval_obj obj' w' ≤ v)
+    )
+  )
+End
+
 (* EXPERIMENTAL UNUSED *)
 Type npbcspt = ``: (int spt) #num``
 

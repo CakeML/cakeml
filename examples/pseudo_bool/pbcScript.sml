@@ -553,4 +553,30 @@ Proof
     metis_tac[satisfies_map_pbf])
 QED
 
+(* Output section for a pseudoboolean formula *)
+Datatype:
+  output =
+  | NoOutput
+  | Derivable ('a pbc list)
+  | Equisatisfiable ('a pbc list)
+  | Equioptimal ('a pbc list) (('a lin_term # int) option)
+End
+
+(* Semantics of an output section wrt a derived bound *)
+Definition sem_output_def:
+  (sem_output pbf obj bound NoOutput = T) ∧
+  (sem_output pbf obj bound (Derivable pbf') =
+    (satisfiable pbf ⇒ satisfiable (set pbf'))) ∧
+  (sem_output pbf obj bound (Equisatisfiable pbf') =
+    (satisfiable pbf ⇔ satisfiable (set pbf'))) ∧
+  (sem_output pbf obj bound (Equioptimal pbf' obj') =
+    ∀v.
+    (case bound of NONE => T | SOME b => v < b) ⇒
+    (
+      (∃w. satisfies w pbf ∧ eval_obj obj w ≤ v) ⇔
+      (∃w'. satisfies w' (set pbf') ∧ eval_obj obj' w' ≤ v)
+    )
+  )
+End
+
 val _ = export_theory();
