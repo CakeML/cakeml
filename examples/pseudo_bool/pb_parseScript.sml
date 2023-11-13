@@ -1100,22 +1100,18 @@ Definition parse_concl_def:
   | _ => NONE
 End
 
-(* Parse a PBC output *)
+(* Parse a PBC output line *)
 Definition parse_output_def:
-  parse_output s (obj,pbf) =
+  parse_output s =
   case s of
-    [x] =>
-    if x = INL(strlit"NONE") then
-      (if pbf = [] ∧ obj = NONE then SOME NoOutput
+    [x;y] =>
+    if y = INL(strlit"FILE")
+    then (
+      if x = INL(strlit"NONE") then SOME NoOutput
+      else if x = INL(strlit"DERIVABLE") then SOME Derivable
+      else if x = INL(strlit"EQUI-SATISFIABLE") then SOME Equisatisfiable
+      else if x = INL(strlit"EQUI-OPTIMAL") then SOME Equioptimal
       else NONE)
-    else if x = INL(strlit"DERIVABLE") then
-      (if obj = NONE then SOME (Derivable pbf)
-      else NONE)
-    else if x = INL(strlit"EQUI-SATISFIABLE") then
-      (if obj = NONE then SOME (Equisatisfiable pbf)
-      else NONE)
-    else if x = INL(strlit"EQUI-OPTIMAL") then
-      SOME (Equioptimal pbf obj)
     else NONE
   | _ => NONE
 End

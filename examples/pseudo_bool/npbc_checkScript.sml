@@ -3136,20 +3136,20 @@ Proof
   rw[fml_include_def,EVERY_MEM,satisfies_def]
 QED
 
-Definition check_houtput_def:
-  (check_houtput fml obj bound dbound chk HNoOutput = T) ∧
-  (check_houtput fml obj bound dbound chk (HDerivable fml') =
+Definition check_output_def:
+  (check_output fml obj bound dbound chk fml' obj' NoOutput = T) ∧
+  (check_output fml obj bound dbound chk fml' obj' Derivable =
     let cls =
       (MAP SND (toAList (mk_core_fml T fml))) in
       dbound = NONE ∧ fml_include cls fml') ∧
-  (check_houtput fml obj bound dbound chk (HEquisatisfiable fml') =
+  (check_output fml obj bound dbound chk fml' obj' Equisatisfiable =
     let cls =
       (MAP SND (toAList (mk_core_fml T fml))) in
       dbound = NONE ∧ bound = NONE ∧
       chk ∧
       fml_include cls fml' ∧
       fml_include fml' cls) ∧
-  (check_houtput fml obj bound dbound chk (HEquioptimal fml' obj') =
+  (check_output fml obj bound dbound chk fml' obj' Equioptimal =
     let cls =
       (MAP SND (toAList (mk_core_fml T fml))) in
       chk ∧ opt_le bound dbound ∧
@@ -3158,21 +3158,21 @@ Definition check_houtput_def:
       obj = obj')
 End
 
-Theorem check_csteps_check_houtput:
+Theorem check_csteps_check_output:
   id_ok fml id ∧
   check_csteps csteps
     fml (init_conf id chk obj) = SOME (fml',pc') ∧
   all_core fml ∧
-  check_houtput fml' pc'.obj pc'.bound pc'.dbound pc'.chk houtput ⇒
-  sem_houtput (core_only_fml T fml) obj pc'.bound houtput
+  check_output fml' pc'.obj pc'.bound pc'.dbound pc'.chk fmlt objt output ⇒
+  sem_output (core_only_fml T fml) obj pc'.bound (set fmlt) objt output
 Proof
   rw[]>>
   drule_at Any check_csteps_correct>>
   simp[init_conf_def,valid_conf_setup]>>
   rw[hide_def]>>
-  Cases_on`houtput`>>
-  fs[sem_houtput_def,check_houtput_def]
-  >- ( (* HDerivable *)
+  Cases_on`output`>>
+  fs[sem_output_def,check_output_def]
+  >- ( (* Derivable *)
     rw[satisfiable_def]>>
     drule fml_include_satisfies>>
     disch_then (irule_at Any)>>
@@ -3183,10 +3183,10 @@ Proof
     simp[GSYM range_toAList,range_mk_core_fml]>>
     fs[range_def,core_only_fml_def,satisfies_def]>>
     metis_tac[])
-  >- (  (* HEquisatisfiable *)
+  >- (  (* Equisatisfiable *)
     eq_tac>>rw[satisfiable_def]
     >- (
-      qpat_x_assum`fml_include _ l` assume_tac>>
+      qpat_x_assum`fml_include _ fmlt` assume_tac>>
       drule fml_include_satisfies>>
       disch_then (irule_at Any)>>
       drule all_core_core_only_fml_eq>>rw[]>>
@@ -3202,7 +3202,7 @@ Proof
     strip_tac>>first_x_assum drule>>
     disch_then(qspec_then`eval_obj pc'.obj w` assume_tac)>>fs[]>>
     metis_tac[])
-  >- (  (* HEquioptimal *)
+  >- (  (* Equioptimal *)
     rw[]>>
     drule all_core_core_only_fml_eq>>rw[]>>
     `opt_lt (SOME v) pc'.bound` by
@@ -3220,7 +3220,7 @@ Proof
       qexists_tac`w'`>>
       reverse CONJ_TAC >-
         intLib.ARITH_TAC>>
-      qpat_x_assum`fml_include _ l` assume_tac>>
+      qpat_x_assum`fml_include _ fmlt` assume_tac>>
       drule fml_include_satisfies>>
       disch_then (irule_at Any)>>
       simp[GSYM range_toAList,range_mk_core_fml]>>

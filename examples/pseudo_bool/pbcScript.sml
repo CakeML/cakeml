@@ -557,24 +557,24 @@ QED
 Datatype:
   output =
   | NoOutput
-  | Derivable ('a pbc list)
-  | Equisatisfiable ('a pbc list)
-  | Equioptimal ('a pbc list) (('a lin_term # int) option)
+  | Derivable
+  | Equisatisfiable
+  | Equioptimal
 End
 
 (* Semantics of an output section wrt a derived bound *)
 Definition sem_output_def:
-  (sem_output pbf obj bound NoOutput = T) ∧
-  (sem_output pbf obj bound (Derivable pbf') =
-    (satisfiable pbf ⇒ satisfiable (set pbf'))) ∧
-  (sem_output pbf obj bound (Equisatisfiable pbf') =
-    (satisfiable pbf ⇔ satisfiable (set pbf'))) ∧
-  (sem_output pbf obj bound (Equioptimal pbf' obj') =
+  (sem_output pbf obj bound pbf' obj' NoOutput = T) ∧
+  (sem_output pbf obj bound pbf' obj' Derivable =
+    (satisfiable pbf ⇒ satisfiable pbf')) ∧
+  (sem_output pbf obj bound pbf' obj' Equisatisfiable =
+    (satisfiable pbf ⇔ satisfiable pbf')) ∧
+  (sem_output pbf obj bound pbf' obj' Equioptimal =
     ∀v.
     (case bound of NONE => T | SOME b => v < b) ⇒
     (
       (∃w. satisfies w pbf ∧ eval_obj obj w ≤ v) ⇔
-      (∃w'. satisfies w' (set pbf') ∧ eval_obj obj' w' ≤ v)
+      (∃w'. satisfies w' pbf' ∧ eval_obj obj' w' ≤ v)
     )
   )
 End
