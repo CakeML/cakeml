@@ -9,6 +9,23 @@ val _ = translation_extends"npbc_parseProg";
 
 val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
+(* Translation for parsing an OPB file *)
+val r = translate nocomment_line_def;
+
+val nocomment_line_side_def = definition"nocomment_line_side_def";
+val nocomment_line_side = Q.prove(
+  `∀x. nocomment_line_side x <=> T`,
+  rw[nocomment_line_side_def])
+  |> update_precondition;
+
+val r = translate parse_op_def;
+val r = translate parse_constraint_def;
+val r = translate parse_constraints_def;
+
+val r = translate parse_obj_def;
+val r = translate parse_obj_maybe_def;
+val r = translate parse_pbf_toks_def;
+
 Definition noparse_string_def:
   noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]
 End
@@ -24,8 +41,6 @@ val parse_pbf_full = (append_prog o process_topdecs) `
     None => Inl (noparse_string f "OPB")
   | Some res => Inr res
   ))`
-
-val tokenize_v_thm = theorem "tokenize_v_thm";
 
 val b_inputAllTokensFrom_spec_specialize =
   b_inputAllTokensFrom_spec
@@ -127,25 +142,36 @@ Definition check_unsat_2_sem_def:
       pbc$sem_concl (set fml) obj concl)
 End
 
+(* Ignoring output section for 2-arg version *)
 Definition map_concl_to_string_def:
   (map_concl_to_string (INL s) = (INL s)) ∧
-  (map_concl_to_string (INR c) = (INR (concl_to_string c)))
+  (map_concl_to_string (INR (out,bnd,c)) = (INR (concl_to_string c)))
 End
 
 val res = translate int_inf_to_string_def;
 val res = translate concl_to_string_def;
 val res = translate map_concl_to_string_def;
 
+(* And empty formula *)
+Definition default_objf_def:
+  default_objf = (NONE,[]):((int # mlstring lit) list # int) option #
+    (pbop # (int # mlstring lit) list # int) list
+End
+
+val res = translate default_objf_def;
+
 val check_unsat_2 = (append_prog o process_topdecs) `
   fun check_unsat_2 f1 f2 =
   case parse_pbf_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr objf =>
-    (case
-      map_concl_to_string
-        (check_unsat_top_norm objf f2) of
-      Inl err => TextIO.output TextIO.stdErr err
-    | Inr s => TextIO.print s)`
+    let val objft = default_objf in
+      (case
+        map_concl_to_string
+          (check_unsat_top_norm objf objft f2) of
+        Inl err => TextIO.output TextIO.stdErr err
+      | Inr s => TextIO.print s)
+    end`
 
 Theorem check_unsat_2_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -178,15 +204,50 @@ Proof
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   simp[SUM_TYPE_def]>>rw[]>>
+  Cases_on`x`>>fs[PAIR_TYPE_def]>>
   xmatch>>
-  xlet_auto
+  assume_tac (fetch "-" "default_objf_v_thm")>>
+  xlet`POSTv v.
+    STDIO fs *
+    &(PAIR_TYPE
+      (OPTION_TYPE (PAIR_TYPE
+        (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
+      INT))
+      (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
+      ) default_objf v`
+  >-
+    (xvar>>xsimpl)>>
+  xlet`(POSTv v.
+     STDIO fs *
+     SEP_EXISTS res.
+     &(
+       SUM_TYPE STRING_TYPE
+         (PAIR_TYPE PBC_OUTPUT_TYPE
+           (PAIR_TYPE (OPTION_TYPE INT) PBC_CONCL_TYPE))
+         res v ∧
+       case res of
+         INR (output,bound,concl) =>
+         sem_concl (set r) q concl ∧
+         sem_output (set r) q bound
+          (set (SND default_objf)) (FST default_objf) output
+       | INL l => T))`
   >- (
-    xsimpl>>
+    xapp>>xsimpl>>
     fs[validArg_def]>>
-    metis_tac[])>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    simp[]>>
+    qexists_tac`(q,r)`>>simp[PAIR_TYPE_def]>>
+    qexists_tac`f2`>>simp[FILENAME_def,validArg_def]>>
+    qexists_tac`emp`>>xsimpl>>
+    rw[]>>
+    first_x_assum (irule_at Any)>>
+    simp[])>>
   xlet_autop>>
-  Cases_on`res`>>fs[map_concl_to_string_def,SUM_TYPE_def]>>xmatch
+  Cases_on`res`>>fs[map_concl_to_string_def,SUM_TYPE_def]
   >- (
+    xmatch>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     asm_exists_tac>>xsimpl>>
     qexists_tac`emp`>>xsimpl>>
@@ -197,15 +258,16 @@ Proof
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
+  PairCases_on`y`>>fs[SUM_TYPE_def,map_concl_to_string_def]>>
+  xmatch>>
   xapp>>asm_exists_tac>>xsimpl>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`concl_to_string y`>>simp[]>>
+  qexists_tac`concl_to_string y2`>>simp[]>>
   qexists_tac`strlit ""`>>
   rw[]>>simp[STD_streams_stderr,add_stdo_nil]>>
   xsimpl>>
   fs[get_fml_def]>>
-  Cases_on`x`>>fs[normalise_full_def]>>
   metis_tac[]
 QED
 
@@ -259,8 +321,165 @@ Proof
   xsimpl
 QED
 
+Definition output_to_string_def:
+  (output_to_string bound NoOutput =
+    strlit "s VERIFIED NO OUTPUT GUARANTEE\n") ∧
+  (output_to_string bound Derivable =
+    strlit "s VERIFIED OUTPUT DERIVABLE\n") ∧
+  (output_to_string bound Equisatisfiable =
+    strlit "s VERIFIED OUTPUT EQUI-SATISFIABLE\n") ∧
+  (output_to_string bound Equioptimal =
+    strlit "s VERIFIED OUTPUT EQUI-OPTIMAL FOR obj < " ^ int_inf_to_string bound)
+End
+
+Definition check_unsat_3_sem_def:
+  check_unsat_3_sem fs f1 f3 out ⇔
+  (out ≠ strlit"" ⇒
+  ∃obj fml objt fmlt.
+    get_fml fs f1 = SOME (obj,fml) ∧
+    get_fml fs f3 = SOME (objt,fmlt) ∧
+    ∃output bound concl.
+      out =
+        (concl_to_string concl ^
+        output_to_string bound output) ∧
+      pbc$sem_concl (set fml) obj concl ∧
+      pbc$sem_output (set fml) obj bound (set fmlt) objt output
+  )
+End
+
+(* Ignoring output section for 2-arg version *)
+Definition map_out_concl_to_string_def:
+  (map_out_concl_to_string (INL s) = (INL s)) ∧
+  (map_out_concl_to_string (INR (out,bnd,c)) =
+    (INR (concl_to_string c ^ output_to_string bnd out)))
+End
+
+val res = translate output_to_string_def;
+val res = translate map_out_concl_to_string_def;
+
+val check_unsat_3 = (append_prog o process_topdecs) `
+  fun check_unsat_3 f1 f2 f3 =
+  case parse_pbf_full f1 of
+    Inl err => TextIO.output TextIO.stdErr err
+  | Inr objf =>
+  (case parse_pbf_full f3 of
+    Inl err => TextIO.output TextIO.stdErr err
+  | Inr objft =>
+    (case
+      map_out_concl_to_string
+        (check_unsat_top_norm objf objft f2) of
+      Inl err => TextIO.output TextIO.stdErr err
+    | Inr s => TextIO.print s))`
+
+Theorem check_unsat_3_spec:
+  STRING_TYPE f1 f1v ∧ validArg f1 ∧
+  STRING_TYPE f2 f2v ∧ validArg f2 ∧
+  STRING_TYPE f3 f3v ∧ validArg f3 ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_3"(get_ml_prog_state()))
+    [f1v; f2v; f3v]
+    (STDIO fs)
+    (POSTv uv. &UNIT_TYPE () uv *
+    SEP_EXISTS out err.
+      STDIO (add_stdout (add_stderr fs err) out) *
+      &(check_unsat_3_sem fs f1 f3 out))
+Proof
+  rw[check_unsat_3_sem_def]>>
+  xcf "check_unsat_3" (get_ml_prog_state ())>>
+  reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
+  xlet_autop>>
+  pop_assum mp_tac>>
+  TOP_CASE_TAC
+  >- (
+    simp[SUM_TYPE_def]>>rw[]>>
+    xmatch>>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    qexists_tac`err`>>xsimpl>>rw[]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    xsimpl)>>
+  simp[SUM_TYPE_def]>>rw[]>>
+  `∃obj fml. x = (obj,fml)` by metis_tac[PAIR]>>
+  fs[PAIR_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
+  pop_assum mp_tac>>
+  TOP_CASE_TAC
+  >- (
+    simp[SUM_TYPE_def]>>rw[]>>
+    xmatch>>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    qexists_tac`err`>>xsimpl>>rw[]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    xsimpl)>>
+  simp[SUM_TYPE_def]>>rw[]>>
+  `∃objt fmlt. x' = (objt,fmlt)` by metis_tac[PAIR]>>
+  gvs[PAIR_TYPE_def]>>
+  xmatch>>
+  xlet`(POSTv v.
+     STDIO fs *
+     SEP_EXISTS res.
+     &(
+       SUM_TYPE STRING_TYPE
+         (PAIR_TYPE PBC_OUTPUT_TYPE
+           (PAIR_TYPE (OPTION_TYPE INT) PBC_CONCL_TYPE))
+         res v ∧
+       case res of
+         INR (output,bound,concl) =>
+         sem_concl (set fml) obj concl ∧
+         sem_output (set fml) obj bound
+          (set fmlt) objt output
+       | INL l => T))`
+  >- (
+    xapp>>xsimpl>>
+    fs[validArg_def]>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    qexists_tac`(objt,fmlt)`>>
+    qexists_tac`(obj,fml)`>>
+    simp[PAIR_TYPE_def]>>
+    qexists_tac`f2`>>simp[FILENAME_def,validArg_def]>>
+    qexists_tac`emp`>>xsimpl>>
+    rw[]>>
+    first_x_assum (irule_at Any)>>
+    simp[])>>
+  xlet_autop>>
+  Cases_on`res`>>fs[map_out_concl_to_string_def,SUM_TYPE_def]
+  >- (
+    xmatch>>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    qexists_tac`strlit ""`>>
+    rename1`add_stderr _ err`>>
+    qexists_tac`err`>>xsimpl>>rw[]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    xsimpl)>>
+  PairCases_on`y`>>fs[SUM_TYPE_def,map_out_concl_to_string_def]>>
+  xmatch>>
+  xapp>>asm_exists_tac>>xsimpl>>
+  qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
+  rw[]>>
+  qexists_tac`concl_to_string y2 ^ output_to_string y1 y0`>>simp[]>>
+  qexists_tac`strlit ""`>>
+  rw[]>>simp[STD_streams_stderr,add_stdo_nil]>>
+  xsimpl>>
+  fs[get_fml_def]>>
+  metis_tac[]
+QED
+
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb <OPB file> <optional: PB proof file>\n"
+  usage_string = strlit "Usage: cake_pb <OPB file> <optional: PB proof file> <optional: output OPB file>\n"
 End
 
 val r = translate usage_string_def;
@@ -270,15 +489,17 @@ val main = (append_prog o process_topdecs) `
   case CommandLine.arguments () of
     [f1] => check_unsat_1 f1
   | [f1,f2] => check_unsat_2 f1 f2
+  | [f1,f2,f3] => check_unsat_3 f1 f2 f3
   | _ => TextIO.output TextIO.stdErr usage_string`
 
 Definition main_sem_def:
   main_sem fs cl out =
   if LENGTH cl = 2 then
     check_unsat_1_sem fs (EL 1 cl) out
-  else
-  if LENGTH cl = 3 then
+  else if LENGTH cl = 3 then
     check_unsat_2_sem fs (EL 1 cl) out
+  else if LENGTH cl = 4 then
+    check_unsat_3_sem fs (EL 1 cl) (EL 3 cl) out
   else out = strlit ""
 End
 
@@ -330,6 +551,16 @@ Proof
   >- (
     xmatch>>
     xapp>>rw[]>>
+    first_x_assum (irule_at Any)>>xsimpl>>
+    first_x_assum (irule_at Any)>>xsimpl>>
+    first_x_assum (irule_at Any)>>xsimpl>>
+    fs[wfcl_def]>>
+    rw[]>>metis_tac[STDIO_refl])>>
+  Cases_on`t'`>>fs[LIST_TYPE_def]
+  >- (
+    xmatch>>
+    xapp>>rw[]>>
+    first_x_assum (irule_at Any)>>xsimpl>>
     first_x_assum (irule_at Any)>>xsimpl>>
     first_x_assum (irule_at Any)>>xsimpl>>
     first_x_assum (irule_at Any)>>xsimpl>>

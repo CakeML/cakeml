@@ -2167,22 +2167,22 @@ Proof
   EVAL_TAC
 QED
 
-Definition check_houtput_list_def:
-  (check_houtput_list fml inds
-    obj bound dbound chk HNoOutput = T) ∧
-  (check_houtput_list fml inds
-    obj bound dbound chk (HDerivable fml') =
+Definition check_output_list_def:
+  (check_output_list fml inds
+    obj bound dbound chk fml' obj' NoOutput = T) ∧
+  (check_output_list fml inds
+    obj bound dbound chk fml' obj' Derivable =
     let cls = MAP SND (core_fmlls fml inds) in
       dbound = NONE ∧ fml_include_list cls fml') ∧
-  (check_houtput_list fml inds
-    obj bound dbound chk (HEquisatisfiable fml') =
+  (check_output_list fml inds
+    obj bound dbound chk fml' obj' Equisatisfiable =
     let cls = MAP SND (core_fmlls fml inds) in
       dbound = NONE ∧ bound = NONE ∧
       chk ∧
       fml_include_list cls fml' ∧
       fml_include_list fml' cls) ∧
-  (check_houtput_list fml inds
-    obj bound dbound chk (HEquioptimal fml' obj') =
+  (check_output_list fml inds
+    obj bound dbound chk fml' obj' Equioptimal =
     let cls = MAP SND (core_fmlls fml inds) in
       chk ∧ opt_le bound dbound ∧
       fml_include_list cls fml' ∧
@@ -2199,11 +2199,11 @@ Proof
   rw[fml_include_def,EVERY_MEM]
 QED
 
-Theorem fml_rel_check_houtput_list:
+Theorem fml_rel_check_output_list:
   fml_rel fml' fmlls' ∧
   ind_rel fmlls' inds' ∧
-  check_houtput_list fmlls' inds' obj bound dbound chk output ⇒
-  check_houtput fml' obj bound dbound chk output
+  check_output_list fmlls' inds' obj bound dbound chk fmlt objt output ⇒
+  check_output fml' obj bound dbound chk fmlt objt output
 Proof
   rw[]>>
   `set (MAP SND (core_fmlls fmlls' inds')) =
@@ -2212,7 +2212,7 @@ Proof
    simp[lookup_mk_core_fml]>>
    metis_tac[ind_rel_lookup_core_only_list,fml_rel_lookup_core_only])>>
   Cases_on`output`>>
-  fs[check_houtput_list_def,check_houtput_def]>>rw[]>>
+  fs[check_output_list_def,check_output_def]>>rw[]>>
   imp_res_tac fml_include_list_fml_include>>fs[]>>
   metis_tac[fml_include_set]
 QED
@@ -2224,9 +2224,9 @@ Theorem check_csteps_list_output:
     (REVERSE (MAP FST (enumerate 1 fml)))
     (init_conf (LENGTH fml + 1) chk obj) =
     SOME(fmlls',inds',pc') ∧
-  check_houtput_list fmlls' inds'
-    pc'.obj pc'.bound pc'.dbound pc'.chk houtput ⇒
-  sem_houtput (set fml) obj pc'.bound houtput
+  check_output_list fmlls' inds'
+    pc'.obj pc'.bound pc'.dbound pc'.chk fmlt objt output ⇒
+  sem_output (set fml) obj pc'.bound (set fmlt) objt output
 Proof
   rw[]>>
   qmatch_asmsub_abbrev_tac`check_csteps_list cs fmlls inds pc = _`>>
@@ -2245,13 +2245,13 @@ Proof
     fs[Abbr`pc`,init_conf_def,id_ok_def,domain_build_fml]>>
   `all_core (build_fml T 1 fml)` by
     fs[all_core_def,EVERY_MEM,MEM_toAList,FORALL_PROD,lookup_build_fml]>>
-  drule check_csteps_check_houtput>>
+  drule check_csteps_check_output>>
   fs[Abbr`pc`]>>
   gvs[init_conf_def]>>
   rpt(disch_then drule)>>
   simp[core_only_fml_build_fml]>>
   disch_then match_mp_tac>>
-  drule_all fml_rel_check_houtput_list>>
+  drule_all fml_rel_check_output_list>>
   metis_tac[]
 QED
 
