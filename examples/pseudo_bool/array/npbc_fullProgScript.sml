@@ -329,7 +329,7 @@ Definition output_to_string_def:
   (output_to_string bound Equisatisfiable =
     strlit "s VERIFIED OUTPUT EQUI-SATISFIABLE\n") ∧
   (output_to_string bound Equioptimal =
-    strlit "s VERIFIED OUTPUT EQUI-OPTIMAL FOR obj < " ^ int_inf_to_string bound)
+    strlit "s VERIFIED OUTPUT EQUI-OPTIMAL FOR obj < " ^ int_inf_to_string bound ^ strlit"\n")
 End
 
 Definition check_unsat_3_sem_def:

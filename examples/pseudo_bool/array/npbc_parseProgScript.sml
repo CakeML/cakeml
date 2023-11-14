@@ -3470,19 +3470,21 @@ val check_unsat_top_norm = process_topdecs `
     check_unsat_top (name_to_num_var_nf,t) fml obj fmlt objt fname
     `|> append_prog
 
+Overload "objf_TYPE" = ``
+  PAIR_TYPE
+  (OPTION_TYPE
+    (PAIR_TYPE
+    (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
+    INT))
+  (LIST_TYPE
+    (PAIR_TYPE PBC_PBOP_TYPE
+      (PAIR_TYPE
+        (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
+        INT)))``
+
 Theorem check_unsat_top_norm_spec:
-  (PAIR_TYPE
-      (OPTION_TYPE (PAIR_TYPE
-        (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
-      INT))
-      (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
-      ) objf objfv ∧
-  (PAIR_TYPE
-      (OPTION_TYPE (PAIR_TYPE
-        (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
-      INT))
-      (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
-      ) objft objftv ∧
+  objf_TYPE objf objfv ∧
+  objf_TYPE objft objftv ∧
   FILENAME f fv ∧
   hasFreeFD fs
   ⇒
@@ -3534,18 +3536,20 @@ Proof
   pairarg_tac>>gvs[]>>
   rename1`sem_concl _ _ con ∧ sem_output _ _ _ _ _ out`>>
   Cases_on`objf'`>>
-  drule name_to_num_obj_pbf_thm>>
-  disch_then(qspec_then`con` mp_tac)>>
+  drule name_to_num_obj_pbf_concl_thm>>
   Cases_on`objft'`>>
-  cheat
-  (*
-  drule name_to_num_obj_pbf_thm>>
-  disch_then(qspec_then`out` mp_tac)>>
-  impl_tac >- (
-    match_mp_tac init_state_ok>>
-    fs[TotOrd_compare])>>
-  rw[]>>
-  metis_tac[normalise_obj_pbf_sem_concl] *)
+  dxrule_at_then (Pos (el 2)) drule name_to_num_obj_pbf_output_thm>>
+  simp[]>>
+  rename1`sem_output _ _ bnd _ _ _`>>
+  disch_then(qspecl_then[`bnd`,`out`] mp_tac)>>
+  impl_keep_tac
+  >- (
+    CONJ_ASM1_TAC >- (
+      match_mp_tac init_state_ok>>
+      fs[TotOrd_compare])>>
+    metis_tac[name_to_num_state_ok_name_to_num_obj_pbf])>>
+  simp[]>>
+  metis_tac[normalise_obj_pbf_sem_concl,normalise_obj_pbf_sem_output]
 QED
 
 (* printing a string pbf *)

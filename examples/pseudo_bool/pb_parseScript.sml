@@ -1105,12 +1105,15 @@ Definition parse_output_def:
   parse_output s =
   case s of
     [x;y] =>
-    if y = INL(strlit"FILE")
+    if x = INL(strlit"output") ∧ y = INL (strlit "NONE")
+    then SOME NoOutput
+    else NONE
+  | [x;y;z] =>
+    if x = INL(strlit"output") ∧ z = INL (strlit "FILE")
     then (
-      if x = INL(strlit"NONE") then SOME NoOutput
-      else if x = INL(strlit"DERIVABLE") then SOME Derivable
-      else if x = INL(strlit"EQUI-SATISFIABLE") then SOME Equisatisfiable
-      else if x = INL(strlit"EQUI-OPTIMAL") then SOME Equioptimal
+      if y = INL(strlit"DERIVABLE") then SOME Derivable
+      else if y = INL(strlit"EQUI-SATISFIABLE") then SOME Equisatisfiable
+      else if y = INL(strlit"EQUI-OPTIMAL") then SOME Equioptimal
       else NONE)
     else NONE
   | _ => NONE

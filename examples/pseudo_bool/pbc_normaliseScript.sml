@@ -1122,50 +1122,6 @@ Proof
   strip_tac>>simp[obj_vars_def,map_obj_def,map_lin_term_def]
 QED
 
-Theorem name_to_num_obj_pbf_thm:
-  ∀concl
-    (fml: α pbc list) (fml': num pbc list)
-    (obj : (α lin_term # int) option)
-    (obj': (num lin_term # int) option)
-    s t.
-    name_to_num_obj_pbf (obj,fml) s = ((obj',fml'),t) ∧
-    name_to_num_state_ok s ⇒
-    sem_concl (set fml) obj concl =
-    sem_concl (set fml') obj' concl
-Proof
-  rw[name_to_num_obj_pbf_def]>>
-  rpt(pairarg_tac>>gvs[])>>
-  fs[name_to_num_obj_def]>>
-  drule name_to_num_obj>>rw[]>>
-  drule_then drule name_to_num_pbf_rec \\ fs []
-  \\ impl_tac
-  >- fs [pbf_vars_def]>>
-  rw[]>>
-  `obj_vars obj ⊆ {i | lookup_index s'' i ≠ NONE}` by
-    (Cases_on`obj`>>fs[obj_vars_def]>>
-    Cases_on`x`>>fs[obj_vars_def,SUBSET_DEF]>>
-    rw[]>>first_x_assum drule>>
-    metis_tac[option_CLAUSES])>>
-  simp[LIST_TO_SET_MAP]>>
-  `map_obj (THE o lookup_index s') obj =
-   map_obj (THE o lookup_index s'') obj` by
-    (Cases_on`obj`>>
-    simp[map_obj_def]>>
-    Cases_on`x`>>
-    fs[map_obj_def,obj_vars_def]>>
-    fs[MAP_EQ_f,FORALL_PROD,SUBSET_DEF,MEM_MAP,PULL_EXISTS]>>
-    rw[]>>first_x_assum drule>>
-    Cases_on`p_2`>>simp[map_lit_def]>>
-    Cases_on`lookup_index s' a`>>rw[]>>
-    first_x_assum drule>>fs[])>>
-  simp[]>>
-  match_mp_tac concl_INJ_iff>>
-  gvs [INJ_DEF] \\ rpt gen_tac
-  \\ Cases_on ‘lookup_index s'' x’ \\ gvs []
-  \\ Cases_on ‘lookup_index s'' y’ \\ gvs []
-  \\ gvs[SUBSET_DEF] \\ metis_tac[lookup_index_inj]
-QED
-
 Definition normalise_obj_def:
   (normalise_obj NONE = NONE) ∧
   (normalise_obj (SOME (f,c)) =
@@ -1210,7 +1166,7 @@ Proof
   simp[satisfiable_normalise,eval_obj_normalise_obj,normalise_thm]
 QED
 
-Theorem normalise_output_sem_output:
+Theorem normalise_obj_pbf_sem_output:
   normalise_obj_pbf (obj1,fml1) = (obj1',fml1') ∧
   normalise_obj_pbf (obj2,fml2) = (obj2',fml2') ⇒
   (pbc$sem_output (set fml1) obj1 bound (set fml2) obj2 output ⇔
@@ -1219,6 +1175,138 @@ Proof
   Cases_on`output`>>
   rw[npbcTheory.sem_output_def,pbcTheory.sem_output_def,normalise_obj_pbf_def]>>
   simp[satisfiable_normalise,eval_obj_normalise_obj,normalise_thm]
+QED
+
+Theorem name_to_num_obj_pbf_concl_thm:
+  ∀concl
+    (fml: α pbc list) (fml': num pbc list)
+    (obj : (α lin_term # int) option)
+    (obj': (num lin_term # int) option)
+    s t.
+    name_to_num_obj_pbf (obj,fml) s = ((obj',fml'),t) ∧
+    name_to_num_state_ok s ⇒
+    sem_concl (set fml) obj concl = sem_concl (set fml') obj' concl
+Proof
+  rw[name_to_num_obj_pbf_def]>>
+  rpt(pairarg_tac>>gvs[])>>
+  drule name_to_num_obj>>rw[]>>
+  drule_then drule name_to_num_pbf_rec \\ fs []
+  \\ impl_tac
+  >- fs [pbf_vars_def]>>
+  rw[]>>
+  `obj_vars obj ⊆ {i | lookup_index s'' i ≠ NONE}` by
+    (Cases_on`obj`>>fs[obj_vars_def]>>
+    Cases_on`x`>>fs[obj_vars_def,SUBSET_DEF]>>
+    rw[]>>first_x_assum drule>>
+    metis_tac[option_CLAUSES])>>
+  simp[LIST_TO_SET_MAP]>>
+  `map_obj (THE o lookup_index s') obj =
+   map_obj (THE o lookup_index s'') obj` by
+    (Cases_on`obj`>>
+    simp[map_obj_def]>>
+    Cases_on`x`>>
+    fs[map_obj_def,obj_vars_def]>>
+    fs[MAP_EQ_f,FORALL_PROD,SUBSET_DEF,MEM_MAP,PULL_EXISTS]>>
+    rw[]>>first_x_assum drule>>
+    Cases_on`p_2`>>simp[map_lit_def]>>
+    Cases_on`lookup_index s' a`>>rw[]>>
+    first_x_assum drule>>fs[])>>
+  simp[]>>
+  match_mp_tac concl_INJ_iff>>
+  gvs [INJ_DEF] \\ rpt gen_tac
+  \\ Cases_on ‘lookup_index s'' x’ \\ gvs []
+  \\ Cases_on ‘lookup_index s'' y’ \\ gvs []
+  \\ gvs[SUBSET_DEF] \\ metis_tac[lookup_index_inj]
+QED
+
+Theorem name_to_num_state_ok_name_to_num_obj_pbf:
+  name_to_num_state_ok s ∧
+  name_to_num_obj_pbf (obj,fml) s = ((obj',fml'),t) ⇒
+  name_to_num_state_ok t
+Proof
+  rw[name_to_num_obj_pbf_def]>>
+  rpt(pairarg_tac>>gvs[])>>
+  drule name_to_num_obj>>rw[]>>
+  drule_then drule name_to_num_pbf_rec \\ fs []
+  \\ impl_tac
+  >- fs [pbf_vars_def]>>
+  rw[]
+QED
+
+(* Typically, take t = st *)
+Theorem name_to_num_obj_pbf_output_thm:
+  ∀output
+    (fml: α pbc list) (fml': num pbc list)
+    (obj : (α lin_term # int) option)
+    (obj': (num lin_term # int) option)
+    s t
+    (fmlt: 'b pbc list) (fmlt': num pbc list)
+    (objt : ('b lin_term # int) option)
+    (objt': (num lin_term # int) option)
+    st tt.
+    name_to_num_obj_pbf (obj,fml) s = ((obj',fml'),t) ∧
+    name_to_num_obj_pbf (objt,fmlt) st = ((objt',fmlt'),tt) ∧
+    name_to_num_state_ok s ∧
+    name_to_num_state_ok st ⇒
+    sem_output (set fml) obj bound (set fmlt) objt output =
+    sem_output (set fml') obj' bound (set fmlt') objt' output
+Proof
+  rw[name_to_num_obj_pbf_def]>>
+  rpt(pairarg_tac>>gvs[])>>
+  rename1`_ obj s = (_,s1)`>>
+  rename1`_ fml s1 _ = (_,s2)`>>
+  drule name_to_num_obj>>rw[]>>
+  drule_then drule name_to_num_pbf_rec \\ fs []
+  \\ impl_tac
+  >- fs [pbf_vars_def]>>
+  rw[]>>
+  `obj_vars obj ⊆ {i | lookup_index s2 i ≠ NONE}` by
+    (Cases_on`obj`>>fs[obj_vars_def]>>
+    Cases_on`x`>>fs[obj_vars_def,SUBSET_DEF]>>
+    rw[]>>first_x_assum drule>>
+    metis_tac[option_CLAUSES])>>
+  simp[LIST_TO_SET_MAP]>>
+  `map_obj (THE o lookup_index s1) obj =
+   map_obj (THE o lookup_index s2) obj` by
+    (Cases_on`obj`>>
+    simp[map_obj_def]>>
+    Cases_on`x`>>
+    fs[map_obj_def,obj_vars_def]>>
+    fs[MAP_EQ_f,FORALL_PROD,SUBSET_DEF,MEM_MAP,PULL_EXISTS]>>
+    rw[]>>first_x_assum drule>>
+    Cases_on`p_2`>>simp[map_lit_def]>>
+    Cases_on`lookup_index s1 a`>>rw[]>>
+    first_x_assum drule>>fs[])>>
+  qpat_x_assum`_ fmlt _ _ = _` assume_tac>>
+  qpat_x_assum`_ objt _ = _` assume_tac>>
+  rename1`_ objt st = (_,st1)`>>
+  rename1`_ fmlt st1 _ = (_,st2)`>>
+  drule name_to_num_obj>>rw[]>>
+  drule_then drule name_to_num_pbf_rec \\ fs []
+  \\ impl_tac
+  >- fs [pbf_vars_def]>>
+  rw[]>>
+  `obj_vars objt ⊆ {i | lookup_index st2 i ≠ NONE}` by
+    (Cases_on`objt`>>fs[obj_vars_def]>>
+    Cases_on`x`>>fs[obj_vars_def,SUBSET_DEF]>>
+    rw[]>>first_x_assum drule>>
+    metis_tac[option_CLAUSES])>>
+  simp[LIST_TO_SET_MAP]>>
+  `map_obj (THE o lookup_index st1) objt =
+   map_obj (THE o lookup_index st2) objt` by
+    (Cases_on`objt`>>
+    simp[map_obj_def]>>
+    Cases_on`x`>>
+    fs[map_obj_def,obj_vars_def]>>
+    fs[MAP_EQ_f,FORALL_PROD,SUBSET_DEF,MEM_MAP,PULL_EXISTS]>>
+    rw[]>>first_x_assum drule>>
+    Cases_on`p_2`>>simp[map_lit_def]>>
+    Cases_on`lookup_index st1 a`>>rw[]>>
+    first_x_assum drule>>fs[])>>
+  simp[]>>
+  match_mp_tac output_INJ_iff>>
+  gvs [INJ_DEF,SUBSET_DEF]>>
+  metis_tac[lookup_index_inj,option_CLAUSES]
 QED
 
 val _ = export_theory();
