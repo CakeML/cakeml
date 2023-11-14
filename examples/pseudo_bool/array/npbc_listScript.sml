@@ -572,28 +572,40 @@ Definition subst_indexes_def:
       | SOME c => (i,c)::subst_indexes s b fml is))
 End
 
-(* Arbitrarily chosen big prime near 2^20 *)
+Definition h_base_def:
+  h_base = 32768:num
+End
+
+Definition h_base_sq_def:
+  h_base_sq = 1073741824:num
+End
+
+Definition h_mod_def:
+  h_mod = 1000000009:num
+End
+
+(* Fixed size of the hash table *)
 Definition splim_def:
-  splim = 1048583:num
+  splim = 2000000:num
 End
 
 Definition hash_pair_def:
   hash_pair (i:int,n:num) =
   if i < 0 then
-    2 * (Num(ABS i)) + 7 * n
+    (2 * (Num(ABS i)) + h_base * n) MOD h_mod
   else
-    Num (ABS i) + 7 * n
+    (2 * (Num (ABS i)) - 1 + h_base * n) MOD h_mod
 End
 
 Definition hash_list_def:
   (hash_list [] = 0n) ∧
   (hash_list (x::xs) =
-    (hash_pair x + 7 * hash_list xs) MOD splim)
+    (hash_pair x + h_base_sq * hash_list xs) MOD h_mod)
 End
 
 Definition hash_constraint_def:
   hash_constraint (c,n) =
-  (n + 7 * hash_list c) MOD splim
+  ((n + h_base * hash_list c) MOD h_mod) MOD splim
 End
 
 Definition mk_hashset_def:

@@ -1368,9 +1368,11 @@ val res = translate npbc_checkTheory.list_pair_eq_def;
 val res = translate npbc_checkTheory.equal_constraint_def;
 val res = translate npbc_checkTheory.mem_constraint_def;
 
-val res = translate hash_pair_def;
-val res = translate (hash_list_def |> REWRITE_RULE [splim_def]);
-val res = translate (hash_constraint_def |> REWRITE_RULE [splim_def]);
+val hash_simps = [h_base_def, h_base_sq_def, h_mod_def, splim_def];
+
+val res = translate (hash_pair_def |> REWRITE_RULE hash_simps);
+val res = translate (hash_list_def |> REWRITE_RULE hash_simps);
+val res = translate (hash_constraint_def |> REWRITE_RULE hash_simps);
 
 (* TODO: can use Unsafe.update instead *)
 val mk_hashset_arr = process_topdecs`
@@ -1431,10 +1433,13 @@ Proof
   gs[hash_constraint_splim]
 QED
 
+(* val u = print (Int.toString (List.length r) ^ " " ^ Int.toString h ^ "\n") in *)
+
 val in_hashset_arr = process_topdecs`
   fun in_hashset_arr p hs =
-  let val h = hash_constraint p in
-    mem_constraint p (Array.sub hs h)
+  let val h = hash_constraint p
+    val r = Array.sub hs h in
+    mem_constraint p r
   end` |> append_prog;
 
 Theorem in_hashset_arr_spec:
