@@ -79,6 +79,9 @@ Implementation of an OpenTheory reader based on the Candle kernel.
 [patchProgScript.sml](patchProgScript.sml):
 patch example: apply a patch to a file.
 
+[pseudo_bool](pseudo_bool):
+A checker for pseudo-boolean constraints
+
 [queueProgScript.sml](queueProgScript.sml):
 An example of a queue data structure implemented using CakeML arrays, verified
 using CF.

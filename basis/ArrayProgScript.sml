@@ -378,6 +378,21 @@ val array_collate = process_topdecs
 
 val _ = append_prog array_collate;
 
+val _ = (append_prog o process_topdecs) `
+  val lookup = fn arr => fn default => fn n =>
+    sub arr n handle _ => default`
+
+val _ = (append_prog o process_topdecs) `
+  val updateResize = fn arr => fn default => fn n => fn v =>
+    (update arr n v; arr) handle _ =>
+    let
+      val arr' = array (2*n+1) default
+    in
+      (copy arr arr' 0;
+       update arr' n v;
+       arr')
+    end`
+
 val _ = ml_prog_update close_local_blocks;
 
 val _ = ml_prog_update (close_module NONE);

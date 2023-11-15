@@ -35,42 +35,8 @@ val interp_def = Define`
   interp (fml:ccnf) =
   IMAGE interp_cclause (set fml)`
 
-val values_def = Define`
-  values s = {v | ∃n. lookup n s = SOME v}`
-
 val interp_spt_def = Define`
-  interp_spt (fml:tccnf) = IMAGE interp_cclause (values fml)`
-
-Theorem values_delete:
-  values (delete h v) ⊆ values v
-Proof
-  simp[values_def,lookup_delete,SUBSET_DEF]>>
-  metis_tac[]
-QED
-
-Theorem values_insert:
-  C ∈ values (insert n l fml) ⇒ C ∈ values fml ∨ C = l
-Proof
-  fs[values_def,lookup_insert]>>
-  rw[]>>
-  every_case_tac>>fs[]>>
-  metis_tac[]
-QED
-
-Theorem values_insert2:
-  values (insert n l fml) ⊆ l INSERT values fml
-Proof
-  rw[SUBSET_DEF]>>
-  metis_tac[values_insert]
-QED
-
-Theorem values_insert_fresh:
-  (∀x. x ∈ domain fml ⇒ x ≠ n) ⇒
-  values (insert n l fml) = l INSERT values fml
-Proof
-  rw[values_def,EXTENSION,lookup_insert,domain_lookup]>>
-  metis_tac[SOME_11]
-QED
+  interp_spt (fml:tccnf) = IMAGE interp_cclause (range fml)`
 
 (* Implementation *)
 val _ = Datatype`
@@ -281,7 +247,7 @@ val wf_clause_def = Define`
 
 val wf_fml_def = Define`
   wf_fml (fml:tccnf) ⇔
-  ∀C. C ∈ values fml ⇒ wf_clause C`
+  ∀C. C ∈ range fml ⇒ wf_clause C`
 
 val wf_lpr_def = Define`
   (wf_lpr (Delete _) = T) ∧
@@ -406,7 +372,7 @@ Proof
     qmatch_goalsub_abbrev_tac`unsatisfiable fml'`>>
     `fml' = (interp_cclause x) INSERT fml'` by
       (match_mp_tac (GSYM ABSORPTION_RWT)>>
-      fs[Abbr`fml'`,values_def,interp_spt_def]>>
+      fs[Abbr`fml'`,range_def,interp_spt_def]>>
       metis_tac[])>>
     pop_assum SUBST1_TAC>>
     match_mp_tac filter_unit_preserves_unsatisfiable>>
@@ -418,7 +384,7 @@ Proof
     simp[interp_cclause_def])
   >>
   `wf_clause x` by
-    (fs[wf_fml_def,values_def]>>
+    (fs[wf_fml_def,range_def]>>
     metis_tac[])>>
   `MEM h' (delete_literals x C)` by fs[]>>
   `-h' ≠ 0` by
@@ -434,7 +400,7 @@ Proof
   qmatch_goalsub_abbrev_tac`unsatisfiable fml'`>>
   `(interp_cclause x) INSERT fml' = fml'` by
     (match_mp_tac ABSORPTION_RWT>>
-    fs[Abbr`fml'`,values_def,interp_spt_def]>>
+    fs[Abbr`fml'`,range_def,interp_spt_def]>>
     metis_tac[])>>
   pop_assum (SUBST1_TAC  o SYM)>>
   match_mp_tac filter_unit_preserves_unsatisfiable>>
@@ -477,7 +443,7 @@ Proof
   `interp_cclause x DIFF interp_cclause C = interp_cclause (delete_literals x C)` by
     fs[interp_cclause_delete_literals]>>
   `wf_clause x` by
-    (fs[wf_fml_def,values_def]>>
+    (fs[wf_fml_def,range_def]>>
     metis_tac[])>>
   `MEM h' (delete_literals x C)` by fs[]>>
   `-h' ≠ 0` by
@@ -497,7 +463,7 @@ Proof
   strip_tac>>
   fs[satisfies_INSERT]>>
   `satisfies_clause w (interp_cclause x)` by
-    (fs[satisfies_def,interp_spt_def,values_def]>>
+    (fs[satisfies_def,interp_spt_def,range_def]>>
     metis_tac[])>>
   CCONTR_TAC >> fs[]>>
   `interp_cclause x DIFF interp_cclause C = interp_cclause [h']` by
@@ -634,7 +600,7 @@ Proof
 QED
 
 Theorem check_PR_sat_implies:
-  check_PR fml w C ik (i,Ci) ∧ Ci ∈ values fml ∧
+  check_PR fml w C ik (i,Ci) ∧ Ci ∈ range fml ∧
   wf_fml fml ∧ wf_clause C ∧ consistent_par (interp_cclause C) ⇒
   sat_implies (par (IMAGE negate_literal (interp_cclause C)) (interp_spt fml))
     (par
@@ -737,8 +703,8 @@ Proof
   metis_tac[satisfiable_def]
 QED
 
-Theorem sat_implies_values:
-  (∀C. C ∈ values fml ⇒ sat_implies A (par w {interp_cclause C})) ⇒
+Theorem sat_implies_range:
+  (∀C. C ∈ range fml ⇒ sat_implies A (par w {interp_cclause C})) ⇒
   sat_implies A (par w (interp_spt fml))
 Proof
   rw[sat_implies_def,satisfies_def,interp_spt_def,par_def]>>
@@ -827,14 +793,14 @@ Proof
         fs[interp_cclause_def]>>
       simp[EXTENSION]>>
       metis_tac[])>>
-    match_mp_tac sat_implies_values>>
-    rw[values_def]>>fs[EVERY_MEM,MEM_toAList,FORALL_PROD]>>
+    match_mp_tac sat_implies_range>>
+    rw[range_def]>>fs[EVERY_MEM,MEM_toAList,FORALL_PROD]>>
     first_x_assum drule>>
     strip_tac>>
     drule check_PR_sat_implies>>
     simp[]>>
     impl_tac >-
-      (fs[values_def]>>
+      (fs[range_def]>>
       metis_tac[])>>
     simp[])
   >>
@@ -856,8 +822,8 @@ Proof
         fs[interp_cclause_def]>>
       simp[EXTENSION]>>
       metis_tac[])>>
-    match_mp_tac sat_implies_values>>
-    rw[values_def]>>fs[EVERY_MEM,MEM_toAList,FORALL_PROD]>>
+    match_mp_tac sat_implies_range>>
+    rw[range_def]>>fs[EVERY_MEM,MEM_toAList,FORALL_PROD]>>
     first_x_assum drule>>
     strip_tac>>
     drule check_RAT_imp_check_PR>>
@@ -865,7 +831,7 @@ Proof
     drule check_PR_sat_implies>>
     simp[]>>
     impl_tac >-
-      (fs[values_def]>>
+      (fs[range_def]>>
       metis_tac[])>>
     simp[interp_cclause_def]
 QED
@@ -877,7 +843,7 @@ Proof
   match_mp_tac satisfiable_SUBSET>>
   simp[interp_spt_def]>>
   match_mp_tac IMAGE_SUBSET>>
-  metis_tac[values_delete]
+  metis_tac[range_delete]
 QED
 
 Theorem delete_clauses_sound:
@@ -892,7 +858,9 @@ Theorem interp_insert:
   interp_spt (insert n p fml) ⊆ interp_cclause p INSERT interp_spt fml
 Proof
   simp[interp_spt_def,SUBSET_DEF,PULL_EXISTS]>>
-  rw[]>>drule values_insert>>rw[]>>
+  rw[]>>
+  drule range_insert_2>>
+  rw[]>>
   metis_tac[]
 QED
 
@@ -937,8 +905,8 @@ Proof
   Induct_on`ll`>>
   rw[]>>first_x_assum drule>>
   rw[wf_fml_def]>>
-  `C ∈ values (FOLDR (\b a . delete b a) fml ll)` by
-    metis_tac[values_delete,SUBSET_DEF]>>
+  `C ∈ range (FOLDR (\b a . delete b a) fml ll)` by
+    metis_tac[range_delete,SUBSET_DEF]>>
   fs[]
 QED
 
@@ -947,7 +915,7 @@ Theorem wf_fml_insert:
   wf_fml (insert n l fml)
 Proof
   fs[wf_fml_def]>>rw[]>>
-  drule values_insert>>
+  drule range_insert_2>>
   metis_tac[]
 QED
 
@@ -1053,10 +1021,10 @@ Proof
   simp[]
 QED
 
-Theorem values_build_fml:
-  ∀ls id. values (build_fml id ls) = set ls
+Theorem range_build_fml:
+  ∀ls id. range (build_fml id ls) = set ls
 Proof
-  Induct>>fs[build_fml_def,values_def,lookup_def]>>
+  Induct>>fs[build_fml_def,range_def,lookup_def]>>
   fs[EXTENSION]>>
   rw[lookup_insert]>>
   rw[EQ_IMP_THM]
@@ -1073,14 +1041,14 @@ QED
 Theorem interp_build_fml:
   interp_spt (build_fml id fml) = interp fml
 Proof
-  simp[interp_spt_def,values_build_fml,interp_def]
+  simp[interp_spt_def,range_build_fml,interp_def]
 QED
 
 Theorem wf_fml_build_fml:
   EVERY wf_clause ls ⇒
   wf_fml (build_fml id ls)
 Proof
-  simp[wf_fml_def,values_build_fml,EVERY_MEM]
+  simp[wf_fml_def,range_build_fml,EVERY_MEM]
 QED
 
 (* Connect theorems to ccnf representation *)
@@ -1094,7 +1062,7 @@ Proof
   `unsatisfiable (interp_spt x)` by (
     match_mp_tac empty_clause_imp_unsatisfiable>>
     fs[contains_clauses_def]>>
-    fs[MEM_MAP]>>Cases_on`y`>>fs[MEM_toAList,interp_spt_def,values_def]>>
+    fs[MEM_MAP]>>Cases_on`y`>>fs[MEM_toAList,interp_spt_def,range_def]>>
     qexists_tac`r`>>
     simp[]>>
     `canon_clause [] = [] ∧ interp_cclause [] = {}` by
@@ -1126,7 +1094,7 @@ Proof
     drule check_lpr_mindel>>
     simp[lookup_build_fml]>>
     rw[interp_build_fml,interp_def]>>
-    simp[interp_spt_def,values_def,SUBSET_DEF]>>
+    simp[interp_spt_def,range_def,SUBSET_DEF]>>
     rw[]>>
     fs[MEM_EL]>>
     first_x_assum(qspec_then `n+id` mp_tac)>>simp[]>>
@@ -1135,7 +1103,7 @@ Proof
     rw[SUBSET_DEF]>>
     fs[EVERY_MEM,MEM_toAList,EXISTS_PROD,MEM_MAP]>>
     first_x_assum drule>>rw[]>>
-    fs[interp_spt_def,values_def]>>
+    fs[interp_spt_def,range_def]>>
     metis_tac[canon_clause_interp])>>
   qpat_x_assum`satisfiable _` mp_tac>>
   match_mp_tac (satisfiable_SUBSET)>>
@@ -1160,7 +1128,7 @@ Proof
     rw[SUBSET_DEF]>>
     fs[EVERY_MEM,MEM_toAList,EXISTS_PROD,MEM_MAP]>>
     first_x_assum drule>>rw[]>>
-    fs[interp_spt_def,values_def]>>
+    fs[interp_spt_def,range_def]>>
     metis_tac[canon_clause_interp])>>
   qpat_x_assum`satisfiable _` mp_tac>>
   match_mp_tac (satisfiable_SUBSET)>>
@@ -1233,9 +1201,9 @@ Proof
   disch_then match_mp_tac>>
   fs[wf_fml_def]
   >- (
-    fs[values_def,lookup_FOLDL_delete,MEM_MAP,MEM_FILTER,EXISTS_PROD,MEM_toAList]>>
+    fs[range_def,lookup_FOLDL_delete,MEM_MAP,MEM_FILTER,EXISTS_PROD,MEM_toAList]>>
     metis_tac[])>>
-  metis_tac[values_insert]
+  metis_tac[range_insert_2]
 QED
 
 Theorem MAP_ALL_DISTINCT_FILTER:
@@ -1248,10 +1216,10 @@ QED
 Theorem run_proof_spt_interp:
   ∀pf fmlspt n fmlspt' n' fml.
   run_proof_spt (fmlspt,n) pf = (fmlspt',n') ∧
-  values fmlspt = set fml ∧
+  range fmlspt = set fml ∧
   (∀x. x ∈ domain fmlspt ⇒ x < n)
   ⇒
-  values fmlspt' = set (run_proof fml pf) ∧
+  range fmlspt' = set (run_proof fml pf) ∧
   (∀x. x ∈ domain fmlspt' ⇒ x < n')
 Proof
   Induct>>fs[run_proof_def,run_proof_spt_def]>>
@@ -1260,17 +1228,17 @@ Proof
   first_x_assum drule>>
   disch_then match_mp_tac
   >- (
-    fs[values_def,domain_lookup,lookup_FOLDL_delete,MEM_MAP,MEM_FILTER,EXISTS_PROD,MEM_toAList]>>
+    fs[range_def,domain_lookup,lookup_FOLDL_delete,MEM_MAP,MEM_FILTER,EXISTS_PROD,MEM_toAList]>>
     fs[domain_lookup]>>
     reverse CONJ_TAC >- metis_tac[]>>
     pop_assum kall_tac>>
     last_x_assum kall_tac>>
-    fs[EXTENSION,MEM_MAP,MEM_FILTER,MEM_toAList,values_def,EXISTS_PROD]>>
+    fs[EXTENSION,MEM_MAP,MEM_FILTER,MEM_toAList,range_def,EXISTS_PROD]>>
     metis_tac[SOME_11])
   >>
-    DEP_REWRITE_TAC [values_insert_fresh]>>
+    DEP_REWRITE_TAC [range_insert]>>
     CONJ_TAC>-
-      (rw[]>>first_x_assum drule>>simp[])>>
+      (CCONTR_TAC>>rw[]>>first_x_assum drule>>simp[])>>
     CONJ_TAC>-
       (fs[EXTENSION]>>metis_tac[])>>
     rw[]>>fs[]>>
@@ -1305,7 +1273,7 @@ Proof
   drule run_proof_spt_interp>>
   disch_then(qspec_then`fml` mp_tac)>>
   impl_tac>-
-    simp[values_build_fml,domain_lookup,lookup_build_fml]>>
+    simp[range_build_fml,domain_lookup,lookup_build_fml]>>
   rw[]>>
   qpat_x_assum` _ ⇒ _` mp_tac>>
   impl_tac >-
@@ -1322,10 +1290,10 @@ Proof
   `interp (run_proof fml (TAKE j pf)) ⊆ interp_spt x` by (
     fs[contains_clauses_def,EVERY_MEM,MEM_toAList,EXISTS_PROD,MEM_MAP,interp_def]>>
     qpat_x_assum`value _ = set _` sym_sub_tac>>
-    rw[SUBSET_DEF,values_def]>>
+    rw[SUBSET_DEF,range_def]>>
     fs[PULL_EXISTS]>>
     first_x_assum drule>>rw[]>>
-    fs[interp_spt_def,values_def]>>
+    fs[interp_spt_def,range_def]>>
     metis_tac[canon_clause_interp])>>
   qpat_x_assum`satisfiable _` mp_tac>>
   match_mp_tac (satisfiable_SUBSET)>>
