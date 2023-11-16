@@ -582,7 +582,7 @@ val state_rel_def = Define `
        index < LENGTH mc_conf.ffi_names ∧
        read_ffi_bytearrays mc_conf ms2 = (SOME bytes, SOME bytes2) ∧
        call_FFI_rel^* s1.ffi st ∧
-       call_FFI st (EL index mc_conf.ffi_names) bytes bytes2 = FFI_return new_st new_bytes ∧
+       call_FFI st (ExtCall $ EL index mc_conf.ffi_names) bytes bytes2 = FFI_return new_st new_bytes ∧
        (mc_conf.prog_addresses = t1.mem_domain) ∧
        target_state_rel mc_conf.target
          (t1 with pc := p - n2w ((3 + index) * ffi_offset)) ms2 /\
@@ -5851,7 +5851,7 @@ val compile_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[word_loc_val_def] \\ NO_TAC)
     \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac read_bytearray_state_rel \\ full_simp_tac(srw_ss())[]
-    \\ reverse(Cases_on `call_FFI s1.ffi s x x'`) THEN1
+    \\ reverse(Cases_on `call_FFI s1.ffi (ExtCall s) x x'`) THEN1
      (FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock`mp_tac) \\ rpt strip_tac
       \\ fs[] \\ rveq \\ fs[]
       \\ Q.EXISTS_TAC `l'` \\ full_simp_tac(srw_ss())[ADD_ASSOC]
@@ -5883,7 +5883,7 @@ val compile_correct = Q.prove(
       >> rfs[] >> rveq >> fs[])
     \\ full_simp_tac(srw_ss())[]
     \\ qmatch_assum_rename_tac
-         `call_FFI s1.ffi s x x' = FFI_return new_ffi new_bytes`
+         `call_FFI s1.ffi (ExtCall s) x x' = FFI_return new_ffi new_bytes`
     \\ FIRST_X_ASSUM (Q.SPECL_THEN [
          `shift_interfer l' mc_conf with
           ffi_interfer := shift_seq 1 mc_conf.ffi_interfer`,
