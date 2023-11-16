@@ -312,7 +312,7 @@ Definition evaluate_def:
                read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be))
                of
           | SOME bytes,SOME bytes2 =>
-             (case call_FFI s.ffi ffi_index bytes bytes2 of
+             (case call_FFI s.ffi (ExtCall ffi_index) bytes bytes2 of
               | FFI_final outcome => (SOME (FinalFFI outcome),call_env [] s)
               | FFI_return new_ffi new_bytes =>
                 let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
