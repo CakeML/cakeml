@@ -2371,7 +2371,7 @@ Proof
     last_x_assum mp_tac >> CASE_TAC >> simp[] >> CASE_TAC >> simp[] >>
     srw_tac[][] >> simp[] >>
     full_simp_tac(srw_ss())[code_installed_def,call_args_def] >>
-    reverse(Cases_on `call_FFI s.ffi ffi_index x' x`)
+    reverse(Cases_on `call_FFI s.ffi (ExtCall ffi_index) x' x`)
     >- (fs[] >> rveq >> fs[halt_view_def] >>
         qexists_tac `2` >>
         simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
