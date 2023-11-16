@@ -1461,7 +1461,7 @@ Proof
         (match_mp_tac (GEN_ALL INJ_less)>>metis_tac[])>>
       srw_tac[][]>>FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>
       FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>
-      Cases_on`call_FFI st.ffi s x'' x'`>>full_simp_tac(srw_ss())[strong_locals_rel_def]>>
+      Cases_on`call_FFI st.ffi (ExtCall s) x'' x'`>>full_simp_tac(srw_ss())[strong_locals_rel_def]>>
       srw_tac[][]>>simp[call_env_def,flush_state_def]>>
       metis_tac[domain_lookup])
 QED
@@ -6378,7 +6378,7 @@ Proof
         srw_tac[][is_phy_var_def])>>
     srw_tac[][]>>
     full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
-    reverse(Cases_on`call_FFI st.ffi s x'' x'`)>>full_simp_tac(srw_ss())[]
+    reverse(Cases_on`call_FFI st.ffi (ExtCall s) x'' x'`)>>full_simp_tac(srw_ss())[]
     >- fs[call_env_def,flush_state_def] >>
     qpat_abbrev_tac`mem = write_bytearray A B C D E`>>
     qabbrev_tac`rst = st with <|locals := x;memory:=mem;ffi:=f'|>`>>
