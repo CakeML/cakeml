@@ -61,6 +61,11 @@ Definition code_no_mapped_io_def:
     (!k y sec. sptree$lookup k code = SOME (y, sec) ==> no_mapped_io sec)
 End
 
+Definition compile_oracle_no_mapped_io_def:
+  compile_oracle_no_mapped_io orac <=>
+    (!n p q prog. MEM (p,q,prog) (SND $ orac (n:num)) ==> no_mapped_io prog)
+End
+
 Theorem do_space_code_const:
   do_space op vs (s:('a,'b) dataSem$state) = SOME s1 ==>
   s1.code = s.code /\ s1.compile_oracle = s.compile_oracle
@@ -68,11 +73,6 @@ Proof
   strip_tac
   \\ gvs[do_space_def,AllCaseEqs(),consume_space_def]
 QED
-
-Definition compile_oracle_no_mapped_io_def:
-  compile_oracle_no_mapped_io orac <=>
-    (!n p q prog. MEM (p,q,prog) (SND $ orac (n:num)) ==> no_mapped_io prog)
-End
 
 Theorem evaluate_no_mapped_io:
   !prog s.
@@ -699,6 +699,8 @@ Theorem compile_correct_lemma:
    !s c l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
       (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
+      code_no_mapped_io s.code /\
+      compile_oracle_no_mapped_io s.compile_oracle /\
       t.termdep > 1 /\
       state_rel c l1 l2 s t [] [] ==>
       ?t1 res1.
@@ -749,6 +751,8 @@ Theorem compile_correct:
    !x s l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
       (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
+      code_no_mapped_io s.code /\
+      compile_oracle_no_mapped_io s.compile_oracle /\
       state_rel_ext x l1 l2 s t ==>
       ?ck t1 res1.
         (wordSem$evaluate (Call NONE (SOME start) [0] NONE,
@@ -1979,7 +1983,6 @@ Proof
     \\ rveq \\ fs[]
     \\ imp_res_tac word_get_code_labels_fake_moves
     \\ fs[])
-  >- cheat
 QED
 
 val word_get_code_labels_full_ssa_cc_trans = Q.prove(`
@@ -2054,7 +2057,6 @@ Proof
     \\ rveq \\ fs[]
     \\ imp_res_tac word_good_handlers_fake_moves
     \\ fs[])
-  >- cheat
 QED
 
 val word_good_handlers_full_ssa_cc_trans = Q.prove(`
