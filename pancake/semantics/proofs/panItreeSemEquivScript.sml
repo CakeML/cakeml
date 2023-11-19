@@ -41,23 +41,66 @@ Definition itree_branch_def:
   (SOME (t,s))
 End
 
+(* Takes a function f : e -> a # f and an itree t, and returns either NONE for
+infinite depth paths or SOME r where r is the result in the leaf of the tree
+found by allowing f to decide branching *)
+
+Definition itree_leaf_def:
+  itree_leaf f s t = LHD $ LFLATTEN $ itree_branch f s t
+End
+
 val k = “k:α -> (δ,γ,α) itree”;
 
 Theorem branch_simps[simp]:
   (itree_branch f s (Ret r) = [|[|r|]|]) ∧
-  (itree_branch f s (Tau t) = LNIL:::(itree_branch f s t))
+  (itree_branch f s (Tau t) = LNIL:::(itree_branch f s t)) ∧
+  (itree_branch f s (Vis e k) = let (a,s') = (f s e) in
+                                    LNIL:::(itree_branch f s' (k a)))
 Proof
-  conj_tac >>
-  rw [itree_branch_def] >>
-  rpt (rw [Once LUNFOLD])
+  rpt strip_tac >>
+  rw [itree_branch_def]
+  >- (rw [Ntimes LUNFOLD 2])
+  >- (rw [Once LUNFOLD])
+  >- (rw [Once LUNFOLD] >>
+         Cases_on ‘f s e’ >> rw[])
 QED
 
+Theorem itree_bind_ret_inv:
+  itree_bind t k = Ret x ⇒ ∃r. (k r) = Ret x
+Proof
+  disch_tac >>
+  Cases_on ‘t’ >>
+  fs [itreeTauTheory.itree_bind_thm] >>
+  metis_tac []
+QED
+
+Theorem leaf_bind_thm:
+  itree_leaf f s t ≠ NONE ⇒
+  (itree_leaf f s (itree_bind t k) =
+  itree_leaf f s (k $ THE $ itree_leaf f s t))
+Proof
+  disch_tac >>
+  AP_TERM_TAC >>
+  rw [Once itreeTauTheory.itree_bisimulation] >>
+  qexists_tac
+  ‘λx y.
+        (?t k. x = itree_bind t k ∧
+               y = k $ THE $ itree_leaf f s t) ∨
+        x = y’ >> rw []
+  >- metis_tac[]
+  >- (pop_assum (assume_tac o GSYM) >>
+      imp_res_tac itree_bind_ret_inv >>
+      pop_assum (assume_tac o (SPEC ‘(THE $ itree_leaf f s t''):α’))
+      )
+QED
+
+(* Something wrong with the types here... *)
+(* the k is inferred as (δ,γ,α llist) itree instead of (δ,γ,α) itree *)
 Theorem branch_bind_thm:
   itree_branch f s (itree_bind t k) =
-  (itree_branch f s t):::(itree_branch f s (k $ THE $ LHD $ LFLATTEN $ itree_branch f s t))
 Proof
   rw [Once LLIST_BISIMULATION] >>
-  cheat
+  qexists_tac
 QED
 
 (*
@@ -70,13 +113,6 @@ QED
 
 (* Do we need a concrete value or can we talk about "the value if it's ever reached"? *)
 
-(* Takes a function f : e -> a # f and an itree t, and returns either NONE for
-infinite depth paths or SOME r where r is the result in the leaf of the tree
-found by allowing f to decide branching *)
-
-Definition itree_leaf_def:
-  itree_leaf f s t = LHD $ LFLATTEN $ itree_branch f s t
-End
 
 Theorem leaf_bind_trans:
   (k (THE (itree_leaf f s t))) = t' ⇒
@@ -99,17 +135,16 @@ Proof
   rw [itree_leaf_def]
 QED
 
-
 Theorem leaf_bind_thm:
   itree_leaf f s t = SOME r ⇒
-  itree_leaf f s (itree_bind t ^k) = itree_leaf f s (itree_bind (Ret r) k)
+  itree_leaf f s (itree_bind t ^k) = itree_leaf f s (k r)
 Proof
   disch_tac >>
-  rw [itreeTauTheory.itree_bind_thm] >>
   irule branch_leaves_eq >>
   ‘r = THE $ LHD $ LFLATTEN $ itree_branch f s t’ by (gs [itree_leaf_def]) >>
   Cases_on ‘k r’
-  >- (rw [] >> rw [branch_bind_thm])
+  >- (rw [] >>
+      rw [itreeTauTheory.itree_bind_def] >>)
 QED
 
 (* Definition itree_leaf_def: *)
