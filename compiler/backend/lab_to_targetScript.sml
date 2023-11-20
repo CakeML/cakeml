@@ -386,12 +386,35 @@ Definition get_shmem_info_def:
     get_shmem_info (Section k xs::rest) (pos+LENGTH bytes) ffi_names shmem_info)
 End
 
+(*
 Definition compile_lab_def:
   compile_lab c sec_list =
     let current_ffis = FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") $
       find_ffi_names sec_list in
     let (ffis,ffis_ok) =
       case c.ffi_names of SOME ffis => (ffis, list_subset current_ffis ffis) | _ => (current_ffis,T)
+    in
+    if ffis_ok then
+      case remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list of
+      | SOME (sec_list,l1) =>
+          let bytes = prog_to_bytes sec_list in
+          let (new_ffis,shmem_infos) = get_shmem_info sec_list c.pos [] [] in
+          SOME (bytes,
+                c with <| labels := l1; pos := LENGTH bytes + c.pos;
+                          sec_pos_len := get_symbols c.pos sec_list;
+                          ffi_names := SOME $ ffis ++ new_ffis;
+                          shmem_extra := shmem_infos |>)
+      | NONE => NONE
+    else NONE
+End
+*)
+
+Definition compile_lab_def:
+  compile_lab c sec_list =
+    let current_ffis = find_ffi_names sec_list in
+    let (ffis,ffis_ok) =
+      case c.ffi_names of SOME ffis => (ffis, list_subset current_ffis ffis /\
+        EVERY (\x. x <> "MappedRead" /\ x <> "MappedWrite") current_ffis) | _ => (current_ffis, T)
     in
     if ffis_ok then
       case remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list of
