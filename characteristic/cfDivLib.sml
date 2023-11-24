@@ -22,7 +22,7 @@ fun xcf_div_FFI_full name st =
     \\ conj_tac >- MATCH_ACCEPT_TAC(Q.REFL `highly_improbable_name`)
     \\ conj_tac >- EVAL_TAC
     \\ qunabbrev_tac `highly_improbable_name`
-    \\ CONV_TAC(STRIP_QUANT_CONV(PATH_CONV "rrl" (DEPTH_CONV naryClosure_repack_conv)))
+    \\ CONV_TAC(STRIP_QUANT_CONV(PATH_CONV "rrl" (DEPTH_CONV (REWR_CONV (GSYM cfTheory.naryClosure_def)))))
     \\ CONSEQ_CONV_TAC(
           DEPTH_CONSEQ_CONV(
             ONCE_CONSEQ_REWRITE_CONV
@@ -59,7 +59,7 @@ fun xcf_div_rule thm name st =
     \\ conj_tac >- fs []
     \\ qunabbrev_tac `highly_improbable_name`
     \\ qunabbrev_tac `another_highly_improbable_name`
-    \\ CONV_TAC(STRIP_QUANT_CONV(PATH_CONV "rrl" (DEPTH_CONV naryClosure_repack_conv)))
+    \\ CONV_TAC(STRIP_QUANT_CONV(PATH_CONV "rrl" (DEPTH_CONV (REWR_CONV (GSYM cfTheory.naryClosure_def)))))
     \\ CONSEQ_CONV_TAC(
           DEPTH_CONSEQ_CONV(
             ONCE_CONSEQ_REWRITE_CONV
