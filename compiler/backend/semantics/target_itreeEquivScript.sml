@@ -5,7 +5,7 @@ open preamble;
 open semanticsPropsTheory evaluatePropsTheory ffiTheory
      targetSemTheory targetPropsTheory;
 open target_itreeSemTheory target_itreePropsTheory
-     itree_semanticsTheory itree_semanticsPropsTheory itree_semanticsEquivTheory;
+     itree_semanticsTheory itree_semanticsPropsTheory; (* itree_semanticsEquivTheory;*)
 
 
 val _ = new_theory "target_itreeEquiv"
@@ -212,7 +212,7 @@ Theorem evaluate'_1_ffi_changed:
     mc' = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer ∧
     ∃n ws1 ws2 l.
       find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME n ∧
-      EL n mc.ffi_names ≠ "" ∧
+      EL n mc.ffi_names ≠ ExtCall "" ∧
       read_ffi_bytearrays mc ms = (SOME ws1,SOME ws2) ∧
       call_FFI ffi (EL n mc.ffi_names) ws1 ws2 = FFI_return ffi' l ∧
       ms' = mc.ffi_interfer 0 (n,l,ms)
@@ -233,7 +233,7 @@ Theorem evaluate'_1_ffi_failed:
     ms = ms' ∧ mc = mc' ∧ ffi = ffi' ∧
     ∃n ws1 ws2 l.
       find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME n ∧
-      EL n mc.ffi_names ≠ "" ∧
+      EL n mc.ffi_names ≠ ExtCall "" ∧
       read_ffi_bytearrays mc ms = (SOME ws1,SOME ws2) ∧
       call_FFI ffi (EL n mc.ffi_names) ws1 ws2 = FFI_final outcome
 Proof
