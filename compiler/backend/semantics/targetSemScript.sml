@@ -18,7 +18,7 @@ val _ = Datatype `
    <| prog_addresses : ('a word) set
     (* FFI-specific configurations *)
     ; ffi_entry_pcs : ('a word) list
-    ; ffi_names : string list
+    ; ffi_names : ffiname list
     ; ptr_reg : num
     ; len_reg : num
     ; ptr2_reg : num
@@ -102,7 +102,7 @@ val evaluate_def = Define `
           | SOME bytes, SOME bytes2 =>
             (case call_FFI
                     ffi
-                    (ExtCall $ EL ffi_index mc.ffi_names)
+                    (EL ffi_index mc.ffi_names)
                     bytes
                     bytes2
              of
@@ -186,7 +186,7 @@ val ffi_interfer_ok_def = Define`
        index < LENGTH mc_conf.ffi_names ∧
        read_ffi_bytearrays mc_conf ms2 = (SOME bytes, SOME bytes2) ∧
        LENGTH new_bytes = LENGTH bytes2 ∧
-       (EL index mc_conf.ffi_names = "" ⇒ new_bytes = bytes2) ∧
+       (EL index mc_conf.ffi_names = ExtCall "" ⇒ new_bytes = bytes2) ∧
        (mc_conf.prog_addresses = t1.mem_domain) ∧
        target_state_rel mc_conf.target
          (t1 with pc := -n2w ((3 + index) * ffi_offset) + pc) ms2 ∧
@@ -221,7 +221,7 @@ val ccache_interfer_ok_def = Define`
                (if MEM a mc_conf.callee_saved_regs then NONE else cc_regs k a)
                (t1.regs a) I);
            pc := t1.regs (case mc_conf.target.config.link_reg of NONE => 0
-                  | SOME n => n)|>)
+                  | SOME n => n) |> )
         (mc_conf.ccache_interfer k (a1,a2,ms2)))`;
 
 (*
