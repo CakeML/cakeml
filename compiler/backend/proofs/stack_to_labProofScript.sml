@@ -2423,7 +2423,7 @@ Proof
     rpt strip_tac >>
     qmatch_assum_rename_tac `FLOOKUP s.regs k = SOME v` >>
     res_tac >>
-    Cases_on `t1.io_regs 0 ffi_index k` >> full_simp_tac(srw_ss())[get_reg_value_def] >>
+    Cases_on `t1.io_regs 0 (ExtCall ffi_index) k` >> full_simp_tac(srw_ss())[get_reg_value_def] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[]) >>
   conj_tac >-
    (rename [`LocValue`]
