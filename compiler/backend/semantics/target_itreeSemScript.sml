@@ -7,11 +7,13 @@ open itreeTheory;
 
 val _ = new_theory "target_itreeSem"
 
+Overload get_ffi_string = “MAP (λx. case x of ExtCall s => s)”;
+
 Datatype:
   result = Termination
          | OutOfMemory
          | Error
-         | FinalFFI (string # word8 list # word8 list) ffi_outcome
+         | FinalFFI (ffiname # word8 list # word8 list) ffi_outcome
 End
 
 Definition eval_to_def:
@@ -52,7 +54,7 @@ Definition eval_to_def:
           case read_ffi_bytearrays mc ms of
           | SOME bytes, SOME bytes2 =>
              let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
-             if EL ffi_index mc.ffi_names = "" then
+             if EL ffi_index mc.ffi_names = ExtCall "" then
               eval_to (k - 1) mc1 (mc.ffi_interfer 0 (ffi_index,bytes2,ms))
              else Vis' (EL ffi_index mc.ffi_names, bytes, bytes2)
                     (λnew_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms)))
