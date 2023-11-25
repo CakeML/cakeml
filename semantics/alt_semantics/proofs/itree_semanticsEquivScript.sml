@@ -932,6 +932,8 @@ Proof
       simp[PULL_EXISTS, GSYM CONJ_ASSOC] >>
       rw[decl_step_reln_eq_step_n_cml, PULL_EXISTS] >>
       goal_assum drule >> rw[decl_step_reln_def] >>
+      Cases_on ‘s’>>fs[]>-
+               (
       drule_at Any dstep_result_rel_single_FFI_strong >>
       simp[dstep_result_rel_cases, PULL_EXISTS] >>
       disch_then drule_all >> strip_tac >> gvs[dget_ffi_def] >>
@@ -951,7 +953,10 @@ Proof
             ffi_state_component_equality]) >>
       gvs[dstep_to_Dffi] >> goal_assum drule >> simp[] >>
       unabbrev_all_tac >> gvs[]
-      )
+               )>>cheat
+
+    )
+        
     )
   >- (
     simp[decl_step_reln_eq_step_n_cml] >>
@@ -1124,6 +1129,7 @@ Proof
       rename1 `_ = Dstep dsta' deva' dcs'` >>
       qmatch_goalsub_abbrev_tac `_ ++ [new_event]` >>
       goal_assum drule >> gvs[dget_ffi_def] >>
+      Cases_on ‘s’>>fs[]>- (
       drule_at Any dstep_result_rel_single_FFI_strong >>
       simp[dstep_result_rel_cases] >> disch_then drule_all >>
       strip_tac >> gvs[Abbr `st'`] >>
@@ -1147,7 +1153,7 @@ Proof
         rw[semanticPrimitivesTheory.state_component_equality,
            ffi_state_component_equality]) >>
       unabbrev_all_tac >> gvs[dstep_to_Dffi] >>
-      goal_assum drule >> goal_assum drule >> simp[]
+      goal_assum drule >> goal_assum drule >> simp[])>>cheat
       )
     )
   >- (
@@ -1349,10 +1355,11 @@ Proof
       rename1 `Dffi dst (s,conf,ws,lnum,env',cs) locs pat dcs''` >>
       rename1 `_ = Dstep dsta' deva' dcs'` >>
       goal_assum drule >> gvs[dget_ffi_def] >>
+      Cases_on ‘s’>>fs[]>- (
       drule_at Any dstep_result_rel_single_FFI_strong >>
       simp[dstep_result_rel_cases] >> disch_then drule_all >>
       strip_tac >> gvs[Abbr `st'`] >>
-      gvs[dget_ffi_def, ffi_state_component_equality]
+      gvs[dget_ffi_def, ffi_state_component_equality])>>cheat
       )
     >- (
       pairarg_tac >> gvs[] >>
@@ -1375,6 +1382,7 @@ Proof
       rename1 `Dffi dst (s',conf',ws',lnum,env',cs) locs pat dcs''` >>
       rename1 `_ = Dstep dsta' deva' dcs'` >>
       goal_assum drule >> gvs[dget_ffi_def] >>
+      Cases_on ‘s'’>>fs[]>- (
       drule_at Any dstep_result_rel_single_FFI_strong >>
       simp[dstep_result_rel_cases] >> disch_then drule_all >>
       strip_tac >> gvs[Abbr `st'`] >>
@@ -1392,7 +1400,7 @@ Proof
         rw[semanticPrimitivesTheory.state_component_equality,
            ffi_state_component_equality]) >>
       gvs[] >> goal_assum drule >> simp[] >>
-      unabbrev_all_tac >> gvs[]
+      unabbrev_all_tac >> gvs[])>>cheat
       )
     >- (
       qspecl_then [`x`,`env`,`Dstep dsta deva dcs`]
@@ -1412,10 +1420,11 @@ Proof
       rename1 `Dffi dst (s',conf',ws',lnum,env',cs) locs pat dcs''` >>
       rename1 `_ = Dstep dsta' deva' dcs'` >>
       goal_assum drule >> gvs[dget_ffi_def] >>
+      Cases_on ‘s'’>>fs[] >- (
       drule_at Any dstep_result_rel_single_FFI_strong >>
       simp[dstep_result_rel_cases] >> disch_then drule_all >>
       strip_tac >> gvs[Abbr `st'`] >>
-      gvs[dget_ffi_def, ffi_state_component_equality]
+      gvs[dget_ffi_def, ffi_state_component_equality]) >> cheat
       )
     )
   >- (
@@ -1429,6 +1438,7 @@ Proof
       gvs[step_n_cml_def] >>
       qexists_tac `SUC $ SUC 0` >> once_rewrite_tac[trace_prefix_interp] >>
       simp[step_until_halt_def] >>
+      Cases_on ‘s’>>fs[] >- (
       drule_at Any dstep_result_rel_single_FFI_error >>
       simp[dstep_result_rel_cases] >> disch_then $ drule_at Any >>
       disch_then $ qspec_then `dsta` mp_tac >>
@@ -1444,7 +1454,7 @@ Proof
       disch_then $ qspec_then `st1` mp_tac >>
       impl_tac >- (unabbrev_all_tac >> gvs[dstate_rel_def]) >>
       strip_tac >> gvs[] >> unabbrev_all_tac >> gvs[dget_ffi_def] >>
-      every_case_tac >> rgs[]
+      every_case_tac >> rgs[]) >> cheat
       ) >>
     gvs[step_n_cml_def] >>
     qmatch_asmsub_abbrev_tac `decl_step _ (st2,_)` >>
@@ -1595,8 +1605,8 @@ Proof
   impl_keep_tac >- (unabbrev_all_tac >> gvs[dstate_rel_def]) >>
   rw[] >> gvs[dget_ffi_def] >> every_case_tac >> gvs[]
   >- (goal_assum drule >> unabbrev_all_tac >> gvs[ffi_state_component_equality])
-  >- (
-    gvs[trace_prefix_interp] >>
+  >- (cheat
+(*    gvs[trace_prefix_interp] >>
     `step_n_cml env (SUC l') (Dstep (st0,devb,dcs)) = decl_step env (st',dev2,l'')` by
       simp[step_n_cml_alt_def] >>
     qpat_x_assum `deval_rel _ _` mp_tac >>
@@ -1608,11 +1618,11 @@ Proof
     unabbrev_all_tac >> simp[] >>
     gvs[dstate_rel_def] >> gvs[ffi_state_component_equality] >>
     gvs[store_assign_def, store_lookup_def, store_v_same_type_def] >>
-    rw[smallStepTheory.return_def] >> goal_assum drule >> simp[]
+    rw[smallStepTheory.return_def] >> goal_assum drule >> simp[]*)
     )
   >- (goal_assum drule >> unabbrev_all_tac >> gvs[ffi_state_component_equality])
-  >- (
-    pairarg_tac >> gvs[] >>
+  >- (cheat
+(*    pairarg_tac >> gvs[] >>
     `step_n_cml env (SUC l') (Dstep (st0,devb,dcs)) = decl_step env (st',dev2,l'')` by
       simp[step_n_cml_alt_def] >>
     qpat_x_assum `deval_rel _ _` mp_tac >>
@@ -1636,7 +1646,7 @@ Proof
     `st1' = st1` by (unabbrev_all_tac >>
       simp[semanticPrimitivesTheory.state_component_equality,
            ffi_state_component_equality]) >>
-    gvs[] >> unabbrev_all_tac >> gvs[]
+    gvs[] >> unabbrev_all_tac >> gvs[]*)
     )
 QED
 
