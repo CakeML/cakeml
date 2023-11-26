@@ -45,54 +45,31 @@ Type semtree[pp] = “:(β ffi_result, sem_vis_event, α result option) itree”
 
 Type sem8tree[pp] = “:(β ffi_result, sem_vis_event, 8 result option) itree”;
 
-Definition itree_mrec_def:
-  itree_mrec rh seed =
+Definition mrec_body_def:
+  mrec_body rh =
   itree_iter
   (λt. case t of
         | Ret r => Ret (INR r)
         | Tau t => Ret (INL t)
         | Vis (INL seed') k => Ret (INL (itree_bind (rh seed') k))
         | Vis (INR e) k => Vis e (Ret o INL o k))
-  (rh seed)
 End
 
-(* For Vis (INR e) k nodes, we need knowledge of both the internal state and the
- FFI response in order to compute the continuation of the tree. We cannot have only one. *)
-(* How then do we retain both while generating the tree and end up with the correct types? *)
-
-Theorem itree_mrec_simps2[simp]:
-  ((rh seed) = Ret r ⇒ itree_mrec rh seed = Ret r)
-Proof
-  rw [itree_mrec_def] >>
-  rw [itreeTauTheory.itree_iter_def] >>
-  rw [Once itreeTauTheory.itree_unfold]
-QED
-
-Theorem itree_mrec_simps[simp]:
-  (itree_mrec Ret s = Ret s)
-Proof
-  rw [itree_mrec_def] >>
-  rw [itreeTauTheory.itree_iter_def] >>
-  rw [Once itreeTauTheory.itree_unfold]
-QED
+Definition itree_mrec_def:
+  itree_mrec rh seed = mrec_body rh (rh seed)
+End
 
 (* mrec theory *)
 
-(* Show that mrec Vis (INL) nodes are equivalent to one step of general recursion *)
-Definition simple_rec_def:
-  (simple_rec (0:num) = 0) ∧
-  (simple_rec (SUC a) = 1 + (simple_rec a))
-End
-
-Theorem itree_mrec_one_rec_event:
-  itree_mrec
-  (λseed. if seed = 0 then Vis (INL 1) Ret else Ret seed)
-  0 = Tau (Ret 1)
-Proof
-  rw [itree_mrec_def] >>
-  rw [itreeTauTheory.itree_iter_def,itreeTauTheory.itree_bind_def] >>
-  rpt (rw [Once itreeTauTheory.itree_unfold])
-QED
+(* Theorem itree_mrec_one_rec_event: *)
+(*   itree_mrec *)
+(*   (λseed. if seed = 0 then Vis (INL 1) Ret else Ret seed) *)
+(*   0 = Tau (Ret 1) *)
+(* Proof *)
+(*   rw [itree_mrec_def] >> *)
+(*   rw [itreeTauTheory.itree_iter_def,itreeTauTheory.itree_bind_def] >> *)
+(*   rpt (rw [Once itreeTauTheory.itree_unfold]) *)
+(* QED *)
 
 (* Two approaches to reasoning about ITrees as processes:
   - As an equational theory over the itree datatype (the abstraction).
@@ -121,21 +98,21 @@ Proof
   rw [itreeTauTheory.itree_el_def]
 QED
 
-(* To prove an ITree is infinite, it suffices to show there is no sequence of events
- after which the tree returns some value. *)
-Theorem itree_mrec_inf_event:
-  itree_infinite (itree_mrec (λx. Vis (INL rc) Ret) seed)
-Proof
-  rw [itree_infinite_def,itree_finite_def] >>
-  rw [itree_mrec_def]  >>
-  rw [itreeTauTheory.itree_iter_def,
-        itreeTauTheory.itree_bind_right_identity] >>
-  Induct_on ‘p’ >>
-  rw [Once itreeTauTheory.itree_unfold,
-      itreeTauTheory.itree_bind_right_identity] >>
-  Cases_on ‘h’ >>
-  rw [itreeTauTheory.itree_el_def]
-QED
+(* (* To prove an ITree is infinite, it suffices to show there is no sequence of events *)
+(*  after which the tree returns some value. *) *)
+(* Theorem itree_mrec_inf_event: *)
+(*   itree_infinite (itree_mrec (λx. Vis (INL rc) Ret) seed) *)
+(* Proof *)
+(*   rw [itree_infinite_def,itree_finite_def] >> *)
+(*   rw [itree_mrec_def]  >> *)
+(*   rw [itreeTauTheory.itree_iter_def, *)
+(*         itreeTauTheory.itree_bind_right_identity] >> *)
+(*   Induct_on ‘p’ >> *)
+(*   rw [Once itreeTauTheory.itree_unfold, *)
+(*       itreeTauTheory.itree_bind_right_identity] >> *)
+(*   Cases_on ‘h’ >> *)
+(*   rw [itreeTauTheory.itree_el_def] *)
+(* QED *)
 
 (* Semantics validation functions *)
 (* The rules for the recursive event handler, that decide
@@ -345,8 +322,33 @@ Definition itree_semantics_def:
   (itree_evaluate prog ^s)
 End
 
-Definition itree_mrec_sem_def:
-  itree_mrec_sem seed = itree_mrec h_prog seed
+Definition mrec_sem_def:
+  mrec_sem seed = mrec_body h_prog seed
 End
+
+Theorem mrec_handler_simps[simp]:
+  (itree_mrec h_prog (Skip,s) = Ret (NONE,s)) ∧
+  (itree_mrec h_prog (Dec vname e p,s) = mrec_sem $ h_prog_rule_dec vname e p s) ∧
+  (itree_mrec h_prog (Assign vname e,s) = mrec_sem $ h_prog_rule_assign vname e s) ∧
+  (itree_mrec h_prog (Store dst src,s) = mrec_sem $ h_prog_rule_store dst src s) ∧
+  (itree_mrec h_prog (StoreByte dst src,s) = mrec_sem $ h_prog_rule_store_byte dst src s) ∧
+  (itree_mrec h_prog (Seq p1 p2,s) = mrec_sem $ h_prog_rule_seq p1 p2 s) ∧
+  (itree_mrec h_prog (If gexp p1 p2,s) = mrec_sem $ h_prog_rule_cond gexp p1 p2 s) ∧
+  (itree_mrec h_prog (While gexp p,s) = mrec_sem $ h_prog_rule_while gexp p s) ∧
+  (itree_mrec h_prog (Break,s) = Ret (SOME Break,s)) ∧
+  (itree_mrec h_prog (Continue,s) = Ret (SOME Continue,s)) ∧
+  (itree_mrec h_prog (Call calltyp tgtexp argexps,s) = mrec_sem $ h_prog_rule_call calltyp tgtexp argexps s) ∧
+  (itree_mrec h_prog (ExtCall ffi_name conf_ptr conf_len array_ptr array_len,s) =
+   mrec_sem $ h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len s) ∧
+  (itree_mrec h_prog (Raise eid e,s) = mrec_sem $ h_prog_rule_raise eid e s) ∧
+  (itree_mrec h_prog (Return e,s) = mrec_sem $ h_prog_rule_return e s) ∧
+  (itree_mrec h_prog (Tick,s) = mrec_sem $ h_prog_rule_tick s)
+Proof
+  rpt strip_tac >>
+  rw [itree_mrec_def,h_prog_def,mrec_sem_def] >>
+  rw [mrec_body_def] >>
+  rw [itreeTauTheory.itree_iter_def] >>
+  rw [Once itreeTauTheory.itree_unfold]
+QED
 
 val _ = export_theory();
