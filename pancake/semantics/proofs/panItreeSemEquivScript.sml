@@ -287,24 +287,39 @@ QED
 
 (* Need to relate same_outcome to h_prog rules
  possibly using some useful itree theorems; about binding, etc. *)
+
 Theorem same_outcome_seq1:
-  same_outcome (ffis:(β ffi_state)) (itree_evaluate (c1:(α panLang$prog)) s) (SOME r,s':((α,β) state)) ⇒
-  same_outcome ffis (itree_evaluate (Seq c1 c2) s) (SOME r,s')
+  same_outcome ffis (itree_evaluate p1 s) (SOME r,s') ⇒
+  same_outcome ffis (itree_evaluate (Seq p1 p2) s) (SOME r,s')
 Proof
-  disch_tac >>
-  rw [panItreeSemTheory.itree_evaluate_def] >>
-  rw [panItreeSemTheory.itree_mrec_def] >>
-  rw [panItreeSemTheory.h_prog_def] >>
-  rw [panItreeSemTheory.h_prog_rule_seq_def] >>
   cheat
 QED
 
 Theorem same_outcome_seq2:
-  evaluate (c1,s) = (NONE,s'':((α,β) state)) ∧
-  same_outcome s''.ffi (itree_evaluate c2 s'') (r,s':((α,β) state)) ⇒
-  same_outcome ffis (itree_evaluate (Seq c1 c2) s) (r,s')
+  same_outcome ffis (itree_evaluate p1 s) (NONE,s') ∧
+  same_outcome ffis (itree_evaluate p2 s') (SOME r,s'') ⇒
+  same_outcome ffis (itree_evaluate (Seq p1 p2) s) (SOME r,s'')
 Proof
   cheat
+QED
+
+val s = “s:(α,β) state”;
+val s' = “s':(α,β) state”;
+val s'' = “s'':(α,β) state”;
+
+Theorem itree_evaluate_seq_cases:
+  (same_outcome ffis (itree_evaluate c1 ^s) (SOME r,^s') ∨
+   ∃s'':((α,β) state). same_outcome s''.ffi (itree_evaluate c2 s'') (SOME r,s')) ⇒
+  same_outcome ffis (itree_evaluate (Seq c1 c2) s) (SOME r,s')
+Proof
+  disch_tac >>
+  pop_assum DISJ_CASES_TAC
+  >- (gs [same_outcome_def] >>
+      rw [panItreeSemTheory.itree_evaluate_def] >>
+      rw [panItreeSemTheory.h_prog_rule_seq_def]
+     (* Here convert the conclusion into a bind in terms of:
+        (itree_evaluate c1 s) and k, where k is the def of h_prog_seq_rule *)
+         )
 QED
 
 Triviality evaluate_seq_cases:
@@ -358,44 +373,10 @@ Proof
           ))
   (* Seq *)
   (* TODO: Consider using drule / drule all for this... *)
-  >- (imp_res_tac evaluate_seq_cases
-      >- (fs [] >> imp_res_tac same_outcome_seq1 >> fs [])
-      >- (fs [] >> imp_res_tac same_outcome_seq2 >> fs []))
-
-(* Notes:
-
- Case analysis for seq subgoal
-      1. evaluate (c1,s) = (SOME r,s')
-        a. if r = TimeOut, then use a lemma that evaluate (Seq...,s) = (SOME r,s') ∧ r ≠ TimeOut ⇒ evaluation of neither program individually can timeout.
-        b. if r ≠ TimeOut, then we get that itree_evaluate c1 s has outcome (SOME r,s') by same_outcome_seq1 thm.
-      2. evaluate (c1,s) = (NONE,s'')
-        a. this gives us the second part of assumption 1 which says if evaluate (c2,s'') produces a SOME result, then our itree has the same result.
-        b. evaluate (c2,s'') = (SOME r,s') - where s' is the same state as in evaluate (Seq c1 c2,s)
-            i. if r = TimeOut, then use the lemma as above to show this is a contradiction.
-            ii. if r ≠ TimeOut, then we have that itree_evaluate c2 s'' produces the same result as evaluate; namely, (SOME r,s')
-                a. need to ensure this s' is the free variable, i.e. the same state as in evaluate (Seq c1 c2,s)
-        c. evaluate (c2,s'') = (NONE,ARB) - we don't care about the state in this case
-            i. we can show that if evaluate (Seq c1 c2,s) produces some result, then this situation cannot happen.
-
-Proof sketch:
-
-    1. establish a lemma that shows that:
-        evaluate (Seq c1 c2,s) = (SOME r,s') ⇒
-            evaluate (c1,s) = (SOME r,s') ∨ (evaluate (c1,s) = (NONE,s'') ∧ evaluate (c2,s'') = (SOME r,s'))
-    2. use the above lemma to decompose our goal into two subgoals, dependent on which evaluate returns a result.
-    3. for evaluate (c1,s) = (SOME r,s')
-        a. have a lemma that shows that the absence of TimeOut in a Seq result propagates into the individual programs, i.e.
-            evaluate (Seq c1 c2,s) = (SOME r,s') ∧ r ≠ TimeOut ⇒
-            (evaluate (c1,s) = (SOME r,ARB) ⇒ r ≠ TimeOut) ∧
-            (evaluate (c2,s) = (SOME r,ARB) ⇒ r ≠ TimeOut)
-        b. by 3a, we can only have that that r ≠ TimeOut and so we get by assum 1 that itree_evaluate c1 s has the same result: (SOME r,s') for r ≠ TimeOut
-            i. by same_outcome_seq1 we solve the goal.
-    4. for evaluate (c1,s) = (NONE,s'') ∧ evaluate (c2,s'') = (SOME r,s')
-       a. by the assum 0 we get the inner implication
-       b. by lemma of 3a we have that r ≠ TimeOut and so we can derive that itree_evaluate c2 s'' has the same outcome as evaluate: (SOME r,s')
-       c. by same_outcome_seq2 we solve the goal.
-*)
-(* ----------------------------------- *)
+  >- (irule itree_evaluate_seq_cases >>
+      imp_res_tac evaluate_seq_cases >> fs []
+      >- (disj2_tac >>
+          qexists_tac ‘s'':(α,β) state’ >> gs []))
   (* Call *)
   >- (fs [panSemTheory.evaluate_def] >>
       every_case_tac >>
