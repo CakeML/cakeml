@@ -24,7 +24,6 @@ enable_monad "itree";
 (* Unicode overloads *)
 val _ = temp_set_fixity "≈" (Infixl 500);
 Overload "≈" = “itree_wbisim”;
-
 Overload "case" = “itree_CASE”;
 
 Datatype:

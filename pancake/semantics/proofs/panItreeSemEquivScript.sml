@@ -16,7 +16,10 @@ local open alignmentTheory
 val _ = new_theory "panItreeSemEquiv";
 
 Definition query_oracle_def[nocompute]:
-  query_oracle ffis (FFI_call s conf bytes) = call_FFI ffis s conf bytes
+  query_oracle ffis (FFI_call s conf bytes) =
+  case call_FFI ffis s conf bytes of
+    FFI_return ffis' bytes => (FFI_return ffis' bytes,ffis')
+  | FFI_final e => (FFI_final e,ffis)
 End
 
 Definition make_io_event_def[nocompute]:
@@ -74,45 +77,55 @@ Proof
   metis_tac []
 QED
 
+Theorem itree_bind_ret_tree:
+  itree_bind t k = Ret x ⇒
+  ∃y. t = Ret y
+Proof
+  disch_tac >>
+  Cases_on ‘t’
+  >- (metis_tac [itreeTauTheory.itree_bind_thm]) >>
+  fs [itreeTauTheory.itree_bind_def]
+QED
+
+Theorem itree_bind_ret_inv_gen:
+  itree_bind t k = Ret x ⇒
+  ∃y. t = Ret y ∧ (k y) = Ret x
+Proof
+  disch_tac >>
+  Cases_on ‘t’
+  >- (qexists_tac ‘x'’ >> rw [] >>
+      fs [itreeTauTheory.itree_bind_thm]) >>
+      fs [itreeTauTheory.itree_bind_def]
+QED
+
+(* Theorem itree_bind_tau_inv: *)
+(*   itree_bind t k = Tau u ⇒ *)
+(* Proof *)
+(* QED *)
+
 Theorem leaf_bind_thm:
   itree_leaf f s t ≠ NONE ⇒
   (itree_leaf f s (itree_bind t k) =
   itree_leaf f s (k $ THE $ itree_leaf f s t))
 Proof
-  disch_tac >>
-  AP_TERM_TAC >>
-  rw [Once itreeTauTheory.itree_bisimulation] >>
-  qexists_tac
-  ‘λx y.
-        (?t k. x = itree_bind t k ∧
-               y = k $ THE $ itree_leaf f s t) ∨
-        x = y’ >> rw []
-  >- metis_tac[]
-  >- (pop_assum (assume_tac o GSYM) >>
-      imp_res_tac itree_bind_ret_inv >>
-      pop_assum (assume_tac o (SPEC ‘(THE $ itree_leaf f s t''):α’))
-      )
+  cheat
+  (* disch_tac >> *)
+  (* AP_TERM_TAC >> *)
+  (* rw [Once itreeTauTheory.itree_bisimulation] >> *)
+  (* qexists_tac *)
+  (* ‘λx y. *)
+  (*       (?t k. x = itree_bind t k ∧ *)
+  (*              y = k $ THE $ itree_leaf f s t) ∨ *)
+  (*       x = y’ >> *)
+  (* rw [] *)
+  (* >- metis_tac[] *)
+  (* >- (pop_assum (assume_tac o GSYM) >> *)
+  (*     drule itree_bind_ret_inv_gen >> *)
+  (*     disch_tac >> gs [] >> *)
+  (*     ‘THE $ itree_leaf f s (Ret y) = y’ by (rw [itree_leaf_def]) >> gs []) *)
+  (* >- (pop_assum (assume_tac o GSYM) >> *)
+  (*     qexists_tac ‘u’ >> gs [] >>) *)
 QED
-
-(* Something wrong with the types here... *)
-(* the k is inferred as (δ,γ,α llist) itree instead of (δ,γ,α) itree *)
-Theorem branch_bind_thm:
-  itree_branch f s (itree_bind t k) =
-Proof
-  rw [Once LLIST_BISIMULATION] >>
-  qexists_tac
-QED
-
-(*
- We use itree branch to get a nice llist repr of a branch in a tree determined by f.
- If such a branch is finite then itree_leaf will return its last element.
-*)
-
-(* Returns the result in the leaf reached by walking a semtree using the
- specified oracle to make branching choices; or NONE for divergent trees. *)
-
-(* Do we need a concrete value or can we talk about "the value if it's ever reached"? *)
-
 
 Theorem leaf_bind_trans:
   (k (THE (itree_leaf f s t))) = t' ⇒
@@ -134,42 +147,6 @@ Triviality branch_leaves_eq:
 Proof
   rw [itree_leaf_def]
 QED
-
-Theorem leaf_bind_thm:
-  itree_leaf f s t = SOME r ⇒
-  itree_leaf f s (itree_bind t ^k) = itree_leaf f s (k r)
-Proof
-  disch_tac >>
-  irule branch_leaves_eq >>
-  ‘r = THE $ LHD $ LFLATTEN $ itree_branch f s t’ by (gs [itree_leaf_def]) >>
-  Cases_on ‘k r’
-  >- (rw [] >>
-      rw [itreeTauTheory.itree_bind_def] >>)
-QED
-
-(* Definition itree_leaf_def: *)
-(*   itree_leaf or (t:(α,β) semtree) = *)
-(*   LHD $ LFLATTEN $ LUNFOLD *)
-(*            (λs. case s of *)
-(*                   SOME (or,t) => *)
-(*                     itree_CASE t *)
-(*                                (λr. SOME (NONE,[|r|])) *)
-(*                                (λu. SOME (SOME (or,u),LNIL)) *)
-(*                                (λe k. case query_oracle or e of *)
-(*                                         FFI_return or' bytes => *)
-(*                                           SOME (SOME (or',k (FFI_return or' bytes)),LNIL) *)
-(*                                       | FFI_final (Final_event s conf bytes outcome) => *)
-(*                                           SOME (SOME (or,k (FFI_final (Final_event s conf bytes outcome))),LNIL)) *)
-(*                 | NONE => NONE) *)
-(*            (SOME (or,t)) *)
-(* End *)
-
-(* Can we prove something like:
-  - if we know the leaf of some mtree t1 and we know the leaf of some mtree t2,
-  then we know the leaf of their composition (bind) ? *)
-
-(* This would give us compositional reasoning about mtree production in the
-itree semantics. *)
 
 (* What in fact is the direct composition of trees?
 
@@ -198,19 +175,7 @@ QED
  we then need to show that itree_leaf produces the intuitive results in a bound tree:
 
     itree_leaf (t1 BIND k) = itree_leaf
-
-
  *)
-
-
-(* this requires a connection between itree_leaf and itree_bind *)
-(* Theorem itree_leaf_seq1: *)
-(*   itree_leaf or (itree_evaluate c1 s) = SOME (SOME r) ⇒ *)
-(*   itree_leaf or (itree_evaluate (Seq c1 c2) s) = SOME (SOME r) *)
-(* Proof *)
-(*   disch_tac >> *)
-(*     rw [itree_e] *)
-(* QED *)
 
 CoInductive itree_oracle_term_path:
   (∀x. itree_oracle_term_path or (Ret x)) ∧
@@ -220,48 +185,44 @@ End
 
 (* Maps a path in an itree to an io_event llist *)
 Definition itree_oracle_beh_def:
-  itree_oracle_beh or t =
+  itree_oracle_beh ffis t =
   LFLATTEN $ LUNFOLD
-           (λ(or,t). itree_CASE t
-                                (K NONE)
-                                (λu. SOME ((or,u),LNIL))
-                                (λe k. case query_oracle or e of
-                                         FFI_return or' bytes =>
-                                           SOME ((or',k (FFI_return or' bytes)),[|make_io_event e bytes|])
-                                       | FFI_final (Final_event s conf bytes outcome) =>
-                                           SOME ((or,k (FFI_final (Final_event s conf bytes outcome))),[|make_io_event e bytes|])))
-           (or,t)
+           (λ(ffis,t).
+                    case t of
+                      Ret r => NONE
+                    | Tau u => SOME ((ffis,u),LNIL)
+                    | Vis e k => (case query_oracle ffis e of
+                                    (FFI_return ffis' bytes,_) =>
+                                      SOME ((ffis',k (FFI_return ffis' bytes)),[|make_io_event e bytes|])
+                                  | (FFI_final (Final_event ename conf bytes outcome),_) =>
+                                      SOME ((ffis,k (FFI_final (Final_event ename conf bytes outcome))),[|make_io_event e bytes|])))
+           (ffis,t)
 End
 
 (* An eqv relation between itree behaviours (io_event llist) and FFI behaviours;
  a datatype of three elements, the non-divergent of which contain llists of IO
  events *)
 
+(* XXX: This needs to be improved. *)
 Definition same_behaviour_def:
   (same_behaviour or t (Diverge ioll) ⇔
      (itree_oracle_beh or t) = ioll) ∧
   (same_behaviour or t (Terminate outcome iol) ⇔
      (∃iotrace. LTAKE (LENGTH iol) (itree_oracle_beh or t) = SOME iotrace ∧ iotrace = iol) ∧
-     (∃r. outcome = Success ⇔ (itree_leaf or t) = SOME (SOME (Return r))) ∧
-     (∃e. outcome = (FFI_outcome e) ⇔ (itree_leaf or t) = SOME (SOME (FinalFFI e)))) ∧
-  (same_behaviour or t Fail ⇔ ∃r. (itree_leaf or t) = SOME r ∧
-                                  ∀e res. r ≠ SOME (FinalFFI e) ∧ r ≠ SOME (Return res))
+     (∃r. outcome = Success ⇔ (THE $ itree_leaf query_oracle or t) = SOME (Return r)) ∧
+     (∃e. outcome = (FFI_outcome e) ⇔ (THE $ itree_leaf query_oracle or t) = NONE))
 End
 
 (* An eqv relation between evaluate and evaluate_itree outcomes; which we expect
  to match as follow the same pattern of rules for computing state and final
  outcomes. *)
 Definition same_outcome_def:
-  same_outcome or t (SOME r,s) ⇔
-     THE (itree_leaf or t) = (SOME r)
+  same_outcome ffis t (SOME r,s) ⇔
+    (THE $ itree_leaf query_oracle ffis t) = (SOME r)
 End
 
-(* Theorem same_outcome_bind_ret: *)
-(*   ∀s s' r r' ffis t t' f. same_outcome ffis t (SOME r,s) ∧ t = itree_bind t' f ⇒ *)
-(* Proof *)
-(* QED *)
-
 (* Main correspondence *)
+
 (* Proves soundness: there is always an equivalent behaviour in the itree
  semantics that can be selected using the oracle that produced the behaviour in
  the big-step semantics. *)
@@ -299,7 +260,7 @@ QED
  (stored in state and accessed by an entrypoint). *)
 
 Theorem itree_semantics_corres:
-  same_behaviour or (itree_semantics s entry) (semantics (s with ffi := or) entry)
+  same_behaviour ffis (itree_semantics s entry) (semantics (s with ffi := ffis) entry)
 Proof
   cheat
 QED
@@ -335,6 +296,7 @@ Proof
   rw [panItreeSemTheory.itree_mrec_def] >>
   rw [panItreeSemTheory.h_prog_def] >>
   rw [panItreeSemTheory.h_prog_rule_seq_def] >>
+  cheat
 QED
 
 Theorem same_outcome_seq2:
