@@ -870,26 +870,25 @@ Definition evaluate_def:
             (NONE,s with data_buffer:=new_db)
           | _ => (SOME Error,s))
         | _ => (SOME Error,s))) /\
-  (evaluate (FFI ffi_index ptr1 len1 ptr2 len2 names,s) =  if ffi_index <> "MappedRead" /\ ffi_index <> "MappedWrite" then
-      (case (get_var len1 s, get_var ptr1 s, get_var len2 s, get_var ptr2 s) of
-      | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
-        (case cut_env names s.locals of
-        | NONE => (SOME Error,s)
-        | SOME env =>
-          (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be),
-                 read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be))
-                 of
-            | SOME bytes,SOME bytes2 =>
-               (case call_FFI s.ffi ffi_index bytes bytes2 of
-                | FFI_final outcome => (SOME (FinalFFI outcome),flush_state T s)
-                | FFI_return new_ffi new_bytes =>
-                  let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
-                    (NONE, s with <| memory := new_m ;
-                                     locals := env ;
-                                     ffi := new_ffi |>))
-            | _ => (SOME Error,s)))
-      | res => (SOME Error,s))
-    else (SOME Error,s)) /\
+  (evaluate (FFI ffi_index ptr1 len1 ptr2 len2 names,s) =
+    case (get_var len1 s, get_var ptr1 s, get_var len2 s, get_var ptr2 s) of
+    | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
+      (case cut_env names s.locals of
+      | NONE => (SOME Error,s)
+      | SOME env =>
+        (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be),
+               read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be))
+               of
+          | SOME bytes,SOME bytes2 =>
+             (case call_FFI s.ffi (ExtCall ffi_index) bytes bytes2 of
+              | FFI_final outcome => (SOME (FinalFFI outcome),flush_state T s)
+              | FFI_return new_ffi new_bytes =>
+                let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
+                  (NONE, s with <| memory := new_m ;
+                                   locals := env ;
+                                   ffi := new_ffi |>))
+          | _ => (SOME Error,s)))
+    | res => (SOME Error,s)) /\
   (evaluate (ShareInst op v exp, s) =
     (case word_exp s exp of
     | SOME (Word ad) => share_inst op v ad s

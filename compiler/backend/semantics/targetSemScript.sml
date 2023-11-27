@@ -19,7 +19,7 @@ val _ = Datatype `
     ; shared_addresses : ('a word) set
     (* FFI-specific configurations *)
     ; ffi_entry_pcs : ('a word) list
-    ; ffi_names : string list
+    ; ffi_names : ffiname list
     ; ptr_reg : num
     ; len_reg : num
     ; ptr2_reg : num
@@ -133,7 +133,7 @@ val evaluate_def = Define `
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => (Error,ms,ffi)
         | SOME ffi_index =>
-          if EL ffi_index mc.ffi_names = "MappedRead" then
+          if EL ffi_index mc.ffi_names = SharedMem "MappedRead" then
             let (nb,a,reg,pc') = mc.mmio_info ffi_index in
             case a of
             | Addr r off =>
@@ -153,7 +153,7 @@ val evaluate_def = Define `
                     let mc = mc with ffi_interfer := new_oracle in
                       evaluate mc new_ffi (k - 1:num) ms1)
               else (Error,ms,ffi))
-          else if EL ffi_index mc.ffi_names = "MappedWrite" then
+          else if EL ffi_index mc.ffi_names = ShardMem "MappedWrite" then
             let (nb,a,reg,pc') = mc.mmio_info ffi_index in
             case a of
             | Addr r off =>
@@ -284,7 +284,7 @@ val ffi_interfer_ok_def = Define`
          (index < i ==>
            read_ffi_bytearrays mc_conf ms2 = (SOME bytes, SOME bytes2) ∧
            LENGTH new_bytes = LENGTH bytes2 ∧
-           (EL index mc_conf.ffi_names = "" ⇒ new_bytes = bytes2) ∧
+           (EL index mc_conf.ffi_names = ExtCall "" ⇒ new_bytes = bytes2) ∧
            target_state_rel mc_conf.target
              (t1 with pc := -n2w ((3 + index) * ffi_offset) + pc) ms2 ∧
            aligned mc_conf.target.config.code_alignment
@@ -304,7 +304,7 @@ val ffi_interfer_ok_def = Define`
          (i <= index /\
            target_state_rel mc_conf.target
             (t1 with pc := EL index mc_conf.ffi_entry_pcs) ms2 ==>
-               (EL index mc_conf.ffi_names = "MappedRead" ==>
+               (EL index mc_conf.ffi_names = SharedMem "MappedRead" ==>
                !new_bytes.
                target_state_rel mc_conf.target
                  (t1 with
@@ -317,7 +317,7 @@ val ffi_interfer_ok_def = Define`
                   ;regs := (\n. if n = FST(SND(SND (mc_conf.mmio_info index))) then
                       (word_of_bytes F 0w new_bytes) else t1.regs n)|>)
                   (mc_conf.ffi_interfer k (index,new_bytes,ms2))) /\
-               (EL index mc_conf.ffi_names = "MappedWrite" ==>
+               (EL index mc_conf.ffi_names = SharedMem "MappedWrite" ==>
                target_state_rel mc_conf.target
                  (t1 with
                  <|pc := SND(SND(SND(mc_conf.mmio_info index)))|>)
@@ -340,7 +340,7 @@ val ccache_interfer_ok_def = Define`
                (if MEM a mc_conf.callee_saved_regs then NONE else cc_regs k a)
                (t1.regs a) I);
            pc := t1.regs (case mc_conf.target.config.link_reg of NONE => 0
-                  | SOME n => n)|>)
+                  | SOME n => n) |> )
         (mc_conf.ccache_interfer k (a1,a2,ms2)))`;
 
 (*

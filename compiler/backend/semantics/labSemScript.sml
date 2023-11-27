@@ -20,7 +20,7 @@ val _ = Datatype `
      ; be         : bool
      ; ffi        : 'ffi ffi_state  (* oracle *)
                   (* oracle: sequence of havoc on registers at each FFI call *)
-     ; io_regs    : num (* seq number *) -> string (* ffi name *) -> num (* register *) -> 'a word option
+     ; io_regs    : num (* seq number *) -> ffiname (* ffi name *) -> num (* register *) -> 'a word option
      ; cc_regs    : num -> num -> 'a word option (* same as io_regs but for calling clear cache *)
      ; code       : 'a labLang$prog
      ; compile    : 'c -> 'a labLang$prog -> (word8 list # 'c) option
@@ -514,28 +514,26 @@ val evaluate_def = tDefine "evaluate" `
                  | _ => (Error, s))
         | _ => (Error, s))
     | SOME (LabAsm (CallFFI ffi_index) _ _ _) =>
-       (if ffi_index <> "MappedRead" /\ ffi_index <> "MappedWrite" then
-         (case (s.regs s.len_reg,s.regs s.ptr_reg,
-                s.regs s.len2_reg,s.regs s.ptr2_reg,s.regs s.link_reg) of
-          | (Word w, Word w2, Word w3, Word w4, Loc n1 n2) =>
-           (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.mem s.mem_domain s.be),
-                  read_bytearray w4 (w2n w3) (mem_load_byte_aux s.mem s.mem_domain s.be),
-                  loc_to_pc n1 n2 s.code) of
-            | (SOME bytes, SOME bytes2, SOME new_pc) =>
-               (case call_FFI s.ffi ffi_index bytes bytes2 of
-                | FFI_final outcome => (Halt (FFI_outcome outcome),s)
-                | FFI_return new_ffi new_bytes =>
-                    let new_io_regs = shift_seq 1 s.io_regs in
-                    let new_m = write_bytearray w4 new_bytes s.mem s.mem_domain s.be in
-                      evaluate (s with <|
-                                     mem := new_m ;
-                                     ffi := new_ffi ;
-                                     io_regs := new_io_regs ;
-                                     regs := (\a. get_reg_value (s.io_regs 0 ffi_index a)
-                                                    (s.regs a) Word);
-                                     pc := new_pc ;
-                                     clock := s.clock - 1 |>))
-            | _ => (Error,s))
+       (case (s.regs s.len_reg,s.regs s.ptr_reg,
+              s.regs s.len2_reg,s.regs s.ptr2_reg,s.regs s.link_reg) of
+        | (Word w, Word w2, Word w3, Word w4, Loc n1 n2) =>
+         (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.mem s.mem_domain s.be),
+                read_bytearray w4 (w2n w3) (mem_load_byte_aux s.mem s.mem_domain s.be),
+                loc_to_pc n1 n2 s.code) of
+          | (SOME bytes, SOME bytes2, SOME new_pc) =>
+             (case call_FFI s.ffi (ExtCall ffi_index) bytes bytes2 of
+              | FFI_final outcome => (Halt (FFI_outcome outcome),s)
+              | FFI_return new_ffi new_bytes =>
+                  let new_io_regs = shift_seq 1 s.io_regs in
+                  let new_m = write_bytearray w4 new_bytes s.mem s.mem_domain s.be in
+                    evaluate (s with <|
+                                   mem := new_m ;
+                                   ffi := new_ffi ;
+                                   io_regs := new_io_regs ;
+                                   regs := (\a. get_reg_value (s.io_regs 0 (ExtCall ffi_index) a)
+                                                  (s.regs a) Word);
+                                   pc := new_pc ;
+                                   clock := s.clock - 1 |>))
           | _ => (Error,s))
        else (Error, s))
     | _ => (Error,s)`

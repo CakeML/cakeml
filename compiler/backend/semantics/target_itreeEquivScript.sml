@@ -5,7 +5,7 @@ open preamble;
 open semanticsPropsTheory evaluatePropsTheory ffiTheory
      targetSemTheory targetPropsTheory;
 open target_itreeSemTheory target_itreePropsTheory
-     itree_semanticsTheory itree_semanticsPropsTheory itree_semanticsEquivTheory;
+     itree_semanticsTheory itree_semanticsPropsTheory; (* itree_semanticsEquivTheory;*)
 
 
 val _ = new_theory "target_itreeEquiv"
@@ -269,7 +269,7 @@ Theorem evaluate'_1_ffi_changed:
     ∃n ws1 ws2 l.
       find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME n ∧
       (
-        (EL n mc.ffi_names = "MappedRead" /\
+        (EL n mc.ffi_names = SharedMem"MappedRead" /\
         ?nb ad r off reg pc'.
           mc.mmio_info n = (nb, Addr r off,reg,pc') /\
           ad = mc.target.get_reg ms r + off /\
@@ -279,7 +279,7 @@ Theorem evaluate'_1_ffi_changed:
             pc' mc.target ms mc.prog_addresses /\
           ws1 = [nb] /\
           ws2 = word_to_bytes ad F) \/
-         (EL n mc.ffi_names = "MappedWrite" /\
+         (EL n mc.ffi_names = ShaedMem "MappedWrite" /\
          ?nb ad r off reg pc'.
            mc.mmio_info n = (nb,Addr r off,reg,pc') /\
            ad = mc.target.get_reg ms r + off /\
@@ -292,11 +292,9 @@ Theorem evaluate'_1_ffi_changed:
                       if nb = 0w then word_to_bytes w F
                       else word_to_bytes_aux (w2n nb) w F) ++
                  word_to_bytes ad F) \/
-         (EL n mc.ffi_names ≠ "MappedRead" /\
-          EL n mc.ffi_names ≠ "MappedWrite" /\
-          EL n mc.ffi_names ≠ "" /\
+         ((∃s. EL n mc.ffi_names = ExtCall s ∧ s ≠ "") ∧
           read_ffi_bytearrays mc ms = (SOME ws1,SOME ws2))
-      ) /\
+      ) ∧
       call_FFI ffi (EL n mc.ffi_names) ws1 ws2 = FFI_return ffi' l ∧
       ms' = mc.ffi_interfer 0 (n,l,ms)
 Proof
@@ -320,7 +318,7 @@ Theorem evaluate'_1_ffi_failed:
     ∃n ws1 ws2 l.
       find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME n ∧
       (
-        (EL n mc.ffi_names = "MappedRead" /\
+        (EL n mc.ffi_names = SharedMem "MappedRead" /\
         ?nb ad r off reg pc'.
           mc.mmio_info n = (nb, Addr r off,reg,pc') /\
           ad = mc.target.get_reg ms r + off /\
@@ -330,7 +328,7 @@ Theorem evaluate'_1_ffi_failed:
             pc' mc.target ms mc.prog_addresses /\
           ws1 = [nb] /\
           ws2 = word_to_bytes ad F) \/
-         (EL n mc.ffi_names = "MappedWrite" /\
+         (EL n mc.ffi_names = SharedMem "MappedWrite" /\
          ?nb ad r off reg pc'.
            mc.mmio_info n = (nb,Addr r off,reg,pc') /\
            ad = mc.target.get_reg ms r + off /\
@@ -343,11 +341,9 @@ Theorem evaluate'_1_ffi_failed:
                       if nb = 0w then word_to_bytes w F
                       else word_to_bytes_aux (w2n nb) w F) ++
             word_to_bytes ad F) \/
-         (EL n mc.ffi_names ≠ "MappedRead" /\
-          EL n mc.ffi_names ≠ "MappedWrite" /\
-          EL n mc.ffi_names ≠ "" /\
+         ((∃s. EL n mc.ffi_names = ExtCall s /\ s ≠ "") /\
           read_ffi_bytearrays mc ms = (SOME ws1,SOME ws2))
-      ) /\
+      ) ∧
       call_FFI ffi (EL n mc.ffi_names) ws1 ws2 = FFI_final outcome
 Proof
   simp[Once evaluate'_def] >>

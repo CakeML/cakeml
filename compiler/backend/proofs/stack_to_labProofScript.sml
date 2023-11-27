@@ -2453,7 +2453,7 @@ Proof
     last_x_assum mp_tac >> CASE_TAC >> simp[] >> CASE_TAC >> simp[] >>
     srw_tac[][] >> simp[] >>
     full_simp_tac(srw_ss())[code_installed_def,call_args_def] >>
-    reverse(Cases_on `call_FFI s.ffi ffi_index x' x`)
+    reverse(Cases_on `call_FFI s.ffi (ExtCall ffi_index) x' x`)
     >- (fs[] >> rveq >> fs[halt_view_def] >>
         qexists_tac `2` >>
         simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
@@ -2505,7 +2505,7 @@ Proof
     rpt strip_tac >>
     qmatch_assum_rename_tac `FLOOKUP s.regs k = SOME v` >>
     res_tac >>
-    Cases_on `t1.io_regs 0 ffi_index k` >> full_simp_tac(srw_ss())[get_reg_value_def] >>
+    Cases_on `t1.io_regs 0 (ExtCall ffi_index) k` >> full_simp_tac(srw_ss())[get_reg_value_def] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[]) >>
   conj_tac >-
    (rename [`LocValue`]

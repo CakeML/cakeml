@@ -5,7 +5,7 @@
   all instructions according to the instruction encoder stored in the
   compiler configuration.
 *)
-open preamble labLangTheory lab_filterTheory;
+open preamble labLangTheory lab_filterTheory ffiTheory;
 
 val _ = new_theory"lab_to_target";
 
@@ -96,7 +96,7 @@ val get_ffi_index_def = Define `
 
 val get_jump_offset_def = Define `
   (get_jump_offset (CallFFI s) ffis labs pos =
-     0w - n2w (pos + (3 + get_ffi_index ffis s) * ffi_offset)) /\
+     0w - n2w (pos + (3 + get_ffi_index ffis (ExtCall s)) * ffi_offset)) /\
   (get_jump_offset Install ffis labs pos =
      0w - n2w (pos + 2 * ffi_offset)) /\
   (get_jump_offset Halt ffis labs pos =
@@ -330,7 +330,7 @@ val _ = Datatype`
             ; pos : num
             ; asm_conf : 'a asm_config
             ; init_clock : num
-            ; ffi_names : string list option
+            ; ffi_names : ffiname list option
             (* shmem_info is 
             * a list of (entry pc, no. of bytes, address of the shared memory, register
             * to be load/store and the end pc)s for each share memory access *)
@@ -349,7 +349,7 @@ val find_ffi_names_def = Define `
      find_ffi_names rest) /\
   (find_ffi_names (Section k (x::xs)::rest) =
    (case x of LabAsm (CallFFI s) _ _ _ =>
-     list_add_if_fresh s (find_ffi_names (Section k xs::rest))
+       list_add_if_fresh (ExtCall s) (find_ffi_names (Section k xs::rest))
    | _ => find_ffi_names (Section k xs::rest)))`
 
 Definition get_memop_info_def:
@@ -443,7 +443,7 @@ Datatype:
     ; inc_sec_pos_len : (num # num # num) list
     ; inc_pos : num
     ; inc_init_clock : num
-    ; inc_ffi_names : string list option
+    ; inc_ffi_names : ffiname list option
     ; inc_hash_size : num
     |>
 End
