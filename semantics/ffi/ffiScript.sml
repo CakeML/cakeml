@@ -22,7 +22,11 @@ Datatype:
 End
 
 Datatype:
-  ffiname = ExtCall string | SharedMem string
+  shmem_op = MappedRead | MappedWrite
+End
+
+Datatype:
+  ffiname = ExtCall string | SharedMem shmem_op
 End
 
 Type oracle_function = “:'ffi -> word8 list -> word8 list -> 'ffi oracle_result”
