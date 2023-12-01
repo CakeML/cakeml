@@ -238,6 +238,8 @@ Array.findi: (int -> 'a -> bool) -> 'a Array.array -> (int * 'a) option
 Array.exists: ('a -> bool) -> 'a Array.array -> bool
 Array.all: ('a -> bool) -> 'a Array.array -> bool
 Array.collate: ('a -> 'b -> ordering) -> 'a Array.array -> 'b Array.array -> ordering
+Array.lookup: 'a Array.array -> 'a -> int -> 'a
+Array.updateResize: 'a Array.array -> 'a -> int -> 'a -> 'a Array.array
 Map.lookup: ('a, 'b) map -> 'a -> 'b option
 Map.insert: ('a, 'b) map -> 'a -> 'b -> ('a, 'b) map
 Map.delete: ('a, 'b) map -> 'a -> ('a, 'b) map
@@ -311,6 +313,7 @@ TextIO.b_openInSetBufferSize: string -> int -> TextIO.b_instream
 TextIO.b_openIn: string -> TextIO.b_instream
 TextIO.b_closeIn: TextIO.b_instream -> unit
 TextIO.b_input: TextIO.b_instream -> byte_array -> int -> int -> int
+TextIO.b_peekChar: TextIO.b_instream -> char option
 TextIO.b_input1: TextIO.b_instream -> char option
 TextIO.b_inputUntil: TextIO.b_instream -> char -> string
 TextIO.b_inputLine: TextIO.b_instream -> string option

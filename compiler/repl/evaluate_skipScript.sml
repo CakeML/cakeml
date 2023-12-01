@@ -341,7 +341,7 @@ Theorem pmatch_update:
           match_res_rel (λenv env'.
             LIST_REL (λ(n,v) (m,w). n = m ∧ v_rel fr ft fe v w)
                      env env') res res')
-Proof
+Proof[exclude_simps = option.OPTREL_NONE]
   ho_match_mp_tac pmatch_ind \\ rw [] \\ gvs [pmatch_def, v_rel_def, SF SFY_ss]
   >- (rw [] \\ gs [])
   >- (

@@ -106,7 +106,8 @@ Proof
     simp[step_result_rel_cases, AllCaseEqs(), PULL_EXISTS] >>
     Cases_on ‘do_app (st,ffi) Eval vs’ >> gvs[] >>
     Cases_on ‘do_app st Eval vs’ >> gvs[]
-  >- (irule ctxt_rel_fix_fp_state >> simp[]) >>
+    >- (
+      irule $ GSYM ctxt_rel_fix_fp_state >> simp[])>>
     PairCases_on ‘x’ >> PairCases_on ‘x'’ >>
     gvs[result_rel_cases, SF smallstep_ss, SF itree_ss] >>
     gs[do_app_def, semanticPrimitivesTheory.do_app_def] >> every_case_tac >>

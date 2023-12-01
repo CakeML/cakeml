@@ -4,9 +4,6 @@ and what we want to use for CakeML development.
 [basicComputeLib.sml](basicComputeLib.sml):
 Build a basic compset for evaluation in the logic.
 
-[byteScript.sml](byteScript.sml):
-A theory about byte-level manipulation of machine words.
-
 [induct_tweakLib.sml](induct_tweakLib.sml):
 Code for adjusting and improving induction theorems.
 
