@@ -675,7 +675,7 @@ val is_emp_xor_arr_aux = process_topdecs`
     then
       is_emp_xor_arr_aux lno arr n1
     else
-      raise Fail (format_failure lno ("Index : " ^ Int.toString n1 ^ " not canceled after summing XORs"))
+      raise Fail (format_failure lno ("Index " ^ Int.toString n1 ^ " not canceled after summing XORs"))
   end
   else ()` |> append_prog;
 
