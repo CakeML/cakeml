@@ -36,23 +36,29 @@ val p1 = “p1:'a panLang$prog”;
 val p2 = “p2:'a panLang$prog”;
 
 Type mtree_ans[pp] = “:α result option # ('a,'b) state”;
-
-Type mtree[pp] = “:(α result option # (α, β) state,
-                    sem_vis_event # (β ffi_result -> α result option # (α, β) state),
-                    α result option # (α, β) state) itree”;
+Type htree_ans[pp] = “:('a panLang$prog # ('a,'b) state)”;
+Type htree[pp] = “:(('a,'b) mtree_ans,
+                    ('a,'b) htree_ans + sem_vis_event # ('b ffi_result -> ('a,'b) mtree_ans),
+                    ('a,'b) mtree_ans) itree”;
+Type mtree[pp] = “:(('a,'b) mtree_ans,
+                    sem_vis_event # ('b ffi_result -> ('a,'b) mtree_ans),
+                    ('a,'b) mtree_ans) itree”;
 
 Type semtree[pp] = “:(β ffi_result, sem_vis_event, α result option) itree”;
-
 Type sem8tree[pp] = “:(β ffi_result, sem_vis_event, 8 result option) itree”;
+Type sem16tree[pp] = “:(β ffi_result, sem_vis_event, 16 result option) itree”;
+
+Definition mrec_iter_body_def:
+  mrec_iter_body rh t =
+  case t of
+   | Ret r => Ret (INR r)
+   | Tau t => Ret (INL t)
+   | Vis (INL seed') k => Ret (INL (itree_bind (rh seed') k))
+   | Vis (INR e) k => Vis e (Ret o INL o k)
+End
 
 Definition mrec_body_def:
-  mrec_body rh =
-  itree_iter
-  (λt. case t of
-        | Ret r => Ret (INR r)
-        | Tau t => Ret (INL t)
-        | Vis (INL seed') k => Ret (INL (itree_bind (rh seed') k))
-        | Vis (INR e) k => Vis e (Ret o INL o k))
+  mrec_body rh = itree_iter $ mrec_iter_body rh
 End
 
 Definition itree_mrec_def:
@@ -60,23 +66,6 @@ Definition itree_mrec_def:
 End
 
 (* mrec theory *)
-
-(* Theorem itree_mrec_one_rec_event: *)
-(*   itree_mrec *)
-(*   (λseed. if seed = 0 then Vis (INL 1) Ret else Ret seed) *)
-(*   0 = Tau (Ret 1) *)
-(* Proof *)
-(*   rw [itree_mrec_def] >> *)
-(*   rw [itreeTauTheory.itree_iter_def,itreeTauTheory.itree_bind_def] >> *)
-(*   rpt (rw [Once itreeTauTheory.itree_unfold]) *)
-(* QED *)
-
-(* Two approaches to reasoning about ITrees as processes:
-  - As an equational theory over the itree datatype (the abstraction).
-  - As a function on finite paths to :itree_el terms (the representation).
-
-  Each may have their own merits.
- *)
 
 (* Characterisation of infinite itree:s in terms of their paths. *)
 Definition itree_finite_def:
@@ -98,26 +87,8 @@ Proof
   rw [itreeTauTheory.itree_el_def]
 QED
 
-(* (* To prove an ITree is infinite, it suffices to show there is no sequence of events *)
-(*  after which the tree returns some value. *) *)
-(* Theorem itree_mrec_inf_event: *)
-(*   itree_infinite (itree_mrec (λx. Vis (INL rc) Ret) seed) *)
-(* Proof *)
-(*   rw [itree_infinite_def,itree_finite_def] >> *)
-(*   rw [itree_mrec_def]  >> *)
-(*   rw [itreeTauTheory.itree_iter_def, *)
-(*         itreeTauTheory.itree_bind_right_identity] >> *)
-(*   Induct_on ‘p’ >> *)
-(*   rw [Once itreeTauTheory.itree_unfold, *)
-(*       itreeTauTheory.itree_bind_right_identity] >> *)
-(*   Cases_on ‘h’ >> *)
-(*   rw [itreeTauTheory.itree_el_def] *)
-(* QED *)
-
-(* Semantics validation functions *)
 (* The rules for the recursive event handler, that decide
  how to evaluate each term of the program command grammar. *)
-
 Definition h_prog_rule_dec_def:
   h_prog_rule_dec vname e p s =
   case (eval s e) of
@@ -313,7 +284,6 @@ Definition itree_evaluate_def:
 End
 
 (* Observational ITree semantics *)
-
 val s = ``(s:('a,'ffi) panSem$state)``;
 
 Definition itree_semantics_def:
@@ -323,8 +293,19 @@ Definition itree_semantics_def:
 End
 
 Definition mrec_sem_def:
-  mrec_sem seed = mrec_body h_prog seed
+  mrec_sem (seed:(('a,'b) htree)) = mrec_body h_prog seed
 End
+
+Triviality mrec_iter_body_eq:
+  mrec_iter_body h_prog = (λt. case t of
+                                       Ret r => Ret (INR r)
+                                      | Tau t => Ret (INL t)
+                                      | Vis (INL seed') k => Ret (INL (monad_bind (h_prog seed') k))
+                                      | Vis (INR e) k => Vis e (Ret ∘ INL ∘ k))
+Proof
+  rw [FUN_EQ_THM] >>
+  rw [mrec_iter_body_def]
+QED
 
 Theorem mrec_handler_simps[simp]:
   (itree_mrec h_prog (Skip,s) = Ret (NONE,s)) ∧
@@ -346,9 +327,26 @@ Theorem mrec_handler_simps[simp]:
 Proof
   rpt strip_tac >>
   rw [itree_mrec_def,h_prog_def,mrec_sem_def] >>
-  rw [mrec_body_def] >>
+  rw [mrec_body_def,mrec_iter_body_eq] >>
   rw [itreeTauTheory.itree_iter_def] >>
   rw [Once itreeTauTheory.itree_unfold]
+QED
+
+(*
+  do
+    x <- (Ret (INL (itree_bind (h_prog seed) k)));
+    case x of
+      INL a => Tau (itree_iter (mrec_iter_body h_prog) a)
+     | INR b => Ret b
+  od
+*)
+
+Theorem mrec_sem_simps[simp]:
+  mrec_sem (Vis (INL seed) k) =
+  Tau (mrec_sem (itree_bind (h_prog seed) k))
+Proof
+  rw [mrec_sem_def,mrec_body_def,mrec_iter_body_eq] >>
+  rw [Once itreeTauTheory.itree_iter_thm]
 QED
 
 val _ = export_theory();

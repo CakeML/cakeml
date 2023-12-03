@@ -104,9 +104,8 @@ QED
 (* QED *)
 
 Theorem leaf_bind_thm:
-  itree_leaf f s t ≠ NONE ⇒
-  (itree_leaf f s (itree_bind t k) =
-  itree_leaf f s (k $ THE $ itree_leaf f s t))
+  (* itree_leaf f s t ≠ NONE ⇒ *)
+  itree_leaf f s (itree_bind t k) = itree_leaf f s (k $ THE $ itree_leaf f s t)
 Proof
   cheat
   (* disch_tac >> *)
@@ -134,19 +133,19 @@ Proof
   cheat
 QED
 
-Triviality leaf_branch_thm:
-  itree_leaf f s t = SOME r ⇒
-  LHD $ LFLATTEN $ itree_branch f s t = SOME r
-Proof
-  rw [itree_leaf_def]
-QED
+(* Triviality leaf_branch_thm: *)
+(*   itree_leaf f s t = SOME r ⇒ *)
+(*   LHD $ LFLATTEN $ itree_branch f s t = SOME r *)
+(* Proof *)
+(*   rw [itree_leaf_def] *)
+(* QED *)
 
-Triviality branch_leaves_eq:
-  itree_branch f s t = itree_branch f s t' ⇒
-  itree_leaf f s t = itree_leaf f s t'
-Proof
-  rw [itree_leaf_def]
-QED
+(* Triviality branch_leaves_eq: *)
+(*   itree_branch f s t = itree_branch f s t' ⇒ *)
+(*   itree_leaf f s t = itree_leaf f s t' *)
+(* Proof *)
+(*   rw [itree_leaf_def] *)
+(* QED *)
 
 (* What in fact is the direct composition of trees?
 
@@ -288,24 +287,22 @@ QED
 (* Need to relate same_outcome to h_prog rules
  possibly using some useful itree theorems; about binding, etc. *)
 
-Theorem same_outcome_seq1:
-  same_outcome ffis (itree_evaluate p1 s) (SOME r,s') ⇒
-  same_outcome ffis (itree_evaluate (Seq p1 p2) s) (SOME r,s')
-Proof
-  cheat
-QED
-
-Theorem same_outcome_seq2:
-  same_outcome ffis (itree_evaluate p1 s) (NONE,s') ∧
-  same_outcome ffis (itree_evaluate p2 s') (SOME r,s'') ⇒
-  same_outcome ffis (itree_evaluate (Seq p1 p2) s) (SOME r,s'')
-Proof
-  cheat
-QED
-
 val s = “s:(α,β) state”;
 val s' = “s':(α,β) state”;
 val s'' = “s'':(α,β) state”;
+
+(* Proof that knowledge of the leaf of (itree_evaluate c1 s) gives us knowledge of the leaf of
+ h_prog (c1,s) *)
+(* Theorem itree_evaluate_seq1_lem: *)
+(* Proof *)
+(* QED *)
+
+(* TODO *)
+(* Theorem htree_leaf_bind_thm: *)
+(*   itree_leaf f s (itree_evaluate c1 s) = SOME r ⇒ *)
+(*   itree_leaf f s (sem_outer $ mrec_sem $ itree_bind (h_prog (c1,s)) k) = itree_leaf f s (sem_outer $ mrec_sem $ k $ ) *)
+(* Proof *)
+(* QED *)
 
 Theorem itree_evaluate_seq_cases:
   (same_outcome ffis (itree_evaluate c1 ^s) (SOME r,^s') ∨
@@ -316,9 +313,12 @@ Proof
   pop_assum DISJ_CASES_TAC
   >- (gs [same_outcome_def] >>
       rw [panItreeSemTheory.itree_evaluate_def] >>
-      rw [panItreeSemTheory.h_prog_rule_seq_def]
-     (* Here convert the conclusion into a bind in terms of:
-        (itree_evaluate c1 s) and k, where k is the def of h_prog_seq_rule *)
+      rw [panItreeSemTheory.h_prog_rule_seq_def] >>
+      (* One possible strategy:
+      1. Establish a thm that allows us to infer knowledge of the leaves of a h_prog (a,b) htree from the leaves of a semtree constructed from that htree.
+      2. Establish a thm that allows us to, using a leaf statement over a bind, reduce a reduce a monad_bind statement into a constant.
+
+       *)
          )
 QED
 
@@ -372,7 +372,6 @@ Proof
           rw [Once LUNFOLD]
           ))
   (* Seq *)
-  (* TODO: Consider using drule / drule all for this... *)
   >- (irule itree_evaluate_seq_cases >>
       imp_res_tac evaluate_seq_cases >> fs []
       >- (disj2_tac >>
