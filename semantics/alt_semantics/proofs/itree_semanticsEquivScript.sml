@@ -863,6 +863,57 @@ QED
 
 (******************** trace_prefix ********************)
 
+Theorem dstep_not_SharedMem:
+  ∀benv st decl c st' ffiname ws1 ws2 n env' ec locs p c'.
+  dstep benv st decl c = Dffi st' (ffiname,ws1,ws2,n,env',ec) locs p c' ==>
+  ffiname <> SharedMem mop
+Proof
+  recInduct dstep_ind >>
+  rw[dstep_def] >>
+  gvs[DefnBase.one_line_ify NONE dcontinue_def,AllCaseEqs()] >>
+  gvs[DefnBase.one_line_ify NONE estep_def,AllCaseEqs(),
+    push_def,return_def] >>
+  gvs[DefnBase.one_line_ify NONE application_def,AllCaseEqs(),
+    return_def,push_def] >>
+  gvs[DefnBase.one_line_ify NONE continue_def,AllCaseEqs(),
+     return_def,push_def,
+     DefnBase.one_line_ify NONE application_def] >>
+  gvs[DefnBase.one_line_ify NONE exn_continue_def,AllCaseEqs(),
+    return_def,push_def]
+QED
+
+(* use FFI instead of SharedMem *)
+Theorem do_app_not_SharedMem:
+  semanticPrimitives$do_app s op vs ≠ SOME (v, Rerr (Rabort (Rffi_error (Final_event (SharedMem
+  s') conf ws outcome))))
+Proof
+  rpt strip_tac >>
+  gvs[DefnBase.one_line_ify NONE semanticPrimitivesTheory.do_app_def,
+    AllCaseEqs(),call_FFI_def] >>
+  rw[] >>
+  pairarg_tac >> fs[]
+QED
+
+Theorem application_not_SharedMem:
+  smallStep$application op env (refs,ffi) fp_state vs vs' ≠
+    Eabort (fp,Rffi_error (Final_event (SharedMem s') conf ws outcome))
+Proof
+  rpt strip_tac >>
+  gvs[smallStepTheory.application_def,AllCaseEqs(),SF smallstep_ss,
+    do_app_not_SharedMem] >>
+  gvs[semanticPrimitivesTheory.do_fprw_def,AllCaseEqs()]
+QED
+
+Theorem decl_step_not_SharedMem:
+  decl_step env (st,devb,dcs) ≠ Dabort (fp,Rffi_error (Final_event (SharedMem
+  s') conf ws outcome))
+Proof
+  strip_tac >>
+  gvs[decl_step_def,AllCaseEqs(),decl_continue_def] >>
+  gvs[DefnBase.one_line_ify NONE e_step_def,AllCaseEqs(),SF smallstep_ss] >>
+  gvs[application_not_SharedMem]
+QED
+
 Theorem trace_prefix_dec_Error:
   dstate_rel dsta st ∧ deval_rel deva devb ⇒
 
@@ -954,10 +1005,9 @@ Proof
             ffi_state_component_equality]) >>
       gvs[dstep_to_Dffi] >> goal_assum drule >> simp[] >>
       unabbrev_all_tac >> gvs[]
-               )>>cheat
-
-    )
-        
+               )>>
+        metis_tac[dstep_not_SharedMem]
+      )
     )
   >- (
     simp[decl_step_reln_eq_step_n_cml] >>
@@ -1154,7 +1204,8 @@ Proof
         rw[semanticPrimitivesTheory.state_component_equality,
            ffi_state_component_equality]) >>
       unabbrev_all_tac >> gvs[dstep_to_Dffi] >>
-      goal_assum drule >> goal_assum drule >> simp[])>>cheat
+      goal_assum drule >> goal_assum drule >> simp[])>>
+      metis_tac[dstep_not_SharedMem]
       )
     )
   >- (
@@ -1360,7 +1411,8 @@ Proof
       drule_at Any dstep_result_rel_single_FFI_strong >>
       simp[dstep_result_rel_cases] >> disch_then drule_all >>
       strip_tac >> gvs[Abbr `st'`] >>
-      gvs[dget_ffi_def, ffi_state_component_equality])>>cheat
+      gvs[dget_ffi_def, ffi_state_component_equality])>>
+      metis_tac[dstep_not_SharedMem]
       )
     >- (
       pairarg_tac >> gvs[] >>
@@ -1401,7 +1453,8 @@ Proof
         rw[semanticPrimitivesTheory.state_component_equality,
            ffi_state_component_equality]) >>
       gvs[] >> goal_assum drule >> simp[] >>
-      unabbrev_all_tac >> gvs[])>>cheat
+      unabbrev_all_tac >> gvs[])>>
+      metis_tac[dstep_not_SharedMem]
       )
     >- (
       qspecl_then [`x`,`env`,`Dstep dsta deva dcs`]
@@ -1425,7 +1478,8 @@ Proof
       drule_at Any dstep_result_rel_single_FFI_strong >>
       simp[dstep_result_rel_cases] >> disch_then drule_all >>
       strip_tac >> gvs[Abbr `st'`] >>
-      gvs[dget_ffi_def, ffi_state_component_equality]) >> cheat
+      gvs[dget_ffi_def, ffi_state_component_equality]) >>
+      metis_tac[dstep_not_SharedMem]
       )
     )
   >- (
@@ -1455,7 +1509,8 @@ Proof
       disch_then $ qspec_then `st1` mp_tac >>
       impl_tac >- (unabbrev_all_tac >> gvs[dstate_rel_def]) >>
       strip_tac >> gvs[] >> unabbrev_all_tac >> gvs[dget_ffi_def] >>
-      every_case_tac >> rgs[]) >> cheat
+      every_case_tac >> rgs[]) >>
+      metis_tac[decl_step_not_SharedMem]
       ) >>
     gvs[step_n_cml_def] >>
     qmatch_asmsub_abbrev_tac `decl_step _ (st2,_)` >>
@@ -1597,7 +1652,11 @@ Proof
   `∃l. m = SUC l` by (Cases_on `m` >> gvs[step_n_def]) >> gvs[] >>
   pop_assum $ qspec_then `l'` assume_tac >> gvs[] >>
   gvs[step_n_alt_def] >> FULL_CASE_TAC >> gvs[] >>
-  PairCases_on `p` >> gvs[dstep_to_Dffi] >>
+  PairCases_on `p` >>
+  rename1 `dstep _ _ _ _ = Dffi _ (ffiname,_) _ _ _` >>
+  reverse $ Cases_on `ffiname`
+  >- metis_tac[dstep_not_SharedMem] >>
+  gvs[dstep_to_Dffi] >>
   simp[decl_step_reln_eq_step_n_cml, PULL_EXISTS] >>
   qmatch_goalsub_abbrev_tac `st0,_,_` >>
   qspecl_then [`l'`,`dsta`,`deva`,`dcs`,`(st0,devb,dcs)`,`env`]
@@ -1605,9 +1664,10 @@ Proof
   simp[dstep_result_rel_cases, is_Dffi_def, get_ffi_def] >>
   impl_keep_tac >- (unabbrev_all_tac >> gvs[dstate_rel_def]) >>
   rw[] >> gvs[dget_ffi_def] >> every_case_tac >> gvs[]
-  >- (goal_assum drule >> unabbrev_all_tac >> gvs[ffi_state_component_equality])
-  >- (cheat
-(*    gvs[trace_prefix_interp] >>
+  >- (goal_assum drule >> unabbrev_all_tac >>
+    gvs[ffi_state_component_equality])
+  >- (
+    gvs[trace_prefix_interp,stringTheory.IMPLODE_EXPLODE_I] >>
     `step_n_cml env (SUC l') (Dstep (st0,devb,dcs)) = decl_step env (st',dev2,l'')` by
       simp[step_n_cml_alt_def] >>
     qpat_x_assum `deval_rel _ _` mp_tac >>
@@ -1615,15 +1675,16 @@ Proof
     simp[ctxt_frame_rel_cases, EXISTS_PROD] >> rw[] >> gvs[] >>
     qpat_x_assum `_ = decl_step _ _` mp_tac >>
     simp[decl_step_def, e_step_def, smallStepTheory.continue_def, cml_application_thm,
-         semanticPrimitivesTheory.do_app_def, call_FFI_def] >>
+         semanticPrimitivesTheory.do_app_def,call_FFI_def,
+         combinTheory.o_DEF] >>
     unabbrev_all_tac >> simp[] >>
     gvs[dstate_rel_def] >> gvs[ffi_state_component_equality] >>
     gvs[store_assign_def, store_lookup_def, store_v_same_type_def] >>
-    rw[smallStepTheory.return_def] >> goal_assum drule >> simp[]*)
-    )
+    rw[smallStepTheory.return_def] >> goal_assum drule >> simp[]
+  )
   >- (goal_assum drule >> unabbrev_all_tac >> gvs[ffi_state_component_equality])
-  >- (cheat
-(*    pairarg_tac >> gvs[] >>
+  >- (
+    pairarg_tac >> gvs[stringTheory.IMPLODE_EXPLODE_I] >>
     `step_n_cml env (SUC l') (Dstep (st0,devb,dcs)) = decl_step env (st',dev2,l'')` by
       simp[step_n_cml_alt_def] >>
     qpat_x_assum `deval_rel _ _` mp_tac >>
@@ -1631,7 +1692,8 @@ Proof
     simp[ctxt_frame_rel_cases, EXISTS_PROD] >> rw[] >> gvs[] >>
     qpat_x_assum `_ = decl_step _ _` mp_tac >>
     simp[decl_step_def, e_step_def, smallStepTheory.continue_def, cml_application_thm,
-         semanticPrimitivesTheory.do_app_def, call_FFI_def] >>
+         semanticPrimitivesTheory.do_app_def, call_FFI_def,
+         combinTheory.o_DEF] >>
     unabbrev_all_tac >> simp[] >>
     gvs[dstate_rel_def] >> gvs[ffi_state_component_equality] >>
     gvs[store_assign_def, store_lookup_def, store_v_same_type_def] >>
@@ -1647,8 +1709,8 @@ Proof
     `st1' = st1` by (unabbrev_all_tac >>
       simp[semanticPrimitivesTheory.state_component_equality,
            ffi_state_component_equality]) >>
-    gvs[] >> unabbrev_all_tac >> gvs[]*)
-    )
+    gvs[] >> unabbrev_all_tac >> gvs[]
+  )
 QED
 
 
