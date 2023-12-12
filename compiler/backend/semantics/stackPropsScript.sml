@@ -1102,7 +1102,7 @@ Definition no_shmemop_def:
     ((case r of SOME (x,_,_) => no_shmemop x | _ => T) /\
     (case h of SOME (x,_,_) => no_shmemop x | _ => T))) /\
   (no_shmemop (Seq p1 p2) = (no_shmemop p1 /\ no_shmemop p2)) /\
-  (no_shmemop (If _ _ _ p1 p2) = (no_shmemop p2 /\ no_shmemop p2)) /\
+  (no_shmemop (If _ _ _ p1 p2) = (no_shmemop p1 /\ no_shmemop p2)) /\
   (no_shmemop (While _ _ _ p) = no_shmemop p) /\
   (no_shmemop (ShMemOp _ _ _) = F) /\
   (no_shmemop _ = T)
