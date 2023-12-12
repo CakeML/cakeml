@@ -9,6 +9,8 @@ open preamble;
 open unifPropsTheory unifDefTheory walkTheory walkstarTheory collapseTheory;
 open substTheory;
 open infer_tTheory;
+open tcallUnifTheory
+open transferTheory transferLib
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -44,7 +46,7 @@ Datatype:
   | Null_tag
 End
 
-val encode_infer_t_def = Define `
+Definition encode_infer_t_def:
 (encode_infer_t (Infer_Tvar_db n) =
   Const (DB_tag n)) ∧
 (encode_infer_t (Infer_Tapp ts tc) =
@@ -54,7 +56,8 @@ val encode_infer_t_def = Define `
 (encode_infer_ts [] =
   Const Null_tag) ∧
 (encode_infer_ts (t::ts) =
-  Pair (encode_infer_t t) (encode_infer_ts ts))`;
+  Pair (encode_infer_t t) (encode_infer_ts ts))
+End
 
 Definition decode_infer_t_def:
 (decode_infer_t (Var n) =
@@ -70,6 +73,360 @@ Definition decode_infer_t_def:
   decode_infer_t s1 :: decode_infer_ts s2) ∧
 (decode_infer_ts _ = [])
 End
+
+Theorem decode_left_inverse[local]:
+  (!t. decode_infer_t (encode_infer_t t) = t) ∧
+  (!ts. decode_infer_ts (encode_infer_ts ts) = ts)
+Proof
+Induct >>
+rw [encode_infer_t_def, decode_infer_t_def]
+QED
+
+Theorem decode_right_inverse[local]:
+  (!t. (?t'. t = encode_infer_t t') ⇒ (encode_infer_t (decode_infer_t t) = t)) ∧
+  (!ts. (?ts'. ts = encode_infer_ts ts') ⇒ (encode_infer_ts (decode_infer_ts ts) = ts))
+Proof
+Induct  >>
+rw [encode_infer_t_def, decode_infer_t_def] >>
+rw [decode_left_inverse]
+QED
+
+Theorem option_CASE_MAP:
+  option_CASE (OPTION_MAP f v) n sf =
+  option_CASE v n (sf o f)
+Proof
+  Cases_on ‘v’ >> simp[]
+QED
+
+Theorem list_CASE_MAP:
+  list_CASE (MAP f l) n cf =
+  list_CASE l n (λh t. cf (f h) (MAP f t))
+Proof
+  Cases_on ‘l’ >> simp[]
+QED
+
+
+Theorem decode_option_CASE[local]:
+  decode_infer_t (option_CASE v n sf) =
+  option_CASE v (decode_infer_t n) (decode_infer_t o sf)
+Proof
+  Cases_on ‘v’ >> simp[]
+QED
+
+Theorem decode_infer_t_CASE[local]:
+  decode_infer_t (infer_t_CASE it dbf appf uvf) =
+  infer_t_CASE it (decode_infer_t o dbf)
+                  (λl n. decode_infer_t (appf l n))
+                  (decode_infer_t o uvf)
+Proof
+  Cases_on ‘it’ >> simp[]
+QED
+
+(* "Ramana Kumar unification type to CakeML type" relation *)
+Definition RKC_def:
+  RKC rkt ct ⇔ encode_infer_t ct = rkt
+End
+
+Definition cwfs_def:
+  cwfs s <=> swfs (map encode_infer_t s) /\ wf s
+End
+
+Definition SPREL_def:
+  SPREL R (sp1:'a num_map) (sp2:'b num_map) ⇔
+    wf sp1 /\ wf sp2 /\
+    ∀n. OPTREL R (lookup n sp1) (lookup n sp2)
+End
+
+Definition sprkc_def:
+  sprkc m1 m2 ⇔ m1 = map encode_infer_t m2 /\ wf m2 /\ swfs m1
+End
+
+Theorem wfs_rule[transfer_rule]:
+  (sprkc |==> (=)) swfs cwfs
+Proof
+  simp[cwfs_def, FUN_REL_def, sprkc_def, rmfmapTheory.swfs_def,
+       wfs_def] >> rw[]
+QED
+
+Theorem swfs_svwalk_map:
+  wf (map f fm) /\ swfs (map f fm) ∧ (∀n. ∃y. Var n = f y) ⇒
+  ∀x. ∃y. svwalk (map f fm) x = f y
+Proof
+  strip_tac >> ‘wfs (sp2fm (map f fm))’ by gvs[rmfmapTheory.swfs_def] >>
+  drule (DISCH_ALL walkTheory.vwalk_ind) >>
+  simp[RIGHT_FORALL_IMP_THM] >> disch_then ho_match_mp_tac >> rw[] >>
+  simp[Once rmfmapTheory.svwalk_thm] >> rename [‘lookup k (map f fm)’] >>
+  Cases_on ‘lookup k (map f fm)’ >> simp[] >>
+  gvs[AllCaseEqs(), lookup_map] >> rename [‘f v = Pair _ _’] >>
+  Cases_on ‘f v’ >> simp[] >> metis_tac[]
+QED
+
+Definition cvwalk_def:
+  cvwalk s n = decode_infer_t (svwalk (map encode_infer_t s) n)
+End
+
+Theorem cvwalk_rule[transfer_rule]:
+  (sprkc |==> (=) |==> RKC) svwalk cvwalk
+Proof
+  simp[cvwalk_def, FUN_REL_def, RKC_def, sprkc_def] >>
+  rw[] >> rename [‘swfs (map encode_infer_t s)’] >>
+  irule $ cj 1 decode_right_inverse >> irule swfs_svwalk_map >> simp[] >>
+  metis_tac[encode_infer_t_def]
+QED
+
+Theorem sprkc_lookup[transfer_rule]:
+  ((=) |==> sprkc |==> OPTREL RKC) lookup lookup
+Proof
+  simp[FUN_REL_def, sprkc_def] >> rw[] >>
+  rename [‘lookup k (map encode_infer_t m)’] >>
+  Cases_on ‘lookup k m’ >> simp[lookup_map, RKC_def]
+QED
+
+Theorem term_CASE_encode:
+  term_CASE (encode_infer_t v) vf pf cf =
+  infer_t_CASE v
+               (cf o DB_tag)
+               (λl n. pf (Const Tapp_tag)
+                         (Pair (Const (TC_tag n)) (encode_infer_ts l)))
+               vf
+Proof
+  Cases_on ‘v’ >> simp[encode_infer_t_def]
+QED
+
+Theorem cvwalk_thm =
+        cvwalk_def |> SPEC_ALL
+                   |> SRULE[lookup_map, option_CASE_MAP, combinTheory.o_ABS_L,
+                            term_CASE_encode, Once rmfmapTheory.svwalk_thm,
+                           ASSUME “wf (map encode_infer_t s)”,
+                           ASSUME “swfs (map encode_infer_t s)”]
+                    |> SRULE[GSYM encode_infer_t_def, GSYM cvwalk_def,
+                             decode_option_CASE, decode_left_inverse,
+                             decode_infer_t_CASE,
+                             combinTheory.o_ABS_R]
+
+(*
+Definition binRKC_def:
+  binRKC AB (f : atom term -> atom term -> 'a)
+            (itf : infer_t list -> num -> 'b) ⇔
+    !l n. AB (f (Const Tapp_tag) (Pair (Const (TC_tag n)) (encode_infer_ts l)))
+             (itf l n)
+End
+
+Theorem term_CASE_rule[transfer_rule]:
+  (RKC |==> ((=) |==> AB) |==> binRKC AB |==> ((=) |==> AB) |==> AB)
+  term_CASE
+  (λarg v p c. infer_t_CASE arg (c o DB_tag) p v)
+Proof
+  simp[FUN_REL_def, RKC_def, term_CASE_encode, binRKC_def] >> rw[] >>
+  Cases_on ‘arg’ >> simp[]
+  qx_gen_tac ‘it’ >> qx_gen_tac ‘vf’ >> qx_gen_tac ‘cvf’ >> strip_tac >>
+
+  cvwalk
+*)
+
+Definition cwalk_def[nocompute]:
+  cwalk s it = decode_infer_t $ swalk (map encode_infer_t s) (encode_infer_t it)
+End
+
+Theorem swalk_map_wf:
+  !s it. cwfs s ==>
+         ?it'. swalk (map encode_infer_t s) (encode_infer_t it) =
+               encode_infer_t it'
+Proof
+  simp[cwfs_def, rmfmapTheory.swalk_thm, term_CASE_encode,
+       AllCaseEqs()] >> rpt strip_tac >>
+  Cases_on ‘it’ >> simp[]
+  >- metis_tac[encode_infer_t_def]
+  >- metis_tac[encode_infer_t_def] >>
+  rename [‘svwalk _ n’] >> qid_spec_tac ‘n’ >>
+  irule swfs_svwalk_map >> simp[] >> metis_tac[encode_infer_t_def]
+QED
+
+Theorem swalk_elim:
+  cwfs s ==>
+  swalk (map encode_infer_t s) (encode_infer_t it) =
+  encode_infer_t (cwalk s it)
+Proof
+  strip_tac >> simp[cwalk_def] >> ONCE_REWRITE_TAC [EQ_SYM_EQ] >>
+  irule (cj 1 decode_right_inverse) >> metis_tac[swalk_map_wf]
+QED
+
+val cwf = ASSUME “cwfs s” |> SRULE[cwfs_def] |> cj 2
+val cwfs = ASSUME “cwfs s” |> SRULE[cwfs_def] |> cj 1
+Theorem cwalk_thm =
+        cwalk_def |> SPEC_ALL
+                  |> SRULE [rmfmapTheory.swalk_thm, term_CASE_encode,
+                            decode_infer_t_CASE, combinTheory.o_ABS_L,
+                            combinTheory.o_ABS_R, cwf]
+                  |> SRULE[decode_infer_t_def, decode_left_inverse,
+                           GSYM cvwalk_def]
+
+Definition coc_def[nocompute]:
+  coc s it n = soc (map encode_infer_t s) (encode_infer_t it) n
+End
+
+Theorem soc_encode_ts:
+  cwfs s ==>
+  (soc (map encode_infer_t s) (encode_infer_ts its) n ⇔
+     EXISTS (λi. soc (map encode_infer_t s) (encode_infer_t i) n) its)
+Proof
+  strip_tac >> map_every assume_tac [cwf, cwfs] >>
+  Induct_on ‘its’ >>
+  simp[encode_infer_t_def, rmfmapTheory.soc_thm]
+QED
+
+Theorem coc_thm =
+        coc_def |> SPEC_ALL
+                |> SRULE[Once rmfmapTheory.soc_walking, cwf, cwfs,
+                         UNDISCH swalk_elim, term_CASE_encode,
+                         combinTheory.o_DEF]
+                |> SRULE[rmfmapTheory.soc_thm, cwf, UNDISCH soc_encode_ts]
+                |> SRULE[GSYM coc_def]
+
+Definition cunify_def:
+  cunify s t1 t2 = OPTION_MAP (map decode_infer_t)
+                              (sunify (map encode_infer_t s) (encode_infer_t t1)
+                                      (encode_infer_t t2))
+End
+
+Theorem option_map_itcase:
+  OPTION_MAP f (infer_t_CASE arg x y z) =
+  infer_t_CASE arg (OPTION_MAP f o x) (λl n. OPTION_MAP f (y l n))
+               (OPTION_MAP f o z)
+Proof
+  Cases_on ‘arg’ >> simp[]
+QED
+
+Theorem option_map_COND:
+  OPTION_MAP f (COND g t e) = COND g (OPTION_MAP f t) (OPTION_MAP f e)
+Proof
+  rw[]
+QED
+
+Theorem sptree_map_COND:
+  sptree$map f (COND g t e) = COND g (map f t) (map f e)
+Proof
+  rw[]
+QED
+
+Theorem map_decode_encode:
+  cwfs s ==> map decode_infer_t (map encode_infer_t s) = s
+Proof
+  strip_tac >> gvs[cwfs_def] >> simp[spt_eq_thm, lookup_map]>>
+  simp[OPTION_MAP_COMPOSE, combinTheory.o_DEF, decode_left_inverse]
+QED
+
+Theorem cunify_thm =
+        cunify_def |> SPEC_ALL
+                   |> SRULE [Once rmfmapTheory.sunify_thm, cwf, cwfs,
+                             UNDISCH swalk_elim, term_CASE_encode,
+                             combinTheory.o_DEF]
+                   |> SRULE[rmfmapTheory.soc_thm, cwf, GSYM coc_def,
+                            option_map_itcase, combinTheory.o_ABS_R,
+                            UNDISCH map_decode_encode, decode_left_inverse,
+                            option_map_COND, map_insert, sptree_map_COND,
+                            UNDISCH soc_encode_ts, decode_infer_t_def]
+
+
+Theorem tvwalk_wf:
+  ∀s nm. swfs (map encode_infer_t s) ∧ wf s ⇒
+         ∃it. svwalk (map encode_infer_t s) nm = encode_infer_t it
+Proof
+  simp[GSYM tvwalk_correct, rmfmapTheory.svwalk_def, rmfmapTheory.swfs_def] >>
+  simp[combinTheory.o_DEF, term_CASE_encode, sp2fm_map] >> rw[] >>
+  qid_spec_tac ‘nm’ >> irule wfs_o_f >> simp[] >> metis_tac[encode_infer_t_def]
+QED
+
+Theorem twalk_wf:
+  ∀s it.
+    swfs (map encode_infer_t s) ∧ wf s ⇒
+    ∃it'.
+      twalk (map encode_infer_t s) (encode_infer_t it) = encode_infer_t it'
+Proof
+  simp[twalk_def, term_CASE_encode, combinTheory.o_ABS_L, AllCaseEqs(),
+       EXISTS_OR_THM] >>
+  rpt gen_tac >> Cases_on ‘it’ >> simp[] >>
+  metis_tac[encode_infer_t_def, tvwalk_wf]
+QED
+
+Theorem twalk_E:
+  swfs (map encode_infer_t s) ∧ wf s ⇒
+  twalk (map encode_infer_t s) (encode_infer_t it) =
+  encode_infer_t (ctwalk s it)
+Proof
+  simp[ctwalk_def] >> metis_tac[decode_right_inverse, twalk_wf]
+QED
+
+
+
+Definition ctvwalk_def[nocompute]:
+  ctvwalk s nm = decode_infer_t $ tvwalk (map encode_infer_t s) nm
+End
+
+Theorem ctvwalk_thm =
+        ctvwalk_def |> SRULE[lookup_map, option_CASE_MAP, combinTheory.o_ABS_L,
+                             term_CASE_encode, Once tvwalk_thm]
+                    |> SRULE[GSYM encode_infer_t_def, GSYM ctvwalk_def,
+                             decode_option_CASE, decode_left_inverse,
+                             decode_infer_t_CASE,
+                             combinTheory.o_ABS_R]
+
+Definition ctwalk_def[nocompute]:
+  ctwalk s it =
+  decode_infer_t $ twalk (map encode_infer_t s) (encode_infer_t it)
+End
+
+Theorem ctwalk_thm =
+        ctwalk_def |> SRULE [Once twalk_def, term_CASE_encode,
+                             decode_infer_t_CASE, combinTheory.o_ABS_L,
+                             combinTheory.o_ABS_R]
+                   |> SRULE[decode_infer_t_def, decode_left_inverse,
+                            GSYM ctvwalk_def]
+
+Theorem sp2fm_map:
+  sp2fm (map f sp) = f o_f sp2fm sp
+Proof
+  simp[finite_mapTheory.FLOOKUP_EXT, fmspTheory.FLOOKUP_sp2fm, FUN_EQ_THM,
+       lookup_map, finite_mapTheory.FLOOKUP_o_f] >>
+  simp[optionTheory.OPTION_MAP_CASE, combinTheory.o_DEF]
+QED
+
+Theorem tvwalk_wf:
+  ∀s nm. swfs (map encode_infer_t s) ∧ wf s ⇒
+         ∃it. tvwalk (map encode_infer_t s) nm = encode_infer_t it
+Proof
+  simp[GSYM tvwalk_correct, rmfmapTheory.svwalk_def, rmfmapTheory.swfs_def] >>
+  simp[combinTheory.o_DEF, term_CASE_encode, sp2fm_map] >> rw[] >>
+  qid_spec_tac ‘nm’ >> irule wfs_o_f >> simp[] >> metis_tac[encode_infer_t_def]
+QED
+
+Theorem twalk_wf:
+  ∀s it.
+    swfs (map encode_infer_t s) ∧ wf s ⇒
+    ∃it'.
+      twalk (map encode_infer_t s) (encode_infer_t it) = encode_infer_t it'
+Proof
+  simp[twalk_def, term_CASE_encode, combinTheory.o_ABS_L, AllCaseEqs(),
+       EXISTS_OR_THM] >>
+  rpt gen_tac >> Cases_on ‘it’ >> simp[] >>
+  metis_tac[encode_infer_t_def, tvwalk_wf]
+QED
+
+Theorem twalk_E:
+  swfs (map encode_infer_t s) ∧ wf s ⇒
+  twalk (map encode_infer_t s) (encode_infer_t it) =
+  encode_infer_t (ctwalk s it)
+Proof
+  simp[ctwalk_def] >> metis_tac[decode_right_inverse, twalk_wf]
+QED
+
+Definition ctocwl_def[nocompute]:
+  ctocwl s nm its ⇔ tocwl (map encode_infer_t s) nm (MAP encode_infer_t its)
+End
+
+
+Theorem ctocwl_thm =
+        ctocwl_def |> SRULE [Once tocwl_thm, list_CASE_MAP]
 
 Theorem decode_infer_t_pmatch:
     (!t. decode_infer_t t =
@@ -90,29 +447,29 @@ Proof
   >> TRY (Cases_on `a`) >> fs[decode_infer_t_def]
 QED
 
-val decode_left_inverse = Q.prove (
-`(!t. decode_infer_t (encode_infer_t t) = t) ∧
- (!ts. decode_infer_ts (encode_infer_ts ts) = ts)`,
-Induct >>
-rw [encode_infer_t_def, decode_infer_t_def]);
-
-val decode_left_inverse_I = Q.prove (
-`decode_infer_t o encode_infer_t = I`,
+Theorem decode_left_inverse_I[local]:
+  decode_infer_t o encode_infer_t = I
+Proof
 rw [FUN_EQ_THM] >>
-metis_tac [decode_left_inverse]);
+metis_tac [decode_left_inverse]
+QED
 
-val decode_right_inverse = Q.prove (
-`(!t. (?t'. t = encode_infer_t t') ⇒ (encode_infer_t (decode_infer_t t) = t)) ∧
- (!ts. (?ts'. ts = encode_infer_ts ts') ⇒ (encode_infer_ts (decode_infer_ts ts) = ts))`,
+Theorem decode_right_inverse[local]:
+  (!t. (?t'. t = encode_infer_t t') ⇒ (encode_infer_t (decode_infer_t t) = t)) ∧
+  (!ts. (?ts'. ts = encode_infer_ts ts') ⇒ (encode_infer_ts (decode_infer_ts ts) = ts))
+Proof
 Induct  >>
 rw [encode_infer_t_def, decode_infer_t_def] >>
-rw [decode_left_inverse]);
+rw [decode_left_inverse]
+QED
 
-val t_wfs_def = zDefine `
-t_wfs s = wfs (encode_infer_t o_f s)`;
+Definition t_wfs_def[nocompute]:
+  t_wfs s = wfs (encode_infer_t o_f s)
+End
 
-val t_vwalk_def = zDefine `
-t_vwalk s v = decode_infer_t (vwalk (encode_infer_t o_f s) v)`;
+Definition t_vwalk_def[nocompute]:
+  t_vwalk s v = decode_infer_t (vwalk (encode_infer_t o_f s) v)
+End
 
 val t_vwalk_ind' = Q.prove (
 `!s'. t_wfs s' ⇒
