@@ -5941,20 +5941,15 @@ Proof
 QED
 
 Theorem check_col_equal_col:
-     !s f1 f2.
+  !s f1 f2.
     (!r. r IN domain s ==> f1 r = f2 r) ==>
     check_col f1 s = check_col f2 s
 Proof
-    rpt strip_tac >>
-    sg `MAP (f1 o FST) (toAList s) = MAP (f2 o FST) (toAList s)` THEN1 (
-        simp [LIST_EQ_REWRITE] >>
-        rw [EL_MAP] >>
-        first_x_assum match_mp_tac >>
-        imp_res_tac EL_MEM >>
-        `MEM (FST (EL x (toAList s))) (MAP FST (toAList s))` by (simp [MEM_MAP, EXISTS_PROD] >> metis_tac [PAIR]) >>
-        fs [set_MAP_FST_toAList_eq_domain]
-    ) >>
-    simp [check_col_def]
+  rpt strip_tac >>
+  ‘MAP (f1 o FST) (toAList s) = MAP (f2 o FST) (toAList s)’
+    suffices_by simp [check_col_def] >>
+  simp[GSYM MAP_MAP_o] >>
+  simp [MAP_EQ_f, set_MAP_FST_toAList_domain]
 QED
 
 Theorem check_partial_col_equal_col:
@@ -6021,9 +6016,8 @@ Proof
     )
 QED
 
-
 Theorem linear_scan_reg_alloc_correct:
-     !k moves ct forced.
+  !k moves ct forced.
     EVERY (\r1,r2. in_clash_tree ct r1 /\ in_clash_tree ct r2) forced ==>
     ?col livein flivein.
     linear_scan_reg_alloc k moves ct forced = M_success col /\
@@ -6039,7 +6033,7 @@ Theorem linear_scan_reg_alloc_correct:
     ) /\
     (!r. r IN domain col ==> in_clash_tree ct r) /\
     EVERY (\r1,r2. (sp_default col) r1 = (sp_default col) r2 ==> r1 = r2) forced
-Proof
+Proof[exclude_simps = sptree.LENGTH_toAList]
     rpt strip_tac >>
     simp [linear_scan_reg_alloc_def, run_linear_reg_alloc_intervals_def, run_i_linear_scan_hidden_state_def, run_def, linear_reg_alloc_and_extract_coloration_def] >>
 
