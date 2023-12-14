@@ -4465,12 +4465,269 @@ Proof
   simp[]
 QED
 
+(*** no_shmemop ***)
+
+Theorem stack_rawcall_comp_no_shmemop:
+  ∀i p. no_shmemop p ⇒ no_shmemop (comp i p)
+Proof
+  recInduct stack_rawcallTheory.comp_ind>>rw[]
+  \\ Cases_on `p` \\ fs []
+  \\ once_rewrite_tac [stack_rawcallTheory.comp_def]
+  \\ fs [stack_rawcallTheory.comp_seq_def]
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs [no_shmemop_def])
+  >>fs[no_shmemop_def]
+QED
+(*
+Theorem stack_rawcall_comp_no_shmemop:
+  ∀i p. no_shmemop p ⇒ no_shmemop (comp i p)
+Proof
+  recInduct stack_rawcallTheory.comp_ind>>rw[]
+  \\ Cases_on `p` \\ fs []
+  \\ once_rewrite_tac [stack_rawcallTheory.comp_def]
+  \\ fs [stack_rawcallTheory.comp_seq_def]
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs [no_shmemop_def])
+  >>fs[no_shmemop_def]
+QED
+*)
+Theorem stack_rawcall_comp_top_no_shmemop:
+  ∀p. no_shmemop p ⇒ no_shmemop (comp_top i p)
+Proof
+  Induct>>
+  rw[stack_rawcallTheory.comp_top_def,no_shmemop_def]>>
+  irule stack_rawcall_comp_no_shmemop>>fs[no_shmemop_def]
+QED
+
+Theorem stack_rawcall_compile_no_shmemop:
+  ∀prog. EVERY (\(a,p). no_shmemop p) prog ⇒
+      EVERY (\(a,p). no_shmemop p) (compile prog)
+Proof
+  Induct>>rw[]>>
+  simp[stack_rawcallTheory.compile_def]>>
+  rpt (pairarg_tac>>fs[])>>
+  drule stack_rawcall_comp_top_no_shmemop>>
+  qmatch_asmsub_abbrev_tac ‘comp_top i _’>>
+  disch_then $ qspec_then ‘i’ assume_tac>>gvs[]>>
+  fs[EVERY_MEM]>>rpt strip_tac>>
+  fs[MEM_MAP]>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>rename1 ‘MEM (a',b') prog’>>
+  rveq>>fs[]>>
+  irule stack_rawcall_comp_top_no_shmemop>>
+  first_x_assum $ qspec_then ‘(a',b')’ assume_tac>>gvs[]
+QED
+
+Theorem stack_alloc_comp_no_shmemop:
+  ∀n m p. no_shmemop p ⇒ no_shmemop (FST (comp n m p))
+Proof
+  recInduct comp_ind \\ rw []
+  \\ Cases_on `p` \\ fs []
+  \\ once_rewrite_tac [comp_def] \\ fs []
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs [no_shmemop_def])
+  >>fs[no_shmemop_def]
+QED
+
+Theorem stack_alloc_prog_comp_no_shmemop:
+  ∀prog.
+  EVERY (\(a,p). no_shmemop p) prog ⇒
+  EVERY (\(a,p). no_shmemop p) (MAP prog_comp prog)
+Proof
+  Induct>>fs[prog_comp_def]>>rpt strip_tac>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[prog_comp_def]>>gvs[]>>
+  irule stack_alloc_comp_no_shmemop>>fs[]
+QED
+
+Theorem stack_alloc_compile_no_shmemop:
+  EVERY (λ(a,p). no_shmemop p) prog ⇒
+  EVERY (λ(a,p). no_shmemop p) (stack_alloc_compile data prog)
+Proof
+  rw[stack_allocTheory.compile_def]>-
+   (EVAL_TAC>>every_case_tac>>fs[no_shmemop_def])>>
+  irule stack_alloc_prog_comp_no_shmemop>>fs[]
+QED
+
+Theorem upshift_no_shmemop[simp]:
+  ∀k n. no_shmemop (upshift k n)
+Proof
+  recInduct stack_removeTheory.upshift_ind \\ rw []
+  \\ once_rewrite_tac [stack_removeTheory.upshift_def] \\ rw []
+  \\ fs [no_shmemop_def]
+QED
+
+Theorem downshift_no_shmemop[simp]:
+  ∀k n. no_shmemop (downshift k n)
+Proof
+  recInduct stack_removeTheory.downshift_ind \\ rw []
+  \\ once_rewrite_tac [stack_removeTheory.downshift_def] \\ rw []
+  \\ fs [no_shmemop_def]
+QED
+
+Theorem stack_free_no_shmemop[simp]:
+  ∀k n. no_shmemop (stack_free k n)
+Proof
+  recInduct stack_removeTheory.stack_free_ind \\ rw []
+  \\ once_rewrite_tac [stack_removeTheory.stack_free_def] \\ rw []
+  \\ fs [no_shmemop_def,stack_removeTheory.single_stack_free_def]
+QED
+
+Theorem stack_alloc_no_shmemop[simp]:
+  ∀jump k n. no_shmemop (stack_alloc jump k n)
+Proof
+  recInduct stack_removeTheory.stack_alloc_ind \\ rw []
+  \\ once_rewrite_tac [stack_removeTheory.stack_alloc_def] \\ rw []>>
+  fs [no_shmemop_def,stack_removeTheory.single_stack_alloc_def]>>
+  IF_CASES_TAC >> fs [no_shmemop_def,stack_removeTheory.halt_inst_def]
+QED
+
+Theorem stack_remove_comp_no_shmemop:
+  ∀jump off k p. no_shmemop p ⇒ no_shmemop (comp jump off k p)
+Proof
+  recInduct stack_removeTheory.comp_ind \\ rw []
+  \\ Cases_on `p` \\ fs []
+  \\ once_rewrite_tac [stack_removeTheory.comp_def] \\ fs []
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs [no_shmemop_def])>>
+  fs[no_shmemop_def,stackLangTheory.list_Seq_def]
+  >- fs[no_shmemop_def,stackLangTheory.list_Seq_def,
+        stack_removeTheory.copy_loop_def,
+        stack_removeTheory.copy_each_def]
+  >- fs[stack_removeTheory.stack_store_def,no_shmemop_def]
+  >- fs[stack_removeTheory.stack_load_def,no_shmemop_def]
+QED
+
+Theorem stack_remove_prog_comp_no_shmemop:
+  ∀p. no_shmemop p ⇒ no_shmemop (SND (prog_comp jump off k (n,p)))
+Proof
+  Induct>>fs[stack_removeTheory.prog_comp_def]>>rpt strip_tac>>
+  irule stack_remove_comp_no_shmemop>>fs[]
+QED
+
+Theorem stack_remove_compile_no_shmemop:
+  EVERY (λ(a,p). no_shmemop p) prog ⇒
+  EVERY (λ(a,p). no_shmemop p) (stack_remove_compile jump offset gckind mh sp loc prog)
+Proof
+  rw[stack_removeTheory.compile_def]>-
+   (EVAL_TAC>>every_case_tac>>fs[no_shmemop_def])>>
+  fs[EVERY_MEM]>>rpt strip_tac>>
+  pairarg_tac>>fs[MEM_MAP]>>
+  rpt (pairarg_tac>>fs[])>>
+  last_x_assum $ qspec_then ‘y’ assume_tac>>gvs[]>>
+  rpt (pairarg_tac>>fs[])>>
+  ‘p = SND (prog_comp jump offset sp y)’ by gvs[]>>
+  gvs[]>>
+  irule stack_remove_prog_comp_no_shmemop>>fs[]
+QED
+
+Theorem stack_names_comp_no_shmemop:
+  ∀f p. no_shmemop p ⇒ no_shmemop (stack_names$comp f p)
+Proof
+  recInduct stack_namesTheory.comp_ind \\ rw []
+  \\ Cases_on `p` \\ fs []
+  \\ once_rewrite_tac [stack_namesTheory.comp_def] \\ fs []
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs [no_shmemop_def])
+  >>fs[no_shmemop_def]
+QED
+
+Theorem stack_names_prog_comp_no_shmemop:
+  ∀prog.
+  EVERY (\(a,p). no_shmemop p) prog ⇒
+  EVERY (\(a,p). no_shmemop p) (MAP (prog_comp f) prog)
+Proof
+  Induct>>fs[stack_namesTheory.prog_comp_def]>>rpt strip_tac>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[stack_namesTheory.prog_comp_def]>>gvs[]>>
+  irule stack_names_comp_no_shmemop>>fs[]
+QED
+
+Theorem stack_names_compile_no_shmemop:
+  EVERY (λ(a,p). no_shmemop p) prog ⇒
+  EVERY (λ(a,p). no_shmemop p) (stack_names_compile names prog)
+Proof
+  rw[stack_namesTheory.compile_def]>>
+  irule stack_names_prog_comp_no_shmemop>>fs[]
+QED
+
+Theorem flatten_no_share_mem_inst:
+  ∀t p n m.
+      no_shmemop p ⇒
+      EVERY (λln. ∀op re a inst len. ln ≠ Asm (ShareMem op re a) inst len)
+            (append (FST (flatten t p n m)))
+Proof
+  recInduct flatten_ind>>rw[]>>
+  Cases_on ‘p’>>simp[Once flatten_def]>>fs[no_shmemop_def]>>
+  every_case_tac>>fs[]>>
+  rpt (pairarg_tac>>fs[])>>
+  TRY (Cases_on ‘s’>>fs[compile_jump_def,no_shmemop_def])>>
+  gvs[no_shmemop_def]>>
+  rpt (IF_CASES_TAC>>fs[])
+QED
+
+Theorem asm_fetch_aux_no_share_mem_inst:
+  ∀xs.
+  EVERY (λln. ∀op re a inst len. ln ≠ Asm (ShareMem op re a) inst len) xs ⇒
+  no_share_mem_inst [Section k xs]
+Proof
+  Induct>>rw[no_share_mem_inst_def, asm_fetch_aux_def]>>
+  IF_CASES_TAC>>fs[]>-fs[no_share_mem_inst_def]>>
+  IF_CASES_TAC>>fs[no_share_mem_inst_def]
+QED
+
+Theorem asm_fetch_aux_no_share_mem_inst_CONS:
+  ∀xs.
+  EVERY (λln. ∀op re a inst len. ln ≠ Asm (ShareMem op re a) inst len) xs ∧
+  no_share_mem_inst ls ⇒
+  no_share_mem_inst (Section k xs::ls)
+Proof
+  Induct>>rw[no_share_mem_inst_def, asm_fetch_aux_def]>>
+  IF_CASES_TAC>>fs[]>-fs[no_share_mem_inst_def]>>
+  IF_CASES_TAC>>fs[no_share_mem_inst_def]
+QED
+
+Theorem prog_to_section_no_share_mem_inst:
+  ∀prog. EVERY (λ(a,p). no_shmemop p) prog ⇒
+         no_share_mem_inst (MAP prog_to_section prog)
+Proof
+  Induct>>rw[]>-fs[no_share_mem_inst_def,asm_fetch_aux_def]>>
+  pairarg_tac>>fs[]>>
+  rewrite_tac[prog_to_section_def]>>
+  Cases_on ‘flatten T p a (next_lab p 2)’>>rename1 ‘(lines,r)’>>
+  PairCases_on ‘r’>>fs[]>>
+  ‘EVERY (λln. ∀op re a inst len. ln ≠ Asm (ShareMem op re a) inst len)
+   (append lines)’
+    by (‘lines = FST (flatten T p a (next_lab p 2))’ by gvs[]>>gvs[]>>
+        irule flatten_no_share_mem_inst>>fs[])>>
+  irule asm_fetch_aux_no_share_mem_inst_CONS>>
+  fs[]
+QED
+
 Theorem compile_no_share_mem_inst:
+  ∀prog prog'.
   EVERY (\(a,p). no_shmemop p) prog ∧
   compile stack_conf data_conf max_heap sp offset prog = prog' ==>
   labProps$no_share_mem_inst prog'
 Proof
-  cheat
+  rw[compile_def]>>
+  irule prog_to_section_no_share_mem_inst>>
+  irule stack_names_compile_no_shmemop>>
+  irule stack_remove_compile_no_shmemop>>
+  irule stack_alloc_compile_no_shmemop>>
+  irule stack_rawcall_compile_no_shmemop>>fs[]
+QED
+
+Theorem stack_remove_prog_comp_no_shmemop_MAP:
+  EVERY (\(a,p). no_shmemop p) prog ⇒
+  EVERY (\(a,p). no_shmemop p) (MAP (prog_comp jump offset sp) prog)
+Proof
+  rw[EVERY_MEM]>>
+  pairarg_tac>>fs[MEM_MAP]>>
+  first_x_assum $ qspec_then ‘y’ assume_tac>>gvs[]>>
+  rpt (pairarg_tac>>fs[])>>gvs[]>>
+  ‘p = SND (prog_comp jump offset sp (a'',p''))’ by gvs[]>>
+  gvs[]>>irule stack_remove_prog_comp_no_shmemop>>fs[]
 QED
 
 Theorem compile_no_stubs_no_share_mem_inst:
@@ -4478,7 +4735,11 @@ Theorem compile_no_stubs_no_share_mem_inst:
   compile_no_stubs f jump offset sp prog = prog' ==>
   labProps$no_share_mem_inst prog'
 Proof
-  cheat
+  rw[compile_no_stubs_def]>>
+  irule prog_to_section_no_share_mem_inst>>
+  irule stack_names_compile_no_shmemop>>
+  irule stack_remove_prog_comp_no_shmemop_MAP>>
+  irule stack_alloc_prog_comp_no_shmemop>>fs[]
 QED
 
 val _ = export_theory();
