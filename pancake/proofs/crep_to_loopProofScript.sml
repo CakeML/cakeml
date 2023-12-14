@@ -1978,10 +1978,8 @@ Proof
   fs[wlab_wloc_def]>>
   rveq>>fs[crepSemTheory.set_var_def,set_var_def]>>
   fs [state_rel_def]>>
-  gvs[]>>
-  TRY
-   (rename [‘call_FFI _ "MappedRead" _ _ = _’]>>
-    fs[locals_rel_def]>>rw[]>-
+  gvs[] >>~- ([‘SharedMem MappedRead’],
+   fs[locals_rel_def]>>rw[]>-
      (imp_res_tac compile_exp_out_rel >>
       rveq >>
       drule cut_sets_union_domain_subset >>strip_tac>>

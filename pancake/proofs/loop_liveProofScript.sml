@@ -242,33 +242,6 @@ Proof
   every_case_tac>>fs[]
 QED
 
-Theorem eval_lemma':
-  ∀s exp w l.
-    eval s exp = SOME w ∧
-    subspt s.locals locals ⇒
-    eval (s with locals := locals) exp = SOME w
-Proof
-  ho_match_mp_tac eval_ind \\ rw [] \\ fs [eval_def]
-  >- fs[subspt_lookup]
-  >- (every_case_tac>>fs[mem_load_def])
-  >- (fs [CaseEq"option",CaseEq"word_loc"] \\ rveq
-      \\ goal_assum (first_assum o mp_then Any mp_tac)
-      \\ pop_assum mp_tac
-      \\ pop_assum kall_tac
-      \\ pop_assum mp_tac
-      \\ qid_spec_tac ‘ws’
-      \\ Induct_on ‘wexps’ \\ fs [] \\ rw []>>
-      fs[wordSemTheory.the_words_def]>>
-      every_case_tac>>fs[]
-      >- (first_x_assum $ qspec_then ‘h’ assume_tac>>fs[]>>
-          first_x_assum $ qspec_then ‘Word c’ assume_tac>>fs[])
-      >- (first_x_assum $ qspec_then ‘h’ assume_tac>>fs[]>>
-          first_x_assum $ qspec_then ‘Word c'’ assume_tac>>gvs[])>>
-      first_x_assum $ qspec_then ‘h’ assume_tac>>fs[]>>
-      first_x_assum $ qspec_then ‘Word c’ assume_tac>>fs[])>>
-  every_case_tac>>fs[]
-QED
-
 Theorem eval_lemma:
   ∀s exp w l.
     eval s exp = SOME w ∧

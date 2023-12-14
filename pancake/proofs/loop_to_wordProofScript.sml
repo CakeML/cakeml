@@ -919,7 +919,6 @@ Proof
   rpt strip_tac >>
   fs [loopSemTheory.evaluate_def,
       comp_def, evaluate_def] >>
-  reverse IF_CASES_TAC >- gvs[] >>
   fs [CaseEq "option", CaseEq "word_loc"] >>
   rveq >> fs [] >>
   fs [find_var_def, get_var_def] >>
