@@ -11206,4 +11206,25 @@ Proof
     raise_stub_def,store_consts_stub_def]
 QED
 
+Theorem word_to_stack_comple_no_install:
+  ALL_DISTINCT (MAP FST prog) ∧
+  no_install_code (fromAList prog) ∧
+  word_to_stack$compile ac prog = (bm, c, fs, p) ⇒
+  EVERY (λ(n,x). no_install x) p
+Proof
+  strip_tac>>
+  fs[compile_def]>>
+  pairarg_tac>>fs[]>>
+  gvs[]>>
+  conj_tac >- EVAL_TAC>>
+  conj_tac >- EVAL_TAC>>
+  irule compile_word_to_stack_no_install>>
+  first_assum $ irule_at Any>>
+  fs[wordPropsTheory.no_install_code_def,lookup_fromAList]>>
+  fs[EVERY_MEM]>>rpt strip_tac>>
+  pairarg_tac>>fs[]>>
+  drule_all ALOOKUP_ALL_DISTINCT_MEM>>
+  strip_tac>>res_tac
+QED
+
 val _ = export_theory();
