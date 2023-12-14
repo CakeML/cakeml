@@ -353,12 +353,12 @@ val find_ffi_names_def = Define `
    | _ => find_ffi_names (Section k xs::rest)))`
 
 Definition get_memop_info_def:
-  get_memop_info Load = ("MappedRead", 0w) /\
-  (* get_memop_info Load32 = ("MappedRead",4w) /\ *)
-  get_memop_info Load8 = ("MappedRead",1w) /\
-  get_memop_info Store = ("MappedWrite", 0w) /\
-  (* get_memop_info Store32 = ("MappedWrite",4w) /\ *)
-  get_memop_info Store8 =("MappedWrite",1w)
+  get_memop_info Load = (MappedRead, 0w) /\
+  (* get_memop_info Load32 = (MappedRead,4w) /\ *)
+  get_memop_info Load8 = (MappedRead,1w) /\
+  get_memop_info Store = (MappedWrite, 0w) /\
+  (* get_memop_info Store32 = (MappedWrite,4w) /\ *)
+  get_memop_info Store8 =(MappedWrite,1w)
 End
 
 (* produce a list of ffi_names for shared memory instructions and
@@ -373,7 +373,7 @@ Definition get_shmem_info_def:
   (get_shmem_info (Section k ((Asm (ShareMem m r ad) bytes _)::xs)::rest) pos
   ffi_names shmem_info =
     let (name,nb) = get_memop_info m in
-    get_shmem_info (Section k xs::rest) (pos+LENGTH bytes) (ffi_names ++ [name])
+    get_shmem_info (Section k xs::rest) (pos+LENGTH bytes) (ffi_names ++ [SharedMem name])
       (shmem_info ++ [
         <|entry_pc:=n2w pos
         ; nbytes:=nb
@@ -413,8 +413,7 @@ Definition compile_lab_def:
   compile_lab c sec_list =
     let current_ffis = find_ffi_names sec_list in
     let (ffis,ffis_ok) =
-      case c.ffi_names of SOME ffis => (ffis, list_subset current_ffis ffis /\
-        EVERY (\x. x <> "MappedRead" /\ x <> "MappedWrite") current_ffis) | _ => (current_ffis, T)
+      case c.ffi_names of SOME ffis => (ffis, list_subset current_ffis ffis) | _ => (current_ffis, T)
     in
     if ffis_ok then
       case remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list of
