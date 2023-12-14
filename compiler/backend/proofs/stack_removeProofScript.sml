@@ -3104,6 +3104,7 @@ Theorem init_code_thm:
          init_prop gen_gc max_heap data_sp (get_stack_heap_limit max_heap (read_pointers s))
                    (init_reduce gen_gc jump off k code bitmaps data_sp coracle t) ∧
          s.mdomain = t.mdomain ∧
+         s.sh_mdomain = t.sh_mdomain ∧
          (let t0 = init_reduce gen_gc jump off k code bitmaps data_sp coracle t in
             fun2set (s.memory, t0.mdomain) = fun2set (t.memory, t0.mdomain))
 Proof
