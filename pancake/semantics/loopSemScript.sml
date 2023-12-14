@@ -200,14 +200,14 @@ Definition sh_mem_load_def:
   sh_mem_load v (addr:'a word) nb ^s =
   if nb = 0 then
     (if addr IN s.sh_mdomain then
-       (case call_FFI s.ffi "MappedRead" [n2w nb] (word_to_bytes addr F) of
+       (case call_FFI s.ffi (SharedMem MappedRead) [n2w nb] (word_to_bytes addr F) of
           FFI_final outcome => (SOME (FinalFFI outcome), call_env [] s)
         | FFI_return new_ffi new_bytes =>
             (NONE, (set_var v (Word (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi))
      else (SOME Error, s))
   else
     (if (byte_align addr) IN s.sh_mdomain then
-       (case call_FFI s.ffi "MappedRead" [n2w nb] (word_to_bytes addr F) of
+       (case call_FFI s.ffi (SharedMem MappedRead) [n2w nb] (word_to_bytes addr F) of
           FFI_final outcome => (SOME (FinalFFI outcome), call_env [] s)
         | FFI_return new_ffi new_bytes =>
             (NONE, (set_var v (Word (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)
@@ -221,7 +221,7 @@ Definition sh_mem_store_def:
     SOME (Word w) =>
       (if nb = 0 then
          (if addr IN s.sh_mdomain then
-            (case call_FFI s.ffi "MappedWrite" [n2w nb]
+            (case call_FFI s.ffi (SharedMem MappedWrite) [n2w nb]
                            (word_to_bytes w F
                             ++ word_to_bytes addr F) of
                FFI_final outcome => (SOME (FinalFFI outcome), call_env [] s)
@@ -230,7 +230,7 @@ Definition sh_mem_store_def:
           else (SOME Error, s))
        else
          (if (byte_align addr) IN s.sh_mdomain then
-            (case call_FFI s.ffi "MappedWrite" [n2w nb]
+            (case call_FFI s.ffi (SharedMem MappedWrite) [n2w nb]
                            (TAKE nb (word_to_bytes w F)
                             ++ word_to_bytes addr F) of
                FFI_final outcome => (SOME (FinalFFI outcome), call_env [] s)
@@ -372,8 +372,7 @@ Definition evaluate_def:
                     | res => res)
              | res => res)))) /\
   (evaluate (FFI ffi_index ptr1 len1 ptr2 len2 cutset,s) =
-   if ffi_index ≠ "MappedRead" ∧ ffi_index ≠ "MappedWrite" then
-     (case (lookup len1 s.locals, lookup ptr1 s.locals, lookup len2 s.locals, lookup ptr2 s.locals, cut_state cutset s) of
+     case (lookup len1 s.locals, lookup ptr1 s.locals, lookup len2 s.locals, lookup ptr2 s.locals, cut_state cutset s) of
     | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4),SOME s =>
        (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be),
                read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be))
@@ -387,7 +386,6 @@ Definition evaluate_def:
                                    ffi := new_ffi |>))
           | _ => (SOME Error,s))
     | res => (SOME Error,s))
-     else (SOME Error,s))
 Termination
   WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
                (\(xs,^s). (s.clock,xs)))`
