@@ -947,7 +947,7 @@ Proof
       \\ TRY PURE_CASE_TAC \\ fs[CaseEq"option"]
       \\ rveq \\ fs[] \\ rfs[]
       >- ( first_x_assum drule \\ simp[OPTREL_def] )
-      >- metis_tac[]
+      >- ( first_x_assum drule \\ simp[OPTREL_def] )
       >- metis_tac[])
     >- (
       reverse(fs[fsFFITheory.ffi_close_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[])
@@ -1073,6 +1073,9 @@ Proof
   \\ first_x_assum irule
   \\ fs[fsFFIPropsTheory.inFS_fname_def]
   \\ rw[] \\ PURE_CASE_TAC \\ fs[]
+  >- (
+    first_x_assum drule>>
+    fs[])
   \\ metis_tac[]
 QED
 
