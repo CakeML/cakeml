@@ -1091,7 +1091,7 @@ Definition no_install_def:
     ((case r of SOME (x,_,_) => no_install x | _ => T) /\
     (case h of SOME (x,_,_) => no_install x | _ => T))) /\
   (no_install (Seq p1 p2) = (no_install p1 /\ no_install p2)) /\
-  (no_install (If _ _ _ p1 p2) = (no_install p2 /\ no_install p2)) /\
+  (no_install (If _ _ _ p1 p2) = (no_install p1 /\ no_install p2)) /\
   (no_install (While _ _ _ p) = no_install p) /\
   (no_install (Install _ _ _ _ _) = F) /\
   (no_install _ = T)
