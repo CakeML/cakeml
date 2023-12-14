@@ -443,6 +443,7 @@ Datatype:
     ; inc_pos : num
     ; inc_init_clock : num
     ; inc_ffi_names : ffiname list option
+    ; inc_shmem_extra: 'a shmem_info
     ; inc_hash_size : num
     |>
 End
@@ -461,16 +462,16 @@ Definition config_to_inc_config_def:
   config_to_inc_config (c : 'a config) = <|
     inc_labels := c.labels; inc_sec_pos_len := c.sec_pos_len;
     inc_pos := c.pos; inc_init_clock := c.init_clock;
-    inc_ffi_names := c.ffi_names;
+    inc_ffi_names := c.ffi_names; inc_shmem_extra := c.shmem_extra;
     inc_hash_size := c.hash_size;
   |>
 End
 
 Definition inc_config_to_config_def:
-  inc_config_to_config (asm : 'a asm_config) (info: 'a shmem_info) (c : inc_config) = <|
+  inc_config_to_config (asm : 'a asm_config) (c : 'a inc_config) = <|
     labels := c.inc_labels; sec_pos_len := c.inc_sec_pos_len;
     pos := c.inc_pos; asm_conf := asm; init_clock := c.inc_init_clock;
-    ffi_names := c.inc_ffi_names; shmem_extra := info;
+    ffi_names := c.inc_ffi_names; shmem_extra := c.inc_shmem_extra;
     hash_size := c.inc_hash_size;
   |>
 End
