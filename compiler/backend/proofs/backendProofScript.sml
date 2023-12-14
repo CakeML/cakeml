@@ -401,7 +401,7 @@ val cake_orac_config_inv_f =
         known_static_conf cc.known_conf, cc.do_mti, bc.inline_size_limit,
         bc.split_main_at_seq, bc.exp_cut, mc))
     o (\c. (c.source_conf, c.clos_conf, c.bvl_conf, c.data_conf,
-        c.word_to_word_conf.reg_alg, c.stack_conf, c.lab_conf.asm_conf))``
+            c.word_to_word_conf.reg_alg, c.stack_conf, c.lab_conf.asm_conf))``
 
 val cake_orac_config_tuple_eq_step = ISPEC cake_orac_config_inv_f cake_configs_eq
   |> SIMP_RULE std_ss []
@@ -2563,7 +2563,7 @@ End
 
 Definition opt_eval_config_wf_def:
   opt_eval_config_wf c' (SOME ci) = (
-    ci.compiler_fun = compile_inc_progs_for_eval c'.lab_conf.asm_conf /\
+    ci.compiler_fun = compile_inc_progs_for_eval c'.lab_conf.asm_conf c'.lab_conf.shmem_extra /\
     INJ ci.config_v UNIV UNIV /\ ci.init_state = config_to_inc_config c') /\
   opt_eval_config_wf c' NONE = T
 End
@@ -2726,7 +2726,7 @@ Proof
   \\ fs [compile_inc_progs_for_eval_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
-  \\ qpat_x_assum `compile_inc_progs _ (inc_config_to_config _ _) _ = _` mp_tac
+  \\ qpat_x_assum `compile_inc_progs _ (inc_config_to_config _ _ _) _ = _` mp_tac
   \\ dep_rewrite.DEP_REWRITE_TAC [inc_config_to_config_inv]
   \\ simp []
   \\ fs [cake_orac_def]
