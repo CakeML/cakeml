@@ -631,7 +631,7 @@ Definition config_to_inc_config_def:
 End
 
 Definition inc_config_to_config_def:
-  inc_config_to_config asm_c c =
+  inc_config_to_config asm_c info c =
   <| source_conf := c.inc_source_conf
    ; clos_conf := c.inc_clos_conf
    ; bvl_conf := c.inc_bvl_conf
@@ -639,7 +639,7 @@ Definition inc_config_to_config_def:
    ; word_to_word_conf := c.inc_word_to_word_conf
    ; word_conf := c.inc_word_conf
    ; stack_conf := c.inc_stack_conf
-   ; lab_conf := lab_to_target$inc_config_to_config asm_c c.inc_lab_conf
+   ; lab_conf := lab_to_target$inc_config_to_config asm_c info c.inc_lab_conf
    ; symbols := c.inc_symbols
    ; tap_conf := c.inc_tap_conf
    |>
@@ -648,11 +648,9 @@ End
 val components = theorem "config_component_equality"
 
 Theorem inc_config_to_config_inv:
-  asm_c = c.lab_conf.asm_conf ==>
-  inc_config_to_config asm_c (config_to_inc_config c) =
-    c with
-      lab_conf := c.lab_conf with
-        shmem_extra := []
+  asm_c = c.lab_conf.asm_conf ∧
+  info_c = c.lab_conf.shmem_extra ==>
+  inc_config_to_config asm_c info_c (config_to_inc_config c) = c
 Proof
   simp [config_to_inc_config_def, inc_config_to_config_def, components]
   \\ simp [lab_to_targetTheory.config_to_inc_config_def,
@@ -663,7 +661,7 @@ QED
 val inc_components = theorem "inc_config_component_equality"
 
 Theorem config_to_inc_config_inv:
-  config_to_inc_config (inc_config_to_config asm_c c) = c
+  config_to_inc_config (inc_config_to_config asm_c info_c c) = c
 Proof
   simp [config_to_inc_config_def, inc_config_to_config_def, inc_components]
   \\ simp [lab_to_targetTheory.config_to_inc_config_def,
@@ -676,9 +674,9 @@ val upper_w2w_def = Define `
     if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64`;
 
 Definition compile_inc_progs_for_eval_def:
-  compile_inc_progs_for_eval asm_c x =
+  compile_inc_progs_for_eval asm_c info_c x =
   let (env_id, inc_c', decs) = x in
-  let c' = inc_config_to_config asm_c inc_c' in
+  let c' = inc_config_to_config asm_c info_c inc_c' in
   let (c'', ps) = compile_inc_progs T c' (env_id, decs) in
     OPTION_MAP (\(bs, ws). (config_to_inc_config c'', bs, MAP upper_w2w ws))
         ps.target_prog
@@ -718,8 +716,8 @@ Proof
 QED
 
 Theorem compile_inc_progs_for_eval_eq:
-  compile_inc_progs_for_eval asm_c' (env_id,inc_c,p) =
-    let c = inc_config_to_config asm_c' inc_c in
+  compile_inc_progs_for_eval asm_c' info_c' (env_id,inc_c,p) =
+    let c = inc_config_to_config asm_c' info_c' inc_c in
     let p = source_to_source$compile p in
     let (c',p) = source_to_flat$inc_compile env_id c.source_conf p in
     let _ = empty_ffi (strlit "finished: source_to_flat") in
@@ -734,7 +732,6 @@ Theorem compile_inc_progs_for_eval_eq:
     let c = c with <| bvl_conf := c' |> in
     let p = bvi_to_data_compile_prog p in
     let _ = empty_ffi (strlit "finished: bvi_to_data") in
-    let asm_c = c.lab_conf.asm_conf in
     let dc = ensure_fp_conf_ok asm_c' c.data_conf in
     let p = MAP (compile_part dc) p in
     let reg_count1 = asm_c'.reg_count - (5 + LENGTH asm_c'.avoid_regs) in
@@ -758,7 +755,7 @@ Theorem compile_inc_progs_for_eval_eq:
       OPTION_MAP (λx. (config_to_inc_config c,FST x,MAP upper_w2w cur_bm)) target
 Proof
   fs [compile_inc_progs_for_eval_def,compile_inc_progs_def, full_compile_single_for_eval_eq]
-  \\ rpt (pairarg_tac \\ gvs [EVAL “(inc_config_to_config asm_c' inc_c).lab_conf.asm_conf”])
+  \\ rpt (pairarg_tac \\ gvs [EVAL “(inc_config_to_config asm_c' info_c' inc_c).lab_conf.asm_conf”])
   \\ fs [optionTheory.OPTION_MAP_COMPOSE]
   \\ AP_THM_TAC
   \\ AP_TERM_TAC
