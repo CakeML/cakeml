@@ -665,7 +665,7 @@ Definition share_mem_domain_code_rel_def:
           find_index (p + n2w (pos_val pc 0 code2)) mc_conf.ffi_entry_pcs 0 =
             SOME index /\
           (let (name, nb) = get_memop_info op in
-            EL index mc_conf.ffi_names = name /\
+            EL index mc_conf.ffi_names = SharedMem name /\
             mc_conf.mmio_info index =
               (nb, a, re, p + n2w (pos_val pc 0 code2 + len))))) /\
      (* if the bytes of the instruction intersect with the ffi_entry_pcs,
@@ -696,12 +696,12 @@ Definition share_mem_state_rel_def:
       target_state_rel mc_conf.target
         (t1 with pc := EL index mc_conf.ffi_entry_pcs) ms2 ==>
         (* If we are doing mapped read, and addresses are fine *)
-        (EL index mc_conf.ffi_names = "MappedRead" /\
+        (EL index mc_conf.ffi_names = SharedMem MappedRead /\
          (if nb = 0w then (w2n ad' MOD (dimindex (:'a) DIV 8)) = 0
           else T) /\ (ad' IN mc_conf.shared_addresses) /\
          is_valid_mapped_read (mc_conf.target.get_pc ms2) nb (Addr ad offs) re pc'
            mc_conf.target ms2 mc_conf.prog_addresses /\
-         call_FFI st "MappedRead"
+         call_FFI st (SharedMem MappedRead)
            [nb]
            (word_to_bytes ad' F) =
            FFI_return new_st new_bytes ==>
@@ -712,12 +712,12 @@ Definition share_mem_state_rel_def:
                    (word_of_bytes F 0w new_bytes) else t1.regs n)|>)
               (mc_conf.ffi_interfer k (index,new_bytes,ms2))) /\
         (* If we are doing mapped write, and the addresses are fine *)
-        (EL index mc_conf.ffi_names = "MappedWrite" /\
+        (EL index mc_conf.ffi_names = SharedMem MappedWrite /\
          (if nb = 0w then (w2n ad' MOD (dimindex (:'a) DIV 8)) = 0
           else T) /\ (ad' IN mc_conf.shared_addresses) /\
           is_valid_mapped_write (mc_conf.target.get_pc ms2) nb (Addr ad offs) re pc'
             mc_conf.target ms2 mc_conf.prog_addresses /\
-         call_FFI st "MappedWrite"
+         call_FFI st (SharedMem MappedWrite)
           [nb]
           ((let w = mc_conf.target.get_reg ms2 re in
               if nb = 0w then word_to_bytes w F
@@ -738,7 +738,7 @@ End
 Definition no_install_or_no_share_mem_def:
   no_install_or_no_share_mem code ffi_names <=>
    (no_share_mem_inst code /\
-    EVERY (\x. x <> "MappedRead" /\ x <> "MappedWrite") ffi_names) \/
+    EVERY (\x. ∃s. x = ExtCall s) ffi_names) \/
     no_install code
 End
 
@@ -804,8 +804,7 @@ val state_rel_def = Define `
        (lab_lookup l1 l2 labs = SOME x) ==> EVEN x) /\
     ((1w && p) = 0w) /\
     (list_subset
-      (FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite") $
-        find_ffi_names s1.code)
+      (FILTER (λx. ∃s. x = ExtCall s) $ find_ffi_names s1.code)
       mc_conf.ffi_names) ∧
     (* this is possibly already implied *)
     EVEN (LENGTH (prog_to_bytes code2)) ∧
@@ -814,11 +813,12 @@ val state_rel_def = Define `
         MEM name mc_conf.ffi_names /\
         mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
         get_ffi_index mc_conf.ffi_names name < i ==>
-       ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names (ExtCall name)) * ffi_offset) IN mc_conf.prog_addresses) /\
-       ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names (ExtCall name)) * ffi_offset) = mc_conf.halt_pc) /\
-       ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names (ExtCall name)) * ffi_offset) = mc_conf.ccache_pc) /\
-       (find_index (p - n2w ((3 + get_ffi_index mc_conf.ffi_names (ExtCall name)) * ffi_offset))
-                   mc_conf.ffi_entry_pcs 0 = SOME (get_ffi_index mc_conf.ffi_names (ExtCall name)))) /\
+        (∃s. name = ExtCall s) ∧
+       ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset) IN mc_conf.prog_addresses) /\
+       ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset) = mc_conf.halt_pc) /\
+       ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset) = mc_conf.ccache_pc) /\
+       (find_index (p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset))
+                   mc_conf.ffi_entry_pcs 0 = SOME (get_ffi_index mc_conf.ffi_names name))) /\
     (* Halt/ClearCache are at the right positions *)
     (p - n2w ffi_offset = mc_conf.halt_pc) /\
     (p - n2w (2*ffi_offset) = mc_conf.ccache_pc) /\
@@ -5885,14 +5885,14 @@ Proof
 QED
 
 Theorem FILTER_mmio_pcs_min_index:
-  EVERY (\x. x = "MappedRead" \/ x = "MappedWrite") l ==>
+  EVERY (\x. ∃op. x = SharedMem op) l ==>
   mmio_pcs_min_index
-    (FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite") ffis ++ l) =
+    (FILTER (λx. ∃s. x = ExtCall s) ffis ++ l) =
   SOME $ LENGTH $
-    FILTER (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite") ffis
+    FILTER (λx. ∃s. x = ExtCall s) ffis
 Proof
   rpt strip_tac >>
-  qpat_abbrev_tac `P = λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite"` >>
+  qpat_abbrev_tac `P = λx. ∃s. x = ExtCall s` >>
   fs[mmio_pcs_min_index_def] >>
   gvs[some_def] >>
   SELECT_ELIM_TAC >>
@@ -5905,18 +5905,17 @@ Proof
     >- (
       first_x_assum $ qspec_then `x`assume_tac >>
       gvs[EL_APPEND_EQN,EVERY_EL] >>
-      qspecl_then [`P`,`P`, `ffis`]
-        assume_tac EVERY_FILTER >>
-      gvs[EVERY_EL,Abbr`P`]
+      qspecl_then [`P`,`P`, `ffis`] assume_tac EVERY_FILTER >>
+      gvs[EVERY_EL,Abbr`P`]>>
+      first_x_assum $ qspec_then `x`assume_tac >>gvs[]
     ) >>
     `LENGTH (FILTER P ffis) < x` by gvs[] >>
     gvs[] >>
     last_x_assum drule >>
     first_x_assum drule >>
     gvs[EVERY_EL,EL_APPEND_EQN,Abbr`P`] >>
-    PURE_REWRITE_TAC[GSYM $ cj 1 EL_restricted] >>
-    last_x_assum irule >>
-    simp[]
+    Cases_on ‘LENGTH l’>>fs[]>>
+    last_x_assum $ qspec_then ‘0’ assume_tac>>fs[]
   ) >> (
    qexists_tac `LENGTH $ FILTER P ffis` >>
    gvs[] >>
@@ -6410,8 +6409,7 @@ val share_mem_eval_expand_tac =
   );
 
 Theorem ffi_name_NOT_Mapped:
-  mmio_pcs_min_index ffi_names = SOME i /\
-  s <> "MappedRead" /\ s <> "MappedWrite" /\
+  mmio_pcs_min_index ffi_names = SOME i /\ (∃str. s = ExtCall str) ∧
   MEM s ffi_names ==>
   get_ffi_index ffi_names s < i
 Proof
@@ -6430,8 +6428,8 @@ Proof
   first_x_assum $ qspec_then `0` assume_tac >>
   rw[] >>
   gvs[backendPropsTheory.the_eqn] >>
-  `x' <= i` by decide_tac >>
-  res_tac
+  spose_not_then assume_tac>>fs[NOT_LESS]>>
+  first_x_assum $ qspec_then `i` assume_tac >>gvs[]
 QED
 
 Theorem mmio_pcs_min_index_is_SOME:
@@ -6439,9 +6437,9 @@ Theorem mmio_pcs_min_index_is_SOME:
   mmio_pcs_min_index ffi_names = SOME i ==>
   i <= LENGTH ffi_names /\
   (∀j. j < i ⇒
-    EL j ffi_names ≠ "MappedRead" ∧ EL j ffi_names ≠ "MappedWrite") ∧
+    (∃s. EL j ffi_names = ExtCall s)) ∧
    (∀j. i ≤ j ∧ j < LENGTH ffi_names ⇒
-     EL j ffi_names = "MappedRead" ∨ EL j ffi_names = "MappedWrite")
+     (∃op. EL j ffi_names = SharedMem op))
 Proof
   ntac 2 strip_tac >>
   gvs[mmio_pcs_min_index_def,some_def] >>
@@ -6461,8 +6459,9 @@ Proof
   drule mmio_pcs_min_index_is_SOME >>
   rpt strip_tac >>
   gvs[no_install_or_no_share_mem_def,no_install_def,no_share_mem_inst_def,EVERY_EL] >>
+  spose_not_then assume_tac>>fs[LESS_OR_EQ]>>
   first_x_assum $ qspec_then `i` assume_tac >>
-  gvs[]
+  first_x_assum $ qspec_then `i` assume_tac >>gvs[]
 QED
 
 Theorem asm_fetch_aux_APPEND1:
@@ -6529,7 +6528,7 @@ Theorem get_shmem_info_MappedRead_or_MappedWrite:
   get_shmem_info sec pos ffi_names info =
     (new_ffi_names,new_info) ==>
   ?l. new_ffi_names = ffi_names ++ l /\
-    EVERY (\x. x = "MappedRead" \/ x = "MappedWrite") l
+    EVERY (\x. ∃op. x = SharedMem op) l
 Proof
   ho_match_mp_tac get_shmem_info_ind >>
   rpt strip_tac >>
@@ -7396,21 +7395,26 @@ Proof
            SOME (get_ffi_index mc_conf.ffi_names (ExtCall s))) /\
         get_ffi_index mc_conf.ffi_names (ExtCall s) = get_ffi_index ffi_names (ExtCall s)` by (
        full_simp_tac(srw_ss())[state_rel_def]>>
-       first_x_assum $ qspecl_then [`s`, `i`] drule >>
+       first_x_assum $ qspecl_then [`ExtCall s`, `i`] drule >>
        gvs[] >>
-       impl_tac
+       impl_keep_tac
        >- (irule ffi_name_NOT_Mapped >> fs[]) >>
-       `get_ffi_index mc_conf.ffi_names s = get_ffi_index ffi_names s`
+       `get_ffi_index mc_conf.ffi_names (ExtCall s) = get_ffi_index ffi_names (ExtCall s)`
          suffices_by gvs[] >>
        gvs[get_ffi_index_def,backendPropsTheory.the_eqn] >>
-       imp_res_tac find_index_MEM >>
-       ntac 2 (first_x_assum $ qspec_then `0` assume_tac) >>
        gvs[Abbr`ffi_names`] >>
-       drule find_index_APPEND_same >>
-       disch_then $ qspec_then `DROP i mc_conf.ffi_names` assume_tac >>
-       gvs[]
-    )
-    \\ `EL (get_ffi_index mc_conf.ffi_names s) mc_conf.ffi_names = s` by (
+       imp_res_tac find_index_MEM >>
+       first_x_assum $ qspec_then `0` assume_tac >>fs[]>>
+       fs[CaseEq"option"]>>irule OR_INTRO_THM2>>
+       Cases_on ‘i ≤ LENGTH mc_conf.ffi_names’>>fs[]>-
+        (
+        drule LENGTH_TAKE>>strip_tac>>
+        irule find_index_APPEND1>>fs[]>>
+        qexists_tac `DROP i mc_conf.ffi_names` >>
+        fs[TAKE_DROP])>>
+       fs[NOT_LESS_EQUAL,TAKE_LENGTH_TOO_LONG])
+
+    \\ `EL (get_ffi_index mc_conf.ffi_names (ExtCall s)) mc_conf.ffi_names = (ExtCall s)` by (
       irule EL_get_ffi_index_MEM >> simp[]
     )
     \\ `(mc_conf.target.get_reg ms2 mc_conf.ptr_reg = t1.regs mc_conf.ptr_reg) /\
@@ -7521,19 +7525,16 @@ Proof
         \\ imp_res_tac evaluatePropsTheory.call_FFI_LENGTH \\ full_simp_tac(srw_ss())[])
       \\ qmatch_goalsub_abbrev_tac`mc_conf.ffi_interfer _ (index,_,_)`
       \\ `index < i` by (
-        simp[Abbr`index`,get_ffi_index_def]
-        \\ imp_res_tac find_index_MEM
-        \\ ntac 2 $ first_x_assum(qspec_then`0`mp_tac)
-        \\ simp[] \\ rpt strip_tac \\ fs[]
-        \\ simp[libTheory.the_def]
-        \\ `LENGTH (TAKE i mc_conf.ffi_names) = i` suffices_by simp[]
-        \\ irule LENGTH_TAKE
-        \\ drule mmio_pcs_min_index_is_SOME
-        \\ simp[]
+        imp_res_tac mmio_pcs_min_index_is_SOME>>gvs[]>>
+        simp[get_ffi_index_def,backendPropsTheory.the_eqn] >>
+       imp_res_tac find_index_MEM >>
+        first_x_assum $ qspec_then `0` assume_tac >>fs[]>>
+        Cases_on ‘i' < i’>>fs[NOT_LESS]>>
+        first_x_assum $ qspec_then `i'` assume_tac >>gvs[]
       )
       \\ `index < LENGTH mc_conf.ffi_names` by (
         drule mmio_pcs_min_index_is_SOME >> gvs[]
-      )
+        )
       \\ qunabbrev_tac`index`
       \\ conj_tac
       THEN1
@@ -8341,7 +8342,7 @@ Definition line_to_info_def:
   line_to_info (secs: 'a sec list) p x = case SND x of
     SOME (Asm (ShareMem m r ad) bytes l) =>
       let (name,nb) = get_memop_info m in
-      [(name,
+      [(SharedMem name,
        <|entry_pc := n2w (pos_val (FST x) p secs)
         ;nbytes:=nb
         ;access_addr:=ad
@@ -8446,39 +8447,44 @@ Proof
   gvs[MEM_FILTER]
 QED
 
+Theorem Sh_not_Ext:
+  (∃s. x = SharedMem s) ⇔ (∀s. x ≠ ExtCall s)
+Proof
+  Cases_on ‘x’>>gvs[]
+QED
+
+Theorem not_Sh_Ext:
+  (∀s. x ≠ SharedMem s) ⇔ (∃s. x = ExtCall s)
+Proof
+  Cases_on ‘x’>>gvs[]
+QED
+
 Theorem mmio_pcs_min_index_APPEND_thm:
-  EVERY (\x. x = "MappedRead" \/ x = "MappedWrite") l /\
-  ~MEM "MappedRead" ffis /\ ~MEM "MappedWrite" ffis ==>
+  EVERY (λx. ∀s. x ≠ ExtCall s) l ∧
+  EVERY (λx. ∃s. x = ExtCall s) ffis ⇒
   mmio_pcs_min_index (ffis ++ l) = SOME $ LENGTH ffis
 Proof
   rpt strip_tac >>
   fs[mmio_pcs_min_index_def] >>
-  gvs[some_def] >>
+  gvs[some_def,Sh_not_Ext] >>
   SELECT_ELIM_TAC >>
   rw[]
   >~ [ `x = LENGTH _`]
   >- (
     spose_not_then assume_tac >>
-    Cases_on `x < LENGTH ffis`>>
-    gvs[]
+    Cases_on `x < LENGTH ffis` >>
+    gvs[EL_APPEND_EQN,EVERY_EL]
     >- (
-      first_x_assum $ qspec_then `x`assume_tac >>
-      gvs[EL_APPEND_EQN,EVERY_EL,MEM_EL]
+    first_x_assum $ qspec_then `x`assume_tac >>gvs[]>>res_tac>>metis_tac[]
     ) >>
-    `LENGTH ffis < x` by gvs[] >>
-    gvs[] >>
-    last_x_assum $ qspec_then `LENGTH ffis` assume_tac >>
-    first_x_assum drule >>
-    gvs[EVERY_EL,EL_APPEND_EQN] >>
-    first_x_assum $ qspec_then `0` assume_tac >>
+    imp_res_tac LESS_CASES_IMP>>
+    qpat_x_assum ‘∀j. j < x => _’ $ qspec_then `LENGTH ffis` assume_tac >>
+    gvs[]>>
+    last_x_assum $ qspec_then `0` assume_tac >>
     gvs[EL]
-  ) >> (
+  ) >>
     qexists_tac `LENGTH ffis` >>
-    gvs[EL_APPEND_EQN,EVERY_EL,MEM_EL,EL_MEM] >>
-    rpt strip_tac >>
-    first_x_assum $ assume_tac o GSYM >>
-    res_tac
-  )
+    gvs[EL_APPEND_EQN,EVERY_EL,MEM_EL,EL_MEM]
 QED
 
 Theorem MEM_get_shmem_info:
@@ -8486,7 +8492,7 @@ Theorem MEM_get_shmem_info:
   asm_fetch_aux pc code2 = SOME (Asm (ShareMem op re a) inst' len) /\
   get_memop_info op = (q,r:word8) ==>
   MEM
-    (q,
+    (SharedMem q,
     <|entry_pc:=n2w (pos_val pc p code2)
       ;nbytes:=r
       ;access_addr:=a
@@ -8605,15 +8611,14 @@ QED
 
 Theorem mmio_pcs_min_index_get_shmem_info_ok:
   all_enc_ok c labs ffis' p' (code2: 'a sec list) /\
-  enc_ok c /\
-  ~MEM "MappedRead" ffis /\ ~MEM "MappedWrite" ffis /\
+  enc_ok c /\ EVERY (λx. ∃s. x = ExtCall s) ffis ∧
   get_shmem_info code2 p ffis [] = (new_ffi_names, new_shmem_info) ==>
   mmio_pcs_min_index new_ffi_names = SOME $ LENGTH ffis
 Proof
   rpt strip_tac >>
   drule get_shmem_info_PREPEND >>
   drule_then assume_tac get_shmem_info_MappedRead_or_MappedWrite >>
-  gvs[] >>
+  gvs[Sh_not_Ext] >>
   rpt strip_tac >>
   drule_then assume_tac mmio_pcs_min_index_APPEND_thm >>
   gvs[]
@@ -8623,7 +8628,7 @@ Theorem get_shmem_info_ok_lemma:
   all_enc_ok c labs ffis' p' (code2: 'a sec list) /\
   enc_ok c /\
   LENGTH (prog_to_bytes code2) < dimword (:'a) /\
-  ~MEM "MappedRead" ffis /\ ~MEM "MappedWrite" ffis /\
+  EVERY (λx. ∃s. x = ExtCall s) ffis ∧
   get_shmem_info code2 p ffis [] = (new_ffi_names, new_shmem_info)
   ==>
   (!pc op re a inst len i.
@@ -8633,7 +8638,7 @@ Theorem get_shmem_info_ok_lemma:
       find_index (n2w p + n2w (pos_val pc 0 code2)) (MAP (\rec. rec.entry_pc) new_shmem_info) 0 =
         SOME index /\
       (let (name, nb) = get_memop_info op in
-        EL (index+i) new_ffi_names = name /\
+        EL (index+i) new_ffi_names = SharedMem name /\
         EL index new_shmem_info =
           <|entry_pc := (EL index new_shmem_info).entry_pc
            ;nbytes := nb
@@ -8833,7 +8838,7 @@ val IMP_state_rel_make_init = Q.prove(
    mc_conf_ok mc_conf ∧
    (no_share_mem_inst code ==>
      compiler_oracle_ok coracle labs (LENGTH (prog_to_bytes code2)) mc_conf.target.config mc_conf.ffi_names) ∧
-   list_subset (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") $
+   list_subset (FILTER (\x. ∃s. x= ExtCall s) $
       find_ffi_names code) $ TAKE i mc_conf.ffi_names ∧
    remove_labels clock mc_conf.target.config 0 LN (TAKE i mc_conf.ffi_names) code =
       SOME (code2,labs) /\
@@ -8901,6 +8906,12 @@ val IMP_state_rel_make_init = Q.prove(
   \\ conj_tac >- metis_tac[list_subset_TAKE,list_subset_trans]
   \\ conj_tac >- metis_tac[EVEN,all_enc_ok_prog_to_bytes_EVEN]
   \\ conj_tac >- (
+        imp_res_tac mmio_pcs_min_index_is_SOME>>
+        rpt strip_tac>>fs[]>>
+        fs[get_ffi_index_def,backendPropsTheory.the_eqn]>>
+        imp_res_tac find_index_MEM>>
+        first_x_assum $ qspecl_then [‘0’] assume_tac>>gvs[])
+  \\ conj_tac >- (
     simp[word_loc_val_byte_def,case_eq_thms]
     \\ metis_tac[SUBSET_DEF,word_loc_val_def] )
   \\ conj_tac >- metis_tac[word_add_n2w]
@@ -8962,7 +8973,7 @@ val IMP_state_rel_make_init = Q.prove(
   >- (
     drule mmio_pcs_min_index_is_SOME >>
     strip_tac >>
-    reverse $ rw[MEM_EL]
+    reverse $ rw[EVERY_EL]
    >- (
       qpat_abbrev_tac `info = get_shmem_info _ _ _ _` >>
       first_x_assum $ assume_tac o GSYM o ONCE_REWRITE_RULE[markerTheory.Abbrev_def] >>
@@ -8976,9 +8987,8 @@ val IMP_state_rel_make_init = Q.prove(
       gvs[markerTheory.Abbrev_def] >>
       metis_tac[TAKE_DROP] ) >>
     first_x_assum $ mp_tac o GSYM >>
-    spose_not_then assume_tac >>
-    fs[] >>
-    qpat_x_assum`EL _ (TAKE i mc_conf.ffi_names) = _` $ mp_tac >>
+    spose_not_then assume_tac >>fs[]>>
+    qpat_x_assum`∀s. EL _ (TAKE i mc_conf.ffi_names) ≠ _` $ mp_tac >>
     fs[EL_TAKE]
   )
   \\ rw[]
@@ -9255,6 +9265,7 @@ Proof
   metis_tac[]
 QED
 
+
 Theorem all_pc_adjust_pc:
 !code p.
   p < num_pcs (filter_skip code) ==>
@@ -9353,7 +9364,7 @@ Proof
   gvs[] >>
   metis_tac[asm_fetch_aux_eq]
 QED
-
+(*
 Theorem no_share_mem_inst_APPEND_IMP:
   no_share_mem_inst (l ++ sec_list) ==>
   no_share_mem_inst l /\ no_share_mem_inst sec_list
@@ -9374,7 +9385,7 @@ Proof
   irule_at (Pos last) asm_fetch_aux_APPEND2 >>
   metis_tac[]
 QED
-
+*)
 Theorem asm_fetch_aux_MEM:
   MEM x l /\ ~(is_Label x) ==>
   ?p. asm_fetch_aux p [Section n l] = SOME x
@@ -9392,7 +9403,7 @@ Proof
   qexists `p+1` >>
   simp[]
 QED
-
+(*
 Theorem no_share_mem_inst_EVERY:
   no_share_mem_inst sec_list =
   EVERY (
@@ -9547,47 +9558,37 @@ Proof
   first_x_assum irule >>
   drule_all_then irule enc_secs_again_no_share_mem_inst
 QED
+*)
+Theorem find_ffi_names_EVERY:
+  ∀code ls. find_ffi_names code = ls ⇒ EVERY (λx. ∃s. x = ExtCall s) ls
+Proof
+  recInduct find_ffi_names_ind>>
+  rw[list_add_if_fresh_thm,find_ffi_names_def]>>fs[]>>
+  CASE_TAC>>fs[]>>
+  CASE_TAC>>fs[EVERY_MEM]>>
+  IF_CASES_TAC>>fs[]>>
+  rpt strip_tac>>fs[]
+QED
 
+(*
 Theorem compile_lab_IMP_mmio_pcs_min_index:
   compile_lab c sec_list = SOME (bytes,c') /\ 
-  (case OPTION_MAP
-    (EVERY $ \x. x <> "MappedRead" /\ x <> "MappedWrite") c.ffi_names of
-  | SOME y => y
-  | _ =>  T) ==>
+  the T (OPTION_MAP (EVERY $ \x. ∃s. x = ExtCall s) c.ffi_names) ==>
   ?ffi_names. c'.ffi_names = SOME ffi_names /\
     ?x. mmio_pcs_min_index ffi_names = SOME x
 Proof
   simp[compile_lab_def] >>
-  pairarg_tac >>
-  fs[] >>
+  pairarg_tac >>fs[]>>
   pop_assum $ mp_tac o SRULE[AllCaseEqs()] >>
   rpt strip_tac >>
-  fs[] >>
-  pop_assum mp_tac >>
-  pop_assum mp_tac >>
-  ntac 3 TOP_CASE_TAC >>
-  pairarg_tac >>
-  simp[] >>
-  disch_then (mp_tac o GSYM) >>
-  rpt strip_tac >>
-  simp[]
-  >- (
-    qpat_x_assum `FILTER _ _ = _` $ assume_tac o GSYM >>
-    simp[] >>
-    irule_at (Pos hd) FILTER_mmio_pcs_min_index >>
-    drule get_shmem_info_MappedRead_or_MappedWrite >>
-    simp[]
-  ) >>
-  fs[DefnBase.one_line_ify NONE OPTION_MAP_DEF] >>
-  drule get_shmem_info_MappedRead_or_MappedWrite >>
-  rw[] >>
-  drule FILTER_mmio_pcs_min_index >>
-  strip_tac >>
-  irule_at (Pos hd) EQ_TRANS >>
-  first_x_assum $ irule_at (Pos last) >>
-  AP_TERM_TAC >>
-  gvs[] >>
-  drule_then (irule o GSYM) $ iffRL FILTER_EQ_ID
+  gvs[DefnBase.one_line_ify NONE OPTION_MAP_DEF,
+      OPTION_MAP_DEF,backendPropsTheory.the_eqn,CaseEq"option"] >>
+  FULL_CASE_TAC>>fs[] >>
+  pairarg_tac>>gvs[]>>
+  drule get_shmem_info_MappedRead_or_MappedWrite>>strip_tac>>
+  fs[]>>
+  irule_at Any mmio_pcs_min_index_APPEND_thm>>fs[Sh_not_Ext]>>
+  irule find_ffi_names_EVERY>>metis_tac[]
 QED
 
 Theorem compile_lab_no_share_mem_IMP_mmio_pcs_min_index:
@@ -9682,6 +9683,7 @@ Proof
     gvs[]) >>
   metis_tac[]
 QED
+*)
 
 val semantics_compile_lemma = Q.prove(
   ` mc_conf_ok mc_conf ∧
@@ -9708,8 +9710,7 @@ val semantics_compile_lemma = Q.prove(
     (* to avoid the ffi_entry_pc wraps around and overlaps with the program or code buffer *)
     cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a) /\
     (* the original ffi names provided does not contain MappedRead or MappedWrite *)
-    (!ffis. c.ffi_names = SOME ffis ==>
-      ~MEM "MappedRead" ffis /\ ~MEM "MappedWrite" ffis ) /\
+    (!ffis. c.ffi_names = SOME ffis ==> EVERY (λx. ∃s. x = ExtCall s) ffis) /\
     semantics (make_init mc_conf ffi io_regs cc_regs t m dm sdm ms code
       lab_to_target$compile (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
       coracle
@@ -9766,26 +9767,34 @@ val semantics_compile_lemma = Q.prove(
     >- (
       gvs[] >>
       drule get_shmem_info_MappedRead_or_MappedWrite >>
-      simp[] >>
+      simp[Sh_not_Ext] >>
       strip_tac >>
       drule $ GEN_ALL mmio_pcs_min_index_APPEND_thm >>
       qmatch_assum_abbrev_tac`mmio_pcs_min_index (ffi' ++ _) = SOME _` >>
-      disch_then $ qspec_then `ffi'` assume_tac >>
-      gvs[Abbr`ffi'`,FILTER_NOT_MEM_Mapped]
+      disch_then $ qspec_then ‘ffi'’ mp_tac>>impl_tac >-
+       (irule find_ffi_names_EVERY>> gvs[Abbr`ffi'`]>>metis_tac[])>>
+      strip_tac>>fs[]
     ) >>
-    gvs[] >>
-    drule_at_then Any (drule_at Any) mmio_pcs_min_index_APPEND_thm >>
-    drule get_shmem_info_MappedRead_or_MappedWrite >>
-    simp[] >>
-    strip_tac >>
-    disch_then drule >>
-    gvs[]
+      gvs[] >>
+      drule get_shmem_info_MappedRead_or_MappedWrite >>
+      simp[Sh_not_Ext] >>
+      strip_tac >>
+      drule $ GEN_ALL mmio_pcs_min_index_APPEND_thm >>
+      disch_then $ qspec_then ‘ffis’ mp_tac>>fs[]
   ) >>
   gvs[] >>
   conj_tac >- (
     gvs[TAKE_LENGTH_APPEND] >>
-    Cases_on `c.ffi_names` >>
-    gvs[list_subset_TAKE,list_subset_refl]
+    Cases_on `c.ffi_names` >- (
+      mp_tac find_ffi_names_EVERY>>
+      disch_then $ qspec_then ‘code’ mp_tac>>
+      simp[GSYM FILTER_EQ_ID]>>strip_tac>>fs[list_subset_refl])>>
+    gvs[list_subset_TAKE,list_subset_refl]>>
+    irule list_subset_trans>>
+    last_assum $ irule_at Any>>
+    mp_tac find_ffi_names_EVERY>>
+    simp[GSYM FILTER_EQ_ID]>>
+    strip_tac>>fs[list_subset_refl]
   ) >>
   conj_tac >- (
     qexists `c.init_clock` >>
@@ -9833,7 +9842,7 @@ val semantics_compile_lemma = Q.prove(
 (* try to show the condition of semantics_compile is not vacuous *)
 (* prove that mmio_min_min_index actually exists,
   and LENGTH ffi_names = LENGTH ffi_entry_pcs,
-  which are stated in start_pc_ok *)
+  which are stated in start_pc_ok
 Theorem get_shmem_info_FST_eq:
 !q p names info p' info'.
   FST (get_shmem_info q p names info) = FST (get_shmem_info q p' names info')
@@ -9856,7 +9865,7 @@ Proof
   pairarg_tac >>
   gvs[get_shmem_info_def]
 QED
-
+*)
 (*
 Theorem start_pc_ok_not_vacuous_lemma:
   LENGTH  <= LENGTH mc_conf.ffi_entry_pcs /\
@@ -9925,8 +9934,7 @@ Theorem semantics_compile:
   (* to avoid the ffi_entry_pc wraps around and overlaps with the program or code buffer *)
   cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a) /\
   (* the original ffi names provided does not contain MappedRead or MappedWrite *)
-  (!ffis. c.ffi_names = SOME ffis ==>
-    ~MEM "MappedRead" ffis /\ ~MEM "MappedWrite" ffis ) ⇒
+  (!ffis. c.ffi_names = SOME ffis ==> EVERY (λx. ∃s. x = ExtCall s) ffis ) ⇒
    implements' T (machine_sem mc_conf ffi ms)
      {semantics
         (make_init mc_conf ffi io_regs cc_regs t m (dm ∩ byte_aligned) sdm ms code

@@ -46,7 +46,7 @@ Theorem state_rel_with_locals_sfs[simp]:
 Proof
   fs [state_rel_def]
 QED
-
+(*
 Definition no_mapped_io_def[simp]:
   (no_mapped_io (dataLang$Assign dest op args names_opt) =
       data_to_word_assignProof$not_mapped_ffi op) /\
@@ -65,7 +65,7 @@ Definition compile_oracle_no_mapped_io_def:
   compile_oracle_no_mapped_io orac <=>
     (!n p q prog. MEM (p,q,prog) (SND $ orac (n:num)) ==> no_mapped_io prog)
 End
-
+*)
 Theorem do_space_code_const:
   do_space op vs (s:('a,'b) dataSem$state) = SOME s1 ==>
   s1.code = s.code /\ s1.compile_oracle = s.compile_oracle
@@ -73,7 +73,7 @@ Proof
   strip_tac
   \\ gvs[do_space_def,AllCaseEqs(),consume_space_def]
 QED
-
+(*
 Theorem evaluate_no_mapped_io:
   !prog s.
     code_no_mapped_io s.code /\
@@ -116,7 +116,7 @@ Proof
           do_app_def,set_var_def,do_install_def,cut_state_def,
           flush_state_def,AllCaseEqs()])
       \\ drule do_space_code_const
-      \\ gvs[do_app_aux_def,AllCaseEqs(),
+       \\ gvs[do_app_aux_def,AllCaseEqs(),
         with_fresh_ts_def,do_stack_const,check_lim_def])
     \\ IF_CASES_TAC >- (rw[] >> metis_tac[])
     \\ TOP_CASE_TAC >- (rw[] >> metis_tac[])
@@ -197,14 +197,14 @@ Proof
     \\ gvs[dataSemTheory.dec_clock_def,dataSemTheory.call_env_def,
       dataSemTheory.pop_env_def,set_var_def,AllCaseEqs()])
 QED
-
+*)
 Theorem data_compile_correct:
    !prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
-      no_mapped_io prog /\
+(*      no_mapped_io prog /\
       code_no_mapped_io s.code /\
-      compile_oracle_no_mapped_io s.compile_oracle /\
+      compile_oracle_no_mapped_io s.compile_oracle /\*)
       state_rel c l1 l2 s t [] locs /\
       t.termdep > 1
       ==>
@@ -416,9 +416,6 @@ Proof
       \\ match_mp_tac backendPropsTheory.option_le_trans
       \\ asm_exists_tac \\ fs [])
     \\ srw_tac[][]
-    \\ drule_all evaluate_no_mapped_io
-    \\ disch_then $ qspec_then `c1` strip_assume_tac
-    \\ gvs[]
     \\ qpat_x_assum `state_rel c l1 l2 _ _ [] locs` (fn th =>
              first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
     \\ imp_res_tac wordSemTheory.evaluate_clock \\ fs[]
@@ -477,15 +474,6 @@ Proof
     \\ pop_assum kall_tac
     \\ pop_assum mp_tac \\ impl_tac
     >- fs[wordSemTheory.call_env_def,wordSemTheory.dec_clock_def]
-    \\ impl_tac
-    >- simp[call_env_def,dec_clock_def]
-    \\ impl_tac
-    >- simp[call_env_def,dec_clock_def]
-    \\ impl_tac
-    >- (gvs[code_no_mapped_io_def]
-      \\ first_x_assum irule
-      \\ gvs[DefnBase.one_line_ify NONE find_code_def,AllCaseEqs()]
-      \\ metis_tac[])
     \\ disch_then (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ fs[]
     \\ `t.clock <> 0` by full_simp_tac(srw_ss())[state_rel_def]
     \\ Cases_on `res1` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ fs[]
@@ -531,14 +519,6 @@ Proof
     \\ pop_assum mp_tac \\ impl_tac >-
       fs[wordSemTheory.call_env_def,wordSemTheory.push_env_def,
          wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def]
-    \\ impl_keep_tac
-    >- simp[call_env_def,dec_clock_def]
-    \\ impl_keep_tac
-    >- simp[call_env_def,dec_clock_def]
-    \\ impl_keep_tac
-    >- (gvs[code_no_mapped_io_def,call_env_def,dec_clock_def,push_env_def]
-      \\ gvs[DefnBase.one_line_ify NONE find_code_def,AllCaseEqs()]
-      \\ metis_tac[])
     \\ disch_then (qspecl_then [`n1`,`n2`] strip_assume_tac)
     \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
@@ -600,14 +580,6 @@ Proof
   \\ pop_assum mp_tac \\ impl_tac >-
       fs[wordSemTheory.call_env_def,wordSemTheory.push_env_def,
          wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def]
-  \\ impl_keep_tac
-  >- simp[call_env_def,dec_clock_def]
-  \\ impl_keep_tac
-  >- simp[call_env_def,dec_clock_def]
-  \\ impl_keep_tac
-  >- (gvs[code_no_mapped_io_def,call_env_def,dec_clock_def,push_env_def]
-    \\ gvs[DefnBase.one_line_ify NONE find_code_def,AllCaseEqs()]
-    \\ metis_tac[])
   \\ disch_then (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ fs[]
   \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
   THEN1 (full_simp_tac(srw_ss())[]
@@ -671,16 +643,6 @@ Proof
     (imp_res_tac wordSemTheory.evaluate_clock>>
     fs[wordSemTheory.set_var_def,wordSemTheory.call_env_def,wordSemTheory.push_env_def,
        wordSemTheory.env_to_list_def,wordSemTheory.dec_clock_def])
-  \\ impl_keep_tac
-  >- (simp[call_env_def,dec_clock_def,set_var_def]
-    \\ drule_all evaluate_no_mapped_io
-    \\ disch_then $ qspec_then `prog` strip_assume_tac
-    \\ gvs[])
-  \\ impl_keep_tac
-  >- (simp[call_env_def,dec_clock_def,set_var_def]
-    \\ drule_all evaluate_no_mapped_io
-    \\ disch_then $ qspec_then `prog` strip_assume_tac
-    \\ gvs[])
   \\ disch_then (qspecl_then [`n`,`l+2`] strip_assume_tac) \\ rfs []
   \\ `jump_exc (set_var (adjust_var x0) w t1) = jump_exc t1` by
         fs[wordSemTheory.set_var_def,wordSemTheory.jump_exc_def]
@@ -699,8 +661,8 @@ Theorem compile_correct_lemma:
    !s c l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
       (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
-      code_no_mapped_io s.code /\
-      compile_oracle_no_mapped_io s.compile_oracle /\
+(*      code_no_mapped_io s.code /\
+      compile_oracle_no_mapped_io s.compile_oracle /\*)
       t.termdep > 1 /\
       state_rel c l1 l2 s t [] [] ==>
       ?t1 res1.
@@ -751,8 +713,8 @@ Theorem compile_correct:
    !x s l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
       (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
-      code_no_mapped_io s.code /\
-      compile_oracle_no_mapped_io s.compile_oracle /\
+(*      code_no_mapped_io s.code /\
+      compile_oracle_no_mapped_io s.compile_oracle /\*)
       state_rel_ext x l1 l2 s t ==>
       ?ck t1 res1.
         (wordSem$evaluate (Call NONE (SOME start) [0] NONE,

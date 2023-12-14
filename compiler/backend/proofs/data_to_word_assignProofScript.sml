@@ -12821,14 +12821,8 @@ Proof
   \\ fs [make_cons_ptr_def,get_lowerbits_def]
 QED
 
-Definition not_mapped_ffi_name_def:
-  not_mapped_ffi_name n <=>
-    (n <> "MappedRead" /\ n <> "MappedWrite")
-End
-
 Theorem assign_FFI:
-   (?n. op = FFI n /\
-      not_mapped_ffi_name n) ==>
+   (?n. op = FFI n) ==>
    ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -12897,7 +12891,6 @@ Proof
   \\ simp[]
   \\ qpat_abbrev_tac`ex1 = if ffi_name = "" then _ else _`
   \\ qpat_abbrev_tac`ex2 = if ffi_name = "" then _ else _`
-  \\ fs[not_mapped_ffi_name_def]
   \\ IF_CASES_TAC >- ( fs[shift_def] )
   \\ simp[wordSemTheory.get_var_def,lookup_insert]
   \\ qpat_x_assum`¬_`kall_tac
@@ -13246,7 +13239,6 @@ QED
 
 Theorem assign_FFI_final:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
-   not_mapped_ffi_name i /\
    (op_requires_names (FFI i) ==> names_opt <> NONE) /\
    cut_state_opt names_opt s = SOME x /\
    get_vars args x.locals = SOME vals /\
@@ -13313,7 +13305,6 @@ Proof
   \\ IF_CASES_TAC >- ( fs[shift_def] )
   \\ simp[wordSemTheory.get_var_def,lookup_insert]
   \\ qpat_x_assum`¬_`kall_tac
-  \\ fs[not_mapped_ffi_name_def]
   \\ BasicProvers.TOP_CASE_TAC
   >- (
     `F` suffices_by rw[]
@@ -13724,13 +13715,8 @@ Proof[exclude_simps = EXP_LE_LOG_SIMP EXP_LT_LOG_SIMP LE_EXP_LOG_SIMP
   \\ qexists_tac ‘x.space − LENGTH y2’ \\ fs []
 QED
 
-Definition not_mapped_ffi_def[simp]:
-  (not_mapped_ffi ((FFI i):op) = not_mapped_ffi_name i) /\
-  (not_mapped_ffi _ = T)
-End
-
 Theorem assign_thm:
-  not_mapped_ffi op ==> ^assign_thm_goal
+  ^assign_thm_goal
 Proof
   Cases_on `op = AllocGlobal` \\ fs []
   THEN1 (fs [do_app] \\ every_case_tac \\ fs [])
@@ -13738,7 +13724,6 @@ Proof
   THEN1 (fs [do_app] \\ every_case_tac \\ fs [])
   \\ Cases_on `op = GreaterEq` \\ fs []
   THEN1 (fs [do_app] \\ every_case_tac \\ fs [])
-  \\ simp[not_mapped_ffi_def] \\ strip_tac
   \\ map_every (fn th =>
          (Cases_on `^(th |> concl |> dest_imp |> #1)` THEN1 (fs []
              \\ match_mp_tac th \\ fs [])))
