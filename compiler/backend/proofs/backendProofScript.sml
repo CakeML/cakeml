@@ -3740,10 +3740,8 @@ Proof
       \\ drule mmio_pcs_min_index_is_SOME
       \\ rw[EVERY_MEM,MEM_EL]
       \\ metis_tac[])
-   \\ ntac 2 strip_tac
-   \\ qpat_x_assum `option_CASE _ _ _` mp_tac
-   \\ simp[EVERY_MEM]
-   \\ metis_tac[]
+    \\ ntac 2 strip_tac
+    >> fs[OPTION_ALL_def]
   )
 
   \\ strip_tac
@@ -4105,11 +4103,7 @@ Triviality compile_correct_no_eval =
 
 Theorem compile_correct:
   compile (c:'a config) prog = SOME (bytes,bitmaps,c') ∧
-  (case
-      OPTION_MAP (EVERY (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite"))
-        c.lab_conf.ffi_names of
-    | NONE => T
-    | SOME y => y) ⇒
+  OPTION_ALL (EVERY (\x. ∃s. x = ExtCall s)) c.lab_conf.ffi_names ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
    ¬semantics_prog s env prog Fail ∧
    backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧
@@ -4135,11 +4129,7 @@ QED
 
 Theorem compile_correct_is_safe_for_space:
   compile (c:'a config) prog = SOME (bytes,bitmaps,c') ∧
-  (case
-      OPTION_MAP (EVERY (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite"))
-        c.lab_conf.ffi_names of
-    | NONE => T
-    | SOME y => y) ⇒
+  OPTION_ALL (EVERY (\x. ∃s. x = ExtCall s)) c.lab_conf.ffi_names ⇒
   is_safe_for_space ffi c prog (stack_limit,heap_limit) ⇒
   (read_limits c mc ms) = (stack_limit,heap_limit) ⇒
   let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -4166,11 +4156,7 @@ End
 
 Theorem compile_correct_eval:
   compile c prog = SOME (bytes,bitmaps,c') ∧
-  (case
-      OPTION_MAP (EVERY (λx. x ≠ "MappedRead" ∧ x ≠ "MappedWrite"))
-        c.lab_conf.ffi_names of
-    | NONE => T
-    | SOME y => y) ⇒
+  OPTION_ALL (EVERY (\x. ∃s. x = ExtCall s)) c.lab_conf.ffi_names ⇒
    let (s0,env) = THE (prim_sem_env (ffi: 'ffi ffi_state)) in
    ¬semantics_prog (add_eval_state ev s0) env prog Fail ∧ backend_config_ok c ∧
    lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧ opt_eval_config_wf c' ev ∧

@@ -1902,14 +1902,12 @@ Proof
     conj_tac>- fs[GSYM word_add_n2w]>>
     conj_tac >- metis_tac[] >>
     conj_tac >- rfs[] >>
-    conj_tac >- (
     fs[upd_pc_def, inc_pc_def, arith_upd_def, share_mem_state_rel_def] >> rw[]>>
     gvs[IMP_CONJ_THM, AND_IMP_INTRO]
     >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
     >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])
     >- (first_x_assum $ ho_match_mp_tac o cj 1 >> fs[] >> metis_tac[])
-    >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[])) >>
-    fs[upd_pc_def,inc_pc_def,arith_upd_share_mem_domain_unchange])
+    >- (first_x_assum $ ho_match_mp_tac o cj 2 >> fs[] >> metis_tac[]))
   THEN1
     (strip_tac >>
     Cases_on`m`>>fs[mem_op_def,labSemTheory.assert_def]
@@ -1940,7 +1938,6 @@ Proof
        byte_align x ∈ s1.mem_domain` by fs[]>>
        IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
        (reverse (rw[])
-       >- fs[inc_pc_def]
        >- (fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
           share_mem_state_rel_tac)
        >- rfs[]
@@ -1977,7 +1974,6 @@ Proof
        byte_align x ∈ s1.mem_domain` by fs[]>>
        IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
        (reverse(rw[])
-       >- fs[inc_pc_def]
        >- (fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
           share_mem_state_rel_tac)
        >- rfs[]
@@ -2025,8 +2021,7 @@ Proof
     >- metis_tac[]
     >- rfs[]
     >- (fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
-        share_mem_state_rel_tac)
-    >- fs[inc_pc_def])
+        share_mem_state_rel_tac))
   >-
     (*Store*)
     (`good_dimindex(:'a)` by fs[state_rel_def]>>
@@ -2092,8 +2087,7 @@ Proof
        >- rfs[]
        >- (
           fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
-          share_mem_state_rel_tac)
-       >- fs[inc_pc_def]))
+          share_mem_state_rel_tac)))
      >>
        (`aligned 3 x` by fs [aligned_w2n]>>
        drule aligned_3_imp>>
@@ -2142,8 +2136,7 @@ Proof
        >-rfs[]
        >- (
           fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
-          share_mem_state_rel_tac)
-       >- fs[inc_pc_def])))
+          share_mem_state_rel_tac))))
   >-
     (* Store8 *)
     (Cases_on`a`>>last_x_assum mp_tac>>
@@ -2194,9 +2187,8 @@ Proof
     >- rfs[]
     >- (
       fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
-      share_mem_state_rel_tac)
-    >- fs[inc_pc_def]))
-  THEN1 (
+      share_mem_state_rel_tac)))
+  THEN1
   (strip_tac>>CONJ_ASM1_TAC>-
     (Cases_on`f`>>TRY(EVAL_TAC>>fs[state_rel_def]>>NO_TAC)
     >-
@@ -2223,16 +2215,14 @@ Proof
   conj_tac >- metis_tac[] >>
   simp[CONJ_ASSOC] >>
   reverse conj_tac >-
-    fs[fp_upd_def,upd_pc_def,inc_pc_def,APPLY_UPDATE_THM,fp_upd_share_mem_domain_unchange] >>
-  reverse conj_tac
-  >- (
+    (
     fs[fp_upd_def,upd_pc_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
     share_mem_state_rel_tac) >>
   reverse conj_tac >- rfs[] >>
   reverse conj_tac >- metis_tac[] >>
   reverse conj_tac >- (
     rw[] >> fs[] >> fs[GSYM word_add_n2w] ) >>
-  match_mp_tac fp_upd_lemma>> fs[]))
+  match_mp_tac fp_upd_lemma>> fs[])
 QED
 
 (* compile correct *)
@@ -6909,11 +6899,8 @@ Proof
           simp[bytes_in_mem_def,APPLY_UPDATE_THM]>>
           first_x_assum drule>>fs[])
       \\ simp[GSYM word_add_n2w]
-      \\ conj_tac
-      >- (fs[upd_pc_def, inc_pc_def, share_mem_state_rel_def] >>
+       >> fs[upd_pc_def, inc_pc_def, share_mem_state_rel_def] >>
         share_mem_state_rel_tac)
-      >- fs[upd_pc_def,inc_pc_def,share_mem_domain_code_rel_def]
-      )
     \\ rpt strip_tac \\ full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,labSemTheory.upd_reg_def]
     \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock - 1 + k` mp_tac)
     \\ rpt strip_tac
