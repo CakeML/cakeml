@@ -27,10 +27,17 @@ Definition make_io_event_def[nocompute]:
                 IO_event s conf (ZIP (bytes,rbytes))
 End
 
-(* Maps an itree t into a llist repr of the complete branch
- determined by a branching choice function f. *)
-Definition itree_branch_def:
-  itree_branch f s t =
+(* TODO: Redefine itree_path so it has the property:
+ path (bind t k) = path t::(path (k (leaf t))) *)
+(* TODO: cheat the above property and see if it solves
+ the seq case. *)
+
+(* path def using the HOL path type:
+ 'a = choice type, INL is the state given to f to make branching choices (i.e. ffi state),
+ 'b = the e type in the itree.
+*)
+Definition itree_path_def:
+  itree_path f s t =
   LUNFOLD
   (λseed. case seed of
          NONE => NONE
@@ -49,19 +56,49 @@ infinite depth paths or SOME r where r is the result in the leaf of the tree
 found by allowing f to decide branching *)
 
 Definition itree_leaf_def:
-  itree_leaf f s t = LHD $ LFLATTEN $ itree_branch f s t
+  itree_leaf f s t = LHD $ LFLATTEN $ itree_path f s t
 End
+
+(* XXX: the third itree_path cannot use s as it must use the state for f which was produced
+ with an answer that led to the branch where the leaf appears. *)
+(* The definition of itree_path needs to be updated to reflect this. *)
+Theorem bind_path_thm:
+  itree_path f s (itree_bind t k) =
+  itree_path f s t::(itree_path f s (k (THE $ itree_leaf f s t)))
+Proof
+  cheat
+QED
+
+Definition htree_path_def:
+  htree_path f s (t:('a,'b) htree) =
+  LUNFOLD
+  (λseed. case seed of
+         NONE => NONE
+       | SOME (t',s') =>
+           (case t' of
+              Ret r => SOME (NONE,[|r|])
+            | Tau t'' => SOME (SOME (t'',s'),LNIL)
+            | Vis e k =>
+                let (a,s'') = (f s' e) in
+                    SOME (SOME (k a,s''),LNIL)))
+  (SOME (t,s))
+End
+
+Definition htree_leaf_def:
+  htree_leaf f s (t:('a,'b) htree) = LHD $ LFLATTEN $ htree_path f s t
+End
+
 
 val k = “k:α -> (δ,γ,α) itree”;
 
-Theorem branch_simps[simp]:
-  (itree_branch f s (Ret r) = [|[|r|]|]) ∧
-  (itree_branch f s (Tau t) = LNIL:::(itree_branch f s t)) ∧
-  (itree_branch f s (Vis e k) = let (a,s') = (f s e) in
-                                    LNIL:::(itree_branch f s' (k a)))
+Theorem path_simps[simp]:
+  (itree_path f s (Ret r) = [|[|r|]|]) ∧
+  (itree_path f s (Tau t) = LNIL:::(itree_path f s t)) ∧
+  (itree_path f s (Vis e k) = let (a,s') = (f s e) in
+                                    LNIL:::(itree_path f s' (k a)))
 Proof
   rpt strip_tac >>
-  rw [itree_branch_def]
+  rw [itree_path_def]
   >- (rw [Ntimes LUNFOLD 2])
   >- (rw [Once LUNFOLD])
   >- (rw [Once LUNFOLD] >>
@@ -300,9 +337,54 @@ val s'' = “s'':(α,β) state”;
 (* TODO *)
 (* Theorem htree_leaf_bind_thm: *)
 (*   itree_leaf f s (itree_evaluate c1 s) = SOME r ⇒ *)
-(*   itree_leaf f s (sem_outer $ mrec_sem $ itree_bind (h_prog (c1,s)) k) = itree_leaf f s (sem_outer $ mrec_sem $ k $ ) *)
+(*   itree_leaf f s (sem_outer  $ mrec_sem $ itree_bind (h_prog (c1,s)) k) = itree_leaf f s (sem_outer $ mrec_sem $ k $ ) *)
 (* Proof *)
 (* QED *)
+
+(* XXX: Every htree produced by h_prog is only a single node. *)
+(* TODO *)
+(* Prove the sister theorem of leaf_bind_thm to show that:
+
+ itree_leaf f s $ sem_outer $ mrec_sem $ itree_bind ht k =
+ itree_leaf f s $ sem_outer $ mrec_sem $ k $ htree_leaf f s ht
+
+ And then show that:
+
+ itree_leaf f s $ itree_evaluate p1 s = SOME r ⇒
+ htree_leaf f s $ h_prog (p1,s) = SOME r
+
+ *)
+
+(* itree_mrec sequentially composes htree's with monad_bind *)
+
+(* htree theory *)
+(* equational theory at the level of mrec_sem applied to htree's,
+ which construct the itree semantics. *)
+
+Triviality mrec_seq_simple:
+  h_prog (c1,s) = Ret (SOME r,s') ⇒
+  mrec_sem (h_prog_rule_seq c1 c2 s) = Tau (Ret (SOME r,s'))
+Proof
+  disch_tac >>
+  rw [panItreeSemTheory.h_prog_rule_seq_def] >>
+  rw [panItreeSemTheory.mrec_sem_def] >>
+  rw [panItreeSemTheory.mrec_body_def] >>
+  rw [Once itreeTauTheory.itree_iter_thm] >>
+  rw [panItreeSemTheory.mrec_iter_body_def]
+QED
+
+Triviality mrec_seq_step2:
+  THE $ itree_leaf f s (h_prog (c1,s)) = (SOME r,s') ⇒
+  mrec_sem (h_prog_rule_seq c1 c2 s) = Tau (Ret (SOME r,s'))
+Proof
+  disch_tac >>
+  rw [panItreeSemTheory.h_prog_rule_seq_def]
+QED
+
+(* TODO: Continue to the above work to progress leaf and path combinators
+ into mrec_Sem. *)
+
+(* What expression shows that the "value taken by a bind abstraction is XYZ" ? *)
 
 Theorem itree_evaluate_seq_cases:
   (same_outcome ffis (itree_evaluate c1 ^s) (SOME r,^s') ∨
@@ -314,12 +396,12 @@ Proof
   >- (gs [same_outcome_def] >>
       rw [panItreeSemTheory.itree_evaluate_def] >>
       rw [panItreeSemTheory.h_prog_rule_seq_def] >>
+
       (* One possible strategy:
       1. Establish a thm that allows us to infer knowledge of the leaves of a h_prog (a,b) htree from the leaves of a semtree constructed from that htree.
       2. Establish a thm that allows us to, using a leaf statement over a bind, reduce a reduce a monad_bind statement into a constant.
-
-       *)
-         )
+      *)
+      )
 QED
 
 Triviality evaluate_seq_cases:

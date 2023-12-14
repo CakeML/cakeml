@@ -35,18 +35,29 @@ val s1 = “s1:('a,'b) state”;
 val p1 = “p1:'a panLang$prog”;
 val p2 = “p2:'a panLang$prog”;
 
-Type mtree_ans[pp] = “:α result option # ('a,'b) state”;
-Type htree_ans[pp] = “:('a panLang$prog # ('a,'b) state)”;
-Type htree[pp] = “:(('a,'b) mtree_ans,
-                    ('a,'b) htree_ans + sem_vis_event # ('b ffi_result -> ('a,'b) mtree_ans),
-                    ('a,'b) mtree_ans) itree”;
-Type mtree[pp] = “:(('a,'b) mtree_ans,
-                    sem_vis_event # ('b ffi_result -> ('a,'b) mtree_ans),
-                    ('a,'b) mtree_ans) itree”;
+(* TODO: Call this mtree_ret *)
+Type mtree_ans[pp] = “:'a result option # ('a,'b) state”;
+Type htree_seed[pp] = “:'a panLang$prog # ('a,'b) state”;
+Type semtree_ans[pp] = “:'b ffi_result”;
 
-Type semtree[pp] = “:(β ffi_result, sem_vis_event, α result option) itree”;
-Type sem8tree[pp] = “:(β ffi_result, sem_vis_event, 8 result option) itree”;
-Type sem16tree[pp] = “:(β ffi_result, sem_vis_event, 16 result option) itree”;
+(* Continuation for mtrees: these are nested inside the ITree event type of
+mtree's and htree's. *)
+Type mtree_cont[pp] = “:'b ffi_result -> ('a,'b) mtree_ans”;
+Type mtree_event[pp] = “:sem_vis_event # ('a,'b) mtree_cont”;
+
+Type htree[pp] = “:(('a,'b) mtree_ans,
+                    ('a,'b) htree_seed + ('a,'b) mtree_event,
+                    ('a,'b) mtree_ans) itree”;
+Type hktree[pp] = “:('a,'b) mtree_ans -> ('a,'b) htree”;
+
+Type mtree[pp] = “:(('a,'b) mtree_ans,
+                    ('a,'b) mtree_event,
+                    ('a,'b) mtree_ans) itree”;
+Type mktree[pp] = “:('a,'b) mtree_ans -> ('a,'b) mtree”;
+
+Type semtree[pp] = “:('b ffi_result, sem_vis_event, 'a result option) itree”;
+Type sem8tree[pp] = “:('b ffi_result, sem_vis_event, 8 result option) itree”;
+Type sem16tree[pp] = “:('b ffi_result, sem_vis_event, 16 result option) itree”;
 
 Definition mrec_iter_body_def:
   mrec_iter_body rh t =
