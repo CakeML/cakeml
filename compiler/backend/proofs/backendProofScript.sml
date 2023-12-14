@@ -3401,9 +3401,12 @@ Proof
   strip_tac \\
   qabbrev_tac`kkk = stk - 2`>>
   qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ data_oracle` \\
-  qabbrev_tac `c4_data_conf = (c4.data_conf with <| has_fp_ops := (1 < c4.lab_conf.asm_conf.fp_reg_count);
-                                                    has_fp_tern := (c4.lab_conf.asm_conf.ISA = ARMv7 /\ 2 < c4.lab_conf.asm_conf.fp_reg_count) |>)` \\
-  qabbrev_tac`lab_st:('a,'a lab_to_target$config,'ffi) labSem$state = lab_to_targetProof$make_init mc ffi io_regs cc_regs tar_st m (dm ∩ byte_aligned) sdm ms p7 lab_to_target$compile
+  qabbrev_tac `c4_data_conf =
+  (c4.data_conf with
+     <| has_fp_ops := (1 < c4.lab_conf.asm_conf.fp_reg_count);
+        has_fp_tern := (c4.lab_conf.asm_conf.ISA = ARMv7 /\ 2 < c4.lab_conf.asm_conf.fp_reg_count) |>)` \\
+  qabbrev_tac`lab_st:('a,'a lab_to_target$config,'ffi) labSem$state = lab_to_targetProof$make_init
+      mc ffi io_regs cc_regs tar_st m (dm ∩ byte_aligned) (sdm ∩ byte_aligned) ms p7 lab_to_target$compile
        (mc.target.get_pc ms + n2w (LENGTH bytes)) cbspace lab_oracle` \\
 
   qabbrev_tac`stack_st_opt =
@@ -3643,7 +3646,7 @@ Proof
   \\ `labProps$no_share_mem_inst p7` by (
     irule compile_no_share_mem_inst >>
     irule_at (Pos hd) EQ_SYM >>
-    qpat_assum `Abbrev(p7 = _)` $ irule_at (Pos hd) o 
+    qpat_assum `Abbrev(p7 = _)` $ irule_at (Pos hd) o
       PURE_REWRITE_RULE[markerTheory.Abbrev_def] >>
    drule_then irule compile_no_shmemop >>
    irule compile_no_share_inst >>

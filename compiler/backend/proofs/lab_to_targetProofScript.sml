@@ -9788,7 +9788,7 @@ Theorem semantics_compile:
   (!ffis. c.ffi_names = SOME ffis ==> EVERY (λx. ∃s. x = ExtCall s) ffis ) ⇒
    implements' T (machine_sem mc_conf ffi ms)
      {semantics
-        (make_init mc_conf ffi io_regs cc_regs t m (dm ∩ byte_aligned) sdm ms code
+        (make_init mc_conf ffi io_regs cc_regs t m (dm ∩ byte_aligned) (sdm ∩ byte_aligned) ms code
            compile (mc_conf.target.get_pc ms + n2w (LENGTH bytes))
            cbspace coracle)}
 Proof
@@ -9798,11 +9798,25 @@ Proof
   qexists_tac`{semantics (ss dm)}` >>
   `ss (dm ∩ byte_aligned) = align_dm (ss dm)` by (
     simp[align_dm_def,Abbr`ss`,make_init_def] ) \\
+
   pop_assum SUBST_ALL_TAC \\
   conj_tac >- (
     match_mp_tac implements_align_dm \\
     fs[mc_conf_ok_def] ) \\
   simp[Abbr`P`,Abbr`ss`] \\
+
+        irule semanticsPropsTheory.implements'_trans>>
+  qho_match_abbrev_tac`∃y. P y ∧ implements' T y {semantics (ss (sdm ∩ byte_aligned))}` >>
+  qexists_tac`{semantics (ss sdm)}` >>
+  `ss (sdm ∩ byte_aligned) = align_sdm (ss sdm)` by (
+    simp[Abbr`ss`,make_init_def,align_sdm_def] ) \\
+
+  pop_assum SUBST_ALL_TAC \\
+  reverse conj_tac >- (
+    match_mp_tac implements_align_sdm \\
+    fs[mc_conf_ok_def] ) \\
+  simp[Abbr`P`,Abbr`ss`] \\
+
   PURE_REWRITE_TAC[Once WORD_ADD_COMM] \\
   match_mp_tac semantics_compile_lemma \\
   fs[good_code_def]
