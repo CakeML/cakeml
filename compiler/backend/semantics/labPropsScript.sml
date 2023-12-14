@@ -142,6 +142,7 @@ Theorem update_simps[simp]:
     ((labSem$upd_pc x s).ptr_reg = s.ptr_reg) ∧
     ((labSem$upd_pc x s).ptr2_reg = s.ptr2_reg) ∧
     ((labSem$upd_pc x s).mem_domain = s.mem_domain) ∧
+    ((labSem$upd_pc x s).shared_mem_domain = s.shared_mem_domain) ∧
     ((labSem$upd_pc x s).failed = s.failed) ∧
     ((labSem$upd_pc x s).be = s.be) ∧
     ((labSem$upd_pc x s).mem = s.mem) ∧
@@ -157,6 +158,7 @@ Theorem update_simps[simp]:
     ((labSem$inc_pc s).be = s.be) ∧
     ((labSem$inc_pc s).failed = s.failed) ∧
     ((labSem$inc_pc s).mem_domain = s.mem_domain) ∧
+    ((labSem$inc_pc s).shared_mem_domain = s.shared_mem_domain) ∧
     ((labSem$inc_pc s).io_regs = s.io_regs) ∧
     ((labSem$inc_pc s).cc_regs = s.cc_regs) ∧
     ((labSem$inc_pc s).compile = s.compile) ∧
@@ -173,6 +175,7 @@ QED
 
 Theorem binop_upd_consts[simp]:
    (labSem$binop_upd a b c d x).mem_domain = x.mem_domain ∧
+   (labSem$binop_upd a b c d x).shared_mem_domain = x.shared_mem_domain ∧
    (labSem$binop_upd a b c d x).ptr_reg = x.ptr_reg ∧
    (labSem$binop_upd a b c d x).ptr2_reg = x.ptr2_reg ∧
    (labSem$binop_upd a b c d x).len_reg = x.len_reg ∧
@@ -194,6 +197,7 @@ QED
 
 Theorem arith_upd_consts[simp]:
    (labSem$arith_upd a x).mem_domain = x.mem_domain ∧
+   (labSem$arith_upd a x).shared_mem_domain = x.shared_mem_domain ∧
    (labSem$arith_upd a x).ptr_reg = x.ptr_reg ∧
    (labSem$arith_upd a x).ptr2_reg = x.ptr2_reg ∧
    (labSem$arith_upd a x).len_reg = x.len_reg ∧
@@ -216,6 +220,7 @@ QED
 
 Theorem fp_upd_consts[simp]:
    (labSem$fp_upd f x).mem_domain = x.mem_domain ∧
+   (labSem$fp_upd f x).shared_mem_domain = x.shared_mem_domain ∧
    (labSem$fp_upd f x).ptr_reg = x.ptr_reg ∧
    (labSem$fp_upd f x).len_reg = x.len_reg ∧
    (labSem$fp_upd f x).ptr2_reg = x.ptr2_reg ∧
@@ -299,7 +304,7 @@ Proof
   simp[Once evaluate_def] >>
   gvs[asm_fetch_def] >>
   gvs[inc_pc_def,dec_clock_def,asm_inst_consts,upd_pc_def,get_pc_value_def,get_ret_Loc_def,upd_reg_def]
-  >~ [`s.compile_oracle`] 
+  >~ [`s.compile_oracle`]
   >-(pairarg_tac >> fs[case_eq_thms] >> rw[]) >>
   qpat_x_assum `share_mem_op _ _ _ _ = _` mp_tac >>
   Cases_on `m` >>
@@ -423,6 +428,7 @@ Theorem align_dm_const[simp]:
    (align_dm s).pc = s.pc ∧
    (align_dm s).code = s.code ∧
    (align_dm s).mem = s.mem ∧
+   (align_dm s).shared_mem_domain = s.shared_mem_domain ∧
    (align_dm s).be = s.be ∧
    (align_dm s).len_reg = s.len_reg ∧
    (align_dm s).link_reg = s.link_reg ∧
@@ -755,7 +761,7 @@ Proof
     )
     >> (
       namedCases_on `x` ["q s'"] >> gvs[ELIM_UNCURRY]
-      \\ TOP_CASE_TAC 
+      \\ TOP_CASE_TAC
       >- (drule $ cj 3 $ PURE_REWRITE_RULE [align_dm_def] share_mem_op_align_dm_simp
          \\ disch_then assume_tac >> gvs[])
       >- (drule $ cj 2 $ PURE_REWRITE_RULE [align_dm_def] share_mem_op_align_dm_simp
@@ -785,6 +791,368 @@ Proof
   \\ simp[FUN_EQ_THM]
   \\ METIS_TAC[]
 QED
+
+(** align_sdm **)
+
+val align_sdm_def = Define `
+  align_sdm (s:('a,'c,'ffi) labSem$state) =
+    (s with shared_mem_domain := s.shared_mem_domain INTER byte_aligned)`
+
+Theorem align_sdm_const[simp]:
+   (align_sdm s).clock = s.clock ∧
+   (align_sdm s).pc = s.pc ∧
+   (align_sdm s).code = s.code ∧
+   (align_sdm s).mem = s.mem ∧
+   (align_sdm s).mem_domain = s.mem_domain ∧
+   (align_sdm s).be = s.be ∧
+   (align_sdm s).len_reg = s.len_reg ∧
+   (align_sdm s).link_reg = s.link_reg ∧
+   (align_sdm s).ptr_reg = s.ptr_reg ∧
+   (align_sdm s).ptr2_reg = s.ptr2_reg ∧
+   (align_sdm s).len2_reg = s.len2_reg ∧
+   (align_sdm s).io_regs = s.io_regs ∧
+   (align_sdm s).code_buffer = s.code_buffer ∧
+   (align_sdm s).compile = s.compile ∧
+   (align_sdm s).compile_oracle = s.compile_oracle ∧
+   (align_sdm s).ffi = s.ffi ∧
+   (align_sdm s).failed = s.failed
+Proof
+  EVAL_TAC
+QED
+
+Theorem align_sdm_with_clock:
+   align_sdm (s with clock := k) = align_sdm s with clock := k
+Proof
+  EVAL_TAC
+QED
+
+Theorem asm_fetch_align_sdm[simp]:
+   asm_fetch (align_sdm s) = asm_fetch s
+Proof
+  rw[asm_fetch_def]
+QED
+
+Theorem read_reg_align_sdm[simp]:
+   read_reg n (align_sdm s) = read_reg n s
+Proof
+  EVAL_TAC
+QED
+
+Theorem upd_reg_align_sdm[simp]:
+   upd_reg x y (align_sdm s) = align_sdm (upd_reg x y s)
+Proof
+  EVAL_TAC
+QED
+
+Theorem upd_mem_align_sdm[simp]:
+   upd_mem x y (align_sdm s) = align_sdm (upd_mem x y s)
+Proof
+  EVAL_TAC
+QED
+
+Theorem binop_upd_align_sdm[simp]:
+   binop_upd x y z w (align_sdm s) = align_sdm (binop_upd x y z w s)
+Proof
+  Cases_on`y` \\ simp[binop_upd_def]
+QED
+
+Theorem reg_imm_align_sdm[simp]:
+   reg_imm r (align_sdm s) = reg_imm r s
+Proof
+  Cases_on`r` \\ EVAL_TAC
+QED
+
+Theorem assert_align_sdm[simp]:
+   assert b (align_sdm s) = align_sdm (assert b s)
+Proof
+  EVAL_TAC
+QED
+
+Theorem arith_upd_align_sdm[simp]:
+   arith_upd x (align_sdm s) = align_sdm (arith_upd x s)
+Proof
+  Cases_on`x` \\ rw[arith_upd_def]
+  \\ every_case_tac \\ fs[]
+QED
+
+Theorem fp_upd_align_sdm[simp]:
+   fp_upd f (align_sdm s) = align_sdm (fp_upd f s)
+Proof
+  Cases_on`f` \\ EVAL_TAC
+  \\ every_case_tac \\ fs[] \\ EVAL_TAC \\fs[]
+QED
+
+Theorem addr_align_sdm[simp]:
+   addr a (align_sdm s) = addr a s
+Proof
+  Cases_on`a` \\ EVAL_TAC
+QED
+
+Theorem mem_load_align_sdm:
+   mem_load n (a:α addr) (align_sdm s) = align_sdm (mem_load n a s)
+Proof
+  simp[mem_load_def]
+  \\ every_case_tac \\ fs[]
+QED
+
+Theorem mem_load_byte_align_sdm:
+   mem_load_byte n (a:α addr) (align_sdm s) = align_sdm (mem_load_byte n a s)
+Proof
+  simp[mem_load_byte_def]
+  \\ every_case_tac \\ fs[]
+QED
+
+Theorem mem_store_align_sdm:
+   mem_store n (a:α addr) (align_sdm s) = align_sdm (mem_store n a s)
+Proof
+  simp[mem_store_def]
+  \\ every_case_tac \\ fs[]
+QED
+
+Theorem mem_store_byte_align_sdm:
+   mem_store_byte n (a:α addr) (align_sdm s) = align_sdm (mem_store_byte n a s)
+Proof
+  simp[mem_store_byte_def]
+  \\ every_case_tac \\ fs[align_sdm_def]
+QED
+
+Theorem mem_op_align_sdm:
+   mem_op m n (a:α addr) (align_sdm s) = align_sdm (mem_op m n a s)
+Proof
+  Cases_on`m`
+  \\ simp[mem_op_def,
+          mem_load_align_sdm,mem_load_byte_align_sdm,
+          mem_store_align_sdm,mem_store_byte_align_sdm]
+QED
+
+Theorem asm_inst_align_sdm:
+   asm_inst (i:α inst) (align_sdm s) = align_sdm (asm_inst i s)
+Proof
+  Cases_on`i` \\ simp[asm_inst_def,mem_op_align_sdm]
+QED
+
+Theorem dec_clock_align_sdm[simp]:
+   dec_clock (align_sdm s) = align_sdm (dec_clock s)
+Proof
+  EVAL_TAC
+QED
+
+Theorem inc_pc_align_sdm[simp]:
+   inc_pc (align_sdm s) = align_sdm (inc_pc s)
+Proof
+  EVAL_TAC
+QED
+
+Theorem upd_pc_align_sdm[simp]:
+   upd_pc p (align_sdm s) = align_sdm (upd_pc p s)
+Proof
+  EVAL_TAC
+QED
+
+Theorem get_pc_value_align_sdm[simp]:
+   get_pc_value x (align_sdm s) = get_pc_value x s
+Proof
+  EVAL_TAC \\ every_case_tac
+QED
+
+Theorem get_ret_Loc_align_sdm[simp]:
+   get_ret_Loc (align_sdm s) = get_ret_Loc s
+Proof
+  EVAL_TAC
+QED
+
+Theorem read_bytearray_mem_load_byte_aux_align_sdm[simp]:
+   ∀y x.
+    read_bytearray x y (mem_load_byte_aux s.mem (align_sdm s).mem_domain s.be) =
+   read_bytearray x y (mem_load_byte_aux s.mem s.mem_domain s.be)
+Proof
+  EVAL_TAC>>fs[]
+QED
+
+Theorem write_bytearray_align_sdm[simp]:
+   ∀y x. write_bytearray x y s.mem (align_sdm s).mem_domain s.be =
+   write_bytearray x y s.mem s.mem_domain s.be
+Proof
+  EVAL_TAC>>fs[]
+QED
+
+Theorem align_sdm_aligned:
+  good_dimindex (:'a) ⇒
+  (((x:'a word) ∈ s.shared_mem_domain ∧ w2n x MOD (dimindex (:'a) DIV 8) = 0) ⇔
+    x ∈ (align_sdm s).shared_mem_domain)
+Proof
+  rw[EQ_IMP_THM,align_sdm_def]>>EVAL_TAC
+  \\ simp[state_component_equality]
+  \\ fs[alignmentTheory.byte_aligned_def,IN_DEF]
+  \\ fs[good_dimindex_def]
+  \\ fs[alignmentTheory.aligned_def]
+  \\ Cases_on`x` \\ rfs[alignmentTheory.align_w2n]
+  \\ rfs[]
+  \\ rfs[dimword_def]>>fs[]>>
+  TRY (fs[MOD_EQ_0_DIVISOR]>>
+   gvs[]>>NO_TAC)>- (
+  ‘0 < (4:num)’ by simp[]>>
+  drule DA>> strip_tac>>
+  first_x_assum $ qspec_then ‘n’ assume_tac>>fs[]>>
+  fs[GSYM DIV_EQ_0]>>
+  fs[DIV_EQ_0])>>
+  ‘0 < (8:num)’ by simp[]>>
+  drule DA>> strip_tac>>
+  first_x_assum $ qspec_then ‘n’ assume_tac>>fs[]>>
+  fs[GSYM DIV_EQ_0]>>
+  fs[DIV_EQ_0]
+QED
+
+Theorem share_mem_load_align_sdm:
+  good_dimindex (:'a) ⇒
+  (share_mem_load r (ad:'a addr) (align_sdm s) n = NONE ⇔
+     share_mem_load r ad s n = NONE) ∧
+  (share_mem_load r ad s n = SOME (res, s') ⇒
+   share_mem_load r ad (align_sdm s) n = SOME (res, align_sdm s'))
+Proof
+  strip_tac>>conj_tac>> (
+  rw[EQ_IMP_THM]>>
+  fs[share_mem_load_def,ffiTheory.call_FFI_def]>>
+  every_case_tac>>fs[]>>
+  TRY (drule_all (iffRL align_sdm_aligned)>>strip_tac>>
+       fs[state_component_equality,align_sdm_def]>>NO_TAC)>>
+  TRY (drule_all (iffLR align_sdm_aligned)>>strip_tac>>fs[])>> (
+    drule_then drule (iffLR align_sdm_aligned)>>
+    simp[MOD_EQ_0_DIVISOR]>>
+    irule (iffRL MOD_EQ_0_DIVISOR)>>
+    fs[good_dimindex_def,byte_align_def,align_w2n]>- (
+      assume_tac $ Q.SPECL [‘w2n x’, ‘4’] DA>>fs[]>>
+      fs[GSYM DIV_EQ_0]>>
+      irule_at Any EQ_TRANS>>
+      irule_at Any LESS_MOD>>
+      irule_at Any LESS_EQ_LESS_TRANS>>
+      irule_at Any w2n_lt>>
+      qexists ‘x’>>fs[])>>
+    assume_tac $ Q.SPECL [‘w2n x’, ‘8’] DA>>fs[]>>
+    fs[GSYM DIV_EQ_0]>>
+    irule_at Any EQ_TRANS>>
+    irule_at Any LESS_MOD>>
+    irule_at Any LESS_EQ_LESS_TRANS>>
+    irule_at Any w2n_lt>>
+    qexists ‘x’>>fs[]))
+QED
+
+Theorem share_mem_store_align_sdm:
+  good_dimindex (:'a) ⇒
+  (share_mem_store r (ad:'a addr) (align_sdm s) n = NONE ⇔
+     share_mem_store r ad s n = NONE) ∧
+  (share_mem_store r ad s n = SOME (res, s') ⇒
+   share_mem_store r ad (align_sdm s) n = SOME (res, align_sdm s'))
+Proof
+  strip_tac>>conj_tac>> (
+  rw[EQ_IMP_THM]>>
+  fs[share_mem_store_def,ffiTheory.call_FFI_def]>>
+  every_case_tac>>fs[inc_pc_def,dec_clock_def]>>
+  TRY (drule_all (iffRL align_sdm_aligned)>>strip_tac>>
+       fs[state_component_equality,align_sdm_def]>>NO_TAC)>>
+  TRY (drule_all (iffLR align_sdm_aligned)>>strip_tac>>gvs[])>> (
+    drule_then drule (iffLR align_sdm_aligned)>>
+    simp[MOD_EQ_0_DIVISOR]>>
+    irule (iffRL MOD_EQ_0_DIVISOR)>>
+    fs[good_dimindex_def,byte_align_def,align_w2n]>- (
+      assume_tac $ Q.SPECL [‘w2n x’, ‘4’] DA>>fs[]>>
+      fs[GSYM DIV_EQ_0]>>
+      irule_at Any EQ_TRANS>>
+      irule_at Any LESS_MOD>>
+      irule_at Any LESS_EQ_LESS_TRANS>>
+      irule_at Any w2n_lt>>
+      qexists ‘x’>>fs[])>>
+    assume_tac $ Q.SPECL [‘w2n x’, ‘8’] DA>>fs[]>>
+    fs[GSYM DIV_EQ_0]>>
+    irule_at Any EQ_TRANS>>
+    irule_at Any LESS_MOD>>
+    irule_at Any LESS_EQ_LESS_TRANS>>
+    irule_at Any w2n_lt>>
+    qexists ‘x’>>fs[]))
+QED
+
+Theorem share_mem_op_align_sdm_simp[simp]:
+  good_dimindex (:'a) ⇒
+  (share_mem_op m r (a:'a addr) s = NONE ⇔ share_mem_op m r a (align_sdm s) = NONE) /\
+  (share_mem_op m r a s = SOME (res, s') ==>
+  share_mem_op m r a (align_sdm s) = SOME (res, align_sdm s'))
+Proof
+  Cases_on `m` \\
+  rw[share_mem_op_def]>>
+  fs[share_mem_load_align_sdm,share_mem_store_align_sdm]
+QED
+
+Theorem evaluate_align_sdm:
+   good_dimindex(:α) ⇒
+   ∀(s:(α,'c,'ffi) labSem$state).
+      evaluate (align_sdm s) =
+      let (r,s') = evaluate s in (r, align_sdm s')
+Proof
+  strip_tac
+  \\ ho_match_mp_tac evaluate_ind
+  \\ rpt strip_tac
+  \\ simp[Once evaluate_def]
+  \\ IF_CASES_TAC >- ( simp[Once evaluate_def] )
+  \\ BasicProvers.TOP_CASE_TAC >- ( simp[Once evaluate_def] )
+  \\ BasicProvers.TOP_CASE_TAC >- ( simp[Once evaluate_def] )
+  >- (
+    BasicProvers.TOP_CASE_TAC
+    \\BasicProvers.TOP_CASE_TAC
+    \\ simp[asm_inst_align_sdm]
+    \\ simp[Once evaluate_def,SimpRHS]
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ simp[asm_inst_align_sdm]
+    \\ rw[]
+    \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ fs[inc_pc_def,align_sdm_def,dec_clock_def]
+    >- (
+      drule_all $ cj 2 $ PURE_REWRITE_RULE [align_sdm_def] share_mem_op_align_sdm_simp
+      \\ disch_then assume_tac >> fs[]
+    )
+    >- (
+      drule_all $ cj 2 $ PURE_REWRITE_RULE [align_sdm_def] share_mem_op_align_sdm_simp
+      \\ disch_then assume_tac >> fs[]
+    )
+    >- (
+    drule_all $ iffLR $ cj 1 $ PURE_REWRITE_RULE [align_sdm_def] share_mem_op_align_sdm_simp
+        \\ disch_then assume_tac >> fs[]
+)
+    >- (
+Cases_on ‘x’>>rename1 ‘(res, t)’>>fs[]>>
+        TOP_CASE_TAC>>fs[]>>TRY (pairarg_tac>>fs[])>>
+drule_all $ cj 2 $ PURE_REWRITE_RULE [align_sdm_def] share_mem_op_align_sdm_simp
+        \\ disch_then assume_tac >> gvs[])
+    >- (drule_all $ iffLR $ cj 1 $ PURE_REWRITE_RULE [align_sdm_def] share_mem_op_align_sdm_simp
+        \\ disch_then assume_tac >> fs[])>>
+Cases_on ‘x’>>fs[]>>
+        TOP_CASE_TAC>>fs[]>>TRY (pairarg_tac>>fs[])>>
+drule_all $ cj 2 $ PURE_REWRITE_RULE [align_sdm_def] share_mem_op_align_sdm_simp
+        \\ disch_then assume_tac >> gvs[])
+  \\ BasicProvers.TOP_CASE_TAC
+  \\ simp[Once evaluate_def,SimpRHS]
+  \\ simp[case_eq_thms]
+  \\ rpt(pairarg_tac \\ fs[] \\ rveq \\ fs[]) \\ fs[align_sdm_def,case_eq_thms]
+  \\ rveq \\ fs[] \\ pairarg_tac \\ fs[] \\ rfs[]
+QED
+
+Theorem implements_align_sdm:
+   good_dimindex(:α) ⇒
+   implements' T {semantics (s:(α,'c,'ffi) labSem$state)} {semantics (align_sdm s)}
+Proof
+  strip_tac
+  \\ fs [semanticsPropsTheory.implements'_def]
+  \\ fs [semanticsPropsTheory.extend_with_resource_limit'_def]
+  \\ simp[semantics_def,GSYM align_sdm_with_clock]
+  \\ simp[evaluate_align_sdm,UNCURRY_eq_pair,PULL_EXISTS]
+  \\ simp[UNCURRY]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ strip_tac
+  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ simp[FUN_EQ_THM]
+  \\ METIS_TAC[]
+QED
+
 
 (* asm_ok checks coming into lab_to_target *)
 val line_ok_pre_def = Define`
