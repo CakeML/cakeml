@@ -624,6 +624,14 @@ val add_tap_output_def = Define`
   add_tap_output td out =
     if td = Nil then out else td :mlstring app_list`;
 
+Definition ffinames_to_string_list_def:
+  (ffinames_to_string_list [] = []) ∧
+  (ffinames_to_string_list ((ExtCall s)::rest) =
+    s::(ffinames_to_string_list rest)) ∧
+  (ffinames_to_string_list ((SharedMem _)::rest) =
+    ffinames_to_string_list rest)
+End
+
 (* The top-level compiler with everything instantiated except it doesn't do exporting *)
 
 (* The top-level compiler with almost everything instantiated except the top-level configuration *)
@@ -647,7 +655,9 @@ Definition compile_64_def:
              |> in
         (case compiler$compile compiler_conf basis input of
           (Success (bytes,data,c), td) =>
-            (add_tap_output td (export (the [] c.lab_conf.ffi_names)
+            (add_tap_output td (export
+              (ffinames_to_string_list
+                $ the [] c.lab_conf.ffi_names)
                 bytes data c.symbols),
               implode "")
         | (Failure err, td) => (add_tap_output td (List []), error_to_str err))
@@ -676,7 +686,8 @@ Definition compile_pancake_64_def:
               | (Failure err) =>
                   (List[], error_to_str err)
               | (Success (bytes, data, c)) =>
-                  (export (the [] c.lab_conf.ffi_names) bytes data c.symbols, implode "")
+                  (export (ffinames_to_string_list $
+                    the [] c.lab_conf.ffi_names) bytes data c.symbols, implode "")
 End
 
 Definition full_compile_64_def:
@@ -715,7 +726,9 @@ Definition compile_32_def:
              |> in
         (case compiler$compile compiler_conf basis input of
           (Success (bytes,data,c), td) =>
-            (add_tap_output td (export (the [] c.lab_conf.ffi_names)
+            (add_tap_output td (export
+              (ffinames_to_string_list $
+                the [] c.lab_conf.ffi_names)
                 bytes data c.symbols),
               implode "")
         | (Failure err, td) => (List [], error_to_str err))
@@ -744,7 +757,8 @@ Definition compile_pancake_32_def:
               | (Failure err) =>
                   (List[], error_to_str err)
               | (Success (bytes, data, c)) =>
-                  (export (the [] c.lab_conf.ffi_names) bytes data c.symbols, implode "")
+                  (export (ffinames_to_string_list $
+                    the [] c.lab_conf.ffi_names) bytes data c.symbols, implode "")
 End
 
 Definition full_compile_32_def:
