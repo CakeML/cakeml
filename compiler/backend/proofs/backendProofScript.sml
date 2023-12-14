@@ -3109,14 +3109,137 @@ Proof
   \\ simp [source_to_flatProofTheory.inc_compile_no_Mat]
 QED
 
+Theorem pad_code_no_share_mem_inst:
+  no_share_mem_inst sec_list ==>
+  no_share_mem_inst (pad_code nop sec_list)
+Proof
+  rpt strip_tac >>
+  irule code_similar_IMP_both_no_share_mem >>
+  first_x_assum $ irule_at (Pos hd) >>
+  irule code_similar_pad_code >>
+  irule code_similar_refl
+QED
+
+Theorem enc_sec_list_no_share_mem_inst:
+  no_share_mem_inst code ==>
+  no_share_mem_inst (enc_sec_list enc code)
+Proof
+  rpt strip_tac >>
+  irule code_similar_IMP_both_no_share_mem >>
+  first_x_assum $ irule_at (Pos hd) >>
+  irule code_similar_sym >>
+  simp[code_similar_upd_lab_len,code_similar_refl]
+QED
+
+Theorem enc_secs_again_no_share_mem_inst:
+  !done.
+  enc_secs_again pos labs ffi_names enc sec_list = (code,done) /\
+  no_share_mem_inst sec_list ==>
+  no_share_mem_inst code
+Proof
+  rw[] >>
+  drule_then assume_tac enc_secs_again_IMP_similar >>
+  drule code_similar_IMP_both_no_share_mem >>
+  simp[]
+QED
+
+Theorem upd_lab_len_no_share_mem_inst:
+  !pos.
+  no_share_mem_inst sec_list ==>
+  no_share_mem_inst (upd_lab_len pos sec_list)
+Proof
+  rpt strip_tac >>
+  irule code_similar_IMP_both_no_share_mem >>
+  first_x_assum $ irule_at (Pos hd) >>
+  irule code_similar_sym >>
+  simp[code_similar_upd_lab_len,code_similar_refl]
+QED
+
+Theorem remove_labels_loop_no_share_mem_inst:
+  !cl conf pos init_labs ffi_names sec_list code labs.
+  remove_labels_loop cl conf pos init_labs ffi_names sec_list =
+    SOME (code,labs) /\
+  no_share_mem_inst sec_list ==>
+  no_share_mem_inst code
+Proof
+  ho_match_mp_tac lab_to_targetTheory.remove_labels_loop_ind >>
+  rw[] >>
+  pop_assum mp_tac >>
+  pop_assum mp_tac >>
+  simp[Once lab_to_targetTheory.remove_labels_loop_def] >>
+  pairarg_tac >>
+  simp[] >>
+  IF_CASES_TAC
+  >- (
+    pairarg_tac >>
+    simp[] >>
+    rpt strip_tac >>
+    qpat_x_assum `pad_code _ _ = _` $ assume_tac o GSYM >>
+    simp[] >>
+    irule pad_code_no_share_mem_inst >>
+    irule enc_secs_again_no_share_mem_inst >>
+    first_assum $ irule_at (Pos last) >>
+    irule upd_lab_len_no_share_mem_inst >>
+    irule enc_secs_again_no_share_mem_inst >>
+    first_assum $ irule_at (Pos last) >>
+    simp[]
+  ) >>
+  rw[] >>
+  gvs[] >>
+  first_x_assum irule >>
+  drule_all_then irule enc_secs_again_no_share_mem_inst
+QED
+
+Theorem compile_lab_IMP_mmio_pcs_min_index:
+  compile_lab c sec_list = SOME (bytes,c') /\
+  OPTION_ALL (EVERY $ \x. ∃s. x = ExtCall s) c.ffi_names ==>
+  ?ffi_names. c'.ffi_names = SOME ffi_names /\
+    ?x. mmio_pcs_min_index ffi_names = SOME x
+Proof
+  simp[lab_to_targetTheory.compile_lab_def] >>
+  pairarg_tac >>fs[]>>
+  pop_assum $ mp_tac o SRULE[AllCaseEqs()] >>
+  rpt strip_tac >>
+  gvs[DefnBase.one_line_ify NONE OPTION_MAP_DEF,
+      OPTION_MAP_DEF,backendPropsTheory.the_eqn,CaseEq"option"] >>
+  FULL_CASE_TAC>>fs[] >>
+  pairarg_tac>>gvs[]>>
+  drule get_shmem_info_MappedRead_or_MappedWrite>>strip_tac>>
+  fs[]>>
+  irule_at Any mmio_pcs_min_index_APPEND_thm>>fs[Sh_not_Ext]>>
+  irule find_ffi_names_EVERY>>metis_tac[]
+QED
+
+Theorem compile_lab_no_share_mem_IMP_mmio_pcs_min_index:
+  compile_lab c sec_list = SOME (bytes,c') /\
+  no_share_mem_inst sec_list /\
+  OPTION_ALL (EVERY $ \x. ∃s. x = ExtCall s) c.ffi_names ==>
+  ?ffi_names. c'.ffi_names = SOME ffi_names /\
+  mmio_pcs_min_index ffi_names = SOME $ LENGTH ffi_names
+Proof
+  simp[lab_to_targetTheory.compile_lab_def] >>
+  pairarg_tac >>
+  fs[] >>
+  pop_assum $ mp_tac o SRULE[AllCaseEqs()] >>
+  rpt strip_tac >>
+  fs[] >>
+  every_case_tac>>fs[]>>
+  pairarg_tac>>gvs[]>>
+  fs[lab_to_targetTheory.remove_labels_def] >>
+  (drule remove_labels_loop_no_share_mem_inst >>
+   qspec_then `c.asm_conf.encode` drule $ GEN_ALL enc_sec_list_no_share_mem_inst >>
+   rw[] >>
+   drule_all no_share_mem_IMP_get_shmem_info >>
+   disch_then $ qspecl_then [`c.pos`,`[]`,`[]`] assume_tac >>
+   gvs[])>>
+  irule $ SRULE[] $ Q.SPEC ‘[]’ $ GEN_ALL mmio_pcs_min_index_APPEND_thm >-
+   (irule find_ffi_names_EVERY>>metis_tac[])>>
+  fs[]
+QED
 
 Theorem compile_correct':
   compile (c:'a config) prog = SOME (bytes,bitmaps,c') ∧
-  (case OPTION_MAP (
-    EVERY (\x. x <> "MappedRead" /\ x <> "MappedWrite"))
-    c.lab_conf.ffi_names of
-  | SOME y => y
-  | NONE => T) ⇒
+  OPTION_ALL (EVERY (\x. ∃s. x = ExtCall s)) c.lab_conf.ffi_names ⇒
    let (s0,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
    let s = add_eval_state ev s0 in
    ¬semantics_prog s env prog Fail ∧
