@@ -51,7 +51,7 @@ Definition eval_to_def:
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => Ret' Error
         | SOME ffi_index =>
-          if EL ffi_index mc.ffi_names = SharedMem "MappedRead" then
+          if EL ffi_index mc.ffi_names = SharedMem MappedRead then
             let (nb,a,reg,pc') = mc.mmio_info ffi_index in
             case a of
             | Addr r off =>
@@ -62,10 +62,10 @@ Definition eval_to_def:
                   mc.target ms mc.prog_addresses
               then
                 let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
-                  Vis' (SharedMem "MappedRead",[nb],word_to_bytes ad F)
+                  Vis' (SharedMem MappedRead,[nb],word_to_bytes ad F)
                     (\new_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms)))
               else Ret' Error
-          else if EL ffi_index mc.ffi_names = SharedMem "MappedWrite" then
+          else if EL ffi_index mc.ffi_names = SharedMem MappedWrite then
             let (nb,a,reg,pc') = mc.mmio_info ffi_index in
             case a of
             | Addr r off =>
@@ -77,7 +77,7 @@ Definition eval_to_def:
               then
                 let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
                   Vis'
-                    (SharedMem "MappedWrite",[nb],
+                    (SharedMem MappedWrite,[nb],
                       ((let w = mc.target.get_reg ms reg in
                       if nb = 0w then word_to_bytes w F
                       else word_to_bytes_aux (w2n nb) w F) ++

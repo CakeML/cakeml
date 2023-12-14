@@ -48,7 +48,7 @@ Definition evaluate'_def:
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => (Error,mc,ms,ffi)
         | SOME ffi_index =>
-          if EL ffi_index mc.ffi_names = "MappedRead" then
+          if EL ffi_index mc.ffi_names = SharedMem MappedRead then
             let (nb,a,reg,pc') = mc.mmio_info ffi_index in
             case a of
             | Addr r off =>
@@ -68,7 +68,7 @@ Definition evaluate'_def:
                     let mc = mc with ffi_interfer := new_oracle in
                       evaluate' mc new_ffi (k - 1) ms1)
               else (Error,mc,ms,ffi))
-          else if EL ffi_index mc.ffi_names = "MappedWrite" then
+          else if EL ffi_index mc.ffi_names = SharedMem MappedWrite then
             let (nb,a,reg,pc') = mc.mmio_info ffi_index in
             case a of
             | Addr r off =>
@@ -269,7 +269,7 @@ Theorem evaluate'_1_ffi_changed:
     ∃n ws1 ws2 l.
       find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME n ∧
       (
-        (EL n mc.ffi_names = SharedMem"MappedRead" /\
+        (EL n mc.ffi_names = SharedMem MappedRead /\
         ?nb ad r off reg pc'.
           mc.mmio_info n = (nb, Addr r off,reg,pc') /\
           ad = mc.target.get_reg ms r + off /\
@@ -279,7 +279,7 @@ Theorem evaluate'_1_ffi_changed:
             pc' mc.target ms mc.prog_addresses /\
           ws1 = [nb] /\
           ws2 = word_to_bytes ad F) \/
-         (EL n mc.ffi_names = ShaedMem "MappedWrite" /\
+         (EL n mc.ffi_names = SharedMem MappedWrite /\
          ?nb ad r off reg pc'.
            mc.mmio_info n = (nb,Addr r off,reg,pc') /\
            ad = mc.target.get_reg ms r + off /\
@@ -305,7 +305,8 @@ Proof
   eq_tac >> rw[] >>
   gvs[call_FFI_def, AllCaseEqs(), ffi_state_component_equality] >>
   qpat_x_assum `_ = f.io_events` $ assume_tac o GSYM >> simp[] >>
-  metis_tac[]
+  Cases_on ‘EL x mc.ffi_names’>>fs[]>>
+  rename1 ‘SharedMem s’>>Cases_on ‘s’>>fs[]
 QED
 
 Theorem evaluate'_1_ffi_failed:
@@ -318,7 +319,7 @@ Theorem evaluate'_1_ffi_failed:
     ∃n ws1 ws2 l.
       find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME n ∧
       (
-        (EL n mc.ffi_names = SharedMem "MappedRead" /\
+        (EL n mc.ffi_names = SharedMem MappedRead /\
         ?nb ad r off reg pc'.
           mc.mmio_info n = (nb, Addr r off,reg,pc') /\
           ad = mc.target.get_reg ms r + off /\
@@ -328,7 +329,7 @@ Theorem evaluate'_1_ffi_failed:
             pc' mc.target ms mc.prog_addresses /\
           ws1 = [nb] /\
           ws2 = word_to_bytes ad F) \/
-         (EL n mc.ffi_names = SharedMem "MappedWrite" /\
+         (EL n mc.ffi_names = SharedMem MappedWrite /\
          ?nb ad r off reg pc'.
            mc.mmio_info n = (nb,Addr r off,reg,pc') /\
            ad = mc.target.get_reg ms r + off /\
@@ -350,7 +351,9 @@ Proof
   IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[apply_oracle_def] >>
   IF_CASES_TAC >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
   rpt (pairarg_tac >> gvs[AllCaseEqs()]) >>
-  eq_tac >> rw[] >> gvs[call_FFI_def, AllCaseEqs()]
+  eq_tac >> rw[] >> gvs[call_FFI_def, AllCaseEqs()]>>
+  Cases_on ‘EL x mc.ffi_names’>>fs[]>>
+  rename1 ‘SharedMem s’>>Cases_on ‘s’>>fs[]
 QED
 
 
@@ -635,7 +638,8 @@ Proof
   rw[evaluate'_1_ffi_changed, evaluate'_1_ffi_failed,eval_to'_1_Vis] >>
   simp[call_FFI_def, AllCaseEqs(), SF DNF_ss] >>
   qmatch_goalsub_abbrev_tac `ffi.oracle ffi_name ffi.ffi_state conf wb` >>
-  Cases_on `ffi.oracle ffi_name ffi.ffi_state conf wb` >> simp[]
+  Cases_on `ffi.oracle ffi_name ffi.ffi_state conf wb` >> simp[]>>
+  gvs[Abbr ‘ffi_name’]
 QED
 
 

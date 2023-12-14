@@ -103,7 +103,7 @@ Definition eval_to'_def:
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => (Ret' Error,mc,ms)
         | SOME ffi_index =>
-          if EL ffi_index mc.ffi_names = SharedMem "MappedRead" then
+          if EL ffi_index mc.ffi_names = SharedMem MappedRead then
             let (nb,a,reg,pc') = mc.mmio_info ffi_index in
             case a of
             | Addr r off =>
@@ -114,11 +114,11 @@ Definition eval_to'_def:
                   mc.target ms mc.prog_addresses
               then
                 let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
-                  (Vis' (SharedMem "MappedRead",[nb],word_to_bytes ad F)
+                  (Vis' (SharedMem MappedRead,[nb],word_to_bytes ad F)
                     (\new_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms))),
                   mc1,ms)
               else (Ret' Error,mc,ms)
-          else if EL ffi_index mc.ffi_names = SharedMem "MappedWrite" then
+          else if EL ffi_index mc.ffi_names = SharedMem MappedWrite then
             let (nb,a,reg,pc') = mc.mmio_info ffi_index in
             case a of
             | Addr r off =>
@@ -130,7 +130,7 @@ Definition eval_to'_def:
               then
                 let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
                   (Vis'
-                    (SharedMem "MappedWrite",[nb],
+                    (SharedMem MappedWrite,[nb],
                       ((let w = mc.target.get_reg ms reg in
                       if nb = 0w then word_to_bytes w F
                       else word_to_bytes_aux (w2n nb) w F) ++
@@ -288,6 +288,18 @@ Proof
   >> metis_tac[]
 QED
 
+Theorem Sh_not_Ext:
+  (∃s. x = SharedMem s) ⇔ (∀s. x ≠ ExtCall s)
+Proof
+  Cases_on ‘x’>>gvs[]
+QED
+
+Theorem not_Sh_Ext:
+  (∀s. x ≠ SharedMem s) ⇔ (∃s. x = ExtCall s)
+Proof
+  Cases_on ‘x’>>gvs[]
+QED
+
 Theorem eval_to'_1_Vis:
   eval_to' 1 (mc:('b,'a,'c) machine_config) ms = (Vis' (s,conf,ws) f,mc',ms') ⇔
     mc.target.get_pc ms ∉ (mc.prog_addresses DIFF set mc.ffi_entry_pcs) ∧
@@ -295,7 +307,7 @@ Theorem eval_to'_1_Vis:
     mc.target.get_pc ms ≠ mc.ccache_pc ∧
     ∃n.
       find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME n ∧
-      ((s = SharedMem "MappedRead" /\
+      ((s = SharedMem MappedRead /\
         ?nb ad r off reg pc'.
           mc.mmio_info n = (nb,Addr r off,reg,pc') /\
           ad = mc.target.get_reg ms r + off /\
@@ -306,7 +318,7 @@ Theorem eval_to'_1_Vis:
           conf = [nb] /\
           ws = word_to_bytes ad F
        ) \/
-      (s = SharedMem "MappedWrite" /\
+      (s = SharedMem MappedWrite /\
       ?nb ad r off reg pc'.
         mc.mmio_info n = (nb,Addr r off,reg,pc') /\
         ad = mc.target.get_reg ms r + off /\
@@ -318,7 +330,7 @@ Theorem eval_to'_1_Vis:
         ws = (if nb = 0w then word_to_bytes (mc.target.get_reg ms reg) F
              else word_to_bytes_aux (w2n nb) (mc.target.get_reg ms reg) F) ++
               word_to_bytes ad F) \/
-      ((∃t. s = ExtCall t /\
+      (∃t. s = ExtCall t /\
         read_ffi_bytearrays mc ms = (SOME conf,SOME ws))) ∧
       s ≠ ExtCall "" ∧ s = EL n mc.ffi_names ∧
       mc' = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer ∧ ms' = ms ∧
@@ -329,7 +341,9 @@ Proof
   IF_CASES_TAC >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
   rpt (pairarg_tac >> gvs[]) >>
   rpt (TOP_CASE_TAC >> gvs[]) >>rw[]>>
-  eq_tac >> rw[] >> gvs[]
+  eq_tac >> rw[] >> gvs[]>>
+  irule (iffLR not_Sh_Ext)>>rw[]>>
+  Cases_on ‘s’>>fs[]
 QED
 
 
@@ -368,7 +382,7 @@ Theorem eval:
       case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
       | NONE => Ret' Error
       | SOME ffi_index =>
-        if EL ffi_index mc.ffi_names = SharedMem "MappedRead" then
+        if EL ffi_index mc.ffi_names = SharedMem MappedRead then
           let (nb,a,reg,pc') = mc.mmio_info ffi_index in
           case a of
           | Addr r off =>
@@ -379,10 +393,10 @@ Theorem eval:
                 mc.target ms mc.prog_addresses
             then
               let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
-                Vis' (SharedMem "MappedRead",[nb],word_to_bytes ad F)
+                Vis' (SharedMem MappedRead,[nb],word_to_bytes ad F)
                   (\new_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms)))
             else Ret' Error
-        else if EL ffi_index mc.ffi_names = SharedMem "MappedWrite" then
+        else if EL ffi_index mc.ffi_names = SharedMem MappedWrite then
           let (nb,a,reg,pc') = mc.mmio_info ffi_index in
           case a of
           | Addr r off =>
@@ -394,7 +408,7 @@ Theorem eval:
             then
               let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
                 Vis'
-                  (SharedMem "MappedWrite",[nb],
+                  (SharedMem MappedWrite,[nb],
                    ((let w = mc.target.get_reg ms reg in
                        if nb = 0w then word_to_bytes w F
                        else word_to_bytes_aux (w2n nb) w F) ++
