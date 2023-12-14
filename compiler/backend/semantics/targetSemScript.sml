@@ -133,7 +133,7 @@ val evaluate_def = Define `
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => (Error,ms,ffi)
         | SOME ffi_index =>
-          if EL ffi_index mc.ffi_names = SharedMem "MappedRead" then
+          if EL ffi_index mc.ffi_names = SharedMem MappedRead then
             let (nb,a,reg,pc') = mc.mmio_info ffi_index in
             case a of
             | Addr r off =>
@@ -153,7 +153,7 @@ val evaluate_def = Define `
                     let mc = mc with ffi_interfer := new_oracle in
                       evaluate mc new_ffi (k - 1:num) ms1)
               else (Error,ms,ffi))
-          else if EL ffi_index mc.ffi_names = ShardMem "MappedWrite" then
+          else if EL ffi_index mc.ffi_names = SharedMem MappedWrite then
             let (nb,a,reg,pc') = mc.mmio_info ffi_index in
             case a of
             | Addr r off =>
@@ -236,12 +236,10 @@ val mmio_pcs_min_index_def = Define`
   mmio_pcs_min_index ffi_names =
   some x.
     ((x <= LENGTH ffi_names) /\
-    (!j. j < x ==>
-      EL j ffi_names <> "MappedRead" /\
-      EL j ffi_names <> "MappedWrite") /\
+    (!j. j < x ==> (∃s.
+      EL j ffi_names =  ExtCall s)) /\
     (!j. x <= j /\ j < LENGTH ffi_names ==>
-      EL j ffi_names = "MappedRead" \/
-      EL j ffi_names = "MappedWrite"))`
+         (∃op. EL j ffi_names = SharedMem op)))`
 
 (* start_pc_ok: machine configuration's saved pcs and initial pc are ok *)
 val start_pc_ok_def = Define`
@@ -304,7 +302,7 @@ val ffi_interfer_ok_def = Define`
          (i <= index /\
            target_state_rel mc_conf.target
             (t1 with pc := EL index mc_conf.ffi_entry_pcs) ms2 ==>
-               (EL index mc_conf.ffi_names = SharedMem "MappedRead" ==>
+               (EL index mc_conf.ffi_names = SharedMem MappedRead ==>
                !new_bytes.
                target_state_rel mc_conf.target
                  (t1 with
@@ -317,7 +315,7 @@ val ffi_interfer_ok_def = Define`
                   ;regs := (\n. if n = FST(SND(SND (mc_conf.mmio_info index))) then
                       (word_of_bytes F 0w new_bytes) else t1.regs n)|>)
                   (mc_conf.ffi_interfer k (index,new_bytes,ms2))) /\
-               (EL index mc_conf.ffi_names = SharedMem "MappedWrite" ==>
+               (EL index mc_conf.ffi_names = SharedMem MappedWrite ==>
                target_state_rel mc_conf.target
                  (t1 with
                  <|pc := SND(SND(SND(mc_conf.mmio_info index)))|>)

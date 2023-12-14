@@ -230,7 +230,7 @@ val flush_state_def = Define `
 Definition sh_mem_store_def:
   sh_mem_store (a:'a word) (w:'a word) ^s =
     if a IN s.sh_mdomain then
-      case call_FFI s.ffi "MappedWrite" [0w:word8]
+      case call_FFI s.ffi (SharedMem MappedWrite) [0w:word8]
                     (word_to_bytes w F ++ word_to_bytes a F) of
       | FFI_final outcome => (SOME (FinalFFI outcome), flush_state T s)
       | FFI_return new_ffi new_bytes => (NONE, (s with ffi := new_ffi))
@@ -240,7 +240,7 @@ End
 Definition sh_mem_load_def:
   sh_mem_load (a:'a word) ^s =
     if a IN s.sh_mdomain then
-      SOME $ call_FFI s.ffi "MappedRead" [0w:word8]
+      SOME $ call_FFI s.ffi (SharedMem MappedRead) [0w:word8]
                     (word_to_bytes a F)
     else NONE
 End
@@ -248,7 +248,7 @@ End
 Definition sh_mem_store_byte_def:
   sh_mem_store_byte (a:'a word) (w:'a word) ^s =
     if byte_align a IN s.sh_mdomain then
-      case call_FFI s.ffi "MappedWrite" [1w:word8]
+      case call_FFI s.ffi (SharedMem MappedWrite) [1w:word8]
                     ([get_byte 0w w F] ++ word_to_bytes a F) of
         FFI_final outcome => (SOME (FinalFFI outcome), flush_state T s)
       | FFI_return new_ffi new_bytes => (NONE, (s with ffi := new_ffi))
@@ -258,7 +258,7 @@ End
 Definition sh_mem_load_byte_def:
   sh_mem_load_byte (a:'a word) ^s =
     if byte_align a IN s.sh_mdomain then
-      SOME $ call_FFI s.ffi "MappedRead" [1w:word8]
+      SOME $ call_FFI s.ffi (SharedMem MappedRead) [1w:word8]
                     (word_to_bytes a F)
     else NONE
 End

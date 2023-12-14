@@ -396,7 +396,7 @@ Proof
   TOP_CASE_TAC \\
   IF_CASES_TAC >> fs[IS_PREFIX_APPEND] \\
   rw[] \\
-  qexists `[IO_event "MappedRead" [r0]
+  qexists `[IO_event (SharedMem MappedRead) [r0]
                      (ZIP (word_to_bytes (c + mc_conf.target.get_reg ms n) F,l))] ++ l''` \\
   rw[]
   ) \\
@@ -414,7 +414,7 @@ Proof
       TOP_CASE_TAC \\
       IF_CASES_TAC >> fs[IS_PREFIX_APPEND] \\
       rw[] \\
-      qexists `[IO_event "MappedWrite" [r0]
+      qexists `[IO_event (SharedMem MappedWrite) [r0]
         (ZIP
            ((if r0 = 0w then word_to_bytes (mc_conf.target.get_reg ms r2) F
              else word_to_bytes_aux (w2n r0) (mc_conf.target.get_reg ms r2) F) ++

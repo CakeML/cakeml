@@ -375,7 +375,7 @@ Definition share_mem_load_def:
                  ∧ (v IN s.shared_mem_domain))
             else byte_align v IN s.shared_mem_domain)
         then
-          (case call_FFI s.ffi "MappedRead"
+          (case call_FFI s.ffi (SharedMem MappedRead)
             [n2w n]
             (word_to_bytes v F) of
           | FFI_final outcome => SOME (FFI_final outcome, s)
@@ -401,7 +401,7 @@ Definition share_mem_store_def:
                  ∧ (v IN s.shared_mem_domain))
             else byte_align v IN s.shared_mem_domain)
            then
-             (case call_FFI s.ffi "MappedWrite"
+             (case call_FFI s.ffi (SharedMem MappedWrite)
                [n2w n]
                ((if n = 0
                  then word_to_bytes w F
@@ -535,7 +535,7 @@ val evaluate_def = tDefine "evaluate" `
                                    pc := new_pc ;
                                    clock := s.clock - 1 |>))
           | _ => (Error,s))
-       else (Error, s))
+       | _ => (Error,s))
     | _ => (Error,s)`
  (WF_REL_TAC `measure (\s. s.clock)`
   \\ fs [inc_pc_def] \\ rw [] \\ IMP_RES_TAC asm_fetch_IMP
