@@ -1347,10 +1347,12 @@ Theorem pan_to_target_compile_semantics:
   w2n (bytes_in_word:'a word) * (2 * max_heap_limit (:'a) c.data_conf -1) ∧
   w2n (bytes_in_word:'a word) * (2 * max_heap_limit (:'a) c.data_conf -1) < dimword (:'a) ∧
   s.ffi = ffi ∧ mc.target.config.big_endian = s.be ∧
+  OPTION_ALL (EVERY $ \x. ∃s. x = ExtCall s) c.lab_conf.ffi_names ∧
   pan_installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
-                (heap_regs c.stack_conf.reg_names) mc ms
+                (heap_regs c.stack_conf.reg_names) mc
+                c'.lab_conf.shmem_extra ms
                 (mk_mem (make_funcs (compile_prog pan_code)) s.memory)
-                s.memaddrs ∧
+                s.memaddrs s.sh_memaddrs ∧
   semantics s start ≠ Fail ⇒
   machine_sem (mc:(α,β,γ) machine_config) (ffi:'ffi ffi_state) ms ⊆
               extend_with_resource_limit'
@@ -1385,6 +1387,14 @@ Proof
   qabbrev_tac ‘hp = heap_regs c.stack_conf.reg_names’>>
   Cases_on ‘hp’>>gs[]>>
 
+  (* no_install_or_no_share_mem *)
+  ‘no_install lprog’ by
+    (fs[Abbr ‘lprog’]>>
+     irule from_pan_to_lab_no_install>>
+     rpt (first_assum $ irule_at Any)>>metis_tac[])>>
+  ‘no_install_or_no_share_mem lprog mc.ffi_names’
+    by fs[lab_to_targetProofTheory.no_install_or_no_share_mem_def]>>
+
   (* compiler_orackle_ok *)
   qmatch_asmsub_abbrev_tac ‘stack_to_lab_compile _ _ max_heap sp _ _’>>
   qabbrev_tac ‘lorac = λn:num.
@@ -1404,8 +1414,9 @@ Proof
   gs[backendProofTheory.backend_config_ok_def]>>
   gs[pan_installed_def]>>gs[]>>
 
-  ‘compiler_oracle_ok sorac ltconf.labels (LENGTH bytes)
-   mc.target.config mc.ffi_names’
+  ‘no_share_mem_inst lprog ⇒
+   compiler_oracle_ok sorac ltconf.labels (LENGTH bytes)
+                      mc.target.config mc.ffi_names’
     by (
     gs[Abbr ‘sorac’]>>gs[Abbr ‘lorac’]>>
     simp [lab_to_targetProofTheory.compiler_oracle_ok_def]>>
@@ -1416,14 +1427,14 @@ Proof
           strip_tac>>gs[]>>
           drule backendProofTheory.compile_lab_LENGTH>>
           strip_tac>>gs[]>>
-          rveq>>gs[])>>gs[]>> (***)
+          rveq>>gs[])>>gs[]>>
     gvs[stack_to_labTheory.compile_no_stubs_def]>>
     gs[stack_namesTheory.compile_def]>>
     gs[lab_to_targetProofTheory.good_code_def]>>
-    gs[labPropsTheory.get_labels_def,backendPropsTheory.restrict_nonzero_def])>>
-  gs[]>>
-  first_assum $ irule_at Any>>gs[]>>
-  first_assum $ irule_at Any>>
+    gs[labPropsTheory.get_labels_def,backendPropsTheory.restrict_nonzero_def]>>
+    fs[labPropsTheory.no_share_mem_inst_def,labSemTheory.asm_fetch_aux_def])>>
+  first_assum $ irule_at Any>>gs[]>> (* no_install_or_no_share_mem *)
+  first_assum $ irule_at Any>>gs[]>>  (* lab_to_target$compile *)
 
   ‘good_code mc.target.config (LN:num sptree$num_map sptree$num_map) lprog’
     by (
@@ -1442,7 +1453,7 @@ Proof
     ‘byte_offset_ok mc.target.config 0w’
       by (gs[lab_to_targetProofTheory.mc_conf_ok_def]>>
           drule good_dimindex_0w_8w>>gs[])>>
-    gs[stack_to_labTheory.compile_def]>>rveq>> (**)
+    gs[stack_to_labTheory.compile_def]>>rveq>>
     irule stack_to_labProofTheory.compile_all_enc_ok_pre>>gs[]>>
     (irule stack_namesProofTheory.stack_names_stack_asm_ok>>
      gs[]>>
@@ -1472,7 +1483,18 @@ Proof
      first_x_assum $ irule>>
      irule pan_to_word_every_inst_ok_less>>metis_tac[pancake_good_code_def])>>
     gs[])>>gs[]>>
-  first_assum $ irule_at Any>>
+  first_assum $ irule_at Any>>gs[]>>
+  simp[Once SWAP_EXISTS_THM]>>
+  qexists_tac ‘sorac’>>fs[]>>
+  ‘ltconf = c'.lab_conf’ by gvs[]>>gs[]>>
+
+  qpat_assum ‘compile _ lprog = SOME _’ mp_tac>>
+  rewrite_tac[lab_to_targetTheory.compile_def]>>strip_tac>>
+  drule_all backendProofTheory.compile_lab_IMP_mmio_pcs_min_index>>
+  strip_tac>>
+  fs[]>>rfs[]>>
+  conj_tac>- (Cases_on ‘c.lab_conf.ffi_names’>>fs[])>>
+
   qmatch_goalsub_abbrev_tac ‘labSem$semantics labst’>>
 
   mp_tac (GEN_ALL stack_to_labProofTheory.full_make_init_semantics
@@ -1506,6 +1528,7 @@ Proof
    (∀k i n. MEM k mc.callee_saved_regs ⇒ labst.io_regs n i k = NONE) ∧
    (∀k n. MEM k mc.callee_saved_regs ⇒ labst.cc_regs n k = NONE) ∧
    (∀x. x ∈ labst.mem_domain ⇒ w2n x MOD (dimindex (:α) DIV 8) = 0) ∧
+   (∀x. x ∈ labst.shared_mem_domain ⇒ w2n x MOD (dimindex (:α) DIV 8) = 0) ∧
    good_code sp p ∧ (∀n. good_code sp (FST (SND (lorac n)))) ∧
    10 ≤ sp ∧
    (MEM (find_name c.stack_conf.reg_names (sp + 1))
@@ -1513,7 +1536,7 @@ Proof
     MEM (find_name c.stack_conf.reg_names (sp + 2))
         mc.callee_saved_regs) ∧ mc.len2_reg = labst.len2_reg ∧
    mc.ptr2_reg = labst.ptr2_reg ∧ mc.len_reg = labst.len_reg ∧
-   mc.ptr_reg = labst.ptr_reg ∧
+   mc.ptr_reg = labst.ptr_reg ∧ labst.shared_mem_domain = s.sh_memaddrs ∧
    (case mc.target.config.link_reg of NONE => 0 | SOME n => n) =
    labst.link_reg ∧ ¬labst.failed’
     by (gs[Abbr ‘labst’, Abbr ‘sp’,
@@ -1595,12 +1618,6 @@ Proof
   irule_at Any $ METIS_PROVE [] “∀x y z. x = y ∧ y ∈ z ⇒ x ∈ z”>>
   pop_assum $ irule_at Any>>
 
-  ‘ltconf.ffi_names = SOME mc.ffi_names’
-    by (qpat_x_assum ‘lab_to_target$compile _ _ = SOME (_, ltconf)’ mp_tac>>
-        simp[lab_to_targetTheory.compile_def,lab_to_targetTheory.compile_lab_def]>>
-        pairarg_tac>>gs[]>>
-        CASE_TAC>>gs[]>>CASE_TAC>>gs[]>>strip_tac>>gvs[])>>gs[]>>
-
   (* word_to_stack *)
 
   (* instantiate / discharge *)
@@ -1618,14 +1635,14 @@ Proof
     qmatch_asmsub_abbrev_tac ‘make_init_opt _ _ _ _ coracle jump off _ code _’>>
     Cases_on ‘evaluate (init_code gengc max_heap sp, s')’>>gs[]>>
     rename1 ‘evaluate _ = (q', r')’>>
-    Cases_on ‘q'’>>gs[]>>rveq>>  (* ??*)
+    Cases_on ‘q'’>>gs[]>>rveq>>
     gs[stackSemTheory.state_component_equality]>>
     Cases_on ‘make_init_opt gengc max_heap bitmaps data_sp coracle jump off sp code s'’>>
     gs[stackSemTheory.state_component_equality]>>
     gs[stack_removeProofTheory.make_init_opt_def]>>
     gs[stack_removeProofTheory.init_reduce_def]>>
     gs[stack_removeProofTheory.init_prop_def]>>
-    rveq>>gs[stackSemTheory.state_component_equality])>> (**)
+    rveq>>gs[stackSemTheory.state_component_equality])>>
 
   drule_at Any word_to_stackProofTheory.compile_semantics>>
   gs[]>>
@@ -1949,7 +1966,6 @@ Proof
   disch_then $ drule_at Any>>
   disch_then $ drule_at Any>>
   disch_then $ qspec_then ‘gck’ assume_tac>>gs[]>>
-  (***)
 
   ‘(w2n:'a word -> num) bytes_in_word = dimindex (:α) DIV 8’
     by fs[good_dimindex_def,bytes_in_word_def,dimword_def]>>
@@ -1959,6 +1975,7 @@ Proof
                                + 48w * bytes_in_word:'a word) ∧
    mc.target.get_reg ms mc.ptr2_reg = w3 ∧
    mc.target.get_reg ms mc.len2_reg = w4 ∧
+   sss.sh_mdomain = sdm ∩ byte_aligned ∧
    t.regs mc.len_reg = w2 ∧
    t.regs mc.len2_reg = w4’
     by (
@@ -1967,10 +1984,8 @@ Proof
 
     gs[stack_removeProofTheory.init_prop_def]>>
 
-    qpat_x_assum ‘_ = x’ (assume_tac o GSYM)>>fs[]>>
+    qpat_x_assum ‘init_reduce _ _ _ _ _ _ _ _ _ = x'’ (assume_tac o GSYM)>>fs[]>>
     fs[stack_removeProofTheory.init_reduce_def]>>
-
-
 
     gs[FLOOKUP_MAP_KEYS_LINV]>>
     gs[flookup_fupdate_list]>>
@@ -2146,7 +2161,7 @@ Proof
     by (gs[Abbr ‘wst0’, Abbr ‘wst’]>>
         gs[word_to_stackProofTheory.make_init_def]>>
         qpat_x_assum ‘_ = sst’ $ assume_tac o GSYM>>gs[]>>
-        qpat_x_assum ‘_ = x’ $ assume_tac o GSYM>>
+        qpat_x_assum ‘init_reduce _ _ _ _ _ _ _ _ _ = x'’ $ assume_tac o GSYM>>
         gs[stack_removeProofTheory.init_reduce_def]>>
         qpat_x_assum ‘fun2set (ssx.memory,_) = _’ $ assume_tac o GSYM>>
         gs[wordSemTheory.theWord_def]>>
@@ -2191,10 +2206,8 @@ Proof
       rev_drule ALOOKUP_ALL_DISTINCT_EL>>gs[]>>strip_tac>>
       gs[]>>
 
-      (***)
       gs[Abbr ‘wst’, Abbr ‘worac’,
          word_to_stackProofTheory.make_init_def]>>gvs[]>>
-      fs[lab_to_targetProofTheory.make_init_def]>>
       fs[stack_removeProofTheory.init_reduce_def]>>
       gs[wordSemTheory.theWord_def]>>
 
@@ -2276,7 +2289,7 @@ Proof
   gs[Abbr ‘wst’, Abbr ‘worac’]>>
   gs[word_to_stackProofTheory.make_init_def]>>
   qpat_x_assum ‘_ = sst’ $ assume_tac o GSYM>>gs[]>>
-  qpat_x_assum ‘_ = x’ $ assume_tac o GSYM>>gs[]>>
+  qpat_x_assum ‘init_reduce _ _ _ _ _ _ _ _ _ = x'’ $ assume_tac o GSYM>>gs[]>>
   gs[stack_removeProofTheory.init_reduce_def]>>
   gs[stack_removeProofTheory.LENGTH_read_mem]>>
   pop_assum kall_tac>>
