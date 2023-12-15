@@ -273,11 +273,11 @@ Proof
 QED
 
 val pan_installed_def = Define`
-  pan_installed bytes cbspace bitmaps data_sp ffi_names (r1,r2) mc_conf ms p_mem p_dom ⇔
-  ∃t m io_regs cc_regs bitmap_ptr bitmaps_dm.
+  pan_installed bytes cbspace bitmaps data_sp ffi_names (r1,r2) (mc_conf:('a,'state,'b) machine_config) shmem_extra ms p_mem p_dom sdm' ⇔
+  ∃t m io_regs cc_regs bitmap_ptr bitmaps_dm sdm.
   let heap_stack_dm = { w | t.regs r1 <=+ w ∧ w <+ t.regs r2 } in
     (∀a. a ∈ p_dom ⇒ m a = p_mem a) ∧
-    good_init_state mc_conf ms bytes cbspace t m (heap_stack_dm ∪ bitmaps_dm) io_regs cc_regs ∧
+    good_init_state mc_conf ms bytes cbspace t m (heap_stack_dm ∪ bitmaps_dm) sdm io_regs cc_regs ∧ sdm' = sdm ∩ byte_aligned ∧
     byte_aligned (t.regs r1) /\
     byte_aligned (t.regs r2) /\
     byte_aligned bitmap_ptr /\
@@ -297,11 +297,21 @@ val pan_installed_def = Define`
     (word_list bitmap_ptr (MAP Word bitmaps) *
      word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp)
     (fun2set (m,byte_aligned ∩ bitmaps_dm)) ∧
-    ffi_names = SOME mc_conf.ffi_names`;
+    ffi_names = SOME mc_conf.ffi_names ∧
+    (!i. mmio_pcs_min_index mc_conf.ffi_names = SOME i ==>
+         MAP (\rec. rec.entry_pc + mc_conf.target.get_pc ms) shmem_extra =
+         DROP i mc_conf.ffi_entry_pcs ∧
+         mc_conf.mmio_info =
+         (λindex. EL (index − i)
+                     (MAP
+                      (\rec. (rec.nbytes, rec.access_addr, rec.reg,
+        rec.exit_pc + mc_conf.target.get_pc ms))
+      shmem_extra)) /\
+    cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a))`;
 
 Theorem pan_installed_imp_installed:
-  pan_installed bytes cbspace bitmaps data_sp ffi_names (r1,r2) mc_conf ms p_mem p_dom ⇒
-  installed bytes cbspace bitmaps data_sp ffi_names (r1,r2) mc_conf ms
+  pan_installed bytes cbspace bitmaps data_sp ffi_names (r1,r2) mc_conf shmem_extra ms p_mem p_dom sdm ⇒
+  installed bytes cbspace bitmaps data_sp ffi_names (r1,r2) mc_conf shmem_extra ms
 Proof
   rw[pan_installed_def, targetSemTheory.installed_def]>>
   metis_tac[]
