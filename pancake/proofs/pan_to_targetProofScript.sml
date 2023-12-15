@@ -1173,7 +1173,18 @@ Proof
               miscTheory.read_bytearray_def,
               wordSemTheory.mem_load_byte_aux_def,
               wordSemTheory.cut_env_def])>>
-      gvs[wordSemTheory.flush_state_def])>>
+      gvs[wordSemTheory.flush_state_def])
+  >- (Cases_on ‘op’>>
+      gs[wordSemTheory.share_inst_def,
+     wordSemTheory.sh_mem_load_def,
+     wordSemTheory.sh_mem_load_byte_def,
+     wordSemTheory.sh_mem_store_def,
+     wordSemTheory.sh_mem_store_byte_def,
+     ffiTheory.call_FFI_def]>>
+      every_case_tac>>gvs[]>>
+      fs[wordSemTheory.sh_mem_set_var_def,
+         wordSemTheory.set_var_def,
+         wordSemTheory.flush_state_def]>>gvs[])>>
   Cases_on ‘get_vars args s’>>gs[]>>
   Cases_on ‘bad_dest_args dest args’>>gs[]>>
   Cases_on ‘find_code dest (add_ret_loc ret x) s.code s.stack_size’>>gs[]>>
@@ -1238,7 +1249,18 @@ Proof
               miscTheory.read_bytearray_def,
               wordSemTheory.mem_load_byte_aux_def,
               wordSemTheory.cut_env_def])>>
-      gvs[wordSemTheory.flush_state_def])>>
+      gvs[wordSemTheory.flush_state_def])
+  >- (Cases_on ‘op’>>
+      gs[wordSemTheory.share_inst_def,
+     wordSemTheory.sh_mem_load_def,
+     wordSemTheory.sh_mem_load_byte_def,
+     wordSemTheory.sh_mem_store_def,
+     wordSemTheory.sh_mem_store_byte_def,
+     ffiTheory.call_FFI_def]>>
+      every_case_tac>>gvs[]>>
+      fs[wordSemTheory.sh_mem_set_var_def,
+         wordSemTheory.set_var_def,
+         wordSemTheory.flush_state_def]>>gvs[])>>
   Cases_on ‘get_vars args s’>>gs[]>>
   Cases_on ‘bad_dest_args dest args’>>gs[]>>
   Cases_on ‘find_code dest (add_ret_loc ret x) s.code s.stack_size’>>gs[]>>
@@ -1274,6 +1296,26 @@ Theorem option_lt_SOME:
   option_lt x (SOME n) = (∃m. x = SOME m ∧ m < n)
 Proof
   Cases_on ‘x’>>fs[]
+QED
+
+Theorem from_pan_to_lab_no_install:
+  ALL_DISTINCT (MAP FST pan_code) ∧
+  pan_to_word_compile_prog isa pan_code = wprog0 ∧
+  word_to_word_compile wc ac wprog0 = (col, wprog) ∧
+  word_to_stack_compile ac wprog = (bm, c, fs, p) ⇒
+  no_install (stack_to_lab_compile sc dc lim regc off p)
+Proof
+  strip_tac>>
+  imp_res_tac first_compile_prog_all_distinct>>
+  first_x_assum $ qspec_then ‘isa’ assume_tac>>
+  drule pan_to_word_compile_prog_no_install_code>>strip_tac>>
+  drule pan_to_word_compile_prog_no_mt_code>>strip_tac>>
+  gs[]>>
+  drule_all word_to_word_compile_no_install>>strip_tac>>
+  ‘MAP FST wprog0 = MAP FST wprog’ by
+    (drule compile_to_word_conventions2>>gvs[])>>fs[]>>
+  drule_all word_to_stackProofTheory.word_to_stack_comple_no_install>>strip_tac>>
+  irule (SRULE[] $ stack_to_labProofTheory.stack_to_lab_compile_no_install)>>fs[]
 QED
 
 
