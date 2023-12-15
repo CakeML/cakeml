@@ -488,6 +488,26 @@ Proof
   gs[wordSemTheory.const_writes_def]
 QED
 
+Theorem share_inst_const_memory[simp]:
+  ∀s op v c m.
+  fun2set (s.memory,s.mdomain) = fun2set (m, s.mdomain) ∧
+  share_inst op v c s = (res, t) ⇒
+  t.memory = s.memory ∧ t.mdomain = s.mdomain ∧
+  share_inst op v c (s with memory := m) = (res, t with memory := m)
+Proof
+  rpt strip_tac>>Cases_on ‘op’>>
+  gs[wordSemTheory.share_inst_def,
+     wordSemTheory.sh_mem_load_def,
+     wordSemTheory.sh_mem_load_byte_def,
+     wordSemTheory.sh_mem_store_def,
+     wordSemTheory.sh_mem_store_byte_def,
+     ffiTheory.call_FFI_def]>>
+  every_case_tac>>gvs[]>>
+  fs[wordSemTheory.sh_mem_set_var_def,
+     wordSemTheory.set_var_def,
+     wordSemTheory.flush_state_def]>>gvs[]
+QED
+
 (* memory update lemma for evaluate *)
 Theorem memory_swap_lemma:
   ∀prog st res rst m.
@@ -575,7 +595,7 @@ Proof
       gvs[]>>metis_tac[])
   >- (rpt (CASE_TAC>>gs[wordSemTheory.get_var_def,wordSemTheory.buffer_write_def])>>
       gvs[]>>metis_tac[])
-  (* 2 goals to go *)
+  (* 3 more goals to go *)
   >- (gs[wordSemTheory.get_var_def,
          wordSemTheory.flush_state_def]>>
       rpt (CASE_TAC>>gs[])>>gvs[]>>TRY (metis_tac[])
@@ -594,8 +614,10 @@ Proof
           metis_tac[])>>
       imp_res_tac read_bytearray_const_memory>>
       first_assum $ qspecl_then [‘c''’, ‘w2n c'''’, ‘s.be’] assume_tac>>gs[]>>gvs[]>>
-      metis_tac[])>>
-
+      metis_tac[])
+  >- (every_case_tac>>fs[]>>
+      TRY (drule_all share_inst_const_memory>>strip_tac>>fs[])
+      >>fs[wordSemTheory.share_inst_def]>>metis_tac[])>>
   Cases_on ‘get_vars args s’>>gs[]>- metis_tac[]>>
   Cases_on ‘bad_dest_args dest args’>>gs[]>- metis_tac[]>>
   Cases_on ‘find_code dest (add_ret_loc ret x) s.code s.stack_size’>>
@@ -996,7 +1018,19 @@ Proof
        wordSemTheory.dec_clock_def]>>
     pairarg_tac>>gs[]>>
     rev_drule wordPropsTheory.no_install_evaluate_const_code>>strip_tac>>gs[])>>
-  rpt (FULL_CASE_TAC>>gvs[])
+  rpt (FULL_CASE_TAC>>gvs[])>>
+  (* last case: share_inst *)
+  Cases_on ‘op’>>
+  gs[wordSemTheory.share_inst_def,
+     wordSemTheory.sh_mem_load_def,
+     wordSemTheory.sh_mem_load_byte_def,
+     wordSemTheory.sh_mem_store_def,
+     wordSemTheory.sh_mem_store_byte_def,
+     ffiTheory.call_FFI_def]>>
+  every_case_tac>>gvs[]>>
+  fs[wordSemTheory.sh_mem_set_var_def,
+     wordSemTheory.set_var_def,
+     wordSemTheory.flush_state_def]>>gvs[]
 QED
 
 Theorem panLang_wordSem_neq_NotEnoughSpace:
