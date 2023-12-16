@@ -196,7 +196,7 @@ End
 
 Definition ok_event_def:
   ok_event (IO_event n out y) ⇔
-    n = kernel_ffi ⇒
+    n = ExtCall kernel_ffi ⇒
       ∃ctxt th. THM ctxt th ∧
                 thm2bytes ctxt th = out
 End
