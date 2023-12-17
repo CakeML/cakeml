@@ -125,6 +125,12 @@ Definition parse_xlrup_def:
       (case parse_id_rest rest of NONE => NONE
         | SOME (n,c,hints) => SOME (CFromX n c hints))
     else
+    if c = strlit"ix"
+    then
+      (* XFromC *)
+      (case parse_id_rest rest of NONE => NONE
+        | SOME (n,c,hints) => SOME (XFromC n c hints))
+     else
       NONE)
 End
 
@@ -151,17 +157,22 @@ Proof
  fs[wf_clause_def]
 QED
 
+Theorem parse_id_rest_wf_clause:
+  parse_id_rest ls = SOME(n,c,hints) ⇒
+  wf_clause c
+Proof
+  Cases_on`ls`>>fs[parse_id_rest_def]>>
+  gvs[AllCaseEqs()]>>
+  metis_tac[parse_rest_wf_clause,PAIR,FST,SND]
+QED
+
 Theorem parse_xlrup_wf:
   parse_xlrup ls = SOME line ⇒
   wf_xlrup line
 Proof
   Cases_on`ls`>>rw[parse_xlrup_def]>>
-  gvs[AllCaseEqs(),wf_xlrup_def]
-  >- (
-    Cases_on`t`>>fs[parse_id_rest_def]  >>
-    gvs[AllCaseEqs()]>>
-    metis_tac[parse_rest_wf_clause,PAIR,FST,SND])
-  >- metis_tac[parse_rest_wf_clause,PAIR,FST,SND]
+  gvs[AllCaseEqs(),wf_xlrup_def]>>
+  metis_tac[parse_id_rest_wf_clause,parse_rest_wf_clause]
 QED
 
 (* Mostly semantic!*)
@@ -205,6 +216,7 @@ val xlrupsraw = ``[
   strlit"14 d 9 10 11 7 0";
   strlit"16 0 14 12 13 8 0";
   strlit"i 17 0 14 12 13 8 0";
+  strlit"ix 17 0 14 12 13 8 0";
   ]``;
 
 val xlrups = rconc (EVAL ``THE (parse_xlrups ^(xlrupsraw))``);

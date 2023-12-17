@@ -162,6 +162,23 @@ Definition is_cfromx_list_def:
   | SOME x => strxor_imp_cclause_list def x c
 End
 
+Definition get_clauses_list_def:
+  (get_clauses_list fml [] = SOME []) ∧
+  (get_clauses_list fml (i::is) =
+    case list_lookup fml NONE i of
+      NONE => NONE
+    | SOME Ci =>
+      (case get_clauses_list fml is of NONE => NONE
+      | SOME Cs => SOME (Ci::Cs)))
+End
+
+Definition is_xfromc_list_def:
+  is_xfromc_list fml is rx =
+  case get_clauses_list fml is of NONE => F
+  | SOME ds =>
+    check_rawxor_imp ds rx
+End
+
 Definition check_xlrup_list_def:
   check_xlrup_list xlrup cfml xfml def Clist =
   case xlrup of
@@ -188,7 +205,12 @@ Definition check_xlrup_list_def:
       SOME (resize_update_list cfml NONE (SOME c) n, xfml,
         def, Clist)
     else NONE
-  | _ => NONE
+  | XFromC n rx i0 =>
+    if is_xfromc_list cfml i0 rx then
+      let X = conv_rawxor_list def rx in
+      SOME (cfml, resize_update_list xfml NONE (SOME X) n,
+        MAX def (strlen X), Clist)
+    else NONE
 End
 
 (* semantic *)
@@ -642,6 +664,31 @@ Proof
   fs[strxor_imp_cclause_list_strxor_imp_cclause]
 QED
 
+Theorem fml_rel_get_clauses_list:
+  ∀is.
+  fml_rel fml fmlls ⇒
+  get_clauses_list fmlls is =
+  get_clauses fml is
+Proof
+  Induct>>rw[get_clauses_def,get_clauses_list_def]>>
+  gvs[]>>every_case_tac>>
+  fs[fml_rel_def,list_lookup_def]>>
+  first_x_assum (qspec_then `h` mp_tac)>>rw[]>>
+  pop_assum sym_sub_tac>>
+  gvs[]
+QED
+
+Theorem is_xfromc_list_is_xfromc:
+  fml_rel fml fmlls ∧
+  is_xfromc_list fmlls is rx ⇒
+  is_xfromc fml is rx
+Proof
+  rw[is_xfromc_list_def,is_xfromc_def]>>
+  every_case_tac>>
+  fs[]>>
+  metis_tac[fml_rel_get_clauses_list,option_CLAUSES]
+QED
+
 Theorem fml_rel_check_xlrup_list:
   fml_rel cfml cfmlls ∧
   fml_rel xfml xfmlls ∧
@@ -682,6 +729,11 @@ Proof
       rw[resize_Clist_def]>>
     CONJ_TAC >-
       metis_tac[is_cfromx_list_is_cfromx]>>
+    metis_tac[fml_rel_resize_update_list])
+  >- ( (* XFromC *)
+    every_case_tac>>fs[conv_rawxor_list_conv_rawxor]>>
+    CONJ_TAC >-
+      metis_tac[is_xfromc_list_is_xfromc]>>
     metis_tac[fml_rel_resize_update_list])
 QED
 

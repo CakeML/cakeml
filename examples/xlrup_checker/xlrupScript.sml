@@ -120,6 +120,13 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Theorem conv_lit_interp_lit:
+  conv_lit (interp_lit y) = y
+Proof
+  rw[interp_lit_def,conv_lit_def]>>
+  intLib.ARITH_TAC
+QED
+
 Theorem nz_lit_conv_lit:
   nz_lit y ⇒ conv_lit y ≠ 0
 Proof
@@ -871,6 +878,44 @@ Definition is_cfromx_def:
     strxor_imp_cclause def x c
 End
 
+Definition get_clauses_def:
+  (get_clauses fml [] = SOME []) ∧
+  (get_clauses fml (i::is) =
+    case lookup i fml of
+      NONE => NONE
+    | SOME Ci =>
+      (case get_clauses fml is of NONE => NONE
+      | SOME Cs => SOME (Ci::Cs)))
+End
+
+Definition clauses_from_rawxor_def:
+  (clauses_from_rawxor [] b =
+    if b then [[]] else []) ∧
+  (clauses_from_rawxor (l::ls) b =
+    MAP (λxs. l::xs) (clauses_from_rawxor ls b) ++
+    MAP (λxs. (-l:int)::xs) (clauses_from_rawxor ls (~b)))
+End
+
+(* clause c implies d *)
+Definition imp_cclause_def:
+  imp_cclause c d ⇔
+  EVERY (λl. MEM l d) c
+End
+
+Definition check_rawxor_imp_def:
+  check_rawxor_imp ds rx =
+  let cs = clauses_from_rawxor rx T in
+  EVERY (λc. EXISTS (λd. imp_cclause d c) ds) cs
+End
+
+(* Every clause in ds must be in cs *)
+Definition is_xfromc_def:
+  is_xfromc fml is rx =
+  case get_clauses fml is of NONE => F
+  | SOME ds =>
+    check_rawxor_imp ds rx
+End
+
 Definition check_xlrup_def:
   check_xlrup xlrup cfml xfml def =
   case xlrup of
@@ -889,7 +934,11 @@ Definition check_xlrup_def:
     if is_cfromx def xfml i0 C then
       SOME (insert n C cfml, xfml, def)
     else NONE
-  | _ => NONE
+  | XFromC n rX i0 =>
+    if is_xfromc cfml i0 rX then
+      let X = conv_rawxor def rX in
+      SOME (cfml, insert n X xfml, MAX def (strlen X))
+    else NONE
 End
 
 Definition check_xlrups_def:
@@ -1154,6 +1203,7 @@ End
 Definition wf_xlrup_def:
   (wf_xlrup (RUP n C i0) = wf_clause C) ∧
   (wf_xlrup (CFromX n C i0) = wf_clause C) ∧
+  (wf_xlrup (XFromC n X i0) = wf_clause X) ∧
   (wf_xlrup _ = T)
 End
 
@@ -1268,6 +1318,89 @@ Proof
   EVAL_TAC
 QED
 
+Theorem isat_strxor_cnv_xor_to_aux:
+  isat_strxor w (conv_xor s (MAP interp_lit ls)) ⇒
+  isat_strxor w (conv_xor_aux s ls)
+Proof
+  rw[conv_xor_def,MAP_MAP_o,o_DEF]>>
+  qmatch_asmsub_abbrev_tac`isat_strxor w (conv_xor_aux s rs)`>>
+  qsuff_tac `rs = ls`>>
+  rw[]>>
+  gvs[]>>
+  unabbrev_all_tac>>
+  simp[MAP_EQ_ID,conv_lit_interp_lit]
+QED
+
+Theorem sat_lit_interp_lit_neg:
+  h ≠ 0 ⇒
+  sat_lit w (interp_lit (-h)) = ¬ sat_lit w (interp_lit h)
+Proof
+  rw[interp_lit_def,sat_lit_def]>>
+  `F` by intLib.ARITH_TAC
+QED
+
+Theorem clauses_from_rawxor_sound:
+  ∀rx b.
+  wf_clause rx ∧
+  EVERY (isat_cclause w)
+    (clauses_from_rawxor rx b) ⇒
+  (sat_cmsxor w (MAP interp_lit rx) ⇔ b)
+Proof
+  Induct>>rw[clauses_from_rawxor_def]
+  >-
+    fs[sat_cmsxor_def,isat_cclause_def]
+  >-
+    fs[sat_cmsxor_def,isat_cclause_def]>>
+  gvs[EVERY_MAP,isat_cclause_cons,wf_clause_def]>>
+  Cases_on`sat_lit w (interp_lit h)`>>fs[]
+  >- (
+    gvs[sat_lit_interp_lit_neg]>>
+    first_x_assum(qspec_then`~b` mp_tac)>>
+    simp[]>>
+    metis_tac[ETA_AX])>>
+  first_x_assum(qspec_then`b` mp_tac)>>
+  metis_tac[ETA_AX]
+QED
+
+Theorem imp_cclause_imp:
+  imp_cclause c d ∧
+  isat_cclause w c ⇒
+  isat_cclause w d
+Proof
+  rw[imp_cclause_def,isat_cclause_def,EVERY_MEM]>>
+  metis_tac[]
+QED
+
+Theorem isat_cfml_get_clauses:
+  ∀is xs x.
+  isat_cfml w (values fml) ∧
+  get_clauses fml is = SOME xs ∧
+  MEM x xs ⇒
+  isat_cclause w x
+Proof
+  Induct>>rw[get_clauses_def]>>
+  gvs[AllCaseEqs()]>>
+  fs[isat_cfml_def,values_def]>>
+  metis_tac[]
+QED
+
+Theorem is_xfromc_sound:
+  wf_clause rX ∧
+  isat_cfml w (values fml) ∧
+  is_xfromc fml is rX ⇒
+  sat_cmsxor w (MAP interp_lit rX)
+Proof
+  rw[is_xfromc_def]>>
+  every_case_tac>>
+  drule clauses_from_rawxor_sound>>fs[]>>
+  disch_then(qspecl_then[`w`,`T`] mp_tac)>>simp[]>>
+  disch_then match_mp_tac>>
+  fs[check_rawxor_imp_def,EVERY_MEM]>>
+  rw[]>>first_x_assum drule>>
+  rw[EXISTS_MEM]>>
+  metis_tac[isat_cfml_get_clauses,imp_cclause_imp]
+QED
+
 Theorem check_xlrup_sound:
   wf_xlrup xlrup ∧
   check_xlrup xlrup cfml xfml def = SOME (cfml',xfml',def') ∧
@@ -1292,13 +1425,32 @@ Proof
     metis_tac[])
   >- (* deleting XORs by ID *)
     metis_tac[delete_xors_sound]
-  >- ( (**)
+  >- ( (* CFromX *)
     fs[isat_fml_def]>>
     match_mp_tac isat_cfml_insert>>
     simp[]>>
     match_mp_tac (GEN_ALL is_cfromx_sound)>>gvs[]>>
     fs[wf_xlrup_def]>>
     metis_tac[])
+  >- ( (* XFromC *)
+    fs[isat_fml_def]>>
+    match_mp_tac isat_xfml_insert>>
+    simp[]>>
+    rw[conv_rawxor_def]>>
+    match_mp_tac isat_strxor_cnv_xor_to_aux>>
+    DEP_REWRITE_TAC[conv_xor_sound]>>
+    CONJ_TAC >- (
+      fs[EVERY_MAP,wf_xlrup_def,wf_clause_def,EVERY_MEM]>>
+      rw[nz_lit_def,interp_lit_def]>>
+      `x ≠ 0` by metis_tac[]>>
+      intLib.ARITH_TAC)>>
+    DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
+    simp[isat_strxor_extend_s]>>
+    CONJ_TAC >-
+      (EVAL_TAC>>rw[])>>
+    fs[wf_xlrup_def]>>
+    drule_all is_xfromc_sound>>
+    EVAL_TAC)
 QED
 
 (* The main operational theorem about check_xlrups *)

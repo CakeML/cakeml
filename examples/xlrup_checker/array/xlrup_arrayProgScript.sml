@@ -1139,6 +1139,125 @@ Proof
   metis_tac[]
 QED
 
+val get_clauses_arr = process_topdecs`
+  fun get_clauses_arr lno fml ls =
+    case ls of
+      [] => []
+    | (i::is) =>
+      if Array.length fml <= i then
+        raise Fail (format_failure lno ("clause index out of bounds: " ^ Int.toString i))
+      else
+        (case Unsafe.sub fml i of
+          None => raise Fail (format_failure lno ("clause index already deleted: " ^ Int.toString i))
+        | Some ci =>
+          ci :: get_clauses_arr lno fml is)` |> append_prog;
+
+Theorem get_clauses_arr_spec:
+  ∀ls lsv fmlv fmlls fml lno lnov.
+  NUM lno lnov ∧
+  (LIST_TYPE NUM) ls lsv ∧
+  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "get_clauses_arr" (get_ml_prog_state()))
+    [lnov; fmlv; lsv]
+    (ARRAY fmlv fmllsv)
+    (POSTve
+      (λv. ARRAY fmlv fmllsv *
+        &unwrap_TYPE
+          (LIST_TYPE (LIST_TYPE INT))
+          (get_clauses_list fmlls ls) v)
+      (λe. ARRAY fmlv fmllsv *
+        &(Fail_exn e ∧ get_clauses_list fmlls ls = NONE)))
+Proof
+  Induct>>xcf "get_clauses_arr" (get_ml_prog_state ())>>
+  simp[get_clauses_list_def]
+  >- (
+    fs[LIST_TYPE_def]>>
+    xmatch>>
+    xcon>>xsimpl>>
+    simp[unwrap_TYPE_def,LIST_TYPE_def])>>
+  fs[LIST_TYPE_def]>>
+  xmatch>>
+  rpt xlet_autop>>
+  xif
+  >- (
+    rpt (xlet_autop)>>
+    xraise>>xsimpl>>
+    simp[Fail_exn_def]>>
+    `list_lookup fmlls NONE h = NONE` by
+      (simp[list_lookup_def]>>
+      metis_tac[LIST_REL_LENGTH])>>
+    simp[unwrap_TYPE_def]>>
+    metis_tac[])>>
+  xlet_autop>>
+  `OPTION_TYPE (LIST_TYPE INT) (EL h fmlls) (EL h fmllsv)` by fs[LIST_REL_EL_EQN]>>
+  TOP_CASE_TAC
+  >- (
+    fs[list_lookup_def]>>
+    reverse (Cases_on`EL h fmlls`)>-
+      (fs[IS_SOME_DEF]>>metis_tac[LIST_REL_LENGTH])>>
+    fs[OPTION_TYPE_def]>>
+    xmatch>>
+    rpt(xlet_autop)>>
+    xraise>>xsimpl>>
+    simp[Fail_exn_def,unwrap_TYPE_def]>>
+    metis_tac[])>>
+  fs[list_lookup_def,OPTION_TYPE_def]>>
+  xmatch>>
+  xlet_autop
+  >- (
+    xsimpl>>rw[]>> simp[]>>
+    metis_tac[])>>
+  fs[unwrap_TYPE_def]>>
+  xcon>>xsimpl>>
+  fs[LIST_TYPE_def]
+QED
+
+val res = translate clauses_from_rawxor_def;
+val res = translate (imp_cclause_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
+val res = translate check_rawxor_imp_def;
+
+val is_xfromc_arr = process_topdecs`
+  fun is_xfromc_arr lno fml is rx =
+  let val ds = get_clauses_arr lno fml is in
+    if check_rawxor_imp ds rx then ()
+    else raise Fail
+      (format_failure lno ("Clauses do not imply XOR"))
+  end` |> append_prog;
+
+Theorem is_xfromc_arr_spec:
+  NUM lno lnov ∧
+  (LIST_TYPE NUM) ls lsv ∧
+  LIST_TYPE INT rx rxv ∧
+  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "is_xfromc_arr" (get_ml_prog_state()))
+    [lnov; fmlv; lsv; rxv]
+    (ARRAY fmlv fmllsv)
+    (POSTve
+      (λv. ARRAY fmlv fmllsv *
+        &(is_xfromc_list fmlls ls rx))
+      (λe.
+         ARRAY fmlv fmllsv *
+         &(Fail_exn e ∧ ¬is_xfromc_list fmlls ls rx)))
+Proof
+  xcf "is_xfromc_arr" (get_ml_prog_state ())>>
+  simp[is_xfromc_list_def]>>
+  xlet_autop
+  >- xsimpl>>
+  TOP_CASE_TAC>>fs[unwrap_TYPE_def]>>
+  xlet_autop>>
+  xif
+  >-
+    (xcon>>xsimpl)>>
+  rpt xlet_autop>>
+  xraise>>xsimpl>>
+  fs[Fail_exn_def]>>
+  metis_tac[]
+QED
+
 val check_xlrup_arr = process_topdecs`
   fun check_xlrup_arr lno xlrup cfml xfml def carr =
   case xlrup of
@@ -1164,9 +1283,13 @@ val check_xlrup_arr = process_topdecs`
         val u = is_cfromx_arr lno def xfml i0 c in
       (resize_update_arr (Some c) n cfml, xfml, def, carr)
     end
-  | _ =>
-      raise Fail (format_failure lno ("Step not supported yet"))
-    ` |> append_prog
+  | Xfromc n rx i0 =>
+    let val u = is_xfromc_arr lno cfml i0 rx
+        val x = conv_rawxor_arr def rx
+    in
+      (cfml, resize_update_arr (Some x) n xfml,
+          max def (String.size x), carr)
+    end` |> append_prog
 
 val XLRUP_XLRUP_TYPE_def = fetch "-" "XLRUP_XLRUP_TYPE_def";
 
@@ -1382,12 +1505,37 @@ Proof
     xcon>>xsimpl>>
     simp[unwrap_TYPE_def]>>
     metis_tac[bounded_cfml_resize_update_list,bounded_cfml_leq,LENGTH_resize_Clist,EVERY_index_resize_Clist])
-  >- ( (* Unimplemented *)
+  >- ( (* Xfromc *)
     xmatch>>
+    xlet` POSTve
+      (λv.
+           ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
+           W8ARRAY Carrv Clist *
+           &is_xfromc_list cfmlls l0 l)
+      (λe.
+           ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
+           &(Fail_exn e ∧
+            ¬is_xfromc_list cfmlls l0 l))`
+    >- (
+      xapp>>xsimpl>>
+      metis_tac[])
+    >- xsimpl>>
     rpt xlet_autop>>
-    xraise>>xsimpl>>
-    simp[Fail_exn_def,unwrap_TYPE_def]>>
-    metis_tac[])
+    xlet`(POSTv resv.
+        W8ARRAY Carrv Clist *
+        SEP_EXISTS xfmllsv'.
+        ARRAY cfmlv cfmllsv *
+        ARRAY resv xfmllsv' *
+        &(LIST_REL (OPTION_TYPE STRING_TYPE) (resize_update_list xfmlls NONE (SOME (conv_rawxor_list def l)) n) xfmllsv'))`
+    >- (
+      xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``STRING_TYPE``)>>
+      xsimpl>>
+      asm_exists_tac>>simp[]>>
+      asm_exists_tac>>simp[]>>
+      qexists_tac`SOME (conv_rawxor_list def l)`>>
+      simp[OPTION_TYPE_def])>>
+    xcon>>xsimpl>>
+    gvs[unwrap_TYPE_def])
 QED
 
 Definition is_empty_def:
