@@ -21,15 +21,6 @@ val index_def = Define`
   else
     2 * Num(i) - 1`
 
-(* This version directly sets the size to double the input + 1 *)
-val resize_update_list_def = Define`
-  resize_update_list ls default v n =
-  if n < LENGTH ls
-  then
-    LUPDATE v n ls
-  else
-    LUPDATE v n (ls ++ REPLICATE (n * 2 + 1 - LENGTH ls) default)`
-
 (* optimized for is_rup  step *)
 val delete_literals_sing_list_def = Define`
   (delete_literals_sing_list Clist [] = SOME 0) ∧
@@ -51,12 +42,12 @@ val is_rup_list_aux_def = Define`
     NONE => NONE
   | SOME nl =>
     if nl = 0 then SOME (C, Clist)
-    else is_rup_list_aux fml is (nl::C) (resize_update_list Clist w8z w8o (index nl)))`
+    else is_rup_list_aux fml is (nl::C) (update_resize Clist w8z w8o (index nl)))`
 
 val set_list_def = Define`
   (set_list Clist v [] = Clist) ∧
   (set_list Clist v (c::cs) =
-    set_list (resize_update_list Clist w8z v (index c)) v cs)`
+    set_list (update_resize Clist w8z v (index c)) v cs)`
 
 val is_rup_list_def = Define`
   is_rup_list fml ls c Clist =
@@ -189,12 +180,12 @@ Definition check_xlrup_list_def:
     (case is_rup_list cfml i0 c Clist of
       NONE => NONE
     | SOME Clist =>
-      SOME (resize_update_list cfml NONE (SOME c) n, xfml,
+      SOME (update_resize cfml NONE (SOME c) n, xfml,
         def, Clist))
   | XAdd n rx i0 =>
     let X = conv_rawxor_list def rx in
     if is_xor_list def xfml i0 X then
-      SOME (cfml, resize_update_list xfml NONE (SOME X) n,
+      SOME (cfml, update_resize xfml NONE (SOME X) n,
         MAX def (strlen X), Clist)
     else NONE
   | XDel xl =>
@@ -202,13 +193,13 @@ Definition check_xlrup_list_def:
   | CFromX n c i0 =>
     let Clist = resize_Clist c Clist in
     if is_cfromx_list def xfml i0 c then
-      SOME (resize_update_list cfml NONE (SOME c) n, xfml,
+      SOME (update_resize cfml NONE (SOME c) n, xfml,
         def, Clist)
     else NONE
   | XFromC n rx i0 =>
     if is_xfromc_list cfml i0 rx then
       let X = conv_rawxor_list def rx in
-      SOME (cfml, resize_update_list xfml NONE (SOME X) n,
+      SOME (cfml, update_resize xfml NONE (SOME X) n,
         MAX def (strlen X), Clist)
     else NONE
 End
@@ -288,23 +279,23 @@ Proof
   pop_assum mp_tac>> simp[FILTER_EQ_NIL,o_DEF]
 QED
 
-Theorem MEM_resize_update_list:
-  MEM i (resize_update_list ls def v x) ⇒
+Theorem MEM_update_resize:
+  MEM i (update_resize ls def v x) ⇒
   i = def ∨ MEM i ls ∨ i = v
 Proof
-  rw[resize_update_list_def,MEM_LUPDATE]
+  rw[update_resize_def,MEM_LUPDATE]
   >- metis_tac[MEM_EL]>>
   rw[EL_APPEND_EQN]>- metis_tac[MEM_EL]>>
   simp[EL_REPLICATE]
 QED
 
-Theorem list_lookup_resize_update_list:
-  list_lookup (resize_update_list ls def v x) def y =
+Theorem list_lookup_update_resize:
+  list_lookup (update_resize ls def v x) def y =
   if y = x then v
   else
     list_lookup ls def y
 Proof
-  simp[resize_update_list_def]>>
+  simp[update_resize_def]>>
   IF_CASES_TAC
   >-
     (simp[list_lookup_def,EL_LUPDATE]>>
@@ -334,13 +325,13 @@ QED
 
 Theorem lookup_rel_cons:
   lookup_rel C Clist ⇒
-  lookup_rel (x::C) (resize_update_list Clist w8z w8o (index x))
+  lookup_rel (x::C) (update_resize Clist w8z w8o (index x))
 Proof
   rw[lookup_rel_def]
   >-
-   (drule MEM_resize_update_list >>
+   (drule MEM_update_resize >>
    metis_tac[])>>
-  simp[list_lookup_resize_update_list,index_11]>>
+  simp[list_lookup_update_resize,index_11]>>
   IF_CASES_TAC>>metis_tac[]
 QED
 
@@ -420,7 +411,7 @@ Proof
   IF_CASES_TAC>-
     (fs[]>>
     metis_tac[])>>
-  simp[list_lookup_resize_update_list]>>
+  simp[list_lookup_update_resize]>>
   fs[]>>
   metis_tac[]
 QED
@@ -512,11 +503,11 @@ Proof
   simp[lookup_delete]
 QED
 
-Theorem fml_rel_resize_update_list:
+Theorem fml_rel_update_resize:
   fml_rel fml fmlls ⇒
-  fml_rel (insert n v fml) (resize_update_list fmlls NONE (SOME v) n)
+  fml_rel (insert n v fml) (update_resize fmlls NONE (SOME v) n)
 Proof
-  rw[resize_update_list_def,fml_rel_def,EL_LUPDATE]>>
+  rw[update_resize_def,fml_rel_def,EL_LUPDATE]>>
   IF_CASES_TAC>> rw[lookup_insert]
   >- metis_tac[]
   >- metis_tac[]
@@ -715,12 +706,12 @@ Proof
     drule_all fml_rel_is_rup_list>>
     disch_then (qspecl_then [`l0`,`l`] assume_tac)>>
     every_case_tac>>gvs[]>>
-    metis_tac[fml_rel_resize_update_list])
+    metis_tac[fml_rel_update_resize])
   >- ( (* XAdd *)
     every_case_tac>>fs[]>>
     drule_all is_xor_list_is_xor>>
     simp[conv_rawxor_list_conv_rawxor]>>
-    metis_tac[fml_rel_resize_update_list])
+    metis_tac[fml_rel_update_resize])
   >- (* XDel *)
     metis_tac[fml_rel_list_delete_list]
   >- ( (* CFromX *)
@@ -729,12 +720,12 @@ Proof
       rw[resize_Clist_def]>>
     CONJ_TAC >-
       metis_tac[is_cfromx_list_is_cfromx]>>
-    metis_tac[fml_rel_resize_update_list])
+    metis_tac[fml_rel_update_resize])
   >- ( (* XFromC *)
     every_case_tac>>fs[conv_rawxor_list_conv_rawxor]>>
     CONJ_TAC >-
       metis_tac[is_xfromc_list_is_xfromc]>>
-    metis_tac[fml_rel_resize_update_list])
+    metis_tac[fml_rel_update_resize])
 QED
 
 Theorem contains_emp_list_aux:

@@ -130,11 +130,11 @@ Proof
   rw[list_lookup_def]
 QED
 
-Theorem resize_update_list_LUPDATE[simp]:
+Theorem update_resize_LUPDATE[simp]:
   LENGTH Clist > index h ⇒
-  resize_update_list Clist w8z v (index h) = LUPDATE v (index h) Clist
+  update_resize Clist w8z v (index h) = LUPDATE v (index h) Clist
 Proof
-  rw[resize_update_list_def]
+  rw[update_resize_def]
 QED
 
 Theorem every_one_arr_spec:
@@ -393,22 +393,22 @@ Proof
 QED
 
 (* a version of this is true even if x, h are not bounded *)
-Theorem resize_update_list_twice:
+Theorem update_resize_twice:
   index x < LENGTH Clist ∧ index h < LENGTH Clist ⇒
-  resize_update_list (resize_update_list Clist w8z w8o (index x)) w8z w8o (index h) =
-  resize_update_list (resize_update_list Clist w8z w8o (index h)) w8z w8o (index x)
+  update_resize (update_resize Clist w8z w8o (index x)) w8z w8o (index h) =
+  update_resize (update_resize Clist w8z w8o (index h)) w8z w8o (index x)
 Proof
-  rw[resize_update_list_def]>>
+  rw[update_resize_def]>>
   Cases_on`x=h`>>simp[]>>
   `index x ≠ index h` by metis_tac[index_11]>>
   metis_tac[LUPDATE_commutes]
 QED
 
-Theorem set_list_resize_update_list:
+Theorem set_list_update_resize:
   ∀c Clist.
   index x < LENGTH Clist ∧ EVERY ($> (LENGTH Clist) ∘ index) c ⇒
   set_list Clist w8o (x::c) =
-  resize_update_list (set_list Clist w8o c) w8z w8o (index x)
+  update_resize (set_list Clist w8o c) w8z w8o (index x)
 Proof
   Induct>>rw[]>>fs[set_list_def]>>
   Cases_on`x=h`>>simp[]
@@ -444,7 +444,7 @@ Proof
   simp[]>>strip_tac>>
   qexists_tac`nl::c`>>
   CONJ_TAC >- (
-    dep_rewrite.DEP_ONCE_REWRITE_TAC[set_list_resize_update_list]>>
+    dep_rewrite.DEP_ONCE_REWRITE_TAC[set_list_update_resize]>>
     simp[EVERY_MEM]>>
     pop_assum drule>>
     simp[]) >>
@@ -825,7 +825,7 @@ Theorem resize_update_arr_spec:
     (POSTv resv.
       SEP_EXISTS fmllsv'.
       ARRAY resv fmllsv' *
-      &(LIST_REL (OPTION_TYPE vty) (resize_update_list fmlls NONE v n) fmllsv') )
+      &(LIST_REL (OPTION_TYPE vty) (update_resize fmlls NONE v n) fmllsv') )
 Proof
   rw[] >>
   xcf "resize_update_arr" (get_ml_prog_state ())>>
@@ -836,7 +836,7 @@ Proof
     xvar>>xsimpl>>
     `LENGTH fmlls = LENGTH fmllsv` by
       metis_tac[LIST_REL_LENGTH]>>
-    simp[resize_update_list_def]>>
+    simp[update_resize_def]>>
     match_mp_tac EVERY2_LUPDATE_same>> simp[OPTION_TYPE_def])
   >>
   rpt (xlet_autop) >>
@@ -852,7 +852,7 @@ Proof
   xvar >>xsimpl>>
   `LENGTH fmlls = LENGTH fmllsv` by
     metis_tac[LIST_REL_LENGTH]>>
-  simp[resize_update_list_def]>>
+  simp[update_resize_def]>>
   match_mp_tac EVERY2_LUPDATE_same>> simp[OPTION_TYPE_def]>>
   match_mp_tac EVERY2_APPEND_suff>>simp[]>>
   simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]
@@ -1313,13 +1313,13 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem bounded_cfml_resize_update_list:
+Theorem bounded_cfml_update_resize:
   bounded_cfml m fmlls ∧
   EVERY ($> m o index) l ∧ EVERY ($> m o index o $~) l ⇒
-  bounded_cfml m (resize_update_list fmlls NONE (SOME l) n)
+  bounded_cfml m (update_resize fmlls NONE (SOME l) n)
 Proof
   rw[bounded_cfml_def,EVERY_MEM]>>
-  drule MEM_resize_update_list>>rw[]>>simp[]
+  drule MEM_update_resize>>rw[]>>simp[]
 QED
 
 Theorem LENGTH_resize_Clist:
@@ -1421,7 +1421,7 @@ Proof
         SEP_EXISTS cfmllsv'.
         ARRAY resv cfmllsv' *
         ARRAY xfmlv xfmllsv *
-        &(LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (resize_update_list cfmlls NONE (SOME l) n) cfmllsv'))`
+        &(LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (update_resize cfmlls NONE (SOME l) n) cfmllsv'))`
     >- (
       xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``(LIST_TYPE INT)``)>>
       xsimpl>>
@@ -1430,7 +1430,7 @@ Proof
       qexists_tac`SOME l`>>simp[OPTION_TYPE_def])>>
     xcon>>xsimpl>>
     gvs[]>>
-    metis_tac[bounded_cfml_resize_update_list,bounded_cfml_leq,LENGTH_resize_Clist,EVERY_index_resize_Clist])
+    metis_tac[bounded_cfml_update_resize,bounded_cfml_leq,LENGTH_resize_Clist,EVERY_index_resize_Clist])
   >- ( (* XAdd *)
     xmatch>>
     xlet_autop>>
@@ -1455,7 +1455,7 @@ Proof
         SEP_EXISTS xfmllsv'.
         ARRAY cfmlv cfmllsv *
         ARRAY resv xfmllsv' *
-        &(LIST_REL (OPTION_TYPE STRING_TYPE) (resize_update_list xfmlls NONE (SOME (conv_rawxor_list def l)) n) xfmllsv'))`
+        &(LIST_REL (OPTION_TYPE STRING_TYPE) (update_resize xfmlls NONE (SOME (conv_rawxor_list def l)) n) xfmllsv'))`
     >- (
       xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``STRING_TYPE``)>>
       xsimpl>>
@@ -1495,7 +1495,7 @@ Proof
         SEP_EXISTS cfmllsv'.
         ARRAY resv cfmllsv' *
         ARRAY xfmlv xfmllsv *
-        &(LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (resize_update_list cfmlls NONE (SOME l) n) cfmllsv'))`
+        &(LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (update_resize cfmlls NONE (SOME l) n) cfmllsv'))`
     >- (
       xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``(LIST_TYPE INT)``)>>
       xsimpl>>
@@ -1504,7 +1504,7 @@ Proof
       qexists_tac`SOME l`>>simp[OPTION_TYPE_def])>>
     xcon>>xsimpl>>
     simp[unwrap_TYPE_def]>>
-    metis_tac[bounded_cfml_resize_update_list,bounded_cfml_leq,LENGTH_resize_Clist,EVERY_index_resize_Clist])
+    metis_tac[bounded_cfml_update_resize,bounded_cfml_leq,LENGTH_resize_Clist,EVERY_index_resize_Clist])
   >- ( (* Xfromc *)
     xmatch>>
     xlet` POSTve
@@ -1526,7 +1526,7 @@ Proof
         SEP_EXISTS xfmllsv'.
         ARRAY cfmlv cfmllsv *
         ARRAY resv xfmllsv' *
-        &(LIST_REL (OPTION_TYPE STRING_TYPE) (resize_update_list xfmlls NONE (SOME (conv_rawxor_list def l)) n) xfmllsv'))`
+        &(LIST_REL (OPTION_TYPE STRING_TYPE) (update_resize xfmlls NONE (SOME (conv_rawxor_list def l)) n) xfmllsv'))`
     >- (
       xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``STRING_TYPE``)>>
       xsimpl>>
@@ -1736,7 +1736,11 @@ val _ = translate parse_until_zero_nn_def;
 
 val _ = translate parse_rest_def;
 val _ = translate parse_id_rest_def;
-val _ = translate parse_del_def;
+
+val _ = translate starts_with_def;
+val _ = translate parse_rup_del_def;
+val _ = translate parse_xadd_xdel_def;
+val _ = translate parse_cfromx_xfromc_def;
 val _ = translate parse_xlrup_def;
 
 (* Hooking up to the parser and stuff *)
@@ -2325,7 +2329,7 @@ Theorem fill_arr_spec:
   (POSTv resv.
   SEP_EXISTS arrlsv'. ARRAY resv arrlsv' *
     & LIST_REL (OPTION_TYPE a)
-    (FOLDL (λacc (i,v).  resize_update_list acc NONE (SOME v) i) arrls (enumerate i ls)) arrlsv')
+    (FOLDL (λacc (i,v).  update_resize acc NONE (SOME v) i) arrls (enumerate i ls)) arrlsv')
 Proof
   Induct>>rw[]>>
   xcf "fill_arr" (get_ml_prog_state ())>>
@@ -2336,7 +2340,7 @@ Proof
   xlet`(POSTv resv.
       SEP_EXISTS cfmllsv'.
       ARRAY resv cfmllsv' *
-      &(LIST_REL (OPTION_TYPE a) (resize_update_list arrls NONE (SOME h) i) cfmllsv') )`
+      &(LIST_REL (OPTION_TYPE a) (update_resize arrls NONE (SOME h) i) cfmllsv') )`
   >- (
     xapp >> xsimpl>>
     simp[OPTION_TYPE_def] ) >>
@@ -2350,34 +2354,34 @@ Proof
   fs[MAP_REVERSE]
 QED
 
-Theorem LENGTH_FOLDR_resize_update_list1:
+Theorem LENGTH_FOLDR_update_resize1:
   ∀ll.
-  LENGTH (FOLDR (λx acc. (λ(i,v). resize_update_list acc NONE (SOME v) i) x) (REPLICATE n NONE) ll) ≥ n
+  LENGTH (FOLDR (λx acc. (λ(i,v). update_resize acc NONE (SOME v) i) x) (REPLICATE n NONE) ll) ≥ n
 Proof
   Induct>>simp[FORALL_PROD]>>rw[]>>
-  rw[Once resize_update_list_def]
+  rw[Once update_resize_def]
 QED
 
-Theorem LENGTH_FOLDR_resize_update_list2:
+Theorem LENGTH_FOLDR_update_resize2:
   ∀ll x.
   MEM x ll ⇒
-  FST x < LENGTH (FOLDR (λx acc. (λ(i,v). resize_update_list acc NONE (SOME v) i) x) (REPLICATE n NONE) ll)
+  FST x < LENGTH (FOLDR (λx acc. (λ(i,v). update_resize acc NONE (SOME v) i) x) (REPLICATE n NONE) ll)
 Proof
   Induct>>simp[FORALL_PROD]>>rw[]>>
-  rw[Once resize_update_list_def]
+  rw[Once update_resize_def]
   >- (
     first_x_assum drule>>
     simp[])>>
   first_x_assum drule>>simp[]
 QED
 
-Theorem FOLDL_resize_update_list_lookup:
+Theorem FOLDL_update_resize_lookup:
   ∀ls.
   ALL_DISTINCT (MAP FST ls) ⇒
   ∀x.
-  x < LENGTH (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) ls)
+  x < LENGTH (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) (REPLICATE n NONE) ls)
   ⇒
-  EL x (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) ls)
+  EL x (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) (REPLICATE n NONE) ls)
   =
   ALOOKUP ls x
 Proof
@@ -2393,9 +2397,9 @@ Proof
   simp[FORALL_PROD]>>
   rw[]>>
   pop_assum mp_tac>>
-  simp[Once resize_update_list_def]>>
+  simp[Once update_resize_def]>>
   strip_tac>>
-  simp[Once resize_update_list_def]>>
+  simp[Once update_resize_def]>>
   IF_CASES_TAC>>fs[]
   >-
     (simp[EL_LUPDATE]>>
@@ -2408,7 +2412,7 @@ Proof
   Cases_on`ALOOKUP ll x`>>fs[]>>
   drule ALOOKUP_MEM>>
   strip_tac>>
-  drule LENGTH_FOLDR_resize_update_list2>>
+  drule LENGTH_FOLDR_update_resize2>>
   simp[]>>
   metis_tac[]
 QED
@@ -2433,9 +2437,9 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem fml_rel_FOLDL_resize_update_list:
+Theorem fml_rel_FOLDL_update_resize:
   fml_rel (build_fml k fml)
-  (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
+  (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
 Proof
   rw[fml_rel_def]>>
   reverse IF_CASES_TAC
@@ -2449,10 +2453,10 @@ Proof
     fs[FOLDL_FOLDR_REVERSE]>>
     `MEM y (REVERSE (enumerate k fml))` by
       fs[MEM_REVERSE]>>
-    drule LENGTH_FOLDR_resize_update_list2>>
+    drule LENGTH_FOLDR_update_resize2>>
     simp[]>>
     metis_tac[]) >>
-  DEP_REWRITE_TAC [FOLDL_resize_update_list_lookup]>>
+  DEP_REWRITE_TAC [FOLDL_update_resize_lookup]>>
   simp[]>>
   CONJ_TAC >-
     simp[ALL_DISTINCT_MAP_FST_enumerate]>>
@@ -2470,10 +2474,10 @@ QED
 Theorem check_xlrups_unsat_list_sound:
   check_xlrups_unsat_list xlrups
     (FOLDL (λacc (i,v).
-      resize_update_list acc NONE (SOME v) i) (REPLICATE nc NONE)
+      update_resize acc NONE (SOME v) i) (REPLICATE nc NONE)
         (enumerate kc cfml))
     (FOLDL (λacc (i,v).
-      resize_update_list acc NONE (SOME v) i) (REPLICATE nx NONE)
+      update_resize acc NONE (SOME v) i) (REPLICATE nx NONE)
         (enumerate kx xfml))
     def
     Clist ∧
@@ -2485,10 +2489,10 @@ Proof
   rw[check_xlrups_unsat_list_def]>>
   every_case_tac>>fs[]>>
   Cases_on`r`>>fs[]>>
-  assume_tac (GEN_ALL fml_rel_FOLDL_resize_update_list |>
+  assume_tac (GEN_ALL fml_rel_FOLDL_update_resize |>
     INST_TYPE [alpha |-> ``:int list``] |>
     Q.SPECL [`nc`,`kc`,`cfml`])>>
-  assume_tac (GEN_ALL fml_rel_FOLDL_resize_update_list |>
+  assume_tac (GEN_ALL fml_rel_FOLDL_update_resize |>
     INST_TYPE [alpha |-> ``:mlstring``] |>
     Q.SPECL [`nx`,`kx`,`xfml`])>>
   drule fml_rel_check_xlrups_list>>

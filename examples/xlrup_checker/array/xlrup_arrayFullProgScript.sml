@@ -589,10 +589,10 @@ val check_unsat_2_sem_def = Define`
         SOME xlrups =>
         let cfmlls = enumerate 1 cfml in
         let base = REPLICATE (2*ncl) NONE in
-        let cupd = FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) base cfmlls in
+        let cupd = FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) base cfmlls in
         let xfmlls = enumerate 1 xfml in
         let base = REPLICATE (2*ncl) NONE in
-        let xupd = FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) base xfmlls in
+        let xupd = FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) base xfmlls in
         let bnd = 2*mv+3 in
           if check_xlrups_unsat_list xlrups cupd xupd
             def (REPLICATE bnd w8z)
@@ -609,6 +609,151 @@ val err_tac = xapp_spec output_stderr_spec \\ xsimpl>>
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>qexists_tac`err`>>xsimpl;
+
+Definition bounded_lit_def:
+  bounded_lit (vars:num) l =
+    case l of
+      Pos v => v ≤ vars
+    | Neg v => v ≤ vars
+End
+
+Theorem parse_lits_aux_bound:
+  ∀vars l acc c.
+  parse_lits_aux vars l acc = SOME c ∧
+  EVERY (bounded_lit vars) acc
+  ⇒
+  EVERY (bounded_lit vars) c
+Proof
+  ho_match_mp_tac parse_lits_aux_ind>>
+  rw[parse_lits_aux_def]>>gvs[AllCaseEqs()]>>
+  first_x_assum match_mp_tac>>
+  rw[bounded_lit_def]
+QED
+
+Theorem parse_clause_bound:
+  parse_clause vars l = SOME c ⇒
+  EVERY (bounded_lit vars) c
+Proof
+  rw[parse_clause_def]>>
+  match_mp_tac parse_lits_aux_bound>>
+  first_x_assum (irule_at Any)>>
+  simp[]
+QED
+
+Theorem parse_line_bound_INL:
+  parse_line vars l = SOME (INL c) ⇒
+  EVERY (bounded_lit vars) c
+Proof
+  rw[parse_line_def]>>
+  gvs[AllCaseEqs()]>>
+  metis_tac[parse_clause_bound]
+QED
+
+Theorem parse_body_bound_cacc:
+  ∀ss vars cacc xacc cacc' xacc'.
+  parse_body vars ss cacc xacc = SOME (cacc',xacc') ∧
+  EVERY (EVERY (bounded_lit vars)) cacc
+  ⇒
+  EVERY (EVERY (bounded_lit vars)) cacc'
+Proof
+  Induct>>rw[parse_body_def]>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum match_mp_tac>>
+  last_x_assum (irule_at Any)>>
+  fs[]>>
+  metis_tac[parse_line_bound_INL]
+QED
+
+Theorem parse_cnf_xor_toks_bound:
+  parse_cnf_xor_toks (MAP toks (all_lines fs f1)) =
+    SOME (vars,ncx,cacc,xacc) ⇒
+  EVERY (EVERY (bounded_lit vars)) cacc
+Proof
+  rw[parse_cnf_xor_toks_def]>>
+  gvs[AllCaseEqs()]>>
+  drule parse_body_bound_cacc>>
+  simp[]
+QED
+
+Theorem LENGTH_FOLDR_update_resize2:
+  ∀ll x.
+  MEM x ll ⇒
+  FST x < LENGTH (FOLDR (λx acc. (λ(i,v). update_resize acc NONE (SOME v) i) x) (REPLICATE n NONE) ll)
+Proof
+  Induct>>simp[FORALL_PROD]>>rw[]>>
+  rw[Once update_resize_def]
+  >- (
+    first_x_assum drule>>
+    simp[])>>
+  first_x_assum drule>>simp[]
+QED
+
+Theorem FOLDL_update_resize_lookup:
+  ∀ls.
+  ALL_DISTINCT (MAP FST ls) ⇒
+  ∀x.
+  x < LENGTH (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) (REPLICATE n NONE) ls)
+  ⇒
+  EL x (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) (REPLICATE n NONE) ls)
+  =
+  ALOOKUP ls x
+Proof
+  simp[Once (GSYM EVERY_REVERSE), Once (GSYM MAP_REVERSE)]>>
+  simp[FOLDL_FOLDR_REVERSE]>>
+  simp[GSYM alookup_distinct_reverse]>>
+  simp[Once all_distinct_map_fst_rev]>>
+  strip_tac>>
+  qabbrev_tac`ll= REVERSE ls`>>
+  pop_assum kall_tac>>
+  Induct_on`ll`>-
+    simp[EL_REPLICATE]>>
+  simp[FORALL_PROD]>>
+  rw[]>>
+  pop_assum mp_tac>>
+  simp[Once update_resize_def]>>
+  strip_tac>>
+  simp[Once update_resize_def]>>
+  IF_CASES_TAC>>fs[]
+  >-
+    (simp[EL_LUPDATE]>>
+    IF_CASES_TAC>>simp[])>>
+  simp[EL_LUPDATE]>>
+  IF_CASES_TAC >> simp[]>>
+  simp[EL_APPEND_EQN]>>rw[]>>
+  simp[EL_REPLICATE]>>
+  CCONTR_TAC>>fs[]>>
+  Cases_on`ALOOKUP ll x`>>fs[]>>
+  drule ALOOKUP_MEM>>
+  strip_tac>>
+  drule LENGTH_FOLDR_update_resize2>>
+  simp[]>>
+  metis_tac[]
+QED
+
+Theorem bounded_cfml_FOLDL_enumerate:
+  EVERY (EVERY (bounded_lit vars)) ls ∧
+  v > 2 * vars ⇒
+  bounded_cfml v
+    (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i)
+     (REPLICATE n NONE) (enumerate k (conv_cfml ls)))
+Proof
+  rw[bounded_cfml_def]>>
+  simp[Once EVERY_EL]>>rw[]>>
+  `ALL_DISTINCT (MAP FST (enumerate k (conv_cfml ls)))` by
+    metis_tac[ALL_DISTINCT_MAP_FST_enumerate]>>
+  TOP_CASE_TAC>>simp[]>>
+  drule FOLDL_update_resize_lookup>>
+  disch_then drule>>
+  disch_then (SUBST_ALL_TAC)>>
+  drule ALOOKUP_MEM>>
+  strip_tac>> drule MEM_enumerate_IMP>>
+  fs[EVERY_MEM]>>
+  simp[conv_cfml_def,MEM_MAP,PULL_EXISTS,EVERY_MEM]>>
+  rw[]>>
+  first_x_assum drule_all>>
+  simp[bounded_lit_def]>>every_case_tac>>
+  rw[conv_lit_def,index_def]
+QED
 
 Theorem check_unsat_2_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -688,7 +833,12 @@ Proof
     reverse CONJ_TAC >-
       (rw[]>>metis_tac[])>>
     (* bounded_cfml *)
-    cheat)>>
+    drule parse_cnf_xor_toks_bound>>
+    fs[Abbr`a`]>>
+    strip_tac>>
+    drule bounded_cfml_FOLDL_enumerate>>
+    disch_then match_mp_tac>>
+    simp[])>>
   reverse TOP_CASE_TAC>>simp[]
   >- (fs[SUM_TYPE_def]>>xmatch>>err_tac)>>
   TOP_CASE_TAC>>fs[SUM_TYPE_def]

@@ -81,56 +81,77 @@ Definition parse_id_rest_def:
   (parse_id_rest _ = NONE)
 End
 
-(* Parses the following format:
-  d (num list) *)
-Definition parse_del_def:
-  (parse_del (first::rest) =
-    if first = INL (strlit "d")
-    then
+(* If a line starts with the character,
+  return INR without that char
+  otherwise INL or line unchanged *)
+Definition starts_with_def:
+  (starts_with s (first::rest) =
+  if first = s
+  then
+    INR rest
+  else INL (first::rest)) ∧
+  (starts_with s [] = INL [])
+End
+
+(* RUP or deletion *)
+Definition parse_rup_del_def:
+  parse_rup_del n rest =
+  if n ≥ 0 then
+    case starts_with (INL (strlit "d")) rest of
+      INL rest =>
+      (case parse_rest rest of NONE => NONE
+      | SOME (c,hints) => SOME (RUP (Num (ABS n)) c hints))
+    | INR rest =>
+      (* Del *)
       case parse_until_zero_nn rest [] of
-       SOME (ls, []) => SOME ls
+       SOME (ls, []) => SOME (Del ls)
       | _ => NONE
-    else NONE) ∧
-  (parse_del _ = NONE)
+  else NONE
+End
+
+(* XAdd or Xdel *)
+Definition parse_xadd_xdel_def:
+  parse_xadd_xdel rest =
+  case starts_with (INL (strlit "d")) rest of
+    INL rest =>
+    (* XAdd *)
+    (case parse_id_rest rest of NONE => NONE
+    | SOME (n,c,hints) => SOME (XAdd n c hints))
+  | INR rest =>
+    (* XDel *)
+    case parse_until_zero_nn rest [] of
+       SOME (ls, []) => SOME (XDel ls)
+    | _ => NONE
+End
+
+(* CFromX or XFromC *)
+Definition parse_cfromx_xfromc_def:
+  parse_cfromx_xfromc rest =
+  case starts_with (INL (strlit "x")) rest of
+    INL rest =>
+    (* CFromX *)
+    (case parse_id_rest rest of NONE => NONE
+      | SOME (n,c,hints) => SOME (CFromX n c hints))
+  | INR rest =>
+    (* XFromC *)
+    (case parse_id_rest rest of NONE => NONE
+        | SOME (n,c,hints) => SOME (XFromC n c hints))
 End
 
 Definition parse_xlrup_def:
   (parse_xlrup [] = NONE) ∧
   (parse_xlrup (f::rest) =
   case f of
-  | INR n =>
-    if n ≥ 0 then
-      case parse_del rest of
-        (* RUP *)
-        NONE =>
-        (case parse_rest rest of NONE => NONE
-        | SOME (c,hints) => SOME (RUP (Num (ABS n)) c hints))
-        (* Del *)
-      | SOME ls => SOME (Del ls)
-    else NONE
+  | INR n => parse_rup_del n rest
   | INL c =>
     if c = strlit"x"
     then
-      case parse_del rest of
-        (* XAdd *)
-        NONE =>
-        (case parse_id_rest rest of NONE => NONE
-        | SOME (n,c,hints) => SOME (XAdd n c hints))
-        (* XDel *)
-      | SOME ls => SOME (XDel ls)
+      parse_xadd_xdel rest
     else
     if c = strlit"i"
     then
-      (* CFromX *)
-      (case parse_id_rest rest of NONE => NONE
-        | SOME (n,c,hints) => SOME (CFromX n c hints))
+      parse_cfromx_xfromc rest
     else
-    if c = strlit"ix"
-    then
-      (* XFromC *)
-      (case parse_id_rest rest of NONE => NONE
-        | SOME (n,c,hints) => SOME (XFromC n c hints))
-     else
       NONE)
 End
 
@@ -171,7 +192,7 @@ Theorem parse_xlrup_wf:
   wf_xlrup line
 Proof
   Cases_on`ls`>>rw[parse_xlrup_def]>>
-  gvs[AllCaseEqs(),wf_xlrup_def]>>
+  gvs[AllCaseEqs(),wf_xlrup_def,parse_xadd_xdel_def,parse_cfromx_xfromc_def,parse_rup_del_def]>>
   metis_tac[parse_id_rest_wf_clause,parse_rest_wf_clause]
 QED
 
@@ -216,7 +237,7 @@ val xlrupsraw = ``[
   strlit"14 d 9 10 11 7 0";
   strlit"16 0 14 12 13 8 0";
   strlit"i 17 0 14 12 13 8 0";
-  strlit"ix 17 0 14 12 13 8 0";
+  strlit"i x 17 0 14 12 13 8 0";
   ]``;
 
 val xlrups = rconc (EVAL ``THE (parse_xlrups ^(xlrupsraw))``);
