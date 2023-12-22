@@ -173,6 +173,7 @@ Proof
        by fs [EXTENSION,domain_lookup,MEM_MAP,EXISTS_PROD]
   \\ fs [spt_eq_thm,wf_inter,wf_fromAList,lookup_fromAList,lookup_inter_alt]
   \\ pop_assum kall_tac \\ pop_assum kall_tac
+  \\ rewrite_tac [GSYM sptreeTheory.LENGTH_toAList]
   \\ rename [‘MAP FST xs’]
   \\ Induct_on ‘xs’ \\ fs [get_vars_def,FORALL_PROD]
   \\ rw [] \\ fs [domain_lookup] \\ rw [] \\ fs []
