@@ -127,6 +127,15 @@ Definition conv_concl_def:
   (conv_concl _ _ = NONE)
 End
 
+(* Convert a VeriPB output into a MAX SAT output *)
+Definition conv_output_def:
+  (conv_output (wfml:wccnf) (wfml':wccnf) NONE Equioptimal =
+    if SUM (MAP FST wfml) = SUM (MAP FST wfml')
+    then SOME ()
+    else NONE) ∧
+  (conv_output _ _ _ _ = NONE)
+End
+
 (*** STEP 3: Prove correctness of the encoding ***)
 
 Theorem satisfies_pbc_satisfies_clause:
@@ -474,6 +483,63 @@ Proof
   first_x_assum (irule_at Any)>>
   assume_tac (Q.GEN `w` SUM_FST_eq_weight_nweight |> Q.SPEC`(w:enc_var->bool) o INL`)>>
   intLib.ARITH_TAC
+QED
+
+Theorem full_encode_sem_output:
+  full_encode wfml = (obj,pbf) ∧
+  full_encode wfml' = (obj',pbf') ∧
+  pbc$sem_output (set pbf) obj bound (set pbf') obj' output ∧
+  conv_output wfml wfml' bound output = SOME () ⇒
+  ∀v.
+    (∃w. satisfies_hard w wfml ∧ v ≤ weight w wfml) ⇔
+    (∃w'. satisfies_hard w' wfml' ∧ v ≤ weight w' wfml')
+Proof
+  strip_tac>>
+  gvs[full_encode_def]>>
+  pairarg_tac>>gvs[]>>
+  pairarg_tac>>gvs[]>>
+  qpat_x_assum`sem_output _ _ _ _ _ _ ` mp_tac>>
+  simp[LIST_TO_SET_MAP]>>
+  DEP_REWRITE_TAC[GSYM output_INJ_iff]>>
+  CONJ_TAC >- (
+    assume_tac enc_string_INJ>>
+    rw[]>>
+    drule INJ_SUBSET>>
+    disch_then match_mp_tac>>
+    simp[])>>
+  Cases_on`bound`>>
+  Cases_on`output`>>fs[conv_output_def]>>
+  simp[sem_output_def]>>
+  simp[EQ_IMP_THM]>>rw[]>>
+  gvs[FORALL_AND_THM,PULL_EXISTS]
+  >- (
+    drule_all encode_correct_cnf_pbf>>rw[]>>
+    first_x_assum drule>>
+    disch_then(qspec_then`eval_obj obj' w'` mp_tac)>>simp[]>>
+    rw[]>>
+    qpat_x_assum`_ wfml = _` kall_tac>>
+    drule_all encode_correct_pbf_cnf>>
+    rw[]>>
+    first_x_assum(irule_at Any)>>
+    assume_tac (GEN_ALL SUM_FST_eq_weight_nweight)>>
+    first_assum(qspecl_then[`wfml`,`w`] mp_tac)>>
+    first_x_assum(qspecl_then[`wfml'`,`w'' o INL`] mp_tac)>>
+    rw[]>>
+    intLib.ARITH_TAC)
+  >- (
+    drule_all encode_correct_cnf_pbf>>rw[]>>
+    first_x_assum drule>>
+    disch_then(qspec_then`eval_obj obj'' w''` mp_tac)>>simp[]>>
+    rw[]>>
+    qpat_x_assum`_ wfml' = _` kall_tac>>
+    drule_all encode_correct_pbf_cnf>>
+    rw[]>>
+    first_x_assum(irule_at Any)>>
+    assume_tac (GEN_ALL SUM_FST_eq_weight_nweight)>>
+    first_assum(qspecl_then[`wfml'`,`w'`] mp_tac)>>
+    first_x_assum(qspecl_then[`wfml`,`w o INL`] mp_tac)>>
+    rw[]>>
+    intLib.ARITH_TAC)
 QED
 
 (*** STEP 4: Build a parser for the command line interface ***)
