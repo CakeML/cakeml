@@ -6,9 +6,6 @@ Define the format of the compiler-generated .S file for x64
 [proofs](proofs):
 This directory contains the x64-specific proofs.
 
-[x64_backendScript.sml](x64_backendScript.sml):
-Define functions similar to backendTheory, but adapted for cv_compute.
-
 [x64_compileLib.sml](x64_compileLib.sml):
 Provides an eval for the x64-specific parts of the backend
 
