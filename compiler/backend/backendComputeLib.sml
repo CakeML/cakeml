@@ -895,6 +895,11 @@ val add_backend_compset = computeLib.extend_compset
     ,``:'a line``
     ,``:'a sec``
     ]
+  ,computeLib.Tys
+    [ (* ---- ffi ---- *)
+     ``:ffi$ffiname``
+    ,``:ffi$shmem_op``
+    ]
   ,computeLib.Defs
     [labLangTheory.Section_num_def
     ,labLangTheory.Section_lines_def
