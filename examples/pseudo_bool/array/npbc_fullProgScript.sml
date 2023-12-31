@@ -152,14 +152,6 @@ val res = translate int_inf_to_string_def;
 val res = translate concl_to_string_def;
 val res = translate map_concl_to_string_def;
 
-(* And empty formula *)
-Definition default_objf_def:
-  default_objf = (NONE,[]):((int # mlstring lit) list # int) option #
-    (pbop # (int # mlstring lit) list # int) list
-End
-
-val res = translate default_objf_def;
-
 val check_unsat_2 = (append_prog o process_topdecs) `
   fun check_unsat_2 f1 f2 =
   case parse_pbf_full f1 of

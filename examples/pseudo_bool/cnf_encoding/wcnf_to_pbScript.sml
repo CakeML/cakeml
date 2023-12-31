@@ -43,6 +43,17 @@ Definition unsatisfiable_hard_def:
   ∀w. ¬satisfies_hard w wfml
 End
 
+(* The maximum weight of any hard assignment *)
+Definition max_sat_def:
+  max_sat (wfml:wccnf) =
+  if unsatisfiable_hard wfml then NONE
+  else
+    SOME (MAX_SET (
+      IMAGE
+      (λw. weight w wfml)
+      {w | satisfies_hard w wfml}))
+End
+
 (*** STEP 2: Formalise an encoding into PB ***)
 
 (* A simple encoding trick is to use meaningful variable
@@ -114,6 +125,7 @@ End
   Here, n is the sum of weights
   NONE represents -INF *)
 Definition conv_concl_def:
+  (conv_concl n NoConcl = SOME NONE) ∧
   (conv_concl n (OBounds lbi ubi) =
   let ubg =
     case lbi of
@@ -123,17 +135,25 @@ Definition conv_concl_def:
     case ubi of NONE => NONE
     | SOME ub =>
       SOME (n - Num (ABS ub)) in
-    SOME (lbg,ubg)) ∧
+    SOME (SOME (lbg,ubg))) ∧
   (conv_concl _ _ = NONE)
 End
 
-(* Convert a VeriPB output into a MAX SAT output *)
+Definition nn_int_def:
+  nn_int i = if i < 0 then 0:num else Num i
+End
+
+(* Convert a VeriPB output into a MAX SAT output
+  NOTE: this currently requires that no solutions are logged
+*)
 Definition conv_output_def:
-  (conv_output (wfml:wccnf) (wfml':wccnf) NONE Equioptimal =
-    if SUM (MAP FST wfml) = SUM (MAP FST wfml')
-    then SOME ()
+  (conv_output _ NoOutput = SOME F) ∧
+  (conv_output
+    (bopt: int option) Equioptimal =
+    if bopt = NONE
+    then SOME T
     else NONE) ∧
-  (conv_output _ _ _ _ = NONE)
+  (conv_output _ _ = NONE)
 End
 
 (*** STEP 3: Prove correctness of the encoding ***)
@@ -434,7 +454,7 @@ QED
 Theorem full_encode_sem_concl:
   full_encode wfml = (obj,pbf) ∧
   sem_concl (set pbf) obj concl ∧
-  conv_concl (SUM (MAP FST wfml)) concl = SOME (lbg, ubg) ⇒
+  conv_concl (SUM (MAP FST wfml)) concl = SOME (SOME (lbg, ubg)) ⇒
   (case ubg of
     NONE => unsatisfiable_hard wfml
   | SOME ub => (∀w. satisfies_hard w wfml ⇒ weight w wfml ≤ ub)) ∧
@@ -485,14 +505,63 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Theorem MAX_SET_eq_intro:
+  FINITE s ∧
+  (∀x. x ∈ s ⇒ x ≤ n) ∧
+  n ∈ s ⇒
+  MAX_SET s = n
+Proof
+  rw[]>>
+  DEEP_INTRO_TAC MAX_SET_ELIM>>
+  simp[]>>
+  rw[]>>
+  fs[]>>
+  res_tac>>fs[]
+QED
+
+Theorem FINITE_max_sat:
+  FINITE (IMAGE (λw. weight w wfml) {w | satisfies_hard w wfml})
+Proof
+  `FINITE (count (SUM (MAP FST wfml) + 1))` by fs[]>>
+  drule_then match_mp_tac SUBSET_FINITE>>
+  simp[IMAGE_DEF,SUBSET_DEF]>>rw[]>>
+  assume_tac SUM_FST_eq_weight_nweight>>
+  fs[]
+QED
+
+(* Special case *)
+Theorem full_encode_sem_concl_max_sat:
+  full_encode wfml = (obj,pbf) ∧
+  sem_concl (set pbf) obj concl ∧
+  conv_concl (SUM (MAP FST wfml)) concl = SOME (SOME (lbg, ubg)) ⇒
+  (ubg = NONE ⇒ max_sat wfml = NONE) ∧
+  (lbg = ubg ⇒ max_sat wfml = lbg)
+Proof
+  strip_tac>>
+  drule_all full_encode_sem_concl>>
+  every_case_tac>>rw[]>>fs[max_sat_def]>>
+  CONJ_TAC>- (
+    simp[unsatisfiable_hard_def]>>
+    metis_tac[])>>
+  match_mp_tac MAX_SET_eq_intro>>
+  rw[]
+  >- metis_tac[FINITE_max_sat]
+  >- metis_tac[]
+  >- (
+    first_assum (irule_at Any)>>
+    first_x_assum drule>>
+    rw[])
+QED
+
 Theorem full_encode_sem_output:
   full_encode wfml = (obj,pbf) ∧
   full_encode wfml' = (obj',pbf') ∧
   pbc$sem_output (set pbf) obj bound (set pbf') obj' output ∧
-  conv_output wfml wfml' bound output = SOME () ⇒
+  SUM (MAP FST wfml) = SUM (MAP FST wfml') ∧
+  conv_output bound output = SOME T ⇒
   ∀v.
-    (∃w. satisfies_hard w wfml ∧ v ≤ weight w wfml) ⇔
-    (∃w'. satisfies_hard w' wfml' ∧ v ≤ weight w' wfml')
+    ((∃w. satisfies_hard w wfml ∧ v ≤ weight w wfml) ⇔
+    (∃w'. satisfies_hard w' wfml' ∧ v ≤ weight w' wfml'))
 Proof
   strip_tac>>
   gvs[full_encode_def]>>
@@ -507,11 +576,10 @@ Proof
     drule INJ_SUBSET>>
     disch_then match_mp_tac>>
     simp[])>>
-  Cases_on`bound`>>
   Cases_on`output`>>fs[conv_output_def]>>
   simp[sem_output_def]>>
   simp[EQ_IMP_THM]>>rw[]>>
-  gvs[FORALL_AND_THM,PULL_EXISTS]
+  gvs[FORALL_AND_THM,PULL_EXISTS,AllCaseEqs()]
   >- (
     drule_all encode_correct_cnf_pbf>>rw[]>>
     first_x_assum drule>>
@@ -540,6 +608,53 @@ Proof
     first_x_assum(qspecl_then[`wfml`,`w o INL`] mp_tac)>>
     rw[]>>
     intLib.ARITH_TAC)
+QED
+
+(* rephrasing *)
+Theorem full_encode_sem_output_max_sat:
+  full_encode wfml = (obj,pbf) ∧
+  full_encode wfml' = (obj',pbf') ∧
+  pbc$sem_output (set pbf) obj bound (set pbf') obj' output ∧
+  SUM (MAP FST wfml) = SUM (MAP FST wfml') ∧
+  conv_output bound output = SOME T ⇒
+  max_sat wfml = max_sat wfml'
+Proof
+  rw[]>>
+  drule_all full_encode_sem_output>>
+  rw[max_sat_def]>>
+  fs[unsatisfiable_hard_def]
+  >- metis_tac[LESS_EQ_REFL]
+  >- metis_tac[LESS_EQ_REFL]>>
+  match_mp_tac MAX_SET_eq_intro>>
+  CONJ_ASM1_TAC
+  >-
+    metis_tac[FINITE_max_sat]>>
+  rw[]
+  >- (
+    gvs[FORALL_AND_THM,PULL_EXISTS,AllCaseEqs(),EQ_IMP_THM]>>
+    last_x_assum drule>>
+    disch_then(qspec_then`weight w'' wfml` mp_tac)>>
+    simp[]>>rw[]>>
+    (drule_at_then Any match_mp_tac LESS_EQ_TRANS)>>
+    match_mp_tac (X_LE_MAX_SET |> SIMP_RULE std_ss [PULL_FORALL,AND_IMP_INTRO])>>
+    simp[FINITE_max_sat]>>
+    metis_tac[])>>
+  gvs[FORALL_AND_THM,PULL_EXISTS,AllCaseEqs(),EQ_IMP_THM]>>
+  `FINITE (IMAGE (λw. weight w wfml') {w | satisfies_hard w wfml'})`
+    by fs[FINITE_max_sat]>>
+  `{w | satisfies_hard w wfml'} ≠ ∅` by
+    (fs[EXTENSION]>>
+    metis_tac[])>>
+  drule MAX_SET_DEF>>
+  simp[]>>rw[]>>
+  first_x_assum drule>>
+  disch_then(qspec_then`weight w'' wfml'` mp_tac)>>simp[]>>rw[]>>
+  first_assum (irule_at Any)>>
+  first_x_assum drule>>
+  fs[PULL_EXISTS]>>
+  rename1`weight ww wfml`>>
+  disch_then(qspec_then `weight ww wfml` assume_tac)>>fs[]>>
+  last_x_assum drule>>fs[]
 QED
 
 (*** STEP 4: Build a parser for the command line interface ***)

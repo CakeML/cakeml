@@ -3598,4 +3598,12 @@ val res = translate pb_parseTheory.pbc_string_def;
 val res = translate obj_string_def;
 val res = translate print_pbf_def;
 
+(* An empty formula *)
+Definition default_objf_def:
+  default_objf = (NONE,[]):((int # mlstring lit) list # int) option #
+    (pbop # (int # mlstring lit) list # int) list
+End
+
+val res = translate default_objf_def;
+
 val _ = export_theory();
