@@ -1125,8 +1125,9 @@ QED
 Definition normalise_obj_def:
   (normalise_obj NONE = NONE) ∧
   (normalise_obj (SOME (f,c)) =
-    let (f', c') = normalise_lhs f [] 0 in
-    SOME (f',c + c'))
+    let (f',c') = compact_lhs (QSORT term_le f) 0 in
+    let (f'', c'') = normalise_lhs f' [] 0 in
+    SOME (f'',c + c'+c''))
 End
 
 Definition normalise_obj_pbf_def:
@@ -1140,12 +1141,16 @@ Theorem eval_obj_normalise_obj:
 Proof
   Cases_on`obj`>>
   simp[normalise_obj_def,eval_obj_def,pbcTheory.eval_obj_def]>>
-  Cases_on`x`>>simp[normalise_obj_def]>>
-  pairarg_tac>>fs[eval_lin_term_def]>>
+  Cases_on`x`>>
+  simp[normalise_obj_def,eval_lin_term_def]>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
   drule normalise_lhs_normalises>>
   simp[]>>
-  rw[]>>
-  pop_assum kall_tac>>
+  disch_then(qspec_then`w` assume_tac)>>
+  drule compact_lhs_sound>>
+  disch_then(qspec_then`w` assume_tac)>>
+  fs[]>>
   intLib.ARITH_TAC
 QED
 

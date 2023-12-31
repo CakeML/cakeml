@@ -96,17 +96,12 @@ Definition opt_update_def[simp]:
   (opt_update fml (SOME cc) id = (update_resize fml NONE (SOME cc) id,id+1))
 End
 
+(* TODO: rup not implemented, need more state *)
 Definition check_lstep_list_def:
   (check_lstep_list lstep
     b (fml: (npbc # bool) option list)
     (mindel:num) (id:num) =
   case lstep of
-  | Check n c =>
-    (case any_el n fml NONE of NONE => NONE
-    | SOME (c',b) =>
-      if c = c' then SOME(fml, NONE, id)
-      else NONE)
-  | NoOp => SOME (fml, NONE, id)
   | Delete ls =>
       if EVERY (λid. mindel ≤ id ∧
           lookup_core_only_list T fml id = NONE) ls then
@@ -117,8 +112,8 @@ Definition check_lstep_list_def:
     (case check_cutting_list b fml constr of
       NONE => NONE
     | SOME c =>
-      SOME (fml, SOME(c,b), id)
-    )
+      SOME (fml, SOME(c,b), id))
+  | Rup c ls => NONE
   | Con c pf n =>
     let (fml_not_c,id') = opt_update fml (SOME (not c,b)) id in
     (case check_lsteps_list pf b fml_not_c id id' of
@@ -130,7 +125,13 @@ Definition check_lstep_list_def:
           SOME(c,b),
           id')
       else NONE
-    | _ => NONE)) ∧
+    | _ => NONE)
+  | Check n c =>
+    (case any_el n fml NONE of NONE => NONE
+    | SOME (c',b) =>
+      if c = c' then SOME(fml, NONE, id)
+      else NONE)
+  | NoOp => SOME (fml, NONE, id)) ∧
   (check_lsteps_list [] b fml mindel id =
     SOME (fml, id)) ∧
   (check_lsteps_list (step::steps) b fml mindel id =
@@ -1479,9 +1480,10 @@ Definition emp_vec_def:
 End
 
 Definition check_change_obj_list_def:
-  check_change_obj_list fml id obj fc' pfs ⇔
+  check_change_obj_list b fml id obj fc' pfs ⇔
   case obj of NONE => NONE
   | SOME fc =>
+    let fc' = mk_diff_obj b fc fc' in
     let csubs = change_obj_subgoals fc fc' in
     case extract_clauses_list emp_vec T fml csubs pfs [] of
       NONE => NONE
@@ -1491,7 +1493,7 @@ Definition check_change_obj_list_def:
       | SOME (fml',id') =>
         let rfml = rollback fml' id id' in
         if do_change_obj_check pfs then
-          SOME (rfml,id')
+          SOME (rfml,fc',id')
         else NONE)
 End
 
@@ -1606,13 +1608,17 @@ Definition check_cstep_list_def:
           pc with
           <| bound := bound';
              dbound := dbound' |>))
-  | ChangeObj fc' pfs =>
-    (case check_change_obj_list fml pc.id pc.obj fc' pfs of
+  | ChangeObj b fc' pfs =>
+    (case check_change_obj_list b fml pc.id pc.obj fc' pfs of
       NONE => NONE
-    | SOME (fml',id') =>
+    | SOME (fml',fc',id') =>
       SOME (
         fml', inds,
         pc with <| id:=id'; obj:=SOME fc' |>))
+  | CheckObj fc' =>
+    if check_eq_obj pc.obj fc'
+    then SOME (fml, inds, pc)
+    else NONE
 End
 
 Theorem MEM_core_fmlls:
@@ -1889,7 +1895,7 @@ Proof
     pairarg_tac>>fs[]>>
     strip_tac>>simp[]>>
     CONJ_TAC>- (
-      `COUNT_LIST (LENGTH (change_obj_subgoals fc p)) = [0;1]` by
+      `COUNT_LIST (LENGTH (change_obj_subgoals fc (mk_diff_obj b fc p) )) = [0;1]` by
         EVAL_TAC>>
       simp[])>>
     drule check_subproofs_list_id>>
@@ -1903,6 +1909,9 @@ Proof
       simp[]>>
       metis_tac[ind_rel_reindex])>>
     simp[any_el_rollback])
+  >- ( (* CheckObj *)
+    fs[check_cstep_def,check_cstep_list_def]
+  )
 QED
 
 Definition check_csteps_list_def:
@@ -2199,7 +2208,7 @@ Definition check_output_list_def:
       chk ∧ opt_le bound dbound ∧
       fml_include_list cls fml' ∧
       fml_include_list fml' cls ∧
-      obj = obj')
+      opt_eq_obj obj obj')
 End
 
 Theorem fml_include_set:

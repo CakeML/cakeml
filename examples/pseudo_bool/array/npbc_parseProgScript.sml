@@ -90,6 +90,8 @@ val r = translate parse_constraint_npbc_def;
 
 val r = translate parse_red_header_def;
 
+val r = translate parse_rup_def;
+
 val r = translate parse_lstep_aux_def;
 
 val parse_lstep_aux_side_def = fetch "-" "parse_lstep_aux_side_def";
@@ -2032,6 +2034,10 @@ val res = translate strip_obju_end_def;
 val res = translate parse_obj_term_npbc_def;
 
 val res = translate parse_strengthen_def;
+
+
+val res = translate parse_b_obj_term_npbc_def;
+
 val res = translate parse_cstep_head_def;
 
 val PB_PARSE_PAR_TYPE_def = theorem"PB_PARSE_PAR_TYPE_def";
@@ -2057,13 +2063,13 @@ val parse_cstep = process_topdecs`
         (case parse_pre_order fd lno' of
           (spo,(ws,(pfr,(pft,lno'')))) =>
           (Inr (Storeorder name spo ws pfr pft), (fns'', lno'')))
-    | Some (Changeobjpar f, fns'') =>
+    | Some (Changeobjpar b f, fns'') =>
         (case parse_red_aux fns'' fd lno' [] of
           (res,(pf,(fns''',lno''))) =>
           (case res of Some u =>
             raise Fail (format_failure (lno'+1) "obj change rule can not end with contradiction")
           | None =>
-            (Inr (Changeobj f pf), (fns''', lno''))
+            (Inr (Changeobj b f pf), (fns''', lno''))
           )
         ))
   `|> append_prog;
@@ -2688,15 +2694,25 @@ End
 
 val res = translate mk_parse_err_def;
 
+Definition format_err_def:
+  (format_err NONE NONE = NONE) ∧
+  (format_err (SOME s1) NONE = SOME s1) ∧
+  (format_err NONE (SOME s2) = SOME s2) ∧
+  (format_err (SOME s1) (SOME s2) = SOME (s1 ^ strlit" ; "^ s2))
+End
+
+val res = translate format_err_def;
+
 val check_output_hconcl_arr = process_topdecs`
   fun check_output_hconcl_arr
     fml obj
     fml' inds' obj' bound' dbound' chk'
     fmlt objt
     output hconcl =
-  check_output_arr fml' inds'
-    obj' bound' dbound' chk' fmlt objt output andalso
-  check_hconcl_arr fml obj fml' obj' bound' dbound' hconcl`
+  format_err
+  (check_output_arr fml' inds'
+    obj' bound' dbound' chk' fmlt objt output)
+  (check_hconcl_arr fml obj fml' obj' bound' dbound' hconcl)`
   |> append_prog;
 
 Theorem check_output_hconcl_arr_spec:
@@ -2723,20 +2739,22 @@ Theorem check_output_hconcl_arr_spec:
     (POSTv v.
         ARRAY fml1v fmllsv *
         &(
-        BOOL (
-          check_output_list fmlls inds1
-            obj1 bound1 dbound1 chk1
-            fmlt objt output ∧
+        ∃s.
+        (OPTION_TYPE STRING_TYPE)
+        (if check_output_list fmlls inds1 obj1
+          bound1 dbound1 chk1 fmlt objt output ∧
           check_hconcl_list fml obj fmlls obj1
-          bound1 dbound1 hconcl) v))
+          bound1 dbound1 hconcl
+        then NONE else SOME s) v))
 Proof
   rw[]>>
   xcf"check_output_hconcl_arr"(get_ml_prog_state ())>>
-  xlet_autop>>
-  xlog>>rw[]
-  >-
-    (xapp>>xsimpl)>>
-  gvs[]>>xsimpl
+  rpt xlet_autop>>
+  xapp>>xsimpl>>
+  first_x_assum (irule_at Any)>>
+  first_x_assum (irule_at Any)>>
+  rw[]>>fs[format_err_def,OPTION_TYPE_def]>>
+  metis_tac[]
 QED
 
 (* Translation for parsing an OPB file *)
@@ -2754,15 +2772,14 @@ val run_concl_file = process_topdecs`
     case parse_output_concl s f_ns ls of
       None => Inl (format_failure lno (mk_parse_err s))
     | Some (output,hconcl) =>
-      if
+      case
         check_output_hconcl_arr
         fml obj
         fml' inds' obj' bound' dbound' chk'
         fmlt objt
-        output hconcl
-      then
-        Inr (output,hconcl)
-      else Inl (format_failure lno "failed to check conclusion/output section")
+        output hconcl of
+        None => Inr (output,hconcl)
+      | Some s => Inl (format_failure lno s)
   end` |> append_prog;
 
 val tokenize_v_thm = theorem "tokenize_v_thm";
@@ -2848,16 +2865,21 @@ Proof
   rw[]>>
   fs[PAIR_TYPE_def,OPTION_TYPE_def]>>xmatch>>
   xlet_autop>>
-  reverse xif
+  pop_assum mp_tac>>IF_CASES_TAC
   >- (
+    simp[OPTION_TYPE_def]>>strip_tac>>
+    xmatch>>
     rpt xlet_autop>>
     xcon>>xsimpl>>
-    rename1`STRING_TYPE ss _`>>
-    qexists_tac`INL ss`>>simp[SUM_TYPE_def])>>
+    qexists_tac`INR (houtput,hconcl)`>>
+    simp[SUM_TYPE_def,PAIR_TYPE_def])>>
+  pop_assum kall_tac>>
+  simp[OPTION_TYPE_def]>>strip_tac>>
+  xmatch>>
   xlet_autop>>
   xcon>>xsimpl>>
-  qexists_tac`INR (houtput,hconcl)`>>
-  simp[SUM_TYPE_def,PAIR_TYPE_def]
+  rename1`STRING_TYPE ss _`>>
+  qexists_tac`INL ss`>>simp[SUM_TYPE_def]
 QED
 
 (* Return the full conclusion, including the proven bound *)
