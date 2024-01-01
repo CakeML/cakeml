@@ -611,8 +611,8 @@ End
 Definition print_maxsat_output_str_def:
   print_maxsat_output_str iseqopt =
   if iseqopt
-  then strlit "s VERIFIED MAX SAT NO OUTPUT CLAIM\n"
-  else strlit "s VERIFIED MAX SAT OUTPUT EQUIOPTIMAL\n"
+  then strlit "s VERIFIED MAX SAT OUTPUT EQUIOPTIMAL\n"
+  else strlit "s VERIFIED MAX SAT NO OUTPUT CLAIM\n"
 End
 
 Definition check_unsat_3_sem_def:
