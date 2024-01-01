@@ -2858,7 +2858,7 @@ Definition npbc_obj_string_def:
   (npbc_obj_string (xs,i:int) =
     concat [
       npbc_lhs_string xs;
-      strlit" = ";
+      strlit" ";
       toString  i])
 End
 
@@ -2868,9 +2868,9 @@ Definition err_obj_check_string_def:
   | SOME fc =>
     concat[
     strlit"objective check failed, expect: ";
-    npbc_obj_string fc;
+    npbc_obj_string fc';
     strlit" got: ";
-    npbc_obj_string fc']
+    npbc_obj_string fc]
 End
 
 val res = translate npbc_obj_string_def;

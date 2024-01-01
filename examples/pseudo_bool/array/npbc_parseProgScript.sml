@@ -2031,6 +2031,8 @@ val res = translate insert_lit_def;
 val res = translate parse_assg_def;
 val res = translate parse_obj_term_def;
 val res = translate strip_obju_end_def;
+
+val res = translate normalise_obj_def;
 val res = translate parse_obj_term_npbc_def;
 
 val res = translate parse_strengthen_def;
@@ -3429,7 +3431,6 @@ QED
 *)
 
 (* normalise *)
-val res = translate normalise_obj_def;
 val res = translate flip_coeffs_def;
 val res = translate pbc_ge_def;
 val res = translate normalise_def;

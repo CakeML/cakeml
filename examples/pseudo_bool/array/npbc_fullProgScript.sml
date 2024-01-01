@@ -198,7 +198,7 @@ Proof
   simp[SUM_TYPE_def]>>rw[]>>
   Cases_on`x`>>fs[PAIR_TYPE_def]>>
   xmatch>>
-  assume_tac (fetch "-" "default_objf_v_thm")>>
+  assume_tac default_objf_v_thm>>
   xlet`POSTv v.
     STDIO fs *
     &(PAIR_TYPE

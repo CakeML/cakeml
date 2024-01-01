@@ -925,6 +925,16 @@ Definition parse_assg_def:
   (parse_assg f_ns _ acc = NONE)
 End
 
+Definition parse_obj_term_npbc_def:
+  parse_obj_term_npbc f_ns rest =
+  case parse_obj_term rest of NONE => NONE
+  | SOME (f,c) =>
+    (case map_f_ns f_ns f of NONE => NONE
+     | SOME (f',f_ns') =>
+      case normalise_obj (SOME (f',c)) of NONE => NONE
+      | SOME fc' => SOME (fc', f_ns'))
+End
+
 Definition strip_obju_end_def:
   (strip_obju_end [] acc = NONE) ∧
   (strip_obju_end [x] acc =
@@ -936,16 +946,17 @@ Definition strip_obju_end_def:
     strip_obju_end xs (x::acc))
 End
 
-Definition parse_obj_term_npbc_def:
-  parse_obj_term_npbc f_ns rest =
-  case strip_obju_end rest [] of NONE => NONE
-  | SOME rest =>
-  case parse_obj_term rest of NONE => NONE
-  | SOME (f,c) =>
-    (case map_f_ns f_ns f of NONE => NONE
-     | SOME (f',f_ns') =>
-      case pbc_to_npbc (GreaterEqual,f',0) of
-        (f'',n) => SOME ((f'',c-&n),f_ns'))
+(* objective update *)
+Definition parse_b_obj_term_npbc_def:
+  (parse_b_obj_term_npbc f_ns rest =
+   case strip_obju_end rest [] of NONE => NONE
+  | SOME [] => NONE
+  | SOME (r::rs) =>
+  case parse_obj_term_npbc f_ns rs of NONE => NONE
+  | SOME res =>
+    if r = INL (strlit "new") then SOME (T,res)
+    else if r = INL (strlit"diff") then SOME (F,res)
+    else NONE)
 End
 
 Definition parse_strengthen_def:
@@ -956,15 +967,6 @@ Definition parse_strengthen_def:
   (parse_strengthen f_ns _ = NONE)
 End
 
-Definition parse_b_obj_term_npbc_def:
-  (parse_b_obj_term_npbc f_ns (r::rs) =
-  case parse_obj_term_npbc f_ns rs of NONE => NONE
-  | SOME res =>
-    if r = INL (strlit "new") then SOME (T,res)
-    else if r = INL (strlit"diff") then SOME (F,res)
-    else NONE) ∧
-  (parse_b_obj_term_npbc f_ns [] = NONE)
-End
 
 (* Parse the first line of a cstep, sstep supported differently *)
 Definition parse_cstep_head_def:
