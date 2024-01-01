@@ -4,7 +4,7 @@
 open preamble
      semanticsPropsTheory backendProofTheory
      ag32_configProofTheory ag32_machine_configTheory
-     ag32_memoryProofTheory ag32_basis_ffiProofTheory
+     ag32_memoryProofTheory ag32_basis_ffiProofTheory ag32_ffi_codeProofTheory
      compiler32ProgTheory ag32BootstrapTheory
 
 val _ = new_theory"ag32BootstrapProof";
@@ -140,8 +140,10 @@ Theorem cake_installed:
      (cake_machine_config) (FUNPOW Next (cake_startup_clock ms0 inp cl) ms0)
 Proof
   rewrite_tac[ffi_names, extcalls_def]
-  \\ strip_tac
   \\ rewrite_tac [to_MAP_ExtCall]
+  \\ strip_tac
+  \\ ‘SOME [] = SOME (MAP ffi$ExtCall [])’ by fs []
+  \\ pop_assum $ once_rewrite_tac o single
   \\ irule ag32_installed
   \\ drule cake_startup_clock_def
   \\ disch_then drule
@@ -230,7 +232,7 @@ Theorem ALOOKUP_add_stdout_inode_tbl:
    STD_streams fs ⇒ (
    ALOOKUP (add_stdout fs out).inode_tbl fnm =
    if fnm = UStream(strlit"stdout") then
-     SOME (extcalls (ALOOKUP fs.inode_tbl fnm) ++ explode out)
+     SOME (THE (ALOOKUP fs.inode_tbl fnm) ++ explode out)
    else ALOOKUP fs.inode_tbl fnm)
 Proof
   strip_tac
@@ -253,7 +255,7 @@ Theorem ALOOKUP_add_stderr_inode_tbl:
    STD_streams fs ⇒ (
    ALOOKUP (add_stderr fs err).inode_tbl fnm =
    if fnm = UStream(strlit"stderr") then
-     SOME (extcalls (ALOOKUP fs.inode_tbl fnm) ++ explode err)
+     SOME (THE (ALOOKUP fs.inode_tbl fnm) ++ explode err)
    else ALOOKUP fs.inode_tbl fnm)
 Proof
   strip_tac
@@ -276,7 +278,7 @@ Theorem ALOOKUP_add_stdout_infds:
    STD_streams fs ⇒ (
    ALOOKUP (add_stdout fs out).infds fd =
    if fd = 1 then
-     SOME ((I ## I ## ((+) (strlen out))) (extcalls (ALOOKUP fs.infds fd)))
+     SOME ((I ## I ## ((+) (strlen out))) (THE (ALOOKUP fs.infds fd)))
    else ALOOKUP fs.infds fd)
 Proof
   strip_tac
@@ -300,7 +302,7 @@ Theorem ALOOKUP_add_stderr_infds:
    STD_streams fs ⇒ (
    ALOOKUP (add_stderr fs err).infds fd =
    if fd = 2 then
-     SOME ((I ## I ## ((+) (strlen err))) (extcalls (ALOOKUP fs.infds fd)))
+     SOME ((I ## I ## ((+) (strlen err))) (THE (ALOOKUP fs.infds fd)))
    else ALOOKUP fs.infds fd)
 Proof
   strip_tac
