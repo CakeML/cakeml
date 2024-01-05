@@ -49,9 +49,7 @@ Definition max_sat_def:
   if unsatisfiable_hard wfml then NONE
   else
     SOME (MAX_SET (
-      IMAGE
-      (λw. weight w wfml)
-      {w | satisfies_hard w wfml}))
+      {weight w wfml | w | satisfies_hard w wfml}))
 End
 
 (*** STEP 2: Formalise an encoding into PB ***)
@@ -520,7 +518,7 @@ Proof
 QED
 
 Theorem FINITE_max_sat:
-  FINITE (IMAGE (λw. weight w wfml) {w | satisfies_hard w wfml})
+  FINITE {weight w wfml| w | satisfies_hard w wfml}
 Proof
   `FINITE (count (SUM (MAP FST wfml) + 1))` by fs[]>>
   drule_then match_mp_tac SUBSET_FINITE>>
@@ -640,17 +638,18 @@ Proof
     simp[FINITE_max_sat]>>
     metis_tac[])>>
   gvs[FORALL_AND_THM,PULL_EXISTS,AllCaseEqs(),EQ_IMP_THM]>>
-  `FINITE (IMAGE (λw. weight w wfml') {w | satisfies_hard w wfml'})`
+  `FINITE {weight w wfml' | w | satisfies_hard w wfml'}`
     by fs[FINITE_max_sat]>>
-  `{w | satisfies_hard w wfml'} ≠ ∅` by
+  drule MAX_SET_DEF>>
+  `{weight w wfml' | w | satisfies_hard w wfml'} ≠ ∅` by
     (fs[EXTENSION]>>
     metis_tac[])>>
-  drule MAX_SET_DEF>>
+  simp[PULL_EXISTS]>>rw[]>>
+  gvs[]>>
+  first_x_assum(qspecl_then[`weight w'' wfml'`,`w''`] mp_tac)>>
   simp[]>>rw[]>>
-  first_x_assum drule>>
-  disch_then(qspec_then`weight w'' wfml'` mp_tac)>>simp[]>>rw[]>>
   first_assum (irule_at Any)>>
-  first_x_assum drule>>
+  last_x_assum drule>>
   fs[PULL_EXISTS]>>
   rename1`weight ww wfml`>>
   disch_then(qspec_then `weight ww wfml` assume_tac)>>fs[]>>
