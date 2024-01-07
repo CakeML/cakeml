@@ -7,34 +7,21 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "cnf_xor";
 
-(*
-  A variable is drawn from type 'a
-
-  A literal is either Pos or Neg
-
-  Clauses and XORs are both lists of literals
-
-  A CNF-XOR formula is a pair of list of clauses and list of XORs
-
-  An assignment is a map from 'a to T/F
-
-  A clause is satisfied by an assignment iff at least one of its literals is assigned to true
-
-  An XOR is satisfied by an assignment iff the parity under the assignment is odd
-
-  A CNF-XOR formula is satisfied by an assignment iff all its clauses and XORs are satisfied *)
-
+(***
+  The following syntax and semantics directly mirrors a
+  corresponding version in Isabelle/HOL
+ ***)
 Datatype:
-  lit = Pos 'a | Neg 'a
+  lit = Pos num | Neg num
 End
 
-Type clause = ``:'a lit list``;
-Type cmsxor = ``:'a lit list``;
-Type fml = ``:'a clause list # 'a cmsxor list``;
-Type assignment = ``:'a -> bool``;
+Type clause = ``:lit list``;
+Type cmsxor = ``:lit list``;
+Type fml = ``:clause list # cmsxor list``;
+Type assignment = ``:num -> bool``;
 
 Definition sat_lit_def:
-  sat_lit (w:'a assignment) l ⇔
+  sat_lit (w:assignment) l ⇔
   (case l of Pos x => w x | Neg x => ¬w x)
 End
 
@@ -54,7 +41,7 @@ Definition sat_cmsxor_def:
 End
 
 Definition sat_fml_def:
-  sat_fml w (f:'a fml) = (
+  sat_fml w (f:fml) = (
     (∀C. C ∈ set (FST f) ⇒ sat_clause w C) ∧
     (∀C. C ∈ set (SND f) ⇒ sat_cmsxor w C)
   )
@@ -64,7 +51,11 @@ Definition sols_def:
   sols f = {w | sat_fml w f}
 End
 
-(* A straightforward parser *)
+(***
+  End mirrored definitions
+ ***)
+
+(* A parser and printed for CNF-XOR in CakeML *)
 
 (* Everything recognized as a "blank" *)
 Definition blanks_def:
@@ -82,12 +73,12 @@ Definition toks_def:
   toks s = MAP tokenize (tokens blanks s)
 End
 
-(* CNF-XOR parser where 'a = num *)
+(* CNF-XOR parser *)
 
 (* Parse a list of literals ending with 0
   Literals only use variables between 1 to maxvar (inclusive) *)
 Definition parse_lits_aux_def:
-  (parse_lits_aux maxvar [] (acc:num lit list) = NONE) ∧
+  (parse_lits_aux maxvar [] (acc:lit list) = NONE) ∧
   (parse_lits_aux maxvar [c] acc =
     if c = INR 0i then SOME (REVERSE acc) else NONE) ∧
   (parse_lits_aux maxvar (x::xs) acc =
@@ -197,5 +188,390 @@ val cnf_xor_raw = ``[
   ]``;
 
 val test = rconc (EVAL ``THE (parse_cnf_xor ^(cnf_xor_raw))``);
+
+(* CNF-XOR printer *)
+
+Definition print_lit_def:
+  (print_lit (Pos n) = toString n) ∧
+  (print_lit (Neg n) = strlit"-" ^ toString n)
+End
+
+Definition print_clause_def:
+  (print_clause [] = strlit "0\n") ∧
+  (print_clause (x::xs) =
+    print_lit x ^ strlit(" ") ^ print_clause xs)
+End
+
+Definition print_xor_def:
+  print_xor xs = strlit"x " ^ print_clause xs
+End
+
+Definition print_header_line_def:
+  print_header_line v len =
+  strlit ("p cnf ") ^  toString v ^ strlit(" ") ^ toString len ^ strlit("\n")
+End
+
+Definition var_lit_def:
+  (var_lit (Pos n) = n) ∧
+  (var_lit (Neg n) = n)
+End
+
+Definition max_list_def:
+  (max_list k [] = k) ∧
+  (max_list k (x::xs) = max_list (MAX k x) xs)
+End
+
+Definition print_cnf_xor_def:
+  print_cnf_xor (cs,xs) =
+  let len = LENGTH cs + LENGTH xs in
+  let cmax = max_list 0 (MAP (max_list 0 o MAP var_lit) cs) in
+  let xmax = max_list 0 (MAP (max_list 0 o MAP var_lit) xs) in
+  print_header_line (MAX cmax xmax) len ::
+  MAP print_clause cs ++ MAP print_xor xs
+End
+
+val test2 = rconc (EVAL ``(print_cnf_xor ^(test))``);
+
+Theorem tokens_unchanged:
+  EVERY ($~ o P) (explode ls) ∧ ¬ NULL (explode ls) ⇒
+  tokens P ls = [ls]
+Proof
+  rw[] >> drule TOKENS_unchanged>>
+  simp[]>>
+  simp[GSYM mlstringTheory.TOKENS_eq_tokens]
+QED
+
+Triviality isDigit_not_blanks:
+  isDigit c ==> ~ blanks c
+Proof
+  CCONTR_TAC \\ fs [blanks_def] \\ fs [isDigit_def]
+QED
+
+Theorem tokens_blanks_print_lit:
+  tokens blanks (print_lit l) = [print_lit l]
+Proof
+  match_mp_tac tokens_unchanged>>
+  Cases_on`l`>>
+  Cases_on`toString n`>>
+  simp[print_lit_def,EVAL ``blanks #"-"``]>>
+  `~NULL s` by
+    (drule num_to_str_imp_cons>>rw[]>>fs[])>>
+  simp[]>>
+  irule listTheory.EVERY_MONOTONIC >>
+  irule_at Any num_to_str_every>>
+  asm_exists_tac>>simp[GSYM isDigit_def, isDigit_not_blanks]
+QED
+
+Theorem tokens_print_clause_nonempty:
+  ∀ys. tokens blanks (print_clause ys) ≠ []
+Proof
+  Induct>>fs[print_clause_def]
+  >-
+    EVAL_TAC
+  >>
+  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  drule mlstringTheory.tokens_append>>simp[]
+QED
+
+Theorem print_lit_alt:
+  n ≠ 0 ⇒
+  (print_lit (Pos n) = int_to_string (#"-") (&n)) ∧
+  (print_lit (Neg n) = int_to_string (#"-") (-&n))
+Proof
+  rw[print_lit_def,int_to_string_thm,num_to_str_thm]>>
+  EVAL_TAC
+QED
+
+Theorem fromString_print_lit:
+  var_lit h ≠ 0 ⇒
+  ∃i.
+    fromString (print_lit h) = SOME i ∧
+    Num (ABS i) = var_lit h ∧
+    (if i > 0 then h = Pos (var_lit h) else h = Neg (var_lit h))
+Proof
+  Cases_on`h`>>rw[var_lit_def]>>
+  drule print_lit_alt>>simp[]>>
+  rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem parse_lits_aux_print_clause:
+  ∀ys maxvar acc.
+  EVERY (λl. var_lit l ≠ 0 ∧ var_lit l ≤ maxvar) ys
+  ⇒
+  parse_lits_aux maxvar (toks (print_clause ys)) acc =
+    SOME (REVERSE acc ++ ys)
+Proof
+  simp[toks_def]>>
+  Induct>>rw[print_clause_def]
+  >-
+    EVAL_TAC>>
+  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  drule mlstringTheory.tokens_append>>simp[]>>
+  disch_then kall_tac>>
+  simp[tokens_blanks_print_lit]>>
+  simp[tokenize_def]>>
+  Cases_on`tokens blanks (print_clause ys)`
+  >-
+    fs[tokens_print_clause_nonempty] >>
+  simp[parse_lits_aux_def]>>
+  drule fromString_print_lit>>
+  rw[]>>simp[]>>
+  qmatch_goalsub_abbrev_tac`ll::acc`>>
+  qsuff_tac`ll=h`>>rw[]
+  >-
+    (first_x_assum drule>>simp[])>>
+  simp[Abbr`ll`]>>every_case_tac>>fs[]
+QED
+
+Theorem parse_clause_print_clause:
+  EVERY (λl. var_lit l ≠ 0 ∧ var_lit l ≤ maxvar) ys
+  ⇒
+  parse_clause maxvar (toks (print_clause ys)) = SOME ys
+Proof
+  rw[parse_clause_def]>>
+  drule parse_lits_aux_print_clause>>
+  disch_then (qspec_then`[]` assume_tac)>>simp[]
+QED
+
+Theorem parse_xor_print_xor:
+  EVERY (λl. var_lit l ≠ 0 ∧ var_lit l ≤ maxvar) ys
+  ⇒
+  parse_xor maxvar (toks (print_xor ys)) = SOME ys
+Proof
+  rw[parse_xor_def,print_xor_def]>>
+  simp[toks_def]>>
+  `strlit "x " = strlit"x" ^ strlit" "` by EVAL_TAC>>
+  pop_assum SUBST_ALL_TAC>>
+  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  drule mlstringTheory.tokens_append>>simp[]>>
+  disch_then kall_tac>>
+  `MAP tokenize (tokens blanks «x») = [INL (strlit"x")]` by EVAL_TAC>>
+  simp[]>>
+  drule parse_lits_aux_print_clause>>
+  disch_then (qspec_then`[]` assume_tac)>>fs[toks_def]
+QED
+
+Theorem tokens_blanks_toString:
+  tokens blanks (toString h) = [toString h]
+Proof
+  match_mp_tac tokens_unchanged>>
+  Cases_on`toString h`>>
+  `~NULL s` by
+    (drule num_to_str_imp_cons>>rw[]>>fs[])>>
+  simp[]>>
+  irule listTheory.EVERY_MONOTONIC >>
+  irule_at Any num_to_str_every>>
+  asm_exists_tac>>simp[GSYM isDigit_def, isDigit_not_blanks]
+QED
+
+Theorem fromString_toString_num:
+  mlint$fromString ((toString (n:num)):mlstring) = SOME (&n)
+Proof
+  rw[num_to_str_def]
+QED
+
+Theorem parse_header_line_print_header_line:
+  parse_header_line (toks (print_header_line v len)) = SOME(v,len)
+Proof
+  rw[print_header_line_def, toks_def]>>
+  qmatch_goalsub_abbrev_tac`aa ^ bb ^ _ ^ cc ^ dd`>>
+  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  drule mlstringTheory.tokens_append>>simp[]>>
+  `aa = strlit"p" ^ strlit" " ^ strlit"cnf" ^ strlit" "` by
+    (fs[Abbr`aa`]>>EVAL_TAC)>>
+  strip_tac>>
+  first_assum(qspecl_then[`aa ^ bb`,`cc ^ dd`] assume_tac)>>fs[]>>
+  `cc ^ dd = cc ^ dd ^ strlit""` by EVAL_TAC>>
+  pop_assum SUBST_ALL_TAC>>
+  `blanks #"\n" ∧ str #"\n" = strlit "\n"` by EVAL_TAC>>
+  drule mlstringTheory.tokens_append>>simp[]>>
+  unabbrev_all_tac>>
+  rw[]>>
+  `tokens blanks (strlit "p") = [strlit "p"]` by EVAL_TAC>>
+  `tokens blanks (strlit "cnf") = [strlit "cnf"]` by EVAL_TAC>>
+  `tokens blanks (strlit "") = []` by EVAL_TAC>>
+  simp[tokens_blanks_toString]>>
+  simp[tokenize_def,parse_header_line_def]>>
+  CONJ_TAC >- EVAL_TAC>>
+  simp[fromString_toString_num]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem print_header_line_first:
+  ∃ls. tokens blanks (print_header_line a b) =
+  strlit"p"::ls
+Proof
+  rw[print_header_line_def]>>
+  qmatch_goalsub_abbrev_tac`aa ^ bb ^ _ ^ dd ^ ee`>>
+  `aa = strlit"p" ^ strlit" " ^ strlit"cnf" ^ strlit" "` by
+    (fs[Abbr`aa`]>>EVAL_TAC)>>
+  simp[]>>
+  PURE_REWRITE_TAC[GSYM mlstringTheory.strcat_assoc]>>
+  PURE_REWRITE_TAC[Once mlstringTheory.strcat_assoc]>>
+  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  drule mlstringTheory.tokens_append>>simp[]>>
+  `tokens blanks (strlit "p") = [strlit "p"]` by EVAL_TAC>>
+  simp[]
+QED
+
+Theorem FILTER_nocomment_print_clause:
+  EVERY (EVERY (λl. var_lit l ≠ 0)) ls ⇒
+  FILTER nocomment_line
+    (MAP toks (MAP print_clause ls)) =
+    (MAP toks (MAP print_clause ls))
+Proof
+  simp[FILTER_EQ_ID,EVERY_MAP,EVERY_MEM]>>
+  rw[]>>
+  Cases_on`x`>>simp[print_clause_def]
+  >- EVAL_TAC >>
+  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  first_x_assum drule>>
+  simp[DISJ_IMP_THM,FORALL_AND_THM]>>rw[]>>
+  simp[toks_def]>>
+  drule mlstringTheory.tokens_append>>simp[]>>
+  simp[tokens_blanks_print_lit,tokenize_def]>>
+  drule fromString_print_lit >> rw[]>>simp[nocomment_line_def]
+QED
+
+Theorem FILTER_nocomment_print_xor:
+  FILTER nocomment_line
+    (MAP toks (MAP print_xor ls)) =
+    (MAP toks (MAP print_xor ls))
+Proof
+  simp[FILTER_EQ_ID,EVERY_MAP,EVERY_MEM]>>
+  rw[]>>
+  simp[print_xor_def]>>
+  EVAL_TAC
+QED
+
+Theorem parse_body_MAP_print_clause:
+  ∀cs cacc xacc.
+  EVERY (EVERY (λl. var_lit l ≠ 0 ∧ var_lit l ≤ maxvar)) cs
+  ⇒
+  parse_body maxvar (MAP toks (MAP print_clause cs)) cacc xacc =
+    SOME (REVERSE cacc ++ cs, REVERSE xacc)
+Proof
+  Induct>>rw[parse_body_def,parse_line_def]>>
+  drule parse_clause_print_clause>> rw[]
+QED
+
+Theorem parse_clause_print_xor:
+  parse_clause maxvar (toks (print_xor xs)) = NONE
+Proof
+  rw[parse_clause_def,print_xor_def,toks_def]>>
+  `strlit "x " = strlit"x" ^ strlit" "` by EVAL_TAC>>
+  pop_assum SUBST_ALL_TAC>>
+  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  drule mlstringTheory.tokens_append>>simp[]>>
+  rw[]>>
+  EVAL_TAC>>
+  rename1`_::rest`>>
+  Cases_on`rest`>> simp[parse_lits_aux_def]
+QED
+
+Theorem parse_body_MAP_print_xor:
+  ∀cs cacc xacc.
+  EVERY (EVERY (λl. var_lit l ≠ 0 ∧ var_lit l ≤ maxvar)) cs
+  ⇒
+  parse_body maxvar (MAP toks (MAP print_xor cs)) cacc xacc =
+    SOME (REVERSE cacc, REVERSE xacc ++ cs)
+Proof
+  Induct>>rw[parse_body_def,parse_line_def,parse_clause_print_xor]>>
+  drule parse_xor_print_xor>>rw[]
+QED
+
+Theorem parse_body_append:
+  ∀xs cacc xacc cacc' xacc'.
+  parse_body a xs cacc xacc = SOME (cacc',xacc') ⇒
+  parse_body a (xs++ys) cacc xacc =
+  parse_body a ys (REVERSE cacc') (REVERSE xacc')
+Proof
+  Induct>>rw[parse_body_def]>> simp[]>>
+  gvs[AllCaseEqs()]
+QED
+
+Theorem max_list_max:
+  ∀ls k.
+  k ≤ max_list k ls ∧
+  EVERY (λn. n ≤ max_list k ls)  ls
+Proof
+  Induct>>rw[max_list_def]>>
+  first_x_assum(qspec_then`MAX k h` mp_tac)>>
+  simp[]
+QED
+
+Theorem le_max_list:
+  (∃l. v ≤ l ∧ MEM l ls) ⇒
+  v ≤ max_list k ls
+Proof
+  rw[]>>
+  assume_tac (SPEC_ALL max_list_max)>>
+  rw[EVERY_MEM]>>
+  first_x_assum drule>>fs[]
+QED
+
+Theorem parse_cnf_xor_toks_print_cnf_xor_toks:
+  EVERY (EVERY (λl. var_lit l ≠ 0)) cs ∧
+  EVERY (EVERY (λl. var_lit l ≠ 0)) xs
+  ⇒
+  ∃mv cl.
+  parse_cnf_xor_toks (MAP toks (print_cnf_xor (cs,xs))) =
+    SOME (mv,cl,(cs,xs))
+Proof
+  strip_tac>>simp[parse_cnf_xor_toks_def,print_cnf_xor_def]>>
+  qmatch_goalsub_abbrev_tac`print_header_line a b`>>
+  simp[Once toks_def]>>
+  assume_tac print_header_line_first>>fs[]>>
+  pop_assum sym_sub_tac>>
+  `tokenize (strlit "p") = INL (strlit "p")` by EVAL_TAC>>
+  simp[nocomment_line_def]>>
+  simp[parse_header_line_print_header_line]>>
+  unabbrev_all_tac>>
+  simp[FILTER_APPEND,FILTER_nocomment_print_xor,FILTER_nocomment_print_clause]>>
+  qmatch_goalsub_abbrev_tac`parse_body a b _ _`>>
+  qspecl_then [`a`,`cs`,`[]`,`[]`] mp_tac (GEN_ALL parse_body_MAP_print_clause)>>
+  simp[]>>
+  impl_tac >- (
+    fs[EVERY_MEM,PULL_FORALL,AND_IMP_INTRO]>>rw[]
+    >-
+      metis_tac[]>>
+    simp[Abbr`a`]>>
+    DISJ1_TAC>>
+    match_mp_tac le_max_list>>
+    simp[MEM_MAP,PULL_EXISTS]>>
+    irule_at Any le_max_list>>
+    simp[MEM_MAP,PULL_EXISTS]>>
+    metis_tac[LESS_EQ_REFL])>>
+  strip_tac>>
+  drule parse_body_append>>
+  disch_then(qspec_then`MAP toks (MAP print_xor xs)` assume_tac)>>
+  simp[Abbr`b`]>>
+  qspecl_then [`a`,`xs`,`(REVERSE cs)`,`[]`] mp_tac (GEN_ALL parse_body_MAP_print_xor)>>
+  simp[]>>
+  impl_tac >- (
+    fs[EVERY_MEM,PULL_FORALL,AND_IMP_INTRO]>>rw[]
+    >-
+      metis_tac[]>>
+    simp[Abbr`a`]>>
+    DISJ2_TAC>>
+    match_mp_tac le_max_list>>
+    simp[MEM_MAP,PULL_EXISTS]>>
+    irule_at Any le_max_list>>
+    simp[MEM_MAP,PULL_EXISTS]>>
+    metis_tac[LESS_EQ_REFL])>>
+  simp[]
+QED
+
+Theorem parse_cnf_xor_print_cnf_xor:
+  EVERY (EVERY (λl. var_lit l ≠ 0)) cs ∧
+  EVERY (EVERY (λl. var_lit l ≠ 0)) xs ⇒
+  parse_cnf_xor (print_cnf_xor (cs,xs)) = SOME (cs,xs)
+Proof
+  rw[]>>
+  simp[parse_cnf_xor_def]>>
+  assume_tac parse_cnf_xor_toks_print_cnf_xor_toks>>
+  gvs[]
+QED
 
 val _ = export_theory ();

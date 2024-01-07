@@ -79,7 +79,7 @@ Definition sum_bitlist_def:
 End
 
 Definition isat_strxor_def:
-  isat_strxor (w:num assignment) x =
+  isat_strxor (w:assignment) x =
     EVEN (sum_bitlist w (string_to_bits x))
 End
 
@@ -790,9 +790,8 @@ Proof
     `F` by intLib.ARITH_TAC>>
   DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
   simp[strlen_extend_s,isat_strxor_extend_s]>>
-  CONJ_TAC >- (
-    assume_tac strlen_extend_s>>
-    fs[])>>
+  CONJ_TAC >-
+    rw[extend_s_def]>>
   metis_tac[]
 QED
 
@@ -809,8 +808,9 @@ Datatype:
   | Del (num list) (* Clauses to delete *)
   | RUP num cclause (num list)
     (* RUP n C hints : derive clause C by RUP using hints *)
-  | XAdd num rawxor (num list)
-    (* Xadd n C hints derive XOR C by adding XORs using hints *)
+  | XAdd num rawxor (num list) (num list)
+    (* Xadd n C hints rhints derive XOR C by adding XORs using
+      hints and the rup hints (rhints) *)
   | XDel (num list) (* XORs to delete *)
   | CFromX num cclause (num list)
     (* Derive clause from hint XORs *)
@@ -849,12 +849,37 @@ Definition is_emp_xor_def:
   EVERY (λc. c = CHR 0) (explode s)
 End
 
+(* Unit propagation on an XOR *)
+Definition unit_prop_xor_def:
+  unit_prop_xor l s =
+  let n = Num (ABS l) in
+  if n < 8 * strlen s then
+    if l > 0 then
+      (if get_bit s n then
+        flip_bit (set_bit s n F) 0
+      else s)
+    else set_bit s n F
+  else s
+End
+
+Definition unit_props_xor_def:
+  (unit_props_xor fml [] s = SOME s) ∧
+  (unit_props_xor fml (i::is) s =
+  case lookup i fml of
+  | SOME [l] =>
+    unit_props_xor fml is (unit_prop_xor l s)
+  | _ => NONE)
+End
+
 Definition is_xor_def:
-  is_xor def fml is s =
+  is_xor def fml is cfml cis s =
   let r = extend_s (strlit "") def in
   case add_xors_aux fml is (strxor r s)
     of NONE => F
-  | SOME x => is_emp_xor x
+  | SOME x =>
+    case unit_props_xor cfml cis x of
+      NONE => F
+    | SOME y => is_emp_xor y
 End
 
 Definition conv_rawxor_def:
@@ -924,9 +949,9 @@ Definition check_xlrup_def:
     if is_rup cfml i0 C then
       SOME (insert n C cfml, xfml, def)
     else NONE
-  | XAdd n rX i0 =>
+  | XAdd n rX i0 i1 =>
     let X = conv_rawxor def rX in
-    if is_xor def xfml i0 X then
+    if is_xor def xfml i0 cfml i1 X then
       SOME (cfml, insert n X xfml, MAX def (strlen X))
     else NONE
   | XDel xl => SOME (cfml, FOLDL (\a b. delete b a) xfml xl, def)
@@ -1106,9 +1131,52 @@ Proof
   simp[EVERY_MAP,MAP2_MAP,charxor_self]
 QED
 
+Theorem unit_prop_xor_sound:
+  l ≠ 0 ∧
+  sat_lit w (interp_lit l) ⇒
+  (isat_strxor w (unit_prop_xor l X) ⇔ isat_strxor w X)
+Proof
+  rw[unit_prop_xor_def]>>
+  gs[interp_lit_def,sat_lit_def]
+  >- (
+    DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
+    CONJ_TAC >- (
+      rw[set_bit_def,set_char_def]>>
+      intLib.ARITH_TAC)>>
+    fs[isat_strxor_def]>>
+    DEP_REWRITE_TAC[string_to_bits_set_bit,sum_bitlist_LUPDATE]>>
+    fs[get_bit_string_to_bits,of_bool_def]>>
+    DEP_REWRITE_TAC [EVEN_SUB]>>
+    simp[sum_bitlist_alt]>>
+    match_mp_tac SUM_MEM_bound>>
+    simp[MEM_MAPi]>>
+    asm_exists_tac>>simp[of_bool_def])>>
+  fs[isat_strxor_def]>>
+  DEP_REWRITE_TAC[string_to_bits_set_bit,sum_bitlist_LUPDATE]>>
+  fs[get_bit_string_to_bits,of_bool_def]>>
+  `Num (ABS l) ≠ 0` by intLib.ARITH_TAC>>
+  simp[of_bool_def]
+QED
+
+Theorem unit_props_xor_sound:
+  ∀is X Y.
+  isat_cfml w (values fml) ∧
+  unit_props_xor fml is X = SOME Y ⇒
+  (isat_strxor w X ⇔ isat_strxor w Y)
+Proof
+  Induct>>rw[unit_props_xor_def]>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum drule>>
+  DEP_REWRITE_TAC[unit_prop_xor_sound]>>
+  fs[isat_cfml_def,values_def,PULL_EXISTS]>>
+  first_x_assum drule>>
+  simp[isat_cclause_def]
+QED
+
 Theorem is_xor_sound:
   isat_xfml w (values fml) ∧
-  is_xor def fml is X ⇒
+  isat_cfml w (values cfml) ∧
+  is_xor def fml is cfml cis X ⇒
   isat_strxor w X
 Proof
   rw[is_xor_def]>>
@@ -1119,10 +1187,17 @@ Proof
   disch_then (drule_at Any)>>
   impl_tac >-
     metis_tac[isat_strxor_is_emp_xor,strxor_self]>>
+  `isat_strxor w x` by
+    (drule_all unit_props_xor_sound>>
+    metis_tac[isat_strxor_is_emp_xor])>>
   strip_tac>>
   `is_emp_xor (extend_s «» def)` by
     rw[extend_s_def,is_emp_xor_def]>>
-  metis_tac[isat_stxor_add_is_emp_xor,strxor_comm,isat_strxor_extend_s]
+  `isat_strxor w
+    (strxor (strxor x x) (strxor (extend_s «» def) X))` by
+    (simp[strxor_assoc]>>
+    match_mp_tac isat_strxor_strxor>>simp[])>>
+  metis_tac[isat_stxor_add_is_emp_xor,strxor_comm,isat_strxor_extend_s,strxor_self]
 QED
 
 Theorem delete_preserves_isat_cfml:
@@ -1527,19 +1602,9 @@ Proof
   metis_tac[values_build_fml]
 QED
 
-Definition var_def:
-  (var (Pos n) = n) ∧
-  (var (Neg n) = n)
-End
-
-Definition max_list_def:
-  (max_list n [] = n) ∧
-  (max_list n (x::xs) = max_list (MAX n x) xs)
-End
-
 Definition max_var_xor_def:
   max_var_xor xfml =
-  max_list 0 (MAP (λls. max_list 0 (MAP var ls)) xfml)
+  max_list 0 (MAP (λls. max_list 0 (MAP var_lit ls)) xfml)
 End
 
 Definition conv_xfml_def:

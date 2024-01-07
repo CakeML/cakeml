@@ -715,40 +715,323 @@ Proof
   metis_tac[]
 QED
 
+Definition set_bit_word'_def:
+  set_bit_word' (w:word8) n b =
+  let nw = var_word_lsl 1w n in
+  if b then w ‖ nw else w && ¬nw
+End
+
+val res = translate set_bit_word'_def;
+
+Theorem set_bit_word'_eq:
+  n < 8 ⇒
+  (set_bit_word' (w:word8) n b = set_bit_word w n b)
+Proof
+  simp[set_bit_word_def,set_bit_word'_def]>>
+  strip_tac>>
+  DEP_REWRITE_TAC[word_bit |> INST_TYPE[alpha |-> ``:8``] |> SIMP_RULE std_ss [word_bit_test] |> CONV_RULE (wordsLib.WORD_CONV)]>>
+  fs[WORD_MUL_LSL |> Q.ISPEC`1w:word8` |> CONV_RULE (wordsLib.WORD_CONV) |> GSYM]
+QED
+
+Definition get_bit_word'_def:
+  get_bit_word' (w:word8) n =
+  let nw = var_word_lsl 1w n in
+  (w && nw <> 0w)
+End
+
+val res = translate get_bit_word'_def;
+
+Theorem get_bit_word'_eq:
+  n < 8 ⇒
+  (get_bit_word' (w:word8) n = w ' n)
+Proof
+  simp[get_bit_word'_def]>>
+  strip_tac>>
+  DEP_REWRITE_TAC[word_bit |> INST_TYPE[alpha |-> ``:8``] |> SIMP_RULE std_ss [word_bit_test] |> CONV_RULE (wordsLib.WORD_CONV)]>>
+  fs[WORD_MUL_LSL |> Q.ISPEC`1w:word8` |> CONV_RULE (wordsLib.WORD_CONV) |> GSYM]
+QED
+
+val get_bit_arr = process_topdecs`
+  fun get_bit_arr s n =
+  let
+    val q = n div 8
+    val r = n mod 8 in
+    get_bit_word' (Unsafe.w8sub s q) r
+  end` |> append_prog;
+
+Theorem get_bit_arr_spec:
+  NUM n nv ∧ n DIV 8 < LENGTH cs ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "get_bit_arr" (get_ml_prog_state()))
+    [csv; nv]
+    (W8ARRAY csv cs)
+    (POSTv v. W8ARRAY csv cs * & BOOL (get_bit_list cs n) v)
+Proof
+  xcf "get_bit_arr" (get_ml_prog_state ())>>
+  rpt xlet_autop>>
+  xapp>>xsimpl>>
+  simp[get_bit_list_def]>>
+  first_x_assum (irule_at Any)>>
+  first_x_assum (irule_at Any)>>
+  simp[]>>
+  DEP_REWRITE_TAC[get_bit_word'_eq]>>
+  simp[]
+QED
+
+val set_bit_arr = process_topdecs`
+  fun set_bit_arr s n b =
+  let
+    val q = n div 8
+    val r = n mod 8
+    val b = set_bit_word' (Unsafe.w8sub s q) r b in
+    Unsafe.w8update s q b
+  end` |> append_prog;
+
+Theorem set_bit_arr_spec:
+  NUM n nv ∧ n DIV 8 < LENGTH cs ∧ BOOL b bv ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "set_bit_arr" (get_ml_prog_state()))
+    [csv; nv; bv]
+    (W8ARRAY csv cs)
+    (POSTv v.
+      &UNIT_TYPE () v *
+      W8ARRAY csv (set_bit_list cs n b))
+Proof
+  xcf "set_bit_arr" (get_ml_prog_state ())>>
+  rpt xlet_autop>>
+  xapp>>xsimpl>>
+  simp[set_bit_list_def]>>
+  first_x_assum (irule_at Any)>>
+  first_x_assum (irule_at Any)>>
+  simp[]>>
+  DEP_REWRITE_TAC[set_bit_word'_eq]>>
+  simp[]
+QED
+
+Definition nabs_def:
+  nabs x = Num (ABS x)
+End
+
+val res = translate nabs_def;
+
+Definition flip_bit_word'_def:
+  flip_bit_word' (w:word8) n =
+  let nw = var_word_lsl 1w n in
+  let b = (w && nw = 0w) in
+  if b then w ‖ nw else w && ¬nw
+End
+
+val res = translate flip_bit_word'_def;
+
+Theorem flip_bit_word'_eq:
+  n < 8 ⇒
+  (flip_bit_word' (w:word8) n = flip_bit_word w n)
+Proof
+  simp[flip_bit_word_def,flip_bit_word'_def]>>
+  strip_tac>>
+  DEP_REWRITE_TAC[word_bit |> INST_TYPE[alpha |-> ``:8``] |> SIMP_RULE std_ss [word_bit_test] |> CONV_RULE (wordsLib.WORD_CONV)]>>
+  fs[WORD_MUL_LSL |> Q.ISPEC`1w:word8` |> CONV_RULE (wordsLib.WORD_CONV) |> GSYM]
+QED
+
+val flip_bit_arr = process_topdecs`
+  fun flip_bit_arr s n =
+  let
+    val q = n div 8
+    val r = n mod 8
+    val b = flip_bit_word' (Unsafe.w8sub s q) r in
+    Unsafe.w8update s q b
+  end` |> append_prog;
+
+Theorem flip_bit_arr_spec:
+  NUM n nv ∧ n DIV 8 < LENGTH cs ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "flip_bit_arr" (get_ml_prog_state()))
+    [csv; nv]
+    (W8ARRAY csv cs)
+    (POSTv v.
+      &UNIT_TYPE () v *
+      W8ARRAY csv (flip_bit_list cs n))
+Proof
+  xcf "flip_bit_arr" (get_ml_prog_state ())>>
+  rpt xlet_autop>>
+  xapp>>xsimpl>>
+  simp[flip_bit_list_def]>>
+  first_x_assum (irule_at Any)>>
+  first_x_assum (irule_at Any)>>
+  simp[]>>
+  DEP_REWRITE_TAC[flip_bit_word'_eq]>>
+  simp[]
+QED
+
+val unit_prop_xor_arr = process_topdecs`
+  fun unit_prop_xor_arr l s =
+  let
+    val n = nabs l in
+    if n < 8 * Word8Array.length s then
+      if l > 0 then
+        (if get_bit_arr s n then
+          (set_bit_arr s n False ;flip_bit_arr s 0)
+        else ())
+      else set_bit_arr s n False
+    else ()
+  end` |> append_prog;
+
+Theorem unit_prop_xor_arr_spec:
+  INT l lv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "unit_prop_xor_arr" (get_ml_prog_state()))
+    [lv; csv]
+    (W8ARRAY csv cs)
+    (POSTv v.
+        &(UNIT_TYPE () v) *
+        W8ARRAY csv (unit_prop_xor_list l cs))
+Proof
+  xcf "unit_prop_xor_arr" (get_ml_prog_state ())>>
+  rpt xlet_autop>>
+  fs[unit_prop_xor_list_def,nabs_def]>>
+  reverse xif
+  >-
+    (xvar>>xsimpl)>>
+  rpt xlet_autop>>
+  xif
+  >- (
+    xlet_auto
+    >-
+      (DEP_REWRITE_TAC[DIV_LT_X]>>fs[])>>
+    reverse xif
+    >-
+      (xvar>>xsimpl)>>
+    xlet_autop>>
+    xlet`POSTv v.
+      &UNIT_TYPE () v *
+      W8ARRAY csv (set_bit_list cs (Num (ABS l)) F)`
+    >- (
+      xapp>>simp[]>>
+      (DEP_REWRITE_TAC[DIV_LT_X]>>fs[])>>
+      EVAL_TAC)>>
+    xapp>>xsimpl>>
+    fs[set_bit_list_def])>>
+  xlet_autop>>
+  xapp>>
+  xsimpl>>
+  (DEP_REWRITE_TAC[DIV_LT_X]>>fs[])>>
+  EVAL_TAC
+QED
+
+val unit_props_xor_arr = process_topdecs`
+  fun unit_props_xor_arr lno fml is s =
+  case is of
+    [] => s
+  | i::is =>
+    if Array.length fml <= i then
+      raise Fail (format_failure lno ("clause index out of bounds: " ^ Int.toString i))
+    else
+    case Unsafe.sub fml i of
+      None => raise Fail (format_failure lno ("clause index already deleted: " ^ Int.toString i))
+    | Some x =>
+      case x of [l] =>
+        (unit_prop_xor_arr l s;
+        unit_props_xor_arr lno fml is s)
+      | _ => raise Fail (format_failure lno ("clause at index not unit: " ^ Int.toString i))` |> append_prog;
+
+Theorem unit_props_xor_arr_spec:
+  ∀ls lsv cs csv fmlv fmlls fmllsv lno lnov.
+  NUM lno lnov ∧
+  (LIST_TYPE NUM) ls lsv ∧
+  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "unit_props_xor_arr" (get_ml_prog_state()))
+    [lnov; fmlv; lsv; csv]
+    (ARRAY fmlv fmllsv * W8ARRAY csv cs)
+    (POSTve
+      (λv. ARRAY fmlv fmllsv * SEP_EXISTS cs'.
+        W8ARRAY v cs' *
+        &(unwrap_TYPE $=
+          (unit_props_xor_list fmlls ls cs) cs'))
+       (λe.
+        ARRAY fmlv fmllsv *
+        &(Fail_exn e ∧ unit_props_xor_list fmlls ls cs = NONE)))
+Proof
+  Induct>>
+  xcf "unit_props_xor_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def]>>xmatch
+  >- (
+    xvar>>xsimpl>>
+    simp[unwrap_TYPE_def,unit_props_xor_list_def])>>
+  rpt xlet_autop>>
+  simp[unit_props_xor_list_def,list_lookup_def]>>
+  drule LIST_REL_LENGTH>> simp[]>>
+  strip_tac>>
+  xif
+  >- (
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    simp[Fail_exn_def,unwrap_TYPE_def]>>
+    metis_tac[])>>
+  xlet_autop>>
+  `OPTION_TYPE (LIST_TYPE INT) (EL h fmlls) (EL h fmllsv)` by fs[LIST_REL_EL_EQN]>>
+  TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>
+  xmatch
+  >- (
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    simp[Fail_exn_def,unwrap_TYPE_def]>>
+    metis_tac[])>>
+  every_case_tac>>fs[LIST_TYPE_def]>>xmatch
+  >- (
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    simp[Fail_exn_def,unwrap_TYPE_def]>>
+    metis_tac[])
+  >- (
+    xlet_autop>>
+    xapp>>xsimpl>>
+    asm_exists_tac>>simp[]>>
+    asm_exists_tac>>simp[])
+  >- (
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    simp[Fail_exn_def,unwrap_TYPE_def]>>
+    metis_tac[])
+QED
+
 val is_xor_arr = process_topdecs`
-  fun is_xor_arr lno def fml is s =
+  fun is_xor_arr lno def fml is cfml cis s =
   let
     val r = Word8Array.array def w8z
     val r = strxor_c_arr r s
-    val res = add_xors_aux_c_arr lno fml is r
+    val r = add_xors_aux_c_arr lno fml is r
+    val r = unit_props_xor_arr lno cfml cis r
   in
-    is_emp_xor_arr_aux lno res (Word8Array.length res)
+    is_emp_xor_arr_aux lno r (Word8Array.length r)
   end` |> append_prog;
 
 Theorem is_xor_arr_spec:
   NUM lno lnov ∧
   NUM def defv ∧
   (LIST_TYPE NUM) ls lsv ∧
+  (LIST_TYPE NUM) cls clsv ∧
   LIST_REL (OPTION_TYPE STRING_TYPE) fmlls fmllsv ∧
+  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) cfmlls cfmllsv ∧
   STRING_TYPE s sv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_xor_arr" (get_ml_prog_state()))
-    [lnov; defv; fmlv; lsv; sv]
-    (ARRAY fmlv fmllsv)
+    [lnov; defv; fmlv; lsv; cfmlv; clsv; sv]
+    (ARRAY fmlv fmllsv * ARRAY cfmlv cfmllsv)
     (POSTve
-      (λv. ARRAY fmlv fmllsv *
-        &(is_xor_list def fmlls ls s))
+      (λv. ARRAY fmlv fmllsv * ARRAY cfmlv cfmllsv *
+        &(is_xor_list def fmlls ls cfmlls cls s))
       (λe.
-         ARRAY fmlv fmllsv *
-         &(Fail_exn e ∧ ¬is_xor_list def fmlls ls s)))
+         ARRAY fmlv fmllsv * ARRAY cfmlv cfmllsv *
+         &(Fail_exn e ∧ ¬is_xor_list def fmlls ls cfmlls cls s)))
 Proof
   xcf "is_xor_arr" (get_ml_prog_state ())>>
   rw[is_xor_list_def]>>
   assume_tac w8z_v_thm>>
-  rpt xlet_autop
-  >-
-    xsimpl>>
+  rpt xlet_autop>>xsimpl>>
   TOP_CASE_TAC>>fs[unwrap_TYPE_def]>>
   rw[]>>
   xapp>>xsimpl>>
@@ -890,53 +1173,6 @@ Proof
   xsimpl
 QED
 
-Definition flip_bit_word'_def:
-  flip_bit_word' (w:word8) n =
-  let nw = var_word_lsl 1w n in
-  let b = (w && nw = 0w) in
-  if b then w ‖ nw else w && ¬nw
-End
-
-val res = translate flip_bit_word'_def;
-
-Theorem flip_bit_word'_eq:
-  n < 8 ⇒
-  (flip_bit_word' (w:word8) n = flip_bit_word w n)
-Proof
-  simp[flip_bit_word_def,flip_bit_word'_def]>>
-  strip_tac>>
-  DEP_REWRITE_TAC[word_bit |> INST_TYPE[alpha |-> ``:8``] |> SIMP_RULE std_ss [word_bit_test] |> CONV_RULE (wordsLib.WORD_CONV)]>>
-  fs[WORD_MUL_LSL |> Q.ISPEC`1w:word8` |> CONV_RULE (wordsLib.WORD_CONV) |> GSYM]
-QED
-
-val flip_bit_arr = process_topdecs`
-  fun flip_bit_arr s n =
-  let
-    val q = n div 8
-    val r = n mod 8
-    val b = flip_bit_word' (Unsafe.w8sub s q) r in
-    Unsafe.w8update s q b
-  end` |> append_prog;
-
-Theorem flip_bit_arr_spec:
-  NUM n nv ∧ n DIV 8 < LENGTH cs ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "flip_bit_arr" (get_ml_prog_state()))
-    [csv; nv]
-    (W8ARRAY csv cs)
-    (POSTv v.
-      W8ARRAY csv (flip_bit_list cs n))
-Proof
-  xcf "flip_bit_arr" (get_ml_prog_state ())>>
-  rpt xlet_autop>>
-  xapp>>xsimpl>>
-  simp[flip_bit_list_def]>>
-  first_x_assum (irule_at Any)>>
-  first_x_assum (irule_at Any)>>
-  simp[]>>
-  DEP_REWRITE_TAC[flip_bit_word'_eq]>>
-  simp[]
-QED
 
 val extend_s_arr = process_topdecs`
   fun extend_s_arr s n =
@@ -976,12 +1212,6 @@ Proof
   EVAL_TAC
 QED
 
-Definition nabs_def:
-  nabs x = Num (ABS x)
-End
-
-val res = translate nabs_def;
-
 val conv_xor_aux_arr = process_topdecs`
   fun conv_xor_aux_arr s xs =
   case xs of [] => s
@@ -1019,14 +1249,17 @@ Proof
   gvs[nabs_def]>>
   xlet_auto>>
   xlet_auto
-  >- (gvs[extend_s_list_def]>>rw[])>>
+  >- (
+    qexists_tac`emp`>>xsimpl>>
+    rw[extend_s_list_def])>>
   xlet_autop>>
   xif>>fs[]
   >- (xapp>>xsimpl)>>
   xlet_auto
   >- (
-    gvs[extend_s_list_def]>>rw[]>>
-    fs[flip_bit_list_def])>>
+    qexists_tac`emp`>>xsimpl>>
+    fs[flip_bit_list_def]>>
+    rw[extend_s_list_def])>>
   xapp>>xsimpl
 QED
 
@@ -1054,8 +1287,10 @@ Proof
   xcf "conv_rawxor_arr" (get_ml_prog_state ())>>
   assume_tac w8z_v_thm>>
   xlet_autop>>
-  rpt xlet_auto
-  >- xsimpl>>
+  xlet_auto>>
+  rpt xlet_autop>>
+  rpt xlet_auto>-
+    xsimpl>>
   xapp>>
   xsimpl>>
   first_x_assum (irule_at Any)>>
@@ -1268,10 +1503,10 @@ val check_xlrup_arr = process_topdecs`
           val u = is_rup_arr lno cfml i0 c carr in
         (resize_update_arr (Some c) n cfml, xfml, def, carr)
       end
-  | Xadd n rx i0 =>
+  | Xadd n rx i0 i1 =>
       let
         val x = conv_rawxor_arr def rx
-        val u = is_xor_arr lno def xfml i0 x
+        val u = is_xor_arr lno def xfml i0 cfml i1 x
       in
         (cfml, resize_update_arr (Some x) n xfml,
           max def (String.size x), carr)
@@ -1435,15 +1670,15 @@ Proof
     xmatch>>
     xlet_autop>>
     (* xlet_auto creates the wrong frame here *)
-    xlet` POSTve
-          (λv.
-               ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
-               W8ARRAY Carrv Clist *
-               &is_xor_list def xfmlls l0 (conv_rawxor_list def l))
-          (λe.
-               ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
-               &(Fail_exn e ∧
-                ¬is_xor_list def xfmlls l0 (conv_rawxor_list def l)))`
+    xlet`POSTve
+    (λv.
+         ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
+         W8ARRAY Carrv Clist *
+         &is_xor_list def xfmlls l0 cfmlls l1 (conv_rawxor_list def l))
+    (λe.
+         ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
+         &(Fail_exn e ∧
+          ¬is_xor_list def xfmlls l0 cfmlls l1 (conv_rawxor_list def l)))`
     >- (
       xapp>>xsimpl>>
       rpt(first_x_assum (irule_at Any))>>simp[])
@@ -1733,9 +1968,12 @@ val tokenize_fast_side = Q.prove(
 
 val _ = translate parse_until_zero_def;
 val _ = translate parse_until_zero_nn_def;
+val _ = translate parse_until_c_zero_nn_def;
 
 val _ = translate parse_rest_def;
+val _ = translate parse_u_rest_def;
 val _ = translate parse_id_rest_def;
+val _ = translate parse_id_u_rest_def;
 
 val _ = translate starts_with_def;
 val _ = translate parse_rup_del_def;

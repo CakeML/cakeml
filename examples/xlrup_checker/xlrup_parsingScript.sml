@@ -56,6 +56,20 @@ Definition parse_until_zero_nn_def:
   )
 End
 
+Definition parse_until_c_zero_nn_def:
+  (parse_until_c_zero_nn c [] acc = NONE) ∧
+  (parse_until_c_zero_nn c (x::xs) acc =
+    case x of
+      INL s => if s = c then SOME (INL (REVERSE acc, xs)) else NONE
+    | INR l =>
+    if l = 0:int then
+      SOME (INR (REVERSE acc, xs))
+    else
+      if l > 0 then parse_until_c_zero_nn c xs (Num (ABS l)::acc)
+      else NONE
+  )
+End
+
 (* Parses the following format:
    (int list) 0 (num list) 0 *)
 Definition parse_rest_def:
@@ -65,6 +79,22 @@ Definition parse_rest_def:
   | SOME (c ,rest) =>
     (case parse_until_zero_nn rest [] of
       SOME (hints, []) => SOME (c,hints)
+    | _ => NONE)
+End
+
+(* Parses the following format [u] part optional:
+   (int list) 0 (num list) [u (num list)] 0 *)
+Definition parse_u_rest_def:
+  parse_u_rest rest =
+  case parse_until_zero rest [] of
+    NONE => NONE
+  | SOME (c ,rest) =>
+    (case parse_until_c_zero_nn (strlit"u") rest [] of
+      SOME (INR (hints, [])) => SOME (c,hints,[])
+    | SOME (INL (hints,rest)) =>
+      (case parse_until_zero_nn rest [] of
+          SOME (chints, []) => SOME (c,hints,chints)
+        | _ => NONE)
     | _ => NONE)
 End
 
@@ -79,6 +109,19 @@ Definition parse_id_rest_def:
       | SOME (c,hints) => SOME(Num (ABS n), c, hints)
     else NONE) ∧
   (parse_id_rest _ = NONE)
+End
+
+(* Parses the following format [u] part optional:
+  num (int list) 0 (num list) [u (num list)] 0 *)
+Definition parse_id_u_rest_def:
+  (parse_id_u_rest (id::rest) =
+  case id of INL _ => NONE
+  | INR n =>
+    if n ≥ 0 then
+      case parse_u_rest rest of NONE => NONE
+      | SOME (c,hints,chints) => SOME(Num (ABS n), c, hints,chints)
+    else NONE) ∧
+  (parse_id_u_rest _ = NONE)
 End
 
 (* If a line starts with the character,
@@ -115,8 +158,8 @@ Definition parse_xadd_xdel_def:
   case starts_with (INL (strlit "d")) rest of
     INL rest =>
     (* XAdd *)
-    (case parse_id_rest rest of NONE => NONE
-    | SOME (n,c,hints) => SOME (XAdd n c hints))
+    (case parse_id_u_rest rest of NONE => NONE
+    | SOME (n,c,hints,chints) => SOME (XAdd n c hints chints))
   | INR rest =>
     (* XDel *)
     case parse_until_zero_nn rest [] of
@@ -229,7 +272,7 @@ val xlrupsraw = ``[
   strlit"10 6 2 0 3 4 8 0";
   strlit"11 6 3 0 5 6 8 0";
   strlit"12 -6 4 0 1 5 7 3 0";
-  strlit"x 1234 -6 4 0 1 5 7 3 0";
+  strlit"x 1234 -6 4 0 1 5 7 3 u 1 2 3 4 5 6 0";
   strlit"12 d 1 5 3 0";
   strlit"13 -6 5 0 2 6 7 4 0";
   strlit"13 d 2 6 4 0";

@@ -70,12 +70,76 @@ Definition is_emp_xor_list_def:
   EVERY ($= w8z) ls
 End
 
+Definition flip_bit_word_def:
+  flip_bit_word w n =
+  let b = ¬ (w ' n) in
+  if b then
+    w ‖ 1w ≪ n
+  else
+    w && ¬(1w ≪ n)
+End
+
+Definition flip_bit_list_def:
+  flip_bit_list s n =
+  let q = n DIV 8 in
+  let r = n MOD 8 in
+  let b = flip_bit_word (EL q s) r in
+  LUPDATE b q s
+End
+
+Definition get_bit_list_def:
+  get_bit_list (s:'a word list) n =
+  let q = n DIV 8 in
+  let r = n MOD 8 in
+  EL q s ' r
+End
+
+Definition set_bit_word_def:
+  set_bit_word w n b =
+  if b then
+    w ‖ 1w ≪ n
+  else
+    w && ¬(1w ≪ n)
+End
+
+Definition set_bit_list_def:
+  set_bit_list s n b =
+  let q = n DIV 8 in
+  let r = n MOD 8 in
+  let b = set_bit_word (EL q s) r b in
+  LUPDATE b q s
+End
+
+Definition unit_prop_xor_list_def:
+  unit_prop_xor_list l s =
+  let n = Num (ABS l) in
+  if n < 8 * LENGTH s then
+    if l > 0 then
+      (if get_bit_list s n then
+        flip_bit_list (set_bit_list s n F) 0
+      else s)
+    else set_bit_list s n F
+  else s
+End
+
+Definition unit_props_xor_list_def:
+  (unit_props_xor_list fml [] s = SOME s) ∧
+  (unit_props_xor_list fml (i::is) s =
+  case list_lookup fml NONE i of NONE => NONE
+  | SOME [l] =>
+    unit_props_xor_list fml is (unit_prop_xor_list l s)
+  | _ => NONE)
+End
+
 Definition is_xor_list_def:
-  is_xor_list def fml is s =
+  is_xor_list def fml is cfml cis s =
   let r = REPLICATE def w8z in
   let r = strxor_c r s in
   case add_xors_aux_c_list fml is r of NONE => F
-  | SOME x => is_emp_xor_list x
+  | SOME x =>
+    case unit_props_xor_list cfml cis x of
+      NONE => F
+    | SOME y => is_emp_xor_list y
 End
 
 val list_delete_list_def = Define`
@@ -94,23 +158,6 @@ val resize_Clist_def = Define`
   if LENGTH Clist ≤ list_max_index C then
     REPLICATE (2 * (list_max_index C )) w8z
   else Clist`
-
-Definition flip_bit_word_def:
-  flip_bit_word w n =
-  let b = ¬ (w ' n) in
-  if b then
-    w ‖ 1w ≪ n
-  else
-    w && ¬(1w ≪ n)
-End
-
-Definition flip_bit_list_def:
-  flip_bit_list s n =
-  let q = n DIV 8 in
-  let r = n MOD 8 in
-  let b = flip_bit_word (EL q s) r in
-  LUPDATE b q s
-End
 
 Definition extend_s_list_def:
   extend_s_list s n =
@@ -182,9 +229,9 @@ Definition check_xlrup_list_def:
     | SOME Clist =>
       SOME (update_resize cfml NONE (SOME c) n, xfml,
         def, Clist))
-  | XAdd n rx i0 =>
+  | XAdd n rx i0 i1 =>
     let X = conv_rawxor_list def rx in
-    if is_xor_list def xfml i0 X then
+    if is_xor_list def xfml i0 cfml i1 X then
       SOME (cfml, update_resize xfml NONE (SOME X) n,
         MAX def (strlen X), Clist)
     else NONE
@@ -609,10 +656,74 @@ Proof
   fs[]
 QED
 
+Theorem get_bit_list_get_bit:
+  n DIV 8 < LENGTH ls ⇒
+  get_bit_list ls n =
+  get_bit (implode (MAP fromByte ls)) n
+Proof
+  rw[get_bit_list_def,get_bit_def,get_char_def,get_bit_char_def]>>
+  simp[strsub_implode,toByte_def,EL_MAP,fromByte_def]
+QED
+
+Theorem set_bit_word_set_bit:
+  set_bit_word w n b =
+  toByte (set_bit_char (fromByte w) n b)
+Proof
+  rw[set_bit_char_def,set_bit_word_def]
+QED
+
+Theorem set_bit_list_set_bit:
+  n DIV 8 < LENGTH ls ⇒
+  set_bit_list ls n b =
+  MAP toByte (explode (set_bit (implode (MAP fromByte ls)) n b))
+Proof
+  rw[set_bit_list_def,set_bit_word_set_bit,set_bit_def,set_char_def]>>
+  rw[LIST_EQ_REWRITE]>>
+  simp[EL_MAP]>>
+  rw[EL_LUPDATE,EL_MAP,get_char_def,toByte_def,fromByte_def,strsub_implode]
+QED
+
+Theorem strlen_set_bit[simp]:
+  strlen (set_bit s n b) = strlen s
+Proof
+  rw[set_bit_def,set_char_def]
+QED
+
+Theorem unit_prop_xor_list_unit_prop_xor:
+  implode (MAP fromByte (unit_prop_xor_list l x)) =
+  unit_prop_xor l (implode (MAP fromByte x))
+Proof
+  rw[unit_prop_xor_def,unit_prop_xor_list_def]>>
+  `Num (ABS l) DIV 8 < LENGTH x` by
+    (DEP_REWRITE_TAC[DIV_LT_X]>>simp[])>>
+  gvs[get_bit_list_get_bit]>>
+  simp[set_bit_list_set_bit]>>
+  DEP_REWRITE_TAC[flip_bit_list_flip_bit]>>simp[]>>
+  simp[MAP_MAP_o,o_DEF]
+QED
+
+Theorem unit_props_xor_list_unit_props_xor:
+  ∀is x y .
+  fml_rel fml fmlls ∧
+  unit_props_xor_list fmlls is x = SOME y ⇒
+  unit_props_xor fml is (implode (MAP fromByte x)) =
+    SOME (implode (MAP fromByte y))
+Proof
+  Induct>>rw[unit_props_xor_def,unit_props_xor_list_def]>>
+  gvs[AllCaseEqs()]>>
+  fs[fml_rel_def,list_lookup_def]>>
+  first_x_assum(qspec_then`h` mp_tac)>>simp[]>>rw[]>>
+  first_x_assum drule>>
+  disch_then sym_sub_tac>>
+  AP_TERM_TAC>>
+  simp[GSYM unit_prop_xor_list_unit_prop_xor]
+QED
+
 Theorem is_xor_list_is_xor:
   fml_rel fml fmlls ∧
-  is_xor_list def fmlls is x ⇒
-  is_xor def fml is x
+  fml_rel cfml cfmlls ∧
+  is_xor_list def fmlls is cfmlls cis x ⇒
+  is_xor def fml is cfml cis x
 Proof
   rw[is_xor_list_def]>>
   every_case_tac>>fs[]>>
@@ -624,6 +735,8 @@ Proof
     extend_s (strlit "") def` by
     (rw[extend_s_def]>>fs[]>>
     EVAL_TAC)>>
+  rw[]>>
+  drule_all unit_props_xor_list_unit_props_xor>>
   fs[is_emp_xor_list_is_emp_xor]
 QED
 

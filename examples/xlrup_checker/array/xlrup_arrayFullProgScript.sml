@@ -58,7 +58,7 @@ val parse_body_arr = process_topdecs`
       )
     else parse_body_arr (lno+1) maxvar fd cacc xacc` |> append_prog;
 
-Overload "LL_LIT_TYPE" = ``LIST_TYPE (LIST_TYPE (CNF_XOR_LIT_TYPE NUM))``
+Overload "LL_LIT_TYPE" = ``LIST_TYPE (LIST_TYPE CNF_XOR_LIT_TYPE)``
 
 Theorem parse_body_arr_spec:
   !lines fd fdv fs maxvar maxvarv cacc caccv xacc xaccv lno lnov.
@@ -434,8 +434,9 @@ QED
 
 val usage_string = ‘
 
-Usage:  cake_xlrup <CNF XOR formula file> <XLRUP proof file>
-Run XLRUP unsatisfiability proof checking
+Usage:  cake_xlrup <CNF XOR formula file> <optional: XLRUP proof file>
+
+Run XLRUP unsatisfiability proof checking (if proof is given)
 
 ’
 
@@ -453,11 +454,10 @@ End
 
 val r = translate usage_string_def;
 
-(* TODO: XORs *)
 val r = translate conv_lit_def;
 val r = translate conv_cfml_def;
 
-val r = translate var_def;
+val r = translate var_lit_def;
 val r = translate max_list_def;
 val r = translate max_var_xor_def;
 
@@ -559,10 +559,71 @@ val check_unsat_2 = (append_prog o process_topdecs) `
         TextIO.output TextIO.stdErr "c empty clause not derived at end of proof\n"
   end`
 
+val _ = translate print_lit_def;
+val _ = translate print_clause_def;
+val _ = translate print_xor_def;
+val _ = translate print_header_line_def;
+val _ = translate print_cnf_xor_def;
+
+val check_unsat_1 = (append_prog o process_topdecs) `
+  fun check_unsat_1 f1 =
+  case parse_full f1 of
+    Inl err => TextIO.output TextIO.stdErr err
+  | Inr (mv,(ncl,fml)) => TextIO.print_list (print_cnf_xor fml)`
+
+Definition check_unsat_1_sem_def:
+  check_unsat_1_sem fs f1 err =
+  if inFS_fname fs f1 then
+    (case parse_cnf_xor (all_lines fs f1) of
+      NONE => add_stderr fs err
+    | SOME fml => add_stdout fs (concat (print_cnf_xor fml)))
+  else add_stderr fs err
+End
+
+Theorem check_unsat_1_spec:
+  STRING_TYPE f1 f1v ∧
+  validArg f1 ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_1"(get_ml_prog_state()))
+    [f1v]
+    (STDIO fs)
+    (POSTv uv. &UNIT_TYPE () uv *
+    SEP_EXISTS err. STDIO (check_unsat_1_sem fs f1 err))
+Proof
+  rw[]>>
+  xcf "check_unsat_1" (get_ml_prog_state ())>>
+  xlet_autop>>
+  simp[check_unsat_1_sem_def]>>
+  TOP_CASE_TAC>>fs[]
+  >- (
+    simp[parse_cnf_xor_def]>>
+    every_case_tac>>fs[SUM_TYPE_def,PAIR_TYPE_def]>>
+    xmatch
+    >- (
+      xapp_spec output_stderr_spec \\ xsimpl>>
+      asm_exists_tac>>xsimpl>>
+      qexists_tac`emp`>>xsimpl>>
+      qexists_tac`fs`>>xsimpl>>
+      rw[]>>qexists_tac`err`>>xsimpl)>>
+    xlet_autop>>
+    xapp_spec print_list_spec>>xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>qexists_tac`fs`>>xsimpl)>>
+  fs[SUM_TYPE_def]>>
+  xmatch>>
+  xapp_spec output_stderr_spec \\ xsimpl>>
+  asm_exists_tac>>xsimpl>>
+  qexists_tac`emp`>>xsimpl>>
+  qexists_tac`fs`>>xsimpl>>
+  rw[]>>qexists_tac`err`>>xsimpl
+QED
+
 val check_unsat = (append_prog o process_topdecs) `
   fun check_unsat u =
   case CommandLine.arguments () of
-    [f1,f2] => check_unsat_2 f1 f2
+    [f1] => check_unsat_1 f1
+  | [f1,f2] => check_unsat_2 f1 f2
   | _ => TextIO.output TextIO.stdErr usage_string`
 
 (* We verify each argument type separately *)
@@ -863,11 +924,13 @@ Proof
     qexists_tac`err`>>xsimpl)
 QED
 
-val check_unsat_sem_def = Define`
+Definition check_unsat_sem_def:
   check_unsat_sem cl fs err =
   case TL cl of
+  | [f1] => check_unsat_1_sem fs f1 err
   | [f1;f2] => check_unsat_2_sem fs f1 f2 err
-  | _ => add_stderr fs err`
+  | _ => add_stderr fs err
+End
 
 Theorem check_unsat_spec:
    hasFreeFD fs
@@ -892,11 +955,12 @@ Proof
     qexists_tac`fs`>>xsimpl>>
     rw[]>>qexists_tac`usage_string`>>xsimpl)
   >- (
-    xapp_spec output_stderr_spec \\ xsimpl>>
+    xapp>>xsimpl>>
     qexists_tac`COMMANDLINE cl`>>xsimpl>>
-    qexists_tac `usage_string` >> simp [theorem "usage_string_v_thm"] >>
-    qexists_tac`fs`>>xsimpl>>
-    rw[]>>qexists_tac`usage_string`>>xsimpl)
+    qexists_tac`fs`>>qexists_tac`h'`>>xsimpl>>
+    fs[wfcl_def,Abbr`cl`]>>
+    rw[]>>
+    qexists_tac`x`>>xsimpl)
   >- (
     xapp>>xsimpl>>
     qexists_tac`COMMANDLINE cl`>>xsimpl>>
@@ -925,7 +989,7 @@ Proof
   \\ qexists_tac`check_unsat_sem cl fs x`
   \\ qexists_tac`x`
   \\ xsimpl
-  \\ rw[check_unsat_sem_def,check_unsat_2_sem_def]
+  \\ rw[check_unsat_sem_def,check_unsat_1_sem_def,check_unsat_2_sem_def]
   \\ every_case_tac
   \\ simp[GSYM add_stdo_with_numchars,with_same_numchars]
 QED
