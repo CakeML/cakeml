@@ -575,6 +575,64 @@ Proof
   simp[optionTheory.OPTION_MAP_CASE, combinTheory.o_DEF]
 QED
 
+fun tcallify_th th =
+  let val (l,r) = dest_eq (concl th)
+      val (lf, args) = strip_comb l
+      val atup = pairSyntax.list_mk_pair args
+      val inty = type_of atup
+      val body_t = tailrecLib.mk_sum_term lf inty r
+  in
+      pairSyntax.mk_pabs(atup, body_t)
+  end
+
+val cvwalk_code = tcallify_th cvwalk_thm
+
+Theorem sum_CASE_infer_CASE:
+  sum_CASE (infer_t_CASE i vf af uf) lf rf =
+  infer_t_CASE i (λv. sum_CASE (vf v) lf rf)
+             (λl n. sum_CASE (af l n) lf rf)
+             (λu. sum_CASE (uf u) lf rf)
+Proof
+  Cases_on ‘i’ >> simp[]
+QED
+
+
+Theorem cvwalk_cleaned:
+  ∀x. (λ(s,v). swfs (map encode_infer_t s) ∧ wf (map encode_infer_t s)) x ⇒
+      (λ(s,v). cvwalk s v) x = TAILREC ^cvwalk_code x
+Proof
+  match_mp_tac whileTheory.TAILREC_GUARD_ELIMINATION >> rpt conj_tac >>
+  simp[FORALL_PROD, AllCaseEqs()]
+  >- (rpt strip_tac >> rename [‘swfs (map encode_infer_t s)’] >>
+      qexists_tac
+        ‘λ(s0,nm0) (s1,nm). s0 = s ∧ s1 = s ∧
+                            vR (sp2fm $ map encode_infer_t s) nm0 nm’ >>
+      simp[] >> conj_tac
+      >- (irule $ iffLR WF_EQ_WFP >> irule WF_SUBSET >>
+          qexists ‘inv_image (vR $ sp2fm $ map encode_infer_t s) SND’ >>
+          simp[FORALL_PROD] >> gs[WF_inv_image,swfs_def,wfs_def]) >>
+      rpt gen_tac >> strip_tac >>
+      rename [‘RTC _ (s0,_) (s,_)’] >>
+      ‘s0 = s’ by (qpat_x_assum ‘RTC _ _ _’ mp_tac >> Induct_on ‘RTC’ >>
+                   simp[FORALL_PROD]) >>
+      gvs[swfs_def, wfs_def, vR_def, lookup_map] >>
+      simp[encode_infer_t_def]) >>
+  simp[whileTheory.TAILCALL_def, FORALL_PROD, sum_CASE_option_CASE,
+       sum_CASE_infer_CASE] >>
+  simp[SimpLHS, Once (DISCH_ALL cvwalk_thm)]
+QED
+
+Definition tcvwalk_def:
+  tcvwalk s n = TAILREC ^cvwalk_code (s,n)
+End
+
+Theorem tcvwalk_thm =
+        tcvwalk_def |> SRULE[Once whileTheory.TAILREC]
+                    |> SRULE[sum_CASE_option_CASE, sum_CASE_infer_CASE]
+                    |> SRULE[GSYM tcvwalk_def]
+
+Theorem tcvwalk_correct =
+   SRULE[FORALL_PROD, GSYM tcvwalk_def] cvwalk_cleaned
 
 
 
