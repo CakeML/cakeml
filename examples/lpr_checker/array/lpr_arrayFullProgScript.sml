@@ -467,7 +467,7 @@ val run_proof_arr = (append_prog o process_topdecs) `
         val mv = max mv (list_max_index c + 1)
         val u = hash_ins hm c n
     in
-      run_proof_arr (resize_update_arr (Some c) n fml)
+      run_proof_arr (Array.updateResize fml None n (Some c))
         (sorted_insert n inds) earr hm (n+1) mv rest
     end)`
 
@@ -541,19 +541,8 @@ Proof
     qexists_tac`h'`>>
     xsimpl)>>
   rpt xlet_autop>>
-  xlet`(POSTv resv.
-      SEP_EXISTS fmllsv'.
-      ARRAY resv fmllsv' * ARRAY Earrv' earliestv' *
-      HASHTABLE (LIST_TYPE INT) (LIST_TYPE NUM) hash_func order_lists (hash_insert h' l n) hv *
-      & LIST_REL (OPTION_TYPE (LIST_TYPE INT))
-              (resize_update_list fmlls NONE (SOME l) n) fmllsv')`
-  >- (
-    xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``(LIST_TYPE INT)``)>>
-    asm_exists_tac>>xsimpl>>
-    asm_exists_tac>>simp[]>>
-    qexists_tac`SOME l`>>simp[OPTION_TYPE_def])>>
   xapp>> xsimpl>>
-  rpt(asm_exists_tac>>simp[])
+  match_mp_tac LIST_REL_update_resize>>fs[OPTION_TYPE_def]
 QED
 
 (* Only run proof on the hash table *)
@@ -653,7 +642,7 @@ Proof
   first_x_assum drule>>
   disch_then match_mp_tac>>
   fs[bounded_fml_list_delete_list]>>
-  DEP_REWRITE_TAC [bounded_fml_resize_update_list]>>
+  DEP_REWRITE_TAC [bounded_fml_update_resize]>>
   CONJ_TAC>- (
     match_mp_tac (GEN_ALL bounded_fml_leq)>>
     asm_exists_tac>>simp[])>>
@@ -1009,7 +998,7 @@ val check_unsat_2_sem_def = Define`
         let fmlls = enumerate 1 fml in
         let base = REPLICATE (2*ncl) NONE in
         let bnd = 2*mv+3 in
-        let upd = FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) base fmlls in
+        let upd = FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) base fmlls in
         let earliest = FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) fmlls in
           if check_lpr_unsat_list lpr upd (REVERSE (MAP FST fmlls)) (REPLICATE bnd w8z) earliest then
             add_stdout fs (strlit "s VERIFIED UNSAT\n")
@@ -1098,7 +1087,7 @@ Proof
       rw[bounded_fml_def,EVERY_EL]>>
       `ALL_DISTINCT (MAP FST (enumerate 1 x))` by
         metis_tac[ALL_DISTINCT_MAP_FST_enumerate]>>
-      drule FOLDL_resize_update_list_lookup>>
+      drule FOLDL_update_resize_lookup>>
       disch_then drule>>
       strip_tac>>simp[]>>
       TOP_CASE_TAC>>fs[]>>
@@ -1154,7 +1143,7 @@ val check_unsat_3_sem_def = Define`
         let fmlls = enumerate 1 fml in
         let base = REPLICATE (2*ncl) NONE in
         let bnd = 2*mv+3 in
-        let upd = FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) base fmlls in
+        let upd = FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) base fmlls in
         let earliest = FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) fmlls in
           if check_lpr_sat_equiv_list lpr upd (REVERSE (MAP FST fmlls)) (REPLICATE bnd w8z) earliest 0 fml2 then
             add_stdout fs (strlit "s VERIFIED TRANSFORMATION\n")
@@ -1248,7 +1237,7 @@ Proof
       rw[bounded_fml_def,EVERY_EL]>>
       `ALL_DISTINCT (MAP FST (enumerate 1 x'))` by
         metis_tac[ALL_DISTINCT_MAP_FST_enumerate]>>
-      drule FOLDL_resize_update_list_lookup>>
+      drule FOLDL_update_resize_lookup>>
       disch_then drule>>
       strip_tac>>simp[]>>
       TOP_CASE_TAC>>fs[]>>
@@ -1316,7 +1305,7 @@ val check_unsat_4_sem_def = Define`
         let fmlls = enumerate 1 fml in
         let base = REPLICATE (2*ncl) NONE in
         let bnd = 2*mv+3 in
-        let upd = FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) base fmlls in
+        let upd = FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) base fmlls in
         let earliest = FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) fmlls in
           if check_lpr_range_list lpr upd (REVERSE (MAP FST fmlls)) earliest bnd (ncl+1) pf i j then
             add_stdout fs (success_str (implode (md5 (THE (file_content fs f1)))) (implode (md5 (THE (file_content fs f2)))) (print_rng i j))
@@ -1526,7 +1515,7 @@ Proof
       fs[validArg_def]>>
       `ALL_DISTINCT (MAP FST (enumerate 1 x'))` by
         metis_tac[ALL_DISTINCT_MAP_FST_enumerate]>>
-      drule FOLDL_resize_update_list_lookup>>
+      drule FOLDL_update_resize_lookup>>
       disch_then drule>>
       strip_tac>>simp[]>>
       TOP_CASE_TAC>>fs[]>>
@@ -1738,7 +1727,7 @@ QED
 
 Theorem check_lpr_sat_equiv_list_sound:
   check_lpr_sat_equiv_list lpr
-    (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
+    (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
     (REVERSE (MAP FST (enumerate k fml)))
     Clist
     (FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) (enumerate k fml))
@@ -1749,9 +1738,9 @@ Theorem check_lpr_sat_equiv_list_sound:
 Proof
   rw[check_lpr_sat_equiv_list_def]>>
   every_case_tac>>fs[]>>
-  assume_tac (fml_rel_FOLDL_resize_update_list |> INST_TYPE [alpha |-> ``:int list``])>>
-  assume_tac (ind_rel_FOLDL_resize_update_list |> INST_TYPE [alpha |-> ``:int list``])>>
-  assume_tac earliest_rel_FOLDL_resize_update_list>>
+  assume_tac (fml_rel_FOLDL_update_resize |> INST_TYPE [alpha |-> ``:int list``])>>
+  assume_tac (ind_rel_FOLDL_update_resize |> INST_TYPE [alpha |-> ``:int list``])>>
+  assume_tac earliest_rel_FOLDL_update_resize>>
   drule fml_rel_check_lpr_list>>
   `SORTED $>= (REVERSE (MAP FST (enumerate k fml)))` by
     (DEP_REWRITE_TAC [SORTED_REVERSE]>>
@@ -1776,7 +1765,7 @@ QED
 Theorem check_lpr_range_list_sound:
   check_lpr_range_list
     lpr
-    (FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
+    (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
     (REVERSE (MAP FST (enumerate k fml)))
     (FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) (enumerate k fml))
     m (LENGTH fml + k) pf i j ∧
@@ -1786,10 +1775,10 @@ Theorem check_lpr_range_list_sound:
 Proof
   rw[]>>
   drule fml_rel_check_lpr_range_list>>
-  assume_tac (fml_rel_FOLDL_resize_update_list |> INST_TYPE [alpha |-> ``:int list``])>>
+  assume_tac (fml_rel_FOLDL_update_resize |> INST_TYPE [alpha |-> ``:int list``])>>
   disch_then drule>>
-  assume_tac (ind_rel_FOLDL_resize_update_list |> INST_TYPE [alpha |-> ``:int list``])>>
-  assume_tac earliest_rel_FOLDL_resize_update_list>>
+  assume_tac (ind_rel_FOLDL_update_resize |> INST_TYPE [alpha |-> ``:int list``])>>
+  assume_tac earliest_rel_FOLDL_update_resize>>
   simp[]>>
   impl_tac >-(
     simp[wf_fml_build_fml]>>
@@ -1797,8 +1786,8 @@ Proof
     CONJ_TAC>-(
       `ALL_DISTINCT (MAP FST (enumerate k fml))` by
         fs[ALL_DISTINCT_MAP_FST_enumerate]>>
-      drule FOLDL_resize_update_list_lookup>>
-      simp[list_lookup_def]>>
+      drule FOLDL_update_resize_lookup>>
+      simp[any_el_ALT]>>
       rw[]>>
       pop_assum mp_tac>>IF_CASES_TAC>>simp[]>>
       first_x_assum(qspecl_then [`n`,`x`] mp_tac)>>
