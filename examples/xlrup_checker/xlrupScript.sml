@@ -92,11 +92,6 @@ Definition isat_fml_def:
   isat_cfml w cfml ∧ isat_xfml w xfml
 End
 
-Definition isatisfiable_def:
-  isatisfiable fml ⇔
-  ∃w. isat_fml w fml
-End
-
 (* Connection to the top-level semantics *)
 Definition conv_lit_def:
   (conv_lit (Pos n) = (&n):int) ∧
@@ -808,6 +803,8 @@ Datatype:
   | Del (num list) (* Clauses to delete *)
   | RUP num cclause (num list)
     (* RUP n C hints : derive clause C by RUP using hints *)
+  | XOrig num (lit list)
+    (* XOrig n C : add XOR C from original at ID n *)
   | XAdd num rawxor (num list) (num list)
     (* Xadd n C hints rhints derive XOR C by adding XORs using
       hints and the rup hints (rhints) *)
@@ -941,13 +938,24 @@ Definition is_xfromc_def:
     check_rawxor_imp ds rx
 End
 
+Definition conv_xor_mv_def:
+  conv_xor_mv mv x =
+  conv_rawxor mv (MAP conv_lit x)
+End
+
 Definition check_xlrup_def:
-  check_xlrup xlrup cfml xfml def =
+  check_xlrup xorig xlrup cfml xfml def =
   case xlrup of
     Del cl => SOME (FOLDL (\a b. delete b a) cfml cl, xfml, def)
   | RUP n C i0 =>
     if is_rup cfml i0 C then
       SOME (insert n C cfml, xfml, def)
+    else NONE
+  | XOrig n rX =>
+    if MEM rX xorig
+    then
+      let X = conv_xor_mv def rX in
+      SOME (cfml, insert n X xfml, MAX def (strlen X))
     else NONE
   | XAdd n rX i0 i1 =>
     let X = conv_rawxor def rX in
@@ -967,11 +975,12 @@ Definition check_xlrup_def:
 End
 
 Definition check_xlrups_def:
-  (check_xlrups [] cfml xfml def = SOME (cfml,xfml,def)) ∧
-  (check_xlrups (x::xs) cfml xfml def =
-  case check_xlrup x cfml xfml def of
+  (check_xlrups xorig [] cfml xfml def = SOME (cfml,xfml,def)) ∧
+  (check_xlrups xorig (x::xs) cfml xfml def =
+  case check_xlrup xorig x cfml xfml def of
     NONE => NONE
-  | SOME (cfml',xfml',def') => check_xlrups xs cfml' xfml' def')
+  | SOME (cfml',xfml',def') =>
+    check_xlrups xorig xs cfml' xfml' def')
 End
 
 Definition contains_emp_def:
@@ -981,8 +990,8 @@ Definition contains_emp_def:
 End
 
 Definition check_xlrups_unsat_def:
-  check_xlrups_unsat xlrups cfml xfml def =
-  case check_xlrups xlrups cfml xfml def of
+  check_xlrups_unsat xorig xlrups cfml xfml def =
+  case check_xlrups xorig xlrups cfml xfml def of
     NONE => F
   | SOME (cfml',xfml',def') => contains_emp cfml'
 End
@@ -1279,6 +1288,7 @@ Definition wf_xlrup_def:
   (wf_xlrup (RUP n C i0) = wf_clause C) ∧
   (wf_xlrup (CFromX n C i0) = wf_clause C) ∧
   (wf_xlrup (XFromC n X i0) = wf_clause X) ∧
+  (wf_xlrup (XOrig n rX) = EVERY nz_lit rX) ∧
   (wf_xlrup _ = T)
 End
 
@@ -1309,7 +1319,7 @@ QED
 
 Theorem wf_cfml_check_xlrup:
   wf_cfml cfml ∧ wf_xlrup xlrup ∧
-  check_xlrup xlrup cfml xfml def = SOME (cfml',xfml',def') ⇒
+  check_xlrup xorig xlrup cfml xfml def = SOME (cfml',xfml',def') ⇒
   wf_cfml cfml'
 Proof
   rw[check_xlrup_def]>>gvs[AllCaseEqs()]
@@ -1478,7 +1488,9 @@ QED
 
 Theorem check_xlrup_sound:
   wf_xlrup xlrup ∧
-  check_xlrup xlrup cfml xfml def = SOME (cfml',xfml',def') ∧
+  check_xlrup xorig xlrup cfml xfml def =
+    SOME (cfml',xfml',def') ∧
+  (∀x. MEM x xorig ⇒ sat_cmsxor w x) ∧
   isat_fml w (values cfml, values xfml) ⇒
   isat_fml w (values cfml', values xfml')
 Proof
@@ -1492,6 +1504,22 @@ Proof
     simp[]>>
     match_mp_tac (GEN_ALL is_rup_sound)>>gvs[]>>
     asm_exists_tac>>simp[])
+  >- ( (* XOrig *)
+    fs[isat_fml_def,isat_xfml_def]>>
+    fs[values_def,PULL_EXISTS,lookup_insert]>>rw[]>>
+    gvs[AllCaseEqs()]
+    >- (
+      first_x_assum drule>>
+      fs[wf_xlrup_def]>>
+      rw[conv_xor_mv_def,conv_rawxor_def, GSYM conv_xor_def]>>
+      drule conv_xor_sound>>
+      rw[]>>
+      DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
+      simp[isat_strxor_extend_s]>>
+      CONJ_TAC >-
+        (EVAL_TAC>>rw[])>>
+      EVAL_TAC)>>
+    metis_tac[])
   >- ( (* XAdd *)
     fs[isat_fml_def]>>
     match_mp_tac isat_xfml_insert>>
@@ -1532,7 +1560,8 @@ QED
 Theorem check_xlrups_sound:
   ∀ls cfml xfml def def'.
   EVERY wf_xlrup ls ∧
-  check_xlrups ls cfml xfml def = SOME (cfml',xfml',def') ⇒
+  check_xlrups xorig ls cfml xfml def = SOME (cfml',xfml',def') ∧
+  (∀x. MEM x xorig ⇒ sat_cmsxor w x) ⇒
   (isat_fml w (values cfml, values xfml) ⇒
    isat_fml w (values cfml', values xfml'))
 Proof
@@ -1584,10 +1613,14 @@ Proof
   qexists_tac`n`>>simp[]
 QED
 
+(* Main theorem *)
 Theorem check_xlrups_unsat_sound:
   EVERY wf_xlrup xlrups ∧
-  check_xlrups_unsat xlrups (build_fml cid cfml) (build_fml xid xfml) def ⇒
-  ¬ isatisfiable (set cfml,set xfml)
+  check_xlrups_unsat xfml xlrups
+    (build_fml cid cfml) LN def ⇒
+  ¬ ∃w.
+    isat_cfml w (set cfml) ∧
+    (∀x. MEM x xfml ⇒ sat_cmsxor w x)
 Proof
   rw[check_xlrups_unsat_def]>>
   every_case_tac>>fs[]>>
@@ -1598,8 +1631,10 @@ Proof
     asm_exists_tac>>simp[isat_cclause_def])>>
   fs[]>>
   Cases_on`r`>>drule check_xlrups_sound>>
-  fs[isatisfiable_def,isat_fml_def]>>
-  metis_tac[values_build_fml]
+  disch_then drule>>
+  fs[isat_fml_def,values_build_fml]>>
+  simp[values_def,isat_xfml_def]>>
+  metis_tac[]
 QED
 
 Definition max_var_xor_def:

@@ -217,8 +217,13 @@ Definition is_xfromc_list_def:
     check_rawxor_imp ds rx
 End
 
+Definition conv_xor_mv_list_def:
+  conv_xor_mv_list mv x =
+  conv_rawxor_list mv (MAP conv_lit x)
+End
+
 Definition check_xlrup_list_def:
-  check_xlrup_list xlrup cfml xfml def Clist =
+  check_xlrup_list xorig xlrup cfml xfml def Clist =
   case xlrup of
     Del cl =>
     SOME (list_delete_list cl cfml, xfml, def, Clist)
@@ -229,6 +234,13 @@ Definition check_xlrup_list_def:
     | SOME Clist =>
       SOME (update_resize cfml NONE (SOME c) n, xfml,
         def, Clist))
+  | XOrig n rx =>
+    if MEM rx xorig
+    then
+      let X = conv_xor_mv_list def rx in
+      SOME (cfml, update_resize xfml NONE (SOME X) n,
+        MAX def (strlen X), Clist)
+    else NONE
   | XAdd n rx i0 i1 =>
     let X = conv_rawxor_list def rx in
     if is_xor_list def xfml i0 cfml i1 X then
@@ -253,13 +265,13 @@ End
 
 (* semantic *)
 Definition check_xlrups_list_def:
-  (check_xlrups_list [] cfml xfml def Clist =
+  (check_xlrups_list xorig [] cfml xfml def Clist =
     SOME (cfml, xfml, def)) ∧
-  (check_xlrups_list (x::xs) cfml xfml def Clist =
-    case check_xlrup_list x cfml xfml def Clist of
+  (check_xlrups_list xorig (x::xs) cfml xfml def Clist =
+    case check_xlrup_list xorig x cfml xfml def Clist of
       NONE => NONE
     | SOME (cfml', xfml', def', Clist') =>
-      check_xlrups_list xs cfml' xfml' def' Clist')
+      check_xlrups_list xorig xs cfml' xfml' def' Clist')
 End
 
 (* Search backwards through the IDs *)
@@ -281,8 +293,8 @@ Definition contains_emp_list_def:
 End
 
 Definition check_xlrups_unsat_list_def:
-  check_xlrups_unsat_list xlrups cfml xfml def Clist =
-  case check_xlrups_list xlrups cfml xfml def Clist of
+  check_xlrups_unsat_list xorig xlrups cfml xfml def Clist =
+  case check_xlrups_list xorig xlrups cfml xfml def Clist of
     NONE => F
   | SOME (cfml', xfml', def') => contains_emp_list cfml'
 End
@@ -631,6 +643,12 @@ Proof
   EVAL_TAC
 QED
 
+Theorem conv_xor_mv_list_conv_xor_mv:
+  conv_xor_mv_list mv x = conv_xor_mv mv x
+Proof
+  rw[conv_xor_mv_list_def,conv_xor_mv_def,conv_rawxor_list_conv_rawxor]
+QED
+
 Theorem add_xors_aux_c_list_add_xors_aux_c:
   ∀is x y.
   fml_rel fml fmlls ∧
@@ -798,11 +816,12 @@ Theorem fml_rel_check_xlrup_list:
   fml_rel xfml xfmlls ∧
   EVERY ($= w8z) Clist ∧
   wf_cfml cfml ⇒
-  case check_xlrup_list xlrup cfmlls xfmlls def Clist of
+  case check_xlrup_list xorig xlrup cfmlls xfmlls def Clist of
     SOME (cfmlls', xfmlls', def', Clist') =>
     EVERY ($= w8z) Clist' ∧
     ∃cfml' xfml'.
-    check_xlrup xlrup cfml xfml def = SOME (cfml',xfml',def') ∧
+    check_xlrup xorig xlrup cfml xfml def =
+      SOME (cfml',xfml',def') ∧
     fml_rel cfml' cfmlls' ∧
     fml_rel xfml' xfmlls'
   | NONE => T
@@ -819,6 +838,10 @@ Proof
     drule_all fml_rel_is_rup_list>>
     disch_then (qspecl_then [`l0`,`l`] assume_tac)>>
     every_case_tac>>gvs[]>>
+    metis_tac[fml_rel_update_resize])
+  >- ( (* XOrig *)
+    every_case_tac>>fs[]>>
+    fs[conv_xor_mv_list_conv_xor_mv]>>
     metis_tac[fml_rel_update_resize])
   >- ( (* XAdd *)
     every_case_tac>>fs[]>>
@@ -873,15 +896,17 @@ Proof
 QED
 
 Theorem fml_rel_check_xlrups_list:
-  ∀xlrups cfml cfmlls xfml xfmlls cfmlls' xfmlls' def def' Clist.
+  ∀xlrups xorig cfml cfmlls xfml xfmlls
+    cfmlls' xfmlls' def def' Clist.
   fml_rel cfml cfmlls ∧
   fml_rel xfml xfmlls ∧
   EVERY ($= w8z) Clist ∧ wf_cfml cfml ∧
   EVERY wf_xlrup xlrups ∧
-  check_xlrups_list xlrups cfmlls xfmlls def Clist =
+  check_xlrups_list xorig xlrups cfmlls xfmlls def Clist =
     SOME (cfmlls', xfmlls', def') ⇒
   ∃cfml' xfml'.
-    check_xlrups xlrups cfml xfml def = SOME (cfml',xfml',def') ∧
+    check_xlrups xorig xlrups cfml xfml def =
+      SOME (cfml',xfml',def') ∧
     fml_rel cfml' cfmlls' ∧
     fml_rel xfml' xfmlls'
 Proof
@@ -889,7 +914,7 @@ Proof
   rw[]>>gvs[AllCaseEqs()]>>
   drule  fml_rel_check_xlrup_list>>
   rpt (disch_then drule)>>
-  disch_then (qspecl_then [`h`,`def`] mp_tac)>> simp[]>>
+  disch_then (qspecl_then [`xorig`,`h`,`def`] mp_tac)>> simp[]>>
   rw[]>>simp[]>>
   first_x_assum match_mp_tac>>
   asm_exists_tac>>fs[]>>

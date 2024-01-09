@@ -66,7 +66,7 @@ Definition parse_until_c_zero_nn_def:
       SOME (INR (REVERSE acc, xs))
     else
       if l > 0 then parse_until_c_zero_nn c xs (Num (ABS l)::acc)
-      else NONE
+      else SOME (INL (REVERSE acc, xs))
   )
 End
 
@@ -181,6 +181,42 @@ Definition parse_cfromx_xfromc_def:
         | SOME (n,c,hints) => SOME (XFromC n c hints))
 End
 
+(* Copied from cnf_xor *)
+Definition parse_lits_aux_nomv_def:
+  (parse_lits_aux_nomv [] (acc:lit list) = NONE) ∧
+  (parse_lits_aux_nomv [c] acc =
+    if c = INR 0i then SOME (REVERSE acc) else NONE) ∧
+  (parse_lits_aux_nomv (x::xs) acc =
+    case x of
+      INR l =>
+      let n = Num (ABS l) in
+      let v = if l > 0 then Pos n else Neg n in
+      if n = 0 then NONE
+      else parse_lits_aux_nomv xs (v::acc)
+    | INL (_:mlstring) => NONE)
+End
+
+Definition parse_id_xor_nomv_def:
+  parse_id_xor_nomv xs =
+  case xs of
+  | (c::INR n::cs) =>
+  if c = INL (strlit "x") ∧ n ≥ 0
+  then
+    case parse_lits_aux_nomv cs [] of
+      SOME x => SOME (Num (ABS n), x)
+    | _ => NONE
+  else NONE
+  | _ => NONE
+End
+
+(* XOrig *)
+Definition parse_xorig_def:
+  parse_xorig rest =
+  (* o x [... 0] *)
+  (case parse_id_xor_nomv rest of NONE => NONE
+  | SOME (n, c) => SOME (XOrig n c))
+End
+
 Definition parse_xlrup_def:
   (parse_xlrup [] = NONE) ∧
   (parse_xlrup (f::rest) =
@@ -195,7 +231,11 @@ Definition parse_xlrup_def:
     then
       parse_cfromx_xfromc rest
     else
-      NONE)
+    if c = strlit"o"
+    then
+      parse_xorig rest
+    else
+       NONE)
 End
 
 Theorem parse_until_zero_wf_clause:
@@ -230,13 +270,35 @@ Proof
   metis_tac[parse_rest_wf_clause,PAIR,FST,SND]
 QED
 
+Theorem parse_lits_aux_nomv_nz_lit:
+  ∀cs acc acc'.
+  parse_lits_aux_nomv cs acc = SOME acc' ∧
+  EVERY nz_lit acc ⇒
+  EVERY nz_lit acc'
+Proof
+  ho_match_mp_tac parse_lits_aux_nomv_ind>>
+  rw[parse_lits_aux_nomv_def]>>
+  gvs[AllCaseEqs()]>>
+  every_case_tac>>fs[]
+QED
+
+Theorem parse_id_xor_nomv_nz_lit:
+  parse_id_xor_nomv ls = SOME (n,c) ⇒
+  EVERY nz_lit c
+Proof
+  simp[parse_id_xor_nomv_def]>>
+  rw[AllCaseEqs()]>>
+  drule parse_lits_aux_nomv_nz_lit>>
+  simp[]
+QED
+
 Theorem parse_xlrup_wf:
   parse_xlrup ls = SOME line ⇒
   wf_xlrup line
 Proof
   Cases_on`ls`>>rw[parse_xlrup_def]>>
-  gvs[AllCaseEqs(),wf_xlrup_def,parse_xadd_xdel_def,parse_cfromx_xfromc_def,parse_rup_del_def]>>
-  metis_tac[parse_id_rest_wf_clause,parse_rest_wf_clause]
+  gvs[AllCaseEqs(),wf_xlrup_def,parse_xadd_xdel_def,parse_cfromx_xfromc_def,parse_rup_del_def,parse_xorig_def]>>
+  metis_tac[parse_id_rest_wf_clause,parse_rest_wf_clause,parse_id_xor_nomv_nz_lit]
 QED
 
 (* Mostly semantic!*)
@@ -272,7 +334,8 @@ val xlrupsraw = ``[
   strlit"10 6 2 0 3 4 8 0";
   strlit"11 6 3 0 5 6 8 0";
   strlit"12 -6 4 0 1 5 7 3 0";
-  strlit"x 1234 -6 4 0 1 5 7 3 u 1 2 3 4 5 6 0";
+  strlit"x 1234 -6 4 0 1 5 7 3 0";
+  strlit"o x 5 -1 1 2 3 0";
   strlit"12 d 1 5 3 0";
   strlit"13 -6 5 0 2 6 7 4 0";
   strlit"13 d 2 6 4 0";
