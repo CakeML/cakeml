@@ -11,6 +11,7 @@ open substTheory;
 open infer_tTheory;
 open rmfmapTheory tcallUnifTheory
 open transferTheory transferLib
+open cpsTheory cpsLib
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -598,11 +599,11 @@ QED
 
 
 Theorem cvwalk_cleaned:
-  ∀x. (λ(s,v). swfs (map encode_infer_t s) ∧ wf (map encode_infer_t s)) x ⇒
+  ∀x. (λ(s,v). cwfs s) x ⇒
       (λ(s,v). cvwalk s v) x = TAILREC ^cvwalk_code x
 Proof
   match_mp_tac whileTheory.TAILREC_GUARD_ELIMINATION >> rpt conj_tac >>
-  simp[FORALL_PROD, AllCaseEqs()]
+  simp[FORALL_PROD, AllCaseEqs(), cwfs_def]
   >- (rpt strip_tac >> rename [‘swfs (map encode_infer_t s)’] >>
       qexists_tac
         ‘λ(s0,nm0) (s1,nm). s0 = s ∧ s1 = s ∧
@@ -634,6 +635,81 @@ Theorem tcvwalk_thm =
 Theorem tcvwalk_correct =
    SRULE[FORALL_PROD, GSYM tcvwalk_def] cvwalk_cleaned
 
+Definition tcwalk_def:
+  tcwalk s it = dtcase it of
+                  Infer_Tvar_db c => Infer_Tvar_db c
+                | Infer_Tapp l n => Infer_Tapp l n
+                | Infer_Tuvar v => tcvwalk s v
+End
+
+Theorem tcwalk_correct:
+  ∀s it. cwfs s ⇒ cwalk s it = tcwalk s it
+Proof
+  rpt strip_tac >> simp[cwalk_thm, tcvwalk_correct, tcwalk_def]
+QED
+
+Definition cocl_def:
+  (cocl s [] n ⇔ F) ∧
+  (cocl s (i::is) n ⇔ coc s i n ∨ cocl s is n)
+End
+
+Theorem cocl_EXISTS:
+  cocl s its n ⇔ EXISTS (λi. coc s i n) its
+Proof
+  Induct_on ‘its’ >> simp[cocl_def]
+QED
+
+Theorem coc_thm' = CONJ (SRULE[GSYM cocl_EXISTS] coc_thm) cocl_def
+
+Definition kcoc_def:
+  kcoc s it n k = cwc (coc s it n) k
+End
+
+Definition kcocl_def:
+  kcocl s its n k = cwc (cocl s its n) k
+End
+
+Theorem contify_infer_case:
+  contify k (infer_t_CASE it cf af uf) =
+  contify (λit. dtcase it of Infer_Tvar_db c => contify k (cf c)
+                          | Infer_Tapp l n => contify k (af l n)
+                          | Infer_Tuvar v => contify k (uf v))
+          it
+Proof
+  Cases_on ‘it’ >> simp[contify_def]
+QED
+
+Theorem kcoc_thm =
+        kcoc_def |> SPEC_ALL
+                 |> SRULE[GSYM contify_cwc, ASSUME “cwfs s”, coc_thm']
+                 |> CONV_RULE
+                      (TOP_DEPTH_CONV (contify_CONV [contify_infer_case]))
+                 |> SRULE [cwcp “cwalk”, cwcp “cwalk s”, cwcp “$=”, cwcp “$= x”,
+                           cwcp “cocl”, cwcp “cocl s”]
+                 |> SRULE [GSYM kcocl_def]
+
+Theorem cwc_OR:
+  cwc (bool$\/ b) k = if b then k (K T) else k I
+Proof
+  rw[cwc_def] >> AP_TERM_TAC >> simp[FUN_EQ_THM]
+QED
+
+Theorem kcocl_Ky:
+  kcocl s t n (λx. y) = y
+Proof
+  simp[kcocl_def, cwc_def]
+QED
+
+Theorem kcocl_thm =
+        kcocl_def |> SPEC_ALL
+                  |> SRULE [GSYM contify_cwc, ASSUME “cwfs s”,
+                            Once $ DefnBase.one_line_ify NONE cocl_def]
+                  |> CONV_RULE
+                       (TOP_DEPTH_CONV (contify_CONV [contify_infer_case]))
+                  |> SRULE [cwcp “coc”, cwcp “coc s”, cwc_OR,
+                            cwcp “cocl”, cwcp “cocl s”]
+                  |> SRULE[GSYM kcoc_def, GSYM kcocl_def]
+                  |> SRULE[cwc_def, SF ETA_ss, kcocl_Ky]
 
 
 Theorem decode_infer_t_pmatch:
