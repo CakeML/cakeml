@@ -1685,7 +1685,7 @@ val app_ffi_def = Define `
          (case u ffi_index conf ws s of
             SOME(FFIreturn vs s') =>
              (frame * W8ARRAY a vs * one (FFI_part s' u ns
-                 (events ++ [IO_event ffi_index conf (ZIP (ws, vs))])) *
+                 (events ++ [IO_event (ExtCall ffi_index) conf (ZIP (ws, vs))])) *
               cond (~MEM "" ns)) ==>> Q (Val (Conv NONE []))
           | SOME(FFIdiverge) =>
              (frame * W8ARRAY a ws * one (FFI_part s u ns events) *
@@ -2191,7 +2191,7 @@ val cf_cases_evaluate_match = Q.prove (
           st2heap p st' = heap
         | FFIDiv name conf bytes => ∃ck st'.
           evaluate_match (st with clock := ck) env v rows nomatch_exn =
-          (st', Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged)))) /\
+          (st', Rerr (Rabort (Rffi_error (Final_event (ExtCall name) conf bytes FFI_diverged)))) /\
           st'.next_type_stamp = st.next_type_stamp /\
           st'.next_exn_stamp = st.next_exn_stamp /\
           st2heap p st' = heap
@@ -2372,7 +2372,7 @@ val cf_ffi_sound = Q.prove (
    first_assum progress \\ fs [MAP_MAP_o,o_DEF,IMPLODE_EXPLODE_I] \\
    qabbrev_tac `events1 = (FILTER (ffi_has_index_in ns) st.ffi.io_events)` \\
    qabbrev_tac `new_events = events1 ++ [IO_event
-                                           ffi_index
+                                           (ExtCall ffi_index)
                                            conf
                                            (ZIP (ws,vs))]` \\
    qexists_tac `
@@ -2675,7 +2675,8 @@ Proof
       )
       THEN1 (
         (* e1 ~> FFI diverge *)
-        rename1 `evaluate _ _ [e1] = (_, Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged))))` \\
+        rename1 `evaluate _ _ [e1] = (_, Rerr (Rabort (Rffi_error (Final_event
+        (ExtCall name) conf bytes FFI_diverged))))` \\
         fs [SEP_IMPPOST_VARIANTS, SEP_IMP_def] \\ first_assum progress \\
         qexists_tac `FFIDiv name conf bytes` \\
         instantiate \\ qexists_tac `ck` \\ rw []
@@ -3394,7 +3395,8 @@ Proof
     )
     THEN1 (
       (* e ~> FFI diverge *)
-      rename1 `evaluate_ck _ _ _ [e] = (_, Rerr (Rabort (Rffi_error (Final_event s conf bytes _))))` \\
+      rename1 `evaluate_ck _ _ _ [e] = (_, Rerr (Rabort (Rffi_error (Final_event
+      (ExCall s) conf bytes _))))` \\
       asm_exists_tac \\
       qexists_tac `FFIDiv s conf bytes` \\
       fs[evaluate_ck_def,SEP_IMPPOST_VARIANTS,SEP_IMP_def] \\
@@ -3452,7 +3454,7 @@ Theorem cf_sound':
             st2heap p st' = heap
           | FFIDiv name conf bytes => ∃ck st'.
             evaluate (st with clock := ck) env [e] =
-            (st', Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged)))) /\
+            (st', Rerr (Rabort (Rffi_error (Final_event (ExtCall name) conf bytes FFI_diverged)))) /\
             st'.next_type_stamp = st.next_type_stamp ∧
             st'.next_exn_stamp = st.next_exn_stamp ∧
             st2heap p st' = heap
@@ -3494,7 +3496,7 @@ Theorem cf_sound_local:
             st2heap p st' = heap
           | FFIDiv name conf bytes => ∃ck st'.
             evaluate (st with clock := ck) env [e] =
-            (st', Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged)))) /\
+            (st', Rerr (Rabort (Rffi_error (Final_event (ExtCall name) conf bytes FFI_diverged)))) /\
             st'.next_type_stamp = st.next_type_stamp ∧
             st'.next_exn_stamp = st.next_exn_stamp ∧
             st2heap p st' = heap

@@ -4,7 +4,7 @@
 open preamble
      semanticsPropsTheory backendProofTheory
      ag32_configProofTheory ag32_machine_configTheory
-     ag32_memoryProofTheory ag32_basis_ffiProofTheory
+     ag32_memoryProofTheory ag32_basis_ffiProofTheory ag32_ffi_codeProofTheory
      compiler32ProgTheory ag32BootstrapTheory
 
 val _ = new_theory"ag32BootstrapProof";
@@ -71,13 +71,13 @@ val LENGTH_data =
   |> (REWRITE_CONV[ag32BootstrapTheory.data_def] THENC listLib.LENGTH_CONV);
 
 Overload cake_machine_config =
-  ``ag32_machine_config (THE config.lab_conf.ffi_names) (LENGTH code) (LENGTH data)``
+  ``ag32_machine_config (extcalls config.lab_conf.ffi_names) (LENGTH code) (LENGTH data)``
 
 Theorem target_state_rel_cake_start_asm_state:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (THE config.lab_conf.ffi_names) (cl,inp)) ms ⇒
-   ∃n. target_state_rel ag32_target (init_asm_state code data (THE config.lab_conf.ffi_names) (cl,inp)) (FUNPOW Next n ms) ∧
+   is_ag32_init_state (init_memory code data (extcalls config.lab_conf.ffi_names) (cl,inp)) ms ⇒
+   ∃n. target_state_rel ag32_target (init_asm_state code data (extcalls config.lab_conf.ffi_names) (cl,inp)) (FUNPOW Next n ms) ∧
        ((FUNPOW Next n ms).io_events = ms.io_events) ∧
        (∀x. x ∉ (ag32_startup_addresses) ⇒
          ((FUNPOW Next n ms).MEM x = ms.MEM x))
@@ -86,8 +86,8 @@ Proof
   \\ drule (GEN_ALL init_asm_state_RTC_asm_step)
   \\ disch_then drule
   \\ simp_tac std_ss []
-  \\ disch_then(qspecl_then[`code`,`data`,`THE config.lab_conf.ffi_names`]mp_tac)
-  \\ impl_tac >- ( EVAL_TAC>> fs[ffi_names,LENGTH_data,LENGTH_code])
+  \\ disch_then(qspecl_then[`code`,`data`,`extcalls config.lab_conf.ffi_names`]mp_tac)
+  \\ impl_tac >- ( EVAL_TAC>> fs[ffi_names,LENGTH_data,LENGTH_code,extcalls_def])
   \\ strip_tac
   \\ drule (GEN_ALL target_state_rel_ag32_init)
   \\ rveq
@@ -124,20 +124,30 @@ Theorem cake_compiled_thm =
   |> DISCH_ALL
   |> check_thm;
 
+Triviality to_MAP_ExtCall:
+  [ExtCall n] = MAP ExtCall [n] ∧
+  (ExtCall n::MAP ExtCall ns) = MAP ExtCall (n::ns)
+Proof
+  fs []
+QED
+
 Theorem cake_installed:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (THE config.lab_conf.ffi_names) (cl,inp)) ms0 ⇒
+   is_ag32_init_state (init_memory code data (extcalls config.lab_conf.ffi_names) (cl,inp)) ms0 ⇒
    installed code 0 data 0 config.lab_conf.ffi_names
      (heap_regs ag32_backend_config.stack_conf.reg_names)
      (cake_machine_config) (FUNPOW Next (cake_startup_clock ms0 inp cl) ms0)
 Proof
-  rewrite_tac[ffi_names, THE_DEF]
+  rewrite_tac[ffi_names, extcalls_def]
+  \\ rewrite_tac [to_MAP_ExtCall]
   \\ strip_tac
+  \\ ‘SOME [] = SOME (MAP ffi$ExtCall [])’ by fs []
+  \\ pop_assum $ once_rewrite_tac o single
   \\ irule ag32_installed
   \\ drule cake_startup_clock_def
   \\ disch_then drule
-  \\ rewrite_tac[ffi_names, THE_DEF]
+  \\ rewrite_tac[ffi_names, extcalls_def]
   \\ disch_then drule
   \\ strip_tac
   \\ simp[ag32_memoryTheory.ffi_exitpcs_def]
@@ -492,7 +502,7 @@ QED
 Theorem cake_ag32_next:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ wfcl cl ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (THE config.lab_conf.ffi_names) (cl,inp)) ms0
+   is_ag32_init_state (init_memory code data (extcalls config.lab_conf.ffi_names) (cl,inp)) ms0
   ⇒
    ∃k1. ∀k. k1 ≤ k ⇒
      let ms = FUNPOW Next k ms0 in
@@ -511,9 +521,9 @@ Proof
   \\ impl_tac >- fs[STD_streams_stdin_fs, wfFS_stdin_fs]
   \\ strip_tac
   \\ irule ag32_next
-  \\ conj_tac >- simp[ffi_names]
-  \\ conj_tac >- (simp[ffi_names, LENGTH_code, LENGTH_data] \\ EVAL_TAC)
-  \\ conj_tac >- (simp[ffi_names] \\ EVAL_TAC)
+  \\ conj_tac >- simp[ffi_names,extcalls_def]
+  \\ conj_tac >- (simp[ffi_names,extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC)
+  \\ conj_tac >- (simp[ffi_names,extcalls_def] \\ EVAL_TAC)
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ goal_assum(first_assum o mp_then Any mp_tac)
