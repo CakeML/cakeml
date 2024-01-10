@@ -10,7 +10,7 @@ Type cclause = ``:int list``;
 Type strxor = ``:mlstring``;
 Type rawxor = ``:int list``;
 
-Definition values_def:
+Definition values_def: (* TODO: replace with range_def *)
   values s = {v | ∃n. lookup n s = SOME v}
 End
 
@@ -88,8 +88,8 @@ Definition isat_xfml_def:
 End
 
 Definition isat_fml_def:
-  isat_fml w (cfml,xfml) ⇔
-  isat_cfml w cfml ∧ isat_xfml w xfml
+  isat_fml w f (cfml,xfml) ⇔
+  isat_cfml w cfml ∧ isat_xfml (w o f) xfml
 End
 
 (* Connection to the top-level semantics *)
@@ -1265,8 +1265,8 @@ QED
 
 Theorem delete_clauses_sound:
   ∀l fml.
-  isat_fml w (values fml,x) ⇒
-  isat_fml w (values (FOLDL (λa b. delete b a) fml l),x)
+  isat_fml w f (values fml,x) ⇒
+  isat_fml w f (values (FOLDL (λa b. delete b a) fml l),x)
 Proof
   Induct>>simp[]>>
   rw[]>>
@@ -1275,8 +1275,8 @@ QED
 
 Theorem delete_xors_sound:
   ∀l x.
-  isat_fml w (fml,values x) ⇒
-  isat_fml w (fml, values (FOLDL (λa b. delete b a) x l))
+  isat_fml w f (fml,values x) ⇒
+  isat_fml w f (fml, values (FOLDL (λa b. delete b a) x l))
 Proof
   Induct>>simp[]>>
   rw[]>>
@@ -1524,60 +1524,291 @@ Proof
   metis_tac[isat_cfml_get_clauses,imp_cclause_imp]
 QED
 
-(* TODO: needs an invariant on tn and
-  how it remaps w when passing to xfml *)
+Definition tn_inv_def:
+  tn_inv (t,n) ⇔
+    0 < n ∧ ∀i v. lookup i t = SOME v ⇒ v ≠ 0:num ∧ v < n ∧
+    (∀n1 n2 k.
+       lookup n1 t = SOME k ∧
+       lookup n2 t = SOME k ⇒ n1 = n2)
+End
+
+Definition restore_fn_def:
+  restore_fn ((t,n):num sptree$num_map # num) v =
+    case (some k. lookup k t = SOME v) of
+    | NONE => 0
+    | SOME k => k
+End
+
+Definition restore_lit_def:
+  restore_lit tn (Pos n) = Pos (restore_fn tn n) ∧
+  restore_lit tn (Neg n) = Neg (restore_fn tn n)
+End
+
+Definition can_restore_def:
+  can_restore (t,_:num) n = (∃k. lookup k t = SOME (n:num))
+End
+
+Definition can_restore_lit_def:
+  can_restore_lit tn (Pos n) = can_restore tn n ∧
+  can_restore_lit tn (Neg n) = can_restore tn n
+End
+
+Definition tn_submap_def:
+  tn_submap tn tn' ⇔
+    (∀k. can_restore tn k ⇒
+         can_restore tn' k ∧
+         restore_fn tn' k = restore_fn tn k)
+End
+
+Definition can_restore_str_def:
+  can_restore_str tn (s:mlstring) =
+    ∀i. i < LENGTH (string_to_bits s) ∧
+        EL i (string_to_bits s) ⇒
+        can_restore tn i
+End
+
+Theorem tn_submap_refl:
+  tn_submap tn tn
+Proof
+  gvs [tn_submap_def]
+QED
+
+Theorem tn_submap_trans:
+  tn_submap tn1 tn2 ∧ tn_submap tn2 tn3 ⇒ tn_submap tn1 tn3
+Proof
+  gvs [tn_submap_def]
+QED
+
+Theorem tn_inv_get_name:
+  get_name tn n = (m,tn') ∧ tn_inv tn ⇒
+  m ≠ 0 ∧
+  tn_inv tn' ∧
+  can_restore tn' m ∧
+  restore_fn tn' m = n ∧
+  tn_submap tn tn'
+Proof
+  PairCases_on ‘tn’
+  \\ gvs [get_name_def,AllCaseEqs(),tn_inv_def,tn_submap_def] \\ rw []
+  \\ gvs [tn_inv_def,lookup_insert,can_restore_def,tn_submap_def] \\ rw []
+  \\ res_tac \\ gvs [restore_fn_def,tn_submap_def,lookup_insert]
+  >-
+   (CCONTR_TAC
+    \\ Cases_on ‘n1 = i’ \\ gvs []
+    \\ Cases_on ‘n2 = i’ \\ gvs []
+    \\ res_tac \\ gvs [])
+  >-
+   (CCONTR_TAC
+    \\ Cases_on ‘n1 = n’ \\ gvs []
+    \\ Cases_on ‘n2 = n’ \\ gvs []
+    \\ res_tac \\ gvs [])
+  >- metis_tac []
+  >- (DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
+      >- (Cases_on ‘lookup x tn0’ \\ gvs [] \\ res_tac \\ gvs [])
+      \\ gvs [AllCaseEqs()] \\ metis_tac [])
+  >- (qexists_tac ‘k'’ \\ fs [AllCaseEqs()] \\ CCONTR_TAC \\ gvs [])
+  >-
+   (DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
+    >- (DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
+        \\ gvs [AllCaseEqs()] \\ metis_tac [])
+    \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
+    \\ CCONTR_TAC \\ Cases_on ‘x = n’ \\ gvs [] \\ metis_tac [])
+  >- metis_tac []
+  >-
+    (DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
+     \\ res_tac \\ gvs [])
+  >- metis_tac []
+QED
+
+Theorem ren_lit_ls_nz_lit:
+  ∀tn xs acc ys tn'.
+    ren_lit_ls tn xs acc = (ys,tn') ∧ EVERY nz_lit xs ∧
+    EVERY nz_lit acc ∧ tn_inv tn ⇒
+    EVERY nz_lit ys
+Proof
+  Induct_on ‘xs’ \\ gvs [ren_lit_ls_def]
+  \\ Cases \\ fs [ren_lit_ls_def] \\ rw []
+  \\ pairarg_tac \\ gvs []
+  \\ first_x_assum $ drule_then $ irule \\ gvs []
+  \\ drule tn_inv_get_name \\ gvs []
+QED
+
+Theorem ren_lit_ls_tn_inv:
+  ∀tn xs acc ys tn'.
+    ren_lit_ls tn xs acc = (ys,tn') ∧ tn_inv tn ⇒
+    tn_inv tn'
+Proof
+  Induct_on ‘xs’ \\ gvs [ren_lit_ls_def]
+  \\ Cases \\ fs [ren_lit_ls_def] \\ rw []
+  \\ pairarg_tac \\ gvs []
+  \\ first_x_assum $ drule_then $ irule \\ gvs []
+  \\ drule tn_inv_get_name \\ gvs []
+QED
+
+Theorem every_can_restore_lit_submap:
+  tn_submap tn tn' ∧
+  EVERY (can_restore_lit tn) acc ⇒
+  EVERY (can_restore_lit tn') acc
+Proof
+  Induct_on ‘acc’ \\ fs []
+  \\ Cases \\ fs [can_restore_lit_def]
+  \\ gvs [tn_submap_def]
+QED
+
+Theorem ren_lit_ls_restore_acc:
+  ∀tn xs acc ys tn'.
+    ren_lit_ls tn xs acc = (ys,tn') ∧ tn_inv tn ∧
+    EVERY (can_restore_lit tn) acc
+    ⇒
+    MAP (restore_lit tn') ys = MAP (restore_lit tn') (REVERSE acc) ++ xs ∧
+    EVERY (can_restore_lit tn') ys ∧
+    tn_submap tn tn'
+Proof
+  Induct_on ‘xs’
+  \\ fs [ren_lit_ls_def,tn_submap_refl]
+  \\ Cases \\ gvs [] \\ rpt gen_tac \\ strip_tac
+  \\ pairarg_tac \\ gvs []
+  \\ last_x_assum drule
+  \\ drule_all tn_inv_get_name \\ strip_tac \\ gvs []
+  \\ gvs [can_restore_lit_def,restore_lit_def]
+  \\ drule_all every_can_restore_lit_submap \\ fs []
+  \\ gvs [tn_submap_trans,SF SFY_ss] \\ gvs [tn_submap_def]
+QED
+
+Theorem ren_lit_ls_restore:
+  ∀tn xs ys tn'.
+    ren_lit_ls tn xs [] = (ys,tn') ∧ tn_inv tn ⇒
+    MAP (restore_lit tn') ys = xs ∧
+    EVERY (can_restore_lit tn') ys ∧
+    tn_submap tn tn'
+Proof
+  rpt gen_tac \\ strip_tac
+  \\ drule ren_lit_ls_restore_acc \\ fs []
+QED
+
+Theorem ren_int_ls_tn_inv:
+  ∀tn xs acc ys tn'.
+    ren_int_ls tn xs acc = (ys,tn') ∧ tn_inv tn ⇒
+    tn_inv tn'
+Proof
+  Induct_on ‘xs’ \\ gvs [ren_int_ls_def]
+  \\ Cases \\ fs [ren_int_ls_def] \\ rw []
+  \\ pairarg_tac \\ gvs []
+  \\ first_x_assum $ drule_then $ irule \\ gvs []
+  \\ drule tn_inv_get_name \\ gvs []
+QED
+
+Theorem can_restore_str_conv_xor_mv:
+  can_restore_str tn (conv_xor_mv def mX) = EVERY (can_restore_lit tn) mX
+Proof
+  fs [conv_xor_mv_def, conv_rawxor_def, GSYM conv_xor_def]
+  \\ cheat
+QED
+
+Theorem sat_cmsxor_restore_fn:
+  sat_cmsxor (w ∘ restore_fn tn) mX = sat_cmsxor w (MAP (restore_lit tn) mX)
+Proof
+  fs [sat_cmsxor_def,GSYM MAP_MAP_o]
+  \\ rpt AP_TERM_TAC
+  \\ Induct_on ‘mX’ \\ fs []
+  \\ Cases \\ gvs [restore_lit_def,sat_lit_def]
+QED
+
+Theorem can_restore_str_submap:
+  tn_submap tn tn' ∧ can_restore_str tn s ⇒ can_restore_str tn' s
+Proof
+  fs [can_restore_str_def,tn_submap_def]
+QED
+
+Theorem isat_strxor_restore_str_submap:
+  tn_submap tn tn' ∧
+  can_restore_str tn C ∧
+  isat_strxor (w ∘ restore_fn tn) C ⇒
+  isat_strxor (w ∘ restore_fn tn') C
+Proof
+  gvs [isat_strxor_def,sum_bitlist_alt] \\ rw []
+  \\ pop_assum mp_tac
+  \\ pop_assum mp_tac
+  \\ rewrite_tac [can_restore_str_def]
+  \\ qabbrev_tac ‘x = string_to_bits C’
+  \\ rw []
+  \\ pop_assum mp_tac
+  \\ match_mp_tac (METIS_PROVE [] “b = x ⇒ (b ⇒ x)”)
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ pop_assum mp_tac
+  \\ pop_assum kall_tac
+  \\ Induct_on ‘x’ using SNOC_INDUCT >- gvs []
+  \\ gvs [SNOC_APPEND,indexedListsTheory.MAPi_APPEND]
+  \\ rw []
+  >-
+   (first_x_assum irule \\ rw [] \\ first_x_assum irule \\ fs []
+    \\ metis_tac [rich_listTheory.EL_APPEND1])
+  \\ first_x_assum $ qspec_then ‘LENGTH x’ mp_tac
+  \\ gvs [rich_listTheory.EL_LENGTH_APPEND]
+  \\ gvs [tn_submap_def,SF CONJ_ss]
+QED
+
 Theorem check_xlrup_sound:
   wf_xlrup xlrup ∧
   check_xlrup xorig xlrup cfml xfml tn def =
-    SOME (cfml',xfml',tn',def') ∧
+    SOME (cfml',xfml',tn',def') ∧ tn_inv tn ∧
   (∀x. MEM x xorig ⇒ sat_cmsxor w x) ∧
-  isat_fml w (values cfml, values xfml) ⇒
-  isat_fml w (values cfml', values xfml')
+  (∀s. s ∈ values xfml ⇒ can_restore_str tn s) ∧
+  isat_fml w (restore_fn tn) (values cfml, values xfml)
+  ⇒
+  (∀s. s ∈ values xfml' ⇒ can_restore_str tn' s) ∧
+  isat_fml w (restore_fn tn') (values cfml', values xfml')
 Proof
-  cheat
-  (*
-  rw[check_xlrup_def]>>
+  simp[check_xlrup_def]>>strip_tac>>
   gvs[AllCaseEqs()]
-  >- (* deleting clauses by ID *)
+  >~ [‘Del’] >- (* deleting clauses by ID *)
     metis_tac[delete_clauses_sound]
-  >- ( (* RUP *)
+  >~ [‘RUP’] >- (
     fs[isat_fml_def]>>
     match_mp_tac isat_cfml_insert>>
     simp[]>>
     match_mp_tac (GEN_ALL is_rup_sound)>>gvs[]>>
     asm_exists_tac>>simp[])
-  >- ( (* XOrig *)
-    fs[isat_fml_def,isat_xfml_def]>>
-    fs[values_def,PULL_EXISTS,lookup_insert]>>rw[]>>
-    gvs[AllCaseEqs()]
-    >- (
-      first_x_assum drule>>
-      fs[wf_xlrup_def]>>
-      rw[conv_xor_mv_def,conv_rawxor_def, GSYM conv_xor_def]>>
-      drule conv_xor_sound>>
-      rw[]>>
-      DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
-      simp[isat_strxor_extend_s]>>
-      CONJ_TAC >-
-        (EVAL_TAC>>rw[])>>
-      EVAL_TAC)>>
-    metis_tac[])
-  >- ( (* XAdd *)
+  >~ [‘XOrig’] >- (
+    pairarg_tac \\ gvs [] \\ res_tac >>
+    fs[isat_fml_def,isat_xfml_def,PULL_EXISTS]>>
+    fs[values_def,PULL_EXISTS,lookup_insert]>>
+    conj_tac >-
+     (rw []
+      \\ fs [can_restore_str_conv_xor_mv]
+      \\ res_tac \\ drule_all ren_lit_ls_restore \\ fs []
+      \\ metis_tac [can_restore_str_submap]) >>
+    reverse (rw[]) >-
+     (res_tac \\ drule_all ren_lit_ls_restore
+      \\ strip_tac
+      \\ drule_all isat_strxor_restore_str_submap \\ fs []) >>
+    fs[wf_xlrup_def] >>
+    rw[conv_xor_mv_def,conv_rawxor_def, GSYM conv_xor_def]>>
+    DEP_REWRITE_TAC [conv_xor_sound] >>
+    DEP_REWRITE_TAC[isat_strxor_flip_bit] >>
+    simp[isat_strxor_extend_s]>>
+    conj_tac >- (EVAL_TAC \\ simp [MAX_DEF]) >>
+    drule ren_lit_ls_nz_lit \\ rw [] >>
+    simp [isat_strxor_def,string_to_bits_def,sum_bitlist_def,
+          sat_cmsxor_restore_fn] >>
+    drule_all ren_lit_ls_restore >>
+    strip_tac \\ fs [])
+  >~ [‘XAdd’] >- cheat (*
     fs[isat_fml_def]>>
     match_mp_tac isat_xfml_insert>>
     simp[]>>
     match_mp_tac (GEN_ALL is_xor_sound)>>gvs[]>>
-    metis_tac[])
-  >- (* deleting XORs by ID *)
-    metis_tac[delete_xors_sound]
-  >- ( (* CFromX *)
+    metis_tac[]) *)
+  >~ [‘XDel’] >- cheat (* deleting XORs by ID
+    metis_tac[delete_xors_sound] *)
+  >~ [‘CFromX ’] >- cheat (*
     fs[isat_fml_def]>>
     match_mp_tac isat_cfml_insert>>
     simp[]>>
     match_mp_tac (GEN_ALL is_cfromx_sound)>>gvs[]>>
     fs[wf_xlrup_def]>>
-    metis_tac[])
-  >- ( (* XFromC *)
+    metis_tac[]) *)
+  >~ [‘XFromC’] >- cheat (*
     fs[isat_fml_def]>>
     match_mp_tac isat_xfml_insert>>
     simp[]>>
@@ -1598,15 +1829,27 @@ Proof
     EVAL_TAC) *)
 QED
 
+Theorem check_xlrup_tn_inv:
+  check_xlrup xorig xlrup cfml xfml tn def = SOME (cfml',xfml',tn',def') ∧ tn_inv tn ⇒
+  tn_inv tn'
+Proof
+  rw[check_xlrup_def]
+  \\ gvs[AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ gvs [])
+  >- (drule ren_lit_ls_tn_inv \\ fs [])
+  \\ drule ren_int_ls_tn_inv \\ fs []
+QED
+
 (* The main operational theorem about check_xlrups *)
 Theorem check_xlrups_sound:
   ∀ls cfml xfml def def' tn tn'.
-  EVERY wf_xlrup ls ∧
+  EVERY wf_xlrup ls ∧ tn_inv tn ∧
   check_xlrups xorig ls cfml xfml tn def =
     SOME (cfml',xfml', tn', def') ∧
+  (∀s. s ∈ values xfml ⇒ can_restore_str tn s) ∧
   (∀x. MEM x xorig ⇒ sat_cmsxor w x) ⇒
-  (isat_fml w (values cfml, values xfml) ⇒
-   isat_fml w (values cfml', values xfml'))
+  (isat_fml w (restore_fn tn) (values cfml, values xfml) ⇒
+   isat_fml w (restore_fn tn') (values cfml', values xfml'))
 Proof
   Induct>>simp[check_xlrups_def]>>
   rw[]>>
@@ -1617,6 +1860,7 @@ Proof
   strip_tac>>
   first_x_assum drule_all>>
   rw[]>>
+  drule_all check_xlrup_tn_inv>>
   metis_tac[]
 QED
 
@@ -1675,6 +1919,7 @@ Proof
   fs[]>>
   PairCases_on`r`>>drule check_xlrups_sound>>
   disch_then (drule_at Any)>>
+  ‘tn_inv (LN,1)’ by fs [tn_inv_def]>>
   fs[isat_fml_def,values_build_fml]>>
   simp[values_def,isat_xfml_def]>>
   metis_tac[]
