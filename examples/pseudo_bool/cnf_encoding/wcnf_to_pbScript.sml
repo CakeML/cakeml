@@ -85,10 +85,10 @@ Definition wclause_to_pbc_def:
     ([(GreaterEqual,enc_clause C,1:int)],[])
   else (* soft clauses *)
   if LENGTH C = 1 then
-    ([],[((&n:int),negate (enc_lit (HD C)))])
+    ([],[((-&n:int),enc_lit (HD C))])
   else
     ([(GreaterEqual,(1,Neg (INR i)) :: enc_clause C,1)],
-     [((&n:int),Neg (INR i))])
+     [((-&n:int),Pos (INR i))])
 End
 
 (* Encoding a weighted formula *)
@@ -114,31 +114,24 @@ Definition full_encode_def:
   MAP (map_pbc enc_string) pbf)
 End
 
-Definition iMAX_def:
-  iMAX (x:int) y =
-  if x ≤ y then y else x
+Definition nn_int_def:
+  nn_int i = if i < 0 then 0:num else Num i
 End
 
-(* Convert a VeriPB conclusion into a MAX SAT conclusion
-  Here, n is the sum of weights
-  NONE represents -INF *)
+(* Convert a VeriPB conclusion into a MAX SAT conclusion *)
 Definition conv_concl_def:
-  (conv_concl n NoConcl = SOME NONE) ∧
-  (conv_concl n (OBounds lbi ubi) =
+  (conv_concl NoConcl = SOME NONE) ∧
+  (conv_concl (OBounds lbi ubi) =
   let ubg =
     case lbi of
       NONE => NONE
-    | SOME lb => SOME(n - Num (iMAX lb 0)) in
+    | SOME lb => SOME (nn_int (-lb)) in
   let lbg =
     case ubi of NONE => NONE
     | SOME ub =>
-      SOME (n - Num (ABS ub)) in
+      SOME (nn_int (-ub)) in
     SOME (SOME (lbg,ubg))) ∧
-  (conv_concl _ _ = NONE)
-End
-
-Definition nn_int_def:
-  nn_int i = if i < 0 then 0:num else Num i
+  (conv_concl _ = NONE)
 End
 
 (* Convert a VeriPB output into a MAX SAT output
@@ -210,13 +203,6 @@ Proof
   fs[]
 QED
 
-(* The objective is the sum of weights of all unsatisfied
-  constraints *)
-Definition nweight_clause_def:
-  nweight_clause w ((n,C):wcclause) =
-  if ¬satisfies_clause w (interp_cclause C) then n else 0
-End
-
 Theorem interp_cclause_FILTER:
   interp_cclause C =
   interp_cclause (FILTER (λl. l ≠ 0) C)
@@ -224,14 +210,6 @@ Proof
   rw[interp_cclause_def]>>
   simp[EXTENSION,MEM_FILTER]>>
   metis_tac[]
-QED
-
-Theorem nweight_clause_FILTER:
-  nweight_clause w (n,C) =
-  nweight_clause w (n, FILTER (λl. l ≠ 0) C)
-Proof
-  rw[nweight_clause_def]>>
-  metis_tac[interp_cclause_FILTER]
 QED
 
 Theorem EVERY_FILTER:
@@ -249,13 +227,21 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Theorem weight_clause_FILTER:
+  weight_clause w (n,C) =
+  weight_clause w (n, FILTER (λl. l ≠ 0) C)
+Proof
+  rw[weight_clause_def]>>
+  metis_tac[interp_cclause_FILTER]
+QED
+
 (* The sum of weights for unsatisfied clauses is
-  upper bounded by the obj *)
-Theorem nweight_clause_obj_upper:
+  upper bounded by the (negated) obj *)
+Theorem weight_clause_obj_upper:
   wfml_to_pbf wfml = (obj,pbf) ∧
   satisfies w (set pbf) ⇒
-  &(SUM (MAP (nweight_clause (w o INL)) wfml)) ≤
-  eval_obj obj w
+  - eval_obj obj w ≤
+  &(SUM (MAP (weight_clause (w o INL)) wfml))
 Proof
   rw[wfml_to_pbf_def,eval_obj_def]>>
   simp[eval_lin_term_def,MAP_FLAT,MAP_MAP_o,o_DEF]>>
@@ -272,10 +258,10 @@ Proof
   qmatch_goalsub_abbrev_tac`LENGTH C = 1`>>
   `wf_clause C` by
     fs[Abbr`C`,wf_clause_def,MEM_FILTER]>>
-  `nweight_clause (λx. w (INL x)) (q,r) =
-   nweight_clause (λx. w (INL x)) (q,C)` by
-    metis_tac[Abbr`C`,nweight_clause_FILTER]>>
-  rw[]>>simp[nweight_clause_def,iSUM_def]
+  `weight_clause (λx. w (INL x)) (q,r) =
+   weight_clause (λx. w (INL x)) (q,C)` by
+    metis_tac[Abbr`C`,weight_clause_FILTER]>>
+  rw[]>>simp[weight_clause_def,iSUM_def]
   >- (
     Cases_on`C`>>fs[]>>
     IF_CASES_TAC>>
@@ -285,19 +271,13 @@ Proof
   fs[wclause_to_pbc_def,satisfies_pbc_cons]>>
   Cases_on`w (INR k)`>>fs[]
   >- (
-    rw[]>>
-    metis_tac[satisfies_pbc_satisfies_clause])>>
+    rw[]
+    >-
+      intLib.ARITH_TAC>>
+    metis_tac[satisfies_pbc_satisfies_clause]
+    )>>
   rw[]>>
   intLib.ARITH_TAC
-QED
-
-Theorem SUM_FST_eq_weight_nweight:
-  SUM (MAP FST wfml) =
-  weight w wfml + SUM (MAP (nweight_clause w) wfml)
-Proof
-  Induct_on`wfml`>>rw[weight_def]>>
-  Cases_on`h`>>simp[nweight_clause_def,weight_clause_def]>>rw[]>>
-  metis_tac[]
 QED
 
 (* Prove correctness of the encoding:
@@ -310,7 +290,7 @@ Theorem encode_correct_pbf_cnf:
   wfml_to_pbf wfml = (obj,pbf) ∧
   satisfies w (set pbf) ⇒
   satisfies_hard (w o INL) wfml ∧
-  &(SUM (MAP (nweight_clause (w o INL)) wfml)) ≤ eval_obj obj w
+  - eval_obj obj w ≤ &(SUM (MAP (weight_clause (w o INL)) wfml))
 Proof
   rw[]
   >- (
@@ -326,8 +306,8 @@ Proof
     strip_tac>>simp[Once interp_cclause_FILTER]>>
     match_mp_tac satisfies_pbc_satisfies_clause>>
     simp[wf_clause_def,MEM_FILTER])>>
-  drule_all nweight_clause_obj_upper>>
-  pop_assum mp_tac>>simp[]
+  drule_all weight_clause_obj_upper>>
+  simp[]
 QED
 
 Theorem iSUM_APPEND:
@@ -356,7 +336,7 @@ Theorem encode_correct_cnf_pbf:
   satisfies_hard w wfml ⇒
   ∃w'.
     satisfies w' (set pbf) ∧
-    eval_obj obj w' = &(SUM (MAP (nweight_clause w) wfml))
+    eval_obj obj w' = -&(SUM (MAP (weight_clause w) wfml))
 Proof
   rw[]>>gvs[wfml_to_pbf_def]>>
   rename1`enumerate k wfml`>>
@@ -400,15 +380,15 @@ Proof
     simp[miscTheory.enumerate_def,iSUM_def]>>
   rw[]>>
   simp[miscTheory.enumerate_def,iSUM_APPEND]>>
-  qmatch_goalsub_abbrev_tac`A + B = &(C + D)`>>
-  qsuff_tac`A = &D ∧ B = &C`
+  qmatch_goalsub_abbrev_tac`A + B = -&(C + D)`>>
+  qsuff_tac`A = -&D ∧ B = -&C`
   >- (
     rpt(pop_assum kall_tac)>>
     intLib.ARITH_TAC)>>
   unabbrev_all_tac>>CONJ_TAC
   >- (
     Cases_on`h`>>
-    simp[wclause_to_pbc_def,nweight_clause_def,iSUM_def]>>
+    simp[wclause_to_pbc_def,weight_clause_def,iSUM_def]>>
     qmatch_goalsub_abbrev_tac`LENGTH C = 1`>>
     `wf_clause C` by
       fs[Abbr`C`,wf_clause_def,MEM_FILTER]>>
@@ -452,7 +432,7 @@ QED
 Theorem full_encode_sem_concl:
   full_encode wfml = (obj,pbf) ∧
   sem_concl (set pbf) obj concl ∧
-  conv_concl (SUM (MAP FST wfml)) concl = SOME (SOME (lbg, ubg)) ⇒
+  conv_concl concl = SOME (SOME (lbg, ubg)) ⇒
   (case ubg of
     NONE => unsatisfiable_hard wfml
   | SOME ub => (∀w. satisfies_hard w wfml ⇒ weight w wfml ≤ ub)) ∧
@@ -489,17 +469,14 @@ Proof
     rw[]>>
     first_x_assum drule>>rw[]>>
     first_x_assum drule>>rw[]>>
-    `Num (iMAX x 0) ≤ SUM (MAP (nweight_clause w) wfml)` by
-      (rw[iMAX_def]>>
-      intLib.ARITH_TAC)>>
-    assume_tac SUM_FST_eq_weight_nweight>>
+    simp[weight_def]>>rw[nn_int_def]>>
     intLib.ARITH_TAC)>>
   (* Upper bound from PB optimization *)
   qpat_x_assum`_ lbi _ _` kall_tac>>
   every_case_tac>>fs[]>>
   drule_all encode_correct_pbf_cnf>>rw[]>>
   first_x_assum (irule_at Any)>>
-  assume_tac (Q.GEN `w` SUM_FST_eq_weight_nweight |> Q.SPEC`(w:enc_var->bool) o INL`)>>
+  rw[nn_int_def,weight_def]>>
   intLib.ARITH_TAC
 QED
 
@@ -523,15 +500,18 @@ Proof
   `FINITE (count (SUM (MAP FST wfml) + 1))` by fs[]>>
   drule_then match_mp_tac SUBSET_FINITE>>
   simp[IMAGE_DEF,SUBSET_DEF]>>rw[]>>
-  assume_tac SUM_FST_eq_weight_nweight>>
-  fs[]
+  simp[weight_def] >>
+  simp[GSYM LE_LT1]>>
+  match_mp_tac SUM_MAP_same_LE >>
+  rw[EVERY_MEM,FORALL_PROD,weight_clause_def]>>
+  rw[]
 QED
 
 (* Special case *)
 Theorem full_encode_sem_concl_max_sat:
   full_encode wfml = (obj,pbf) ∧
   sem_concl (set pbf) obj concl ∧
-  conv_concl (SUM (MAP FST wfml)) concl = SOME (SOME (lbg, ubg)) ⇒
+  conv_concl concl = SOME (SOME (lbg, ubg)) ⇒
   (ubg = NONE ⇒ max_sat wfml = NONE) ∧
   (lbg = ubg ⇒ max_sat wfml = lbg)
 Proof
@@ -555,7 +535,6 @@ Theorem full_encode_sem_output:
   full_encode wfml = (obj,pbf) ∧
   full_encode wfml' = (obj',pbf') ∧
   pbc$sem_output (set pbf) obj bound (set pbf') obj' output ∧
-  SUM (MAP FST wfml) = SUM (MAP FST wfml') ∧
   conv_output bound output = SOME T ⇒
   ∀v.
     ((∃w. satisfies_hard w wfml ∧ v ≤ weight w wfml) ⇔
@@ -587,10 +566,7 @@ Proof
     drule_all encode_correct_pbf_cnf>>
     rw[]>>
     first_x_assum(irule_at Any)>>
-    assume_tac (GEN_ALL SUM_FST_eq_weight_nweight)>>
-    first_assum(qspecl_then[`wfml`,`w`] mp_tac)>>
-    first_x_assum(qspecl_then[`wfml'`,`w'' o INL`] mp_tac)>>
-    rw[]>>
+    fs[weight_def]>>
     intLib.ARITH_TAC)
   >- (
     drule_all encode_correct_cnf_pbf>>rw[]>>
@@ -601,10 +577,7 @@ Proof
     drule_all encode_correct_pbf_cnf>>
     rw[]>>
     first_x_assum(irule_at Any)>>
-    assume_tac (GEN_ALL SUM_FST_eq_weight_nweight)>>
-    first_assum(qspecl_then[`wfml'`,`w'`] mp_tac)>>
-    first_x_assum(qspecl_then[`wfml`,`w o INL`] mp_tac)>>
-    rw[]>>
+    fs[weight_def]>>
     intLib.ARITH_TAC)
 QED
 
@@ -613,7 +586,6 @@ Theorem full_encode_sem_output_max_sat:
   full_encode wfml = (obj,pbf) ∧
   full_encode wfml' = (obj',pbf') ∧
   pbc$sem_output (set pbf) obj bound (set pbf') obj' output ∧
-  SUM (MAP FST wfml) = SUM (MAP FST wfml') ∧
   conv_output bound output = SOME T ⇒
   max_sat wfml = max_sat wfml'
 Proof

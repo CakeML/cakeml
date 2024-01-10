@@ -279,19 +279,13 @@ val res = translate enc_string_def;
 val _ = translate pbcTheory.map_obj_def;
 val _ = translate full_encode_def;
 
-Definition sum_fst_def:
-  sum_fst ls = SUM (MAP FST ls)
-End
-
-val _ = translate sum_fst_def;
-
 (* parse input from f1 and run encoder into npbc *)
 val parse_and_enc = (append_prog o process_topdecs) `
   fun parse_and_enc f1 =
   case parse_wcnf_full f1 of
     Inl err => Inl err
   | Inr wfml =>
-    Inr (sum_fst wfml, full_encode wfml)`
+    Inr (full_encode wfml)`
 
 Definition get_fml_def:
   get_fml fs f =
@@ -312,20 +306,19 @@ Theorem parse_and_enc_spec:
     STDIO fs *
     & ∃res.
        SUM_TYPE STRING_TYPE
-         (PAIR_TYPE NUM (PAIR_TYPE
+         (PAIR_TYPE
             (OPTION_TYPE (PAIR_TYPE
               (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
             INT))
             (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
-            )) res v ∧
+            ) res v ∧
        case res of
         INL err =>
           get_fml fs f1 = NONE
-      | INR (n,objf) =>
+      | INR objf =>
         ∃wfml.
         get_fml fs f1 = SOME wfml ∧
-        full_encode wfml = objf ∧
-        sum_fst wfml = n)
+        full_encode wfml = objf)
 Proof
   rw[]>>
   xcf"parse_and_enc"(get_ml_prog_state())>>
@@ -347,7 +340,7 @@ Proof
   rpt xlet_autop>>
   xcon>>xsimpl>>
   rename1`_ (full_encode ff)`>>
-  qexists_tac`INR (sum_fst ff,full_encode ff)`>>
+  qexists_tac`INR (full_encode ff)`>>
   simp[SUM_TYPE_def,PAIR_TYPE_def,get_fml_def]
 QED
 
@@ -414,18 +407,18 @@ Definition check_unsat_2_sem_def:
 End
 
 Definition map_concl_to_string_def:
-  (map_concl_to_string n (INL s) = (INL s)) ∧
-  (map_concl_to_string n (INR (out,bnd,c)) =
-    case conv_concl n c of
+  (map_concl_to_string (INL s) = (INL s)) ∧
+  (map_concl_to_string (INR (out,bnd,c)) =
+    case conv_concl c of
       SOME bounds => INR (print_maxsat_str bounds)
     | NONE => INL (strlit "c Unexpected conclusion for MAX SAT\n"))
 End
 
-val res = translate iMAX_def;
+val res = translate nn_int_def;
 val res = translate conv_concl_def;
 
 val conv_concl_side = Q.prove(
-  `∀x y. conv_concl_side x y <=> T`,
+  `∀y. conv_concl_side y <=> T`,
   EVAL_TAC>>
   rw[]>>
   intLib.ARITH_TAC) |> update_precondition;
@@ -437,10 +430,10 @@ val check_unsat_2 = (append_prog o process_topdecs) `
   fun check_unsat_2 f1 f2 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr (n,objf) =>
+  | Inr objf =>
     let val objft = default_objf in
       (case
-        map_concl_to_string n
+        map_concl_to_string
           (check_unsat_top_norm objf objft f2) of
         Inl err => TextIO.output TextIO.stdErr err
       | Inr s => TextIO.print s)
@@ -474,7 +467,6 @@ Proof
     qexists_tac`x`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
-  Cases_on`y`>>fs[PAIR_TYPE_def]>>
   xmatch>>
   assume_tac default_objf_v_thm>>
   xlet`POSTv v.
@@ -534,20 +526,20 @@ Proof
     every_case_tac>>fs[]
     >- (
       (drule_at Any) full_encode_sem_concl_max_sat>>
-      fs[sum_fst_def])
+      metis_tac[PAIR])
     >- (
       (drule_at Any) full_encode_sem_concl>>
-      fs[sum_fst_def]>>
+      fs[]>>
       disch_then (drule_at Any)>>simp[])
     >- (
       (drule_at Any) full_encode_sem_concl_max_sat>>
-      fs[sum_fst_def])
+      metis_tac[PAIR])
     >- (
       (drule_at Any) full_encode_sem_concl_max_sat>>
-      fs[sum_fst_def])
+      metis_tac[PAIR])
     >- (
       (drule_at Any) full_encode_sem_concl>>
-      fs[sum_fst_def]>>
+      fs[]>>
       disch_then (drule_at Any)>>simp[]))
 QED
 
@@ -563,7 +555,7 @@ val check_unsat_1 = (append_prog o process_topdecs) `
   fun check_unsat_1 f1 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr (n,objf) =>
+  | Inr objf =>
     TextIO.print_list (print_pbf objf)`
 
 Theorem check_unsat_1_spec:
@@ -591,7 +583,6 @@ Proof
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     rw[]>>
     qexists_tac`x`>>xsimpl)>>
-  Cases_on`y`>>gvs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
   xapp_spec print_list_spec>>xsimpl>>
@@ -628,20 +619,16 @@ Definition check_unsat_3_sem_def:
 End
 
 Definition map_out_concl_to_string_def:
-  (map_out_concl_to_string n n' (INL s) = (INL s)) ∧
-  (map_out_concl_to_string n n' (INR (out,bnd,c)) =
-  case conv_concl n c of
+  (map_out_concl_to_string (INL s) = (INL s)) ∧
+  (map_out_concl_to_string (INR (out,bnd,c)) =
+  case conv_concl c of
     NONE => INL (strlit "c Unexpected conclusion for MAX SAT\n")
   | SOME bounds =>
     (case conv_output bnd out of
       NONE => INL (strlit "c Unexpected output for MAX SAT\n")
     | SOME iseqopt =>
-      if (iseqopt ⇒ n = n')
-      then
         INR (print_maxsat_str bounds ^
-            print_maxsat_output_str iseqopt )
-      else
-        INL (strlit "c Mismatched weight sum in output\n")))
+            print_maxsat_output_str iseqopt )))
 End
 
 val res = translate conv_output_def;
@@ -652,12 +639,12 @@ val check_unsat_3 = (append_prog o process_topdecs) `
   fun check_unsat_3 f1 f2 f3 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr (n,objf) =>
+  | Inr objf =>
   (case parse_and_enc f3 of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr (nt,objft) =>
+  | Inr objft =>
       (case
-      map_out_concl_to_string n nt
+      map_out_concl_to_string
         (check_unsat_top_norm objf objft f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s))`
@@ -691,7 +678,6 @@ Proof
     qexists_tac`x`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
-  Cases_on`y`>>fs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
   Cases_on`res`>>fs[SUM_TYPE_def]
@@ -705,7 +691,6 @@ Proof
     qexists_tac`x`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
-  Cases_on`y`>>fs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_auto
   >- (
@@ -755,19 +740,6 @@ Proof
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
-  reverse IF_CASES_TAC>>simp[SUM_TYPE_def]
-  >- (
-    rw[]>>xmatch>>
-    xapp_spec output_stderr_spec \\ xsimpl>>
-    asm_exists_tac>>xsimpl>>
-    qexists_tac`emp`>>xsimpl>>
-    qexists_tac`fs`>>xsimpl>>
-    rw[]>>
-    qexists_tac`strlit ""`>>
-    rename1`add_stderr _ err`>>
-    qexists_tac`err`>>xsimpl>>rw[]>>
-    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
-    xsimpl)>>
   rw[]>>xmatch>>
   xapp>>xsimpl>>
   asm_exists_tac>>simp[]>>
@@ -785,25 +757,24 @@ Proof
     every_case_tac>>fs[]
     >- (
       (drule_at Any) full_encode_sem_concl_max_sat>>
-      fs[sum_fst_def])
+      metis_tac[PAIR])
     >- (
       (drule_at Any) full_encode_sem_concl>>
-      fs[sum_fst_def]>>
+      fs[]>>
       disch_then (drule_at Any)>>simp[])
     >- (
       (drule_at Any) full_encode_sem_concl_max_sat>>
-      fs[sum_fst_def])
+      metis_tac[PAIR])
     >- (
       (drule_at Any) full_encode_sem_concl_max_sat>>
-      fs[sum_fst_def])
+      metis_tac[PAIR])
     >- (
       (drule_at Any) full_encode_sem_concl>>
-      fs[sum_fst_def]>>
+      fs[]>>
       disch_then (drule_at Any)>>simp[]))>>
   rw[]>>fs[]>>
   (drule_at Any) full_encode_sem_output_max_sat>>
-  disch_then match_mp_tac>>
-  fs[sum_fst_def]>>
+  fs[]>>
   metis_tac[PAIR]
 QED
 
