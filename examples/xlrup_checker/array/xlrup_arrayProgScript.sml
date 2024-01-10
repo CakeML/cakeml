@@ -1013,7 +1013,7 @@ Definition tn_to_string_def:
   tn_to_string tn =
   let ls = toSortedAList (FST tn) in
   let ss = MAP (λ(k,v:num). toString k ^ strlit" -> " ^ toString v) ls in
-  concatWith (strlit ";") ss
+  concatWith (strlit " ; ") ss
 End
 
 val res = translate combine_rle_def;
@@ -1039,7 +1039,7 @@ val is_emp_xor_arr_aux = process_topdecs`
     else
       let val s = xor_to_string arr
         val tns = tn_to_string tn in
-      raise Fail (format_failure lno ("derived XOR not empty (=0), got: " ^ s ^ " variable map: " ^ tns))
+      raise Fail (format_failure lno ("derived XOR not empty (=0), got (internal var): " ^ s ^ " variable map (input var -> internal var): " ^ tns))
       end
   end
   else ()` |> append_prog;

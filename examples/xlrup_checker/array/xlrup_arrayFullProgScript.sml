@@ -547,12 +547,11 @@ val check_unsat_2 = (append_prog o process_topdecs) `
       val one = 1
       val carr = Array.array (2*ncx) None
       val carr = fill_arr carr one cfml
-      val def = 0
       val xarr = Array.array (2*ncx) None
       val tn = (Ln, 1)
       val bnd = 2*mv + 3
   in
-    case check_unsat' xfml carr xarr tn def f2 bnd of
+    case check_unsat' xfml carr xarr tn 0 f2 bnd of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr b =>
       if b then
@@ -645,7 +644,6 @@ val check_unsat_2_sem_def = Define`
     NONE => add_stderr fs err
   | SOME (mv,ncl,cfml,xfml) =>
     let cfml = conv_cfml cfml in
-    let def = 0 in
     if inFS_fname fs f2 then
       case parse_xlrups (all_lines fs f2) of
         SOME xlrups =>
@@ -656,7 +654,7 @@ val check_unsat_2_sem_def = Define`
         let tn = (LN,1) in
         let bnd = 2*mv+3 in
           if check_xlrups_unsat_list xfml xlrups cupd base tn
-            def (REPLICATE bnd w8z)
+            0 (REPLICATE bnd w8z)
           then
             add_stdout fs (strlit "s VERIFIED UNSAT\n")
           else
@@ -886,7 +884,6 @@ Proof
     xsimpl>>
     asm_exists_tac>>simp[]>>
     fs[FILENAME_def,validArg_def]>>
-    asm_exists_tac>>simp[]>>
     asm_exists_tac>>simp[]>>
     asm_exists_tac>>simp[]>>
     first_x_assum (irule_at Any)>>
