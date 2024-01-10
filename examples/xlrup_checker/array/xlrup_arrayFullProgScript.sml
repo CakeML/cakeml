@@ -23,6 +23,13 @@ val parse_header_line_side = Q.prove(`
 
 val _ = translate parse_lits_aux_def;
 val _ = translate parse_clause_def;
+val _ = translate parse_xvar_def;
+
+val parse_xvar_side = Q.prove(`
+   ∀x. parse_xvar_side x= T`,
+  rw[definition"parse_xvar_side_def"])
+  |> update_precondition;
+
 val _ = translate parse_xor_def;
 val _ = translate parse_line_def;
 
@@ -50,7 +57,7 @@ val parse_body_arr = process_topdecs`
   | Some l =>
     if nocomment_line l then
       (case parse_line maxvar l of
-        None => Inl (format_failure lno "failed to parse line")
+        None => Inl (format_dimacs_failure lno "failed to parse line")
       | Some (Inl cl) =>
         parse_body_arr (lno+1) maxvar fd (cl::cacc) xacc
       | Some (Inr xl) =>
@@ -179,11 +186,11 @@ QED
 val parse_cnf_xor_toks_arr = process_topdecs`
   fun parse_cnf_xor_toks_arr lno fd =
   case TextIO.b_inputLineTokens fd blanks tokenize of
-    None => Inl (format_failure lno "failed to find header")
+    None => Inl (format_dimacs_failure lno "failed to find header")
   | Some l =>
     if nocomment_line l then
       (case parse_header_line l of
-        None => Inl (format_failure lno "failed to parse header")
+        None => Inl (format_dimacs_failure lno "failed to parse header")
       | Some res => case res of (vars,ncx) =>
         (case parse_body_arr lno vars fd [] [] of
           Inl fail => Inl fail
@@ -191,7 +198,7 @@ val parse_cnf_xor_toks_arr = process_topdecs`
           if List.length cacc + List.length xacc = ncx then
             Inr (vars,(ncx,(cacc,xacc)))
           else
-            Inl (format_failure lno "incorrect number of clauses / xors")))
+            Inl (format_dimacs_failure lno "incorrect number of clauses / xors")))
     else parse_cnf_xor_toks_arr (lno+1) fd` |> append_prog;
 
 Theorem parse_cnf_xor_toks_arr_spec:
@@ -542,9 +549,10 @@ val check_unsat_2 = (append_prog o process_topdecs) `
       val carr = fill_arr carr one cfml
       val def = max_var_xor xfml
       val xarr = Array.array (2*ncx) None
+      val tn = (Ln, 1)
       val bnd = 2*mv + 3
   in
-    case check_unsat' xfml carr xarr def f2 bnd of
+    case check_unsat' xfml carr xarr tn def f2 bnd of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr b =>
       if b then
@@ -645,8 +653,9 @@ val check_unsat_2_sem_def = Define`
         let base = REPLICATE (2*ncl) NONE in
         let cupd = FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) base cfmlls in
         let base = REPLICATE (2*ncl) NONE in
+        let tn = (LN,1) in
         let bnd = 2*mv+3 in
-          if check_xlrups_unsat_list xfml xlrups cupd base
+          if check_xlrups_unsat_list xfml xlrups cupd base tn
             def (REPLICATE bnd w8z)
           then
             add_stdout fs (strlit "s VERIFIED UNSAT\n")
@@ -858,7 +867,7 @@ Proof
   rw[]>>
   rpt xlet_autop>> *)
   simp[check_xlrups_unsat_list_def]>>
-  qmatch_goalsub_abbrev_tac`check_xlrups_list _ _ a b c d`>>
+  qmatch_goalsub_abbrev_tac`check_xlrups_list _ _ a b c d e`>>
   xlet`POSTv v.
     STDIO fs *
     SEP_EXISTS err.
@@ -867,7 +876,7 @@ Proof
          (case parse_xlrups (all_lines fs f2) of
             NONE => INL err
           | SOME xlrups =>
-            (case check_xlrups_list xfml xlrups a b c d of
+            (case check_xlrups_list xfml xlrups a b c d e of
              NONE => INL err
            | SOME (cfml', xfml') =>
            INR (contains_emp_list cfml')))
@@ -883,10 +892,14 @@ Proof
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>
     qexists_tac`REPLICATE (2 * x1) NONE`>>
+    qexists_tac`(LN,1)`>>
     xsimpl>>
     reverse CONJ_TAC >- (
       CONJ_TAC >-
         metis_tac[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
+      CONJ_TAC >- (
+        simp[PAIR_TYPE_def,Abbr`c`]>>
+        EVAL_TAC)>>
       rw[]>>metis_tac[])>>
     (* bounded_cfml *)
     drule parse_cnf_xor_toks_bound>>
@@ -899,7 +912,7 @@ Proof
   >- (fs[SUM_TYPE_def]>>xmatch>>err_tac)>>
   TOP_CASE_TAC>>fs[SUM_TYPE_def]
   >- (xmatch>>err_tac)>>
-  Cases_on`check_xlrups_list xfml x a b c d`>>fs[SUM_TYPE_def]
+  Cases_on`check_xlrups_list xfml x a b c d e`>>fs[SUM_TYPE_def]
   >- (xmatch>>err_tac)>>
   Cases_on`x'`>>fs[]>>
   fs[SUM_TYPE_def]>>

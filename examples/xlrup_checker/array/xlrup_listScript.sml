@@ -223,55 +223,59 @@ Definition conv_xor_mv_list_def:
 End
 
 Definition check_xlrup_list_def:
-  check_xlrup_list xorig xlrup cfml xfml def Clist =
+  check_xlrup_list xorig xlrup cfml xfml tn def Clist =
   case xlrup of
     Del cl =>
-    SOME (list_delete_list cl cfml, xfml, def, Clist)
+    SOME (list_delete_list cl cfml, xfml, tn, def, Clist)
   | RUP n c i0 =>
     let Clist = resize_Clist c Clist in
     (case is_rup_list cfml i0 c Clist of
       NONE => NONE
     | SOME Clist =>
       SOME (update_resize cfml NONE (SOME c) n, xfml,
-        def, Clist))
+        tn, def, Clist))
   | XOrig n rx =>
     if MEM rx xorig
     then
-      let X = conv_xor_mv_list def rx in
+      let (mx,tn) = ren_lit_ls tn rx [] in
+      let X = conv_xor_mv_list def mx in
       SOME (cfml, update_resize xfml NONE (SOME X) n,
-        MAX def (strlen X), Clist)
+        tn, MAX def (strlen X), Clist)
     else NONE
   | XAdd n rx i0 i1 =>
-    let X = conv_rawxor_list def rx in
+    let (mx,tn) = ren_int_ls tn rx [] in
+    let X = conv_rawxor_list def mx in
     if is_xor_list def xfml i0 cfml i1 X then
       SOME (cfml, update_resize xfml NONE (SOME X) n,
-        MAX def (strlen X), Clist)
+        tn, MAX def (strlen X), Clist)
     else NONE
   | XDel xl =>
-    SOME (cfml, list_delete_list xl xfml, def, Clist)
+    SOME (cfml, list_delete_list xl xfml, tn, def, Clist)
   | CFromX n c i0 =>
+    let (mc,tn) = ren_int_ls tn c [] in
     let Clist = resize_Clist c Clist in
-    if is_cfromx_list def xfml i0 c then
+    if is_cfromx_list def xfml i0 mc then
       SOME (update_resize cfml NONE (SOME c) n, xfml,
-        def, Clist)
+        tn, def, Clist)
     else NONE
   | XFromC n rx i0 =>
     if is_xfromc_list cfml i0 rx then
-      let X = conv_rawxor_list def rx in
+      let (mx,tn) = ren_int_ls tn rx [] in
+      let X = conv_rawxor_list def mx in
       SOME (cfml, update_resize xfml NONE (SOME X) n,
-        MAX def (strlen X), Clist)
+        tn, MAX def (strlen X), Clist)
     else NONE
 End
 
 (* semantic *)
 Definition check_xlrups_list_def:
-  (check_xlrups_list xorig [] cfml xfml def Clist =
-    SOME (cfml, xfml, def)) ∧
-  (check_xlrups_list xorig (x::xs) cfml xfml def Clist =
-    case check_xlrup_list xorig x cfml xfml def Clist of
+  (check_xlrups_list xorig [] cfml xfml tn def Clist =
+    SOME (cfml, xfml, tn, def)) ∧
+  (check_xlrups_list xorig (x::xs) cfml xfml tn def Clist =
+    case check_xlrup_list xorig x cfml xfml tn def Clist of
       NONE => NONE
-    | SOME (cfml', xfml', def', Clist') =>
-      check_xlrups_list xorig xs cfml' xfml' def' Clist')
+    | SOME (cfml', xfml', tn', def', Clist') =>
+      check_xlrups_list xorig xs cfml' xfml' tn' def' Clist')
 End
 
 (* Search backwards through the IDs *)
@@ -293,10 +297,10 @@ Definition contains_emp_list_def:
 End
 
 Definition check_xlrups_unsat_list_def:
-  check_xlrups_unsat_list xorig xlrups cfml xfml def Clist =
-  case check_xlrups_list xorig xlrups cfml xfml def Clist of
+  check_xlrups_unsat_list xorig xlrups cfml xfml tn def Clist =
+  case check_xlrups_list xorig xlrups cfml xfml tn def Clist of
     NONE => F
-  | SOME (cfml', xfml', def') => contains_emp_list cfml'
+  | SOME (cfml', xfml', tn', def') => contains_emp_list cfml'
 End
 
 (* prove that check_xlrup_list implements check_xlrup *)
@@ -816,12 +820,12 @@ Theorem fml_rel_check_xlrup_list:
   fml_rel xfml xfmlls ∧
   EVERY ($= w8z) Clist ∧
   wf_cfml cfml ⇒
-  case check_xlrup_list xorig xlrup cfmlls xfmlls def Clist of
-    SOME (cfmlls', xfmlls', def', Clist') =>
+  case check_xlrup_list xorig xlrup cfmlls xfmlls tn def Clist of
+    SOME (cfmlls', xfmlls', tn', def', Clist') =>
     EVERY ($= w8z) Clist' ∧
     ∃cfml' xfml'.
-    check_xlrup xorig xlrup cfml xfml def =
-      SOME (cfml',xfml',def') ∧
+    check_xlrup xorig xlrup cfml xfml tn def =
+      SOME (cfml',xfml',tn',def') ∧
     fml_rel cfml' cfmlls' ∧
     fml_rel xfml' xfmlls'
   | NONE => T
@@ -841,17 +845,20 @@ Proof
     metis_tac[fml_rel_update_resize])
   >- ( (* XOrig *)
     every_case_tac>>fs[]>>
+    pairarg_tac>>fs[]>>
     fs[conv_xor_mv_list_conv_xor_mv]>>
     metis_tac[fml_rel_update_resize])
   >- ( (* XAdd *)
     every_case_tac>>fs[]>>
+    pairarg_tac>>gvs[]>>
     drule_all is_xor_list_is_xor>>
-    simp[conv_rawxor_list_conv_rawxor]>>
+    fs[conv_rawxor_list_conv_rawxor]>>
     metis_tac[fml_rel_update_resize])
   >- (* XDel *)
     metis_tac[fml_rel_list_delete_list]
   >- ( (* CFromX *)
     every_case_tac>>fs[]>>
+    pairarg_tac>>gvs[]>>
     CONJ_TAC >-
       rw[resize_Clist_def]>>
     CONJ_TAC >-
@@ -859,6 +866,7 @@ Proof
     metis_tac[fml_rel_update_resize])
   >- ( (* XFromC *)
     every_case_tac>>fs[conv_rawxor_list_conv_rawxor]>>
+    pairarg_tac>>gvs[]>>
     CONJ_TAC >-
       metis_tac[is_xfromc_list_is_xfromc]>>
     metis_tac[fml_rel_update_resize])
@@ -897,16 +905,16 @@ QED
 
 Theorem fml_rel_check_xlrups_list:
   ∀xlrups xorig cfml cfmlls xfml xfmlls
-    cfmlls' xfmlls' def def' Clist.
+    cfmlls' xfmlls' tn tn' def def' Clist.
   fml_rel cfml cfmlls ∧
   fml_rel xfml xfmlls ∧
   EVERY ($= w8z) Clist ∧ wf_cfml cfml ∧
   EVERY wf_xlrup xlrups ∧
-  check_xlrups_list xorig xlrups cfmlls xfmlls def Clist =
-    SOME (cfmlls', xfmlls', def') ⇒
+  check_xlrups_list xorig xlrups cfmlls xfmlls tn def Clist =
+    SOME (cfmlls', xfmlls', tn', def') ⇒
   ∃cfml' xfml'.
-    check_xlrups xorig xlrups cfml xfml def =
-      SOME (cfml',xfml',def') ∧
+    check_xlrups xorig xlrups cfml xfml tn def =
+      SOME (cfml',xfml',tn',def') ∧
     fml_rel cfml' cfmlls' ∧
     fml_rel xfml' xfmlls'
 Proof
@@ -914,12 +922,14 @@ Proof
   rw[]>>gvs[AllCaseEqs()]>>
   drule  fml_rel_check_xlrup_list>>
   rpt (disch_then drule)>>
-  disch_then (qspecl_then [`xorig`,`h`,`def`] mp_tac)>> simp[]>>
-  rw[]>>simp[]>>
-  first_x_assum match_mp_tac>>
-  asm_exists_tac>>fs[]>>
-  asm_exists_tac>>fs[]>>
-  asm_exists_tac>>fs[]>>
+  disch_then (qspecl_then [`xorig`,`h`,`tn`,`def`] mp_tac)>>
+  simp[PULL_EXISTS]>>
+  rw[]>>
+  first_x_assum (irule_at Any)>>
+  first_x_assum (irule_at Any)>>
+  first_x_assum (irule_at Any)>>
+  first_x_assum (irule_at Any)>>
+  simp[]>>
   metis_tac[wf_cfml_check_xlrup]
 QED
 

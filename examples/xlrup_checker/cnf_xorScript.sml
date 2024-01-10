@@ -95,13 +95,24 @@ Definition parse_clause_def:
   parse_clause maxvar xs = parse_lits_aux maxvar xs []
 End
 
+(* Special handling for "xID" no space *)
+Definition parse_xvar_def:
+  parse_xvar s =
+  if strlen s ≥ 1 ∧ strsub s 0 = #"x" then
+    mlint$fromString (substring s 1 (strlen s - 1))
+  else NONE
+End
+
 Definition parse_xor_def:
   parse_xor maxvar xs =
-  case xs of [] => NONE
-  | (c::cs) =>
-  if c = INL (strlit "x")
-  then parse_lits_aux maxvar cs []
-  else NONE
+  case xs of
+    (INL c::cs) =>
+    if c = strlit "x"
+    then parse_lits_aux maxvar cs []
+    else (
+      case parse_xvar c of NONE => NONE
+      | SOME i => parse_lits_aux maxvar (INR i::cs) [])
+  | _ => NONE
 End
 
 (* lines which are not comments don't start with a single "c" *)
@@ -176,7 +187,7 @@ val cnf_xor_raw = ``[
   strlit "c this is a comment";
   strlit "p cnf 5 8 ";
   strlit "    1  4 0";
-  strlit "x   1  -5 0";
+  strlit "x1  -5 0";
   strlit "c this is a comment";
   strlit "    2  4 0";
   strlit "    2  5 0";
