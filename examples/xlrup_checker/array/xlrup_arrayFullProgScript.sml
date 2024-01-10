@@ -547,7 +547,7 @@ val check_unsat_2 = (append_prog o process_topdecs) `
       val one = 1
       val carr = Array.array (2*ncx) None
       val carr = fill_arr carr one cfml
-      val def = max_var_xor xfml
+      val def = 0
       val xarr = Array.array (2*ncx) None
       val tn = (Ln, 1)
       val bnd = 2*mv + 3
@@ -645,7 +645,7 @@ val check_unsat_2_sem_def = Define`
     NONE => add_stderr fs err
   | SOME (mv,ncl,cfml,xfml) =>
     let cfml = conv_cfml cfml in
-    let def = max_var_xor xfml in
+    let def = 0 in
     if inFS_fname fs f2 then
       case parse_xlrups (all_lines fs f2) of
         SOME xlrups =>

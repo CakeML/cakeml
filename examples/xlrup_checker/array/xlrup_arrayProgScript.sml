@@ -1009,8 +1009,25 @@ Proof
   metis_tac[]
 QED
 
+Definition tn_to_string_def:
+  tn_to_string tn =
+  let ls = toSortedAList (FST tn) in
+  let ss = MAP (λ(k,v:num). toString k ^ strlit" -> " ^ toString v) ls in
+  concatWith (strlit ";") ss
+End
+
+val res = translate combine_rle_def;
+val res = translate spt_center_def;
+val res = translate apsnd_cons_def;
+val res = translate spt_centers_def;
+val res = translate spt_right_def;
+val res = translate spt_left_def;
+val res = translate spts_to_alist_def;
+val res = translate toSortedAList_def;
+val res = translate tn_to_string_def;
+
 val is_emp_xor_arr_aux = process_topdecs`
-  fun is_emp_xor_arr_aux lno arr n =
+  fun is_emp_xor_arr_aux lno tn arr n =
   if n > 0
   then
   let
@@ -1018,10 +1035,11 @@ val is_emp_xor_arr_aux = process_topdecs`
     if
       eq_w8z (Unsafe.w8sub arr n1)
     then
-      is_emp_xor_arr_aux lno arr n1
+      is_emp_xor_arr_aux lno tn arr n1
     else
-      let val s = xor_to_string arr in
-      raise Fail (format_failure lno ("derived XOR not empty (=0), got: " ^ s))
+      let val s = xor_to_string arr
+        val tns = tn_to_string tn in
+      raise Fail (format_failure lno ("derived XOR not empty (=0), got: " ^ s ^ " variable map: " ^ tns))
       end
   end
   else ()` |> append_prog;
@@ -1029,10 +1047,11 @@ val is_emp_xor_arr_aux = process_topdecs`
 Theorem is_emp_xor_arr_aux_spec:
   ∀n nv.
   NUM lno lnov ∧
+  PAIR_TYPE (SPTREE_SPT_TYPE NUM) NUM tn tnv ∧
   NUM n nv ∧ n <= LENGTH cs ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_emp_xor_arr_aux" (get_ml_prog_state()))
-    [lnov; csv; nv]
+    [lnov; tnv; csv; nv]
     (W8ARRAY csv cs)
     (POSTve
       (λv. W8ARRAY csv cs *
@@ -1064,19 +1083,20 @@ Proof
 QED
 
 val is_xor_arr = process_topdecs`
-  fun is_xor_arr lno def fml is cfml cis s =
+  fun is_xor_arr lno tn def fml is cfml cis s =
   let
     val r = Word8Array.array def w8z
     val r = strxor_c_arr r s
     val r = add_xors_aux_c_arr lno fml is r
     val r = unit_props_xor_arr lno cfml cis r
   in
-    is_emp_xor_arr_aux lno r (Word8Array.length r)
+    is_emp_xor_arr_aux lno tn r (Word8Array.length r)
   end` |> append_prog;
 
 Theorem is_xor_arr_spec:
   NUM lno lnov ∧
   NUM def defv ∧
+  PAIR_TYPE (SPTREE_SPT_TYPE NUM) NUM tn tnv ∧
   (LIST_TYPE NUM) ls lsv ∧
   (LIST_TYPE NUM) cls clsv ∧
   LIST_REL (OPTION_TYPE STRING_TYPE) fmlls fmllsv ∧
@@ -1085,7 +1105,7 @@ Theorem is_xor_arr_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_xor_arr" (get_ml_prog_state()))
-    [lnov; defv; fmlv; lsv; cfmlv; clsv; sv]
+    [lnov; tnv; defv; fmlv; lsv; cfmlv; clsv; sv]
     (ARRAY fmlv fmllsv * ARRAY cfmlv cfmllsv)
     (POSTve
       (λv. ARRAY fmlv fmllsv * ARRAY cfmlv cfmllsv *
@@ -1368,22 +1388,23 @@ Proof
 QED
 
 val strxor_imp_cclause_arr = process_topdecs`
-  fun strxor_imp_cclause_arr lno mv s c =
+  fun strxor_imp_cclause_arr lno tn mv s c =
   let
     val t = conv_rawxor_arr mv c
     val res = strxor_c_arr s t
   in
-    is_emp_xor_arr_aux lno res (Word8Array.length res)
+    is_emp_xor_arr_aux lno tn res (Word8Array.length res)
   end` |> append_prog;
 
 Theorem strxor_imp_cclause_arr_spec:
   NUM lno lnov ∧
   NUM n nv ∧
+  PAIR_TYPE (SPTREE_SPT_TYPE NUM) NUM tn tnv ∧
   LIST_TYPE INT xs xsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "strxor_imp_cclause_arr" (get_ml_prog_state()))
-    [lnov; nv; csv; xsv]
+    [lnov; tnv; nv; csv; xsv]
     (W8ARRAY csv cs)
     (POSTve
       (λv. &(strxor_imp_cclause_list n cs xs))
@@ -1402,24 +1423,25 @@ Proof
 QED
 
 val is_cfromx_arr = process_topdecs`
-  fun is_cfromx_arr lno def fml is c =
+  fun is_cfromx_arr lno tn def fml is c =
   let
     val r = Word8Array.array def w8z
     val res = add_xors_aux_c_arr lno fml is r
   in
-    strxor_imp_cclause_arr lno def res c
+    strxor_imp_cclause_arr lno tn def res c
   end` |> append_prog
 
 Theorem is_cfromx_arr_spec:
   NUM lno lnov ∧
   NUM def defv ∧
+  PAIR_TYPE (SPTREE_SPT_TYPE NUM) NUM tn tnv ∧
   (LIST_TYPE NUM) ls lsv ∧
   LIST_REL (OPTION_TYPE STRING_TYPE) fmlls fmllsv ∧
   LIST_TYPE INT s sv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_cfromx_arr" (get_ml_prog_state()))
-    [lnov; defv; fmlv; lsv; sv]
+    [lnov; tnv; defv; fmlv; lsv; sv]
     (ARRAY fmlv fmllsv)
     (POSTve
       (λv. ARRAY fmlv fmllsv *
@@ -1631,7 +1653,7 @@ val check_xlrup_arr = process_topdecs`
       (case ren_ints tn rx of (mx,tn) =>
       let
         val x = conv_rawxor_arr def mx
-        val u = is_xor_arr lno def xfml i0 cfml i1 x
+        val u = is_xor_arr lno tn def xfml i0 cfml i1 x
       in
         (cfml, resize_update_arr (Some x) n xfml,
           tn, max def (String.size x), carr)
@@ -1641,7 +1663,7 @@ val check_xlrup_arr = process_topdecs`
   | Cfromx n c i0 =>
     (case ren_ints tn c of (mc,tn) =>
     let val carr = resize_carr c carr
-        val u = is_cfromx_arr lno def xfml i0 mc in
+        val u = is_cfromx_arr lno tn def xfml i0 mc in
       (resize_update_arr (Some c) n cfml, xfml, tn, def, carr)
     end)
   | Xfromc n rx i0 =>
@@ -1861,7 +1883,8 @@ Proof
           ¬is_xor_list def xfmlls l0 cfmlls l1 (conv_rawxor_list def mx)))`
     >- (
       xapp>>xsimpl>>
-      rpt(first_x_assum (irule_at Any))>>simp[])
+      rpt(first_x_assum (irule_at Any))>>
+      metis_tac[PAIR_TYPE_def])
     >-
       xsimpl>>
     rpt xlet_autop>>
@@ -1902,7 +1925,9 @@ Proof
                 ¬is_cfromx_list def xfmlls l0 mc))`
     >- (
       xapp>>xsimpl>>
-      rpt(first_x_assum (irule_at Any))>>simp[])
+      rpt(first_x_assum (irule_at Any))>>
+      simp[]>>
+      metis_tac[PAIR_TYPE_def])
     >- xsimpl>>
     xlet_autop>>
     xlet`(POSTv resv.
