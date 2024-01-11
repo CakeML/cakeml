@@ -140,10 +140,10 @@ Theorem cake_installed:
      (cake_machine_config) (FUNPOW Next (cake_startup_clock ms0 inp cl) ms0)
 Proof
   rewrite_tac[ffi_names, extcalls_def]
-  \\ rewrite_tac [to_MAP_ExtCall]
   \\ strip_tac
   \\ ‘SOME [] = SOME (MAP ffi$ExtCall [])’ by fs []
   \\ pop_assum $ once_rewrite_tac o single
+  \\ rewrite_tac [to_MAP_ExtCall]
   \\ irule ag32_installed
   \\ drule cake_startup_clock_def
   \\ disch_then drule
