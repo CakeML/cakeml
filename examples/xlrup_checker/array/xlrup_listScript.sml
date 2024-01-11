@@ -111,8 +111,10 @@ Definition set_bit_list_def:
 End
 
 Definition unit_prop_xor_list_def:
-  unit_prop_xor_list l s =
+  unit_prop_xor_list t l s =
   let n = Num (ABS l) in
+  case lookup n t of NONE => s
+  | SOME n =>
   if n < 8 * LENGTH s then
     if l > 0 then
       (if get_bit_list s n then
@@ -123,21 +125,21 @@ Definition unit_prop_xor_list_def:
 End
 
 Definition unit_props_xor_list_def:
-  (unit_props_xor_list fml [] s = SOME s) ∧
-  (unit_props_xor_list fml (i::is) s =
+  (unit_props_xor_list fml t [] s = SOME s) ∧
+  (unit_props_xor_list fml t (i::is) s =
   case list_lookup fml NONE i of NONE => NONE
   | SOME [l] =>
-    unit_props_xor_list fml is (unit_prop_xor_list l s)
+    unit_props_xor_list fml t is (unit_prop_xor_list t l s)
   | _ => NONE)
 End
 
 Definition is_xor_list_def:
-  is_xor_list def fml is cfml cis s =
+  is_xor_list def fml is cfml cis t s =
   let r = REPLICATE def w8z in
   let r = strxor_c r s in
   case add_xors_aux_c_list fml is r of NONE => F
   | SOME x =>
-    case unit_props_xor_list cfml cis x of
+    case unit_props_xor_list cfml t cis x of
       NONE => F
     | SOME y => is_emp_xor_list y
 End
@@ -245,7 +247,7 @@ Definition check_xlrup_list_def:
   | XAdd n rx i0 i1 =>
     let (mx,tn) = ren_int_ls tn rx [] in
     let X = conv_rawxor_list def mx in
-    if is_xor_list def xfml i0 cfml i1 X then
+    if is_xor_list def xfml i0 cfml i1 (FST tn) X then
       SOME (cfml, update_resize xfml NONE (SOME X) n,
         tn, MAX def (strlen X), Clist)
     else NONE
@@ -419,7 +421,7 @@ Proof
   strip_tac>>
   Cases_on`EL h fmlls`>>simp[]>>
   `wf_clause x` by
-    (fs[wf_cfml_def,values_def]>>metis_tac[])>>
+    (fs[wf_cfml_def,range_def]>>metis_tac[])>>
   drule delete_literals_sing_list_correct>>
   disch_then drule>>
   TOP_CASE_TAC>>simp[]
@@ -712,12 +714,15 @@ Proof
 QED
 
 Theorem unit_prop_xor_list_unit_prop_xor:
-  implode (MAP fromByte (unit_prop_xor_list l x)) =
-  unit_prop_xor l (implode (MAP fromByte x))
+  implode (MAP fromByte (unit_prop_xor_list t l x)) =
+  unit_prop_xor t l (implode (MAP fromByte x))
 Proof
   rw[unit_prop_xor_def,unit_prop_xor_list_def]>>
-  `Num (ABS l) DIV 8 < LENGTH x` by
+  TOP_CASE_TAC>>
+  IF_CASES_TAC>>fs[]>>
+  `x' DIV 8 < LENGTH x` by
     (DEP_REWRITE_TAC[DIV_LT_X]>>simp[])>>
+  rw[]>>
   gvs[get_bit_list_get_bit]>>
   simp[set_bit_list_set_bit]>>
   DEP_REWRITE_TAC[flip_bit_list_flip_bit]>>simp[]>>
@@ -727,8 +732,8 @@ QED
 Theorem unit_props_xor_list_unit_props_xor:
   ∀is x y .
   fml_rel fml fmlls ∧
-  unit_props_xor_list fmlls is x = SOME y ⇒
-  unit_props_xor fml is (implode (MAP fromByte x)) =
+  unit_props_xor_list fmlls t is x = SOME y ⇒
+  unit_props_xor fml t is (implode (MAP fromByte x)) =
     SOME (implode (MAP fromByte y))
 Proof
   Induct>>rw[unit_props_xor_def,unit_props_xor_list_def]>>
@@ -744,8 +749,8 @@ QED
 Theorem is_xor_list_is_xor:
   fml_rel fml fmlls ∧
   fml_rel cfml cfmlls ∧
-  is_xor_list def fmlls is cfmlls cis x ⇒
-  is_xor def fml is cfml cis x
+  is_xor_list def fmlls is cfmlls cis t x ⇒
+  is_xor def fml is cfml cis t x
 Proof
   rw[is_xor_list_def]>>
   every_case_tac>>fs[]>>

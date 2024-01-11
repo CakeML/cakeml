@@ -10,10 +10,6 @@ Type cclause = ``:int list``;
 Type strxor = ``:mlstring``;
 Type rawxor = ``:int list``;
 
-Definition values_def: (* TODO: replace with range_def *)
-  values s = {v | ∃n. lookup n s = SOME v}
-End
-
 (* Satisfiability for clauses is defined by interpreting into the
   top-level semantics *)
 Definition interp_lit_def:
@@ -848,8 +844,10 @@ End
 
 (* Unit propagation on an XOR *)
 Definition unit_prop_xor_def:
-  unit_prop_xor l s =
+  unit_prop_xor t l s =
   let n = Num (ABS l) in
+  case lookup n t of NONE => s
+  | SOME n =>
   if n < 8 * strlen s then
     if l > 0 then
       (if get_bit s n then
@@ -859,22 +857,23 @@ Definition unit_prop_xor_def:
   else s
 End
 
+(* It doesn't make sense to unit propagate on *)
 Definition unit_props_xor_def:
-  (unit_props_xor fml [] s = SOME s) ∧
-  (unit_props_xor fml (i::is) s =
+  (unit_props_xor fml t [] s = SOME s) ∧
+  (unit_props_xor fml t (i::is) s =
   case lookup i fml of
   | SOME [l] =>
-    unit_props_xor fml is (unit_prop_xor l s)
+    unit_props_xor fml t is (unit_prop_xor t l s)
   | _ => NONE)
 End
 
 Definition is_xor_def:
-  is_xor def fml is cfml cis s =
+  is_xor def fml is cfml cis t s =
   let r = extend_s (strlit "") def in
   case add_xors_aux fml is (strxor r s)
     of NONE => F
   | SOME x =>
-    case unit_props_xor cfml cis x of
+    case unit_props_xor cfml t cis x of
       NONE => F
     | SOME y => is_emp_xor y
 End
@@ -991,7 +990,7 @@ Definition check_xlrup_def:
   | XAdd n rX i0 i1 =>
     let (mX,tn) = ren_int_ls tn rX [] in
     let X = conv_rawxor def mX in
-    if is_xor def xfml i0 cfml i1 X then
+    if is_xor def xfml i0 cfml i1 (FST tn) X then
       SOME (cfml, insert n X xfml, tn, MAX def (strlen X))
     else NONE
   | XDel xl =>
@@ -1055,7 +1054,7 @@ QED
 Theorem is_rup_sound:
   ∀is C.
   is_rup fml is C ∧
-  isat_cfml w (values fml) ⇒
+  isat_cfml w (range fml) ⇒
   isat_cclause w C
 Proof
   Induct>>fs[is_rup_def]>>
@@ -1066,7 +1065,7 @@ Proof
    metis_tac[set_delete_literals]>>
   gvs[]
   >- (
-    fs[isat_cfml_def,PULL_EXISTS,values_def]>>
+    fs[isat_cfml_def,PULL_EXISTS,range_def]>>
     first_x_assum drule>>
     rw[isat_cclause_def]>>
     first_x_assum (irule_at Any)>>
@@ -1077,7 +1076,7 @@ Proof
     gvs[isat_cclause_def,EXTENSION]>>
     reverse (rw[])
     >- metis_tac[]>>
-    fs[isat_cfml_def,PULL_EXISTS,values_def]>>
+    fs[isat_cfml_def,PULL_EXISTS,range_def]>>
     first_x_assum drule>>
     rw[isat_cclause_def]>>
     Cases_on`MEM l C`
@@ -1106,7 +1105,7 @@ QED
 
 Theorem add_xors_aux_imp:
   ∀is s.
-  isat_xfml w (values fml) ∧
+  isat_xfml w (range fml) ∧
   isat_strxor w s ∧
   add_xors_aux fml is s = SOME t ⇒
   isat_strxor w t
@@ -1116,7 +1115,7 @@ Proof
   first_x_assum (irule_at Any)>>
   match_mp_tac isat_strxor_strxor>>
   simp[]>>
-  fs[isat_xfml_def,values_def,PULL_EXISTS]>>
+  fs[isat_xfml_def,range_def,PULL_EXISTS]>>
   metis_tac[]
 QED
 
@@ -1176,97 +1175,28 @@ Proof
   simp[EVERY_MAP,MAP2_MAP,charxor_self]
 QED
 
-Theorem unit_prop_xor_sound:
-  l ≠ 0 ∧
-  sat_lit w (interp_lit l) ⇒
-  (isat_strxor w (unit_prop_xor l X) ⇔ isat_strxor w X)
-Proof
-  rw[unit_prop_xor_def]>>
-  gs[interp_lit_def,sat_lit_def]
-  >- (
-    DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
-    CONJ_TAC >- (
-      rw[set_bit_def,set_char_def]>>
-      intLib.ARITH_TAC)>>
-    fs[isat_strxor_def]>>
-    DEP_REWRITE_TAC[string_to_bits_set_bit,sum_bitlist_LUPDATE]>>
-    fs[get_bit_string_to_bits,of_bool_def]>>
-    DEP_REWRITE_TAC [EVEN_SUB]>>
-    simp[sum_bitlist_alt]>>
-    match_mp_tac SUM_MEM_bound>>
-    simp[MEM_MAPi]>>
-    asm_exists_tac>>simp[of_bool_def])>>
-  fs[isat_strxor_def]>>
-  DEP_REWRITE_TAC[string_to_bits_set_bit,sum_bitlist_LUPDATE]>>
-  fs[get_bit_string_to_bits,of_bool_def]>>
-  `Num (ABS l) ≠ 0` by intLib.ARITH_TAC>>
-  simp[of_bool_def]
-QED
-
-Theorem unit_props_xor_sound:
-  ∀is X Y.
-  isat_cfml w (values fml) ∧
-  unit_props_xor fml is X = SOME Y ⇒
-  (isat_strxor w X ⇔ isat_strxor w Y)
-Proof
-  Induct>>rw[unit_props_xor_def]>>
-  gvs[AllCaseEqs()]>>
-  first_x_assum drule>>
-  DEP_REWRITE_TAC[unit_prop_xor_sound]>>
-  fs[isat_cfml_def,values_def,PULL_EXISTS]>>
-  first_x_assum drule>>
-  simp[isat_cclause_def]
-QED
-
-Theorem is_xor_sound:
-  isat_xfml w (values fml) ∧
-  isat_cfml w (values cfml) ∧
-  is_xor def fml is cfml cis X ⇒
-  isat_strxor w X
-Proof
-  rw[is_xor_def]>>
-  every_case_tac>>fs[]>>
-  drule add_xors_aux_acc>>
-  disch_then (qspec_then `strxor (extend_s «» def) X` assume_tac)>>
-  drule add_xors_aux_imp>>
-  disch_then (drule_at Any)>>
-  impl_tac >-
-    metis_tac[isat_strxor_is_emp_xor,strxor_self]>>
-  `isat_strxor w x` by
-    (drule_all unit_props_xor_sound>>
-    metis_tac[isat_strxor_is_emp_xor])>>
-  strip_tac>>
-  `is_emp_xor (extend_s «» def)` by
-    rw[extend_s_def,is_emp_xor_def]>>
-  `isat_strxor w
-    (strxor (strxor x x) (strxor (extend_s «» def) X))` by
-    (simp[strxor_assoc]>>
-    match_mp_tac isat_strxor_strxor>>simp[])>>
-  metis_tac[isat_stxor_add_is_emp_xor,strxor_comm,isat_strxor_extend_s,strxor_self]
-QED
-
 Theorem delete_preserves_isat_cfml:
-  isat_cfml w (values C) ⇒
-  isat_cfml w (values (delete n C))
+  isat_cfml w (range C) ⇒
+  isat_cfml w (range (delete n C))
 Proof
   rw[isat_cfml_def]>>
-  fs[values_def,lookup_delete,PULL_EXISTS]>>
+  fs[range_def,lookup_delete,PULL_EXISTS]>>
   metis_tac[]
 QED
 
 Theorem delete_preserves_isat_xfml:
-  isat_xfml w (values x) ⇒
-  isat_xfml w (values (delete n x))
+  isat_xfml w (range x) ⇒
+  isat_xfml w (range (delete n x))
 Proof
   rw[isat_xfml_def]>>
-  fs[values_def,lookup_delete,PULL_EXISTS]>>
+  fs[range_def,lookup_delete,PULL_EXISTS]>>
   metis_tac[]
 QED
 
 Theorem delete_clauses_sound:
   ∀l fml.
-  isat_fml w f (values fml,x) ⇒
-  isat_fml w f (values (FOLDL (λa b. delete b a) fml l),x)
+  isat_fml w f (range fml,x) ⇒
+  isat_fml w f (range (FOLDL (λa b. delete b a) fml l),x)
 Proof
   Induct>>simp[]>>
   rw[]>>
@@ -1275,30 +1205,39 @@ QED
 
 Theorem delete_xors_sound:
   ∀l x.
-  isat_fml w f (fml,values x) ⇒
-  isat_fml w f (fml, values (FOLDL (λa b. delete b a) x l))
+  isat_fml w f (fml,range x) ⇒
+  isat_fml w f (fml, range (FOLDL (λa b. delete b a) x l))
 Proof
   Induct>>simp[]>>
   rw[]>>
   metis_tac[delete_preserves_isat_xfml,isat_fml_def]
 QED
 
-Theorem isat_cfml_insert:
-  isat_cfml w (values cfml) ∧
-  isat_cclause w c ⇒
-  isat_cfml w (values (insert n c cfml))
+Theorem range_FOLDL_delete_SUBSET:
+  ∀l x.
+  range (FOLDL (λa b. delete b a) x l) ⊆
+  range x
 Proof
-  rw[isat_cfml_def,values_def,lookup_insert]>>
+  Induct>>rw[]>>
+  metis_tac[range_delete,SUBSET_TRANS]
+QED
+
+Theorem isat_cfml_insert:
+  isat_cfml w (range cfml) ∧
+  isat_cclause w c ⇒
+  isat_cfml w (range (insert n c cfml))
+Proof
+  rw[isat_cfml_def,range_def,lookup_insert]>>
   gvs[AllCaseEqs()]>>
   metis_tac[]
 QED
 
 Theorem isat_xfml_insert:
-  isat_xfml w (values xfml) ∧
+  isat_xfml w (range xfml) ∧
   isat_strxor w x ⇒
-  isat_xfml w (values (insert n x xfml))
+  isat_xfml w (range (insert n x xfml))
 Proof
-  rw[isat_xfml_def,values_def,lookup_insert]>>
+  rw[isat_xfml_def,range_def,lookup_insert]>>
   gvs[AllCaseEqs()]>>
   metis_tac[]
 QED
@@ -1317,7 +1256,7 @@ End
 
 Definition wf_cfml_def:
   wf_cfml cfml ⇔
-  ∀C. C ∈ values cfml ⇒ wf_clause C
+  ∀C. C ∈ range cfml ⇒ wf_clause C
 End
 
 Definition wf_xlrup_def:
@@ -1340,7 +1279,7 @@ Proof
   Induct_on`ll`>>
   rw[]>>first_x_assum drule>>
   rw[wf_cfml_def]>>
-  fs[values_def,lookup_delete,PULL_EXISTS]>>
+  fs[range_def,lookup_delete,PULL_EXISTS]>>
   metis_tac[]
 QED
 
@@ -1349,7 +1288,7 @@ Theorem wf_cfml_insert:
   wf_cfml (insert n l fml)
 Proof
   fs[wf_cfml_def]>>rw[]>>
-  gvs[values_def,lookup_insert,AllCaseEqs()]>>
+  gvs[range_def,lookup_insert,AllCaseEqs()]>>
   metis_tac[]
 QED
 
@@ -1425,7 +1364,7 @@ QED
 
 Theorem is_cfromx_sound:
   wf_clause C ∧
-  isat_xfml w (values fml) ∧
+  isat_xfml w (range fml) ∧
   is_cfromx def fml is C ⇒
   isat_cclause w C
 Proof
@@ -1496,20 +1435,20 @@ QED
 
 Theorem isat_cfml_get_clauses:
   ∀is xs x.
-  isat_cfml w (values fml) ∧
+  isat_cfml w (range fml) ∧
   get_clauses fml is = SOME xs ∧
   MEM x xs ⇒
   isat_cclause w x
 Proof
   Induct>>rw[get_clauses_def]>>
   gvs[AllCaseEqs()]>>
-  fs[isat_cfml_def,values_def]>>
+  fs[isat_cfml_def,range_def]>>
   metis_tac[]
 QED
 
 Theorem is_xfromc_sound:
   wf_clause rX ∧
-  isat_cfml w (values fml) ∧
+  isat_cfml w (range fml) ∧
   is_xfromc fml is rX ⇒
   sat_cmsxor w (MAP interp_lit rX)
 Proof
@@ -1544,6 +1483,15 @@ Definition restore_lit_def:
   restore_lit tn (Neg n) = Neg (restore_fn tn n)
 End
 
+Definition restore_int_def:
+  restore_int tn i =
+  if i > 0
+  then
+    (&restore_fn tn (Num (ABS i))):int
+  else
+    -&restore_fn tn (Num (ABS i))
+End
+
 Definition can_restore_def:
   can_restore (t,_:num) n = (∃k. lookup k t = SOME (n:num))
 End
@@ -1551,6 +1499,10 @@ End
 Definition can_restore_lit_def:
   can_restore_lit tn (Pos n) = can_restore tn n ∧
   can_restore_lit tn (Neg n) = can_restore tn n
+End
+
+Definition can_restore_int_def:
+  can_restore_int tn i = can_restore tn (Num (ABS i))
 End
 
 Definition tn_submap_def:
@@ -1562,7 +1514,7 @@ End
 
 Definition can_restore_str_def:
   can_restore_str tn (s:mlstring) =
-    ∀i. i < LENGTH (string_to_bits s) ∧
+    ∀i. i ≠ 0 ∧ i < LENGTH (string_to_bits s) ∧
         EL i (string_to_bits s) ⇒
         can_restore tn i
 End
@@ -1697,11 +1649,146 @@ Proof
   \\ drule tn_inv_get_name \\ gvs []
 QED
 
-Theorem can_restore_str_conv_xor_mv:
-  can_restore_str tn (conv_xor_mv def mX) = EVERY (can_restore_lit tn) mX
+Theorem every_can_restore_int_submap:
+  tn_submap tn tn' ∧
+  EVERY (can_restore_int tn) acc ⇒
+  EVERY (can_restore_int tn') acc
 Proof
-  fs [conv_xor_mv_def, conv_rawxor_def, GSYM conv_xor_def]
-  \\ cheat
+  Induct_on ‘acc’ \\ fs []
+  \\ Cases \\ fs [can_restore_int_def]
+  \\ gvs [tn_submap_def]
+QED
+
+Theorem restore_int_simps:
+  m ≠ 0 ⇒
+  restore_int tn (&m) = &restore_fn tn m ∧
+  restore_int tn (-&m) = -&restore_fn tn m
+Proof
+  rw[restore_int_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem ren_int_ls_restore_acc:
+  ∀tn xs acc ys tn'.
+    ren_int_ls tn xs acc = (ys,tn') ∧ tn_inv tn ∧
+    EVERY (can_restore_int tn) acc
+    ⇒
+    MAP (restore_int tn') ys =
+      MAP (restore_int tn') (REVERSE acc) ++ xs ∧
+    EVERY (can_restore_int tn') ys ∧
+    tn_submap tn tn'
+Proof
+  Induct_on ‘xs’
+  \\ fs [ren_int_ls_def,tn_submap_refl]
+  \\ Cases \\ gvs [] \\ rpt gen_tac \\ strip_tac
+  \\ pairarg_tac \\ gvs []
+  \\ last_x_assum drule
+  \\ drule_all tn_inv_get_name
+  \\ strip_tac \\ gvs []
+  \\ gvs [can_restore_int_def,can_restore_def,restore_fn_def,o_DEF, GSYM EVERY_MAP]
+  \\ drule_all every_can_restore_int_submap \\ fs []
+  \\ drule restore_int_simps
+  \\ gvs [tn_submap_trans,SF SFY_ss] \\ gvs [tn_submap_def]
+QED
+
+Theorem ren_int_ls_restore:
+  ∀tn xs ys tn'.
+    ren_int_ls tn xs [] = (ys,tn') ∧ tn_inv tn ⇒
+    MAP (restore_int tn') ys = xs ∧
+    EVERY (can_restore_int tn') ys ∧
+    tn_submap tn tn'
+Proof
+  rpt gen_tac \\ strip_tac
+  \\ drule ren_int_ls_restore_acc \\ fs []
+QED
+
+Theorem ren_int_ls_wf_clause:
+  ∀tn xs acc ys tn'.
+    ren_int_ls tn xs acc = (ys,tn') ∧ wf_clause xs ∧
+    wf_clause acc ∧ tn_inv tn ⇒
+    wf_clause ys
+Proof
+  Induct_on ‘xs’ \\ gvs [ren_int_ls_def,wf_clause_def]
+  \\ Cases \\ fs [ren_int_ls_def] \\ rw []
+  \\ pairarg_tac \\ gvs []
+  \\ first_x_assum $ drule_then $ irule \\ gvs []
+  \\ drule tn_inv_get_name \\ gvs []
+QED
+
+Theorem can_restore_str_flip_bit_0:
+  can_restore_str tn s ⇒
+  can_restore_str tn (flip_bit s 0)
+Proof
+  rw[can_restore_str_def,flip_bit_def]>>
+  gvs[string_to_bits_set_bit,EL_LUPDATE]
+QED
+
+Theorem can_restore_str_flip_bit:
+  n < LENGTH (string_to_bits s) ∧
+  can_restore_str tn s ∧
+  can_restore tn n ⇒
+  can_restore_str tn (flip_bit s n)
+Proof
+  rw[can_restore_str_def,flip_bit_def]>>
+  gvs[string_to_bits_set_bit,EL_LUPDATE]>>
+  every_case_tac>>fs[]
+QED
+
+Theorem can_restore_str_extend_s:
+  can_restore_str tn s ⇒
+  can_restore_str tn (extend_s s n)
+Proof
+  rw[can_restore_str_def,string_to_bits_extend_s,EL_APPEND_EQN]>>
+  every_case_tac>>fs[]>>
+  qpat_x_assum`EL _ _` mp_tac>>
+  DEP_REWRITE_TAC[EL_REPLICATE]>>
+  fs[extend_s_def]>>
+  every_case_tac>>fs[]
+QED
+
+Theorem can_restore_str_conv_xor_aux:
+  ∀ls tn s.
+  can_restore_str tn s ∧
+  EVERY (can_restore tn) (MAP (λl. Num (ABS l)) ls)
+  ⇒
+  can_restore_str tn (conv_xor_aux s ls)
+Proof
+  Induct>>rw[conv_xor_aux_def]>>
+  first_x_assum match_mp_tac>>simp[]
+  >- (
+    match_mp_tac can_restore_str_flip_bit>>
+    simp[can_restore_str_extend_s,strlen_extend_s])>>
+  match_mp_tac can_restore_str_flip_bit_0>>
+  match_mp_tac can_restore_str_flip_bit>>
+  simp[strlen_extend_s,can_restore_str_extend_s]
+QED
+
+Theorem can_restore_str_conv_xor_mv:
+  EVERY (can_restore_lit tn) mX ⇒
+  can_restore_str tn (conv_xor_mv def mX)
+Proof
+  rw[conv_xor_mv_def, conv_rawxor_def, conv_xor_def]>>
+  match_mp_tac can_restore_str_conv_xor_aux>>
+  rw[]
+  >- (
+    match_mp_tac can_restore_str_flip_bit_0>>
+    match_mp_tac can_restore_str_extend_s>>
+    EVAL_TAC>>rw[])>>
+  fs[EVERY_MEM,MEM_MAP,PULL_EXISTS]>>rw[]>>
+  first_x_assum drule>>
+  Cases_on`y`>>fs[conv_lit_def,can_restore_lit_def]
+QED
+
+Theorem can_restore_str_conv_rawxor:
+  EVERY (can_restore tn) (MAP (λl. Num (ABS l)) mX) ⇒
+  can_restore_str tn (conv_rawxor def mX)
+Proof
+  rw[conv_rawxor_def]>>
+  match_mp_tac can_restore_str_conv_xor_aux>>
+  rw[]>>
+  match_mp_tac can_restore_str_flip_bit_0>>
+  match_mp_tac can_restore_str_extend_s>>
+  EVAL_TAC>>rw[]
 QED
 
 Theorem sat_cmsxor_restore_fn:
@@ -1745,7 +1832,149 @@ Proof
     \\ metis_tac [rich_listTheory.EL_APPEND1])
   \\ first_x_assum $ qspec_then ‘LENGTH x’ mp_tac
   \\ gvs [rich_listTheory.EL_LENGTH_APPEND]
+  \\ Cases_on`x`>>simp[]
   \\ gvs [tn_submap_def,SF CONJ_ss]
+QED
+
+Theorem isat_xfml_restore_str_submap:
+  tn_submap tn tn' ∧
+  (∀s. s ∈ range xfml ⇒ can_restore_str tn s) ∧
+  isat_xfml (w ∘ restore_fn tn) (range xfml) ⇒
+  isat_xfml (w ∘ restore_fn tn') (range xfml)
+Proof
+  rw[range_def,isat_xfml_def]>>
+  match_mp_tac isat_strxor_restore_str_submap>>
+  metis_tac[]
+QED
+
+Theorem unit_prop_xor_sound:
+  tn_inv (t,n) ∧
+  sat_lit w (interp_lit l) ⇒
+  (isat_strxor (w o restore_fn (t,n)) (unit_prop_xor t l X) ⇔
+    isat_strxor (w o restore_fn (t,n)) X)
+Proof
+  rw[unit_prop_xor_def]>>
+  TOP_CASE_TAC>>fs[]>>
+  `restore_fn (t,n) x = Num (ABS l) ∧ x ≠ 0` by
+    (simp[restore_fn_def]>>
+    DEEP_INTRO_TAC some_intro>>fs[tn_inv_def]>>
+    rw[]>>first_x_assum drule>>
+    metis_tac[])>>
+  rw[]>>
+  gs[interp_lit_def,sat_lit_def]
+  >- (
+    DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
+    CONJ_TAC >- (
+      rw[set_bit_def,set_char_def]>>
+      intLib.ARITH_TAC)>>
+    fs[isat_strxor_def]>>
+    DEP_REWRITE_TAC[string_to_bits_set_bit,sum_bitlist_LUPDATE]>>
+    fs[get_bit_string_to_bits,of_bool_def]>>
+    DEP_REWRITE_TAC [EVEN_SUB]>>
+    simp[sum_bitlist_alt]>>
+    match_mp_tac SUM_MEM_bound>>
+    simp[MEM_MAPi]>>
+    asm_exists_tac>>simp[of_bool_def])>>
+  fs[isat_strxor_def]>>
+  DEP_REWRITE_TAC[string_to_bits_set_bit,sum_bitlist_LUPDATE]>>
+  fs[get_bit_string_to_bits,of_bool_def]>>
+  `Num (ABS l) ≠ 0` by intLib.ARITH_TAC>>
+  simp[of_bool_def]
+QED
+
+Theorem unit_props_xor_sound:
+  ∀is X Y.
+  tn_inv (t,n) ∧
+  isat_cfml w (range fml) ∧
+  unit_props_xor fml t is X = SOME Y ⇒
+  (isat_strxor (w ∘ restore_fn (t,n)) X ⇔
+    isat_strxor (w ∘ restore_fn (t,n)) Y)
+Proof
+  Induct>>rw[unit_props_xor_def]>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum drule>>
+  DEP_REWRITE_TAC[unit_prop_xor_sound]>>
+  fs[isat_cfml_def,range_def,PULL_EXISTS]>>
+  first_x_assum drule>>
+  simp[isat_cclause_def]
+QED
+
+Theorem is_xor_sound:
+  tn_inv tn ∧
+  isat_xfml (w ∘ restore_fn tn) (range fml) ∧
+  isat_cfml w (range cfml) ∧
+  is_xor def fml is cfml cis (FST tn) X ⇒
+  isat_strxor (w ∘ restore_fn tn) X
+Proof
+  rw[is_xor_def]>>
+  every_case_tac>>fs[]>>
+  drule add_xors_aux_acc>>
+  disch_then (qspec_then `strxor (extend_s «» def) X` assume_tac)>>
+  drule add_xors_aux_imp>>
+  disch_then (drule_at Any)>>
+  impl_tac >-
+    metis_tac[isat_strxor_is_emp_xor,strxor_self]>>
+  `isat_strxor (w ∘ restore_fn tn) x` by
+    (Cases_on`tn`>>fs[]>>
+    drule_all unit_props_xor_sound>>
+    metis_tac[isat_strxor_is_emp_xor])>>
+  strip_tac>>
+  `is_emp_xor (extend_s «» def)` by
+    rw[extend_s_def,is_emp_xor_def]>>
+  `isat_strxor (w ∘ restore_fn tn)
+    (strxor (strxor x x) (strxor (extend_s «» def) X))` by
+    (simp[strxor_assoc]>>
+    match_mp_tac isat_strxor_strxor>>simp[])>>
+  metis_tac[isat_stxor_add_is_emp_xor,strxor_comm,isat_strxor_extend_s,strxor_self]
+QED
+
+Theorem isat_cclause_restore_fn:
+  EVERY (can_restore_int tn) mC ∧
+  tn_inv tn ∧
+  wf_clause (MAP (restore_int tn) mC) ∧
+  isat_cclause (w ∘ restore_fn tn) mC ⇒
+  isat_cclause w (MAP (restore_int tn) mC)
+Proof
+  rw[isat_cclause_def,MEM_MAP,PULL_EXISTS]>>
+  `∃m. get_name tn m = (Num (ABS l),tn)` by
+    (Cases_on`tn`>>
+    fs[get_name_def,EVERY_MEM,can_restore_int_def]>>
+    first_x_assum drule>>
+    rw[can_restore_def]>>simp[]>>
+    qexists_tac`k`>>simp[])>>
+  drule_all tn_inv_get_name>>
+  rw[]>>
+  first_assum (irule_at Any)>>
+  CONJ_ASM1_TAC
+  >- (
+    fs[wf_clause_def,EVERY_MEM,MEM_MAP]>>
+    metis_tac[])>>
+  fs[interp_lit_def,sat_lit_def,restore_int_def]>>rw[]>>
+  gvs[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem sat_cmsxor_restore_fn_2:
+  wf_clause (MAP (restore_int tn) mX) ∧
+  sat_cmsxor w (MAP interp_lit (MAP (restore_int tn) mX)) ⇒
+  sat_cmsxor (w ∘ restore_fn tn) (MAP interp_lit mX)
+Proof
+  rw[sat_cmsxor_restore_fn,MAP_MAP_o]>>
+  qmatch_asmsub_abbrev_tac`_ w ls1`>>
+  qmatch_goalsub_abbrev_tac`_ w ls2`>>
+  qsuff_tac `ls1 = ls2`>>rw[]
+  >- metis_tac[]>>
+  unabbrev_all_tac>>
+  simp[MAP_MAP_o,MAP_EQ_f]>>rw[]>>
+  rw[interp_lit_def,restore_lit_def,restore_int_def]>>
+  gvs[]
+  >- intLib.ARITH_TAC>>
+  `&restore_fn tn (Num (ABS e)) = 0` by
+    (fs[]>>
+    intLib.ARITH_TAC)>>
+  fs[wf_clause_def,MEM_MAP]>>
+  first_x_assum(qspec_then`e` mp_tac)>>
+  simp[restore_int_def]
 QED
 
 Theorem check_xlrup_sound:
@@ -1753,11 +1982,11 @@ Theorem check_xlrup_sound:
   check_xlrup xorig xlrup cfml xfml tn def =
     SOME (cfml',xfml',tn',def') ∧ tn_inv tn ∧
   (∀x. MEM x xorig ⇒ sat_cmsxor w x) ∧
-  (∀s. s ∈ values xfml ⇒ can_restore_str tn s) ∧
-  isat_fml w (restore_fn tn) (values cfml, values xfml)
+  (∀s. s ∈ range xfml ⇒ can_restore_str tn s) ∧
+  isat_fml w (restore_fn tn) (range cfml, range xfml)
   ⇒
-  (∀s. s ∈ values xfml' ⇒ can_restore_str tn' s) ∧
-  isat_fml w (restore_fn tn') (values cfml', values xfml')
+  (∀s. s ∈ range xfml' ⇒ can_restore_str tn' s) ∧
+  isat_fml w (restore_fn tn') (range cfml', range xfml')
 Proof
   simp[check_xlrup_def]>>strip_tac>>
   gvs[AllCaseEqs()]
@@ -1771,62 +2000,114 @@ Proof
     asm_exists_tac>>simp[])
   >~ [‘XOrig’] >- (
     pairarg_tac \\ gvs [] \\ res_tac >>
-    fs[isat_fml_def,isat_xfml_def,PULL_EXISTS]>>
-    fs[values_def,PULL_EXISTS,lookup_insert]>>
-    conj_tac >-
-     (rw []
-      \\ fs [can_restore_str_conv_xor_mv]
-      \\ res_tac \\ drule_all ren_lit_ls_restore \\ fs []
-      \\ metis_tac [can_restore_str_submap]) >>
-    reverse (rw[]) >-
-     (res_tac \\ drule_all ren_lit_ls_restore
-      \\ strip_tac
-      \\ drule_all isat_strxor_restore_str_submap \\ fs []) >>
+    drule_all ren_lit_ls_restore>> strip_tac>> gvs[]>>
+    fs[isat_fml_def,PULL_EXISTS]>>
+    conj_tac >- (
+      fs[range_def,PULL_EXISTS,lookup_insert]>>
+      rw []
+      >- (
+        match_mp_tac can_restore_str_conv_xor_mv
+        \\ metis_tac [can_restore_str_submap])
+      \\ metis_tac [can_restore_str_submap])>>
+    match_mp_tac isat_xfml_insert>>
+    CONJ_TAC >-
+      metis_tac[isat_xfml_restore_str_submap]>>
     fs[wf_xlrup_def] >>
     rw[conv_xor_mv_def,conv_rawxor_def, GSYM conv_xor_def]>>
-    DEP_REWRITE_TAC [conv_xor_sound] >>
-    DEP_REWRITE_TAC[isat_strxor_flip_bit] >>
+    DEP_REWRITE_TAC [conv_xor_sound, isat_strxor_flip_bit] >>
     simp[isat_strxor_extend_s]>>
-    conj_tac >- (EVAL_TAC \\ simp [MAX_DEF]) >>
-    drule ren_lit_ls_nz_lit \\ rw [] >>
+    drule ren_lit_ls_nz_lit \\ rw []
+    >- (EVAL_TAC \\ simp [MAX_DEF]) >>
     simp [isat_strxor_def,string_to_bits_def,sum_bitlist_def,
           sat_cmsxor_restore_fn] >>
     drule_all ren_lit_ls_restore >>
     strip_tac \\ fs [])
-  >~ [‘XAdd’] >- cheat (*
+  >~ [‘XAdd’] >- (
+    pairarg_tac>>gvs[]>>
     fs[isat_fml_def]>>
+    drule ren_int_ls_restore >> strip_tac>> gvs[]>>
+    CONJ_TAC>- (
+      simp[range_def,PULL_EXISTS,lookup_insert]>>
+      rw[]
+      >- (
+        match_mp_tac can_restore_str_conv_rawxor>>
+        fs[o_DEF,EVERY_MAP,GSYM can_restore_int_def]>>
+        metis_tac[ETA_AX])>>
+      fs[range_def]
+      \\ metis_tac [can_restore_str_submap])>>
     match_mp_tac isat_xfml_insert>>
-    simp[]>>
+    CONJ_TAC >-
+      metis_tac[isat_xfml_restore_str_submap]>>
     match_mp_tac (GEN_ALL is_xor_sound)>>gvs[]>>
-    metis_tac[]) *)
-  >~ [‘XDel’] >- cheat (* deleting XORs by ID
-    metis_tac[delete_xors_sound] *)
-  >~ [‘CFromX ’] >- cheat (*
+    drule ren_int_ls_tn_inv>>rw[]>>
+    metis_tac[isat_xfml_restore_str_submap])
+  >~ [‘XDel’] >- (
+    CONJ_TAC >-
+      metis_tac[range_FOLDL_delete_SUBSET,SUBSET_DEF]>>
+    metis_tac[delete_xors_sound])
+  >~ [‘CFromX ’] >- (
     fs[isat_fml_def]>>
-    match_mp_tac isat_cfml_insert>>
-    simp[]>>
-    match_mp_tac (GEN_ALL is_cfromx_sound)>>gvs[]>>
+    pairarg_tac>>gvs[]>>
+    drule ren_int_ls_wf_clause>>
     fs[wf_xlrup_def]>>
-    metis_tac[]) *)
-  >~ [‘XFromC’] >- cheat (*
+    impl_tac >- simp[wf_clause_def]>>
+    drule ren_int_ls_restore >> strip_tac>> gvs[]>>
+    strip_tac>>
+    CONJ_TAC >- (
+      fs[range_def]
+      \\ metis_tac [can_restore_str_submap])>>
+    CONJ_ASM2_TAC >- (
+      match_mp_tac isat_cfml_insert>>
+      simp[]>>
+      fs[wf_xlrup_def]>>
+      drule_at (Pos last) (GEN_ALL is_cfromx_sound)>>
+      disch_then (drule_at Any)>>
+      simp[]>>
+      strip_tac>>
+      match_mp_tac isat_cclause_restore_fn>>
+      fs[]>>
+      metis_tac[ren_int_ls_tn_inv])>>
+    metis_tac[isat_xfml_restore_str_submap])
+  >~ [‘XFromC’] >- (
     fs[isat_fml_def]>>
+    pairarg_tac>>gvs[]>>
+    drule ren_int_ls_restore >> strip_tac>> gvs[]>>
+    CONJ_TAC >- (
+      simp[range_def,PULL_EXISTS,lookup_insert]>>
+      rw[]
+      >- (
+        match_mp_tac can_restore_str_conv_rawxor>>
+        fs[o_DEF,EVERY_MAP,GSYM can_restore_int_def]>>
+        metis_tac[ETA_AX])>>
+      fs[range_def]
+      \\ metis_tac [can_restore_str_submap])>>
     match_mp_tac isat_xfml_insert>>
-    simp[]>>
+    CONJ_TAC >-
+      metis_tac[isat_xfml_restore_str_submap]>>
+    drule_at (Pos last) is_xfromc_sound >>
+    fs[wf_xlrup_def]>>
+    disch_then (drule_at Any)>>
+    strip_tac>>
     rw[conv_rawxor_def]>>
     match_mp_tac isat_strxor_cnv_xor_to_aux>>
     DEP_REWRITE_TAC[conv_xor_sound]>>
-    CONJ_TAC >- (
-      fs[EVERY_MAP,wf_xlrup_def,wf_clause_def,EVERY_MEM]>>
-      rw[nz_lit_def,interp_lit_def]>>
-      `x ≠ 0` by metis_tac[]>>
-      intLib.ARITH_TAC)>>
+    drule ren_int_ls_wf_clause>> simp[] >>
+    impl_tac >- simp[wf_clause_def]>>
+    rw[]
+    >- (
+      fs[wf_clause_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
+      rw[nz_lit_def,interp_lit_def]
+      >- intLib.ARITH_TAC>>
+      CCONTR_TAC>>
+      fs[]>>
+      `y = 0` by intLib.ARITH_TAC>>
+      fs[])>>
+    fs[sat_cmsxor_restore_fn_2]>>
     DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
     simp[isat_strxor_extend_s]>>
     CONJ_TAC >-
       (EVAL_TAC>>rw[])>>
-    fs[wf_xlrup_def]>>
-    drule_all is_xfromc_sound>>
-    EVAL_TAC) *)
+    EVAL_TAC)
 QED
 
 Theorem check_xlrup_tn_inv:
@@ -1846,10 +2127,10 @@ Theorem check_xlrups_sound:
   EVERY wf_xlrup ls ∧ tn_inv tn ∧
   check_xlrups xorig ls cfml xfml tn def =
     SOME (cfml',xfml', tn', def') ∧
-  (∀s. s ∈ values xfml ⇒ can_restore_str tn s) ∧
+  (∀s. s ∈ range xfml ⇒ can_restore_str tn s) ∧
   (∀x. MEM x xorig ⇒ sat_cmsxor w x) ⇒
-  (isat_fml w (restore_fn tn) (values cfml, values xfml) ⇒
-   isat_fml w (restore_fn tn') (values cfml', values xfml'))
+  (isat_fml w (restore_fn tn) (range cfml, range xfml) ⇒
+   isat_fml w (restore_fn tn') (range cfml', range xfml'))
 Proof
   Induct>>simp[check_xlrups_def]>>
   rw[]>>
@@ -1883,10 +2164,10 @@ Proof
   simp[]
 QED
 
-Theorem values_build_fml:
-  ∀ls id. values (build_fml id ls) = set ls
+Theorem range_build_fml:
+  ∀ls id. range (build_fml id ls) = set ls
 Proof
-  Induct>>fs[build_fml_def,values_def,lookup_def]>>
+  Induct>>fs[build_fml_def,range_def,lookup_def]>>
   fs[EXTENSION]>>
   rw[lookup_insert]>>
   rw[EQ_IMP_THM]
@@ -1911,17 +2192,17 @@ Theorem check_xlrups_unsat_sound:
 Proof
   rw[check_xlrups_unsat_def]>>
   every_case_tac>>fs[]>>
-  `¬∃w. isat_cfml w (values q)` by (
+  `¬∃w. isat_cfml w (range q)` by (
     fs[isat_cfml_def,contains_emp_def,MEM_MAP]>>
-    Cases_on`y`>>fs[MEM_toAList,values_def,PULL_EXISTS]>>
+    Cases_on`y`>>fs[MEM_toAList,range_def,PULL_EXISTS]>>
     rw[]>>
     asm_exists_tac>>simp[isat_cclause_def])>>
   fs[]>>
   PairCases_on`r`>>drule check_xlrups_sound>>
   disch_then (drule_at Any)>>
   ‘tn_inv (LN,1)’ by fs [tn_inv_def]>>
-  fs[isat_fml_def,values_build_fml]>>
-  simp[values_def,isat_xfml_def]>>
+  fs[isat_fml_def,range_build_fml]>>
+  simp[range_def,isat_xfml_def]>>
   metis_tac[]
 QED
 

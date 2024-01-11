@@ -119,7 +119,7 @@ val delete_literals_sing_arr_def = process_topdecs`
       delete_literals_sing_arr lno i carr cs
     else
       if every_one_arr carr cs then ~c
-      else raise Fail (format_failure lno "clause at index not empty or singleton after reduction: "  ^ Int.toString i)` |> append_prog
+      else raise Fail (format_failure lno ("clause at index not empty or singleton after reduction: "  ^ Int.toString i))` |> append_prog
 
 val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
@@ -816,10 +816,22 @@ Proof
   simp[]
 QED
 
+Theorem OPTION_TYPE_SPLIT:
+  OPTION_TYPE a x v ⇔
+  (x = NONE ∧ v = Conv (SOME (TypeStamp "None" 2)) []) ∨
+  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp "Some" 2)) [vv] ∧ a y vv)
+Proof
+  Cases_on`x`>>rw[OPTION_TYPE_def]
+QED
+
+val res = translate lookup_def;
+
 val unit_prop_xor_arr = process_topdecs`
-  fun unit_prop_xor_arr l s =
+  fun unit_prop_xor_arr t l s =
   let
     val n = nabs l in
+    case lookup_1 n t of None => ()
+    | Some n =>
     if n < 8 * Word8Array.length s then
       if l > 0 then
         (if get_bit_arr s n then
@@ -830,19 +842,24 @@ val unit_prop_xor_arr = process_topdecs`
   end` |> append_prog;
 
 Theorem unit_prop_xor_arr_spec:
-  INT l lv
+  INT l lv ∧
+  SPTREE_SPT_TYPE NUM t tv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "unit_prop_xor_arr" (get_ml_prog_state()))
-    [lv; csv]
+    [tv; lv; csv]
     (W8ARRAY csv cs)
     (POSTv v.
         &(UNIT_TYPE () v) *
-        W8ARRAY csv (unit_prop_xor_list l cs))
+        W8ARRAY csv (unit_prop_xor_list t l cs))
 Proof
   xcf "unit_prop_xor_arr" (get_ml_prog_state ())>>
   rpt xlet_autop>>
-  fs[unit_prop_xor_list_def,nabs_def]>>
+  fs[unit_prop_xor_list_def,nabs_def,OPTION_TYPE_SPLIT]>>
+  xmatch
+  >-
+    (xvar>>xsimpl)>>
+  rpt xlet_autop>>
   reverse xif
   >-
     (xvar>>xsimpl)>>
@@ -858,7 +875,7 @@ Proof
     xlet_autop>>
     xlet`POSTv v.
       &UNIT_TYPE () v *
-      W8ARRAY csv (set_bit_list cs (Num (ABS l)) F)`
+      W8ARRAY csv (set_bit_list cs y F)`
     >- (
       xapp>>simp[]>>
       (DEP_REWRITE_TAC[DIV_LT_X]>>fs[])>>
@@ -873,7 +890,7 @@ Proof
 QED
 
 val unit_props_xor_arr = process_topdecs`
-  fun unit_props_xor_arr lno fml is s =
+  fun unit_props_xor_arr lno fml t is s =
   case is of
     [] => s
   | i::is =>
@@ -884,28 +901,29 @@ val unit_props_xor_arr = process_topdecs`
       None => raise Fail (format_failure lno ("no clause at index (maybe deleted): " ^ Int.toString i))
     | Some x =>
       case x of [l] =>
-        (unit_prop_xor_arr l s;
-        unit_props_xor_arr lno fml is s)
+        (unit_prop_xor_arr t l s;
+        unit_props_xor_arr lno fml t is s)
       | _ => raise Fail (format_failure lno ("clause at index not unit: " ^ Int.toString i))` |> append_prog;
 
 Theorem unit_props_xor_arr_spec:
   ∀ls lsv cs csv fmlv fmlls fmllsv lno lnov.
   NUM lno lnov ∧
+  SPTREE_SPT_TYPE NUM t tv ∧
   (LIST_TYPE NUM) ls lsv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "unit_props_xor_arr" (get_ml_prog_state()))
-    [lnov; fmlv; lsv; csv]
+    [lnov; fmlv; tv; lsv; csv]
     (ARRAY fmlv fmllsv * W8ARRAY csv cs)
     (POSTve
       (λv. ARRAY fmlv fmllsv * SEP_EXISTS cs'.
         W8ARRAY v cs' *
         &(unwrap_TYPE $=
-          (unit_props_xor_list fmlls ls cs) cs'))
+          (unit_props_xor_list fmlls t ls cs) cs'))
        (λe.
         ARRAY fmlv fmllsv *
-        &(Fail_exn e ∧ unit_props_xor_list fmlls ls cs = NONE)))
+        &(Fail_exn e ∧ unit_props_xor_list fmlls t ls cs = NONE)))
 Proof
   Induct>>
   xcf "unit_props_xor_arr" (get_ml_prog_state ())>>
@@ -1088,7 +1106,7 @@ val is_xor_arr = process_topdecs`
     val r = Word8Array.array def w8z
     val r = strxor_c_arr r s
     val r = add_xors_aux_c_arr lno fml is r
-    val r = unit_props_xor_arr lno cfml cis r
+    val r = unit_props_xor_arr lno cfml (fst tn) cis r
   in
     is_emp_xor_arr_aux lno tn r (Word8Array.length r)
   end` |> append_prog;
@@ -1109,10 +1127,10 @@ Theorem is_xor_arr_spec:
     (ARRAY fmlv fmllsv * ARRAY cfmlv cfmllsv)
     (POSTve
       (λv. ARRAY fmlv fmllsv * ARRAY cfmlv cfmllsv *
-        &(is_xor_list def fmlls ls cfmlls cls s))
+        &(is_xor_list def fmlls ls cfmlls cls (FST tn) s))
       (λe.
          ARRAY fmlv fmllsv * ARRAY cfmlv cfmllsv *
-         &(Fail_exn e ∧ ¬is_xor_list def fmlls ls cfmlls cls s)))
+         &(Fail_exn e ∧ ¬is_xor_list def fmlls ls cfmlls cls (FST tn) s)))
 Proof
   xcf "is_xor_arr" (get_ml_prog_state ())>>
   rw[is_xor_list_def]>>
@@ -1615,7 +1633,6 @@ Definition ren_lits_def:
   ren_lits tn rx = ren_lit_ls tn rx []
 End
 
-val res = translate lookup_def;
 val res = translate get_name_def;
 val res = translate ren_lit_ls_def;
 val res = translate ren_lits_def;
@@ -1872,19 +1889,23 @@ Proof
     xlet_autop>>
     pairarg_tac>>gvs[ren_ints_def]>>
     (* xlet_auto creates the wrong frame here *)
+    rename1`is_xor_list _ _ _ _ _ tn`>>
     xlet`POSTve
     (λv.
          ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
          W8ARRAY Carrv Clist *
-         &is_xor_list def xfmlls l0 cfmlls l1 (conv_rawxor_list def mx))
+         &is_xor_list def xfmlls l0 cfmlls l1 tn (conv_rawxor_list def mx))
     (λe.
          ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
          &(Fail_exn e ∧
-          ¬is_xor_list def xfmlls l0 cfmlls l1 (conv_rawxor_list def mx)))`
+          ¬is_xor_list def xfmlls l0 cfmlls l1 tn (conv_rawxor_list def mx)))`
     >- (
       xapp>>xsimpl>>
       rpt(first_x_assum (irule_at Any))>>
-      metis_tac[PAIR_TYPE_def])
+      simp[PAIR_TYPE_SPLIT,PULL_EXISTS]>>
+      first_x_assum (irule_at Any)>>
+      first_x_assum (irule_at Any)>>
+      simp[])
     >-
       xsimpl>>
     rpt xlet_autop>>
@@ -2209,14 +2230,6 @@ val parse_and_run_arr = process_topdecs`
   | Some xlrup =>
     check_xlrup_arr lno xorig xlrup cfml xfml tn def carr` |> append_prog
 
-Theorem OPTION_TYPE_SPLIT:
-  OPTION_TYPE a x v ⇔
-  (x = NONE ∧ v = Conv (SOME (TypeStamp "None" 2)) []) ∨
-  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp "Some" 2)) [vv] ∧ a y vv)
-Proof
-  Cases_on`x`>>rw[OPTION_TYPE_def]
-QED
-
 Theorem parse_and_run_arr_spec:
   NUM lno lnov ∧
   LIST_TYPE (LIST_TYPE CNF_XOR_LIT_TYPE) xorig xorigv ∧
@@ -2519,7 +2532,7 @@ val check_unsat' = process_topdecs `
   let
     val fd = TextIO.b_openIn fname
     val carr = Word8Array.array n w8z
-    val chk = Inr (check_unsat'' fd 0 xorig cfml xfml tn def carr)
+    val chk = Inr (check_unsat'' fd 1 xorig cfml xfml tn def carr)
       handle Fail s => Inl s
     val close = TextIO.b_closeIn fd;
   in
@@ -2931,7 +2944,7 @@ Theorem wf_cfml_build_fml:
   EVERY wf_clause ls ⇒
   wf_cfml (build_fml kc ls)
 Proof
-  simp[wf_cfml_def,values_build_fml,EVERY_MEM]
+  simp[wf_cfml_def,range_build_fml,EVERY_MEM]
 QED
 
 (* TODO *)
