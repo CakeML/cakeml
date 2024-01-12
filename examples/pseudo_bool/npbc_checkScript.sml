@@ -131,22 +131,22 @@ Definition insert_fml_def:
 End
 
 Definition rup_pass1_def:
-  rup_pass1 assg [] acc ys num = (acc,REVERSE ys,num) ∧
-  rup_pass1 assg ((i:int,n:num)::xs) acc ys num =
+  rup_pass1 assg [] acc ys = (acc,ys) ∧
+  rup_pass1 assg ((i:int,n:num)::xs) acc ys =
     let k = Num (ABS i) in
       case FLOOKUP assg n of
-      | NONE => rup_pass1 assg xs (acc + k) ((k,i,n)::ys) num
-      | SOME T => rup_pass1 assg xs acc ys (if i < 0 then num else num - k)
-      | SOME F => rup_pass1 assg xs acc ys (if i < 0 then num - k else num)
+      | NONE   => rup_pass1 assg xs (acc + k) ((k,i,n)::ys)
+      | SOME T => rup_pass1 assg xs (if i < 0 then acc else acc + k) ys
+      | SOME F => rup_pass1 assg xs (if i < 0 then acc + k else acc) ys
 End
 
 Definition rup_pass2_def:
-  rup_pass2 assg s [] l = assg ∧
-  rup_pass2 assg s ((k:num,i:int,n:num)::ys) l =
-    if s - k < l then
-      rup_pass2 (assg |+ (n,(0 ≤ i))) s ys l
+  rup_pass2 assg max [] l = assg ∧
+  rup_pass2 assg max ((k:num,i:int,n:num)::ys) l =
+    if max < l + k then
+      rup_pass2 (assg |+ (n,0 ≤ i)) max ys l
     else
-      rup_pass2 assg s ys l
+      rup_pass2 assg max ys l
 End
 
 (* Reduce c according to the assignment,
@@ -154,9 +154,9 @@ End
   otherwise return the updated assignment using units in (ls,n) *)
 Definition update_assg_def:
   update_assg assg (ls,n) =
-    let (slack,ls1,n1) = rup_pass1 assg ls 0 [] n in
-      if slack < n1 then NONE else
-        SOME (rup_pass2 assg slack ls1 n1)
+    let (max,ls1) = rup_pass1 assg ls 0 [] in
+      if max < n then NONE else
+        SOME (rup_pass2 assg max ls1 n)
 End
 
 (* Here, assg could be a finite map of variables to T/F
@@ -403,23 +403,88 @@ Definition agree_assg_def:
     w x = b
 End
 
+Theorem rup_pass1_thm:
+  ∀assg xs acc ys acc1 ys1 w.
+    rup_pass1 assg xs acc ys = (acc1,ys1) ∧ agree_assg assg w ⇒
+    SUM (MAP (eval_term w) xs) + acc ≤ acc1 ∧
+    (∀n i k. MEM (n,i,k) ys1 ⇒ MEM (n,i,k) ys ∨ n = Num (ABS i)) ∧
+    ∃xs1.
+      SUM (MAP (eval_term w) xs1) + lslack (MAP SND ys1) + acc ≤ acc1 + lslack (MAP SND ys) ∧
+      SUM (MAP (eval_term w) xs) + SUM (MAP (eval_term w) (MAP SND ys)) =
+      SUM (MAP (eval_term w) xs1) + SUM (MAP (eval_term w) (MAP SND ys1))
+Proof
+  Induct_on ‘xs’ \\ fs [rup_pass1_def]
+  >- (rw [] \\ qexists_tac ‘[]’ \\ gvs [])
+  \\ PairCases \\ fs [rup_pass1_def]
+  \\ rpt gen_tac \\ gvs [AllCaseEqs()] \\ strip_tac \\ gvs []
+  >- (last_x_assum dxrule_all \\ fs [lslack_def] \\ strip_tac \\ gvs []
+      \\ conj_tac >- (Cases_on ‘w h1’ \\ gvs [] \\ metis_tac [])
+      \\ conj_tac >- metis_tac []
+      \\ qexists_tac ‘xs1’ \\ gvs [])
+  \\ last_x_assum drule_all \\ strip_tac \\ fs []
+  \\ gvs [agree_assg_def] \\ res_tac \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  >- (qexists_tac ‘xs1’ \\ gvs [])
+  >- (qexists_tac ‘(h0,h1)::xs1’ \\ gvs [])
+  >- (qexists_tac ‘(h0,h1)::xs1’ \\ gvs [])
+  >- (qexists_tac ‘xs1’ \\ gvs [])
+QED
+
+Theorem rup_pass2_thm:
+  ∀assg d1 slack ls1 d.
+    agree_assg assg w ∧
+    c1 ≤ d + SUM (MAP (eval_term w) (MAP SND ls1)) ∧
+    d + lslack (MAP SND ls1) ≤ max ∧
+    (∀n i k. MEM (n,i,k) ls1 ⇒ n = Num (ABS i))
+    ⇒
+    agree_assg (rup_pass2 assg max ls1 c1) w
+Proof
+  Induct_on ‘ls1’ \\ fs [rup_pass2_def] \\ PairCases
+  \\ gvs [rup_pass2_def] \\ rpt gen_tac \\ strip_tac
+  \\ qabbrev_tac ‘x = if h1 < 0 then 1 − b2n (w h2) else b2n (w h2)’
+  \\ ‘x ≤ 1’ by (rw [Abbr‘x’] \\ Cases_on ‘w h2’ \\ gvs [])
+  \\ reverse IF_CASES_TAC
+  \\ last_x_assum irule \\ fs []
+  \\ gvs [SF DNF_ss,SF SFY_ss]
+  \\ fs [lslack_def] \\ fs [GSYM lslack_def]
+  \\ qexists_tac ‘d + Num (ABS h1)’ \\ gvs []
+  \\ ‘c1 ≤ d + (Num (ABS h1) + SUM (MAP (eval_term w) (MAP SND ls1)))’ by
+    (Cases_on ‘x’ \\ gvs [ADD1] \\ Cases_on ‘n’ \\ gvs []) \\ fs []
+  \\ gvs [agree_assg_def,FLOOKUP_SIMP] \\ rw [] \\ gvs []
+  \\ rpt $ qpat_x_assum ‘∀x._’ kall_tac
+  \\ dxrule_all LESS_EQ_LESS_TRANS \\ strip_tac
+  \\ ‘d + lslack (MAP SND ls1) < c1’ by gvs []
+  \\ Cases_on ‘x = 1’ >- (Cases_on ‘w h2’ \\ gvs [AllCaseEqs()] \\ intLib.COOPER_TAC)
+  \\ ‘x = 0’ by gvs [] \\ gvs []
+  \\ ‘SUM (MAP (eval_term w) (MAP SND ls1)) ≤ lslack (MAP SND ls1)’ by fs [lslack_thm]
+  \\ gvs []
+QED
+
 Theorem update_assg_NONE:
   update_assg assg c = NONE ⇒
   ∀w. agree_assg assg w ⇒
     ¬ satisfies_npbc w c
 Proof
-  cheat (*
-  rw[update_assg_def]>>
-  drule check_contradiction_unsat>>
-  metis_tac[] *)
+  PairCases_on ‘c’
+  \\ rw[update_assg_def]
+  \\ pairarg_tac \\ gvs []
+  \\ drule_all rup_pass1_thm \\ strip_tac
+  \\ gvs [satisfies_npbc_def,GREATER_EQ,GSYM NOT_LESS]
 QED
 
 Theorem update_assg_SOME:
   update_assg assg c = SOME assg' ⇒
   ∀w. agree_assg assg w ∧ satisfies_npbc w c ⇒
-  agree_assg assg' w
+      agree_assg assg' w
 Proof
-  cheat (* rw[update_assg_def] *)
+  PairCases_on ‘c’
+  \\ rw[update_assg_def]
+  \\ pairarg_tac \\ gvs []
+  \\ drule_all rup_pass1_thm \\ strip_tac
+  \\ gvs [satisfies_npbc_def,GREATER_EQ,EVAL “lslack []”]
+  \\ irule rup_pass2_thm
+  \\ gvs [SF SFY_ss]
+  \\ qexists_tac ‘SUM (MAP (eval_term w) xs1)’ \\ gvs []
 QED
 
 Theorem check_rup_unsat:
