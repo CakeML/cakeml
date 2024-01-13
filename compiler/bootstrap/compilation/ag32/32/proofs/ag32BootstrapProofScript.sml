@@ -124,13 +124,6 @@ Theorem cake_compiled_thm =
   |> DISCH_ALL
   |> check_thm;
 
-Triviality to_MAP_ExtCall:
-  [ExtCall n] = MAP ExtCall [n] ∧
-  (ExtCall n::MAP ExtCall ns) = MAP ExtCall (n::ns)
-Proof
-  fs []
-QED
-
 Theorem cake_installed:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
@@ -141,10 +134,11 @@ Theorem cake_installed:
 Proof
   rewrite_tac[ffi_names, extcalls_def]
   \\ strip_tac
-  \\ ‘SOME [] = SOME (MAP ffi$ExtCall [])’ by fs []
-  \\ pop_assum $ once_rewrite_tac o single
-  \\ rewrite_tac [to_MAP_ExtCall]
+  \\ qmatch_asmsub_abbrev_tac ‘init_memory _ _ ff’
+  \\ ‘^(ffi_names |> concl |> rand |> rand) = MAP ExtCall ff’ by simp [Abbr‘ff’]
+  \\ asm_rewrite_tac []
   \\ irule ag32_installed
+  \\ unabbrev_all_tac
   \\ drule cake_startup_clock_def
   \\ disch_then drule
   \\ rewrite_tac[ffi_names, extcalls_def]
