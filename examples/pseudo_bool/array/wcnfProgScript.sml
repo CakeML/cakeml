@@ -32,7 +32,12 @@ val parse_wclause_side = Q.prove(`
   EVAL_TAC>>
   rw[]>>intLib.ARITH_TAC) |> update_precondition;
 
-val _ = translate lpr_parsingTheory.nocomment_line_def;
+val _ = translate wnocomment_line_def;
+
+val wnocomment_line_side = Q.prove(`
+  wnocomment_line_side x ⇔ T`,
+  EVAL_TAC>>
+  rw[]) |> update_precondition;
 
 val format_wcnf_failure_def = Define`
   format_wcnf_failure (lno:num) s =
@@ -54,7 +59,7 @@ val parse_wcnf_toks_arr = process_topdecs`
   case TextIO.b_inputLineTokens fd blanks_1 tokenize_1 of
     None => Inr (List.rev acc)
   | Some l =>
-    if nocomment_line l then
+    if wnocomment_line l then
       (case parse_wclause l of
         None => Inl (format_wcnf_failure lno "failed to parse line")
       | Some cl => parse_wcnf_toks_arr (lno+1) fd (cl::acc))
@@ -115,7 +120,9 @@ Proof
       \\ simp[lpr_parsingTheory.toks_def])
   \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq \\ fs []
   \\ xmatch \\ fs []
-  \\ xlet_autop
+  \\ xlet_auto
+  >-
+    xsimpl
   \\ simp[parse_wcnf_toks_def]
   \\ reverse xif
   >- (
@@ -166,7 +173,7 @@ val parse_wcnf_full = (append_prog o process_topdecs) `
   fun parse_wcnf_full fname =
   let
     val fd = TextIO.b_openIn fname
-    val res = parse_wcnf_toks_arr 0 fd []
+    val res = parse_wcnf_toks_arr 1 fd []
     val close = TextIO.b_closeIn fd;
   in
     res
@@ -363,38 +370,38 @@ Definition maxsat_sem_def:
   maxsat_sem wfml copt ⇔
   case copt of NONE => T
   | SOME (lbg,ubg) =>
-  (case ubg of
-    NONE => max_sat wfml = NONE
-  | SOME ub =>
-    (case lbg of
-      NONE => (∀w. satisfies_hard w wfml ⇒ weight w wfml ≤ ub)
-    | SOME lb =>
+  (case lbg of
+    NONE => min_unsat wfml = NONE
+  | SOME lb =>
+    (case ubg of
+      NONE => (∀w. satisfies_hard w wfml ⇒ lb ≤ weight w wfml)
+    | SOME ub =>
       if lb = ub then
-        max_sat wfml = SOME lb
+        min_unsat wfml = SOME lb
       else
-      (∀w. satisfies_hard w wfml ⇒ weight w wfml ≤ ub) ∧
-      (∃w. satisfies_hard w wfml ∧ lb ≤ weight w wfml)))
+      (∀w. satisfies_hard w wfml ⇒ lb ≤ weight w wfml) ∧
+      (∃w. satisfies_hard w wfml ∧ weight w wfml ≤ ub)))
 End
 
 Definition print_maxsat_str_def:
   print_maxsat_str copt =
-  case copt of NONE => strlit "s VERIFIED MAX SAT NO CONCLUSION\n"
+  case copt of NONE => strlit "s VERIFIED NO CONCLUSION\n"
   | SOME (lbg:num option,ubg:num option) =>
   (case ubg of
-    NONE => strlit "s VERIFIED MAX SAT UNSATISFIABLE"
+    NONE => strlit "s VERIFIED UNSATISFIABLE"
   | SOME ub =>
     (case lbg of
       NONE =>
-        strlit "s VERIFIED MAX SAT BOUNDS " ^
-        strlit "sum(weights) <= " ^ toString ub ^ strlit"\n"
+        strlit "s VERIFIED BOUNDS " ^
+        strlit "sum(unsat weights) <= " ^ toString ub ^ strlit"\n"
     | SOME lb =>
       if lb = ub then
-        strlit "s VERIFIED MAX SAT sum(weights) = " ^
+        strlit "s VERIFIED MIN sum(unsat weights) = " ^
         toString ub ^ strlit"\n"
       else
-        strlit "s VERIFIED MAX SAT BOUNDS " ^
+        strlit "s VERIFIED " ^
         (toString lb) ^
-        strlit " <= sum(weights) <= " ^ toString ub ^ strlit"\n"))
+        strlit " <= MIN sum(unsat weights) <= " ^ toString ub ^ strlit"\n"))
 End
 
 Definition check_unsat_2_sem_def:
@@ -411,7 +418,7 @@ Definition map_concl_to_string_def:
   (map_concl_to_string (INR (out,bnd,c)) =
     case conv_concl c of
       SOME bounds => INR (print_maxsat_str bounds)
-    | NONE => INL (strlit "c Unexpected conclusion for MAX SAT\n"))
+    | NONE => INL (strlit "c Unexpected conclusion type\n"))
 End
 
 val res = translate nn_int_def;
@@ -525,17 +532,17 @@ Proof
     qexists_tac`x`>>simp[maxsat_sem_def]>>
     every_case_tac>>fs[]
     >- (
-      (drule_at Any) full_encode_sem_concl_max_sat>>
+      (drule_at Any) full_encode_sem_concl_min_unsat>>
       metis_tac[PAIR])
     >- (
       (drule_at Any) full_encode_sem_concl>>
       fs[]>>
       disch_then (drule_at Any)>>simp[])
     >- (
-      (drule_at Any) full_encode_sem_concl_max_sat>>
+      (drule_at Any) full_encode_sem_concl_min_unsat>>
       metis_tac[PAIR])
     >- (
-      (drule_at Any) full_encode_sem_concl_max_sat>>
+      (drule_at Any) full_encode_sem_concl_min_unsat>>
       metis_tac[PAIR])
     >- (
       (drule_at Any) full_encode_sem_concl>>
@@ -596,14 +603,14 @@ QED
 
 Definition maxsat_output_sem_def:
   maxsat_output_sem wfml wfml' iseqopt ⇔
-  (iseqopt ⇒ max_sat wfml = max_sat wfml')
+  (iseqopt ⇒ min_unsat wfml = min_unsat wfml')
 End
 
 Definition print_maxsat_output_str_def:
   print_maxsat_output_str iseqopt =
   if iseqopt
-  then strlit "s VERIFIED MAX SAT OUTPUT EQUIOPTIMAL\n"
-  else strlit "s VERIFIED MAX SAT NO OUTPUT CLAIM\n"
+  then strlit "s VERIFIED OUTPUT EQUIOPTIMAL\n"
+  else strlit "s VERIFIED NO OUTPUT CLAIM\n"
 End
 
 Definition check_unsat_3_sem_def:
@@ -622,10 +629,10 @@ Definition map_out_concl_to_string_def:
   (map_out_concl_to_string (INL s) = (INL s)) ∧
   (map_out_concl_to_string (INR (out,bnd,c)) =
   case conv_concl c of
-    NONE => INL (strlit "c Unexpected conclusion for MAX SAT\n")
+    NONE => INL (strlit "c Unexpected conclusion type\n")
   | SOME bounds =>
     (case conv_output bnd out of
-      NONE => INL (strlit "c Unexpected output for MAX SAT\n")
+      NONE => INL (strlit "c Unexpected output type\n")
     | SOME iseqopt =>
         INR (print_maxsat_str bounds ^
             print_maxsat_output_str iseqopt )))
@@ -756,24 +763,24 @@ Proof
     fs[maxsat_sem_def]>>
     every_case_tac>>fs[]
     >- (
-      (drule_at Any) full_encode_sem_concl_max_sat>>
+      (drule_at Any) full_encode_sem_concl_min_unsat>>
       metis_tac[PAIR])
     >- (
       (drule_at Any) full_encode_sem_concl>>
       fs[]>>
       disch_then (drule_at Any)>>simp[])
     >- (
-      (drule_at Any) full_encode_sem_concl_max_sat>>
+      (drule_at Any) full_encode_sem_concl_min_unsat>>
       metis_tac[PAIR])
     >- (
-      (drule_at Any) full_encode_sem_concl_max_sat>>
+      (drule_at Any) full_encode_sem_concl_min_unsat>>
       metis_tac[PAIR])
     >- (
       (drule_at Any) full_encode_sem_concl>>
       fs[]>>
       disch_then (drule_at Any)>>simp[]))>>
   rw[]>>fs[]>>
-  (drule_at Any) full_encode_sem_output_max_sat>>
+  (drule_at Any) full_encode_sem_output_min_unsat>>
   fs[]>>
   metis_tac[PAIR]
 QED
