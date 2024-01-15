@@ -119,7 +119,7 @@ val windows_ffi_code =
        ""])))`` |> EVAL |> concl |> rand
 
 val x64_export_def = Define `
-  x64_export ffi_names bytes (data:word64 list) syms =
+  x64_export ffi_names bytes (data:word64 list) syms exp =
     let lsyms = get_sym_labels syms in
     SmartAppend
       (SmartAppend
