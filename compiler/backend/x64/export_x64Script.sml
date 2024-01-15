@@ -120,6 +120,7 @@ val windows_ffi_code =
 
 val x64_export_def = Define `
   x64_export ffi_names bytes (data:word64 list) syms =
+    let lsyms = get_sym_labels syms in
     SmartAppend
       (SmartAppend
       (SmartAppend (List preamble)
@@ -129,7 +130,7 @@ val x64_export_def = Define `
       (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code)))))
       (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
       (SmartAppend (List code_buffer)
-      (emit_symbols syms))))
+      (emit_symbols lsyms))))
       (^windows_ffi_code)`;
 
 (*
