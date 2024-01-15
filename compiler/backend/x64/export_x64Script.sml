@@ -140,7 +140,7 @@ val x64_export_def = Define `
       (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
       (SmartAppend (List code_buffer)
       (SmartAppend (emit_symbols lsyms)
-      (entry_points lsyms exp)))))
+      (expose_funcs lsyms exp)))))
       (^windows_ffi_code)`;
 
 (*
