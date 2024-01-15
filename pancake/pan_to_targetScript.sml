@@ -16,6 +16,7 @@ Definition compile_prog_def:
     let names = fromAList (ZIP (MAP FST prog2,  (* func numbers *)
                                 MAP FST prog    (* func names *)
                 )) : mlstring$mlstring num_map in
+    let c = c with exposed := MAP FST prog in
       from_word c names prog3
 End
 

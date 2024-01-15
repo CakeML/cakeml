@@ -118,6 +118,15 @@ val windows_ffi_code =
        "     callq   cdecl(cml_exit)";
        ""])))`` |> EVAL |> concl |> rand
 
+val expose_func_def = Define `
+  expose_func appl (name,label,start,len) =
+    misc$Append appl (misc$List
+    [name ^ «:\n     /* I lead to » ^ label ^ «! */\n»])`;
+
+val expose_funcs_def = Define `
+  expose_funcs lsyms exp =
+    FOLDL expose_func misc$Nil (FILTER ((flip MEM exp) o FST) lsyms)`;
+
 val x64_export_def = Define `
   x64_export ffi_names bytes (data:word64 list) syms exp =
     let lsyms = get_sym_labels syms in
@@ -130,7 +139,8 @@ val x64_export_def = Define `
       (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code)))))
       (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
       (SmartAppend (List code_buffer)
-      (emit_symbols lsyms))))
+      (SmartAppend (emit_symbols lsyms)
+      (entry_points lsyms exp)))))
       (^windows_ffi_code)`;
 
 (*
