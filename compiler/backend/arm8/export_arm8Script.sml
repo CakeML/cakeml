@@ -89,6 +89,7 @@ val ffi_code =
 
 val arm8_export_def = Define `
   arm8_export ffi_names bytes (data:word64 list) syms =
+    let lsyms = get_sym_labels syms in
     SmartAppend
       (SmartAppend (List preamble)
       (SmartAppend (List (data_section ".quad"))
@@ -97,6 +98,6 @@ val arm8_export_def = Define `
       (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code)))))
       (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
       (SmartAppend (List code_buffer)
-      (emit_symbols syms)))`;
+      (emit_symbols lsyms)))`;
 
 val _ = export_theory ();
