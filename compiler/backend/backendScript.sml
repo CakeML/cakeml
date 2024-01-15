@@ -32,6 +32,7 @@ val _ = Datatype`config =
    ; lab_conf : 'a lab_to_target$config
    ; symbols : (mlstring # num # num) list
    ; tap_conf : tap_config
+   ; exposed : mlstring$mlstring list
    |>`;
 
 val config_component_equality = theorem"config_component_equality";
