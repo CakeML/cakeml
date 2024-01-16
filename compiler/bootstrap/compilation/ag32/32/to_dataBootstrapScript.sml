@@ -43,9 +43,9 @@ val init_conf_def = zDefine`
   |>`;
 
 (*
-val (ls,ty) = compiler_prog_def |> rconc |> listSyntax.dest_list
+val (ls,ty) = compiler32_prog_def |> rconc |> listSyntax.dest_list
 val new_prog = listSyntax.mk_list(List.take(ls,80),ty)
-val compiler_prog_thm = mk_thm([],mk_eq(lhs(concl(compiler_prog_def)),new_prog));
+val compiler32_prog_thm = mk_thm([],mk_eq(lhs(concl(compiler32_prog_def)),new_prog));
 *)
 val compiler32_prog_thm = compiler32_prog_def;
 
