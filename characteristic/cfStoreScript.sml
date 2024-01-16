@@ -21,7 +21,8 @@ val store2heap_aux_def = Define `
 val store2heap_def = Define `store2heap l = store2heap_aux (0: num) l`
 
 val ffi_has_index_in_def = Define `
-  ffi_has_index_in ns (IO_event i conf ws) = (MEM i ns)`;
+  ffi_has_index_in ns (IO_event (ExtCall i) conf ws) = (MEM i ns) /\
+  ffi_has_index_in _ _ = F`;
 
 val parts_ok_def = Define `
   parts_ok st ((proj,parts):'ffi ffi_proj) <=>
@@ -33,13 +34,13 @@ val parts_ok_def = Define `
     (!x conf bytes m ns u.
        MEM (ns,u) parts /\ MEM m ns /\
        u m conf bytes (proj x ' m) = SOME FFIdiverge ==>
-        st.oracle m x conf bytes = Oracle_final(FFI_diverged)) /\
+        st.oracle (ExtCall m) x conf bytes = Oracle_final(FFI_diverged)) /\
     !x conf bytes w new_bytes m ns u.
       MEM (ns,u) parts /\ MEM m ns /\
       u m conf bytes (proj x ' m) = SOME(FFIreturn new_bytes w) ==>
       LENGTH new_bytes = LENGTH bytes /\
       ?y.
-        st.oracle m x conf bytes = Oracle_return y new_bytes /\
+        st.oracle (ExtCall m) x conf bytes = Oracle_return y new_bytes /\
         proj x |++ (MAP (\n. (n,w)) ns) = proj y`
 
 val ffi2heap_def = Define `

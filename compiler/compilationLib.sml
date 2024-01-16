@@ -1476,6 +1476,8 @@ fun eval_export word_directive target_export_defs code_def data_def syms_tm ffi_
       computeLib.Defs export_defs,
       computeLib.Defs target_export_defs ] cs;
     val exporter_tm = target_export_defs |> hd |> SPEC_ALL |> concl |> lhs |> strip_comb |> #1
+    (* the following line assumes all ffi_names are ExtCall *)
+    val ffi_names_tm = listSyntax.mk_list(listSyntax.dest_list ffi_names_tm |> fst |> map rand,stringSyntax.string_ty)
     val eval_export_tm =
       list_mk_comb(exporter_tm,
         [ffi_names_tm,
@@ -1486,6 +1488,11 @@ fun eval_export word_directive target_export_defs code_def data_def syms_tm ffi_
     in print_app_list out
          (term_to_app_list word_directive eval code_def data_def app_list)
     end
+
+(*
+val (word_directive,add_encode_compset,backend_config_def,names_def,target_export_defs) =
+  ("quad",x64_targetLib.add_x64_encode_compset,x64_backend_config_def,x64_names_def,x64_export_defs)
+*)
 
 fun cbv_to_bytes word_directive add_encode_compset backend_config_def names_def target_export_defs
       stack_to_lab_thm lab_prog_def

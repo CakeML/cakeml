@@ -509,13 +509,13 @@ val filter_ffi = Datatype `
 
 val filter_oracle = Define `
   (filter_oracle:filter_ffi oracle) port st conf bytes =
-  if port = "accept_call" then
+  if port = ExtCall "accept_call" then
     (if st.input = LNIL then Oracle_final FFI_diverged
      else if LENGTH bytes = 256 then
         Oracle_return (st with input := THE(LTL(st.input)))
                         (TAKE 256 (THE(LHD st.input)) ++ DROP (LENGTH(THE(LHD st.input))) bytes)
      else Oracle_final FFI_failed)
-  else if port = "emit_string" then
+  else if port = ExtCall "emit_string" then
     Oracle_return st bytes
   else Oracle_final FFI_failed
 `
@@ -544,7 +544,7 @@ val decode_oracle_state_def = Define `
 
 val filter_cf_oracle = Define `
   filter_cf_oracle port conf bytes ffi =
-  case filter_oracle port (decode_oracle_state ffi) conf bytes of
+  case filter_oracle (ExtCall port) (decode_oracle_state ffi) conf bytes of
       Oracle_final FFI_failed => NONE
     | Oracle_final FFI_diverged => SOME FFIdiverge
     | Oracle_return st' bytes => SOME(FFIreturn bytes (encode_oracle_state st'))`
@@ -555,7 +555,7 @@ val seL4_IO_def = Define `
     FFI_part
       (encode_oracle_state (<|input:=input|>))
       filter_cf_oracle
-      ["accept_call";"emit_string"]
+      ["accept_call"; "emit_string"]
       events)`
 
 Theorem decode_encode_oracle_state_11:
@@ -592,10 +592,10 @@ val LLENGTH_NONE_LTAKE = Q.prove(
   Induct >> Cases_on `ll` >> rw[]);
 
 val is_emit_def = Define
-  `is_emit (IO_event s _ _) = (s = "emit_string")`
+  `is_emit (IO_event s _ _) = (s = ExtCall "emit_string")`
 
 val output_event_of_def = Define
-  `output_event_of s = IO_event "emit_string" s []`
+  `output_event_of s = IO_event (ExtCall "emit_string") s []`
 
 val nth_arr_def = Define `nth_arr n ll =
  FST(FUNPOW (λ(l,ll).
@@ -671,9 +671,9 @@ val next_filter_events = Define
   `next_filter_events filter_fun last_input input =
    let new_input = TAKE 256 input ++ DROP (LENGTH input) last_input
    in
-    [IO_event "accept_call" [] (ZIP (last_input,new_input))] ++
+    [IO_event (ExtCall "accept_call") [] (ZIP (last_input,new_input))] ++
     if filter_fun(cut_at_null_w input) then
-      [IO_event "emit_string" (cut_at_null_w new_input) []]
+      [IO_event (ExtCall "emit_string") (cut_at_null_w new_input) []]
     else
       []`
 
@@ -834,7 +834,7 @@ Proof
            (encode_oracle_state
               <|input := THE (LDROP (SUC i) input)|>) filter_cf_oracle
            ["accept_call"; "emit_string"]
-           [IO_event "accept_call" [] (ZIP(inputbuff,
+           [IO_event (ExtCall "accept_call") [] (ZIP(inputbuff,
                                           ((TAKE 256 (THE (LHD (THE (LDROP i input)))) ++
                               DROP (LENGTH (THE (LHD (THE (LDROP i input))))) inputbuff))))]
            ))` >-
@@ -1147,7 +1147,7 @@ Proof
   qabbrev_tac `newinit = TAKE 256 h ++ DROP (LENGTH h) init` >>
   xlet `POSTv v. &UNIT_TYPE () v *
         W8ARRAY v' newinit * W8ARRAY dummyarr_loc [] *
-        seL4_IO (fromList l) (SNOC (IO_event "accept_call" [] (ZIP(init,newinit))) events)` >-
+        seL4_IO (fromList l) (SNOC (IO_event (ExtCall "accept_call") [] (ZIP(init,newinit))) events)` >-
     (xffi >> xsimpl >>
      simp[seL4_IO_def,Abbr `newinit`] >>
      qmatch_goalsub_abbrev_tac `one(FFI_part s u ns events)` >>
@@ -1224,8 +1224,8 @@ QED
 val seL4_proj1_def = Define `
   seL4_proj1 = (λffi.
     FEMPTY |++ (mk_proj1 (encode_oracle_state,decode_oracle_state,
-                          [("accept_call", filter_oracle "accept_call");
-                           ("emit_string", filter_oracle "emit_string")]) ffi))`;
+                          [("accept_call", filter_oracle (ExtCall "accept_call"));
+                           ("emit_string", filter_oracle (ExtCall "emit_string"))]) ffi))`;
 
 val seL4_proj2 = Define `seL4_proj2 =
   [(["accept_call";"emit_string"],filter_cf_oracle)]`
@@ -1366,7 +1366,7 @@ Theorem forward_matching_lines_ffidiv_semantics:
  semantics_prog (^(get_state st) with ffi := (filter_ffi <|input:=input|>)) ^(get_env st)
   [Dlet unknown_loc (Pcon NONE [])
            (App Opapp [Var (Short "forward_matching_lines"); Con NONE []])]
-  (Terminate (FFI_outcome(Final_event "accept_call" [] bytes FFI_diverged))
+  (Terminate (FFI_outcome(Final_event (ExtCall "accept_call") [] bytes FFI_diverged))
              events) /\
  LFILTER is_emit (fromList events) = LMAP (output_event_of o cut_at_null_w) (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w) input)
 Proof

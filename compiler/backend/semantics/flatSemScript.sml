@@ -481,7 +481,7 @@ val do_app_def = Define `
   | (FFI n, [Litv(StrLit conf); Loc lnum]) =>
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
-       (case call_FFI s.ffi n (MAP (λc. n2w(ORD c)) conf) ws of
+       (case call_FFI s.ffi (ExtCall n) (MAP (λc. n2w(ORD c)) conf) ws of
         | FFI_final outcome => SOME(s, Rerr (Rabort (Rffi_error outcome)))
         | FFI_return t' ws' =>
           (case store_assign lnum (W8array ws') s.refs of
