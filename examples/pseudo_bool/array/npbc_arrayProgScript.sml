@@ -28,7 +28,7 @@ val _ = register_type ``:sstep ``
 
 val format_failure_def = Define`
   format_failure (lno:num) s =
-  strlit "c Checking failed for top-level proof step starting at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"`
+  strlit "c Checking failed for top-level proof step starting at line: " ^ toString lno ^ strlit " (error may be in subproofs). Reason: " ^ s ^ strlit"\n"`
 
 val r = translate format_failure_def;
 
