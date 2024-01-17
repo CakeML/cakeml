@@ -243,23 +243,27 @@ QED
 
 
 
-val exists_aux_def = Define`
+Definition exists_aux_def:
   (exists_aux f vec n 0 = F) /\
   (exists_aux f vec n (SUC len) =
     if f (sub vec n)
       then T
-    else exists_aux f vec (n + 1) len)`;
+    else exists_aux f vec (n + 1) len)
+End
 
-val exists_def = Define`
-  exists f vec = exists_aux f vec 0 (length vec)`;
+Definition exists_def:
+  exists f vec = exists_aux f vec 0 (length vec)
+End
 
-val exists_aux_thm = Q.prove(
-  `!f vec n len. (n + len = length (vec)) ==>
-    (exists_aux f vec n len = EXISTS f (DROP n (toList vec)))`,
-  Induct_on `len` \\ Cases_on `vec` \\ rw[toList_thm, length_def, sub_def, exists_aux_def] THEN1
-  rw [DROP_LENGTH_NIL, EVERY_DEF] \\
+Theorem exists_aux_thm[local]:
+  !f vec n len.
+    n + len = length vec ==>
+    exists_aux f vec n len = EXISTS f (DROP n (toList vec))
+Proof
+  Induct_on `len` \\ Cases_on `vec` \\
+  rw[toList_thm, length_def, sub_def, exists_aux_def] \\
   rw [DROP_EL_CONS]
-);
+QED
 
 Theorem exists_thm:
    !f vec. exists f vec = EXISTS f (toList vec)
@@ -268,24 +272,26 @@ Proof
   rw [exists_def, exists_aux_thm]
 QED
 
-
-
-val all_aux_def = Define`
+Definition all_aux_def:
   (all_aux f vec n 0 = T) /\
   (all_aux f vec n (SUC len) =
     if f (sub vec n)
       then all_aux f vec (n + 1) len
-    else F)`;
+    else F)
+End
 
-val all_def = Define`
-  all f vec = all_aux f vec 0 (length vec)`;
+Definition all_def: all f vec = all_aux f vec 0 (length vec)
+End
 
-val all_aux_thm = Q.prove (
-  `!f vec n len. (n + len = length vec) ==> (all_aux f vec n len = EVERY f (DROP n (toList vec)))`,
-  Induct_on `len` \\ Cases_on `vec` \\ rw[toList_thm, length_def, sub_def, all_aux_def] THEN1
-  rw [DROP_LENGTH_NIL] \\
+Theorem all_aux_thm[local]:
+  !f vec n len.
+    n + len = length vec ==>
+    all_aux f vec n len = EVERY f (DROP n (toList vec))
+Proof
+  Induct_on `len` \\ Cases_on `vec` \\
+  rw[toList_thm, length_def, sub_def, all_aux_def] \\
   rw [DROP_EL_CONS]
-);
+QED
 
 Theorem all_thm:
    !f vec. all f vec = EVERY f (toList vec)
@@ -293,54 +299,64 @@ Proof
   Cases_on `vec` \\ rw[all_def, all_aux_thm]
 QED
 
-
-
-val collate_aux_def = Define`
+Definition collate_aux_def:
   (collate_aux f vec1 vec2 n ord 0 = ord) /\
   (collate_aux f vec1 vec2 n ord (SUC len) =
     if f (sub vec1 n) (sub vec2 n) = EQUAL
       then collate_aux f vec1 vec2 (n + 1) ord len
-    else f (sub vec1 n) (sub vec2 n))`;
+    else f (sub vec1 n) (sub vec2 n))
+End
 
-val collate_def = Define`
+Definition collate_def:
   collate f vec1 vec2 =
   if (length vec1) < (length vec2)
     then collate_aux f vec1 vec2 0 LESS (length vec1)
   else if (length vec2) < (length vec1)
     then collate_aux f vec1 vec2 0 GREATER (length vec2)
-  else collate_aux f vec1 vec2 0 EQUAL (length vec2)`;
+  else collate_aux f vec1 vec2 0 EQUAL (length vec2)
+End
 
-val collate_aux_less_thm = Q.prove (
-  `!f vec1 vec2 n len. (n + len = length vec1) /\ (length vec1 < length vec2) ==>
-    (collate_aux f vec1 vec2 n Less len = mllist$collate f (DROP n (toList vec1)) (DROP n (toList vec2)))`,
-      Cases_on `vec1` \\ Cases_on `vec2` \\ Induct_on `len` \\
-      rw [collate_aux_def, mllistTheory.collate_def, length_def, toList_thm, sub_def, DROP_EL_CONS]
-      >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def]
-);
+Theorem collate_aux_less_thm[local]:
+  !f vec1 vec2 n len.
+    n + len = length vec1 /\ length vec1 < length vec2 ==>
+    collate_aux f vec1 vec2 n Less len =
+    mllist$collate f (DROP n (toList vec1)) (DROP n (toList vec2))
+Proof
+  Cases_on ‘vec1’ \\ Cases_on ‘vec2’ \\ Induct_on ‘len’ \\
+  rw [collate_aux_def, mllistTheory.collate_def, length_def, toList_thm,
+      sub_def, DROP_EL_CONS]
+QED
 
-val collate_aux_equal_thm = Q.prove (
-  `!f vec1 vec2 n len. (n + len = length vec2) /\ (length vec1 = length vec2) ==>
-    (collate_aux f vec1 vec2 n Equal len =
-      mllist$collate f (DROP n (toList vec1)) (DROP n (toList vec2)))`,
-  Cases_on `vec1` \\ Cases_on `vec2` \\ Induct_on `len` \\
-  rw [collate_aux_def, mllistTheory.collate_def, length_def, toList_thm, sub_def]
+Theorem collate_aux_equal_thm[local]:
+  !f vec1 vec2 n len.
+    n + len = length vec2 /\ length vec1 = length vec2 ==>
+    collate_aux f vec1 vec2 n Equal len =
+    mllist$collate f (DROP n (toList vec1)) (DROP n (toList vec2))
+Proof
+  Cases_on ‘vec1’ \\ Cases_on ‘vec2’ \\ Induct_on ‘len’ \\
+  rw [collate_aux_def, mllistTheory.collate_def, length_def, toList_thm,
+      sub_def]
   >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def] \\
   fs [DROP_EL_CONS, mllistTheory.collate_def]
-);
+QED
 
-val collate_aux_greater_thm = Q.prove (
-  `!f vec1 vec2 n len. (n + len = length vec2) /\ (length vec2 < length vec1) ==>
-    (collate_aux f vec1 vec2 n Greater len =
-      mllist$collate f (DROP n (toList vec1)) (DROP n (toList vec2)))`,
-  Cases_on `vec1` \\ Cases_on `vec2` \\ Induct_on `len` \\
-  rw [collate_aux_def, mllistTheory.collate_def, length_def, toList_thm, sub_def, DROP_EL_CONS]
-  >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def]
-);
+Theorem collate_aux_greater_thm[local]:
+  !f vec1 vec2 n len.
+    n + len = length vec2 /\ length vec2 < length vec1 ==>
+    collate_aux f vec1 vec2 n Greater len =
+      mllist$collate f (DROP n (toList vec1)) (DROP n (toList vec2))
+Proof
+  Cases_on ‘vec1’ \\ Cases_on ‘vec2’ \\ Induct_on ‘len’ \\
+  rw [collate_aux_def, mllistTheory.collate_def, length_def, toList_thm,
+      sub_def, DROP_EL_CONS]
+QED
 
 Theorem collate_thm:
-   !f vec1 vec2. collate f vec1 vec2 = mllist$collate f (toList vec1) (toList vec2)
+  !f vec1 vec2.
+    collate f vec1 vec2 = mllist$collate f (toList vec1) (toList vec2)
 Proof
-  rw [collate_def, collate_aux_greater_thm, collate_aux_equal_thm, collate_aux_less_thm]
+  rw [collate_def, collate_aux_greater_thm, collate_aux_equal_thm,
+      collate_aux_less_thm]
 QED
 
 val _ = export_theory()
