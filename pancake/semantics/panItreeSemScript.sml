@@ -68,15 +68,95 @@ Definition mrec_iter_body_def:
    | Vis (INR e) k => Vis e (Ret o INL o k)
 End
 
-Definition mrec_body_def:
-  mrec_body rh = itree_iter $ mrec_iter_body rh
-End
-
 Definition itree_mrec_def:
-  itree_mrec rh seed = mrec_body rh (rh seed)
+  itree_mrec rh seed =
+  itree_iter (mrec_iter_body rh) (rh seed)
 End
 
 (* mrec theory *)
+
+
+(* TODO: Let's establish whether we can develop some theorems about mrec that let us express
+ the monadic general recursion extrnally. *)
+
+(*
+
+    Using a monad transformer, we could define a morphism that converts an itree
+    into an "result monad" (still an ITree) that only has components of Ret and
+    Tau (never vis).
+
+    Then we can refer to the leaves of an ITree through an equational
+    weak bisim theory...
+
+    This seems unideal.
+*)
+
+(*
+
+ The WF relation defined by evaluate may not be that useful because 
+ mrec isn't represented as directly as WF recursion.
+
+ We may either need to express mrec more directly or to capture evaluate into an itree
+ or useful monad structure so we can equate it to mrec generated itree's.
+
+*)
+
+(* The below approaches don't seem to help...
+
+   We need a way to reason about the compositionality of mrec so that we can prove
+   a property applied to the inner tree carries to the outer word.
+
+   At the moment that property is leaf equivalence, i.e. if the leaf of some inner program equals x then
+   the leaf of the outer program equals (k x)?
+
+ *)
+
+(* The itree -> something else approach:
+
+   Define a monadic catamorphism from itree's (defined by mrec) to some monad which can be made compareable
+   with the outcomes (IO event traces or computation results) of evaluate.
+
+   But this might require us to convert evaluate stuff into a monad as well.
+
+   interp shows how this is done.
+
+   The resulting type is a monad. Hence interp (or related) is a monad morphism.
+   This approach is useful iff there is a different kind of monad that can
+   better capture the result of computation, i.e. the tree leaf.
+
+*)
+
+(* The evaluate -> itree approach:
+
+    Use some combinator (like pure) to convert a recursively defined function
+    into an itree of events representing recursive calls.
+
+    This result should then be almost directly compareable to the mrec result (the mtree).
+ *)
+
+(* Alternatively, we could use something like "pure" to lift recursive functions into their
+ tree equivalence and then show that a recursive function which does the same thing as a purely
+constructed itree semantics is equivalent. *)
+
+(* TODO: If ITree's are monads, then there must be some theory about monads which
+ explains how to build a catamorphism (i.e. to fold) a monad to extract its final result, i.e. the leaf
+ of a tree.
+ *)
+
+(* TODO: Read up on the "General free monad" and McBride's method
+ for turing-completeness in a free monad, i.e. the generalised version of the mrec
+     combinator.
+*)
+
+(* TODO: Before the below it seems like we need to establish how a property over some itree propagates
+ via bind.
+ *)
+
+(* TODO: Establish a correspondence between mrec and a recursively defined function.
+ This is required in order to show that if some property applies to the inner program then it applies
+      to the outer program - which is all that we get from performing recInduct on evaluate
+ *)
+
 
 (* Characterisation of infinite itree:s in terms of their paths. *)
 Definition itree_finite_def:
@@ -304,10 +384,10 @@ Definition itree_semantics_def:
 End
 
 Definition mrec_sem_def:
-  mrec_sem (seed:(('a,'b) htree)) = mrec_body h_prog seed
+  mrec_sem (seed:(('a,'b) htree)) = itree_iter (mrec_iter_body h_prog) seed
 End
 
-Triviality mrec_iter_body_eq:
+Theorem mrec_iter_body_simp[simp]:
   mrec_iter_body h_prog = (λt. case t of
                                        Ret r => Ret (INR r)
                                       | Tau t => Ret (INL t)
@@ -318,46 +398,62 @@ Proof
   rw [mrec_iter_body_def]
 QED
 
-Theorem mrec_handler_simps[simp]:
-  (itree_mrec h_prog (Skip,s) = Ret (NONE,s)) ∧
-  (itree_mrec h_prog (Dec vname e p,s) = mrec_sem $ h_prog_rule_dec vname e p s) ∧
-  (itree_mrec h_prog (Assign vname e,s) = mrec_sem $ h_prog_rule_assign vname e s) ∧
-  (itree_mrec h_prog (Store dst src,s) = mrec_sem $ h_prog_rule_store dst src s) ∧
-  (itree_mrec h_prog (StoreByte dst src,s) = mrec_sem $ h_prog_rule_store_byte dst src s) ∧
-  (itree_mrec h_prog (Seq p1 p2,s) = mrec_sem $ h_prog_rule_seq p1 p2 s) ∧
-  (itree_mrec h_prog (If gexp p1 p2,s) = mrec_sem $ h_prog_rule_cond gexp p1 p2 s) ∧
-  (itree_mrec h_prog (While gexp p,s) = mrec_sem $ h_prog_rule_while gexp p s) ∧
-  (itree_mrec h_prog (Break,s) = Ret (SOME Break,s)) ∧
-  (itree_mrec h_prog (Continue,s) = Ret (SOME Continue,s)) ∧
-  (itree_mrec h_prog (Call calltyp tgtexp argexps,s) = mrec_sem $ h_prog_rule_call calltyp tgtexp argexps s) ∧
-  (itree_mrec h_prog (ExtCall ffi_name conf_ptr conf_len array_ptr array_len,s) =
-   mrec_sem $ h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len s) ∧
-  (itree_mrec h_prog (Raise eid e,s) = mrec_sem $ h_prog_rule_raise eid e s) ∧
-  (itree_mrec h_prog (Return e,s) = mrec_sem $ h_prog_rule_return e s) ∧
-  (itree_mrec h_prog (Tick,s) = mrec_sem $ h_prog_rule_tick s)
-Proof
-  rpt strip_tac >>
-  rw [itree_mrec_def,h_prog_def,mrec_sem_def] >>
-  rw [mrec_body_def,mrec_iter_body_eq] >>
-  rw [itreeTauTheory.itree_iter_def] >>
-  rw [Once itreeTauTheory.itree_unfold]
-QED
-
-(*
-  do
-    x <- (Ret (INL (itree_bind (h_prog seed) k)));
-    case x of
-      INL a => Tau (itree_iter (mrec_iter_body h_prog) a)
-     | INR b => Ret b
-  od
-*)
+(* Theorem mrec_handler_simps[simp]: *)
+(*   (itree_mrec h_prog (Skip,s) = Ret (NONE,s)) ∧ *)
+(*   (itree_mrec h_prog (Dec vname e p,s) = mrec_sem $ h_prog_rule_dec vname e p s) ∧ *)
+(*   (itree_mrec h_prog (Assign vname e,s) = mrec_sem $ h_prog_rule_assign vname e s) ∧ *)
+(*   (itree_mrec h_prog (Store dst src,s) = mrec_sem $ h_prog_rule_store dst src s) ∧ *)
+(*   (itree_mrec h_prog (StoreByte dst src,s) = mrec_sem $ h_prog_rule_store_byte dst src s) ∧ *)
+(*   (itree_mrec h_prog (Seq p1 p2,s) = mrec_sem $ h_prog_rule_seq p1 p2 s) ∧ *)
+(*   (itree_mrec h_prog (If gexp p1 p2,s) = mrec_sem $ h_prog_rule_cond gexp p1 p2 s) ∧ *)
+(*   (itree_mrec h_prog (While gexp p,s) = mrec_sem $ h_prog_rule_while gexp p s) ∧ *)
+(*   (itree_mrec h_prog (Break,s) = Ret (SOME Break,s)) ∧ *)
+(*   (itree_mrec h_prog (Continue,s) = Ret (SOME Continue,s)) ∧ *)
+(*   (itree_mrec h_prog (Call calltyp tgtexp argexps,s) = mrec_sem $ h_prog_rule_call calltyp tgtexp argexps s) ∧ *)
+(*   (itree_mrec h_prog (ExtCall ffi_name conf_ptr conf_len array_ptr array_len,s) = *)
+(*    mrec_sem $ h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len s) ∧ *)
+(*   (itree_mrec h_prog (Raise eid e,s) = mrec_sem $ h_prog_rule_raise eid e s) ∧ *)
+(*   (itree_mrec h_prog (Return e,s) = mrec_sem $ h_prog_rule_return e s) ∧ *)
+(*   (itree_mrec h_prog (Tick,s) = mrec_sem $ h_prog_rule_tick s) *)
+(* Proof *)
+(*   rpt strip_tac >> *)
+(*   rw [itree_mrec_def,h_prog_def,mrec_sem_def] >> *)
+(*   rw [mrec_iter_body_def,mrec_iter_body_eq] >> *)
+(*   rw [itreeTauTheory.itree_iter_def] >> *)
+(*   rw [Once itreeTauTheory.itree_unfold] *)
+(* QED *)
 
 Theorem mrec_sem_simps[simp]:
-  mrec_sem (Vis (INL seed) k) =
-  Tau (mrec_sem (itree_bind (h_prog seed) k))
+  (mrec_sem (Vis (INL seed) k) =
+   Tau (mrec_sem (itree_bind (h_prog seed) k))) ∧
+  (mrec_sem (Ret r) = Ret r)
 Proof
-  rw [mrec_sem_def,mrec_body_def,mrec_iter_body_eq] >>
+  rw [mrec_sem_def,mrec_iter_body_def] >>
   rw [Once itreeTauTheory.itree_iter_thm]
+QED
+
+(* TODO: A termination-specific equivalence relation.
+ Any two itrees are related if the left tree has the same return value as the right tree,
+     regardless of the events. *)
+
+(* The below seems correct...
+ Then why does the evaluate_ind theorem state a similar idea except the continuation isn't applied.
+ *)
+
+(* TODO: Second part is to determine if recInduct over evaluate is the correct approach
+ or if something else is required. The WF relation basis for correspondence doesn't seem
+    that logical for a coinductive semantics.
+ *)
+
+(* TODO: Think of the problem in terms of transforming evaluate to the equivalent notion in itrees.
+ This is why there are two specific parts to the correspondence rather than a direct equivalence.
+*)
+
+Theorem mrec_sem_compo:
+  (mrec_sem (rh seed)) SOME_EQUIV (Ret x) ⇒
+  (mrec_sem (Vis (INL seed) k)) SOME_EQUIV (k x)
+Proof
+  cheat
 QED
 
 val _ = export_theory();
