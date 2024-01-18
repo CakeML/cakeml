@@ -711,6 +711,290 @@ Theorem kcocl_thm =
                   |> SRULE[GSYM kcoc_def, GSYM kcocl_def]
                   |> SRULE[cwc_def, SF ETA_ss, kcocl_Ky]
 
+CONJ kcoc_thm kcocl_thm
+
+Type kcockont = “:infer_t list list”
+
+Definition apply_kcockont_def:
+  apply_kcockont s n [] b = b ∧
+  apply_kcockont s n (ts :: rest) b =
+  if b then apply_kcockont s n rest T
+  else kcocl s ts n (apply_kcockont s n rest)
+End
+
+Theorem apply_kcockontT[simp]:
+  apply_kcockont s n ts T = T
+Proof
+  Induct_on ‘ts’ >> simp[apply_kcockont_def]
+QED
+
+Definition dfkcoc_def:
+  dfkcoc s t n k = kcoc s t n (apply_kcockont s n k)
+End
+
+Definition dfkcocl_def:
+  dfkcocl s ts n k = kcocl s ts n (apply_kcockont s n k)
+End
+
+Theorem apply_kcockont_thm =
+        REWRITE_RULE [GSYM dfkcocl_def, apply_kcockontT] apply_kcockont_def
+
+Theorem dfkcoc_thm =
+        dfkcoc_def |> SPEC_ALL
+                   |> ONCE_REWRITE_RULE [kcoc_thm]
+                   |> SRULE [GSYM apply_kcockont_thm, GSYM dfkcocl_def]
+
+Theorem dfkcocl_thm =
+        dfkcocl_def |> SPEC_ALL
+                    |> ONCE_REWRITE_RULE [kcocl_thm]
+                    |> SRULE [GSYM apply_kcockont_thm, GSYM dfkcocl_def]
+                    |> SRULE [SF ETA_ss, GSYM dfkcoc_def]
+
+Theorem apply_kcockont_HDNIL:
+  apply_kcockont s n ([] :: k) = apply_kcockont s n k
+Proof
+  simp[FUN_EQ_THM, apply_kcockont_thm, Once kcocl_thm, dfkcocl_thm] >>
+  Cases >> simp[]
+QED
+
+Theorem dfkcocl_HDNIL:
+  dfkcocl s ts n ([] :: k) = dfkcocl s ts n k
+Proof
+  simp[dfkcocl_def, apply_kcockont_HDNIL]
+QED
+
+Theorem dfkcocl_removed:
+  dfkcocl s ts n k = apply_kcockont s n (ts :: k) F
+Proof
+  simp[apply_kcockont_thm] >> simp[dfkcocl_thm] >>
+  simp[dfkcoc_def, apply_kcockont_HDNIL]
+QED
+
+val remove = CONV_RULE (RAND_CONV (REWRITE_CONV[dfkcoc_removed]))
+Theorem dfkcocl_nonrecursive0 = remove dfkcocl_thm
+
+Theorem dfkcocl_nonrecursive =
+        dfkcocl_nonrecursive0
+          |> SRULE[apply_kcockont_thm]
+          |> CONV_RULE (RAND_CONV (SCONV [dfkcocl_thm]))
+          |> SRULE[dfkcoc_thm, apply_kcockont_HDNIL, dfkcocl_HDNIL]
+          |> CONV_RULE (RAND_CONV (SCONV [dfkcocl_removed]))
+
+Overload kcocwl0 = “apply_kcockont”
+
+Theorem kcocwl0_thm =
+        apply_kcockont_thm
+          |> CONJUNCTS
+          |> map (GEN_ALL o PURE_REWRITE_RULE[dfkcocl_nonrecursive] o SPEC_ALL)
+          |> LIST_CONJ
+
+Definition kcocwl_def: kcocwl s n ts = kcocwl0 s n ts F
+End
+
+Theorem kcocwl0_varcheck: kcocwl0 s n ts b = if b then T else kcocwl s n ts
+Proof
+  rw[kcocwl_def] >> Cases_on ‘b’ >> simp[]
+QED
+
+Theorem kcocwl_thm =
+        kcocwl0_thm |> SRULE [GSYM kcocwl_def]
+                    |> SRULE [kcocwl0_varcheck]
+                    |> SRULE [FORALL_BOOL, UNDISCH (SPEC_ALL tcwalk_correct)]
+                    |> PURE_REWRITE_RULE[DECIDE “¬p = (p = F)”,
+                                         DECIDE “p ∨ q ⇔ if p then T else q”]
+
+val kcocwl_code =
+tcallify_th (DefnBase.one_line_ify NONE
+                     (kcocwl_thm |> CONJUNCTS
+                                 |> map SPEC_ALL
+                                 |> LIST_CONJ
+                                 |> Q.INST [‘s'’ |-> ‘s’]))
+
+Definition ocR_def:
+  ocR (s : infer_t num_map) =
+  inv_image (pair$RPROD
+             (=)
+             (mlt1 (walkstarR (sp2fm (map encode_infer_t s))) LEX $<))
+            (λ(s:infer_t num_map,n:num,ts:infer_t list list).
+               (s, BAG_OF_LIST (MAP encode_infer_t $ FLAT ts), LENGTH ts))
+End
+
+Theorem WF_ocR:
+  cwfs s ⇒ WF (ocR s)
+Proof
+  strip_tac >> gs[ocR_def, cwfs_def] >>
+  irule WF_inv_image >> irule WF_SUBSET >> simp[FORALL_PROD] >>
+  qexists ‘inv_image (mlt1 (walkstarR (sp2fm (map encode_infer_t s))) LEX $<)
+           SND’ >>
+  simp[] >> irule WF_inv_image >> irule pairTheory.WF_LEX >>
+  simp[] >> irule bagTheory.WF_mlt1 >>
+  irule walkstar_thWF >> gs[swfs_def]
+QED
+
+Theorem RTC_ocR_preserves_map:
+  ∀s0 x s1 y. RTC (ocR s) (s0, x) (s1, y) ⇒ s0 = s1
+Proof
+  Induct_on ‘RTC’ >> simp[ocR_def, FORALL_PROD]
+QED
+
+Theorem FINITE_BAG_FOLDR_INSERT[simp]:
+  FINITE_BAG (FOLDR BAG_INSERT b xs) = FINITE_BAG b
+Proof
+  Induct_on ‘xs’ >> simp[]
+QED
+
+Theorem FOLDR_BAG_INSERT_UNION:
+  FOLDR BAG_INSERT b xs = BAG_UNION b (BAG_OF_LIST xs)
+Proof
+  Induct_on ‘xs’ >> simp[BAG_UNION_INSERT]
+QED
+
+Theorem BAG_IN_BAG_OF_LIST:
+  BAG_IN e (BAG_OF_LIST xs) = MEM e xs
+Proof
+  Induct_on ‘xs’ >> simp[]
+QED
+
+Theorem sum_CASE_list_CASE:
+  sum_CASE (list_CASE l n cf) lf rf =
+  list_CASE l (sum_CASE n lf rf) (λh t. sum_CASE (cf h t) lf rf)
+Proof
+  Cases_on ‘l’ >> simp[]
+QED
+
+Theorem walkstarR_trans:
+  walkstarR s t1 t2 ∧ walkstarR s t2 t3 ⇒ walkstarR s t1 t3
+Proof
+  simp[walkstarR_def, LEX_DEF] >> rw[] >> gvs[] >>
+  metis_tac [TC_TRANSITIVE, transitive_def]
+QED
+
+Definition subterm_def:
+  subterm = TC (λa b. (∃t. b = Pair a t) ∨ (∃t. b = Pair t a))
+End
+
+Theorem subterm_thm[simp]:
+  (subterm t (Pair u v) ⇔ t = u ∨ t = v ∨ subterm t u ∨ subterm t v) ∧
+  (subterm t (Var vnm) ⇔ F) ∧
+  (subterm t (Const c) ⇔ F)
+Proof
+  simp[subterm_def] >> rpt strip_tac >>~-
+  ([‘F’], pop_assum mp_tac >> Induct_on ‘TC’ >> simp[PULL_EXISTS]) >>
+  iff_tac >> rw[]
+  >- (pop_assum mp_tac >>
+      rename [‘TC _ t (Pair u v) ⇒ _’] >>
+      map_every qid_spec_tac [‘t’,‘u’, ‘v’] >>
+      Induct_on ‘TC’ using TC_STRONG_INDUCT_RIGHT1 >>
+      rw[] >> simp[])
+  >- (irule TC_SUBSET >> simp[])
+  >- (irule TC_SUBSET >> simp[])
+  >- (irule $ cj 2 TC_RULES >> first_assum $ irule_at Any >>
+      irule TC_SUBSET >> simp[])
+  >- (irule $ cj 2 TC_RULES >> first_assum $ irule_at Any >>
+      irule TC_SUBSET >> simp[])
+QED
+
+Theorem subterm_pair_count:
+  ∀t u. subterm t u ⇒ pair_count t < pair_count u
+Proof
+  simp[subterm_def] >> Induct_on ‘TC’ >> rw[] >> simp[termTheory.pair_count_def]
+QED
+
+Theorem subterm_REFL[simp]:
+  ~subterm t t
+Proof
+  strip_tac >> drule subterm_pair_count >> simp[]
+QED
+
+Theorem subterm_TRANS:
+  subterm t u ∧ subterm u v ⇒ subterm t v
+Proof
+  metis_tac[TC_TRANSITIVE, transitive_def, subterm_def]
+QED
+
+Theorem subterm_walkstarR:
+  ∀t u. subterm t u ⇒ walkstarR s t u
+Proof
+  simp[subterm_def] >> Induct_on ‘TC’ >> rw[] >>~-
+  ([‘walkstarR s t (Pair _ _)’],
+   simp[walkstarR_def, LEX_DEF] >>
+   rename [‘varb u = {||}’] >> Cases_on ‘varb u = {||}’ >> simp[] >>
+   (irule bagTheory.TC_mlt1_UNION2_I ORELSE
+    irule bagTheory.TC_mlt1_UNION1_I) >> simp[]) >>
+  metis_tac[walkstarR_trans]
+QED
+
+Theorem MEM_subterm_encode:
+  ∀i is. MEM i is ⇒ subterm (encode_infer_t i) (encode_infer_ts is)
+Proof
+  Induct_on ‘is’ >> simp[encode_infer_t_def, DISJ_IMP_THM, FORALL_AND_THM]
+QED
+
+Theorem walkstar_opth:
+  cwfs s ∧ tcwalk s i = Infer_Tapp is nm ∧ MEM i0 is ⇒
+  walkstarR (sp2fm (map encode_infer_t s))
+            (encode_infer_t i0)
+            (encode_infer_t i)
+Proof
+  simp[GSYM tcwalk_correct, SF CONJ_ss] >> rpt strip_tac >>
+  qpat_x_assum ‘cwalk _ _ = _’ (assume_tac o Q.AP_TERM ‘encode_infer_t’) >>
+  gs[GSYM swalk_elim, encode_infer_t_def] >>
+  gs[swalk_def, cwfs_def, swfs_def] >>
+  drule_all_then assume_tac walkstar_th2 >>
+  irule walkstarR_trans >> first_assum $ irule_at Any >>
+  irule subterm_walkstarR >> simp[MEM_subterm_encode]
+QED
+
+Theorem kcocwl_cleaned0:
+  ∀x. (λ(s,n,v). cwfs s) x ⇒
+      (λ(s,n,v). kcocwl s n v) x = TAILREC ^kcocwl_code x
+Proof
+  match_mp_tac whileTheory.TAILREC_GUARD_ELIMINATION >> rpt conj_tac >>
+  simp[FORALL_PROD, AllCaseEqs(), PULL_EXISTS] >> rw[] >> simp[]
+  >- (rename [‘cwfs s’] >> qexists ‘ocR s’ >>
+      conj_tac
+      >- (irule $ iffLR WF_EQ_WFP >> simp[WF_ocR]) >> rpt strip_tac >>
+      drule_then assume_tac RTC_ocR_preserves_map >> gvs[] >~
+      [‘ocR s _ (_, _, [] :: _)’]
+      >- (simp[ocR_def, pairTheory.LEX_DEF]) >~
+      [‘tcwalk s i = Infer_Tvar_db _’]
+      >- simp[ocR_def, pairTheory.LEX_DEF, tcallUnifTheory.mlt1_BAG_INSERT] >~
+      [‘tcwalk s i = Infer_Tuvar v’]
+      >- simp[ocR_def, pairTheory.LEX_DEF, tcallUnifTheory.mlt1_BAG_INSERT] >~
+      [‘tcwalk s i = Infer_Tapp is nm’, ‘RTC _ (_, _, (i::t) :: rest) _’]
+      >- (simp[ocR_def, pairTheory.LEX_DEF, rich_listTheory.FOLDR_APPEND] >>
+          simp[mlt1_def] >>
+          qexistsl [‘encode_infer_t i’,
+                    ‘BAG_OF_LIST $ MAP encode_infer_t is’,
+                    ‘BAG_UNION
+                     (BAG_OF_LIST $ MAP encode_infer_t (FLAT rest))
+                     (BAG_OF_LIST (MAP encode_infer_t t))’] >>
+          simp[] >> ONCE_REWRITE_TAC[FOLDR_BAG_INSERT_UNION] >> simp[] >>
+          simp[Once FOLDR_BAG_INSERT_UNION] >>
+          simp[AC COMM_BAG_UNION ASSOC_BAG_UNION] >>
+          simp[BAG_UNION_INSERT] >>
+          simp[BAG_IN_BAG_OF_LIST, MEM_MAP, PULL_EXISTS] >>
+          qx_gen_tac ‘i0’ >> strip_tac >> simp[walkstar_opth])) >>
+  simp[whileTheory.TAILCALL_def, FORALL_PROD, sum_CASE_infer_CASE,
+       sum_CASE_list_CASE, sum_CASE_COND] >>
+  rename [‘kcocwl s n k’] >>
+  Cases_on ‘k’ >> simp[Once kcocwl_thm]
+QED
+
+Definition tcocwl_def:
+  tcocwl s n is = TAILREC ^kcocwl_code (s,n,is)
+End
+
+Theorem tcocwl_correct =
+        kcocwl_cleaned0 |> SRULE[FORALL_PROD, GSYM tcocwl_def]
+Theorem disj2cond[local] = DECIDE “p ∨ q ⇔ if p then T else q”
+
+Theorem tcocwl_thm =
+        tcocwl_def
+          |> SRULE[Once whileTheory.TAILREC, sum_CASE_list_CASE,
+                   sum_CASE_infer_CASE, sum_CASE_COND]
+          |> SRULE [GSYM tcocwl_def]
+          |> PURE_REWRITE_RULE [disj2cond]
 
 Theorem decode_infer_t_pmatch:
     (!t. decode_infer_t t =
