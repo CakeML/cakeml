@@ -1481,10 +1481,11 @@ val r = translate splim_def;
 
 val every_hs = process_topdecs`
   fun every_hs hs ls =
-  case ls of [] => True
+  case ls of [] => None
   | l::ls =>
-    in_hashset_arr l hs andalso
-    every_hs hs ls` |> append_prog
+    if in_hashset_arr l hs then
+      every_hs hs ls
+    else Some (npbc_string l)` |> append_prog
 
 Theorem every_hs_spec:
   ∀ls lsv.
@@ -1498,26 +1499,30 @@ Theorem every_hs_spec:
     (ARRAY hspv hsv)
     (POSTv resv.
       ARRAY hspv hsv *
-      &BOOL (EVERY (λc. in_hashset c hs) ls) resv)
+      & ∃err.
+        OPTION_TYPE STRING_TYPE
+          (if EVERY (λc. in_hashset c hs) ls
+          then NONE else SOME err) resv)
 Proof
   Induct>>rw[]>>
   fs[LIST_TYPE_def]>>
   xcf "every_hs" (get_ml_prog_state ())>>
   xmatch
-  >- (xcon>>xsimpl)>>
+  >- (xcon>>xsimpl>>EVAL_TAC)>>
   xlet_auto>>
-  xlog>>
-  xsimpl>>rw[]
-  >- (
-    xapp>>xsimpl>>
-    pairarg_tac>>fs[])>>
-  gvs[]
+  xif
+  >-
+    (xapp>>xsimpl)>>
+  xlet_autop>>
+  xcon>>xsimpl>>
+  simp[OPTION_TYPE_def]>>
+  metis_tac[]
 QED
 
 val hash_check = process_topdecs`
   fun hash_check fmlls proved lf =
   case lf of
-    [] => True
+    [] => None
   | _ =>
   let
     val hs = Array.array splim []
@@ -1544,10 +1549,12 @@ Theorem hash_check_spec:
     [xv; yv; lsv]
     emp
     (POSTv resv.
-      &BOOL (
-        let hs = mk_hashset x
+      & ∃err.
+        OPTION_TYPE STRING_TYPE
+        (let hs = mk_hashset x
           (mk_hashset y (REPLICATE splim [])) in
-          EVERY (λc. in_hashset c hs) ls) resv)
+          if EVERY (λc. in_hashset c hs) ls
+          then NONE else SOME err) resv)
 Proof
   rw[]>>
   xcf "hash_check" (get_ml_prog_state ())>>
@@ -1555,7 +1562,8 @@ Proof
   >- (
     fs[LIST_TYPE_def]>>
     xmatch>>
-    xcon>>xsimpl)>>
+    xcon>>xsimpl>>
+    EVAL_TAC)>>
   fs[LIST_TYPE_def]>>
   xmatch>>
   xlet_autop>>
@@ -1631,7 +1639,7 @@ val res = translate red_cond_check_pure_def;
 val red_cond_check = process_topdecs`
   fun red_cond_check indfml extra pfs rsubs goals =
   case red_cond_check_pure extra pfs rsubs goals of
-    None => False
+    None => Some "not all # subgoals present"
   | Some (x,ls) =>
     hash_check indfml x ls` |> append_prog
 
@@ -1649,18 +1657,22 @@ Theorem red_cond_check_spec:
     [av; aav; bv; cv; dv]
     emp
     (POSTv resv.
-      &BOOL (red_cond_check a aa b c d) resv)
+      & ∃err.
+      OPTION_TYPE STRING_TYPE
+        (if red_cond_check a aa b c d then NONE
+        else SOME err) resv)
 Proof
   rw[]>>
   xcf "red_cond_check" (get_ml_prog_state ())>>
   fs[]>>
   xlet_autop>>
   simp[red_cond_check_eq]>>
-  TOP_CASE_TAC>>fs[OPTION_TYPE_def]
+  Cases_on`red_cond_check_pure aa b c d`>>
+  fs[OPTION_TYPE_def]
   >- (
     xmatch>>
     xcon>>xsimpl)>>
-  TOP_CASE_TAC>>fs[PAIR_TYPE_def]>>
+  Cases_on`x`>>fs[PAIR_TYPE_def]>>
   xmatch>>
   xapp>>
   xsimpl>>
@@ -1749,10 +1761,10 @@ val check_red_arr = process_topdecs`
        None =>
        let val u = rollback_arr fml' id id'
            val goals = subst_indexes_arr s bortcb fml' rinds in
-           if red_cond_check fmlls nc pfs rsubs goals
-           then
-             (fml', (rinds,id'))
-           else raise Fail (format_failure_2 lno ("Redundancy subproofs did not cover all subgoals.") (print_subproofs_err rsubs goals))
+           case red_cond_check fmlls nc pfs rsubs goals
+             of None => (fml', (rinds,id'))
+           | Some err =>
+           raise Fail (format_failure_2 lno ("Redundancy subproofs did not cover all subgoals. Info: " ^ err ^ ".") (print_subproofs_err rsubs goals))
        end
     | Some cid =>
       if check_contradiction_fml_arr b fml' cid then
@@ -1950,20 +1962,23 @@ Proof
   >- (
     rpt xlet_autop>>
     fs[do_red_check_def]>>
-    reverse xif
+    pop_assum mp_tac>>IF_CASES_TAC>>
+    strip_tac>>fs[OPTION_TYPE_def]>>xmatch
+    >- (
+      fs[red_cond_check_def]>>
+      pairarg_tac>>fs[]>>
+      xlet_autop>>
+      xcon>>xsimpl>>
+      simp[PAIR_TYPE_def]>>
+      xsimpl)
     >- (
       rpt xlet_autop>>
       fs[red_cond_check_def]>>
       xraise>>
       xsimpl>>
       rw[]>>fs[]>>
-      metis_tac[ARRAY_refl,NOT_EVERY,Fail_exn_def]) >>
-    fs[red_cond_check_def]>>
-    pairarg_tac>>fs[]>>
-    xlet_autop>>
-    xcon>>xsimpl>>
-    simp[PAIR_TYPE_def]>>
-    xsimpl)>>
+      metis_tac[ARRAY_refl,NOT_EVERY,Fail_exn_def])
+    )>>
   rpt xlet_autop>>
   reverse xif
   >- (
@@ -2303,10 +2318,10 @@ val check_dom_arr = process_topdecs`
          None =>
          let val u = rollback_arr fml' id id'
              val goals = core_subgoals s corels in
-             if red_cond_check fmlls nc pfs dsubs goals
-             then
-               (fml',(rinds,id'))
-             else raise Fail (format_failure_2 lno ("Dominance subproofs did not cover all subgoals") (print_subproofs_err dsubs goals))
+             case red_cond_check fmlls nc pfs dsubs goals of
+               None => (fml',(rinds,id'))
+             | Some err =>
+              raise Fail (format_failure_2 lno ("Dominance subproofs did not cover all subgoals. Info: " ^ err ^ ".") (print_subproofs_err dsubs goals))
          end
        | Some cid =>
          if check_contradiction_fml_arr False fml' cid then
@@ -2446,20 +2461,23 @@ Proof
   xmatch
   >- (
     rpt xlet_autop>>
-    reverse xif>>gs[]
+    pop_assum mp_tac>>IF_CASES_TAC>>
+    strip_tac>>fs[OPTION_TYPE_def]>>xmatch
+    >- (
+      xlet_autop>>
+      xcon>>xsimpl>>
+      pairarg_tac>>fs[red_cond_check_def,core_subgoals_def]>>
+      fs[PAIR_TYPE_def,OPTION_TYPE_def]>>
+      xsimpl)
     >- (
       rpt xlet_autop>>
       fs[red_cond_check_def]>>pairarg_tac>>fs[core_subgoals_def]>>
       xraise>>xsimpl>>
       fs[red_cond_check_def]>>rw[]>>
-      metis_tac[ARRAY_refl,Fail_exn_def,NOT_EVERY])>>
-    xlet_autop>>
-    xcon>>xsimpl>>
-    pairarg_tac>>fs[red_cond_check_def,core_subgoals_def]>>
-    fs[PAIR_TYPE_def,OPTION_TYPE_def]>>
-    xsimpl)>>
-  rpt xlet_autop>>
+      metis_tac[ARRAY_refl,Fail_exn_def,NOT_EVERY])
+    )>>
   rename1`check_contradiction_fml_list F A B`>>
+  xlet_autop>>
   xlet`POSTv v.
     ARRAY fmlv' fmllsv' * &
     BOOL (check_contradiction_fml_list F A B) v`
@@ -3616,7 +3634,10 @@ Theorem fml_include_arr_spec:
     [lsv; rsv]
     (emp)
     (POSTv v.
-      &BOOL (fml_include_list ls rs) v)
+      & ∃err.
+        OPTION_TYPE STRING_TYPE
+          (if fml_include_list ls rs
+          then NONE else SOME err) v)
 Proof
   rw[fml_include_list_def]>>
   xcf"fml_include_arr"(get_ml_prog_state ())>>
@@ -3636,24 +3657,33 @@ QED
 
 val _ = register_type ``:output``
 
+Definition print_opt_string_def:
+  (print_opt_string NONE = strlit"T") ∧
+  (print_opt_string (SOME s) = s)
+End
+
+val res = translate print_opt_string_def;
+
 Definition derivable_res_def:
-  derivable_res (dbound :int option) b2 =
+  derivable_res (dbound :int option) b2opt =
   let b1 = (dbound = NONE) in
+  let b2 = (b2opt = NONE) in
   if b1 ∧ b2 then NONE
   else SOME (
       strlit "output DERIVABLE check failed:" ^
       strlit " [dbound = NONE] " ^ bool_to_string b1 ^
-      strlit " [core in output] " ^ bool_to_string b2
-  )
+      strlit " [core in output] " ^ print_opt_string b2opt)
 End
 
 val res = translate derivable_res_def;
 
 Definition equisatisfiable_res_def:
   equisatisfiable_res
-    (bound:int option) (dbound:int option) chk b2 b3 =
+    (bound:int option) (dbound:int option) chk b2opt b3opt =
   let b11 = (bound = NONE) in
   let b12 = (dbound = NONE) in
+  let b2 = (b2opt = NONE) in
+  let b3 = (b3opt = NONE) in
   if b11 ∧ b12 ∧ chk ∧ b2 ∧ b3
   then NONE
     else SOME (
@@ -3661,8 +3691,8 @@ Definition equisatisfiable_res_def:
       strlit " [bound = NONE] " ^ bool_to_string b11 ^
       strlit " [dbound = NONE] " ^ bool_to_string b12 ^
       strlit " [checked deletion] " ^ bool_to_string chk ^
-      strlit " [core in output] " ^ bool_to_string b2 ^
-      strlit " [output in core] " ^ bool_to_string b3
+      strlit " [core in output] " ^ print_opt_string b2opt ^
+      strlit " [output in core] " ^ print_opt_string b3opt
   )
 End
 
@@ -3670,21 +3700,33 @@ val res = translate equisatisfiable_res_def;
 
 val res = translate npbc_checkTheory.opt_eq_obj_def;
 
+Definition opt_err_obj_check_string_def:
+  (opt_err_obj_check_string (SOME fc) (SOME fc') =
+    err_obj_check_string (SOME fc) fc') ∧
+  (opt_err_obj_check_string _ _ = strlit "missing objective")
+End
+
+val res = translate opt_err_obj_check_string_def;
+
 Definition equioptimal_res_def:
   equioptimal_res
     (bound:int option) (dbound:int option) chk
-    obj obj' b2 b3 =
+    obj obj' b2opt b3opt =
   let b11 = opt_le bound dbound in
   let b12 = opt_eq_obj obj obj' in
+  let b12s =
+    if b12 then strlit"T" else opt_err_obj_check_string obj obj' in
+  let b2 = (b2opt = NONE) in
+  let b3 = (b3opt = NONE) in
   if b11 ∧ b12 ∧ chk ∧ b2 ∧ b3
   then NONE
     else SOME (
       strlit "output EQUIOPTIMAL check failed:" ^
       strlit " [bound <= dbound]: " ^ bool_to_string b11 ^
-      strlit " [obj = output obj]: " ^ bool_to_string b12 ^
+      strlit " [obj = output obj]: " ^ b12s ^
       strlit " [checked deletion]: " ^ bool_to_string chk ^
-      strlit " [core in output]: " ^ bool_to_string b2 ^
-      strlit " [output in core]: " ^ bool_to_string b3
+      strlit " [core in output] " ^ print_opt_string b2opt ^
+      strlit " [output in core] " ^ print_opt_string b3opt
   )
 End
 
