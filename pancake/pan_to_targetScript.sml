@@ -11,7 +11,8 @@ val _ = new_theory "pan_to_target";
 
 Definition compile_prog_def:
   compile_prog c prog =
-    let prog2 = pan_to_word$compile_prog c.lab_conf.asm_conf.ISA prog in
+    let prog1 = MAP (\(n,e,p,b). (n,p,b)) prog in
+    let prog2 = pan_to_word$compile_prog c.lab_conf.asm_conf.ISA prog1 in
     let (col,prog3) = word_to_word$compile c.word_to_word_conf c.lab_conf.asm_conf prog2 in
     let names = fromAList (ZIP (MAP FST prog2,  (* func numbers *)
                                 MAP FST prog    (* func names *)

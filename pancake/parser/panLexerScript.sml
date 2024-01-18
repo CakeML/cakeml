@@ -20,7 +20,7 @@ val _ = new_theory "panLexer";
 Datatype:
   keyword = SkipK | StoreK | StoreBK | IfK | ElseK | WhileK
   | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK
-  | LdsK | LdbK | LdwK | BaseK | InK | FunK | TrueK | FalseK
+  | LdsK | LdbK | LdwK | BaseK | InK | FunK | PublicK | PrivateK | TrueK | FalseK
 End
 
 Datatype:
@@ -133,6 +133,8 @@ Definition get_keyword_def:
   if s = "true" then (KeywordT TrueK) else
   if s = "false" then (KeywordT FalseK) else
   if s = "fun" then (KeywordT FunK) else
+  if s = "public" then (KeywordT PublicK) else    (* FIXME: temporary concrete keyword *)
+  if s = "private" then (KeywordT PrivateK) else    (* FIXME: temporary concrete keyword *)
   if s = "" then LexErrorT $ «Expected keyword, found empty string» else
   if 2 <= LENGTH s ∧ EL 0 s = #"@" then ForeignIdent (DROP 1 s)
   else
