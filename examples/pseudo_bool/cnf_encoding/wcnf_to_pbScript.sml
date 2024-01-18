@@ -83,7 +83,7 @@ End
   ≤ 1 PB constraints and ≤ 1 terms in the objective *)
 Definition wclause_to_pbc_def:
   wclause_to_pbc (i,n,C) =
-  let C = FILTER (λl. l ≠ 0) C in
+  let C = nub (FILTER (λl. l ≠ 0) C) in
   if n = 0 then (* hard clauses *)
     ([(GreaterEqual,enc_clause C,1:int)],[])
   else (* soft clauses *)
@@ -239,6 +239,19 @@ Proof
   metis_tac[interp_cclause_FILTER]
 QED
 
+Theorem weight_clause_nub:
+  weight_clause f (q,nub C) =
+  weight_clause f (q,C)
+Proof
+  rw[weight_clause_def,interp_cclause_def]
+QED
+
+Theorem interp_cclause_nub:
+  interp_cclause (nub C) = interp_cclause C
+Proof
+  rw[interp_cclause_def]
+QED
+
 (* The sum of weights for unsatisfied clauses is
   upper bounded by the (negated) obj *)
 Theorem weight_clause_obj_upper:
@@ -264,7 +277,7 @@ Proof
     fs[Abbr`C`,wf_clause_def,MEM_FILTER]>>
   `weight_clause (λx. w (INL x)) (q,r) =
    weight_clause (λx. w (INL x)) (q,C)` by
-    metis_tac[Abbr`C`,weight_clause_FILTER]>>
+    metis_tac[Abbr`C`,weight_clause_FILTER,weight_clause_nub]>>
   rw[]>>simp[weight_clause_def,iSUM_def]
   >- (
     Cases_on`C`>>fs[]>>
@@ -307,6 +320,7 @@ Proof
     Cases_on`EL n wfml`>>
     fs[wclause_to_pbc_def]>>
     strip_tac>>simp[Once interp_cclause_FILTER]>>
+    PURE_ONCE_REWRITE_TAC[GSYM interp_cclause_nub]>>
     match_mp_tac satisfies_pbc_satisfies_clause>>
     simp[wf_clause_def,MEM_FILTER])>>
   drule_all weight_clause_obj_upper>>
@@ -359,14 +373,15 @@ Proof
     rw[]
     >- (
       match_mp_tac satisfies_clause_satisfies_pbc>>
-      simp[GSYM interp_cclause_FILTER]>>
-      first_x_assum drule>>simp[wf_clause_def,MEM_FILTER])>>
+      simp[interp_cclause_nub,GSYM interp_cclause_FILTER]>>
+      first_x_assum drule>>
+      simp[wf_clause_def,MEM_FILTER])>>
     (* For the non-hard clauses *)
     Cases_on`satisfies_clause w (interp_cclause r)`>>
     simp[satisfies_pbc_def,eval_lin_term_def,iSUM_def]>>
     simp[GSYM eval_lin_term_def]
     >- (
-      fs[Once interp_cclause_FILTER]>>
+      fs[Once interp_cclause_FILTER,Once (GSYM interp_cclause_nub)]>>
       drule_at Any satisfies_clause_satisfies_pbc>>
       simp[satisfies_pbc_def]>>
       disch_then match_mp_tac>>
@@ -396,15 +411,14 @@ Proof
     `wf_clause C` by
       fs[Abbr`C`,wf_clause_def,MEM_FILTER]>>
     rw[]>>fs[iSUM_def]>>
+    `satisfies_clause w (interp_cclause r) =
+    satisfies_clause w (interp_cclause C)` by
+      metis_tac[Abbr`C`,interp_cclause_nub,interp_cclause_FILTER]>>
+    gvs[]>>
     (
     Cases_on`C`>>fs[]>>
-    fs[Once interp_cclause_FILTER]>>
     gvs[interp_cclause_def,wf_clause_def,interp_lit_def,enc_lit_def]>>
-    rw[]>>fs[satisfies_clause_def,satisfies_literal_def]>>
-    IF_CASES_TAC>>
-    gvs[interp_cclause_def,satisfies_clause_def,wf_clause_def]>>
-    rw[enc_lit_def]>>fs[interp_lit_def,satisfies_literal_def]>>
-    intLib.ARITH_TAC))>>
+    rw[]>>fs[satisfies_clause_def,satisfies_literal_def]))>>
   pop_assum (qspec_then`k+1` sym_sub_tac)>>
   AP_TERM_TAC>>
   rw[MAP_EQ_f,MEM_FLAT,MEM_MAP,PULL_EXISTS]>>
@@ -679,7 +693,7 @@ End
   strlit"h 1 2 3 4 0";
   strlit"1 -3 -5 6 7 0";
   strlit"6 -1 -2 0";
-  strlit"4 1 6 -7 0";]``
+  strlit"4 1 6 -7 6 -7 0";]``
 
   val enc = EVAL`` full_encode (THE ^(rconc wcnf))``
 *)
