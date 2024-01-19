@@ -711,8 +711,6 @@ Theorem kcocl_thm =
                   |> SRULE[GSYM kcoc_def, GSYM kcocl_def]
                   |> SRULE[cwc_def, SF ETA_ss, kcocl_Ky]
 
-CONJ kcoc_thm kcocl_thm
-
 Type kcockont = “:infer_t list list”
 
 Definition apply_kcockont_def:
@@ -770,7 +768,7 @@ Proof
   simp[dfkcoc_def, apply_kcockont_HDNIL]
 QED
 
-val remove = CONV_RULE (RAND_CONV (REWRITE_CONV[dfkcoc_removed]))
+val remove = CONV_RULE (RAND_CONV (REWRITE_CONV[dfkcocl_removed]))
 Theorem dfkcocl_nonrecursive0 = remove dfkcocl_thm
 
 Theorem dfkcocl_nonrecursive =
@@ -985,8 +983,14 @@ Definition tcocwl_def:
   tcocwl s n is = TAILREC ^kcocwl_code (s,n,is)
 End
 
-Theorem tcocwl_correct =
+Theorem tcocwl_correct0 =
         kcocwl_cleaned0 |> SRULE[FORALL_PROD, GSYM tcocwl_def]
+Theorem tcocwl_correct:
+  cwfs s ⇒ cocl s ts n = tcocwl s n [ts]
+Proof
+  simp[GSYM tcocwl_correct0, kcocwl_def, GSYM dfkcocl_removed,
+       dfkcocl_def, kcocl_def, cwc_def, apply_kcockont_def]
+QED
 Theorem disj2cond[local] = DECIDE “p ∨ q ⇔ if p then T else q”
 
 Theorem tcocwl_thm =
@@ -995,6 +999,148 @@ Theorem tcocwl_thm =
                    sum_CASE_infer_CASE, sum_CASE_COND]
           |> SRULE [GSYM tcocwl_def]
           |> PURE_REWRITE_RULE [disj2cond]
+
+(* handle tail-recursification of unify *)
+
+Definition kcunifyl_def:
+  kcunifyl s ts us k = cwc (cunifyl s ts us) k
+End
+
+Theorem cunifyl_thm' = SRULE[cunify_thm, GSYM cocl_EXISTS, tcocwl_correct,
+                             tcwalk_correct]
+                            cunifyl_thm
+
+Theorem kcunifyl_thm =
+        kcunifyl_def
+          |> SPEC_ALL
+          |> SRULE[GSYM contify_cwc, ASSUME “cwfs s”, Once cunifyl_thm']
+          |> CONV_RULE
+             (TOP_DEPTH_CONV
+              (contify_CONV [contify_infer_case, contify_optbind]))
+          |> SRULE [cwcp “tcwalk”, cwcp “tcwalk s”, cwcp “$=”, cwcp “$= x”,
+                    cwcp “tcocwl”, cwcp “tcocwl s”, cwcp “SOME”,
+                    cwcp “CONS”, cwcp “insert”, cwcp “Infer_Tapp”,
+                    cwcp “Infer_Tapp x”,
+                    cwcp “sptree$insert v”, cwcp “sptree$insert x y”,
+                    cwcp “cunifyl”, cwcp “cunifyl s”, cwcp “CONS h”,
+                    cwcp “Infer_Tvar_db”, cwcp “tcocwl x y”, cwcp “Infer_Tuvar”]
+          |> SRULE [GSYM kcunifyl_def]
+
+Type kcunifkont = “:(infer_t list # infer_t list) list”
+Definition apply_cunifk_def:
+  apply_cunifk [] x = x ∧
+  apply_cunifk ((ts,us)::k) NONE = apply_cunifk k NONE ∧
+  apply_cunifk ((ts,us)::k) (SOME m) = kcunifyl m ts us (apply_cunifk k)
+End
+
+Theorem apply_cunif_NONE[simp]:
+  apply_cunifk k NONE = NONE
+Proof
+  Induct_on ‘k’ >> simp[apply_cunifk_def] >> Cases >> simp[apply_cunifk_def]
+QED
+
+Definition dfkcunifyl_def:
+  dfkcunifyl s ts us k = kcunifyl s ts us (apply_cunifk k)
+End
+
+Theorem abs_EQ_apply_cunifk:
+  (λov. dtcase ov of NONE => NONE | SOME x => dfkcunifyl x ts us k) =
+  apply_cunifk ((ts,us)::k)
+Proof
+  simp[FUN_EQ_THM, apply_cunifk_def, FORALL_OPTION, SF ETA_ss] >>
+  simp[dfkcunifyl_def]
+QED
+
+Theorem apply_cunifk_thm =
+        SRULE [GSYM dfkcunifyl_def, SF ETA_ss] apply_cunifk_def
+
+Theorem dfkcunifyl_thm =
+        dfkcunifyl_def
+          |> SPEC_ALL
+          |> ONCE_REWRITE_RULE[kcunifyl_thm]
+          |> SRULE [GSYM dfkcunifyl_def, abs_EQ_apply_cunifk]
+          |> CONV_RULE
+             (RHS_CONV (REWRITE_CONV [GSYM $ cj 2 $ apply_cunifk_thm]))
+
+Theorem cunifywl0 =
+        LIST_CONJ (map SPEC_ALL $ CONJUNCTS apply_cunifk_thm)
+          |> Q.INST [‘m’ |-> ‘s’]
+          |> PURE_REWRITE_RULE[dfkcunifyl_thm]
+
+Definition kcunifywl_def:
+  kcunifywl s k = apply_cunifk k (SOME s)
+End
+
+Theorem kcunifywl_thm =
+        REWRITE_RULE [GSYM kcunifywl_def]
+                     (CONJ (Q.INST [‘x’ |-> ‘SOME s’] $ cj 1 cunifywl0)
+                           (cj 2 cunifywl0))
+
+val cunify_code = DefnBase.one_line_ify NONE kcunifywl_thm |> tcallify_th
+Definition cunify_code_def:
+  cunify_code = ^cunify_code
+End
+
+Theorem kcunifywl_tcallish:
+  ∀x. (λ(s,k). cwfs s) x ⇒
+      (λ(s,k). kcunifywl s k) x =
+      TAILCALL cunify_code (λ(s,k). kcunifywl s k) x
+Proof
+  simp[whileTheory.TAILCALL_def, FORALL_PROD, sum_CASE_list_CASE,
+       cunify_code_def, sum_CASE_pair_CASE, sum_CASE_infer_CASE,
+       sum_CASE_COND] >>
+  qx_genl_tac [‘s’, ‘k’] >> strip_tac >>
+  simp[Once $ DefnBase.one_line_ify NONE kcunifywl_thm, SimpLHS]
+QED
+
+Definition isvars_def[simp]:
+  isvars [] = {} ∧
+  isvars (t::ts) = vars (encode_infer_t t) ∪ isvars ts
+End
+
+Theorem FINITE_isvars[simp]:
+  FINITE (isvars ts)
+Proof
+  Induct_on ‘ts’ >> simp[]
+QED
+
+
+Definition cplist_vars_def[simp]:
+  cplist_vars [] = {} ∧
+  cplist_vars ((ts,us)::rest) = isvars ts ∪ isvars ts ∪ cplist_vars rest
+End
+
+Theorem FINITE_cplist_vars[simp]:
+  FINITE (cplist_vars wl)
+Proof
+  Induct_on ‘wl’ >> simp[] >> Cases >> simp[]
+QED
+
+Definition PFLAT_def[simp]:
+  PFLAT [] = EMPTY_BAG ∧
+  PFLAT (([],[])::ps) = PFLAT ps ∧
+  PFLAT (([], j :: js)::ps) = BAG_INSERT j (PFLAT (([],js)::ps)) ∧
+  PFLAT ((i::is, js)::ps) = BAG_INSERT i (PFLAT ((is,js)::ps))
+End
+
+Theorem FINITE_BAG_PFLAT[simp]:
+  ∀ps. FINITE_BAG (PFLAT ps)
+Proof
+  recInduct PFLAT_ind >> rw[]
+QED
+
+Definition kcuR_def:
+  kcuR (s : infer_t num_map, wl : (infer_t list # infer_t list) list) (s0,wl0) ⇔
+    cwfs s ∧ cwfs s0 ∧ sp2fm s0 ⊑ sp2fm s ∧
+    substvars (encode_infer_t o_f sp2fm s) ∪ cplist_vars wl ⊆
+    substvars (encode_infer_t o_f sp2fm s0) ∪ cplist_vars wl0 ∧
+    (mlt1
+     (measure
+      (λi. pair_count $ walk* (encode_infer_t o_f sp2fm s) $ encode_infer_t i))
+          LEX
+     $<) (PFLAT wl, LENGTH wl)
+         (PFLAT wl0, LENGTH wl0)
+End
 
 Theorem decode_infer_t_pmatch:
     (!t. decode_infer_t t =
