@@ -288,13 +288,13 @@ Theorem check_lstep_list_id_del:
       SOME (fmlls', res) ∧
     n < id ∧
     IS_SOME (any_el n fmlls' NONE) ⇒
-    IS_SOME (any_el n fmlls NONE)) ∧
+    any_el n fmlls NONE = any_el n fmlls' NONE) ∧
   (∀steps b fmlls mindel id fmlls' res n.
     check_lsteps_list steps b fmlls mindel id =
       SOME (fmlls', res) ∧
     n < id ∧
     IS_SOME (any_el n fmlls' NONE) ⇒
-    IS_SOME (any_el n fmlls NONE))
+    any_el n fmlls NONE = any_el n fmlls' NONE)
 Proof
   ho_match_mp_tac check_lstep_list_ind>>
   rw[]
@@ -558,6 +558,27 @@ Definition reindex_def:
   (reindex b fml is = reindex_aux b fml is [] [])
 End
 
+Definition reindex_partial_aux_def:
+  (reindex_partial_aux b fml mini [] iacc vacc =
+    (REVERSE iacc, vacc,[])) ∧
+  (reindex_partial_aux b fml mini (i::is) iacc vacc =
+  if i < mini then (REVERSE iacc, vacc, i::is)
+  else
+  case any_el i fml NONE of
+    NONE => reindex_partial_aux b fml mini is iacc vacc
+  | SOME (v,b') =>
+    let vacc' =
+      if b ⇒ b' then v::vacc else vacc in
+    reindex_partial_aux b fml mini is (i::iacc) vacc')
+End
+
+Definition reindex_partial_def:
+  reindex_partial b fml mini is =
+  case mini of NONE => ([],[],is)
+  | SOME mini =>
+    reindex_partial_aux b fml mini is [] []
+End
+
 Definition subst_opt_subst_fun_def:
   subst_opt_subst_fun s c = subst_opt (subst_fun s) c
 End
@@ -661,7 +682,7 @@ End
 (* Fast path for a special case *)
 Definition red_fast_def:
   red_fast s idopt pfs = (
-  if s = Vector [] then
+  if s = INR (Vector []) then
   case idopt of NONE => NONE
   | SOME id =>(
     case pfs of
@@ -686,11 +707,20 @@ Definition check_red_list_fast_def:
     NONE
 End
 
+Definition get_earliest_def:
+  (get_earliest earliest (INR _) = SOME (0:num)) ∧
+  (get_earliest earliest (INL (n,_)) =
+    sptree$lookup n earliest)
+End
+
 Definition check_red_list_def:
-  check_red_list ord obj b tcb fml inds id c s pfs idopt =
+  check_red_list ord obj b tcb fml inds id c s pfs idopt earliest =
+  let s = mk_subst s in
   case red_fast s idopt pfs of
     NONE => (
-    let (rinds,fmlls) = reindex (b ∨ tcb) fml inds in
+    let mini = get_earliest earliest s in
+    let (rinds,fmlls,rest) =
+      reindex_partial (b ∨ tcb) fml mini inds in
     let nc = not c in
     let fml_not_c = update_resize fml NONE (SOME (nc,b)) id in
     let rsubs = red_subgoals ord (subst_fun s) c obj in
@@ -704,34 +734,55 @@ Definition check_red_list_def:
         let rfml = rollback fml' id id' in
         if do_red_check idopt b tcb fml'
             s rfml rinds fmlls nc pfs rsubs then
-            SOME (rfml,rinds,id')
+            SOME (rfml,rinds ++ rest,id')
         else NONE))
   | SOME (pf,cid) =>
     check_red_list_fast b fml inds id c pf cid
 End
 
+Definition min_opt_def:
+  min_opt i j =
+  case i of NONE => j
+  | SOME ii => MIN ii j
+End
+
+(* v is the new index of the constraint (last arg) *)
+Definition update_earliest_def:
+  (update_earliest earliest v [] = earliest) ∧
+  (update_earliest earliest v ((i,n)::ns) =
+    update_earliest
+    (insert n (min_opt (lookup n earliest) v) earliest)
+    v
+    ns)
+End
+
 Definition opt_update_inds_def[simp]:
-  (opt_update_inds fml NONE id inds = (fml,inds,id)) ∧
-  (opt_update_inds fml (SOME cc) id inds =
+  (opt_update_inds fml NONE id inds earliest =
+    (fml,inds,earliest,id)) ∧
+  (opt_update_inds fml (SOME cc) id inds earliest =
     (update_resize fml NONE (SOME cc) id,
       sorted_insert id inds,
+      update_earliest earliest id (FST (FST cc)),
       id+1))
 End
 
 Definition check_sstep_list_def:
   (check_sstep_list (sstep:sstep) ord obj tcb
-    (fml: (npbc # bool) option list) (inds:num list) (id:num) =
+    (fml: (npbc # bool) option list) (inds:num list) (id:num)
+    earliest =
   case sstep of
   | Lstep lstep =>
     (case check_lstep_list lstep F fml 0 id of NONE => NONE
     | SOME (rfml,c,id') =>
-      SOME(opt_update_inds rfml c id' inds))
+      SOME (opt_update_inds rfml c id' inds earliest))
   | Red c s pfs idopt =>
-    case check_red_list ord obj F tcb fml inds id c s pfs idopt of
+    case check_red_list ord obj F tcb fml inds id c s pfs
+      idopt earliest of
       SOME (rfml,rinds,id') =>
-      SOME(
+      SOME (
         update_resize rfml NONE (SOME (c,tcb)) id',
         sorted_insert id' rinds,
+        update_earliest earliest id' (FST c),
         id'+1)
     | NONE => NONE)
 End
@@ -1155,16 +1206,44 @@ Proof
   simp[lookup_core_only_list_def,any_el_ALT,EL_LUPDATE]
 QED
 
+Definition earliest_rel_def:
+  earliest_rel fmlls earliest ⇔
+  ∀x pos.
+  pos < min_opt (sptree$lookup x earliest) (LENGTH fmlls) ⇒
+  case EL pos fmlls of NONE => T
+    | SOME c => ¬MEM x (MAP SND (FST (FST c)))
+End
+
+(* If we already proved fml_rel, then we get earliest_rel
+  for free *)
+Theorem fml_rel_fml_rel_earliest_rel:
+  fml_rel fml fmlls ∧
+  earliest_rel fmlls earliest ∧
+  fml_rel fml fmlls' ⇒
+  earliest_rel fmlls' earliest
+Proof
+  rw[fml_rel_def,earliest_rel_def]>>
+  first_x_assum(qspec_then `pos` mp_tac)>>
+  first_x_assum(qspecl_then [`x`,`pos`] mp_tac)>>
+  first_x_assum(qspec_then `pos` mp_tac)>>
+  rw[any_el_ALT]>>
+  gvs[min_opt_def]>>
+  every_case_tac>>fs[]
+QED
+
 Theorem fml_rel_check_red_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
+  earliest_rel fmlls earliest ∧
   (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
-  check_red_list ord obj b tcb fmlls inds id c s pfs idopt =
+  check_red_list ord obj b tcb fmlls inds id c s pfs
+    idopt earliest =
     SOME (fmlls', inds', id') ⇒
     check_red ord obj b tcb fml id c s pfs idopt = SOME id' ∧
     fml_rel fml fmlls' ∧
     ind_rel fmlls' inds' ∧
-    (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE) ∧
+    earliest_rel fmlls' earliest ∧
+    (∀n. n ≥ id ⇒ any_el n fmlls' NONE = NONE) ∧
     id ≤ id'
 Proof
   strip_tac>>
@@ -1195,6 +1274,8 @@ Proof
       gvs[do_red_check_def,AllCaseEqs(),insert_fml_def]>>
       TOP_CASE_TAC>>fs[]
       >- (
+        cheat
+        (*
         rpt (pairarg_tac>>fs[])>>
         (drule_at Any) split_goals_hash_imp_split_goals>>
         disch_then (qspec_then`mk_core_fml (b ∨ tcb) fml` mp_tac)>>
@@ -1253,16 +1334,26 @@ Proof
           drule (GSYM fml_rel_lookup_core_only)>>
           strip_tac>>fs[]>>
           gvs[lookup_core_only_list_def,AllCaseEqs()])>>
-        fs[])>>
+        fs[]*))>>
       match_mp_tac (GEN_ALL fml_rel_check_contradiction_fml)>>
       metis_tac[])>>
-    CONJ_TAC>- (
+    CONJ_ASM1_TAC>- (
       match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
     CONJ_TAC >- (
+      cheat
+      (*
       match_mp_tac ind_rel_rollback_2>>
       simp[]>>
-      metis_tac[ind_rel_reindex])>>
-    simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST])>>
+      metis_tac[ind_rel_reindex]*))>>
+    CONJ_TAC >-
+      metis_tac[fml_rel_fml_rel_earliest_rel]>>
+    simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
+    rw[]>>
+    qsuff_tac `n < id'`
+    >- (
+      simp[]>>
+      intLib.ARITH_TAC)>>
+    CCONTR_TAC>>gvs[])>>
   gvs[check_red_list_fast_def,AllCaseEqs(),check_red_def,red_fast_def,extract_clauses_def,check_subproofs_def,insert_fml_def,check_lstep_list_def]
   >- (
     drule fml_rel_update_resize>>
@@ -1270,15 +1361,20 @@ Proof
     drule_all fml_rel_check_contradiction_fml>>
     simp[]>>
     strip_tac>>
-    rw[]
+    CONJ_ASM1_TAC
     >- (
       match_mp_tac fml_rel_rollback>>
       simp[]>>
-      rw[any_el_update_resize])
+      rw[any_el_update_resize])>>
+    CONJ_TAC
     >- (
       match_mp_tac ind_rel_rollback_2>>
       simp[any_el_update_resize])>>
-    simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST,any_el_update_resize])>>
+    CONJ_TAC
+    >- (* earliest_rel *)
+      metis_tac[fml_rel_fml_rel_earliest_rel]
+    >-
+      simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST,any_el_update_resize])>>
   `fml_rel (insert id ((not c,b)) fml)
     (update_resize fmlls NONE (SOME (not c,b)) id)` by
     metis_tac[fml_rel_update_resize]>>
@@ -1292,7 +1388,7 @@ Proof
   simp[any_el_update_resize]>>
   ntac 3 strip_tac>>
   CONJ_TAC >- metis_tac[fml_rel_check_contradiction_fml]>>
-  CONJ_TAC >- (
+  CONJ_ASM1_TAC >- (
     match_mp_tac fml_rel_rollback>>
     fs[]>>
     rw[]>- metis_tac[]>>
@@ -1300,11 +1396,20 @@ Proof
   CONJ_TAC >- (
     match_mp_tac ind_rel_rollback_2>>
     simp[])>>
-  simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST,any_el_update_resize]
+  CONJ_TAC >- (* earliest_rel *)
+    metis_tac[fml_rel_fml_rel_earliest_rel]>>
+  simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST,any_el_update_resize]>>
+  rw[]>>
+  qsuff_tac `n < id'`
+  >- (
+    simp[]>>
+    intLib.ARITH_TAC)>>
+  CCONTR_TAC>>gvs[]
 QED
 
 Theorem opt_update_inds_opt_update:
-  opt_update_inds fml c id inds = (fml',inds',id') ⇒
+  opt_update_inds fml c id inds earliest =
+    (fml',inds',earliest',id') ⇒
   opt_update fml c id = (fml',id')
 Proof
   Cases_on`c`>>rw[]
@@ -1329,24 +1434,75 @@ QED
 
 Theorem opt_update_inds_ind_rel:
   ind_rel fml inds ∧
-  opt_update_inds fml c id inds = (fml',inds',id') ⇒
+  opt_update_inds fml c id inds earliest =
+    (fml',inds',earliest',id') ⇒
   ind_rel fml' inds'
 Proof
   Cases_on`c`>>rw[]>>fs[]>>
   simp[ind_rel_update_resize_sorted_insert]
 QED
 
+Theorem earliest_rel_check_lstep_list:
+  earliest_rel fmlls earliest ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
+  check_lstep_list lstep b fmlls mindel id =
+    SOME (fmlls',x,y) ⇒
+  earliest_rel fmlls' earliest
+Proof
+  rw[]>>
+  fs[earliest_rel_def]>>
+  rw[]>>
+  first_x_assum(qspecl_then[`x'`,`pos`] mp_tac)>>
+  drule (CONJUNCT1 check_lstep_list_id_del)>>
+  drule (CONJUNCT1 check_lstep_list_id_upper)>>
+  disch_then drule>>
+  rw[]>>
+  Cases_on`pos < id`>>fs[]
+  >- (
+    gvs[min_opt_def]>>
+    every_case_tac>>gvs[]>>
+    first_x_assum drule >>
+    rw[any_el_ALT]>>
+    gvs[])>>
+  `pos ≥ id` by fs[]>>
+  gvs[min_opt_def]>>
+  every_case_tac>>gvs[]>>
+  first_x_assum drule >>
+  rw[any_el_ALT]>>
+  gvs[]
+QED
+
+Theorem earliest_rel_update_resize_update_earliest:
+  earliest_rel fml earliest ⇒
+  earliest_rel (update_resize fmlls NONE (SOME v) n)
+    (update_earliest earliest n (FST (FST v)))
+Proof
+  cheat
+QED
+
+Theorem opt_update_inds_earliest_rel:
+  earliest_rel fml earliest ∧
+  opt_update_inds fml c id inds earliest =
+    (fml',inds',earliest',id') ⇒
+  earliest_rel fml' earliest'
+Proof
+  Cases_on`c`>>rw[]>>fs[]>>
+  metis_tac[earliest_rel_update_resize_update_earliest]
+QED
+
 Theorem fml_rel_check_sstep_list:
   ∀sstep ord obj fmlls inds id fmlls' id' inds' fml.
     fml_rel fml fmlls ∧
     ind_rel fmlls inds ∧
+    earliest_rel fmlls earliest ∧
     (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
-    check_sstep_list sstep ord obj tcb fmlls inds id =
-      SOME (fmlls',inds',id') ⇒
+    check_sstep_list sstep ord obj tcb fmlls inds id earliest =
+      SOME (fmlls',inds',earliest',id') ⇒
     ∃fml'.
       check_sstep sstep ord obj tcb fml id = SOME(fml',id') ∧
       fml_rel fml' fmlls' ∧
       ind_rel fmlls' inds' ∧
+      earliest_rel fmlls' earliest' ∧
       (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE) ∧
       id ≤ id'
 Proof
@@ -1360,16 +1516,14 @@ Proof
     rw[]>>simp[]>>
     CONJ_TAC >-
       metis_tac[opt_update_inds_ind_rel,ind_rel_check_lstep_list]>>
-    CONJ_TAC
-    >- (
-      drule (CONJUNCT1 check_lstep_list_id_upper)>>
-      drule opt_update_id_upper>>
-      drule opt_update_id>>
-      drule (CONJUNCT1 check_lstep_list_id)>>
-      simp[])>>
-    drule (CONJUNCT1 check_lstep_list_id)>>
+    CONJ_TAC >-
+      metis_tac[opt_update_inds_earliest_rel,earliest_rel_check_lstep_list]>>
+    drule (CONJUNCT1 check_lstep_list_id_upper)>>
+    drule opt_update_id_upper>>
     drule opt_update_id>>
-    simp[])
+    drule (CONJUNCT1 check_lstep_list_id)>>
+    drule (CONJUNCT1 check_lstep_list_mindel)>>
+    simp[]>>rw[])
   >- ( (* Red*)
     gvs[AllCaseEqs(),insert_fml_def]>>
     drule_all fml_rel_check_red_list>>
@@ -1377,7 +1531,9 @@ Proof
     >-
       metis_tac[fml_rel_update_resize]
     >-
-      metis_tac[ind_rel_update_resize_sorted_insert]>>
+      metis_tac[ind_rel_update_resize_sorted_insert]
+    >-
+      metis_tac[PAIR,FST,SND,earliest_rel_update_resize_update_earliest]>>
     simp[any_el_update_resize])
 QED
 
@@ -1476,7 +1632,7 @@ Definition do_change_obj_check_def:
 End
 
 Definition emp_vec_def:
-  emp_vec = Vector []
+  emp_vec = INR (Vector [])
 End
 
 Definition check_change_obj_list_def:
@@ -1497,6 +1653,7 @@ Definition check_change_obj_list_def:
         else NONE)
 End
 
+(* TODO *)
 Definition check_cstep_list_def:
   check_cstep_list cstep fml inds pc =
   case cstep of
@@ -1509,6 +1666,7 @@ Definition check_cstep_list_def:
       let (rinds,fmlls) = reindex F fml inds in
       let corels = core_fmlls fml rinds in
       let fml_not_c = update_resize fml NONE (SOME (nc,F)) id in
+      let s = mk_subst s in
       let w = subst_fun s in
       let dsubs = dom_subgoals spo w c pc.obj in
       case extract_clauses_list s F fml dsubs pfs [] of

@@ -1,7 +1,7 @@
 (*
   Pseudo-boolean constraints proof format and checker
 *)
-open preamble npbcTheory mlstringTheory mlintTheory mlvectorTheory;
+open preamble npbcTheory mlstringTheory mlintTheory mlvectorTheory spt_to_vecTheory;
 
 val _ = new_theory "npbc_check";
 
@@ -583,13 +583,13 @@ Proof
 QED
 *)
 
-Type subst = ``:(bool + num lit) option vector``;
+Type subst_raw = ``:(num , bool + num lit) alist``;
 
 (* Steps that preserve satisfiability *)
 Datatype:
   sstep =
   | Lstep lstep (* Id representing a contradiction *)
-  | Red npbc subst (( ((num + num) # num) option, (lstep list)) alist) (num option)
+  | Red npbc subst_raw (( ((num + num) # num) option, (lstep list)) alist) (num option)
   (* the alist represents a subproof
     NONE -> top level step
     SOME (INL n,id) -> database proofgoals, contradiction at id
@@ -668,8 +668,13 @@ Definition check_subproofs_def:
       | res => NONE))
 End
 
+Type subst = ``:(num # (bool + num lit)) + (bool + num lit) option vector``;
+
 Definition subst_fun_def:
   subst_fun (s:subst) n =
+  case s of
+    INL (m,v) => if n = m then SOME v else NONE
+  | INR s =>
   if n < length s then
     sub s n
   else NONE
@@ -766,12 +771,18 @@ Definition mk_core_fml_def:
     if b ⇒ b' then SOME x else NONE) fml
 End
 
+Definition mk_subst_def:
+  (mk_subst [(n,v)] = INL (n,v)) ∧
+  (mk_subst xs = INR (spt_to_vec (fromAList xs)))
+End
+
 (* The tcb flag indicates we're in to-core mode
   where it is guaranteed that the core formula implies derived *)
 Definition check_red_def:
   check_red ord obj b tcb fml id c s pfs idopt =
   ( let nc = not c in
     let (fml_not_c,id1) = insert_fml b fml id (not c) in
+    let s = mk_subst s in
     let w = subst_fun s in
     let rsubs = red_subgoals ord w c obj in
     case extract_clauses w b fml rsubs pfs [] of
@@ -1203,7 +1214,7 @@ Proof
   \\ pairarg_tac \\ fs[]
   \\ match_mp_tac (GEN_ALL substitution_redundancy_obj_po)
   \\ simp[]
-  \\ qexists_tac ‘subst_fun s’ \\ fs []
+  \\ qexists_tac ‘subst_fun (mk_subst s)’ \\ fs []
   \\ fs[EVERY_MEM,MEM_MAP,EXISTS_PROD]
   \\ `id ∉ domain fml` by fs[id_ok_def]
   \\
@@ -1234,7 +1245,7 @@ Proof
   >- (
     (* objective *)
     Cases_on`obj`>>
-    last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun s) ord))` assume_tac)>>
+    last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun (mk_subst s)) ord))` assume_tac)>>
     fs[]>>
     drule_all lookup_extract_pids_r>>rw[]
     \\ drule extract_clauses_MEM_INR
@@ -1264,7 +1275,7 @@ Proof
     \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
   (* rest of redundancy *)
   \\ gvs [GSYM unsat_iff_implies]
-  \\ Cases_on ‘subst_opt (subst_fun s) x'’ \\ fs []
+  \\ Cases_on ‘subst_opt (subst_fun (mk_subst s)) x'’ \\ fs []
   >- (
     imp_res_tac subst_opt_NONE
     \\ CCONTR_TAC \\ gvs [satisfiable_def,not_thm]
@@ -1276,7 +1287,7 @@ Proof
   \\ strip_tac
   \\ rename1`lookup nn _ = SOME xx`
   \\ rename1`subst_opt _ _ = SOME yy`
-  \\ `MEM (nn,yy) (toAList (map_opt (subst_opt (subst_fun s))
+  \\ `MEM (nn,yy) (toAList (map_opt (subst_opt (subst_fun (mk_subst s)))
       (mk_core_fml (b ∨ tcb) fml)))` by
      simp[MEM_toAList,lookup_map_opt]
   \\ drule_all split_goals_checked \\ rw[]
@@ -1523,12 +1534,12 @@ QED
 Datatype:
   cstep =
   (* Derivation steps *)
-  | Dom npbc subst (( ((num + num) # num) option, (lstep list)) alist) (num option)
+  | Dom npbc subst_raw (( ((num + num) # num) option, (lstep list)) alist) (num option)
   | Sstep sstep
 
   (* Deletion steps *)
   | CheckedDelete num
-      subst
+      subst_raw
       (( ((num + num) # num) option, (lstep list)) alist)
       (num option)
   | UncheckedDelete (num list)
@@ -1987,6 +1998,7 @@ Definition check_cstep_def:
     | SOME spo =>
     ( let nc = not c in
       let (fml_not_c,id1) = insert_fml F fml pc.id (not c) in
+      let s = mk_subst s in
       let w = subst_fun s in
       let dsubs = dom_subgoals spo w c pc.obj in
       case extract_clauses w F fml dsubs pfs [] of
@@ -2380,7 +2392,7 @@ Proof
       PairCases_on`x`>>
       match_mp_tac (GEN_ALL good_spo_dominance)>>
       simp[]>>
-      qexists_tac ‘subst_fun v’>>fs[]>>
+      qexists_tac ‘subst_fun (mk_subst l)’>>fs[]>>
       CONJ_TAC >-
         metis_tac[core_only_fml_T_SUBSET_F]>>
       CONJ_TAC >-
@@ -2393,7 +2405,7 @@ Proof
         (* core constraints*)
         rw[sat_implies_def,satisfies_def]
         \\ gs[PULL_EXISTS,GSYM range_mk_core_fml,range_def,lookup_mk_core_fml]
-        \\ Cases_on ‘subst_opt (subst_fun v) x’ \\ fs []
+        \\ Cases_on ‘subst_opt (subst_fun (mk_subst l)) x’ \\ fs []
         THEN1 (
           imp_res_tac subst_opt_NONE
           \\ gvs[lookup_core_only_def,AllCaseEqs()]
@@ -2401,7 +2413,7 @@ Proof
           \\ fs [satisfies_def,range_def,PULL_EXISTS]
           \\ metis_tac[])
         \\ rename1`subst_opt _ _ = SOME yy`
-        \\ `MEM (n,yy) (toAList (map_opt (subst_opt (subst_fun v))
+        \\ `MEM (n,yy) (toAList (map_opt (subst_opt (subst_fun (mk_subst l)))
             (mk_core_fml T fml)))` by
             simp[MEM_toAList,lookup_map_opt,lookup_mk_core_fml,lookup_core_only_def]
         \\ drule_all split_goals_checked \\ rw[]
@@ -2432,7 +2444,8 @@ Proof
           gvs[lookup_mk_core_fml]>>
           drule lookup_core_only_T_imp_F>>
           rw[])
-        \\ `subst (subst_fun v) c = subst (subst_fun v) x` by
+        \\ `subst (subst_fun (mk_subst l)) c =
+            subst (subst_fun (mk_subst l)) x` by
           metis_tac[subst_opt_SOME]
         \\ metis_tac[])>>
       CONJ_TAC >- (
@@ -2459,7 +2472,7 @@ Proof
       CONJ_TAC >- (
         (* negated order constraint *)
         fs[core_only_fml_def]>>
-        last_x_assum(qspec_then`LENGTH (dom_subst (subst_fun v) (SOME ((x0,x1,x2),x3)))` assume_tac)>>
+        last_x_assum(qspec_then`LENGTH (dom_subst (subst_fun (mk_subst l)) (SOME ((x0,x1,x2),x3)))` assume_tac)>>
         gs[ADD1]>>
         drule_all lookup_extract_pids_r>>
         simp[]>> rw[]
@@ -2476,7 +2489,7 @@ Proof
       fs[core_only_fml_def]>>
       Cases_on`pc.obj`>>
       simp[]>>
-      last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun v) (SOME ((x0,x1,x2),x3))))` assume_tac)>>
+      last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun (mk_subst l)) (SOME ((x0,x1,x2),x3))))` assume_tac)>>
       gs[ADD1]>>
       drule_all lookup_extract_pids_r>>
       simp[]>>rw[]
