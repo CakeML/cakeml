@@ -271,12 +271,13 @@ QED
 val res = translate enc_lit_def;
 val res = translate enc_clause_def;
 val res = translate pbcTheory.negate_def;
+val res = translate (nub_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
 val res = translate wclause_to_pbc_def;
 
 val wclause_to_pbc_side = Q.prove(`
   wclause_to_pbc_side x <=> T`,
   EVAL_TAC>>rw[]>>
-  fs[quantHeuristicsTheory.LIST_LENGTH_1])|>update_precondition;
+  CCONTR_TAC>>fs[]) |>update_precondition;
 
 val res = translate miscTheory.enumerate_def;
 val res = translate wfml_to_pbf_def;
