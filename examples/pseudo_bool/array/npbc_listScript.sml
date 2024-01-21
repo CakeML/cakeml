@@ -1582,13 +1582,39 @@ Proof
   gvs[]
 QED
 
-(* TODO: maybe some induction? *)
+Triviality earliest_rel_append_NONE:
+  earliest_rel fml earliest ⇒
+  earliest_rel (fml ++ REPLICATE k NONE) earliest
+Proof
+  gvs [earliest_rel_def] \\ rw []
+  \\ Cases_on ‘LENGTH fml ≤ pos’ >-
+   (simp [EL_APPEND2]
+    \\ DEP_REWRITE_TAC [EL_REPLICATE] \\ fs []
+    \\ Cases_on ‘lookup x earliest’ \\ gvs [min_opt_def])
+  \\ gvs [GSYM NOT_LESS,EL_APPEND1]
+  \\ last_x_assum irule
+  \\ Cases_on ‘lookup x earliest’ \\ gvs [min_opt_def]
+QED
+
+Triviality earliest_rel_lupdate:
+  n < LENGTH fml ∧
+  earliest_rel fml earliest ⇒
+  earliest_rel (LUPDATE (SOME (v,b)) n fml)
+    (update_earliest earliest n (FST v))
+Proof
+  gvs [earliest_rel_def] \\ rw [] \\ gvs [EL_LUPDATE]
+  \\ PairCases_on ‘v’ \\ gvs []
+  \\ cheat
+QED
+
 Theorem earliest_rel_update_resize_update_earliest:
   earliest_rel fml earliest ⇒
   earliest_rel (update_resize fml NONE (SOME (v,b)) n)
     (update_earliest earliest n (FST v))
 Proof
-  cheat
+  gvs [update_resize_def] \\ IF_CASES_TAC \\ strip_tac
+  \\ irule earliest_rel_lupdate \\ fs []
+  \\ irule earliest_rel_append_NONE \\ fs []
 QED
 
 Theorem opt_update_inds_earliest_rel:
