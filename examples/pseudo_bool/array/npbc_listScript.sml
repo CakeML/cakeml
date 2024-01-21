@@ -2066,14 +2066,18 @@ Proof
   simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]
 QED
 
-(* should be easy *)
 Theorem earliest_rel_list_delete_list:
   ∀l fmlls.
   earliest_rel fmlls earliest ==>
   earliest_rel (list_delete_list l fmlls) earliest
 Proof
-  rw[earliest_rel_def]>>
-  cheat
+  Induct \\ gvs [list_delete_list_def] \\ rw []
+  \\ last_x_assum irule
+  \\ gvs [earliest_rel_def]
+  \\ ‘LENGTH (delete_list h fmlls) = LENGTH fmlls’ by rw [delete_list_def]
+  \\ gvs [] \\ rw []
+  \\ last_x_assum drule
+  \\ rw [delete_list_def] \\ rw [EL_LUPDATE]
 QED
 
 Theorem all_core_list_SORTED:
