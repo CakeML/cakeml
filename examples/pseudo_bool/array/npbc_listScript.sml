@@ -1209,7 +1209,11 @@ Proof
   gvs[reindex_partial_def,AllCaseEqs()]>>
   drule reindex_partial_aux>>
   strip_tac>>gvs[]>>
-  cheat
+  conj_tac >- (gvs [ind_rel_def,MEM_FILTER])
+  \\ DEP_REWRITE_TAC [SORTED_APPEND]
+  \\ gvs [MEM_FILTER]
+  \\ rpt $ irule_at Any sortingTheory.SORTED_FILTER \\ gvs []
+  \\ gvs [transitive_def]
 QED
 
 Theorem MEM_subst_indexes:
