@@ -1596,6 +1596,28 @@ Proof
   \\ Cases_on ‘lookup x earliest’ \\ gvs [min_opt_def]
 QED
 
+Triviality lookup_update_earliest_none:
+  ∀v0 n earliest x.
+    lookup x (update_earliest earliest n v0) = NONE ⇒
+    ¬MEM x (MAP SND v0) ∧ lookup x earliest = NONE
+Proof
+  Induct \\ gvs [update_earliest_def,FORALL_PROD]
+  \\ rw [] \\ first_x_assum drule \\ fs []
+  \\ gvs [lookup_insert,AllCaseEqs()]
+QED
+
+Triviality lookup_update_earliest_some:
+  ∀v0 n earliest x k.
+    lookup x (update_earliest earliest n v0) = SOME k ∧ n < k ⇒
+    ¬MEM x (MAP SND v0) ∧ lookup x earliest = SOME k
+Proof
+  Induct \\ gvs [update_earliest_def,FORALL_PROD]
+  \\ rw [] \\ first_x_assum drule \\ fs []
+  \\ gvs [lookup_insert,AllCaseEqs()]
+  \\ Cases_on ‘lookup p_2 earliest’ \\ gvs [min_opt_def]
+  \\ ‘MIN x' n ≠ k’ by gvs [MIN_DEF] \\ gvs []
+QED
+
 Triviality earliest_rel_lupdate:
   n < LENGTH fml ∧
   earliest_rel fml earliest ⇒
@@ -1604,7 +1626,28 @@ Triviality earliest_rel_lupdate:
 Proof
   gvs [earliest_rel_def] \\ rw [] \\ gvs [EL_LUPDATE]
   \\ PairCases_on ‘v’ \\ gvs []
-  \\ cheat
+  \\ IF_CASES_TAC \\ gvs []
+  >-
+   (Cases_on ‘lookup x (update_earliest earliest n v0)’ \\ gvs [min_opt_def]
+    \\ imp_res_tac lookup_update_earliest_none
+    \\ imp_res_tac lookup_update_earliest_some)
+  \\ first_x_assum irule
+  \\ Cases_on ‘lookup x (update_earliest earliest n v0)’ \\ gvs []
+  >- (imp_res_tac lookup_update_earliest_none \\ gvs [])
+  \\ gvs [min_opt_def]
+  \\ Cases_on ‘lookup x earliest’ \\ gvs []
+  \\ irule LESS_LESS_EQ_TRANS
+  \\ last_x_assum $ irule_at $ Pos hd
+  \\ rename [‘a ≤ b’]
+  \\ pop_assum mp_tac
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘earliest’
+  \\ qid_spec_tac ‘b’
+  \\ qid_spec_tac ‘a’
+  \\ Induct_on ‘v0’ \\ gvs [update_earliest_def,FORALL_PROD]
+  \\ rw [] \\ first_x_assum drule
+  \\ gvs [lookup_insert] \\ rw []
+  \\ gvs [min_opt_def]
 QED
 
 Theorem earliest_rel_update_resize_update_earliest:
