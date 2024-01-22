@@ -593,11 +593,11 @@ Termination
   gs[]
 End
 
-Definition conv_exp_def:
-  conv_exp tree =
+Definition conv_expos_def:
+  conv_expos tree =
     case destTOK ' (destLf tree) of
       SOME (KeywordT PublicK) => SOME T
-    | SOME (KeywordT PrivateK) => SOME F
+    | SOME (PrivateT) => SOME F
     | _ => NONE
 End
 
@@ -607,7 +607,7 @@ Definition conv_Fun_def:
     SOME [e;n;c] =>
       (do body <- conv_Prog c;
           n'   <- conv_ident n;
-          e'   <- conv_exp e;
+          e'   <- conv_expos e;
           SOME (n', e', [], body)
        od)
   | SOME [e;n;ps;c] =>
@@ -616,7 +616,7 @@ Definition conv_Fun_def:
            (do ps'  <- conv_params args;
                body <- conv_Prog c;
                n'   <- conv_ident n;
-               e'   <- conv_exp e;
+               e'   <- conv_expos e;
                SOME (n', e', ps', body)
             od)
        | _ => NONE)

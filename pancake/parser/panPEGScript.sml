@@ -112,6 +112,10 @@ Definition try_def:
   try s = choicel [s; empty []]
 End
 
+Definition try_default_def:
+  try_default s t = choicel [s; empty $ mkleaf (t, unknown_loc)]
+End
+
 Definition pancake_peg_def[nocompute]:
   pancake_peg = <|
     start := mknt FunListNT;
@@ -121,7 +125,7 @@ Definition pancake_peg_def[nocompute]:
     notFAIL := "Not combinator failed";
     rules := FEMPTY |++ [
         (INL FunListNT, seql [rpt (mknt FunNT) FLAT] (mksubtree FunListNT));
-        (INL FunNT, seql [choicel [keep_kw PublicK; keep_kw PrivateK];
+        (INL FunNT, seql [try_default (keep_kw PublicK) PrivateT;
                           consume_kw FunK;
                           keep_ident;
                           consume_tok LParT;

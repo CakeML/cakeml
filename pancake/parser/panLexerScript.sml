@@ -20,7 +20,11 @@ val _ = new_theory "panLexer";
 Datatype:
   keyword = SkipK | StoreK | StoreBK | IfK | ElseK | WhileK
   | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK
+<<<<<<< HEAD
   | LdsK | LdbK | LdwK | BaseK | InK | FunK | PublicK | PrivateK | TrueK | FalseK
+=======
+  | LdsK | LdbK | BaseK | InK | FunK | PublicK | TrueK | FalseK
+>>>>>>> d95ef08c7 (Improve parsing to be based on only one keyword (concrete choice temporary))
 End
 
 Datatype:
@@ -32,6 +36,7 @@ Datatype:
   | LParT | RParT | CommaT | SemiT | ColonT | DArrowT | AddrT
   | LBrakT | RBrakT | LCurT | RCurT
   | AssignT
+  | PrivateT
   | KeywordT keyword
   | LexErrorT mlstring
 End
@@ -134,7 +139,6 @@ Definition get_keyword_def:
   if s = "false" then (KeywordT FalseK) else
   if s = "fun" then (KeywordT FunK) else
   if s = "public" then (KeywordT PublicK) else    (* FIXME: temporary concrete keyword *)
-  if s = "private" then (KeywordT PrivateK) else    (* FIXME: temporary concrete keyword *)
   if s = "" then LexErrorT $ «Expected keyword, found empty string» else
   if 2 <= LENGTH s ∧ EL 0 s = #"@" then ForeignIdent (DROP 1 s)
   else
