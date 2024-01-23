@@ -3,7 +3,7 @@
 *)
 open HolKernel Parse boolLib bossLib;
 open cv_typeTheory cvTheory cv_typeLib cv_repLib;
-open arithmeticTheory wordsTheory cv_repTheory;
+open arithmeticTheory wordsTheory cv_repTheory integerTheory;
 
 val _ = new_theory "cv_prim";
 
@@ -152,6 +152,28 @@ Proof
   fs [cv_max_def] \\ rw []
   \\ BasicProvers.every_case_tac \\ fs []
   \\ gvs [arithmeticTheory.MAX_DEF]
+QED
+
+
+(*----------------------------------------------------------*
+   int
+ *----------------------------------------------------------*)
+
+Theorem cv_int_of_num[cv_rep]:
+  from_int (&n) = Num n
+Proof
+  gvs[from_int_def]
+QED
+
+Definition cv_abs_def:
+  cv_abs i = cv_if (cv_ispair i) (cv_fst i) i
+End
+
+Theorem cv_Num[cv_rep]:
+  Num (integer$Num i) = cv_abs (from_int i)
+Proof
+  gvs[from_int_def, cv_abs_def] >>
+  rw[] >> gvs[cv_ispair_def]
 QED
 
 (*----------------------------------------------------------*

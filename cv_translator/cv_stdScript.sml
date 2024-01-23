@@ -226,7 +226,7 @@ val res = cv_trans (PAD_RIGHT |> REWRITE_RULE [GSYM REPLICATE_GENLIST]);
 
 val res = cv_trans nub_def;
 
-val res = cv_trans_pre ALOOKUP_def
+val res = cv_trans ALOOKUP_def
 
 val res = cv_trans findi_def (* TODO: improve *)
 
