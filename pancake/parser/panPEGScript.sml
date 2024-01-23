@@ -112,6 +112,7 @@ Definition try_def:
   try s = choicel [s; empty []]
 End
 
+(* like try, but stores given token without consumption on failure *)
 Definition try_default_def:
   try_default s t = choicel [s; empty $ mkleaf (t, unknown_loc)]
 End
