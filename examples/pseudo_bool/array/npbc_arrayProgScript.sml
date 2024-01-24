@@ -1023,6 +1023,113 @@ Proof
   metis_tac[LIST_TYPE_def]
 QED
 
+val reindex_partial_aux_arr = process_topdecs `
+  fun reindex_partial_aux_arr b fml mini ls iacc vacc =
+  case ls of
+    [] => (List.rev iacc, (vacc, []))
+  | (i::is) =>
+  if i < mini then (List.rev iacc, (vacc, ls))
+  else
+  case Array.lookup fml None i of
+    None => reindex_partial_aux_arr b fml mini is iacc vacc
+  | Some (v,b') =>
+      reindex_partial_aux_arr b fml mini is (i::iacc)
+        (mk_vacc b b' v vacc)` |> append_prog;
+
+val reindex_partial_arr = process_topdecs `
+  fun reindex_partial_arr b fml mini is =
+  case mini of None => ([], ([], is))
+  | Some mini =>
+    reindex_partial_aux_arr b fml mini is [] []`
+  |> append_prog;
+
+Theorem reindex_partial_aux_arr_spec:
+  ∀inds indsv b bv fmlls fmlv iacc iaccv vacc vaccv.
+  BOOL b bv ∧
+  LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
+  NUM mini miniv ∧
+  (LIST_TYPE NUM) inds indsv ∧
+  (LIST_TYPE NUM) iacc iaccv ∧
+  (LIST_TYPE constraint_TYPE) vacc vaccv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "reindex_partial_aux_arr" (get_ml_prog_state()))
+    [bv; fmlv; miniv; indsv; iaccv; vaccv]
+    (ARRAY fmlv fmllsv)
+    (POSTv v.
+      ARRAY fmlv fmllsv *
+      &(PAIR_TYPE (LIST_TYPE NUM)
+        (PAIR_TYPE (LIST_TYPE constraint_TYPE)
+          (LIST_TYPE NUM))
+        (reindex_partial_aux b fmlls mini inds iacc vacc) v))
+Proof
+  Induct>>
+  xcf"reindex_partial_aux_arr"(get_ml_prog_state ())>>
+  fs[LIST_TYPE_def]
+  >- (
+    xmatch>>
+    rpt xlet_autop>>
+    xcon>>xsimpl>>
+    simp[reindex_partial_aux_def,LIST_TYPE_def,PAIR_TYPE_def])>>
+  xmatch>>
+  xlet_autop>>
+  xif
+  >- (
+    rpt xlet_autop>>
+    xcon>>
+    simp[reindex_partial_aux_def,PAIR_TYPE_def,LIST_TYPE_def]>>
+    xsimpl)>>
+  rpt xlet_autop>>
+  xlet_auto>>
+  `OPTION_TYPE bconstraint_TYPE
+    (any_el h fmlls NONE) v'` by (
+   rw[any_el_ALT]>>
+   fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+  rw[]>>
+  simp[reindex_partial_aux_def]>>
+  TOP_CASE_TAC>>fs[OPTION_TYPE_def]
+  >- (
+    xmatch>>
+    xapp>>simp[])>>
+  TOP_CASE_TAC>>fs[PAIR_TYPE_def]>>
+  xmatch>>
+  rpt xlet_autop>>
+  xapp>>
+  fs[LIST_TYPE_def,mk_vacc_def]
+QED
+
+Theorem reindex_partial_arr_spec:
+  ∀inds indsv fmlls fmlv.
+  BOOL b bv ∧
+  OPTION_TYPE NUM mini miniv ∧
+  LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
+  (LIST_TYPE NUM) inds indsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "reindex_partial_arr" (get_ml_prog_state()))
+    [bv; fmlv; miniv; indsv]
+    (ARRAY fmlv fmllsv)
+    (POSTv v.
+      ARRAY fmlv fmllsv *
+      &(PAIR_TYPE (LIST_TYPE NUM)
+        (PAIR_TYPE (LIST_TYPE constraint_TYPE) (LIST_TYPE NUM))
+        (reindex_partial b fmlls mini inds) v))
+Proof
+  xcf"reindex_partial_arr"(get_ml_prog_state ())>>
+  Cases_on`mini`>>
+  gvs[OPTION_TYPE_def]>>
+  xmatch
+  >- (
+    rpt xlet_autop>>
+    xcon>>xsimpl>>
+    simp[reindex_partial_def,PAIR_TYPE_def,LIST_TYPE_def])>>
+  rpt xlet_autop>>
+  xapp>>
+  xsimpl>>
+  simp[reindex_partial_def]>>
+  metis_tac[LIST_TYPE_def]
+QED
+
 val res = translate is_Pos_def;
 val res = translate subst_aux_def;
 val res = translate partition_def;
@@ -1051,7 +1158,7 @@ val extract_clauses_arr = process_topdecs`
       else raise Fail (format_failure lno ("invalid #proofgoal id: " ^ Int.toString u))
 ` |> append_prog;
 
-Overload "subst_TYPE" = ``(VECTOR_TYPE (OPTION_TYPE (SUM_TYPE BOOL (PBC_LIT_TYPE NUM))))``
+Overload "subst_TYPE" = ``SUM_TYPE (PAIR_TYPE NUM (SUM_TYPE BOOL (PBC_LIT_TYPE NUM))) (VECTOR_TYPE (OPTION_TYPE (SUM_TYPE BOOL (PBC_LIT_TYPE NUM))))``
 
 Overload "pfs_TYPE" = ``LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE NPBC_CHECK_LSTEP_TYPE))``
 
@@ -1722,9 +1829,12 @@ val format_failure_2_def = Define`
 val r = translate format_failure_2_def;
 
 Theorem vec_eq_nil_thm:
-  v = Vector [] ⇔ length v = 0
+  v = INR (Vector []) ⇔
+  case v of INL _ => F
+  | INR v => length v = 0
 Proof
-  EVAL_TAC>>Cases_on`v`>>fs[mlvectorTheory.length_def]
+  Cases_on`v`>>EVAL_TAC>>
+  Cases_on`y`>>fs[mlvectorTheory.length_def]
 QED
 
 val r = translate (red_fast_def |> SIMP_RULE std_ss [vec_eq_nil_thm]);
@@ -1743,13 +1853,25 @@ val check_red_arr_fast = process_topdecs`
       else raise Fail (format_failure lno ("did not derive contradiction from index:" ^ Int.toString cid))
     end` |> append_prog;
 
+val res = translate get_earliest_def;
+
+val r = translate spt_to_vecTheory.prepend_def;
+val r = translate spt_to_vecTheory.to_flat_def;
+
+val r = translate spt_to_vecTheory.spt_to_vec_def;
+val res = translate fromAList_def;
+val res = translate npbc_checkTheory.mk_subst_def;
+
 val check_red_arr = process_topdecs`
-  fun check_red_arr lno ord obj b tcb fml inds id c s pfs idopt =
+  fun check_red_arr lno ord obj b tcb fml inds id c s pfs idopt earliest =
+  let val s = mk_subst s in
   case red_fast s idopt pfs of
   None =>
   (
-  let val bortcb = b orelse tcb in
-  case reindex_arr bortcb fml inds of (rinds,fmlls) =>
+  let val bortcb = b orelse tcb
+      val mini = get_earliest earliest s in
+  case reindex_partial_arr bortcb fml mini inds of
+    (rinds,(fmlls,rest)) =>
   let
     val nc = not_1 c
     val rsubs = do_rso ord s c obj
@@ -1762,20 +1884,21 @@ val check_red_arr = process_topdecs`
        let val u = rollback_arr fml' id id'
            val goals = subst_indexes_arr s bortcb fml' rinds in
            case red_cond_check fmlls nc pfs rsubs goals
-             of None => (fml', (rinds,id'))
+             of None => (fml', (rinds @ rest,id'))
            | Some err =>
            raise Fail (format_failure_2 lno ("Redundancy subproofs did not cover all subgoals. Info: " ^ err ^ ".") (print_subproofs_err rsubs goals))
        end
     | Some cid =>
       if check_contradiction_fml_arr b fml' cid then
         let val u = rollback_arr fml' id id' in
-          (fml', (rinds, id'))
+          (fml', (rinds @ rest, id'))
         end
       else raise Fail (format_failure lno ("did not derive contradiction from index:" ^ Int.toString cid)))
   end
   end)
   | Some (pf,cid) =>
-    check_red_arr_fast lno b fml inds id c pf cid` |> append_prog;
+    check_red_arr_fast lno b fml inds id c pf cid
+  end` |> append_prog;
 
 (* Overloads all the _TYPEs that we will reuse *)
 Overload "spo_TYPE" = ``PAIR_TYPE
@@ -1854,6 +1977,8 @@ Proof
   metis_tac[ARRAY_refl,Fail_exn_def]
 QED
 
+Overload "subst_raw_TYPE" = ``LIST_TYPE (PAIR_TYPE NUM (SUM_TYPE BOOL (PBC_LIT_TYPE NUM)))``
+
 Theorem check_red_arr_spec:
   NUM lno lnov ∧
   ord_TYPE ord ordv ∧
@@ -1864,14 +1989,15 @@ Theorem check_red_arr_spec:
   (LIST_TYPE NUM) inds indsv ∧
   NUM id idv ∧
   constraint_TYPE c cv ∧
-  subst_TYPE s sv ∧
+  subst_raw_TYPE s sv ∧
   pfs_TYPE pfs pfsv ∧
-  OPTION_TYPE NUM idopt idoptv
+  OPTION_TYPE NUM idopt idoptv ∧
+  SPTREE_SPT_TYPE NUM earliest earliestv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_red_arr" (get_ml_prog_state()))
     [lnov; ordv; objv; bv; tcbv; fmlv; indsv; idv;
-      cv; sv; pfsv; idoptv]
+      cv; sv; pfsv; idoptv; earliestv]
     (ARRAY fmlv fmllsv)
     (POSTve
       (λv.
@@ -1879,7 +2005,7 @@ Theorem check_red_arr_spec:
         ARRAY fmlv' fmllsv' *
         &(
           case check_red_list ord obj b tcb fmlls inds id
-              c s pfs idopt of NONE => F
+              c s pfs idopt earliest of NONE => F
           | SOME res =>
             PAIR_TYPE (λl v.
               LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
@@ -1890,13 +2016,17 @@ Theorem check_red_arr_spec:
         ARRAY fmlv' fmllsv' *
         & (Fail_exn e ∧
           check_red_list ord obj b tcb fmlls inds id
-              c s pfs idopt = NONE)))
+              c s pfs idopt earliest = NONE)))
 Proof
   rw[]>>
   xcf "check_red_arr" (get_ml_prog_state ())>>
+  xlet_auto
+  >- (
+    xsimpl>>
+    simp (eq_lemmas()))>>
   xlet_autop>>
   rw[check_red_list_def]>>
-  reverse (Cases_on`red_fast s idopt pfs`)
+  reverse (Cases_on`red_fast (mk_subst s) idopt pfs`)
   >- (
     simp[]>>Cases_on`x`>>fs[OPTION_TYPE_def,PAIR_TYPE_def]>>
     xmatch>>
@@ -1910,22 +2040,23 @@ Proof
     xvar>>xsimpl)>>
   pairarg_tac>>gs[]>>
   xlet_autop>>
+  xlet_autop>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
   rpt xlet_autop>>
-  qmatch_asmsub_abbrev_tac`VECTOR_TYPE _ s _`>>
+  qmatch_asmsub_abbrev_tac`subst_TYPE ss _`>>
   qmatch_goalsub_abbrev_tac`ARRAY aa vv`>>
   xlet`(POSTve
     (λv.
       ARRAY aa vv *
-      &(case extract_clauses_list s b fmlls
-          (do_rso ord s c obj) pfs [] of
+      &(case extract_clauses_list ss b fmlls
+          (do_rso ord ss c obj) pfs [] of
           NONE => F
         | SOME res => LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (LIST_TYPE constraint_TYPE) NUM)) (LIST_TYPE NPBC_CHECK_LSTEP_TYPE)) res v))
   (λe.
     ARRAY aa vv *
     & (Fail_exn e ∧
-      extract_clauses_list s b fmlls (do_rso ord s c obj) pfs [] = NONE)))`
+      extract_clauses_list ss b fmlls (do_rso ord ss c obj) pfs [] = NONE)))`
   >- (
     xapp>>xsimpl>>
     fs[LIST_TYPE_def]>>
@@ -1968,6 +2099,7 @@ Proof
       fs[red_cond_check_def]>>
       pairarg_tac>>fs[]>>
       xlet_autop>>
+      xlet_autop>>
       xcon>>xsimpl>>
       simp[PAIR_TYPE_def]>>
       xsimpl)
@@ -1993,25 +2125,31 @@ Proof
   xsimpl
 QED
 
+val res = translate min_opt_def;
+val res = translate update_earliest_def;
+
 val check_sstep_arr = process_topdecs`
-  fun check_sstep_arr lno step ord obj tcb fml inds id =
+  fun check_sstep_arr lno step ord obj tcb fml inds id earliest =
   case step of
     Lstep lstep =>
     (case check_lstep_arr lno lstep False fml 0 id of
       (rfml,(c,id')) =>
       (case c of
-        None => (rfml,(inds,id'))
+        None => (rfml,(inds,(earliest,id')))
       | Some cc =>
         (Array.updateResize rfml None id' (Some cc),
           (sorted_insert id' inds,
-          id'+1)) ))
+          (update_earliest earliest id' (fst (fst cc)),
+          id'+1))) ))
   | Red c s pfs idopt =>
     (case check_red_arr lno ord obj False tcb
-        fml inds id c s pfs idopt of
+        fml inds id c s pfs idopt earliest of
     (fml',(rinds,id')) =>
        (Array.updateResize fml' None id'
           (Some (c,tcb)),
-        (sorted_insert id' rinds,(id'+1))))
+        (sorted_insert id' rinds,
+        (update_earliest earliest id' (fst c),
+        id'+1))))
   ` |> append_prog
 
 val NPBC_CHECK_SSTEP_TYPE_def = theorem "NPBC_CHECK_SSTEP_TYPE_def";
@@ -2024,11 +2162,12 @@ Theorem check_sstep_arr_spec:
   BOOL tcb tcbv ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
-  NUM id idv
+  NUM id idv ∧
+  SPTREE_SPT_TYPE NUM earliest earliestv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_sstep_arr" (get_ml_prog_state()))
-    [lnov; stepv; ordv; objv; tcbv; fmlv; indsv; idv]
+    [lnov; stepv; ordv; objv; tcbv; fmlv; indsv; idv; earliestv]
     (ARRAY fmlv fmllsv)
     (POSTve
       (λv.
@@ -2036,18 +2175,20 @@ Theorem check_sstep_arr_spec:
         ARRAY fmlv' fmllsv' *
         &(
           case check_sstep_list step ord obj tcb
-            fmlls inds id of NONE => F
+            fmlls inds id earliest of NONE => F
           | SOME res =>
             PAIR_TYPE (λl v.
               LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
-              v = fmlv') (PAIR_TYPE (LIST_TYPE NUM) NUM) res v
-          ))
+              v = fmlv')
+              (PAIR_TYPE (LIST_TYPE NUM)
+                (PAIR_TYPE (SPTREE_SPT_TYPE NUM) NUM)) res v)
+          )
       (λe.
         SEP_EXISTS fmlv' fmllsv'.
         ARRAY fmlv' fmllsv' *
         & (Fail_exn e ∧
           check_sstep_list step ord obj tcb
-            fmlls inds id = NONE)))
+            fmlls inds id earliest = NONE)))
 Proof
   rw[]>>
   xcf "check_sstep_arr" (get_ml_prog_state ())>>
@@ -2089,8 +2230,9 @@ Proof
     fs[opt_update_inds_def,OPTION_TYPE_def]>>
     xmatch
     >- (
-      xlet_autop>>xcon>>xsimpl>>
-      simp[PAIR_TYPE_def]>>
+      rpt xlet_autop>>
+      xcon>>xsimpl>>
+      simp[PAIR_TYPE_def,PULL_EXISTS]>>
       metis_tac[ARRAY_refl])>>
     rpt xlet_autop>>
     xlet_auto>>
@@ -2105,14 +2247,14 @@ Proof
     xmatch>>
     xlet_autop>>
     rename1`check_red_list ord obj F tcb fmlls inds id
-              c s pfs idopt`>>
+              c s pfs idopt earliest`>>
     xlet`POSTve
       (λv.
         SEP_EXISTS fmlv' fmllsv'.
         ARRAY fmlv' fmllsv' *
         &(
           case check_red_list ord obj F tcb fmlls inds id
-              c s pfs idopt of NONE => F
+              c s pfs idopt earliest of NONE => F
           | SOME res =>
             PAIR_TYPE (λl v.
               LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
@@ -2123,7 +2265,7 @@ Proof
         ARRAY fmlv' fmllsv' *
         & (Fail_exn e ∧
           check_red_list ord obj F tcb fmlls inds id
-              c s pfs idopt = NONE))`
+              c s pfs idopt earliest = NONE))`
     >- (
       xapp >> xsimpl>>
       CONJ_TAC >- EVAL_TAC>>
@@ -2897,22 +3039,23 @@ val res = translate npbc_checkTheory.eq_obj_def;
 val res = translate npbc_checkTheory.check_eq_obj_def;
 
 val check_cstep_arr = process_topdecs`
-  fun check_cstep_arr lno cstep fml inds pc =
+  fun check_cstep_arr lno cstep fml inds earliest pc =
   case cstep of
     Dom c s pfs idopt => (
     case get_ord pc of None =>
       raise Fail (format_failure lno "no order loaded for dominance step")
     | Some spo =>
       case check_dom_arr lno spo (get_obj pc)
-        fml inds (get_id pc) c s pfs idopt of (fml',(rinds,id')) =>
+        fml inds (get_id pc) c (mk_subst s) pfs idopt of
+        (fml',(rinds,id')) =>
       (Array.updateResize fml' None id' (Some (c,get_tcb pc)),
        (sorted_insert id' rinds,
-       (set_id pc (id'+1)))))
+       (update_earliest earliest id' (fst c), set_id pc (id'+1)))))
   | Sstep sstep => (
     case check_sstep_arr lno sstep (get_ord pc) (get_obj pc)
-      (get_tcb pc) fml inds (get_id pc) of
-      (fml',(inds',id')) =>
-      (fml',(inds',set_id pc id')))
+      (get_tcb pc) fml inds (get_id pc) earliest of
+      (fml',(inds',(earliest',id'))) =>
+      (fml',(inds',(earliest',set_id pc id'))))
   | Checkeddelete n s pfs idopt => (
     if check_tcb_idopt_pc pc idopt
     then
@@ -2923,35 +3066,35 @@ val check_cstep_arr = process_topdecs`
           case
             check_red_arr lno (get_ord pc) (get_obj pc) True
               (get_tcb pc) fml inds (get_id pc)
-              c s pfs idopt of (fml',(inds',id')) =>
-              (fml',(inds',set_id pc id'))))
+              c s pfs idopt earliest of (fml',(inds',id')) =>
+              (fml',(inds',(earliest,set_id pc id')))))
     else raise Fail
       (format_failure lno
         "invalid proof state for checked deletion"))
   | Uncheckeddelete ls => (
     if check_tcb_ord pc then
       (list_delete_arr ls fml;
-        (fml, (inds, set_chk pc False)))
+        (fml, (inds, (earliest, set_chk pc False))))
     else
       case all_core_arr fml inds [] of None =>
         raise Fail (format_failure lno
         "not all constraints in core")
       | Some inds' =>
         (list_delete_arr ls fml;
-          (fml, (inds', set_chk pc False))))
+          (fml, (inds', (earliest, set_chk pc False)))))
   | Transfer ls => (
       let val fml' = core_from_inds_arr lno fml ls in
-        (fml', (inds, pc))
+        (fml', (inds, (earliest, pc)))
       end)
   | Strengthentocore b => (
     let val inds' = fst (reindex_arr False fml inds) in
       if b
       then (
         let val fml' = core_from_inds_arr lno fml inds' in
-          (fml', (inds', set_tcb pc b))
+          (fml', (inds', (earliest, set_tcb pc b)))
         end)
       else
-        (fml,(inds',set_tcb pc b))
+        (fml,(inds', (earliest, set_tcb pc b)))
     end)
   | Loadorder nn xs =>
     let val inds' = fst (reindex_arr False fml inds) in
@@ -2961,7 +3104,7 @@ val check_cstep_arr = process_topdecs`
     | Some ord' =>
       if List.length xs = List.length (fst (snd ord')) then
         let val fml' = core_from_inds_arr lno fml inds' in
-        (fml', (inds',set_ord pc (Some (ord',xs))))
+        (fml', (inds', (earliest, set_ord pc (Some (ord',xs)))))
         end
       else
         raise Fail
@@ -2971,11 +3114,11 @@ val check_cstep_arr = process_topdecs`
     (case get_ord pc of None =>
      raise Fail (format_failure lno ("no order loaded"))
     | Some spo =>
-      (fml,(inds, set_ord pc None)))
+      (fml,(inds,(earliest,set_ord pc None))))
   | Storeorder name spo ws pfsr pfst =>
     if check_storeorder spo ws pfst pfsr
     then
-     (fml, (inds, set_orders pc ((name,spo)::get_orders pc)))
+     (fml, (inds, (earliest, set_orders pc ((name,spo)::get_orders pc))))
     else
       raise Fail (format_failure lno ("invalid order definition"))
   | Obj w mi bopt => (
@@ -2995,20 +3138,21 @@ val check_cstep_arr = process_topdecs`
           val c = model_improving obj new in
           (Array.updateResize fml None id (Some (c,True)),
            (sorted_insert id inds,
-           (obj_update pc (id+1) bound' dbound')))
+           (update_earliest earliest id (fst c),
+            obj_update pc (id+1) bound' dbound')))
         end
       else
-        (fml, (inds, (obj_update pc (get_id pc) bound' dbound')))
+        (fml, (inds, (earliest, obj_update pc (get_id pc) bound' dbound')))
     end
     )
   | Changeobj b fc' pfs =>
     (case check_change_obj_arr lno b fml
       (get_id pc) (get_obj pc) fc' pfs of
       (fml',(fc',id')) =>
-        (fml', (inds, (change_obj_update pc id' fc'))))
+        (fml', (inds, (earliest, change_obj_update pc id' fc'))))
   | Checkobj fc' =>
     if check_eq_obj (get_obj pc) fc'
-    then (fml, (inds, pc))
+    then (fml, (inds, (earliest, pc)))
     else
       raise Fail (format_failure lno
         (err_obj_check_string (get_obj pc) fc'))
@@ -3041,32 +3185,34 @@ Theorem check_cstep_arr_spec:
   NPBC_CHECK_CSTEP_TYPE cstep cstepv ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
-  NPBC_CHECK_PROOF_CONF_TYPE pc pcv
+  NPBC_CHECK_PROOF_CONF_TYPE pc pcv ∧
+  SPTREE_SPT_TYPE NUM earliest earliestv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_cstep_arr" (get_ml_prog_state()))
-    [lnov; cstepv; fmlv; indsv; pcv]
+    [lnov; cstepv; fmlv; indsv; earliestv; pcv]
     (ARRAY fmlv fmllsv)
     (POSTve
       (λv.
         SEP_EXISTS fmlv' fmllsv'.
         ARRAY fmlv' fmllsv' *
         &(
-          case check_cstep_list cstep fmlls inds pc of
+          case check_cstep_list cstep fmlls inds earliest pc of
             NONE => F
           | SOME res =>
             PAIR_TYPE (λl v.
               LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
               v = fmlv')
               (PAIR_TYPE (LIST_TYPE NUM)
-                NPBC_CHECK_PROOF_CONF_TYPE)
+                (PAIR_TYPE (SPTREE_SPT_TYPE NUM)
+                  NPBC_CHECK_PROOF_CONF_TYPE))
                 res v
           ))
       (λe.
         SEP_EXISTS fmlv' fmllsv'.
         ARRAY fmlv' fmllsv' *
         & (Fail_exn e ∧
-          check_cstep_list cstep fmlls inds pc = NONE)))
+          check_cstep_list cstep fmlls inds earliest pc = NONE)))
 Proof
   rw[]>>
   xcf "check_cstep_arr" (get_ml_prog_state ())>>
@@ -3082,6 +3228,9 @@ Proof
       xraise>> xsimpl>>
       metis_tac[Fail_exn_def,ARRAY_refl])>>
     pairarg_tac>>fs[]>>
+    rpt xlet_autop>>
+    xlet_auto >-
+      (xsimpl>> simp (eq_lemmas()))>>
     rpt xlet_autop>>
     fs[get_id_def,get_obj_def]
     >- (
@@ -3149,14 +3298,14 @@ Proof
     rpt xlet_autop>>
     fs[get_id_def,get_tcb_def,get_obj_def,get_ord_def]>>
     rename1`check_red_list ord obj T pc.tcb (delete_list n fmlls)
-      inds pc.id c s pfs idopt`>>
+      inds pc.id c s pfs idopt earliest`>>
     xlet`POSTve
       (λv.
         SEP_EXISTS fmlv' fmllsv'.
         ARRAY fmlv' fmllsv' *
         &(
         case check_red_list ord obj T pc.tcb (delete_list n fmlls)
-          inds pc.id c s pfs idopt of NONE => F
+          inds pc.id c s pfs idopt earliest of NONE => F
         | SOME res =>
           PAIR_TYPE (λl v.
             LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
@@ -3167,7 +3316,7 @@ Proof
         ARRAY fmlv' fmllsv' *
         & (Fail_exn e ∧
           check_red_list ord obj T pc.tcb (delete_list n fmlls)
-            inds pc.id c s pfs idopt = NONE))`
+            inds pc.id c s pfs idopt earliest = NONE))`
     >- (
       xapp>>xsimpl>>
       CONJ_TAC >- EVAL_TAC>>
@@ -3196,7 +3345,7 @@ Proof
         qexists_tac`F`>>
         qexists_tac`pc`>>simp[]>>
         EVAL_TAC)>>
-      xlet_autop>>
+      rpt xlet_autop>>
       xcon>>xsimpl>>
       fs[]>>
       fs[PAIR_TYPE_def,set_chk_def]>>
@@ -3221,7 +3370,7 @@ Proof
       qexists_tac`F`>>
       qexists_tac`pc`>>simp[]>>
       EVAL_TAC)>>
-    xlet_autop>>
+    rpt xlet_autop>>
     xcon>>xsimpl >>
     fs[PAIR_TYPE_def]>>
     asm_exists_tac>>simp[]>>
@@ -3233,7 +3382,7 @@ Proof
     >- (
       xsimpl>>
       metis_tac[ARRAY_refl])>>
-    xlet_autop>>
+    rpt xlet_autop>>
     xcon>>every_case_tac>>fs[]>>xsimpl>>
     simp[PAIR_TYPE_def]>>
     metis_tac[ARRAY_refl])
@@ -3295,7 +3444,7 @@ Proof
       xapp>>xsimpl>>
       asm_exists_tac>>simp[]>>
       qexists_tac`SOME (x,l)`>>simp[OPTION_TYPE_def,PAIR_TYPE_def])>>
-    xlet_autop>>
+    rpt xlet_autop>>
     xcon>>xsimpl>>
     every_case_tac>>
     gvs[AllCaseEqs(),PAIR_TYPE_def,OPTION_TYPE_def,set_ord_def]>>
@@ -3316,7 +3465,7 @@ Proof
       xapp>>xsimpl>>
       asm_exists_tac>>simp[]>>
       qexists_tac`NONE`>>simp[OPTION_TYPE_def,PAIR_TYPE_def])>>
-    xlet_autop>>
+    rpt xlet_autop>>
     xcon>>xsimpl>>
     fs[PAIR_TYPE_def,OPTION_TYPE_def,set_ord_def]>>
     metis_tac[ARRAY_refl])
@@ -3340,7 +3489,7 @@ Proof
       asm_exists_tac>>
       qexists_tac`(m,p')::pc.orders`>>xsimpl>>
       fs[LIST_TYPE_def,PAIR_TYPE_def,get_orders_def])>>
-    xlet_autop>>
+    rpt xlet_autop>>
     xcon>>xsimpl>>
     fs[PAIR_TYPE_def,OPTION_TYPE_def,LIST_TYPE_def,set_orders_def]>>
     asm_exists_tac>>simp[]>>
@@ -3404,7 +3553,7 @@ Proof
     fs[get_obj_def]>>
     xif
     >- (
-      xlet_autop>>
+      rpt xlet_autop>>
       xcon>>xsimpl>>
       simp[PAIR_TYPE_def]>>
       metis_tac[ARRAY_refl])>>
