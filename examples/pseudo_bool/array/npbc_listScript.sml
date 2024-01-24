@@ -704,7 +704,9 @@ Definition check_red_list_fast_def:
 End
 
 Definition get_earliest_def:
-  (get_earliest earliest (INR _) = SOME (0:num)) ∧
+  (get_earliest earliest (INR v) =
+    if length v = 0 then NONE
+    else SOME (0:num)) ∧
   (get_earliest earliest (INL (n,_)) =
     sptree$lookup n earliest)
 End
