@@ -2312,15 +2312,15 @@ QED
 (* returns the necessary information to check the
   output and conclusion sections *)
 val check_unsat'' = process_topdecs `
-  fun check_unsat'' fns fd lno fml inds earliest pc =
+  fun check_unsat'' fns fd lno fml inds vimap pc =
     case parse_cstep fns fd lno of
       (Inl s, (fns', lno')) =>
       (lno', (s, (fns',
         (fml, (inds, pc)))))
     | (Inr cstep, (fns', lno')) =>
-      (case check_cstep_arr lno cstep fml inds earliest pc of
-        (fml', (inds', (earliest', pc'))) =>
-        check_unsat'' fns' fd lno' fml' inds' earliest' pc')` |> append_prog
+      (case check_cstep_arr lno cstep fml inds vimap pc of
+        (fml', (inds', (vimap', pc'))) =>
+        check_unsat'' fns' fd lno' fml' inds' vimap' pc')` |> append_prog
 
 Theorem parse_sstep_LENGTH:
   ∀f ss res f' ss'.
@@ -2365,15 +2365,15 @@ QED
   returning the last encountered state *)
 Definition parse_and_run_def:
   parse_and_run fns ss
-    fml inds earliest pc =
+    fml inds vimap pc =
   case parse_cstep fns ss of
     NONE => NONE
   | SOME (INL s, fns', rest) =>
     SOME (rest, s, fns', fml, inds, pc)
   | SOME (INR cstep, fns', rest) =>
-    (case check_cstep_list cstep fml inds earliest pc of
-      SOME (fml', inds', earliest', pc') =>
-        parse_and_run fns' rest fml' inds' earliest' pc'
+    (case check_cstep_list cstep fml inds vimap pc of
+      SOME (fml', inds', vimap', pc') =>
+        parse_and_run fns' rest fml' inds' vimap' pc'
     | res => NONE)
 Termination
   WF_REL_TAC `measure (LENGTH o FST o SND)`>>
@@ -2412,19 +2412,19 @@ Proof
 QED
 
 Theorem check_unsat''_spec:
-  ∀fns ss fmlls inds earliest pc
-    fnsv lno lnov fmllsv indsv pcv lines fs fmlv earliestv.
+  ∀fns ss fmlls inds vimap pc
+    fnsv lno lnov fmllsv indsv pcv lines fs fmlv vimapv.
   fns_TYPE a fns fnsv ∧
   NUM lno lnov ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
   NPBC_CHECK_PROOF_CONF_TYPE pc pcv ∧
-  SPTREE_SPT_TYPE NUM earliest earliestv ∧
+  vimap_TYPE vimap vimapv ∧
   MAP toks_fast lines = ss
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
-    [fnsv; fdv; lnov; fmlv; indsv; earliestv; pcv]
+    [fnsv; fdv; lnov; fmlv; indsv; vimapv; pcv]
     (STDIO fs * INSTREAM_LINES fd fdv lines fs * ARRAY fmlv fmllsv)
     (POSTve
       (λv.
@@ -2433,7 +2433,7 @@ Theorem check_unsat''_spec:
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
          ARRAY fmlv' fmllsv' *
          &(
-          parse_and_run fns ss fmlls inds earliest pc =
+          parse_and_run fns ss fmlls inds vimap pc =
             SOME (MAP toks_fast lines',res) ∧
             PAIR_TYPE NUM (
             PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (
@@ -2448,7 +2448,7 @@ Theorem check_unsat''_spec:
            ARRAY fmlv' fmllsv' *
            STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧
-            parse_and_run fns ss fmlls inds earliest pc = NONE)))
+            parse_and_run fns ss fmlls inds vimap pc = NONE)))
 Proof
   ho_match_mp_tac (fetch "-" "parse_and_run_ind")>>
   rw[]>>
@@ -2626,37 +2626,35 @@ QED
 
 val _ = translate rev_enum_full_def;
 
-val res = translate npbc_listTheory.update_earliest_def;
-
-Definition fold_update_earliest_enum_def:
-  (fold_update_earliest_enum k [] acc = acc) ∧
-  (fold_update_earliest_enum k (x::xs) acc =
-    fold_update_earliest_enum (k+1)
-      xs (update_earliest acc k (FST x)))
+Definition fold_update_vimap_enum_def:
+  (fold_update_vimap_enum (k:num) [] acc = acc) ∧
+  (fold_update_vimap_enum k (x::xs) acc =
+    fold_update_vimap_enum (k+1)
+      xs (update_vimap acc k (FST x)))
 End
 
-Definition fold_update_earliest_enum_full_def:
-  fold_update_earliest_enum_full k fml =
-  fold_update_earliest_enum k fml LN
+Definition fold_update_vimap_enum_full_def:
+  fold_update_vimap_enum_full k fml =
+  fold_update_vimap_enum k fml LN
 End
 
-Theorem fold_update_earliest_enum_FOLDL:
+Theorem fold_update_vimap_enum_FOLDL:
   ∀xs k acc.
-  fold_update_earliest_enum k xs acc =
-  (FOLDL (λacc (i,v). update_earliest acc i (FST v)) acc (enumerate k xs))
+  fold_update_vimap_enum k xs acc =
+  (FOLDL (λacc (i,v). update_vimap acc i (FST v)) acc (enumerate k xs))
 Proof
-  Induct>>rw[fold_update_earliest_enum_def,miscTheory.enumerate_def]
+  Induct>>rw[fold_update_vimap_enum_def,miscTheory.enumerate_def]
 QED
 
-Theorem fold_update_earliest_enum_full_FOLDL:
-  fold_update_earliest_enum_full k xs =
-  (FOLDL (λacc (i,v). update_earliest acc i (FST v)) LN (enumerate k xs))
+Theorem fold_update_vimap_enum_full_FOLDL:
+  fold_update_vimap_enum_full k xs =
+  (FOLDL (λacc (i,v). update_vimap acc i (FST v)) LN (enumerate k xs))
 Proof
-  rw[fold_update_earliest_enum_full_def,fold_update_earliest_enum_FOLDL]
+  rw[fold_update_vimap_enum_full_def,fold_update_vimap_enum_FOLDL]
 QED
 
-val res = translate fold_update_earliest_enum_def;
-val res = translate fold_update_earliest_enum_full_def;
+val res = translate fold_update_vimap_enum_def;
+val res = translate fold_update_vimap_enum_full_def;
 
 val res = translate parse_unsat_def;
 
@@ -2936,10 +2934,10 @@ val check_unsat' = process_topdecs `
     val arr = Array.array (2*id) None
     val arr = fill_arr arr 1 fml
     val inds = rev_enum_full 1 fml
-    val earliest = fold_update_earliest_enum_full 1 fml
+    val vimap = fold_update_vimap_enum_full 1 fml
     val pc = init_conf id True obj
   in
-    (case check_unsat'' fns fd lno arr inds earliest pc of
+    (case check_unsat'' fns fd lno arr inds vimap pc of
       (lno', (s, (fns',(
         (fml', (inds', pc')))))) =>
     conv_boutput_hconcl
@@ -2952,10 +2950,10 @@ val check_unsat' = process_topdecs `
   end` |> append_prog;
 
 Theorem parse_and_run_check_csteps_list:
-  ∀fns ss fml inds earliest pc rest s fns' fml' inds' pc'.
-  parse_and_run fns ss fml inds earliest pc = SOME (rest, s, fns', (fml', inds', pc')) ⇒
-  ∃csteps earliest'.
-  check_csteps_list csteps fml inds earliest pc = SOME (fml', inds', earliest', pc')
+  ∀fns ss fml inds vimap pc rest s fns' fml' inds' pc'.
+  parse_and_run fns ss fml inds vimap pc = SOME (rest, s, fns', (fml', inds', pc')) ⇒
+  ∃csteps vimap'.
+  check_csteps_list csteps fml inds vimap pc = SOME (fml', inds', vimap', pc')
 Proof
   ho_match_mp_tac parse_and_run_ind>>
   rw[]>>
@@ -3048,9 +3046,9 @@ Proof
   `BOOL T (Conv (SOME (TypeStamp "True" 0)) [])` by EVAL_TAC>>
   xlet_autop>>
 
-  qmatch_asmsub_abbrev_tac`SPTREE_SPT_TYPE NUM earliest earliestv`>>
+  qmatch_asmsub_abbrev_tac`vimap_TYPE vimap vimapv`>>
   Cases_on`
-    parse_and_run fns (MAP toks_fast lines) fmlls inds earliest
+    parse_and_run fns (MAP toks_fast lines) fmlls inds vimap
       (init_conf (LENGTH fml + 1)  T obj)`
   >- (
     (* fail to parse and run *)
@@ -3105,7 +3103,7 @@ Proof
          ARRAY fmlv' fmllsv' *
          &(
           parse_and_run fns (MAP toks_fast lines)
-            fmlls inds earliest (init_conf (LENGTH fml + 1)  T obj) =
+            fmlls inds vimap (init_conf (LENGTH fml + 1)  T obj) =
               SOME (MAP toks_fast lines',res) ∧
             PAIR_TYPE NUM (
             PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (
@@ -3191,13 +3189,13 @@ Proof
         match_mp_tac (GEN_ALL npbc_listTheory.check_csteps_list_concl)>>
         first_x_assum (irule_at Any)>>
         unabbrev_all_tac>>
-        gs[rev_enum_full_rev_enumerate, fold_update_earliest_enum_full_FOLDL]>>
+        gs[rev_enum_full_rev_enumerate, fold_update_vimap_enum_full_FOLDL]>>
         metis_tac[])>>
       simp[get_bound_def]>>
       match_mp_tac (GEN_ALL npbc_listTheory.check_csteps_list_output)>>
       first_x_assum (irule_at Any)>>
       unabbrev_all_tac>>
-      gs[rev_enum_full_rev_enumerate, fold_update_earliest_enum_full_FOLDL]>>
+      gs[rev_enum_full_rev_enumerate, fold_update_vimap_enum_full_FOLDL]>>
       metis_tac[])>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
   xsimpl
