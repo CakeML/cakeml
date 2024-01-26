@@ -931,54 +931,45 @@ QED
 Theorem check_lstep_arr_spec = CONJUNCT1 check_lstep_arr_spec_aux
 Theorem check_lsteps_arr_spec = CONJUNCT2 check_lstep_arr_spec_aux
 
-Definition mk_vacc_def:
-  mk_vacc b b' v vacc =
-    if b ⇒ b' then v::vacc else vacc
-End
-
-val r = translate mk_vacc_def;
-
 val reindex_aux_arr = process_topdecs `
-  fun reindex_aux_arr b fml ls iacc vacc =
+  fun reindex_aux_arr fml ls iacc =
   case ls of
-    [] => (List.rev iacc, vacc)
+    [] => (List.rev iacc)
   | (i::is) =>
   case Array.lookup fml None i of
-    None => reindex_aux_arr b fml is iacc vacc
-  | Some (v,b') =>
-      reindex_aux_arr b fml is (i::iacc)
-        (mk_vacc b b' v vacc)` |> append_prog;
+    None => reindex_aux_arr fml is iacc
+  | Some vb =>
+      reindex_aux_arr fml is (i::iacc)` |> append_prog;
 
 val reindex_arr = process_topdecs `
-  fun reindex_arr b fml is =
-    reindex_aux_arr b fml is [] []`
+  fun reindex_arr fml is =
+    reindex_aux_arr fml is []`
   |> append_prog;
 
 Theorem reindex_aux_arr_spec:
-  ∀inds indsv b bv fmlls fmlv iacc iaccv vacc vaccv.
-  BOOL b bv ∧
+  ∀inds indsv fmlls fmlv iacc iaccv.
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
-  (LIST_TYPE NUM) iacc iaccv ∧
-  (LIST_TYPE constraint_TYPE) vacc vaccv
+  (LIST_TYPE NUM) iacc iaccv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "reindex_aux_arr" (get_ml_prog_state()))
-    [bv; fmlv; indsv; iaccv; vaccv]
+    [fmlv; indsv; iaccv]
     (ARRAY fmlv fmllsv)
     (POSTv v.
       ARRAY fmlv fmllsv *
-      &(PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE constraint_TYPE)
-        (reindex_aux b fmlls inds iacc vacc) v))
+      &(LIST_TYPE NUM
+        (reindex_aux fmlls inds iacc) v))
 Proof
   Induct>>
   xcf"reindex_aux_arr"(get_ml_prog_state ())>>
   fs[LIST_TYPE_def]
   >- (
     xmatch>>
-    rpt xlet_autop>>
-    xcon>>xsimpl>>
-    simp[reindex_aux_def,LIST_TYPE_def,PAIR_TYPE_def])>>
+    xapp_spec (ListProgTheory.reverse_v_thm |> INST_TYPE [alpha |-> ``:num``])>>
+    xsimpl>>
+    simp[reindex_aux_def,LIST_TYPE_def,PAIR_TYPE_def]>>
+    metis_tac[])>>
   xmatch>>
   xlet_auto>- (xcon>>xsimpl)>>
   xlet_auto>>
@@ -992,28 +983,25 @@ Proof
   >- (
     xmatch>>
     xapp>>simp[])>>
-  TOP_CASE_TAC>>fs[PAIR_TYPE_def]>>
   xmatch>>
-  rpt xlet_autop>>
+  xlet_autop>>
   xapp>>
-  fs[LIST_TYPE_def,mk_vacc_def]
+  fs[LIST_TYPE_def]
 QED
 
 Theorem reindex_arr_spec:
   ∀inds indsv fmlls fmlv.
-  BOOL b bv ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "reindex_arr" (get_ml_prog_state()))
-    [bv; fmlv; indsv]
+    [fmlv; indsv]
     (ARRAY fmlv fmllsv)
     (POSTv v.
       ARRAY fmlv fmllsv *
-      &(PAIR_TYPE (LIST_TYPE NUM)
-        (LIST_TYPE constraint_TYPE)
-        (reindex b fmlls inds) v))
+      &(LIST_TYPE NUM
+        (reindex fmlls inds) v))
 Proof
   xcf"reindex_arr"(get_ml_prog_state ())>>
   rpt xlet_autop>>
@@ -1023,6 +1011,96 @@ Proof
   metis_tac[LIST_TYPE_def]
 QED
 
+Definition mk_vacc_def:
+  mk_vacc b b' v vacc =
+    if b ⇒ b' then v::vacc else vacc
+End
+
+val r = translate mk_vacc_def;
+
+val revalue_aux_arr = process_topdecs `
+  fun revalue_aux_arr b fml ls vacc =
+  case ls of
+    [] => vacc
+  | (i::is) =>
+  case Array.lookup fml None i of
+    None => revalue_aux_arr b fml is vacc
+  | Some (v,b') =>
+      revalue_aux_arr b fml is
+        (mk_vacc b b' v vacc)` |> append_prog;
+
+val revalue_arr = process_topdecs `
+  fun revalue_arr b fml is =
+    revalue_aux_arr b fml is []`
+  |> append_prog;
+
+Theorem revalue_aux_arr_spec:
+  ∀inds indsv fmlls fmlv vacc vaccv.
+  BOOL b bv ∧
+  LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
+  (LIST_TYPE NUM) inds indsv ∧
+  (LIST_TYPE constraint_TYPE) vacc vaccv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "revalue_aux_arr" (get_ml_prog_state()))
+    [bv; fmlv; indsv; vaccv]
+    (ARRAY fmlv fmllsv)
+    (POSTv v.
+      ARRAY fmlv fmllsv *
+      &(LIST_TYPE constraint_TYPE
+        (revalue_aux b fmlls inds vacc) v))
+Proof
+  Induct>>
+  xcf"revalue_aux_arr"(get_ml_prog_state ())>>
+  fs[LIST_TYPE_def]
+  >- (
+    xmatch>>
+    xvar>>xsimpl>>
+    simp[revalue_aux_def,LIST_TYPE_def,PAIR_TYPE_def])>>
+  xmatch>>
+  xlet_auto>- (xcon>>xsimpl)>>
+  xlet_auto>>
+  `OPTION_TYPE bconstraint_TYPE
+    (any_el h fmlls NONE) v'` by (
+   rw[any_el_ALT]>>
+   fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+  rw[]>>
+  simp[revalue_aux_def]>>
+  TOP_CASE_TAC>>fs[OPTION_TYPE_def]
+  >- (
+    xmatch>>
+    xapp>>simp[])>>
+  TOP_CASE_TAC>>fs[PAIR_TYPE_def]>>
+  xmatch>>
+  rpt xlet_autop>>
+  xapp>>
+  fs[LIST_TYPE_def,mk_vacc_def]
+QED
+
+Theorem revalue_arr_spec:
+  ∀inds indsv fmlls fmlv.
+  BOOL b bv ∧
+  LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
+  (LIST_TYPE NUM) inds indsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "revalue_arr" (get_ml_prog_state()))
+    [bv; fmlv; indsv]
+    (ARRAY fmlv fmllsv)
+    (POSTv v.
+      ARRAY fmlv fmllsv *
+      &(LIST_TYPE constraint_TYPE
+        (revalue b fmlls inds) v))
+Proof
+  xcf"revalue_arr"(get_ml_prog_state ())>>
+  rpt xlet_autop>>
+  xapp>>
+  xsimpl>>
+  simp[revalue_def]>>
+  metis_tac[LIST_TYPE_def]
+QED
+
+(*
 val reindex_partial_aux_arr = process_topdecs `
   fun reindex_partial_aux_arr b fml mini ls iacc vacc =
   case ls of
@@ -1129,6 +1207,7 @@ Proof
   simp[reindex_partial_def]>>
   metis_tac[LIST_TYPE_def]
 QED
+*)
 
 val res = translate is_Pos_def;
 val res = translate subst_aux_def;
@@ -1698,11 +1777,12 @@ Proof
 QED
 
 Definition red_cond_check_def:
-  red_cond_check indfml extra
+  red_cond_check bortcb fml inds extra
     (pfs:(( ((num + num) # num) option, (lstep list)) alist))
     (rsubs:((int # num) list # num) list list) goals =
   let (l,r) = extract_pids pfs LN LN in
-  split_goals_hash indfml extra l goals ∧
+  let fmlls = revalue bortcb fml inds in
+  split_goals_hash fmlls extra l goals ∧
   EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs))
 End
 
@@ -1723,11 +1803,12 @@ Definition red_cond_check_pure_def:
 End
 
 Theorem red_cond_check_eq:
-  red_cond_check indfml extra pfs rsubs goals =
+  red_cond_check bortcb fml inds extra pfs rsubs goals =
   case red_cond_check_pure extra pfs rsubs goals of
     NONE => F
   | SOME (x,ls) =>
-    let hs = mk_hashset indfml (mk_hashset x (REPLICATE splim [])) in
+    let fmlls = revalue bortcb fml inds in
+    let hs = mk_hashset fmlls (mk_hashset x (REPLICATE splim [])) in
     EVERY (λc. in_hashset c hs) ls
 Proof
   rw[red_cond_check_def,red_cond_check_pure_def]>>
@@ -1744,14 +1825,18 @@ val res = translate PARTITION_DEF;
 val res = translate red_cond_check_pure_def;
 
 val red_cond_check = process_topdecs`
-  fun red_cond_check indfml extra pfs rsubs goals =
+  fun red_cond_check bortcb fml inds extra pfs rsubs goals =
   case red_cond_check_pure extra pfs rsubs goals of
     None => Some "not all # subgoals present"
   | Some (x,ls) =>
-    hash_check indfml x ls` |> append_prog
+    let val fmlls = revalue_arr bortcb fml inds in
+      hash_check fmlls x ls
+    end` |> append_prog
 
 Theorem red_cond_check_spec:
-  LIST_TYPE constraint_TYPE a av ∧
+  BOOL bt btv ∧
+  LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
+  LIST_TYPE NUM inds indsv ∧
   constraint_TYPE aa aav ∧
   LIST_TYPE
      (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM))
@@ -1761,12 +1846,13 @@ Theorem red_cond_check_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "red_cond_check" (get_ml_prog_state()))
-    [av; aav; bv; cv; dv]
-    emp
+    [btv; fmlv; indsv; aav; bv; cv; dv]
+    (ARRAY fmlv fmllsv)
     (POSTv resv.
+      ARRAY fmlv fmllsv *
       & ∃err.
       OPTION_TYPE STRING_TYPE
-        (if red_cond_check a aa b c d then NONE
+        (if red_cond_check bt fmlls inds aa b c d then NONE
         else SOME err) resv)
 Proof
   rw[]>>
@@ -1781,6 +1867,7 @@ Proof
     xcon>>xsimpl)>>
   Cases_on`x`>>fs[PAIR_TYPE_def]>>
   xmatch>>
+  xlet_autop>>
   xapp>>
   xsimpl>>
   fs[]>>
@@ -1870,14 +1957,15 @@ End
 val res = translate get_indices_pure_def;
 
 val get_indices_arr = process_topdecs`
-  fun get_indices_arr bortcb fml inds s vimap =
+  fun get_indices_arr fml inds s vimap =
   case get_indices_pure inds s vimap of
-    Inl v => ([],[])
-  | Inr inds =>
-    (reindex_arr bortcb fml inds)` |> append_prog;
+    Inl v => []
+  | Inr inds => reindex_arr fml inds` |> append_prog;
+
+Overload "vimap_TYPE" = ``
+  SPTREE_SPT_TYPE (LIST_TYPE NUM)``
 
 Theorem get_indices_arr_spec:
-  BOOL (b ∨ tcb) bv ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
   subst_TYPE s sv ∧
@@ -1885,14 +1973,13 @@ Theorem get_indices_arr_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "get_indices_arr" (get_ml_prog_state()))
-    [bv; fmlv; indsv; sv; vimapv]
+    [fmlv; indsv; sv; vimapv]
     (ARRAY fmlv fmllsv)
     (POSTv v.
         ARRAY fmlv fmllsv *
         &(
-          PAIR_TYPE (LIST_TYPE NUM)
-          (LIST_TYPE constraint_TYPE)
-            (get_indices b tcb fmlls inds s vimap) v))
+          LIST_TYPE NUM
+            (get_indices fmlls inds s vimap) v))
 Proof
   rw[]>>
   xcf "get_indices_arr" (get_ml_prog_state ())>>
@@ -1934,9 +2021,10 @@ val check_red_arr = process_topdecs`
   case red_fast s idopt pfs of
   None =>
   (
-  let val bortcb = b orelse tcb in
-  case get_indices_arr bortcb fml inds s vimap of
-    (rinds,fmlls) =>
+  let
+    val bortcb = b orelse tcb
+    val rinds = get_indices_arr fml inds s vimap in
+    case set_indices inds s vimap rinds of (inds',vimap') =>
   let
     val nc = not_1 c
     val rsubs = do_rso ord s c obj
@@ -1948,20 +2036,16 @@ val check_red_arr = process_topdecs`
        None =>
        let val u = rollback_arr fml' id id'
            val goals = subst_indexes_arr s bortcb fml' rinds in
-           case red_cond_check fmlls nc pfs rsubs goals
+           case red_cond_check bortcb fml' inds' nc pfs rsubs goals
              of None =>
-             (case set_indices inds s vimap rinds of
-               (inds',vimap') =>
-             (fml', (inds', (vimap',id'))))
+             (fml', (inds', (vimap',id')))
            | Some err =>
            raise Fail (format_failure_2 lno ("Redundancy subproofs did not cover all subgoals. Info: " ^ err ^ ".") (print_subproofs_err rsubs goals))
        end
     | Some cid =>
       if check_contradiction_fml_arr b fml' cid then
         let val u = rollback_arr fml' id id' in
-          (case set_indices inds s vimap rinds of
-               (inds',vimap') =>
-             (fml', (inds', (vimap',id'))))
+           (fml', (inds', (vimap',id')))
         end
       else raise Fail (format_failure lno ("did not derive contradiction from index:" ^ Int.toString cid)))
   end
@@ -1980,9 +2064,6 @@ Overload "ord_TYPE" = ``
 
 Overload "obj_TYPE" = ``
   OPTION_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT NUM)) INT)``
-
-Overload "vimap_TYPE" = ``
-  SPTREE_SPT_TYPE (LIST_TYPE NUM)``
 
 Theorem check_red_arr_fast_spec:
   NUM lno lnov ∧
@@ -2118,6 +2199,7 @@ Proof
     xvar>>xsimpl)>>
   pairarg_tac>>gs[]>>
   xlet_autop>>
+  xlet_autop>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
   rpt xlet_autop>>
@@ -2175,12 +2257,9 @@ Proof
     >- (
       fs[red_cond_check_def]>>
       pairarg_tac>>fs[]>>
-      xlet_autop>>
-      fs[PAIR_TYPE_def]>>
-      xmatch>>
       rpt xlet_autop>>
       xcon>>xsimpl>>
-      simp[PAIR_TYPE_def]>>
+      fs[PAIR_TYPE_def]>>
       xsimpl)
     >- (
       rpt xlet_autop>>
@@ -2199,12 +2278,8 @@ Proof
     rw[]>>fs[]>>
     metis_tac[ARRAY_refl,NOT_EVERY,Fail_exn_def]) >>
   rpt xlet_autop>>
-  pairarg_tac>>
-  fs[PAIR_TYPE_def]>>
-  xmatch>>
-  rpt xlet_autop>>
   xcon>>xsimpl>>
-  simp[PAIR_TYPE_def]>>
+  fs[PAIR_TYPE_def]>>
   xsimpl
 QED
 
@@ -2492,7 +2567,7 @@ QED
 
 Definition check_dom_list_def:
   check_dom_list spo obj fml inds id c s pfs idopt =
-  let (rinds,fmlls) = reindex F fml inds in
+  let rinds = reindex fml inds in
   let corels = core_fmlls fml rinds in
   let nc = not c in
   let fml_not_c = update_resize fml NONE (SOME (nc,F)) id in
@@ -2506,7 +2581,7 @@ Definition check_dom_list_def:
     | SOME (fml',id') =>
       let rfml = rollback fml' id id' in
       if do_dom_check idopt fml' rfml w
-        corels fmlls nc pfs dsubs then
+        corels rinds nc pfs dsubs then
         SOME (rfml,rinds,id')
       else NONE)
 End
@@ -2529,9 +2604,8 @@ val res = translate map_snd_def;
 val check_dom_arr = process_topdecs`
   fun check_dom_arr lno spo obj fml inds
     id c s pfs idopt =
-  (case reindex_arr False fml inds of
-    (rinds,fmlls) =>
     let
+    val rinds = reindex_arr fml inds
     val corels = core_fmlls_arr fml rinds
     val dsubs = do_dso spo s c obj
     val cpfs = extract_clauses_arr lno s False fml dsubs pfs []
@@ -2544,7 +2618,7 @@ val check_dom_arr = process_topdecs`
          None =>
          let val u = rollback_arr fml' id id'
              val goals = core_subgoals s corels in
-             case red_cond_check fmlls nc pfs dsubs goals of
+             case red_cond_check False fml' rinds nc pfs dsubs goals of
                None => (fml',(rinds,id'))
              | Some err =>
               raise Fail (format_failure_2 lno ("Dominance subproofs did not cover all subgoals. Info: " ^ err ^ ".") (print_subproofs_err dsubs goals))
@@ -2555,7 +2629,7 @@ val check_dom_arr = process_topdecs`
              (fml', (rinds,id'))
            end
          else raise Fail (format_failure lno ("did not derive contradiction from index:" ^ Int.toString cid)))
-    end)` |> append_prog;
+    end` |> append_prog;
 
 Theorem check_dom_arr_spec:
   NUM lno lnov ∧
@@ -2596,18 +2670,6 @@ Proof
   rw[]>>
   xcf "check_dom_arr" (get_ml_prog_state ())>>
   rw[]>>
-  xlet_autop>>
-  xlet`POSTv v.
-      ARRAY fmlv fmllsv *
-      &(PAIR_TYPE (LIST_TYPE NUM)
-        (LIST_TYPE constraint_TYPE)
-        (reindex F fmlls inds) v)`
-  >- (
-    xapp>>xsimpl>>
-    EVAL_TAC)>>
-  Cases_on`reindex F fmlls inds`>>
-  fs[PAIR_TYPE_def]>>
-  xmatch>>
   rpt xlet_autop>>
   xlet`(POSTve
     (λv.
@@ -2686,7 +2748,25 @@ Proof
   fs[OPTION_TYPE_def,do_dom_check_def,check_dom_list_def]>>
   xmatch
   >- (
-    rpt xlet_autop>>
+    xlet_autop>>
+    xlet_autop>>
+    xlet`POSTv v. ARRAY fmlv' fmllsv'' * & BOOL F v`
+    >-
+      (xcon>>xsimpl)>>
+    qmatch_asmsub_abbrev_tac`LIST_REL _ fmlls'' fmllsv''`>>
+    xlet`POSTv resv.
+         ARRAY fmlv' fmllsv'' *
+         & ∃err.
+           OPTION_TYPE STRING_TYPE
+           (if
+                red_cond_check F fmlls'' (reindex fmlls inds) (not n) pfs
+                  (dom_subgoals spo (subst_fun s) n obj)
+                  (core_subgoals s (core_fmlls fmlls (reindex fmlls inds)))
+              then
+                NONE
+              else SOME err) resv`
+    >-
+      (xapp>>xsimpl)>>
     pop_assum mp_tac>>IF_CASES_TAC>>
     strip_tac>>fs[OPTION_TYPE_def]>>xmatch
     >- (
@@ -3171,7 +3251,7 @@ val check_cstep_arr = process_topdecs`
         (fml', (inds, (vimap, pc)))
       end)
   | Strengthentocore b => (
-    let val inds' = fst (reindex_arr False fml inds) in
+    let val inds' = reindex_arr fml inds in
       if b
       then (
         let val fml' = core_from_inds_arr lno fml inds' in
@@ -3181,7 +3261,7 @@ val check_cstep_arr = process_topdecs`
         (fml,(inds', (vimap, set_tcb pc b)))
     end)
   | Loadorder nn xs =>
-    let val inds' = fst (reindex_arr False fml inds) in
+    let val inds' = reindex_arr fml inds in
     case Alist.lookup (get_orders pc) nn of
       None =>
         raise Fail (format_failure lno ("no such order: " ^ nn))
@@ -3311,7 +3391,6 @@ Proof
       rpt xlet_autop>>
       xraise>> xsimpl>>
       metis_tac[Fail_exn_def,ARRAY_refl])>>
-    pairarg_tac>>fs[]>>
     rpt xlet_autop>>
     xlet_auto >-
       (xsimpl>> simp (eq_lemmas()))>>
@@ -3474,14 +3553,6 @@ Proof
   >- ( (* StrengthenToCore *)
     xmatch>>
     rpt xlet_autop>>
-    xlet`POSTv v.
-      ARRAY fmlv fmllsv *
-      &(PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE constraint_TYPE)
-        (reindex F fmlls inds) v)`
-    >- (
-      xapp>>xsimpl>>
-      EVAL_TAC)>>
-    rpt xlet_autop>>
     xif
     >- (
       xlet_autop>>xsimpl
@@ -3498,14 +3569,6 @@ Proof
     metis_tac[ARRAY_refl])
   >- ( (* LoadOrder*)
     xmatch>>
-    rpt xlet_autop>>
-    xlet`POSTv v.
-      ARRAY fmlv fmllsv *
-      &(PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE constraint_TYPE)
-        (reindex F fmlls inds) v)`
-    >- (
-      xapp>>xsimpl>>
-      EVAL_TAC)>>
     rpt xlet_autop>>
     fs[get_orders_def]>>
     Cases_on`ALOOKUP pc.orders m`>>fs[OPTION_TYPE_def]>>xmatch
