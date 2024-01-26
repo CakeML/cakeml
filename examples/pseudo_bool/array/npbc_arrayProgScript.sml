@@ -1707,9 +1707,6 @@ QED
 
 val hash_check = process_topdecs`
   fun hash_check fmlls proved lf =
-  case lf of
-    [] => None
-  | _ =>
   let
     val hs = Array.array splim []
     val u = mk_hashset_arr proved hs
@@ -1744,14 +1741,6 @@ Theorem hash_check_spec:
 Proof
   rw[]>>
   xcf "hash_check" (get_ml_prog_state ())>>
-  Cases_on`ls`
-  >- (
-    fs[LIST_TYPE_def]>>
-    xmatch>>
-    xcon>>xsimpl>>
-    EVAL_TAC)>>
-  fs[LIST_TYPE_def]>>
-  xmatch>>
   xlet_autop>>
   assume_tac (fetch "-" "splim_v_thm")>>
   xlet_auto>>
@@ -1772,7 +1761,7 @@ Proof
     fs[LIST_REL_EL_EQN,Abbr`hs`])>>
   xapp>>xsimpl>>
   first_assum (irule_at Any)>>
-  qexists_tac`h::t`>>simp[LIST_TYPE_def]>>
+  qexists_tac`ls`>>simp[LIST_TYPE_def]>>
   unabbrev_all_tac>>fs[LIST_REL_EL_EQN]
 QED
 
@@ -1829,6 +1818,8 @@ val red_cond_check = process_topdecs`
   case red_cond_check_pure extra pfs rsubs goals of
     None => Some "not all # subgoals present"
   | Some (x,ls) =>
+    case ls of [] => None
+    | _ =>
     let val fmlls = revalue_arr bortcb fml inds in
       hash_check fmlls x ls
     end` |> append_prog
@@ -1867,14 +1858,21 @@ Proof
     xcon>>xsimpl)>>
   Cases_on`x`>>fs[PAIR_TYPE_def]>>
   xmatch>>
+  rename1` _ = SOME (proved,lf)`>>
+  Cases_on`lf`>>
+  fs[LIST_TYPE_def]>>
+  xmatch
+  >- (
+    xcon>>xsimpl>>
+    EVAL_TAC)>>
   xlet_autop>>
   xapp>>
   xsimpl>>
   fs[]>>
   first_x_assum (irule_at Any)>>
   first_x_assum (irule_at Any)>>
-  first_x_assum (irule_at Any)>>
-  simp[]
+  qexists_tac`h::t`>>
+  simp[LIST_TYPE_def]
 QED
 
 (* Definition print_subgoal_def:
