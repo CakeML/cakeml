@@ -90,6 +90,8 @@ val r = translate parse_constraint_npbc_def;
 
 val r = translate parse_red_header_def;
 
+val r = translate parse_rup_def;
+
 val r = translate parse_lstep_aux_def;
 
 val parse_lstep_aux_side_def = fetch "-" "parse_lstep_aux_side_def";
@@ -2029,9 +2031,15 @@ val res = translate insert_lit_def;
 val res = translate parse_assg_def;
 val res = translate parse_obj_term_def;
 val res = translate strip_obju_end_def;
+
+val res = translate normalise_obj_def;
 val res = translate parse_obj_term_npbc_def;
 
 val res = translate parse_strengthen_def;
+
+
+val res = translate parse_b_obj_term_npbc_def;
+
 val res = translate parse_cstep_head_def;
 
 val PB_PARSE_PAR_TYPE_def = theorem"PB_PARSE_PAR_TYPE_def";
@@ -2057,13 +2065,13 @@ val parse_cstep = process_topdecs`
         (case parse_pre_order fd lno' of
           (spo,(ws,(pfr,(pft,lno'')))) =>
           (Inr (Storeorder name spo ws pfr pft), (fns'', lno'')))
-    | Some (Changeobjpar f, fns'') =>
+    | Some (Changeobjpar b f, fns'') =>
         (case parse_red_aux fns'' fd lno' [] of
           (res,(pf,(fns''',lno''))) =>
           (case res of Some u =>
             raise Fail (format_failure (lno'+1) "obj change rule can not end with contradiction")
           | None =>
-            (Inr (Changeobj f pf), (fns''', lno''))
+            (Inr (Changeobj b f pf), (fns''', lno''))
           )
         ))
   `|> append_prog;
@@ -2640,21 +2648,36 @@ val res = translate parse_bounds_def;
 
 val res = translate parse_concl_def;
 
-val outputtrm = rconc (EVAL``toks_fast (strlit"output NONE")``);
-val endtrm = rconc (EVAL``toks_fast (strlit"end pseudo-Boolean proof")``);
+val res = translate parse_output_def;
 
-(* Output section is not supported, expected to be empty *)
-Definition parse_concl_output_def:
-  parse_concl_output s f_ns ls =
-  if s = ^outputtrm then
-    case ls of [l;e] =>
-      if e = ^endtrm then parse_concl f_ns l
-      else NONE
-    | _ => NONE
-  else NONE
+val endtrm = rconc (EVAL``toks (strlit"end pseudo-Boolean proof")``);
+
+Definition last_two_ls_def:
+  (last_two_ls [x;y] =
+  if y = ^endtrm
+  then SOME x
+  else NONE) ∧
+  (last_two_ls _ = NONE)
 End
 
-val res = translate parse_concl_output_def;
+val res = translate last_two_ls_def;
+
+(* output is the first line in s
+  Followed by the two conclusion lines
+*)
+Definition parse_output_concl_def:
+  parse_output_concl s f_ns ls =
+  case last_two_ls ls of NONE => NONE
+  | SOME conc =>
+    (case parse_output s of NONE => NONE
+    | SOME output =>
+      (case parse_concl f_ns conc of
+        NONE => NONE
+      | SOME concl =>
+        SOME (output,concl)))
+End
+
+val res = translate parse_output_concl_def;
 
 Definition cons_line_def:
   cons_line ls =
@@ -2673,33 +2696,106 @@ End
 
 val res = translate mk_parse_err_def;
 
+Definition format_err_def:
+  (format_err NONE NONE = NONE) ∧
+  (format_err (SOME s1) NONE = SOME s1) ∧
+  (format_err NONE (SOME s2) = SOME s2) ∧
+  (format_err (SOME s1) (SOME s2) = SOME (s1 ^ strlit" ; "^ s2))
+End
+
+val res = translate format_err_def;
+
+val check_output_hconcl_arr = process_topdecs`
+  fun check_output_hconcl_arr
+    fml obj
+    fml' inds' obj' bound' dbound' chk'
+    fmlt objt
+    output hconcl =
+  format_err
+  (check_output_arr fml' inds'
+    obj' bound' dbound' chk' fmlt objt output)
+  (check_hconcl_arr fml obj fml' obj' bound' dbound' hconcl)`
+  |> append_prog;
+
+Theorem check_output_hconcl_arr_spec:
+  LIST_TYPE constraint_TYPE fml fmlv ∧
+  obj_TYPE obj objv ∧
+  (LIST_TYPE NUM) inds1 inds1v ∧
+  obj_TYPE obj1 obj1v ∧
+  OPTION_TYPE INT bound1 bound1v ∧
+  OPTION_TYPE INT dbound1 dbound1v ∧
+  BOOL chk1 chk1v ∧
+  LIST_TYPE constraint_TYPE fmlt fmltv ∧
+  obj_TYPE objt objtv ∧
+  PBC_OUTPUT_TYPE output outputv ∧
+  NPBC_CHECK_HCONCL_TYPE hconcl hconclv ∧
+  LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "check_output_hconcl_arr" (get_ml_prog_state()))
+    [fmlv; objv;
+      fml1v; inds1v; obj1v; bound1v; dbound1v; chk1v;
+      fmltv; objtv;
+      outputv; hconclv]
+    (ARRAY fml1v fmllsv)
+    (POSTv v.
+        ARRAY fml1v fmllsv *
+        &(
+        ∃s.
+        (OPTION_TYPE STRING_TYPE)
+        (if check_output_list fmlls inds1 obj1
+          bound1 dbound1 chk1 fmlt objt output ∧
+          check_hconcl_list fml obj fmlls obj1
+          bound1 dbound1 hconcl
+        then NONE else SOME s) v))
+Proof
+  rw[]>>
+  xcf"check_output_hconcl_arr"(get_ml_prog_state ())>>
+  rpt xlet_autop>>
+  xapp>>xsimpl>>
+  first_x_assum (irule_at Any)>>
+  first_x_assum (irule_at Any)>>
+  rw[]>>fs[format_err_def,OPTION_TYPE_def]>>
+  metis_tac[]
+QED
+
+(* Translation for parsing an OPB file *)
+val r = translate tokenize_def;
+
 (* Parse the conclusion from the rest of the file and check it *)
 val run_concl_file = process_topdecs`
   fun run_concl_file fd f_ns lno s
     fml obj
-    fml' obj' bound' dbound' =
+    fml' inds' obj' bound' dbound' chk'
+    fmlt objt =
   let
-    val ls = TextIO.b_inputAllTokens fd blanks tokenize_fast
+    val ls = TextIO.b_inputAllTokens fd blanks tokenize
   in
-    case parse_concl_output s f_ns ls of
+    case parse_output_concl s f_ns ls of
       None => Inl (format_failure lno (mk_parse_err s))
-    | Some hconcl =>
-      if check_hconcl_arr fml obj fml' obj' bound' dbound' hconcl
-      then
-        Inr hconcl
-      else Inl (format_failure lno "failed to check conclusion section")
+    | Some (output,hconcl) =>
+      case
+        check_output_hconcl_arr
+        fml obj
+        fml' inds' obj' bound' dbound' chk'
+        fmlt objt
+        output hconcl of
+        None => Inr (output,hconcl)
+      | Some s => Inl (format_failure lno s)
   end` |> append_prog;
+
+val tokenize_v_thm = theorem "tokenize_v_thm";
 
 val b_inputAllTokens_specialize =
   b_inputAllTokens_spec
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
-  |> Q.GEN `g` |> Q.ISPEC`tokenize_fast`
-  |> Q.GEN `gv` |> Q.ISPEC`tokenize_fast_v`
+  |> Q.GEN `g` |> Q.ISPEC`tokenize`
+  |> Q.GEN `gv` |> Q.ISPEC`tokenize_v`
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
-  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_fast_v_thm,blanks_def] ;
+  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm,blanks_def] ;
 
-(* TODO: may want a stronger theorem saying hconcl
+(* TODO: may want a stronger theorem saying output and hconcl
   comes from the proof file and isn't just invented out of
   thin air, but that's somewhat annoying to state... *)
 Theorem run_concl_file_spec:
@@ -2707,27 +2803,38 @@ Theorem run_concl_file_spec:
   LIST_TYPE (SUM_TYPE STRING_TYPE INT) s sv ∧
   NUM lno lnov ∧
   LIST_TYPE constraint_TYPE fml fmlv ∧
+  (LIST_TYPE NUM) inds1 inds1v ∧
   obj_TYPE obj objv ∧
   obj_TYPE obj1 obj1v ∧
   OPTION_TYPE INT bound1 bound1v ∧
   OPTION_TYPE INT dbound1 dbound1v ∧
+  BOOL chk1 chk1v ∧
+  LIST_TYPE constraint_TYPE fmlt fmltv ∧
+  obj_TYPE objt objtv ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "run_concl_file" (get_ml_prog_state()))
     [fdv; fnsv;lnov;sv;
-      fmlv; objv; fml1v; obj1v; bound1v; dbound1v]
+      fmlv; objv; fml1v; inds1v; obj1v; bound1v; dbound1v; chk1v;
+      fmltv; objtv]
     (STDIO fs * INSTREAM_LINES fd fdv lines fs * ARRAY fml1v fmllsv)
     (POSTv v.
        SEP_EXISTS res.
        STDIO (fastForwardFD fs fd) *
        INSTREAM_LINES fd fdv [] (fastForwardFD fs fd) *
        &(
-        SUM_TYPE STRING_TYPE NPBC_CHECK_HCONCL_TYPE res v ∧
+        SUM_TYPE STRING_TYPE
+        (PAIR_TYPE PBC_OUTPUT_TYPE NPBC_CHECK_HCONCL_TYPE) res v ∧
         case res of
-          INR hconcl =>
-            check_hconcl_list fml obj fmlls
-              obj1 bound1 dbound1 hconcl
+          INR (output,hconcl) =>
+          parse_output_concl s fns
+             (MAP (MAP tokenize o tokens blanks) lines) =
+            SOME (output,hconcl) ∧
+          check_output_list fmlls inds1
+            obj1 bound1 dbound1 chk1 fmlt objt output ∧
+          check_hconcl_list fml obj fmlls obj1
+          bound1 dbound1 hconcl
         | INL l => T))
 Proof
   rw[]>>
@@ -2737,45 +2844,60 @@ Proof
           INSTREAM_LINES fd fdv [] (fastForwardFD fs fd) *
           ARRAY fml1v fmllsv *
           & LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
-            (MAP (MAP tokenize_fast o tokens blanks) lines) v
+            (MAP (MAP tokenize o tokens blanks) lines) v
           )’
   >- (
     xapp_spec b_inputAllTokens_specialize
     \\ qexists_tac ‘ARRAY fml1v fmllsv’
     \\ xsimpl
     \\ metis_tac[STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_refl_gc]) >>
-  xlet_autop>>
-  rename1`OPTION_TYPE _ hconcls`>>
-  Cases_on`hconcls`>>fs[OPTION_TYPE_def]>>xmatch
+  xlet_auto
   >- (
+    xsimpl>>
+    simp[EqualityType_NUM_BOOL])>>
+  Cases_on`parse_output_concl s fns (MAP (MAP tokenize ∘ tokens blanks) lines)`
+  >- (
+    fs[OPTION_TYPE_def]>>xmatch>>
     rpt xlet_autop>>
     xcon>>xsimpl>>
     rename1`STRING_TYPE ss _`>>
     qexists_tac`INL ss`>>simp[SUM_TYPE_def])>>
+  `?houtput hconcl. x = (houtput,hconcl)` by
+    (Cases_on`x`>>simp[])>>
+  rw[]>>
+  fs[PAIR_TYPE_def,OPTION_TYPE_def]>>xmatch>>
   xlet_autop>>
-  reverse xif
+  pop_assum mp_tac>>IF_CASES_TAC
   >- (
-    xlet_autop>>
+    simp[OPTION_TYPE_def]>>strip_tac>>
+    xmatch>>
+    rpt xlet_autop>>
     xcon>>xsimpl>>
-    rename1`STRING_TYPE ss _`>>
-    qexists_tac`INL ss`>>simp[SUM_TYPE_def])>>
+    qexists_tac`INR (houtput,hconcl)`>>
+    simp[SUM_TYPE_def,PAIR_TYPE_def])>>
+  pop_assum kall_tac>>
+  simp[OPTION_TYPE_def]>>strip_tac>>
+  xmatch>>
+  xlet_autop>>
   xcon>>xsimpl>>
-  qexists_tac`INR x`>>simp[SUM_TYPE_def]
+  rename1`STRING_TYPE ss _`>>
+  qexists_tac`INL ss`>>simp[SUM_TYPE_def]
 QED
 
-Definition conv_hconcl_def:
-  (conv_hconcl (INL s) = INL s) ∧
-  (conv_hconcl (INR h) =
-    INR (hconcl_concl h))
+(* Return the full conclusion, including the proven bound *)
+Definition conv_boutput_hconcl_def:
+  (conv_boutput_hconcl bound (INL s) = INL s) ∧
+  (conv_boutput_hconcl bound (INR (out,con)) =
+    INR (out, bound, hconcl_concl con))
 End
-
-val res = translate hconcl_concl_def;
-val res = translate conv_hconcl_def;
 
 val res = translate init_conf_def;
 
+val res = translate hconcl_concl_def;
+val res = translate conv_boutput_hconcl_def;
+
 val check_unsat' = process_topdecs `
-  fun check_unsat' fns fd lno fml obj =
+  fun check_unsat' fns fd lno fml obj fmlt objt =
   let
     val id = List.length fml + 1
     val arr = Array.array (2*id) None
@@ -2786,10 +2908,12 @@ val check_unsat' = process_topdecs `
     (case check_unsat'' fns fd lno arr inds pc of
       (lno', (s, (fns',(
         (fml', (inds', pc')))))) =>
-      conv_hconcl
-        (run_concl_file fd fns' lno' s
-        fml obj fml'
-          (get_obj pc') (get_bound pc') (get_dbound pc')))
+    conv_boutput_hconcl
+    (get_bound pc')
+    (run_concl_file fd fns' lno' s
+    fml obj fml' inds'
+    (get_obj pc') (get_bound pc') (get_dbound pc') (get_chk pc')
+    fmlt objt))
     handle Fail s => Inl s
   end` |> append_prog;
 
@@ -2833,22 +2957,28 @@ Theorem check_unsat'_spec:
   fns_TYPE a fns fnsv ∧
   NUM lno lnov ∧
   LIST_TYPE constraint_TYPE fml fmlv ∧
-  obj_TYPE obj objv
+  obj_TYPE obj objv ∧
+  LIST_TYPE constraint_TYPE fmlt fmltv ∧
+  obj_TYPE objt objtv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat'" (get_ml_prog_state()))
-    [fnsv; fdv; lnov; fmlv; objv]
+    [fnsv; fdv; lnov; fmlv; objv; fmltv; objtv]
     (STDIO fs * INSTREAM_LINES fd fdv lines fs)
     (POSTv v.
-         SEP_EXISTS k lines' res.
-         STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
-         &(
-          SUM_TYPE STRING_TYPE PBC_CONCL_TYPE res v ∧
-          case res of
-            INR concl =>
-              sem_concl (set fml) obj concl
-          | INL l => T))
+     SEP_EXISTS k lines' res.
+     STDIO (forwardFD fs fd k) *
+     INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+     &(
+      SUM_TYPE STRING_TYPE
+        (PAIR_TYPE PBC_OUTPUT_TYPE
+          (PAIR_TYPE (OPTION_TYPE INT) PBC_CONCL_TYPE))
+        res v ∧
+      case res of
+        INR (output,bound,concl) =>
+        sem_concl (set fml) obj concl ∧
+        sem_output (set fml) obj bound (set fmlt) objt output
+      | INL l => T))
 Proof
   rw[]>>
   reverse (Cases_on `
@@ -2915,16 +3045,21 @@ Proof
     qexists_tac`INL s`>>
     simp[SUM_TYPE_def]>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+
   xhandle`POSTv v.
-         SEP_EXISTS k lines' res.
-         STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
-         &(
-          SUM_TYPE STRING_TYPE PBC_CONCL_TYPE res v ∧
-          case res of
-            INR concl =>
-              sem_concl (set fml) obj concl
-          | INL l => T)`
+     SEP_EXISTS k lines' res.
+     STDIO (forwardFD fs fd k) *
+     INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+     &(
+      SUM_TYPE STRING_TYPE
+        (PAIR_TYPE PBC_OUTPUT_TYPE
+          (PAIR_TYPE (OPTION_TYPE INT) PBC_CONCL_TYPE))
+        res v ∧
+      case res of
+        INR (output,bound,concl) =>
+        sem_concl (set fml) obj concl ∧
+        sem_output (set fml) obj bound (set fmlt) objt output
+      | INL l => T)`
   >- (
     xlet`POSTv v.
        SEP_EXISTS k lines' lno' fmlv' fmllsv' res.
@@ -2965,48 +3100,64 @@ Proof
        STDIO (forwardFD fs fd k) *
        INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
        &(
-        SUM_TYPE STRING_TYPE NPBC_CHECK_HCONCL_TYPE res v ∧
+        SUM_TYPE STRING_TYPE
+        (PAIR_TYPE PBC_OUTPUT_TYPE NPBC_CHECK_HCONCL_TYPE) res v ∧
         case res of
-          INR hconcl =>
-            check_hconcl_list fml obj res3
+          INR (output,hconcl) =>
+          parse_output_concl res0 (res1,res2)
+             (MAP (MAP tokenize o tokens blanks) lines') =
+            SOME (output,hconcl) ∧
+          check_output_list res3 res4
+          pc'.obj pc'.bound pc'.dbound pc'.chk fmlt objt output ∧
+          check_hconcl_list fml obj res3
               pc'.obj pc'.bound pc'.dbound hconcl
         | INL l => T))`
     >- (
-      xapp>>
-      simp[PULL_EXISTS]>>
-      rpt(asm_exists_tac>>simp[])>>
-      CONV_TAC (RESORT_EXISTS_CONV (List.rev))>>
-      qexists_tac`(res1,res2)`>>simp[PAIR_TYPE_def]>>
-      asm_exists_tac>>xsimpl>>
-      qexists_tac`fd`>>
+      xapp>>xsimpl>>
+      rpt(first_x_assum (irule_at Any))>>
+      simp[]>>
+      qexists_tac`lines'`>>
       qexists_tac`forwardFD fs fd k`>>
-      qexists_tac`lines'`>>qexists_tac`emp`>>
+      gvs[]>>
+      qexists_tac`(res1,res2)`>>simp[PAIR_TYPE_def]>>
+      qexists_tac`fd`>>
+      asm_exists_tac>>simp[]>>
+      qexists_tac`emp`>>
       xsimpl>>rw[]>>
       first_x_assum(irule_at Any)>>
-      simp[]>>
+      fs[get_obj_def,get_bound_def,get_dbound_def,get_chk_def]>>
       `∃k'.
         fastForwardFD (forwardFD fs fd k) fd =
         forwardFD (forwardFD fs fd k) fd k'` by
-      (match_mp_tac (GEN_ALL fast_forwardFD_forwardFD_exists)>>
-      simp[fsFFIPropsTheory.get_file_content_forwardFD])>>
+        (match_mp_tac (GEN_ALL fast_forwardFD_forwardFD_exists)>>
+        simp[fsFFIPropsTheory.get_file_content_forwardFD])>>
       simp[forwardFD_o]>>
       qexists_tac`k+k'`>>
-      xsimpl>>
-      fs[get_obj_def,get_bound_def,get_dbound_def]
-      )>>
+      xsimpl)>>
+    xlet_autop>>
     xapp_spec
-    (fetch "-" "conv_hconcl_v_thm" |> INST_TYPE[alpha|->``:mlstring``])>>
+      (fetch "-" "conv_boutput_hconcl_v_thm" |> INST_TYPE[alpha|->``:mlstring``, beta|->``:output``, gamma |->``:int option``])>>
     first_x_assum(irule_at Any)>>
     xsimpl>>rw[]>>
     first_x_assum(irule_at Any)>>
-    Cases_on`res`>>fs[conv_hconcl_def]
+    rw[]>>
+    first_x_assum(irule_at Any)>>
+    pop_assum mp_tac>> TOP_CASE_TAC>>fs[conv_boutput_hconcl_def]
     >-
       metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
+    TOP_CASE_TAC>>rw[conv_boutput_hconcl_def]>>
     drule parse_and_run_check_csteps_list>>
     rw[]>>fs[]>>
     simp[GSYM PULL_EXISTS]>>
-    CONJ_TAC>-(
-      match_mp_tac (GEN_ALL npbc_listTheory.check_csteps_list_concl)>>
+    CONJ_TAC >-(
+      CONJ_TAC >- (
+        match_mp_tac (GEN_ALL npbc_listTheory.check_csteps_list_concl)>>
+        first_x_assum (irule_at Any)>>
+        unabbrev_all_tac>>
+        gs[rev_enum_full_rev_enumerate]>>
+        metis_tac[])>>
+      simp[get_bound_def]>>
+      match_mp_tac (GEN_ALL npbc_listTheory.check_csteps_list_output)>>
       first_x_assum (irule_at Any)>>
       unabbrev_all_tac>>
       gs[rev_enum_full_rev_enumerate]>>
@@ -3106,7 +3257,7 @@ End
 val r = translate notfound_string_def;
 
 val check_unsat_top = process_topdecs `
-  fun check_unsat_top fns fml obj fname =
+  fun check_unsat_top fns fml obj fmlt objt fname =
   let
     val fd = TextIO.b_openIn fname
   in
@@ -3116,7 +3267,7 @@ val check_unsat_top = process_topdecs `
       Inl (format_failure n "Unable to parse header"))
     | None =>
       let val res =
-        (check_unsat' fns fd 3 fml obj)
+        (check_unsat' fns fd 3 fml obj fmlt objt)
         val close = TextIO.b_closeIn fd;
       in
         res
@@ -3137,21 +3288,27 @@ Theorem check_unsat_top_spec:
   fns_TYPE a fns fnsv ∧
   LIST_TYPE constraint_TYPE fml fmlv ∧
   obj_TYPE obj objv ∧
+  LIST_TYPE constraint_TYPE fmlt fmltv ∧
+  obj_TYPE objt objtv ∧
   FILENAME f fv ∧
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_top"(get_ml_prog_state()))
-  [fnsv; fmlv; objv; fv]
+  [fnsv; fmlv; objv; fmltv; objtv; fv]
   (STDIO fs)
   (POSTv v.
      STDIO fs *
      SEP_EXISTS res.
      &(
-        SUM_TYPE STRING_TYPE PBC_CONCL_TYPE res v ∧
-        case res of
-          INR concl =>
-            sem_concl (set fml) obj concl
-        | INL l => T))
+      SUM_TYPE STRING_TYPE
+        (PAIR_TYPE PBC_OUTPUT_TYPE
+          (PAIR_TYPE (OPTION_TYPE INT) PBC_CONCL_TYPE))
+        res v ∧
+      case res of
+        INR (output,bound,concl) =>
+        sem_concl (set fml) obj concl ∧
+        sem_output (set fml) obj bound (set fmlt) objt output
+      | INL l => T))
 Proof
   xcf"check_unsat_top"(get_ml_prog_state()) >>
   reverse (Cases_on `STD_streams fs`)
@@ -3224,10 +3381,14 @@ Proof
           STDIO (forwardFD fsss fd k) *
           INSTREAM_LINES fd fdv lines' (forwardFD fsss fd k) *
           &(
-          SUM_TYPE STRING_TYPE PBC_CONCL_TYPE res v ∧
+          SUM_TYPE STRING_TYPE
+            (PAIR_TYPE PBC_OUTPUT_TYPE
+              (PAIR_TYPE (OPTION_TYPE INT) PBC_CONCL_TYPE))
+            res v ∧
           case res of
-            INR concl =>
-              sem_concl (set fml) obj concl
+            INR (output,bound,concl) =>
+            sem_concl (set fml) obj concl ∧
+            sem_output (set fml) obj bound (set fmlt) objt output
           | INL l => T)`
   >- (
     xapp>>xsimpl>>
@@ -3262,6 +3423,7 @@ Proof
   asm_exists_tac>>fs[]
 QED
 
+
 (*
   A string pbc -> npbc normaliser frontend
 
@@ -3269,7 +3431,6 @@ QED
 *)
 
 (* normalise *)
-val res = translate normalise_obj_def;
 val res = translate flip_coeffs_def;
 val res = translate pbc_ge_def;
 val res = translate normalise_def;
@@ -3307,6 +3468,17 @@ val hash_str_side = Q.prove(
 
 val res = translate normalise_full_def;
 
+Definition normalise_full_2_def:
+  normalise_full_2 objf objft =
+  let s = init_state hash_str compare in
+  let (objf',t) = name_to_num_obj_pbf objf s in
+  let (objft',u) = name_to_num_obj_pbf objft t in
+  (normalise_obj_pbf objf',
+  normalise_obj_pbf objft', u)
+End
+
+val res = translate normalise_full_2_def;
+
 Definition name_to_num_var_nf_def:
   name_to_num_var_nf v s =
   SOME (name_to_num_var v s)
@@ -3315,40 +3487,54 @@ End
 val res = translate name_to_num_var_nf_def;
 
 val check_unsat_top_norm = process_topdecs `
-  fun check_unsat_top_norm objf fname =
-  case normalise_full objf of ((obj,fml),t) =>
-    check_unsat_top (name_to_num_var_nf,t) fml obj fname
+  fun check_unsat_top_norm objf objft fname =
+  case normalise_full_2 objf objft of
+    ((obj,fml),((objt,fmlt),t)) =>
+    check_unsat_top (name_to_num_var_nf,t) fml obj fmlt objt fname
     `|> append_prog
 
-Theorem check_unsat_top_norm_spec:
-  (PAIR_TYPE
-      (OPTION_TYPE (PAIR_TYPE
+Overload "objf_TYPE" = ``
+  PAIR_TYPE
+  (OPTION_TYPE
+    (PAIR_TYPE
+    (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
+    INT))
+  (LIST_TYPE
+    (PAIR_TYPE PBC_PBOP_TYPE
+      (PAIR_TYPE
         (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
-      INT))
-      (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
-      ) objf objfv ∧
+        INT)))``
+
+Theorem check_unsat_top_norm_spec:
+  objf_TYPE objf objfv ∧
+  objf_TYPE objft objftv ∧
   FILENAME f fv ∧
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_top_norm"
     (get_ml_prog_state()))
-  [objfv; fv]
+  [objfv; objftv; fv]
   (STDIO fs)
   (POSTv v.
      STDIO fs *
      SEP_EXISTS res.
      &(
-        SUM_TYPE STRING_TYPE PBC_CONCL_TYPE res v ∧
-        case res of
-          INR concl =>
-            sem_concl (set (SND objf)) (FST objf) concl
-        | INL l => T))
+       SUM_TYPE STRING_TYPE
+         (PAIR_TYPE PBC_OUTPUT_TYPE
+           (PAIR_TYPE (OPTION_TYPE INT) PBC_CONCL_TYPE))
+         res v ∧
+       case res of
+         INR (output,bound,concl) =>
+         sem_concl (set (SND objf)) (FST objf) concl ∧
+         sem_output (set (SND objf)) (FST objf) bound
+          (set (SND objft)) (FST objft) output
+       | INL l => T))
 Proof
   xcf"check_unsat_top_norm"(get_ml_prog_state()) >>
   xlet_autop>>
-  `∃obj fml t.
-    normalise_full objf = ((obj,fml),t)` by
-    (Cases_on`normalise_full objf`>>Cases_on`q`>>metis_tac[])>>
+  `∃obj fml objt fmlt t.
+    normalise_full_2 objf objft = ((obj,fml),(objt,fmlt),t)` by
+    metis_tac[PAIR]>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
@@ -3366,17 +3552,27 @@ Proof
     metis_tac[fetch "-" "name_to_num_var_nf_v_thm"])>>
   rw[]>>
   asm_exists_tac>>simp[]>>
-  TOP_CASE_TAC>>fs[]>>
-  Cases_on`objf`>>fs[normalise_full_def]>>
+  rpt(TOP_CASE_TAC>>fs[])>>
+  Cases_on`objf`>>
+  Cases_on`objft`>>fs[normalise_full_2_def]>>
   pairarg_tac>>gvs[]>>
+  pairarg_tac>>gvs[]>>
+  rename1`sem_concl _ _ con ∧ sem_output _ _ _ _ _ out`>>
   Cases_on`objf'`>>
-  drule name_to_num_obj_pbf_thm>>
-  disch_then(qspec_then`y` mp_tac)>>
-  impl_tac >- (
-    match_mp_tac init_state_ok>>
-    fs[TotOrd_compare])>>
-  rw[]>>
-  metis_tac[normalise_obj_pbf_sem_concl]
+  drule name_to_num_obj_pbf_concl_thm>>
+  Cases_on`objft'`>>
+  dxrule_at_then (Pos (el 2)) drule name_to_num_obj_pbf_output_thm>>
+  simp[]>>
+  rename1`sem_output _ _ bnd _ _ _`>>
+  disch_then(qspecl_then[`bnd`,`out`] mp_tac)>>
+  impl_keep_tac
+  >- (
+    CONJ_ASM1_TAC >- (
+      match_mp_tac init_state_ok>>
+      fs[TotOrd_compare])>>
+    metis_tac[name_to_num_state_ok_name_to_num_obj_pbf])>>
+  simp[]>>
+  metis_tac[normalise_obj_pbf_sem_concl,normalise_obj_pbf_sem_output]
 QED
 
 (* printing a string pbf *)
@@ -3402,5 +3598,13 @@ val res = translate pb_parseTheory.op_string_def;
 val res = translate pb_parseTheory.pbc_string_def;
 val res = translate obj_string_def;
 val res = translate print_pbf_def;
+
+(* An empty formula *)
+Definition default_objf_def:
+  default_objf = (NONE,[]):((int # mlstring lit) list # int) option #
+    (pbop # (int # mlstring lit) list # int) list
+End
+
+val res = translate default_objf_def;
 
 val _ = export_theory();
