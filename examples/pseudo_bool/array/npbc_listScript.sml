@@ -1462,8 +1462,14 @@ Theorem vimap_rel_get_indices_set_indices:
   vimap_rel fmlls vimap'
 Proof
   rw[get_indices_def,set_indices_def] >>
-  gvs[AllCaseEqs()]>>
-  cheat
+  gvs[AllCaseEqs(),vimap_rel_def]>>
+  every_case_tac>>rw[lookup_insert]>>
+  first_x_assum (drule_at Any)>>rw[]
+  >-
+    (CCONTR_TAC>>gvs[]>> first_x_assum drule>>rw[])>>
+  first_x_assum drule_all>>
+  rw[reindex_characterize,MEM_FILTER]>>
+  simp[any_el_ALT]
 QED
 
 Theorem fml_rel_check_red_list:
@@ -1559,23 +1565,22 @@ Proof
             metis_tac[])*))>>
         drule subst_indexes_MEM>>
         rw[MEM_toAList,lookup_map_opt]>>
-        cheat
-        (*
-        drule_all FST_reindex_partial_characterize>>
-        TOP_CASE_TAC>>rw[]>>gvs[]>>
+        gvs[reindex_characterize]>>
         fs[rollback_def,lookup_core_only_list_list_delete_list,MEM_MAP,MEM_COUNT_LIST,MEM_FILTER]>>
-        `p_1 < id` by (
+        `p_1 < id'` by (
           CCONTR_TAC>>fs[]>>
-          last_x_assum(qspec_then`p_1` mp_tac)>>
+          first_x_assum(qspec_then`p_1` mp_tac)>>
           impl_tac>-fs[]>>
-          metis_tac[option_CLAUSES])>>
+          gvs[lookup_core_only_list_def]>>
+          CCONTR_TAC>>gvs[])>>
+        `p_1 < id` by intLib.ARITH_TAC>>
         simp[lookup_mk_core_fml]>>
         `lookup_core_only (b ∨ tcb) fml p_1 = SOME c'` by (
           qpat_x_assum`fml_rel fml _` assume_tac>>
           drule (GSYM fml_rel_lookup_core_only)>>
           strip_tac>>fs[]>>
           gvs[lookup_core_only_list_def,AllCaseEqs()])>>
-        fs[]*))>>
+        fs[])>>
       match_mp_tac (GEN_ALL fml_rel_check_contradiction_fml)>>
       metis_tac[])>>
     CONJ_ASM1_TAC>- (
@@ -2265,6 +2270,22 @@ Proof
   fs[transitive_def]
 QED
 
+Theorem vimap_rel_core_from_inds:
+  ∀l fmlls fmlls'.
+  vimap_rel fmlls vimap ∧
+  core_from_inds fmlls l = SOME fmlls' ⇒
+  vimap_rel fmlls' vimap
+Proof
+  Induct>>rw[core_from_inds_def]>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum match_mp_tac>>
+  first_x_assum (irule_at Any)>>
+  fs[vimap_rel_def]>>rw[]>>
+  gvs[update_resize_def]>>every_case_tac>>
+  gvs[EL_LUPDATE,EL_APPEND_EQN]>>every_case_tac>>
+  gvs[EL_REPLICATE,any_el_ALT]
+QED
+
 Theorem fml_rel_check_cstep_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
@@ -2380,8 +2401,8 @@ Proof
     strip_tac>>fs[]>>
     fs[ind_rel_def]>>
     rw[]>>
-    (* TODO should be an easy induction *)
-    `vimap_rel fmlls' vimap` by cheat>>
+    `vimap_rel fmlls' vimap` by
+      metis_tac[vimap_rel_core_from_inds]>>
     metis_tac[IS_SOME_EXISTS,option_CLAUSES])
   >- ( (* StrengthenToCore *)
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
@@ -2434,7 +2455,7 @@ Proof
       fs[ind_rel_def]>>
       rw[]>>
       metis_tac[IS_SOME_EXISTS,option_CLAUSES])>>
-    (*easy *) cheat)
+    metis_tac[vimap_rel_core_from_inds])
   >- ( (* UnloadOrder *)
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def])
   >- ( (* StoreOrder *)
