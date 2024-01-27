@@ -1772,7 +1772,24 @@ Definition red_cond_check_def:
   let (l,r) = extract_pids pfs LN LN in
   let fmlls = revalue bortcb fml inds in
   split_goals_hash fmlls extra l goals ∧
-  EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs))
+  EVERY (λ(id,cs).
+        lookup id r ≠ NONE ∨
+        check_hash_triv extra cs
+        )
+        (enumerate 0 rsubs)
+End
+
+Definition lookup_hash_triv_def:
+  lookup_hash_triv r extra (id,cs) =
+  case sptree$lookup id r of
+    NONE => check_hash_triv extra cs
+  | SOME _ => T
+End
+
+Definition every_check_hash_triv_def:
+  every_check_hash_triv r extra rsubs =
+  EVERY (lookup_hash_triv r extra)
+    (enumerate 0 rsubs)
 End
 
 Definition red_cond_check_pure_def:
@@ -1781,15 +1798,24 @@ Definition red_cond_check_pure_def:
   (rsubs:((int # num) list # num) list list) (goals:(num # (int # num) list # num) list) =
   let (l,r) = extract_pids pfs LN LN in
   if
-    EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs))
+     every_check_hash_triv r extra rsubs
   then
     let (lp,lf) =
       PARTITION (λ(i,c). lookup i l ≠ NONE) goals in
-    let lf = FILTER (λc. ¬(imp extra c)) (MAP SND lf) in
+    let lf = FILTER (λc. ¬check_triv extra (not c)) (MAP SND lf) in
     let proved = MAP SND lp in
     SOME (proved,lf)
   else NONE
 End
+
+Theorem lookup_hash_triv_fun_eq:
+  lookup_hash_triv r extra =
+  (λ(id,cs). lookup id r = NONE ⇒ check_hash_triv extra cs)
+Proof
+  rw[FUN_EQ_THM]>>
+  pairarg_tac>>fs[lookup_hash_triv_def]>>
+  every_case_tac>>gvs[]
+QED
 
 Theorem red_cond_check_eq:
   red_cond_check bortcb fml inds extra pfs rsubs goals =
@@ -1800,17 +1826,19 @@ Theorem red_cond_check_eq:
     let hs = mk_hashset fmlls (mk_hashset x (REPLICATE splim [])) in
     EVERY (λc. in_hashset c hs) ls
 Proof
-  rw[red_cond_check_def,red_cond_check_pure_def]>>
+  rw[red_cond_check_def,red_cond_check_pure_def,every_check_hash_triv_def]>>
   pairarg_tac>>fs[split_goals_hash_def]>>
-  IF_CASES_TAC>>fs[]>>
-  rpt (pairarg_tac>>fs[])
+  rpt (pairarg_tac>>fs[])>>
+  rw[lookup_hash_triv_fun_eq]
 QED
 
-val res = translate COUNT_LIST_AUX_def;
-val res = translate COUNT_LIST_compute;
+val res = translate npbc_checkTheory.check_triv_def;
+val res = translate npbc_checkTheory.check_hash_triv_def;
+val res = translate miscTheory.enumerate_def;
 val res = translate PART_DEF;
 val res = translate PARTITION_DEF;
-
+val res = translate lookup_hash_triv_def;
+val res = translate every_check_hash_triv_def;
 val res = translate red_cond_check_pure_def;
 
 val red_cond_check = process_topdecs`
@@ -2951,7 +2979,7 @@ val check_change_obj_arr = process_topdecs `
     case check_subproofs_arr lno cpfs b fml id id of
        (fml', id') =>
       let val u = rollback_arr fml' id id' in
-        if do_change_obj_check pfs then
+        if do_change_obj_check pfs csubs then
           (fml',(fc',id'))
        else raise Fail (format_failure lno ("Objective change subproofs did not cover all subgoals. Expected: #[1-2]"))
        end

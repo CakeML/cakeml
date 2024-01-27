@@ -718,7 +718,7 @@ Definition split_goals_hash_def:
     (goals:(num # (int # num) list # num) list) =
   let (lp,lf) =
     PARTITION (λ(i,c). lookup i proved ≠ NONE) goals in
-  let lf = FILTER (λc. ¬(imp extra c)) (MAP SND lf) in
+  let lf = FILTER (λc. ¬check_triv extra (not c)) (MAP SND lf) in
   let proved = MAP SND lp in
   let hs = mk_hashset fmlls (mk_hashset proved (REPLICATE splim [])) in
   EVERY (λc. in_hashset c hs) lf
@@ -733,7 +733,11 @@ Definition do_red_check_def:
     let (l,r) = extract_pids pfs LN LN in
     let fmlls = revalue (b ∨ tcb) rfml inds in
       split_goals_hash fmlls extra l goals ∧
-      EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH rsubs))
+      EVERY (λ(id,cs).
+        lookup id r ≠ NONE ∨
+        check_hash_triv extra cs
+        )
+        (enumerate 0 rsubs)
   | SOME cid =>
      check_contradiction_fml_list b fml cid
 End
@@ -1157,28 +1161,17 @@ Theorem revalue_aux_SUBSET:
   set vacc ⊆ core_only_fml b fml ⇒
   set (revalue_aux b fmlls inds vacc) ⊆ core_only_fml b fml
 Proof
-  cheat
-QED
-
-(*
-SND_reindex_characterize:
-  fml_rel fml fmlls ∧
-  reindex b fmlls inds = (is,vs) ⇒
-  set vs ⊆ core_only_fml b fml
-Proof
-  rw[reindex_def,reindex_aux]>>
-  simp[SUBSET_DEF,MEM_MAP,MEM_FILTER,PULL_EXISTS,range_def]>>
-  rw[]>>
-  fs[IS_SOME_EXISTS]>>
+  Induct>>rw[revalue_aux_def]>>
+  every_case_tac>>rw[]>>
+  first_x_assum match_mp_tac>>fs[]>>
   drule fml_rel_lookup_core_only>>
-  rw[]>>
-  gvs[lookup_core_only_def,core_only_fml_def,AllCaseEqs()]
-  >-
-    metis_tac[]>>
-  rw[]>>fs[]>>
+  simp[lookup_core_only_list_def]>>
+  disch_then(qspecl_then[`h`,`b`] mp_tac)>>
+  simp[]>>rw[]>>gvs[]>>
+  gvs[core_only_fml_def,lookup_core_only_def,AllCaseEqs()]>>
+  rw[]>>gvs[]>>
   metis_tac[]
 QED
-*)
 
 Theorem revalue_SUBSET:
   fml_rel fml fmlls ==>
@@ -1365,9 +1358,7 @@ Proof
   fs[EVERY_FILTER,EVERY_MAP]>>
   qpat_x_assum`EVERY _ _`mp_tac>> match_mp_tac MONO_EVERY>>
   simp[FORALL_PROD, METIS_PROVE []``(¬P ⇒ Q) ⇔ P ∨ Q``]>>
-  rw[]
-  >-
-    simp[]>>
+  rw[]>>simp[]>>
   drule in_hashset_mk_hashset>>
   rw[]
   >- fs[MEM_MAP,SUBSET_DEF]>>
@@ -1921,7 +1912,11 @@ Definition do_dom_check_def:
     let goals =
       MAP_OPT (subst_opt w) indcore in
     let (l,r) = extract_pids pfs LN LN in
-    if EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH dsubs))
+    if
+      EVERY (λ(id,cs).
+              lookup id r ≠ NONE ∨
+              check_hash_triv extra cs)
+              (enumerate 0 dsubs)
     then
       let fmlls = revalue F rfml rinds in
       split_goals_hash fmlls extra l goals
@@ -1985,15 +1980,18 @@ Definition all_core_list_def:
       else NONE)
 End
 
-Definition do_change_obj_check_def:
-  do_change_obj_check pfs =
-  let (l,r) = extract_pids pfs LN LN in
-  lookup 0 r ≠ NONE ∧
-  lookup 1 r ≠ NONE
-End
-
 Definition emp_vec_def:
   emp_vec = INR (Vector [])
+End
+
+Definition do_change_obj_check_def:
+  do_change_obj_check pfs csubs =
+  let (l,r) = extract_pids pfs LN LN in
+    EVERY (λ(id,cs).
+      lookup id r ≠ NONE ∨
+      EXISTS check_contradiction cs
+      )
+      (enumerate 0 csubs)
 End
 
 Definition check_change_obj_list_def:
@@ -2009,7 +2007,7 @@ Definition check_change_obj_list_def:
         NONE => NONE
       | SOME (fml',id') =>
         let rfml = rollback fml' id id' in
-        if do_change_obj_check pfs then
+        if do_change_obj_check pfs csubs then
           SOME (rfml,fc',id')
         else NONE)
 End
@@ -2472,10 +2470,6 @@ Proof
     fs[do_change_obj_check_def]>>
     pairarg_tac>>fs[]>>
     strip_tac>>simp[]>>
-    CONJ_TAC>- (
-      `COUNT_LIST (LENGTH (change_obj_subgoals fc (mk_diff_obj b fc p) )) = [0;1]` by
-        EVAL_TAC>>
-      simp[])>>
     drule check_subproofs_list_id>>
     drule check_subproofs_list_id_upper>>
     drule check_subproofs_list_mindel>>
