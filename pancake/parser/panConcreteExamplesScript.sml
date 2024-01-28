@@ -97,8 +97,8 @@ val ex4 = ‘
       if x >= 5 {
         break;
       } else {
-        strb y, 8; // store byte
-        #foo(x,y,k,z); // ffi function call with pointer args
+        st8 y, 8; // store byte
+        @foo(x,y,k,z); // ffi function call with pointer args
         x = x + 1;
         y = x + 1;
       }
@@ -198,8 +198,8 @@ val ex9 = ‘
    var b = 8;
    var c = @base + 16;
    var d = 1;
-   #out_morefun(a,b,c,d);
-   str @base, ic;
+   @out_morefun(a,b,c,d);
+   stw @base, ic;
    return 0;
  }’;
 
