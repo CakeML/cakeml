@@ -20,14 +20,15 @@ Datatype:
   keyword = SkipK | StoreK | StoreBK | IfK | ElseK | WhileK
   | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK
   | LdsK | LdbK | BaseK | InK | FunK | TrueK | FalseK
+  | SharedStoreK | SharedStoreBK | SharedLdsK | SharedLdbK
 End
 
 Datatype:
   token = AndT | OrT | XorT | NotT
   | EqT | NeqT | LessT | GreaterT | GeqT | LeqT
-  | PlusT | MinusT | HashT | DotT | StarT
+  | PlusT | MinusT | DotT | StarT
   | LslT | LsrT | AsrT | RorT
-  | IntT int | IdentT string
+  | IntT int | IdentT string | ForeignIdent string (* @ffi_str except @base *)
   | LParT | RParT | CommaT | SemiT | ColonT | DArrowT | AddrT
   | LBrakT | RBrakT | LCurT | RCurT
   | AssignT
@@ -44,6 +45,9 @@ Definition isAtom_singleton_def:
 End
 
 Definition isAtom_begin_group_def:
+  (* # is for only for RorT,
+  * and should remove it to avoid collision with
+  * C-preprocessor later *)
   isAtom_begin_group c = MEM c "#=><!"
 End
 
@@ -71,7 +75,6 @@ Definition get_token_def:
   if s = "+" then PlusT else
   if s = "-" then MinusT else
   if s = "*" then StarT else
-  if s = "#" then HashT else
   if s = "." then DotT else
   if s = "<<" then LslT else
   if s = ">>>" then LsrT else
@@ -93,8 +96,8 @@ End
 Definition get_keyword_def:
   get_keyword s =
   if s = "skip" then (KeywordT SkipK) else
-  if s = "str" then (KeywordT StoreK) else
-  if s = "strb" then (KeywordT StoreBK) else
+  if s = "stw" then (KeywordT StoreK) else
+  if s = "st8" then (KeywordT StoreBK) else
   if s = "if" then (KeywordT IfK) else
   if s = "else" then (KeywordT ElseK) else
   if s = "while" then (KeywordT WhileK) else
@@ -107,13 +110,18 @@ Definition get_keyword_def:
   if s = "in" then (KeywordT InK) else
   if s = "with" then (KeywordT WithK) else
   if s = "handle" then (KeywordT HandleK) else
-  if s = "lds" then (KeywordT LdsK) else
-  if s = "ldb" then (KeywordT LdbK) else
+  if s = "ldw" then (KeywordT LdsK) else
+  if s = "ld8" then (KeywordT LdbK) else
   if s = "@base" then (KeywordT BaseK) else
   if s = "true" then (KeywordT TrueK) else
   if s = "false" then (KeywordT FalseK) else
   if s = "fun" then (KeywordT FunK) else
-  if isPREFIX "@" s ∨ s = "" then LexErrorT else
+  if s = "!stw" then (KeywordT SharedStoreK) else
+  if s = "!st8" then (KeywordT SharedStoreBK) else
+  if s = "!ldw" then (KeywordT SharedLdsK) else
+  if s = "!ld8" then (KeywordT SharedLdbK) else
+  if s = "" ∨ s = "@" then LexErrorT else
+  if 2 <= LENGTH s ∧ EL 0 s = #"@" then ForeignIdent (DROP 1 s) else
   IdentT s
 End
 
@@ -183,6 +191,18 @@ Definition num_from_dec_string_alt_def:
   num_from_dec_string_alt = s2n 10 unhex_alt
 End
 
+Definition is_shared_mem_instruction_def:
+  is_shared_mem_instruction (#"!"::cs) =
+    (("stw" ≼ cs ∨ "st8" ≼ cs ∨
+      "ldw" ≼ cs ∨ "ld8" ≼ cs) ∧
+    (LENGTH cs = 3 ∨ ¬ isAlphaNumOrWild (EL 3 cs))) ∧
+  is_shared_mem_instruction _ = F
+End
+
+Definition get_shared_mem_instruction_def:
+  get_shared_mem_instruction cs = (TAKE 4 cs, DROP 4 cs)
+End
+
 Definition next_atom_def:
   next_atom "" _ = NONE ∧
   next_atom (c::cs) loc =
@@ -204,6 +224,9 @@ Definition next_atom_def:
       (case (skip_comment (TL cs) (next_loc 2 loc)) of
        | NONE => SOME (ErrA, Locs loc (next_loc 2 loc), "")
        | SOME (rest, loc') => next_atom rest loc')
+    else if is_shared_mem_instruction (c::cs) then (* shared memory *)
+      let (n,rest) = get_shared_mem_instruction (c::cs) in
+      SOME (WordA n, Locs loc (next_loc (LENGTH n) loc), rest)
     else if isAtom_singleton c then
       SOME (SymA (STRING c []), Locs loc loc, cs)
     else if isAtom_begin_group c then
@@ -238,6 +261,7 @@ Proof
       >> sg ‘STRLEN rest < STRLEN (TL cs)’ >> rw[]
       >> sg ‘STRLEN (TL cs) < SUC (STRLEN cs)’ >> rw[LENGTH_TL]
       >> Cases_on ‘cs’ >> simp[])
+  >- gvs[get_shared_mem_instruction_def]
   >- (pairarg_tac >> drule read_while_thm >> gvs[])
   >- (pairarg_tac >> drule read_while_thm >> gvs[])
   >- (pairarg_tac >> drule read_while_thm >> gvs[])
