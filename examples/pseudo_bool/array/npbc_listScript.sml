@@ -1828,12 +1828,63 @@ Proof
   simp[any_el_ALT]
 QED
 
+Theorem lookup_update_vimap:
+  ∀v0 vimap i ls x.
+    sptree$lookup x vimap = SOME ls ∧ MEM i ls ⇒
+    ∃ls. lookup x (update_vimap vimap n v0) = SOME ls ∧ MEM i ls
+Proof
+  Induct \\ gvs [update_vimap_def,FORALL_PROD] \\ rw []
+  \\ last_x_assum irule
+  \\ gvs [lookup_insert] \\ rw []
+  \\ Cases_on ‘lookup p_2 vimap’ \\ gvs [opt_cons_def]
+QED
+
+Theorem lookup_update_vimap_MEM:
+  ∀v0 vimap.
+    MEM x (MAP SND v0) ⇒
+    ∃ls. lookup x (update_vimap vimap i v0) = SOME ls ∧ MEM i ls
+Proof
+  Induct \\ gvs [update_vimap_def,FORALL_PROD] \\ reverse (rw [])
+  >- (last_x_assum irule \\ fs [])
+  \\ irule lookup_update_vimap
+  \\ gvs [lookup_insert]
+  \\ Cases_on ‘lookup p_2 vimap’ \\ gvs [opt_cons_def]
+QED
+
+Theorem vimap_rel_LUPDATE:
+  n < LENGTH fml ∧
+  vimap_rel fml vimap ⇒
+  vimap_rel (LUPDATE (SOME (v,b)) n fml)
+    (update_vimap vimap n (FST v))
+Proof
+  gvs [vimap_rel_def,EL_LUPDATE]
+  \\ rpt strip_tac
+  \\ PairCases_on ‘v’ \\ gvs []
+  \\ Cases_on ‘i = n’ \\ gvs []
+  >- (irule lookup_update_vimap_MEM \\ fs [])
+  \\ first_x_assum drule_all \\ strip_tac \\ gvs []
+  \\ irule lookup_update_vimap \\ fs []
+QED
+
+Theorem vimap_rel_nones:
+  vimap_rel fml vimap ⇒
+  vimap_rel (fml ++ REPLICATE n NONE) vimap
+Proof
+  rw [vimap_rel_def]
+  \\ last_x_assum irule
+  \\ Cases_on ‘i < LENGTH fml’ \\ gvs [EL_APPEND1]
+  \\ gvs [EL_APPEND2,NOT_LESS]
+  \\ gvs [EL_REPLICATE]
+QED
+
 Theorem vimap_rel_update_resize_update_vimap:
   vimap_rel fml vimap ⇒
   vimap_rel (update_resize fml NONE (SOME (v,b)) n)
     (update_vimap vimap n (FST v))
 Proof
-  cheat
+  rewrite_tac [update_resize_def] \\ rw []
+  \\ irule vimap_rel_LUPDATE \\ fs []
+  \\ irule vimap_rel_nones \\ fs []
 QED
 
 Theorem opt_update_inds_vimap_rel:
