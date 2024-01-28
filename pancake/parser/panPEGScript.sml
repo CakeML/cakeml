@@ -257,7 +257,19 @@ Definition pancake_peg_def[nocompute]:
         (INL ShiftOpsNT, choicel [keep_tok LslT; keep_tok LsrT;
                                   keep_tok AsrT; keep_tok RorT]);
         (INL AddOpsNT, choicel [keep_tok PlusT; keep_tok MinusT]);
-        (INL MulOpsNT, keep_tok StarT)]
+        (INL MulOpsNT, keep_tok StarT);
+        (INL SharedLoadNT,seql [consume_kw SharedLdwK; mknt ShapeNT;
+                                mknt ExpNT]
+                           (mksubtree SharedLoadNT));
+        (INL SharedLoadByteNT,seql [consume_kw SharedLdbK; mknt ExpNT]
+                           (mksubtree SharedLoadByteNT));
+        (INL SharedStoreNT,seql [consume_kw SharedStoreK; mknt ExpNT;
+                            consume_tok CommaT; mknt ExpNT]
+                           (mksubtree SharedStoreNT));
+        (INL SharedStoreByteNT,seql [consume_kw SharedStoreBK; mknt ExpNT;
+                            consume_tok CommaT; mknt ExpNT]
+                           (mksubtree SharedStoreByteNT));
+        ]
         |>
 End
 

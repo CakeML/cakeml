@@ -20,7 +20,7 @@ Datatype:
   keyword = SkipK | StoreK | StoreBK | IfK | ElseK | WhileK
   | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK
   | LdsK | LdbK | BaseK | InK | FunK | TrueK | FalseK
-  | SharedStoreK | SharedStoreBK | SharedLdsK | SharedLdbK
+  | SharedStoreK | SharedStoreBK | SharedLdwK | SharedLdbK
 End
 
 Datatype:
@@ -110,7 +110,7 @@ Definition get_keyword_def:
   if s = "in" then (KeywordT InK) else
   if s = "with" then (KeywordT WithK) else
   if s = "handle" then (KeywordT HandleK) else
-  if s = "ldw" then (KeywordT LdsK) else
+  if s = "lds" then (KeywordT LdsK) else
   if s = "ld8" then (KeywordT LdbK) else
   if s = "@base" then (KeywordT BaseK) else
   if s = "true" then (KeywordT TrueK) else
@@ -118,7 +118,7 @@ Definition get_keyword_def:
   if s = "fun" then (KeywordT FunK) else
   if s = "!stw" then (KeywordT SharedStoreK) else
   if s = "!st8" then (KeywordT SharedStoreBK) else
-  if s = "!ldw" then (KeywordT SharedLdsK) else
+  if s = "!ldw" then (KeywordT SharedLdwK) else
   if s = "!ld8" then (KeywordT SharedLdbK) else
   if s = "" ∨ s = "@" then LexErrorT else
   if 2 <= LENGTH s ∧ EL 0 s = #"@" then ForeignIdent (DROP 1 s) else
@@ -302,7 +302,7 @@ Definition pancake_lex_def:
 End
 
 (* Tests :
-   EVAL “pancake_ex "x + 1 --Then check y\n && y - 2 <= -3 || !z”;
+   EVAL “pancake_lex "x + 1 --Then check y\n && y - 2 <= -3 || !z"”;
 *)
 
 val _ = export_theory();
