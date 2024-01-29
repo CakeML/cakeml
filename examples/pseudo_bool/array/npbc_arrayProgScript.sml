@@ -1992,8 +1992,7 @@ val get_indices_arr = process_topdecs`
 Overload "vimap_TYPE" = ``
   SPTREE_SPT_TYPE (LIST_TYPE NUM)``
 
-Overload "vomap_TYPE" = ``
-  SPTREE_SPT_TYPE UNIT_TYPE``
+Overload "vomap_TYPE" = ``STRING_TYPE``
 
 Theorem get_indices_arr_spec:
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
@@ -3235,8 +3234,115 @@ val res = translate err_obj_check_string_def;
 val res = translate npbc_checkTheory.eq_obj_def;
 val res = translate npbc_checkTheory.check_eq_obj_def;
 
-val res = translate list_to_num_set_def;
-val res = translate mk_vomap_def;
+Definition w8z_def:
+  w8z = (0w: word8)
+End
+
+Definition w8o_def:
+  w8o = (1w: word8)
+End
+
+val w8z_v_thm = translate w8z_def;
+val w8o_v_thm = translate w8o_def;
+
+val fold_update_resize_bitset = process_topdecs`
+  fun fold_update_resize_bitset ls acc =
+    case ls of
+      [] => acc
+    | (x::xs) =>
+      if x < Word8Array.length acc
+      then
+        (Word8Array.update acc x w8o;
+        fold_update_resize_bitset xs acc)
+      else
+        let
+        val arr = Word8Array.array (2*x+1) w8z
+        val u = Word8Array.copy acc 0 (Word8Array.length acc) arr 0 in
+          (Word8Array.update arr x w8o;
+          fold_update_resize_bitset xs arr)
+        end
+        ` |> append_prog;
+
+Theorem fold_update_resize_bitset_spec:
+  ∀ls lsv accv accls.
+  LIST_TYPE NUM ls lsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "fold_update_resize_bitset" (get_ml_prog_state()))
+    [lsv; accv]
+    (W8ARRAY accv accls)
+    (POSTv v.
+        W8ARRAY v (FOLDL (λacc i. update_resize acc w8z w8o i) accls ls))
+Proof
+  Induct>>
+  xcf "fold_update_resize_bitset" (get_ml_prog_state ())>>
+  gvs[LIST_TYPE_def]>>xmatch
+  >- (
+    xvar>>xsimpl)>>
+  assume_tac w8o_v_thm>>
+  assume_tac w8z_v_thm>>
+  rpt xlet_autop>>
+  xif
+  >- (
+    xlet_autop>>
+    xapp>>xsimpl>>
+    simp[update_resize_def])>>
+  rpt xlet_autop>>
+  xapp>>xsimpl>>
+  simp[update_resize_def]
+QED
+
+val mk_vomap_arr = process_topdecs`
+  fun mk_vomap_arr n fc =
+  let
+  val acc = Word8Array.array n w8z
+  val f = map_snd (fst fc)
+  val acc = fold_update_resize_bitset f acc in
+    Word8Array.substring acc 0 (Word8Array.length acc)
+  end` |> append_prog;
+
+Theorem map_foldl_rel:
+  ∀ls accA accB.
+  MAP (CHR o w2n) accA = accB ⇒
+  MAP (CHR ∘ w2n)
+  (FOLDL (λacc i. update_resize acc w8z w8o i) accA ls) =
+  FOLDL (λacc i. update_resize acc #"\^@" #"\^A" i) accB ls
+Proof
+  Induct>>rw[]>>
+  first_x_assum match_mp_tac>>
+  rw[update_resize_def,LUPDATE_MAP]>>
+  EVAL_TAC
+QED
+
+Theorem mk_vomap_arr_spec:
+  NUM n nv ∧
+  (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT NUM)) INT) fc fcv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "mk_vomap_arr" (get_ml_prog_state()))
+    [nv; fcv]
+    (emp)
+    (POSTv v. &(vomap_TYPE (mk_vomap n fc) v))
+Proof
+  rw[]>>
+  xcf "mk_vomap_arr" (get_ml_prog_state ())>>
+  assume_tac w8z_v_thm>>
+  xlet_auto>>
+  rpt xlet_autop>>
+  xlet_auto>>
+  rpt xlet_autop>>
+  xapp>>xsimpl>>
+  first_x_assum (irule_at Any)>> rw[]>>
+  Cases_on`fc`>>fs[mk_vomap_def]>>
+  qmatch_asmsub_abbrev_tac`strlit A`>>
+  qmatch_goalsub_abbrev_tac`strlit B`>>
+  qsuff_tac`A = B`>- metis_tac[]>>
+  unabbrev_all_tac>>
+  simp[map_snd_def]>>
+  match_mp_tac map_foldl_rel>>
+  simp[map_replicate]>>
+  EVAL_TAC
+QED
 
 val check_cstep_arr = process_topdecs`
   fun check_cstep_arr lno cstep fml inds vimap vomap pc =
@@ -3352,7 +3458,7 @@ val check_cstep_arr = process_topdecs`
     (case check_change_obj_arr lno b fml
       (get_id pc) (get_obj pc) fc' pfs of
       (fml',(fc',id')) =>
-        (fml', (inds, (vimap, (mk_vomap fc', change_obj_update pc id' fc')))))
+        (fml', (inds, (vimap, (mk_vomap_arr (String.size vomap) fc', change_obj_update pc id' fc')))))
   | Checkobj fc' =>
     if check_eq_obj (get_obj pc) fc'
     then (fml, (inds, (vimap, (vomap, pc))))

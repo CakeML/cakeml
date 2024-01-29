@@ -774,7 +774,10 @@ Definition set_indices_def:
     (inds, sptree$insert n rinds vimap)
 End
 
-(* Fast substitution for obj_constraint if it is *)
+val ow = rconc (EVAL``CHR 1``);
+val zw = rconc (EVAL``CHR 0``);
+
+(* Fast substitution for obj_constraint if it is in vomap *)
 Definition fast_obj_constraint_def:
   fast_obj_constraint s l vomap =
   case s of
@@ -782,9 +785,13 @@ Definition fast_obj_constraint_def:
     if length v = 0 then ([],0)
     else obj_constraint (subst_fun s) l
   | INL (n,_) =>
-    case sptree$lookup n vomap of
-      NONE => ([],0)
-    | SOME () => obj_constraint (subst_fun s) l
+    if n < strlen vomap
+    then
+      if strsub vomap n = ^zw then
+        ([],0)
+      else
+        obj_constraint (subst_fun s) l
+    else ([],0)
 End
 
 Definition fast_red_subgoals_def:
@@ -1557,11 +1564,13 @@ Proof
 QED
 
 Definition vomap_rel_def:
-  vomap_rel obj vomap ⇔
+  vomap_rel obj ls ⇔
   case obj of
     NONE => T
   | SOME l =>
-    set (MAP SND (FST l)) = domain vomap
+    ∀x.
+    MEM x (MAP SND (FST l)) <=>
+    x < strlen ls ∧ strsub ls x ≠ ^zw
 End
 
 Theorem add_lists_map_negate_coeff:
@@ -2223,15 +2232,32 @@ Definition check_change_obj_list_def:
 End
 
 Definition mk_vomap_def:
-  mk_vomap (f,c) =
-  list_to_num_set (MAP SND f)
+  mk_vomap n (f,c) =
+  strlit (FOLDL (λacc i. update_resize acc ^zw ^ow i) (REPLICATE n ^zw) (MAP SND f))
 End
 
+Theorem resize_acc_bitset_iff:
+   ∀ls acc.
+   (x <
+   LENGTH
+     (FOLDL (λacc i. update_resize acc ^zw ^ow i) acc ls) ∧
+   EL x (FOLDL (λacc i. update_resize acc ^zw ^ow i) acc ls) ≠ ^zw) ⇔
+   (MEM x ls ∨ x < LENGTH acc ∧ EL x acc ≠ ^zw)
+Proof
+  Induct>>rw[]>>
+  rw[update_resize_def,EL_LUPDATE,EL_APPEND_EQN,EL_REPLICATE]>>
+  EVERY_CASE_TAC>>gvs[]>>
+  Cases_on`x < 2 * h + 1` >>simp[]>>
+  DEP_REWRITE_TAC[EL_REPLICATE]>>
+  simp[]
+QED
+
 Theorem vomap_rel_mk_vomap:
-  vomap_rel (SOME fc) (mk_vomap fc)
+  vomap_rel (SOME fc) (mk_vomap n fc)
 Proof
   Cases_on`fc`>>rw[vomap_rel_def,mk_vomap_def]>>
-  fs[EXTENSION,domain_list_to_num_set]
+  simp[resize_acc_bitset_iff]>>
+  metis_tac[EL_REPLICATE]
 QED
 
 Definition check_cstep_list_def:
@@ -2359,7 +2385,7 @@ Definition check_cstep_list_def:
       NONE => NONE
     | SOME (fml',fc',id') =>
       SOME (
-        fml', inds, vimap, mk_vomap fc',
+        fml', inds, vimap, mk_vomap (strlen vomap) fc',
         pc with <| id:=id'; obj:=SOME fc' |>))
   | CheckObj fc' =>
     if check_eq_obj pc.obj fc'
@@ -2990,8 +3016,8 @@ Proof
 QED
 
 Definition mk_vomap_opt_def:
-  (mk_vomap_opt NONE = LN) ∧
-  (mk_vomap_opt (SOME fc) = mk_vomap fc)
+  (mk_vomap_opt NONE = strlit "") ∧
+  (mk_vomap_opt (SOME fc) = mk_vomap (LENGTH (FST fc)) fc)
 End
 
 Theorem check_csteps_list_concl:
@@ -3024,7 +3050,7 @@ Proof
     unabbrev_all_tac>>
     simp[init_conf_def]>>
     Cases_on`obj`>-
-      simp[vomap_rel_def]>>
+      EVAL_TAC>>
     metis_tac[vomap_rel_mk_vomap,mk_vomap_opt_def])>>
   `∀n. n ≥ pc.id ⇒ any_el n fmlls NONE = NONE` by (
     rw[Abbr`pc`,Abbr`fmlls`,any_el_ALT,init_conf_def]>>
@@ -3145,7 +3171,7 @@ Proof
     unabbrev_all_tac>>
     simp[init_conf_def]>>
     Cases_on`obj`>-
-      simp[vomap_rel_def]>>
+      EVAL_TAC>>
     metis_tac[vomap_rel_mk_vomap,mk_vomap_opt_def])>>
   `∀n. n ≥ pc.id ⇒ any_el n fmlls NONE = NONE` by (
     rw[Abbr`pc`,Abbr`fmlls`,any_el_ALT,init_conf_def]>>

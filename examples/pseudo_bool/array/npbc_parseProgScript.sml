@@ -2928,7 +2928,30 @@ val res = translate init_conf_def;
 val res = translate hconcl_concl_def;
 val res = translate conv_boutput_hconcl_def;
 
-val res = translate npbc_listTheory.mk_vomap_opt_def;
+val mk_vomap_opt_arr = process_topdecs`
+  fun mk_vomap_opt_arr obj =
+  case obj of None => ""
+  | Some fc =>
+    mk_vomap_arr (List.length (fst fc)) fc` |> append_prog;
+
+Theorem mk_vomap_opt_arr_spec:
+  obj_TYPE obj objv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "mk_vomap_opt_arr" (get_ml_prog_state()))
+    [objv]
+    (emp)
+    (POSTv v. &(vomap_TYPE (mk_vomap_opt obj) v))
+Proof
+  rw[]>>
+  xcf "mk_vomap_opt_arr" (get_ml_prog_state ())>>
+  Cases_on`obj`>>fs[OPTION_TYPE_def,npbc_listTheory.mk_vomap_opt_def]>>
+  xmatch
+  >- (
+    xlit>>xsimpl)>>
+  rpt xlet_autop>>
+  xapp>>xsimpl
+QED
 
 val check_unsat' = process_topdecs `
   fun check_unsat' fns fd lno fml obj fmlt objt =
@@ -2938,7 +2961,7 @@ val check_unsat' = process_topdecs `
     val arr = fill_arr arr 1 fml
     val inds = rev_enum_full 1 fml
     val vimap = fold_update_vimap_enum_full 1 fml
-    val vomap = mk_vomap_opt obj
+    val vomap = mk_vomap_opt_arr obj
     val pc = init_conf id True obj
   in
     (case check_unsat'' fns fd lno arr inds vimap vomap pc of
