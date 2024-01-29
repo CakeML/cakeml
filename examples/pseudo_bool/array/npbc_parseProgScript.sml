@@ -2312,15 +2312,15 @@ QED
 (* returns the necessary information to check the
   output and conclusion sections *)
 val check_unsat'' = process_topdecs `
-  fun check_unsat'' fns fd lno fml inds vimap pc =
+  fun check_unsat'' fns fd lno fml inds vimap vomap pc =
     case parse_cstep fns fd lno of
       (Inl s, (fns', lno')) =>
       (lno', (s, (fns',
         (fml, (inds, pc)))))
     | (Inr cstep, (fns', lno')) =>
-      (case check_cstep_arr lno cstep fml inds vimap pc of
-        (fml', (inds', (vimap', pc'))) =>
-        check_unsat'' fns' fd lno' fml' inds' vimap' pc')` |> append_prog
+      (case check_cstep_arr lno cstep fml inds vimap vomap pc of
+        (fml', (inds', (vimap', (vomap', pc')))) =>
+        check_unsat'' fns' fd lno' fml' inds' vimap' vomap' pc')` |> append_prog
 
 Theorem parse_sstep_LENGTH:
   ∀f ss res f' ss'.
@@ -2365,15 +2365,15 @@ QED
   returning the last encountered state *)
 Definition parse_and_run_def:
   parse_and_run fns ss
-    fml inds vimap pc =
+    fml inds vimap vomap pc =
   case parse_cstep fns ss of
     NONE => NONE
   | SOME (INL s, fns', rest) =>
     SOME (rest, s, fns', fml, inds, pc)
   | SOME (INR cstep, fns', rest) =>
-    (case check_cstep_list cstep fml inds vimap pc of
-      SOME (fml', inds', vimap', pc') =>
-        parse_and_run fns' rest fml' inds' vimap' pc'
+    (case check_cstep_list cstep fml inds vimap vomap pc of
+      SOME (fml', inds', vimap', vomap', pc') =>
+        parse_and_run fns' rest fml' inds' vimap' vomap' pc'
     | res => NONE)
 Termination
   WF_REL_TAC `measure (LENGTH o FST o SND)`>>
@@ -2412,19 +2412,20 @@ Proof
 QED
 
 Theorem check_unsat''_spec:
-  ∀fns ss fmlls inds vimap pc
-    fnsv lno lnov fmllsv indsv pcv lines fs fmlv vimapv.
+  ∀fns ss fmlls inds vimap vomap pc
+    fnsv lno lnov fmllsv indsv pcv lines fs fmlv vimapv vomapv.
   fns_TYPE a fns fnsv ∧
   NUM lno lnov ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
   NPBC_CHECK_PROOF_CONF_TYPE pc pcv ∧
   vimap_TYPE vimap vimapv ∧
+  vomap_TYPE vomap vomapv ∧
   MAP toks_fast lines = ss
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
-    [fnsv; fdv; lnov; fmlv; indsv; vimapv; pcv]
+    [fnsv; fdv; lnov; fmlv; indsv; vimapv; vomapv; pcv]
     (STDIO fs * INSTREAM_LINES fd fdv lines fs * ARRAY fmlv fmllsv)
     (POSTve
       (λv.
@@ -2433,7 +2434,7 @@ Theorem check_unsat''_spec:
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
          ARRAY fmlv' fmllsv' *
          &(
-          parse_and_run fns ss fmlls inds vimap pc =
+          parse_and_run fns ss fmlls inds vimap vomap pc =
             SOME (MAP toks_fast lines',res) ∧
             PAIR_TYPE NUM (
             PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (
@@ -2448,7 +2449,7 @@ Theorem check_unsat''_spec:
            ARRAY fmlv' fmllsv' *
            STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧
-            parse_and_run fns ss fmlls inds vimap pc = NONE)))
+            parse_and_run fns ss fmlls inds vimap vomap pc = NONE)))
 Proof
   ho_match_mp_tac (fetch "-" "parse_and_run_ind")>>
   rw[]>>
@@ -2927,6 +2928,8 @@ val res = translate init_conf_def;
 val res = translate hconcl_concl_def;
 val res = translate conv_boutput_hconcl_def;
 
+val res = translate npbc_listTheory.mk_vomap_opt_def;
+
 val check_unsat' = process_topdecs `
   fun check_unsat' fns fd lno fml obj fmlt objt =
   let
@@ -2935,9 +2938,10 @@ val check_unsat' = process_topdecs `
     val arr = fill_arr arr 1 fml
     val inds = rev_enum_full 1 fml
     val vimap = fold_update_vimap_enum_full 1 fml
+    val vomap = mk_vomap_opt obj
     val pc = init_conf id True obj
   in
-    (case check_unsat'' fns fd lno arr inds vimap pc of
+    (case check_unsat'' fns fd lno arr inds vimap vomap pc of
       (lno', (s, (fns',(
         (fml', (inds', pc')))))) =>
     conv_boutput_hconcl
@@ -2950,10 +2954,10 @@ val check_unsat' = process_topdecs `
   end` |> append_prog;
 
 Theorem parse_and_run_check_csteps_list:
-  ∀fns ss fml inds vimap pc rest s fns' fml' inds' pc'.
-  parse_and_run fns ss fml inds vimap pc = SOME (rest, s, fns', (fml', inds', pc')) ⇒
-  ∃csteps vimap'.
-  check_csteps_list csteps fml inds vimap pc = SOME (fml', inds', vimap', pc')
+  ∀fns ss fml inds vimap vomap pc rest s fns' fml' inds' pc'.
+  parse_and_run fns ss fml inds vimap vomap pc = SOME (rest, s, fns', (fml', inds', pc')) ⇒
+  ∃csteps vimap' vomap'.
+  check_csteps_list csteps fml inds vimap vomap pc = SOME (fml', inds', vimap', vomap', pc')
 Proof
   ho_match_mp_tac parse_and_run_ind>>
   rw[]>>
@@ -3047,8 +3051,10 @@ Proof
   xlet_autop>>
 
   qmatch_asmsub_abbrev_tac`vimap_TYPE vimap vimapv`>>
+  qmatch_asmsub_abbrev_tac`vomap_TYPE vomap vomapv`>>
   Cases_on`
     parse_and_run fns (MAP toks_fast lines) fmlls inds vimap
+      vomap
       (init_conf (LENGTH fml + 1)  T obj)`
   >- (
     (* fail to parse and run *)
@@ -3103,7 +3109,7 @@ Proof
          ARRAY fmlv' fmllsv' *
          &(
           parse_and_run fns (MAP toks_fast lines)
-            fmlls inds vimap (init_conf (LENGTH fml + 1)  T obj) =
+            fmlls inds vimap vomap (init_conf (LENGTH fml + 1)  T obj) =
               SOME (MAP toks_fast lines',res) ∧
             PAIR_TYPE NUM (
             PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (

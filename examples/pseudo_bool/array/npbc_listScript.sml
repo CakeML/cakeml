@@ -774,8 +774,32 @@ Definition set_indices_def:
     (inds, sptree$insert n rinds vimap)
 End
 
+(* Fast substitution for obj_constraint if it is *)
+Definition fast_obj_constraint_def:
+  fast_obj_constraint s l vomap =
+  case s of
+    INR v =>
+    if length v = 0 then ([],0)
+    else obj_constraint (subst_fun s) l
+  | INL (n,_) =>
+    case sptree$lookup n vomap of
+      NONE => ([],0)
+    | SOME () => obj_constraint (subst_fun s) l
+End
+
+Definition fast_red_subgoals_def:
+  fast_red_subgoals ord s def obj vomap =
+  let cobj =
+    case obj of NONE => []
+    | SOME l => [[not (fast_obj_constraint s l vomap)]] in
+  let s = subst_fun s in
+  let c0 = subst s def in (**)
+  [not c0]::(MAP (λc. [not c]) (dom_subst s ord)) ++ cobj
+End
+
 Definition check_red_list_def:
-  check_red_list ord obj b tcb fml inds id c s pfs idopt vimap =
+  check_red_list ord obj b tcb fml inds id c s pfs idopt
+    vimap vomap =
   let s = mk_subst s in
   case red_fast s idopt pfs of
     NONE => (
@@ -783,7 +807,7 @@ Definition check_red_list_def:
     let (inds',vimap') = set_indices inds s vimap rinds in
     let nc = not c in
     let fml_not_c = update_resize fml NONE (SOME (nc,b)) id in
-    let rsubs = red_subgoals ord (subst_fun s) c obj in
+    let rsubs = fast_red_subgoals ord s c obj vomap in
     case extract_clauses_list s b fml rsubs pfs [] of
       NONE => NONE
     | SOME cpfs =>
@@ -846,7 +870,7 @@ End
 Definition check_sstep_list_def:
   (check_sstep_list (sstep:sstep) ord obj tcb
     (fml: (npbc # bool) option list) (inds:num list) (id:num)
-    vimap =
+    vimap vomap =
   case sstep of
   | Lstep lstep =>
     (case check_lstep_list lstep F fml 0 id of NONE => NONE
@@ -854,7 +878,7 @@ Definition check_sstep_list_def:
       SOME (opt_update_inds rfml c id' inds vimap))
   | Red c s pfs idopt =>
     case check_red_list ord obj F tcb fml inds id c s pfs
-      idopt vimap of
+      idopt vimap vomap of
       SOME (rfml,rinds,vimap',id') =>
       SOME (
         update_resize rfml NONE (SOME (c,tcb)) id',
@@ -1532,13 +1556,84 @@ Proof
   simp[any_el_ALT]
 QED
 
+Definition vomap_rel_def:
+  vomap_rel obj vomap ⇔
+  case obj of
+    NONE => T
+  | SOME l =>
+    set (MAP SND (FST l)) = domain vomap
+End
+
+Theorem add_lists_map_negate_coeff:
+  ∀ls rs.
+  rs = (MAP (λ(c,l). (-c,l)) ls) ⇒
+  add_lists ls rs = ([],SUM (MAP (λi. Num (ABS (FST i))) ls))
+Proof
+  ho_match_mp_tac npbcTheory.add_lists_ind>>
+  simp[npbcTheory.add_lists_def,npbcTheory.add_terms_def]
+QED
+
+Theorem subst_aux_id:
+  ∀l.
+  EVERY (\v. f v = NONE) (MAP SND l) ⇒
+  subst_aux f l = (l,[],0)
+Proof
+  Induct>-simp[npbcTheory.subst_aux_def]>>
+  Cases>>
+  rw[npbcTheory.subst_aux_def]
+QED
+
+Theorem subst_lhs_id:
+  EVERY (\v. f v = NONE) (MAP SND l) ⇒
+  subst_lhs f l = (l, 0)
+Proof
+  rw[npbcTheory.subst_lhs_def]>>
+  rpt(pairarg_tac>>fs[])>>
+  drule subst_aux_id>>strip_tac>>
+  gvs[EVAL``clean_up []``]>>
+  Cases_on`l`>>
+  gvs[npbcTheory.add_lists_def]
+QED
+
+Theorem vomap_rel_fast_obj_constraint:
+  vomap_rel (SOME l) vomap ⇒
+  fast_obj_constraint s l vomap =
+  obj_constraint (subst_fun s) l
+Proof
+  rw[fast_obj_constraint_def]>>
+  every_case_tac>>
+  Cases_on`l`>>
+  fs[npbcTheory.obj_constraint_def,subst_fun_def]>>
+  rpt (pairarg_tac>>fs[])>>
+  pop_assum mp_tac>>
+  DEP_REWRITE_TAC[add_lists_map_negate_coeff]>>rw[]>>
+  pop_assum mp_tac>>
+  DEP_REWRITE_TAC[subst_lhs_id]>>
+  fs[vomap_rel_def]>>
+  simp[EVERY_MAP,LAMBDA_PROD,subst_fun_def]>>
+  gvs[EVERY_MEM]>>
+  rw[]>>pairarg_tac>>fs[EXTENSION,MEM_MAP,domain_lookup]>>
+  metis_tac[option_CLAUSES,SND,PAIR]
+QED
+
+Theorem vomap_rel_fast_red_subgoals:
+  vomap_rel obj vomap ⇒
+  fast_red_subgoals ord s def obj vomap =
+  red_subgoals ord (subst_fun s) def obj
+Proof
+  rw[fast_red_subgoals_def,red_subgoals_def]>>
+  every_case_tac>>fs[]>>
+  metis_tac[vomap_rel_fast_obj_constraint]
+QED
+
 Theorem fml_rel_check_red_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
   vimap_rel fmlls vimap ∧
+  vomap_rel obj vomap ∧
   (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
   check_red_list ord obj b tcb fmlls inds id c s pfs
-    idopt vimap =
+    idopt vimap vomap =
     SOME (fmlls', inds', vimap', id') ⇒
     check_red ord obj b tcb fml id c s pfs idopt = SOME id' ∧
     fml_rel fml fmlls' ∧
@@ -1551,6 +1646,7 @@ Proof
   fs[check_red_list_def]>>
   gvs[AllCaseEqs()]
   >- (
+    gvs[vomap_rel_fast_red_subgoals]>>
     pairarg_tac>>fs[]>>
     every_case_tac>>gvs[]>>
     simp[check_red_def]>>
@@ -1959,8 +2055,9 @@ Theorem fml_rel_check_sstep_list:
     fml_rel fml fmlls ∧
     ind_rel fmlls inds ∧
     vimap_rel fmlls vimap ∧
+    vomap_rel obj vomap ∧
     (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
-    check_sstep_list sstep ord obj tcb fmlls inds id vimap =
+    check_sstep_list sstep ord obj tcb fmlls inds id vimap vomap =
       SOME (fmlls',inds',vimap',id') ⇒
     ∃fml'.
       check_sstep sstep ord obj tcb fml id = SOME(fml',id') ∧
@@ -2125,8 +2222,20 @@ Definition check_change_obj_list_def:
         else NONE)
 End
 
+Definition mk_vomap_def:
+  mk_vomap (f,c) =
+  list_to_num_set (MAP SND f)
+End
+
+Theorem vomap_rel_mk_vomap:
+  vomap_rel (SOME fc) (mk_vomap fc)
+Proof
+  Cases_on`fc`>>rw[vomap_rel_def,mk_vomap_def]>>
+  fs[EXTENSION,domain_list_to_num_set]
+QED
+
 Definition check_cstep_list_def:
-  check_cstep_list cstep fml inds vimap pc =
+  check_cstep_list cstep fml inds vimap vomap pc =
   case cstep of
     Dom c s pfs idopt =>
     (case pc.ord of
@@ -2152,13 +2261,14 @@ Definition check_cstep_list_def:
               update_resize rfml NONE (SOME (c,pc.tcb)) id',
               sorted_insert id' rinds,
               update_vimap vimap id' (FST c),
+              vomap,
               pc with id := id'+1)
           else NONE)))
   | Sstep sstep =>
     (case check_sstep_list sstep pc.ord pc.obj pc.tcb
-      fml inds pc.id vimap of
+      fml inds pc.id vimap vomap of
       SOME(fml',inds',vimap',id') =>
-        SOME(fml',inds', vimap',pc with id := id')
+        SOME(fml',inds', vimap', vomap, pc with id := id')
     | NONE => NONE)
   | CheckedDelete n s pfs idopt => (
     if check_tcb_idopt pc.tcb idopt then
@@ -2167,9 +2277,9 @@ Definition check_cstep_list_def:
       | SOME c =>
           (let nfml = delete_list n fml in
           case check_red_list pc.ord pc.obj T pc.tcb
-            nfml inds pc.id c s pfs idopt vimap of
+            nfml inds pc.id c s pfs idopt vimap vomap of
             SOME (ncf',inds',vimap',id') =>
-            SOME (ncf', inds', vimap', pc with <| id := id' |>)
+            SOME (ncf', inds', vimap', vomap, pc with <| id := id' |>)
           | NONE => NONE) )
     else NONE)
   | UncheckedDelete ls => (
@@ -2177,25 +2287,25 @@ Definition check_cstep_list_def:
     if ¬pc.tcb ∧ pc.ord = NONE
     then
       SOME (list_delete_list ls fml, inds,
-        vimap, pc with chk := F)
+        vimap, vomap, pc with chk := F)
     else
     case all_core_list fml inds [] of NONE => NONE
     | SOME inds' =>
       SOME (list_delete_list ls fml, inds',
-        vimap, pc with chk := F))
+        vimap, vomap, pc with chk := F))
   | Transfer ls =>
     (case core_from_inds fml ls of NONE => NONE
     | SOME fml' =>
-      SOME (fml', inds, vimap, pc))
+      SOME (fml', inds, vimap, vomap, pc))
   | StrengthenToCore b =>
     (let inds' = reindex fml inds in
     let pc' = pc with tcb := b in
     if b
     then
       (case core_from_inds fml inds' of NONE => NONE
-      | SOME fml' => SOME (fml',inds', vimap, pc'))
+      | SOME fml' => SOME (fml',inds', vimap, vomap, pc'))
     else
-      SOME (fml,inds',vimap,pc'))
+      SOME (fml,inds',vimap, vomap, pc'))
   | LoadOrder nn xs =>
     (let inds' = reindex fml inds in
       case ALOOKUP pc.orders nn of NONE => NONE
@@ -2203,12 +2313,13 @@ Definition check_cstep_list_def:
         if LENGTH xs = LENGTH (FST (SND ord')) then
           case core_from_inds fml inds' of NONE => NONE
           | SOME fml' =>
-          SOME (fml',inds',vimap,pc with ord := SOME (ord',xs))
+          SOME (fml',inds',
+            vimap,vomap,pc with ord := SOME (ord',xs))
         else NONE)
   | UnloadOrder =>
     (case pc.ord of NONE => NONE
     | SOME spo =>
-        SOME (fml,inds, vimap, pc with ord := NONE))
+        SOME (fml,inds, vimap, vomap, pc with ord := NONE))
   | StoreOrder nn spo ws pfsr pfst =>
     if check_good_ord spo ∧ check_ws spo ws
     then
@@ -2216,7 +2327,7 @@ Definition check_cstep_list_def:
       | SOME id =>
         if check_reflexivity spo pfsr id then
           SOME (fml, inds,
-            vimap, pc with orders := (nn,spo)::pc.orders)
+            vimap, vomap, pc with orders := (nn,spo)::pc.orders)
         else NONE
     else
       NONE
@@ -2233,12 +2344,13 @@ Definition check_cstep_list_def:
           update_resize fml NONE (SOME (c,T)) pc.id,
           sorted_insert pc.id inds,
           update_vimap vimap pc.id (FST c),
+          vomap,
           pc with
           <| id := pc.id+1;
              bound := bound';
              dbound := dbound' |>)
       else
-        SOME (fml, inds, vimap,
+        SOME (fml, inds, vimap, vomap,
           pc with
           <| bound := bound';
              dbound := dbound' |>))
@@ -2247,11 +2359,11 @@ Definition check_cstep_list_def:
       NONE => NONE
     | SOME (fml',fc',id') =>
       SOME (
-        fml', inds, vimap,
+        fml', inds, vimap, mk_vomap fc',
         pc with <| id:=id'; obj:=SOME fc' |>))
   | CheckObj fc' =>
     if check_eq_obj pc.obj fc'
-    then SOME (fml, inds, vimap, pc)
+    then SOME (fml, inds, vimap, vomap, pc)
     else NONE
 End
 
@@ -2398,14 +2510,16 @@ Theorem fml_rel_check_cstep_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
   vimap_rel fmlls vimap ∧
+  vomap_rel pc.obj vomap ∧
   (∀n. n ≥ pc.id ⇒ any_el n fmlls NONE = NONE) ∧
-  check_cstep_list cstep fmlls inds vimap pc =
-    SOME (fmlls',inds',vimap',pc') ⇒
+  check_cstep_list cstep fmlls inds vimap vomap pc =
+    SOME (fmlls',inds',vimap',vomap',pc') ⇒
   ∃fml'.
     check_cstep cstep fml pc = SOME (fml', pc') ∧
     fml_rel fml' fmlls' ∧
     ind_rel fmlls' inds' ∧
     vimap_rel fmlls' vimap' ∧
+    vomap_rel pc'.obj vomap' ∧
     (∀n. n ≥ pc'.id ⇒ any_el n fmlls' NONE = NONE) ∧
     pc.id ≤ pc'.id
 Proof
@@ -2611,6 +2725,8 @@ Proof
       metis_tac[ind_rel_reindex])>>
     CONJ_TAC >-
       metis_tac[fml_rel_fml_rel_vimap_rel]>>
+    CONJ_TAC >-
+      metis_tac[vomap_rel_mk_vomap]>>
     simp[any_el_rollback])
   >- ( (* CheckObj *)
     fs[check_cstep_def,check_cstep_list_def]
@@ -2618,28 +2734,31 @@ Proof
 QED
 
 Definition check_csteps_list_def:
-  (check_csteps_list [] fml inds vimap pc =
-    SOME (fml, inds, vimap, pc)) ∧
-  (check_csteps_list (c::cs) fml inds vimap pc =
-    case check_cstep_list c fml inds vimap pc of
+  (check_csteps_list [] fml inds vimap vomap pc =
+    SOME (fml, inds, vimap, vomap, pc)) ∧
+  (check_csteps_list (c::cs) fml inds vimap vomap pc =
+    case check_cstep_list c fml inds vimap vomap pc of
       NONE => NONE
-    | SOME(fml', inds', vimap', pc') =>
-      check_csteps_list cs fml' inds' vimap' pc')
+    | SOME(fml', inds', vimap', vomap', pc') =>
+      check_csteps_list cs fml' inds' vimap' vomap' pc')
 End
 
 Theorem fml_rel_check_csteps_list:
-  ∀csteps fml fmlls inds vimap pc fmlls' inds' vimap' pc'.
+  ∀csteps fml fmlls inds vimap vomap pc
+    fmlls' inds' vimap' vomap' pc'.
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
   vimap_rel fmlls vimap ∧
+  vomap_rel pc.obj vomap ∧
   (∀n. n ≥ pc.id ⇒ any_el n fmlls NONE = NONE) ∧
-  check_csteps_list csteps fmlls inds vimap pc =
-    SOME (fmlls', inds', vimap', pc') ⇒
+  check_csteps_list csteps fmlls inds vimap vomap pc =
+    SOME (fmlls', inds', vimap', vomap', pc') ⇒
   ∃fml'.
     check_csteps csteps fml pc = SOME (fml', pc') ∧
     fml_rel fml' fmlls' ∧
     ind_rel fmlls' inds' ∧
     vimap_rel fmlls' vimap' ∧
+    vomap_rel pc'.obj vomap' ∧
     (∀n. n ≥ pc'.id ⇒ any_el n fmlls' NONE = NONE) ∧
     pc.id ≤ pc'.id
 Proof
@@ -2870,21 +2989,27 @@ Proof
   fs[MAP_FST_enumerate,MEM_GENLIST]
 QED
 
+Definition mk_vomap_opt_def:
+  (mk_vomap_opt NONE = LN) ∧
+  (mk_vomap_opt (SOME fc) = mk_vomap fc)
+End
+
 Theorem check_csteps_list_concl:
   check_csteps_list cs
     (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,T)) i)
       (REPLICATE m NONE) (enumerate 1 fml))
     (REVERSE (MAP FST (enumerate 1 fml)))
     (FOLDL (λacc (i,v). update_vimap acc i (FST v)) LN (enumerate 1 fml))
+    (mk_vomap_opt obj)
     (init_conf (LENGTH fml + 1) chk obj) =
-    SOME(fmlls',inds',vimap',pc') ∧
+    SOME(fmlls',inds',vimap',vomap',pc') ∧
   check_hconcl_list fml obj fmlls'
     pc'.obj pc'.bound pc'.dbound hconcl ⇒
   sem_concl (set fml) obj (hconcl_concl hconcl)
 Proof
   rw[]>>
   qmatch_asmsub_abbrev_tac`check_csteps_list cs fmlls inds
-    vimap pc = _`>>
+    vimap vomap pc = _`>>
   `fml_rel (build_fml T 1 fml) fmlls` by
     simp[Abbr`fmlls`,fml_rel_FOLDL_update_resize]>>
   `ind_rel fmlls inds` by (
@@ -2895,6 +3020,12 @@ Proof
   `vimap_rel fmlls vimap` by (
     unabbrev_all_tac>>
     simp[vimap_rel_FOLDL_update_resize])>>
+  `vomap_rel pc.obj vomap` by (
+    unabbrev_all_tac>>
+    simp[init_conf_def]>>
+    Cases_on`obj`>-
+      simp[vomap_rel_def]>>
+    metis_tac[vomap_rel_mk_vomap,mk_vomap_opt_def])>>
   `∀n. n ≥ pc.id ⇒ any_el n fmlls NONE = NONE` by (
     rw[Abbr`pc`,Abbr`fmlls`,any_el_ALT,init_conf_def]>>
     DEP_REWRITE_TAC [FOLDL_update_resize_lookup]>>
@@ -2991,14 +3122,15 @@ Theorem check_csteps_list_output:
       (REPLICATE m NONE) (enumerate 1 fml))
     (REVERSE (MAP FST (enumerate 1 fml)))
     (FOLDL (λacc (i,v). update_vimap acc i (FST v)) LN (enumerate 1 fml))
+    (mk_vomap_opt obj)
     (init_conf (LENGTH fml + 1) chk obj) =
-    SOME(fmlls',inds',vimap',pc') ∧
+    SOME(fmlls',inds',vimap',vomap',pc') ∧
   check_output_list fmlls' inds'
     pc'.obj pc'.bound pc'.dbound pc'.chk fmlt objt output ⇒
   sem_output (set fml) obj pc'.bound (set fmlt) objt output
 Proof
   rw[]>>
-  qmatch_asmsub_abbrev_tac`check_csteps_list cs fmlls inds vimap pc = _`>>
+  qmatch_asmsub_abbrev_tac`check_csteps_list cs fmlls inds vimap vomap pc = _`>>
   `fml_rel (build_fml T 1 fml) fmlls` by
     simp[Abbr`fmlls`,fml_rel_FOLDL_update_resize]>>
   `ind_rel fmlls inds` by (
@@ -3009,6 +3141,12 @@ Proof
   `vimap_rel fmlls vimap` by (
     unabbrev_all_tac>>
     simp[vimap_rel_FOLDL_update_resize])>>
+  `vomap_rel pc.obj vomap` by (
+    unabbrev_all_tac>>
+    simp[init_conf_def]>>
+    Cases_on`obj`>-
+      simp[vomap_rel_def]>>
+    metis_tac[vomap_rel_mk_vomap,mk_vomap_opt_def])>>
   `∀n. n ≥ pc.id ⇒ any_el n fmlls NONE = NONE` by (
     rw[Abbr`pc`,Abbr`fmlls`,any_el_ALT,init_conf_def]>>
     DEP_REWRITE_TAC [FOLDL_update_resize_lookup]>>
