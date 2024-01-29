@@ -120,8 +120,15 @@ val windows_ffi_code =
 
 val expose_func_def = Define `
   expose_func appl (name,label,start,len) =
-    misc$Append appl (misc$List
-    [name ^ «:\n     /* I lead to » ^ label ^ «! */\n»])`;
+    SmartAppend appl (List
+    [strlit"\n    .globl cdecl("; name; strlit")\n";
+     strlit"#ifndef __APPLE__\n";
+     strlit"     .type   "; name; strlit", function\n";
+     strlit"#endif\n";
+     strlit"cdecl("; name; strlit"):\n";
+     strlit"     /* mystery init code here */\n";
+     strlit"     jmp cdecl("; label; strlit")\n";
+    ])`;
 
 val expose_funcs_def = Define `
   expose_funcs lsyms exp =
