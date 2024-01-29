@@ -6,34 +6,34 @@
 open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
      TextIOProofTheory
-     npbc_fullProgTheory
-     npbc_fullCompileTheory;
+     wcnfProgTheory
+     wcnfCompileTheory;
 
-val _ = new_theory"npbc_fullProof";
+val _ = new_theory"wcnfProof";
 
-val cake_pb_io_events_def = new_specification("cake_pb_io_events_def",["cake_pb_io_events"],
+val cake_pb_wcnf_io_events_def = new_specification("cake_pb_wcnf_io_events_def",["cake_pb_wcnf_io_events"],
   main_semantics |> Q.GENL[`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
-val (cake_pb_sem,cake_pb_output) = cake_pb_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
-val (cake_pb_not_fail,cake_pb_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_pb_sem |> CONJ_PAIR
+val (cake_pb_wcnf_sem,cake_pb_wcnf_output) = cake_pb_wcnf_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
+val (cake_pb_wcnf_not_fail,cake_pb_wcnf_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_pb_wcnf_sem |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct npbc_full_compiled
+  MATCH_MP compile_correct wcnf_compiled
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
-  |> C MATCH_MP cake_pb_not_fail
+  |> C MATCH_MP cake_pb_wcnf_not_fail
   |> C MATCH_MP x64_backend_config_ok
-  |> REWRITE_RULE[cake_pb_sem_sing,AND_IMP_INTRO]
+  |> REWRITE_RULE[cake_pb_wcnf_sem_sing,AND_IMP_INTRO]
   |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
   |> C MATCH_MP (CONJ(UNDISCH x64_machine_config_ok)(UNDISCH x64_init_ok))
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val cake_pb_compiled_thm =
-  CONJ compile_correct_applied cake_pb_output
+val cake_pb_wcnf_compiled_thm =
+  CONJ compile_correct_applied cake_pb_wcnf_output
   |> DISCH_ALL
   (* |> check_thm *)
-  |> curry save_thm "cake_pb_compiled_thm";
+  |> curry save_thm "cake_pb_wcnf_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
 val installed_x64_def = Define `
@@ -50,52 +50,54 @@ val installed_x64_def = Define `
         (heap_regs x64_backend_config.stack_conf.reg_names) mc ms
     `;
 
-val cake_pb_code_def = Define `
-  cake_pb_code = (code, data, config)
+val cake_pb_wcnf_code_def = Define `
+  cake_pb_wcnf_code = (code, data, config)
   `;
 
-(* A standard run of cake_pb
+(* A standard run of cake_pb_wcnf
   satisfying all the default assumptions *)
-val cake_pb_run_def = Define`
-  cake_pb_run cl fs mc ms ⇔
+val cake_pb_wcnf_run_def = Define`
+  cake_pb_wcnf_run cl fs mc ms ⇔
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  installed_x64 cake_pb_code mc ms`
+  installed_x64 cake_pb_wcnf_code mc ms`
 
 Theorem machine_code_sound:
-  cake_pb_run cl fs mc ms ⇒
+  cake_pb_wcnf_run cl fs mc ms ⇒
   machine_sem mc (basis_ffi cl fs) ms ⊆
     extend_with_resource_limit
-      {Terminate Success (cake_pb_io_events cl fs)} ∧
+      {Terminate Success (cake_pb_wcnf_io_events cl fs)} ∧
   ∃out err.
-    extract_fs fs (cake_pb_io_events cl fs) =
+    extract_fs fs (cake_pb_wcnf_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
     (out ≠ strlit"" ⇒
-      inFS_fname fs (EL 1 cl) ∧
       (
         (LENGTH cl = 2 ∧
-        ∃objf.
-          parse_pbf (all_lines fs (EL 1 cl)) = SOME objf ∧
-          out = concat (print_pbf objf)) ∨
+        ∃wfml.
+          inFS_fname fs (EL 1 cl) ∧
+          get_fml fs (EL 1 cl) = SOME wfml ∧
+          out = concat (print_pbf (full_encode wfml))) ∨
         (LENGTH cl = 3 ∧
-        ∃obj fml concl.
-          parse_pbf (all_lines fs (EL 1 cl)) = SOME (obj, fml) ∧
-          out = concl_to_string concl ∧
-          pbc$sem_concl (set fml) obj concl) ∨
+        ∃wfml bounds.
+          inFS_fname fs (EL 1 cl) ∧
+          get_fml fs (EL 1 cl) = SOME wfml ∧
+          out = print_maxsat_str bounds ∧
+          maxsat_sem wfml bounds) ∨
         (LENGTH cl = 4 ∧
-        ∃obj fml objt fmlt output bound concl.
-          parse_pbf (all_lines fs (EL 1 cl)) = SOME (obj, fml) ∧
-          parse_pbf (all_lines fs (EL 3 cl)) = SOME (objt, fmlt) ∧
-          out =
-            (concl_to_string concl ^
-            output_to_string bound output) ∧
-          pbc$sem_concl (set fml) obj concl ∧
-          pbc$sem_output (set fml) obj bound (set fmlt) objt output)
+        ∃wfml wfmlt bounds iseqopt.
+          inFS_fname fs (EL 1 cl) ∧
+          inFS_fname fs (EL 3 cl) ∧
+          get_fml fs (EL 1 cl) = SOME wfml ∧
+          get_fml fs (EL 3 cl) = SOME wfmlt ∧
+          out = print_maxsat_str bounds ^
+          print_maxsat_output_str iseqopt ∧
+          maxsat_sem wfml bounds ∧
+          maxsat_output_sem wfml wfmlt iseqopt)
       )
     )
 Proof
   strip_tac>>
-  fs[installed_x64_def,cake_pb_code_def,cake_pb_run_def]>>
-  drule cake_pb_compiled_thm>>
+  fs[installed_x64_def,cake_pb_wcnf_code_def,cake_pb_wcnf_run_def]>>
+  drule cake_pb_wcnf_compiled_thm>>
   simp[AND_IMP_INTRO]>>
   disch_then drule>>
   disch_then (qspecl_then [`ms`,`mc`,`data_sp`,`cbspace`] mp_tac)>>
