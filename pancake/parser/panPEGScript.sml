@@ -270,16 +270,16 @@ Definition pancake_peg_def[nocompute]:
                                   keep_tok AsrT; keep_tok RorT]);
         (INL AddOpsNT, choicel [keep_tok PlusT; keep_tok MinusT]);
         (INL MulOpsNT, keep_tok StarT);
-        (INL SharedLoadNT,seql [consume_kw SharedLdwK; keep_ident;
+        (INL SharedLoadNT,seql [consume_tok NotT; consume_kw LdwK; keep_ident;
                                 consume_tok CommaT; mknt ExpNT]
                                (mksubtree SharedLoadNT));
-        (INL SharedLoadByteNT,seql [consume_kw SharedLdbK; keep_ident;
+        (INL SharedLoadByteNT,seql [consume_tok NotT; consume_kw LdbK; keep_ident;
                                     consume_tok CommaT; mknt ExpNT]
                                    (mksubtree SharedLoadByteNT));
-        (INL SharedStoreNT,seql [consume_kw SharedStoreK; keep_ident;
+        (INL SharedStoreNT,seql [consume_tok NotT; consume_kw StoreK; keep_ident;
                                  consume_tok CommaT; mknt ExpNT]
                                 (mksubtree SharedStoreNT));
-        (INL SharedStoreByteNT,seql [consume_kw SharedStoreBK; keep_ident;
+        (INL SharedStoreByteNT,seql [consume_tok NotT; consume_kw StoreBK; keep_ident;
                                      consume_tok CommaT; mknt ExpNT]
                                     (mksubtree SharedStoreByteNT));
         ]
