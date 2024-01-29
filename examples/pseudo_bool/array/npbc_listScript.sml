@@ -1430,6 +1430,66 @@ Proof
   every_case_tac>>fs[]
 QED
 *)
+Theorem subst_opt_aux_MEM:
+  ∀c old new k.
+  subst_opt_aux f c = (old,new,k,F) ⇒
+  ∃x. MEM x (MAP SND c) ∧ IS_SOME (f x)
+Proof
+  Induct>> simp[npbcTheory.subst_opt_aux_def]>>
+  Cases>>
+  rw[npbcTheory.subst_opt_aux_def]>>
+  rpt (pairarg_tac>>fs[])>>gvs[]>>
+  every_case_tac>>gvs[]>>
+  metis_tac[IS_SOME_EXISTS]
+QED
+
+Theorem IS_SOME_subst_opt:
+  IS_SOME (subst_opt f c) ⇒
+  ∃x. MEM x (MAP SND (FST c)) ∧ IS_SOME (f x)
+Proof
+  Cases_on`c`>>rw[npbcTheory.subst_opt_eq]>>
+  rpt (pairarg_tac>>fs[])>>
+  every_case_tac>>gvs[]>>
+  metis_tac[subst_opt_aux_MEM]
+QED
+
+Theorem mk_subst_cases:
+  mk_subst s =
+  case s of
+    [(n,v)] => INL (n,v)
+  | _ => INR (spt_to_vec (fromAList s))
+Proof
+  every_case_tac>>fs[mk_subst_def]
+QED
+
+Theorem MEM_get_indices_mk_subst:
+  vimap_rel fmlls vimap ∧
+  ind_rel fmlls inds ∧
+  any_el i fmlls NONE = SOME (c,b) ∧
+  IS_SOME (subst_opt (subst_fun (mk_subst s)) c)
+  ⇒
+  MEM i (get_indices fmlls inds (mk_subst s) vimap)
+Proof
+  rw[get_indices_def]>>
+  TOP_CASE_TAC>>rw[]
+  >- (
+    drule IS_SOME_subst_opt>>simp[subst_fun_def]>>
+    gvs[vimap_rel_def,any_el_ALT]>>rw[]>>
+    first_x_assum drule>>
+    disch_then drule>>
+    simp[]>>
+    disch_then drule>>
+    rw[]>>gvs[IS_SOME_EXISTS,AllCaseEqs()]>>
+    gvs[reindex_characterize,MEM_FILTER]>>
+    gvs[IS_SOME_EXISTS,any_el_ALT])
+  >- (
+    drule IS_SOME_subst_opt>>
+    gvs[mk_subst_cases]>>every_case_tac>>
+    gvs[EVAL``length (spt_to_vec LN)``,subst_fun_def])
+  >- (
+    gvs[reindex_characterize,MEM_FILTER]>>
+    gvs[ind_rel_def])
+QED
 
 Theorem fml_rel_fml_rel_vimap_rel:
   fml_rel fml fmlls ∧
@@ -1529,21 +1589,18 @@ Proof
         rw[]>>eq_tac>>rw[]
         >- (
           fs[MEM_toAList,lookup_map_opt,AllCaseEqs()]>>
-          (* Prove that every goal is covered,
-              use the fact that subst_opt ... = SOME
-            and earliest_rel *)
-          cheat
-          (*match_mp_tac (GEN_ALL MEM_subst_indexes)>>
+          match_mp_tac (GEN_ALL MEM_subst_indexes)>>
           gvs[lookup_mk_core_fml]>>
-          first_x_assum (irule_at Any)>>
+          first_assum (irule_at Any)>>
           `∃b'.
             lookup p_1 fml = SOME (x',b') ∧
             (b ⇒ b')` by (
             gvs[lookup_core_only_def,AllCaseEqs()])>>
           CONJ_TAC>- (
-            drule FST_reindex_characterize>>
-            simp[MEM_FILTER]>>
-            fs[fml_rel_def,ind_rel_def])>>
+            match_mp_tac (GEN_ALL MEM_get_indices_mk_subst)>>
+            gvs[IS_SOME_EXISTS]>>
+            first_x_assum (irule_at Any)>>
+            metis_tac[fml_rel_def])>>
           simp[rollback_def,lookup_core_only_list_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
           rw[]
           >- (
@@ -1562,7 +1619,7 @@ Proof
             drule (GSYM fml_rel_lookup_core_only)>>
             strip_tac>>fs[]>>
             gvs[lookup_core_only_list_def,AllCaseEqs()]>>
-            metis_tac[])*))>>
+            metis_tac[]))>>
         drule subst_indexes_MEM>>
         rw[MEM_toAList,lookup_map_opt]>>
         gvs[reindex_characterize]>>
