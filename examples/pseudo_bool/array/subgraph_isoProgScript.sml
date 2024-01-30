@@ -96,7 +96,7 @@ End
 (* Turn result into string *)
 Definition res_to_string_def:
   (res_to_string (INL s) = INL s) ∧
-  (res_to_string (INR h) =
+  (res_to_string (INR (out,bnd,h)) =
     case h of
       DUnsat => INR UNSAT_string
     | DSat => INR SAT_string
@@ -105,15 +105,25 @@ End
 
 val res = translate (res_to_string_def |> SIMP_RULE std_ss [UNSAT_string_def,SAT_string_def]);
 
+Definition mk_objf_def:
+  mk_objf fml =
+  (NONE, fml):((int # mlstring lit) list # int) option #
+    (pbop # (int # mlstring lit) list # int) list
+End
+
+val res = translate mk_objf_def;
+
 val check_unsat_3 = (append_prog o process_topdecs) `
   fun check_unsat_3 f1 f2 f3 =
   case parse_and_enc f1 f2 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr fml =>
+    let val objft = default_objf in
     (case
-        res_to_string (check_unsat_top_norm (None,fml) f3) of
+      res_to_string (check_unsat_top_norm (mk_objf fml) objft f3) of
       Inl err => TextIO.output TextIO.stdErr err
-    | Inr s => TextIO.print s)`
+    | Inr s => TextIO.print s)
+    end`
 
 Theorem check_unsat_3_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -155,27 +165,25 @@ Proof
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   xmatch>>
+  assume_tac npbc_parseProgTheory.default_objf_v_thm>>
+  xlet`POSTv v.
+    STDIO fs *
+    &(PAIR_TYPE
+      (OPTION_TYPE (PAIR_TYPE
+        (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
+      INT))
+      (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
+      ) default_objf v`
+  >-
+    (xvar>>xsimpl)>>
   rpt xlet_autop>>
-  xlet`(POSTv v.
-     STDIO fs *
-     SEP_EXISTS res.
-     &(
-        SUM_TYPE STRING_TYPE PBC_CONCL_TYPE res v ∧
-        case res of
-          INR concl =>
-            sem_concl (set y) NONE concl
-        | INL l => T))`
+  xlet_auto
   >- (
-    xapp>>xsimpl>>
-    fs[validArg_def]>>
-    asm_exists_tac>>simp[]>>
-    qexists_tac`emp`>>simp[]>>
-    qexists_tac`(NONE,y)`>>
-    simp[PAIR_TYPE_def,OPTION_TYPE_def]>>
-    qexists_tac`f3`>>fs[FILENAME_def]>>
     xsimpl>>
+    fs[validArg_def]>>
     metis_tac[])>>
   xlet_autop>>
+  fs[mk_objf_def]>>
   every_case_tac>>gvs[SUM_TYPE_def]
   >- (
     fs[res_to_string_def,SUM_TYPE_def]>>

@@ -953,8 +953,8 @@ Theorem Eval_Num:
    Eval env x1 (INT i) ==> PRECONDITION (0 <= i) ==>
    Eval env x1 (NUM (Num i))
 Proof
-  SIMP_TAC std_ss [NUM_def,PRECONDITION_def] \\ rw []
-  \\ `&Num i = i` by intLib.COOPER_TAC \\ fs []
+  SIMP_TAC std_ss [NUM_def,PRECONDITION_def] \\ rw[]
+  \\ `&Num i = i` by intLib.COOPER_TAC \\ simp[]
 QED
 
 local

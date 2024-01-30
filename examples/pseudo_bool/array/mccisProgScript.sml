@@ -133,7 +133,7 @@ End
 
 Definition map_concl_to_string_def:
   (map_concl_to_string n (INL s) = (INL s)) ∧
-  (map_concl_to_string n (INR c) =
+  (map_concl_to_string n (INR (out,bnd,c)) =
     case conv_concl n c of
       SOME bounds => INR (print_mccis_str bounds)
     | NONE => INL (strlit "c Unexpected conclusion for MCIS problem.\n"))
@@ -157,11 +157,13 @@ val check_unsat_3 = (append_prog o process_topdecs) `
   case parse_and_enc f1 f2 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (n,objf) =>
-    (case
-      map_concl_to_string n
-        (check_unsat_top_norm objf f3) of
-      Inl err => TextIO.output TextIO.stdErr err
-    | Inr s => TextIO.print s)`
+    let val objft = default_objf in
+      (case
+        map_concl_to_string n
+          (check_unsat_top_norm objf objft f3) of
+        Inl err => TextIO.output TextIO.stdErr err
+      | Inr s => TextIO.print s)
+    end`
 
 Theorem check_unsat_3_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -204,6 +206,17 @@ Proof
     xsimpl)>>
   Cases_on`y`>>fs[PAIR_TYPE_def]>>
   xmatch>>
+  assume_tac npbc_parseProgTheory.default_objf_v_thm>>
+  xlet`POSTv v.
+    STDIO fs *
+    &(PAIR_TYPE
+      (OPTION_TYPE (PAIR_TYPE
+        (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
+      INT))
+      (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
+      ) default_objf v`
+  >-
+    (xvar>>xsimpl)>>
   xlet_auto
   >- (
     xsimpl>>

@@ -553,4 +553,141 @@ Proof
     metis_tac[satisfies_map_pbf])
 QED
 
+(* Output section for a pseudoboolean formula *)
+Datatype:
+  output =
+  | NoOutput
+  | Derivable
+  | Equisatisfiable
+  | Equioptimal
+End
+
+(* Semantics of an output section wrt a derived bound *)
+Definition sem_output_def:
+  (sem_output pbf obj bound pbf' obj' NoOutput = T) ∧
+  (sem_output pbf obj bound pbf' obj' Derivable =
+    (satisfiable pbf ⇒ satisfiable pbf')) ∧
+  (sem_output pbf obj bound pbf' obj' Equisatisfiable =
+    (satisfiable pbf ⇔ satisfiable pbf')) ∧
+  (sem_output pbf obj bound pbf' obj' Equioptimal =
+    ∀v.
+    (case bound of NONE => T | SOME b => v < b) ⇒
+    (
+      (∃w. satisfies w pbf ∧ eval_obj obj w ≤ v) ⇔
+      (∃w'. satisfies w' pbf' ∧ eval_obj obj' w' ≤ v)
+    )
+  )
+End
+
+Theorem output_INJ_iff:
+  INJ f (pbf_vars pbf ∪ obj_vars obj) UNIV ∧
+  INJ g (pbf_vars pbf' ∪ obj_vars obj') UNIV
+  ⇒
+  sem_output pbf obj bound pbf' obj' output =
+  sem_output
+    (IMAGE (map_pbc f) pbf) (map_obj f obj)
+    bound
+    (IMAGE (map_pbc g) pbf') (map_obj g obj')
+    output
+Proof
+  Cases_on`output`>>rw[sem_output_def]
+  >- (
+    rw[]>>
+    DEP_REWRITE_TAC [satisfiable_INJ_iff]>>
+    rw[]>>
+    match_mp_tac INJ_SUBSET>>
+    asm_exists_tac>>simp[])
+  >- (
+    rw[]>>
+    DEP_REWRITE_TAC [satisfiable_INJ_iff]>>
+    rw[]>>
+    match_mp_tac INJ_SUBSET>>
+    asm_exists_tac>>simp[])
+  >- (
+    simp[eval_obj_map_obj]>>
+    ho_match_mp_tac (METIS_PROVE []
+    ``(∀v. P v ⇒ (X v ⇔ Y v)) ⇒
+      ((∀v. P v ⇒ X v) ⇔ (∀v. P v ⇒ Y v))``)>>
+    rw[EQ_IMP_THM]>>
+    fs[PULL_EXISTS]
+    >- (
+      (* Undo mapping g in concl *)
+      (irule_at Any) satisfies_INJ>>
+      first_assum (irule_at Any)>>
+      simp[]>>
+      (* Undo mapping f in assms *)
+      drule satisfies_map_pbf>> strip_tac>>
+      (* implies *)
+      first_x_assum drule_all>>rw[]>>
+      (* Solve *)
+      first_x_assum (irule_at Any)>>
+      pop_assum mp_tac>>
+      qmatch_goalsub_abbrev_tac`A ≤ _ ⇒ B ≤ _`>>
+      qsuff_tac`A=B`
+      >-
+        rw[]>>
+      unabbrev_all_tac>>
+      match_mp_tac eval_obj_cong>>rw[]>>
+      DEP_REWRITE_TAC[LINV_DEF]>>
+      fs[]>>metis_tac[])
+    >- (
+      (* Undo mapping f in concl *)
+      (irule_at Any) satisfies_INJ>>
+      first_assum (irule_at Any)>>
+      simp[]>>
+      (* Undo mapping g in assms *)
+      drule satisfies_map_pbf>> strip_tac>>
+      (* implies *)
+      first_x_assum drule_all>>rw[]>>
+      (* Solve *)
+      first_x_assum (irule_at Any)>>
+      pop_assum mp_tac>>
+      qmatch_goalsub_abbrev_tac`A ≤ _ ⇒ B ≤ _`>>
+      qsuff_tac`A=B`
+      >-
+        rw[]>>
+      unabbrev_all_tac>>
+      match_mp_tac eval_obj_cong>>rw[]>>
+      DEP_REWRITE_TAC[LINV_DEF]>>
+      fs[]>>metis_tac[])
+    >- (
+      (* map f in assums *)
+      (drule_at Any) satisfies_INJ>>
+      disch_then drule>>simp[]>>
+      strip_tac>>
+      (* implies *)
+      first_x_assum drule>>
+      impl_tac>- (
+        qpat_x_assum`_ ≤ v` mp_tac>>
+        qmatch_goalsub_abbrev_tac`A ≤ _ ⇒ B ≤ _`>>
+        qsuff_tac`A=B`
+        >-
+          rw[]>>
+        unabbrev_all_tac>>
+        match_mp_tac eval_obj_cong>>rw[]>>
+        DEP_REWRITE_TAC[LINV_DEF]>>
+        fs[]>>metis_tac[])>>
+      rw[]>>
+      metis_tac[satisfies_map_pbf])
+    >- (
+      (* map g in assums *)
+      (drule_at Any) (INST_TYPE [beta |-> delta] satisfies_INJ)>>
+      disch_then drule>>simp[]>>
+      strip_tac>>
+      (* implies *)
+      first_x_assum drule>>
+      impl_tac>- (
+        qpat_x_assum`_ ≤ v` mp_tac>>
+        qmatch_goalsub_abbrev_tac`A ≤ _ ⇒ B ≤ _`>>
+        qsuff_tac`A=B`
+        >-
+          rw[]>>
+        unabbrev_all_tac>>
+        match_mp_tac eval_obj_cong>>rw[]>>
+        DEP_REWRITE_TAC[LINV_DEF]>>
+        fs[]>>metis_tac[])>>
+      rw[]>>
+      metis_tac[satisfies_map_pbf]))
+QED
+
 val _ = export_theory();

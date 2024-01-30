@@ -356,6 +356,18 @@ Definition parse_red_header_def:
   | _ => NONE
 End
 
+(* TODO: formatting
+  rup constraint ; ID1 ID2 ...
+*)
+Definition parse_rup_def:
+  parse_rup f_ns line =
+  case parse_constraint_npbc f_ns line of
+    SOME (constr,rest,f_ns') =>
+      (case strip_numbers rest [] of NONE => NONE
+      | SOME ns => SOME(constr,ns,f_ns'))
+  | _ => NONE
+End
+
 (* Parse a single line of an lstep,
   Except "Red", which will be handled later *)
 Definition parse_lstep_aux_def:
@@ -368,6 +380,9 @@ Definition parse_lstep_aux_def:
       else if r = INL (strlit "pol") then
         (case parse_cutting f_ns rs [] of NONE => NONE
         | SOME (p,f_ns') => SOME (INL (Cutting p),f_ns'))
+      else if r = INL (strlit "rup") then
+        (case parse_rup f_ns rs of NONE => NONE
+        | SOME (c,ns,f_ns') => SOME (INL (Rup c ns),f_ns'))
       else if r = INL (strlit "red") then
         case parse_red_header f_ns rs of NONE => NONE
         | SOME (c,s,f_ns') =>
@@ -864,7 +879,7 @@ Datatype:
   | Dompar npbc subst
   | StoreOrderpar mlstring
   | CheckedDeletepar num subst
-  | ChangeObjpar ((int # num) list # int)
+  | ChangeObjpar bool ((int # num) list # int)
 End
 
 Definition parse_load_order_def:
@@ -910,6 +925,16 @@ Definition parse_assg_def:
   (parse_assg f_ns _ acc = NONE)
 End
 
+Definition parse_obj_term_npbc_def:
+  parse_obj_term_npbc f_ns rest =
+  case parse_obj_term rest of NONE => NONE
+  | SOME (f,c) =>
+    (case map_f_ns f_ns f of NONE => NONE
+     | SOME (f',f_ns') =>
+      case normalise_obj (SOME (f',c)) of NONE => NONE
+      | SOME fc' => SOME (fc', f_ns'))
+End
+
 Definition strip_obju_end_def:
   (strip_obju_end [] acc = NONE) ∧
   (strip_obju_end [x] acc =
@@ -921,16 +946,17 @@ Definition strip_obju_end_def:
     strip_obju_end xs (x::acc))
 End
 
-Definition parse_obj_term_npbc_def:
-  parse_obj_term_npbc f_ns rest =
-  case strip_obju_end rest [] of NONE => NONE
-  | SOME rest =>
-  case parse_obj_term rest of NONE => NONE
-  | SOME (f,c) =>
-    (case map_f_ns f_ns f of NONE => NONE
-     | SOME (f',f_ns') =>
-      case pbc_to_npbc (GreaterEqual,f',0) of
-        (f'',n) => SOME ((f'',c-&n),f_ns'))
+(* objective update *)
+Definition parse_b_obj_term_npbc_def:
+  (parse_b_obj_term_npbc f_ns rest =
+   case strip_obju_end rest [] of NONE => NONE
+  | SOME [] => NONE
+  | SOME (r::rs) =>
+  case parse_obj_term_npbc f_ns rs of NONE => NONE
+  | SOME res =>
+    if r = INL (strlit "new") then SOME (T,res)
+    else if r = INL (strlit"diff") then SOME (F,res)
+    else NONE)
 End
 
 Definition parse_strengthen_def:
@@ -940,6 +966,7 @@ Definition parse_strengthen_def:
     else NONE) ∧
   (parse_strengthen f_ns _ = NONE)
 End
+
 
 (* Parse the first line of a cstep, sstep supported differently *)
 Definition parse_cstep_head_def:
@@ -974,9 +1001,12 @@ Definition parse_cstep_head_def:
         let b = (r = INL( strlit "soli")) in
           SOME (Done (Obj assg b ov),f_ns')
     else if r = INL (strlit"obju") then
-      case parse_obj_term_npbc f_ns rs of NONE => NONE
-      | SOME (f',f_ns') =>
-      SOME (ChangeObjpar f', f_ns')
+      (case parse_b_obj_term_npbc f_ns rs of NONE => NONE
+      | SOME (b,f',f_ns') =>
+        SOME (ChangeObjpar b f', f_ns'))
+    else if r = INL (strlit "eobj") then
+      (case parse_obj_term_npbc f_ns rs of NONE => NONE
+      | SOME (f',f_ns') => SOME (Done (CheckObj f'), f_ns'))
     else if r = INL (strlit "pre_order") then
       case rs of [INL n] => SOME (StoreOrderpar n, f_ns)
       | _ => NONE
@@ -1007,12 +1037,12 @@ Definition parse_cstep_def:
         (case parse_pre_order rest of NONE => NONE
         | SOME (spo,ws,pfr,pft,rest) =>
           SOME (INR (StoreOrder name spo ws pfr pft), f_ns'',rest))
-      | SOME (ChangeObjpar f, f_ns'') =>
+      | SOME (ChangeObjpar b f, f_ns'') =>
         (case parse_red_aux f_ns'' rest [] of
           NONE => NONE
         | SOME (res,pf,f_ns'',rest) =>
           case res of NONE =>
-            SOME (INR (ChangeObj f pf), f_ns'', rest)
+            SOME (INR (ChangeObj b f pf), f_ns'', rest)
           | _ => NONE
         )
     )
@@ -1097,6 +1127,25 @@ Definition parse_concl_def:
       | SOME (lb,ub,n,a) => SOME (HOBounds lb ub n a)
     else NONE
   else NONE
+  | _ => NONE
+End
+
+(* Parse a PBC output line *)
+Definition parse_output_def:
+  parse_output s =
+  case s of
+    [x;y] =>
+    if x = INL(strlit"output") ∧ y = INL (strlit "NONE")
+    then SOME NoOutput
+    else NONE
+  | [x;y;z] =>
+    if x = INL(strlit"output") ∧ z = INL (strlit "FILE")
+    then (
+      if y = INL(strlit"DERIVABLE") then SOME Derivable
+      else if y = INL(strlit"EQUISATISFIABLE") then SOME Equisatisfiable
+      else if y = INL(strlit"EQUIOPTIMAL") then SOME Equioptimal
+      else NONE)
+    else NONE
   | _ => NONE
 End
 
