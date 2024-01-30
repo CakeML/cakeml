@@ -153,7 +153,7 @@ val interference_implemented_def = Define`
       (ms = FUNPOW mc.target.next k0 ms0) ∧
       (∀x. x ∉ md ∧ x ∉ mc.prog_addresses ⇒ (mc.target.get_byte ms x = mc.target.get_byte ms0 x))
       ⇒
-      (mc.target.get_pc ms ∈ mc.prog_addresses ∧
+      (mc.target.get_pc ms ∈ mc.prog_addresses DIFF set mc.ffi_entry_pcs ∧
        encoded_bytes_in_mem mc.target.config (mc.target.get_pc ms)
          (mc.target.get_byte ms) mc.prog_addresses ∧
        (∀x. x ∉ mc.prog_addresses ⇒ (mc.target.get_byte (mc.target.next ms) x = mc.target.get_byte ms x)) ∧
@@ -164,7 +164,7 @@ val interference_implemented_def = Define`
             (ffi_rel ms = ffi_rel (mc.target.next ms)) ∧
             (ffi_rel (mc.target.next ms) =
              ffi_rel (FUNPOW mc.target.next k (mc.target.next ms))) ∧
-            (∀x. x ∉ md ∨ x ∈ mc.prog_addresses ⇒
+            (∀x. x ∉ md ∨ x ∈ mc.prog_addresses DIFF set mc.ffi_entry_pcs ⇒
                   (mc.target.get_byte (FUNPOW mc.target.next k (mc.target.next ms)) x =
                    mc.target.get_byte (mc.target.next ms) x))) ∧
       ((mc.target.get_pc ms = mc.ccache_pc) ⇒
@@ -177,8 +177,10 @@ val interference_implemented_def = Define`
             (∀x. x ∉ md ∨ x ∈ mc.prog_addresses ⇒
               (mc.target.get_byte (FUNPOW mc.target.next k ms) x =
                mc.target.get_byte ms x))) ∧
-        ∀ffi ffi_index bytes bytes2 new_ffi new_bytes.
+      ∀ffi ffi_index bytes bytes2 new_ffi new_bytes.
+  (mc.target.get_pc ms ∉ mc.prog_addresses DIFF set mc.ffi_entry_pcs) ∧
           (find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME ffi_index) ∧
+          (mc.target.get_pc ms ≠ mc.ccache_pc) ∧
           (read_ffi_bytearrays mc ms = (SOME bytes, SOME bytes2)) ∧
           (call_FFI ffi (EL ffi_index mc.ffi_names) bytes bytes2 =
             FFI_return new_ffi new_bytes) ∧
@@ -195,7 +197,10 @@ val interference_implemented_def = Define`
 
 Theorem evaluate_Halt_FUNPOW_next:
    ∀mc (ffi:'ffi ffi_state) k ms t ms' ffi'.
-   interference_implemented mc ffi_rel md ms ∧ ffi_rel ms ffi ∧
+  interference_implemented mc ffi_rel md ms ∧ ffi_rel ms ffi ∧
+  ¬ MEM mc.ccache_pc mc.ffi_entry_pcs ∧
+  EVERY (λx. ∃s. x = ExtCall s) mc.ffi_names ∧
+  LENGTH mc.ffi_entry_pcs ≤ LENGTH mc.ffi_names ∧
    (evaluate mc ffi k ms = (Halt t, ms', ffi')) ⇒
      ∃k'. (ms' = FUNPOW mc.target.next k' ms) ∧
           (ffi_rel ms' ffi') ∧
@@ -212,9 +217,9 @@ Proof
   \\ pop_assum mp_tac
   \\ simp[Once targetSemTheory.evaluate_def]
   \\ fs[CaseEq"bool",targetSemTheory.apply_oracle_def,shift_seq_def]
-  \\ strip_tac \\ fs[] \\ rw[]
+  \\ strip_tac \\ fs[GSYM lab_to_targetProofTheory.not_Sh_Ext] \\ rw[]
   \\ TRY (qexists_tac`0` \\ simp[] \\ NO_TAC)
-  >- (
+   >- (
     last_x_assum mp_tac
     \\ impl_tac
     >- (
@@ -258,7 +263,6 @@ Proof
         \\ fs[GSYM FUNPOW_ADD] \\ rw[]
         \\ first_x_assum(qspec_then`k0+k1`mp_tac)
         \\ simp[]
-        \\ disch_then(mp_tac o CONJUNCT2 o CONJUNCT2)
         \\ disch_then (first_assum o mp_then Any mp_tac)
         \\ disch_then match_mp_tac \\ rw[]
         \\ fs[targetSemTheory.read_ffi_bytearrays_def,
@@ -266,18 +270,22 @@ Proof
       \\ fs[interference_implemented_def]
       \\ first_x_assum(qspec_then`0`mp_tac)
       \\ simp[]
-      \\ disch_then(qx_choose_then`k1`strip_assume_tac o CONJUNCT1)
       \\ fs[GSYM FUNPOW_ADD]
       \\ metis_tac[])
     \\ disch_then(qx_choose_then`k1`strip_assume_tac)
     \\ fs[interference_implemented_def]
     \\ first_x_assum(qspec_then`0`mp_tac)
     \\ simp[]
-    \\ disch_then(qx_choose_then`k2`strip_assume_tac o CONJUNCT1)
+    \\ disch_then(qx_choose_then`k2`strip_assume_tac)
     \\ fs[GSYM FUNPOW_ADD]
     \\ qexists_tac`k1+k2` \\ rw[])
-  >- (
-    fs[CaseEq"option",CaseEq"prod"]
+  >> (
+    fs[CaseEq"option",CaseEq"prod",CaseEq"bool"]
+    \\ TRY (fs[EVERY_EL]>>
+          drule find_index_LESS_LENGTH>>strip_tac>>fs[]>>
+          ‘ffi_index < LENGTH mc.ffi_names’
+            by (irule LESS_LESS_EQ_TRANS>>metis_tac[])>>
+          fs[]>>gvs[]>>NO_TAC)
     \\ reverse(fs[CaseEq"ffi$ffi_result"]) \\ rfs[]
     >- ( qexists_tac`0` \\ rw[] )
     \\ last_x_assum drule
@@ -294,7 +302,7 @@ Proof
         \\ disch_then (first_assum o mp_then Any mp_tac)
         \\ disch_then (first_assum o mp_then Any mp_tac)
         \\ disch_then (first_assum o mp_then Any mp_tac)
-        \\ disch_then (first_assum o mp_then Any mp_tac)
+        \\ disch_then (first_assum o mp_then Any mp_tac) \\ fs[]
         \\ disch_then(qx_choose_then`k1`strip_assume_tac)
         \\ fs[GSYM FUNPOW_ADD]
         \\ strip_tac
