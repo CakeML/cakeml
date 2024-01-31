@@ -349,6 +349,9 @@ QED
 Theorem machine_sem_Terminate_FUNPOW_next:
    interference_implemented mc ffi_rel md ms ∧
    (ffi_rel ms st) ∧
+   ¬ MEM mc.ccache_pc mc.ffi_entry_pcs ∧
+   EVERY (λx. ∃s. x = ExtCall s) mc.ffi_names ∧
+   LENGTH mc.ffi_entry_pcs ≤ LENGTH mc.ffi_names ∧
    machine_sem mc (st:'ffi ffi_state) ms (Terminate t io_events) ⇒
    ∃k st'.
      ffi_rel (nxt mc k ms) st' ∧ (io_events = st'.io_events) ∧
