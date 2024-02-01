@@ -88,7 +88,7 @@ val ffi_code =
        ""])))`` |> EVAL |> concl |> rand
 
 val arm8_export_def = Define `
-  arm8_export ffi_names bytes (data:word64 list) syms exp =
+  arm8_export ffi_names bytes (data:word64 list) syms exp ret =
     let lsyms = get_sym_labels syms in
     SmartAppend
       (SmartAppend (List preamble)

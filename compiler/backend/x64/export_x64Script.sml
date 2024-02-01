@@ -62,8 +62,8 @@ val ffi_asm_def = Define `
        strlit"     .p2align 4\n";
        strlit"\n"]) (ffi_asm ffis))`
 
-val ffi_code =
-  ``SmartAppend
+val ffi_code' =
+  ``λret. SmartAppend
     (List (MAP (\n. strlit(n ++ "\n"))
      ["/* CakeML FFI interface (each block is 16 bytes long) */";
        "";
@@ -81,13 +81,23 @@ val ffi_code =
        "     .p2align 4";
        "";
        "cake_exit:";
-       "     callq   wcdecl(cml_exit)";
+       (if ret then
+         "     leave\n     ret"
+       else
+         "     callq   wcdecl(cml_exit)");
        "     .p2align 4";
        "";
        "cake_main:";
        "";
        "/* Generated machine code follows */";
-       ""])))`` |> EVAL |> concl |> rand
+       ""])))``
+
+val (ffi_code_true,ffi_code_false) =
+    (“^ffi_code' T” |> EVAL |> concl |> rand,
+     “^ffi_code' F” |> EVAL |> concl |> rand);
+
+val ffi_code =
+  “λret. if ret then ^ffi_code_true else ^ffi_code_false”;
 
 val windows_ffi_asm_def = Define `
   (windows_ffi_asm [] = Nil) /\
@@ -101,8 +111,8 @@ val windows_ffi_asm_def = Define `
        strlit"     jmp     cdecl(ffi"; implode ffi; strlit")\n";
        strlit"\n"]) (windows_ffi_asm ffis))`
 
-val windows_ffi_code =
-  ``SmartAppend
+val windows_ffi_code' =
+  ``λret. SmartAppend
     (
      List [strlit "\n/* Windows Compatibility for CakeML FFI interface */\n\n"]
     )
@@ -115,8 +125,18 @@ val windows_ffi_code =
        "     movq    %rdx, %r8";
        "     movq    %rsi, %rdx";
        "     movq    %rdi, %rcx";
-       "     callq   cdecl(cml_exit)";
-       ""])))`` |> EVAL |> concl |> rand
+       (if ret then
+         "     leave\n     ret"
+       else
+         "     callq   cdecl(cml_exit)");
+       ""])))``;
+
+val (windows_ffi_code_true,windows_ffi_code_false) =
+    (“^windows_ffi_code' T” |> EVAL |> concl |> rand,
+     “^windows_ffi_code' F” |> EVAL |> concl |> rand);
+
+val windows_ffi_code =
+  “λret. if ret then ^windows_ffi_code_true else ^windows_ffi_code_false”;
 
 val expose_func_def = Define `
   expose_func appl (name,label,start,len) =
@@ -135,7 +155,7 @@ val expose_funcs_def = Define `
     FOLDL expose_func misc$Nil (FILTER ((flip MEM exp) o FST) lsyms)`;
 
 val x64_export_def = Define `
-  x64_export ffi_names bytes (data:word64 list) syms exp =
+  x64_export ffi_names bytes (data:word64 list) syms exp ret =
     let lsyms = get_sym_labels syms in
     SmartAppend
       (SmartAppend
@@ -143,12 +163,12 @@ val x64_export_def = Define `
       (SmartAppend (List (data_section ".quad"))
       (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
       (SmartAppend (List data_buffer)
-      (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code)))))
+      (SmartAppend (List ((strlit"\n")::^startup)) (^ffi_code ret))))))
       (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
       (SmartAppend (List code_buffer)
       (SmartAppend (emit_symbols lsyms)
       (expose_funcs lsyms exp)))))
-      (^windows_ffi_code)`;
+      (^windows_ffi_code ret)`;
 
 (*
   EVAL``append(split16 (words_line (strlit"\t.quad ") word_to_string) [100w:word64;393w;392w])``
