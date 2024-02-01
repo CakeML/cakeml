@@ -107,6 +107,7 @@ val ag32_machine_config_def = Define`
     ccache_pc     := n2w (ffi_jumps_offset + (num_ffis + 0) * ffi_offset);
     halt_pc       := n2w (ffi_jumps_offset + (num_ffis + 1) * ffi_offset);
     prog_addresses := md ;
+    shared_addresses := {} ;
     next_interfer := K I ;
     ccache_interfer := K (ag32_ccache_interfer num_ffis) ;
     ffi_interfer := K (ag32_ffi_interfer ffi_names md)

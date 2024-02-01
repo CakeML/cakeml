@@ -6201,6 +6201,7 @@ Theorem ag32_good_init_state:
              w <+ (init_asm_state code data ffi_names (cl,inp)).regs 4}
         ∪ {w | n2w (code_start_offset (LENGTH ffi_names) + LENGTH code) <=+ w ∧
                w <+ n2w(code_start_offset (LENGTH ffi_names) + LENGTH code + 4 * LENGTH data) })
+       {}
      io_regs
      cc_regs
 Proof
@@ -6258,10 +6259,18 @@ Proof
     rewrite_tac[targetSemTheory.start_pc_ok_def]
     \\ conj_tac >- ( EVAL_TAC \\ simp[] \\ fs[FFI_codes_def, word_lo_n2w, word_ls_n2w])
     \\ conj_tac >- ( EVAL_TAC \\ simp[] \\ fs[FFI_codes_def, word_lo_n2w, word_ls_n2w])
+    \\ conj_tac >- (EVAL_TAC \\fs[])
+    \\ conj_tac >- (EVAL_TAC \\fs[])
     \\ simp[lab_to_targetTheory.ffi_offset_def]
     \\ conj_tac >- (EVAL_TAC \\ fs[FFI_codes_def])
     \\ conj_tac >- (EVAL_TAC \\ fs[FFI_codes_def])
-    \\ conj_tac >- fs[]
+    \\ conj_tac >- fs[Once WORD_AND_COMM]
+    \\ qexists_tac ‘LENGTH ffi_names’ \\ fs[]
+    \\ conj_tac >- (
+    fs[ag32_machine_config_def,Abbr ‘num_ffis’]>>
+    irule EQ_TRANS>>
+    irule_at Any (lab_to_targetProofTheory.mmio_pcs_min_index_APPEND_thm |> GEN_ALL |> Q.SPECL [‘[]:ffiname list’] |> SIMP_RULE std_ss [APPEND_NIL])>>
+    fs[ag32_machine_config_def,EVERY_MAP])
     \\ simp[ag32_machine_config_def]
     \\ simp[ag32_prog_addresses_def]
     \\ fs[EVAL``code_start_offset _``, word_add_n2w,
@@ -6285,6 +6294,7 @@ Proof
   \\ conj_tac >- (
     simp[targetSemTheory.ffi_interfer_ok_def]
     \\ simp[ag32_machine_config_def]
+    \\ simp[EL_MAP]
     \\ simp[lab_to_targetTheory.ffi_offset_def,heap_size_def]
     \\ simp[EVAL``ag32_target.config``,targetSemTheory.get_reg_value_def]
     \\ simp[ag32_ffi_interfer_def]
@@ -6397,6 +6407,7 @@ Proof
     \\ Cases_on`a` \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w]
     \\ rw[MIN_DEF]
     )
+
   \\ conj_tac >- (
     rw[targetSemTheory.ccache_interfer_ok_def, ag32_machine_config_def,
        lab_to_targetTheory.ffi_offset_def, ag32_ccache_interfer_def,
@@ -6468,6 +6479,8 @@ Proof
     \\ simp[GSYM word_add_n2w]
     \\ irule byte_aligned_add
     \\ simp[byte_aligned_code_start_offset])
+  \\ conj_tac >- simp[ag32_machine_config_def]
+  \\ conj_tac >- simp[ag32_machine_config_def]
   \\ conj_tac >- (
     simp[EVAL``(ag32_machine_config _ _ _).target.config``]
     \\ Cases
