@@ -774,8 +774,16 @@ Definition set_indices_def:
     (inds, sptree$insert n rinds vimap)
 End
 
+(* ow indicates positive literal occurence
+   tw indicates negative literal occurence *)
 val ow = rconc (EVAL``CHR 1``);
+val tw = rconc (EVAL``CHR 2``);
 val zw = rconc (EVAL``CHR 0``);
+
+Definition match_polarity_def:
+  match_polarity w b ⇔
+  (w = ^ow ∧ ¬ b) ∨ (w = ^tw ∧ b)
+End
 
 (* Fast substitution for obj_constraint if it is in vomap *)
 Definition fast_obj_constraint_def:
@@ -784,13 +792,18 @@ Definition fast_obj_constraint_def:
     INR v =>
     if length v = 0 then ([],0)
     else obj_constraint (subst_fun s) l
-  | INL (n,_) =>
+  | INL (n,v) =>
     if n < strlen vomap
     then
       if strsub vomap n = ^zw then
         ([],0)
       else
-        obj_constraint (subst_fun s) l
+        case v of
+          INL b =>
+            if match_polarity (strsub vomap n) b
+            then ([],0)
+            else obj_constraint (subst_fun s) l
+        | _ => obj_constraint (subst_fun s) l
     else ([],0)
 End
 
@@ -1568,9 +1581,12 @@ Definition vomap_rel_def:
   case obj of
     NONE => T
   | SOME l =>
-    ∀x.
-    MEM x (MAP SND (FST l)) <=>
-    x < strlen ls ∧ strsub ls x ≠ ^zw
+    ∀c x.
+    MEM (c:int,x) (FST l) <=>
+    x < strlen ls ∧
+    strsub ls x ≠ ^zw ∧
+    (strsub ls x = ^ow ⇒ c > 0) ∧
+    (strsub ls x = ^tw ⇒ c < 0)
 End
 
 Theorem add_lists_map_negate_coeff:
@@ -1610,19 +1626,45 @@ Theorem vomap_rel_fast_obj_constraint:
   obj_constraint (subst_fun s) l
 Proof
   rw[fast_obj_constraint_def]>>
-  every_case_tac>>
   Cases_on`l`>>
   fs[npbcTheory.obj_constraint_def,subst_fun_def]>>
-  rpt (pairarg_tac>>fs[])>>
-  pop_assum mp_tac>>
-  DEP_REWRITE_TAC[add_lists_map_negate_coeff]>>rw[]>>
-  pop_assum mp_tac>>
-  DEP_REWRITE_TAC[subst_lhs_id]>>
-  fs[vomap_rel_def]>>
-  simp[EVERY_MAP,LAMBDA_PROD,subst_fun_def]>>
-  gvs[EVERY_MEM]>>
-  rw[]>>pairarg_tac>>fs[EXTENSION,MEM_MAP,domain_lookup]>>
-  metis_tac[option_CLAUSES,SND,PAIR]
+  reverse TOP_CASE_TAC>>gvs[]
+  >- (
+    (* INR *)
+    rw[]>>
+    rpt (pairarg_tac>>fs[])>>
+    pop_assum mp_tac>>
+    DEP_REWRITE_TAC[add_lists_map_negate_coeff]>>rw[]>>
+    pop_assum mp_tac>>
+    DEP_REWRITE_TAC[subst_lhs_id]>>
+    simp[EVERY_MAP,subst_fun_def,EVERY_MEM])>>
+  TOP_CASE_TAC>>simp[]>>
+  reverse TOP_CASE_TAC>>simp[]
+  >- (
+    (* not in map *)
+    rw[]>>
+    rpt (pairarg_tac>>fs[])>>
+    pop_assum mp_tac>>
+    DEP_REWRITE_TAC[add_lists_map_negate_coeff]>>rw[]>>
+    pop_assum mp_tac>>
+    DEP_REWRITE_TAC[subst_lhs_id]>>
+    simp[EVERY_MAP,subst_fun_def,EVERY_MEM]>>
+    fs[vomap_rel_def,FORALL_PROD]) >>
+  TOP_CASE_TAC>>simp[]
+  >- (
+    (* not in map *)
+    rw[]>>
+    rpt (pairarg_tac>>fs[])>>
+    pop_assum mp_tac>>
+    DEP_REWRITE_TAC[add_lists_map_negate_coeff]>>rw[]>>
+    pop_assum mp_tac>>
+    DEP_REWRITE_TAC[subst_lhs_id]>>
+    simp[EVERY_MAP,subst_fun_def,EVERY_MEM]>>
+    fs[vomap_rel_def,FORALL_PROD])>>
+  TOP_CASE_TAC>>simp[]>>
+  TOP_CASE_TAC>>simp[]>>
+  rpt(pairarg_tac>>gvs[])>>
+  cheat
 QED
 
 Theorem vomap_rel_fast_red_subgoals:
