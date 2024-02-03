@@ -774,8 +774,28 @@ Definition set_indices_def:
     (inds, sptree$insert n rinds vimap)
 End
 
-val ow = rconc (EVAL``CHR 1``);
-val zw = rconc (EVAL``CHR 0``);
+Definition byte_strsub_def:
+  byte_strsub ls x =
+  (n2w (ORD (strsub ls x))):word8
+End
+
+Definition vomap_rel_def:
+  vomap_rel obj ls ⇔
+  case obj of
+    NONE => T
+  | SOME (l,n) =>
+    ∀x.
+    (x < strlen ls ⇒
+      let w = byte_strsub ls x in
+      if w = 0w then ¬MEM x (MAP SND l)
+      else
+        w ≠ 128w ⇒
+        ∃i.
+          i < LENGTH l ∧
+          FST (EL i l) = w2i w ∧
+          SND (EL i l) = x ) ∧
+    (~(x < strlen ls) ⇒ ¬MEM x (MAP SND l))
+End
 
 (* Fast substitution for obj_constraint if it is in vomap *)
 Definition fast_obj_constraint_def:
@@ -784,15 +804,139 @@ Definition fast_obj_constraint_def:
     INR v =>
     if length v = 0 then ([],0)
     else obj_constraint (subst_fun s) l
-  | INL (n,_) =>
+  | INL (n,v) =>
     if n < strlen vomap
     then
-      if strsub vomap n = ^zw then
-        ([],0)
+      let w = byte_strsub vomap n in
+      if w = 0w then ([],0)
+      else if w = 128w then obj_constraint (subst_fun s) l
       else
-        obj_constraint (subst_fun s) l
+        case v of INL b =>
+          let c = w2i w in
+          ([c, n], if 0 ≤ c ⇔ b then Num (ABS c) else 0)
+        | _ => obj_constraint (subst_fun s) l
     else ([],0)
 End
+
+Theorem subst_aux_id:
+  ∀l.
+  EVERY (\v. f v = NONE) (MAP SND l) ⇒
+  subst_aux f l = (l,[],0)
+Proof
+  Induct>-simp[npbcTheory.subst_aux_def]>>
+  Cases>>
+  rw[npbcTheory.subst_aux_def]
+QED
+
+Theorem subst_lhs_id:
+  EVERY (\v. f v = NONE) (MAP SND l) ⇒
+  subst_lhs f l = (l, 0)
+Proof
+  rw[npbcTheory.subst_lhs_def]>>
+  rpt(pairarg_tac>>fs[])>>
+  drule subst_aux_id>>strip_tac>>
+  gvs[EVAL``clean_up []``]>>
+  Cases_on`l`>>
+  gvs[npbcTheory.add_lists_def]
+QED
+
+Theorem subst_lhs_subst_fun_bool:
+  ∀l.
+  subst_aux (subst_fun (INL (x,INL b))) l =
+  (FILTER (λ(c,y). x ≠ y) l, [],
+    SUM (MAP (Num o ABS o FST) (FILTER (λ(c,y). x = y ∧ (0 ≤ c ⇔ b)) l))
+  )
+Proof
+  Induct>>rw[npbcTheory.subst_aux_def]>>
+  pairarg_tac>>gvs[npbcTheory.subst_aux_def]>>
+  simp[subst_fun_def]
+QED
+
+Theorem add_lists_emp_2:
+  add_lists ls [] = (ls,0)
+Proof
+  Cases_on`ls`>>EVAL_TAC
+QED
+
+Theorem add_lists_map_negate_coeff:
+  ∀ls rs.
+  rs = (MAP (λ(c,l). (-c,l)) ls) ⇒
+  add_lists ls rs = ([],SUM (MAP (λi. Num (ABS (FST i))) ls))
+Proof
+  ho_match_mp_tac npbcTheory.add_lists_ind>>
+  simp[npbcTheory.add_lists_def,npbcTheory.add_terms_def]
+QED
+
+Theorem add_lists_FILTER_map_negate_coeff:
+  ∀ls rs.
+  SORTED $< (MAP SND ls) ∧
+  i < LENGTH ls ∧
+  FILTER (λ(c,n). SND (EL i ls) ≠ n) (MAP (λ(c,l). (-c,l)) ls) = rs ⇒
+  add_lists ls rs =
+    ([EL i ls],
+      SUM (MAP (λi. Num (ABS (FST i))) ls) -
+      Num (ABS (FST (EL i ls))))
+Proof
+  cheat
+QED
+
+Theorem vomap_rel_fast_obj_constraint:
+  SORTED $< (MAP SND (FST l)) ∧
+  vomap_rel (SOME l) vomap ⇒
+  fast_obj_constraint s l vomap =
+  obj_constraint (subst_fun s) l
+Proof
+  rw[fast_obj_constraint_def]>>
+  Cases_on`l`>>
+  fs[npbcTheory.obj_constraint_def,subst_fun_def]>>
+  reverse TOP_CASE_TAC>>gvs[]
+  >- (
+    (* INR *)
+    rw[]>>
+    rpt (pairarg_tac>>fs[])>>
+    pop_assum mp_tac>>
+    DEP_REWRITE_TAC[add_lists_map_negate_coeff]>>rw[]>>
+    pop_assum mp_tac>>
+    DEP_REWRITE_TAC[subst_lhs_id]>>
+    simp[EVERY_MAP,subst_fun_def,EVERY_MEM])>>
+  TOP_CASE_TAC>>simp[]>>
+  fs[vomap_rel_def,FORALL_PROD,FORALL_AND_THM]>>
+  reverse TOP_CASE_TAC>>simp[]
+  >- (
+    (* not in map *)
+    first_x_assum drule>>
+    rw[]>>
+    rpt (pairarg_tac>>fs[])>>
+    pop_assum mp_tac>>
+    DEP_REWRITE_TAC[add_lists_map_negate_coeff]>>rw[]>>
+    pop_assum mp_tac>>
+    DEP_REWRITE_TAC[subst_lhs_id]>>
+    simp[EVERY_MAP,subst_fun_def,EVERY_MEM]>>
+    simp[FORALL_PROD]>>
+    metis_tac[PAIR,SND,MEM_MAP])>>
+  first_x_assum drule>>rw[]>>fs[]
+  >- (
+    (* not in map *)
+    rpt (pairarg_tac>>fs[])>>
+    pop_assum mp_tac>>
+    DEP_REWRITE_TAC[add_lists_map_negate_coeff]>>rw[]>>
+    pop_assum mp_tac>>
+    DEP_REWRITE_TAC[subst_lhs_id]>>
+    simp[EVERY_MAP,subst_fun_def,EVERY_MEM,FORALL_PROD]>>
+    rw[]>>metis_tac[PAIR,SND,MEM_MAP])>>
+  TOP_CASE_TAC>>simp[]>>
+  simp[npbcTheory.subst_lhs_def]>>
+  simp[subst_lhs_subst_fun_bool,npbcTheory.clean_up_def,add_lists_emp_2]>>
+  drule add_lists_FILTER_map_negate_coeff>>
+  disch_then drule>>
+  disch_then (fn th => DEP_REWRITE_TAC[GEN_ALL th])>>
+  simp[]>>
+  CONJ_TAC >-
+    metis_tac[PAIR]>>
+  qmatch_goalsub_abbrev_tac`A - ( _ - B + C)`>>
+  qmatch_goalsub_abbrev_tac`w2i bb`>>
+  cheat
+QED
 
 Definition fast_red_subgoals_def:
   fast_red_subgoals ord s def obj vomap =
@@ -1563,75 +1707,20 @@ Proof
   simp[any_el_ALT]
 QED
 
-Definition vomap_rel_def:
-  vomap_rel obj ls ⇔
-  case obj of
-    NONE => T
-  | SOME l =>
-    ∀x.
-    MEM x (MAP SND (FST l)) <=>
-    x < strlen ls ∧ strsub ls x ≠ ^zw
+Definition sorted_obj_def:
+  sorted_obj obj ⇔
+  case obj of NONE => T
+  | SOME (l:(int # num) list # int) => SORTED $< (MAP SND (FST l))
 End
 
-Theorem add_lists_map_negate_coeff:
-  ∀ls rs.
-  rs = (MAP (λ(c,l). (-c,l)) ls) ⇒
-  add_lists ls rs = ([],SUM (MAP (λi. Num (ABS (FST i))) ls))
-Proof
-  ho_match_mp_tac npbcTheory.add_lists_ind>>
-  simp[npbcTheory.add_lists_def,npbcTheory.add_terms_def]
-QED
-
-Theorem subst_aux_id:
-  ∀l.
-  EVERY (\v. f v = NONE) (MAP SND l) ⇒
-  subst_aux f l = (l,[],0)
-Proof
-  Induct>-simp[npbcTheory.subst_aux_def]>>
-  Cases>>
-  rw[npbcTheory.subst_aux_def]
-QED
-
-Theorem subst_lhs_id:
-  EVERY (\v. f v = NONE) (MAP SND l) ⇒
-  subst_lhs f l = (l, 0)
-Proof
-  rw[npbcTheory.subst_lhs_def]>>
-  rpt(pairarg_tac>>fs[])>>
-  drule subst_aux_id>>strip_tac>>
-  gvs[EVAL``clean_up []``]>>
-  Cases_on`l`>>
-  gvs[npbcTheory.add_lists_def]
-QED
-
-Theorem vomap_rel_fast_obj_constraint:
-  vomap_rel (SOME l) vomap ⇒
-  fast_obj_constraint s l vomap =
-  obj_constraint (subst_fun s) l
-Proof
-  rw[fast_obj_constraint_def]>>
-  every_case_tac>>
-  Cases_on`l`>>
-  fs[npbcTheory.obj_constraint_def,subst_fun_def]>>
-  rpt (pairarg_tac>>fs[])>>
-  pop_assum mp_tac>>
-  DEP_REWRITE_TAC[add_lists_map_negate_coeff]>>rw[]>>
-  pop_assum mp_tac>>
-  DEP_REWRITE_TAC[subst_lhs_id]>>
-  fs[vomap_rel_def]>>
-  simp[EVERY_MAP,LAMBDA_PROD,subst_fun_def]>>
-  gvs[EVERY_MEM]>>
-  rw[]>>pairarg_tac>>fs[EXTENSION,MEM_MAP,domain_lookup]>>
-  metis_tac[option_CLAUSES,SND,PAIR]
-QED
-
 Theorem vomap_rel_fast_red_subgoals:
+  sorted_obj obj ∧
   vomap_rel obj vomap ⇒
   fast_red_subgoals ord s def obj vomap =
   red_subgoals ord (subst_fun s) def obj
 Proof
   rw[fast_red_subgoals_def,red_subgoals_def]>>
-  every_case_tac>>fs[]>>
+  every_case_tac>>fs[sorted_obj_def]>>
   metis_tac[vomap_rel_fast_obj_constraint]
 QED
 
@@ -1639,6 +1728,7 @@ Theorem fml_rel_check_red_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
   vimap_rel fmlls vimap ∧
+  sorted_obj obj ∧
   vomap_rel obj vomap ∧
   (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
   check_red_list ord obj b tcb fmlls inds id c s pfs
@@ -2064,6 +2154,7 @@ Theorem fml_rel_check_sstep_list:
     fml_rel fml fmlls ∧
     ind_rel fmlls inds ∧
     vimap_rel fmlls vimap ∧
+    sorted_obj obj ∧
     vomap_rel obj vomap ∧
     (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
     check_sstep_list sstep ord obj tcb fmlls inds id vimap vomap =
@@ -2231,33 +2322,32 @@ Definition check_change_obj_list_def:
         else NONE)
 End
 
-Definition mk_vomap_def:
-  mk_vomap n (f,c) =
-  strlit (FOLDL (λacc i. update_resize acc ^zw ^ow i) (REPLICATE n ^zw) (MAP SND f))
+Definition upd_vomap_def:
+  upd_vomap c n =
+  if c = 0 ∨ ABS c ≥ 128 then
+    CHR 128
+  else
+  let (w:word8) = i2w c in
+    CHR (w2n w)
 End
 
-Theorem resize_acc_bitset_iff:
-   ∀ls acc.
-   (x <
-   LENGTH
-     (FOLDL (λacc i. update_resize acc ^zw ^ow i) acc ls) ∧
-   EL x (FOLDL (λacc i. update_resize acc ^zw ^ow i) acc ls) ≠ ^zw) ⇔
-   (MEM x ls ∨ x < LENGTH acc ∧ EL x acc ≠ ^zw)
-Proof
-  Induct>>rw[]>>
-  rw[update_resize_def,EL_LUPDATE,EL_APPEND_EQN,EL_REPLICATE]>>
-  EVERY_CASE_TAC>>gvs[]>>
-  Cases_on`x < 2 * h + 1` >>simp[]>>
-  DEP_REWRITE_TAC[EL_REPLICATE]>>
-  simp[]
-QED
+Definition mk_vomap_def:
+  mk_vomap n (f,c) =
+  strlit (FOLDL (λacc (c,n).
+    update_resize acc (CHR 0) (upd_vomap c n) n )
+    (REPLICATE n (CHR 0)) f)
+End
 
 Theorem vomap_rel_mk_vomap:
+  SORTED $< (MAP SND (FST fc)) ⇒
   vomap_rel (SOME fc) (mk_vomap n fc)
 Proof
   Cases_on`fc`>>rw[vomap_rel_def,mk_vomap_def]>>
+  rw[]>>
+  cheat
+  (*
   simp[resize_acc_bitset_iff]>>
-  metis_tac[EL_REPLICATE]
+  metis_tac[EL_REPLICATE] *)
 QED
 
 Definition check_cstep_list_def:
@@ -2536,6 +2626,7 @@ Theorem fml_rel_check_cstep_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
   vimap_rel fmlls vimap ∧
+  sorted_obj pc.obj ∧
   vomap_rel pc.obj vomap ∧
   (∀n. n ≥ pc.id ⇒ any_el n fmlls NONE = NONE) ∧
   check_cstep_list cstep fmlls inds vimap vomap pc =
@@ -2545,6 +2636,7 @@ Theorem fml_rel_check_cstep_list:
     fml_rel fml' fmlls' ∧
     ind_rel fmlls' inds' ∧
     vimap_rel fmlls' vimap' ∧
+    sorted_obj pc'.obj ∧
     vomap_rel pc'.obj vomap' ∧
     (∀n. n ≥ pc'.id ⇒ any_el n fmlls' NONE = NONE) ∧
     pc.id ≤ pc'.id
@@ -2751,8 +2843,11 @@ Proof
       metis_tac[ind_rel_reindex])>>
     CONJ_TAC >-
       metis_tac[fml_rel_fml_rel_vimap_rel]>>
-    CONJ_TAC >-
-      metis_tac[vomap_rel_mk_vomap]>>
+    CONJ_ASM1_TAC >-
+      cheat>>
+    CONJ_TAC >- (
+      fs[sorted_obj_def]>>
+      metis_tac[vomap_rel_mk_vomap])>>
     simp[any_el_rollback])
   >- ( (* CheckObj *)
     fs[check_cstep_def,check_cstep_list_def]
@@ -2775,6 +2870,7 @@ Theorem fml_rel_check_csteps_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
   vimap_rel fmlls vimap ∧
+  sorted_obj pc.obj ∧
   vomap_rel pc.obj vomap ∧
   (∀n. n ≥ pc.id ⇒ any_el n fmlls NONE = NONE) ∧
   check_csteps_list csteps fmlls inds vimap vomap pc =
@@ -2784,6 +2880,7 @@ Theorem fml_rel_check_csteps_list:
     fml_rel fml' fmlls' ∧
     ind_rel fmlls' inds' ∧
     vimap_rel fmlls' vimap' ∧
+    sorted_obj pc'.obj ∧
     vomap_rel pc'.obj vomap' ∧
     (∀n. n ≥ pc'.id ⇒ any_el n fmlls' NONE = NONE) ∧
     pc.id ≤ pc'.id
@@ -3021,6 +3118,7 @@ Definition mk_vomap_opt_def:
 End
 
 Theorem check_csteps_list_concl:
+  sorted_obj obj ∧
   check_csteps_list cs
     (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,T)) i)
       (REPLICATE m NONE) (enumerate 1 fml))
@@ -3046,11 +3144,14 @@ Proof
   `vimap_rel fmlls vimap` by (
     unabbrev_all_tac>>
     simp[vimap_rel_FOLDL_update_resize])>>
+  `sorted_obj pc.obj` by
+    gvs[sorted_obj_def,init_conf_def,Abbr`pc`]>>
   `vomap_rel pc.obj vomap` by (
     unabbrev_all_tac>>
     simp[init_conf_def]>>
     Cases_on`obj`>-
       EVAL_TAC>>
+    gvs[sorted_obj_def]>>
     metis_tac[vomap_rel_mk_vomap,mk_vomap_opt_def])>>
   `∀n. n ≥ pc.id ⇒ any_el n fmlls NONE = NONE` by (
     rw[Abbr`pc`,Abbr`fmlls`,any_el_ALT,init_conf_def]>>
@@ -3143,6 +3244,7 @@ Proof
 QED
 
 Theorem check_csteps_list_output:
+  sorted_obj obj ∧
   check_csteps_list cs
     (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,T)) i)
       (REPLICATE m NONE) (enumerate 1 fml))
@@ -3167,11 +3269,14 @@ Proof
   `vimap_rel fmlls vimap` by (
     unabbrev_all_tac>>
     simp[vimap_rel_FOLDL_update_resize])>>
+  `sorted_obj pc.obj` by
+    gvs[sorted_obj_def,init_conf_def,Abbr`pc`]>>
   `vomap_rel pc.obj vomap` by (
     unabbrev_all_tac>>
     simp[init_conf_def]>>
     Cases_on`obj`>-
       EVAL_TAC>>
+    gvs[sorted_obj_def]>>
     metis_tac[vomap_rel_mk_vomap,mk_vomap_opt_def])>>
   `∀n. n ≥ pc.id ⇒ any_el n fmlls NONE = NONE` by (
     rw[Abbr`pc`,Abbr`fmlls`,any_el_ALT,init_conf_def]>>
