@@ -2024,12 +2024,17 @@ Definition mk_diff_obj_def:
   if b then fc' else add_obj fc fc'
 End
 
+Definition mk_tar_obj_def:
+  mk_tar_obj b fc =
+  (if b then fc else ([],0:int))
+End
+
 Definition check_change_obj_def:
   check_change_obj b fml id obj fc' pfs ⇔
   case obj of NONE => NONE
   | SOME fc =>
-    ( let fc' = mk_diff_obj b fc fc' in
-      let csubs = change_obj_subgoals fc fc' in
+    ( let csubs = change_obj_subgoals
+        (mk_tar_obj b fc) fc' in
       case extract_clauses (λx. NONE) T fml csubs pfs [] of
         NONE => NONE
       | SOME cpfs =>
@@ -2044,7 +2049,8 @@ Definition check_change_obj_def:
               )
               (enumerate 0 csubs)
         then
-          SOME (fc',id')
+          let fc'' = mk_diff_obj b fc fc' in
+          SOME (fc'',id')
         else NONE))
 End
 
@@ -3034,7 +3040,7 @@ Proof
     strip_tac>>
     fs[EVERY_MEM,MEM_MAP,EXISTS_PROD]>>
     gvs[change_obj_subgoals_def,MEM_enumerate_iff,ADD1,PULL_EXISTS]>>
-    qmatch_asmsub_rename_tac`model_bounding fnew fold`>>
+    qmatch_asmsub_abbrev_tac`model_bounding fnew fold`>>
     `unsatisfiable (core_only_fml T fml ∪ {not (model_bounding fnew fold)})` by (
       first_x_assum(qspec_then`0` mp_tac)>>
       simp[]>>
@@ -3067,6 +3073,7 @@ Proof
         drule check_contradiction_unsat>>
         simp[unsatisfiable_def,satisfiable_def]
       ))>>
+
     `∀w.
       satisfies w (core_only_fml T fml) ⇒
       eval_obj (SOME fold) w =
@@ -3076,6 +3083,18 @@ Proof
       rw[]>>gvs[]>>
       ntac 2 (first_x_assum (qspec_then `w` mp_tac))>>simp[]>>
       intLib.ARITH_TAC)>>
+
+    qmatch_goalsub_abbrev_tac`SOME fupd`>>
+    `∀w.
+      satisfies w (core_only_fml T fml) ⇒
+      eval_obj (SOME x) w =
+      eval_obj (SOME fupd) w` by
+      (unabbrev_all_tac>>gvs[mk_diff_obj_def,mk_tar_obj_def]>>
+      rw[]>>first_x_assum drule>>
+      rw[]>>
+      simp[add_obj_eval_obj]>>
+      EVAL_TAC)>>
+    gvs[]>>
     CONJ_TAC >-
       fs[id_ok_def]>>
     CONJ_TAC >- (

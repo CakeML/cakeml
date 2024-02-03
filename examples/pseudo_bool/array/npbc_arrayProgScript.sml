@@ -2970,6 +2970,7 @@ val res = translate emp_vec_def;
 val res = translate do_change_obj_check_def;
 val res = translate npbc_checkTheory.add_obj_def;
 val res = translate npbc_checkTheory.mk_diff_obj_def;
+val res = translate npbc_checkTheory.mk_tar_obj_def;
 
 val check_change_obj_arr = process_topdecs `
   fun check_change_obj_arr lno b fml id obj fc' pfs =
@@ -2977,16 +2978,15 @@ val check_change_obj_arr = process_topdecs `
     raise Fail (format_failure lno ("no objective to change"))
   | Some fc =>
     let
-    val fc' = mk_diff_obj b fc fc'
-    val csubs = change_obj_subgoals fc fc'
-    val b = True
+    val csubs = change_obj_subgoals (mk_tar_obj b fc) fc'
+    val bb = True
     val e = []
-    val cpfs = extract_clauses_arr lno emp_vec b fml csubs pfs e in
-    case check_subproofs_arr lno cpfs b fml id id of
+    val cpfs = extract_clauses_arr lno emp_vec bb fml csubs pfs e in
+    case check_subproofs_arr lno cpfs bb fml id id of
        (fml', id') =>
       let val u = rollback_arr fml' id id' in
         if do_change_obj_check pfs csubs then
-          (fml',(fc',id'))
+          (fml',(mk_diff_obj b fc fc',id'))
        else raise Fail (format_failure lno ("Objective change subproofs did not cover all subgoals. Expected: #[1-2]"))
        end
     end` |> append_prog
@@ -3039,14 +3039,14 @@ Proof
     (λv.
       ARRAY aa vv *
       &(case extract_clauses_list emp_vec T fmlls
-          (change_obj_subgoals x (mk_diff_obj b x fc)) pfs [] of
+          (change_obj_subgoals (mk_tar_obj b x) fc) pfs [] of
           NONE => F
         | SOME res => LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (LIST_TYPE constraint_TYPE) NUM)) (LIST_TYPE NPBC_CHECK_LSTEP_TYPE)) res v))
   (λe.
     ARRAY aa vv *
     & (Fail_exn e ∧
       extract_clauses_list emp_vec T fmlls
-      (change_obj_subgoals x (mk_diff_obj b x fc)) pfs [] = NONE)))`
+      (change_obj_subgoals (mk_tar_obj b x) fc) pfs [] = NONE)))`
   >- (
     xapp>>xsimpl>>
     CONJ_TAC >- EVAL_TAC>>
@@ -3090,7 +3090,7 @@ Proof
   rpt xlet_autop>>
   xif
   >- (
-    xlet_autop>>
+    rpt xlet_autop>>
     xcon>>xsimpl>>
     fs[PAIR_TYPE_def]>>
     metis_tac[ARRAY_refl])>>

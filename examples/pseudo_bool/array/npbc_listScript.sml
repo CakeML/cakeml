@@ -2217,8 +2217,7 @@ Definition check_change_obj_list_def:
   check_change_obj_list b fml id obj fc' pfs ⇔
   case obj of NONE => NONE
   | SOME fc =>
-    let fc' = mk_diff_obj b fc fc' in
-    let csubs = change_obj_subgoals fc fc' in
+    let csubs = change_obj_subgoals (mk_tar_obj b fc) fc' in
     case extract_clauses_list emp_vec T fml csubs pfs [] of
       NONE => NONE
     | SOME cpfs =>
@@ -2227,7 +2226,8 @@ Definition check_change_obj_list_def:
       | SOME (fml',id') =>
         let rfml = rollback fml' id id' in
         if do_change_obj_check pfs csubs then
-          SOME (rfml,fc',id')
+          let fc'' = mk_diff_obj b fc fc' in
+          SOME (rfml,fc'',id')
         else NONE)
 End
 
