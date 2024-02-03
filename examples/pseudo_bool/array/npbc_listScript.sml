@@ -2323,18 +2323,18 @@ Definition check_change_obj_list_def:
 End
 
 Definition upd_vomap_def:
-  upd_vomap c n =
-  if c = 0 ∨ ABS c ≥ 128 then
-    CHR 128
+  upd_vomap c =
+  if c = 0 ∨ Num (ABS c) ≥ 128 then
+    (128w : word8)
   else
-  let (w:word8) = i2w c in
-    CHR (w2n w)
+  i2w c
 End
 
 Definition mk_vomap_def:
   mk_vomap n (f,c) =
   strlit (FOLDL (λacc (c,n).
-    update_resize acc (CHR 0) (upd_vomap c n) n )
+    update_resize acc (CHR 0)
+      (CHR (w2n (upd_vomap c))) n )
     (REPLICATE n (CHR 0)) f)
 End
 

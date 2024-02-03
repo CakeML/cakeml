@@ -1554,7 +1554,14 @@ End
 
 val res = translate list_list_insert_def;
 val res = translate npbcTheory.dom_subst_def;
-val res = translate fast_obj_constraint_def;
+
+val r = translate byte_strsub_def;
+val r = translate fast_obj_constraint_def;
+
+val fast_obj_constraint_side = Q.prove(`
+  fast_obj_constraint_side x y z ⇔ T`,
+  EVAL_TAC>>rw[]) |> update_precondition;
+
 val res = translate fast_red_subgoals_def;
 val res = translate do_rso_def;
 
@@ -3234,84 +3241,84 @@ val res = translate err_obj_check_string_def;
 val res = translate npbc_checkTheory.eq_obj_def;
 val res = translate npbc_checkTheory.check_eq_obj_def;
 
+val res = translate upd_vomap_def;
+
 Definition w8z_def:
   w8z = (0w: word8)
 End
 
-Definition w8o_def:
-  w8o = (1w: word8)
-End
-
 val w8z_v_thm = translate w8z_def;
-val w8o_v_thm = translate w8o_def;
 
 val fold_update_resize_bitset = process_topdecs`
   fun fold_update_resize_bitset ls acc =
     case ls of
       [] => acc
-    | (x::xs) =>
+    | (cn::xs) => case cn of (c,x) =>
       if x < Word8Array.length acc
       then
-        (Word8Array.update acc x w8o;
+        (Word8Array.update acc x (upd_vomap c);
         fold_update_resize_bitset xs acc)
       else
         let
         val arr = Word8Array.array (2*x+1) w8z
         val u = Word8Array.copy acc 0 (Word8Array.length acc) arr 0 in
-          (Word8Array.update arr x w8o;
+          (Word8Array.update arr x (upd_vomap c);
           fold_update_resize_bitset xs arr)
         end
         ` |> append_prog;
 
 Theorem fold_update_resize_bitset_spec:
   ∀ls lsv accv accls.
-  LIST_TYPE NUM ls lsv
+  LIST_TYPE (PAIR_TYPE INT NUM) ls lsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "fold_update_resize_bitset" (get_ml_prog_state()))
     [lsv; accv]
     (W8ARRAY accv accls)
     (POSTv v.
-        W8ARRAY v (FOLDL (λacc i. update_resize acc w8z w8o i) accls ls))
+        W8ARRAY v (FOLDL (λacc (c,n). update_resize acc 0w (upd_vomap c) n) accls ls))
 Proof
   Induct>>
   xcf "fold_update_resize_bitset" (get_ml_prog_state ())>>
   gvs[LIST_TYPE_def]>>xmatch
-  >- (
-    xvar>>xsimpl)>>
-  assume_tac w8o_v_thm>>
-  assume_tac w8z_v_thm>>
+  >- (xvar>>xsimpl)>>
+  pairarg_tac>>fs[PAIR_TYPE_def]>>
+  xmatch>>
   rpt xlet_autop>>
   xif
   >- (
     xlet_autop>>
+    xlet_autop>>
     xapp>>xsimpl>>
     simp[update_resize_def])>>
+  assume_tac w8z_v_thm>>
   rpt xlet_autop>>
   xapp>>xsimpl>>
-  simp[update_resize_def]
+  simp[update_resize_def,w8z_def]
 QED
 
 val mk_vomap_arr = process_topdecs`
   fun mk_vomap_arr n fc =
   let
   val acc = Word8Array.array n w8z
-  val f = map_snd (fst fc)
+  val f = fst fc
   val acc = fold_update_resize_bitset f acc in
     Word8Array.substring acc 0 (Word8Array.length acc)
   end` |> append_prog;
 
 Theorem map_foldl_rel:
   ∀ls accA accB.
-  MAP (CHR o w2n) accA = accB ⇒
+  MAP (CHR ∘ w2n) accA = accB ∧
+  CHR (w2n wz) = cz ∧
+  (!i. CHR (w2n (wo i)) = co i) ⇒
   MAP (CHR ∘ w2n)
-  (FOLDL (λacc i. update_resize acc w8z w8o i) accA ls) =
-  FOLDL (λacc i. update_resize acc #"\^@" #"\^A" i) accB ls
+  (FOLDL (λacc (c,n). update_resize acc wz (wo c) n) accA ls) =
+  FOLDL (λacc (c,n). update_resize acc cz (co c) n) accB ls
 Proof
   Induct>>rw[]>>
-  first_x_assum match_mp_tac>>
-  rw[update_resize_def,LUPDATE_MAP]>>
-  EVAL_TAC
+  gvs[]>>
+  pairarg_tac>>rw[]>>gvs[]>>
+  rw[update_resize_def,LUPDATE_MAP]
 QED
 
 Theorem mk_vomap_arr_spec:
@@ -3338,9 +3345,8 @@ Proof
   qmatch_goalsub_abbrev_tac`strlit B`>>
   qsuff_tac`A = B`>- metis_tac[]>>
   unabbrev_all_tac>>
-  simp[map_snd_def]>>
-  match_mp_tac map_foldl_rel>>
-  simp[map_replicate]>>
+  ho_match_mp_tac map_foldl_rel>>
+  simp[]>>
   EVAL_TAC
 QED
 
