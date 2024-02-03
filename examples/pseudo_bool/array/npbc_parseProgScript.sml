@@ -2032,6 +2032,7 @@ val res = translate parse_assg_def;
 val res = translate parse_obj_term_def;
 val res = translate strip_obju_end_def;
 
+val res = translate SORTED_DEF;
 val res = translate normalise_obj_def;
 val res = translate parse_obj_term_npbc_def;
 
