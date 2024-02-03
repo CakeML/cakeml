@@ -1125,9 +1125,7 @@ QED
 Definition normalise_obj_def:
   (normalise_obj NONE = NONE) ∧
   (normalise_obj (SOME (f,c)) =
-    let f =
-      (if SORTED term_le f then f else QSORT term_le f) in
-    let (f',c') = compact_lhs f 0 in
+    let (f',c') = compact_lhs (QSORT term_le f) 0 in
     let (f'', c'') = normalise_lhs f' [] 0 in
     SOME (f'',c + c'+c''))
 End
@@ -1152,7 +1150,7 @@ Proof
   disch_then(qspec_then`w` assume_tac)>>
   drule compact_lhs_sound>>
   disch_then(qspec_then`w` assume_tac)>>
-  every_case_tac>>fs[]>>
+  fs[]>>
   intLib.ARITH_TAC
 QED
 
