@@ -1,7 +1,7 @@
 (*
   Refine npbc_list to npbc_array
 *)
-open preamble basis npbcTheory npbc_listTheory;
+open preamble basis npbcTheory npbc_listTheory fastbuild;
 
 val _ = new_theory "npbc_arrayProg"
 
@@ -3254,7 +3254,8 @@ val fold_update_resize_bitset = process_topdecs`
   fun fold_update_resize_bitset ls acc =
     case ls of
       [] => acc
-    | (x::xs) =>
+    | (cx::xs) =>
+      case cx of (c,x) =>
       if x < Word8Array.length acc
       then
         (Word8Array.update acc x w8o;
@@ -3270,20 +3271,22 @@ val fold_update_resize_bitset = process_topdecs`
 
 Theorem fold_update_resize_bitset_spec:
   ∀ls lsv accv accls.
-  LIST_TYPE NUM ls lsv
+  LIST_TYPE (PAIR_TYPE INT NUM) ls lsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "fold_update_resize_bitset" (get_ml_prog_state()))
     [lsv; accv]
     (W8ARRAY accv accls)
     (POSTv v.
-        W8ARRAY v (FOLDL (λacc i. update_resize acc w8z w8o i) accls ls))
+        W8ARRAY v (FOLDL (λacc (c,i). update_resize acc w8z w8o i) accls ls))
 Proof
   Induct>>
   xcf "fold_update_resize_bitset" (get_ml_prog_state ())>>
   gvs[LIST_TYPE_def]>>xmatch
   >- (
     xvar>>xsimpl)>>
+  pairarg_tac>>fs[PAIR_TYPE_def]>>
+  xmatch>>
   assume_tac w8o_v_thm>>
   assume_tac w8z_v_thm>>
   rpt xlet_autop>>
@@ -3301,8 +3304,7 @@ val mk_vomap_arr = process_topdecs`
   fun mk_vomap_arr n fc =
   let
   val acc = Word8Array.array n w8z
-  val f = map_snd (fst fc)
-  val acc = fold_update_resize_bitset f acc in
+  val acc = fold_update_resize_bitset (fst fc) acc in
     Word8Array.substring acc 0 (Word8Array.length acc)
   end` |> append_prog;
 
@@ -3310,12 +3312,12 @@ Theorem map_foldl_rel:
   ∀ls accA accB.
   MAP (CHR o w2n) accA = accB ⇒
   MAP (CHR ∘ w2n)
-  (FOLDL (λacc i. update_resize acc w8z w8o i) accA ls) =
-  FOLDL (λacc i. update_resize acc #"\^@" #"\^A" i) accB ls
+  (FOLDL (λacc (c,i). update_resize acc w8z w8o i) accA ls) =
+  FOLDL (λacc i. update_resize acc #"\^@" #"\^A" i) accB (MAP SND ls)
 Proof
   Induct>>rw[]>>
   first_x_assum match_mp_tac>>
-  rw[update_resize_def,LUPDATE_MAP]>>
+  Cases_on`h`>>rw[update_resize_def,LUPDATE_MAP]>>
   EVAL_TAC
 QED
 
@@ -3343,7 +3345,7 @@ Proof
   qmatch_goalsub_abbrev_tac`strlit B`>>
   qsuff_tac`A = B`>- metis_tac[]>>
   unabbrev_all_tac>>
-  simp[map_snd_def]>>
+  simp[]>>
   match_mp_tac map_foldl_rel>>
   simp[map_replicate]>>
   EVAL_TAC
