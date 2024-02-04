@@ -73,6 +73,51 @@ val r = translate term_le_def;
 val r = translate mk_coeff_def;
 val r = translate normalise_lhs_def;
 
+val r = translate mergesortTheory.sort2_def;
+val r = translate mergesortTheory.sort3_def;
+val r = translate mergesortTheory.merge_def;
+val r = translate DROP_def;
+val r = translate (mergesortTheory.mergesortN_def |> SIMP_RULE std_ss [DIV2_def]);
+
+Triviality mergesortn_ind:
+  mergesortn_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "mergesortn_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD, DIV2_def]
+QED
+
+val _ = mergesortn_ind |> update_precondition;
+
+val r = translate mergesortTheory.mergesort_def;
+
+val r = translate mergesortTheory.sort2_tail_def;
+val r = translate mergesortTheory.sort3_tail_def;
+val r = translate mergesortTheory.merge_tail_def;
+val r = translate (mergesortTheory.mergesortN_tail_def |> SIMP_RULE std_ss [DIV2_def]);
+
+Triviality mergesortn_tail_ind:
+  mergesortn_tail_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "mergesortn_tail_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD, DIV2_def]
+QED
+
+val _ = mergesortn_tail_ind |> update_precondition;
+
+val r = translate mergesortTheory.mergesort_tail_def;
+
 val r = translate pbc_to_npbc_def;
 val pbc_to_npbc_side = Q.prove(
   `∀x. pbc_to_npbc_side x <=> T`,
