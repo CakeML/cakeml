@@ -1217,7 +1217,21 @@ val res = translate subst_lhs_def;
 val res = translate subst_def;
 
 val res = translate obj_constraint_def;
-val res = translate npbc_checkTheory.subst_fun_def;
+
+Theorem subst_fun_alt:
+  subst_fun (s:subst) =
+  case s of
+    INL (m,v) => \n. if n = m then SOME v else NONE
+  | INR s =>
+    \n. if n < length s then sub s n else NONE
+Proof
+  rw[FUN_EQ_THM]>>
+  every_case_tac>>
+  EVAL_TAC>>
+  rw[]
+QED
+
+val res = translate subst_fun_alt;
 val res = translate subst_subst_fun_def;
 
 val extract_clauses_arr = process_topdecs`
