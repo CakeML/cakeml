@@ -57,8 +57,8 @@ val res = translate foldi_def;
 val res = translate toAList_def;
 
 val r = translate add_terms_def;
-val r = translate add_lists'_def;
-val r = translate add_lists'_thm;
+val r = translate add_listsLR_def;
+val r = translate add_listsLR_thm;
 val r = translate add_def;
 
 val r = translate multiply_def;
@@ -1554,6 +1554,11 @@ End
 
 val res = translate list_list_insert_def;
 val res = translate npbcTheory.dom_subst_def;
+
+val res = translate obj_single_aux_def;
+val res = translate obj_single_def;
+val res = translate full_obj_single_def;
+
 val res = translate fast_obj_constraint_def;
 val res = translate fast_red_subgoals_def;
 val res = translate do_rso_def;

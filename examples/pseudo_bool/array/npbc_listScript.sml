@@ -774,8 +774,271 @@ Definition set_indices_def:
     (inds, sptree$insert n rinds vimap)
 End
 
+Definition add_listsLR_def:
+  (add_listsL cx (xn:num) xs1 ys zs n =
+    case ys of
+    | [] => (REV zs ((cx,xn)::xs1),n)
+    | (y::ys1) =>
+      let (cy,yn) = y in
+        if yn < xn then add_listsL cx xn xs1 ys1 (y::zs) n
+        else
+        if xn < yn then add_listsR cy yn xs1 ys1 ((cx,xn)::zs) n
+        else
+          let (zs1,n1) = add_terms cx cy xn zs n in
+            add_listsLR xs1 ys1 zs1 n1) ∧
+  (add_listsR cy yn xs ys1 zs n =
+    case xs of
+    | [] => (REV zs ((cy,yn)::ys1),n)
+    | (x::xs1) =>
+      let (cx,xn) = x in
+        if xn < yn then add_listsR cy yn xs1 ys1 (x::zs) n
+        else
+        if yn < xn then add_listsL cx xn xs1 ys1 ((cy,yn)::zs) n
+        else
+          let (zs1,n1) = add_terms cx cy xn zs n in
+            add_listsLR xs1 ys1 zs1 n1) ∧
+  (add_listsLR xs ys zs n =
+    case xs of
+    | [] => (REV zs ys,n)
+    | (x::xs1) =>
+    case ys of
+    | [] => (REV zs xs,n)
+    | (y::ys1) =>
+      let (cx,xn) = x in
+      let (cy,yn) = y in
+        if xn < yn then add_listsR cy yn xs1 ys1 (x::zs) n
+        else
+        if yn < xn then add_listsL cx xn xs1 ys1 (y::zs) n
+        else
+          let (zs1,n1) = add_terms cx cy xn zs n in
+            add_listsLR xs1 ys1 zs1 n1)
+Termination
+  WF_REL_TAC `measure (λv.
+    case v of
+      INL (cx,xn,xs1,ys,zs,n) => LENGTH xs1 + LENGTH ys
+    | INR v =>
+      case v of
+        INL (cy,yn,xs,ys1,zs,n) => LENGTH xs + LENGTH ys1
+      | INR (xs,ys,zs,n) => LENGTH xs + LENGTH ys)`>>
+  rw[]
+End
+
+Theorem add_listsLR_eq:
+  (∀cx xn xs1 ys zs n.
+  add_listsL cx xn xs1 ys zs n =
+  add_lists' ((cx,xn)::xs1) ys zs n) ∧
+  (∀cy yn xs ys1 zs n.
+  add_listsR cy yn xs ys1 zs n =
+  add_lists' xs ((cy,yn)::ys1) zs n) ∧
+  (∀xs ys zs n.
+  add_lists' xs ys zs n =
+  add_listsLR xs ys zs n)
+Proof
+  ho_match_mp_tac add_listsLR_ind>>rw[]>>
+  simp[Once npbcTheory.add_lists'_def,Once add_listsLR_def]>>
+  every_case_tac>>simp[]>>
+  rpt(pairarg_tac>>gvs[])>>rw[]>>fs[]
+QED
+
+Theorem add_listsLR_thm:
+  add_lists xs ys = add_listsLR xs ys [] 0
+Proof
+  rw[npbcTheory.add_lists'_thm,add_listsLR_eq]
+QED
+
 val ow = rconc (EVAL``CHR 1``);
 val zw = rconc (EVAL``CHR 0``);
+
+Theorem subst_aux_no_INR_FILTER:
+  ∀l.
+  EVERY (λ(c,x). case f x of SOME (INR _ ) => F | _ => T) l ⇒
+  subst_aux f l =
+  (FILTER (λ(c,x). f x = NONE) l,
+    [],
+   SUM (MAP (λ(c,x).
+    if is_Pos c ⇔ OUTL (THE (f x))
+    then Num(ABS c) else 0)
+    (FILTER (λ(c,x). f x ≠ NONE) l)))
+Proof
+  Induct>>rw[npbcTheory.subst_aux_def]>>
+  rpt(pairarg_tac>>gvs[])>>
+  simp[npbcTheory.subst_aux_def]>>
+  Cases_on`f x`>>fs[]>>
+  Cases_on`x'`>>fs[]>>
+  rw[]>>fs[]
+QED
+
+Theorem add_lists_emp_2:
+  add_lists ls [] = (ls,0)
+Proof
+  Cases_on`ls`>>EVAL_TAC
+QED
+
+Theorem subst_lhs_no_INR_FILTER:
+  ∀l.
+  EVERY (λ(c,x). case f x of SOME (INR _ ) => F | _ => T) l ⇒
+  subst_lhs f l =
+  (FILTER (λ(c,x). f x = NONE) l,
+   SUM (MAP (λ(c,x).
+    if is_Pos c ⇔ OUTL (THE (f x))
+    then Num(ABS c) else 0)
+    (FILTER (λ(c,x). f x ≠ NONE) l)))
+Proof
+  rw[npbcTheory.subst_lhs_def]>>
+  drule subst_aux_no_INR_FILTER>>
+  rw[]>>
+  simp[npbcTheory.clean_up_def,add_lists_emp_2]
+QED
+
+Theorem SORTED_add_lists_FILTER_MAP:
+  ∀l.
+  SORTED $< (MAP SND l) ⇒
+  add_lists l
+    (FILTER (λ(c,x). f x = NONE) (MAP (λ(c,l). (-c,l)) l)) =
+  (FILTER (λ(c,x). f x <> NONE) l,
+    SUM (MAP (λ(c,x). Num (ABS c))
+    (FILTER (λ(c,x). f x = NONE) l)) )
+Proof
+  Induct>>rw[npbcTheory.add_lists_def]>>
+  rpt(pairarg_tac>>gvs[])>>
+  drule SORTED_TL>>rw[]>>gvs[]>>
+  simp[npbcTheory.add_lists_def]
+  >- (EVAL_TAC>>rw[])>>
+  qmatch_goalsub_abbrev_tac`add_lists _ lss`>>
+  Cases_on`lss`>>gvs[add_lists_emp_2]>>
+  Cases_on`h`>>gvs[npbcTheory.add_lists_def]>>
+  `MEM r (MAP SND l)` by
+    (pop_assum (mp_tac o Q.AP_TERM `λx. MEM r (MAP SND x)`)>>
+    simp[MEM_MAP,MEM_FILTER,PULL_EXISTS,EXISTS_PROD]>>
+    metis_tac[])>>
+  `x < r` by (
+    qpat_x_assum`SORTED _ (_ :: _)` mp_tac>>
+    DEP_REWRITE_TAC[SORTED_EQ]>>
+    simp[])>>
+  simp[]
+QED
+
+Theorem SUM_SPLIT_LE:
+  ∀l.
+  SUM (MAP (λ(c,x). Num (ABS c)) (FILTER (λ(c,x). f x = NONE) l)) +
+  SUM
+    (MAP (λ(c,x). if 0 ≤ c ⇔ OUTL (THE (f x)) then Num (ABS c) else 0)
+       (FILTER (λ(c,x). f x ≠ NONE) (MAP (λ(c,l). (-c,l)) l))) ≤
+  SUM (MAP (λi. Num (ABS (FST i))) l)
+Proof
+  Induct>>simp[FORALL_PROD]>>rw[]>>
+  rw[]
+QED
+
+Theorem obj_constraint_simp:
+  EVERY (λ(c,x). case f x of SOME (INR _ ) => F | _ => T) l ∧
+  SORTED $< (MAP SND l) ⇒
+  obj_constraint f (l,b) =
+    (FILTER (λ(c,x). f x ≠ NONE) l,
+      SUM
+      (MAP
+         (λ(c,x). if 0 ≤ c ⇔ OUTL (THE (f x)) then Num (ABS c) else 0)
+         (FILTER (λ(c,x). f x ≠ NONE) l)))
+Proof
+  rw[npbcTheory.obj_constraint_def]>>
+  DEP_REWRITE_TAC[subst_lhs_no_INR_FILTER]>>
+  CONJ_TAC >- (
+    gvs[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]>>
+    metis_tac[])>>
+  simp[]>>
+  DEP_REWRITE_TAC[SORTED_add_lists_FILTER_MAP]>>
+  simp[]>>
+  pop_assum kall_tac>>
+  pop_assum mp_tac>>
+  Induct_on`l`>>simp[FORALL_PROD]>>
+  rw[]>>
+  every_case_tac>>gvs[]
+  >- (
+    `p_1 = 0` by intLib.ARITH_TAC>>
+    simp[])
+  >- (
+    DEP_REWRITE_TAC[LESS_EQ_ADD_SUB]>>
+    simp[SUM_SPLIT_LE])
+  >- (
+    DEP_REWRITE_TAC[LESS_EQ_ADD_SUB]>>
+    simp[SUM_SPLIT_LE]>>
+    Cases_on`x'`>>fs[]>>
+    intLib.ARITH_TAC)
+QED
+
+(* one pass obj_constraint *)
+Definition obj_single_aux_def:
+  (obj_single_aux f n [] acc k = SOME(REVERSE acc,k:num)) ∧
+  (obj_single_aux f n ((c,x:num)::xs) acc k =
+    if n < x then
+      case f x of
+        NONE => obj_single_aux f x xs acc k
+      | SOME (INL b) =>
+        let r = if is_Pos c ⇔ b then k + Num (ABS c) else k in
+          obj_single_aux f x xs ((c,x)::acc) r
+      | SOME (INR _) => NONE
+    else NONE)
+End
+
+Definition obj_single_def:
+  (obj_single f [] = SOME([],0:num)) ∧
+  (obj_single f ((c,x:num)::xs) =
+      case f x of
+        NONE => obj_single_aux f x xs [] 0
+      | SOME (INL b) =>
+        let r = if is_Pos c ⇔ b then Num (ABS c) else 0 in
+          obj_single_aux f x xs [(c,x)] r
+      | SOME (INR _) => NONE)
+End
+
+Theorem obj_single_aux_eq_SOME:
+  ∀l f n acc k res.
+  obj_single_aux f n l acc k = SOME res ⇒
+  EVERY (λ(c,x). case f x of SOME (INR _ ) => F | _ => T) l ∧
+  SORTED $< (n::MAP SND l) ∧
+  res = (REVERSE acc ++ FILTER (λ(c,x). f x ≠ NONE) l,
+      k + SUM
+      (MAP
+         (λ(c,x). if 0 ≤ c ⇔ OUTL (THE (f x)) then Num (ABS c) else 0)
+         (FILTER (λ(c,x). f x ≠ NONE) l)))
+Proof
+  Induct>>simp[obj_single_aux_def,FORALL_PROD]>>rw[]>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum drule>>
+  simp[]>>rw[]
+QED
+
+Theorem obj_single_eq:
+  obj_single f l = SOME res ⇒
+  obj_constraint f (l,b) = res
+Proof
+  Cases_on`l`>>simp[obj_single_def]>>rw[]
+  >-
+    EVAL_TAC>>
+  Cases_on`h`>>fs[obj_single_def] >>
+  gvs[AllCaseEqs()]>>
+  drule obj_single_aux_eq_SOME>>rw[]>>
+  DEP_REWRITE_TAC[obj_constraint_simp]>>
+  simp[]
+QED
+
+Definition full_obj_single_def:
+  full_obj_single f lb =
+  case obj_single f (FST lb) of
+    NONE => obj_constraint f lb
+  | SOME res => res
+End
+
+(* DO NOT TRANSLATE DIRECTLY *)
+Theorem obj_constraint_rewrite:
+  full_obj_single f lb =
+  obj_constraint f lb
+Proof
+  rw[full_obj_single_def]>>
+  every_case_tac>>simp[]>>
+  drule obj_single_eq>>
+  metis_tac[PAIR]
+QED
 
 (* Fast substitution for obj_constraint if it is in vomap *)
 Definition fast_obj_constraint_def:
@@ -783,14 +1046,14 @@ Definition fast_obj_constraint_def:
   case s of
     INR v =>
     if length v = 0 then ([],0)
-    else obj_constraint (subst_fun s) l
+    else full_obj_single (subst_fun s) l
   | INL (n,_) =>
     if n < strlen vomap
     then
       if strsub vomap n = ^zw then
         ([],0)
       else
-        obj_constraint (subst_fun s) l
+        full_obj_single (subst_fun s) l
     else ([],0)
 End
 
@@ -1609,7 +1872,7 @@ Theorem vomap_rel_fast_obj_constraint:
   fast_obj_constraint s l vomap =
   obj_constraint (subst_fun s) l
 Proof
-  rw[fast_obj_constraint_def]>>
+  rw[fast_obj_constraint_def,obj_constraint_rewrite]>>
   every_case_tac>>
   Cases_on`l`>>
   fs[npbcTheory.obj_constraint_def,subst_fun_def]>>
