@@ -309,6 +309,8 @@ val res = translate destTOK_def;
 
 val res = translate $ PURE_REWRITE_RULE [GSYM mlstringTheory.implode_def] conv_ident_def;
 
+val res = translate $ PURE_REWRITE_RULE [GSYM mlstringTheory.implode_def] conv_ffi_ident_def;
+
 val res = translate isNT_def;
 
 val res = translate conv_int_def;
