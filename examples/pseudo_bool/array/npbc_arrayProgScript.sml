@@ -1,7 +1,7 @@
 (*
   Refine npbc_list to npbc_array
 *)
-open preamble basis npbcTheory npbc_listTheory fastbuild;
+open preamble basis npbcTheory npbc_listTheory;
 
 val _ = new_theory "npbc_arrayProg"
 
