@@ -373,7 +373,7 @@ val good_init_state_def = Define `
     code_loaded bytes mc_conf ms /\
     bytes_in_mem t.pc bytes t.mem t.mem_domain dm /\
     (* data memory relation -- note that this implies m contains no labels *)
-    dm SUBSET t.mem_domain /\    
+    dm SUBSET t.mem_domain /\
     (!a. byte_align a ∈ dm ==> a ∈ dm) /\
     sdm = mc_conf.shared_addresses /\
     (!a. byte_align a IN sdm ==> a IN sdm) /\

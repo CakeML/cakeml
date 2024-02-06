@@ -331,7 +331,7 @@ val _ = Datatype`
             ; asm_conf : 'a asm_config
             ; init_clock : num
             ; ffi_names : ffiname list option
-            (* shmem_info is 
+            (* shmem_info is
             * a list of (entry pc, no. of bytes, address of the shared memory, register
             * to be load/store and the end pc)s for each share memory access *)
             ; shmem_extra: 'a shmem_info

@@ -95,7 +95,7 @@ Definition san_config_def:
    ; len_reg := ARB
    ; ptr2_reg := ARB
    ; len2_reg := ARB
-   ; ffi_interfer := san_ffi_interfer 
+   ; ffi_interfer := san_ffi_interfer
       (san_mmio_info: num -> word8 # 64 addr # num # word64)
    ; next_interfer := K I
    ; halt_pc := n2w ffi_offset

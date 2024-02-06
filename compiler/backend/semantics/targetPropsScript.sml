@@ -39,7 +39,7 @@ Proof
   Induct_on `xs` >>
   gvs[bytes_in_memory_def,DISJOINT_DEF,INTER_DEF,EMPTY_DEF,EXTENSION,DIFF_DEF] >>
   rpt strip_tac
-  >- ( 
+  >- (
     first_x_assum $ drule >>
     rw[] >>
     qexists `p + 1w` >>
@@ -85,7 +85,7 @@ QED
 
 Definition ffi_entry_pcs_disjoint_def:
   ffi_entry_pcs_disjoint mc s1 len =
-    DISJOINT (set mc.ffi_entry_pcs) {s1.pc + n2w a | a < len} 
+    DISJOINT (set mc.ffi_entry_pcs) {s1.pc + n2w a | a < len}
 End
 
 Theorem evaluate_EQ_evaluate_lemma:
@@ -276,7 +276,7 @@ Theorem asm_step_IMP_evaluate_step = Q.prove(`
       first_x_assum(qspec_then`1`mp_tac)
       \\ simp[]
       \\ disch_then(qspec_then`0`mp_tac)
-      \\ simp[] 
+      \\ simp[]
       \\ disch_then irule
       \\ Cases_on`c.target.config.encode i` \\ fs[]
       \\ pop_assum mp_tac \\ simp[]
@@ -360,7 +360,7 @@ Proof
   IF_CASES_TAC >> fs[ELIM_UNCURRY] \\
   rpt (TOP_CASE_TAC >> gvs[])
 QED
- 
+
 Theorem evaluate_io_events_mono:
    ∀mc_conf ffi k ms.
      ffi.io_events ≼ (SND(SND(evaluate mc_conf ffi k ms))).io_events
