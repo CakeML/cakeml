@@ -150,8 +150,7 @@ val expose_func_def = Define `
      strlit"     jmp     cdecl("; label; strlit")\n";
             name; strlit"_ret:\n";
      strlit"     mov     %edi, %eax\n";                       (* func retval in %edi to C expected %eax *)
-     strlit"     pop     %rdi\n";                               (* grab retaddr C left on stack *)
-		 strlit"     jmp     %rdi\n";
+     strlit"     ret\n"                                       (* return to retaddr C left on stack *)
     ])`;
 
 val expose_funcs_def = Define `
