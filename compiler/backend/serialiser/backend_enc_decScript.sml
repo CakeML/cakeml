@@ -154,6 +154,8 @@ val _ = reg_enc_dec tra_enc'_thm;
 val res = define_enc_dec “:var_name”
 val res = define_enc_dec “:word_size”
 val res = define_enc_dec “:mlstring”
+val res = define_enc_dec “:shmem_op”
+val res = define_enc_dec “:ffiname”
 
 (* const *)
 

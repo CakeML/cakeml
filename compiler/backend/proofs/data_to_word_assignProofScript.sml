@@ -5980,7 +5980,7 @@ val BIT_Lemma2 = prove(
 
 Theorem assign_WordFromInt:
    op = WordFromInt ==> ^assign_thm_goal
-Proof
+Proof[exclude_simps = INT_OF_NUM NUM_EQ0]
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
@@ -11504,7 +11504,7 @@ QED
 
 Theorem assign_UpdateByte:
    op = UpdateByte ==> ^assign_thm_goal
-Proof
+Proof[exclude_simps = INT_OF_NUM NUM_EQ0]
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
