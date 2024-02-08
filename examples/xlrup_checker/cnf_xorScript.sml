@@ -329,10 +329,8 @@ Proof
   drule fromString_print_lit>>
   rw[]>>simp[]>>
   qmatch_goalsub_abbrev_tac`ll::acc`>>
-  qsuff_tac`ll=h`>>rw[]
-  >-
-    (first_x_assum drule>>simp[])>>
-  simp[Abbr`ll`]>>every_case_tac>>fs[]
+  gvs[]>>
+  Cases_on`h`>>gvs[var_lit_def]
 QED
 
 Theorem parse_clause_print_clause:
