@@ -146,11 +146,14 @@ val expose_func_def = Define `
      strlit"     .type   "; name; strlit", function\n";
      strlit"#endif\n";
      strlit"cdecl("; name; strlit"):\n";
+     strlit"     pushq   %rbp";
+     strlit"     movq    %rsp, %rbp";
      strlit"     lea     "; name; strlit"_ret(%rip), %rax\n"; (* func returns to rax manually *)
      strlit"     jmp     cdecl("; label; strlit")\n";
             name; strlit"_ret:\n";
      strlit"     mov     %edi, %eax\n";                       (* func retval in %edi to C expected %eax *)
-     strlit"     ret\n"                                       (* return to retaddr C left on stack *)
+     strlit"     leave\n";                                    (* return to retaddr C left on stack *)
+     strlit"     ret\n"
     ])`;
 
 val expose_funcs_def = Define `
