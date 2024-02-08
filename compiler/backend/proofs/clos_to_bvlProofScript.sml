@@ -527,49 +527,57 @@ Inductive unpack_closure:
          (prev_args, Num rem_args + LENGTH prev_args, clo))
 End
 
-val evaluate_generic_app_partial = Q.prove (
-  `!total_args prev_args st args cl sub_cl.
-    partial_app_fn_location max_app total_args (LENGTH prev_args + (LENGTH args - 1)) ∈ domain st.code ∧
+Theorem evaluate_generic_app_partial[local]:
+  !total_args prev_args st args cl sub_cl.
+    partial_app_fn_location
+      max_app
+      total_args
+      (LENGTH prev_args + (LENGTH args - 1)) ∈ domain st.code ∧
     total_args < max_app ∧
     LENGTH args < (total_args + 1) - LENGTH prev_args ∧
     LENGTH args ≠ 0 ∧
     get_global 0 st.globals = SOME (SOME (global_table max_app)) ∧
     unpack_closure cl (prev_args, total_args, sub_cl)
     ⇒
-    evaluate ([generate_generic_app max_app (LENGTH args - 1)], args++[cl], st) =
-      if st.clock < LENGTH args - 1 then
-        (Rerr(Rabort Rtimeout_error), st with clock := 0)
-      else
-        (Rval [Block partial_app_tag (CodePtr (partial_app_fn_location max_app total_args (LENGTH prev_args + (LENGTH args - 1))) ::
-                                      Number (&(total_args - (LENGTH prev_args + LENGTH args))) ::
-                                      sub_cl::
-                                      args++
-                                      prev_args)],
-         dec_clock (LENGTH args - 1) st)`,
+    evaluate ([generate_generic_app max_app (LENGTH args-1)], args++[cl], st) =
+    if st.clock < LENGTH args - 1 then
+      (Rerr(Rabort Rtimeout_error), st with clock := 0)
+    else
+      (Rval [Block partial_app_tag
+                   (CodePtr (partial_app_fn_location
+                               max_app total_args
+                               (LENGTH prev_args + (LENGTH args - 1))) ::
+                            Number (&(total_args -
+                                      (LENGTH prev_args + LENGTH args))) ::
+                            sub_cl:: args++ prev_args)],
+         dec_clock (LENGTH args - 1) st)
+Proof
   rpt GEN_TAC >>
   strip_tac >>
   full_simp_tac(srw_ss())[unpack_closure_cases]
-  >- (qspecl_then [`LENGTH args - 1`, `args`, `st`, `total_args`] mp_tac evaluate_generic_app1 >>
+  >- (qspecl_then [‘LENGTH args - 1’, ‘args’, ‘st’, ‘total_args’] mp_tac
+                  evaluate_generic_app1 >>
       srw_tac [ARITH_ss] [] >>
       rev_full_simp_tac(srw_ss())[] >>
-      `&Num total_args' = total_args'` by intLib.COOPER_TAC >>
-      `LENGTH args <> 0` by simp[] >>
+      ‘&Num total_args' = total_args'’ by intLib.COOPER_TAC >>
+      ‘LENGTH args <> 0’ by simp[] >>
       full_simp_tac(std_ss++ARITH_ss)[])
-  >- (qspecl_then [`LENGTH args - 1`, `args`, `st`, `Num rem_args`, `prev_args`] mp_tac evaluate_generic_app2 >>
+  >- (qspecl_then [‘LENGTH args - 1’, ‘args’, ‘st’, ‘Num rem_args’, ‘prev_args’]
+                  mp_tac evaluate_generic_app2 >>
       full_simp_tac (srw_ss()++ARITH_ss) [] >>
       srw_tac [ARITH_ss] [] >>
-      `LENGTH args <> 0` by simp [] \\ full_simp_tac (std_ss++ARITH_ss)[] >>
-      Cases_on `prev_args` >>
+      ‘LENGTH args <> 0’ by simp [] \\ full_simp_tac (std_ss++ARITH_ss)[] >>
+      Cases_on ‘prev_args’ >>
       full_simp_tac(srw_ss())[] >>
       srw_tac[][] >>
       rfs [] >>
-      `&Num rem_args = rem_args` by intLib.ARITH_TAC >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][int_arithTheory.INT_NUM_SUB] >>
-      `LENGTH args <> 0` by simp [] \\ full_simp_tac (std_ss++ARITH_ss)[]));
+      gs[iffRL integerTheory.INT_OF_NUM, Excl "INT_OF_NUM",
+         integerTheory.int_ge, int_arithTheory.INT_NUM_SUB] >>
+      ‘LENGTH args <> 0’ by simp [] \\ gs[])
+QED
 
-val evaluate_generic_app_full = Q.prove (
-  `!n args st rem_args vs l tag exp clo.
+Theorem evaluate_generic_app_full[local]:
+  !n args st rem_args vs l tag exp clo.
     lookup l st.code = SOME (rem_args + 2, exp) ∧
     n + 1 = LENGTH args ∧
     n > rem_args ∧
@@ -591,7 +599,8 @@ val evaluate_generic_app_full = Q.prove (
              of
                (Rval v,s2) => (Rval [HD v],s2)
              | x => x)
-        | x => x`,
+        | x => x
+Proof
   srw_tac[][generate_generic_app_def, mk_const_def] >>
   srw_tac[][evaluate_def, do_app_def, el_append2] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [partial_app_tag_def] >>
@@ -643,7 +652,8 @@ val evaluate_generic_app_full = Q.prove (
   Cases_on `a` >>
   full_simp_tac(srw_ss())[] >>
   Cases_on `t` >>
-  full_simp_tac(srw_ss())[]);
+  full_simp_tac(srw_ss())[]
+QED
 
 val mk_cl_lem = Q.prove (
   `l < LENGTH env
@@ -768,13 +778,6 @@ val evaluate_partial_app_fn = Q.prove (
 val code_installed_def = Define `
   code_installed aux code =
     EVERY (\(n,num_args,exp). lookup n code = SOME (num_args,exp)) aux`;
-
-Theorem code_installed_fromAList:
-   ALL_DISTINCT (MAP FST ls) ⇒ code_installed ls (fromAList ls)
-Proof
-  srw_tac[][code_installed_def,EVERY_MEM,FORALL_PROD,lookup_fromAList] >>
-  metis_tac[ALOOKUP_ALL_DISTINCT_MEM]
-QED
 
 val closure_code_installed_def = Define `
   closure_code_installed max_app code exps_ps (env:closSem$v list) =
@@ -4130,7 +4133,8 @@ Proof
       \\ Cases_on`x` \\ full_simp_tac(srw_ss())[]
       \\ Cases_on`x'` \\ full_simp_tac(srw_ss())[]
       >- (fs[state_rel_def] >> res_tac >> fs[] >> rfs[] >> rveq)
-      \\ Cases_on`call_FFI p1.ffi n l l''` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+      \\ Cases_on`call_FFI p1.ffi (ExtCall n) l l''`
+      \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
       \\ imp_res_tac evaluate_const
       >- (fs[state_rel_def] >> res_tac >> fs[] >> rfs[] >> rveq)
       \\ `?y m.
@@ -8464,7 +8468,8 @@ Proof
     \\ imp_res_tac ALOOKUP_MEM
     \\ metis_tac[] )
   \\ Q.ISPECL_THEN [`cc`, `es`, `co`] drule syntax_oracle_ok_to_oracle_inv
-  \\ fs []);
+  \\ fs []
+QED
 
 Theorem compile_inc_phases_all_distinct:
   SND (SND (orac i)) = [] ==>
@@ -8679,7 +8684,7 @@ Proof
   \\ Cases_on `es` \\ fs [clos_to_bvlTheory.chain_exps_def]
 QED
 
-Theorem chain_exps_every_Fn_SOME:
+Theorem chain_exps_every_Fn_SOME[allow_rebind]:
    !es l. every_Fn_SOME es ==>
            every_Fn_SOME (MAP (SND ∘ SND) (chain_exps l es))
 Proof

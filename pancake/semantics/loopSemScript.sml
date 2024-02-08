@@ -115,6 +115,35 @@ Definition set_vars_def:
   (s with locals := (alist_insert vs xs s.locals))
 End
 
+Definition loop_arith_def:
+  (loop_arith ^s (LDiv r1 r2 r3) =
+   case (lookup r3 s.locals, lookup r2 s.locals) of
+     (SOME (Word q), SOME(Word w2)) =>
+       if q ≠ 0w then
+         SOME(set_var r1 (Word (w2 / q)) s)
+       else NONE
+   | _  => NONE
+  ) ∧
+  (loop_arith ^s (LLongMul r1 r2 r3 r4) =
+   case (lookup r3 s.locals, lookup r4 s.locals) of
+     (SOME (Word w3), SOME(Word w4)) =>
+       (let r = w2n w3 * w2n w4 in
+          SOME (set_var r2 (Word (n2w r)) (set_var r1 (Word (n2w (r DIV dimword(:'a)))) s)))
+   | _  => NONE) ∧
+  (loop_arith ^s (LLongDiv r1 r2 r3 r4 r5) =
+   case (lookup r3 s.locals, lookup r4 s.locals, lookup r5 s.locals) of
+     (SOME (Word w3), SOME(Word w4), SOME(Word w5)) =>
+       (let n = w2n w3 * dimword (:'a) + w2n w4;
+            d = w2n w5;
+            q = n DIV d
+        in
+          if (d ≠ 0 ∧ q < dimword(:'a)) then
+            SOME (set_var r1 (Word (n2w q)) (set_var r2 (Word (n2w (n MOD d))) s))
+          else NONE)
+   | _  => NONE
+  )
+End
+
 Definition find_code_def:
   (find_code (SOME p) args code =
      case sptree$lookup p code of
@@ -173,6 +202,10 @@ Definition evaluate_def:
      case eval s exp of
      | NONE => (SOME Error, s)
      | SOME w => (NONE, set_var v w s)) /\
+  (evaluate (Arith arith,s) =
+     case loop_arith s arith of
+       NONE => (SOME Error, s)
+     | SOME s' => (NONE,s')) /\
   (evaluate (Store exp v,s) =
      case (eval s exp, lookup v s.locals) of
      | (SOME (Word adr), SOME w) =>
@@ -279,7 +312,7 @@ Definition evaluate_def:
                read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be))
                of
           | SOME bytes,SOME bytes2 =>
-             (case call_FFI s.ffi ffi_index bytes bytes2 of
+             (case call_FFI s.ffi (ExtCall ffi_index) bytes bytes2 of
               | FFI_final outcome => (SOME (FinalFFI outcome),call_env [] s)
               | FFI_return new_ffi new_bytes =>
                 let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
@@ -320,7 +353,8 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [CaseEq"option",CaseEq"word_loc",mem_store_def,CaseEq"bool",CaseEq"result",
          pair_case_eq,cut_res_def]
-  \\ fs [] \\ rveq \\ fs [set_var_def,set_globals_def]
+  \\ fs[DefnBase.one_line_ify NONE loop_arith_def,CaseEq "loop_arith",
+       CaseEq "option", CaseEq "word_loc",set_var_def] \\ rveq \\ fs[]
   \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ fs []
   \\ rename [‘cut_res _ xx’] \\ PairCases_on ‘xx’ \\ fs []
   \\ fs [cut_res_def]
@@ -337,8 +371,8 @@ QED
 
 (* we store the theorems without fix_clock *)
 
-Theorem evaluate_ind = REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
-Theorem evaluate_def = REWRITE_RULE [fix_clock_evaluate] evaluate_def;
+Theorem evaluate_ind[allow_rebind] = REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
+Theorem evaluate_def[allow_rebind] = REWRITE_RULE [fix_clock_evaluate] evaluate_def;
 
 (* observational semantics *)
 

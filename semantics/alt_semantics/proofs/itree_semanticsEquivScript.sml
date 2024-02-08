@@ -4,7 +4,7 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open optionTheory relationTheory pairTheory listTheory arithmeticTheory llistTheory;
 open namespaceTheory astTheory ffiTheory lprefix_lubTheory semanticPrimitivesTheory
-     semanticsTheory evaluatePropsTheory smallStepTheory smallStepPropsTheory;
+     semanticsTheory evaluatePropsTheory smallStepTheory smallStepPropsTheory primSemEnvTheory;
 open itreeTheory itree_semanticsTheory itree_semanticsPropsTheory;
 
 val _ = new_theory "itree_semanticsEquiv";
@@ -106,7 +106,8 @@ Proof
     simp[step_result_rel_cases, AllCaseEqs(), PULL_EXISTS] >>
     Cases_on ‘do_app (st,ffi) Eval vs’ >> gvs[] >>
     Cases_on ‘do_app st Eval vs’ >> gvs[]
-  >- (irule ctxt_rel_fix_fp_state >> simp[]) >>
+    >- (
+      irule $ GSYM ctxt_rel_fix_fp_state >> simp[])>>
     PairCases_on ‘x’ >> PairCases_on ‘x'’ >>
     gvs[result_rel_cases, SF smallstep_ss, SF itree_ss] >>
     gs[do_app_def, semanticPrimitivesTheory.do_app_def] >> every_case_tac >>
@@ -457,7 +458,7 @@ QED
 (******************** Relating FFI steps ********************)
 
 Theorem estep_to_Effi:
-  estep ea = Effi s conf ws lnum env st cs ⇔
+  estep ea = Effi (ExtCall s) conf ws lnum env st cs ⇔
   ∃env' conf' fp'.
     conf = MAP (λc. n2w (ORD c)) (EXPLODE conf') ∧
     ea = (env',st,fp',Val (Litv (StrLit conf')),
@@ -484,7 +485,8 @@ Proof
 QED
 
 Theorem dstep_to_Dffi:
-  dstep env dst dev dcs = Dffi dst' (s,ws1,ws2,lnum,env',cs) locs pat dcs' ⇔
+  dstep env dst dev dcs =
+  Dffi dst' (ExtCall s,ws1,ws2,lnum,env',cs) locs pat dcs' ⇔
   ∃env'' conf.
     dst = dst' ∧ dcs = dcs' ∧
     dev = ExpVal env'' (Val (Litv (StrLit conf)))
@@ -516,7 +518,8 @@ Theorem decl_step_ffi_changed_dstep_to_Dffi:
             ((Capp (FFI s) [Loc lnum] [], env'') :: ccs) locs pat ∧
     store_lookup lnum dst1.refs = SOME (W8array ws) ∧
     dstep env dst1 dev1 dcs = Dffi dst1
-      (s,(MAP (λc. n2w $ ORD c) (EXPLODE conf)),ws,lnum,env'',ccs) locs pat dcs'
+      (ExtCall s,MAP (λc. n2w $ ORD c) (EXPLODE conf),ws,lnum,env'',ccs)
+      locs pat dcs'
 Proof
   rw[] >> drule_all decl_step_ffi_changed >> rw[] >>
   gvs[deval_rel_cases, ctxt_rel_def, dstate_rel_def] >>
@@ -531,12 +534,14 @@ QED
 Theorem dstep_result_rel_single_FFI:
   ∀dsta deva dcsa db env dsta' s ws1 ws2 n env' cs ffi_call locs pat dcsa'.
     dstep_result_rel (Dstep dsta deva dcsa) (Dstep db) ∧
-    dstep env dsta deva dcsa = Dffi dsta' (s,ws1,ws2,n,env',cs) locs pat dcsa'
+    dstep env dsta deva dcsa =
+    Dffi dsta' (ExtCall s,ws1,ws2,n,env',cs) locs pat dcsa'
   ⇒ ∃ffi.
       dget_ffi (Dstep db) = SOME ffi ∧
       ((∃ffi'. dget_ffi (decl_step env db) = SOME ffi' ∧ ffi' ≠ ffi) ∨
        (∃outcome fp.
-          decl_step env db = Dabort (fp, (Rffi_error $ Final_event s ws1 ws2 outcome))))
+          decl_step env db =
+          Dabort (fp, (Rffi_error $ Final_event (ExtCall s) ws1 ws2 outcome))))
 Proof
   ntac 3 gen_tac >> PairCases >> rw[] >>
   gvs[dstep_result_rel_cases, dstep_to_Dffi, dget_ffi_def] >>
@@ -546,7 +551,8 @@ Proof
   simp[semanticPrimitivesTheory.do_app_def, ffiTheory.call_FFI_def] >>
   every_case_tac >> gvs[dget_ffi_def] >>
   gvs[store_lookup_def, store_assign_def, store_v_same_type_def, dstate_rel_def] >>
-  rw[ffi_state_component_equality]
+  rw[ffi_state_component_equality] >>
+  simp[combinTheory.o_DEF, stringTheory.IMPLODE_EXPLODE_I]
 QED
 
 Theorem step_result_rel_single_FFI_error:
@@ -562,13 +568,16 @@ Proof
   gvs[step_result_rel_cases, ctxt_rel_def] >>
   gvs[GSYM ctxt_rel_def, ctxt_frame_rel_cases] >> pairarg_tac >> gvs[] >>
   simp[SF itree_ss, application_def] >> gvs[call_FFI_def, AllCaseEqs()] >>
-  gs[semanticPrimitivesTheory.do_fprw_def] >> every_case_tac >> gs[]
+  gs[semanticPrimitivesTheory.do_fprw_def] >> every_case_tac >> gs[] >>
+  simp[combinTheory.o_DEF, stringTheory.IMPLODE_EXPLODE_I]
 QED
 
 Theorem dstep_result_rel_single_FFI_strong:
-  ∀dsta deva dcsa dstb devb dcsb env dsta' s conf ws lnum eenv cs1 locs pat dcsa'.
+  ∀dsta deva dcsa dstb devb dcsb env dsta' s conf ws lnum eenv cs1 locs pat
+   dcsa'.
     dstep_result_rel (Dstep dsta deva dcsa) (Dstep (dstb, devb, dcsb)) ∧
-    dstep env dsta deva dcsa = Dffi dsta' (s,conf,ws,lnum,eenv,cs1) locs pat dcsa'
+    dstep env dsta deva dcsa =
+    Dffi dsta' (ExtCall s,conf,ws,lnum,eenv,cs1) locs pat dcsa'
   ⇒ ∃env' ffi conf' cs2 fp.
       conf = MAP (λc. n2w (ORD c)) (EXPLODE conf') ∧
       deva = ExpVal env' (Val (Litv $ StrLit conf'))
@@ -578,22 +587,24 @@ Theorem dstep_result_rel_single_FFI_strong:
       store_lookup lnum dsta.refs = SOME (W8array ws) ∧ s ≠ "" ∧
       dget_ffi (Dstep (dstb, devb, dcsb)) = SOME ffi ∧
       decl_step env (dstb, devb, dcsb) =
-        case ffi.oracle s ffi.ffi_state conf ws of
+        case ffi.oracle (ExtCall s) ffi.ffi_state conf ws of
         | Oracle_return ffi' ws' =>
             if LENGTH ws' ≠ LENGTH ws then
-              Dabort (fp, Rffi_error $ Final_event s conf ws FFI_failed)
+              Dabort (fp,
+                      Rffi_error $ Final_event (ExtCall s) conf ws FFI_failed)
             else
               Dstep (
                 dstb with <|
                   refs := LUPDATE (W8array ws') lnum dstb.refs;
                   ffi := dstb.ffi with <|
                     ffi_state := ffi';
-                    io_events := dstb.ffi.io_events ++ [IO_event s conf (ZIP (ws,ws'))]
+                    io_events := dstb.ffi.io_events ++
+                                 [IO_event (ExtCall s) conf (ZIP (ws,ws'))]
                     |>
                   |>,
                 ExpVal eenv (Val $ Conv NONE []) cs2 locs pat, dcsb)
         | Oracle_final outcome =>
-            Dabort (fp, Rffi_error $ Final_event s conf ws outcome)
+            Dabort (fp, Rffi_error $ Final_event (ExtCall s) conf ws outcome)
 Proof
   rw[] >> gvs[dstep_to_Dffi, dstep_result_rel_cases, deval_rel_cases, ctxt_rel_def] >>
   gvs[GSYM ctxt_rel_def, ctxt_frame_rel_cases] >> pairarg_tac >> gvs[] >>
@@ -601,15 +612,18 @@ Proof
   simp[semanticPrimitivesTheory.do_app_def, ffiTheory.call_FFI_def] >>
   gvs[dstate_rel_def] >> every_case_tac >> gvs[] >>
   gvs[store_assign_def, store_lookup_def, store_v_same_type_def,
-      semanticPrimitivesTheory.state_component_equality]
+      semanticPrimitivesTheory.state_component_equality] >>
+  gvs[combinTheory.o_DEF, stringTheory.IMPLODE_EXPLODE_I]
 QED
 
 Theorem dstep_result_rel_single_FFI_error:
   ∀dsta deva dcsa dstb devb dcsb.
     dstep_result_rel (Dstep dsta deva dcsa) (Dstep (dstb,devb,dcsb)) ∧
-    decl_step env (dstb,devb,dcsb) = Dabort (fp, (Rffi_error (Final_event s conf ws outcome)))
+    decl_step env (dstb,devb,dcsb) =
+    Dabort (fp, (Rffi_error (Final_event (ExtCall s) conf ws outcome)))
   ⇒ ∃lnum env' cs locs pat.
-      dstep env dsta deva dcsa = Dffi dsta (s,conf,ws,lnum,env',cs) locs pat dcsa
+      dstep env dsta deva dcsa =
+      Dffi dsta (ExtCall s,conf,ws,lnum,env',cs) locs pat dcsa
 Proof
   rw[] >> Cases_on `∃d. deva = Decl d` >> gvs[]
   >- (
@@ -627,7 +641,10 @@ Proof
   gvs[SF dsmallstep_ss] >>
   qmatch_asmsub_abbrev_tac `e_step_result_CASE foo` >>
   qspec_then `(s',(dstb.refs,dstb.ffi),dstb.fp_state,e,scs)` mp_tac $
-    SIMP_RULE std_ss [Once SWAP_FORALL_THM] step_result_rel_single_FFI_error >>
+    (step_result_rel_single_FFI_error
+       |> Q.INST [‘s’ |-> ‘ExtCall ss’]
+       |> Q.INST [‘ss’ |-> ‘s’]
+       |> SIMP_RULE std_ss [Once SWAP_FORALL_THM])  >>
   simp[step_result_rel_cases, PULL_EXISTS] >> disch_then drule >>
   simp[estep_to_Effi] >> strip_tac >> unabbrev_all_tac >>
   Cases_on `e` >> gvs[] >- (every_case_tac >> gvs[]) >>
@@ -649,7 +666,7 @@ Proof
   rw[] >> drule dstep_result_rel_single >> rw[] >>
   gvs[IMP_CONJ_THM, FORALL_AND_THM] >>
   first_x_assum irule >> CCONTR_TAC >> gvs[is_Dffi_def] >>
-  PairCases_on `ev` >> drule_all dstep_result_rel_single_FFI >> rw[] >> gvs[]
+  PairCases_on `ev0` >> drule_all dstep_result_rel_single_FFI >> rw[] >> gvs[]
 QED
 
 Theorem dstep_result_rel_n':
@@ -846,6 +863,57 @@ QED
 
 (******************** trace_prefix ********************)
 
+Theorem dstep_not_SharedMem:
+  ∀benv st decl c st' ffiname ws1 ws2 n env' ec locs p c'.
+  dstep benv st decl c = Dffi st' (ffiname,ws1,ws2,n,env',ec) locs p c' ==>
+  ffiname <> SharedMem mop
+Proof
+  recInduct dstep_ind >>
+  rw[dstep_def] >>
+  gvs[DefnBase.one_line_ify NONE dcontinue_def,AllCaseEqs()] >>
+  gvs[DefnBase.one_line_ify NONE estep_def,AllCaseEqs(),
+    push_def,return_def] >>
+  gvs[DefnBase.one_line_ify NONE application_def,AllCaseEqs(),
+    return_def,push_def] >>
+  gvs[DefnBase.one_line_ify NONE continue_def,AllCaseEqs(),
+     return_def,push_def,
+     DefnBase.one_line_ify NONE application_def] >>
+  gvs[DefnBase.one_line_ify NONE exn_continue_def,AllCaseEqs(),
+    return_def,push_def]
+QED
+
+(* use FFI instead of SharedMem *)
+Theorem do_app_not_SharedMem:
+  semanticPrimitives$do_app s op vs ≠ SOME (v, Rerr (Rabort (Rffi_error (Final_event (SharedMem
+  s') conf ws outcome))))
+Proof
+  rpt strip_tac >>
+  gvs[DefnBase.one_line_ify NONE semanticPrimitivesTheory.do_app_def,
+    AllCaseEqs(),call_FFI_def] >>
+  rw[] >>
+  pairarg_tac >> fs[]
+QED
+
+Theorem application_not_SharedMem:
+  smallStep$application op env (refs,ffi) fp_state vs vs' ≠
+    Eabort (fp,Rffi_error (Final_event (SharedMem s') conf ws outcome))
+Proof
+  rpt strip_tac >>
+  gvs[smallStepTheory.application_def,AllCaseEqs(),SF smallstep_ss,
+    do_app_not_SharedMem] >>
+  gvs[semanticPrimitivesTheory.do_fprw_def,AllCaseEqs()]
+QED
+
+Theorem decl_step_not_SharedMem:
+  decl_step env (st,devb,dcs) ≠ Dabort (fp,Rffi_error (Final_event (SharedMem
+  s') conf ws outcome))
+Proof
+  strip_tac >>
+  gvs[decl_step_def,AllCaseEqs(),decl_continue_def] >>
+  gvs[DefnBase.one_line_ify NONE e_step_def,AllCaseEqs(),SF smallstep_ss] >>
+  gvs[application_not_SharedMem]
+QED
+
 Theorem trace_prefix_dec_Error:
   dstate_rel dsta st ∧ deval_rel deva devb ⇒
 
@@ -916,6 +984,8 @@ Proof
       simp[PULL_EXISTS, GSYM CONJ_ASSOC] >>
       rw[decl_step_reln_eq_step_n_cml, PULL_EXISTS] >>
       goal_assum drule >> rw[decl_step_reln_def] >>
+      Cases_on ‘s’>>fs[]>-
+               (
       drule_at Any dstep_result_rel_single_FFI_strong >>
       simp[dstep_result_rel_cases, PULL_EXISTS] >>
       disch_then drule_all >> strip_tac >> gvs[dget_ffi_def] >>
@@ -935,6 +1005,8 @@ Proof
             ffi_state_component_equality]) >>
       gvs[dstep_to_Dffi] >> goal_assum drule >> simp[] >>
       unabbrev_all_tac >> gvs[]
+               )>>
+        metis_tac[dstep_not_SharedMem]
       )
     )
   >- (
@@ -1108,6 +1180,7 @@ Proof
       rename1 `_ = Dstep dsta' deva' dcs'` >>
       qmatch_goalsub_abbrev_tac `_ ++ [new_event]` >>
       goal_assum drule >> gvs[dget_ffi_def] >>
+      Cases_on ‘s’>>fs[]>- (
       drule_at Any dstep_result_rel_single_FFI_strong >>
       simp[dstep_result_rel_cases] >> disch_then drule_all >>
       strip_tac >> gvs[Abbr `st'`] >>
@@ -1131,7 +1204,8 @@ Proof
         rw[semanticPrimitivesTheory.state_component_equality,
            ffi_state_component_equality]) >>
       unabbrev_all_tac >> gvs[dstep_to_Dffi] >>
-      goal_assum drule >> goal_assum drule >> simp[]
+      goal_assum drule >> goal_assum drule >> simp[])>>
+      metis_tac[dstep_not_SharedMem]
       )
     )
   >- (
@@ -1333,10 +1407,12 @@ Proof
       rename1 `Dffi dst (s,conf,ws,lnum,env',cs) locs pat dcs''` >>
       rename1 `_ = Dstep dsta' deva' dcs'` >>
       goal_assum drule >> gvs[dget_ffi_def] >>
+      Cases_on ‘s’>>fs[]>- (
       drule_at Any dstep_result_rel_single_FFI_strong >>
       simp[dstep_result_rel_cases] >> disch_then drule_all >>
       strip_tac >> gvs[Abbr `st'`] >>
-      gvs[dget_ffi_def, ffi_state_component_equality]
+      gvs[dget_ffi_def, ffi_state_component_equality])>>
+      metis_tac[dstep_not_SharedMem]
       )
     >- (
       pairarg_tac >> gvs[] >>
@@ -1359,6 +1435,7 @@ Proof
       rename1 `Dffi dst (s',conf',ws',lnum,env',cs) locs pat dcs''` >>
       rename1 `_ = Dstep dsta' deva' dcs'` >>
       goal_assum drule >> gvs[dget_ffi_def] >>
+      Cases_on ‘s'’>>fs[]>- (
       drule_at Any dstep_result_rel_single_FFI_strong >>
       simp[dstep_result_rel_cases] >> disch_then drule_all >>
       strip_tac >> gvs[Abbr `st'`] >>
@@ -1376,7 +1453,8 @@ Proof
         rw[semanticPrimitivesTheory.state_component_equality,
            ffi_state_component_equality]) >>
       gvs[] >> goal_assum drule >> simp[] >>
-      unabbrev_all_tac >> gvs[]
+      unabbrev_all_tac >> gvs[])>>
+      metis_tac[dstep_not_SharedMem]
       )
     >- (
       qspecl_then [`x`,`env`,`Dstep dsta deva dcs`]
@@ -1396,10 +1474,12 @@ Proof
       rename1 `Dffi dst (s',conf',ws',lnum,env',cs) locs pat dcs''` >>
       rename1 `_ = Dstep dsta' deva' dcs'` >>
       goal_assum drule >> gvs[dget_ffi_def] >>
+      Cases_on ‘s'’>>fs[] >- (
       drule_at Any dstep_result_rel_single_FFI_strong >>
       simp[dstep_result_rel_cases] >> disch_then drule_all >>
       strip_tac >> gvs[Abbr `st'`] >>
-      gvs[dget_ffi_def, ffi_state_component_equality]
+      gvs[dget_ffi_def, ffi_state_component_equality]) >>
+      metis_tac[dstep_not_SharedMem]
       )
     )
   >- (
@@ -1413,6 +1493,7 @@ Proof
       gvs[step_n_cml_def] >>
       qexists_tac `SUC $ SUC 0` >> once_rewrite_tac[trace_prefix_interp] >>
       simp[step_until_halt_def] >>
+      Cases_on ‘s’>>fs[] >- (
       drule_at Any dstep_result_rel_single_FFI_error >>
       simp[dstep_result_rel_cases] >> disch_then $ drule_at Any >>
       disch_then $ qspec_then `dsta` mp_tac >>
@@ -1428,7 +1509,8 @@ Proof
       disch_then $ qspec_then `st1` mp_tac >>
       impl_tac >- (unabbrev_all_tac >> gvs[dstate_rel_def]) >>
       strip_tac >> gvs[] >> unabbrev_all_tac >> gvs[dget_ffi_def] >>
-      every_case_tac >> rgs[]
+      every_case_tac >> rgs[]) >>
+      metis_tac[decl_step_not_SharedMem]
       ) >>
     gvs[step_n_cml_def] >>
     qmatch_asmsub_abbrev_tac `decl_step _ (st2,_)` >>
@@ -1570,7 +1652,11 @@ Proof
   `∃l. m = SUC l` by (Cases_on `m` >> gvs[step_n_def]) >> gvs[] >>
   pop_assum $ qspec_then `l'` assume_tac >> gvs[] >>
   gvs[step_n_alt_def] >> FULL_CASE_TAC >> gvs[] >>
-  PairCases_on `p` >> gvs[dstep_to_Dffi] >>
+  PairCases_on `p` >>
+  rename1 `dstep _ _ _ _ = Dffi _ (ffiname,_) _ _ _` >>
+  reverse $ Cases_on `ffiname`
+  >- metis_tac[dstep_not_SharedMem] >>
+  gvs[dstep_to_Dffi] >>
   simp[decl_step_reln_eq_step_n_cml, PULL_EXISTS] >>
   qmatch_goalsub_abbrev_tac `st0,_,_` >>
   qspecl_then [`l'`,`dsta`,`deva`,`dcs`,`(st0,devb,dcs)`,`env`]
@@ -1578,9 +1664,10 @@ Proof
   simp[dstep_result_rel_cases, is_Dffi_def, get_ffi_def] >>
   impl_keep_tac >- (unabbrev_all_tac >> gvs[dstate_rel_def]) >>
   rw[] >> gvs[dget_ffi_def] >> every_case_tac >> gvs[]
-  >- (goal_assum drule >> unabbrev_all_tac >> gvs[ffi_state_component_equality])
+  >- (goal_assum drule >> unabbrev_all_tac >>
+    gvs[ffi_state_component_equality])
   >- (
-    gvs[trace_prefix_interp] >>
+    gvs[trace_prefix_interp,stringTheory.IMPLODE_EXPLODE_I] >>
     `step_n_cml env (SUC l') (Dstep (st0,devb,dcs)) = decl_step env (st',dev2,l'')` by
       simp[step_n_cml_alt_def] >>
     qpat_x_assum `deval_rel _ _` mp_tac >>
@@ -1588,15 +1675,16 @@ Proof
     simp[ctxt_frame_rel_cases, EXISTS_PROD] >> rw[] >> gvs[] >>
     qpat_x_assum `_ = decl_step _ _` mp_tac >>
     simp[decl_step_def, e_step_def, smallStepTheory.continue_def, cml_application_thm,
-         semanticPrimitivesTheory.do_app_def, call_FFI_def] >>
+         semanticPrimitivesTheory.do_app_def,call_FFI_def,
+         combinTheory.o_DEF] >>
     unabbrev_all_tac >> simp[] >>
     gvs[dstate_rel_def] >> gvs[ffi_state_component_equality] >>
     gvs[store_assign_def, store_lookup_def, store_v_same_type_def] >>
     rw[smallStepTheory.return_def] >> goal_assum drule >> simp[]
-    )
+  )
   >- (goal_assum drule >> unabbrev_all_tac >> gvs[ffi_state_component_equality])
   >- (
-    pairarg_tac >> gvs[] >>
+    pairarg_tac >> gvs[stringTheory.IMPLODE_EXPLODE_I] >>
     `step_n_cml env (SUC l') (Dstep (st0,devb,dcs)) = decl_step env (st',dev2,l'')` by
       simp[step_n_cml_alt_def] >>
     qpat_x_assum `deval_rel _ _` mp_tac >>
@@ -1604,7 +1692,8 @@ Proof
     simp[ctxt_frame_rel_cases, EXISTS_PROD] >> rw[] >> gvs[] >>
     qpat_x_assum `_ = decl_step _ _` mp_tac >>
     simp[decl_step_def, e_step_def, smallStepTheory.continue_def, cml_application_thm,
-         semanticPrimitivesTheory.do_app_def, call_FFI_def] >>
+         semanticPrimitivesTheory.do_app_def, call_FFI_def,
+         combinTheory.o_DEF] >>
     unabbrev_all_tac >> simp[] >>
     gvs[dstate_rel_def] >> gvs[ffi_state_component_equality] >>
     gvs[store_assign_def, store_lookup_def, store_v_same_type_def] >>
@@ -1621,7 +1710,7 @@ Proof
       simp[semanticPrimitivesTheory.state_component_equality,
            ffi_state_component_equality]) >>
     gvs[] >> unabbrev_all_tac >> gvs[]
-    )
+  )
 QED
 
 
@@ -1840,6 +1929,35 @@ Proof
     rw[semanticPrimitivesTheory.state_component_equality,
        ffi_state_component_equality]) >>
   unabbrev_all_tac >> gvs[] >> goal_assum drule >> simp[]
+QED
+
+
+(******************** Initial state/environment ********************)
+
+Theorem start_dstate:
+  ∀ffi:'ffi ffi_state. dstate_of (FST $ THE $ prim_sem_env ffi) = start_dstate
+Proof
+  rw[prim_sem_env_eq, dstate_of_def, start_dstate_def]
+QED
+
+Theorem start_env:
+  ∀ffi:'ffi ffi_state. SND $ THE $ prim_sem_env ffi = start_env
+Proof
+  rw[prim_sem_env_eq, start_env_def]
+QED
+
+Theorem prim_sem_env_change_ffi[simp]:
+  (FST $ THE $ prim_sem_env f) with ffi := f' = (FST $ THE $ prim_sem_env f')
+Proof
+  rw[prim_sem_env_eq, semanticPrimitivesTheory.state_component_equality]
+QED
+
+Theorem itree_semantics_itree_of:
+  ∀(ffi:'ffi ffi_state) prog.
+    itree_of (FST $ THE $ prim_sem_env ffi) start_env prog =
+    itree_semantics prog
+Proof
+  rw[itree_semantics_def, itree_of_def, start_dstate]
 QED
 
 

@@ -89,6 +89,7 @@ candle/prover
 pancake
 pancake/ffi
 pancake/semantics
+pancake/parser
 pancake/proofs
 
 # examples and tests
@@ -107,6 +108,14 @@ examples/lpr_checker
 examples/lpr_checker/array
 examples/lpr_checker/array/compilation
 examples/lpr_checker/array/compilation/proofs
+examples/lpr_checker/array/compilation/proofsARM8
+examples/pseudo_bool
+examples/pseudo_bool/cnf_encoding
+examples/pseudo_bool/graph_encoding
+examples/pseudo_bool/array
+examples/pseudo_bool/array/compilation
+examples/pseudo_bool/array/compilation/proofs
+
 examples/opentheory
 examples/opentheory
 examples/opentheory/compilation
@@ -120,6 +129,8 @@ examples/sat_encodings/translation/compilation
 examples/deflate
 examples/deflate/translation
 examples/deflate/translation/compilation
+examples/vipr
+examples/vipr/compilation
 
 translator/okasaki-examples
 translator/other-examples

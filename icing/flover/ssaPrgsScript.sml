@@ -42,7 +42,7 @@ End
 (*
   As usual
 *)
-Theorem ssa_cases =
+Theorem ssa_cases[allow_rebind] =
   map (GEN_ALL o SIMP_CONV (srw_ss()) [Once ssa_cases])
     [``ssa (Let m x e s) inVars Vterm``,
      ``ssa (Ret e) inVars Vterm``] |> LIST_CONJ;

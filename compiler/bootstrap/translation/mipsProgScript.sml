@@ -381,8 +381,8 @@ val res = CONJUNCTS d1 |> map SPEC_ALL |> map translate;
 
 val res = translate def;
 
-Theorem mips_config_v_thm = translate (mips_config_def |> SIMP_RULE bool_ss
-[IN_INSERT,NOT_IN_EMPTY]|> econv)
+Theorem mips_config_v_thm[allow_rebind] = translate
+  (mips_config_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]|> econv);
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

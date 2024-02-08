@@ -6,8 +6,7 @@ open preamble semanticsPropsTheory stackSemTheory wordSemTheory
      parmoveTheory;
 
 (* To help interactive proofs *)
-open labPropsTheory helperLib;
-val good_dimindex_def = labPropsTheory.good_dimindex_def;
+open helperLib;
 val get_labels_def = stackSemTheory.get_labels_def;
 val extract_labels_def = stackPropsTheory.extract_labels_def
 
@@ -26,10 +25,10 @@ val _ = set_grammar_ancestry [
   "semanticsProps", (* for extend_with_resource_limit *)
   "stackProps", (* for extract_labels *)
   "wordProps",
-  "labProps", (* for good_dimindex *)
   "stackSem", "wordSem", "word_to_stack"
 ]
 Type state[pp] = “:(α,β,γ)wordSem$state”
+Overload word_cmp[local] = “labSem$word_cmp”;
 val _ = Parse.hide "B"
 
 (* TODO: many things in this file need moving *)
@@ -5520,21 +5519,6 @@ Proof
   \\ fs [ADD1] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ fs [const_writes_def]
   \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
-QED
-
-Theorem chunk_to_bits_bound:
-  ∀ws.
-    LENGTH ws < dimindex (:α) ⇒
-    (chunk_to_bits ws : 'a word) ' (LENGTH ws) ∧
-    ∀i. LENGTH ws < i ∧ i < dimindex (:'a) ⇒ ~(chunk_to_bits ws : 'a word) ' i
-Proof
-  Induct \\ fs [chunk_to_bits_def,word_index,FORALL_PROD]
-  \\ gen_tac \\ strip_tac \\ gvs []
-  \\ ‘chunk_to_bits ws ≪ 1 + 1w = (chunk_to_bits ws ≪ 1) || 1w’ by
-   (irule WORD_ADD_OR
-    \\ fs [fcpTheory.CART_EQ,word_and_def,word_index,fcpTheory.FCP_BETA,word_lsl_def])
-  \\ fs [] \\ IF_CASES_TAC \\ fs []
-  \\ fs [word_or_def,fcpTheory.FCP_BETA,word_lsl_def,word_index]
 QED
 
 Theorem word_msb_chunk_to_bits:

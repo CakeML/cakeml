@@ -28,7 +28,7 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 val _ = Parse.set_grammar_ancestry
   [ "backend", "backend_common", "backendProps",
     "primSemEnv", "semanticsProps",
-    "labProps", (* for good_dimindex *)
+    "labProps",
     "source_evalProof" (* for compiler instance structure *)
   ];
 
@@ -38,7 +38,7 @@ Theorem byte_aligned_mult:
    good_dimindex (:'a) ==>
     byte_aligned (a + bytes_in_word * n2w i) = byte_aligned (a:'a word)
 Proof
-  fs [alignmentTheory.byte_aligned_def,labPropsTheory.good_dimindex_def]
+  fs [alignmentTheory.byte_aligned_def,good_dimindex_def]
   \\ rw [] \\ fs [bytes_in_word_def,word_mul_n2w]
   \\ once_rewrite_tac [MULT_COMM]
   \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``), aligned_add_pow]
@@ -51,10 +51,12 @@ Theorem byte_aligned_MOD:
 Proof
   rw[IN_DEF]>>
   fs [aligned_w2n, alignmentTheory.byte_aligned_def]>>
-  rfs[labPropsTheory.good_dimindex_def] \\ rfs []
+  rfs[good_dimindex_def] \\ rfs []
 QED
 
 (* -- *)
+
+val compile_tap_def = backend_passesTheory.compile_tap_def;
 
 Theorem backend_upper_w2w[simp]:
   backend$upper_w2w = data_to_word_gcProof$upper_w2w
@@ -419,7 +421,7 @@ Proof
   \\ TRY (gen_tac \\ pop_assum kall_tac)
   \\ rpt gen_tac
   \\ fs [compile_inc_progs_def, backendTheory.compile_def,
-            backendTheory.compile_tap_def, clos_to_bvlTheory.compile_def,
+            compile_tap_def, clos_to_bvlTheory.compile_def,
             clos_to_bvlTheory.compile_common_def,
             clos_to_bvlTheory.clos_to_bvl_compile_inc_def, lab_to_targetTheory.compile_def,
             bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def ]
@@ -485,8 +487,8 @@ Proof
   simp [keep_progs_def, FUN_EQ_THM]
 QED
 
-Triviality compile_inc_progs_defs = LIST_CONJ
-  [compile_inc_progs_def, keep_progs_T, quotient_pairTheory.PAIR_MAP_I]
+Triviality compile_inc_progs_defs =
+  LIST_CONJ [compile_inc_progs_def, keep_progs_T]
 
 Theorem cake_orac_eqs:
   state_co (\c (env_id, decs). inc_compile env_id c
@@ -1699,7 +1701,7 @@ Proof
   \\ conj_tac >- (
     fs []
     \\ drule_then drule to_lab_labels_ok
-    \\ fs [backendTheory.compile_def, backendTheory.compile_tap_def]
+    \\ fs [backendTheory.compile_def, compile_tap_def]
     \\ rpt (pairarg_tac \\ fs [])
     \\ drule_then strip_assume_tac attach_bitmaps_SOME
     \\ simp [to_stack_def, to_word_def, to_data_def, to_bvi_def, to_bvl_def,
@@ -1874,7 +1876,7 @@ Proof
     )
     \\ rw []
     \\ TRY (qpat_x_assum `_ < SUC _` mp_tac \\ EVAL_TAC \\ simp [])
-    \\ fs [backendTheory.compile_def, backendTheory.compile_tap_def,
+    \\ fs [backendTheory.compile_def, compile_tap_def,
           to_bvi_def, to_bvl_def, to_clos_def, to_flat_def,
           bvl_to_bviTheory.compile_def]
     \\ rpt (pairarg_tac \\ fs [])
@@ -1920,7 +1922,7 @@ Proof
     )
     \\ simp [FST_state_co, pred_setTheory.IN_PREIMAGE, cake_orac_0,
             config_tuple2_def]
-    \\ fs [backendTheory.compile_def, backendTheory.compile_tap_def,
+    \\ fs [backendTheory.compile_def, compile_tap_def,
           to_bvi_def, to_bvl_def, to_clos_def, to_flat_def,
           bvl_to_bviTheory.compile_def]
     \\ rpt (pairarg_tac \\ fs [])
@@ -2029,7 +2031,7 @@ Proof
     \\ reverse conj_tac >- (
       first_x_assum irule
       \\ fs[mc_conf_ok_def]
-      \\ fs[WORD_LE,labPropsTheory.good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w]
+      \\ fs[WORD_LE,good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w]
     )
     \\ simp[Abbr`ppg`]
     \\ irule stack_namesProofTheory.stack_names_stack_asm_ok
@@ -2084,7 +2086,7 @@ Proof
       \\ fsrw_tac[DNF_ss][]
       \\ conj_tac \\ first_x_assum irule
       \\ fs[mc_conf_ok_def]
-      \\ fs[WORD_LE,labPropsTheory.good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w] )
+      \\ fs[WORD_LE,good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w] )
     \\ simp[EVERY_MEM, FORALL_PROD] \\ fs[]
     \\ disch_then drule
     \\ simp[]
@@ -2185,7 +2187,7 @@ Proof
     \\ fsrw_tac[DNF_ss][]
     \\ conj_tac \\ first_x_assum irule
     \\ fs[mc_conf_ok_def]
-    \\ fs[WORD_LE,labPropsTheory.good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w])
+    \\ fs[WORD_LE,good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w])
   \\ simp[]
   \\ strip_tac
   \\ simp[EVERY_MAP]
@@ -3372,7 +3374,7 @@ Proof
     unabbrev_all_tac >>
     fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]>>rfs[]>>
     `-8w ≤ 0w:'a word ∧ 0w:'a word ≤ 8w` by
-      fs[WORD_LE,labPropsTheory.good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w]>>
+      fs[WORD_LE,good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w]>>
     metis_tac[])>>
   `stack_to_labProof$labels_ok p7` by
     (fs[Abbr`p7`]>>
@@ -3555,7 +3557,7 @@ Proof
     conj_tac >- (
       rfs[memory_assumption_def,Abbr`dm`] \\
       `(w2n:'a word -> num) bytes_in_word = dimindex (:α) DIV 8` by
-       rfs [labPropsTheory.good_dimindex_def,bytes_in_word_def,dimword_def]>>
+       rfs [good_dimindex_def,bytes_in_word_def,dimword_def]>>
       fs [attach_bitmaps_def] \\
       once_rewrite_tac[INTER_COMM] \\
       rewrite_tac[UNION_OVER_INTER] \\
@@ -3571,10 +3573,10 @@ Proof
         fs [stack_removeProofTheory.addresses_thm]>>
         fs[mc_conf_ok_def]>>
         `0 < dimindex (:α) DIV 8` by
-          rfs [labPropsTheory.good_dimindex_def]>>
+          rfs [good_dimindex_def]>>
         reverse conj_tac >-
          (fs [] \\ match_mp_tac IMP_MULT_DIV_LESS \\ fs [w2n_lt]
-          \\ rfs [labPropsTheory.good_dimindex_def])
+          \\ rfs [good_dimindex_def])
         \\ qabbrev_tac `a = tar_st.regs mc.len_reg`
         \\ qabbrev_tac `b = tar_st.regs mc.len2_reg`
         \\ qpat_x_assum `a <=+ b` assume_tac
@@ -3582,7 +3584,7 @@ Proof
         \\ fs [IN_DEF,PULL_EXISTS,bytes_in_word_def,word_mul_n2w]
         \\ rw [] \\ reverse eq_tac THEN1
          (rw [] \\ fs [] \\ qexists_tac `i * (dimindex (:α) DIV 8)` \\ fs []
-          \\ `0 < dimindex (:α) DIV 8` by rfs [labPropsTheory.good_dimindex_def]
+          \\ `0 < dimindex (:α) DIV 8` by rfs [good_dimindex_def]
           \\ old_drule X_LT_DIV \\ disch_then (fn th => fs [th])
           \\ fs [RIGHT_ADD_DISTRIB]
           \\ fs [GSYM word_mul_n2w,GSYM bytes_in_word_def]
@@ -3596,7 +3598,7 @@ Proof
         \\ old_drule DIVISION
         \\ disch_then (qspec_then `i` (strip_assume_tac o GSYM))
         \\ `2 ** LOG2 (dimindex (:α) DIV 8) = dimindex (:α) DIV 8` by
-             (fs [labPropsTheory.good_dimindex_def] \\ NO_TAC)
+             (fs [good_dimindex_def] \\ NO_TAC)
         \\ fs [] \\ rfs [] \\ `-1w * a + b = b - a` by fs []
         \\ full_simp_tac std_ss []
         \\ Cases_on `a` \\ Cases_on `b`
@@ -3695,7 +3697,7 @@ Proof
       (fs [lab_to_targetProofTheory.mc_conf_ok_def]
        \\ qpat_x_assum `good_dimindex _` mp_tac
        \\ rpt (pop_assum kall_tac)
-       \\ rw [labPropsTheory.good_dimindex_def] \\ simp [])
+       \\ rw [good_dimindex_def] \\ simp [])
      \\ rewrite_tac[CONJ_ASSOC]
      \\ simp [MULT_DIV,FST_SND_EQ]
      \\ qpat_x_assum `_ = (_,_)` (assume_tac o GSYM) \\ simp []

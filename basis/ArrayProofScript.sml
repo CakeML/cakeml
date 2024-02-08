@@ -778,4 +778,171 @@ Proof
       \\ fs[] \\metis_tac[TAKE_LENGTH_ID]
 QED
 
+Triviality IMP_app:
+  f = Closure v1 env (Fun v2 x) ∧
+  app p (Closure (v1 with v := nsBind env x1 v1.v) v2 x) (x2::xs) H Q ⇒
+  app p f (x1::x2::xs) H Q
+Proof
+  simp [app_def]
+  \\ rw [app_basic_def]
+  \\ fs [semanticPrimitivesTheory.do_opapp_def,cfDivTheory.POSTv_eq,PULL_EXISTS]
+  \\ ‘SPLIT3 (st2heap p st) (h_i,h_k,{})’ by fs [SPLIT_def,SPLIT3_def]
+  \\ first_x_assum $ irule_at Any
+  \\ rw [evaluate_to_heap_def,evaluate_ck_def,evaluateTheory.evaluate_def,PULL_EXISTS]
+  \\ fs [cfStoreTheory.st2heap_def,SEP_EXISTS_THM,cond_STAR]
+  \\ first_x_assum $ irule_at Any \\ fs []
+QED
+
+val eval_nsLookup_tac =
+  rewrite_tac [ml_progTheory.nsLookup_merge_env]
+  \\ CONV_TAC(DEPTH_CONV ml_progLib.nsLookup_conv)
+
+Theorem array_lookup_spec:
+  NUM n nv ⇒
+  app (p : 'ffi ffi_proj)
+    Array_lookup_v
+    [arrv; defaultv; nv]
+    (ARRAY arrv arrlsv)
+    (POSTv v.
+      ARRAY arrv arrlsv *
+      &(v = any_el n arrlsv defaultv))
+Proof
+  (* this can unfortunately not be proved using CF since CF rules for
+     Asub don't allow reasoning about out of bounds indexing *)
+  rw [] \\ rpt (irule_at Any IMP_app) \\ fs []
+  \\ fs [app_def,app_basic_def,cfDivTheory.POSTv_eq,PULL_EXISTS,SEP_EXISTS_THM]
+  \\ fs [Array_lookup_v_def]
+  \\ rw [semanticPrimitivesTheory.do_opapp_def,cond_STAR]
+  \\ first_assum $ irule_at Any \\ fs []
+  \\ ‘SPLIT3 (st2heap p st) (h_i,h_k,{})’ by fs [SPLIT_def,SPLIT3_def]
+  \\ first_assum $ irule_at Any \\ fs []
+  \\ rw [evaluate_to_heap_def,evaluate_ck_def]
+  \\ qexists_tac ‘100’
+  \\ fs [evaluateTheory.evaluate_def]
+  \\ eval_nsLookup_tac \\ fs [evaluateTheory.dec_clock_def]
+  \\ rw [semanticPrimitivesTheory.do_opapp_def,Array_sub_v_def]
+  \\ fs [evaluateTheory.evaluate_def]
+  \\ rw [semanticPrimitivesTheory.do_app_def]
+  \\ gvs [ARRAY_def,SEP_EXISTS_THM,cond_STAR,NUM_def,INT_def]
+  \\ gvs [cell_def,one_def,EVAL “pat_bindings Pany []”]
+  \\ ‘store_lookup loc st.refs = SOME (Varray arrlsv)’ by
+   (fs [semanticPrimitivesTheory.store_lookup_def]
+    \\ ‘Mem loc (Varray arrlsv) IN st2heap p st’ by
+         (fs [SPLIT_def,EXTENSION] \\ metis_tac [])
+    \\ fs [cfStoreTheory.st2heap_def]
+    \\ imp_res_tac cfStoreTheory.store2heap_IN_LENGTH \\ fs []
+    \\ imp_res_tac cfStoreTheory.store2heap_IN_EL \\ fs []
+    \\ fs [cfStoreTheory.Mem_NOT_IN_ffi2heap])
+  \\ fs [GREATER_EQ]
+  \\ Cases_on ‘n < LENGTH arrlsv’ \\ fs [any_el_ALT]
+  >- fs [cfStoreTheory.st2heap_def]
+  \\ fs [semanticPrimitivesTheory.can_pmatch_all_def]
+  \\ fs [semanticPrimitivesTheory.pmatch_def]
+  \\ eval_nsLookup_tac \\ fs [evaluateTheory.dec_clock_def]
+  \\ fs [EVAL “nsLookup_Short nsEmpty n”]
+  \\ eval_nsLookup_tac \\ fs [evaluateTheory.dec_clock_def]
+  \\ fs [cfStoreTheory.st2heap_def]
+QED
+
+Theorem array_update_any_spec[local]:
+   !a av i iv v.
+     INT i iv ==>
+     app (p:'ffi ffi_proj) Array_update_v
+       [av; iv; v]
+       (ARRAY av a)
+       (POSTve (λuv. cond (UNIT_TYPE () uv ∧ 0i ≤ i ∧ Num i < LENGTH a) *
+                     ARRAY av (LUPDATE v (Num i) a))
+               (λev. cond (ev = sub_exn_v ∧ (0i ≤ i ⇒ LENGTH a ≤ Num i)) * ARRAY av a))
+Proof
+  rw []
+  \\ Cases_on ‘0 ≤ i ⇒ LENGTH a ≤ Num i’ \\ fs []
+  (* this can unfortunately not be proved using CF since CF rules for
+     arrays don't allow reasoning about out of bounds indexing *)
+  >-
+   (rw [] \\ rpt (irule_at Any IMP_app) \\ fs []
+    \\ fs [app_def,app_basic_def,PULL_EXISTS,SEP_EXISTS_THM]
+    \\ rw [semanticPrimitivesTheory.do_opapp_def,cond_STAR,update_resize_def]
+    \\ fs [Array_update_v_def] \\ rw []
+    \\ qexists_tac ‘Exn sub_exn_v’
+    \\ ‘SPLIT3 (st2heap p st) (h_i,h_k,{})’ by fs [SPLIT_def,SPLIT3_def]
+    \\ first_assum $ irule_at Any \\ fs []
+    \\ rw [evaluate_to_heap_def,evaluate_ck_def,SEP_CLAUSES]
+    \\ fs [evaluateTheory.evaluate_def,semanticPrimitivesTheory.do_app_def]
+    \\ gvs [ARRAY_def,SEP_CLAUSES,cond_STAR,SEP_EXISTS_THM,cell_def,one_def]
+    \\ ‘store_lookup loc st.refs = SOME (Varray a)’ by
+      (fs [semanticPrimitivesTheory.store_lookup_def]
+       \\ ‘Mem loc (Varray a) IN st2heap p st’ by
+         (fs [SPLIT_def,EXTENSION] \\ metis_tac [])
+       \\ fs [cfStoreTheory.st2heap_def]
+       \\ imp_res_tac cfStoreTheory.store2heap_IN_LENGTH \\ fs []
+       \\ imp_res_tac cfStoreTheory.store2heap_IN_EL \\ fs []
+       \\ fs [cfStoreTheory.Mem_NOT_IN_ffi2heap])
+    \\ gvs [INT_def,AllCaseEqs(),PULL_EXISTS]
+    \\ qexists_tac ‘0’ \\ qexists_tac ‘st.refs’ \\ fs []
+    \\ qexists_tac ‘st.ffi’ \\ fs [cfStoreTheory.st2heap_def]
+    \\ Cases_on ‘i’ \\ fs [])
+  \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ gvs []
+  \\ fs [GSYM NUM_def, GSYM NOT_LESS]
+  \\ fs [SEP_CLAUSES]
+  \\ rename [‘NUM n nv’]
+  \\ mp_tac (array_update_spec |> SPEC_ALL)
+  \\ fs []
+  \\ match_mp_tac (METIS_PROVE [] “x = y ⇒ (f x ⇒ f y)”)
+  \\ fs [FUN_EQ_THM]
+  \\ Cases \\ fs [cond_def,SEP_F_def]
+QED
+
+Theorem array_updateResize_spec:
+  NUM n nv ⇒
+  app (p : 'ffi ffi_proj)
+    Array_updateResize_v
+    [arrv; defaultv; nv; xv]
+    (ARRAY arrv arrlsv)
+    (POSTv v. ARRAY v (update_resize arrlsv defaultv xv n))
+Proof
+  rw []
+  \\ xcf_with_def "" Array_updateResize_v_def
+  \\ Cases_on ‘n < LENGTH arrlsv’
+  >-
+   (xhandle ‘(POSTv v. ARRAY v (update_resize arrlsv defaultv xv n))’
+    \\ xsimpl
+    \\ xlet ‘(POSTv v. ARRAY arrv (LUPDATE xv n arrlsv))’
+    >-
+     (xapp_spec array_update_spec
+      \\ rpt (first_x_assum $ irule_at Any)
+      \\ xsimpl)
+    >- (xvar \\ xsimpl \\ fs [update_resize_def]))
+  \\ xhandle ‘(POSTe ev. cond (ev = sub_exn_v) * ARRAY arrv arrlsv)’
+  >-
+   (xlet ‘(POSTe ev. cond (ev = sub_exn_v) * ARRAY arrv arrlsv)’
+    \\ xsimpl
+    \\ xapp_spec array_update_any_spec
+    \\ gvs [NUM_def]
+    \\ first_x_assum $ irule_at Any
+    \\ xsimpl)
+  \\ xcases
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xlet ‘POSTv av. ARRAY av (REPLICATE (2*n+1) defaultv) * ARRAY arrv arrlsv’
+  >-
+   (xapp_spec array_alloc_spec
+    \\ first_x_assum $ irule_at Any
+    \\ xsimpl)
+  \\ fs [update_resize_def]
+  \\ qabbrev_tac ‘k = (2 * n + 1 − LENGTH arrlsv)’
+  \\ ‘∃ts. REPLICATE (2 * n + 1) defaultv = ts ++ REPLICATE k defaultv ∧
+           LENGTH ts = LENGTH arrlsv’ by
+   (qexists_tac ‘REPLICATE (LENGTH arrlsv) defaultv’
+    \\ fs [rich_listTheory.REPLICATE_APPEND,Abbr‘k’])
+  \\ fs []
+  \\ xlet ‘POSTv v. ARRAY av (arrlsv ++ REPLICATE k defaultv)’
+  >- (xapp_spec array_copy_spec \\ fs [PULL_EXISTS] \\ xsimpl)
+  \\ xlet ‘(POSTv v. ARRAY av (LUPDATE xv n (arrlsv ++ REPLICATE k defaultv)))’
+  >-
+   (xapp_spec array_update_spec
+    \\ first_x_assum $ irule_at Any
+    \\ xsimpl \\ unabbrev_all_tac \\ fs [])
+  \\ xvar \\ fs [] \\ xsimpl
+QED
+
 val _ = export_theory();

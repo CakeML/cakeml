@@ -50,26 +50,26 @@ Inductive repl_types:
      infertype_prog_inc (init_config, start_type_id) decs = Success types ∧
      evaluate$evaluate_decs (init_state ffi with clock := ck) init_env decs = (s,Rval env) ∧
      EVERY (check_ref_types (FST types) (extend_dec_env env init_env)) rs ⇒
-     repl_types b (ffi,rs) (types,s,extend_dec_env env init_env)) ∧
+     repl_types b (ffi,rs) (types,s,extend_dec_env env init_env))
 [repl_types_skip:]
   (∀ffi rs types junk ck t e (s:'ffi semanticPrimitives$state) env.
      repl_types T (ffi,rs) (types,s,env) ⇒
      repl_types T (ffi,rs) (types,s with <| refs  := s.refs ++ junk                  ;
                                             clock := s.clock - ck                    ;
                                             next_type_stamp := s.next_type_stamp + t ;
-                                            next_exn_stamp  := s.next_exn_stamp + e  |>,env)) ∧
+                                            next_exn_stamp  := s.next_exn_stamp + e  |>,env))
 [repl_types_eval:]
   (∀ffi rs decs types new_types (s:'ffi semanticPrimitives$state) env new_env new_s b.
      repl_types b (ffi,rs) (types,s,env) ∧
      infertype_prog_inc types decs = Success new_types ∧
      evaluate$evaluate_decs s env decs = (new_s,Rval new_env) ⇒
-     repl_types b (ffi,rs) (new_types,new_s,extend_dec_env new_env env)) ∧
+     repl_types b (ffi,rs) (new_types,new_s,extend_dec_env new_env env))
 [repl_types_exn:]
   (∀ffi rs decs types new_types (s:'ffi semanticPrimitives$state) env e new_s b.
      repl_types b (ffi,rs) (types,s,env) ∧
      infertype_prog_inc types decs = Success new_types ∧
      evaluate$evaluate_decs s env decs = (new_s,Rerr (Rraise e)) ⇒
-     repl_types b (ffi,rs) (roll_back types new_types,new_s,env)) ∧
+     repl_types b (ffi,rs) (roll_back types new_types,new_s,env))
 [repl_types_exn_assign:]
   (∀ffi rs decs types new_types (s:'ffi semanticPrimitives$state) env e
     new_s name loc new_store b.
@@ -78,7 +78,7 @@ Inductive repl_types:
      evaluate$evaluate_decs s env decs = (new_s,Rerr (Rraise e)) ∧
      MEM (name,Exn,loc) rs ∧
      store_assign loc (Refv e) new_s.refs = SOME new_store ⇒
-     repl_types b (ffi,rs) (roll_back types new_types,new_s with refs := new_store,env)) ∧
+     repl_types b (ffi,rs) (roll_back types new_types,new_s with refs := new_store,env))
 [repl_types_str_assign:]
   (∀ffi rs types (s:'ffi semanticPrimitives$state) env t name loc new_store b.
      repl_types b (ffi,rs) (types,s,env) ∧
@@ -107,7 +107,7 @@ Inductive repl_types_TS:
      DISJOINT tids {Tlist_num; Tbool_num; Texn_num} ∧
      evaluate$evaluate_decs (init_state ffi with clock := ck) init_env decs = (s,Rval env) ∧
      EVERY (check_ref_types_TS (extend_dec_tenv tenv prim_tenv) (extend_dec_env env init_env)) rs ⇒
-     repl_types_TS (ffi,rs) (tids,extend_dec_tenv tenv prim_tenv,s,extend_dec_env env init_env)) ∧
+     repl_types_TS (ffi,rs) (tids,extend_dec_tenv tenv prim_tenv,s,extend_dec_env env init_env))
 [repl_types_TS_eval:]
   (∀ffi rs decs tids tenv (s:'ffi semanticPrimitives$state) env
     new_tids new_tenv new_env new_s.
@@ -115,7 +115,7 @@ Inductive repl_types_TS:
      type_ds T tenv decs new_tids new_tenv ∧
      DISJOINT tids new_tids ∧
      evaluate$evaluate_decs s env decs = (new_s,Rval new_env) ⇒
-     repl_types_TS (ffi,rs) (tids ∪ new_tids,extend_dec_tenv new_tenv tenv,new_s,extend_dec_env new_env env)) ∧
+     repl_types_TS (ffi,rs) (tids ∪ new_tids,extend_dec_tenv new_tenv tenv,new_s,extend_dec_env new_env env))
 [repl_types_TS_exn:]
   (∀ffi rs decs tids tenv (s:'ffi semanticPrimitives$state) env
     new_tids new_tenv new_s e.
@@ -123,7 +123,7 @@ Inductive repl_types_TS:
      type_ds T tenv decs new_tids new_tenv ∧
      DISJOINT tids new_tids ∧
      evaluate$evaluate_decs s env decs = (new_s,Rerr (Rraise e)) ⇒
-     repl_types_TS (ffi,rs) (tids ∪ new_tids,tenv,new_s,env)) ∧
+     repl_types_TS (ffi,rs) (tids ∪ new_tids,tenv,new_s,env))
 [repl_types_TS_exn_assign:]
   (∀ffi rs decs tids tenv (s:'ffi semanticPrimitives$state) env
     new_tids new_tenv new_s e name loc new_store.
@@ -133,7 +133,7 @@ Inductive repl_types_TS:
      evaluate$evaluate_decs s env decs = (new_s,Rerr (Rraise e)) ∧
      MEM (name,Exn,loc) rs ∧
      store_assign loc (Refv e) new_s.refs = SOME new_store ⇒
-     repl_types_TS (ffi,rs) (tids ∪ new_tids,tenv,new_s with refs := new_store,env)) ∧
+     repl_types_TS (ffi,rs) (tids ∪ new_tids,tenv,new_s with refs := new_store,env))
 [repl_types_TS_str_assign:]
   (∀ffi rs tids tenv (s:'ffi semanticPrimitives$state) env t name loc new_store.
      repl_types_TS (ffi,rs) (tids,tenv,s,env) ∧

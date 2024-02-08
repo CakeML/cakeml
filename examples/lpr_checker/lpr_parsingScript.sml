@@ -484,10 +484,11 @@ val parse_until_nn_def = Define`
       parse_until_nn xs (Num l::acc)
   )`
 
-val parse_until_nn_length = Q.prove(`
+Theorem parse_until_nn_length[local]:
   ∀ls acc a b c.
   parse_until_nn ls acc = SOME(a,b,c) ⇒
-  LENGTH c < LENGTH ls`,
+  LENGTH c < LENGTH ls
+Proof
   Induct>>fs[parse_until_nn_def]>>
   rw[]>>every_case_tac>>fs[]>>
   first_x_assum drule>>

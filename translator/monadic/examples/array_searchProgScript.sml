@@ -7,6 +7,8 @@ open preamble ml_monad_translator_interfaceLib
 
 val _ = new_theory "array_searchProg"
 
+fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
+
 (* Create the data type to handle the array. *)
 val _ = Datatype `
   state_array = <| arr : num list |>`; (* single resizeable array *)
@@ -28,7 +30,7 @@ val _ = start_translation config;
 
 (* Monadic definitions *)
 
-val linear_search_aux_def = mtDefine "linear_search_aux" `
+val linear_search_aux_def = allowing_rebind (mtDefine "linear_search_aux" `
   linear_search_aux (value:num) (start_index:num) =
     do
       len <- arr_length;
@@ -42,7 +44,7 @@ val linear_search_aux_def = mtDefine "linear_search_aux" `
           else
             linear_search_aux value (start_index + 1)
         od
-    od`
+    od`)
 (
   rw[fetch "-" "arr_length_def"] >>
   rw[ml_monadBaseTheory.Marray_length_def] >>

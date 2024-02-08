@@ -113,10 +113,22 @@ Termination
   \\ rw [] \\ fs []
 End
 
+Definition monop_fst_def:
+  monop_fst = λx. case x of Pair y z => y | _ => Num 0
+End
+
+Definition monop_snd_def:
+  monop_snd = λx. case x of Pair y z => z | _ => Num 0
+End
+
+Definition monop_ispair_def:
+  monop_ispair = λx. case x of Pair y z => Num 1 | _ => Num 0
+End
+
 Definition monop_def:
-  (monop Fst    = λx. case x of Pair y z => y | _ => Num 0) ∧
-  (monop Snd    = λx. case x of Pair y z => z | _ => Num 0) ∧
-  (monop IsPair = λx. case x of Pair y z => Num 1 | _ => Num 0)
+  monop Fst = monop_fst ∧
+  monop Snd = monop_snd ∧
+  monop IsPair = monop_ispair
 End
 
 Definition to_num_def[simp]:
@@ -132,20 +144,50 @@ Definition cv_F_def:
   cv_F = Num 0 : cv
 End
 
+Definition binop_add_def:
+  binop_add = λx y. Num (to_num x + to_num y)
+End
+
+Definition binop_sub_def:
+  binop_sub = λx y. Num (to_num x - to_num y)
+End
+
+Definition binop_mul_def:
+  binop_mul = λx y. Num (to_num x * to_num y)
+End
+
+Definition binop_div_def:
+  binop_div = λx y. Num (let k = to_num y in if k = 0 then 0 else to_num x DIV k)
+End
+
+Definition binop_mod_def:
+  binop_mod =
+    λx y. Num (let k = to_num y in if k = 0 then to_num x else to_num x MOD k)
+End
+
+Definition binop_eq_def:
+  binop_eq = λx y. if x = y then cv_T else cv_F
+End
+
+Definition binop_less_def:
+  binop_less =
+    λx y. case x of
+          | Pair _ _ => cv_F
+          | Num n    => case y of
+                        | Pair _ _ => cv_F
+                        | Num m    => if n < m then cv_T else cv_F
+End
+
 Definition binop_def:
   binop op =
     case op of
-    | Add => (λx y. Num (to_num x + to_num y))
-    | Sub => (λx y. Num (to_num x - to_num y))
-    | Mul => (λx y. Num (to_num x * to_num y))
-    | Div => (λx y. Num (let k = to_num y in if k = 0 then 0 else to_num x DIV k))
-    | Mod => (λx y. Num (let k = to_num y in if k = 0 then to_num x else to_num x MOD k))
-    | Eq   => (λx y. if x = y then cv_T else cv_F)
-    | Less => (λx y. case x of
-                     | Pair _ _ => cv_F
-                     | Num n    => case y of
-                                   | Pair _ _ => cv_F
-                                   | Num m    => if n < m then cv_T else cv_F)
+    | Add => binop_add
+    | Sub => binop_sub
+    | Mul => binop_mul
+    | Div => binop_div
+    | Mod => binop_mod
+    | Eq => binop_eq
+    | Less => binop_less
 End
 
 Definition to_ce_def:
@@ -182,3 +224,4 @@ Definition cv2term_def:
 End
 
 val _ = export_theory ();
+

@@ -12,13 +12,6 @@ val _ = set_grammar_ancestry
         ["timeLang","timeSem",
          "pan_commonProps"];
 
-
-
-Definition good_dimindex_def:
-  good_dimindex (:'a) ⇔
-    dimindex (:'a) = 32 ∨ dimindex (:'a) = 64
-End
-
 Theorem eval_term_inpput_ios_same:
   ∀s m n cnds tclks dest wt s'.
     evalTerm s (SOME m) (Tm (Input n) cnds tclks dest wt) s' ⇒

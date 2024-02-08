@@ -295,7 +295,7 @@ val monadic_enc64_enc_sec_hash_64_ls_side_def = Q.prove(`
   simp[Once (fetch "-" "monadic_enc64_enc_sec_hash_64_ls_side_def")]>>
   metis_tac[monadic_enc64_enc_line_hash_64_ls_side_def]);
 
-Theorem monadic_enc64_enc_secs_64_side_def = Q.prove(`
+Theorem monadic_enc64_enc_secs_64_side_def[allow_rebind] = Q.prove(`
   monadic_enc64_enc_secs_64_side a b c ⇔ T`,
   EVAL_TAC>>
   rw[]>>
@@ -347,6 +347,18 @@ val compile_lab_thm = compile_lab_def
 val res = translate compile_lab_thm;
 
 val res = translate (spec64 compile_def);
+
+(* explorer specific functions *)
+
+val res = presLangTheory.asm_cmp_to_display_def |> spec64 |> translate;
+val res = presLangTheory.asm_asm_to_display_def |> spec64 |> translate;
+val res = presLangTheory.lab_asm_to_display_def |> spec64
+          |> REWRITE_RULE [presLangTheory.string_imp_def] |> translate;
+val res = presLangTheory.lab_line_to_display_def |> spec64 |> translate;
+val res = presLangTheory.lab_fun_to_display_def |> spec64 |> translate;
+val res = presLangTheory.stack_prog_to_display_def |> spec64
+          |> REWRITE_RULE [presLangTheory.string_imp_def] |> translate;
+val res = presLangTheory.stack_fun_to_display_def |> spec64 |> translate;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

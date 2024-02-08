@@ -566,10 +566,18 @@ Proof
   \\ metis_tac[]
 QED
 
-(* should be composition of oEL and as-yet-undefined "THEdflt" *)
+(* should be composition of oEL and as-yet-undefined "THE default" *)
 val any_el_def = Define `
   (any_el n [] d = d) /\
   (any_el n (x::xs) d = if n = 0 then x else any_el (n-1:num) xs d)`
+
+Definition update_resize_def:
+  update_resize ls default v n =
+    if n < LENGTH ls then
+      LUPDATE v n ls
+    else
+      LUPDATE v n (ls ++ REPLICATE (n * 2 + 1 - LENGTH ls) default)
+End
 
 val list_max_def = Define `
   (list_max [] = 0:num) /\
@@ -1990,11 +1998,34 @@ Proof
 QED
 
 Theorem MEM_enumerate_IMP:
-    ∀xs i e.
-  MEM (i,e) (enumerate 0 xs) ⇒ MEM e xs
+  ∀ls k.
+  MEM (i,e) (enumerate k ls) ⇒ MEM e ls
 Proof
-  fs[MEM_EL,LENGTH_enumerate]>>rw[]>>imp_res_tac EL_enumerate>>
-  qexists_tac`n`>>fs[]
+  Induct_on`ls`>>fs[enumerate_def]>>rw[]>>
+  metis_tac[]
+QED
+
+Theorem MAP_FST_enumerate:
+  MAP FST (enumerate k ls) = GENLIST ($+ k) (LENGTH ls)
+Proof
+  rw[LIST_EQ_REWRITE,LENGTH_enumerate]>>
+  simp[EL_MAP,LENGTH_enumerate,EL_enumerate]
+QED
+
+Theorem ALL_DISTINCT_MAP_FST_enumerate:
+  ALL_DISTINCT (MAP FST (enumerate k ls))
+Proof
+  simp[MAP_FST_enumerate,ALL_DISTINCT_GENLIST]
+QED
+
+Theorem ALOOKUP_enumerate:
+  ∀ls k x.
+  ALOOKUP (enumerate k ls) x =
+  if k ≤ x ∧ x < LENGTH ls + k then SOME (EL (x-k) ls) else NONE
+Proof
+  Induct>>rw[enumerate_def]>>
+  `x-k = SUC(x-(k+1))` by DECIDE_TAC>>
+  simp[]
 QED
 
 Theorem SUM_MAP_LENGTH_REPLICATE:
@@ -3969,6 +4000,43 @@ Proof
     >- (qexists_tac `n DIV 2` >> fs[])
 QED
 
+(* The range is the set of values taken on by an sptree.
+  Not sure if these are worth moving. *)
+Definition range_def:
+  range s = {v | ∃n. lookup n s = SOME v}
+End
+
+Theorem range_delete:
+  range (delete h v) ⊆ range v
+Proof
+  simp[range_def,lookup_delete,SUBSET_DEF]>>
+  metis_tac[]
+QED
+
+Theorem range_insert:
+  n ∉ domain fml ⇒
+  range (insert n l fml) = l INSERT range fml
+Proof
+  rw[range_def,EXTENSION,lookup_insert,domain_lookup]>>
+  metis_tac[SOME_11]
+QED
+
+Theorem range_insert_2:
+  C ∈ range (insert n l fml) ⇒ C ∈ range fml ∨ C = l
+Proof
+  fs[range_def,lookup_insert]>>
+  rw[]>>
+  every_case_tac>>fs[]>>
+  metis_tac[]
+QED
+
+Theorem range_insert_SUBSET:
+  range (insert n l fml) ⊆ l INSERT range fml
+Proof
+  rw[SUBSET_DEF]>>
+  metis_tac[range_insert_2]
+QED
+
 (* END TODO *)
 
 Theorem TWOxDIV2:
@@ -4202,6 +4270,109 @@ Proof
   \\ fs [fromAList_def,size_insert,domain_lookup,lookup_fromAList,ADD1] \\ rw []
   \\ imp_res_tac ALOOKUP_MEM \\ fs []
   \\ fs [MEM_MAP,EXISTS_PROD] \\ metis_tac []
+QED
+
+Theorem ALL_DISTINCT_MAP_FST_toSortedAList:
+  ALL_DISTINCT (MAP FST (toSortedAList t))
+Proof
+  `SORTED $< (MAP FST (toSortedAList t))` by
+    simp[SORTED_toSortedAList]>>
+  pop_assum mp_tac>>
+  match_mp_tac SORTED_ALL_DISTINCT>>
+  simp[irreflexive_def]
+QED
+
+
+Definition good_dimindex_def:
+  good_dimindex (:'a) ⇔ dimindex (:'a) = 32 ∨ dimindex (:'a) = 64
+End
+
+Theorem good_dimindex_get_byte_set_byte:
+  good_dimindex (:'a) ==>
+    (get_byte a (set_byte (a:'a word) b w be) be = b)
+Proof
+  strip_tac \\
+  match_mp_tac get_byte_set_byte \\
+  fs[good_dimindex_def]
+QED
+
+val byte_index_LESS_IMP = Q.prove(
+  `(dimindex (:'a) = 32 \/ dimindex (:'a) = 64) /\
+    byte_index (a:'a word) be < byte_index (a':'a word) be /\ i < 8 ==>
+    byte_index a be + i < byte_index a' be /\
+    byte_index a be <= i + byte_index a' be /\
+    byte_index a be + 8 <= i + byte_index a' be /\
+    i + byte_index a' be < byte_index a be + dimindex (:α)`,
+  fs [byte_index_def,LET_DEF] \\ Cases_on `be` \\ fs []
+  \\ rpt strip_tac \\ rfs [] \\ fs []
+  \\ `w2n a MOD 4 < 4` by (match_mp_tac MOD_LESS \\ decide_tac)
+  \\ `w2n a' MOD 4 < 4` by (match_mp_tac MOD_LESS \\ decide_tac)
+  \\ `w2n a MOD 8 < 8` by (match_mp_tac MOD_LESS \\ decide_tac)
+  \\ `w2n a' MOD 8 < 8` by (match_mp_tac MOD_LESS \\ decide_tac)
+  \\ decide_tac);
+
+val NOT_w2w_bit = Q.prove(
+  `8 <= i /\ i < dimindex (:'b) ==> ~((w2w:word8->'b word) w ' i)`,
+  rpt strip_tac \\ rfs [w2w] \\ decide_tac);
+
+val LESS4 = DECIDE ``n < 4 <=> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num)``
+val LESS8 = DECIDE ``n < 8 <=> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num) \/
+                               (n = 4) \/ (n = 5) \/ (n = 6) \/ (n = 7)``
+
+val DIV_EQ_DIV_IMP = Q.prove(
+  `0 < d /\ n <> n' /\ (n DIV d * d = n' DIV d * d) ==> n MOD d <> n' MOD d`,
+  rpt strip_tac \\ Q.PAT_X_ASSUM `n <> n'` mp_tac \\ fs []
+  \\ MP_TAC (Q.SPEC `d` DIVISION) \\ fs []
+  \\ rpt strip_tac \\ pop_assum (fn th => once_rewrite_tac [th])
+  \\ fs []);
+
+Theorem get_byte_set_byte_diff:
+   good_dimindex (:'a) /\ a <> a' /\ (byte_align a = byte_align a') ==>
+    (get_byte a (set_byte (a':'a word) b w be) be = get_byte a w be)
+Proof
+  fs [get_byte_def,set_byte_def,LET_DEF] \\ rpt strip_tac
+  \\ `byte_index a be <> byte_index a' be` by
+   (fs [good_dimindex_def]
+    THENL
+     [`w2n a MOD 4 < 4 /\ w2n a' MOD 4 < 4` by fs []
+      \\ `w2n a MOD 4 <> w2n a' MOD 4` by
+       (fs [alignmentTheory.byte_align_def,byte_index_def] \\ rfs [LET_DEF]
+        \\ Cases_on `a` \\ Cases_on `a'` \\ fs [w2n_n2w] \\ rw []
+        \\ rfs [alignmentTheory.align_w2n]
+        \\ `(n DIV 4 * 4 + n MOD 4) < dimword (:'a) /\
+            (n' DIV 4 * 4 + n' MOD 4) < dimword (:'a)` by
+          (METIS_TAC [DIVISION,DECIDE ``0<4:num``])
+        \\ `(n DIV 4 * 4) < dimword (:'a) /\
+            (n' DIV 4 * 4) < dimword (:'a)` by decide_tac
+        \\ match_mp_tac DIV_EQ_DIV_IMP \\ fs []),
+      `w2n a MOD 8 < 8 /\ w2n a' MOD 8 < 8` by fs []
+      \\ `w2n a MOD 8 <> w2n a' MOD 8` by
+       (fs [alignmentTheory.byte_align_def,byte_index_def] \\ rfs [LET_DEF]
+        \\ Cases_on `a` \\ Cases_on `a'` \\ fs [w2n_n2w] \\ rw []
+        \\ rfs [alignmentTheory.align_w2n]
+        \\ `(n DIV 8 * 8 + n MOD 8) < dimword (:'a) /\
+            (n' DIV 8 * 8 + n' MOD 8) < dimword (:'a)` by
+          (METIS_TAC [DIVISION,DECIDE ``0<8:num``])
+        \\ `(n DIV 8 * 8) < dimword (:'a) /\
+            (n' DIV 8 * 8) < dimword (:'a)` by decide_tac
+        \\ match_mp_tac DIV_EQ_DIV_IMP \\ fs [])]
+    \\ full_simp_tac bool_ss [LESS4,LESS8] \\ fs [] \\ rfs []
+    \\ fs [byte_index_def,LET_DEF] \\ rw [])
+  \\ fs [fcpTheory.CART_EQ,w2w,good_dimindex_def] \\ rpt strip_tac
+  \\ `i' < dimindex (:'a)` by decide_tac
+  \\ fs [word_or_def,fcpTheory.FCP_BETA,word_lsr_def,word_lsl_def]
+  \\ `i' + byte_index a be < dimindex (:'a)` by
+   (fs [byte_index_def,LET_DEF] \\ rw []
+    \\ `w2n a MOD 4 < 4` by (match_mp_tac MOD_LESS \\ decide_tac)
+    \\ `w2n a MOD 8 < 8` by (match_mp_tac MOD_LESS \\ decide_tac)
+    \\ decide_tac)
+  \\ fs [word_or_def,fcpTheory.FCP_BETA,word_lsr_def,word_lsl_def,
+         word_slice_alt_def,w2w] \\ rfs []
+  \\ fs [DECIDE ``m <> n <=> m < n \/ n < m:num``]
+  \\ Cases_on `w ' (i' + byte_index a be)` \\ fs []
+  \\ imp_res_tac byte_index_LESS_IMP
+  \\ fs [w2w] \\ TRY (match_mp_tac NOT_w2w_bit)
+  \\ fs [] \\ decide_tac
 QED
 
 val _ = export_theory()

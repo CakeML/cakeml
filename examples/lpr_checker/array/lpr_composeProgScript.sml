@@ -392,7 +392,7 @@ Proof
   rw[]>>qexists_tac`notfound_string lines_fname`>>xsimpl
 QED
 
-Theorem is_adjacent_build_sets:
+Theorem is_adjacent_build_sets_lemma:
   ∀xs t m n.
     is_adjacent (build_sets xs t) m n ⇔
     MEM (m,n) xs ∨ is_adjacent t m n
@@ -408,7 +408,7 @@ QED
 Theorem is_adjacent_build_sets:
   is_adjacent (build_sets xs LN) m n = MEM (m,n) xs
 Proof
-  fs [is_adjacent_build_sets]
+  fs [is_adjacent_build_sets_lemma]
   \\ fs [is_adjacent_def,lookup_def]
 QED
 

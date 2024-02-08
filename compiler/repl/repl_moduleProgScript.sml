@@ -142,10 +142,10 @@ val eval_thm = let
   in v_thm |> REWRITE_RULE [GSYM v_def] end
 val _ = ml_prog_update (add_Dlet eval_thm "exn");
 
-Theorem exn_def          = fetch "-" "exn_def"                        |> tidy_up;
-Theorem isEOF_def        = declare_new_ref "isEOF"        “F”         |> tidy_up;
-Theorem nextString_def   = declare_new_ref "nextString"   “strlit ""” |> tidy_up;
-Theorem errorMessage_def = declare_new_ref "errorMessage" “strlit ""” |> tidy_up;
+Theorem exn_def[allow_rebind]          = fetch "-" "exn_def"                        |> tidy_up;
+Theorem isEOF_def[allow_rebind]        = declare_new_ref "isEOF"        “F”         |> tidy_up;
+Theorem nextString_def[allow_rebind]   = declare_new_ref "nextString"   “strlit ""” |> tidy_up;
+Theorem errorMessage_def[allow_rebind] = declare_new_ref "errorMessage" “strlit ""” |> tidy_up;
 
 val _ = ml_prog_update open_local_block;
 

@@ -43,7 +43,7 @@ val exp6_size_REVERSE = prove(
   ``!xs. exp6_size (REVERSE xs) = exp6_size xs``,
   Induct \\ fs [exp_size_def,exp6_size_SNOC]);
 
-val BOTTOM_UP_OPT_def = tDefine "BOTTOM_UP_OPT" `
+Definition BOTTOM_UP_OPT_def[nocompute]:
   (BOTTOM_UP_OPT f (Lit v) = f (Lit v)) /\
   (BOTTOM_UP_OPT f (Raise ex) = f (Raise ex)) /\
   (BOTTOM_UP_OPT f (Var name) = f (Var name)) /\
@@ -68,15 +68,17 @@ val BOTTOM_UP_OPT_def = tDefine "BOTTOM_UP_OPT" `
      BOTTOM_UP_OPT f y :: BOTTOM_UP_OPT_LIST f ys) /\
   (BOTTOM_UP_OPT_PAT f [] = []) /\
   (BOTTOM_UP_OPT_PAT f ((p,y)::ys) =
-     (p,BOTTOM_UP_OPT f y) :: BOTTOM_UP_OPT_PAT f ys)`
-  (WF_REL_TAC `measure (\x. case x of
+     (p,BOTTOM_UP_OPT f y) :: BOTTOM_UP_OPT_PAT f ys)
+Termination
+  WF_REL_TAC `measure (\x. case x of
                   | INL x => (exp_size o SND) x
                   | INR (INL x) => (exp6_size o SND) x
                   | INR (INR x) => (exp3_size o SND) x)`
-   \\ rw [exp6_size_REVERSE]);
+   \\ rw [exp6_size_REVERSE]
+End
 
-val BOTTOM_UP_OPT_def = save_thm("BOTTOM_UP_OPT_def[compute]",
-  BOTTOM_UP_OPT_def |> SIMP_RULE std_ss [LET_THM]);
+Theorem BOTTOM_UP_OPT_def[allow_rebind,compute] =
+  BOTTOM_UP_OPT_def |> SIMP_RULE std_ss [LET_THM];
 
 val LENGTH_BOTTOM_UP_OPT_LIST = prove(
   ``!xs. LENGTH (BOTTOM_UP_OPT_LIST f xs) = LENGTH xs``,

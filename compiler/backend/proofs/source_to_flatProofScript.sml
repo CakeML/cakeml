@@ -1324,7 +1324,7 @@ val do_app = time Q.prove (
       qpat_x_assum`EL _ _ = _`assume_tac \\ fs[] \\
       qhdtm_x_assum`sv_rel`mp_tac \\
       simp[Once sv_rel_cases] \\ rw[] \\
-      fs[IMPLODE_EXPLODE_I] \\
+      fs[IMPLODE_EXPLODE_I,combinTheory.o_DEF] \\
       CASE_TAC \\ fs[store_assign_def,store_v_same_type_def,EL_LUPDATE] \\
       fs [REWRITE_RULE [ADD1] EL, ADD1, REWRITE_RULE [ADD1] LUPDATE_def]
       \\ rfs[] \\ rw[EL_LUPDATE]
@@ -3957,7 +3957,7 @@ Triviality pmatch_rows_drop_4:
   Match ([(w, LAST vs); (b, EL 4 vs)],
     Pcon NONE [Pany; Pany; Pany; Pany; Pvar b; Pvar w], exp)
 Proof
-  simp [pmatch_rows_def, pmatch_def, pmatch_stamps_ok_def]
+  simp [pmatch_rows_def, pmatch_def, pmatch_stamps_ok_cases]
   \\ rpt (
     rename [`pmatch_list _ _ pm_vs _`]
     \\ Cases_on `pm_vs` \\ simp [pmatch_def, ADD1]
@@ -5652,7 +5652,8 @@ Proof
   fs [source_to_flatTheory.compile_flat_def]
   \\ metis_tac [
        flat_elimProofTheory.remove_flat_prog_sub_bag,
-       flat_patternProofTheory.compile_decs_elist_globals]
+       flat_patternProofTheory.compile_decs_elist_globals,
+       SUB_BAG_TRANS]
 QED
 
 Triviality compile_flat_BAG_ALL_DISTINCT = MATCH_MP
@@ -5683,7 +5684,9 @@ Proof
   rw []
   \\ fs [inc_compile_def, inc_compile_prog_def]
   \\ rpt (pairarg_tac \\ full_simp_tac bool_ss [UNCURRY_DEF])
-  \\ simp_tac bool_ss [FST, SND, flat_patternProofTheory.compile_decs_elist_globals]
+  \\ simp[]
+  \\ match_mp_tac BAG_ALL_DISTINCT_SUB_BAG
+  \\ (irule_at Any) flat_patternProofTheory.compile_decs_elist_globals
   \\ rw []
   \\ fs [glob_alloc_def, op_gbag_def, store_env_id_def, FILTER_APPEND,
         elist_globals_append, env_id_tuple_def]
@@ -5723,9 +5726,10 @@ Proof
   \\ rpt (disch_tac ORELSE gen_tac)
   \\ TRY (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
-  \\ simp [flat_patternProofTheory.compile_decs_elist_globals]
+  \\ simp[PULL_EXISTS,PULL_FORALL] \\ rpt strip_tac
+  \\ TRY(drule_at Any (MATCH_MP SUB_BAG_IMP (SPEC_ALL flat_patternProofTheory.compile_decs_elist_globals)) \\ strip_tac)
   \\ rpt (pairarg_tac \\ fs [])
-  \\ rveq \\ fs []
+  \\ gvs[]
   \\ imp_res_tac compile_decs_elist_globals
   \\ imp_res_tac compile_decs_num_bindings
   \\ fs []

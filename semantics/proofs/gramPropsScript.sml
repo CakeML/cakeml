@@ -120,7 +120,7 @@ val rules = SIMP_CONV (bool_ss ++ ty2frag ``:(α,β)grammar``)
                       [cmlG_def, combinTheory.K_DEF,
                        finite_mapTheory.FUPDATE_LIST_THM] rules_t
 val cmlG_applied = let
-  val app0 = finite_mapSyntax.fapply_t
+  val app0 = finite_mapSyntax.fapply_tm
   val theta =
       Type.match_type (type_of app0 |> dom_rng |> #1) (type_of rules_t)
   val app = inst theta app0
@@ -262,7 +262,7 @@ local
     val t = th' |> concl |> trydn |> rand |> lhand |> rand |> rand
     val nm = "nullable_" ^ String.extract(term_to_string t, 1, NONE)
   in
-    save_thm(nm, th'); export_rewrites [nm]
+    save_thm(nm ^ "[allow_rebind]", th'); export_rewrites [nm]
   end
 in
 val _ = List.app appthis nullacc

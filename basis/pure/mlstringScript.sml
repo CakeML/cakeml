@@ -1016,32 +1016,39 @@ val collate_def = Define`
   else collate_aux f s1 s2 EQUAL 0 (strlen s2)`;
 
 
-val collate_aux_less_thm = Q.prove (
-  `!f s1 s2 n len. (n + len = strlen s1) /\ (strlen s1 < strlen s2) ==>
-    (collate_aux f s1 s2 Less n len = mllist$collate f (DROP n (explode s1)) (DROP n (explode s2)))`,
-      Cases_on `s1` \\ Cases_on `s2` \\ Induct_on `len` \\
-      rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm, strsub_def, DROP_EL_CONS]
-      >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def]
-);
+Theorem collate_aux_less_thm[local]:
+  !f s1 s2 n len.
+    n + len = strlen s1 /\ strlen s1 < strlen s2 ==>
+    collate_aux f s1 s2 Less n len =
+    mllist$collate f (DROP n (explode s1)) (DROP n (explode s2))
+Proof
+  Cases_on `s1` \\ Cases_on `s2` \\ Induct_on `len` \\
+  rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm,
+      strsub_def, DROP_EL_CONS]
+QED
 
-val collate_aux_equal_thm = Q.prove (
-  `!f s1 s2 n len. (n + len = strlen s2) /\ (strlen s1 = strlen s2) ==>
-    (collate_aux f s1 s2 Equal n len =
-      mllist$collate f (DROP n (explode s1)) (DROP n (explode s2)))`,
+Theorem collate_aux_equal_thm[local]:
+  !f s1 s2 n len.
+    n + len = strlen s2 /\ strlen s1 = strlen s2 ==>
+    collate_aux f s1 s2 Equal n len =
+    mllist$collate f (DROP n (explode s1)) (DROP n (explode s2))
+Proof
   Cases_on `s1` \\ Cases_on `s2` \\ Induct_on `len` \\
   rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm, strsub_def]
   >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def] \\
   fs [DROP_EL_CONS, mllistTheory.collate_def]
-);
+QED
 
-val collate_aux_greater_thm = Q.prove (
-  `!f s1 s2 n len. (n + len = strlen s2) /\ (strlen s2 < strlen s1) ==>
-    (collate_aux f s1 s2 Greater n len =
-      mllist$collate f (DROP n (explode s1)) (DROP n (explode s2)))`,
+Theorem collate_aux_greater_thm[local]:
+  !f s1 s2 n len.
+    n + len = strlen s2 /\ strlen s2 < strlen s1 ==>
+    collate_aux f s1 s2 Greater n len =
+    mllist$collate f (DROP n (explode s1)) (DROP n (explode s2))
+Proof
   Cases_on `s1` \\ Cases_on `s2` \\ Induct_on `len` \\
-  rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm, strsub_def, DROP_EL_CONS]
-  >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def]
-);
+  rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm,
+      strsub_def, DROP_EL_CONS]
+QED
 
 Theorem collate_thm:
    !f s1 s2. collate f s1 s2 = mllist$collate f (explode s1) (explode s2)
@@ -1093,6 +1100,77 @@ Proof
   simp[explode_11]
 QED
 val _ = export_rewrites["ALL_DISTINCT_MAP_explode"]
+
+(* optimising mlstring app_list *)
+
+Datatype:
+  app_list_ann = BigList ('a list)
+               | BigAppend app_list_ann app_list_ann
+               | Small ('a app_list)
+End
+
+Definition sum_sizes_def:
+  sum_sizes [] k = k ∧
+  sum_sizes (l::ls) k = sum_sizes ls (strlen l + k)
+End
+
+Overload size_limit[local] = “2048:num”
+
+Definition make_app_list_ann_def:
+  make_app_list_ann input =
+    case input of
+    | Nil => (Small input, 0)
+    | Append l1 l2 =>
+        (let (x1,n1) = make_app_list_ann l1 in
+         let (x2,n2) = make_app_list_ann l2 in
+         let n = n1+n2 in
+           if n < size_limit then
+             (Small input,n)
+           else
+             (BigAppend x1 x2,n))
+    | List ls =>
+        (let n = sum_sizes ls 0 in
+           if n < size_limit then
+             (Small input,n)
+           else (BigList ls,n))
+End
+
+Definition shrink_def:
+  shrink (Small t) = List [concat (append t)] ∧
+  shrink (BigList ls) = List ls ∧
+  shrink (BigAppend l1 l2) = Append (shrink l1) (shrink l2)
+End
+
+Definition str_app_list_opt_def:
+  str_app_list_opt l =
+    let (t,n) = make_app_list_ann l in
+      shrink t
+End
+
+Triviality str_app_list_opt_test:
+  str_app_list_opt (Append (List [strlit "Hello"; strlit " there"])
+                           (List [strlit "!"])) =
+  List [strlit "Hello there!"]
+Proof
+  EVAL_TAC
+QED
+
+Theorem str_app_list_opt_thm:
+  concat (append (str_app_list_opt l)) = concat (append l)
+Proof
+  ‘str_app_list_opt l = shrink $ FST $ make_app_list_ann l’
+       by fs [str_app_list_opt_def,UNCURRY]
+  \\ fs [] \\ pop_assum kall_tac
+  \\ Induct_on ‘l’
+  >~ [‘Nil’] >- EVAL_TAC
+  >~ [‘Append’] >-
+   (simp [Once make_app_list_ann_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ IF_CASES_TAC
+    \\ gvs [shrink_def,concat_cons,concat_nil,concat_append])
+  \\ simp [Once make_app_list_ann_def] \\ rw []
+  \\ gvs [shrink_def,concat_cons,concat_nil,concat_append]
+QED
 
 (* The translator turns each `empty_ffi s` into a call to the FFI with
    an empty name and passing `s` as the argument. The empty FFI is

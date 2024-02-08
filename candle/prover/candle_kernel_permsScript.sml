@@ -940,10 +940,80 @@ Proof
   \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
 QED
 
+Theorem perms_ok_monop_fst_v[simp]:
+  perms_ok ps monop_fst_v
+Proof
+  rw[perms_ok_def, monop_fst_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
+QED
+
+Theorem perms_ok_monop_snd_v[simp]:
+  perms_ok ps monop_snd_v
+Proof
+  rw[perms_ok_def, monop_snd_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
+QED
+
+Theorem perms_ok_monop_ispair_v[simp]:
+  perms_ok ps monop_ispair_v
+Proof
+  rw[perms_ok_def, monop_ispair_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
+QED
+
 Theorem perms_ok_monop_v[simp]:
   perms_ok ps monop_v
 Proof
   rw[perms_ok_def, monop_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
+QED
+
+Theorem perms_ok_binop_add_v[simp]:
+  perms_ok ps binop_add_v
+Proof
+  rw[perms_ok_def, binop_add_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
+QED
+
+Theorem perms_ok_binop_sub_v[simp]:
+  perms_ok ps binop_sub_v
+Proof
+  rw[perms_ok_def, binop_sub_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
+QED
+
+Theorem perms_ok_binop_mul_v[simp]:
+  perms_ok ps binop_mul_v
+Proof
+  rw[perms_ok_def, binop_mul_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
+QED
+
+Theorem perms_ok_binop_div_v[simp]:
+  perms_ok ps binop_div_v
+Proof
+  rw[perms_ok_def, binop_div_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
+QED
+
+Theorem perms_ok_binop_mod_v[simp]:
+  perms_ok ps binop_mod_v
+Proof
+  rw[perms_ok_def, binop_mod_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
+QED
+
+Theorem perms_ok_binop_eq_v[simp]:
+  perms_ok ps binop_eq_v
+Proof
+  rw[perms_ok_def, binop_eq_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
+QED
+
+Theorem perms_ok_binop_less_v[simp]:
+  perms_ok ps binop_less_v
+Proof
+  rw[perms_ok_def, binop_less_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ gs [] \\ pop_assum mp_tac \\ eval_nsLookup_tac \\ rw[]
 QED
 
@@ -1543,3 +1613,4 @@ Theorem evaluate_empty_perms =
   |> SIMP_RULE (srw_ss()) [];
 
 val _ = export_theory ();
+

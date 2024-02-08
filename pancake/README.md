@@ -10,6 +10,9 @@ struct-layout to word-layout
 [crep_to_loopScript.sml](crep_to_loopScript.sml):
 Compilation from crepLang to panLang.
 
+[examples](examples):
+A few examples of timeLang programs
+
 [ffi](ffi):
 FFI for Pancake
 
@@ -70,9 +73,6 @@ Temporary files
 
 [timeLangScript.sml](timeLangScript.sml):
 Abstract syntax for timeLang
-
-[time_evalScript.sml](time_evalScript.sml):
-Evaluation of compilation of a timeLang program
 
 [time_to_panScript.sml](time_to_panScript.sml):
 Compilation from timeLang to panLang

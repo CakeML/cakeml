@@ -681,7 +681,7 @@ Definition const_writes_def:
       ((a =+ Word (if b then x + off else x)) m)
 End
 
-val evaluate_def = tDefine "evaluate" `
+Definition evaluate_def:
   (evaluate (Skip:'a wordLang$prog,^s) = (NONE,s)) /\
   (evaluate (Alloc n names,s) =
      case get_var n s of
@@ -825,7 +825,7 @@ val evaluate_def = tDefine "evaluate" `
                read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be))
                of
           | SOME bytes,SOME bytes2 =>
-             (case call_FFI s.ffi ffi_index bytes bytes2 of
+             (case call_FFI s.ffi (ExtCall ffi_index) bytes bytes2 of
               | FFI_final outcome => (SOME (FinalFFI outcome),flush_state T s)
               | FFI_return new_ffi new_bytes =>
                 let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
@@ -887,9 +887,10 @@ val evaluate_def = tDefine "evaluate" `
            then evaluate (h, set_var n y s2)
            else (SOME Error,s2)))
         | (NONE,s) => (SOME Error,s)
-                | res => res)))`
-  (WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
-                  (\(xs,^s). (s.termdep,s.clock,xs)))`
+                | res => res)))
+Termination
+  WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
+                  (λ(xs,^s). (s.termdep,s.clock,xs)))`
    \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
    \\ full_simp_tac(srw_ss())[termdep_rw] \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
    \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
@@ -897,9 +898,9 @@ val evaluate_def = tDefine "evaluate" `
    \\ full_simp_tac(srw_ss())[set_var_def,push_env_def,call_env_def,dec_clock_def,LET_THM]
    \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
    \\ full_simp_tac(srw_ss())[pop_env_def] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-   \\ decide_tac)
+   \\ decide_tac
+End
 
-val evaluate_ind = theorem"evaluate_ind";
 
 (* We prove that the clock never increases and that termdep is constant. *)
 
@@ -976,8 +977,10 @@ QED
 
 (* We store the theorems without fix_clock *)
 
-Theorem evaluate_ind = REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
-Theorem evaluate_def = REWRITE_RULE [fix_clock_evaluate] evaluate_def;
+Theorem evaluate_ind[allow_rebind] =
+        REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
+Theorem evaluate_def[allow_rebind] =
+        REWRITE_RULE [fix_clock_evaluate] evaluate_def;
 
 (* observational semantics *)
 

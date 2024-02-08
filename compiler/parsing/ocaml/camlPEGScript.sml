@@ -134,15 +134,6 @@ Definition validMultOp_def:
         2 ≤ LENGTH s ∧ EVERY validOpChar (TL s)))
 End
 
-Definition validRelOp_def:
-  validRelOp s ⇔
-    s ≠ "" ∧
-    (HD s = #"<" ∨ HD s = #">" ∨ HD s = #"|" ∨
-     HD s = #"&" ∨ HD s = #"$") ∧
-    2 ≤ LENGTH s ∧
-    EVERY validOpChar (TL s)
-End
-
 Definition validAddOp_def:
   validAddOp s ⇔
     s ≠ "" ∧
@@ -232,13 +223,15 @@ Datatype:
     (* expressions *)
     | nLiteral | nIdent | nEBase | nEList
     | nEApp | nEConstr | nEFunapp | nEAssert | nELazy
-    | nEPrefix | nENeg | nEShift | nEMult
+    | nEPrefix | nEIndex | nENeg | nEShift | nEMult
     | nERecProj | nERecUpdate | nERecCons
     | nEAdd | nECons | nECat | nERel
     | nEAnd | nEOr | nEProd | nEAssign | nEIf | nESeq
     | nEMatch | nETry | nEFun | nEFunction | nELet | nELetRec
     | nEWhile | nEFor | nExpr
     | nEUnclosed (* expressions that bind everything to the right *)
+    (* indexing *)
+    | nArrIdx | nStrIdx
     (* record updates *)
     | nUpdate | nUpdates | nFieldDec | nFieldDecs
     (* pattern matches *)
@@ -264,7 +257,7 @@ Datatype:
     | nSemis | nExprItem | nExprItems | nDefItem
     (* misc *)
     | nShiftOp | nMultOp | nAddOp | nRelOp | nAndOp | nOrOp | nCatOp | nPrefixOp
-    | nAssignOp | nStart
+    | nAssignOp | nPatLiteral | nStart
     (* Declarations through CakeML pragmas *)
     | nCakeMLPragma
 End
@@ -576,9 +569,19 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPrefixOp));
       (INL nEPrefix,
        seql [try (pnt nPrefixOp); pnt nEBase] (bindNT nEPrefix));
+      (* -- Expr14.6 ------------------------------------------------------- *)
+      (INL nArrIdx,
+       seql [tokeq DotT; tokeq LparT; pnt nExpr; tokeq RparT]
+            (bindNT nArrIdx));
+      (INL nStrIdx,
+       seql [tokeq DotT; tokeq LbrackT; pnt nExpr; tokeq RbrackT]
+            (bindNT nStrIdx));
+      (INL nEIndex,
+       seql [pnt nEPrefix; try (choicel [pnt nStrIdx; pnt nArrIdx])]
+            (bindNT nEIndex));
       (* -- Expr14.5 ------------------------------------------------------- *)
       (INL nERecProj,
-       seql [pnt nEPrefix;
+       seql [pnt nEIndex;
              try (seql [tokeq DotT; pnt nFieldName] I)]
             (bindNT nERecProj));
       (* -- Expr14 --------------------------------------------------------- *)
@@ -737,7 +740,8 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPatternMatches));
       (* -- Let bindings --------------------------------------------------- *)
       (INL nLetRecBinding,
-       seql [pnt nValueName; pnt nPatterns;
+       seql [pnt nValueName;
+             try (pnt nPatterns);
              try (seql [tokeq ColonT; pnt nType] I);
              tokeq EqualT; pnt nExpr]
             (bindNT nLetRecBinding));
@@ -746,7 +750,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nLetRecBindings));
       (INL nLetBinding,
        pegf (choicel [seql [pnt nPattern; tokeq EqualT; pnt nExpr] I;
-                      seql [pnt nValueName; pnt nPatterns;
+                      seql [pnt nValueName; try (pnt nPatterns);
                             try (seql [tokeq ColonT; pnt nType] I);
                             tokeq EqualT; pnt nExpr] I])
             (bindNT nLetBinding));
@@ -767,8 +771,12 @@ Definition camlPEG_def[nocompute]:
                         try (seql [tokeq ColonT; pnt nType] I)] I);
              tokeq RparT]
             (bindNT nPPar));
+      (INL nPatLiteral,
+       choicel [pegf (pnt nLiteral) (bindNT nPatLiteral);
+                seql [tokeq MinusT; tok isInt mktokLf]
+                     (bindNT nPatLiteral)]);
       (INL nPBase, (* ::= any / var / lit / list / '(' p ')' *)
-       pegf (choicel [pnt nLiteral; pnt nValueName; pnt nPAny; pnt nPList;
+       pegf (choicel [pnt nPatLiteral; pnt nValueName; pnt nPAny; pnt nPList;
                       pnt nPPar])
             (bindNT nPBase));
       (* -- Pat2 ----------------------------------------------------------- *)
@@ -812,7 +820,7 @@ val rules = SIMP_CONV (bool_ss ++ ty2frag ``:(α,β,γ,δ)peg``)
 
 val _ = print "Calculating application of camlPEG rules\n"
 val camlpeg_rules_applied = let
-  val app0 = finite_mapSyntax.fapply_t
+  val app0 = finite_mapSyntax.fapply_tm
   val theta =
       Type.match_type (type_of app0 |> dom_rng |> #1) (type_of rules_t)
   val app = inst theta app0
@@ -997,15 +1005,16 @@ val npeg0_rwts =
         “nOperatorName”, “nConstrName”, “nTypeConstrName”, “nModuleName”,
         “nValuePath”, “nConstr”, “nTypeConstr”, “nModulePath”, “nFieldName”,
         “nUpdate”, “nUpdates”, “nERecUpdate”, “nERecCons”, “nLiteral”,
-        “nIdent”, “nEList”, “nEConstr”, “nEBase”, “nEPrefix”, “nERecProj”,
-        “nELazy”, “nEAssert”, “nEFunapp”, “nEApp”, “nLetBinding”, “nPAny”,
-        “nPList”, “nPPar”, “nPBase”, “nPCons”, “nPAs”, “nPOps”, “nPattern”,
-        “nPatterns”, “nLetBindings”, “nLetRecBinding”, “nLetRecBindings”,
-        “nPatternMatches”, “nPatternMatch”, “nEMatch”, “nETry”, “nEFun”,
-        “nEFunction”, “nELet”, “nELetRec”, “nEWhile”, “nEFor”, “nEUnclosed”,
-        “nENeg”, “nEShift”, “nEMult”, “nEAdd”, “nECons”, “nECat”, “nERel”,
-        “nEAnd”, “nEOr”, “nEHolInfix”, “nEProd”, “nEAssign”, “nEIf”, “nESeq”,
-        “nExpr”, “nTypeDefinition”, “nTypeDef”, “nTypeDefs”, “nTVar”, “nTBase”,
+        “nIdent”, “nEList”, “nEConstr”, “nEBase”, “nEPrefix”, “nArrIdx”,
+        “nStrIdx”, “nEIndex”, “nERecProj”, “nELazy”, “nEAssert”, “nEFunapp”,
+        “nEApp”, “nLetBinding”, “nPAny”, “nPList”, “nPPar”, “nPatLiteral”,
+        “nPBase”, “nPCons”, “nPAs”, “nPOps”, “nPattern”, “nPatterns”,
+        “nLetBindings”, “nLetRecBinding”, “nLetRecBindings”, “nPatternMatches”,
+        “nPatternMatch”, “nEMatch”, “nETry”, “nEFun”, “nEFunction”, “nELet”,
+        “nELetRec”, “nEWhile”, “nEFor”, “nEUnclosed”, “nENeg”, “nEShift”,
+        “nEMult”, “nEAdd”, “nECons”, “nECat”, “nERel”, “nEAnd”, “nEOr”,
+        “nEHolInfix”, “nEProd”, “nEAssign”, “nEIf”, “nESeq”, “nExpr”,
+        “nTypeDefinition”, “nTypeDef”, “nTypeDefs”, “nTVar”, “nTBase”,
         “nTConstr”, “nTProd”, “nTFun”, “nType”, “nTypeList”, “nTypeLists”,
         “nTypeParams”, “nConstrDecl”, “nTypeReprs”, “nTypeRepr”, “nTypeInfo”,
         “nConstrArgs”, “nExcDefinition”, “nTopLet”, “nTopLetRec”, “nOpen”,
@@ -1035,23 +1044,24 @@ val topo_nts =
         “nHolInfixOp”, “nCatOp”, “nPrefixOp”, “nAssignOp”, “nValueName”,
         “nOperatorName”, “nConstrName”, “nTypeConstrName”, “nModuleName”,
         “nModulePath”, “nValuePath”, “nConstr”, “nTypeConstr”, “nFieldName”,
-        “nLiteral”, “nIdent”, “nEList”, “nEConstr”, “nERecUpdate”,
-        “nERecCons”, “nEBase”, “nEPrefix”, “nERecProj”, “nELazy”, “nEAssert”,
-        “nEFunapp”, “nEApp”, “nPAny”, “nPList”, “nPPar”, “nPBase”, “nPCons”,
-        “nPAs”, “nPOps”, “nPattern”, “nPatterns”, “nLetBinding”, “nLetBindings”,
-        “nLetRecBinding”, “nLetRecBindings”, “nPatternMatches”, “nPatternMatch”,
-        “nEMatch”, “nETry”, “nEFun”, “nEFunction”, “nELet”, “nELetRec”,
-        “nEWhile”, “nEFor”, “nEUnclosed”, “nENeg”, “nEShift”, “nEMult”, “nEAdd”,
-        “nECons”, “nECat”, “nERel”, “nEAnd”, “nEOr”, “nEHolInfix”, “nEProd”,
-        “nEAssign”, “nEIf”, “nESeq”, “nExpr”, “nTypeDefinition”, “nTVar”,
-        “nTBase”, “nTConstr”, “nTProd”, “nTFun”, “nType”, “nTypeList”,
-        “nTypeLists”, “nTypeParams”, “nTypeDef”, “nTypeDefs”, “nConstrDecl”,
-        “nTypeReprs”, “nTypeRepr”, “nTypeInfo”, “nUpdate”, “nUpdates”,
-        “nFieldDec”, “nFieldDecs”, “nRecord”, “nConstrArgs”, “nExcDefinition”,
-        “nTopLet”, “nTopLetRec”, “nOpen”, “nSemis”, “nExprItem”, “nExprItems”,
-        “nModuleDef”, “nModTypeName”, “nModTypePath”, “nSigSpec”, “nExcType”,
-        “nValType”, “nOpenMod”, “nIncludeMod”, “nModTypeAsc”, “nModTypeAssign”,
-        “nSigItem”, “nSigItems”, “nModuleType”, “nModAscApp”, “nModAscApps”,
+        “nLiteral”, “nIdent”, “nEList”, “nEConstr”, “nERecUpdate”, “nERecCons”,
+        “nEBase”, “nEPrefix”, “nEIndex”, “nERecProj”, “nELazy”, “nEAssert”,
+        “nEFunapp”, “nEApp”, “nPAny”, “nPList”, “nPPar”, “nPatLiteral”,
+        “nPBase”, “nPCons”, “nPAs”, “nPOps”, “nPattern”, “nPatterns”,
+        “nLetBinding”, “nLetBindings”, “nLetRecBinding”, “nLetRecBindings”,
+        “nPatternMatches”, “nPatternMatch”, “nEMatch”, “nETry”, “nEFun”,
+        “nEFunction”, “nELet”, “nELetRec”, “nEWhile”, “nEFor”, “nEUnclosed”,
+        “nENeg”, “nEShift”, “nEMult”, “nEAdd”, “nECons”, “nECat”, “nERel”,
+        “nEAnd”, “nEOr”, “nEHolInfix”, “nEProd”, “nEAssign”, “nEIf”, “nESeq”,
+        “nExpr”, “nTypeDefinition”, “nTVar”, “nTBase”, “nTConstr”, “nTProd”,
+        “nTFun”, “nType”, “nTypeList”, “nTypeLists”, “nTypeParams”, “nTypeDef”,
+        “nTypeDefs”, “nConstrDecl”, “nTypeReprs”, “nTypeRepr”, “nTypeInfo”,
+        “nUpdate”, “nUpdates”, “nArrIdx”, “nStrIdx”, “nFieldDec”, “nFieldDecs”,
+        “nRecord”, “nConstrArgs”, “nExcDefinition”, “nTopLet”, “nTopLetRec”,
+        “nOpen”, “nSemis”, “nExprItem”, “nExprItems”, “nModuleDef”,
+        “nModTypeName”, “nModTypePath”, “nSigSpec”, “nExcType”, “nValType”,
+        “nOpenMod”, “nIncludeMod”, “nModTypeAsc”, “nModTypeAssign”, “nSigItem”,
+        “nSigItems”, “nModuleType”, “nModAscApp”, “nModAscApps”,
         “nCakeMLPragma”, “nModuleTypeDef”, “nModExpr”, “nDefinition”,
         “nDefItem”, “nModuleItem”, “nModuleItems”, “nStart”];
 
@@ -1095,4 +1105,3 @@ Theorem owhile_Start_total =
   SIMP_RULE (srw_ss()) [pegexecTheory.coreloop_def] coreloop_Start_total;
 
 val _ = export_theory ();
-

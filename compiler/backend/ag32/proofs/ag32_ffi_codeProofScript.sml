@@ -26,6 +26,13 @@ QED
 
 (* -- *)
 
+Definition extcalls_def:
+  extcalls NONE = [] ∧
+  extcalls (SOME []) = [] ∧
+  extcalls (SOME (ExtCall n::xs)) = n :: extcalls (SOME xs) ∧
+  extcalls (SOME (_::xs)) = extcalls (SOME xs)
+End
+
 val first_tac =
    rw[ag32_ffi_write_check_lengths_def,
       ag32_ffi_write_load_noff_def,

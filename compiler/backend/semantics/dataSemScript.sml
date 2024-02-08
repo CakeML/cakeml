@@ -98,24 +98,6 @@ Definition bignum_size_def:
     1 + bignum_digits arch64 (Num (ABS i))
 End
 
-Definition small_num_def:
-  small_num arch64 (i:int) =
-    if arch64 then -(2 ** 61) <= i /\ i < (2 ** 61)
-              else -(2 ** 29) <= i /\ i < (2 ** 29)
-End
-
-Definition bignum_digits_def:
-  bignum_digits arch64 n =
-    if n = 0 then 0 else
-      let d = if arch64 then 64 else 32 in
-        1n + bignum_digits arch64 (n DIV 2 ** d)
-End
-
-Definition bignum_size_def:
-  bignum_size arch64 i =
-    1 + bignum_digits arch64 (Num (ABS i))
-End
-
 Definition size_of_def:
   (size_of lims [] refs seen = (0, refs, seen)) /\
   (size_of lims (x::y::ys) refs seen =
@@ -158,8 +140,8 @@ Proof
   \\ rveq \\ fs [] \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs[] \\ fs [size_delete]
 QED
 
-Theorem size_of_def[compute] = REWRITE_RULE [check_res_size_of] size_of_def
-Theorem size_of_ind = REWRITE_RULE [check_res_size_of] size_of_ind
+Theorem size_of_def[allow_rebind,compute] = REWRITE_RULE [check_res_size_of] size_of_def
+Theorem size_of_ind[allow_rebind] = REWRITE_RULE [check_res_size_of] size_of_ind
 
 Definition extract_stack_def:
   extract_stack (Env _ env) = toList env /\
@@ -922,7 +904,7 @@ Definition do_app_aux_def:
     | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
         (case (lookup cptr s.refs, lookup ptr s.refs) of
          | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
-           (case call_FFI s.ffi n cws ws of
+           (case call_FFI s.ffi (ExtCall n) cws ws of
             | FFI_return ffi' ws' =>
                 Rval (Unit,
                       s with <| refs := insert ptr (ByteArray F ws') s.refs
@@ -1334,11 +1316,11 @@ QED
 
 (* Finally, we remove fix_clock from the induction and definition theorems. *)
 
-val evaluate_def = save_thm("evaluate_def[compute]",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def);
+Theorem evaluate_def[compute,allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def;
 
-val evaluate_ind = save_thm("evaluate_ind",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
+Theorem evaluate_ind[allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
 (* observational semantics *)
 

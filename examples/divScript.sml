@@ -163,16 +163,16 @@ QED
 val names_def = Define `names = ["put_char"; "get_char"]`;
 
 val put_char_event_def = Define `
-  put_char_event c = IO_event "put_char" [n2w (ORD c)] []`;
+  put_char_event c = IO_event (ExtCall "put_char") [n2w (ORD c)] []`;
 
 val put_str_event_def = Define `
-  put_str_event cs = IO_event "put_char" (MAP (n2w o ORD) cs) []`;
+  put_str_event cs = IO_event (ExtCall "put_char") (MAP (n2w o ORD) cs) []`;
 
 val get_char_event_def = Define `
-  get_char_event c = IO_event "get_char" [] [0w, 1w; 0w, n2w (ORD c)]`;
+  get_char_event c = IO_event (ExtCall "get_char") [] [0w, 1w; 0w, n2w (ORD c)]`;
 
 val get_char_eof_event_def = Define `
-  get_char_eof_event = IO_event "get_char" [] [0w, 0w; 0w, 0w]`;
+  get_char_eof_event = IO_event (ExtCall "get_char") [] [0w, 0w; 0w, 0w]`;
 
 val update_def = PmatchHeuristics.with_classic_heuristic Define `
   (update "put_char" cs [] s = SOME (FFIreturn [] s)) /\
@@ -485,7 +485,7 @@ val io_events_def = Define `
 
 Overload yes = ``yes_v``
 
-Theorem yes_spec:
+Theorem yes_spec_lemma:
   !uv.
     limited_parts names p ==>
     app (p:'ffi ffi_proj) ^(fetch_v "yes" st) [arg]
@@ -515,7 +515,7 @@ Proof
   \\ irule REPLICATE_LIST_LREPEAT \\ fs []
 QED
 
-val yes_spec = save_thm("yes_spec",yes_spec |> SPEC_ALL |> UNDISCH_ALL);
+val yes_spec = save_thm("yes_spec", yes_spec_lemma |> SPEC_ALL |> UNDISCH_ALL);
 
 (* An IO-conditional loop with side effects *)
 

@@ -87,7 +87,7 @@ Proof
   Cases_on`cmp`>>srw_tac[][labSemTheory.word_cmp_def]
 QED
 
-Theorem word_cmp_negate[simp]:
+Theorem word_cmp_negate_alt[simp]:
    asm$word_cmp (negate cmp) w1 w2 ⇔ ¬word_cmp cmp w1 w2
 Proof
   Cases_on`cmp`>>EVAL_TAC
@@ -2371,7 +2371,7 @@ Proof
     last_x_assum mp_tac >> CASE_TAC >> simp[] >> CASE_TAC >> simp[] >>
     srw_tac[][] >> simp[] >>
     full_simp_tac(srw_ss())[code_installed_def,call_args_def] >>
-    reverse(Cases_on `call_FFI s.ffi ffi_index x' x`)
+    reverse(Cases_on `call_FFI s.ffi (ExtCall ffi_index) x' x`)
     >- (fs[] >> rveq >> fs[halt_view_def] >>
         qexists_tac `2` >>
         simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
@@ -2423,7 +2423,7 @@ Proof
     rpt strip_tac >>
     qmatch_assum_rename_tac `FLOOKUP s.regs k = SOME v` >>
     res_tac >>
-    Cases_on `t1.io_regs 0 ffi_index k` >> full_simp_tac(srw_ss())[get_reg_value_def] >>
+    Cases_on `t1.io_regs 0 (ExtCall ffi_index) k` >> full_simp_tac(srw_ss())[get_reg_value_def] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[]) >>
   conj_tac >-
    (rename [`LocValue`]
@@ -2906,7 +2906,7 @@ val MAP_FST_compile_compile = Q.prove(
 
 val sextract_labels_def = stackPropsTheory.extract_labels_def
 
-Theorem next_lab_non_zero:
+Theorem next_lab_non_zero[allow_rebind]:
     ∀p. 1 ≤ next_lab p 1 /\
         2 ≤ next_lab p 2
 Proof
@@ -3304,7 +3304,7 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem full_make_init_semantics =
+Theorem full_make_init_semantics[allow_rebind] =
   full_make_init_semantics |> REWRITE_RULE [markerTheory.Abbrev_def]
 
 Theorem EVERY_sec_ends_with_label_MAP_prog_to_section[simp]:
@@ -3449,7 +3449,7 @@ Proof
       stack_removeProofTheory.make_init_any_def] \\ strip_tac
   \\ every_case_tac \\ fs []
   \\ fs [word_to_stackProofTheory.init_state_ok_def,data_to_word_gcProofTheory.gc_fun_ok_word_gc_fun]
-  \\ conj_tac THEN1 fs [labPropsTheory.good_dimindex_def]
+  \\ conj_tac THEN1 fs [good_dimindex_def]
   \\ qpat_x_assum`_ = fmis` sym_sub_tac \\ rveq\\ fs[]
   \\ qpat_assum `_` mp_tac
   \\ rewrite_tac [stack_removeProofTheory.make_init_opt_def]

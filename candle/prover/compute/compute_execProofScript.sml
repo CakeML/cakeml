@@ -118,7 +118,8 @@ Theorem do_uop_from_cv:
   do_uop uop (from_cv a) s = (M_success (from_cv (monop uop a)),s)
 Proof
   Cases_on ‘uop’ \\ Cases_on ‘a’
-  \\ fs [do_uop_def,monop_def,do_fst_def,do_snd_def,do_ispair_def,st_ex_return_def]
+  \\ fs [do_uop_def,monop_def,do_fst_def,do_snd_def,do_ispair_def,st_ex_return_def,
+         monop_ispair_def,monop_snd_def,monop_fst_def]
 QED
 
 Theorem from_cv_11:
@@ -131,8 +132,9 @@ Theorem do_binop_from_cv:
   do_binop bop (from_cv a) (from_cv b) s = (M_success (from_cv (binop bop a b)),s)
 Proof
   Cases_on ‘bop’ \\ Cases_on ‘a’ \\ Cases_on ‘b’ \\ fs []
-  \\ fs [binop_def,do_binop_def,do_arith_def,st_ex_return_def,
-         SAFEDIV_def,SAFEMOD_def,do_reln_def,cv_T_def,cv_F_def]
+  \\ fs [binop_def,do_binop_def,do_arith_def,st_ex_return_def, SAFEDIV_def,
+         SAFEMOD_def,do_reln_def,cv_T_def,cv_F_def,binop_add_def,binop_sub_def,
+         binop_mul_def,binop_div_def,binop_mod_def,binop_less_def,binop_eq_def]
   \\ rw [] \\ fs [DIV_EQ_X,do_eq_def,st_ex_return_def,from_cv_11]
   \\ rw []
 QED
@@ -445,3 +447,4 @@ Proof
 QED
 
 val _ = export_theory ();
+

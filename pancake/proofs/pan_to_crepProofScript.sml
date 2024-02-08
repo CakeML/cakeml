@@ -317,6 +317,18 @@ Proof
        TOP_CASE_TAC >> fs [v2word_def]) >>
      unabbrev_all_tac >> fs [])
   >- (
+   rename1 ‘Panop’ >>
+   rpt gen_tac >> strip_tac >>
+   gvs[compile_exp_def,AllCaseEqs(),eval_def,panLangTheory.size_of_shape_def,
+       panSemTheory.eval_def,crepSemTheory.eval_def,flatten_def,shape_of_def,
+       DefnBase.one_line_ify NONE pan_op_def,MAP_EQ_CONS,opt_mmap_eq_some,
+       cexp_heads_def,PULL_EXISTS, SF DNF_ss
+      ] >>
+   rpt $ qpat_x_assum ‘SOME _ = _’ $ assume_tac o GSYM >>
+   rpt $ first_x_assum $ drule_then $ drule_then $ drule_then drule >>
+   rpt $ disch_then $ resolve_then Any assume_tac $ GSYM PAIR >>
+   gvs[flatten_def,shape_of_def,DefnBase.one_line_ify NONE compile_panop_def,crep_op_def])
+  >- (
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def] >>
    fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
@@ -770,6 +782,19 @@ Proof
     qexists_tac ‘var_cexp y’ >>
     fs [] >> metis_tac []) >>
    fs [])
+  >- (rpt strip_tac >>
+      gvs[panSemTheory.eval_def,AllCaseEqs(),
+         DefnBase.one_line_ify NONE pan_op_def,
+         MAP_EQ_CONS,MEM_MAP,MEM_FLAT,compile_exp_def,
+         opt_mmap_eq_some,cexp_heads_def,PULL_EXISTS,
+         SF DNF_ss,var_cexp_def
+        ] >>
+      rpt $ first_x_assum $ resolve_then (Pat ‘_ = (_,_)’) assume_tac $ GSYM PAIR >>
+      rpt $ qpat_x_assum ‘SOME _ = _’ $ assume_tac o GSYM >>
+      rpt $ first_x_assum $ drule_then $ drule_then $ drule_then $ drule >>
+      rpt strip_tac >>
+      metis_tac[FST,MEM]
+     )
   >- (
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
@@ -974,176 +999,119 @@ Proof
   metis_tac [flookup_fupdate_zip_not_mem]
 QED
 
-
-
 Theorem not_mem_context_assigned_mem_gt:
   !ctxt p x.
    ctxt_max ctxt.vmax ctxt.vars /\
    (!v sh ns'. FLOOKUP ctxt.vars v = SOME (sh, ns') ==> ~MEM x ns') ∧
    x <= ctxt.vmax  ==>
-   ~MEM x (assigned_vars (compile ctxt p))
+   ~MEM x (assigned_free_vars (compile ctxt p))
 Proof
   ho_match_mp_tac compile_ind >> rw []
-  >- fs [compile_def, assigned_vars_def]
+  >- fs [compile_def, assigned_free_vars_def]
+  >- (fs [compile_def, assigned_free_vars_def] >>
+      pairarg_tac >> fs [] >> rveq >>
+      FULL_CASE_TAC >> fs [assigned_free_vars_def] >>
+      qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
+      ‘LENGTH dvs = LENGTH es’ by (unabbrev_all_tac >> fs []) >>
+      drule assigned_free_vars_nested_decs_append >>
+      qmatch_goalsub_abbrev_tac ‘compile nctxt p’ >>
+      disch_then (qspec_then ‘compile nctxt p’ assume_tac) >>
+      rw [MEM_FILTER,DISJ_EQ_IMP] >>
+      last_x_assum match_mp_tac >>
+      gvs[ctxt_max_def] >> rw[FLOOKUP_UPDATE,Abbr ‘dvs’] \\ gvs[MEM_GENLIST] \\
+      res_tac \\ DECIDE_TAC)
   >- (
-   fs [compile_def, assigned_vars_def] >>
+   fs [compile_def, assigned_free_vars_def] >>
    pairarg_tac >> fs [] >> rveq >>
-   FULL_CASE_TAC >> fs [assigned_vars_def] >>
-   qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
-   ‘LENGTH dvs = LENGTH es’ by (unabbrev_all_tac >> fs []) >>
-   drule assigned_vars_nested_decs_append >>
-   qmatch_goalsub_abbrev_tac ‘compile nctxt p’ >>
-   disch_then (qspec_then ‘compile nctxt p’ assume_tac) >>
-   fs [] >>
-   pop_assum kall_tac >>
-   conj_asm1_tac
-   >- (fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
-   last_x_assum match_mp_tac >>
-   rename [‘(vname,sh,dvs)’] >>
-   conj_tac
-   >- (
-    fs [ctxt_max_def] >>
-    rw [] >>
-    fs [FLOOKUP_UPDATE] >>
-    FULL_CASE_TAC >> fs [] >> rveq >> res_tac >> fs [] >>
-    fs [Abbr ‘dvs’, MEM_GENLIST]) >>
-   rw [] >>
-   fs [FLOOKUP_UPDATE] >>
-   FULL_CASE_TAC >> rveq >> fs [] >> res_tac >> fs [])
-  >- (
-   fs [compile_def, assigned_vars_def] >>
-   pairarg_tac >> fs [] >> rveq >>
-   FULL_CASE_TAC >> fs [assigned_vars_def] >>
+   FULL_CASE_TAC >> fs [assigned_free_vars_def] >>
    FULL_CASE_TAC >> FULL_CASE_TAC >> fs []
    >- (
-    FULL_CASE_TAC >> fs [assigned_vars_def] >>
-    drule nested_seq_assigned_vars_eq >>
+    FULL_CASE_TAC >> fs [assigned_free_vars_def] >>
+    drule nested_seq_assigned_free_vars_eq >>
     fs [] >> res_tac >> fs []) >>
-   FULL_CASE_TAC >> fs [assigned_vars_def] >>
+   FULL_CASE_TAC >> fs [assigned_free_vars_def] >>
    qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
    ‘LENGTH dvs = LENGTH es’ by (unabbrev_all_tac >> fs []) >>
-   drule assigned_vars_nested_decs_append >>
+   drule assigned_free_vars_nested_decs_append >>
    disch_then (qspec_then ‘nested_seq (MAP2 Assign r (MAP Var dvs))’ assume_tac) >>
    fs [] >>
-   pop_assum kall_tac >>
-   conj_asm1_tac
-   >- (
-    fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
+   rw[MEM_FILTER,DISJ_EQ_IMP] >>
    ‘LENGTH r = LENGTH (MAP Var dvs)’ by fs [Abbr ‘dvs’, LENGTH_GENLIST] >>
-   drule nested_seq_assigned_vars_eq >>
+   drule nested_seq_assigned_free_vars_eq >>
    fs [] >> res_tac >> fs [])
   >- (
    fs [compile_def] >>
-   TOP_CASE_TAC >> fs [] >>
-   TOP_CASE_TAC >> fs [assigned_vars_def] >>
-   pairarg_tac >> fs [] >>
-   TOP_CASE_TAC >> fs [assigned_vars_def] >>
+   rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
+   pairarg_tac >> rw [] >>
    fs [nested_decs_def] >>
-   fs [assigned_vars_def] >>
-   qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
-   ‘LENGTH dvs = LENGTH es’ by (unabbrev_all_tac >> fs []) >>
-   drule assigned_vars_nested_decs_append >>
-   disch_then (qspec_then ‘nested_seq (stores (Var (ctxt.vmax + 1))
-                                       (MAP Var dvs) 0w)’ assume_tac) >>
-   fs [] >>
-   pop_assum kall_tac >>
-   conj_asm1_tac
-   >- (
-    fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
-   fs [assigned_vars_seq_store_empty]) >>
-  TRY (fs [compile_def, assigned_vars_def] >> every_case_tac >>
-       fs [assigned_vars_def] >> metis_tac [] >> NO_TAC)
+   fs [assigned_free_vars_def] >>
+   rw[MEM_FILTER,DISJ_EQ_IMP] >>
+   dep_rewrite.DEP_ONCE_REWRITE_TAC[assigned_free_vars_nested_decs_append] >>
+   rw[MEM_FILTER,DISJ_EQ_IMP] >>
+   gvs[MEM_GENLIST] >>
+   gvs[assigned_free_vars_seq_store_empty])
+  >- (
+   fs [compile_def] >>
+   rpt (TOP_CASE_TAC >> fs [assigned_free_vars_def]))
+  >- (
+   fs [compile_def] >>
+   pairarg_tac >> fs[] >>
+   ntac 4 (TOP_CASE_TAC >> fs [assigned_free_vars_def]) >>
+   dep_rewrite.DEP_ONCE_REWRITE_TAC[assigned_free_vars_nested_decs_append] \\
+   rw[MEM_FILTER,DISJ_EQ_IMP] \\
+   fs [assigned_free_vars_store_globals_empty])
   >- (
    fs [compile_def] >>
    pairarg_tac >> fs [] >>
-   ntac 4 (TOP_CASE_TAC >> fs [assigned_vars_def]) >>
-   qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
-   ‘LENGTH dvs = LENGTH es’ by (unabbrev_all_tac >> fs []) >>
-   drule assigned_vars_nested_decs_append >>
-   disch_then (qspec_then ‘nested_seq (store_globals 0w (MAP Var dvs))’ assume_tac) >>
-   fs [] >>
-   pop_assum kall_tac >>
-   conj_asm1_tac
-   >- (
-    fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
-   fs [assigned_vars_store_globals_empty])
-  >- (
-   fs [compile_def] >>
-   pairarg_tac >> fs [] >>
-   ntac 2 (TOP_CASE_TAC >> fs [assigned_vars_def]) >>
-   qmatch_goalsub_abbrev_tac ‘nested_decs dvs es’ >>
-   ‘LENGTH dvs = LENGTH es’ by (unabbrev_all_tac >> fs []) >>
-   drule assigned_vars_nested_decs_append >>
-   disch_then (qspec_then ‘nested_seq (store_globals 0w (MAP Var dvs))’ assume_tac) >>
-   fs [] >>
-   pop_assum kall_tac >>
-   conj_asm1_tac
-   >- (
-    fs [Abbr ‘dvs’] >> fs[MEM_GENLIST]) >>
-   fs [assigned_vars_store_globals_empty]) >>
-  fs [compile_def] >>
-  pairarg_tac >> fs [] >>
-  rpt (TOP_CASE_TAC >> fs []) >>
-  TRY (fs [assigned_vars_def]) >>
-  TRY (
-  cases_on ‘q’ >>
-  fs [ret_var_def] >>
-  TRY (TOP_CASE_TAC) >>
-  fs [] >>
-  TRY (
-  fs [ret_hdl_def] >>
-  cases_on ‘r’ >>
-  fs [assigned_vars_def, wrap_rt_def,
-      CaseEq "option", CaseEq "prod", CaseEq "shape",
-      CaseEq "list"] >>
-  res_tac >> fs []) >>
-  TOP_CASE_TAC >>
-  fs [assign_ret_def, nested_seq_def, assigned_vars_def] >>
-  ‘LENGTH (h'::t') = LENGTH (load_globals 0w (SUC (LENGTH t')))’ by
-    fs [GSYM length_load_globals_eq_read_size] >>
-  drule nested_seq_assigned_vars_eq >>
-  fs [] >> strip_tac >>
-  res_tac >> fs [])
-  >- (
-   reverse conj_tac
-   >- (
-    first_x_assum match_mp_tac >>
-    fs [] >> rw [] >>
-    res_tac >> fs []) >>
-   fs [exp_hdl_def] >>
-   TOP_CASE_TAC >> fs [] >>
-   fs [assigned_vars_def] >>
-   TOP_CASE_TAC >> fs [] >>
-   ‘LENGTH r = LENGTH (load_globals 0w (LENGTH r))’ by
-     fs [GSYM length_load_globals_eq_read_size] >>
-   drule nested_seq_assigned_vars_eq >>
-   fs [] >> strip_tac >>
-   res_tac >> fs []) >>
-  cases_on ‘q’ >>
-  fs [ret_var_def] >>
-  TRY (TOP_CASE_TAC) >>
-  fs [] >>
-  TRY (
-  fs [ret_hdl_def] >>
-  cases_on ‘r’ >>
-  fs [assigned_vars_def, wrap_rt_def,
-      CaseEq "option", CaseEq "prod", CaseEq "shape",
-      CaseEq "list"] >>
-  res_tac >> fs []) >>
-  TRY TOP_CASE_TAC >> fs [] >>
-  fs [assign_ret_def, nested_seq_def, assigned_vars_def] >>
-  fs [exp_hdl_def] >>
-  rpt TOP_CASE_TAC >> fs [] >>
-  fs [assigned_vars_def] >>
-  TRY (
-  ‘LENGTH r = LENGTH (load_globals 0w (LENGTH r))’ by
-    fs [GSYM length_load_globals_eq_read_size]) >>
-  TRY (
-  ‘LENGTH (h'::t') = LENGTH (load_globals 0w (SUC (LENGTH t')))’ by
-    fs [GSYM length_load_globals_eq_read_size]) >>
-  imp_res_tac nested_seq_assigned_vars_eq >>
-  fs [] >> strip_tac >>
-  res_tac >> fs []
+   ntac 2 (TOP_CASE_TAC >> fs [assigned_free_vars_def]) >>
+   dep_rewrite.DEP_ONCE_REWRITE_TAC[assigned_free_vars_nested_decs_append] \\
+   rw[MEM_FILTER,DISJ_EQ_IMP] \\
+   fs [assigned_free_vars_store_globals_empty])
+  >- (fs [compile_def,assigned_free_vars_def] >>
+      metis_tac[])
+  >- (fs [compile_def,assigned_free_vars_def] >>
+      rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
+      metis_tac[])
+  >- (fs [compile_def,assigned_free_vars_def] >>
+      rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
+      metis_tac[])
+  >- (fs [compile_def,assigned_free_vars_def] >>
+      rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
+      metis_tac[])
+  >- (fs [compile_def,assigned_free_vars_def] >>
+      rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
+      metis_tac[])
+  >- (fs [compile_def,assigned_free_vars_def] >>
+      pairarg_tac \\ gvs[] \\
+      rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def])
+      THEN1 (conj_asm1_tac
+             THEN1 (gvs[exp_hdl_def] \\
+                    rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
+                    dep_rewrite.DEP_ONCE_REWRITE_TAC[nested_seq_assigned_free_vars_eq] \\
+                    gvs[length_load_globals_eq_read_size] \\
+                    metis_tac[]) \\
+             metis_tac[]) \\
+      gvs[ret_var_def,assigned_free_vars_def,wrap_rt_def,AllCaseEqs(),ret_hdl_def] \\
+      rw[] \\
+      res_tac \\ gvs[assigned_free_vars_def,assign_ret_def] \\
+      TRY(rename1 ‘oHD ret’ \\ Cases_on ‘ret’ \\ gvs[assigned_free_vars_def] \\
+          gvs[exp_hdl_def] \\
+          rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
+          dep_rewrite.DEP_ONCE_REWRITE_TAC[nested_seq_assigned_free_vars_eq] \\
+          gvs[length_load_globals_eq_read_size] \\
+          metis_tac[] \\ NO_TAC) \\
+      dep_rewrite.DEP_ONCE_REWRITE_TAC[nested_seq_assigned_free_vars_eq] \\
+      gvs[length_load_globals_eq_read_size] \\
+      TRY(qmatch_goalsub_abbrev_tac ‘exp_hdl’ \\
+          gvs[exp_hdl_def] \\
+          rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
+          dep_rewrite.DEP_ONCE_REWRITE_TAC[nested_seq_assigned_free_vars_eq] \\
+          gvs[length_load_globals_eq_read_size] \\
+          metis_tac[]))
+  >- (gvs[compile_def] \\
+      rpt(pairarg_tac \\ gvs[]) \\
+      rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def])) \\
+  gvs[compile_def,assigned_free_vars_def]
 QED
 
 Theorem rewritten_context_unassigned:
@@ -1157,7 +1125,7 @@ Theorem rewritten_context_unassigned:
   no_overlap nctxt.vars ∧
   ctxt_max nctxt.vmax nctxt.vars /\
   distinct_lists nvars ns ==>
-  distinct_lists ns (assigned_vars (compile nctxt p))
+  distinct_lists ns (assigned_free_vars (compile nctxt p))
 Proof
   rw [] >> fs [] >>
   fs [distinct_lists_def] >>
@@ -1714,6 +1682,16 @@ Proof
    impl_tac >- metis_tac [] >>
    impl_tac >- fs [] >>
    fs [EVERY_MEM])
+  >- (
+   rpt strip_tac >>
+   gvs[panSemTheory.eval_def,compile_exp_def,AllCaseEqs(),cexp_heads_def,
+       DefnBase.one_line_ify NONE pan_op_def,MAP_EQ_CONS,exps_def,
+       opt_mmap_eq_some, SF DNF_ss
+     ] >>
+   rpt $ first_x_assum $ resolve_then (Pos last) assume_tac $ GSYM PAIR >>
+   rpt $ qpat_x_assum ‘SOME _ = _’ $ assume_tac o GSYM >>
+   rpt $ first_x_assum $ drule_then $ drule_then $ drule_then drule >>
+   rw[] >> metis_tac[])
   >- (
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
@@ -2433,8 +2411,10 @@ val ret_call_shape_retv_one_tac =
 val ret_call_shape_retv_comb_zero_tac =
      fs [ret_var_def, ret_hdl_def] >>
      fs [evaluate_def] >>
+     rename1 ‘eval t x0’>>
      cases_on ‘eval t x0’ >> fs [] >>
-     cases_on ‘x'’ >> fs [] >>
+     rename1 ‘eval t x0 = SOME x''’>>
+     cases_on ‘x''’ >> fs [] >>
      ‘OPT_MMAP (eval t)
       (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
        fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
@@ -2460,7 +2440,8 @@ val ret_call_shape_retv_comb_zero_tac =
       fs [Abbr ‘ns’, ALL_DISTINCT_GENLIST]) >>
      strip_tac >> fs [] >>
      cases_on ‘res1’ >> fs [] >>
-     cases_on ‘x'’ >> fs [] >> rveq >> fs [] >>
+     rename1 ‘x'' = Return (Word _)’>>
+     cases_on ‘x''’ >> fs [] >> rveq >> fs [] >>
      fs [shape_of_def, panLangTheory.size_of_shape_def,
          panSemTheory.set_var_def, set_var_def] >>
      conj_tac >- fs [state_rel_def] >>
@@ -2474,7 +2455,7 @@ val ret_call_shape_retv_comb_zero_tac =
       conj_asm1_tac
       >- (
        fs [locals_rel_def] >> res_tac >> fs []) >>
-      ‘LENGTH (flatten v) = 0 /\ LENGTH r' = 0’ suffices_by fs [OPT_MMAP_def] >>
+      ‘LENGTH (flatten v) = 0 /\ LENGTH r'' = 0’ suffices_by fs [OPT_MMAP_def] >>
       conj_asm1_tac
       >- (
        rewrite_tac [length_flatten_eq_size_of_shape] >>
@@ -2561,8 +2542,10 @@ val ret_call_shape_retv_comb_one_tac =
 val ret_call_shape_retv_comb_gt_one_tac =
     fs [ret_var_def, ret_hdl_def] >>
     fs [evaluate_def, assign_ret_def] >>
+    rename1 ‘eval t x0’>>
     cases_on ‘eval t x0’ >> fs [] >>
-    cases_on ‘x'’ >> fs [] >>
+    rename1 ‘eval t x0 = SOME x''’>>
+    cases_on ‘x''’ >> fs [] >>
     ‘OPT_MMAP (eval t)
      (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
       fs [opt_mmap_eq_some] >> metis_tac [eval_map_comp_exp_flat_eq]) >>
@@ -2588,7 +2571,8 @@ val ret_call_shape_retv_comb_gt_one_tac =
      fs [Abbr ‘ns’, ALL_DISTINCT_GENLIST]) >>
     strip_tac >> fs [] >>
     cases_on ‘res1’ >> fs [] >>
-    cases_on ‘x'’ >> fs [] >> rveq >> fs [] >>
+    rename1 ‘x'' = Return (Word _)’>>
+    cases_on ‘x''’ >> fs [] >> rveq >> fs [] >>
     fs [shape_of_def, panLangTheory.size_of_shape_def,
         panSemTheory.set_var_def, set_var_def] >>
     ‘1 < size_of_shape (shape_of x)’ by (
@@ -2598,6 +2582,7 @@ val ret_call_shape_retv_comb_gt_one_tac =
       fs [panLangTheory.size_of_shape_def] >>
       DECIDE_TAC) >>
     fs [] >>
+    rename1 ‘SOME  (Comb l, r')’>>
     ‘ALL_DISTINCT r'’ by
       (fs [locals_rel_def] >> imp_res_tac all_distinct_flookup_all_distinct) >>
     fs [globals_lookup_def] >>
@@ -2689,7 +2674,9 @@ val ret_call_excp_reult_handle_none_tac =
      strip_tac >> fs [] >>
      ‘nctxt.eids = ctxt.eids’ by
        fs [Abbr ‘nctxt’, ctxt_fc_eids_eq] >>
+     rename1 ‘FLOOKUP ctxt.eids m'’ >>
      cases_on ‘FLOOKUP ctxt.eids m'’ >> fs [] >>
+     rename1 ‘FLOOKUP ctxt.eids m' = SOME x’ >>
      cases_on ‘x’ >> fs [] >>
      cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
      >- rels_empty_tac >>
@@ -2701,7 +2688,9 @@ val ret_call_excp_reult_handle_none_tac =
      strip_tac >> fs [] >>
      ‘nctxt.eids = ctxt.eids’ by
        fs [Abbr ‘nctxt’, ctxt_fc_eids_eq] >>
+     rename1 ‘FLOOKUP ctxt.eids m'’ >>
      cases_on ‘FLOOKUP ctxt.eids m'’ >> fs [] >>
+     rename1 ‘FLOOKUP ctxt.eids m' = SOME x’ >>
      cases_on ‘x’ >> fs [] >>
      cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
      >- rels_empty_tac >>
@@ -2713,7 +2702,9 @@ val ret_call_excp_reult_handle_none_tac =
      strip_tac >> fs [] >>
      ‘nctxt.eids = ctxt.eids’ by
        fs [Abbr ‘nctxt’, ctxt_fc_eids_eq] >>
+     rename1 ‘FLOOKUP ctxt.eids m'’ >>
      cases_on ‘FLOOKUP ctxt.eids m'’ >> fs [] >>
+     rename1 ‘FLOOKUP ctxt.eids m' = SOME x’ >>
      cases_on ‘x’ >> fs [] >>
      cases_on ‘size_of_shape (shape_of v) = 0’ >> fs []
      >- rels_empty_tac >>
@@ -2724,7 +2715,9 @@ val ret_call_excp_reult_handle_none_tac =
     strip_tac >> fs [] >>
     ‘nctxt.eids = ctxt.eids’ by
       fs [Abbr ‘nctxt’, ctxt_fc_eids_eq] >>
+    rename1 ‘FLOOKUP ctxt.eids m'’ >>
     cases_on ‘FLOOKUP ctxt.eids m'’ >> fs [] >>
+    rename1 ‘FLOOKUP ctxt.eids m' = SOME x’ >>
     cases_on ‘x’ >> fs [] >>
     cases_on ‘res1’ >> fs [] >> rveq >> fs [] >>
     TRY (cases_on ‘x’ >> fs [] >> rveq >> fs []) >>
@@ -2892,16 +2885,20 @@ Proof
   >- tail_call_tac >>
   (* Return case *)
   cases_on ‘evaluate (prog,dec_clock s with locals := newlocals)’ >>
+  rename1 ‘evaluate _ = (q, r)’>>
   cases_on ‘q’ >> fs [] >>
-  cases_on ‘x’ >> fs [] >> rveq >>
+  rename1 ‘evaluate _ = (SOME x', r)’>>
+  cases_on ‘x'’ >> fs [] >> rveq >>
   TRY (cases_on ‘FLOOKUP s.locals m’ >> fs [] >> NO_TAC)
   (* timed-out in Ret call *)
   >- (TRY (rpt TOP_CASE_TAC) >> fs [] >> call_tail_ret_impl_tac)
   (* return in Ret call *)
   >- (
-   cases_on ‘is_valid_value s.locals m v’ >> fs [] >> rveq >>
+   cases_on ‘x’>> fs[]>>
+   rename1 ‘is_valid_value s.locals q v’ >>
+   cases_on ‘is_valid_value s.locals q v’ >> fs [] >> rveq >>
    fs [is_valid_value_def] >>
-   cases_on ‘FLOOKUP s.locals m’ >> fs [] >>
+   cases_on ‘FLOOKUP s.locals q’ >> fs [] >>
    fs [wrap_rt_def] >>
    TOP_CASE_TAC >> fs []
    >- (
@@ -2913,6 +2910,7 @@ Proof
     disch_then drule >> strip_tac >> fs [] >>
     rveq >> fs [OPT_MMAP_def] >> rveq >>
     pop_assum (assume_tac o GSYM) >>
+    rename1 ‘ FLOOKUP s.locals q = SOME x’>>
     ‘size_of_shape (shape_of x) = 1’ by
       fs [panLangTheory.size_of_shape_def] >>
     rfs [GSYM length_flatten_eq_size_of_shape]) >>
@@ -2922,7 +2920,7 @@ Proof
    >- (
     (* shape-rtv: One *)
     TRY (rpt TOP_CASE_TAC) >> fs [] >> ret_call_shape_retv_one_tac) >>
-   qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.vars m = SOME (Comb l,r')’ >>
+   qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.vars m = SOME (Comb l,r'')’ >>
    cases_on ‘size_of_shape (Comb l) = 0’ >> fs []
    >- (TRY (rpt TOP_CASE_TAC) >> fs [] >> ret_call_shape_retv_comb_zero_tac) >>
    cases_on ‘size_of_shape (Comb l) = 1’ >> fs []
@@ -2933,10 +2931,15 @@ Proof
   >- (
    (* Exception result *)
    fs [wrap_rt_def] >>
-   fs [] >> cases_on ‘o'’ >> fs []
+   fs [] >>
+   rename1 ‘x = (_, _)’>>cases_on ‘x’ >> fs[] >>
+   rename1 ‘r' = SOME (_, _, _)’>>cases_on ‘r'’ >>
+   fs []
    (* NONE exp-handler *)
    >- ret_call_excp_reult_handle_none_tac >>
-   cases_on ‘x’ >> fs [] >> rveq >>
+   rename1 ‘x = (m', _, _)’>>PairCases_on ‘x’ >> fs [] >> rveq >>
+   rename1 ‘FLOOKUP ctxt.vars m’ >>
+   rename1 ‘FLOOKUP ctxt.eids m0’ >>
    reverse (cases_on ‘m' = m0’) >> fs []
    (* eids mismatch *)
    >- ret_call_excp_reult_handle_uneq_exp_tac >>
@@ -2944,23 +2947,38 @@ Proof
    rename [‘geid = eid’] >>
    cases_on ‘FLOOKUP s.eshapes eid’ >> fs [] >> rveq >>
    cases_on ‘shape_of v = x’ >> fs [] >>
+   rename1 ‘is_valid_value s.locals m'' v’ >>
    cases_on ‘is_valid_value s.locals m'' v’ >> fs [] >>
    cases_on ‘FLOOKUP ctxt.eids eid’ >> fs []
    >- (
     fs [excp_rel_def] >>
     imp_res_tac fdoms_eq_flookup_some_none >> fs []) >>
+   rename1 ‘FLOOKUP ctxt.eids eid = SOME x'’>>
    cases_on ‘x'’ >> fs [] >> rveq >>
    TOP_CASE_TAC >> fs []
    >- ret_call_excp_handler_tac >>
    TOP_CASE_TAC >> fs [] >>
    ret_call_excp_handler_tac) >>
   (* FFI *)
-  cases_on ‘o'’ >> fs []
+  cases_on ‘x’ >> fs []>>
+  cases_on ‘r'’ >> fs []
   >- (TRY (rpt TOP_CASE_TAC) >> fs [] >> call_tail_ret_impl_tac) >>
-  cases_on ‘x’ >>
+  PairCases_on ‘x’ >>
   TRY (rpt TOP_CASE_TAC) >> fs [] >> call_tail_ret_impl_tac
 QED
 
+Theorem list_max_APPEND:
+  list_max(a ++ b) = MAX (list_max a) (list_max b)
+Proof
+  Induct_on ‘a’ \\ rw[list_max_def] \\
+  intLib.COOPER_TAC
+QED
+
+Theorem list_max_NOT_MEM:
+  x > list_max l ⇒ ¬MEM x l
+Proof
+  Induct_on ‘l’ \\ gvs[list_max_def]
+QED
 
 Theorem compile_ExtCall:
   ^(get_goal "compile _ (panLang$ExtCall _ _ _ _ _)")
@@ -2970,18 +2988,65 @@ Proof
   fs [compile_def] >>
   fs [CaseEq "option", CaseEq "v", CaseEq "word_lab", CaseEq "prod"] >>
   rveq >> fs [] >>
-  imp_res_tac locals_rel_lookup_ctxt >> fs [flatten_def] >> rveq >>
-  TOP_CASE_TAC >> fs [shape_of_def, OPT_MMAP_def] >>
-  TOP_CASE_TAC >> fs [shape_of_def, OPT_MMAP_def] >>
-  TOP_CASE_TAC >> fs [shape_of_def, OPT_MMAP_def] >>
-  TOP_CASE_TAC >> fs [shape_of_def, OPT_MMAP_def] >> rveq >>
-  fs [evaluate_def] >>
-  ‘t.memory = s.memory ∧ t.memaddrs = s.memaddrs ∧ t.be = s.be ∧ t.ffi = s.ffi’ by
-    fs [state_rel_def] >>
-  fs [] >>
-  TOP_CASE_TAC >> fs [] >> rveq
-  >- fs [state_rel_def, code_rel_def] >>
-  fs [state_rel_def, code_rel_def, excp_rel_def, panSemTheory.empty_locals_def]
+  ntac 4 (pairarg_tac \\ fs[]) \\
+  imp_res_tac compile_exp_val_rel \\
+  gvs[shape_of_def,panLangTheory.size_of_shape_def,
+      quantHeuristicsTheory.LIST_LENGTH_1,flatten_def] \\
+  ntac 4 $ qpat_x_assum ‘SOME _ = eval _ _’ (mp_tac o GSYM) \\ rpt strip_tac \\
+  simp[Once evaluate_def] \\
+  qmatch_goalsub_abbrev_tac ‘Dec (freshv + 2)’ \\
+  rename1 ‘var_cexp e1 ++ var_cexp e2 ++ var_cexp e3 ++ var_cexp e4’ \\
+  ‘¬MEM (freshv + 1) (var_cexp e2)’
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+       rw[MAX_DEF] \\
+       match_mp_tac list_max_NOT_MEM \\
+       intLib.COOPER_TAC) \\
+  simp[Once evaluate_def] \\
+  simp[update_locals_not_vars_eval_eq'] \\
+  ‘¬MEM (freshv + 1) (var_cexp e3)’
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+       rw[MAX_DEF] \\
+       match_mp_tac list_max_NOT_MEM \\
+       intLib.COOPER_TAC) \\
+  ‘¬MEM (freshv + 2) (var_cexp e3)’
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+       rw[MAX_DEF] \\
+       match_mp_tac list_max_NOT_MEM \\
+       intLib.COOPER_TAC) \\
+  simp[Once evaluate_def] \\
+  simp[update_locals_not_vars_eval_eq',update_locals_not_vars_eval_eq''] \\
+  ‘¬MEM (freshv + 1) (var_cexp e4)’
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+       rw[MAX_DEF] \\
+       match_mp_tac list_max_NOT_MEM \\
+       intLib.COOPER_TAC) \\
+  ‘¬MEM (freshv + 2) (var_cexp e4)’
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+       rw[MAX_DEF] \\
+       match_mp_tac list_max_NOT_MEM \\
+       intLib.COOPER_TAC) \\
+  ‘¬MEM (freshv + 3) (var_cexp e4)’
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+       rw[MAX_DEF] \\
+       match_mp_tac list_max_NOT_MEM \\
+       intLib.COOPER_TAC) \\
+  simp[Once evaluate_def] \\
+  simp[update_locals_not_vars_eval_eq',update_locals_not_vars_eval_eq''] \\
+  simp[evaluate_def,FLOOKUP_UPDATE] \\
+  ‘t.memory = s.memory ∧ t.memaddrs = s.memaddrs ∧ t.be = s.be ∧ t.ffi = s.ffi’ by gvs[state_rel_def] \\
+  simp[] \\
+  gvs[AllCaseEqs()] \\
+  gvs[state_rel_def] \\
+  gvs[locals_rel_def,panSemTheory.empty_locals_def] \\
+  rw[] \\
+  res_tac \\ gvs[] \\
+  gvs[opt_mmap_eq_some] \\
+  simp[Once LIST_EQ_REWRITE] \\
+  conj_asm1_tac THEN1 gvs[LIST_EQ_REWRITE] \\
+  rw[EL_MAP] \\
+  rw[flookup_res_var_thm] \\
+  gvs[LIST_EQ_REWRITE,EL_MAP,FLOOKUP_UPDATE] \\
+  metis_tac[]
 QED
 
 
@@ -3476,13 +3541,13 @@ Proof
                           ``:'b``|->``:'b``]
                crepPropsTheory.evaluate_add_clock_io_events_mono) >>
    first_assum (qspecl_then
-                [‘Call Tail (Label start) []’, ‘t with clock := k1’, ‘p’] mp_tac) >>
+                [‘Call NONE (Label start) []’, ‘t with clock := k1’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
-                [‘Call Tail (Label start) []’, ‘t with clock := k2’, ‘p’] mp_tac) >>
+                [‘Call NONE (Label start) []’, ‘t with clock := k2’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
-                [‘TailCall (Label start) []’, ‘s with clock := k1’, ‘p’] mp_tac) >>
+                [‘Call NONE (Label start) []’, ‘s with clock := k1’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
-                [‘TailCall (Label start) []’, ‘s with clock := k2’, ‘p’] mp_tac) >>
+                [‘Call NONE (Label start) []’, ‘s with clock := k2’, ‘p’] mp_tac) >>
    fs []) >>
   simp [equiv_lprefix_chain_thm] >>
   fs [Abbr ‘l1’, Abbr ‘l2’]  >> simp[PULL_EXISTS] >>
@@ -3519,7 +3584,7 @@ Proof
                           ``:'b``|->``:'b``]
                crepPropsTheory.evaluate_add_clock_io_events_mono) >>
    first_x_assum (qspecl_then
-                  [‘Call Tail (Label start) []’,
+                  [‘Call NONE (Label start) []’,
                    ‘t with clock := k’, ‘ck’] mp_tac) >>
    strip_tac >> rfs [] >>
    fs [state_rel_def, IS_PREFIX_THM]) >>
@@ -3542,7 +3607,7 @@ Proof
                          ``:'b``|->``:'b``]
               crepPropsTheory.evaluate_add_clock_io_events_mono) >>
   first_x_assum (qspecl_then
-                 [‘Call Tail (Label start) []’,
+                 [‘Call NONE (Label start) []’,
                   ‘t with clock := k’, ‘ck’] mp_tac) >>
   strip_tac >> rfs [] >>
   qexists_tac ‘k’ >>

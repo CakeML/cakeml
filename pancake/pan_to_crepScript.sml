@@ -32,6 +32,10 @@ Definition comp_field_def:
    else comp_field (i-1) shs (DROP (size_of_shape sh) es))
 End
 
+Definition compile_panop_def:
+  compile_panop panLang$Mul = crepLang$Mul
+End
+
 Definition compile_exp_def:
   (compile_exp ctxt ((Const c):'a panLang$exp) =
    ([(Const c): 'a crepLang$exp], One)) /\
@@ -63,6 +67,11 @@ Definition compile_exp_def:
    let cexps = MAP FST (MAP (compile_exp ctxt) es) in
    case cexp_heads cexps of
    | SOME es => ([Op bop es], One)
+   | _ => ([Const 0w], One)) /\
+  (compile_exp ctxt (Panop pop es) =
+   let cexps = MAP FST (MAP (compile_exp ctxt) es) in
+   case cexp_heads cexps of
+   | SOME es => ([Crepop (compile_panop pop) es], One)
    | _ => ([Const 0w], One)) /\
   (compile_exp ctxt (Cmp cmp e e') =
    let ce  = FST (compile_exp ctxt e);
@@ -195,37 +204,48 @@ Definition compile_def:
     case cs of
     | ce::ces =>
      (case rtyp of
-       | Tail => Call Tail ce args
-       | Ret rt hdl =>
+       | NONE => Call NONE ce args
+       | SOME (rt, hdl) =>
          (case wrap_rt (FLOOKUP ctxt.vars rt) of
           | NONE =>
             (case hdl of
-              | NONE => Call Tail ce args
-              | SOME (Handle eid evar p) =>
+              | NONE => Call NONE ce args
+              | SOME (eid, evar, p) =>
                 (case FLOOKUP ctxt.eids eid of
-                   | NONE => Call Tail ce args
+                   | NONE => Call NONE ce args
                    | SOME neid =>
                      let comp_hdl = compile ctxt p;
                         hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
-                     Call (Ret NONE Skip (SOME (Handle neid hndlr))) ce args))
+                     Call (SOME (NONE, Skip, (SOME (neid, hndlr)))) ce args))
           | SOME (sh, ns) =>
             (case hdl of
-             | NONE => Call (Ret (ret_var sh ns) (ret_hdl sh ns) NONE) ce args
-             | SOME (Handle eid evar p) =>
+             | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
+             | SOME (eid, evar, p) =>
                 (case FLOOKUP ctxt.eids eid of
-                  | NONE => Call (Ret (ret_var sh ns) (ret_hdl sh ns) NONE) ce args
+                  | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
                   | SOME neid =>
                     let comp_hdl = compile ctxt p;
                         hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
-                      Call (Ret (ret_var sh ns) (ret_hdl sh ns)
-                              (SOME (Handle neid hndlr))) ce args))))
+                      Call (SOME ((ret_var sh ns), (ret_hdl sh ns),
+                              (SOME (neid, hndlr)))) ce args))))
     | [] => Skip) /\
   (compile ctxt (ExtCall f ptr1 len1 ptr2 len2) =
-   case (FLOOKUP ctxt.vars ptr1, FLOOKUP ctxt.vars len1,
-         FLOOKUP ctxt.vars ptr2, FLOOKUP ctxt.vars len2) of
-    | (SOME (One, pc::pcs), SOME (One, lc::lcs),
-       SOME (One, pc'::pcs'), SOME (One, lc'::lcs')) => ExtCall f pc lc pc' lc'
-    | _ => Skip) /\
+   let
+     (ptr1',sh1) = compile_exp ctxt ptr1;
+     (len1',sh2) = compile_exp ctxt len1;
+     (ptr2',sh3) = compile_exp ctxt ptr2;
+     (len2',sh4) = compile_exp ctxt len2;
+     n = FOLDR MAX 0 (FLAT(MAP var_cexp (FLAT [ptr1';len1';ptr2';len2'])))
+   in
+     case ((sh1,ptr1'),(sh2,len1'),(sh3,ptr2'),(sh4,len2')) of
+     | ((One, pc::pcs), (One, lc::lcs),
+        (One, pc'::pcs'), (One, lc'::lcs')) =>
+         Dec (n+1) pc
+         $ Dec (n+2) lc
+         $ Dec (n+3) pc'
+         $ Dec (n+4) lc'
+         $ crepLang$ExtCall f (n+1) (n+2) (n+3) (n+4)
+     | _ => Skip) /\
   (compile ctxt Tick = Tick)
 End
 

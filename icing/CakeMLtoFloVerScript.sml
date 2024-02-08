@@ -2,12 +2,13 @@
   Translation from CakeML floating-point kernels to FloVer input
 *)
 (* CakeML *)
-open compilerTheory;
+open semanticsTheory;
 (* FloVer *)
 open RealIntervalInferenceTheory ErrorIntervalInferenceTheory
      CertificateCheckerTheory ExpressionsTheory CommandsTheory
      IEEE_connectionTheory;
 open preamble;
+open updateTheory;
 
 val _ = new_theory "CakeMLtoFloVer";
 
@@ -99,8 +100,7 @@ Definition toFloVerExp_def:
 End
 
 (* Better induction theorem *)
-val toFloVerExp_ind = curry save_thm "toFloVerExp_ind"
-  (SIMP_RULE std_ss [] toFloVerExp_ind);
+Theorem toFloVerExp_ind[allow_rebind] = SIMP_RULE std_ss [] toFloVerExp_ind;
 
 Definition toFloVerCmd_def:
   toFloVerCmd ids freshId (ast$Let so e1 e2) =

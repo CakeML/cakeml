@@ -244,12 +244,6 @@ Proof
 QED
 
 Theorem common_subsequence_sym:
-   common_subsequence u u u
-Proof
-  fs[common_subsequence_def,is_subsequence_refl]
-QED
-
-Theorem common_subsequence_sym:
    common_subsequence s u t = common_subsequence s t u
 Proof
   fs[common_subsequence_def,EQ_IMP_THM]
@@ -895,7 +889,7 @@ Proof
           >> rfs[] >> metis_tac[sub_le_suc])
 QED
 
-Theorem dynamic_lcs_row_invariant_pres2:
+Theorem dynamic_lcs_row_invariant_pres2[allow_rebind]:
     !h r previous_col previous_row diagonal prevh fullr l n.
   (dynamic_lcs_row_invariant h r previous_col previous_row diagonal prevh fullr
     /\ (dynamic_lcs_row h r previous_col previous_row diagonal = l)
