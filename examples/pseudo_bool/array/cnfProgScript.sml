@@ -22,7 +22,7 @@ val _ = translate lpr_parsingTheory.blanks_def;
 val _ = translate lpr_parsingTheory.tokenize_def;
 
 val blanks_1_v_thm = theorem "blanks_1_v_thm";
-val tokenize_v_thm = theorem "tokenize_v_thm";
+val tokenize_1_v_thm = theorem "tokenize_1_v_thm";
 
 val _ = translate parse_header_line_def;
 
@@ -48,13 +48,13 @@ val b_inputLineTokens_specialize =
   |> Q.GEN `f` |> Q.SPEC`lpr_parsing$blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_1_v`
   |> Q.GEN `g` |> Q.ISPEC`lpr_parsing$tokenize`
-  |> Q.GEN `gv` |> Q.ISPEC`tokenize_v`
+  |> Q.GEN `gv` |> Q.ISPEC`tokenize_1_v`
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
-  |> SIMP_RULE std_ss [blanks_1_v_thm,tokenize_v_thm,blanks_def] ;
+  |> SIMP_RULE std_ss [blanks_1_v_thm,tokenize_1_v_thm,blanks_def] ;
 
 val parse_dimacs_body_arr = process_topdecs`
   fun parse_dimacs_body_arr lno maxvar fd acc =
-  case TextIO.b_inputLineTokens fd blanks_1 tokenize of
+  case TextIO.b_inputLineTokens fd blanks_1 tokenize_1 of
     None => Inr (List.rev acc)
   | Some l =>
     if nocomment_line l then
@@ -170,7 +170,7 @@ QED
 
 val parse_dimacs_toks_arr = process_topdecs`
   fun parse_dimacs_toks_arr lno fd =
-  case TextIO.b_inputLineTokens fd blanks_1 tokenize of
+  case TextIO.b_inputLineTokens fd blanks_1 tokenize_1 of
     None => Inl (format_dimacs_failure lno "failed to find header")
   | Some l =>
     if nocomment_line l then
@@ -547,26 +547,36 @@ Definition SAT_string_def:
   SAT_string = strlit "s VERIFIED SAT\n"
 End
 
+(* And empty formula *)
+Definition default_nobjf_def:
+  default_nobjf = (NONE,[]):((int # num) list # int) option # npbc list
+End
+
+val res = translate default_nobjf_def;
+
 (* Turn result into string *)
-Definition res_to_string_def:
-  (res_to_string (INL s) = INL s) ∧
-  (res_to_string (INR h) =
+Definition ores_to_string_def:
+  (ores_to_string (INL s) = INL s) ∧
+  (ores_to_string (INR (out,bnd,h)) =
+    if out ≠ NoOutput then INL (strlit "c Unexpected output section.\n")
+    else
     case h of
       DUnsat => INR UNSAT_string
     | DSat => INR SAT_string
     | _ => INL (strlit "c Unexpected conclusion for decision problem.\n"))
 End
 
-val res = translate (res_to_string_def |> SIMP_RULE std_ss [UNSAT_string_def,SAT_string_def]);
+val res = translate (ores_to_string_def |> SIMP_RULE std_ss [UNSAT_string_def,SAT_string_def]);
 
 val check_unsat_2 = (append_prog o process_topdecs) `
   fun check_unsat_2 f1 f2 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (fml,(nv,nc)) =>
+    case default_nobjf of (nobjt,nfmlt) =>
     (case
-      res_to_string (
-        check_unsat_top (plainlim_ns nv) fml None f2) of
+      ores_to_string (
+        check_unsat_top (plainlim_ns nv) fml None nfmlt nobjt f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s)`
 
@@ -611,20 +621,25 @@ Proof
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   fs[SUM_TYPE_def]>>
-  Cases_on`y`>>
-  Cases_on`r`>>
+  PairCases_on`y`>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
-  xlet_autop>>
-  xlet_autop>>
+  assume_tac (fetch "-" "default_nobjf_v_thm")>>
+  gvs[default_nobjf_def,PAIR_TYPE_def]>>
+  qpat_x_assum`_ = default_nobjf_v` (assume_tac o SYM)>>
+  xmatch>>
+  rpt xlet_autop>>
   xlet`POSTv v.
     STDIO fs *
     SEP_EXISTS res.
      &(
-        SUM_TYPE STRING_TYPE PBC_CONCL_TYPE res v ∧
+        SUM_TYPE STRING_TYPE
+         (PAIR_TYPE PBC_OUTPUT_TYPE
+           (PAIR_TYPE (OPTION_TYPE INT) PBC_CONCL_TYPE))
+          res v ∧
         case res of
-          INR concl =>
-            sem_concl (set (fml_to_pbf fml)) NONE concl
+         INR (output,bound,concl) =>
+           sem_concl (set (fml_to_pbf fml)) NONE concl
         | INL l => T)`
   >- (
     drule check_unsat_top_spec>>
@@ -632,9 +647,13 @@ Proof
     xapp>>
     xsimpl>>
     fs[FILENAME_def,validArg_def,OPTION_TYPE_def]>>
-    metis_tac[])>>
+    rpt (first_x_assum (irule_at Any))>>
+    qexists_tac`NONE`>>qexists_tac`NONE`>>xsimpl>>
+    simp[OPTION_TYPE_def]>>
+    rw[]>> asm_exists_tac>>simp[]>>
+    every_case_tac>>fs[])>>
   xlet_autop>>
-  Cases_on`res_to_string res`>>fs[SUM_TYPE_def]>>
+  Cases_on`ores_to_string res`>>fs[SUM_TYPE_def]>>
   xmatch
   >- (
     xapp_spec output_stderr_spec \\ xsimpl>>
@@ -655,8 +674,8 @@ Proof
   simp[STD_streams_stderr,add_stdo_nil]>>
   reverse CONJ_TAC>- xsimpl>>
   rw[]>>
-  Cases_on`res`>>
-  gvs[res_to_string_def,AllCaseEqs(),npbc_checkTheory.hconcl_concl_def,npbcTheory.sem_concl_def]
+  every_case_tac>>fs[ores_to_string_def,SUM_TYPE_def]>>
+  gvs[AllCaseEqs(),npbc_checkTheory.hconcl_concl_def,npbcTheory.sem_concl_def]
   >- (
     DISJ2_TAC>>
     fs[get_fml_def]>>

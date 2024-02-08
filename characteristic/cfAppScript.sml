@@ -35,7 +35,7 @@ val evaluate_to_heap_def = Define `
                          st2heap p st' = heap)
     | FFIDiv name conf bytes => (∃ck st'.
       evaluate_ck ck st env [exp]
-      = (st', Rerr(Rabort(Rffi_error(Final_event name conf bytes FFI_diverged)))) /\
+      = (st', Rerr(Rabort(Rffi_error(Final_event (ExtCall name) conf bytes FFI_diverged)))) /\
       st'.next_type_stamp = st.next_type_stamp /\
       st'.next_exn_stamp = st.next_exn_stamp /\
       st2heap p st' = heap)
@@ -398,8 +398,9 @@ val FILTER_ffi_has_index_in_EQ_NIL = Q.prove(
   `~(MEM n xs) /\ EVERY (ffi_has_index_in xs) ys ==>
     FILTER (ffi_has_index_in [n]) ys = []`,
   Induct_on `ys` \\ fs [] \\ rw [] \\ fs []
-  \\ Cases_on `h` \\ fs [ffi_has_index_in_def] \\ rw []
-  \\ CCONTR_TAC \\ fs [] \\ fs []);
+  \\ Cases_on `h` \\ Cases_on `f`
+  \\ fs [ffi_has_index_in_def] \\ rw []
+  \\ CCONTR_TAC \\ fs [] \\ fs [ffi_has_index_in_def]);
 
 val FILTER_ffi_has_index_in_MEM = Q.prove(
   `!ys zs xs x.
@@ -408,13 +409,14 @@ val FILTER_ffi_has_index_in_MEM = Q.prove(
       FILTER (ffi_has_index_in [x]) ys = FILTER (ffi_has_index_in [x]) zs`,
   once_rewrite_tac [EQ_SYM_EQ] \\ Induct \\ fs [] THEN1
    (fs [listTheory.FILTER_EQ_NIL] \\ fs [EVERY_MEM] \\ rw []
-    \\ res_tac \\ Cases_on `x'` \\ fs [ffi_has_index_in_def]
+    \\ res_tac \\ Cases_on `x'` \\ Cases_on `f`
+    \\ fs [ffi_has_index_in_def]
     \\ CCONTR_TAC \\ fs [])
   \\ rpt strip_tac
   \\ reverse (Cases_on `ffi_has_index_in xs h` \\ fs [])
   THEN1
    (`~ffi_has_index_in [x] h` by
-        (Cases_on `h` \\ fs [ffi_has_index_in_def] \\ CCONTR_TAC \\ fs [])
+        (Cases_on `h` \\ Cases_on `f` \\ fs [ffi_has_index_in_def] \\ CCONTR_TAC \\ fs [])
     \\ fs [] \\ metis_tac [])
   \\ IF_CASES_TAC \\ fs []
   \\ fs [FILTER_EQ_CONS]
@@ -424,35 +426,36 @@ val FILTER_ffi_has_index_in_MEM = Q.prove(
     \\ reverse conj_tac
     THEN1 (first_x_assum match_mp_tac \\ fs [] \\ asm_exists_tac \\ fs [])
     \\ rw [] \\ res_tac
-    \\ Cases_on `x'` \\ fs [ffi_has_index_in_def]
+    \\ Cases_on `x'` \\ Cases_on `f`
+    \\ fs [ffi_has_index_in_def]
     \\ CCONTR_TAC \\ fs [])
   \\ fs [FILTER_APPEND]
   \\ fs [GSYM FILTER_APPEND]
   \\ first_x_assum match_mp_tac \\ fs [] \\ asm_exists_tac \\ fs []
   \\ fs [FILTER_APPEND]);
 
-val LENGTH_FILTER_EQ_IMP_LENGTH_EQ = Q.prove(
-  `!xs ys.
-      (∀n. LENGTH (FILTER (ffi_has_index_in [n]) xs) =
-           LENGTH (FILTER (ffi_has_index_in [n]) ys)) ==>
-      LENGTH xs = LENGTH ys`,
-  Induct \\ fs [] THEN1
-   (Cases_on `ys` \\ fs [] \\ Cases_on `h` \\ fs [ffi_has_index_in_def]
-    \\ qexists_tac `s` \\ fs [])
-  \\ Cases \\ fs [ffi_has_index_in_def] \\ rw []
-  \\ qpat_assum `_` (qspec_then `s` mp_tac)
-  \\ rewrite_tac [] \\ fs [LENGTH]
-  \\ strip_tac
-  \\ `LENGTH (FILTER (ffi_has_index_in [s]) ys) <> 0` by decide_tac
-  \\ fs [LENGTH_NIL]
-  \\ fs [FILTER_NEQ_NIL]
-  \\ fs [MEM_SPLIT]
-  \\ rveq \\ fs [FILTER_APPEND,ADD1]
-  \\ first_x_assum (qspec_then `l1 ++ l2` mp_tac)
-  \\ impl_tac \\ fs []
-  \\ Cases_on `x` \\ fs [ffi_has_index_in_def] \\ rveq
-  \\ rw [] \\ first_x_assum (qspec_then `n` mp_tac)
-  \\ rw [] \\ fs [FILTER_APPEND]);
+val LENGTH_FILTER_EQ_IMP_EMPTY = Q.prove(
+  `!xs l.
+      (!io_ev. MEM io_ev l ==>
+        ?s bs bs'. io_ev = IO_event (ExtCall s) bs bs') /\
+      (∀n. LENGTH (FILTER (ffi_has_index_in [n]) (xs ++ l)) =
+           LENGTH (FILTER (ffi_has_index_in [n]) xs)) ==>
+      l = []`,
+  Induct THEN1
+   (rw[] \\ Cases_on `l` \\ fs []
+    \\ Cases_on `h` \\ Cases_on `f`
+    \\ fs [ffi_has_index_in_def]
+    >- (first_x_assum $ qspec_then `s` assume_tac \\ fs[])
+    \\ last_x_assum mp_tac \\ gvs[]
+    \\ irule_at (Pos hd) OR_INTRO_THM1
+    \\ simp[])
+  \\ rpt gen_tac
+  \\ rpt strip_tac
+  \\ last_x_assum irule
+  \\ rw[]
+  \\ pop_assum $ qspec_then `n` assume_tac
+  \\ Cases_on `ffi_has_index_in [n] h`
+  \\ fs[LENGTH]);
 
 val IN_DISJOINT_LEMMA1 = Q.prove(
   `!s. x IN h_g /\ DISJOINT s h_g ==> ~(x IN s)`,
@@ -580,6 +583,50 @@ Proof
   \\ decide_tac
 QED
 
+Theorem do_app_io_events_ExtCall:
+  do_app (refs,ffi) op vs = SOME ((refs',ffi'),r) ==>
+    ?l. ffi'.io_events = ffi.io_events ++ l /\
+      !io_ev. MEM io_ev l ==>
+        ?s bs bs'. io_ev = IO_event (ExtCall s) bs bs'
+Proof
+  strip_tac >>
+  gvs[DefnBase.one_line_ify NONE do_app_def,
+    AllCaseEqs(),ffiTheory.call_FFI_def] >>
+  pairarg_tac >> fs[]
+QED
+
+Theorem evaluate_ExtCall:
+  (!(st:'ffi semanticPrimitives$state) env exp l io_ev.
+    !st' res. evaluate st env exp = (st',res) /\
+      st'.ffi.io_events = st.ffi.io_events ++ l /\
+      MEM io_ev l ==>
+        ?s bs bs'.
+          io_ev = IO_event (ExtCall s) bs bs') /\
+  (!(st:'ffi semanticPrimitives$state) env v pes err_v st' res l io_ev.
+    evaluate_match st env v pes err_v = (st',res) /\
+       st'.ffi.io_events = st.ffi.io_events ++ l /\
+       MEM io_ev l ==>
+        ?s bs bs'.
+          io_ev = IO_event (ExtCall s) bs bs') /\
+  (!(st:'ffi semanticPrimitives$state) env d st' res l io_ev.
+    evaluate_decs st env d = (st',res) /\
+    st'.ffi.io_events = st.ffi.io_events ++ l /\
+        MEM io_ev l ==>
+          ?s bs bs'.
+            io_ev = IO_event (ExtCall s) bs bs')
+Proof
+  ho_match_mp_tac full_evaluate_ind >>
+  rw[] >>
+  gvs[evaluate_def,AllCaseEqs(),evaluate_decs_def] >>
+  imp_res_tac $ cj 1 evaluate_history_irrelevance >>
+  imp_res_tac $ cj 2 evaluate_history_irrelevance >>
+  imp_res_tac $ cj 3 evaluate_history_irrelevance >>
+  imp_res_tac do_app_io_events_ExtCall >>
+  rpt strip_tac >>
+  gvs[do_eval_res_def,AllCaseEqs(),dec_clock_def,
+    shift_fp_opts_def]
+QED
+
 Theorem app_basic_IMP_Arrow:
    (∀x v1. a x v1 ⇒ app_basic p v v1 emp (POSTv v. cond (b (f x) v))) ⇒
    Arrow a b f v
@@ -610,10 +657,17 @@ Proof
   \\ imp_res_tac SPLIT_st2heap_ffi \\ fs []
   \\ qmatch_assum_rename_tac `!n. FILTER (ffi_has_index_in [n]) _ =
                                   FILTER (ffi_has_index_in [n]) st2.io_events`
-  \\ `LENGTH st1.ffi.io_events = LENGTH st2.io_events`
-        by metis_tac [LENGTH_FILTER_EQ_IMP_LENGTH_EQ]
-  \\ metis_tac [IS_PREFIX_LENGTH_ANTI]
+  \\ gvs[IS_PREFIX_APPEND]
+  \\ first_x_assum irule
+  \\ irule LENGTH_FILTER_EQ_IMP_EMPTY
+  \\ rw[]
+  >- (
+    drule_then irule $ cj 1 evaluate_ExtCall >>
+    simp[]
+  ) >>
+  metis_tac[]
 QED
+(* use evaluate to prove st1.io_events = st2.io_events ++ [ExtCall...] *)
 
 Theorem Arrow_eq_app_basic:
    Arrow a b f fv ⇔ (∀x xv. a x xv ⇒ app_basic p fv xv emp (POSTv v'. &b (f x) v'))

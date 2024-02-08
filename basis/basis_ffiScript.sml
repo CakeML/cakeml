@@ -17,39 +17,39 @@ val _ = new_theory"basis_ffi";
 val basis_ffi_oracle_def = Define `
   basis_ffi_oracle =
     \name (cls,fs) conf bytes.
-     if name = "write" then
+     if name = ExtCall "write" then
        case ffi_write conf bytes fs of
        | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = "read" then
+     if name = ExtCall "read" then
        case ffi_read conf bytes fs of
        | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = "get_arg_count" then
+     if name = ExtCall "get_arg_count" then
        case ffi_get_arg_count conf bytes cls of
        | SOME(FFIreturn bytes cls) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = "get_arg_length" then
+     if name = ExtCall "get_arg_length" then
        case ffi_get_arg_length conf bytes cls of
        | SOME(FFIreturn bytes cls) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = "get_arg" then
+     if name = ExtCall "get_arg" then
        case ffi_get_arg conf bytes cls of
        | SOME(FFIreturn bytes cls) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = "open_in" then
+     if name = ExtCall "open_in" then
        case ffi_open_in conf bytes fs of
        | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = "open_out" then
+     if name = ExtCall "open_out" then
        case ffi_open_out conf bytes fs of
        | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = "close" then
+     if name = ExtCall "close" then
        case ffi_close conf bytes fs of
        | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = "exit" then
+     if name = ExtCall "exit" then
        case ffi_exit conf bytes () of
        | SOME(FFIreturn bytes ()) => Oracle_return (cls,fs) bytes
        | SOME(FFIdiverge) => Oracle_final FFI_diverged
@@ -86,7 +86,7 @@ QED
 
 val extract_fs_with_numchars_def = Define `
   (extract_fs_with_numchars init_fs [] = SOME init_fs) ∧
-  (extract_fs_with_numchars init_fs ((IO_event name conf bytes)::xs) =
+  (extract_fs_with_numchars init_fs ((IO_event (ExtCall name) conf bytes)::xs) =
     case (ALOOKUP (SND(SND fs_ffi_part)) name) of
     | SOME ffi_fun => (case ffi_fun conf (MAP FST bytes) init_fs of
                        | SOME (FFIreturn bytes' fs') =>
@@ -94,7 +94,9 @@ val extract_fs_with_numchars_def = Define `
                            extract_fs_with_numchars fs' xs
                          else NONE
                        | _ => NONE)
-    | NONE => extract_fs_with_numchars init_fs xs)`
+    | NONE => extract_fs_with_numchars init_fs xs) ∧
+   (extract_fs_with_numchars init_fs (_::xs) =
+     extract_fs_with_numchars init_fs xs)`
 
 Theorem extract_fs_with_numchars_APPEND:
    !xs ys init_fs. extract_fs_with_numchars init_fs (xs ++ ys) =
@@ -103,7 +105,8 @@ Theorem extract_fs_with_numchars_APPEND:
     | SOME fs => extract_fs_with_numchars fs ys
 Proof
   Induct_on`xs` \\ simp[extract_fs_with_numchars_def]
-  \\ Cases \\ simp[extract_fs_with_numchars_def]
+  \\ Cases \\ Cases_on `f`
+  \\ simp[extract_fs_with_numchars_def]
   \\ CASE_TAC
   \\ rpt gen_tac
   \\ rpt CASE_TAC
@@ -130,9 +133,10 @@ Theorem extract_fs_with_numchars_keeps_iostreams:
 Proof
   Induct
   >- ( rw[extract_fs_with_numchars_def])
-  \\ Cases
-  \\ rw[extract_fs_with_numchars_def]
-  \\ fs[CaseEq"option",CaseEq"ffi_result"]
+  \\ rw[Once $ DefnBase.one_line_ify NONE
+    extract_fs_with_numchars_def]
+  \\ fs[CaseEq"option",CaseEq"ffi_result",
+    CaseEq"ffiname",CaseEq"io_event"]
   \\ fs[fsFFITheory.fs_ffi_part_def]
   \\ last_x_assum drule
   \\ disch_then drule
@@ -180,9 +184,10 @@ Proof
   >- (
     rw[extract_fs_with_numchars_def]
     \\ metis_tac[] )
-  \\ Cases
-  \\ rw[extract_fs_with_numchars_def]
-  \\ fs[CaseEq"option",CaseEq"ffi_result"]
+  \\ rw[Once $ DefnBase.one_line_ify NONE
+       extract_fs_with_numchars_def]
+  \\ fs[CaseEq"option",CaseEq"ffi_result",
+       CaseEq"ffiname",CaseEq"io_event"]
   >- metis_tac[]
   \\ fs[fsFFITheory.fs_ffi_part_def]
   \\ last_x_assum drule
@@ -366,17 +371,20 @@ Proof
   \\ fs [evaluatePropsTheory.call_FFI_rel_def]
   \\ fs [ffiTheory.call_FFI_def]
 (*  \\ Cases_on `st.final_event = NONE` \\ fs [] \\ rw []*)
-  \\ Cases_on `n = ""` \\ fs [] THEN1 (rveq \\ fs [])
+  \\ Cases_on `n = ExtCall ""` \\ fs [] THEN1 (rveq \\ fs [])
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
   \\ Cases_on `f` \\ fs []
-  \\ fs [extract_fs_with_numchars_APPEND,extract_fs_with_numchars_def,basis_proj1_write] \\ rfs []
+  \\ Cases_on `n`
+  \\ fs[extract_fs_with_numchars_APPEND,
+    extract_fs_with_numchars_def,basis_proj1_write,
+    AllCaseEqs()] \\ rfs []
   \\ first_x_assum match_mp_tac
   \\ qpat_x_assum`_ = Oracle_return _ _`mp_tac
   \\ simp[basis_ffi_oracle_def,fs_ffi_part_def]
   \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
-  \\ rpt(full_case_tac \\ fs[option_eq_some,MAP_ZIP] \\ rw[]) >>
-  rfs[MAP_ZIP]
+  \\ fs[option_eq_some,MAP_ZIP,AllCaseEqs()] \\ rw[]
+  \\ rfs[MAP_ZIP]
 QED
 
 (* the first condition for the previous theorem holds for the
@@ -561,7 +569,7 @@ Theorem whole_prog_spec_semantics_prog_ffidiv:
    ∃io_events fs' n c b.
      semantics_prog (init_state (basis_ffi cl fs) with eval_state := es) env1
        (SNOC ^main_call prog)
-       (Terminate (FFI_outcome(Final_event n c b FFI_diverged)) io_events) /\
+       (Terminate (FFI_outcome(Final_event (ExtCall n) c b FFI_diverged)) io_events) /\
      extract_fs fs io_events = SOME fs' ∧ Q n c b fs'
 Proof
   rw[whole_prog_ffidiv_spec_def]
@@ -620,7 +628,7 @@ Theorem oracle_parts:
      MEM m ns /\
      u m conf bytes (basis_proj1 x ' m) = SOME (FFIreturn new_bytes w)
      ==>
-     (?y. st.ffi.oracle m x conf bytes = Oracle_return y new_bytes /\
+     (?y. st.ffi.oracle (ExtCall m) x conf bytes = Oracle_return y new_bytes /\
           basis_proj1 x |++ MAP (\n. (n,w)) ns = basis_proj1 y)
 Proof
   simp[basis_proj2_def,basis_proj1_def]
@@ -669,7 +677,7 @@ Theorem oracle_parts_div:
      MEM m ns /\
      u m conf bytes (basis_proj1 x ' m) = SOME FFIdiverge
      ==>
-     st.ffi.oracle m x conf bytes = Oracle_final FFI_diverged
+     st.ffi.oracle (ExtCall m) x conf bytes = Oracle_final FFI_diverged
 Proof
   simp[basis_proj2_def,basis_proj1_def]
   \\ pairarg_tac \\ fs[]

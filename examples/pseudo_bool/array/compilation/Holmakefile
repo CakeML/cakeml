@@ -17,6 +17,8 @@ cake_pb.S : *npbc_fullCompileScript.sml
 
 cake_pb_cnf.S : *cnfCompileScript.sml
 
+cake_pb_wcnf.S : *wcnfCompileScript.sml
+
 cake_pb_iso.S : *subgraph_isoCompileScript.sml
 
 cake_pb_mcis.S : *mcisCompileScript.sml

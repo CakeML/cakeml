@@ -63,6 +63,7 @@ Datatype:
   lstep =
   | Delete (num list) (* Ids to delete *)
   | Cutting constr    (* Adds a constraint using cutting planes, written in reverse polish notation *)
+  | Rup npbc (num list) (* Add a constraint by RUP *)
   | Con npbc (lstep list) num
     (* Prove constraint by contradiction, indicated by the id *)
   | Check num npbc
@@ -73,6 +74,7 @@ End
 Definition lstep_ok_def[simp]:
   (lstep_ok (Con c pfs n) ⇔
     compact c ∧ (EVERY lstep_ok pfs)) ∧
+  (lstep_ok (Rup c ls) ⇔ compact c) ∧
   (lstep_ok _ ⇔ T)
 Termination
   WF_REL_TAC ‘measure lstep_size’ \\ rw []
@@ -128,15 +130,32 @@ Definition insert_fml_def:
     id+1)
 End
 
+(* TODO: this is a dummy for now
+  Reduce c according to the assignment,
+  return NONE if it gives a contradiction
+  otherwise return the updated assignment using units in c *)
+Definition update_assg_def:
+  update_assg assg c =
+  if check_contradiction c then NONE
+  else SOME assg
+End
+
+(* Here, assg could be a finite map of variables to T/F
+  assg' should be assg updated with all units of c under assg *)
+Definition check_rup_def:
+  (check_rup b fml (assg: num |-> bool) [] = F) ∧
+  (check_rup b fml assg (n::ns) =
+  case lookup_core_only b fml n of
+    NONE => F
+  | SOME c =>
+    case update_assg assg c of NONE => T
+    | SOME assg' => check_rup b fml assg' ns)
+End
+
+(* TODO: for Rup decide what the next ID will be, id1 or id? *)
 Definition check_lstep_def:
   (check_lstep lstep b (fml:pbf) (id:num) =
   case lstep of
-  | Check n c =>
-    (case lookup n fml of NONE => NONE
-    | SOME (c',b) =>
-      if c = c' then SOME(fml,id)
-      else NONE)
-  | NoOp => SOME(fml,id)
   | Delete ls =>
     if EVERY (λid. lookup_core_only T fml id = NONE) ls
     then SOME (FOLDL (λa b. delete b a) fml ls,id)
@@ -146,6 +165,11 @@ Definition check_lstep_def:
       NONE => NONE
     | SOME c =>
       SOME (insert_fml b fml id c))
+  | Rup c ls =>
+    let (fml_not_c,id1) = insert_fml b fml id (not c) in
+    if check_rup b fml_not_c FEMPTY ls then
+      SOME (insert_fml b fml id c)
+    else NONE
   | Con c pf n =>
     let (fml_not_c,id1) = insert_fml b fml id (not c) in
     (case check_lsteps pf b fml_not_c id1 of
@@ -153,7 +177,13 @@ Definition check_lstep_def:
       if check_contradiction_fml b fml' n
       then SOME (insert_fml b fml id' c)
       else NONE
-    | _ => NONE)) ∧
+    | _ => NONE)
+  | Check n c =>
+    (case lookup n fml of NONE => NONE
+    | SOME (c',b) =>
+      if c = c' then SOME(fml,id)
+      else NONE)
+  | NoOp => SOME(fml,id)) ∧
   (check_lsteps [] b fml id = SOME (fml,id)) ∧
   (check_lsteps (step::steps) b fml id =
     case check_lstep step b fml id of
@@ -347,6 +377,55 @@ Proof
   metis_tac[]
 QED
 
+Definition agree_assg_def:
+  agree_assg assg w ⇔
+  ∀x b.
+    FLOOKUP assg x = SOME b ⇒
+    w x = b
+End
+
+Theorem update_assg_NONE:
+  update_assg assg c = NONE ⇒
+  ∀w. agree_assg assg w ⇒
+    ¬ satisfies_npbc w c
+Proof
+  rw[update_assg_def]>>
+  drule check_contradiction_unsat>>
+  metis_tac[]
+QED
+
+Theorem update_assg_SOME:
+  update_assg assg c = SOME assg' ⇒
+  ∀w. agree_assg assg w ∧ satisfies_npbc w c ⇒
+  agree_assg assg' w
+Proof
+  rw[update_assg_def]
+QED
+
+Theorem check_rup_unsat:
+  ∀ns assg.
+  check_rup b fml assg ns ∧
+  agree_assg assg w ⇒
+  ¬satisfies w (core_only_fml b fml)
+Proof
+  Induct>>rw[check_rup_def]>>
+  every_case_tac>>fs[]
+  >- (
+    drule update_assg_NONE>>
+    disch_then drule>>
+    fs[lookup_core_only_def,core_only_fml_def]>>
+    every_case_tac>>fs[satisfies_def,PULL_EXISTS]>>
+    metis_tac[]) >>
+  drule update_assg_SOME>>
+  disch_then drule>>
+  Cases_on`satisfies_npbc w x`>>rw[]
+  >-
+    metis_tac[]>>
+  fs[lookup_core_only_def,core_only_fml_def]>>
+  every_case_tac>>fs[satisfies_def,PULL_EXISTS]>>
+  metis_tac[]
+QED
+
 (* if b = F, then the core should be untouched,
   otherwise the core can grow *)
 Theorem check_lstep_correct:
@@ -422,6 +501,25 @@ Proof
       first_x_assum(qspec_then`id` mp_tac)>>
       fs[domain_lookup])>>
     gvs[lookup_insert,AllCaseEqs()])
+  \\ Cases_on `∃c ls. step = Rup c ls`
+  THEN1 (
+    fs[check_lstep_def] \\
+    pairarg_tac \\ fs[] \\
+    every_case_tac \\
+    gvs[insert_fml_def]
+    \\ CONJ_TAC >- fs[id_ok_def]
+    \\ CONJ_TAC >- (
+      rw[lookup_insert]>>fs[id_ok_def]>>
+      last_x_assum(qspec_then`id` mp_tac)>>simp[]>>
+      metis_tac[domain_lookup])
+    \\ CONJ_TAC >- (
+      rw[]>>gvs[lookup_insert,AllCaseEqs()])
+    \\ drule check_rup_unsat
+    \\ simp[agree_assg_def]
+    \\ rw[] \\ fs[sat_implies_def]
+    \\ rw[]
+    \\ gvs[id_ok_def,core_only_fml_insert]
+    \\ metis_tac[not_thm])
   (* Proof by contradiction *)
   \\ Cases_on ‘∃c steps n. step = Con c steps n’
   THEN1 (
@@ -1449,8 +1547,10 @@ Datatype:
 
   (* Objective steps *)
   | Obj (bool spt) bool (int option)
-  | ChangeObj ((int # var) list # int)
+  | ChangeObj bool ((int # var) list # int)
       (( ((num + num) # num) option, (lstep list)) alist)
+    (* the bool indicates T (new) or F (diff) mode *)
+  | CheckObj ((int # var) list # int)
 End
 
 Definition hide_def:
@@ -1746,11 +1846,73 @@ Definition change_obj_subgoals_def:
   [nmb1; nmb2]
 End
 
+(* A simple equality test on objectives *)
+Definition eq_obj_def:
+  eq_obj fc fc' =
+  (check_contradiction (not(model_bounding fc fc')) ∧
+  check_contradiction (not(model_bounding fc' fc)))
+End
+
+Definition add_obj_def:
+  add_obj (f,c:int) (f',c':int) =
+  let (add,n) = add_lists f f' in
+    (add, &n + c + c')
+End
+
+Theorem add_id[simp]:
+  add ([],0) c = c
+Proof
+  Cases_on`c`>>EVAL_TAC>>
+  Cases_on`q`>>EVAL_TAC
+QED
+
+Theorem check_contradiction_not_model_bounding:
+  check_contradiction (not (model_bounding fc fc')) ⇒
+  eval_obj (SOME fc) w ≤ eval_obj (SOME fc') w
+Proof
+  rw[]>>
+  `imp ([],0) (model_bounding fc fc')` by
+    fs[imp_def,add_def]>>
+  drule imp_model_bounding>>
+  simp[satisfies_npbc_def]
+QED
+
+Theorem eq_obj_eval_obj:
+  eq_obj fc fc' ⇒
+  eval_obj (SOME fc) w = eval_obj (SOME fc') w
+Proof
+  rw[eq_obj_def]>>
+  imp_res_tac check_contradiction_not_model_bounding>>
+  first_x_assum(qspec_then`w` assume_tac)>>
+  first_x_assum(qspec_then`w` assume_tac)>>
+  intLib.ARITH_TAC
+QED
+
+Theorem add_obj_eval_obj:
+  eval_obj (SOME (add_obj fc fc')) w =
+  eval_obj (SOME fc) w + eval_obj (SOME fc') w
+Proof
+  Cases_on`fc`>>
+  Cases_on`fc'`>>
+  rw[add_obj_def]>>
+  pairarg_tac>>fs[]>>
+  drule add_lists_thm>>
+  disch_then(qspec_then`w` assume_tac)>>
+  simp[eval_obj_def]>>
+  intLib.ARITH_TAC
+QED
+
+Definition mk_diff_obj_def:
+  mk_diff_obj b fc fc' =
+  if b then fc' else add_obj fc fc'
+End
+
 Definition check_change_obj_def:
-  check_change_obj fml id obj fc' pfs ⇔
+  check_change_obj b fml id obj fc' pfs ⇔
   case obj of NONE => NONE
   | SOME fc =>
-    ( let csubs = change_obj_subgoals fc fc' in
+    ( let fc' = mk_diff_obj b fc fc' in
+      let csubs = change_obj_subgoals fc fc' in
       case extract_clauses (λx. NONE) T fml csubs pfs [] of
         NONE => NONE
       | SOME cpfs =>
@@ -1761,8 +1923,15 @@ Definition check_change_obj_def:
         if EVERY (λid. lookup id r ≠ NONE)
              (COUNT_LIST (LENGTH csubs))
         then
-          SOME id'
+          SOME (fc',id')
         else NONE))
+End
+
+Definition check_eq_obj_def:
+  check_eq_obj obj fc' =
+  case obj of NONE => F
+  | SOME fc =>
+    eq_obj fc fc'
 End
 
 Definition update_bound_def:
@@ -1917,11 +2086,15 @@ Definition check_cstep_def:
           pc with
           <| bound := bound';
              dbound := dbound' |>))
-  | ChangeObj fc' pfs =>
-    case check_change_obj fml pc.id pc.obj fc' pfs of
+  | ChangeObj b fc' pfs =>
+    (case check_change_obj b fml pc.id pc.obj fc' pfs of
       NONE => NONE
-    | SOME id' =>
-      SOME (fml, pc with <| id := id'; obj := SOME fc' |>)
+    | SOME (fc',id') =>
+      SOME (fml, pc with <| id := id'; obj := SOME fc' |>))
+  | CheckObj fc' =>
+    if check_eq_obj pc.obj fc'
+    then SOME (fml,pc)
+    else NONE
   )
 End
 
@@ -2714,6 +2887,8 @@ Proof
     fs[valid_conf_def]>>
     rw[bimp_obj_def,imp_obj_def,sat_obj_le_def]>>
     asm_exists_tac>>simp[])
+  >-
+    (every_case_tac>>rw[])
 QED
 
 Definition check_csteps_def:
@@ -3120,6 +3295,127 @@ Proof
     strip_tac>>
     gvs[all_core_core_only_fml_eq]>>
     rw[]>>asm_exists_tac>>simp[])
+QED
+
+(* Every constraint in fml' is in fml *)
+Definition fml_include_def:
+  fml_include fml fml' =
+  EVERY (λc. MEM c fml) fml'
+End
+
+Theorem fml_include_satisfies:
+  fml_include fml fml' ∧
+  satisfies w (set fml) ⇒
+  satisfies w (set fml')
+Proof
+  rw[fml_include_def,EVERY_MEM,satisfies_def]
+QED
+
+Definition opt_eq_obj_def:
+  (opt_eq_obj (SOME fc) (SOME fc') ⇔ eq_obj fc fc') ∧
+  (opt_eq_obj _ _ = F)
+End
+
+Definition check_output_def:
+  (check_output fml obj bound dbound chk fml' obj' NoOutput = T) ∧
+  (check_output fml obj bound dbound chk fml' obj' Derivable =
+    let cls =
+      (MAP SND (toAList (mk_core_fml T fml))) in
+      dbound = NONE ∧ fml_include cls fml') ∧
+  (check_output fml obj bound dbound chk fml' obj' Equisatisfiable =
+    let cls =
+      (MAP SND (toAList (mk_core_fml T fml))) in
+      dbound = NONE ∧ bound = NONE ∧
+      chk ∧
+      fml_include cls fml' ∧
+      fml_include fml' cls) ∧
+  (check_output fml obj bound dbound chk fml' obj' Equioptimal =
+    let cls =
+      (MAP SND (toAList (mk_core_fml T fml))) in
+      chk ∧ opt_le bound dbound ∧
+      fml_include cls fml' ∧
+      fml_include fml' cls ∧
+      opt_eq_obj obj obj')
+End
+
+Theorem check_csteps_check_output:
+  id_ok fml id ∧
+  check_csteps csteps
+    fml (init_conf id chk obj) = SOME (fml',pc') ∧
+  all_core fml ∧
+  check_output fml' pc'.obj pc'.bound pc'.dbound pc'.chk fmlt objt output ⇒
+  sem_output (core_only_fml T fml) obj pc'.bound (set fmlt) objt output
+Proof
+  rw[]>>
+  drule_at Any check_csteps_correct>>
+  simp[init_conf_def,valid_conf_setup]>>
+  rw[hide_def]>>
+  Cases_on`output`>>
+  fs[sem_output_def,check_output_def]
+  >- ( (* Derivable *)
+    rw[satisfiable_def]>>
+    drule fml_include_satisfies>>
+    disch_then (irule_at Any)>>
+    drule all_core_core_only_fml_eq>>rw[]>>
+    gvs[bimp_obj_def,opt_lt_def,imp_obj_def,sat_obj_le_def,PULL_EXISTS]>>
+    first_x_assum drule>>
+    disch_then(qspec_then`eval_obj obj w` assume_tac)>>fs[]>>
+    simp[GSYM range_toAList,range_mk_core_fml]>>
+    fs[range_def,core_only_fml_def,satisfies_def]>>
+    metis_tac[])
+  >- (  (* Equisatisfiable *)
+    eq_tac>>rw[satisfiable_def]
+    >- (
+      qpat_x_assum`fml_include _ fmlt` assume_tac>>
+      drule fml_include_satisfies>>
+      disch_then (irule_at Any)>>
+      drule all_core_core_only_fml_eq>>rw[]>>
+      gvs[bimp_obj_def,opt_lt_def,imp_obj_def,sat_obj_le_def,PULL_EXISTS]>>
+      first_x_assum drule>>
+      disch_then(qspec_then`eval_obj obj w` assume_tac)>>fs[]>>
+      simp[GSYM range_toAList,range_mk_core_fml]>>
+      fs[range_def,core_only_fml_def,satisfies_def]>>
+      metis_tac[])>>
+    drule_all fml_include_satisfies>>
+    simp[GSYM range_toAList,range_mk_core_fml]>>
+    gvs[bimp_obj_def,opt_lt_def,imp_obj_def,sat_obj_le_def,PULL_EXISTS]>>
+    strip_tac>>first_x_assum drule>>
+    disch_then(qspec_then`eval_obj pc'.obj w` assume_tac)>>fs[]>>
+    metis_tac[])
+  >- (  (* Equioptimal *)
+    rw[]>>
+    `∀w. eval_obj pc'.obj w = eval_obj objt w` by
+      (Cases_on`pc'.obj`>>Cases_on`objt`>>
+      gvs[opt_eq_obj_def]>>
+      drule eq_obj_eval_obj>>
+      simp[])>>
+    drule all_core_core_only_fml_eq>>rw[]>>
+    `opt_lt (SOME v) pc'.bound` by
+      (Cases_on`pc'.bound`>>fs[opt_lt_def])>>
+    eq_tac>>rw[]
+    >- (
+      gvs[bimp_obj_def,opt_lt_def,imp_obj_def,sat_obj_le_def,PULL_EXISTS]>>
+      `opt_le (SOME (eval_obj obj w)) (SOME v)` by
+        (simp[opt_le_def,opt_lt_def]>>
+        metis_tac[integerTheory.INT_LE_LT])>>
+      `opt_lt (SOME (eval_obj obj w)) pc'.dbound` by
+        metis_tac[opt_lt_le]>>
+      last_x_assum drule>>
+      disch_then drule>>rw[]>>
+      qexists_tac`w'`>>
+      reverse CONJ_TAC >-
+        metis_tac[integerTheory.INT_LE_TRANS]>>
+      qpat_x_assum`fml_include _ fmlt` assume_tac>>
+      drule fml_include_satisfies>>
+      disch_then (irule_at Any)>>
+      simp[GSYM range_toAList,range_mk_core_fml]>>
+      fs[range_def,core_only_fml_def,satisfies_def]>>
+      metis_tac[])>>
+    drule_all fml_include_satisfies>>
+    simp[GSYM range_toAList,range_mk_core_fml]>>
+    gvs[bimp_obj_def,opt_lt_def,imp_obj_def,sat_obj_le_def,PULL_EXISTS]>>
+    strip_tac>>first_x_assum drule_all>>
+    metis_tac[])
 QED
 
 (* EXPERIMENTAL UNUSED

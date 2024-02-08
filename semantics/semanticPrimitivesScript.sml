@@ -1168,7 +1168,7 @@ Definition do_app_def:
     | (FFI n, [Litv(StrLit conf); Loc lnum]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
-            (case call_FFI t n (MAP (\ c .  n2w(ORD c)) (EXPLODE conf)) ws of
+            (case call_FFI t (ExtCall n) (MAP (n2w o ORD) conf) ws of
               FFI_return t' ws' =>
                (case store_assign lnum (W8array ws') s of
                  SOME s' => SOME ((s', t'), Rval (Conv NONE []))
@@ -1209,7 +1209,7 @@ End
 
 (* Build a constructor environment for the type definition tds *)
 Definition build_tdefs_def:
-  build_tdefs next_stamp ([]:((tvarN)list#string#(string#(ast_t)list)list)list) =
+  build_tdefs next_stamp ([]:(tvarN list # string # (string # ast_t list) list) list) =
     ((alist_to_ns []):((string),(string),(num#stamp))namespace) ∧
   build_tdefs next_stamp ((tvs,tn,condefs)::tds) =
     nsAppend (build_tdefs (next_stamp + 1) tds)
