@@ -55,6 +55,7 @@ Type mtree[pp] = “:(('a,'b) mtree_ans,
                     ('a,'b) mtree_ans) itree”;
 Type mktree[pp] = “:('a,'b) mtree_ans -> ('a,'b) mtree”;
 
+
 Type semtree[pp] = “:('b ffi_result, sem_vis_event, 'a result option) itree”;
 Type sem8tree[pp] = “:('b ffi_result, sem_vis_event, 8 result option) itree”;
 Type sem16tree[pp] = “:('b ffi_result, sem_vis_event, 16 result option) itree”;
@@ -426,10 +427,14 @@ QED
 Theorem mrec_sem_simps[simp]:
   (mrec_sem (Vis (INL seed) k) =
    Tau (mrec_sem (itree_bind (h_prog seed) k))) ∧
-  (mrec_sem (Ret r) = Ret r)
+  (mrec_sem (Vis (INR e) k) = (Vis e (Tau o mrec_sem o k))) ∧
+  (mrec_sem (Ret r) = Ret r) ∧
+  (mrec_sem (Tau u) = Tau (mrec_sem u))
 Proof
   rw [mrec_sem_def,mrec_iter_body_def] >>
-  rw [Once itreeTauTheory.itree_iter_thm]
+  rw [Once itreeTauTheory.itree_iter_thm] >>
+  CONV_TAC FUN_EQ_CONV >> rw [] >>
+  rw [mrec_sem_def]
 QED
 
 (* TODO: A termination-specific equivalence relation.
@@ -449,11 +454,11 @@ QED
  This is why there are two specific parts to the correspondence rather than a direct equivalence.
 *)
 
-Theorem mrec_sem_compo:
-  (mrec_sem (rh seed)) SOME_EQUIV (Ret x) ⇒
-  (mrec_sem (Vis (INL seed) k)) SOME_EQUIV (k x)
-Proof
-  cheat
-QED
+(* Theorem mrec_sem_compo: *)
+(*   (mrec_sem (rh seed)) SOME_EQUIV (Ret x) ⇒ *)
+(*   (mrec_sem (Vis (INL seed) k)) SOME_EQUIV (k x) *)
+(* Proof *)
+(*   cheat *)
+(* QED *)
 
 val _ = export_theory();
