@@ -52,6 +52,14 @@ val startup =
        "     jmp     cake_main";
        ""])`` |> EVAL |> concl |> rand
 
+val entry_return_code =
+  ``(FLAT (MAP (\n. n ++ "\n")
+    ["     movq    %r12, cdecl(pk_stack)(%rip)"; (* save stack pointer and base pointer *)
+     "     movq    %r13, cdecl(pk_base)(%rip)";
+     "     leave";                               (* return to retaddr C left on stack *)
+     "     ret";
+    ""]))`` |> EVAL |> concl |> rand;
+
 val ffi_asm_def = Define `
   (ffi_asm [] = Nil) /\
   (ffi_asm (ffi::ffis) =
@@ -81,10 +89,8 @@ val ffi_code' =
        "     .p2align 4";
        "";
        "cake_exit:";
-       (if ret then
-         "     leave\n     ret"
-       else
-         "     callq   wcdecl(cml_exit)");
+       (if ret then ^entry_return_code else
+        "     callq   wcdecl(cml_exit)");
        "     .p2align 4";
        "";
        "cake_main:";
@@ -125,10 +131,8 @@ val windows_ffi_code' =
        "     movq    %rdx, %r8";
        "     movq    %rsi, %rdx";
        "     movq    %rdi, %rcx";
-       (if ret then
-         "     leave\n     ret"
-       else
-         "     callq   cdecl(cml_exit)");
+       (if ret then ^entry_return_code else
+        "     callq   cdecl(cml_exit)");
        ""])))``;
 
 val (windows_ffi_code_true,windows_ffi_code_false) =
@@ -146,14 +150,15 @@ val expose_func_def = Define `
      strlit"     .type   "; name; strlit", function\n";
      strlit"#endif\n";
      strlit"cdecl("; name; strlit"):\n";
-     strlit"     pushq   %rbp";
-     strlit"     movq    %rsp, %rbp";
+     strlit"     pushq   %rbp\n";
+     strlit"     movq    %rsp, %rbp\n";
+     strlit"     movq    cdecl(pk_stack)(%rip), %r12\n";
+     strlit"     movq    cdecl(pk_base)(%rip), %r12\n";
      strlit"     lea     "; name; strlit"_ret(%rip), %rax\n"; (* func returns to rax manually *)
      strlit"     jmp     cdecl("; label; strlit")\n";
             name; strlit"_ret:\n";
      strlit"     mov     %edi, %eax\n";                       (* func retval in %edi to C expected %eax *)
-     strlit"     leave\n";                                    (* return to retaddr C left on stack *)
-     strlit"     ret\n"
+     strlit ^entry_return_code
     ])`;
 
 val expose_funcs_def = Define `
@@ -166,7 +171,7 @@ val x64_export_def = Define `
     SmartAppend
       (SmartAppend
       (SmartAppend (List preamble)
-      (SmartAppend (List (data_section ".quad"))
+      (SmartAppend (List (data_section ".quad" ret))
       (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
       (SmartAppend (List data_buffer)
       (SmartAppend (List ((strlit"\n")::^startup)) (^ffi_code ret))))))

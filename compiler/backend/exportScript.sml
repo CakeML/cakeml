@@ -54,15 +54,19 @@ val preamble_tm =
        ""])`` |> EVAL |> rconc;
 val preamble_def = Define`preamble = ^preamble_tm`;
 
-val data_section_def = Define`data_section word_directive =
+val data_section_def = Define`data_section word_directive ret =
      MAP (\n. strlit (n ++ "\n"))
-       ["     .data";
+       (["     .data";
         "     .p2align 3";
         "cdecl(cml_heap): " ++ word_directive ++ " 0";
         "cdecl(cml_stack): " ++ word_directive ++ " 0";
-        "cdecl(cml_stackend): " ++ word_directive ++ " 0";
-        "     .p2align 3";
-        "cake_bitmaps:"]`;
+        "cdecl(cml_stackend): " ++ word_directive ++ " 0"] ++
+        (if ret then
+          ["cdecl(ret_stack): " ++ word_directive ++ " 0";
+           "cdecl(ret_base): " ++ word_directive ++ " 0"]
+         else []) ++
+        ["     .p2align 3";
+        "cake_bitmaps:"])`;
 
 Definition data_buffer_def:
   data_buffer =

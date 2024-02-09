@@ -75,7 +75,7 @@ val riscv_export_def = Define `
     let lsyms = get_sym_labels syms in
     SmartAppend
       (SmartAppend (List preamble)
-      (SmartAppend (List (data_section ".quad"))
+      (SmartAppend (List (data_section ".quad" ret))
       (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
       (SmartAppend (List data_buffer)
       (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code)))))

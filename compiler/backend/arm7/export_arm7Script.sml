@@ -79,7 +79,7 @@ val arm7_export_def = Define `
     let lsyms = get_sym_labels syms in
     SmartAppend
       (SmartAppend (List preamble)
-      (SmartAppend (List (data_section ".long"))
+      (SmartAppend (List (data_section ".long" ret))
       (SmartAppend (split16 (words_line (strlit"\t.long ") word_to_string) data)
       (SmartAppend (List data_buffer)
       (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code)))))
