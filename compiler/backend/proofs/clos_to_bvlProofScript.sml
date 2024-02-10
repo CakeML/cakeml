@@ -1022,6 +1022,19 @@ val compile_oracle_inv_def = Define`
   ^dummy_compile_oracle_inv max_app s_code s_cc s_co t_code t_cc t_co ⇔ T`;
 *)
 
+val ref_rel_def = Define`
+  (ref_rel R (closSem$ValueArray vs) (bvlSem$ValueArray ws) ⇔ LIST_REL R vs ws) ∧
+  (ref_rel R (ByteArray f as) (ByteArray g bs) ⇔ f = g ∧ as = bs) ∧
+  (ref_rel _ _ _ = F)`
+val _ = export_rewrites["ref_rel_def"];
+
+Theorem ref_rel_simp[simp]:
+   (ref_rel R (ValueArray vs) y ⇔ ∃ws. y = ValueArray ws ∧ LIST_REL R vs ws) ∧
+   (ref_rel R (ByteArray f bs) y ⇔ y = ByteArray f bs)
+Proof
+  Cases_on`y`>>simp[ref_rel_def] >> srw_tac[][EQ_IMP_THM]
+QED
+
 val state_rel_def = Define `
   state_rel f (s:('c,'ffi) closSem$state) (t:('c,'ffi) bvlSem$state) <=>
     (s.ffi = t.ffi) /\
@@ -3860,7 +3873,7 @@ Proof
       full_simp_tac(srw_ss())[SUBMAP_DEF,FAPPLY_FUPDATE_THM,FDIFF_def,DRESTRICT_DEF] >> srw_tac[][] >> METIS_TAC[])
     \\ Cases_on `op = Update` \\ full_simp_tac(srw_ss())[] THEN1
      (full_simp_tac(srw_ss())[closSemTheory.do_app_def,bvlSemTheory.do_app_def]
-      \\ fs[case_eq_thms,bool_case_eq] \\ rveq
+      \\ fs[case_eq_thms,bool_case_eq,AllCaseEqs()] \\ rveq
       \\ fs[SWAP_REVERSE_SYM]
       \\ rveq \\ fs[v_rel_SIMP] \\ rveq
       \\ fs[SWAP_REVERSE,PULL_EXISTS]
@@ -4073,7 +4086,7 @@ Proof
       simp[Abbr`pp`,LEAST_NOTIN_FDOM])
     \\ Cases_on `op = UpdateByte` \\ full_simp_tac(srw_ss())[] THEN1 (
       full_simp_tac(srw_ss())[closSemTheory.do_app_def,bvlSemTheory.do_app_def]
-      \\ fs[case_eq_thms,PULL_EXISTS,bool_case_eq]
+      \\ fs[case_eq_thms,PULL_EXISTS,bool_case_eq,AllCaseEqs()]
       \\ rw[] \\ fs[SWAP_REVERSE_SYM] \\ rw[]
       \\ fs[v_rel_SIMP] \\ rw[]
       \\ imp_res_tac evaluate_const
@@ -4297,7 +4310,7 @@ Proof
     \\ Cases_on`∃fl. op = CopyByte fl` \\ fs[] >- (
       fs[closSemTheory.do_app_def,bvlSemTheory.do_app_def,PULL_EXISTS]
       \\ Cases_on`fl`
-      \\ fs[case_eq_thms,v_case_eq_thms,PULL_EXISTS,SWAP_REVERSE_SYM]
+      \\ fs[case_eq_thms,v_case_eq_thms,PULL_EXISTS,SWAP_REVERSE_SYM,AllCaseEqs()]
       \\ rveq \\ fs[v_rel_SIMP] \\ rw[] \\ fs[FLOOKUP_UPDATE] \\ rw[]
       \\ TRY (drule (GEN_ALL state_rel_refs_lookup) \\ disch_then imp_res_tac \\ fs[FLOOKUP_UPDATE])
       \\ TRY (
