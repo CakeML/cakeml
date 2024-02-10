@@ -2210,6 +2210,25 @@ val _ = translate parse_rup_del_def;
 val _ = translate parse_xadd_xdel_def;
 val _ = translate parse_cfromx_xfromc_def;
 val _ = translate parse_lits_aux_nomv_def;
+
+Triviality parse_lits_aux_nomv_ind:
+  parse_lits_aux_nomv_ind
+Proof
+  once_rewrite_tac [fetch "-" "parse_lits_aux_nomv_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+  \\ rw[] \\ gvs[]
+  \\ first_x_assum match_mp_tac
+  \\ intLib.ARITH_TAC
+QED
+
+val _ = parse_lits_aux_nomv_ind |> update_precondition;
+
 val _ = translate parse_id_xor_nomv_def;
 val _ = translate parse_xorig_def;
 val _ = translate parse_xlrup_def;
