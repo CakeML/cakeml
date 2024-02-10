@@ -1024,13 +1024,13 @@ val compile_oracle_inv_def = Define`
 
 val ref_rel_def = Define`
   (ref_rel R (closSem$ValueArray vs) (bvlSem$ValueArray ws) ⇔ LIST_REL R vs ws) ∧
-  (ref_rel R (ByteArray f as) (ByteArray g bs) ⇔ f = g ∧ as = bs) ∧
+  (ref_rel R (ByteArray as) (ByteArray g bs) ⇔ ~g ∧ as = bs) ∧
   (ref_rel _ _ _ = F)`
 val _ = export_rewrites["ref_rel_def"];
 
 Theorem ref_rel_simp[simp]:
    (ref_rel R (ValueArray vs) y ⇔ ∃ws. y = ValueArray ws ∧ LIST_REL R vs ws) ∧
-   (ref_rel R (ByteArray f bs) y ⇔ y = ByteArray f bs)
+   (ref_rel R (ByteArray bs) y ⇔ y = ByteArray F bs)
 Proof
   Cases_on`y`>>simp[ref_rel_def] >> srw_tac[][EQ_IMP_THM]
 QED
@@ -4090,10 +4090,10 @@ Proof
       \\ rw[] \\ fs[SWAP_REVERSE_SYM] \\ rw[]
       \\ fs[v_rel_SIMP] \\ rw[]
       \\ imp_res_tac evaluate_const
-      \\ qmatch_assum_rename_tac`FLOOKUP _ n = SOME (ByteArray b l)`
+      \\ qmatch_assum_rename_tac`FLOOKUP _ n = SOME (ByteArray l)`
       \\ `?y m.
             FLOOKUP f2 n = SOME m /\ FLOOKUP t2.refs m = SOME y /\
-            ref_rel (v_rel s.max_app f2 t2.refs t2.code) (ByteArray b l) y` by
+            ref_rel (v_rel s.max_app f2 t2.refs t2.code) (ByteArray l) y` by
               METIS_TAC [state_rel_def]
       \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac
       \\ Q.EXISTS_TAC `f2` \\ fsrw_tac[][]
@@ -4152,7 +4152,7 @@ Proof
       >- (fs[state_rel_def] >> res_tac >> fs[] >> rfs[] >> rveq)
       \\ `?y m.
             FLOOKUP f2 k = SOME m /\ FLOOKUP t2.refs m = SOME y /\
-            ref_rel (v_rel s.max_app f2 t2.refs t2.code) (ByteArray b' l'') y` by
+            ref_rel (v_rel s.max_app f2 t2.refs t2.code) (ByteArray l'') y` by
               METIS_TAC [state_rel_def]
       \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
       \\ rfs[]
