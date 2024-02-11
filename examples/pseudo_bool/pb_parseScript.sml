@@ -1,7 +1,7 @@
 (*
   Parse and print for pbc, npb_check
 *)
-open preamble pbcTheory pbc_normaliseTheory npbc_checkTheory spt_to_vecTheory;
+open preamble pbcTheory pbc_normaliseTheory npbc_checkTheory;
 
 val _ = new_theory "pb_parse";
 
@@ -295,24 +295,24 @@ Definition parse_subst_aux_def:
   (parse_subst_aux f_ns (INL v :: INL arr :: r ::rest) acc =
   if arr = strlit "->" then
     case parse_var f_ns v of
-      NONE => ([],LN,f_ns)
+      NONE => ([],[],f_ns)
     | SOME (v,f_ns) =>
     (case r of
         INR r =>
-          if r = 0:int then parse_subst_aux f_ns rest (insert v (INL F) acc)
-          else if r = 1 then parse_subst_aux f_ns rest (insert v (INL T) acc)
-          else ([],LN,f_ns)
+          if r = 0:int then parse_subst_aux f_ns rest ((v,INL F)::acc)
+          else if r = 1 then parse_subst_aux f_ns rest ((v,INL T)::acc)
+          else ([],[],f_ns)
       | INL r =>
-          (case parse_lit_num f_ns r of NONE => ([],LN,f_ns)
-          | SOME (l, f_ns)  => parse_subst_aux f_ns rest (insert v (INR l) acc)))
-  else ([],LN,f_ns)) ∧
+          (case parse_lit_num f_ns r of NONE => ([],[],f_ns)
+          | SOME (l, f_ns)  => parse_subst_aux f_ns rest ((v,INR l)::acc)))
+  else ([],[],f_ns)) ∧
   (parse_subst_aux f_ns ls acc = (ls, acc,f_ns))
 End
 
 Definition parse_subst_def:
   parse_subst f_ns ls =
-  let (ls, acc,f_ns) = parse_subst_aux f_ns ls LN in
-    (ls, spt_to_vec acc, f_ns)
+  let (ls, acc,f_ns) = parse_subst_aux f_ns ls [] in
+    (ls, acc, f_ns)
 End
 
 Definition map_f_ns_def:
@@ -408,8 +408,8 @@ Definition check_end_def:
   | _ => NONE
 End
 
-Definition is_empty_vec_def:
-  is_empty_vec v ⇔ v = Vector []
+Definition is_empty_def:
+  is_empty v ⇔ v = []
 End
 
 (* Parsing lsteps in a subproof until parsing
@@ -427,7 +427,7 @@ Definition parse_lsteps_aux_def:
     | SOME (INL step, f_ns') =>
       parse_lsteps_aux f_ns' ss (step::acc)
     | SOME (INR (c,s), f_ns') =>
-      if ¬(is_empty_vec s) then NONE
+      if ¬(is_empty s) then NONE
       else
         case parse_lsteps_aux f_ns' ss [] of
           NONE => NONE
@@ -466,7 +466,7 @@ Theorem parse_lsteps_aux_thm:
     | SOME (INL step, f_ns') =>
       parse_lsteps_aux f_ns' ss (step::acc)
     | SOME (INR (c,s), f_ns') =>
-      if ¬(is_empty_vec s) then NONE
+      if ¬(is_empty s) then NONE
       else
         case parse_lsteps_aux f_ns' ss [] of
           NONE => NONE
@@ -653,7 +653,7 @@ End
 (* Check special cases whether a Red step can be converted to a Con step *)
 Definition reduce_pf_def:
   reduce_pf s pf res =
-  if is_empty_vec s then
+  if is_empty s then
     case res of NONE => NONE
     | SOME id =>(
       case pf of
@@ -876,9 +876,9 @@ strlit"end";
 Datatype:
   par =
   | Done cstep
-  | Dompar npbc subst
+  | Dompar npbc subst_raw
   | StoreOrderpar mlstring
-  | CheckedDeletepar num subst
+  | CheckedDeletepar num subst_raw
   | ChangeObjpar bool ((int # num) list # int)
 End
 

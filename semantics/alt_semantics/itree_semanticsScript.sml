@@ -399,7 +399,7 @@ Type "small_state"[pp] = ``:v sem_env # v store # fpState # exp_val_exn # ctxt l
 
 Datatype:
   estep_result = Estep small_state
-               | Effi string (word8 list) (word8 list) num
+               | Effi ffiname (word8 list) (word8 list) num
                         (v sem_env) (v store) (ctxt list)
                | Edone
                | Etype_error fpState
@@ -481,7 +481,9 @@ Definition application_def:
              case store_lookup lnum s of
                SOME (W8array ws) =>
                  if n = "" then Estep (env, s, fp, Val $ Conv NONE [], c)
-                 else Effi n (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws lnum env s c
+                 else Effi (ExtCall n)
+                           (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+                           ws lnum env s c
              | _ => Etype_error (fix_fp_state c fp))
            | _ => Etype_error (fix_fp_state c fp))
          | _ =>
@@ -614,7 +616,7 @@ Datatype:
   | Ddone
   | Draise (fpState # v)
   | Dffi dstate
-      (string # word8 list # word8 list # num # v sem_env # ctxt list)
+      (ffiname # word8 list # word8 list # num # v sem_env # ctxt list)
       locs pat decl_ctxt
 End
 
@@ -716,7 +718,7 @@ Datatype:
   | Div
   | Err
   | Act dstate
-      (string # word8 list # word8 list # num # v sem_env # ctxt list)
+      (ffiname # word8 list # word8 list # num # v sem_env # ctxt list)
       locs pat decl_ctxt
 End
 
@@ -734,7 +736,7 @@ End
 Datatype:
   result = Termination
          | Error
-         | FinalFFI (string # word8 list # word8 list) ffi_outcome
+         | FinalFFI (ffiname # word8 list # word8 list) ffi_outcome
 End
 
 Definition cml_itree_unfold_err_def:

@@ -904,7 +904,7 @@ Definition do_app_aux_def:
     | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
         (case (lookup cptr s.refs, lookup ptr s.refs) of
          | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
-           (case call_FFI s.ffi n cws ws of
+           (case call_FFI s.ffi (ExtCall n) cws ws of
             | FFI_return ffi' ws' =>
                 Rval (Unit,
                       s with <| refs := insert ptr (ByteArray F ws') s.refs
