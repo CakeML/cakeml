@@ -476,8 +476,13 @@ Proof
   \\ drule_all rup_pass1_thm \\ strip_tac
   \\ gvs [AllCaseEqs()]
   \\ gvs [satisfies_npbc_def,GREATER_EQ,GSYM NOT_LESS]
-  \\ qsuff_tac ‘∀assg m ls1 c1 hc. rup_pass2 assg m ls1 c1 hc ≠ SOME NONE’ \\ gvs []
-  \\ cheat
+  \\ qsuff_tac
+     ‘∀assg m ls1 c1 hc. rup_pass2 assg m ls1 c1 hc ≠ SOME NONE’
+  >- (rw [] \\ gvs [])
+  \\ rpt $ pop_assum kall_tac
+  \\ Induct_on ‘ls1’ \\ gvs [rup_pass2_def]
+  \\ gvs [FORALL_PROD]
+  \\ gvs [rup_pass2_def] \\ rw []
 QED
 
 Theorem update_assg_SOME:
