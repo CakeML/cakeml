@@ -943,7 +943,7 @@ Proof
   srw_tac[][] >>
   MATCH_MP_TAC NOT_BIT_GT_TWOEXP >>
   MATCH_MP_TAC arithmeticTheory.LESS_LESS_EQ_TRANS >>
-  qexists_tac`2 ** LENGTH l` >>
+  qexists_tac`2 ** LENGTH (REVERSE l)` >>
   simp[numposrepTheory.l2n_lt]
 QED
 
