@@ -92,9 +92,79 @@ Definition opt_update_def[simp]:
   (opt_update fml (SOME cc) id = (update_resize fml NONE (SOME cc) id,id+1))
 End
 
+Definition rup_pass1_list_def:
+  rup_pass1_list (assg:word8 list) [] acc ys m = (acc,ys,m) ∧
+  rup_pass1_list assg ((i:int,n:num)::xs) acc ys m =
+    let m = MAX m n in
+    let k = Num (ABS i) in
+      if n < LENGTH assg ∨ EL n assg = 0w then
+        rup_pass1_list assg xs (acc + k) ((k,i,n)::ys) m
+      else if EL n assg = 1w  then
+        rup_pass1_list assg xs (if i < 0 then acc else acc + k) ys m
+      else
+        rup_pass1_list assg xs (if i < 0 then acc + k else acc) ys m
+End
+
+Definition rup_pass2_list_def:
+  rup_pass2_list (assg:word8 list) max [] l changes =
+    (if NULL changes then SOME (SOME ()) else NONE,changes,assg,T) ∧
+  rup_pass2_list assg max ((k:num,i:int,n:num)::ys) l changes =
+    if max < l + k then
+      let pre1 = (n < LENGTH assg) in
+      let assg1 = LUPDATE (if 0 ≤ i then 1w else 2w) n assg in
+      let (res2,changes2,assg2,pre2) =
+          rup_pass2_list assg1 max ys l (n::changes)
+      in
+        (res2,changes2,assg2,pre1 ∧ pre2)
+    else
+      rup_pass2_list assg max ys l changes
+End
+
+Definition resize_to_fit_def:
+   resize_to_fit n (bytes:word8 list) =
+     if n < LENGTH bytes then bytes else
+       bytes ++ REPLICATE (2 * LENGTH bytes + n + 1) 0w
+End
+
+Definition update_assg_list_def:
+  update_assg_list assg (ls,n) =
+    let (max,ls1,m) = rup_pass1_list assg ls 0 [] 0 in
+      if max < n then (SOME NONE, [], assg, T) else
+        let assg1 = resize_to_fit m assg in
+          rup_pass2_list assg max ls1 n []
+End
+
+Definition check_rup_loop_list_def:
+  check_rup_loop_list b fml assg all_changes [] = (F,assg,all_changes,T) ∧
+  check_rup_loop_list b fml assg all_changes (n::ns) =
+    case lookup_core_only_list b fml n of
+    | NONE => (F,assg,all_changes,T)
+    | SOME c =>
+    let (res,new_changes,assg1,pre) = update_assg_list assg c in
+    let all_changes = new_changes ++ all_changes in
+      case res of
+      | NONE => (F,assg,all_changes,pre)
+      | SOME NONE => (NULL ns,assg,all_changes,pre)
+      | SOME (SOME _) =>
+          let (res,assg1,all_changes1,pre1) =
+              check_rup_loop_list b fml assg all_changes ns
+          in (res,assg1,all_changes1,pre ∧ pre1)
+End
+
+Definition delete_each_def:
+  delete_each [] assg = (assg:word8 list,T) ∧
+  delete_each (n::ns) assg =
+    let pre1 = (n < LENGTH assg) in
+    let assg1 = LUPDATE 0w n assg in
+    let (assg2,pre2) = delete_each ns assg1 in
+      (assg2,pre1 ∧ pre2)
+End
+
 Definition check_rup_list_def:
-  check_rup_list (b:bool) (fml: (npbc # bool) option list)
-    (zeros: word8 list) (ls:num list) = F
+  check_rup_list b fml zeros ls =
+    let (res,assg1,all_changes1,pre1) = check_rup_loop_list b fml zeros [] ls in
+    let (zeros2,pre2) = delete_each all_changes1 assg1 in
+      (res,zeros2,pre1 ∧ pre2)
 End
 
 (* TODO: check_rup_list should not take [] as input *)
@@ -116,7 +186,8 @@ Definition check_lstep_list_def:
       SOME (fml, SOME(c,b), id))
   | Rup c ls =>
     let (fml_not_c,id') = opt_update fml (SOME (not c,b)) id in
-    (if check_rup_list b fml_not_c [] ls then
+    let (res,zeros,_) = check_rup_list b fml_not_c [] ls in
+    (if res then
        let rfml = rollback fml_not_c id id' in
          SOME(
            rfml,
@@ -174,7 +245,8 @@ Theorem check_lstep_list_id:
     id ≤ id')
 Proof
   ho_match_mp_tac check_lstep_list_ind>>
-  rw[] >> gvs [AllCaseEqs(),check_lstep_def,check_lstep_list_def]
+  rw[] >> gvs [AllCaseEqs(),check_lstep_def,check_lstep_list_def] >>
+  rpt (pairarg_tac >> gvs [])
 QED
 
 Theorem any_el_list_delete_list:
@@ -215,6 +287,7 @@ Proof
     >-
       simp[any_el_list_delete_list]
     >> (
+      rpt (pairarg_tac \\ gvs [])>>
       fs[any_el_update_resize,rollback_def,any_el_list_delete_list]>>
       last_x_assum (qspec_then`n` mp_tac)>>simp[]>>rw[]>>
       simp[MEM_MAP,MEM_COUNT_LIST]>>
@@ -272,6 +345,7 @@ Proof
       rw[any_el_list_delete_list]>>fs[EVERY_MEM]>>
       first_x_assum drule>>fs[])
     >- (
+      rpt (pairarg_tac \\ gvs [])>>
       simp[rollback_def,any_el_list_delete_list,MEM_MAP]>>
       simp[any_el_update_resize])
     >- (
@@ -316,7 +390,9 @@ Proof
       fs[any_el_list_delete_list]>>fs[EVERY_MEM]>>
       every_case_tac>>fs[])
     >- (
-      fs[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST,IS_SOME_EXISTS] >>
+      rpt (pairarg_tac \\ gvs []) >>
+      fs[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST,
+         IS_SOME_EXISTS] >>
       gvs [any_el_update_resize])
     >- (
       first_x_assum(qspec_then`n`mp_tac)>>
@@ -418,8 +494,21 @@ Proof
   metis_tac[option_CLAUSES,fml_rel_lookup_core_only]
 QED
 
+Theorem check_rup_list_invs:
+  check_rup_list b fmlls zeros ls = (res,zeros',pre) ∧
+  EVERY (λw. w = 0w) zeros
+  ⇒
+  pre ∧ EVERY (λw. w = 0w) zeros' ∧
+  ∀zero1.
+    EVERY (λw. w = 0w) zeros1 ⇒
+    ∃zeros2. check_rup_list b fmlls zeros ls = (res,zeros2,pre) ∧
+             EVERY (λw. w = 0w) zeros2
+Proof
+  cheat
+QED
+
 Theorem check_rup_list_thm:
-  check_rup_list b fmlls zeros ls ∧ fml_rel fml fmlls ∧
+  check_rup_list b fmlls zeros ls = (T,zeros',c) ∧ fml_rel fml fmlls ∧
   EVERY (λw. w = 0w) zeros ⇒
   check_rup b fml FEMPTY ls
 Proof
@@ -469,6 +558,7 @@ Proof
       metis_tac[fml_rel_update_resize])
     >- ( (* Rup*)
       rename1`insert_fml _ _ _ (not cc)`>>
+      rpt (pairarg_tac \\ gvs [])>>
       gvs [insert_fml_def]>>
       `fml_rel (insert id (not cc,b) fml)
         (update_resize fmlls NONE (SOME (not cc,b)) id)` by
