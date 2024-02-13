@@ -794,7 +794,7 @@ Proof
       >>
         imp_res_tac loc_to_pc_eq_SOME>>full_simp_tac(srw_ss())[]>>
         full_simp_tac(srw_ss())[]>>
-        srw_tac[][]>>Cases_on`call_FFI t1.ffi s x x'`>>fs[]>-upd_pc_tac>>
+        srw_tac[][]>>Cases_on`call_FFI t1.ffi (ExtCall s) x x'`>>fs[]>-upd_pc_tac>>
         same_inst_tac)
     >- (*oracle case *)
       (reverse(Cases_on`t1.regs t1.ptr_reg`) \\ fs[] >- same_inst_tac \\

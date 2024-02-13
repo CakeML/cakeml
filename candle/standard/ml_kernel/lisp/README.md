@@ -11,6 +11,3 @@ Pretty printing for Lisp s-expressions
 
 [lisp_valuesScript.sml](lisp_valuesScript.sml):
 Definition of simple Lisp s-expressions
-
-[old](old):
-old

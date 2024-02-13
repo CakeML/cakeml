@@ -52,8 +52,4 @@ Definition getCmd_def:
   getCmd (f, P, Gamma, errMap) = f
 End
 
-Definition getError_def:
-  getError (f, P, Gamma, errMap) = FloverMapTree_find (getRetExp f) errMap
-End
-
 val _ = export_theory ();

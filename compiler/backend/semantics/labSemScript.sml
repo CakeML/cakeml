@@ -19,7 +19,7 @@ val _ = Datatype `
      ; be         : bool
      ; ffi        : 'ffi ffi_state  (* oracle *)
                   (* oracle: sequence of havoc on registers at each FFI call *)
-     ; io_regs    : num (* seq number *) -> string (* ffi name *) -> num (* register *) -> 'a word option
+     ; io_regs    : num (* seq number *) -> ffiname (* ffi name *) -> num (* register *) -> 'a word option
      ; cc_regs    : num -> num -> 'a word option (* same as io_regs but for calling clear cache *)
      ; code       : 'a labLang$prog
      ; compile    : 'c -> 'a labLang$prog -> (word8 list # 'c) option
@@ -456,7 +456,7 @@ val evaluate_def = tDefine "evaluate" `
                 read_bytearray w4 (w2n w3) (mem_load_byte_aux s.mem s.mem_domain s.be),
                 loc_to_pc n1 n2 s.code) of
           | (SOME bytes, SOME bytes2, SOME new_pc) =>
-             (case call_FFI s.ffi ffi_index bytes bytes2 of
+             (case call_FFI s.ffi (ExtCall ffi_index) bytes bytes2 of
               | FFI_final outcome => (Halt (FFI_outcome outcome),s)
               | FFI_return new_ffi new_bytes =>
                   let new_io_regs = shift_seq 1 s.io_regs in
@@ -465,7 +465,7 @@ val evaluate_def = tDefine "evaluate" `
                                    mem := new_m ;
                                    ffi := new_ffi ;
                                    io_regs := new_io_regs ;
-                                   regs := (\a. get_reg_value (s.io_regs 0 ffi_index a)
+                                   regs := (\a. get_reg_value (s.io_regs 0 (ExtCall ffi_index) a)
                                                   (s.regs a) Word);
                                    pc := new_pc ;
                                    clock := s.clock - 1 |>))

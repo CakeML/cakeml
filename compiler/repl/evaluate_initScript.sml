@@ -682,7 +682,7 @@ Proof
   \\ Cases_on ‘op’ \\ gs []
 QED
 
-Theorem do_app_ok = SIMP_RULE (srw_ss()) [LET_THM] do_app_ok;
+Theorem do_app_ok[allow_rebind] = SIMP_RULE (srw_ss()) [LET_THM] do_app_ok;
 
 Theorem evaluate_ok_Op:
   op ≠ Opapp ∧ op ≠ Eval ⇒ ^(get_goal "App")

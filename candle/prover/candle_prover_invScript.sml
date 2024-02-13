@@ -78,56 +78,56 @@ Inductive v_ok:
 [~Inferred:]
   (∀ctxt v.
      inferred ctxt v ⇒
-       kernel_vals ctxt v) ∧
+       kernel_vals ctxt v)
 [~PartialApp:]
   (∀ctxt f v g.
      kernel_vals ctxt f ∧
      v_ok ctxt v ∧
      do_partial_app f v = SOME g ⇒
-       kernel_vals ctxt g) ∧
+       kernel_vals ctxt g)
 [~KernelVals:]
   (∀ctxt v.
      kernel_vals ctxt v ⇒
-       v_ok ctxt v) ∧
+       v_ok ctxt v)
 [~Conv:]
   (∀ctxt opt vs.
      EVERY (v_ok ctxt) vs ∧
      (∀tag x. opt = SOME (TypeStamp tag x) ⇒ x ∉ kernel_types) ⇒
-       v_ok ctxt (Conv opt vs)) ∧
+       v_ok ctxt (Conv opt vs))
 [~Closure:]
   (∀ctxt env n x.
      env_ok ctxt env ∧
      safe_exp x ⇒
-       v_ok ctxt (Closure env n x)) ∧
+       v_ok ctxt (Closure env n x))
 [~Recclosure:]
   (∀ctxt env f n.
      env_ok ctxt env ∧
      EVERY safe_exp (MAP (SND o SND) f) ⇒
-       v_ok ctxt (Recclosure env f n)) ∧
+       v_ok ctxt (Recclosure env f n))
 [~Vectorv:]
   (∀ctxt vs.
      EVERY (v_ok ctxt) vs ⇒
-       v_ok ctxt (Vectorv vs)) ∧
+       v_ok ctxt (Vectorv vs))
 [~Lit:]
   (∀ctxt lit.
-     v_ok ctxt (Litv lit)) ∧
+     v_ok ctxt (Litv lit))
 [~FP_WordTree:]
   (∀ ctxt fp.
-     v_ok ctxt (FP_WordTree fp)) ∧
+     v_ok ctxt (FP_WordTree fp))
 [~FP_BoolTree:]
   (∀ ctxt fp.
-     v_ok ctxt (FP_BoolTree fp)) ∧
+     v_ok ctxt (FP_BoolTree fp))
 [~Real:]
   (∀ ctxt r.
-     v_ok ctxt (Real r)) ∧
+     v_ok ctxt (Real r))
 [~Loc:]
   (∀ctxt loc.
      loc ∉ kernel_locs ⇒
-       v_ok ctxt (Loc loc)) ∧
+       v_ok ctxt (Loc loc))
 [~Env:]
   (∀ctxt env ns.
      env_ok ctxt env ⇒
-       v_ok ctxt (Env env ns)) ∧
+       v_ok ctxt (Env env ns))
 [env_ok:]
   (∀ctxt env.
      (∀id len tag tn.
@@ -381,20 +381,6 @@ Theorem env_ok_init_env:
 Proof
   rw [env_ok_def, ml_progTheory.init_env_def]
   \\ gvs [nsLookup_Bind_v_some, CaseEqs ["bool", "option"], kernel_types_def]
-QED
-
-Theorem v_ok_bind_exn_v[simp]:
-  v_ok ctxt bind_exn_v
-Proof
-  fs [bind_exn_v_def]
-  \\ fs [Once v_ok_cases,bind_stamp_def]
-QED
-
-Theorem v_ok_sub_exn_v[simp]:
-  v_ok ctxt sub_exn_v
-Proof
-  rw [v_ok_def, sub_exn_v_def]
-  \\ rw [Once v_ok_cases, subscript_stamp_def, kernel_types_def]
 QED
 
 Theorem v_ok_Cons:

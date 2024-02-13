@@ -5588,16 +5588,6 @@ Proof
   >> fs[]
 QED
 
-Definition clean_tysubst_def:
-  (clean_tysubst [] = [])
-  /\ (clean_tysubst ((_,Tyapp _ _)::l) = clean_tysubst l)
-  /\ (clean_tysubst ((a:type,Tyvar b)::l) =
-    (a,Tyvar b)::(clean_tysubst (FILTER (λ(_,x). x <> Tyvar b) l)))
-Termination
-  WF_REL_TAC `measure LENGTH` >> rw[]
->> match_mp_tac LESS_EQ_IMP_LESS_SUC >> rw[LENGTH_FILTER_LEQ]
-End
-
 (* remove duplicates, identical mappings and type applications *)
 Definition clean_tysubst_def:
   (clean_tysubst [] = [])
@@ -5777,7 +5767,7 @@ Theorem is_subseq_FILTER =
   Q.SPECL [`s`,`s`] is_subseq_FILTER_IMP |> GEN_ALL
   |> REWRITE_RULE[is_subseq_refl]
 
-Theorem clean_tysubst_is_subseq:
+Theorem clean_tysubst_is_subseq':
   !s. is_subseq s (clean_tysubst s)
 Proof
   Induct >> fs[clean_tysubst_def]
@@ -5793,7 +5783,7 @@ Theorem clean_tysubst_is_subseq:
 Proof
   strip_tac
   >> completeInduct_on`LENGTH s1`
-  >> Cases >> fs[clean_tysubst_is_subseq]
+  >> Cases >> fs[clean_tysubst_is_subseq']
   >> strip_tac
   >> PairCases_on `h` >> reverse (Cases_on `h1`)
   >- (
@@ -12586,11 +12576,6 @@ Proof
 QED
 
 (* properties of terminating relationships *)
-Theorem terminating_TC:
-  !R. terminating(TC R) ==> terminating R
-Proof
-  rw[terminating_def,inv_TC,WF_TC_EQN]
-QED
 
 Theorem terminating_TC:
   !R. terminating R ==> terminating(TC R)
@@ -14943,7 +14928,7 @@ Proof
   metis_tac[tyvars_in_allTypes'_lemma]
 QED
 
-Theorem extends_appends:
+Theorem extends_appends[allow_rebind]:
   !a b. a extends b ==> ?c. a = c ++ b
 Proof
   simp[extends_def] >>
@@ -14951,18 +14936,12 @@ Proof
   rw[] >> qexists_tac `upd::c` >> rw[]
 QED
 
-Theorem init_ctxt_extends:
+Theorem init_ctxt_extends[allow_rebind]:
   init_ctxt extends []
 Proof
   fs[extends_def,init_ctxt_def] >>
   rpt(CHANGED_TAC(simp[Once RTC_CASES1])) >>
   fs[updates_cases,type_ok_def,FLOOKUP_UPDATE]
-QED
-
-Theorem is_std_sig_init:
-  is_std_sig(sigof init_ctxt)
-Proof
-  rw[init_ctxt_def,is_std_sig_def,FLOOKUP_UPDATE]
 QED
 
 Theorem extends_DROP:

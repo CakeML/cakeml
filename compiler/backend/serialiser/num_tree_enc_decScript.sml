@@ -65,10 +65,10 @@ Proof
   \\ Cases_on ‘num_tree_dec' (l − 1) r’ \\ fs [fix_res_def]
 QED
 
-Theorem num_tree_dec'_def = num_tree_dec'_def
+Theorem num_tree_dec'_def[allow_rebind] = num_tree_dec'_def
   |> SIMP_RULE std_ss [MATCH_MP dec_ok_fix_res (SPEC_ALL dec_ok_num_tree_dec')];
 
-Theorem num_tree_dec'_ind = num_tree_dec'_ind
+Theorem num_tree_dec'_ind[allow_rebind] = num_tree_dec'_ind
   |> SIMP_RULE std_ss [MATCH_MP dec_ok_fix_res (SPEC_ALL dec_ok_num_tree_dec')];
 
 Definition num_tree_enc_def:

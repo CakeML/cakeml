@@ -260,7 +260,7 @@ Definition evaluate_def:
        (case (read_bytearray w2 (w2n w) (mem_load_byte s.memory s.memaddrs s.be),
               read_bytearray w4 (w2n w3) (mem_load_byte s.memory s.memaddrs s.be)) of
          | SOME bytes,SOME bytes2 =>
-            (case call_FFI s.ffi (explode ffi_index) bytes bytes2 of
+            (case call_FFI s.ffi (ExtCall (explode ffi_index)) bytes bytes2 of
               | FFI_final outcome => (SOME (FinalFFI outcome),s)
               | FFI_return new_ffi new_bytes =>
                 let nmem = write_bytearray w4 new_bytes s.memory s.memaddrs s.be in
@@ -301,10 +301,10 @@ val fix_clock_evaluate = Q.prove(
   Cases_on `evaluate (prog,s)` \\ fs [fix_clock_def]
   \\ imp_res_tac evaluate_clock \\ fs [GSYM NOT_LESS, state_component_equality]);
 
-val evaluate_ind = save_thm("evaluate_ind",
+val evaluate_ind = save_thm("evaluate_ind[allow_rebind]",
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
 
-val evaluate_def = save_thm("evaluate_def[compute]",
+val evaluate_def = save_thm("evaluate_def[allow_rebind,compute]",
   REWRITE_RULE [fix_clock_evaluate] evaluate_def);
 
 (* observational semantics *)

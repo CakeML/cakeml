@@ -988,6 +988,22 @@ Definition ptree_PPattern_def:
             return $ Pp_tannot p ty
           od
       | _ => fail (locs, «Impossible: nPPar»)
+    else if nterm = INL nPatLiteral then
+      case args of
+        [arg] =>
+          fmap Pp_lit (ptree_Literal arg) ++
+          fmap (λb. Pp_con (SOME b) []) (ptree_Bool arg)
+      | [minus; arg] =>
+          do
+            expect_tok minus MinusT;
+            lf <- destLf arg;
+            tk <- option $ destTOK lf;
+            if isInt tk then
+              return $ Pp_lit $ IntLit $ -(THE $ destInt tk)
+            else
+              fail (locs, «Impossible: nPatLiteral»)
+          od
+      | _ => fail (locs, «Impossible: nPatLiteral»)
     else if nterm = INL nPBase then
       case args of
         [arg] =>
@@ -995,9 +1011,8 @@ Definition ptree_PPattern_def:
             n <- nterm_of arg;
             if n = INL nValueName then
               fmap Pp_var (ptree_ValueName arg)
-            else if n = INL nLiteral then
-              fmap Pp_lit (ptree_Literal arg) ++
-              fmap (λb. Pp_con (SOME b) []) (ptree_Bool arg)
+            else if n = INL nPatLiteral then
+              ptree_PPattern arg
             else if n = INL nPAny ∨ n = INL nPList ∨ n = INL nPPar then
               ptree_PPattern arg
             else
@@ -1085,7 +1100,7 @@ Termination
   \\ simp [parsetree_size_lemma]
 End
 
-Theorem ptree_PPattern_ind =
+Theorem ptree_PPattern_ind[allow_rebind] =
   SIMP_RULE (srw_ss() ++ CONJ_ss) [] ptree_PPattern_ind;
 
 Definition ptree_Pattern_def:
@@ -1158,33 +1173,42 @@ Definition build_fun_lam_def:
             body pats
 End
 
-(* This builds the body of a let rec expression out of a list of patterns
- * (a list instead of one, because of or-patterns) and an expression body.
- *
- * TODO
- * This is sort-of like build_fun_lam but accepts _lists_ of patterns at
- * each level. I think we should replace build_fun_lam with this thing.
- *)
-
 (*
-   each entry is a function name
-                 a list of patterns
-                 a body expression
-
-   a letrec must be a function name, a variable name, and a body expression.
-
-   there's at least one pattern.
-   - if the first pattern is not a variable, invent one and immediately match on
-     it using the first pattern
-   - if the first pattern is a variable, create a fun binding
-
+ * build_letrec is given a list of entries consisting of:
+ * - a function name
+ * - a list of patterns
+ * - a body expression.
+ *
+ * A letrec in the CakeML AST is made from a function name, a variable name, and
+ * a body expression. If there is no pattern in the list given to build_letrec,
+ * then we use the empty variable name ("") and apply the body expression to
+ * this variable (like eta expansion). This enables us to write things like:
+ *   let rec f = function ... -> ...
+ * or
+ *   let rec f x y = ...
+ *   and g = ...
+ *
+ * As a consequence, the parser will turn this:
+ *   let rec f x = ...
+ *   and y = 5
+ * into this:
+ *   let rec f x = ...
+ *   and y x = 5 x
+ * which is different from what OCaml generates (it correctly binds the value 5
+ * to y with a let).
+ *
+ * Patterns are turned into variables using pattern match expressions:
+ * - If the first pattern is not a variable, invent a variable name and
+ *   match on it using the first pattern.
+ * - If the first pattern is a variable, create a lambda.
  *)
 
 Definition build_letrec_def:
   build_letrec =
     MAP (λ(f,ps,x).
            case ps of
-             [] => (f,"", Var (Short " <impossible> "))
+             [] =>
+               (f, "", App Opapp [x; Var (Short "")])
            | Pvar v::ps =>
                (f, v, build_fun_lam x ps)
            | p::ps =>
@@ -1448,13 +1472,29 @@ Definition ptree_Expr_def:
             return $ FOLDL build_record_upd e us
           od
       | _ => fail (locs, «Impossible: nERecUpdate»)
-    else if nterm = INL nERecProj then
+    else if nterm = INL nEIndex then
       case args of
         [arg] => ptree_Expr nEPrefix arg
+      | [arg; idx] =>
+          do
+            pfx <- ptree_Expr nEPrefix arg;
+            idx_expr <- ptree_Index idx;
+            case idx_expr of
+              INL str_idx =>
+                return $ build_funapp (Var (Long "String" (Short "sub")))
+                                      [pfx; str_idx]
+            | INR arr_idx =>
+                return $ build_funapp (Var (Long "Array" (Short "sub")))
+                                      [pfx; arr_idx]
+          od
+      | _ => fail (locs, «Impossible: nEIndex»)
+    else if nterm = INL nERecProj then
+      case args of
+        [arg] => ptree_Expr nEIndex arg
       | [arg; dot; fn] =>
           do
             expect_tok dot DotT;
-            x <- ptree_Expr nEPrefix arg;
+            x <- ptree_Expr nEIndex arg;
             f <- ptree_FieldName fn;
             return $ build_record_proj f x
           od
@@ -1859,6 +1899,22 @@ Definition ptree_Expr_def:
               fail (locs, «Or-patterns are not allowed in let (rec) bindings»));
             return (nm, FLAT ps, bd)
           od
+      | [id; colon; type; eq; expr] =>
+          do
+            expect_tok eq EqualT;
+            expect_tok colon ColonT;
+            nm <- ptree_ValueName id;
+            ty <- ptree_Type type;
+            bd <- ptree_Expr nExpr expr;
+            return (nm, [], Tannot bd ty)
+          od
+      | [id; eq; expr] =>
+          do
+            expect_tok eq EqualT;
+            nm <- ptree_ValueName id;
+            bd <- ptree_Expr nExpr expr;
+            return (nm, [], bd)
+          od
       | _ => fail (locs, «Impossible: nLetRecBinding»)
     else
       fail (locs, «Expected a let rec binding non-terminal»)) ∧
@@ -1903,6 +1959,15 @@ Definition ptree_Expr_def:
             (if EVERY (λp. case p of [_] => T | _ => F) ps then return () else
               fail (locs, «Or-patterns are not allowed in let (rec) bindings»));
             return $ INR (nm, FLAT ps, bd)
+          od
+      | [id; colon; type; eq; bod] =>
+          do
+            expect_tok eq EqualT;
+            expect_tok colon ColonT;
+            nm <- ptree_ValueName id;
+            ty <- ptree_Type type;
+            bd <- ptree_Expr nExpr bod;
+            return $ INL (Pvar nm, Tannot bd ty)
           od
       | [id; pats; colon; type; eq; bod] =>
           do
@@ -2054,7 +2119,32 @@ Definition ptree_Expr_def:
            od
        | _ => fail (locs, «Impossible: nUpdates»)
      else
-       fail (locs, «Expected an updates non-terminal»))
+       fail (locs, «Expected an updates non-terminal»)) ∧
+  (ptree_Index (Lf (_, locs)) =
+    fail (locs, «Expected an index non-terminal»)) ∧
+  (ptree_Index (Nd (nterm,locs) args) =
+     if nterm = INL nArrIdx then
+       case args of
+         [dott; lpar; expr; rpar] =>
+           do
+             expect_tok dott DotT;
+             expect_tok lpar LparT;
+             expect_tok rpar RparT;
+             fmap INR $ ptree_Expr nExpr expr
+           od
+       | _ => fail (locs, «Impossible: nArrIdx»)
+     else if nterm = INL nStrIdx then
+       case args of
+         [dott; lbrack; expr; rbrack] =>
+           do
+             expect_tok dott DotT;
+             expect_tok lbrack LbrackT;
+             expect_tok rbrack RbrackT;
+             fmap INL $ ptree_Expr nExpr expr
+           od
+       | _ => fail (locs, «Impossible: nStrIdx»)
+     else
+    fail (locs, «Expected an index non-terminal»))
 Termination
   WF_REL_TAC ‘measure $ sum_size (pair_size camlNT_size psize)
                       $ sum_size psize
@@ -2065,6 +2155,7 @@ Termination
                       $ sum_size psize
                       $ sum_size (SUC o list_size psize)
                       $ sum_size (SUC o list_size psize)
+                      $ sum_size psize
                       $ sum_size psize psize’
   \\ simp [parsetree_size_lemma]
 End
@@ -2072,7 +2163,8 @@ End
 (* Tidy up the list bits of the induction theorem.
  *)
 
-Theorem ptree_Expr_ind = ptree_Expr_ind |> SIMP_RULE (srw_ss() ++ CONJ_ss) [];
+Theorem ptree_Expr_ind[allow_rebind] =
+  ptree_Expr_ind |> SIMP_RULE (srw_ss() ++ CONJ_ss) [];
 
 Definition ptree_FieldDec_def:
   ptree_FieldDec (Lf (_, locs)) =
@@ -3115,4 +3207,3 @@ Proof
 QED
 
 val _ = export_theory ();
-

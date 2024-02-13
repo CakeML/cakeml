@@ -812,7 +812,7 @@ Proof
  rw[openFileFS_def] \\ CASE_TAC \\ CASE_TAC \\ fs[openFile_def] \\ rw[]
 QED
 
- Theorem openFileFS_files[simp]:
+Theorem openFileFS_files[simp]:
    !s fs k md. (openFileFS s fs md k).files = fs.files
 Proof
  rw[openFileFS_def] \\ CASE_TAC \\ CASE_TAC \\ fs[openFile_def] \\ rw[]
@@ -829,13 +829,6 @@ Proof
      >-(cases_on`y` >> fs[] >> PairCases_on`r` >> fs[] >> metis_tac[nextFD_NOT_MEM])
      >-(metis_tac[]))
   >-(fs[consistentFS_def,MEM_MAP] >> rw[] >> res_tac >> metis_tac[])
-QED
-
-Theorem openFileFS_inode_tbl[simp]:
-  !f fs pos. (openFileFS f fs md pos).inode_tbl = fs.inode_tbl
-Proof
-  rw[openFileFS_def] >> CASE_TAC >> cases_on`x` >>
-  fs[IO_fs_component_equality,openFile_def]
 QED
 
 Theorem openFileFS_maxFD[simp]:

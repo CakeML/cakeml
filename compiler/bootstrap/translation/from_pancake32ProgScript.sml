@@ -459,8 +459,14 @@ Definition conv_Exp_alt_def:
               OPTION_CHOICE (OPTION_CHOICE (conv_const t) (conv_var t))
                             (conv_Exp_alt t)
           | t::v4::v5 =>
-              FOLDR (λt. OPTION_MAP2 Field (conv_nat t)) (conv_Exp_alt t) (v4::v5)
+              FOLDR (λt. OPTION_MAP2 Field (conv_nat t))
+                    (OPTION_CHOICE (conv_var t) (conv_Exp_alt t)) (v4::v5)
         else if isNT nodeNT LabelNT then
+          case args of
+            [] => NONE
+          | [t] => OPTION_MAP Label (conv_ident t)
+          | t::v6::v7 => NONE
+        else if isNT nodeNT FLabelNT then
           case args of
             [] => NONE
           | [t] => OPTION_MAP Label (conv_ident t)
@@ -593,6 +599,8 @@ Proof
       >- (simp[conv_Exp_alt_def, conv_Exp_def])>>
       rename1 ‘Nd p l’>>
       rewrite_tac[Once conv_Exp_alt_def,Once conv_Exp_def]>>
+      IF_CASES_TAC
+      >- (fs[]>>ntac 2 (CASE_TAC>>fs[]))>>
       IF_CASES_TAC
       >- (fs[]>>ntac 2 (CASE_TAC>>fs[]))>>
       IF_CASES_TAC

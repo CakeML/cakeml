@@ -39,7 +39,7 @@ val riscv_names_def = Define `
    insert 29 3 o
    insert 30 4) LN:num num_map`;
 
-val riscv_names_def = save_thm("riscv_names_def[compute]",
+val riscv_names_def = save_thm("riscv_names_def[compute,allow_rebind]",
   CONV_RULE (RAND_CONV EVAL) riscv_names_def);
 
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)

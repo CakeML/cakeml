@@ -39,8 +39,8 @@ val _ = Datatype`
   v =
     | Litv lit
     | Conv ((ctor_id # type_id) option) (v list)
-    | Closure ('v environment) varN exp
-    | Recclosure ('v environment) ((varN # varN # exp) list) varN
+    | Closure (v environment) varN exp
+    | Recclosure (v environment) ((varN # varN # exp) list) varN
     | Loc num
     | Vectorv (v list)`;
 
@@ -481,7 +481,7 @@ val do_app_def = Define `
   | (FFI n, [Litv(StrLit conf); Loc lnum]) =>
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
-       (case call_FFI s.ffi n (MAP (λc. n2w(ORD c)) conf) ws of
+       (case call_FFI s.ffi (ExtCall n) (MAP (λc. n2w(ORD c)) conf) ws of
         | FFI_final outcome => SOME(s, Rerr (Rabort (Rffi_error outcome)))
         | FFI_return t' ws' =>
           (case store_assign lnum (W8array ws') s.refs of
@@ -846,11 +846,11 @@ Proof
   \\ fs [MIN_DEF,theorem "state_component_equality"]
 QED
 
-val evaluate_def = save_thm("evaluate_def[compute]",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def);
+Theorem evaluate_def[compute,allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def;
 
-val evaluate_ind = save_thm("evaluate_ind",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
+Theorem evaluate_ind[allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
 val bool_ctors_def = Define `
   bool_ctors =

@@ -514,6 +514,15 @@ val _ = (append_prog o process_topdecs)`
        (!wref) - 4)`;
 
 val _ = (append_prog o process_topdecs)`
+ fun b_peekChar_aux is =
+   case is of InstreamBuffered fd rref wref surplus =>
+          if (!wref) = (!rref) then None
+          else
+            let val readat = (!rref) in
+              Char.some (Char.fromByte (Word8Array.sub surplus readat))
+            end`;
+
+val _ = (append_prog o process_topdecs)`
  fun b_input1_aux is =
    case is of InstreamBuffered fd rref wref surplus =>
           let val readat = (!rref) in
@@ -524,6 +533,13 @@ val _ = (append_prog o process_topdecs)`
           end`;
 
 val _ = ml_prog_update open_local_in_block;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_peekChar is =
+    case is of InstreamBuffered fd rref wref surplus =>
+        if (!wref) = (!rref)
+        then (b_refillBuffer_with_read is; b_peekChar_aux is)
+        else b_peekChar_aux is`;
 
 val _ = (append_prog o process_topdecs)`
   fun b_input1 is =

@@ -500,7 +500,7 @@ val res = CONJUNCTS d1 |> map SPEC_ALL |> map translate;
 
 val res = translate def;
 
-Theorem x64_config_v_thm = translate (x64_config_def |> gconv);
+Theorem x64_config_v_thm[allow_rebind] = translate (x64_config_def |> gconv);
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

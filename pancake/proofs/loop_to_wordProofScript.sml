@@ -2074,7 +2074,7 @@ Proof
   PairCases_on ‘x’ \\ gvs[]
 QED
 
-Theorem every_loop_inst_ok_comp:
+Theorem every_loop_inst_ok_comp_lemma:
   ∀p prog cont s body n funs.
     comp_with_loop p prog cont s = (body,n,funs) ∧
     every_prog (loop_inst_ok c) prog ∧
@@ -2127,7 +2127,7 @@ Theorem every_loop_inst_ok_comp:
 Proof
   rw[loop_removeTheory.comp_def] \\
   pairarg_tac \\ gvs[] \\
-  drule_then match_mp_tac every_loop_inst_ok_comp \\
+  drule_then match_mp_tac every_loop_inst_ok_comp_lemma \\
   rw[every_prog_def,loop_inst_ok_def]
 QED
 

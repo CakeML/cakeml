@@ -405,7 +405,7 @@ Definition evaluate_def:
        (case (read_bytearray sz1 (w2n ad1) (mem_load_byte s.memory s.memaddrs s.be),
               read_bytearray sz2 (w2n ad2) (mem_load_byte s.memory s.memaddrs s.be)) of
          | SOME bytes,SOME bytes2 =>
-            (case call_FFI s.ffi (explode ffi_index) bytes bytes2 of
+            (case call_FFI s.ffi (ExtCall (explode ffi_index)) bytes bytes2 of
               | FFI_final outcome => (SOME (FinalFFI outcome), empty_locals s)
               | FFI_return new_ffi new_bytes =>
                 let nmem = write_bytearray sz2 new_bytes s.memory s.memaddrs s.be in
@@ -469,10 +469,10 @@ Proof
 QED
 
 (* we save evaluate theorems without fix_clock *)
-val evaluate_ind = save_thm("evaluate_ind",
+val evaluate_ind = save_thm("evaluate_ind[allow_rebind]",
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
 
-val evaluate_def = save_thm("evaluate_def[compute]",
+val evaluate_def = save_thm("evaluate_def[allow_rebind,compute]",
   REWRITE_RULE [fix_clock_evaluate] evaluate_def);
 
 (* observational semantics *)

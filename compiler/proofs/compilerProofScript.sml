@@ -88,10 +88,11 @@ Proof
 QED
 
 Theorem compile_tap_compile:
-   ∀conf p res td. backend$compile_tap conf p = (res,td) ⇒
+  ∀conf p res td.
+    backend_passes$compile_tap conf p = (res,td) ⇒
     backend$compile conf p = res
 Proof
-  simp[backendTheory.compile_def]
+  metis_tac [backend_passesTheory.compile_alt,FST]
 QED
 
 Definition read_limits_def:
