@@ -337,6 +337,7 @@ exception UnusedTypeVars of hol_type list;
 
 datatype tag_sum = TagNil of int | TagCons of (int * (int option) list);
 
+
 (*
 val ignore_tyvars = [alpha,gamma]
 val ignore_tyvars = tl [alpha]
@@ -356,6 +357,9 @@ fun define_from_to_aux ignore_tyvars ty =
   else if listSyntax.is_list_type ty then let
     val _ = cv_rep_datatype_thms_for from_list_def
     in (from_list_def,to_list_def,[from_to_list]) end
+  else if oneSyntax.one_ty = ty then let
+    val _ = cv_rep_datatype_thms_for from_unit_def
+    in (from_unit_def,to_unit_def,[from_to_unit]) end
   else let
   (* extract target structure from induction theorem *)
   val mutrec_count = length (find_mutrec_types ty)

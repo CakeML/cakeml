@@ -21,9 +21,11 @@ fun derive_cv_proj_tac (hs,goal_tm) = let
   in add_facts_tac tms (hs,goal_tm) end
 
 val cv_termination_tac =
-  rewrite_tac [to_cv_proj]
+  rpt strip_tac
+  \\ gvs [cv_termination_simp,arithmeticTheory.DIV_LT_X]
+  \\ rewrite_tac [to_cv_proj]
   \\ derive_cv_proj_tac
-  \\ full_simp_tac bool_ss [GSYM to_cv_proj];
+  \\ gvs [] \\ gvs [cv_proj_def];
 
 (*
 val alts = [([[0,2],[1]],3),
@@ -62,11 +64,7 @@ fun make_measures alts = let
 fun termination_tactic alts = let
   val ms = make_measures alts
   fun one_tac tm =
-    WF_REL_TAC [ANTIQUOTE tm] \\ rpt strip_tac
-    \\ gvs [cv_termination_simp,arithmeticTheory.DIV_LT_X]
-    \\ rewrite_tac [to_cv_proj]
-    \\ derive_cv_proj_tac
-    \\ gvs [] \\ NO_TAC
+    WF_REL_TAC [ANTIQUOTE tm] \\ cv_termination_tac \\ NO_TAC
   fun try_each [] t = NO_TAC t
     | try_each (x::xs) t = (one_tac x ORELSE try_each xs) t
   in try_each ms end

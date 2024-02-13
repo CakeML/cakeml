@@ -178,4 +178,10 @@ QED
 val th = cv_eval “even 10”
 val th = cv_eval “even 999999”
 
+Definition test_u2_def:
+  test_u2 n = (n+1:num,())
+End
+
+val _ = cv_trans test_u2_def;
+
 val _ = export_theory();

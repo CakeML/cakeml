@@ -154,7 +154,6 @@ Proof
   \\ gvs [arithmeticTheory.MAX_DEF]
 QED
 
-
 (*----------------------------------------------------------*
    int
  *----------------------------------------------------------*)
@@ -174,6 +173,20 @@ Theorem cv_Num[cv_rep]:
 Proof
   gvs[from_int_def, cv_abs_def] >>
   rw[] >> gvs[cv_ispair_def]
+QED
+
+Definition cv_int_neg_def:
+  cv_int_neg x =
+    cv_if (cv_eq x (Num 0)) x $
+          cv_if (cv_ispair x) (cv_fst x) (Pair x (Num 0))
+End
+
+Theorem cv_neg_int[cv_rep]:
+  from_int (- x) = cv_int_neg (from_int x)
+Proof
+  gvs[from_int_def]
+  \\ Cases_on ‘x = 0’ \\ gvs [cv_int_neg_def]
+  \\ Cases_on ‘x’ \\ gvs []
 QED
 
 (*----------------------------------------------------------*
