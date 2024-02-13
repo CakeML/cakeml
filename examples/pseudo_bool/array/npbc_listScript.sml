@@ -92,7 +92,12 @@ Definition opt_update_def[simp]:
   (opt_update fml (SOME cc) id = (update_resize fml NONE (SOME cc) id,id+1))
 End
 
-(* TODO: rup not implemented, need more state *)
+Definition check_rup_list_def:
+  check_rup_list (b:bool) (fml: (npbc # bool) option list)
+    (zeros: word8 list) (ls:num list) = F
+End
+
+(* TODO: check_rup_list should not take [] as input *)
 Definition check_lstep_list_def:
   (check_lstep_list lstep
     b (fml: (npbc # bool) option list)
@@ -109,7 +114,15 @@ Definition check_lstep_list_def:
       NONE => NONE
     | SOME c =>
       SOME (fml, SOME(c,b), id))
-  | Rup c ls => NONE
+  | Rup c ls =>
+    let (fml_not_c,id') = opt_update fml (SOME (not c,b)) id in
+    (if check_rup_list b fml_not_c [] ls then
+       let rfml = rollback fml_not_c id id' in
+         SOME(
+           rfml,
+           SOME(c,b),
+           id)
+     else NONE)
   | Con c pf n =>
     let (fml_not_c,id') = opt_update fml (SOME (not c,b)) id in
     (case check_lsteps_list pf b fml_not_c id id' of
@@ -201,7 +214,7 @@ Proof
     gvs [AllCaseEqs(),check_lstep_def,check_lstep_list_def]
     >-
       simp[any_el_list_delete_list]
-    >- (
+    >> (
       fs[any_el_update_resize,rollback_def,any_el_list_delete_list]>>
       last_x_assum (qspec_then`n` mp_tac)>>simp[]>>rw[]>>
       simp[MEM_MAP,MEM_COUNT_LIST]>>
@@ -259,6 +272,9 @@ Proof
       rw[any_el_list_delete_list]>>fs[EVERY_MEM]>>
       first_x_assum drule>>fs[])
     >- (
+      simp[rollback_def,any_el_list_delete_list,MEM_MAP]>>
+      simp[any_el_update_resize])
+    >- (
       first_x_assum(qspec_then`n`mp_tac)>>
       simp[any_el_update_resize]>>
       drule (el 2 (CONJUNCTS check_lstep_list_id))>>
@@ -299,6 +315,9 @@ Proof
     >- (
       fs[any_el_list_delete_list]>>fs[EVERY_MEM]>>
       every_case_tac>>fs[])
+    >- (
+      fs[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST,IS_SOME_EXISTS] >>
+      gvs [any_el_update_resize])
     >- (
       first_x_assum(qspec_then`n`mp_tac)>>
       fs[any_el_update_resize]>>
@@ -399,6 +418,20 @@ Proof
   metis_tac[option_CLAUSES,fml_rel_lookup_core_only]
 QED
 
+Theorem check_rup_list_thm:
+  check_rup_list b fmlls zeros ls ∧ fml_rel fml fmlls ∧
+  EVERY (λw. w = 0w) zeros ⇒
+  check_rup b fml FEMPTY ls
+Proof
+  cheat
+  (*
+  check_rup_def
+  update_assg_def
+  rup_pass1_def
+  rup_pass2_def
+  *)
+QED
+
 Theorem fml_rel_check_lstep_list:
   (∀lstep b fmlls mindel id fmlls' id' fmlls'' id'' c fml.
     fml_rel fml fmlls ∧
@@ -434,6 +467,17 @@ Proof
       disch_then(qspecl_then[`b`,`constr`] assume_tac)>>
       fs[insert_fml_def]>>
       metis_tac[fml_rel_update_resize])
+    >- ( (* Rup*)
+      rename1`insert_fml _ _ _ (not cc)`>>
+      gvs [insert_fml_def]>>
+      `fml_rel (insert id (not cc,b) fml)
+        (update_resize fmlls NONE (SOME (not cc,b)) id)` by
+        simp[fml_rel_update_resize]>>
+      conj_tac >-
+       (drule_then drule check_rup_list_thm \\ fs []) >>
+      irule fml_rel_update_resize >>
+      match_mp_tac fml_rel_rollback>>fs[] >>
+      simp[any_el_update_resize])
     >- ( (* Con *)
       rename1`insert_fml _ _ _ (not cc)`>>
       `fml_rel (insert id (not cc,b) fml)
