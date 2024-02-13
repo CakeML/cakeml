@@ -54,8 +54,8 @@ val startup =
 
 val entry_return_code =
   ``(FLAT (MAP (\n. n ++ "\n")
-    ["     movq    %r12, cdecl(pk_stack)(%rip)"; (* save stack pointer and base pointer *)
-     "     movq    %r13, cdecl(pk_base)(%rip)";
+    ["     movq    %r12, cdecl(ret_stack)(%rip)"; (* save stack pointer and base pointer *)
+     "     movq    %r13, cdecl(ret_base)(%rip)";
      "     leave";                               (* return to retaddr C left on stack *)
      "     ret";
     ""]))`` |> EVAL |> concl |> rand;
@@ -152,8 +152,8 @@ val expose_func_def = Define `
      strlit"cdecl("; name; strlit"):\n";
      strlit"     pushq   %rbp\n";
      strlit"     movq    %rsp, %rbp\n";
-     strlit"     movq    cdecl(pk_stack)(%rip), %r12\n";
-     strlit"     movq    cdecl(pk_base)(%rip), %r12\n";
+     strlit"     movq    cdecl(ret_stack)(%rip), %r12\n";
+     strlit"     movq    cdecl(ret_base)(%rip), %r13\n";
      strlit"     lea     "; name; strlit"_ret(%rip), %rax\n"; (* func returns to rax manually *)
      strlit"     jmp     cdecl("; label; strlit")\n";
             name; strlit"_ret:\n";
