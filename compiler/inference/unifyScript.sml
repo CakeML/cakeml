@@ -1249,7 +1249,30 @@ Proof
                        assert (is_eq o #2 o strip_forall o concl) o
                        assert (is_forall o concl)) >>
         simp[kcuR_def]) >>
-  cheat
+  qabbrev_tac ‘rwlbs (* reachable wl bags and lengths *) =
+               λrwlb. ∃rwl. R⁺ (s,rwl) (s,wl) ∧
+                            rwlb = (PFLAT rwl, LENGTH rwl)’ >>
+  ‘WF (mlt1 M LEX prim_rec$<)⁺’
+    by simp[WF_LEX, WF_mlt1, Abbr‘M’, prim_recTheory.WF_measure,
+            WF_TC_EQN] >>
+  drule_then (assume_tac o SRULE[PULL_EXISTS]) (iffLR WF_DEF) >>
+  ‘∀wl'. R꙳(s,wl') (s,wl) ⇒ ∃wl''. R(s,wl'') (s,wl')’
+    by (simp[cj 1 (GSYM TC_RC_EQNS), RC_DEF, DISJ_IMP_THM, FORALL_AND_THM] >>
+        metis_tac[TC_RULES]) >>
+  ‘∃b. rwlbs b’ by (simp[Abbr‘rwlbs’] >> irule_at Any TC_SUBSET >>
+                    metis_tac[TC_RULES]) >>
+  first_assum (pop_assum o
+               mp_then Any (qx_choose_then‘minwlb’ strip_assume_tac)) >>
+  gvs[Abbr‘rwlbs’, PULL_FORALL] >>
+  rename [‘R⁺ (s,minwl) (s,wl)’] >>
+  ‘∃cwl. R (s,cwl) (s,minwl)’ by metis_tac[TC_RTC] >>
+  ‘R⁺ (s,cwl) (s,wl)’ by metis_tac[TC_LEFT1_I] >>
+  first_x_assum (pop_assum o mp_then Concl mp_tac) >>
+  pop_assum mp_tac >>
+  first_x_assum (assume_tac o GSYM o
+                 assert (is_eq o #2 o strip_forall o concl) o
+                 assert (is_forall o concl)) >>
+  simp[kcuR_def, TC_SUBSET]
 QED
 
 Theorem decode_infer_t_pmatch:
