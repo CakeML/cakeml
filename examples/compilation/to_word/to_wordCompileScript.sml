@@ -55,21 +55,22 @@ fun comp_to_ssa do_ssa fun_name prog_def =
 (* foldr example *)
 
 val decs = process_topdecs ‘
-  fun foldr f e xs =
-    case xs of
-      [] => e
-    | (y::ys) => f y (foldr f e ys);
-  val _ = foldr (fn x => x);’
+  datatype foo = A int | B int int int;
+  fun bar m x =
+    case x of
+      A n => (n,(n,n))
+    | B a b c => (a,(b,c));
+  val _ = bar 0;’
 
 Definition foldr_prog_def:
   foldr_prog = ^decs
 End
 
 Theorem foldr_example =
-  comp_to_ssa false "foldr" foldr_prog_def;
+  comp_to_ssa false "bar" foldr_prog_def;
 
 Theorem foldr_example_ssa =
-  comp_to_ssa true "foldr" foldr_prog_def;
+  comp_to_ssa true "bar" foldr_prog_def;
 
 val tm = foldr_example_ssa |> concl |> rand
 

@@ -481,6 +481,98 @@ Proof
   EVAL_TAC
 QED
 
+Triviality test_pattern_match_and_cons:
+  word_common_subexp_elim $
+    Seqs [Inst (Arith (Shift Lsr 301 297 9));
+          OpCurrHeap Add 305 301;
+          Inst (Mem Load 309 (Addr 305 8w));
+          Move 0 [(313,297)];
+          Inst (Arith (Shift Lsr 317 313 9));
+          OpCurrHeap Add 321 317;
+          Inst (Mem Load 325 (Addr 321 16w));
+          Move 0 [(329,313)];
+          Inst (Arith (Shift Lsr 333 329 9));
+          OpCurrHeap Add 337 333;
+          Inst (Mem Load 341 (Addr 337 24w));
+          Get 345 NextFree;
+          Inst (Const 349 0x200000003w);
+          Move 0 [(353,345)];
+          Inst (Mem Store 349 (Addr 353 0w));
+          Move 0 [(357,353)];
+          Inst (Mem Store 325 (Addr 357 8w));
+          Move 0 [(361,357)];
+          Inst (Mem Store 341 (Addr 361 16w));
+          Move 0 [(365,361)];
+          OpCurrHeap Sub 369 365;
+          Inst (Arith (Shift Lsl 373 369 9));
+          Inst (Arith (Binop Or 377 373 (Imm 5w)));
+          Move 0 [(381,365)];
+          Inst (Arith (Binop Add 385 381 (Imm 24w)));
+          Set NextFree (Var 385);
+          Get 389 NextFree;
+          Inst (Const 393 0x200000003w);
+          Move 0 [(397,389)];
+          Inst (Mem Store 393 (Addr 397 0w));
+          Move 0 [(401,397)];
+          Inst (Mem Store 309 (Addr 401 8w));
+          Move 0 [(405,401)];
+          Inst (Mem Store 377 (Addr 405 16w));
+          Move 0 [(409,405)];
+          OpCurrHeap Sub 413 409;
+          Inst (Arith (Shift Lsl 417 413 9));
+          Inst (Arith (Binop Or 421 417 (Imm 5w)));
+          Move 0 [(425,409)];
+          Inst (Arith (Binop Add 429 425 (Imm 24w)));
+          Set NextFree (Var 429);
+          Move 0 [(2,421)]; Return 273 2]
+  =
+    Seqs [Inst (Arith (Shift Lsr 301 297 9));
+          OpCurrHeap Add 305 301;
+          Inst (Mem Load 309 (Addr 305 8w));
+          Move 0 [(313,297)];
+          Move 0 [(317,301)];
+          Move 0 [(321,305)];
+          Inst (Mem Load 325 (Addr 321 16w));
+          Move 0 [(329,313)];
+          Move 0 [(333,317)];
+          Move 0 [(337,321)];
+          Inst (Mem Load 341 (Addr 337 24w));
+          Get 345 NextFree;
+          Inst (Const 349 0x200000003w);
+          Move 0 [(353,345)];
+          Inst (Mem Store 349 (Addr 353 0w));
+          Move 0 [(357,353)];
+          Inst (Mem Store 325 (Addr 357 8w));
+          Move 0 [(361,357)];
+          Inst (Mem Store 341 (Addr 361 16w));
+          Move 0 [(365,361)];
+          OpCurrHeap Sub 369 365;
+          Inst (Arith (Shift Lsl 373 369 9));
+          Inst (Arith (Binop Or 377 373 (Imm 5w)));
+          Move 0 [(381,365)];
+          Inst (Arith (Binop Add 385 381 (Imm 24w)));
+          Set NextFree (Var 385);
+          Move 3 [(389,385)];
+          Move 0 [(393,349)];
+          Move 0 [(397,389)];
+          Inst (Mem Store 393 (Addr 397 0w));
+          Move 0 [(401,397)];
+          Inst (Mem Store 309 (Addr 401 8w));
+          Move 0 [(405,401)];
+          Inst (Mem Store 377 (Addr 405 16w));
+          Move 0 [(409,405)];
+          OpCurrHeap Sub 413 409;
+          Inst (Arith (Shift Lsl 417 413 9));
+          Inst (Arith (Binop Or 421 417 (Imm 5w)));
+          Move 0 [(425,409)];
+          Inst (Arith (Binop Add 429 425 (Imm 24w)));
+          Set NextFree (Var 429);
+          Move 0 [(2,421)];
+          Return 273 2]
+Proof
+  EVAL_TAC
+QED
+
 val _ = Theory.delete_const "Seqs";
 
 val _ = export_theory ();
