@@ -1142,6 +1142,116 @@ Definition kcuR_def:
          (PFLAT wl0, LENGTH wl0)
 End
 
+Theorem WF_kcuR:
+  WF kcuR
+Proof
+  simp[WF_DEF] >> qx_gen_tac ‘A’ >>
+  disch_then $ qx_choose_then ‘a’ assume_tac >> CCONTR_TAC >>
+  gs[DECIDE “¬p ∨ q ⇔ p ⇒ q”] >>
+  ‘∃s0 wl0. a = (s0,wl0)’ by (Cases_on ‘a’ >> simp[]) >>
+  gvs[FORALL_PROD, EXISTS_PROD] >>
+  reverse $ Cases_on ‘cwfs s0’
+  >- (first_x_assum drule >> simp[kcuR_def]) >>
+  qabbrev_tac ‘R = λ(a,b) (x,y). kcuR (a,b) (x,y) ∧ A (a,b)’ >>
+  ‘∀a b x y. kcuR (a,b) (x,y) ∧ A (a,b) ⇔ R (a,b) (x,y)’ by simp[Abbr‘R’] >>
+  qpat_x_assum ‘Abbrev(R = _)’ kall_tac >> gvs[] >>
+  ‘∀s0 wl0 s wl. R⁺ (s,wl) (s0,wl0) ⇒
+                 cwfs s0 ∧ cwfs s ∧ sp2fm s0 ⊑ sp2fm s ∧
+                 (A(s0,wl0) ⇒ A(s,wl)) ∧
+                 substvars (encode_infer_t o_f sp2fm s) ∪ cplist_vars wl ⊆
+                 substvars (encode_infer_t o_f sp2fm s0) ∪ cplist_vars wl0’
+    by (Induct_on ‘TC R’ >> simp[FORALL_PROD] >>
+        pop_assum (assume_tac o GSYM) >> simp[kcuR_def] >> rw[] >~
+        [‘sp2fm a ⊑ sp2fm b’] >- metis_tac[SUBMAP_TRANS] >>
+        ASM_SET_TAC[]) >>
+  ‘∃s wl. cwfs s ∧ sp2fm s0 ⊑ sp2fm s ∧ A(s,wl) ∧
+          substvars (encode_infer_t o_f sp2fm s) ∪ cplist_vars wl ⊆
+          substvars (encode_infer_t o_f sp2fm s0) ∪ cplist_vars wl0 ∧
+          ∀s' wl'. R⁺ (s',wl') (s,wl) ⇒ s' = s’
+    by (qpat_x_assum ‘A _’ mp_tac >>
+        completeInduct_on
+        ‘CARD (substvars (encode_infer_t o_f sp2fm s0) ∪ cplist_vars wl0) -
+         CARD (FDOM (sp2fm s0))’ >>
+        gvs[GSYM RIGHT_FORALL_IMP_THM, AND_IMP_INTRO, GSYM CONJ_ASSOC] >>
+        rw[] >> gvs[] >>
+        reverse $ Cases_on ‘∃s' wl'. R⁺ (s',wl') (s0,wl0) ∧ s' ≠ s0’ >> gvs[]
+        >- (qexistsl [‘s0’, ‘wl0’] >> rw[] >> metis_tac[]) >>
+        first_x_assum $ qspecl_then [‘s'’, ‘wl'’] mp_tac >> simp[] >> impl_tac
+        >- (first_x_assum $ drule_then strip_assume_tac >>
+            ‘CARD (domain s0) ≤
+               CARD (substvars (encode_infer_t o_f sp2fm s0) ∪ cplist_vars wl0)’
+              by (irule CARD_SUBSET >> simp[substvars_def] >> SET_TAC[]) >>
+            ‘domain s0 ⊂ domain s'’
+              by (simp[PSUBSET_DEF] >>
+                  qpat_x_assum ‘_ ⊑ _’ mp_tac >>
+                  simp[SUBMAP_FLOOKUP_EQN] >> strip_tac >>
+                  ‘domain s0 ⊆ domain s'’
+                    by (simp[SUBSET_DEF] >> metis_tac[domain_lookup]) >>
+                  simp[] >> strip_tac >> qpat_x_assum ‘s' ≠ s0’ mp_tac >>
+                  gvs[spt_eq_thm, cwfs_def] >> pop_assum mp_tac >>
+                  simp[EXTENSION, domain_lookup] >>
+                  metis_tac[SOME_11, option_CASES]) >>
+            simp[DECIDE “x ≤ y ⇒ (0n < y - x ⇔ x < y)”,
+                 DECIDE “a ≤ x ⇒ (y < b + x - a ⇔ a + y < b + x:num)”] >>
+            conj_tac
+            >- (irule (DECIDE “x :num < y ∧ a ≤ b ⇒ x + a < y + b”) >>
+                conj_tac >- (irule CARD_PSUBSET >> simp[]) >>
+                irule CARD_SUBSET >> simp[]) >>
+            irule CARD_PSUBSET >> simp[] >>
+            irule PSUBSET_SUBSET_TRANS >> first_x_assum $ irule_at Any >>
+            gvs[substvars_def]) >>
+        strip_tac >> first_x_assum $ drule_then strip_assume_tac >>
+        gvs[] >> qexistsl [‘s’, ‘wl’] >> simp[] >> rw[] >~
+        [‘_ ⊑ _’] >- metis_tac[SUBMAP_TRANS] >>
+        ((qmatch_abbrev_tac ‘_ ⊆ _’ >> ASM_SET_TAC[]) ORELSE metis_tac[])) >>
+  qabbrev_tac
+    ‘M = measure
+           (λi. pair_count (encode_infer_t o_f sp2fm s ◁ encode_infer_t i))’ >>
+  ‘mlt M LEX prim_rec$< = TC (mlt1 M LEX prim_rec$<)’
+    by (simp[Once FUN_EQ_THM, LEX_DEF, FORALL_PROD] >>
+        simp[Once FUN_EQ_THM, FORALL_PROD] >>
+        rw[EQ_IMP_THM]
+        >- (pop_assum mp_tac >>
+            rename [‘_ (a,b)(c,d)’] >>
+            map_every qid_spec_tac [‘a’, ‘b’, ‘c’, ‘d’] >>
+            Induct_on ‘TC’ >> simp[] >> rw[]
+            >- (irule TC_SUBSET >> simp[]) >>
+            metis_tac[TC_RULES])
+        >- (irule TC_SUBSET >> simp[]) >>
+        pop_assum mp_tac >>
+        rename [‘_ (a,b)(c,d)’] >>
+        map_every qid_spec_tac [‘a’, ‘b’, ‘c’, ‘d’] >>
+        Induct_on ‘TC’ >> simp[] >> rw[] >> gvs[TC_SUBSET] >>
+        rename [‘TC _ (a,b) X’, ‘TC _ X (c,d)’] >>
+        Cases_on ‘X’ >> gvs[] >> metis_tac[TC_RULES]) >>
+  ‘∀s' wl'.
+     R⁺ (s',wl') (s,wl) ⇒
+     (mlt1 M LEX $<)⁺ (PFLAT wl',LENGTH wl') (PFLAT wl, LENGTH wl)’
+    by (Induct_on ‘R⁺’ using TC_STRONG_INDUCT_LEFT1 >>
+        simp[GSYM RIGHT_FORALL_IMP_THM, FORALL_PROD] >> rw[]
+        >- (rename [‘TC R’, ‘R (s',wl') (s,wl)’] >>
+            ‘R⁺ (s',wl') (s,wl)’ by simp[TC_SUBSET] >>
+            ‘s' = s’ by metis_tac[] >> pop_assum SUBST_ALL_TAC >>
+            irule TC_SUBSET >>
+            qpat_x_assum ‘R _ _’ mp_tac >>
+            (* flip R's "definition" *)
+            first_x_assum (assume_tac o GSYM o
+                           assert (is_eq o #2 o strip_forall o concl) o
+                           assert (is_forall o concl)
+                          ) >>
+            simp[kcuR_def]) >>
+        irule TC_LEFT1_I >> first_assum $ irule_at Any >>
+        rename [‘TC R (s1,wl1) (s,wl)’, ‘R (s2,wl2) (s1,wl1)’]>>
+        ‘s1 = s ∧ s2 = s’ by metis_tac[TC_RULES] >>
+        ntac 2 $ pop_assum SUBST_ALL_TAC >>
+        qpat_x_assum ‘R _ _’ mp_tac >>
+        first_x_assum (assume_tac o GSYM o
+                       assert (is_eq o #2 o strip_forall o concl) o
+                       assert (is_forall o concl)) >>
+        simp[kcuR_def]) >>
+  cheat
+QED
+
 Theorem decode_infer_t_pmatch:
     (!t. decode_infer_t t =
     case t of
