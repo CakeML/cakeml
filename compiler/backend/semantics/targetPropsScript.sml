@@ -354,11 +354,7 @@ Proof
     first_x_assum(qspec_then`k1`mp_tac) >> simp[] ) >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   IF_CASES_TAC >> fs[] \\
-  TOP_CASE_TAC \\
-  Cases_on `(mc_conf.mmio_info x)` \\
-  PairCases_on `r'` \\
-  IF_CASES_TAC >> fs[ELIM_UNCURRY] \\
-  rpt (TOP_CASE_TAC >> gvs[])
+  rpt (TOP_CASE_TAC \\ fs[])
 QED
 
 Theorem evaluate_io_events_mono:
@@ -384,45 +380,11 @@ Proof
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[ELIM_UNCURRY]
   >- (unabbrev_all_tac >> fs[]) >>
-  TOP_CASE_TAC >> fs[] >>
-  IF_CASES_TAC >> fs[] >- (
-  TOP_CASE_TAC \\
-  TOP_CASE_TAC >> fs[] \\
-  namedCases_on `(mc_conf.mmio_info x)` ["r0 r1 r2 r3"]\\
-  gvs[call_FFI_def] \\
-  TOP_CASE_TAC >> fs[] \\
-  qpat_x_assum `(case _ of Oracle_return _ _ => _ | Oracle_final _ => _) =
-  FFI_return _ _` mp_tac \\
-  TOP_CASE_TAC \\
-  IF_CASES_TAC >> fs[IS_PREFIX_APPEND] \\
-  rw[] \\
-  qexists `[IO_event (SharedMem MappedRead) [r0]
-                     (ZIP (word_to_bytes (c + mc_conf.target.get_reg ms n) F,l))] ++ l''` \\
-  rw[]
-  ) \\
-  IF_CASES_TAC \\
-  namedCases_on `mc_conf.mmio_info x` ["r0 r1 r2 r3"] \\
-  fs[call_FFI_def] \\
-  TRY (IF_CASES_TAC >> fs[]) \\
-  TOP_CASE_TAC >> fs[] \\
-  TOP_CASE_TAC >> gvs[] >>
-  FULL_CASE_TAC >> gvs[] >>
-  rpt (
-    TOP_CASE_TAC >> fs[] \\
-    qpat_x_assum `(case _ of Oracle_return _ _ => _ | Oracle_final _ => _) =
-      FFI_return _ _` mp_tac \\
-      TOP_CASE_TAC \\
-      IF_CASES_TAC >> fs[IS_PREFIX_APPEND] \\
-      rw[] \\
-      qexists `[IO_event (SharedMem MappedWrite) [r0]
-        (ZIP
-           ((if r0 = 0w then word_to_bytes (mc_conf.target.get_reg ms r2) F
-             else word_to_bytes_aux (w2n r0) (mc_conf.target.get_reg ms r2) F) ++
-            word_to_bytes (c + mc_conf.target.get_reg ms n) F,l))] ++ l''` \\
-      rw[]
-  ) \\
-  rpt (CASE_TAC >> fs[])>>
-  TRY (IF_CASES_TAC>>fs[])>>fs[IS_PREFIX_APPEND]
+  rpt (TOP_CASE_TAC >> fs[]) >>
+  gvs[call_FFI_def,bool_case_eq] \\
+  rpt (FULL_CASE_TAC >> gvs[]) >>
+  irule IS_PREFIX_TRANS>>
+  first_assum $ irule_at Any>>fs[IS_PREFIX_APPEND]
 QED
 
 Theorem evaluate_add_clock_io_events_mono:
