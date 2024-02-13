@@ -199,7 +199,7 @@ Proof
   \\ gs [SF SFY_ss]
 QED
 
-Theorem v_rel_update:
+Theorem v_rel_update_lemma:
   (∀fr ft fe v w.
     v_rel fr ft fe v w ⇒
       ∀fr1 ft1 fe1.
@@ -237,9 +237,9 @@ Proof
   \\ gs [SF SFY_ss]
 QED
 
-Theorem env_rel_update = CONJUNCT2 v_rel_update;
+Theorem env_rel_update = CONJUNCT2 v_rel_update_lemma;
 
-Theorem v_rel_update = CONJUNCT1 v_rel_update;
+Theorem v_rel_update = CONJUNCT1 v_rel_update_lemma;
 
 Theorem ctor_rel_nsAppend:
   ctor_rel ft fe x1.c x2.c ∧
@@ -341,7 +341,7 @@ Theorem pmatch_update:
           match_res_rel (λenv env'.
             LIST_REL (λ(n,v) (m,w). n = m ∧ v_rel fr ft fe v w)
                      env env') res res')
-Proof
+Proof[exclude_simps = option.OPTREL_NONE]
   ho_match_mp_tac pmatch_ind \\ rw [] \\ gvs [pmatch_def, v_rel_def, SF SFY_ss]
   >- (rw [] \\ gs [])
   >- (

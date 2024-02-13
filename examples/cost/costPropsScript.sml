@@ -109,23 +109,6 @@ Proof
   \\ asm_exists_tac \\ fs []
 QED
 
-Theorem size_of_refs_subspt:
-  ∀lims vs refs seen n1 seen1 refs1.
-  (size_of lims vs refs seen = (n1,refs1,seen1))
-  ⇒ subspt refs1 refs
-Proof
-  ho_match_mp_tac size_of_ind \\ rw [size_of_def]
-  \\ rpt (pairarg_tac \\ fs []) \\ rveq
-  >- (ho_match_mp_tac (GEN_ALL subspt_trans)
-     \\ asm_exists_tac \\ fs [])
-  \\ every_case_tac \\ fs []
-  \\ rveq \\ fs []
-  \\ rpt (pairarg_tac \\ fs []) \\ rveq
-  \\ fs [subspt_delete]
-  \\ ho_match_mp_tac (GEN_ALL subspt_trans)
-  \\ asm_exists_tac \\ fs [subspt_delete]
-QED
-
 Theorem size_of_le_head:
   ∀vs lims refs seen v n1 seen1 refs1 n2 refs2 seen2.
    (size_of lims (v::vs) refs seen = (n1,refs1,seen1)) ∧

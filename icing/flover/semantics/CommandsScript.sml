@@ -44,7 +44,7 @@ End
 (**
   Generate a better case lemma
 **)
-Theorem bstep_cases =
+Theorem bstep_cases[allow_rebind] =
   map (GEN_ALL o SIMP_CONV (srw_ss()) [Once bstep_cases])
     [``bstep (Let m x e s) E defVars vR m'``,
      ``bstep (Ret e) E defVars vR m``] |> LIST_CONJ

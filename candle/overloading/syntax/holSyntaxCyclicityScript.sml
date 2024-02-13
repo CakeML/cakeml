@@ -3376,7 +3376,7 @@ Proof
   >> fs[sol_seq_measure_def]
 QED
 
-Theorem mg_sol_seq_var_renaming:
+Theorem mg_sol_seq_var_renaming[allow_rebind]:
   !rs pqs s. mg_sol_seq rs pqs /\ var_renaming s
   ==> mg_sol_seq (MAP (λx. MAP (TYPE_SUBST s ## I) x ++ s) rs) pqs
 Proof

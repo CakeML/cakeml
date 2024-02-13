@@ -35,13 +35,13 @@ Definition step_to_halt_cml_def:
     | SOME n => SOME $ step_n_cml n e
 End
 
-Definition step_n_cml_def:
+Definition step_n_cml_def[allow_rebind]:
   step_n_cml env 0 d = d ∧
   step_n_cml env (SUC n) (Dstep st) = step_n_cml env n (decl_step env st) ∧
   step_n_cml env _ d = d
 End
 
-Definition is_halt_cml_def:
+Definition is_halt_cml_def[allow_rebind]:
   is_halt_cml (Dstep step) = F ∧
   is_halt_cml (Dabort err) = T ∧
   is_halt_cml Ddone = T ∧
@@ -136,12 +136,12 @@ End
 (***** Misc definitions *****)
 
 Definition is_Effi_def:
-  is_Effi (Effi _ _ _ _ _ _ _) = T ∧
+  is_Effi (Effi (ExtCall _) _ _ _ _ _ _) = T ∧
   is_Effi _ = F
 End
 
 Definition is_Dffi_def:
-  is_Dffi (Dffi _ _ _ _ _) = T ∧
+  is_Dffi (Dffi _ (ExtCall _,_) _ _ _) = T ∧
   is_Dffi _ = F
 End
 
@@ -202,16 +202,18 @@ Proof
   Cases >> rw[step_n_def, step_n_cml_def]
 QED
 
-Theorem is_Effi_def:
-  is_Effi e ⇔ ∃ s ws1 ws2 n env st cs. e = Effi s ws1 ws2 n env st cs
+Theorem is_Effi_def[allow_rebind]:
+  is_Effi e ⇔ ∃ s ws1 ws2 n env st cs. e = Effi (ExtCall s) ws1 ws2 n env st cs
 Proof
-  Cases_on `e` >> simp[is_Effi_def]
+  Cases_on `e` >> simp[is_Effi_def] >> rename [‘Effi f’] >>
+  Cases_on ‘f’ >> simp[is_Effi_def]
 QED
 
-Theorem is_Dffi_def:
-  is_Dffi d ⇔ ∃st ev l p dcs. d = Dffi st ev l p dcs
+Theorem is_Dffi_def[allow_rebind]:
+  is_Dffi d ⇔ ∃st s ev0 l p dcs. d = Dffi st (ExtCall s, ev0) l p dcs
 Proof
-  Cases_on `d` >> simp[is_Dffi_def]
+  Cases_on `d` >> simp[is_Dffi_def] >> rename [‘Dffi d tup’] >>
+  PairCases_on ‘tup’ >> Cases_on ‘tup0’ >> simp[is_Dffi_def]
 QED
 
 Theorem step_result_rel_not_Effi:
@@ -534,7 +536,9 @@ Theorem application_thm:
             case store_lookup lnum s of
               SOME (W8array ws) =>
                 if n = "" then Estep (env, s, fp, Val $ Conv NONE [], c)
-                else Effi n (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws lnum env s c
+                else Effi (ExtCall n)
+                          (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+                          ws lnum env s c
             | _ => Etype_error (fix_fp_state c fp))
         | _ => Etype_error (fix_fp_state c fp))
       | _ => ARB)
@@ -591,13 +595,14 @@ Theorem application_FFI_results:
   (application (FFI s) env st fp vs cs = Etype_error (fix_fp_state cs fp)) ∨
   (application (FFI s) env st fp vs cs = Estep (env, st, fp, Val $ Conv NONE [], cs)) ∨
   ∃conf ws lnum.
-    (application (FFI s) env st fp vs cs) = Effi s conf ws lnum env st cs
+    application (FFI s) env st fp vs cs =
+    Effi (ExtCall s) conf ws lnum env st cs
 Proof
   rw[application_thm] >> every_case_tac >> gvs[]
 QED
 
 Theorem application_eq_Effi_fields:
-  application op env st fp vs cs = Effi s conf ws lnum env' st' cs' ⇒
+  application op env st fp vs cs = Effi (ExtCall s) conf ws lnum env' st' cs' ⇒
   op = FFI s ∧ env = env' ∧ st = st' ∧ cs' = cs ∧
   ∃conf'.
     vs = [Litv $ StrLit conf'; Loc lnum] ∧

@@ -8,7 +8,7 @@ val _ = new_theory"ag32_config";
 val ag32_names_def = Define `
   ag32_names = LN:num num_map`
 
-val ag32_names_def = save_thm("ag32_names_def[compute]",
+val ag32_names_def = save_thm("ag32_names_def[compute,allow_rebind]",
   CONV_RULE (RAND_CONV EVAL) ag32_names_def);
 
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)

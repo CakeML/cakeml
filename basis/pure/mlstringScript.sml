@@ -1016,32 +1016,39 @@ val collate_def = Define`
   else collate_aux f s1 s2 EQUAL 0 (strlen s2)`;
 
 
-val collate_aux_less_thm = Q.prove (
-  `!f s1 s2 n len. (n + len = strlen s1) /\ (strlen s1 < strlen s2) ==>
-    (collate_aux f s1 s2 Less n len = mllist$collate f (DROP n (explode s1)) (DROP n (explode s2)))`,
-      Cases_on `s1` \\ Cases_on `s2` \\ Induct_on `len` \\
-      rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm, strsub_def, DROP_EL_CONS]
-      >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def]
-);
+Theorem collate_aux_less_thm[local]:
+  !f s1 s2 n len.
+    n + len = strlen s1 /\ strlen s1 < strlen s2 ==>
+    collate_aux f s1 s2 Less n len =
+    mllist$collate f (DROP n (explode s1)) (DROP n (explode s2))
+Proof
+  Cases_on `s1` \\ Cases_on `s2` \\ Induct_on `len` \\
+  rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm,
+      strsub_def, DROP_EL_CONS]
+QED
 
-val collate_aux_equal_thm = Q.prove (
-  `!f s1 s2 n len. (n + len = strlen s2) /\ (strlen s1 = strlen s2) ==>
-    (collate_aux f s1 s2 Equal n len =
-      mllist$collate f (DROP n (explode s1)) (DROP n (explode s2)))`,
+Theorem collate_aux_equal_thm[local]:
+  !f s1 s2 n len.
+    n + len = strlen s2 /\ strlen s1 = strlen s2 ==>
+    collate_aux f s1 s2 Equal n len =
+    mllist$collate f (DROP n (explode s1)) (DROP n (explode s2))
+Proof
   Cases_on `s1` \\ Cases_on `s2` \\ Induct_on `len` \\
   rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm, strsub_def]
   >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def] \\
   fs [DROP_EL_CONS, mllistTheory.collate_def]
-);
+QED
 
-val collate_aux_greater_thm = Q.prove (
-  `!f s1 s2 n len. (n + len = strlen s2) /\ (strlen s2 < strlen s1) ==>
-    (collate_aux f s1 s2 Greater n len =
-      mllist$collate f (DROP n (explode s1)) (DROP n (explode s2)))`,
+Theorem collate_aux_greater_thm[local]:
+  !f s1 s2 n len.
+    n + len = strlen s2 /\ strlen s2 < strlen s1 ==>
+    collate_aux f s1 s2 Greater n len =
+    mllist$collate f (DROP n (explode s1)) (DROP n (explode s2))
+Proof
   Cases_on `s1` \\ Cases_on `s2` \\ Induct_on `len` \\
-  rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm, strsub_def, DROP_EL_CONS]
-  >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def]
-);
+  rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm,
+      strsub_def, DROP_EL_CONS]
+QED
 
 Theorem collate_thm:
    !f s1 s2. collate f s1 s2 = mllist$collate f (explode s1) (explode s2)

@@ -1324,7 +1324,7 @@ val do_app = time Q.prove (
       qpat_x_assum`EL _ _ = _`assume_tac \\ fs[] \\
       qhdtm_x_assum`sv_rel`mp_tac \\
       simp[Once sv_rel_cases] \\ rw[] \\
-      fs[IMPLODE_EXPLODE_I] \\
+      fs[IMPLODE_EXPLODE_I,combinTheory.o_DEF] \\
       CASE_TAC \\ fs[store_assign_def,store_v_same_type_def,EL_LUPDATE] \\
       fs [REWRITE_RULE [ADD1] EL, ADD1, REWRITE_RULE [ADD1] LUPDATE_def]
       \\ rfs[] \\ rw[EL_LUPDATE]
@@ -3957,7 +3957,7 @@ Triviality pmatch_rows_drop_4:
   Match ([(w, LAST vs); (b, EL 4 vs)],
     Pcon NONE [Pany; Pany; Pany; Pany; Pvar b; Pvar w], exp)
 Proof
-  simp [pmatch_rows_def, pmatch_def, pmatch_stamps_ok_def]
+  simp [pmatch_rows_def, pmatch_def, pmatch_stamps_ok_cases]
   \\ rpt (
     rename [`pmatch_list _ _ pm_vs _`]
     \\ Cases_on `pm_vs` \\ simp [pmatch_def, ADD1]

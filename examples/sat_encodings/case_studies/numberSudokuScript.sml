@@ -116,13 +116,6 @@ Definition numberSudoku_to_cnf_def:
       numBoolRange_to_cnf l e
 End
 
-Definition numberSudoku_to_cnf_def:
-  numberSudoku_to_cnf (sudoku:sudoku) =
-  let e = ns_sudoku_to_numBoolRange sudoku in
-    let l = get_sudoku_rangeList in
-      numBoolRange_to_cnf l e
-End
-
 Definition cellAssignment_to_assignment_def:
   cellAssignment_to_assignment (w:cellAssignment) (sudoku:sudoku) =
   encode_assignment_numBoolRange

@@ -277,7 +277,7 @@ Proof
       )
 QED
 
-Theorem small_eval_err_add_ctxt =
+Theorem small_eval_err_add_ctxt[allow_rebind] =
         SIMP_RULE (srw_ss ())
                   [METIS_PROVE [] ``!x y z. (x ⇒ y ⇒ z) = (x ∧ y ⇒ z)``]
                   small_eval_err_add_ctxt;
@@ -1735,8 +1735,9 @@ Theorem e_step_ffi_changed:
     cs = (Capp (FFI s) [Loc lnum] () [], env') :: ccs ∧
     store_lookup lnum st = SOME (W8array ws) ∧
     s ≠ "" ∧
-    ffi.oracle s ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
-      Oracle_return ffi_st ws' ∧
+    ffi.oracle
+       (ExtCall s) ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
+       Oracle_return ffi_st ws' ∧
     LENGTH ws = LENGTH ws' ∧
     ev' = Val (Conv NONE []) ∧
     cs' = ccs ∧
@@ -1745,7 +1746,8 @@ Theorem e_step_ffi_changed:
     ffi'.ffi_state = ffi_st ∧
     ffi'.io_events =
       ffi.io_events ++
-        [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))]
+        [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+                  (ZIP (ws,ws'))]
 Proof
   rpt gen_tac >> simp[e_step_def] >>
   every_case_tac >> gvs[return_def, push_def, continue_def]
@@ -1763,7 +1765,8 @@ Proof
     >- (drule_all application_ffi_unchanged >> gvs[]) >>
     gvs[application_def, do_app_def, call_FFI_def, astTheory.getOpClass_def] >>
     every_case_tac >> gvs[return_def, store_lookup_def, store_assign_def]
-  )
+  ) >>
+  fs[combinTheory.o_DEF, IMPLODE_EXPLODE_I]
 QED
 
 Theorem decl_step_ffi_changed:
@@ -1773,7 +1776,8 @@ Theorem decl_step_ffi_changed:
             ((Capp (FFI s) [Loc lnum] () [], env')::ccs) locs pat ∧
     store_lookup lnum st.refs = SOME (W8array ws) ∧
     s ≠ "" ∧
-    st.ffi.oracle s st.ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
+    st.ffi.oracle (ExtCall s) st.ffi.ffi_state
+      (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
       Oracle_return ffi_st ws' ∧
     LENGTH ws = LENGTH ws' ∧
     dev' = ExpVal env' (Val (Conv NONE [])) ccs locs pat ∧
@@ -1782,26 +1786,27 @@ Theorem decl_step_ffi_changed:
             ffi := st.ffi with <|
               ffi_state := ffi_st;
               io_events := st.ffi.io_events ++
-                 [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))] |>
+                 [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+                           (ZIP (ws,ws'))] |>
             |> ∧
     dcs = dcs'
 Proof
   simp[decl_step_def] >>
   Cases_on `∃d. dev = Decl d` >> gvs[]
   >- (every_case_tac >> gvs[state_component_equality]) >>
-  Cases_on `∃e. dev = Env e` >> gvs[]
+  Cases_on ‘∃e. dev = Env e’ >> gvs[]
   >- (simp[decl_continue_def] >> every_case_tac >> gvs[state_component_equality]) >>
   TOP_CASE_TAC >> gvs[] >>
   qmatch_goalsub_abbrev_tac `e_step_result_CASE stepe` >>
   qpat_abbrev_tac `foo = e_step_result_CASE _ _ _ _` >> strip_tac >>
-  qspecl_then [`s`,`st.refs`,`st.ffi`,‘st.fp_state’,`e`,`l`,`st'.ffi`] assume_tac e_step_ffi_changed >>
+  qspecl_then [‘s’,‘st.refs’,‘st.ffi’,‘st.fp_state’,‘e’,‘l’,‘st'.ffi’] assume_tac e_step_ffi_changed >>
   gvs[Abbr `stepe`] >> last_x_assum assume_tac >> last_x_assum mp_tac >>
   TOP_CASE_TAC >> gvs[]
   >- (unabbrev_all_tac >> gvs[] >> every_case_tac >> gvs[state_component_equality]) >>
   every_case_tac >> gvs[Abbr `foo`, state_component_equality] >> rw[] >> gvs[] >>
   gvs[e_step_def, continue_def, application_thm, do_app_def, call_FFI_def,
       return_def, store_assign_def, store_lookup_def, store_v_same_type_def,
-      astTheory.getOpClass_def]
+      astTheory.getOpClass_def, IMPLODE_EXPLODE_I, combinTheory.o_DEF]
 QED
 
 Theorem io_events_mono_e_step:

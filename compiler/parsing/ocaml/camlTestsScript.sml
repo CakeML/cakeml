@@ -1429,5 +1429,108 @@ val _ = parsetest0 “nStart” “ptree_Start”
           Dletrec L4 [("ref","x", App Opref [V "x"])]]”)
   ;
 
+(* 2023-08-16: add support for type annotations on lets bound to a value-name
+ * without parenthesis:
+ *
+ *   let name : type = ...
+ *
+ * where previously:
+ *
+ *   let (name : type) = ...
+ *
+ * was required. (There, "(name : type)" is parsed as a pattern).
+ *)
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "let x : int = 2 ;;"
+  (SOME “[Dlet L (Pv "x") (Tannot (Lit (IntLit 2)) (Atapp [] (Short "int")))]”)
+  ;
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "let _ = let x : int = 2 in x;;"
+  (SOME “[Dlet L Pany
+          (Let (SOME "x") (Tannot (Lit (IntLit 2)) (Atapp [] (Short "int")))
+               (Var (Short "x")))]”)
+  ;
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "let (x : int) = 2 ;;"
+  (SOME “[Dlet L (Ptannot (Pv "x") (Atapp [] (Short "int"))) (Lit (IntLit 2))]”)
+  ;
+
+(* 2023-08-17: add support for OCaml's string and array index shorthands:
+ *   string-expr .[ int-expr ]
+ *   array-expr .( int-expr )
+ *)
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "!s.[c]"
+  (SOME “App Opapp [App Opapp [Var (Long "String" (Short "sub"));
+                               App Opapp [V "!"; V "s"]];
+                    V "c"]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "-  a.( i) + 3"
+  (SOME “vbinop (Short "+")
+                (App Opapp [Var (Long "Int" (Short "~"));
+                            App Opapp [
+                                App Opapp [Var (Long "Array" (Short "sub"));
+                                           V "a"];
+                                V "i"]])
+                (Lit (IntLit 3))”)
+  ;
+
+(* 2023-08-17: attempt to deal with let recs/ands without explicit arguments:
+ *   let rec f = function | ...
+ * is a pattern occurring in the HOL Light code, for example.
+ *)
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "let rec f : t = e ;;"
+  (SOME “[Dletrec L [("f","", App Opapp [Tannot (V "e") (Atapp [] (Short "t"));
+                                         V ""])]]”)
+  ;
+
+(* This is a bit strange: OCaml (apparently) supports mixing recursive functions
+ * with values, and its parser would generate code that binds g to 3 (as if we
+ * would've used a let) but unfortunately our hack must create functions always:
+ *)
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "let rec f = e\
+  \ and g = 3;;"
+  (SOME “[Dletrec L [("f","", App Opapp [V "e"; V ""]);
+                     ("g", "", App Opapp [Lit (IntLit 3); V ""])]]”)
+  ;
+
+(* 2023-08-17: attach - signs to number literals in patterns.
+ *)
+
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "-1"
+  (SOME “[Plit (IntLit (-1))]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "-1"
+  (SOME “App Opapp [Var (Long "Int" (Short "~")); Lit (IntLit 1)]”)
+  ;
+
+(* 2023-08-25: Parse .( as two tokens and make sure structure projection of
+   parenthesized things works and isn't parsed as array indexing.
+ *)
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "a . ( i)"
+  (SOME “App Opapp [App Opapp [Var (Long "Array" (Short "sub")); V "a"];
+                               V "i"]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Double.(-)"
+  (SOME “Var (Long "Double" (Short "-"))”)
+  ;
+
 val _ = export_theory ();
 

@@ -86,7 +86,7 @@ val check_unsat_1_sem_def = Define`
         let base = REPLICATE (2*LENGTH fmlls) NONE in
         let mv = max_lit_fml fml in
         let bnd = 2*mv+3 in
-        let upd = FOLDL (λacc (i,v). resize_update_list acc NONE (SOME v) i) base fmlls in
+        let upd = FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) base fmlls in
         let earliest = FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) fmlls in
           if check_lpr_unsat_list lpr upd (REVERSE (MAP FST fmlls)) (REPLICATE bnd w8z) earliest then
             add_stdout fs (strlit "s VERIFIED UNSAT\n")
@@ -175,7 +175,7 @@ Proof
       rw[bounded_fml_def,EVERY_EL]>>
       `ALL_DISTINCT (MAP FST (enumerate 1 (enc())))` by
         metis_tac[ALL_DISTINCT_MAP_FST_enumerate]>>
-      drule FOLDL_resize_update_list_lookup>>
+      drule FOLDL_update_resize_lookup>>
       disch_then drule>>
       strip_tac>>simp[]>>
       TOP_CASE_TAC>>fs[]>>

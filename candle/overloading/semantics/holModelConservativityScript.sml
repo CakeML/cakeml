@@ -1629,7 +1629,7 @@ Proof
   simp[] >>
   drule_then match_mp_tac RTC_RTC >>
   match_mp_tac RTC_SUBSET >>
-  simp[subtype1_def]
+  simp[subtype1_cases]
 QED
 
 (* the independent fragment of an update's dependencies

@@ -1670,25 +1670,6 @@ val gify = Q.prove(
  fs[LESS_EQ_EXISTS] >>
  metis_tac[ADD_SYM]);
 
-Theorem lprefix_lub_skip:
-  (!i. LPREFIX (f i) (f(i + 1))) /\
-  (!i. g i < g(i+1)) /\
-  lprefix_lub (IMAGE (\i. f (g i)) (UNIV:num set)) l
-  ==>
-  lprefix_lub (IMAGE (\i. f i) (UNIV:num set)) l
-Proof
- rw[lprefix_lubTheory.lprefix_lub_def]
- >- (drule gify >>
-     disch_then(qspec_then `i` strip_assume_tac) >>
-     drule lprefix_mono_lprefix >>
-     disch_then(qspecl_then [`i`,`k`] assume_tac) >>
-     match_mp_tac(GEN_ALL LPREFIX_TRANS) >> asm_exists_tac >> simp[] >>
-     metis_tac[]) >>
- last_x_assum match_mp_tac >>
- rpt strip_tac >>
- first_x_assum match_mp_tac >> metis_tac[]
-QED
-
 Theorem lprefix_lub_unskip:
   (!i. LPREFIX (f i) (f(i + 1))) /\
   (!i. g i < g(i+1)) /\
@@ -3493,34 +3474,9 @@ fun rename_conv s tm =
     val (v,body) = dest_abs tm
   in ALPHA_CONV (mk_var(s,type_of v)) tm end;
 
-val get_index_def = Define `
-  get_index st states i = if i = 0:num then (i,st) else
-                            (i, states (get_index st states (i-1)))`
-
-Theorem FFI_full_IN_st2heap_IMP:
-  FFI_full io ∈ st2heap p s ==> s.ffi.io_events = io
-Proof
-  strip_tac \\ fs [st2heap_def]
-  THEN1 fs [store2heap_def,FFI_full_NOT_IN_store2heap_aux]
-  \\ Cases_on `p` \\ fs [ffi2heap_def]
-  \\ Cases_on `parts_ok s.ffi (q,r)` \\ fs []
-QED
-
 val let_a = repeat_clos |> rator |> rand |> rand |> rand |> rand
 
-Theorem evaluate_ck_timeout_error_IMP:
-    evaluate_ck ck st env exps = (st1,Rerr (Rabort Rtimeout_error)) /\
-    ck0 <= ck ==>
-    ?st2. evaluate_ck ck0 st env exps = (st2,Rerr (Rabort Rtimeout_error))
-Proof
-  rw [] \\ CCONTR_TAC \\ fs []
-  \\ fs [evaluate_ck_def]
-  \\ Cases_on `evaluate (st with clock := ck0) env exps` \\ fs []
-  \\ drule evaluatePropsTheory.evaluate_add_to_clock \\ fs []
-  \\ qexists_tac `ck-ck0` \\ fs []
-QED
-
-Theorem repeat_POSTd:
+Theorem repeat_POSTd0:
     !p env fv xv H Q.
       (?Hs events vs io.
          vs 0 = xv /\ H ==>> Hs 0 /\
@@ -3732,7 +3688,7 @@ Proof
   \\ match_mp_tac app_opapp_intro
   \\ fs [evaluate_def,build_rec_env_def]
   \\ fs [GSYM some_repeat_clos_def]
-  \\ match_mp_tac (GEN_ALL repeat_POSTd) \\ fs []
+  \\ match_mp_tac (GEN_ALL repeat_POSTd0) \\ fs []
   \\ qexists_tac `\i. Hs i * one (FFI_full (events i))`
   \\ qexists_tac `events`
   \\ qexists_tac `vs`

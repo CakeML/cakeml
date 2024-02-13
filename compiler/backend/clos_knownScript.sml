@@ -281,7 +281,7 @@ val _ = Datatype `
   | Impossible`                 (* value 'returned' by Raise *)
 val val_approx_size_def = definition "val_approx_size_def"
 
-Definition merge_def:
+Definition merge_def[nocompute]:
   (merge Impossible y = y) ∧
   (merge x Impossible = x) ∧
   (merge (Tuple tg1 xs) (Tuple tg2 ys) =
@@ -305,7 +305,8 @@ Termination
   rename1 `SUC (LENGTH _) = LENGTH ll` >> Cases_on `ll` >> fs[]
 End
 
-Theorem merge_def[simp,compute] = SIMP_RULE (bool_ss ++ ETA_ss) [] merge_def;
+Theorem merge_def[simp,compute,allow_rebind] =
+        SIMP_RULE (bool_ss ++ ETA_ss) [] merge_def;
 
 (* Avoid MAP2 *)
 Definition merge_tup_def:

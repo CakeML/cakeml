@@ -446,7 +446,7 @@ val line_ok_def = Define `
        enc_with_nop c.encode (Jump w1) bytes /\
        (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
   (line_ok c labs ffis pos (LabAsm (CallFFI index) w bytes l) <=>
-     let w1 = (0w:'a word) - n2w (pos + (3 + get_ffi_index ffis index) * ffi_offset) in
+     let w1 = (0w:'a word) - n2w (pos + (3 + get_ffi_index ffis (ExtCall index)) * ffi_offset) in
        enc_with_nop c.encode (Jump w1) bytes /\
        (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
   (line_ok c labs ffis pos (LabAsm (Call v24) w bytes l) <=>
@@ -626,12 +626,12 @@ val state_rel_def = Define `
     EVEN (LENGTH (prog_to_bytes code2)) ∧
     (* FFIs are located at the right positions *)
     (!name.
-        MEM name mc_conf.ffi_names ==>
-       ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset) IN mc_conf.prog_addresses) /\
-       ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset) = mc_conf.halt_pc) /\
-       ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset) = mc_conf.ccache_pc) /\
-       (find_index (p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset))
-                   mc_conf.ffi_entry_pcs 0 = SOME (get_ffi_index mc_conf.ffi_names name))) /\
+        MEM (ExtCall name) mc_conf.ffi_names ==>
+       ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names (ExtCall name)) * ffi_offset) IN mc_conf.prog_addresses) /\
+       ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names (ExtCall name)) * ffi_offset) = mc_conf.halt_pc) /\
+       ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names (ExtCall name)) * ffi_offset) = mc_conf.ccache_pc) /\
+       (find_index (p - n2w ((3 + get_ffi_index mc_conf.ffi_names (ExtCall name)) * ffi_offset))
+                   mc_conf.ffi_entry_pcs 0 = SOME (get_ffi_index mc_conf.ffi_names (ExtCall name)))) /\
     (* Halt/ClearCache are at the right positions *)
     (p - n2w ffi_offset = mc_conf.halt_pc) /\
     (p - n2w (2*ffi_offset) = mc_conf.ccache_pc) /\
@@ -1000,7 +1000,7 @@ val IMP_bytes_in_memory_CallFFI = Q.prove(
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (CallFFI name) l bytes n)) ==>
     ?tt enc.
-      (tt = 0w - n2w (pos_val s1.pc 0 code2 + (3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset)) /\
+      (tt = 0w - n2w (pos_val s1.pc 0 code2 + (3 + get_ffi_index mc_conf.ffi_names (ExtCall name)) * ffi_offset)) /\
       (enc = mc_conf.target.config.encode (Jump tt)) /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
@@ -1926,7 +1926,7 @@ val find_index_append = Q.prove(`
 
 val has_io_name_find_index = Q.prove(`
   !l s. has_io_name s l
-  ==> ?y. find_index s (find_ffi_names l) 0 = SOME y`,
+  ==> ?y. find_index (ExtCall s) (find_ffi_names l) 0 = SOME y`,
   ho_match_mp_tac find_ffi_names_ind
   >> rpt strip_tac
   >> fs[has_io_name_def,find_index_def, find_ffi_names_def,Q.INST [`n`|->`0`] list_add_if_fresh_simp,find_index_append]
@@ -1935,7 +1935,7 @@ val has_io_name_find_index = Q.prove(`
   >> every_case_tac
   >> fs[has_io_name_def,find_index_def, find_ffi_names_def,Q.INST [`n`|->`0`] list_add_if_fresh_simp,find_index_append]
   >- metis_tac [NOT_NONE_SOME]
-  >- (Cases_on `find_index s (find_ffi_names (Section k xs::rest)) 0`
+  >- (Cases_on `find_index (ExtCall s) (find_ffi_names (Section k xs::rest)) 0`
       >> metis_tac [NOT_NONE_SOME]))
 
 val find_index_in_range = Q.prove(`
@@ -2648,7 +2648,7 @@ val line_encd_def = Define`
     enc (Jump (-n2w (pos + 2 * ffi_offset))) = bytes ∧
     LENGTH bytes ≤ len) ∧
   (line_encd enc labs ffis pos (LabAsm (CallFFI s) _ bytes len) ⇔
-    enc (Jump (-n2w (pos + (get_ffi_index ffis s + 3) * ffi_offset))) = bytes ∧
+    enc (Jump (-n2w (pos + (get_ffi_index ffis (ExtCall s) + 3) * ffi_offset))) = bytes ∧
     LENGTH bytes ≤ len) ∧
   (line_encd enc labs ffis pos (LabAsm (Jump l) _ bytes len) ⇔
     enc (Jump (n2w (find_pos l labs) + -n2w pos)) = bytes ∧
@@ -3161,7 +3161,7 @@ val line_enc_with_nop_def = Define`
     enc_with_nop enc (Jump (-n2w (pos + 2 * ffi_offset))) bytes ∧
     LENGTH bytes = len) ∧
   (line_enc_with_nop enc labs ffis pos (LabAsm (CallFFI s) _ bytes len) ⇔
-    enc_with_nop enc (Jump (-n2w (pos + (get_ffi_index ffis s + 3) * ffi_offset))) bytes ∧
+    enc_with_nop enc (Jump (-n2w (pos + (get_ffi_index ffis (ExtCall s) + 3) * ffi_offset))) bytes ∧
     LENGTH bytes = len) ∧
   (line_enc_with_nop enc labs ffis pos (LabAsm (Jump l) _ bytes len) ⇔
     enc_with_nop enc (Jump (n2w (find_pos l labs) + -n2w pos)) bytes ∧
@@ -5794,7 +5794,7 @@ val compile_correct = Q.prove(
     \\ rpt strip_tac
     \\ Cases_on `loc_to_pc n1 n2 s1.code` \\ full_simp_tac(srw_ss())[]
     \\ qmatch_assum_rename_tac `loc_to_pc n1 n2 s1.code = SOME new_pc`
-    \\ `mc_conf.target.get_pc ms2 = p - n2w ((3 + get_ffi_index mc_conf.ffi_names s) * ffi_offset)` by
+    \\ `mc_conf.target.get_pc ms2 = p - n2w ((3 + get_ffi_index mc_conf.ffi_names (ExtCall s)) * ffi_offset)` by
      (full_simp_tac(srw_ss())[GSYM PULL_FORALL]
       \\ full_simp_tac(srw_ss())[state_rel_def] \\ rev_full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())
@@ -5806,7 +5806,7 @@ val compile_correct = Q.prove(
            GSYM word_add_n2w,WORD_ADD_SUB]) \\ full_simp_tac(srw_ss())[]
     \\ `has_io_name s s1.code` by
           (imp_res_tac IMP_has_io_name \\ NO_TAC)
-    \\ `MEM s mc_conf.ffi_names` by (
+    \\ `MEM (ExtCall s) mc_conf.ffi_names` by (
       imp_res_tac has_io_name_find_index>>
       imp_res_tac find_index_is_MEM>>
       fs[list_subset_def,state_rel_def,EVERY_MEM])
@@ -5814,7 +5814,7 @@ val compile_correct = Q.prove(
         ~(mc_conf.target.get_pc ms2 = mc_conf.halt_pc) /\
         ~(mc_conf.target.get_pc ms2 = mc_conf.ccache_pc) /\
         (find_index (mc_conf.target.get_pc ms2) mc_conf.ffi_entry_pcs 0 =
-           SOME (get_ffi_index mc_conf.ffi_names s))` by (
+           SOME (get_ffi_index mc_conf.ffi_names (ExtCall s)))` by (
        full_simp_tac(srw_ss())[state_rel_def]>>
        metis_tac[])
     \\ `(mc_conf.target.get_reg ms2 mc_conf.ptr_reg = t1.regs mc_conf.ptr_reg) /\
@@ -5851,7 +5851,7 @@ val compile_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[word_loc_val_def] \\ NO_TAC)
     \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac read_bytearray_state_rel \\ full_simp_tac(srw_ss())[]
-    \\ reverse(Cases_on `call_FFI s1.ffi s x x'`) THEN1
+    \\ reverse(Cases_on `call_FFI s1.ffi (ExtCall s) x x'`) THEN1
      (FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock`mp_tac) \\ rpt strip_tac
       \\ fs[] \\ rveq \\ fs[]
       \\ Q.EXISTS_TAC `l'` \\ full_simp_tac(srw_ss())[ADD_ASSOC]
@@ -5874,7 +5874,7 @@ val compile_correct = Q.prove(
       \\ PURE_TOP_CASE_TAC
         >- (fs[shift_interfer_def,read_ffi_bytearrays_def,read_ffi_bytearray_def] \\ rfs[])
       \\ simp[shift_interfer_def]
-      >> `EL (get_ffi_index mc_conf.ffi_names s) mc_conf.ffi_names = s` by (
+      >> `EL (get_ffi_index mc_conf.ffi_names (ExtCall s)) mc_conf.ffi_names = ExtCall s` by (
         match_mp_tac EL_get_ffi_index_MEM
         \\ imp_res_tac has_io_name_find_index
         \\ fs[list_subset_def,EVERY_MEM]
@@ -5883,15 +5883,15 @@ val compile_correct = Q.prove(
       >> rfs[] >> rveq >> fs[])
     \\ full_simp_tac(srw_ss())[]
     \\ qmatch_assum_rename_tac
-         `call_FFI s1.ffi s x x' = FFI_return new_ffi new_bytes`
+         `call_FFI s1.ffi (ExtCall s) x x' = FFI_return new_ffi new_bytes`
     \\ FIRST_X_ASSUM (Q.SPECL_THEN [
          `shift_interfer l' mc_conf with
           ffi_interfer := shift_seq 1 mc_conf.ffi_interfer`,
          `code2`,`labs`,
          `t1 with <| pc := p + n2w (pos_val new_pc 0 (code2:'a sec list)) ;
                      mem := asm_write_bytearray c2' new_bytes t1.mem ;
-                     regs := \a. get_reg_value (s1.io_regs 0 s a) (t1.regs a) I |>`,
-         `mc_conf.ffi_interfer 0 (get_ffi_index mc_conf.ffi_names s,new_bytes,ms2)`]mp_tac)
+                     regs := \a. get_reg_value (s1.io_regs 0 (ExtCall s) a) (t1.regs a) I |>`,
+         `mc_conf.ffi_interfer 0 (get_ffi_index mc_conf.ffi_names (ExtCall s),new_bytes,ms2)`]mp_tac)
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (rpt strip_tac
       THEN1 (full_simp_tac(srw_ss())[encoder_correct_def,shift_interfer_def]
@@ -5931,7 +5931,7 @@ val compile_correct = Q.prove(
       \\ conj_tac
       THEN1
        (rw [] \\
-        `s = EL (get_ffi_index mc_conf.ffi_names s) mc_conf.ffi_names` by
+        `ExtCall s = EL (get_ffi_index mc_conf.ffi_names (ExtCall s)) mc_conf.ffi_names` by
           metis_tac[EL_get_ffi_index_MEM]
         \\ first_assum (fn th => CONV_TAC(LAND_CONV(ONCE_REWRITE_CONV[th])))
         \\ first_x_assum match_mp_tac \\ simp []
@@ -5963,7 +5963,7 @@ val compile_correct = Q.prove(
         \\ goal_assum(first_assum o mp_then Any mp_tac))
       \\ conj_tac THEN1 metis_tac[]
       \\ conj_tac THEN1
-       (Cases_on `s1.io_regs 0 s r`
+       (Cases_on `s1.io_regs 0 (ExtCall s) r`
         \\ full_simp_tac(srw_ss())[get_reg_value_def,word_loc_val_def])
       \\ conj_tac THEN1
        (rpt strip_tac \\ qpat_x_assum `!a.
@@ -5986,7 +5986,7 @@ val compile_correct = Q.prove(
     \\ rev_full_simp_tac(srw_ss())[LET_DEF]
     \\ `k + s1.clock - 1 = k + (s1.clock - 1)` by decide_tac
     >> `list_subset (find_ffi_names s1.code) mc_conf.ffi_names ` by metis_tac[state_rel_def]
-    >> `EL (get_ffi_index mc_conf.ffi_names s) mc_conf.ffi_names = s` by (
+    >> `EL (get_ffi_index mc_conf.ffi_names (ExtCall s)) mc_conf.ffi_names = ExtCall s` by (
       match_mp_tac EL_get_ffi_index_MEM
       \\ pop_assum mp_tac
       \\ imp_res_tac has_io_name_find_index
@@ -6595,12 +6595,12 @@ val IMP_state_rel_make_init = Q.prove(
   \\ conj_tac >- metis_tac[EVEN,all_enc_ok_prog_to_bytes_EVEN]
   \\ conj_tac >- metis_tac[EVEN,all_enc_ok_prog_to_bytes_EVEN]
   \\ conj_tac >-
-    (ntac 2 strip_tac>>
-    `get_ffi_index mc_conf.ffi_names name < LENGTH mc_conf.ffi_names` by
+   (ntac 2 strip_tac>>
+    `get_ffi_index mc_conf.ffi_names (ExtCall name) < LENGTH mc_conf.ffi_names` by
       (simp[get_ffi_index_def]>>
-      drule find_index_MEM>>
-      disch_then (qspec_then`0` strip_assume_tac)>>
-      fs[libTheory.the_def])>>
+       drule find_index_MEM>>
+       disch_then (qspec_then`0` strip_assume_tac)>>
+       fs[libTheory.the_def])>>
     metis_tac[])
   \\ conj_tac >- (
     simp[word_loc_val_byte_def,case_eq_thms] \\
@@ -6608,7 +6608,7 @@ val IMP_state_rel_make_init = Q.prove(
   \\ conj_tac >- metis_tac[word_add_n2w]
   \\ conj_tac>- simp[bytes_in_mem_def]
   \\ conj_tac>-
-    (drule pos_val_0 \\ simp[])
+   (drule pos_val_0 \\ simp[])
   \\ metis_tac[code_similar_sec_labels_ok]);
 
 Theorem make_init_simp[simp]:

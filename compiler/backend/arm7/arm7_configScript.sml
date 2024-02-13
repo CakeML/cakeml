@@ -26,7 +26,7 @@ val arm7_names_def = Define `
      insert 10 12 o
      insert 14 13) LN:num num_map`
 
-val arm7_names_def = save_thm("arm7_names_def",
+val arm7_names_def = save_thm("arm7_names_def[allow_rebind]",
   CONV_RULE (RAND_CONV EVAL) arm7_names_def);
 
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)

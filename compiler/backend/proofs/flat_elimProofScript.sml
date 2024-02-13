@@ -224,22 +224,6 @@ val find_refs_globals_def = Define `
 
 val find_refs_globals_ind = theorem "find_refs_globals_ind";
 
-Theorem find_refs_globals_EL:
-     ∀ n l . n < LENGTH l ⇒
-        (∀ a . EL n l = Refv a
-            ⇒ domain (find_v_globals a) ⊆ domain (find_refs_globals l)) ∧
-        (∀ vs . EL n l = Varray vs
-            ⇒ domain (find_v_globalsL vs) ⊆ domain (find_refs_globals l))
-Proof
-    Induct >> rw[]
-    >- (Cases_on `l` >> fs[find_refs_globals_def, domain_union])
-    >- (Cases_on `l` >> fs[find_refs_globals_def, domain_union])
-    >> fs[EL] >> first_x_assum (qspec_then `TL l` mp_tac) >> rw[] >>
-       `n < LENGTH (TL l)` by fs[LENGTH_TL] >> fs[] >>
-       Cases_on `l` >> fs[] >>
-       Cases_on `h` >> fs[find_refs_globals_def, domain_union, SUBSET_DEF]
-QED
-
 Theorem find_refs_globals_MEM:
      ∀ refs reachable:num_set .
         domain (find_refs_globals refs) ⊆ R

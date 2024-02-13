@@ -689,14 +689,14 @@ end;
           then raise ERR ("Failed optimization with error:"^
                           (Parse.thm_to_string theAST_opt_result)) ""
           else ()
-  val theAST_fp_opt = save_thm ("theAST_fp_opt",
+  val theAST_fp_opt = save_thm ("theAST_fp_opt[allow_rebind]",
   EVAL (Parse.Term
     ‘let fp_opt = no_opt_decs theOpts
                     (MAP FST (stos_pass_with_plans_decs theOpts theAST_plan theAST))
      in
      if fpNum_decs fp_opt < fpNum_decs ^(theAST_def |> concl |> rhs) then fp_opt
      else ^(theAST_def |> concl |> rhs)’))
-  val theAST_fp_opt_spec = save_thm ("theAST_fp_opt",
+  val theAST_fp_opt_spec = save_thm ("theAST_fp_opt[allow_rebind]",
     EVAL (Parse.Term
       ‘no_opt_decs theOpts
          (MAP FST (stos_pass_with_plans_decs theOpts theAST_plan theAST))’))

@@ -167,12 +167,6 @@ Proof
   Induct >> simp[MEM_LIST_UNION] >> metis_tac[]
 QED
 
-Theorem ALL_DISTINCT_LIST_UNION:
-   ∀l1 l2. ALL_DISTINCT l2 ⇒ ALL_DISTINCT (LIST_UNION l1 l2)
-Proof
-  Induct >> fs[LIST_UNION_def,LIST_INSERT_def] >> rw[]
-QED
-
 Theorem LIST_UNION_NIL:
    ∀l2. (LIST_UNION [] l2 = l2)
 Proof

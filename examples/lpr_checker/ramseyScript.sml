@@ -721,7 +721,7 @@ Theorem check_sat_satisfies:
   check_sat asg fml ⇒
   satisfies asg (interp_spt fml)
 Proof
-  rw[check_sat_def,satisfies_def,interp_spt_def,values_def]>>
+  rw[check_sat_def,satisfies_def,interp_spt_def,range_def]>>
   fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,MEM_toAList]>>
   first_x_assum drule>>fs[]>>
   metis_tac[check_clause_satisfies_clause]
@@ -801,17 +801,17 @@ val sol = rconc (EVAL ``
       250; 251; 252; 253; 254; 255; 256; 257; 258; 259; 260; 261; 262; 263;
       264; 265; 266; 267; 268; 269; 270]``);
 
-val solf_def = Define`
-  solf n = case lookup n ^sol of NONE => F | _ => T`
+val solf'_def = Define`
+  solf' n = case lookup n ^sol of NONE => F | _ => T`
 
-val thm = EVAL ``check_sat solf (fast_ramsey_lpr 4 17)``;
+val thm = EVAL ``check_sat solf' (fast_ramsey_lpr 4 17)``;
 
 Theorem not_is_ramsey_4_17:
   ¬(is_ramsey 4 17)
 Proof
   match_mp_tac fast_ramsey_lpr_correct>>
   simp[satisfiable_def]>>
-  qexists_tac`solf`>>match_mp_tac check_sat_satisfies>>
+  qexists_tac`solf'`>>match_mp_tac check_sat_satisfies>>
   simp[thm]
 QED
 

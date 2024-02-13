@@ -2059,6 +2059,8 @@ Proof
     \\ match_mp_tac SUBSET_TRANS
     \\ asm_exists_tac \\ simp[]
     \\ match_mp_tac SUBSET_TRANS
+    \\ irule_at Any (bvl_handleProofTheory.get_code_labels_handle_simp |> CONJUNCT1)
+    \\ match_mp_tac SUBSET_TRANS
     \\ specl_args_of_then``bvl_const$compile_exp`` bvl_constProofTheory.compile_exp_code_labels mp_tac
     \\ strip_tac \\ asm_exists_tac \\ simp[]
     \\ specl_args_of_then``bvl_inline$remove_ticks`` remove_ticks_code_labels mp_tac
