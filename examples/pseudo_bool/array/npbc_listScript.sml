@@ -95,10 +95,9 @@ End
 Definition rup_pass1_list_def:
   rup_pass1_list (assg:word8 list) [] acc ys m = (acc,ys,m) ∧
   rup_pass1_list assg ((i:int,n:num)::xs) acc ys m =
-    let m = MAX m n in
     let k = Num (ABS i) in
-      if n < LENGTH assg ∨ EL n assg = 0w then
-        rup_pass1_list assg xs (acc + k) ((k,i,n)::ys) m
+      if ~(n < LENGTH assg) ∨ EL n assg = 0w then
+        rup_pass1_list assg xs (acc + k) ((k,i,n)::ys) (MAX m n)
       else if EL n assg = 1w  then
         rup_pass1_list assg xs (if i < 0 then acc else acc + k) ys m
       else
@@ -107,7 +106,7 @@ End
 
 Definition rup_pass2_list_def:
   rup_pass2_list (assg:word8 list) max [] l changes =
-    (if NULL changes then SOME (SOME ()) else NONE,changes,assg,T) ∧
+    (if NULL changes then NONE else SOME (SOME ()),changes,assg,T) ∧
   rup_pass2_list assg max ((k:num,i:int,n:num)::ys) l changes =
     if max < l + k then
       let pre1 = (n < LENGTH assg) in
@@ -131,7 +130,7 @@ Definition update_assg_list_def:
     let (max,ls1,m) = rup_pass1_list assg ls 0 [] 0 in
       if max < n then (SOME NONE, [], assg, T) else
         let assg1 = resize_to_fit m assg in
-          rup_pass2_list assg max ls1 n []
+          rup_pass2_list assg1 max ls1 n []
 End
 
 Definition check_rup_loop_list_def:
@@ -140,15 +139,15 @@ Definition check_rup_loop_list_def:
     case lookup_core_only_list b fml n of
     | NONE => (F,assg,all_changes,T)
     | SOME c =>
-    let (res,new_changes,assg1,pre) = update_assg_list assg c in
+    let (res,new_changes,assg,pre) = update_assg_list assg c in
     let all_changes = new_changes ++ all_changes in
       case res of
       | NONE => (F,assg,all_changes,pre)
       | SOME NONE => (NULL ns,assg,all_changes,pre)
       | SOME (SOME _) =>
-          let (res,assg1,all_changes1,pre1) =
+          let (res,assg,all_changes,pre1) =
               check_rup_loop_list b fml assg all_changes ns
-          in (res,assg1,all_changes1,pre ∧ pre1)
+          in (res,assg,all_changes,pre ∧ pre1)
 End
 
 Definition delete_each_def:
@@ -494,17 +493,332 @@ Proof
   metis_tac[option_CLAUSES,fml_rel_lookup_core_only]
 QED
 
+Triviality rup_pass1_list_pre:
+  ∀assg xs n ys m n1 ys1 m1.
+    rup_pass1_list assg xs n ys m = (n1,ys1,m1) ∧
+    EVERY (λ(_,_,k). k ≤ m) ys ⇒
+    EVERY (λ(_,_,k). k ≤ m1) ys1
+Proof
+  Induct_on ‘xs’ \\ gvs [rup_pass1_list_def,FORALL_PROD]
+  \\ rw [] \\ res_tac \\ gvs []
+  \\ gvs [EVERY_MEM,FORALL_PROD]
+  \\ metis_tac []
+QED
+
+Triviality rup_pass2_list_pre:
+  ∀assg m xs l changes res changes1 assg1 pre.
+    rup_pass2_list assg m xs l changes = (res,changes1,assg1,pre) ∧
+    EVERY (λi. i < LENGTH assg) changes ∧
+    EVERY (λ(_,_,k). k < LENGTH assg) xs
+    ⇒
+    pre ∧ LENGTH assg1 = LENGTH assg ∧ set changes ⊆ set changes1 ∧
+    EVERY (λi. i < LENGTH assg1) changes1 ∧
+    ∀n. n < LENGTH assg1 ∧ EL n assg ≠ EL n assg1 ⇒ MEM n changes1
+Proof
+  Induct_on ‘xs’ \\ gvs [rup_pass2_list_def,FORALL_PROD]
+  \\ rpt gen_tac
+  \\ reverse IF_CASES_TAC \\ strip_tac >- metis_tac []
+  \\ pairarg_tac \\ gvs []
+  \\ first_x_assum drule
+  \\ impl_tac >- gvs []
+  \\ strip_tac \\ gvs []
+  \\ gvs [EL_LUPDATE]
+  \\ metis_tac []
+QED
+
+Triviality update_assg_list_pre:
+  ∀assg x res changes assg1 pre.
+    update_assg_list assg x = (res,changes,assg1,pre) ⇒
+    pre ∧ EVERY (λi. i < LENGTH assg1) changes ∧
+    LENGTH assg ≤ LENGTH assg1 ∧
+    ∀n. n < LENGTH assg1 ∧ EL n assg1 ≠ 0w ⇒
+        MEM n changes ∨ n < LENGTH assg ∧ EL n assg = EL n assg1
+Proof
+  rpt gen_tac \\ PairCases_on ‘x’
+  \\ gvs [update_assg_list_def]
+  \\ pairarg_tac \\ gvs []
+  \\ IF_CASES_TAC \\ gvs [] \\ strip_tac
+  \\ drule rup_pass1_list_pre \\ gvs [] \\ strip_tac
+  \\ drule rup_pass2_list_pre \\ fs []
+  \\ impl_tac >-
+   (pop_assum mp_tac
+    \\ match_mp_tac MONO_EVERY \\ gvs [FORALL_PROD]
+    \\ rw [resize_to_fit_def])
+  \\ strip_tac \\ gvs []
+  \\ conj_tac
+  >- rw [resize_to_fit_def]
+  \\ rw []
+  \\ Cases_on ‘MEM n changes’ \\ gvs []
+  \\ first_x_assum drule \\ strip_tac \\ gvs []
+  \\ gvs [resize_to_fit_def]
+  \\ Cases_on ‘m < LENGTH assg’ \\ gvs []
+  \\ Cases_on ‘n < LENGTH assg’ \\ gvs []
+  \\ gvs [EL_APPEND1,EL_APPEND2]
+  \\ gvs [EL_REPLICATE]
+QED
+
+Triviality check_rup_loop_list_pre:
+  ∀b fmlls assg changes ls res assg1 changes1 pre.
+    check_rup_loop_list b fmlls assg changes ls = (res,assg1,changes1,pre) ∧
+    EVERY (λi. i < LENGTH assg) changes ∧
+    (∀n. n < LENGTH assg ∧ EL n assg ≠ 0w ⇒ MEM n changes)
+    ⇒
+    pre ∧ EVERY (λi. i < LENGTH assg1) changes1 ∧
+    LENGTH assg ≤ LENGTH assg1 ∧
+    (∀n. n < LENGTH assg1 ∧ EL n assg1 ≠ 0w ⇒ MEM n changes1)
+Proof
+  Induct_on ‘ls’ \\ gvs [check_rup_loop_list_def]
+  \\ rpt gen_tac \\ CASE_TAC \\ gvs []
+  >- (strip_tac \\ gvs [])
+  \\ pairarg_tac \\ gvs []
+  \\ strip_tac
+  \\ drule update_assg_list_pre \\ strip_tac
+  \\ qabbrev_tac ‘all_changes = new_changes ++ changes’
+  \\ ‘EVERY (λi. i < LENGTH assg') all_changes ∧
+      ∀n. n < LENGTH assg' ∧ EL n assg' ≠ 0w ⇒ MEM n all_changes’ by
+   (simp [Abbr‘all_changes’] \\ conj_tac
+    >-
+     (qpat_x_assum ‘EVERY _ changes’ mp_tac
+      \\ match_mp_tac MONO_EVERY \\ simp_tac std_ss []
+      \\ fs [])
+    \\ metis_tac [])
+  \\ Cases_on ‘res'’ \\ gvs []
+  \\ Cases_on ‘x'’ \\ gvs []
+  \\ pairarg_tac \\ gvs []
+  \\ last_x_assum drule
+  \\ impl_tac >- gvs []
+  \\ strip_tac \\ gvs []
+QED
+
+Triviality delete_each_pre:
+  ∀changes assg zeros pre.
+    delete_each changes assg = (zeros,pre) ∧
+    EVERY (λi. i < LENGTH assg) changes ∧
+    (∀n. n < LENGTH assg ∧ EL n assg ≠ 0w ⇒ MEM n changes) ⇒
+    pre ∧ EVERY (λw. w = 0w) zeros
+Proof
+  Induct \\ gvs [delete_each_def]
+  >- (gvs [EVERY_EL] \\ metis_tac [])
+  \\ rpt gen_tac \\ strip_tac \\ rpt (pairarg_tac \\ gvs [])
+  \\ last_x_assum drule \\ disch_then irule
+  \\ gvs [EL_LUPDATE] \\ rw [] \\ res_tac \\ gvs []
+QED
+
+Theorem check_rup_list_pre:
+  check_rup_list b fmlls zeros ls = (res,zeros',pre) ∧
+  EVERY (λw. w = 0w) zeros
+  ⇒
+  pre ∧ EVERY (λw. w = 0w) zeros'
+Proof
+  gvs [check_rup_list_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ drule check_rup_loop_list_pre \\ fs []
+  \\ ntac 2 strip_tac \\ gvs []
+  \\ qpat_x_assum ‘_ ⇒ _’ mp_tac
+  \\ impl_tac >- (gvs [EVERY_EL] \\ metis_tac [])
+  \\ strip_tac \\ gvs []
+  \\ drule_all delete_each_pre \\ fs []
+QED
+
+Definition get_assg_def:
+  get_assg i xs =
+    if i < LENGTH xs ∧ EL i xs ≠ (0w:word8) then SOME (EL i xs) else NONE
+End
+
+Triviality get_assg_resize_to_fit[simp]:
+  get_assg i (resize_to_fit m assg) = get_assg i assg
+Proof
+  rw [resize_to_fit_def] \\ gvs [get_assg_def]
+  \\ Cases_on ‘i < LENGTH assg’ \\ gvs [EL_APPEND1,EL_APPEND2]
+  \\ CCONTR_TAC \\ gvs [EL_REPLICATE]
+QED
+
+Triviality to_get_assg:
+  ~(p < LENGTH assg) ∨ EL p assg = 0w ⇔ get_assg p assg = NONE
+Proof
+  gvs [get_assg_def] \\ metis_tac []
+QED
+
+Theorem rup_pass1_list_invs:
+  ∀xs n ys m nA1 nB1 lsA lsB mA mB.
+    rup_pass1_list assgA xs n ys m = (nA1,lsA,mA) ∧
+    rup_pass1_list assgB xs n ys m = (nB1,lsB,mB) ∧
+    (∀i. get_assg i assgA = get_assg i assgB) ⇒
+    nA1 = nB1 ∧ lsA = lsB ∧ mA = mB
+Proof
+  Induct_on ‘xs’ \\ gvs [rup_pass1_list_def,FORALL_PROD,to_get_assg]
+  \\ rpt gen_tac \\ strip_tac \\ gvs []
+  \\ Cases_on ‘get_assg p_2 assgB = NONE’ \\ gvs []
+  >- (res_tac \\ gvs [])
+  \\ ‘EL p_2 assgA = 1w ⇔ get_assg p_2 assgA = SOME 1w’ by
+    (first_x_assum $ qspec_then ‘p_2’ assume_tac
+    \\ gvs [get_assg_def])
+  \\ ‘EL p_2 assgB = 1w ⇔ get_assg p_2 assgB = SOME 1w’ by
+    (first_x_assum $ qspec_then ‘p_2’ assume_tac
+    \\ gvs [get_assg_def])
+  \\ gvs []
+  \\ Cases_on ‘get_assg p_2 assgB = SOME 1w’ \\ gvs []
+  \\ res_tac \\ gvs []
+QED
+
+Theorem rup_pass2_list_invs:
+  ∀assgA assgB m ls1 x1 acc resA new_changesA assgA1 preA
+   resB new_changesB assgB1 preB.
+    rup_pass2_list assgA m ls1 x1 acc = (resA,new_changesA,assgA1,preA) ∧
+    rup_pass2_list assgB m ls1 x1 acc = (resB,new_changesB,assgB1,preB) ∧
+    EVERY (λ(_,_,k). k < LENGTH assgB) ls1 ∧
+    EVERY (λ(_,_,k). k < LENGTH assgA) ls1 ∧
+    (∀i. get_assg i assgA = get_assg i assgB) ⇒
+    (resA,new_changesA) = (resB,new_changesB) ∧
+    (∀i. get_assg i assgA1 = get_assg i assgB1)
+Proof
+  Induct_on ‘ls1’ \\ gvs [rup_pass2_list_def,FORALL_PROD]
+  \\ rpt gen_tac \\ strip_tac
+  \\ reverse $ Cases_on ‘m < p_1 + x1’ \\ gvs []
+  >- (last_x_assum $ dxrule_then dxrule \\ fs [])
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ last_x_assum $ dxrule_then dxrule \\ fs []
+  \\ reverse impl_tac >- (strip_tac \\ gvs [])
+  \\ gvs [get_assg_def,EL_LUPDATE] \\ gen_tac
+  \\ Cases_on ‘i = p_2’ \\ gvs []
+QED
+
+Theorem update_assg_list_invs:
+  ∀assgA assgB x resA new_changesA assgA1 preA resB new_changesB assgB1 preB.
+    update_assg_list assgA x = (resA,new_changesA,assgA1,preA) ∧
+    update_assg_list assgB x = (resB,new_changesB,assgB1,preB) ∧
+    (∀i. get_assg i assgA = get_assg i assgB) ⇒
+    (resA,new_changesA) = (resB,new_changesB) ∧
+    (∀i. get_assg i assgA1 = get_assg i assgB1)
+Proof
+  rpt gen_tac \\ strip_tac \\ PairCases_on ‘x’
+  \\ gvs [update_assg_list_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ imp_res_tac rup_pass1_list_pre \\ gvs []
+  \\ dxrule_then dxrule rup_pass1_list_invs
+  \\ impl_tac >- simp [] \\ strip_tac \\ gvs []
+  \\ Cases_on ‘max' < x1’ \\ gvs []
+  \\ dxrule_then dxrule rup_pass2_list_invs
+  \\ reverse impl_tac >- (strip_tac \\ gvs [])
+  \\ gvs []
+  \\ gvs [EVERY_MEM,FORALL_PROD] \\ rw [] \\ res_tac
+  \\ rw [resize_to_fit_def]
+QED
+
+Theorem check_rup_loop_list_invs:
+  ∀b fmlls assgA assgB xs ls qA assgA1 changesA bA qB assgB1 changesB bB.
+    check_rup_loop_list b fmlls assgA xs ls = (qA,assgA1,changesA,bA) ∧
+    check_rup_loop_list b fmlls assgB xs ls = (qB,assgB1,changesB,bB) ∧
+    (∀i. get_assg i assgA = get_assg i assgB) ⇒
+    qA = qB
+Proof
+  Induct_on ‘ls’ \\ gvs [check_rup_loop_list_def]
+  \\ rpt gen_tac \\ CASE_TAC \\ gvs []
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ strip_tac
+  \\ dxrule_then dxrule update_assg_list_invs
+  \\ impl_tac >- simp [] \\ strip_tac \\ gvs []
+  \\ last_x_assum $ dxrule_then dxrule
+  \\ impl_tac >- simp []
+  \\ every_case_tac \\ gvs []
+QED
+
 Theorem check_rup_list_invs:
   check_rup_list b fmlls zeros ls = (res,zeros',pre) ∧
   EVERY (λw. w = 0w) zeros
   ⇒
   pre ∧ EVERY (λw. w = 0w) zeros' ∧
-  ∀zero1.
+  ∀zeros1.
     EVERY (λw. w = 0w) zeros1 ⇒
-    ∃zeros2. check_rup_list b fmlls zeros ls = (res,zeros2,pre) ∧
+    ∃zeros2. check_rup_list b fmlls zeros1 ls = (res,zeros2,pre) ∧
              EVERY (λw. w = 0w) zeros2
 Proof
-  cheat
+  strip_tac \\ drule_all check_rup_list_pre \\ gs [] \\ rpt strip_tac
+  \\ Cases_on ‘check_rup_list b fmlls zeros1 ls’ \\ Cases_on ‘r’ \\ gvs []
+  \\ drule_all check_rup_list_pre \\ gs [] \\ strip_tac \\ gvs []
+  \\ gvs [check_rup_list_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ dxrule_then dxrule check_rup_loop_list_invs \\ gvs []
+  \\ impl_tac \\ gvs []
+  \\ gvs [EVERY_EL,get_assg_def] \\ metis_tac []
+QED
+
+Definition assg_rel_def:
+  assg_rel assg assgl ⇔
+    (∀n. FLOOKUP assg n = NONE ⇔ get_assg n assgl = NONE) ∧
+    (∀n. FLOOKUP assg n = SOME T ⇒ get_assg n assgl = SOME 1w) ∧
+    (∀n. FLOOKUP assg n = SOME F ⇒ get_assg n assgl = SOME 2w)
+End
+
+Theorem rup_pass1_list_thm:
+  ∀xs n ys m n1 ls1 m1 n2 ls2.
+    rup_pass1_list assgl xs n ys m = (n1,ls1,m1) ∧
+    rup_pass1 assg xs n ys = (n2,ls2) ∧
+    assg_rel assg assgl ⇒
+    n1 = n2 ∧ ls1 = ls2
+Proof
+  Induct_on ‘xs’
+  \\ gvs [rup_pass1_list_def,rup_pass1_def,FORALL_PROD,to_get_assg]
+  \\ rpt gen_tac \\ strip_tac \\ gvs []
+  \\ gvs [assg_rel_def]
+  \\ ntac 3 $ first_x_assum $ qspec_then ‘p_2’ assume_tac
+  \\ Cases_on ‘FLOOKUP assg p_2’ \\ gvs []
+  >- (last_x_assum drule_all \\ gvs [])
+  \\ Cases_on ‘x’ \\ gvs [] \\ gvs [get_assg_def]
+  \\ last_x_assum drule_all \\ gvs []
+QED
+
+Theorem rup_pass2_list_thm:
+  ∀assg assgl m ls1 c1 ys res ys1 assgl1.
+    rup_pass2_list assgl m ls1 c1 ys = (SOME res,ys1,assgl1,T) ∧
+    assg_rel assg assgl ⇒
+    case rup_pass2 assg m ls1 c1 (~NULL ys) of
+    | NONE => F
+    | SOME NONE => NULL (ns:num list) ∧ res = NONE
+    | SOME (SOME assg1) => assg_rel assg1 assgl1 ∧ res = SOME ()
+Proof
+  Induct_on ‘ls1’ \\ gvs [rup_pass2_list_def,FORALL_PROD,rup_pass2_def]
+  \\ rpt gen_tac
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ strip_tac
+  \\ reverse IF_CASES_TAC \\ gvs []
+  >- (last_x_assum $ drule_then drule \\ fs [])
+  \\ last_x_assum $ drule
+  \\ gvs [] \\ disch_then irule
+  \\ gvs [assg_rel_def] \\ rw []
+  \\ Cases_on ‘p_2 = n’ \\ gvs [FLOOKUP_UPDATE]
+  \\ gvs [FLOOKUP_UPDATE,get_assg_def,EL_LUPDATE]
+QED
+
+Theorem check_rup_loop_list_thm:
+  ∀b fmlls assgl cs ns cs1 assgl1 pre assg fml.
+    check_rup_loop_list b fmlls assgl cs ns = (T,assgl1,cs1,T) ∧
+    fml_rel fml fmlls ∧ assg_rel assg assgl ⇒
+    check_rup b fml assg ns
+Proof
+  Induct_on ‘ns’ \\ gvs [check_rup_loop_list_def,check_rup_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ drule_all fml_rel_lookup_core_only
+  \\ disch_then $ qspecl_then [‘h’,‘b’] assume_tac \\ gvs []
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ PairCases_on ‘c’
+  \\ gvs [update_assg_list_def,update_assg_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ drule_then drule rup_pass1_list_thm
+  \\ impl_tac >- simp [] \\ strip_tac \\ gvs []
+  \\ Cases_on ‘max' < c1’ \\ gvs []
+  \\ ‘pre’ by gvs [AllCaseEqs()] \\ gvs []
+  \\ Cases_on ‘res’ \\ gvs []
+  \\ drule rup_pass2_list_thm \\ fs []
+  \\ disch_then $ qspecl_then [‘ns’,‘assg’] mp_tac
+  \\ impl_tac >- gvs [assg_rel_def]
+  \\ CASE_TAC \\ gvs []
+  \\ Cases_on ‘x’ \\ gvs []
+  \\ CASE_TAC \\ gvs []
+  \\ strip_tac
+  \\ last_x_assum drule
+  \\ metis_tac []
 QED
 
 Theorem check_rup_list_thm:
@@ -512,13 +826,14 @@ Theorem check_rup_list_thm:
   EVERY (λw. w = 0w) zeros ⇒
   check_rup b fml FEMPTY ls
 Proof
-  cheat
-  (*
-  check_rup_def
-  update_assg_def
-  rup_pass1_def
-  rup_pass2_def
-  *)
+  strip_tac
+  \\ drule_all check_rup_list_pre \\ strip_tac \\ gvs []
+  \\ gvs [check_rup_list_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ drule_then drule check_rup_loop_list_thm
+  \\ disch_then irule
+  \\ gvs [assg_rel_def,get_assg_def,EVERY_EL]
+  \\ metis_tac []
 QED
 
 Theorem fml_rel_check_lstep_list:
