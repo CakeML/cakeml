@@ -64,10 +64,7 @@ val parse_cutting_side = Q.prove(
 val r = translate parse_var_def;
 
 val r = translate parse_subst_aux_def;
-val r = translate spt_to_vecTheory.prepend_def;
-val r = translate spt_to_vecTheory.to_flat_def;
 
-val r = translate spt_to_vecTheory.spt_to_vec_def;
 val r = translate parse_subst_def;
 
 val r = translate pbcTheory.lit_var_def;
@@ -75,6 +72,51 @@ val r = translate compact_lhs_def;
 val r = translate term_le_def;
 val r = translate mk_coeff_def;
 val r = translate normalise_lhs_def;
+
+val r = translate mergesortTheory.sort2_def;
+val r = translate mergesortTheory.sort3_def;
+val r = translate mergesortTheory.merge_def;
+val r = translate DROP_def;
+val r = translate (mergesortTheory.mergesortN_def |> SIMP_RULE std_ss [DIV2_def]);
+
+Triviality mergesortn_ind:
+  mergesortn_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "mergesortn_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD, DIV2_def]
+QED
+
+val _ = mergesortn_ind |> update_precondition;
+
+val r = translate mergesortTheory.mergesort_def;
+
+val r = translate mergesortTheory.sort2_tail_def;
+val r = translate mergesortTheory.sort3_tail_def;
+val r = translate mergesortTheory.merge_tail_def;
+val r = translate (mergesortTheory.mergesortN_tail_def |> SIMP_RULE std_ss [DIV2_def]);
+
+Triviality mergesortn_tail_ind:
+  mergesortn_tail_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "mergesortn_tail_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD, DIV2_def]
+QED
+
+val _ = mergesortn_tail_ind |> update_precondition;
+
+val r = translate mergesortTheory.mergesort_tail_def;
 
 val r = translate pbc_to_npbc_def;
 val pbc_to_npbc_side = Q.prove(
@@ -188,11 +230,11 @@ val int_start_side = Q.prove(
 
 val _ = translate tokenize_fast_def;
 
-Definition not_is_empty_vec_def:
-  not_is_empty_vec v ⇔ length v ≠ 0
+Definition not_is_empty_def:
+  not_is_empty v ⇔ v ≠ []
 End
 
-val _ = translate not_is_empty_vec_def;
+val _ = translate not_is_empty_def;
 
 val parse_lsteps_aux = process_topdecs`
   fun parse_lsteps_aux f_ns fd lno acc =
@@ -204,7 +246,7 @@ val parse_lsteps_aux = process_topdecs`
     | Some (Inl step,f_ns') =>
         parse_lsteps_aux f_ns' fd (lno+1) (step::acc)
     | Some (Inr (c,s),f_ns') =>
-      if not_is_empty_vec s then
+      if not_is_empty s then
         raise Fail (format_failure (lno+1) "only contradiction steps allowed in nested proof steps")
       else
         (case parse_lsteps_aux f_ns' fd (lno+1) [] of
@@ -275,9 +317,9 @@ Proof
   xsimpl
 QED
 
-Theorem not_is_empty_vec_eq:
-  not_is_empty_vec v ⇔
-  ¬is_empty_vec v
+Theorem not_is_empty_eq:
+  not_is_empty v ⇔
+  ¬is_empty v
 Proof
   EVAL_TAC>>
   Cases_on`v`>>fs[]>>
@@ -398,9 +440,11 @@ Proof
     simp[Once PAIR_TYPE_def]>>
     strip_tac>>
     xmatch>>
-    xlet_autop>>
-    rename1`is_empty_vec tt`>>
-    reverse (Cases_on`is_empty_vec tt`>>fs[not_is_empty_vec_eq])
+    xlet_auto >- (
+      xsimpl>>
+      simp (eq_lemmas()))>>
+    rename1`is_empty tt`>>
+    reverse (Cases_on`is_empty tt`>>fs[not_is_empty_eq])
     >- (
       xif>>asm_exists_tac>>xsimpl>>
       rpt xlet_autop>>
@@ -679,13 +723,14 @@ Proof
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])
 QED
 
-Theorem is_empty_vec_thm:
-  is_empty_vec v ⇔ length v = 0
+Theorem is_empty_thm:
+  is_empty v ⇔
+    case v of [] => T | _ => F
 Proof
   EVAL_TAC>>Cases_on`v`>>fs[mlvectorTheory.length_def]
 QED
 
-val res = translate is_empty_vec_thm;
+val res = translate is_empty_thm;
 
 val res = translate reduce_pf_def;
 
@@ -2037,7 +2082,6 @@ val res = translate parse_obj_term_npbc_def;
 
 val res = translate parse_strengthen_def;
 
-
 val res = translate parse_b_obj_term_npbc_def;
 
 val res = translate parse_cstep_head_def;
@@ -2313,15 +2357,15 @@ QED
 (* returns the necessary information to check the
   output and conclusion sections *)
 val check_unsat'' = process_topdecs `
-  fun check_unsat'' fns fd lno fml inds pc =
+  fun check_unsat'' fns fd lno fml inds vimap vomap pc =
     case parse_cstep fns fd lno of
       (Inl s, (fns', lno')) =>
       (lno', (s, (fns',
         (fml, (inds, pc)))))
     | (Inr cstep, (fns', lno')) =>
-      (case check_cstep_arr lno cstep fml inds pc of
-        (fml', (inds', pc')) =>
-        check_unsat'' fns' fd lno' fml' inds' pc')` |> append_prog
+      (case check_cstep_arr lno cstep fml inds vimap vomap pc of
+        (fml', (inds', (vimap', (vomap', pc')))) =>
+        check_unsat'' fns' fd lno' fml' inds' vimap' vomap' pc')` |> append_prog
 
 Theorem parse_sstep_LENGTH:
   ∀f ss res f' ss'.
@@ -2366,15 +2410,15 @@ QED
   returning the last encountered state *)
 Definition parse_and_run_def:
   parse_and_run fns ss
-    fml inds pc =
+    fml inds vimap vomap pc =
   case parse_cstep fns ss of
     NONE => NONE
   | SOME (INL s, fns', rest) =>
     SOME (rest, s, fns', fml, inds, pc)
   | SOME (INR cstep, fns', rest) =>
-    (case check_cstep_list cstep fml inds pc of
-      SOME (fml', inds', pc') =>
-        parse_and_run fns' rest fml' inds' pc'
+    (case check_cstep_list cstep fml inds vimap vomap pc of
+      SOME (fml', inds', vimap', vomap', pc') =>
+        parse_and_run fns' rest fml' inds' vimap' vomap' pc'
     | res => NONE)
 Termination
   WF_REL_TAC `measure (LENGTH o FST o SND)`>>
@@ -2413,18 +2457,20 @@ Proof
 QED
 
 Theorem check_unsat''_spec:
-  ∀fns ss fmlls inds pc
-    fnsv lno lnov fmllsv indsv pcv lines fs fmlv.
+  ∀fns ss fmlls inds vimap vomap pc
+    fnsv lno lnov fmllsv indsv pcv lines fs fmlv vimapv vomapv.
   fns_TYPE a fns fnsv ∧
   NUM lno lnov ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
   NPBC_CHECK_PROOF_CONF_TYPE pc pcv ∧
+  vimap_TYPE vimap vimapv ∧
+  vomap_TYPE vomap vomapv ∧
   MAP toks_fast lines = ss
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
-    [fnsv; fdv; lnov; fmlv; indsv; pcv]
+    [fnsv; fdv; lnov; fmlv; indsv; vimapv; vomapv; pcv]
     (STDIO fs * INSTREAM_LINES fd fdv lines fs * ARRAY fmlv fmllsv)
     (POSTve
       (λv.
@@ -2433,7 +2479,7 @@ Theorem check_unsat''_spec:
          INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
          ARRAY fmlv' fmllsv' *
          &(
-          parse_and_run fns ss fmlls inds pc =
+          parse_and_run fns ss fmlls inds vimap vomap pc =
             SOME (MAP toks_fast lines',res) ∧
             PAIR_TYPE NUM (
             PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (
@@ -2441,13 +2487,14 @@ Theorem check_unsat''_spec:
             PAIR_TYPE (λl v.
               LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
               v = fmlv')
-              (PAIR_TYPE (LIST_TYPE NUM) NPBC_CHECK_PROOF_CONF_TYPE)))) (lno',res) v))
+              (PAIR_TYPE (LIST_TYPE NUM)
+                (NPBC_CHECK_PROOF_CONF_TYPE))))) (lno',res) v))
       (λe.
          SEP_EXISTS k lines' fmlv' fmllsv'.
            ARRAY fmlv' fmllsv' *
            STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧
-            parse_and_run fns ss fmlls inds pc = NONE)))
+            parse_and_run fns ss fmlls inds vimap vomap pc = NONE)))
 Proof
   ho_match_mp_tac (fetch "-" "parse_and_run_ind")>>
   rw[]>>
@@ -2547,7 +2594,7 @@ Proof
     qexists_tac`x'`>>
     simp[]>>
     qexists_tac`k+x`>>
-xsimpl)>>
+    xsimpl)>>
   simp[Once parse_and_run_def]>>
   qexists_tac`k+x`>>qexists_tac`x'`>>xsimpl>>
   qmatch_goalsub_abbrev_tac`ARRAY A B`>>
@@ -2624,6 +2671,36 @@ Proof
 QED
 
 val _ = translate rev_enum_full_def;
+
+Definition fold_update_vimap_enum_def:
+  (fold_update_vimap_enum (k:num) [] acc = acc) ∧
+  (fold_update_vimap_enum k (x::xs) acc =
+    fold_update_vimap_enum (k+1)
+      xs (update_vimap acc k (FST x)))
+End
+
+Definition fold_update_vimap_enum_full_def:
+  fold_update_vimap_enum_full k fml =
+  fold_update_vimap_enum k fml LN
+End
+
+Theorem fold_update_vimap_enum_FOLDL:
+  ∀xs k acc.
+  fold_update_vimap_enum k xs acc =
+  (FOLDL (λacc (i,v). update_vimap acc i (FST v)) acc (enumerate k xs))
+Proof
+  Induct>>rw[fold_update_vimap_enum_def,miscTheory.enumerate_def]
+QED
+
+Theorem fold_update_vimap_enum_full_FOLDL:
+  fold_update_vimap_enum_full k xs =
+  (FOLDL (λacc (i,v). update_vimap acc i (FST v)) LN (enumerate k xs))
+Proof
+  rw[fold_update_vimap_enum_full_def,fold_update_vimap_enum_FOLDL]
+QED
+
+val res = translate fold_update_vimap_enum_def;
+val res = translate fold_update_vimap_enum_full_def;
 
 val res = translate parse_unsat_def;
 
@@ -2896,6 +2973,31 @@ val res = translate init_conf_def;
 val res = translate hconcl_concl_def;
 val res = translate conv_boutput_hconcl_def;
 
+val mk_vomap_opt_arr = process_topdecs`
+  fun mk_vomap_opt_arr obj =
+  case obj of None => ""
+  | Some fc =>
+    mk_vomap_arr (List.length (fst fc)) fc` |> append_prog;
+
+Theorem mk_vomap_opt_arr_spec:
+  obj_TYPE obj objv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "mk_vomap_opt_arr" (get_ml_prog_state()))
+    [objv]
+    (emp)
+    (POSTv v. &(vomap_TYPE (mk_vomap_opt obj) v))
+Proof
+  rw[]>>
+  xcf "mk_vomap_opt_arr" (get_ml_prog_state ())>>
+  Cases_on`obj`>>fs[OPTION_TYPE_def,npbc_listTheory.mk_vomap_opt_def]>>
+  xmatch
+  >- (
+    xlit>>xsimpl)>>
+  rpt xlet_autop>>
+  xapp>>xsimpl
+QED
+
 val check_unsat' = process_topdecs `
   fun check_unsat' fns fd lno fml obj fmlt objt =
   let
@@ -2903,9 +3005,11 @@ val check_unsat' = process_topdecs `
     val arr = Array.array (2*id) None
     val arr = fill_arr arr 1 fml
     val inds = rev_enum_full 1 fml
+    val vimap = fold_update_vimap_enum_full 1 fml
+    val vomap = mk_vomap_opt_arr obj
     val pc = init_conf id True obj
   in
-    (case check_unsat'' fns fd lno arr inds pc of
+    (case check_unsat'' fns fd lno arr inds vimap vomap pc of
       (lno', (s, (fns',(
         (fml', (inds', pc')))))) =>
     conv_boutput_hconcl
@@ -2918,20 +3022,22 @@ val check_unsat' = process_topdecs `
   end` |> append_prog;
 
 Theorem parse_and_run_check_csteps_list:
-  ∀fns ss fml inds pc rest s fns' res.
-  parse_and_run fns ss fml inds pc = SOME (rest, s, fns', res) ⇒
-  ∃csteps.
-  check_csteps_list csteps fml inds pc = SOME res
+  ∀fns ss fml inds vimap vomap pc rest s fns' fml' inds' pc'.
+  parse_and_run fns ss fml inds vimap vomap pc = SOME (rest, s, fns', (fml', inds', pc')) ⇒
+  ∃csteps vimap' vomap'.
+  check_csteps_list csteps fml inds vimap vomap pc = SOME (fml', inds', vimap', vomap', pc')
 Proof
   ho_match_mp_tac parse_and_run_ind>>
   rw[]>>
   pop_assum mp_tac>>
   simp[Once parse_and_run_def]>>
   every_case_tac>>fs[]
-  >-
-    (rw[]>>qexists_tac`[]`>>EVAL_TAC>>metis_tac[])>>
+  >- (
+    rw[]>>
+    qexists_tac`[]`>>
+    simp[npbc_listTheory.check_csteps_list_def])>>
   rw[]>>
-  first_x_assum drule>>
+  first_x_assum drule_all>>
   rw[]>>
   qexists_tac`y::csteps`>>
   simp[npbc_listTheory.check_csteps_list_def]
@@ -3012,8 +3118,11 @@ Proof
   `BOOL T (Conv (SOME (TypeStamp "True" 0)) [])` by EVAL_TAC>>
   xlet_autop>>
 
+  qmatch_asmsub_abbrev_tac`vimap_TYPE vimap vimapv`>>
+  qmatch_asmsub_abbrev_tac`vomap_TYPE vomap vomapv`>>
   Cases_on`
-    parse_and_run fns (MAP toks_fast lines) fmlls inds
+    parse_and_run fns (MAP toks_fast lines) fmlls inds vimap
+      vomap
       (init_conf (LENGTH fml + 1)  T obj)`
   >- (
     (* fail to parse and run *)
@@ -3068,7 +3177,7 @@ Proof
          ARRAY fmlv' fmllsv' *
          &(
           parse_and_run fns (MAP toks_fast lines)
-            fmlls inds (init_conf (LENGTH fml + 1)  T obj) =
+            fmlls inds vimap vomap (init_conf (LENGTH fml + 1)  T obj) =
               SOME (MAP toks_fast lines',res) ∧
             PAIR_TYPE NUM (
             PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (
@@ -3154,13 +3263,13 @@ Proof
         match_mp_tac (GEN_ALL npbc_listTheory.check_csteps_list_concl)>>
         first_x_assum (irule_at Any)>>
         unabbrev_all_tac>>
-        gs[rev_enum_full_rev_enumerate]>>
+        gs[rev_enum_full_rev_enumerate, fold_update_vimap_enum_full_FOLDL]>>
         metis_tac[])>>
       simp[get_bound_def]>>
       match_mp_tac (GEN_ALL npbc_listTheory.check_csteps_list_output)>>
       first_x_assum (irule_at Any)>>
       unabbrev_all_tac>>
-      gs[rev_enum_full_rev_enumerate]>>
+      gs[rev_enum_full_rev_enumerate, fold_update_vimap_enum_full_FOLDL]>>
       metis_tac[])>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
   xsimpl

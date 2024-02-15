@@ -1,7 +1,7 @@
 (*
   Pseudo-boolean constraints proof format and checker
 *)
-open preamble npbcTheory mlstringTheory mlintTheory mlvectorTheory;
+open preamble npbcTheory mlstringTheory mlintTheory mlvectorTheory spt_to_vecTheory;
 
 val _ = new_theory "npbc_check";
 
@@ -583,13 +583,13 @@ Proof
 QED
 *)
 
-Type subst = ``:(bool + num lit) option vector``;
+Type subst_raw = ``:(num , bool + num lit) alist``;
 
 (* Steps that preserve satisfiability *)
 Datatype:
   sstep =
   | Lstep lstep (* Id representing a contradiction *)
-  | Red npbc subst (( ((num + num) # num) option, (lstep list)) alist) (num option)
+  | Red npbc subst_raw (( ((num + num) # num) option, (lstep list)) alist) (num option)
   (* the alist represents a subproof
     NONE -> top level step
     SOME (INL n,id) -> database proofgoals, contradiction at id
@@ -668,8 +668,13 @@ Definition check_subproofs_def:
       | res => NONE))
 End
 
+Type subst = ``:(num # (bool + num lit)) + (bool + num lit) option vector``;
+
 Definition subst_fun_def:
   subst_fun (s:subst) n =
+  case s of
+    INL (m,v) => if n = m then SOME v else NONE
+  | INR s =>
   if n < length s then
     sub s n
   else NONE
@@ -721,9 +726,16 @@ Definition mem_constraint_def:
     if equal_constraint c x then T else mem_constraint c xs
 End
 
+(* Checking triviality for a negated target c *)
+Definition check_triv_def:
+  check_triv extra nc =
+  (check_contradiction (add extra nc) ∨
+  check_contradiction nc)
+End
+
 (* Partition the formula goals into proved and non-proved
   For each non-proved goal, check if
-  0) it is implied by extra (= ¬ C)
+  0) it is implied by extra (= ¬ C) or trivial
   1) it was already in the formula
   2) it was already proved by another proofgoal (excluding #)
 *)
@@ -735,7 +747,7 @@ Definition split_goals_def:
     PARTITION (λ(i,c). sptree$lookup i proved ≠ NONE) goals in
   let proved = MAP SND lp in
   let f = range fml in
-  EVERY (λ(i,c). c ∈ f ∨ imp extra c ∨ mem_constraint c proved) lf
+  EVERY (λ(i,c). c ∈ f ∨ check_triv extra (not c) ∨ mem_constraint c proved) lf
 End
 
 Triviality list_pair_eq_thm:
@@ -766,12 +778,23 @@ Definition mk_core_fml_def:
     if b ⇒ b' then SOME x else NONE) fml
 End
 
+Definition mk_subst_def:
+  (mk_subst [(n,v)] = INL (n,v)) ∧
+  (mk_subst xs = INR (spt_to_vec (fromAList xs)))
+End
+
+Definition check_hash_triv_def:
+  check_hash_triv extra ncs =
+    EXISTS (check_triv extra) ncs
+End
+
 (* The tcb flag indicates we're in to-core mode
   where it is guaranteed that the core formula implies derived *)
 Definition check_red_def:
   check_red ord obj b tcb fml id c s pfs idopt =
   ( let nc = not c in
     let (fml_not_c,id1) = insert_fml b fml id (not c) in
+    let s = mk_subst s in
     let w = subst_fun s in
     let rsubs = red_subgoals ord w c obj in
     case extract_clauses w b fml rsubs pfs [] of
@@ -787,8 +810,11 @@ Definition check_red_def:
           let goals = toAList (map_opt (subst_opt w) gfml) in
           let (l,r) = extract_pids pfs LN LN in
             split_goals gfml nc l goals ∧
-            EVERY (λid. lookup id r ≠ NONE)
-              (COUNT_LIST (LENGTH rsubs)))
+            EVERY (λ(id,cs).
+              lookup id r ≠ NONE ∨
+              check_hash_triv nc cs
+              )
+              (enumerate 0 rsubs))
         | SOME cid =>
           check_contradiction_fml b fml' cid) in
       if chk then
@@ -1051,7 +1077,7 @@ QED
 Theorem split_goals_checked:
   split_goals fml e proved goals ∧
   MEM (n,yy) goals ⇒
-  yy ∈ range fml ∨ imp e yy ∨
+  yy ∈ range fml ∨ check_triv e (not yy) ∨
   ∃i.
     lookup i proved ≠ NONE ∧
     MEM (i,yy) goals
@@ -1153,6 +1179,53 @@ Proof
   gvs[AllCaseEqs()]
 QED
 
+Theorem MEM_enumerate_index:
+  ∀k xs.
+  MEM (i,e) (enumerate k xs) ⇒
+  ∃j. j < LENGTH xs ∧ i = k + j
+Proof
+  Induct_on`xs`>>rw[miscTheory.enumerate_def]
+  >- intLib.ARITH_TAC>>
+  first_x_assum drule>>
+  rw[]
+  >- intLib.ARITH_TAC
+QED
+
+Theorem MEM_enumerate_iff:
+  MEM ie (enumerate 0 xs) ⇔
+  ∃i e. ie = (i,e) ∧ i < LENGTH xs ∧ EL i xs = e
+Proof
+  Cases_on`ie`>>
+  rename1`MEM (i,e) _ `>>
+  Cases_on`i < LENGTH xs`>>fs[MEM_enumerate]
+  >- metis_tac[]>>
+  CCONTR_TAC>>fs[]>>
+  drule MEM_enumerate_index>>
+  rw[]
+QED
+
+Theorem check_triv_unsatisfiable:
+  check_triv extra nc ⇒
+  unsatisfiable (fml ∪ {extra} ∪ {nc})
+Proof
+  rw[check_triv_def]>>
+  drule check_contradiction_unsat>>
+  rw[unsatisfiable_def,satisfiable_def]>>
+  metis_tac[add_thm]
+QED
+
+Theorem check_triv_unsatisfiable_2:
+  check_triv extra nc ∧
+  extra ∈ fml ∧ nc ∈ fml
+  ⇒
+  unsatisfiable fml
+Proof
+  rw[check_triv_def]>>
+  drule check_contradiction_unsat>>
+  rw[unsatisfiable_def,satisfiable_def,satisfies_def]>>
+  metis_tac[add_thm]
+QED
+
 Theorem check_red_correct:
   id_ok fml id ∧
   OPTION_ALL good_spo ord ∧
@@ -1203,7 +1276,7 @@ Proof
   \\ pairarg_tac \\ fs[]
   \\ match_mp_tac (GEN_ALL substitution_redundancy_obj_po)
   \\ simp[]
-  \\ qexists_tac ‘subst_fun s’ \\ fs []
+  \\ qexists_tac ‘subst_fun (mk_subst s)’ \\ fs []
   \\ fs[EVERY_MEM,MEM_MAP,EXISTS_PROD]
   \\ `id ∉ domain fml` by fs[id_ok_def]
   \\
@@ -1213,58 +1286,92 @@ Proof
   \\ drule sat_implies_transitive
   \\ disch_then (fn th => DEP_REWRITE_TAC[th])
   \\ simp [Once implies_explode]
-  \\ gvs[red_subgoals_def,MEM_COUNT_LIST,ADD1]
+  \\ gvs[red_subgoals_def,MEM_enumerate_iff,ADD1,AND_IMP_INTRO,PULL_EXISTS]
   \\ reverse (rw [])
   >- (
     (* dominance *)
     rw[sat_implies_EL]>>
-    last_x_assum(qspec_then`SUC n` assume_tac)>>
+    last_x_assum(qspec_then`SUC n` mp_tac)>>
     gvs[]>>
-    drule_all lookup_extract_pids_r>> rw[]
-    \\ drule extract_clauses_MEM_INR
-    \\ disch_then drule
-    \\ fs[EL]
-    \\ DEP_REWRITE_TAC [EL_APPEND_EQN] \\ simp[]
-    \\ rw[]
-    \\ first_x_assum drule \\ strip_tac
-    \\ gs[EL_MAP]
-    \\ drule unsatisfiable_not_sat_implies
-    \\ simp[range_insert]
-    \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
+    PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
+    strip_tac
+    >- (
+      drule_all lookup_extract_pids_r>> rw[]
+      \\ drule extract_clauses_MEM_INR
+      \\ disch_then drule
+      \\ fs[EL]
+      \\ DEP_REWRITE_TAC [EL_APPEND_EQN] \\ simp[]
+      \\ rw[]
+      \\ first_x_assum drule \\ strip_tac
+      \\ gs[EL_MAP]
+      \\ drule unsatisfiable_not_sat_implies
+      \\ simp[range_insert]
+      \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
+   >- (
+      fs[check_hash_triv_def]
+      \\ pop_assum mp_tac
+      \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
+      \\ simp[EL_MAP]
+      \\ strip_tac
+      \\ match_mp_tac unsatisfiable_not_sat_implies
+      \\ metis_tac[check_triv_unsatisfiable]) )
   >- (
     (* objective *)
-    Cases_on`obj`>>
-    last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun s) ord))` assume_tac)>>
-    fs[]>>
-    drule_all lookup_extract_pids_r>>rw[]
-    \\ drule extract_clauses_MEM_INR
-    \\ disch_then drule
-    \\ fs[EL]
-    \\ DEP_REWRITE_TAC [EL_APPEND2]
-    \\ simp[]
-    \\ rw[]
-    \\ first_x_assum drule \\ strip_tac
-    \\ gs[]
-    \\ drule unsatisfiable_not_sat_implies
-    \\ simp[range_insert]
-    \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
+    Cases_on`obj`>> gvs[]>>
+    last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun (mk_subst s)) ord))` mp_tac)>>
+    gvs[]>>
+    PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
+    strip_tac
+    >- (
+      drule_all lookup_extract_pids_r>>rw[]
+      \\ drule extract_clauses_MEM_INR
+      \\ disch_then drule
+      \\ fs[EL]
+      \\ DEP_REWRITE_TAC [EL_APPEND2]
+      \\ simp[]
+      \\ rw[]
+      \\ first_x_assum drule \\ strip_tac
+      \\ gs[]
+      \\ drule unsatisfiable_not_sat_implies
+      \\ simp[range_insert]
+      \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
+    >- (
+      fs[check_hash_triv_def]
+      \\ pop_assum mp_tac
+      \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
+      \\ simp[EL_MAP]
+      \\ strip_tac
+      \\ match_mp_tac unsatisfiable_not_sat_implies
+      \\ metis_tac[check_triv_unsatisfiable])
+    )
   >- (
     (* redundancy #0 *)
-    last_x_assum(qspec_then`0` assume_tac)>>
-    fs[]>>
-    drule_all lookup_extract_pids_r>>rw[]
-    \\ drule extract_clauses_MEM_INR
-    \\ disch_then drule
-    \\ fs[]
-    \\ rw[]
-    \\ first_x_assum drule \\ strip_tac
-    \\ fs[]
-    \\ drule unsatisfiable_not_sat_implies
-    \\ simp[range_insert]
-    \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
+    last_x_assum(qspec_then`0` mp_tac)>>
+    gvs[]>>
+    PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
+    strip_tac
+    >- (
+      drule_all lookup_extract_pids_r>>rw[]
+      \\ drule extract_clauses_MEM_INR
+      \\ disch_then drule
+      \\ fs[]
+      \\ rw[]
+      \\ first_x_assum drule \\ strip_tac
+      \\ fs[]
+      \\ drule unsatisfiable_not_sat_implies
+      \\ simp[range_insert]
+      \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
+    >- (
+      fs[check_hash_triv_def]
+      \\ pop_assum mp_tac
+      \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
+      \\ simp[EL_MAP]
+      \\ strip_tac
+      \\ match_mp_tac unsatisfiable_not_sat_implies
+      \\ metis_tac[check_triv_unsatisfiable]))
   (* rest of redundancy *)
   \\ gvs [GSYM unsat_iff_implies]
-  \\ Cases_on ‘subst_opt (subst_fun s) x'’ \\ fs []
+  \\ Cases_on ‘subst_opt (subst_fun (mk_subst s)) x'’ \\ fs []
   >- (
     imp_res_tac subst_opt_NONE
     \\ CCONTR_TAC \\ gvs [satisfiable_def,not_thm]
@@ -1276,7 +1383,7 @@ Proof
   \\ strip_tac
   \\ rename1`lookup nn _ = SOME xx`
   \\ rename1`subst_opt _ _ = SOME yy`
-  \\ `MEM (nn,yy) (toAList (map_opt (subst_opt (subst_fun s))
+  \\ `MEM (nn,yy) (toAList (map_opt (subst_opt (subst_fun (mk_subst s)))
       (mk_core_fml (b ∨ tcb) fml)))` by
      simp[MEM_toAList,lookup_map_opt]
   \\ drule_all split_goals_checked \\ rw[]
@@ -1286,7 +1393,8 @@ Proof
     simp[]>>
     metis_tac[range_mk_core_fml,in_core_only_fml_or_left])
   >- (
-    fs[satisfiable_def,not_thm,satisfies_def]>>
+    drule check_triv_unsatisfiable>>
+    fs[unsatisfiable_def,satisfiable_def,not_thm,satisfies_def]>>
     drule subst_opt_SOME >>
     metis_tac[not_thm,imp_thm,in_core_only_fml_or_left])
   \\ drule_all lookup_extract_pids_l>>rw[]
@@ -1523,12 +1631,12 @@ QED
 Datatype:
   cstep =
   (* Derivation steps *)
-  | Dom npbc subst (( ((num + num) # num) option, (lstep list)) alist) (num option)
+  | Dom npbc subst_raw (( ((num + num) # num) option, (lstep list)) alist) (num option)
   | Sstep sstep
 
   (* Deletion steps *)
   | CheckedDelete num
-      subst
+      subst_raw
       (( ((num + num) # num) option, (lstep list)) alist)
       (num option)
   | UncheckedDelete (num list)
@@ -1759,7 +1867,11 @@ Definition check_reflexivity_def:
   (case check_subproofs cpfs F fml id of
     SOME (fml',id') =>
     let (l,r) = extract_pids pfs LN LN in
-       EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH dsubs))
+       EVERY (λ(id,cs).
+              lookup id r ≠ NONE ∨
+              EXISTS check_contradiction cs
+              )
+              (enumerate 0 dsubs)
   | _ => F)
 End
 
@@ -1775,7 +1887,12 @@ Definition check_transitivity_def:
   (case check_subproofs cpfs F fml id of
     SOME (fml',id') =>
     let (l,r) = extract_pids pfs LN LN in
-    if EVERY (λid. lookup id r ≠ NONE) (COUNT_LIST (LENGTH dsubs))
+    if
+       EVERY (λ(id,cs).
+              lookup id r ≠ NONE ∨
+              EXISTS check_contradiction cs
+              )
+              (enumerate 0 dsubs)
     then SOME id'
     else NONE
   | _ => NONE)
@@ -1907,12 +2024,17 @@ Definition mk_diff_obj_def:
   if b then fc' else add_obj fc fc'
 End
 
+Definition mk_tar_obj_def:
+  mk_tar_obj b fc =
+  (if b then fc else ([],0:int))
+End
+
 Definition check_change_obj_def:
   check_change_obj b fml id obj fc' pfs ⇔
   case obj of NONE => NONE
   | SOME fc =>
-    ( let fc' = mk_diff_obj b fc fc' in
-      let csubs = change_obj_subgoals fc fc' in
+    ( let csubs = change_obj_subgoals
+        (mk_tar_obj b fc) fc' in
       case extract_clauses (λx. NONE) T fml csubs pfs [] of
         NONE => NONE
       | SOME cpfs =>
@@ -1920,10 +2042,15 @@ Definition check_change_obj_def:
         NONE => NONE
       | SOME (fml',id') =>
         let (l,r) = extract_pids pfs LN LN in
-        if EVERY (λid. lookup id r ≠ NONE)
-             (COUNT_LIST (LENGTH csubs))
+        if
+          EVERY (λ(id,cs).
+              lookup id r ≠ NONE ∨
+              EXISTS check_contradiction cs
+              )
+              (enumerate 0 csubs)
         then
-          SOME (fc',id')
+          let fc'' = mk_diff_obj b fc fc' in
+          SOME (fc'',id')
         else NONE))
 End
 
@@ -1987,6 +2114,7 @@ Definition check_cstep_def:
     | SOME spo =>
     ( let nc = not c in
       let (fml_not_c,id1) = insert_fml F fml pc.id (not c) in
+      let s = mk_subst s in
       let w = subst_fun s in
       let dsubs = dom_subgoals spo w c pc.obj in
       case extract_clauses w F fml dsubs pfs [] of
@@ -2002,8 +2130,11 @@ Definition check_cstep_def:
             let (l,r) = extract_pids pfs LN LN in
             let gfml = mk_core_fml F fml in
               split_goals gfml nc l goals ∧
-              EVERY (λid. lookup id r ≠ NONE)
-                (COUNT_LIST (LENGTH dsubs))
+              EVERY (λ(id,cs).
+                lookup id r ≠ NONE ∨
+                check_hash_triv nc cs
+              )
+              (enumerate 0 dsubs)
           | SOME cid =>
             check_contradiction_fml F fml' cid) in
         if check then
@@ -2380,7 +2511,7 @@ Proof
       PairCases_on`x`>>
       match_mp_tac (GEN_ALL good_spo_dominance)>>
       simp[]>>
-      qexists_tac ‘subst_fun v’>>fs[]>>
+      qexists_tac ‘subst_fun (mk_subst l)’>>fs[]>>
       CONJ_TAC >-
         metis_tac[core_only_fml_T_SUBSET_F]>>
       CONJ_TAC >-
@@ -2388,12 +2519,12 @@ Proof
       `pc.id ∉ domain fml` by fs[id_ok_def]>>
       fs[core_only_fml_F_insert_b]>>
       fs[EVERY_MEM,MEM_MAP,EXISTS_PROD]>>
-      gvs[dom_subgoals_def,MEM_COUNT_LIST,ADD1]>>
+      gvs[dom_subgoals_def,MEM_enumerate_iff,ADD1,AND_IMP_INTRO,PULL_EXISTS]>>
       CONJ_TAC >- (
         (* core constraints*)
         rw[sat_implies_def,satisfies_def]
         \\ gs[PULL_EXISTS,GSYM range_mk_core_fml,range_def,lookup_mk_core_fml]
-        \\ Cases_on ‘subst_opt (subst_fun v) x’ \\ fs []
+        \\ Cases_on ‘subst_opt (subst_fun (mk_subst l)) x’ \\ fs []
         THEN1 (
           imp_res_tac subst_opt_NONE
           \\ gvs[lookup_core_only_def,AllCaseEqs()]
@@ -2401,7 +2532,7 @@ Proof
           \\ fs [satisfies_def,range_def,PULL_EXISTS]
           \\ metis_tac[])
         \\ rename1`subst_opt _ _ = SOME yy`
-        \\ `MEM (n,yy) (toAList (map_opt (subst_opt (subst_fun v))
+        \\ `MEM (n,yy) (toAList (map_opt (subst_opt (subst_fun (mk_subst l)))
             (mk_core_fml T fml)))` by
             simp[MEM_toAList,lookup_map_opt,lookup_mk_core_fml,lookup_core_only_def]
         \\ drule_all split_goals_checked \\ rw[]
@@ -2411,10 +2542,13 @@ Proof
           drule subst_opt_SOME >>
           rw[]>> metis_tac[not_thm])
         >- (
-          fs[satisfiable_def,not_thm,satisfies_def]>>
+          drule check_triv_unsatisfiable>>
+          disch_then(qspec_then`{}` mp_tac)>>
+          fs[unsatisfiable_def,satisfiable_def,not_thm,satisfies_def]>>
           drule subst_opt_SOME >>
           fs[range_def]>>
-          rw[]>> metis_tac[not_thm,imp_thm])
+          rw[]>>
+          metis_tac[not_thm,imp_thm])
         \\ drule_all lookup_extract_pids_l>>rw[]
         \\ drule_all extract_clauses_MEM_INL
         \\ strip_tac
@@ -2432,7 +2566,8 @@ Proof
           gvs[lookup_mk_core_fml]>>
           drule lookup_core_only_T_imp_F>>
           rw[])
-        \\ `subst (subst_fun v) c = subst (subst_fun v) x` by
+        \\ `subst (subst_fun (mk_subst l)) c =
+            subst (subst_fun (mk_subst l)) x` by
           metis_tac[subst_opt_SOME]
         \\ metis_tac[])>>
       CONJ_TAC >- (
@@ -2440,29 +2575,75 @@ Proof
         fs[core_only_fml_def]>>
         simp[GSYM LIST_TO_SET_MAP]>>
         rw[sat_implies_EL,EL_MAP]>>
-        last_x_assum(qspec_then`n` assume_tac)>>
+        last_x_assum(qspec_then`n` mp_tac)>>
         gvs[dom_subst_def]>>
-        drule_all lookup_extract_pids_r>>
-        rw[]>>
-        drule extract_clauses_MEM_INR>>
-        disch_then drule>>
-        fs[EL_MAP]>>
-        DEP_REWRITE_TAC [EL_APPEND_EQN] >> simp[]>>
-        simp[EL_MAP]>>
-        rw[]>>
-        first_x_assum drule >> strip_tac>>
-        gs[]>>
-        drule unsatisfiable_not_sat_implies>>
-        simp[lookup_list_list_insert,ALOOKUP_ZIP_MAP]>>
-        simp[range_insert]>>
-        metis_tac[INSERT_SING_UNION,UNION_COMM])>>
+        PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
+        strip_tac
+        >- (
+          drule_all lookup_extract_pids_r>>
+          rw[]>>
+          drule extract_clauses_MEM_INR>>
+          disch_then drule>>
+          fs[EL_MAP]>>
+          DEP_REWRITE_TAC [EL_APPEND_EQN] >> simp[]>>
+          simp[EL_MAP]>>
+          rw[]>>
+          first_x_assum drule >> strip_tac>>
+          gs[]>>
+          drule unsatisfiable_not_sat_implies>>
+          simp[lookup_list_list_insert,ALOOKUP_ZIP_MAP]>>
+          simp[range_insert]>>
+          metis_tac[INSERT_SING_UNION,UNION_COMM])
+        >- (
+          fs[check_hash_triv_def]
+          \\ pop_assum mp_tac
+          \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
+          \\ simp[EL_MAP]
+          \\ simp[lookup_list_list_insert,ALOOKUP_ZIP_MAP]
+          \\ strip_tac
+          \\ match_mp_tac unsatisfiable_not_sat_implies
+          \\ metis_tac[check_triv_unsatisfiable])
+      )>>
       CONJ_TAC >- (
         (* negated order constraint *)
         fs[core_only_fml_def]>>
-        last_x_assum(qspec_then`LENGTH (dom_subst (subst_fun v) (SOME ((x0,x1,x2),x3)))` assume_tac)>>
+        last_x_assum(qspec_then`LENGTH (dom_subst (subst_fun (mk_subst l)) (SOME ((x0,x1,x2),x3)))` mp_tac)>>
         gs[ADD1]>>
+        PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
+        strip_tac
+        >- (
+          drule_all lookup_extract_pids_r>>
+          simp[]>> rw[]
+          \\ drule extract_clauses_MEM_INR
+          \\ disch_then drule
+          \\ fs[]
+          \\ DEP_REWRITE_TAC [EL_APPEND2]
+          \\ simp[]
+          \\ rw[]
+          \\ first_x_assum drule \\ strip_tac
+          \\ gs[neg_dom_subst_def,lookup_list_list_insert,ALOOKUP_ZIP_MAP,range_insert]
+          \\ metis_tac[INSERT_SING_UNION,UNION_COMM,LIST_TO_SET_MAP])
+        >- (
+          fs[check_hash_triv_def]
+          \\ pop_assum mp_tac
+          \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
+          \\ gs[neg_dom_subst_def,lookup_list_list_insert,ALOOKUP_ZIP_MAP,range_insert,EXISTS_MEM,MEM_MAP]
+          \\ strip_tac \\ rw[]
+          \\ drule check_triv_unsatisfiable_2
+          \\ disch_then match_mp_tac
+          \\ simp[])
+        )>>
+      (* objective constraint *)
+      fs[core_only_fml_def]>>
+      Cases_on`pc.obj`>>
+      simp[]>>
+      last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun (mk_subst l)) (SOME ((x0,x1,x2),x3))))` mp_tac)>>
+      gs[ADD1]>>
+      PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
+      strip_tac
+      >- (
         drule_all lookup_extract_pids_r>>
-        simp[]>> rw[]
+        simp[]>>rw[]
         \\ drule extract_clauses_MEM_INR
         \\ disch_then drule
         \\ fs[]
@@ -2470,26 +2651,19 @@ Proof
         \\ simp[]
         \\ rw[]
         \\ first_x_assum drule \\ strip_tac
-        \\ gs[neg_dom_subst_def,lookup_list_list_insert,ALOOKUP_ZIP_MAP,range_insert]
-        \\ metis_tac[INSERT_SING_UNION,UNION_COMM,LIST_TO_SET_MAP])>>
-      (* objective constraint *)
-      fs[core_only_fml_def]>>
-      Cases_on`pc.obj`>>
-      simp[]>>
-      last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun v) (SOME ((x0,x1,x2),x3))))` assume_tac)>>
-      gs[ADD1]>>
-      drule_all lookup_extract_pids_r>>
-      simp[]>>rw[]
-      \\ drule extract_clauses_MEM_INR
-      \\ disch_then drule
-      \\ fs[]
-      \\ DEP_REWRITE_TAC [EL_APPEND2]
-      \\ simp[]
-      \\ rw[]
-      \\ first_x_assum drule \\ strip_tac
-      \\ gs[range_insert]
-      \\ drule unsatisfiable_not_sat_implies
-      \\ metis_tac[INSERT_SING_UNION,UNION_COMM])>>
+        \\ gs[range_insert]
+        \\ drule unsatisfiable_not_sat_implies
+        \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
+      >- (
+          fs[check_hash_triv_def]
+          \\ pop_assum mp_tac
+          \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
+          \\ simp[EL_MAP]
+          \\ simp[lookup_list_list_insert,ALOOKUP_ZIP_MAP]
+          \\ strip_tac
+          \\ match_mp_tac unsatisfiable_not_sat_implies
+          \\ metis_tac[check_triv_unsatisfiable])
+      )>>
     CONJ_TAC >- (
       pop_assum mp_tac>>
       DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
@@ -2711,22 +2885,33 @@ Proof
       rw[]>>
       simp[GSYM LIST_TO_SET_MAP]>>
       rw[sat_implies_EL]>>
-      fs[EVERY_MEM,MEM_COUNT_LIST]>>
+      fs[EVERY_MEM,MEM_enumerate_iff,PULL_EXISTS]>>
       first_x_assum drule>>
-      rw[]>>
-      drule_all lookup_extract_pids_r>>
-      simp[]>>
-      rw[]>>
-      drule extract_clauses_MEM_INR>>
-      disch_then drule>>
-      simp[EL_MAP]>>
-      rw[]>>
-      first_x_assum drule>>
-      simp[]>>rw[]>>
-      drule unsatisfiable_not_sat_implies>>
-      simp[core_only_fml_def,Abbr`fmll`] >>
-      once_rewrite_tac [subst_eta] >> fs [] >>
-      gvs [ALOOKUP_APPEND,ALOOKUP_ZIP_MAP])>>
+      PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
+      strip_tac
+      >- (
+        drule_all lookup_extract_pids_r>>
+        simp[]>>
+        rw[]>>
+        drule extract_clauses_MEM_INR>>
+        disch_then drule>>
+        simp[EL_MAP]>>
+        rw[]>>
+        first_x_assum drule>>
+        simp[]>>rw[]>>
+        drule unsatisfiable_not_sat_implies>>
+        simp[core_only_fml_def,Abbr`fmll`] >>
+        once_rewrite_tac [subst_eta] >> fs [] >>
+        gvs [ALOOKUP_APPEND,ALOOKUP_ZIP_MAP])
+      >- (
+        gvs[EL_MAP]>>
+        match_mp_tac unsatisfiable_not_sat_implies>>
+        simp[]>>
+        drule check_contradiction_unsat>>
+        simp[unsatisfiable_def,satisfiable_def]>>
+        once_rewrite_tac [subst_eta] >> fs [] >>
+        rw[ALOOKUP_ZIP_MAP] )
+      )>>
     PairCases_on`p`>>
     match_mp_tac (transitive_po_of_spo |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
     gvs[check_transitivity_def,check_ws_def]>>
@@ -2748,31 +2933,43 @@ Proof
     rw[]>>
     simp[GSYM LIST_TO_SET_MAP]>>
     rw[sat_implies_EL]>>
-    fs[MEM_COUNT_LIST]>>
-    pairarg_tac>>gs[]>>
+    fs[MEM_enumerate_iff]>>
+    pairarg_tac>>gs[PULL_EXISTS]>>
     first_x_assum drule>>
-    rw[]>>
-    drule_all lookup_extract_pids_r>>
-    simp[]>>
-    rw[]>>
-    drule extract_clauses_MEM_INR>>
-    disch_then drule>>
-    simp[EL_MAP]>>
-    rw[]>>
-    fs[EVERY_MEM]>>
-    first_x_assum drule>>
-    simp[]>>rw[]>>
-    drule unsatisfiable_not_sat_implies>>
-    simp[core_only_fml_build_fml,Abbr`fmll`] >>
-    once_rewrite_tac [subst_eta] >> fs [] >>
-    gvs [ALOOKUP_APPEND,ALOOKUP_ZIP_MAP] >>
-    qmatch_goalsub_abbrev_tac ‘subst f1’ >> strip_tac >>
-    qmatch_goalsub_abbrev_tac ‘subst f2’ >>
-    qsuff_tac ‘f1 = f2’ >-
-      (rw [] >> gvs []) >>
-    unabbrev_all_tac >>
-    fs [FUN_EQ_THM] >> rw [] >>
-    ntac 4 (CASE_TAC >> fs []) )
+    PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
+    strip_tac
+    >- (
+      rw[]>>
+      drule_all lookup_extract_pids_r>>
+      simp[]>>
+      rw[]>>
+      drule extract_clauses_MEM_INR>>
+      disch_then drule>>
+      simp[EL_MAP]>>
+      rw[]>>
+      fs[EVERY_MEM]>>
+      first_x_assum drule>>
+      simp[]>>rw[]>>
+      drule unsatisfiable_not_sat_implies>>
+      simp[core_only_fml_build_fml,Abbr`fmll`] >>
+      once_rewrite_tac [subst_eta] >> fs [] >>
+      gvs [ALOOKUP_APPEND,ALOOKUP_ZIP_MAP] >>
+      qmatch_goalsub_abbrev_tac ‘subst f1’ >> strip_tac >>
+      qmatch_goalsub_abbrev_tac ‘subst f2’ >>
+      qsuff_tac ‘f1 = f2’ >-
+        (rw [] >> gvs []) >>
+      unabbrev_all_tac >>
+      fs [FUN_EQ_THM] >> rw [] >>
+      ntac 4 (CASE_TAC >> fs []) )
+    >- (
+      gvs[EL_MAP]>>
+      match_mp_tac unsatisfiable_not_sat_implies>>
+      simp[]>>
+      drule check_contradiction_unsat>>
+      simp[unsatisfiable_def,satisfiable_def]>>
+      once_rewrite_tac [subst_eta] >> fs [] >>
+      rw[ALOOKUP_ZIP_MAP] )
+    )
   >- (
     (* Obj *)
     strip_tac>>
@@ -2842,20 +3039,41 @@ Proof
     disch_then(qspecl_then[`pfs`,`T`] mp_tac)>>simp[]>>
     strip_tac>>
     fs[EVERY_MEM,MEM_MAP,EXISTS_PROD]>>
-    gvs[change_obj_subgoals_def,MEM_COUNT_LIST,ADD1]>>
-    first_assum(qspec_then`0` mp_tac)>>
-    first_x_assum(qspec_then`1` mp_tac)>>
-    simp[]>>
-    strip_tac>> drule_all lookup_extract_pids_r>>
-    simp[]>> strip_tac>>
-    drule_all extract_clauses_MEM_INR>>
-    simp[]>> strip_tac>>
-    strip_tac>> drule_all lookup_extract_pids_r>>
-    simp[]>> strip_tac>>
-    drule_all extract_clauses_MEM_INR>>
-    simp[]>> strip_tac>>
-    res_tac >>fs[]>>
-    qmatch_asmsub_rename_tac`model_bounding fnew fold`>>
+    gvs[change_obj_subgoals_def,MEM_enumerate_iff,ADD1,PULL_EXISTS]>>
+    qmatch_asmsub_abbrev_tac`model_bounding fnew fold`>>
+    `unsatisfiable (core_only_fml T fml ∪ {not (model_bounding fnew fold)})` by (
+      first_x_assum(qspec_then`0` mp_tac)>>
+      simp[]>>
+      PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
+      strip_tac
+      >- (
+        drule_all lookup_extract_pids_r>>
+        simp[]>> strip_tac>>
+        drule_all extract_clauses_MEM_INR>>
+        simp[]>>
+        strip_tac>>
+        first_x_assum drule>>simp[])
+      >- (
+        drule check_contradiction_unsat>>
+        simp[unsatisfiable_def,satisfiable_def]
+      ))>>
+    `unsatisfiable (core_only_fml T fml ∪ {not (model_bounding fold fnew)})` by (
+      first_x_assum(qspec_then`1` mp_tac)>>
+      simp[]>>
+      PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
+      strip_tac
+      >- (
+        drule_all lookup_extract_pids_r>>
+        simp[]>> strip_tac>>
+        drule_all extract_clauses_MEM_INR>>
+        simp[]>>
+        strip_tac>>
+        first_x_assum drule>>simp[])
+      >- (
+        drule check_contradiction_unsat>>
+        simp[unsatisfiable_def,satisfiable_def]
+      ))>>
+
     `∀w.
       satisfies w (core_only_fml T fml) ⇒
       eval_obj (SOME fold) w =
@@ -2865,6 +3083,18 @@ Proof
       rw[]>>gvs[]>>
       ntac 2 (first_x_assum (qspec_then `w` mp_tac))>>simp[]>>
       intLib.ARITH_TAC)>>
+
+    qmatch_goalsub_abbrev_tac`SOME fupd`>>
+    `∀w.
+      satisfies w (core_only_fml T fml) ⇒
+      eval_obj (SOME x) w =
+      eval_obj (SOME fupd) w` by
+      (unabbrev_all_tac>>gvs[mk_diff_obj_def,mk_tar_obj_def]>>
+      rw[]>>first_x_assum drule>>
+      rw[]>>
+      simp[add_obj_eval_obj]>>
+      EVAL_TAC)>>
+    gvs[]>>
     CONJ_TAC >-
       fs[id_ok_def]>>
     CONJ_TAC >- (
@@ -2886,7 +3116,8 @@ Proof
       metis_tac[])>>
     fs[valid_conf_def]>>
     rw[bimp_obj_def,imp_obj_def,sat_obj_le_def]>>
-    asm_exists_tac>>simp[])
+    first_x_assum drule>>
+    metis_tac[])
   >-
     (every_case_tac>>rw[])
 QED

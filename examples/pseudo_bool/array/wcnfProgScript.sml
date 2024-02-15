@@ -372,16 +372,16 @@ Definition maxsat_sem_def:
   case copt of NONE => T
   | SOME (lbg,ubg) =>
   (case lbg of
-    NONE => min_unsat wfml = NONE
+    NONE => opt_cost wfml = NONE
   | SOME lb =>
     (case ubg of
-      NONE => (∀w. satisfies_hard w wfml ⇒ lb ≤ weight w wfml)
+      NONE => (∀w. sat_hard w wfml ⇒ lb ≤ cost w wfml)
     | SOME ub =>
       if lb = ub then
-        min_unsat wfml = SOME lb
+        opt_cost wfml = SOME lb
       else
-      (∀w. satisfies_hard w wfml ⇒ lb ≤ weight w wfml) ∧
-      (∃w. satisfies_hard w wfml ∧ weight w wfml ≤ ub)))
+      (∀w. sat_hard w wfml ⇒ lb ≤ cost w wfml) ∧
+      (∃w. sat_hard w wfml ∧ cost w wfml ≤ ub)))
 End
 
 Definition print_maxsat_str_def:
@@ -394,15 +394,15 @@ Definition print_maxsat_str_def:
     (case lbg of
       NONE =>
         strlit "s VERIFIED BOUNDS " ^
-        strlit "sum(unsat weights) <= " ^ toString ub ^ strlit"\n"
+        strlit "COST <= " ^ toString ub ^ strlit"\n"
     | SOME lb =>
       if lb = ub then
-        strlit "s VERIFIED MIN sum(unsat weights) = " ^
+        strlit "s VERIFIED OPTIMAL COST = " ^
         toString ub ^ strlit"\n"
       else
         strlit "s VERIFIED " ^
         (toString lb) ^
-        strlit " <= MIN sum(unsat weights) <= " ^ toString ub ^ strlit"\n"))
+        strlit " <= COST <= " ^ toString ub ^ strlit"\n"))
 End
 
 Definition check_unsat_2_sem_def:
@@ -533,17 +533,17 @@ Proof
     qexists_tac`x`>>simp[maxsat_sem_def]>>
     every_case_tac>>fs[]
     >- (
-      (drule_at Any) full_encode_sem_concl_min_unsat>>
+      (drule_at Any) full_encode_sem_concl_opt_cost>>
       metis_tac[PAIR])
     >- (
       (drule_at Any) full_encode_sem_concl>>
       fs[]>>
       disch_then (drule_at Any)>>simp[])
     >- (
-      (drule_at Any) full_encode_sem_concl_min_unsat>>
+      (drule_at Any) full_encode_sem_concl_opt_cost>>
       metis_tac[PAIR])
     >- (
-      (drule_at Any) full_encode_sem_concl_min_unsat>>
+      (drule_at Any) full_encode_sem_concl_opt_cost>>
       metis_tac[PAIR])
     >- (
       (drule_at Any) full_encode_sem_concl>>
@@ -604,7 +604,7 @@ QED
 
 Definition maxsat_output_sem_def:
   maxsat_output_sem wfml wfml' iseqopt ⇔
-  (iseqopt ⇒ min_unsat wfml = min_unsat wfml')
+  (iseqopt ⇒ opt_cost wfml = opt_cost wfml')
 End
 
 Definition print_maxsat_output_str_def:
@@ -764,24 +764,24 @@ Proof
     fs[maxsat_sem_def]>>
     every_case_tac>>fs[]
     >- (
-      (drule_at Any) full_encode_sem_concl_min_unsat>>
+      (drule_at Any) full_encode_sem_concl_opt_cost>>
       metis_tac[PAIR])
     >- (
       (drule_at Any) full_encode_sem_concl>>
       fs[]>>
       disch_then (drule_at Any)>>simp[])
     >- (
-      (drule_at Any) full_encode_sem_concl_min_unsat>>
+      (drule_at Any) full_encode_sem_concl_opt_cost>>
       metis_tac[PAIR])
     >- (
-      (drule_at Any) full_encode_sem_concl_min_unsat>>
+      (drule_at Any) full_encode_sem_concl_opt_cost>>
       metis_tac[PAIR])
     >- (
       (drule_at Any) full_encode_sem_concl>>
       fs[]>>
       disch_then (drule_at Any)>>simp[]))>>
   rw[]>>fs[]>>
-  (drule_at Any) full_encode_sem_output_min_unsat>>
+  (drule_at Any) full_encode_sem_output_opt_cost>>
   fs[]>>
   metis_tac[PAIR]
 QED
