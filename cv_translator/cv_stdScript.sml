@@ -285,15 +285,11 @@ val res = cv_auto_trans sptreeTheory.toList_def;
 val res = cv_auto_trans sptreeTheory.mk_wf_def;
 val res = cv_auto_trans sptreeTheory.size_def;
 
-(*
 val res = cv_trans sptreeTheory.list_to_num_set_def;
 val res = cv_trans sptreeTheory.list_insert_def;
-*)
 val res = cv_trans sptreeTheory.alist_insert_def;
 
 val res = cv_trans sptreeTheory.lrnext_def;
-
-(* val res = cv_auto_trans sptreeTheory.toAList_def; *)
 
 val res = cv_trans sptreeTheory.spt_center_def
 val res = cv_auto_trans sptreeTheory.apsnd_cons_def;
@@ -303,13 +299,111 @@ Theorem spt_centers_pre[cv_pre,local]:
   ∀x y. spt_centers_pre x y
 Proof
   ho_match_mp_tac sptreeTheory.spt_centers_ind
-  \\ rpt strip_tac \\ once_rewrite_tac [res] \\ fs []
+  \\ rpt strip_tac \\ simp [Once res]
 QED
 
 val res = cv_trans sptreeTheory.spt_left_def
 val res = cv_trans sptreeTheory.spt_right_def
 
+val res = cv_trans sptreeTheory.subspt_eq;
+
+val lam = sptreeTheory.toAList_def |> SPEC_ALL |> concl |> find_term is_abs;
+
+Definition toAList_foldi_def:
+  toAList_foldi = foldi ^lam
+End
+
+val toAList_foldi_eq = sptreeTheory.foldi_def
+                  |> CONJUNCTS |> map (ISPEC lam)
+                  |> LIST_CONJ |> REWRITE_RULE [GSYM toAList_foldi_def]
+                  |> SIMP_RULE std_ss [];
+
+val res = cv_trans_pre toAList_foldi_eq;
+
+Theorem toAList_foldi_pre[cv_pre]:
+  ∀a0 a1 a2. toAList_foldi_pre a0 a1 a2
+Proof
+  Induct_on ‘a2’ \\ gvs [] \\ simp [Once res] \\ gvs []
+QED
+
+val res = cv_trans
+  (sptreeTheory.toAList_def |> REWRITE_RULE [GSYM toAList_foldi_def,FUN_EQ_THM]);
+
+val res = cv_auto_trans_pre sptreeTheory.spt_centers_def;
+
+Theorem spt_centers_pre[cv_pre]:
+  ∀a0 a1. spt_centers_pre a0 a1
+Proof
+  ho_match_mp_tac sptreeTheory.spt_centers_ind \\ rw [] \\ simp [Once res]
+QED
+
+Definition combine_rle_isEmpty_def:
+  combine_rle_isEmpty = combine_rle isEmpty
+End
+
+Theorem combine_rle_isEmpty_eq:
+  combine_rle_isEmpty xs =
+    case xs of
+    | [] => []
+    | [t] => [t]
+    | ((i,x)::(j,y)::xs) =>
+        if x = LN ∧ y = LN then combine_rle_isEmpty ((i + j,x)::xs)
+        else (i,x)::combine_rle_isEmpty ((j,y)::xs)
+Proof
+  BasicProvers.every_case_tac
+  \\ gvs [combine_rle_isEmpty_def,sptreeTheory.combine_rle_def] \\ rw []
+QED
+
+Definition cv_right_depth_def:
+  cv_right_depth (Num _) = 0:num ∧
+  cv_right_depth (Pair x y) = cv_right_depth y + 1
+End
+
+val res = cv_trans_pre_rec combine_rle_isEmpty_eq
+  (WF_REL_TAC ‘measure cv_right_depth’ \\ rw [cv_right_depth_def]
+   \\ cv_termination_tac \\ fs [cv_right_depth_def])
+
+Theorem combine_rle_isEmpty_pre[cv_pre]:
+  combine_rle_isEmpty_pre xs
+Proof
+  completeInduct_on ‘LENGTH xs’ \\ rw [] \\ gvs [PULL_FORALL]
+  \\ Cases_on ‘xs’ \\ gvs [] \\ simp [Once res] \\ rw []
+QED
+
+Definition every_empty_snd_def:
+  every_empty_snd [] = T ∧
+  every_empty_snd ((n,x)::xs) = if x = LN then every_empty_snd xs else F
+End
+
+Theorem every_empty_snd:
+  ∀ys. EVERY ((λt. isEmpty t) ∘ SND) ys = every_empty_snd ys
+Proof
+  Induct \\ gvs [every_empty_snd_def,FORALL_PROD]
+QED
+
+val res = cv_trans every_empty_snd_def;
+
+Definition map_spt_right_def:
+  map_spt_right [] = [] ∧
+  map_spt_right ((i,x)::xs) = (i, spt_right x) :: map_spt_right xs
+End
+
+Definition map_spt_left_def:
+  map_spt_left [] = [] ∧
+  map_spt_left ((i,x)::xs) = (i, spt_left x) :: map_spt_left xs
+End
+
+Theorem map_spt_right_left:
+  MAP (λ(i,t). (i,spt_right t)) ys = map_spt_right ys ∧
+  MAP (λ(i,t). (i,spt_left t)) ys = map_spt_left ys
+Proof
+  Induct_on ‘ys’ \\ gvs [map_spt_left_def,map_spt_right_def,FORALL_PROD]
+QED
+
 (*
+  sptreeTheory.spts_to_alist_def
+  |> REWRITE_RULE [GSYM combine_rle_isEmpty_def,every_empty_snd,map_spt_right_left]
+
 val res = cv_auto_trans sptreeTheory.spts_to_alist_def
 val res = cv_auto_trans sptreeTheory.toSortedAList_def
 *)
