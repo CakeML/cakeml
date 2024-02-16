@@ -18,42 +18,56 @@ Type wcclause = ``:num # cclause``;
 (* Weighted CNFs are a list of weighted soft clauses *)
 Type wccnf = ``:wcclause list``;
 
+(* A cleaner definition of satisfaction *)
+Definition sat_lit_def:
+  sat_lit w l ⇔
+  l ≠ 0 ∧
+  let v = Num (ABS l) in
+  if l > 0 then w v else ¬ w v
+End
+
+Definition sat_clause_def:
+  sat_clause w C ⇔
+  ∃l. l ∈ set C ∧ sat_lit w l
+End
+
+Definition sat_hard_def:
+  sat_hard w wfml ⇔
+  ∀C. (0:num,C) ∈ set wfml ⇒ sat_clause w C
+End
+
 (* The weight of a clause with respect to an assignment
   (0 if satisfied, w otherwise) *)
 Definition weight_clause_def:
   weight_clause w ((n,C):wcclause) =
-  if satisfies_clause w (interp_cclause C) then 0 else n
+  if sat_clause w C then 0 else n
 End
 
-(* The weight of a wcnf is the sum of UNSAT clauses *)
-Definition weight_def:
-  weight w (wfml:wccnf) =
-    SUM (MAP (weight_clause w) wfml)
+Definition cost_def:
+  cost w wfml = SUM (MAP (weight_clause w) wfml)
 End
 
-(* Satisfaction of all hard clauses under an assignment *)
-Definition satisfies_hard_def:
-  satisfies_hard w (wfml:wccnf) =
-  ∀wC. wC ∈ set wfml ∧ FST wC = 0 ⇒
-    satisfies_clause w (interp_cclause (SND wC))
+Definition opt_cost_def:
+  opt_cost wfml =
+  if ¬∃w. sat_hard w wfml then NONE
+  else SOME (MIN_SET {cost w wfml | w | sat_hard w wfml})
 End
 
-(* Unsatisfiability *)
-Definition unsatisfiable_hard_def:
-  unsatisfiable_hard (wfml:wccnf) =
-  ∀w. ¬satisfies_hard w wfml
-End
+(* Some alternative definitions *)
+Theorem sat_lit_alt:
+  sat_lit w l ⇔
+  l ≠ 0 ∧ satisfies_literal w (interp_lit l)
+Proof
+  EVAL_TAC>>rw[]
+QED
 
-(* The minimum weight of any hard-satisfying assignment
-  NONE represents UNSAT (or a min weight of infinity)
-*)
-Definition min_unsat_def:
-  min_unsat (wfml:wccnf) =
-  if unsatisfiable_hard wfml then NONE
-  else
-    SOME (MIN_SET (
-      {weight w wfml | w | satisfies_hard w wfml}))
-End
+Theorem sat_clause_alt:
+  sat_clause w C ⇔
+  satisfies_clause w (interp_cclause C)
+Proof
+  rw[sat_clause_def,lprTheory.interp_cclause_def,satSemTheory.satisfies_clause_def,PULL_EXISTS]>>
+  metis_tac[sat_lit_alt]
+QED
 
 (*** STEP 2: Formalise an encoding into PB ***)
 
@@ -235,7 +249,7 @@ Theorem weight_clause_FILTER:
   weight_clause w (n,C) =
   weight_clause w (n, FILTER (λl. l ≠ 0) C)
 Proof
-  rw[weight_clause_def]>>
+  rw[weight_clause_def,sat_clause_alt]>>
   metis_tac[interp_cclause_FILTER]
 QED
 
@@ -243,7 +257,7 @@ Theorem weight_clause_nub:
   weight_clause f (q,nub C) =
   weight_clause f (q,C)
 Proof
-  rw[weight_clause_def,interp_cclause_def]
+  rw[weight_clause_def,interp_cclause_def,sat_clause_alt]
 QED
 
 Theorem interp_cclause_nub:
@@ -278,7 +292,7 @@ Proof
   `weight_clause (λx. w (INL x)) (q,r) =
    weight_clause (λx. w (INL x)) (q,C)` by
     metis_tac[Abbr`C`,weight_clause_FILTER,weight_clause_nub]>>
-  rw[]>>simp[weight_clause_def,iSUM_def]
+  rw[]>>simp[weight_clause_def,iSUM_def,sat_clause_alt]
   >- (
     Cases_on`C`>>fs[]>>
     IF_CASES_TAC>>
@@ -304,7 +318,7 @@ QED
 Theorem encode_correct_pbf_cnf:
   wfml_to_pbf wfml = (obj,pbf) ∧
   satisfies w (set pbf) ⇒
-  satisfies_hard (w o INL) wfml ∧
+  sat_hard (w o INL) wfml ∧
   &(SUM (MAP (weight_clause (w o INL)) wfml)) ≤
   eval_obj obj w
 Proof
@@ -313,7 +327,7 @@ Proof
     (* All hard constraints are satisfied *)
     gvs[wfml_to_pbf_def]>>
     fs[pbcTheory.satisfies_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]>>
-    rw[satisfies_hard_def]>>
+    rw[sat_hard_def,sat_clause_alt]>>
     fs[MEM_EL]>>rw[]>>fs[LENGTH_enumerate,PULL_EXISTS]>>
     first_x_assum drule>>
     DEP_REWRITE_TAC[EL_enumerate]>>
@@ -350,7 +364,7 @@ QED
   the sum of weights of unsatisfied clauses *)
 Theorem encode_correct_cnf_pbf:
   wfml_to_pbf wfml = (obj,pbf) ∧
-  satisfies_hard w wfml ⇒
+  sat_hard w wfml ⇒
   ∃w'.
     satisfies w' (set pbf) ∧
     eval_obj obj w' = &(SUM (MAP (weight_clause w) wfml))
@@ -363,7 +377,7 @@ Proof
     | INR y =>
       satisfies_clause w (interp_cclause (SND (EL (y - k) wfml)))`>>
   CONJ_TAC >- (
-    fs[satisfies_hard_def,pbcTheory.satisfies_def]>>
+    fs[sat_hard_def,sat_clause_alt,pbcTheory.satisfies_def]>>
     rw[MEM_FLAT,MEM_MAP]>>
     fs[MEM_EL]>>rw[]>>fs[LENGTH_enumerate,PULL_EXISTS]>>
     pop_assum mp_tac>>
@@ -406,7 +420,7 @@ Proof
   unabbrev_all_tac>>CONJ_TAC
   >- (
     Cases_on`h`>>
-    simp[wclause_to_pbc_def,weight_clause_def,iSUM_def]>>
+    simp[wclause_to_pbc_def,weight_clause_def,iSUM_def,sat_clause_alt]>>
     qmatch_goalsub_abbrev_tac`LENGTH C = 1`>>
     `wf_clause C` by
       fs[Abbr`C`,wf_clause_def,MEM_FILTER]>>
@@ -431,7 +445,7 @@ Proof
   simp[EL_CONS,PRE_SUB1]
 QED
 
-(* Prove injectivity of the abstract -> concrete variable map *)
+(* Prove injectivity of abstract -> concrete variable map *)
 Theorem enc_string_INJ:
   INJ enc_string UNIV UNIV
 Proof
@@ -451,12 +465,12 @@ Theorem full_encode_sem_concl:
   sem_concl (set pbf) obj concl ∧
   conv_concl concl = SOME (SOME (lbg, ubg)) ⇒
   (case lbg of
-    NONE => unsatisfiable_hard wfml
-  | SOME lb => (∀w. satisfies_hard w wfml ⇒ lb ≤ weight w wfml)) ∧
+    NONE => ¬∃w. sat_hard w wfml
+  | SOME lb => (∀w. sat_hard w wfml ⇒ lb ≤ cost w wfml)) ∧
   (case ubg of
     NONE => T
   | SOME ub =>
-    ∃w. satisfies_hard w wfml ∧ weight w wfml ≤ ub)
+    ∃w. sat_hard w wfml ∧ cost w wfml ≤ ub)
 Proof
   strip_tac>>
   gvs[full_encode_def]>>
@@ -479,31 +493,31 @@ Proof
     Cases_on`lbi`>>fs[]
     >- (
       (* If the lower bound is NONE, then UNSAT *)
-      rw[unsatisfiable_hard_def]>>
+      rw[]>>
       CCONTR_TAC>>
       fs[pbcTheory.unsatisfiable_def,pbcTheory.satisfiable_def]>>
       metis_tac[LESS_EQ_REFL])>>
     rw[]>>
     first_x_assum drule>>rw[]>>
     first_x_assum drule>>rw[]>>
-    simp[weight_def]>>rw[nn_int_def]>>
+    simp[cost_def]>>rw[nn_int_def]>>
     intLib.ARITH_TAC)>>
   (* Upper bound from PB optimization *)
   qpat_x_assum`_ lbi _ _` kall_tac>>
   every_case_tac>>fs[]>>
   drule_all encode_correct_pbf_cnf>>rw[]>>
   first_x_assum (irule_at Any)>>
-  rw[nn_int_def,weight_def]>>
+  rw[nn_int_def,cost_def]>>
   intLib.ARITH_TAC
 QED
 
 Theorem FINITE_max_sat:
-  FINITE {weight w wfml| w | satisfies_hard w wfml}
+  FINITE {cost w wfml| w | sat_hard w wfml}
 Proof
   `FINITE (count (SUM (MAP FST wfml) + 1))` by fs[]>>
   drule_then match_mp_tac SUBSET_FINITE>>
   simp[IMAGE_DEF,SUBSET_DEF]>>rw[]>>
-  simp[weight_def] >>
+  simp[cost_def] >>
   simp[GSYM LE_LT1]>>
   match_mp_tac SUM_MAP_same_LE >>
   rw[EVERY_MEM,FORALL_PROD,weight_clause_def]>>
@@ -525,17 +539,17 @@ Proof
 QED
 
 (* Special case *)
-Theorem full_encode_sem_concl_min_unsat:
+Theorem full_encode_sem_concl_opt_cost:
   full_encode wfml = (obj,pbf) ∧
   sem_concl (set pbf) obj concl ∧
   conv_concl concl = SOME (SOME (lbg, ubg)) ⇒
-  (lbg = NONE ⇒ min_unsat wfml = NONE) ∧
-  (lbg = ubg ⇒ min_unsat wfml = lbg)
+  (lbg = NONE ⇒ opt_cost wfml = NONE) ∧
+  (lbg = ubg ⇒ opt_cost wfml = lbg)
 Proof
   strip_tac>>
   drule_all full_encode_sem_concl>>
-  Cases_on`lbg`>>fs[min_unsat_def]>>
-  rw[]>>gvs[unsatisfiable_hard_def]>>
+  Cases_on`lbg`>>fs[opt_cost_def]>>
+  rw[]>>gvs[]>>
   match_mp_tac MIN_SET_eq_intro>>
   rw[]
   >-
@@ -553,8 +567,8 @@ Theorem full_encode_sem_output:
   pbc$sem_output (set pbf) obj bound (set pbf') obj' output ∧
   conv_output bound output = SOME T ⇒
   ∀v.
-    ((∃w. satisfies_hard w wfml ∧ weight w wfml ≤ v) ⇔
-    (∃w'. satisfies_hard w' wfml' ∧ weight w' wfml' ≤ v))
+    ((∃w. sat_hard w wfml ∧ cost w wfml ≤ v) ⇔
+    (∃w'. sat_hard w' wfml' ∧ cost w' wfml' ≤ v))
 Proof
   strip_tac>>
   gvs[full_encode_def]>>
@@ -582,7 +596,7 @@ Proof
     drule_all encode_correct_pbf_cnf>>
     rw[]>>
     first_x_assum(irule_at Any)>>
-    fs[weight_def]>>
+    fs[cost_def]>>
     intLib.ARITH_TAC)
   >- (
     drule_all encode_correct_cnf_pbf>>rw[]>>
@@ -593,26 +607,26 @@ Proof
     drule_all encode_correct_pbf_cnf>>
     rw[]>>
     first_x_assum(irule_at Any)>>
-    fs[weight_def]>>
+    fs[cost_def]>>
     intLib.ARITH_TAC)
 QED
 
 (* rephrasing *)
-Theorem full_encode_sem_output_min_unsat:
+Theorem full_encode_sem_output_opt_cost:
   full_encode wfml = (obj,pbf) ∧
   full_encode wfml' = (obj',pbf') ∧
   pbc$sem_output (set pbf) obj bound (set pbf') obj' output ∧
   conv_output bound output = SOME T ⇒
-  min_unsat wfml = min_unsat wfml'
+  opt_cost wfml = opt_cost wfml'
 Proof
   rw[]>>
   drule_all full_encode_sem_output>>
-  rw[min_unsat_def]>>
-  fs[unsatisfiable_hard_def]
+  rw[opt_cost_def]>>
+  fs[]
   >- metis_tac[LESS_EQ_REFL]
   >- metis_tac[LESS_EQ_REFL]>>
-  `{weight w wfml | w | satisfies_hard w wfml} ≠ {} ∧
-  {weight w wfml' | w | satisfies_hard w wfml'} ≠ {}` by
+  `{cost w wfml | w | sat_hard w wfml} ≠ {} ∧
+  {cost w wfml' | w | sat_hard w wfml'} ≠ {}` by
     (rw[EXTENSION]>>metis_tac[])>>
   match_mp_tac MIN_SET_eq_intro>>
   simp[]>>
@@ -620,18 +634,18 @@ Proof
   >- (
     gvs[FORALL_AND_THM,PULL_EXISTS,AllCaseEqs(),EQ_IMP_THM]>>
     last_x_assum drule>>
-    disch_then(qspec_then`weight w'' wfml` mp_tac)>>
+    disch_then(qspec_then`cost w'' wfml` mp_tac)>>
     simp[]>>rw[]>>
     (drule_at_then Any match_mp_tac LESS_EQ_TRANS)>>
     drule MIN_SET_LEM >>
     rw[]>>gvs[PULL_EXISTS])>>
   drule MIN_SET_LEM>>rw[]>>
   gvs[PULL_EXISTS,FORALL_AND_THM,PULL_EXISTS,AllCaseEqs(),EQ_IMP_THM]>>
-  first_x_assum(qspecl_then[`weight w'' wfml'`,`w''`] mp_tac)>>
+  first_x_assum(qspecl_then[`cost w'' wfml'`,`w''`] mp_tac)>>
   simp[]>>rw[]>>
   first_assum (irule_at Any)>>
-  rename1`weight ww wfml`>>
-  first_x_assum(qspecl_then[`weight ww wfml`,`ww`] mp_tac)>>
+  rename1`cost ww wfml`>>
+  first_x_assum(qspecl_then[`cost ww wfml`,`ww`] mp_tac)>>
   simp[]>>rw[]>>
   first_x_assum drule>>
   simp[]
