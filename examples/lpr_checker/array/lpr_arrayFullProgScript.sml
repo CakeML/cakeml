@@ -1,7 +1,7 @@
 (*
   This builds the cake_lpr proof checker
 *)
-open preamble basis md5ProgTheory lpr_composeProgTheory UnsafeProofTheory lprTheory lpr_listTheory lpr_parsingTheory HashtableProofTheory lpr_arrayProgTheory;
+open preamble basis md5ProgTheory lpr_composeProgTheory UnsafeProofTheory lprTheory lpr_listTheory lpr_parsingTheory HashtableProofTheory lpr_arrayProgTheory lpr_arrayParsingProgTheory;
 
 val _ = new_theory "lpr_arrayFullProg"
 
@@ -9,7 +9,7 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
-val _ = translation_extends"lpr_arrayProg";
+val _ = translation_extends"lpr_arrayParsingProg";
 
 val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
@@ -657,6 +657,10 @@ Proof
   rw[contains_clauses_list_def]>>
   every_case_tac>>fs[EVERY_MEM,EXTENSION]
 QED
+
+Definition parse_lpr_def:
+  parse_lpr x = NONE
+End
 
 Theorem check_lpr_range_arr_spec:
   FILENAME f fv ∧

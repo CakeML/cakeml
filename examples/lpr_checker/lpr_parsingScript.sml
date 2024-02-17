@@ -6,7 +6,10 @@ open preamble miscTheory lprTheory mlintTheory;
 val _ = new_theory "lpr_parsing";
 
 (*
-  Parses a list of strings (1 per line of a file) in DIMACS format
+  Parses a list of strings (1 per line of a file) in
+  DIMACS format.
+  This parser prioritizes simplicity and it is proved
+  to be invertible.
 *)
 
 (* Everything recognized as a "blank" *)
@@ -462,16 +465,11 @@ Proof
 QED
 
 (* Parse a LPR clause with witness *)
-(* val fromString_unsafe_def = Define`
-  fromString_unsafe str =
-    if strlen str = 0
-    then 0i
-    else if strsub str 0 = #"-"
-      then ~&fromChars_unsafe (strlen str - 1)
-                              (substring str 1 (strlen str - 1))
-      else &fromChars_unsafe (strlen str) str`; *)
 
-(* Parse everything until the next non-positive and returns it *)
+(* ASCII parsing *)
+
+(* Parse everything until the next non-positive
+  and returns it *)
 val parse_until_nn_def = Define`
   (parse_until_nn [] acc = NONE) ∧
   (parse_until_nn (x::xs) acc =
@@ -629,31 +627,6 @@ Proof
   >>
   every_case_tac>>rw[]>>simp[wf_lpr_def]>>
   drule parse_clause_witness_wf>>
-  simp[]
-QED
-
-(* Mostly semantic!*)
-val parse_lpr_def = Define`
-  (parse_lpr [] = SOME []) ∧
-  (parse_lpr (l::ls) =
-    case parse_lprstep (MAP tokenize_fast (tokens blanks l)) of
-      NONE => NONE
-    | SOME step =>
-      (case parse_lpr ls of
-        NONE => NONE
-      | SOME ss => SOME (step :: ss))
-    )`
-
-Theorem parse_lpr_wf:
-  ∀ls lpr.
-  parse_lpr ls = SOME lpr ⇒
-  EVERY wf_lpr lpr
-Proof
-  Induct>>fs[parse_lpr_def]>>
-  ntac 2 strip_tac>>
-  every_case_tac>>fs[]>>
-  rw[]>>simp[]>>
-  drule parse_lprstep_wf>>
   simp[]
 QED
 
@@ -852,7 +825,10 @@ Proof
   pop_assum SUBST1_TAC>>simp[SEG_LENGTH_ID]
 QED
 
-(* Parse a string as variable byte encoded numbers *)
+(*
+  Parse a string as variable byte encoded numbers
+  Terminated with 0
+*)
 Definition parse_vb_string_aux_def:
   parse_vb_string_aux (str:mlstring) (i:num) (len:num) (ex:num) (n:num) (acc:num list) =
   if i < len then
@@ -870,35 +846,33 @@ Termination
 End
 
 Definition parse_vb_string_def:
-  parse_vb_string str =
-  parse_vb_string_aux str 0 (strlen str - 1) 1 0 []
+  parse_vb_string x =
+  parse_vb_string_aux x 0 (strlen x) 1 0 []
 End
 
-(* TODO: can get rid of options here
-  if we know the lists do not contain 0
+(* Parses either:
+  INR
+  'a' (variable-byte encoded list of numbers ) 0 ...
+or
+  INL (Del ...)
+  'd' (variable-byte encoded list of numbers ) 0
 *)
-val parse_vb_until_zero_def = Define`
-  (parse_vb_until_zero [] acc = REVERSE acc) ∧
-  (parse_vb_until_zero (l::xs) acc =
-      parse_vb_until_zero xs (l::acc)
-  )`
-
-val parse_vb_until_k_def = Define`
-  (parse_vb_until_k k [] acc = (REVERSE acc, NONE)) ∧
-  (parse_vb_until_k k (l::xs) acc =
-    if l = k then
-      let w = parse_vb_until_zero xs [] in
-        (REVERSE acc, SOME (k::w))
-    else
-      parse_vb_until_k k xs (l::acc))`
-
-Definition parse_vb_clause_witness_def:
-  (parse_vb_clause_witness [] = ([],NONE)) ∧
-  (parse_vb_clause_witness (l::xs) =
-      parse_vb_until_k l xs [l])
+Definition parse_vb_string_head_def:
+  parse_vb_string_head x =
+  if strlen x = 0 then NONE
+  else
+  let c = strsub x 0 in
+  let ls = parse_vb_string_aux x 1 (strlen x - 1) 1 0 [] in
+  if c = #"a"
+  then
+    SOME (INR ls)
+  else if c = #"d"
+  then
+    SOME (INL (Delete (MAP (λn. n DIV 2) ls)))
+  else NONE
 End
 
-(* Turn into ints and drop 0s *)
+(* Turn numbers back into ints *)
 Definition clausify_aux_def:
   (clausify_aux [] acc = acc) ∧
   (clausify_aux (x::xs) acc =
@@ -915,15 +889,32 @@ Definition clausify_def:
   clausify cls = clausify_aux cls []
 End
 
+(* Split list of numbers at k *)
+Definition parse_vb_until_k_def:
+  (parse_vb_until_k k [] acc = (acc, NONE)) ∧
+  (parse_vb_until_k k (l::xs) acc =
+    if l = k then
+      (acc, SOME (k::xs))
+    else
+      parse_vb_until_k k xs (l::acc))
+End
+
+Definition parse_vb_clause_witness_def:
+  (parse_vb_clause_witness [] = ([],NONE)) ∧
+  (parse_vb_clause_witness (l::xs) =
+      parse_vb_until_k l xs [l])
+End
+
 (* Parse everything until the next negative and returns it *)
-val parse_vb_until_nn_def = Define`
+Definition parse_vb_until_nn_def:
   (parse_vb_until_nn [] acc = (0, REVERSE acc, [])) ∧
   (parse_vb_until_nn (l::xs) acc =
     if l <= 0:int then
       (Num (-l), REVERSE acc, xs)
     else
       parse_vb_until_nn xs (Num l::acc)
-  )`
+  )
+End
 
 val parse_vb_until_nn_length = Q.prove(`
   ∀ls acc a b c.
@@ -932,8 +923,7 @@ val parse_vb_until_nn_length = Q.prove(`
   Induct>>fs[parse_vb_until_nn_def]>>
   rw[]>>every_case_tac>>fs[]>>
   first_x_assum drule>>
-  fs[]
-QED
+  fs[]);
 
 Definition parse_vb_PR_hint_def:
   parse_vb_PR_hint id xs acc =
@@ -950,63 +940,47 @@ End
 
 (* All parsing steps related to PR *)
 Definition do_PR_def:
-  do_PR lss y =
-  let rs = (clausify (parse_vb_string y)) in
-  (* read the clause ID *)
-  case REVERSE lss of [] => NONE
-  | (l::r) =>
-  case parse_vb_clause_witness r of (clause,witness) =>
-    let clause = REVERSE (clausify clause) in
-    let witness = OPTION_MAP clausify witness in
-    case parse_vb_until_nn rs [] of (id,hint,rss) =>
-    case parse_vb_PR_hint id rss [] of sp =>
-    SOME (PR (l DIV 2) clause witness hint sp)
+  do_PR ls ys =
+  let rs = parse_vb_string ys in
+  let (lss:int list) = clausify ls in
+  let (rss:int list) = clausify rs in
+  case lss of [] => NONE
+  | (x::xs) =>
+    if x ≥ 0 then
+      case parse_vb_clause_witness xs of (clause,witness) =>
+      let clause = REVERSE clause in
+      case parse_vb_until_nn rss [] of (id,hint,rss) =>
+      case parse_vb_PR_hint id rss [] of sp =>
+      SOME (PR (Num x) clause witness hint sp)
+    else NONE
 End
 
-Definition parse_vb_string_head_def:
-  parse_vb_string_head x =
-  if strlen x = 0 then NONE
-  else
-    SOME (strsub x 0, parse_vb_string_aux x 1 (strlen x - 1) 1 0 [])
+(* For testing *)
+Definition parse_pr_def:
+  parse_pr ls =
+  case ls of [] => []
+  | x::xs =>
+  case parse_vb_string_head x of
+    NONE => []
+  | SOME (INL d) => d::parse_pr xs
+  | SOME (INR r) =>
+    (case xs of [] => []
+    | y::ys =>
+      (case do_PR r y of NONE => []
+      | SOME p => p :: parse_pr ys))
 End
 
-(* semantic definition assumes lines are split at "00" *)
-Definition parse_vb_lines_def:
-  (parse_vb_lines [] acc = SOME (REVERSE acc)) ∧
-  (parse_vb_lines (x::xs) acc =
-  (* Turn into numerical format *)
-  case parse_vb_string_head x of NONE => NONE
-  | SOME(st,lss) =>
-    if st = #"d" (* deletion *) then
-      parse_vb_lines xs (Delete (MAP (λn. n DIV 2) lss)::acc)
-    else if st = #"a" (* addition *) then
-      case xs of [] => NONE
-      | y::ys =>
-      case do_PR lss y of NONE => NONE
-      | SOME pr =>
-        parse_vb_lines ys (pr::acc)
-    else NONE)
-End
+(* Guessing whether we're in binary based on the first character
 
-(*
-EVAL ``parse_vb_lines
-  (MAP (implode o MAP CHR)
-  [
-  [0x61;0x86;0x02;0x12;0x3d;0x00];
-  [0x15;0x78;0xb6;0x01;0x66;0xa0;0x01;0x6c;0x2f;0xd4;0x01;0x76;0xac;0x01;0x9c;0x01;0x9e;0x01;0x4c;0x10;0x66;0x24;0x6c;0xe4;0x01;0xb8;0x01;0xe6;0x01;0x02;0x3a;0xd2;0x01;0x8d;0x01;0x92;0x01;0x2c;0xf0;0x01;0x66;0xba;0x01;0xb6;0x01;0x0c;0x90;0x01;0x4c;0xd8;0x01;0x3a;0x7e;0x34;0xaa;0x01;0x68;0x76;0xf8;0x01;0xb8;0x01;0x81;0x02;0x00];
-  ])
-  []``
-
-EVAL ``parse_vb_clause_witness  (parse_vb_string
-  ((implode o MAP CHR)
-  [0x07;0x04;0x07;0x17;0x17;0x18;0x00;]))``
-
-  [0x0d;0x24;0x13;0x2a;0x27;0x0e;0x2d;0xa0;0x14;0x00;];
-  [0x64;0x02;0x04;0x06;0x00;]
-  ])
-  []``
-
+  In ASCII: the first character is always a number
+  In binary: the first character is always #"a" or #"d"
 *)
+
+Definition good_char_def:
+  good_char c ⇔
+  c = #"a" ∨ c = #"d"
+End
+
 val dimacsraw = ``[
   strlit "c this is a comment";
   strlit "p cnf 5 8 ";
@@ -1024,8 +998,6 @@ val dimacsraw = ``[
 
 val cnf = rconc (EVAL ``THE (parse_dimacs ^(dimacsraw))``);
 
-val back = rconc (EVAL``print_dimacs ^cnf``);
-
 val lprraw = ``[
   strlit"8 d 0";
   strlit"9 6 1 0 1 2 8 0";
@@ -1040,8 +1012,21 @@ val lprraw = ``[
   strlit"16 0 14 12 13 8 0";
   ]``;
 
-val lpr = rconc (EVAL ``THE (parse_lpr ^(lprraw))``);
+val res = EVAL ``good_char (strsub (HD ^(lprraw)) 0)``
 
-val check = rconc (EVAL``THE (check_lpr 0 ^(lpr) (build_fml 1 ^(cnf)))``);
+val clprraw = `` [
+ (implode o (MAP CHR)) [97;92;37;39;41;0];
+ (implode o (MAP CHR)) [60;48;80;68;28;40;82;88; 6; 0];
+ (implode o (MAP CHR)) [97;94;27;39;41; 0];
+ (implode o (MAP CHR)) [58;48;78;68; 6;16;82;86;24; 0];
+ (implode o (MAP CHR)) [97;96;39;41; 0];
+ (implode o (MAP CHR)) [80;78;68;48;58;60;94;88;26;36;82;86; 4; 0];
+ (implode o (MAP CHR)) [100;94;92; 0];
+ (implode o (MAP CHR)) [97;98; 3;29;41; 0;36;32;78;74; 2; 4;84;86;50; 0];
+]``
+
+val res = EVAL ``good_char (strsub (HD ^(clprraw)) 0)``
+
+val res = EVAL``parse_pr ^(clprraw)``
 
 val _ = export_theory ();
