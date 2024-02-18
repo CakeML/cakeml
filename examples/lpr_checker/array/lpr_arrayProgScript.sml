@@ -11,7 +11,26 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = translation_extends"lpr_composeProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
+(* Pure translation of LPR checker *)
+val _ = register_type``:lprstep``;
+val _ = register_type``:'a spt``;
+
+val _ = translate insert_def;
+
+(* TODO: make sure these get inlined! *)
+val _ = translate w8z_def;
+val _ = translate w8o_def;
+val _ = translate index_def;
+
+val w8z_v_thm = fetch "-" "w8z_v_thm";
+val w8o_v_thm = fetch "-" "w8o_v_thm";
+
+val index_side_def = fetch "-" "index_side_def"
+
+val index_side = Q.prove(`
+  !x. index_side x ⇔ T`,
+  simp[index_side_def]>>
+  intLib.ARITH_TAC) |> update_precondition;
 
 val _ = process_topdecs `
   exception Fail string;
@@ -26,109 +45,17 @@ val fail = get_exn_conv ``"Fail"``
 val Fail_exn_def = Define `
   Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)`
 
-val w8z_v_thm = translate w8z_def;
-val w8o_v_thm = translate w8o_def;
-val w8n_v_thm = translate w8n_def;
+val eq_w8o_def = Define`
+  eq_w8o v ⇔ v = w8o`
 
-Definition eq_w8o_def:
-  eq_w8o w ⇔ w = (1w:word8)
-End
-
-val res = translate eq_w8o_def;
-
-Definition eq_w8n_def:
-  eq_w8n w ⇔ w = (255w:word8)
-End
-
-val res = translate eq_w8n_def;
-
-Definition eq_w8z_def:
-  eq_w8z w ⇔ w = (0w:word8)
-End
-
-val res = translate eq_w8z_def;
-
-val lit_in_arr = process_topdecs`
-  fun lit_in_arr i carr =
-    if i >= 0 then
-      eq_w8o (Unsafe.w8sub carr i)
-    else
-      eq_w8n (Unsafe.w8sub carr (~i))` |> append_prog;
-
-Theorem lit_in_arr_spec:
-  INT i iv ∧
-  Num (ABS i) < LENGTH Clist
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "lit_in_arr" (get_ml_prog_state()))
-    [iv; Carrv]
-    (W8ARRAY Carrv Clist)
-    (POSTv v.
-      W8ARRAY Carrv Clist *
-      &BOOL (lit_in i Clist) v)
-Proof
-  xcf"lit_in_arr" (get_ml_prog_state ())>>
-  xlet_autop>>
-  xif
-  >- (
-    xlet_auto
-    >- (
-      xsimpl>>
-      intLib.ARITH_TAC)>>
-    xapp>>
-    xsimpl>>
-    first_x_assum (irule_at Any)>>
-    simp[lit_in_def,eq_w8o_def]>>
-    rw[any_el_ALT,w8o_def]>>gvs[]>>
-    `i = ABS i` by intLib.ARITH_TAC>>
-    metis_tac[])>>
-  xlet_autop>>
-  xlet_auto
-  >- (
-    xsimpl>>
-    intLib.ARITH_TAC)>>
-  xapp>>
-  xsimpl>>
-  first_x_assum (irule_at Any)>>
-  simp[lit_in_def,eq_w8n_def]>>
-  rw[any_el_ALT,w8n_def]>>gvs[]>>
-  `-i = ABS i` by intLib.ARITH_TAC>>
-  metis_tac[]
-QED
+val _ = translate (eq_w8o_def |> SIMP_RULE std_ss [w8o_def]);
 
 val every_one_arr = process_topdecs`
   fun every_one_arr carr cs =
   case cs of [] => True
   | c::cs =>
-    if lit_in_arr c carr then every_one_arr carr cs
+    if eq_w8o (Unsafe.w8sub carr (index c)) then every_one_arr carr cs
     else False` |> append_prog
-
-Theorem every_one_arr_spec:
-  ∀ls lsv.
-  (LIST_TYPE INT) ls lsv ∧
-  EVERY ($> (LENGTH Clist) o Num o ABS) ls
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "every_one_arr" (get_ml_prog_state()))
-    [Carrv; lsv]
-    (W8ARRAY Carrv Clist)
-    (POSTv v.
-      W8ARRAY Carrv Clist *
-      &BOOL (EVERY (λi. lit_in i Clist) ls) v)
-Proof
-  Induct>>xcf "every_one_arr" (get_ml_prog_state ())>>
-  fs[LIST_TYPE_def]
-  >-
-    (xmatch>>xcon>>xsimpl)
-  >>
-  xmatch>>
-  xlet_auto>>
-  xif
-  >-
-    (xapp>>xsimpl)
-  >>
-  xcon>> xsimpl
-QED
 
 val format_failure_def = Define`
   format_failure (lno:num) s =
@@ -136,26 +63,70 @@ val format_failure_def = Define`
 
 val _ = translate format_failure_def;
 
-val delete_literals_sing_arr = process_topdecs`
+val unwrap_TYPE_def = Define`
+  unwrap_TYPE P x y =
+  ∃z. x = SOME z ∧ P z y`
+
+val delete_literals_sing_arr_def = process_topdecs`
   fun delete_literals_sing_arr lno carr cs =
   case cs of
     [] => 0
   | c::cs =>
-    if lit_in_arr c carr then
+    if eq_w8o (Unsafe.w8sub carr (index c)) then
       delete_literals_sing_arr lno carr cs
     else
       if every_one_arr carr cs then ~c
       else raise Fail (format_failure lno "clause not empty or singleton after reduction")` |> append_prog
 
-val unwrap_TYPE_def = Define`
-  unwrap_TYPE P x y =
-  ∃z. x = SOME z ∧ P z y`
+val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
+
+Theorem any_el_eq_EL[simp]:
+  LENGTH Clist > index h ⇒
+  any_el (index h) Clist w8z = EL (index h) Clist
+Proof
+  rw[any_el_ALT]
+QED
+
+Theorem update_resize_LUPDATE[simp]:
+  LENGTH Clist > index h ⇒
+  update_resize Clist w8z v (index h) = LUPDATE v (index h) Clist
+Proof
+  rw[update_resize_def]
+QED
+
+Theorem every_one_arr_spec:
+∀ls lsv.
+  (LIST_TYPE INT) ls lsv ∧
+  EVERY ($> (LENGTH Clist) o index) ls
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "every_one_arr" (get_ml_prog_state()))
+    [Carrv; lsv]
+    (W8ARRAY Carrv Clist)
+    (POSTv v.
+      W8ARRAY Carrv Clist *
+      &BOOL (EVERY (λi. any_el (index i) Clist w8z = w8o) ls) v)
+Proof
+  Induct>>xcf "every_one_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def]
+  >-
+    (xmatch>>xcon>>xsimpl)
+  >>
+  xmatch>>
+  rpt xlet_autop>>
+  fs[eq_w8o_def]>>
+  xif
+  >-
+    (xapp>>xsimpl)
+  >>
+  xcon>> xsimpl
+QED
 
 Theorem delete_literals_sing_arr_spec:
   ∀ls lsv lno lnov.
   NUM lno lnov ∧
   (LIST_TYPE INT) ls lsv ∧
-  EVERY ($> (LENGTH Clist) o Num o ABS) ls
+  EVERY ($> (LENGTH Clist) o index) ls
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "delete_literals_sing_arr" (get_ml_prog_state()))
@@ -177,7 +148,8 @@ Proof
       xsimpl)>>
     xsimpl)>>
   fs[LIST_TYPE_def]>> xmatch>>
-  xlet_auto >>
+  rpt xlet_autop >>
+  fs[eq_w8o_def]>>
   IF_CASES_TAC>>fs[] >- (
     xif>>instantiate>>
     xapp>>xsimpl>>
@@ -190,106 +162,10 @@ Proof
     metis_tac[])>>
   rpt xlet_autop>>
   xraise>>xsimpl>>
+  IF_CASES_TAC>-
+    metis_tac[NOT_EVERY]>>
   simp[unwrap_TYPE_def,Fail_exn_def]>>
-  metis_tac[NOT_EVERY]
-QED
-
-val update_carr = process_topdecs`
-  fun update_carr lno carr l =
-  if l >= 0
-  then
-    if eq_w8z (Unsafe.w8sub carr l)
-    then
-      Unsafe.w8update carr l w8o
-    else
-      raise Fail (format_failure lno "duplicate assignment on variable")
-  else
-    let val nl = ~l in
-      if eq_w8z (Unsafe.w8sub carr nl)
-      then
-        Unsafe.w8update carr nl w8n
-      else raise Fail (format_failure lno "duplicate assignment on variable")
-    end` |> append_prog;
-
-Theorem any_el_eq_EL[simp]:
-  LENGTH Clist > n ⇒
-  any_el n Clist w8z = EL n Clist
-Proof
-  rw[any_el_ALT]
-QED
-
-Theorem update_resize_LUPDATE[simp]:
-  n < LENGTH Clist ⇒
-  update_resize Clist w8z v n = LUPDATE v n Clist
-Proof
-  rw[update_resize_def]
-QED
-
-Theorem update_carr_spec:
-  NUM lno lnov ∧
-  INT i iv ∧
-  Num (ABS i) < LENGTH Clist
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "update_carr" (get_ml_prog_state()))
-    [lnov; Carrv; iv]
-    (W8ARRAY Carrv Clist)
-    (POSTve
-      (λv.
-        (SEP_EXISTS Clist'.
-          W8ARRAY Carrv Clist' *
-          &(unwrap_TYPE ($=) (update_Clist Clist i) Clist' ∧ LENGTH Clist = LENGTH Clist')
-        ))
-      (λe.
-        &(Fail_exn e ∧ (update_Clist Clist i = NONE))))
-Proof
-  xcf "update_carr" (get_ml_prog_state ())>>
-  xlet_autop>>
-  xif
-  >- (
-    `ABS i = i` by intLib.ARITH_TAC>>
-    xlet_auto
-    >- (
-      xsimpl>>
-      intLib.ARITH_TAC)>>
-    xlet_autop>>
-    gvs[eq_w8z_def,GSYM w8z_def]>>
-    xif
-    >- (
-      xapp>>xsimpl>>
-      irule_at Any w8o_v_thm>>
-      asm_exists_tac>>xsimpl>>
-      CONJ_TAC >- (
-        gvs[INT_def]>>
-        intLib.ARITH_TAC)>>
-      gvs[eq_w8z_def,update_Clist_def,unwrap_TYPE_def,any_el_ALT])>>
-    rpt xlet_autop>>
-    xraise>>
-    gvs[eq_w8z_def,update_Clist_def,unwrap_TYPE_def,any_el_ALT]>>
-    xsimpl>>
-    metis_tac[Fail_exn_def])>>
-  `ABS i = -i` by intLib.ARITH_TAC>>
-  xlet_autop>>
-  xlet_auto
-  >- (
-    xsimpl>>
-    intLib.ARITH_TAC)>>
-  xlet_autop>>
-  gvs[eq_w8z_def,GSYM w8z_def]>>
-  xif
-  >- (
-    xapp>>xsimpl>>
-    irule_at Any w8n_v_thm>>
-    asm_exists_tac>>xsimpl>>
-    CONJ_TAC >- (
-      gvs[INT_def]>>
-      intLib.ARITH_TAC)>>
-    gvs[eq_w8z_def,update_Clist_def,unwrap_TYPE_def,any_el_ALT])>>
-  rpt xlet_autop>>
-  xraise>>
-  gvs[eq_w8z_def,update_Clist_def,unwrap_TYPE_def,any_el_ALT]>>
-  xsimpl>>
-  metis_tac[Fail_exn_def]
+  metis_tac[]
 QED
 
 val is_AT_arr_aux = process_topdecs`
@@ -303,20 +179,19 @@ val is_AT_arr_aux = process_topdecs`
       let val nl = delete_literals_sing_arr lno carr ci in
       if nl = 0 then Inl c
       else
-        (update_carr lno carr nl;
+        (Unsafe.w8update carr (index nl) w8o;
         is_AT_arr_aux lno fml is (nl::c) carr)
       end` |> append_prog
 
 (* For every literal in every clause and their negations,
-  the absolute value is bounded above by n *)
-Definition bounded_fml_def:
+  the index is bounded above by n *)
+val bounded_fml_def = Define`
   bounded_fml n fmlls ⇔
   EVERY (λCopt.
     case Copt of
       NONE => T
-    | SOME C => EVERY ($> n o Num o ABS) C
-    ) fmlls
-End
+    | SOME C => EVERY ($> n o index) C ∧ EVERY ($> n o index o $~) C
+    ) fmlls`
 
 Theorem delete_literals_sing_list_MEM:
   ∀C.
@@ -391,7 +266,9 @@ Proof
     xcon>>xsimpl>>
     simp[SUM_TYPE_def])>>
   rpt xlet_autop>>
-  `Num (ABS z) < LENGTH Clist` by (
+
+  `index z < LENGTH Clist ∧ WORD8 w8o w8o_v` by (
+    fs[w8o_v_thm]>>
     fs[bounded_fml_def,EVERY_EL]>>
     first_x_assum(qspec_then`h` assume_tac)>>rfs[]>>
     drule delete_literals_sing_list_MEM>>fs[]>>
@@ -400,176 +277,132 @@ Proof
     `h < LENGTH fmllsv` by fs[LIST_REL_EL_EQN]>>
     fs[]>>rfs[LIST_REL_EL_EQN]>>
     fs[MEM_EL]>>rw[]>>
-    first_x_assum drule>>
-    gvs[]>>
-    intLib.ARITH_TAC)>>
-  rpt xlet_autop
-  >- xsimpl>>
+    rpt (first_x_assum drule)>>
+    rw[]>>
+    qpat_x_assum`-z = _` sym_sub_tac>>fs[])>>
+
+  rpt xlet_autop>>
   xapp>>
   xsimpl>>
-  TOP_CASE_TAC>>gvs[unwrap_TYPE_def]>>
   qexists_tac`fmlls`>>qexists_tac`z::c`>>
   simp[LIST_TYPE_def]>>
   metis_tac[]
 QED
 
-val unset_array = process_topdecs`
-  fun unset_array carr cs =
+val set_array = process_topdecs`
+  fun set_array carr v cs =
   case cs of [] => ()
   | (c::cs) =>
-    (Unsafe.w8update carr (if c >= 0 then c else ~c) w8z;
-    unset_array carr cs)` |> append_prog
+    (Unsafe.w8update carr (index c) v;
+    set_array carr v cs)` |> append_prog
 
-Theorem unset_array_spec:
+Theorem set_array_spec:
   ∀c cv Carrv Clist.
   (LIST_TYPE INT) c cv ∧
-  EVERY ($> (LENGTH Clist) o Num o ABS) c
+  WORD8 v vv ∧
+  EVERY ($> (LENGTH Clist) o index) c
   ⇒
   app (p : 'ffi ffi_proj)
-    ^(fetch_v "unset_array" (get_ml_prog_state()))
-    [Carrv; cv]
+    ^(fetch_v "set_array" (get_ml_prog_state()))
+    [Carrv; vv; cv]
     (W8ARRAY Carrv Clist)
     (POSTv uv.
-          W8ARRAY Carrv (unset_list Clist c))
+          W8ARRAY Carrv (set_list Clist v c))
 Proof
   Induct>>
-  xcf "unset_array" (get_ml_prog_state ())>>
-  rw[unset_list_def]>>
+  xcf "set_array" (get_ml_prog_state ())>>
+  rw[set_list_def]>>
   fs[LIST_TYPE_def]
   >- (xmatch>>xcon>>xsimpl)>>
   xmatch>>
   rpt xlet_autop>>
-  xlet`POSTv v. W8ARRAY Carrv Clist * &(NUM (Num (ABS h)) v)`
-  >- (
-    xif>- (
-      xvar>>xsimpl>>
-      gvs[INT_def]>>
-      intLib.ARITH_TAC)>>
-    xapp>>xsimpl>>
-    asm_exists_tac>>xsimpl>>rw[]>>
-    gvs[INT_def]>>
-    intLib.ARITH_TAC)>>
-  assume_tac w8z_v_thm>>
-  xlet_autop>>
-  xapp>>xsimpl
-QED
-
-val set_array = process_topdecs`
-  fun set_array lno carr cs =
-  case cs of [] => ()
-  | (c::cs) =>
-    if c = 0 then raise Fail (format_failure lno ("invalid lit: " ^ Int.toString c))
-    else (
-      update_carr lno carr c;
-      set_array lno carr cs)` |> append_prog
-
-Theorem set_array_spec:
-  ∀c cv Carrv Clist.
-  NUM lno lnov ∧
-  (LIST_TYPE INT) c cv ∧
-  EVERY ($> (LENGTH Clist) o Num o ABS) c
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "set_array" (get_ml_prog_state()))
-    [lnov; Carrv; cv]
-    (W8ARRAY Carrv Clist)
-    (POSTve
-      (λv.
-        (SEP_EXISTS Clist'.
-          W8ARRAY Carrv Clist' *
-          &(unwrap_TYPE ($=) (set_list Clist c) Clist' ∧ LENGTH Clist = LENGTH Clist')
-        ))
-      (λe.
-        &(Fail_exn e ∧ (set_list Clist c = NONE))))
-Proof
-  Induct>>
-  xcf "set_array" (get_ml_prog_state ())>>
-  fs[LIST_TYPE_def]>>xmatch
-  >- (
-    xcon>>xsimpl>>simp[set_list_def,unwrap_TYPE_def])>>
-  xlet_autop>>
-  xif
-  >- (
-    rpt xlet_autop>>
-    xraise>>xsimpl>>
-    simp[set_list_def,unwrap_TYPE_def,Fail_exn_def]>>
-    metis_tac[])>>
-  xlet_autop
-  >- (
-    xsimpl>>
-    simp[set_list_def])>>
-  xapp>>xsimpl>> gvs[]>>
-  simp[set_list_def]>>
-  every_case_tac>>gvs[unwrap_TYPE_def]
+  xapp>>
+  xsimpl
 QED
 
 val is_AT_arr = process_topdecs`
   fun is_AT_arr lno fml ls c carr =
-    (set_array lno carr c;
+    (set_array carr w8o c;
     case is_AT_arr_aux lno fml ls c carr of
-      Inl c => (unset_array carr c; Inl ())
-    | Inr c => (unset_array carr c; Inr c))` |> append_prog
-
-Theorem LENGTH_unset_list_bound[simp]:
-  ∀c Clist.
-  EVERY ($> (LENGTH Clist) ∘ Num o ABS) c ⇒
-  LENGTH (unset_list Clist c) = LENGTH Clist
-Proof
-  Induct>>simp[unset_list_def]
-QED
-
-Theorem LENGTH_update_Clist_bound:
-  LENGTH Clist > Num (ABS h) ∧
-  update_Clist Clist h = SOME Clist' ⇒
-  LENGTH Clist' = LENGTH Clist
-Proof
-  rw[update_Clist_def]>>
-  DEP_REWRITE_TAC[update_resize_LUPDATE]>>gvs[]>>
-  intLib.ARITH_TAC
-QED
+      Inl c => (set_array carr w8z c; Inl ())
+    | Inr c => (set_array carr w8z c; Inr c))` |> append_prog
 
 Theorem LENGTH_set_list_bound[simp]:
-  ∀c Clist Clist'.
-  EVERY ($> (LENGTH Clist) ∘ Num o ABS) c ∧
-  set_list Clist c = SOME Clist' ⇒
-  LENGTH Clist' = LENGTH Clist
+  ∀c Clist.
+  EVERY ($> (LENGTH Clist) ∘ index) c ⇒
+  LENGTH (set_list Clist v c) = LENGTH Clist
 Proof
-  Induct>>simp[set_list_def]>>rw[]>>
+  Induct>>simp[set_list_def]
+QED
 
-  first_x_assum (drule_at (Pos last))>>
-  drule LENGTH_update_Clist_bound >>
-  disch_then drule>>
-  rw[]
+(* a version of this is true even if x, h are not bounded *)
+Theorem update_resize_twice:
+  index x < LENGTH Clist ∧ index h < LENGTH Clist ⇒
+  update_resize (update_resize Clist w8z w8o (index x)) w8z w8o (index h) =
+  update_resize (update_resize Clist w8z w8o (index h)) w8z w8o (index x)
+Proof
+  rw[update_resize_def]>>
+  Cases_on`x=h`>>simp[]>>
+  `index x ≠ index h` by metis_tac[index_11]>>
+  metis_tac[LUPDATE_commutes]
+QED
+
+Theorem set_list_update_resize:
+  ∀c Clist.
+  index x < LENGTH Clist ∧ EVERY ($> (LENGTH Clist) ∘ index) c ⇒
+  set_list Clist w8o (x::c) =
+  update_resize (set_list Clist w8o c) w8z w8o (index x)
+Proof
+  Induct>>rw[]>>fs[set_list_def]>>
+  Cases_on`x=h`>>simp[]
+  >-
+    (first_x_assum (qspec_then` LUPDATE w8o (index h) Clist` mp_tac)>>
+    simp[])
+  >>
+  dep_rewrite.DEP_ONCE_REWRITE_TAC[LUPDATE_commutes]>>
+  simp[index_11]
 QED
 
 Theorem is_AT_list_aux_length_bound:
   ∀ls c Clist.
   bounded_fml (LENGTH Clist) fmlls ∧
-  EVERY ($> (LENGTH Clist) ∘ Num o ABS) c ∧
-  is_AT_list_aux fmlls ls c Clist = SOME(q,r) ⇒
+  EVERY ($> (LENGTH Clist) ∘ index) c ∧
+  is_AT_list_aux fmlls ls c (set_list Clist w8o c) = SOME(q,r) ⇒
   case q of
-    INL d => LENGTH r = LENGTH Clist ∧ EVERY ($> (LENGTH Clist) ∘ Num o ABS) d
-  | INR d => LENGTH r = LENGTH Clist ∧ EVERY ($> (LENGTH Clist) ∘ Num o ABS) d
+    INL d => r = set_list Clist w8o d ∧ LENGTH r = LENGTH Clist ∧ EVERY ($> (LENGTH Clist) ∘ index) d
+  | INR d => r = set_list Clist w8o d ∧ LENGTH r = LENGTH Clist ∧ EVERY ($> (LENGTH Clist) ∘ index) d
 Proof
-  Induct>>rw[is_AT_list_aux_def,set_list_def]>>simp[]>>
-  gvs[AllCaseEqs()]>>
-  `LENGTH Clist > Num (ABS nl)` by
-    (fs[bounded_fml_def,EVERY_MEM,any_el_ALT]>>
-    first_x_assum(qspec_then`EL h fmlls` mp_tac)>>
-    simp[]>>
-    impl_tac >-
-      metis_tac[MEM_EL]>>
-    strip_tac>>
-    drule delete_literals_sing_list_MEM>> simp[]>>
-    strip_tac>> first_x_assum drule>>
-    simp[])>>
-  `LENGTH Clist = LENGTH Clist'` by
-    (drule_at Any LENGTH_update_Clist_bound>>
-    simp[])>>
-  simp[]>>
+  Induct>>rw[is_AT_list_aux_def,set_list_def]
+  >-
+    simp[]
+  >>
+  pop_assum mp_tac>>
+  TOP_CASE_TAC>>simp[]>>
+  TOP_CASE_TAC>>simp[]>>
+  IF_CASES_TAC>-
+    (rw[]>>simp[])>>
+  strip_tac>>
   first_x_assum irule>>
-  first_x_assum (irule_at Any)>>
-  gvs[]
+  drule delete_literals_sing_list_MEM>> simp[]>>
+  strip_tac>>
+  fs[bounded_fml_def,EVERY_MEM,any_el_ALT]>>
+  first_x_assum(qspec_then`EL h fmlls` mp_tac)>>
+  impl_tac>-
+    (`h < LENGTH fmlls` by fs[]>>
+    metis_tac[MEM_EL])>>
+  simp[]>>strip_tac>>
+  qexists_tac`x'::c`>>
+  CONJ_TAC >- (
+    dep_rewrite.DEP_ONCE_REWRITE_TAC[set_list_update_resize]>>
+    simp[EVERY_MEM]>>
+    pop_assum drule>>
+    simp[]) >>
+  simp[]>>
+  rw[]
+  >- (
+    pop_assum drule>>
+    simp[])>>
+  metis_tac[]
 QED
 
 Theorem is_AT_arr_spec:
@@ -579,7 +412,7 @@ Theorem is_AT_arr_spec:
   (LIST_TYPE INT) c cv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
   bounded_fml (LENGTH Clist) fmlls ∧
-  EVERY ($> (LENGTH Clist) ∘ Num o ABS) c
+  EVERY ($> (LENGTH Clist) ∘ index) c
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_AT_arr" (get_ml_prog_state()))
@@ -598,32 +431,34 @@ Theorem is_AT_arr_spec:
       (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ is_AT_list fmlls ls c Clist = NONE)))
 Proof
   xcf "is_AT_arr" (get_ml_prog_state ())>>
-  xlet_autop
-  >- (
-    xsimpl>>
-    simp[is_AT_list_def])>>
+  `WORD8 w8z w8z_v ∧ WORD8 w8o w8o_v` by
+    simp[w8z_v_thm,w8o_v_thm]>>
+  xlet_autop>>
   xlet_auto
   >- (
     xsimpl>>fs[])
   >- (
     simp[is_AT_list_def]>>
     xsimpl>>
-    every_case_tac>>gvs[unwrap_TYPE_def])>>
+    rw[]>>simp[]>>
+    metis_tac[])>>
   fs[unwrap_TYPE_def]>>
   simp[is_AT_list_def]>>
   rw[]>>fs[]>>rw[]>>
   TOP_CASE_TAC>>fs[]>>
   drule is_AT_list_aux_length_bound>>
   rpt (disch_then drule)>>
-  strip_tac>>
-  Cases_on`q`>>fs[SUM_TYPE_def]
+  strip_tac>>Cases_on`q`>>fs[SUM_TYPE_def]
   >- (
     xmatch>>
-    rpt xlet_autop>>
-    xcon>>xsimpl)>>
+    xlet_auto >- (xsimpl>>rw[]>>fs[])>>
+    xlet_autop>>
+    xcon>>xsimpl>>
+    simp[LENGTH_set_list_bound] )>>
   xmatch>>
-  rpt xlet_auto >- xsimpl>>
-  xcon>>xsimpl
+  xlet_auto >- (xsimpl>>rw[]>>fs[])>>
+  xcon>>xsimpl>>
+  simp[LENGTH_set_list_bound]
 QED
 
 val _ = translate (check_overlap_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO] |> INST_TYPE [alpha |-> ``:int``]);
@@ -660,8 +495,8 @@ Theorem check_RAT_arr_spec:
   LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE NUM)) ik ikv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
   bounded_fml (LENGTH Clist) fmlls ∧
-  EVERY ($> (LENGTH Clist) ∘ Num o ABS) c ∧
-  EVERY ($> (LENGTH Clist) ∘ Num o ABS) ci
+  EVERY ($> (LENGTH Clist) ∘ index) c ∧
+  EVERY ($> (LENGTH Clist) ∘ index) ci
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_RAT_arr" (get_ml_prog_state()))
@@ -769,8 +604,8 @@ Theorem check_PR_arr_spec:
   LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE NUM)) ik ikv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
   bounded_fml (LENGTH Clist) fmlls ∧
-  EVERY ($> (LENGTH Clist) ∘ Num o ABS) c ∧
-  EVERY ($> (LENGTH Clist) ∘ Num o ABS) ci
+  EVERY ($> (LENGTH Clist) ∘ index) c ∧
+  EVERY ($> (LENGTH Clist) ∘ index) ci
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_PR_arr" (get_ml_prog_state()))
@@ -856,15 +691,6 @@ QED
 (* val res = translate filter_reindex_def;
 val res = translate filter_reindex_full_def; *)
 
-val res = translate index_def;
-
-val index_side_def = fetch "-" "index_side_def"
-
-val index_side = Q.prove(`
-  !x. index_side x ⇔ T`,
-  simp[index_side_def]>>
-  intLib.ARITH_TAC) |> update_precondition;
-
 val res = translate min_opt_def;
 
 val list_min_opt_arr = process_topdecs`
@@ -941,7 +767,7 @@ Theorem every_check_RAT_inds_arr_spec:
   LIST_TYPE NUM acc accv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
   bounded_fml (LENGTH Clist) fmlls ∧
-  EVERY ($> (LENGTH Clist) ∘ Num o ABS) c
+  EVERY ($> (LENGTH Clist) ∘ index) c
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "every_check_RAT_inds_arr" (get_ml_prog_state()))
@@ -1026,7 +852,7 @@ Theorem every_check_PR_inds_arr_spec:
   LIST_TYPE NUM acc accv ∧
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
   bounded_fml (LENGTH Clist) fmlls ∧
-  EVERY ($> (LENGTH Clist) ∘ Num o ABS) c
+  EVERY ($> (LENGTH Clist) ∘ index) c
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "every_check_PR_inds_arr" (get_ml_prog_state()))
@@ -1120,7 +946,7 @@ Theorem is_PR_arr_spec:
   LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
   LIST_REL (OPTION_TYPE NUM) earliest earliestv ∧
   bounded_fml (LENGTH Clist) fmlls ∧
-  EVERY ($> (LENGTH Clist) ∘ Num o ABS) c
+  EVERY ($> (LENGTH Clist) ∘ index) c
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_PR_arr" (get_ml_prog_state()))
@@ -1183,11 +1009,12 @@ Proof
     rpt xlet_autop>>
     xapp >>
     rw[]>>fs[]>>
-    `EVERY ($> (LENGTH r) ∘ Num o ABS) y` by (
-      gvs[is_AT_list_def,AllCaseEqs()]>>
-      drule_at Any LENGTH_set_list_bound>>
-      impl_tac >- metis_tac[]>> strip_tac>>
-      drule_at Any is_AT_list_aux_length_bound>>simp[])>>
+    `EVERY ($> (LENGTH r) ∘ index) y` by
+      (fs[is_AT_list_def]>>every_case_tac>>fs[]>>
+      qpat_x_assum`LENGTH _ = LENGTH r` (assume_tac o SYM)>>
+      fs[]>>
+      drule is_AT_list_aux_length_bound>>
+      rpt (disch_then drule)>>simp[])>>
     simp[PULL_EXISTS]>>rpt(asm_exists_tac>>simp[])>>
     qexists_tac`ARRAY Earrv earliestv`>>xsimpl>>
     qexists_tac`ls`>>
@@ -1218,11 +1045,12 @@ Proof
   rpt xlet_autop>>
   xapp >> xsimpl>>
   rw[]>>fs[]>>
-  `EVERY ($> (LENGTH r) ∘ Num o ABS) y` by (
-    gvs[is_AT_list_def,AllCaseEqs()]>>
-    drule_at Any LENGTH_set_list_bound>>
-    impl_tac >- metis_tac[]>> strip_tac>>
-    drule_at Any is_AT_list_aux_length_bound>>simp[])>>
+  `EVERY ($> (LENGTH r) ∘ index) y` by
+    (fs[is_AT_list_def]>>every_case_tac>>fs[]>>
+    qpat_x_assum`LENGTH _ = LENGTH r` (assume_tac o SYM)>>
+    fs[]>>
+    drule is_AT_list_aux_length_bound>>
+    rpt (disch_then drule)>>simp[])>>
   simp[PULL_EXISTS]>>rpt(asm_exists_tac>>simp[])>>
   qexists_tac`ls`>>
   qexists_tac`ik` >>
@@ -1522,8 +1350,6 @@ val every_less_def = Define`
 
 val _ = translate every_less_def;
 
-val _ = register_type``:lprstep``;
-
 val check_lpr_step_arr = process_topdecs`
   fun check_lpr_step_arr lno mindel step fml ls carr earr =
   case step of
@@ -1559,7 +1385,7 @@ QED
 Theorem list_max_index_bounded_clause:
   ∀l.
   list_max_index l < n ⇒
-  EVERY ($> n o Num o ABS) l
+  EVERY ($> n o index) l ∧ EVERY ($> n o index o $~) l
 Proof
   simp[list_max_index_def]>>
   Induct>>rw[list_max_def,index_def]>>
@@ -1568,7 +1394,7 @@ QED
 
 Theorem bounded_fml_update_resize:
   bounded_fml m fmlls ∧
-  EVERY ($> m o Num o ABS) l ⇒
+  EVERY ($> m o index) l ∧ EVERY ($> m o index o $~) l ⇒
   bounded_fml m (update_resize fmlls NONE (SOME l) n)
 Proof
   rw[bounded_fml_def,EVERY_MEM]>>
@@ -1591,7 +1417,8 @@ Proof
 QED
 
 Theorem EVERY_index_resize_Clist:
-  EVERY ($> (LENGTH (resize_Clist ls Clist)) ∘ Num o ABS) ls
+  EVERY ($> (LENGTH (resize_Clist ls Clist)) ∘ index) ls ∧
+  EVERY ($> (LENGTH (resize_Clist ls Clist)) ∘ index o $~) ls
 Proof
   rw[]>>
   simp[resize_Clist_def,list_max_index_def]>>
@@ -1599,7 +1426,8 @@ Proof
   qspec_then `lss` assume_tac list_max_max>>
   fs[EVERY_MEM,Abbr`lss`,MEM_MAP,PULL_EXISTS]>>
   ntac 2 strip_tac>>first_x_assum drule>>
-  rw[]>>simp[index_def]>>rw[]
+  rw[]>>simp[index_def]>>rw[]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem check_lpr_step_arr_spec:
