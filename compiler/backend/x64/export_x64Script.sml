@@ -153,7 +153,13 @@ val expose_func_def = Define `
      strlit"     pushq   %rbp\n";
      strlit"     movq    %rsp, %rbp\n";
      strlit"     movq    cdecl(ret_stack)(%rip), %r12\n";
+     strlit"     cmp     $0, %r12\n";
+     strlit"     je      cake_err3\n";
+     strlit"     movq    $0, cdecl(ret_stack)(%rip)\n";
      strlit"     movq    cdecl(ret_base)(%rip), %r13\n";
+     strlit"     cmp     $0, %r13\n";
+     strlit"     je      cake_err3\n";
+     strlit"     movq    $0, cdecl(ret_base)(%rip)\n";
      strlit"     lea     "; name; strlit"_ret(%rip), %rax\n"; (* func returns to rax manually *)
      strlit"     jmp     cdecl("; label; strlit")\n";
             name; strlit"_ret:\n";
@@ -164,6 +170,22 @@ val expose_func_def = Define `
 val expose_funcs_def = Define `
   expose_funcs lsyms exp =
     FOLDL expose_func misc$Nil (FILTER ((flip MEM exp) o FST) lsyms)`;
+
+val print_err_code =
+  ``(List (MAP (\n. strlit(n ++ "\n"))
+    ["cake_err3:";
+     "     movq    $3, %rdi";
+     "     callq   wcdecl(cml_err)";
+     "     .p2align 4";
+     "";
+     "windows_cml_err3:";
+     "     movq    %rcx, %r9";
+     "     movq    %rdx, %r8";
+     "     movq    %rsi, %rdx";
+     "     movq    %rdi, %rcx";
+     "     movq    $3, %rdi";
+     "     callq   cdecl(cml_err)";
+     ""]))`` |> EVAL |> concl |> rand;
 
 val x64_export_def = Define `
   x64_export ffi_names bytes (data:word64 list) syms exp ret =
@@ -177,9 +199,10 @@ val x64_export_def = Define `
       (SmartAppend (List ((strlit"\n")::^startup)) (^ffi_code ret))))))
       (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
       (SmartAppend (List code_buffer)
-      (SmartAppend (emit_symbols lsyms)
-      (expose_funcs lsyms exp)))))
-      (^windows_ffi_code ret)`;
+      (emit_symbols lsyms))))
+      (SmartAppend (^windows_ffi_code ret)
+      (SmartAppend (^print_err_code)
+      (expose_funcs lsyms exp)))`;
 
 (*
   EVAL``append(split16 (words_line (strlit"\t.quad ") word_to_string) [100w:word64;393w;392w])``
