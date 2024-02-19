@@ -313,30 +313,6 @@ Proof
   xsimpl
 QED
 
-(* TODO: COPIED -- perhaps an interface like this would work? *)
-Definition compress_def:
-  compress chrs = mlstring$implode (REVERSE chrs)
-End
-
-val _ = translate compress_def;
-
-val _ = (append_prog o process_topdecs)`
-  fun b_inputLine_aux c0 is k chrs strs =
-    case TextIO.b_input1 is of
-      None =>
-        if List.null chrs andalso List.null strs
-        then None
-        else Some (String.concat (List.rev (compress (c0::chrs) :: strs)))
-    | Some c =>
-        if c = c0
-        then Some (String.concat (List.rev (compress (c::chrs) :: strs)))
-        else if k = 0
-             then b_inputLine_aux c0 is 500 [] (compress (c::chrs) :: strs)
-             else b_inputLine_aux c0 is (k-1) (c::chrs) strs`;
-
-val _ = (append_prog o process_topdecs)`
-  fun b_inputLine c0 is = b_inputLine_aux c0 is 500 [] []`;
-
 val c0_def = Define`
   c0 = CHR 0`
 
@@ -344,16 +320,14 @@ val _ = translate c0_def;
 
 val parse_one_c = process_topdecs`
   fun parse_one_c lno fd =
-  let val l = TextIO.b_inputUntil fd c0
-    val u = print l in
-  if l = "" then None
+  let val l = TextIO.b_inputUntil fd c0 in
+  if String.size l = 0 then None
   else
     (case parse_vb_string_head l of
       None => raise Fail (format_failure lno "failed to parse line (compressed format) ")
     | Some (Inl d) => Some d
     | Some (Inr r) =>
-      (let val y = TextIO.b_inputUntil fd c0
-          val u = print y in
+      (let val y = TextIO.b_inputUntil fd c0 in
           (case do_pr r y of
             None => raise Fail (format_failure lno "failed to parse line (compressed format) ")
           | Some p => Some p)
