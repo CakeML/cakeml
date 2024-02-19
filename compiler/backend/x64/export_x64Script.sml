@@ -80,7 +80,7 @@ val ffi_code' =
     SmartAppend
      (ffi_asm (REVERSE ffi_names))
      (List (MAP (\n. strlit(n ++ "\n"))
-      ["cake_clear:";
+      (["cake_clear:";
        "     pushq   %rax";
        "     pushq   %rdi";
        "     callq   wcdecl(cml_clear)";
@@ -88,22 +88,22 @@ val ffi_code' =
        "     ret";
        "     .p2align 4";
        "";
-       "cake_exit:";
-       (if ret then ^entry_return_code else
-        "     callq   wcdecl(cml_exit)");
-       "     .p2align 4";
+       "cake_exit:"] ++
+      (if ret then [^entry_return_code]
+       else ["     callq   wcdecl(cml_exit)";]) ++
+      ["     .p2align 4";
        "";
        "cake_main:";
        "";
        "/* Generated machine code follows */";
-       ""])))``
+       ""]))))``
 
 val (ffi_code_true,ffi_code_false) =
-    (“^ffi_code' T” |> EVAL |> concl |> rand,
-     “^ffi_code' F” |> EVAL |> concl |> rand);
+    (``^ffi_code' T`` |> EVAL |> concl |> rand,
+     ``^ffi_code' F`` |> EVAL |> concl |> rand);
 
 val ffi_code =
-  “λret. if ret then ^ffi_code_true else ^ffi_code_false”;
+  ``λret. if ret then ^ffi_code_true else ^ffi_code_false``;
 
 val windows_ffi_asm_def = Define `
   (windows_ffi_asm [] = Nil) /\
@@ -126,21 +126,21 @@ val windows_ffi_code' =
     SmartAppend
      (windows_ffi_asm (REVERSE ffi_names))
      (List (MAP (\n. strlit(n ++ "\n"))
-      ["windows_cml_exit:";
+      (["windows_cml_exit:";
        "     movq    %rcx, %r9";
        "     movq    %rdx, %r8";
        "     movq    %rsi, %rdx";
-       "     movq    %rdi, %rcx";
-       (if ret then ^entry_return_code else
-        "     callq   cdecl(cml_exit)");
-       ""])))``;
+       "     movq    %rdi, %rcx"] ++
+      (if ret then [^entry_return_code]
+       else ["     callq   cdecl(cml_exit)";]) ++
+      [""]))))``;
 
 val (windows_ffi_code_true,windows_ffi_code_false) =
-    (“^windows_ffi_code' T” |> EVAL |> concl |> rand,
-     “^windows_ffi_code' F” |> EVAL |> concl |> rand);
+    (``^windows_ffi_code' T`` |> EVAL |> concl |> rand,
+     ``^windows_ffi_code' F`` |> EVAL |> concl |> rand);
 
 val windows_ffi_code =
-  “λret. if ret then ^windows_ffi_code_true else ^windows_ffi_code_false”;
+  ``λret. if ret then ^windows_ffi_code_true else ^windows_ffi_code_false``;
 
 val expose_func_def = Define `
   expose_func appl (name,label,start,len) =
