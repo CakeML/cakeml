@@ -344,19 +344,21 @@ val _ = translate c0_def;
 
 val parse_one_c = process_topdecs`
   fun parse_one_c lno fd =
-  case b_inputLine c0 fd of
-    None => None
-  | Some l =>
-    (case parse_vb_string_head x of
+  let val l = TextIO.b_inputUntil fd c0
+    val u = print l in
+  if l = "" then None
+  else
+    (case parse_vb_string_head l of
       None => raise Fail (format_failure lno "failed to parse line (compressed format) ")
     | Some (Inl d) => Some d
     | Some (Inr r) =>
-      (case b_inputLine c0 fd of
-        None => raise Fail (format_failure lno "failed to parse line (compressed format) ")
-      | Some y =>
+      (let val y = TextIO.b_inputUntil fd c0
+          val u = print y in
           (case do_pr r y of
             None => raise Fail (format_failure lno "failed to parse line (compressed format) ")
-          | Some p => Some p)))` |> append_prog;
+          | Some p => Some p)
+       end))
+  end` |> append_prog;
 
 val parse_one = process_topdecs`
   fun parse_one b lno fd =

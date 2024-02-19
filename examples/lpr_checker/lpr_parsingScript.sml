@@ -827,7 +827,7 @@ QED
 
 (*
   Parse a string as variable byte encoded numbers
-  Terminated with 0
+  Terminated with 0 (last character skipped in parsing)
 *)
 Definition parse_vb_string_aux_def:
   parse_vb_string_aux (str:mlstring) (i:num) (len:num) (ex:num) (n:num) (acc:num list) =
@@ -835,8 +835,6 @@ Definition parse_vb_string_aux_def:
     let v = ORD (strsub str i) in
       if v >= 128 then (* msb is set *)
         parse_vb_string_aux str (i+1) len (ex*128) ((v-128)*ex+n) acc
-      else if v = 0 then (* should be terminator *)
-        acc
       else
         parse_vb_string_aux str (i+1) len 1 0 (v*ex+n::acc)
   else
@@ -847,7 +845,7 @@ End
 
 Definition parse_vb_string_def:
   parse_vb_string x =
-  parse_vb_string_aux x 0 (strlen x) 1 0 []
+  parse_vb_string_aux x 0 (strlen x - 1) 1 0 []
 End
 
 (* Parses either:
