@@ -600,7 +600,49 @@ val _ = (append_prog o process_topdecs)`
 val _ = ml_prog_update open_local_in_block;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputUntil is chr = String.implode (b_inputUntil_aux is chr)`;
+  fun find_surplus c surplus readat writeat =
+  if readat = writeat then None
+  else
+    if Char.fromByte (Word8Array.sub surplus readat) = c
+    then Some (readat)
+    else find_surplus c surplus (readat + 1) writeat;`
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputUntil_1 is chr =
+  case is of InstreamBuffered fd rref wref surplus =>
+  let
+    val readat = (!rref)
+    val writeat = (!wref)
+  in
+    case find_surplus chr surplus readat writeat of
+      None =>
+      (rref := writeat;
+        Inl (Word8Array.substring surplus readat (writeat-readat)))
+    | Some i =>
+      (rref := i+1;
+        Inr (Word8Array.substring surplus readat (i+1-readat)))
+  end;`
+
+val _ = (append_prog o process_topdecs)`
+fun b_refillBuffer_with_read_guard is =
+  (b_refillBuffer_with_read is;
+  case is of InstreamBuffered fd rref wref surplus =>
+  (!wref) = (!rref)
+  );`
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputUntil_2 is chr acc =
+  case b_inputUntil_1 is chr of
+    Inr s => String.concat (List.rev (s :: acc))
+  | Inl s =>
+      if b_refillBuffer_with_read_guard is
+      then
+        String.concat (List.rev (s :: acc))
+      else
+        b_inputUntil_2 is chr (s :: acc);`
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputUntil is chr = b_inputUntil_2 is chr [];`;
 
 val _ = (append_prog o process_topdecs)`
   fun b_inputLine is = b_inputLine_aux is 500 [] []`;
