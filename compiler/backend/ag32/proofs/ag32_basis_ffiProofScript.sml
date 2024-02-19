@@ -280,7 +280,7 @@ Proof
     \\ fs[GSYM FUNPOW_ADD]
     \\ qexists_tac`k1+k2` \\ rw[])
   >> (
-    fs[CaseEq"option",CaseEq"prod",CaseEq"bool"]
+    fs[CaseEq"option",CaseEq"prod",CaseEq"bool",CaseEq"ffiname"]
     \\ TRY (fs[EVERY_EL]>>
           drule find_index_LESS_LENGTH>>strip_tac>>fs[]>>
           ‘ffi_index < LENGTH mc.ffi_names’
@@ -6294,7 +6294,6 @@ Proof
   \\ conj_tac >- (
     simp[targetSemTheory.ffi_interfer_ok_def]
     \\ simp[ag32_machine_config_def]
-    \\ simp[EL_MAP]
     \\ simp[lab_to_targetTheory.ffi_offset_def,heap_size_def]
     \\ simp[EVAL``ag32_target.config``,targetSemTheory.get_reg_value_def]
     \\ simp[ag32_ffi_interfer_def]
@@ -6306,6 +6305,12 @@ Proof
                              else if i = "" then if n = 5 then SOME 0w else NONE
                              else if n < 9 then SOME 0w else NONE`
     \\ rpt gen_tac
+    \\ strip_tac>>
+    drule lab_to_targetProofTheory.mmio_pcs_min_index_is_SOME>>
+    strip_tac>>
+    Cases_on ‘index < i’>>fs[NOT_LESS]>>
+    TRY (first_x_assum $ qspec_then ‘index’ assume_tac>>
+         fs[EL_MAP,Abbr ‘num_ffis’]>>NO_TAC)
     \\ Cases_on`EL index ffi_names = ""`
     \\ srw_tac[ETA_ss][]
     \\ fs[asmPropsTheory.target_state_rel_def]
