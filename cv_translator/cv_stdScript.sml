@@ -5,7 +5,7 @@ open HolKernel Parse boolLib bossLib;
 open cv_typeTheory cvTheory cv_typeLib cv_repLib;
 open arithmeticTheory wordsTheory cv_repTheory cv_primTheory cv_transLib;
 open pairTheory listTheory optionTheory sumTheory alistTheory indexedListsTheory;
-open rich_listTheory;
+open rich_listTheory sptreeTheory;
 
 val _ = new_theory "cv_std";
 
@@ -328,14 +328,6 @@ QED
 
 val res = cv_trans
   (sptreeTheory.toAList_def |> REWRITE_RULE [GSYM toAList_foldi_def,FUN_EQ_THM]);
-
-val res = cv_auto_trans_pre sptreeTheory.spt_centers_def;
-
-Theorem spt_centers_pre[cv_pre]:
-  ∀a0 a1. spt_centers_pre a0 a1
-Proof
-  ho_match_mp_tac sptreeTheory.spt_centers_ind \\ rw [] \\ simp [Once res]
-QED
 
 Definition combine_rle_isEmpty_def:
   combine_rle_isEmpty = combine_rle isEmpty
