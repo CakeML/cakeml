@@ -252,8 +252,6 @@ Proof
   cheat
 QED
 
-Overload "LT" = “ltree_lift f st”;
-
 Theorem itree_bind_left_ident_T:
   f (itree_bind (Ret x) k) = f (k x)
 Proof
@@ -282,19 +280,103 @@ Proof
   rw [itree_bind_left_ident_wbisim]
 QED
 
-Theorem msem_resp_wbisim:
-  ht ≈ ht' ⇒
-  mrec_sem ht ≈ mrec_sem ht'
-Proof
-  cheat
-QED
-
+(* TODO: Finish this *)
 Theorem msem_ret_wbisim_eq:
   mrec_sem ht ≈ Ret x ⇒
   ht ≈ Ret x
 Proof
   fs [panItreeSemTheory.mrec_sem_def] >>
   namedCases_on ‘ht’ ["x","x","x"] >>
+  cheat
+QED
+
+Theorem itree_wbisim_monad_equiv:
+  Ret x ≈ Ret x' ⇔
+  x = x'
+Proof
+  cheat
+QED
+
+Theorem itree_wbisim_ret_u:
+  Ret x ≈ u ⇒
+  u = Ret x
+Proof
+  cheat
+QED
+
+Theorem itree_wbisim_vis_ret:
+  Ret x ≈ Vis e k ⇒ F
+Proof
+  rw [Once itreeTauTheory.itree_wbisim_cases]
+QED
+
+Theorem msem_strip_tau:
+  (strip_tau ht (Ret x) ⇒
+   mrec_sem ht = mrec_sem (Ret x)) ∧
+  (strip_tau ht (Vis (INL seed) k) ⇒
+   mrec_sem ht = Tau (case ht of
+                   Tau u => mrec_sem u
+                      | _ => mrec_sem ht)) ∧
+  (strip_tau ht (Vis (INR e) k) ⇒
+   mrec_sem ht = (case ht of
+                    Tau u => mrec_sem u
+                    | _ => mrec_sem ht)) ∧
+  (strip_tau ht (Tau u) ⇒
+   mrec_sem ht = mrec_sem u)
+Proof
+  cheat
+QED
+
+Theorem strip_tau_vis_wbisim:
+  ∀e k k'. strip_tau t (Vis e k) ∧ strip_tau t' (Vis e k') ∧ (∀r. k r ≈ k' r) ⇒
+  t ≈ t'
+Proof
+  cheat
+QED
+
+  
+
+
+(* TODO: Finish this *)
+Theorem msem_resp_wbisim:
+  ht ≈ ht' ⇒
+  mrec_sem ht ≈ mrec_sem ht'
+Proof
+  disch_tac >>
+  irule itreeTauTheory.itree_wbisim_strong_coind >>
+  qexists_tac ‘λx y. (∃ht1 ht2. ht1 ≈ ht2 ∧ x = mrec_sem ht1 ∧ y = mrec_sem ht2 ∧ x ≈ y)’ >>
+  rw [] >>
+  pop_last_assum kall_tac >>
+  gs [Once itreeTauTheory.itree_wbisim_cases]
+  >- (Cases_on ‘e’
+      >- (disj1_tac >>
+          qexists_tac ‘case ht1 of
+                         Tau u => mrec_sem u
+                       | _ => mrec_sem (h_prog x >>= k)’ >>
+          qexists_tac ‘case ht2 of
+                         Tau u => mrec_sem u
+                       | _ => mrec_sem (h_prog x >>= k')’ >>
+          rpt strip_tac
+          >- (fs [Once itreeTauTheory.strip_tau_cases])
+          >- (fs [Once itreeTauTheory.strip_tau_cases])
+          >- (disj1_tac >>
+              qexists_tac ‘case ht1 of
+                             Tau u => u
+                           | _ => h_prog x >>= k’ >>
+              qexists_tac ‘case ht2 of
+                             Tau u => u
+                           | _ => h_prog x >>= k'’ >>
+              rpt strip_tac >>
+              fs [Once itreeTauTheory.strip_tau_cases]
+              >- (ho_match_mp_tac strip_tau_vis_wbisim >>
+                  qexists_tac ‘INL x’ >>
+                  qexists_tac ‘k’ >>
+                  qexists_tac ‘k'’ >>
+                  rw [])
+              >- (
+               ‘ht1 ≈ Tau (h_prog x >>= k')’ suffices_by (rw []) >>
+               )
+    )
 QED
 
 Theorem msem_bind_left_ident:
@@ -303,14 +385,9 @@ Theorem msem_bind_left_ident:
 Proof
   disch_tac >>
   irule msem_resp_wbisim >>
+  drule msem_ret_wbisim_eq >>
+  disch_tac >>
   rw [itree_bind_thm_wbisim]
-QED
-
-Theorem ltree_msem_tau:
-  LT $ Tau t = Tau $ LT t
-Proof
-  rw [ltree_lift_def] >>
-  rw [Once itreeTauTheory.itree_iter_thm]
 QED
 
 (* Does mrec_sem distribute over bind? *)
@@ -401,7 +478,6 @@ Proof
               gvs [] >>
              )))
 QED
-
 
 Theorem leaf_of_simps[simp]:
   leaf_of ffis (Ret x) = Return x
