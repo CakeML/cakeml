@@ -263,6 +263,19 @@ Theorem K_THM[cv_inline] = combinTheory.K_THM;
 Theorem I_THM[cv_inline] = combinTheory.I_THM;
 Theorem o_THM[cv_inline] = combinTheory.o_THM;
 
+Definition list_mapi_def:
+  list_mapi i f [] = [] ∧
+  list_mapi i f (x::xs) = f i x :: list_mapi (i + 1n) f xs
+End
+
+Theorem MAPi_eq_list_mapi[cv_inline]:
+  MAPi = list_mapi 0
+Proof
+  qsuff_tac `∀l i f. list_mapi i f l = MAPi (f o (λn. n + i)) l`
+  >- gvs[FUN_EQ_THM, combinTheory.o_DEF, SF ETA_ss] >>
+  Induct >> rw[list_mapi_def] >> gvs[combinTheory.o_DEF, ADD1]
+QED
+
 (*----------------------------------------------------------*
    sptree / num_map / num_set
  *----------------------------------------------------------*)
