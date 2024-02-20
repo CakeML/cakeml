@@ -614,7 +614,6 @@ val parse_top_config_def = Define`
                get_err_str prelude;
                get_err_str typeinference;
                get_err_str mainreturn])`
-  *)
 
 (* Check for version flag *)
 val has_version_flag_def = Define `

@@ -208,8 +208,6 @@ val from_stack_def = Define`
     c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
     (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
     (c.lab_conf.asm_conf.addr_offset) p in
-	let names = sptree$union (sptree$fromAList $ (word_to_stack$stub_names () ++
-		stack_alloc$stub_names () ++ stack_remove$stub_names ())) names in
   from_lab c names (p:'a prog) bm`;
 
 val from_word_def = Define`

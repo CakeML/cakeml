@@ -17,7 +17,8 @@ Definition compile_prog_def:
     let names = fromAList (ZIP (MAP FST prog2,  (* func numbers *)
                                 MAP FST prog    (* func names *)
                 )) : mlstring$mlstring num_map in
-    (* stubs and their name mappings are added in backend$from_stack *)
+    let names = sptree$union (sptree$fromAList $ (word_to_stack$stub_names () ++
+      stack_alloc$stub_names () ++ stack_remove$stub_names ())) names in
     let c = c with exposed := MAP FST (FILTER (FST o SND) prog) in
       from_word c names prog3
 End
