@@ -118,7 +118,7 @@ exception Missing_from_to of hol_type;
 fun from_to_for_tyvar tyvar = let
   val name = dest_vartype tyvar
   val name = if String.isPrefix "'" name
-             then String.substring(name,1,size(name)-1) else name
+             then String.substring(name,1,String.size(name)-1) else name
   val f = mk_var("f_" ^ name,tyvar --> cvSyntax.cv)
   val t = mk_var("t_" ^ name,cvSyntax.cv --> tyvar)
   in ISPECL [f,t] from_to_def |> concl |> dest_eq |> fst |> ASSUME end

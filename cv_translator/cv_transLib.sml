@@ -123,7 +123,7 @@ fun from_for ty = cv_typeLib.from_term_for ty;
 fun remove_primes th = let
   val prime = "'"
   fun delete_last_prime s =
-    if String.isSuffix prime s then substring(s,0,size(s)-1) else fail()
+    if String.isSuffix prime s then substring(s,0,String.size(s)-1) else fail()
   fun loop [] ys i = i
     | loop (x::xs) ys i = let
       val name = (fst o dest_var) x
