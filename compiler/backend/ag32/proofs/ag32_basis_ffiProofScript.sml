@@ -6551,11 +6551,11 @@ Theorem ag32_installed:
    ⇒
    installed code 0 data 0 (SOME $ MAP ExtCall ffi_names)
      (heap_regs ag32_backend_config.stack_conf.reg_names)
-     (ag32_machine_config ffi_names (LENGTH code) (LENGTH data))
+     (ag32_machine_config ffi_names (LENGTH code) (LENGTH data)) []
      (FUNPOW Next startup_clock ms0)
 Proof
   disch_then assume_tac
-  \\ CONV_TAC(PATH_CONV"llr"EVAL)
+  \\ CONV_TAC(PATH_CONV"lllr"EVAL)
   \\ simp[targetSemTheory.installed_def]
   \\ simp[word_list_exists_def, set_sepTheory.SEP_CLAUSES, word_list_def]
   \\ simp[EVAL``(ag32_machine_config _ _ _).target.get_pc``]
@@ -6600,8 +6600,9 @@ Proof
     fs[asmPropsTheory.target_state_rel_def, ag32_machine_config_def,
        ag32_targetTheory.ag32_target_def]
     \\ simp[bytes_in_word_def, GSYM word_add_n2w, GSYM word_mul_n2w] )
-  \\ CONV_TAC (RAND_CONV EVAL THENC SIMP_CONV std_ss [])
-  \\ irule IMP_word_list
+
+ \\ conj_tac
+  >- (irule IMP_word_list
   \\ conj_tac >- fs[bytes_in_word_def, memory_size_def]
   \\ conj_tac >- fs[]
   \\ simp[EXTENSION,FORALL_PROD,set_sepTheory.IN_fun2set, bytes_in_word_def]
@@ -6698,7 +6699,17 @@ Proof
   \\ pop_assum SUBST_ALL_TAC
   \\ simp [GSYM word_add_n2w]
   \\ irule init_memory_data
-  \\ fs [Abbr `hi`, memory_size_def, Abbr `low`]
+      \\ fs [Abbr `hi`, memory_size_def, Abbr `low`])>>
+  fs[ag32_machine_config_def]>>
+  strip_tac>>
+  strip_tac>>
+  drule lab_to_targetProofTheory.mmio_pcs_min_index_is_SOME>>
+  strip_tac>>fs[]>>
+  qpat_x_assum ‘_ ≤ LENGTH _’ $ assume_tac o SIMP_RULE std_ss [LESS_OR_EQ]>>
+  fs[]>- (first_x_assum $ qspec_then ‘i’ assume_tac>>gvs[EL_MAP])>>
+  irule LESS_EQ_LESS_TRANS>>
+  qexists_tac ‘LENGTH code + ffi_offset * (LENGTH FFI_codes + 3)’>>fs[]>>
+  fs[code_start_offset_def,memory_size_def,FFI_codes_def]
 QED
 
 Theorem ag32_halted:
