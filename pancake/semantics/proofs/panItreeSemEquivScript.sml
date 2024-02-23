@@ -98,12 +98,6 @@ Proof
   rw [Once LUNFOLD]
 QED
 
-Theorem h_prog_paths_finite:
-  LFINITE (mtree_path query_oracle s.ffi (mrec_sem $ h_prog (p,s)))
-Proof
-  cheat
-QED
-
 Theorem htree_path_thm[simp]:
   htree_path f s (Ret r) = LNIL ∧
   htree_path f s (Tau u) = NONE:::htree_path f s u
@@ -113,31 +107,6 @@ Proof
   rw [Once LUNFOLD]
 QED
 
-Theorem mrec_sem_ind:
-  ∀P. ((∀p s e vname value. eval s e = SOME value ∧
-                            P (mrec_sem $ h_prog (p,s with locals := s.locals |+ (vname,value)))) ⇒
-       (∀vname e p s. P (mrec_sem $ h_prog (Dec vname e p,s)))) ∧
-      (∀s. P (mrec_sem $ h_prog (Skip,s)))
-Proof
-  cheat
-QED
-
-Theorem mrec_sem_ind_dec:
-  ∀P. (∀vname value p s. P (mrec_sem (h_prog (p,s with locals := s.locals |+ (vname,value))))) ⇒
-  (∀v e prog s. P (mrec_sem (h_prog (Dec v e prog,s))))
-Proof
-  cheat
-QED
-
-Theorem evaluate_with_locals_lem:
-  (λ(res,st).
-     (res,st with locals := res_var st.locals (v,FLOOKUP s.locals v)))
-  (evaluate (prog,s with locals := s.locals |+ (v,x))) = (SOME r,s') ⇒
-  evaluate (prog,s with locals := s.locals |+ (v,x)) = (SOME r,s')
-Proof
-  cheat
-QED
-
 Definition the_mtree_path_def:
   the_mtree_path ffis t = THE $ toList $ mtree_path query_oracle ffis t
 End
@@ -145,12 +114,6 @@ End
 Definition leaf_of_def:
   leaf_of ffis t = itree_el t (the_mtree_path ffis t)
 End
-
-(* Theorem mrec_sem_compost: *)
-(*   itree_el t p = Return r ∧ itree_el (k r) p' = Return r' ⇒ *)
-(*   itree_el (itree_bind t k) (p ++ p') = Return r' *)
-(* Proof *)
-(* QED *)
 
 (*
     TODO:
@@ -214,7 +177,6 @@ Proof
   fs [itreeTauTheory.itree_bind_def]
 QED
 
-
 (*
 
 ltree is the monad of leaves of an mtree (essentially branches that contain only
@@ -231,29 +193,48 @@ Overload "≈" = “itree_wbisim”;
 val _ = temp_set_fixity ">>=" (Infixl 500);
 Overload ">>=" = “itree_bind”;
 
+val f = “f:'a ffi_state -> sem_vis_event -> 'b ffi_result # 'a ffi_state”;
+
 Definition ltree_lift_def:
-  ltree_lift f st (mt:('a,'b) mtree) =
+  (ltree_lift ^f st (mt:('a,'b) mtree)):('a,'b) ltree =
   itree_iter
   (λ(t,st). case t of
         Ret x => Ret (INR x)
        | Tau u => Ret (INL (u,st))
-       | Vis e k => let (a,st') = (f st e) in
-                        Ret (INL (k a,st')))
+       | Vis (e,k) g => let (a,st') = (f st e) in
+                            Ret (INL ((g o k) a,st')))
   (mt,st)
 End
 
-(* XXX: Is there a more useful characterisation of itree_finite ? *)
-Theorem ltree_cases:
-  itree_finite (ltree_lift f s mt) ⇒
-  (ltree_lift f st mt) ≈ (Ret x)
+(* Possibly need a theorem stating two ltree's are equal if they are equal up to tau modulo branching
+  - because the branching type is not relevant in ltrees (i.e. there are no branches). Hence ltree's aren't really
+  trees anymore. *)
+
+(* Theorem ltree_wbisim: *)
+(*   ∀R. *)
+(*   (∀lt:('a,'b,'c) ltree lt':('d,'e,'c) ltree. *)
+(*      R lt lt' ⇒ *)
+(*      (∃t2 t3. lt = Tau t2 ∧ lt' = Tau t3 ∧ (R t2 t3 ∨ t2 ≈ t3)) ∨ *)
+(*      (∃r. strip_tau lt (Ret r) ∧ strip_tau lt' (Ret r)) ∨ lt ≈ lt') ⇒ *)
+(*   ∀^lt lt'. R lt lt' ⇒ lt:('a,'b,'c) ltree ≈ lt' *)
+(* Proof *)
+(*   cheat *)
+(* QED *)
+
+Theorem ltree_lift_cases:
+  (ltree_lift f st (Ret x) = Ret x) ∧
+  (ltree_lift f st (Tau u) = Tau (ltree_lift f st u)) ∧
+  (ltree_lift f st (Vis (e,k) g) = let (a,st') = (f st e) in
+                                   Tau (ltree_lift f st' ((g o k) a)))
 Proof
-  disch_tac >>
-  fs [panItreeSemTheory.itree_finite_def] >>
-  cheat
+  rpt strip_tac >>
+  rw [ltree_lift_def] >>>
+     LASTGOAL (Cases_on ‘f st e’) >>>
+     ALLGOALS (rw [Once itreeTauTheory.itree_iter_thm])
 QED
 
-Theorem itree_bind_left_ident_T:
-  f (itree_bind (Ret x) k) = f (k x)
+Theorem itree_bind_left_ident_over_f:
+  f $ Ret x >>= k = f (k x)
 Proof
   AP_TERM_TAC >>
   rw [itreeTauTheory.itree_bind_thm]
@@ -334,49 +315,49 @@ Proof
   cheat
 QED
 
-  
-
-
 (* TODO: Finish this *)
 Theorem msem_resp_wbisim:
   ht ≈ ht' ⇒
   mrec_sem ht ≈ mrec_sem ht'
 Proof
-  disch_tac >>
-  irule itreeTauTheory.itree_wbisim_strong_coind >>
-  qexists_tac ‘λx y. (∃ht1 ht2. ht1 ≈ ht2 ∧ x = mrec_sem ht1 ∧ y = mrec_sem ht2 ∧ x ≈ y)’ >>
-  rw [] >>
-  pop_last_assum kall_tac >>
-  gs [Once itreeTauTheory.itree_wbisim_cases]
-  >- (Cases_on ‘e’
-      >- (disj1_tac >>
-          qexists_tac ‘case ht1 of
-                         Tau u => mrec_sem u
-                       | _ => mrec_sem (h_prog x >>= k)’ >>
-          qexists_tac ‘case ht2 of
-                         Tau u => mrec_sem u
-                       | _ => mrec_sem (h_prog x >>= k')’ >>
-          rpt strip_tac
-          >- (fs [Once itreeTauTheory.strip_tau_cases])
-          >- (fs [Once itreeTauTheory.strip_tau_cases])
-          >- (disj1_tac >>
-              qexists_tac ‘case ht1 of
-                             Tau u => u
-                           | _ => h_prog x >>= k’ >>
-              qexists_tac ‘case ht2 of
-                             Tau u => u
-                           | _ => h_prog x >>= k'’ >>
-              rpt strip_tac >>
-              fs [Once itreeTauTheory.strip_tau_cases]
-              >- (ho_match_mp_tac strip_tau_vis_wbisim >>
-                  qexists_tac ‘INL x’ >>
-                  qexists_tac ‘k’ >>
-                  qexists_tac ‘k'’ >>
-                  rw [])
-              >- (
-               ‘ht1 ≈ Tau (h_prog x >>= k')’ suffices_by (rw []) >>
-               )
-    )
+  cheat
+  (* disch_tac >> *)
+  (* irule itreeTauTheory.itree_wbisim_strong_coind >> *)
+  (* qexists_tac ‘λx y. (∃ht1 ht2. ht1 ≈ ht2 ∧ x = mrec_sem ht1 ∧ y = mrec_sem ht2)’ >> *)
+  (* rw [] >> *)
+  (* (* change to last_x_assum *) *)
+  (* pop_last_assum kall_tac >> *)
+  (* gs [Once itreeTauTheory.itree_wbisim_cases] *)
+  (* >- (Cases_on ‘e’ *)
+  (*     >- (disj1_tac >> *)
+  (*         qexists_tac ‘case ht1 of *)
+  (*                        Tau u => mrec_sem u *)
+  (*                      | _ => mrec_sem (h_prog x >>= k)’ >> *)
+  (*         qexists_tac ‘case ht2 of *)
+  (*                        Tau u => mrec_sem u *)
+  (*                      | _ => mrec_sem (h_prog x >>= k')’ >> *)
+  (*         rpt strip_tac *)
+  (*         >- (fs [Once itreeTauTheory.strip_tau_cases]) *)
+  (*         >- (fs [Once itreeTauTheory.strip_tau_cases]) *)
+  (*         >- (disj1_tac >> *)
+  (*             qexists_tac ‘case ht1 of *)
+  (*                            Tau u => u *)
+  (*                          | _ => h_prog x >>= k’ >> *)
+  (*             qexists_tac ‘case ht2 of *)
+  (*                            Tau u => u *)
+  (*                          | _ => h_prog x >>= k'’ >> *)
+  (*             rpt strip_tac >> *)
+  (*             fs [Once itreeTauTheory.strip_tau_cases] *)
+  (*             >- (ho_match_mp_tac strip_tau_vis_wbisim >> *)
+  (*                 qexists_tac ‘INL x’ >> *)
+  (*                 qexists_tac ‘k’ >> *)
+  (*                 qexists_tac ‘k'’ >> *)
+  (*                 rw []) >> *)
+  (*             (* >- (‘ht1 ≈ Tau (h_prog x >>= k')’ suffices_by (rw []) >>) *) *)
+  (*             cheat) >> *)
+  (*         cheat) >> *)
+  (*     cheat) >> *)
+  (* cheat *)
 QED
 
 Theorem msem_bind_left_ident:
@@ -402,37 +383,57 @@ Proof
   rw [msem_bind_left_ident]
 QED
 
-(* TODO: Check if mtree's aren' mt a monad transformer by proving the lift rule for mrec. *)
-(* TODO: If mrec is part of a monad transformer, and it represents lift, then we need to also define
- ret and bind for this transformer... *)
-(* ret can be the ITree Ret defined for the type of mtree *)
-(* bind could be itree_bind defined for mtree? *)
-(* then the following should hold... *)
+(* TODO: Only the two theorems below need be proved to complete
+ the correspondence proof at the level of wbisim equivalence for ltree's, i.e.
+     by converting itree's into branches (still an ITree type) and showing
+     equivalence with FBS semantics.
 
-Theorem mrec_sem_ret_inv_thm:
-  mrec_sem t = Ret r ⇒ t = Ret r
-Proof
-  disch_tac >>
-  Cases_on ‘t’ >>
-  fs []
-  >- (Cases_on ‘a’ >> fs [])
-QED
-
-Theorem mrec_sem_tau_inv_thm:
-  mrec_sem t = Tau u ⇒
-  (∃s k. t = (Vis (INL s) k)) ∨ ∃v. t = Tau v
+    NB Part of the work for ltree_lift_msem_resp_wbisim is already complete in
+    msem_resp_wbisim.
+*)
+Theorem ltree_lift_msem_resp_wbisim:
+  ht ≈ ht' ⇒
+  ltree_lift f st (mrec_sem ht) ≈ ltree_lift f st (mrec_sem ht')
 Proof
   cheat
 QED
 
-Theorem itree_bind_vis_inv_thm:
-  itree_bind t k = Vis e g ⇒
-  (∃x. t = (Ret x) ∧ (k x) = (Vis e g)) ∨ (∃e' g'. t = Vis e' (λx. itree_bind (g' x) k))
+Theorem ltree_lift_ret_wbisim_eq:
+  ltree_lift f st (mrec_sem ht) ≈ Ret x ⇒
+  ht ≈ Ret x
 Proof
-  disch_tac >>
-  fs [itreeTauTheory.itree_bind_thm] >>
   cheat
 QED
+
+Theorem ltree_lift_bind_left_ident:
+  (ltree_lift f st (mrec_sem ht)) ≈ Ret x ⇒
+  (ltree_lift f st (mrec_sem (ht >>= k))) ≈ (ltree_lift f st (mrec_sem (k x)))
+Proof
+  disch_tac >>
+  irule ltree_lift_msem_resp_wbisim >>
+  drule ltree_lift_ret_wbisim_eq >>
+  disch_tac >>
+  rw [itree_bind_thm_wbisim]
+QED
+
+Theorem ltree_lift_compos:
+  ltree_lift f st (mrec_sem (h_prog seed)) ≈ Ret x ⇒
+  ltree_lift f st (mrec_sem (Vis (INL seed) k)) ≈ ltree_lift f st (mrec_sem (k x))
+Proof
+  disch_tac >>
+  rw [panItreeSemTheory.mrec_sem_simps] >>
+  rw [ltree_lift_cases] >>
+  rw [ltree_lift_bind_left_ident]
+QED
+
+(* Theorem mrec_sem_ret_inv_thm: *)
+(*   mrec_sem t = Ret r ⇒ t = Ret r *)
+(* Proof *)
+(*   disch_tac >> *)
+(*   Cases_on ‘t’ >> *)
+(*   fs [panItreeSemTheory.mrec_sem_simps] *)
+(*   >- (Cases_on ‘a’ >> fs []) *)
+(* QED *)
 
 Theorem mrec_sem_bind_thm:
   (mrec_sem (itree_bind (Ret x) k) = mrec_sem (k x)) ∧
@@ -440,44 +441,36 @@ Theorem mrec_sem_bind_thm:
   (mrec_sem (itree_bind (Vis e g) k) = mrec_sem (Vis e (λx. itree_bind (g x) k)))
 Proof
   rpt strip_tac >>
-  rw [itreeTauTheory.itree_bind_thm]
+  rw [panItreeSemTheory.mrec_sem_simps]
 QED
 
-(* TODO: Can we prove this equality? *)
-(* Or do we need to weaken the bisim relation to arrive at a better proof point *)
-(* Also figure out why we end up in this place and what it means for the proof. *)
-Theorem mrec_bind_strange:
-    monad_bind (mrec_sem (monad_bind (h_prog s) g)) (mrec_sem ∘ k) =
-    mrec_sem do x <- h_prog s; monad_bind (g x) k od
-Proof
-QED
-
-Theorem mrec_sem_lift_thm:
-  (mrec_sem o Ret = Ret) ∧
-  (mrec_sem (itree_bind t k) = itree_bind (mrec_sem t) (mrec_sem o k))
-Proof
-  rpt strip_tac
-  >- (CONV_TAC FUN_EQ_CONV >> rw [])
-  >- (rw [Once itreeTauTheory.itree_bisimulation] >>
-      qexists_tac ‘λx y. ∃t k. x = mrec_sem (itree_bind t k) ∧ y = itree_bind (mrec_sem t) (mrec_sem o k)’ >>
-      rw []
-      >- metis_tac []
-      >- (pop_assum (assume_tac o GSYM) >>
-          drule mrec_sem_ret_inv_thm >>
-          disch_tac >>
-          drule itree_bind_ret_inv_gen >>
-          disch_tac >>
-          gs [])
-      >- (qexists_tac ‘u’ >>
-          CONJ_ASM1_TAC
-          >- (pop_assum (assume_tac o GSYM) >>
-              drule mrec_sem_tau_inv_thm >>
-              strip_tac >>
-              fs [] >>
-              Cases_on ‘t'’ >>
-              gvs [] >>
-             )))
-QED
+(* XXX: Can't remember what this was solving.. *)
+(* Theorem mrec_sem_lift_thm: *)
+(*   (mrec_sem o Ret = Ret) ∧ *)
+(*   (mrec_sem (itree_bind t k) = itree_bind (mrec_sem t) (mrec_sem o k)) *)
+(* Proof *)
+(*   rpt strip_tac *)
+(*   >- (CONV_TAC FUN_EQ_CONV >> rw []) *)
+(*   >- (rw [Once itreeTauTheory.itree_bisimulation] >> *)
+(*       qexists_tac ‘λx y. ∃t k. x = mrec_sem (itree_bind t k) ∧ y = itree_bind (mrec_sem t) (mrec_sem o k)’ >> *)
+(*       rw [] *)
+(*       >- metis_tac [] *)
+(*       >- (pop_assum (assume_tac o GSYM) >> *)
+(*           drule mrec_sem_ret_inv_thm >> *)
+(*           disch_tac >> *)
+(*           drule itree_bind_ret_inv_gen >> *)
+(*           disch_tac >> *)
+(*           gs []) *)
+(*       >- (qexists_tac ‘u’ >> *)
+(*           CONJ_ASM1_TAC *)
+(*           >- (pop_assum (assume_tac o GSYM) >> *)
+(*               drule mrec_sem_tau_inv_thm >> *)
+(*               strip_tac >> *)
+(*               fs [] >> *)
+(*               Cases_on ‘t'’ >> *)
+(*               gvs [] >> *)
+(*              ))) *)
+(* QED *)
 
 Theorem leaf_of_simps[simp]:
   leaf_of ffis (Ret x) = Return x
@@ -486,22 +479,15 @@ Proof
   rw [toList_THM]
 QED
 
-Theorem leaf_bind_lem:
-  leaf_of ffis t = Return x ⇒
-  leaf_of ffis (itree_bind t k) = leaf_of ffis (k x)
-Proof
-  disch_tac >>
-  Cases_on ‘monad_bind t k’
-  >- fs [bind_inv_thm]
-QED
+(* Theorem leaf_bind_lem: *)
+(*   leaf_of ffis t = Return x ⇒ *)
+(*   leaf_of ffis (itree_bind t k) = leaf_of ffis (k x) *)
+(* Proof *)
+(*   disch_tac >> *)
+(*   Cases_on ‘monad_bind t k’ *)
+(*   >- fs [bind_inv_thm] *)
+(* QED *)
 
-(* TODO: Consider the best way to reason about "leaves", not just those at the end of a tree
- but those under some oracle path choosing function which has its state updated as the path
- is traversed.
-
- This may end up being a specialisation of a more general theory of leaves over mrec. *)
-(* TODO: Further refine this concept into a general law
- for mrec in terms of "leaves". *)
 Theorem mrec_sem_leaf_compos:
   leaf_of ffis (mrec_sem (rh seed)) = Return x ⇒
   leaf_of ffis (mrec_sem (Vis (INL seed) k)) = leaf_of ffis (mrec_sem (k x))
@@ -547,6 +533,40 @@ Proof
          rw [toList_THM])
 QED
 
+Theorem evaluate_mtree_path_corr_ltree:
+  ∀p s. s.clock = k ∧ s.ffi = ffis ⇒
+        ltree_lift query_oracle s.ffi (mrec_sem $ h_prog (p,s)) ≈ Ret (evaluate (p,s))
+Proof
+  recInduct panSemTheory.evaluate_ind >>
+  rpt strip_tac
+  (* Skip *)
+  >- (rw [panSemTheory.evaluate_def] >>
+      rw [panItreeSemTheory.h_prog_def] >>
+      rw [panItreeSemTheory.mrec_sem_simps] >>
+      rw [ltree_lift_cases] >>
+      rw [itreeTauTheory.itree_wbisim_refl])
+  (* Dec *)
+  >- (Cases_on ‘eval s e’
+      >- (rw [panItreeSemTheory.h_prog_def,
+                panItreeSemTheory.h_prog_rule_dec_def] >>
+          rw [panItreeSemTheory.mrec_sem_simps] >>
+          rw [panSemTheory.evaluate_def] >>
+          rw [ltree_lift_cases] >>
+          rw [itreeTauTheory.itree_wbisim_refl])
+      >- (rw [] >>
+          rw [panItreeSemTheory.h_prog_def,
+                panItreeSemTheory.h_prog_rule_dec_def] >>
+          drule ltree_lift_compos >>
+          disch_tac >>
+          rw [panSemTheory.evaluate_def] >>
+          Cases_on ‘evaluate (prog,s with locals := s.locals |+ (v,x))’ >>
+          rw [] >>
+          pop_assum kall_tac >>
+          pop_assum (assume_tac o (SPEC “(λ(res,s'). Ret (res,s' with locals := res_var s'.locals (v,FLOOKUP (s:('a,'a) state).locals v))):('a,'a) hktree”)) >>
+          fs [panItreeSemTheory.mrec_sem_simps,
+              ltree_lift_cases])
+     )
+QED
 
 (* Takes a function f : e -> a # f and an itree t, and returns either NONE for
 infinite depth paths or SOME r where r is the result in the leaf of the tree

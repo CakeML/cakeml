@@ -1,24 +1,24 @@
 (*
-    An itree semantics for Pancake.
+An itree semantics for Pancake.
 *)
 
 open preamble panLangTheory;
 local open alignmentTheory
-           miscTheory     (* for read_bytearray *)
-           wordLangTheory (* for word_op and word_sh *)
-           ffiTheory
-           itreeTauTheory
-           panSemTheory in end;
+        miscTheory     (* for read_bytearray *)
+        wordLangTheory (* for word_op and word_sh *)
+        ffiTheory
+        itreeTauTheory
+        panSemTheory in end;
 
 val _ = new_theory "panItreeSem";
 
 (* Extension of itreeTauTheory *)
 enable_monadsyntax();
 declare_monad("itree", {unit = “Ret”, bind = “itree_bind”,
-              ignorebind = NONE,
-              choice = NONE,
-              fail = NONE,
-              guard = NONE});
+            ignorebind = NONE,
+            choice = NONE,
+            fail = NONE,
+            guard = NONE});
 enable_monad "itree";
 
 (* Unicode overloads *)
@@ -55,6 +55,8 @@ Type mtree[pp] = “:(('a,'b) mtree_ans,
                     ('a,'b) mtree_ans) itree”;
 Type mktree[pp] = “:('a,'b) mtree_ans -> ('a,'b) mtree”;
 
+Type ltree[pp] = “:(unit,unit,('a,'b) mtree_ans) itree”;
+Type lktree[pp] = “:('a,'b) mtree_ans -> ('a,'b) ltree”;
 
 Type semtree[pp] = “:('b ffi_result, sem_vis_event, 'a result option) itree”;
 Type sem8tree[pp] = “:('b ffi_result, sem_vis_event, 8 result option) itree”;
@@ -424,7 +426,7 @@ QED
 (*   rw [Once itreeTauTheory.itree_unfold] *)
 (* QED *)
 
-Theorem mrec_sem_simps[simp]:
+Theorem mrec_sem_simps:
   (mrec_sem (Vis (INL seed) k) =
    Tau (mrec_sem (itree_bind (h_prog seed) k))) ∧
   (mrec_sem (Vis (INR e) k) = (Vis e (Tau o mrec_sem o k))) ∧
@@ -436,29 +438,5 @@ Proof
   CONV_TAC FUN_EQ_CONV >> rw [] >>
   rw [mrec_sem_def]
 QED
-
-(* TODO: A termination-specific equivalence relation.
- Any two itrees are related if the left tree has the same return value as the right tree,
-     regardless of the events. *)
-
-(* The below seems correct...
- Then why does the evaluate_ind theorem state a similar idea except the continuation isn't applied.
- *)
-
-(* TODO: Second part is to determine if recInduct over evaluate is the correct approach
- or if something else is required. The WF relation basis for correspondence doesn't seem
-    that logical for a coinductive semantics.
- *)
-
-(* TODO: Think of the problem in terms of transforming evaluate to the equivalent notion in itrees.
- This is why there are two specific parts to the correspondence rather than a direct equivalence.
-*)
-
-(* Theorem mrec_sem_compo: *)
-(*   (mrec_sem (rh seed)) SOME_EQUIV (Ret x) ⇒ *)
-(*   (mrec_sem (Vis (INL seed) k)) SOME_EQUIV (k x) *)
-(* Proof *)
-(*   cheat *)
-(* QED *)
 
 val _ = export_theory();
