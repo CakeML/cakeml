@@ -280,18 +280,18 @@ fun indent_print_thm prefix suffix th = let
   val m = !max_print_depth
   fun change #"\n" = "\n  "
     | change c = implode [c]
-  fun indent_print s = print (String.translate change s)
-  in (print (prefix ^ "  ");
+  fun indent_print s = cv_print (String.translate change s)
+  in (cv_print (prefix ^ "  ");
       max_print_depth := 15;
       indent_print (thm_to_string th);
       max_print_depth := m;
-      print suffix)
+      cv_print suffix)
      handle HOL_ERR _ =>
       max_print_depth := m end;
 
 fun find_inst_def_for needs_c = let
   val needed_def = find_def_for needs_c
-  val _ = print "Recursively calling `cv_auto_trans` on definition:\n"
+  val _ = cv_print "Recursively calling `cv_auto_trans` on definition:\n"
   val _ = indent_print_thm "\n" "\n\n" needed_def
   val gen_c = needed_def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL |> concl
                          |> dest_eq |> fst |> strip_comb |> fst
@@ -376,8 +376,8 @@ fun cv_trans_any allow_pre term_opt def = let
                     |> fst |> dest_var |> fst |> clean_name
   val cv_def = define_cv_function name def cv_def_tm term_opt
   val cv_defs = cv_def |> CONJUNCTS |> map SPEC_ALL
-  val _ = print "Defined cv functions:\n"
-  val _ = (print "\n"; List.app (indent_print_thm "" "\n\n") cv_defs)
+  val _ = cv_print "Defined cv functions:\n"
+  val _ = (cv_print "\n"; List.app (indent_print_thm "" "\n\n") cv_defs)
   (* instantiate raw_cv_reps *)
   fun strip_var_arg tm = if is_var (rand tm) then rator tm else fail()
   val cv_consts = cv_defs |> map (repeat strip_var_arg o fst o dest_eq o concl)
@@ -396,7 +396,7 @@ fun cv_trans_any allow_pre term_opt def = let
       val res = hd expand_cv_reps
       val result = fix_missed_args res
       val result = remove_T_IMP result
-      val _ = print "Storing result:\n"
+      val _ = cv_print "Storing result:\n"
       val _ = indent_print_thm "\n" "\n\n" result
       val _ = save_thm(name ^ "_thm[cv_rep]", result)
       in TRUTH end
@@ -418,7 +418,7 @@ fun cv_trans_any allow_pre term_opt def = let
       val result = map remove_T_IMP result
       (* derive final theorems *)
       val combined_result = LIST_CONJ result
-      val _ = print "Storing result:\n"
+      val _ = cv_print "Storing result:\n"
       val _ = indent_print_thm "\n" "\n\n" combined_result
       val _ = save_thm(name ^ "_thm[cv_rep]", combined_result)
       in pre_def end
@@ -641,24 +641,24 @@ fun cv_eval_raw tm = let
   val _ = List.null (free_vars tm) orelse failwith "cv_eval needs input to be closed"
   val th = cv_rep_for [] tm
   val ty = type_of tm
-  val _ = print "Translating input to a cv term.\n"
+  val _ = cv_print "Translating input to a cv term.\n"
   val from_to_thm = time cv_typeLib.from_to_thm_for ty
   val cv_tm = cv_miscLib.cv_rep_cv_tm (concl th)
-  val _ = print "Looking for relevant cv code equations.\n"
+  val _ = cv_print "Looking for relevant cv code equations.\n"
   val cv_eqs = time cv_eqs_for cv_tm
-  val _ = print ("Found " ^ int_to_string (length cv_eqs) ^ " cv code equations to use.\n")
+  val _ = cv_print ("Found " ^ int_to_string (length cv_eqs) ^ " cv code equations to use.\n")
   val cv_conv = cv_computeLib.cv_compute cv_eqs
   val th1 = MATCH_MP cv_rep_eval th
   val th2 = MATCH_MP th1 from_to_thm
   val th3 = th2 |> UNDISCH_ALL
-  val _ = print "Calling cv_compute.\n"
+  val _ = cv_print "Calling cv_compute.\n"
   val th4 = time (CONV_RULE (RAND_CONV (RAND_CONV cv_conv))) th3
   val th5 = remove_T_IMP (DISCH_ALL th4)
   in th5 end;
 
 fun cv_eval tm = let
   val th = cv_eval_raw tm
-  val _ = print "Using EVAL to convert from cv to original types.\n"
+  val _ = cv_print "Using EVAL to convert from cv to original types.\n"
   val th = time (CONV_RULE (RAND_CONV EVAL)) (UNDISCH_ALL th)
   val th = th |> DISCH_ALL |> remove_T_IMP
   in th end;

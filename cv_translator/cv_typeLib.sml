@@ -698,17 +698,17 @@ fun rec_define_from_to ty = let
   fun loop acc ty =
     let
       val (to_def,from_def,thms) = define_from_to ty
-      val _ = print ("Finished to/from for " ^ get_type_name ty ^ "\n\n")
-      val _ = print_thm to_def
-      val _ = print "\n\n"
+      val _ = cv_print ("Finished to/from for " ^ get_type_name ty ^ "\n\n")
+      val _ = cv_print_thm to_def
+      val _ = cv_print "\n\n"
     in thms @ acc end
     handle Missing_from_to needs_ty =>
     let
-      val _ = print ("Interrupting " ^ get_type_name ty ^
-                     " since " ^ get_type_name needs_ty ^ " needed.\n")
+      val _ = cv_print ("Interrupting " ^ get_type_name ty ^
+                        " since " ^ get_type_name needs_ty ^ " needed.\n")
       val acc = loop acc needs_ty
-      val _ = print ("Continuing " ^ get_type_name ty ^
-                     " since " ^ get_type_name needs_ty ^ " exists.\n")
+      val _ = cv_print ("Continuing " ^ get_type_name ty ^
+                        " since " ^ get_type_name needs_ty ^ " exists.\n")
     in loop acc ty end
   in loop [] ty end
 

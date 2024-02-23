@@ -7,6 +7,10 @@ struct
 open HolKernel Abbrev Parse boolLib bossLib;
 open cv_repTheory cvTheory;
 
+val quiet = ref true;
+fun cv_print s = if !quiet then () else print s;
+fun cv_print_thm th = if !quiet then () else print_thm th;
+
 val cv_ty = cvSyntax.cv
 val cv_rep_hol_tm = rand
 val cv_rep_hol_tm_conv = RAND_CONV
@@ -84,16 +88,16 @@ fun prepare do_print th = let
    Database for cv_rep, cv_pre, cv_inline, cv_from_to
  *--------------------------------------------------------------------------*)
 
-fun insert_cv_rep th = prepare true th;
+fun insert_cv_rep th = prepare (not (!quiet)) th;
 val cv_rep_thms = register_ThmSetData_list "cv_rep" insert_cv_rep;
 
-fun insert_cv_pre th = (print "\ncv_pre:\n\n"; print_thm th; print "\n\n"; [th])
+fun insert_cv_pre th = (cv_print "\ncv_pre:\n\n"; cv_print_thm th; cv_print "\n\n"; [th])
 val cv_pre_thms = register_ThmSetData_list "cv_pre" insert_cv_pre;
 
-fun insert_cv_inline th = (print "\ncv_inline:\n\n"; print_thm th; print "\n\n"; [th])
+fun insert_cv_inline th = (cv_print "\ncv_inline:\n\n"; cv_print_thm th; cv_print "\n\n"; [th])
 val cv_inline_thms = register_ThmSetData_list "cv_inline" insert_cv_inline;
 
-fun insert_cv_from_to th = (print "\ncv_from_to:\n\n"; print_thm th; print "\n\n"; [th])
+fun insert_cv_from_to th = (cv_print "\ncv_from_to:\n\n"; cv_print_thm th; cv_print "\n\n"; [th])
 val cv_from_to_thms = register_ThmSetData_list "cv_from_to" insert_cv_from_to;
 
 end
