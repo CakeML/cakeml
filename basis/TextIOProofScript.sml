@@ -6839,12 +6839,236 @@ Definition INSTREAM_STR_def:
          get_mode fs fd = SOME ReadMode)
 End
 
+Definition splitlines_at_def:
+  splitlines_at c0 ls =
+    (let
+       lines = FIELDS ($= c0) ls
+     in
+       if NULL (LAST lines) then FRONT lines else lines)
+End
+
+Definition lines_of_gen_def:
+  lines_of_gen c0 s =
+    MAP (λx. implode x ^ (str c0)) (splitlines_at c0 (explode s))
+End
+
 Definition INSTREAM_LINES_def:
-  INSTREAM_LINES fd is (lines:mlstring list) fs =
+  INSTREAM_LINES c0 fd is (lines:mlstring list) fs =
     SEP_EXISTS rest.
       INSTREAM_STR fd is rest fs *
-      & (lines = lines_of (implode rest))
+      & (lines = lines_of_gen c0 (implode rest))
 End
+
+(* TODO: COPIED THEOREMS ABOUT splitlines *)
+Theorem splitlines_at_next:
+   splitlines_at c0 ls = ln::lns ⇒
+   splitlines_at c0 (DROP (SUC (LENGTH ln)) ls) = lns ∧
+   ln ≼ ls ∧ (LENGTH ln < LENGTH ls ⇒ ln ++ [c0] ≼ ls)
+Proof
+  simp[splitlines_at_def]
+  \\ Cases_on`FIELDS ($= c0) ls` \\ fs[]
+  \\ Cases_on`LENGTH h < LENGTH ls`
+  >- (
+    imp_res_tac FIELDS_next
+    \\ strip_tac
+    \\ `ln = h`
+    by (
+      pop_assum mp_tac \\ rw[]
+      \\ fs[FRONT_DEF] )
+    \\ fs[]
+    \\ fs[LAST_DEF,NULL_EQ]
+    \\ Cases_on`t = []` \\ fs[]
+    \\ fs[FRONT_DEF]
+    \\ IF_CASES_TAC \\ fs[]
+    \\ fs[IS_PREFIX_APPEND])
+  \\ fs[NOT_LESS]
+  \\ imp_res_tac FIELDS_full \\ fs[]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ strip_tac \\ rveq \\ fs[]
+  \\ simp[DROP_LENGTH_TOO_LONG,FIELDS_def]
+QED
+
+Theorem splitlines_at_nil[simp] = EVAL“splitlines_at c0 ""”
+
+Theorem splitlines_at_eq_nil[simp]:
+   splitlines_at c0 ls = [] ⇔ (ls = [])
+Proof
+  rw[EQ_IMP_THM]
+  \\ fs[splitlines_at_def]
+  \\ every_case_tac \\ fs[]
+  \\ Cases_on`FIELDS ($= c0) ls` \\ fs[]
+  \\ fs[LAST_DEF] \\ rfs[NULL_EQ]
+  \\ Cases_on`LENGTH "" < LENGTH ls`
+  >- ( imp_res_tac FIELDS_next \\ fs[] )
+  \\ fs[LENGTH_NIL]
+QED
+
+Theorem splitlines_at_CONS_FST_SPLITP:
+   splitlines_at c0 ls = ln::lns ⇒ FST (SPLITP ($= c0) ls) = ln
+Proof
+  rw[splitlines_at_def]
+  \\ Cases_on`ls` \\ fs[FIELDS_def]
+  \\ TRY pairarg_tac \\ fs[] \\ rw[] \\ fs[]
+  \\ every_case_tac \\ fs[] \\ rw[] \\ fs[NULL_EQ, FIELDS_def]
+  \\ qmatch_assum_abbrev_tac`FRONT (x::y) = _`
+  \\ Cases_on`y` \\ fs[]
+QED
+
+Theorem splitlines_at_not_exists2:
+  !l.
+        ~(EXISTS ($= c0) l) ==>
+        splitlines_at c0 l = if l = "" then [] else [l]
+Proof
+  rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l` >- fs[]
+  \\ `h <> c0` by fs[EVERY_DEF]
+  \\ fs[splitlines_at_def, FRONT_DEF, FIELDS_def, SPLITP, NULL_DEF]
+  \\ CASE_TAC
+  >-(CASE_TAC
+    >-(fs[FRONT_DEF])
+    >-(`SPLITP ($= c0) t = (t, [])`  by metis_tac[NOT_DEF,SPLITP_EVERY]
+      \\ fs[FST]))
+  >-(CASE_TAC
+    >-(fs[FRONT_DEF]
+      \\ `SPLITP ($= c0) t = (t, [])`  by metis_tac[NOT_DEF,SPLITP_EVERY]
+      \\ fs[FST])
+    >-(`SPLITP ($= c0) t = (t, [])`  by metis_tac[NOT_DEF,SPLITP_EVERY]
+      \\ fs[FST]))
+QED
+
+Theorem FIELDS_hd_c0:
+  !t.
+        FIELDS ($= c0) (STRING c0 t) = "":: FIELDS ($= c0) t
+Proof
+  rpt strip_tac
+  \\ fs[FIELDS_def, SPLITP]
+QED
+
+Theorem SPLITP_takeUntil_c0:
+  !l.
+        SPLITP ($= c0) l =
+          (takeUntil ($= c0) l, DROP (LENGTH (takeUntil ($= c0) l)) l)
+Proof
+  completeInduct_on `LENGTH l`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(fs[SPLITP, mllistTheory.takeUntil_def])
+  >-(Cases_on `h = c0`
+    >-fs[SPLITP, mllistTheory.takeUntil_def]
+    >-(fs[SPLITP, mllistTheory.takeUntil_def]))
+QED
+
+Theorem FIELDS_takeUntil_c0:
+  !l.
+      LENGTH (takeUntil ($= c0) l) < LENGTH l ==>
+      FIELDS ($= c0) l =
+          takeUntil ($= c0) l ::
+            FIELDS ($= c0) (TL (DROP (LENGTH (takeUntil ($= c0) l)) l))
+Proof
+  completeInduct_on `LENGTH (l:string)`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(fs[mllistTheory.takeUntil_def])
+  >-(Cases_on `h = c0`
+    >-(simp[mllistTheory.takeUntil_def]
+      \\ fs[FIELDS_hd_c0])
+    >-(fs[FIELDS_def, SPLITP_takeUntil_c0]
+      \\ `~(NULL (takeUntil ($= c0) (STRING h t)))` by fs[mllistTheory.takeUntil_def, NULL_DEF]
+      \\ simp[] \\ Cases_on `LENGTH (takeUntil ($= c0) (STRING h t)) = LENGTH (STRING h t)`
+      >-(fs[DROP_LENGTH_TOO_LONG])
+      \\ `STRLEN (takeUntil ($= c0) (STRING h t)) < STRLEN (STRING h t)` by fs[LENGTH_CONS]
+      \\ `(DROP (STRLEN (takeUntil ($= c0) (STRING h t))) (STRING h t)) <> []` by fs[DROP_NIL]
+      \\ Cases_on `DROP (STRLEN (takeUntil ($= c0) (STRING h t))) (STRING h t)`
+      >- fs[]
+      \\ `~(NULL (STRING h' t'))` by fs[NULL_DEF]
+      \\ simp[]))
+QED
+
+Theorem splitlines_at_hd_c0:
+  !t.
+        splitlines_at c0 (STRING c0 t) = "" :: splitlines_at c0 t
+Proof
+  rpt strip_tac \\ fs[splitlines_at_def]
+  \\ CASE_TAC
+  >-(CASE_TAC
+    >-(fs[FRONT_DEF, FIELDS_hd_c0])
+    >-(fs[NULL_DEF,LAST_DEF, FIELDS_hd_c0]))
+  >-(CASE_TAC
+    >-(fs[NULL_DEF, LAST_DEF, FIELDS_hd_c0])
+    >-(fs[FIELDS_hd_c0]))
+QED
+
+Theorem splitlines_at_takeUntil_exists:
+  !l.
+        EXISTS ($= c0) l ==>
+        splitlines_at c0 l =
+          (takeUntil ($= c0) l ::
+            splitlines_at c0 (TL (DROP (LENGTH (takeUntil ($= c0) l)) l)))
+Proof
+  rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ `LENGTH (takeUntil ($= c0) l) < LENGTH l` by fs[LENGTH_takeUntil_exists]
+  \\ Cases_on `l`
+  >-(fs[splitlines_at_eq_nil, mllistTheory.takeUntil_def])
+  >-(Cases_on `h = c0`
+    >-(fs[mllistTheory.takeUntil_def, splitlines_at_hd_c0])
+    >-(simp[mllistTheory.takeUntil_def, splitlines_at_def]
+      \\ `~(NULL (takeUntil ($= c0) (STRING h t)))` by fs[mllistTheory.takeUntil_def, NULL_DEF]
+      \\ CASE_TAC
+      >-(CASE_TAC
+        >-(fs[FIELDS_takeUntil_c0, FRONT_DEF, FIELDS_NEQ_NIL, mllistTheory.takeUntil_def])
+        >-(`LENGTH (takeUntil ($= c0) (STRING h t)) < LENGTH (STRING h t)` by fs[LENGTH_takeUntil_exists]
+          \\ cases_on `c0 = h` >- fs[]
+          \\ ` FIELDS ($= c0) (STRING h t) =
+                takeUntil ($= c0) (STRING h t)::
+             FIELDS ($= c0)
+               (TL (DROP (STRLEN (takeUntil ($= c0) (STRING h t))) (STRING h t)))` by fs[FIELDS_takeUntil_c0]
+          \\ fs[mllistTheory.takeUntil_def, LAST_DEF]))
+      >-(cases_on `c0 = h` >- fs[]
+        \\ `FIELDS ($= c0) (STRING h t) =
+                takeUntil ($= c0) (STRING h t)::
+             FIELDS ($= c0)
+               (TL (DROP (STRLEN (takeUntil ($= c0) (STRING h t))) (STRING h t)))` by fs[FIELDS_takeUntil_c0]
+        \\ fs[FIELDS_takeUntil_c0, mllistTheory.takeUntil_def] \\ rfs[]
+        \\ fs[LAST_DEF])))
+QED
+
+Theorem splitlines_at_takeUntil_exists2:
+  !l.
+        EXISTS ($= c0) l ==>
+        splitlines_at c0 l =
+          (takeUntil ($= c0) l ::
+            splitlines_at c0 (DROP (SUC (LENGTH (takeUntil ($= c0) l))) l))
+Proof
+  rpt strip_tac
+  \\ imp_res_tac splitlines_at_takeUntil_exists
+  \\ `DROP (SUC (STRLEN (takeUntil ($= c0) l))) l =
+      DROP 1 (DROP (STRLEN (takeUntil ($= c0) l)) l)` by fs[SUC_ONE_ADD, DROP_DROP_T]
+  \\ rw[] \\ cases_on `DROP (STRLEN (takeUntil ($= c0) l)) l`
+  >-fs[takeUntilIncl_length_gt_0] >-fs[TL, DROP]
+QED
+
+Theorem splitlines_at_not_exists2:
+  !l.
+        ~(EXISTS ($= c0) l) ==>
+        splitlines_at c0 l = if l = "" then [] else [l]
+Proof
+  rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l` >- fs[]
+  \\ `h <> c0` by fs[EVERY_DEF]
+  \\ fs[splitlines_at_def, FRONT_DEF, FIELDS_def, SPLITP, NULL_DEF]
+  \\ CASE_TAC
+  >-(CASE_TAC
+    >-(fs[FRONT_DEF])
+    >-(`SPLITP ($= c0) t = (t, [])`  by metis_tac[NOT_DEF,SPLITP_EVERY]
+      \\ fs[FST]))
+  >-(CASE_TAC
+    >-(fs[FRONT_DEF]
+      \\ `SPLITP ($= c0) t = (t, [])`  by metis_tac[NOT_DEF,SPLITP_EVERY]
+      \\ fs[FST])
+    >-(`SPLITP ($= c0) t = (t, [])`  by metis_tac[NOT_DEF,SPLITP_EVERY]
+      \\ fs[FST]))
+QED
+(*** END TODO COPIED ***)
 
 Triviality MAP_MAP_n2w_ORD:
   (!xs. MAP (n2w ∘ ORD) (MAP (CHR ∘ (w2n:word8 -> num)) xs) = xs) /\
@@ -6948,12 +7172,12 @@ QED
 
 Theorem b_peekChar_spec_lines:
   app (p:'ffi ffi_proj) TextIO_b_peekChar_v [is]
-     (STDIO fs * INSTREAM_LINES fd is s fs)
+     (STDIO fs * INSTREAM_LINES c0 fd is s fs)
      (POSTv chv.
        SEP_EXISTS k.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd is s (forwardFD fs fd k) *
-         & (OPTION_TYPE CHAR (case s of [] => NONE | (l::ls) => oHD (explode l ++ "\n")) chv))
+         INSTREAM_LINES c0 fd is s (forwardFD fs fd k) *
+         & (OPTION_TYPE CHAR (case s of [] => NONE | (l::ls) => oHD (explode l ++ [c0])) chv))
 Proof
   simp_tac bool_ss [INSTREAM_LINES_def,SEP_CLAUSES]
   \\ xpull
@@ -6968,20 +7192,21 @@ Proof
   \\ qexists_tac ‘x’
   \\ qexists_tac ‘rest’
   \\ xsimpl
-  \\ fs [lines_of_def]
+  \\ fs [lines_of_gen_def]
   \\ pop_assum mp_tac
   \\ match_mp_tac (METIS_PROVE [] “x = y ⇒ f x z ⇒ f y z”)
-  \\ Cases_on ‘¬EXISTS ($= #"\n") rest’
-  >-
-   (drule splitlines_not_exists2 \\ fs []
+  \\ Cases_on ‘¬EXISTS ($= c0) rest’
+  >- (
+    drule splitlines_at_not_exists2 \\ fs []
     \\ Cases_on ‘rest’ \\ fs [])
   \\ fs []
-  \\ drule splitlines_takeUntil_exists
+  \\ drule splitlines_at_takeUntil_exists
   \\ rw []
   \\ Cases_on ‘rest’ \\ fs [] \\ gvs []
   \\ EVAL_TAC
   \\ IF_CASES_TAC \\ gvs []
   \\ IF_CASES_TAC \\ gvs []
+  \\ gvs[ORD_11]
 QED
 
 Definition file_content_def:
@@ -7077,20 +7302,27 @@ Proof
   \\ xsimpl
 QED
 
+Theorem str_STRING:
+  str h = strlit (STRING h "")
+Proof
+  EVAL_TAC
+QED
+
 Theorem b_inputLine_aux_spec_str[local]:
-  !to_read k1 k1v chrs chrsv strs strsv is text fs fd.
+  !to_read k1 k1v chrs chrsv strs strsv is text fs fd c0 c0v.
+    CHAR c0 c0v /\
     LIST_TYPE CHAR chrs chrsv /\ NUM k1 k1v ∧
     LIST_TYPE STRING_TYPE strs strsv /\ EVERY (\s. s ≠ strlit []) strs ∧
-    EVERY (\c. c <> #"\n") to_read /\
-    (text <> "" ==> HD text = #"\n") ==>
-    app (p:'ffi ffi_proj) TextIO_b_inputLine_aux_v [is; k1v; chrsv; strsv]
+    EVERY (\c. c <> c0) to_read /\
+    (text <> "" ==> HD text = c0) ==>
+    app (p:'ffi ffi_proj) TextIO_b_inputLine_aux_v [c0v; is; k1v; chrsv; strsv]
       (STDIO fs * INSTREAM_STR fd is (to_read ++ text) fs)
       (POSTv v. SEP_EXISTS k.
                   cond (OPTION_TYPE STRING_TYPE
                           (case to_read ++ chrs ++ FLAT (MAP explode strs) of
-                           | [] => (if text = "" then NONE else SOME (implode "\n"))
+                           | [] => (if text = "" then NONE else SOME (str c0))
                            | _ => SOME (implode (FLAT (MAP explode (REVERSE strs)) ++
-                                                 REVERSE chrs ++ to_read ++ "\n"))) v) *
+                                                 REVERSE chrs ++ to_read ++ [c0]))) v) *
                   STDIO (forwardFD fs fd k) *
                   INSTREAM_STR fd is (TL text) (forwardFD fs fd k))
 Proof
@@ -7173,30 +7405,34 @@ Proof
   \\ reverse (Cases_on ‘text’) \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq
   \\ xmatch \\ fs []
   THEN1
-   (xlet_auto THEN1 xsimpl
+   (xlet_auto THEN1 (
+      xsimpl \\
+      gvs[ml_translatorTheory.CHAR_def])
     \\ xif \\ fs [] \\ asm_exists_tac \\ fs []
     \\ xlet_auto THEN1 (xcon \\ xsimpl)
     \\ xlet ‘POSTv v.
-            cond (STRING_TYPE (compress (#"\n" :: chrs)) v) * STDIO (forwardFD fs fd k) *
+            cond (STRING_TYPE (compress (c0 :: chrs)) v) * STDIO (forwardFD fs fd k) *
             INSTREAM_STR fd is t (forwardFD fs fd k)’
-    THEN1 (xapp \\ xsimpl \\ qexists_tac ‘#"\n" :: chrs’ \\ fs [LIST_TYPE_def])
+    THEN1 (xapp \\ xsimpl \\ qexists_tac ‘c0 :: chrs’ \\ fs [LIST_TYPE_def])
     \\ xlet_auto THEN1 (xcon \\ xsimpl)
     \\ xlet ‘POSTv v.
-          cond (LIST_TYPE STRING_TYPE (REVERSE (compress (STRING #"\n" chrs) :: strs)) v) *
+          cond (LIST_TYPE STRING_TYPE (REVERSE (compress (STRING c0 chrs) :: strs)) v) *
           STDIO (forwardFD fs fd k) * INSTREAM_STR fd is t (forwardFD fs fd k)’
     THEN1 (
       xapp_spec (ListProgTheory.reverse_v_thm |> GEN_ALL |> Q.ISPEC ‘STRING_TYPE’)
-      \\ xsimpl \\ qexists_tac ‘(compress (STRING #"\n" chrs)) :: strs’
+      \\ xsimpl \\ qexists_tac ‘(compress (STRING c0 chrs)) :: strs’
       \\ fs [LIST_TYPE_def])
     \\ xlet_auto THEN1 xsimpl
     \\ xcon \\ xsimpl \\ qexists_tac ‘k’ \\ fs [] \\ xsimpl
     \\ rw [] \\ fs [concat_def,compress_def,implode_def]
-    \\ CASE_TAC \\ fs [std_preludeTheory.OPTION_TYPE_def]
+    \\ reverse CASE_TAC \\ fs [std_preludeTheory.OPTION_TYPE_def]
     \\ ‘explode = λs. case s of strlit x => x’ by (fs [FUN_EQ_THM] \\ Cases \\ fs [])
     \\ fs []
     \\ qsuff_tac ‘(CONCAT (MAP (λs. case s of strlit x => x) (REVERSE strs))) = ""’
     \\ rw [] \\ fs []
-    \\ Cases_on ‘strs’ \\ fs [] \\ Cases_on ‘h’ \\ fs [])
+    >-  gvs[str_STRING]
+    \\ Cases_on ‘strs’
+    \\ gvs[AllCaseEqs()])
   \\ xlet_auto THEN1 xsimpl
   \\ xlet ‘POSTv v. cond (BOOL (chrs = [] ∧ strs = []) v) * STDIO (forwardFD fs fd k) *
            INSTREAM_STR fd is "" (forwardFD fs fd k)’
@@ -7210,16 +7446,17 @@ Proof
    (xcon \\ xsimpl \\ qexists_tac ‘k’ \\ fs [] \\ xsimpl \\ EVAL_TAC)
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xlet ‘POSTv v.
-             cond (STRING_TYPE (compress (#"\n" :: chrs)) v) * STDIO (forwardFD fs fd k) *
+             cond (STRING_TYPE (compress (c0 :: chrs)) v) * STDIO (forwardFD fs fd k) *
              INSTREAM_STR fd is "" (forwardFD fs fd k)’
-  THEN1 (xapp \\ xsimpl \\ qexists_tac ‘#"\n" :: chrs’ \\ fs [LIST_TYPE_def])
+  THEN1 (xapp \\ xsimpl \\ qexists_tac ‘c0 :: chrs’ \\ fs [LIST_TYPE_def])
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xlet ‘POSTv v.
-        cond (LIST_TYPE STRING_TYPE (REVERSE (compress (STRING #"\n" chrs) :: strs)) v) *
+        cond (LIST_TYPE STRING_TYPE (REVERSE (compress (STRING c0 chrs) :: strs)) v) *
         STDIO (forwardFD fs fd k) * INSTREAM_STR fd is "" (forwardFD fs fd k)’
   THEN1 (
     xapp_spec (ListProgTheory.reverse_v_thm |> GEN_ALL |> Q.ISPEC ‘STRING_TYPE’)
-    \\ xsimpl \\ qexists_tac ‘(compress (STRING #"\n" chrs)) :: strs’
+    \\ xsimpl
+    \\ qexists_tac ‘(compress (STRING c0 chrs)) :: strs’
     \\ fs [LIST_TYPE_def])
   \\ xlet_auto THEN1 xsimpl
   \\ xcon \\ xsimpl \\ qexists_tac ‘k’ \\ fs [] \\ xsimpl
@@ -7248,15 +7485,16 @@ Proof
 QED
 
 Theorem b_inputLineTokens_aux_spec_str[local]:
-  !to_read is_emp is_empv chrs chrsv acc accv f fv g gv is text fs fd.
+  !to_read is_emp is_empv chrs chrsv acc accv f fv g gv is text fs fd c0 c0v.
+    CHAR c0 c0v /\
     (CHAR --> BOOL) f fv ∧
     (STRING_TYPE --> (a:'a->v->bool)) g gv ∧
     BOOL is_emp is_empv ∧
     LIST_TYPE CHAR chrs chrsv /\ EVERY ($~ o f) chrs ∧
     LIST_TYPE a acc accv /\
-    EVERY (\c. c <> #"\n") to_read /\
-    (text <> "" ==> HD text = #"\n") ==>
-    app (p:'ffi ffi_proj) TextIO_b_inputLineTokens_aux_v [is;fv;gv;is_empv;chrsv;accv]
+    EVERY (\c. c <> c0) to_read /\
+    (text <> "" ==> HD text = c0) ==>
+    app (p:'ffi ffi_proj) TextIO_b_inputLineTokens_aux_v [c0v;is;fv;gv;is_empv;chrsv;accv]
       (STDIO fs * INSTREAM_STR fd is (to_read ++ text) fs)
       (POSTv v. SEP_EXISTS k.
                   cond (OPTION_TYPE (LIST_TYPE a)
@@ -7293,7 +7531,9 @@ Proof
       \\ ‘TOKENS f (REVERSE chrs) = [REVERSE chrs]’
           by (match_mp_tac TOKENS_EQ_SING \\ fs [EVERY_REVERSE])
       \\ fs [compress_def])
-    \\ xlet_auto THEN1 xsimpl
+    \\ xlet_auto THEN1 (
+        xsimpl \\
+        gvs[ml_translatorTheory.CHAR_def])
     \\ xif \\ asm_exists_tac \\ fs []
     \\ xlet_auto THEN1 (xcon \\ xsimpl)
     \\ xapp \\ xsimpl \\ rpt (asm_exists_tac \\ fs [])
@@ -7337,7 +7577,8 @@ Proof
     \\ qexists_tac ‘forwardFD fs fd k’ \\ fs []
     \\ qexists_tac ‘fd’ \\ fs []
     \\ qexists_tac ‘f’ \\ fs []
-    \\ qexists_tac ‘h::chrs’ \\ qexists_tac ‘acc’ \\ fs [] \\ xsimpl
+    \\ qexists_tac ‘h::chrs’ \\ qexists_tac ‘acc’ \\ qexists_tac `c0`
+    \\ fs [] \\ xsimpl
     \\ fs [LIST_TYPE_def] \\ rw []
     \\ fs [std_preludeTheory.OPTION_TYPE_def]
     \\ qexists_tac `x+k`
@@ -7357,7 +7598,8 @@ Proof
     \\ qexists_tac ‘forwardFD fs fd k’ \\ fs []
     \\ qexists_tac ‘fd’ \\ fs []
     \\ qexists_tac ‘f’ \\ fs []
-    \\ qexists_tac ‘chrs’ \\ qexists_tac ‘acc’ \\ fs [] \\ xsimpl
+    \\ qexists_tac ‘chrs’ \\ qexists_tac ‘acc’ \\ qexists_tac `c0`
+    \\ fs [] \\ xsimpl
     \\ fs [LIST_TYPE_def] \\ rw []
     \\ fs [std_preludeTheory.OPTION_TYPE_def]
     \\ qexists_tac `x+k`
@@ -7377,7 +7619,9 @@ Proof
   \\ qexists_tac ‘fd’ \\ fs []
   \\ qexists_tac ‘f’ \\ fs []
   \\ qexists_tac ‘[]’
-  \\ qexists_tac ‘g (compress chrs) :: acc’ \\ fs [] \\ xsimpl
+  \\ qexists_tac ‘g (compress chrs) :: acc’
+  \\ qexists_tac `c0`
+  \\ fs [] \\ xsimpl
   \\ fs [LIST_TYPE_def] \\ rw []
   \\ fs [std_preludeTheory.OPTION_TYPE_def]
   \\ qexists_tac `x+k`
@@ -7390,15 +7634,16 @@ Proof
 QED
 
 Theorem b_inputLine_spec_str[local]:
-  EVERY (\c. c <> #"\n") to_read /\
-  (text <> "" ==> HD text = #"\n") ==>
-  app (p:'ffi ffi_proj) TextIO_b_inputLine_v [is]
+  CHAR c0 c0v /\
+  EVERY (\c. c <> c0) to_read /\
+  (text <> "" ==> HD text = c0) ==>
+  app (p:'ffi ffi_proj) TextIO_b_inputLine_v [c0v; is]
     (STDIO fs * INSTREAM_STR fd is (to_read ++ text) fs)
     (POSTv v. SEP_EXISTS k.
                 cond (OPTION_TYPE STRING_TYPE
                         (case to_read of
-                         | [] => (if text = "" then NONE else SOME (implode "\n"))
-                         | _ => SOME (implode (to_read ++ "\n"))) v) *
+                         | [] => (if text = "" then NONE else SOME (str c0))
+                         | _ => SOME (implode (to_read ++ [c0]))) v) *
                 STDIO (forwardFD fs fd k) *
                 INSTREAM_STR fd is (TL text) (forwardFD fs fd k))
 Proof
@@ -7406,6 +7651,8 @@ Proof
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xapp_spec b_inputLine_aux_spec_str
+  \\ simp[]
+  \\ goal_assum drule
   \\ goal_assum drule
   \\ goal_assum drule
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘[]’
@@ -7416,11 +7663,12 @@ Proof
 QED
 
 Theorem b_inputLineTokens_spec_str[local]:
+  CHAR c0 c0v ∧
   (CHAR --> BOOL) f fv ∧
   (STRING_TYPE --> (a:'a->v->bool)) g gv ∧
-  EVERY (\c. c <> #"\n") to_read /\
-  (text <> "" ==> HD text = #"\n") ==>
-  app (p:'ffi ffi_proj) TextIO_b_inputLineTokens_v [is; fv; gv]
+  EVERY (\c. c <> c0) to_read /\
+  (text <> "" ==> HD text = c0) ==>
+  app (p:'ffi ffi_proj) TextIO_b_inputLineTokens_v [c0v; is; fv; gv]
     (STDIO fs * INSTREAM_STR fd is (to_read ++ text) fs)
     (POSTv v. SEP_EXISTS k.
                 cond (OPTION_TYPE (LIST_TYPE a)
@@ -7438,8 +7686,9 @@ Proof
   \\ rename [‘v2 = _’]
   \\ ‘BOOL T v2’ by (rw [] \\ EVAL_TAC)
   \\ goal_assum drule
-  \\ goal_assum drule
+  \\ simp[PULL_EXISTS]
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘to_read’
+  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘text’
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘g’
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘fs’
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘fd’
@@ -7447,6 +7696,7 @@ Proof
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘[]’
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘[]’
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘a’
+  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘c0’
   \\ xsimpl \\ fs [LIST_TYPE_def] \\ rw []
   \\ qexists_tac ‘x’ \\ fs [] \\ xsimpl
   \\ fs [TOKENS_eq_tokens_sym,MAP_MAP_o]
@@ -7457,7 +7707,7 @@ Theorem b_openStdIn_spec_lines:
   UNIT_TYPE () uv ⇒
   app (p:'ffi ffi_proj) TextIO_b_openStdIn_v [uv]
      (STDIO fs)
-     (POSTv is. STDIO fs * INSTREAM_LINES 0 is (lines_of (strlit text)) fs)
+     (POSTv is. STDIO fs * INSTREAM_LINES c0 0 is (lines_of_gen c0 (strlit text)) fs)
 Proof
   rw [INSTREAM_LINES_def,SEP_CLAUSES]
   \\ xapp_spec b_openStdIn_spec_str
@@ -7468,13 +7718,23 @@ Proof
   \\ xsimpl
 QED
 
+(* TODO: copied from fsFFIProps *)
+Overload all_lines_inode_gen =
+  ``λc0 fs ino. lines_of_gen c0 (implode (THE (ALOOKUP fs.inode_tbl ino)))``
+
+val all_lines_gen_def = Define `
+  all_lines_gen c0 fs fname =
+    all_lines_inode_gen c0 fs (File (THE(ALOOKUP fs.files fname)))`
+
+(* end TODO: copied from fsFFIProps *)
+
 Theorem b_openIn_spec_lines:
   FILENAME s sv /\ hasFreeFD fs /\ inFS_fname fs s ==>
   app (p:'ffi ffi_proj) TextIO_b_openIn_v [sv]
      (STDIO fs)
      (POSTv is.
         STDIO (openFileFS s fs ReadMode 0) *
-        INSTREAM_LINES (nextFD fs) is (all_lines fs s)
+        INSTREAM_LINES c0 (nextFD fs) is (all_lines_gen c0 fs s)
           (openFileFS s fs ReadMode 0))
 Proof
   reverse (Cases_on `consistentFS fs`) THEN1
@@ -7485,7 +7745,7 @@ Proof
   \\ mp_tac (GEN_ALL b_openIn_spec_str)
   \\ rpt (disch_then drule) \\ fs []
   \\ rpt (disch_then drule)
-  \\ fs [all_lines_def,file_content_def]
+  \\ fs [all_lines_gen_def,file_content_def]
   \\ drule fsFFIPropsTheory.inFS_fname_ALOOKUP_EXISTS
   \\ disch_then drule \\ strip_tac \\ fs []
   \\ rename [`_ = SOME content`]
@@ -7500,7 +7760,7 @@ QED
 Theorem b_closeIn_spec_lines:
    fd >= 3 /\ fd <= fs.maxFD ⇒
    app (p:'ffi ffi_proj) TextIO_b_closeIn_v [is]
-     (STDIO fs * INSTREAM_LINES fd is lines fs)
+     (STDIO fs * INSTREAM_LINES c0 fd is lines fs)
      (POSTve
         (\u. &(UNIT_TYPE () u /\ validFileFD fd fs.infds) *
              STDIO (fs with infds updated_by ADELKEY fd))
@@ -7520,23 +7780,24 @@ Theorem split_exists[local]:
   !input.
     ?to_read text.
       input = to_read ++ text /\
-      ((text ≠ "" ⇒ HD text = #"\n") ∧ EVERY (λc. c ≠ #"\n") to_read)
+      ((text ≠ "" ⇒ HD text = c0) ∧ EVERY (λc. c ≠ c0) to_read)
 Proof
   Induct \\ fs [] \\ rveq \\ fs [] \\ rw []
-  \\ Cases_on ‘h = #"\n"’ \\ fs [] \\ rveq \\ fs []
+  \\ Cases_on ‘h = c0’ \\ fs [] \\ rveq \\ fs []
   THEN1 (qexists_tac ‘""’ \\ fs [])
   \\ qexists_tac ‘h::to_read’
   \\ qexists_tac ‘text’ \\ fs []
 QED
 
 Theorem b_inputLineTokens_spec_lines:
-  (CHAR --> BOOL) f fv ∧ (STRING_TYPE --> (a:'a->v->bool)) g gv ∧ f #"\n" ⇒
-  app (p:'ffi ffi_proj) TextIO_b_inputLineTokens_v [is; fv; gv]
-     (STDIO fs * INSTREAM_LINES fd is lines fs)
+  CHAR c0 c0v ∧
+  (CHAR --> BOOL) f fv ∧ (STRING_TYPE --> (a:'a->v->bool)) g gv ∧ f c0 ⇒
+  app (p:'ffi ffi_proj) TextIO_b_inputLineTokens_v [c0v; is; fv; gv]
+     (STDIO fs * INSTREAM_LINES c0 fd is lines fs)
      (POSTv v.
        SEP_EXISTS k.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd is (TL lines) (forwardFD fs fd k) *
+         INSTREAM_LINES c0 fd is (TL lines) (forwardFD fs fd k) *
          & (OPTION_TYPE (LIST_TYPE a)
              (OPTION_MAP (MAP g o tokens f) (oHD lines)) v))
 Proof
@@ -7544,35 +7805,36 @@ Proof
   \\ fs [INSTREAM_LINES_def] \\ xpull
   \\ xapp_spec b_inputLineTokens_spec_str \\ rveq
   \\ strip_assume_tac (Q.SPEC ‘rest’ split_exists)
+  \\ simp[PULL_EXISTS]
+  \\ goal_assum drule \\ goal_assum drule
   \\ goal_assum drule \\ goal_assum drule
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘g’
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘fs’
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘fd’
-  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘f’
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘a’
   \\ xsimpl \\ fs [] \\ rpt strip_tac
   \\ qexists_tac ‘x’ \\ qexists_tac ‘TL text’ \\ xsimpl
   \\ reverse (Cases_on ‘to_read = "" ==> text <> ""’) \\ fs []
   THEN1 (EVAL_TAC \\ fs [std_preludeTheory.OPTION_TYPE_def])
   \\ Cases_on ‘text = ""’ \\ fs []
-  \\ fs [lines_of_def]
+  \\ fs [lines_of_gen_def]
   THEN1
-   (‘~EXISTS ($= #"\n") to_read’ by fs [EXISTS_MEM,EVERY_MEM]
-    \\ drule splitlines_not_exists2 \\ fs []
-    \\ fs [strcat_def,concat_def,implode_def]
+   (‘~EXISTS ($= c0) to_read’ by fs [EXISTS_MEM,EVERY_MEM]
+    \\ drule splitlines_at_not_exists2 \\ fs []
+    \\ fs [strcat_def,concat_def,implode_def,str_def]
     \\ fs [TOKENS_eq_tokens_sym,o_DEF]
     \\ fs [stringTheory.TOKENS_APPEND,stringTheory.TOKENS_def]
     \\ Cases_on ‘to_read’ \\ fs [])
   \\ Cases_on ‘to_read = []’ \\ fs []
   THEN1
-   (Cases_on ‘text’ \\ fs [] \\ fs [splitlines_hd_newline]
+   (Cases_on ‘text’ \\ fs [] \\ fs [splitlines_at_hd_c0]
     \\ fs [strcat_def,concat_def,implode_def]
     \\ qpat_x_assum ‘OPTION_TYPE _ _ _’ mp_tac \\ EVAL_TAC
     \\ fs [] \\ EVAL_TAC)
-  \\ ‘EXISTS ($= #"\n") rest’ by (fs [] \\ Cases_on ‘text’ \\ fs [])
-  \\ drule splitlines_takeUntil_exists2 \\ fs []
-  \\ ‘takeUntil ($= #"\n") (STRCAT to_read text) = to_read’ by
-   (‘~EXISTS ($= #"\n") to_read’ by fs [EXISTS_MEM,EVERY_MEM]
+  \\ ‘EXISTS ($= c0) rest’ by (fs [] \\ Cases_on ‘text’ \\ fs [])
+  \\ drule splitlines_at_takeUntil_exists2 \\ fs []
+  \\ ‘takeUntil ($= c0) (STRCAT to_read text) = to_read’ by
+   (‘~EXISTS ($= c0) to_read’ by fs [EXISTS_MEM,EVERY_MEM]
     \\ drule takeUntil_append_not_exists_l \\ fs []
     \\ Cases_on ‘text’ \\ fs [] \\ EVAL_TAC)
   \\ ‘DROP (SUC (STRLEN to_read)) (STRCAT to_read text) = TL text’ by
@@ -7589,15 +7851,16 @@ QED
 
 Theorem b_inputAllTokens_aux_spec:
   ∀lines acc accv fs.
-    (CHAR --> BOOL) f fv ∧ (STRING_TYPE --> (a:'a->v->bool)) g gv ∧ f #"\n" ∧
+    CHAR c0 c0v ∧
+    (CHAR --> BOOL) f fv ∧ (STRING_TYPE --> (a:'a->v->bool)) g gv ∧ f c0 ∧
     LIST_TYPE (LIST_TYPE a) acc accv ⇒
     app (p:'ffi ffi_proj) TextIO_b_inputAllTokens_aux_v
-     [is; fv; gv; accv]
-     (STDIO fs * INSTREAM_LINES fd is lines fs)
+     [c0v; is; fv; gv; accv]
+     (STDIO fs * INSTREAM_LINES c0 fd is lines fs)
        (POSTv v.
             SEP_EXISTS k.
                 STDIO (forwardFD fs fd k) *
-                INSTREAM_LINES fd is [] (forwardFD fs fd k) *
+                INSTREAM_LINES c0 fd is [] (forwardFD fs fd k) *
                 & LIST_TYPE (LIST_TYPE a)
                     (REVERSE acc ++ MAP (MAP g o tokens f) lines) v)
 Proof
@@ -7608,7 +7871,7 @@ Proof
   \\ xlet `POSTv v.
        SEP_EXISTS k.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd is (TL lines) (forwardFD fs fd k) *
+         INSTREAM_LINES c0 fd is (TL lines) (forwardFD fs fd k) *
          & (OPTION_TYPE (LIST_TYPE a)
              (OPTION_MAP (MAP g o tokens f) (oHD lines)) v)`
   THEN1 (xapp_spec b_inputLineTokens_spec_lines \\ fs [])
@@ -7682,13 +7945,14 @@ Proof
 QED
 
 Theorem b_inputAllTokens_spec:
-   (CHAR --> BOOL) f fv ∧ (STRING_TYPE --> (a:'a->v->bool)) g gv ∧ f #"\n" ⇒
+   CHAR c0 c0v ∧
+   (CHAR --> BOOL) f fv ∧ (STRING_TYPE --> (a:'a->v->bool)) g gv ∧ f c0 ⇒
    app (p:'ffi ffi_proj) TextIO_b_inputAllTokens_v
-     [is; fv; gv]
-     (STDIO fs * INSTREAM_LINES fd is lines fs)
+     [c0v; is; fv; gv]
+     (STDIO fs * INSTREAM_LINES c0 fd is lines fs)
        (POSTv v.
           STDIO (fastForwardFD fs fd) *
-          INSTREAM_LINES fd is [] (fastForwardFD fs fd) *
+          INSTREAM_LINES c0 fd is [] (fastForwardFD fs fd) *
           & LIST_TYPE (LIST_TYPE a) (MAP (MAP g o tokens f) lines) v)
 Proof
   rw []
@@ -7696,31 +7960,30 @@ Proof
   \\ xlet_auto
   THEN1 (xcon \\ xsimpl \\ fs [])
   \\ xapp_spec b_inputAllTokens_aux_spec
-  \\ qexists_tac `emp`
+  \\ rpt (first_x_assum (irule_at Any))
   \\ qexists_tac `lines`
-  \\ qexists_tac `g`
   \\ qexists_tac `fs`
   \\ qexists_tac `fd`
-  \\ qexists_tac `f`
   \\ qexists_tac `[]`
-  \\ qexists_tac `a`
+  \\ qexists_tac `emp`
   \\ xsimpl
   \\ conj_tac >- fs [LIST_TYPE_def]
   \\ rw [INSTREAM_LINES_def]
-  \\ xsimpl \\ rw[] \\ gs[lines_of_def,implode_def] \\ rveq
+  \\ xsimpl \\ rw[] \\ gs[lines_of_gen_def,implode_def] \\ rveq
   \\ fs [INSTREAM_STR_fastForwardFD]
 QED
 
 Theorem b_inputAllTokensStdIn_spec:
-   (CHAR --> BOOL) f fv ∧ (STRING_TYPE --> (a:'a->v->bool)) g gv ∧ f #"\n" ∧
+   CHAR c0 c0v ∧
+   (CHAR --> BOOL) f fv ∧ (STRING_TYPE --> (a:'a->v->bool)) g gv ∧ f c0 ∧
    stdin_content fs = SOME text
    ⇒
    app (p:'ffi ffi_proj) TextIO_b_inputAllTokensStdIn_v
-     [fv; gv]
+     [c0v; fv; gv]
      (STDIO fs)
      (POSTv sv.
       &OPTION_TYPE (LIST_TYPE (LIST_TYPE a))
-                   (SOME(MAP (MAP g o tokens f) (lines_of (implode text))))
+                   (SOME(MAP (MAP g o tokens f) (lines_of_gen c0 (implode text))))
                    sv
       * STDIO (fastForwardFD fs 0))
 Proof
@@ -7733,13 +7996,13 @@ Proof
   \\ xlet_auto_spec (SOME b_openStdIn_spec_lines) \\ xsimpl
   \\ xlet `(POSTv v.
                 STDIO (fastForwardFD fs 0) *
-                INSTREAM_LINES 0 is [] (fastForwardFD fs 0) *
+                INSTREAM_LINES c0 0 is [] (fastForwardFD fs 0) *
                 & LIST_TYPE (LIST_TYPE a)
-                    (MAP (MAP g o tokens f) (lines_of (implode text))) v)`
+                    (MAP (MAP g o tokens f) (lines_of_gen c0 (implode text))) v)`
   THEN1
    (xapp_spec b_inputAllTokens_spec
     \\ rpt (first_assum $ irule_at (Pos hd))
-    \\ qexists_tac `lines_of (implode text)`
+    \\ qexists_tac `lines_of_gen c0 (implode text)`
     \\ qexists_tac `fs`
     \\ qexists_tac `0`
     \\ qexists_tac `emp`
@@ -7748,6 +8011,7 @@ Proof
   \\ fs [std_preludeTheory.OPTION_TYPE_def]
 QED
 
+(* NOTE: Not modified to pass extra c0 argument *)
 Definition b_inputAllTokensStdIn_def:
   b_inputAllTokensStdIn f g=
   (\fs. (M_success (SOME (MAP (MAP g o tokens f)
@@ -7768,15 +8032,16 @@ End
 (* QED *)
 
 Theorem b_inputAllTokensFrom_spec:
+   CHAR c0 c0v ∧
    FILENAME fname fnamev ∧ hasFreeFD fs ∧
-   (CHAR --> BOOL) f fv ∧ (STRING_TYPE --> (a:'a->v->bool)) g gv ∧ f #"\n"
+   (CHAR --> BOOL) f fv ∧ (STRING_TYPE --> (a:'a->v->bool)) g gv ∧ f c0
    ⇒
    app (p:'ffi ffi_proj) TextIO_b_inputAllTokensFrom_v
-     [fnamev; fv; gv]
+     [c0v; fnamev; fv; gv]
      (STDIO fs)
      (POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE a))
             (if inFS_fname fs fname then
-               SOME(MAP (MAP g o tokens f) (all_lines fs fname))
+               SOME(MAP (MAP g o tokens f) (all_lines_gen c0 fs fname))
              else NONE) sv * STDIO fs)
 Proof
   xcf_with_def "TextIO.b_inputAllTokensFrom" TextIO_b_inputAllTokensFrom_v_def
@@ -7797,18 +8062,16 @@ Proof
   \\ qabbrev_tac `fs1 = openFileFS fname fs ReadMode 0`
   \\ xlet `(POSTv v.
                 STDIO (fastForwardFD fs1 (nextFD fs)) *
-                INSTREAM_LINES (nextFD fs) is [] (fastForwardFD fs1 (nextFD fs)) *
+                INSTREAM_LINES c0 (nextFD fs) is [] (fastForwardFD fs1 (nextFD fs)) *
                 & LIST_TYPE (LIST_TYPE a)
-                    (MAP (MAP g o tokens f) (all_lines fs fname)) v)`
+                    (MAP (MAP g o tokens f) (all_lines_gen c0 fs fname)) v)`
   THEN1
    (xapp_spec b_inputAllTokens_spec
-    \\ qexists_tac `emp`
-    \\ qexists_tac `all_lines fs fname`
-    \\ qexists_tac `g`
+    \\ rpt (first_x_assum (irule_at Any))
+    \\ qexists_tac `all_lines_gen c0 fs fname`
     \\ qexists_tac `fs1`
     \\ qexists_tac `nextFD fs`
-    \\ qexists_tac `f`
-    \\ qexists_tac `a`
+    \\ qexists_tac `emp`
     \\ xsimpl \\ rw [])
   \\ xlet `POSTv v. STDIO fs`
   THEN1
@@ -7817,6 +8080,8 @@ Proof
     \\ qexists_tac `[]`
     \\ qexists_tac `fastForwardFD fs1 (nextFD fs)`
     \\ qexists_tac `nextFD fs`
+    \\ qexists_tac `c0`
+    \\ xsimpl
     \\ conj_tac THEN1
      (fs [forwardFD_def,Abbr`fs1`]
       \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs []
@@ -7835,39 +8100,43 @@ Proof
 QED
 
 Theorem b_inputLine_spec_lines:
-  app (p:'ffi ffi_proj) TextIO_b_inputLine_v [is]
-     (STDIO fs * INSTREAM_LINES fd is lines fs)
+  CHAR c0 c0v ⇒
+  app (p:'ffi ffi_proj) TextIO_b_inputLine_v [c0v; is]
+     (STDIO fs * INSTREAM_LINES c0 fd is lines fs)
      (POSTv v.
        SEP_EXISTS k.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd is (TL lines) (forwardFD fs fd k) *
+         INSTREAM_LINES c0 fd is (TL lines) (forwardFD fs fd k) *
          & (OPTION_TYPE STRING_TYPE (oHD lines) v))
 Proof
-  fs [INSTREAM_LINES_def] \\ xpull
+  strip_tac \\ fs [INSTREAM_LINES_def] \\ xpull
   \\ xapp_spec b_inputLine_spec_str \\ rveq
   \\ strip_assume_tac (Q.SPEC ‘rest’ split_exists)
-  \\ goal_assum drule \\ goal_assum drule
-  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘fs’
-  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac ‘fd’
+  \\ first_assum (irule_at Any)
+  \\ first_assum (irule_at Any)
+  \\ qexists_tac`text`
+  \\ simp[]
+  \\ qexists_tac ‘fs’
+  \\ qexists_tac ‘fd’
   \\ xsimpl \\ fs [] \\ rpt strip_tac
   \\ qexists_tac ‘x’ \\ qexists_tac ‘TL text’ \\ xsimpl
   \\ reverse (Cases_on ‘to_read = "" ==> text <> ""’) \\ fs []
   THEN1 (EVAL_TAC \\ fs [std_preludeTheory.OPTION_TYPE_def])
   \\ Cases_on ‘text = ""’ \\ fs []
-  \\ fs [lines_of_def]
+  \\ fs [lines_of_gen_def]
   THEN1
-   (‘~EXISTS ($= #"\n") to_read’ by fs [EXISTS_MEM,EVERY_MEM]
-    \\ drule splitlines_not_exists2 \\ fs []
-    \\ fs [strcat_def,concat_def,implode_def]
+   (‘~EXISTS ($= c0) to_read’ by fs [EXISTS_MEM,EVERY_MEM]
+    \\ drule splitlines_at_not_exists2 \\ fs []
+    \\ fs [strcat_def,concat_def,implode_def,str_def]
     \\ Cases_on ‘to_read’ \\ fs [])
   \\ Cases_on ‘to_read = []’ \\ fs []
   THEN1
-   (Cases_on ‘text’ \\ fs [] \\ fs [splitlines_hd_newline]
-    \\ fs [strcat_def,concat_def,implode_def])
-  \\ ‘EXISTS ($= #"\n") rest’ by (fs [] \\ Cases_on ‘text’ \\ fs [])
-  \\ drule splitlines_takeUntil_exists2 \\ fs []
-  \\ ‘takeUntil ($= #"\n") (STRCAT to_read text) = to_read’ by
-   (‘~EXISTS ($= #"\n") to_read’ by fs [EXISTS_MEM,EVERY_MEM]
+   (Cases_on ‘text’ \\ fs [] \\ fs [splitlines_at_hd_c0]
+    \\ fs [strcat_def,concat_def,implode_def,str_def])
+  \\ ‘EXISTS ($= c0) rest’ by (fs [] \\ Cases_on ‘text’ \\ fs [])
+  \\ drule splitlines_at_takeUntil_exists2 \\ fs []
+  \\ ‘takeUntil ($= c0) (STRCAT to_read text) = to_read’ by
+   (‘~EXISTS ($= c0) to_read’ by fs [EXISTS_MEM,EVERY_MEM]
     \\ drule takeUntil_append_not_exists_l \\ fs []
     \\ Cases_on ‘text’ \\ fs [] \\ EVAL_TAC)
   \\ ‘DROP (SUC (STRLEN to_read)) (STRCAT to_read text) = TL text’ by
@@ -7875,19 +8144,20 @@ Proof
     \\ qmatch_goalsub_abbrev_tac ‘DROP k (xs ++ ys)’
     \\ qsuff_tac ‘k = LENGTH xs’ \\ fs [DROP_LENGTH_APPEND]
     \\ unabbrev_all_tac \\ fs [])
-  \\ fs [] \\ Cases_on ‘to_read’ \\ fs [strcat_def,concat_def,implode_def]
+  \\ fs [] \\ Cases_on ‘to_read’ \\ fs [strcat_def,concat_def,implode_def,str_def]
 QED
 
 Theorem b_inputLines_aux_spec:
   !lines acc accv fs.
+    CHAR c0 c0v ∧
     LIST_TYPE STRING_TYPE acc accv ==>
     app (p:'ffi ffi_proj) TextIO_b_inputLines_aux_v
-     [is; accv]
-     (STDIO fs * INSTREAM_LINES fd is lines fs)
+     [c0v; is; accv]
+     (STDIO fs * INSTREAM_LINES c0 fd is lines fs)
        (POSTv v.
             SEP_EXISTS k.
                 STDIO (forwardFD fs fd k) *
-                INSTREAM_LINES fd is [] (forwardFD fs fd k) *
+                INSTREAM_LINES c0 fd is [] (forwardFD fs fd k) *
                 & LIST_TYPE STRING_TYPE (REVERSE acc ++ lines) v)
 Proof
   gen_tac \\ completeInduct_on `LENGTH lines`
@@ -7897,9 +8167,10 @@ Proof
   \\ xlet `POSTv v.
        SEP_EXISTS k.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd is (TL lines) (forwardFD fs fd k) *
+         INSTREAM_LINES c0 fd is (TL lines) (forwardFD fs fd k) *
          & (OPTION_TYPE STRING_TYPE (oHD lines) v)`
-  THEN1 (xapp_spec b_inputLine_spec_lines)
+  THEN1 (
+    xapp_spec b_inputLine_spec_lines \\ gvs[])
   \\ Cases_on `lines` \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq
   \\ xmatch \\ fs []
   THEN1
@@ -7919,12 +8190,13 @@ Proof
 QED
 
 Theorem b_inputLines_spec:
+   CHAR c0 c0v ==>
    app (p:'ffi ffi_proj) TextIO_b_inputLines_v
-     [is]
-     (STDIO fs * INSTREAM_LINES fd is lines fs)
+     [c0v; is]
+     (STDIO fs * INSTREAM_LINES c0 fd is lines fs)
        (POSTv v.
          STDIO (fastForwardFD fs fd) *
-         INSTREAM_LINES fd is [] (fastForwardFD fs fd) *
+         INSTREAM_LINES c0 fd is [] (fastForwardFD fs fd) *
          & LIST_TYPE STRING_TYPE lines v)
 Proof
   rw []
@@ -7936,11 +8208,12 @@ Proof
   \\ qexists_tac `lines`
   \\ qexists_tac `fs`
   \\ qexists_tac `fd`
+  \\ qexists_tac `c0`
   \\ qexists_tac `[]`
   \\ xsimpl
   \\ conj_tac >- fs [LIST_TYPE_def]
   \\ fs [INSTREAM_LINES_def,INSTREAM_STR_def]
-  \\ xsimpl \\ rw[] \\ gs[lines_of_def,implode_def] \\ rveq
+  \\ xsimpl \\ rw[] \\ gs[lines_of_gen_def,implode_def] \\ rveq
   \\ PairCases_on ‘z’
   \\ qmatch_assum_rename_tac ‘get_file_content _ _ = SOME (c,off)’
   \\ gs[] \\ rveq \\ simp [GSYM PULL_EXISTS]
@@ -7958,14 +8231,15 @@ Proof
 QED
 
 Theorem b_inputLinesFrom_spec:
+   CHAR c0 c0v ∧
    FILENAME f fv /\ hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) TextIO_b_inputLinesFrom_v
-     [fv]
+     [c0v ; fv]
      (STDIO fs)
      (POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
             (if inFS_fname fs f then
-               SOME(all_lines fs f)
+               SOME(all_lines_gen c0 fs f)
              else NONE) sv
              * STDIO fs)
 Proof
@@ -7987,14 +8261,15 @@ Proof
   \\ qabbrev_tac `fs1 = openFileFS f fs ReadMode 0`
   \\ xlet `(POSTv v.
                 STDIO (fastForwardFD fs1 (nextFD fs)) *
-                INSTREAM_LINES (nextFD fs) is [] (fastForwardFD fs1 (nextFD fs)) *
-                & LIST_TYPE STRING_TYPE (all_lines fs f) v)`
+                INSTREAM_LINES c0 (nextFD fs) is [] (fastForwardFD fs1 (nextFD fs)) *
+                & LIST_TYPE STRING_TYPE (all_lines_gen c0 fs f) v)`
   THEN1
    (xapp_spec b_inputLines_spec
     \\ qexists_tac `emp`
-    \\ qexists_tac `all_lines fs f`
+    \\ qexists_tac `all_lines_gen c0 fs f`
     \\ qexists_tac `fs1`
     \\ qexists_tac `nextFD fs`
+    \\ qexists_tac `c0`
     \\ xsimpl \\ rw [])
   \\ xlet `POSTv v. STDIO fs`
   THEN1
@@ -8003,6 +8278,7 @@ Proof
     \\ qexists_tac `[]`
     \\ qexists_tac `fastForwardFD fs1 (nextFD fs)`
     \\ qexists_tac `nextFD fs`
+    \\ qexists_tac `c0`
     \\ conj_tac THEN1
      (fs [forwardFD_def,Abbr`fs1`]
       \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs []
@@ -8021,14 +8297,14 @@ Proof
 QED
 
 Theorem b_inputLinesStdIn_spec:
-  stdin_content fs = SOME text ∧
-  UNIT_TYPE () uv
+  CHAR c0 c0v ∧
+  stdin_content fs = SOME text
   ⇒
    app (p:'ffi ffi_proj) TextIO_b_inputLinesStdIn_v
-     [uv]
+     [c0v]
      (STDIO fs)
      (POSTv sv.
-       & LIST_TYPE STRING_TYPE (lines_of (implode text)) sv
+       & LIST_TYPE STRING_TYPE (lines_of_gen c0 (implode text)) sv
        * STDIO (fastForwardFD fs 0))
 Proof
   xcf_with_def "TextIO.b_inputLinesStdIn" TextIO_b_inputLinesStdIn_v_def
@@ -8036,21 +8312,21 @@ Proof
   >- (fs [STDIO_def] \\ xpull)
   \\ reverse (Cases_on`consistentFS fs`)
   >- (fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def] \\ xpull \\ metis_tac[])
-  \\ xmatch \\ xsimpl \\ fs[UNIT_TYPE_def]
-  \\ reverse conj_tac >- (EVAL_TAC \\ simp[])
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto_spec (SOME b_openStdIn_spec_lines) \\ xsimpl
   \\ xapp_spec b_inputLines_spec
   \\ qexists_tac `emp`
-  \\ qexists_tac `lines_of (strlit text)`
+  \\ qexists_tac `lines_of_gen c0 (strlit text)`
   \\ qexists_tac `fs`
   \\ qexists_tac `0`
+  \\ qexists_tac `c0`
   \\ xsimpl \\ rw [implode_def]
 QED
 
+(* TODO: BROKEN
 Definition b_inputLinesStdIn_def:
   b_inputLinesStdIn =
-    λfs. (M_success (lines_of (implode (THE (stdin_content fs)))), fastForwardFD fs 0)
+    λc0 fs. (M_success (lines_of_gen c0 (implode (THE (stdin_content fs)))), fastForwardFD fs 0)
 End
 
 Theorem EvalM_b_inputLinesStdIn:
@@ -8076,6 +8352,7 @@ Proof
   \\ xsimpl \\ fs []
   \\ rw[fastForwardFD_same_infds]
 QED
+ *)
 
 (*
   fun fold_chars_loop f is y =
@@ -8147,13 +8424,14 @@ QED
     | Some c => fold_lines_loop f is (f c y);
 *)
 Theorem fold_lines_loop_thm:
-  ∀is a f fv s y yv fs fd.
+  ∀is a f fv s y yv fs fd c0 c0v.
+    CHAR c0 c0v ∧
     (STRING_TYPE --> a --> a) f fv ∧ a y yv ⇒
-    app (p:'ffi ffi_proj) TextIO_fold_lines_loop_v [fv; is; yv]
-      (STDIO fs * INSTREAM_LINES fd is s fs)
+    app (p:'ffi ffi_proj) TextIO_fold_lines_loop_v [c0v; fv; is; yv]
+      (STDIO fs * INSTREAM_LINES c0 fd is s fs)
       (POSTv retv. SEP_EXISTS k.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd is [] (forwardFD fs fd k) *
+         INSTREAM_LINES c0 fd is [] (forwardFD fs fd k) *
          &a (mllist$foldl f y s) retv)
 Proof
   ntac 4 strip_tac
@@ -8162,13 +8440,14 @@ Proof
    (xcf_with_def "TextIO.fold_lines_loop" TextIO_fold_lines_loop_v_def
     \\ xlet ‘(POSTv chv. SEP_EXISTS k.
           STDIO (forwardFD fs fd k) *
-          INSTREAM_LINES fd is [] (forwardFD fs fd k) *
+          INSTREAM_LINES c0 fd is [] (forwardFD fs fd k) *
           &OPTION_TYPE STRING_TYPE NONE chv)’
     THEN1
      (xapp_spec (b_inputLine_spec_lines |> Q.INST [‘lines’|->‘[]’] )
       \\ qexists_tac ‘emp’
       \\ qexists_tac ‘fs’
       \\ qexists_tac ‘fd’
+      \\ qexists_tac ‘c0’
       \\ xsimpl \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl)
     \\ gvs [std_preludeTheory.OPTION_TYPE_def]
     \\ xmatch \\ xvar
@@ -8178,7 +8457,7 @@ Proof
   \\ xcf_with_def "TextIO.fold_lines_loop" TextIO_fold_lines_loop_v_def
   \\ xlet ‘(POSTv chv. SEP_EXISTS k.
             STDIO (forwardFD fs fd k) *
-            INSTREAM_LINES fd is s (forwardFD fs fd k) *
+            INSTREAM_LINES c0 fd is s (forwardFD fs fd k) *
             &OPTION_TYPE STRING_TYPE (SOME h) chv)’
   THEN1
    (xapp_spec (b_inputLine_spec_lines |> Q.INST [‘lines’|->‘h::s’] )
@@ -8187,6 +8466,7 @@ Proof
     \\ qexists_tac ‘h’
     \\ qexists_tac ‘fs’
     \\ qexists_tac ‘fd’
+    \\ qexists_tac ‘c0’
     \\ xsimpl \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl)
   \\ gvs [std_preludeTheory.OPTION_TYPE_def]
   \\ xmatch
@@ -8194,6 +8474,7 @@ Proof
   \\ first_x_assum drule \\ strip_tac
   \\ xapp
   \\ qexists_tac ‘emp’
+  \\ asm_exists_tac
   \\ qexists_tac ‘(forwardFD fs fd k)’
   \\ qexists_tac ‘fd’
   \\ xsimpl
@@ -8544,15 +8825,16 @@ QED
        handle e => (close (); raise e));
 *)
 Theorem foldLines_SOME:
+  CHAR c0 c0v ∧
   (STRING_TYPE --> a --> a) f fv ∧ a x xv ∧
   OPTION_TYPE FILENAME (SOME s) fnv ∧
   hasFreeFD fs
   ⇒
-  app (p:'ffi ffi_proj) TextIO_foldLines_v [fv; xv; fnv]
+  app (p:'ffi ffi_proj) TextIO_foldLines_v [c0v; fv; xv; fnv]
     (STDIO fs)
     (POSTv retv. STDIO fs *
                  & (OPTION_TYPE a
-                      (OPTION_MAP (foldl f x o lines_of o implode) (file_content fs s))
+                      (OPTION_MAP (foldl f x o lines_of_gen c0 o implode) (file_content fs s))
                       retv))
 Proof
   rpt strip_tac
@@ -8589,11 +8871,11 @@ Proof
   \\ xmatch
   \\ reverse (xhandle
     ‘(POSTv retv. STDIO fs *
-        & (OPTION_TYPE a (SOME (mllist$foldl f x (lines_of (implode text)))) retv))’)
+        & (OPTION_TYPE a (SOME (mllist$foldl f x (lines_of_gen c0 (implode text)))) retv))’)
   THEN1 (xsimpl \\ rw [] \\ gvs [std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def])
   \\ drule_all fold_lines_loop_thm
   \\ qabbrev_tac ‘fs1 = openFileFS s fs ReadMode 0’
-  \\ disch_then (qspecl_then [‘p’,‘is’,‘lines_of (implode text)’,‘fs1’,‘nextFD fs’]
+  \\ disch_then (qspecl_then [‘p’,‘is’,‘lines_of_gen c0 (implode text)’,‘fs1’,‘nextFD fs’]
                    assume_tac)
   \\ fs [INSTREAM_LINES_def,SEP_CLAUSES,app_SEP_EXISTS]
   \\ pop_assum $ qspec_then ‘text’ mp_tac
@@ -8624,14 +8906,15 @@ Proof
 QED
 
 Theorem foldLines_NONE:
+  CHAR c0 c0v ∧
   (STRING_TYPE --> a --> a) f fv ∧ a x xv ∧
   OPTION_TYPE FILENAME NONE fnv ∧
   stdin_content fs = SOME text
   ⇒
-  app (p:'ffi ffi_proj) TextIO_foldLines_v [fv; xv; fnv]
+  app (p:'ffi ffi_proj) TextIO_foldLines_v [c0v; fv; xv; fnv]
     (STDIO fs)
     (POSTv retv. STDIO (fastForwardFD fs 0) *
-        & (OPTION_TYPE a (SOME (foldl f x (lines_of (implode text)))) retv))
+        & (OPTION_TYPE a (SOME (foldl f x (lines_of_gen c0 (implode text)))) retv))
 Proof
   rpt strip_tac
   \\ xcf_with_def "TextIO.foldLines" TextIO_foldLines_v_def
@@ -8644,10 +8927,10 @@ Proof
   \\ xmatch
   \\ reverse (xhandle
     ‘(POSTv retv. STDIO (fastForwardFD fs 0) *
-        & (OPTION_TYPE a (SOME (mllist$foldl f x (lines_of (implode text)))) retv))’)
+        & (OPTION_TYPE a (SOME (mllist$foldl f x (lines_of_gen c0 (implode text)))) retv))’)
   THEN1 (xsimpl \\ rw [] \\ gvs [std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def])
   \\ drule_all fold_lines_loop_thm
-  \\ disch_then (qspecl_then [‘p’,‘is’,‘lines_of (implode text)’,‘fs’,‘0’] assume_tac)
+  \\ disch_then (qspecl_then [‘p’,‘is’,‘lines_of_gen c0 (implode text)’,‘fs’,‘0’] assume_tac)
   \\ fs [INSTREAM_LINES_def,SEP_CLAUSES,app_SEP_EXISTS]
   \\ pop_assum $ qspec_then ‘text’ mp_tac
   \\ full_simp_tac (std_ss ++ sep_cond_ss) [implode_def]
