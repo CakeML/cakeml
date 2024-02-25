@@ -7047,27 +7047,6 @@ Proof
   >-fs[takeUntilIncl_length_gt_0] >-fs[TL, DROP]
 QED
 
-Theorem splitlines_at_not_exists2:
-  !l.
-        ~(EXISTS ($= c0) l) ==>
-        splitlines_at c0 l = if l = "" then [] else [l]
-Proof
-  rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
-  \\ Cases_on `l` >- fs[]
-  \\ `h <> c0` by fs[EVERY_DEF]
-  \\ fs[splitlines_at_def, FRONT_DEF, FIELDS_def, SPLITP, NULL_DEF]
-  \\ CASE_TAC
-  >-(CASE_TAC
-    >-(fs[FRONT_DEF])
-    >-(`SPLITP ($= c0) t = (t, [])`  by metis_tac[NOT_DEF,SPLITP_EVERY]
-      \\ fs[FST]))
-  >-(CASE_TAC
-    >-(fs[FRONT_DEF]
-      \\ `SPLITP ($= c0) t = (t, [])`  by metis_tac[NOT_DEF,SPLITP_EVERY]
-      \\ fs[FST])
-    >-(`SPLITP ($= c0) t = (t, [])`  by metis_tac[NOT_DEF,SPLITP_EVERY]
-      \\ fs[FST]))
-QED
 (*** END TODO COPIED ***)
 
 Triviality MAP_MAP_n2w_ORD:
