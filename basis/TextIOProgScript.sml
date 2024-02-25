@@ -602,7 +602,6 @@ val _ = ml_prog_update open_local_in_block;
 val _ = (append_prog o process_topdecs)`
   fun b_inputUntil is chr = String.implode (b_inputUntil_aux is chr)`;
 
-(*
 val _ = (append_prog o process_topdecs)`
   fun find_surplus c surplus readat writeat =
   if readat = writeat then None
@@ -628,7 +627,7 @@ val _ = (append_prog o process_topdecs)`
   end;`
 
 val _ = (append_prog o process_topdecs)`
-fun b_refillBuffer_with_read_guard is =
+  fun b_refillBuffer_with_read_guard is =
   (b_refillBuffer_with_read is;
   case is of InstreamBuffered fd rref wref surplus =>
   (!wref) = (!rref)
@@ -646,8 +645,7 @@ val _ = (append_prog o process_topdecs)`
         b_inputUntil_2 is chr (s :: acc);`
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputUntil is chr = b_inputUntil_2 is chr [];`;
-*)
+  fun b_inputUntil_new is chr = b_inputUntil_2 is chr [];`;
 
 val _ = (append_prog o process_topdecs)`
   fun b_inputLine c0 is = b_inputLine_aux c0 is 500 [] []`;

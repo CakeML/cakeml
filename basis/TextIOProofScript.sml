@@ -8928,4 +8928,100 @@ Proof
   \\ gvs [std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def]
 QED
 
+(*
+
+  fun find_surplus c surplus readat writeat =
+  if readat = writeat then None
+  else
+    if Char.fromByte (Word8Array.sub surplus readat) = c
+    then Some (readat)
+    else find_surplus c surplus (readat + 1) writeat;
+
+  fun b_inputUntil_1 is chr =
+  case is of InstreamBuffered fd rref wref surplus =>
+  let
+    val readat = (!rref)
+    val writeat = (!wref)
+  in
+    case find_surplus chr surplus readat writeat of
+      None =>
+      (rref := writeat;
+        Inl (Word8Array.substring surplus readat (writeat-readat)))
+    | Some i =>
+      (rref := i+1;
+        Inr (Word8Array.substring surplus readat (i+1-readat)))
+  end;
+
+  fun b_refillBuffer_with_read_guard is =
+  (b_refillBuffer_with_read is;
+  case is of InstreamBuffered fd rref wref surplus =>
+  (!wref) = (!rref)
+
+  fun b_inputUntil_2 is chr acc =
+  case b_inputUntil_1 is chr of
+    Inr s => String.concat (List.rev (s :: acc))
+  | Inl s =>
+      if b_refillBuffer_with_read_guard is
+      then
+        String.concat (List.rev (s :: acc))
+      else
+        b_inputUntil_2 is chr (s :: acc);
+
+  fun b_inputUntil_new is chr = b_inputUntil_2 is chr [];
+
+*)
+
+Definition find_surplus_fun_def:
+  find_surplus_fun c (wl:word8 list) (i:num) (j:num) =
+    if i = j ∨ LENGTH wl < i ∨ LENGTH wl < j then NONE else
+    if ORD c = w2n (EL i wl) then SOME i else
+      find_surplus_fun c wl (i+1) j
+Termination
+  WF_REL_TAC ‘measure (λ(c,wl,i,j). LENGTH wl + 1 - i)’
+  \\ rw [] \\ gvs [NOT_LESS]
+End
+
+Theorem find_surplus:
+  CHAR c cv ∧ NUM i iv ∧ NUM j jv ∧ i ≤ j ∧ j ≤ LENGTH wl
+  ⇒
+  app (p:'ffi ffi_proj) TextIO_find_surplus_v [cv; Loc a; iv; jv]
+    (a ~~>> W8array wl)
+    (POSTv retv.
+        a ~~>> W8array wl *
+        & (OPTION_TYPE NUM (find_surplus_fun c wl i j) retv))
+Proof
+  qid_spec_tac ‘iv’
+  \\ qid_spec_tac ‘i’
+  \\ completeInduct_on ‘LENGTH wl - i’
+  \\ rw [] \\ gvs [PULL_FORALL]
+  \\ xcf_with_def "TextIO.find_surplus" TextIO_find_surplus_v_def
+  \\ xlet_auto >- xsimpl
+  \\ simp [Once find_surplus_fun_def]
+  \\ IF_CASES_TAC \\ gvs []
+  \\ xif
+  \\ first_x_assum $ irule_at $ Pos hd \\ simp []
+  >- (xcon \\ gvs [std_preludeTheory.OPTION_TYPE_def] \\ xsimpl)
+  \\ ‘i < LENGTH wl’ by gvs []
+  \\ xlet ‘POSTv retv. a ~~>> W8array wl * cond (WORD (EL i wl) retv)’
+  >- (xapp \\ simp [W8ARRAY_def] \\ xsimpl \\ metis_tac [])
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ ‘fromByte (EL i wl) = c ⇔ ORD c = w2n (EL i wl)’ by
+   (gvs [CharProgTheory.fromByte_def]
+    \\ Cases_on ‘EL i wl’ \\ gvs []
+    \\ Cases_on ‘c’ \\ gvs [])
+  \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  \\ xif
+  \\ first_x_assum $ irule_at $ Pos hd \\ simp []
+  >- (xcon \\ gvs [std_preludeTheory.OPTION_TYPE_def] \\ xsimpl)
+  \\ xlet_auto >- xsimpl
+  \\ ‘LENGTH wl < (i+1) + LENGTH wl - i’ by gvs[]
+  \\ last_x_assum drule
+  \\ disch_then drule
+  \\ impl_tac >- gvs []
+  \\ strip_tac
+  \\ xapp
+QED
+
 val _ = export_theory();
