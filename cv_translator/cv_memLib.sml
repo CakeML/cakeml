@@ -40,9 +40,10 @@ fun is_cv_rep tm = let
  *--------------------------------------------------------------------------*)
 
 fun register_ThmSetData_list tag_name update_fun = let
-  fun apply_delta (ThmSetData.ADD(_, th)) xs = update_fun th @ xs
+  fun update_fun_append th ths = update_fun th @ ths
+  fun apply_delta (ThmSetData.ADD(_, th)) xs = update_fun_append th xs
     | apply_delta _                       xs = xs;
-  val { get_global_value = the_list, ...} =
+  val { get_global_value = the_list, update_global_value = updater, ... } =
       ThmSetData.export_with_ancestry {
         settype = tag_name,
         delta_ops = {apply_to_global = apply_delta,
@@ -51,7 +52,7 @@ fun register_ThmSetData_list tag_name update_fun = let
                      initial_value = [],
                      apply_delta = apply_delta}
       };
-  in the_list end;
+  in (the_list, fn th => updater (update_fun_append th)) end;
 
 (*--------------------------------------------------------------------------*
    Reformulate in terms of cv_rep (for use by cv_repLib and cv_transLib)
@@ -100,15 +101,15 @@ fun prepare do_print th = let
  *--------------------------------------------------------------------------*)
 
 fun insert_cv_rep th = prepare (not (!quiet)) th;
-val cv_rep_thms = register_ThmSetData_list "cv_rep" insert_cv_rep;
+val (cv_rep_thms, cv_rep_add) = register_ThmSetData_list "cv_rep" insert_cv_rep;
 
 fun insert_cv_pre th = (cv_print "\ncv_pre:\n\n"; cv_print_thm th; cv_print "\n\n"; [th])
-val cv_pre_thms = register_ThmSetData_list "cv_pre" insert_cv_pre;
+val (cv_pre_thms, cv_pre_add) = register_ThmSetData_list "cv_pre" insert_cv_pre;
 
 fun insert_cv_inline th = (cv_print "\ncv_inline:\n\n"; cv_print_thm th; cv_print "\n\n"; [th])
-val cv_inline_thms = register_ThmSetData_list "cv_inline" insert_cv_inline;
+val (cv_inline_thms, cv_inline_add) = register_ThmSetData_list "cv_inline" insert_cv_inline;
 
 fun insert_cv_from_to th = (cv_print "\ncv_from_to:\n\n"; cv_print_thm th; cv_print "\n\n"; [th])
-val cv_from_to_thms = register_ThmSetData_list "cv_from_to" insert_cv_from_to;
+val (cv_from_to_thms, cv_from_to_add) = register_ThmSetData_list "cv_from_to" insert_cv_from_to;
 
 end

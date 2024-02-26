@@ -577,6 +577,30 @@ fun cv_auto_trans_pre_rec def tac =
   cv_trans_loop true (SOME tac) [Def def];
 
 (*--------------------------------------------------------------------------*
+   translate deep embedding constants of the form:
+    |- constant_name = <deep embedding data type>
+ *--------------------------------------------------------------------------*)
+
+fun cv_trans_deep_embedding eval_conv th =
+  let val (top_lhs,_) = concl th |> dest_eq
+      val (nm,ty) = dest_const top_lhs
+      val from_tm = cv_typeLib.from_term_for ty
+      val from_rhs = mk_comb (from_tm, top_lhs)
+      val x = mk_var ("x", cvSyntax.cv)
+      val f = mk_var (nm ^ "_cv", cvSyntax.cv --> cvSyntax.cv)
+      val eq_tm = mk_eq(mk_comb (f, x), from_rhs)
+      val defn_thm = new_definition (nm ^ "_cv_def", eq_tm) |> SPEC_ALL
+      val (def_lhs,_) = concl defn_thm |> dest_eq
+      val cv_thm = CONV_RULE (RAND_CONV (RAND_CONV (REWR_CONV th) THENC eval_conv)) defn_thm
+      val eq_name = nm ^ "_cv_eq"
+      val _ = save_thm (eq_name, cv_thm)
+      val _ = DefnBase.register_defn {tag="user", thmname=eq_name}
+      val num_0 = cvSyntax.mk_cv_num (numSyntax.term_of_int 0)
+      val cv_trans_thm = defn_thm |> INST [x |-> num_0] |> SYM
+      val _ = cv_memLib.cv_rep_add cv_trans_thm
+  in () end
+
+(*--------------------------------------------------------------------------*
    find all cv_defs for constants in a term
  *--------------------------------------------------------------------------*)
 
