@@ -11,6 +11,17 @@ val quiet = ref true;
 fun cv_print s = if !quiet then () else print s;
 fun cv_print_thm th = if !quiet then () else print_thm th;
 
+(* Custom version of Lib.time *)
+fun cv_time f x =
+  if !quiet then f x else
+  let val start = Time.now()
+      val res = f x
+      val finish = Time.now()
+  in
+    print ("Took " ^ Time.fmt 1 (finish - start) ^ " seconds.\n");
+    res
+  end
+
 val cv_ty = cvSyntax.cv
 val cv_rep_hol_tm = rand
 val cv_rep_hol_tm_conv = RAND_CONV

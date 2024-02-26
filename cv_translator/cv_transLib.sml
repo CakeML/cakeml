@@ -642,24 +642,24 @@ fun cv_eval_raw tm = let
   val th = cv_rep_for [] tm
   val ty = type_of tm
   val _ = cv_print "Translating input to a cv term.\n"
-  val from_to_thm = time cv_typeLib.from_to_thm_for ty
+  val from_to_thm = cv_time cv_typeLib.from_to_thm_for ty
   val cv_tm = cv_miscLib.cv_rep_cv_tm (concl th)
   val _ = cv_print "Looking for relevant cv code equations.\n"
-  val cv_eqs = time cv_eqs_for cv_tm
+  val cv_eqs = cv_time cv_eqs_for cv_tm
   val _ = cv_print ("Found " ^ int_to_string (length cv_eqs) ^ " cv code equations to use.\n")
   val cv_conv = cv_computeLib.cv_compute cv_eqs
   val th1 = MATCH_MP cv_rep_eval th
   val th2 = MATCH_MP th1 from_to_thm
   val th3 = th2 |> UNDISCH_ALL
   val _ = cv_print "Calling cv_compute.\n"
-  val th4 = time (CONV_RULE (RAND_CONV (RAND_CONV cv_conv))) th3
+  val th4 = cv_time (CONV_RULE (RAND_CONV (RAND_CONV cv_conv))) th3
   val th5 = remove_T_IMP (DISCH_ALL th4)
   in th5 end;
 
 fun cv_eval tm = let
   val th = cv_eval_raw tm
   val _ = cv_print "Using EVAL to convert from cv to original types.\n"
-  val th = time (CONV_RULE (RAND_CONV EVAL)) (UNDISCH_ALL th)
+  val th = cv_time (CONV_RULE (RAND_CONV EVAL)) (UNDISCH_ALL th)
   val th = th |> DISCH_ALL |> remove_T_IMP
   in th end;
 

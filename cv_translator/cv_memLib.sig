@@ -5,6 +5,7 @@ sig
   val quiet           : bool ref
   val cv_print        : string -> unit
   val cv_print_thm    : thm -> unit
+  val cv_time         : ('a -> 'b) -> 'a -> 'b
 
   val cv_rep_thms     : unit -> (term * thm) list
 
