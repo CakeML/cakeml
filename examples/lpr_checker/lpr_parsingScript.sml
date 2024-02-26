@@ -630,6 +630,31 @@ Proof
   simp[]
 QED
 
+(* Mostly semantic!*)
+val parse_lpr_def = Define`
+  (parse_lpr [] = SOME []) ∧
+  (parse_lpr (l::ls) =
+    case parse_lprstep (MAP tokenize_fast (tokens blanks l)) of
+      NONE => NONE
+    | SOME step =>
+      (case parse_lpr ls of
+        NONE => NONE
+      | SOME ss => SOME (step :: ss))
+    )`
+
+Theorem parse_lpr_wf:
+  ∀ls lpr.
+  parse_lpr ls = SOME lpr ⇒
+  EVERY wf_lpr lpr
+Proof
+  Induct>>fs[parse_lpr_def]>>
+  ntac 2 strip_tac>>
+  every_case_tac>>fs[]>>
+  rw[]>>simp[]>>
+  drule parse_lprstep_wf>>
+  simp[]
+QED
+
 (* Parsing of top-level proofs *)
 val parse_proofstep_def = Define`
   (parse_proofstep (first::rest) =
@@ -874,7 +899,7 @@ End
 Definition clausify_aux_def:
   (clausify_aux [] acc = acc) ∧
   (clausify_aux (x::xs) acc =
-  if x = 0n then clausify_aux xs acc
+  if x < 2n then clausify_aux xs acc
   else
     let v =
       (if x MOD 2 = 0n
@@ -952,6 +977,60 @@ Definition do_PR_def:
       SOME (PR (Num x) clause witness hint sp)
     else NONE
 End
+
+Theorem clausify_aux_non_zero:
+  ∀ls acc acc'.
+  ¬MEM 0 acc ∧
+  clausify_aux ls acc = acc' ⇒
+  ¬MEM 0 acc'
+Proof
+  Induct>>rw[clausify_aux_def]>>gvs[]>>
+  first_x_assum match_mp_tac>>
+  simp[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem parse_vb_until_k_wf:
+  ∀xs acc clause witness.
+  ¬MEM (0:int) acc ∧
+  ¬MEM 0 xs ∧
+  parse_vb_until_k h xs acc = (clause,witness) ⇒
+  ∃front.
+  clause = front ++ acc ∧
+  ¬MEM 0 clause ∧
+  case witness of NONE => T | SOME w => MEM h w
+Proof
+  Induct>>rw[parse_vb_until_k_def]>>gvs[]>>
+  first_x_assum (drule_at (Pos last))>>
+  simp[]>>rw[]>>
+  simp[]
+QED
+
+Theorem parse_vb_clause_witness_wf:
+  ¬MEM (0:int) xs ∧
+  parse_vb_clause_witness xs = (clause,witness) ⇒
+  ¬MEM (0:int) clause ∧
+  case REVERSE clause of
+    [] => T
+  | h::t => (case witness of NONE => T | SOME w => MEM h w)
+Proof
+  Cases_on`xs`>>rw[parse_vb_clause_witness_def]>>
+  drule_at (Pos last) parse_vb_until_k_wf>>
+  simp[]>>rw[]>>
+  every_case_tac>>gvs[]
+QED
+
+Theorem do_PR_wf_lpr:
+  do_PR ls ys = SOME res ⇒
+  wf_lpr res
+Proof
+  rw[do_PR_def,AllCaseEqs()]>>
+  fs[wf_lpr_def]>>
+  gvs[clausify_def]>>
+  drule_at Any clausify_aux_non_zero>>strip_tac>>gvs[]>>
+  drule_all parse_vb_clause_witness_wf>>
+  simp[wf_clause_def]
+QED
 
 (* For testing *)
 Definition parse_pr_def:
