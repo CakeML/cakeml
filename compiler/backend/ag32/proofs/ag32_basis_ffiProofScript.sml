@@ -7301,7 +7301,7 @@ Proof
   \\ simp[ffi_exitpcs_def, SUBSET_DEF]
   \\ simp[MEM_EL, PULL_EXISTS]
   \\ disch_then(qspec_then`ffi_index`mp_tac)
-  \\ impl_tac >- fs[]
+  \\ (impl_tac >- fs[]
   (*
   \\ Cases_on`EL ffi_index ffi_names = "exit"` \\ fs[]
   >- ... (* remove exit from the list ? or implement it *)
@@ -7323,7 +7323,7 @@ Proof
   \\ Cases_on`EL ffi_index ffi_names = "get_arg_length"` \\ fs[]
   >- ffi_tac ag32_ffi_interfer_get_arg_length ``ag32_ffi_get_arg_length_code``
   \\ Cases_on`EL ffi_index ffi_names = "open_out"` \\ fs[]
-  >- ffi_tac ag32_ffi_interfer_open_out ``ag32_ffi_open_out_code``
+  >- ffi_tac ag32_ffi_interfer_open_out ``ag32_ffi_open_out_code``)
 QED
 
 Theorem ag32_next:
@@ -7363,8 +7363,8 @@ Proof
   \\ strip_tac \\ rfs[]
   \\ disch_then drule
   \\ impl_tac >-
-  (
-    simp[ag32_ffi_rel_def,Abbr`st`]
+  (conj_tac >-
+   (simp[ag32_ffi_rel_def,Abbr`st`]
     \\ conj_tac
     >- (
       EVAL_TAC
@@ -7711,7 +7711,19 @@ Proof
     \\ fs[LENGTH_words_of_bytes, bitstringTheory.length_pad_right,
           LENGTH_FLAT, bytes_in_word_def, MAP_MAP_o, o_DEF, ADD1, SUM_MAP_PLUS]
     \\ fs[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
-    \\ EVAL_TAC)
+    \\ EVAL_TAC)>>
+   fs[ag32_machine_config_def,Abbr ‘mc’,EVERY_MAP, MEM_GENLIST]>>
+   strip_tac>>
+   Cases_on ‘i < LENGTH ffi_names’>>fs[]>>
+   qmatch_goalsub_abbrev_tac ‘LH ≠ RH’>>
+   ‘ffi_jumps_offset + ffi_offset * LENGTH ffi_names < dimword (:32)’ by
+     (fs[memory_size_def,code_start_offset_def]>>EVAL_TAC)>>
+   ‘ffi_jumps_offset + i * ffi_offset < ffi_jumps_offset + ffi_offset * LENGTH ffi_names’ by
+     (rewrite_tac[Once MULT_COMM]>>
+      fs[lab_to_targetTheory.ffi_offset_def])>>
+   ‘LH = ffi_jumps_offset + ffi_offset * LENGTH ffi_names’ by fs[Abbr ‘LH’, LESS_MOD]>>
+   ‘RH = ffi_jumps_offset + i * ffi_offset’ by fs[Abbr ‘RH’, LESS_MOD]>>
+  fs[])
   \\ strip_tac
   \\ first_assum(mp_then Any mp_tac (GEN_ALL ag32_halted))
   \\ simp[]
