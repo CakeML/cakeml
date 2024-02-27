@@ -383,14 +383,14 @@ Proof
   rw [msem_bind_left_ident]
 QED
 
-(* TODO: Only the two theorems below need be proved to complete
- the correspondence proof at the level of wbisim equivalence for ltree's, i.e.
-     by converting itree's into branches (still an ITree type) and showing
-     equivalence with FBS semantics.
+(* TODO: Only the two theorems below need be proved to complete the
+ correspondence proof at the level of wbisim equivalence for ltree's, i.e. by
+ converting itree's into branches (still an ITree type) and showing equivalence
+ with FBS semantics.
 
-    NB Part of the work for ltree_lift_msem_resp_wbisim is already complete in
-    msem_resp_wbisim.
-*)
+ NB Part of the work for ltree_lift_msem_resp_wbisim is already complete in
+ msem_resp_wbisim.
+ *)
 Theorem ltree_lift_msem_resp_wbisim:
   ht ≈ ht' ⇒
   ltree_lift f st (mrec_sem ht) ≈ ltree_lift f st (mrec_sem ht')
@@ -398,9 +398,46 @@ Proof
   cheat
 QED
 
-Theorem ltree_lift_ret_wbisim_eq:
+val g = “g:('a,'b) mtree_ans -> ('a,'b) ltree”;
+
+Theorem itree_wbisim_bind_trans:
+  t1 ≈ t2 ∧ t1 >>= k ≈ t3 ⇒
+  t2 >>= k ≈ t3
+Proof
+  strip_tac >>
+  irule itreeTauTheory.itree_wbisim_trans >>
+  qexists_tac ‘t1 >>= k’ >>
+  strip_tac
+  >- (irule itreeTauTheory.itree_bind_resp_t_wbisim >>
+      rw [itreeTauTheory.itree_wbisim_sym])
+  >- (rw [])
+QED
+
+Theorem itree_wbisim_bind_conv:
   ltree_lift f st (mrec_sem ht) ≈ Ret x ⇒
-  ht ≈ Ret x
+  (ltree_lift f st (mrec_sem ht) >>= ^g) ≈ g x
+Proof
+  disch_tac >>
+  ‘ltree_lift f st (mrec_sem ht) ≈ ltree_lift f st (mrec_sem ht)’
+    by (rw [itreeTauTheory.itree_wbisim_refl]) >>
+  irule itree_wbisim_bind_trans >>
+  qexists_tac ‘Ret x’ >>
+  strip_tac
+  >- (rw [itreeTauTheory.itree_wbisim_sym])
+  >- (rw [itree_bind_thm_wbisim,
+            itreeTauTheory.itree_wbisim_refl])
+QED
+
+Theorem msem_lift_monad_law:
+  mrec_sem (ht >>= k) =
+  (mrec_sem ht) >>= mrec_sem o k
+Proof
+  cheat
+QED
+
+Theorem ltree_lift_monad_law:
+  ltree_lift f st (mt >>= k) =
+  (ltree_lift f st mt) >>= (ltree_lift f st) o k
 Proof
   cheat
 QED
@@ -410,10 +447,12 @@ Theorem ltree_lift_bind_left_ident:
   (ltree_lift f st (mrec_sem (ht >>= k))) ≈ (ltree_lift f st (mrec_sem (k x)))
 Proof
   disch_tac >>
-  irule ltree_lift_msem_resp_wbisim >>
-  drule ltree_lift_ret_wbisim_eq >>
+  rw [msem_lift_monad_law] >>
+  rw [ltree_lift_monad_law] >>
+  drule itree_wbisim_bind_conv >>
   disch_tac >>
-  rw [itree_bind_thm_wbisim]
+  pop_assum (assume_tac o (SPEC “(ltree_lift f st ∘ mrec_sem ∘ k):('a,'b) lktree”)) >>
+  fs [o_THM]
 QED
 
 Theorem ltree_lift_compos:
