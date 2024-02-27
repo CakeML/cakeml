@@ -505,6 +505,18 @@ Proof
   metis_tac[unifPropsTheory.unify_unifier]
 QED
 
+Definition capply_subst_def[nocompute]:
+  (capply_subst s (Infer_Tuvar n) = dtcase lookup n s of
+                                      NONE => Infer_Tuvar n
+                                    | SOME it => it) ∧
+  (capply_subst s (Infer_Tapp ts tc) = Infer_Tapp (MAP(capply_subst s) ts) tc) ∧
+  (capply_subst s (Infer_Tvar_db n) = Infer_Tvar_db n)
+Termination
+  WF_REL_TAC ‘measure (infer_t_size o SND)’
+End
+
+Theorem capply_subst_thm[simp,compute] = SRULE [SF ETA_ss] capply_subst_def
+
 Theorem cunify_thm =
         cunify_def |> SPEC_ALL
                    |> SRULE [Once sunify_thm, cwf, cwfs,
@@ -556,6 +568,18 @@ Theorem cunifyl_CONS2 =
                               combinTheory.o_DEF]
                     |> SRULE[GSYM cunifyl_def]
 
+Theorem cunify_preserves_cwfs:
+  cwfs s0 ∧ cunify s0 t1 t2 = SOME s ⇒ cwfs s
+Proof
+  simp[cunify_def, cwfs_def, PULL_EXISTS] >> gen_tac >>
+  rpt (disch_then strip_assume_tac) >> reverse conj_asm2_tac
+  >- (drule_at (Pos last) sunify_wf >> simp[]) >>
+  drule_all sunify_preserves_swfs >> strip_tac >>
+  drule_at (Pos last) sunify_result_encodable >> simp[encode_t_vs_ts] >>
+  impl_tac >- metis_tac[] >> rw[] >>
+  gvs[SRULE [cwfs_def] map_decode_encode]
+QED
+
 Theorem cunifyl_thm:
   cwfs s ⇒
   cunifyl s ts1 ts2 =
@@ -568,12 +592,97 @@ Proof
   simp[cunifyl_NILCONS, cunifyl_NIL2, cunifyl_CONS2, cunifyl_CONSNIL]
 QED
 
+Definition cwalkstar_def:
+  cwalkstar s it =
+  decode_infer_t (walkstar (sp2fm (map encode_infer_t s)) (encode_infer_t it))
+End
+
+
 Theorem sp2fm_map:
   sp2fm (map f sp) = f o_f sp2fm sp
 Proof
   simp[finite_mapTheory.FLOOKUP_EXT, fmspTheory.FLOOKUP_sp2fm, FUN_EQ_THM,
        lookup_map, finite_mapTheory.FLOOKUP_o_f] >>
   simp[optionTheory.OPTION_MAP_CASE, combinTheory.o_DEF]
+QED
+
+Theorem walkstar_def'[local] =
+        MATCH_MP
+        (GEN_ALL walkstar_def)
+        (ASSUME “wfs (sp2fm (map encode_infer_t s) : atom subst$subst)”)
+Theorem walkstar_thm'[local] =
+        MATCH_MP
+        (GEN_ALL walkstar_thm)
+        (ASSUME “wfs (sp2fm (map encode_infer_t s) : atom subst$subst)”)
+Theorem infer_t_CASE_RAND:
+  f (infer_t_CASE it tvf taf tuf) =
+  infer_t_CASE it (f o tvf) (λl n. f (taf l n)) (f o tuf)
+Proof
+  Cases_on ‘it’ >> simp[]
+QED
+
+Theorem walkstar_list:
+  wfs (sp2fm (map encode_infer_t s)) ⇒
+  decode_infer_ts (walkstar (sp2fm (map encode_infer_t s)) (encode_infer_ts l)) =
+  MAP (λit. decode_infer_t
+            (walkstar (sp2fm (map encode_infer_t s)) (encode_infer_t it)))
+      l
+Proof
+  Induct_on ‘l’ >> simp[encode_infer_t_def, decode_infer_t_def]
+QED
+
+Theorem cwalkstar_ETA[local,simp]:
+  (λit. cwalkstar s it) = cwalkstar s
+Proof
+  simp[FUN_EQ_THM]
+QED
+
+Theorem cwfs_wfs = cj 1 $ REWRITE_RULE [cwfs_def, swfs_def] (ASSUME “cwfs s”)
+Theorem cwalkstar_thm =
+        cwalkstar_def
+          |> SPEC_ALL
+          |> SRULE[Once walkstar_def']
+          |> SRULE [term_CASE_encode, GSYM swalk_def, UNDISCH swalk_elim]
+          |> SRULE [combinTheory.o_DEF]
+          |> SRULE[walk_def,walkstar_thm']
+          |> ONCE_REWRITE_RULE[infer_t_CASE_RAND]
+          |> SRULE[decode_infer_t_def, combinTheory.o_DEF]
+          |> SRULE [GSYM cwalkstar_def, UNDISCH walkstar_list]
+          |> PROVE_HYP cwfs_wfs
+
+Theorem encode_infer_t_11[simp]:
+  (∀it1 it2. encode_infer_t it1 = encode_infer_t it2 ⇔ it1 = it2) ∧
+  (∀its1 its2. encode_infer_ts its1 = encode_infer_ts its2 ⇔ its1 = its2)
+Proof
+  ho_match_mp_tac (TypeBase.induction_of “:infer_t”) >>
+  rw[encode_infer_t_def]
+  >- (Cases_on ‘it2’ >> simp[encode_infer_t_def])
+  >- (Cases_on ‘it2’ >> simp[encode_infer_t_def] >> metis_tac[])
+  >- (Cases_on ‘it2’ >> simp[encode_infer_t_def]) >>
+  Cases_on ‘its2’ >> simp[encode_infer_t_def]
+QED
+
+Theorem cunify_unifier:
+  cwfs s ∧ cunify s t1 t2 = SOME sx ⇒
+  cwfs sx ∧ subspt s sx ∧ cwalkstar sx t1 = cwalkstar sx t2
+Proof
+  simp[cwfs_def, cwalkstar_def, cunify_def, unify_unifier,
+       PULL_EXISTS, wf_map] >> rpt strip_tac >>
+  gvs[]>> drule_at (Pos last) sunify_result_encodable >>
+  simp[encode_t_vs_ts] >> rw[] >>
+  drule_all_then strip_assume_tac sunify_preserves_swfs >>
+  drule_at (Pos last) sunify_wf >> simp[] >> strip_tac >>
+  simp[SRULE [cwfs_def] map_decode_encode] >>
+  gvs[sunify_def, swfs_def] >>
+  drule_all unify_unifier
+  >- (strip_tac >> gs[sp2fm_map] >>
+      gs[SUBMAP_FLOOKUP_EQN, FLOOKUP_o_f, AllCaseEqs(), PULL_EXISTS,
+         subspt_lookup] >> rpt strip_tac >> first_assum drule >>
+      ‘cwfs m’ by simp[cwfs_def, swfs_def] >>
+      first_x_assum (mp_tac o Q.AP_TERM ‘map decode_infer_t’) >>
+      simp[map_decode_encode, lookup_map] >> disch_then SUBST_ALL_TAC >>
+      first_x_assum drule >> simp[decode_left_inverse]) >>
+  simp[]
 QED
 
 fun tcallify_th th =
@@ -936,7 +1045,7 @@ Theorem walkstar_opth:
 Proof
   simp[GSYM tcwalk_correct, SF CONJ_ss] >> rpt strip_tac >>
   qpat_x_assum ‘cwalk _ _ = _’ (assume_tac o Q.AP_TERM ‘encode_infer_t’) >>
-  gs[GSYM swalk_elim, encode_infer_t_def] >>
+  gs[GSYM swalk_elim, encode_infer_t_def, Excl "encode_infer_t_11"] >>
   gs[swalk_def, cwfs_def, swfs_def] >>
   drule_all_then assume_tac walkstar_th2 >>
   irule walkstarR_trans >> first_assum $ irule_at Any >>
@@ -1107,7 +1216,7 @@ QED
 
 Definition cplist_vars_def[simp]:
   cplist_vars [] = {} ∧
-  cplist_vars ((ts,us)::rest) = isvars ts ∪ isvars ts ∪ cplist_vars rest
+  cplist_vars ((ts,us)::rest) = isvars ts ∪ isvars us ∪ cplist_vars rest
 End
 
 Theorem FINITE_cplist_vars[simp]:
@@ -1119,8 +1228,10 @@ QED
 Definition PFLAT_def[simp]:
   PFLAT [] = EMPTY_BAG ∧
   PFLAT (([],[])::ps) = PFLAT ps ∧
-  PFLAT (([], j :: js)::ps) = BAG_INSERT j (PFLAT (([],js)::ps)) ∧
-  PFLAT ((i::is, js)::ps) = BAG_INSERT i (PFLAT ((is,js)::ps))
+  PFLAT (([], j :: js)::ps) =
+    BAG_INSERT (encode_infer_t j) (PFLAT (([],js)::ps)) ∧
+  PFLAT ((i::is, js)::ps) =
+    BAG_INSERT (encode_infer_t i) (PFLAT ((is,js)::ps))
 End
 
 Theorem FINITE_BAG_PFLAT[simp]:
@@ -1134,11 +1245,8 @@ Definition kcuR_def:
     cwfs s ∧ cwfs s0 ∧ sp2fm s0 ⊑ sp2fm s ∧
     substvars (encode_infer_t o_f sp2fm s) ∪ cplist_vars wl ⊆
     substvars (encode_infer_t o_f sp2fm s0) ∪ cplist_vars wl0 ∧
-    (mlt1
-     (measure
-      (λi. pair_count $ walk* (encode_infer_t o_f sp2fm s) $ encode_infer_t i))
-          LEX
-     $<) (PFLAT wl, LENGTH wl)
+    (mlt (walkstarR (sp2fm (map encode_infer_t s))) LEX $<)
+         (PFLAT wl, LENGTH wl)
          (PFLAT wl0, LENGTH wl0)
 End
 
@@ -1204,35 +1312,16 @@ Proof
         gvs[] >> qexistsl [‘s’, ‘wl’] >> simp[] >> rw[] >~
         [‘_ ⊑ _’] >- metis_tac[SUBMAP_TRANS] >>
         ((qmatch_abbrev_tac ‘_ ⊆ _’ >> ASM_SET_TAC[]) ORELSE metis_tac[])) >>
-  qabbrev_tac
-    ‘M = measure
-           (λi. pair_count (encode_infer_t o_f sp2fm s ◁ encode_infer_t i))’ >>
-  ‘mlt M LEX prim_rec$< = TC (mlt1 M LEX prim_rec$<)’
-    by (simp[Once FUN_EQ_THM, LEX_DEF, FORALL_PROD] >>
-        simp[Once FUN_EQ_THM, FORALL_PROD] >>
-        rw[EQ_IMP_THM]
-        >- (pop_assum mp_tac >>
-            rename [‘_ (a,b)(c,d)’] >>
-            map_every qid_spec_tac [‘a’, ‘b’, ‘c’, ‘d’] >>
-            Induct_on ‘TC’ >> simp[] >> rw[]
-            >- (irule TC_SUBSET >> simp[]) >>
-            metis_tac[TC_RULES])
-        >- (irule TC_SUBSET >> simp[]) >>
-        pop_assum mp_tac >>
-        rename [‘_ (a,b)(c,d)’] >>
-        map_every qid_spec_tac [‘a’, ‘b’, ‘c’, ‘d’] >>
-        Induct_on ‘TC’ >> simp[] >> rw[] >> gvs[TC_SUBSET] >>
-        rename [‘TC _ (a,b) X’, ‘TC _ X (c,d)’] >>
-        Cases_on ‘X’ >> gvs[] >> metis_tac[TC_RULES]) >>
+  qabbrev_tac ‘M = walkstarR (sp2fm (map encode_infer_t s)) :
+                   atom term -> atom term -> bool’ >>
   ‘∀s' wl'.
      R⁺ (s',wl') (s,wl) ⇒
-     (mlt1 M LEX $<)⁺ (PFLAT wl',LENGTH wl') (PFLAT wl, LENGTH wl)’
+     (mlt M LEX $<) (PFLAT wl',LENGTH wl') (PFLAT wl, LENGTH wl)’
     by (Induct_on ‘R⁺’ using TC_STRONG_INDUCT_LEFT1 >>
         simp[GSYM RIGHT_FORALL_IMP_THM, FORALL_PROD] >> rw[]
         >- (rename [‘TC R’, ‘R (s',wl') (s,wl)’] >>
             ‘R⁺ (s',wl') (s,wl)’ by simp[TC_SUBSET] >>
             ‘s' = s’ by metis_tac[] >> pop_assum SUBST_ALL_TAC >>
-            irule TC_SUBSET >>
             qpat_x_assum ‘R _ _’ mp_tac >>
             (* flip R's "definition" *)
             first_x_assum (assume_tac o GSYM o
@@ -1240,7 +1329,9 @@ Proof
                            assert (is_forall o concl)
                           ) >>
             simp[kcuR_def]) >>
-        irule TC_LEFT1_I >> first_assum $ irule_at Any >>
+        ‘transitive (mlt M LEX prim_rec$<)’ by simp[transitive_LEX] >>
+        dxrule_then irule (iffLR transitive_def) >>
+        first_assum $ irule_at Any >>
         rename [‘TC R (s1,wl1) (s,wl)’, ‘R (s2,wl2) (s1,wl1)’]>>
         ‘s1 = s ∧ s2 = s’ by metis_tac[TC_RULES] >>
         ntac 2 $ pop_assum SUBST_ALL_TAC >>
@@ -1252,9 +1343,9 @@ Proof
   qabbrev_tac ‘rwlbs (* reachable wl bags and lengths *) =
                λrwlb. ∃rwl. R⁺ (s,rwl) (s,wl) ∧
                             rwlb = (PFLAT rwl, LENGTH rwl)’ >>
-  ‘WF (mlt1 M LEX prim_rec$<)⁺’
-    by simp[WF_LEX, WF_mlt1, Abbr‘M’, prim_recTheory.WF_measure,
-            WF_TC_EQN] >>
+  ‘WF (mlt M LEX prim_rec$<)’
+    by gvs[WF_LEX, WF_mlt1, Abbr‘M’, prim_recTheory.WF_measure,
+           WF_TC_EQN, walkstar_thWF, cwfs_def, swfs_def] >>
   drule_then (assume_tac o SRULE[PULL_EXISTS]) (iffLR WF_DEF) >>
   ‘∀wl'. R꙳(s,wl') (s,wl) ⇒ ∃wl''. R(s,wl'') (s,wl')’
     by (simp[cj 1 (GSYM TC_RC_EQNS), RC_DEF, DISJ_IMP_THM, FORALL_AND_THM] >>
@@ -1272,7 +1363,272 @@ Proof
   first_x_assum (assume_tac o GSYM o
                  assert (is_eq o #2 o strip_forall o concl) o
                  assert (is_forall o concl)) >>
-  simp[kcuR_def, TC_SUBSET]
+  simp[kcuR_def]
+QED
+
+Theorem PFLAT_CONS2[simp]:
+  PFLAT ((l1,h2::t2)::rest) =
+  BAG_INSERT (encode_infer_t h2) (PFLAT ((l1,t2)::rest))
+Proof
+  Induct_on ‘l1’ >> simp[BAG_INSERT_commutes]
+QED
+
+Theorem mlt_BAG_INSERT2:
+  FINITE_BAG b ⇒
+  mlt R b (BAG_INSERT x (BAG_INSERT y b))
+Proof
+  strip_tac >> irule TC_LEFT1_I >> irule_at Any TC_SUBSET >>
+  irule_at Any mlt1_BAG_INSERT >> simp[mlt1_BAG_INSERT]
+QED
+
+Theorem cwfs_insert_tvar_db:
+  v ∉ domain s ∧ cwfs s ⇒ cwfs (insert v (Infer_Tvar_db c) s)
+Proof
+  simp[cwfs_def, wf_insert, swfs_def, map_insert, wf_insert] >>
+  strip_tac >> irule unifDefTheory.wfs_extend >> simp[] >>
+  simp[encode_infer_t_def]
+QED
+
+Theorem tcwalk_EQ_Infer_Tuvar:
+  cwfs s ∧ tcwalk s t = Infer_Tuvar v ⇒
+  v ∉ domain s ∧ ∃u. t = Infer_Tuvar u
+Proof
+  simp[SF CONJ_ss, GSYM tcwalk_correct, cwalk_def] >> strip_tac >>
+  rename [‘swalk (map encode_infer_t s) (encode_infer_t t)’] >>
+  drule_then (qspec_then ‘t’ strip_assume_tac) swalk_result_encodable >>
+  gvs[decode_left_inverse, encode_infer_t_def] >>
+  gvs[swalk_def, cwfs_def, sp2fm_map, swfs_def] >>
+  drule_all walk_to_var >> rw[] >>
+  pop_assum (mp_tac o Q.AP_TERM ‘decode_infer_t’) >>
+  simp[decode_left_inverse, decode_infer_t_def]
+QED
+
+Theorem encode_eq_var[simp]:
+  (Var n = encode_infer_t i ⇔ i = Infer_Tuvar n) ∧
+  (encode_infer_t i = Var n ⇔ i = Infer_Tuvar n)
+Proof
+  rw[EQ_IMP_THM, encode_infer_t_def] >>
+  pop_assum (mp_tac o Q.AP_TERM ‘decode_infer_t’) >>
+  simp[decode_infer_t_def, decode_left_inverse]
+QED
+
+Theorem svwalk_result_encodable' =
+        svwalk_result_encodable
+          |> INST_TYPE [alpha |-> “:infer_t”, beta |-> “:atom”]
+          |> Q.INST [‘f’ |-> ‘encode_infer_t’]
+          |> SRULE[]
+
+Theorem tcvwalk_substvars:
+  cwfs s ∧ tcvwalk s v = t ⇒
+  t = Infer_Tuvar v ∧ v ∉ domain s ∨
+  vars (encode_infer_t t) ⊆ substvars (encode_infer_t o_f sp2fm s)
+Proof
+  simp[SF CONJ_ss, GSYM tcvwalk_correct, cvwalk_def] >> strip_tac >>
+  gvs[cwfs_def] >>
+  drule_all_then (qspec_then ‘v’ strip_assume_tac) svwalk_result_encodable' >>
+  simp[decode_left_inverse] >> gvs[svwalk_def, swfs_def] >>
+  drule_all_then strip_assume_tac vwalk_rangevars >>
+  gvs[sp2fm_map] >> simp[substvars_def] >> ASM_SET_TAC[]
+QED
+
+Theorem tcwalk_rangevars:
+  cwfs s ∧ tcwalk s t = u ⇒
+  vars (encode_infer_t u) ⊆ rangevars (encode_infer_t o_f sp2fm s) ∪
+                            vars (encode_infer_t t)
+Proof
+  simp[SF CONJ_ss, GSYM tcwalk_correct, cwalk_def] >> strip_tac >>
+  drule_all_then (qspec_then ‘t’ strip_assume_tac) swalk_result_encodable >>
+  gvs[decode_left_inverse] >> gvs[swalk_def,cwfs_def,swfs_def] >>
+  drule_all walk_rangevars >> simp[sp2fm_map]
+QED
+
+Theorem cwfs_var2_extend:
+  cwfs s ∧ v1 ≠ v2 ∧ v1 ∉ domain s ∧ v2 ∉ domain s ⇒
+  cwfs (insert v1 (Infer_Tuvar v2) s)
+Proof
+  simp[cwfs_def, wf_insert, map_insert, encode_infer_t_def, swfs_def] >>
+  rpt strip_tac >> irule wfs_extend >> simp[] >>
+  simp[Once vwalk_def] >> simp[lookup_map] >>
+  ‘lookup v2 s = NONE’ by simp[lookup_NONE_domain] >> simp[]
+QED
+
+Theorem vars_encode_infer_ts:
+  vars (encode_infer_ts is) = isvars is
+Proof
+  Induct_on ‘is’ >> simp[encode_infer_t_def]
+QED
+
+Theorem PFLAT_NIL1[simp]:
+  PFLAT (([], l2) :: rest) =
+  BAG_UNION (BAG_OF_LIST (MAP encode_infer_t l2)) (PFLAT rest)
+Proof
+  Induct_on ‘l2’ >> simp[BAG_UNION_INSERT]
+QED
+
+Theorem PFLAT_eqn:
+  ∀l1 l2.
+    PFLAT ((l1,l2)::rest) =
+    BAG_UNION (BAG_OF_LIST (MAP encode_infer_t l1))
+              (BAG_UNION (BAG_OF_LIST (MAP encode_infer_t l2)) (PFLAT rest))
+Proof
+  Induct_on ‘l1’ >> simp[PFLAT_def, BAG_UNION_INSERT]
+QED
+
+Theorem vars_walkstar_encode_infer_ts:
+  wfs s ⇒
+  vars (s ◁ encode_infer_ts L) =
+  BIGUNION { vars (s ◁ encode_infer_t e) | MEM e L }
+Proof
+  Induct_on ‘L’ >> simp[encode_infer_t_def] >>
+  rpt strip_tac >> simp[Once EXTENSION] >>
+  simp[PULL_EXISTS] >> metis_tac[]
+QED
+
+Theorem cunify_code_reduces_kcuR:
+  cwfs s0 ∧ cunify_code (s0,wl0) = INL (s,wl) ⇒ kcuR (s,wl) (s0,wl0)
+Proof
+  simp[cunify_code_def, AllCaseEqs(), PULL_EXISTS] >> rw[] >~
+  [‘kcuR _ (_, ([],[])::_)’]
+  >- simp[kcuR_def, LEX_DEF] >>~-
+  ([‘kcuR (s, (tl1,tl2)::rest) (s, (h1::tl1, h2::tl2) :: rest)’],
+   simp[kcuR_def, LEX_DEF, mlt_BAG_INSERT2] >> SET_TAC[]) >~
+  [‘kcuR (insert v1 (Infer_Tuvar v2) s0, (t1,t2)::rest)
+         (s0, (h1::t1,h2::t2)::rest)’]
+  >- (simp[kcuR_def, LEX_DEF, mlt_BAG_INSERT2] >>
+      ‘∃cv1 cv2. h1 = Infer_Tuvar cv1 ∧ h2 = Infer_Tuvar cv2 ∧
+                 v1 ∉ domain s0 ∧ v2 ∉ domain s0’
+        by metis_tac[tcwalk_EQ_Infer_Tuvar] >>
+      gvs[] >>
+      simp[substvars_FUPDATE, DOMSUB_NOT_IN_DOM, encode_infer_t_def] >>
+      gvs[tcwalk_def] >>
+      drule tcvwalk_substvars >>
+      disch_then (rpt o dxrule_then strip_assume_tac) >> gvs[] >>
+      rpt (dxrule_all tcvwalk_substvars) >>
+      gvs[cwfs_var2_extend, encode_infer_t_def] >> SET_TAC[]) >~
+  [‘kcuR (s,(l1,l2)::(t1,t2)::rest) (s,(h1::t1,h2::t2)::rest)’,
+   ‘tcwalk _ _ = Infer_Tapp l1 n1’]
+  >- (simp[kcuR_def, LEX_DEF] >> rpt strip_tac >>
+      TRY (SET_TAC []) >>~-
+      ([‘tcwalk s h = Infer_Tapp L _’, ‘isvars L ⊆ _’],
+       drule tcwalk_rangevars >>
+       disch_then (qpat_assum ‘tcwalk s h = Infer_Tapp L _’ o
+                   mp_then Any mp_tac) >>
+       simp[encode_infer_t_def, vars_encode_infer_ts] >>
+       SET_TAC[substvars_def]) >>
+      simp[PFLAT_eqn] >>
+      irule TC_RIGHT1_I >> simp[mlt1_def, PULL_EXISTS] >>
+      qexistsl [‘encode_infer_t h1’, ‘BAG_OF_LIST (MAP encode_infer_t l1)’]>>
+      simp[BAG_UNION_INSERT, BAG_IN_BAG_OF_LIST] >>
+      irule_at Any TC_SUBSET >> simp[mlt1_def, PULL_EXISTS] >>
+      qexistsl [‘encode_infer_t h2’, ‘BAG_OF_LIST (MAP encode_infer_t l2)’]>>
+      simp[BAG_UNION_INSERT, BAG_IN_BAG_OF_LIST,
+           AC COMM_BAG_UNION ASSOC_BAG_UNION] >>
+      simp[MEM_MAP, PULL_EXISTS] >>
+      metis_tac[walkstar_opth]) >>~-
+  ([‘kcuR (insert _ _ s0, (t1,t2)::rest) (s0, (h1::t1,h2::t2)::rest)’,
+    ‘¬tcocwl s0 v [L]’],
+   simp[kcuR_def, LEX_DEF, mlt_BAG_INSERT2] >>
+   gvs[GSYM tcwalk_correct, cwalk_def, GSYM tcocwl_correct] >>
+   rename [‘decode_infer_t (swalk _ (encode_infer_t V)) = Infer_Tuvar v’] >>
+   qpat_x_assum ‘_ = Infer_Tuvar _’ assume_tac >>
+   drule_then (qspec_then ‘V’ strip_assume_tac) swalk_result_encodable >>
+   rename [‘decode_infer_t (swalk _ (encode_infer_t A)) = Infer_Tapp L n’] >>
+   qpat_x_assum ‘_ = Infer_Tapp _ _’ assume_tac >>
+   drule_then (qspec_then ‘A’ strip_assume_tac) swalk_result_encodable >>
+   gvs[decode_left_inverse] >> gs[encode_infer_t_def, swalk_def] >>
+   gvs[cwfs_def, swfs_def] >> drule_all walk_to_var >>
+   simp[map_insert, wf_insert, encode_infer_t_def] >>
+   rpt strip_tac >~
+   [‘wfs (_ |+ _)’]
+   >- (irule wfs_extend >> simp[] >>
+       gvs[cocl_EXISTS, EVERY_MEM, coc_def, soc_def, oc_eq_vars_walkstar] >>
+       simp[vars_walkstar_encode_infer_ts] >> metis_tac[]) >~
+   [‘substvars (_ |+ _)’]
+   >- (simp[substvars_FUPDATE, DOMSUB_NOT_IN_DOM, encode_infer_t_def] >>
+       gvs[encode_infer_t_def] >> conj_tac
+       >- (rename [‘vwalk _ u = Var v’, ‘v ∉ domain s0’] >>
+           drule_all vwalk_rangevars >> simp[sp2fm_map] >> rw[] >>
+           simp[substvars_def]) >>
+       drule_all walk_rangevars >> simp[substvars_def, sp2fm_map] >>
+       SET_TAC[]) >>
+   SET_TAC[]) >>~-
+  ([‘kcuR (insert _ _ s0, (t1,t2)::rest) (s0, (h1::t1,h2::t2)::rest)’],
+   simp[kcuR_def, LEX_DEF, mlt_BAG_INSERT2] >>
+   gvs[GSYM tcwalk_correct, cwalk_def] >>
+   rename [‘decode_infer_t (swalk _ (encode_infer_t V)) = Infer_Tuvar v’] >>
+   qpat_x_assum ‘_ = Infer_Tuvar _’ assume_tac >>
+   drule_then (qspec_then ‘V’ strip_assume_tac) swalk_result_encodable >>
+   gvs[decode_left_inverse] >> gs[encode_infer_t_def, swalk_def] >>
+   gvs[cwfs_def, swfs_def] >> drule_all walk_to_var >>
+   simp[map_insert, wf_insert, encode_infer_t_def] >>
+   rpt strip_tac >> gvs[encode_infer_t_def] >~
+   [‘wfs (_ |+ _)’]
+   >- (irule wfs_extend >> simp[]) >~
+   [‘substvars (_ o_f _ |+ _) ⊆ _’]
+   >- (simp[substvars_FUPDATE, DOMSUB_NOT_IN_DOM] >>
+       drule_all vwalk_rangevars >> rw[sp2fm_map] >> simp[substvars_def]) >>
+   SET_TAC[])
+QED
+
+Theorem cunify_code_preserves_cwfs:
+  cwfs s0 ∧ cunify_code (s0,wl0) = INL (s,wl) ⇒ cwfs s
+Proof
+  simp[cunify_code_def, AllCaseEqs()] >> rw[] >> simp[] >~
+  [‘insert _ (Infer_Tuvar v2) s’]
+  >- (irule cwfs_var2_extend >> metis_tac[tcwalk_EQ_Infer_Tuvar]) >>
+  drule_all_then strip_assume_tac tcwalk_EQ_Infer_Tuvar >>
+  simp[cwfs_insert_tvar_db] >>
+  rename [‘tcwalk s0 t1 = Infer_Tuvar var’, ‘tcwalk s0 t2 = Infer_Tapp ts n’] >>
+  gvs[GSYM tcwalk_correct, cwalk_def, encode_infer_t_def,
+      GSYM tcocwl_correct] >>
+  ‘∃it. swalk (map encode_infer_t s0) (encode_infer_t t2) = encode_infer_t it’
+    by metis_tac[swalk_result_encodable] >>
+  gvs[decode_left_inverse, encode_infer_t_def, swalk_def, cwfs_def, swfs_def,
+      wf_insert, sp2fm_map, cocl_EXISTS, EVERY_MEM, coc_def, soc_def] >>
+  irule wfs_extend >> simp[vars_walkstar_encode_infer_ts] >>
+  metis_tac[oc_eq_vars_walkstar]
+QED
+
+Theorem kcunify_cleaned0:
+  ∀x. (λ(s,wl). cwfs s) x ⇒
+      (λ(s,wl). kcunifywl s wl) x = TAILREC cunify_code x
+Proof
+  match_mp_tac whileTheory.TAILREC_GUARD_ELIMINATION >> rpt conj_tac >>
+  simp[FORALL_PROD, AllCaseEqs(), PULL_EXISTS] >> rw[] >> simp[]
+  >- metis_tac[cunify_code_preserves_cwfs]
+  >- (qexists ‘kcuR’ >> conj_tac
+      >- (irule $ iffLR WF_EQ_WFP >> simp[WF_kcuR]) >>
+      metis_tac[cunify_code_reduces_kcuR]) >>
+  simp[Once $ (oneline kcunifywl_thm |> DISCH_ALL), SimpLHS] >>
+  simp[whileTheory.TAILCALL_def, cunify_code_def, sum_CASE_list_CASE,
+       sum_CASE_pair_CASE, sum_CASE_infer_CASE, sum_CASE_COND]
+QED
+
+Definition tcunify_def:
+  tcunify s wl = TAILREC cunify_code (s,wl)
+End
+
+Theorem tcunify_thm =
+        tcunify_def |> SRULE[Once whileTheory.TAILREC]
+                    |> SRULE[cunify_code_def,
+                             sum_CASE_list_CASE, sum_CASE_pair_CASE,
+                             sum_CASE_infer_CASE, sum_CASE_COND]
+                    |> SRULE[GSYM cunify_code_def, GSYM tcunify_def]
+
+Theorem tcunify_correct0 =
+        SRULE[FORALL_PROD, GSYM tcunify_def] kcunify_cleaned0
+
+Theorem tcunify_correct:
+  cwfs s ⇒ cunify s t1 t2 = tcunify s [([t1],[t2])]
+Proof
+  strip_tac >>
+  simp[GSYM tcunify_correct0, kcunifywl_def, apply_cunifk_thm,
+       dfkcunifyl_def] >>
+  simp[kcunifyl_def, cwc_def, apply_cunifk_thm] >>
+  simp[cunifyl_CONS2] >>
+  Cases_on ‘cunify s t1 t2’ >> simp[] >>
+  drule_all cunify_preserves_cwfs >>
+  simp[DISCH_ALL cunifyl_NIL2]
 QED
 
 Theorem decode_infer_t_pmatch:
@@ -1771,28 +2127,6 @@ THEN1
      rw [Once unify_def]
 QED
 
-val encode_infer_t_inj = Q.prove(
-`(!t1 t2. (encode_infer_t t1 = encode_infer_t t2) ==> (t1 = t2)) /\
- (∀t1s t2s. (encode_infer_ts t1s = encode_infer_ts t2s) ⇒ (t1s = t2s))`,
- ho_match_mp_tac(TypeBase.induction_of``:infer_t``)>>
- simp[encode_infer_t_def] >>
- strip_tac >- (
-   gen_tac >> Cases >> simp[encode_infer_t_def] ) >>
- strip_tac >- (
-   gen_tac >> strip_tac >>
-   gen_tac >> Cases >> simp[encode_infer_t_def] ) >>
- strip_tac >- (
-   gen_tac >> Cases >> simp[encode_infer_t_def] ) >>
- strip_tac >- (
-   Cases >> simp[encode_infer_t_def] ) >>
- rpt gen_tac >> strip_tac >>
- Cases >> simp[encode_infer_t_def])
-
-val encode_infer_t_inj_rwt = Q.prove(
-`(!t1 t2. (encode_infer_t t1 = encode_infer_t t2) <=> (t1 = t2)) /\
- (∀t1s t2s. (encode_infer_ts t1s = encode_infer_ts t2s) ⇔ (t1s = t2s))`,
- metis_tac[encode_infer_t_inj])
-
 Theorem t_unify_ind:
    !P0 P1.
       (!s t1 t2.
@@ -1846,27 +2180,27 @@ Proof
       fs[] >>
       conj_tac >- (
         rw[] >>
-        fs[encode_infer_t_def,encode_infer_t_inj_rwt] >>
+        fs[encode_infer_t_def] >>
         first_x_assum(qspec_then`us`kall_tac) >>
         first_x_assum(qspec_then`us`mp_tac) >>
         simp[] >> disch_then (qspec_then`s'`mp_tac o CONJUNCT2) >>
         simp[t_wfs_def,SIMP_RULE(srw_ss())[]encode_unify] ) >>
       rw[] >>
-      fs[encode_infer_t_def,SIMP_RULE(srw_ss())[]encode_unify,t_wfs_def,encode_infer_t_inj_rwt] ) >>
+      fs[encode_infer_t_def,SIMP_RULE(srw_ss())[]encode_unify,t_wfs_def] ) >>
     rw[] >>
     first_x_assum match_mp_tac >>
     imp_res_tac wfs_unify >>
-    fs[encode_infer_t_inj_rwt] >>
+    fs[] >>
     conj_tac >- (
       rw[] >>
-      fs[encode_infer_t_def,encode_infer_t_inj_rwt] >>
+      fs[encode_infer_t_def] >>
       first_x_assum(qspec_then`us`kall_tac) >>
       first_x_assum(qspec_then`us`kall_tac) >>
       first_x_assum(qspec_then`us`kall_tac) >>
       first_x_assum(qspec_then`usx`mp_tac) >>
       simp[t_wfs_def,SIMP_RULE(srw_ss())[]encode_unify] ) >>
     rw[] >>
-    fs[encode_infer_t_def,encode_infer_t_inj_rwt] ) >>
+    fs[encode_infer_t_def] ) >>
   qmatch_assum_abbrev_tac`P ⇒ Q` >>
   `Q` by metis_tac[] >>
   qunabbrev_tac`P` >>
@@ -1883,7 +2217,7 @@ Proof
   first_x_assum(qspecl_then[`encode_infer_t o_f s`
                            ,`Pair (Const (DB_tag 0)) (encode_infer_ts ts1)`
                            ,`Pair (Const (DB_tag 0)) (encode_infer_ts ts2)`]mp_tac) >>
-  simp[encode_infer_t_inj_rwt] >> strip_tac >>
+  simp[] >> strip_tac >>
   first_x_assum(qspecl_then[`s`,`Infer_Tvar_db 0`,`Infer_Tvar_db 0`]mp_tac) >>
   simp[encode_infer_t_def] >>
   fs[t_wfs_def]
@@ -2000,7 +2334,7 @@ Proof
   rw[decode_left_inverse,decode_left_inverse_I,I_o_f] >>
   simp[t_wfs_def,t_walkstar_def] >>
   fs[SUBMAP_DEF] >>
-  metis_tac[encode_infer_t_inj,o_f_FAPPLY]
+  metis_tac[encode_infer_t_11,o_f_FAPPLY]
 QED
 
 val t_unify_strongind' = Q.prove(
