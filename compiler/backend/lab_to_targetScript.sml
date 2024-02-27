@@ -437,41 +437,61 @@ val compile_def = Define `
 (* config without asm conf *)
 
 Datatype:
+  shmem_info_num
+  = <| entry_pc: num
+       ; nbytes: word8
+       ; addr_reg: num
+       ; addr_off: num
+       ; reg: num
+       ; exit_pc: num
+    |>
+End
+
+Datatype:
   inc_config = <|
     inc_labels : num num_map num_map
     ; inc_sec_pos_len : (num # num # num) list
     ; inc_pos : num
     ; inc_init_clock : num
     ; inc_ffi_names : ffiname list option
-    ; inc_shmem_extra: 'a shmem_info
+    ; inc_shmem_extra: shmem_info_num list
     ; inc_hash_size : num
     |>
 End
 
 Definition to_inc_shmem_info_def:
-  to_inc_shmem_info (entry, nb, (Addr ad_reg ad_off), reg, end_pc) =
-    (w2n entry, nb, ad_reg, w2n ad_off, reg, w2n end_pc)
+  to_inc_shmem_info info =
+  <| entry_pc := w2n info.entry_pc
+     ; nbytes := info.nbytes
+     ; addr_reg := (case info.access_addr of Addr r off => r)
+     ; addr_off := (case info.access_addr of Addr r off => w2n off)
+     ; reg := info.reg
+     ; exit_pc := w2n info.exit_pc |>
 End
 
 Definition to_shmem_info_def:
-  to_shmem_info (entry, nb, ad_reg, ad_off, reg, end_pc) =
-    (n2w entry, nb, Addr ad_reg $ n2w ad_off, reg, n2w end_pc)
+  to_shmem_info ninfo =
+  <| entry_pc := n2w ninfo.entry_pc
+     ; nbytes := ninfo.nbytes
+     ; access_addr := Addr ninfo.addr_reg (n2w ninfo.addr_off)
+     ; reg := ninfo.reg
+     ; exit_pc := n2w ninfo.exit_pc |>
 End
 
 Definition config_to_inc_config_def:
   config_to_inc_config (c : 'a config) = <|
     inc_labels := c.labels; inc_sec_pos_len := c.sec_pos_len;
     inc_pos := c.pos; inc_init_clock := c.init_clock;
-    inc_ffi_names := c.ffi_names; inc_shmem_extra := c.shmem_extra;
+    inc_ffi_names := c.ffi_names; inc_shmem_extra := MAP to_inc_shmem_info c.shmem_extra;
     inc_hash_size := c.hash_size;
   |>
 End
 
 Definition inc_config_to_config_def:
-  inc_config_to_config (asm : 'a asm_config) (c : 'a inc_config) = <|
+  inc_config_to_config (asm : 'a asm_config) (c : inc_config) = <|
     labels := c.inc_labels; sec_pos_len := c.inc_sec_pos_len;
     pos := c.inc_pos; asm_conf := asm; init_clock := c.inc_init_clock;
-    ffi_names := c.inc_ffi_names; shmem_extra := c.inc_shmem_extra;
+    ffi_names := c.inc_ffi_names; shmem_extra := MAP to_shmem_info c.inc_shmem_extra;
     hash_size := c.inc_hash_size;
   |>
 End

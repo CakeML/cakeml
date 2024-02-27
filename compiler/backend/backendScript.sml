@@ -609,7 +609,7 @@ Datatype:
    ; inc_word_to_word_conf : word_to_word$config
    ; inc_word_conf : word_to_stack$config
    ; inc_stack_conf : stack_to_lab$config
-   ; inc_lab_conf : 'a lab_to_target$inc_config
+   ; inc_lab_conf : lab_to_target$inc_config
    ; inc_symbols : (mlstring # num # num) list
    ; inc_tap_conf : tap_config
    |>
@@ -647,12 +647,35 @@ End
 
 val components = theorem "config_component_equality"
 
+Theorem to_shmem_info_to_inc_shmem_info_inv[simp]:
+  MAP to_shmem_info (MAP to_inc_shmem_info ls) = ls
+Proof
+  Induct_on ‘ls’>>rw[]>>
+  simp[lab_to_targetTheory.to_inc_shmem_info_def,
+       lab_to_targetTheory.to_shmem_info_def,
+       lab_to_targetTheory.shmem_rec_component_equality]>>
+  Cases_on ‘h.access_addr’>>fs[]
+QED
+
+Theorem to_inc_shmem_info_to_shmem_info_inv[simp]:
+  EVERY (λh. h.entry_pc < dimword (:α) ∧
+             h.addr_off < dimword (:α) ∧
+             h.exit_pc < dimword (:α)) ls ⇒
+  MAP to_inc_shmem_info ((MAP to_shmem_info ls):'a shmem_info) = ls
+Proof
+  Induct_on ‘ls’>>rw[]>>
+  simp[lab_to_targetTheory.to_inc_shmem_info_def,
+       lab_to_targetTheory.to_shmem_info_def,
+       lab_to_targetTheory.shmem_info_num_component_equality]>>fs[]
+QED
+
+
 Theorem inc_config_to_config_inv:
   asm_c = c.lab_conf.asm_conf ==>
   inc_config_to_config asm_c  (config_to_inc_config c) = c
 Proof
   simp [config_to_inc_config_def, inc_config_to_config_def, components]
-  \\ simp [lab_to_targetTheory.config_to_inc_config_def,
+  \\ simp [lab_to_targetTheory.config_to_inc_config_def, MAP_MAP_o, o_DEF,
     lab_to_targetTheory.inc_config_to_config_def,
     lab_to_targetTheory.config_component_equality]
 QED
@@ -660,12 +683,17 @@ QED
 val inc_components = theorem "inc_config_component_equality"
 
 Theorem config_to_inc_config_inv:
-  config_to_inc_config (inc_config_to_config asm_c c) = c
+  EVERY
+     (λh.
+        h.entry_pc < dimword (:α) ∧ h.addr_off < dimword (:α) ∧
+        h.exit_pc < dimword (:α)) c.inc_lab_conf.inc_shmem_extra ⇒
+  config_to_inc_config (inc_config_to_config (asm_c:'a asm_config) c) = c
 Proof
   simp [config_to_inc_config_def, inc_config_to_config_def, inc_components]
   \\ simp [lab_to_targetTheory.config_to_inc_config_def,
     lab_to_targetTheory.inc_config_to_config_def,
-    lab_to_targetTheory.inc_config_component_equality]
+    lab_to_targetTheory.inc_config_component_equality]>>
+  strip_tac>>irule to_inc_shmem_info_to_shmem_info_inv>>fs[]
 QED
 
 val upper_w2w_def = Define `
