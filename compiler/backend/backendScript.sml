@@ -696,6 +696,22 @@ Proof
   strip_tac>>irule to_inc_shmem_info_to_shmem_info_inv>>fs[]
 QED
 
+Theorem config_to_inc_bounded:
+  EVERY (λh. h.entry_pc < dimword (:α) ∧ h.addr_off < dimword (:α) ∧
+             h.exit_pc < dimword (:α))
+  (config_to_inc_config (cfg:'a config)).inc_lab_conf.inc_shmem_extra
+Proof
+  simp[config_to_inc_config_def,
+       config_component_equality,
+       lab_to_targetTheory.config_to_inc_config_def,
+       lab_to_targetTheory.config_component_equality]>>
+  simp[EVERY_MAP,
+       lab_to_targetTheory.to_inc_shmem_info_def,
+       lab_to_targetTheory.config_component_equality]>>
+  simp[EVERY_MEM]>>strip_tac>>strip_tac>>
+  CASE_TAC>>fs[w2n_lt]
+QED
+
 val upper_w2w_def = Define `
   upper_w2w (w:'a word) =
     if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64`;

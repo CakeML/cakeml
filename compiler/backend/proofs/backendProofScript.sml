@@ -2751,9 +2751,23 @@ Proof
   \\ imp_res_tac compile_lab_lab_conf
 QED
 
+Theorem opt_eval_config_wf_bounded:
+  opt_eval_config_wf (c':'a config) (SOME ci) ⇒
+  EVERY (λh. h.entry_pc < dimword (:α) ∧ h.addr_off < dimword (:α) ∧
+              h.exit_pc < dimword (:α)) ci.init_state.inc_lab_conf.inc_shmem_extra
+Proof
+  rw[opt_eval_config_wf_def]>>
+  fs[config_to_inc_config_def,config_component_equality]>>
+  fs[lab_to_targetTheory.config_to_inc_config_def,
+     lab_to_targetTheory.config_component_equality]>>
+  fs[lab_to_targetTheory.to_inc_shmem_info_def, EVERY_MAP,EVERY_MEM,
+     lab_to_targetTheory.shmem_info_num_component_equality]>>
+  strip_tac>>strip_tac>>CASE_TAC>>fs[w2n_lt]
+QED
+
 Triviality cake_orac_eq_get_oracle:
   ¬ semantics_prog s env prog Fail /\
-  opt_eval_config_wf c' (SOME ci) /\
+  opt_eval_config_wf (c':'a config) (SOME ci) /\
   nsAll (K concrete_v) env.v /\ s.refs = [] /\
   s.eval_state = SOME (mk_init_eval_state ci) /\
   (!i r. get_oracle ci s env prog i = SOME r ==> syntax i = (I ## SND) r) /\
@@ -2761,12 +2775,14 @@ Triviality cake_orac_eq_get_oracle:
   ==>
   !i r x. get_oracle ci s' env prog i = SOME r /\
   cake_orac c' syntax I (\ps. (ps.env_id,ps.source_prog)) i = x ==>
-  (case r of (id, cfg_v, ds) => ?cfg. cfg_v = ci.config_v cfg /\
+  (case r of (id, cfg_v, ds) => ?cfg. cfg_v = ci.config_v cfg ∧
+  EVERY (λh. h.entry_pc < dimword (:α) ∧ h.addr_off < dimword (:α) ∧
+              h.exit_pc < dimword (:α)) cfg.inc_lab_conf.inc_shmem_extra ∧
     x = (inc_config_to_config c'.lab_conf.asm_conf cfg, id, ds))
 Proof
   strip_tac
   \\ imp_res_tac config_wf_abs_conc
-  \\ drule_then (drule_then drule) source_evalProofTheory.get_oracle_props
+  \\ drule_then (drule_then drule) (source_evalProofTheory.get_oracle_props |> INST_TYPE [beta|->“:inc_config”])
   \\ disch_then drule
   \\ strip_tac
   \\ Induct
@@ -2777,7 +2793,8 @@ Proof
     \\ rpt (first_x_assum drule)
     \\ rw []
     \\ irule_at Any EQ_REFL
-    \\ simp [inc_config_to_config_inv]
+    \\ simp [inc_config_to_config_inv]>>
+    irule config_to_inc_bounded
   )
   >- (
     simp [FORALL_PROD]
@@ -2796,9 +2813,10 @@ Proof
     \\ fs [compile_inc_progs_src_env]
     \\ gvs []
     \\ irule_at Any EQ_REFL
-    \\ irule (GSYM inc_config_to_config_inv)
+    \\ irule_at Any (GSYM inc_config_to_config_inv)
     \\ simp [backendTheory.inc_config_to_config_def,
-        lab_to_targetTheory.inc_config_to_config_def]
+             lab_to_targetTheory.inc_config_to_config_def]>>
+    irule config_to_inc_bounded
   )
 QED
 
@@ -2976,7 +2994,7 @@ Proof
     \\ fs [source_evalProofTheory.mk_init_eval_state_def, opt_eval_config_wf_def]
     \\ simp [FORALL_PROD]
     \\ rw []
-    \\ simp [config_to_inc_config_inv]
+    \\ fs [config_to_inc_config_inv]
   )
   \\ rw []
   \\ irule source_to_source_semantics_prog_intro
