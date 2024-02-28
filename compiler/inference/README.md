@@ -27,3 +27,6 @@ Based on the triangular unification algorithm in
 HOL/examples/unification/triangular/first-order.  We encode our
 CakeML types into the term structure used there and them bring over
 those definitions and theorems.
+
+[unify_cvScript.sml](unify_cvScript.sml):
+Translating unifyTheory to cv equations for use with cv_eval
