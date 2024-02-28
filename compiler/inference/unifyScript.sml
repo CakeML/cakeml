@@ -20,27 +20,12 @@ val _ = new_theory "unify";
 val _ = monadsyntax.temp_enable_monadsyntax()
 val _ = monadsyntax.temp_enable_monad "option"
 
-val option_map_case = Q.prove (
-  `!f opt.
-    OPTION_MAP f opt =
-    dtcase opt of
-         NONE => NONE
-       | SOME a => SOME (f a)`,
-  simp[FUN_EQ_THM] >>
-  gen_tac >> Cases >>
-  rw[OPTION_MAP_DEF]);
+val option_map_case = optionTheory.OPTION_MAP_CASE
+val option_bind_thm = oneline optionTheory.OPTION_BIND_def
 
-val option_bind_thm = Q.prove (
-`!x f. OPTION_BIND x f =
-  dtcase x of
-    | NONE => NONE
-    | SOME y => f y`,
-cases_on `x` >>
-rw [OPTION_BIND_def]);
-
-val I_o_f = Q.prove (
-`!m. I o_f m = m`,
-rw [GSYM fmap_EQ_THM]);
+Theorem I_o_f[local,simp]: !m. I o_f m = m
+Proof rw [GSYM fmap_EQ_THM]
+QED
 
 Datatype:
   atom
@@ -1631,25 +1616,6 @@ Proof
   simp[DISCH_ALL cunifyl_NIL2]
 QED
 
-Theorem decode_infer_t_pmatch:
-    (!t. decode_infer_t t =
-    case t of
-      Var n => Infer_Tuvar n
-    | Const (DB_tag n) => Infer_Tvar_db n
-    | Pair (Const Tapp_tag) (Pair (Const (TC_tag tc')) s) =>
-      Infer_Tapp (decode_infer_ts s) tc'
-    | _ => Infer_Tuvar 5) /\
-  (!ts. decode_infer_ts ts =
-    case ts of
-    | Const Null_tag => []
-    | Pair s1 s2 => decode_infer_t s1 :: decode_infer_ts s2
-    | _ => [])
-Proof
-  rpt strip_tac
-  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
-  >> TRY (Cases_on `a`) >> fs[decode_infer_t_def]
-QED
-
 Theorem decode_left_inverse_I[local]:
   decode_infer_t o encode_infer_t = I
 Proof
@@ -1815,7 +1781,7 @@ Theorem t_ext_s_check_eqn:
   t_ext_s_check s v t = if t_oc s t v then NONE else SOME (s |+ (v,t))
 Proof
 rw [t_ext_s_check_def, t_oc_def, decode_left_inverse_I,
-    I_o_f, decode_left_inverse] >>
+    decode_left_inverse] >>
 metis_tac [FUPDATE_PURGE]
 QED
 
@@ -1873,7 +1839,7 @@ val encode_unify_lemma = Q.prove (
 ho_match_mp_tac unify_ind >>
 simp[] >>
 rw [t_unify_def] >>
-fs[t_wfs_def, option_map_case] >>
+fs[t_wfs_def, option_map_case, combinTheory.o_DEF] >>
 qmatch_assum_abbrev_tac `wfs es` >>
 TRY(simp[option_map_case] >>
   rw[GSYM fmap_EQ_THM,Abbr`es`,decode_left_inverse] >>
@@ -2014,7 +1980,7 @@ cases_on `l2` >>
 rw [ts_unify_def, encode_infer_t_def] >>
 `wfs (encode_infer_t o_f s)` by metis_tac [t_wfs_def] >>
 fs [option_map_case] >|
-[rw [Once unify_def, decode_left_inverse_I, I_o_f],
+[rw [Once unify_def, decode_left_inverse_I],
  rw [Once unify_def, ts_unify_def],
  rw [Once unify_def, ts_unify_def],
  rw [Once unify_def] >>
@@ -2026,7 +1992,7 @@ fs [option_map_case] >|
       fs [t_unify_def, option_bind_thm] >>
           every_case_tac >>
           fs [] >>
-          rw [I_o_f] >>
+          rw [] >>
           `?x. z = encode_infer_t o_f x`
                 by (imp_res_tac encode_unify >>
                     fs [] >>
@@ -2036,7 +2002,7 @@ fs [option_map_case] >|
           `t_wfs x` by
                  (rw [t_wfs_def] >>
                   metis_tac [wfs_unify]) >>
-          rw [I_o_f, decode_left_inverse_I]]]);
+          rw [decode_left_inverse_I]]]);
 
 Theorem t_unify_eqn:
  (!t1 t2 s.
@@ -2065,11 +2031,11 @@ rw [Once unify_def, t_walk_def] >>
 cases_on `t1` >>
 cases_on `t2` >>
 rw [encode_infer_t_def, decode_infer_t_def, option_map_case, decode_left_inverse,
-    decode_left_inverse_I, I_o_f, encode_vwalk, option_bind_thm]
+    decode_left_inverse_I, encode_vwalk, option_bind_thm]
 THEN1
 (cases_on `t_vwalk s n'` >>
      rw [encode_infer_t_def, decode_left_inverse,
-         decode_left_inverse_I, I_o_f, o_f_FUPDATE, decode_infer_t_def] >>
+         decode_left_inverse_I, o_f_FUPDATE, decode_infer_t_def] >>
      rw [t_ext_s_check_eqn] >>
      imp_res_tac t_oc_eqn >>
      pop_assum (fn x => ALL_TAC) >>
@@ -2090,8 +2056,8 @@ THEN1
      rw [encode_infer_t_def] >>
      rw [Once unify_def] >>
      rw [ts_unify_thm, decode_left_inverse, decode_left_inverse_I,
-     option_map_case,
-         I_o_f, o_f_FUPDATE, decode_infer_t_def, t_ext_s_check_eqn] >>
+         option_map_case,
+         o_f_FUPDATE, decode_infer_t_def, t_ext_s_check_eqn] >>
      rw [Once oc_walking, encode_infer_t_def, t_oc_def] >>
      rw [Once unify_def] >>
      metis_tac [FUPDATE_PURGE])
@@ -2099,7 +2065,7 @@ THEN1
 (cases_on `t_vwalk s n` >>
      rw [encode_infer_t_def] >>
      rw [Once unify_def] >>
-     rw [o_f_FUPDATE, I_o_f, decode_left_inverse_I, decode_left_inverse,
+     rw [o_f_FUPDATE, decode_left_inverse_I, decode_left_inverse,
          decode_infer_t_def, t_ext_s_check_eqn] >>
      rw [ts_unify_thm, Once oc_walking, encode_infer_t_def, t_oc_def, option_bind_thm] >>
      rw [Once unify_def] >>
@@ -2108,8 +2074,8 @@ THEN1
 (cases_on `t_vwalk s n` >>
      rw [encode_infer_t_def] >>
      rw [Once unify_def, option_map_case] >>
-     rw [o_f_FUPDATE, I_o_f, decode_left_inverse_I, decode_left_inverse,
-     option_map_case,
+     rw [o_f_FUPDATE, decode_left_inverse_I, decode_left_inverse,
+         option_map_case,
          decode_infer_t_def, t_ext_s_check_eqn] >>
      rw [ts_unify_thm, Once oc_walking, encode_infer_t_def, t_oc_def, option_bind_thm] >>
      rw [option_map_case] >>
@@ -2120,7 +2086,7 @@ THEN1
      cases_on `t_vwalk s n'` >>
      rw [encode_infer_t_def] >>
      rw [Once unify_def] >>
-     rw [o_f_FUPDATE, I_o_f, decode_left_inverse, decode_left_inverse_I,
+     rw [o_f_FUPDATE, decode_left_inverse, decode_left_inverse_I,
          decode_infer_t_def, t_ext_s_check_eqn, option_map_case] >>
      rw [ts_unify_thm, Once oc_walking, encode_infer_t_def, t_oc_def,
      option_bind_thm, option_map_case] >>
@@ -2331,7 +2297,7 @@ Proof
   `wfs us` by metis_tac[t_wfs_def] >>
   imp_res_tac unify_unifier >>
   unabbrev_all_tac >>
-  rw[decode_left_inverse,decode_left_inverse_I,I_o_f] >>
+  rw[decode_left_inverse,decode_left_inverse_I] >>
   simp[t_wfs_def,t_walkstar_def] >>
   fs[SUBMAP_DEF] >>
   metis_tac[encode_infer_t_11,o_f_FAPPLY]
