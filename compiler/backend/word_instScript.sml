@@ -363,8 +363,8 @@ val inst_select_def = Define`
     let exp = (flatten_exp o pull_exp) exp in
     dtcase exp of
     | Op Add [exp';Const w] =>
-      if (op IN {Load;Store} /\ addr_offset_ok c w) \/
-          (op IN {Load8;Store8} /\ byte_offset_ok c w) then
+      if ((op = Load ∨ op = Store) /\ addr_offset_ok c w) ∨
+          ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c w) then
         let prog = inst_select_exp c temp temp exp' in
           Seq prog (ShareInst op v (Op Add [Var temp; Const w]))
       else
@@ -438,8 +438,8 @@ Theorem inst_select_pmatch:
     (let exp = (flatten_exp o pull_exp) exp in
     case exp of
     | Op Add [exp';Const w] =>
-      if (op IN {Load;Store} /\ addr_offset_ok c w) \/
-          (op IN {Load8;Store8} /\ byte_offset_ok c w) then
+      if ((op = Load ∨ op = Store) /\ addr_offset_ok c w) \/
+          ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c w) then
         let prog = inst_select_exp c temp temp exp' in
           Seq prog (ShareInst op var (Op Add [Var temp; Const w]))
       else

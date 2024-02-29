@@ -411,7 +411,7 @@ val ssa_cc_trans_def = Define`
         (prog,ssa_fin,na_fin))) /\
   (ssa_cc_trans (ShareInst op v exp) ssa na =
     let exp' = ssa_cc_trans_exp ssa exp in
-      if op IN {Store;Store8}
+      if op = Store ∨ op = Store8
       then
         (ShareInst op (option_lookup ssa v) exp',ssa,na)
       else
@@ -655,7 +655,7 @@ val get_live_def = Define`
   (get_live (OpCurrHeap b n1 n2) live = insert n2 () (delete n1 live)) ∧
   (get_live (ShareInst mop v exp) live =
     let sub = get_live_exp exp in
-      if mop IN {Store;Store8}
+      if mop = Store ∨ mop = Store8
       then union sub (insert v () live)
       else union sub (delete v live)) ∧
   (*Cut-set must be live, args input must be live
@@ -917,7 +917,7 @@ val get_clash_tree_def = Define`
   (get_clash_tree (Set n exp) = Delta [] (get_reads_exp exp)) ∧
   (get_clash_tree (OpCurrHeap b dst src) = Delta [dst] [src]) ∧
   (get_clash_tree (StoreConsts a b c d ws) = Delta [a;b;c;d] [c;d]) ∧
-  (get_clash_tree (ShareInst op v exp) = if op IN {Store;Store8}
+  (get_clash_tree (ShareInst op v exp) = if op = Store ∨ op = Store8
     then Delta [] (v::get_reads_exp exp)
     else Delta [v] $ get_reads_exp exp) ∧
   (get_clash_tree (Call ret dest args h) =
