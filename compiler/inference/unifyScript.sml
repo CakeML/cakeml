@@ -731,6 +731,25 @@ fun tcallify_th th =
 
 val cvwalk_code = tcallify_th cvwalk_thm
 
+Definition cvwalk_code_def:
+  cvwalk_code = ^cvwalk_code
+End
+
+(*
+  tcvwalk_pre a0 a1 ⇔
+  ∀v0.
+    lookup a1 a0 = SOME v0 ⇒
+    ∀v0'. v0 = Infer_Tuvar v0' ⇒ tcvwalk_pre a0 v0': thm
+*)
+Theorem cvwalk_code_tcalls =
+  SCONV[AllCaseEqs()] “^cvwalk_code (s0,v0) = INL (s,v)”
+
+(* Theorem cvwalk_code_reduces_vR:
+  cwfs s ∧ ^cvwalk_code (s,v0) = INL (s',v) ⇒
+  vR (encode_infer_t o_f sp2fm s) v v0 ∧ s' = s
+Proof
+*)
+
 Theorem sum_CASE_infer_CASE:
   sum_CASE (infer_t_CASE i vf af uf) lf rf =
   infer_t_CASE i (λv. sum_CASE (vf v) lf rf)
@@ -740,40 +759,71 @@ Proof
   Cases_on ‘i’ >> simp[]
 QED
 
+Theorem cvwalk_preserves_precond:
+  ∀x y.
+  (λ(s,v). cwfs s) x ∧ cvwalk_code x = INL y ⇒ (λ(s,v). cwfs s) y
+Proof
+  simp[cvwalk_code_def, AllCaseEqs(), FORALL_PROD] >> simp[]
+QED
+
+Definition cvwalkR_def:
+  cvwalkR σ =
+  λ(s,v) (s0,v0). s = σ ∧ s0 = σ ∧ vR (encode_infer_t o_f sp2fm σ) v v0
+End
+
+Theorem cvwalk_ensures_decrease:
+  ∀x y. (λ(s,v). cwfs s) x ∧ cvwalk_code x = INL y ⇒ cvwalkR (FST x) y x
+Proof
+  simp[cwfs_def, swfs_def, wfs_def, cvwalk_code_def, AllCaseEqs(), FORALL_PROD,
+       cvwalkR_def] >>
+  simp[vR_def, FLOOKUP_o_f, SF CONJ_ss, encode_infer_t_def]
+QED
+
+Theorem WF_cvwalkR:
+  ∀x. (λ(s,v). cwfs s) x ⇒ WF (cvwalkR (FST x))
+Proof
+  simp[FORALL_PROD, cwfs_def, swfs_def, cvwalkR_def, wfs_def] >> rpt strip_tac >>
+  qmatch_abbrev_tac ‘WF R’ >> rename [‘map encode_infer_t σ’] >>
+  gvs[sp2fm_map] >>
+  irule WF_SUBSET >>
+  qexists‘inv_image (vR (encode_infer_t o_f sp2fm σ)) SND’ >>
+  simp[Abbr‘R’, FUN_EQ_THM, FORALL_PROD, WF_inv_image]
+QED
+
+Theorem cvwalk_tcallish:
+  ∀x. (λ(s,v). cwfs s) x ⇒
+      (λ(s,v). cvwalk s v) x = TAILCALL cvwalk_code ((λ(s,v). cvwalk s v)) x
+Proof
+  simp[whileTheory.TAILCALL_def, cvwalk_code_def, sum_CASE_option_CASE,
+       sum_CASE_infer_CASE, FORALL_PROD] >>
+  simp[Once (DISCH_ALL cvwalk_thm), cwfs_def]
+QED
 
 Theorem cvwalk_cleaned:
-  ∀x. (λ(s,v). cwfs s) x ⇒
-      (λ(s,v). cvwalk s v) x = TAILREC ^cvwalk_code x
+  ∀x. (λ(s,v). cwfs s) x ⇒ (λ(s,v). cvwalk s v) x = TAILREC cvwalk_code x
 Proof
-  match_mp_tac whileTheory.TAILREC_GUARD_ELIMINATION >> rpt conj_tac >>
-  simp[FORALL_PROD, AllCaseEqs(), cwfs_def]
-  >- (rpt strip_tac >> rename [‘swfs (map encode_infer_t s)’] >>
-      qexists_tac
-        ‘λ(s0,nm0) (s1,nm). s0 = s ∧ s1 = s ∧
-                            vR (sp2fm $ map encode_infer_t s) nm0 nm’ >>
-      simp[] >> conj_tac
-      >- (irule $ iffLR WF_EQ_WFP >> irule WF_SUBSET >>
-          qexists ‘inv_image (vR $ sp2fm $ map encode_infer_t s) SND’ >>
-          simp[FORALL_PROD] >> gs[WF_inv_image,swfs_def,wfs_def]) >>
-      rpt gen_tac >> strip_tac >>
-      rename [‘RTC _ (s0,_) (s,_)’] >>
-      ‘s0 = s’ by (qpat_x_assum ‘RTC _ _ _’ mp_tac >> Induct_on ‘RTC’ >>
-                   simp[FORALL_PROD]) >>
-      gvs[swfs_def, wfs_def, vR_def, lookup_map] >>
-      simp[encode_infer_t_def]) >>
-  simp[whileTheory.TAILCALL_def, FORALL_PROD, sum_CASE_option_CASE,
-       sum_CASE_infer_CASE] >>
-  simp[SimpLHS, Once (DISCH_ALL cvwalk_thm)]
+  match_mp_tac whileTheory.TAILREC_GUARD_ELIMINATION >> rpt conj_tac
+  >- ACCEPT_TAC cvwalk_preserves_precond
+  >- (rpt strip_tac >> qexists_tac ‘cvwalkR (FST x)’ >> conj_tac
+      >- (irule $ iffLR WF_EQ_WFP >> irule WF_cvwalkR >> ASM_REWRITE_TAC[]) >>
+      rpt strip_tac >>
+      ‘FST y = FST x’
+        by (Cases_on ‘x’ >> Cases_on ‘y’ >> gvs[] >>
+            rename [‘RTC _ (s,_) (s0,_)’] >>
+            qpat_x_assum ‘RTC _ _ _ ’ mp_tac >>
+            Induct_on ‘RTC’ >> simp[FORALL_PROD, cvwalkR_def]) >>
+      drule_all cvwalk_ensures_decrease >> simp[])
+  >- ACCEPT_TAC cvwalk_tcallish
 QED
 
 Definition tcvwalk_def:
-  tcvwalk s n = TAILREC ^cvwalk_code (s,n)
+  tcvwalk s n = TAILREC cvwalk_code (s,n)
 End
 
 Theorem tcvwalk_thm =
-        tcvwalk_def |> SRULE[Once whileTheory.TAILREC]
+        tcvwalk_def |> SRULE[Once whileTheory.TAILREC, cvwalk_code_def]
                     |> SRULE[sum_CASE_option_CASE, sum_CASE_infer_CASE]
-                    |> SRULE[GSYM tcvwalk_def]
+                    |> SRULE[GSYM tcvwalk_def, GSYM cvwalk_code_def]
 
 Theorem tcvwalk_correct =
    SRULE[FORALL_PROD, GSYM tcvwalk_def] cvwalk_cleaned
@@ -951,8 +1001,19 @@ tcallify_th (DefnBase.one_line_ify NONE
                                  |> LIST_CONJ
                                  |> Q.INST [‘s'’ |-> ‘s’]))
 
-Definition ocR_def:
-  ocR (s : infer_t num_map) =
+Definition kcocwl_code_def:
+  kcocwl_code = ^kcocwl_code
+End
+
+Theorem kcocwl_preserves_precond:
+  ∀x y. (λ(s,n,ts). cwfs s) x ∧ kcocwl_code x = INL y ⇒
+        (λ(s,n,ts). cwfs s) y
+Proof
+  simp[FORALL_PROD, kcocwl_code_def, AllCaseEqs()] >> rw[] >> simp[]
+QED
+
+Definition kcocwlR_def:
+  kcocwlR (s : infer_t num_map) =
   inv_image (pair$RPROD
              (=)
              (mlt1 (walkstarR (sp2fm (map encode_infer_t s))) LEX $<))
@@ -960,10 +1021,10 @@ Definition ocR_def:
                (s, BAG_OF_LIST (MAP encode_infer_t $ FLAT ts), LENGTH ts))
 End
 
-Theorem WF_ocR:
-  cwfs s ⇒ WF (ocR s)
+Theorem WF_kcocwlR:
+  cwfs s ⇒ WF (kcocwlR s)
 Proof
-  strip_tac >> gs[ocR_def, cwfs_def] >>
+  strip_tac >> gs[kcocwlR_def, cwfs_def] >>
   irule WF_inv_image >> irule WF_SUBSET >> simp[FORALL_PROD] >>
   qexists ‘inv_image (mlt1 (walkstarR (sp2fm (map encode_infer_t s))) LEX $<)
            SND’ >>
@@ -973,9 +1034,9 @@ Proof
 QED
 
 Theorem RTC_ocR_preserves_map:
-  ∀s0 x s1 y. RTC (ocR s) (s0, x) (s1, y) ⇒ s0 = s1
+  ∀s0 x s1 y. RTC (kcocwlR s) (s0, x) (s1, y) ⇒ s0 = s1
 Proof
-  Induct_on ‘RTC’ >> simp[ocR_def, FORALL_PROD]
+  Induct_on ‘RTC’ >> simp[kcocwlR_def, FORALL_PROD]
 QED
 
 Theorem FINITE_BAG_FOLDR_INSERT[simp]:
@@ -1086,44 +1147,65 @@ Proof
   irule subterm_walkstarR >> simp[MEM_subterm_encode]
 QED
 
+Theorem kcocwl_ensures_decrease:
+  ∀x y. (λ(s,n,v). cwfs s) x ∧ kcocwl_code x = INL y ⇒
+        kcocwlR (FST x) y x
+Proof
+  simp[FORALL_PROD,kcocwl_code_def,AllCaseEqs()] >> rw[] >~
+  [‘tcwalk s i = Infer_Tvar_db _’]
+  >- simp[kcocwlR_def, pairTheory.LEX_DEF, tcallUnifTheory.mlt1_BAG_INSERT] >~
+  [‘tcwalk s i = Infer_Tuvar v’]
+  >- simp[kcocwlR_def, pairTheory.LEX_DEF, tcallUnifTheory.mlt1_BAG_INSERT] >~
+  [‘kcocwlR s _ (_, _, [] :: _)’]
+  >- (simp[kcocwlR_def, pairTheory.LEX_DEF]) >~
+  [‘tcwalk s i = Infer_Tapp is nm’, ‘(i::t) :: rest’]
+  >- (simp[kcocwlR_def, pairTheory.LEX_DEF, rich_listTheory.FOLDR_APPEND] >>
+      simp[mlt1_def] >>
+      qexistsl [‘encode_infer_t i’,
+                ‘BAG_OF_LIST $ MAP encode_infer_t is’,
+                ‘BAG_UNION
+                 (BAG_OF_LIST $ MAP encode_infer_t (FLAT rest))
+                 (BAG_OF_LIST (MAP encode_infer_t t))’] >>
+      simp[] >> ONCE_REWRITE_TAC[FOLDR_BAG_INSERT_UNION] >> simp[] >>
+      simp[Once FOLDR_BAG_INSERT_UNION] >>
+      simp[AC COMM_BAG_UNION ASSOC_BAG_UNION] >>
+      simp[BAG_UNION_INSERT] >>
+      simp[BAG_IN_BAG_OF_LIST, MEM_MAP, PULL_EXISTS] >>
+      qx_gen_tac ‘i0’ >> strip_tac >> simp[walkstar_opth])
+QED
+
+Theorem kcocwl_tcallish:
+  ∀x. (λ(s,n,v). cwfs s) x ⇒
+      (λ(s,n,v). kcocwl s n v) x =
+      TAILCALL kcocwl_code (λ(s,n,v). kcocwl s n v) x
+Proof
+  simp[FORALL_PROD, whileTheory.TAILCALL_def, kcocwl_code_def,
+       sum_CASE_list_CASE, sum_CASE_infer_CASE, sum_CASE_COND] >>
+  rpt strip_tac >> rename [‘kcocwl s n wl ⇔ _’] >>
+  Cases_on ‘wl’ >> simp[Once kcocwl_thm, SimpLHS] >>
+  simp[]
+QED
+
 Theorem kcocwl_cleaned0:
   ∀x. (λ(s,n,v). cwfs s) x ⇒
-      (λ(s,n,v). kcocwl s n v) x = TAILREC ^kcocwl_code x
+      (λ(s,n,v). kcocwl s n v) x = TAILREC kcocwl_code x
 Proof
-  match_mp_tac whileTheory.TAILREC_GUARD_ELIMINATION >> rpt conj_tac >>
-  simp[FORALL_PROD, AllCaseEqs(), PULL_EXISTS] >> rw[] >> simp[]
-  >- (rename [‘cwfs s’] >> qexists ‘ocR s’ >>
-      conj_tac
-      >- (irule $ iffLR WF_EQ_WFP >> simp[WF_ocR]) >> rpt strip_tac >>
-      drule_then assume_tac RTC_ocR_preserves_map >> gvs[] >~
-      [‘ocR s _ (_, _, [] :: _)’]
-      >- (simp[ocR_def, pairTheory.LEX_DEF]) >~
-      [‘tcwalk s i = Infer_Tvar_db _’]
-      >- simp[ocR_def, pairTheory.LEX_DEF, tcallUnifTheory.mlt1_BAG_INSERT] >~
-      [‘tcwalk s i = Infer_Tuvar v’]
-      >- simp[ocR_def, pairTheory.LEX_DEF, tcallUnifTheory.mlt1_BAG_INSERT] >~
-      [‘tcwalk s i = Infer_Tapp is nm’, ‘RTC _ (_, _, (i::t) :: rest) _’]
-      >- (simp[ocR_def, pairTheory.LEX_DEF, rich_listTheory.FOLDR_APPEND] >>
-          simp[mlt1_def] >>
-          qexistsl [‘encode_infer_t i’,
-                    ‘BAG_OF_LIST $ MAP encode_infer_t is’,
-                    ‘BAG_UNION
-                     (BAG_OF_LIST $ MAP encode_infer_t (FLAT rest))
-                     (BAG_OF_LIST (MAP encode_infer_t t))’] >>
-          simp[] >> ONCE_REWRITE_TAC[FOLDR_BAG_INSERT_UNION] >> simp[] >>
-          simp[Once FOLDR_BAG_INSERT_UNION] >>
-          simp[AC COMM_BAG_UNION ASSOC_BAG_UNION] >>
-          simp[BAG_UNION_INSERT] >>
-          simp[BAG_IN_BAG_OF_LIST, MEM_MAP, PULL_EXISTS] >>
-          qx_gen_tac ‘i0’ >> strip_tac >> simp[walkstar_opth])) >>
-  simp[whileTheory.TAILCALL_def, FORALL_PROD, sum_CASE_infer_CASE,
-       sum_CASE_list_CASE, sum_CASE_COND] >>
-  rename [‘kcocwl s n k’] >>
-  Cases_on ‘k’ >> simp[Once kcocwl_thm]
+  match_mp_tac whileTheory.TAILREC_GUARD_ELIMINATION >> rpt conj_tac
+  >- ACCEPT_TAC kcocwl_preserves_precond
+  >- (qx_gen_tac ‘trip’ >> strip_tac >>
+      qexists ‘kcocwlR (FST trip)’ >> conj_tac
+      >- (irule $ iffLR WF_EQ_WFP >> PairCases_on ‘trip’ >> gvs[WF_kcocwlR]) >>
+      rpt strip_tac >> rename [‘kcocwlR (FST s0) s s'’] >>
+      ‘FST s0 = FST s'’
+        suffices_by (simp[] >> strip_tac >>
+                     irule kcocwl_ensures_decrease >> simp[]) >>
+      map_every PairCases_on [‘s0’, ‘s'’] >>
+      drule_then assume_tac RTC_ocR_preserves_map >> simp[])
+  >- ACCEPT_TAC kcocwl_tcallish
 QED
 
 Definition tcocwl_def:
-  tcocwl s n is = TAILREC ^kcocwl_code (s,n,is)
+  tcocwl s n is = TAILREC kcocwl_code (s,n,is)
 End
 
 Theorem tcocwl_correct0 =
@@ -1139,8 +1221,8 @@ Theorem disj2cond[local] = DECIDE “p ∨ q ⇔ if p then T else q”
 Theorem tcocwl_thm =
         tcocwl_def
           |> SRULE[Once whileTheory.TAILREC, sum_CASE_list_CASE,
-                   sum_CASE_infer_CASE, sum_CASE_COND]
-          |> SRULE [GSYM tcocwl_def]
+                   sum_CASE_infer_CASE, sum_CASE_COND, kcocwl_code_def]
+          |> SRULE [GSYM tcocwl_def, GSYM kcocwl_code_def]
           |> PURE_REWRITE_RULE [disj2cond]
 
 (* handle tail-recursification of unify *)
