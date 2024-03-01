@@ -58,6 +58,8 @@ Type mktree[pp] = “:('a,'b) mtree_ans -> ('a,'b) mtree”;
 Type ltree[pp] = “:(unit,unit,('a,'b) mtree_ans) itree”;
 Type lktree[pp] = “:('a,'b) mtree_ans -> ('a,'b) ltree”;
 
+Type stree[pp] = “:('b ffi_result, sem_vis_event, ('a,'b) mtree_ans) itree”;
+
 Type semtree[pp] = “:('b ffi_result, sem_vis_event, 'a result option) itree”;
 Type sem8tree[pp] = “:('b ffi_result, sem_vis_event, 8 result option) itree”;
 Type sem16tree[pp] = “:('b ffi_result, sem_vis_event, 16 result option) itree”;
@@ -361,29 +363,45 @@ Definition h_prog_def:
   (h_prog (Tick,s) = h_prog_rule_tick s)
 End
 
-(* Converts an mtree into a semtree *)
-Definition sem_outer_def:
-  sem_outer =
+val mt = “mt:('a,'b) mtree”;
+
+(* Converts mtree into stree *)
+Definition to_stree_def:
+  to_stree =
   itree_unfold
-  (λt. case t of
-         Ret (res,s) => Ret' res
+  (λ^mt. case mt of
+         Ret r => Ret' r
         | Tau t => Tau' t
         | Vis (e,k) g => Vis' e (g o k))
+End
+
+(* Converts stree into semtree *)
+val stree = “stree:('a,'b) stree”;
+
+Definition to_semtree_def:
+  to_semtree =
+  itree_unfold
+  (λ^stree. case stree of
+         Ret (res,s) => Ret' res
+        | Tau t => Tau' t
+        | Vis e k => Vis' e k)
 End
 
 (* ITree semantics for program commands *)
 Definition itree_evaluate_def:
   itree_evaluate p s =
-  sem_outer (itree_mrec h_prog (p,s))
+  to_stree (itree_mrec h_prog (p,s))
 End
 
 (* Observational ITree semantics *)
 val s = ``(s:('a,'ffi) panSem$state)``;
 
+(* XXX: We may want to remove this as it only corresponds
+ to the FBS semantics function that assumes single entrypoint. *)
 Definition itree_semantics_def:
   itree_semantics ^s entry =
   let prog = Call NONE (Label entry) [] in
-  (itree_evaluate prog ^s)
+  to_semtree (itree_evaluate prog ^s)
 End
 
 Definition mrec_sem_def:
