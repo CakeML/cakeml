@@ -476,6 +476,120 @@ Proof
     \\ match_mp_tac TOKENS_APPEND \\ rw[]
 QED
 
+Definition tokens_alt_aux_def:
+  (tokens_alt_aux f s i j n =
+  if j < n then
+    (if f (strsub s j)
+    then
+      (if i = j then tokens_alt_aux f s (i+1) (j+1) n
+      else
+        substring s i (j-i)::
+        (tokens_alt_aux f s (j+1) (j+1) n))
+    else
+      tokens_alt_aux f s i (j+1) n)
+  else
+    if i = j then []
+    else [substring s i (j-i)])
+Termination
+  WF_REL_TAC`measure (λf,s,i,j,n. n - j)`>>rw[]
+End
+
+Theorem substring_1_strsub:
+  i < strlen s ⇒
+  substring s i 1 = str (strsub s i)
+Proof
+  Cases_on`s`>>rw[substring_def]>>
+  DEP_REWRITE_TAC[SEG1]>>
+  gvs[str_def,implode_def]
+QED
+
+Theorem substring_0[simp]:
+  substring s i 0 = strlit ""
+Proof
+  Cases_on`s`>>rw[substring_def]>>
+  EVAL_TAC
+QED
+
+Theorem substring_add:
+  i + x + y ≤ strlen s ⇒
+  substring s i (x + y) =
+  substring s i x ^ substring s (i + x) y
+Proof
+  Cases_on`s`>>rw[substring_def]>>
+  simp[TAKE_SUM]>>
+  DEP_REWRITE_TAC[SEG_TAKE_DROP]>>
+  rw[TAKE_SUM,DROP_DROP]>>
+  simp[strcat_def]>>
+  EVAL_TAC
+QED
+
+Theorem tokens_alt_tokens_alt_aux:
+  ∀f s acc j l i.
+  i ≤ j ∧ j ≤ strlen s ∧
+  strlen s - j = l ∧
+  acc = REVERSE (explode (substring s i (j - i))) ⇒
+  tokens_aux f s acc j l =
+  tokens_alt_aux f s i j (strlen s)
+Proof
+  ho_match_mp_tac tokens_aux_ind>>rw[]
+  >- (
+    simp[Once tokens_alt_aux_def]>>
+    rw[tokens_aux_def]>>
+    qpat_x_assum`_ _ = ""`
+      (mp_tac o  Q.AP_TERM `LENGTH`)>>
+    simp[strlen_substring]>>rw[])
+  >- (
+    qpat_assum`STRING _ _ = _` (SUBST1_TAC o SYM)>>
+    simp[Once tokens_alt_aux_def,tokens_aux_def]>>
+    rw[]>>gvs[]>>
+    qpat_x_assum`STRING _ _ = REVERSE _`
+      (mp_tac o Q.AP_TERM `implode o REVERSE`)>>
+    simp[])
+  >- (
+    simp[Once tokens_alt_aux_def]>>
+    rw[tokens_aux_def]>>gvs[]
+    >- (
+      qpat_x_assum`_ _ = ""`
+        (mp_tac o  Q.AP_TERM `LENGTH`)>>
+      simp[strlen_substring]>>rw[])
+    >- (
+      first_x_assum(qspec_then`i` mp_tac)>> simp[]>>
+      impl_keep_tac >-
+        simp[substring_1_strsub]>>
+      rw[])>>
+    first_x_assum(qspec_then`i` mp_tac)>> simp[]>>
+    impl_keep_tac >- (
+      qpat_x_assum`_ _ = ""`
+        (mp_tac o  Q.AP_TERM `LENGTH`)>>
+      simp[strlen_substring]>>rw[])>>
+    rw[])>>
+  gvs[]>>
+  pop_assum (assume_tac o SYM)>>
+  simp[Once tokens_alt_aux_def]>>
+  rw[tokens_aux_def]>>gvs[]
+  >- (
+    qpat_x_assum`REVERSE _ = STRING _ _`
+      (mp_tac o Q.AP_TERM `implode o REVERSE`)>>
+    simp[])
+  >- (
+    first_x_assum(qspec_then`i` mp_tac)>> simp[]>>
+    impl_keep_tac >- (
+      `j + 1 - i = (j - i) + 1` by simp[]>>
+      pop_assum SUBST1_TAC>>
+      DEP_REWRITE_TAC[substring_add]>>
+      simp[]>>
+      DEP_REWRITE_TAC[substring_1_strsub]>>rw[])>>
+    rw[])
+QED
+
+Theorem tokens_alt:
+  tokens f s =
+  tokens_alt_aux f s 0 0 (strlen s)
+Proof
+  rw[tokens_def]>>
+  match_mp_tac tokens_alt_tokens_alt_aux>>
+  simp[]
+QED
 
 val fields_aux_def = Define `
   (fields_aux f s ss n 0 = [implode (REVERSE ss)]) /\
@@ -518,6 +632,54 @@ Theorem fields_length:
 Proof
   rw [fields_def, fields_aux_length]
 QED
+
+Definition fields_alt_aux_def:
+  (fields_alt_aux f s i j n =
+  if j < n then
+    (if f (strsub s j)
+    then
+        substring s i (j-i)::
+        (fields_alt_aux f s (j+1) (j+1) n)
+    else
+      fields_alt_aux f s i (j+1) n)
+  else
+    [substring s i (j-i)])
+Termination
+  WF_REL_TAC`measure (λf,s,i,j,n. n - j)`>>rw[]
+End
+
+Theorem fields_alt_fields_alt_aux:
+  ∀l acc j i.
+  i ≤ j ∧ j ≤ strlen s ∧
+  strlen s - j = l ∧
+  acc = REVERSE (explode (substring s i (j - i))) ⇒
+  fields_aux f s acc j l =
+  fields_alt_aux f s i j (strlen s)
+Proof
+  Induct>>rw[]
+  >- (
+    simp[Once fields_alt_aux_def]>>
+    rw[fields_aux_def])
+  >- (
+    simp[Once fields_alt_aux_def]>>
+    rw[fields_aux_def]>>gvs[]>>
+    first_x_assum(qspecl_then [`j+1`,`i`] mp_tac)>> simp[]>>
+    `j + 1 - i = (j - i) + 1` by simp[]>>
+    pop_assum SUBST1_TAC>>
+    DEP_REWRITE_TAC[substring_add]>>
+    simp[]>>
+    DEP_REWRITE_TAC[substring_1_strsub]>>rw[])
+QED
+
+Theorem fields_alt:
+  fields f s =
+  fields_alt_aux f s 0 0 (strlen s)
+Proof
+  rw[fields_def]>>
+  match_mp_tac fields_alt_fields_alt_aux>>
+  simp[]
+QED
+
 
 Definition str_findi_def:
   str_findi P i s = if i < strlen s
