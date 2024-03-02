@@ -824,6 +824,31 @@ val instream_buffered_inv_def = Define `
       bactive = TAKE (w-r) (DROP r bcontent))`;
       (*(bactive = [] <=> r = w))*)
 
+Theorem instream_buffered_inv_alt:
+  instream_buffered_inv r w bcontent bactive =
+    ∃old unused.
+      bcontent = old ++ bactive ++ unused ∧
+      1028 <= LENGTH bcontent /\
+      LENGTH bcontent < 256**2 /\
+      4 <= LENGTH old /\
+      LENGTH (old ++ bactive) = w /\
+      LENGTH old = r
+Proof
+  reverse eq_tac \\ gvs [instream_buffered_inv_def]
+  >-
+   (rw [] \\ gvs []
+    \\ once_rewrite_tac [GSYM APPEND_ASSOC]
+    \\ rewrite_tac [DROP_LENGTH_APPEND,TAKE_LENGTH_APPEND])
+  \\ strip_tac
+  \\ qpat_x_assum ‘r ≤ LENGTH bcontent’ assume_tac
+  \\ drule LESS_EQ_LENGTH \\ strip_tac \\ gvs []
+  \\ qexists_tac ‘ys1’ \\ gvs [DROP_LENGTH_APPEND]
+  \\ pop_assum mp_tac
+  \\ rewrite_tac [LESS_EQ_EXISTS] \\ strip_tac \\ gvs []
+  \\ ‘p ≤ LENGTH ys2’ by gvs []
+  \\ drule LESS_EQ_LENGTH \\ strip_tac \\ gvs [TAKE_LENGTH_APPEND]
+QED
+
 Overload TypeStamp_InstreamBuffered = “TypeStamp "InstreamBuffered" 35”;
 
 val INSTREAM_BUFFERED_def = Define `
@@ -6839,6 +6864,16 @@ Definition INSTREAM_STR_def:
          get_mode fs fd = SOME ReadMode)
 End
 
+Definition INSTREAM_STR'_def:
+  INSTREAM_STR' fd is (str:string) fs non_empty is_empty =
+    SEP_EXISTS read active left.
+      INSTREAM_BUFFERED_FD (MAP (n2w o ORD) active) fd is *
+      & (str = active ++ left /\
+         (non_empty ⇒ active ≠ []) ∧ (is_empty ⇒ active = []) ∧
+         get_file_content fs fd = SOME(read ++ str, LENGTH read + LENGTH active) /\
+         get_mode fs fd = SOME ReadMode)
+End
+
 Definition splitlines_at_def:
   splitlines_at c0 ls =
     (let
@@ -8982,9 +9017,9 @@ Termination
 End
 
 Theorem find_surplus:
-  CHAR c cv ∧ NUM i iv ∧ NUM j jv ∧ i ≤ j ∧ j ≤ LENGTH wl
+  CHAR c cv ∧ NUM i iv ∧ NUM j jv ∧ i ≤ j ∧ j ≤ LENGTH wl ∧ av = Loc a
   ⇒
-  app (p:'ffi ffi_proj) TextIO_find_surplus_v [cv; Loc a; iv; jv]
+  app (p:'ffi ffi_proj) TextIO_find_surplus_v [cv; av; iv; jv]
     (a ~~>> W8array wl)
     (POSTv retv.
         a ~~>> W8array wl *
@@ -9022,6 +9057,255 @@ Proof
   \\ impl_tac >- gvs []
   \\ strip_tac
   \\ xapp
+QED
+
+Triviality to_W8ARRAY:
+  loc ~~>> W8array bcontent = W8ARRAY (Loc loc) bcontent
+Proof
+  gvs [W8ARRAY_def,cond_STAR,FUN_EQ_THM,SEP_EXISTS_THM]
+QED
+
+Triviality ind_surplus_fun_eq_NONE:
+  ∀c bcontent r w.
+    w ≤ LENGTH bcontent ∧ r ≤ w ∧
+    (∀i. r ≤ i ∧ i < w ⇒ w2n (EL i bcontent) ≠ ORD c) ⇒
+    find_surplus_fun c bcontent r w = NONE
+Proof
+  ho_match_mp_tac find_surplus_fun_ind \\ rw []
+  \\ simp [Once find_surplus_fun_def]
+QED
+
+Triviality ind_surplus_fun_eq_SOME:
+  ∀c bcontent r w.
+    w ≤ LENGTH bcontent ∧ r ≤ j ∧ j < LENGTH bcontent ∧
+    w2n (EL j bcontent) = ORD c ∧ r < w ∧ j < w ∧
+    (∀i. r ≤ i ∧ i < j ⇒ w2n (EL i bcontent) ≠ ORD c) ⇒
+    find_surplus_fun c bcontent r w = SOME j
+Proof
+  ho_match_mp_tac find_surplus_fun_ind \\ rw []
+  \\ simp [Once find_surplus_fun_def]
+  \\ Cases_on ‘r = j’ \\ gvs []
+QED
+
+Theorem b_inputUntil_1_not_found:
+  CHAR c cv ∧ EVERY (λw. w2n w ≠ ORD c) bactive
+  ⇒
+  app (p:'ffi ffi_proj) TextIO_b_inputUntil_1_v [is; cv]
+    (INSTREAM_BUFFERED_FD bactive fd is)
+    (POSTv retv.
+        INSTREAM_BUFFERED_FD [] fd is *
+        & (SUM_TYPE STRING_TYPE STRING_TYPE
+             (INL (implode (MAP (CHR o w2n) bactive))) retv))
+Proof
+  rw [] \\ gvs [PULL_FORALL]
+  \\ xcf_with_def "TextIO.b_inputUntil_1" TextIO_b_inputUntil_1_v_def
+  \\ simp[INSTREAM_BUFFERED_FD_def] \\ xpull \\ xmatch
+  \\ simp [REF_NUM_def] \\ xpull
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ gvs [W8ARRAY_def] \\ xpull
+  \\ xlet_auto \\ gvs []
+  >- (xsimpl \\ gvs [instream_buffered_inv_def])
+  \\ ‘find_surplus_fun c bcontent r w = NONE’ by
+   (gvs [instream_buffered_inv_def]
+    \\ irule ind_surplus_fun_eq_NONE
+    \\ gvs [] \\ gvs [EVERY_EL,EL_TAKE,EL_DROP]
+    \\ rw [] \\ qpat_x_assum ‘r ≤ i’ mp_tac
+    \\ simp [LESS_EQ_EXISTS] \\ rw [] \\ gvs [])
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def]
+  \\ xmatch
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ gvs [GSYM W8ARRAY_def]
+  \\ gvs [to_W8ARRAY]
+  \\ xlet_auto
+  >- (xsimpl \\ gvs [instream_buffered_inv_def])
+  \\ xcon \\ xsimpl
+  \\ rpt $ first_assum $ irule_at Any
+  \\ gvs [std_preludeTheory.SUM_TYPE_def]
+  \\ pop_assum mp_tac \\ gvs [implode_def]
+  \\ gvs [instream_buffered_inv_def]
+QED
+
+Triviality TAKE_LENGTH_ADD1:
+  TAKE (LENGTH xs + 1) (xs ++ y::ys) = xs ++ [y]
+Proof
+  ‘xs ++ y::ys = (xs ++ [y]) ++ ys’ by rewrite_tac [GSYM APPEND_ASSOC,APPEND]
+  \\ ‘LENGTH xs + 1 = LENGTH (xs ++ [y])’ by gvs []
+  \\ asm_rewrite_tac [TAKE_LENGTH_APPEND]
+QED
+
+Theorem b_inputUntil_1_found:
+  CHAR c cv ∧ EVERY (λw. w2n w ≠ ORD c) bs1
+  ⇒
+  app (p:'ffi ffi_proj) TextIO_b_inputUntil_1_v [is; cv]
+    (INSTREAM_BUFFERED_FD (bs1 ++ (n2w (ORD c))::bs2) fd is)
+    (POSTv retv.
+        INSTREAM_BUFFERED_FD bs2 fd is *
+        & (SUM_TYPE STRING_TYPE STRING_TYPE
+             (INR (implode (MAP (CHR o w2n) bs1 ++ [c]))) retv))
+Proof
+  rw [] \\ gvs [PULL_FORALL]
+  \\ xcf_with_def "TextIO.b_inputUntil_1" TextIO_b_inputUntil_1_v_def
+  \\ simp[INSTREAM_BUFFERED_FD_def] \\ xpull \\ xmatch
+  \\ simp [REF_NUM_def] \\ xpull
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ gvs [W8ARRAY_def] \\ xpull
+  \\ xlet_auto \\ gvs []
+  >- (xsimpl \\ gvs [instream_buffered_inv_def])
+  \\ ‘find_surplus_fun c bcontent r w = SOME (r + LENGTH bs1)’ by
+   (gvs [instream_buffered_inv_def]
+    \\ irule ind_surplus_fun_eq_SOME \\ gvs []
+    \\ ‘r ≤ LENGTH bcontent’ by gvs []
+    \\ drule LESS_EQ_LENGTH \\ strip_tac \\ gvs []
+    \\ gvs [rich_listTheory.DROP_LENGTH_APPEND,EL_APPEND2]
+    \\ simp [LESS_EQ_EXISTS,PULL_EXISTS]
+    \\ gvs [LIST_EQ_REWRITE,ADD1,EL_TAKE,EVERY_EL]
+    \\ rpt strip_tac
+    >-
+     (first_x_assum $ qspec_then ‘p’ mp_tac
+      \\ gvs [EL_APPEND1] \\ metis_tac [])
+    \\ first_x_assum $ qspec_then ‘LENGTH bs1’ mp_tac
+    \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC]
+    \\ fs [EL_APPEND2] \\ disch_then $ assume_tac o SYM
+    \\ gvs [ORD_BOUND])
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def]
+  \\ xmatch
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ gvs [GSYM W8ARRAY_def]
+  \\ gvs [to_W8ARRAY]
+  \\ xlet_auto
+  >- (xsimpl \\ gvs [instream_buffered_inv_def])
+  \\ xcon \\ xsimpl
+  \\ rpt $ first_assum $ irule_at Any
+  \\ gvs [std_preludeTheory.SUM_TYPE_def]
+  \\ pop_assum mp_tac \\ gvs [implode_def]
+  \\ gvs [instream_buffered_inv_alt]
+  \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC,DROP_LENGTH_APPEND,TAKE_LENGTH_ADD1]
+  \\ simp [implode_def] \\ strip_tac
+  \\ qexists_tac ‘old ++ bs1 ++ [n2w (ORD c)]’ \\ gvs []
+QED
+
+Triviality not_EVERY_imp:
+  ∀xs. ¬EVERY p xs ⇒ ∃ys z zs. xs = ys ++ z::zs ∧ EVERY p ys ∧ ~ p z
+Proof
+  Induct \\ gvs [] \\ strip_tac \\ Cases_on ‘p h’ \\ gvs [] \\ rw [] \\ gvs []
+  >- (qexists_tac ‘h::ys’ \\ gvs [])
+  \\ qexists_tac ‘[]’ \\ gvs []
+QED
+
+Theorem b_inputUntil_1_spec:
+  CHAR c cv
+  ⇒
+  app (p:'ffi ffi_proj) TextIO_b_inputUntil_1_v [is; cv]
+    (INSTREAM_STR' fd is input fs non_empty is_empty)
+    (POSTv retv.
+        SEP_EXISTS bs1 bs2 is_empty1.
+          INSTREAM_STR' fd is bs2 fs F is_empty1 *
+          & (input = bs1 ++ bs2 ∧
+             (non_empty ⇒ bs1 ≠ []) ∧
+             (EVERY (λv. v ≠ c) bs1 ∧ is_empty1 ∧
+              SUM_TYPE STRING_TYPE STRING_TYPE (INL (implode bs1)) retv
+              ∨
+              EVERY (λv. v ≠ c) (BUTLAST bs1) ∧ LAST bs1 = c ∧ bs1 ≠ [] ∧
+              SUM_TYPE STRING_TYPE STRING_TYPE (INR (implode bs1)) retv)))
+Proof
+  gvs [INSTREAM_STR'_def] \\ rw [] \\ xpull \\ gvs []
+  \\ Cases_on ‘EVERY (λv. v ≠ c) active’
+  >-
+   (xapp_spec b_inputUntil_1_not_found
+    \\ gvs [PULL_EXISTS] \\ first_assum $ irule_at (Pos hd)
+    \\ qexists_tac ‘fd’ \\ gvs []
+    \\ qexists_tac ‘(MAP (n2w ∘ ORD) active)’ \\ gvs []
+    \\ xsimpl \\ conj_tac
+    >- gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,ORD_BOUND,ORD_11]
+    \\ rw []
+    \\ qexists_tac ‘active’ \\ gvs []
+    \\ qexists_tac ‘T’ \\ gvs []
+    \\ xsimpl \\ disj1_tac
+    \\ gvs [MAP_MAP_o,o_DEF,ORD_BOUND])
+  \\ drule not_EVERY_imp \\ strip_tac \\ gvs []
+  \\ xapp_spec b_inputUntil_1_found
+  \\ gvs [PULL_EXISTS] \\ first_assum $ irule_at (Pos hd)
+  \\ qexists_tac ‘fd’ \\ gvs []
+  \\ qexists_tac ‘(MAP (n2w ∘ ORD) zs)’ \\ gvs []
+  \\ qexists_tac ‘(MAP (n2w ∘ ORD) ys)’ \\ gvs []
+  \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
+  \\ fs [EVERY_MAP,o_DEF,ORD_BOUND,ORD_11,MAP_MAP_o]
+  \\ xsimpl \\ rw []
+  \\ qexists_tac ‘STRCAT ys (STRING c "")’ \\ gvs []
+  \\ qexists_tac ‘F’ \\ gvs []
+  \\ qexists_tac ‘read' ++ ys ++ [c]’ \\ gvs []
+  \\ qexists_tac ‘zs’ \\ gvs [] \\ xsimpl
+  \\ asm_rewrite_tac [GSYM SNOC_APPEND,FRONT_SNOC]
+QED
+
+Theorem b_refillBuffer_with_read_spec_STR:
+  app (p:'ffi ffi_proj) TextIO_b_refillBuffer_with_read_v [is]
+    (IOFS fs * INSTREAM_STR' fd is input fs F T)
+    (POSTv retv.
+       SEP_EXISTS nr.
+         IOFS (bumpFD fd fs nr) *
+         INSTREAM_STR' fd is input (bumpFD fd fs nr) (~(NULL input)) (NULL input))
+Proof
+  gvs [INSTREAM_STR'_def] \\ rw [] \\ xpull \\ gvs []
+  \\ gvs [INSTREAM_BUFFERED_FD_def] \\ rw [] \\ xpull \\ gvs []
+  \\ xapp_spec b_refillBuffer_with_read_spec \\ gvs []
+  \\ rpt $ first_assum $ irule_at $ Pos hd
+  \\ gvs [INSTREAM_BUFFERED_BL_FD_def]
+  \\ xsimpl \\ gvs [PULL_EXISTS]
+  \\ rpt $ first_assum $ irule_at $ Pos hd
+  \\ qexists_tac ‘emp’ \\ gvs [SEP_CLAUSES]
+  \\ gvs [REF_NUM_def] \\ xsimpl \\ rw []
+  \\ Cases_on ‘x = 0’ \\ gvs [NULL_EQ]
+  >- (first_x_assum $ irule_at $ Pos hd \\ rw [] \\ xsimpl)
+  \\ drule LESS_EQ_LENGTH \\ strip_tac \\ gvs []
+  \\ irule_at Any EQ_REFL
+  \\ qsuff_tac ‘explode_fromI (STRLEN ys1) (STRCAT (STRCAT read' ys1) ys2)
+             (STRLEN read') = MAP (n2w ∘ ORD) ys1’
+  >- (rw [] \\ gvs [] \\ first_x_assum $ irule_at $ Pos hd \\ rw [] \\ xsimpl)
+  \\ gvs [explode_fromI_def,take_fromI_def]
+  \\ ‘STRLEN read' = LENGTH ((MAP (n2w ∘ ORD) read'):word8 list)’ by gvs []
+  \\ asm_rewrite_tac [DROP_LENGTH_APPEND,listTheory.TAKE_LENGTH_ID_rwt2,GSYM APPEND_ASSOC]
+  \\ ‘STRLEN ys1 = LENGTH ((MAP (n2w ∘ ORD) ys1):word8 list)’ by simp []
+  \\ asm_rewrite_tac [TAKE_LENGTH_APPEND,GSYM APPEND_ASSOC]
+QED
+
+Theorem b_refillBuffer_with_read_spec_STR:
+  app (p:'ffi ffi_proj) TextIO_b_refillBuffer_with_read_guard_v [is]
+    (IOFS fs * INSTREAM_STR' fd is input fs F T)
+    (POSTv retv.
+       SEP_EXISTS nr b.
+         IOFS (bumpFD fd fs nr) *
+         INSTREAM_STR' fd is input (bumpFD fd fs nr) (~(NULL input)) (NULL input) *
+         & (BOOL (NULL input) retv))
+Proof
+  rw [] \\ gvs [PULL_FORALL]
+  \\ xcf_with_def "" TextIO_b_refillBuffer_with_read_guard_v_def
+  \\ xlet_auto_spec (SOME b_refillBuffer_with_read_spec_STR)
+  >-
+   (qexists_tac ‘emp’ \\ qexists_tac ‘input’
+    \\ qexists_tac ‘fs’ \\ qexists_tac ‘fd’ \\ xsimpl
+    \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl)
+  \\ gvs [INSTREAM_STR'_def,INSTREAM_BUFFERED_FD_def] \\ xpull \\ gvs []
+  \\ xmatch \\ gvs [REF_NUM_def] \\ xpull
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ gvs []
+  \\ xapp_spec (eq_v_thm |> DISCH_ALL |> GEN_ALL |> Q.ISPEC ‘NUM’ |> UNDISCH)
+  \\ gvs [ml_translatorTheory.EqualityType_NUM_BOOL]
+  \\ rpt $ first_assum $ irule_at $ Pos hd
+  \\ xsimpl \\ rw []
+  \\ rpt $ first_assum $ irule_at $ Pos hd
+  \\ gvs [NULL_EQ]
+  \\ rpt $ first_assum $ irule_at $ Pos hd
+  \\ xsimpl
+  \\ gvs [instream_buffered_inv_alt]
+  \\ Cases_on ‘active’ \\ gvs []
 QED
 
 val _ = export_theory();

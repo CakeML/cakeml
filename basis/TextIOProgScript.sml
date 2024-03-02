@@ -636,11 +636,13 @@ val _ = (append_prog o process_topdecs)`
 val _ = (append_prog o process_topdecs)`
   fun b_inputUntil_2 is chr acc =
   case b_inputUntil_1 is chr of
-    Inr s => String.concat (List.rev (s :: acc))
+    Inr s => Some (String.concat (List.rev (s :: acc)))
   | Inl s =>
       if b_refillBuffer_with_read_guard is
       then
-        String.concat (List.rev (s :: acc))
+        let
+          val res = String.concat (List.rev (String.str chr :: s :: acc))
+        in if String.size res = 1 then None else Some res end
       else
         b_inputUntil_2 is chr (s :: acc);`
 
