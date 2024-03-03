@@ -584,7 +584,7 @@ val _ = (append_prog o process_topdecs)`
 val _ = (append_prog o process_topdecs)`
   fun b_inputUntil_2 is chr acc =
   case b_inputUntil_1 is chr of
-    Inr s => Some (String.concat (List.rev (s :: acc)))
+    Inr s => Some (case acc of [] => s | _ => String.concat (List.rev (s :: acc)))
   | Inl s =>
       if b_refillBuffer_with_read_guard is
       then

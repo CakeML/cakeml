@@ -7159,7 +7159,7 @@ QED
 
 Theorem b_inputUntil_2_spec_STR_lemma[local]:
   ∀input acc accv fs.
-    CHAR c cv ∧ LIST_TYPE STRING_TYPE acc accv
+    CHAR c cv ∧ LIST_TYPE STRING_TYPE acc accv ∧ acc ≠ []
     ⇒
     app (p:'ffi ffi_proj) TextIO_b_inputUntil_2_v [is; cv; accv]
       (STDIO fs * INSTREAM_STR' fd is input fs T F)
@@ -7234,14 +7234,18 @@ Proof
     \\ gvs [] \\ qexists_tac ‘x’ \\ gvs [] \\ xsimpl)
   \\ gvs [std_preludeTheory.SUM_TYPE_def]
   \\ xmatch
-  \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ ‘LIST_TYPE STRING_TYPE (implode bs1 :: acc) v’ by gvs [LIST_TYPE_def]
   \\ xlet ‘POSTv retv. INSTREAM_STR' fd is bs2 fs F is_empty1 * STDIO fs *
-           & LIST_TYPE STRING_TYPE (REVERSE (implode bs1::acc)) retv’
+           & STRING_TYPE (concat (REVERSE (implode bs1::acc))) retv’
   >-
-   (xapp_spec (ListProgTheory.reverse_v_thm |> GEN_ALL |> ISPEC “STRING_TYPE”)
-    \\ gvs [] \\ pop_assum $ irule_at $ Pos hd \\ xsimpl)
-  \\ xlet_auto >- xsimpl
+   (Cases_on ‘acc’ \\ gvs [LIST_TYPE_def]
+    \\ xmatch \\ xlet_auto >- (xcon \\ xsimpl)
+    \\ ‘LIST_TYPE STRING_TYPE (implode bs1 :: h :: t) v’ by gvs [LIST_TYPE_def]
+    \\ xlet ‘POSTv retv. INSTREAM_STR' fd is bs2 fs F is_empty1 * STDIO fs *
+             & LIST_TYPE STRING_TYPE (REVERSE (implode bs1::h::t)) retv’
+    >-
+     (xapp_spec (ListProgTheory.reverse_v_thm |> GEN_ALL |> ISPEC “STRING_TYPE”)
+      \\ gvs [] \\ pop_assum $ irule_at $ Pos hd \\ xsimpl)
+    \\ xapp \\ pop_assum $ irule_at Any \\ xsimpl)
   \\ xcon \\ xsimpl \\ gvs [std_preludeTheory.OPTION_TYPE_def]
   \\ qexists_tac ‘0’
   \\ gvs [forwardFD_0,gen_inputLine_lem2,concat_append,concat_sing]
@@ -7292,7 +7296,7 @@ Proof
      (xlet_auto >- (xcon \\ xsimpl)
       \\ ‘LIST_TYPE STRING_TYPE [implode bs1] v’ by gvs [LIST_TYPE_def]
       \\ mp_tac b_inputUntil_2_spec_STR_lemma
-      \\ disch_then drule_all \\ gvs []
+      \\ disch_then (drule_then drule) \\ gvs []
       \\ disch_then $ qspecl_then [‘bs2’,‘forwardFD fs fd nr’] assume_tac
       \\ xapp \\ qexists_tac ‘emp’ \\ xsimpl
       \\ gvs [concat_append,gen_inputLine_lem1,concat_sing,implode_def] \\ rw []
@@ -7335,14 +7339,9 @@ Proof
     \\ gvs [] \\ qexists_tac ‘x’ \\ gvs [] \\ xsimpl)
   \\ gvs [std_preludeTheory.SUM_TYPE_def]
   \\ xmatch
-  \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ ‘LIST_TYPE STRING_TYPE (implode bs1 :: []) v’ by gvs [LIST_TYPE_def]
   \\ xlet ‘POSTv retv. INSTREAM_STR' fd is bs2 fs F is_empty1 * STDIO fs *
-           & LIST_TYPE STRING_TYPE (REVERSE (implode bs1::[])) retv’
-  >-
-   (xapp_spec (ListProgTheory.reverse_v_thm |> GEN_ALL |> ISPEC “STRING_TYPE”)
-    \\ gvs [] \\ pop_assum $ irule_at $ Pos hd \\ xsimpl)
-  \\ xlet_auto >- xsimpl
+                       & STRING_TYPE (implode bs1) retv’
+  >- (gvs [LIST_TYPE_def] \\ xmatch \\ xvar \\ xsimpl)
   \\ xcon \\ xsimpl \\ gvs [std_preludeTheory.OPTION_TYPE_def]
   \\ qexists_tac ‘0’
   \\ gvs [forwardFD_0,gen_inputLine_lem2,concat_append,concat_sing]
