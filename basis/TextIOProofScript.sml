@@ -7375,7 +7375,7 @@ Proof
   EVAL_TAC
 QED
 
-Theorem takeUntilIncl_cons:
+Theorem takeUntilIncl_cons2:
   takeUntilIncl P (x::xs) =
   if P x then [x]
   else x::takeUntilIncl P xs
@@ -7396,7 +7396,7 @@ Theorem gen_inputLine_cons:
   if x = c then str c else str x ^ gen_inputLine c xs
 Proof
   rw[gen_inputLine_def]>>
-  gvs[takeUntilIncl_cons,str_def,implode_cons_str]>>
+  gvs[takeUntilIncl_cons2,str_def,implode_cons_str]>>
   gvs[EVERY_MEM,EXISTS_MEM]
 QED
 
