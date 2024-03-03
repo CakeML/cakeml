@@ -601,8 +601,10 @@ val _ = (append_prog o process_topdecs)`
 
 val _ = (append_prog o process_topdecs)`
   fun b_inputLineTokens c0 is f g =
-    Option.map (List.map g o String.tokens f)
-      (b_inputLine c0 is)`;
+    case b_inputLine c0 is of
+      None => None
+    | Some l =>
+      Some (List.map g (String.tokens f l))`;
 
 val _ = ml_prog_update open_local_block;
 

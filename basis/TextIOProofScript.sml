@@ -7457,7 +7457,8 @@ Theorem b_inputLineTokens_spec_STR[local]:
   (CHAR --> BOOL) f fv ∧
   (STRING_TYPE --> (a:'a->v->bool)) g gv ∧
   EVERY (\c. c <> c0) to_read /\
-  (text <> "" ==> HD text = c0) ==>
+  (text <> "" ==> HD text = c0) ∧
+  f c0 ==>
   app (p:'ffi ffi_proj) TextIO_b_inputLineTokens_v [c0v; is; fv; gv]
     (STDIO fs * INSTREAM_STR fd is (to_read ++ text) fs)
     (POSTv v. SEP_EXISTS k.
@@ -7478,8 +7479,32 @@ Proof
     >-
       (qexists_tac`x`>>xsimpl)>>
     qexists_tac`x`>>xsimpl)>>
-  (* need to translate stuff *)
-  cheat
+  pop_assum mp_tac>>reverse TOP_CASE_TAC
+  >- (
+    strip_tac>>
+    gvs[std_preludeTheory.OPTION_TYPE_def]>>
+    xmatch>>
+    xlet_auto >- xsimpl>>
+    xlet_auto >- xsimpl>>
+    xcon>>xsimpl>>
+    qexists_tac`k`>>xsimpl>>
+    `TOKENS f (STRCAT (h::t) (STRING c0 "")) = TOKENS f (h :: t)` by
+      (DEP_REWRITE_TAC[TOKENS_APPEND]>>gvs[]>>
+      EVAL_TAC)>>
+    gvs[TOKENS_eq_tokens_sym])>>
+  IF_CASES_TAC>>
+  gvs[NULL_EQ,std_preludeTheory.OPTION_TYPE_def]>>
+  strip_tac>>xmatch
+  >- (
+    xcon>>xsimpl>>
+    qexists_tac`k`>>xsimpl)>>
+  xlet_auto >- xsimpl>>
+  xlet_auto >- xsimpl>>
+  xcon>>xsimpl>>
+  qexists_tac`k`>>xsimpl>>
+  pop_assum mp_tac>>
+  simp[TOKENS_eq_tokens_sym]>>
+  EVAL_TAC>>gvs[TOKENS_def,LIST_TYPE_def]
 QED
 
 Theorem b_inputLineTokens_spec_lines:
