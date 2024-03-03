@@ -3904,6 +3904,13 @@ val inputLine_def = Define `
              then takeLine s
              else STRCAT s "\n")`;
 
+Definition gen_inputLine_def:
+  gen_inputLine c s =
+    implode (if EXISTS ($= c) s
+             then takeUntilIncl ($= c) s
+             else STRCAT s [c])
+End
+
 Theorem SPLITP_takeUntil_dropUntil:
   !P ls.
     SPLITP P ls = (takeUntil P ls, dropUntil P ls)
@@ -6874,6 +6881,12 @@ Definition INSTREAM_STR'_def:
          get_mode fs fd = SOME ReadMode)
 End
 
+Triviality INSTREAM_STR'_F_F:
+  INSTREAM_STR' fd is input fs F F = INSTREAM_STR fd is input fs
+Proof
+  gvs [INSTREAM_STR'_def,INSTREAM_STR_def]
+QED
+
 Definition splitlines_at_def:
   splitlines_at c0 ls =
     (let
@@ -9246,15 +9259,19 @@ QED
 
 Theorem b_refillBuffer_with_read_spec_STR:
   app (p:'ffi ffi_proj) TextIO_b_refillBuffer_with_read_v [is]
-    (IOFS fs * INSTREAM_STR' fd is input fs F T)
+    (STDIO fs * INSTREAM_STR' fd is input fs F T)
     (POSTv retv.
        SEP_EXISTS nr.
-         IOFS (bumpFD fd fs nr) *
-         INSTREAM_STR' fd is input (bumpFD fd fs nr) (~(NULL input)) (NULL input))
+         STDIO (forwardFD fs fd nr) *
+         INSTREAM_STR' fd is input (forwardFD fs fd nr) (~(NULL input)) (NULL input))
 Proof
-  gvs [INSTREAM_STR'_def] \\ rw [] \\ xpull \\ gvs []
+  simp [Once STDIO_def]
+  \\ gvs [INSTREAM_STR'_def] \\ rw [] \\ xpull \\ gvs []
   \\ gvs [INSTREAM_BUFFERED_FD_def] \\ rw [] \\ xpull \\ gvs []
   \\ xapp_spec b_refillBuffer_with_read_spec \\ gvs []
+  \\ ‘get_mode (fs with numchars := ll) fd = SOME ReadMode ∧
+      get_file_content (fs with numchars := ll) fd = SOME (STRCAT read' input,STRLEN read')’
+     by gvs [get_mode_def,get_file_content_def]
   \\ rpt $ first_assum $ irule_at $ Pos hd
   \\ gvs [INSTREAM_BUFFERED_BL_FD_def]
   \\ xsimpl \\ gvs [PULL_EXISTS]
@@ -9262,12 +9279,24 @@ Proof
   \\ qexists_tac ‘emp’ \\ gvs [SEP_CLAUSES]
   \\ gvs [REF_NUM_def] \\ xsimpl \\ rw []
   \\ Cases_on ‘x = 0’ \\ gvs [NULL_EQ]
-  >- (first_x_assum $ irule_at $ Pos hd \\ rw [] \\ xsimpl)
+  >- (first_x_assum $ irule_at $ Pos hd \\ rw []
+      \\ gvs [bumpFD_0,STDIO_def] \\ xsimpl
+      \\ qexists_tac ‘THE (LTL ll)’ \\ gvs [] \\ xsimpl)
   \\ drule LESS_EQ_LENGTH \\ strip_tac \\ gvs []
   \\ irule_at Any EQ_REFL
   \\ qsuff_tac ‘explode_fromI (STRLEN ys1) (STRCAT (STRCAT read' ys1) ys2)
              (STRLEN read') = MAP (n2w ∘ ORD) ys1’
-  >- (rw [] \\ gvs [] \\ first_x_assum $ irule_at $ Pos hd \\ rw [] \\ xsimpl)
+  >- (rw [] \\ gvs [] \\ first_x_assum $ irule_at $ Pos hd \\ rw []
+      \\ gvs [bumpFD_forwardFD,fsFFIPropsTheory.forwardFD_numchars,STDIO_def]
+      \\ xsimpl \\ qexists_tac ‘THE (LTL ll)’ \\ xsimpl
+      \\ DEP_REWRITE_TAC [STD_streams_forwardFD] \\ gvs []
+      \\ gvs [get_file_content_def] \\ PairCases_on ‘x’
+      \\ gvs [get_mode_def]
+      \\ gvs [STD_streams_def]
+      \\ CCONTR_TAC \\ gvs []
+      \\ first_x_assum $ qspecl_then [‘2’,‘WriteMode’,‘STRLEN err’] mp_tac
+      \\ first_x_assum $ qspecl_then [‘1’,‘WriteMode’,‘STRLEN out’] mp_tac
+      \\ gvs [])
   \\ gvs [explode_fromI_def,take_fromI_def]
   \\ ‘STRLEN read' = LENGTH ((MAP (n2w ∘ ORD) read'):word8 list)’ by gvs []
   \\ asm_rewrite_tac [DROP_LENGTH_APPEND,listTheory.TAKE_LENGTH_ID_rwt2,GSYM APPEND_ASSOC]
@@ -9275,14 +9304,14 @@ Proof
   \\ asm_rewrite_tac [TAKE_LENGTH_APPEND,GSYM APPEND_ASSOC]
 QED
 
-Theorem b_refillBuffer_with_read_spec_STR:
+Theorem b_refillBuffer_with_read_guard_spec_STR:
   app (p:'ffi ffi_proj) TextIO_b_refillBuffer_with_read_guard_v [is]
-    (IOFS fs * INSTREAM_STR' fd is input fs F T)
+    (STDIO fs * INSTREAM_STR' fd is input fs F T)
     (POSTv retv.
-       SEP_EXISTS nr b.
-         IOFS (bumpFD fd fs nr) *
-         INSTREAM_STR' fd is input (bumpFD fd fs nr) (~(NULL input)) (NULL input) *
-         & (BOOL (NULL input) retv))
+       SEP_EXISTS nr.
+         STDIO (forwardFD fs fd nr) *
+         INSTREAM_STR' fd is input (forwardFD fs fd nr) (~(NULL input)) (NULL input) *
+         & BOOL (NULL input) retv)
 Proof
   rw [] \\ gvs [PULL_FORALL]
   \\ xcf_with_def "" TextIO_b_refillBuffer_with_read_guard_v_def
@@ -9291,21 +9320,282 @@ Proof
    (qexists_tac ‘emp’ \\ qexists_tac ‘input’
     \\ qexists_tac ‘fs’ \\ qexists_tac ‘fd’ \\ xsimpl
     \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl)
-  \\ gvs [INSTREAM_STR'_def,INSTREAM_BUFFERED_FD_def] \\ xpull \\ gvs []
-  \\ xmatch \\ gvs [REF_NUM_def] \\ xpull
+  \\ gvs [INSTREAM_STR'_def,INSTREAM_BUFFERED_FD_def,REF_NUM_def] \\ xpull
+  \\ xmatch
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
-  \\ gvs []
-  \\ xapp_spec (eq_v_thm |> DISCH_ALL |> GEN_ALL |> Q.ISPEC ‘NUM’ |> UNDISCH)
-  \\ gvs [ml_translatorTheory.EqualityType_NUM_BOOL]
-  \\ rpt $ first_assum $ irule_at $ Pos hd
+  \\ xapp_spec (DISCH_ALL eq_v_thm |> GEN_ALL |> ISPEC “NUM”)
+  \\ gvs [EqualityType_NUM_BOOL]
+  \\ rpt $ first_assum $ irule_at Any
   \\ xsimpl \\ rw []
-  \\ rpt $ first_assum $ irule_at $ Pos hd
+  \\ rpt $ first_assum $ irule_at Any
+  \\ gvs []
+  \\ qexists_tac ‘read'’
+  \\ qexists_tac ‘nr’ \\ gvs [] \\ xsimpl
   \\ gvs [NULL_EQ]
-  \\ rpt $ first_assum $ irule_at $ Pos hd
-  \\ xsimpl
   \\ gvs [instream_buffered_inv_alt]
   \\ Cases_on ‘active’ \\ gvs []
+QED
+
+Theorem takeUnitlIncl_append:
+  ∀bs1 bs2 p.
+    EVERY (λx. ~p x) bs1 ⇒
+    takeUntilIncl p (STRCAT bs1 bs2) =
+    STRCAT bs1 (takeUntilIncl p bs2)
+Proof
+  Induct \\ gvs [takeUntilIncl_def]
+QED
+
+Theorem gen_inputLine_lem1:
+  ∀bs1 bs2.
+    EVERY (λv. v ≠ c) bs1 ⇒
+    gen_inputLine c (STRCAT bs1 bs2) = strlit bs1 ^ gen_inputLine c bs2 ∧
+    dropUntilIncl ($= c) (STRCAT bs1 bs2) = dropUntilIncl ($= c) bs2
+Proof
+  Induct \\ gvs [dropUntilIncl_def,gen_inputLine_def]
+  \\ rpt strip_tac \\ gvs [takeUntilIncl_def,implode_def,strcat_def,concat_def]
+  >-
+   (‘~EXISTS ($= c) bs1’ by (gvs [o_DEF] \\ gvs [EVERY_MEM])
+    \\ asm_rewrite_tac [] \\ rw [] \\ irule takeUnitlIncl_append
+    \\ gvs [EVERY_MEM])
+  \\ gvs [mllistTheory.dropUntil_def]
+QED
+
+Theorem gen_inputLine_lem2:
+  EVERY (λv. v ≠ LAST bs1) (FRONT bs1) ∧ bs1 ≠ "" ⇒
+  gen_inputLine (LAST bs1) (STRCAT bs1 bs2) = implode bs1 ∧
+  dropUntilIncl ($= (LAST bs1)) (STRCAT bs1 bs2) = bs2
+Proof
+  Cases_on ‘bs1’ using SNOC_CASES \\ gvs []
+  \\ rewrite_tac [LAST_SNOC,FRONT_SNOC]
+  \\ gvs [SNOC_APPEND]
+  \\ rewrite_tac [GSYM APPEND_ASSOC]
+  \\ simp_tac std_ss [gen_inputLine_lem1]
+  \\ gvs [strcat_def,concat_def,implode_def]
+  \\ gvs [gen_inputLine_def,takeUntilIncl_def,implode_def]
+  \\ gvs [dropUntilIncl_def,mllistTheory.dropUntil_def]
+QED
+
+Theorem concat_sing:
+  concat [x] = x
+Proof
+  Cases_on ‘x’ \\ gvs [concat_def]
+QED
+
+Theorem b_inputUntil_2_spec_STR_lemma[local]:
+  ∀input acc accv fs.
+    CHAR c cv ∧ LIST_TYPE STRING_TYPE acc accv
+    ⇒
+    app (p:'ffi ffi_proj) TextIO_b_inputUntil_2_v [is; cv; accv]
+      (STDIO fs * INSTREAM_STR' fd is input fs T F)
+      (POSTv retv.
+         SEP_EXISTS nr.
+           STDIO (forwardFD fs fd nr) *
+           INSTREAM_STR fd is (dropUntilIncl ($= c) input) (forwardFD fs fd nr) *
+           & OPTION_TYPE STRING_TYPE
+               (SOME $ concat (REVERSE acc) ^ gen_inputLine c input) retv)
+Proof
+  gen_tac \\ completeInduct_on ‘LENGTH input’
+  \\ rw [] \\ gvs [PULL_FORALL]
+  \\ xcf_with_def "" TextIO_b_inputUntil_2_v_def
+  \\ xlet_auto_spec (SOME (b_inputUntil_1_spec |> Q.INST [‘non_empty’|->‘T’,‘is_empty’|->‘F’]))
+  >- (rw [] \\ xsimpl \\ rw [] \\ qexists_tac ‘STDIO fs’ \\ xsimpl
+      \\ qexists_tac ‘fs’ \\ xsimpl \\ rw []
+      \\ irule_at (Pos hd) EQ_REFL \\ gvs []
+      >- (qexists_tac ‘T’ \\ gvs [] \\ xsimpl)
+      \\ qexists_tac ‘x''’ \\ gvs [] \\ xsimpl)
+  \\ gvs []
+  >~ [‘INL’] >-
+   (gvs [std_preludeTheory.SUM_TYPE_def]
+    \\ xmatch
+    \\ xlet_auto_spec (SOME (b_refillBuffer_with_read_guard_spec_STR
+                               |> Q.INST [‘non_empty’|->‘T’,‘is_empty’|->‘F’,‘input’|->‘bs2’]
+                               |> ONCE_REWRITE_RULE [STAR_COMM]))
+    >- (qexists_tac ‘emp’ \\ qexists_tac ‘fs’ \\ gvs []
+        \\ xsimpl \\ gvs [] \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl \\ gvs [])
+    \\ gvs []
+    \\ reverse $ Cases_on ‘bs2 = []’ \\ gvs [BOOL_def]
+    \\ xif
+    >-
+     (qexists_tac ‘F’ \\ gvs [BOOL_def,semanticPrimitivesTheory.Boolv_def]
+      \\ conj_tac >- EVAL_TAC
+      \\ xlet_auto >- (xcon \\ xsimpl)
+      \\ last_x_assum $ qspecl_then [‘bs2’,‘implode bs1 :: acc’,‘v’,‘forwardFD fs fd nr’] mp_tac
+      \\ impl_tac >- (Cases_on ‘bs1’ \\ gvs[])
+      \\ impl_tac
+      >- (gvs [] \\ EVAL_TAC \\ gvs [STRING_TYPE_def,implode_def])
+      \\ strip_tac
+      \\ xapp \\ qexists_tac ‘emp’ \\ xsimpl
+      \\ gvs [concat_append,gen_inputLine_lem1,concat_sing,implode_def] \\ rw []
+      \\ gvs [fsFFIPropsTheory.forwardFD_o]
+      \\ qexists_tac ‘nr + x’ \\ gvs [] \\ xsimpl)
+    \\ qexists_tac ‘T’ \\ gvs [BOOL_def,semanticPrimitivesTheory.Boolv_def]
+    \\ conj_tac >- EVAL_TAC
+    \\ xlet_auto >- (xcon \\ xsimpl)
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto >- (xcon \\ xsimpl)
+    \\ ‘LIST_TYPE STRING_TYPE (str c :: implode bs1 :: acc) v'’ by gvs [LIST_TYPE_def]
+    \\ xlet ‘POSTv retv. INSTREAM_STR' fd is "" (forwardFD fs fd nr) F T *
+           STDIO (forwardFD fs fd nr) *
+           & LIST_TYPE STRING_TYPE (REVERSE (str c::implode bs1::acc)) retv’
+    >-
+     (xapp_spec (ListProgTheory.reverse_v_thm |> GEN_ALL |> ISPEC “STRING_TYPE”)
+      \\ gvs [] \\ pop_assum $ irule_at $ Pos hd \\ xsimpl)
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto >- xsimpl
+    \\ gvs [concat_append,concat_sing]
+    \\ ‘STRLEN bs1 + (strlen (concat (REVERSE acc)) + 1) = 1 ⇔ F’
+          by (Cases_on ‘bs1’ \\ gvs []) \\ gvs []
+    \\ xif \\ first_x_assum $ irule_at $ Pos hd \\ gvs []
+    \\ xcon \\ xsimpl \\ gvs [std_preludeTheory.OPTION_TYPE_def]
+    \\ qexists_tac ‘nr’
+    \\ drule gen_inputLine_lem1
+    \\ disch_then $ qspec_then ‘[]’ mp_tac \\ gvs []
+    \\ gvs [dropUntilIncl_def,mllistTheory.dropUntil_def,gen_inputLine_def]
+    \\ gvs [str_def,implode_def] \\ strip_tac
+    \\ gvs [INSTREAM_STR_def,INSTREAM_STR'_def]
+    \\ xsimpl \\ rpt gen_tac \\ strip_tac
+    \\ gvs [] \\ qexists_tac ‘x’ \\ gvs [] \\ xsimpl)
+  \\ gvs [std_preludeTheory.SUM_TYPE_def]
+  \\ xmatch
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ ‘LIST_TYPE STRING_TYPE (implode bs1 :: acc) v’ by gvs [LIST_TYPE_def]
+  \\ xlet ‘POSTv retv. INSTREAM_STR' fd is bs2 fs F is_empty1 * STDIO fs *
+           & LIST_TYPE STRING_TYPE (REVERSE (implode bs1::acc)) retv’
+  >-
+   (xapp_spec (ListProgTheory.reverse_v_thm |> GEN_ALL |> ISPEC “STRING_TYPE”)
+    \\ gvs [] \\ pop_assum $ irule_at $ Pos hd \\ xsimpl)
+  \\ xlet_auto >- xsimpl
+  \\ xcon \\ xsimpl \\ gvs [std_preludeTheory.OPTION_TYPE_def]
+  \\ qexists_tac ‘0’
+  \\ gvs [forwardFD_0,gen_inputLine_lem2,concat_append,concat_sing]
+  \\ gvs [INSTREAM_STR_def,INSTREAM_STR'_def]
+  \\ xsimpl \\ rpt gen_tac \\ strip_tac
+  \\ rename [‘STRCAT y1 y2 = STRCAT _ _’]
+  \\ qexists_tac ‘y1’
+  \\ qexists_tac ‘y2’
+  \\ gvs [] \\ xsimpl
+QED
+
+Theorem b_inputUntil_2_spec_STR:
+  CHAR c cv ∧ LIST_TYPE STRING_TYPE [] accv
+  ⇒
+  app (p:'ffi ffi_proj) TextIO_b_inputUntil_2_v [is; cv; accv]
+    (STDIO fs * INSTREAM_STR fd is input fs)
+    (POSTv retv.
+       SEP_EXISTS nr.
+         STDIO (forwardFD fs fd nr) *
+         INSTREAM_STR fd is (dropUntilIncl ($= c) input) (forwardFD fs fd nr) *
+         & OPTION_TYPE STRING_TYPE
+             (if input = "" then NONE else SOME $ gen_inputLine c input) retv)
+Proof
+  strip_tac \\ gvs [PULL_FORALL]
+  \\ xcf_with_def "" TextIO_b_inputUntil_2_v_def
+  \\ xlet_auto_spec (SOME (b_inputUntil_1_spec
+                             |> Q.INST [‘non_empty’|->‘F’,‘is_empty’|->‘F’]
+                             |> REWRITE_RULE [INSTREAM_STR'_F_F]))
+  >- (rw [] \\ xsimpl \\ rw [] \\ qexists_tac ‘STDIO fs’ \\ xsimpl
+      \\ qexists_tac ‘input’ \\ qexists_tac ‘fs’ \\ qexists_tac ‘fd’ \\ xsimpl
+      \\ rw []
+      \\ qexists_tac ‘x’ \\ qexists_tac ‘x'’ \\ gvs []
+      >- (qexists_tac ‘T’ \\ gvs [] \\ xsimpl)
+      \\ qexists_tac ‘x''’ \\ gvs [] \\ xsimpl)
+  \\ gvs []
+  >~ [‘INL’] >-
+   (gvs [std_preludeTheory.SUM_TYPE_def]
+    \\ xmatch
+    \\ xlet_auto_spec (SOME (b_refillBuffer_with_read_guard_spec_STR
+                               |> Q.INST [‘non_empty’|->‘T’,‘is_empty’|->‘F’,‘input’|->‘bs2’]
+                               |> ONCE_REWRITE_RULE [STAR_COMM]))
+    >- (qexists_tac ‘emp’ \\ qexists_tac ‘fs’
+        \\ qexists_tac ‘fd’ \\ qexists_tac ‘bs2’ \\ gvs []
+        \\ xsimpl \\ gvs [] \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl \\ gvs [])
+    \\ gvs []
+    \\ reverse xif
+    >-
+     (xlet_auto >- (xcon \\ xsimpl)
+      \\ ‘LIST_TYPE STRING_TYPE [implode bs1] v’ by gvs [LIST_TYPE_def]
+      \\ mp_tac b_inputUntil_2_spec_STR_lemma
+      \\ disch_then drule_all \\ gvs []
+      \\ disch_then $ qspecl_then [‘bs2’,‘forwardFD fs fd nr’] assume_tac
+      \\ xapp \\ qexists_tac ‘emp’ \\ xsimpl
+      \\ gvs [concat_append,gen_inputLine_lem1,concat_sing,implode_def] \\ rw []
+      \\ gvs [fsFFIPropsTheory.forwardFD_o]
+      \\ qexists_tac ‘nr + x’ \\ gvs [] \\ xsimpl)
+    \\ xlet_auto >- (xcon \\ xsimpl)
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto >- (xcon \\ xsimpl)
+    \\ ‘LIST_TYPE STRING_TYPE (str c :: implode bs1 :: []) v'’ by gvs [LIST_TYPE_def]
+    \\ xlet ‘POSTv retv. INSTREAM_STR' fd is "" (forwardFD fs fd nr) F T *
+           STDIO (forwardFD fs fd nr) *
+           & LIST_TYPE STRING_TYPE (REVERSE (str c::implode bs1::[])) retv’
+    >-
+     (xapp_spec (ListProgTheory.reverse_v_thm |> GEN_ALL |> ISPEC “STRING_TYPE”)
+      \\ gvs [] \\ pop_assum $ irule_at $ Pos hd \\ xsimpl)
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto >- xsimpl
+    \\ gvs [concat_append,concat_sing]
+    \\ xif
+    >-
+     (xcon \\ xsimpl \\ gvs [concat_def,implode_def,str_def]
+      \\ gvs [std_preludeTheory.OPTION_TYPE_def]
+      \\ gvs [dropUntilIncl_def,mllistTheory.dropUntil_def,gen_inputLine_def]
+      \\ gvs [INSTREAM_STR_def,INSTREAM_STR'_def]
+      \\ xsimpl \\ qexists_tac ‘nr’
+      \\ rpt gen_tac \\ strip_tac
+      \\ gvs [] \\ qexists_tac ‘x'’ \\ gvs [] \\ xsimpl)
+    \\ xcon \\ xsimpl
+    \\ ‘bs1 ≠ []’ by (Cases_on ‘bs1’ \\ gvs [concat_def,str_def,implode_def])
+    \\ gvs [std_preludeTheory.OPTION_TYPE_def]
+    \\ qexists_tac ‘nr’
+    \\ drule gen_inputLine_lem1
+    \\ disch_then $ qspec_then ‘[]’ mp_tac \\ gvs []
+    \\ strip_tac \\ gvs []
+    \\ gvs [dropUntilIncl_def,mllistTheory.dropUntil_def,gen_inputLine_def]
+    \\ gvs [str_def,implode_def,concat_def,strcat_def]
+    \\ gvs [INSTREAM_STR_def,INSTREAM_STR'_def]
+    \\ xsimpl \\ rpt gen_tac \\ strip_tac
+    \\ gvs [] \\ qexists_tac ‘x’ \\ gvs [] \\ xsimpl)
+  \\ gvs [std_preludeTheory.SUM_TYPE_def]
+  \\ xmatch
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ ‘LIST_TYPE STRING_TYPE (implode bs1 :: []) v’ by gvs [LIST_TYPE_def]
+  \\ xlet ‘POSTv retv. INSTREAM_STR' fd is bs2 fs F is_empty1 * STDIO fs *
+           & LIST_TYPE STRING_TYPE (REVERSE (implode bs1::[])) retv’
+  >-
+   (xapp_spec (ListProgTheory.reverse_v_thm |> GEN_ALL |> ISPEC “STRING_TYPE”)
+    \\ gvs [] \\ pop_assum $ irule_at $ Pos hd \\ xsimpl)
+  \\ xlet_auto >- xsimpl
+  \\ xcon \\ xsimpl \\ gvs [std_preludeTheory.OPTION_TYPE_def]
+  \\ qexists_tac ‘0’
+  \\ gvs [forwardFD_0,gen_inputLine_lem2,concat_append,concat_sing]
+  \\ gvs [INSTREAM_STR_def,INSTREAM_STR'_def]
+  \\ xsimpl \\ rpt gen_tac \\ strip_tac
+  \\ rename [‘STRCAT y1 y2 = STRCAT _ _’]
+  \\ qexists_tac ‘y1’
+  \\ qexists_tac ‘y2’
+  \\ gvs [] \\ xsimpl
+QED
+
+Theorem b_inputUntil_new_spec_STR:
+  CHAR c cv
+  ⇒
+  app (p:'ffi ffi_proj) TextIO_b_inputUntil_new_v [is; cv]
+    (STDIO fs * INSTREAM_STR fd is input fs)
+    (POSTv retv.
+       SEP_EXISTS nr.
+         STDIO (forwardFD fs fd nr) *
+         INSTREAM_STR fd is (dropUntilIncl ($= c) input) (forwardFD fs fd nr) *
+         & OPTION_TYPE STRING_TYPE
+             (if input = "" then NONE else SOME (gen_inputLine c input)) retv)
+Proof
+  rpt strip_tac
+  \\ xcf_with_def "" TextIO_b_inputUntil_new_v_def
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xapp_spec b_inputUntil_2_spec_STR
+  \\ gvs [] \\ gvs [LIST_TYPE_def]
 QED
 
 val _ = export_theory();
