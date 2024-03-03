@@ -1958,7 +1958,7 @@ Theorem do_app_aux_safe_for_space_mono:
   (do_app_aux op xs s = Rval (r,s1)) /\ s1.safe_for_space ==> s.safe_for_space
 Proof
   Cases_on `op` \\
-  fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+  fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,AllCaseEqs(),
       bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
       with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,check_lim_def,
@@ -13572,6 +13572,8 @@ Proof
   \\ IF_CASES_TAC \\ fs []
   \\ gvs [good_dimindex_def,dimword_def]
 QED
+
+val _ = Parse.hide "free";
 
 Theorem assign_Build:
    (∃parts. op = Build parts) ==> ^assign_thm_goal
