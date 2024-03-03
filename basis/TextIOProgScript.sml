@@ -551,58 +551,6 @@ val _ = (append_prog o process_topdecs)`
 val _ = ml_prog_update open_local_block;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputUntil_aux is (chr:char) =
-    case b_input1 is of
-      Some c =>  (if c <> chr then (c::b_inputUntil_aux is chr) else (c::[]))
-    | None => []`;
-
-Definition compress_def:
-  compress chrs = mlstring$implode (REVERSE chrs)
-End
-
-val _ = translate compress_def;
-
-val _ = (append_prog o process_topdecs)`
-  fun b_inputLine_aux c0 is k chrs strs =
-    case b_input1 is of
-      None =>
-        if List.null chrs andalso List.null strs
-        then None
-        else Some (String.concat (List.rev (compress (c0::chrs) :: strs)))
-    | Some c =>
-        if c = c0
-        then Some (String.concat (List.rev (compress (c::chrs) :: strs)))
-        else if k = 0
-             then b_inputLine_aux c0 is 500 [] (compress (c::chrs) :: strs)
-             else b_inputLine_aux c0 is (k-1) (c::chrs) strs`;
-
-Definition some_compress_def:
-  some_compress g is_emp chrs acc =
-    if is_emp then NONE else
-      SOME (REVERSE (if NULL chrs then acc else g (compress chrs) :: acc))
-End
-
-val _ = translate some_compress_def;
-
-val _ = (append_prog o process_topdecs)`
-  fun b_inputLineTokens_aux c0 is f g is_emp chrs acc =
-    case b_input1 is of
-      None => some_compress g is_emp chrs acc
-    | Some c =>
-        if c = c0
-        then some_compress g False chrs acc
-        else if f c
-             then if List.null chrs
-                  then b_inputLineTokens_aux c0 is f g False [] acc
-                  else b_inputLineTokens_aux c0 is f g False [] (g (compress chrs) :: acc)
-             else b_inputLineTokens_aux c0 is f g False (c::chrs) acc`;
-
-val _ = ml_prog_update open_local_in_block;
-
-val _ = (append_prog o process_topdecs)`
-  fun b_inputUntil is chr = String.implode (b_inputUntil_aux is chr)`;
-
-val _ = (append_prog o process_topdecs)`
   fun find_surplus c surplus readat writeat =
   if readat = writeat then None
   else
@@ -646,14 +594,15 @@ val _ = (append_prog o process_topdecs)`
       else
         b_inputUntil_2 is chr (s :: acc);`
 
-val _ = (append_prog o process_topdecs)`
-  fun b_inputUntil_new is chr = b_inputUntil_2 is chr [];`;
+val _ = ml_prog_update open_local_in_block;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputLine c0 is = b_inputLine_aux c0 is 500 [] []`;
+  fun b_inputLine c0 is = b_inputUntil_2 is c0 []`;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputLineTokens c0 is f g = b_inputLineTokens_aux c0 is f g True [] []`;
+  fun b_inputLineTokens c0 is f g =
+    Option.map (List.map g o String.tokens f)
+      (b_inputLine c0 is)`;
 
 val _ = ml_prog_update open_local_block;
 
