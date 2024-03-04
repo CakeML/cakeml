@@ -361,7 +361,10 @@ val comp_def = Define `
       (wStackLoad (l1++l2) (DataBufferWrite r1 r2),bs)) /\
   (comp (FFI i r1 r2 r3 r4 live) bs kf = (FFI i (r1 DIV 2) (r2 DIV 2)
                                                 (r3 DIV 2) (r4 DIV 2) 0,bs)) /\
-  (comp (ShareInst op v exp) bs kf = (wShareInst op v (THE(exp_to_addr exp)) kf,bs)) /\
+  (comp (ShareInst op v exp) bs kf =
+   (case exp_to_addr exp of
+      NONE => (Skip, bs)
+    | SOME addr => wShareInst op v addr kf,bs)) /\
   (comp _ bs kf = (Skip,bs) (* impossible *))`
 
 Definition raise_stub_def:
