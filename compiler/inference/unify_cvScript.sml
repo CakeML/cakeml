@@ -78,9 +78,60 @@ Proof
   simp[EQ_IMP_THM, cunify_pre_def, tcunify_pre]
 QED
 
-(*
-  t_walkstar st.subst t
-  t_unify st.subst t1 t2
-*)
+Overload from_infer_t[local] = “from_infer_t_infer_t_infer_t”;
+
+Theorem from_option_OPTION_MAP:
+  from_option f (OPTION_MAP g x) = from_option (f o g) x
+Proof
+  Cases_on ‘x’ \\ gvs [cv_typeTheory.from_option_def]
+QED
+
+Triviality to_encode_infer_t_o_f[simp]:
+  sp2fm (map encode_infer_t (fromAList (fmap_to_alist s))) =
+  encode_infer_t o_f s
+Proof
+  gvs [TO_FLOOKUP,FUN_EQ_THM,lookup_map,lookup_fromAList]
+  \\ gvs [finite_mapTheory.FLOOKUP_o_f]
+  \\ rw [] \\ Cases_on ‘FLOOKUP s x’ \\ gvs []
+QED
+
+Theorem t_wfs_IMP_cwfs:
+  t_wfs s ⇒ cwfs (fromAList (fmap_to_alist s))
+Proof
+  gvs [cwfs_def,t_wfs_def,rmfmapTheory.swfs_def,sptreeTheory.wf_fromAList]
+QED
+
+Theorem cv_rep_t_unify[cv_rep]:
+  t_wfs s ⇒
+  from_option (from_fmap from_infer_t) (t_unify s t1 t2) =
+  cv_cunify (from_fmap from_infer_t s) (from_infer_t t1) (from_infer_t t2)
+Proof
+  strip_tac \\ imp_res_tac t_wfs_IMP_cwfs \\ gvs [from_fmap_def]
+  \\ dep_rewrite.DEP_REWRITE_TAC [GSYM (fetch "-" "cv_cunify_thm")]
+  \\ gvs [cunify_pre,cunify_def,t_unify_def,rmfmapTheory.sunify_def]
+  \\ gvs [from_option_OPTION_MAP]
+  \\ AP_THM_TAC \\ AP_TERM_TAC \\ gvs [FUN_EQ_THM,from_fmap_def]
+  \\ rw [] \\ AP_TERM_TAC
+  \\ dep_rewrite.DEP_REWRITE_TAC [spt_eq_thm]
+  \\ gvs [wf_map,wf_fromAList,lookup_fromAList,lookup_map]
+  \\ gvs [finite_mapTheory.FLOOKUP_o_f]
+  \\ rw [] \\ Cases_on ‘FLOOKUP x n’ \\ gvs []
+QED
+
+Theorem cv_rep_t_walkstar[cv_rep]:
+  t_wfs s ⇒
+  from_infer_t (t_walkstar s t) =
+  cv_tcwalk (from_fmap from_infer_t s) (from_infer_t t)
+Proof
+  strip_tac \\ imp_res_tac t_wfs_IMP_cwfs \\ gvs [from_fmap_def]
+  \\ dep_rewrite.DEP_REWRITE_TAC [GSYM (fetch "-" "cv_tcwalk_thm")]
+  \\ irule_at Any tcwalk_pre \\ gvs [] \\ AP_TERM_TAC
+  \\ dep_rewrite.DEP_REWRITE_TAC [GSYM (unifyTheory.tcwalk_correct)] \\ gvs []
+  \\ gvs [unifyTheory.cwalk_def]
+  \\ gvs [unifyTheory.t_walkstar_def,rmfmapTheory.swalk_def]
+  \\ AP_TERM_TAC \\ AP_THM_TAC \\ gvs []
+  \\ cheat (* TODO: this cv function is ‘walk’ rather than ‘walk*’ ...
+                    which cv definition to use for ‘walk*’? *)
+QED
 
 val _ = export_theory ();
