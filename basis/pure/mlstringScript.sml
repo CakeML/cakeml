@@ -1334,6 +1334,12 @@ Proof
   \\ gvs [shrink_def,concat_cons,concat_nil,concat_append]
 QED
 
+Theorem concat_sing[simp]:
+  concat [x] = x
+Proof
+  Cases_on ‘x’ \\ gvs [concat_def]
+QED
+
 (* The translator turns each `empty_ffi s` into a call to the FFI with
    an empty name and passing `s` as the argument. The empty FFI is
    used for logging/timing purposes. *)

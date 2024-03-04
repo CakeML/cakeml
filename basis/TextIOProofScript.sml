@@ -7151,12 +7151,6 @@ Proof
   \\ gvs [dropUntilIncl_def,mllistTheory.dropUntil_def]
 QED
 
-Theorem concat_sing:
-  concat [x] = x
-Proof
-  Cases_on ‘x’ \\ gvs [concat_def]
-QED
-
 Theorem b_inputUntil_2_spec_STR_lemma[local]:
   ∀input acc accv fs.
     CHAR c cv ∧ LIST_TYPE STRING_TYPE acc accv ∧ acc ≠ []
