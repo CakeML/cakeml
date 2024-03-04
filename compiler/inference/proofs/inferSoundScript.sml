@@ -89,8 +89,9 @@ QED
   The current relation might be wrong *)
 
 (* the set of ids n1 .... n2-1 *)
-val set_ids_def = Define`
-  set_ids n1 (n2:num) = {m | n1 ≤ m ∧ m < n2}`
+Definition set_ids_def:
+  set_ids n1 (n2:num) = {m | n1 ≤ m ∧ m < n2}
+End
 
 val set_ids_eq = Q.prove(`
   set_ids n1 n2 =
