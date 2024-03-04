@@ -12631,6 +12631,8 @@ Proof
   \\ imp_res_tac SUBSET_FINITE_I
 QED
 
+val _ = Parse.hide "free";
+
 Theorem memory_rel_do_build:
   ∀parts i st free curr sp map0 map0' refs ts refs1 v m v ws.
     do_build map0 i parts refs (SOME ts) = (v,refs1,SOME ts1) ∧
