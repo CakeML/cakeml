@@ -78,4 +78,9 @@ Proof
   simp[EQ_IMP_THM, cunify_pre_def, tcunify_pre]
 QED
 
+(*
+  t_walkstar st.subst t
+  t_unify st.subst t1 t2
+*)
+
 val _ = export_theory ();

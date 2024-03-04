@@ -413,4 +413,50 @@ val res = cv_auto_trans sptreeTheory.spts_to_alist_def
 val res = cv_auto_trans sptreeTheory.toSortedAList_def
 *)
 
+(*----------------------------------------------------------*
+   num |-> 'a
+ *----------------------------------------------------------*)
+
+Definition from_fmap_def:
+  from_fmap (f:'a -> cv) (m: num |-> 'a) =
+    from_sptree_sptree_spt f (fromAList (fmap_to_alist m))
+End
+
+Definition to_fmap_def:
+  to_fmap (t:cv -> 'a) m =
+    alist_to_fmap (toAList (to_sptree_spt t m))
+End
+
+Theorem from_to_fmap[cv_from_to]:
+  from_to (f0:'a -> cv) t0 ⇒
+  from_to (from_fmap f0) (to_fmap t0)
+Proof
+  strip_tac
+  \\ drule (fetch "-" "from_sptree_to_sptree_spt_thm")
+  \\ gvs [from_fmap_def,to_fmap_def,from_to_def] \\ rw []
+  \\ gvs [finite_mapTheory.TO_FLOOKUP]
+  \\ gvs [FUN_EQ_THM,sptreeTheory.ALOOKUP_toAList,sptreeTheory.lookup_fromAList]
+QED
+
+Theorem cv_rep_FEMPTY[cv_rep]:
+  from_fmap f FEMPTY = Num 0
+Proof
+  EVAL_TAC \\ gvs [] \\ EVAL_TAC
+QED
+
+Theorem cv_rep_FLOOKUP[cv_rep]:
+  from_option f (FLOOKUP m n) = cv_lookup (Num n) (from_fmap f m)
+Proof
+  gvs [from_fmap_def,GSYM $ fetch "-" "cv_lookup_thm",sptreeTheory.lookup_fromAList]
+QED
+
+Theorem cv_rep_FUPDATE[cv_rep]:
+  from_fmap f (m |+ (k,v)) = cv_insert (Num k) (f v) (from_fmap f m)
+Proof
+  gvs [from_fmap_def,GSYM $ fetch "-" "cv_insert_thm"] \\ AP_TERM_TAC
+  \\ dep_rewrite.DEP_REWRITE_TAC [sptreeTheory.spt_eq_thm,sptreeTheory.wf_insert]
+  \\ gvs [wf_fromAList,lookup_insert,lookup_fromAList,finite_mapTheory.FLOOKUP_SIMP]
+  \\ rw []
+QED
+
 val _ = export_theory();
