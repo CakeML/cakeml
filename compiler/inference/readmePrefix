@@ -47,5 +47,21 @@ constant (cunify and its auxiliaries):
 
 The `{const}_code` is of type returning a sum, where the `INL`
 corresponds to a recursive tail-call and the `INR` case corresponds to
-terminating.
+terminating. 
 
+These can then be used to prove the {const}_pre results,
+which are of the form
+
+   precond x ==> {const}_pre args
+
+The strategy is to set up a well-founded induction with WF_{const}R,
+and to then exploit the fact that {const}_pre is "basically" an
+inductive relation defined on the basis of
+
+      !y. {const}_code x = INL y ==> {const}_pre y
+    ----------------------------------------------
+                    {const}_pre x
+
+We can use the inversion ("cases") theorem for this inductive
+relation, and the fact that {const}_code reduces the relation to get
+the induction to go through.
