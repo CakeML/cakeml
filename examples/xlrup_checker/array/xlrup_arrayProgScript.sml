@@ -2325,7 +2325,7 @@ val r = translate nocheck_string_def;
 (* TODO: possibly make this dump every 10000 lines or so *)
 val check_unsat'' = process_topdecs `
   fun check_unsat'' fd lno xorig cfml xfml tn def carr =
-    case TextIO.b_inputLineTokens fd blanks tokenize_fast of
+    case TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast of
       None => (cfml, xfml)
     | Some l =>
     case parse_and_run_arr lno xorig cfml xfml tn def carr l of
@@ -2407,11 +2407,11 @@ Theorem check_unsat''_spec:
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
     [fdv; lnov; xorigv; cfmlv; xfmlv; tnv; defv; Carrv]
     (STDIO fs * ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv *
-      W8ARRAY Carrv Clist * INSTREAM_LINES fd fdv lines fs)
+      W8ARRAY Carrv Clist * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTve
       (λv.
          SEP_EXISTS k v1 v2.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
            &(v = Conv NONE [v1; v2]) *
            (SEP_EXISTS cfmllsv' xfmllsv'.
             ARRAY v1 cfmllsv' *
@@ -2428,7 +2428,7 @@ Theorem check_unsat''_spec:
       )
       (λe.
          SEP_EXISTS k cfmlv cfmllsv xfmlv xfmllsv lines'.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            ARRAY cfmlv cfmllsv *
            ARRAY xfmlv xfmllsv *
            &(Fail_exn e ∧ parse_and_run_file_list lines xorig cfmlls xfmlls tn def Clist = NONE)))
@@ -2442,7 +2442,7 @@ Proof
                 ARRAY xfmlv xfmllsv *
                 W8ARRAY Carrv Clist *
                 STDIO (forwardFD fs fd k) *
-                INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
+                INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
@@ -2464,7 +2464,7 @@ Proof
                 ARRAY xfmlv xfmllsv *
                 W8ARRAY Carrv Clist *
                 STDIO (forwardFD fs fd k) *
-                INSTREAM_LINES fd fdv lines (forwardFD fs fd k) *
+                INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
                 & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast h)) v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
@@ -2506,7 +2506,7 @@ Proof
   >-
     (qexists_tac`k+x`>>xsimpl>>metis_tac[])>>
   qexists_tac ‘k+x’ \\ xsimpl >>
-  rename1`INSTREAM_LINES _ _ A _ * ARRAY B C * ARRAY D E`>>
+  rename1`INSTREAM_LINES _ _ _ A _ * ARRAY B C * ARRAY D E`>>
   qexists_tac`B`>>
   qexists_tac`C`>>
   qexists_tac`D`>>
@@ -2571,6 +2571,13 @@ Proof
   fs [forwardFD_def, IO_fs_component_equality]
 QED
 
+Theorem all_lines_gen_all_lines[simp]:
+  all_lines_gen #"\n" fs f =
+  all_lines fs f
+Proof
+  rw[all_lines_def,all_lines_gen_def,lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def]
+QED
+
 Theorem check_unsat'_spec:
   NUM n nv ∧
   LIST_TYPE (LIST_TYPE CNF_XOR_LIT_TYPE) xorig xorigv ∧
@@ -2624,7 +2631,7 @@ Proof
   qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
   xhandle`$POSTv Qval` \\ xsimpl >>
   qunabbrev_tac`Qval`>>
-  xlet_auto_spec (SOME b_openIn_spec_lines) \\ xsimpl >>
+  xlet_auto_spec (SOME (b_openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`)) \\ xsimpl >>
   `WORD8 w8z w8z_v` by fs[w8z_v_thm]>>
   xlet_autop >>
   qmatch_goalsub_abbrev_tac`STDIO fss`>>
@@ -2632,7 +2639,7 @@ Proof
   xlet`POSTv resv.
    SEP_EXISTS v0 v1 v2 cfmllsv' cfmlv' xfmllsv' xfmlv' k rest.
     STDIO (forwardFD fss (nextFD fs) k) *
-    INSTREAM_LINES (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
+    INSTREAM_LINES #"\n" (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
     ARRAY cfmlv' cfmllsv' *
     ARRAY xfmlv' xfmllsv' *
     &(
@@ -2655,7 +2662,7 @@ Proof
       xhandle`POSTe e.
         SEP_EXISTS cfmlv cfmllsv xfmlv xfmllsv rest k.
           STDIO (forwardFD fss (nextFD fs) k) *
-          INSTREAM_LINES (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
+          INSTREAM_LINES #"\n" (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
           ARRAY cfmlv cfmllsv *
           ARRAY xfmlv xfmllsv *
           &(Fail_exn e ∧ parse_and_run_file_list (all_lines fs f) xorig cfmlls xfmlls tn def Clist = NONE)`
@@ -2664,7 +2671,7 @@ Proof
         xlet `POSTe e.
          SEP_EXISTS k cfmlv cfmllsv xfmlv xfmllsv lines'.
            STDIO (forwardFD fss (nextFD fs) k) *
-           INSTREAM_LINES (nextFD fs) is lines' (forwardFD fss (nextFD fs) k) *
+           INSTREAM_LINES #"\n" (nextFD fs) is lines' (forwardFD fss (nextFD fs) k) *
            ARRAY cfmlv cfmllsv *
            ARRAY xfmlv xfmllsv *
            &(Fail_exn e ∧ parse_and_run_file_list (all_lines fs f) xorig cfmlls xfmlls tn def Clist = NONE)`
@@ -2680,7 +2687,7 @@ Proof
           \\ xsimpl \\ fs [unwrap_TYPE_def]
           \\ rw[]
           \\ qexists_tac `x`
-          \\ rename [`_ * INSTREAM_LINES _ _ xxx _ * ARRAY a1 a2 * ARRAY b1 b2`]
+          \\ rename [`_ * INSTREAM_LINES _ _ _ xxx _ * ARRAY a1 a2 * ARRAY b1 b2`]
           \\ qexists_tac `a1`
           \\ qexists_tac `a2`
           \\ qexists_tac `b1`
@@ -2690,7 +2697,7 @@ Proof
         fs[unwrap_TYPE_def]>>
         xsimpl>>
         rw[]>>
-        rename [`_ * INSTREAM_LINES _ _ xxx _ * ARRAY a1 a2 * ARRAY b1 b2`]
+        rename [`_ * INSTREAM_LINES _ _ _ xxx _ * ARRAY a1 a2 * ARRAY b1 b2`]
         \\ qexists_tac `a1`
         \\ qexists_tac `a2`
         \\ qexists_tac `b1`
@@ -2713,7 +2720,7 @@ Proof
     xhandle`(POSTv v.
         SEP_EXISTS v1 v2 k rest.
          STDIO (forwardFD fss (nextFD fs) k) *
-         INSTREAM_LINES (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
+         INSTREAM_LINES #"\n" (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
          &(v = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2]]) *
          (SEP_EXISTS cfmllsv' xfmllsv'.
            ARRAY v1 cfmllsv' *
@@ -2728,7 +2735,7 @@ Proof
         xlet `POSTv v.
            SEP_EXISTS k v1 v2.
                STDIO (forwardFD fss (nextFD fs) k) *
-               INSTREAM_LINES (nextFD fs) is [] (forwardFD fss (nextFD fs) k) *
+               INSTREAM_LINES #"\n" (nextFD fs) is [] (forwardFD fss (nextFD fs) k) *
                &(v = Conv NONE [v1; v2]) *
                (SEP_EXISTS cfmllsv' xfmllsv'.
                     ARRAY v1 cfmllsv' *
@@ -2760,11 +2767,11 @@ Proof
         xcon >>
         xsimpl>>
         rename [`forwardFD _ _ k`] \\ qexists_tac `k` >>
-        rename [`INSTREAM_LINES _ _ rr`] \\ qexists_tac `rr` \\ xsimpl) >>
+        rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr` \\ xsimpl) >>
       xsimpl>>simp[unwrap_TYPE_def]>>
       Cases_on`x`>>fs[]>>rw[]>>xsimpl >>
       rename [`forwardFD _ _ k`] \\ qexists_tac `k` >>
-      rename [`INSTREAM_LINES _ _ rr`] \\ qexists_tac `rr` \\ xsimpl)>>
+      rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr` \\ xsimpl)>>
   qspecl_then [`all_lines fs f`,`xorig`,`cfmlls`,`xfmlls`,`tn`,`def`,`Clist`] strip_assume_tac parse_and_run_file_list_eq>>
   fs[]>>rw[]>>
   pop_assum kall_tac >>
@@ -2777,6 +2784,7 @@ Proof
     qexists_tac `rest` >>
     qexists_tac `forwardFD fss (nextFD fs) k` >>
     qexists_tac `nextFD fs` >>
+    qexists_tac `#"\n"` >>
     conj_tac THEN1
      (fs [forwardFD_def,Abbr`fss`]
       \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs []
@@ -2966,7 +2974,6 @@ Proof
   simp[wf_cfml_def,range_build_fml,EVERY_MEM]
 QED
 
-(* TODO *)
 Theorem check_xlrups_unsat_list_sound:
   check_xlrups_unsat_list xfml xlrups
     (FOLDL (λacc (i,v).
