@@ -323,7 +323,9 @@ val compiler_for_eval_alt =
                        EVAL “x64_config.addr_offset”,upper_w2w_eq_I,
                        EVAL “x64_config.ISA”, EVAL “x86_64 = ARMv7”]
 
+val r = translate (lab_to_targetTheory.to_shmem_info_def |> spec64);
 val r = translate (lab_to_targetTheory.inc_config_to_config_def |> spec64);
+val r = translate (lab_to_targetTheory.to_inc_shmem_info_def |> spec64);
 val r = translate (lab_to_targetTheory.config_to_inc_config_def |> spec64);
 val r = translate (backendTheory.inc_config_to_config_def |> spec64);
 val r = translate (backendTheory.config_to_inc_config_def |> spec64);
