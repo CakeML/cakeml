@@ -111,3 +111,6 @@ https://github.com/ambros-gleixner/VIPR
 
 [wordcountProgScript.sml](wordcountProgScript.sml):
 Simple wordcount program, to demonstrate use of CF.
+
+[xlrup_checker](xlrup_checker):
+An XLRUP checker built on CakeML
