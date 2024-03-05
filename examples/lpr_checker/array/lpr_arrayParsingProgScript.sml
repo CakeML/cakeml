@@ -1330,4 +1330,119 @@ QED
 
 val _ = translate rev_enum_full_def;
 
+Theorem fml_rel_check_lpr_list:
+  ∀steps mindel fml fmlls inds fmlls' inds' Clist earliest.
+  fml_rel fml fmlls ∧
+  ind_rel fmlls inds ∧
+  SORTED $>= inds ∧
+  EVERY ($= w8z) Clist ∧ wf_fml fml ∧
+  earliest_rel fmlls earliest ∧
+  EVERY wf_lpr steps ∧
+  check_lpr_list mindel steps fmlls inds Clist earliest = SOME (fmlls', inds') ⇒
+  ind_rel fmlls' inds' ∧
+  ∃fml'. check_lpr mindel steps fml = SOME fml' ∧
+    fml_rel fml' fmlls'
+Proof
+  Induct>>fs[check_lpr_list_def,check_lpr_def]>>
+  ntac 9 strip_tac>>
+  ntac 4 (TOP_CASE_TAC>>fs[])>>
+  strip_tac>>
+  drule  fml_rel_check_lpr_step_list>>
+  rpt (disch_then drule)>>
+  disch_then (qspecl_then [`h`,`mindel`] mp_tac)>> simp[]>>
+  strip_tac>>
+  simp[]>>
+  first_x_assum match_mp_tac>>
+  asm_exists_tac>>fs[]>>
+  asm_exists_tac>>fs[]>>
+  asm_exists_tac>>fs[]>>
+  qexists_tac`r`>>fs[]>>
+  match_mp_tac check_lpr_step_wf_fml>>
+  metis_tac[]
+QED
+
+Theorem check_lpr_sat_equiv_list_sound:
+  check_lpr_sat_equiv_list lpr
+    (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
+    (REVERSE (MAP FST (enumerate k fml)))
+    Clist
+    (FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) (enumerate k fml))
+    0 fml2 ∧
+  EVERY wf_clause fml ∧ EVERY wf_lpr lpr ∧ EVERY ($= w8z) Clist ⇒
+  satisfiable (interp fml) ⇒
+  satisfiable (interp fml2)
+Proof
+  rw[check_lpr_sat_equiv_list_def]>>
+  every_case_tac>>fs[]>>
+  assume_tac (fml_rel_FOLDL_update_resize |> INST_TYPE [alpha |-> ``:int list``])>>
+  assume_tac (ind_rel_FOLDL_update_resize |> INST_TYPE [alpha |-> ``:int list``])>>
+  assume_tac earliest_rel_FOLDL_update_resize>>
+  drule fml_rel_check_lpr_list>>
+  `SORTED $>= (REVERSE (MAP FST (enumerate k fml)))` by
+    (DEP_REWRITE_TAC [SORTED_REVERSE]>>
+    simp[transitive_def,MAP_FST_enumerate]>>
+    match_mp_tac SORTED_weaken>>
+    qexists_tac `$<`>>simp[]>>
+    metis_tac[SORTED_GENLIST_PLUS])>>
+  drule wf_fml_build_fml>>
+  disch_then (qspec_then`k` assume_tac)>>
+  simp[]>>
+  rpt(disch_then drule)>>
+  strip_tac>>
+  match_mp_tac (check_lpr_sat_equiv_fml |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
+  simp[check_lpr_sat_equiv_def]>>
+  asm_exists_tac>>simp[]>>
+  asm_exists_tac>>simp[]>>
+  qexists_tac`0`>>simp[]>>
+  qexists_tac`k`>>simp[]>>
+  metis_tac[fml_rel_contains_clauses_list]
+QED
+
+Theorem check_lpr_range_list_sound:
+  check_lpr_range_list
+    lpr
+    (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
+    (REVERSE (MAP FST (enumerate k fml)))
+    (FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) (enumerate k fml))
+    m (LENGTH fml + k) pf i j ∧
+  EVERY wf_clause fml ∧ EVERY wf_lpr lpr ∧ EVERY wf_proof pf ⇒
+  satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
+  satisfiable (interp (run_proof fml (TAKE j pf)))
+Proof
+  rw[]>>
+  drule fml_rel_check_lpr_range_list>>
+  assume_tac (fml_rel_FOLDL_update_resize |> INST_TYPE [alpha |-> ``:int list``])>>
+  disch_then drule>>
+  assume_tac (ind_rel_FOLDL_update_resize |> INST_TYPE [alpha |-> ``:int list``])>>
+  assume_tac earliest_rel_FOLDL_update_resize>>
+  simp[]>>
+  impl_tac >-(
+    simp[wf_fml_build_fml]>>
+    simp[transitive_def,MAP_FST_enumerate]>>
+    CONJ_TAC>-(
+      `ALL_DISTINCT (MAP FST (enumerate k fml))` by
+        fs[ALL_DISTINCT_MAP_FST_enumerate]>>
+      drule FOLDL_update_resize_lookup>>
+      simp[any_el_ALT]>>
+      rw[]>>
+      pop_assum mp_tac>>IF_CASES_TAC>>simp[]>>
+      first_x_assum(qspecl_then [`n`,`x`] mp_tac)>>
+      simp[]>>
+      simp[ALOOKUP_enumerate]>>
+      every_case_tac>>fs[])>>
+    DEP_REWRITE_TAC [SORTED_REVERSE]>>
+    simp[transitive_def,MAP_FST_enumerate]>>
+    match_mp_tac SORTED_weaken>>
+    qexists_tac `$<`>>simp[]>>
+    metis_tac[SORTED_GENLIST_PLUS])>>
+  strip_tac>>
+  drule check_lpr_range_sound>>
+  disch_then match_mp_tac>>
+  asm_exists_tac>>simp[]>>
+  simp[Once CONJ_COMM]>>
+  asm_exists_tac>>simp[]>>
+  simp[Once CONJ_COMM]>>
+  asm_exists_tac>>simp[]
+QED
+
 val _ = export_theory();

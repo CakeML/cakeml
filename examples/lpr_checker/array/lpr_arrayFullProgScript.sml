@@ -697,6 +697,7 @@ Theorem check_lpr_range_arr_spec:
       | INR opt =>
           inFS_fname fs f ∧
           ∃lpr fml' inds' err2.
+            EVERY wf_lpr lpr ∧
             let fm = hash_clauses_list fmlls ls in
             let stsij = TAKE j sts in
             let stsi = TAKE i stsij in
@@ -809,6 +810,11 @@ QED
 val _ = translate parse_proofstep_def;
 val _ = translate parse_proof_toks_aux_def;
 val _ = translate parse_proof_toks_def;
+
+val noparse_string_def = Define`
+  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]`;
+
+val r = translate noparse_string_def;
 
 (* parse_proof with simple wrapper *)
 val parse_proof_full = (append_prog o process_topdecs) `
@@ -1006,6 +1012,7 @@ Definition check_unsat_2_sem_def:
   | SOME (mv,ncl,fml) =>
     (out ≠ strlit"" ⇒
     ∃lpr.
+      EVERY wf_lpr lpr ∧
       out = strlit "s VERIFIED UNSAT\n" ∧
       let fmlls = enumerate 1 fml in
       let base = REPLICATE (2*ncl) NONE in
@@ -1149,6 +1156,7 @@ Definition check_unsat_3_sem_def:
   | SOME (mv2,ncl2,fml2) =>
     (out ≠ strlit"" ⇒
     ∃lpr.
+      EVERY wf_lpr lpr ∧
       out = strlit "s VERIFIED TRANSFORMATION\n" ∧
       let fmlls = enumerate 1 fml in
       let base = REPLICATE (2*ncl) NONE in
@@ -1323,6 +1331,7 @@ Definition check_unsat_4_sem_def:
     if i ≤ j ∧ j ≤ LENGTH pf then
       (out ≠ strlit"" ⇒
         ∃lpr.
+          EVERY wf_lpr lpr ∧
           let fmlls = enumerate 1 fml in
           let base = REPLICATE (2*ncl) NONE in
           let bnd = 2*mv+3 in
@@ -1333,7 +1342,6 @@ Definition check_unsat_4_sem_def:
     else out = strlit ""))
 End
 
-(* TODO *)
 Theorem parse_proof_full_spec:
   STRING_TYPE f fv ∧
   validArg f ∧
@@ -1361,26 +1369,31 @@ Proof
   >- (
     xapp_spec b_inputAllTokensFrom_spec_specialize >>
     xsimpl>>
-    fs[FILENAME_def,validArg_def])>>
-  TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>xmatch
+    fs[FILENAME_def,validArg_def]>>
+    qexists_tac`emp`>>
+    qexists_tac`fs`>>
+    qexists_tac`f`>>
+    xsimpl )>>
+  gvs[get_proof_def]>>
+  reverse (Cases_on`inFS_fname fs f`)>>
+  gvs[OPTION_TYPE_def]>>xmatch
   >- (
     xlet_autop>>
-    `toks = (MAP tokenize ∘ tokens blanks)` by
-      metis_tac[toks_def,ETA_AX,o_DEF]>>
-    rw[]>> TOP_CASE_TAC>>
-    fs[OPTION_TYPE_def]
-    >- (
-      xmatch >>
-      xlet_autop>>
-      xcon>>xsimpl>>
-      simp[SUM_TYPE_def]>>metis_tac[])>>
-    xmatch>>xcon>>
-    xsimpl>>
-    simp[SUM_TYPE_def])
-  >>
+    xcon>>xsimpl>>
+    simp[SUM_TYPE_def]>>metis_tac[])>>
+  xlet_autop>>
+  `toks = (MAP tokenize ∘ tokens blanks)` by
+    metis_tac[toks_def,ETA_AX,o_DEF]>>
+  rw[]>> TOP_CASE_TAC>>
+  fs[OPTION_TYPE_def]
+  >- (
+    xmatch >>
     xlet_autop>>
     xcon>>xsimpl>>
-    simp[SUM_TYPE_def]>>metis_tac[]
+    simp[SUM_TYPE_def]>>metis_tac[])>>
+  xmatch>>xcon>>
+  xsimpl>>
+  simp[SUM_TYPE_def]
 QED
 
 Theorem inFS_fname_file_content:
@@ -1436,34 +1449,34 @@ Theorem check_unsat_4_spec:
 Proof
   rw[]>>
   xcf "check_unsat_4" (get_ml_prog_state ())>>
+  reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
   reverse (Cases_on`consistentFS fs`)
     >- (fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def] \\ xpull \\ metis_tac[]) >>
   xlet_autop>>
   simp[check_unsat_4_sem_def]>>
-  reverse TOP_CASE_TAC>>fs[]
+  TOP_CASE_TAC>>fs[]
   >- (
     fs[SUM_TYPE_def]>>xmatch>>
     err_tac)>>
-  TOP_CASE_TAC>> fs[SUM_TYPE_def]
-  >- (xmatch>> err_tac)>>
   PairCases_on`x`>>fs[SUM_TYPE_def,PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
-  reverse TOP_CASE_TAC>>fs[]
+  TOP_CASE_TAC>>fs[]
   >- (
     fs[SUM_TYPE_def]>>xmatch>>
     err_tac)>>
-  TOP_CASE_TAC>> fs[SUM_TYPE_def]
-  >- (xmatch>> err_tac)>>
-  xmatch>>
+  fs[SUM_TYPE_def]>>xmatch>>
   xlet_autop>>
   TOP_CASE_TAC >> fs[OPTION_TYPE_def]
-  >- (xmatch>>
+  >- (
+    xmatch>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit"c Unable to parse range specification a-b\n"`>>xsimpl)>>
+    qexists_tac`strlit"c Unable to parse range specification a-b\n"`>>xsimpl>>
+    simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    xsimpl)>>
   TOP_CASE_TAC >>fs[SUM_TYPE_def]
   >- (
     (* -check case *)
@@ -1473,28 +1486,50 @@ Proof
       xapp_spec check_compose_spec_fail>>
       xsimpl>>
       fs[FILENAME_def,validArg_def]>>
-      asm_exists_tac>>simp[]>>
-      asm_exists_tac>>simp[]>>
-      asm_exists_tac>>simp[]>>
-      fs[file_content_def,inFS_fname_def]>>
-      TOP_CASE_TAC>>fs[])>>
+      first_x_assum (irule_at Any)>>
+      first_x_assum (irule_at Any)>>
+      first_x_assum (irule_at (Pos (el 1)))>>
+      first_x_assum (irule_at Any)>>
+      first_x_assum (irule_at Any)>>
+      first_x_assum (irule_at Any)>>
+      first_x_assum (irule_at Any)>>
+      simp[]>>
+      qexists_tac`emp`>>
+      `file_content fs f3 = NONE` by (
+        fs[file_content_def,inFS_fname_def]>>
+        TOP_CASE_TAC>>fs[])>>
+      xsimpl>>rw[]>>
+      rename1`add_stderr fs err`>>
+      qexists_tac`err`>>
+      simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+      xsimpl)>>
     xapp>>xsimpl>>fs[]>>
-    asm_exists_tac>>simp[]>>
+    gvs[get_fml_def,get_proof_def,AllCaseEqs()]>>
     imp_res_tac inFS_fname_file_content>>fs[]>>rw[]>>
+    imp_res_tac all_lines_lines_of>>simp[]>>
     fs[FILENAME_def,validArg_def]>>
-    asm_exists_tac>> simp[]>>
-    qpat_x_assum`_ _ f3 = _` assume_tac>>
-    asm_exists_tac>> simp[]>>
-    qpat_x_assum`_ _ f2 = _` assume_tac>>
-    asm_exists_tac>> simp[]>>
+    first_x_assum (irule_at (Pos (el 1)))>>
+    first_x_assum (irule_at (Pos (el 1)))>>
+    first_x_assum (irule_at (Pos (el 1)))>>
+    first_x_assum (irule_at (Pos (el 1)))>>
+    first_x_assum (irule_at (Pos (el 1)))>>
+    first_x_assum (irule_at (Pos (el 1)))>>
+    first_x_assum (irule_at (Pos (el 2)))>>
+    rpt(first_x_assum (irule_at (Pos (el 1))))>>
     qexists_tac`emp`>>xsimpl>>rw[]>>
     (* relate all_lines and lines_of *)
-    imp_res_tac all_lines_lines_of>>simp[]>>
     gs[]>>
     drule parse_proof_toks_LENGTH>>
     simp[]>>
     TOP_CASE_TAC>>simp[]>>strip_tac
-    >- (qexists_tac`x'`>>xsimpl)>>
+    >- (
+      gvs[]>>
+      rename1`add_stderr fs err`>>
+      qexists_tac`err`>>
+      simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+      xsimpl)>>
+    qexists_tac`strlit ""`>>
+    simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,STD_streams_stderr,add_stdo_nil]>>
     xsimpl)>>
   PairCases_on`y`>>fs[PAIR_TYPE_def]>>
   xmatch>>
@@ -1502,12 +1537,14 @@ Proof
   fs[check_cond_def]>>
   reverse xif
   >- (
-    fs[]>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit"c Invalid range specification: range a-b must satisfy a <= b <= num lines in proof file\n"`>>xsimpl)>>
+    rename1`add_stderr fs err`>>
+    qexists_tac`err`>>
+    simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    xsimpl)>>
   xlet`POSTv v. &NUM 1 v * STDIO fs` >- (xlit>>xsimpl)>>
   drule fill_arr_spec>>
   drule fill_earliest_spec>>
@@ -1527,6 +1564,7 @@ Proof
   >- (
     xsimpl>>
     CONJ_TAC >-(
+      gvs[get_fml_def,AllCaseEqs()]>>
       fs[parse_dimacs_toks_def]>>every_case_tac>>fs[]>>
       drule parse_dimacs_body_bound>>rw[]>>
       rw[bounded_fml_def,EVERY_EL]>>
@@ -1548,61 +1586,70 @@ Proof
       intLib.ARITH_TAC)>>
     rw[]>>rpt(pairarg_tac>>fs[])>>
     metis_tac[])>>
-  rpt (pairarg_tac>>fs[])>>
-  qpat_x_assum`SUM_TYPE _ _ _ _` mp_tac>>
-  reverse IF_CASES_TAC >-(
-    simp[SUM_TYPE_def]>>strip_tac>>xmatch>>
-    err_tac)>>
-  TOP_CASE_TAC>>simp[] >-(
-    simp[SUM_TYPE_def]>>strip_tac>>xmatch>>
-    err_tac)>>
-  TOP_CASE_TAC>>simp[] >-(
-    simp[SUM_TYPE_def]>>strip_tac>>xmatch>>
+
+  every_case_tac>>gvs[SUM_TYPE_def]
+  >- (
+    xmatch>>
     xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
     qexists_tac`emp`>>xsimpl>>
-    asm_exists_tac>>simp[]>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    simp[check_lpr_range_list_def]>>fs[]>>
-    simp[check_lpr_sat_equiv_list_def]>>
+    qexists_tac`strlit""`>>
+    rename1`add_stderr fs err`>>
     qexists_tac`err`>>xsimpl>>
-    fs[LENGTH_enumerate,rev_enum_full_rev_enumerate]>>
+    simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
-  TOP_CASE_TAC>>simp[check_lpr_range_list_def,check_lpr_sat_equiv_list_def]>>
-  simp[SUM_TYPE_def]>>strip_tac>>
-  fs[LENGTH_enumerate,rev_enum_full_rev_enumerate]>>
-  TOP_CASE_TAC>>fs[OPTION_TYPE_def,SUM_TYPE_def]>> xmatch
+  rpt (pairarg_tac>>fs[])>>
+  qpat_x_assum`y = _` mp_tac>>
+  reverse(rw[])>>
+  gvs[OPTION_TYPE_def]
   >- (
-    xlet_autop>>
-    xlet ‘(POSTv retv. STDIO fs * &OPTION_TYPE STRING_TYPE
-            (OPTION_MAP (implode ∘ md5) (file_content fs f1)) retv)’
-    >-
-      (xapp_spec md5_of_SOME \\ fs [std_preludeTheory.OPTION_TYPE_def, FILENAME_def,validArg_def])>>
-    imp_res_tac inFS_fname_file_content>>fs[]>>rw[]>>
-    gvs [std_preludeTheory.OPTION_TYPE_def]>>
     xmatch>>
-    xlet_autop>>
-    xlet ‘(POSTv retv. STDIO fs * &OPTION_TYPE STRING_TYPE
-            (OPTION_MAP (implode ∘ md5) (file_content fs f2)) retv)’
-    >-
-      (xapp_spec md5_of_SOME \\ fs [std_preludeTheory.OPTION_TYPE_def, FILENAME_def,validArg_def])>>
-    gvs [std_preludeTheory.OPTION_TYPE_def]>>
-    xmatch>>
-    xlet_autop>>
-    xlet_autop>>
-    xapp>>xsimpl>>
-    qexists_tac`emp`>>
-    asm_exists_tac>>
-    qexists_tac`fs`>>xsimpl)>>
+    rpt xlet_autop>>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    qexists_tac`strlit""`>>
+    rename1`add_stderr fs err`>>
+    qexists_tac`err`>>xsimpl>>
+    simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    xsimpl)>>
+  xmatch>>
   xlet_autop>>
-  xapp_spec output_stderr_spec \\ xsimpl>>
-  qexists_tac`emp`>>xsimpl>>
-  asm_exists_tac>>qexists_tac`fs`>>xsimpl>>
+  xlet ‘(POSTv retv. STDIO fs * &OPTION_TYPE STRING_TYPE
+          (OPTION_MAP (implode ∘ md5) (file_content fs f1)) retv)’
+  >-
+    (xapp_spec md5_of_SOME \\ fs [std_preludeTheory.OPTION_TYPE_def, FILENAME_def,validArg_def])>>
+  gvs[get_fml_def,get_proof_def,AllCaseEqs()]>>
+  imp_res_tac inFS_fname_file_content>>fs[]>>rw[]>>
+  gvs [std_preludeTheory.OPTION_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
+  xlet ‘(POSTv retv. STDIO fs * &OPTION_TYPE STRING_TYPE
+          (OPTION_MAP (implode ∘ md5) (file_content fs f2)) retv)’
+  >-
+    (xapp_spec md5_of_SOME \\ fs [std_preludeTheory.OPTION_TYPE_def, FILENAME_def,validArg_def])>>
+  gvs [std_preludeTheory.OPTION_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
+  xlet_autop>>
+  xapp>>xsimpl>>
+  qexists_tac`emp`>>
+  first_x_assum (irule_at Any)>>
+  qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`transformation_err err2`>>xsimpl
+  rename1`add_stdout fs out`>>
+  qexists_tac`out`>>qexists_tac`strlit""`>>
+  simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stderr, STD_streams_stdout,add_stdo_nil]>>
+  xsimpl>>rw[]>>
+  qexists_tac`lpr`>>
+  gvs[check_lpr_range_list_def]>>
+  fs[LENGTH_enumerate,rev_enum_full_rev_enumerate]>>
+  simp[check_lpr_sat_equiv_list_def]
 QED
-
-(* END TODO *)
 
 Definition check_unsat_sem_def:
   check_unsat_sem cl fs out =
@@ -1734,120 +1781,5 @@ Theorem check_unsat_semantics =
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
 
 end
-
-Theorem fml_rel_check_lpr_list:
-  ∀steps mindel fml fmlls inds fmlls' inds' Clist earliest.
-  fml_rel fml fmlls ∧
-  ind_rel fmlls inds ∧
-  SORTED $>= inds ∧
-  EVERY ($= w8z) Clist ∧ wf_fml fml ∧
-  earliest_rel fmlls earliest ∧
-  EVERY wf_lpr steps ∧
-  check_lpr_list mindel steps fmlls inds Clist earliest = SOME (fmlls', inds') ⇒
-  ind_rel fmlls' inds' ∧
-  ∃fml'. check_lpr mindel steps fml = SOME fml' ∧
-    fml_rel fml' fmlls'
-Proof
-  Induct>>fs[check_lpr_list_def,check_lpr_def]>>
-  ntac 9 strip_tac>>
-  ntac 4 (TOP_CASE_TAC>>fs[])>>
-  strip_tac>>
-  drule  fml_rel_check_lpr_step_list>>
-  rpt (disch_then drule)>>
-  disch_then (qspecl_then [`h`,`mindel`] mp_tac)>> simp[]>>
-  strip_tac>>
-  simp[]>>
-  first_x_assum match_mp_tac>>
-  asm_exists_tac>>fs[]>>
-  asm_exists_tac>>fs[]>>
-  asm_exists_tac>>fs[]>>
-  qexists_tac`r`>>fs[]>>
-  match_mp_tac check_lpr_step_wf_fml>>
-  metis_tac[]
-QED
-
-Theorem check_lpr_sat_equiv_list_sound:
-  check_lpr_sat_equiv_list lpr
-    (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
-    (REVERSE (MAP FST (enumerate k fml)))
-    Clist
-    (FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) (enumerate k fml))
-    0 fml2 ∧
-  EVERY wf_clause fml ∧ EVERY wf_lpr lpr ∧ EVERY ($= w8z) Clist ⇒
-  satisfiable (interp fml) ⇒
-  satisfiable (interp fml2)
-Proof
-  rw[check_lpr_sat_equiv_list_def]>>
-  every_case_tac>>fs[]>>
-  assume_tac (fml_rel_FOLDL_update_resize |> INST_TYPE [alpha |-> ``:int list``])>>
-  assume_tac (ind_rel_FOLDL_update_resize |> INST_TYPE [alpha |-> ``:int list``])>>
-  assume_tac earliest_rel_FOLDL_update_resize>>
-  drule fml_rel_check_lpr_list>>
-  `SORTED $>= (REVERSE (MAP FST (enumerate k fml)))` by
-    (DEP_REWRITE_TAC [SORTED_REVERSE]>>
-    simp[transitive_def,MAP_FST_enumerate]>>
-    match_mp_tac SORTED_weaken>>
-    qexists_tac `$<`>>simp[]>>
-    metis_tac[SORTED_GENLIST_PLUS])>>
-  drule wf_fml_build_fml>>
-  disch_then (qspec_then`k` assume_tac)>>
-  simp[]>>
-  rpt(disch_then drule)>>
-  strip_tac>>
-  match_mp_tac (check_lpr_sat_equiv_fml |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
-  simp[check_lpr_sat_equiv_def]>>
-  asm_exists_tac>>simp[]>>
-  asm_exists_tac>>simp[]>>
-  qexists_tac`0`>>simp[]>>
-  qexists_tac`k`>>simp[]>>
-  metis_tac[fml_rel_contains_clauses_list]
-QED
-
-Theorem check_lpr_range_list_sound:
-  check_lpr_range_list
-    lpr
-    (FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) (REPLICATE n NONE) (enumerate k fml))
-    (REVERSE (MAP FST (enumerate k fml)))
-    (FOLDL (λacc (i,v). update_earliest acc i v) (REPLICATE bnd NONE) (enumerate k fml))
-    m (LENGTH fml + k) pf i j ∧
-  EVERY wf_clause fml ∧ EVERY wf_lpr lpr ∧ EVERY wf_proof pf ⇒
-  satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
-  satisfiable (interp (run_proof fml (TAKE j pf)))
-Proof
-  rw[]>>
-  drule fml_rel_check_lpr_range_list>>
-  assume_tac (fml_rel_FOLDL_update_resize |> INST_TYPE [alpha |-> ``:int list``])>>
-  disch_then drule>>
-  assume_tac (ind_rel_FOLDL_update_resize |> INST_TYPE [alpha |-> ``:int list``])>>
-  assume_tac earliest_rel_FOLDL_update_resize>>
-  simp[]>>
-  impl_tac >-(
-    simp[wf_fml_build_fml]>>
-    simp[transitive_def,MAP_FST_enumerate]>>
-    CONJ_TAC>-(
-      `ALL_DISTINCT (MAP FST (enumerate k fml))` by
-        fs[ALL_DISTINCT_MAP_FST_enumerate]>>
-      drule FOLDL_update_resize_lookup>>
-      simp[any_el_ALT]>>
-      rw[]>>
-      pop_assum mp_tac>>IF_CASES_TAC>>simp[]>>
-      first_x_assum(qspecl_then [`n`,`x`] mp_tac)>>
-      simp[]>>
-      simp[ALOOKUP_enumerate]>>
-      every_case_tac>>fs[])>>
-    DEP_REWRITE_TAC [SORTED_REVERSE]>>
-    simp[transitive_def,MAP_FST_enumerate]>>
-    match_mp_tac SORTED_weaken>>
-    qexists_tac `$<`>>simp[]>>
-    metis_tac[SORTED_GENLIST_PLUS])>>
-  strip_tac>>
-  drule check_lpr_range_sound>>
-  disch_then match_mp_tac>>
-  asm_exists_tac>>simp[]>>
-  simp[Once CONJ_COMM]>>
-  asm_exists_tac>>simp[]>>
-  simp[Once CONJ_COMM]>>
-  asm_exists_tac>>simp[]
-QED
 
 val _ = export_theory();
