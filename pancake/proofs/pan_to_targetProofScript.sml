@@ -302,11 +302,10 @@ val pan_installed_def = Define`
          MAP (\rec. rec.entry_pc + mc_conf.target.get_pc ms) shmem_extra =
          DROP i mc_conf.ffi_entry_pcs ∧
          mc_conf.mmio_info =
-         (λindex. EL (index − i)
-                     (MAP
-                      (\rec. (rec.nbytes, rec.access_addr, rec.reg,
-        rec.exit_pc + mc_conf.target.get_pc ms))
-      shmem_extra)) /\
+         ZIP (GENLIST (λindex. index + i) (LENGTH shmem_extra),
+             (MAP (λrec. (rec.nbytes, rec.access_addr, rec.reg,
+                        rec.exit_pc + mc_conf.target.get_pc ms))
+                                                           shmem_extra)) ∧
     cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a))`;
 
 Theorem pan_installed_imp_installed:
