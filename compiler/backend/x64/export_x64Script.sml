@@ -52,14 +52,6 @@ val startup =
        "     jmp     cake_main";
        ""])`` |> EVAL |> concl |> rand
 
-val entry_return_code =
-  ``(FLAT (MAP (\n. n ++ "\n")
-    ["     movq    %r12, cdecl(ret_stack)(%rip)"; (* save stack pointer and base pointer *)
-     "     movq    %r13, cdecl(ret_base)(%rip)";
-     "     leave";                               (* return to retaddr C left on stack *)
-     "     ret";
-    ""]))`` |> EVAL |> concl |> rand;
-
 val ffi_asm_def = Define `
   (ffi_asm [] = Nil) /\
   (ffi_asm (ffi::ffis) =
@@ -88,10 +80,12 @@ val ffi_code' =
        "     ret";
        "     .p2align 4";
        "";
-       "cake_exit:"] ++
-      (if ret then [^entry_return_code]
-       else ["     callq   wcdecl(cml_exit)";]) ++
-      ["     .p2align 4";
+       "cake_exit:";
+       (if ret then
+         "     jmp     cake_return"
+       else
+         "     callq   cdecl(cml_exit)");
+       "     .p2align 4";
        "";
        "cake_main:";
        "";
@@ -130,10 +124,12 @@ val windows_ffi_code' =
        "     movq    %rcx, %r9";
        "     movq    %rdx, %r8";
        "     movq    %rsi, %rdx";
-       "     movq    %rdi, %rcx"] ++
-      (if ret then [^entry_return_code]
-       else ["     callq   cdecl(cml_exit)";]) ++
-      [""]))))``;
+       "     movq    %rdi, %rcx";
+      (if ret then
+         "     jmp     cake_return"
+       else
+         "     callq   cdecl(cml_exit)");
+       ""]))))``;
 
 val (windows_ffi_code_true,windows_ffi_code_false) =
     (``^windows_ffi_code' T`` |> EVAL |> concl |> rand,
@@ -141,6 +137,45 @@ val (windows_ffi_code_true,windows_ffi_code_false) =
 
 val windows_ffi_code =
   ``λret. if ret then ^windows_ffi_code_true else ^windows_ffi_code_false``;
+
+val entry_point_code =
+  ``(List (MAP (\n. strlit(n ++ "\n"))
+    ["cake_enter:";
+     "     pushq   %rbp";
+     "     movq    %rsp, %rbp";
+     "     movq    cdecl(ret_stack)(%rip), %r12";
+     "     cmp     $0, %r12";
+     "     je      cake_err3";
+     "     movq    $0, cdecl(ret_stack)(%rip)";
+     "     movq    cdecl(ret_base)(%rip), %r13";
+     "     cmp     $0, %r13";
+     "     je      cake_err3";
+     "     movq    $0, cdecl(ret_base)(%rip)";
+     "     lea     cake_ret(%rip), %rax";
+     "     jmp     %r14";
+     "     .p2align 4";
+     "";
+     "";
+     "cake_ret:";
+     "     mov     %edi, %eax";
+     "cake_return:";
+     "     movq    %r12, cdecl(ret_stack)(%rip)";
+     "     movq    %r13, cdecl(ret_base)(%rip)";
+     "     leave";
+     "     ret";
+     "     .p2align 4";
+     "";
+     "";
+     "windows_cml_err3:";
+     "     movq    %rcx, %r9";
+     "     movq    %rdx, %r8";
+     "     movq    %rsi, %rdx";
+     "     movq    %rdi, %rcx";
+     "cake_err3:";
+     "     movq    $3, %rdi";
+     "     callq   cdecl(cml_err)";
+     "     .p2align 4";
+     ""]))`` |> EVAL |> concl |> rand;
 
 val expose_func_def = Define `
   expose_func appl (name,label,start,len) =
@@ -150,42 +185,15 @@ val expose_func_def = Define `
      strlit"     .type   "; name; strlit", function\n";
      strlit"#endif\n";
      strlit"cdecl("; name; strlit"):\n";
-     strlit"     pushq   %rbp\n";
-     strlit"     movq    %rsp, %rbp\n";
-     strlit"     movq    cdecl(ret_stack)(%rip), %r12\n";
-     strlit"     cmp     $0, %r12\n";
-     strlit"     je      cake_err3\n";
-     strlit"     movq    $0, cdecl(ret_stack)(%rip)\n";
-     strlit"     movq    cdecl(ret_base)(%rip), %r13\n";
-     strlit"     cmp     $0, %r13\n";
-     strlit"     je      cake_err3\n";
-     strlit"     movq    $0, cdecl(ret_base)(%rip)\n";
-     strlit"     lea     "; name; strlit"_ret(%rip), %rax\n"; (* func returns to rax manually *)
-     strlit"     jmp     cdecl("; label; strlit")\n";
-            name; strlit"_ret:\n";
-     strlit"     mov     %edi, %eax\n";                       (* func retval in %edi to C expected %eax *)
-     strlit ^entry_return_code
+     strlit"     lea     "; name; strlit"_jmp(%rip), %r14\n";
+     strlit"     jmp     cake_enter\n";
+            name; strlit"_jmp:\n";
+     strlit"     jmp     cdecl("; label; strlit")\n"
     ])`;
 
 val expose_funcs_def = Define `
   expose_funcs lsyms exp =
     FOLDL expose_func misc$Nil (FILTER ((flip MEM exp) o FST) lsyms)`;
-
-val print_err_code =
-  ``(List (MAP (\n. strlit(n ++ "\n"))
-    ["cake_err3:";
-     "     movq    $3, %rdi";
-     "     callq   wcdecl(cml_err)";
-     "     .p2align 4";
-     "";
-     "windows_cml_err3:";
-     "     movq    %rcx, %r9";
-     "     movq    %rdx, %r8";
-     "     movq    %rsi, %rdx";
-     "     movq    %rdi, %rcx";
-     "     movq    $3, %rdi";
-     "     callq   cdecl(cml_err)";
-     ""]))`` |> EVAL |> concl |> rand;
 
 val x64_export_def = Define `
   x64_export ffi_names bytes (data:word64 list) syms exp ret =
@@ -201,7 +209,7 @@ val x64_export_def = Define `
       (SmartAppend (List code_buffer)
       (emit_symbols lsyms))))
       (SmartAppend (^windows_ffi_code ret)
-      (SmartAppend (^print_err_code)
+      (SmartAppend (if ret then ^entry_point_code else List [])
       (expose_funcs lsyms exp)))`;
 
 (*
