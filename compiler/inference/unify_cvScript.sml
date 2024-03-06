@@ -43,6 +43,50 @@ Proof
   simp[kcocwl_code_def]
 QED
 
+val tcwalkstar_pre_def = cv_trans_pre tcwalkstarwl_thm
+
+Theorem tcwalkstar_p1_pre_thm:
+  cwfs s ⇒ (tcwalkstar_p1_pre s its ks ⇔
+              ∀v its' ks'. kcwalkstarwl_code s (F, its, ks) =
+                           INL (v,its',ks') ⇒
+                           (v ⇒ tcwalkstar_p2_pre s its' ks') ∧
+                           (¬v ⇒ tcwalkstar_p1_pre s its' ks'))
+Proof
+  strip_tac >> simp[SimpLHS, Once tcwalkstar_pre_def] >>
+  simp[kcwalkstarwl_code_def, AllCaseEqs(), PULL_EXISTS] >> iff_tac >> rw[] >>
+  gvs[tcvwalk_pre]
+QED
+
+Theorem tcwalkstar_p2_pre_thm:
+  cwfs s ⇒ (tcwalkstar_p2_pre s its ks ⇔
+              ∀v its' ks'. kcwalkstarwl_code s (T, its, ks) =
+                           INL (v,its',ks') ⇒
+                           (v ⇒ tcwalkstar_p2_pre s its' ks') ∧
+                           (¬v ⇒ tcwalkstar_p1_pre s its' ks'))
+Proof
+  strip_tac >> simp[SimpLHS, Once tcwalkstar_pre_def] >>
+  simp[kcwalkstarwl_code_def, AllCaseEqs(), PULL_EXISTS] >> iff_tac >> rw[] >>
+  gvs[tcvwalk_pre]
+QED
+
+Theorem tcwalkstar_pre:
+  ∀s its ks. cwfs s ⇒
+             tcwalkstar_p1_pre s its ks ∧ tcwalkstar_p2_pre s its ks
+Proof
+  rpt gen_tac >> strip_tac >> drule_then assume_tac WF_kcwalkstarwlR >>
+  ‘∀t. (¬FST t ⇒ tcwalkstar_p1_pre s (FST (SND t)) (SND (SND t))) ∧
+       (FST t ⇒ tcwalkstar_p2_pre s (FST (SND t)) (SND (SND t)))’
+    suffices_by simp[FORALL_PROD] >>
+  IMP_RES_THEN ho_match_mp_tac relationTheory.WF_INDUCTION_THM >>
+  simp[FORALL_PROD, IMP_CONJ_THM, FORALL_AND_THM] >> rpt strip_tac
+  >- (simp[Once tcwalkstar_p1_pre_thm] >> rpt strip_tac >>
+      first_x_assum irule >>
+      gvs[kcwalkstarwl_ensures_decrease]) >>
+  simp[Once tcwalkstar_p2_pre_thm] >> rpt strip_tac >>
+  first_x_assum irule >>
+  gvs[kcwalkstarwl_ensures_decrease]
+QED
+
 val tcunify_pre_def = cv_trans_pre tcunify_thm;
 
 Theorem tcunify_pre_thm:

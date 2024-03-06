@@ -89,6 +89,15 @@ Proof
   rw [FUN_EQ_THM]
 QED
 
+Theorem encode_eq_var[simp]:
+  (Var n = encode_infer_t i ⇔ i = Infer_Tuvar n) ∧
+  (encode_infer_t i = Var n ⇔ i = Infer_Tuvar n)
+Proof
+  rw[EQ_IMP_THM, encode_infer_t_def] >>
+  pop_assum (mp_tac o Q.AP_TERM ‘decode_infer_t’) >>
+  simp[decode_infer_t_def]
+QED
+
 Theorem decode_right_inverse[local]:
   (!t. (?t'. t = encode_infer_t t') ⇒ (encode_infer_t (decode_infer_t t) = t)) ∧
   (!ts. (?ts'. ts = encode_infer_ts ts') ⇒ (encode_infer_ts (decode_infer_ts ts) = ts))
@@ -648,9 +657,54 @@ QED
 
 Definition cwalkstar_def:
   cwalkstar s it =
-  decode_infer_t (walkstar (sp2fm (map encode_infer_t s)) (encode_infer_t it))
+  decode_infer_t (walkstar (encode_infer_t o_f sp2fm s) (encode_infer_t it))
 End
 
+Theorem walkstar1[local] =
+        UNDISCH walkstar_thm |> oneline
+                             |> INST_TYPE [alpha |-> “:atom”]
+                             |> Q.INST [‘s’ |-> ‘encode_infer_t o_f sp2fm ss’]
+                             |> Q.INST [‘ss’ |-> ‘s’]
+Theorem walkstar2[local] =
+        UNDISCH walkstar_thm |> INST_TYPE [alpha |-> “:atom”]
+                             |> Q.INST [‘s’ |-> ‘encode_infer_t o_f sp2fm ss’]
+                             |> Q.INST [‘ss’ |-> ‘s’]
+
+Theorem cvwalk_rwt:
+  wf s ⇒ wfs (encode_infer_t o_f sp2fm s) ⇒
+  vwalk (encode_infer_t o_f sp2fm s) v =
+  encode_infer_t (cvwalk s v)
+Proof
+  simp[cvwalk_def] >> rpt strip_tac >>
+  ‘∃y. svwalk (map encode_infer_t s) v = encode_infer_t y’
+    by (irule svwalk_result_encodable >>
+        simp[encode_eq_var, swfs_def, sp2fm_map]) >>
+  simp[decode_left_inverse_I] >> gvs[svwalk_def, sp2fm_map]
+QED
+
+Theorem decode_infer_ts_walkstar:
+  wfs (encode_infer_t o_f sp2fm s) ⇒
+  decode_infer_ts (walkstar (encode_infer_t o_f sp2fm s) (encode_infer_ts l)) =
+  MAP (cwalkstar s) l
+Proof
+  strip_tac >> Induct_on ‘l’ >> simp[encode_infer_t_def, walkstar2] >>
+  simp[decode_infer_t_def] >>
+  simp[cwalkstar_def, sp2fm_map]
+QED
+
+Theorem cwalkstar_thm =
+        cwalkstar_def |> SPEC_ALL
+                      |> SRULE [term_CASE_encode,
+                                decode_infer_t_CASE, combinTheory.o_ABS_L,
+                                combinTheory.o_ABS_R, cwf, decode_infer_t_def,
+                                Once $ walkstar1, walkstar2]
+                      |> SRULE [UNDISCH_ALL cvwalk_rwt,
+                                term_CASE_encode, decode_infer_t_CASE,
+                                combinTheory.o_DEF, decode_infer_t_def,
+                                walkstar2, UNDISCH_ALL decode_infer_ts_walkstar]
+                      |> PROVE_HYP cwf
+                      |> PROVE_HYP (SRULE [swfs_def, sp2fm_map] cwfs)
+                      |> DISCH_ALL
 
 Theorem walkstar_def'[local] =
         MATCH_MP
@@ -667,41 +721,12 @@ Proof
   Cases_on ‘it’ >> simp[]
 QED
 
-Theorem walkstar_list:
-  wfs (sp2fm (map encode_infer_t s)) ⇒
-  decode_infer_ts (walkstar (sp2fm (map encode_infer_t s)) (encode_infer_ts l)) =
-  MAP (λit. decode_infer_t
-            (walkstar (sp2fm (map encode_infer_t s)) (encode_infer_t it)))
-      l
-Proof
-  Induct_on ‘l’ >> simp[encode_infer_t_def, decode_infer_t_def]
-QED
-
-Theorem cwalkstar_ETA[local,simp]:
-  (λit. cwalkstar s it) = cwalkstar s
-Proof
-  simp[FUN_EQ_THM]
-QED
-
-Theorem cwfs_wfs = cj 1 $ REWRITE_RULE [cwfs_def, swfs_def] (ASSUME “cwfs s”)
-Theorem cwalkstar_thm =
-        cwalkstar_def
-          |> SPEC_ALL
-          |> SRULE[Once walkstar_def']
-          |> SRULE [term_CASE_encode, GSYM swalk_def, UNDISCH swalk_elim]
-          |> SRULE [combinTheory.o_DEF]
-          |> SRULE[walk_def,walkstar_thm']
-          |> ONCE_REWRITE_RULE[infer_t_CASE_RAND]
-          |> SRULE[decode_infer_t_def, combinTheory.o_DEF]
-          |> SRULE [GSYM cwalkstar_def, UNDISCH walkstar_list]
-          |> PROVE_HYP cwfs_wfs
-
 Theorem cunify_unifier:
   cwfs s ∧ cunify s t1 t2 = SOME sx ⇒
   cwfs sx ∧ subspt s sx ∧ cwalkstar sx t1 = cwalkstar sx t2
 Proof
   simp[cwfs_def, cwalkstar_def, cunify_def, unify_unifier,
-       PULL_EXISTS, wf_map] >> rpt strip_tac >>
+       PULL_EXISTS, wf_map, sp2fm_map] >> rpt strip_tac >>
   gvs[]>> drule_at (Pos last) sunify_result_encodable >>
   simp[encode_t_vs_ts] >> rw[] >>
   drule_all_then strip_assume_tac sunify_preserves_swfs >>
@@ -709,14 +734,20 @@ Proof
   simp[SRULE [cwfs_def] map_decode_encode] >>
   gvs[sunify_def, swfs_def] >>
   drule_all unify_unifier
-  >- (strip_tac >> gs[sp2fm_map] >>
-      gs[SUBMAP_FLOOKUP_EQN, FLOOKUP_o_f, AllCaseEqs(), PULL_EXISTS,
-         subspt_lookup] >> rpt strip_tac >> first_assum drule >>
+  >- (simp[SUBMAP_FLOOKUP_EQN, FLOOKUP_o_f, AllCaseEqs(), PULL_EXISTS,
+           subspt_lookup, lookup_map] >> rpt strip_tac >> first_assum drule >>
       ‘cwfs m’ by simp[cwfs_def, swfs_def] >>
       first_x_assum (mp_tac o Q.AP_TERM ‘map decode_infer_t’) >>
       simp[map_decode_encode, lookup_map] >> disch_then SUBST_ALL_TAC >>
       first_x_assum drule >> simp[]) >>
-  simp[]
+  rpt strip_tac >>
+  rename [‘walkstar ((encode_infer_t o decode_infer_t) o_f z)’] >>
+  ‘(encode_infer_t o decode_infer_t) o_f z = z’ suffices_by simp[] >>
+  simp[FLOOKUP_EXT, FLOOKUP_o_f, FUN_EQ_THM] >> qx_gen_tac ‘n’ >>
+  Cases_on ‘FLOOKUP z n’ >> simp[] >>
+  qpat_x_assum ‘map encode_infer_t _ = fm2sp z’ mp_tac >>
+  simp[spt_eq_thm, lookup_map] >>
+  disch_then $ qspec_then ‘n’ (assume_tac o SYM) >> gvs[]
 QED
 
 fun tcallify_th fixedvs th =
@@ -1193,6 +1224,299 @@ Theorem tcocwl_thm =
           |> SRULE [GSYM tcocwl_def, GSYM kcocwl_code_def]
           |> PURE_REWRITE_RULE [disj2cond]
 
+(* ----------------------------------------------------------------------
+    tail-recursification of cwalkstar
+   ---------------------------------------------------------------------- *)
+
+Definition cwalkstarl_def[simp]:
+  cwalkstarl s [] = [] ∧
+  cwalkstarl s (it::its) = cwalkstar s it :: cwalkstarl s its
+End
+
+Theorem MAP_cwalkstar:
+  MAP (cwalkstar s) l = cwalkstarl s l
+Proof
+  Induct_on ‘l’ >> simp[]
+QED
+
+Definition kcwalkstar_def:
+  kcwalkstar s it k = cwc (cwalkstar s it) k
+End
+
+Definition kcwalkstarl_def:
+  kcwalkstarl s its k = cwc (cwalkstarl s its) k
+End
+
+Theorem cwalkstar_thm' =
+        CONJ (UNDISCH_ALL $
+                   SRULE[MAP_cwalkstar,
+                         tcvwalk_correct |> SPEC_ALL |> UNDISCH_ALL]
+                   cwalkstar_thm)
+             (cwalkstarl_def)
+
+Theorem kcwalkstar_thm =
+        kcwalkstar_def
+          |> SPEC_ALL
+          |> SRULE[GSYM contify_cwc, ASSUME “cwfs s”, cwalkstar_thm']
+          |> CONV_RULE
+             (TOP_DEPTH_CONV (contify_CONV [contify_infer_case]))
+          |> SRULE [cwcp “tcvwalk”, cwcp “tcvwalk s”, cwcp “$=”, cwcp “$= x”,
+                    cwcp “Infer_Tvar_db”, cwcp “Infer_Tapp”,
+                    cwcp “Infer_Tapp l”, cwcp “Infer_Tuvar”, cwcp “cwalkstarl”]
+          |> SRULE [GSYM kcwalkstarl_def]
+
+Theorem kcwalkstarl_thm0 =
+        kcwalkstarl_def
+          |> SPEC_ALL
+          |> SRULE [GSYM contify_cwc, ASSUME “cwfs s”,
+                    Once $ oneline cwalkstarl_def]
+          |> CONV_RULE
+             (TOP_DEPTH_CONV (contify_CONV [contify_infer_case]))
+          |> SRULE [cwcp “cwalkstar”, cwcp “cwalkstarl”,
+                    cwcp “CONS”, cwcp “CONS x”]
+          |> SRULE[GSYM kcwalkstar_def, GSYM kcwalkstarl_def]
+
+Theorem kcwalkstarl_thm =
+        SRULE [kcwalkstar_thm] kcwalkstarl_thm0
+
+Datatype:
+  kclkont = DBk num | APPk (infer_t list) num | UVk num
+          | CONSk (infer_t list) num
+End
+
+Definition apply_kclkont_def:
+  apply_kclkont s [] its = its ∧
+  apply_kclkont s (DBk n::k) its = apply_kclkont s k (Infer_Tvar_db n :: its) ∧
+  apply_kclkont s (APPk aits n :: k) its =
+    apply_kclkont s k (Infer_Tapp aits n :: its) ∧
+  apply_kclkont s (UVk n::k) its = apply_kclkont s k (Infer_Tuvar n :: its) ∧
+  apply_kclkont s (CONSk cits n :: k) its =
+  kcwalkstarl s cits (λxk'. apply_kclkont s k (Infer_Tapp its n::xk'))
+End
+
+Definition dfkcwalkstarl_def:
+  dfkcwalkstarl s t k = kcwalkstarl s t (apply_kclkont s k)
+End
+
+Theorem apply_kclkont5 = SRULE [GSYM $ cj 3 apply_kclkont_def, SF ETA_ss]
+                               (cj 5 apply_kclkont_def)
+
+Theorem apply_kclkont_thm =
+        apply_kclkont_def |> (#1 o front_last o CONJUNCTS)
+                          |> (fn cs => cs @ [apply_kclkont5])
+                          |> LIST_CONJ
+                          |> REWRITE_RULE [GSYM dfkcwalkstarl_def]
+                          |> SRULE [SF ETA_ss]
+
+Theorem dfkcwalkstarl_thm =
+        dfkcwalkstarl_def |> SPEC_ALL
+                          |> ONCE_REWRITE_RULE [kcwalkstarl_thm]
+                          |> SRULE[GSYM apply_kclkont_thm, SF ETA_ss,
+                                   GSYM apply_kclkont5]
+                          |> SRULE [GSYM dfkcwalkstarl_def]
+
+Definition kcwalkstarwl_def:
+  kcwalkstarwl s T t k = apply_kclkont s k t ∧
+  kcwalkstarwl s F t k = dfkcwalkstarl s t k
+End
+
+Theorem kcwalkstarwl_thm =
+        oneline kcwalkstarwl_def
+          |> ONCE_REWRITE_RULE [Once $ oneline apply_kclkont_thm,
+                                Once dfkcwalkstarl_thm]
+          |> SRULE[GSYM kcwalkstarwl_def]
+
+Theorem dfkcwalkstarl_removed = GSYM $ cj 2 kcwalkstarwl_def
+Theorem apply_kclkont_ID[simp]:
+  apply_kclkont s [] = I
+Proof
+  simp[apply_kclkont_def, FUN_EQ_THM]
+QED
+
+Theorem cwalkstar_to_dfkcwalkstarl:
+  cwalkstar s t = HD (dfkcwalkstarl s [t] [])
+Proof
+  simp[dfkcwalkstarl_def, apply_kclkont_def] >>
+  simp[kcwalkstarl_def, cwc_def]
+QED
+
+(* kcwalkstarwl_thm is the target for tailcallification *)
+
+Definition star_kwork_def[simp]:
+  star_kwork [] = EMPTY_BAG ∧
+  star_kwork (CONSk its n :: ks) = BAG_UNION (BAG_OF_LIST its) (star_kwork ks) ∧
+  star_kwork (_ :: ks) = star_kwork ks
+End
+
+Definition star_workbag_def:
+  star_workbag v its k =
+  if v then star_kwork k
+  else BAG_UNION (BAG_OF_LIST its) (star_kwork k)
+End
+
+Theorem FINITE_star_kwork[simp]:
+  FINITE_BAG (star_kwork ks)
+Proof
+  Induct_on ‘ks’ >> simp[] >> Cases_on ‘h’ >> simp[]
+QED
+
+Theorem FINITE_star_workbag[simp]:
+  FINITE_BAG (star_workbag v its k)
+Proof
+  rw[star_workbag_def]
+QED
+
+Definition isCONSk_def[simp]:
+  isCONSk (CONSk _ _) = T ∧
+  isCONSk _ = F
+End
+
+Definition kcwalkstarwlR_def:
+  kcwalkstarwlR s =
+  inv_image (mlt (inv_image
+                   (walkstarR (encode_infer_t o_f sp2fm s))
+                   encode_infer_t) LEX
+             $< LEX
+             measure (LENGTH o FILTER isCONSk) LEX
+             measure (λb. if b then 0 else 1))
+            (λ(v,its,k). (star_workbag v its k, LENGTH k, k, v))
+End
+
+Theorem WF_kcwalkstarwlR:
+  cwfs s ⇒ WF (kcwalkstarwlR s)
+Proof
+  rw[kcwalkstarwlR_def] >> irule WF_inv_image >>
+  rpt $ irule_at Any WF_LEX >> simp[WF_TC_EQN] >>
+  irule WF_mlt1 >> irule WF_inv_image >>
+  gs[cwfs_def, swfs_def, walkstar_thWF, sp2fm_map]
+QED
+
+val kcwalkstarwl_code = tcallify_th [“s:infer_t num_map”] $ kcwalkstarwl_thm
+Definition kcwalkstarwl_code_def:
+  kcwalkstarwl_code s = ^kcwalkstarwl_code
+End
+
+Theorem kcwalkstarwl_preserves_precond:
+  ∀x y. (λ(v,t,k). cwfs s) x ∧ kcwalkstarwl_code s x = INL y ⇒
+        (λ(v,t,k). cwfs s) y
+Proof
+  simp[FORALL_PROD]
+QED
+
+Theorem kcwalkstarwl_ensures_decrease:
+  ∀x y. (λ(v,its,k). cwfs s) x ∧ kcwalkstarwl_code s x = INL y ⇒
+        kcwalkstarwlR s y x
+Proof
+  simp[FORALL_PROD] >> rw[kcwalkstarwl_code_def, AllCaseEqs()] >>
+  simp[kcwalkstarwlR_def] >~
+  [‘star_workbag T []’]
+  >- simp[LEX_DEF, star_workbag_def] >>~-
+  ([‘star_workbag T (_ :: its) k’],
+   simp[Once LEX_DEF] >> disj2_tac >> simp[star_workbag_def] >>
+   simp[Once LEX_DEF]) >~
+  [‘tcvwalk s v = Infer_Tapp args n’, ‘star_workbag F (Infer_Tuvar v :: its) k’]
+  >- (simp[Once LEX_DEF] >> disj1_tac >>
+      simp[star_workbag_def, BAG_UNION_INSERT] >>
+      irule TC_SUBSET >> simp[mlt1_def] >>
+      qexistsl [‘Infer_Tuvar v’, ‘BAG_OF_LIST args’,
+                ‘BAG_OF_LIST its ⊎ star_kwork k’] >>
+      simp[BAG_UNION_INSERT, BAG_IN_BAG_OF_LIST] >> rpt strip_tac >>
+      irule (SRULE [sp2fm_map] walkstar_opth) >>
+      simp[tcwalk_def]) >>~-
+  ([‘tcvwalk s v = _’],
+   simp[Once LEX_DEF] >> disj1_tac >> irule TC_SUBSET >>
+   simp[star_workbag_def, BAG_UNION_INSERT, mlt1_BAG_INSERT]) >~
+  [‘star_workbag F (Infer_Tvar_db n :: _)’]
+  >- (simp[Once LEX_DEF] >> disj1_tac >>
+      irule TC_SUBSET >>
+      simp[BAG_UNION_INSERT, mlt1_BAG_INSERT, star_workbag_def]) >~
+  [‘star_workbag F (Infer_Tapp args n :: rest) ks’]
+  >- (simp[Once LEX_DEF] >> disj1_tac >>
+      irule TC_SUBSET >> simp[star_workbag_def, BAG_UNION_INSERT] >>
+      simp[mlt1_def] >>
+      qexistsl [‘Infer_Tapp args n’, ‘BAG_OF_LIST args’,
+                ‘BAG_OF_LIST rest ⊎ star_kwork ks’] >>
+      simp[BAG_UNION_INSERT, BAG_IN_BAG_OF_LIST, encode_infer_t_def] >>
+      rpt strip_tac >> irule subterm_walkstarR >>
+      simp[MEM_subterm_encode]) >>
+  rename [‘star_workbag T results (CONSk args m :: ks)’] >>
+  simp[Once LEX_DEF] >> disj2_tac >> simp[star_workbag_def] >>
+  simp[LEX_DEF]
+QED
+
+Theorem sum_CASE_wstarcont_CASE:
+  sum_CASE (kclkont_CASE k dbf appf uvf consf) lf rf =
+  kclkont_CASE k
+               (λn. sum_CASE (dbf n) lf rf)
+               (λits n. sum_CASE (appf its n) lf rf)
+               (λn. sum_CASE (uvf n) lf rf)
+               (λits n. sum_CASE (consf its n) lf rf)
+Proof
+  Cases_on ‘k’ >> simp[]
+QED
+
+Theorem kcwalkstarwl_tcallish:
+  ∀x. (λ(v,its,k). cwfs s) x ⇒
+      (λ(v,its,k). kcwalkstarwl s v its k) x =
+      TAILCALL (kcwalkstarwl_code s) (λ(v,its,k). kcwalkstarwl s v its k) x
+Proof
+  simp[whileTheory.TAILCALL_def, kcwalkstarwl_code_def, FORALL_PROD,
+       sum_CASE_COND, sum_CASE_list_CASE, sum_CASE_infer_CASE,
+       sum_CASE_wstarcont_CASE] >>
+  simp[Once $ DISCH_ALL kcwalkstarwl_thm]
+QED
+
+Theorem kcwalkstarwl_cleaned:
+  ∀x. (λ(v,its,k). cwfs s) x ⇒
+      (λ(v,its,k). kcwalkstarwl s v its k) x = TAILREC (kcwalkstarwl_code s) x
+Proof
+  match_mp_tac whileTheory.TAILREC_GUARD_ELIMINATION >> rpt conj_tac
+  >- ACCEPT_TAC kcwalkstarwl_preserves_precond
+  >- (qx_gen_tac ‘trip’ >> strip_tac >>
+      qexists ‘kcwalkstarwlR s’ >> conj_tac
+      >- (irule $ iffLR WF_EQ_WFP >> PairCases_on ‘trip’ >>
+          gvs[WF_kcwalkstarwlR]) >>
+      metis_tac [kcwalkstarwl_ensures_decrease])
+  >- ACCEPT_TAC kcwalkstarwl_tcallish
+QED
+
+Definition tcwalkstarwl_def:
+  tcwalkstarwl s v its k = TAILREC (kcwalkstarwl_code s) (v,its,k)
+End
+
+Definition tcwalkstar_p1_def:
+  tcwalkstar_p1 s its k = tcwalkstarwl s F its k
+End
+
+Definition tcwalkstar_p2_def:
+  tcwalkstar_p2 s its k = tcwalkstarwl s T its k
+End
+
+Theorem tcwalkstarwl_thm =
+        tcwalkstarwl_def
+          |> SRULE[Once whileTheory.TAILREC]
+          |> SRULE[kcwalkstarwl_code_def, sum_CASE_COND,
+                   sum_CASE_wstarcont_CASE,
+                   sum_CASE_list_CASE, sum_CASE_infer_CASE]
+          |> SRULE [GSYM kcwalkstarwl_code_def, GSYM tcwalkstarwl_def]
+          |> SPEC_ALL
+          |> (fn th => (GEN_ALL $ Q.INST [‘v’ |-> ‘T’] th,
+                        GEN_ALL $ Q.INST [‘v’ |-> ‘F’] th))
+          |> uncurry CONJ
+          |> SRULE[GSYM tcwalkstar_p2_def, GSYM tcwalkstar_p1_def]
+
+Theorem tcwalkstarwl_correct0 =
+        kcwalkstarwl_cleaned |> SRULE[FORALL_PROD, GSYM tcwalkstarwl_def]
+
+Theorem tcwalkstarwl_correct:
+  cwfs s ⇒ cwalkstar s it = HD (tcwalkstar_p1 s [it] [])
+Proof
+  simp[tcwalkstar_p1_def, GSYM tcwalkstarwl_correct0, kcocwl_def,
+       GSYM dfkcwalkstarl_removed,
+       dfkcwalkstarl_def, cwc_def, kcwalkstarl_def]
+QED
+
+
 (* handle tail-recursification of unify *)
 
 Definition kcunifyl_def:
@@ -1486,15 +1810,6 @@ Proof
   gvs[encode_infer_t_def] >>
   gvs[swalk_def, cwfs_def, sp2fm_map, swfs_def] >>
   drule_all walk_to_var >> rw[] >>
-  pop_assum (mp_tac o Q.AP_TERM ‘decode_infer_t’) >>
-  simp[decode_infer_t_def]
-QED
-
-Theorem encode_eq_var[simp]:
-  (Var n = encode_infer_t i ⇔ i = Infer_Tuvar n) ∧
-  (encode_infer_t i = Var n ⇔ i = Infer_Tuvar n)
-Proof
-  rw[EQ_IMP_THM, encode_infer_t_def] >>
   pop_assum (mp_tac o Q.AP_TERM ‘decode_infer_t’) >>
   simp[decode_infer_t_def]
 QED
@@ -2311,6 +2626,12 @@ QED
 val t_walkstar_def = zDefine `
 t_walkstar s t =
   decode_infer_t (walkstar (encode_infer_t o_f s) (encode_infer_t t))`;
+
+Theorem t_walkstar_cwalkstar:
+  t_walkstar s t = cwalkstar (fm2sp s) t
+Proof
+  simp[t_walkstar_def, cwalkstar_def]
+QED
 
 val ts_walkstar_thm = Q.prove (
 `!l s.
