@@ -889,7 +889,7 @@ fun check_uptodate_term t =
 
 local
   val {export,segment_data,set} = ThyDataSexp.new {
-    thydataty = "ml_translator",
+    thydataty = "foo",
     merge = fn {old, new} => new,
     load = fn _ => (), other_tds = fn (t,_) => SOME t}
   fun pack_state () = let
@@ -4389,9 +4389,11 @@ val (fname,ml_fname,def,th,v) = hd thms
         \\ last_x_assum match_mp_tac
         \\ rewrite_tac [CONTAINER_def]
         \\ rpt strip_tac
-        \\ TRY (last_x_assum match_mp_tac)
-        \\ asm_rewrite_tac [] \\ res_tac
-        \\ fs [])
+        \\ TRY (
+          TRY (last_x_assum match_mp_tac)
+          \\ asm_rewrite_tac [] \\ res_tac
+          \\ fs [] \\ NO_TAC)
+        \\ gvs[])
       in MP lem lemma1 end
     val th = MP lemma lemma1
 

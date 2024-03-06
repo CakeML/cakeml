@@ -67,38 +67,47 @@ val _ = next_ml_names := ["split"];
 val r = translate splitl_def;
 
 val _ = ml_prog_update open_local_block;
-val res = translate tokens_aux_def;
-val tokens_aux_side_def = theorem"tokens_aux_side_def";
+
+val res = translate tokens_alt_aux_def;
+
+val tokens_alt_aux_side_def = theorem"tokens_alt_aux_side_def";
+
 val _ = ml_prog_update open_local_in_block;
 
 val _ = next_ml_names := ["tokens"];
-val result = translate tokens_def;
+val result = translate tokens_alt;
 val tokens_side_def = definition"tokens_side_def";
 
-val tokens_aux_side_thm = Q.prove (
-  `!f s ss n len. n + len = strlen s ==> tokens_aux_side f s ss n len`,
-  Induct_on `len` \\ rw [Once tokens_aux_side_def]);
+val tokens_alt_aux_side_thm = Q.prove (
+  `!f s i j k. i ≤ j ∧ j ≤ k ∧ k ≤ strlen s ⇒ tokens_alt_aux_side f s i j k`,
+  ho_match_mp_tac tokens_alt_aux_ind>>
+  rw[]>>
+  rw [Once tokens_alt_aux_side_def]);
 
 val tokens_side_thm = Q.prove (
   `!f s. tokens_side f s`,
-  rw [tokens_side_def, tokens_aux_side_thm] ) |> update_precondition
+  rw [tokens_side_def, tokens_alt_aux_side_thm] ) |> update_precondition
 
 val _ = ml_prog_update open_local_block;
-val result = translate fields_aux_def;
-val fields_aux_side_def = theorem"fields_aux_side_def";
+
+val result = translate fields_alt_aux_def;
+val fields_alt_aux_side_def = theorem"fields_alt_aux_side_def";
+
 val _ = ml_prog_update open_local_in_block;
 
 val _ = next_ml_names := ["fields"];
-val result = translate fields_def;
+val result = translate fields_alt;
 val fields_side_def = definition"fields_side_def";
 
-val fields_aux_side_thm = Q.prove (
-  `!f s ss n len. n + len = strlen s ==> fields_aux_side f s ss n len`,
-  Induct_on `len` \\ rw [Once fields_aux_side_def]);
+val fields_alt_aux_side_thm = Q.prove (
+  `!f s i j k. i ≤ j ∧ j ≤ k ∧ k ≤ strlen s ⇒ fields_alt_aux_side f s i j k`,
+  ho_match_mp_tac fields_alt_aux_ind>>
+  rw[]>>
+  rw [Once fields_alt_aux_side_def]);
 
 val fields_side_thm = Q.prove (
   `!f s. fields_side f s`,
-  rw [fields_side_def, fields_aux_side_thm] ) |> update_precondition
+  rw [fields_side_def, fields_alt_aux_side_thm] ) |> update_precondition
 
 val _ = next_ml_names := ["findi"];
 val result = translate str_findi_def;

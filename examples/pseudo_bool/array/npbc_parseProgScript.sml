@@ -238,7 +238,7 @@ val _ = translate not_is_empty_def;
 
 val parse_lsteps_aux = process_topdecs`
   fun parse_lsteps_aux f_ns fd lno acc =
-    case TextIO.b_inputLineTokens fd blanks tokenize_fast of
+    case TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast of
       None => raise Fail (format_failure lno "reached EOF while reading PBP steps")
     | Some s =>
     case parse_lstep_aux f_ns s of
@@ -301,18 +301,18 @@ QED
 
 Theorem STDIO_INSTREAM_LINES_refl:
   STDIO A *
-  INSTREAM_LINES B C D E ==>>
+  INSTREAM_LINES c B C D E ==>>
   STDIO A *
-  INSTREAM_LINES B C D E
+  INSTREAM_LINES c B C D E
 Proof
   xsimpl
 QED
 
 Theorem STDIO_INSTREAM_LINES_refl_gc:
   STDIO A *
-  INSTREAM_LINES B C D E ==>>
+  INSTREAM_LINES c B C D E ==>>
   STDIO A *
-  INSTREAM_LINES B C D E * GC
+  INSTREAM_LINES c B C D E * GC
 Proof
   xsimpl
 QED
@@ -339,12 +339,12 @@ Theorem parse_lsteps_aux_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_lsteps_aux" (get_ml_prog_state()))
     [fnsv; fdv; lnov; accv]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTve
       (λv.
          SEP_EXISTS k lines' acc' fns' s lno' rest.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             PAIR_TYPE (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))
               (PAIR_TYPE (fns_TYPE a)
@@ -354,7 +354,7 @@ Theorem parse_lsteps_aux_spec:
             MAP toks_fast lines' = rest))
       (λe.
          SEP_EXISTS k lines'.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧ parse_lsteps_aux fns ss acc = NONE))
       )
 Proof
@@ -365,7 +365,7 @@ Proof
     xlet ‘(POSTv v.
         SEP_EXISTS k.
             STDIO (forwardFD fs fd k) *
-            INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
+            INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
             &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
@@ -390,7 +390,7 @@ Proof
     xlet ‘(POSTv v.
             SEP_EXISTS k.
             STDIO (forwardFD fs fd k) *
-            INSTREAM_LINES fd fdv ls (forwardFD fs fd k) *
+            INSTREAM_LINES #"\n" fd fdv ls (forwardFD fs fd k) *
             & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast l)) v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
@@ -457,7 +457,7 @@ Proof
              (λv.
                   SEP_EXISTS k' lines' acc' fns' s' lno' rest.
                     STDIO (forwardFD (forwardFD fs fd k) fd k') *
-                    INSTREAM_LINES fd fdv lines'
+                    INSTREAM_LINES #"\n" fd fdv lines'
                       (forwardFD (forwardFD fs fd k) fd k') *
                       &(
             PAIR_TYPE (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))
@@ -469,7 +469,7 @@ Proof
              (λe.
                   SEP_EXISTS k' lines'.
                     STDIO (forwardFD (forwardFD fs fd k) fd k') *
-                    INSTREAM_LINES fd fdv lines'
+                    INSTREAM_LINES #"\n" fd fdv lines'
                       (forwardFD (forwardFD fs fd k) fd k') *
                     &(Fail_exn e ∧ parse_lsteps_aux r ss [] = NONE)))`
     >- (
@@ -586,12 +586,12 @@ Theorem parse_red_aux_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_red_aux" (get_ml_prog_state()))
     [fnsv; fdv; lnov; accv]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTve
       (λv.
          SEP_EXISTS k lines' res acc' fns' s lno' rest.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             PAIR_TYPE (OPTION_TYPE NUM)
             (PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
@@ -601,7 +601,7 @@ Theorem parse_red_aux_spec:
             MAP toks_fast lines' = rest))
       (λe.
          SEP_EXISTS k lines'.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧ parse_red_aux fns ss acc = NONE))
       )
 Proof
@@ -614,7 +614,7 @@ Proof
       (λv.
          SEP_EXISTS k lines' acc' fns' s lno' rest.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             PAIR_TYPE (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))
               (PAIR_TYPE (fns_TYPE a)
@@ -624,7 +624,7 @@ Proof
             MAP toks_fast lines' = rest))
      (λe.
          SEP_EXISTS k lines'.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧ parse_lsteps_aux fns (MAP toks_fast lines) [] = NONE))
       )`
   >- (
@@ -663,7 +663,7 @@ Proof
       (λv.
          SEP_EXISTS k lines'' acc' fns'' s lno' rest'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines'' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines'' (forwardFD fs fd k) *
          &(
             PAIR_TYPE (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))
               (PAIR_TYPE (fns_TYPE a)
@@ -674,7 +674,7 @@ Proof
             MAP toks_fast lines'' = rest'))
       (λe.
          SEP_EXISTS k lines''.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines'' (forwardFD fs fd k) *
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines'' (forwardFD fs fd k) *
            &(Fail_exn e ∧ parse_lsteps_aux fns' rest [] = NONE))
       )`
     >- (
@@ -736,7 +736,7 @@ val res = translate reduce_pf_def;
 
 val parse_sstep = process_topdecs`
   fun parse_sstep fns fd lno =
-    case TextIO.b_inputLineTokens fd blanks tokenize_fast of
+    case TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast of
       None =>
       raise Fail (format_failure lno "Unexpected EOF when parsing proof steps")
     | Some s =>
@@ -760,12 +760,12 @@ Theorem parse_sstep_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_sstep" (get_ml_prog_state()))
     [fnsv; fdv; lnov]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTve
       (λv.
          SEP_EXISTS k lines' lno'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             case parse_sstep fns ss of
               NONE => F
@@ -778,7 +778,7 @@ Theorem parse_sstep_spec:
                 MAP toks_fast lines' = rest))
       (λe.
          SEP_EXISTS k lines'.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧ parse_sstep fns ss = NONE))
       )
 Proof
@@ -788,7 +788,7 @@ Proof
     xlet ‘(POSTv v.
         SEP_EXISTS k.
             STDIO (forwardFD fs fd k) *
-            INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
+            INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
             &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     >- (
       xapp_spec b_inputLineTokens_specialize
@@ -811,7 +811,7 @@ Proof
   xlet ‘(POSTv v.
       SEP_EXISTS k.
       STDIO (forwardFD fs fd k) *
-      INSTREAM_LINES fd fdv ls (forwardFD fs fd k) *
+      INSTREAM_LINES #"\n" fd fdv ls (forwardFD fs fd k) *
       & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast l)) v)’
   THEN1 (
     xapp_spec b_inputLineTokens_specialize
@@ -850,7 +850,7 @@ Proof
       (λv.
          SEP_EXISTS k lines' res acc' fns' s lno' rest.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             PAIR_TYPE (OPTION_TYPE NUM)
               (PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
@@ -860,7 +860,7 @@ Proof
             MAP toks_fast lines' = rest))
       (λe.
          SEP_EXISTS k lines'.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧ parse_red_aux (x1,x2) t [] = NONE))
       )`
   >- (
@@ -908,7 +908,7 @@ val read_n_lines = process_topdecs`
   fun read_n_lines n fd lno =
   if n = 0 then []
   else
-  let val l = TextIO.b_inputLineTokens fd blanks tokenize_fast in
+  let val l = TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast in
     case l of None =>
     raise Fail (format_failure lno "Unexpected EOF when reading lines")
     | Some l =>
@@ -923,12 +923,12 @@ Theorem read_n_lines_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "read_n_lines" (get_ml_prog_state()))
     [nv; fdv;lnov]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTve
       (λv.
          SEP_EXISTS k.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv (DROP n lines) (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv (DROP n lines) (forwardFD fs fd k) *
          &(
             n ≤ LENGTH lines ∧
             LIST_TYPE
@@ -939,7 +939,7 @@ Theorem read_n_lines_spec:
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(Fail_exn e ∧ LENGTH lines < n)))
 Proof
   Induct>>rw[]>>
@@ -958,7 +958,7 @@ Proof
     xlet ‘(POSTv v.
         SEP_EXISTS k.
             STDIO (forwardFD fs fd k) *
-            INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
+            INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
             &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
@@ -975,7 +975,7 @@ Proof
   xlet ‘(POSTv v.
           SEP_EXISTS k.
           STDIO (forwardFD fs fd k) *
-          INSTREAM_LINES fd fdv t (forwardFD fs fd k) *
+          INSTREAM_LINES #"\n" fd fdv t (forwardFD fs fd k) *
           & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast h)) v)’
   THEN1 (
     xapp_spec b_inputLineTokens_specialize
@@ -997,7 +997,7 @@ Proof
       (λv.
          SEP_EXISTS k.
          STDIO (forwardFD fss fd k) *
-         INSTREAM_LINES fd fdv (DROP n t) (forwardFD fss fd k) *
+         INSTREAM_LINES #"\n" fd fdv (DROP n t) (forwardFD fss fd k) *
          &(
             n ≤ LENGTH t ∧
             LIST_TYPE
@@ -1008,7 +1008,7 @@ Proof
       (λe.
          SEP_EXISTS k t'.
          STDIO (forwardFD fss fd k) *
-         INSTREAM_LINES fd fdv t' (forwardFD fss fd k) *
+         INSTREAM_LINES #"\n" fd fdv t' (forwardFD fss fd k) *
          &(Fail_exn e ∧ LENGTH t < n)))`
   >- xapp
   >-(
@@ -1073,12 +1073,12 @@ Theorem parse_vars_block_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_vars_block" (get_ml_prog_state()))
     [fdv;lnov]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTve
       (λv.
          SEP_EXISTS k lines' res rest lno'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             parse_vars_block ss = SOME(res,rest) ∧
             MAP toks_fast lines' = rest ∧
@@ -1088,7 +1088,7 @@ Theorem parse_vars_block_spec:
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(Fail_exn e ∧ parse_vars_block ss = NONE)))
 Proof
   rw[]>>
@@ -1098,7 +1098,7 @@ Proof
       (λv.
          SEP_EXISTS k.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv (DROP 5 lines) (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv (DROP 5 lines) (forwardFD fs fd k) *
          &(
             5 ≤ LENGTH lines ∧
             LIST_TYPE
@@ -1109,7 +1109,7 @@ Proof
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(Fail_exn e ∧ LENGTH lines < 5)))`
   >- (
     xapp>>
@@ -1156,7 +1156,7 @@ val res = translate is_end_def;
 
 val parse_def_aux = process_topdecs`
   fun parse_def_aux fd lno acc =
-  case TextIO.b_inputLineTokens fd blanks tokenize_fast of
+  case TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast of
     None =>
     raise Fail (format_failure lno "Unable to parse def block in order definition")
   | Some s =>
@@ -1177,12 +1177,12 @@ Theorem parse_def_aux_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_def_aux" (get_ml_prog_state()))
     [fdv;lnov;accv]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTve
       (λv.
          SEP_EXISTS k lines' res rest lno'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             parse_def_aux ss acc = SOME(res,rest) ∧
             MAP toks_fast lines' = rest ∧
@@ -1192,7 +1192,7 @@ Theorem parse_def_aux_spec:
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(Fail_exn e ∧ parse_def_aux ss acc = NONE)))
 Proof
   Induct>>rw[]>>
@@ -1201,7 +1201,7 @@ Proof
     xlet ‘(POSTv v.
         SEP_EXISTS k.
             STDIO (forwardFD fs fd k) *
-            INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
+            INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
             &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
@@ -1217,7 +1217,7 @@ Proof
   xlet ‘(POSTv v.
             SEP_EXISTS k.
             STDIO (forwardFD fs fd k) *
-            INSTREAM_LINES fd fdv lines (forwardFD fs fd k) *
+            INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
             & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast h)) v)’
   >- (
     xapp_spec b_inputLineTokens_specialize
@@ -1281,7 +1281,7 @@ val res = translate tokens_to_string_def;
 
 val expect_fd = process_topdecs`
   fun expect_fd fd lno st =
-  case TextIO.b_inputLineTokens fd blanks tokenize_fast of
+  case TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast of
     None =>
     raise Fail (format_failure lno
       ("Unable to parse, expected: " ^ tokens_to_string st))
@@ -1300,19 +1300,19 @@ Theorem expect_fd_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "expect_fd" (get_ml_prog_state()))
     [fdv;lnov;stv]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTve
       (λv.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             expect ss st = SOME (MAP toks_fast lines') ∧
             NUM (lno + 1) v))
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(Fail_exn e ∧ expect ss st = NONE)))
 Proof
   rw[]>>
@@ -1322,7 +1322,7 @@ Proof
     xlet ‘(POSTv v.
         SEP_EXISTS k.
             STDIO (forwardFD fs fd k) *
-            INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
+            INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
             &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
@@ -1339,7 +1339,7 @@ Proof
   xlet ‘(POSTv v.
             SEP_EXISTS k.
             STDIO (forwardFD fs fd k) *
-            INSTREAM_LINES fd fdv lines (forwardFD fs fd k) *
+            INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
             & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast h)) v)’
   >- (
     xapp_spec b_inputLineTokens_specialize
@@ -1392,12 +1392,12 @@ Theorem parse_def_block_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_def_block" (get_ml_prog_state()))
     [fdv;lnov]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTve
       (λv.
          SEP_EXISTS k lines' res rest lno'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             parse_def_block ss = SOME(res,rest) ∧
             MAP toks_fast lines' = rest ∧
@@ -1407,7 +1407,7 @@ Theorem parse_def_block_spec:
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(Fail_exn e ∧ parse_def_block ss = NONE)))
 Proof
   rw[]>>
@@ -1416,13 +1416,13 @@ Proof
     (λv.
          SEP_EXISTS k lines'.
            STDIO (forwardFD fs fd k) *
-           INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(expect (MAP toks_fast lines) def_line = SOME (MAP toks_fast lines') ∧
             NUM (lno + 1) v))
     (λe.
          SEP_EXISTS k lines'.
            STDIO (forwardFD fs fd k) *
-           INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧ expect (MAP toks_fast lines) def_line = NONE))`
   >- (
     xapp>>xsimpl>>
@@ -1479,12 +1479,12 @@ Theorem parse_proof_block_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_proof_block" (get_ml_prog_state()))
     [fdv;lnov]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTve
       (λv.
          SEP_EXISTS k lines' res rest lno'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             parse_proof_block ss = SOME(res,rest) ∧
             MAP toks_fast lines' = rest ∧
@@ -1494,7 +1494,7 @@ Theorem parse_proof_block_spec:
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(Fail_exn e ∧ parse_proof_block ss = NONE)))
 Proof
   rw[]>>
@@ -1503,13 +1503,13 @@ Proof
     (λv.
          SEP_EXISTS k lines'.
            STDIO (forwardFD fs fd k) *
-           INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(expect (MAP toks_fast lines) proof_line = SOME (MAP toks_fast lines') ∧
             NUM (lno + 1) v))
     (λe.
          SEP_EXISTS k lines'.
            STDIO (forwardFD fs fd k) *
-           INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧ expect (MAP toks_fast lines) proof_line = NONE))`
   >- (
     xapp>>xsimpl>>
@@ -1524,7 +1524,7 @@ Proof
       (λv.
          SEP_EXISTS k lines'' res acc' fns' lno' rest.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines'' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines'' (forwardFD fs fd k) *
          &(
             PAIR_TYPE (OPTION_TYPE NUM)
             (PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
@@ -1534,7 +1534,7 @@ Proof
             MAP toks_fast lines'' = rest))
       (λe.
          SEP_EXISTS k lines''.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines'' (forwardFD fs fd k) *
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines'' (forwardFD fs fd k) *
            &(Fail_exn e ∧ parse_red_aux (hashString_nf,()) (MAP toks_fast lines') [] = NONE))
       )`
   >- (
@@ -1565,13 +1565,13 @@ Proof
     (λv.
          SEP_EXISTS k lines'''.
            STDIO (forwardFD fs fd k) *
-           INSTREAM_LINES fd fdv lines''' (forwardFD fs fd k) *
+           INSTREAM_LINES #"\n" fd fdv lines''' (forwardFD fs fd k) *
            &(expect (MAP toks_fast lines'') end_line = SOME (MAP toks_fast lines''') ∧
             NUM (lno' + 1) v))
     (λe.
          SEP_EXISTS k lines'''.
            STDIO (forwardFD fs fd k) *
-           INSTREAM_LINES fd fdv lines''' (forwardFD fs fd k) *
+           INSTREAM_LINES #"\n" fd fdv lines''' (forwardFD fs fd k) *
            &(Fail_exn e ∧ expect (MAP toks_fast lines'') end_line = NONE))`
     >- (
       xapp>>xsimpl>>
@@ -1645,12 +1645,12 @@ Theorem parse_trans_block_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_trans_block" (get_ml_prog_state()))
     [fdv;lnov]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTve
       (λv.
          SEP_EXISTS k lines' ws pf ss' lno'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             parse_trans_block ss = SOME(ws,pf,ss') ∧
             MAP toks_fast lines' = ss' ∧
@@ -1660,7 +1660,7 @@ Theorem parse_trans_block_spec:
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(Fail_exn e ∧ parse_trans_block ss = NONE)))
 Proof
   rw[]>>
@@ -1669,7 +1669,7 @@ Proof
       (λv.
          SEP_EXISTS k.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv (DROP 4 lines) (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv (DROP 4 lines) (forwardFD fs fd k) *
          &(
             4 ≤ LENGTH lines ∧
             LIST_TYPE
@@ -1680,7 +1680,7 @@ Proof
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(Fail_exn e ∧ LENGTH lines < 4)))`
   >- (
     xapp>>
@@ -1711,7 +1711,7 @@ Proof
       (λv.
          SEP_EXISTS k lines' res rest lno'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             parse_proof_block ss = SOME(res,rest) ∧
             MAP toks_fast lines' = rest ∧
@@ -1721,7 +1721,7 @@ Proof
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(Fail_exn e ∧ parse_proof_block ss = NONE)))`
   >- (
     xapp>>xsimpl>>
@@ -1762,12 +1762,12 @@ Theorem parse_refl_block_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_refl_block" (get_ml_prog_state()))
     [fdv;lnov]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTve
       (λv.
          SEP_EXISTS k lines' ws pf ss' lno'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             parse_refl_block ss = SOME(pf,ss') ∧
             MAP toks_fast lines' = ss' ∧
@@ -1775,7 +1775,7 @@ Theorem parse_refl_block_spec:
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(Fail_exn e ∧ parse_refl_block ss = NONE)))
 Proof
   rw[]>>
@@ -1784,13 +1784,13 @@ Proof
     (λv.
          SEP_EXISTS k lines'.
            STDIO (forwardFD fs fd k) *
-           INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(expect (MAP toks_fast lines) reflexivity_line = SOME (MAP toks_fast lines') ∧
             NUM (lno + 1) v))
     (λe.
          SEP_EXISTS k lines'.
            STDIO (forwardFD fs fd k) *
-           INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧ expect (MAP toks_fast lines) reflexivity_line = NONE))`
   >- (
     xapp>>xsimpl>>
@@ -1824,12 +1824,12 @@ Theorem parse_trans_refl_block_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_trans_refl_block" (get_ml_prog_state()))
     [fdv;lnov]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTve
       (λv.
          SEP_EXISTS k lines' ws pfr pft ss' lno'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             parse_trans_refl_block ss = SOME(ws,pfr,pft,ss') ∧
             MAP toks_fast lines' = ss' ∧
@@ -1840,7 +1840,7 @@ Theorem parse_trans_refl_block_spec:
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(Fail_exn e ∧ parse_trans_refl_block ss = NONE)))
 Proof
   rw[]>>
@@ -1849,7 +1849,7 @@ Proof
       (λv.
          SEP_EXISTS k lines' ws pft ss' lno'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             parse_trans_block (MAP toks_fast lines) = SOME(ws,pft,ss') ∧
             MAP toks_fast lines' = ss' ∧
@@ -1859,7 +1859,7 @@ Proof
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(Fail_exn e ∧ parse_trans_block (MAP toks_fast lines) = NONE)))`
   >- (
     xapp>>xsimpl>>
@@ -1873,7 +1873,7 @@ Proof
       (λv.
          SEP_EXISTS k lines' ws pfr ss'' lno'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             parse_refl_block ss' = SOME(pfr,ss'') ∧
             MAP toks_fast lines' = ss'' ∧
@@ -1881,7 +1881,7 @@ Proof
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(Fail_exn e ∧ parse_refl_block ss' = NONE)))`
   >- (
     xapp>>xsimpl>>
@@ -1920,12 +1920,12 @@ Theorem parse_pre_order_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_pre_order" (get_ml_prog_state()))
     [fdv;lnov]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTve
       (λv.
          SEP_EXISTS k lines' res a b c d rest lno'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             parse_pre_order ss = SOME (a,b,c,d,rest) ∧
             PAIR_TYPE
@@ -1939,7 +1939,7 @@ Theorem parse_pre_order_spec:
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(Fail_exn e ∧ parse_pre_order ss = NONE)))
 Proof
   rw[]>>
@@ -1951,7 +1951,7 @@ Proof
       (λv.
          SEP_EXISTS k lines' res rest lno.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             parse_vars_block (MAP toks_fast lines) = SOME(res,rest) ∧
             MAP toks_fast lines' = rest ∧
@@ -1961,7 +1961,7 @@ Proof
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(Fail_exn e ∧ parse_vars_block (MAP toks_fast lines) = NONE)))`
   >- (xapp>>xsimpl)
   >-(
@@ -1969,14 +1969,14 @@ Proof
     simp[parse_pre_order_def]>>
     metis_tac[STDIO_INSTREAM_LINES_refl])>>
   fs[PAIR_TYPE_def]>>xmatch>>
-  qmatch_goalsub_abbrev_tac`INSTREAM_LINES _ _ lines1 fs1`>>
+  qmatch_goalsub_abbrev_tac`INSTREAM_LINES #"\n" _ _ lines1 fs1`>>
   simp[parse_pre_order_def]>>
   TOP_CASE_TAC>>fs[]>>
   xlet`(POSTve
       (λv.
          SEP_EXISTS k lines' res rest lno'.
          STDIO (forwardFD fs1 fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs1 fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs1 fd k) *
          &(
             parse_def_block (MAP toks_fast lines1) = SOME(res,rest) ∧
             MAP toks_fast lines' = rest ∧
@@ -1986,7 +1986,7 @@ Proof
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs1 fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs1 fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs1 fd k) *
          &(Fail_exn e ∧ parse_def_block (MAP toks_fast lines1) = NONE)))`
   >- (xapp>>metis_tac[])
   >- (
@@ -1994,12 +1994,12 @@ Proof
     unabbrev_all_tac>>simp[forwardFD_o]>>
     metis_tac[STDIO_INSTREAM_LINES_refl])>>
   fs[PAIR_TYPE_def]>>xmatch>>
-  qmatch_goalsub_abbrev_tac`INSTREAM_LINES _ _ lines2 fs2`>>
+  qmatch_goalsub_abbrev_tac`INSTREAM_LINES #"\n" _ _ lines2 fs2`>>
   xlet`(POSTve
       (λv.
          SEP_EXISTS k lines' ws pfr pft ss' lno'.
          STDIO (forwardFD fs2 fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs2 fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs2 fd k) *
          &(
             parse_trans_refl_block (MAP toks_fast lines2) =
               SOME(ws,pfr,pft,ss') ∧
@@ -2011,7 +2011,7 @@ Proof
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs2 fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs2 fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs2 fd k) *
          &(Fail_exn e ∧ parse_trans_refl_block (MAP toks_fast lines2) = NONE)))`
   >- (xapp>> metis_tac[])
   >- (
@@ -2019,18 +2019,18 @@ Proof
     unabbrev_all_tac>>simp[forwardFD_o]>>
     metis_tac[STDIO_INSTREAM_LINES_refl])>>
   fs[PAIR_TYPE_def]>>xmatch>>
-  qmatch_goalsub_abbrev_tac`INSTREAM_LINES _ _ lines3 fs3`>>
+  qmatch_goalsub_abbrev_tac`INSTREAM_LINES #"\n" _ _ lines3 fs3`>>
   xlet`POSTve
     (λv.
          SEP_EXISTS k lines'.
            STDIO (forwardFD fs3 fd k) *
-           INSTREAM_LINES fd fdv lines' (forwardFD fs3 fd k) *
+           INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs3 fd k) *
            &(expect (MAP toks_fast lines3) end_line = SOME (MAP toks_fast lines') ∧
             NUM (lno''  + 1) v))
     (λe.
          SEP_EXISTS k lines'.
            STDIO (forwardFD fs3 fd k) *
-           INSTREAM_LINES fd fdv lines' (forwardFD fs3 fd k) *
+           INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs3 fd k) *
            &(Fail_exn e ∧ expect (MAP toks_fast lines3) end_line = NONE))`
   >-
     (xapp>>simp[end_line_v_thm])
@@ -2129,12 +2129,12 @@ Theorem parse_cstep_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_cstep" (get_ml_prog_state()))
     [fnsv; fdv; lnov]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTve
       (λv.
          SEP_EXISTS k lines' lno' res fns' rest.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             parse_cstep fns ss = SOME (res,fns',rest) ∧
             (PAIR_TYPE
@@ -2145,7 +2145,7 @@ Theorem parse_cstep_spec:
                 MAP toks_fast lines' = rest))
       (λe.
          SEP_EXISTS k lines'.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧ parse_cstep fns ss = NONE))
       )
 Proof
@@ -2154,7 +2154,7 @@ Proof
       (λv.
          SEP_EXISTS k lines' lno'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          &(
             case parse_sstep fns (MAP toks_fast lines) of
               NONE => F
@@ -2167,7 +2167,7 @@ Proof
                 MAP toks_fast lines' = rest))
       (λe.
          SEP_EXISTS k lines'.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧ parse_sstep fns (MAP toks_fast lines) = NONE))
       )`
   >- (
@@ -2208,12 +2208,12 @@ Proof
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])
   >- (
     rpt xlet_autop>>
-    qmatch_goalsub_abbrev_tac`INSTREAM_LINES _ _ lines1 fs1`>>
+    qmatch_goalsub_abbrev_tac`INSTREAM_LINES #"\n" _ _ lines1 fs1`>>
     xlet`(POSTve
       (λv.
          SEP_EXISTS k lines' res acc' fns' s lno' rest.
          STDIO (forwardFD fs1 fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs1 fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs1 fd k) *
          &(
             PAIR_TYPE (OPTION_TYPE NUM)
             (PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
@@ -2223,7 +2223,7 @@ Proof
             MAP toks_fast lines' = rest))
       (λe.
          SEP_EXISTS k lines'.
-           STDIO (forwardFD fs1 fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs1 fd k) *
+           STDIO (forwardFD fs1 fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs1 fd k) *
            &(Fail_exn e ∧ parse_red_aux r (MAP toks_fast lines1) [] = NONE))
       )`
     >- (
@@ -2242,12 +2242,12 @@ Proof
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])
   >- (
     rpt xlet_autop>>
-    qmatch_goalsub_abbrev_tac`INSTREAM_LINES _ _ lines1 fs1`>>
+    qmatch_goalsub_abbrev_tac`INSTREAM_LINES #"\n" _ _ lines1 fs1`>>
     xlet`(POSTve
       (λv.
          SEP_EXISTS k lines' res a b c d rest lno'.
          STDIO (forwardFD fs1 fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs1 fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs1 fd k) *
          &(
             parse_pre_order (MAP toks_fast lines1) = SOME (a,b,c,d,rest) ∧
             PAIR_TYPE
@@ -2261,7 +2261,7 @@ Proof
       (λe.
          SEP_EXISTS k lines'.
          STDIO (forwardFD fs1 fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs1 fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs1 fd k) *
          &(Fail_exn e ∧ parse_pre_order (MAP toks_fast lines1) = NONE)))`
     >-
       (xapp>>metis_tac[])
@@ -2278,12 +2278,12 @@ Proof
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])
   >- (
     rpt xlet_autop>>
-    qmatch_goalsub_abbrev_tac`INSTREAM_LINES _ _ lines1 fs1`>>
+    qmatch_goalsub_abbrev_tac`INSTREAM_LINES #"\n" _ _ lines1 fs1`>>
     xlet`(POSTve
       (λv.
          SEP_EXISTS k lines' res acc' fns' s lno' rest.
          STDIO (forwardFD fs1 fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs1 fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs1 fd k) *
          &(
             PAIR_TYPE (OPTION_TYPE NUM)
             (PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
@@ -2293,7 +2293,7 @@ Proof
             MAP toks_fast lines' = rest))
       (λe.
          SEP_EXISTS k lines'.
-           STDIO (forwardFD fs1 fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs1 fd k) *
+           STDIO (forwardFD fs1 fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs1 fd k) *
            &(Fail_exn e ∧ parse_red_aux r (MAP toks_fast lines1) [] = NONE))
       )`
     >- (
@@ -2312,12 +2312,12 @@ Proof
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])
   >- (
     rpt xlet_autop>>
-    qmatch_goalsub_abbrev_tac`INSTREAM_LINES _ _ lines1 fs1`>>
+    qmatch_goalsub_abbrev_tac`INSTREAM_LINES #"\n" _ _ lines1 fs1`>>
     xlet`(POSTve
       (λv.
          SEP_EXISTS k lines' res acc' fns' s lno' rest.
          STDIO (forwardFD fs1 fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs1 fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs1 fd k) *
          &(
             PAIR_TYPE (OPTION_TYPE NUM)
             (PAIR_TYPE (LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE (NPBC_CHECK_LSTEP_TYPE))))
@@ -2327,7 +2327,7 @@ Proof
             MAP toks_fast lines' = rest))
       (λe.
          SEP_EXISTS k lines'.
-           STDIO (forwardFD fs1 fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs1 fd k) *
+           STDIO (forwardFD fs1 fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs1 fd k) *
            &(Fail_exn e ∧ parse_red_aux r (MAP toks_fast lines1) [] = NONE))
       )`
     >- (
@@ -2432,26 +2432,26 @@ End
 
 Theorem ARRAY_STDIO_INSTREAM_LINES_refl:
   (ARRAY arr arrv * STDIO A *
-  INSTREAM_LINES B C D E ==>>
+  INSTREAM_LINES #"\n" B C D E ==>>
   ARRAY arr arrv * STDIO A *
-  INSTREAM_LINES B C D E) ∧
+  INSTREAM_LINES #"\n" B C D E) ∧
   (ARRAY arr arrv * STDIO A *
-  INSTREAM_LINES B C D E ==>>
+  INSTREAM_LINES #"\n" B C D E ==>>
   ARRAY arr arrv * STDIO A *
-  INSTREAM_LINES B C D E * GC)
+  INSTREAM_LINES #"\n" B C D E * GC)
 Proof
   xsimpl
 QED
 
 Theorem STDIO_INSTREAM_LINES_ARRAY_refl:
   (STDIO A *
-  INSTREAM_LINES B C D E * ARRAY arr arrv ==>>
+  INSTREAM_LINES #"\n" B C D E * ARRAY arr arrv ==>>
   STDIO A *
-  INSTREAM_LINES B C D E * ARRAY arr arrv) ∧
+  INSTREAM_LINES #"\n" B C D E * ARRAY arr arrv) ∧
   (STDIO A *
-  INSTREAM_LINES B C D E * ARRAY arr arrv ==>>
+  INSTREAM_LINES #"\n" B C D E * ARRAY arr arrv ==>>
   STDIO A *
-  INSTREAM_LINES B C D E * ARRAY arr arrv * GC)
+  INSTREAM_LINES #"\n" B C D E * ARRAY arr arrv * GC)
 Proof
   xsimpl
 QED
@@ -2471,12 +2471,12 @@ Theorem check_unsat''_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
     [fnsv; fdv; lnov; fmlv; indsv; vimapv; vomapv; pcv]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs * ARRAY fmlv fmllsv)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs * ARRAY fmlv fmllsv)
     (POSTve
       (λv.
          SEP_EXISTS k lines' lno' fmlv' fmllsv' res.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          ARRAY fmlv' fmllsv' *
          &(
           parse_and_run fns ss fmlls inds vimap vomap pc =
@@ -2492,7 +2492,7 @@ Theorem check_unsat''_spec:
       (λe.
          SEP_EXISTS k lines' fmlv' fmllsv'.
            ARRAY fmlv' fmllsv' *
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧
             parse_and_run fns ss fmlls inds vimap vomap pc = NONE)))
 Proof
@@ -2505,7 +2505,7 @@ Proof
     xlet `(POSTe e.
          SEP_EXISTS k lines' fmlv' fmllsv'.
            ARRAY fmlv' fmllsv' *
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e))`
     >- (
       xapp>>xsimpl>>
@@ -2525,7 +2525,7 @@ Proof
   xlet `(POSTv v.
     SEP_EXISTS k lines' lno'.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          ARRAY fmlv fmllsv *
          &(
             case parse_cstep fns (MAP toks_fast lines) of
@@ -2846,7 +2846,7 @@ val run_concl_file = process_topdecs`
     fml' inds' obj' bound' dbound' chk'
     fmlt objt =
   let
-    val ls = TextIO.b_inputAllTokens fd blanks tokenize
+    val ls = TextIO.b_inputAllTokens #"\n" fd blanks tokenize
   in
     case parse_output_concl s f_ns ls of
       None => Inl (format_failure lno (mk_parse_err s))
@@ -2895,11 +2895,11 @@ Theorem run_concl_file_spec:
     [fdv; fnsv;lnov;sv;
       fmlv; objv; fml1v; inds1v; obj1v; bound1v; dbound1v; chk1v;
       fmltv; objtv]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs * ARRAY fml1v fmllsv)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs * ARRAY fml1v fmllsv)
     (POSTv v.
        SEP_EXISTS res.
        STDIO (fastForwardFD fs fd) *
-       INSTREAM_LINES fd fdv [] (fastForwardFD fs fd) *
+       INSTREAM_LINES #"\n" fd fdv [] (fastForwardFD fs fd) *
        &(
         SUM_TYPE STRING_TYPE
         (PAIR_TYPE PBC_OUTPUT_TYPE NPBC_CHECK_HCONCL_TYPE) res v ∧
@@ -2918,7 +2918,7 @@ Proof
   xcf "run_concl_file" (get_ml_prog_state ())>>
   xlet ‘(POSTv v.
           STDIO (fastForwardFD fs fd) *
-          INSTREAM_LINES fd fdv [] (fastForwardFD fs fd) *
+          INSTREAM_LINES #"\n" fd fdv [] (fastForwardFD fs fd) *
           ARRAY fml1v fmllsv *
           & LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
             (MAP (MAP tokenize o tokens blanks) lines) v
@@ -3070,11 +3070,11 @@ Theorem check_unsat'_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat'" (get_ml_prog_state()))
     [fnsv; fdv; lnov; fmlv; objv; fmltv; objtv]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTv v.
      SEP_EXISTS k lines' res.
      STDIO (forwardFD fs fd k) *
-     INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+     INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
      &(
       SUM_TYPE STRING_TYPE
         (PAIR_TYPE PBC_OUTPUT_TYPE
@@ -3101,7 +3101,7 @@ Proof
   xlet`
   (POSTv resv.
     SEP_EXISTS arrlsv'. ARRAY resv arrlsv' *
-      STDIO fs * INSTREAM_LINES fd fdv lines fs *
+      STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs *
       & LIST_REL (OPTION_TYPE bconstraint_TYPE)
       (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,T)) i)
       (REPLICATE (2 * (LENGTH fml + 1)) NONE)
@@ -3129,12 +3129,12 @@ Proof
     xhandle`POSTe e.
       SEP_EXISTS k lines' fmlv' fmllsv'.
       STDIO (forwardFD fs fd k) *
-      INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+      INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
       &(Fail_exn e)`
     >- (
       xlet`POSTe e.
          SEP_EXISTS k lines' fmlv' fmllsv'.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e)`
       >- (
         xapp>>xsimpl>>
@@ -3158,7 +3158,7 @@ Proof
   xhandle`POSTv v.
      SEP_EXISTS k lines' res.
      STDIO (forwardFD fs fd k) *
-     INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+     INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
      &(
       SUM_TYPE STRING_TYPE
         (PAIR_TYPE PBC_OUTPUT_TYPE
@@ -3173,7 +3173,7 @@ Proof
     xlet`POSTv v.
        SEP_EXISTS k lines' lno' fmlv' fmllsv' res.
          STDIO (forwardFD fs fd k) *
-         INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          ARRAY fmlv' fmllsv' *
          &(
           parse_and_run fns (MAP toks_fast lines)
@@ -3207,7 +3207,7 @@ Proof
     xlet`(POSTv v.
        SEP_EXISTS res k.
        STDIO (forwardFD fs fd k) *
-       INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
+       INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
        &(
         SUM_TYPE STRING_TYPE
         (PAIR_TYPE PBC_OUTPUT_TYPE NPBC_CHECK_HCONCL_TYPE) res v ∧
@@ -3303,8 +3303,8 @@ val r = translate check_header_full_def;
 val check_header = process_topdecs`
   fun check_header fd =
   let
-    val s1 = TextIO.b_inputLineTokens fd blanks tokenize_fast
-    val s2 = TextIO.b_inputLineTokens fd blanks tokenize_fast
+    val s1 = TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast
+    val s2 = TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast
   in
   check_header_full s1 s2
   end` |> append_prog;
@@ -3323,11 +3323,11 @@ Theorem check_header_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_header" (get_ml_prog_state()))
     [fdv]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTv v.
        SEP_EXISTS k lines' res.
        STDIO (forwardFD fs fd k) *
-       INSTREAM_LINES fd fdv lines' (forwardFD fs fd k) *
+       INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
        &(OPTION_TYPE NUM res v))
 Proof
   xcf "check_header" (get_ml_prog_state ())>>
@@ -3335,17 +3335,16 @@ Proof
   xlet ‘(POSTv v.
       SEP_EXISTS k.
           STDIO (forwardFD fs fd k) *
-          INSTREAM_LINES fd fdv (TL lines) (forwardFD fs fd k) *
+          INSTREAM_LINES #"\n" fd fdv (TL lines) (forwardFD fs fd k) *
           &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
             (OPTION_MAP (MAP tokenize_fast ∘ tokens blanks) (oHD lines)) v)’
   >- (
     xapp_spec b_inputLineTokens_specialize
-    \\ qexists_tac ‘emp’
-    \\ xsimpl)>>
+    \\ EVAL_TAC)>>
   xlet ‘(POSTv v.
       SEP_EXISTS k.
           STDIO (forwardFD fs fd k) *
-          INSTREAM_LINES fd fdv (TL (TL lines)) (forwardFD fs fd k) *
+          INSTREAM_LINES #"\n" fd fdv (TL (TL lines)) (forwardFD fs fd k) *
           &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
             (OPTION_MAP (MAP tokenize_fast ∘ tokens blanks) (oHD (TL lines))) v)’
   >- (
@@ -3386,9 +3385,9 @@ val check_unsat_top = process_topdecs `
 
 Theorem STDIO_INSTREAM_LINES_refl_more_gc:
   STDIO A *
-  INSTREAM_LINES B C D E * rest ==>>
+  INSTREAM_LINES c B C D E * rest ==>>
   STDIO A *
-  INSTREAM_LINES B C D E * GC
+  INSTREAM_LINES c B C D E * GC
 Proof
   xsimpl
 QED
@@ -3442,19 +3441,19 @@ Proof
   qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
   xhandle`$POSTv Qval` \\ xsimpl >>
   qunabbrev_tac`Qval`>>
-  xlet_auto_spec (SOME b_openIn_spec_lines) \\ xsimpl >>
-  qmatch_goalsub_abbrev_tac`INSTREAM_LINES fd fdv lines fss`>>
+  xlet_auto_spec (SOME (b_openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`)) \\ xsimpl >>
+  qmatch_goalsub_abbrev_tac`INSTREAM_LINES #"\n" fd fdv lines fss`>>
   xlet`POSTv v.
     SEP_EXISTS k lines' res.
     STDIO (forwardFD fss fd k) *
-    INSTREAM_LINES fd fdv lines' (forwardFD fss fd k) *
+    INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fss fd k) *
     &OPTION_TYPE NUM res v`
   >- (
     xapp>>
     qexists_tac`emp`>>
     xsimpl>>
     metis_tac[STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_refl_gc,STAR_COMM])>>
-  qmatch_goalsub_abbrev_tac`INSTREAM_LINES fd fdv _ fsss`>>
+  qmatch_goalsub_abbrev_tac`INSTREAM_LINES #"\n" fd fdv _ fsss`>>
   reverse (Cases_on`res`)>>fs[OPTION_TYPE_def]>>xmatch
   >- (
     xlet `POSTv v. STDIO fs`
@@ -3465,6 +3464,7 @@ Proof
       qexists_tac `lines'` >>
       qexists_tac `fsss`>>
       qexists_tac `fd` >>
+      qexists_tac `#"\n"` >>
       conj_tac THEN1
         (unabbrev_all_tac
         \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs []
@@ -3488,7 +3488,7 @@ Proof
     qexists_tac`INL s`>>simp[SUM_TYPE_def])>>
   xlet`POSTv v. SEP_EXISTS k lines' lno' fmlv' fmllsv' res.
           STDIO (forwardFD fsss fd k) *
-          INSTREAM_LINES fd fdv lines' (forwardFD fsss fd k) *
+          INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fsss fd k) *
           &(
           SUM_TYPE STRING_TYPE
             (PAIR_TYPE PBC_OUTPUT_TYPE
@@ -3512,6 +3512,7 @@ Proof
     qexists_tac `lines'` >>
     qexists_tac `forwardFD fsss fd k'`>>
     qexists_tac `fd` >>
+    qexists_tac `#"\n"` >>
     conj_tac THEN1
       (unabbrev_all_tac
       \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs []
@@ -3531,7 +3532,6 @@ Proof
   xvar>>xsimpl>>
   asm_exists_tac>>fs[]
 QED
-
 
 (*
   A string pbc -> npbc normaliser frontend
@@ -3715,5 +3715,12 @@ Definition default_objf_def:
 End
 
 val res = translate default_objf_def;
+
+Theorem all_lines_gen_all_lines[simp]:
+  all_lines_gen #"\n" fs f =
+  all_lines fs f
+Proof
+  rw[all_lines_def,all_lines_gen_def,lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def]
+QED
 
 val _ = export_theory();

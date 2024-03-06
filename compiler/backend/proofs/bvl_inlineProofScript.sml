@@ -1924,7 +1924,7 @@ Theorem state_cc_compile_inc_eq:
       (in_cc limit (remove_ticks_cc (let_op_cc o1 o2 cc)))
 Proof
   fs [state_cc_def,compile_inc_def,in_cc_def,FUN_EQ_THM,remove_ticks_cc_def,
-      let_op_cc_def] \\ rw []
+      let_op_cc_def,FORALL_PROD] \\ rw []
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ fs [MAP_optimise]
 QED
