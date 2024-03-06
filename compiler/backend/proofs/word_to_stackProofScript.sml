@@ -9953,13 +9953,14 @@ Proof
   >~ [`wShareInst`]
   >- (
     gvs[DefnBase.one_line_ify NONE wShareInst_def] >>
+    TOP_CASE_TAC >- simp[extract_labels_def] >>
     TOP_CASE_TAC >>
     TOP_CASE_TAC >>
     pairarg_tac >>
     gvs[wRegWrite1_def,wReg1_def,wReg2_def,AllCaseEqs()] >>
     IF_CASES_TAC >>
     simp[wStackLoad_def] >>
-    simp[extract_labels_def] )
+    simp[extract_labels_def])
   >> rpt(pairarg_tac \\ fs[wReg2_def])
   \\ every_case_tac \\ rw[] \\ EVAL_TAC
   \\ EVAL_TAC>>EVERY_CASE_TAC>>EVAL_TAC
@@ -10159,7 +10160,8 @@ Proof
   >~[`wShareInst`]
   >-
     (PairCases_on`kf` >>
-    Cases_on `THE (exp_to_addr exp)` >>
+    Cases_on `exp_to_addr exp` >> fs[] >- EVAL_TAC >>
+    rename1 ‘SOME x’ >> Cases_on ‘x’>>
     Cases_on `op` >>
     simp[wShareInst_def] >>
     fs wconvs >>
@@ -10270,7 +10272,8 @@ Proof
   >~ [`wShareInst`]
   >-
     (PairCases_on`kf` >>
-    Cases_on `THE(exp_to_addr exp)` >>
+    Cases_on `exp_to_addr exp` >> fs[] >- EVAL_TAC >>
+    rename1 ‘SOME x’ >> Cases_on ‘x’>>
     Cases_on `op` >>
     every_case_tac >>
     rpt (EVAL_TAC >> rw[]))
@@ -10371,7 +10374,8 @@ Proof
     rveq>>fs [alloc_arg_def]>>
     match_mp_tac stack_move_alloc_arg>>fs [alloc_arg_def])
   >~[`wShareInst`]
-  >- (Cases_on `THE(exp_to_addr exp)` >>
+  >- (Cases_on `exp_to_addr exp` >> fs[] >- EVAL_TAC>>
+      rename1 ‘SOME xx’ >> Cases_on ‘xx’ >>
       Cases_on `op` >>
       gvs[wShareInst_def,alloc_arg_def] >>
       fs[wReg1_def,wReg2_def,wRegWrite1_def] >>
@@ -10447,7 +10451,8 @@ Proof
     match_mp_tac stack_move_reg_bound>>fs [reg_bound_def]))
   >- (rpt(pairarg_tac>>fs[reg_bound_def])>>rveq>>fs[reg_bound_def])
   >~ [`wShareInst`]
-  >- (Cases_on `THE(exp_to_addr exp)` >>
+  >- (Cases_on `exp_to_addr exp` >> fs[] >- EVAL_TAC >>
+    rename1 ‘SOME xx’ >> Cases_on ‘xx’>>
     Cases_on `op` >>
     rpt(pairarg_tac>>fs[reg_bound_def])>>rveq>>fs[reg_bound_def] >>
     fs[wReg1_def,wReg2_def,wRegWrite1_def] >>
@@ -10515,7 +10520,8 @@ Proof
   >- (rpt(pairarg_tac>>fs[call_args_def])>>rveq>>fs[call_args_def])
   >~ [`wShareInst`]
   >- (
-    Cases_on `THE(exp_to_addr exp)` >>
+    Cases_on `exp_to_addr exp` >> fs[] >- EVAL_TAC>>
+    rename1 ‘SOME xx’ >> Cases_on ‘xx’>>
     Cases_on `op` >>
     rpt(pairarg_tac>>fs[call_args_def])>>rveq>>fs[call_args_def] >>
     fs[wReg1_def,wReg2_def,wRegWrite1_def] >>
@@ -10701,7 +10707,8 @@ Proof
     rpt(dep_rewrite.DEP_REWRITE_TAC [get_code_labels_wReg]>>rw[])
   >~[`wShareInst`]
   >- (
-    Cases_on `THE(exp_to_addr exp)` >>
+    Cases_on `exp_to_addr exp` >> fs[]>>
+    rename1 ‘SOME xx’>> Cases_on ‘xx’>>
     Cases_on `op` >>
     fs[wShareInst_def] >>
     rpt (pairarg_tac>>fs[])>>
@@ -10999,7 +11006,8 @@ Proof
   >- gvs[no_install_def,wStackLoad_no_install_lem,ELIM_UNCURRY] (* CodeBufferWrite *)
   >- gvs[no_install_def,wStackLoad_no_install_lem,ELIM_UNCURRY] (* DataBufferWrite *)
   >- ( (* ShareInst *)
-    Cases_on `THE (exp_to_addr exp)` >>
+    Cases_on `exp_to_addr exp` >> fs[] >- gvs[no_install_def]>>
+    rename1 ‘SOME x’ >> Cases_on ‘x’>>
     gvs[DefnBase.one_line_ify NONE wShareInst_def,no_install_def,ELIM_UNCURRY] >>
     TOP_CASE_TAC >>
     gvs[wStackLoad_no_install_lem,no_install_def] >>
