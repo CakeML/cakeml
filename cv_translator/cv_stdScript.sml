@@ -105,6 +105,12 @@ val res = cv_trans DROP_def;
 
 val res = cv_trans_pre EL;
 
+Theorem EL_pre[cv_pre]:
+  ∀n xs. EL_pre n xs ⇔ n < LENGTH xs
+Proof
+  Induct \\ rw [] \\ simp [Once res] \\ Cases_on ‘xs’ \\ gvs []
+QED
+
 val res = cv_trans LEN_DEF;
 val res = cv_trans LENGTH_LEN;
 
