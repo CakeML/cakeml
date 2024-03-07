@@ -69,111 +69,85 @@ QED
 val _ = cv_trans infer_tTheory.add_parens_def;
 val _ = cv_trans add_parens_list_def;
 
-(*
-
-val res = cv_trans (expand infer_tTheory.inf_type_to_string_rec_def
-                      |> SRULE [add_parens_list])
-
-val res = cv_trans infer_tTheory.inf_type_to_string_def;
-
-*)
-
-(*
-
-val add_constraint_def = Define `
-add_constraint (l : loc_err_info) t1 t2 =
-  \st.
-    dtcase t_unify st.subst t1 t2 of
-      | NONE =>
-          (Failure (l.loc, concat [implode "Type mismatch between ";
-                                   inf_type_to_string l.err
-                                         (t_walkstar st.subst t1);
-                                   implode " and ";
-                                   inf_type_to_string l.err
-                                         (t_walkstar st.subst t2)]), st)
-      | SOME s =>
-          (Success (), st with <| subst := s |>)`;
-
-val add_constraints_def = Define `
-(add_constraints l [] [] =
-  return ()) ∧
-(add_constraints l (t1::ts1) (t2::ts2) =
-  do () <- add_constraint l t1 t2;
-     () <- add_constraints l ts1 ts2;
-     return ()
-  od) ∧
-(add_constraints l _ _ =
-  failwith l (implode "Internal error: Bad call to add_constraints"))`;
-
-(* We use a state argument for the inferencer's typing environment. This corresponds to the type system's typing environment
-  The module and variable environment's types differ slightly.
-*)
-
-Datatype:
-  inf_env =
-  <| inf_v : (modN, varN, num # infer_t) namespace
-   ; inf_c : tenv_ctor
-   ; inf_t : tenv_abbrev
-   |>
+Definition inf_type_to_str_def:
+  inf_type_to_str tys = inf_type_to_string_rec (type_ident_to_string tys)
 End
 
-(* Generalise the unification variables greater than m, starting at deBruijn index n.
- * Return how many were generalised, the generalised type, and a substitution
- * that describes the generalisation *)
-val generalise_def = Define `
-(generalise m n s (Infer_Tapp ts tc) =
-  let (num_gen, s', ts') = generalise_list m n s ts in
-    (num_gen, s', Infer_Tapp ts' tc)) ∧
-(generalise m n s (Infer_Tuvar uv) =
-  dtcase FLOOKUP s uv of
-    | SOME n => (0, s, Infer_Tvar_db n)
-    | NONE =>
-        if m ≤ uv then
-          (1, s|+(uv,n), Infer_Tvar_db n)
-        else
-          (0, s, Infer_Tuvar uv)) ∧
-(generalise m n s (Infer_Tvar_db k) =
-    (0, s, Infer_Tvar_db k)) ∧
-(generalise_list m n s [] =
-  (0,s,[])) ∧
-(generalise_list m n s (t::ts) =
-  let (num_gen, s', t') = generalise m n s t in
-  let (num_gen', s'', ts') = generalise_list m (num_gen + n) s' ts in
-    (num_gen+num_gen', s'', t'::ts'))`;
+Definition inf_type_to_str_list_def:
+  inf_type_to_str_list tys = inf_type_to_string_rec_list (type_ident_to_string tys)
+End
 
-val infer_type_subst_def = tDefine "infer_type_subst" `
-(infer_type_subst s (Tvar tv) =
-  dtcase ALOOKUP s tv of
-   | SOME t => t
-   | NONE => Infer_Tvar_db 0) ∧ (* should not happen *)
-(infer_type_subst s (Tvar_db n) =
-  Infer_Tvar_db n) ∧
-(infer_type_subst s (Tapp ts tn) =
-  Infer_Tapp (MAP (infer_type_subst s) ts) tn)`
-(WF_REL_TAC `measure (t_size o SND)` >>
- rw [] >>
- TRY (induct_on `ts`) >>
- rw [t_size_def] >>
- res_tac >>
- decide_tac);
+val res = cv_trans_pre infer_tTheory.get_tyname_def;
 
-val infer_deBruijn_subst_def = tDefine "infer_deBruijn_subst" `
-(infer_deBruijn_subst s (Infer_Tvar_db n) =
-  if n < LENGTH s then
-    EL n s
-  else
-    (* should not happen *)
-    Infer_Tvar_db (n - LENGTH s)) ∧
-(infer_deBruijn_subst s (Infer_Tapp ts tn) =
-  Infer_Tapp (MAP (infer_deBruijn_subst s) ts) tn) ∧
-(infer_deBruijn_subst s (Infer_Tuvar n) =
-  Infer_Tuvar n)`
-(WF_REL_TAC `measure (infer_t_size o SND)` >>
- rw [] >>
- TRY (induct_on `ts`) >>
- rw [infer_t_size_def] >>
- res_tac >>
- decide_tac);
+Theorem get_tyname_pre[cv_pre]:
+  ∀a0 a1. get_tyname_pre a0 a1
+Proof
+  ho_match_mp_tac infer_tTheory.get_tyname_ind
+  \\ rw [] \\ simp [Once res]
+QED
+
+val toChar_pre = cv_trans_pre mlintTheory.toChar_def
+val num_to_chars_pre = cv_auto_trans_pre mlintTheory.num_to_chars_def;
+
+Theorem num_to_chars_pre[cv_pre,local]:
+  ∀a0 a1 a2 a3. num_to_chars_pre a0 a1 a2 a3
+Proof
+  ho_match_mp_tac mlintTheory.num_to_chars_ind \\ rw []
+  \\ rw [] \\ simp [Once num_to_chars_pre]
+  \\ once_rewrite_tac [toChar_pre] \\ gvs [] \\ rw []
+  \\ ‘k MOD 10 < 10’ by gvs [] \\ simp []
+QED
+
+Triviality Num_ABS:
+  Num (ABS i) = Num i
+Proof
+  Cases_on ‘i’ \\ gvs []
+QED
+
+val _ = cv_trans (mlintTheory.toString_def |> SRULE [Num_ABS]);
+val _ = cv_auto_trans infer_tTheory.type_ident_to_string_def;
+
+val res = cv_trans_pre infer_tTheory.ty_var_name_def;
+
+Theorem ty_var_name_pre[cv_pre,local]:
+  ∀a0. ty_var_name_pre a0
+Proof
+  gvs [res]
+QED
+
+val res = expand infer_tTheory.inf_type_to_string_rec_def
+            |> SRULE [add_parens_list]
+            |> CONJUNCTS |> map (Q.SPEC ‘type_ident_to_string tys’) |> LIST_CONJ
+            |> SRULE [GSYM inf_type_to_str_def, GSYM inf_type_to_str_list_def]
+            |> cv_auto_trans_pre
+
+Theorem inf_type_to_str_pre[cv_pre,local]:
+  (∀a0 a1. inf_type_to_str_pre a0 a1) ∧
+  (∀a2 a3. inf_type_to_str_list_pre a2 a3)
+Proof
+  cheat
+QED
+
+val res = infer_tTheory.inf_type_to_string_def
+            |> SRULE [GSYM inf_type_to_str_def] |> cv_trans;
+
+val add_constraint_pre = add_constraint_def |> expand |> cv_auto_trans_pre;
+val add_constraints_pre = add_constraints_def |> expand |> cv_auto_trans_pre;
+
+val _ = cv_trans generalise_def;
+val _ = cv_trans infer_type_subst_def;
+
+val infer_deBruijn_subst_pre = cv_trans_pre infer_deBruijn_subst_def;
+
+Theorem infer_deBruijn_subst_pre[cv_pre,local]:
+  (∀a1 a0. infer_deBruijn_subst_pre a0 a1) ∧
+  (∀a3 a2. infer_deBruijn_subst_list_pre a2 a3)
+Proof
+  ho_match_mp_tac infer_tTheory.infer_t_induction \\ rw []
+  \\ simp [Once infer_deBruijn_subst_pre]
+QED
+
+(*
 
 val type_name_check_subst_def = Define `
   (type_name_check_subst l err_string_f tenvT fvs (Atvar tv) =

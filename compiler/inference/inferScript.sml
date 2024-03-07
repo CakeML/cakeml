@@ -205,17 +205,43 @@ Definition infer_type_subst_def:
 (infer_type_subst s (Tvar_db n) =
   Infer_Tvar_db n) ∧
 (infer_type_subst s (Tapp ts tn) =
-  Infer_Tapp (MAP (infer_type_subst s) ts) tn)
-Termination
- WF_REL_TAC `measure (t_size o SND)` >>
- rw [] >>
- TRY (induct_on `ts`) >>
- rw [t_size_def] >>
- res_tac >>
- decide_tac
+  Infer_Tapp (infer_type_subst_list s ts) tn) ∧
+(infer_type_subst_list s [] = []) ∧
+(infer_type_subst_list s (x::xs) =
+  infer_type_subst s x :: infer_type_subst_list s xs)
 End
 
+Theorem infer_type_subst_alt:
+(infer_type_subst s (Tvar tv) =
+  dtcase ALOOKUP s tv of
+   | SOME t => t
+   | NONE => Infer_Tvar_db 0) ∧ (* should not happen *)
+(infer_type_subst s (Tvar_db n) =
+  Infer_Tvar_db n) ∧
+(infer_type_subst s (Tapp ts tn) =
+  Infer_Tapp (MAP (infer_type_subst s) ts) tn)
+Proof
+  rewrite_tac [infer_type_subst_def]
+  \\ Induct_on ‘ts’ \\ gvs [infer_type_subst_def]
+QED
+
 Definition infer_deBruijn_subst_def:
+(infer_deBruijn_subst s (Infer_Tvar_db n) =
+  if n < LENGTH s then
+    EL n s
+  else
+    (* should not happen *)
+    Infer_Tvar_db (n - LENGTH s)) ∧
+(infer_deBruijn_subst s (Infer_Tapp ts tn) =
+  Infer_Tapp (infer_deBruijn_subst_list s ts) tn) ∧
+(infer_deBruijn_subst s (Infer_Tuvar n) =
+  Infer_Tuvar n) ∧
+(infer_deBruijn_subst_list s [] = []) ∧
+(infer_deBruijn_subst_list s (t::ts) =
+  infer_deBruijn_subst s t :: infer_deBruijn_subst_list s ts)
+End
+
+Theorem infer_deBruijn_subst_alt:
 (infer_deBruijn_subst s (Infer_Tvar_db n) =
   if n < LENGTH s then
     EL n s
@@ -226,14 +252,10 @@ Definition infer_deBruijn_subst_def:
   Infer_Tapp (MAP (infer_deBruijn_subst s) ts) tn) ∧
 (infer_deBruijn_subst s (Infer_Tuvar n) =
   Infer_Tuvar n)
-Termination
- WF_REL_TAC `measure (infer_t_size o SND)` >>
- rw [] >>
- TRY (induct_on `ts`) >>
- rw [infer_t_size_def] >>
- res_tac >>
- decide_tac
-End
+Proof
+  rewrite_tac [infer_deBruijn_subst_def]
+  \\ Induct_on ‘ts’ \\ gvs [infer_deBruijn_subst_def]
+QED
 
 Definition type_name_check_subst_def:
   (type_name_check_subst l err_string_f tenvT fvs (Atvar tv) =
@@ -910,128 +932,6 @@ Definition infer_d_def:
   od)
 End
 
-  (*
-val t_to_freevars_def = Define `
-(t_to_freevars (Tvar tn) =
-  return [tn]) ∧
-(t_to_freevars (Tvar_db _) =
-  failwith NONE (implode "deBruijn index in type definition")) ∧
-(t_to_freevars (Tapp ts tc) =
-  ts_to_freevars ts) ∧
-(ts_to_freevars [] = return []) ∧
-(ts_to_freevars (t::ts) =
-  do fvs1 <- t_to_freevars t;
-     fvs2 <- ts_to_freevars ts;
-     return (fvs1++fvs2)
-  od)`;
-
-val check_specs_def = Define `
-(check_specs mn tenvT idecls ienv [] =
-  return (idecls,ienv)) ∧
-(check_specs mn tenvT idecls ienv (Sval x t::specs) =
-  do fvs <- t_to_freevars t;
-     fvs' <- return (nub fvs);
-     () <- guard (check_type_names tenvT t) NONE (implode "Bad type annotation");
-     check_specs mn tenvT idecls
-       (ienv with inf_v := nsBind x (LENGTH fvs', infer_type_subst (ZIP (fvs', MAP Infer_Tvar_db (COUNT_LIST (LENGTH fvs'))))
-                                                     (type_name_subst tenvT t))
-                              ienv.inf_v)
-        specs
-  od) ∧
-(check_specs mn tenvT idecls ienv (Stype tdefs :: specs) =
-  do new_tenvT <- return (alist_to_ns (MAP (λ(tvs,tn,ctors). (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) tdefs));
-     tenvT' <- return (nsAppend new_tenvT tenvT);
-     () <- guard (check_ctor_tenv tenvT' tdefs) NONE (implode "Bad type definition");
-     new_tdecls <- return (MAP (\(tvs,tn,ctors). mk_id mn tn) tdefs);
-     check_specs mn tenvT' (idecls with <|inf_defined_types:=new_tdecls++idecls.inf_defined_types|>)
-       <| inf_v := ienv.inf_v;
-          inf_c := nsAppend (build_ctor_tenv mn tenvT' tdefs) ienv.inf_c;
-          inf_t := (nsAppend new_tenvT ienv.inf_t) |>
-       specs
-  od) ∧
-(check_specs mn tenvT idecls ienv (Stabbrev tvs tn t :: specs) =
-  do () <- guard (ALL_DISTINCT tvs) NONE (implode "Duplicate type variables");
-     () <- guard (check_freevars 0 tvs t ∧ check_type_names tenvT t) NONE (implode "Bad type definition");
-     new_tenvT <- return (nsSing tn (tvs,type_name_subst tenvT t));
-     check_specs mn (nsAppend new_tenvT tenvT) idecls (ienv with inf_t := nsAppend new_tenvT ienv.inf_t) specs
-  od) ∧
-(check_specs mn tenvT idecls ienv (Sexn cn ts :: specs) =
-  do () <- guard (check_exn_tenv mn cn ts ∧ EVERY (check_type_names tenvT) ts) NONE
-                 (implode "Bad exception definition");
-     check_specs mn tenvT (idecls with <|inf_defined_exns:=mk_id mn cn::idecls.inf_defined_exns|>)
-       (ienv with inf_c := nsBind cn ([], MAP (\x. type_name_subst tenvT x) ts, TypeExn (mk_id mn cn)) ienv.inf_c) specs
-  od) ∧
-(check_specs mn tenvT idecls ienv (Stype_opq tvs tn :: specs) =
-  do () <- guard (ALL_DISTINCT tvs) NONE (implode "Duplicate type variables");
-     new_tenvT <- return (nsSing tn (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))));
-     check_specs mn (nsAppend new_tenvT tenvT) (idecls with <|inf_defined_types:=mk_id mn tn::idecls.inf_defined_types|>)
-       (ienv with inf_t := nsAppend new_tenvT ienv.inf_t) specs
-  od)`;
-
-val check_weak_decls_def = Define `
-check_weak_decls decls_impl decls_spec ⇔
-  list_set_eq decls_spec.inf_defined_mods decls_impl.inf_defined_mods ∧
-  list_subset decls_spec.inf_defined_types decls_impl.inf_defined_types ∧
-  list_subset decls_spec.inf_defined_exns decls_impl.inf_defined_exns`;
-
-val check_tscheme_inst_def = Define `
-  check_tscheme_inst _ (tvs_spec, t_spec) (tvs_impl, t_impl) ⇔
-    let M =
-    do () <- init_state;
-       uvs <- n_fresh_uvar tvs_impl;
-       t <- return (infer_deBruijn_subst uvs t_impl);
-       () <- add_constraint NONE t_spec t
-    od
-    in
-    dtcase M init_infer_state of
-    | (Success _, _) => T
-    | (Failure _, _) => F `;
-
-val check_weak_ienv_def = Define `
-  check_weak_ienv ienv_impl ienv_spec ⇔
-    nsSub_compute [] check_tscheme_inst ienv_spec.inf_v ienv_impl.inf_v ∧
-    nsSub_compute [] (λ_ x y. x = y) ienv_spec.inf_c ienv_impl.inf_c ∧
-    nsSub_compute [] weak_tenvT ienv_spec.inf_t ienv_impl.inf_t`;
-
-val check_signature_def = Define `
-(check_signature mn tenvT init_decls decls1 ienv NONE =
-  return (decls1, ienv)) ∧
-(check_signature mn tenvT init_decls decls1 ienv (SOME specs) =
-  do (decls', ienv') <- check_specs mn tenvT empty_inf_decls <|inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |> specs;
-     () <- guard (check_weak_ienv ienv ienv') NONE (implode "Signature mismatch");
-     () <- guard (check_weak_decls decls1 decls') NONE (implode "Signature mismatch");
-     return (decls',ienv')
-  od)`;
-
-val ienvLift_def = Define `
-  ienvLift mn ienv =
-    <|inf_v := nsLift mn ienv.inf_v; inf_c := nsLift mn ienv.inf_c; inf_t := nsLift mn ienv.inf_t|>`;
-
-val infer_top_def = Define `
-(infer_top idecls ienv (Tdec d) =
-  do
-    (decls',ienv') <- infer_d [] idecls ienv d;
-    return (decls', ienv')
-  od) ∧
-(infer_top idecls ienv (Tmod mn spec ds1) =
-  do
-    () <- guard (~MEM [mn] idecls.inf_defined_mods) NONE (concat [implode "Duplicate module: "; implode mn]);
-    (decls',ienv') <- infer_ds [mn] idecls ienv ds1;
-    (new_decls,ienv'') <- check_signature [mn] ienv.inf_t idecls decls' ienv' spec;
-    return (new_decls with inf_defined_mods := [mn] :: new_decls.inf_defined_mods, ienvLift mn ienv'')
-  od)`;
-
-val infer_prog_def = Define `
-(infer_prog idecls ienv [] =
-  return (empty_inf_decls, <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |>)) ∧
-(infer_prog idecls ienv (t_op::t_ops) =
-  do
-    (idecls',ienv') <- infer_top idecls ienv t_op;
-    (idecls'', ienv'') <- infer_prog (append_decls idecls' idecls) (extend_dec_ienv ienv' ienv) t_ops;
-    return (append_decls idecls'' idecls', extend_dec_ienv ienv'' ienv')
-  od)`;
-  *)
-
 (* The starting Id should be greater than Tlist_num :: (Tbool_num :: prim_type_nums) *)
 Definition start_type_id_def:
   start_type_id =
@@ -1045,37 +945,12 @@ Definition infertype_prog_def:
     | Failure x => Failure x
 End
 
-    (*
-val conf = ``<| inf_v := nsEmpty; inf_c := nsEmpty ; inf_t := nsEmpty |>``
-
-val init_config = Define`
-  init_config = ^(EVAL ``infertype_prog ^(conf) prim_types_program``
-                 |> concl |> rand |> rand)`
-                 *)
-
 Definition init_config:
   init_config : inf_env =
     <| inf_c := primTypes$prim_tenv.c;
        inf_v := nsEmpty;
        inf_t := primTypes$prim_tenv.t|>
 End
-
-(*
-val Infer_Tfn_def = Define `
-Infer_Tfn t1 t2 = Infer_Tapp [t1;t2] Tfn_num`;
-
-val Infer_Tint = Define `
-Infer_Tint = Infer_Tapp [] Tint_num`;
-
-val Infer_Tbool = Define `
-Infer_Tbool = Infer_Tapp [] (TC_name (Short "bool"))`;
-
-val Infer_Tunit = Define `
-Infer_Tunit = Infer_Tapp [] Ttup_num`;
-
-val Infer_Tref = Define `
-Infer_Tref t = Infer_Tapp [t] Tref_num`;
-*)
 
 (* The following aren't needed to run the inferencer, but are useful in the proofs
  * about it *)
