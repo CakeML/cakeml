@@ -35,6 +35,19 @@ fun match_memory hyps tm = let
 val from_to_pat = from_to_def |> SPEC_ALL |> concl |> dest_eq |> fst;
 val is_from_to = can (match_term from_to_pat);
 
+fun indent_print_term prefix suffix tm = let
+  val m = !max_print_depth
+  fun change #"\n" = "\n  "
+    | change c = implode [c]
+  fun indent_print s = print (String.translate change s)
+  in (print (prefix ^ "  ");
+      max_print_depth := 15;
+      indent_print (term_to_string tm);
+      max_print_depth := m;
+      print suffix)
+     handle HOL_ERR _ =>
+      max_print_depth := m end;
+
 (*
 val tm = target_tm
 val hyps = tl [(T,TRUTH)]
@@ -42,61 +55,74 @@ val tm = ``((2w:word8) @@ (4w:word16)) : word64``
 val tm = (rand x)
 *)
 
-fun tm_to_cv hyps tm =
-  if is_var tm orelse numSyntax.is_numeral tm then
-    ISPECL [from_for (type_of tm), tm] cv_rep_trivial
-  else case match_memory hyps tm of
-    (*
-    val SOME th = match_memory hyps tm
-    *)
-    SOME th =>
-     (if not (is_imp (concl th)) then th else
-      let
-        val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV) (DEPTH_CONV BETA_CONV))
-        val (l,r) = dest_imp (concl th)
-        val xs = strip_conj l
-        (*
-        val x = el 2 xs
-        *)
-        fun inst_assum x =
-          if not (is_forall x) then
-            if not (is_from_to x) then
-              tm_to_cv hyps (rand x)
+fun tm_to_cv hyps tm = let
+  exception LocalException of term list * term * exn;
+  fun report_error [] tm e =
+        (indent_print_term "Error occured at term:\n" "\n" tm;
+         raise e)
+    | report_error (t::ts) tm e =
+        (indent_print_term "Error occured within:\n" "\n" t;
+         report_error ts tm e)
+  fun tm_to_cv_debug (stack:term list) (hyps:(term * thm) list) (tm:term) =
+   (if is_var tm orelse numSyntax.is_numeral tm then
+      ISPECL [from_for (type_of tm), tm] cv_rep_trivial
+    else case match_memory hyps tm of
+      (*
+      val SOME th = match_memory hyps tm
+      *)
+      SOME th =>
+       (if not (is_imp (concl th)) then th else
+        let
+          val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV) (DEPTH_CONV BETA_CONV))
+          val (l,r) = dest_imp (concl th)
+          val xs = strip_conj l
+          (*
+          val x = el 2 xs
+          *)
+          fun inst_assum x =
+            if not (is_forall x) then
+              if not (is_from_to x) then
+                tm_to_cv_debug (tm::stack) hyps (rand x)
+              else let
+                val ty = x |> rand |> type_of |> dest_type |> snd |> last
+                in cv_typeLib.from_to_thm_for ty end
             else let
-              val ty = x |> rand |> type_of |> dest_type |> snd |> last
-              in cv_typeLib.from_to_thm_for ty end
-          else let
-            val (vs,t) = strip_forall x
-            val th1 = tm_to_cv hyps (rand t)
-            val args = t |> rator |> rator |> rand |> strip_comb |> snd |> map rand
-            val cv_args = args |> map (fn tm => mk_comb(from_for (type_of tm),tm))
-            fun LIST_UNBETA_CONV [] = ALL_CONV
-              | LIST_UNBETA_CONV xs =
-                  UNBETA_CONV (last xs) THENC
-                  RATOR_CONV (LIST_UNBETA_CONV (butlast xs))
-            val th2 = th1 |> CONV_RULE
-                               ((RATOR_CONV o RATOR_CONV o RAND_CONV)
-                                   (LIST_UNBETA_CONV cv_args) THENC
-                                (RATOR_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV)
-                                   (LIST_UNBETA_CONV args))
-            in GENL vs th2 end
-        val thms = map inst_assum xs
-        val lemma = LIST_CONJ thms
-        val th0 = MATCH_MP th lemma
-      in
-        if not (is_imp (concl th0)) then th0 else
-          failwith ("Oops! Function tm_to_cv should not fail on: " ^ term_to_string tm)
-      end)
-  | NONE =>
-      if TypeBase.is_constructor (tm |> repeat rator) then let
-        val ty = type_of tm
-        val thms = cv_typeLib.rec_define_from_to ty
-        in tm_to_cv hyps tm end
-      else if TypeBase.is_case tm then let
-        val ty = tm |> strip_comb |> snd |> hd |> type_of
-        val thms = cv_typeLib.rec_define_from_to ty
-        in tm_to_cv hyps tm end
-      else raise (NeedsTranslation tm);
+              val (vs,t) = strip_forall x
+              val th1 = tm_to_cv_debug (tm::stack) hyps (rand t)
+              val args = t |> rator |> rator |> rand |> strip_comb |> snd |> map rand
+              val cv_args = args |> map (fn tm => mk_comb(from_for (type_of tm),tm))
+              fun LIST_UNBETA_CONV [] = ALL_CONV
+                | LIST_UNBETA_CONV xs =
+                    UNBETA_CONV (last xs) THENC
+                    RATOR_CONV (LIST_UNBETA_CONV (butlast xs))
+              val th2 = th1 |> CONV_RULE
+                                 ((RATOR_CONV o RATOR_CONV o RAND_CONV)
+                                     (LIST_UNBETA_CONV cv_args) THENC
+                                  (RATOR_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV)
+                                     (LIST_UNBETA_CONV args))
+              in GENL vs th2 end
+          val thms = map inst_assum xs
+          val lemma = LIST_CONJ thms
+          val th0 = MATCH_MP th lemma
+        in
+          if not (is_imp (concl th0)) then th0 else
+            failwith ("Oops! Function tm_to_cv should not fail on: " ^
+                      term_to_string tm)
+        end)
+    | NONE =>
+        if TypeBase.is_constructor (tm |> repeat rator) then let
+          val ty = type_of tm
+          val thms = cv_typeLib.rec_define_from_to ty
+          in tm_to_cv_debug stack hyps tm end
+        else if TypeBase.is_case tm then let
+          val ty = tm |> strip_comb |> snd |> hd |> type_of
+          val thms = cv_typeLib.rec_define_from_to ty
+          in tm_to_cv_debug stack hyps tm end
+        else raise (NeedsTranslation tm))
+    handle HOL_ERR e => raise (LocalException (stack, tm, HOL_ERR e))
+  in tm_to_cv_debug [] hyps tm
+     handle LocalException (stack, tm, e) => report_error stack tm e
+  end
 
 val cv_arith_rewrite_conv =
   REWRITE_CONV [cv_add_def, cv_sub_def, cv_mul_def, cv_div_def, cv_mod_def];
