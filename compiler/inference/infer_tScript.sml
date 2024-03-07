@@ -91,45 +91,45 @@ Definition add_parens_def:
 End
 
 Definition inf_type_to_string_rec_def:
-  (inf_type_to_string_rec ty_names (Infer_Tuvar n) =
+  (inf_type_to_string_rec tys (Infer_Tuvar n) =
     (concat [strlit "_"; mlint$toString (&n)],0)) ∧
-  (inf_type_to_string_rec ty_names (Infer_Tvar_db n) =
+  (inf_type_to_string_rec tys (Infer_Tvar_db n) =
     (concat [ty_var_name n],0n)) ∧
-  (inf_type_to_string_rec ty_names (Infer_Tapp ts ti) =
+  (inf_type_to_string_rec tys (Infer_Tapp ts ti) =
     if ti = Tfn_num then
      (case ts of
       | [t1; t2] =>
-        (concat [add_parens 2 (inf_type_to_string_rec ty_names t1); strlit " -> ";
-                 add_parens 3 (inf_type_to_string_rec ty_names t2)],3)
+        (concat [add_parens 2 (inf_type_to_string_rec tys t1); strlit " -> ";
+                 add_parens 3 (inf_type_to_string_rec tys t2)],3)
       | _ => (implode "<bad function type>",0))
     else if ti = Ttup_num then
      (case ts of
       | [] => (strlit "unit",0)
-      | [t] => inf_type_to_string_rec ty_names t
+      | [t] => inf_type_to_string_rec tys t
       | _ => (concat (commas (strlit " * ")
-               (MAP (add_parens 1) (inf_type_to_string_rec_list ty_names ts))),2n))
+               (MAP (add_parens 1) (inf_type_to_string_rec_list tys ts))),2n))
     else
       case ts of
-      | [] => (ty_names ti,0)
+      | [] => (type_ident_to_string tys ti,0)
       | [t] =>
-        (concat [add_parens 1 (inf_type_to_string_rec ty_names t); strlit " ";
-                 ty_names ti],1)
+        (concat [add_parens 1 (inf_type_to_string_rec tys t); strlit " ";
+                 type_ident_to_string tys ti],1)
       | _ =>
         (concat ([strlit "("] ++
                  commas (strlit ", ")
-                   (MAP (add_parens 5) (inf_type_to_string_rec_list ty_names ts)) ++
-                 [strlit ") "; ty_names ti]),1)) ∧
-  inf_type_to_string_rec_list ty_names [] = [] ∧
-  inf_type_to_string_rec_list ty_names (t::ts) =
-    inf_type_to_string_rec ty_names t ::
-    inf_type_to_string_rec_list ty_names ts
+                   (MAP (add_parens 5) (inf_type_to_string_rec_list tys ts)) ++
+                 [strlit ") "; type_ident_to_string tys ti]),1)) ∧
+  inf_type_to_string_rec_list tys [] = [] ∧
+  inf_type_to_string_rec_list tys (t::ts) =
+    inf_type_to_string_rec tys t ::
+    inf_type_to_string_rec_list tys ts
 Termination
   WF_REL_TAC ‘measure $ λx. case x of INL (_,t) => infer_t_size t
                                     | INR (_,ts) => list_size infer_t_size ts’
 End
 
 Definition inf_type_to_string_def:
-  inf_type_to_string tys t = FST (inf_type_to_string_rec (type_ident_to_string tys) t)
+  inf_type_to_string tys t = FST (inf_type_to_string_rec tys t)
 End
 
 val _ = export_theory ();

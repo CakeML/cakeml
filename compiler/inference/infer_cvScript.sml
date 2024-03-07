@@ -69,14 +69,6 @@ QED
 val _ = cv_trans infer_tTheory.add_parens_def;
 val _ = cv_trans add_parens_list_def;
 
-Definition inf_type_to_str_def:
-  inf_type_to_str tys = inf_type_to_string_rec (type_ident_to_string tys)
-End
-
-Definition inf_type_to_str_list_def:
-  inf_type_to_str_list tys = inf_type_to_string_rec_list (type_ident_to_string tys)
-End
-
 val res = cv_trans_pre infer_tTheory.get_tyname_def;
 
 Theorem get_tyname_pre[cv_pre]:
@@ -105,6 +97,7 @@ Proof
 QED
 
 val _ = cv_trans (mlintTheory.toString_def |> SRULE [Num_ABS]);
+
 val _ = cv_auto_trans infer_tTheory.type_ident_to_string_def;
 
 val res = cv_trans_pre infer_tTheory.ty_var_name_def;
@@ -117,19 +110,9 @@ QED
 
 val res = expand infer_tTheory.inf_type_to_string_rec_def
             |> SRULE [add_parens_list]
-            |> CONJUNCTS |> map (Q.SPEC ‘type_ident_to_string tys’) |> LIST_CONJ
-            |> SRULE [GSYM inf_type_to_str_def, GSYM inf_type_to_str_list_def]
-            |> cv_auto_trans_pre
+            |> cv_auto_trans;
 
-Theorem inf_type_to_str_pre[cv_pre,local]:
-  (∀a0 a1. inf_type_to_str_pre a0 a1) ∧
-  (∀a2 a3. inf_type_to_str_list_pre a2 a3)
-Proof
-  cheat
-QED
-
-val res = infer_tTheory.inf_type_to_string_def
-            |> SRULE [GSYM inf_type_to_str_def] |> cv_trans;
+val res = infer_tTheory.inf_type_to_string_def |> cv_trans;
 
 val add_constraint_pre = add_constraint_def |> expand |> cv_auto_trans_pre;
 val add_constraints_pre = add_constraints_def |> expand |> cv_auto_trans_pre;
