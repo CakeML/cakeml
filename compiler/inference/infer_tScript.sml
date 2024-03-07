@@ -106,7 +106,7 @@ Definition inf_type_to_string_rec_def:
       | [] => (strlit "unit",0)
       | [t] => inf_type_to_string_rec ty_names t
       | _ => (concat (commas (strlit " * ")
-               (MAP (add_parens 1) (MAP (inf_type_to_string_rec ty_names) ts))),2n))
+               (MAP (add_parens 1) (inf_type_to_string_rec_list ty_names ts))),2n))
     else
       case ts of
       | [] => (ty_names ti,0)
@@ -116,11 +116,15 @@ Definition inf_type_to_string_rec_def:
       | _ =>
         (concat ([strlit "("] ++
                  commas (strlit ", ")
-                   (MAP (add_parens 5) (MAP (inf_type_to_string_rec ty_names) ts)) ++
-                 [strlit ") "; ty_names ti]),1))
+                   (MAP (add_parens 5) (inf_type_to_string_rec_list ty_names ts)) ++
+                 [strlit ") "; ty_names ti]),1)) ∧
+  inf_type_to_string_rec_list ty_names [] = [] ∧
+  inf_type_to_string_rec_list ty_names (t::ts) =
+    inf_type_to_string_rec ty_names t ::
+    inf_type_to_string_rec_list ty_names ts
 Termination
-  WF_REL_TAC `measure (\(_,x). infer_t_size x)`
-  \\ simp [FORALL_PROD] \\ TotalDefn.TC_SIMP_TAC
+  WF_REL_TAC ‘measure $ λx. case x of INL (_,t) => infer_t_size t
+                                    | INR (_,ts) => list_size infer_t_size ts’
 End
 
 Definition inf_type_to_string_def:

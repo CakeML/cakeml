@@ -35,6 +35,49 @@ QED
 
 val _ = cv_auto_trans $ expand n_fresh_id_def;
 
+val _ = cv_auto_trans $ expand get_next_uvar_def;
+val apply_subst_pre = cv_auto_trans_pre
+                      (expand apply_subst_def |> SRULE [read_def]);
+
+Definition map_t_walkstar_def:
+  map_t_walkstar s [] = [] ∧
+  map_t_walkstar s (t::ts) = t_walkstar s t :: map_t_walkstar s ts
+End
+
+Triviality map_t_walkstar_thm:
+  MAP (t_walkstar s) ts = map_t_walkstar s ts
+Proof
+ Induct_on ‘ts’ \\ gvs [map_t_walkstar_def]
+QED
+
+val map_t_walkstar_pre = cv_trans_pre map_t_walkstar_def;
+
+val apply_subst_list_pre = cv_trans_pre
+  (apply_subst_list_def |> expand |> SRULE [read_def,map_t_walkstar_thm]);
+
+Definition add_parens_list_def:
+  add_parens_list n [] = [] ∧
+  add_parens_list n (x::xs) = add_parens n x :: add_parens_list n xs
+End
+
+Theorem add_parens_list:
+  MAP (add_parens n) xs = add_parens_list n xs
+Proof
+  Induct_on ‘xs’ \\ gvs [add_parens_list_def]
+QED
+
+val _ = cv_trans infer_tTheory.add_parens_def;
+val _ = cv_trans add_parens_list_def;
+
+(*
+
+val res = cv_trans (expand infer_tTheory.inf_type_to_string_rec_def
+                      |> SRULE [add_parens_list])
+
+val res = cv_trans infer_tTheory.inf_type_to_string_def;
+
+*)
+
 (*
 
 val add_constraint_def = Define `
@@ -61,22 +104,6 @@ val add_constraints_def = Define `
   od) ∧
 (add_constraints l _ _ =
   failwith l (implode "Internal error: Bad call to add_constraints"))`;
-
-val get_next_uvar_def = Define `
-get_next_uvar =
-  \st. (Success st.next_uvar, st)`;
-
-val apply_subst_def = Define `
-apply_subst t =
-  do st <- read;
-     return (t_walkstar st.subst t)
-  od`;
-
-val apply_subst_list_def = Define `
-apply_subst_list ts =
-  do st <- read;
-     return (MAP (t_walkstar st.subst) ts)
-  od`;
 
 (* We use a state argument for the inferencer's typing environment. This corresponds to the type system's typing environment
   The module and variable environment's types differ slightly.
