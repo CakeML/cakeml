@@ -189,6 +189,151 @@ Proof
   \\ Cases_on ‘x’ \\ gvs []
 QED
 
+Definition cv_int_lt_def:
+  cv_int_lt i j =
+    cv_if (cv_ispair i) (* if i < 0 *)
+      (cv_if (cv_ispair j) (* if j < 0 *)
+        (cv_lt (cv_abs j) (cv_abs i))
+        (Num 1))
+      (cv_if (cv_ispair j) (* if j < 0 *)
+        (Num 0)
+        (cv_lt i j))
+End
+
+Theorem cv_int_lt[cv_rep]:
+  b2c (int_lt i j) = cv_int_lt (from_int i) (from_int j)
+Proof
+  simp[cv_int_lt_def, from_int_def, cv_abs_def] >>
+  IF_CASES_TAC >>
+  gvs[COND_RAND] >> rw[] >> gvs[c2b_def] >>
+  Cases_on `i` >> gvs[] >> Cases_on `j` >> gvs[]
+QED
+
+Theorem cv_int_le[cv_rep]:
+  b2c (int_le i j) = cv_if (cv_int_lt (from_int j) (from_int i))
+                      (Num 0) (Num 1)
+Proof
+  simp[int_le, GSYM cv_int_lt] >> Cases_on `j < i` >> simp[]
+QED
+
+Theorem cv_int_gt[cv_rep]:
+  b2c (int_gt i j) = cv_int_lt (from_int j) (from_int i)
+Proof
+  simp[int_gt, GSYM cv_int_lt]
+QED
+
+Theorem cv_int_ge[cv_rep]:
+  b2c (int_ge i j) = cv_if (cv_int_lt (from_int i) (from_int j))
+                      (Num 0) (Num 1)
+Proof
+  simp[int_ge, int_le, GSYM cv_int_lt] >> Cases_on `i < j` >> gvs[]
+QED
+
+Definition cv_int_add_def:
+  cv_int_add i j =
+    cv_if (cv_ispair i) (* if i < 0 *)
+      (cv_if (cv_ispair j) (* if j < 0 *)
+        (Pair (cv_add (cv_fst i) (cv_fst j)) (Num 0))
+        (cv_if (cv_int_lt j (cv_fst i)) (* i < 0 ∧ ¬(j < 0); if j < |i| *)
+          (Pair (cv_sub (cv_fst i) j) (Num 0))
+          (cv_sub j (cv_fst i))))
+      (cv_if (cv_ispair j) (* if j < 0 *)
+        (cv_if (cv_int_lt i (cv_fst j)) (* ¬(i < 0) ∧ j < 0; if i < |j| *)
+          (Pair (cv_sub (cv_fst j) i) (Num 0))
+          (cv_sub i (cv_fst j)))
+        (cv_add i j))
+End
+
+Theorem cv_int_add[cv_rep]:
+  from_int (i + j) = cv_int_add (from_int i) (from_int j)
+Proof
+  simp[from_int_def, cv_int_add_def, cv_int_lt_def, cv_sub_def] >>
+  Cases_on `i < 0` >> Cases_on `j < 0` >> gvs[] >>
+  namedCases_on `i` ["ni","ni",""] >> namedCases_on `j` ["nj","nj",""] >>
+  gvs[INT_ADD_CALCULATE]
+  >- (Cases_on `ni ≤ nj` >> gvs[])
+  >- (Cases_on `nj ≤ ni` >> gvs[])
+QED
+
+Theorem cv_int_sub[cv_rep]:
+  from_int (i - j) = cv_int_add (from_int i) (cv_int_neg (from_int j))
+Proof
+  simp[int_sub, GSYM cv_neg_int, GSYM cv_int_add]
+QED
+
+Definition total_int_div_def:
+  total_int_div i j = if j = 0 then 0 else int_div i j
+End
+
+Theorem total_int_div:
+  total_int_div i j =
+    if j = 0 then 0
+    else if j < 0 then
+            if i < 0 then &(Num i DIV Num j)
+            else -&(Num i DIV Num j) + if Num i MOD Num j = 0 then 0 else -1
+    else if i < 0 then -&(Num i DIV Num j) + if Num i MOD Num j = 0 then 0 else -1
+         else &(Num i DIV Num j)
+Proof
+  simp[total_int_div_def, int_div] >>
+  Cases_on `j = 0` >> gvs[] >>
+  Cases_on `j < 0` >> Cases_on `i < 0` >> gvs[] >>
+  namedCases_on `i` ["ni","ni",""] >> gvs[] >>
+  namedCases_on `j` ["nj","nj",""] >> gvs[]
+QED
+
+Definition cv_int_div_def:
+  cv_int_div i j =
+    cv_if (cv_eq j (Num 0)) (Num 0) $
+      cv_if (cv_ispair j) (* if j < 0 *)
+        (cv_if (cv_ispair i) (* if i < 0 *)
+          (cv_div (cv_fst i) (cv_fst j))
+          (cv_int_add
+            (Pair (cv_div i (cv_fst j)) (Num 0))
+            (cv_if (cv_mod i (cv_fst j))
+              (Pair (Num 1) (Num 0)) (Num 0))))
+        (cv_if (cv_ispair i) (* if i < 0 *)
+          (cv_int_add
+            (Pair (cv_div (cv_fst i) j) (Num 0))
+            (cv_if (cv_mod (cv_fst i) j)
+              (Pair (Num 1) (Num 0)) (Num 0)))
+          (cv_div i j)
+              )
+End
+
+Theorem cv_int_div[cv_rep]:
+  from_int (total_int_div i j) = cv_int_div (from_int i) (from_int j)
+Proof
+  simp[total_int_div, cv_int_div_def, from_int_def] >>
+  Cases_on `j = 0` >> gvs[] >>
+  Cases_on `j < 0` >> Cases_on `i < 0` >> gvs[] >>
+  Cases_on `i = 0` >> gvs[] >>
+  reverse $ Cases_on `Num i MOD Num j` >> gvs[] >>
+  simp[INT_ADD_CALCULATE, cv_int_add_def, cv_int_lt_def] >>
+  Cases_on `Num i DIV Num j` >> gvs[]
+QED
+
+Definition cv_int_mul_def:
+  cv_int_mul i j =
+    cv_if (cv_eq i (Num 0)) (Num 0) $
+    cv_if (cv_eq j (Num 0)) (Num 0) $
+    cv_if (cv_ispair i)
+      (cv_if (cv_ispair j)
+        (cv_mul (cv_fst i) (cv_fst j))
+        (Pair (cv_mul (cv_fst i) j) (Num 0)))
+      (cv_if (cv_ispair j)
+        (Pair (cv_mul i (cv_fst j)) (Num 0))
+        (cv_mul i j))
+End
+
+Theorem cv_int_mul[cv_rep]:
+  from_int (i * j) = cv_int_mul (from_int i) (from_int j)
+Proof
+  simp[cv_int_mul_def, from_int_def, cv_eq_def] >>
+  namedCases_on `i` ["ni","ni",""] >> gvs[] >>
+  namedCases_on `j` ["nj","nj",""] >> gvs[] >>
+  gvs[INT_MUL_CALCULATE]
+QED
+
 (*----------------------------------------------------------*
    char
  *----------------------------------------------------------*)
