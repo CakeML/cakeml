@@ -118,11 +118,17 @@ Proof
   fs [cv_rep_def] \\ rw []
 QED
 
+Theorem cv_rep_le[cv_rep]:
+  b2c (n ≤ m) = cv_sub (Num 1) (cv_lt (Num m) (Num n))
+Proof
+  fs [cv_rep_def] \\ rw []
+QED
+
 Theorem cv_rep_num_case[cv_rep]:
   cv_rep p1 c1 Num x ∧
   cv_rep p2 c2 (a:'a->cv) y ∧
   (∀v:num. cv_rep (p3 v) (c3 (Num v)) (a:'a->cv) (z v)) ⇒
-  cv_rep (p1 ∧ p2 ∧ ∀n. x = SUC n ⇒ p3 n)
+  cv_rep (p1 ∧ (x = 0 ⇒ p2) ∧ ∀n. x = SUC n ⇒ p3 n)
          (cv_if (cv_lt (Num 0) c1) (let y = cv_sub c1 (Num 1) in c3 y) c2)
          a (num_CASE x y z)
 Proof
