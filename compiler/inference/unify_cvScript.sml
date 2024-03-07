@@ -87,6 +87,8 @@ Proof
   gvs[kcwalkstarwl_ensures_decrease]
 QED
 
+Theorem tcwalkstar_pre_def = cv_trans_pre tcwalkstarwl_correct
+
 val tcunify_pre_def = cv_trans_pre tcunify_thm;
 
 Theorem tcunify_pre_thm:
@@ -165,17 +167,21 @@ QED
 Theorem cv_rep_t_walkstar[cv_rep]:
   t_wfs s ⇒
   from_infer_t (t_walkstar s t) =
-  cv_tcwalk (from_fmap from_infer_t s) (from_infer_t t)
+  cv_cwalkstar (from_fmap from_infer_t s) (from_infer_t t)
 Proof
   strip_tac \\ imp_res_tac t_wfs_IMP_cwfs \\ gvs [from_fmap_def]
-  \\ dep_rewrite.DEP_REWRITE_TAC [GSYM (fetch "-" "cv_tcwalk_thm")]
-  \\ irule_at Any tcwalk_pre \\ gvs [] \\ AP_TERM_TAC
-  \\ dep_rewrite.DEP_REWRITE_TAC [GSYM (unifyTheory.tcwalk_correct)] \\ gvs []
-  \\ gvs [unifyTheory.cwalk_def]
-  \\ gvs [unifyTheory.t_walkstar_def,rmfmapTheory.swalk_def]
-  \\ AP_TERM_TAC \\ AP_THM_TAC \\ gvs []
-  \\ cheat (* TODO: this cv function is ‘walk’ rather than ‘walk*’ ...
-                    which cv definition to use for ‘walk*’? *)
+  \\ dep_rewrite.DEP_REWRITE_TAC
+           [GSYM (fetch "-" "cv_cwalkstar_thm")]
+  \\ simp[tcwalkstar_pre_def]
+  \\ rpt conj_tac
+  >- (irule $ cj 1 tcwalkstar_pre >> simp[])
+  >- (simp[tcwalkstar_p1_def, GSYM tcwalkstarwl_correct0,
+           kcwalkstarwl_def, dfkcwalkstarl_def,
+           kcwalkstarl_def] >>
+      simp[cpsTheory.cwc_def]) >>
+  simp[t_walkstar_cwalkstar] >>
+  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  gvs[spt_eq_thm, cwfs_def, lookup_fromAList]
 QED
 
 val _ = export_theory ();
