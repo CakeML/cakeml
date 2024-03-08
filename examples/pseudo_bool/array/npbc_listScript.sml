@@ -106,7 +106,7 @@ End
 
 Definition rup_pass2_list_def:
   rup_pass2_list (assg:word8 list) max [] l changes =
-    (2:num,changes,assg,T) ∧
+    (F,changes,assg,T) ∧
   rup_pass2_list assg max ((k:num,i:int,n:num)::ys) l changes =
     if max < l + k then
       let pre1 = (n < LENGTH assg) in
@@ -128,7 +128,7 @@ End
 Definition update_assg_list_def:
   update_assg_list assg (ls,n) =
     let (max,ls1,m) = rup_pass1_list assg ls 0 [] 0 in
-      if max < n then (1, [], assg, T) else
+      if max < n then (T, [], assg, T) else
         let assg1 = resize_to_fit m assg in
           rup_pass2_list assg1 max ls1 n []
 End
@@ -141,11 +141,10 @@ Definition check_rup_loop_list_def:
     | SOME c =>
     let (res,new_changes,assg,pre) = update_assg_list assg c in
     let all_changes = new_changes ++ all_changes in
-      if res = 0 then (F,assg,all_changes,pre) else
-      if res = 1 then (NULL ns,assg,all_changes,pre) else
-          let (res,assg,all_changes,pre1) =
-              check_rup_loop_list b fml assg all_changes ns
-          in (res,assg,all_changes,pre ∧ pre1)
+      if res then (NULL ns,assg,all_changes,pre) else
+        let (res,assg,all_changes,pre1) =
+            check_rup_loop_list b fml assg all_changes ns
+        in (res,assg,all_changes,pre ∧ pre1)
 End
 
 Definition delete_each_def:
@@ -566,7 +565,7 @@ Triviality check_rup_loop_list_pre:
     (∀n. n < LENGTH assg1 ∧ EL n assg1 ≠ 0w ⇒ MEM n changes1)
 Proof
   Induct_on ‘ls’ \\ gvs [check_rup_loop_list_def]
-  \\ rpt gen_tac \\ CASE_TAC \\ gvs []
+  \\ rpt gen_tac \\ TOP_CASE_TAC \\ gvs []
   >- (strip_tac \\ gvs [])
   \\ pairarg_tac \\ gvs []
   \\ strip_tac
@@ -581,7 +580,6 @@ Proof
       \\ fs [])
     \\ metis_tac [])
   \\ Cases_on ‘res'’ \\ gvs []
-  \\ Cases_on ‘n = 0’ \\ gvs []
   \\ pairarg_tac \\ gvs []
   \\ last_x_assum drule
   \\ impl_tac >- gvs []
@@ -768,11 +766,11 @@ QED
 
 Theorem rup_pass2_list_thm:
   ∀assg assgl m ls1 c1 ys res ys1 assgl1.
-    rup_pass2_list assgl m ls1 c1 ys = (res,ys1,assgl1,T) ∧ res ≠ 0 ∧
+    rup_pass2_list assgl m ls1 c1 ys = (res,ys1,assgl1,T) ∧
     assg_rel assg assgl ⇒
     case rup_pass2 assg m ls1 c1 of
-    | NONE => res = 1
-    | SOME assg1 => assg_rel assg1 assgl1 ∧ res = 2
+    | NONE => res
+    | SOME assg1 => assg_rel assg1 assgl1 ∧ ~res
 Proof
   Induct_on ‘ls1’ \\ gvs [rup_pass2_list_def,FORALL_PROD,rup_pass2_def]
   \\ rpt gen_tac
@@ -806,13 +804,12 @@ Proof
   \\ impl_tac >- simp [] \\ strip_tac \\ gvs []
   \\ Cases_on ‘max' < c1’ \\ gvs []
   \\ ‘pre’ by gvs [AllCaseEqs()] \\ gvs []
-  \\ Cases_on ‘res = 0’ \\ gvs []
+  \\ Cases_on ‘res’ \\ gvs []
   \\ drule rup_pass2_list_thm \\ fs []
   \\ disch_then $ qspecl_then [‘assg’] mp_tac
-  \\ impl_tac >- gvs [assg_rel_def]
+  \\ (impl_tac >- gvs [assg_rel_def])
   \\ CASE_TAC \\ gvs []
   \\ rw [] \\ gvs []
-  \\ last_x_assum drule
   \\ metis_tac []
 QED
 
