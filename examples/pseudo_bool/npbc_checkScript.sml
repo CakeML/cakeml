@@ -141,13 +141,12 @@ Definition rup_pass1_def:
 End
 
 Definition rup_pass2_def:
-  rup_pass2 assg max [] l has_changed =
-    (if has_changed then SOME (SOME assg) else NONE) ∧
-  rup_pass2 assg max ((k:num,i:int,n:num)::ys) l has_changed =
+  rup_pass2 assg max [] l = SOME assg ∧
+  rup_pass2 assg max ((k:num,i:int,n:num)::ys) l =
     if max < l + k then
-      rup_pass2 (assg |+ (n,0 ≤ i)) max ys l T
+      rup_pass2 (assg |+ (n,0 ≤ i)) max ys l
     else
-      rup_pass2 assg max ys l has_changed
+      rup_pass2 assg max ys l
 End
 
 (* Reduce c according to the assignment,
@@ -156,8 +155,8 @@ End
 Definition update_assg_def:
   update_assg assg (ls,n) =
     let (max,ls1) = rup_pass1 assg ls 0 [] in
-      if max < n then SOME NONE else
-        rup_pass2 assg max ls1 n F
+      if max < n then NONE else
+        rup_pass2 assg max ls1 n
 End
 
 (* Here, assg could be a finite map of variables to T/F
@@ -169,9 +168,8 @@ Definition check_rup_def:
     NONE => F
   | SOME c =>
     case update_assg assg c of
-    | NONE       => F (* something went wrong *)
-    | SOME NONE  => NULL ns (* contradiction proved, make sure no more IDs in list *)
-    | SOME (SOME assg') => check_rup b fml assg' ns)
+    | NONE       => NULL ns (* contradiction proved, make sure no more IDs in list *)
+    | SOME assg' => check_rup b fml assg' ns)
 End
 
 (* TODO: for Rup decide what the next ID will be, id1 or id? *)
@@ -439,7 +437,7 @@ Theorem rup_pass2_thm:
     c1 ≤ d + SUM (MAP (eval_term w) (MAP SND ls1)) ∧
     d + lslack (MAP SND ls1) ≤ max ∧
     (∀n i k. MEM (n,i,k) ls1 ⇒ n = Num (ABS i)) ∧
-    rup_pass2 assg max ls1 c1 hc = SOME (SOME assg1)
+    rup_pass2 assg max ls1 c1 = SOME assg1
     ⇒
     agree_assg assg1 w
 Proof
@@ -466,7 +464,7 @@ Proof
 QED
 
 Theorem update_assg_NONE:
-  update_assg assg c = SOME NONE ⇒
+  update_assg assg c = NONE ⇒
   ∀w. agree_assg assg w ⇒
     ¬ satisfies_npbc w c
 Proof
@@ -476,9 +474,10 @@ Proof
   \\ drule_all rup_pass1_thm \\ strip_tac
   \\ gvs [AllCaseEqs()]
   \\ gvs [satisfies_npbc_def,GREATER_EQ,GSYM NOT_LESS]
+  \\ CCONTR_TAC \\ gvs [lslack_def]
   \\ qsuff_tac
-     ‘∀assg m ls1 c1 hc. rup_pass2 assg m ls1 c1 hc ≠ SOME NONE’
-  >- (rw [] \\ gvs [])
+     ‘∀assg m ls1 c1. rup_pass2 assg m ls1 c1 ≠ NONE’
+  >- (strip_tac \\ gvs [])
   \\ rpt $ pop_assum kall_tac
   \\ Induct_on ‘ls1’ \\ gvs [rup_pass2_def]
   \\ gvs [FORALL_PROD]
@@ -486,7 +485,7 @@ Proof
 QED
 
 Theorem update_assg_SOME:
-  update_assg assg c = SOME (SOME assg') ⇒
+  update_assg assg c = SOME assg' ⇒
   ∀w. agree_assg assg w ∧ satisfies_npbc w c ⇒
       agree_assg assg' w
 Proof
