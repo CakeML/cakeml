@@ -282,6 +282,40 @@ Proof
   Induct >> rw[list_mapi_def] >> gvs[combinTheory.o_DEF, ADD1]
 QED
 
+Definition cv_map_fst_def:
+  cv_map_fst cv =
+    cv_if (cv_ispair cv)
+      (Pair (cv_fst (cv_fst cv)) (cv_map_fst (cv_snd cv)))
+      (Num 0)
+Termination
+  WF_REL_TAC `measure cv_sum_depth` >> cv_termination_tac
+End
+
+Theorem cv_MAP_FST[cv_rep]:
+  from_list a (MAP FST l) = cv_map_fst (from_list (from_pair a b) l)
+Proof
+  Induct_on `l` >> rw[from_list_def] >>
+  simp[Once cv_map_fst_def, SimpRHS] >>
+  Cases_on `h` >> gvs[from_pair_def]
+QED
+
+Definition cv_map_snd_def:
+  cv_map_snd cv =
+    cv_if (cv_ispair cv)
+      (Pair (cv_snd (cv_fst cv)) (cv_map_snd (cv_snd cv)))
+      (Num 0)
+Termination
+  WF_REL_TAC `measure cv_sum_depth` >> cv_termination_tac
+End
+
+Theorem cv_MAP_SND[cv_rep]:
+  from_list b (MAP SND l) = cv_map_snd (from_list (from_pair a b) l)
+Proof
+  Induct_on `l` >> rw[from_list_def] >>
+  simp[Once cv_map_snd_def, SimpRHS] >>
+  Cases_on `h` >> gvs[from_pair_def]
+QED
+
 (*----------------------------------------------------------*
    sptree / num_map / num_set
  *----------------------------------------------------------*)
