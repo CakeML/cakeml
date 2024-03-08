@@ -1,8 +1,5 @@
 Translator to cv type used by cv_compute
 
-[cv_backendScript.sml](cv_backendScript.sml):
-Apply cv translator to CakeML compiler backend
-
 [cv_bootScript.sml](cv_bootScript.sml):
 Apply cv translator to bootstrap example from HOL
 

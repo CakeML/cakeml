@@ -1011,12 +1011,18 @@ Termination
  rw []
 End
 
+Triviality FUN_EQ_THM_state:
+  f = g ⇔ ∀s. f s = g s
+Proof
+  gvs [FUN_EQ_THM]
+QED
+
 Theorem infer_e_expand = infer_e_def
   |> SRULE [check_dups_eq_find_dup,bind_guard,bind_type_name_check_subst]
   |> SRULE [st_ex_bind_triple]
   |> SRULE [st_ex_bind_pair]
-  |> SRULE [st_ex_bind_def,FUN_EQ_THM,st_ex_return_def,
-            failwith_def,option_case_rand];
+  |> SRULE [st_ex_bind_def,FUN_EQ_THM_state,st_ex_return_def,
+            failwith_def,option_case_rand,COND_RATOR];
 
 Definition extend_dec_ienv_def:
   extend_dec_ienv ienv' ienv =

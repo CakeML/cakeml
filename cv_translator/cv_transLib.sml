@@ -334,6 +334,7 @@ val clean_name = let
   val def = UNZIP_eq
   val def = listTheory.APPEND
   val term_opt = if true then NONE else SOME cheat;
+  val term_opt = if false then NONE else SOME cheat;
   val allow_pre = true
   val allow_pre = false
 *)
