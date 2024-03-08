@@ -256,8 +256,6 @@ val res = cv_trans_pre_rec
                                     |> rename_bound_vars_rule "var")
           cheat;
 
-val _ = cv_trans extend_dec_ienv_def;
-
 Definition exp_is_value_def:
   exp_is_value (Lit _) = T ∧
   exp_is_value (Con _ es) = exp_is_value_list es ∧
@@ -340,8 +338,6 @@ Theorem infer_d_map_3_eq:
 Proof
   Induct \\ Cases_on ‘ys’ \\ gvs [infer_d_map_3_def,FORALL_PROD]
 QED
-
-val _ = cv_trans init_infer_state_def;
 
 Definition type_name_subst_1_def:
   type_name_subst_1 tenvT (Atvar tv) = Tvar tv ∧
