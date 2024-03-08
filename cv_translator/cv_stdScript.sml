@@ -236,7 +236,7 @@ val res = cv_trans ALOOKUP_def
 
 val res = cv_trans findi_def (* TODO: improve *)
 
-val res = cv_trans_pre ZIP_def (* TODO: improve *)
+val res = cv_trans ZIP_def;
 
 Theorem UNZIP_eq:
   UNZIP ts =

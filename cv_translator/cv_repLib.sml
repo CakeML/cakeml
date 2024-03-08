@@ -128,6 +128,7 @@ val cv_arith_rewrite_conv =
   REWRITE_CONV [cv_add_def, cv_sub_def, cv_mul_def, cv_div_def, cv_mod_def];
 
 (*
+val hyps = tl [(T,TRUTH)]
 val tm = target_tm
 *)
 
