@@ -671,6 +671,99 @@ Proof
   match_mp_tac LIST_REL_update_resize>>simp[OPTION_TYPE_def]
 QED
 
+Definition eq_zw_def:
+  eq_zw v ⇔
+  v = (0w:word8)
+End
+
+val res = translate eq_zw_def;
+
+Definition abs_def:
+  abs i = Num (ABS i)
+End
+
+val res = translate abs_def;
+
+Definition add_to_acc_def:
+  add_to_acc i v k acc =
+  if v = (1w:word8) <=> i < (0:int) then acc
+  else acc + (k:num)
+End
+
+val res = translate add_to_acc_def;
+
+val rup_pass1_arr = process_topdecs`
+  fun rup_pass1_arr assg ls acc ys m =
+    case ls of [] => (acc,ys,m)
+  | (i,n)::xs =>
+    let
+      val k = abs i in
+      if n < Word8Array.length assg
+      then
+        let val v = Word8Array.sub assg n in
+          if eq_zw v then
+            rup_pass1_arr assg xs (acc + k) ((k,(i,n))::ys) (max m n)
+          else
+            rup_pass1_arr assg xs (add_to_acc i v k acc) ys m
+        end
+      else
+        rup_pass1_arr assg xs (acc + k) ((k,(i,n))::ys) (max m n)
+    end` |> append_prog;
+
+Theorem rup_pass1_arr_spec:
+  ∀ls lsv acc ys m accv ysv mv.
+  LIST_TYPE (PAIR_TYPE INT NUM) ls lsv ∧
+  NUM acc accv ∧
+  LIST_TYPE (PAIR_TYPE NUM (PAIR_TYPE INT NUM)) ys ysv ∧
+  NUM m mv ∧
+  rup_pass1_list assg ls acc ys m = (acc',ys',m') ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "rup_pass1_arr" (get_ml_prog_state()))
+    [assgv; lsv; accv; ysv; mv]
+    (W8ARRAY assgv assg)
+    (POSTv v.
+      W8ARRAY assgv assg *
+      SEP_EXISTS v1 v2 v3.
+      &(
+        v = Conv NONE [v1; v2; v3] ∧
+        NUM acc' v1 ∧
+        LIST_TYPE (PAIR_TYPE NUM (PAIR_TYPE INT NUM)) ys' v2 ∧
+        NUM m' v3)
+    )
+Proof
+  Induct>>rw[]>>
+  xcf"rup_pass1_arr"(get_ml_prog_state ())>>
+  gvs[LIST_TYPE_def,rup_pass1_list_def]
+  >- (
+    xmatch>>
+    xcon>>xsimpl)>>
+  PairCases_on`h`>>
+  gvs[PAIR_TYPE_def,rup_pass1_list_def]>>
+  xmatch>>
+  rpt xlet_autop>>
+  gvs[abs_def]>>
+  reverse xif
+  >- (
+    rpt xlet_autop>>
+    xapp>>gvs[]>>
+    first_x_assum (irule_at (Pos (el 1)))>>
+    simp[LIST_TYPE_def,PAIR_TYPE_def])>>
+  gvs[]>>
+  rpt xlet_autop>>
+  gvs[eq_zw_def]>>xif
+  >- (
+    rpt xlet_autop>>
+    xapp>>gvs[]>>
+    first_x_assum (irule_at (Pos (el 1)))>>
+    simp[LIST_TYPE_def,PAIR_TYPE_def])>>
+  xlet_autop>>
+  xapp>>gvs[]>>
+  every_case_tac>>gvs[add_to_acc_def]>>
+  first_x_assum (irule_at (Pos (el 1)))>>
+  gvs[]
+QED
+
+(* TODO below *)
 val check_lstep_arr = process_topdecs`
   fun check_lstep_arr lno step b fml mindel id =
   case step of
