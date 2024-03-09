@@ -160,19 +160,27 @@ Definition update_assg_def:
 End
 
 (* Here, assg could be a finite map of variables to T/F
-  assg' should be assg updated with all units of c under assg *)
+  assg' should be assg updated with all units under assg
+  id = 0 is special for nc
+*)
+Definition get_rup_constraint_def:
+  get_rup_constraint b fml n nc =
+  if n = 0 then SOME nc
+  else
+    lookup_core_only b fml n
+End
+
 Definition check_rup_def:
-  (check_rup b fml (assg: num |-> bool) [] = F) ∧
-  (check_rup b fml assg (n::ns) =
-  case lookup_core_only b fml n of
+  (check_rup b nc fml (assg: num |-> bool) [] = F) ∧
+  (check_rup b nc fml assg (n::ns) =
+  case get_rup_constraint b fml n nc of
     NONE => F
   | SOME c =>
     case update_assg assg c of
     | NONE       => NULL ns (* contradiction proved, make sure no more IDs in list *)
-    | SOME assg' => check_rup b fml assg' ns)
+    | SOME assg' => check_rup b nc fml assg' ns)
 End
 
-(* TODO: for Rup decide what the next ID will be, id1 or id? *)
 Definition check_lstep_def:
   (check_lstep lstep b (fml:pbf) (id:num) =
   case lstep of
@@ -186,8 +194,7 @@ Definition check_lstep_def:
     | SOME c =>
       SOME (insert_fml b fml id c))
   | Rup c ls =>
-    let (fml_not_c,id1) = insert_fml b fml id (not c) in
-    if check_rup b fml_not_c FEMPTY ls then
+    if check_rup b (not c) fml FEMPTY (0::ls) then
       SOME (insert_fml b fml id c)
     else NONE
   | Con c pf n =>
@@ -502,26 +509,43 @@ QED
 
 Theorem check_rup_unsat:
   ∀ns assg.
-  check_rup b fml assg ns ∧
+  check_rup b nc fml assg ns ∧
   agree_assg assg w ⇒
-  ¬satisfies w (core_only_fml b fml)
+  ¬(satisfies_npbc w nc ∧
+   satisfies w (core_only_fml b fml))
 Proof
   Induct>>rw[check_rup_def]>>
-  every_case_tac>>fs[]
+  gvs[get_rup_constraint_def,AllCasePreds(),AllCaseEqs()]
   >- (
     drule update_assg_NONE>>
     disch_then drule>>
     fs[lookup_core_only_def,core_only_fml_def]>>
     every_case_tac>>fs[satisfies_def,PULL_EXISTS]>>
-    metis_tac[]) >>
-  drule update_assg_SOME>>
-  disch_then drule>>
-  Cases_on`satisfies_npbc w x`>>rw[]
-  >-
-    metis_tac[]>>
-  fs[lookup_core_only_def,core_only_fml_def]>>
-  every_case_tac>>fs[satisfies_def,PULL_EXISTS]>>
-  metis_tac[]
+    metis_tac[])
+  >- (
+    drule update_assg_SOME>>
+    disch_then drule>>
+    Cases_on`satisfies_npbc w x`>>rw[]
+    >-
+      metis_tac[]>>
+    fs[lookup_core_only_def,core_only_fml_def]>>
+    every_case_tac>>fs[satisfies_def,PULL_EXISTS]>>
+    metis_tac[])
+  >- (
+    drule update_assg_NONE>>
+    disch_then drule>>
+    fs[lookup_core_only_def,core_only_fml_def]>>
+    every_case_tac>>fs[satisfies_def,PULL_EXISTS]>>
+    metis_tac[])
+  >- (
+    drule update_assg_SOME>>
+    disch_then drule>>
+    Cases_on`satisfies_npbc w c`>>rw[]
+    >-
+      metis_tac[]>>
+    fs[lookup_core_only_def,core_only_fml_def]>>
+    every_case_tac>>fs[satisfies_def,PULL_EXISTS]>>
+    metis_tac[])
 QED
 
 (* if b = F, then the core should be untouched,
@@ -602,7 +626,6 @@ Proof
   \\ Cases_on `∃c ls. step = Rup c ls`
   THEN1 (
     fs[check_lstep_def] \\
-    pairarg_tac \\ fs[] \\
     every_case_tac \\
     gvs[insert_fml_def]
     \\ CONJ_TAC >- fs[id_ok_def]
