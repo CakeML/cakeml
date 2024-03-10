@@ -146,8 +146,8 @@ val entry_point_code =
      "     .p2align 4";
      ""]))`` |> EVAL |> concl |> rand;
 
-val expose_func_def = Define `
-  expose_func appl (name,label,start,len) =
+val export_func_def = Define `
+  export_func appl (name,label,start,len) =
     SmartAppend appl (List
     [strlit"\n    .globl cdecl("; name; strlit")\n";
      strlit"#ifndef __APPLE__\n";
@@ -160,9 +160,9 @@ val expose_func_def = Define `
      strlit"     b      cdecl("; label; strlit")\n"
     ])`;
 
-val expose_funcs_def = Define `
-  expose_funcs lsyms exp =
-    FOLDL expose_func misc$Nil (FILTER ((flip MEM exp) o FST) lsyms)`;
+val export_funcs_def = Define `
+  export_funcs lsyms exp =
+    FOLDL export_func misc$Nil (FILTER ((flip MEM exp) o FST) lsyms)`;
 
 val arm8_export_def = Define `
   arm8_export ffi_names bytes (data:word64 list) syms exp ret =
@@ -177,7 +177,7 @@ val arm8_export_def = Define `
       (SmartAppend (List code_buffer)
       (SmartAppend (emit_symbols lsyms)
       (if ret then
-        (SmartAppend ^entry_point_code (expose_funcs lsyms exp))
+        (SmartAppend ^entry_point_code (export_funcs lsyms exp))
       else List []))))`;
 
 

@@ -16,7 +16,7 @@ Definition compile_prog_def:
                   ([],ys) => ys
                 | (xs,[]) => («main»,F,[],Return (Const 0w))::xs
                 | (xs,y::ys) => y::xs ++ ys in
-    (* Remove exposed information from func list for compiler passes *)
+    (* Remove exported information from func list for compiler passes *)
     let prog1 = MAP (\(n,e,p,b). (n,p,b)) prog0 in
     (* Compiler passes *)
     let prog2 = pan_to_word$compile_prog c.lab_conf.asm_conf.ISA prog1 in
@@ -28,8 +28,8 @@ Definition compile_prog_def:
     (* Add stubs to name mapping *)
     let names = sptree$union (sptree$fromAList $ (word_to_stack$stub_names () ++
       stack_alloc$stub_names () ++ stack_remove$stub_names ())) names in
-    (* Add exposed functions to  *)
-    let c = c with exposed := MAP FST (FILTER (FST o SND) prog) in
+    (* Add exported functions to  *)
+    let c = c with exported := MAP FST (FILTER (FST o SND) prog) in
       from_word c names prog3
 End
 

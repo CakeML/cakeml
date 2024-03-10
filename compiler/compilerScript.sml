@@ -667,7 +667,7 @@ Definition compile_64_def:
             (add_tap_output td (export
               (ffinames_to_string_list
                 $ the [] c.lab_conf.ffi_names)
-                bytes data c.symbols c.exposed mainret),
+                bytes data c.symbols c.exported mainret),
               implode "")
         | (Failure err, td) => (add_tap_output td (List []), error_to_str err))
     | INR err =>
@@ -696,7 +696,7 @@ Definition compile_pancake_64_def:
                   (List[], error_to_str err)
               | (Success (bytes, data, c)) =>
                   (export (ffinames_to_string_list $
-                    the [] c.lab_conf.ffi_names) bytes data c.symbols c.exposed mainret, implode "")
+                    the [] c.lab_conf.ffi_names) bytes data c.symbols c.exported mainret, implode "")
 End
 
 Definition full_compile_64_def:
@@ -738,7 +738,7 @@ Definition compile_32_def:
             (add_tap_output td (export
               (ffinames_to_string_list $
                 the [] c.lab_conf.ffi_names)
-                bytes data c.symbols c.exposed mainret),
+                bytes data c.symbols c.exported mainret),
               implode "")
         | (Failure err, td) => (List [], error_to_str err))
     | INR err =>
@@ -767,7 +767,7 @@ Definition compile_pancake_32_def:
                   (List[], error_to_str err)
               | (Success (bytes, data, c)) =>
                   (export (ffinames_to_string_list $
-                    the [] c.lab_conf.ffi_names) bytes data c.symbols c.exposed mainret, implode "")
+                    the [] c.lab_conf.ffi_names) bytes data c.symbols c.exported mainret, implode "")
 End
 
 Definition full_compile_32_def:

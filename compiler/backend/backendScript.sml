@@ -32,7 +32,7 @@ val _ = Datatype`config =
    ; lab_conf : 'a lab_to_target$config
    ; symbols : (mlstring # num # num) list
    ; tap_conf : tap_config
-   ; exposed : mlstring$mlstring list (* field for Pancake entry points - empty for CakeML *)
+   ; exported : mlstring$mlstring list (* field for Pancake entry points - empty for CakeML *)
    |>`;
 
 val config_component_equality = theorem"config_component_equality";

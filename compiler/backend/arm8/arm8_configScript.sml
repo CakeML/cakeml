@@ -50,7 +50,7 @@ val arm8_backend_config_def = Define`
                lab_conf:=^(arm8_lab_conf);
                symbols:=[];
                tap_conf:=default_tap_config;
-               exposed:=[]
+               exported:=[]
                |>`;
 
 val _ = export_theory();

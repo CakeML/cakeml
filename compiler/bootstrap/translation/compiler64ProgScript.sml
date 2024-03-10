@@ -240,8 +240,8 @@ val res = translate backendTheory.prim_src_config_eq;
 val res = translate x64_configTheory.x64_names_def;
 val res = translate export_x64Theory.ffi_asm_def;
 val res = translate export_x64Theory.windows_ffi_asm_def;
-val res = translate export_x64Theory.expose_func_def;
-val res = translate export_x64Theory.expose_funcs_def;
+val res = translate export_x64Theory.export_func_def;
+val res = translate export_x64Theory.export_funcs_def;
 val res = translate export_x64Theory.x64_export_def;
 val res = translate
           (x64_configTheory.x64_backend_config_def
@@ -266,8 +266,8 @@ val res = translate
 (* arm8 *)
 val res = translate arm8_configTheory.arm8_names_def;
 val res = translate export_arm8Theory.ffi_asm_def;
-val res = translate export_arm8Theory.expose_func_def;
-val res = translate export_arm8Theory.expose_funcs_def;
+val res = translate export_arm8Theory.export_func_def;
+val res = translate export_arm8Theory.export_funcs_def;
 val res = translate export_arm8Theory.arm8_export_def;
 val res = translate
           (arm8_configTheory.arm8_backend_config_def
