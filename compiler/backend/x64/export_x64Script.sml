@@ -209,8 +209,9 @@ val x64_export_def = Define `
       (SmartAppend (List code_buffer)
       (emit_symbols lsyms))))
       (SmartAppend (^windows_ffi_code ret)
-      (SmartAppend (if ret then ^entry_point_code else List [])
-      (expose_funcs lsyms exp)))`;
+      (if ret then
+        (SmartAppend ^entry_point_code (expose_funcs lsyms exp))
+      else List []))`;
 
 (*
   EVAL``append(split16 (words_line (strlit"\t.quad ") word_to_string) [100w:word64;393w;392w])``
