@@ -596,8 +596,8 @@ End
 Definition conv_expos_def:
   conv_expos tree =
     case destTOK ' (destLf tree) of
-      SOME (KeywordT PublicK) => SOME T
-    | SOME (PrivateT) => SOME F
+      SOME (KeywordT ExportK) => SOME T
+    | SOME (StaticT) => SOME F
     | _ => NONE
 End
 

@@ -21,10 +21,14 @@ Datatype:
   keyword = SkipK | StoreK | StoreBK | IfK | ElseK | WhileK
   | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK
 <<<<<<< HEAD
+<<<<<<< HEAD
   | LdsK | LdbK | LdwK | BaseK | InK | FunK | PublicK | PrivateK | TrueK | FalseK
 =======
   | LdsK | LdbK | BaseK | InK | FunK | PublicK | TrueK | FalseK
 >>>>>>> d95ef08c7 (Improve parsing to be based on only one keyword (concrete choice temporary))
+=======
+  | LdsK | LdbK | BaseK | InK | FunK | ExportK | TrueK | FalseK
+>>>>>>> f88a10c53 (Update placeholder 'public' keyword to 'export', and related tokens accordingly)
 End
 
 Datatype:
@@ -36,7 +40,7 @@ Datatype:
   | LParT | RParT | CommaT | SemiT | ColonT | DArrowT | AddrT
   | LBrakT | RBrakT | LCurT | RCurT
   | AssignT
-  | PrivateT
+  | StaticT
   | KeywordT keyword
   | LexErrorT mlstring
 End
@@ -138,7 +142,7 @@ Definition get_keyword_def:
   if s = "true" then (KeywordT TrueK) else
   if s = "false" then (KeywordT FalseK) else
   if s = "fun" then (KeywordT FunK) else
-  if s = "public" then (KeywordT PublicK) else    (* FIXME: temporary concrete keyword *)
+  if s = "export" then (KeywordT ExportK) else
   if s = "" then LexErrorT $ «Expected keyword, found empty string» else
   if 2 <= LENGTH s ∧ EL 0 s = #"@" then ForeignIdent (DROP 1 s)
   else

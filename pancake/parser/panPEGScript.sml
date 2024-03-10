@@ -126,7 +126,7 @@ Definition pancake_peg_def[nocompute]:
     notFAIL := "Not combinator failed";
     rules := FEMPTY |++ [
         (INL FunListNT, seql [rpt (mknt FunNT) FLAT] (mksubtree FunListNT));
-        (INL FunNT, seql [try_default (keep_kw PublicK) PrivateT;
+        (INL FunNT, seql [try_default (keep_kw ExportK) StaticT;
                           consume_kw FunK;
                           keep_ident;
                           consume_tok LParT;
