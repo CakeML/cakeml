@@ -194,6 +194,9 @@ val from_def = from_list_def
 fun cv_rep_cons_for from_def =
   from_def |> SPEC_ALL |> CONJUNCTS |> map SPEC_ALL;
 
+(*
+val from_def = hd from_defs
+*)
 fun cv_rep_case_for from_def = let
   val from_for = !the_from_term_for
   val from_def = from_def |> ONCE_REWRITE_RULE [oneTheory.one]
@@ -250,10 +253,15 @@ fun cv_rep_case_for from_def = let
     in (list_mk_comb(v,map (Option.valOf o find_path tm r) vs),n) end
   fun get_num th = (th |> concl |> dest_eq |> snd |> rator |> rand |> num_to_int)
                    handle HOL_ERR _ => 0
+  fun fix_zero_tag (cv_t,tag) =
+    if tag <> 0 orelse not (null nums) then (cv_t,tag) else
+      (cvSyntax.mk_cv_if(cvSyntax.mk_cv_ispair tm,cv_t,
+                         cvSyntax.mk_cv_num (numSyntax.term_of_int 0)), 0)
   val pairs = ds |> filter (not o is_num_case)
                  |> map (fn th => (th,get_num th))
                  |> sort (fn x => fn y => snd x <= snd y)
                  |> map (mk_rhs tm)
+                 |> map fix_zero_tag
   fun mk_decision_tree tm [] = 0 |> numSyntax.term_of_int |> cvSyntax.mk_cv_num
     | mk_decision_tree tm [(x,n)] = x
     | mk_decision_tree tm xs = let
@@ -342,7 +350,7 @@ datatype tag_sum = TagNil of int | TagCons of (int * (int option) list);
 val ignore_tyvars = [alpha,gamma]
 val ignore_tyvars = tl [alpha]
 val ty = “:('a,'b,'c) word_tree”
-val ty = “:('d, 'c) b”
+val ty = “:xx_yy”
 *)
 fun define_from_to_aux ignore_tyvars ty =
   if can pairSyntax.dest_prod ty then let
@@ -402,13 +410,15 @@ fun define_from_to_aux ignore_tyvars ty =
   val lookups =
     map (fn tm => (tm |> type_of |> dest_fun_type |> fst, tm)) (from_names @ tyvar_encoders)
   (*
-  val from_f = el 4 from_names
+  val from_f = el 1 from_names
   *)
   fun from_lines from_f = let
-    val conses = from_f |> type_of |> dest_type |> snd |> hd |> constructors_of
+    val (*raw_*) conses = from_f |> type_of |> dest_type |> snd |> hd |> constructors_of
+ (* fun is_nil_cons tm = not (can dest_fun_type (type_of tm))
+    val conses = filter is_nil_cons raw_conses @ filter (not o is_nil_cons) raw_conses *)
     (*
       val i = 0
-      val cons_tm = el 2 conses
+      val cons_tm = el 1 conses
     *)
     fun from_line i cons_tm = let
       val (tys,target_ty) = dest_fun_types (type_of cons_tm)

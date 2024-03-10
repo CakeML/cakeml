@@ -12,6 +12,19 @@ Overload c2b[local] = “cv$c2b”
 Overload Num[local] = “cv$Num”
 Overload Pair[local] = “cv$Pair”
 
+Datatype:
+  xx_yy = XX xx_yy | YY (xx_yy list)
+End
+
+Definition xx_yy_depth_def:
+  xx_yy_depth (XX x) = xx_yy_depth x ∧
+  xx_yy_depth (YY xs) = xx_yy_depth_list xs ∧
+  xx_yy_depth_list [] = 0:num ∧
+  xx_yy_depth_list (y::ys) = xx_yy_depth y + xx_yy_depth_list ys
+End
+
+val _ = cv_trans xx_yy_depth_def
+
 Definition add1_def:
   add1 a xs = MAP (λx. x + a:num) xs
 End

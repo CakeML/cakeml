@@ -48,13 +48,13 @@ End
 Triviality map_t_walkstar_thm:
   MAP (t_walkstar s) ts = map_t_walkstar s ts
 Proof
- Induct_on ‘ts’ \\ gvs [map_t_walkstar_def]
+  Induct_on ‘ts’ \\ gvs [map_t_walkstar_def]
 QED
 
 val map_t_walkstar_pre = cv_trans_pre map_t_walkstar_def;
 
 val apply_subst_list_pre = cv_trans_pre
-  (apply_subst_list_def |> expand |> SRULE [read_def,map_t_walkstar_thm]);
+                           (apply_subst_list_def |> expand |> SRULE [read_def,map_t_walkstar_thm]);
 
 Definition add_parens_list_def:
   add_parens_list n [] = [] ∧
@@ -143,11 +143,11 @@ val _ = cv_trans find_dup_def
 Definition type_subst_alist_def:
   type_subst_alist s (Tvar_db n) = Tvar_db n ∧
   type_subst_alist s (Tvar tv) =
-    (case ALOOKUP s tv of NONE => Tvar tv | SOME t => t) ∧
+  (case ALOOKUP s tv of NONE => Tvar tv | SOME t => t) ∧
   type_subst_alist s (Tapp ts tn) = Tapp (type_subst_alist_list s ts) tn ∧
   type_subst_alist_list s [] = [] ∧
   type_subst_alist_list s (t::ts) =
-    type_subst_alist s t :: type_subst_alist_list s ts
+  type_subst_alist s t :: type_subst_alist_list s ts
 End
 
 Theorem type_subst_alist_to_fmap:
@@ -163,8 +163,8 @@ val _ = cv_trans typeSystemTheory.Tfn_def;
 val _ = cv_trans typeSystemTheory.Ttup_def;
 
 val type_name_check_sub_pre = cv_trans_pre
-  (type_name_check_sub_def
-     |> SRULE [type_subst_alist_to_fmap,FUN_EQ_THM])
+                              (type_name_check_sub_def
+                                 |> SRULE [type_subst_alist_to_fmap,FUN_EQ_THM])
 
 Theorem type_name_check_sub_pre[local,cv_pre]:
   (∀t a0 a1 a2 (a4:'a). type_name_check_sub_pre a0 a1 a2 t a4) ∧
@@ -207,7 +207,7 @@ QED
 val _ = cv_trans map_infer_type_subst_def;
 
 val infer_p_pre = cv_trans_pre
-  (infer_p_expand |> SRULE [GSYM map_infer_type_subst_eq]);
+                  (infer_p_expand |> SRULE [GSYM map_infer_type_subst_eq]);
 
 val constrain_op_pre = cv_trans_pre constrain_op_expand;
 
@@ -253,8 +253,13 @@ val res = cv_trans_pre_rec
           (infer_e_expand |> SRULE [GSYM map_infer_type_subst_eq,
                                     GSYM map1_eq, GSYM map2_eq,
                                     namespaceTheory.alist_to_ns_def]
-                                    |> rename_bound_vars_rule "var")
-          cheat;
+                          |> rename_bound_vars_rule "var")
+ (WF_REL_TAC ‘measure $ λx. case x of
+                            | INL (_,_,e,_) => cv_sum_depth e
+                            | INR (INL (_,_,es,_)) => cv_sum_depth es
+                            | INR (INR (INL (_,_,pes,_,_,_))) => cv_sum_depth pes
+                            | INR (INR (INR (_,_,funs,_))) => cv_sum_depth funs’
+  \\ rpt conj_tac \\ cv_termination_tac);
 
 Definition exp_is_value_def:
   exp_is_value (Lit _) = T ∧
