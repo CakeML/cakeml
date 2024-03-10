@@ -52,7 +52,7 @@ val mips_backend_config_def = Define`
                lab_conf:=^(mips_lab_conf);
                symbols:=[];
                tap_conf:=default_tap_config;
-               exposed:=[]
+               exported:=[]
                |>`;
 
 val _ = export_theory();
