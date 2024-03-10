@@ -34,7 +34,7 @@ val r = translate noparse_string_def;
 
 val parse_pbf_full = (append_prog o process_topdecs) `
   fun parse_pbf_full f =
-  (case TextIO.b_inputAllTokensFrom f blanks tokenize of
+  (case TextIO.b_inputAllTokensFrom #"\n" f blanks tokenize of
     None => Inl (notfound_string f)
   | Some lines =>
   (case parse_pbf_toks lines of
@@ -91,8 +91,12 @@ Proof
   >- (
     xapp_spec b_inputAllTokensFrom_spec_specialize >>
     xsimpl>>
-    fs[FILENAME_def,validArg_def]>>
-    EVAL_TAC)>>
+    simp[pb_parseTheory.blanks_def]>>
+    fs[FILENAME_def,validArg_def,blanks_v_thm]>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    qexists_tac`emp`>>xsimpl)>>
   simp[get_fml_def]>>
   IF_CASES_TAC>>fs[OPTION_TYPE_def]>>xmatch
   >- (
