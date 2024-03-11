@@ -48,7 +48,8 @@ val installed_arm8_asl_def = Define `
         code cbspace
         data data_sp
         cfg.lab_conf.ffi_names
-        (heap_regs arm8_backend_config.stack_conf.reg_names) mc ms
+        (heap_regs arm8_backend_config.stack_conf.reg_names) mc
+        cfg.lab_conf.shmem_extra ms
     `;
 
 val check_unsat_code_def = Define `
