@@ -1,5 +1,5 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis $(CAKEMLDIR)/compiler ..
-CLINE_OPTIONS =
+INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis $(CAKEMLDIR)/compiler .. $(CAKEMLDIR)/unverified/sexpr-bootstrap $(CAKEMLDIR)/compiler/parsing
+CLINE_OPTIONS = -j1
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
@@ -16,6 +16,8 @@ endif
 cake_pb.S : *npbc_fullCompileScript.sml
 
 cake_pb_cnf.S : *cnfCompileScript.sml
+
+cake_pb_wcnf.S : *wcnfCompileScript.sml
 
 cake_pb_iso.S : *subgraph_isoCompileScript.sml
 

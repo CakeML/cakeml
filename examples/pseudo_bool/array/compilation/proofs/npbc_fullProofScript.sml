@@ -81,7 +81,16 @@ Theorem machine_code_sound:
         ∃obj fml concl.
           parse_pbf (all_lines fs (EL 1 cl)) = SOME (obj, fml) ∧
           out = concl_to_string concl ∧
-          pbc$sem_concl (set fml) obj concl)
+          pbc$sem_concl (set fml) obj concl) ∨
+        (LENGTH cl = 4 ∧
+        ∃obj fml objt fmlt output bound concl.
+          parse_pbf (all_lines fs (EL 1 cl)) = SOME (obj, fml) ∧
+          parse_pbf (all_lines fs (EL 3 cl)) = SOME (objt, fmlt) ∧
+          out =
+            (concl_to_string concl ^
+            output_to_string bound output) ∧
+          pbc$sem_concl (set fml) obj concl ∧
+          pbc$sem_output (set fml) obj bound (set fmlt) objt output)
       )
     )
 Proof
@@ -94,6 +103,11 @@ Proof
   simp[]>> strip_tac>>
   fs[main_sem_def]>>
   every_case_tac>>fs[]
+  >- (
+    qexists_tac`out`>>qexists_tac`err`>>simp[]>>
+    fs[check_unsat_3_sem_def,get_fml_def]>>
+    strip_tac>>gvs[]>>
+    metis_tac[])
   >- (
     qexists_tac`out`>>qexists_tac`err`>>simp[]>>
     fs[check_unsat_2_sem_def,get_fml_def]>>

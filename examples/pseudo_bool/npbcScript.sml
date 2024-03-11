@@ -1990,6 +1990,22 @@ Definition sem_concl_def:
       (∃w. satisfies w fml ∧ eval_obj obj w ≤ ub))))
 End
 
+Definition sem_output_def:
+  (sem_output fml obj bound fml' obj' NoOutput = T) ∧
+  (sem_output fml obj bound fml' obj' Derivable =
+    (npbc$satisfiable fml ⇒ npbc$satisfiable fml')) ∧
+  (sem_output fml obj bound fml' obj' Equisatisfiable =
+    (npbc$satisfiable fml ⇔ satisfiable fml')) ∧
+  (sem_output fml obj bound fml' obj' Equioptimal =
+    ∀v.
+    (case bound of NONE => T | SOME b => v < b) ⇒
+    (
+      (∃w. npbc$satisfies w fml ∧ npbc$eval_obj obj w ≤ v) ⇔
+      (∃w'. satisfies w' fml' ∧ eval_obj obj' w' ≤ v)
+    )
+  )
+End
+
 (* EXPERIMENTAL UNUSED *)
 Type npbcspt = ``: (int spt) #num``
 
