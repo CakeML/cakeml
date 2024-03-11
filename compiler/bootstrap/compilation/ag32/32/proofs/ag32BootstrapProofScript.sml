@@ -130,7 +130,8 @@ Theorem cake_installed:
    is_ag32_init_state (init_memory code data (extcalls config.lab_conf.ffi_names) (cl,inp)) ms0 ⇒
    installed code 0 data 0 config.lab_conf.ffi_names
      (heap_regs ag32_backend_config.stack_conf.reg_names)
-     (cake_machine_config) (FUNPOW Next (cake_startup_clock ms0 inp cl) ms0)
+     (cake_machine_config) config.lab_conf.shmem_extra
+     (FUNPOW Next (cake_startup_clock ms0 inp cl) ms0)
 Proof
   rewrite_tac[ffi_names, extcalls_def]
   \\ strip_tac

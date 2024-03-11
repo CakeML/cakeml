@@ -148,7 +148,8 @@ Definition repl_ready_to_run_def:
       mc_conf_ok mc ∧ mc_init_ok x64_backend_config mc ∧
       installed cake_code cbspace cake_data data_sp
         cake_config.lab_conf.ffi_names
-        (heap_regs x64_backend_config.stack_conf.reg_names) mc ms
+        (heap_regs x64_backend_config.stack_conf.reg_names)
+        mc cake_config.lab_conf.shmem_extra ms
 End
 
 Overload machine_sem = “λffi (mc,ms). targetSem$machine_sem mc ffi ms”
