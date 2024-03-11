@@ -380,9 +380,12 @@ Definition strip_numbers_end_def:
   (strip_numbers_end (x::xs) acc =
   case x of INR n =>
     if n ≥ 0 then
-      strip_numbers xs (Num n::acc)
+      strip_numbers_end xs (Num n::acc)
     else NONE
   | INL s =>
+    if s = strlit"~" then
+      strip_numbers_end xs (0::acc)
+    else
     if s = strlit ";" ∧ NULL xs then SOME (REVERSE acc)
     else NONE)
 End
