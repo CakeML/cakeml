@@ -1,9 +1,9 @@
 (*
   Prove theorems cv_transLib uses for its operation
 *)
-open HolKernel Parse boolLib bossLib;
+open HolKernel Parse boolLib bossLib dep_rewrite;
 open cv_typeTheory cvTheory cv_typeLib cv_repLib;
-open arithmeticTheory wordsTheory cv_repTheory integerTheory;
+open arithmeticTheory wordsTheory cv_repTheory integerTheory ratTheory;
 
 val _ = new_theory "cv_prim";
 
@@ -160,6 +160,29 @@ Proof
   \\ gvs [arithmeticTheory.MAX_DEF]
 QED
 
+Definition cv_gcd_def:
+  cv_gcd a b = cv_if a (cv_gcd (cv_mod b a) a) b
+Termination
+  WF_REL_TAC `measure $ λ(a,b). c2n a + c2n b + (c2n a - c2n b)` >>
+  rpt gen_tac >> strip_tac >>
+  simp[] >> gvs[c2b_def] >>
+  Cases_on `b` >> gvs[cv_mod_def] >>
+  `m MOD SUC k - SUC k = 0` by (
+    simp[] >> irule LESS_IMP_LESS_OR_EQ >> simp[]) >>
+  `m MOD SUC k < SUC k` by simp[] >>
+  simp[] >> DECIDE_TAC
+End
+
+Theorem cv_gcd_thm[cv_rep]:
+  Num (gcd a b) = cv_gcd (Num a) (Num b)
+Proof
+  qsuff_tac `∀c d a b. c = Num a ∧ d = Num b ⇒ Num (gcd a b) = cv_gcd c d`
+  >- rw[] >>
+  ho_match_mp_tac cv_gcd_ind >> rw[] >>
+  rw[Once gcdTheory.GCD_EFFICIENTLY, Once cv_gcd_def] >> gvs[] >>
+  gvs[c2b_def] >> Cases_on `a` >> gvs[]
+QED
+
 (*----------------------------------------------------------*
    int
  *----------------------------------------------------------*)
@@ -302,8 +325,7 @@ Definition cv_int_div_def:
             (Pair (cv_div (cv_fst i) j) (Num 0))
             (cv_if (cv_mod (cv_fst i) j)
               (Pair (Num 1) (Num 0)) (Num 0)))
-          (cv_div i j)
-              )
+          (cv_div i j))
 End
 
 Theorem cv_int_div[cv_rep]:
@@ -338,6 +360,376 @@ Proof
   namedCases_on `i` ["ni","ni",""] >> gvs[] >>
   namedCases_on `j` ["nj","nj",""] >> gvs[] >>
   gvs[INT_MUL_CALCULATE]
+QED
+
+(*----------------------------------------------------------*
+   rat
+ *----------------------------------------------------------*)
+
+(*---------- Helper lemmas - TODO move these? ----------*)
+
+Theorem Num_neg:
+  Num (-a) = Num a
+Proof
+  Cases_on `a` >> gvs[]
+QED
+
+Theorem gcd_LESS_EQ:
+  ∀m n. n ≠ 0 ⇒ gcd m n ≤ n
+Proof
+  recInduct gcdTheory.gcd_ind >> rw[Once gcdTheory.gcd_def]
+QED
+
+Theorem ABS_SGN:
+  ABS (SGN i) = if i = 0 then 0 else 1
+Proof
+  Cases_on `i` >> gvs[intExtensionTheory.SGN_def]
+QED
+
+Theorem divides_coprime_mul:
+  ∀n m k. gcd n m = 1 ⇒ (divides n (m * k) ⇔ divides n k)
+Proof
+  rw[] >> eq_tac >> rw[]
+  >- (gvs[Once gcdTheory.GCD_SYM] >> drule gcdTheory.L_EUCLIDES >> simp[])
+  >- (drule dividesTheory.DIVIDES_MULT >> disch_then irule)
+QED
+
+Theorem nmr_dnm_unique:
+  gcd n1 d1 = 1 ∧ gcd n2 d2 = 1 ∧
+  n1 * d2 = n2 * d1
+  ⇒ n1 = n2 ∧ d1 = d2
+Proof
+  strip_tac >> imp_res_tac divides_coprime_mul >> gvs[] >>
+  first_x_assum $ qspec_then `n2` $ mp_tac o iffLR >> gvs[] >>
+  impl_tac >- (gvs[dividesTheory.divides_def] >> qexists `d2` >> gvs[]) >>
+  strip_tac >> first_x_assum $ qspec_then `n1` assume_tac >> gvs[] >>
+  dxrule_all dividesTheory.DIVIDES_ANTISYM >> strip_tac >> gvs[]
+QED
+
+Theorem SGN_MUL_Num[simp]:
+  SGN i * &Num i = i
+Proof
+  Cases_on `i` >> gvs[intExtensionTheory.SGN_def] >>
+  simp[INT_MUL_CALCULATE]
+QED
+
+Theorem gcd_RATND[simp]:
+  gcd (Num $ RATN r) (RATD r) = 1
+Proof
+  CCONTR_TAC >> gvs[] >>
+  qmatch_asmsub_abbrev_tac `gcd n d` >>
+  `d ≠ 0` by (unabbrev_all_tac >> gvs[]) >>
+  qspecl_then [`n`,`d`] assume_tac gcdTheory.FACTOR_OUT_GCD >> gvs[] >>
+  Cases_on `n = 0` >> gvs[] >>
+  qspecl_then [`rat_sgn r * &p`,`q`] mp_tac RATN_LEAST >> simp[] >>
+  Cases_on `q = 0` >> gvs[] >> reverse $ rw[]
+  >- (
+    simp[RAT_SGN_ALT, GSYM INT_ABS_MUL, ABS_SGN] >>
+    Cases_on `r = 0` >> gvs[] >>
+    `ABS (RATN r) = &n` by (unabbrev_all_tac >> Cases_on `RATN r` >> gvs[]) >>
+    simp[] >> qpat_assum `n = _` SUBST1_TAC >> simp[] >>
+    Cases_on `p = 0` >> gvs[] >> simp[NOT_LESS_EQUAL] >>
+    Cases_on `gcd n d = 0` >- gvs[] >- simp[]
+    ) >>
+  rewrite_tac[Once RATN_RATD_EQ_THM] >> DEP_REWRITE_TAC[RAT_LDIV_EQ] >> simp[] >>
+  simp[RDIV_MUL_OUT] >> DEP_REWRITE_TAC[RAT_RDIV_EQ] >> simp[] >>
+  `RATN r = rat_sgn r * &n` by (simp[RAT_SGN_ALT] >> unabbrev_all_tac >> gvs[]) >>
+  simp[GSYM rat_of_int_MUL, AC RAT_MUL_ASSOC RAT_MUL_COMM] >>
+  simp[RAT_MUL_ASSOC] >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  simp[RAT_MUL_NUM_CALCULATE] >>
+  qsuff_tac `(p * gcd n d) * q = (q * gcd n d) * p`
+  >- metis_tac[]
+  >- simp[]
+QED
+
+Theorem RATND_suff_eq:
+  gcd (Num n) d = 1 ∧ d ≠ 0
+  ⇒ RATN (rat_of_int n / &d) = n ∧ RATD (rat_of_int n / &d) = d
+Proof
+  strip_tac >>
+  qpat_abbrev_tac `r = _ / _` >>
+  qsuff_tac `rat_sgn r = SGN n ∧ Num (RATN r) = Num n ∧ RATD r = d`
+  >- (rw[RAT_SGN_ALT] >> once_rewrite_tac[GSYM SGN_MUL_Num] >> metis_tac[]) >>
+  conj_asm1_tac
+  >- (
+    unabbrev_all_tac >> simp[RAT_SGN_ALT, intExtensionTheory.SGN_def] >>
+    Cases_on `n` >> gvs[] >> simp[rat_of_int_ainv]
+    ) >>
+  `rat_of_int n * &RATD r = rat_of_int (RATN r) * &d` by (
+    DEP_REWRITE_TAC[GSYM RAT_RDIV_EQ] >> simp[] >>
+    simp[GSYM LDIV_MUL_OUT] >> rewrite_tac[Once RAT_MUL_COMM] >>
+    DEP_REWRITE_TAC[GSYM RAT_LDIV_EQ] >> unabbrev_all_tac >> gvs[]) >>
+  pop_assum mp_tac >> simp[rat_of_int_def] >>
+  `n < 0 ⇔ r < 0` by (
+    unabbrev_all_tac >> gvs[RAT_LDIV_LES_POS] >>
+    Cases_on `n` >> gvs[] >> simp[rat_of_int_ainv]) >>
+  IF_CASES_TAC >> gvs[Num_neg] >>
+  simp[RAT_MUL_NUM_CALCULATE] >> strip_tac >> irule nmr_dnm_unique >> simp[]
+QED
+
+Definition div_gcd_def:
+  div_gcd a b =
+    let d = gcd (Num a) b in
+      if d = 0 ∨ d = 1 then (a, b) else (a / &d, b DIV d)
+End
+
+Theorem div_gcd_reduces:
+  div_gcd a b = (n,d) ∧ b ≠ 0 ⇒ d ≠ 0 ∧ gcd (Num n) d = 1 ∧ a * &d = n * &b
+Proof
+  rw[div_gcd_def] >> gvs[]
+  >- (
+    Cases_on `b = 1` >> gvs[] >>
+    DEP_REWRITE_TAC[DIV_EQ_0] >> simp[NOT_LESS] >>
+    Cases_on `gcd (Num a) b` >> gvs[] >>
+    qspecl_then [`Num a`,`b`] assume_tac gcd_LESS_EQ >> gvs[]
+    )
+  >- (
+    Cases_on `Num a = 0` >> simp[] >>
+    qspecl_then [`Num a`,`b`] assume_tac gcdTheory.FACTOR_OUT_GCD >> gvs[] >>
+    qsuff_tac `b DIV gcd (Num a) b = q ∧ Num (a / &gcd (Num a) b) = p` >> rw[]
+    >- (
+      qpat_x_assum `b = _` $ simp o single o Once >>
+      irule MULT_DIV >> Cases_on `gcd (Num a) b` >> gvs[]
+      ) >>
+    simp[int_div] >> rw[] >> gvs[Num_neg]
+    >- (
+      qpat_x_assum `Num a = _` $ simp o single o Once >>
+      irule MULT_DIV >> Cases_on `gcd (Num a) b` >> gvs[]
+      )
+    >- (
+      qpat_x_assum `Num a = _` $ simp o single o Once >>
+      irule MULT_DIV >> Cases_on `gcd (Num a) b` >> gvs[]
+      )
+    >- (
+      irule FALSITY >> pop_assum mp_tac >> simp[] >>
+      qpat_x_assum `Num a = _` $ rewrite_tac o single o Once >>
+      irule MOD_EQ_0 >> simp[]
+      )
+    )
+  >- (
+    qspecl_then [`Num a`,`b`] assume_tac gcdTheory.FACTOR_OUT_GCD >>
+    Cases_on `a = 0` >> gvs[] >>
+    qabbrev_tac `g = gcd (Num a) b` >>
+    `b DIV g = q` by  (irule DIV_UNIQUE >> qexists `0` >> gvs[]) >>
+    `a / &g = SGN a * &p` by (
+      qspec_then `a` mp_tac $ GEN_ALL (GSYM SGN_MUL_Num) >>
+      disch_then $ rewrite_tac o single o Once >>
+      DEP_REWRITE_TAC[INT_MUL_DIV] >> conj_tac >- gvs[] >>
+      AP_TERM_TAC >> gvs[INT_DIV_CALCULATE] >>
+      rewrite_tac[Once MULT_COMM] >> irule MULT_DIV >> gvs[]) >>
+    simp[] >>
+    qspec_then `a` mp_tac $ GEN_ALL (GSYM SGN_MUL_Num) >>
+    disch_then $ rewrite_tac o single o Once >>
+    once_rewrite_tac[GSYM INT_MUL_ASSOC] >>
+    AP_TERM_TAC >> simp[INT_MUL_CALCULATE]
+    )
+QED
+
+Theorem div_gcd_correct:
+  div_gcd a b = (n,d) ∧ b ≠ 0 ⇒
+  rat_of_int a / &b = rat_of_int n / &d ∧
+  RATN (rat_of_int a / &b) = n ∧
+  RATD (rat_of_int a / &b) = d
+Proof
+  strip_tac >> reverse conj_asm1_tac
+  >- (
+    pop_assum SUBST_ALL_TAC >> match_mp_tac RATND_suff_eq >>
+    imp_res_tac div_gcd_reduces >> simp[]
+    ) >>
+  simp[RAT_LDIV_EQ, RDIV_MUL_OUT] >> DEP_REWRITE_TAC[RAT_RDIV_EQ] >> simp[] >>
+  once_rewrite_tac[GSYM rat_of_int_of_num] >> simp[rat_of_int_MUL] >>
+  imp_res_tac div_gcd_reduces >> gvs[] >>
+  gvs[AC INT_MUL_ASSOC INT_MUL_COMM]
+QED
+
+(*----------*)
+
+Theorem cv_rat_of_int[cv_rep]:
+  from_rat (rat_of_int i) = Pair (from_int i) (Num 1)
+Proof
+  rw[from_rat_def]
+QED
+
+Definition cv_rat_neg_def:
+  cv_rat_neg r = Pair (cv_int_neg (cv_fst r)) (cv_snd r)
+End
+
+Theorem cv_rat_neg[cv_rep]:
+  from_rat (-r) = cv_rat_neg (from_rat r)
+Proof
+  simp[from_rat_def, cv_rat_neg_def, cv_neg_int]
+QED
+
+Definition cv_rat_reciprocal_def:
+  cv_rat_reciprocal r =
+    cv_if (cv_int_lt (cv_fst r) (Num 0))
+      (Pair (Pair (cv_snd r) (Num 0)) (cv_fst (cv_fst r)))
+      (Pair (cv_snd r) (cv_fst r))
+End
+
+Theorem cv_rat_reciprocal[cv_rep]:
+  r ≠ 0 ⇒ from_rat (rat_minv r) = cv_rat_reciprocal (from_rat r)
+Proof
+  rw[] >> simp[RAT_MINV_RATND] >> simp[cv_rat_reciprocal_def] >>
+  `Num 0 = from_int 0` by gvs[from_int_def] >> simp[] >> pop_assum kall_tac >>
+  reverse $ rw[] >> gvs[c2b_def] >> pop_assum mp_tac >>
+  simp[Once from_rat_def, GSYM cv_int_lt] >>
+  strip_tac >> gvs[] >> Cases_on `r < 0` >> gvs[]
+  >- (
+    `rat_sgn r = 1` by (CCONTR_TAC >> gvs[RAT_LEQ_LES, RAT_LEQ_ANTISYM]) >>
+    `rat_of_int (ABS (RATN r)) = &Num (RATN r)` by (Cases_on `RATN r` >> gvs[]) >>
+    simp[from_rat_def] >>
+    qspecl_then [`int_of_num $ RATD r`,`Num (RATN r)`]
+      mp_tac $ GEN_ALL RATND_suff_eq >>
+    simp[Once gcdTheory.GCD_SYM] >> strip_tac >> simp[from_int_def]
+    )
+  >- (
+    `rat_sgn r = -1` by gvs[] >> simp[] >>
+    simp[rat_of_int_ainv, from_rat_def, from_int_def] >>
+    DEP_REWRITE_TAC[RAT_LDIV_LES_POS] >> simp[] >> conj_tac
+    >- (
+      `0 = rat_of_int 0` by gvs[] >> pop_assum SUBST1_TAC >>
+      rewrite_tac[rat_of_int_LT] >> simp[]
+      ) >>
+    simp[RAT_MUL_NUM_CALCULATE] >>
+    simp[GSYM RAT_DIV_AINV, Num_neg] >>
+    `rat_of_int (ABS (RATN r)) = &Num (RATN r)` by (Cases_on `RATN r` >> gvs[]) >>
+    qspecl_then [`int_of_num $ RATD r`,`Num (RATN r)`]
+      mp_tac $ GEN_ALL RATND_suff_eq >>
+    simp[Once gcdTheory.GCD_SYM]
+    )
+QED
+
+Definition cv_rat_norm_def:
+  cv_rat_norm r =
+    let d = cv_gcd (cv_abs (cv_fst r)) (cv_snd r) in
+    cv_if (cv_lt d (Num 2))
+      r
+      (Pair (cv_int_div (cv_fst r) d) (cv_div (cv_snd r) d))
+End
+
+Theorem cv_rat_norm_div_gcd:
+  (λ(x,y). Pair (from_int x) (Num y)) (div_gcd a b) =
+  cv_rat_norm (Pair (from_int a) (Num b))
+Proof
+  simp[div_gcd_def, cv_rat_norm_def] >>
+  simp[GSYM cv_Num, GSYM cv_gcd_thm, c2b_def] >>
+  ntac 3 $ simp[Once COND_RAND] >> simp[COND_RATOR] >>
+  `Num (gcd (Num a) b) = from_int (&(gcd (Num a) b))` by simp[from_int_def] >>
+  simp[GSYM cv_int_div] >>
+  simp[wordsTheory.NUMERAL_LESS_THM] >>
+  Cases_on `a = 0 ∧ b = 0 ∨ gcd (Num a) b = 1` >> gvs[] >>
+  IF_CASES_TAC >> gvs[] >> simp[total_int_div_def] >> IF_CASES_TAC >> gvs[]
+QED
+
+Theorem from_rat_eq_cv_rat_norm_suff[local]:
+  r = rat_of_int n / &d ∧ d ≠ 0 ∧
+  from_int n = x ∧
+  Num d = y
+  ⇒ from_rat r = cv_rat_norm (Pair x y)
+Proof
+  rw[] >> simp[GSYM cv_rat_norm_div_gcd] >>
+  pairarg_tac >> gvs[from_rat_def] >>
+  drule_all div_gcd_correct >> rw[]
+QED
+
+Definition cv_rat_add_def:
+  cv_rat_add r1 r2 =
+    cv_rat_norm $ Pair
+      (cv_int_add (cv_int_mul (cv_fst r1) (cv_snd r2)) (cv_int_mul (cv_fst r2) (cv_snd r1)))
+      (cv_mul (cv_snd r1) (cv_snd r2))
+End
+
+Theorem cv_rat_add[cv_rep]:
+  from_rat (r1 + r2) = cv_rat_add (from_rat r1) (from_rat r2)
+Proof
+  simp[cv_rat_add_def] >> irule from_rat_eq_cv_rat_norm_suff >>
+  qexistsl [`RATD r1 * RATD r2`,`(RATN r1 * &RATD r2) + (RATN r2 * &RATD r1)`] >>
+  simp[from_rat_def] >> rw[]
+  >- (
+    simp[cv_int_add] >> rpt MK_COMB_TAC >> simp[] >>
+    simp[cv_int_mul] >> rpt MK_COMB_TAC >> simp[from_int_def]
+    ) >>
+  qspecl_then [`&RATD r1`,`rat_of_int $ RATN r1`,`&RATD r2`,`rat_of_int $ RATN r2`]
+    mp_tac $ GEN_ALL $ GSYM RAT_DIVDIV_ADD >> simp[] >>
+  once_rewrite_tac[GSYM rat_of_int_of_num] >>
+  rewrite_tac[rat_of_int_MUL, rat_of_int_ADD, INT_MUL_CALCULATE] >> simp[]
+QED
+
+Theorem cv_rat_sub[cv_rep]:
+  from_rat (r1 - r2) = cv_rat_add (from_rat r1) (cv_rat_neg (from_rat r2))
+Proof
+  simp[RAT_SUB_ADDAINV, GSYM cv_rat_neg, GSYM cv_rat_add]
+QED
+
+Definition cv_rat_mul_def:
+  cv_rat_mul r1 r2 =
+    cv_rat_norm $ Pair
+      (cv_int_mul (cv_fst r1) (cv_fst r2))
+      (cv_mul (cv_snd r1) (cv_snd r2))
+End
+
+Theorem cv_rat_mul[cv_rep]:
+  from_rat (r1 * r2) = cv_rat_mul (from_rat r1) (from_rat r2)
+Proof
+  simp[cv_rat_mul_def] >> irule from_rat_eq_cv_rat_norm_suff >>
+  qexistsl [`RATD r1 * RATD r2`,`RATN r1 * RATN r2`] >>
+  simp[from_rat_def, cv_int_mul] >>
+  qspecl_then [`&RATD r2`,`rat_of_int $ RATN r2`,`&RATD r1`,`rat_of_int $ RATN r1`]
+    mp_tac $ GEN_ALL $ GSYM RAT_DIVDIV_MUL >>
+  simp[rat_of_int_MUL, RAT_MUL_NUM_CALCULATE]
+QED
+
+Theorem cv_rat_div[cv_rep]:
+  r2 ≠ 0 ⇒ from_rat (r1 / r2) =
+            cv_rat_mul (from_rat r1) (cv_rat_reciprocal (from_rat r2))
+Proof
+  simp[RAT_DIV_MULMINV, GSYM cv_rat_reciprocal, GSYM cv_rat_mul]
+QED
+
+Definition cv_rat_lt_def:
+  cv_rat_lt r1 r2 =
+    cv_int_lt (cv_int_mul (cv_fst r1) (cv_snd r2))
+              (cv_int_mul (cv_fst r2) (cv_snd r1))
+End
+
+Theorem cv_rat_lt[cv_rep]:
+  b2c (r1 < r2) = cv_rat_lt (from_rat r1) (from_rat r2)
+Proof
+  rw[cv_rat_lt_def, from_rat_def] >>
+  `∀n. Num n = from_int (&n)` by simp[from_int_def] >>
+  simp[] >> pop_assum kall_tac >>
+  simp[GSYM cv_int_mul, GSYM cv_int_lt] >> AP_TERM_TAC >>
+  qspec_then `r1` mp_tac $ GEN_ALL RATN_RATD_EQ_THM >>
+  disch_then $ rewrite_tac o single o Once >>
+  qspec_then `r2` mp_tac $ GEN_ALL RATN_RATD_EQ_THM >>
+  disch_then $ rewrite_tac o single o Once >>
+  `0 < RATD r1` by gvs[] >> `0 < RATD r2` by gvs[] >>
+  rename1 `rat_of_int n1 / &d1 < rat_of_int n2 / &d2` >>
+  simp[RAT_LDIV_LES_POS, RDIV_MUL_OUT, RAT_RDIV_LES_POS] >>
+  once_rewrite_tac[GSYM rat_of_int_of_num] >> rewrite_tac[rat_of_int_MUL] >>
+  simp[AC INT_MUL_ASSOC INT_MUL_COMM]
+QED
+
+Theorem cv_rat_le[cv_rep]:
+  b2c (r1 ≤ r2) = cv_if (cv_rat_lt (from_rat r2) (from_rat r1))
+                        (Num 0) (Num 1)
+Proof
+  simp[GSYM RAT_LEQ_LES, GSYM cv_rat_lt] >> Cases_on `r2 < r1` >> gvs[]
+QED
+
+Theorem cv_rat_gt[cv_rep]:
+  b2c (r1 > r2) = cv_rat_lt (from_rat r2) (from_rat r1)
+Proof
+  simp[rat_gre_def, GSYM cv_rat_lt]
+QED
+
+Theorem cv_rat_ge[cv_rep]:
+  b2c (r1 ≥ r2) = cv_if (cv_rat_lt (from_rat r1) (from_rat r2))
+                        (Num 0) (Num 1)
+Proof
+  simp[rat_geq_def, GSYM RAT_LEQ_LES, GSYM cv_rat_lt] >>
+  Cases_on `r1 < r2` >> gvs[]
 QED
 
 (*----------------------------------------------------------*

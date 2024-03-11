@@ -2,7 +2,7 @@
   Definitions and theorems that support cv_typeLib
 *)
 open HolKernel Parse boolLib bossLib cvTheory;
-open integerTheory wordsTheory;
+open integerTheory wordsTheory ratTheory;
 
 val _ = new_theory "cv_type";
 
@@ -85,6 +85,26 @@ Theorem from_to_int:
   from_to from_int to_int
 Proof
   fs [from_to_def] \\ Cases \\ fs [from_int_def,to_int_def]
+QED
+
+(* rat *)
+
+Definition from_rat_def:
+  from_rat (r:rat) =
+    Pair (from_int $ rat$RATN r) (Num $ rat$RATD r)
+End
+
+Definition to_rat_def:
+  to_rat (Num n) = rat$rat_of_num 0 ∧
+  to_rat (Pair x y) =
+    rat$rat_div (rat$rat_of_int (to_int x)) (rat$rat_of_num (c2n y))
+End
+
+Theorem from_to_rat:
+  from_to from_rat to_rat
+Proof
+  rw[from_to_def, from_rat_def, to_rat_def] >>
+  assume_tac from_to_int >> gvs[from_to_def]
 QED
 
 (* word *)
