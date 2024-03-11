@@ -66,6 +66,10 @@ We can use the inversion ("cases") theorem for this inductive
 relation, and the fact that {const}_code reduces the relation to get
 the induction to go through.
 
+[inferPropsScript.sml](inferPropsScript.sml):
+Various lemmas that are handy in the soundness and completeness
+proofs of the type inferencer.
+
 [inferScript.sml](inferScript.sml):
 Definition of CakeML's type inferencer.
 

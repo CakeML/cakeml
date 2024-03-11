@@ -3,7 +3,7 @@
 *)
 open preamble miscTheory;
 open cv_transLib;
-open astTheory namespaceTheory inferTheory unify_cvTheory;
+open astTheory namespaceTheory inferTheory inferPropsTheory unify_cvTheory;
 
 val _ = new_theory "infer_cv";
 
@@ -118,6 +118,25 @@ val res = infer_tTheory.inf_type_to_string_def |> cv_trans;
 
 val add_constraint_pre = add_constraint_def |> expand |> cv_auto_trans_pre;
 val add_constraints_pre = add_constraints_def |> expand |> cv_auto_trans_pre;
+
+Theorem add_constraint_pre_eq:
+  add_constraint_pre l t1 t2 s = t_wfs s.subst
+Proof
+  gvs [add_constraint_pre]
+  \\ Cases_on ‘t_wfs s.subst’ \\ gvs []
+QED
+
+Theorem add_constraints_pre_eq:
+  ∀ts1 ts2 l s.
+    add_constraints_pre l ts1 ts2 s = (t_wfs s.subst ∨ ts1 = [] ∨ ts2 = [])
+Proof
+  Induct \\ rw [] \\ simp [Once add_constraints_pre]
+  \\ Cases_on ‘ts2’ \\ gvs [add_constraint_pre_eq]
+  \\ Cases_on ‘t_wfs s.subst’ \\ gvs []
+  \\ gvs [add_constraint_def,AllCaseEqs()]
+  \\ rw [] \\ gvs []
+  \\ drule_all unifyTheory.t_unify_wfs \\ gvs []
+QED
 
 val _ = cv_trans generalise_def;
 val _ = cv_trans infer_type_subst_def;
@@ -249,7 +268,7 @@ fun rename_bound_vars_rule prefix th = let
     in ALPHA_CONV (next_var v) tm end handle HOL_ERR _ => NO_CONV tm
   in CONV_RULE (DEPTH_CONV next_alpha_conv) th end;
 
-val res = cv_trans_pre_rec
+val infer_e_pre = cv_trans_pre_rec
           (infer_e_expand |> SRULE [GSYM map_infer_type_subst_eq,
                                     GSYM map1_eq, GSYM map2_eq,
                                     namespaceTheory.alist_to_ns_def]
@@ -430,10 +449,134 @@ End
 val call_infer_pre =
   cv_trans_pre (call_infer_def |> SRULE [EVAL “start_type_id”]);
 
-Theorem call_infer_pre[cv_pre,local]:
+Theorem type_name_check_sub_success:
+  type_name_check_sub l ienv.inf_t xs a s = (Success r,s1) ⇒
+  ∃f. type_name_check_subst l f ienv.inf_t xs a s = (Success r,s1)
+Proof
+  gvs [to_type_name_check_sub]
+QED
+
+Theorem IMP_infer_p_pre:
+  (∀d l ienv s. t_wfs s.subst ⇒ infer_p_pre l ienv d s) ∧
+  (∀ds l ienv s. t_wfs s.subst ⇒ infer_ps_pre l ienv ds s)
+Proof
+  Induct \\ rw [] \\ simp [Once infer_p_pre]
+  \\ gvs [add_constraints_pre_eq] \\ rw []
+  \\ gvs [lookup_st_ex_def,AllCaseEqs()]
+  \\ imp_res_tac infer_p_wfs
+  \\ gvs [n_fresh_uvar_success]
+  \\ gvs [add_constraint_pre_eq] \\ rw []
+  \\ gvs [to_type_name_check_sub]
+  \\ imp_res_tac type_name_check_sub_success
+  \\ gvs [type_name_check_subst_success]
+QED
+
+Theorem IMP_map_t_walkstar_pre:
+  ∀xs s. t_wfs s ⇒ map_t_walkstar_pre s xs
+Proof
+  Induct \\ rw [] \\ simp [Once map_t_walkstar_pre]
+QED
+
+Theorem IMP_apply_subst_list_pre:
+  t_wfs s.subst ⇒ apply_subst_list_pre xs s
+Proof
+  gvs [apply_subst_list_pre,IMP_map_t_walkstar_pre]
+QED
+
+Theorem add_constraint_wfs:
+  add_constraint l x y s = (r,s1) ∧ t_wfs s.subst ⇒ t_wfs s1.subst
+Proof
+  Cases_on ‘r’ \\ gvs [] \\ gvs [add_constraint_success] \\ rw []
+  >- (drule_all unifyTheory.t_unify_wfs \\ gvs [])
+  \\ gvs [add_constraint_def,AllCaseEqs()]
+QED
+
+Theorem add_constraints_wfs:
+  ∀x y l s. add_constraints l x y s = (r,s1) ∧ t_wfs s.subst ⇒ t_wfs s1.subst
+Proof
+  Induct \\ Cases_on ‘y’
+  \\ gvs [add_constraints_def,st_ex_return_def,failwith_def,st_ex_bind_def]
+  \\ rw [] \\ gvs [AllCaseEqs()]
+  \\ drule_all add_constraint_wfs \\ rw []
+  \\ res_tac \\ gvs []
+QED
+
+Theorem IMP_constrain_op_pre:
+  t_wfs s.subst ⇒ constrain_op_pre l op ts s
+Proof
+  simp [constrain_op_pre] \\ rpt strip_tac \\ gvs []
+  \\ gvs [add_constraint_pre_eq, add_constraints_pre_eq,fresh_uvar_def]
+  \\ rpt (dxrule add_constraint_wfs \\ rpt strip_tac) \\ gvs []
+QED
+
+Theorem IMP_infer_e_pre:
+  (∀l ienv e s. t_wfs s.subst ⇒ infer_e_pre l ienv e s) ∧
+  (∀l ienv es s. t_wfs s.subst ⇒ infer_es_pre l ienv es s) ∧
+  (∀l ienv pes t1 t2 s. t_wfs s.subst ⇒ infer_pes_pre l ienv pes t1 t2 s) ∧
+  (∀l ienv funs s. t_wfs s.subst ⇒ infer_funs_pre l ienv funs s)
+Proof
+  ho_match_mp_tac infer_e_ind \\ rpt strip_tac
+  \\ simp [Once infer_e_pre]
+  \\ gvs [lookup_st_ex_def,AllCaseEqs()]
+  \\ gvs [add_constraint_pre_eq,add_constraints_pre_eq] \\ rw []
+  \\ gvs [] \\ imp_res_tac infer_e_wfs \\ gvs []
+  \\ gvs [n_fresh_uvar_success,get_next_uvar_def,fresh_uvar_def]
+  \\ rpt (dxrule add_constraint_wfs \\ rpt strip_tac)
+  \\ rpt (dxrule add_constraints_wfs \\ rpt strip_tac) \\ gvs []
+  \\ rpt (CASE_TAC \\ gvs (TypeBase.updates_of “:inf_env” @
+                        TypeBase.updates_of “:loc_err_info”))
+  \\ imp_res_tac type_name_check_sub_success \\ gvs []
+  \\ gvs [type_name_check_subst_success,IMP_infer_p_pre]
+  \\ imp_res_tac infer_p_wfs
+  \\ gvs [GSYM map1_eq,alist_to_ns_def]
+  \\ irule IMP_constrain_op_pre \\ gvs []
+QED
+
+Theorem IMP_infer_d_pre:
+  (∀d ienv s. t_wfs s.subst ⇒ infer_d_pre ienv d s) ∧
+  (∀ds ienv s. t_wfs s.subst ⇒ infer_ds_pre ienv ds s)
+Proof
+  Induct \\ rpt strip_tac
+  >~ [‘Dtype’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
+  >~ [‘Dtabbrev’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
+  >~ [‘Dexn’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
+  >~ [‘Dmod’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
+  >~ [‘Denv’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
+  >~ [‘infer_ds_pre ienv [] s’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
+  >~ [‘infer_ds_pre ienv _ s’] >-
+   (once_rewrite_tac [infer_d_pre] \\ gvs [] \\ rw []
+    \\ imp_res_tac infer_d_wfs
+    \\ first_x_assum irule \\ gvs [])
+  >~ [‘Dlocal’] >-
+   (once_rewrite_tac [infer_d_pre] \\ gvs [] \\ rw []
+    \\ imp_res_tac infer_d_wfs
+    \\ first_x_assum irule \\ gvs [])
+  >~ [‘Dlet’] >-
+   (once_rewrite_tac [infer_d_pre] \\ gvs [] \\ rw []
+    \\ gvs [get_next_uvar_def]
+    \\ imp_res_tac infer_e_wfs \\ gvs []
+    >- (irule $ cj 1 IMP_infer_e_pre \\ gvs [init_infer_state_def])
+    >- (irule $ cj 1 IMP_infer_p_pre \\ gvs [init_infer_state_def])
+    \\ imp_res_tac infer_p_wfs \\ gvs [add_constraint_pre_eq]
+    \\ irule IMP_apply_subst_list_pre \\ gvs []
+    \\ drule_all add_constraint_wfs \\ gvs [])
+  >~ [‘Dletrec’] >-
+   (once_rewrite_tac [infer_d_pre] \\ gvs [] \\ rw []
+    >- (irule $ cj 4 IMP_infer_e_pre \\ gvs [init_infer_state_def]
+        \\ gvs [n_fresh_uvar_success,get_next_uvar_def])
+    \\ gvs [add_constraints_pre_eq]
+    \\ imp_res_tac infer_e_wfs \\ gvs []
+    \\ gvs [n_fresh_uvar_success,get_next_uvar_def]
+    \\ imp_res_tac add_constraints_wfs
+    \\ irule IMP_apply_subst_list_pre \\ gvs [])
+QED
+
+Theorem call_infer_pre_thm[cv_pre,local]:
   ∀a0 a1. call_infer_pre a0 a1
 Proof
-  cheat
+  rw [call_infer_pre]
+  \\ irule $ cj 2 IMP_infer_d_pre
+  \\ gvs [unifyTheory.t_wfs_def]
 QED
 
 val _ = cv_trans (infertype_prog_def

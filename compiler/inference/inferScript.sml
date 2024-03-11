@@ -1152,7 +1152,7 @@ Definition infertype_prog_def:
     | Failure x => Failure x
 End
 
-Definition init_config:
+Definition init_config_def:
   init_config : inf_env =
     <| inf_c := primTypes$prim_tenv.c;
        inf_v := nsEmpty;

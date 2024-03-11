@@ -383,11 +383,12 @@ val fresh_uvar_success = Q.prove (
 rw [fresh_uvar_def] >>
 metis_tac []);
 
-val n_fresh_uvar_success = Q.prove (
-`!n st ts st'.
+Theorem n_fresh_uvar_success:
+ !n st ts st'.
   (n_fresh_uvar n st = (Success ts, st')) =
   ((ts = MAP (\n. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST n)) ∧
-   (st' = st with next_uvar := st.next_uvar + n))`,
+   (st' = st with next_uvar := st.next_uvar + n))
+Proof
 ho_match_mp_tac n_fresh_uvar_ind >>
 rw [] >>
 rw [st_ex_return_success, Once n_fresh_uvar_def, COUNT_LIST_SNOC,
@@ -397,7 +398,8 @@ fs [] >>
 srw_tac [ARITH_ss] [] >>
 rw [count_list_sub1, MAP_APPEND, MAP_MAP_o, combinTheory.o_DEF] >>
 eq_tac >>
-srw_tac [ARITH_ss] [arithmeticTheory.ADD1]);
+srw_tac [ARITH_ss] [arithmeticTheory.ADD1]
+QED
 
 val apply_subst_success = Q.prove (
 `!t1 st1 t2 st2.

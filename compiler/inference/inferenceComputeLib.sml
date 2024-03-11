@@ -118,7 +118,7 @@ in
     ,infer_tTheory.type_ident_to_string_def
     ,mlintTheory.toString_def
     ,mlintTheory.toChar_def
-    ,mlintTheory.num_to_rev_chars_compute
+    ,mlintTheory.num_to_chars_def
     ,mlintTheory.exp_for_dec_enc_def
     ,mlintTheory.maxSmall_DEC_def
     ,mlintTheory.padLen_DEC_def

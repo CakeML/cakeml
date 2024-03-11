@@ -150,8 +150,46 @@ Definition type_con_name_def:
   )
 End
 
+Definition inf_type_to_string_rec_gen_def:
+  (inf_type_to_string_rec_gen f (Infer_Tuvar n) =
+    (concat [strlit "_"; mlint$toString (&n)],0)) ∧
+  (inf_type_to_string_rec_gen f (Infer_Tvar_db n) =
+    (concat [ty_var_name n],0n)) ∧
+  (inf_type_to_string_rec_gen f (Infer_Tapp ts ti) =
+    if ti = Tfn_num then
+     (case ts of
+      | [t1; t2] =>
+        (concat [add_parens 2 (inf_type_to_string_rec_gen f t1); strlit " -> ";
+                 add_parens 3 (inf_type_to_string_rec_gen f t2)],3)
+      | _ => (implode "<bad function type>",0))
+    else if ti = Ttup_num then
+     (case ts of
+      | [] => (strlit "unit",0)
+      | [t] => inf_type_to_string_rec_gen f t
+      | _ => (concat (commas (strlit " * ")
+               (MAP (add_parens 1) (inf_type_to_string_rec_gen_list f ts))),2n))
+    else
+      case ts of
+      | [] => (f ti,0)
+      | [t] =>
+        (concat [add_parens 1 (inf_type_to_string_rec_gen f t); strlit " ";
+                 f ti],1)
+      | _ =>
+        (concat ([strlit "("] ++
+                 commas (strlit ", ")
+                   (MAP (add_parens 5) (inf_type_to_string_rec_gen_list f ts)) ++
+                 [strlit ") "; f ti]),1)) ∧
+  inf_type_to_string_rec_gen_list f [] = [] ∧
+  inf_type_to_string_rec_gen_list f (t::ts) =
+    inf_type_to_string_rec_gen f t ::
+    inf_type_to_string_rec_gen_list f ts
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of INL (_,t) => infer_t_size t
+                                    | INR (_,ts) => list_size infer_t_size ts’
+End
+
 Definition inf_t_to_s_def:
-  inf_t_to_s tn t = FST (inf_type_to_string_rec (type_con_name tn) t)
+  inf_t_to_s tn t = FST (inf_type_to_string_rec_gen (type_con_name tn) t)
 End
 
 Definition print_of_val_opts_def:
