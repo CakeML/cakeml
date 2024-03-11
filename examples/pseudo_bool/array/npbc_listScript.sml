@@ -191,7 +191,7 @@ Definition check_lstep_list_def:
       SOME (fml, SOME(c,b), id, zeros))
   | Rup c ls =>
     let (res,zeros,_) =
-      check_rup_list b (not c) fml zeros (0::ls) in
+      check_rup_list b (not c) fml zeros ls in
     (if res then
          SOME(
            fml,

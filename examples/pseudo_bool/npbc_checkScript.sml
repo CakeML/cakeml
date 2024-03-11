@@ -194,7 +194,7 @@ Definition check_lstep_def:
     | SOME c =>
       SOME (insert_fml b fml id c))
   | Rup c ls =>
-    if check_rup b (not c) fml FEMPTY (0::ls) then
+    if check_rup b (not c) fml FEMPTY ls then
       SOME (insert_fml b fml id c)
     else NONE
   | Con c pf n =>

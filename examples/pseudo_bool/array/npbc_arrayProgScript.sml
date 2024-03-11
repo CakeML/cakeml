@@ -1139,7 +1139,7 @@ val check_lstep_arr = process_topdecs`
       (fml, (Some(c,b), (id, zeros)))
     end
   | Rup c ls =>
-    (case check_rup_arr b (not_1 c) fml zeros (0::ls) of
+    (case check_rup_arr b (not_1 c) fml zeros ls of
       (res,zeros) =>
       if res then
          (fml, (Some(c,b), (id, zeros)))
