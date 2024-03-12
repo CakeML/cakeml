@@ -440,11 +440,19 @@ val infer_d_pre = cv_trans_pre
                infer_d_map_2_eq, infer_d_map_3_eq,init_state_def,
                GSYM map1_eq, GSYM map2_eq, MAP_Tvar_eq]);
 
+val _ = cv_trans start_type_id_def;
+
 Definition call_infer_def:
-  call_infer ienv prog =
+  call_infer ienv prog start_id =
   infer_ds ienv prog
-     <|next_uvar := 0; subst := FEMPTY; next_id := start_type_id|>
+    <|next_uvar := 0; subst := FEMPTY; next_id := start_id|>
 End
+
+val infertype_prog_eq =
+  infertype_prog_def |> SRULE [init_infer_state_def, GSYM call_infer_def];
+
+val infertype_prog_inc_eq =
+  infertype_prog_inc_def |> SRULE [init_infer_state_def, GSYM call_infer_def];
 
 val call_infer_pre =
   cv_trans_pre (call_infer_def |> SRULE [EVAL “start_type_id”]);
@@ -572,16 +580,18 @@ Proof
 QED
 
 Theorem call_infer_pre_thm[cv_pre,local]:
-  ∀a0 a1. call_infer_pre a0 a1
+  ∀a0 a1 a2. call_infer_pre a0 a1 a2
 Proof
   rw [call_infer_pre]
   \\ irule $ cj 2 IMP_infer_d_pre
   \\ gvs [unifyTheory.t_wfs_def]
 QED
 
-val _ = cv_trans (infertype_prog_def
-  |> SRULE [init_infer_state_def,GSYM call_infer_def,extend_dec_ienv_def]);
+val _ = cv_trans (infertype_prog_eq |> SRULE [extend_dec_ienv_def]);
+val _ = cv_trans (infertype_prog_inc_eq |> SRULE [extend_dec_ienv_def]);
 
-(* main result stored as: cv_infertype_prog_thm *)
+(* main results stored as: cv_infertype_prog_thm
+                           cv_infertype_prog_inc_thm *)
 
+val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory ();

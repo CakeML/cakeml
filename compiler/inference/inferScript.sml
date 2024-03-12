@@ -1152,6 +1152,14 @@ Definition infertype_prog_def:
     | Failure x => Failure x
 End
 
+Definition infertype_prog_inc_def:
+  infertype_prog_inc (ienv, next_id) prog =
+  dtcase infer_ds ienv prog (init_infer_state <| next_id := next_id |>) of
+    (Success new_ienv, st) =>
+    (Success (extend_dec_ienv new_ienv ienv, st.next_id))
+  | (Failure x, _) => Failure x
+End
+
 Definition init_config_def:
   init_config : inf_env =
     <| inf_c := primTypes$prim_tenv.c;
