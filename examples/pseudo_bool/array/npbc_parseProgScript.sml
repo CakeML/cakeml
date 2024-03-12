@@ -164,25 +164,30 @@ open mlintTheory;
 (* TODO: Mostly copied from mlintTheory *)
 val result = translate fromChar_unsafe_def;
 
-val fromChars_range_unsafe_tail_def = Define`
-  fromChars_range_unsafe_tail l 0       str mul acc = acc ∧
-  fromChars_range_unsafe_tail l (SUC n) str mul acc =
-    fromChars_range_unsafe_tail l n str (mul * 10)  (acc + fromChar_unsafe (strsub str (l + n)) * mul)`;
+Definition fromChars_range_unsafe_tail_def:
+  fromChars_range_unsafe_tail l n       str mul acc =
+  if n ≤ l then acc
+  else
+    let n1 = n - 1 in
+    fromChars_range_unsafe_tail l n1 str (mul * 10)  (acc + fromChar_unsafe (strsub str n1) * mul)
+End
 
 Theorem fromChars_range_unsafe_tail_eq:
   ∀n l s mul acc.
-  fromChars_range_unsafe_tail l n s mul acc = (fromChars_range_unsafe l n s) * mul + acc
+  fromChars_range_unsafe_tail l (n+l) s mul acc = (fromChars_range_unsafe l n s) * mul + acc
 Proof
-  Induct>>rw[fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]
+  Induct>>rw[Once fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]>>
+  gvs[ADD1]
 QED
 
 Theorem fromChars_range_unsafe_alt:
-  fromChars_range_unsafe l n s = fromChars_range_unsafe_tail l n s 1 0
+  fromChars_range_unsafe l n s = fromChars_range_unsafe_tail l (n + l) s 1 0
 Proof
   rw[fromChars_range_unsafe_tail_eq]
 QED
 
 val result = translate fromChars_range_unsafe_tail_def;
+
 val result = translate fromChars_range_unsafe_alt;
 
 val res = translate_no_ind (mlintTheory.fromChars_unsafe_def

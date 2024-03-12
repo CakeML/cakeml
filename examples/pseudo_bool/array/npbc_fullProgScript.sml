@@ -164,7 +164,7 @@ val check_unsat_2 = (append_prog o process_topdecs) `
     let val objft = default_objf in
       (case
         map_concl_to_string
-          (check_unsat_top_norm objf objft f2) of
+          (check_unsat_top_norm False objf objft f2) of
         Inl err => TextIO.output TextIO.stdErr err
       | Inr s => TextIO.print s)
     end`
@@ -213,6 +213,9 @@ Proof
       ) default_objf v`
   >-
     (xvar>>xsimpl)>>
+  xlet`POSTv v. STDIO fs * &BOOL F v`
+  >-
+    (xcon>>xsimpl)>>
   xlet`(POSTv v.
      STDIO fs *
      SEP_EXISTS res.
@@ -363,7 +366,7 @@ val check_unsat_3 = (append_prog o process_topdecs) `
   | Inr objft =>
     (case
       map_out_concl_to_string
-        (check_unsat_top_norm objf objft f2) of
+        (check_unsat_top_norm True objf objft f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s))`
 
@@ -420,6 +423,9 @@ Proof
   `∃objt fmlt. x' = (objt,fmlt)` by metis_tac[PAIR]>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
+  xlet`POSTv v. STDIO fs * &BOOL T v`
+  >-
+    (xcon>>xsimpl)>>
   xlet`(POSTv v.
      STDIO fs *
      SEP_EXISTS res.

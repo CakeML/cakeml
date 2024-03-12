@@ -133,7 +133,7 @@ val check_unsat_2 = (append_prog o process_topdecs) `
     let val objft = default_objf in
       (case
         map_concl_to_string n
-          (check_unsat_top_norm objf objft f2) of
+          (check_unsat_top_norm False objf objft f2) of
         Inl err => TextIO.output TextIO.stdErr err
       | Inr s => TextIO.print s)
     end`
@@ -179,6 +179,15 @@ Proof
       ) default_objf v`
   >-
     (xvar>>xsimpl)>>
+  xlet`POSTv v. STDIO fs * &BOOL F v`
+  >-
+    (xcon>>xsimpl)>>
+  drule npbc_parseProgTheory.check_unsat_top_norm_spec>>
+  qpat_x_assum`objf_TYPE r _`assume_tac>>
+  disch_then drule>>
+  qpat_x_assum`objf_TYPE default_objf _`assume_tac>>
+  disch_then drule>>
+  strip_tac>>
   xlet_auto
   >- (
     xsimpl>>
