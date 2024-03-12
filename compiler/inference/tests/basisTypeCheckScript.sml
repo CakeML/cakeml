@@ -31,4 +31,5 @@ val print_types = let
   val _ = print "\n"
   in () end
 
+val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory ();
