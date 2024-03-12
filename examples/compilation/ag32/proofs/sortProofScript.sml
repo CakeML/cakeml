@@ -49,6 +49,10 @@ val LENGTH_data =
   ``LENGTH data``
   |> (REWRITE_CONV[sortCompileTheory.data_def] THENC listLib.LENGTH_CONV)
 
+val shmem =
+  ``config.lab_conf.shmem_extra``
+  |> (REWRITE_CONV[sortCompileTheory.config_def] THENC EVAL)
+
 Overload sort_machine_config =
   ``ag32_machine_config (extcalls config.lab_conf.ffi_names) (LENGTH code) (LENGTH data)``
 
@@ -110,7 +114,7 @@ Theorem sort_installed:
      (sort_machine_config) config.lab_conf.shmem_extra
      (FUNPOW Next (sort_startup_clock ms0 inp cl) ms0)
 Proof
-  rewrite_tac[ffi_names, extcalls_def]
+  rewrite_tac[ffi_names, extcalls_def, shmem]
   \\ strip_tac
   \\ rewrite_tac [to_MAP_ExtCall]
   \\ irule ag32_installed

@@ -32,6 +32,10 @@ val LENGTH_data =
   ``LENGTH data``
   |> (REWRITE_CONV[helloCompileTheory.data_def] THENC listLib.LENGTH_CONV)
 
+val shmem =
+  ``config.lab_conf.shmem_extra``
+  |> (REWRITE_CONV[helloCompileTheory.config_def] THENC EVAL)
+
 Overload hello_machine_config =
   ``ag32_machine_config (extcalls config.lab_conf.ffi_names) (LENGTH code) (LENGTH data)``
 
@@ -49,7 +53,7 @@ Proof
   \\ disch_then drule
   \\ simp_tac std_ss []
   \\ disch_then(qspecl_then[`code`,`data`,`extcalls config.lab_conf.ffi_names`]mp_tac)
-  \\ impl_tac >- ( EVAL_TAC>> fs[ffi_names,LENGTH_data,LENGTH_code,extcalls_def])
+  \\ impl_tac >- ( EVAL_TAC>> fs[ffi_names,LENGTH_data,LENGTH_code,extcalls_def,shmem])
   \\ strip_tac
   \\ drule (GEN_ALL target_state_rel_ag32_init)
   \\ rveq
@@ -93,7 +97,7 @@ Theorem hello_installed:
      (hello_machine_config) config.lab_conf.shmem_extra
      (FUNPOW Next (hello_startup_clock ms0 inp cl) ms0)
 Proof
-  rewrite_tac[ffi_names, extcalls_def]
+  rewrite_tac[ffi_names, extcalls_def, shmem]
   \\ strip_tac
   \\ rewrite_tac [to_MAP_ExtCall]
   \\ irule ag32_installed
