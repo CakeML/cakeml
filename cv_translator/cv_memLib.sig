@@ -23,4 +23,6 @@ sig
   val cv_inline_add   : thm -> unit
   val cv_from_to_add  : thm -> unit
 
+  val contains_fun_ty : hol_type -> bool
+
 end

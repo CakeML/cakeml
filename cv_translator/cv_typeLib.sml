@@ -124,6 +124,10 @@ fun from_to_for_tyvar tyvar = let
   in ISPECL [f,t] from_to_def |> concl |> dest_eq |> fst |> ASSUME end
 
 fun from_to_for tyvars_alist ty =
+  if can dom_rng ty then (
+    cv_print Silent ("cv translator encountered a function type: " ^ type_to_string ty ^ "\n");
+    failwith  "cv translator does not support function types")
+  else
   if ty = “:unit” then from_to_unit else
   if ty = “:bool” then from_to_bool else
   if ty = “:num” then from_to_num else
@@ -413,9 +417,29 @@ fun define_from_to_aux ignore_tyvars ty =
   val from_f = el 1 from_names
   *)
   fun from_lines from_f = let
-    val (*raw_*) conses = from_f |> type_of |> dest_type |> snd |> hd |> constructors_of
- (* fun is_nil_cons tm = not (can dest_fun_type (type_of tm))
-    val conses = filter is_nil_cons raw_conses @ filter (not o is_nil_cons) raw_conses *)
+    val from_ty = from_f |> type_of |> dest_type |> snd |> hd
+    val conses = constructors_of from_ty
+    fun strip_fun_ty ty =
+      if can dom_rng ty then
+        fst (dom_rng ty) :: strip_fun_ty (snd (dom_rng ty))
+      else []
+    (* val cons_tm = hd conses *)
+    fun check_for_fun_ty cons_tm = let
+      val cons_tys = cons_tm |> type_of |> strip_fun_ty
+      val bad_tys = filter contains_fun_ty cons_tys
+      in
+        if null bad_tys then ()
+        else let
+          val cons_name = cons_tm |> dest_const |> fst
+          val _ = cv_print Silent ("Unable to define cv from/to definition for type " ^
+                                   type_to_string from_ty ^ ".\n")
+          val _ = cv_print Silent ("Constructor " ^ cons_name ^
+                                   " is higher-order due to the following argument types:\n")
+          val _ = app (fn ty => cv_print Silent ("\n  " ^ type_to_string ty ^ "\n")) bad_tys
+          val _ = cv_print Silent "\n"
+        in failwith "Higher-order constructor" end
+      end
+    val _ = app check_for_fun_ty conses
     (*
       val i = 0
       val cons_tm = el 1 conses

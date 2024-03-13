@@ -329,11 +329,7 @@ fun preprocess_def def = let
   (* val th = hd defs *)
   fun check_arg_tys th =
     let val (const,args) = th |> concl |> dest_eq |> fst |> strip_comb
-        fun has_fun_ty ty =
-          if can dom_rng ty then true
-          else if not (can dest_type ty) then false
-               else dest_type ty |> snd |> List.exists has_fun_ty
-        val bad_args = filter (has_fun_ty o type_of) args
+        val bad_args = filter (contains_fun_ty o type_of) args
     in
       if null bad_args then ()
       else let

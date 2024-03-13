@@ -62,6 +62,11 @@ fun is_cv_rep tm = let
      name = "cv_rep" andalso
      thy = "cv_rep" end handle HOL_ERR _ => false;
 
+fun contains_fun_ty ty =
+  if can dom_rng ty then true
+  else if not (can dest_type ty) then false
+       else dest_type ty |> snd |> List.exists contains_fun_ty
+
 (*--------------------------------------------------------------------------*
    Reused function
  *--------------------------------------------------------------------------*)
