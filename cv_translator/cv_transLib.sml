@@ -304,10 +304,50 @@ val clean_name = let
   in String.translate (fn c => if okay_char c then implode [c] else "_") end;
 
 
-fun preprocess_def def =
-  let val defs = def |> oneline_ify_all |> LIST_CONJ
-      val defs = defs |> SPEC_ALL |> CONJUNCTS |> map (UNDISCH_ALL o SPEC_ALL)
-      (* if definitions have function types then use AP_THM *)
+(*
+  val _ = Define `bar x = x + 5n`
+  val def = Define `foo = bar`
+
+  val def = Define `mymap f g l1 l2 = (MAP f l1, MAP g l2)`
+*)
+fun preprocess_def def = let
+  val defs = def |> oneline_ify_all |> LIST_CONJ
+  val defs = defs |> SPEC_ALL |> CONJUNCTS |> map (UNDISCH_ALL o SPEC_ALL)
+  (* val th = hd defs *)
+  fun adjust_def th =
+    let val (l,r) = th |> concl |> dest_eq
+        val l_ty = type_of l
+        val is_fun = can dom_rng l_ty
+    in
+      if not is_fun then th
+      else let val dom_ty = fst (dom_rng l_ty)
+               val var = mk_var ("arg", dom_ty)
+               val var = variant (free_vars (concl th)) var
+           in adjust_def (AP_THM th var) end
+    end;
+  val defs = map adjust_def defs
+  (* val th = hd defs *)
+  fun check_arg_tys th =
+    let val (const,args) = th |> concl |> dest_eq |> fst |> strip_comb
+        fun has_fun_ty ty =
+          if can dom_rng ty then true
+          else if not (can dest_type ty) then false
+               else dest_type ty |> snd |> List.exists has_fun_ty
+        val bad_args = filter (has_fun_ty o type_of) args
+    in
+      if null bad_args then ()
+      else let
+        val name = const |> dest_const |> fst
+        val _ = cv_print Silent ("Definition of " ^ name ^
+                                 " is higher-order due to the following arguments:\n")
+        val b = !show_types
+        val _ = (show_types := true)
+        val _ = app (indent_print_term Silent "\n" "\n") bad_args
+        val _ = cv_print Silent "\n"
+        val _ = (show_types := b)
+      in failwith "Argument contains function type" end
+    end
+  val _ = app check_arg_tys defs
   in defs end
 
 fun store_cv_result name orig_names result =
