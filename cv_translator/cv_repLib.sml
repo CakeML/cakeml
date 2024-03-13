@@ -152,7 +152,7 @@ fun cv_rep_for hyps tm = let
             val (pats,rest) = list_dest_pabs rest
         in (pat::pats,rest) end handle HOL_ERR _ => ([],tm)
       val (pats,rest) = list_dest_pabs tm
-      val new_v = variant (free_vars rest)
+      val new_v = numvariant (free_vars rest)
       val vs = mapi (fn i => fn v => if is_var v then (v,v)
                                      else (v,new_v (mk_var("p_" ^ int_to_string i,type_of v)))) pats
       fun mk_pair_case x v1 v2 rhs = let

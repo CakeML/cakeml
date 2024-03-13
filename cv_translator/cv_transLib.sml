@@ -322,7 +322,7 @@ fun preprocess_def def = let
       if not is_fun then th
       else let val dom_ty = fst (dom_rng l_ty)
                val var = mk_var ("arg", dom_ty)
-               val var = variant (free_vars (concl th)) var
+               val var = numvariant (free_vars (concl th)) var
            in adjust_def (AP_THM th var) end
     end;
   val defs = map adjust_def defs
