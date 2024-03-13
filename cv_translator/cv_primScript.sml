@@ -3,7 +3,8 @@
 *)
 open HolKernel Parse boolLib bossLib dep_rewrite;
 open cv_typeTheory cvTheory cv_typeLib cv_repLib;
-open arithmeticTheory wordsTheory cv_repTheory integerTheory ratTheory;
+open arithmeticTheory wordsTheory cv_repTheory integerTheory ratTheory
+     listTheory rich_listTheory bitstringTheory integer_wordTheory;
 
 val _ = new_theory "cv_prim";
 
@@ -44,6 +45,12 @@ Theorem cv_rep_or[cv_rep]:
   b2c (b1 ∨ b2) = cv_if (b2c b1) (Num 1) (b2c b2)
 Proof
   Cases_on ‘b1’ \\ Cases_on ‘b2’ \\ fs [cv_rep_def]
+QED
+
+Theorem cv_inline_imp[cv_rep]:
+  b2c (a ⇒ b) = cv_if (b2c a) (b2c b) (Num 1)
+Proof
+  Cases_on `a` >> Cases_on `b` >> gvs[cvTheory.b2c_def]
 QED
 
 (*----------------------------------------------------------*
@@ -181,6 +188,30 @@ Proof
   ho_match_mp_tac cv_gcd_ind >> rw[] >>
   rw[Once gcdTheory.GCD_EFFICIENTLY, Once cv_gcd_def] >> gvs[] >>
   gvs[c2b_def] >> Cases_on `a` >> gvs[]
+QED
+
+Definition cv_log2_def:
+  cv_log2 acc n =
+    cv_if (cv_lt (Num 1) n)
+      (cv_log2 (cv_add acc (Num 1)) (cv_div n (Num 2)))
+      acc
+Termination
+  WF_REL_TAC `measure $ λ(_,n). cv$c2n n` >> Cases >> rw[]
+End
+
+Theorem cv_rep_LOG2[cv_rep]:
+  n ≠ 0 ⇒ Num (LOG2 n) = cv_log2 (Num 0) (Num n)
+Proof
+  qsuff_tac `∀acc. n ≠ 0 ⇒ cv_log2 (Num acc) (Num n) = Num (LOG2 n + acc)`
+  >- rw[] >>
+  simp[bitTheory.LOG2_def] >>
+  completeInduct_on `n` >> rw[] >>
+  once_rewrite_tac[numeral_bitTheory.LOG_compute] >> simp[] >>
+  once_rewrite_tac[cv_log2_def] >>
+  simp[cvTheory.cv_lt_def] >>
+  IF_CASES_TAC >> gvs[cvTheory.c2b_def, AllCaseEqs()] >>
+  first_x_assum $ qspec_then `n DIV 2` mp_tac >>
+  simp[DIV_LT_X, DIV_EQ_X]
 QED
 
 (*----------------------------------------------------------*
@@ -790,6 +821,64 @@ Proof
 QED
 
 (*----------------------------------------------------------*
+   word lemmas, ported from:
+   HOL/examples/l3-machine-code/arm8/asl-equiv/l3_equivalence_miscScript.sml
+   TODO: move these?
+ *----------------------------------------------------------*)
+
+Theorem bitify_APPEND[local]:
+  ∀l1 l2 a. bitify a (l1 ++ l2) = bitify (bitify a l1) l2
+Proof
+  rw[bitify_reverse_map]
+QED
+
+Theorem v2n_APPEND[local]:
+  ∀a b. v2n (a ++ b) = v2n b + (2 ** LENGTH b * v2n a)
+Proof
+  rw[v2n_def, bitify_APPEND] >>
+  rw[bitify_reverse_map] >>
+  gvs[numposrepTheory.num_from_bin_list_def, numposrepTheory.l2n_APPEND]
+QED
+
+Theorem v2n[local]:
+  v2n [] = 0 ∧
+  v2n (b::bs) = if b then 2 ** LENGTH bs + v2n bs else v2n bs
+Proof
+  rw[] >> once_rewrite_tac[CONS_APPEND]
+  >- EVAL_TAC >>
+  once_rewrite_tac[v2n_APPEND] >> simp[] >> EVAL_TAC
+QED
+
+Theorem fixwidth_REPLICATE[local]:
+  ∀len l. fixwidth len l =
+    if LENGTH l ≤ len then REPLICATE (len - LENGTH l) F ++ l
+    else DROP (LENGTH l - len) l
+Proof
+  rw[fixwidth, GSYM pad_left_extend, PAD_LEFT] >> gvs[GSYM REPLICATE_GENLIST] >>
+  `len = LENGTH l` by gvs[] >> pop_assum SUBST_ALL_TAC >> gvs[]
+QED
+
+Theorem cv_inline_word_ror[cv_inline]:
+  ∀r a. (a : α word) ⇄ r =
+    let d = dimindex (:α);
+        r = r MOD d
+    in a ≪ (d − r) ‖ a ⋙ r
+Proof
+  rw[] >> qspec_then `a` assume_tac ranged_bitstring_nchotomy >> gvs[] >>
+  simp[word_ror_v2w, rotate_def] >> IF_CASES_TAC >> gvs[] >>
+  qabbrev_tac `r' = r MOD dimindex (:'a)` >>
+  `r' < dimindex (:'a)` by (unabbrev_all_tac >> gvs[]) >>
+  qpat_x_assum `Abbrev _` kall_tac >>
+  simp[word_lsl_v2w, word_lsr_v2w, rotate_def, word_or_v2w] >>
+  simp[Once v2w_11] >> simp[field_def, ADD1] >>
+  `shiftr v 0 = v` by simp[shiftr_def] >> simp[fixwidth] >>
+  simp[bor_def, bitwise_def, shiftl_def, shiftr_def, PAD_LEFT, PAD_RIGHT, MAX_DEF] >>
+  simp[fixwidth_REPLICATE, GSYM MAP_DROP, GSYM ZIP_DROP, DROP_APPEND] >>
+  `dimindex (:α) − r' − dimindex (:α) = 0` by simp[] >> simp[] >>
+  rw[LIST_EQ_REWRITE, EL_DROP, EL_MAP, EL_ZIP, EL_APPEND_EQN, EL_REPLICATE] >> rw[]
+QED
+
+(*----------------------------------------------------------*
    word conversions
  *----------------------------------------------------------*)
 
@@ -816,6 +905,52 @@ Proof
   \\ irule LESS_LESS_EQ_TRANS
   \\ irule_at Any w2n_lt
   \\ gvs [dimword_def]
+QED
+
+Theorem cv_inline_word_sw2sw[cv_inline]:
+ sw2sw (w : 'a word) =
+  let v = w in (if word_msb v then -1w ≪ dimindex (:'a) else 0w) + w2w v : 'b word
+Proof
+  rw[sw2sw_w2w_add]
+QED
+
+Theorem cv_rep_dimindex[cv_rep]:
+  Num (dimindex (:'a)) =  Num (dimindex (:'a))
+Proof
+  simp[]
+QED
+
+Theorem cv_inline_w2i[cv_inline]:
+  w2i w = let v = w in if word_msb v then -&w2n (-v) else &w2n v
+Proof
+  simp[w2i_def]
+QED
+
+Definition v2n_custom_def:
+  v2n_custom acc [] = acc ∧
+  v2n_custom acc (T::rest) = v2n_custom (2 * acc + 1n) rest ∧
+  v2n_custom acc (F::rest) = v2n_custom (2 * acc) rest
+End
+
+Theorem v2n_custom_thm:
+  v2n_custom 0 = v2n
+Proof
+  qsuff_tac `∀acc l. v2n_custom acc l = v2n l + acc * (2 ** LENGTH l)`
+  >- rw[FUN_EQ_THM] >>
+  recInduct v2n_custom_ind >> rw[v2n_custom_def, v2n] >>
+  simp[RIGHT_ADD_DISTRIB, EXP]
+QED
+
+Theorem cv_inline_v2n[cv_inline] = GSYM v2n_custom_thm;
+
+Theorem cv_inline_v2w[cv_inline] =
+  REWRITE_RULE [GSYM v2n_custom_thm] $ GSYM n2w_v2n;
+
+Theorem cv_inline_w2v[cv_inline]:
+  w2v (w:'a word) = let d = dimindex (:'a) in
+                      GENLIST (λi. word_bit (d - 1 - i) w) d
+Proof
+  simp[w2v_def, GENLIST_FUN_EQ, word_bit_def]
 QED
 
 (*----------------------------------------------------------*
@@ -892,6 +1027,8 @@ Proof
   \\ last_x_assum $ irule_at Any
   \\ irule arithmeticTheory.MOD_LESS_EQ \\ fs []
 QED
+
+Theorem cv_inline_word_log2[cv_inline] = word_log2_def;
 
 (*----------------------------------------------------------*
    word_msb, unit_max, word shifts
@@ -1062,6 +1199,25 @@ QED
    word bits, slice, extract, concat
  *----------------------------------------------------------*)
 
+Theorem cv_word_bit_thm[cv_rep]:
+  b2c (word_bit b w) =
+    cv_mod (cv_div (from_word w) (cv_exp (Num 2) (Num b))) (Num 2)
+Proof
+  Cases_on `w` >> simp[word_bit_n2w] >>
+  simp[GSYM cv_rep_exp, from_word_def] >>
+  simp[bitTheory.BIT_DEF] >>
+  simp[LE_LT1] >> `dimindex (:'a) ≠ 0` by gvs[] >> simp[] >>
+  Cases_on `b < dimindex (:'a)` >> gvs[]
+  >- (
+    simp[oneline b2c_def] >> rw[] >> gvs[] >>
+    qspecl_then [`n DIV 2 ** b`,`2`] assume_tac MOD_LESS >> simp[]
+    ) >>
+  gvs[dimword_def] >>
+  qsuff_tac `n DIV 2 ** b = 0` >> gvs[] >>
+  irule LESS_DIV_EQ_ZERO >> gvs[NOT_LESS] >>
+  irule LESS_LESS_EQ_TRANS >> goal_assum drule >> simp[]
+QED
+
 Triviality MIN_lemma:
   l ≠ 0 ⇒ MIN k (l - 1) + 1 = MIN (k+1) l
 Proof
@@ -1120,7 +1276,6 @@ Proof
   \\ gvs [fcpTheory.index_sum,wordsTheory.word_0,NOT_LESS]
   \\ metis_tac []
 QED
-
 
 Theorem cv_word_join_thm[cv_rep]:
   FINITE 𝕌(:'a) ∧ FINITE 𝕌(:'b) ⇒
