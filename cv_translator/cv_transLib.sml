@@ -598,6 +598,29 @@ fun inst_ho_args tm new_def = let
   in [Def final_def, Abbr (SPEC_ALL abbrev_def)] end
   handle HOL_ERR _ => [Def new_def]
 
+fun check_for_dups tm defs = let
+  fun remove_abbrs [] = []
+    | remove_abbrs (Abbr _ :: rest) = remove_abbrs rest
+    | remove_abbrs (Def def :: rest) = constants_of_defn def @ remove_abbrs rest
+  val knames = remove_abbrs defs
+  val {Name=n, Thy=th, ...} = dest_thy_const (repeat rator tm)
+  val kname = {Name=n, Thy=th} : kname
+  fun prefix [] = NONE
+    | prefix (x::xs) = if kname = x then SOME [x]
+                       else case prefix xs of
+                              NONE => NONE
+                            | SOME l => SOME (x::l)
+  fun kname_to_string ({Name=n,Thy=th} : kname) = th ^ "$" ^ n
+  in
+    case prefix knames of
+      NONE => ()
+    | SOME pre => (
+        cv_print Silent "cv_auto encountered a loop in its worklist:\n\n";
+        cv_print Silent ("   " ^
+          String.concatWith "\n-> " (map kname_to_string (kname::pre)) ^ "\n\n");
+        failwith "cv_auto about to enter infinite loop")
+  end
+
 fun cv_trans_loop allow_pre term_opt [] = failwith "nothing to do"  (* cannot happen *)
   | cv_trans_loop allow_pre term_opt (Abbr th::defs) = let
       val tm = th |> concl |> dest_eq |> fst
@@ -611,11 +634,12 @@ fun cv_trans_loop allow_pre term_opt [] = failwith "nothing to do"  (* cannot ha
       case total_cv_trans allow_pre term_opt def (null defs) of
         Res th => if null defs then th else cv_trans_loop allow_pre term_opt defs
       | Needs tm => let
+         val _ = check_for_dups tm defs
          val needs_c = strip_comb tm |> fst
          val new_def = find_inst_def_for needs_c
          val new_tasks = inst_ho_args tm new_def
-         val new_defs = new_tasks @ Def def::defs
-         in cv_trans_loop allow_pre term_opt new_defs end;
+         val defs = new_tasks @ Def def::defs
+         in cv_trans_loop allow_pre term_opt defs end;
 
 (*
 val allow_pre = false
@@ -623,8 +647,8 @@ val term_opt = if true then NONE else SOME cheat;
 val (Def def::defs) = [Def def]
 val Needs tm = total_cv_trans allow_pre term_opt def (null defs)
 
-val (Def def::defs) = new_tasks
-val (Abbr th::defs) = defs
+val (Abbr def::defs) = defs
+val (Def def::defs) = defs
 *)
 
 fun cv_auto_trans def = let
