@@ -29,7 +29,7 @@ fun cv_time f x =
       val res = f x
       val finish = Time.now()
   in
-    cv_print Quiet ("Took " ^ Time.fmt 1 (finish - start) ^ " seconds.\n");
+    cv_print Verbose ("Took " ^ Time.fmt 1 (finish - start) ^ " seconds.\n");
     res
   end
 
