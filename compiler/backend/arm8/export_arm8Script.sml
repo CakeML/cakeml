@@ -111,16 +111,19 @@ val ffi_code =
 
 val entry_point_code =
   ``(List (MAP (\n. strlit(n ++ "\n"))
-    ["cake_enter:";
+    [""; "";
+     "cake_enter:";
      "     str    x30, [sp, #-32]!";
      "     str    x27, [sp, #-32]!";
      "     str    x25, [sp, #-32]!";
      "     _ldrel x9, cdecl(ret_stack)";
      "     ldr    x25, [x9]";
      "     cbz    x25, cake_err3";
+     "     str    xzr, [x9]";
      "     _ldrel x9, cdecl(ret_base)";
      "     ldr    x27, [x9]";
      "     cbz    x27, cake_err3";
+     "     str    xzr, [x9]";
      "     _ldrel x30, cake_ret";
      "     br     x10";
      "     .p2align 4";
