@@ -7,18 +7,29 @@ struct
 open HolKernel Abbrev Parse boolLib bossLib;
 open cv_repTheory cvTheory;
 
-val quiet = ref true;
-fun cv_print s = if !quiet then () else print s;
-fun cv_print_thm th = if !quiet then () else print_thm th;
+
+datatype verbosity = Silent | Quiet | Verbose;
+
+fun verbosity_leq Silent _ = true
+  | verbosity_leq Quiet Quiet = true
+  | verbosity_leq Quiet Verbose = true
+  | verbosity_leq Verbose Verbose = true
+  | verbosity_leq _ _ = false;
+
+val verbosity_level = ref Quiet;
+
+fun cv_print_aux v f s = if verbosity_leq v (!verbosity_level) then print (f s) else ();
+fun cv_print v s = cv_print_aux v I s;
+fun cv_print_term v tm = cv_print_aux v term_to_string tm;
+fun cv_print_thm v th = cv_print_aux v thm_to_string th;
 
 (* Custom version of Lib.time *)
 fun cv_time f x =
-  if !quiet then f x else
   let val start = Time.now()
       val res = f x
       val finish = Time.now()
   in
-    print ("Took " ^ Time.fmt 1 (finish - start) ^ " seconds.\n");
+    cv_print Quiet ("Took " ^ Time.fmt 1 (finish - start) ^ " seconds.\n");
     res
   end
 
@@ -84,32 +95,39 @@ fun formulate_cv_reps th = let
   val thms = CONJUNCTS (SPEC_ALL th)
   in map formulate_cv_rep thms end
 
-fun show_cv_rep do_print cv_rep_th = let
+fun show_cv_rep cv_rep_th = let
   val pat = cv_rep_th |> UNDISCH_ALL |> concl |> rand
   val s = map (fn v => v |-> mk_var("_",type_of v)) (free_vars pat)
-  val _ = (if do_print then
-             (print "Able to translate: "; print_term (subst s pat))
-           else ())
+  val _ = (cv_print Verbose "Able to translate: "; cv_print_term Verbose (subst s pat))
   in (pat, cv_rep_th) end
 
-fun prepare do_print th = let
+fun prepare th = let
   val cv_rep_thms = formulate_cv_reps th
-  in map (show_cv_rep do_print) cv_rep_thms end
+  in map show_cv_rep cv_rep_thms end
 
 (*--------------------------------------------------------------------------*
    Database for cv_rep, cv_pre, cv_inline, cv_from_to
  *--------------------------------------------------------------------------*)
 
-fun insert_cv_rep th = prepare (not (!quiet)) th;
+fun insert_cv_rep th = prepare th;
 val (cv_rep_thms, cv_rep_add) = register_ThmSetData_list "cv_rep" insert_cv_rep;
 
-fun insert_cv_pre th = (cv_print "\ncv_pre:\n\n"; cv_print_thm th; cv_print "\n\n"; [th])
+fun insert_cv_pre th = (
+  cv_print Verbose "\ncv_pre:\n\n";
+  cv_print_thm Verbose th;
+  cv_print Verbose "\n\n"; [th])
 val (cv_pre_thms, cv_pre_add) = register_ThmSetData_list "cv_pre" insert_cv_pre;
 
-fun insert_cv_inline th = (cv_print "\ncv_inline:\n\n"; cv_print_thm th; cv_print "\n\n"; [th])
+fun insert_cv_inline th = (
+  cv_print Verbose "\ncv_inline:\n\n";
+  cv_print_thm Verbose th;
+  cv_print Verbose "\n\n"; [th])
 val (cv_inline_thms, cv_inline_add) = register_ThmSetData_list "cv_inline" insert_cv_inline;
 
-fun insert_cv_from_to th = (cv_print "\ncv_from_to:\n\n"; cv_print_thm th; cv_print "\n\n"; [th])
+fun insert_cv_from_to th = (
+  cv_print Verbose "\ncv_from_to:\n\n";
+  cv_print_thm Verbose th;
+  cv_print Verbose "\n\n"; [th])
 val (cv_from_to_thms, cv_from_to_add) = register_ThmSetData_list "cv_from_to" insert_cv_from_to;
 
 end

@@ -276,23 +276,23 @@ fun find_def_for const_tm =
     SOME { thm = STDEQNS cv_def, ... } => SPEC_ALL cv_def
   | _ => failwith ("Cannot find definition of " ^ term_to_string const_tm);
 
-fun indent_print_thm prefix suffix th = let
+fun indent_print_thm verbosity prefix suffix th = let
   val m = !max_print_depth
   fun change #"\n" = "\n  "
     | change c = implode [c]
-  fun indent_print s = cv_print (String.translate change s)
-  in (cv_print (prefix ^ "  ");
+  fun indent_print s = cv_print verbosity (String.translate change s)
+  in (cv_print verbosity (prefix ^ "  ");
       max_print_depth := 15;
       indent_print (thm_to_string th);
       max_print_depth := m;
-      cv_print suffix)
+      cv_print verbosity suffix)
      handle HOL_ERR _ =>
       max_print_depth := m end;
 
 fun find_inst_def_for needs_c = let
   val needed_def = find_def_for needs_c
-  val _ = cv_print "Recursively calling `cv_auto_trans` on definition:\n"
-  val _ = indent_print_thm "\n" "\n\n" needed_def
+  val _ = cv_print Verbose "Recursively calling `cv_auto_trans` on definition:\n"
+  val _ = indent_print_thm Verbose "\n" "\n\n" needed_def
   val gen_c = needed_def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL |> concl
                          |> dest_eq |> fst |> strip_comb |> fst
   val i = match_type (type_of gen_c) (type_of needs_c)
@@ -377,8 +377,8 @@ fun cv_trans_any allow_pre term_opt def = let
                     |> fst |> dest_var |> fst |> clean_name
   val cv_def = define_cv_function name def cv_def_tm term_opt
   val cv_defs = cv_def |> CONJUNCTS |> map SPEC_ALL
-  val _ = cv_print "Defined cv functions:\n"
-  val _ = (cv_print "\n"; List.app (indent_print_thm "" "\n\n") cv_defs)
+  val _ = cv_print Verbose "Defined cv functions:\n"
+  val _ = (cv_print Verbose "\n"; List.app (indent_print_thm Verbose "" "\n\n") cv_defs)
   (* instantiate raw_cv_reps *)
   fun strip_var_arg tm = if is_var (rand tm) then rator tm else fail()
   val cv_consts = cv_defs |> map (repeat strip_var_arg o fst o dest_eq o concl)
@@ -391,15 +391,21 @@ fun cv_trans_any allow_pre term_opt def = let
   val no_pre = (length inst_cv_reps = 1 andalso
                 aconv (inst_cv_reps |> hd |> concl |> cv_rep_pre) T)
   val expand_cv_reps = inst_cv_reps |> map (CONV_RULE (REWR_CONV cv_rep_def))
+  val orig_names =
+    let fun name_of def = def |> SPEC_ALL |> concl |> dest_eq |> fst |>
+                                 strip_comb |> fst |> dest_const |> fst
+        val names = map name_of defs
+    in String.concatWith ", " names end
   in
     if no_pre then let
       (* derive final theorems *)
       val res = hd expand_cv_reps
       val result = fix_missed_args res
       val result = remove_T_IMP result
-      val _ = cv_print "Storing result:\n"
-      val _ = indent_print_thm "\n" "\n\n" result
+      val _ = cv_print Verbose "Storing result:\n"
+      val _ = indent_print_thm Verbose "\n" "\n\n" result
       val _ = save_thm(name ^ "_thm[cv_rep]", result)
+      val _ = cv_print Quiet ("Finished translating " ^ orig_names ^ "\n")
       in TRUTH end
     else let
       (* define pre *)
@@ -419,9 +425,10 @@ fun cv_trans_any allow_pre term_opt def = let
       val result = map remove_T_IMP result
       (* derive final theorems *)
       val combined_result = LIST_CONJ result
-      val _ = cv_print "Storing result:\n"
-      val _ = indent_print_thm "\n" "\n\n" combined_result
+      val _ = cv_print Verbose "Storing result:\n"
+      val _ = indent_print_thm Verbose "\n" "\n\n" combined_result
       val _ = save_thm(name ^ "_thm[cv_rep]", combined_result)
+      val _ = cv_print Quiet ("Finished translating " ^ orig_names ^ "\n")
       in pre_def end
   end
 
@@ -435,9 +442,9 @@ fun cv_trans_no_loop allow_pre term_opt def =
     val target_c = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL |> concl
                        |> dest_eq |> fst |> strip_comb |> fst
     val needs_c = strip_comb tm |> fst
-    val _ = print ("Translation of " ^ term_to_string target_c ^ " needs " ^
-                   term_to_string needs_c ^ ".\n")
-    val _ = print "Stopping.\n"
+    val _ = cv_print Silent ("Translation of " ^ term_to_string target_c ^ " needs " ^
+                             term_to_string needs_c ^ ".\n")
+    val _ = cv_print Silent "Stopping.\n"
     in failwith ("Unable to translate " ^ term_to_string needs_c) end
 
 fun cv_trans def = let
@@ -480,8 +487,8 @@ fun cv_trans_simple_constant def = let
             val th2 = th1 |> CONV_RULE (REWR_CONV cv_rep_def)
             val th3 = MP th2 TRUTH
             val name = "cv_" ^ (l |> dest_const |> fst |> clean_name)
-            val _ = cv_print "Storing result:\n"
-            val _ = indent_print_thm "\n" "\n\n" th3
+            val _ = cv_print Verbose "Storing result:\n"
+            val _ = indent_print_thm Verbose "\n" "\n\n" th3
             val _ = save_thm(name ^ "_thm[cv_rep]", th3)
             in SOME TRUTH end end end;
 
@@ -690,24 +697,24 @@ fun cv_eval_raw tm = let
   val _ = List.null (free_vars tm) orelse failwith "cv_eval needs input to be closed"
   val th = cv_rep_for [] tm
   val ty = type_of tm
-  val _ = cv_print "Translating input to a cv term.\n"
+  val _ = cv_print Verbose "Translating input to a cv term.\n"
   val from_to_thm = cv_time cv_typeLib.from_to_thm_for ty
   val cv_tm = cv_miscLib.cv_rep_cv_tm (concl th)
-  val _ = cv_print "Looking for relevant cv code equations.\n"
+  val _ = cv_print Verbose "Looking for relevant cv code equations.\n"
   val cv_eqs = cv_time cv_eqs_for cv_tm
-  val _ = cv_print ("Found " ^ int_to_string (length cv_eqs) ^ " cv code equations to use.\n")
+  val _ = cv_print Verbose ("Found " ^ int_to_string (length cv_eqs) ^ " cv code equations to use.\n")
   val cv_conv = cv_computeLib.cv_compute cv_eqs
   val th1 = MATCH_MP cv_rep_eval th
   val th2 = MATCH_MP th1 from_to_thm
   val th3 = th2 |> UNDISCH_ALL
-  val _ = cv_print "Calling cv_compute.\n"
+  val _ = cv_print Verbose "Calling cv_compute.\n"
   val th4 = cv_time (CONV_RULE (RAND_CONV (RAND_CONV cv_conv))) th3
   val th5 = remove_T_IMP (DISCH_ALL th4)
   in th5 end;
 
 fun cv_eval tm = let
   val th = cv_eval_raw tm
-  val _ = cv_print "Using EVAL to convert from cv to original types.\n"
+  val _ = cv_print Verbose "Using EVAL to convert from cv to original types.\n"
   val th = cv_time (CONV_RULE (RAND_CONV EVAL)) (UNDISCH_ALL th)
   val th = th |> DISCH_ALL |> remove_T_IMP
   in th end;

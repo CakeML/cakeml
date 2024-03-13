@@ -35,12 +35,12 @@ fun match_memory hyps tm = let
 val from_to_pat = from_to_def |> SPEC_ALL |> concl |> dest_eq |> fst;
 val is_from_to = can (match_term from_to_pat);
 
-fun indent_print_term prefix suffix tm = let
+fun indent_print_term verbosity prefix suffix tm = let
   val m = !max_print_depth
   fun change #"\n" = "\n  "
     | change c = implode [c]
-  fun indent_print s = print (String.translate change s)
-  in (print (prefix ^ "  ");
+  fun indent_print s = cv_print verbosity  (String.translate change s)
+  in (cv_print verbosity (prefix ^ "  ");
       max_print_depth := 15;
       indent_print (term_to_string tm);
       max_print_depth := m;
@@ -58,10 +58,10 @@ val tm = (rand x)
 fun tm_to_cv hyps tm = let
   exception LocalException of term list * term * exn;
   fun report_error [] tm e =
-        (indent_print_term "Error occured at term:\n" "\n" tm;
+        (indent_print_term Silent "Error occured at term:\n" "\n" tm;
          raise e)
     | report_error (t::ts) tm e =
-        (indent_print_term "Error occured within:\n" "\n" t;
+        (indent_print_term Silent "Error occured within:\n" "\n" t;
          report_error ts tm e)
   fun tm_to_cv_debug (stack:term list) (hyps:(term * thm) list) (tm:term) =
    (if is_var tm orelse numSyntax.is_numeral tm then

@@ -2,9 +2,12 @@ signature cv_memLib =
 sig
   include Abbrev
 
-  val quiet           : bool ref
-  val cv_print        : string -> unit
-  val cv_print_thm    : thm -> unit
+  datatype verbosity = Silent | Quiet | Verbose;
+
+  val verbosity_level : verbosity ref
+  val cv_print        : verbosity -> string -> unit
+  val cv_print_term   : verbosity -> term -> unit
+  val cv_print_thm    : verbosity -> thm -> unit
   val cv_time         : ('a -> 'b) -> 'a -> 'b
 
   val cv_rep_thms     : unit -> (term * thm) list
