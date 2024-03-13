@@ -425,10 +425,19 @@ fun cv_trans_any allow_pre term_opt def = let
 
 fun cv_trans_no_loop allow_pre term_opt def =
   cv_trans_any allow_pre term_opt def
-  handle NeedsTranslation tm => let
+  handle NeedsTranslation (stack, tm) => let
     val target_c = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL |> concl
                        |> dest_eq |> fst |> strip_comb |> fst
     val needs_c = strip_comb tm |> fst
+    fun safe_take n [] = []
+      | safe_take n (x::xs) = if n <= 0 then [] else x::(safe_take (n - 1) xs)
+    val stack_to_print = List.rev $ safe_take 10 stack
+    val last_index = length stack_to_print - 1
+    fun print_stack_entry i tm =
+      let val msg = (if i = last_index then "Translation failed at:"
+                                       else "Translation failed inside:")
+      in indent_print_term Silent (msg ^ "\n\n") "\n\n" tm end
+    val _ = if null stack then () else appi print_stack_entry stack_to_print
     val _ = cv_print Silent ("Translation of " ^ term_to_string target_c ^ " needs " ^
                              term_to_string needs_c ^ ".\n")
     val _ = cv_print Silent "Stopping.\n"
@@ -488,7 +497,7 @@ fun total_cv_trans allow_pre term_opt def is_last =
               else (Res (case cv_trans_simple_constant def of
                       NONE => cv_trans_any false NONE def
                     | SOME res => res)))
-  handle NeedsTranslation tm => Needs tm;
+  handle NeedsTranslation (_, tm) => Needs tm;
 
 fun get_unused_name s = let
   val cs = constants "-" |> map (fst o dest_const)

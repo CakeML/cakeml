@@ -7,7 +7,7 @@ struct
 open HolKernel Abbrev Parse boolLib bossLib;
 open cv_repTheory cvTheory cv_typeTheory cv_memLib cv_miscLib;
 
-exception NeedsTranslation of term;
+exception NeedsTranslation of term list * term;
 
 (*--------------------------------------------------------------------------*
    derive cv_rep theorem from HOL term
@@ -105,7 +105,7 @@ fun tm_to_cv hyps tm = let
           val ty = tm |> strip_comb |> snd |> hd |> type_of
           val thms = cv_typeLib.rec_define_from_to ty
           in tm_to_cv_debug stack hyps tm end
-        else raise (NeedsTranslation tm))
+        else raise (NeedsTranslation (stack, tm)))
     handle HOL_ERR e => raise (LocalException (stack, tm, HOL_ERR e))
   in tm_to_cv_debug [] hyps tm
      handle LocalException (stack, tm, e) => report_error stack tm e
