@@ -133,6 +133,7 @@ fun from_to_for tyvars_alist ty =
   if ty = “:num” then from_to_num else
   if ty = “:char” then from_to_char else
   if ty = “:int” then from_to_int else
+  if ty = “:rat” then from_to_rat else
   if wordsSyntax.is_word_type ty then
     let val ty = wordsSyntax.dest_word_type ty
     in INST_TYPE [alpha|->ty] from_to_word end
