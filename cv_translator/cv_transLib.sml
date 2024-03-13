@@ -529,7 +529,7 @@ fun cv_trans_no_loop allow_pre term_opt def =
     val needs_c = strip_comb tm |> fst
     fun safe_take n [] = []
       | safe_take n (x::xs) = if n <= 0 then [] else x::(safe_take (n - 1) xs)
-    val stack_to_print = List.rev $ safe_take 10 stack
+    val stack_to_print = List.rev $ safe_take 10 (tm::stack)
     val last_index = length stack_to_print - 1
     fun print_stack_entry i tm =
       let val msg = (if i = last_index then "Translation failed at:"
@@ -537,7 +537,8 @@ fun cv_trans_no_loop allow_pre term_opt def =
       in indent_print_term Silent (msg ^ "\n\n") "\n\n" tm end
     val _ = if null stack then () else appi print_stack_entry stack_to_print
     val _ = cv_print Silent ("Translation of " ^ term_to_string target_c ^ " needs " ^
-                             term_to_string needs_c ^ ".\n")
+                             term_to_string needs_c ^ " : " ^
+                             type_to_string (type_of needs_c) ^ ".\n")
     val _ = cv_print Silent "Stopping.\n"
     in failwith ("Unable to translate " ^ term_to_string needs_c) end
 
