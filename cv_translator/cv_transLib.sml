@@ -368,9 +368,37 @@ fun preprocess_def def = let
 fun store_cv_result name orig_names result =
   let val _ = cv_print Verbose "Storing result:\n"
       val _ = indent_print_thm Verbose "\n" "\n\n" result
-      val _ = save_thm(name ^ "_thm[cv_rep]", result)
-      val _ = cv_print Quiet ("Finished translating " ^ orig_names ^ "\n")
+      val thm_name = name ^ "_thm"
+      val _ = save_thm(thm_name ^ "[cv_rep]", result)
+      val _ = cv_print Quiet ("Finished translating " ^ orig_names ^
+                              ", stored in " ^ thm_name ^ "\n")
   in () end
+
+fun print_pre_goal pre_def =
+  if pre_def |> concl |> aconv T then pre_def else
+  let
+    val pres = pre_def |> CONJUNCTS
+    (* val pre = hd pres *)
+    fun extract_pre_goal pre = let
+        val (vs,pre_tm) = pre |> concl |> strip_forall
+        val goal = list_mk_forall (vs, lhs pre_tm)
+      in goal end
+    val goals = map (term_to_string o extract_pre_goal) pres
+    val conj_str = "∧"
+    val sep_str = ") " ^ conj_str ^ "\n  ("
+    fun concat_goals [g] = "  " ^ g ^ "\n"
+      | concat_goals gs = "  (" ^ String.concatWith sep_str gs ^ ")\n"
+    val thm_name = pres |> hd |> SPEC_ALL |> concl |> lhs |>
+                   strip_comb |> fst |> dest_const |> fst
+    val ind_name = String.substring(thm_name, 0, String.size(thm_name) - 3) ^ "ind"
+    val _ = cv_print Silent "You can set up the precondition proof as follows:\n\n"
+    val _ = cv_print Silent ("Theorem " ^ thm_name ^ "[cv_pre]:\n")
+    val _ = cv_print Silent (concat_goals goals)
+    val _ = cv_print Silent ("Proof\n  ho_match_mp_tac " ^ ind_name ^ " (* for example *)\n")
+    val _ = cv_print Silent ("  ...\nQED\n\n")
+  in
+    pre_def
+  end
 
 (*--------------------------------------------------------------------------*
    main workhorse
@@ -478,7 +506,7 @@ fun cv_trans_any allow_pre term_opt def = let
       (* derive final theorems *)
       val combined_result = LIST_CONJ result
       val _ = store_cv_result name orig_names combined_result
-      in pre_def end
+      in print_pre_goal pre_def end
   end
 
 (*--------------------------------------------------------------------------*
