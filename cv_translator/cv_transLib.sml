@@ -245,11 +245,19 @@ fun lookup_ind_for_const hd_const =
     NONE => failwith "Could not find appropriate induction"
   | SOME (ind,_) => ind;
 
-fun make_ind_thm allow_pre hd_const pre_def_tms =
+fun make_ind_thm allow_pre hd_const defs pre_def_tms =
   if allow_pre then let
     val pre_def_tm = list_mk_conj pre_def_tms
     val (pre_rules,pre_ind,pre_def) = Hol_reln [ANTIQUOTE pre_def_tm]
-    in (pre_ind,pre_def) end
+    val pre_defs = pre_def |> CONJUNCTS
+    (* val pre_eq = hd pre_defs; val orig_def = hd defs *)
+    fun rename_pre_def orig_def pre_eq = let
+        val orig_args = orig_def |> concl |> lhs |> strip_comb |> snd
+        val renamed_pre_eq = pre_eq |> SPECL orig_args |> GENL orig_args
+      in renamed_pre_eq end
+      handle HOL_ERR _ => pre_eq
+    val renamed_pre_defs = map2 rename_pre_def defs pre_defs
+    in (pre_ind,LIST_CONJ renamed_pre_defs) end
   else let
     fun process tm = let
       val (vs,x) = strip_forall tm
@@ -494,7 +502,7 @@ fun cv_trans_any allow_pre term_opt def = let
       val all_pats = zip pats pre_vars
       val pre_def_tms = map (make_pre_imp all_pats) expand_cv_reps
       val hd_const = raw_cv_reps |> hd |> concl |> rand |> strip_comb |> fst
-      val (pre_ind,pre_def) = make_ind_thm allow_pre hd_const pre_def_tms
+      val (pre_ind,pre_def) = make_ind_thm allow_pre hd_const defs pre_def_tms
       (* instantiate pre_ind *)
       val is = map make_ind_abs expand_cv_reps
       val ind_thm = pre_ind |> SPECL is |> CONV_RULE (DEPTH_CONV BETA_CONV)
