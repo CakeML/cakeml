@@ -7,6 +7,11 @@ open arithmeticTheory wordsTheory cv_repTheory cv_primTheory cv_transLib wordsLi
 
 val _ = new_theory "cv_demo";
 
+fun test_for_failure f x =
+  case total f x of
+    NONE => ()
+  | SOME _ => failwith "unexpected success";
+
 Overload c2n[local] = “cv$c2n”
 Overload c2b[local] = “cv$c2b”
 Overload Num[local] = “cv$Num”
@@ -196,5 +201,25 @@ Definition test_u2_def:
 End
 
 val _ = cv_trans test_u2_def;
+
+Datatype:
+  foo = RoseTree (num -> num) (foo list)
+End
+
+val _ = test_for_failure (cv_rep_for []) “RoseTree (λi. i) []”;
+
+Definition missing_arg_def:
+  missing_arg = K
+End
+
+val _ = cv_trans combinTheory.K_THM
+val _ = cv_trans missing_arg_def
+
+Definition apply_list_def:
+  apply_list [] x = x ∧
+  apply_list (f::fs) x = apply_list fs (f x)
+End
+
+val _ = test_for_failure cv_trans apply_list_def;
 
 val _ = export_theory();
