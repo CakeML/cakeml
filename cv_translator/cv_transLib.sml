@@ -102,7 +102,7 @@ fun define_cv_function name (def:thm) cv_def_tm (SOME t) =
          val def = new_definition(name ^ "_def",cv_def_tm)
          in SPEC (cvSyntax.mk_cv_num (numSyntax.term_of_int 0)) def end
        else if is_tailrecursive cv_def_tm then
-         tailrecLib.tailrec_define name cv_def_tm
+         tailrecLib.tailrec_define (name ^ "_def") cv_def_tm
        else (let
          val alts = strip_conj cv_def_tm
                       |> map (length o snd o strip_comb o fst o dest_eq)
@@ -110,7 +110,7 @@ fun define_cv_function name (def:thm) cv_def_tm (SOME t) =
          val t = termination_tactic alts
          in tDefine name [ANTIQUOTE cv_def_tm] t end
        handle HOL_ERR _ => let
-         val defn = Defn.Hol_defn name [ANTIQUOTE cv_def_tm]
+         val defn = Defn.Hol_defn (name ^ "_def") [ANTIQUOTE cv_def_tm]
          val _ = Defn.tgoal defn
          in failwith "You need to prove a termination goal" end)
 
