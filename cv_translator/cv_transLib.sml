@@ -244,8 +244,11 @@ fun fix_missed_args th = let
 
 fun lookup_ind_for_const hd_const =
   case DefnBase.lookup_indn hd_const of
-    NONE => failwith "Could not find appropriate induction"
-  | SOME (ind,_) => ind;
+    SOME (ind,_) => ind
+  | NONE => let
+      val _ = cv_print Silent "\nERROR: failed to find a suitable induction theorem in DefnBase.\n"
+      val _ = cv_print Silent "Stopping. Use cv_trans_pre instead (or one of its variants).\n"
+    in failwith "Could not find appropriate induction" end;
 
 fun make_ind_thm allow_pre hd_const defs pre_def_tms =
   if allow_pre then let
@@ -274,11 +277,17 @@ fun make_ind_thm allow_pre hd_const defs pre_def_tms =
     (*
     set_goal([],ind_tm)
     *)
-    val pre_ind = curry TAC_PROOF ([],ind_tm) (
+    val tac = (
       rpt gen_tac \\ rpt (disch_then strip_assume_tac)
       \\ match_mp_tac other_ind \\ rpt strip_tac
       \\ last_x_assum irule \\ rpt strip_tac
       \\ gvs [])
+    val pre_ind = (tac ([], ind_tm) |> snd) []
+    handle HOL_ERR _ => let
+        val _ = cv_print Silent "\nERROR: failed to prove precondition.\n"
+        val _ = indent_print_term Silent "\n" "\n\n" ind_tm
+        val _ = cv_print Silent "Stopping. Use cv_trans_pre instead (or one of its variants).\n"
+      in failwith "Could not prove a precondition." end
     in (pre_ind,TRUTH) end
 
 fun find_def_for const_tm =
