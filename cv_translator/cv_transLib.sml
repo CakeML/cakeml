@@ -463,13 +463,37 @@ fun cv_trans_pre_rec def tac =
    recursive version of cv_auto_trans
  *--------------------------------------------------------------------------*)
 
+fun cv_trans_simple_constant def = let
+  val defs = def |> SPEC_ALL |> CONJUNCTS |> map SPEC_ALL
+  val def = hd defs
+  val (l,r) = def |> concl |> dest_eq
+  in if length defs > 1 orelse not (is_const l) then NONE
+     else let
+       val th = cv_rep_for [] r
+       val th1 = th |> CONV_RULE (RAND_CONV (REWR_CONV (SYM def)) THENC
+                         cv_rep_cv_tm_conv (REWRITE_CONV [cv_fst_def,cv_snd_def]))
+       val cv_tm = cv_rep_cv_tm (concl th1)
+       val cv_pre = cv_rep_pre (concl th1)
+       fun is_simple_enough cv_tm = cvSyntax.is_cv_num cv_tm
+       in if not (is_simple_enough cv_tm) orelse not (aconv cv_pre T) then NONE
+          else let
+            val th2 = th1 |> CONV_RULE (REWR_CONV cv_rep_def)
+            val th3 = MP th2 TRUTH
+            val name = "cv_" ^ (l |> dest_const |> fst |> clean_name)
+            val _ = cv_print "Storing result:\n"
+            val _ = indent_print_thm "\n" "\n\n" th3
+            val _ = save_thm(name ^ "_thm[cv_rep]", th3)
+            in SOME TRUTH end end end;
+
 datatype res = Res of thm | Needs of term;
 
 datatype task = Def of thm | Abbr of thm;
 
 fun total_cv_trans allow_pre term_opt def is_last =
   (if is_last then (Res (cv_trans_any allow_pre term_opt def))
-              else (Res (cv_trans_any false NONE def)))
+              else (Res (case cv_trans_simple_constant def of
+                      NONE => cv_trans_any false NONE def
+                    | SOME res => res)))
   handle NeedsTranslation tm => Needs tm;
 
 fun get_unused_name s = let
