@@ -860,7 +860,8 @@ QED
 
 Theorem cv_inline_word_ror[cv_inline]:
   !r a. (a : 'a word) #>> r =
-    let d = dimindex (:'a);
+    let a = a;
+        d = dimindex (:'a);
         r = r MOD d
     in a << (d - r) || a >>> r
 Proof
