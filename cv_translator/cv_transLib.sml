@@ -344,6 +344,25 @@ fun preprocess_def def = let
       in failwith "Argument contains function type" end
     end
   val _ = app check_arg_tys defs
+  fun remove_primes th = let
+    val th = GEN_ALL th
+    val vars = ref (th |> concl |> all_vars)
+    fun unprime s = if not (String.isSuffix "'" s) then s
+                    else unprime (substring (s,0,String.size(s)-1))
+    fun new_var tm =
+      let val (name, ty) = dest_var tm
+          val result = numvariant (!vars) (mk_var (unprime name, ty))
+      in vars := result::(!vars); result end
+    fun rename_conv tm =
+      if not (is_abs tm) then NO_CONV tm
+      else let val (bv,_) = dest_abs tm
+           in if not (String.isSuffix "'" (bv |> dest_var |> fst)) then NO_CONV tm
+              else ALPHA_CONV (new_var bv) tm end
+    fun sweep_conv conv tm =
+      (QCONV (conv ORELSEC ALL_CONV) THENC SUB_CONV (sweep_conv conv)) tm
+    val renamed = CONV_RULE (sweep_conv rename_conv) th
+    in SPEC_ALL renamed end;
+  val defs = map remove_primes defs
   in defs end
 
 fun store_cv_result name orig_names result =
