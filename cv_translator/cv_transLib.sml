@@ -303,6 +303,20 @@ val clean_name = let
                     (#"0" <= c andalso c <= #"9") orelse c = #"_"
   in String.translate (fn c => if okay_char c then implode [c] else "_") end;
 
+
+fun preprocess_def def =
+  let val defs = def |> oneline_ify_all |> LIST_CONJ
+      val defs = defs |> SPEC_ALL |> CONJUNCTS |> map (UNDISCH_ALL o SPEC_ALL)
+      (* if definitions have function types then use AP_THM *)
+  in defs end
+
+fun store_cv_result name orig_names result =
+  let val _ = cv_print Verbose "Storing result:\n"
+      val _ = indent_print_thm Verbose "\n" "\n\n" result
+      val _ = save_thm(name ^ "_thm[cv_rep]", result)
+      val _ = cv_print Quiet ("Finished translating " ^ orig_names ^ "\n")
+  in () end
+
 (*--------------------------------------------------------------------------*
    main workhorse
  *--------------------------------------------------------------------------*)
@@ -327,9 +341,8 @@ val clean_name = let
 *)
 
 fun cv_trans_any allow_pre term_opt def = let
+  val defs = preprocess_def def
   (* make hyps *)
-  val defs = def |> oneline_ify_all |> LIST_CONJ
-  val defs = defs |> SPEC_ALL |> CONJUNCTS |> map (UNDISCH_ALL o SPEC_ALL)
   val assums = defs |> map mk_assum_for
   val hyps = map snd assums
   (* bottom up translation *)
@@ -389,10 +402,7 @@ fun cv_trans_any allow_pre term_opt def = let
       val res = hd expand_cv_reps
       val result = fix_missed_args res
       val result = remove_T_IMP result
-      val _ = cv_print Verbose "Storing result:\n"
-      val _ = indent_print_thm Verbose "\n" "\n\n" result
-      val _ = save_thm(name ^ "_thm[cv_rep]", result)
-      val _ = cv_print Quiet ("Finished translating " ^ orig_names ^ "\n")
+      val _ = store_cv_result name orig_names result
       in TRUTH end
     else let
       (* define pre *)
@@ -412,10 +422,7 @@ fun cv_trans_any allow_pre term_opt def = let
       val result = map remove_T_IMP result
       (* derive final theorems *)
       val combined_result = LIST_CONJ result
-      val _ = cv_print Verbose "Storing result:\n"
-      val _ = indent_print_thm Verbose "\n" "\n\n" combined_result
-      val _ = save_thm(name ^ "_thm[cv_rep]", combined_result)
-      val _ = cv_print Quiet ("Finished translating " ^ orig_names ^ "\n")
+      val _ = store_cv_result name orig_names combined_result
       in pre_def end
   end
 
@@ -467,7 +474,7 @@ fun cv_trans_pre_rec def tac =
  *--------------------------------------------------------------------------*)
 
 fun cv_trans_simple_constant def = let
-  val defs = def |> SPEC_ALL |> CONJUNCTS |> map SPEC_ALL
+  val defs = preprocess_def def
   val def = hd defs
   val (l,r) = def |> concl |> dest_eq
   in if length defs > 1 orelse not (is_const l) then NONE
@@ -482,10 +489,9 @@ fun cv_trans_simple_constant def = let
           else let
             val th2 = th1 |> CONV_RULE (REWR_CONV cv_rep_def)
             val th3 = MP th2 TRUTH
-            val name = "cv_" ^ (l |> dest_const |> fst |> clean_name)
-            val _ = cv_print Verbose "Storing result:\n"
-            val _ = indent_print_thm Verbose "\n" "\n\n" th3
-            val _ = save_thm(name ^ "_thm[cv_rep]", th3)
+            val orig_name = l |> dest_const |> fst |> clean_name
+            val name = "cv_" ^ orig_name
+            val _ = store_cv_result name orig_name th3
             in SOME TRUTH end end end;
 
 datatype res = Res of thm | Needs of term;
