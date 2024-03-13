@@ -256,21 +256,10 @@ val _ = cv_trans map2_def;
 val _ = cv_trans nsBind_def;
 val _ = cv_trans nsOptBind_def;
 
-fun rename_bound_vars_rule prefix th = let
-  val i = ref 0
-  fun next_name () = (i:= !i+1; prefix ^ int_to_string (!i))
-  fun next_var v = mk_var(next_name (), type_of v)
-  fun next_alpha_conv tm = let
-    val (v,_) = dest_abs tm
-    val _ = not (String.isPrefix prefix (fst (dest_var v))) orelse fail()
-    in ALPHA_CONV (next_var v) tm end handle HOL_ERR _ => NO_CONV tm
-  in CONV_RULE (DEPTH_CONV next_alpha_conv) th end;
-
 val infer_e_pre = cv_trans_pre_rec
           (infer_e_expand |> SRULE [GSYM map_infer_type_subst_eq,
                                     GSYM map1_eq, GSYM map2_eq,
-                                    namespaceTheory.alist_to_ns_def]
-                          |> rename_bound_vars_rule "var")
+                                    namespaceTheory.alist_to_ns_def])
  (WF_REL_TAC ‘measure $ λx. case x of
                             | INL (_,_,e,_) => cv_sum_depth e
                             | INR (INL (_,_,es,_)) => cv_sum_depth es
