@@ -601,7 +601,7 @@ fun get_unused_name s = let
   fun loop i = let
     val suggest = s ^ "_" ^ int_to_string i
     in if mem suggest cs then loop (i+1) else suggest end
-  in loop 1 end
+  in if mem s cs then loop 1 else s end
 
 fun rename_vars prefix tm = let
   val fvs = free_vars tm
@@ -632,7 +632,19 @@ fun inst_ho_args tm new_def = let
   val subst_def = inst_def |> INST ys
   val l = subst_def |> concl |> dest_eq |> fst
   val args = free_vars l
-  val name = c |> dest_const |> fst |> get_unused_name
+  fun extract_name tm = let
+      fun extract_parts tm =
+        if numSyntax.is_numeral tm then [term_to_string tm]
+        else if is_var tm then []
+        else if is_abs tm then "lam"::extract_parts (tm |> dest_abs |> snd)
+        else if is_comb tm then extract_parts (rator tm) @ extract_parts (rand tm)
+        else (* is_const tm *) [tm |> dest_const |> fst |> clean_name]
+      val concat_parts = String.concatWith "_" (extract_parts tm)
+      fun string_take n s =
+        if n < String.size s then String.substring(s, 0, n) else s
+      val cut_parts = string_take 30 concat_parts
+    in cut_parts end
+  val name = extract_name tm |> get_unused_name
   val f = mk_var(name,type_of(list_mk_abs(args,l)))
   val abbrev_def = new_definition(name ^ "_def",mk_eq(list_mk_comb(f,args),l))
   val final_def = subst_def |> PURE_REWRITE_RULE [GSYM abbrev_def]
