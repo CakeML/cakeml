@@ -35,19 +35,6 @@ fun match_memory hyps tm = let
 val from_to_pat = from_to_def |> SPEC_ALL |> concl |> dest_eq |> fst;
 val is_from_to = can (match_term from_to_pat);
 
-fun indent_print_term verbosity prefix suffix tm = let
-  val m = !max_print_depth
-  fun change #"\n" = "\n  "
-    | change c = implode [c]
-  fun indent_print s = cv_print verbosity  (String.translate change s)
-  in (cv_print verbosity (prefix ^ "  ");
-      max_print_depth := 15;
-      indent_print (term_to_string tm);
-      max_print_depth := m;
-      print suffix)
-     handle HOL_ERR _ =>
-      max_print_depth := m end;
-
 (*
 val tm = target_tm
 val hyps = tl [(T,TRUTH)]

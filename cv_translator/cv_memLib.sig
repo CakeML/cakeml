@@ -10,6 +10,9 @@ sig
   val cv_print_thm    : verbosity -> thm -> unit
   val cv_time         : ('a -> 'b) -> 'a -> 'b
 
+  val indent_print_term : verbosity -> string -> string -> term -> unit
+  val indent_print_thm  : verbosity -> string -> string -> thm -> unit
+
   val cv_rep_thms     : unit -> (term * thm) list
   val cv_pre_thms     : unit -> thm list
   val cv_inline_thms  : unit -> thm list

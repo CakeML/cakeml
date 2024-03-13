@@ -276,19 +276,6 @@ fun find_def_for const_tm =
     SOME { thm = STDEQNS cv_def, ... } => SPEC_ALL cv_def
   | _ => failwith ("Cannot find definition of " ^ term_to_string const_tm);
 
-fun indent_print_thm verbosity prefix suffix th = let
-  val m = !max_print_depth
-  fun change #"\n" = "\n  "
-    | change c = implode [c]
-  fun indent_print s = cv_print verbosity (String.translate change s)
-  in (cv_print verbosity (prefix ^ "  ");
-      max_print_depth := 15;
-      indent_print (thm_to_string th);
-      max_print_depth := m;
-      cv_print verbosity suffix)
-     handle HOL_ERR _ =>
-      max_print_depth := m end;
-
 fun find_inst_def_for needs_c = let
   val needed_def = find_def_for needs_c
   val _ = cv_print Verbose "Recursively calling `cv_auto_trans` on definition:\n"

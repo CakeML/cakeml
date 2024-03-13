@@ -33,6 +33,22 @@ fun cv_time f x =
     res
   end
 
+fun indent_print_aux f verbosity prefix suffix x = let
+  val m = !max_print_depth
+  fun change #"\n" = "\n  "
+    | change c = implode [c]
+  fun indent_print s = cv_print verbosity (String.translate change s)
+  in (cv_print verbosity (prefix ^ "  ");
+      max_print_depth := 15;
+      indent_print (f x);
+      max_print_depth := m;
+      cv_print verbosity suffix)
+     handle HOL_ERR _ =>
+      max_print_depth := m end;
+
+val indent_print_term = indent_print_aux term_to_string;
+val indent_print_thm = indent_print_aux thm_to_string;
+
 val cv_ty = cvSyntax.cv
 val cv_rep_hol_tm = rand
 val cv_rep_hol_tm_conv = RAND_CONV
