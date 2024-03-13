@@ -178,10 +178,8 @@ Proof
 QED
 
 val _ = cv_trans type_subst_alist_def;
-val _ = cv_trans typeSystemTheory.Tfn_def;
-val _ = cv_trans typeSystemTheory.Ttup_def;
 
-val type_name_check_sub_pre = cv_trans_pre
+val type_name_check_sub_pre = cv_auto_trans_pre
                               (type_name_check_sub_def
                                  |> SRULE [type_subst_alist_to_fmap,FUN_EQ_THM])
 
@@ -380,7 +378,7 @@ Definition type_name_subst_1_def:
     type_name_subst_list_1 tenvT ts
 End
 
-val _ = cv_trans type_name_subst_1_def;
+val _ = cv_auto_trans type_name_subst_1_def;
 
 Theorem type_name_subst_1_eq:
   (∀t. type_name_subst tenvT t = type_name_subst_1 tenvT t) ∧
@@ -440,8 +438,6 @@ val infer_d_pre = cv_trans_pre
                infer_d_map_2_eq, infer_d_map_3_eq,init_state_def,
                GSYM map1_eq, GSYM map2_eq, MAP_Tvar_eq]);
 
-val _ = cv_trans start_type_id_def;
-
 Definition call_infer_def:
   call_infer ienv prog start_id =
   infer_ds ienv prog
@@ -454,8 +450,7 @@ val infertype_prog_eq =
 val infertype_prog_inc_eq =
   infertype_prog_inc_def |> SRULE [init_infer_state_def, GSYM call_infer_def];
 
-val call_infer_pre =
-  cv_trans_pre (call_infer_def |> SRULE [EVAL “start_type_id”]);
+val call_infer_pre = cv_auto_trans_pre call_infer_def;
 
 Theorem type_name_check_sub_success:
   type_name_check_sub l ienv.inf_t xs a s = (Success r,s1) ⇒
@@ -587,8 +582,8 @@ Proof
   \\ gvs [unifyTheory.t_wfs_def]
 QED
 
-val _ = cv_trans (infertype_prog_eq |> SRULE [extend_dec_ienv_def]);
-val _ = cv_trans (infertype_prog_inc_eq |> SRULE [extend_dec_ienv_def]);
+val _ = cv_auto_trans (infertype_prog_eq |> SRULE [extend_dec_ienv_def]);
+val _ = cv_auto_trans (infertype_prog_inc_eq |> SRULE [extend_dec_ienv_def]);
 
 (* main results stored as: cv_infertype_prog_thm
                            cv_infertype_prog_inc_thm *)
