@@ -120,6 +120,7 @@ fun define_cv_function name (def:thm) cv_def_tm (SOME t) =
 
 fun from_for ty = cv_typeLib.from_term_for ty;
 
+(*
 fun remove_primes th = let
   val prime = "'"
   fun delete_last_prime s =
@@ -133,6 +134,7 @@ fun remove_primes th = let
         in loop xs (new_var::ys) ((x |-> new_var) :: i) end end
   val i = loop (free_varsl (concl th :: hyp th)) [] []
   in INST i th end
+*)
 
 fun apply_everywhere f tm =
   let val t = (f tm handle HOL_ERR _ => tm)
@@ -166,7 +168,7 @@ fun mk_assum_for def = let
   val cvs = map cv_rep_cv_tm arg_assums
   val funname = dest_const f |> fst
   val cv_fun_ty = foldr (fn (x,y) => x --> y) cvSyntax.cv (map type_of cvs)
-  val cv_fun_tm = mk_var("cv_" ^ funname,cv_fun_ty)
+  val cv_fun_tm = mk_primed_var("cv_" ^ funname,cv_fun_ty)
   val cv_lhs = list_mk_comb(cv_fun_tm,cvs)
   val cv_lhs_from = curry list_mk_comb cv_fun_tm
     (map (fn tm => mk_comb(cv_rep_from tm, cv_rep_hol_tm tm)) arg_assums)
@@ -308,7 +310,8 @@ fun remove_T_IMP th = MP th TRUTH handle HOL_ERR _=> th;
 val clean_name = let
   fun okay_char c = (#"a" <= c andalso c <= #"z") orelse
                     (#"A" <= c andalso c <= #"Z") orelse
-                    (#"0" <= c andalso c <= #"9") orelse c = #"_"
+                    (#"0" <= c andalso c <= #"9") orelse
+                    c = #"_" orelse c = #"'"
   in String.translate (fn c => if okay_char c then implode [c] else "_") end;
 
 
@@ -451,7 +454,7 @@ fun cv_trans_any allow_pre term_opt def = let
     val th3 = th2 |> CONV_RULE (cv_rep_pre_conv (DEPTH_CONV BETA_CONV
                                                  THENC REWRITE_CONV []) THENC
                                 cv_rep_cv_tm_conv (DEPTH_CONV BETA_CONV))
-    in remove_primes th3 end
+    in th3 end
   val raw_cv_reps = map trans_each defs
   (* define cv function *)
   fun cv_eq_for (th2,(one_def,(_,th3))) = let

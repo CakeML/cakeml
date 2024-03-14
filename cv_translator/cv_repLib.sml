@@ -90,7 +90,14 @@ fun tm_to_cv hyps tm = let
               in GENL vs th2 end
           val thms = map inst_assum xs
           val lemma = LIST_CONJ thms
-          val th0 = MATCH_MP th lemma
+          fun cv_rep_match_mp ith th = let
+              val (l,r) = ith |> concl |> dest_imp
+              val _ = if not (can (match_term l) (concl th))
+                      then failwith "NO_MATCH (cv_rep_match_mp)" else ()
+              val subst = (match_term l) (concl th)
+              val res = MP (INST_TY_TERM subst ith) th
+            in res end
+          val th0 = cv_rep_match_mp th lemma
         in
           if not (is_imp (concl th0)) then th0 else
             failwith ("Oops! Function tm_to_cv should not fail on: " ^
