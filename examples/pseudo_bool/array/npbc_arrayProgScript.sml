@@ -781,7 +781,7 @@ val res = translate mk_flag_def;
 
 val rup_pass2_arr = process_topdecs`
   fun rup_pass2_arr assg max ls l changes =
-    case ls of [] => (False,changes)
+    case ls of [] => changes
   | (k,(i,n))::ys =>
     if max < l + k then
       (Unsafe.w8update assg n (mk_flag i);
@@ -796,19 +796,14 @@ Theorem rup_pass2_arr_spec:
   NUM l lv ∧
   LIST_TYPE NUM changes changesv ∧
   rup_pass2_list assg max ls l changes =
-    (res2,changes2,assg2,T) ⇒
+    (changes2,assg2,T) ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "rup_pass2_arr" (get_ml_prog_state()))
     [assgv; maxv; lsv; lv; changesv]
     (W8ARRAY assgv assg)
     (POSTv v.
       W8ARRAY assgv assg2 *
-      SEP_EXISTS v1 v2.
-      &(
-        v = Conv NONE [v1; v2] ∧
-        BOOL res2 v1 ∧
-        LIST_TYPE NUM changes2 v2
-      )
+      &LIST_TYPE NUM changes2 v
     )
 Proof
   Induct>>rw[]>>
@@ -816,8 +811,7 @@ Proof
   gvs[LIST_TYPE_def,rup_pass2_list_def]
   >- (
     xmatch>>
-    xlet_autop>>xcon>>xsimpl>>
-    EVAL_TAC)>>
+    xvar>>xsimpl)>>
   PairCases_on`h`>>
   gvs[PAIR_TYPE_def,rup_pass2_list_def]>>
   xmatch>>
@@ -887,26 +881,24 @@ val update_assg_arr = process_topdecs`
   fun update_assg_arr assg lsn =
   case lsn of (ls,n) =>
   case rup_pass1_arr assg ls 0 [] 0 of (max,ls1,m) =>
-    if max < n then (True, [], assg) else
-    let val assg1 = resize_to_fit m assg in
-      case rup_pass2_arr assg1 max ls1 n [] of
-        (res2,changes2) => (res2,changes2,assg1)
+    let val assg1 = resize_to_fit m assg
+        val changes2 = rup_pass2_arr assg1 max ls1 n [] in
+        (changes2,assg1)
     end` |> append_prog;
 
 Theorem update_assg_arr_spec:
   constraint_TYPE lsn lsnv ∧
-  update_assg_list assg lsn = (res,new_changes,assg2,T) ⇒
+  update_assg_list assg lsn = (new_changes,assg2,T) ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "update_assg_arr" (get_ml_prog_state()))
     [assgv; lsnv]
     (W8ARRAY assgv assg)
     (POSTv v.
-      SEP_EXISTS v1 v2 v3.
-      W8ARRAY v3 assg2 *
+      SEP_EXISTS v1 v2.
+      W8ARRAY v2 assg2 *
       &(
-        v = Conv NONE [v1; v2; v3] ∧
-        BOOL res v1 ∧
-        LIST_TYPE NUM new_changes v2
+        v = Conv NONE [v1; v2] ∧
+        LIST_TYPE NUM new_changes v1
       )
     )
 Proof
@@ -922,12 +914,6 @@ Proof
     simp[LIST_TYPE_def])>>
   xmatch>>
   rpt xlet_autop>>
-  xif>>gvs[]
-  >- (
-    rpt xlet_autop>>
-    xcon>>
-    xsimpl>>
-    EVAL_TAC)>>
   xlet_auto>>
   xlet_autop>>
   gvs[]>>
@@ -935,7 +921,6 @@ Proof
   >- (
     xsimpl>>
     EVAL_TAC)>>
-  xmatch>>
   xcon>>xsimpl
 QED
 
@@ -984,11 +969,12 @@ val check_rup_loop_arr = process_topdecs`
     case get_rup_constraint_arr b fml n nc of
       None => (False,assg,all_changes)
     | Some c =>
-    case update_assg_arr assg c of (res,new_changes,assg) =>
+    if List.null ns then
+      case rup_pass1_arr assg (fst c) 0 [] 0 of (max,ls1,m) =>
+        (max < snd c,assg,all_changes)
+    else
+    case update_assg_arr assg c of (new_changes,assg) =>
     let val all_changes = new_changes @ all_changes in
-      if res then
-        (List.null ns,assg,all_changes)
-      else
         check_rup_loop_arr b nc fml assg all_changes ns
     end` |> append_prog;
 
@@ -1029,19 +1015,31 @@ Proof
   >- (
     xlet_autop>>
     xcon>>xsimpl>>
-    EVAL_TAC)>>
+    EVAL_TAC)
+  >- (
+    rpt(pairarg_tac>>gvs[])>>
+    xlet_autop>>
+    xif>>gvs[]>>
+    first_x_assum (irule_at Any)>>
+    simp[]>>
+    rpt xlet_autop>>
+    xlet_auto
+    >-
+      (xsimpl>> EVAL_TAC)>>
+    xmatch>>
+    rpt xlet_autop>>
+    xcon>>xsimpl)>>
   rpt(pairarg_tac>>gvs[])>>
   xlet_auto
   >- (
     xsimpl>>
     gvs[AllCaseEqs()])>>
+  xif>>gvs[]>>
+  first_x_assum (irule_at Any)>>
+  simp[]>>
+  xlet_autop>>
   xmatch>>
   xlet_autop>>
-  xif>>gvs[]
-  >- (
-    xlet_autop>>
-    xcon>>xsimpl>>
-    gvs[NULL_EQ])>>
   xapp>>xsimpl>>
   goal_assum drule>>
   xsimpl
