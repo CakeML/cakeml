@@ -385,7 +385,7 @@ fun store_cv_result name orig_names result =
                               ", stored in " ^ thm_name ^ "\n")
   in () end
 
-fun print_pre_goal pre_def =
+fun print_pre_goal name pre_def =
   if pre_def |> concl |> aconv T then pre_def else
   let
     val pres = pre_def |> CONJUNCTS
@@ -402,6 +402,7 @@ fun print_pre_goal pre_def =
     val thm_name = pres |> hd |> SPEC_ALL |> concl |> lhs |>
                    strip_comb |> fst |> dest_const |> fst
     val ind_name = String.substring(thm_name, 0, String.size(thm_name) - 3) ^ "ind"
+    val _ = cv_print Silent ("\nWARNING: definition of " ^ name ^ " has a precondition.\n")
     val _ = cv_print Silent "You can set up the precondition proof as follows:\n\n"
     val _ = cv_print Silent ("Theorem " ^ thm_name ^ "[cv_pre]:\n")
     val _ = cv_print Silent (concat_goals goals)
@@ -517,7 +518,7 @@ fun cv_trans_any allow_pre term_opt def = let
       (* derive final theorems *)
       val combined_result = LIST_CONJ result
       val _ = store_cv_result name orig_names combined_result
-      in print_pre_goal pre_def end
+      in print_pre_goal name pre_def end
   end
 
 (*--------------------------------------------------------------------------*
