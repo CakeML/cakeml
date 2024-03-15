@@ -22,9 +22,9 @@ Datatype:
 End
 
 Definition xx_yy_depth_def:
-  xx_yy_depth (XX x) = xx_yy_depth x ∧
-  xx_yy_depth (YY xs) = xx_yy_depth_list xs ∧
-  xx_yy_depth_list [] = 0:num ∧
+  xx_yy_depth (XX x) = xx_yy_depth x /\
+  xx_yy_depth (YY xs) = xx_yy_depth_list xs /\
+  xx_yy_depth_list [] = 0:num /\
   xx_yy_depth_list (y::ys) = xx_yy_depth y + xx_yy_depth_list ys
 End
 
@@ -37,14 +37,14 @@ End
 val _ = cv_auto_trans add1_def;
 
 Definition genlist_def:
-  genlist i f 0 = [] ∧
+  genlist i f 0 = [] /\
   genlist i f (SUC n) = f i :: genlist (i+1:num) f n
 End
 
 Theorem genlist_eq_GENLIST[cv_inline]:
   GENLIST = genlist 0
 Proof
-  qsuff_tac ‘∀i f n. genlist i f n = GENLIST (f o (λk. k + i)) n’
+  qsuff_tac ‘!i f n. genlist i f n = GENLIST (f o (λk. k + i)) n’
   >- (gvs [FUN_EQ_THM] \\ rw [] \\ AP_THM_TAC \\ AP_TERM_TAC \\ gvs [FUN_EQ_THM])
   \\ Induct_on ‘n’ \\ gvs [genlist_def]
   \\ rewrite_tac [listTheory.GENLIST_CONS] \\ gvs []
@@ -101,7 +101,7 @@ Definition use_foo_def:
 End
 
 Theorem cond_def_lemma:
-  ∃(f:num -> num). ∀n. n ≠ 0 ⇒ f n = n - 1
+  ?(f:num -> num). !n. n <> 0 ==> f n = n - 1
 Proof
   qexists_tac ‘λn. n - 1’ \\ fs []
 QED
@@ -177,17 +177,17 @@ val res = cv_auto_trans hello_def;
 val res = time cv_eval “f3 (1+2)”;
 
 Definition even_def:
-  even 0 = T ∧
-  even (SUC n) = odd n ∧
-  odd 0 = F ∧
+  even 0 = T /\
+  even (SUC n) = odd n /\
+  odd 0 = F /\
   odd (SUC n) = even n
 End
 
 val res = cv_trans_pre even_def
 
 Theorem even_pre[local,cv_pre]:
-  (∀a0. even_pre a0) ∧
-  (∀a1. odd_pre a1)
+  (!a0. even_pre a0) /\
+  (!a1. odd_pre a1)
 Proof
   ho_match_mp_tac even_ind \\ rpt strip_tac
   \\ once_rewrite_tac [res] \\ fs []
@@ -216,7 +216,7 @@ val _ = cv_trans combinTheory.K_THM
 val _ = cv_trans missing_arg_def
 
 Definition apply_list_def:
-  apply_list [] x = x ∧
+  apply_list [] x = x /\
   apply_list (f::fs) x = apply_list fs (f x)
 End
 

@@ -34,7 +34,7 @@ QED
 val _ = cv_rep_for [] “SOME (x:'a)”
 
 Theorem cv_THE[cv_rep]:
-  v ≠ NONE ⇒ f_a (THE v) = cv_snd ((from_option f_a) (v:'a option))
+  v <> NONE ==> f_a (THE v) = cv_snd ((from_option f_a) (v:'a option))
 Proof
   Cases_on ‘v’ \\ gvs [from_option_def]
 QED
@@ -61,7 +61,7 @@ val res = cv_trans ISR;
 val res = cv_trans_pre OUTL;
 
 Theorem OUTL_pre[cv_pre]:
-  OUTL_pre x ⇔ ISL x
+  OUTL_pre x <=> ISL x
 Proof
   Cases_on ‘x’ \\ fs [res]
 QED
@@ -69,7 +69,7 @@ QED
 val res = cv_trans_pre OUTR;
 
 Theorem OUTR_pre[cv_pre]:
-  OUTR_pre x ⇔ ISR x
+  OUTR_pre x <=> ISR x
 Proof
   Cases_on ‘x’ \\ fs [res]
 QED
@@ -79,7 +79,7 @@ QED
  *----------------------------------------------------------*)
 
 Theorem cv_HD[cv_rep]:
-  v ≠ [] ⇒ f_a (HD v) = cv_fst ((from_list f_a) (v:'a list))
+  v <> [] ==> f_a (HD v) = cv_fst ((from_list f_a) (v:'a list))
 Proof
   Cases_on ‘v’ \\ fs [from_list_def]
 QED
@@ -106,7 +106,7 @@ val res = cv_trans DROP_def;
 val res = cv_trans_pre EL;
 
 Theorem EL_pre[cv_pre]:
-  ∀n xs. EL_pre n xs ⇔ n < LENGTH xs
+  !n xs. EL_pre n xs <=> n < LENGTH xs
 Proof
   Induct \\ rw [] \\ simp [Once res] \\ Cases_on ‘xs’ \\ gvs []
 QED
@@ -129,7 +129,7 @@ QED
 val res = cv_trans_pre FRONT;
 
 Theorem FRONT_pre[cv_pre]:
-  ∀xs. FRONT_pre xs ⇔ xs ≠ []
+  !xs. FRONT_pre xs <=> xs <> []
 Proof
   Induct_on ‘xs’
   \\ once_rewrite_tac [res] \\ gvs []
@@ -145,7 +145,7 @@ QED
 val res = cv_trans_pre LAST;
 
 Theorem LAST_pre[cv_pre]:
-  ∀xs. LAST_pre xs ⇔ xs ≠ []
+  !xs. LAST_pre xs <=> xs <> []
 Proof
   Induct_on ‘xs’
   \\ once_rewrite_tac [res] \\ gvs []
@@ -153,7 +153,7 @@ Proof
 QED
 
 Definition list_mem_def:
-  list_mem y [] = F ∧
+  list_mem y [] = F /\
   list_mem y (x::xs) = if x = y then T else list_mem y xs
 End
 
@@ -162,7 +162,7 @@ val res = cv_trans list_mem_def;
 val lemma = cv_rep_for [] “list_mem x xs” |> DISCH_ALL
 
 Theorem cv_rep_MEM[cv_rep]:
-  from_to f_a t_a ⇒
+  from_to f_a t_a ==>
   cv_rep T (cv_list_mem (f_a x) (from_list f_a xs)) b2c (MEM (x:'a) xs)
 Proof
   qsuff_tac ‘MEM x xs = list_mem x xs’
@@ -171,7 +171,7 @@ Proof
 QED
 
 Triviality conj_eq_if:
-  x ∧ y ⇔ if x then y else F
+  x /\ y <=> if x then y else F
 Proof
   Cases_on ‘x’ \\ gvs []
 QED
@@ -195,7 +195,7 @@ val res = cv_trans_pre is_prefix;
 val res = cv_trans LUPDATE_DEF;
 
 Triviality index_of:
-  INDEX_OF x [] = NONE ∧
+  INDEX_OF x [] = NONE /\
   INDEX_OF x (y::ys) =
     if x = y then SOME 0 else
       case INDEX_OF x ys of
@@ -221,7 +221,7 @@ val res = cv_trans replicate_acc_def;
 Theorem REPLICATE:
   REPLICATE n c = replicate_acc n c []
 Proof
-  qsuff_tac ‘∀n c acc. replicate_acc n c acc = REPLICATE n c ++ acc’ >- gvs []
+  qsuff_tac ‘!n c acc. replicate_acc n c acc = REPLICATE n c ++ acc’ >- gvs []
   \\ Induct \\ gvs [] \\ simp [Once replicate_acc_def]
   \\ rewrite_tac [GSYM SNOC_APPEND,SNOC_REPLICATE] \\ gvs []
 QED
@@ -251,14 +251,14 @@ QED
 val res = cv_trans_pre UNZIP_eq
 
 Definition genlist_def:
-  genlist i f 0 = [] ∧
+  genlist i f 0 = [] /\
   genlist i f (SUC n) = f i :: genlist (i+1:num) f n
 End
 
 Theorem genlist_eq_GENLIST[cv_inline]:
   GENLIST = genlist 0
 Proof
-  qsuff_tac ‘∀i f n. genlist i f n = GENLIST (f o (λk. k + i)) n’
+  qsuff_tac ‘!i f n. genlist i f n = GENLIST (f o (λk. k + i)) n’
   >- (gvs [FUN_EQ_THM] \\ rw [] \\ AP_THM_TAC \\ AP_TERM_TAC \\ gvs [FUN_EQ_THM])
   \\ Induct_on ‘n’ \\ gvs [genlist_def]
   \\ rewrite_tac [listTheory.GENLIST_CONS] \\ gvs []
@@ -270,14 +270,14 @@ Theorem I_THM[cv_inline] = combinTheory.I_THM;
 Theorem o_THM[cv_inline] = combinTheory.o_THM;
 
 Definition list_mapi_def:
-  list_mapi i f [] = [] ∧
+  list_mapi i f [] = [] /\
   list_mapi i f (x::xs) = f i x :: list_mapi (i + 1n) f xs
 End
 
 Theorem MAPi_eq_list_mapi[cv_inline]:
   MAPi = list_mapi 0
 Proof
-  qsuff_tac `∀l i f. list_mapi i f l = MAPi (f o (λn. n + i)) l`
+  qsuff_tac `!l i f. list_mapi i f l = MAPi (f o (λn. n + i)) l`
   >- gvs[FUN_EQ_THM, combinTheory.o_DEF, SF ETA_ss] >>
   Induct >> rw[list_mapi_def] >> gvs[combinTheory.o_DEF, ADD1]
 QED
@@ -349,7 +349,7 @@ val res = cv_auto_trans sptreeTheory.apsnd_cons_def;
 val res = cv_auto_trans_pre sptreeTheory.spt_centers_def;
 
 Theorem spt_centers_pre[cv_pre,local]:
-  ∀x y. spt_centers_pre x y
+  !x y. spt_centers_pre x y
 Proof
   ho_match_mp_tac sptreeTheory.spt_centers_ind
   \\ rpt strip_tac \\ simp [Once res]
@@ -374,7 +374,7 @@ val toAList_foldi_eq = sptreeTheory.foldi_def
 val res = cv_trans_pre toAList_foldi_eq;
 
 Theorem toAList_foldi_pre[cv_pre]:
-  ∀a0 a1 a2. toAList_foldi_pre a0 a1 a2
+  !a0 a1 a2. toAList_foldi_pre a0 a1 a2
 Proof
   Induct_on ‘a2’ \\ gvs [] \\ simp [Once res] \\ gvs []
 QED
@@ -392,7 +392,7 @@ Theorem combine_rle_isEmpty_eq:
     | [] => []
     | [t] => [t]
     | ((i,x)::(j,y)::xs) =>
-        if x = LN ∧ y = LN then combine_rle_isEmpty ((i + j,x)::xs)
+        if x = LN /\ y = LN then combine_rle_isEmpty ((i + j,x)::xs)
         else (i,x)::combine_rle_isEmpty ((j,y)::xs)
 Proof
   BasicProvers.every_case_tac
@@ -400,7 +400,7 @@ Proof
 QED
 
 Definition cv_right_depth_def:
-  cv_right_depth (Num _) = 0:num ∧
+  cv_right_depth (Num _) = 0:num /\
   cv_right_depth (Pair x y) = cv_right_depth y + 1
 End
 
@@ -416,12 +416,12 @@ Proof
 QED
 
 Definition every_empty_snd_def:
-  every_empty_snd [] = T ∧
+  every_empty_snd [] = T /\
   every_empty_snd ((n,x)::xs) = if x = LN then every_empty_snd xs else F
 End
 
 Theorem every_empty_snd:
-  ∀ys. EVERY ((λt. isEmpty t) ∘ SND) ys = every_empty_snd ys
+  !ys. EVERY ((λt. isEmpty t) o SND) ys = every_empty_snd ys
 Proof
   Induct \\ gvs [every_empty_snd_def,FORALL_PROD]
 QED
@@ -429,17 +429,17 @@ QED
 val res = cv_trans every_empty_snd_def;
 
 Definition map_spt_right_def:
-  map_spt_right [] = [] ∧
+  map_spt_right [] = [] /\
   map_spt_right ((i,x)::xs) = (i, spt_right x) :: map_spt_right xs
 End
 
 Definition map_spt_left_def:
-  map_spt_left [] = [] ∧
+  map_spt_left [] = [] /\
   map_spt_left ((i,x)::xs) = (i, spt_left x) :: map_spt_left xs
 End
 
 Theorem map_spt_right_left:
-  MAP (λ(i,t). (i,spt_right t)) ys = map_spt_right ys ∧
+  MAP (λ(i,t). (i,spt_right t)) ys = map_spt_right ys /\
   MAP (λ(i,t). (i,spt_left t)) ys = map_spt_left ys
 Proof
   Induct_on ‘ys’ \\ gvs [map_spt_left_def,map_spt_right_def,FORALL_PROD]
@@ -468,7 +468,7 @@ Definition to_fmap_def:
 End
 
 Theorem from_to_fmap[cv_from_to]:
-  from_to (f0:'a -> cv) t0 ⇒
+  from_to (f0:'a -> cv) t0 ==>
   from_to (from_fmap f0) (to_fmap t0)
 Proof
   strip_tac

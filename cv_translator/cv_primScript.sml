@@ -36,19 +36,19 @@ Proof
 QED
 
 Theorem cv_rep_and[cv_rep]:
-  b2c (b1 ∧ b2) = cv_if (b2c b1) (b2c b2) (Num 0)
+  b2c (b1 /\ b2) = cv_if (b2c b1) (b2c b2) (Num 0)
 Proof
   Cases_on ‘b1’ \\ Cases_on ‘b2’ \\ fs []
 QED
 
 Theorem cv_rep_or[cv_rep]:
-  b2c (b1 ∨ b2) = cv_if (b2c b1) (Num 1) (b2c b2)
+  b2c (b1 \/ b2) = cv_if (b2c b1) (Num 1) (b2c b2)
 Proof
   Cases_on ‘b1’ \\ Cases_on ‘b2’ \\ fs [cv_rep_def]
 QED
 
 Theorem cv_inline_imp[cv_rep]:
-  b2c (a ⇒ b) = cv_if (b2c a) (b2c b) (Num 1)
+  b2c (a ==> b) = cv_if (b2c a) (b2c b) (Num 1)
 Proof
   Cases_on `a` >> Cases_on `b` >> gvs[cvTheory.b2c_def]
 QED
@@ -126,16 +126,16 @@ Proof
 QED
 
 Theorem cv_rep_le[cv_rep]:
-  b2c (n ≤ m) = cv_sub (Num 1) (cv_lt (Num m) (Num n))
+  b2c (n <= m) = cv_sub (Num 1) (cv_lt (Num m) (Num n))
 Proof
   fs [cv_rep_def] \\ rw []
 QED
 
 Theorem cv_rep_num_case[cv_rep]:
-  cv_rep p1 c1 Num x ∧
-  cv_rep p2 c2 (a:'a->cv) y ∧
-  (∀v:num. cv_rep (p3 v) (c3 (Num v)) (a:'a->cv) (z v)) ⇒
-  cv_rep (p1 ∧ (x = 0 ⇒ p2) ∧ ∀n. x = SUC n ⇒ p3 n)
+  cv_rep p1 c1 Num x /\
+  cv_rep p2 c2 (a:'a->cv) y /\
+  (!v:num. cv_rep (p3 v) (c3 (Num v)) (a:'a->cv) (z v)) ==>
+  cv_rep (p1 /\ (x = 0 ==> p2) /\ !n. x = SUC n ==> p3 n)
          (cv_if (cv_lt (Num 0) c1) (let y = cv_sub c1 (Num 1) in c3 y) c2)
          a (num_CASE x y z)
 Proof
@@ -183,7 +183,7 @@ End
 Theorem cv_gcd_thm[cv_rep]:
   Num (gcd a b) = cv_gcd (Num a) (Num b)
 Proof
-  qsuff_tac `∀c d a b. c = Num a ∧ d = Num b ⇒ Num (gcd a b) = cv_gcd c d`
+  qsuff_tac `!c d a b. c = Num a /\ d = Num b ==> Num (gcd a b) = cv_gcd c d`
   >- rw[] >>
   ho_match_mp_tac cv_gcd_ind >> rw[] >>
   rw[Once gcdTheory.GCD_EFFICIENTLY, Once cv_gcd_def] >> gvs[] >>
@@ -200,9 +200,9 @@ Termination
 End
 
 Theorem cv_rep_LOG2[cv_rep]:
-  n ≠ 0 ⇒ Num (LOG2 n) = cv_log2 (Num 0) (Num n)
+  n <> 0 ==> Num (LOG2 n) = cv_log2 (Num 0) (Num n)
 Proof
-  qsuff_tac `∀acc. n ≠ 0 ⇒ cv_log2 (Num acc) (Num n) = Num (LOG2 n + acc)`
+  qsuff_tac `!acc. n <> 0 ==> cv_log2 (Num acc) (Num n) = Num (LOG2 n + acc)`
   >- rw[] >>
   simp[bitTheory.LOG2_def] >>
   completeInduct_on `n` >> rw[] >>
@@ -294,11 +294,11 @@ Definition cv_int_add_def:
     cv_if (cv_ispair i) (* if i < 0 *)
       (cv_if (cv_ispair j) (* if j < 0 *)
         (Pair (cv_add (cv_fst i) (cv_fst j)) (Num 0))
-        (cv_if (cv_int_lt j (cv_fst i)) (* i < 0 ∧ ¬(j < 0); if j < |i| *)
+        (cv_if (cv_int_lt j (cv_fst i)) (* i < 0 /\ ~(j < 0); if j < |i| *)
           (Pair (cv_sub (cv_fst i) j) (Num 0))
           (cv_sub j (cv_fst i))))
       (cv_if (cv_ispair j) (* if j < 0 *)
-        (cv_if (cv_int_lt i (cv_fst j)) (* ¬(i < 0) ∧ j < 0; if i < |j| *)
+        (cv_if (cv_int_lt i (cv_fst j)) (* ~(i < 0) /\ j < 0; if i < |j| *)
           (Pair (cv_sub (cv_fst j) i) (Num 0))
           (cv_sub i (cv_fst j)))
         (cv_add i j))
@@ -311,8 +311,8 @@ Proof
   Cases_on `i < 0` >> Cases_on `j < 0` >> gvs[] >>
   namedCases_on `i` ["ni","ni",""] >> namedCases_on `j` ["nj","nj",""] >>
   gvs[INT_ADD_CALCULATE]
-  >- (Cases_on `ni ≤ nj` >> gvs[])
-  >- (Cases_on `nj ≤ ni` >> gvs[])
+  >- (Cases_on `ni <= nj` >> gvs[])
+  >- (Cases_on `nj <= ni` >> gvs[])
 QED
 
 Theorem cv_int_sub[cv_rep]:
@@ -406,7 +406,7 @@ Proof
 QED
 
 Theorem gcd_LESS_EQ:
-  ∀m n. n ≠ 0 ⇒ gcd m n ≤ n
+  !m n. n <> 0 ==> gcd m n <= n
 Proof
   recInduct gcdTheory.gcd_ind >> rw[Once gcdTheory.gcd_def]
 QED
@@ -418,7 +418,7 @@ Proof
 QED
 
 Theorem divides_coprime_mul:
-  ∀n m k. gcd n m = 1 ⇒ (divides n (m * k) ⇔ divides n k)
+  !n m k. gcd n m = 1 ==> (divides n (m * k) <=> divides n k)
 Proof
   rw[] >> eq_tac >> rw[]
   >- (gvs[Once gcdTheory.GCD_SYM] >> drule gcdTheory.L_EUCLIDES >> simp[])
@@ -426,9 +426,9 @@ Proof
 QED
 
 Theorem nmr_dnm_unique:
-  gcd n1 d1 = 1 ∧ gcd n2 d2 = 1 ∧
+  gcd n1 d1 = 1 /\ gcd n2 d2 = 1 /\
   n1 * d2 = n2 * d1
-  ⇒ n1 = n2 ∧ d1 = d2
+  ==> n1 = n2 /\ d1 = d2
 Proof
   strip_tac >> imp_res_tac divides_coprime_mul >> gvs[] >>
   first_x_assum $ qspec_then `n2` $ mp_tac o iffLR >> gvs[] >>
@@ -449,7 +449,7 @@ Theorem gcd_RATND[simp]:
 Proof
   CCONTR_TAC >> gvs[] >>
   qmatch_asmsub_abbrev_tac `gcd n d` >>
-  `d ≠ 0` by (unabbrev_all_tac >> gvs[]) >>
+  `d <> 0` by (unabbrev_all_tac >> gvs[]) >>
   qspecl_then [`n`,`d`] assume_tac gcdTheory.FACTOR_OUT_GCD >> gvs[] >>
   Cases_on `n = 0` >> gvs[] >>
   qspecl_then [`rat_sgn r * &p`,`q`] mp_tac RATN_LEAST >> simp[] >>
@@ -474,12 +474,12 @@ Proof
 QED
 
 Theorem RATND_suff_eq:
-  gcd (Num n) d = 1 ∧ d ≠ 0
-  ⇒ RATN (rat_of_int n / &d) = n ∧ RATD (rat_of_int n / &d) = d
+  gcd (Num n) d = 1 /\ d <> 0
+  ==> RATN (rat_of_int n / &d) = n /\ RATD (rat_of_int n / &d) = d
 Proof
   strip_tac >>
   qpat_abbrev_tac `r = _ / _` >>
-  qsuff_tac `rat_sgn r = SGN n ∧ Num (RATN r) = Num n ∧ RATD r = d`
+  qsuff_tac `rat_sgn r = SGN n /\ Num (RATN r) = Num n /\ RATD r = d`
   >- (rw[RAT_SGN_ALT] >> once_rewrite_tac[GSYM SGN_MUL_Num] >> metis_tac[]) >>
   conj_asm1_tac
   >- (
@@ -491,7 +491,7 @@ Proof
     simp[GSYM LDIV_MUL_OUT] >> rewrite_tac[Once RAT_MUL_COMM] >>
     DEP_REWRITE_TAC[GSYM RAT_LDIV_EQ] >> unabbrev_all_tac >> gvs[]) >>
   pop_assum mp_tac >> simp[rat_of_int_def] >>
-  `n < 0 ⇔ r < 0` by (
+  `n < 0 <=> r < 0` by (
     unabbrev_all_tac >> gvs[RAT_LDIV_LES_POS] >>
     Cases_on `n` >> gvs[] >> simp[rat_of_int_ainv]) >>
   IF_CASES_TAC >> gvs[Num_neg] >>
@@ -501,11 +501,11 @@ QED
 Definition div_gcd_def:
   div_gcd a b =
     let d = gcd (Num a) b in
-      if d = 0 ∨ d = 1 then (a, b) else (a / &d, b DIV d)
+      if d = 0 \/ d = 1 then (a, b) else (a / &d, b DIV d)
 End
 
 Theorem div_gcd_reduces:
-  div_gcd a b = (n,d) ∧ b ≠ 0 ⇒ d ≠ 0 ∧ gcd (Num n) d = 1 ∧ a * &d = n * &b
+  div_gcd a b = (n,d) /\ b <> 0 ==> d <> 0 /\ gcd (Num n) d = 1 /\ a * &d = n * &b
 Proof
   rw[div_gcd_def] >> gvs[]
   >- (
@@ -517,7 +517,7 @@ Proof
   >- (
     Cases_on `Num a = 0` >> simp[] >>
     qspecl_then [`Num a`,`b`] assume_tac gcdTheory.FACTOR_OUT_GCD >> gvs[] >>
-    qsuff_tac `b DIV gcd (Num a) b = q ∧ Num (a / &gcd (Num a) b) = p` >> rw[]
+    qsuff_tac `b DIV gcd (Num a) b = q /\ Num (a / &gcd (Num a) b) = p` >> rw[]
     >- (
       qpat_x_assum `b = _` $ simp o single o Once >>
       irule MULT_DIV >> Cases_on `gcd (Num a) b` >> gvs[]
@@ -557,9 +557,9 @@ Proof
 QED
 
 Theorem div_gcd_correct:
-  div_gcd a b = (n,d) ∧ b ≠ 0 ⇒
-  rat_of_int a / &b = rat_of_int n / &d ∧
-  RATN (rat_of_int a / &b) = n ∧
+  div_gcd a b = (n,d) /\ b <> 0 ==>
+  rat_of_int a / &b = rat_of_int n / &d /\
+  RATN (rat_of_int a / &b) = n /\
   RATD (rat_of_int a / &b) = d
 Proof
   strip_tac >> reverse conj_asm1_tac
@@ -599,7 +599,7 @@ Definition cv_rat_reciprocal_def:
 End
 
 Theorem cv_rat_reciprocal[cv_rep]:
-  r ≠ 0 ⇒ from_rat (rat_minv r) = cv_rat_reciprocal (from_rat r)
+  r <> 0 ==> from_rat (rat_minv r) = cv_rat_reciprocal (from_rat r)
 Proof
   rw[] >> simp[RAT_MINV_RATND] >> simp[cv_rat_reciprocal_def] >>
   `Num 0 = from_int 0` by gvs[from_int_def] >> simp[] >> pop_assum kall_tac >>
@@ -649,15 +649,15 @@ Proof
   `Num (gcd (Num a) b) = from_int (&(gcd (Num a) b))` by simp[from_int_def] >>
   simp[GSYM cv_int_div] >>
   simp[wordsTheory.NUMERAL_LESS_THM] >>
-  Cases_on `a = 0 ∧ b = 0 ∨ gcd (Num a) b = 1` >> gvs[] >>
+  Cases_on `a = 0 /\ b = 0 \/ gcd (Num a) b = 1` >> gvs[] >>
   IF_CASES_TAC >> gvs[] >> simp[total_int_div_def] >> IF_CASES_TAC >> gvs[]
 QED
 
 Theorem from_rat_eq_cv_rat_norm_suff[local]:
-  r = rat_of_int n / &d ∧ d ≠ 0 ∧
-  from_int n = x ∧
+  r = rat_of_int n / &d /\ d <> 0 /\
+  from_int n = x /\
   Num d = y
-  ⇒ from_rat r = cv_rat_norm (Pair x y)
+  ==> from_rat r = cv_rat_norm (Pair x y)
 Proof
   rw[] >> simp[GSYM cv_rat_norm_div_gcd] >>
   pairarg_tac >> gvs[from_rat_def] >>
@@ -712,7 +712,7 @@ Proof
 QED
 
 Theorem cv_rat_div[cv_rep]:
-  r2 ≠ 0 ⇒ from_rat (r1 / r2) =
+  r2 <> 0 ==> from_rat (r1 / r2) =
             cv_rat_mul (from_rat r1) (cv_rat_reciprocal (from_rat r2))
 Proof
   simp[RAT_DIV_MULMINV, GSYM cv_rat_reciprocal, GSYM cv_rat_mul]
@@ -728,7 +728,7 @@ Theorem cv_rat_lt[cv_rep]:
   b2c (r1 < r2) = cv_rat_lt (from_rat r1) (from_rat r2)
 Proof
   rw[cv_rat_lt_def, from_rat_def] >>
-  `∀n. Num n = from_int (&n)` by simp[from_int_def] >>
+  `!n. Num n = from_int (&n)` by simp[from_int_def] >>
   simp[] >> pop_assum kall_tac >>
   simp[GSYM cv_int_mul, GSYM cv_int_lt] >> AP_TERM_TAC >>
   qspec_then `r1` mp_tac $ GEN_ALL RATN_RATD_EQ_THM >>
@@ -743,7 +743,7 @@ Proof
 QED
 
 Theorem cv_rat_le[cv_rep]:
-  b2c (r1 ≤ r2) = cv_if (cv_rat_lt (from_rat r2) (from_rat r1))
+  b2c (r1 <= r2) = cv_if (cv_rat_lt (from_rat r2) (from_rat r1))
                         (Num 0) (Num 1)
 Proof
   simp[GSYM RAT_LEQ_LES, GSYM cv_rat_lt] >> Cases_on `r2 < r1` >> gvs[]
@@ -756,7 +756,7 @@ Proof
 QED
 
 Theorem cv_rat_ge[cv_rep]:
-  b2c (r1 ≥ r2) = cv_if (cv_rat_lt (from_rat r1) (from_rat r2))
+  b2c (r1 >= r2) = cv_if (cv_rat_lt (from_rat r1) (from_rat r2))
                         (Num 0) (Num 1)
 Proof
   simp[rat_geq_def, GSYM RAT_LEQ_LES, GSYM cv_rat_lt] >>
@@ -768,7 +768,7 @@ QED
  *----------------------------------------------------------*)
 
 Theorem cv_chr_thm[cv_rep]:
-  n < 256 ⇒ from_char (CHR n) = Num n
+  n < 256 ==> from_char (CHR n) = Num n
 Proof
   gvs [from_char_def]
 QED
@@ -784,34 +784,34 @@ QED
  *----------------------------------------------------------*)
 
 Theorem cv_rep_if[cv_rep]:
-  cv_rep p1 c1 b2c b ∧
-  cv_rep p2 c2 f t ∧
-  cv_rep p3 c3 f e ⇒
-  cv_rep (p1 ∧ (b ⇒ p2) ∧ (~b ⇒ p3))
+  cv_rep p1 c1 b2c b /\
+  cv_rep p2 c2 f t /\
+  cv_rep p3 c3 f e ==>
+  cv_rep (p1 /\ (b ==> p2) /\ (~b ==> p3))
          (cv_if c1 c2 c3) f (if b then t else e)
 Proof
   fs [cv_rep_def] \\ rw [] \\ gvs []
 QED
 
 Theorem cv_rep_let[cv_rep]:
-  cv_rep p1 c1 (a:'a->cv) x ∧
-  (∀v. cv_rep (p2 v) (c2 (a v)) (b:'b->cv) (y v)) ⇒
-  cv_rep (p1 ∧ ∀v. v = x ⇒ p2 v) (LET c2 c1) b (LET y x)
+  cv_rep p1 c1 (a:'a->cv) x /\
+  (!v. cv_rep (p2 v) (c2 (a v)) (b:'b->cv) (y v)) ==>
+  cv_rep (p1 /\ !v. v = x ==> p2 v) (LET c2 c1) b (LET y x)
 Proof
   fs [cv_rep_def]
 QED
 
 Theorem cv_rep_arb[cv_rep]:
-  F ⇒ f ARB = Num 0
+  F ==> f ARB = Num 0
 Proof
   fs []
 QED
 
 Theorem cv_rep_eq[cv_rep]:
-  cv_rep p1 c1 f x ∧
-  cv_rep p2 c2 f y ∧
-  from_to f t ⇒
-  cv_rep (p1 ∧ p2) (cv_eq c1 c2) b2c (x = y)
+  cv_rep p1 c1 f x /\
+  cv_rep p2 c2 f y /\
+  from_to f t ==>
+  cv_rep (p1 /\ p2) (cv_eq c1 c2) b2c (x = y)
 Proof
   fs [cv_rep_def,cv_eq_def]
   \\ Cases_on ‘x = y’ \\ fs []
@@ -827,13 +827,13 @@ QED
  *----------------------------------------------------------*)
 
 Theorem bitify_APPEND[local]:
-  ∀l1 l2 a. bitify a (l1 ++ l2) = bitify (bitify a l1) l2
+  !l1 l2 a. bitify a (l1 ++ l2) = bitify (bitify a l1) l2
 Proof
   rw[bitify_reverse_map]
 QED
 
 Theorem v2n_APPEND[local]:
-  ∀a b. v2n (a ++ b) = v2n b + (2 ** LENGTH b * v2n a)
+  !a b. v2n (a ++ b) = v2n b + (2 ** LENGTH b * v2n a)
 Proof
   rw[v2n_def, bitify_APPEND] >>
   rw[bitify_reverse_map] >>
@@ -841,7 +841,7 @@ Proof
 QED
 
 Theorem v2n[local]:
-  v2n [] = 0 ∧
+  v2n [] = 0 /\
   v2n (b::bs) = if b then 2 ** LENGTH bs + v2n bs else v2n bs
 Proof
   rw[] >> once_rewrite_tac[CONS_APPEND]
@@ -850,8 +850,8 @@ Proof
 QED
 
 Theorem fixwidth_REPLICATE[local]:
-  ∀len l. fixwidth len l =
-    if LENGTH l ≤ len then REPLICATE (len - LENGTH l) F ++ l
+  !len l. fixwidth len l =
+    if LENGTH l <= len then REPLICATE (len - LENGTH l) F ++ l
     else DROP (LENGTH l - len) l
 Proof
   rw[fixwidth, GSYM pad_left_extend, PAD_LEFT] >> gvs[GSYM REPLICATE_GENLIST] >>
@@ -859,10 +859,10 @@ Proof
 QED
 
 Theorem cv_inline_word_ror[cv_inline]:
-  ∀r a. (a : α word) ⇄ r =
-    let d = dimindex (:α);
+  !r a. (a : 'a word) #>> r =
+    let d = dimindex (:'a);
         r = r MOD d
-    in a ≪ (d − r) ‖ a ⋙ r
+    in a << (d - r) || a >>> r
 Proof
   rw[] >> qspec_then `a` assume_tac ranged_bitstring_nchotomy >> gvs[] >>
   simp[word_ror_v2w, rotate_def] >> IF_CASES_TAC >> gvs[] >>
@@ -874,7 +874,7 @@ Proof
   `shiftr v 0 = v` by simp[shiftr_def] >> simp[fixwidth] >>
   simp[bor_def, bitwise_def, shiftl_def, shiftr_def, PAD_LEFT, PAD_RIGHT, MAX_DEF] >>
   simp[fixwidth_REPLICATE, GSYM MAP_DROP, GSYM ZIP_DROP, DROP_APPEND] >>
-  `dimindex (:α) − r' − dimindex (:α) = 0` by simp[] >> simp[] >>
+  `dimindex (:'a) - r' - dimindex (:'a) = 0` by simp[] >> simp[] >>
   rw[LIST_EQ_REWRITE, EL_DROP, EL_MAP, EL_ZIP, EL_APPEND_EQN, EL_REPLICATE] >> rw[]
 QED
 
@@ -897,7 +897,7 @@ QED
 Theorem cv_rep_word_w2w[cv_rep]:
   from_word ((w2w (w:'a word)) : 'b word)
   =
-  if dimindex (:'a) ≤ dimindex (:'b) then from_word w else
+  if dimindex (:'a) <= dimindex (:'b) then from_word w else
     cv_mod (from_word w) (Num (2 ** dimindex (:'b)))
 Proof
   fs [cv_rep_def] \\ rw []
@@ -909,7 +909,7 @@ QED
 
 Theorem cv_inline_word_sw2sw[cv_inline]:
  sw2sw (w : 'a word) =
-  let v = w in (if word_msb v then -1w ≪ dimindex (:'a) else 0w) + w2w v : 'b word
+  let v = w in (if word_msb v then -1w << dimindex (:'a) else 0w) + w2w v : 'b word
 Proof
   rw[sw2sw_w2w_add]
 QED
@@ -927,15 +927,15 @@ Proof
 QED
 
 Definition v2n_custom_def:
-  v2n_custom acc [] = acc ∧
-  v2n_custom acc (T::rest) = v2n_custom (2 * acc + 1n) rest ∧
+  v2n_custom acc [] = acc /\
+  v2n_custom acc (T::rest) = v2n_custom (2 * acc + 1n) rest /\
   v2n_custom acc (F::rest) = v2n_custom (2 * acc) rest
 End
 
 Theorem v2n_custom_thm:
   v2n_custom 0 = v2n
 Proof
-  qsuff_tac `∀acc l. v2n_custom acc l = v2n l + acc * (2 ** LENGTH l)`
+  qsuff_tac `!acc l. v2n_custom acc l = v2n l + acc * (2 ** LENGTH l)`
   >- rw[FUN_EQ_THM] >>
   recInduct v2n_custom_ind >> rw[v2n_custom_def, v2n] >>
   simp[RIGHT_ADD_DISTRIB, EXP]
@@ -1054,7 +1054,7 @@ Proof
   \\ simp [arithmeticTheory.DIV_DIV_DIV_MULT]
   \\ ‘n DIV (2 * 2 ** l) = 0’ by gvs [DIV_EQ_X,GSYM EXP]
   \\ asm_rewrite_tac [] \\ simp []
-  \\ drule (DECIDE “n < 2 ⇒ n = 0 ∨ n = 1:num”)
+  \\ drule (DECIDE “n < 2 ==> n = 0 \/ n = 1:num”)
   \\ strip_tac \\ gvs []
 QED
 
@@ -1080,8 +1080,8 @@ Proof
   \\ ‘0n < 2 ** dimindex (:'a)’ by gvs []
   \\ drule MOD_TIMES2
   \\ disch_then (fn th => once_rewrite_tac [GSYM th])
-  \\ qsuff_tac ‘2 ** n MOD 2 ** dimindex (:α) = 0’ \\ gvs []
-  \\ ‘dimindex (:'a) ≤ n’ by fs []
+  \\ qsuff_tac ‘2 ** n MOD 2 ** dimindex (:'a) = 0’ \\ gvs []
+  \\ ‘dimindex (:'a) <= n’ by fs []
   \\ gvs [LESS_EQ_EXISTS,EXP_ADD]
 QED
 
@@ -1095,11 +1095,11 @@ Proof
 QED
 
 Theorem word_asr_add[cv_inline]:
-  w ≫ n =
+  w >> n =
   let x = w in
   if word_msb (x :'a word) then
-    (dimindex (:'a) − 1 '' dimindex (:α) − n) UINT_MAXw + (x ⋙ n)
-  else x ⋙ n
+    (dimindex (:'a) - 1 '' dimindex (:'a) - n) UINT_MAXw + (x >>> n)
+  else x >>> n
 Proof
   simp []
   \\ dep_rewrite.DEP_REWRITE_TAC [WORD_ADD_OR]
@@ -1157,7 +1157,7 @@ Theorem cv_word_lt_thm[cv_rep]:
 Proof
   rewrite_tac [GSYM cv_rep_word_msb] \\ simp [Once EQ_SYM_EQ]
   \\ gvs [cv_word_lt_def]
-  \\ ‘∀b1 b2. (c2b (cv_eq (b2c b1) (b2c b2)) = (b1 = b2)) ∧ (c2b (b2c b1) = b1)’ by
+  \\ ‘!b1 b2. (c2b (cv_eq (b2c b1) (b2c b2)) = (b1 = b2)) /\ (c2b (b2c b1) = b1)’ by
     (Cases \\ Cases \\ gvs [])
   \\ simp [GSYM cv_word_lo_thm,GSYM cv_rep_not,wordsTheory.WORD_LT,WORD_LO]
   \\ rw [] \\ gvs []
@@ -1206,7 +1206,7 @@ Proof
   Cases_on `w` >> simp[word_bit_n2w] >>
   simp[GSYM cv_rep_exp, from_word_def] >>
   simp[bitTheory.BIT_DEF] >>
-  simp[LE_LT1] >> `dimindex (:'a) ≠ 0` by gvs[] >> simp[] >>
+  simp[LE_LT1] >> `dimindex (:'a) <> 0` by gvs[] >> simp[] >>
   Cases_on `b < dimindex (:'a)` >> gvs[]
   >- (
     simp[oneline b2c_def] >> rw[] >> gvs[] >>
@@ -1219,7 +1219,7 @@ Proof
 QED
 
 Triviality MIN_lemma:
-  l ≠ 0 ⇒ MIN k (l - 1) + 1 = MIN (k+1) l
+  l <> 0 ==> MIN k (l - 1) + 1 = MIN (k+1) l
 Proof
   rw [MIN_DEF] \\ gvs []
 QED
@@ -1253,7 +1253,7 @@ Theorem cv_word_slice_thm[cv_rep]:
     (cv_div (cv_mod (from_word w)
                    (cv_exp (Num 2) (cv_min (cv_add (Num h) (Num 1)) (Num (dimindex (:'a))))))
             (cv_exp (Num 2) (Num l)))
-     (Num (2 ** l))) (Num (dimword (:α)))
+     (Num (2 ** l))) (Num (dimword (:'a)))
 Proof
   rewrite_tac [GSYM cv_word_bits_thm,wordsTheory.WORD_SLICE_THM]
   \\ rewrite_tac [cv_rep_word_lsl,cv_exp_def] \\ fs []
@@ -1265,9 +1265,9 @@ Theorem cv_word_extract[cv_rep] =
   |> SIMP_CONV std_ss [word_extract_def,cv_rep_word_w2w,cv_word_bits_thm];
 
 Triviality word_join_add:
-  FINITE 𝕌(:'a) ∧ FINITE 𝕌(:'b) ⇒
+  FINITE univ(:'a) /\ FINITE univ(:'b) ==>
   word_join (v:'a word) (w:'b word) =
-  (w2w v ≪ dimindex (:β)) + w2w w
+  (w2w v << dimindex (:'b)) + w2w w
 Proof
   simp [word_join_def]
   \\ once_rewrite_tac [EQ_SYM_EQ] \\ rw []
@@ -1278,7 +1278,7 @@ Proof
 QED
 
 Theorem cv_word_join_thm[cv_rep]:
-  FINITE 𝕌(:'a) ∧ FINITE 𝕌(:'b) ⇒
+  FINITE univ(:'a) /\ FINITE univ(:'b) ==>
   from_word (word_join (w1:'a word) (w2:'b word))
   =
   cv_add (cv_mul (from_word w1) (cv_exp (Num 2) (Num (dimindex (:'b)))))
@@ -1288,17 +1288,17 @@ Proof
   \\ gvs [fcpTheory.index_sum]
   \\ gvs [from_word_def,cv_add_def,cv_mod_def,cv_mul_def,cv_exp_def]
   \\ gvs [GSYM dimword_def]
-  \\ ‘(dimword (:β) * w2n w1) < 2 ** (dimindex (:α) + dimindex (:β))’ by
+  \\ ‘(dimword (:'b) * w2n w1) < 2 ** (dimindex (:'a) + dimindex (:'b))’ by
    (once_rewrite_tac [ADD_COMM]
     \\ rewrite_tac [EXP_ADD,dimword_def,LT_MULT_LCANCEL]
     \\ simp [GSYM dimword_def,w2n_lt])
   \\ rpt strip_tac \\ gvs []
-  \\ qsuff_tac ‘(w2n w2 + dimword (:'b) * w2n w1) < dimword (:α + β)’ >- fs []
+  \\ qsuff_tac ‘(w2n w2 + dimword (:'b) * w2n w1) < dimword (:'a + 'b)’ >- fs []
   \\ simp [dimword_def] \\ gvs [fcpTheory.index_sum,EXP_ADD]
   \\ irule LESS_LESS_EQ_TRANS
   \\ rewrite_tac [GSYM dimword_def]
-  \\ qexists_tac ‘SUC (w2n w1) * dimword (:β)’
-  \\ gvs [LE_MULT_RCANCEL] \\ gvs [DECIDE “SUC n ≤ k ⇔ n < k”, w2n_lt]
+  \\ qexists_tac ‘SUC (w2n w1) * dimword (:'b)’
+  \\ gvs [LE_MULT_RCANCEL] \\ gvs [DECIDE “SUC n <= k <=> n < k”, w2n_lt]
   \\ gvs [MULT_CLAUSES,w2n_lt]
 QED
 
@@ -1374,7 +1374,7 @@ Definition cv_word_xor_def:
 End
 
 Theorem BITWISE_ADD:
-  ∀l k m n b.
+  !l k m n b.
     BITWISE (l + k) b m n =
     BITWISE l b m n +
     BITWISE k b (m DIV 2 ** l) (n DIV 2 ** l) * 2 ** l
@@ -1387,14 +1387,14 @@ Proof
   \\ simp_tac std_ss [arithmeticTheory.LEFT_ADD_DISTRIB]
   \\ simp_tac std_ss [AC arithmeticTheory.ADD_ASSOC arithmeticTheory.ADD_COMM]
   \\ simp_tac std_ss [AC arithmeticTheory.MULT_ASSOC arithmeticTheory.MULT_COMM]
-  \\ simp [DECIDE “m + n = n + k ⇔ m = k:num”]
+  \\ simp [DECIDE “m + n = n + k <=> m = k:num”]
   \\ simp_tac std_ss [Once arithmeticTheory.MULT_COMM]
   \\ rewrite_tac [GSYM bitTheory.SBIT_MULT]
   \\ rewrite_tac [GSYM bitTheory.BIT_SHIFT_THM4]
 QED
 
 Theorem BITWISE:
-  BITWISE 0 b m n = 0 ∧
+  BITWISE 0 b m n = 0 /\
   BITWISE (SUC k) b m n =
   (if b (ODD m) (ODD n) then 1 else 0) + 2 * BITWISE k b (m DIV 2) (n DIV 2)
 Proof
@@ -1404,8 +1404,8 @@ Proof
 QED
 
 Theorem cv_word_and_loop_thm:
-  ∀m n.
-    m ≤ n ∧ n < dimword (:'a) ⇒
+  !m n.
+    m <= n /\ n < dimword (:'a) ==>
     cv_word_and_loop (Num m) (Num n) = Num (w2n (n2w m && n2w n :'a word))
 Proof
   simp [wordsTheory.word_and_n2w,wordsTheory.dimword_def,bitTheory.BITWISE_LT_2EXP]
@@ -1414,7 +1414,7 @@ Proof
   \\ simp [Once cv_word_and_loop_def]
   \\ Cases_on ‘m = 0’ \\ fs [wordsTheory.WORD_AND_CLAUSES]
   >-
-   (qsuff_tac ‘∀l n. BITWISE l $/\ 0 n = 0’ >- fs []
+   (qsuff_tac ‘!l n. BITWISE l $/\ 0 n = 0’ >- fs []
     \\ Induct \\ fs [BITWISE])
   \\ gvs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
   \\ Cases_on ‘l’ \\ gvs []
@@ -1432,8 +1432,8 @@ Proof
 QED
 
 Theorem cv_word_or_loop_thm:
-  ∀m n.
-    m ≤ n ∧ n < dimword (:'a) ⇒
+  !m n.
+    m <= n /\ n < dimword (:'a) ==>
     cv_word_or_loop (Num m) (Num n) = Num (w2n (n2w m || n2w n :'a word))
 Proof
   simp [wordsTheory.word_or_n2w,wordsTheory.dimword_def,bitTheory.BITWISE_LT_2EXP]
@@ -1473,8 +1473,8 @@ Proof
 QED
 
 Theorem cv_word_xor_loop_thm:
-  ∀m n.
-    m ≤ n ∧ n < dimword (:'a) ⇒
+  !m n.
+    m <= n /\ n < dimword (:'a) ==>
     cv_word_xor_loop (Num m) (Num n) = Num (w2n (word_xor (n2w m) (n2w n) :'a word))
 Proof
   simp [wordsTheory.word_xor_n2w,wordsTheory.dimword_def,bitTheory.BITWISE_LT_2EXP]
@@ -1526,7 +1526,7 @@ Proof
   \\ Cases_on ‘w1’ \\ Cases_on ‘w2’ \\ gvs []
   \\ Cases_on ‘n < n'’ \\ gvs []
   >-
-   (‘n ≤ n'’ by fs [] \\ pop_assum mp_tac \\ pop_assum kall_tac \\ rw []
+   (‘n <= n'’ by fs [] \\ pop_assum mp_tac \\ pop_assum kall_tac \\ rw []
     \\ drule_all cv_word_and_loop_thm
     \\ strip_tac \\ gvs [])
   \\ gvs [arithmeticTheory.NOT_LESS]
@@ -1545,7 +1545,7 @@ Proof
   \\ Cases_on ‘w1’ \\ Cases_on ‘w2’ \\ gvs []
   \\ Cases_on ‘n < n'’ \\ gvs []
   >-
-   (‘n ≤ n'’ by fs [] \\ pop_assum mp_tac \\ pop_assum kall_tac \\ rw []
+   (‘n <= n'’ by fs [] \\ pop_assum mp_tac \\ pop_assum kall_tac \\ rw []
     \\ drule_all cv_word_or_loop_thm
     \\ strip_tac \\ gvs [])
   \\ gvs [arithmeticTheory.NOT_LESS]
@@ -1564,7 +1564,7 @@ Proof
   \\ Cases_on ‘w1’ \\ Cases_on ‘w2’ \\ gvs []
   \\ Cases_on ‘n < n'’ \\ gvs []
   >-
-   (‘n ≤ n'’ by fs [] \\ pop_assum mp_tac \\ pop_assum kall_tac \\ rw []
+   (‘n <= n'’ by fs [] \\ pop_assum mp_tac \\ pop_assum kall_tac \\ rw []
     \\ drule_all cv_word_xor_loop_thm
     \\ strip_tac \\ gvs [])
   \\ gvs [arithmeticTheory.NOT_LESS]
@@ -1574,11 +1574,11 @@ Proof
 QED
 
 Theorem cv_rep_word_not[cv_rep]:
-  from_word (¬ w :'a word)
+  from_word (~ w :'a word)
   =
   cv_word_xor (from_word w) (Num (2 ** dimindex (:'a) - 1))
 Proof
-  ‘¬w = w ⊕ UINT_MAXw’ by fs [WORD_XOR_CLAUSES]
+  ‘~w = w ?? UINT_MAXw’ by fs [WORD_XOR_CLAUSES]
   \\ asm_rewrite_tac [cv_rep_word_xor, cv_rep_word_uint_max]
 QED
 

@@ -95,7 +95,7 @@ Definition from_rat_def:
 End
 
 Definition to_rat_def:
-  to_rat (Num n) = rat$rat_of_num 0 ∧
+  to_rat (Num n) = rat$rat_of_num 0 /\
   to_rat (Pair x y) =
     rat$rat_div (rat$rat_of_int (to_int x)) (rat$rat_of_num (c2n y))
 End

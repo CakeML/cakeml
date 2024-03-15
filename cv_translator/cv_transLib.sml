@@ -404,7 +404,7 @@ fun print_pre_goal name pre_def =
         val goal = list_mk_forall (vs, lhs pre_tm)
       in goal end
     val goals = map (term_to_string o extract_pre_goal) pres
-    val conj_str = "∧"
+    val conj_str = "/\"
     val sep_str = ") " ^ conj_str ^ "\n  ("
     fun concat_goals [g] = "  " ^ g ^ "\n"
       | concat_goals gs = "  (" ^ String.concatWith sep_str gs ^ ")\n"
