@@ -153,9 +153,9 @@ End
   return NONE if it gives a contradiction
   otherwise return the updated assignment using units in (ls,n) *)
 Definition update_assg_def:
-  update_assg assg (ls,n) =
+  update_assg assg (ls,n) do_check =
     let (max,ls1) = rup_pass1 assg ls 0 [] in
-      if max < n then NONE else
+      if max < n ∧ do_check then NONE else
         rup_pass2 assg max ls1 n
 End
 
@@ -176,8 +176,8 @@ Definition check_rup_def:
   case get_rup_constraint b fml n nc of
     NONE => F
   | SOME c =>
-    case update_assg assg c of
-    | NONE       => NULL ns (* contradiction proved, make sure no more IDs in list *)
+    case update_assg assg c (NULL ns) of
+    | NONE       => T
     | SOME assg' => check_rup b nc fml assg' ns)
 End
 
@@ -471,7 +471,7 @@ Proof
 QED
 
 Theorem update_assg_NONE:
-  update_assg assg c = NONE ⇒
+  update_assg assg c flag = NONE ⇒
   ∀w. agree_assg assg w ⇒
     ¬ satisfies_npbc w c
 Proof
@@ -492,7 +492,7 @@ Proof
 QED
 
 Theorem update_assg_SOME:
-  update_assg assg c = SOME assg' ⇒
+  update_assg assg c flag = SOME assg' ⇒
   ∀w. agree_assg assg w ∧ satisfies_npbc w c ⇒
       agree_assg assg' w
 Proof
