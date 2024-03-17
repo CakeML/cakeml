@@ -93,6 +93,34 @@ Proof
   fs [itreeTauTheory.itree_bind_def]
 QED
 
+Theorem fbs_eval_clock_and_ffi_eq:
+  ∀s e k ffis.
+       eval s e = eval (s with <| clock := k; ffi := ffis |>) e
+Proof
+  recInduct panSemTheory.eval_ind >>
+  rw [panSemTheory.eval_def] >>
+  metis_tac [OPT_MMAP_cong]
+QED
+
+Theorem fbs_eval_clock_eq:
+  ∀s e k.
+  eval (s with clock := k) e = eval s e
+Proof
+  recInduct panSemTheory.eval_ind >>
+  rw [panSemTheory.eval_def] >>
+  metis_tac [OPT_MMAP_cong]
+QED
+
+Theorem opt_mmap_eval_clock_ffi_eq:
+  ∀s e k ffis.
+       OPT_MMAP (eval s) e = OPT_MMAP (eval (s with <| clock := k; ffi := ffis |>)) e
+Proof
+  rw [] >>
+  ho_match_mp_tac OPT_MMAP_cong >>
+  rw [fbs_eval_clock_and_ffi_eq]
+QED
+
+
 (*
 
 ltree is the monad of leaves of an mtree (essentially branches that contain only
@@ -433,37 +461,84 @@ End
 
 Definition fbs_semantics_beh_def:
   fbs_semantics_beh s prog =
-  if ∃k. case FST (panSem$evaluate (prog,s with clock := k)) of
-         | SOME TimeOut => F
-         | SOME (FinalFFI _) => F
-         | SOME (Return _) => F
-         | _ => T
-  then SemFail
-  else case some res.
-        ∃k t r. panSem$evaluate (prog,s with clock := k) = (r,t) ∧
-         res = SemTerminate (r,t) t.ffi.io_events
-       of
-       | SOME res => res
-       | NONE => SemDiverge (build_lprefix_lub
-                             (IMAGE (λk. fromList
-                                         (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
+  if ∃k. FST $ panSem$evaluate (prog,s with clock := k) ≠ SOME TimeOut
+  then (case some (r,s'). ∃k. evaluate (prog,s with clock := k) = (r,s') ∧ r ≠ SOME TimeOut of
+         SOME (r,s') => (case r of
+                           SOME (Return _) => SemTerminate (r,s') s'.ffi.io_events
+                         | SOME (FinalFFI _) => SemTerminate (r,s') s'.ffi.io_events
+                         | _ => SemFail)
+       | NONE => SemFail)
+  else SemDiverge (build_lprefix_lub
+                   (IMAGE (λk. fromList
+                               (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
 End
 
+(* XXX: This approach requires proof that stree_trace and ltree_lift are doing essentially the same thing
+ but for different purposes. *)
 Definition itree_semantics_beh_def:
   itree_semantics_beh s prog =
   let lt = ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,s))) in
-      if ltree_converges lt
-      then case some res. ∃r t. lt ≈ Ret (r,t) ∧ res = r of
-              | SOME TimeOut => SemTerminate (r,t) t.ffi.io_events
-              | SOME (FinalFFI _) => SemTerminate (r,t) t.ffi.io_events
-              | SOME (Return _) => SemTerminate (r,t) t.ffi.io_events
-              | _ => SemFail
-      else SemDiverge (stree_trace query_oracle s.ffi (to_stree (mrec_sem (h_prog (prog,s)))))
+      case some (r,s'). lt ≈ Ret (r,s') of
+      | SOME (r,s') => (case r of
+                      SOME TimeOut => SemTerminate (r,s') s'.ffi.io_events
+                    | SOME (FinalFFI _) => SemTerminate (r,s') s'.ffi.io_events
+                    | SOME (Return _) => SemTerminate (r,s') s'.ffi.io_events
+                    | _ => SemFail)
+      | NONE => SemDiverge (stree_trace query_oracle s.ffi (to_stree (mrec_sem (h_prog (prog,s)))))
 End
 
-Theorem itree_semantics_corres:
-  semantics s prog
+Theorem itree_sem_div_compos_thm:
+  itree_semantics_beh (s with locals := s.locals |+ (v,x)) prog = SemDiverge l ⇒
+  itree_semantics_beh s (Dec v e prog) = SemDiverge l
 Proof
+  cheat
+QED
+
+Theorem fbs_sem_div_compos_thm:
+  ∀prog. fbs_semantics_beh s (Dec v e prog) = SemDiverge l ⇒
+  fbs_semantics_beh (s with locals := s.locals |+ (v,x)) prog = SemDiverge l
+Proof
+  rw [fbs_semantics_beh_def] >>
+  gvs [AllCaseEqs()]
+  >- (last_x_assum kall_tac >>
+      last_x_assum (assume_tac o SIMPLE_EXISTS “prog:'a panLang$prog”) >>
+      last_x_assum (assume_tac o SIMPLE_EXISTS “k:num”) >>
+      UNDISCH_TAC “∃k prog. FST (evaluate (prog,s with <|locals := s.locals |+ (v,x); clock := k|>)) ≠ SOME TimeOut” >>
+      simp [] >>
+QED
+
+Theorem itree_semantics_corres:
+  fbs_semantics_beh s prog = itree_semantics_beh s prog
+Proof
+  Cases_on ‘fbs_semantics_beh s prog’
+  (* Divergence *)
+  >- (UNDISCH_TAC “fbs_semantics_beh s prog = SemDiverge l” >>
+      qid_spec_tac ‘s’ >>
+      qid_spec_tac ‘prog’ >>
+      recInduct panSemTheory.evaluate_ind >>
+      rw []
+      (* Skip *)
+      >- (fs [fbs_semantics_beh_def] >>
+          fs [panSemTheory.evaluate_def])
+      (* Dec *)
+      >- (Cases_on ‘eval s e’
+          >- (rw [] >>
+              ‘FST $ evaluate (Dec v e prog,s) = SOME Error’ by (rw [panSemTheory.evaluate_def]) >>
+              fs [fbs_semantics_beh_def] >>
+              drule fbs_sem_clock_ext_thm >>
+              disch_tac >>
+              gs [] >>
+              fs [fbs_semantics_beh_def])
+          >- (gvs [] >>
+              drule fbs_sem_div_compos_thm >>
+              disch_tac >>
+              gs [] >>
+              (* Because the assums and goal are being reversed *)
+              ‘itree_semantics_beh s (Dec v e prog) = SemDiverge l’ suffices_by (rw []) >>
+              last_assum (assume_tac o GSYM) >> gvs [] >>
+              drule itree_sem_div_compos_thm >>
+              disch_tac >>
+              gvs []))
 QED
 
 
@@ -616,23 +691,6 @@ CoInductive ioe_trace_bisim:
    ioe_trace_bisim ffis l1 l2)
 End
 
-Theorem fbs_eval_clock_and_ffi_eq:
-  ∀s e k ffis.
-       eval s e = eval (s with <| clock := k; ffi := ffis |>) e
-Proof
-  recInduct panSemTheory.eval_ind >>
-  rw [panSemTheory.eval_def] >>
-  metis_tac [OPT_MMAP_cong]
-QED
-
-Theorem opt_mmap_eval_clock_ffi_eq:
-  ∀s e k ffis.
-       OPT_MMAP (eval s) e = OPT_MMAP (eval (s with <| clock := k; ffi := ffis |>)) e
-Proof
-  rw [] >>
-  ho_match_mp_tac OPT_MMAP_cong >>
-  rw [fbs_eval_clock_and_ffi_eq]
-QED
 
 (* NB the choice of state (s) is irrelevant in the itree semantics and is
  provided only for allowing generalisation over every possible Pancake program
