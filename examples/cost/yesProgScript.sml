@@ -47,7 +47,7 @@ in
   val yes = (rhs o concl o EVAL) ``^prog ++ ^maincall``
 end
 
-Theorem yes_prog_def = mk_abbrev "yes_prog" yes;
+Theorem yes_prog_def[allow_rebind] = mk_abbrev "yes_prog" yes;
 
 (* A small IO model *)
 open cfDivTheory;
@@ -55,7 +55,7 @@ open cfDivTheory;
 val names_def = Define `names = ["put_char"]`;
 
 val put_char_event_def = Define `
-  put_char_event c = IO_event "put_char" [n2w (ORD c)] []`;
+  put_char_event c = IO_event (ExtCall "put_char") [n2w (ORD c)] []`;
 
 val put_str_event_def = Define `
   put_str_event cs = IO_event "put_char" (MAP (n2w o ORD) (explode cs)) []`;

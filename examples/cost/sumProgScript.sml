@@ -48,7 +48,7 @@ in
   val sum = (rhs o concl o EVAL) ``^prog ++ ^maincall``
 end
 
-Theorem sum_prog_def = mk_abbrev "sum_prog" sum;
+Theorem sum_prog_def[allow_rebind] = mk_abbrev "sum_prog" sum;
 
 val _ = intermediate_prog_prefix := "sum_";
 Theorem sum_thm = compile_x64 "sum" (REFL sum);

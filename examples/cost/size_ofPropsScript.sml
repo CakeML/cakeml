@@ -37,7 +37,7 @@ QED
 
 Theorem delete_delete:
   ∀f n k.
-    delete n (delete k f) =
+    sptree$delete n (delete k f) =
     if n = k then delete n f else delete k (delete n f)
 Proof
   Induct \\ fs [delete_def]
@@ -190,7 +190,7 @@ QED
 Theorem size_of_refs_pres:
   ∀x1 lims xs refs1 seen1 n refs2 seen2.
     size_of lims xs refs1 seen1 = (n,refs2,seen2) ∧
-    lookup x1 refs1 = NONE ⇒
+    sptree$lookup x1 refs1 = NONE ⇒
     lookup x1 refs2 = NONE
 Proof
   gen_tac \\ ho_match_mp_tac size_of_ind \\ fs [size_of_def] \\ rw []
@@ -297,7 +297,7 @@ QED
 
 Definition refs_in_def:
   refs_in refs bs ⇔
-    ∀n vals. lookup n refs = SOME (ValueArray vals) ⇒
+    ∀n vals. sptree$lookup n refs = SOME (ValueArray vals) ⇒
              set (all_blocks vals) SUBSET set bs
 End
 

@@ -388,7 +388,7 @@ Proof
   every_case_tac >> fs[]
 QED
 
-Theorem cyes_prog_def = mk_abbrev "cyes_prog" cyes;
+Theorem cyes_prog_def[allow_rebind] = mk_abbrev "cyes_prog" cyes;
 
 (* TODO: this proof is slow and also an abomination. We should really make proper
    whole_prog_thm automation for Diverge.

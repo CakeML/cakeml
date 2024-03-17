@@ -41,7 +41,7 @@ in
   val all = (rhs o concl o EVAL) ``^prog ++ ^maincall``
 end
 
-Theorem all_prog_def = mk_abbrev "all_prog" all;
+Theorem all_prog_def[allow_rebind] = mk_abbrev "all_prog" all;
 
 val _ = intermediate_prog_prefix := "all_";
 Theorem all_thm = compile_x64 "all" (REFL all);

@@ -40,7 +40,7 @@ in
   val reverse = (rhs o concl o EVAL) ``^prog ++ ^maincall``
 end
 
-Theorem reverse_prog_def = mk_abbrev "reverse_prog" reverse;
+Theorem reverse_prog_def[allow_rebind] = mk_abbrev "reverse_prog" reverse;
 
 val _ = intermediate_prog_prefix := "reverse_";
 Theorem reverse_thm = compile_x64 "reverse" (REFL reverse);
