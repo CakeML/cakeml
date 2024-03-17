@@ -12822,7 +12822,8 @@ Proof
 QED
 
 Theorem assign_FFI:
-   (?n. op = FFI n) ==> ^assign_thm_goal
+   (?n. op = FFI n) ==>
+   ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
@@ -13717,7 +13718,7 @@ Proof[exclude_simps = EXP_LE_LOG_SIMP EXP_LT_LOG_SIMP LE_EXP_LOG_SIMP
 QED
 
 Theorem assign_thm:
-   ^assign_thm_goal
+  ^assign_thm_goal
 Proof
   Cases_on `op = AllocGlobal` \\ fs []
   THEN1 (fs [do_app] \\ every_case_tac \\ fs [])

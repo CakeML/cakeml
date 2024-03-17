@@ -159,6 +159,27 @@ val wInst_def = Define `
   (wInst (FP f) kf = Inst (FP f)) /\ (*pass through the ones that don't use int registers *)
   (wInst _ kf = Inst Skip)`
 
+Definition wShareInst_def:
+  (wShareInst Load v (Addr ad offset) kf =
+    let (l,n2) = wReg1 ad kf in
+    wStackLoad l
+      (wRegWrite1 (\r. ShMemOp Load r (Addr n2 offset)) v kf)) /\
+  (wShareInst Load8 v (Addr ad offset) kf =
+    let (l,n2) = wReg1 ad kf in
+    wStackLoad l
+      (wRegWrite1 (\r. ShMemOp Load8 r (Addr n2 offset)) v kf)) /\
+  (wShareInst Store v (Addr ad offset) kf =
+    let (l1,n2) = wReg1 ad kf in
+    let (l2,n1) = wReg2 v kf in
+    wStackLoad (l1 ++ l2)
+      (ShMemOp Store n1 (Addr n2 offset))) /\
+  (wShareInst Store8 v (Addr ad offset) kf =
+    let (l1,n2) = wReg1 ad kf in
+    let (l2,n1) = wReg2 v kf in
+    wStackLoad (l1 ++ l2)
+      (ShMemOp Store8 n1 (Addr n2 offset)))
+End
+
 val bits_to_word_def = Define `
   (bits_to_word [] = 0w) /\
   (bits_to_word (T::xs) = (bits_to_word xs << 1 || 1w)) /\
@@ -340,6 +361,10 @@ val comp_def = Define `
       (wStackLoad (l1++l2) (DataBufferWrite r1 r2),bs)) /\
   (comp (FFI i r1 r2 r3 r4 live) bs kf = (FFI i (r1 DIV 2) (r2 DIV 2)
                                                 (r3 DIV 2) (r4 DIV 2) 0,bs)) /\
+  (comp (ShareInst op v exp) bs kf =
+   (case exp_to_addr exp of
+      NONE => (Skip, bs)
+    | SOME addr => wShareInst op v addr kf,bs)) /\
   (comp _ bs kf = (Skip,bs) (* impossible *))`
 
 Definition raise_stub_def:

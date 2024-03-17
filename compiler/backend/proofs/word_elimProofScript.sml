@@ -374,6 +374,7 @@ val word_state_rel_def = Define `
         s.stack          = t.stack ∧
         s.memory         = t.memory ∧
         s.mdomain        = t.mdomain ∧
+        s.sh_mdomain     = t.sh_mdomain ∧
         s.permute        = t.permute ∧
         s.compile        = t.compile ∧
         s.compile_oracle = t.compile_oracle ∧
@@ -1230,6 +1231,21 @@ Proof
                 >> `no_install p1` by
                         metis_tac[no_install_find_code] >> fs[]
         )
+    >- ( (* ShareInst *)
+      gvs[wordSemTheory.evaluate_def,AllCaseEqs(),
+        DefnBase.one_line_ify NONE share_inst_def,
+        sh_mem_load_def,sh_mem_load_byte_def,
+        sh_mem_store_def,sh_mem_store_byte_def,
+        DefnBase.one_line_ify NONE sh_mem_set_var_def] >>
+      rw[set_var_def,dest_result_loc_def,flush_state_def] >>
+      drule_then assume_tac word_state_rel_word_exp >>
+      gvs[word_state_rel_def,domain_find_loc_state] >>
+      gvs[domain_find_loc_state,domain_get_locals_lookup,
+        SUBSET_DEF] >>
+      rpt strip_tac >>
+      gvs[domain_lookup,lookup_insert,
+        PULL_EXISTS,AllCaseEqs(),get_stack_def,get_var_def] >>
+      first_x_assum $ drule_then irule )
     >- ( (* FFI *)
         simp[wordSemTheory.evaluate_def] >> fs[get_var_def] >>
         Cases_on `lookup len1 s.locals` >> fs[] >>

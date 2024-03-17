@@ -246,6 +246,13 @@ Definition compile_def:
          $ Dec (n+4) lc'
          $ crepLang$ExtCall f (n+1) (n+2) (n+3) (n+4)
      | _ => Skip) /\
+  (compile ctxt (ShMem op r ad) =
+   (case compile_exp ctxt ad of
+      (a::_, _) =>
+        (case FLOOKUP ctxt.vars r of
+           SOME (_, r'::_) => ShMem op r' a
+         | _ => Skip)
+    | _ => Skip)) ∧
   (compile ctxt Tick = Tick)
 End
 

@@ -68,6 +68,7 @@ Datatype:
          (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
        | Raise eid ('a exp)
        | Return ('a exp)
+       | ShMem memop varname ('a exp)
        | Tick;
 End
 

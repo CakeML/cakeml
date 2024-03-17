@@ -5,6 +5,12 @@ open preamble loopLangTheory
 
 val _ = new_theory "loop_call"
 
+Definition is_load_def:
+  (is_load Load = T) ∧
+  (is_load Load8 = T) ∧
+  (is_load _ = F)
+End
+
 Definition comp_def:
   (comp l Skip = (Skip, l)) /\
   (comp l (Call ret dest args handler) =
@@ -27,6 +33,7 @@ Definition comp_def:
                           case lookup n l of
                            | NONE => l
                            | _ => delete n l)) /\
+  (comp l (ShMem op n e) = (ShMem op n e, LN)) /\
   (comp l (LoadByte m n) = (LoadByte m n,
                             case lookup n l of
                              | NONE => l

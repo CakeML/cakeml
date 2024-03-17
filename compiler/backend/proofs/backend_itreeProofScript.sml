@@ -599,7 +599,7 @@ Theorem itree_compile_correct:
   compile c prog = SOME (bytes,bitmaps,c') ∧
   backend_config_ok c ∧ mc_conf_ok mc ∧ mc_init_ok c mc ∧
   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
-    (heap_regs c.stack_conf.reg_names) mc ms
+    (heap_regs c.stack_conf.reg_names) mc c'.lab_conf.shmem_extra ms
   ⇒ prune (inr P) F (itree_semantics prog) (machine_sem_itree (mc,ms))
 Proof
   rw[] >>

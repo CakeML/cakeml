@@ -47,7 +47,8 @@ val installed_x64_def = Define `
         code cbspace
         data data_sp
         cfg.lab_conf.ffi_names
-        (heap_regs x64_backend_config.stack_conf.reg_names) mc ms
+        (heap_regs x64_backend_config.stack_conf.reg_names) mc
+        cfg.lab_conf.shmem_extra ms
     `;
 
 val cake_pb_mcis_code_def = Define `
