@@ -18,7 +18,7 @@ open riscv_configTheory export_riscvTheory
 open mips_configTheory export_mipsTheory
 open arm7_configTheory export_arm7Theory
 open ag32_configTheory export_ag32Theory
-open panPtreeConversionTheory pan_to_targetTheory
+open panPtreeConversionTheory pan_to_targetTheory panScopeTheory
 
 val _ = new_theory"compiler";
 
@@ -171,6 +171,7 @@ Datatype:
                 | TypeError mlstring
                 | AssembleError
                 | ConfigError mlstring
+                | ScopeError mlstring mlstring
 End
 
 Definition find_next_newline_def:
@@ -277,10 +278,13 @@ Definition compile_pancake_def:
   case panPtreeConversion$parse_funs_to_ast input of
   | NONE => Failure (ParseError (strlit "Failed pancake parsing"))
   | SOME funs =>
-      let _ = empty_ffi (strlit "finished: lexing and parsing") in
-      case pan_to_target$compile_prog c funs of
-      | NONE => (Failure AssembleError)
-      | SOME (bytes,data,c) => (Success (bytes,data,c))
+      case scope_check funs of
+      | SOME (x, fname) => (Failure (ScopeError x fname))
+      | NONE =>
+          let _ = empty_ffi (strlit "finished: lexing and parsing") in
+          case pan_to_target$compile_prog c funs of
+          | NONE => (Failure AssembleError)
+          | SOME (bytes,data,c) => (Success (bytes,data,c))
 End
 
 (* The top-level compiler *)
@@ -294,7 +298,9 @@ val error_to_str_def = Define`
        concat [strlit "### ERROR: type error\n"; s; strlit "\n"]
      else s) /\
   (error_to_str (ConfigError s) = concat [strlit "### ERROR: config error\n"; s; strlit "\n"]) /\
-  (error_to_str AssembleError = strlit "### ERROR: assembly error\n")`;
+  (error_to_str AssembleError = strlit "### ERROR: assembly error\n") /\
+  (error_to_str (ScopeError name fname) =
+    concat [strlit "### ERROR: scope error\n"; name; strlit " is not in scope in "; fname; strlit "\n"])`;
 
 val is_error_msg_def = Define `
   is_error_msg x = mlstring$isPrefix (strlit "###") x`;
