@@ -17,8 +17,9 @@ Definition compile_prog_def:
                 | (xs,[]) => («main»,F,[],Return (Const 0w))::xs
                 | (xs,y::ys) => y::xs ++ ys in
     (* Prevent exported main functions *)
-    if FST $ SND $ HD prog0 then NONE
-    else
+    case prog0 of
+      ((_,T,_,_)::xs) => NONE
+    | _ =>
       (* Remove exported information from func list for compiler passes *)
       let prog1 = MAP (\(n,e,p,b). (n,p,b)) prog0 in
       (* Compiler passes *)
