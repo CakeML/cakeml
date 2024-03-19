@@ -1,6 +1,7 @@
 (**
  * Pancake concrete syntax examples
  * 9th May 2023: Updated with function declarations
+ * March 2024: Updated with shared memory instructions
  *)
 open HolKernel Parse boolLib bossLib stringLib numLib intLib;
 open preamble panPtreeConversionTheory;
