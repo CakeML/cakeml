@@ -17,9 +17,9 @@ In addition, the first address on the heap should store the address of cake_bitm
 
 Note: this set up does NOT account for restoring clobbered registers
 *)
-val startup =
-  ``(MAP (\n. strlit(n ++ "\n"))
-      ["#### Start up code";
+val startup' =
+  ``λret. (MAP (\n. strlit(n ++ "\n"))
+      (["#### Start up code";
        "";
        "     .text";
        "     .p2align 3";
@@ -34,9 +34,22 @@ val startup =
        "     la      t3,cake_bitmaps";
        "     sd      t3, 0(a1)              # store bitmap pointer";
        "     ld      a2,cdecl(cml_stack)    # arg3: first address of stack";
-       "     ld      a3,cdecl(cml_stackend) # arg4: first address past the stack";
-       "     j       cake_main";
-       ""])`` |> EVAL |> concl |> rand
+       "     ld      a3,cdecl(cml_stackend) # arg4: first address past the stack"] ++
+       (if ret then
+         ["     addi    sp, sp, -24";
+          "     sd      ra, 16(sp)";
+          "     sd      s9, 8(sp)";
+          "     sd      s8, 0(sp)"]
+       else []) ++
+      ["     j       cake_main";
+       ""]))``
+
+val (startup_true, startup_false) =
+    (``^startup' T`` |> EVAL |> concl |> rand,
+     ``^startup' F`` |> EVAL |> concl |> rand);
+
+val startup =
+  ``λret. if ret then ^startup_true else ^startup_false``;
 
 val ffi_asm_def = Define `
   (ffi_asm [] = Nil) /\
@@ -47,8 +60,8 @@ val ffi_asm_def = Define `
        strlit"     .p2align 4\n";
        strlit"\n"]) (ffi_asm ffis))`
 
-val ffi_code =
-  ``SmartAppend
+val ffi_code' =
+  ``λret. SmartAppend
     (List (MAP (\n. strlit(n ++ "\n"))
      ["#### CakeML FFI interface (each block is 16 bytes long)";
        "";
@@ -62,13 +75,80 @@ val ffi_code =
        "     .p2align 4";
        "";
        "cake_exit:";
-       "     tail cdecl(cml_exit)";
+       (if ret then
+         "     j    cake_return"
+       else
+        "     tail cdecl(cml_exit)");
        "     .p2align 4";
        "";
        "cake_main:";
        "";
        "#### Generated machine code follows";
-       ""])))`` |> EVAL |> concl |> rand
+       ""])))``
+
+val (ffi_code_true,ffi_code_false) =
+    (``^ffi_code' T`` |> EVAL |> concl |> rand,
+     ``^ffi_code' F`` |> EVAL |> concl |> rand);
+
+val ffi_code =
+  ``λret. if ret then ^ffi_code_true else ^ffi_code_false``;
+
+val entry_point_code =
+  ``(List (MAP (\n. strlit(n ++ "\n"))
+    [""; "";
+     "cake_enter:";
+     "     addi    sp, sp, -24";
+     "     sd      ra, 16(sp)";
+     "     sd      s9, 8(sp)";
+     "     sd      s8, 0(sp)";
+     "     la      t1, cdecl(ret_stack)";
+     "     ld      s8, 0(t1)";
+     "     beq     s8, zero, cake_err3";
+     "     sd      zero, 0(t1)";
+     "     la      t1, cdecl(ret_base)";
+     "     ld      s9, 0(t1)";
+     "     beq     s9, zero, cake_err3";
+     "     sd      zero, 0(t1)";
+     "     la      ra, cake_return";
+     "     jr      t0";
+     "     .p2align 4";
+     "";
+     "";
+     "cake_ret:";
+     "cake_return:";
+     "     la      t1, cdecl(ret_stack)";
+     "     sd      s8, 0(t1)";
+     "     la      t1, cdecl(ret_base)";
+     "     sd      s9, 0(t1)";
+     "     ld      s8, 0(sp)";
+     "     ld      s9, 8(sp)";
+     "     ld      ra, 16(sp)";
+     "     addi    sp, sp, 24";
+     "     ret";
+     "     .p2align 4";
+     "";
+     "";
+     "cake_err3:";
+     "     li      a0, 3";
+     "     j       cdecl(cml_err)";
+     "     .p2align 4";
+     ""]))`` |> EVAL |> concl |> rand;
+
+val export_func_def = Define `
+  export_func appl (name,label,start,len) =
+    SmartAppend appl (List
+    [strlit"\n     .globl  cdecl("; name; strlit")\n";
+     strlit"     .type   "; name; strlit", function\n";
+     strlit"cdecl("; name; strlit"):\n";
+     strlit"     la      t0, "; name; strlit"_jmp\n";
+     strlit"     j       cake_enter\n";
+            name; strlit"_jmp:\n";
+     strlit"     j       cdecl("; label; strlit")\n"
+    ])`;
+
+val export_funcs_def = Define `
+  export_funcs lsyms exp =
+    FOLDL export_func misc$Nil (FILTER ((flip MEM exp) o FST) lsyms)`;
 
 val riscv_export_def = Define `
   riscv_export ffi_names bytes (data:word64 list) syms exp ret =
@@ -78,9 +158,12 @@ val riscv_export_def = Define `
       (SmartAppend (List (data_section ".quad" ret))
       (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
       (SmartAppend (List data_buffer)
-      (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code)))))
+      (SmartAppend (List ((strlit"\n")::(^startup ret))) (^ffi_code ret))))))
       (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
       (SmartAppend (List code_buffer)
-      (emit_symbols lsyms)))`;
+      (SmartAppend (emit_symbols lsyms)
+      (if ret then
+        (SmartAppend ^entry_point_code (export_funcs lsyms exp))
+      else List []))))`;
 
 val _ = export_theory ();

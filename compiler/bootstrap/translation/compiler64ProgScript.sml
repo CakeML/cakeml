@@ -250,6 +250,8 @@ val res = translate
 (* riscv *)
 val res = translate riscv_configTheory.riscv_names_def;
 val res = translate export_riscvTheory.ffi_asm_def;
+val res = translate export_riscvTheory.export_func_def;
+val res = translate export_riscvTheory.export_funcs_def;
 val res = translate export_riscvTheory.riscv_export_def;
 val res = translate
           (riscv_configTheory.riscv_backend_config_def
