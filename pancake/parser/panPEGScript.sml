@@ -1,6 +1,6 @@
 (**
  * The beginnings of a PEG parser for the Pancake language.
- *)
+n *)
 
 (*
  * We take significant inspiration from the Spark ADA development.
@@ -277,11 +277,11 @@ val pancake_peg_nt_thm =
       |> SIMP_RULE (srw_ss()) [FDOM_pancake_peg]
       |> Q.GEN `n`;
 
-fun mk_rule_app n =
+fun mk_rule_app peg n =
   SIMP_CONV (srw_ss())
             [pancake_peg_def, finite_mapTheory.FUPDATE_LIST_THM,
              finite_mapTheory.FAPPLY_FUPDATE_THM]
-            “pancake_peg.rules ' ^n”
+            “(^peg).rules ' ^n”
 
 val pancakeNTs =
   let
@@ -291,7 +291,14 @@ val pancakeNTs =
   end
 
 val pancake_peg_applied = let
-  val ths = map mk_rule_app pancakeNTs
+  val ths = map (mk_rule_app “pancake_peg”) pancakeNTs
+in
+  save_thm("pancake_peg_applied", LIST_CONJ ths);
+  ths
+end
+
+val pancake_peg_applied' = let
+  val ths = map (mk_rule_app “pancake_peg with start := mknt FunNT”) pancakeNTs
 in
   save_thm("pancake_peg_applied", LIST_CONJ ths);
   ths
@@ -372,11 +379,36 @@ val wfpeg_rwts = wfpeg_cases
                                         keep_int_def, keep_nat_def,
                                         keep_ident_def, pegf_def])))
 
+val wfpeg_rwts' = wfpeg_cases
+                   |> ISPEC “pancake_peg with start := mknt FunNT”
+                   |> (fn th => map (fn t => Q.SPEC t th)
+                                    [‘seq e1 e2 f’, ‘choice e1 e2 f’,
+                                     ‘tok P f’, ‘any f’, ‘empty v’,
+                                     ‘not e v’, ‘rpt e f’, ‘choicel []’,
+                                     ‘choicel (h::t)’, ‘keep_tok t’,
+                                     ‘consume_tok t’, ‘keep_kw k’,
+                                     ‘consume_kw k’, ‘keep_int’,
+                                     ‘keep_nat’, ‘keep_ident’,
+                                     ‘pegf e f’])
+                   |> map (CONV_RULE
+                           (RAND_CONV (SIMP_CONV (srw_ss())
+                                       [choicel_def, seql_def,
+                                        keep_tok_def, consume_tok_def,
+                                        keep_kw_def, consume_kw_def,
+                                        keep_int_def, keep_nat_def,
+                                        keep_ident_def, pegf_def, peg_accfupds])))
+
 val wfpeg_mknt = wfpeg_cases
                   |> ISPEC “pancake_peg”
                   |> Q.SPEC ‘mknt n’
                   |> CONV_RULE (RAND_CONV
                                 (SIMP_CONV (srw_ss()) [mknt_def]))
+
+val wfpeg_mknt' = wfpeg_cases
+                  |> ISPEC “pancake_peg with start := mknt FunNT”
+                  |> Q.SPEC ‘mknt n’
+                  |> CONV_RULE (RAND_CONV
+                                (SIMP_CONV (srw_ss()) [mknt_def,peg_accfupds]))
 
 val peg0_rwts = peg0_cases
                   |> ISPEC “pancake_peg” |> CONJUNCTS
@@ -392,6 +424,21 @@ val peg0_rwts = peg0_cases
                                                   [keep_tok_def, consume_tok_def,
                                                    keep_kw_def, consume_kw_def])))
 
+val peg1_rwts = peg0_cases
+                  |> ISPEC “pancake_peg with start := mknt FunNT” |> CONJUNCTS
+                  |> map (fn th => map (fn t => Q.SPEC t th)
+                                       [‘tok P f’, ‘choice e1 e2 f’,
+                                        ‘seq e1 e2 f’, ‘keep_tok t’,
+                                        ‘consume_tok t’, ‘keep_kw k’,
+                                        ‘consume_kw k’, ‘empty v’,
+                                        ‘not e v’, ‘rpt e f’])
+                  |> List.concat
+                  |> map (CONV_RULE
+                            (RAND_CONV (SIMP_CONV (srw_ss())
+                                                  [keep_tok_def, consume_tok_def,
+                                                   keep_kw_def, consume_kw_def,
+                                                   peg_accfupds])))
+
 val pegfail_t = ``pegfail``
 val peg0_rwts = let
   fun filterthis th = let
@@ -405,12 +452,31 @@ in
   List.filter filterthis peg0_rwts
 end
 
+val peg1_rwts = let
+  fun filterthis th = let
+    val c = concl th
+    val (l,r) = dest_eq c
+    val (f,_) = strip_comb l
+  in
+    not (same_const pegfail_t f) orelse is_const r
+  end
+in
+  List.filter filterthis peg1_rwts
+end
+
 val pegnt_case_ths =
   peg0_cases
     |> ISPEC “pancake_peg”
     |> CONJUNCTS
     |> map (Q.SPEC ‘mknt n’)
     |> map (CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [mknt_def])))
+
+val pegnt_case_ths' =
+  peg0_cases
+    |> ISPEC “pancake_peg with start := mknt FunNT”
+    |> CONJUNCTS
+    |> map (Q.SPEC ‘mknt n’)
+    |> map (CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [mknt_def,peg_accfupds])))
 
 Theorem peg0_pegf[simp]:
   peg0 G (pegf s f) = peg0 G s
@@ -475,14 +541,15 @@ Proof
   simp[choicel_def]
 QED
 
-fun pegnt(t,acc) = let
+fun pegnt pref peg (t,acc) = let
   val th =
-      Q.prove(‘¬peg0 pancake_peg (mknt ^t)’,
-            simp pegnt_case_ths >>
-            simp pancake_peg_applied >>
+      Q.prove(‘¬peg0 ^peg (mknt ^t)’,
+            simp $ pegnt_case_ths @ pegnt_case_ths'>>
+            simp $ pancake_peg_applied @ map (PURE_REWRITE_RULE [mknt_def]) pancake_peg_applied' >>
             simp[FDOM_pancake_peg] >>
-            simp(peg0_rwts @ acc))
-  val nm = "peg0_" ^ term_to_string t
+            simp(peg0_rwts @ peg1_rwts @ acc) >>
+            simp(mknt_def::peg1_rwts @ map (PURE_REWRITE_RULE [mknt_def]) acc))
+  val nm = pref ^ term_to_string t
   val th' = save_thm(nm, SIMP_RULE bool_ss [mknt_def] th)
   val _ = export_rewrites [nm]
 in
@@ -506,18 +573,29 @@ val topo_nts = [“MulOpsNT”, “AddOpsNT”, “ShiftOpsNT”, “CmpOpsNT”
 
 (** All non-terminals except the top-level
   * program nonterminal always consume input. *)
-val npeg0_rwts = List.foldl pegnt [] topo_nts
+val npeg0_rwts = List.foldl (pegnt "peg0_" “pancake_peg”) [] topo_nts
 
-fun wfnt(t,acc) = let
+val npeg1_rwts = List.foldl (pegnt "peg1_" “pancake_peg with start := mknt FunNT”) [] topo_nts
+
+fun wfnt tm (t,acc) = let
+  val _ = goal := ‘wfpeg ^tm (mknt ^t)’
+  val _ = ac := acc
   val th =
-    Q.prove(‘wfpeg pancake_peg (mknt ^t)’,
+    Q.prove(‘wfpeg ^tm (mknt ^t)’,
           SIMP_TAC (srw_ss())
                    (pancake_peg_applied @
-                    [wfpeg_mknt, FDOM_pancake_peg, try_def,
+                    [wfpeg_mknt, wfpeg_mknt',
+                     REWRITE_RULE [mknt_def] wfpeg_mknt',
+                     FDOM_pancake_peg, try_def,
                      seql_def, keep_tok_def, consume_tok_def,
                      keep_kw_def, consume_kw_def, keep_int_def,
-                     keep_nat_def, keep_ident_def]) THEN
-          simp(wfpeg_rwts @ npeg0_rwts @ peg0_rwts @ acc))
+                     keep_nat_def, keep_ident_def,
+                     peg_accfupds]) THEN
+          simp(wfpeg_rwts @ wfpeg_rwts' @ npeg0_rwts @ npeg1_rwts @ peg0_rwts @ peg1_rwts @ acc
+              ) THEN
+          simp(mknt_def::wfpeg_rwts @ wfpeg_rwts' @ npeg0_rwts @ npeg1_rwts @ peg0_rwts @ peg1_rwts @ acc @
+               map (PURE_REWRITE_RULE [mknt_def]) (acc @ wfpeg_rwts')
+              ))
 in
   th::acc
 end;
@@ -526,7 +604,11 @@ end;
   * well-formed. *)
 val pancake_wfpeg_thm = save_thm(
   "pancake_wfpeg_thm",
-  LIST_CONJ (List.foldl wfnt [] (topo_nts @ [“ProgNT”, “FunListNT”])))
+  LIST_CONJ (List.foldl (wfnt “pancake_peg”) [] (topo_nts @ [“ProgNT”, “FunListNT”])))
+
+val pancake_wfpeg_thm2 = save_thm(
+  "pancake_wfpeg_FunNT_thm",
+  LIST_CONJ (List.foldl (wfnt “pancake_peg with start := mknt FunNT”) [] (topo_nts @ [“ProgNT”])))
 
 val subexprs_mknt = Q.prove(
   ‘subexprs (mknt n) = {mknt n}’,
@@ -551,7 +633,7 @@ Proof
        choicel_def, seql_def, pegf_def, keep_tok_def, consume_tok_def,
        keep_kw_def, consume_kw_def, keep_int_def, keep_nat_def,
        keep_ident_def, try_def] >>
-  simp(pancake_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
+  simp(pancake_wfpeg_thm2 :: wfpeg_rwts' @ peg1_rwts @ npeg1_rwts)
 QED
 
 val _ = export_theory();
