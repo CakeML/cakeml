@@ -298,4 +298,10 @@ val word_cmp_def = Define `
   (word_cmp NotLower w1 w2 = ~(w1 <+ w2)) /\
   (word_cmp NotTest w1 w2  = ((w1 && w2) <> 0w))`
 
+Definition is_load_def[simp]:
+  (is_load Load = T) ∧
+  (is_load Load8 = T) ∧
+  (is_load _ = F)
+End
+
 val () = export_theory ()

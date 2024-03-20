@@ -46,11 +46,165 @@ Theorem state_rel_with_locals_sfs[simp]:
 Proof
   fs [state_rel_def]
 QED
+(*
+Definition no_mapped_io_def[simp]:
+  (no_mapped_io (dataLang$Assign dest op args names_opt) =
+      data_to_word_assignProof$not_mapped_ffi op) /\
+  (no_mapped_io (Seq c1 c2) = (no_mapped_io c1 /\ no_mapped_io c2)) /\
+  (no_mapped_io (If b c1 c2) = (no_mapped_io c1 /\ no_mapped_io c2)) /\
+  (no_mapped_io (Call _ _ _ (SOME (_,h))) = no_mapped_io h) /\
+  (no_mapped_io _ = T)
+End
 
+Definition code_no_mapped_io_def:
+  code_no_mapped_io (code:(num# dataLang$prog) sptree$num_map) =
+    (!k y sec. sptree$lookup k code = SOME (y, sec) ==> no_mapped_io sec)
+End
+
+Definition compile_oracle_no_mapped_io_def:
+  compile_oracle_no_mapped_io orac <=>
+    (!n p q prog. MEM (p,q,prog) (SND $ orac (n:num)) ==> no_mapped_io prog)
+End
+*)
+Theorem do_space_code_const:
+  do_space op vs (s:('a,'b) dataSem$state) = SOME s1 ==>
+  s1.code = s.code /\ s1.compile_oracle = s.compile_oracle
+Proof
+  strip_tac
+  \\ gvs[do_space_def,AllCaseEqs(),consume_space_def]
+QED
+(*
+Theorem evaluate_no_mapped_io:
+  !prog s.
+    code_no_mapped_io s.code /\
+    compile_oracle_no_mapped_io (s:('a,'b) dataSem$state).compile_oracle ==>
+      code_no_mapped_io (SND (dataSem$evaluate (prog,s))).code /\
+      compile_oracle_no_mapped_io (SND (dataSem$evaluate (prog,s))).compile_oracle
+Proof
+  recInduct evaluate_ind
+  \\ rpt conj_tac
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  >- (fs[code_no_mapped_io_def,evaluate_def] >> metis_tac[])
+  >- (fs[code_no_mapped_io_def,evaluate_def]
+    \\ TOP_CASE_TAC
+    \\ fs[set_var_def]
+    \\ metis_tac[])
+  >- ((* Assign *)
+    fs[code_no_mapped_io_def,evaluate_def]
+    \\ rpt gen_tac
+    \\ reverse $ Cases_on `op = Install`
+    >- (
+      conj_tac
+      >- (rpt gen_tac
+        \\ strip_tac
+        \\ first_x_assum irule
+        \\ irule_at (Pos hd) EQ_TRANS
+        \\ first_x_assum $ irule_at (Pos last)
+        \\ rename1 `lookup k _`
+        \\ qexists `k`
+        \\ irule EQ_SYM
+        \\ rpt (TOP_CASE_TAC
+          \\ gvs[DefnBase.one_line_ify NONE cut_state_opt_def,
+          do_app_def,set_var_def,do_install_def,cut_state_def,
+          flush_state_def,AllCaseEqs()])
+        \\ drule do_space_code_const
+        \\ gvs[do_app_aux_def,AllCaseEqs(),
+          with_fresh_ts_def,do_stack_const,check_lim_def])
+      \\ rpt (TOP_CASE_TAC
+        \\ gvs[DefnBase.one_line_ify NONE cut_state_opt_def,
+          do_app_def,set_var_def,do_install_def,cut_state_def,
+          flush_state_def,AllCaseEqs()])
+      \\ drule do_space_code_const
+       \\ gvs[do_app_aux_def,AllCaseEqs(),
+        with_fresh_ts_def,do_stack_const,check_lim_def])
+    \\ IF_CASES_TAC >- (rw[] >> metis_tac[])
+    \\ TOP_CASE_TAC >- (rw[] >> metis_tac[])
+    \\ gvs[bvi_to_dataTheory.op_requires_names_pmatch]
+    \\ TOP_CASE_TAC
+    \\ gvs[DefnBase.one_line_ify NONE cut_state_opt_def,
+        cut_state_def,AllCaseEqs()]
+    >- metis_tac[]
+    \\ reverse TOP_CASE_TAC
+    >- (rw[flush_state_def] >> metis_tac[])
+    \\ gvs[do_app_def,AllCaseEqs(),do_install_def]
+    \\ pop_assum mp_tac
+    \\ pairarg_tac
+    \\ gvs[AllCaseEqs()]
+    \\ rw[]
+    \\ gvs[AllCaseEqs(),set_var_def]
+    \\ gvs[lookup_union,lookup_insert,lookup_fromAList,AllCaseEqs()]
+    >- (gvs[compile_oracle_no_mapped_io_def]
+      \\ first_x_assum irule
+      \\ qexists `0`
+      \\ simp[] \\ metis_tac[])
+    >- (gvs[compile_oracle_no_mapped_io_def]
+      \\ first_x_assum irule
+      \\ qexists `0`
+      \\ simp[]
+      \\ metis_tac[word_cseProofTheory.ALOOKUP_LOOKUP])
+    >- metis_tac[]
+    \\ gvs[compile_oracle_no_mapped_io_def]
+    \\ simp[shift_seq_def]
+    \\ metis_tac[])
+  >- ((* Tick *)
+    gvs[code_no_mapped_io_def,evaluate_def,flush_state_def]
+    \\ TOP_CASE_TAC
+    \\ simp[]
+    \\ metis_tac[])
+  >- ((* MakeSpace *)
+    gvs[code_no_mapped_io_def,evaluate_def,flush_state_def]
+    \\ TOP_CASE_TAC
+    \\ simp[add_space_def]
+    \\ metis_tac[])
+  >- ((* Raise *)
+    gvs[code_no_mapped_io_def,evaluate_def,flush_state_def]
+    \\ TOP_CASE_TAC
+    >- (gvs[jump_exc_def,AllCaseEqs()] \\ metis_tac[])
+    \\ TOP_CASE_TAC
+    >- (gvs[jump_exc_def,AllCaseEqs()] \\ metis_tac[])
+    \\ gvs[jump_exc_def,AllCaseEqs()] \\ metis_tac[])
+  >- ((* Return *)
+    gvs[code_no_mapped_io_def,evaluate_def,flush_state_def]
+    \\ TOP_CASE_TAC
+    \\ gvs[]
+    \\ metis_tac[])
+  >- ((* Seq *)
+    gvs[code_no_mapped_io_def,evaluate_def,flush_state_def]
+    \\ pairarg_tac
+    \\ fs[]
+    \\ TOP_CASE_TAC
+    \\ rw[] >- metis_tac[]
+    \\ last_x_assum drule
+    \\ simp[])
+  >- ((* If *)
+    gvs[code_no_mapped_io_def,evaluate_def,flush_state_def]
+    \\ TOP_CASE_TAC
+    \\ fs[] >- metis_tac[]
+    \\ TOP_CASE_TAC >- metis_tac[]
+    \\ TOP_CASE_TAC >> metis_tac[])
+  (* Call *)
+  \\ once_rewrite_tac[evaluate_def]
+  \\ TOP_CASE_TAC >- simp[]
+  \\ TOP_CASE_TAC >- simp[]
+  \\ rename1 `find_code _ _ _ _ = SOME c`
+  \\ PairCases_on `c`
+  \\ simp[]
+  \\ TOP_CASE_TAC
+  >- (rpt (TOP_CASE_TAC >> simp[flush_state_def])
+    \\ gvs[dataSemTheory.dec_clock_def,dataSemTheory.call_env_def])
+  \\ rpt (TOP_CASE_TAC
+    \\ gvs[dataSemTheory.dec_clock_def,dataSemTheory.call_env_def,
+      dataSemTheory.pop_env_def,set_var_def,AllCaseEqs()])
+QED
+*)
 Theorem data_compile_correct:
    !prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
+(*      no_mapped_io prog /\
+      code_no_mapped_io s.code /\
+      compile_oracle_no_mapped_io s.compile_oracle /\*)
       state_rel c l1 l2 s t [] locs /\
       t.termdep > 1
       ==>
@@ -102,7 +256,7 @@ Proof
     \\ Cases_on `get_vars args x.locals` \\ full_simp_tac(srw_ss())[]
     \\ reverse (Cases_on `do_app op x' x`) \\ full_simp_tac(srw_ss())[]
     THEN1 (imp_res_tac do_app_Rerr \\ rveq \\ fs []
-           \\ imp_res_tac assign_FFI_final
+           \\ drule_all_then assume_tac assign_FFI_final
            \\ first_x_assum(qspecl_then [`n`,`l`,`dest`] strip_assume_tac)
            \\ asm_exists_tac >> fs[] >> rpt strip_tac \\ fs[]
            \\ imp_res_tac cut_state_opt_const \\ fs[state_rel_def,flush_state_def]
@@ -243,10 +397,9 @@ Proof
     \\ `q'' <> SOME (Rerr (Rabort Rtype_error))` by
          (Cases_on `q'' = NONE` \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
     \\ fs[GSYM AND_IMP_INTRO]
-    \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` (fn th =>
-           first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
+    \\ first_x_assum (drule_all_then assume_tac)
     \\ fs[]
-    \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`l`])
+    \\ pop_assum (mp_tac o Q.SPECL [`n`,`l`])
     \\ rpt strip_tac \\ rev_full_simp_tac(srw_ss())[]
     \\ reverse (Cases_on `q'' = NONE`) \\ full_simp_tac(srw_ss())[]
     THEN1 (full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
@@ -508,6 +661,8 @@ Theorem compile_correct_lemma:
    !s c l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
       (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
+(*      code_no_mapped_io s.code /\
+      compile_oracle_no_mapped_io s.compile_oracle /\*)
       t.termdep > 1 /\
       state_rel c l1 l2 s t [] [] ==>
       ?t1 res1.
@@ -558,6 +713,8 @@ Theorem compile_correct:
    !x s l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
       (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
+(*      code_no_mapped_io s.code /\
+      compile_oracle_no_mapped_io s.compile_oracle /\*)
       state_rel_ext x l1 l2 s t ==>
       ?ck t1 res1.
         (wordSem$evaluate (Call NONE (SOME start) [0] NONE,
@@ -1553,7 +1710,7 @@ Proof
  Q.SPECL_THEN [`wc`,`p`,`ac`] mp_tac (GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
  rw[]>>fs[EVERY_MEM,LAMBDA_PROD,FORALL_PROD]>>rw[]>>
  res_tac>>fs[]>>
- first_assum match_mp_tac>>
+ first_assum irule>>
  simp[Abbr`p`]>>rw[]
  >-
    (pop_assum mp_tac>>
@@ -1577,12 +1734,16 @@ Proof
    first_x_assum(qspecl_then[`ww`] mp_tac)>>simp[Abbr`ww`]>>
    impl_tac>>simp[asmTheory.offset_ok_def]>>
    metis_tac[bounds_lem])
- >>
-   fs[MEM_MAP]>>PairCases_on`y`>>fs[compile_part_def]>>
+ >-
+   (fs[MEM_MAP]>>PairCases_on`y`>>fs[compile_part_def]>>
    match_mp_tac comp_no_inst>>fs[]>>
    first_x_assum match_mp_tac>>
    fs[good_dimindex_def]>>
-   metis_tac[bounds_lem]
+   metis_tac[bounds_lem])
+ >>
+   first_x_assum irule >>
+   fs[WORD_LE,miscTheory.good_dimindex_def,word_2comp_n2w,
+     dimword_def,word_msb_n2w]
 QED
 
 Theorem data_to_word_names:
@@ -2420,6 +2581,135 @@ Theorem data_to_word_good_handlers_incr:
 Proof
   simp[EVERY_MAP,LAMBDA_PROD,compile_part_def,data_to_word_comp_good_handlers]>>
   fs[EVERY_MEM,FORALL_PROD]
+QED
+
+(* no ShareInst in the compiled program *)
+
+Theorem list_Seq_no_share_inst:
+  !xs. no_share_inst (list_Seq xs) = EVERY no_share_inst xs
+Proof
+  ho_match_mp_tac list_Seq_ind >>
+  rw[list_Seq_def,no_share_inst_def]
+QED
+
+Theorem StoreEach_no_share_inst:
+  !v xs offset. no_share_inst (StoreEach v xs offset)
+Proof
+  Induct_on `xs` >>
+  gvs[StoreEach_def,no_share_inst_def]
+QED
+
+Theorem MemEqList_no_share_inst:
+  !a xs. no_share_inst (MemEqList a xs)
+Proof
+  Induct_on `xs` >>
+  gvs[MemEqList_def,no_share_inst_def]
+QED
+
+Theorem StoreAnyConsts_no_share_inst:
+  !r1 r2 r3 vs v.
+    no_share_inst (StoreAnyConsts r1 r2 r3 vs v)
+Proof
+  ho_match_mp_tac StoreAnyConsts_ind >>
+  rw[no_share_inst_def,StoreAnyConsts_def] >>
+  TOP_CASE_TAC >>
+  simp[no_share_inst_def,list_Seq_no_share_inst] >>
+  pairarg_tac >>
+  gvs[no_share_inst_def]
+QED
+
+Theorem stubs_no_share_inst:
+  EVERY (\x. no_share_inst (SND $ SND x)) (data_to_word$stubs (:'a) data_conf)
+Proof
+  rw[data_to_wordTheory.stubs_def,list_Seq_no_share_inst,no_share_inst_def] >>
+  EVAL_TAC >>
+  TOP_CASE_TAC >>
+  rw[data_to_wordTheory.stubs_def,list_Seq_no_share_inst,no_share_inst_def]
+QED
+
+Theorem comp_no_share_inst:
+  !c secn l prog prog' l'.
+  data_to_word$comp c secn l prog = (prog',l') ==>
+  no_share_inst prog'
+Proof
+  ho_match_mp_tac comp_ind >>
+  Cases_on `prog` >>
+  rw[]
+  >- gvs[comp_def,no_share_inst_def] (* Skip *)
+  >- gvs[comp_def,no_share_inst_def] (* Move *)
+  >- ( (* Call *)
+    first_x_assum mp_tac >>
+    rw[Once comp_def,AllCaseEqs()] >>
+    simp[no_share_inst_def] >>
+    gvs[ELIM_UNCURRY,no_share_inst_def] >>
+    metis_tac[FST_EQ_EQUIV]
+  )
+  >- ( (* Assign *)
+    gvs[comp_def,AllCaseEqs(),assign_def,all_assign_defs,
+      arg1_def,arg2_def,arg3_def,arg4_def] >>
+    simp[no_share_inst_def,
+      GiveUp_def,BignumHalt_def,AllocVar_def,SilentFFI_def,
+      list_Seq_no_share_inst,StoreEach_no_share_inst,
+      Make_ptr_bits_code_def,StoreAnyConsts_no_share_inst,
+      Maxout_bits_code_def,MemEqList_no_share_inst,
+      WriteWord64_def,WordOp64_on_32_def,WriteWord64_on_32_def,
+      LoadWord64_def,WordShift64_on_32_def,LoadBignum_def,
+      WriteWord32_on_32_def] >>
+    rpt (
+      TOP_CASE_TAC >>
+      simp[no_share_inst_def,list_Seq_no_share_inst])
+  )
+  >- ( (* Seq *)
+    first_x_assum mp_tac >>
+    rw[Once comp_def] >>
+    gvs[ELIM_UNCURRY,no_share_inst_def] >>
+    metis_tac[FST_EQ_EQUIV,SND_EQ_EQUIV]
+  )
+  >- ( (* If *)
+    first_x_assum mp_tac >>
+    rw[Once comp_def] >>
+    gvs[ELIM_UNCURRY,no_share_inst_def] >>
+    metis_tac[FST_EQ_EQUIV,SND_EQ_EQUIV]
+  )
+  >- ( (* MakeSpace *)
+    gvs[comp_def,no_share_inst_def,list_Seq_no_share_inst,SilentFFI_def] >>
+    IF_CASES_TAC >>
+    simp[comp_def,no_share_inst_def,list_Seq_no_share_inst]
+  )
+  >> gvs[comp_def,no_share_inst_def] (* Raise | Return | Tick *)
+QED
+
+Triviality EVERY_FST_ZIP[local]:
+  !xs. EVERY P (FST xs) ==>
+  EVERY (\x. P (FST x)) (ZIP xs)
+Proof
+  ho_match_mp_tac ZIP_ind >>
+  gvs[ZIP] >>
+  rpt strip_tac >>
+  simp[ZIP_def]
+QED
+
+Theorem compile_no_share_inst:
+  data_to_word$compile data_conf word_conf asm_conf prog = (xx,prog') ⇒
+  EVERY (λ(n,m,pp). no_share_inst pp) prog'
+Proof
+  rw[data_to_wordTheory.compile_def] >>
+  gvs[ELIM_UNCURRY,word_to_wordTheory.compile_def,
+    EVERY_MAP,full_compile_single_def,
+    remove_must_terminate_no_share_inst] >>
+  irule MONO_EVERY >>
+  simp[] >>
+  qexists `no_share_inst o SND o SND o FST` >>
+  simp[compile_single_no_share_inst',o_DEF] >>
+  ho_match_mp_tac EVERY_FST_ZIP >>
+  simp[stubs_no_share_inst,EVERY_MAP] >>
+  Induct_on `prog` >>
+  rw[] >>
+  rename1 `compile_part _ p` >>
+  PairCases_on `p` >>
+  simp[compile_part_def] >>
+  irule comp_no_share_inst >>
+  metis_tac[FST_EQ_EQUIV]
 QED
 
 end

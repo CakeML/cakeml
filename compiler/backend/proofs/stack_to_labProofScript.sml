@@ -596,6 +596,7 @@ val state_rel_def = Define`
     (∀n v. FLOOKUP s.fp_regs n = SOME v ⇒ t.fp_regs n = v) ∧
     t.mem = s.memory ∧
     t.mem_domain = s.mdomain ∧
+    t.shared_mem_domain = s.sh_mdomain ∧
     t.be = s.be ∧
     t.ffi = s.ffi ∧
     t.clock = s.clock ∧
@@ -615,6 +616,7 @@ val state_rel_def = Define`
     (* might need to be cc_save_regs *)
     (!k n. k ∈ s.ffi_save_regs ==> t.cc_regs n k = NONE) /\
     (∀x. x ∈ s.mdomain ⇒ w2n x MOD (dimindex (:'a) DIV 8) = 0) ∧
+    (∀x. x ∈ s.sh_mdomain ⇒ w2n x MOD (dimindex (:'a) DIV 8) = 0) ∧
     s.code_buffer = t.code_buffer ∧
     s.compile = (λc p. t.compile c (MAP prog_to_section p)) ∧
     (t.compile_oracle = λn. let (c,p,_)  = s.compile_oracle n in
@@ -2344,6 +2346,86 @@ Proof
       rfs[MAP_prog_to_section_Section_num]>>
       fs[o_DEF]))>>
   conj_tac >- (
+    rename [`ShMemOp`] >>rpt gen_tac>>strip_tac>>
+    Cases_on ‘op’>>
+    fs[stackSemTheory.evaluate_def,flatten_def]>>
+    fs[word_exp_def,IS_SOME_EXISTS,wordLangTheory.word_op_def]>>
+    gs[case_eq_thms]>>
+    rveq>>fs[]>>
+    gs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,
+       sh_mem_store_byte_def,sh_mem_load_byte_def]>>
+    imp_res_tac state_rel_read_reg_FLOOKUP_regs>>
+    pop_assum (assume_tac o GSYM)>>
+    gs[case_eq_thms]>>rveq>>fs[]
+    >>~- ([‘Halt (FFI_outcome _)’],
+          fs[code_installed_def,call_args_def] >>
+          simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+          gs[share_mem_op_def,share_mem_load_def,
+             share_mem_store_def,addr_def]>>
+          TRY (qpat_x_assum ‘get_var r _ = _’ assume_tac>>
+               fs[stackSemTheory.dec_clock_def,stackSemTheory.get_var_def]>>
+               drule_then drule state_rel_read_reg_FLOOKUP_regs>>strip_tac>>
+               pop_assum $ assume_tac o GSYM>> fs[])>>
+          rpt (CASE_TAC>>fs[])>>
+          fs[state_rel_def,dec_clock_def,inc_pc_def]>>
+          gs[])>>
+
+    TRY (qexists_tac ‘0’>>qexists_tac ‘t1’>>fs[state_rel_def]>>NO_TAC)>>
+
+    qpat_x_assum ‘call_args (ShMemOp _ _ _) _ _ _ _ _’ mp_tac
+       (* Load *)
+    >>~- ([‘call_args (ShMemOp Load _ _) _ _ _ _ _’],
+         strip_tac>>
+         qexists_tac`0`>>
+                    qexists_tac ‘dec_clock t1
+                    with <| regs := t1.regs⦇r ↦ Word (word_of_bytes F 0w new_bytes)⦈;
+                            io_regs := shift_seq 1 t1.io_regs;
+                            pc:=t1.pc+1; ffi := new_ffi|>’ >>
+         simp[]>>
+         fs[code_installed_def,call_args_def] >>
+         simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+         gs[share_mem_op_def,share_mem_load_def,share_mem_store_def,addr_def]>>
+         fs[state_rel_def,stackSemTheory.dec_clock_def,dec_clock_def,inc_pc_def]>>
+         gs[]>>
+         fs[code_installed_def,call_args_def,shift_seq_def] >>
+         fs[FLOOKUP_UPDATE]>>
+         conj_tac >> rpt strip_tac>-
+          (FULL_CASE_TAC>>gs[APPLY_UPDATE_THM])>>
+         metis_tac[])
+  (* Load *)
+    >>~- ([‘call_args (ShMemOp Load8 _ _) _ _ _ _ _’],
+         strip_tac>>
+         qexists_tac`0`>>
+                    qexists_tac ‘dec_clock t1
+                    with <| regs := t1.regs⦇r ↦ Word (word_of_bytes F 0w new_bytes)⦈;
+                            io_regs := shift_seq 1 t1.io_regs;
+                            pc:=t1.pc+1; ffi := new_ffi|>’ >>
+         simp[]>>
+         fs[code_installed_def,call_args_def] >>
+         simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+         gs[share_mem_op_def,share_mem_load_def,share_mem_store_def,addr_def]>>
+         fs[state_rel_def,stackSemTheory.dec_clock_def,dec_clock_def,inc_pc_def]>>
+         gs[]>>
+         fs[code_installed_def,call_args_def,shift_seq_def] >>
+         fs[FLOOKUP_UPDATE]>>
+         conj_tac >> rpt strip_tac>-
+          (FULL_CASE_TAC>>gs[APPLY_UPDATE_THM])>>
+         metis_tac[])>>
+    (* Store *)
+    strip_tac>>
+    qexists_tac`0` >>
+    qexists_tac`dec_clock t1 with <| io_regs := shift_seq 1 t1.io_regs;
+                           pc:=t1.pc+1; ffi := new_ffi|>` >>
+    fs[state_rel_def,stackSemTheory.dec_clock_def,dec_clock_def,inc_pc_def]>>
+    fs[code_installed_def,call_args_def] >>
+    gs[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+    gs[share_mem_op_def,share_mem_load_def,share_mem_store_def,addr_def]>>
+    gs[get_var_def]>>
+    last_assum $ qspecl_then [‘a’,‘Word x’] assume_tac>>
+    last_assum $ qspecl_then [‘r’,‘Word w'’] assume_tac>>
+    res_tac>>fs[]>>
+    fs[dec_clock_def,shift_seq_def,inc_pc_def]>>metis_tac[])>>
+  conj_tac >- (
     rename [`CodeBufferWrite`] >>
     rw[stackSemTheory.evaluate_def,flatten_def]>>
     fs[case_eq_thms]>>
@@ -2732,6 +2814,7 @@ val make_init_def = Define `
      ; fp_regs    := FEMPTY (*TODO: is this right? *)
      ; memory  := s.mem
      ; mdomain := s.mem_domain
+     ; sh_mdomain := s.shared_mem_domain
      ; use_stack := F
      ; use_store := F
      ; use_alloc := F
@@ -2884,7 +2967,8 @@ Theorem state_rel_make_init:
     EVERY sec_labels_ok s.code ∧
     (∀k i n. k ∈ save_regs ⇒ s.io_regs n i k = NONE) ∧
     (∀k n. k ∈ save_regs ⇒ s.cc_regs n k = NONE) ∧
-    (∀x. x ∈ s.mem_domain ⇒ w2n x MOD (dimindex (:α) DIV 8) = 0)
+    (∀x. x ∈ s.mem_domain ⇒ w2n x MOD (dimindex (:α) DIV 8) = 0) ∧
+    (∀x. x ∈ s.shared_mem_domain ⇒ w2n x MOD (dimindex (:α) DIV 8) = 0)
 Proof
   fs [state_rel_def,make_init_def,FLOOKUP_regs]
   \\ eq_tac \\ strip_tac \\ fs []
@@ -3068,6 +3152,7 @@ Theorem full_make_init_semantics:
    (∀k i n. k ∈ save_regs ⇒ t.io_regs n i k = NONE) ∧
    (∀k n. k ∈ save_regs ⇒ t.cc_regs n k = NONE) ∧
    (∀x. x ∈ t.mem_domain ⇒ w2n x MOD (dimindex(:'a) DIV 8) = 0) ∧
+   (∀x. x ∈ t.shared_mem_domain ⇒ w2n x MOD (dimindex(:'a) DIV 8) = 0) ∧
    good_code sp code ∧
    (∀n. good_code sp (FST(SND(coracle n)))) ∧
    10 <= sp ∧
@@ -3345,7 +3430,8 @@ val flatten_line_ok_pre = Q.prove(`
   >>
     pop_assum mp_tac>>EVAL_TAC>>
     pop_assum mp_tac>>EVAL_TAC>>
-    fs[]);
+    fs[]>>
+    Cases_on ‘a’>>EVAL_TAC>>rw[]);
 
 Theorem compile_all_enc_ok_pre:
     byte_offset_ok c 0w ∧
@@ -4377,6 +4463,499 @@ Proof
   match_mp_tac stack_remove_stack_good_handler_labels_incr>>
   match_mp_tac stack_alloc_stack_good_handler_labels_incr>>
   simp[]
+QED
+
+(*** no_shmemop ***)
+
+Theorem stack_rawcall_comp_no_shmemop:
+  ∀i p. no_shmemop p ⇒ no_shmemop (comp i p)
+Proof
+  recInduct stack_rawcallTheory.comp_ind>>rw[]
+  \\ Cases_on `p` \\ fs []
+  \\ once_rewrite_tac [stack_rawcallTheory.comp_def]
+  \\ fs [stack_rawcallTheory.comp_seq_def]
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs [no_shmemop_def])
+  >>fs[no_shmemop_def]
+QED
+
+Theorem stack_rawcall_comp_top_no_shmemop:
+  ∀p. no_shmemop p ⇒ no_shmemop (comp_top i p)
+Proof
+  Induct>>
+  rw[stack_rawcallTheory.comp_top_def,no_shmemop_def]>>
+  irule stack_rawcall_comp_no_shmemop>>fs[no_shmemop_def]
+QED
+
+Theorem stack_rawcall_compile_no_shmemop:
+  ∀prog. EVERY (\(a,p). no_shmemop p) prog ⇒
+      EVERY (\(a,p). no_shmemop p) (compile prog)
+Proof
+  Induct>>rw[]>>
+  simp[stack_rawcallTheory.compile_def]>>
+  rpt (pairarg_tac>>fs[])>>
+  drule stack_rawcall_comp_top_no_shmemop>>
+  qmatch_asmsub_abbrev_tac ‘comp_top i _’>>
+  disch_then $ qspec_then ‘i’ assume_tac>>gvs[]>>
+  fs[EVERY_MEM]>>rpt strip_tac>>
+  fs[MEM_MAP]>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>rename1 ‘MEM (a',b') prog’>>
+  rveq>>fs[]>>
+  irule stack_rawcall_comp_top_no_shmemop>>
+  first_x_assum $ qspec_then ‘(a',b')’ assume_tac>>gvs[]
+QED
+
+Theorem stack_alloc_comp_no_shmemop:
+  ∀n m p. no_shmemop p ⇒ no_shmemop (FST (comp n m p))
+Proof
+  recInduct comp_ind \\ rw []
+  \\ Cases_on `p` \\ fs []
+  \\ once_rewrite_tac [comp_def] \\ fs []
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs [no_shmemop_def])
+  >>fs[no_shmemop_def]
+QED
+
+Theorem stack_alloc_prog_comp_no_shmemop:
+  ∀prog.
+  EVERY (\(a,p). no_shmemop p) prog ⇒
+  EVERY (\(a,p). no_shmemop p) (MAP prog_comp prog)
+Proof
+  Induct>>fs[prog_comp_def]>>rpt strip_tac>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[prog_comp_def]>>gvs[]>>
+  irule stack_alloc_comp_no_shmemop>>fs[]
+QED
+
+Theorem stack_alloc_compile_no_shmemop:
+  EVERY (λ(a,p). no_shmemop p) prog ⇒
+  EVERY (λ(a,p). no_shmemop p) (stack_alloc_compile data prog)
+Proof
+  rw[stack_allocTheory.compile_def]>-
+   (EVAL_TAC>>every_case_tac>>fs[no_shmemop_def])>>
+  irule stack_alloc_prog_comp_no_shmemop>>fs[]
+QED
+
+Theorem upshift_no_shmemop[simp]:
+  ∀k n. no_shmemop (upshift k n)
+Proof
+  recInduct stack_removeTheory.upshift_ind \\ rw []
+  \\ once_rewrite_tac [stack_removeTheory.upshift_def] \\ rw []
+  \\ fs [no_shmemop_def]
+QED
+
+Theorem downshift_no_shmemop[simp]:
+  ∀k n. no_shmemop (downshift k n)
+Proof
+  recInduct stack_removeTheory.downshift_ind \\ rw []
+  \\ once_rewrite_tac [stack_removeTheory.downshift_def] \\ rw []
+  \\ fs [no_shmemop_def]
+QED
+
+Theorem stack_free_no_shmemop[simp]:
+  ∀k n. no_shmemop (stack_free k n)
+Proof
+  recInduct stack_removeTheory.stack_free_ind \\ rw []
+  \\ once_rewrite_tac [stack_removeTheory.stack_free_def] \\ rw []
+  \\ fs [no_shmemop_def,stack_removeTheory.single_stack_free_def]
+QED
+
+Theorem stack_alloc_no_shmemop[simp]:
+  ∀jump k n. no_shmemop (stack_alloc jump k n)
+Proof
+  recInduct stack_removeTheory.stack_alloc_ind \\ rw []
+  \\ once_rewrite_tac [stack_removeTheory.stack_alloc_def] \\ rw []>>
+  fs [no_shmemop_def,stack_removeTheory.single_stack_alloc_def]>>
+  IF_CASES_TAC >> fs [no_shmemop_def,stack_removeTheory.halt_inst_def]
+QED
+
+Theorem stack_remove_comp_no_shmemop:
+  ∀jump off k p. no_shmemop p ⇒ no_shmemop (comp jump off k p)
+Proof
+  recInduct stack_removeTheory.comp_ind \\ rw []
+  \\ Cases_on `p` \\ fs []
+  \\ once_rewrite_tac [stack_removeTheory.comp_def] \\ fs []
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs [no_shmemop_def])>>
+  fs[no_shmemop_def,stackLangTheory.list_Seq_def]
+  >- fs[no_shmemop_def,stackLangTheory.list_Seq_def,
+        stack_removeTheory.copy_loop_def,
+        stack_removeTheory.copy_each_def]
+  >- fs[stack_removeTheory.stack_store_def,no_shmemop_def]
+  >- fs[stack_removeTheory.stack_load_def,no_shmemop_def]
+QED
+
+Theorem stack_remove_prog_comp_no_shmemop:
+  ∀p. no_shmemop p ⇒ no_shmemop (SND (prog_comp jump off k (n,p)))
+Proof
+  Induct>>fs[stack_removeTheory.prog_comp_def]>>rpt strip_tac>>
+  irule stack_remove_comp_no_shmemop>>fs[]
+QED
+
+Theorem stack_remove_compile_no_shmemop:
+  EVERY (λ(a,p). no_shmemop p) prog ⇒
+  EVERY (λ(a,p). no_shmemop p) (stack_remove_compile jump offset gckind mh sp loc prog)
+Proof
+  rw[stack_removeTheory.compile_def]>-
+   (EVAL_TAC>>every_case_tac>>fs[no_shmemop_def])>>
+  fs[EVERY_MEM]>>rpt strip_tac>>
+  pairarg_tac>>fs[MEM_MAP]>>
+  rpt (pairarg_tac>>fs[])>>
+  last_x_assum $ qspec_then ‘y’ assume_tac>>gvs[]>>
+  rpt (pairarg_tac>>fs[])>>
+  ‘p = SND (prog_comp jump offset sp y)’ by gvs[]>>
+  gvs[]>>
+  irule stack_remove_prog_comp_no_shmemop>>fs[]
+QED
+
+Theorem stack_names_comp_no_shmemop:
+  ∀f p. no_shmemop p ⇒ no_shmemop (stack_names$comp f p)
+Proof
+  recInduct stack_namesTheory.comp_ind \\ rw []
+  \\ Cases_on `p` \\ fs []
+  \\ once_rewrite_tac [stack_namesTheory.comp_def] \\ fs []
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs [no_shmemop_def])
+  >>fs[no_shmemop_def]
+QED
+
+Theorem stack_names_prog_comp_no_shmemop:
+  ∀prog.
+  EVERY (\(a,p). no_shmemop p) prog ⇒
+  EVERY (\(a,p). no_shmemop p) (MAP (prog_comp f) prog)
+Proof
+  Induct>>fs[stack_namesTheory.prog_comp_def]>>rpt strip_tac>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[stack_namesTheory.prog_comp_def]>>gvs[]>>
+  irule stack_names_comp_no_shmemop>>fs[]
+QED
+
+Theorem stack_names_compile_no_shmemop:
+  EVERY (λ(a,p). no_shmemop p) prog ⇒
+  EVERY (λ(a,p). no_shmemop p) (stack_names_compile names prog)
+Proof
+  rw[stack_namesTheory.compile_def]>>
+  irule stack_names_prog_comp_no_shmemop>>fs[]
+QED
+
+Theorem flatten_no_share_mem_inst:
+  ∀t p n m.
+      no_shmemop p ⇒
+      EVERY (λln. ∀op re a inst len. ln ≠ Asm (ShareMem op re a) inst len)
+            (append (FST (flatten t p n m)))
+Proof
+  recInduct flatten_ind>>rw[]>>
+  Cases_on ‘p’>>simp[Once flatten_def]>>fs[no_shmemop_def]>>
+  every_case_tac>>fs[]>>
+  rpt (pairarg_tac>>fs[])>>
+  TRY (Cases_on ‘s’>>fs[compile_jump_def,no_shmemop_def])>>
+  gvs[no_shmemop_def]>>
+  rpt (IF_CASES_TAC>>fs[])
+QED
+
+Theorem asm_fetch_aux_no_share_mem_inst_CONS:
+  ∀xs.
+  EVERY (λln. ∀op re a inst len. ln ≠ Asm (ShareMem op re a) inst len) xs ∧
+  no_share_mem_inst ls ⇒
+  no_share_mem_inst (Section k xs::ls)
+Proof
+  Induct>>rw[no_share_mem_inst_def, asm_fetch_aux_def]>>
+  IF_CASES_TAC>>fs[]>-fs[no_share_mem_inst_def]>>
+  IF_CASES_TAC>>fs[no_share_mem_inst_def]
+QED
+
+Theorem prog_to_section_no_share_mem_inst:
+  ∀prog. EVERY (λ(a,p). no_shmemop p) prog ⇒
+         no_share_mem_inst (MAP prog_to_section prog)
+Proof
+  Induct>>rw[]>-fs[no_share_mem_inst_def,asm_fetch_aux_def]>>
+  pairarg_tac>>fs[]>>
+  rewrite_tac[prog_to_section_def]>>
+  Cases_on ‘flatten T p a (next_lab p 2)’>>rename1 ‘(lines,r)’>>
+  PairCases_on ‘r’>>fs[]>>
+  ‘EVERY (λln. ∀op re a inst len. ln ≠ Asm (ShareMem op re a) inst len)
+   (append lines)’
+    by (‘lines = FST (flatten T p a (next_lab p 2))’ by gvs[]>>gvs[]>>
+        irule flatten_no_share_mem_inst>>fs[])>>
+  irule asm_fetch_aux_no_share_mem_inst_CONS>>
+  fs[]
+QED
+
+Theorem compile_no_share_mem_inst:
+  ∀prog prog'.
+  EVERY (\(a,p). no_shmemop p) prog ∧
+  compile stack_conf data_conf max_heap sp offset prog = prog' ==>
+  labProps$no_share_mem_inst prog'
+Proof
+  rw[compile_def]>>
+  irule prog_to_section_no_share_mem_inst>>
+  irule stack_names_compile_no_shmemop>>
+  irule stack_remove_compile_no_shmemop>>
+  irule stack_alloc_compile_no_shmemop>>
+  irule stack_rawcall_compile_no_shmemop>>fs[]
+QED
+
+Theorem stack_remove_prog_comp_no_shmemop_MAP:
+  EVERY (\(a,p). no_shmemop p) prog ⇒
+  EVERY (\(a,p). no_shmemop p) (MAP (prog_comp jump offset sp) prog)
+Proof
+  rw[EVERY_MEM]>>
+  pairarg_tac>>fs[MEM_MAP]>>
+  first_x_assum $ qspec_then ‘y’ assume_tac>>gvs[]>>
+  rpt (pairarg_tac>>fs[])>>gvs[]>>
+  ‘p = SND (prog_comp jump offset sp (a'',p''))’ by gvs[]>>
+  gvs[]>>irule stack_remove_prog_comp_no_shmemop>>fs[]
+QED
+
+Theorem compile_no_stubs_no_share_mem_inst:
+  EVERY (\(a,p). no_shmemop p) prog ∧
+  compile_no_stubs f jump offset sp prog = prog' ==>
+  labProps$no_share_mem_inst prog'
+Proof
+  rw[compile_no_stubs_def]>>
+  irule prog_to_section_no_share_mem_inst>>
+  irule stack_names_compile_no_shmemop>>
+  irule stack_remove_prog_comp_no_shmemop_MAP>>
+  irule stack_alloc_prog_comp_no_shmemop>>fs[]
+QED
+
+(*** no_install ***)
+
+Theorem stack_rawcall_comp_no_install:
+  ∀i p. no_install p ⇒ no_install (comp i p)
+Proof
+  recInduct stack_rawcallTheory.comp_ind>>rw[]
+  \\ Cases_on `p` \\ fs []
+  \\ once_rewrite_tac [stack_rawcallTheory.comp_def]
+  \\ fs [stack_rawcallTheory.comp_seq_def]
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs [stackPropsTheory.no_install_def])
+  >>fs[stackPropsTheory.no_install_def]
+QED
+
+Theorem stack_rawcall_comp_top_no_install:
+  ∀p. no_install p ⇒ no_install (comp_top i p)
+Proof
+  Induct>>
+  rw[stack_rawcallTheory.comp_top_def,stackPropsTheory.no_install_def]>>
+  irule stack_rawcall_comp_no_install>>
+  fs[stackPropsTheory.no_install_def]
+QED
+
+Theorem stack_rawcall_compile_no_install:
+  ∀prog. EVERY (\(a,p). no_install p) prog ⇒
+      EVERY (\(a,p). no_install p) (compile prog)
+Proof
+  Induct>>rw[]>>
+  simp[stack_rawcallTheory.compile_def]>>
+  rpt (pairarg_tac>>fs[])>>
+  drule stack_rawcall_comp_top_no_install>>
+  qmatch_asmsub_abbrev_tac ‘comp_top i _’>>
+  disch_then $ qspec_then ‘i’ assume_tac>>gvs[]>>
+  fs[EVERY_MEM]>>rpt strip_tac>>
+  fs[MEM_MAP]>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>rename1 ‘MEM (a',b') prog’>>
+  rveq>>fs[]>>
+  irule stack_rawcall_comp_top_no_install>>
+  first_x_assum $ qspec_then ‘(a',b')’ assume_tac>>gvs[]
+QED
+
+Theorem stack_alloc_comp_no_install:
+  ∀n m p. no_install p ⇒ no_install (FST (comp n m p))
+Proof
+  recInduct comp_ind \\ rw []
+  \\ Cases_on `p` \\ fs []
+  \\ once_rewrite_tac [comp_def] \\ fs []
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs [stackPropsTheory.no_install_def])
+  >>fs[stackPropsTheory.no_install_def]
+QED
+
+Theorem stack_alloc_prog_comp_no_install:
+  ∀prog.
+  EVERY (\(a,p). no_install p) prog ⇒
+  EVERY (\(a,p). no_install p) (MAP prog_comp prog)
+Proof
+  Induct>>fs[prog_comp_def]>>rpt strip_tac>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[prog_comp_def]>>gvs[]>>
+  irule stack_alloc_comp_no_install>>fs[]
+QED
+
+Theorem stack_alloc_compile_no_install:
+  EVERY (λ(a,p). no_install p) prog ⇒
+  EVERY (λ(a,p). no_install p) (stack_alloc_compile data prog)
+Proof
+  rw[stack_allocTheory.compile_def]>-
+   (EVAL_TAC>>every_case_tac>>fs[stackPropsTheory.no_install_def])>>
+  irule stack_alloc_prog_comp_no_install>>fs[]
+QED
+
+Theorem upshift_no_install[simp]:
+  ∀k n. no_install (upshift k n)
+Proof
+  recInduct stack_removeTheory.upshift_ind \\ rw []
+  \\ once_rewrite_tac [stack_removeTheory.upshift_def] \\ rw []
+  \\ fs [stackPropsTheory.no_install_def]
+QED
+
+Theorem downshift_no_install[simp]:
+  ∀k n. no_install (downshift k n)
+Proof
+  recInduct stack_removeTheory.downshift_ind \\ rw []
+  \\ once_rewrite_tac [stack_removeTheory.downshift_def] \\ rw []
+  \\ fs [stackPropsTheory.no_install_def]
+QED
+
+Theorem stack_free_no_install[simp]:
+  ∀k n. no_install (stack_free k n)
+Proof
+  recInduct stack_removeTheory.stack_free_ind \\ rw []
+  \\ once_rewrite_tac [stack_removeTheory.stack_free_def] \\ rw []
+  \\ fs [stackPropsTheory.no_install_def,
+         stack_removeTheory.single_stack_free_def]
+QED
+
+Theorem stack_alloc_no_install[simp]:
+  ∀jump k n. no_install (stack_alloc jump k n)
+Proof
+  recInduct stack_removeTheory.stack_alloc_ind \\ rw []
+  \\ once_rewrite_tac [stack_removeTheory.stack_alloc_def] \\ rw []>>
+  fs [stackPropsTheory.no_install_def,
+      stack_removeTheory.single_stack_alloc_def]>>
+  IF_CASES_TAC >>
+  fs [stackPropsTheory.no_install_def,stack_removeTheory.halt_inst_def]
+QED
+
+Theorem stack_remove_comp_no_install:
+  ∀jump off k p. no_install p ⇒ no_install (comp jump off k p)
+Proof
+  recInduct stack_removeTheory.comp_ind \\ rw []
+  \\ Cases_on `p` \\ fs []
+  \\ once_rewrite_tac [stack_removeTheory.comp_def] \\ fs []
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs [stackPropsTheory.no_install_def])>>
+  fs[stackPropsTheory.no_install_def,
+     stackLangTheory.list_Seq_def]
+  >- fs[stackPropsTheory.no_install_def,
+        stackLangTheory.list_Seq_def,
+        stack_removeTheory.copy_loop_def,
+        stack_removeTheory.copy_each_def]
+  >- fs[stack_removeTheory.stack_store_def,stackPropsTheory.no_install_def]
+  >- fs[stack_removeTheory.stack_load_def,stackPropsTheory.no_install_def]
+QED
+
+Theorem stack_remove_prog_comp_no_install:
+  ∀p. no_install p ⇒ no_install (SND (prog_comp jump off k (n,p)))
+Proof
+  Induct>>fs[stack_removeTheory.prog_comp_def]>>rpt strip_tac>>
+  irule stack_remove_comp_no_install>>fs[]
+QED
+
+Theorem stack_remove_compile_no_install:
+  EVERY (λ(a,p). no_install p) prog ⇒
+  EVERY (λ(a,p). no_install p) (stack_remove_compile jump offset gckind mh sp loc prog)
+Proof
+  rw[stack_removeTheory.compile_def]>-
+   (EVAL_TAC>>every_case_tac>>fs[stackPropsTheory.no_install_def])>>
+  fs[EVERY_MEM]>>rpt strip_tac>>
+  pairarg_tac>>fs[MEM_MAP]>>
+  rpt (pairarg_tac>>fs[])>>
+  last_x_assum $ qspec_then ‘y’ assume_tac>>gvs[]>>
+  rpt (pairarg_tac>>fs[])>>
+  ‘p = SND (prog_comp jump offset sp y)’ by gvs[]>>
+  gvs[]>>
+  irule stack_remove_prog_comp_no_install>>fs[]
+QED
+
+Theorem stack_names_comp_no_install:
+  ∀f p. no_install p ⇒ no_install (stack_names$comp f p)
+Proof
+  recInduct stack_namesTheory.comp_ind \\ rw []
+  \\ Cases_on `p` \\ fs []
+  \\ once_rewrite_tac [stack_namesTheory.comp_def] \\ fs []
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs [stackPropsTheory.no_install_def])
+  >>fs[stackPropsTheory.no_install_def]
+QED
+
+Theorem stack_names_prog_comp_no_install:
+  ∀prog.
+  EVERY (\(a,p). no_install p) prog ⇒
+  EVERY (\(a,p). no_install p) (MAP (prog_comp f) prog)
+Proof
+  Induct>>fs[stack_namesTheory.prog_comp_def]>>rpt strip_tac>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[stack_namesTheory.prog_comp_def]>>gvs[]>>
+  irule stack_names_comp_no_install>>fs[]
+QED
+
+Theorem stack_names_compile_no_install:
+  EVERY (λ(a,p). no_install p) prog ⇒
+  EVERY (λ(a,p). no_install p) (stack_names_compile names prog)
+Proof
+  rw[stack_namesTheory.compile_def]>>
+  irule stack_names_prog_comp_no_install>>fs[]
+QED
+
+Theorem flatten_no_install:
+  ∀t p n m.
+      no_install p ⇒
+      EVERY (λln. ∀w bytes l. ln ≠ LabAsm Install w bytes l)
+            (append (FST (flatten t p n m)))
+Proof
+  recInduct flatten_ind>>rw[]>>
+  Cases_on ‘p’>>simp[Once flatten_def]>>
+  fs[stackPropsTheory.no_install_def]>>
+  every_case_tac>>fs[]>>
+  rpt (pairarg_tac>>fs[])>>
+  TRY (Cases_on ‘s’>>fs[compile_jump_def,no_install_def])>>
+  gvs[stackPropsTheory.no_install_def]>>
+  rpt (IF_CASES_TAC>>fs[])
+QED
+
+Theorem asm_fetch_aux_no_install_CONS:
+  ∀xs.
+  EVERY (λln. ∀w bytes l. ln ≠ LabAsm Install w bytes l) xs ∧
+  no_install ls ⇒
+  no_install (Section k xs::ls)
+Proof
+  Induct>>rw[labPropsTheory.no_install_def, asm_fetch_aux_def]>>
+  IF_CASES_TAC>>fs[]>-fs[labPropsTheory.no_install_def]>>
+  IF_CASES_TAC>>fs[labPropsTheory.no_install_def]
+QED
+
+Theorem prog_to_section_no_install:
+  ∀prog. EVERY (λ(a,p). no_install p) prog ⇒
+         no_install (MAP prog_to_section prog)
+Proof
+  Induct>>rw[]>-fs[labPropsTheory.no_install_def,asm_fetch_aux_def]>>
+  pairarg_tac>>fs[]>>
+  rewrite_tac[prog_to_section_def]>>
+  Cases_on ‘flatten T p a (next_lab p 2)’>>rename1 ‘(lines,r)’>>
+  PairCases_on ‘r’>>fs[]>>
+  ‘EVERY (λln. ∀w bytes l. ln ≠ LabAsm Install w bytes l)
+   (append lines)’
+    by (‘lines = FST (flatten T p a (next_lab p 2))’ by gvs[]>>gvs[]>>
+        irule flatten_no_install>>fs[])>>
+  irule asm_fetch_aux_no_install_CONS>>
+  fs[]
+QED
+
+Theorem stack_to_lab_compile_no_install:
+  ∀prog prog'.
+  EVERY (\(a,p). no_install p) prog ∧
+  compile stack_conf data_conf max_heap sp offset prog = prog' ==>
+  labProps$no_install prog'
+Proof
+  rw[compile_def]>>
+  irule prog_to_section_no_install>>
+  irule stack_names_compile_no_install>>
+  irule stack_remove_compile_no_install>>
+  irule stack_alloc_compile_no_install>>
+  irule stack_rawcall_compile_no_install>>fs[]
 QED
 
 val _ = export_theory();

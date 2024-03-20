@@ -70,6 +70,10 @@ val LENGTH_data =
   ``LENGTH data``
   |> (REWRITE_CONV[ag32BootstrapTheory.data_def] THENC listLib.LENGTH_CONV);
 
+val shmem =
+  ``config.lab_conf.shmem_extra``
+  |> (REWRITE_CONV[ag32BootstrapTheory.config_def] THENC EVAL);
+
 Overload cake_machine_config =
   ``ag32_machine_config (extcalls config.lab_conf.ffi_names) (LENGTH code) (LENGTH data)``
 
@@ -130,9 +134,10 @@ Theorem cake_installed:
    is_ag32_init_state (init_memory code data (extcalls config.lab_conf.ffi_names) (cl,inp)) ms0 ⇒
    installed code 0 data 0 config.lab_conf.ffi_names
      (heap_regs ag32_backend_config.stack_conf.reg_names)
-     (cake_machine_config) (FUNPOW Next (cake_startup_clock ms0 inp cl) ms0)
+     (cake_machine_config) config.lab_conf.shmem_extra
+     (FUNPOW Next (cake_startup_clock ms0 inp cl) ms0)
 Proof
-  rewrite_tac[ffi_names, extcalls_def]
+  rewrite_tac[ffi_names, extcalls_def, shmem]
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac ‘init_memory _ _ ff’
   \\ ‘^(ffi_names |> concl |> rand |> rand) = MAP ExtCall ff’ by simp [Abbr‘ff’]

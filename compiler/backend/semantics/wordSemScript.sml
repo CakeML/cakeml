@@ -94,6 +94,7 @@ val _ = Datatype `
      ; stack_size : num num_map (* stack frame size of function, unbounded if unmapped *)
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
+     ; sh_mdomain : ('a word) set
      ; permute : num -> num -> num (* sequence of bijective mappings *)
      ; compile : 'c -> (num # num # 'a wordLang$prog) list -> (word8 list # 'a word list # 'c) option
      ; compile_oracle : num -> 'c # (num # num # 'a wordLang$prog) list
@@ -225,6 +226,60 @@ val flush_state_def = Define `
                               ; locals_size := SOME 0 |>
 /\ flush_state F ^s = s with <| locals := LN
                               ; locals_size := SOME 0 |>`;
+
+Definition sh_mem_store_def:
+  sh_mem_store (a:'a word) (w:'a word) ^s =
+    if a IN s.sh_mdomain then
+      case call_FFI s.ffi (SharedMem MappedWrite) [0w:word8]
+                    (word_to_bytes w F ++ word_to_bytes a F) of
+      | FFI_final outcome => (SOME (FinalFFI outcome), flush_state T s)
+      | FFI_return new_ffi new_bytes => (NONE, (s with ffi := new_ffi))
+    else (SOME Error, s)
+End
+
+Definition sh_mem_load_def:
+  sh_mem_load (a:'a word) ^s =
+    if a IN s.sh_mdomain then
+      SOME $ call_FFI s.ffi (SharedMem MappedRead) [0w:word8]
+                    (word_to_bytes a F)
+    else NONE
+End
+
+Definition sh_mem_store_byte_def:
+  sh_mem_store_byte (a:'a word) (w:'a word) ^s =
+    if byte_align a IN s.sh_mdomain then
+      case call_FFI s.ffi (SharedMem MappedWrite) [1w:word8]
+                    ([get_byte 0w w F] ++ word_to_bytes a F) of
+        FFI_final outcome => (SOME (FinalFFI outcome), flush_state T s)
+      | FFI_return new_ffi new_bytes => (NONE, (s with ffi := new_ffi))
+    else (SOME Error, s)
+End
+
+Definition sh_mem_load_byte_def:
+  sh_mem_load_byte (a:'a word) ^s =
+    if byte_align a IN s.sh_mdomain then
+      SOME $ call_FFI s.ffi (SharedMem MappedRead) [1w:word8]
+                    (word_to_bytes a F)
+    else NONE
+End
+
+(* set variable given the output from ShareLoad(Byte) *)
+Definition sh_mem_set_var_def:
+  (sh_mem_set_var (SOME (FFI_final outcome)) _ ^s = (SOME (FinalFFI outcome), flush_state T s)) /\
+  (sh_mem_set_var (SOME (FFI_return new_ffi new_bytes)) v s = (NONE, set_var v (Word (word_of_bytes F 0w new_bytes)) (s with ffi := new_ffi))) /\
+  (sh_mem_set_var _ _ s = (SOME Error, s))
+End
+
+Definition share_inst_def:
+  (share_inst Load v ad s = sh_mem_set_var (sh_mem_load ad s) v s) /\
+  (share_inst Load8 v ad s = sh_mem_set_var (sh_mem_load_byte ad s) v s) /\
+  (share_inst Store v ad s = case get_var v s of
+    | SOME (Word v) => sh_mem_store ad v s
+    | _ => (SOME Error,s)) /\
+  (share_inst Store8 v ad s = case get_var v s of
+    | SOME (Word v) => sh_mem_store_byte ad v s
+    | _ => (SOME Error,s))
+End
 
 val call_env_def = Define `
   call_env args size ^s =
@@ -834,6 +889,10 @@ Definition evaluate_def:
                                    ffi := new_ffi |>))
           | _ => (SOME Error,s)))
     | res => (SOME Error,s)) /\
+  (evaluate (ShareInst op v exp, s) =
+    (case word_exp s exp of
+    | SOME (Word ad) => share_inst op v ad s
+    | _ => (SOME Error,s))) /\
   (evaluate (Call ret dest args handler,s) =
     case get_vars args s of
     | NONE => (SOME Error,s)
@@ -928,6 +987,30 @@ Proof
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
 QED
 
+Theorem sh_mem_set_var_clock:
+  !v s1 v2 s2 res.
+    (sh_mem_set_var res v s1 = (v2,s2)) ==>
+    s2.clock <= s1.clock /\ s2.termdep = s1.termdep
+Proof
+  Cases_on `res` >>
+  simp[sh_mem_set_var_def] >>
+  Cases_on `x` >>
+  simp[sh_mem_set_var_def,set_var_def,flush_state_def]
+QED
+
+Theorem share_inst_clock:
+  !op v ad s1 v1 s2.
+    (share_inst op v ad s1 = (v2, s2)) ==>
+    s2.clock <= s1.clock /\ s2.termdep = s1.termdep
+Proof
+  Cases_on `op` >>
+  simp[share_inst_def] >>
+  rpt strip_tac >>
+  gvs[AllCaseEqs(),sh_mem_store_def,sh_mem_store_byte_def,flush_state_def] >>
+  drule sh_mem_set_var_clock >>
+  simp[]
+QED
+
 val inst_clock = Q.prove(
   `inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep`,
   Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,get_vars_def,LET_THM]
@@ -951,7 +1034,8 @@ Proof
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[set_vars_def,set_var_def,set_store_def,unset_var_def]
   \\ imp_res_tac inst_clock \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[mem_store_def,call_env_def,dec_clock_def,flush_state_def]
+  \\ imp_res_tac share_inst_clock
+  \\ fs[mem_store_def,call_env_def,dec_clock_def,flush_state_def]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[LET_THM] \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ full_simp_tac(srw_ss())[jump_exc_def,pop_env_def]
@@ -964,7 +1048,7 @@ Proof
   \\ TRY (PairCases_on `x''`)
   \\ full_simp_tac(srw_ss())[push_env_def,LET_THM]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-  \\ decide_tac
+  \\ TRY decide_tac
 QED
 
 Theorem fix_clock_evaluate[local]:
@@ -1019,8 +1103,6 @@ Definition word_lang_safe_for_space_def:
       (!k res t. wordSem$evaluate (prog, s with clock := k) = (res,t) ==>
         ?max. t.stack_max = SOME max /\ max <= t.stack_limit)
 End
-
-(* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
 

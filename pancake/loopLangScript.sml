@@ -38,6 +38,7 @@ Datatype:
        | Continue
        | Raise num
        | Return num
+       | ShMem memop num ('a exp)
        | Tick
        | Mark prog
        | Fail
@@ -94,6 +95,7 @@ Definition assigned_vars_def:
   (assigned_vars (Seq p q) = assigned_vars p ++ assigned_vars q) ∧
   (assigned_vars (If cmp n r p q ns) = assigned_vars p ++ assigned_vars q) ∧
   (assigned_vars (LocValue n m) = [n]) ∧
+  (assigned_vars (ShMem op n e) = [n]) ∧
   (assigned_vars (Mark p) = assigned_vars p) ∧
   (assigned_vars (Loop _ p _) = assigned_vars p) ∧
   (assigned_vars (Call NONE _ _ _) = []) ∧
@@ -131,6 +133,7 @@ Definition acc_vars_def:
                acc_vars p1 (acc_vars p2 (insert n () l))) /\
   (acc_vars (LocValue n m) l = insert n () l) /\
   (acc_vars (Assign n exp) l = insert n () l) /\
+  (acc_vars (ShMem op n exp) l = insert n () l) /\
   (acc_vars (Store exp n) l = l) /\
   (acc_vars (SetGlobal w exp) l = l) /\
   (acc_vars (LoadByte n m) l = insert m () l) /\

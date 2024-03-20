@@ -528,6 +528,19 @@ Proof
     \\ last_x_assum (qspec_then `n` mp_tac)
     \\ Cases_on `lookup n t.code` \\ fs [])
   THEN1
+   (qexists_tac `0` >> Cases_on ‘op’
+    \\ fs [Once comp_def,evaluate_def,sh_mem_op_def,get_var_def,
+           mem_store_def,word_exp_def,wordLangTheory.word_op_def,
+           sh_mem_load_def,sh_mem_store_def,
+           sh_mem_load_byte_def,sh_mem_store_byte_def]
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq,CaseEq"ffi_result",pair_case_eq,
+           CaseEq"inst",CaseEq"arith",IS_SOME_EXISTS,CaseEq"list",CaseEq"memop",
+           CaseEq"addr",CaseEq"fp",CaseEq"binop"] \\ rfs []
+    \\ rveq \\ fs []
+    \\ simp [state_rel_def,PULL_EXISTS]
+    \\ fs [state_rel_thm,state_component_equality,empty_env_def]
+    \\ fs [state_rel_thm,state_component_equality,empty_env_def,dec_clock_def])
+  THEN1
    (rename [`CodeBufferWrite`] \\ simple_case)
   THEN1
    (rename [`DataBufferWrite`] \\ simple_case)
