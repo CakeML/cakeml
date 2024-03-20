@@ -40,7 +40,7 @@ fun parse_pancake q =
     EVAL “parse_funs_to_ast ^code”
   end
 
-val check_success = assert $ optionSyntax.is_some o rhs o concl
+val check_success = assert $ sumSyntax.is_inl o rhs o concl
 
 (** Examples can be written using quoted strings and passed to the ML
     function parse_pancake. *)

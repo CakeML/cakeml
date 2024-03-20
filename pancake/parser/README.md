@@ -2,6 +2,7 @@ The Pancake parser.
 
 [panConcreteExamplesScript.sml](panConcreteExamplesScript.sml):
 * Pancake concrete syntax examples
+* 9th May 2023: Updated with function declarations
 
 [panLexerScript.sml](panLexerScript.sml):
 * The beginnings of a lexer for the Pancake language.

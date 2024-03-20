@@ -318,17 +318,6 @@ Theorem pancake_exec_thm[compute] =
                                [sumTheory.INL_11]))
     |> LIST_CONJ;
 
-val test1 = time EVAL
-             “peg_exec pancake_peg (mknt ProgNT)
-              [(IdentT "x",Locs (POSN 1 1) (POSN 1 2));
-               (AssignT,Locs (POSN 1 4) (POSN 1 4));
-               (IntT 1,Locs (POSN 1 6) (POSN 1 7));
-               (SemiT,Locs (POSN 1 8) (POSN 1 8))]
-              [] NONE [] done failed”
-
-val prog =
-  “pancake_lex "var x = 0 { var y = <1,2,3> { x = x + y.1; } }"”
-
 Definition parse_statement_def:
   parse_statement s =
     case peg_exec pancake_peg (mknt ProgNT) s [] NONE [] done failed of
@@ -339,8 +328,14 @@ End
 Definition parse_def:
   parse s =
     case peg_exec pancake_peg (mknt FunListNT) s [] NONE [] done failed of
-    | Result (Success [] [e] _) => SOME e
-    | _ => NONE
+    | Result (Success [] [e] _) => INL e
+    | Result (Success toks _ _) =>
+        case peg_exec pancake_peg (mknt FunNT) s [] NONE [] done failed of
+          | Result (Failure loc msg) => INR [(implode msg, loc)]
+          | _ => INR []
+    | Result (Failure loc msg) => INR [(implode msg, loc)]
+    | Looped => INR [(«PEG execution looped during parsing», unknown_loc)]
+    | _ => INR [(«Unknown error during parsing», unknown_loc)]
 End
 
 (** Properties for proving well-formedness of the Pancake grammar. *)
