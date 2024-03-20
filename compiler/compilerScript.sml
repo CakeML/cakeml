@@ -275,8 +275,12 @@ Definition compile_pancake_def:
   compile_pancake c input =
   let _ = empty_ffi (strlit "finished: start up") in
   case panPtreeConversion$parse_funs_to_ast input of
-  | NONE => Failure (ParseError (strlit "Failed pancake parsing"))
-  | SOME funs =>
+  | INR errs =>
+    Failure $ ParseError $ concat $
+      MAP (λ(msg,loc). concat [msg; strlit " at ";
+                               locs_to_string (implode input) (SOME loc); strlit "\n"])
+          errs
+  | INL funs =>
       let _ = empty_ffi (strlit "finished: lexing and parsing") in
       case pan_to_target$compile_prog c funs of
       | NONE => (Failure AssembleError)
