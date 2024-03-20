@@ -330,9 +330,9 @@ Definition parse_def:
     case peg_exec pancake_peg (mknt FunListNT) s [] NONE [] done failed of
     | Result (Success [] [e] _) => INL e
     | Result (Success toks _ _) =>
-        case peg_exec pancake_peg (mknt FunNT) s [] NONE [] done failed of
+        (case peg_exec pancake_peg (mknt FunNT) s [] NONE [] done failed of
           | Result (Failure loc msg) => INR [(implode msg, loc)]
-          | _ => INR []
+          | _ => INR [])
     | Result (Failure loc msg) => INR [(implode msg, loc)]
     | Looped => INR [(«PEG execution looped during parsing», unknown_loc)]
     | _ => INR [(«Unknown error during parsing», unknown_loc)]
@@ -534,6 +534,17 @@ val subexprs_mknt = Q.prove(
 
 Theorem PEG_wellformed[simp]:
   wfG pancake_peg
+Proof
+  simp[wfG_def, Gexprs_def, subexprs_def,
+       subexprs_mknt, peg_start, peg_range, DISJ_IMP_THM,FORALL_AND_THM,
+       choicel_def, seql_def, pegf_def, keep_tok_def, consume_tok_def,
+       keep_kw_def, consume_kw_def, keep_int_def, keep_nat_def,
+       keep_ident_def, try_def] >>
+  simp(pancake_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
+QED
+
+Theorem PEG_FunNT_wellformed:
+  wfG (pancake_peg with start := mknt FunNT)
 Proof
   simp[wfG_def, Gexprs_def, subexprs_def,
        subexprs_mknt, peg_start, peg_range, DISJ_IMP_THM,FORALL_AND_THM,
