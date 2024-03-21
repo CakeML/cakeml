@@ -578,8 +578,6 @@ val npeg0_rwts = List.foldl (pegnt "peg0_" “pancake_peg”) [] topo_nts
 val npeg1_rwts = List.foldl (pegnt "peg1_" “pancake_peg with start := mknt FunNT”) [] topo_nts
 
 fun wfnt tm (t,acc) = let
-  val _ = goal := ‘wfpeg ^tm (mknt ^t)’
-  val _ = ac := acc
   val th =
     Q.prove(‘wfpeg ^tm (mknt ^t)’,
           SIMP_TAC (srw_ss())
