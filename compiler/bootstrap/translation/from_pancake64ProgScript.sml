@@ -680,6 +680,8 @@ val res  = translate $ spec64 conv_Fun_def;
 
 val res = translate $ spec64 conv_FunList_def;
 
+val res = translate $ spec64 panLexerTheory.dest_lexErrorT_def;
+
 val res = translate $ spec64 parse_funs_to_ast_def;
 
 val res = translate $ spec64 parse_to_ast_def;
