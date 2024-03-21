@@ -53,6 +53,7 @@ Datatype:
        | ExtCall funname varname varname varname varname
        | Raise ('a word)
        | Return ('a exp)
+       | ShMem memop varname ('a exp)
        | Tick;
 End
 
@@ -150,6 +151,7 @@ Definition assigned_free_vars_def:
   (assigned_free_vars (Call (SOME ((SOME rt), rp, (SOME (_, p)))) e es) =
      rt :: assigned_free_vars rp ++ assigned_free_vars p) ∧
   (assigned_free_vars (Call (SOME ((SOME rt), rp, NONE)) e es) = rt :: assigned_free_vars rp) ∧
+  (assigned_free_vars (ShMem op r ad) = [r]) ∧
   (assigned_free_vars _ = [])
 End
 
@@ -166,6 +168,7 @@ Definition assigned_vars_def:
   (assigned_vars (Call (SOME ((SOME rt), rp, (SOME (_, p)))) e es) =
      rt :: assigned_vars rp ++ assigned_vars p) ∧
   (assigned_vars (Call (SOME ((SOME rt), rp, NONE)) e es) = rt :: assigned_vars rp) ∧
+  (assigned_vars (ShMem op r ad) = [r]) ∧
   (assigned_vars _ = [])
 End
 
@@ -229,6 +232,7 @@ Definition acc_vars_def:
   (acc_vars (Call (SOME ((SOME rv), rp, (SOME (w, ep)))) trgt args) l =
    let nl = list_insert (rv :: FLAT (MAP var_cexp (trgt::args))) l in
       acc_vars rp (acc_vars ep nl)) ∧
+  (acc_vars (ShMem op r e) l = list_insert (r::var_cexp e) l) ∧
   (acc_vars _ l = l)
 End
 

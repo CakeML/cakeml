@@ -54,11 +54,12 @@ evaluate pc code with k for a clock = evaluate (pc+k) code
 
 (* 1)
 There is probably a neater way to prove this*)
-val asm_fetch_aux_eq = Q.prove(`
+Theorem asm_fetch_aux_eq:
   ∀pc code.
   ∃k.
     asm_fetch_aux (pc+k) code = asm_fetch_aux (adjust_pc pc code) (filter_skip code) ∧
-    all_skips pc code k`,
+    all_skips pc code k
+Proof
   Induct_on`code`
   >-
     (simp[Once adjust_pc_def,filter_skip_def,asm_fetch_aux_def,all_skips_def]>>
@@ -111,8 +112,8 @@ val asm_fetch_aux_eq = Q.prove(`
     first_x_assum(qspecl_then[`n`,`pc-1`] assume_tac)>>full_simp_tac(srw_ss())[]>>
     `∀x. pc - 1 + x = pc + x -1` by DECIDE_TAC>>
     `∀x. pc - 1 + x = x + pc -1` by DECIDE_TAC>>
-    metis_tac[]))
-
+    metis_tac[])
+QED
 (*For any adjusted fetch, the original fetch is either equal or is a skip
 This is probably the wrong direction*)
 val asm_fetch_not_skip_adjust_pc = Q.prove(
@@ -526,6 +527,93 @@ val upd_pc_tac =
   full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
   metis_tac[arithmeticTheory.ADD_COMM,arithmeticTheory.ADD_ASSOC];
 
+Theorem share_mem_op_NONE_filter_correct:
+  all_skips t1.pc t1.code k /\
+  share_mem_op m r a
+    (t1 with
+     <|pc := adjust_pc t1.pc t1.code; code := filter_skip t1.code;
+       compile := arb_compile;
+       compile_oracle := arb_oracle |>) = NONE
+  ==>
+  share_mem_op m r a (t1 with pc := k + t1.pc) = NONE
+Proof
+  Cases_on `m` >>
+  fs[share_mem_op_def, share_mem_store_def, share_mem_load_def] >>
+  Cases_on `a` >>
+  rpt (TOP_CASE_TAC >> fs[labSemTheory.addr_def])
+QED
+
+val share_mem_load_filter_correct_tac =
+  qexists `t1 with
+          <|regs := t1.regs⦇r ↦ Word (word_of_bytes F 0w l)⦈;
+            pc := k + (t1.pc + 1); ffi := f; clock := t1.clock − 1|>` >>
+  rw[] >>
+  qexists `s1compile` >>
+  rw[state_component_equality] >>
+  drule adjust_pc_all_skips >>
+  gvs[];
+
+val share_mem_store_filter_correct_tac =
+  qexists `t1 with
+          <|pc := k + (t1.pc + 1); ffi := f;
+            clock := t1.clock − 1|>` >>
+  rw[] >>
+  qexists `s1compile` >>
+  rw[state_component_equality] >>
+  drule adjust_pc_all_skips >>
+  gvs[];
+
+Theorem share_mem_op_FFI_return_filter_correct:
+  (all_skips t1.pc t1.code k /\ t1.clock <> 0 /\
+  t1.compile = (λc p. s1compile c (filter_skip p)) /\ ~t1.failed /\
+  share_mem_op m r a
+    (t1 with
+     <|pc := adjust_pc t1.pc t1.code; code := filter_skip t1.code;
+       compile := s1compile;
+       compile_oracle := (λn. (λ(a,b). (a,filter_skip b)) (t1.compile_oracle n))
+     |>) = SOME (FFI_return f l, s))
+  ==>
+  (?s2. !k'. share_mem_op m r a (t1 with pc := k + t1.pc) =
+    SOME (FFI_return f l, s2) /\
+  state_rel s s2 /\ ~s.failed /\ ~s2.failed /\
+  share_mem_op m r a (t1 with <|pc := k + t1.pc; clock := k' + t1.clock|>) =
+    SOME (FFI_return f l, s2 with clock := k' + s2.clock))
+Proof
+  Cases_on `m` >>
+  fs[share_mem_op_def, share_mem_store_def, share_mem_load_def] >> rw[] >>
+  Cases_on `a` >>
+  rpt (TOP_CASE_TAC >>
+    fs[labSemTheory.addr_def,AllCaseEqs(),state_rel_def]) >>
+  gvs[inc_pc_def,dec_clock_def]
+  >- share_mem_load_filter_correct_tac
+  >- share_mem_load_filter_correct_tac
+  >- share_mem_store_filter_correct_tac
+  >- share_mem_store_filter_correct_tac
+QED
+
+Theorem share_mem_op_FFI_final_filter_correct:
+  (all_skips t1.pc t1.code k /\ t1.clock <> 0 /\
+  t1.compile = (λc p. s1compile c (filter_skip p)) /\ ~t1.failed /\
+  share_mem_op m r a
+    (t1 with
+     <|pc := adjust_pc t1.pc t1.code; code := filter_skip t1.code;
+       compile := s1compile;
+       compile_oracle := (λn. (λ(a,b). (a,filter_skip b)) (t1.compile_oracle n))
+     |>) = SOME (FFI_final f, s))
+  ==>
+  (?s2. share_mem_op m r a (t1 with pc := k + t1.pc) = SOME (FFI_final f, s2) /\
+  s.ffi = s2.ffi)
+Proof
+  Cases_on `m` >>
+  fs[share_mem_op_def, share_mem_store_def, share_mem_load_def] >> rw[] >>
+  Cases_on `a` >>
+  rpt (TOP_CASE_TAC >>
+    fs[labSemTheory.addr_def,AllCaseEqs(),state_rel_def]) >>
+  gvs[] >>
+  rpt strip_tac >>
+  qexists `s1compile`
+QED
+
 Theorem filter_correct:
    !(s1:('a,'c,'ffi) labSem$state) t1 res s2.
       (evaluate s1 = (res,s2)) /\ state_rel s1 t1 /\ ~t1.failed ==>
@@ -597,7 +685,7 @@ Proof
         metis_tac[ADD_ASSOC]))
       >-
         (Cases_on`a`>>Cases_on`m`>>
-        fs[mem_op_def,mem_load_def,addr_def,mem_load_byte_def,mem_store_def,upd_mem_def,mem_store_byte_def]>>
+        fs[mem_op_def,mem_load_def,labSemTheory.addr_def,mem_load_byte_def,mem_store_def,upd_mem_def,mem_store_byte_def]>>
         EVERY_CASE_TAC>>
         fs[upd_reg_def,inc_pc_def,dec_clock_def,assert_def]>>
         rw[]>>fs[]>>
@@ -672,7 +760,45 @@ Proof
         metis_tac[ADD_ASSOC])
       >>
         (first_x_assum(qspec_then`0` (assume_tac o SYM))>>
-        fs[]>>qexists_tac`k`>>fs[])))
+        fs[]>>qexists_tac`k`>>fs[]))
+      >- (* share_mem_op *)
+        (TOP_CASE_TAC >> fs[]
+        >- (* share_mem_op returns NONE *)
+          (disch_then $ qspec_then `0` mp_tac >> fs[] >>
+          drule_all share_mem_op_NONE_filter_correct >>
+          fs[] >>
+          rpt strip_tac >>
+          qexistsl [`k`, `t1 with pc := k + t1.pc`] >>
+          fs[state_component_equality]
+        )
+        >- (* share_mem_op returns SOME x *)
+          (rpt (TOP_CASE_TAC >> fs[])
+          >- (* FFI_return *)
+            (drule_all share_mem_op_FFI_return_filter_correct >>
+            rw[] >>
+            first_x_assum $ qspecl_then
+              [`s2' with io_regs := shift_seq 1 s2'.io_regs`,`res`,`s2`] assume_tac >>
+            gvs[] >>
+            last_x_assum $ qspec_then `0` assume_tac >>
+            gvs[state_rel_def] >>
+            gvs[PULL_EXISTS] >>
+            first_x_assum $ qspec_then `s1compile'` assume_tac >>
+            rw[] >>
+            first_x_assum $ qspec_then `k'` assume_tac >>
+            qexistsl [`k + k'`, `t2`] >>
+            gvs[]
+          )
+          >- (* FFI_final *)
+            (drule_all share_mem_op_FFI_final_filter_correct >>
+            rw[] >>
+            first_x_assum $ qspec_then `0` assume_tac >>
+            gvs[] >>
+            qexistsl [`k`,`s2'`] >>
+            gvs[]
+          )
+        )
+      )
+    )
   >>
     Cases_on`a`>>
     full_simp_tac(srw_ss())[asm_fetch_def,state_rel_def]>>rev_full_simp_tac(srw_ss())[]>>
@@ -794,7 +920,7 @@ Proof
       >>
         imp_res_tac loc_to_pc_eq_SOME>>full_simp_tac(srw_ss())[]>>
         full_simp_tac(srw_ss())[]>>
-        srw_tac[][]>>Cases_on`call_FFI t1.ffi s x x'`>>fs[]>-upd_pc_tac>>
+        srw_tac[][]>>Cases_on`call_FFI t1.ffi (ExtCall s) x x'`>>fs[]>-upd_pc_tac>>
         same_inst_tac)
     >- (*oracle case *)
       (reverse(Cases_on`t1.regs t1.ptr_reg`) \\ fs[] >- same_inst_tac \\

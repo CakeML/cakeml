@@ -5,7 +5,7 @@ open preamble;
 open semanticsPropsTheory evaluatePropsTheory ffiTheory
      targetSemTheory targetPropsTheory;
 open target_itreeSemTheory target_itreePropsTheory
-     itree_semanticsTheory itree_semanticsPropsTheory itree_semanticsEquivTheory;
+     itree_semanticsTheory itree_semanticsPropsTheory; (* itree_semanticsEquivTheory;*)
 
 
 val _ = new_theory "target_itreeEquiv"
@@ -14,10 +14,10 @@ val _ = new_theory "target_itreeEquiv"
 (*********** evaluate' **********)
 
 Definition evaluate'_def:
-  evaluate' mc (ffi:'ffi ffi_state) k (ms:'a) =
+  evaluate' (mc:('b,'a,'c) machine_config) (ffi:'ffi ffi_state) (k:num) (ms:'a) =
     if k = 0 then (TimeOut,mc,ms,ffi)
     else
-      if mc.target.get_pc ms ∈ mc.prog_addresses then
+      if mc.target.get_pc ms ∈ mc.prog_addresses DIFF set mc.ffi_entry_pcs then
         if encoded_bytes_in_mem
             mc.target.config (mc.target.get_pc ms)
             (mc.target.get_byte ms) mc.prog_addresses then
@@ -48,16 +48,73 @@ Definition evaluate'_def:
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => (Error,mc,ms,ffi)
         | SOME ffi_index =>
-          case read_ffi_bytearrays mc ms of
-          | SOME bytes, SOME bytes2 =>
-            (case call_FFI ffi (EL ffi_index mc.ffi_names) bytes bytes2 of
-             | FFI_final outcome => (Halt (FFI_outcome outcome),mc,ms,ffi)
-             | FFI_return new_ffi new_bytes =>
-                let (ms1,new_oracle) = apply_oracle mc.ffi_interfer
-                  (ffi_index,new_bytes,ms) in
-                let mc = mc with ffi_interfer := new_oracle in
-                  evaluate' mc new_ffi (k - 1:num) ms1)
-          | _ => (Error,mc,ms,ffi)
+            case EL ffi_index mc.ffi_names of
+            | SharedMem op =>
+                (case ALOOKUP mc.mmio_info ffi_index of
+                 | NONE => (Error,mc,ms,ffi)
+                 | SOME (nb,a,reg,pc') =>
+                     (case op of
+                        | MappedRead =>
+                            (case a of
+                             | Addr r off =>
+                                 let ad = mc.target.get_reg ms r + off in
+                                   (if (if nb = 0w
+                                        then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T)
+                                       ∧ (ad IN mc.shared_addresses) /\
+                                       is_valid_mapped_read (mc.target.get_pc ms) nb a reg pc'
+                                                            mc.target ms mc.prog_addresses
+                                    then
+                                      (case call_FFI ffi (EL ffi_index mc.ffi_names)
+                                                     [nb]
+                                                     (word_to_bytes ad F) of
+                                       | FFI_final outcome =>
+                                           (Halt (FFI_outcome outcome),mc,ms,ffi)
+                                       | FFI_return new_ffi new_bytes =>
+                                           let (ms1,new_oracle) =
+                                               apply_oracle mc.ffi_interfer
+                                                            (ffi_index,new_bytes,ms) in
+                                             let mc = mc with ffi_interfer := new_oracle in
+                                               evaluate' mc new_ffi (k - 1) ms1)
+                                    else (Error,mc,ms,ffi)))
+                        | MappedWrite =>
+                            (case a of
+                             | Addr r off =>
+                                 let ad = (mc.target.get_reg ms r) + off in
+                                   (if (if nb = 0w
+                                        then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T)
+                                       /\ (ad IN mc.shared_addresses) /\
+                                       is_valid_mapped_write (mc.target.get_pc ms) nb a reg pc'
+                                                             mc.target ms mc.prog_addresses
+                                    then
+                                      (case call_FFI ffi (EL ffi_index mc.ffi_names)
+                                                     [nb]
+                                                     ((let w = mc.target.get_reg ms reg in
+                                                         if nb = 0w then word_to_bytes w F
+                                                         else word_to_bytes_aux (w2n nb) w F)
+                                                      ++ (word_to_bytes ad F)) of
+                                       | FFI_final outcome =>
+                                           (Halt (FFI_outcome outcome),mc,ms,ffi)
+                                       | FFI_return new_ffi new_bytes =>
+                                           let (ms1,new_oracle) =
+                                               apply_oracle mc.ffi_interfer
+                                                            (ffi_index,new_bytes,ms) in
+                                             let mc = mc with ffi_interfer := new_oracle in
+                                               evaluate' mc new_ffi (k - 1) ms1)
+                                    else (Error,mc,ms,ffi)))))
+            | ExtCall _ =>
+                (case ALOOKUP mc.mmio_info ffi_index of
+                 | SOME _ => (Error,mc,ms,ffi)
+                 | NONE =>
+                     case read_ffi_bytearrays mc ms of
+                     | (SOME bytes, SOME bytes2) =>
+                         (case call_FFI ffi (EL ffi_index mc.ffi_names) bytes bytes2 of
+                          | FFI_final outcome => (Halt (FFI_outcome outcome),mc,ms,ffi)
+                          | FFI_return new_ffi new_bytes =>
+                              let (ms1,new_oracle) = apply_oracle mc.ffi_interfer
+                                                                  (ffi_index,new_bytes,ms) in
+                                let mc = mc with ffi_interfer := new_oracle in
+                                  evaluate' mc new_ffi (k - 1) ms1)
+                     | _ => (Error,mc,ms,ffi))
 End
 
 Theorem evaluate'_0[simp]:
@@ -71,9 +128,8 @@ Theorem evaluate_evaluate':
 Proof
   ho_match_mp_tac evaluate_ind >> rw[] >>
   simp[Once evaluate_def, Once evaluate'_def] >>
-  IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[] >>
-  IF_CASES_TAC >> gvs[apply_oracle_def] >> IF_CASES_TAC >> gvs[] >>
-  rpt (TOP_CASE_TAC >> gvs[])
+  rpt (TOP_CASE_TAC >> gvs[apply_oracle_def]) >>
+  rpt (pairarg_tac >> gvs[]) >> rpt (TOP_CASE_TAC >> gvs[])
 QED
 
 Theorem evaluate'_step:
@@ -85,7 +141,8 @@ Theorem evaluate'_step:
 Proof
   simp[] >> simp[Once evaluate'_def, SimpRHS] >> simp[Once evaluate'_def] >>
   IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[apply_oracle_def] >>
-  IF_CASES_TAC >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[])
+  IF_CASES_TAC >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
+  pairarg_tac >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[])
 QED
 
 Theorem evaluate'_step_alt:
@@ -128,10 +185,12 @@ Theorem evaluate'_io_events_mono:
    ∀mc ffi k ms res mc' ms' ffi'.
     evaluate' mc ffi k ms = (res,mc',ms',ffi') ⇒ io_events_mono ffi ffi'
 Proof
-  ho_match_mp_tac evaluate'_ind >> rw[] >>
+  ho_match_mp_tac evaluate'_ind >>
+  strip_tac >>
+  rw[] >>
   pop_assum mp_tac >> simp[Once evaluate'_def] >>
-  ntac 4 (IF_CASES_TAC >> gvs[apply_oracle_def]) >>
-  ntac 5 (TOP_CASE_TAC >> gvs[]) >> rw[] >> gvs[] >>
+  rpt (TOP_CASE_TAC >> gvs[apply_oracle_def]) >>
+  rw[] >> gvs[] >>
   irule io_events_mono_trans >> goal_assum $ drule_at Any >>
   irule call_FFI_rel_io_events_mono >>
   irule RTC_SUBSET >> simp[call_FFI_rel_def, SF SFY_ss]
@@ -139,13 +198,13 @@ QED
 
 Theorem evaluate'_add_clock:
   ∀mc ffi k ms res.
-    evaluate' mc ffi k ms = res ∧ FST res ≠ TimeOut
+  evaluate' mc ffi k ms = res ∧ FST res ≠ TimeOut
   ⇒ ∀k'. k ≤ k' ⇒ evaluate' mc ffi k' ms = res
 Proof
   recInduct evaluate'_ind >> rw[] >>
   qpat_x_assum `FST _ ≠ _` mp_tac >> once_rewrite_tac[evaluate'_def] >>
-  IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[] >>
-  IF_CASES_TAC >> gvs[apply_oracle_def] >> IF_CASES_TAC >> gvs[] >>
+  rpt (TOP_CASE_TAC >> gvs[apply_oracle_def]) >>
+  rpt (pairarg_tac >> gvs[]) >>
   rpt (TOP_CASE_TAC >> gvs[])
 QED
 
@@ -171,9 +230,9 @@ QED
 
 Theorem evaluate'_min:
   ∀k mc ffi ms res.
-    evaluate' mc ffi k ms = res ∧ FST res ≠ TimeOut
+  evaluate' mc ffi k ms = res ∧ FST res ≠ TimeOut
   ⇒ ∃k'. k' ≤ k ∧ evaluate' mc ffi k' ms = res ∧
-      ∀m. m < k' ⇒ ∃mc' ms' ffi'. evaluate' mc ffi m ms = (TimeOut,mc',ms',ffi')
+         ∀m. m < k' ⇒ ∃mc' ms' ffi'. evaluate' mc ffi m ms = (TimeOut,mc',ms',ffi')
 Proof
   Induct >> rw[] >>
   qabbrev_tac `res = evaluate' mc ffi (SUC k) ms` >> PairCases_on `res` >> gvs[] >>
@@ -181,13 +240,13 @@ Proof
   gvs[evaluate'_step_alt] >>
   Cases_on `evaluate' mc ffi k ms` >> gvs[] >> Cases_on `q` >> gvs[]
   >- (
-    first_x_assum $ qspecl_then [`mc`,`ffi`,`ms`] assume_tac >> gvs[] >>
-    qexists_tac `k'` >> simp[]
-    )
+  first_x_assum $ qspecl_then [`mc`,`ffi`,`ms`] assume_tac >> gvs[] >>
+  qexists_tac `k'` >> simp[]
+  )
   >- (
-    first_x_assum $ qspecl_then [`mc`,`ffi`,`ms`] assume_tac >> gvs[] >>
-    qexists_tac `k'` >> simp[]
-    ) >>
+  first_x_assum $ qspecl_then [`mc`,`ffi`,`ms`] assume_tac >> gvs[] >>
+  qexists_tac `k'` >> simp[]
+  ) >>
   PairCases_on `r` >> gvs[] >>
   qexists_tac `SUC k` >> simp[evaluate'_step_alt] >> rw[] >>
   drule evaluate'_remove_clock >> simp[] >>
@@ -200,47 +259,108 @@ Theorem evaluate'_1_ffi_unchanged:
 Proof
   simp[Once evaluate'_def] >>
   IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[apply_oracle_def] >>
-  IF_CASES_TAC >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) >> rw[] >> gvs[]
+  IF_CASES_TAC >> gvs[] >>
+  rpt (TOP_CASE_TAC >> gvs[]) >>
+  rw[] >> gvs[] >>
+  pairarg_tac >> gvs[AllCaseEqs()]
 QED
 
 Theorem evaluate'_1_ffi_changed:
-  evaluate' mc (ffi:'ffi ffi_state) 1 ms = (res,mc',ms',ffi') ∧ ffi' ≠ ffi ⇔
+  evaluate' (mc:('b,'a,'c) machine_config) (ffi:'ffi ffi_state) 1 ms
+  = (res,mc',ms',ffi') ∧ ffi' ≠ ffi ⇔
     res = TimeOut ∧
-    mc.target.get_pc ms ∉ mc.prog_addresses ∧
+    mc.target.get_pc ms ∉ (mc.prog_addresses DIFF set mc.ffi_entry_pcs) ∧
     mc.target.get_pc ms ≠ mc.halt_pc ∧
     mc.target.get_pc ms ≠ mc.ccache_pc ∧
     mc' = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer ∧
     ∃n ws1 ws2 l.
-      find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME n ∧
-      EL n mc.ffi_names ≠ "" ∧
-      read_ffi_bytearrays mc ms = (SOME ws1,SOME ws2) ∧
+  find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME n ∧
+  (
+  (EL n mc.ffi_names = SharedMem MappedRead /\
+   ?nb ad r off reg pc'.
+          ALOOKUP mc.mmio_info n = SOME (nb, Addr r off,reg,pc') /\
+          ad = mc.target.get_reg ms r + off /\
+          (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
+          ad IN mc.shared_addresses /\
+          is_valid_mapped_read (mc.target.get_pc ms) nb (Addr r off) reg
+            pc' mc.target ms mc.prog_addresses /\
+          ws1 = [nb] /\
+          ws2 = word_to_bytes ad F) \/
+         (EL n mc.ffi_names = SharedMem MappedWrite /\
+         ?nb ad r off reg pc'.
+           ALOOKUP mc.mmio_info n = SOME (nb,Addr r off,reg,pc') /\
+           ad = mc.target.get_reg ms r + off /\
+           (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
+           ad IN mc.shared_addresses /\
+           is_valid_mapped_write (mc.target.get_pc ms) nb (Addr r off) reg
+             pc' mc.target ms mc.prog_addresses /\
+           ws1 = [nb] /\
+           ws2 = (let w = mc.target.get_reg ms reg in
+                      if nb = 0w then word_to_bytes w F
+                      else word_to_bytes_aux (w2n nb) w F) ++
+                 word_to_bytes ad F) \/
+         ((∃s. EL n mc.ffi_names = ExtCall s ∧ s ≠ "") ∧
+           ALOOKUP mc.mmio_info n = NONE ∧
+          read_ffi_bytearrays mc ms = (SOME ws1,SOME ws2))
+      ) ∧
       call_FFI ffi (EL n mc.ffi_names) ws1 ws2 = FFI_return ffi' l ∧
       ms' = mc.ffi_interfer 0 (n,l,ms)
 Proof
   simp[Once evaluate'_def] >>
   IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[apply_oracle_def] >>
   IF_CASES_TAC >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
+  rpt ( pairarg_tac >> gvs[AllCaseEqs()] ) >>
   eq_tac >> rw[] >>
   gvs[call_FFI_def, AllCaseEqs(), ffi_state_component_equality] >>
-  qpat_x_assum `_ = f.io_events` $ assume_tac o GSYM >> simp[]
+  qpat_x_assum `_ = f.io_events` $ assume_tac o GSYM >> simp[] >>
+  Cases_on ‘EL x mc.ffi_names’>>fs[]>>
+  rename1 ‘SharedMem s’>>Cases_on ‘s’>>fs[]
 QED
 
 Theorem evaluate'_1_ffi_failed:
-  evaluate' mc (ffi:'ffi ffi_state) 1 ms = (Halt (FFI_outcome outcome),mc',ms',ffi') ⇔
-    mc.target.get_pc ms ∉ mc.prog_addresses ∧
+  evaluate' (mc:('b,'a,'c) machine_config) (ffi:'ffi ffi_state) 1 ms
+  = (Halt (FFI_outcome outcome),mc',ms',ffi') ⇔
+    mc.target.get_pc ms ∉ (mc.prog_addresses DIFF set mc.ffi_entry_pcs) ∧
     mc.target.get_pc ms ≠ mc.halt_pc ∧
     mc.target.get_pc ms ≠ mc.ccache_pc ∧
     ms = ms' ∧ mc = mc' ∧ ffi = ffi' ∧
     ∃n ws1 ws2 l.
       find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME n ∧
-      EL n mc.ffi_names ≠ "" ∧
-      read_ffi_bytearrays mc ms = (SOME ws1,SOME ws2) ∧
+      (
+        (EL n mc.ffi_names = SharedMem MappedRead /\
+        ?nb ad r off reg pc'.
+          ALOOKUP mc.mmio_info n = SOME (nb, Addr r off,reg,pc') /\
+          ad = mc.target.get_reg ms r + off /\
+          (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
+          ad IN mc.shared_addresses /\
+          is_valid_mapped_read (mc.target.get_pc ms) nb (Addr r off) reg
+            pc' mc.target ms mc.prog_addresses /\
+          ws1 = [nb] /\
+          ws2 = word_to_bytes ad F) \/
+         (EL n mc.ffi_names = SharedMem MappedWrite /\
+         ?nb ad r off reg pc'.
+           ALOOKUP mc.mmio_info n = SOME (nb,Addr r off,reg,pc') /\
+           ad = mc.target.get_reg ms r + off /\
+           (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
+           ad IN mc.shared_addresses /\
+           is_valid_mapped_write (mc.target.get_pc ms) nb (Addr r off) reg
+             pc' mc.target ms mc.prog_addresses /\
+           ws1 = [nb] /\
+           ws2 = (let w = mc.target.get_reg ms reg in
+                      if nb = 0w then word_to_bytes w F
+                      else word_to_bytes_aux (w2n nb) w F) ++
+            word_to_bytes ad F) \/
+         ((∃s. EL n mc.ffi_names = ExtCall s /\ s ≠ "") /\
+          ALOOKUP mc.mmio_info n = NONE ∧
+          read_ffi_bytearrays mc ms = (SOME ws1,SOME ws2))
+      ) ∧
       call_FFI ffi (EL n mc.ffi_names) ws1 ws2 = FFI_final outcome
 Proof
   simp[Once evaluate'_def] >>
-  IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[apply_oracle_def] >>
-  IF_CASES_TAC >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
-  eq_tac >> rw[] >> gvs[call_FFI_def, AllCaseEqs()]
+  rpt (TOP_CASE_TAC >> gvs[apply_oracle_def]) >>
+  TRY eq_tac >> rw[] >> gvs[call_FFI_def, AllCaseEqs()]>>
+  Cases_on ‘EL x mc.ffi_names’>>fs[]>>
+  rename1 ‘SharedMem s’>>Cases_on ‘s’>>fs[]
 QED
 
 
@@ -282,33 +402,30 @@ Proof
     pop_assum mp_tac >> simp[Once eval_to'_def, Once evaluate'_def] >>
     IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[]
     >- (IF_CASES_TAC >> gvs[] >> pairarg_tac >> gvs[] >> IF_CASES_TAC >> gvs[])
-    >- (
+    >> (
       IF_CASES_TAC >> gvs[] >- (rw[] >> gvs[halt_rel_def]) >>
       IF_CASES_TAC >> gvs[] >- (pairarg_tac >> gvs[]) >>
-      ntac 5 (TOP_CASE_TAC >> gvs[]) >>
+      rpt (TOP_CASE_TAC >> gvs[]) >>
+      rpt (pairarg_tac >> gvs[AllCaseEqs()]) >>
+      rpt (TOP_CASE_TAC >> gvs[]) >>
       strip_tac >> gvs[call_FFI_def, apply_oracle_def]
       )
-    )
-  >- (
-    map_every qid_spec_tac [`ms`,`k`,`ffi`,`mc`] >>
-    ho_match_mp_tac evaluate'_ind >> rw[] >>
-    pop_assum mp_tac >> simp[Once eval_to'_def, Once evaluate'_def] >>
-    IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[]
-    >- (IF_CASES_TAC >> gvs[] >> pairarg_tac >> gvs[] >> IF_CASES_TAC >> gvs[])
-    >- (
-      IF_CASES_TAC >> gvs[] >- (rw[] >> Cases_on `r` >> gvs[halt_rel_def]) >>
-      IF_CASES_TAC >> gvs[] >- (pairarg_tac >> gvs[]) >>
-      reverse $ ntac 5 (TOP_CASE_TAC >> gvs[])
-      >- (strip_tac >> gvs[] >> Cases_on `r` >> gvs[halt_rel_def]) >>
-      strip_tac >> gvs[apply_oracle_def] >>
-      qsuff_tac `ffi = f`
-      >- (strip_tac >> gvs[call_FFI_def, AllCaseEqs(), ffi_state_component_equality]) >>
-      irule io_events_mono_antisym >>
-      imp_res_tac evaluate'_io_events_mono >> simp[] >>
-      irule call_FFI_rel_io_events_mono >> irule RTC_SUBSET >>
-      simp[call_FFI_rel_def, SF SFY_ss]
-      )
-    )
+    )>>
+  map_every qid_spec_tac [`ms`,`k`,`ffi`,`mc`] >>
+  ho_match_mp_tac evaluate'_ind >> rw[] >>
+  pop_assum mp_tac >> simp[Once eval_to'_def, Once evaluate'_def] >>
+  rpt (TOP_CASE_TAC>>gvs[apply_oracle_def])>>
+  TRY (rw[]>>Cases_on ‘r’>>gvs[halt_rel_def]>>NO_TAC)>>
+  TRY (strip_tac >>
+       gvs[call_FFI_def, AllCaseEqs(), ffi_state_component_equality]>>
+       NO_TAC) >>
+  (strip_tac>>fs[]>>
+   qsuff_tac `ffi = f`
+   >- (strip_tac >> gvs[call_FFI_def, AllCaseEqs(), ffi_state_component_equality]) >>
+   irule io_events_mono_antisym >>
+   imp_res_tac evaluate'_io_events_mono >> simp[] >>
+   irule call_FFI_rel_io_events_mono >> irule RTC_SUBSET >>
+   simp[call_FFI_rel_def, SF SFY_ss])
 QED
 
 Theorem eval_to'_evaluate'_error:
@@ -322,32 +439,27 @@ Proof
     pop_assum mp_tac >> simp[Once eval_to'_def, Once evaluate'_def] >>
     IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[]
     >- (IF_CASES_TAC >> gvs[] >> pairarg_tac >> gvs[] >> IF_CASES_TAC >> gvs[])
-    >- (
-      IF_CASES_TAC >> gvs[] >- rw[] >>
-      IF_CASES_TAC >> gvs[] >- (pairarg_tac >> gvs[]) >>
-      ntac 5 (TOP_CASE_TAC >> gvs[]) >>
+    >> (
+      rpt (TOP_CASE_TAC >> gvs[]) >>
+      rpt (pairarg_tac >> gvs[]) >>
       strip_tac >> gvs[call_FFI_def, apply_oracle_def]
       )
-    )
-  >- (
-    map_every qid_spec_tac [`ms`,`k`,`ffi`,`mc`] >>
-    ho_match_mp_tac evaluate'_ind >> rw[] >>
-    pop_assum mp_tac >> simp[Once eval_to'_def, Once evaluate'_def] >>
-    IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[]
-    >- (IF_CASES_TAC >> gvs[] >> pairarg_tac >> gvs[] >> IF_CASES_TAC >> gvs[])
-    >- (
-      IF_CASES_TAC >> gvs[] >- (rw[] >> CCONTR_TAC >> gvs[]) >>
-      IF_CASES_TAC >> gvs[] >- (pairarg_tac >> gvs[]) >>
-      ntac 5 (TOP_CASE_TAC >> gvs[]) >>
-      strip_tac >> gvs[apply_oracle_def] >>
-      qsuff_tac `ffi = f`
-      >- (strip_tac >> gvs[call_FFI_def, AllCaseEqs(), ffi_state_component_equality]) >>
-      irule io_events_mono_antisym >>
-      imp_res_tac evaluate'_io_events_mono >> simp[] >>
-      irule call_FFI_rel_io_events_mono >> irule RTC_SUBSET >>
-      simp[call_FFI_rel_def, SF SFY_ss]
-      )
-    )
+    )>>
+  map_every qid_spec_tac [`ms`,`k`,`ffi`,`mc`] >>
+  ho_match_mp_tac evaluate'_ind >> rw[] >>
+  pop_assum mp_tac >> simp[Once eval_to'_def, Once evaluate'_def] >>
+  rpt (TOP_CASE_TAC>>gvs[apply_oracle_def])>>
+  TRY (rw[]>>Cases_on ‘r’>>gvs[halt_rel_def]>>NO_TAC)>>
+  TRY (strip_tac >>
+       gvs[call_FFI_def, AllCaseEqs(), ffi_state_component_equality]>>
+       NO_TAC) >>
+  (strip_tac>>fs[]>>
+   qsuff_tac `ffi = f`
+   >- (strip_tac >> gvs[call_FFI_def, AllCaseEqs(), ffi_state_component_equality]) >>
+   irule io_events_mono_antisym >>
+   imp_res_tac evaluate'_io_events_mono >> simp[] >>
+   irule call_FFI_rel_io_events_mono >> irule RTC_SUBSET >>
+   simp[call_FFI_rel_def, SF SFY_ss])
 QED
 
 Theorem eval_to'_evaluate'_timeout:
@@ -361,32 +473,27 @@ Proof
     pop_assum mp_tac >> simp[Once eval_to'_def, Once evaluate'_def] >>
     IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[]
     >- (IF_CASES_TAC >> gvs[] >> pairarg_tac >> gvs[] >> IF_CASES_TAC >> gvs[])
-    >- (
-      IF_CASES_TAC >> gvs[] >- rw[] >>
-      IF_CASES_TAC >> gvs[] >- (pairarg_tac >> gvs[]) >>
-      ntac 5 (TOP_CASE_TAC >> gvs[]) >>
+    >> (
+      rpt (TOP_CASE_TAC >> gvs[]) >>
+      rpt (pairarg_tac >> gvs[AllCaseEqs()]) >>
       strip_tac >> gvs[call_FFI_def, apply_oracle_def]
       )
-    )
-  >- (
-    map_every qid_spec_tac [`ms`,`k`,`ffi`,`mc`] >>
-    ho_match_mp_tac evaluate_ind >> rw[] >>
-    pop_assum mp_tac >> simp[Once eval_to'_def, Once evaluate'_def] >>
-    IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[]
-    >- (IF_CASES_TAC >> gvs[] >> pairarg_tac >> gvs[] >> IF_CASES_TAC >> gvs[])
-    >- (
-      IF_CASES_TAC >> gvs[] >- (rw[] >> CCONTR_TAC >> gvs[]) >>
-      IF_CASES_TAC >> gvs[] >- (pairarg_tac >> gvs[]) >>
-      ntac 5 (TOP_CASE_TAC >> gvs[]) >>
-      strip_tac >> gvs[apply_oracle_def] >>
-      qsuff_tac `ffi = f`
-      >- (strip_tac >> gvs[call_FFI_def, AllCaseEqs(), ffi_state_component_equality]) >>
-      irule io_events_mono_antisym >>
-      imp_res_tac evaluate'_io_events_mono >> simp[] >>
-      irule call_FFI_rel_io_events_mono >> irule RTC_SUBSET >>
-      simp[call_FFI_rel_def, SF SFY_ss]
-      )
-    )
+    )>>
+  map_every qid_spec_tac [`ms`,`k`,`ffi`,`mc`] >>
+  ho_match_mp_tac evaluate'_ind >> rw[] >>
+  pop_assum mp_tac >> simp[Once eval_to'_def, Once evaluate'_def] >>
+  rpt (TOP_CASE_TAC>>gvs[apply_oracle_def])>>
+  TRY (rw[]>>Cases_on ‘r’>>gvs[halt_rel_def]>>NO_TAC)>>
+  TRY (strip_tac >>
+       gvs[call_FFI_def, AllCaseEqs(), ffi_state_component_equality]>>
+       NO_TAC) >>
+  (strip_tac>>fs[]>>
+   qsuff_tac `ffi = f`
+   >- (strip_tac >> gvs[call_FFI_def, AllCaseEqs(), ffi_state_component_equality]) >>
+   irule io_events_mono_antisym >>
+   imp_res_tac evaluate'_io_events_mono >> simp[] >>
+   irule call_FFI_rel_io_events_mono >> irule RTC_SUBSET >>
+   simp[call_FFI_rel_def, SF SFY_ss])
 QED
 
 
@@ -489,7 +596,9 @@ Theorem eval_to'_1_ffi_evaluate:
 Proof
   rw[evaluate'_1_ffi_changed, evaluate'_1_ffi_failed,eval_to'_1_Vis] >>
   simp[call_FFI_def, AllCaseEqs(), SF DNF_ss] >>
-  Cases_on `ffi.oracle (EL n mc.ffi_names) ffi.ffi_state conf ws` >> simp[]
+  qmatch_goalsub_abbrev_tac `ffi.oracle ffi_name ffi.ffi_state conf wb` >>
+  Cases_on `ffi.oracle ffi_name ffi.ffi_state conf wb` >> simp[]>>
+  gvs[Abbr ‘ffi_name’]
 QED
 
 

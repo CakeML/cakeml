@@ -57,7 +57,7 @@ val xs_auto_tac = rpt (FIRST [xcon, (CHANGED_TAC xsimpl), xif, xmatch, xapp, xle
 
 val st = get_ml_prog_state ();
 
-Theorem empty_stack_spec:
+Theorem empty_stack_spec':
      !uv. app (p:'ffi ffi_proj) ^(fetch_v "empty_stack" st) [uv]
           emp (POSTv qv. STACK A [] qv)
 Proof
@@ -77,7 +77,7 @@ Proof
     xcf "empty_stack" st >> simp[STACK_def] >> xs_auto_tac
 QED
 
-Theorem push_spec:
+Theorem push_spec':
      !qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "push" st) [qv; xv]
           (STACK A vs qv * & A x xv)
           (POSTv uv. STACK A (vs ++ [x]) qv)

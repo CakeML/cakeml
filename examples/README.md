@@ -79,6 +79,9 @@ Implementation of an OpenTheory reader based on the Candle kernel.
 [patchProgScript.sml](patchProgScript.sml):
 patch example: apply a patch to a file.
 
+[pseudo_bool](pseudo_bool):
+A checker for pseudo-boolean constraints
+
 [queueProgScript.sml](queueProgScript.sml):
 An example of a queue data structure implemented using CakeML arrays, verified
 using CF.
@@ -108,3 +111,6 @@ https://github.com/ambros-gleixner/VIPR
 
 [wordcountProgScript.sml](wordcountProgScript.sml):
 Simple wordcount program, to demonstrate use of CF.
+
+[xlrup_checker](xlrup_checker):
+An XLRUP checker built on CakeML

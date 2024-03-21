@@ -514,6 +514,15 @@ val _ = (append_prog o process_topdecs)`
        (!wref) - 4)`;
 
 val _ = (append_prog o process_topdecs)`
+ fun b_peekChar_aux is =
+   case is of InstreamBuffered fd rref wref surplus =>
+          if (!wref) = (!rref) then None
+          else
+            let val readat = (!rref) in
+              Char.some (Char.fromByte (Word8Array.sub surplus readat))
+            end`;
+
+val _ = (append_prog o process_topdecs)`
  fun b_input1_aux is =
    case is of InstreamBuffered fd rref wref surplus =>
           let val readat = (!rref) in
@@ -526,6 +535,13 @@ val _ = (append_prog o process_topdecs)`
 val _ = ml_prog_update open_local_in_block;
 
 val _ = (append_prog o process_topdecs)`
+  fun b_peekChar is =
+    case is of InstreamBuffered fd rref wref surplus =>
+        if (!wref) = (!rref)
+        then (b_refillBuffer_with_read is; b_peekChar_aux is)
+        else b_peekChar_aux is`;
+
+val _ = (append_prog o process_topdecs)`
   fun b_input1 is =
     case is of InstreamBuffered fd rref wref surplus =>
         if (!wref) = (!rref)
@@ -535,76 +551,74 @@ val _ = (append_prog o process_topdecs)`
 val _ = ml_prog_update open_local_block;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputUntil_aux is (chr:char) =
-    case b_input1 is of
-      Some c =>  (if c <> chr then (c::b_inputUntil_aux is chr) else (c::[]))
-    | None => []`;
-
-Definition compress_def:
-  compress chrs = mlstring$implode (REVERSE chrs)
-End
-
-val _ = translate compress_def;
+  fun find_surplus c surplus readat writeat =
+  if readat = writeat then None
+  else
+    if Char.fromByte (Word8Array.sub surplus readat) = c
+    then Some (readat)
+    else find_surplus c surplus (readat + 1) writeat;`
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputLine_aux is k chrs strs =
-    case b_input1 is of
+  fun b_inputUntil_1 is chr =
+  case is of InstreamBuffered fd rref wref surplus =>
+  let
+    val readat = (!rref)
+    val writeat = (!wref)
+  in
+    case find_surplus chr surplus readat writeat of
       None =>
-        if List.null chrs andalso List.null strs
-        then None
-        else Some (String.concat (List.rev (compress (#"\n"::chrs) :: strs)))
-    | Some c =>
-        if c = #"\n"
-        then Some (String.concat (List.rev (compress (c::chrs) :: strs)))
-        else if k = 0
-             then b_inputLine_aux is 500 [] (compress (c::chrs) :: strs)
-             else b_inputLine_aux is (k-1) (c::chrs) strs`;
-
-Definition some_compress_def:
-  some_compress g is_emp chrs acc =
-    if is_emp then NONE else
-      SOME (REVERSE (if NULL chrs then acc else g (compress chrs) :: acc))
-End
-
-val _ = translate some_compress_def;
+      (rref := writeat;
+        Inl (Word8Array.substring surplus readat (writeat-readat)))
+    | Some i =>
+      (rref := i+1;
+        Inr (Word8Array.substring surplus readat (i+1-readat)))
+  end;`
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputLineTokens_aux is f g is_emp chrs acc =
-    case b_input1 is of
-      None => some_compress g is_emp chrs acc
-    | Some c =>
-        if c = #"\n"
-        then some_compress g False chrs acc
-        else if f c
-             then if List.null chrs
-                  then b_inputLineTokens_aux is f g False [] acc
-                  else b_inputLineTokens_aux is f g False [] (g (compress chrs) :: acc)
-             else b_inputLineTokens_aux is f g False (c::chrs) acc`;
+  fun b_refillBuffer_with_read_guard is =
+  (b_refillBuffer_with_read is;
+  case is of InstreamBuffered fd rref wref surplus =>
+  (!wref) = (!rref)
+  );`
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputUntil_2 is chr acc =
+  case b_inputUntil_1 is chr of
+    Inr s => Some (case acc of [] => s | _ => String.concat (List.rev (s :: acc)))
+  | Inl s =>
+      if b_refillBuffer_with_read_guard is
+      then
+        let
+          val res = String.concat (List.rev (String.str chr :: s :: acc))
+        in if String.size res = 1 then None else Some res end
+      else
+        b_inputUntil_2 is chr (s :: acc);`
 
 val _ = ml_prog_update open_local_in_block;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputUntil is chr = String.implode (b_inputUntil_aux is chr)`;
+  fun b_inputLine c0 is = b_inputUntil_2 is c0 []`;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputLine is = b_inputLine_aux is 500 [] []`;
-
-val _ = (append_prog o process_topdecs)`
-  fun b_inputLineTokens is f g = b_inputLineTokens_aux is f g True [] []`;
+  fun b_inputLineTokens c0 is f g =
+    case b_inputLine c0 is of
+      None => None
+    | Some l =>
+      Some (List.map g (String.tokens f l))`;
 
 val _ = ml_prog_update open_local_block;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputLines_aux is acc =
-     case b_inputLine is of
+  fun b_inputLines_aux c0 is acc =
+     case b_inputLine c0 is of
        None => List.rev acc
-     | Some l => b_inputLines_aux is (l::acc)`;
+     | Some l => b_inputLines_aux c0 is (l::acc)`;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputAllTokens_aux is f g acc =
-     case b_inputLineTokens is f g of
+  fun b_inputAllTokens_aux c0 is f g acc =
+     case b_inputLineTokens c0 is f g of
        None => List.rev acc
-     | Some l => b_inputAllTokens_aux is f g (l::acc)`;
+     | Some l => b_inputAllTokens_aux c0 is f g (l::acc)`;
 
 val _ = (append_prog o process_topdecs) `
   fun b_consume_rest is =
@@ -629,56 +643,56 @@ val _ = (append_prog o process_topdecs) `
     case b_input1 is of
       None => y
     | Some c => fold_chars_loop f is (f c y);
-  fun fold_lines_loop f is y =
-    case b_inputLine is of
+  fun fold_lines_loop c0 f is y =
+    case b_inputLine c0 is of
       None => y
-    | Some c => fold_lines_loop f is (f c y);
-  fun fold_tokens_loop g h f is y =
-    case b_inputLineTokens is g h of
+    | Some c => fold_lines_loop c0 f is (f c y);
+  fun fold_tokens_loop c0 g h f is y =
+    case b_inputLineTokens c0 is g h of
       None => y
-    | Some c => fold_tokens_loop g h f is (f c y);`;
+    | Some c => fold_tokens_loop c0 g h f is (f c y);`;
 
 val _ = ml_prog_update open_local_in_block;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputLines is =
-    b_inputLines_aux is []`;
+  fun b_inputLines c0 is =
+    b_inputLines_aux c0 is []`;
 
 val _ = (append_prog o process_topdecs) `
-  fun b_inputLinesFrom fname =
+  fun b_inputLinesFrom c0 fname =
     let
       val is = b_openIn fname
-      val lines = b_inputLines is
+      val lines = b_inputLines c0 is
     in
       b_closeIn is; Some lines
     end handle BadFileName => None`;
 
 val _ = (append_prog o process_topdecs) `
-  fun b_inputLinesStdIn () =
+  fun b_inputLinesStdIn c0 =
     let
       val is = b_openStdIn ()
     in
-      b_inputLines is
+      b_inputLines c0 is
     end`;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputAllTokens is f g =
-    b_inputAllTokens_aux is f g []`;
+  fun b_inputAllTokens c0 is f g =
+    b_inputAllTokens_aux c0 is f g []`;
 
 val _ = (append_prog o process_topdecs) `
-  fun b_inputAllTokensFrom fname f g =
+  fun b_inputAllTokensFrom c0 fname f g =
     let
       val is = b_openIn fname
-      val lines = b_inputAllTokens is f g
+      val lines = b_inputAllTokens c0 is f g
     in
       b_closeIn is; Some lines
     end handle BadFileName => None`;
 
 val _ = (append_prog o process_topdecs) `
-  fun b_inputAllTokensStdIn f g =
+  fun b_inputAllTokensStdIn c0 f g =
     let
       val is = b_openStdIn ()
-      val lines = b_inputAllTokens is f g
+      val lines = b_inputAllTokens c0 is f g
     in
       Some lines (* TODO: remove the OPTION on the return value *)
     end`;
@@ -695,23 +709,23 @@ val _ = (append_prog o process_topdecs) `
        handle e => (close (); raise e))`;
 
 val _ = (append_prog o process_topdecs) `
-  fun foldLines f x stdin_or_fname =
+  fun foldLines c0 f x stdin_or_fname =
     case b_open_option stdin_or_fname of
       None => None
     | Some (is,close) =>
       (let
-         val res = fold_lines_loop f is x
+         val res = fold_lines_loop c0 f is x
          val _ = close ()
        in Some res end
        handle e => (close (); raise e))`;
 
 val _ = (append_prog o process_topdecs) `
-  fun foldTokens g h f x stdin_or_fname =
+  fun foldTokens c0 g h f x stdin_or_fname =
     case b_open_option stdin_or_fname of
       None => None
     | Some (is,close) =>
       (let
-         val res = fold_tokens_loop g h f is x
+         val res = fold_tokens_loop c0 g h f is x
          val _ = close ()
        in Some res end
        handle e => (close (); raise e))`;

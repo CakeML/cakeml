@@ -1958,7 +1958,7 @@ Theorem do_app_aux_safe_for_space_mono:
   (do_app_aux op xs s = Rval (r,s1)) /\ s1.safe_for_space ==> s.safe_for_space
 Proof
   Cases_on `op` \\
-  fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+  fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,AllCaseEqs(),
       bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
       with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,check_lim_def,
@@ -5980,7 +5980,7 @@ val BIT_Lemma2 = prove(
 
 Theorem assign_WordFromInt:
    op = WordFromInt ==> ^assign_thm_goal
-Proof
+Proof[exclude_simps = INT_OF_NUM NUM_EQ0]
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
@@ -11504,7 +11504,7 @@ QED
 
 Theorem assign_UpdateByte:
    op = UpdateByte ==> ^assign_thm_goal
-Proof
+Proof[exclude_simps = INT_OF_NUM NUM_EQ0]
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
@@ -12822,7 +12822,8 @@ Proof
 QED
 
 Theorem assign_FFI:
-   (?n. op = FFI n) ==> ^assign_thm_goal
+   (?n. op = FFI n) ==>
+   ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
@@ -13573,6 +13574,8 @@ Proof
   \\ gvs [good_dimindex_def,dimword_def]
 QED
 
+val _ = Parse.hide "free";
+
 Theorem assign_Build:
    (∃parts. op = Build parts) ==> ^assign_thm_goal
 Proof[exclude_simps = EXP_LE_LOG_SIMP EXP_LT_LOG_SIMP LE_EXP_LOG_SIMP
@@ -13715,7 +13718,7 @@ Proof[exclude_simps = EXP_LE_LOG_SIMP EXP_LT_LOG_SIMP LE_EXP_LOG_SIMP
 QED
 
 Theorem assign_thm:
-   ^assign_thm_goal
+  ^assign_thm_goal
 Proof
   Cases_on `op = AllocGlobal` \\ fs []
   THEN1 (fs [do_app] \\ every_case_tac \\ fs [])

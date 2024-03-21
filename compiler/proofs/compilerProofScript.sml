@@ -117,7 +117,7 @@ Theorem compile_correct_gen:
         parse (lexer_fun input) = SOME source_decs ∧
         ∀ms.
           installed code cbspace data data_sp c.lab_conf.ffi_names
-            (heap_regs cc.backend_config.stack_conf.reg_names) mc ms
+            (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms
             ⇒
             machine_sem mc st.sem_st.ffi ms ⊆
               extend_with_resource_limit'
@@ -190,7 +190,7 @@ Theorem compile_correct_lemma:
         (semantics_init ffi prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
         ∀ms.
-          installed code cbspace data data_sp c.lab_conf.ffi_names (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
+          installed code cbspace data data_sp c.lab_conf.ffi_names (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms ⇒
             machine_sem mc ffi ms ⊆
               extend_with_resource_limit'
                 (is_safe_for_space ffi cc
@@ -241,7 +241,7 @@ Theorem compile_correct_safe_for_space:
           is_safe_for_space ffi cc (prelude ++ source_decs)              (* cost semantics *)
             (read_limits cc mc ms) ∧
           installed code cbspace data data_sp c.lab_conf.ffi_names
-            (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
+            (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms ⇒
           machine_sem mc ffi ms = behaviours                             (* <-- equality *)
 Proof
   rw [] \\ mp_tac (SPEC_ALL compile_correct_lemma) \\ fs []
@@ -275,7 +275,7 @@ Theorem compile_correct = Q.prove(`
         (semantics_init ffi prelude input = Execute behaviours) ∧
         ∀ms.
           installed code cbspace data data_sp c.lab_conf.ffi_names
-            (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
+            (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms ⇒
           machine_sem mc ffi ms ⊆
             extend_with_resource_limit behaviours
           (* see the compile_correct_safe_for_space version above

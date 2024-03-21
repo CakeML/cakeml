@@ -28,13 +28,14 @@ End
 
 val res = translate trimr_def;
 
+(* TODO changed but this file is broken *)
 val fname_to_words = process_topdecs`
   fun fname_to_words from_int fname =
     List.map
       (from_int o
        Option.valOf o Int.fromNatString o
        trimr)
-      (Option.valOf (TextIO.b_inputLinesFrom fname))
+      (Option.valOf (TextIO.b_inputLinesFrom #"\n" fname))
     handle _ => (print "Error reading data to eval.\n";
                  Runtime.exit 1; [])`;
 

@@ -8,18 +8,14 @@ val _ = new_theory"closSem"
 
 (* differs from store_v by removing the single value Refv,
    also, adds flag to ByteArray for equality semantics *)
-val _ = Datatype `
+Datatype:
   ref = ValueArray ('a list)
-      | ByteArray bool (word8 list)`
-               (* T = compare-by-contents, immutable
-                  F = compare-by-pointer, mutable *)
-(* in closLang all are ByteArray F,
-   ByteArray T introduced in BVL to implement ByteVector *)
-
+      | ByteArray (word8 list)
+End
 
 (* --- Semantics of ClosLang --- *)
 
-val _ = Datatype `
+Datatype:
   v =
     Number int
   | Word64 word64
@@ -27,11 +23,12 @@ val _ = Datatype `
   | ByteVector (word8 list)
   | RefPtr num
   | Closure (num option) (v list) (v list) num closLang$exp
-  | Recclosure (num option) (v list) (v list) ((num # closLang$exp) list) num`
+  | Recclosure (num option) (v list) (v list) ((num # closLang$exp) list) num
+End
 
 Type clos_co = ``:num -> 'c # clos_prog``
 
-val _ = Datatype `
+Datatype:
   state =
     <| globals : (closSem$v option) list
      ; refs    : num |-> closSem$v ref
@@ -41,7 +38,8 @@ val _ = Datatype `
      ; compile_oracle : 'c clos_co
      ; code    : num |-> (num # closLang$exp)
      ; max_app : num
-    |> `
+    |>
+End
 
 (* helper functions *)
 
@@ -222,14 +220,14 @@ Definition do_app_def:
           | _ => Error)
     | (LengthByte,[RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
-          | SOME (ByteArray _ xs) =>
+          | SOME (ByteArray xs) =>
               Rval (Number (&LENGTH xs), s)
           | _ => Error)
     | (RefByte F,[Number i;Number b]) =>
          if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
            let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
              Rval (RefPtr ptr, s with refs := s.refs |+
-               (ptr,ByteArray F (REPLICATE (Num i) (i2w b))))
+               (ptr,ByteArray (REPLICATE (Num i) (i2w b))))
          else Error
     | (RefArray,[Number i;v]) =>
         if 0 ≤ i then
@@ -239,18 +237,18 @@ Definition do_app_def:
          else Error
     | (DerefByte,[RefPtr ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray _ ws) =>
+         | SOME (ByteArray ws) =>
             (if 0 ≤ i ∧ i < &LENGTH ws
              then Rval (Number (& (w2n (EL (Num i) ws))),s)
              else Error)
          | _ => Error)
     | (UpdateByte,[RefPtr ptr; Number i; Number b]) =>
         (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray f bs) =>
+         | SOME (ByteArray bs) =>
             (if 0 ≤ i ∧ i < &LENGTH bs ∧ (∃w:word8. b = & (w2n w))
              then
                Rval (Unit, s with refs := s.refs |+
-                 (ptr, ByteArray f (LUPDATE (i2w b) (Num i) bs)))
+                 (ptr, ByteArray (LUPDATE (i2w b) (Num i) bs)))
              else Error)
          | _ => Error)
     | (ConcatByteVec,[lv]) =>
@@ -275,16 +273,16 @@ Definition do_app_def:
          else Error)
     | (CopyByte F,[ByteVector ws; Number srcoff; Number len; RefPtr dst; Number dstoff]) =>
         (case FLOOKUP s.refs dst of
-         | SOME (ByteArray F ds) =>
+         | SOME (ByteArray ds) =>
            (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
-            | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray F ds))
+            | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray ds))
             | NONE => Error)
          | _ => Error)
     | (CopyByte F,[RefPtr src; Number srcoff; Number len; RefPtr dst; Number dstoff]) =>
         (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of
-         | (SOME (ByteArray _ ws), SOME (ByteArray F ds)) =>
+         | (SOME (ByteArray ws), SOME (ByteArray ds)) =>
            (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
-            | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray F ds))
+            | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray ds))
             | NONE => Error)
          | _ => Error)
     | (CopyByte T,[ByteVector ws; Number srcoff; Number len]) =>
@@ -293,7 +291,7 @@ Definition do_app_def:
         | _ => Error)
     | (CopyByte T,[RefPtr src; Number srcoff; Number len]) =>
        (case FLOOKUP s.refs src of
-        | SOME (ByteArray _ ws) =>
+        | SOME (ByteArray ws) =>
           (case copy_array (ws,srcoff) len NONE of
            | SOME ds => Rval (ByteVector ds, s)
            | _ => Error)
@@ -366,11 +364,11 @@ Definition do_app_def:
         | SOME w => Rval (Word64 (w2w w),s))
     | (FFI n, [ByteVector conf; RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray F ws) =>
-           (case call_FFI s.ffi n conf ws of
+         | SOME (ByteArray ws) =>
+           (case call_FFI s.ffi (ExtCall n) conf ws of
             | FFI_return ffi' ws' =>
                 Rval (Unit,
-                      s with <| refs := s.refs |+ (ptr,ByteArray F ws')
+                      s with <| refs := s.refs |+ (ptr,ByteArray ws')
                               ; ffi   := ffi'|>)
             | FFI_final outcome =>
                 Rerr (Rabort (Rffi_error outcome)))
@@ -398,7 +396,7 @@ Definition do_app_def:
         Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH bs)),s)
     | (BoundsCheckByte loose,[RefPtr ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray _ ws) =>
+         | SOME (ByteArray ws) =>
              Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
          | _ => Error)
     | (BoundsCheckArray,[RefPtr ptr; Number i]) =>

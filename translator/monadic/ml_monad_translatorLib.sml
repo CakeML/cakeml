@@ -460,7 +460,7 @@ fun abbrev_nsLookup_code th = let
     List.filter (not o is_const o snd)
 
   fun find_abbrev (name, code) = let
-    val n = Theory.temp_binding ("[[ " ^ name ^ "_code ]]")
+    val n = Theory.temp_binding ("____" ^ name ^ "_code____")
     val code_def = Definition.new_definition(n,mk_eq(mk_var(n,type_of code),code))
   in code_def end
   val abbrevs = List.map find_abbrev name_code_pairs
@@ -2915,7 +2915,7 @@ handle HOL_ERR _ => failwith "extract_precondition_rec failed";
 fun abbrev_code (fname,ml_fname,def,th,v) = let
   val th = th |> UNDISCH_ALL
   val exp = th |> concl |> rator |> rator |> rand
-  val n = Theory.temp_binding ("[[ " ^ fname ^ "_code ]]")
+  val n = Theory.temp_binding ("____" ^ fname ^ "_code____")
   val code_def = Definition.new_definition(n,mk_eq(mk_var(n,type_of exp),exp))
   val th =
     CONV_RULE ((RATOR_CONV o RATOR_CONV o RAND_CONV) (K (GSYM code_def))) th

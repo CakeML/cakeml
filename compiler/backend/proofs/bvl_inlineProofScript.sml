@@ -1924,7 +1924,7 @@ Theorem state_cc_compile_inc_eq:
       (in_cc limit (remove_ticks_cc (let_op_cc o1 o2 cc)))
 Proof
   fs [state_cc_def,compile_inc_def,in_cc_def,FUN_EQ_THM,remove_ticks_cc_def,
-      let_op_cc_def] \\ rw []
+      let_op_cc_def,FORALL_PROD] \\ rw []
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ fs [MAP_optimise]
 QED
@@ -2058,6 +2058,8 @@ Proof
     \\ strip_tac
     \\ match_mp_tac SUBSET_TRANS
     \\ asm_exists_tac \\ simp[]
+    \\ match_mp_tac SUBSET_TRANS
+    \\ irule_at Any (bvl_handleProofTheory.get_code_labels_handle_simp |> CONJUNCT1)
     \\ match_mp_tac SUBSET_TRANS
     \\ specl_args_of_then``bvl_const$compile_exp`` bvl_constProofTheory.compile_exp_code_labels mp_tac
     \\ strip_tac \\ asm_exists_tac \\ simp[]

@@ -195,7 +195,20 @@ val add_one_v = translate add_one_def;
 
 val _ = (append_prog o process_topdecs) `
   fun line_count_of fname =
-    TextIO.foldLines add_one 0 (Some fname)`;
+    TextIO.foldLines #"\n" add_one 0 (Some fname)`;
+
+(* TODO move? *)
+Theorem line_of_gen_lines_of[simp]:
+  lines_of_gen #"\n" = lines_of
+Proof
+  rw[FUN_EQ_THM,lines_of_gen_def,lines_of_def,splitlines_at_def,splitlines_def,str_def]
+QED
+
+Theorem all_lines_gen_all_lines[simp]:
+  all_lines_gen #"\n" = all_lines
+Proof
+  rw[FUN_EQ_THM,all_lines_gen_def,all_lines_def]
+QED
 
 Theorem line_count_of_spec:
   FILENAME proof_fname proofv ∧ file_content fs proof_fname = SOME proof ∧
@@ -210,7 +223,7 @@ Proof
   \\ xcf_with_def "line_count_of" (fetch "-" "line_count_of_v_def")
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ assume_tac add_one_v
-  \\ drule TextIOProofTheory.foldLines_SOME
+  \\ drule_at Any TextIOProofTheory.foldLines_SOME
   \\ strip_tac
   \\ xapp
   \\ first_x_assum $ irule_at $ Pos hd
@@ -237,7 +250,7 @@ val _ = (append_prog o process_topdecs) `
       case md5_of (Some proof_fname) of
         None => TextIO.output TextIO.stdErr (notfound_string proof_fname)
       | Some proof_md5 =>
-        case TextIO.b_inputLinesFrom lines_fname of
+        case TextIO.b_inputLinesFrom #"\n" lines_fname of
           None => TextIO.output TextIO.stdErr (notfound_string lines_fname)
         | Some lines =>
           case line_count_of proof_fname of
@@ -392,7 +405,7 @@ Proof
   rw[]>>qexists_tac`notfound_string lines_fname`>>xsimpl
 QED
 
-Theorem is_adjacent_build_sets:
+Theorem is_adjacent_build_sets_lemma:
   ∀xs t m n.
     is_adjacent (build_sets xs t) m n ⇔
     MEM (m,n) xs ∨ is_adjacent t m n
@@ -408,7 +421,7 @@ QED
 Theorem is_adjacent_build_sets:
   is_adjacent (build_sets xs LN) m n = MEM (m,n) xs
 Proof
-  fs [is_adjacent_build_sets]
+  fs [is_adjacent_build_sets_lemma]
   \\ fs [is_adjacent_def,lookup_def]
 QED
 

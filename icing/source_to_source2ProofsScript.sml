@@ -3179,7 +3179,7 @@ Proof
   \\ simple_case_tac
 QED
 
-Theorem stos_pass_with_plans_sing_exists:
+Theorem stos_pass_with_plans_sing_exists':
   ∃ e_opt res. stos_pass_with_plans cfg [h][e] = [(e_opt, res)]
 Proof
   measureInduct_on ‘exp_size e’\\ Cases_on ‘e’ \\ fs[stos_pass_with_plans_def]
@@ -3193,7 +3193,7 @@ Theorem MAP_FST_Fun:
   MAP FST ((λ (e_opt, res). [(Fun s e_opt, res)])(HD (stos_pass_with_plans cfg [h][e]))) =
   [Fun s (FST (HD (stos_pass_with_plans cfg [h][e])))]
 Proof
-  qspec_then ‘e’ assume_tac (GEN “e:ast$exp”stos_pass_with_plans_sing_exists)
+  qspec_then ‘e’ assume_tac (GEN “e:ast$exp”stos_pass_with_plans_sing_exists')
   \\ fs[]
 QED
 

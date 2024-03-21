@@ -7,18 +7,20 @@ open itreeTheory;
 
 val _ = new_theory "target_itreeSem"
 
+Overload get_ffi_string = “MAP (λx. case x of ExtCall s => s)”;
+
 Datatype:
   result = Termination
          | OutOfMemory
          | Error
-         | FinalFFI (string # word8 list # word8 list) ffi_outcome
+         | FinalFFI (ffiname # word8 list # word8 list) ffi_outcome
 End
 
 Definition eval_to_def:
-  eval_to k mc (ms:'a) =
+  eval_to k (mc:('b,'a,'c) machine_config) (ms:'a) =
     if k = 0n then Div'
     else
-      if mc.target.get_pc ms IN mc.prog_addresses then
+      if mc.target.get_pc ms IN (mc.prog_addresses DIFF (set mc.ffi_entry_pcs)) then
         if encoded_bytes_in_mem
             mc.target.config (mc.target.get_pc ms)
             (mc.target.get_byte ms) mc.prog_addresses then
@@ -49,14 +51,60 @@ Definition eval_to_def:
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => Ret' Error
         | SOME ffi_index =>
-          case read_ffi_bytearrays mc ms of
-          | SOME bytes, SOME bytes2 =>
-             let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
-             if EL ffi_index mc.ffi_names = "" then
-              eval_to (k - 1) mc1 (mc.ffi_interfer 0 (ffi_index,bytes2,ms))
-             else Vis' (EL ffi_index mc.ffi_names, bytes, bytes2)
-                    (λnew_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms)))
-          | _ => Ret' Error
+            case EL ffi_index mc.ffi_names of
+              | SharedMem op =>
+                  (case ALOOKUP mc.mmio_info ffi_index of
+                   | NONE => Ret' Error
+                   | SOME (nb,a,reg,pc') =>
+                       (case op of
+                        | MappedRead =>
+                            (case a of
+                             | Addr r off =>
+                                 let ad = mc.target.get_reg ms r + off in
+                                   if (if nb = 0w
+                                       then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
+                                      ad IN mc.shared_addresses ∧
+                                      is_valid_mapped_read (mc.target.get_pc ms) nb a reg pc'
+                                                           mc.target ms mc.prog_addresses
+                                   then
+                                     let mc1 =
+                                         mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
+                                       Vis' (SharedMem MappedRead,[nb],word_to_bytes ad F)
+                                            (\new_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms)))
+                                   else Ret' Error)
+                        | MappedWrite =>
+                            (case a of
+                             | Addr r off =>
+                                 let ad = (mc.target.get_reg ms r) + off in
+                                   if (if nb = 0w
+                                       then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
+                                      (ad IN mc.shared_addresses) ∧
+                                      is_valid_mapped_write (mc.target.get_pc ms) nb a reg pc'
+                                                            mc.target ms mc.prog_addresses
+                                   then
+                                     let mc1 =
+                                         mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
+                                       Vis'
+                                       (SharedMem MappedWrite,[nb],
+                                        ((let w = mc.target.get_reg ms reg in
+                                            if nb = 0w then word_to_bytes w F
+                                            else word_to_bytes_aux (w2n nb) w F) ++
+                                         (word_to_bytes ad F)))
+                                       (\new_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms)))
+                                   else Ret' Error)))
+              | ExtCall _ =>
+                  (case ALOOKUP mc.mmio_info ffi_index of
+                   | SOME _ => Ret' Error
+                   | NONE =>
+                       (case read_ffi_bytearrays mc ms of
+                        | (SOME bytes, SOME bytes2) =>
+                            let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
+                              if EL ffi_index mc.ffi_names = ExtCall ""
+                              then
+                                eval_to (k - 1) mc1 (mc.ffi_interfer 0 (ffi_index,bytes2,ms))
+                              else Vis' (EL ffi_index mc.ffi_names, bytes, bytes2)
+                                        (λnew_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms)))
+                              | _ => Ret' Error))
 End
 
 Definition eval_def:

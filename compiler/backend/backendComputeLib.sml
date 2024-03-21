@@ -276,6 +276,12 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_constTheory.compile_def
     ,bvl_constTheory.compile_exp_def
       (* ---- bvl_handle ---- *)
+    ,bvl_handleTheory.can_raise_def
+    ,bvl_handleTheory.dest_handle_Raise_def
+    ,bvl_handleTheory.dest_handle_Let_def
+    ,bvl_handleTheory.dest_handle_If_def
+    ,bvl_handleTheory.handle_adj_vars_def
+    ,bvl_handleTheory.handle_simp_def
     ,bvl_handleTheory.LetLet_def
     ,bvl_handleTheory.SmartLet_def
     ,bvl_handleTheory.OptionalLetLet_def
@@ -889,6 +895,11 @@ val add_backend_compset = computeLib.extend_compset
     ,``:'a line``
     ,``:'a sec``
     ]
+  ,computeLib.Tys
+    [ (* ---- ffi ---- *)
+     ``:ffi$ffiname``
+    ,``:ffi$shmem_op``
+    ]
   ,computeLib.Defs
     [labLangTheory.Section_num_def
     ,labLangTheory.Section_lines_def
@@ -931,6 +942,7 @@ val add_backend_compset = computeLib.extend_compset
     ,lab_to_targetTheory.sec_get_zero_labs_acc_def
     ,lab_to_targetTheory.get_zero_labs_acc_def
     ,lab_to_targetTheory.zero_labs_acc_exist_def
+    ,lab_to_targetTheory.get_shmem_info_def
     ,lab_to_targetTheory.compile_lab_def
     ,lab_to_targetTheory.compile_def
     ]

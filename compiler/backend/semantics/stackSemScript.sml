@@ -86,6 +86,7 @@ val _ = Datatype `
      ; stack_space : num
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
+     ; sh_mdomain : ('a word) set
      ; bitmaps : 'a word list
      ; compile : 'c -> (num # 'a stackLang$prog) list -> (word8 list # 'c) option
      ; compile_oracle : num -> 'c # (num # 'a stackLang$prog) list # 'a word list
@@ -172,6 +173,68 @@ val set_store_def = Define `
 
 val empty_env_def = Define `
   empty_env (s:('a,'c,'ffi) stackSem$state) = s with <| regs := FEMPTY ; stack := [] |>`;
+
+Definition sh_mem_store_def:
+  sh_mem_store r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  (case get_var r s of
+     SOME (Word w) =>
+       if a IN s.sh_mdomain then
+         (case call_FFI s.ffi (SharedMem MappedWrite) [0w:word8]
+                        (word_to_bytes w F ++ word_to_bytes a F) of
+            FFI_final outcome => (SOME (FinalFFI outcome), s)
+          | FFI_return new_ffi new_bytes => (NONE, s with ffi := new_ffi))
+       else (SOME Error, s)
+   | _ => (SOME Error, s))
+End
+
+Definition sh_mem_load_def:
+  sh_mem_load r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  if a IN s.sh_mdomain then
+    (case call_FFI s.ffi (SharedMem MappedRead) [0w:word8]
+                   (word_to_bytes a F) of
+       FFI_final outcome => (SOME (FinalFFI outcome), s)
+     | FFI_return new_ffi new_bytes =>
+         (NONE,
+          s with <|
+              regs := s.regs |+ (r,Word (word_of_bytes F 0w new_bytes)) ;
+              ffi := new_ffi |>))
+  else (SOME Error, s)
+End
+
+Definition sh_mem_store_byte_def:
+  sh_mem_store_byte r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  (case get_var r s of
+     SOME (Word w) =>
+       if byte_align a IN s.sh_mdomain then
+         (case call_FFI s.ffi (SharedMem MappedWrite) [1w:word8]
+                        ([get_byte 0w w F] ++ word_to_bytes a F) of
+            FFI_final outcome => (SOME (FinalFFI outcome), s)
+          | FFI_return new_ffi new_bytes => (NONE,s with ffi := new_ffi))
+       else (SOME Error, s)
+   | _ => (SOME Error, s))
+End
+
+Definition sh_mem_load_byte_def:
+  sh_mem_load_byte r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  if byte_align a IN s.sh_mdomain then
+    (case call_FFI s.ffi (SharedMem MappedRead) [1w:word8] (word_to_bytes a F) of
+       FFI_final outcome => (SOME (FinalFFI outcome), s)
+     | FFI_return new_ffi new_bytes =>
+         (NONE,
+          s with <|
+              regs := s.regs |+ (r, Word (word_of_bytes F 0w new_bytes)) ;
+              ffi := new_ffi |>))
+  else (SOME Error, s)
+End
+
+Definition sh_mem_op_def:
+  (sh_mem_op Load r ad (s:('a,'c,'ffi) stackSem$state) = sh_mem_load r ad s) ∧
+  (sh_mem_op Store r ad s = sh_mem_store r ad s) ∧
+  (sh_mem_op Load8 r ad s = sh_mem_load_byte r ad s) ∧
+  (sh_mem_op Store8 r ad s = sh_mem_store_byte r ad s)(* ∧
+  (sh_mem_op Load32 r ad s = sh_mem_load r ad s 4) ∧
+  (sh_mem_op Store32 r ad s = sh_mem_store r ad s 4)*)
+End
 
 val full_read_bitmap_def = Define `
   (full_read_bitmap bitmaps (Word w) =
@@ -732,6 +795,12 @@ Definition evaluate_def:
           | _ => (SOME Error,s))
         | _ => (SOME Error,s))
       | _ => (SOME Error,s)) /\
+  (evaluate (ShMemOp op r (Addr a w),s) =
+    (case word_exp s (Op Add [Var a; Const w]) of
+     | SOME a =>
+         if s.clock = 0 then (SOME TimeOut,empty_env s) else
+           sh_mem_op op r a (dec_clock s)
+     | _ => (SOME Error,s))) /\
   (evaluate (CodeBufferWrite r1 r2,s) =
     (case (get_var r1 s,get_var r2 s) of
         | (SOME (Word w1), SOME (Word w2)) =>
@@ -750,12 +819,12 @@ Definition evaluate_def:
           | _ => (SOME Error,s))
         | _ => (SOME Error,s))) /\
   (evaluate (FFI ffi_index ptr len ptr2 len2 ret,s) =
-    case (get_var len s, get_var ptr s,get_var len2 s, get_var ptr2 s) of
+   (case (get_var len s, get_var ptr s,get_var len2 s, get_var ptr2 s) of
     | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
          (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be),
                 read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be)) of
           | SOME bytes,SOME bytes2 =>
-             (case call_FFI s.ffi ffi_index bytes bytes2 of
+             (case call_FFI s.ffi (ExtCall ffi_index) bytes bytes2 of
               | FFI_final outcome => (SOME (FinalFFI outcome),s)
               | FFI_return new_ffi new_bytes =>
                   let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
@@ -763,7 +832,7 @@ Definition evaluate_def:
                                      regs := DRESTRICT s.regs s.ffi_save_regs;
                                      ffi := new_ffi |>))
           | _ => (SOME Error,s))
-    | res => (SOME Error,s)) /\
+     | res => (SOME Error,s))) /\
   (evaluate (LocValue r l1 l2,s) =
      if loc_check s.code (l1,l2) then
        (NONE,set_var r (Loc l1 l2) s)
@@ -872,6 +941,15 @@ Proof
   EVAL_TAC \\ fs[]
 QED
 
+Theorem sh_mem_op_clock[local]:
+  sh_mem_op op r a s = (res, s') ⇒ s'. clock ≤ s.clock
+Proof
+  strip_tac>>Cases_on ‘op’>>
+  fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,
+     sh_mem_store_byte_def,sh_mem_load_byte_def,ffiTheory.call_FFI_def]>>
+  every_case_tac>>gvs[]
+QED
+
 Theorem evaluate_clock:
    !xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock
 Proof
@@ -884,6 +962,7 @@ Proof
     \\ IMP_RES_TAC inst_clock
     \\ IMP_RES_TAC alloc_clock
     \\ IMP_RES_TAC store_const_sem_clock
+    \\ IMP_RES_TAC sh_mem_op_clock
     \\ fs [set_var_def,set_store_def,dec_clock_def,LET_THM]
     \\ rpt (pairarg_tac \\ fs [])
     \\ every_case_tac \\ fs []

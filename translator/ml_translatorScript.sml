@@ -953,8 +953,8 @@ Theorem Eval_Num:
    Eval env x1 (INT i) ==> PRECONDITION (0 <= i) ==>
    Eval env x1 (NUM (Num i))
 Proof
-  SIMP_TAC std_ss [NUM_def,PRECONDITION_def] \\ rw []
-  \\ `&Num i = i` by intLib.COOPER_TAC \\ fs []
+  SIMP_TAC std_ss [NUM_def,PRECONDITION_def] \\ rw[]
+  \\ `&Num i = i` by intLib.COOPER_TAC \\ simp[]
 QED
 
 local
@@ -2131,16 +2131,6 @@ Proof
   THEN1 (EVAL_TAC \\ fs [])
   \\ fs [bool_case_eq,option_case_eq,pair_case_eq,PULL_EXISTS]
   \\ fs [EVAL ``list_type_num``,VECTOR_TYPE_def]
-QED
-
-Theorem Eval_length:
-   !env x1 x2 a n v.
-      Eval env x1 (VECTOR_TYPE a v) ==>
-      Eval env (App Vlength [x1]) (NUM (length v))
-Proof
-  tac1 \\ Cases_on `v`
-  \\ fs [bool_case_eq,option_case_eq,pair_case_eq,PULL_EXISTS,
-         VECTOR_TYPE_def,NUM_def,INT_def,length_def]
 QED
 
 Theorem list_to_v_LIST_TYPE:

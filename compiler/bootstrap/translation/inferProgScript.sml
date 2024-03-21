@@ -89,7 +89,7 @@ val _ = translate
     |> SIMP_RULE std_ss [PULL_FORALL] |> SPEC_ALL
     |> MATCH_MP PRECONDITION_INTRO);
 
-Theorem t_vwalk_side_def = Q.prove(`
+Theorem t_vwalk_side_def[allow_rebind] = Q.prove(`
   !s v. t_vwalk_side s v <=> t_wfs s`,
   STRIP_TAC THEN reverse (Cases_on `t_wfs s`) THEN FULL_SIMP_TAC std_ss []
   THEN1 (ONCE_REWRITE_TAC [fetch "-" "t_vwalk_side_def"]
@@ -123,7 +123,7 @@ val _ = translate
     |> RW1 [expand_lemma] |> SIMP_RULE std_ss [PULL_FORALL]
     |> SPEC_ALL |> MATCH_MP PRECONDITION_INTRO)
 
-Theorem t_walkstar_side_def = Q.prove(`
+Theorem t_walkstar_side_def[allow_rebind] = Q.prove(`
   !s v. t_walkstar_side s v <=> t_wfs s`,
   STRIP_TAC THEN reverse (Cases_on `t_wfs s`) THEN FULL_SIMP_TAC std_ss []
   THEN1 (ONCE_REWRITE_TAC [fetch "-" "t_walkstar_side_def"]
@@ -166,7 +166,7 @@ val t_oc_side_lemma = Q.prove(
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC (srw_ss()) [])
   |> SIMP_RULE std_ss [];
 
-Theorem t_oc_side_def = Q.prove(`
+Theorem t_oc_side_def[allow_rebind] = Q.prove(`
   !s t v. t_oc_side s t v <=> t_wfs s`,
   STRIP_TAC THEN Cases_on `t_wfs s`
   THEN FULL_SIMP_TAC std_ss [t_oc_side_lemma]
@@ -225,7 +225,7 @@ val t_unify_side_lemma = Q.prove(
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC (srw_ss()) []
   THEN METIS_TAC [unifyTheory.t_unify_unifier]) |> SIMP_RULE std_ss [];
 
-Theorem t_unify_side_def = Q.prove(`
+Theorem t_unify_side_def[allow_rebind] = Q.prove(`
   !s t v. t_unify_side s t v <=> t_wfs s`,
   STRIP_TAC THEN Cases_on `t_wfs s`
   THEN FULL_SIMP_TAC std_ss [t_unify_side_lemma]
@@ -233,7 +233,7 @@ Theorem t_unify_side_def = Q.prove(`
   THEN FULL_SIMP_TAC std_ss [])
   |> update_precondition;
 
-Theorem ts_unify_side_def = Q.prove(`
+Theorem ts_unify_side_def[allow_rebind] = Q.prove(`
   !s t v. ts_unify_side s t v <=> t_wfs s`,
   STRIP_TAC THEN Cases_on `t_wfs s`
   THEN FULL_SIMP_TAC std_ss [t_unify_side_lemma]

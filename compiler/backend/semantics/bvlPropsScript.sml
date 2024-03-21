@@ -2,7 +2,7 @@
   Properties about BVL and its semantics
 *)
 open preamble bvlTheory bvlSemTheory bvl_constTheory;
-open closPropsTheory backend_commonTheory;
+open backend_commonTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
@@ -31,9 +31,12 @@ Proof
 QED
 
 fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
-val case_eq_thms = LIST_CONJ (closSemTheory.case_eq_thms::
-                              map (prove_case_eq_thm o get_thms)
-  [``:v``,``:'a ffi_result``])
+val case_eq_thms = LIST_CONJ
+  (CaseEq "eq_result" :: CaseEq "const_part" :: CaseEq "word_size" ::
+   CaseEq "result" :: CaseEq "error_result" ::
+   map (prove_case_eq_thm o get_thms)
+  [``:v``,``:'a ref``,``:'a option``,``:'a list``,``:'a + 'b``,
+   ``:closLang$op``,``:'a ffi_result``])
 val case_eq_thms = CONJ bool_case_eq (CONJ pair_case_eq case_eq_thms)
 
 val _ = save_thm ("case_eq_thms", case_eq_thms);

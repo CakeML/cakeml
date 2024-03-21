@@ -76,7 +76,7 @@ val _ = translate dest_Seq_pmatch;
 
 fun fix def name rwth =
   def |> CONV_RULE(STRIP_QUANT_CONV(RAND_CONV(REWR_CONV rwth)))
-      |> curry save_thm name
+      |> curry save_thm (name ^ "[allow_rebind]")
 
 Datatype:
   type

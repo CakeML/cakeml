@@ -476,6 +476,120 @@ Proof
     \\ match_mp_tac TOKENS_APPEND \\ rw[]
 QED
 
+Definition tokens_alt_aux_def:
+  (tokens_alt_aux f s i j n =
+  if j < n then
+    (if f (strsub s j)
+    then
+      (if i = j then tokens_alt_aux f s (i+1) (j+1) n
+      else
+        substring s i (j-i)::
+        (tokens_alt_aux f s (j+1) (j+1) n))
+    else
+      tokens_alt_aux f s i (j+1) n)
+  else
+    if i = j then []
+    else [substring s i (j-i)])
+Termination
+  WF_REL_TAC`measure (λf,s,i,j,n. n - j)`>>rw[]
+End
+
+Theorem substring_1_strsub:
+  i < strlen s ⇒
+  substring s i 1 = str (strsub s i)
+Proof
+  Cases_on`s`>>rw[substring_def]>>
+  DEP_REWRITE_TAC[SEG1]>>
+  gvs[str_def,implode_def]
+QED
+
+Theorem substring_0[simp]:
+  substring s i 0 = strlit ""
+Proof
+  Cases_on`s`>>rw[substring_def]>>
+  EVAL_TAC
+QED
+
+Theorem substring_add:
+  i + x + y ≤ strlen s ⇒
+  substring s i (x + y) =
+  substring s i x ^ substring s (i + x) y
+Proof
+  Cases_on`s`>>rw[substring_def]>>
+  simp[TAKE_SUM]>>
+  DEP_REWRITE_TAC[SEG_TAKE_DROP]>>
+  rw[TAKE_SUM,DROP_DROP]>>
+  simp[strcat_def]>>
+  EVAL_TAC
+QED
+
+Theorem tokens_alt_tokens_alt_aux:
+  ∀f s acc j l i.
+  i ≤ j ∧ j ≤ strlen s ∧
+  strlen s - j = l ∧
+  acc = REVERSE (explode (substring s i (j - i))) ⇒
+  tokens_aux f s acc j l =
+  tokens_alt_aux f s i j (strlen s)
+Proof
+  ho_match_mp_tac tokens_aux_ind>>rw[]
+  >- (
+    simp[Once tokens_alt_aux_def]>>
+    rw[tokens_aux_def]>>
+    qpat_x_assum`_ _ = ""`
+      (mp_tac o  Q.AP_TERM `LENGTH`)>>
+    simp[strlen_substring]>>rw[])
+  >- (
+    qpat_assum`STRING _ _ = _` (SUBST1_TAC o SYM)>>
+    simp[Once tokens_alt_aux_def,tokens_aux_def]>>
+    rw[]>>gvs[]>>
+    qpat_x_assum`STRING _ _ = REVERSE _`
+      (mp_tac o Q.AP_TERM `implode o REVERSE`)>>
+    simp[])
+  >- (
+    simp[Once tokens_alt_aux_def]>>
+    rw[tokens_aux_def]>>gvs[]
+    >- (
+      qpat_x_assum`_ _ = ""`
+        (mp_tac o  Q.AP_TERM `LENGTH`)>>
+      simp[strlen_substring]>>rw[])
+    >- (
+      first_x_assum(qspec_then`i` mp_tac)>> simp[]>>
+      impl_keep_tac >-
+        simp[substring_1_strsub]>>
+      rw[])>>
+    first_x_assum(qspec_then`i` mp_tac)>> simp[]>>
+    impl_keep_tac >- (
+      qpat_x_assum`_ _ = ""`
+        (mp_tac o  Q.AP_TERM `LENGTH`)>>
+      simp[strlen_substring]>>rw[])>>
+    rw[])>>
+  gvs[]>>
+  pop_assum (assume_tac o SYM)>>
+  simp[Once tokens_alt_aux_def]>>
+  rw[tokens_aux_def]>>gvs[]
+  >- (
+    qpat_x_assum`REVERSE _ = STRING _ _`
+      (mp_tac o Q.AP_TERM `implode o REVERSE`)>>
+    simp[])
+  >- (
+    first_x_assum(qspec_then`i` mp_tac)>> simp[]>>
+    impl_keep_tac >- (
+      `j + 1 - i = (j - i) + 1` by simp[]>>
+      pop_assum SUBST1_TAC>>
+      DEP_REWRITE_TAC[substring_add]>>
+      simp[]>>
+      DEP_REWRITE_TAC[substring_1_strsub]>>rw[])>>
+    rw[])
+QED
+
+Theorem tokens_alt:
+  tokens f s =
+  tokens_alt_aux f s 0 0 (strlen s)
+Proof
+  rw[tokens_def]>>
+  match_mp_tac tokens_alt_tokens_alt_aux>>
+  simp[]
+QED
 
 val fields_aux_def = Define `
   (fields_aux f s ss n 0 = [implode (REVERSE ss)]) /\
@@ -518,6 +632,54 @@ Theorem fields_length:
 Proof
   rw [fields_def, fields_aux_length]
 QED
+
+Definition fields_alt_aux_def:
+  (fields_alt_aux f s i j n =
+  if j < n then
+    (if f (strsub s j)
+    then
+        substring s i (j-i)::
+        (fields_alt_aux f s (j+1) (j+1) n)
+    else
+      fields_alt_aux f s i (j+1) n)
+  else
+    [substring s i (j-i)])
+Termination
+  WF_REL_TAC`measure (λf,s,i,j,n. n - j)`>>rw[]
+End
+
+Theorem fields_alt_fields_alt_aux:
+  ∀l acc j i.
+  i ≤ j ∧ j ≤ strlen s ∧
+  strlen s - j = l ∧
+  acc = REVERSE (explode (substring s i (j - i))) ⇒
+  fields_aux f s acc j l =
+  fields_alt_aux f s i j (strlen s)
+Proof
+  Induct>>rw[]
+  >- (
+    simp[Once fields_alt_aux_def]>>
+    rw[fields_aux_def])
+  >- (
+    simp[Once fields_alt_aux_def]>>
+    rw[fields_aux_def]>>gvs[]>>
+    first_x_assum(qspecl_then [`j+1`,`i`] mp_tac)>> simp[]>>
+    `j + 1 - i = (j - i) + 1` by simp[]>>
+    pop_assum SUBST1_TAC>>
+    DEP_REWRITE_TAC[substring_add]>>
+    simp[]>>
+    DEP_REWRITE_TAC[substring_1_strsub]>>rw[])
+QED
+
+Theorem fields_alt:
+  fields f s =
+  fields_alt_aux f s 0 0 (strlen s)
+Proof
+  rw[fields_def]>>
+  match_mp_tac fields_alt_fields_alt_aux>>
+  simp[]
+QED
+
 
 Definition str_findi_def:
   str_findi P i s = if i < strlen s
@@ -1016,32 +1178,39 @@ val collate_def = Define`
   else collate_aux f s1 s2 EQUAL 0 (strlen s2)`;
 
 
-val collate_aux_less_thm = Q.prove (
-  `!f s1 s2 n len. (n + len = strlen s1) /\ (strlen s1 < strlen s2) ==>
-    (collate_aux f s1 s2 Less n len = mllist$collate f (DROP n (explode s1)) (DROP n (explode s2)))`,
-      Cases_on `s1` \\ Cases_on `s2` \\ Induct_on `len` \\
-      rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm, strsub_def, DROP_EL_CONS]
-      >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def]
-);
+Theorem collate_aux_less_thm[local]:
+  !f s1 s2 n len.
+    n + len = strlen s1 /\ strlen s1 < strlen s2 ==>
+    collate_aux f s1 s2 Less n len =
+    mllist$collate f (DROP n (explode s1)) (DROP n (explode s2))
+Proof
+  Cases_on `s1` \\ Cases_on `s2` \\ Induct_on `len` \\
+  rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm,
+      strsub_def, DROP_EL_CONS]
+QED
 
-val collate_aux_equal_thm = Q.prove (
-  `!f s1 s2 n len. (n + len = strlen s2) /\ (strlen s1 = strlen s2) ==>
-    (collate_aux f s1 s2 Equal n len =
-      mllist$collate f (DROP n (explode s1)) (DROP n (explode s2)))`,
+Theorem collate_aux_equal_thm[local]:
+  !f s1 s2 n len.
+    n + len = strlen s2 /\ strlen s1 = strlen s2 ==>
+    collate_aux f s1 s2 Equal n len =
+    mllist$collate f (DROP n (explode s1)) (DROP n (explode s2))
+Proof
   Cases_on `s1` \\ Cases_on `s2` \\ Induct_on `len` \\
   rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm, strsub_def]
   >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def] \\
   fs [DROP_EL_CONS, mllistTheory.collate_def]
-);
+QED
 
-val collate_aux_greater_thm = Q.prove (
-  `!f s1 s2 n len. (n + len = strlen s2) /\ (strlen s2 < strlen s1) ==>
-    (collate_aux f s1 s2 Greater n len =
-      mllist$collate f (DROP n (explode s1)) (DROP n (explode s2)))`,
+Theorem collate_aux_greater_thm[local]:
+  !f s1 s2 n len.
+    n + len = strlen s2 /\ strlen s2 < strlen s1 ==>
+    collate_aux f s1 s2 Greater n len =
+    mllist$collate f (DROP n (explode s1)) (DROP n (explode s2))
+Proof
   Cases_on `s1` \\ Cases_on `s2` \\ Induct_on `len` \\
-  rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm, strsub_def, DROP_EL_CONS]
-  >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def]
-);
+  rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm,
+      strsub_def, DROP_EL_CONS]
+QED
 
 Theorem collate_thm:
    !f s1 s2. collate f s1 s2 = mllist$collate f (explode s1) (explode s2)
@@ -1163,6 +1332,12 @@ Proof
     \\ gvs [shrink_def,concat_cons,concat_nil,concat_append])
   \\ simp [Once make_app_list_ann_def] \\ rw []
   \\ gvs [shrink_def,concat_cons,concat_nil,concat_append]
+QED
+
+Theorem concat_sing[simp]:
+  concat [x] = x
+Proof
+  Cases_on ‘x’ \\ gvs [concat_def]
 QED
 
 (* The translator turns each `empty_ffi s` into a call to the FFI with

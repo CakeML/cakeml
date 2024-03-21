@@ -78,8 +78,6 @@ val addRule = Define `
               if (x = NONE) then NONE
               else SOME (Node l (REVERSE (THE x))))`
 
-val stackSyms = Define `stackSyms stl = (REVERSE (MAP FST (MAP FST stl)))`
-
 val findItemInRules = Define `
   (findItemInRules (item l1 (r1,[])) [] = F) /\
   (findItemInRules (item l1 (r1,[])) ((rule l2 r2)::rst) = T) /\

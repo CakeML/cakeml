@@ -1,8 +1,10 @@
 (*
   The formal semantics of dataLang
 *)
-open preamble data_simpTheory data_liveTheory data_spaceTheory dataLangTheory closSemTheory
+open preamble data_simpTheory data_liveTheory data_spaceTheory
+     dataLangTheory bvlSemTheory
      data_to_wordTheory (* TODO: immoral, semantics shouldn't depend on compiler *);
+local open backendPropsTheory in end;
 
 val _ = new_theory"dataSem";
 
@@ -904,7 +906,7 @@ Definition do_app_aux_def:
     | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
         (case (lookup cptr s.refs, lookup ptr s.refs) of
          | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
-           (case call_FFI s.ffi n cws ws of
+           (case call_FFI s.ffi (ExtCall n) cws ws of
             | FFI_return ffi' ws' =>
                 Rval (Unit,
                       s with <| refs := insert ptr (ByteArray F ws') s.refs
@@ -1249,7 +1251,7 @@ val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def };
 val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def };
 val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def };
 val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def" };
-val ref_thms = { nchotomy = closSemTheory.ref_nchotomy, case_def = closSemTheory.ref_case_def };
+val ref_thms = { nchotomy = bvlSemTheory.ref_nchotomy, case_def = bvlSemTheory.ref_case_def };
 val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy, case_def = ffiTheory.ffi_result_case_def };
 val word_size_thms = { nchotomy = astTheory.word_size_nchotomy, case_def = astTheory.word_size_case_def };
 val eq_result_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def };

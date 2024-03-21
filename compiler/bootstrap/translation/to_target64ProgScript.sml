@@ -295,7 +295,7 @@ val monadic_enc64_enc_sec_hash_64_ls_side_def = Q.prove(`
   simp[Once (fetch "-" "monadic_enc64_enc_sec_hash_64_ls_side_def")]>>
   metis_tac[monadic_enc64_enc_line_hash_64_ls_side_def]);
 
-Theorem monadic_enc64_enc_secs_64_side_def = Q.prove(`
+Theorem monadic_enc64_enc_secs_64_side_def[allow_rebind] = Q.prove(`
   monadic_enc64_enc_secs_64_side a b c ⇔ T`,
   EVAL_TAC>>
   rw[]>>
@@ -340,6 +340,28 @@ val remove_labels_hash_correct = Q.prove(`
         enc_secs_64_correct]);
 
 val res = translate (remove_labels_hash_def |> spec64);
+
+val res = translate $ INST_TYPE[alpha|->``:8``] $ get_memop_info_def;
+val res = translate_no_ind $ spec64 $ get_shmem_info_def;
+
+Theorem get_shmem_info_ind:
+  lab_to_target_get_shmem_info_ind
+Proof
+  PURE_REWRITE_TAC [fetch "-" "lab_to_target_get_shmem_info_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (spec64 $ latest_ind ())
+  \\ rpt strip_tac >>
+  TRY (last_x_assum match_mp_tac>>
+       rpt strip_tac>>fs[])>>
+  gvs[]>>
+  qmatch_asmsub_abbrev_tac ‘shmem_info ++ X’>>
+  qpat_abbrev_tac ‘RH = shmem_info ++ _’>>
+  ‘RH = shmem_info ++ X’ by simp[Abbr ‘RH’, Abbr ‘X’,shmem_rec_component_equality]>>
+  fs[Abbr ‘X’]
+QED
+
+val _ = get_shmem_info_ind |> update_precondition;
 
 val compile_lab_thm = compile_lab_def
   |> spec64 |> REWRITE_RULE [GSYM remove_labels_hash_correct];

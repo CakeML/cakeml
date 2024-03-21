@@ -177,7 +177,10 @@ Proof
     \\ fs [cut_res_def,CaseEq"option",CaseEq"bool",cut_state_def] \\ rveq \\ fs []
     \\ rw [] \\ fs [CaseEq"option",CaseEq"bool",CaseEq"prod",CaseEq"result"]
     \\ rveq \\ fs [])
-  \\ fs [CaseEq"prod",CaseEq"option"] \\ rveq \\ fs []
+  \\ fs [CaseEq"prod",CaseEq"option"] \\ rveq \\ fs [] >>
+  TRY
+   (Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def]>>
+   every_case_tac>>fs[] \\ rveq \\ fs [])
   THEN1
    (fs [CaseEq"bool"] \\ rveq \\ fs []
     \\ fs [CaseEq"bool",CaseEq"prod",CaseEq"result",CaseEq"option"] \\ rveq \\ fs [])
@@ -456,7 +459,15 @@ Proof
          dec_clock_def, assigned_vars_def, survives_def,loop_arith_def] >>
      rveq >> fs [lookup_insert, mem_store_def, AllCaseEqs()] >>
      rveq >> fs [state_component_equality]
-    ) >>
+    )
+  >~ [‘ShMem’]>-
+   (Cases_on ‘op’>>rw[]>>
+    fs [Once evaluate_def,AllCaseEqs(), set_var_def, set_globals_def,
+        dec_clock_def, assigned_vars_def, survives_def] >>
+    fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,set_var_def]>>
+    rveq >> fs [lookup_insert, mem_store_def, AllCaseEqs(),
+                DefnBase.one_line_ify NONE loop_arith_def] >>
+    rveq >> fs [state_component_equality,lookup_insert])>>
   rw [] >>
   fs [Once evaluate_def,AllCaseEqs(), set_var_def, set_globals_def,
       dec_clock_def, assigned_vars_def, survives_def] >>
@@ -834,11 +845,13 @@ Proof
     fs [] >> strip_tac >>
     imp_res_tac cut_res_add_clock >>
     res_tac >> fs []) >>
+  TRY (Cases_on ‘op’)>>
   fs [evaluate_def, eval_upd_clock_eq, AllCaseEqs () ,
       set_var_def, mem_store_def, set_globals_def,
       call_env_def, dec_clock_def,
+      sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
       DefnBase.one_line_ify NONE loop_arith_def] >> rveq >>
-  fs [state_component_equality]
+  gvs [state_component_equality]
 QED
 
 Theorem evaluate_nested_seq_comb_seq:
@@ -936,10 +949,17 @@ Proof
   >~ [‘FFI’] >-
    (fs [evaluate_def, AllCaseEqs(), cut_state_def,
         dec_clock_def, ffiTheory.call_FFI_def, call_env_def] >>
-    rveq >> fs []) >>
+    rveq >> fs [])
+  >~ [‘ShMem’]>-
+     (Cases_on ‘op’>>
+     fs [evaluate_def,DefnBase.one_line_ify NONE loop_arith_def,AllCaseEqs()] >>
+     fs [set_var_def, sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,call_env_def] >>
+     rveq >>
+     fs [ffiTheory.call_FFI_def,AllCaseEqs()]>>rveq>>
+     fs[state_component_equality])>>
   fs [evaluate_def,DefnBase.one_line_ify NONE loop_arith_def,AllCaseEqs()] >>
-  fs [set_var_def, mem_store_def, set_globals_def, call_env_def,
-      dec_clock_def] >> rveq >>
+  fs [set_var_def, mem_store_def, set_globals_def, call_env_def, dec_clock_def,
+     sh_mem_op_def,sh_mem_store_def,sh_mem_load_def] >> rveq >>
   fs []
 QED
 
@@ -1214,10 +1234,20 @@ Proof
   every_case_tac >>
   fs [cut_state_def,
       dec_clock_def, ffiTheory.call_FFI_def, call_env_def] >>
-  rveq >> fs [] >> rveq >> fs []) >>
+  rveq >> fs [] >> rveq >> fs [])
+  >~ [‘ShMem’] >-
+   (Cases_on ‘op’>>
+    fs [evaluate_def,DefnBase.one_line_ify NONE loop_arith_def,AllCaseEqs()] >>
+    every_case_tac>>
+    fs [set_var_def, eval_upd_clock_eq,call_env_def,
+        sh_mem_op_def,sh_mem_store_def,sh_mem_load_def] >> rveq >>
+    fs [ffiTheory.call_FFI_def,AllCaseEqs()]>>
+    every_case_tac>>rveq>>
+    fs[state_component_equality])>>
   fs [evaluate_def,DefnBase.one_line_ify NONE loop_arith_def] >>
   every_case_tac >>
   fs [set_var_def, mem_store_def, set_globals_def, call_env_def,
+                   sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,
       dec_clock_def] >> rveq >>
   fs []
 QED

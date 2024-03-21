@@ -8,6 +8,8 @@ struct
 open preamble;
 open ml_progTheory astSyntax packLib alist_treeLib comparisonTheory;
 
+fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
+
 (* state *)
 
 datatype ml_prog_state = ML_code of (thm list) (* state const definitions *) *
@@ -253,7 +255,7 @@ fun derive_nsLookup_thms def = let
                       nsLookup_empty_eqs]
     val pfun_eqs = LIST_CONJ (map (REWRITE_CONV rewrs) xs)
     val thm_name = "nsLookup_" ^ fst (dest_const env_const) ^ "_pfun_eqs"
-  in save_thm (thm_name, pfun_eqs) end
+  in allowing_rebind save_thm (thm_name, pfun_eqs) end
 
 fun let_env_abbrev conv op_nm (th, ML_code (ss, envs, vs, ml_th)) = let
     val (th, abbrev_defs) = cond_let_abbrev true false

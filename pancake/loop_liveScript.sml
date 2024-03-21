@@ -94,6 +94,13 @@ Definition shrink_def:
      case lookup n l of
      | NONE => (Skip,l)
      | SOME _ => (Assign n x, vars_of_exp x (delete n l))) ∧
+  (shrink b (ShMem op r ad) l =
+   (ShMem op r ad, (*case lookup r l of
+                     NONE => l
+                   | _ => if is_load op
+                          then vars_of_exp ad (insert r () l)
+                          else l)*)
+  vars_of_exp ad (insert r () l))) ∧
   (shrink b (Store e n) l =
     (Store e n, vars_of_exp e (insert n () l))) ∧
   (shrink b (SetGlobal name e) l =

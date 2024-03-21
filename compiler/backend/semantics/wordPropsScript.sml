@@ -581,6 +581,176 @@ Proof
   EVAL_TAC
 QED
 
+Theorem sh_mem_set_var_const:
+   sh_mem_set_var r v s = (x,s') ==>
+   s'.clock = s.clock ∧
+   s'.compile_oracle = s.compile_oracle ∧
+   s'.compile = s.compile ∧
+   s'.be = s.be ∧
+   s'.gc_fun = s.gc_fun ∧
+   s'.code = s.code ∧
+   s'.code_buffer = s.code_buffer ∧
+   s'.data_buffer = s.data_buffer ∧
+   s'.permute = s.permute ∧
+   s'.handler = s.handler ∧
+   s'.stack_limit = s.stack_limit ∧
+   s'.stack_max = s.stack_max ∧
+   (r = NONE ==> s'.ffi = s.ffi) ∧
+   (r = SOME (FFI_final outcome) ==> s'.ffi = s.ffi) ∧
+   (r = NONE ==> s'.locals_size = s.locals_size) ∧
+   (r = SOME (FFI_return f l) ==> s'.locals_size = s.locals_size) ∧
+   (r = NONE ==> s'.stack_max = s.stack_max) ∧
+   (r = SOME (FFI_return f l) ==> s'.stack_max = s.stack_max) ∧
+   (r = NONE ==> s'.stack_size = s.stack_size) ∧
+   (r = SOME (FFI_return f l) ==> s'.stack_size = s.stack_size)
+Proof
+  Cases_on `r` >>
+  gvs[sh_mem_set_var_def] >>
+  rename1 `sh_mem_set_var (SOME res) _ _ = _` >>
+  Cases_on `res` >>
+  rpt strip_tac >>
+  gvs[sh_mem_set_var_def,set_var_def] >>
+  simp[flush_state_def]
+QED
+
+Theorem sh_mem_store_const:
+  sh_mem_store ad v s = (res, s') ==>
+  s'.clock = s.clock ∧
+  s'.compile_oracle = s.compile_oracle ∧
+  s'.compile = s.compile ∧
+  s'.be = s.be ∧
+  s'.gc_fun = s.gc_fun ∧
+  s'.code = s.code ∧
+  s'.code_buffer = s.code_buffer ∧
+  s'.data_buffer = s.data_buffer ∧
+  s'.permute = s.permute ∧
+  s'.handler = s.handler ∧
+  s'.stack_limit = s.stack_limit ∧
+  s'.stack_max = s.stack_max ∧
+  (res = SOME Error ==> s'.locals_size = s.locals_size) ∧
+  (res = NONE ==> s'.locals_size = s.locals_size) ∧
+  (res = NONE ==> s'.stack_max = s.stack_max) ∧
+  (res = SOME Error ==> s'.stack_max = s.stack_max) ∧
+  (res = NONE ==> s'.stack_size = s.stack_size) ∧
+  (res = SOME Error ==> s'.stack_size = s.stack_size)
+Proof
+  gvs[sh_mem_store_def] >>
+  rpt (TOP_CASE_TAC>> fs[]) >>
+  rpt strip_tac >>
+  gvs[flush_state_def]
+QED
+
+Theorem sh_mem_store_byte_const:
+  sh_mem_store_byte ad v s = (res, s') ==>
+  s'.clock = s.clock ∧
+  s'.compile_oracle = s.compile_oracle ∧
+  s'.compile = s.compile ∧
+  s'.be = s.be ∧
+  s'.gc_fun = s.gc_fun ∧
+  s'.code = s.code ∧
+  s'.code_buffer = s.code_buffer ∧
+  s'.data_buffer = s.data_buffer ∧
+  s'.permute = s.permute ∧
+  s'.handler = s.handler ∧
+  s'.stack_limit = s.stack_limit ∧
+  s'.stack_max = s.stack_max ∧
+  (res = SOME Error ==> s'.locals_size = s.locals_size) ∧
+  (res = NONE ==> s'.locals_size = s.locals_size) ∧
+  (res = NONE ==> s'.stack_max = s.stack_max) ∧
+  (res = SOME Error ==> s'.stack_max = s.stack_max) ∧
+  (res = NONE ==> s'.stack_size = s.stack_size) ∧
+  (res = SOME Error ==> s'.stack_size = s.stack_size)
+Proof
+  gvs[sh_mem_store_byte_def] >>
+  rpt (TOP_CASE_TAC>> fs[]) >>
+  rpt strip_tac >>
+  gvs[flush_state_def]
+QED
+
+Theorem share_inst_const:
+  share_inst op v c s = (res, s') ==>
+  s'.code = s.code ∧
+  s'.code_buffer = s.code_buffer ∧
+  s'.data_buffer = s.data_buffer ∧
+  s'.compile = s.compile ∧
+  s'.compile_oracle = s.compile_oracle ∧
+  s'.permute = s.permute ∧
+  s'.clock = s.clock ∧
+  s'.handler = s.handler ∧
+  s'.stack_limit = s.stack_limit ∧
+  s'.stack_max = s.stack_max
+Proof
+  Cases_on `op` >>
+  gvs[share_inst_def]
+  >- ( rpt strip_tac >>
+    metis_tac[sh_mem_set_var_const] )
+  >- ( rpt strip_tac >>
+    metis_tac[sh_mem_set_var_const] )
+  >> gvs[AllCaseEqs()]
+  >> rpt strip_tac
+  >> gvs[]
+  >> metis_tac[sh_mem_store_const,sh_mem_store_byte_const]
+QED
+
+Theorem sh_mem_set_var_with_const:
+  sh_mem_set_var res v s = (r,s') ==>
+  sh_mem_set_var res v (s with clock := k) = (r,s' with clock := k)
+Proof
+  Cases_on `res` >>
+  gvs[sh_mem_set_var_def] >>
+  rename1 `sh_mem_set_var (SOME res)` >>
+  Cases_on `res` >>
+  gvs[sh_mem_set_var_def]
+QED
+
+Theorem sh_mem_load_with_const:
+  sh_mem_load a (s with clock := k) = sh_mem_load a s
+Proof
+  gvs[sh_mem_load_def]
+QED
+
+Theorem sh_mem_load_byte_with_const:
+  sh_mem_load_byte a (s with clock := k) = sh_mem_load_byte a s
+Proof
+  gvs[sh_mem_load_byte_def]
+QED
+
+Theorem sh_mem_store_with_const:
+  sh_mem_store a w s = (r, s') ==>
+  sh_mem_store a w (s with clock := k) = (r, s' with clock := k)
+Proof
+  gvs[sh_mem_store_def] >>
+  rpt strip_tac >>
+  rpt (TOP_CASE_TAC >> gvs[]) >>
+  gvs[]
+QED
+
+Theorem sh_mem_store_byte_with_const:
+  sh_mem_store_byte a w s = (r, s') ==>
+  sh_mem_store_byte a w (s with clock := k) = (r, s' with clock := k)
+Proof
+  gvs[sh_mem_store_byte_def] >>
+  rpt strip_tac >>
+  rpt (TOP_CASE_TAC >> gvs[]) >>
+  gvs[]
+QED
+
+Theorem share_inst_with_const:
+  share_inst op v c s = (r,s') ==>
+  share_inst op v c (s with clock := k) = (r, s' with clock := k)
+Proof
+  rpt strip_tac >>
+  Cases_on `op` >>
+  gvs[share_inst_def]
+  >- metis_tac[sh_mem_set_var_with_const,
+    sh_mem_load_with_const]
+  >- metis_tac[sh_mem_set_var_with_const,
+    sh_mem_load_byte_with_const] >>
+  rpt (TOP_CASE_TAC >> gvs[])
+  >- metis_tac[sh_mem_store_with_const]
+  >- metis_tac[sh_mem_store_byte_with_const]
+QED
+
 (*code and gc_fun are unchanged across eval*)
 Theorem pop_env_code_gc_fun_clock:
     pop_env r = SOME x ⇒
@@ -591,6 +761,7 @@ Theorem pop_env_code_gc_fun_clock:
   r.clock = x.clock ∧
   r.be = x.be ∧
   r.mdomain = x.mdomain ∧
+  r.sh_mdomain = x.sh_mdomain ∧
   r.compile = x.compile ∧
   r.compile_oracle = x.compile_oracle ∧
   r.stack_limit = x.stack_limit ∧
@@ -599,6 +770,7 @@ Theorem pop_env_code_gc_fun_clock:
 Proof
   fs[pop_env_def]>>EVERY_CASE_TAC>>fs[state_component_equality]
 QED
+
 (* Standard add clock lemma for FBS *)
 
 (* TODO: generated names *)
@@ -611,8 +783,28 @@ Proof
   srw_tac[][evaluate_def] >>
   TRY CASE_TAC >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >>
   TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  TRY CASE_TAC >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >>
-  TRY (
+  TRY CASE_TAC >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq
+  >~ [`share_inst`]
+  >- (
+    Cases_on `op` >>
+    gvs[share_inst_def,sh_mem_load_def,
+      sh_mem_load_byte_def,sh_mem_store_def,
+      sh_mem_store_byte_def]
+    >- (
+      IF_CASES_TAC >>
+      gvs[sh_mem_set_var_def] >>
+      qpat_abbrev_tac`res = call_FFI _ _ _ _` >>
+      Cases_on `res` >>
+      gvs[sh_mem_set_var_def] )
+    >- (
+      IF_CASES_TAC >>
+      gvs[sh_mem_set_var_def] >>
+      qpat_abbrev_tac`res = call_FFI _ _ _ _` >>
+      Cases_on `res` >>
+      gvs[sh_mem_set_var_def] )
+    >> rpt (TOP_CASE_TAC >> gvs[AllCaseEqs()] )
+  ) >>
+   TRY (
     rename1`find_code _ (add_ret_loc _ _)` >>
     Cases_on`get_vars args s`>>full_simp_tac(srw_ss())[]>>
     Cases_on`find_code dest (add_ret_loc (SOME x) x') s.code s.stack_size`>>full_simp_tac(srw_ss())[]>>
@@ -723,6 +915,27 @@ Proof
   >- tac
   >- tac
   >- (tac>>fs[cut_env_def]>> rveq >> fs [])
+  >- (
+    tac >>
+    Cases_on `op` >>
+    fs[share_inst_def]
+    >- (
+      gvs[sh_mem_load_def,sh_mem_load_byte_def] >>
+      IF_CASES_TAC >>
+      gvs[sh_mem_set_var_def] >>
+      qpat_abbrev_tac `x = call_FFI _ _ _ _` >>
+      Cases_on `x` >>
+      gvs[sh_mem_set_var_def]
+    )
+    >- (
+      gvs[sh_mem_load_def,sh_mem_load_byte_def] >>
+      IF_CASES_TAC >>
+      gvs[sh_mem_set_var_def] >>
+      qpat_abbrev_tac `x = call_FFI _ _ _ _` >>
+      Cases_on `x` >>
+      gvs[sh_mem_set_var_def]
+    ) >>
+    gvs[AllCaseEqs(),sh_mem_store_def,sh_mem_store_byte_def] )
   >>
     qpat_x_assum`A=(res,rst)` mp_tac>>
     ntac 6 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
@@ -791,8 +1004,39 @@ Proof
   imp_res_tac pop_env_const >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[LET_THM] >>
   TRY (pairarg_tac >> full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[]) >>
-  rveq >> full_simp_tac(srw_ss())[] >>
-  TRY (CHANGED_TAC(full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]) >>
+  rveq
+  >~ [`share_inst`]
+  >- (
+    Cases_on `op` >>
+    gvs[share_inst_def,sh_mem_store_def,sh_mem_store_byte_def,
+      sh_mem_load_def,sh_mem_load_byte_def,AllCaseEqs()]
+    >- (
+      rename1 `ad IN s.sh_mdomain` >>
+      Cases_on `ad IN s.sh_mdomain`
+      >- (
+        gvs[ffiTheory.call_FFI_def] >>
+        every_case_tac >>
+        gvs[sh_mem_set_var_def]
+      ) >>
+      drule sh_mem_set_var_const >>
+      gvs[]
+    )
+    >- (
+      rename1 `ad IN s.sh_mdomain` >>
+      Cases_on `ad IN s.sh_mdomain`
+      >- (
+        gvs[ffiTheory.call_FFI_def] >>
+        every_case_tac >>
+        gvs[sh_mem_set_var_def]
+      ) >>
+      drule sh_mem_set_var_const >>
+      gvs[]
+    ) >>
+    gvs[ffiTheory.call_FFI_def] >>
+    every_case_tac >>
+    gvs[]
+  ) >>
+   TRY (CHANGED_TAC(full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]) >>
        every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
   metis_tac[IS_PREFIX_TRANS]
 QED
@@ -809,7 +1053,16 @@ Theorem evaluate_add_clock_io_events_mono:
     (SND(evaluate(exps,s with clock := s.clock + extra))).ffi.io_events
 Proof
   recInduct evaluate_ind >>
-  srw_tac[][evaluate_def,LET_THM] >>
+  srw_tac[][evaluate_def,LET_THM]
+  >~ [`share_inst`]
+  >- (
+    every_case_tac >>
+    fs[] >>
+    qpat_abbrev_tac `r = share_inst op v c s` >>
+    Cases_on `r` >>
+    fs[markerTheory.Abbrev_def] >>
+    drule_then (assume_tac o GSYM) $ GSYM share_inst_with_const >>
+    fs[] ) >>
   TRY (
     rename1`find_code` >>
     Cases_on`get_vars args s`>>full_simp_tac(srw_ss())[]>>
@@ -871,7 +1124,7 @@ Proof
   rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >>
-  rveq >> full_simp_tac(srw_ss())[] >>
+  rveq >> fs[] >>
   imp_res_tac evaluate_io_events_mono >> rev_full_simp_tac(srw_ss())[] >>
   metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]
 QED
@@ -883,6 +1136,7 @@ Theorem alloc_code_gc_fun_const:
   t.data_buffer = s.data_buffer /\
   t.gc_fun = s.gc_fun /\
   t.mdomain = s.mdomain /\
+  t.sh_mdomain = s.sh_mdomain /\
   t.be = s.be ∧
   t.compile = s.compile ∧
   t.compile_oracle = s.compile_oracle ∧
@@ -897,7 +1151,8 @@ QED
 
 val inst_code_gc_fun_const = Q.prove(`
   inst i s = SOME t ⇒
-  s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.mdomain = t.mdomain /\ s.be = t.be ∧ s.compile = t.compile ∧ s.stack_size = t.stack_size ∧ s.stack_limit = t.stack_limit`,
+     s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.sh_mdomain = t.sh_mdomain /\ s.mdomain = t.mdomain /\ s.be = t.be
+     ∧ s.compile = t.compile ∧ s.stack_size = t.stack_size ∧ s.stack_limit = t.stack_limit`,
   Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def,set_fp_var_def]);
 
 Theorem evaluate_consts:
@@ -905,6 +1160,7 @@ Theorem evaluate_consts:
      evaluate (xs,s1) = (vs,s2) ==>
      s1.gc_fun = s2.gc_fun /\
      s1.mdomain = s2.mdomain /\
+     s1.sh_mdomain = s2.sh_mdomain /\
      s1.be = s2.be ∧
      s1.compile = s2.compile ∧
 (*     s1.stack_size = s2.stack_size ∧*)
@@ -931,6 +1187,20 @@ Proof
        ,set_store_def,mem_store_def,call_env_def,flush_state_def,dec_clock_def,unset_var_def]
   \\ TRY(pairarg_tac \\ fs[])
   \\ EVERY_CASE_TAC
+  >>~ [`share_inst`]
+  >- (
+    Cases_on `op` >>
+    gvs[share_inst_def]
+    >>~- ([`sh_mem_set_var`],
+      qmatch_asmsub_abbrev_tac `sh_mem_set_var res` >>
+      Cases_on `res` >>
+      gvs[sh_mem_set_var_def] >>
+      rename1 `sh_mem_set_var (SOME res)` >>
+      Cases_on `res` >>
+      gvs[sh_mem_set_var_def,set_var_def,flush_state_def]
+    ) >>
+    gvs[AllCaseEqs(),sh_mem_store_def,sh_mem_store_byte_def,flush_state_def]
+  )
   \\ fs[set_vars_def,state_component_equality
        ,set_var_def,set_store_def,mem_store_def
        ,call_env_def,flush_state_def,dec_clock_def,flush_state_def]
@@ -1657,7 +1927,28 @@ Proof
    (full_simp_tac(srw_ss())[evaluate_def]>>
     every_case_tac >> fs [state_component_equality]>>
     TRY (fs [call_env_def,flush_state_def] \\ EVAL_TAC \\ NO_TAC) >>
-    metis_tac[s_key_eq_refl]) >>
+    metis_tac[s_key_eq_refl])
+  >- (*ShareInst*)
+    (gvs[evaluate_def] >>
+    rw[] >> fs[case_eq_thms] >>
+    Cases_on `op` >>
+    gvs[share_inst_def,sh_mem_store_byte_def,sh_mem_store_def,
+      sh_mem_load_def,sh_mem_load_byte_def] >>
+    rpt strip_tac
+    >>~- ([`sh_mem_set_var`],
+      every_case_tac >>
+      rpt strip_tac
+      >>~- ([`sh_mem_set_var (SOME _)`],
+        qmatch_asmsub_abbrev_tac `sh_mem_set_var (SOME ffi_res)` >>
+        Cases_on `ffi_res` >>
+        gvs[sh_mem_set_var_def,state_component_equality,s_key_eq_refl,
+          set_var_def,GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),flush_state_def]) >>
+    gvs[sh_mem_set_var_def,state_component_equality,s_key_eq_refl,
+      set_var_def,GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),flush_state_def]) >>
+    every_case_tac >>
+    rpt strip_tac >>
+    gvs[state_component_equality,s_key_eq_refl,set_var_def,
+      GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),flush_state_def] ) >>
   (*Call*)
   full_simp_tac(srw_ss())[evaluate_def]>>
   Cases_on`get_vars args s`>> full_simp_tac(srw_ss())[]>>
@@ -2299,6 +2590,19 @@ Proof
     TRY(rename[`call_FFI st.ffi ffi_index conf bytes`] >>
         Cases_on`call_FFI st.ffi ffi_index conf bytes`) >>
     full_simp_tac(srw_ss())[LET_THM,state_component_equality])
+  >- (*ShareInst*)
+    (fs[AllCaseEqs()] >>
+    qexists_tac `perm` >>
+    Cases_on `op` >>
+    gvs[share_inst_def,sh_mem_load_def,sh_mem_load_byte_def,
+      sh_mem_store_def,sh_mem_store_byte_def] >>
+    every_case_tac
+    >>~- ([`sh_mem_set_var (SOME (call_FFI _ _ _ _))`],
+
+    qmatch_asmsub_abbrev_tac `sh_mem_set_var (SOME x)` >>
+    Cases_on `x` >>
+    gvs[sh_mem_set_var_def,flush_state_def]) >>
+    gvs[sh_mem_set_var_def,flush_state_def])
   >- (*Call*)
     (fs[evaluate_def]>>
     ntac 6 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
@@ -2851,6 +3155,30 @@ Proof
     full_case_tac>>fs[state_component_equality,locals_rel_def]>>
     fs[pairTheory.ELIM_UNCURRY] >> rpt strip_tac >> rveq >> fs[case_eq_thms] >>
     rveq >> fs[case_eq_thms,state_component_equality])
+  >- (
+    qpat_x_assum `A = (res,rst)` mp_tac >>
+    imp_res_tac locals_rel_word_exp >>
+    rw[] >>
+    gvs[AllCaseEqs(),every_var_def]>>
+    first_x_assum drule_all>>
+    rpt strip_tac >>
+    rename1 `share_inst op n ad _` >>
+    Cases_on `op` >>
+    gvs[share_inst_def,sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def]
+    >>~- ([`sh_mem_set_var`],
+      IF_CASES_TAC
+      >- (
+        qmatch_goalsub_abbrev_tac `sh_mem_set_var (SOME x)` >>
+        Cases_on `x` >>
+        gvs[sh_mem_set_var_def,set_var_def,locals_rel_def,
+          state_component_equality,flush_state_def] >>
+        metis_tac[lookup_insert]) >>
+      gvs[sh_mem_set_var_def,set_var_def,locals_rel_def]) >>
+    gvs[AllCaseEqs(),locals_rel_def,state_component_equality,flush_state_def] >>
+    imp_res_tac locals_rel_get_var >>
+    first_x_assum drule_all >>
+    rpt strip_tac >>
+    gvs[get_var_def,state_component_equality] )
 QED
 
 val gc_fun_ok_def = Define `
@@ -2862,7 +3190,7 @@ val gc_fun_ok_def = Define `
       ~(Handler IN FDOM s1) /\
       (f (wl,m,d,s) = SOME (wl1,m1,s1 |+ (Handler,s ' Handler)))`
 
-(* wordLang syntactic things, TODO: not updated for install,cbw,dbw *)
+(* The expressions in ShareInst must be Var or Op Add *)
 (* No expressions occur except in Set, where it must be a Var expr *)
 val flat_exp_conventions_def = Define`
   (*These should be converted to Insts*)
@@ -2871,6 +3199,9 @@ val flat_exp_conventions_def = Define`
   (*The only place where top level (expression) vars are allowed*)
   (flat_exp_conventions (Set store_name (Var r)) ⇔ T) ∧
   (flat_exp_conventions (Set store_name _) ⇔ F) ∧
+  (flat_exp_conventions (ShareInst op v (Var r)) ⇔ T) ∧
+  (flat_exp_conventions (ShareInst op v (Op Add [Var r;Const c])) ⇔ T) ∧
+  (flat_exp_conventions (ShareInst op v _) ⇔ F) ∧
   (flat_exp_conventions (Seq p1 p2) ⇔
     flat_exp_conventions p1 ∧ flat_exp_conventions p2) ∧
   (flat_exp_conventions (If cmp r1 ri e2 e3) ⇔
@@ -3007,6 +3338,13 @@ val full_inst_ok_less_def = Define`
       (case handler of
         NONE => T
       | SOME (n,h,l1,l2) => full_inst_ok_less c h))) ∧
+  (full_inst_ok_less c (ShareInst op r ad) =
+    case exp_to_addr ad of
+    | SOME (Addr _ w) =>
+      if op IN {Load; Store}
+        then addr_offset_ok c w
+        else byte_offset_ok c w
+    | NONE => F) ∧
   (full_inst_ok_less c prog ⇔ T)`
 
 (* All cutsets are well-formed *)
@@ -3485,7 +3823,34 @@ Proof
   >- (
     every_case_tac >> fs [] >> rveq >> fs [state_fn_updates, flush_state_def, stack_size_eq2] >>
     Cases_on `s.locals_size` >> Cases_on `stack_size s.stack` >> Cases_on `s.stack_max` >>
-    fs [OPTION_MAP_DEF] >> drule stack_size_some_at_least_one >> DECIDE_TAC) >>
+    fs [OPTION_MAP_DEF] >> drule stack_size_some_at_least_one >> DECIDE_TAC)
+  >- ( (* ShareInst *)
+    every_case_tac >>
+    gvs[] >>
+    Cases_on `op` >>
+    gvs[share_inst_def,sh_mem_store_def,sh_mem_load_def,sh_mem_store_byte_def,sh_mem_load_byte_def]
+    >>~- ([`sh_mem_set_var`],
+      every_case_tac
+      >- (
+        qmatch_asmsub_abbrev_tac `sh_mem_set_var (SOME x)` >>
+        Cases_on `x` >>
+        gvs[sh_mem_set_var_def,flush_state_def,state_fn_updates,stack_size_eq2] >>
+        Cases_on `stack_size s.stack` >>
+        Cases_on `s.stack_max` >>
+        gvs[OPTION_MAP2_DEF,option_le_def] >>
+        drule stack_size_some_at_least_one >>
+        Cases_on `s.locals_size` >>
+        gvs[]
+      ) >>
+      gvs[sh_mem_set_var_def]
+    ) >>
+    gvs[AllCaseEqs(),flush_state_def,state_fn_updates,stack_size_eq2] >>
+    Cases_on `stack_size s.stack` >>
+    Cases_on `s.stack_max` >>
+    gvs[OPTION_MAP2_DEF,option_le_def] >>
+    drule stack_size_some_at_least_one >>
+    Cases_on `s.locals_size` >>
+    gvs[] ) >>
   (* Call *)
   qpat_x_assum `_ = (_,_)` mp_tac >>
   TOP_CASE_TAC >- (strip_tac >>rveq >> fs []) >>
@@ -3752,7 +4117,12 @@ Theorem evaluate_stack_max:
 Proof
   recInduct wordSemTheory.evaluate_ind >>
   rw[wordSemTheory.evaluate_def,CaseEq"option",CaseEq"word_loc"] >>
-  rw[set_vars_const] >>
+  rw[set_vars_const]
+  >~ [`share_inst`]
+  >- (
+    TOP_CASE_TAC >>
+    drule share_inst_const >>
+    gvs[libTheory.the_def] ) >>
   TRY(EVERY_ASSUM (fn thm => if is_forall(concl thm) then NO_TAC else ALL_TAC) >>
       TOP_CASE_TAC >>
       fs[alloc_def,CaseEq"option",CaseEq"prod",CaseEq"list",CaseEq"stack_frame",CaseEq"bool",
@@ -3804,7 +4174,11 @@ Theorem evaluate_stack_limit:
 Proof
   recInduct wordSemTheory.evaluate_ind >>
   rw[wordSemTheory.evaluate_def,CaseEq"option",CaseEq"word_loc"] >>
-  rw[set_vars_const] >>
+  rw[set_vars_const]
+  >~ [`share_inst`]
+  >- (
+    drule share_inst_const >>
+    gvs[libTheory.the_def] ) >>
   TRY(EVERY_ASSUM (fn thm => if is_forall(concl thm) then NO_TAC else ALL_TAC) >>
       fs[alloc_def,CaseEq"option",CaseEq"prod",CaseEq"list",CaseEq"stack_frame",CaseEq"bool",
          CaseEq"inst",CaseEq"arith",CaseEq"word_loc",CaseEq"addr",CaseEq"memop",assign_def,
@@ -3963,7 +4337,11 @@ Proof
      CaseEq"option",CaseEq"word_loc",CaseEq"bool",
      CaseEq"prod",CaseEq"list",CaseEq"ffi_result",
      ELIM_UNCURRY,flush_state_def] >>
-  rveq >> fs[] >> rveq >> fs[] >> res_tac >>
+  rveq >> fs[] >> rveq >> fs[] >> res_tac
+  >- ( (* ShareInst *)
+    rev_drule_then assume_tac share_inst_with_const >>
+    gvs[]
+  ) >>
   (* The remainder deals with subcases originating from Seq *)
   fs[FST_EQ_EQUIV] >>
   rfs[] >> res_tac >>
@@ -4070,6 +4448,12 @@ Proof
    (fs [wordSemTheory.evaluate_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",CaseEq"bool",CaseEq"ffi_result"]
     \\ rveq \\ fs [set_var_def,flush_state_def])
+  THEN1 (* ShareInst *)
+   (fs [wordSemTheory.evaluate_def] \\ rveq
+    \\ every_case_tac
+    \\ gvs[]
+    \\ drule share_inst_const
+    \\ gvs[] )
   \\ fs [wordSemTheory.evaluate_def] \\ rveq
   \\ fs [CaseEq"option",CaseEq"word_loc",CaseEq"bool",CaseEq"list",
          CaseEq"stack_frame",pair_case_eq,PULL_EXISTS,CaseEq"wordSem$result"]
@@ -4209,6 +4593,10 @@ Proof
     >- (EVERY_CASE_TAC >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> rw[] >> fs[] >> fs[ffiTheory.call_FFI_def] >>
         EVERY_CASE_TAC >> rw[] >> fs[state_component_equality])
+    >- (every_case_tac >>
+      strip_tac >>
+      drule share_inst_const >>
+      simp[] )
     >- (fs[no_install_def, dec_clock_def, call_env_def, flush_state_def, push_env_def,
         cut_env_def, pop_env_def, set_var_def] >>
         EVERY_CASE_TAC >> rw[] >> fs[] >> metis_tac[no_install_find_code])
@@ -4575,7 +4963,13 @@ Proof
            disch_then $ ASSUME_TAC o GSYM >>
            simp[] >>
            gvs[no_alloc_def,no_install_def])
-      ) >>
+      )
+   >~ [`ShareInst`]
+   >- (
+     gvs[evaluate_def,DefnBase.one_line_ify NONE share_inst_def,AllCaseEqs(),
+      sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def,
+      DefnBase.one_line_ify NONE sh_mem_set_var_def] >>
+     simp[state_component_equality,set_var_def,flush_state_def] ) >>
    (* else *)
    gvs[evaluate_def,AllCaseEqs(),set_var_def,set_store_def,mem_store_def,flush_state_def,
        dec_clock_def,unset_var_def] >>
@@ -4645,5 +5039,24 @@ Proof
   EVERY_CASE_TAC >> fs [] >> rveq >>
   metis_tac[]
 QED
+
+(* no_share_inst: no ShareInst *)
+Definition no_share_inst_def:
+  (no_share_inst (ShareInst _ _ _) = F) /\
+  (no_share_inst (MustTerminate p) = no_share_inst p) ∧
+  (no_share_inst (Call ret _ _ handler) =
+     (case ret of
+      | NONE =>
+          (case handler of
+           | NONE => T
+           | SOME (_,ph,_,_) => no_share_inst ph)
+      | SOME (_,_,pr,_,_) =>
+          (case handler of
+           | NONE => no_share_inst pr
+           | SOME (_,ph,_,_) => no_share_inst ph /\ no_share_inst pr))) /\
+  (no_share_inst (Seq p1 p2) = (no_share_inst p1 /\ no_share_inst p2)) /\
+  (no_share_inst (If _ _ _ p1 p2) = (no_share_inst p1 /\ no_share_inst p2)) /\
+  (no_share_inst _ = T)
+End
 
 val _ = export_theory();

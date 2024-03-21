@@ -153,7 +153,7 @@ val interference_implemented_def = Define`
       (ms = FUNPOW mc.target.next k0 ms0) ∧
       (∀x. x ∉ md ∧ x ∉ mc.prog_addresses ⇒ (mc.target.get_byte ms x = mc.target.get_byte ms0 x))
       ⇒
-      (mc.target.get_pc ms ∈ mc.prog_addresses ∧
+      (mc.target.get_pc ms ∈ mc.prog_addresses DIFF set mc.ffi_entry_pcs ∧
        encoded_bytes_in_mem mc.target.config (mc.target.get_pc ms)
          (mc.target.get_byte ms) mc.prog_addresses ∧
        (∀x. x ∉ mc.prog_addresses ⇒ (mc.target.get_byte (mc.target.next ms) x = mc.target.get_byte ms x)) ∧
@@ -164,7 +164,7 @@ val interference_implemented_def = Define`
             (ffi_rel ms = ffi_rel (mc.target.next ms)) ∧
             (ffi_rel (mc.target.next ms) =
              ffi_rel (FUNPOW mc.target.next k (mc.target.next ms))) ∧
-            (∀x. x ∉ md ∨ x ∈ mc.prog_addresses ⇒
+            (∀x. x ∉ md ∨ x ∈ mc.prog_addresses DIFF set mc.ffi_entry_pcs ⇒
                   (mc.target.get_byte (FUNPOW mc.target.next k (mc.target.next ms)) x =
                    mc.target.get_byte (mc.target.next ms) x))) ∧
       ((mc.target.get_pc ms = mc.ccache_pc) ⇒
@@ -177,8 +177,10 @@ val interference_implemented_def = Define`
             (∀x. x ∉ md ∨ x ∈ mc.prog_addresses ⇒
               (mc.target.get_byte (FUNPOW mc.target.next k ms) x =
                mc.target.get_byte ms x))) ∧
-        ∀ffi ffi_index bytes bytes2 new_ffi new_bytes.
+      ∀ffi ffi_index bytes bytes2 new_ffi new_bytes.
+  (mc.target.get_pc ms ∉ mc.prog_addresses DIFF set mc.ffi_entry_pcs) ∧
           (find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME ffi_index) ∧
+          (mc.target.get_pc ms ≠ mc.ccache_pc) ∧
           (read_ffi_bytearrays mc ms = (SOME bytes, SOME bytes2)) ∧
           (call_FFI ffi (EL ffi_index mc.ffi_names) bytes bytes2 =
             FFI_return new_ffi new_bytes) ∧
@@ -195,7 +197,10 @@ val interference_implemented_def = Define`
 
 Theorem evaluate_Halt_FUNPOW_next:
    ∀mc (ffi:'ffi ffi_state) k ms t ms' ffi'.
-   interference_implemented mc ffi_rel md ms ∧ ffi_rel ms ffi ∧
+  interference_implemented mc ffi_rel md ms ∧ ffi_rel ms ffi ∧
+  ¬ MEM mc.ccache_pc mc.ffi_entry_pcs ∧
+  EVERY (λx. ∃s. x = ExtCall s) mc.ffi_names ∧
+  LENGTH mc.ffi_entry_pcs ≤ LENGTH mc.ffi_names ∧
    (evaluate mc ffi k ms = (Halt t, ms', ffi')) ⇒
      ∃k'. (ms' = FUNPOW mc.target.next k' ms) ∧
           (ffi_rel ms' ffi') ∧
@@ -212,9 +217,9 @@ Proof
   \\ pop_assum mp_tac
   \\ simp[Once targetSemTheory.evaluate_def]
   \\ fs[CaseEq"bool",targetSemTheory.apply_oracle_def,shift_seq_def]
-  \\ strip_tac \\ fs[] \\ rw[]
+  \\ strip_tac \\ fs[GSYM lab_to_targetProofTheory.not_Sh_Ext] \\ rw[]
   \\ TRY (qexists_tac`0` \\ simp[] \\ NO_TAC)
-  >- (
+   >- (
     last_x_assum mp_tac
     \\ impl_tac
     >- (
@@ -258,7 +263,6 @@ Proof
         \\ fs[GSYM FUNPOW_ADD] \\ rw[]
         \\ first_x_assum(qspec_then`k0+k1`mp_tac)
         \\ simp[]
-        \\ disch_then(mp_tac o CONJUNCT2 o CONJUNCT2)
         \\ disch_then (first_assum o mp_then Any mp_tac)
         \\ disch_then match_mp_tac \\ rw[]
         \\ fs[targetSemTheory.read_ffi_bytearrays_def,
@@ -266,18 +270,22 @@ Proof
       \\ fs[interference_implemented_def]
       \\ first_x_assum(qspec_then`0`mp_tac)
       \\ simp[]
-      \\ disch_then(qx_choose_then`k1`strip_assume_tac o CONJUNCT1)
       \\ fs[GSYM FUNPOW_ADD]
       \\ metis_tac[])
     \\ disch_then(qx_choose_then`k1`strip_assume_tac)
     \\ fs[interference_implemented_def]
     \\ first_x_assum(qspec_then`0`mp_tac)
     \\ simp[]
-    \\ disch_then(qx_choose_then`k2`strip_assume_tac o CONJUNCT1)
+    \\ disch_then(qx_choose_then`k2`strip_assume_tac)
     \\ fs[GSYM FUNPOW_ADD]
     \\ qexists_tac`k1+k2` \\ rw[])
-  >- (
-    fs[CaseEq"option",CaseEq"prod"]
+  >> (
+    fs[CaseEq"option",CaseEq"prod",CaseEq"bool",CaseEq"ffiname"]
+    \\ TRY (fs[EVERY_EL]>>
+          drule find_index_LESS_LENGTH>>strip_tac>>fs[]>>
+          ‘ffi_index < LENGTH mc.ffi_names’
+            by (irule LESS_LESS_EQ_TRANS>>metis_tac[])>>
+          fs[]>>gvs[]>>NO_TAC)
     \\ reverse(fs[CaseEq"ffi$ffi_result"]) \\ rfs[]
     >- ( qexists_tac`0` \\ rw[] )
     \\ last_x_assum drule
@@ -294,7 +302,7 @@ Proof
         \\ disch_then (first_assum o mp_then Any mp_tac)
         \\ disch_then (first_assum o mp_then Any mp_tac)
         \\ disch_then (first_assum o mp_then Any mp_tac)
-        \\ disch_then (first_assum o mp_then Any mp_tac)
+        \\ disch_then (first_assum o mp_then Any mp_tac) \\ fs[]
         \\ disch_then(qx_choose_then`k1`strip_assume_tac)
         \\ fs[GSYM FUNPOW_ADD]
         \\ strip_tac
@@ -341,6 +349,9 @@ QED
 Theorem machine_sem_Terminate_FUNPOW_next:
    interference_implemented mc ffi_rel md ms ∧
    (ffi_rel ms st) ∧
+   ¬ MEM mc.ccache_pc mc.ffi_entry_pcs ∧
+   EVERY (λx. ∃s. x = ExtCall s) mc.ffi_names ∧
+   LENGTH mc.ffi_entry_pcs ≤ LENGTH mc.ffi_names ∧
    machine_sem mc (st:'ffi ffi_state) ms (Terminate t io_events) ⇒
    ∃k st'.
      ffi_rel (nxt mc k ms) st' ∧ (io_events = st'.io_events) ∧
@@ -725,7 +736,7 @@ QED
 
 val get_output_io_event_def = Define`
   get_output_io_event (IO_event name conf bs2) =
-    if name = "write" then
+    if name = ExtCall "write" then
       case MAP FST bs2 of (n1 :: n0 :: off1 :: off0 :: tll) =>
         let k = MIN (w22n [n1; n0]) output_buffer_size in
         if (SND (HD bs2) = 0w) then
@@ -907,78 +918,86 @@ Proof
     fs[extract_writes_def]
     \\ first_x_assum irule
     \\ fs[CaseEq"option"]
-    >- ( qexists_tac`fs` \\ fs[] \\ metis_tac[])
-    \\ fs[CaseEq"ffi_result"]
-    \\ qexists_tac`fs'` \\ fs[]
-    \\ fs[fsFFITheory.fs_ffi_part_def]
-    \\ rveq
-    \\ fs[CaseEq"bool"] \\ rveq
-    >- (
-      fs[fsFFITheory.ffi_open_in_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[] \\ rfs[]
-      \\ TRY (rpt conj_tac \\ first_x_assum MATCH_ACCEPT_TAC)
-      \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
-      \\ fs[fsFFITheory.openFile_def]
-      \\ fs[fsFFIPropsTheory.inFS_fname_def]
-      \\ imp_res_tac ALOOKUP_MEM
-      \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-      \\ metis_tac[] )
-    >- (
-      fs[fsFFITheory.ffi_open_out_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[] \\ rfs[]
-      \\ TRY (rpt conj_tac \\ first_x_assum MATCH_ACCEPT_TAC)
-      \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
-      \\ fs[fsFFITheory.openFile_truncate_def]
-      \\ fs[fsFFIPropsTheory.inFS_fname_def]
-      \\ imp_res_tac ALOOKUP_MEM
-      \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-      \\ metis_tac[] )
-    >- (
-      fs[fsFFITheory.ffi_read_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[] \\ rfs[]
-      \\ fs[CaseEq"list"]
-      \\ fs[OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
-      \\ TRY (rpt conj_tac \\ first_x_assum MATCH_ACCEPT_TAC)
-      \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
-      \\ fs[fsFFITheory.read_def]
-      \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
-      \\ fs[fsFFITheory.bumpFD_def]
-      \\ fs[fsFFIPropsTheory.inFS_fname_def]
-      \\ fs[fsFFIPropsTheory.forwardFD_def, AFUPDKEY_ALOOKUP]
-      \\ rw[]
-      \\ TRY PURE_CASE_TAC \\ fs[]
-      \\ TRY PURE_CASE_TAC \\ fs[CaseEq"option"]
-      \\ rveq \\ fs[] \\ rfs[]
-      >- ( first_x_assum drule \\ simp[OPTREL_def] )
+    \\ Cases_on`f`
+    \\ gvs[basis_ffiTheory.extract_fs_with_numchars_def,AllCaseEqs()]
+    >- (qexists_tac`fs` \\ gvs[])
+    >- (fs[CaseEq"ffi_result"]
+      \\ qexists_tac`fs'` \\ fs[]
+      \\ fs[fsFFITheory.fs_ffi_part_def]
+      \\ rveq
+      \\ fs[CaseEq"bool"] \\ rveq
+      >- (
+        fs[fsFFITheory.ffi_open_in_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[] \\ rfs[]
+        \\ TRY (rpt conj_tac \\ first_x_assum MATCH_ACCEPT_TAC)
+        \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
+        \\ fs[fsFFITheory.openFile_def]
+        \\ fs[fsFFIPropsTheory.inFS_fname_def]
+        \\ imp_res_tac ALOOKUP_MEM
+        \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
+        \\ metis_tac[] )
+      >- (
+        fs[fsFFITheory.ffi_open_out_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[] \\ rfs[]
+        \\ TRY (rpt conj_tac \\ first_x_assum MATCH_ACCEPT_TAC)
+        \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
+        \\ fs[fsFFITheory.openFile_truncate_def]
+        \\ fs[fsFFIPropsTheory.inFS_fname_def]
+        \\ imp_res_tac ALOOKUP_MEM
+        \\ fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
+        \\ metis_tac[] )
+      >- (
+        fs[fsFFITheory.ffi_read_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[] \\ rfs[]
+        \\ fs[CaseEq"list"]
+        \\ fs[OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
+        \\ TRY (rpt conj_tac \\ first_x_assum MATCH_ACCEPT_TAC)
+        \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
+        \\ fs[fsFFITheory.read_def]
+        \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
+        \\ fs[fsFFITheory.bumpFD_def]
+        \\ fs[fsFFIPropsTheory.inFS_fname_def]
+        \\ fs[fsFFIPropsTheory.forwardFD_def, AFUPDKEY_ALOOKUP]
+        \\ rw[]
+        \\ TRY PURE_CASE_TAC \\ fs[]
+        \\ TRY PURE_CASE_TAC \\ fs[CaseEq"option"]
+        \\ rveq \\ fs[] \\ rfs[]
+        >- ( first_x_assum drule \\ simp[OPTREL_def] )
+        >- ( first_x_assum drule \\ simp[OPTREL_def] )
+        >- metis_tac[])
+      >- (
+        reverse(fs[fsFFITheory.ffi_close_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[])
+        \\ pairarg_tac \\ fs[] \\ rveq
+        \\ fs[fsFFITheory.closeFD_def]
+        \\ pairarg_tac \\ fs[]
+        \\ rveq \\ fs[]
+        \\ fs[ALOOKUP_ADELKEY]
+        \\ fs[fsFFIPropsTheory.inFS_fname_def]
+        \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_closes_iostreams)
+        \\ simp[ALOOKUP_ADELKEY]
+        \\ Cases_on`w82n l = fd` \\ fs[]
+        \\ rw[]
+        \\ fs[DISJ_EQ_IMP]
+        \\ simp[OPTREL_def, FORALL_PROD]
+        \\ first_x_assum drule
+        \\ simp[OPTREL_def]
+        \\ rpt strip_tac
+        \\ fs[] \\ rveq \\ fs[]
+        \\ qpat_assum `ALOOKUP z.infds x = SOME x0` (K (PairCases_on`x0`))
+        \\ qpat_assum `ALOOKUP z.infds x = SOME (x00,_,_)`
+              (K(reverse(Cases_on`x00` \\ fs[]) >- metis_tac[]))
+        \\ pop_assum mp_tac \\ simp[]
+        \\ first_x_assum drule
+        \\ simp[OPTREL_def]
+        \\ rpt strip_tac
+        \\ fs[] \\ rveq \\ fs[]))
       >- metis_tac[]
-      >- metis_tac[])
-    >- (
-      reverse(fs[fsFFITheory.ffi_close_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[])
-      \\ pairarg_tac \\ fs[] \\ rveq
-      \\ fs[fsFFITheory.closeFD_def]
-      \\ pairarg_tac \\ fs[]
-      \\ rveq \\ fs[]
-      \\ fs[ALOOKUP_ADELKEY]
-      \\ fs[fsFFIPropsTheory.inFS_fname_def]
-      \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_closes_iostreams)
-      \\ simp[ALOOKUP_ADELKEY]
-      \\ Cases_on`w82n l = fd` \\ fs[]
-      \\ rw[]
-      \\ fs[DISJ_EQ_IMP]
-      \\ simp[OPTREL_def, FORALL_PROD]
-      \\ first_x_assum drule
-      \\ simp[OPTREL_def]
-      \\ rpt strip_tac
-      \\ fs[] \\ rveq \\ fs[]
-      \\ qpat_assum `ALOOKUP z.infds x = SOME x0` (K (PairCases_on`x0`))
-      \\ qpat_assum `ALOOKUP z.infds x = SOME (x00,_,_)`
-            (K(reverse(Cases_on`x00` \\ fs[]) >- metis_tac[]))
-      \\ pop_assum mp_tac \\ simp[]
-      \\ first_x_assum drule
-      \\ simp[OPTREL_def]
-      \\ rpt strip_tac
-      \\ fs[] \\ rveq \\ fs[]
-      )
     )
+  \\ fs[basis_ffiTheory.extract_fs_with_numchars_def,
+    AllCaseEqs()]
+  \\ rveq
   \\ fs[fsFFITheory.fs_ffi_part_def]
   \\ fs[CaseEq"option",CaseEq"ffi_result"]
+  \\ fs[basis_ffiTheory.extract_fs_with_numchars_def,
+    AllCaseEqs()]
+  \\ rveq
   \\ last_x_assum drule
   \\ fs[fsFFITheory.ffi_write_def]
   \\ fs[CaseEq"list"] \\ rveq
@@ -1073,6 +1092,9 @@ Proof
   \\ first_x_assum irule
   \\ fs[fsFFIPropsTheory.inFS_fname_def]
   \\ rw[] \\ PURE_CASE_TAC \\ fs[]
+  >- (
+    first_x_assum drule>>
+    fs[])
   \\ metis_tac[]
 QED
 
@@ -2782,7 +2804,7 @@ Theorem ag32_ffi_rel_write_mem_update:
    ⇒
    (get_ag32_io_event
      (ag32_ffi_mem_update "write" conf bytes new_bytes m)
-    = get_output_io_event (IO_event "write" conf (ZIP (bytes,new_bytes))))
+    = get_output_io_event (IO_event (ExtCall "write") conf (ZIP (bytes,new_bytes))))
 Proof
   rw[]
   \\ imp_res_tac fsFFIPropsTheory.ffi_write_length
@@ -3168,7 +3190,7 @@ Theorem ag32_ffi_rel_read_mem_update:
    ⇒
    (get_ag32_io_event
      (ag32_ffi_mem_update "read" conf bytes new_bytes m)
-    = get_output_io_event (IO_event "read" conf (ZIP (bytes,new_bytes))))
+    = get_output_io_event (IO_event (ExtCall "read") conf (ZIP (bytes,new_bytes))))
 Proof
   rw[]
   \\ imp_res_tac fsFFIPropsTheory.ffi_read_length
@@ -3975,7 +3997,7 @@ QED
 Theorem ag32_ffi_interfer_write:
    ag32_ffi_rel ms ffi ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
-   (call_FFI ffi "write" conf bytes = FFI_return ffi' bytes') ∧
+   (call_FFI ffi (ExtCall "write") conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "write" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
    w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -4272,7 +4294,7 @@ QED
 Theorem ag32_ffi_interfer_read:
    ag32_ffi_rel ms ffi ∧ (SND ffi.ffi_state = fs) ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
-   (call_FFI ffi "read" conf bytes = FFI_return ffi' bytes') ∧
+   (call_FFI ffi (ExtCall "read") conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "read" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
    w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -4547,7 +4569,7 @@ QED
 Theorem ag32_ffi_interfer_open_in:
    ag32_ffi_rel ms ffi ∧ (SND ffi.ffi_state = fs) ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
-   (call_FFI ffi "open_in" conf bytes = FFI_return ffi' bytes') ∧
+   (call_FFI ffi (ExtCall "open_in") conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "open_in" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
    w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -4762,7 +4784,7 @@ QED
 Theorem ag32_ffi_interfer_open_out:
    ag32_ffi_rel ms ffi ∧ (SND ffi.ffi_state = fs) ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
-   (call_FFI ffi "open_out" conf bytes = FFI_return ffi' bytes') ∧
+   (call_FFI ffi (ExtCall "open_out") conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "open_out" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
    w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -4971,7 +4993,7 @@ QED
 Theorem ag32_ffi_interfer_close:
    ag32_ffi_rel ms ffi ∧ (SND ffi.ffi_state = fs) ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
-   (call_FFI ffi "close" conf bytes = FFI_return ffi' bytes') ∧
+   (call_FFI ffi (ExtCall "close") conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "close" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
    w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -5184,7 +5206,7 @@ val ffi_code_start_offset_thm = EVAL “ffi_code_start_offset”
 Theorem ag32_ffi_interfer_get_arg_count:
    ag32_ffi_rel ms ffi ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
-   (call_FFI ffi "get_arg_count" conf bytes = FFI_return ffi' bytes') ∧
+   (call_FFI ffi (ExtCall "get_arg_count") conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "get_arg_count" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
    w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -5414,7 +5436,7 @@ QED
 Theorem ag32_ffi_interfer_get_arg_length:
    ag32_ffi_rel ms ffi ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
-   (call_FFI ffi "get_arg_length" conf bytes = FFI_return ffi' bytes') ∧
+   (call_FFI ffi (ExtCall "get_arg_length") conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "get_arg_length" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
    w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -5667,7 +5689,7 @@ QED
 Theorem ag32_ffi_interfer_get_arg:
    ag32_ffi_rel ms ffi ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
-   (call_FFI ffi "get_arg" conf bytes = FFI_return ffi' bytes') ∧
+   (call_FFI ffi (ExtCall "get_arg") conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "get_arg" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
    w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -6000,7 +6022,7 @@ QED
 Theorem ag32_ffi_interfer_:
    ag32_ffi_rel ms ffi ∧
    (read_ffi_bytearrays (ag32_machine_config ffi_names lc ld) ms = (SOME conf, SOME bytes)) ∧
-   (call_FFI ffi "" conf bytes = FFI_return ffi' bytes') ∧
+   (call_FFI ffi (ExtCall "") conf bytes = FFI_return ffi' bytes') ∧
    (INDEX_OF "" ffi_names = SOME index) ∧ ALL_DISTINCT ffi_names ∧
    w2n (ms.R 3w) + LENGTH bytes < dimword (:32) ∧
    LENGTH ffi_names ≤ LENGTH FFI_codes ∧
@@ -6179,6 +6201,7 @@ Theorem ag32_good_init_state:
              w <+ (init_asm_state code data ffi_names (cl,inp)).regs 4}
         ∪ {w | n2w (code_start_offset (LENGTH ffi_names) + LENGTH code) <=+ w ∧
                w <+ n2w(code_start_offset (LENGTH ffi_names) + LENGTH code + 4 * LENGTH data) })
+       {}
      io_regs
      cc_regs
 Proof
@@ -6236,10 +6259,18 @@ Proof
     rewrite_tac[targetSemTheory.start_pc_ok_def]
     \\ conj_tac >- ( EVAL_TAC \\ simp[] \\ fs[FFI_codes_def, word_lo_n2w, word_ls_n2w])
     \\ conj_tac >- ( EVAL_TAC \\ simp[] \\ fs[FFI_codes_def, word_lo_n2w, word_ls_n2w])
+    \\ conj_tac >- (EVAL_TAC \\fs[])
+    \\ conj_tac >- (EVAL_TAC \\fs[])
     \\ simp[lab_to_targetTheory.ffi_offset_def]
     \\ conj_tac >- (EVAL_TAC \\ fs[FFI_codes_def])
     \\ conj_tac >- (EVAL_TAC \\ fs[FFI_codes_def])
-    \\ conj_tac >- fs[]
+    \\ conj_tac >- fs[Once WORD_AND_COMM]
+    \\ qexists_tac ‘LENGTH ffi_names’ \\ fs[]
+    \\ conj_tac >- (
+    fs[ag32_machine_config_def,Abbr ‘num_ffis’]>>
+    irule EQ_TRANS>>
+    irule_at Any (lab_to_targetProofTheory.mmio_pcs_min_index_APPEND_thm |> GEN_ALL |> Q.SPECL [‘[]:ffiname list’] |> SIMP_RULE std_ss [APPEND_NIL])>>
+    fs[ag32_machine_config_def,EVERY_MAP])
     \\ simp[ag32_machine_config_def]
     \\ simp[ag32_prog_addresses_def]
     \\ fs[EVAL``code_start_offset _``, word_add_n2w,
@@ -6267,10 +6298,19 @@ Proof
     \\ simp[EVAL``ag32_target.config``,targetSemTheory.get_reg_value_def]
     \\ simp[ag32_ffi_interfer_def]
     \\ simp[LENGTH_ag32_ffi_code]
-    \\ qexists_tac`λk i n. if n = 0 then OPTION_MAP n2w (ALOOKUP ffi_exitpcs i)
-                           else if i = "" then if n = 5 then SOME 0w else NONE
-                           else if n < 9 then SOME 0w else NONE`
+    \\ qexists_tac`λk f n. case f of
+                           | SharedMem s => NONE
+                           | ExtCall i =>
+                             if n = 0 then OPTION_MAP n2w (ALOOKUP ffi_exitpcs i)
+                             else if i = "" then if n = 5 then SOME 0w else NONE
+                             else if n < 9 then SOME 0w else NONE`
     \\ rpt gen_tac
+    \\ strip_tac>>
+    drule lab_to_targetProofTheory.mmio_pcs_min_index_is_SOME>>
+    strip_tac>>
+    Cases_on ‘index < i’>>fs[NOT_LESS]>>
+    TRY (first_x_assum $ qspec_then ‘index’ assume_tac>>
+         fs[EL_MAP,Abbr ‘num_ffis’]>>NO_TAC)
     \\ Cases_on`EL index ffi_names = ""`
     \\ srw_tac[ETA_ss][]
     \\ fs[asmPropsTheory.target_state_rel_def]
@@ -6279,11 +6319,13 @@ Proof
     \\ fs[ag32_targetTheory.ag32_config_def]
     >- (
       rw[]
+      \\ gvs[EL_MAP,Abbr`num_ffis`]
       \\ rw[APPLY_UPDATE_THM, targetSemTheory.get_reg_value_def,
          EVAL``ALOOKUP ffi_exitpcs ""``]
       \\ irule EQ_SYM
       \\ irule asm_write_bytearray_id
       \\ gen_tac \\ strip_tac
+      \\ `t1.mem (t1.regs 3 + n2w j) = EL j bytes2` suffices_by simp[]
       \\ irule bytes_in_memory_EL
       \\ simp[]
       \\ qexists_tac`all_words (t1.regs 3) (LENGTH bytes2)`
@@ -6308,7 +6350,7 @@ Proof
     >- (
       simp[APPLY_UPDATE_THM]
       \\ rpt strip_tac
-      \\ fs[IS_SOME_EXISTS]
+      \\ fs[IS_SOME_EXISTS,Abbr`num_ffis`,EL_MAP]
       \\ rpt(IF_CASES_TAC \\ simp[targetSemTheory.get_reg_value_def]))
     \\ rw[]
     \\ `EL index ffi_names ∈ set(MAP FST FFI_codes)` by (
@@ -6370,6 +6412,7 @@ Proof
     \\ Cases_on`a` \\ fs[word_ls_n2w, word_lo_n2w, word_add_n2w]
     \\ rw[MIN_DEF]
     )
+
   \\ conj_tac >- (
     rw[targetSemTheory.ccache_interfer_ok_def, ag32_machine_config_def,
        lab_to_targetTheory.ffi_offset_def, ag32_ccache_interfer_def,
@@ -6441,6 +6484,8 @@ Proof
     \\ simp[GSYM word_add_n2w]
     \\ irule byte_aligned_add
     \\ simp[byte_aligned_code_start_offset])
+  \\ conj_tac >- simp[ag32_machine_config_def]
+  \\ conj_tac >- simp[ag32_machine_config_def]
   \\ conj_tac >- (
     simp[EVAL``(ag32_machine_config _ _ _).target.config``]
     \\ Cases
@@ -6504,13 +6549,13 @@ Theorem ag32_installed:
      x ∉ ag32_startup_addresses ⇒
        ((FUNPOW Next startup_clock ms0).MEM x = ms0.MEM x))
    ⇒
-   installed code 0 data 0 (SOME ffi_names)
+   installed code 0 data 0 (SOME $ MAP ExtCall ffi_names)
      (heap_regs ag32_backend_config.stack_conf.reg_names)
-     (ag32_machine_config ffi_names (LENGTH code) (LENGTH data))
+     (ag32_machine_config ffi_names (LENGTH code) (LENGTH data)) []
      (FUNPOW Next startup_clock ms0)
 Proof
   disch_then assume_tac
-  \\ CONV_TAC(PATH_CONV"llr"EVAL)
+  \\ CONV_TAC(PATH_CONV"lllr"EVAL)
   \\ simp[targetSemTheory.installed_def]
   \\ simp[word_list_exists_def, set_sepTheory.SEP_CLAUSES, word_list_def]
   \\ simp[EVAL``(ag32_machine_config _ _ _).target.get_pc``]
@@ -6555,8 +6600,9 @@ Proof
     fs[asmPropsTheory.target_state_rel_def, ag32_machine_config_def,
        ag32_targetTheory.ag32_target_def]
     \\ simp[bytes_in_word_def, GSYM word_add_n2w, GSYM word_mul_n2w] )
-  \\ CONV_TAC (RAND_CONV EVAL THENC SIMP_CONV std_ss [])
-  \\ irule IMP_word_list
+
+ \\ conj_tac
+  >- (irule IMP_word_list
   \\ conj_tac >- fs[bytes_in_word_def, memory_size_def]
   \\ conj_tac >- fs[]
   \\ simp[EXTENSION,FORALL_PROD,set_sepTheory.IN_fun2set, bytes_in_word_def]
@@ -6653,7 +6699,17 @@ Proof
   \\ pop_assum SUBST_ALL_TAC
   \\ simp [GSYM word_add_n2w]
   \\ irule init_memory_data
-  \\ fs [Abbr `hi`, memory_size_def, Abbr `low`]
+      \\ fs [Abbr `hi`, memory_size_def, Abbr `low`])>>
+  fs[ag32_machine_config_def]>>
+  strip_tac>>
+  strip_tac>>
+  drule lab_to_targetProofTheory.mmio_pcs_min_index_is_SOME>>
+  strip_tac>>fs[]>>
+  qpat_x_assum ‘_ ≤ LENGTH _’ $ assume_tac o SIMP_RULE std_ss [LESS_OR_EQ]>>
+  fs[]>- (first_x_assum $ qspec_then ‘i’ assume_tac>>gvs[EL_MAP])>>
+  irule LESS_EQ_LESS_TRANS>>
+  qexists_tac ‘LENGTH code + ffi_offset * (LENGTH FFI_codes + 3)’>>fs[]>>
+  fs[code_start_offset_def,memory_size_def,FFI_codes_def]
 QED
 
 Theorem ag32_halted:
@@ -6739,6 +6795,9 @@ fun ffi_tac
   match_mp_tac(GEN_ALL(ag32_ffi_interfer_xxx))
   \\ asm_exists_tac \\ simp[]
   \\ fs[EVAL``(ag32_machine_config _ _ _).ffi_names``]
+  \\ `EL ffi_index (MAP ExtCall ffi_names) = ExtCall (EL ffi_index ffi_names)`
+    by simp[EL_MAP]
+  \\ gvs[]
   \\ conj_tac
   >- (
     simp[GSYM find_index_INDEX_OF]
@@ -7242,7 +7301,7 @@ Proof
   \\ simp[ffi_exitpcs_def, SUBSET_DEF]
   \\ simp[MEM_EL, PULL_EXISTS]
   \\ disch_then(qspec_then`ffi_index`mp_tac)
-  \\ impl_tac >- fs[]
+  \\ (impl_tac >- fs[]
   (*
   \\ Cases_on`EL ffi_index ffi_names = "exit"` \\ fs[]
   >- ... (* remove exit from the list ? or implement it *)
@@ -7264,7 +7323,7 @@ Proof
   \\ Cases_on`EL ffi_index ffi_names = "get_arg_length"` \\ fs[]
   >- ffi_tac ag32_ffi_interfer_get_arg_length ``ag32_ffi_get_arg_length_code``
   \\ Cases_on`EL ffi_index ffi_names = "open_out"` \\ fs[]
-  >- ffi_tac ag32_ffi_interfer_open_out ``ag32_ffi_open_out_code``
+  >- ffi_tac ag32_ffi_interfer_open_out ``ag32_ffi_open_out_code``)
 QED
 
 Theorem ag32_next:
@@ -7304,8 +7363,8 @@ Proof
   \\ strip_tac \\ rfs[]
   \\ disch_then drule
   \\ impl_tac >-
-  (
-    simp[ag32_ffi_rel_def,Abbr`st`]
+  (conj_tac >-
+   (simp[ag32_ffi_rel_def,Abbr`st`]
     \\ conj_tac
     >- (
       EVAL_TAC
@@ -7652,7 +7711,19 @@ Proof
     \\ fs[LENGTH_words_of_bytes, bitstringTheory.length_pad_right,
           LENGTH_FLAT, bytes_in_word_def, MAP_MAP_o, o_DEF, ADD1, SUM_MAP_PLUS]
     \\ fs[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
-    \\ EVAL_TAC)
+    \\ EVAL_TAC)>>
+   fs[ag32_machine_config_def,Abbr ‘mc’,EVERY_MAP, MEM_GENLIST]>>
+   strip_tac>>
+   Cases_on ‘i < LENGTH ffi_names’>>fs[]>>
+   qmatch_goalsub_abbrev_tac ‘LH ≠ RH’>>
+   ‘ffi_jumps_offset + ffi_offset * LENGTH ffi_names < dimword (:32)’ by
+     (fs[memory_size_def,code_start_offset_def]>>EVAL_TAC)>>
+   ‘ffi_jumps_offset + i * ffi_offset < ffi_jumps_offset + ffi_offset * LENGTH ffi_names’ by
+     (rewrite_tac[Once MULT_COMM]>>
+      fs[lab_to_targetTheory.ffi_offset_def])>>
+   ‘LH = ffi_jumps_offset + ffi_offset * LENGTH ffi_names’ by fs[Abbr ‘LH’, LESS_MOD]>>
+   ‘RH = ffi_jumps_offset + i * ffi_offset’ by fs[Abbr ‘RH’, LESS_MOD]>>
+  fs[])
   \\ strip_tac
   \\ first_assum(mp_then Any mp_tac (GEN_ALL ag32_halted))
   \\ simp[]

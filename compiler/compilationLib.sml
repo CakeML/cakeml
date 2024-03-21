@@ -27,6 +27,9 @@ fun compilation_compset() =
       ] cs
   in cs end;
 
+fun allowing_rebinds f x = Feedback.trace ("Theory.allow_rebinds", 1) f x;
+val zdefine = allowing_rebinds zDefine
+
 val bare_compiler_cs = wordsLib.words_compset()
 val () =
   computeLib.extend_compset[
@@ -86,8 +89,8 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
     val to_flat_thm0 = timez "to_flat" eval ``to_flat ^conf_tm ^prog_tm``;
 
     val (c,p) = to_flat_thm0 |> rconc |> dest_pair
-    val flat_conf_def = zDefine`flat_conf = ^c`;
-    val flat_prog_def = zDefine`flat_prog = ^p`;
+    val flat_conf_def = zdefine`flat_conf = ^c`;
+    val flat_prog_def = zdefine`flat_prog = ^p`;
     val to_flat_thm =
       to_flat_thm0 |> CONV_RULE(RAND_CONV(
         FORK_CONV(REWR_CONV(SYM flat_conf_def),
@@ -116,7 +119,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
       |> timez "to_clos" (CONV_RULE(RAND_CONV(RAND_CONV eval)))
       |> CONV_RULE(RAND_CONV(REWR_CONV_BETA LET_THM))
     val (_,p) = to_clos_thm0 |> rconc |> dest_pair
-    val clos_prog_def = zDefine`clos_prog = ^p`;
+    val clos_prog_def = zdefine`clos_prog = ^p`;
     val to_clos_thm =
       to_clos_thm0 |> CONV_RULE(RAND_CONV(
         RAND_CONV(REWR_CONV(SYM clos_prog_def))));
@@ -133,9 +136,9 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
       |> timez "to_bvl" (CONV_RULE(RAND_CONV eval))
     val (c,rest) = to_bvl_thm0 |> rconc |> dest_pair
     val (p,names) = dest_pair rest
-    val bvl_conf_def = zDefine`bvl_conf = ^c`;
-    val bvl_prog_def = zDefine`bvl_prog = ^p`;
-    val bvl_names_def = zDefine`bvl_names = ^names`;
+    val bvl_conf_def = zdefine`bvl_conf = ^c`;
+    val bvl_prog_def = zdefine`bvl_prog = ^p`;
+    val bvl_names_def = zdefine`bvl_names = ^names`;
     val to_bvl_thm =
       to_bvl_thm0 |> CONV_RULE(RAND_CONV(
         FORK_CONV(REWR_CONV(SYM bvl_conf_def),
@@ -168,9 +171,9 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
 
     val (c,rest) = to_bvi_thm1 |> rconc |> dest_pair
     val (p,names) = rest |> dest_pair
-    val bvi_conf_def = zDefine`bvi_conf = ^c`;
-    val bvi_prog_def = zDefine`bvi_prog = ^p`;
-    val bvi_names_def = zDefine`bvi_names = ^names`;
+    val bvi_conf_def = zdefine`bvi_conf = ^c`;
+    val bvi_prog_def = zdefine`bvi_prog = ^p`;
+    val bvi_names_def = zdefine`bvi_names = ^names`;
     val to_bvi_thm =
       to_bvi_thm1 |> CONV_RULE(RAND_CONV(
         FORK_CONV(REWR_CONV(SYM bvi_conf_def),
@@ -192,7 +195,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
     val (p,names) = rest |> dest_pair
     val _ = output_IL p (data_to_strs names) "data.txt" "DataLang"
 
-    val data_prog_def = mk_abbrev data_prog_name p
+    val data_prog_def = allowing_rebinds (mk_abbrev data_prog_name) p
     val to_data_thm =
       to_data_thm0 |> CONV_RULE(RAND_CONV(
         RAND_CONV(FORK_CONV(REWR_CONV(SYM data_prog_def),ALL_CONV))))
@@ -234,7 +237,7 @@ fun compile_to_word_0 data_prog_def to_data_thm =
     val conf_tm = to_data_tm |> rator |> rand
     val prog_tm = to_data_tm |> rand
 
-    fun ABBREV_CONV name tm = SYM (mk_abbrev name tm);
+    fun ABBREV_CONV name tm = SYM (allowing_rebinds (mk_abbrev name) tm);
 
     val to_word_0_thm = to_word_0_def
                         |> INST_TYPE [beta|->alpha]
@@ -295,7 +298,7 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
 
     val tm1 = to_livesets_0_thm0 |> rconc |> rand
     val (args,body) = tm1 |> rator |> rand |> dest_pabs
-    val word_to_word_fn_def = zDefine`word_to_word_fn ^args = ^body`;
+    val word_to_word_fn_def = zdefine`word_to_word_fn ^args = ^body`;
     val temp_defs = ["word_to_word_fn_def"];
     val word_to_word_fn_eq =
       word_to_word_fn_def
@@ -321,7 +324,7 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
       |> (RATOR_CONV(RAND_CONV(REWR_CONV(SYM word_to_word_fn_eq))) THENC
           RAND_CONV(REWR_CONV thm0) THENC map_ths_conv ths)
 
-    val word_prog0_def = mk_abbrev "word_prog0" (thm1 |> rconc)
+    val word_prog0_def = allowing_rebinds (mk_abbrev "word_prog0") (thm1 |> rconc)
     val temp_defs = (mk_abbrev_name"word_prog0")::temp_defs;
 
     val thm1' = thm1 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM word_prog0_def)))
@@ -336,7 +339,7 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
 
     val tm2 = to_livesets_0_thm1 |> rconc |> rand
     val (args,body) = tm2 |> rator |> rand |> dest_pabs
-    val clash_fn_def = zDefine`clash_fn ^args = ^body`;
+    val clash_fn_def = zdefine`clash_fn ^args = ^body`;
     val temp_defs = (mk_abbrev_name"clash_fn")::temp_defs;
     val clash_fn_eq =
       clash_fn_def
@@ -374,14 +377,14 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
       |> rconc |> pairSyntax.dest_pair |> #1
       |> time_with_size term_size "external oracle" (reg_allocComputeLib.get_oracle reg_alloc.Irc)
 
-    val oracle_def = mk_abbrev"oracle" oracles;
+    val oracle_def = allowing_rebinds (mk_abbrev "oracle") oracles;
 
     val wc =
       ``^conf_tm.word_to_word_conf
         with col_oracle := oracle``
       |> eval |> rconc
 
-    val word_prog1_def = mk_abbrev"word_prog1"(thm2 |> rconc);
+    val word_prog1_def = allowing_rebinds (mk_abbrev "word_prog1") (thm2 |> rconc);
     val temp_defs = (mk_abbrev_name"word_prog1") :: temp_defs
 
     val args =
@@ -414,7 +417,7 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
       |> (RAND_CONV(REWR_CONV word_prog1_def) THENC
           listLib.LENGTH_CONV)
 
-    val oracle_list_def = mk_abbrev"oracle_list" (oracle_def |> rconc |> rand);
+    val oracle_list_def = allowing_rebinds (mk_abbrev "oracle_list") (oracle_def |> rconc |> rand);
     val temp_defs = (mk_abbrev_name"oracle_list") :: temp_defs
 
     val LENGTH_oracle_list =
@@ -465,7 +468,7 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
 
     val tm3 = from_word_0_thm0 |> rconc |> rand
     val check_fn = tm3 |> funpow 3 rator |> rand
-    val check_fn_def = mk_abbrev"check_fn"check_fn;
+    val check_fn_def = allowing_rebinds (mk_abbrev "check_fn") check_fn;
     val temp_defs = (mk_abbrev_name"check_fn") :: temp_defs
 
     fun eval_fn i n (a,b,c) =
@@ -529,7 +532,7 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
              RATOR_CONV(RATOR_CONV(RAND_CONV(REWR_CONV oracle_def))) THENC
              timez "check colour" map3_conv)))
 
-    val word_prog2_def = mk_abbrev"word_prog2" (from_word_0_thm1 |> rconc |> rand);
+    val word_prog2_def = allowing_rebinds (mk_abbrev "word_prog2") (from_word_0_thm1 |> rconc |> rand);
     val temp_defs = (mk_abbrev_name"word_prog2") :: temp_defs
 
     val from_word_0_thm1' = from_word_0_thm1
@@ -563,7 +566,7 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
     val rawcall_thm = time_with_size (term_size o rand o concl) "stack_rawcall"
                         eval stack_rawcall_compile;
 
-    val stack_prog_def = mk_abbrev"stack_prog" (rawcall_thm |> concl |> rand)
+    val stack_prog_def = allowing_rebinds (mk_abbrev "stack_prog") (rawcall_thm |> concl |> rand)
     val temp_defs = (mk_abbrev_name"stack_prog") :: temp_defs
 
     val () = computeLib.extend_compset[computeLib.Defs[stack_prog_def]] cs;
@@ -602,7 +605,7 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
                listLib.APPEND_CONV)))
 
     val stack_alloc_prog_def =
-      mk_abbrev"stack_alloc_prog"(stack_to_lab_thm0 |> rconc |> rator |> rand |> rand)
+      allowing_rebinds (mk_abbrev "stack_alloc_prog") (stack_to_lab_thm0 |> rconc |> rator |> rand |> rand)
     val temp_defs = (mk_abbrev_name"stack_alloc_prog") :: temp_defs
 
     val stack_to_lab_thm1 =
@@ -650,7 +653,7 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
            listLib.APPEND_CONV)))
 
     val stack_remove_prog_def =
-      mk_abbrev"stack_remove_prog" (stack_remove_thm |> rconc |> rand);
+      allowing_rebinds (mk_abbrev "stack_remove_prog") (stack_remove_thm |> rconc |> rand);
     val temp_defs = (mk_abbrev_name"stack_remove_prog") :: temp_defs
 
     val stack_to_lab_thm2 =
@@ -685,7 +688,7 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
           map_ths_conv ths)
 
     val stack_names_prog_def =
-      mk_abbrev"stack_names_prog" (stack_names_thm0 |> rconc);
+      allowing_rebinds (mk_abbrev "stack_names_prog") (stack_names_thm0 |> rconc);
     val temp_defs = (mk_abbrev_name"stack_names_prog") :: temp_defs
 
     val stack_names_thm = stack_names_thm0
@@ -716,7 +719,7 @@ fun compile_to_lab_new conf_tm word_0_tm lab_prog_name =
            RAND_CONV(REWR_CONV stack_names_prog_def) THENC
            map_ths_conv ths))))
 
-    val lab_prog_def = mk_abbrev lab_prog_name (stack_to_lab_thm4 |> rconc |> rator |> rand);
+    val lab_prog_def = allowing_rebinds (mk_abbrev lab_prog_name) (stack_to_lab_thm4 |> rconc |> rator |> rand);
 
     val stack_to_lab_thm =
       stack_to_lab_thm4 |>
@@ -774,7 +777,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
     val tm1 = to_livesets_thm0 |> rconc |> rand
     val (args,body) = tm1 |> rator |> rand |> dest_pabs
-    val word_to_word_fn_def = zDefine`word_to_word_fn ^args = ^body`;
+    val word_to_word_fn_def = zdefine`word_to_word_fn ^args = ^body`;
     val temp_defs = ["word_to_word_fn_def"];
     val word_to_word_fn_eq =
       word_to_word_fn_def
@@ -800,7 +803,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       |> (RATOR_CONV(RAND_CONV(REWR_CONV(SYM word_to_word_fn_eq))) THENC
           RAND_CONV(REWR_CONV thm0) THENC map_ths_conv ths)
 
-    val word_prog0_def = mk_abbrev "word_prog0" (thm1 |> rconc)
+    val word_prog0_def = allowing_rebinds (mk_abbrev "word_prog0") (thm1 |> rconc)
     val temp_defs = (mk_abbrev_name"word_prog0")::temp_defs;
 
     val thm1' = thm1 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM word_prog0_def)))
@@ -814,7 +817,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
     val tm2 = to_livesets_thm1 |> rconc |> rand
     val (args,body) = tm2 |> rator |> rand |> dest_pabs
-    val clash_fn_def = zDefine`clash_fn ^args = ^body`;
+    val clash_fn_def = zdefine`clash_fn ^args = ^body`;
     val temp_defs = (mk_abbrev_name"clash_fn")::temp_defs;
     val clash_fn_eq =
       clash_fn_def
@@ -852,7 +855,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       |> rconc |> pairSyntax.dest_pair |> #1
       |> time_with_size term_size "external oracle" (reg_allocComputeLib.get_oracle reg_alloc.Irc)
 
-    val oracle_def = mk_abbrev"oracle" oracles;
+    val oracle_def = allowing_rebinds (mk_abbrev "oracle") oracles;
 
     val wc =
       ``^conf_tm.word_to_word_conf
@@ -861,7 +864,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
     val args = to_livesets_thm |> concl |> lhs |> strip_comb |> #2
 
-    val word_prog1_def = mk_abbrev"word_prog1"(thm2 |> rconc);
+    val word_prog1_def = allowing_rebinds (mk_abbrev "word_prog1") (thm2 |> rconc);
     val temp_defs = (mk_abbrev_name"word_prog1") :: temp_defs
 
     val to_livesets_thm' =
@@ -891,7 +894,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       |> (RAND_CONV(REWR_CONV word_prog1_def) THENC
           listLib.LENGTH_CONV)
 
-    val oracle_list_def = mk_abbrev"oracle_list" (oracle_def |> rconc |> rand);
+    val oracle_list_def = allowing_rebinds (mk_abbrev "oracle_list") (oracle_def |> rconc |> rand);
     val temp_defs = (mk_abbrev_name"oracle_list") :: temp_defs
 
     val LENGTH_oracle_list =
@@ -944,7 +947,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
     val tm3 = compile_thm0 |> rconc |> rand
     val check_fn = tm3 |> funpow 3 rator |> rand
-    val check_fn_def = mk_abbrev"check_fn"check_fn;
+    val check_fn_def = allowing_rebinds (mk_abbrev "check_fn") check_fn;
     val temp_defs = (mk_abbrev_name"check_fn") :: temp_defs
 
     fun eval_fn i n (a,b,c) =
@@ -1008,7 +1011,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
              RATOR_CONV(RATOR_CONV(RAND_CONV(REWR_CONV oracle_def))) THENC
              timez "check colour" map3_conv)))
 
-    val word_prog2_def = mk_abbrev"word_prog2" (from_word_0_thm1 |> rconc |> rand);
+    val word_prog2_def = allowing_rebinds (mk_abbrev "word_prog2") (from_word_0_thm1 |> rconc |> rand);
     val temp_defs = (mk_abbrev_name"word_prog2") :: temp_defs
 
     val from_word_0_thm1' = from_word_0_thm1
@@ -1050,7 +1053,7 @@ from_word_thm'
       val rawcall_thm = time_with_size (term_size o rand o concl) "stack_rawcall"
                           eval stack_rawcall_compile;
 
-      val stack_prog_def = mk_abbrev"stack_prog" (rawcall_thm |> concl |> rand)
+      val stack_prog_def = allowing_rebinds (mk_abbrev "stack_prog") (rawcall_thm |> concl |> rand)
       val temp_defs = (mk_abbrev_name"stack_prog") :: temp_defs
 
       val () = computeLib.extend_compset[computeLib.Defs[stack_prog_def]] cs;
@@ -1089,7 +1092,7 @@ from_word_thm'
                  listLib.APPEND_CONV)))
 
       val stack_alloc_prog_def =
-        mk_abbrev"stack_alloc_prog"(stack_to_lab_thm0 |> rconc |> rator |> rand |> rand)
+        allowing_rebinds (mk_abbrev "stack_alloc_prog") (stack_to_lab_thm0 |> rconc |> rator |> rand |> rand)
       val temp_defs = (mk_abbrev_name"stack_alloc_prog") :: temp_defs
 
       val stack_to_lab_thm1 =
@@ -1135,7 +1138,7 @@ from_word_thm'
              listLib.APPEND_CONV)))
 
       val stack_remove_prog_def =
-        mk_abbrev"stack_remove_prog" (stack_remove_thm |> rconc |> rand);
+        allowing_rebinds (mk_abbrev "stack_remove_prog") (stack_remove_thm |> rconc |> rand);
       val temp_defs = (mk_abbrev_name"stack_remove_prog") :: temp_defs
 
       val stack_to_lab_thm2 =
@@ -1169,7 +1172,7 @@ from_word_thm'
             map_ths_conv ths)
 
       val stack_names_prog_def =
-        mk_abbrev"stack_names_prog" (stack_names_thm0 |> rconc);
+        allowing_rebinds (mk_abbrev "stack_names_prog") (stack_names_thm0 |> rconc);
       val temp_defs = (mk_abbrev_name"stack_names_prog") :: temp_defs
 
       val stack_names_thm = stack_names_thm0
@@ -1200,7 +1203,7 @@ from_word_thm'
              RAND_CONV(REWR_CONV stack_names_prog_def) THENC
              map_ths_conv ths)))
 
-      val lab_prog_def = mk_abbrev lab_prog_name (stack_to_lab_thm4 |> rconc |> rator |> rand);
+      val lab_prog_def = allowing_rebinds (mk_abbrev lab_prog_name) (stack_to_lab_thm4 |> rconc |> rator |> rand);
 
       val stack_to_lab_thm =
         stack_to_lab_thm4 |>
@@ -1279,7 +1282,7 @@ fun cbv_compile_to_data cs conf_def prog_def data_prog_name =
     val prog_tm = lhs(concl prog_def)
     val to_data_thm0 = timez "cbv_compile_to_data" eval ``to_data ^conf_tm ^prog_tm``;
     val (_,p) = to_data_thm0 |> rconc |> dest_pair
-    val data_prog_def = mk_abbrev data_prog_name p
+    val data_prog_def = allowing_rebinds (mk_abbrev data_prog_name) p
     val to_data_thm =
       to_data_thm0 |> CONV_RULE(RAND_CONV(
         RAND_CONV(REWR_CONV(SYM data_prog_def))));
@@ -1473,6 +1476,8 @@ fun eval_export word_directive target_export_defs code_def data_def syms_tm ffi_
       computeLib.Defs export_defs,
       computeLib.Defs target_export_defs ] cs;
     val exporter_tm = target_export_defs |> hd |> SPEC_ALL |> concl |> lhs |> strip_comb |> #1
+    (* the following line assumes all ffi_names are ExtCall *)
+    val ffi_names_tm = listSyntax.mk_list(listSyntax.dest_list ffi_names_tm |> fst |> map rand,stringSyntax.string_ty)
     val eval_export_tm =
       list_mk_comb(exporter_tm,
         [ffi_names_tm,
@@ -1483,6 +1488,11 @@ fun eval_export word_directive target_export_defs code_def data_def syms_tm ffi_
     in print_app_list out
          (term_to_app_list word_directive eval code_def data_def app_list)
     end
+
+(*
+val (word_directive,add_encode_compset,backend_config_def,names_def,target_export_defs) =
+  ("quad",x64_targetLib.add_x64_encode_compset,x64_backend_config_def,x64_names_def,x64_export_defs)
+*)
 
 fun cbv_to_bytes word_directive add_encode_compset backend_config_def names_def target_export_defs
       stack_to_lab_thm lab_prog_def
@@ -1504,9 +1514,9 @@ fun cbv_to_bytes word_directive add_encode_compset backend_config_def names_def 
       timez "lab_to_target" (CONV_RULE(RAND_CONV(eval))) stack_to_lab_thm
 
     val result = extract_compilation_result bootstrap_thm
-    val code_def = mk_abbrev code_name (#code result)
-    val data_def = mk_abbrev data_name (#data result)
-    val config_def = mk_abbrev config_name (#config result)
+    val code_def = allowing_rebinds (mk_abbrev code_name) (#code result)
+    val data_def = allowing_rebinds (mk_abbrev data_name) (#data result)
+    val config_def = allowing_rebinds (mk_abbrev config_name) (#config result)
     val result_thm = PURE_REWRITE_RULE[GSYM code_def, GSYM data_def,
       GSYM config_def] bootstrap_thm
 
@@ -1582,7 +1592,8 @@ fun compile backend_config_def cbv_to_bytes name prog_def =
     val conf_def = backend_config_def
     val data_prog_name = (!intermediate_prog_prefix) ^ "data_prog"
     val to_data_thm = compile_to_data cs conf_def prog_def data_prog_name
-    val _ = save_thm((!intermediate_prog_prefix) ^ "to_data_thm", to_data_thm)
+    val _ = allowing_rebinds save_thm
+              ((!intermediate_prog_prefix) ^ "to_data_thm", to_data_thm)
     val data_prog_def = definition(mk_abbrev_name data_prog_name)
     val lab_prog_name = (!intermediate_prog_prefix) ^ "lab_prog";
 

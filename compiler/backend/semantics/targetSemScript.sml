@@ -16,9 +16,10 @@ val () = Datatype `
 val _ = Datatype `
   machine_config =
    <| prog_addresses : ('a word) set
+    ; shared_addresses : ('a word) set
     (* FFI-specific configurations *)
     ; ffi_entry_pcs : ('a word) list
-    ; ffi_names : string list
+    ; ffi_names : ffiname list
     ; ptr_reg : num
     ; len_reg : num
     ; ptr2_reg : num
@@ -36,6 +37,8 @@ val _ = Datatype `
     ; ccache_interfer : num -> 'a word # 'a word # 'b -> 'b
     (* target next-state function etc. *)
     ; target : ('a,'b,'c) target
+    (* ffi_index -> byte_size, address, register to be updated/ stored, new pc value *)
+    ; mmio_info : (num # (word8 # 'a addr # num # 'a word)) list
     |>`
 
 val apply_oracle_def = Define `
@@ -63,11 +66,43 @@ val read_ffi_bytearrays_def = Define`
     (read_ffi_bytearray mc mc.ptr_reg mc.len_reg ms,
      read_ffi_bytearray mc mc.ptr2_reg mc.len2_reg ms)`;
 
+val is_valid_mapped_read_def = Define`
+  is_valid_mapped_read pc (nb: word8) (ad: 'a addr) r pc' t ms md =
+    if nb = 1w
+    then
+      (bytes_in_memory pc (t.config.encode (Inst (Mem Load8 r ad)))
+        (t.get_byte ms) md)
+    else if nb = 0w
+    then
+      (bytes_in_memory pc (t.config.encode (Inst (Mem Load r ad)))
+        (t.get_byte ms) md)
+    (* else if nb = 4w
+    then
+      (bytes_in_memory pc (t.config.encode (Inst (Mem Load32 r ad)))
+        (t.get_byte ms) md) *)
+    else F`;
+
+val is_valid_mapped_write_def = Define`
+  is_valid_mapped_write pc (nb:word8) (ad: 'a addr) r pc' t ms md =
+    if nb = 1w
+    then
+        (bytes_in_memory pc (t.config.encode (Inst (Mem Store8 r ad)))
+          (t.get_byte ms) md)
+    else if nb = 0w
+    then
+        (bytes_in_memory pc (t.config.encode (Inst (Mem Store r ad)))
+          (t.get_byte ms) md)
+    (* else if nb = 4w
+    then
+        (bytes_in_memory pc (t.config.encode (Inst (Mem Store32 r ad)))
+          (t.get_byte ms) md) *)
+    else F`;
+
 val evaluate_def = Define `
-  evaluate mc (ffi:'ffi ffi_state) k (ms:'a) =
+  evaluate (mc:('b,'a,'c) machine_config) (ffi:'ffi ffi_state) k (ms:'a) =
     if k = 0 then (TimeOut,ms,ffi)
     else
-      if mc.target.get_pc ms IN mc.prog_addresses then
+      if (mc.target.get_pc ms) IN (mc.prog_addresses DIFF (set mc.ffi_entry_pcs)) then
         if encoded_bytes_in_mem
             mc.target.config (mc.target.get_pc ms)
             (mc.target.get_byte ms) mc.prog_addresses then
@@ -98,16 +133,72 @@ val evaluate_def = Define `
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => (Error,ms,ffi)
         | SOME ffi_index =>
-          case read_ffi_bytearrays mc ms of
-          | SOME bytes, SOME bytes2 =>
-            (case call_FFI ffi (EL ffi_index mc.ffi_names) bytes bytes2 of
-             | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
-             | FFI_return new_ffi new_bytes =>
-                let (ms1,new_oracle) = apply_oracle mc.ffi_interfer
-                  (ffi_index,new_bytes,ms) in
-                let mc = mc with ffi_interfer := new_oracle in
-                  evaluate mc new_ffi (k - 1:num) ms1)
-          | _ => (Error,ms,ffi)`
+            (case EL ffi_index mc.ffi_names of
+             | SharedMem op =>
+                 (case ALOOKUP mc.mmio_info ffi_index of
+                  | NONE => (Error, ms, ffi)
+                  | SOME (nb,a,reg,pc') =>
+                      (case op of
+                         | MappedRead =>
+                             (case a of
+                              | Addr r off =>
+                                  let ad = mc.target.get_reg ms r + off in
+                                    (if (if nb = 0w
+                                         then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
+                                        (ad IN mc.shared_addresses) ∧
+                                        is_valid_mapped_read (mc.target.get_pc ms) nb a reg pc'
+                                                             mc.target ms mc.prog_addresses
+                                     then
+                                       (case call_FFI ffi (EL ffi_index mc.ffi_names) [nb]
+                                                      (word_to_bytes ad F) of
+                                        | FFI_final outcome =>
+                                            (Halt (FFI_outcome outcome),ms,ffi)
+                                        | FFI_return new_ffi new_bytes =>
+                                            let (ms1,new_oracle)
+                                                = apply_oracle mc.ffi_interfer
+                                                               (ffi_index,new_bytes,ms) in
+                                              let mc = mc with ffi_interfer := new_oracle in
+                                                evaluate mc new_ffi (k - 1:num) ms1)
+                                     else (Error,ms,ffi)))
+                         | MappedWrite =>
+                             (case a of
+                              | Addr r off =>
+                                  let ad = (mc.target.get_reg ms r) + off in
+                                    (if (if nb = 0w
+                                         then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
+                                        (ad IN mc.shared_addresses) ∧
+                                        is_valid_mapped_write (mc.target.get_pc ms) nb a reg pc'
+                                                              mc.target ms mc.prog_addresses
+                                     then
+                                       (case call_FFI ffi (EL ffi_index mc.ffi_names) [nb]
+                                                      ((let w = mc.target.get_reg ms reg in
+                                                          if nb = 0w then word_to_bytes w F
+                                                          else word_to_bytes_aux (w2n nb) w F)
+                                                       ++ (word_to_bytes ad F)) of
+                                        | FFI_final outcome =>
+                                            (Halt (FFI_outcome outcome),ms,ffi)
+                                        | FFI_return new_ffi new_bytes =>
+                                            let (ms1,new_oracle)
+                                                = apply_oracle mc.ffi_interfer
+                                                               (ffi_index,new_bytes,ms) in
+                                              let mc = mc with ffi_interfer := new_oracle in
+                                                evaluate mc new_ffi (k - 1:num) ms1)
+                                     else (Error,ms,ffi)))))
+             | ExtCall _ =>
+                 (case ALOOKUP mc.mmio_info ffi_index of
+                  | SOME _ => (Error, ms, ffi)
+                  | NONE =>
+                      (case read_ffi_bytearrays mc ms of
+                       | (SOME bytes, SOME bytes2) =>
+                           (case call_FFI ffi (EL ffi_index mc.ffi_names) bytes bytes2 of
+                            | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
+                            | FFI_return new_ffi new_bytes =>
+                                let (ms1,new_oracle)
+                                    = apply_oracle mc.ffi_interfer
+                                                   (ffi_index,new_bytes,ms) in
+                                  let mc = mc with ffi_interfer := new_oracle in
+                                    evaluate mc new_ffi (k - 1:num) ms1)
+                       | _ => (Error,ms,ffi))))`
 
 val machine_sem_def = Define `
   (machine_sem mc st ms (Terminate t io_list) <=>
@@ -149,55 +240,99 @@ val target_configured_def = Define`
     (case mc_conf.target.config.link_reg of NONE => T | SOME r => t.lr = r)
     `;
 
+val get_reg_value_def = Define `
+  (get_reg_value NONE w f = w) /\
+  (get_reg_value (SOME v) _ f = f v)`
+
+val mmio_pcs_min_index_def = Define`
+  mmio_pcs_min_index ffi_names =
+  some x.
+    ((x <= LENGTH ffi_names) /\
+    (!j. j < x ==> (∃s.
+      EL j ffi_names =  ExtCall s)) /\
+    (!j. x <= j /\ j < LENGTH ffi_names ==>
+         (∃op. EL j ffi_names = SharedMem op)))`
+
 (* start_pc_ok: machine configuration's saved pcs and initial pc are ok *)
 val start_pc_ok_def = Define`
   start_pc_ok mc_conf pc ⇔
     mc_conf.halt_pc NOTIN mc_conf.prog_addresses /\
     mc_conf.ccache_pc NOTIN mc_conf.prog_addresses /\
+    mc_conf.halt_pc NOTIN mc_conf.shared_addresses /\
+    mc_conf.ccache_pc NOTIN mc_conf.shared_addresses /\
     pc - n2w ffi_offset = mc_conf.halt_pc /\
     pc - n2w (2*ffi_offset) = mc_conf.ccache_pc /\
     (1w && pc) = 0w /\
+    ?i. mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
     (!index.
-       index < LENGTH mc_conf.ffi_names ==>
+       index < i ==>
        pc - n2w ((3 + index) * ffi_offset) NOTIN
        mc_conf.prog_addresses /\
+       pc - n2w ((3 + index) * ffi_offset) NOTIN
+       mc_conf.shared_addresses /\
        pc - n2w ((3 + index) * ffi_offset) <>
        mc_conf.halt_pc /\
        pc - n2w ((3 + index) * ffi_offset) <>
        mc_conf.ccache_pc /\
        find_index
          (pc - n2w ((3 + index) * ffi_offset))
-         mc_conf.ffi_entry_pcs 0 = SOME index)`;
-
-val get_reg_value_def = Define `
-  (get_reg_value NONE w f = w) /\
-  (get_reg_value (SOME v) _ f = f v)`
+         mc_conf.ffi_entry_pcs 0 = SOME index) /\
+    (!index.
+      index < LENGTH mc_conf.ffi_names /\ i <= index ==>
+      mc_conf.halt_pc <> (EL index mc_conf.ffi_entry_pcs) /\
+      mc_conf.ccache_pc <> (EL index mc_conf.ffi_entry_pcs)) /\
+    LENGTH mc_conf.ffi_names = LENGTH mc_conf.ffi_entry_pcs`;
 
 (* ffi_interfer_ok: the FFI interference oracle is ok:
    target_state_rel is preserved for any FFI behaviour *)
 val ffi_interfer_ok_def = Define`
   ffi_interfer_ok pc io_regs mc_conf ⇔
-    (∀ms2 k index new_bytes t1 bytes bytes2.
+    (∀ms2 k index new_bytes t1 bytes bytes2 i.
        index < LENGTH mc_conf.ffi_names ∧
-       read_ffi_bytearrays mc_conf ms2 = (SOME bytes, SOME bytes2) ∧
-       LENGTH new_bytes = LENGTH bytes2 ∧
-       (EL index mc_conf.ffi_names = "" ⇒ new_bytes = bytes2) ∧
-       (mc_conf.prog_addresses = t1.mem_domain) ∧
-       target_state_rel mc_conf.target
-         (t1 with pc := -n2w ((3 + index) * ffi_offset) + pc) ms2 ∧
-       aligned mc_conf.target.config.code_alignment
-        (t1.regs (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n))
-    ⇒ target_state_rel mc_conf.target
-        (t1 with
-         <|regs :=
-            (λa.
-             get_reg_value
-               (if MEM a mc_conf.callee_saved_regs then NONE else io_regs k (EL index mc_conf.ffi_names) a)
-               (t1.regs a) I);
-           mem := asm_write_bytearray (t1.regs mc_conf.ptr2_reg) new_bytes t1.mem;
-           pc := t1.regs (case mc_conf.target.config.link_reg of NONE => 0
-                  | SOME n => n)|>)
-        (mc_conf.ffi_interfer k (index,new_bytes,ms2)))`;
+       mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
+       mc_conf.prog_addresses = t1.mem_domain ==>
+         (index < i ==>
+           read_ffi_bytearrays mc_conf ms2 = (SOME bytes, SOME bytes2) ∧
+           LENGTH new_bytes = LENGTH bytes2 ∧
+           (EL index mc_conf.ffi_names = ExtCall "" ⇒ new_bytes = bytes2) ∧
+           target_state_rel mc_conf.target
+             (t1 with pc := -n2w ((3 + index) * ffi_offset) + pc) ms2 ∧
+           aligned mc_conf.target.config.code_alignment
+            (t1.regs (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n))
+        ⇒
+        target_state_rel mc_conf.target
+            (t1 with
+             <|regs :=
+                (λa.
+                 get_reg_value
+                   (if MEM a mc_conf.callee_saved_regs then NONE else io_regs k (EL index mc_conf.ffi_names) a)
+                   (t1.regs a) I);
+               mem := asm_write_bytearray (t1.regs mc_conf.ptr2_reg) new_bytes t1.mem;
+               pc := t1.regs (case mc_conf.target.config.link_reg of NONE => 0
+                      | SOME n => n)|>)
+            (mc_conf.ffi_interfer k (index,new_bytes,ms2))) /\
+         (i <= index /\
+           target_state_rel mc_conf.target
+            (t1 with pc := EL index mc_conf.ffi_entry_pcs) ms2 ==>
+              (∃info. ALOOKUP mc_conf.mmio_info index = SOME info ∧
+               (EL index mc_conf.ffi_names = SharedMem MappedRead ==>
+               !new_bytes.
+               target_state_rel mc_conf.target
+                 (t1 with
+                 <|pc := SND(SND(SND info))
+                  (* it is possible that there is a side effect that
+                  * affects other register e.g. temp in arm8, but we don't have to
+                  * worry about it as target_state_rel ignore members of
+                  * avoid_regs *)
+                  (* assume the byte array to be in little endian *)
+                  ;regs := (\n. if n = FST(SND(SND info)) then
+                      (word_of_bytes F 0w new_bytes) else t1.regs n)|>)
+                  (mc_conf.ffi_interfer k (index,new_bytes,ms2))) /\
+               (EL index mc_conf.ffi_names = SharedMem MappedWrite ==>
+               target_state_rel mc_conf.target
+                 (t1 with
+                 <|pc := SND(SND(SND info))|>)
+                 (mc_conf.ffi_interfer k (index,new_bytes,ms2))))))`;
 
 val ccache_interfer_ok_def = Define`
   ccache_interfer_ok pc cc_regs mc_conf ⇔
@@ -216,7 +351,7 @@ val ccache_interfer_ok_def = Define`
                (if MEM a mc_conf.callee_saved_regs then NONE else cc_regs k a)
                (t1.regs a) I);
            pc := t1.regs (case mc_conf.target.config.link_reg of NONE => 0
-                  | SOME n => n)|>)
+                  | SOME n => n) |> )
         (mc_conf.ccache_interfer k (a1,a2,ms2)))`;
 
 (*
@@ -232,7 +367,7 @@ val good_init_state_def = Define `
   good_init_state
     (mc_conf: ('a,'state,'b) machine_config) ms bytes
     cbspace
-    t m dm
+    t m dm sdm
     io_regs cc_regs
     <=>
     target_state_rel mc_conf.target t ms /\
@@ -253,6 +388,9 @@ val good_init_state_def = Define `
     (* data memory relation -- note that this implies m contains no labels *)
     dm SUBSET t.mem_domain /\
     (!a. byte_align a ∈ dm ==> a ∈ dm) /\
+    sdm = mc_conf.shared_addresses /\
+    (!a. byte_align a IN sdm ==> a IN sdm) /\
+    DISJOINT mc_conf.prog_addresses mc_conf.shared_addresses /\
     (!a. ∃w.
       t.mem a = get_byte a w mc_conf.target.config.big_endian ∧
       m (byte_align a) = Word w) /\
@@ -269,10 +407,10 @@ val good_init_state_def = Define `
    i.e., the range of the data memory
 *)
 val installed_def = Define`
-  installed bytes cbspace bitmaps data_sp ffi_names (r1,r2) mc_conf ms ⇔
-    ∃t m io_regs cc_regs bitmap_ptr bitmaps_dm.
+  installed bytes cbspace bitmaps data_sp ffi_names (r1,r2) (mc_conf:('a,'state,'b) machine_config) shmem_extra ms ⇔
+    ∃t m io_regs cc_regs bitmap_ptr bitmaps_dm sdm.
       let heap_stack_dm = { w | t.regs r1 <=+ w ∧ w <+ t.regs r2 } in
-      good_init_state mc_conf ms bytes cbspace t m (heap_stack_dm ∪ bitmaps_dm) io_regs cc_regs ∧
+      good_init_state mc_conf ms bytes cbspace t m (heap_stack_dm ∪ bitmaps_dm) sdm io_regs cc_regs ∧
       byte_aligned (t.regs r1) /\
       byte_aligned (t.regs r2) /\
       byte_aligned bitmap_ptr /\
@@ -292,6 +430,14 @@ val installed_def = Define`
       (word_list bitmap_ptr (MAP Word bitmaps) *
         word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp)
        (fun2set (m,byte_aligned ∩ bitmaps_dm)) ∧
-      ffi_names = SOME mc_conf.ffi_names`;
+      ffi_names = SOME mc_conf.ffi_names /\
+   (!i. mmio_pcs_min_index mc_conf.ffi_names = SOME i ==>
+     MAP (\rec. rec.entry_pc + mc_conf.target.get_pc ms) shmem_extra =
+      DROP i mc_conf.ffi_entry_pcs /\
+     mc_conf.mmio_info = ZIP (GENLIST (λindex. index + i) (LENGTH shmem_extra),
+                              (MAP (\rec. (rec.nbytes, rec.access_addr, rec.reg,
+                                           rec.exit_pc + mc_conf.target.get_pc ms))
+                                   shmem_extra)) /\
+    cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a))`
 
 val _ = export_theory();

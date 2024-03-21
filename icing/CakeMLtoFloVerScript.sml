@@ -100,8 +100,7 @@ Definition toFloVerExp_def:
 End
 
 (* Better induction theorem *)
-val toFloVerExp_ind = curry save_thm "toFloVerExp_ind"
-  (SIMP_RULE std_ss [] toFloVerExp_ind);
+Theorem toFloVerExp_ind[allow_rebind] = SIMP_RULE std_ss [] toFloVerExp_ind;
 
 Definition toFloVerCmd_def:
   toFloVerCmd ids freshId (ast$Let so e1 e2) =

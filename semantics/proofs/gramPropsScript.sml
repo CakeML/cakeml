@@ -262,7 +262,7 @@ local
     val t = th' |> concl |> trydn |> rand |> lhand |> rand |> rand
     val nm = "nullable_" ^ String.extract(term_to_string t, 1, NONE)
   in
-    save_thm(nm, th'); export_rewrites [nm]
+    save_thm(nm ^ "[allow_rebind]", th'); export_rewrites [nm]
   end
 in
 val _ = List.app appthis nullacc

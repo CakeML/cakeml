@@ -3,6 +3,7 @@
 *)
 open preamble bvlTheory closSemTheory
 open clos_to_bvlTheory (* for closure_tag and num_added_globals *)
+local open backendPropsTheory in end;
 
 val _ = new_theory"bvlSem"
 
@@ -10,16 +11,26 @@ val _ = Parse.hide "str";
 
 (* --- Semantics of BVL --- *)
 
+Datatype:
+  ref = ValueArray ('a list)
+      | ByteArray bool (word8 list)
+               (* T = compare-by-contents, immutable
+                  F = compare-by-pointer, mutable *)
+               (* in closLang all are ByteArray F,
+                  ByteArray T introduced in BVL to implement ByteVector *)
+End
+
 (* these parts are shared by bytecode and, if bytecode is to be supported, need
    to move to a common ancestor *)
 
-val _ = Datatype `
+Datatype:
   v =
     Number int          (* integer *)
   | Word64 word64
   | Block num (v list)  (* cons block: tag and payload *)
   | CodePtr num         (* code pointer *)
-  | RefPtr num          (* pointer to ref cell *)`;
+  | RefPtr num          (* pointer to ref cell *)
+End
 
 val Boolv_def = Define`
   Boolv b = bvlSem$Block (bool_to_tag b) []`
@@ -29,7 +40,7 @@ val Unit_def = Define`
 
 (* -- *)
 
-val _ = Datatype `
+Datatype:
   state =
     <| globals : (bvlSem$v option) list
      ; refs    : num |-> bvlSem$v ref
@@ -37,7 +48,8 @@ val _ = Datatype `
      ; compile : 'c -> (num # num # bvl$exp) list -> (word8 list # word64 list # 'c) option
      ; compile_oracle : num -> 'c # (num # num # bvl$exp) list
      ; code    : (num # bvl$exp) num_map
-     ; ffi     : 'ffi ffi_state |> `
+     ; ffi     : 'ffi ffi_state |>
+End
 
 val v_to_list_def = Define`
   (v_to_list (Block tag []) =
@@ -364,7 +376,7 @@ val do_app_def = Define `
     | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
         (case (FLOOKUP s.refs cptr, FLOOKUP s.refs ptr) of
          | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
-           (case call_FFI s.ffi n cws ws of
+           (case call_FFI s.ffi (ExtCall n) cws ws of
             | FFI_return ffi' ws' =>
                 Rval (Unit,
                       s with <| refs := s.refs |+ (ptr,ByteArray F ws')
