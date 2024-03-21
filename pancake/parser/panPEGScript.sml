@@ -300,7 +300,7 @@ end
 val pancake_peg_applied' = let
   val ths = map (mk_rule_app “pancake_peg with start := mknt FunNT”) pancakeNTs
 in
-  save_thm("pancake_peg_applied", LIST_CONJ ths);
+  save_thm("pancake_peg_applied'", LIST_CONJ ths);
   ths
 end
 
