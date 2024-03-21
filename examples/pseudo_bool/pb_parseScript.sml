@@ -357,16 +357,54 @@ Definition parse_red_header_def:
 End
 
 (* TODO: formatting
-  rup constraint ; ID1 ID2 ...
-*)
+  rup constraint : ID1 ID2 ... ; *)
+
+Definition parse_constraint_npbc_2_def:
+  parse_constraint_npbc_2 f_ns line =
+  case parse_constraint_LHS line [] of (rest,lhs) =>
+  (case rest of (INL cmp :: INR deg :: INL term :: rest) =>
+    if term = str #":" ∧ cmp = strlit">=" then
+      case map_f_ns f_ns lhs of NONE => NONE
+      | SOME (lhs',f_ns') =>
+        SOME (
+          pbc_to_npbc (GreaterEqual,lhs',deg),
+          rest,
+          f_ns')
+    else
+      NONE
+  | _ => NONE)
+End
+
+Definition strip_numbers_end_def:
+  (strip_numbers_end [] acc = NONE) ∧
+  (strip_numbers_end (x::xs) acc =
+  case x of INR n =>
+    if n ≥ 0 then
+      strip_numbers_end xs (Num n::acc)
+    else NONE
+  | INL s =>
+    if s = strlit"~" then
+      strip_numbers_end xs (0::acc)
+    else
+    if s = strlit ";" ∧ NULL xs then SOME (REVERSE acc)
+    else NONE)
+End
+
 Definition parse_rup_def:
   parse_rup f_ns line =
-  case parse_constraint_npbc f_ns line of
+  case parse_constraint_npbc_2 f_ns line of
     SOME (constr,rest,f_ns') =>
-      (case strip_numbers rest [] of NONE => NONE
+      (case strip_numbers_end rest [] of NONE => NONE
       | SOME ns => SOME(constr,ns,f_ns'))
   | _ => NONE
 End
+
+(*
+EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2 ;"))``
+EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2;"))``
+EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2 5;"))``
+*)
+
 
 (* Parse a single line of an lstep,
   Except "Red", which will be handled later *)
