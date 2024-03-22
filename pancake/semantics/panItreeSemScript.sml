@@ -21,9 +21,12 @@ declare_monad("itree", {unit = “Ret”, bind = “itree_bind”,
             guard = NONE});
 enable_monad "itree";
 
-(* Unicode overloads *)
+(* Unicode operator overloads *)
 val _ = temp_set_fixity "≈" (Infixl 500);
 Overload "≈" = “itree_wbisim”;
+val _ = temp_set_fixity ">>=" (Infixl 500);
+Overload ">>=" = “itree_bind”;
+
 Overload "case" = “itree_CASE”;
 
 Datatype:
@@ -418,31 +421,6 @@ Proof
   rw [FUN_EQ_THM] >>
   rw [mrec_iter_body_def]
 QED
-
-(* Theorem mrec_handler_simps[simp]: *)
-(*   (itree_mrec h_prog (Skip,s) = Ret (NONE,s)) ∧ *)
-(*   (itree_mrec h_prog (Dec vname e p,s) = mrec_sem $ h_prog_rule_dec vname e p s) ∧ *)
-(*   (itree_mrec h_prog (Assign vname e,s) = mrec_sem $ h_prog_rule_assign vname e s) ∧ *)
-(*   (itree_mrec h_prog (Store dst src,s) = mrec_sem $ h_prog_rule_store dst src s) ∧ *)
-(*   (itree_mrec h_prog (StoreByte dst src,s) = mrec_sem $ h_prog_rule_store_byte dst src s) ∧ *)
-(*   (itree_mrec h_prog (Seq p1 p2,s) = mrec_sem $ h_prog_rule_seq p1 p2 s) ∧ *)
-(*   (itree_mrec h_prog (If gexp p1 p2,s) = mrec_sem $ h_prog_rule_cond gexp p1 p2 s) ∧ *)
-(*   (itree_mrec h_prog (While gexp p,s) = mrec_sem $ h_prog_rule_while gexp p s) ∧ *)
-(*   (itree_mrec h_prog (Break,s) = Ret (SOME Break,s)) ∧ *)
-(*   (itree_mrec h_prog (Continue,s) = Ret (SOME Continue,s)) ∧ *)
-(*   (itree_mrec h_prog (Call calltyp tgtexp argexps,s) = mrec_sem $ h_prog_rule_call calltyp tgtexp argexps s) ∧ *)
-(*   (itree_mrec h_prog (ExtCall ffi_name conf_ptr conf_len array_ptr array_len,s) = *)
-(*    mrec_sem $ h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len s) ∧ *)
-(*   (itree_mrec h_prog (Raise eid e,s) = mrec_sem $ h_prog_rule_raise eid e s) ∧ *)
-(*   (itree_mrec h_prog (Return e,s) = mrec_sem $ h_prog_rule_return e s) ∧ *)
-(*   (itree_mrec h_prog (Tick,s) = mrec_sem $ h_prog_rule_tick s) *)
-(* Proof *)
-(*   rpt strip_tac >> *)
-(*   rw [itree_mrec_def,h_prog_def,mrec_sem_def] >> *)
-(*   rw [mrec_iter_body_def,mrec_iter_body_eq] >> *)
-(*   rw [itreeTauTheory.itree_iter_def] >> *)
-(*   rw [Once itreeTauTheory.itree_unfold] *)
-(* QED *)
 
 Theorem mrec_sem_simps:
   (mrec_sem (Vis (INL seed) k) =

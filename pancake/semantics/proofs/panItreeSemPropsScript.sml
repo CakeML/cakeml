@@ -68,26 +68,13 @@ Proof
 QED
 
 
-Theorem seq_ffi:
-  h_prog_rule_ext_call «main» (Const 0w) (Const 0w) (Const 0w) (Const 0w) s = (Ret (NONE,s')):('a,'b) h_prog_ty ∧
-  h_prog_rule_ext_call «main» (Const 0w) (Const 0w) (Const 0w) (Const 0w) s' = (Ret (NONE,s'')):('a,'b) h_prog_ty ⇒
-  itree_evaluate ^seq_ffi_prog s = ^seq_ffi_itree
-Proof
-  disch_tac >>
-  rw [panItreeSemTheory.itree_evaluate_def] >>
-  rw [panItreeSemTheory.itree_mrec_def] >>
-  rw [panItreeSemTheory.h_prog_rule_seq_def] >>
-  rw [panItreeSemTheory.h_prog_def] >>
-  rw [itreeTauTheory.itree_bind_thm] >>
-  rw [Once itreeTauTheory.itree_unfold] >>
-  rw [itreeTauTheory.itree_iter_def] >>
-  rw [panItreeSemTheory.h_prog_def] >>
-  rw [Once itreeTauTheory.itree_unfold] >>
-  rw [itreeTauTheory.itree_bind_thm] >>
-  rw [Once itreeTauTheory.itree_unfold] >>
-
-  (* rw [Once itreeTauTheory.itree_iter_thm] *)
-QED
+(* Theorem seq_ffi: *)
+(*   h_prog_rule_ext_call «main» (Const 0w) (Const 0w) (Const 0w) (Const 0w) s = (Ret (NONE,s')):('a,'b) h_prog_ty ∧ *)
+(*   h_prog_rule_ext_call «main» (Const 0w) (Const 0w) (Const 0w) (Const 0w) s' = (Ret (NONE,s'')):('a,'b) h_prog_ty ⇒ *)
+(*   itree_evaluate ^seq_ffi_prog s = ^seq_ffi_itree *)
+(* Proof *)
+(*   cheat *)
+(* QED *)
 
 (* Bisimulation proof of isomorphism between semantics *)
 (* Can be interred once the evaluate_biject is proven by itree_el_eqv. *)
