@@ -20,15 +20,15 @@ val _ = new_theory "panLexer";
 Datatype:
   keyword = SkipK | StoreK | StoreBK | IfK | ElseK | WhileK
   | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK
-  | LdsK | LdbK | BaseK | InK | FunK | TrueK | FalseK
+  | LdsK | LdbK | LdwK | BaseK | InK | FunK | TrueK | FalseK
 End
 
 Datatype:
   token = AndT | OrT | XorT | NotT
   | EqT | NeqT | LessT | GreaterT | GeqT | LeqT
-  | PlusT | MinusT | HashT | DotT | StarT
+  | PlusT | MinusT | DotT | StarT
   | LslT | LsrT | AsrT | RorT
-  | IntT int | IdentT string
+  | IntT int | IdentT string | ForeignIdent string (* @ffi_str except @base *)
   | LParT | RParT | CommaT | SemiT | ColonT | DArrowT | AddrT
   | LBrakT | RBrakT | LCurT | RCurT
   | AssignT
@@ -45,6 +45,9 @@ Definition isAtom_singleton_def:
 End
 
 Definition isAtom_begin_group_def:
+  (* # is for only for RorT,
+  * and should remove it to avoid collision with
+  * C-preprocessor later *)
   isAtom_begin_group c = MEM c "#=><!"
 End
 
@@ -82,7 +85,6 @@ Definition get_token_def:
   if s = "+" then PlusT else
   if s = "-" then MinusT else
   if s = "*" then StarT else
-  if s = "#" then HashT else
   if s = "." then DotT else
   if s = "<<" then LslT else
   if s = ">>>" then LsrT else
@@ -104,8 +106,8 @@ End
 Definition get_keyword_def:
   get_keyword s =
   if s = "skip" then (KeywordT SkipK) else
-  if s = "str" then (KeywordT StoreK) else
-  if s = "strb" then (KeywordT StoreBK) else
+  if s = "stw" then (KeywordT StoreK) else
+  if s = "st8" then (KeywordT StoreBK) else
   if s = "if" then (KeywordT IfK) else
   if s = "else" then (KeywordT ElseK) else
   if s = "while" then (KeywordT WhileK) else
@@ -119,13 +121,14 @@ Definition get_keyword_def:
   if s = "with" then (KeywordT WithK) else
   if s = "handle" then (KeywordT HandleK) else
   if s = "lds" then (KeywordT LdsK) else
-  if s = "ldb" then (KeywordT LdbK) else
+  if s = "ldw" then (KeywordT LdwK) else
+  if s = "ld8" then (KeywordT LdbK) else
   if s = "@base" then (KeywordT BaseK) else
   if s = "true" then (KeywordT TrueK) else
   if s = "false" then (KeywordT FalseK) else
   if s = "fun" then (KeywordT FunK) else
-  if isPREFIX "@" s then LexErrorT $ concat [«Unrecognised keyword: »; implode s] else
-  if s = "" then LexErrorT $ «Expected keyword, found empty string»
+  if s = "" then LexErrorT $ «Expected keyword, found empty string» else
+  if 2 <= LENGTH s ∧ EL 0 s = #"@" then ForeignIdent (DROP 1 s)
   else
     IdentT s
 End

@@ -1,6 +1,6 @@
 (**
  * The beginnings of a PEG parser for the Pancake language.
-n *)
+ *)
 
 (*
  * We take significant inspiration from the Spark ADA development.
@@ -26,6 +26,8 @@ Datatype:
             | StructNT | LoadNT | LoadByteNT | LabelNT | FLabelNT
             | ShapeNT | ShapeCombNT
             | EqOpsNT | CmpOpsNT | ShiftOpsNT | AddOpsNT | MulOpsNT
+            | SharedLoadNT | SharedLoadByteNT
+            | SharedStoreNT | SharedStoreByteNT
 End
 
 Definition mknt_def:
@@ -67,6 +69,12 @@ End
 Definition keep_ident_def:
   keep_ident = tok (λt. case t of
                        | IdentT _ => T
+                       | _ => F) mkleaf
+End
+
+Definition keep_ffi_ident_def:
+  keep_ffi_ident = tok (λt. case t of
+                       | ForeignIdent _ => T
                        | _ => F) mkleaf
 End
 
@@ -136,6 +144,10 @@ Definition pancake_peg_def[nocompute]:
                               mknt CallNT;
                               mknt AssignNT; mknt StoreNT;
                               mknt StoreByteNT;
+                              mknt SharedLoadByteNT;
+                              mknt SharedLoadNT;
+                              mknt SharedStoreByteNT;
+                              mknt SharedStoreNT;
                               keep_kw BrK; keep_kw ContK;
                               mknt ExtCallNT;
                               mknt RaiseNT; mknt ReturnNT;
@@ -176,7 +188,7 @@ Definition pancake_peg_def[nocompute]:
                              consume_tok DArrowT; mknt ProgNT;
                              consume_kw HandleK]
                             (mksubtree HandleNT));
-        (INL ExtCallNT, seql [consume_tok HashT; keep_ident;
+        (INL ExtCallNT, seql [keep_ffi_ident;
                               consume_tok LParT; mknt ExpNT;
                               consume_tok CommaT; mknt ExpNT;
                               consume_tok CommaT; mknt ExpNT;
@@ -257,7 +269,20 @@ Definition pancake_peg_def[nocompute]:
         (INL ShiftOpsNT, choicel [keep_tok LslT; keep_tok LsrT;
                                   keep_tok AsrT; keep_tok RorT]);
         (INL AddOpsNT, choicel [keep_tok PlusT; keep_tok MinusT]);
-        (INL MulOpsNT, keep_tok StarT)]
+        (INL MulOpsNT, keep_tok StarT);
+        (INL SharedLoadNT,seql [consume_tok NotT; consume_kw LdwK; keep_ident;
+                                consume_tok CommaT; mknt ExpNT]
+                               (mksubtree SharedLoadNT));
+        (INL SharedLoadByteNT,seql [consume_tok NotT; consume_kw LdbK; keep_ident;
+                                    consume_tok CommaT; mknt ExpNT]
+                                   (mksubtree SharedLoadByteNT));
+        (INL SharedStoreNT,seql [consume_tok NotT; consume_kw StoreK; keep_ident;
+                                 consume_tok CommaT; mknt ExpNT]
+                                (mksubtree SharedStoreNT));
+        (INL SharedStoreByteNT,seql [consume_tok NotT; consume_kw StoreBK; keep_ident;
+                                     consume_tok CommaT; mknt ExpNT]
+                                    (mksubtree SharedStoreByteNT));
+        ]
         |>
 End
 
@@ -369,7 +394,8 @@ val wfpeg_rwts = wfpeg_cases
                                      ‘choicel (h::t)’, ‘keep_tok t’,
                                      ‘consume_tok t’, ‘keep_kw k’,
                                      ‘consume_kw k’, ‘keep_int’,
-                                     ‘keep_nat’, ‘keep_ident’,
+                                     ‘keep_nat’,‘keep_ffi_ident’,
+                                     ‘keep_ident’,
                                      ‘pegf e f’])
                    |> map (CONV_RULE
                            (RAND_CONV (SIMP_CONV (srw_ss())
@@ -377,6 +403,7 @@ val wfpeg_rwts = wfpeg_cases
                                         keep_tok_def, consume_tok_def,
                                         keep_kw_def, consume_kw_def,
                                         keep_int_def, keep_nat_def,
+                                        keep_ffi_ident_def,
                                         keep_ident_def, pegf_def])))
 
 val wfpeg_rwts' = wfpeg_cases
@@ -533,6 +560,12 @@ Proof
   simp[keep_ident_def]
 QED
 
+Theorem peg0_keep_ffi_ident[simp]:
+  peg0 G keep_ffi_ident = F
+Proof
+  simp[keep_ffi_ident_def]
+QED
+
 Theorem peg0_choicel[simp]:
   (peg0 G (choicel []) = F) ∧
   (peg0 G (choicel (h::t)) ⇔
@@ -566,8 +599,11 @@ val topo_nts = [“MulOpsNT”, “AddOpsNT”, “ShiftOpsNT”, “CmpOpsNT”
                 “RaiseNT”, “ExtCallNT”,
                 “HandleNT”, “RetNT”, “CallNT”,
                 “WhileNT”, “IfNT”, “StoreByteNT”,
-                “StoreNT”, “AssignNT”, “DecNT”,
-                “StmtNT”, “BlockNT”, “ParamListNT”, “FunNT”];
+                “StoreNT”, “AssignNT”,
+                “SharedLoadByteNT”, “SharedLoadNT”,
+                “SharedStoreByteNT”, “SharedStoreNT”, “DecNT”,
+                “StmtNT”, “BlockNT”, “ParamListNT”, “FunNT”
+                ];
 
 (*  “FunNT”, “FunListNT” *)
 
@@ -587,7 +623,7 @@ fun wfnt tm (t,acc) = let
                      FDOM_pancake_peg, try_def,
                      seql_def, keep_tok_def, consume_tok_def,
                      keep_kw_def, consume_kw_def, keep_int_def,
-                     keep_nat_def, keep_ident_def,
+                     keep_nat_def, keep_ident_def, keep_ffi_ident_def,
                      peg_accfupds]) THEN
           simp(wfpeg_rwts @ wfpeg_rwts' @ npeg0_rwts @ npeg1_rwts @ peg0_rwts @ peg1_rwts @ acc
               ) THEN
@@ -619,7 +655,7 @@ Proof
        subexprs_mknt, peg_start, peg_range, DISJ_IMP_THM,FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, keep_tok_def, consume_tok_def,
        keep_kw_def, consume_kw_def, keep_int_def, keep_nat_def,
-       keep_ident_def, try_def] >>
+       keep_ident_def, keep_ffi_ident_def, try_def] >>
   simp(pancake_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
 QED
 
@@ -630,7 +666,7 @@ Proof
        subexprs_mknt, peg_start, peg_range, DISJ_IMP_THM,FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, keep_tok_def, consume_tok_def,
        keep_kw_def, consume_kw_def, keep_int_def, keep_nat_def,
-       keep_ident_def, try_def] >>
+       keep_ident_def, keep_ffi_ident_def, try_def] >>
   simp(pancake_wfpeg_thm2 :: wfpeg_rwts' @ peg1_rwts @ npeg1_rwts)
 QED
 

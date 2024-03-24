@@ -38,6 +38,9 @@ instructions for conditionals, While loop,
 memory load and store, functions,
 and foreign function calls.
 
+[panScopeScript.sml](panScopeScript.sml):
+Scope checking for Pancake.
+
 [pan_commonScript.sml](pan_commonScript.sml):
 Common definitions for Pancake compiler
 

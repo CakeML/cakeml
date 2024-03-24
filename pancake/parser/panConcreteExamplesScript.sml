@@ -1,6 +1,7 @@
 (**
  * Pancake concrete syntax examples
  * 9th May 2023: Updated with function declarations
+ * March 2024: Updated with shared memory instructions
  *)
 open HolKernel Parse boolLib bossLib stringLib numLib intLib;
 open preamble panPtreeConversionTheory;
@@ -97,8 +98,8 @@ val ex4 = ‘
       if x >= 5 {
         break;
       } else {
-        strb y, 8; // store byte
-        #foo(x,y,k,z); // ffi function call with pointer args
+        st8 y, 8; // store byte
+        @foo(x,y,k,z); // ffi function call with pointer args
         x = x + 1;
         y = x + 1;
       }
@@ -198,8 +199,8 @@ val ex9 = ‘
    var b = 8;
    var c = @base + 16;
    var d = 1;
-   #out_morefun(a,b,c,d);
-   str @base, ic;
+   @out_morefun(a,b,c,d);
+   stw @base, ic;
    return 0;
  }’;
 
@@ -223,7 +224,7 @@ val argument_call = ‘
 
 val arg_call_tree = check_success $ parse_tree_pancake argument_call;
 
-val arg_call_parse =  parse_pancake $ argument_call;
+val arg_call_parse = check_success $ parse_pancake argument_call;
 
 (** Return call example. It is not currently possible to initialise a variable
     to a value returned from a function as a variable is declared. Instead, the
@@ -241,7 +242,7 @@ val ret_call = ‘
 
 val ret_call_parse_tree = check_success $ parse_tree_pancake ret_call;
 
-val ret_call_parse =  parse_pancake $ ret_call;
+val ret_call_parse = check_success $ parse_pancake ret_call;
 
 (** Shapes and Structs. *)
 val struct_access = ‘
@@ -254,7 +255,7 @@ val struct_access = ‘
 
 val struct_access_parse_tree = check_success $ parse_tree_pancake struct_access;
 
-val struct_access_parse =  parse_pancake $ struct_access;
+val struct_access_parse = check_success $ parse_pancake struct_access;
 
 
 (* Writing ‘n’ for a shape is convenient syntax which is equivalent to ‘{1,1,...,1}’
@@ -298,5 +299,16 @@ val struct_arguments = ‘
 val struct_argument_parse_tree =  parse_tree_pancake $ struct_arguments;
 
 val struct_argument_parse =  parse_pancake $ struct_arguments;
+
+val shmem_ex = ‘
+  fun test_shmem() {
+    var v = 12;
+    !st8 v, 1000; // store byte stored in v (12) to shared memory address 1000
+    !stw v, 1004; // store word stored in v (12) to shared memory address 1004
+    !ld8 v, 1000 + 12; // load byte stored in shared memory address 1012 to v
+    !ldw v, 1000 + 12 * 2; // load word stored in shared memory address 1024 to v
+  }’;
+
+val shmem_ex_parse =  check_success $ parse_pancake shmem_ex;
 
 val _ = export_theory();
