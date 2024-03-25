@@ -20,15 +20,7 @@ val _ = new_theory "panLexer";
 Datatype:
   keyword = SkipK | StoreK | StoreBK | IfK | ElseK | WhileK
   | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK
-<<<<<<< HEAD
-<<<<<<< HEAD
-  | LdsK | LdbK | LdwK | BaseK | InK | FunK | PublicK | PrivateK | TrueK | FalseK
-=======
-  | LdsK | LdbK | BaseK | InK | FunK | PublicK | TrueK | FalseK
->>>>>>> d95ef08c7 (Improve parsing to be based on only one keyword (concrete choice temporary))
-=======
-  | LdsK | LdbK | BaseK | InK | FunK | ExportK | TrueK | FalseK
->>>>>>> f88a10c53 (Update placeholder 'public' keyword to 'export', and related tokens accordingly)
+  | LdsK | LdbK | LdwK | BaseK | InK | FunK | ExportK | TrueK | FalseK
 End
 
 Datatype:
