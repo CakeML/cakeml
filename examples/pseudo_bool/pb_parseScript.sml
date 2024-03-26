@@ -356,14 +356,13 @@ Definition parse_red_header_def:
   | _ => NONE
 End
 
-(* TODO: formatting
-  rup constraint : ID1 ID2 ... ; *)
-
+(* formatting
+  rup constraint ; ID1 ID2 ... *)
 Definition parse_constraint_npbc_2_def:
   parse_constraint_npbc_2 f_ns line =
   case parse_constraint_LHS line [] of (rest,lhs) =>
   (case rest of (INL cmp :: INR deg :: INL term :: rest) =>
-    if term = str #":" ∧ cmp = strlit">=" then
+    if term = str #";" ∧ cmp = strlit">=" then
       case map_f_ns f_ns lhs of NONE => NONE
       | SOME (lhs',f_ns') =>
         SOME (
@@ -376,7 +375,7 @@ Definition parse_constraint_npbc_2_def:
 End
 
 Definition strip_numbers_end_def:
-  (strip_numbers_end [] acc = NONE) ∧
+  (strip_numbers_end [] acc = SOME (REVERSE acc)) ∧
   (strip_numbers_end (x::xs) acc =
   case x of INR n =>
     if n ≥ 0 then
@@ -385,8 +384,6 @@ Definition strip_numbers_end_def:
   | INL s =>
     if s = strlit"~" then
       strip_numbers_end xs (0::acc)
-    else
-    if s = strlit ";" ∧ NULL xs then SOME (REVERSE acc)
     else NONE)
 End
 
@@ -426,14 +423,14 @@ Definition parse_lstep_aux_def:
         | SOME (c,s,f_ns') =>
           SOME (INR (c,s),f_ns')
       else if r = INL (strlit "e") then
-        (case rs of
-          INR id::rest =>
-          if id ≥ 0 then
-            (case parse_constraint_npbc f_ns rest of
-              SOME (c,[],f_ns') => SOME (INL (Check (Num id) c),f_ns')
-            | _ => NONE)
-          else NONE
-        | _ => NONE)
+        (case parse_constraint_npbc f_ns rs of
+          NONE => NONE
+        | SOME (c,rest,f_ns') =>
+          case rest of [INR id] =>
+            if id ≥ 0 then
+              SOME (INL (Check (Num id) c), f_ns')
+            else NONE
+          | _ => NONE)
       else if r = INL (strlit "*") then SOME (INL NoOp,f_ns)
       else NONE)
 End
