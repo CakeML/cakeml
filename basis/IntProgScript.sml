@@ -31,7 +31,7 @@ val _ = ml_prog_update open_local_block;
 val res = translate exp_for_dec_enc_def;
 val res = translate toChar_def;
 
-val res = translate num_to_rev_chars_def;
+val res = translate num_to_chars_def;
 
 Triviality tochar_side_dec:
   i < 10 ==> tochar_side i
@@ -39,15 +39,15 @@ Proof
   EVAL_TAC \\ simp []
 QED
 
-Triviality num_to_rev_chars_side:
-  !i j k. num_to_rev_chars_side i j k
+Triviality num_to_chars_side:
+  !i j k acc. num_to_chars_side i j k acc
 Proof
-  ho_match_mp_tac mlintTheory.num_to_rev_chars_ind
+  ho_match_mp_tac mlintTheory.num_to_chars_ind
   \\ rw []
-  \\ ONCE_REWRITE_TAC [fetch "-" "num_to_rev_chars_side_def"]
+  \\ ONCE_REWRITE_TAC [fetch "-" "num_to_chars_side_def"]
   \\ simp [tochar_side_dec]
 QED
-val res = update_precondition num_to_rev_chars_side;
+val res = update_precondition num_to_chars_side;
 
 val _ = ml_prog_update open_local_in_block;
 
