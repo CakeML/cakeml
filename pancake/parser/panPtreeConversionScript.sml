@@ -563,16 +563,22 @@ End
 
 Definition parse_to_ast_def:
   parse_to_ast s =
-    case parse (pancake_lex s) of
+    case parse_statement (pancake_lex s) of
       SOME e => conv_Prog e
     | _ => NONE
 End
 
 Definition parse_funs_to_ast_def:
   parse_funs_to_ast s =
-    case parse (pancake_lex s) of
-      SOME e => conv_FunList e
-    | _ => NONE
+    (case safe_pancake_lex s of
+     | INL toks =>
+        (case parse toks of
+           | INL e =>
+             (case conv_FunList e of
+              | SOME funs => INL funs
+              | NONE => INR [(«Parse tree conversion failed»,unknown_loc)])
+           | INR err => INR err)
+     | INR err => INR err)
 End
 
 val _ = export_theory();

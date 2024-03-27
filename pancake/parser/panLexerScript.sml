@@ -13,6 +13,7 @@ open HolKernel Parse boolLib bossLib stringLib numLib;
 
 open arithmeticTheory stringTheory intLib listTheory locationTheory;
 open ASCIInumbersTheory ASCIInumbersLib;
+open mlstringTheory;
 
 val _ = new_theory "panLexer";
 
@@ -32,11 +33,11 @@ Datatype:
   | LBrakT | RBrakT | LCurT | RCurT
   | AssignT
   | KeywordT keyword
-  | LexErrorT
+  | LexErrorT mlstring
 End
 
 Datatype:
-  atom = NumberA int | WordA string | SymA string | ErrA
+  atom = NumberA int | WordA string | SymA string | ErrA mlstring
 End
 
 Definition isAtom_singleton_def:
@@ -56,6 +57,16 @@ End
 
 Definition isAlphaNumOrWild_def:
   isAlphaNumOrWild c ⇔ isAlphaNum c ∨ c = #"_"
+End
+
+Definition isLexErrorT_def:
+  (isLexErrorT (LexErrorT _) ⇔ T) ∧
+  (isLexErrorT _ ⇔ F)
+End
+
+Definition dest_lexErrorT_def:
+  (destLexErrorT (LexErrorT msg) = SOME msg) ∧
+  destLexErrorT _ = NONE
 End
 
 Definition get_token_def:
@@ -89,7 +100,7 @@ Definition get_token_def:
   if s = "{" then LCurT else
   if s = "}" then RCurT else
   if s = "=" then AssignT else
-  LexErrorT
+  LexErrorT $ concat [«Unrecognised symbolic token: »; implode s]
 End
 
 Definition get_keyword_def:
@@ -116,9 +127,10 @@ Definition get_keyword_def:
   if s = "true" then (KeywordT TrueK) else
   if s = "false" then (KeywordT FalseK) else
   if s = "fun" then (KeywordT FunK) else
-  if s = "" ∨ s = "@" then LexErrorT else
-  if 2 <= LENGTH s ∧ EL 0 s = #"@" then ForeignIdent (DROP 1 s) else
-  IdentT s
+  if s = "" then LexErrorT $ «Expected keyword, found empty string» else
+  if 2 <= LENGTH s ∧ EL 0 s = #"@" then ForeignIdent (DROP 1 s)
+  else
+    IdentT s
 End
 
 Definition token_of_atom_def:
@@ -127,7 +139,7 @@ Definition token_of_atom_def:
   | NumberA i => IntT i
   | WordA s => get_keyword s
   | SymA s => get_token s
-  | ErrA => LexErrorT
+  | ErrA s => LexErrorT s
 End
 
 Definition read_while_def:
@@ -174,9 +186,8 @@ Proof
   Induct
   >> fs[skip_comment_def]
   >> rw[]
-  >> sg ‘STRLEN str < STRLEN xs’
-  >- metis_tac[]
-  >> fs[LE]
+  >> res_tac
+  >> gvs[]
 QED
 
 Definition unhex_alt_def:
@@ -206,7 +217,7 @@ Definition next_atom_def:
             rest)
     else if isPREFIX "//" (c::cs) then (* comment *)
       (case (skip_comment (TL cs) (next_loc 2 loc)) of
-       | NONE => SOME (ErrA, Locs loc (next_loc 2 loc), "")
+       | NONE => SOME (ErrA «Malformed comment», Locs loc (next_loc 2 loc), "")
        | SOME (rest, loc') => next_atom rest loc')
     else if isAtom_singleton c then
       SOME (SymA (STRING c []), Locs loc loc, cs)
@@ -217,7 +228,7 @@ Definition next_atom_def:
       let (n, rest) = read_while isAlphaNumOrWild cs [c] in
       SOME (WordA n, Locs loc (next_loc (LENGTH n) loc), rest)
     else (* input not recognised *)
-      SOME (ErrA, Locs loc loc, cs)
+      SOME (ErrA $ concat [«Unrecognised symbol: »; str c], Locs loc loc, cs)
 Termination
   WF_REL_TAC ‘measure (LENGTH o FST)’
   >> REPEAT STRIP_TAC
@@ -279,6 +290,14 @@ End
 
 Definition pancake_lex_def:
   pancake_lex input = pancake_lex_aux input init_loc
+End
+
+Definition safe_pancake_lex_def:
+  safe_pancake_lex input =
+  (let output = pancake_lex input in
+      case FILTER (isLexErrorT ∘ FST) output of
+        [] => INL output
+      | xs => INR $ MAP ((the «» ∘ destLexErrorT) ## I) xs)
 End
 
 (* Tests :
