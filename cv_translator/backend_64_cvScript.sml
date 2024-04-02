@@ -225,4 +225,50 @@ Proof
   \\ rw [] \\ simp [Once pre]
 QED
 
+val arch_spec = INST_TYPE [alpha |-> “:64”];
+val arch_spec_beta = INST_TYPE [beta |-> “:64”];
+
+val pre = every_stack_var'_eq |> arch_spec |> cv_trans_pre
+Theorem every_stack_var'_pre[cv_pre]:
+  ∀v m. every_stack_var'_pre m v
+Proof
+  ho_match_mp_tac (wordLangTheory.every_stack_var_ind
+    |> Q.SPEC ‘λx. Q’ |> SRULE [] |> GEN_ALL)
+  \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = apply_colour_imm'_eq |> arch_spec |> cv_trans;
+val _ = apply_colour_inst'_eq |> arch_spec |> cv_trans;
+
+val pre = apply_colour_exp'_eq |> arch_spec |> cv_trans_pre;
+Theorem apply_colour_exp'_pre[cv_pre]:
+  (∀v colour. apply_colour_exp'_pre colour v) ∧
+  (∀v colour. apply_colour_exp'_list_pre colour v)
+Proof
+  ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+QED
+
+val pre = apply_colour'_eq |> arch_spec |> cv_auto_trans_pre;
+Theorem apply_colour'_pre[cv_pre]:
+  ∀v colour. apply_colour'_pre colour v
+Proof
+  ho_match_mp_tac (word_allocTheory.apply_colour_ind
+                  |> Q.SPEC ‘λx. Q’ |> SRULE [] |> GEN_ALL)
+  \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = oracle_colour_ok_eq |> arch_spec |> cv_auto_trans;
+
+val pre = get_reads_exp_eq |> arch_spec |> cv_trans_pre;
+Theorem get_reads_exp_pre[cv_pre]:
+  (∀v. get_reads_exp_pre v) ∧
+  (∀v. get_reads_exp_list_pre v)
+Proof
+  ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = word_allocTheory.get_delta_inst_def |> arch_spec |> cv_trans;
+val _ = word_allocTheory.get_clash_tree_def |> arch_spec |> cv_trans;
+val _ = word_removeTheory.remove_must_terminate_def |> arch_spec |> cv_trans;
+
 val _ = export_theory();
