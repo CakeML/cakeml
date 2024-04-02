@@ -472,6 +472,31 @@ val _ = stack_removeTheory.store_length_def |> CONV_RULE (RAND_CONV EVAL) |> cv_
 val _ = stack_removeTheory.stub_names_def |> cv_trans;
 val _ = cv_trans data_to_wordTheory.shift_length_def;
 val _ = cv_trans data_to_wordTheory.small_shift_length_def;
+val _ = word_to_stackTheory.insert_bitmap_def |> cv_trans;
+val _ = word_to_stackTheory.stack_arg_count_def |> cv_trans;
+
+Definition split_at_pki_def:
+  split_at_pki p k [] i acc = k (REVERSE acc) [] ∧
+  split_at_pki p k (h::t) i acc =
+    if p i h then k (REVERSE acc) (h::t) else
+      split_at_pki p k t (i+1:num) (h::acc)
+End
+
+Theorem split_at_pki_thm[cv_inline]:
+  splitAtPki p k xs = split_at_pki p k (xs:'a list) 0 []
+Proof
+  qsuff_tac ‘∀(xs:'a list) p k i acc.
+               split_at_pki p k xs i acc =
+               splitAtPki (λn. p (n + i)) (λx y. k (REVERSE acc ++ x) y) xs’
+  >- gvs [SF ETA_ss]
+  \\ Induct \\ gvs [split_at_pki_def,listTheory.splitAtPki_def] \\ rw []
+  \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
+  \\ gvs [o_DEF,ADD1]
+QED
+
+val _ = cv_auto_trans parmoveTheory.fstep_def;
+val _ = cv_trans parmoveTheory.pmov_def;
+val _ = cv_auto_trans parmoveTheory.parmove_def;
 
 (* arch_spec *)
 
@@ -575,12 +600,133 @@ val _ = stack_rawcallTheory.comp_def |> arch_spec |> cv_trans;
 val _ = stack_rawcallTheory.comp_top_def |> arch_spec |> cv_trans;
 val _ = stack_rawcallTheory.compile_def |> arch_spec |> cv_auto_trans;
 val _ = stack_to_labTheory.compile_def |> arch_spec |> cv_auto_trans;
+val _ = word_to_stackTheory.format_var_def |> cv_trans;
+val _ = word_to_stackTheory.wReg1_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.wReg2_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.wRegImm2_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.wStackLoad_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.wStackStore_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.wMoveSingle_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.wMoveAux_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.wInst_def |> arch_spec |> cv_auto_trans;
+
+Definition map_pair_def:
+  map_pair f g [] = [] ∧
+  map_pair f g ((x,y)::xs) = (f x, g y) :: map_pair f g xs
+End
+
+Theorem map_pair_thm[cv_inline]:
+  MAP (f ## g) = map_pair f g
+Proof
+  gvs [FUN_EQ_THM]
+  \\ Induct \\ gvs [map_pair_def,FORALL_PROD]
+QED
+
+val _ = word_to_stackTheory.wMove_def |> arch_spec |> cv_auto_trans;
+val _ = word_to_stackTheory.bits_to_word_def |> arch_spec |> cv_trans;
+
+Triviality cv_DROP_lemma:
+  ∀n cv_xs. cv_sum_depth (cv_DROP (Num n) cv_xs) ≤ cv_sum_depth cv_xs
+Proof
+  Induct \\ rw [] \\ simp [Once cv_DROP_def]
+  \\ Cases_on ‘cv_xs’ \\ gvs []
+  \\ irule LESS_EQ_TRANS
+  \\ pop_assum $ irule_at Any \\ gvs []
+QED
+
+val _ = cv_trans_rec (word_to_stackTheory.word_list_def |> arch_spec)
+ (WF_REL_TAC ‘measure $ cv_sum_depth o FST’ \\ Cases \\ rw []
+  \\ Cases_on ‘cv_d’ \\ gvs []
+  >- (last_x_assum mp_tac \\ simp [cv_LENGTH_def,Once cv_LEN_def] \\ gvs [])
+  \\ rename [‘Num n’] \\ Cases_on ‘n’ \\ gvs []
+  \\ simp [Once cv_DROP_def]
+  \\ irule LESS_EQ_LESS_TRANS \\ irule_at Any cv_DROP_lemma \\ gvs []);
+
+val _ = word_to_stackTheory.write_bitmap_def |> arch_spec |> SRULE [] |> cv_auto_trans;
+val _ = word_to_stackTheory.wLive_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.SeqStackFree_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.call_dest_def |> arch_spec |> cv_auto_trans;
+val _ = word_to_stackTheory.stack_free_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.stack_move_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.StackArgs_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.StackHandlerArgs_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.PushHandler_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.PopHandler_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.chunk_to_bits_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.chunk_to_bitmap_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.raise_stub_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.store_consts_stub_def |> arch_spec |> cv_trans;
+
+Theorem cv_rep_if_lt[cv_rep]:
+  cv_rep p1 c1a Num m /\
+  cv_rep p1 c1b Num n /\
+  cv_rep p2 c2 f t /\
+  cv_rep p3 c3 f e ==>
+  cv_rep (p1 /\ (m < n ==> p2) /\ (~(m < n) ==> p3))
+         (cv_if (cv_sub c1b c1a) c2 c3) f (if m < n then t else e)
+Proof
+  fs [cv_repTheory.cv_rep_def] \\ rw [] \\ gvs []
+  \\ Cases_on ‘n - m’ \\ gvs []
+QED
+
+val _ = cv_trans_rec (word_to_stackTheory.const_words_to_bitmap_def |> arch_spec |> SRULE [])
+ (WF_REL_TAC ‘measure $ cv$c2n o SND’ \\ Cases \\ gvs []
+  \\ gvs [cvTheory.c2b_def] \\ Cases_on ‘m’ \\ gvs []);
+
+val pre = word_to_stackTheory.comp_def |> arch_spec |> cv_auto_trans_pre;
+Theorem comp_pre[cv_pre,local]:
+  ∀v bs kf. comp_pre v bs kf
+Proof
+  ho_match_mp_tac word_to_stackTheory.comp_ind \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = cv_trans miscTheory.list_max_def;
+val _ = cv_trans (miscTheory.max3_def |> PURE_REWRITE_RULE [GREATER_DEF]);
+
+val _ = wordLangTheory.max_var_inst_def |> arch_spec |> cv_trans
+
+Definition max_var_word_exp_def:
+  max_var_word_exp (wordLang$Var n) = n ∧
+  max_var_word_exp (Load e) = max_var_word_exp e ∧
+  max_var_word_exp (Shift _ e _) = max_var_word_exp e ∧
+  max_var_word_exp (Op _ xs) = max_var_word_exp_list xs ∧
+  max_var_word_exp _ = 0 ∧
+  max_var_word_exp_list [] = 0 ∧
+  max_var_word_exp_list (e::es) = MAX (max_var_word_exp e) (max_var_word_exp_list es)
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of
+              | INL e => exp_size (K 0) e
+              | INR es => list_size (exp_size (K 0)) es’
+End
+
+val _ = max_var_word_exp_def |> arch_spec |> cv_trans
+
+Theorem max_var_word_exp_thm[cv_inline,local]:
+  (∀e:'a exp. max_var_exp e = max_var_word_exp e) ∧
+  (∀es:'a exp list. list_max (MAP max_var_exp es) = max_var_word_exp_list es)
+Proof
+  ho_match_mp_tac max_var_word_exp_ind
+  \\ rw [] \\ gvs [wordLangTheory.max_var_exp_def,max_var_word_exp_def,SF ETA_ss]
+  \\ gvs [list_max_def] \\ rw [] \\ gvs [MAX_DEF]
+QED
+
+val _ = wordLangTheory.max_var_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.compile_prog_def |> arch_spec |> cv_trans;
+
+val pre = word_to_stackTheory.compile_word_to_stack_def |> arch_spec_beta |> cv_trans_pre;
+Theorem compile_word_to_stack_pre[cv_pre,local]:
+  ∀k v bitmaps. compile_word_to_stack_pre k v bitmaps
+Proof
+  ho_match_mp_tac word_to_stackTheory.compile_word_to_stack_ind
+  \\ rw [] \\ simp [Once pre]
+QED
 
 (* arm8  *)
 
-val _ = from_stack_arm8_def
-  |> SRULE [data_to_wordTheory.max_heap_limit_def,backend_commonTheory.word_shift_def]
-  |> cv_trans;
+val _ = cv_trans (from_stack_arm8_def
+  |> SRULE [data_to_wordTheory.max_heap_limit_def,backend_commonTheory.word_shift_def]);
+
+val _ = cv_trans_auto from_word_arm8_def;
 
 val pre = cv_trans_pre get_forced_arm8_def;
 Theorem get_forced_arm8_pre[cv_pre,local]:
@@ -594,13 +740,10 @@ Proof
   \\ gvs [wordLangTheory.prog_size_def]
 QED
 
-
 (*
-stack_to_labTheory.compile_def
 
+word_allocTheory.oracle_colour_ok_def |> SRULE [Once LET_THM]
 
-
-from_word_arm8_def
 from_word_0_arm8_def
 word_alloc_inlogic_arm8_def
 each_inlogic_arm8_def
