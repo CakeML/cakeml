@@ -385,6 +385,7 @@ val _ = cv_auto_trans backend_asmTheory.attach_bitmaps_def;
 (* 64-bit *)
 
 val arch_spec = INST_TYPE [alpha |-> “:64”];
+val arch_spec_beta = INST_TYPE [beta |-> “:64”];
 
 val _ = cv_trans (alignmentTheory.aligned_w2n |> arch_spec);;
 val _ = cv_trans (asmTheory.offset_ok_def |> arch_spec);
@@ -457,13 +458,150 @@ val _ = cv_trans from_lab_arm8_def;
 
 (* ----------------------------------------------------------------------------------- *)
 
+(* generic *)
+
+val _ = cv_trans miscTheory.append_aux_def;
+val _ = cv_trans miscTheory.append_def;
+val _ = cv_trans miscTheory.tlookup_def;
+val _ = cv_trans stack_to_labTheory.negate_def;
+val _ = cv_trans stack_to_labTheory.is_gen_gc_def;
+val _ = stack_namesTheory.dest_find_name_def |> cv_trans;
+val _ = stack_removeTheory.store_list_def |> cv_trans;
+val _ = cv_auto_trans stack_removeTheory.store_pos_def;
+val _ = stack_removeTheory.store_length_def |> CONV_RULE (RAND_CONV EVAL) |> cv_trans;
+val _ = stack_removeTheory.stub_names_def |> cv_trans;
+val _ = cv_trans data_to_wordTheory.shift_length_def;
+val _ = cv_trans data_to_wordTheory.small_shift_length_def;
+
+(* arch_spec *)
+
+Theorem bytes_in_word_def[cv_inline] =
+  bytes_in_word_def |> arch_spec |> CONV_RULE (RAND_CONV EVAL);
+
+Theorem shift_def[cv_inline] =
+  backend_commonTheory.word_shift_def |> arch_spec |> CONV_RULE (RAND_CONV EVAL);
+
+val _ = data_to_wordTheory.get_gen_size_def |> arch_spec |> SRULE [] |> cv_trans;
+
+val _ = stack_to_labTheory.compile_jump_def |> arch_spec |> cv_trans;
+val _ = stack_to_labTheory.is_Seq_def |> arch_spec |> cv_trans;
+
+val pre = stack_to_labTheory.flatten_def |> arch_spec |> cv_trans_pre;
+Theorem flatten_pre[cv_pre,local]:
+  ∀t p n m. flatten_pre t p n m
+Proof
+  ho_match_mp_tac stack_to_labTheory.flatten_ind \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = stack_allocTheory.next_lab_def |> arch_spec |> cv_trans;
+val _ = stack_to_labTheory.prog_to_section_def |> arch_spec |> cv_trans;
+val _ = stack_namesTheory.ri_find_name_def |> arch_spec |> cv_trans;
+val _ = stack_namesTheory.inst_find_name_def |> arch_spec |> cv_trans;
+val _ = stack_namesTheory.comp_def |> arch_spec |> cv_trans;
+val _ = stack_namesTheory.prog_comp_def |> arch_spec_beta |> cv_trans;
+val _ = stack_namesTheory.compile_def |> arch_spec |> cv_auto_trans;
+val _ = stack_removeTheory.word_offset_def |> arch_spec |> cv_trans;
+val _ = stack_removeTheory.store_offset_def |> arch_spec |> cv_trans;
+val _ = stack_removeTheory.halt_inst_def |> arch_spec |> cv_trans;
+val _ = stack_removeTheory.single_stack_alloc_def |> arch_spec |> cv_auto_trans;
+val _ = stack_removeTheory.stack_alloc_def |> arch_spec |> cv_auto_trans;
+val _ = stack_removeTheory.single_stack_free_def |> arch_spec |> cv_auto_trans;
+val _ = stack_removeTheory.stack_free_def |> arch_spec |> cv_auto_trans;
+val _ = stackLangTheory.list_Seq_def |> arch_spec |> cv_trans;
+val _ = stack_removeTheory.copy_each_def |> arch_spec |> cv_trans;
+val _ = stack_removeTheory.copy_loop_def |> arch_spec |> cv_trans;
+val _ = cv_trans_rec (stack_removeTheory.upshift_def |> arch_spec)
+ (WF_REL_TAC ‘measure $ cv$c2n o SND’ \\ Cases \\ gvs [] \\ rw [] \\ gvs []);
+val _ = cv_trans_rec (stack_removeTheory.downshift_def |> arch_spec)
+ (WF_REL_TAC ‘measure $ cv$c2n o SND’ \\ Cases \\ gvs [] \\ rw [] \\ gvs []);
+val _ = stack_removeTheory.stack_store_def |> arch_spec |> cv_trans;
+val _ = stack_removeTheory.stack_load_def |> arch_spec |> cv_trans;
+val _ = stack_removeTheory.comp_def |> arch_spec |> cv_trans;
+val _ = stack_removeTheory.prog_comp_def |> arch_spec_beta |> cv_trans;
+val _ = stack_removeTheory.store_list_code_def |> arch_spec |> cv_trans;
+val _ = stack_removeTheory.init_memory_def |> arch_spec |> cv_trans;
+val _ = (stack_removeTheory.init_code_def |> arch_spec
+           |> SRULE [EVAL “REVERSE store_list”,stack_removeTheory.store_init_def,
+                     APPLY_UPDATE_THM,miscTheory.UPDATE_LIST_def]) |> cv_trans
+val _ = stack_removeTheory.init_stubs_def |> arch_spec |> cv_trans;
+val _ = stack_removeTheory.compile_def |> arch_spec |> cv_auto_trans;
+
+val _ = stack_allocTheory.memcpy_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.clear_top_inst_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gc_move_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gc_move_list_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gc_move_loop_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gc_move_bitmap_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gc_move_bitmaps_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gc_move_roots_bitmaps_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gen_gc_move_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gen_gc_partial_move_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gen_gc_move_bitmap_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gen_gc_partial_move_bitmap_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gen_gc_move_bitmaps_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gen_gc_partial_move_bitmaps_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gen_gc_move_roots_bitmaps_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gen_gc_partial_move_roots_bitmaps_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gen_gc_move_list_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gen_gc_partial_move_list_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gen_gc_move_data_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gen_gc_partial_move_ref_list_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gen_gc_partial_move_data_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gen_gc_move_refs_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gen_gc_move_loop_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gc_partial_or_full_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.SetNewTrigger_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.word_gc_code_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.stubs_def |> arch_spec |> cv_auto_trans;
+val _ = stack_allocTheory.stub_names_def |> arch_spec |> cv_auto_trans;
+val _ = stack_allocTheory.next_lab_def |> arch_spec |> cv_trans;
+
+val pre = stack_allocTheory.comp_def |> arch_spec |> cv_trans_pre;
+Theorem comp_pre[cv_pre,local]:
+  ∀n m p. comp_pre n m p
+Proof
+  ho_match_mp_tac stack_allocTheory.comp_ind \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = stack_allocTheory.prog_comp_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.compile_def |> arch_spec |> SRULE [stack_allocTheory.stubs_def]
+                                                   |> cv_auto_trans;
+
+val _ = stack_rawcallTheory.seq_stack_alloc_def |> arch_spec |> cv_trans;
+val _ = stack_rawcallTheory.collect_info_def |> arch_spec |> cv_trans;
+val _ = stack_rawcallTheory.dest_case_def |> arch_spec |> cv_trans;
+val _ = stack_rawcallTheory.comp_seq_def |> arch_spec |> cv_trans;
+val _ = stack_rawcallTheory.comp_def |> arch_spec |> cv_trans;
+val _ = stack_rawcallTheory.comp_top_def |> arch_spec |> cv_trans;
+val _ = stack_rawcallTheory.compile_def |> arch_spec |> cv_auto_trans;
+val _ = stack_to_labTheory.compile_def |> arch_spec |> cv_auto_trans;
+
+(* arm8  *)
+
+val _ = from_stack_arm8_def
+  |> SRULE [data_to_wordTheory.max_heap_limit_def,backend_commonTheory.word_shift_def]
+  |> cv_trans;
+
+val pre = cv_trans_pre get_forced_arm8_def;
+Theorem get_forced_arm8_pre[cv_pre,local]:
+  ∀v acc. get_forced_arm8_pre v acc
+Proof
+  gen_tac
+  \\ completeInduct_on ‘prog_size (K 0) v’
+  \\ rw [] \\ gvs [PULL_FORALL]
+  \\ simp [Once pre] \\ rw []
+  \\ gvs [] \\ last_x_assum $ irule
+  \\ gvs [wordLangTheory.prog_size_def]
+QED
+
+
 (*
 stack_to_labTheory.compile_def
 
-from_stack_arm8_def
+
+
 from_word_arm8_def
 from_word_0_arm8_def
-get_forced_arm8_def
 word_alloc_inlogic_arm8_def
 each_inlogic_arm8_def
 word_to_word_inlogic_arm8_def
