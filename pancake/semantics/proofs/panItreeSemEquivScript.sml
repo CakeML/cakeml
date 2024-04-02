@@ -10,6 +10,7 @@ local open alignmentTheory
            ffiTheory
            itreeTauTheory
            panSemTheory
+           panPropsTheory
            panItreeSemTheory in end;
 
 val _ = new_theory "panItreeSemEquiv";
@@ -432,12 +433,67 @@ Proof
 QED
 
 Theorem fbs_sem_div_compos_thm:
-  ∀prog. fbs_semantics_beh s (Dec v e prog) = SemDiverge l ⇒
+  fbs_semantics_beh s (Dec v e prog) = SemDiverge l ∧
+  eval s e = SOME x ⇒
   fbs_semantics_beh (s with locals := s.locals |+ (v,x)) prog = SemDiverge l
 Proof
-  rw [fbs_semantics_beh_def] >>
-  gvs [AllCaseEqs()] >>
-  cheat
+  rpt strip_tac>>
+  fs[fbs_semantics_beh_def,Once panSemTheory.evaluate_def] >>
+  fs[bool_case_eq]>-
+  rpt (FULL_CASE_TAC>>fs[])>>
+  disj2_tac>>
+  conj_tac>-
+   (strip_tac>>first_x_assum $ qspec_then ‘k’ assume_tac>>
+    FULL_CASE_TAC>>fs[]>>
+    pairarg_tac>>fs[]>>gvs[panPropsTheory.eval_upd_clock_eq])>>
+  irule lprefix_lubTheory.IMP_build_lprefix_lub_EQ>>
+  conj_asm1_tac>-
+   (simp[lprefix_chain_def]>>
+    rpt strip_tac>>fs[]>>
+    Cases_on ‘k' < k’>-
+     (disj2_tac>>
+      simp[LPREFIX_def,from_toList]>>
+      irule IS_PREFIX_TRANS>>
+      irule_at Any panPropsTheory.evaluate_add_clock_io_events_mono>>
+      qexists_tac ‘k - k'’>>fs[])>>
+    fs[NOT_LESS]>>
+    disj1_tac>>
+    simp[LPREFIX_def,from_toList]>>
+    irule IS_PREFIX_TRANS>>
+    irule_at Any panPropsTheory.evaluate_add_clock_io_events_mono>>
+    qexists_tac ‘k' - k’>>fs[])>>
+  conj_asm1_tac>-
+   (simp[lprefix_chain_def]>>
+    rpt strip_tac>>fs[]>>
+    Cases_on ‘k' < k’>-
+     (disj2_tac>>
+      simp[LPREFIX_def,from_toList]>>
+      irule IS_PREFIX_TRANS>>
+      irule_at Any panPropsTheory.evaluate_add_clock_io_events_mono>>
+      qexists_tac ‘k - k'’>>fs[])>>
+    fs[NOT_LESS]>>
+    disj1_tac>>
+    simp[LPREFIX_def,from_toList]>>
+    irule IS_PREFIX_TRANS>>
+    irule_at Any panPropsTheory.evaluate_add_clock_io_events_mono>>
+    qexists_tac ‘k' - k’>>fs[])>>
+  conj_tac>-
+   (simp[lprefix_rel_def]>>
+    rpt strip_tac>>
+    simp[PULL_EXISTS]>>
+    simp[LPREFIX_def,from_toList]>>
+    simp[Once panSemTheory.evaluate_def,
+         panPropsTheory.eval_upd_clock_eq]>>
+    pairarg_tac>>fs[]>>
+    qexists_tac ‘k’>>fs[])>>
+  simp[lprefix_rel_def]>>
+  rpt strip_tac>>
+  simp[PULL_EXISTS]>>
+  simp[LPREFIX_def,from_toList]>>
+  simp[SimpR “isPREFIX”, Once panSemTheory.evaluate_def,
+       panPropsTheory.eval_upd_clock_eq]>>
+  qexists_tac ‘k’>>
+  pairarg_tac>>fs[]
 QED
 
 Theorem itree_semantics_corres:
@@ -501,15 +557,9 @@ Proof
                   Cases_on ‘q’ >> rw [] >>
                   Cases_on ‘x’ >> rw []))
           >- (gvs [] >>
-              drule fbs_sem_div_compos_thm >>
-              disch_tac >>
-              gs [] >>
-              (* Because the assums and goal are being reversed *)
-              ‘itree_semantics_beh s (Dec v e prog) = SemDiverge l’ suffices_by (rw []) >>
-              last_assum (assume_tac o GSYM) >> gvs [] >>
-              drule itree_sem_div_compos_thm >>
-              disch_tac >>
-              gvs [])) >>
+              irule (GSYM itree_sem_div_compos_thm) >>
+              first_x_assum $ irule_at Any>>
+              irule fbs_sem_div_compos_thm >>metis_tac[])) >>
       cheat) >>
   cheat
 QED
