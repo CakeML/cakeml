@@ -285,7 +285,8 @@ Definition from_word_0_def:
     case word_to_word_inlogic asm_conf c.inc_word_to_word_conf p of
     | NONE => NONE
     | SOME (col,prog) =>
-        let c = c with inc_word_to_word_conf updated_by (λc. c with col_oracle := col) in
+        let c = c with inc_word_to_word_conf :=
+                  (c.inc_word_to_word_conf with col_oracle := col) in
           from_word asm_conf c names prog
 End
 
