@@ -445,4 +445,65 @@ Theorem get_reads_exp_eq =
   CONJUNCTS (SRULE [GSYM get_reads_exp_list_def] word_allocTheory.get_reads_exp_def)
   @ CONJUNCTS get_reads_exp_list_thm |> LIST_CONJ;
 
+
+Definition get_live_exps_def:
+  get_live_exps ls = big_union (MAP (λa. get_live_exp a) ls)
+End
+
+Triviality get_live_exps_thm:
+  get_live_exps ([]:'a wordLang$exp list) = LN ∧
+  get_live_exps (x::xs:'a wordLang$exp list) = union (get_live_exp x) (get_live_exps xs)
+Proof
+  gvs [get_live_exps_def,word_allocTheory.big_union_def]
+QED
+
+Triviality get_live_exp_eq =
+  CONJUNCTS word_allocTheory.get_live_exp_def
+  @ CONJUNCTS get_live_exps_thm |> map GEN_ALL
+  |> LIST_CONJ |> SRULE [GSYM get_live_exps_def];
+
+val pre = cv_trans_pre get_live_exp_eq
+Theorem get_live_exp_pre[cv_pre]:
+  (∀v:'a exp. get_live_exp_pre v) ∧
+  (∀v:'a exp list. get_live_exps_pre v)
+Proof
+  ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = cv_trans word_instTheory.is_Lookup_CurrHeap_def;
+val _ = cv_trans word_instTheory.pull_ops_def;
+
+
+Definition pull_exp_list_def:
+  pull_exp_list ls = MAP (λa. pull_exp a) ls
+End
+
+Triviality pull_exp_list_thm:
+  pull_exp_list ([]:'a wordLang$exp list) = [] ∧
+  ∀x xs:'a wordLang$exp list.
+    pull_exp_list (x::xs) = pull_exp x :: pull_exp_list xs
+Proof
+  gvs [pull_exp_list_def]
+QED
+
+Theorem pull_exp_eq =
+  CONJUNCTS (CONJ word_instTheory.pull_exp_def pull_exp_list_thm) |> LIST_CONJ
+  |> REWRITE_RULE [GSYM pull_exp_list_def]
+
+Definition flatten_exp_list_def:
+  flatten_exp_list ls = MAP (λa. flatten_exp a) ls
+End
+
+Triviality flatten_exp_list_thm:
+  flatten_exp_list ([]:'a wordLang$exp list) = [] ∧
+  ∀x xs:'a wordLang$exp list.
+    flatten_exp_list (x::xs) = flatten_exp x :: flatten_exp_list xs
+Proof
+  gvs [flatten_exp_list_def]
+QED
+
+Theorem flatten_exp_eq =
+  CONJUNCTS (CONJ word_instTheory.flatten_exp_def flatten_exp_list_thm) |> LIST_CONJ
+  |> REWRITE_RULE [GSYM flatten_exp_list_def]
+
 val _ = export_theory();

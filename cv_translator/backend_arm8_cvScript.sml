@@ -210,11 +210,29 @@ QED
 
 val _ = cv_trans word_alloc_inlogic_arm8_def;
 
-val _ = print_find "remove_dead_def"
+val pre = cv_trans_pre inst_select_exp_arm8_def;
+Theorem inst_select_exp_arm8_pre[cv_pre]:
+  ∀v tar temp. inst_select_exp_arm8_pre tar temp v
+Proof
+  gen_tac \\ completeInduct_on ‘exp_size (K 0) v’
+  \\ rw [] \\ gvs [PULL_FORALL]
+  \\ rw [] \\ simp [Once pre]
+  \\ rw [] \\ gvs []
+  \\ last_x_assum irule
+  \\ gvs [wordLangTheory.exp_size_def]
+QED
+
+val pre = cv_trans_pre inst_select_arm8_def;
+Theorem inst_select_arm8_pre[cv_pre,local]:
+  ∀v temp. inst_select_arm8_pre temp v
+Proof
+  gen_tac \\ completeInduct_on ‘prog_size (K 0) v’
+  \\ rw [] \\ gvs [PULL_FORALL]
+  \\ simp [Once pre] \\ rw []
+  \\ first_x_assum irule \\ gvs [wordLangTheory.prog_size_def]
+QED
 
 (*
-word_allocTheory.get_live_exp_def
-word_allocTheory.remove_dead_def |> arch_spec |> cv_auto_trans
 each_inlogic_arm8_def
 word_to_word_inlogic_arm8_def
 to_word_0_arm8_def

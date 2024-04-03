@@ -271,4 +271,53 @@ val _ = word_allocTheory.get_delta_inst_def |> arch_spec |> cv_trans;
 val _ = word_allocTheory.get_clash_tree_def |> arch_spec |> cv_trans;
 val _ = word_removeTheory.remove_must_terminate_def |> arch_spec |> cv_trans;
 
+val pre = word_allocTheory.remove_dead_def |> arch_spec |> cv_auto_trans_pre;
+Theorem remove_dead_pre[cv_pre]:
+  ∀v live. remove_dead_pre v live
+Proof
+  ho_match_mp_tac word_allocTheory.remove_dead_ind \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = word_instTheory.op_consts_def |> arch_spec |> cv_trans;
+
+val pre = word_instTheory.optimize_consts_def |> arch_spec |> cv_auto_trans_pre;
+Theorem optimize_consts_pre:
+  ∀op ls. op ≠ Sub ⇒ optimize_consts_pre op ls
+Proof
+  simp [Once pre]
+  \\ gvs [wordLangTheory.word_op_def |> oneline, AllCaseEqs()]
+  \\ rw [] \\ gvs []
+  \\ Cases_on ‘PARTITION is_const ls’ \\ gvs []
+  \\ Cases_on ‘op’ \\ gvs []
+QED
+
+val _ = word_instTheory.convert_sub_def |> arch_spec |> cv_auto_trans;
+
+val pre = pull_exp_eq |> arch_spec |> cv_trans_pre;
+Theorem pull_exp_pre[cv_pre]:
+  (∀v. pull_exp_pre v) ∧
+  (∀v. pull_exp_list_pre v)
+Proof
+  ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+  \\ rw [] \\ gvs [] \\ TRY (pop_assum mp_tac \\ simp [Once pre] \\ NO_TAC)
+  \\ irule optimize_consts_pre \\ gvs []
+QED
+
+val pre = flatten_exp_eq |> arch_spec |> cv_trans_pre;
+Theorem flatten_exp_pre[cv_pre]:
+  (∀v. flatten_exp_pre v) ∧
+  (∀v. flatten_exp_list_pre v)
+Proof
+  qsuff_tac ‘∀n. (∀v. exp_size (K 0) v = n ⇒ flatten_exp_pre v) ∧
+                 (∀v. list_size (exp_size (K 0)) v = n ⇒ flatten_exp_list_pre v)’
+  >- metis_tac []
+  \\ completeInduct_on ‘n’ \\ reverse (rw []) \\ gvs [PULL_FORALL]
+  >- (simp [Once pre] \\ rpt gen_tac \\ strip_tac \\ gvs []
+      \\ gvs [SF DNF_ss] \\ rw []
+      \\ first_x_assum irule \\ gvs [listTheory.list_size_def])
+  \\ simp [Once pre] \\ rpt gen_tac \\ strip_tac \\ gvs []
+  \\ rw [] \\ gvs [SF DNF_ss]\\ first_x_assum irule
+  \\ gvs [wordLangTheory.exp_size_def, wordLangTheory.exp_size_eq]
+QED
+
 val _ = export_theory();
