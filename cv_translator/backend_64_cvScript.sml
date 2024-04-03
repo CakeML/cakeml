@@ -379,4 +379,157 @@ QED
 val _ = word_simpTheory.const_fp_def |> arch_spec |> cv_trans;
 val _ = word_simpTheory.compile_exp_def |> arch_spec |> cv_trans;
 
+val _ = data_to_wordTheory.real_addr_def |> arch_spec
+          |> SRULE [backend_commonTheory.word_shift_def] |> cv_trans;
+val _ = data_to_wordTheory.real_offset_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.real_byte_offset_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.make_header_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.make_byte_header_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.encode_header_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.GiveUp_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.BignumHalt_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.list_Seq_def |> arch_spec |> cv_trans;
+val _ = data_to_wordTheory.SilentFFI_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.ShiftVar_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.AllocVar_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.StoreEach_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.WriteWord64_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.WriteWord64_on_32_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.WriteWord32_on_32_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.WordShift64_on_32_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.LoadBignum_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.LoadWord64_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.AnyHeader_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.tag_mask_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.AddNumSize_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.SmallLsr_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.Smallnum_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.WriteLastByte_aux_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.WriteLastBytes_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.MakeBytes_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.all_ones_def |> arch_spec |> SRULE []
+        |> SRULE [wordsTheory.word_2comp_n2w,wordsTheory.word_slice_n2w] |> cv_trans;
+val _ = cv_trans GREATER_DEF;
+val _ = data_to_wordTheory.maxout_bits_def |> arch_spec
+        |> SRULE [GSYM GREATER_DEF] |> cv_trans;
+val _ = data_to_wordTheory.ptr_bits_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.Maxout_bits_code_def |> arch_spec
+          |> SRULE [backend_commonTheory.word_shift_def] |> cv_trans;
+val _ = data_to_wordTheory.Make_ptr_bits_code_def |> arch_spec
+          |> SRULE [backend_commonTheory.word_shift_def] |> cv_trans;
+val _ = byteTheory.byte_index_def |> arch_spec |> cv_trans;
+
+val _ = cv_trans byteTheory.set_byte_32 handle HOL_ERR _ =>
+        cv_trans byteTheory.set_byte_64;
+
+val _ = byteTheory.bytes_to_word_def |> arch_spec |> cv_trans;
+val _ = data_to_wordTheory.write_bytes_def |> arch_spec |> SRULE [LET_THM] |> cv_trans;
+val _ = data_to_wordTheory.lookup_mem_def |> arch_spec |> cv_trans;
+
+val pre = cv_trans_pre_rec
+  (multiwordTheory.n2mw_def |> SRULE [n2w_mod] |> arch_spec |> SRULE [])
+  (WF_REL_TAC ‘measure cv$c2n’
+   \\ Cases \\ gvs [DIV_LT_X] \\ Cases_on ‘m’ \\ gvs []);
+Theorem n2mw_pre[cv_pre]:
+  ∀n. n2mw_pre n
+Proof
+  ho_match_mp_tac (multiwordTheory.n2mw_ind |> arch_spec)
+  \\ rw [] \\ simp [Once pre]
+QED
+
+Triviality lemma:
+  ∀i. Num (ABS i) = Num i
+Proof
+  Cases \\ gvs []
+QED
+
+val _ = multiwordTheory.i2mw_def |> arch_spec |> SRULE [lemma] |> cv_trans;
+
+val _ = data_to_wordTheory.part_to_words_def |> arch_spec
+          |> SRULE [backend_commonTheory.word_shift_def,GSYM GREATER_DEF,
+                    data_to_wordTheory.small_int_def,
+                    data_to_wordTheory.byte_len_def] |> cv_auto_trans;
+val _ = data_to_wordTheory.parts_to_words_def |> arch_spec
+          |> SRULE [backend_commonTheory.word_shift_def] |> cv_trans;
+val _ = data_to_wordTheory.const_parts_to_words_def |> arch_spec
+          |> SRULE [backend_commonTheory.word_shift_def] |> cv_trans;
+val _ = data_to_wordTheory.MemEqList_def |> arch_spec |> cv_trans;
+val _ = data_to_wordTheory.get_Word_def |> arch_spec |> cv_trans;
+val _ = get_words_def |> arch_spec |> cv_trans;
+val _ = data_to_wordTheory.getWords_def |> arch_spec_beta |> cv_trans;
+val cv_getWords_def = fetch "-" "cv_getWords_def"
+
+Triviality cv_getWords_lemma:
+  ∀g acc. cv_sum_depth (cv_snd (cv_getWords g acc)) ≤ cv_sum_depth g
+Proof
+  Induct \\ gvs []
+  \\ simp [Once cv_getWords_def]
+  \\ rpt gen_tac
+  \\ rpt (IF_CASES_TAC \\ gvs [])
+  \\ irule LESS_EQ_TRANS
+  \\ first_x_assum $ irule_at $ Pos hd \\ gvs []
+QED
+
+val pre = cv_trans_pre_rec (data_to_wordTheory.StoreAnyConsts_def |> arch_spec)
+  (WF_REL_TAC ‘measure $ λ(_,_,_,xs,_). cv_sum_depth xs’
+   \\ reverse (rw []) >- cv_termination_tac
+   \\ simp [Once cv_getWords_def]
+   \\ Cases_on ‘cv_v’ \\ gvs []
+   \\ Cases_on ‘g’ \\ gvs []
+   \\ irule LESS_EQ_LESS_TRANS
+   \\ irule_at Any cv_getWords_lemma \\ gvs []);
+
+Theorem StoreAnyConsts_pre[cv_pre]:
+  ∀r1 r2 r3 v v0. StoreAnyConsts_pre r1 r2 r3 v v0
+Proof
+  ho_match_mp_tac data_to_wordTheory.StoreAnyConsts_ind \\ rw [] \\ simp [Once pre]
+QED
+
+val locs_thm =
+  DB.find "location_def" |> map fst |> filter (fn s => fst s = "data_to_word") |> map snd
+  |> map (fetch "data_to_word") |> map (EVAL o lhs o concl) |> LIST_CONJ;
+
+val code_defs =
+  DB.find "_code_def" |> map fst |> filter (fn s => fst s = "data_to_word") |> map snd
+  |> map (fetch "data_to_word");
+
+Theorem inline = [data_to_wordTheory.Unit_def,
+                  backend_commonTheory.partial_app_tag_def,
+                  backend_commonTheory.closure_tag_def,
+                  locs_thm, to_adjust_vars, COND_RATOR,
+                  GSYM GREATER_DEF, to_get_words,
+                  backend_commonTheory.word_shift_def,
+                  data_to_wordTheory.list_Seq_def] |> LIST_CONJ;
+
+val assigns =
+  code_defs @ (data_to_wordTheory.all_assign_defs |> CONJUNCTS)
+  |> map (SRULE [inline] o arch_spec) |> rev;
+
+val problem_count = assigns
+  |> mapi (fn i => fn th => (i+1,th))
+  |> filter (fn (i,th) => not (can cv_trans th)) |> map fst
+  |> map (fn i => print ("cv_trans (el " ^ int_to_string i ^ " assigns)\n"))
+  |> length
+
+val _ = problem_count = 0 orelse failwith("Some assign_def didn't translate")
+
+val _ = cv_trans (data_to_wordTheory.assign_def |> arch_spec |> SRULE
+  [data_to_wordTheory.arg1_def, to_adjust_vars,
+   data_to_wordTheory.arg2_def,
+   data_to_wordTheory.arg3_def,
+   data_to_wordTheory.arg4_def])
+
+val pre = data_to_wordTheory.comp_def |> arch_spec |> SRULE [to_adjust_vars] |> cv_trans_pre;
+Theorem comp_pre[cv_pre,local]:
+  ∀c secn l p. comp_pre c secn l p
+Proof
+  ho_match_mp_tac (data_to_wordTheory.comp_ind |> arch_spec)
+  \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = data_to_wordTheory.compile_part_def |> arch_spec |> cv_trans;
+val _ = word_bignumTheory.generated_bignum_stubs_def
+  |> SPEC_ALL |> CONV_RULE (RAND_CONV EVAL) |> arch_spec |> SRULE [] |> cv_trans;
+
+val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();

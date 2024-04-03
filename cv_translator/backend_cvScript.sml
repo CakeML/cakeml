@@ -608,4 +608,41 @@ val _ = word_simpTheory.dest_Seq_Assign_Const_def |> cv_trans;
 val _ = word_simpTheory.const_fp_move_cs_def |> cv_trans;
 val _ = cv_trans word_to_wordTheory.next_n_oracle_def;
 
+Definition adjust_vars_def:
+  adjust_vars [] = [] ∧
+  adjust_vars (x::xs) = adjust_var x :: adjust_vars xs
+End
+
+Theorem to_adjust_vars:
+  MAP adjust_var = adjust_vars
+Proof
+  gvs [FUN_EQ_THM] \\ Induct \\ gvs [adjust_vars_def]
+QED
+
+val _ = cv_trans data_to_wordTheory.adjust_var_def;
+val _ = cv_trans adjust_vars_def;
+val _ = cv_auto_trans data_to_wordTheory.adjust_set_def;
+val _ = cv_trans data_to_wordTheory.get_names_def;
+val _ = cv_trans data_to_wordTheory.lookup_word_op_def;
+val _ = cv_trans data_to_wordTheory.fp_cmp_inst_def;
+val _ = cv_trans data_to_wordTheory.fp_top_inst_def;
+val _ = cv_trans data_to_wordTheory.fp_bop_inst_def;
+val _ = cv_trans data_to_wordTheory.fp_uop_inst_def;
+val _ = bitTheory.SLICE_def |> SRULE [bitTheory.MOD_2EXP_def] |> cv_trans;
+val _ = cv_trans mlstringTheory.explode_thm;
+
+Definition get_words_def:
+  get_words [] = [] ∧
+  get_words ((_,Word w) :: ws) = w :: get_words ws ∧
+  get_words (_ :: ws) = 0w :: get_words ws
+End
+
+Theorem to_get_words:
+  MAP (get_Word ∘ SND) ws = get_words ws
+Proof
+  Induct_on ‘ws’ \\ gvs [get_words_def,FORALL_PROD]
+  \\ gen_tac \\ Cases \\ gvs [get_words_def]
+QED
+
+val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();

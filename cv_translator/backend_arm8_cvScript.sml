@@ -242,10 +242,14 @@ QED
 val _ = cv_trans word_to_word_inlogic_arm8_def;
 val _ = cv_trans from_word_0_arm8_def;
 
+val _ = compile_0_arm8_def
+  |> SRULE [data_to_wordTheory.stubs_def,backend_64_cvTheory.inline]
+  |> cv_auto_trans;
+
 (*
-to_word_0_arm8_def
-compile_0_arm8_def |> SRULE [data_to_wordTheory.stubs_def]
-compile_cake_arm8_def
+backend_arm8Theory.to_word_0_arm8_def
+backend_arm8Theory.compile_cake_arm8_def
 *)
 
+val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();
