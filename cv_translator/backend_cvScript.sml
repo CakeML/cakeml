@@ -506,4 +506,62 @@ Theorem flatten_exp_eq =
   CONJUNCTS (CONJ word_instTheory.flatten_exp_def flatten_exp_list_thm) |> LIST_CONJ
   |> REWRITE_RULE [GSYM flatten_exp_list_def]
 
+val _ = word_cseTheory.empty_data_def |> CONV_RULE (RAND_CONV EVAL) |> cv_trans;
+val _ = cv_auto_trans word_cseTheory.is_seen_def;
+val _ = cv_auto_trans word_cseTheory.canonicalMoveRegs3_def;
+
+Definition lookup_listCmp_def:
+  lookup_listCmp = lookup listCmp
+End
+
+val _ = cv_trans (word_cseTheory.listCmp_def |> SRULE [GREATER_DEF]);
+
+val lookup_listCmp_eq =
+  balanced_mapTheory.lookup_def |> CONJUNCTS |> map (ISPEC “listCmp”) |> LIST_CONJ
+    |> REWRITE_RULE [GSYM lookup_listCmp_def];
+
+val pre = cv_trans_pre lookup_listCmp_eq;
+Theorem lookup_listCmp_pre[cv_pre]:
+  ∀k v. lookup_listCmp_pre k v
+Proof
+  Induct_on ‘v’ \\ gvs [] \\ simp [Once pre]
+QED
+
+Definition insert_listCmp_def:
+  insert_listCmp = insert listCmp
+End
+
+val insert_listCmp_eq =
+  balanced_mapTheory.insert_def |> CONJUNCTS |> map (ISPEC “listCmp”) |> LIST_CONJ
+    |> REWRITE_RULE [GSYM insert_listCmp_def,balanced_mapTheory.singleton_def];
+
+val fix = REWRITE_RULE [balanced_mapTheory.ratio_def,
+                        balanced_mapTheory.delta_def,
+                        GSYM GREATER_DEF]
+
+val _ = balanced_mapTheory.size_def |> cv_trans;
+val _ = balanced_mapTheory.balanceR_def |> oneline |> fix |> cv_trans;
+val _ = balanced_mapTheory.balanceL_def |> oneline |> fix |> cv_trans;
+
+val pre = insert_listCmp_eq |> cv_trans_pre;
+Theorem insert_listCmp_pre[cv_pre]:
+  ∀k v t. insert_listCmp_pre k v t
+Proof
+  Induct_on ‘t’ \\ simp [Once pre]
+QED
+
+val _ = word_cseTheory.arithOpToNum_def |> cv_trans;
+val _ = word_cseTheory.shiftToNum_def |> cv_trans;
+val _ = word_cseTheory.fpToNumList_def |> cv_trans;
+val _ = cv_trans word_cseTheory.firstRegOfArith_def;
+val _ = cv_trans word_cseTheory.canonicalRegs'_def;
+val _ = cv_trans word_cseTheory.canonicalImmReg'_def;
+val _ = cv_trans word_cseTheory.canonicalImmReg_def;
+val _ = cv_trans word_cseTheory.canonicalArith_def;
+val _ = cv_trans word_cseTheory.are_reads_seen_def;
+val _ = cv_trans word_cseTheory.is_complex_def;
+val _ = cv_trans word_cseTheory.is_store_def;
+val _ = cv_trans word_cseTheory.canonicalExp_def;
+val _ = cv_trans word_cseTheory.OpCurrHeapToNumList_def;
+
 val _ = export_theory();
