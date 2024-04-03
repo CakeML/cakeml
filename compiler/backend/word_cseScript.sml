@@ -3,13 +3,13 @@
   This pass is to run immeidately atfer the SSA-like renaming.
 *)
 
-open preamble wordLangTheory wordsTheory boolTheory mlmapTheory sptreeTheory
+open preamble wordLangTheory wordsTheory boolTheory balanced_mapTheory sptreeTheory
 
 val _ = new_theory "word_cse";
 
 Type regsE = ``:num list list``
 Type regsM = ``:num num_map``
-Type instrsM = ``:(num list,num)map``
+Type instrsM = ``:(num list,num) balanced_map``
 
 val _ = Datatype `knowledge = <| eq:regsE;
                                  map:regsM;
@@ -31,7 +31,7 @@ End
 Definition empty_data_def:
   empty_data = <| eq:=[];
                   map:=LN;
-                  instrs:=empty listCmp;
+                  instrs:=empty;
                   all_names:=LN |>
 End
 
@@ -318,7 +318,7 @@ End
 
 Definition add_to_data_aux_def:
   add_to_data_aux data r i x =
-    case mlmap$lookup data.instrs i of
+    case balanced_map$lookup listCmp i data.instrs of
     | SOME r' => if EVEN r then
                    (data, Move 0 [(r,r')])
                  else
@@ -326,7 +326,7 @@ Definition add_to_data_aux_def:
     | NONE    => if EVEN r then
                    (data, x)
                  else
-                   (data with <| instrs:=insert data.instrs i r; all_names:=insert r () data.all_names |>, x)
+                   (data with <| instrs:=insert listCmp i r data.instrs; all_names:=insert r () data.all_names |>, x)
 End
 
 Definition add_to_data_def:
