@@ -331,4 +331,52 @@ val _ = word_cseTheory.word_cseInst_def |> arch_spec |> cv_trans;
 val _ = word_cseTheory.word_cse_def |> arch_spec |> cv_trans;
 val _ = word_cseTheory.word_common_subexp_elim_def |> arch_spec |> cv_trans;
 
+val _ = word_allocTheory.limit_var_def |> arch_spec |> cv_trans;
+val _ = word_allocTheory.setup_ssa_def |> arch_spec |> cv_trans;
+val _ = word_allocTheory.ssa_cc_trans_inst_def |> arch_spec |> cv_trans;
+
+val pre = ssa_cc_trans_exp_eq |> arch_spec |> cv_trans_pre;
+Theorem ssa_cc_trans_exp_pre[cv_pre,local]:
+  (∀v t. ssa_cc_trans_exp_pre t v) ∧
+  (∀v t. ssa_cc_trans_exp_list_pre t v)
+Proof
+  ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+QED
+
+val pre = word_allocTheory.ssa_cc_trans_def |> arch_spec |> cv_auto_trans_pre;
+Theorem ssa_cc_trans_pre[cv_pre]:
+  ∀v ssa na. ssa_cc_trans_pre v ssa na
+Proof
+  ho_match_mp_tac word_allocTheory.ssa_cc_trans_ind \\ rw[] \\ simp [Once pre]
+QED
+
+val _ = word_allocTheory.full_ssa_cc_trans_def |> arch_spec |> cv_trans;
+
+val _ = word_simpTheory.SmartSeq_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.Seq_assoc_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.apply_if_opt_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.simp_if_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.const_fp_inst_cs_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.strip_const_def |> arch_spec |> cv_trans;
+val _ = wordLangTheory.word_sh_def |> arch_spec
+          |> SRULE [GREATER_EQ,wordsTheory.word_asr_n2w] |> cv_trans;
+
+val pre = const_fp_exp_eq |> arch_spec |> cv_auto_trans_pre;
+Theorem const_fp_exp_pre[cv_pre,local]:
+  (∀t v. const_fp_exp_pre t v) ∧
+  (∀t v. const_fp_exp_list_pre t v)
+Proof
+  ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+QED
+
+val pre = word_simpTheory.const_fp_loop_def |> arch_spec |> cv_auto_trans_pre;
+Theorem const_fp_loop_pre[cv_pre,local]:
+  ∀v cs. const_fp_loop_pre v cs
+Proof
+  ho_match_mp_tac word_simpTheory.const_fp_loop_ind \\ rw[] \\ simp [Once pre]
+QED
+
+val _ = word_simpTheory.const_fp_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.compile_exp_def |> arch_spec |> cv_trans;
+
 val _ = export_theory();

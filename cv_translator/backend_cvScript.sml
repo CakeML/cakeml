@@ -537,7 +537,7 @@ val insert_listCmp_eq =
 
 val fix = REWRITE_RULE [balanced_mapTheory.ratio_def,
                         balanced_mapTheory.delta_def,
-                        GSYM GREATER_DEF]
+                        GREATER_DEF]
 
 val _ = balanced_mapTheory.size_def |> cv_trans;
 val _ = balanced_mapTheory.balanceR_def |> oneline |> fix |> cv_trans;
@@ -563,5 +563,49 @@ val _ = cv_trans word_cseTheory.is_complex_def;
 val _ = cv_trans word_cseTheory.is_store_def;
 val _ = cv_trans word_cseTheory.canonicalExp_def;
 val _ = cv_trans word_cseTheory.OpCurrHeapToNumList_def;
+
+val _ = word_allocTheory.next_var_rename_def |> cv_trans;
+val _ = word_allocTheory.list_next_var_rename_def |> cv_trans;
+val _ = word_allocTheory.even_list_def |> cv_auto_trans;
+val _ = word_allocTheory.option_lookup_def |> cv_trans;
+
+Definition ssa_cc_trans_exp_list_def:
+  ssa_cc_trans_exp_list t =  MAP (λa. ssa_cc_trans_exp t a)
+End
+
+Triviality list_thm:
+  (∀t. ssa_cc_trans_exp_list t ([]:'a wordLang$exp list) = []) ∧
+  ∀x (xs:'a wordLang$exp list) t.
+    ssa_cc_trans_exp_list t (x::xs) = ssa_cc_trans_exp t x :: ssa_cc_trans_exp_list t xs
+Proof
+  gvs [ssa_cc_trans_exp_list_def]
+QED
+
+Theorem ssa_cc_trans_exp_eq =
+  CONJUNCTS (CONJ word_allocTheory.ssa_cc_trans_exp_def list_thm) |> LIST_CONJ
+  |> SRULE [GSYM ssa_cc_trans_exp_list_def];
+
+Definition const_fp_exp_list_def:
+  const_fp_exp_list ls cs = MAP (λa. const_fp_exp a cs) ls
+End
+
+Triviality list_thm:
+  (∀cs. const_fp_exp_list ([]:'a wordLang$exp list) cs = []) ∧
+  ∀x (xs:'a wordLang$exp list) cs.
+    const_fp_exp_list (x::xs) cs = const_fp_exp x cs :: const_fp_exp_list xs cs
+Proof
+  gvs [const_fp_exp_list_def]
+QED
+
+Theorem const_fp_exp_eq =
+  CONJUNCTS (CONJ word_simpTheory.const_fp_exp_def list_thm) |> LIST_CONJ
+  |> SRULE [GSYM const_fp_exp_list_def];
+
+val _ = word_simpTheory.dest_If_def |> cv_trans;
+val _ = word_simpTheory.dest_If_Eq_Imm_def |> cv_trans;
+val _ = word_simpTheory.dest_Seq_def |> cv_trans;
+val _ = word_simpTheory.dest_Seq_Assign_Const_def |> cv_trans;
+val _ = word_simpTheory.const_fp_move_cs_def |> cv_trans;
+val _ = cv_trans word_to_wordTheory.next_n_oracle_def;
 
 val _ = export_theory();

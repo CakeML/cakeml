@@ -232,9 +232,17 @@ Proof
   \\ first_x_assum irule \\ gvs [wordLangTheory.prog_size_def]
 QED
 
+val pre = each_inlogic_arm8_def |> cv_trans_pre;
+Theorem each_inlogic_arm8_pre[cv_pre,local]:
+  ∀v. each_inlogic_arm8_pre v
+Proof
+  Induct \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = cv_trans word_to_word_inlogic_arm8_def;
+val _ = cv_trans from_word_0_arm8_def;
+
 (*
-each_inlogic_arm8_def
-word_to_word_inlogic_arm8_def
 to_word_0_arm8_def
 compile_0_arm8_def |> SRULE [data_to_wordTheory.stubs_def]
 compile_cake_arm8_def
