@@ -6,7 +6,15 @@ open backendTheory;
 
 val _ = new_theory "backend_cv";
 
+val _ = cv_memLib.use_long_names := true;
+
 val _ = cv_trans sptreeTheory.fromAList_def;
+val _ = cv_trans miscTheory.append_aux_def;
+val _ = cv_trans miscTheory.append_def;
+val _ = cv_trans miscTheory.tlookup_def;
+val _ = cv_trans mlstringTheory.explode_thm;
+val _ = cv_trans miscTheory.list_max_def;
+val _ = cv_trans (miscTheory.max3_def |> PURE_REWRITE_RULE [GREATER_DEF]);
 
 val _ = cv_trans lab_to_targetTheory.lab_inst_def;
 val _ = cv_auto_trans lab_to_targetTheory.get_ffi_index_def;
@@ -31,8 +39,8 @@ QED
 val pre = cv_trans_pre $
   SRULE [make_cv_term_provable] num_list_enc_decTheory.num_to_chars_def;
 
-Theorem num_to_chars_pre[cv_pre,local]:
-  ∀n. num_to_chars_pre n
+Theorem num_list_enc_dec_num_to_chars_pre[cv_pre,local]:
+  ∀n. num_list_enc_dec_num_to_chars_pre n
 Proof
   completeInduct_on ‘n’ \\ simp [Once pre] \\ rw []
   \\ ‘n MOD 30 < 30’ by gs [] \\ decide_tac
@@ -236,9 +244,6 @@ val _ = cv_auto_trans backend_asmTheory.attach_bitmaps_def;
 
 (* ------------------------------------------------------------------------ *)
 
-val _ = cv_trans miscTheory.append_aux_def;
-val _ = cv_trans miscTheory.append_def;
-val _ = cv_trans miscTheory.tlookup_def;
 val _ = cv_trans stack_to_labTheory.negate_def;
 val _ = cv_trans stack_to_labTheory.is_gen_gc_def;
 val _ = stack_namesTheory.dest_find_name_def |> cv_trans;
@@ -286,29 +291,21 @@ Proof
   \\ Induct \\ gvs [map_pair_def,FORALL_PROD]
 QED
 
-Definition max_var_word_exp_def:
-  max_var_word_exp (wordLang$Var n) = n ∧
-  max_var_word_exp (Load e) = max_var_word_exp e ∧
-  max_var_word_exp (Shift _ e _) = max_var_word_exp e ∧
-  max_var_word_exp (Op _ xs) = max_var_word_exp_list xs ∧
-  max_var_word_exp _ = 0 ∧
-  max_var_word_exp_list [] = 0 ∧
-  max_var_word_exp_list (e::es) = MAX (max_var_word_exp e) (max_var_word_exp_list es)
-Termination
-  WF_REL_TAC ‘measure $ λx. case x of
-              | INL e => exp_size (K 0) e
-              | INR es => list_size (exp_size (K 0)) es’
+Definition max_var_exp_list_def:
+  max_var_exp_list ls = list_max (MAP (λx. max_var_exp x) ls)
 End
 
-Theorem max_var_word_exp_thm[cv_inline]:
-  (∀e:'a exp. max_var_exp e = max_var_word_exp e) ∧
-  (∀es:'a exp list. list_max (MAP max_var_exp es) = max_var_word_exp_list es)
+Triviality max_var_exp_list_thm:
+  max_var_exp_list ([]:'a wordLang$exp list) = 0 ∧
+  ∀e es:'a wordLang$exp list.
+    max_var_exp_list (e::es) = MAX (max_var_exp e) (max_var_exp_list es)
 Proof
-  ho_match_mp_tac max_var_word_exp_ind
-  \\ rw [] \\ gvs [wordLangTheory.max_var_exp_def,max_var_word_exp_def,SF ETA_ss]
-  \\ gvs [list_max_def] \\ rw [] \\ gvs [MAX_DEF]
+  gvs [max_var_exp_list_def,list_max_def,MAX_DEF] \\ rw []
 QED
 
+Theorem max_var_exp_eq =
+  CONJ wordLangTheory.max_var_exp_def max_var_exp_list_thm |> CONJUNCTS
+  |> LIST_CONJ |> REWRITE_RULE [GSYM max_var_exp_list_def];
 
 val _ = cv_auto_trans word_allocTheory.every_even_colour_def;
 val _ = cv_auto_trans word_allocTheory.total_colour_def;
@@ -405,12 +402,6 @@ Theorem oracle_colour_ok_eq = word_allocTheory.oracle_colour_ok_def
 
 val _ = every_name'_eq |> cv_auto_trans;
 
-Theorem ALL_DISTINCT_pre[cv_pre]:
-  ∀v. ALL_DISTINCT_pre v
-Proof
-  Induct \\ rw [] \\ simp [Once ALL_DISTINCT_pre_cases]
-QED
-
 val _ = check_col'_eq |> cv_auto_trans;
 
 val pre = check_partial_col'_eq |> cv_trans_pre;
@@ -463,8 +454,8 @@ Triviality get_live_exp_eq =
   |> LIST_CONJ |> SRULE [GSYM get_live_exps_def];
 
 val pre = cv_trans_pre get_live_exp_eq
-Theorem get_live_exp_pre[cv_pre]:
-  (∀v:'a exp. get_live_exp_pre v) ∧
+Theorem word_alloc_get_live_exp_pre[cv_pre]:
+  (∀v:'a exp. word_alloc_get_live_exp_pre v) ∧
   (∀v:'a exp list. get_live_exps_pre v)
 Proof
   ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
@@ -472,7 +463,6 @@ QED
 
 val _ = cv_trans word_instTheory.is_Lookup_CurrHeap_def;
 val _ = cv_trans word_instTheory.pull_ops_def;
-
 
 Definition pull_exp_list_def:
   pull_exp_list ls = MAP (λa. pull_exp a) ls
@@ -629,7 +619,6 @@ val _ = cv_trans data_to_wordTheory.fp_top_inst_def;
 val _ = cv_trans data_to_wordTheory.fp_bop_inst_def;
 val _ = cv_trans data_to_wordTheory.fp_uop_inst_def;
 val _ = bitTheory.SLICE_def |> SRULE [bitTheory.MOD_2EXP_def] |> cv_trans;
-val _ = cv_trans mlstringTheory.explode_thm;
 
 Definition get_words_def:
   get_words [] = [] ∧
@@ -643,6 +632,43 @@ Proof
   Induct_on ‘ws’ \\ gvs [get_words_def,FORALL_PROD]
   \\ gen_tac \\ Cases \\ gvs [get_words_def]
 QED
+
+Definition map_compile_part_def:
+  map_compile_part c [] = [] ∧
+  map_compile_part c (p::ps) = data_to_word$compile_part c p :: map_compile_part c ps
+End
+
+Theorem to_map_compile_part:
+  ∀ps. MAP (compile_part c) ps = map_compile_part c ps
+Proof
+  Induct \\ gvs [map_compile_part_def]
+QED
+
+val _ = word_allocTheory.get_coalescecost_def |> cv_trans;
+val _ = word_allocTheory.get_spillcost_def |> cv_trans;
+val _ = word_allocTheory.canonize_moves_aux_def |> cv_trans;
+val _ = word_allocTheory.heu_max_all_def |> cv_auto_trans;
+val _ = word_allocTheory.heu_merge_call_def |> cv_trans;
+
+(*
+word_allocTheory.canonize_moves_def |> arch_spec |> cv_trans;
+*)
+
+Theorem canonize_moes_fake:
+  canonize_moves moves = []
+Proof
+  cheat
+QED
+
+val _ = cv_trans canonize_moes_fake;
+
+Theorem to_data_fake:
+  to_data c p = (c,[],LN)
+Proof
+  cheat
+QED
+
+val _ = cv_trans to_data_fake;
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();

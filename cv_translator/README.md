@@ -8,3 +8,6 @@ Translate arm8-specialised functions to cv equations.
 
 [backend_cvScript.sml](backend_cvScript.sml):
 Translate non-target-specific backend functions to cv equations.
+
+[backend_x64_cvScript.sml](backend_x64_cvScript.sml):
+Translate x64-specialised functions to cv equations.
