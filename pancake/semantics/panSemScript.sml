@@ -66,6 +66,7 @@ Proof
   res_tac >> decide_tac
 QED
 
+
 Definition shape_of_def:
   shape_of (ValWord _) = One /\
   shape_of (ValLabel _) = One /\
@@ -486,6 +487,7 @@ End
 
 val evaluate_ind = theorem"evaluate_ind";
 
+
 Theorem vshapes_args_rel_imp_eq_len_MAP:
   !vshapes args.
     LIST_REL (\vshape arg. SND vshape = shape_of arg)  vshapes args ==>
@@ -564,6 +566,7 @@ Definition semantics_def:
            (IMAGE (λk. fromList
               (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
 End
+
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
 
