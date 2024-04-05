@@ -404,7 +404,8 @@ Definition fbs_semantics_beh_def:
          SOME (r,s') => (case r of
                            SOME (Return _) => SemTerminate (r,s') s'.ffi.io_events
                          | SOME (FinalFFI _) => SemTerminate (r,s') s'.ffi.io_events
-                         | _ => SemFail)
+                         | SOME Error => SemFail
+                         | _ =>  SemTerminate (r,s') s'.ffi.io_events)
        | NONE => SemFail)
   else SemDiverge (build_lprefix_lub
                    (IMAGE (λk. fromList
@@ -421,7 +422,8 @@ Definition itree_semantics_beh_def:
                       SOME TimeOut => SemTerminate (r,s') s'.ffi.io_events
                     | SOME (FinalFFI _) => SemTerminate (r,s') s'.ffi.io_events
                     | SOME (Return _) => SemTerminate (r,s') s'.ffi.io_events
-                    | _ => SemFail)
+                    | SOME Error => SemFail
+                    | _ => SemTerminate (r,s') s'.ffi.io_events)
       | NONE => SemDiverge (stree_trace query_oracle s.ffi (to_stree (mrec_sem (h_prog (prog,s)))))
 End
 
@@ -527,20 +529,19 @@ Proof
 QED
 
 Theorem fbs_semantics_beh_simps:
-  (fbs_semantics_beh s Skip = SemFail) ∧
+  (∃k. fbs_semantics_beh s Skip = SemTerminate (NONE, s with clock := k) s.ffi.io_events) ∧
   (eval s e = NONE ⇒ fbs_semantics_beh s (Dec v e prog) ≠ SemTerminate p l)
 Proof
   rw []
-  >- (rw [fbs_semantics_beh_def]
-      >- (DEEP_INTRO_TAC some_intro >> rw [] >>
-          ntac 3 TOP_CASE_TAC >>
-          fs [panSemTheory.evaluate_def]) >>
-      fs [panSemTheory.evaluate_def])
-  >- (rw [fbs_semantics_beh_def,
-          panSemTheory.evaluate_def] >>
-      rw [panPropsTheory.eval_upd_clock_eq] >>
+  >- (rw [fbs_semantics_beh_def,panSemTheory.evaluate_def]>>
+      DEEP_INTRO_TAC some_intro >> rw [EXISTS_PROD] >>
+      ntac 2 TOP_CASE_TAC >>
+      gvs[]>>metis_tac[]) >>
+  rw [fbs_semantics_beh_def,
+      panSemTheory.evaluate_def] >>
+  rw [panPropsTheory.eval_upd_clock_eq] >>
       DEEP_INTRO_TAC some_intro >> rw [] >>
-      FULL_CASE_TAC >> fs [])
+      FULL_CASE_TAC >> fs []
 QED
 
 Theorem itree_wbisim_neq:
