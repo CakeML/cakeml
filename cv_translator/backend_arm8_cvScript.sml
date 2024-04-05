@@ -2,7 +2,7 @@
   Translate arm8-specialised functions to cv equations.
 *)
 open preamble cv_transLib cv_stdTheory backend_cvTheory backend_64_cvTheory;
-open backend_arm8Theory arm8Theory arm8_targetTheory;
+open backend_arm8Theory arm8Theory arm8_targetTheory to_data_cvTheory;
 
 val _ = new_theory "backend_arm8_cv";
 

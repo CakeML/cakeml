@@ -7,7 +7,7 @@ open backendTheory;
 (* The following line is (and shall remain) the only difference between
    the 32-bit and 64-bit versions of this file. *)
 
-val arch_size = (new_theory "backend_64_cv"; “:64”);
+val arch_size = (new_theory "backend_32_cv"; “:32”);
 
 val arch_spec = INST_TYPE [alpha |-> arch_size];
 val arch_spec_beta = INST_TYPE [beta |-> arch_size];

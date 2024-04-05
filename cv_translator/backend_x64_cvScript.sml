@@ -2,7 +2,7 @@
   Translate x64-specialised functions to cv equations.
 *)
 open preamble cv_transLib cv_stdTheory backend_cvTheory backend_64_cvTheory;
-open backend_x64Theory x64Theory x64_targetTheory;
+open backend_x64Theory x64Theory x64_targetTheory to_data_cvTheory;
 
 val _ = new_theory "backend_x64_cv";
 

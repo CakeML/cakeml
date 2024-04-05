@@ -2,19 +2,11 @@
   Translate non-target-specific backend functions to cv equations.
 *)
 open preamble cv_transLib cv_stdTheory;
-open backendTheory;
+open backendTheory to_data_cvTheory;
 
 val _ = new_theory "backend_cv";
 
 val _ = cv_memLib.use_long_names := true;
-
-val _ = cv_trans sptreeTheory.fromAList_def;
-val _ = cv_trans miscTheory.append_aux_def;
-val _ = cv_trans miscTheory.append_def;
-val _ = cv_trans miscTheory.tlookup_def;
-val _ = cv_trans mlstringTheory.explode_thm;
-val _ = cv_trans miscTheory.list_max_def;
-val _ = cv_trans (miscTheory.max3_def |> PURE_REWRITE_RULE [GREATER_DEF]);
 
 val _ = cv_trans lab_to_targetTheory.lab_inst_def;
 val _ = cv_auto_trans lab_to_targetTheory.get_ffi_index_def;
@@ -650,25 +642,88 @@ val _ = word_allocTheory.canonize_moves_aux_def |> cv_trans;
 val _ = word_allocTheory.heu_max_all_def |> cv_auto_trans;
 val _ = word_allocTheory.heu_merge_call_def |> cv_trans;
 
-(*
-word_allocTheory.canonize_moves_def |> arch_spec |> cv_trans;
-*)
+val tm = word_allocTheory.canonize_moves_def
+           |> concl |> find_term (can (match_term “QSORT _”)) |> rand;
 
-Theorem canonize_moes_fake:
-  canonize_moves moves = []
+Definition QSORT_canonize_def:
+  QSORT_canonize = QSORT ^tm
+End
+
+val qsort = sortingTheory.QSORT_DEF
+            |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
+            |> Q.GEN ‘ord’ |> ISPEC tm
+            |> SRULE [GSYM QSORT_canonize_def, LAMBDA_PROD]
+            |> GEN_ALL |> SRULE [FORALL_PROD,sortingTheory.PARTITION_DEF]
+            |> REWRITE_RULE [GSYM APPEND_ASSOC,APPEND] |> SPEC_ALL
+
+val tm2 = qsort |> concl |> find_term (can (match_term “PART _”)) |> rand;
+
+Definition PART_canonize_def:
+  PART_canonize p_1 p_1' p_2 = PART ^tm2
+End
+
+val part_eq = sortingTheory.PART_DEF
+            |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
+            |> Q.GEN ‘P’ |> ISPEC tm2 |> SRULE [GSYM PART_canonize_def]
+            |> GEN_ALL |> SRULE [FORALL_PROD] |> SPEC_ALL
+
+val qsort_eq = qsort |> SRULE [GSYM PART_canonize_def]
+
+val pre = cv_trans_pre part_eq;
+Theorem PART_canonize_pre[cv_pre]:
+  ∀p_1 p_3 p_2 v l1 l2. PART_canonize_pre p_1 p_3 p_2 v l1 l2
 Proof
-  cheat
+  Induct_on ‘v’ \\ rw [] \\ simp [Once pre]
 QED
 
-val _ = cv_trans canonize_moes_fake;
-
-Theorem to_data_fake:
-  to_data c p = (c,[],LN)
+Triviality cv_PART_size_cv_fst:
+  ∀xs acc1 acc2.
+    cv_sum_depth (cv_fst (cv_PART_canonize x y z xs acc1 acc2)) ≤
+    cv_sum_depth xs + cv_sum_depth acc1
 Proof
-  cheat
+  Induct \\ simp [Once $ fetch "-" "cv_PART_canonize_def"]
+  \\ rw [] \\ irule LESS_EQ_TRANS \\ first_x_assum $ irule_at Any
+  \\ cv_termination_tac
 QED
 
-val _ = cv_trans to_data_fake;
+Triviality cv_PART_size_cv_snd:
+  ∀xs acc1 acc2.
+    cv_sum_depth (cv_snd (cv_PART_canonize x y z xs acc1 acc2)) ≤
+    cv_sum_depth xs + cv_sum_depth acc2
+Proof
+  Induct \\ simp [Once $ fetch "-" "cv_PART_canonize_def"]
+  \\ rw [] \\ irule LESS_EQ_TRANS \\ first_x_assum $ irule_at Any
+  \\ cv_termination_tac
+QED
+
+Triviality PART_LENGTH:
+  ∀xs ys zs ys1 zs1.
+    PART ord xs ys zs = (ys1,zs1) ⇒
+    LENGTH ys1 ≤ LENGTH ys + LENGTH xs ∧
+    LENGTH zs1 ≤ LENGTH zs + LENGTH xs
+Proof
+  Induct \\ gvs [sortingTheory.PART_DEF]
+  \\ rw [] \\ res_tac \\ gvs []
+QED
+
+val pre = cv_trans_pre_rec qsort_eq
+  (WF_REL_TAC ‘measure cv_sum_depth’ \\ rw []
+   \\ Cases_on ‘cv_v’ \\ gvs []
+   \\ irule LESS_EQ_LESS_TRANS
+   >- (irule_at Any cv_PART_size_cv_fst \\ gvs [])
+   >- (irule_at Any cv_PART_size_cv_snd \\ gvs []))
+
+Theorem QSORT_canonize_pre[cv_pre]:
+  ∀xs. QSORT_canonize_pre xs
+Proof
+  gen_tac \\ completeInduct_on ‘LENGTH xs’ \\ rw [] \\ gvs [PULL_FORALL]
+  \\ simp [Once pre] \\ rw []
+  \\ last_x_assum irule \\ gvs [PART_canonize_def]
+  \\ imp_res_tac PART_LENGTH \\ gvs []
+QED
+
+val _ = word_allocTheory.canonize_moves_def |> SRULE [GSYM QSORT_canonize_def]
+                                            |> cv_auto_trans;
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();
