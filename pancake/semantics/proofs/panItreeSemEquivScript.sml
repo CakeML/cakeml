@@ -552,33 +552,32 @@ Proof
 QED
 
 Theorem itree_semantics_beh_simps:
-  (itree_semantics_beh s Skip = SemFail) ∧
+  (itree_semantics_beh s Skip = SemTerminate (NONE, s) s.ffi.io_events) ∧
   (eval s e = NONE ⇒
    itree_semantics_beh s (Dec v e prog) = SemFail)
 Proof
   rw []
-  >- (rw [itree_semantics_beh_def]
-      >- (DEEP_INTRO_TAC some_intro >> rw []
-          >- (ntac 3 TOP_CASE_TAC >>
-              fs [panItreeSemTheory.h_prog_def,
-                  panItreeSemTheory.mrec_sem_simps] >>
-              fs [ltree_lift_cases] >>
-              fs [itree_wbisim_neq])
-          >- (qexists_tac ‘(NONE,s)’ >> rw [] >>
-              rw [panItreeSemTheory.h_prog_def,
-                  panItreeSemTheory.mrec_sem_simps] >>
-              rw [ltree_lift_cases] >>
-              rw [itreeTauTheory.itree_wbisim_refl])))
-  >- (rw [itree_semantics_beh_def,
-          panItreeSemTheory.h_prog_def,
-          panItreeSemTheory.h_prog_rule_dec_def,
-          panItreeSemTheory.mrec_sem_simps] >>
-      rw [ltree_lift_cases] >>
+  >- (rw [itree_semantics_beh_def]>>
       DEEP_INTRO_TAC some_intro >> rw []
-      >- (ntac 2 (FULL_CASE_TAC >> fs []) >>
-          fs [itree_wbisim_neq])
-      >- (qexists_tac ‘(SOME Error,s)’ >>
-          rw [itreeTauTheory.itree_wbisim_refl]))
+      >- (ntac 2 TOP_CASE_TAC >>
+          fs [panItreeSemTheory.h_prog_def,
+              panItreeSemTheory.mrec_sem_simps] >>
+          fs [ltree_lift_cases] >>
+          fs [Once itreeTauTheory.itree_wbisim_cases])>>
+      simp[EXISTS_PROD]>>
+      fs [panItreeSemTheory.h_prog_def,
+          panItreeSemTheory.mrec_sem_simps] >>
+      fs [ltree_lift_cases] >>
+      fs [Once itreeTauTheory.itree_wbisim_cases])>>
+  rw [itree_semantics_beh_def]>>
+  DEEP_INTRO_TAC some_intro >> rw [EXISTS_PROD]>>
+  fs [itree_semantics_beh_def,
+      panItreeSemTheory.h_prog_def,
+      panItreeSemTheory.h_prog_rule_dec_def] >>
+  rpt CASE_TAC>>gvs[]>>
+  fs [ltree_lift_cases,
+      panItreeSemTheory.mrec_sem_simps] >>
+  fs [Once itreeTauTheory.itree_wbisim_cases]
 QED
 
 Theorem itree_semantics_corres:
