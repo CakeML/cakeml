@@ -7,7 +7,7 @@ Translate arch-size-specific functions to cv equations.
 Translate arch-size-specific functions to cv equations.
 
 [backend_ag32_cvScript.sml](backend_ag32_cvScript.sml):
-Translate arm8-specialised functions to cv equations.
+Translate ag32-specialised functions to cv equations.
 
 [backend_arm8_cvScript.sml](backend_arm8_cvScript.sml):
 Translate arm8-specialised functions to cv equations.

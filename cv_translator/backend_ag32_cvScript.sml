@@ -1,5 +1,5 @@
 (*
-  Translate arm8-specialised functions to cv equations.
+  Translate ag32-specialised functions to cv equations.
 *)
 open preamble cv_transLib cv_stdTheory backend_cvTheory backend_32_cvTheory;
 open backend_ag32Theory ag32Theory ag32_targetTheory to_data_cvTheory;
