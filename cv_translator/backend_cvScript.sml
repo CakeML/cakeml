@@ -678,8 +678,8 @@ QED
 
 Triviality cv_PART_size_cv_fst:
   ∀xs acc1 acc2.
-    cv_sum_depth (cv_fst (cv_PART_canonize x y z xs acc1 acc2)) ≤
-    cv_sum_depth xs + cv_sum_depth acc1
+    cv_size (cv_fst (cv_PART_canonize x y z xs acc1 acc2)) ≤
+    cv_size xs + cv_size acc1
 Proof
   Induct \\ simp [Once $ fetch "-" "cv_PART_canonize_def"]
   \\ rw [] \\ irule LESS_EQ_TRANS \\ first_x_assum $ irule_at Any
@@ -688,8 +688,8 @@ QED
 
 Triviality cv_PART_size_cv_snd:
   ∀xs acc1 acc2.
-    cv_sum_depth (cv_snd (cv_PART_canonize x y z xs acc1 acc2)) ≤
-    cv_sum_depth xs + cv_sum_depth acc2
+    cv_size (cv_snd (cv_PART_canonize x y z xs acc1 acc2)) ≤
+    cv_size xs + cv_size acc2
 Proof
   Induct \\ simp [Once $ fetch "-" "cv_PART_canonize_def"]
   \\ rw [] \\ irule LESS_EQ_TRANS \\ first_x_assum $ irule_at Any
@@ -707,7 +707,7 @@ Proof
 QED
 
 val pre = cv_trans_pre_rec qsort_eq
-  (WF_REL_TAC ‘measure cv_sum_depth’ \\ rw []
+  (WF_REL_TAC ‘measure cv_size’ \\ rw []
    \\ Cases_on ‘cv_v’ \\ gvs []
    \\ irule LESS_EQ_LESS_TRANS
    >- (irule_at Any cv_PART_size_cv_fst \\ gvs [])

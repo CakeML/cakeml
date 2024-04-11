@@ -78,7 +78,7 @@ Termination
 End
 
 val count_trailing_tac =
-  (WF_REL_TAC `measure cv_sum_depth` >> cv_termination_tac >>
+  (WF_REL_TAC `measure cv_size` >> cv_termination_tac >>
    gvs[GSYM cv_primTheory.cv_rep_exp] >>
    Cases_on `cv_w` >> gvs[] >>
    rw[DIV_LT_X] >> Cases_on `m` >> gvs[])

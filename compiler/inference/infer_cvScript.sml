@@ -206,10 +206,10 @@ val _ = cv_trans nsOptBind_def;
 val infer_e_pre = cv_auto_trans_pre_rec
           (infer_e_expand |> SRULE [namespaceTheory.alist_to_ns_def])
  (WF_REL_TAC ‘measure $ λx. case x of
-                            | INL (_,_,e,_) => cv_sum_depth e
-                            | INR (INL (_,_,es,_)) => cv_sum_depth es
-                            | INR (INR (INL (_,_,pes,_,_,_))) => cv_sum_depth pes
-                            | INR (INR (INR (_,_,funs,_))) => cv_sum_depth funs’
+                            | INL (_,_,e,_) => cv_size e
+                            | INR (INL (_,_,es,_)) => cv_size es
+                            | INR (INR (INL (_,_,pes,_,_,_))) => cv_size pes
+                            | INR (INR (INR (_,_,funs,_))) => cv_size funs’
   \\ rpt conj_tac \\ cv_termination_tac);
 
 Definition exp_is_value_def:

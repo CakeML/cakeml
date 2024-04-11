@@ -152,7 +152,7 @@ val _ = word_to_stackTheory.wMove_def |> arch_spec |> cv_auto_trans;
 val _ = word_to_stackTheory.bits_to_word_def |> arch_spec |> cv_trans;
 
 Triviality cv_DROP_lemma:
-  ∀n cv_xs. cv_sum_depth (cv_DROP (Num n) cv_xs) ≤ cv_sum_depth cv_xs
+  ∀n cv_xs. cv_size (cv_DROP (Num n) cv_xs) ≤ cv_size cv_xs
 Proof
   Induct \\ rw [] \\ simp [Once cv_DROP_def]
   \\ Cases_on ‘cv_xs’ \\ gvs []
@@ -161,7 +161,7 @@ Proof
 QED
 
 val _ = cv_trans_rec (word_to_stackTheory.word_list_def |> arch_spec)
- (WF_REL_TAC ‘measure $ cv_sum_depth o FST’ \\ Cases \\ rw []
+ (WF_REL_TAC ‘measure $ cv_size o FST’ \\ Cases \\ rw []
   \\ Cases_on ‘cv_d’ \\ gvs []
   >- (last_x_assum mp_tac \\ simp [cv_LENGTH_def,Once cv_LEN_def] \\ gvs [])
   \\ rename [‘Num n’] \\ Cases_on ‘n’ \\ gvs []
@@ -461,7 +461,7 @@ val _ = data_to_wordTheory.getWords_def |> arch_spec_beta |> cv_trans;
 val cv_getWords_def = fetch "-" "cv_data_to_word_getWords_def";
 
 Triviality cv_getWords_lemma:
-  ∀g acc. cv_sum_depth (cv_snd (cv_data_to_word_getWords g acc)) ≤ cv_sum_depth g
+  ∀g acc. cv_size (cv_snd (cv_data_to_word_getWords g acc)) ≤ cv_size g
 Proof
   Induct \\ gvs []
   \\ simp [Once cv_getWords_def]
@@ -472,7 +472,7 @@ Proof
 QED
 
 val pre = cv_trans_pre_rec (data_to_wordTheory.StoreAnyConsts_def |> arch_spec)
-  (WF_REL_TAC ‘measure $ λ(_,_,_,xs,_). cv_sum_depth xs’
+  (WF_REL_TAC ‘measure $ λ(_,_,_,xs,_). cv_size xs’
    \\ reverse (rw []) >- cv_termination_tac
    \\ simp [Once cv_getWords_def]
    \\ Cases_on ‘cv_v’ \\ gvs []
