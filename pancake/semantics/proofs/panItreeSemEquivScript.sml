@@ -412,8 +412,6 @@ Definition fbs_semantics_beh_def:
                                (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
 End
 
-(* XXX: This approach requires proof that stree_trace and ltree_lift are doing
- essentially the same thing but for different purposes. *)
 Definition itree_semantics_beh_def:
   itree_semantics_beh s prog =
   let lt = ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,s))) in
@@ -529,19 +527,21 @@ Proof
 QED
 
 Theorem fbs_semantics_beh_simps:
-  (∃k. fbs_semantics_beh s Skip = SemTerminate (NONE, s with clock := k) s.ffi.io_events) ∧
+  (∃k. fbs_semantics_beh s Skip = SemTerminate (NONE,s with clock := k) s.ffi.io_events) ∧
   (eval s e = NONE ⇒ fbs_semantics_beh s (Dec v e prog) ≠ SemTerminate p l)
 Proof
   rw []
-  >- (rw [fbs_semantics_beh_def,panSemTheory.evaluate_def]>>
+  >- (rw [fbs_semantics_beh_def,
+          panSemTheory.evaluate_def] >>
       DEEP_INTRO_TAC some_intro >> rw [EXISTS_PROD] >>
       ntac 2 TOP_CASE_TAC >>
-      gvs[]>>metis_tac[]) >>
-  rw [fbs_semantics_beh_def,
-      panSemTheory.evaluate_def] >>
-  rw [panPropsTheory.eval_upd_clock_eq] >>
+      pairarg_tac >> gvs [] >>
+      qexists_tac ‘k’ >> rw [])
+  >- (rw [fbs_semantics_beh_def,
+          panSemTheory.evaluate_def] >>
+      rw [panPropsTheory.eval_upd_clock_eq] >>
       DEEP_INTRO_TAC some_intro >> rw [] >>
-      FULL_CASE_TAC >> fs []
+      FULL_CASE_TAC >> fs [])
 QED
 
 Theorem itree_wbisim_neq:
@@ -557,13 +557,13 @@ Theorem itree_semantics_beh_simps:
    itree_semantics_beh s (Dec v e prog) = SemFail)
 Proof
   rw []
-  >- (rw [itree_semantics_beh_def]>>
+  >- (rw [itree_semantics_beh_def] >>
       DEEP_INTRO_TAC some_intro >> rw []
       >- (ntac 2 TOP_CASE_TAC >>
           fs [panItreeSemTheory.h_prog_def,
               panItreeSemTheory.mrec_sem_simps] >>
           fs [ltree_lift_cases] >>
-          fs [Once itreeTauTheory.itree_wbisim_cases])>>
+          fs [Once itreeTauTheory.itree_wbisim_cases]) >>
       simp[EXISTS_PROD]>>
       fs [panItreeSemTheory.h_prog_def,
           panItreeSemTheory.mrec_sem_simps] >>
@@ -580,64 +580,169 @@ Proof
   fs [Once itreeTauTheory.itree_wbisim_cases]
 QED
 
+Theorem fbs_semantics_beh_cases:
+  fbs_semantics_beh s prog = SemDiverge l ⇔
+  (∀k. FST (evaluate (prog,s with clock := k)) = SOME TimeOut) ∧
+  l = LUB (IMAGE
+           (λk. fromList
+                (SND (evaluate (prog,s with clock := k))).ffi.io_events) 𝕌(:num))
+Proof
+  EQ_TAC
+  >- (rpt strip_tac >>>
+          TRYALL (fs [fbs_semantics_beh_def] >>
+                  rpt (FULL_CASE_TAC >> gvs [])))
+  >- (rw [fbs_semantics_beh_def])
+QED
+
+Theorem nat_not_const_eq:
+  ¬(∀k:num. k = 0)
+Proof
+  rw []
+QED
+
+Theorem itree_semantics_beh_clock_lem:
+  itree_semantics_beh (s with clock := k) p = itree_semantics_beh s p
+Proof
+  cheat
+QED
+
+Theorem itree_semantics_beh_dec_clock_lem[simp]:
+  itree_semantics_beh (dec_clock s) p = itree_semantics_beh s p
+Proof
+  cheat
+QED
+
+(* TODO: Need to prove the correspondence for While more directly
+ to better understand what is required here... *)
 Theorem itree_semantics_corres:
   fbs_semantics_beh s prog = itree_semantics_beh s prog
 Proof
-  (* Induction over program terms *)
-  qid_spec_tac ‘s’ >>
-  qid_spec_tac ‘prog’ >>
-  recInduct panSemTheory.evaluate_ind >>
-  rw []
-  (* Skip *)
-  >- (Cases_on ‘fbs_semantics_beh s Skip’ >>
-      fs [fbs_semantics_beh_simps]
-      (* Fail is equiv *)
-      >- (rw [itree_semantics_beh_simps]))
-  (* Dec *)
-  >- (Cases_on ‘fbs_semantics_beh s (Dec v e prog)’
-      (* Div *)
-      >- (Cases_on ‘eval s e’ >> rw []
-          >- (fs [fbs_semantics_beh_def,
-                  panSemTheory.evaluate_def] >>
-              gvs [panPropsTheory.eval_upd_clock_eq] >>
-              UNDISCH_TAC “(case
-                           some(r,s'). ∃k.
-                             (r = SOME Error ∧ s with clock := k = s') ∧ r ≠ SOME TimeOut
-                           of
-                             NONE => SemFail
-                           | SOME (r,s') =>
-                               case r of
-                                 NONE => SemFail
-                               | SOME Error => SemFail
-                               | SOME TimeOut => SemFail
-                               | SOME Break => SemFail
-                               | SOME Continue => SemFail
-                               | SOME (Return v6) => SemTerminate (r,s') s'.ffi.io_events
-                               | SOME (Exception v7 v8) => SemFail
-                               | SOME (FinalFFI v9) => SemTerminate (r,s') s'.ffi.io_events) =
-                           SemDiverge l” >>
-              DEEP_INTRO_TAC some_intro >> rw [] >>
-              FULL_CASE_TAC >> gvs [])
-          >- (drule fbs_sem_div_compos_thm >> disch_tac >>
-              gvs [] >>
-              ‘SemDiverge l = itree_semantics_beh s (Dec v e prog)’ suffices_by (gvs []) >>
-              irule (GSYM itree_sem_div_compos_thm) >>
-              qexists_tac ‘x’ >> rw []))
-      (* Conv *)
-      >- (Cases_on ‘eval s e’ >> rw []
-          >- (fs [fbs_semantics_beh_simps])
-          >- (drule fbs_sem_conv_compos_thm >> disch_tac >>
-              gvs [] >>
-              ‘SemTerminate p l = itree_semantics_beh s (Dec v e prog)’ suffices_by (gvs []) >>
-              irule (GSYM itree_sem_conv_compos_thm) >>
-              qexists_tac ‘x’ >> rw []))
-         (* Fail *)
-      >- (Cases_on ‘eval s e’ >> rw []
-          >- (fs [itree_semantics_beh_simps])
-          >- (drule fbs_sem_fail_compos_thm >> disch_tac >>
-              gvs [] >>
-              irule itree_sem_fail_compos_thm >>
-              qexists_tac ‘x’ >> rw [])))
+  rw [fbs_semantics_beh_def]
+  >- (DEEP_INTRO_TAC some_intro >> reverse $ rw []
+      >- (gvs [ELIM_UNCURRY]) >>
+      pairarg_tac >> gvs [] >>
+      CONV_TAC SYM_CONV >>
+      last_x_assum kall_tac >>
+      ‘itree_semantics_beh s prog = itree_semantics_beh (s with clock := k') prog’ by (cheat) >>
+      pop_assum (SUBST_ALL_TAC) >>
+      rename1 ‘itree_semantics_beh t’ >>
+      rpt $ pop_assum MP_TAC >>
+      MAP_EVERY qid_spec_tac [‘s'’,‘r’,‘t’,‘prog’] >>
+      recInduct panSemTheory.evaluate_ind >> rw []
+      >~ [‘While’]
+      >- (rgs [Once panSemTheory.evaluate_def,
+               AllCaseEqs()] >> gvs []
+          >- (cheat)
+          >- (pairarg_tac >> gvs [AllCaseEqs()] >> cheat)
+          >- (cheat)
+          >- (cheat)
+          >- (cheat)) >>
+      cheat)
+  (* Div *)
+  >- (CONV_TAC SYM_CONV >>
+      Cases_on ‘itree_semantics_beh s prog’ >>
+      simp []
+      >- (irule (iffLR lprefix_lubTheory.build_prefix_lub_intro) >>
+          rw []
+          >- (cheat)
+          >- (simp [lprefix_lubTheory.lprefix_lub_def] >>
+              conj_asm1_tac
+              >- (cheat)
+              >- (rw [] >>
+                  (* Prove l is the least prefix *)
+                  cheat)
+              >- (cheat)
+              >- (cheat))))
+     (*    Cases_on ‘eval s e’ *)
+     (* >- (fs [Once panSemTheory.evaluate_def, *)
+     (*         panPropsTheory.eval_upd_clock_eq]) *)
+     (* >- (Cases_on ‘x’ >> gvs [] *)
+     (*     >- (Cases_on ‘w’ >> gvs [] *)
+     (*         >- (Cases_on ‘c' ≠ 0w’ >> gvs [] *)
+     (*             >- (Cases_on ‘s'.clock’ >> gvs [] *)
+     (*                ) *)
+     (*            ) *)
+     (*        ) *)
+     (*    Cases_on ‘fbs_semantics_beh s prog’ *)
+     (* (* Div *) *)
+     (* >-  (fs [fbs_semantics_beh_cases] >> *)
+     (*      CONV_TAC SYM_CONV >> *)
+     (*      Q.PAT_UNDISCH_TAC ‘∀k. _ = SOME TimeOut’ >> *)
+     (*      qid_spec_tac ‘s’ >> *)
+     (*      qid_spec_tac ‘prog’ >> *)
+     (*      recInduct panSemTheory.evaluate_ind >> *)
+     (*      rw [] *)
+     (*      (* While *) *)
+     (*      >- (Cases_on ‘eval s' e’ *)
+     (*          >- (fs [Once panSemTheory.evaluate_def, *)
+     (*                  panPropsTheory.eval_upd_clock_eq]) *)
+     (*          >- (Cases_on ‘x’ >> gvs [] *)
+     (*              >- (Cases_on ‘w’ >> gvs [] *)
+     (*                  >- (Cases_on ‘c' ≠ 0w’ >> gvs [] *)
+     (*                      >- (Cases_on ‘s'.clock’ >> gvs [] *)
+     (*                         ) *)
+     (*                     ) *)
+     (*                 ) *)
+     (*             ) *)
+     (*         ) *)
+     (*      (* Skip *) *)
+     (*      >- (Cases_on ‘fbs_semantics_beh s Skip’ >> *)
+     (*          fs [fbs_semantics_beh_simps] *)
+     (*          (* Fail is equiv *) *)
+     (*          >- (rw [itree_semantics_beh_simps])) *)
+     (*      (* Dec *) *)
+     (*      >- (Cases_on ‘fbs_semantics_beh s (Dec v e prog)’ *)
+     (*          (* Div *) *)
+     (*          >- (Cases_on ‘eval s e’ >> rw [] *)
+     (*              >- (fs [fbs_semantics_beh_def, *)
+     (*                      panSemTheory.evaluate_def] >> *)
+     (*                  gvs [panPropsTheory.eval_upd_clock_eq] >> *)
+     (*                  UNDISCH_TAC “(case *)
+     (*                               some(r,s'). ∃k. *)
+     (*                                 (r = SOME Error ∧ s with clock := k = s') ∧ r ≠ SOME TimeOut *)
+     (*                               of *)
+     (*                                 NONE => SemFail *)
+     (*                               | SOME (r,s') => *)
+     (*                                   case r of *)
+     (*                                     NONE => SemFail *)
+     (*                                   | SOME Error => SemFail *)
+     (*                                   | SOME TimeOut => SemFail *)
+     (*                                   | SOME Break => SemFail *)
+     (*                                   | SOME Continue => SemFail *)
+     (*                                   | SOME (Return v6) => SemTerminate (r,s') s'.ffi.io_events *)
+     (*                                   | SOME (Exception v7 v8) => SemFail *)
+     (*                                   | SOME (FinalFFI v9) => SemTerminate (r,s') s'.ffi.io_events) = *)
+     (*                               SemDiverge l” >> *)
+     (*                  DEEP_INTRO_TAC some_intro >> rw [] >> *)
+     (*                  FULL_CASE_TAC >> gvs []) *)
+     (*              >- (drule fbs_sem_div_compos_thm >> disch_tac >> *)
+     (*                  gvs [] >> *)
+     (*                  ‘SemDiverge l = itree_semantics_beh s (Dec v e prog)’ suffices_by (gvs []) >> *)
+     (*                  irule (GSYM itree_sem_div_compos_thm) >> *)
+     (*                  qexists_tac ‘x’ >> rw [])) *)
+     (*          (* Conv *) *)
+     (*          >- (Cases_on ‘eval s e’ >> rw [] *)
+     (*              >- (fs [fbs_semantics_beh_simps]) *)
+     (*              >- (drule fbs_sem_conv_compos_thm >> disch_tac >> *)
+     (*                  gvs [] >> *)
+     (*                  ‘SemTerminate p l = itree_semantics_beh s (Dec v e prog)’ suffices_by (gvs []) >> *)
+     (*                  irule (GSYM itree_sem_conv_compos_thm) >> *)
+     (*                  qexists_tac ‘x’ >> rw [])) *)
+     (*          (* Fail *) *)
+     (*          >- (Cases_on ‘eval s e’ >> rw [] *)
+     (*              >- (fs [itree_semantics_beh_simps]) *)
+     (*              >- (drule fbs_sem_fail_compos_thm >> disch_tac >> *)
+     (*                  gvs [] >> *)
+     (*                  irule itree_sem_fail_compos_thm >> *)
+     (*                  qexists_tac ‘x’ >> rw []))) *)
+     (*      (* Assign *) *)
+     (*      >- (Cases_on ‘fbs_semantics_beh s (Assign v src)’ >> *)
+     (*          fs [fbs_semantics_beh_simps] >> rw [] >> *)
+     (*          rw [itree_semantics_beh_simps]) *)
+     (*      (* Store *) *)
+     (*      >- (Cases_on ‘fbs_semantics_beh s (Store dst src)’ >> *)
+     (*         ) *)
+     (*     ) *)
 QED
 
 Theorem evaluate_mtree_path_corr_ltree:
