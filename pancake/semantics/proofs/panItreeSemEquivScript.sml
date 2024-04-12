@@ -416,7 +416,8 @@ Definition itree_semantics_beh_def:
   itree_semantics_beh s prog =
   let lt = ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,s))) in
       case some (r,s'). lt ≈ Ret (r,s') of
-      | SOME (r,s') => (case r of
+      | SOME (r,s') => let s' = s' with clock := 0 in
+                         (case r of
                       SOME TimeOut => SemTerminate (r,s') s'.ffi.io_events
                     | SOME (FinalFFI _) => SemTerminate (r,s') s'.ffi.io_events
                     | SOME (Return _) => SemTerminate (r,s') s'.ffi.io_events
@@ -552,7 +553,7 @@ Proof
 QED
 
 Theorem itree_semantics_beh_simps:
-  (itree_semantics_beh s Skip = SemTerminate (NONE, s) s.ffi.io_events) ∧
+  (itree_semantics_beh s Skip = SemTerminate (NONE, s with clock := 0) s.ffi.io_events) ∧
   (eval s e = NONE ⇒
    itree_semantics_beh s (Dec v e prog) = SemFail)
 Proof
