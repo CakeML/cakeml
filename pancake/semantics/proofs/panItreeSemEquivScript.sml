@@ -206,13 +206,6 @@ Proof
   cheat
 QED
 
-Theorem itree_wbisim_monad_equiv:
-  Ret x ≈ Ret x' ⇔
-  x = x'
-Proof
-  cheat
-QED
-
 Theorem itree_wbisim_ret_u:
   Ret x ≈ u ⇒
   u = Ret x
@@ -613,6 +606,47 @@ Proof
   cheat
 QED
 
+Theorem itree_wbisim_ret_decomp_eq:
+  Ret r ≈ Ret r' ⇔
+  r = r'
+Proof
+  EQ_TAC >>
+  rw [Once itreeTauTheory.itree_wbisim_cases]
+QED
+
+Theorem itree_wbisim_ret_pair_decomp_eq:
+  Ret (a,b) ≈ Ret (a',b') ⇔
+  a = a' ∧ b = b'
+Proof
+  EQ_TAC >>
+  rw [Once itreeTauTheory.itree_wbisim_cases]
+QED
+
+Theorem itree_sem_while_fails:
+  eval s e = NONE ⇒
+  itree_semantics_beh s (While e c) = SemFail
+Proof
+  rw [itree_semantics_beh_def] >>
+  DEEP_INTRO_TAC some_intro >> rw []
+  >- (pairarg_tac >> gvs [] >>
+      rw [AllCaseEqs()] >>
+      gvs [panItreeSemTheory.h_prog_def,
+           panItreeSemTheory.h_prog_rule_while_def,
+           Once itreeTauTheory.itree_iter_thm,
+           panItreeSemTheory.mrec_sem_simps] >>
+      gvs [ltree_lift_cases] >>
+      drule (iffLR itree_wbisim_ret_pair_decomp_eq) >>
+      rw []) >>
+  rw [panItreeSemTheory.h_prog_def,
+      panItreeSemTheory.h_prog_rule_while_def,
+      Once itreeTauTheory.itree_iter_thm,
+      panItreeSemTheory.mrec_sem_simps] >>
+  rw [ltree_lift_cases] >>
+  qexists_tac ‘(SOME Error,s)’ >>
+  rw [itreeTauTheory.itree_wbisim_refl]
+QED
+
+
 (* TODO: Need to prove the correspondence for While more directly
  to better understand what is required here... *)
 Theorem itree_semantics_corres:
@@ -633,7 +667,7 @@ Proof
       >~ [‘While’]
       >- (rgs [Once panSemTheory.evaluate_def,
                AllCaseEqs()] >> gvs []
-          >- (cheat)
+          >- (rw [itree_sem_while_fails])
           >- (pairarg_tac >> gvs [AllCaseEqs()] >> cheat)
           >- (cheat)
           >- (cheat)
@@ -781,6 +815,8 @@ Proof
       cheat) >>
   cheat
 QED
+
+
 
 (* Final goal:
 
