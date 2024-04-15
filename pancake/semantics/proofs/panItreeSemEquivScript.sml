@@ -623,27 +623,20 @@ Proof
 QED
 
 Theorem itree_sem_while_fails:
-  eval s e = NONE ⇒
+  eval s e = x ∧ (x = NONE ∨ x = SOME (ValLabel v1) ∨ x = SOME (Struct v2)) ⇒
   itree_semantics_beh s (While e c) = SemFail
 Proof
   rw [itree_semantics_beh_def] >>
-  DEEP_INTRO_TAC some_intro >> rw []
-  >- (pairarg_tac >> gvs [] >>
-      rw [AllCaseEqs()] >>
-      gvs [panItreeSemTheory.h_prog_def,
-           panItreeSemTheory.h_prog_rule_while_def,
-           Once itreeTauTheory.itree_iter_thm,
-           panItreeSemTheory.mrec_sem_simps] >>
-      gvs [ltree_lift_cases] >>
-      drule (iffLR itree_wbisim_ret_pair_decomp_eq) >>
-      rw []) >>
-  rw [panItreeSemTheory.h_prog_def,
-      panItreeSemTheory.h_prog_rule_while_def,
-      Once itreeTauTheory.itree_iter_thm,
-      panItreeSemTheory.mrec_sem_simps] >>
-  rw [ltree_lift_cases] >>
-  qexists_tac ‘(SOME Error,s)’ >>
-  rw [itreeTauTheory.itree_wbisim_refl]
+  gvs [panItreeSemTheory.h_prog_def,
+       panItreeSemTheory.h_prog_rule_while_def,
+       Once itreeTauTheory.itree_iter_thm,
+       panItreeSemTheory.mrec_sem_simps,
+       ltree_lift_cases] >>
+  DEEP_INTRO_TAC some_intro >> rw [] >>>
+  ALLGOALS (fs [ELIM_UNCURRY] >>
+   fs [itree_wbisim_ret_decomp_eq] >> rw [])
+  ORELSE (qexists_tac ‘(SOME Error,s)’ >>
+          rw [itreeTauTheory.itree_wbisim_refl])
 QED
 
 Theorem itree_sem_while_no_loop:
@@ -651,22 +644,16 @@ Theorem itree_sem_while_no_loop:
   itree_semantics_beh s (While e c) = SemTerminate (NONE,s) s.ffi.io_events
 Proof
   rw [itree_semantics_beh_def] >>
-  DEEP_INTRO_TAC some_intro >>
-  reverse $ rw []
-  >- (rw [panItreeSemTheory.h_prog_def,
-          panItreeSemTheory.h_prog_rule_while_def,
-          Once itreeTauTheory.itree_iter_thm,
-          panItreeSemTheory.mrec_sem_simps] >>
-      rw [ltree_lift_cases] >>
-      qexists_tac ‘(NONE,s)’ >>
-      rw [itreeTauTheory.itree_wbisim_refl])
-  >- (fs [ELIM_UNCURRY] >>
-      gvs [panItreeSemTheory.h_prog_def,
-           panItreeSemTheory.h_prog_rule_while_def,
-           Once itreeTauTheory.itree_iter_thm,
-           panItreeSemTheory.mrec_sem_simps,
-           ltree_lift_cases] >>
-      fs [itree_wbisim_ret_decomp_eq] >> rw [])
+  gvs [panItreeSemTheory.h_prog_def,
+       panItreeSemTheory.h_prog_rule_while_def,
+       Once itreeTauTheory.itree_iter_thm,
+       panItreeSemTheory.mrec_sem_simps,
+       ltree_lift_cases] >>
+  DEEP_INTRO_TAC some_intro >> rw [] >>>
+  ALLGOALS (fs [ELIM_UNCURRY] >>
+   fs [itree_wbisim_ret_decomp_eq] >> rw [])
+  ORELSE (qexists_tac ‘(SOME Error,s)’ >>
+          rw [itreeTauTheory.itree_wbisim_refl])
 QED
 
 (* TODO: Need to prove the correspondence for While more directly
@@ -695,11 +682,12 @@ Proof
                   CONV_TAC SYM_CONV >>
                   (* THIS IS VERY STRANGE... the states are messed up. *)
                   cheat) >>
-                  cheat)
+              cheat)
           >- (CONV_TAC SYM_CONV >>
               rw [itree_sem_while_no_loop])
-          >- (cheat)
-          >- (cheat)) >>
+          >- (rw [itree_sem_while_fails])
+          >- (rw [itree_sem_while_fails])) >>
+      (* All remaining terms... for convg case *)
       cheat)
   (* Div *)
   >- (CONV_TAC SYM_CONV >>
@@ -823,14 +811,14 @@ Proof
   (* Dec *)
   >- (Cases_on ‘eval s e’
       >- (rw [panItreeSemTheory.h_prog_def,
-                panItreeSemTheory.h_prog_rule_dec_def] >>
+              panItreeSemTheory.h_prog_rule_dec_def] >>
           rw [panItreeSemTheory.mrec_sem_simps] >>
           rw [panSemTheory.evaluate_def] >>
           rw [ltree_lift_cases] >>
           rw [itreeTauTheory.itree_wbisim_refl])
       >- (rw [] >>
           rw [panItreeSemTheory.h_prog_def,
-                panItreeSemTheory.h_prog_rule_dec_def] >>
+              panItreeSemTheory.h_prog_rule_dec_def] >>
           drule ltree_lift_compos >>
           disch_tac >>
           rw [panSemTheory.evaluate_def] >>
