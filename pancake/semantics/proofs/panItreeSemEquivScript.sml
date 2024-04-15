@@ -646,6 +646,28 @@ Proof
   rw [itreeTauTheory.itree_wbisim_refl]
 QED
 
+Theorem itree_sem_while_no_loop:
+  eval s e = SOME (ValWord 0w) ⇒
+  itree_semantics_beh s (While e c) = SemTerminate (NONE,s) s.ffi.io_events
+Proof
+  rw [itree_semantics_beh_def] >>
+  DEEP_INTRO_TAC some_intro >>
+  reverse $ rw []
+  >- (rw [panItreeSemTheory.h_prog_def,
+          panItreeSemTheory.h_prog_rule_while_def,
+          Once itreeTauTheory.itree_iter_thm,
+          panItreeSemTheory.mrec_sem_simps] >>
+      rw [ltree_lift_cases] >>
+      qexists_tac ‘(NONE,s)’ >>
+      rw [itreeTauTheory.itree_wbisim_refl])
+  >- (fs [ELIM_UNCURRY] >>
+      gvs [panItreeSemTheory.h_prog_def,
+           panItreeSemTheory.h_prog_rule_while_def,
+           Once itreeTauTheory.itree_iter_thm,
+           panItreeSemTheory.mrec_sem_simps,
+           ltree_lift_cases] >>
+      fs [itree_wbisim_ret_decomp_eq] >> rw [])
+QED
 
 (* TODO: Need to prove the correspondence for While more directly
  to better understand what is required here... *)
@@ -668,8 +690,14 @@ Proof
       >- (rgs [Once panSemTheory.evaluate_def,
                AllCaseEqs()] >> gvs []
           >- (rw [itree_sem_while_fails])
-          >- (pairarg_tac >> gvs [AllCaseEqs()] >> cheat)
-          >- (cheat)
+          >- (pairarg_tac >> gvs [AllCaseEqs()]
+              >- (ntac 2 $ last_x_assum (assume_tac o GSYM) >> rw [] >>
+                  CONV_TAC SYM_CONV >>
+                  (* THIS IS VERY STRANGE... the states are messed up. *)
+                  cheat) >>
+                  cheat)
+          >- (CONV_TAC SYM_CONV >>
+              rw [itree_sem_while_no_loop])
           >- (cheat)
           >- (cheat)) >>
       cheat)
