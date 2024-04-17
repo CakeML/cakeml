@@ -30,7 +30,7 @@ Overload ">>=" = “itree_bind”;
 Overload "case" = “itree_CASE”;
 
 Datatype:
-  sem_vis_event = FFI_call string (word8 list) (word8 list)
+  sem_vis_event = FFI_call ffiname (word8 list) (word8 list)
 End
 
 val s = “s:('a,'b) state”;
@@ -225,7 +225,7 @@ Definition h_prog_rule_ext_call_def:
      (case (read_bytearray conf_ptr_adr (w2n conf_sz) (mem_load_byte s.memory s.memaddrs s.be),
             read_bytearray array_ptr_adr (w2n array_sz) (mem_load_byte s.memory s.memaddrs s.be)) of
         (SOME conf_bytes,SOME array_bytes) =>
-         Vis (INR (FFI_call (explode ffi_name) conf_bytes array_bytes,
+         Vis (INR (FFI_call (ExtCall (explode ffi_name)) conf_bytes array_bytes,
                    (λres. case res of
                             FFI_final outcome => (SOME (FinalFFI outcome),empty_locals s):('a result option # ('a,'b) state)
                            | FFI_return new_ffi new_bytes =>

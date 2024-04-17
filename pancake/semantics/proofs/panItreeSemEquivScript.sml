@@ -23,7 +23,7 @@ Overload "case" = “itree_CASE”;
 
 Definition query_oracle_def[nocompute]:
   query_oracle ffis (FFI_call s conf bytes) =
-  case call_FFI ffis (ExtCall s) conf bytes of
+  case call_FFI ffis s conf bytes of
     FFI_return ffis' bytes' => (FFI_return ffis' bytes',bytes',ffis')
   | FFI_final (Final_event name conf' bytes' outcome) =>
               (FFI_final (Final_event name conf' bytes' outcome),bytes',ffis)
@@ -31,7 +31,7 @@ End
 
 Definition make_io_event_def[nocompute]:
   make_io_event (FFI_call s conf bytes) rbytes =
-                IO_event (ExtCall s) conf (ZIP (bytes,rbytes))
+                IO_event s conf (ZIP (bytes,rbytes))
 End
 
 (* Path over semtrees:
