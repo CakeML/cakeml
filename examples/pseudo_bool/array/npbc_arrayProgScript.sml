@@ -316,6 +316,7 @@ Theorem delete_arr_spec:
       ARRAY fmlv fmllsv' *
       &(LIST_REL (OPTION_TYPE a) (delete_list i fmlls) fmllsv') )
 Proof
+  rw[]>>
   xcf "delete_arr" (get_ml_prog_state ())>>
   simp[delete_list_def]>>
   xlet_autop>>
@@ -406,6 +407,7 @@ Theorem rollback_arr_spec:
       ARRAY fmlv fmllsv' *
       &(LIST_REL (OPTION_TYPE a) (rollback fmlls start end) fmllsv') )
 Proof
+  rw[]>>
   xcf"rollback_arr"(get_ml_prog_state ())>>
   xlet_autop>>
   xapp>>
@@ -493,7 +495,8 @@ Proof
   rw[check_contradiction_fml_list_def]>>
   xcf"check_contradiction_fml_arr"(get_ml_prog_state ())>>
   xlet_autop>>
-  TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>
+  Cases_on`lookup_core_only_list b fmlls n`>>
+  fs[OPTION_TYPE_def]>>
   xmatch
   >- (
     xcon>>
