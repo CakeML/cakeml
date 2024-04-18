@@ -263,16 +263,68 @@ Definition h_prog_rule_tick_def:
    | _ => Ret (NONE,dec_clock s)
 End
 
-Definition h_prog_rule_shmem_def:
-  h_prog_rule_shmem op v ad s =
+Definition h_prog_rule_sh_mem_load_def:
+  h_prog_rule_sh_mem_load v (addr:'a word) nb ^s =
+  if nb = 0 then
+    (if addr IN s.sh_memaddrs then
+       Vis (INR (FFI_call (SharedMem MappedRead) [n2w nb] (word_to_bytes addr F),
+                 (λres. case res of
+                          FFI_final outcome => (SOME (FinalFFI outcome),empty_locals s)
+                         | FFI_return new_ffi new_bytes =>
+                            (NONE, (set_var v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)))) Ret
+     else Ret (SOME Error,s))
+  else
+    (if (byte_align addr) IN s.sh_memaddrs then
+       Vis (INR (FFI_call (SharedMem MappedRead) [n2w nb] (word_to_bytes addr F),
+       (λres. case res of
+                FFI_final outcome => (SOME (FinalFFI outcome),empty_locals s)
+               | FFI_return new_ffi new_bytes =>
+                  (NONE,(set_var v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)))) Ret
+     else Ret (SOME Error,s))
+End
+
+Definition h_prog_rule_sh_mem_store_def:
+  h_prog_rule_sh_mem_store v (addr:'a word) nb ^s =
+  case FLOOKUP s.locals v of
+    SOME (ValWord w) =>
+     (if nb = 0 then
+        (if addr IN s.sh_memaddrs then
+           Vis (INR (FFI_call (SharedMem MappedWrite) [n2w nb]
+                              (word_to_bytes w F ++ word_to_bytes addr F),
+                (λres. case res of
+                         FFI_final outcome => (SOME (FinalFFI outcome),s)
+                        | FFI_return new_ffi new_bytes => (NONE,s with ffi := new_ffi)))) Ret
+         else Ret (SOME Error,s))
+      else
+        (if (byte_align addr) IN s.sh_memaddrs then
+           Vis (INR (FFI_call (SharedMem MappedWrite) [n2w nb]
+                              (TAKE nb (word_to_bytes w F) ++ word_to_bytes addr F),
+                (λres. case res of
+                         FFI_final outcome => (SOME (FinalFFI outcome),s)
+                        | FFI_return new_ffi new_bytes =>
+                           (NONE,s with ffi := new_ffi)))) Ret
+         else Ret (SOME Error,s)))
+   | _ => Ret (SOME Error,s)
+End
+
+Definition h_prog_rule_sh_mem_op_def:
+  (h_prog_rule_sh_mem_op Load r (ad:'a word) (s:('a,'ffi) panSem$state) =
+   h_prog_rule_sh_mem_load r ad 0 s) ∧
+  (h_prog_rule_sh_mem_op Store r ad s = h_prog_rule_sh_mem_store r ad 0 s) ∧
+  (h_prog_rule_sh_mem_op Load8 r ad s = h_prog_rule_sh_mem_load r ad 1 s) ∧
+  (h_prog_rule_sh_mem_op Store8 r ad s = h_prog_rule_sh_mem_store r ad 1 s)
+End
+
+Definition h_prog_rule_sh_mem_def:
+  h_prog_rule_sh_mem op v ad s =
   case eval s ad of
     SOME (ValWord addr) =>
      (if is_load op
       then (case FLOOKUP s.locals v of
-              SOME (Val _) => Ret $ panSem$sh_mem_op op v addr s
+              SOME (Val _) => h_prog_rule_sh_mem_op op v addr s
              | _ => Ret (SOME Error, s))
       else (case FLOOKUP s.locals v of
-              SOME (ValWord _) => Ret $ panSem$sh_mem_op op v addr s
+              SOME (ValWord _) => h_prog_rule_sh_mem_op op v addr s
              | _ => Ret (SOME Error, s)))
    | _ => Ret (SOME Error, s)
 End
@@ -284,7 +336,7 @@ Definition h_prog_def:
   (h_prog (Assign vname e,s) = h_prog_rule_assign vname e s) ∧
   (h_prog (Store dst src,s) = h_prog_rule_store dst src s) ∧
   (h_prog (StoreByte dst src,s) = h_prog_rule_store_byte dst src s) ∧
-  (h_prog (ShMem op v ad,s) = h_prog_rule_shmem op v ad s) ∧
+  (h_prog (ShMem op v ad,s) = h_prog_rule_sh_mem op v ad s) ∧
   (h_prog (Seq p1 p2,s) = h_prog_rule_seq p1 p2 s) ∧
   (h_prog (If gexp p1 p2,s) = h_prog_rule_cond gexp p1 p2 s) ∧
   (h_prog (While gexp p,s) = h_prog_rule_while gexp p s) ∧
@@ -344,11 +396,12 @@ Definition mrec_sem_def:
 End
 
 Theorem mrec_iter_body_simp[simp]:
-  mrec_iter_body h_prog = (λt. case t of
-                                       Ret r => Ret (INR r)
-                                      | Tau t => Ret (INL t)
-                                      | Vis (INL seed') k => Ret (INL (monad_bind (h_prog seed') k))
-                                      | Vis (INR e) k => Vis e (Ret ∘ INL ∘ k))
+  mrec_iter_body h_prog =
+  (λt. case t of
+         Ret r => Ret (INR r)
+        | Tau t => Ret (INL t)
+        | Vis (INL seed') k => Ret (INL (monad_bind (h_prog seed') k))
+        | Vis (INR e) k => Vis e (Ret ∘ INL ∘ k))
 Proof
   rw [FUN_EQ_THM] >>
   rw [mrec_iter_body_def]
