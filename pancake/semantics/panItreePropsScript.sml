@@ -104,4 +104,90 @@ Proof
   rw []
 QED
 
+(** h_prog **)
+
+Theorem h_prog_not_Tau:
+  ∀prog s t. h_prog (prog, s) ≠ Tau t
+Proof
+  Induct>>
+  fs[panItreeSemTheory.h_prog_def,
+     panItreeSemTheory.h_prog_rule_dec_def,
+     panItreeSemTheory.h_prog_rule_tick_def,
+     panItreeSemTheory.h_prog_rule_return_def,
+     panItreeSemTheory.h_prog_rule_raise_def,
+     panItreeSemTheory.h_prog_rule_ext_call_def,
+     panItreeSemTheory.h_prog_rule_call_def,
+     panItreeSemTheory.h_prog_rule_while_def,
+     panItreeSemTheory.h_prog_rule_cond_def,
+     panItreeSemTheory.h_prog_rule_sh_mem_def,
+     panItreeSemTheory.h_prog_rule_seq_def,
+     panItreeSemTheory.h_prog_rule_store_def,
+     panItreeSemTheory.h_prog_rule_store_byte_def,
+     panItreeSemTheory.h_prog_rule_assign_def]>>
+  rpt gen_tac>>
+  rpt (CASE_TAC>>fs[])>>
+  simp[Once itreeTauTheory.itree_iter_thm]>>
+  rpt (CASE_TAC>>fs[])>>
+  Cases_on ‘m’>>
+  simp[panItreeSemTheory.h_prog_rule_sh_mem_op_def,
+       panItreeSemTheory.h_prog_rule_sh_mem_load_def,
+       panItreeSemTheory.h_prog_rule_sh_mem_store_def]>>
+  rpt (CASE_TAC>>fs[])
+QED
+
+Theorem h_prog_Vis_INR:
+  ∀prog s t.
+  case prog of
+    ExtCall _ _ _ _ _ => h_prog (prog, s) = Vis (INR x) k ⇒ k = Ret
+  | ShMem _ _ _ => h_prog (prog, s) = Vis (INR x) k ⇒ k = Ret
+  | _ => h_prog (prog, s) ≠ Vis (INR x) k
+Proof
+  Induct>>
+  fs[panItreeSemTheory.h_prog_def,
+     panItreeSemTheory.h_prog_rule_dec_def,
+     panItreeSemTheory.h_prog_rule_tick_def,
+     panItreeSemTheory.h_prog_rule_return_def,
+     panItreeSemTheory.h_prog_rule_raise_def,
+     panItreeSemTheory.h_prog_rule_ext_call_def,
+     panItreeSemTheory.h_prog_rule_call_def,
+     panItreeSemTheory.h_prog_rule_while_def,
+     panItreeSemTheory.h_prog_rule_cond_def,
+     panItreeSemTheory.h_prog_rule_sh_mem_def,
+     panItreeSemTheory.h_prog_rule_seq_def,
+     panItreeSemTheory.h_prog_rule_store_def,
+     panItreeSemTheory.h_prog_rule_store_byte_def,
+     panItreeSemTheory.h_prog_rule_assign_def]>>
+  rpt gen_tac>>
+  rpt (CASE_TAC>>fs[])>>
+  simp[Once itreeTauTheory.itree_iter_thm]>>
+  rpt (CASE_TAC>>fs[])>>
+  Cases_on ‘m’>>
+  simp[panItreeSemTheory.h_prog_rule_sh_mem_op_def,
+       panItreeSemTheory.h_prog_rule_sh_mem_load_def,
+       panItreeSemTheory.h_prog_rule_sh_mem_store_def]>>
+  rpt (CASE_TAC>>fs[])
+QED
+
+(* a better version than the one in panPropsTheory *)
+Theorem opt_mmap_eval_upd_clock_eq:
+  !es s ck. OPT_MMAP (eval (s with clock := ck)) es =
+            OPT_MMAP (eval s) es
+Proof
+  rw [] >>
+  match_mp_tac IMP_OPT_MMAP_EQ >>
+  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+  rw [] >>
+  metis_tac [panPropsTheory.eval_upd_clock_eq]
+QED
+
+Theorem wbisim_Ret_unique:
+  X ≈ Ret x ∧ X ≈ Ret y ⇒ x = y
+Proof
+  strip_tac>>
+  drule itreeTauTheory.itree_wbisim_sym>>strip_tac>>
+  drule itreeTauTheory.itree_wbisim_trans>>
+  disch_then $ rev_drule>>
+  simp[Once itreeTauTheory.itree_wbisim_cases]
+QED
+
 val _ = export_theory();
