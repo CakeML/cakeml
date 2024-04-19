@@ -245,31 +245,30 @@ QED
 Datatype:
   sem_behaviour =
     SemDiverge (io_event llist)
-    | SemTerminate (('a result option) # ('a,'b) state) (io_event list)
+    | SemTerminate (('a result option) # ('a,'b) bstate) (io_event list)
     | SemFail
 End
 
 Definition fbs_semantics_beh_def:
   fbs_semantics_beh s prog =
-  if ∃k. FST $ panSem$evaluate (prog,s with clock := k) ≠ SOME TimeOut
-  then (case some (r,s'). ∃k. evaluate (prog,s with clock := k) = (r,s') ∧ r ≠ SOME TimeOut of
+  if ∃k. FST $ panSem$evaluate (prog,(reclock s) with clock := k) ≠ SOME TimeOut
+  then (case some (r,s'). ∃k. evaluate (prog,(reclock s) with clock := k) = (r,s') ∧ r ≠ SOME TimeOut of
          SOME (r,s') => (case r of
-                           SOME (Return _) => SemTerminate (r,s') s'.ffi.io_events
-                         | SOME (FinalFFI _) => SemTerminate (r,s') s'.ffi.io_events
+                           SOME (Return _) => SemTerminate (r,unclock s') s'.ffi.io_events
+                         | SOME (FinalFFI _) => SemTerminate (r,unclock s') s'.ffi.io_events
                          | SOME Error => SemFail
-                         | _ =>  SemTerminate (r,s') s'.ffi.io_events)
+                         | _ =>  SemTerminate (r,unclock s') s'.ffi.io_events)
        | NONE => SemFail)
   else SemDiverge (build_lprefix_lub
                    (IMAGE (λk. fromList
-                               (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
+                               (SND (evaluate (prog,(reclock s) with clock := k))).ffi.io_events) UNIV))
 End
 
 Definition itree_semantics_beh_def:
   itree_semantics_beh s prog =
   let lt = ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,s))) in
       case some (r,s'). lt ≈ Ret (r,s') of
-      | SOME (r,s') => let s' = s' with clock := 0 in
-                         (case r of
+      | SOME (r,s') => (case r of
                       SOME TimeOut => SemTerminate (r,s') s'.ffi.io_events
                     | SOME (FinalFFI _) => SemTerminate (r,s') s'.ffi.io_events
                     | SOME (Return _) => SemTerminate (r,s') s'.ffi.io_events
@@ -287,7 +286,7 @@ QED
 
 Theorem fbs_sem_div_compos_thm:
   fbs_semantics_beh s (Dec v e prog) = SemDiverge l ∧
-  eval s e = SOME x ⇒
+  eval (reclock s) e = SOME x ⇒
   fbs_semantics_beh (s with locals := s.locals |+ (v,x)) prog = SemDiverge l
 Proof
   rpt strip_tac>>
@@ -298,7 +297,7 @@ Proof
   conj_tac>-
    (strip_tac>>first_x_assum $ qspec_then ‘k’ assume_tac>>
     FULL_CASE_TAC>>fs[]>>
-    pairarg_tac>>fs[]>>gvs[panPropsTheory.eval_upd_clock_eq])>>
+    pairarg_tac>>fs[]>>gvs[panPropsTheory.eval_upd_clock_eq,panItreeSemTheory.reclock_def])>>
   irule lprefix_lubTheory.IMP_build_lprefix_lub_EQ>>
   conj_asm1_tac>-
    (simp[lprefix_chain_def]>>
@@ -336,6 +335,7 @@ Proof
     simp[PULL_EXISTS]>>
     simp[LPREFIX_def,from_toList]>>
     simp[Once panSemTheory.evaluate_def,
+         panItreeSemTheory.reclock_def,
          panPropsTheory.eval_upd_clock_eq]>>
     pairarg_tac>>fs[]>>
     qexists_tac ‘k’>>fs[])>>
@@ -344,14 +344,15 @@ Proof
   simp[PULL_EXISTS]>>
   simp[LPREFIX_def,from_toList]>>
   simp[SimpR “isPREFIX”, Once panSemTheory.evaluate_def,
+       panItreeSemTheory.reclock_def,
        panPropsTheory.eval_upd_clock_eq]>>
   qexists_tac ‘k’>>
-  pairarg_tac>>fs[]
+  pairarg_tac>>fs[panItreeSemTheory.reclock_def]
 QED
 
 Theorem fbs_sem_conv_compos_thm:
   fbs_semantics_beh s (Dec v e prog) = SemTerminate p l ∧
-  eval s e = SOME x ⇒
+  eval (reclock s) e = SOME x ⇒
   fbs_semantics_beh (s with locals := s.locals |+ (v,x)) prog = SemTerminate p l
 Proof
   cheat
@@ -366,7 +367,7 @@ QED
 
 Theorem fbs_sem_fail_compos_thm:
   fbs_semantics_beh s (Dec v e prog) = SemFail ∧
-  eval s e = SOME x ⇒
+  eval (reclock s) e = SOME x ⇒
   fbs_semantics_beh (s with locals := s.locals |+ (v,x)) prog = SemFail
 Proof
   cheat
@@ -380,16 +381,16 @@ Proof
 QED
 
 Theorem fbs_semantics_beh_simps:
-  (∃k. fbs_semantics_beh s Skip = SemTerminate (NONE,s with clock := k) s.ffi.io_events) ∧
-  (eval s e = NONE ⇒ fbs_semantics_beh s (Dec v e prog) ≠ SemTerminate p l)
+  fbs_semantics_beh s Skip = SemTerminate (NONE,s) s.ffi.io_events ∧
+  (eval (reclock s) e = NONE ⇒ fbs_semantics_beh s (Dec v e prog) ≠ SemTerminate p l)
 Proof
   rw []
   >- (rw [fbs_semantics_beh_def,
           panSemTheory.evaluate_def] >>
       DEEP_INTRO_TAC some_intro >> rw [EXISTS_PROD] >>
       ntac 2 TOP_CASE_TAC >>
-      pairarg_tac >> gvs [] >>
-      qexists_tac ‘k’ >> rw [])
+      pairarg_tac >> gvs [panItreeSemTheory.unclock_def,panItreeSemTheory.reclock_def,
+                          panItreeSemTheory.bstate_component_equality])
   >- (rw [fbs_semantics_beh_def,
           panSemTheory.evaluate_def] >>
       rw [panPropsTheory.eval_upd_clock_eq] >>
@@ -398,8 +399,8 @@ Proof
 QED
 
 Theorem itree_semantics_beh_simps:
-  (itree_semantics_beh s Skip = SemTerminate (NONE, s with clock := 0) s.ffi.io_events) ∧
-  (eval s e = NONE ⇒
+  (itree_semantics_beh s Skip = SemTerminate (NONE, s) s.ffi.io_events) ∧
+  (eval (reclock s) e = NONE ⇒
    itree_semantics_beh s (Dec v e prog) = SemFail)
 Proof
   rw []
@@ -428,10 +429,10 @@ QED
 
 Theorem fbs_semantics_beh_cases:
   fbs_semantics_beh s prog = SemDiverge l ⇔
-  (∀k. FST (evaluate (prog,s with clock := k)) = SOME TimeOut) ∧
+  (∀k. FST (evaluate (prog,(reclock s) with clock := k)) = SOME TimeOut) ∧
   l = LUB (IMAGE
            (λk. fromList
-                (SND (evaluate (prog,s with clock := k))).ffi.io_events) 𝕌(:num))
+                (SND (evaluate (prog,(reclock s) with clock := k))).ffi.io_events) 𝕌(:num))
 Proof
   EQ_TAC
   >- (rpt strip_tac >>>
@@ -440,20 +441,8 @@ Proof
   >- (rw [fbs_semantics_beh_def])
 QED
 
-Theorem itree_semantics_beh_clock_lem:
-  itree_semantics_beh (s with clock := k) p = itree_semantics_beh s p
-Proof
-  cheat
-QED
-
-Theorem itree_semantics_beh_dec_clock_lem[simp]:
-  itree_semantics_beh (dec_clock s) p = itree_semantics_beh s p
-Proof
-  cheat
-QED
-
 Theorem itree_sem_while_fails:
-  eval s e = x ∧ (x = NONE ∨ x = SOME (ValLabel v1) ∨ x = SOME (Struct v2)) ⇒
+  eval (reclock s) e = x ∧ (x = NONE ∨ x = SOME (ValLabel v1) ∨ x = SOME (Struct v2)) ⇒
   itree_semantics_beh s (While e c) = SemFail
 Proof
   rw [itree_semantics_beh_def] >>
@@ -472,8 +461,8 @@ Proof
 QED
 
 Theorem itree_sem_while_no_loop:
-  eval s e = SOME (ValWord 0w) ⇒
-  itree_semantics_beh s (While e c) = SemTerminate (NONE,s with clock := 0) s.ffi.io_events
+  eval (reclock s) e = SOME (ValWord 0w) ⇒
+  itree_semantics_beh s (While e c) = SemTerminate (NONE,s) s.ffi.io_events
 Proof
   rw [itree_semantics_beh_def] >>
   gvs [panItreeSemTheory.h_prog_def,
@@ -507,16 +496,20 @@ Proof
       pairarg_tac >> gvs [] >>
       CONV_TAC SYM_CONV >>
       last_x_assum kall_tac >>
-      ‘itree_semantics_beh s prog = itree_semantics_beh (s with clock := k') prog’ by (cheat) >>
-      pop_assum (SUBST_ALL_TAC) >>
-      rename1 ‘itree_semantics_beh t’ >>
+      ‘s = unclock(reclock s with clock := k')’
+        by(gvs[panItreeSemTheory.reclock_def,
+               panItreeSemTheory.unclock_def,
+               panItreeSemTheory.bstate_component_equality]) >>
+      pop_assum $ PURE_ONCE_REWRITE_TAC o single >>
+      rename1 ‘itree_semantics_beh(unclock t)’ >>
       rpt $ pop_assum MP_TAC >>
       MAP_EVERY qid_spec_tac [‘s'’,‘r’,‘t’,‘prog’] >>
       recInduct panSemTheory.evaluate_ind >> rw []
       >~ [‘While’]
       >- (rgs [Once panSemTheory.evaluate_def,
                AllCaseEqs()] >> gvs []
-          >- (rw [itree_sem_while_fails])
+          >- (rw [itree_sem_while_fails,panPropsTheory.eval_upd_clock_eq]
+             )
           >- (pairarg_tac >> gvs [AllCaseEqs()]
               >- (ntac 2 $ last_x_assum (assume_tac o GSYM) >> rw [] >>
                   CONV_TAC SYM_CONV >>
@@ -524,9 +517,9 @@ Proof
                   cheat) >>
               cheat)
           >- (CONV_TAC SYM_CONV >>
-              rw [itree_sem_while_no_loop])
-          >- (rw [itree_sem_while_fails])
-          >- (rw [itree_sem_while_fails])) >>
+              rw [itree_sem_while_no_loop,panPropsTheory.eval_upd_clock_eq])
+          >- (rw [itree_sem_while_fails,panPropsTheory.eval_upd_clock_eq])
+          >- (rw [itree_sem_while_fails,panPropsTheory.eval_upd_clock_eq])) >>
       (* All remaining terms... for convg case *)
       cheat)
   (* Div *)
@@ -541,9 +534,9 @@ Proof
               >- (cheat)
               >- (rw [] >>
                   (* Prove l is the least prefix *)
-                  cheat)
-              >- (cheat)
-              >- (cheat))))
+                  cheat)))
+      >- (cheat)
+      >- (cheat))
      (*    Cases_on ‘eval s e’ *)
      (* >- (fs [Once panSemTheory.evaluate_def, *)
      (*         panPropsTheory.eval_upd_clock_eq]) *)
@@ -635,6 +628,8 @@ Proof
      (*         ) *)
      (*     ) *)
 QED
+
+(* JÅP: I don't think this below lemma will be provable as stated *)
 
 Theorem evaluate_mtree_path_corr_ltree:
   ∀p s. s.clock = k ∧ s.ffi = ffis ⇒
