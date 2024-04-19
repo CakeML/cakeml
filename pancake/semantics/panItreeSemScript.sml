@@ -256,13 +256,6 @@ Definition h_prog_rule_return_def:
    | _ => Ret (SOME Error,s)
 End
 
-Definition h_prog_rule_tick_def:
-  h_prog_rule_tick s =
-  case s.clock of
-    0 => Ret (SOME TimeOut,empty_locals s)
-   | _ => Ret (NONE,dec_clock s)
-End
-
 Definition h_prog_rule_sh_mem_load_def:
   h_prog_rule_sh_mem_load v (addr:'a word) nb ^s =
   if nb = 0 then
@@ -347,7 +340,7 @@ Definition h_prog_def:
           h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len s) ∧
   (h_prog (Raise eid e,s) = h_prog_rule_raise eid e s) ∧
   (h_prog (Return e,s) = h_prog_rule_return e s) ∧
-  (h_prog (Tick,s) = h_prog_rule_tick s)
+  (h_prog (Tick,s) = Ret (NONE,s))
 End
 
 val mt = “mt:('a,'b) mtree”;

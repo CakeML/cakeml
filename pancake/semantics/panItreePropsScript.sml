@@ -111,7 +111,6 @@ Proof
   Induct>>
   fs[h_prog_def,
      h_prog_rule_dec_def,
-     h_prog_rule_tick_def,
      h_prog_rule_return_def,
      h_prog_rule_raise_def,
      h_prog_rule_ext_call_def,
@@ -144,7 +143,6 @@ Proof
   Induct>>
   fs[h_prog_def,
      h_prog_rule_dec_def,
-     h_prog_rule_tick_def,
      h_prog_rule_return_def,
      h_prog_rule_raise_def,
      h_prog_rule_ext_call_def,
