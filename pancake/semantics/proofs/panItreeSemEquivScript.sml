@@ -3,16 +3,18 @@
     and itree semantics for Pancake.
 *)
 
-open preamble panLangTheory;
+open preamble
+     itreeTauTheory
+     panSemTheory
+     panItreePropsTheory
+     panItreeSemTheory
+     panLangTheory;
 local open alignmentTheory
            miscTheory     (* for read_bytearray *)
            wordLangTheory (* for word_op and word_sh *)
            ffiTheory
-           itreeTauTheory
-           panSemTheory
            panPropsTheory
-           panItreePropsTheory
-           panItreeSemTheory in end;
+            in end;
 
 val _ = new_theory "panItreeSemEquiv";
 
@@ -104,7 +106,7 @@ Proof
   rpt strip_tac >>
   rw [ltree_lift_def] >>>
      LASTGOAL (Cases_on ‘f st e’ >> Cases_on ‘r’) >>>
-     ALLGOALS (rw [Once itreeTauTheory.itree_iter_thm])
+     ALLGOALS (rw [Once itree_iter_thm])
 QED
 
 (* TODO: Finish this *)
@@ -112,7 +114,7 @@ Theorem msem_ret_wbisim_eq:
   mrec_sem ht ≈ Ret x ⇒
   ht ≈ Ret x
 Proof
-  fs [panItreeSemTheory.mrec_sem_def] >>
+  fs [mrec_sem_def] >>
   namedCases_on ‘ht’ ["x","x","x"] >>
   cheat
 QED
@@ -149,7 +151,7 @@ Theorem msem_compos:
   mrec_sem (Vis (INL seed) k) ≈ mrec_sem (k x)
 Proof
   disch_tac >>
-  rw [panItreeSemTheory.mrec_sem_simps] >>
+  rw [mrec_sem_simps] >>
   rw [msem_bind_left_ident]
 QED
 
@@ -176,13 +178,13 @@ Theorem ltree_wbisim_bind_conv:
 Proof
   disch_tac >>
   ‘ltree_lift f st (mrec_sem ht) ≈ ltree_lift f st (mrec_sem ht)’
-    by (rw [itreeTauTheory.itree_wbisim_refl]) >>
-  irule panItreePropsTheory.itree_wbisim_bind_trans >>
+    by (rw [itree_wbisim_refl]) >>
+  irule itree_wbisim_bind_trans >>
   qexists_tac ‘Ret x’ >>
   strip_tac
-  >- (rw [itreeTauTheory.itree_wbisim_sym])
-  >- (rw [panItreePropsTheory.itree_bind_thm_wbisim,
-            itreeTauTheory.itree_wbisim_refl])
+  >- (rw [itree_wbisim_sym])
+  >- (rw [itree_bind_thm_wbisim,
+            itree_wbisim_refl])
 QED
 
 Theorem msem_lift_monad_law:
@@ -217,7 +219,7 @@ Theorem ltree_lift_compos:
   ltree_lift f st (mrec_sem (Vis (INL seed) k)) ≈ ltree_lift f st (mrec_sem (k x))
 Proof
   disch_tac >>
-  rw [panItreeSemTheory.mrec_sem_simps] >>
+  rw [mrec_sem_simps] >>
   rw [ltree_lift_cases] >>
   rw [ltree_lift_bind_left_ident]
 QED
@@ -228,7 +230,7 @@ Theorem mrec_sem_bind_thm:
   (mrec_sem (itree_bind (Vis e g) k) = mrec_sem (Vis e (λx. itree_bind (g x) k)))
 Proof
   rpt strip_tac >>
-  rw [panItreeSemTheory.mrec_sem_simps]
+  rw [mrec_sem_simps]
 QED
 
 Theorem mrec_sem_leaf_compos:
@@ -290,7 +292,7 @@ Theorem fbs_sem_div_compos_thm:
   fbs_semantics_beh (s with locals := s.locals |+ (v,x)) prog = SemDiverge l
 Proof
   rpt strip_tac>>
-  fs[fbs_semantics_beh_def,Once panSemTheory.evaluate_def] >>
+  fs[fbs_semantics_beh_def,Once evaluate_def] >>
   fs[bool_case_eq]>-
   rpt (FULL_CASE_TAC>>fs[])>>
   disj2_tac>>
@@ -334,7 +336,7 @@ Proof
     rpt strip_tac>>
     simp[PULL_EXISTS]>>
     simp[LPREFIX_def,from_toList]>>
-    simp[Once panSemTheory.evaluate_def,
+    simp[Once evaluate_def,
          panItreeSemTheory.reclock_def,
          panPropsTheory.eval_upd_clock_eq]>>
     pairarg_tac>>fs[]>>
@@ -343,7 +345,7 @@ Proof
   rpt strip_tac>>
   simp[PULL_EXISTS]>>
   simp[LPREFIX_def,from_toList]>>
-  simp[SimpR “isPREFIX”, Once panSemTheory.evaluate_def,
+  simp[SimpR “isPREFIX”, Once evaluate_def,
        panItreeSemTheory.reclock_def,
        panPropsTheory.eval_upd_clock_eq]>>
   qexists_tac ‘k’>>
@@ -386,13 +388,13 @@ Theorem fbs_semantics_beh_simps:
 Proof
   rw []
   >- (rw [fbs_semantics_beh_def,
-          panSemTheory.evaluate_def] >>
+          evaluate_def] >>
       DEEP_INTRO_TAC some_intro >> rw [EXISTS_PROD] >>
       ntac 2 TOP_CASE_TAC >>
       pairarg_tac >> gvs [panItreeSemTheory.unclock_def,panItreeSemTheory.reclock_def,
                           panItreeSemTheory.bstate_component_equality])
   >- (rw [fbs_semantics_beh_def,
-          panSemTheory.evaluate_def] >>
+          evaluate_def] >>
       rw [panPropsTheory.eval_upd_clock_eq] >>
       DEEP_INTRO_TAC some_intro >> rw [] >>
       FULL_CASE_TAC >> fs [])
@@ -407,24 +409,24 @@ Proof
   >- (rw [itree_semantics_beh_def] >>
       DEEP_INTRO_TAC some_intro >> rw []
       >- (ntac 2 TOP_CASE_TAC >>
-          fs [panItreeSemTheory.h_prog_def,
-              panItreeSemTheory.mrec_sem_simps] >>
+          fs [h_prog_def,
+              mrec_sem_simps] >>
           fs [ltree_lift_cases] >>
-          fs [Once itreeTauTheory.itree_wbisim_cases]) >>
+          fs [Once itree_wbisim_cases]) >>
       simp[EXISTS_PROD]>>
-      fs [panItreeSemTheory.h_prog_def,
-          panItreeSemTheory.mrec_sem_simps] >>
+      fs [h_prog_def,
+          mrec_sem_simps] >>
       fs [ltree_lift_cases] >>
-      fs [Once itreeTauTheory.itree_wbisim_cases])>>
+      fs [Once itree_wbisim_cases])>>
   rw [itree_semantics_beh_def]>>
   DEEP_INTRO_TAC some_intro >> rw [EXISTS_PROD]>>
   fs [itree_semantics_beh_def,
-      panItreeSemTheory.h_prog_def,
-      panItreeSemTheory.h_prog_rule_dec_def] >>
+      h_prog_def,
+      h_prog_rule_dec_def] >>
   rpt CASE_TAC>>gvs[]>>
   fs [ltree_lift_cases,
-      panItreeSemTheory.mrec_sem_simps] >>
-  fs [Once itreeTauTheory.itree_wbisim_cases]
+      mrec_sem_simps] >>
+  fs [Once itree_wbisim_cases]
 QED
 
 Theorem fbs_semantics_beh_cases:
@@ -446,18 +448,18 @@ Theorem itree_sem_while_fails:
   itree_semantics_beh s (While e c) = SemFail
 Proof
   rw [itree_semantics_beh_def] >>
-  gvs [panItreeSemTheory.h_prog_def,
-       panItreeSemTheory.h_prog_rule_while_def,
-       Once itreeTauTheory.itree_iter_thm,
-       panItreeSemTheory.mrec_sem_simps,
+  gvs [h_prog_def,
+       h_prog_rule_while_def,
+       Once itree_iter_thm,
+       mrec_sem_simps,
        ltree_lift_cases] >>
   DEEP_INTRO_TAC some_intro >>
   rw [] >>>
      ALLGOALS ((fs [ELIM_UNCURRY] >>
-                ‘x = (SOME Error,s)’ by (fs [Once itreeTauTheory.itree_wbisim_cases]) >>
+                ‘x = (SOME Error,s)’ by (fs [Once itree_wbisim_cases]) >>
                 rw [])
                ORELSE (qexists_tac ‘(SOME Error,s)’ >>
-                       rw [itreeTauTheory.itree_wbisim_refl]))
+                       rw [itree_wbisim_refl]))
 QED
 
 Theorem itree_sem_while_no_loop:
@@ -465,18 +467,18 @@ Theorem itree_sem_while_no_loop:
   itree_semantics_beh s (While e c) = SemTerminate (NONE,s) s.ffi.io_events
 Proof
   rw [itree_semantics_beh_def] >>
-  gvs [panItreeSemTheory.h_prog_def,
-       panItreeSemTheory.h_prog_rule_while_def,
-       Once itreeTauTheory.itree_iter_thm,
-       panItreeSemTheory.mrec_sem_simps,
+  gvs [h_prog_def,
+       h_prog_rule_while_def,
+       Once itree_iter_thm,
+       mrec_sem_simps,
        ltree_lift_cases] >>
   DEEP_INTRO_TAC some_intro >>
   rw [] >>>
      ALLGOALS ((fs [ELIM_UNCURRY] >>
-                ‘x = (NONE,s)’ by (fs [Once itreeTauTheory.itree_wbisim_cases]) >>
+                ‘x = (NONE,s)’ by (fs [Once itree_wbisim_cases]) >>
                 rw [])
                ORELSE (qexists_tac ‘(NONE,s)’ >>
-                       rw [itreeTauTheory.itree_wbisim_refl]))
+                       rw [itree_wbisim_refl]))
 QED
 
 (* Final goal:
@@ -504,9 +506,9 @@ Proof
       rename1 ‘itree_semantics_beh(unclock t)’ >>
       rpt $ pop_assum MP_TAC >>
       MAP_EVERY qid_spec_tac [‘s'’,‘r’,‘t’,‘prog’] >>
-      recInduct panSemTheory.evaluate_ind >> rw []
+      recInduct evaluate_ind >> rw []
       >~ [‘While’]
-      >- (rgs [Once panSemTheory.evaluate_def,
+      >- (rgs [Once evaluate_def,
                AllCaseEqs()] >> gvs []
           >- (rw [itree_sem_while_fails,panPropsTheory.eval_upd_clock_eq]
              )
@@ -538,7 +540,7 @@ Proof
       >- (cheat)
       >- (cheat))
      (*    Cases_on ‘eval s e’ *)
-     (* >- (fs [Once panSemTheory.evaluate_def, *)
+     (* >- (fs [Once evaluate_def, *)
      (*         panPropsTheory.eval_upd_clock_eq]) *)
      (* >- (Cases_on ‘x’ >> gvs [] *)
      (*     >- (Cases_on ‘w’ >> gvs [] *)
@@ -554,11 +556,11 @@ Proof
      (*      Q.PAT_UNDISCH_TAC ‘∀k. _ = SOME TimeOut’ >> *)
      (*      qid_spec_tac ‘s’ >> *)
      (*      qid_spec_tac ‘prog’ >> *)
-     (*      recInduct panSemTheory.evaluate_ind >> *)
+     (*      recInduct evaluate_ind >> *)
      (*      rw [] *)
      (*      (* While *) *)
      (*      >- (Cases_on ‘eval s' e’ *)
-     (*          >- (fs [Once panSemTheory.evaluate_def, *)
+     (*          >- (fs [Once evaluate_def, *)
      (*                  panPropsTheory.eval_upd_clock_eq]) *)
      (*          >- (Cases_on ‘x’ >> gvs [] *)
      (*              >- (Cases_on ‘w’ >> gvs [] *)
@@ -579,7 +581,7 @@ Proof
      (*          (* Div *) *)
      (*          >- (Cases_on ‘eval s e’ >> rw [] *)
      (*              >- (fs [fbs_semantics_beh_def, *)
-     (*                      panSemTheory.evaluate_def] >> *)
+     (*                      evaluate_def] >> *)
      (*                  gvs [panPropsTheory.eval_upd_clock_eq] >> *)
      (*                  UNDISCH_TAC “(case *)
      (*                               some(r,s'). ∃k. *)
@@ -635,33 +637,33 @@ Theorem evaluate_mtree_path_corr_ltree:
   ∀p s. s.clock = k ∧ s.ffi = ffis ⇒
         ltree_lift query_oracle s.ffi (mrec_sem $ h_prog (p,s)) ≈ Ret (evaluate (p,s))
 Proof
-  recInduct panSemTheory.evaluate_ind >>
+  recInduct evaluate_ind >>
   rpt strip_tac
   (* Skip *)
-  >- (rw [panSemTheory.evaluate_def] >>
-      rw [panItreeSemTheory.h_prog_def] >>
-      rw [panItreeSemTheory.mrec_sem_simps] >>
+  >- (rw [evaluate_def] >>
+      rw [h_prog_def] >>
+      rw [mrec_sem_simps] >>
       rw [ltree_lift_cases] >>
-      rw [itreeTauTheory.itree_wbisim_refl])
+      rw [itree_wbisim_refl])
   (* Dec *)
   >- (Cases_on ‘eval s e’
-      >- (rw [panItreeSemTheory.h_prog_def,
-              panItreeSemTheory.h_prog_rule_dec_def] >>
-          rw [panItreeSemTheory.mrec_sem_simps] >>
-          rw [panSemTheory.evaluate_def] >>
+      >- (rw [h_prog_def,
+              h_prog_rule_dec_def] >>
+          rw [mrec_sem_simps] >>
+          rw [evaluate_def] >>
           rw [ltree_lift_cases] >>
-          rw [itreeTauTheory.itree_wbisim_refl])
+          rw [itree_wbisim_refl])
       >- (rw [] >>
-          rw [panItreeSemTheory.h_prog_def,
-              panItreeSemTheory.h_prog_rule_dec_def] >>
+          rw [h_prog_def,
+              h_prog_rule_dec_def] >>
           drule ltree_lift_compos >>
           disch_tac >>
-          rw [panSemTheory.evaluate_def] >>
+          rw [evaluate_def] >>
           Cases_on ‘evaluate (prog,s with locals := s.locals |+ (v,x))’ >>
           rw [] >>
           pop_assum kall_tac >>
           pop_assum (assume_tac o (SPEC “(λ(res,s'). Ret (res,s' with locals := res_var s'.locals (v,FLOOKUP (s:('a,'b) state).locals v))):('a,'b) hktree”)) >>
-          fs [panItreeSemTheory.mrec_sem_simps,
+          fs [mrec_sem_simps,
               ltree_lift_cases]) >>
       cheat) >>
   cheat
