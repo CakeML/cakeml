@@ -11,6 +11,7 @@ local open alignmentTheory
            itreeTauTheory
            panSemTheory
            panPropsTheory
+           panItreePropsTheory
            panItreeSemTheory in end;
 
 val _ = new_theory "panItreeSemEquiv";
@@ -69,73 +70,11 @@ Definition stree_trace_def:
   (fs,st)
 End
 
-Theorem itree_bind_ret_inv:
-  itree_bind t k = Ret x ⇒ ∃r. (k r) = Ret x
-Proof
-  disch_tac >>
-  Cases_on ‘t’ >>
-  fs [itreeTauTheory.itree_bind_thm] >>
-  metis_tac []
-QED
-
-Theorem itree_bind_ret_tree:
-  itree_bind t k = Ret x ⇒
-  ∃y. t = Ret y
-Proof
-  disch_tac >>
-  Cases_on ‘t’
-  >- (metis_tac [itreeTauTheory.itree_bind_thm]) >>
-  fs [itreeTauTheory.itree_bind_def]
-QED
-
-Theorem itree_bind_ret_inv_gen:
-  itree_bind t k = Ret x ⇒
-  ∃y. t = Ret y ∧ (k y) = Ret x
-Proof
-  disch_tac >>
-  Cases_on ‘t’
-  >- (qexists_tac ‘x'’ >> rw [] >>
-      fs [itreeTauTheory.itree_bind_thm]) >>
-  fs [itreeTauTheory.itree_bind_def]
-QED
-
-Theorem fbs_eval_clock_and_ffi_eq:
-  ∀s e k ffis.
-       eval s e = eval (s with <| clock := k; ffi := ffis |>) e
-Proof
-  recInduct panSemTheory.eval_ind >>
-  rw [panSemTheory.eval_def] >>
-  metis_tac [OPT_MMAP_cong]
-QED
-
-Theorem fbs_eval_clock_eq:
-  ∀s e k.
-  eval (s with clock := k) e = eval s e
-Proof
-  recInduct panSemTheory.eval_ind >>
-  rw [panSemTheory.eval_def] >>
-  metis_tac [OPT_MMAP_cong]
-QED
-
-Theorem opt_mmap_eval_clock_ffi_eq:
-  ∀s e k ffis.
-       OPT_MMAP (eval s) e = OPT_MMAP (eval (s with <| clock := k; ffi := ffis |>)) e
-Proof
-  rw [] >>
-  ho_match_mp_tac OPT_MMAP_cong >>
-  rw [fbs_eval_clock_and_ffi_eq]
-QED
-
-
-(*
-
-ltree is the monad of leaves of an mtree (essentially branches that contain only
-Ret and Tau nodes).
+(* ltree is the monad of leaves of an mtree (essentially branches that contain
+only Ret and Tau nodes).
 
 ltree_lift lifts the mtree monad into the ltree monad and satisfies the usual
-monad transformer laws.
-
-*)
+monad transformer laws. *)
 
 Definition ltree_lift_def:
   (ltree_lift f st (mt:('a,'b) mtree)):('a,'b) ltree =
@@ -168,34 +107,6 @@ Proof
      ALLGOALS (rw [Once itreeTauTheory.itree_iter_thm])
 QED
 
-Theorem itree_bind_left_ident_over_f:
-  f $ Ret x >>= k = f (k x)
-Proof
-  AP_TERM_TAC >>
-  rw [itreeTauTheory.itree_bind_thm]
-QED
-
-Theorem itree_eq_imp_wbisim:
-  t = t' ⇒ t ≈ t'
-Proof
-  rw [Once itreeTauTheory.itree_wbisim_strong_coind] >>
-  rw [itreeTauTheory.itree_wbisim_refl]
-QED
-
-Theorem itree_bind_left_ident_wbisim:
-  Ret r >>= k ≈ k r
-Proof
-  rw [itree_eq_imp_wbisim]
-QED
-
-Theorem itree_bind_thm_wbisim:
-  t ≈ Ret r ⇒ t >>= k ≈ k r
-Proof
-  disch_tac >>
-  drule itreeTauTheory.itree_bind_resp_t_wbisim >>
-  rw [itree_bind_left_ident_wbisim]
-QED
-
 (* TODO: Finish this *)
 Theorem msem_ret_wbisim_eq:
   mrec_sem ht ≈ Ret x ⇒
@@ -209,29 +120,6 @@ QED
 Theorem itree_wbisim_ret_u:
   Ret x ≈ u ⇒
   u = Ret x
-Proof
-  cheat
-QED
-
-Theorem itree_wbisim_vis_ret:
-  Ret x ≈ Vis e k ⇒ F
-Proof
-  rw [Once itreeTauTheory.itree_wbisim_cases]
-QED
-
-Theorem msem_strip_tau:
-  (strip_tau ht (Ret x) ⇒
-   mrec_sem ht = mrec_sem (Ret x)) ∧
-  (strip_tau ht (Vis (INL seed) k) ⇒
-   mrec_sem ht = Tau (case ht of
-                   Tau u => mrec_sem u
-                      | _ => mrec_sem ht)) ∧
-  (strip_tau ht (Vis (INR e) k) ⇒
-   mrec_sem ht = (case ht of
-                    Tau u => mrec_sem u
-                    | _ => mrec_sem ht)) ∧
-  (strip_tau ht (Tau u) ⇒
-   mrec_sem ht = mrec_sem u)
 Proof
   cheat
 QED
@@ -282,40 +170,19 @@ QED
 
 val g = “g:('a,'b) mtree_ans -> ('a,'b) ltree”;
 
-Theorem itree_wbisim_bind_trans:
-  t1 ≈ t2 ∧ t1 >>= k ≈ t3 ⇒
-  t2 >>= k ≈ t3
-Proof
-  strip_tac >>
-  irule itreeTauTheory.itree_wbisim_trans >>
-  qexists_tac ‘t1 >>= k’ >>
-  strip_tac
-  >- (irule itreeTauTheory.itree_bind_resp_t_wbisim >>
-      rw [itreeTauTheory.itree_wbisim_sym])
-  >- (rw [])
-QED
-
-Theorem itree_wbisim_bind_conv:
+Theorem ltree_wbisim_bind_conv:
   ltree_lift f st (mrec_sem ht) ≈ Ret x ⇒
   (ltree_lift f st (mrec_sem ht) >>= ^g) ≈ g x
 Proof
   disch_tac >>
   ‘ltree_lift f st (mrec_sem ht) ≈ ltree_lift f st (mrec_sem ht)’
     by (rw [itreeTauTheory.itree_wbisim_refl]) >>
-  irule itree_wbisim_bind_trans >>
+  irule panItreePropsTheory.itree_wbisim_bind_trans >>
   qexists_tac ‘Ret x’ >>
   strip_tac
   >- (rw [itreeTauTheory.itree_wbisim_sym])
-  >- (rw [itree_bind_thm_wbisim,
+  >- (rw [panItreePropsTheory.itree_bind_thm_wbisim,
             itreeTauTheory.itree_wbisim_refl])
-QED
-
-Theorem msem_cases_tau:
-  mrec_sem ht = Tau u ⇒
-  (∃seed k. ht = Vis (INL seed) k) ∨
-  (∃v. ht = Tau v)
-Proof
-  cheat
 QED
 
 Theorem msem_lift_monad_law:
@@ -339,7 +206,7 @@ Proof
   disch_tac >>
   rw [msem_lift_monad_law] >>
   rw [ltree_lift_monad_law] >>
-  drule itree_wbisim_bind_conv >>
+  drule ltree_wbisim_bind_conv >>
   disch_tac >>
   pop_assum (assume_tac o (SPEC “(ltree_lift f st ∘ mrec_sem ∘ k):('a,'b) lktree”)) >>
   fs [o_THM]
@@ -370,14 +237,6 @@ Theorem mrec_sem_leaf_compos:
 Proof
   cheat
 QED
-
-Theorem fbs_sem_clock_inv_thm:
-  FST $ evaluate (prog,s) = SOME Error ⇒
-  FST $ evaluate (prog,s with clock := k) = SOME Error
-Proof
-  cheat
-QED
-
 
 (* Main correspondence theorem *)
 
@@ -538,13 +397,6 @@ Proof
       FULL_CASE_TAC >> fs [])
 QED
 
-Theorem itree_wbisim_neq:
-  Ret r ≈ Ret r' ⇔ r = r'
-Proof
-  EQ_TAC >>
-  rw [Once itreeTauTheory.itree_wbisim_cases]
-QED
-
 Theorem itree_semantics_beh_simps:
   (itree_semantics_beh s Skip = SemTerminate (NONE, s with clock := 0) s.ffi.io_events) ∧
   (eval s e = NONE ⇒
@@ -588,12 +440,6 @@ Proof
   >- (rw [fbs_semantics_beh_def])
 QED
 
-Theorem nat_not_const_eq:
-  ¬(∀k:num. k = 0)
-Proof
-  rw []
-QED
-
 Theorem itree_semantics_beh_clock_lem:
   itree_semantics_beh (s with clock := k) p = itree_semantics_beh s p
 Proof
@@ -606,22 +452,6 @@ Proof
   cheat
 QED
 
-Theorem itree_wbisim_ret_decomp_eq:
-  Ret r ≈ Ret r' ⇔
-  r = r'
-Proof
-  EQ_TAC >>
-  rw [Once itreeTauTheory.itree_wbisim_cases]
-QED
-
-Theorem itree_wbisim_ret_pair_decomp_eq:
-  Ret (a,b) ≈ Ret (a',b') ⇔
-  a = a' ∧ b = b'
-Proof
-  EQ_TAC >>
-  rw [Once itreeTauTheory.itree_wbisim_cases]
-QED
-
 Theorem itree_sem_while_fails:
   eval s e = x ∧ (x = NONE ∨ x = SOME (ValLabel v1) ∨ x = SOME (Struct v2)) ⇒
   itree_semantics_beh s (While e c) = SemFail
@@ -632,16 +462,18 @@ Proof
        Once itreeTauTheory.itree_iter_thm,
        panItreeSemTheory.mrec_sem_simps,
        ltree_lift_cases] >>
-  DEEP_INTRO_TAC some_intro >> rw [] >>>
-  ALLGOALS (fs [ELIM_UNCURRY] >>
-   fs [itree_wbisim_ret_decomp_eq] >> rw [])
-  ORELSE (qexists_tac ‘(SOME Error,s)’ >>
-          rw [itreeTauTheory.itree_wbisim_refl])
+  DEEP_INTRO_TAC some_intro >>
+  rw [] >>>
+     ALLGOALS ((fs [ELIM_UNCURRY] >>
+                ‘x = (SOME Error,s)’ by (fs [Once itreeTauTheory.itree_wbisim_cases]) >>
+                rw [])
+               ORELSE (qexists_tac ‘(SOME Error,s)’ >>
+                       rw [itreeTauTheory.itree_wbisim_refl]))
 QED
 
 Theorem itree_sem_while_no_loop:
   eval s e = SOME (ValWord 0w) ⇒
-  itree_semantics_beh s (While e c) = SemTerminate (NONE,s) s.ffi.io_events
+  itree_semantics_beh s (While e c) = SemTerminate (NONE,s with clock := 0) s.ffi.io_events
 Proof
   rw [itree_semantics_beh_def] >>
   gvs [panItreeSemTheory.h_prog_def,
@@ -649,15 +481,23 @@ Proof
        Once itreeTauTheory.itree_iter_thm,
        panItreeSemTheory.mrec_sem_simps,
        ltree_lift_cases] >>
-  DEEP_INTRO_TAC some_intro >> rw [] >>>
-  ALLGOALS (fs [ELIM_UNCURRY] >>
-   fs [itree_wbisim_ret_decomp_eq] >> rw [])
-  ORELSE (qexists_tac ‘(SOME Error,s)’ >>
-          rw [itreeTauTheory.itree_wbisim_refl])
+  DEEP_INTRO_TAC some_intro >>
+  rw [] >>>
+     ALLGOALS ((fs [ELIM_UNCURRY] >>
+                ‘x = (NONE,s)’ by (fs [Once itreeTauTheory.itree_wbisim_cases]) >>
+                rw [])
+               ORELSE (qexists_tac ‘(NONE,s)’ >>
+                       rw [itreeTauTheory.itree_wbisim_refl]))
 QED
 
-(* TODO: Need to prove the correspondence for While more directly
- to better understand what is required here... *)
+(* Final goal:
+
+   1. For every path that can be generated frong
+
+   that produces an equivalent result in the functional semantics.
+   2. For every oracle, there is a path producing a corresponding result in the ITree semantics.
+ *)
+
 Theorem itree_semantics_corres:
   fbs_semantics_beh s prog = itree_semantics_beh s prog
 Proof
@@ -831,15 +671,5 @@ Proof
       cheat) >>
   cheat
 QED
-
-
-
-(* Final goal:
-
-   1. For every path that can be generated frong
-
-   that produces an equivalent result in the functional semantics.
-   2. For every oracle, there is a path producing a corresponding result in the ITree semantics.
- *)
 
 val _ = export_theory();
