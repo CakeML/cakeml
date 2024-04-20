@@ -17,6 +17,7 @@ struct
   load "stringLib";
   load "cfHeapsBaseSyntax";
   load "cfSyntax";
+  load "cfTacticsBaseLib";
   *)
 
   val ERR = mk_HOL_ERR "xcf" "xcf";
@@ -244,16 +245,21 @@ struct
   *)
   local
     val cnv1 = REWR_CONV (GSYM letrec_pull_params_repack)
-    fun cnv2 defth = SIMP_CONV list_ss [letrec_pull_params_repack, GSYM defth]
+    fun cnv2 defs =
+      SIMP_CONV list_ss (letrec_pull_params_repack::List.map GSYM defs)
   in
-    fun xcf_recclosure_conv defth tm =
+    fun xcf_recclosure_conv defs tm =
       let
         (* Rewrite using the definition, and put the term into shape for
          * nary_recclos_app_cconv: *)
-        val th1 = PATH_CONV "lllr" (REWR_CONV defth THENC cnv1) tm
+        val th1 =
+          (EVERY_CONV (List.map (fn th =>
+                                   TRY_CONV (PATH_CONV "lllr" (REWR_CONV th)))
+                                defs) THENC
+           PATH_CONV "lllr" cnv1) tm
         val th2 = nary_recclos_app_cconv (rhs (concl th1))
         (* Simplify the environment argument of the cf term: *)
-        val th3 = CONV_RULE (PATH_CONV "lrllr" (cnv2 defth)) th2
+        val th3 = CONV_RULE (PATH_CONV "lrllr" (cnv2 defs)) th2
       in
         (* Restore the original app-goal so that we can irule the theorem: *)
         CONV_RULE (RAND_CONV (REWR_CONV (SYM th1))) th3
@@ -274,34 +280,39 @@ struct
       val _ =
         same_const (lhs (concl defth)) defn orelse
         raise ERR ("theorem does not define " ^ term_to_string defn)
-      val _ =
-        listSyntax.is_list args orelse
-        raise ERR "argument list not terminated with nil"
       val vtm = rhs (concl defth)
-      val _ =
-        semanticPrimitivesSyntax.is_Recclosure vtm orelse
-        semanticPrimitivesSyntax.is_Closure vtm orelse
-        raise ERR "rhs of theorem is not a closure or recclosure"
     in
       if semanticPrimitivesSyntax.is_Recclosure vtm then
-        xcf_recclosure_conv defth tm
+        xcf_recclosure_conv [defth] tm
       else (* Closure *)
         xcf_closure_conv defth tm
     end;
 
   (*
    * Top-level conversion for xcfs.
-   *
-   * TODO(oskar.abrahamsson): I don't know how this is intended to work.
    *)
-  fun xcfs_cconv defs tm = ALL_CONV tm;
+  fun xcfs_cconv defs tm =
+    let
+      val (ptm, defn, args, _, _) =
+        cfAppSyntax.dest_app tm handle HOL_ERR _ =>
+        raise ERR "Not an app"
+      val _ =
+        type_of ptm = cfHeapsBaseSyntax.ffi_proj_format orelse
+        raise ERR (term_to_string ptm ^ " must have type :'ffi ffi_proj")
+      val _ =
+        List.exists (fn th => same_const (lhs (concl th)) defn) defs orelse
+        raise ERR ("none of the theorems define " ^ term_to_string defn)
+    in
+      xcf_recclosure_conv defs tm
+    end;
 
   fun xcf_with_def defth (g as (_, tm)) =
     (irule (xcf_cconv defth tm) THEN
      CONV_TAC cf_cleanup_conv) g;
 
   fun xcf_with_defs defs (g as (_, tm)) =
-    (irule (xcfs_cconv defs tm) THEN
+    (rpt strip_tac THEN
+     irule (xcfs_cconv defs tm) THEN
      CONV_TAC cf_cleanup_conv) g;
 
   fun xcf name st =
