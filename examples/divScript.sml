@@ -79,6 +79,7 @@ Proof
     \\ xif \\ fs[]
     \\ xlet_auto >- xsimpl
     \\ xvar \\ xsimpl \\ fs[INT_def] \\ intLib.COOPER_TAC)
+  \\ rpt strip_tac
   \\ xcf "condLoop" st
   \\ xlet_auto THEN1 xsimpl
   \\ xif \\ instantiate
@@ -228,7 +229,8 @@ Theorem put_char_spec:
     (POSTv v. &UNIT_TYPE () v *
               SIO input (SNOC (put_char_event c) events))
 Proof
-  xcf "put_char" st
+  rpt strip_tac
+  \\ xcf "put_char" st
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xlet
@@ -258,7 +260,8 @@ Theorem put_line_spec:
     (POSTv v. &UNIT_TYPE () v *
               SIO input (SNOC (put_str_event (l ++ "\n")) events))
 Proof
-  xcf "put_line" st
+  rpt strip_tac
+  \\ xcf "put_line" st
   \\ xlet_auto THEN1 xsimpl
   \\ xlet_auto THEN1 xsimpl
   \\ xlet_auto THEN1 xsimpl
@@ -290,7 +293,8 @@ Theorem get_char_spec:
                 SIO (THE (LTL input))
                     (SNOC (get_char_event (THE (LHD input))) events))
 Proof
-  xcf "get_char" st
+  rpt strip_tac
+  \\ xcf "get_char" st
   \\ qmatch_goalsub_abbrev_tac `_ * sio`
   \\ qabbrev_tac `a:word8 list = if input = [||] then
                                    [0w; 0w]
