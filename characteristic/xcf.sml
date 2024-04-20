@@ -174,7 +174,8 @@ struct
   (*
   val tm = ``app (p: 'ffi ffi_proj) (Closure env v (Fun v1 (Fun v2 (Fun v3 b)))) [a;a1;a2;a3] H Q``;
   *)
-  val xcf_closure_conv =
+  fun xcf_closure_conv defth =
+    PATH_CONV "lllr" (REWR_CONV defth) THENCC
     PATH_CONV "lllr" nary_clos_conv THENCC
     nary_clos_app_cconv;
 
@@ -201,18 +202,18 @@ struct
   LIST_EVAL_CONV2 tm
   *)
   val LIST_EVAL_CONV2 =
-    computeLib.compset_conv (reduceLib.num_compset ())
-        [computeLib.Defs [
-          listTheory.ALL_DISTINCT, listTheory.MEM, listTheory.MAP
-         ],
-         computeLib.Tys [
-           listSyntax.mk_list_type alpha
-         ],
-         computeLib.Extenders [
-           stringLib.add_string_compset,
-           pairLib.add_pair_compset
-         ]
-        ];
+    computeLib.compset_conv (reduceLib.num_compset ()) [
+      computeLib.Defs [
+        listTheory.ALL_DISTINCT, listTheory.MEM, listTheory.MAP
+      ],
+      computeLib.Tys [
+        listSyntax.mk_list_type alpha
+      ],
+      computeLib.Extenders [
+        stringLib.add_string_compset,
+        pairLib.add_pair_compset
+      ]
+    ];
 
   (*
   val tm = ``app p (naryRecclosure env (letrec_pull_params [("f1","v1",Fun "v2" (Var v)); ("f2","v2",e2)]) "f1") [v1;v2] H Q``
@@ -243,13 +244,20 @@ struct
   *)
   local
     val cnv1 = REWR_CONV (GSYM letrec_pull_params_repack)
-    val cnv2 = REWR_CONV letrec_pull_params_repack
+    fun cnv2 defth = SIMP_CONV list_ss [letrec_pull_params_repack, GSYM defth]
   in
-    fun xcf_recclosure_conv defth =
-      PATH_CONV "lllr" cnv1 THENCC
-      nary_recclos_app_cconv THENCC
-      (* TODO(oskar.abrahamsson) Be more careful with this rewrite: *)
-      SIMP_CONV list_ss [letrec_pull_params_repack, GSYM defth]
+    fun xcf_recclosure_conv defth tm =
+      let
+        (* Rewrite using the definition, and put the term into shape for
+         * nary_recclos_app_cconv: *)
+        val th1 = PATH_CONV "lllr" (REWR_CONV defth THENC cnv1) tm
+        val th2 = nary_recclos_app_cconv (rhs (concl th1))
+        (* Simplify the environment argument of the cf term: *)
+        val th3 = CONV_RULE (PATH_CONV "lrllr" (cnv2 defth)) th2
+      in
+        (* Restore the original app-goal so that we can irule the theorem: *)
+        CONV_RULE (RAND_CONV (REWR_CONV (SYM th1))) th3
+      end
   end (* local *)
 
   (*
@@ -276,11 +284,9 @@ struct
         raise ERR "rhs of theorem is not a closure or recclosure"
     in
       if semanticPrimitivesSyntax.is_Recclosure vtm then
-        (PATH_CONV "lllr" (REWR_CONV defth) THENCC
-         xcf_recclosure_conv defth) tm
+        xcf_recclosure_conv defth tm
       else (* Closure *)
-        (PATH_CONV "lllr" (REWR_CONV defth) THENCC
-         xcf_closure_conv) tm
+        xcf_closure_conv defth tm
     end;
 
   (*
