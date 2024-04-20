@@ -61,6 +61,7 @@ Theorem empty_stack_spec':
      !uv. app (p:'ffi ffi_proj) ^(fetch_v "empty_stack" st) [uv]
           emp (POSTv qv. STACK A [] qv)
 Proof
+    strip_tac \\
     xcf "empty_stack" st \\
     xlet `POSTv v. &UNIT_TYPE () v` THEN1(xcon \\ xsimpl) \\
     xlet `POSTv av. ARRAY av []` THEN1(xapp \\ fs[]) \\
@@ -74,7 +75,9 @@ Theorem empty_stack_spec:
      !uv. app (p:'ffi ffi_proj) ^(fetch_v "empty_stack" st) [uv]
           emp (POSTv qv. STACK A [] qv)
 Proof
-    xcf "empty_stack" st >> simp[STACK_def] >> xs_auto_tac
+    strip_tac >>
+    xcf "empty_stack" st >> xs_auto_tac >> simp[STACK_def] >>
+    xs_auto_tac
 QED
 
 Theorem push_spec':
@@ -82,6 +85,7 @@ Theorem push_spec':
           (STACK A vs qv * & A x xv)
           (POSTv uv. STACK A (vs ++ [x]) qv)
 Proof
+    rpt strip_tac >>
     xcf "push" st >>
     simp[STACK_def] >>
     xpull >>
@@ -133,6 +137,7 @@ Theorem push_spec:
           (STACK A vs qv * & A x xv)
           (POSTv uv. STACK A (vs ++ [x]) qv)
 Proof
+    rpt strip_tac >>
     xcf "push" st >>
     simp[STACK_def] >>
     xpull >>
@@ -175,6 +180,7 @@ Theorem pop_spec:
    (POSTve (\v. &(not(NULL vs) /\ A (LAST vs) v) * STACK A (FRONT vs) qv)
            (\e. &(NULL vs /\ EmptyStack_exn e) * STACK A vs qv))
 Proof
+   rpt strip_tac >>
    xcf "pop" st >>
    simp[STACK_def] >>
    xpull >>
