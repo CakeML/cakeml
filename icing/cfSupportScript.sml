@@ -1625,7 +1625,7 @@ Theorem intToFP_spec:
   STRING_TYPE s sv ∧
   fromString s = SOME i ∧
   0 ≤ i ⇒
-  app p ^(fetch_v "intToFP" st)
+  app (p: 'ffi ffi_proj) ^(fetch_v "intToFP" st)
   [sv]
   (STDIO fs)
   (POSTv uv. &DOUBLE (Fp_const ((n2w (Num i)):word64)) uv * STDIO fs)
@@ -1657,12 +1657,13 @@ QED
 Theorem reader1_spec:
   2 = LENGTH cl ∧
   UNIT_TYPE () uv ⇒
-  app p ^(fetch_v "reader1" st)
+  app (p: 'ffi ffi_proj) ^(fetch_v "reader1" st)
   [uv]
   (STDIO fs * COMMANDLINE cl)
   (POSTv uv. &(STRING_TYPE (HD(TL cl)) uv) * STDIO fs)
 Proof
-  xcf "reader1" st
+  rpt strip_tac
+  \\ xcf "reader1" st
   \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)
@@ -1678,12 +1679,13 @@ QED
 Theorem reader2_spec:
   3 = LENGTH cl ∧
   UNIT_TYPE () uv ⇒
-  app p ^(fetch_v "reader2" st)
+  app (p: 'ffi ffi_proj) ^(fetch_v "reader2" st)
   [uv]
   (STDIO fs * COMMANDLINE cl)
   (POSTv uv. &(PAIR_TYPE STRING_TYPE STRING_TYPE (HD(TL cl), (HD (TL (TL cl)))) uv) * STDIO fs)
 Proof
-  xcf "reader2" st
+  rpt strip_tac
+  \\ xcf "reader2" st
   \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)
@@ -1704,12 +1706,13 @@ QED
 Theorem reader3_spec:
   4 = LENGTH cl ∧
   UNIT_TYPE () uv ⇒
-  app p ^(fetch_v "reader3" st)
+  app (p: 'ffi ffi_proj) ^(fetch_v "reader3" st)
   [uv]
   (STDIO fs * COMMANDLINE cl)
   (POSTv uv. &(PAIR_TYPE STRING_TYPE (PAIR_TYPE STRING_TYPE STRING_TYPE) (HD(TL cl), (HD (TL (TL cl)), HD (TL (TL (TL cl))))) uv) * STDIO fs)
 Proof
-  xcf "reader3" st
+  rpt strip_tac
+  \\ xcf "reader3" st
   \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)
@@ -1736,7 +1739,7 @@ QED
 Theorem reader4_spec:
   5 = LENGTH cl ∧
   UNIT_TYPE () uv ⇒
-  app p ^(fetch_v "reader4" st)
+  app (p: 'ffi ffi_proj) ^(fetch_v "reader4" st)
   [uv]
   (STDIO fs * COMMANDLINE cl)
   (POSTv uv.
@@ -1746,7 +1749,8 @@ Theorem reader4_spec:
        (HD(TL cl), (HD (TL (TL cl)), HD (TL (TL (TL cl))), HD (TL (TL (TL (TL cl))))))
        uv) * STDIO fs)
 Proof
-  xcf "reader4" st
+  rpt strip_tac
+  \\ xcf "reader4" st
   \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)
@@ -1781,7 +1785,7 @@ QED
 Theorem reader6_spec:
   7 = LENGTH cl ∧
   UNIT_TYPE () uv ⇒
-  app p ^(fetch_v "reader6" st)
+  app (p: 'ffi ffi_proj) ^(fetch_v "reader6" st)
   [uv]
   (STDIO fs * COMMANDLINE cl)
   (POSTv uv.
@@ -1798,7 +1802,8 @@ Theorem reader6_spec:
             HD (TL (TL (TL (TL (TL (TL cl)))))))))))
        uv) * STDIO fs)
 Proof
-  xcf "reader6" st
+  rpt strip_tac
+  \\ xcf "reader6" st
   \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ fs [quantHeuristicsTheory.LENGTH_TO_EXISTS_CONS]
@@ -1837,7 +1842,7 @@ QED
 Theorem reader8_spec:
   9 = LENGTH cl ∧
   UNIT_TYPE () uv ⇒
-  app p ^(fetch_v "reader8" st)
+  app (p: 'ffi ffi_proj) ^(fetch_v "reader8" st)
   [uv]
   (STDIO fs * COMMANDLINE cl)
   (POSTv uv.
@@ -1858,7 +1863,8 @@ Theorem reader8_spec:
               HD (TL (TL (TL (TL (TL (TL (TL (TL cl)))))))))))))))
        uv) * STDIO fs)
 Proof
-  xcf "reader8" st
+  rpt strip_tac
+  \\ xcf "reader8" st
   \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
   \\ xlet_auto_spec (SOME CommandLine_arguments_spec) >- (xcon \\ xsimpl)
   \\ ‘∃ e1 e2 e3 e4 e5 e6 e7 e8 e9. cl = [e1; e2; e3; e4; e5; e6; e7; e8; e9]’
@@ -1923,7 +1929,7 @@ QED
 Theorem reader9_spec:
   10 = LENGTH cl ∧
   UNIT_TYPE () uv ⇒
-  app p ^(fetch_v "reader9" st)
+  app (p: 'ffi ffi_proj) ^(fetch_v "reader9" st)
   [uv]
   (STDIO fs * COMMANDLINE cl)
   (POSTv uv.
@@ -1946,7 +1952,8 @@ Theorem reader9_spec:
                HD (TL (TL (TL (TL (TL (TL (TL (TL (TL cl)))))))))))))))))
        uv) * STDIO fs)
 Proof
-  xcf "reader9" st
+  rpt strip_tac
+  \\ xcf "reader9" st
   \\ reverse (Cases_on`STD_streams fs`) >-(fs[STDIO_def] \\ xpull)
   \\ xlet_auto_spec (SOME CommandLine_arguments_spec) >- (xcon \\ xsimpl)
   \\ fs [quantHeuristicsTheory.LENGTH_TO_EXISTS_CONS]
@@ -2020,7 +2027,8 @@ Theorem printer_spec:
     (STDIO fs)
     (POSTv uv. &UNIT_TYPE () uv * STDIO (add_stdout fs (mlint$toString (&w2n w))))
 Proof
-  xcf "printer" st
+  rpt strip_tac
+  \\ xcf "printer" st
   \\ xlet_auto
   >- (xsimpl)
   \\ xlet_auto
