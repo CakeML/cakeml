@@ -139,7 +139,7 @@ struct
     let
       val (p, nc, xs, h, q) = dest_app tm
       val (env, ns, bod) = dest_naryClosure nc
-      val th = SPECL [ns, env, bod, xs, ``TODO_REMOVE_THIS:'a``, h, q] app_of_cf
+      val th = SPECL [ns, env, bod, xs, h, q] app_of_cf
       val th = MP_CONV LIST_EVAL_CONV th
       val th = MP_CONV LIST_EVAL_CONV th
     in

@@ -3630,7 +3630,7 @@ Proof
 QED
 
 Theorem app_of_cf:
-   !ns env body xvs env' H Q.
+   !ns env body xvs H Q.
      ns <> [] ==>
      LENGTH xvs = LENGTH ns ==>
      cf (p:'ffi ffi_proj) body (extend_env ns xvs env) H Q ==>
