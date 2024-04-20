@@ -11,7 +11,7 @@ open preamble backendTheory
      riscv_compileLib export_riscvTheory
      ag32_compileLib export_ag32Theory
      x64_compileLib export_x64Theory
-    mlstringSyntax presLangLib
+     mlstringSyntax mlmapTheory presLangLib
 
 val _ = Globals.max_print_depth := 20;
 

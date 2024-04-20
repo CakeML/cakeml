@@ -8,7 +8,7 @@ local
 
 open HolKernel boolLib bossLib computeLib
 open semanticsComputeLib reg_allocComputeLib
-open backendTheory
+open backendTheory mlmapTheory
 
 structure Parse = struct
   open Parse
