@@ -55,7 +55,7 @@ Proof
   strip_tac \\ Cases_on `x`
   THEN1 (
     pop_assum (K ALL_TAC) \\ qid_spec_tac `n`
-    \\ Induct_on `n`
+    \\ Induct_on `n` \\ rpt strip_tac
     THEN1 (
       xcf "condLoop" st
       \\ xlet_auto THEN1 xsimpl
@@ -135,7 +135,7 @@ Theorem outerLoop_spec:
 Proof
   strip_tac \\ Cases_on `n <= 5000`
   THEN1 (
-    Induct_on `5000 - n`
+    Induct_on `5000 - n` \\ rw []
     THEN1 (
       xcf "outerLoop" st
       \\ xlet_auto THEN1 xsimpl

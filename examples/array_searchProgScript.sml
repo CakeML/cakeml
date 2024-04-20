@@ -60,6 +60,7 @@ Theorem linear_search_spec:
               )
         )
 Proof
+    rpt strip_tac >>
     xcf "linear_search" (basis_st()) >>
     reverse (xfun_spec `search_aux`
         `∀ sublist sublist_vs offset offset_v .
@@ -342,6 +343,7 @@ Theorem binary_search_spec:
              )
         )
 Proof
+  rpt strip_tac >>
   xcf "binary_search" (basis_st()) >>
   reverse (xfun_spec `search_aux`
            `∀ sublist sublist_vs start finish start_v finish_v .
