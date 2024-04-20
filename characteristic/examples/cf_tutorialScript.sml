@@ -118,7 +118,7 @@ Proof
        which turns an [app...] goal into a goal about the
        characteristic formula of the function body.
     *)
-    xcf_with_def "length" (fetch "-" "length_v_def") \\ fs [LIST_TYPE_def] \\
+    rw [] \\ xcf_with_def (fetch "-" "length_v_def") \\ fs [LIST_TYPE_def] \\
 
     (* Now, the general method is to look at the head constructor, and
        call the corresponding xtactic. Here, we have a [cf_match...]
@@ -140,7 +140,7 @@ Proof
     xsimpl
   )
   THEN1 ((** Induction *)
-    xcf_with_def "length" (fetch "-" "length_v_def") \\ fs [LIST_TYPE_def] \\
+    rw [] \\ xcf_with_def (fetch "-" "length_v_def") \\ fs [LIST_TYPE_def] \\
     rename1 `a x xv` \\ rename1 `LIST_TYPE a xs xvs` \\
     xmatch \\
 
@@ -195,7 +195,7 @@ Theorem bytearray_fromlist_spec[local]:
      app (p:'ffi ffi_proj) fromList_v [lv]
        emp (POSTv av. W8ARRAY av l)
 Proof
-  xcf_with_def "fromList" (fetch "-" "fromList_v_def") \\
+  rw [] \\ xcf_with_def (fetch "-" "fromList_v_def") \\
   xlet `POSTv w8z. & WORD (n2w 0: word8) w8z` THEN1 (xapp \\ fs []) \\
   xlet `POSTv len_v. & NUM (LENGTH l) len_v` THEN1 (xapp \\ metis_tac []) \\
   xlet `POSTv av. W8ARRAY av (REPLICATE (LENGTH l) 0w)`
