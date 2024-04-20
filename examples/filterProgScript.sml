@@ -795,6 +795,7 @@ Theorem forward_matching_lines_div_spec:
       (seL4_IO input [] * W8ARRAY dummyarr_loc [])
       (POSTd io. LFILTER is_emit io = LMAP (output_event_of o cut_at_null_w) (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w) input))
 Proof
+  rpt strip_tac >>
   xcf "forward_matching_lines" st >>
   xlet_auto >- xsimpl >>
   xlet_auto >- xsimpl >>
@@ -1106,6 +1107,7 @@ Theorem forward_matching_lines_ffidiv_spec:
                    input))
       )
 Proof
+  rpt strip_tac >>
   xcf "forward_matching_lines" st >>
   xlet_auto >- xsimpl >>
   xlet_auto >- xsimpl >>
