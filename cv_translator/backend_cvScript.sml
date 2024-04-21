@@ -19,6 +19,8 @@ val _ = cv_auto_trans lab_to_targetTheory.zero_labs_acc_exist_def;
 val _ = cv_auto_trans lab_to_targetTheory.find_ffi_names_def;
 val _ = TypeBase.accessors_of “:lab_to_target$inc_config” |> map cv_trans;
 val _ = TypeBase.accessors_of “:environment” |> map cv_trans;
+val _ = cv_trans (lab_to_targetTheory.get_memop_info_def
+                    |> INST_TYPE [alpha|->“:8”]);
 
 val _ = cv_trans num_list_enc_decTheory.append_rev_def;
 

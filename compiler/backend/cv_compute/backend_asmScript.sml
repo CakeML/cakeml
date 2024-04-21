@@ -196,11 +196,13 @@ Definition compile_lab_def:
       case remove_labels c.inc_init_clock asm_conf c.inc_pos c.inc_labels ffis sec_list of
       | SOME (sec_list,l1) =>
           let bytes = prog_to_bytes sec_list in
+          let (new_ffis,shmem_infos) = get_shmem_info sec_list c.inc_pos [] [] in
           SOME (bytes,
                 c with <| inc_labels := l1;
                           inc_pos := LENGTH bytes + c.inc_pos;
                           inc_sec_pos_len := get_symbols c.inc_pos sec_list;
-                          inc_ffi_names := SOME ffis |>)
+                          inc_ffi_names := SOME (ffis ++ new_ffis) ;
+                          inc_shmem_extra := MAP to_inc_shmem_info shmem_infos |>)
       | NONE => NONE
     else NONE
 End
@@ -310,12 +312,14 @@ Theorem from_lab_thm[local]:
     conf_str = encode_backend_config (config_to_inc_config c1)
 Proof
   gvs [from_lab_def,backendTheory.from_lab_def]
-  \\ gvs [attach_bitmaps_def |> DefnBase.one_line_ify NONE, AllCaseEqs()]
-  \\ rw [] \\ gvs [compile_lab_def,lab_to_targetTheory.compile_def,lab_to_target_def,
-                   lab_to_targetTheory.compile_lab_def,inc_config_to_config_def,
-                   inc_config_to_config_def,backendTheory.inc_config_to_config_def]
+  \\ gvs [attach_bitmaps_def |> DefnBase.one_line_ify NONE, AllCaseEqs()] \\ rw []
+  \\ gvs [compile_lab_def,lab_to_targetTheory.compile_def,lab_to_target_def,
+          lab_to_targetTheory.compile_lab_def,inc_config_to_config_def,
+          inc_config_to_config_def,backendTheory.inc_config_to_config_def]
   \\ rpt (pairarg_tac \\ gvs [])
+  \\ pop_assum kall_tac
   \\ ntac 2 (TOP_CASE_TAC \\ gvs [])
+  \\ rpt (pairarg_tac \\ gvs [])
   \\ gvs [backendTheory.attach_bitmaps_def,backendTheory.config_to_inc_config_def,
           lab_to_targetTheory.config_to_inc_config_def]
   \\ AP_TERM_TAC

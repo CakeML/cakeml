@@ -39,6 +39,28 @@ QED
 
 val _ = cv_trans (lab_to_targetTheory.pad_code_def |> arch_spec);
 
+Triviality to_shmem_rec:
+  <| entry_pc := ep ;
+     nbytes := nb ;
+     access_addr := aa ;
+     reg := r ;
+     exit_pc := ex |>
+   = shmem_rec ep nb aa r ex
+Proof
+  gvs [lab_to_targetTheory.shmem_rec_component_equality]
+QED
+
+val pre = cv_trans_pre (lab_to_targetTheory.get_shmem_info_def
+                          |> SRULE [to_shmem_rec] |> arch_spec);
+
+Theorem lab_to_target_get_shmem_info_pre[cv_pre]:
+  ∀v pos ffi_names shmem_info.
+    lab_to_target_get_shmem_info_pre v pos ffi_names shmem_info
+Proof
+  ho_match_mp_tac lab_to_targetTheory.get_shmem_info_ind
+  \\ rw [] \\ simp [Once pre] \\ gvs [to_shmem_rec]
+QED
+
 Theorem bytes_in_word_def[cv_inline] =
   bytes_in_word_def |> arch_spec |> CONV_RULE (RAND_CONV EVAL);
 
