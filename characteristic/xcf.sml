@@ -312,8 +312,7 @@ struct
      CONV_TAC cf_cleanup_conv) g;
 
   fun xcf_with_defs defs (g as (_, tm)) =
-    (rpt strip_tac THEN
-     irule (xcfs_cconv defs tm) THEN
+    (irule (xcfs_cconv defs tm) THEN
      CONV_TAC cf_cleanup_conv) g;
 
   fun xcf name st =
