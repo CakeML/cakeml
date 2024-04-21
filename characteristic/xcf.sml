@@ -120,7 +120,7 @@ struct
       ]
     ] THENC
     ONCE_REWRITE_CONV [STOP_def] THENC
-    PATH_CONV "llr" (REWRITE_CONV [ETA_THM]);
+    PATH_CONV "lll" (REWRITE_CONV [ETA_THM]);
 
   (* -----------------------------------------------------------------------
      xcf
