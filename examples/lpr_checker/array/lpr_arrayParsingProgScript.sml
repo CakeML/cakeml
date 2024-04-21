@@ -214,6 +214,7 @@ Theorem parse_one_u_spec:
             parse_one_u lines = NONE
            )))
 Proof
+  rw[]>>
   xcf "parse_one_u" (get_ml_prog_state ())>>
   Cases_on`lines`
   >- (
@@ -377,6 +378,7 @@ Theorem parse_one_c_spec:
             parse_one_c lines = NONE
            )))
 Proof
+  rw[]>>
   xcf "parse_one_c" (get_ml_prog_state ())>>
   xlet ‘(POSTv v.
    SEP_EXISTS k.
@@ -482,6 +484,7 @@ Theorem parse_one_spec:
             parse_one b lines = NONE
            )))
 Proof
+  rw[]>>
   xcf "parse_one" (get_ml_prog_state ())>>
   simp[term_char_def,parse_one_def]>>xif>>
   xapp>>metis_tac[]
@@ -738,6 +741,7 @@ Theorem check_unsat'_spec:
           b = contains_clauses_list_err fml' inds' cls
       ))
 Proof
+  rw[]>>
   xcf"check_unsat'"(get_ml_prog_state()) >>
   reverse (Cases_on `STD_streams fs`)
   >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
