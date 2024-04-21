@@ -103,7 +103,7 @@ struct
    *)
 
   val cf_cleanup_conv =
-    ONCE_REWRITE_CONV [cf_STOP_thm, ETA_THM] THENC
+    ONCE_REWRITE_CONV [cf_STOP_thm] THENC
     computeLib.compset_conv (listLib.list_compset ()) [
       computeLib.Defs [
         is_bound_Fun_def,
@@ -119,7 +119,8 @@ struct
         (fn cs => computeLib.set_skip cs STOP_tm (SOME 1))
       ]
     ] THENC
-    REWRITE_CONV [STOP_def, ETA_THM];
+    ONCE_REWRITE_CONV [STOP_def] THENC
+    PATH_CONV "llr" (REWRITE_CONV [ETA_THM]);
 
   (* -----------------------------------------------------------------------
      xcf
