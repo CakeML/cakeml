@@ -868,6 +868,7 @@ Theorem resize_to_fit_spec:
       )
     )
 Proof
+  rw[]>>
   xcf"resize_to_fit"(get_ml_prog_state ())>>
   rpt xlet_autop>>
   xif>>
@@ -905,6 +906,7 @@ Theorem update_assg_arr_spec:
       )
     )
 Proof
+  rw[]>>
   xcf"update_assg_arr"(get_ml_prog_state ())>>
   Cases_on`lsn`>>gvs[PAIR_TYPE_def]>>
   xmatch>>
@@ -949,6 +951,7 @@ Theorem get_rup_constraint_arr_spec:
         OPTION_TYPE constraint_TYPE
         (get_rup_constraint_list b fmlls n nc) v))
 Proof
+  rw[]>>
   xcf"get_rup_constraint_arr"(get_ml_prog_state ())>>
   xlet_autop>>
   xif>>gvs[]
@@ -1107,6 +1110,7 @@ Theorem check_rup_arr_spec:
       )
     )
 Proof
+  rw[]>>
   xcf"check_rup_arr"(get_ml_prog_state ())>>
   gvs[check_rup_list_def]>>
   rpt(pairarg_tac>>gvs[])>>
@@ -1455,6 +1459,7 @@ Theorem reindex_aux_arr_spec:
         (reindex_aux fmlls inds iacc) v))
 Proof
   Induct>>
+  rw[]>>
   xcf"reindex_aux_arr"(get_ml_prog_state ())>>
   fs[LIST_TYPE_def]
   >- (
@@ -1496,6 +1501,7 @@ Theorem reindex_arr_spec:
       &(LIST_TYPE NUM
         (reindex fmlls inds) v))
 Proof
+  rw[]>>
   xcf"reindex_arr"(get_ml_prog_state ())>>
   rpt xlet_autop>>
   xapp>>
@@ -1544,6 +1550,7 @@ Theorem revalue_aux_arr_spec:
         (revalue_aux b fmlls inds vacc) v))
 Proof
   Induct>>
+  rw[]>>
   xcf"revalue_aux_arr"(get_ml_prog_state ())>>
   fs[LIST_TYPE_def]
   >- (
@@ -1585,6 +1592,7 @@ Theorem revalue_arr_spec:
       &(LIST_TYPE constraint_TYPE
         (revalue b fmlls inds) v))
 Proof
+  rw[]>>
   xcf"revalue_arr"(get_ml_prog_state ())>>
   rpt xlet_autop>>
   xapp>>
@@ -1776,6 +1784,7 @@ Theorem extract_clauses_arr_spec:
           extract_clauses_list s b fmlls rsubs pfs acc = NONE)))
 Proof
   Induct>>
+  rw[]>>
   xcf"extract_clauses_arr"(get_ml_prog_state ())>>
   fs[LIST_TYPE_def]
   >- (
@@ -1873,6 +1882,7 @@ Theorem subst_indexes_arr_spec:
       &(LIST_TYPE (PAIR_TYPE NUM constraint_TYPE) (subst_indexes s b fmlls is) v))
 Proof
   Induct>>
+  rw[]>>
   xcf"subst_indexes_arr"(get_ml_prog_state ())>>
   fs[LIST_TYPE_def]
   >- (
@@ -3125,6 +3135,7 @@ Theorem core_fmlls_arr_spec:
           (core_fmlls fmlls inds) v))
 Proof
   Induct>>
+  rw[]>>
   xcf "core_fmlls_arr" (get_ml_prog_state ())>>
   simp[core_fmlls_def]>>
   fs[LIST_TYPE_def]>>xmatch
@@ -3435,6 +3446,7 @@ Theorem core_from_inds_arr_spec:
          core_from_inds fmlls inds = NONE)))
 Proof
   Induct>>
+  rw[]>>
   xcf "core_from_inds_arr" (get_ml_prog_state ())>>
   simp[core_from_inds_def]>>
   fs[LIST_TYPE_def]>>xmatch
@@ -3492,6 +3504,7 @@ Theorem all_core_arr_spec:
         (all_core_list fmlls inds iacc) v))
 Proof
   Induct>>
+  rw[]>>
   xcf"all_core_arr"(get_ml_prog_state ())>>
   fs[LIST_TYPE_def]
   >- (
@@ -3830,11 +3843,12 @@ Theorem fold_update_resize_bitset_spec:
         W8ARRAY v (FOLDL (λacc (c,i). update_resize acc w8z w8o i) accls ls))
 Proof
   Induct>>
+  rw[]>>
   xcf "fold_update_resize_bitset" (get_ml_prog_state ())>>
   gvs[LIST_TYPE_def]>>xmatch
   >- (
     xvar>>xsimpl)>>
-  pairarg_tac>>fs[PAIR_TYPE_def]>>
+  Cases_on`h`>>fs[PAIR_TYPE_def]>>
   xmatch>>
   assume_tac w8o_v_thm>>
   assume_tac w8z_v_thm>>
@@ -3843,10 +3857,11 @@ Proof
   >- (
     xlet_autop>>
     xapp>>xsimpl>>
-    simp[update_resize_def])>>
+    simp[Once update_resize_def,SimpRHS]>>
+    simp[ELIM_UNCURRY])>>
   rpt xlet_autop>>
   xapp>>xsimpl>>
-  simp[update_resize_def]
+  simp[update_resize_def,ELIM_UNCURRY]
 QED
 
 val mk_vomap_arr = process_topdecs`
