@@ -110,7 +110,7 @@ val v_rel_opt_def = Define `
   (v_rel_opt max_app _ _ = F)`;
 
 Inductive ref_rel:
-  (!b bs. ref_rel max_app (ByteArray b bs) (ByteArray b bs)) /\
+  (!bs. ref_rel max_app (ByteArray bs) (ByteArray bs)) /\
   (!xs ys.
     LIST_REL (v_rel max_app) xs ys ==>
     ref_rel max_app (ValueArray xs) (ValueArray ys))

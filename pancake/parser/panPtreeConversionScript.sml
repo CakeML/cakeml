@@ -90,6 +90,13 @@ Definition conv_ident_def:
     | _ => NONE
 End
 
+Definition conv_ffi_ident_def:
+  conv_ffi_ident tree =
+    case destTOK ' (destLf tree) of
+      SOME (ForeignIdent s) => SOME (strlit s)
+    | _ => NONE
+End
+
 Definition conv_var_def:
   conv_var t = lift Var (conv_ident t)
 End
@@ -339,10 +346,26 @@ Definition conv_NonRecStmt_def:
       case args of
         [dst; src] => lift2 StoreByte (conv_Exp dst) (conv_Exp src)
       | _ => NONE
+    else if isNT nodeNT SharedLoadNT then
+      case args of
+        [v; e] => lift2 (ShMem Load) (conv_ident v) (conv_Exp e)
+      | _ => NONE
+    else if isNT nodeNT SharedLoadByteNT then
+      case args of
+        [v; e] => lift2 (ShMem Load8) (conv_ident v) (conv_Exp e)
+      | _ => NONE
+    else if isNT nodeNT SharedStoreNT then
+      case args of
+        [v; e] => lift2 (ShMem Store) (conv_ident v) (conv_Exp e)
+      | _ => NONE
+    else if isNT nodeNT SharedStoreByteNT then
+      case args of
+        [v; e] => lift2 (ShMem Store8) (conv_ident v) (conv_Exp e)
+      | _ => NONE
     else if isNT nodeNT ExtCallNT then
       case args of
         [name; ptr; clen; array; alen] =>
-          do name' <- conv_ident name;
+          do name' <- conv_ffi_ident name;
              ptr' <- conv_Exp ptr;
              clen' <- conv_Exp clen;
              array' <- conv_Exp array;
@@ -540,16 +563,22 @@ End
 
 Definition parse_to_ast_def:
   parse_to_ast s =
-    case parse (pancake_lex s) of
+    case parse_statement (pancake_lex s) of
       SOME e => conv_Prog e
     | _ => NONE
 End
 
 Definition parse_funs_to_ast_def:
   parse_funs_to_ast s =
-    case parse (pancake_lex s) of
-      SOME e => conv_FunList e
-    | _ => NONE
+    (case safe_pancake_lex s of
+     | INL toks =>
+        (case parse toks of
+           | INL e =>
+             (case conv_FunList e of
+              | SOME funs => INL funs
+              | NONE => INR [(«Parse tree conversion failed»,unknown_loc)])
+           | INR err => INR err)
+     | INR err => INR err)
 End
 
 val _ = export_theory();

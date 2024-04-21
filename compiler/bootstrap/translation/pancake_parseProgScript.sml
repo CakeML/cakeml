@@ -111,18 +111,36 @@ Theorem parse_side_lemma = Q.prove(`
   assume_tac PEG_wellformed \\
   drule_then strip_assume_tac pegexecTheory.peg_exec_total \\
   first_x_assum $ qspec_then `x` strip_assume_tac \\
-  FULL_SIMP_TAC std_ss [pegexecTheory.peg_exec_def,
-                        pegexecTheory.coreloop_def,
-                        CaseEq "option",
-                        pegexecTheory.evalcase_distinct,
-                        SIMP_CONV (srw_ss()) [pancake_peg_def] ``pancake_peg.start``,
-                        IS_SOME_EXISTS] \\
-  qexists_tac `Result r`\\
+  gvs [pegexecTheory.peg_exec_def,
+       pegexecTheory.coreloop_def,
+       AllCaseEqs(),
+       pegexecTheory.evalcase_distinct,
+       SIMP_CONV (srw_ss()) [pancake_peg_def] ``pancake_peg.start``,
+       IS_SOME_EXISTS]
+  >- (rename1 ‘_ = SOME (Result rr)’ \\
+      qexists_tac `Result rr`\\
+      pop_assum (REWRITE_TAC o single o GSYM) \\
+      rpt (AP_THM_TAC ORELSE AP_TERM_TAC) \\
+      rw[FUN_EQ_THM] \\
+      rpt(PURE_FULL_CASE_TAC >> gvs[FDOM_FLOOKUP]) \\
+      gvs [flookup_thm]) \\
+  assume_tac PEG_FunNT_wellformed \\
+  drule_then strip_assume_tac pegexecTheory.peg_exec_total \\
+  first_x_assum $ qspec_then `x` strip_assume_tac \\
+  gvs [pegexecTheory.peg_exec_def,
+       pegexecTheory.coreloop_def,
+       AllCaseEqs(),
+       pegexecTheory.evalcase_distinct,
+       SIMP_CONV (srw_ss()) [pancake_peg_def] ``pancake_peg.start``,
+       IS_SOME_EXISTS] \\
+  rename1 ‘_ = SOME (Result rr)’ \\
+  qexists_tac `Result rr`\\
   pop_assum (REWRITE_TAC o single o GSYM) \\
   rpt (AP_THM_TAC ORELSE AP_TERM_TAC) \\
   rw[FUN_EQ_THM] \\
   rpt(PURE_FULL_CASE_TAC >> gvs[FDOM_FLOOKUP]) \\
-  gvs [flookup_thm])
+  gvs [flookup_thm]
+  )
   |> update_precondition;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);

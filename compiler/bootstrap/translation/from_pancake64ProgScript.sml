@@ -309,6 +309,8 @@ val res = translate destTOK_def;
 
 val res = translate $ PURE_REWRITE_RULE [GSYM mlstringTheory.implode_def] conv_ident_def;
 
+val res = translate $ PURE_REWRITE_RULE [GSYM mlstringTheory.implode_def] conv_ffi_ident_def;
+
 val res = translate isNT_def;
 
 val res = translate conv_int_def;
@@ -679,6 +681,8 @@ val _ = conv_Prog_ind  |> update_precondition;
 val res  = translate $ spec64 conv_Fun_def;
 
 val res = translate $ spec64 conv_FunList_def;
+
+val res = translate $ spec64 panLexerTheory.dest_lexErrorT_def;
 
 val res = translate $ spec64 parse_funs_to_ast_def;
 

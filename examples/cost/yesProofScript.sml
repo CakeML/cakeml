@@ -1273,7 +1273,8 @@ Theorem yes_has_space_for_dessert:
       mc_conf_ok mc ∧ mc_init_ok yes_x64_conf mc ∧
       installed yes_code cbspace yes_data data_sp
         yes_config.lab_conf.ffi_names
-        (heap_regs yes_x64_conf.stack_conf.reg_names) mc ms ⇒
+        (heap_regs yes_x64_conf.stack_conf.reg_names) mc
+        yes_config.lab_conf.shmem_extra ms ⇒
       machine_sem mc sio_ffi_state ms
         (Diverge (LREPEAT [put_str_event «y\n» ]))
 Proof

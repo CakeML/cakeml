@@ -91,7 +91,7 @@ val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
 (* state relation *)
 
 Inductive ref_rel:
-  (!b bs. ref_rel (ByteArray b bs) (ByteArray b bs)) /\
+  (!bs. ref_rel (ByteArray bs) (ByteArray bs)) /\
   (!xs ys.
     LIST_REL v_rel xs ys ==>
     ref_rel (ValueArray xs) (ValueArray ys))

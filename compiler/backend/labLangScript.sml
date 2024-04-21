@@ -28,12 +28,13 @@ val () = Datatype `
                | Halt`;
 
 val _ = Datatype`
-  asm_or_cbw = Asmi ('a asm) | Cbw reg reg`; (* Either an asm inst/jumpreg or code-buffer-write *)
+  asm_or_cbw = Asmi ('a asm) | Cbw reg reg | ShareMem memop reg ('a addr)`;
+ (* Either an asm inst/jumpreg or code-buffer-write *)
 
 val () = Datatype `
   line = Label num num num (* section number, label number, length *)
        | Asm ('a asm_or_cbw) (word8 list) num (* instruction, encoded instruction, length *)
-       | LabAsm ('a asm_with_lab) ('a word) (word8 list) num`
+       | LabAsm ('a asm_with_lab) ('a word) (word8 list) num`;
                                   (* position, encoded instruction, length *)
 
 (* A section consists a name (num) and a list of assembly lines. *)
