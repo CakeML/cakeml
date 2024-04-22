@@ -71,7 +71,7 @@ compiler/backend/mips/proofs
 compiler/backend/riscv/proofs
 compiler/backend/ag32/proofs
 compiler/backend/cv_compute
-compiler/cv_translator
+cv_translator
 
 # candle
 candle/set-theory
