@@ -510,13 +510,8 @@ Proof
       >~ [‘While’]
       >- (rgs [Once evaluate_def,
                AllCaseEqs()] >> gvs []>>
-          TRY (rw [itree_sem_while_fails,panPropsTheory.eval_upd_clock_eq])>>
-          pairarg_tac >> gvs [AllCaseEqs()]
-           >- (ntac 2 $ last_x_assum (assume_tac o GSYM) >> rw [] >>
-               CONV_TAC SYM_CONV >>
-
-                  (* THIS IS VERY STRANGE... the states are messed up. *)
-                  cheat) >>
+          TRY (rw [itree_sem_while_fails,panPropsTheory.eval_upd_clock_eq])
+           >- (cheat) >>
           CONV_TAC SYM_CONV >>
           irule EQ_TRANS>>
           irule_at Any itree_sem_while_no_loop>>
