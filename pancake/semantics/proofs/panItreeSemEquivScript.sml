@@ -509,19 +509,18 @@ Proof
       recInduct evaluate_ind >> rw []
       >~ [‘While’]
       >- (rgs [Once evaluate_def,
-               AllCaseEqs()] >> gvs []
-          >- (rw [itree_sem_while_fails,panPropsTheory.eval_upd_clock_eq]
-             )
-          >- (pairarg_tac >> gvs [AllCaseEqs()]
-              >- (ntac 2 $ last_x_assum (assume_tac o GSYM) >> rw [] >>
-                  CONV_TAC SYM_CONV >>
+               AllCaseEqs()] >> gvs []>>
+          TRY (rw [itree_sem_while_fails,panPropsTheory.eval_upd_clock_eq])>>
+          pairarg_tac >> gvs [AllCaseEqs()]
+           >- (ntac 2 $ last_x_assum (assume_tac o GSYM) >> rw [] >>
+               CONV_TAC SYM_CONV >>
+
                   (* THIS IS VERY STRANGE... the states are messed up. *)
                   cheat) >>
-              cheat)
-          >- (CONV_TAC SYM_CONV >>
-              rw [itree_sem_while_no_loop,panPropsTheory.eval_upd_clock_eq])
-          >- (rw [itree_sem_while_fails,panPropsTheory.eval_upd_clock_eq])
-          >- (rw [itree_sem_while_fails,panPropsTheory.eval_upd_clock_eq])) >>
+          CONV_TAC SYM_CONV >>
+          irule EQ_TRANS>>
+          irule_at Any itree_sem_while_no_loop>>
+          fs[unclock_def,panPropsTheory.eval_upd_clock_eq])>>
       (* All remaining terms... for convg case *)
       cheat)
   (* Div *)
