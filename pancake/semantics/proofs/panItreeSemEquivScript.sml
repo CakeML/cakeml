@@ -137,6 +137,7 @@ Theorem msem_bind_left_ident:
   mrec_sem ht ≈ Ret x ⇒
   mrec_sem (ht >>= k) ≈ mrec_sem (k x)
 Proof
+
   cheat
   (* disch_tac >> *)
   (* irule msem_resp_wbisim >> *)
@@ -163,6 +164,87 @@ QED
  NB Part of the work for ltree_lift_msem_resp_wbisim is already complete in
  msem_resp_wbisim.
  *)
+
+Theorem strip_tau_mrec_sem_Ret:
+  ∀x y. strip_tau x (Ret y) ⇒ strip_tau (mrec_sem x) (mrec_sem (Ret y))
+Proof
+  Induct_on ‘strip_tau’ >>
+  rw[mrec_sem_simps]
+QED
+
+Theorem strip_tau_mrec_sem_INR:
+  ∀x x' k. strip_tau x (Vis (INR x') k) ⇒ strip_tau (mrec_sem x) (mrec_sem (Vis (INR x') k))
+Proof
+  Induct_on ‘strip_tau’ >>
+  rw[mrec_sem_simps] >>
+  rw[mrec_sem_simps]
+QED
+
+Theorem strip_tau_mrec_sem_INL:
+  ∀x x' k. strip_tau x (Vis (INL x') k) ⇒
+        ∃t n. mrec_sem x = Tau $ mrec_sem (FUNPOW Tau n $ h_prog x' >>= k)
+Proof
+  Induct_on ‘strip_tau’ >>
+  rw[] >>
+  rw[mrec_sem_simps]
+  >- (qrefine ‘SUC _’ >>
+      rw[mrec_sem_simps,FUNPOW_SUC] >>
+      metis_tac[]
+     ) >>
+  qexists ‘0’ >>
+  simp[]
+QED
+
+Theorem FUNPOW_Tau_wbisim:
+  FUNPOW Tau n x ≈ x
+Proof
+  Induct_on ‘n’ >>
+  rw[itree_wbisim_refl,FUNPOW_SUC]
+QED
+
+Theorem FUNPOW_Tau_wbisim_intro:
+  x ≈ y ⇒ FUNPOW Tau n x ≈ FUNPOW Tau n' y
+Proof
+  metis_tac[FUNPOW_Tau_wbisim,itree_wbisim_trans,itree_wbisim_refl,itree_wbisim_sym]
+QED
+
+Theorem msem_resp_wbisim:
+  ht ≈ ht' ⇒
+  mrec_sem ht ≈ mrec_sem ht'
+Proof
+  strip_tac >>
+  irule itree_wbisim_coind_upto >>
+  qexists_tac ‘λx y. ∃x' y'. x = mrec_sem x' ∧ y = mrec_sem y' ∧ x' ≈ y'’ >>
+  reverse conj_tac >- metis_tac[itree_wbisim_refl,itree_wbisim_trans] >>
+  pop_assum kall_tac >>
+  rw[] >>
+  pop_assum mp_tac >>
+  rw[Once itree_wbisim_cases,PULL_EXISTS]
+  >- (gvs[mrec_sem_simps] >> metis_tac[])
+  >- (rename1 ‘Vis e’ >>
+      Cases_on ‘e’
+      >- (imp_res_tac strip_tau_mrec_sem_INL >>
+          rw[] >>
+          rpt disj1_tac >>
+          rpt $ first_x_assum $ irule_at $ Pos hd >>
+          rpt $ irule_at (Pos hd) EQ_REFL >>
+          irule FUNPOW_Tau_wbisim_intro >>
+          irule itree_bind_resp_k_wbisim >>
+          simp[]) >>
+      imp_res_tac strip_tau_mrec_sem_INR >>
+      disj2_tac >> disj1_tac >>
+      gvs[mrec_sem_simps] >>
+      rpt $ first_x_assum $ irule_at $ Pos hd >>
+      simp[] >>
+      strip_tac >>
+      disj1_tac >>
+      rw[GSYM mrec_sem_simps] >>
+      rpt $ irule_at (Pos hd) EQ_REFL >>
+      gvs[]) >>
+  imp_res_tac strip_tau_mrec_sem_Ret >>
+  gvs[mrec_sem_simps] >> metis_tac[]
+QED
+
 Theorem ltree_lift_msem_resp_wbisim:
   ht ≈ ht' ⇒
   ltree_lift f st (mrec_sem ht) ≈ ltree_lift f st (mrec_sem ht')
