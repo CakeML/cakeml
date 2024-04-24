@@ -137,41 +137,88 @@ Proof
      ALLGOALS (rw [Once itree_iter_thm])
 QED
 
-(* TODO: Finish this *)
+(* this lemma is false as stated.
+    Counterexample:
+      ht = Vis (INL (Skip,ARB)) $ K $ Ret x
 Theorem msem_ret_wbisim_eq:
-  mrec_sem ht ≈ Ret x ⇒
+  mrec_sem (Vis (INL (Skip,ARB)) $ K $ Ret x) ≈ Ret x ⇒
   ht ≈ Ret x
 Proof
-  fs [mrec_sem_def] >>
-  namedCases_on ‘ht’ ["x","x","x"] >>
   cheat
 QED
+*)
 
+(* this lemma is false as stated. Counterexample: u = Tau $ Ret x
 Theorem itree_wbisim_ret_u:
   Ret x ≈ u ⇒
   u = Ret x
 Proof
   cheat
 QED
+*)
+
+Theorem strip_tau_FUNPOW:
+  ∀t1 t2. strip_tau t1 t2 ⇒
+        ∃n. t1 = FUNPOW Tau n $ t2
+Proof
+  Induct_on ‘strip_tau’ >>
+  rw[]
+  >- (qrefine ‘SUC _’ >>
+      rw[FUNPOW_SUC] >>
+      metis_tac[]
+     ) >>
+  qexists ‘0’ >>
+  rw[]
+QED
+
+Theorem FUNPOW_Tau_wbisim:
+  FUNPOW Tau n x ≈ x
+Proof
+  Induct_on ‘n’ >>
+  rw[itree_wbisim_refl,FUNPOW_SUC]
+QED
+
+Theorem FUNPOW_Tau_wbisim_intro:
+  x ≈ y ⇒ FUNPOW Tau n x ≈ FUNPOW Tau n' y
+Proof
+  metis_tac[FUNPOW_Tau_wbisim,itree_wbisim_trans,itree_wbisim_refl,itree_wbisim_sym]
+QED
 
 Theorem strip_tau_vis_wbisim:
   ∀e k k'. strip_tau t (Vis e k) ∧ strip_tau t' (Vis e k') ∧ (∀r. k r ≈ k' r) ⇒
   t ≈ t'
 Proof
-  cheat
+  rpt strip_tac >>
+  imp_res_tac strip_tau_FUNPOW >>
+  gvs[] >>
+  irule FUNPOW_Tau_wbisim_intro >>
+  rw[Once itree_wbisim_cases]
+QED
+
+Theorem itree_wbisim_Ret_FUNPOW:
+  t ≈ Ret x ⇒ ∃n. t = FUNPOW Tau n $ Ret x
+Proof
+  rw[Once itree_wbisim_cases] >>
+  drule_then irule strip_tau_FUNPOW
 QED
 
 Theorem msem_bind_left_ident:
   mrec_sem ht ≈ Ret x ⇒
   mrec_sem (ht >>= k) ≈ mrec_sem (k x)
 Proof
-
-  cheat
-  (* disch_tac >> *)
-  (* irule msem_resp_wbisim >> *)
-  (* drule msem_ret_wbisim_eq >> *)
-  (* disch_tac >> *)
-  (* rw [itree_bind_thm_wbisim] *)
+  strip_tac >>
+  dxrule itree_wbisim_Ret_FUNPOW >>
+  simp[PULL_EXISTS] >>
+  qid_spec_tac ‘ht’ >>
+  Induct_on ‘n’
+  >- (rw[] >>
+      Cases_on ‘ht’ >> gvs[mrec_sem_simps,itree_wbisim_refl] >>
+      rename1 ‘Vis e’ >> Cases_on ‘e’ >> gvs[mrec_sem_simps,itree_wbisim_refl]) >>
+  rw[FUNPOW_SUC] >>
+  Cases_on ‘ht’ >> gvs[mrec_sem_simps,itree_wbisim_refl] >>
+  rename1 ‘Vis e’ >> Cases_on ‘e’ >> gvs[mrec_sem_simps,itree_wbisim_refl] >>
+  first_x_assum dxrule >>
+  gvs[itree_bind_assoc]
 QED
 
 (* corollary of ltree left ident law specialised to mrec_sem *)
@@ -228,19 +275,6 @@ Proof
      ) >>
   qexists ‘0’ >>
   simp[]
-QED
-
-Theorem FUNPOW_Tau_wbisim:
-  FUNPOW Tau n x ≈ x
-Proof
-  Induct_on ‘n’ >>
-  rw[itree_wbisim_refl,FUNPOW_SUC]
-QED
-
-Theorem FUNPOW_Tau_wbisim_intro:
-  x ≈ y ⇒ FUNPOW Tau n x ≈ FUNPOW Tau n' y
-Proof
-  metis_tac[FUNPOW_Tau_wbisim,itree_wbisim_trans,itree_wbisim_refl,itree_wbisim_sym]
 QED
 
 Theorem msem_resp_wbisim:
