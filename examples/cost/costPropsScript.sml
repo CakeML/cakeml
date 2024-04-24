@@ -281,9 +281,9 @@ Theorem live_ptr_delete:
 Proof
   rw []
   \\ EQ_TAC \\ rw [live_ptr_def] \\ fs [live_ptr_list_def]
-  >- (Cases_on `x = r` \\ fs [] \\ rveq \\ metis_tac [lookup_delete])
+  >- (Cases_on `x = r` \\ fs [] \\ rveq \\ metis_tac [sptreeTheory.lookup_delete])
   >- metis_tac []
-  \\ Cases_on `x = r` \\ fs [lookup_delete] \\ metis_tac [lookup_delete]
+  \\ Cases_on `x = r` \\ fs [sptreeTheory.lookup_delete] \\ metis_tac[]
 QED
 
 Theorem insert_delete_swap:
@@ -295,7 +295,7 @@ Proof
   \\ `wf (insert k v (delete x r))` by rw [wf_insert,wf_delete]
   \\ `wf (delete x (insert k v r))` by rw [wf_insert,wf_delete]
   \\ drule spt_eq_thm \\ disch_then (qspec_then `insert k v (delete x r)` drule)
-  \\ rw [] \\ rw [lookup_delete,lookup_insert]
+  \\ rw [sptreeTheory.lookup_delete, sptreeTheory.lookup_insert] \\ rw[]
 QED
 
 Theorem wf_size_of:
@@ -348,7 +348,7 @@ Proof
         \\ first_x_assum drule \\ fs [])
      \\ rw [])
   >- (`p ≠ r` by fs [live_ptr_def,live_ptr_list_def]
-     \\ fs [lookup_insert]
+     \\ fs [sptreeTheory.lookup_insert]
      \\ every_case_tac \\ fs [] \\ rveq
      >- (rpt (pairarg_tac \\ fs []) \\ rveq
         \\ drule live_ptr_ptr
@@ -356,7 +356,7 @@ Proof
         \\ drule live_ptr_delete
         \\ disch_then (drule_then (qspec_then `l` (fn t => fs [t])))
         \\ drule_then (qspec_then `r` assume_tac) wf_delete
-        \\ first_x_assum drule \\ disch_then drule \\ fs [lookup_delete]
+        \\ first_x_assum drule \\ disch_then drule \\ fs [sptreeTheory.lookup_delete]
         \\ disch_then (qspec_then `x` assume_tac) \\ fs []
         \\ qpat_x_assum `_ = (_,refs'',seen'')` mp_tac
         \\ qmatch_goalsub_abbrev_tac `size_of lims l refs1 seen`
@@ -420,7 +420,7 @@ Theorem closed_ptrs_refs_insert:
     ⇒ closed_ptrs_refs (insert p (ByteArray x y) refs)
 Proof
   rw [closed_ptrs_refs_def]
-  \\ Cases_on `x' = p` \\ fs [lookup_insert]
+  \\ Cases_on `x' = p` \\ fs [sptreeTheory.lookup_insert]
   \\ first_x_assum drule
   \\ pop_assum kall_tac
   \\ pop_assum kall_tac
@@ -429,7 +429,7 @@ Proof
   \\ Q.SPEC_TAC (`l`,`l`)
   \\ ho_match_mp_tac closed_ptrs_list_ind
   \\ rw [closed_ptrs_list_def]
-  \\ metis_tac [IS_SOME_EXISTS,lookup_insert]
+  \\ metis_tac [IS_SOME_EXISTS,sptreeTheory.lookup_insert]
 QED
 
 Theorem closed_ptrs_insert:
@@ -442,7 +442,7 @@ Proof
   ho_match_mp_tac closed_ptrs_list_ind
   \\ rw [closed_ptrs_def]
   \\ fs [closed_ptrs_list_def]
-  \\ metis_tac [lookup_insert,IS_SOME_EXISTS]
+  \\ metis_tac [sptreeTheory.lookup_insert,IS_SOME_EXISTS]
 QED
 
 Theorem IMP_is_safe_for_space_alt:
@@ -485,7 +485,7 @@ Proof
   \\ Cases_on `lookup p refs0`
   \\ fs [] \\ rveq \\ fs []
   \\ Cases_on `x` \\ fs []
-  \\ rveq \\ fs [lookup_delete]
+  \\ rveq \\ fs [sptreeTheory.lookup_delete]
   \\ pairarg_tac \\ fs []
   \\ rveq \\ fs []
   \\ drule size_of_refs_SUBSET
@@ -527,7 +527,7 @@ Proof
   rw []
   \\ `wf (delete p (insert p x t))` by fs [wf_delete,wf_insert]
   \\ drule_then (qspec_then `t` drule) spt_eq_thm \\ rw []
-  \\ Cases_on `n = p` \\ fs [lookup_delete,lookup_insert]
+  \\ Cases_on `n = p` \\ fs [sptreeTheory.lookup_delete,sptreeTheory.lookup_insert]
 QED
 
 (* Stolen from clos_to_bvlProof *)
