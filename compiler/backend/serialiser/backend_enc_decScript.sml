@@ -448,6 +448,7 @@ val res = encode_for_rec “:environment”;
 val res = encode_for_rec “:environment_store”;
 val res = encode_for_rec “:source_to_flat$config”;
 val res = encode_for_rec “:word_to_stack$config”;
+val res = encode_for_rec “:lab_to_target$shmem_info_num”;
 val res = encode_for_rec “:lab_to_target$inc_config”;
 val res = encode_for_rec “:backend$inc_config”;
 

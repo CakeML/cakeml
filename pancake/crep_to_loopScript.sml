@@ -120,6 +120,12 @@ Definition compile_def:
       nested_seq (p ++ [Assign ntmp le; Return ntmp])) /\
   (compile ctxt l (Raise eid) =
     Seq (Assign (ctxt.vmax + 1) (Const eid)) (Raise (ctxt.vmax + 1))) /\
+  (compile ctxt l (ShMem op r ad) =
+    case FLOOKUP ctxt.vars r of
+     | SOME n =>
+       let (p,le,tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l ad in
+        nested_seq (p ++ [ShMem op n le])
+     | NONE => Skip) /\
   (compile ctxt l (Store dst src) =
     let (p, le, tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l dst in
       let (p', le', tmp, l) = compile_exp ctxt tmp l src in

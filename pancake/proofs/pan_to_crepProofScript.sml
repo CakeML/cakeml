@@ -49,6 +49,7 @@ Definition state_rel_def:
   state_rel ^s (t:('a,'ffi) crepSem$state) <=>
   s.memory = t.memory ∧
   s.memaddrs = t.memaddrs ∧
+  s.sh_memaddrs = t.sh_memaddrs ∧
   s.clock = t.clock ∧
   s.be = t.be ∧
   s.ffi = t.ffi ∧
@@ -1110,7 +1111,10 @@ Proof
           metis_tac[]))
   >- (gvs[compile_def] \\
       rpt(pairarg_tac \\ gvs[]) \\
-      rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def])) \\
+      rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]))
+  >- (gvs[compile_def]>>
+       rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def])>>
+       res_tac >> fs[])>>
   gvs[compile_def,assigned_free_vars_def]
 QED
 
@@ -1545,6 +1549,51 @@ Proof
   fs [state_rel_def]
 QED
 
+Theorem compile_ShMem:
+  ^(get_goal "compile _ (panLang$ShMem _ _ _)")
+Proof
+  rpt gen_tac >> rpt strip_tac >>
+  fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "v", CaseEq "word_lab"] >>
+  rveq >>
+  fs [compile_def] >>
+  TOP_CASE_TAC >>
+  drule compile_exp_val_rel >>
+  simp[flatten_def]>>
+  disch_then drule_all >>
+  strip_tac >> fs [shape_of_def] >> rveq >>
+  fs [panLangTheory.size_of_shape_def] >> rveq >>
+  Cases_on ‘op’>>
+  fs[panSemTheory.sh_mem_op_def,panSemTheory.sh_mem_load_def,
+     panSemTheory.sh_mem_store_def,CaseEq"bool",CaseEq"option",CaseEq"v"]>>
+  fs[is_valid_value_def,locals_rel_def]>>
+  TRY (rename1 ‘shape_of x’>>Cases_on ‘x’>>fs[shape_of_def])>>
+  fs[CaseEq"v",CaseEq"word_lab",CaseEq"bool"]>>
+  res_tac>>gvs[flatten_def,shape_of_def]>>
+  rename1 ‘SOME (_,ns)’>>Cases_on ‘ns’>>fs[]>>
+  ‘t' = []’ by
+    (drule opt_mmap_length_eq>>strip_tac>>fs[])>>fs[]>>
+  fs [evaluate_def] >>
+  fs[crepSemTheory.sh_mem_op_def,crepSemTheory.sh_mem_load_def,
+     crepSemTheory.sh_mem_store_def,CaseEq"bool"]>>
+  rename1 ‘eval t x0’>>
+  qpat_x_assum ‘_ = eval t x0’ $ assume_tac o GSYM>>
+  gvs[state_rel_def,set_var_def,panSemTheory.set_var_def]>>
+  rpt (FULL_CASE_TAC>>fs[])>>rveq>>
+  fs[state_component_equality,empty_locals_def,
+     panSemTheory.empty_locals_def,FLOOKUP_UPDATE]>>
+  rpt gen_tac>>strip_tac>>
+  fs[FLOOKUP_UPDATE,CaseEq"bool"]>>
+  rveq>>fs[shape_of_def,FLOOKUP_UPDATE,flatten_def]>>
+   (rename1 ‘Val xxx’>>cases_on ‘xxx’>>fs[shape_of_def])>>
+  first_assum $ qspecl_then [‘vname’, ‘v'’] mp_tac>>
+  disch_then $ drule>>strip_tac>>fs[]>>
+  irule opt_mmap_flookup_update>>fs[no_overlap_def]>>
+  first_assum $ qspecl_then [‘v’, ‘vname’] mp_tac>>
+  disch_then $ drule_at Any>>
+  disch_then $ drule_at Any>>
+  strip_tac>>
+  CCONTR_TAC>>fs[]
+QED
 
 Theorem compile_exp_not_mem_load_glob:
   ∀s e v (t :('a, 'b) state) ct es sh ad.
@@ -2985,6 +3034,7 @@ Theorem compile_ExtCall:
 Proof
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def] >>
+  fs[CaseEq"bool"]>>
   fs [compile_def] >>
   fs [CaseEq "option", CaseEq "v", CaseEq "word_lab", CaseEq "prod"] >>
   rveq >> fs [] >>
@@ -3033,7 +3083,8 @@ Proof
   simp[Once evaluate_def] \\
   simp[update_locals_not_vars_eval_eq',update_locals_not_vars_eval_eq''] \\
   simp[evaluate_def,FLOOKUP_UPDATE] \\
-  ‘t.memory = s.memory ∧ t.memaddrs = s.memaddrs ∧ t.be = s.be ∧ t.ffi = s.ffi’ by gvs[state_rel_def] \\
+  ‘t.memory = s.memory ∧ t.memaddrs = s.memaddrs ∧
+   t.sh_memaddrs = s.sh_memaddrs ∧ t.be = s.be ∧ t.ffi = s.ffi’ by gvs[state_rel_def] \\
   simp[] \\
   gvs[AllCaseEqs()] \\
   gvs[state_rel_def] \\
@@ -3055,7 +3106,7 @@ Theorem pc_compile_correct:
 Proof
   match_mp_tac (the_ind_thm()) >>
   EVERY (map strip_assume_tac
-         [compile_Skip_Break_Continue, compile_Dec,
+         [compile_Skip_Break_Continue, compile_Dec, compile_ShMem,
           compile_Assign, compile_Store, compile_StoreByte, compile_Seq,
           compile_If, compile_While, compile_Call, compile_ExtCall,
           compile_Raise, compile_Return, compile_Tick]) >>

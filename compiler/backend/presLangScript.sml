@@ -1121,6 +1121,9 @@ Definition stack_prog_to_display_def:
                             num_to_display n3] ∧
    stack_prog_to_display ns (Install n1 n2 n3 n4 n5) =
      item_with_nums «install» [n1; n2; n3; n4; n5] ∧
+   stack_prog_to_display ns (ShMemOp mop r a) =
+     Item NONE (strlit "sh_mem") [asm_memop_to_display mop;
+                                  num_to_display r; asm_addr_to_display a] ∧
    stack_prog_to_display ns (CodeBufferWrite n1 n2) =
      item_with_nums «code_buffer_write» [n1; n2] ∧
    stack_prog_to_display ns (DataBufferWrite n1 n2) =
@@ -1191,7 +1194,10 @@ Definition lab_line_to_display_def:
         Item NONE «label» [String (attach_name ns (SOME s)); num_to_display n]
     | Asm aoc enc len => (case aoc of
       | Asmi i => Item NONE «asm» [asm_asm_to_display i]
-      | Cbw r1 r2 => item_with_nums «cbw» [r1; r2])
+      | Cbw r1 r2 => item_with_nums «cbw» [r1; r2]
+      | ShareMem mop r a => Item NONE «share_mem» [asm_memop_to_display mop;
+                                                   num_to_display r;
+                                                   asm_addr_to_display a])
     | LabAsm la pos enc len => lab_asm_to_display ns la
 End
 
@@ -1271,6 +1277,9 @@ Definition word_prog_to_display_def:
   (word_prog_to_display ns (Store exp n) = Tuple
     [String (strlit "mem"); word_exp_to_display exp;
      String (strlit ":="); num_to_display n]) /\
+  (word_prog_to_display ns (ShareInst mop n exp) = Tuple
+    [String (strlit "share_mem"); asm_memop_to_display mop;
+     num_to_display n; word_exp_to_display exp]) /\
   (word_prog_to_display ns (MustTerminate prog) = Item NONE (strlit "must_terminate")
     [word_prog_to_display ns prog]) /\
   (word_prog_to_display ns (Call a b c d) = Item NONE (strlit "call")

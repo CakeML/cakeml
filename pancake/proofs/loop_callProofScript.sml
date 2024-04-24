@@ -381,6 +381,41 @@ Proof
   rw[set_var_def,lookup_insert,lookup_delete]
 QED
 
+Theorem evaluate_ShMem_neq_locals:
+  evaluate (ShMem op v ad, s) = (res, s') ∧ v ≠ n ∧
+  ¬ (∃x. res = SOME (FinalFFI x)) ∧ lookup n s.locals = x ⇒
+  lookup n s'.locals = x
+Proof
+  strip_tac>>
+  cases_on ‘op’>>fs[evaluate_def]>>
+  fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,set_var_def,call_env_def]>>
+  fs[AllCaseEqs()]>>
+  rveq>>fs[lookup_insert,lookup_fromList]
+QED
+
+Theorem evaluate_ShMem_not_load_locals:
+  loopSem$evaluate (ShMem op v ad, s) = (res, s') ∧ ¬is_load op ∧
+  ¬ (∃x. res = SOME (FinalFFI x))⇒
+  s.locals = s'.locals
+Proof
+  strip_tac>>
+  cases_on ‘op’>>fs[evaluate_def,is_load_def]>>
+  fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,set_var_def,call_env_def]>>
+  fs[ffiTheory.call_FFI_def,AllCaseEqs()]>>
+  rveq>>fs[]
+QED
+
+Theorem compile_ShMem:
+  ^(get_goal "comp _ (loopLang$ShMem _ _ _)")
+Proof
+  rpt conj_tac >>
+  rpt gen_tac >> strip_tac >>
+  fs [evaluate_def, labels_in_def, comp_def] >>
+  rveq >> fs [eval_def] >>
+  fs [evaluate_def,is_load_def] >>
+  rpt strip_tac>>every_case_tac>>fs[]
+QED
+
 Theorem compile_others:
   ^(get_goal "comp _ loopLang$Skip") ∧
   ^(get_goal "comp _ loopLang$Fail") ∧
@@ -409,6 +444,7 @@ Proof
   EVERY (map strip_assume_tac
          [compile_others,compile_LocValue,compile_LoadByte,compile_StoreByte,
           compile_Mark, compile_Assign, compile_Store, compile_Arith,
+          compile_ShMem,
           compile_Call, compile_Seq, compile_If, compile_FFI, compile_Loop]) >>
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED

@@ -59,6 +59,7 @@ val _ = (find_def_for_const := def_of_const);
 (* --- *)
 
 val _ = ml_translatorLib.use_string_type true;
+val _ = register_type “:lab_to_target$shmem_info_num”
 val _ = register_type “:lab_to_target$inc_config”
 val _ = ml_translatorLib.use_string_type false;
 
@@ -92,6 +93,10 @@ Proof
   \\ rpt $ irule_at Any (fetch_v_fun “:closLang$const_part” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:closLang$const” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:word64” |> snd |> hd) \\ fs []
+  \\ irule (fetch_v_fun “:lab_to_target$inc_config” |> snd |> hd) \\ fs []
+  \\ irule (fetch_v_fun “:'a list” |> snd |> hd) \\ fs []
+  \\ irule (fetch_v_fun “:lab_to_target$shmem_info_num” |> snd |> hd) \\ fs []
+  \\ irule (fetch_v_fun “:word8” |> snd |> hd) \\ fs []
 QED
 
 Theorem EqualityType_BACKEND_INC_CONFIG_TYPE =

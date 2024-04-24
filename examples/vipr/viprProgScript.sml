@@ -129,11 +129,18 @@ val _ = (append_prog o process_topdecs) `
   fun main u =
     let
       val cl = CommandLine.arguments ()
-      val r = TextIO.foldLines checker_step init_state (ohd cl)
+      val r = TextIO.foldLines #"\n" checker_step init_state (ohd cl)
     in print (print_outcome (Option.valOf r)) end
     handle e => TextIO.output TextIO.stdErr usage_message`;
 
 val main_v_def = fetch "-" "main_v_def";
+
+Theorem lines_of_gen_lines_of:
+  lines_of_gen #"\n" xs =
+  lines_of xs
+Proof
+  rw[lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def]
+QED
 
 Theorem main_spec_stdin:
    hasFreeFD fs ∧ stdin_content fs = SOME text ∧ LENGTH cl < 2
@@ -160,13 +167,14 @@ Proof
   \\ xlet_auto >- xsimpl
   \\ assume_tac checker_step_v_thm
   \\ assume_tac init_state_v_thm
-  \\ drule_then drule foldLines_NONE
+  \\ drule_at Any foldLines_NONE
   \\ disch_then $ drule_at $ Pos last
+  \\ disch_then $ drule_at $ Any
   \\ rename [‘OPTION_TYPE STRING_TYPE (oHD (TL cl)) vvv’]
   \\ ‘OPTION_TYPE FILENAME NONE vvv’ by
     (Cases_on ‘cl’ \\ fs [] \\ Cases_on ‘t’ \\ fs [std_preludeTheory.OPTION_TYPE_def])
   \\ disch_then $ qspec_then ‘p’ mp_tac
-  \\ disch_then drule
+  \\ disch_then $ drule_at $ Any
   \\ strip_tac
   \\ xlet ‘(POSTv retv.
              STDIO (fastForwardFD fs 0) * COMMANDLINE cl *
@@ -174,8 +182,10 @@ Proof
                (SOME
                   (foldl checker_step init_state (lines_of (implode text))))
                retv)’
-  >- (xapp \\ xsimpl)
-  \\ qpat_x_assum ‘app _ _ _ _ _’ kall_tac
+  >- (
+    xapp \\ xsimpl \\
+    simp[lines_of_gen_lines_of]
+  )
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xapp
@@ -217,14 +227,15 @@ Proof
   \\ xlet_auto >- xsimpl
   \\ assume_tac checker_step_v_thm
   \\ assume_tac init_state_v_thm
-  \\ drule_then drule foldLines_SOME
+  \\ drule_at Any foldLines_SOME
+  \\ disch_then (drule_at Any)
   \\ fs []
   \\ disch_then $ drule_at $ Pos last \\ fs []
   \\ rename [‘OPTION_TYPE STRING_TYPE (oHD (TL cl)) vvv’]
   \\ ‘OPTION_TYPE FILENAME (SOME (EL 1 cl)) vvv’ by
     (Cases_on ‘cl’ \\ fs [] \\ Cases_on ‘t’ \\ fs [std_preludeTheory.OPTION_TYPE_def]
      \\ fs [FILENAME_def,filename_ok_def])
-  \\ disch_then drule
+  \\ disch_then (drule_at Any)
   \\ disch_then $ qspec_then ‘p’ mp_tac
   \\ strip_tac
   \\ xlet ‘(POSTv retv.
@@ -233,8 +244,10 @@ Proof
                (SOME
                   (foldl checker_step init_state (lines_of (implode text))))
                retv)’
-  >- (xapp \\ xsimpl)
-  \\ qpat_x_assum ‘app _ _ _ _ _’ kall_tac
+  >- (
+    xapp \\ xsimpl \\
+    simp[lines_of_gen_lines_of]
+  )
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xapp

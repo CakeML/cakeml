@@ -22,6 +22,7 @@ Definition crep_state_def:
      code     := alist_to_fmap (pan_to_crep$compile_prog pan_code);
      memory   := s.memory;
      memaddrs := s.memaddrs;
+     sh_memaddrs := s.sh_memaddrs;
      clock    := s.clock;
      be       := s.be;
      ffi      := s.ffi;
@@ -40,6 +41,7 @@ Definition loop_state_def:
      globals  := FEMPTY;
      memory   := mk_mem (make_funcs crep_code) s.memory;
      mdomain := s.memaddrs;
+     sh_mdomain := s.sh_memaddrs;
      code     := fromAList (crep_to_loop$compile_prog c crep_code);
      clock    := ck;
      be       := s.be;
@@ -374,6 +376,7 @@ Theorem state_rel_imp_semantics:
   distinct_params pan_code ∧
   consistent_labels s.memory pan_code /\
   t.mdomain = s.memaddrs ∧
+  t.sh_mdomain = s.sh_memaddrs ∧
   t.be = s.be ∧
   t.ffi = s.ffi ∧
   ALOOKUP (fmap_to_alist t.store) CurrHeap = SOME (Word s.base_addr) ∧
@@ -384,7 +387,7 @@ Theorem state_rel_imp_semantics:
   t.code = fromAList (pan_to_word$compile_prog c pan_code) ∧
   s.locals = FEMPTY ∧ size_of_eids pan_code < dimword (:α) ∧
   FDOM s.eshapes = FDOM ((get_eids pan_code):mlstring |-> 'a word) ∧
-  lookup 0 t.locals = SOME (Loc 1 0) /\
+  lookup 0 t.locals = SOME (Loc 1 0) /\ good_dimindex (:'a) ∧
   semantics s start <> Fail ==>
     semantics (t:('a,'b, 'ffi) wordSem$state) (lc+first_name) =
     semantics (s:('a,'ffi) panSem$state) start

@@ -608,6 +608,17 @@ Proof
   >- (rename [‘CodeBufferWrite’] \\ tac)
   >- (rename [‘DataBufferWrite’] \\ tac)
   >- (rename [‘FFI’] \\ tac \\ Cases_on`call_FFI st.ffi s x'' x'` \\ simp[])
+  >~ [`ShareInst`]
+  >-
+    (fs[evaluate_def,state_component_equality]>>
+    qexists_tac`st.permute`>>
+    rpt (TOP_CASE_TAC >> fs[state_component_equality]) >>
+    fs[DefnBase.one_line_ify NONE share_inst_def,
+      DefnBase.one_line_ify NONE sh_mem_set_var_def,
+      sh_mem_load_def,sh_mem_load_byte_def,
+      sh_mem_store_def,sh_mem_store_byte_def] >>
+    rpt (TOP_CASE_TAC >>
+      fs[state_component_equality,set_var_def,flush_state_def]))
 QED
 
 Theorem compile_word_to_word_thm:
@@ -673,7 +684,8 @@ Theorem compile_to_word_conventions:
     flat_exp_conventions prog ∧
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
     (EVERY (λ(n,m,prog). every_inst (inst_ok_less ac) prog) p ∧
-     addr_offset_ok ac 0w ⇒ full_inst_ok_less ac prog) ∧
+     addr_offset_ok ac 0w ∧ byte_offset_ok ac 0w ⇒
+      full_inst_ok_less ac prog) ∧
     (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) progs
 Proof
   fs[compile_def]>>pairarg_tac>>fs[]>>
@@ -908,10 +920,10 @@ Proof
      word_allocTheory.list_next_var_rename_move_def,
      no_install_def]
   >- (drule ssa_cc_trans_inst_no_install>>rw[])
-  >- (drule fake_moves_no_install>>rw[])>>
-  EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_install_def]>>
-  rpt (pairarg_tac>>gs[])>>rveq>>gs[no_install_def]>>
-  drule fake_moves_no_install>>rw[]
+  >- (drule fake_moves_no_install>>rw[])
+  >- (EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_install_def]>>
+    rpt (pairarg_tac>>gs[])>>rveq>>gs[no_install_def]>>
+    drule fake_moves_no_install>>rw[])
 QED
 
 Theorem setup_ssa_no_install:
@@ -1211,10 +1223,10 @@ Proof
      word_allocTheory.list_next_var_rename_move_def,
      no_alloc_def]
   >- (drule ssa_cc_trans_inst_no_alloc>>rw[])
-  >- (drule fake_moves_no_alloc>>rw[])>>
-  EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_alloc_def]>>
-  rpt (pairarg_tac>>gs[])>>rveq>>gs[no_alloc_def]>>
-  drule fake_moves_no_alloc>>rw[]
+  >- (drule fake_moves_no_alloc>>rw[])
+  >- (EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_alloc_def]>>
+    rpt (pairarg_tac>>gs[])>>rveq>>gs[no_alloc_def]>>
+    drule fake_moves_no_alloc>>rw[])
 QED
 
 Theorem setup_ssa_no_alloc:
@@ -1811,6 +1823,16 @@ Proof
     first_x_assum(qspecl_then[`prog`,`st`,`l`] mp_tac)>>
     gs[no_install_def, no_alloc_def]>>
     (impl_tac>-size_tac>>srw_tac[][]))
+  >~ [`ShareInst`]
+  >- (fs[evaluate_def,state_component_equality]>>
+    qexists_tac`st.permute`>>
+    rpt (TOP_CASE_TAC >> fs[state_component_equality]) >>
+    fs[DefnBase.one_line_ify NONE share_inst_def,
+      DefnBase.one_line_ify NONE sh_mem_set_var_def,
+      sh_mem_load_def,sh_mem_load_byte_def,
+      sh_mem_store_def,sh_mem_store_byte_def] >>
+    rpt (TOP_CASE_TAC >>
+      fs[state_component_equality,set_var_def,flush_state_def]))
   >>gs[no_alloc_def, no_install_def]>>tac
 QED
 
@@ -1987,10 +2009,10 @@ Proof
      word_allocTheory.list_next_var_rename_move_def,
      no_mt_def]
   >- (drule ssa_cc_trans_inst_no_mt>>rw[])
-  >- (drule fake_moves_no_mt>>rw[])>>
-  EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_mt_def]>>
-  rpt (pairarg_tac>>gs[])>>rveq>>gs[no_mt_def]>>
-  drule fake_moves_no_mt>>rw[]
+  >- (drule fake_moves_no_mt>>rw[])
+  >- (EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_mt_def]>>
+    rpt (pairarg_tac>>gs[])>>rveq>>gs[no_mt_def]>>
+    drule fake_moves_no_mt>>rw[])
 QED
 
 Theorem setup_ssa_no_mt:
@@ -2222,6 +2244,333 @@ Proof
   qmatch_asmsub_abbrev_tac ‘full_compile_single _ _ _ _ x’>>
   ‘r = SND (SND (FST x))’ by gs[Abbr ‘x’]>>gs[]>>
   drule (GEN_ALL no_mt_full_compile_single)>>gs[]>>metis_tac[]
+QED
+
+(**** more on no_share_inst ****)
+
+Theorem const_fp_loop_no_share_inst:
+  ∀prog p.
+    no_share_inst prog ⇒
+    no_share_inst (FST (const_fp_loop prog p))
+Proof
+  recInduct word_simpTheory.const_fp_loop_ind>>
+  rw[word_simpTheory.compile_exp_def, word_simpTheory.const_fp_loop_def]>>
+  TRY (every_case_tac>> gs[no_share_inst_def])>>
+  TRY (pairarg_tac>>gs[no_share_inst_def])>>
+  gs[no_share_inst_def]>>
+  pairarg_tac>>gs[no_share_inst_def]
+QED
+
+Theorem const_fp_no_share_inst:
+  r = const_fp prog ∧ no_share_inst prog ⇒
+  no_share_inst r
+Proof
+  gs[word_simpTheory.const_fp_def, const_fp_loop_no_share_inst]
+QED
+
+Theorem SmartSeq_no_share_inst:
+  no_share_inst prog ∧
+  no_share_inst prog' ⇒
+  no_share_inst (SmartSeq prog prog')
+Proof
+  rw[word_simpTheory.SmartSeq_def, no_share_inst_def]
+QED
+
+Theorem apply_if_opt_SOME_no_share_inst:
+  no_share_inst prog ∧ no_share_inst prog' ∧
+  apply_if_opt prog prog' = SOME x ⇒
+  no_share_inst x
+Proof
+  strip_tac>>
+  fs [word_simpTheory.apply_if_opt_def]>>
+  pairarg_tac \\ fs []>>
+  rpt FULL_CASE_TAC>>gs[]
+  >- (every_case_tac \\ fs [])>>
+  rpt (FULL_CASE_TAC>>gs[])>>
+  fs [word_simpProofTheory.dest_If_Eq_Imm_thm]>>
+  gs[word_simpProofTheory.dest_If_thm]>>
+  fs [word_simpTheory.SmartSeq_def]>>rveq>>
+  IF_CASES_TAC>>gs[no_share_inst_def]>>
+  Cases_on ‘prog’>>gs[word_simpTheory.dest_Seq_def,
+                      no_share_inst_def]
+QED
+
+Theorem simp_if_no_share_inst:
+  no_share_inst prog ⇒ no_share_inst (simp_if prog)
+Proof
+  qid_spec_tac ‘prog’>> ho_match_mp_tac word_simpTheory.simp_if_ind>>
+  rw[word_simpTheory.simp_if_def, no_share_inst_def]>>
+  TRY (every_case_tac>> gs[no_share_inst_def])>>
+  TRY (pairarg_tac>>gs[no_share_inst_def])>>
+  imp_res_tac apply_if_opt_SOME_no_share_inst
+QED
+
+Theorem Seq_assoc_no_share_inst:
+  no_share_inst prog ∧
+  no_share_inst prog' ⇒
+  no_share_inst (Seq_assoc prog prog')
+Proof
+  gs[GSYM AND_IMP_INTRO]>>
+  qid_spec_tac ‘prog'’>>
+  qid_spec_tac ‘prog’>>
+  ho_match_mp_tac word_simpTheory.Seq_assoc_ind>>
+  rw[no_share_inst_def]
+  >~[‘_ (_ _ (Call _ _ _ _))’]
+  >- (
+  gs[word_simpTheory.Seq_assoc_def,
+     word_simpTheory.SmartSeq_def,
+     no_share_inst_def]>>
+  every_case_tac>>gs[no_share_inst_def])>>
+  Cases_on ‘prog’>>
+  gs[word_simpTheory.Seq_assoc_def,
+     word_simpTheory.SmartSeq_def,
+     no_share_inst_def]
+QED
+
+Theorem compile_exp_no_share_inst:
+  no_share_inst prog ⇒
+  no_share_inst (compile_exp prog)
+Proof
+  rw[word_simpTheory.compile_exp_def]>>
+  irule const_fp_no_share_inst>>gs[]>>
+  qexists_tac ‘simp_if (Seq_assoc Skip prog)’>>rw[]>>
+  irule simp_if_no_share_inst>>
+  irule Seq_assoc_no_share_inst>>
+  rw[no_share_inst_def]
+QED
+
+Theorem inst_select_exp_no_share_inst:
+  no_share_inst (inst_select_exp c c' n exp)
+Proof
+  MAP_EVERY qid_spec_tac [‘exp’, ‘n’, ‘c'’, ‘c’]>>
+  ho_match_mp_tac word_instTheory.inst_select_exp_ind>>
+  rw[word_instTheory.inst_select_exp_def,
+     no_share_inst_def]>>
+  every_case_tac>>gs[no_share_inst_def,
+                     word_instTheory.inst_select_exp_def]
+QED
+
+Theorem inst_select_no_share_inst:
+  no_share_inst prog ⇒
+  no_share_inst (inst_select c n prog)
+Proof
+  MAP_EVERY qid_spec_tac [‘prog’, ‘n’, ‘c’]>>
+  ho_match_mp_tac word_instTheory.inst_select_ind>>
+  rw[
+      no_share_inst_def]>>
+  every_case_tac>>
+  gs[inst_select_exp_no_share_inst, word_instTheory.inst_select_def,
+     no_share_inst_def]>>
+  every_case_tac>>
+  gs[inst_select_exp_no_share_inst, word_instTheory.inst_select_def,
+     no_share_inst_def]
+QED
+
+Theorem ssa_cc_trans_inst_no_share_inst:
+  ssa_cc_trans_inst i ssa na = (i',ssa',na') ⇒
+  no_share_inst i'
+Proof
+  MAP_EVERY qid_spec_tac [‘i'’, ‘ssa'’, ‘na'’, ‘na’, ‘ssa’, ‘i’]>>
+  recInduct word_allocTheory.ssa_cc_trans_inst_ind>>
+  rw[word_allocTheory.ssa_cc_trans_inst_def,
+     no_share_inst_def]>>
+  rpt (pairarg_tac>>gs[])>>
+  rw[word_allocTheory.ssa_cc_trans_inst_def,
+     no_share_inst_def]>>
+  every_case_tac>>rw[]>>rveq>>
+  gs[word_allocTheory.next_var_rename_def,
+     no_share_inst_def]
+QED
+
+Theorem fake_moves_no_share_inst:
+  fake_moves ls nL nR n = (prog1, prog2, n' ,ssa, ssa') ⇒
+  no_share_inst prog1 ∧ no_share_inst prog2
+Proof
+  MAP_EVERY qid_spec_tac [‘ssa'’, ‘ssa’, ‘n'’, ‘prog2’, ‘prog1’, ‘n’, ‘nR’, ‘NL’, ‘ls’]>>
+  Induct_on ‘ls’>>
+  gs[word_allocTheory.fake_moves_def,
+     no_share_inst_def]>>rw[]>>
+  pairarg_tac>>gs[]>>FULL_CASE_TAC>>gs[]>>
+  every_case_tac>>
+  rveq>>gs[no_share_inst_def]>>
+  rveq>>gs[no_share_inst_def,
+           word_allocTheory.fake_move_def]>>metis_tac[]
+QED
+
+Theorem ssa_cc_trans_no_share_inst:
+  no_share_inst prog ∧
+  ssa_cc_trans prog ssa n = (prog', ssa', na)⇒
+  no_share_inst prog'
+Proof
+  MAP_EVERY qid_spec_tac [‘prog'’, ‘ssa'’, ‘na’, ‘n’, ‘ssa’, ‘prog’]>>
+  recInduct word_allocTheory.ssa_cc_trans_ind>>
+  rw[word_allocTheory.ssa_cc_trans_def,
+     word_allocTheory.fix_inconsistencies_def,
+     word_allocTheory.list_next_var_rename_move_def,
+     no_share_inst_def]>>gs[]>>
+  rpt (pairarg_tac>>gs[])>>rveq>>
+  gs[word_allocTheory.ssa_cc_trans_def,
+     word_allocTheory.fix_inconsistencies_def,
+     word_allocTheory.list_next_var_rename_move_def,
+     no_share_inst_def]
+  >- (drule ssa_cc_trans_inst_no_share_inst>>rw[])
+  >- (drule fake_moves_no_share_inst>>rw[])
+  >- (EVERY_CASE_TAC>>gs[]>>rveq>>gs[no_share_inst_def]>>
+    rpt (pairarg_tac>>gs[])>>rveq>>gs[no_share_inst_def]>>
+    drule fake_moves_no_share_inst>>rw[])
+QED
+
+Theorem setup_ssa_no_share_inst:
+  no_share_inst prog ∧
+  setup_ssa n v prog = (mov, ssa, na)⇒
+  no_share_inst mov
+Proof
+  rw[word_allocTheory.setup_ssa_def]>>
+  pairarg_tac>>gs[]>>
+  rw[word_allocTheory.setup_ssa_def,
+     word_allocTheory.list_next_var_rename_move_def,
+     no_share_inst_def]
+QED
+
+Theorem full_ssa_cc_trans_no_share_inst:
+  no_share_inst prog ⇒
+  no_share_inst (full_ssa_cc_trans n prog)
+Proof
+  rw[word_allocTheory.full_ssa_cc_trans_def]>>
+  pairarg_tac>>gs[]>>
+  pairarg_tac>>
+  drule_all setup_ssa_no_share_inst>>
+  rw[no_share_inst_def]>>
+  drule_all ssa_cc_trans_no_share_inst>>
+  rw[no_share_inst_def]
+QED
+
+Theorem remove_dead_no_share_inst:
+  no_share_inst prog ⇒
+  no_share_inst (FST (remove_dead prog q))
+Proof
+  MAP_EVERY qid_spec_tac [‘q’, ‘prog’]>>
+  recInduct word_allocTheory.remove_dead_ind>>
+  rw[word_allocTheory.remove_dead_def,
+     no_share_inst_def]>>gs[]>>
+  rw[word_allocTheory.remove_dead_def,
+     no_share_inst_def]>>gs[]>>
+  rpt (pairarg_tac>>gs[])>>rveq>>
+  rw[no_share_inst_def]>>gs[]>>
+  every_case_tac>>rpt (pairarg_tac>>gs[])>>rveq>>
+  rw[no_share_inst_def]>>gs[]
+QED
+
+Theorem three_to_two_reg_no_share_inst:
+  no_share_inst prog ⇒
+  no_share_inst (three_to_two_reg prog)
+Proof
+  qid_spec_tac ‘prog’>>
+  recInduct word_instTheory.three_to_two_reg_ind>>
+  rw[word_instTheory.three_to_two_reg_def,
+     no_share_inst_def]>>
+  gs[]>>every_case_tac>>gs[]
+QED
+
+Theorem apply_colour_no_share_inst:
+  no_share_inst prog ⇒
+  no_share_inst (apply_colour f prog)
+Proof
+  qid_spec_tac ‘prog’>>qid_spec_tac ‘f’>>
+  recInduct word_allocTheory.apply_colour_ind>>
+  rw[word_allocTheory.apply_colour_def,
+     no_share_inst_def]>>gs[]>>
+  every_case_tac>>gs[]
+QED
+
+Theorem word_alloc_no_share_inst:
+  no_share_inst prog ⇒
+  no_share_inst (word_alloc n c a r prog cl)
+Proof
+  rw[word_allocTheory.word_alloc_def]>>
+  every_case_tac>>gs[no_share_inst_def]
+  >- (pairarg_tac>>gs[]>>
+      every_case_tac>>gs[no_share_inst_def]>>
+      irule apply_colour_no_share_inst>>rw[])>>
+  gs[word_allocTheory.oracle_colour_ok_def]>>
+  every_case_tac>>gs[no_share_inst_def]>>
+  rveq>>irule apply_colour_no_share_inst>>rw[]
+QED
+
+Theorem word_common_subexp_elim_no_share_inst:
+  no_share_inst prog ⇒
+  no_share_inst (word_common_subexp_elim prog)
+Proof
+  fs [word_cseTheory.word_common_subexp_elim_def]
+  \\ pairarg_tac \\ fs []
+  \\ rename [‘_ e p = (a,np)’]
+  \\ pop_assum mp_tac
+  \\ MAP_EVERY qid_spec_tac [‘np’,‘e’,‘a’,‘p’]
+  \\ ho_match_mp_tac word_simpTheory.simp_if_ind
+  \\ rpt strip_tac \\ fs []
+  \\ fs [word_cseTheory.word_cse_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [no_share_inst_def,AllCaseEqs(),word_cseTheory.add_to_data_aux_def]
+  \\ res_tac \\ fs []
+  \\ gvs [word_cseTheory.word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
+  \\ gvs [no_share_inst_def,AllCaseEqs(),word_cseTheory.add_to_data_aux_def,
+          word_cseTheory.add_to_data_def]
+QED
+
+Theorem compile_single_no_share_inst:
+  no_share_inst prog ∧
+  (q, r) = (SND (compile_single two_reg_arith reg_count alg c
+                 ((name_num,arg_count,prog),col_opt))) ⇒
+  no_share_inst r
+Proof
+  rw[word_to_wordTheory.compile_single_def]>>
+  irule word_alloc_no_share_inst>>
+  TRY (irule three_to_two_reg_no_share_inst)>>
+  irule remove_dead_no_share_inst>>
+  irule word_common_subexp_elim_no_share_inst>>
+  irule full_ssa_cc_trans_no_share_inst>>
+  irule inst_select_no_share_inst>>
+  irule compile_exp_no_share_inst>>rw[]
+QED
+
+Theorem compile_single_no_share_inst':
+  no_share_inst (SND $ SND $ FST x) ==>
+  no_share_inst (SND $ SND (compile_single two_reg_arith reg_count alg c x))
+Proof
+  rpt strip_tac >>
+  irule compile_single_no_share_inst >>
+  PairCases_on `x` >>
+  gvs[] >>
+  metis_tac[SND_EQ_EQUIV]
+QED
+
+Theorem code_rel_no_share_inst:
+  find_code op args c1 sz = SOME v ∧
+  code_rel c1 c2 ∧
+  no_share_inst (FST (SND v)) ∧
+  find_code op args c2 sz = SOME v' ⇒
+  no_share_inst (FST (SND v'))
+Proof
+  gs[code_rel_def]>>Cases_on ‘op’>>
+  gs[find_code_def]>>every_case_tac>>rw[]>>gs[]>-
+   (rename1 ‘lookup n c1 = SOME (q', r)’>>
+    last_x_assum (qspecl_then [‘n’, ‘(q' ,r)’] assume_tac)>>gs[]>>
+    drule_all compile_single_no_share_inst>>gs[])>>
+  res_tac>>gs[]>>
+  irule compile_single_no_share_inst>>metis_tac[]
+QED
+
+Theorem remove_must_terminate_no_share_inst:
+  !prog. no_share_inst (remove_must_terminate prog) = no_share_inst prog
+Proof
+  ho_match_mp_tac word_removeTheory.remove_must_terminate_ind >>
+  rw[word_removeTheory.remove_must_terminate_def,
+    no_share_inst_def] >>
+  rpt (TOP_CASE_TAC >>
+    gvs[word_removeTheory.remove_must_terminate_def,
+      no_share_inst_def]) >>
+  gvs[word_removeTheory.remove_must_terminate_def,
+    no_share_inst_def,AllCaseEqs()]
 QED
 
 (***** word_to_word semantics correctness for Pancake *****)

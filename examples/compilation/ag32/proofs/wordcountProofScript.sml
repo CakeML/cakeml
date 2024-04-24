@@ -59,6 +59,10 @@ val LENGTH_data =
   ``LENGTH data``
   |> (REWRITE_CONV[wordcountCompileTheory.data_def] THENC listLib.LENGTH_CONV)
 
+val shmem =
+  ``config.lab_conf.shmem_extra``
+  |> (REWRITE_CONV[wordcountCompileTheory.config_def] THENC EVAL)
+
 Overload wordcount_machine_config =
   ``ag32_machine_config (extcalls config.lab_conf.ffi_names) (LENGTH code) (LENGTH data)``
 
@@ -118,9 +122,10 @@ Theorem wordcount_installed:
    is_ag32_init_state (init_memory code data (extcalls config.lab_conf.ffi_names) (cl,inp)) ms0 ⇒
    installed code 0 data 0 config.lab_conf.ffi_names
      (heap_regs ag32_backend_config.stack_conf.reg_names)
-     (wordcount_machine_config) (FUNPOW Next (wordcount_startup_clock ms0 inp cl) ms0)
+     (wordcount_machine_config) config.lab_conf.shmem_extra
+     (FUNPOW Next (wordcount_startup_clock ms0 inp cl) ms0)
 Proof
-  rewrite_tac[ffi_names, extcalls_def]
+  rewrite_tac[ffi_names, extcalls_def, shmem]
   \\ strip_tac
   \\ rewrite_tac [to_MAP_ExtCall]
   \\ irule ag32_installed

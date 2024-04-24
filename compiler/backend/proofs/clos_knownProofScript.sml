@@ -825,7 +825,8 @@ Proof
       >- (fs[ssgc_free_def,FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
       >- (last_x_assum match_mp_tac >> fs[])
       >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[])
-      >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[]))
+      >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[])
+      \\ dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq])
   >- (rename [‘EqualConst’]
       \\ rw [] \\ fs [Boolv_def])
   >- (rename [‘Constant c’]
@@ -2567,7 +2568,7 @@ val v_rel_IMP_v_to_words = prove(
 (* state relation *)
 
 Inductive ref_rel:
-  (!b bs. ref_rel c g (ByteArray b bs) (ByteArray b bs)) /\
+  (!bs. ref_rel c g (ByteArray bs) (ByteArray bs)) /\
   (!xs ys.
     LIST_REL (v_rel c g) xs ys ==>
     ref_rel c g (ValueArray xs) (ValueArray ys))
@@ -2575,7 +2576,7 @@ End
 
 val ref_rel_simps = save_thm("ref_rel_simps[simp]",LIST_CONJ [
   SIMP_CONV (srw_ss()) [ref_rel_cases] ``ref_rel c g (ValueArray vs) x``,
-  SIMP_CONV (srw_ss()) [ref_rel_cases] ``ref_rel c g (ByteArray b bs) x``])
+  SIMP_CONV (srw_ss()) [ref_rel_cases] ``ref_rel c g (ByteArray bs) x``])
 
 Theorem ref_rel_upd_inline_factor:
    ref_rel (c with inline_factor := k) = ref_rel c

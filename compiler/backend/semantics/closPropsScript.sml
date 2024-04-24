@@ -99,13 +99,13 @@ QED
 
 val ref_rel_def = Define`
   (ref_rel R (ValueArray vs) (ValueArray ws) ⇔ LIST_REL R vs ws) ∧
-  (ref_rel R (ByteArray f as) (ByteArray g bs) ⇔ f = g ∧ as = bs) ∧
+  (ref_rel R (ByteArray as) (ByteArray bs) ⇔ as = bs) ∧
   (ref_rel _ _ _ = F)`
 val _ = export_rewrites["ref_rel_def"];
 
 Theorem ref_rel_simp[simp]:
    (ref_rel R (ValueArray vs) y ⇔ ∃ws. y = ValueArray ws ∧ LIST_REL R vs ws) ∧
-   (ref_rel R (ByteArray f bs) y ⇔ y = ByteArray f bs)
+   (ref_rel R (ByteArray bs) y ⇔ y = ByteArray bs)
 Proof
   Cases_on`y`>>simp[ref_rel_def] >> srw_tac[][EQ_IMP_THM]
 QED
@@ -2000,9 +2000,9 @@ val simple_state_rel_def = Define `
   simple_state_rel vr sr <=>
     (!s t ptr. FLOOKUP t.refs ptr = NONE /\ sr s t ==>
                FLOOKUP s.refs ptr = NONE) /\
-    (∀w t s ptr b.
-      FLOOKUP t.refs ptr = SOME (ByteArray b w) ∧ sr s t ⇒
-      FLOOKUP s.refs ptr = SOME (ByteArray b w)) /\
+    (∀w t s ptr.
+      FLOOKUP t.refs ptr = SOME (ByteArray w) ∧ sr s t ⇒
+      FLOOKUP s.refs ptr = SOME (ByteArray w)) /\
     (∀w (t:('c,'ffi) closSem$state) (s:('d,'ffi) closSem$state) ptr.
       FLOOKUP t.refs ptr = SOME (ValueArray w) ∧ sr s t ⇒
       ∃w1.
@@ -2013,9 +2013,9 @@ val simple_state_rel_def = Define `
     (!f s t.
       sr s t ==> sr (s with ffi := f)
                     (t with ffi := f)) /\
-    (!f bs s t p.
-      sr s t ==> sr (s with refs := s.refs |+ (p,ByteArray f bs))
-                    (t with refs := t.refs |+ (p,ByteArray f bs))) /\
+    (!bs s t p.
+      sr s t ==> sr (s with refs := s.refs |+ (p,ByteArray bs))
+                    (t with refs := t.refs |+ (p,ByteArray bs))) /\
     (!s t p xs ys.
       sr s t /\ LIST_REL vr xs ys ==>
       sr (s with refs := s.refs |+ (p,ValueArray xs))
@@ -2043,8 +2043,8 @@ val simple_state_rel_update_ffi = prove(
 
 val simple_state_rel_update_bytes = prove(
   ``simple_state_rel vr sr /\ sr s t ==>
-    sr (s with refs := s.refs |+ (p,ByteArray f bs))
-       (t with refs := t.refs |+ (p,ByteArray f bs))``,
+    sr (s with refs := s.refs |+ (p,ByteArray bs))
+       (t with refs := t.refs |+ (p,ByteArray bs))``,
   fs [simple_state_rel_def]);
 
 val simple_state_rel_update = prove(
@@ -2171,7 +2171,7 @@ Theorem simple_state_rel_FLOOKUP_refs_IMP:
     FLOOKUP t.refs p = x ==>
     case x of
     | NONE => FLOOKUP s.refs p = NONE
-    | SOME (ByteArray f bs) => FLOOKUP s.refs p = SOME (ByteArray f bs)
+    | SOME (ByteArray bs) => FLOOKUP s.refs p = SOME (ByteArray bs)
     | SOME (ValueArray vs) =>
         ?xs. FLOOKUP s.refs p = SOME (ValueArray xs) /\ LIST_REL vr xs vs
 Proof

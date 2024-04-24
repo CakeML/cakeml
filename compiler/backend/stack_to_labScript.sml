@@ -90,6 +90,7 @@ local val flatten_quotation = `
       (List [LabAsm (LocValue ret (Lab n m)) 0w [] 0;
       LabAsm Install 0w [] 0;
       Label n m 0],F,m+1)
+    | ShMemOp op r ad => (List [Asm (ShareMem op r ad) [] 0],F,m)
     | CodeBufferWrite r1 r2 =>
       (List [Asm (Cbw r1 r2) [] 0],F,m)
     | _  => (List [],F,m)`

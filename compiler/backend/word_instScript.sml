@@ -359,6 +359,20 @@ val inst_select_def = Define`
     Seq (inst_select c temp p1) (inst_select c temp p2)) ∧
   (inst_select c temp (MustTerminate p1) =
     MustTerminate (inst_select c temp p1)) ∧
+  (inst_select c temp (ShareInst op v exp) =
+    let exp = (flatten_exp o pull_exp) exp in
+    dtcase exp of
+    | Op Add [exp';Const w] =>
+      if ((op = Load ∨ op = Store) /\ addr_offset_ok c w) ∨
+          ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c w) then
+        let prog = inst_select_exp c temp temp exp' in
+          Seq prog (ShareInst op v (Op Add [Var temp; Const w]))
+      else
+        let prog = inst_select_exp c temp temp exp in
+          Seq prog (ShareInst op v (Var temp))
+    | _ =>
+      let prog = inst_select_exp c temp temp exp in
+      Seq prog (ShareInst op v (Var temp))) ∧
   (inst_select c temp (If cmp r1 ri c1 c2) =
     dtcase ri of
       Imm w =>
@@ -420,6 +434,20 @@ Theorem inst_select_pmatch:
         (If cmp r1 (Reg temp) (inst_select c temp c1) (inst_select c temp c2))
     | Reg r =>
       If cmp r1 (Reg r) (inst_select c temp c1) (inst_select c temp c2))
+  | ShareInst op var exp =>
+    (let exp = (flatten_exp o pull_exp) exp in
+    case exp of
+    | Op Add [exp';Const w] =>
+      if ((op = Load ∨ op = Store) /\ addr_offset_ok c w) \/
+          ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c w) then
+        let prog = inst_select_exp c temp temp exp' in
+          Seq prog (ShareInst op var (Op Add [Var temp; Const w]))
+      else
+        let prog = inst_select_exp c temp temp exp in
+          Seq prog (ShareInst op var (Var temp))
+    | _ =>
+      let prog = inst_select_exp c temp temp exp in
+      Seq prog (ShareInst op var (Var temp)))
   | (Call ret dest args handler) =>
     (let retsel =
       case ret of
@@ -437,7 +465,7 @@ Proof
     rpt strip_tac
     >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
          PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
-    >> fs[inst_select_def])
+    >> fs[inst_select_def] )
 QED
 
 (*

@@ -54,7 +54,7 @@ val b_inputLineTokens_specialize =
 
 val parse_dimacs_body_arr = process_topdecs`
   fun parse_dimacs_body_arr lno maxvar fd acc =
-  case TextIO.b_inputLineTokens fd blanks_1 tokenize_1 of
+  case TextIO.b_inputLineTokens #"\n" fd blanks_1 tokenize_1 of
     None => Inr (List.rev acc)
   | Some l =>
     if nocomment_line l then
@@ -72,14 +72,14 @@ Theorem parse_dimacs_body_arr_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_dimacs_body_arr" (get_ml_prog_state()))
     [lnov; maxvarv; fdv; accv]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTv v.
       & (∃err. SUM_TYPE STRING_TYPE (LIST_TYPE (LIST_TYPE INT))
       (case parse_dimacs_body maxvar (FILTER lpr_parsing$nocomment_line (MAP lpr_parsing$toks lines)) acc of
         NONE => INL err
       | SOME x => INR x) v) *
       SEP_EXISTS k lines'.
-         STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k))
+         STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k))
 Proof
   Induct
   \\ simp []
@@ -88,7 +88,7 @@ Proof
     xlet ‘(POSTv v.
             SEP_EXISTS k.
                 STDIO (forwardFD fs fd k) *
-                INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
+                INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
@@ -107,7 +107,7 @@ Proof
   \\ xlet ‘(POSTv v.
             SEP_EXISTS k.
                 STDIO (forwardFD fs fd k) *
-                INSTREAM_LINES fd fdv lines (forwardFD fs fd k) *
+                INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
                 & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (lpr_parsing$toks h)) v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
@@ -170,7 +170,7 @@ QED
 
 val parse_dimacs_toks_arr = process_topdecs`
   fun parse_dimacs_toks_arr lno fd =
-  case TextIO.b_inputLineTokens fd blanks_1 tokenize_1 of
+  case TextIO.b_inputLineTokens #"\n" fd blanks_1 tokenize_1 of
     None => Inl (format_dimacs_failure lno "failed to find header")
   | Some l =>
     if nocomment_line l then
@@ -193,14 +193,14 @@ Theorem parse_dimacs_toks_arr_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_dimacs_toks_arr" (get_ml_prog_state()))
     [lnov; fdv]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTv v.
       & (∃err. SUM_TYPE STRING_TYPE (PAIR_TYPE NUM (PAIR_TYPE NUM (LIST_TYPE (LIST_TYPE INT))))
       (case parse_dimacs_toks (MAP lpr_parsing$toks lines) of
         NONE => INL err
       | SOME x => INR x) v) *
       SEP_EXISTS k lines'.
-         STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k))
+         STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k))
 Proof
   Induct
   \\ simp []
@@ -209,7 +209,7 @@ Proof
     xlet ‘(POSTv v.
             SEP_EXISTS k.
                 STDIO (forwardFD fs fd k) *
-                INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
+                INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
@@ -229,7 +229,7 @@ Proof
   \\ xlet ‘(POSTv v.
             SEP_EXISTS k.
                 STDIO (forwardFD fs fd k) *
-                INSTREAM_LINES fd fdv lines (forwardFD fs fd k) *
+                INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
                 & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (lpr_parsing$toks h)) v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
@@ -279,7 +279,7 @@ Proof
         NONE => INL err
       | SOME x => INR x) v) *
       SEP_EXISTS k lines'.
-         STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k))`
+         STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k))`
   >- (
     xapp>>xsimpl>>
     qexists_tac`emp`>>
@@ -379,16 +379,16 @@ Proof
   qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
   xhandle`$POSTv Qval` \\ xsimpl >>
   qunabbrev_tac`Qval`>>
-  xlet_auto_spec (SOME b_openIn_spec_lines) \\ xsimpl >>
+  xlet_auto_spec (SOME (b_openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`)) \\ xsimpl >>
   qmatch_goalsub_abbrev_tac`STDIO fss`>>
-  qmatch_goalsub_abbrev_tac`INSTREAM_LINES fdd fddv lines fss`>>
+  qmatch_goalsub_abbrev_tac`INSTREAM_LINES #"\n" fdd fddv lines fss`>>
   xlet`(POSTv v.
       & (∃err. SUM_TYPE STRING_TYPE (PAIR_TYPE NUM (PAIR_TYPE NUM (LIST_TYPE (LIST_TYPE INT))))
       (case parse_dimacs_toks (MAP lpr_parsing$toks lines) of
         NONE => INL err
       | SOME x => INR x) v) *
       SEP_EXISTS k lines'.
-         STDIO (forwardFD fss fdd k) * INSTREAM_LINES fdd fddv lines' (forwardFD fss fdd k))`
+         STDIO (forwardFD fss fdd k) * INSTREAM_LINES #"\n" fdd fddv lines' (forwardFD fss fdd k))`
   >- (
     xapp>>xsimpl>>
     qexists_tac`emp`>>qexists_tac`lines`>>
@@ -403,6 +403,7 @@ Proof
     qexists_tac `lines'` >>
     qexists_tac `forwardFD fss fdd k` >>
     qexists_tac `fdd` >>
+    qexists_tac `#"\n"` >>
     conj_tac THEN1
      (unabbrev_all_tac
       \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs []
@@ -576,7 +577,7 @@ val check_unsat_2 = (append_prog o process_topdecs) `
     case default_nobjf of (nobjt,nfmlt) =>
     (case
       ores_to_string (
-        check_unsat_top (plainlim_ns nv) fml None nfmlt nobjt f2) of
+        check_unsat_top False (plainlim_ns nv) fml None nfmlt nobjt f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s)`
 
@@ -628,7 +629,11 @@ Proof
   gvs[default_nobjf_def,PAIR_TYPE_def]>>
   qpat_x_assum`_ = default_nobjf_v` (assume_tac o SYM)>>
   xmatch>>
-  rpt xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet`POSTv v. STDIO fs * &BOOL F v`
+  >-
+    (xcon>>xsimpl)>>
   xlet`POSTv v.
     STDIO fs *
     SEP_EXISTS res.
@@ -642,7 +647,8 @@ Proof
            sem_concl (set (fml_to_pbf fml)) NONE concl
         | INL l => T)`
   >- (
-    drule check_unsat_top_spec>>
+    drule_at (Pos (el 2)) check_unsat_top_spec>>
+    disch_then drule>>
     strip_tac>>
     xapp>>
     xsimpl>>
@@ -774,7 +780,7 @@ Proof
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb_cnf <OPB file> <optional: PB proof file>\n"
+  usage_string = strlit "Usage: cake_pb_cnf <DIMACS CNF file> <optional: PB proof file>\n"
 End
 
 val r = translate usage_string_def;

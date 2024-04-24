@@ -555,6 +555,7 @@ val state_rel_def = Define `
     (s.clock = t.clock) /\ (s.gc_fun = t.gc_fun) /\ (s.permute = K I) /\
     (t.ffi = s.ffi) /\ t.use_stack /\ t.use_store /\ t.use_alloc /\
     (t.memory = s.memory) /\ (t.mdomain = s.mdomain) /\ 4 < k /\
+    (t.sh_mdomain = s.sh_mdomain) /\
     (s.store = t.store \\ Handler) /\ gc_fun_ok t.gc_fun /\ s.termdep = 0 /\
     t.be = s.be /\ t.ffi = s.ffi /\ Handler ∈ FDOM t.store ∧
     t.fp_regs = s.fp_regs ∧
@@ -4324,7 +4325,7 @@ Proof
     \\ simp[]
     \\ disch_then drule
     \\ simp[EQ_MULT_LCANCEL])
-  >- (
+  >- ( (* Mem *)
     last_x_assum mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -6669,7 +6670,8 @@ Proof
    (fs [state_rel_def,LET_DEF,wordSemTheory.get_var_def] \\ res_tac
     \\ `8 < k * 2 /\ 6 < k * 2` by decide_tac \\ fs [DIV_LT_X]) \\ fs []
   \\ `t.be = s.be /\ t.mdomain = s.mdomain /\
-      s.memory = t.memory /\ s.ffi = t.ffi` by
+      s.memory = t.memory /\ s.ffi = t.ffi /\
+      s.sh_mdomain = t.sh_mdomain` by
         fs [state_rel_def] \\ fs [LET_THM]
   \\ qexists_tac `0` \\ fs []
   \\ fs [state_rel_def,LET_THM]
@@ -6684,6 +6686,372 @@ Proof
   \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,DIV_LT_X,FORALL_PROD,MEM_toAList]
   \\ fs [domain_lookup] \\ res_tac
   \\ `~(n' < k * 2)` by decide_tac \\ fs []
+QED
+
+Theorem flat_exp_conventions_ShareInst_exp_simp:
+  flat_exp_conventions (ShareInst op v exp) ==>
+  (?ad.exp = Var ad) \/
+  (?ad offset. exp = Op Add [Var ad; Const offset])
+Proof
+  gvs[DefnBase.one_line_ify NONE flat_exp_conventions_def] >>
+  rpt (every_case_tac >> fs[])
+QED
+
+Theorem word_exp_Op_Add_0:
+  wordSem$word_exp s exp = SOME $ Word x <=>
+    word_exp s (Op Add [exp;Const 0w]) = SOME $ Word x
+Proof
+  eq_tac >>
+  gvs[wordSemTheory.word_exp_def,the_words_def,
+    AllCaseEqs(),wordLangTheory.word_op_def] >>
+  rpt strip_tac >>
+  gvs[]
+QED
+
+Theorem evaluate_ShareInst_Var_eq_Op_Add:
+  wordSem$evaluate (ShareInst op v (Var ad),s) =
+    evaluate (ShareInst op v (Op Add [Var ad;Const 0w]),s)
+Proof
+  gvs[wordSemTheory.evaluate_def] >>
+  TOP_CASE_TAC
+  >- (
+    TOP_CASE_TAC >>
+    drule word_exp_Op_SOME_Word >>
+    rpt strip_tac >>
+    fs[GSYM word_exp_Op_Add_0] ) >>
+  TOP_CASE_TAC
+  >- (
+    drule $ iffLR word_exp_Op_Add_0 >>
+    simp[] ) >>
+  TOP_CASE_TAC  >>
+  drule word_exp_Op_SOME_Word >>
+  rpt strip_tac >>
+  fs[GSYM word_exp_Op_Add_0]
+QED
+
+Theorem share_load_lemma1:
+  share_inst op (2 * v) ad' s = (res,s1) /\
+  state_rel k f f' s t lens /\
+  v < f' + k /\
+  k <= v /\
+  (op = Load \/ op = Load8) /\
+  res <> SOME Error ==>
+  ?t1. sh_mem_op op k ad' t =
+      (OPTION_MAP compile_result res, t1) /\
+  (((?f. (res = SOME $ wordSem$FinalFFI f) /\
+    (s1.ffi = t1.ffi) /\ (s1.clock = t1.clock))) \/
+  (res = NONE /\
+    state_rel k f f' s1
+      (t1 with stack := (LUPDATE (THE $ FLOOKUP t1.regs k)
+        (t1.stack_space + (f + k - (v + 1))) t1.stack)) lens /\
+      (?x. FLOOKUP t1.regs k = SOME x) /\
+      (t1.stack_space = t.stack_space) /\
+      (LENGTH t1.stack = LENGTH t.stack)))
+Proof
+  rpt strip_tac >>
+  gvs[share_inst_def,sh_mem_op_def,
+    sh_mem_load_def,sh_mem_load_byte_def,
+    stackSemTheory.sh_mem_load_byte_def,
+    stackSemTheory.sh_mem_load_def,
+    DefnBase.one_line_ify NONE sh_mem_set_var_def,
+    AllCaseEqs()] >>
+  rpt strip_tac >>
+  gvs[state_rel_def,set_var_def,state_component_equality] >>
+  (conj_tac >- metis_tac[] >>
+  conj_tac >- simp[wf_insert] >>
+  simp[lookup_insert,FLOOKUP_UPDATE] >>
+  conj_tac >- simp[DROP_LUPDATE] >>
+  rpt strip_tac >- gvs[AllCaseEqs(),EVEN_DOUBLE] >>
+  gvs[AllCaseEqs()] >>
+  simp[DROP_LUPDATE,LLOOKUP_LUPDATE] >>
+  first_x_assum drule >>
+  rpt strip_tac >>
+  IF_CASES_TAC >>
+  gvs[] >>
+  IF_CASES_TAC >>
+  gvs[EVEN_EXISTS])
+QED
+
+Theorem share_load_lemma2:
+  share_inst op (2 * v) ad' s = (res,s1) /\
+  state_rel k f f' s t lens /\
+  v < k /\
+  (op = Load \/ op = Load8) /\
+  res <> SOME Error ==>
+  ?t1.
+    sh_mem_op op v ad' t =
+      (OPTION_MAP compile_result res, t1) /\
+    ((?f. (res = SOME $ wordSem$FinalFFI f) /\
+      (s1.ffi = t1.ffi) /\ (s1.clock = t1.clock)) \/
+    (res = NONE /\
+      state_rel k f f' s1 t1 lens))
+Proof
+  rpt strip_tac >>
+  `s.sh_mdomain = t.sh_mdomain /\
+    s.ffi = t.ffi /\
+    s.clock = t.clock` by fs[state_rel_def] >>
+  gvs[share_inst_def,sh_mem_op_def,
+    sh_mem_load_def,sh_mem_load_byte_def,
+    stackSemTheory.sh_mem_load_byte_def,
+    stackSemTheory.sh_mem_load_def,AllCaseEqs(),
+    DefnBase.one_line_ify NONE sh_mem_set_var_def] >>
+  rpt strip_tac >>
+  fs[PULL_EXISTS] >>
+  gvs[state_rel_def,set_var_def,state_component_equality] >>
+  (conj_tac >- metis_tac[] >>
+  conj_tac >- simp[wf_insert] >>
+  simp[lookup_insert] >>
+  rpt strip_tac >>
+  gvs[AllCaseEqs(),EVEN_DOUBLE]
+  >-  simp[FLOOKUP_UPDATE] >>
+  IF_CASES_TAC >>
+  first_x_assum drule >>
+  gvs[FLOOKUP_UPDATE] >>
+  rpt strip_tac >>
+  IF_CASES_TAC >>
+  gvs[EVEN_EXISTS])
+QED
+
+Theorem share_store_lemma1:
+  share_inst op (2 * v) ad' s = (res,s1) /\
+  state_rel k f f' s t lens /\
+  ~(v < k) /\
+  (op = Store \/ op = Store8) /\
+  res <> SOME Error ==>
+  ?t1.
+    sh_mem_op op (k + 1) ad'
+      (t with
+        regs := t.regs |+
+          (k+1,EL (t.stack_space + (f + k - (v + 1)))
+                t.stack)) =
+      (OPTION_MAP compile_result res,t1) /\
+    ((?fv. (res = SOME $ wordSem$FinalFFI fv) /\
+      (s1.ffi = t1.ffi) /\ (s1.clock = t1.clock)) \/
+    (res = NONE /\
+      state_rel k f f' s1 t1 lens))
+Proof
+  rpt strip_tac >>
+  (`s.sh_mdomain = t.sh_mdomain /\
+   s.ffi = t.ffi /\
+   s.clock = t.clock` by fs[state_rel_def] >>
+  gvs[share_inst_def,sh_mem_op_def,
+    sh_mem_store_def,sh_mem_store_byte_def,
+    stackSemTheory.sh_mem_store_byte_def,
+    stackSemTheory.sh_mem_store_def,AllCaseEqs(),
+    PULL_EXISTS] >>
+  gvs[stackSemTheory.get_var_def,FLOOKUP_UPDATE] >>
+  `EL (t.stack_space + (f + k − (v + 1))) t.stack = Word v'` by (
+    gvs[get_var_def,state_rel_def] >>
+    last_x_assum drule >>
+    rpt strip_tac >>
+    gvs[] >>
+    drule LLOOKUP_TAKE_IMP >>
+    simp[LLOOKUP_DROP,LLOOKUP_THM] ) >>
+  rpt strip_tac >>
+  gvs[] >>
+  gvs[state_rel_def,set_var_def,state_component_equality] >>
+  conj_tac >- (rpt strip_tac >> metis_tac[]) >>
+  rpt strip_tac >>
+  IF_CASES_TAC >>
+  simp[FLOOKUP_UPDATE] >>
+  first_x_assum drule >>
+  gvs[])
+QED
+
+Theorem share_store_lemma2:
+  share_inst op (2 * v) ad' s = (res,s1) /\
+  state_rel k f f' s t lens /\
+  v < k /\
+  (op = Store \/ op = Store8) /\
+  res <> SOME Error ==>
+  ?t1.
+    sh_mem_op op v ad' t =
+      (OPTION_MAP compile_result res, t1) /\
+    ((?fv. (res = SOME $ wordSem$FinalFFI fv) /\
+      (s1.ffi = t1.ffi) /\ (s1.clock = t1.clock)) \/
+    (res = NONE /\
+      state_rel k f f' s1 t1 lens))
+Proof
+  rpt strip_tac >>
+  (`s.sh_mdomain = t.sh_mdomain /\
+    s.ffi = t.ffi /\
+    s.clock = t.clock` by fs[state_rel_def] >>
+  gvs[share_inst_def,sh_mem_op_def,
+    sh_mem_store_def,sh_mem_store_byte_def,
+    stackSemTheory.sh_mem_store_byte_def,
+    stackSemTheory.sh_mem_store_def,AllCaseEqs()] >>
+  rpt strip_tac >>
+  fs[PULL_EXISTS] >>
+  gvs[state_rel_def,set_var_def,state_component_equality] >>
+  simp[GSYM PULL_EXISTS] >>
+  first_assum $ irule_at Any >>
+  fs[GSYM get_var_def,stackSemTheory.get_var_def] >>
+  first_x_assum drule >>
+  gvs[] >>
+  rpt strip_tac >>
+  metis_tac[])
+QED
+
+Theorem evaluate_ShareInst_Load:
+  evaluate (ShareInst op (2 * v)
+    (Op Add [Var (2 * ad);Const offset]),s) = (res,s1) /\
+  res <> SOME Error /\
+  state_rel k f f' s t lens /\
+  v < f' + k /\
+  ad < f' + k /\
+  (op = Load \/ op = Load8) ==>
+  ?ck t1.
+    evaluate
+      (wShareInst op (2 * v) (Addr (2 * ad) offset) (k,f,f'),
+        t with clock := ck + t.clock) =
+        (OPTION_MAP compile_result res,t1) /\
+    ((?fv. res = SOME (FinalFFI fv) /\
+        s1.ffi = t1.ffi /\ s1.clock = t1.clock) \/
+    (res = NONE /\ state_rel k f f' s1 t1 lens))
+Proof
+  rpt strip_tac >>
+  gvs[evaluate_def,wShareInst_def,AllCaseEqs()] >>
+  (pairarg_tac >>
+  gvs[word_exp_def,AllCaseEqs(),the_words_def,GSYM get_var_def] >>
+  simp[evaluate_wStackLoad_seq]>>
+  simp[stackSemTheory.evaluate_def] >>
+  simp[evaluate_wStackLoad_clock]>>
+  `EVEN (2 * ad)` by simp[EVEN_DOUBLE] >>
+  drule_all $ GEN_ALL evaluate_wStackLoad_wReg1>>
+  rpt strip_tac >>
+  gvs[] >>
+  simp[wRegWrite1_def] >>
+  IF_CASES_TAC >>
+  simp[stackSemTheory.evaluate_def,
+    stackSemTheory.dec_clock_def,AllCaseEqs()] >>
+  gvs[stackSemTheory.word_exp_def,
+    stackSemTheory.get_var_def,AllCaseEqs()]
+  >- (
+    drule $ GEN_ALL share_load_lemma2 >>
+    simp[] >>
+    disch_then drule >>
+    simp[] >>
+    rpt strip_tac >>
+    gvs[]
+    >- (
+      irule_at (Pos last) EQ_REFL >>
+      simp[] >>
+      qexists_tac `1` >>
+      simp[] ) >>
+    first_x_assum $ irule_at (Pos last) >>
+    qexists_tac `1` >>
+    simp[] ) >>
+  drule $ GEN_ALL share_load_lemma1 >>
+  simp[] >>
+  disch_then drule >>
+  simp[] >>
+  rpt strip_tac >>
+  qexists_tac `1` >>
+  simp[] >>
+  first_assum $ irule_at (Pos last) >>
+  gvs[state_rel_def,state_component_equality] )
+QED
+
+Theorem evaluate_ShareInst_Store:
+  evaluate (ShareInst op (2 * v)
+    (Op Add [Var (2 * ad);Const offset]),s) = (res,s1) /\
+  state_rel k f f' s t lens /\
+  v < f' + k /\
+  ad < f' + k /\
+  res <> SOME Error /\
+  (op = Store \/ op = Store8) ==>
+  ?ck t1.
+    evaluate
+      (wShareInst op (2 * v) (Addr (2 * ad) offset) (k,f,f'),
+        t with clock := ck + t.clock) =
+        (OPTION_MAP compile_result res,t1) /\
+    ((?fv. res = SOME (FinalFFI fv) /\
+        s1.ffi = t1.ffi /\ s1.clock = t1.clock) \/
+    (res = NONE /\ state_rel k f f' s1 t1 lens))
+Proof
+  rpt strip_tac >>
+  (gvs[evaluate_def,wShareInst_def,AllCaseEqs()] >>
+  pairarg_tac >>
+  gvs[word_exp_def,AllCaseEqs(),the_words_def,GSYM get_var_def] >>
+  pairarg_tac >>
+  simp[evaluate_wStackLoad_seq,wStackLoad_append]>>
+  simp[stackSemTheory.evaluate_def] >>
+  simp[evaluate_wStackLoad_clock]>>
+  `EVEN (2 * ad)` by simp[EVEN_DOUBLE] >>
+  drule_all $ GEN_ALL evaluate_wStackLoad_wReg1>>
+  rpt strip_tac >>
+  gvs[wReg2_def,AllCaseEqs()] >>
+  simp[wStackLoad_def]
+  >- (
+    qexists_tac `1` >>
+    simp[Once stackSemTheory.evaluate_def,
+      stackSemTheory.dec_clock_def] >>
+    gvs[stackSemTheory.word_exp_def,
+      stackSemTheory.get_var_def] >>
+    drule_then drule $ GEN_ALL share_store_lemma2 >>
+    simp[]
+  ) >>
+  qexists_tac `1` >>
+  simp[stackSemTheory.evaluate_def,stackSemTheory.set_var_def,
+    stackSemTheory.dec_clock_def] >>
+  `t'.use_stack` by gvs[state_rel_def] >>
+  `t.stack_space + (f + k - ( v + 1)) < LENGTH t.stack` by (
+    fs [state_rel_def,get_var_def] >>
+    res_tac >> rfs []
+  ) >>
+  drule_then drule $ GEN_ALL share_store_lemma1 >>
+  rpt strip_tac >>
+  gvs[stackSemTheory.word_exp_def,
+    stackSemTheory.get_var_def,
+    FLOOKUP_UPDATE])
+QED
+
+Theorem evaluate_ShareInst_correct_lemma:
+  evaluate (ShareInst op (2 * v)
+    (Op Add [Var (2 * ad);Const offset]),s) = (res,s1) /\
+  res <> SOME Error /\
+  state_rel k f f' s t lens /\
+  v < f' + k /\
+  ad < f' + k ==>
+  ?ck t1.
+    evaluate
+      (wShareInst op (2 * v) (Addr (2 * ad) offset) (k,f,f'),
+        t with clock := ck + t.clock) =
+      (OPTION_MAP compile_result res,t1) /\
+    ((res = NONE /\ state_rel k f f' s1 t1 lens) \/
+      (?fv. res = SOME (FinalFFI fv) /\
+        s1.ffi = t1.ffi /\ s1.clock = t1.clock))
+Proof
+  rpt strip_tac >>
+  drule evaluate_ShareInst_Load >>
+  simp[] >>
+  strip_tac >>
+  drule evaluate_ShareInst_Store >>
+  simp[] >>
+  strip_tac >>
+  Cases_on `op` >>
+  metis_tac[]
+QED
+
+Theorem comp_ShareInst_correct:
+  ^(get_goal "wordLang$ShareInst")
+Proof
+  rpt strip_tac >>
+  gvs[EVAL ``post_alloc_conventions k (ShareInst op v exp)``,comp_def] >>
+  drule flat_exp_conventions_ShareInst_exp_simp >>
+  rpt strip_tac >>
+  gvs[wordLangTheory.exp_to_addr_def,evaluate_ShareInst_Var_eq_Op_Add] >>
+  gvs[wordLangTheory.every_var_exp_def,
+      reg_allocTheory.is_phy_var_def,
+      wordLangTheory.max_var_def,
+      wordLangTheory.max_var_exp_def,
+      GSYM FOLDR_MAX_0_list_max] >>
+  gvs[GSYM EVEN_MOD2,EVEN_EXISTS,GSYM LEFT_ADD_DISTRIB] >>
+  drule_all evaluate_ShareInst_correct_lemma >>
+  rpt strip_tac >>
+  gvs[] >>
+  first_x_assum $ irule_at (Pos hd) >>
+  gvs[]
 QED
 
 Theorem compile_prog_stack_size:
@@ -7362,6 +7730,7 @@ Proof
         simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
       conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
         simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
+      conj_tac >- simp[dec_clock_def] >>
       conj_tac >- metis_tac [] >>
       conj_tac >- (cruft_tac >> rveq >>
                    `m' <= LENGTH t4.stack` by intLib.COOPER_TAC >>
@@ -8223,6 +8592,8 @@ Proof
                  simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
     conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
                  simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
+    conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
+                 simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
     conj_tac >- (fsrw_tac[][push_env_def,LET_THM,ELIM_UNCURRY,dec_clock_def]) >>
     conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
                  simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
@@ -8877,7 +9248,7 @@ Proof
     comp_Seq_correct, comp_Return_correct, comp_Raise_correct,
     comp_If_correct, comp_LocValue_correct, comp_Install_correct,
     comp_CodeBufferWrite_correct, comp_DataBufferWrite_correct,
-    comp_FFI_correct, comp_OpCurrHeap_correct, comp_Call_correct]
+    comp_FFI_correct, comp_OpCurrHeap_correct, comp_Call_correct,comp_ShareInst_correct]
 QED
 
 val evaluate_Seq_Skip = Q.prove(
@@ -9179,6 +9550,7 @@ val make_init_def = Define `
      ; stack   := []
      ; memory  := t.memory
      ; mdomain := t.mdomain
+     ; sh_mdomain := t.sh_mdomain
      ; permute := K I
      ; gc_fun  := t.gc_fun
      ; handler := 0
@@ -9578,6 +9950,17 @@ Proof
   >-
     (fs[wLive_def]>>rpt(pairarg_tac>>fs[])>>
     EVERY_CASE_TAC>>fs[]>>rveq>>fs[]>>EVAL_TAC)
+  >~ [`wShareInst`]
+  >- (
+    gvs[DefnBase.one_line_ify NONE wShareInst_def] >>
+    TOP_CASE_TAC >- simp[extract_labels_def] >>
+    TOP_CASE_TAC >>
+    TOP_CASE_TAC >>
+    pairarg_tac >>
+    gvs[wRegWrite1_def,wReg1_def,wReg2_def,AllCaseEqs()] >>
+    IF_CASES_TAC >>
+    simp[wStackLoad_def] >>
+    simp[extract_labels_def])
   >> rpt(pairarg_tac \\ fs[wReg2_def])
   \\ every_case_tac \\ rw[] \\ EVAL_TAC
   \\ EVAL_TAC>>EVERY_CASE_TAC>>EVAL_TAC
@@ -9706,7 +10089,7 @@ Proof
     TRY(Cases_on`f`)>>
     PairCases_on`kf`>>
     fs wconvs>>
-    fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,two_reg_inst_def,wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,asmTheory.fp_reg_ok_def]>>
+    fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,two_reg_inst_def,wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,asmTheory.fp_reg_ok_def] >>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>fs[]>>
@@ -9774,6 +10157,19 @@ Proof
     (PairCases_on`kf`>>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[])
+  >~[`wShareInst`]
+  >-
+    (PairCases_on`kf` >>
+    Cases_on `exp_to_addr exp` >> fs[] >- EVAL_TAC >>
+    rename1 ‘SOME x’ >> Cases_on ‘x’>>
+    Cases_on `op` >>
+    simp[wShareInst_def] >>
+    fs wconvs >>
+    fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,two_reg_inst_def,wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,asmTheory.fp_reg_ok_def] >>
+    ntac 3 (EVAL_TAC >> rw[]) >>
+    EVERY_CASE_TAC >>
+    fs[wordLangTheory.exp_to_addr_def,asmTheory.offset_ok_def,aligned_def,align_def]
+  )
   >> PairCases_on`kf` \\ EVAL_TAC
   \\ rw[] \\ EVAL_TAC \\ fs[]
 QED
@@ -9873,6 +10269,14 @@ Proof
     (PairCases_on`kf`>>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[])
+  >~ [`wShareInst`]
+  >-
+    (PairCases_on`kf` >>
+    Cases_on `exp_to_addr exp` >> fs[] >- EVAL_TAC >>
+    rename1 ‘SOME x’ >> Cases_on ‘x’>>
+    Cases_on `op` >>
+    every_case_tac >>
+    rpt (EVAL_TAC >> rw[]))
   \\ rpt(pairarg_tac \\ fs[])
   \\ PairCases_on`kf` \\ fs[wReg1_def,wReg2_def]
   \\ every_case_tac \\ fs[] \\ rw[]
@@ -9969,6 +10373,14 @@ Proof
     rpt(pairarg_tac>>fs[StackArgs_def,alloc_arg_def,wStackLoad_def,PushHandler_def,StackHandlerArgs_def,PopHandler_def])>>
     rveq>>fs [alloc_arg_def]>>
     match_mp_tac stack_move_alloc_arg>>fs [alloc_arg_def])
+  >~[`wShareInst`]
+  >- (Cases_on `exp_to_addr exp` >> fs[] >- EVAL_TAC>>
+      rename1 ‘SOME xx’ >> Cases_on ‘xx’ >>
+      Cases_on `op` >>
+      gvs[wShareInst_def,alloc_arg_def] >>
+      fs[wReg1_def,wReg2_def,wRegWrite1_def] >>
+      every_case_tac >> fs[] >>
+      rw[alloc_arg_def,wStackLoad_def])
   >>
     rpt(pairarg_tac>>fs[alloc_arg_def])>>rveq>>fs[alloc_arg_def]
   >> fs[wReg1_def,wReg2_def]
@@ -10038,6 +10450,14 @@ Proof
     rveq>>fs [reg_bound_def]>>
     match_mp_tac stack_move_reg_bound>>fs [reg_bound_def]))
   >- (rpt(pairarg_tac>>fs[reg_bound_def])>>rveq>>fs[reg_bound_def])
+  >~ [`wShareInst`]
+  >- (Cases_on `exp_to_addr exp` >> fs[] >- EVAL_TAC >>
+    rename1 ‘SOME xx’ >> Cases_on ‘xx’>>
+    Cases_on `op` >>
+    rpt(pairarg_tac>>fs[reg_bound_def])>>rveq>>fs[reg_bound_def] >>
+    fs[wReg1_def,wReg2_def,wRegWrite1_def] >>
+    every_case_tac >>
+    rpt (EVAL_TAC >> rw[]))
   \\ rpt(pairarg_tac>>fs[reg_bound_def])>>rveq>>fs[reg_bound_def]
   \\ fs[wReg1_def,wReg2_def]
   \\ every_case_tac \\ fs[] \\ rw[] \\ EVAL_TAC \\ fs[]
@@ -10098,6 +10518,15 @@ Proof
     rveq>>fs [call_args_def]>>
     match_mp_tac stack_move_call_args>>fs [call_args_def]))
   >- (rpt(pairarg_tac>>fs[call_args_def])>>rveq>>fs[call_args_def])
+  >~ [`wShareInst`]
+  >- (
+    Cases_on `exp_to_addr exp` >> fs[] >- EVAL_TAC>>
+    rename1 ‘SOME xx’ >> Cases_on ‘xx’>>
+    Cases_on `op` >>
+    rpt(pairarg_tac>>fs[call_args_def])>>rveq>>fs[call_args_def] >>
+    fs[wReg1_def,wReg2_def,wRegWrite1_def] >>
+    every_case_tac >>
+    rpt (EVAL_TAC >> rw[]))
   \\ rpt(pairarg_tac>>fs[call_args_def])>>rveq>>fs[call_args_def]
   \\ fs[wReg1_def,wReg2_def]
   \\ every_case_tac \\ fs[] \\ rw[] \\ EVAL_TAC \\ fs[]
@@ -10276,6 +10705,16 @@ Proof
     (TOP_CASE_TAC>>fs[]>>pairarg_tac>>fs[get_code_handler_labels_wStackLoad])
   >-
     rpt(dep_rewrite.DEP_REWRITE_TAC [get_code_labels_wReg]>>rw[])
+  >~[`wShareInst`]
+  >- (
+    Cases_on `exp_to_addr exp` >> fs[]>>
+    rename1 ‘SOME xx’>> Cases_on ‘xx’>>
+    Cases_on `op` >>
+    fs[wShareInst_def] >>
+    rpt (pairarg_tac>>fs[])>>
+    fs[get_code_handler_labels_wStackLoad] >>
+    rw[wRegWrite1_def]
+  )
   >> TRY (
     TOP_CASE_TAC>>fs[]>>
     every_case_tac>>fs[call_dest_def]>>
@@ -10427,6 +10866,373 @@ Proof
     (simp[backendPropsTheory.restrict_nonzero_def,Abbr`xxx`,EXTENSION,MEM_MAP]>>
     metis_tac[SND])>>
   simp[]
+QED
+
+(* no_install is preserved *)
+Theorem wMoveAux_no_install_lem:
+  !xs kf. no_install $ wMoveAux xs kf
+Proof
+  ho_match_mp_tac wMoveAux_ind >>
+  rw[wMoveAux_def,no_install_def] >>
+  rw[DefnBase.one_line_ify NONE wMoveSingle_def] >>
+  rpt (TOP_CASE_TAC >> gvs[no_install_def])
+QED
+
+Theorem wStackLoad_no_install_lem:
+  !l prog. no_install (wStackLoad l prog) = no_install prog
+Proof
+  ho_match_mp_tac wStackLoad_ind >>
+  rw[wStackLoad_def,no_install_def]
+QED
+
+Theorem wRegWrite1_no_install_lem:
+  (!reg. no_install $ prog reg) ==>
+  no_install (wRegWrite1 prog r kf)
+Proof
+  PairCases_on `kf` >>
+  gvs[wRegWrite1_def] >>
+  IF_CASES_TAC >>
+  metis_tac[no_install_def]
+QED
+
+Theorem wRegWrite2_no_install_lem:
+  (!reg. no_install $ prog reg) ==>
+  no_install (wRegWrite2 prog r kf)
+Proof
+  PairCases_on `kf` >>
+  gvs[wRegWrite2_def] >>
+  IF_CASES_TAC >>
+  metis_tac[no_install_def]
+QED
+
+Theorem wLive_no_install_lem:
+  no_install $ FST (wLive live bs kf)
+Proof
+  simp[DefnBase.one_line_ify NONE wLive_def] >>
+  rpt (TOP_CASE_TAC >> gvs[no_install_def]) >>
+  pairarg_tac >>
+  gvs[no_install_def]
+QED
+
+Theorem stack_move_no_install_lem:
+  !n start offset i p.
+  no_install (stack_move n start offset i p) = no_install p
+Proof
+  Induct >>
+  gvs[stack_move_def,no_install_def]
+QED
+
+Theorem comp_no_install:
+  !prog bs kf prog' bs'.
+    wordProps$no_install prog /\
+    comp prog bs kf = (prog',bs') ==>
+    stackProps$no_install prog'
+Proof
+  ho_match_mp_tac comp_ind >>
+  simp[no_install_def,comp_def] >>
+  rw[]
+  >- ((* Move *)
+    gvs[no_install_def,DefnBase.one_line_ify NONE wMove_def] >>
+    rpt TOP_CASE_TAC >>
+    metis_tac[wMoveAux_no_install_lem])
+  >- ( (* Inst *)
+    gvs[no_install_def,DefnBase.one_line_ify NONE wInst_def] >>
+    rpt (TOP_CASE_TAC >>
+      gvs[ELIM_UNCURRY,no_install_def,wStackLoad_no_install_lem])
+    >~ [`wRegWrite2`]
+    >- (irule wRegWrite2_no_install_lem >>
+      rw[] >>
+      irule wRegWrite1_no_install_lem >>
+      rw[no_install_def]
+    ) >>
+    irule wRegWrite1_no_install_lem >>
+    rw[no_install_def]
+  )
+  >- ( (* Return *)
+    pairarg_tac >>
+    gvs[wStackLoad_no_install_lem,SeqStackFree_def] >>
+    IF_CASES_TAC >>
+    rw[no_install_def]
+  )
+  >- ( (* OpCurrHeap *)
+    pairarg_tac >>
+    gvs[wStackLoad_no_install_lem] >>
+    irule wRegWrite1_no_install_lem >>
+    rw[no_install_def]
+  )
+  >- gvs[wordPropsTheory.no_install_def] (* MustTerminate *)
+  >- ( (* Seq *)
+    pairarg_tac >>
+    gvs[wordPropsTheory.no_install_def,ELIM_UNCURRY,no_install_def] >>
+    first_x_assum irule >>
+    metis_tac[FST_EQ_EQUIV]
+  )
+  >- (* If *)
+    rpt (
+      pairarg_tac >>
+      gvs[no_install_def,wStackLoad_no_install_lem,
+        wordPropsTheory.no_install_def])
+  >- simp[no_install_def] (* Set BitmapBase *)
+  >- gvs[no_install_def,wStackLoad_no_install_lem,
+    ELIM_UNCURRY,AllCaseEqs()] (* Set *)
+  >- ( (* Get *)
+    irule wRegWrite1_no_install_lem >>
+    rw[no_install_def]
+  )
+  >- ( (* Call *)
+    pairarg_tac >>
+    PairCases_on `kf` >>
+    gvs[AllCaseEqs(),no_install_def,
+      wordPropsTheory.no_install_def,
+      DefnBase.one_line_ify NONE call_dest_def,
+      SeqStackFree_def,ELIM_UNCURRY] >>
+    rpt TOP_CASE_TAC >>
+    gvs[no_install_def,wStackLoad_no_install_lem,
+      wLive_no_install_lem,stack_move_no_install_lem,
+      StackArgs_def,StackHandlerArgs_def,
+      PushHandler_def,PopHandler_def] >>
+    metis_tac[FST_EQ_EQUIV,SND_EQ_EQUIV]
+  )
+  >- ( (* Alloc *)
+    gvs[no_install_def,ELIM_UNCURRY] >>
+    irule wLive_no_install_lem
+  )
+  >- gvs[no_install_def,ELIM_UNCURRY] (* StoreConsts *)
+  >- ( (* LocValue *)
+    irule wRegWrite1_no_install_lem >>
+    rw[no_install_def]
+  )
+  >- fs[wordPropsTheory.no_install_def] (* Install *)
+  >- gvs[no_install_def,wStackLoad_no_install_lem,ELIM_UNCURRY] (* CodeBufferWrite *)
+  >- gvs[no_install_def,wStackLoad_no_install_lem,ELIM_UNCURRY] (* DataBufferWrite *)
+  >- ( (* ShareInst *)
+    Cases_on `exp_to_addr exp` >> fs[] >- gvs[no_install_def]>>
+    rename1 ‘SOME x’ >> Cases_on ‘x’>>
+    gvs[DefnBase.one_line_ify NONE wShareInst_def,no_install_def,ELIM_UNCURRY] >>
+    TOP_CASE_TAC >>
+    gvs[wStackLoad_no_install_lem,no_install_def] >>
+    irule wRegWrite1_no_install_lem >>
+    rw[no_install_def]
+  )
+QED
+
+Theorem compile_word_to_stack_no_install:
+  !ac prog bs prog' fs' bs'.
+    EVERY (\(n,m,pp). wordProps$no_install pp) prog /\
+    compile_word_to_stack ac prog bs = (prog',fs', bs') ⇒
+    EVERY (\(a,p). no_install p) prog'
+Proof
+  ho_match_mp_tac compile_word_to_stack_ind >>
+  rw[] >>
+  gvs[compile_word_to_stack_def,ELIM_UNCURRY,compile_prog_def] >>
+  conj_tac
+  >- (
+    simp[no_install_def] >>
+    irule comp_no_install >>
+    metis_tac[FST_EQ_EQUIV]
+  ) >>
+  last_x_assum irule >>
+  metis_tac[FST_EQ_EQUIV]
+QED
+
+
+(* no_share_mem is preserved *)
+Theorem wMoveAux_no_shmemop_lem:
+  !xs kf. no_shmemop $ wMoveAux xs kf
+Proof
+  ho_match_mp_tac wMoveAux_ind >>
+  rw[wMoveAux_def,no_shmemop_def] >>
+  rw[DefnBase.one_line_ify NONE wMoveSingle_def] >>
+  rpt (TOP_CASE_TAC >> gvs[no_shmemop_def])
+QED
+
+Theorem wStackLoad_no_shmemop_lem:
+  !l prog. no_shmemop (wStackLoad l prog) = no_shmemop prog
+Proof
+  ho_match_mp_tac wStackLoad_ind >>
+  rw[wStackLoad_def,no_shmemop_def]
+QED
+
+Theorem wRegWrite1_no_shmemop_lem:
+  (!reg. no_shmemop $ prog reg) ==>
+  no_shmemop (wRegWrite1 prog r kf)
+Proof
+  PairCases_on `kf` >>
+  gvs[wRegWrite1_def] >>
+  IF_CASES_TAC >>
+  metis_tac[no_shmemop_def]
+QED
+
+Theorem wRegWrite2_no_shmemop_lem:
+  (!reg. no_shmemop $ prog reg) ==>
+  no_shmemop (wRegWrite2 prog r kf)
+Proof
+  PairCases_on `kf` >>
+  gvs[wRegWrite2_def] >>
+  IF_CASES_TAC >>
+  metis_tac[no_shmemop_def]
+QED
+
+Theorem wLive_no_shmemop_lem:
+  no_shmemop $ FST (wLive live bs kf)
+Proof
+  simp[DefnBase.one_line_ify NONE wLive_def] >>
+  rpt (TOP_CASE_TAC >> gvs[no_shmemop_def]) >>
+  pairarg_tac >>
+  gvs[no_shmemop_def]
+QED
+
+Theorem stack_move_no_shmemop_lem:
+  !n start offset i p.
+  no_shmemop (stack_move n start offset i p) = no_shmemop p
+Proof
+  Induct >>
+  gvs[stack_move_def,no_shmemop_def]
+QED
+
+Theorem comp_no_shmemop:
+  !prog bs kf prog' bs'.
+    no_share_inst prog /\
+    comp prog bs kf = (prog',bs') ==>
+    no_shmemop prog'
+Proof
+  ho_match_mp_tac comp_ind >>
+  simp[no_shmemop_def,comp_def] >>
+  rw[]
+  >- ((* Move *)
+    gvs[no_shmemop_def,DefnBase.one_line_ify NONE wMove_def] >>
+    rpt TOP_CASE_TAC >>
+    metis_tac[wMoveAux_no_shmemop_lem])
+  >- ( (* Inst *)
+    gvs[no_shmemop_def,DefnBase.one_line_ify NONE wInst_def] >>
+    rpt (TOP_CASE_TAC >>
+      gvs[ELIM_UNCURRY,no_shmemop_def,wStackLoad_no_shmemop_lem])
+    >~ [`wRegWrite2`]
+    >- (irule wRegWrite2_no_shmemop_lem >>
+      rw[] >>
+      irule wRegWrite1_no_shmemop_lem >>
+      rw[no_shmemop_def]
+    ) >>
+    irule wRegWrite1_no_shmemop_lem >>
+    rw[no_shmemop_def]
+  )
+  >- ( (* Return *)
+    pairarg_tac >>
+    gvs[wStackLoad_no_shmemop_lem,SeqStackFree_def] >>
+    IF_CASES_TAC >>
+    rw[no_shmemop_def]
+  )
+  >- ( (* OpCurrHeap *)
+    pairarg_tac >>
+    gvs[wStackLoad_no_shmemop_lem] >>
+    irule wRegWrite1_no_shmemop_lem >>
+    rw[no_shmemop_def]
+  )
+  >- gvs[no_share_inst_def] (* MustTerminate *)
+  >- ( (* Seq *)
+    pairarg_tac >>
+    gvs[no_share_inst_def,ELIM_UNCURRY,no_shmemop_def] >>
+    first_x_assum irule >>
+    metis_tac[FST_EQ_EQUIV]
+  )
+  >- (* If *)
+    rpt (
+      pairarg_tac >>
+      gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,
+        no_share_inst_def])
+  >- simp[no_shmemop_def] (* Set BitmapBase *)
+  >- gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,
+    ELIM_UNCURRY,AllCaseEqs()] (* Set *)
+  >- ( (* Get *)
+    irule wRegWrite1_no_shmemop_lem >>
+    rw[no_shmemop_def]
+  )
+  >- ( (* Call *)
+    pairarg_tac >>
+    PairCases_on `kf` >>
+    gvs[AllCaseEqs(),no_shmemop_def,
+      no_share_inst_def,
+      DefnBase.one_line_ify NONE call_dest_def,
+      SeqStackFree_def,ELIM_UNCURRY] >>
+    rpt TOP_CASE_TAC >>
+    gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,
+      wLive_no_shmemop_lem,stack_move_no_shmemop_lem,
+      StackArgs_def,StackHandlerArgs_def,
+      PushHandler_def,PopHandler_def] >>
+    metis_tac[FST_EQ_EQUIV,SND_EQ_EQUIV]
+  )
+  >- ( (* Alloc *)
+    gvs[no_shmemop_def,ELIM_UNCURRY] >>
+    irule wLive_no_shmemop_lem
+  )
+  >- gvs[no_shmemop_def,ELIM_UNCURRY] (* StoreConsts *)
+  >- ( (* LocValue *)
+    irule wRegWrite1_no_shmemop_lem >>
+    rw[no_shmemop_def]
+  )
+  >- ( (* Install *)
+      pairarg_tac >>
+      gvs[] >>
+      pairarg_tac >>
+      gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,
+        no_share_inst_def])
+  >- gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,ELIM_UNCURRY] (* CodeBufferWrite *)
+  >- gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,ELIM_UNCURRY] (* DataBufferWrite *)
+  >- fs[no_share_inst_def] (* ShareInst *)
+QED
+
+Theorem compile_word_to_stack_no_share_inst:
+  !ac prog bs prog' fs' bs'.
+    EVERY (\(n,m,pp). no_share_inst pp) prog /\
+    compile_word_to_stack ac prog bs = (prog',fs', bs') ⇒
+    EVERY (\(a,p). no_shmemop p) prog'
+Proof
+  ho_match_mp_tac compile_word_to_stack_ind >>
+  rw[] >>
+  gvs[compile_word_to_stack_def,ELIM_UNCURRY,compile_prog_def] >>
+  conj_tac
+  >- (
+    simp[no_shmemop_def] >>
+    irule comp_no_shmemop >>
+    metis_tac[FST_EQ_EQUIV]
+  ) >>
+  last_x_assum irule >>
+  metis_tac[FST_EQ_EQUIV]
+QED
+
+Theorem compile_no_shmemop:
+  compile cf prog = (bs,fs,ns,prog') /\
+  EVERY (\(n,m,pp). no_share_inst pp) prog ==>
+  EVERY (\(a,p). no_shmemop p) prog'
+Proof
+  rw[compile_def] >>
+  pairarg_tac >>
+  gvs[] >>
+  drule_all_then (irule_at $ Pos last) compile_word_to_stack_no_share_inst
+  >>
+  simp[no_shmemop_def,
+    raise_stub_def,store_consts_stub_def]
+QED
+
+Theorem word_to_stack_comple_no_install:
+  ALL_DISTINCT (MAP FST prog) ∧
+  no_install_code (fromAList prog) ∧
+  word_to_stack$compile ac prog = (bm, c, fs, p) ⇒
+  EVERY (λ(n,x). no_install x) p
+Proof
+  strip_tac>>
+  fs[compile_def]>>
+  pairarg_tac>>fs[]>>
+  gvs[]>>
+  conj_tac >- EVAL_TAC>>
+  conj_tac >- EVAL_TAC>>
+  irule compile_word_to_stack_no_install>>
+  first_assum $ irule_at Any>>
+  fs[wordPropsTheory.no_install_code_def,lookup_fromAList]>>
+  fs[EVERY_MEM]>>rpt strip_tac>>
+  pairarg_tac>>fs[]>>
+  drule_all ALOOKUP_ALL_DISTINCT_MEM>>
+  strip_tac>>res_tac
 QED
 
 val _ = export_theory();
