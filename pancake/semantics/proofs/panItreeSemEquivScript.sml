@@ -172,6 +172,13 @@ Proof
   rw[mrec_sem_simps]
 QED
 
+Theorem strip_tau_ltree_lift_Ret:
+  ∀x y. strip_tau x (Ret y) ⇒ strip_tau (ltree_lift f st x) (ltree_lift f st (Ret y))
+Proof
+  Induct_on ‘strip_tau’ >>
+  rw[ltree_lift_cases]
+QED
+
 Theorem strip_tau_mrec_sem_INR:
   ∀x x' k. strip_tau x (Vis (INR x') k) ⇒ strip_tau (mrec_sem x) (mrec_sem (Vis (INR x') k))
 Proof
@@ -209,8 +216,7 @@ Proof
 QED
 
 Theorem msem_resp_wbisim:
-  ht ≈ ht' ⇒
-  mrec_sem ht ≈ mrec_sem ht'
+  ht ≈ ht' ⇒ mrec_sem ht ≈ mrec_sem ht'
 Proof
   strip_tac >>
   irule itree_wbisim_coind_upto >>
@@ -245,11 +251,58 @@ Proof
   gvs[mrec_sem_simps] >> metis_tac[]
 QED
 
+Theorem ltree_lift_Vis_alt:
+  ltree_lift f st (Vis ek g) =
+  (let (a,rbytes,st') = f st $ FST ek in Tau (ltree_lift f st' ((g ∘ (SND ek)) a)))
+Proof
+  Cases_on ‘ek’ >> rw[ltree_lift_cases]
+QED
+
+Theorem strip_tau_ltree_lift_Vis:
+  ∀x e k. strip_tau x (Vis e k) ⇒
+        ∃t n. ltree_lift f st x =
+              Tau $ ltree_lift f (SND $ SND $ f st $ FST e)
+                  (FUNPOW Tau n $ k $ SND e $ FST $ f st $ FST e)
+Proof
+  Induct_on ‘strip_tau’ >>
+  rw[ltree_lift_cases,ltree_lift_Vis_alt] >>
+  rw[ltree_lift_cases,ltree_lift_Vis_alt]
+  >- (qrefine ‘SUC _’ >>
+      rw[ltree_lift_cases,FUNPOW_SUC] >>
+      metis_tac[]
+     ) >>
+  qexists ‘0’ >>
+  rw[ELIM_UNCURRY]
+QED
+
+Theorem ltree_lift_resp_wbisim:
+  t ≈ t' ⇒ ltree_lift f st t ≈ ltree_lift f st t'
+Proof
+  strip_tac >>
+  irule itree_wbisim_coind_upto >>
+  qexists_tac ‘λx y. ∃x' y' f st. x = ltree_lift f st x' ∧ y = ltree_lift f st y' ∧ x' ≈ y'’ >>
+  reverse conj_tac >- metis_tac[itree_wbisim_refl,itree_wbisim_trans] >>
+  pop_assum kall_tac >>
+  rw[] >>
+  pop_assum mp_tac >>
+  rw[Once itree_wbisim_cases,PULL_EXISTS]
+  >- (gvs[ltree_lift_cases] >> metis_tac[])
+  >- (rpt $ dxrule_then (qspecl_then [‘st’,‘f’] strip_assume_tac) strip_tau_ltree_lift_Vis >>
+      gvs[] >>
+      rpt $ disj1_tac >>
+      rpt $ irule_at (Pos hd) EQ_REFL >>
+      match_mp_tac FUNPOW_Tau_wbisim_intro >>
+      simp[]) >>
+  rpt $ dxrule_then (qspecl_then [‘st’,‘f’] strip_assume_tac) strip_tau_ltree_lift_Ret >>
+  gvs[ltree_lift_cases] >>
+  metis_tac[]
+QED
+
 Theorem ltree_lift_msem_resp_wbisim:
   ht ≈ ht' ⇒
   ltree_lift f st (mrec_sem ht) ≈ ltree_lift f st (mrec_sem ht')
 Proof
-  cheat
+  metis_tac[ltree_lift_resp_wbisim,msem_resp_wbisim]
 QED
 
 val g = “g:('a,'b) mtree_ans -> ('a,'b) ltree”;
