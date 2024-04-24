@@ -37,6 +37,34 @@ Definition make_io_event_def[nocompute]:
                 IO_event s conf (ZIP (bytes,rbytes))
 End
 
+Datatype:
+  bstate =
+    <| locals      : varname |-> 'a v
+     ; code        : funname |-> ((varname # shape) list # ('a panLang$prog))
+                     (* arguments (with shape), body *)
+     ; eshapes     : eid |-> shape
+     ; memory      : 'a word -> 'a word_lab
+     ; memaddrs    : ('a word) set
+     ; sh_memaddrs    : ('a word) set
+     ; be          : bool
+     ; ffi         : 'ffi ffi_state
+     ; base_addr   : 'a word |>
+End
+
+Definition unclock_def:
+  unclock (s:('a,'b) panSem$state) =
+    <| locals      := s.locals
+     ; code        := s.code
+     ; eshapes     := s.eshapes
+     ; memory      := s.memory
+     ; memaddrs    := s.memaddrs
+     ; sh_memaddrs := s.sh_memaddrs
+     ; be          := s.be
+     ; ffi         := s.ffi
+     ; base_addr   := s.base_addr
+|>
+End
+
 (* Path over semtrees:
  - states consist of (ffi_state x 'a result option) pairs,
  - transition labels have type: 'b sem_vis_event option
@@ -657,17 +685,37 @@ Proof
   >- (CONV_TAC SYM_CONV >>
       Cases_on ‘itree_semantics_beh s prog’ >>
       simp []
-      >- (irule (iffLR lprefix_lubTheory.build_prefix_lub_intro) >>
+      >- (irule $ iffLR lprefix_lubTheory.build_prefix_lub_intro >>
           rw []
+          (* lprefix case *)
+          >- (rw [lprefix_lubTheory.lprefix_chain_def] >>
+              Induct_on ‘k’ >>
+              Induct_on ‘k'’ >>
+              qid_spec_tac ‘s’ >>
+              qid_spec_tac ‘prog’ >>
+              recInduct panSemTheory.evaluate_ind >>
+              rw []
+              >~ [‘While’]
+               (* lprefix -> while case *)
+              >- (DISJ1_TAC >>
+                  rw [Once panSemTheory.evaluate_def] >>
+                  TOP_CASE_TAC >>
+                  rw []
+               )
+             )
+           (* lprefix_lub case *)
+          >- (
+           ))
+      >- ()
+      >- ()
+      >- (simp [lprefix_lubTheory.lprefix_lub_def] >>
+          conj_asm1_tac
           >- (cheat)
-          >- (simp [lprefix_lubTheory.lprefix_lub_def] >>
-              conj_asm1_tac
-              >- (cheat)
-              >- (rw [] >>
-                  (* Prove l is the least prefix *)
-                  cheat)))
-      >- (cheat)
-      >- (cheat))
+          >- (rw [] >>
+              (* Prove l is the least prefix *)
+              cheat)
+          >- (cheat)
+          >- (cheat)))
      (*    Cases_on ‘eval s e’ *)
      (* >- (fs [Once evaluate_def, *)
      (*         panPropsTheory.eval_upd_clock_eq]) *)
