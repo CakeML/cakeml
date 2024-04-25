@@ -3857,11 +3857,10 @@ Proof
   >- (
     xlet_autop>>
     xapp>>xsimpl>>
-    simp[Once update_resize_def,SimpRHS]>>
-    simp[ELIM_UNCURRY])>>
+    simp[update_resize_def])>>
   rpt xlet_autop>>
   xapp>>xsimpl>>
-  simp[update_resize_def,ELIM_UNCURRY]
+  simp[update_resize_def]
 QED
 
 val mk_vomap_arr = process_topdecs`
