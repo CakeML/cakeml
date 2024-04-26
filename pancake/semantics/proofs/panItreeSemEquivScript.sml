@@ -422,25 +422,25 @@ QED
 
 Theorem ltree_lift_bind_left_ident:
   (ltree_lift f st (mrec_sem ht)) ≈ Ret x ⇒
-  (ltree_lift f st (mrec_sem (ht >>= k))) ≈ (ltree_lift f st (mrec_sem (k x)))
+  (ltree_lift f st (mrec_sem (ht >>= k))) ≈ (ltree_lift f (ltree_lift_state f st (mrec_sem ht)) (mrec_sem (k x)))
 Proof
   disch_tac >>
   rw [msem_lift_monad_law] >>
   rw [ltree_lift_monad_law] >>
   drule ltree_wbisim_bind_conv >>
   disch_tac >>
-  pop_assum (assume_tac o (SPEC “(ltree_lift f st ∘ mrec_sem ∘ k):('a,'b) lktree”)) >>
-  fs [o_THM]
+  irule itree_wbisim_trans >>
+  pop_assum $ irule_at $ Pos hd >>
+  rw[o_THM,itree_wbisim_refl]
 QED
 
 Theorem ltree_lift_compos:
   ltree_lift f st (mrec_sem (h_prog seed)) ≈ Ret x ⇒
-  ltree_lift f st (mrec_sem (Vis (INL seed) k)) ≈ ltree_lift f st (mrec_sem (k x))
+  ltree_lift f st (mrec_sem (Vis (INL seed) k)) ≈ ltree_lift f (ltree_lift_state f st (mrec_sem $ h_prog seed)) (mrec_sem (k x))
 Proof
   disch_tac >>
   rw [mrec_sem_simps] >>
-  rw [ltree_lift_cases] >>
-  rw [ltree_lift_bind_left_ident]
+  rw [ltree_lift_cases, ltree_lift_bind_left_ident]
 QED
 
 Theorem mrec_sem_bind_thm:
@@ -452,12 +452,14 @@ Proof
   rw [mrec_sem_simps]
 QED
 
+(* this lemma appears to be about a combinator we no longer use
 Theorem mrec_sem_leaf_compos:
   leaf_of ffis (mrec_sem (rh seed)) = Return x ⇒
   leaf_of ffis (mrec_sem (Vis (INL seed) k)) = leaf_of ffis (mrec_sem (k x))
 Proof
   cheat
 QED
+*)
 
 (* Main correspondence theorem *)
 
