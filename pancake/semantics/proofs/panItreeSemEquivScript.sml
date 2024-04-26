@@ -831,7 +831,7 @@ QED
 
 Theorem h_prog_Ret_ffi_const:
   ∀p s s'.
-  h_prog (p, unclock s) = Ret (r, unclock s') ⇒ s.ffi = s'.ffi
+  h_prog (p, s) = Ret (r, s') ⇒ s.ffi = s'.ffi
 Proof
   Induct>>
   fs[h_prog_def,
@@ -849,15 +849,14 @@ Proof
      h_prog_rule_store_byte_def,
      h_prog_rule_assign_def]>>
   rpt strip_tac>>
-  fs[panPropsTheory.eval_upd_clock_eq,AllCaseEqs()]>>
-  TRY (gvs[unclock_def,empty_locals_defs]>>
-       NO_TAC)
-  >- (gvs[Once itree_iter_thm,empty_locals_defs,
+  gvs[panPropsTheory.eval_upd_clock_eq,AllCaseEqs(),
+      empty_locals_defs]
+  >- (gvs[Once itree_iter_thm,
          panPropsTheory.eval_upd_clock_eq]>>
-      rpt (FULL_CASE_TAC>>fs[])>>fs[unclock_def])>>
+      rpt (FULL_CASE_TAC>>fs[]))>>
   Cases_on ‘m’>>fs[h_prog_rule_sh_mem_op_def]>>
   fs[h_prog_rule_sh_mem_load_def,h_prog_rule_sh_mem_store_def]>>
-  rpt (FULL_CASE_TAC>>fs[])>>fs[unclock_def]
+  rpt (FULL_CASE_TAC>>fs[])
 QED
 
 Theorem itree_semantics_beh_while_SemFail:
@@ -905,7 +904,8 @@ Proof
           fs[]>>
           pop_assum kall_tac>>
           pop_assum kall_tac>>
-          imp_res_tac h_prog_Ret_ffi_const>>gvs[]>>metis_tac[])>>
+          imp_res_tac h_prog_Ret_ffi_const>>
+          gvs[unclock_def]>>metis_tac[])>>
       Cases_on ‘a’>>
       fs[mrec_sem_simps,ltree_lift_cases]
       >- (qmatch_goalsub_abbrev_tac ‘g _ >>= X’>>
