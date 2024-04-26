@@ -109,6 +109,30 @@ Proof
   rw[unclock_def,reclock_def]
 QED
 
+Theorem unclock_reclock_update[simp]:
+  (∀f. unclock(locals_fupd f s) = locals_fupd f (unclock s)) ∧
+  (∀f. unclock(code_fupd f s) = code_fupd f (unclock s)) ∧
+  (∀f. unclock(eshapes_fupd f s) = eshapes_fupd f (unclock s)) ∧
+  (∀f. unclock(memory_fupd f s) = memory_fupd f (unclock s)) ∧
+  (∀f. unclock(memaddrs_fupd f s) = memaddrs_fupd f (unclock s)) ∧
+  (∀f. unclock(sh_memaddrs_fupd f s) = sh_memaddrs_fupd f (unclock s)) ∧
+  (∀f. unclock(be_fupd f s) = be_fupd f (unclock s)) ∧
+  (∀f. unclock(ffi_fupd f s) = ffi_fupd f (unclock s)) ∧
+  (∀f. unclock(base_addr_fupd f s) = base_addr_fupd f (unclock s)) ∧
+  (∀f. reclock(locals_fupd f t) = locals_fupd f (reclock t)) ∧
+  (∀f. reclock(code_fupd f t) = code_fupd f (reclock t)) ∧
+  (∀f. reclock(eshapes_fupd f t) = eshapes_fupd f (reclock t)) ∧
+  (∀f. reclock(memory_fupd f t) = memory_fupd f (reclock t)) ∧
+  (∀f. reclock(memaddrs_fupd f t) = memaddrs_fupd f (reclock t)) ∧
+  (∀f. reclock(sh_memaddrs_fupd f t) = sh_memaddrs_fupd f (reclock t)) ∧
+  (∀f. reclock(be_fupd f t) = be_fupd f (reclock t)) ∧
+  (∀f. reclock(ffi_fupd f t) = ffi_fupd f (reclock t)) ∧
+  (∀f. reclock(base_addr_fupd f t) = base_addr_fupd f (reclock t))
+Proof
+  rw[unclock_def,reclock_def] >>
+  rw[state_component_equality,bstate_component_equality]
+QED
+
 Definition empty_locals_def:
   empty_locals = unclock ∘ (panSem$empty_locals) ∘ reclock
 End
