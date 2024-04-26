@@ -2,13 +2,13 @@
 An itree semantics for Pancake.
 *)
 
-open preamble panLangTheory;
+open preamble panLangTheory
+              panSemTheory;
 local open alignmentTheory
         miscTheory     (* for read_bytearray *)
         wordLangTheory (* for word_op and word_sh *)
         ffiTheory
-        itreeTauTheory
-        panSemTheory in end;
+        itreeTauTheory in end;
 
 val _ = new_theory "panItreeSem";
 
@@ -137,9 +137,13 @@ Definition empty_locals_def:
   empty_locals = unclock ∘ (panSem$empty_locals) ∘ reclock
 End
 
+Theorem empty_locals_defs = CONJ panSemTheory.empty_locals_def empty_locals_def;
+
 Definition set_var_def:
   set_var x v = unclock ∘ (panSem$set_var x v) ∘ reclock
 End
+
+Theorem set_var_defs = CONJ panSemTheory.set_var_def set_var_def;
 
 val s = “s:('a,'b) bstate”;
 val s1 = “s1:('a,'b) bstate”;
