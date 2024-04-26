@@ -79,10 +79,11 @@ End
 Theorem unclock_reclock_simps[simp]:
   (∀s. unclock(reclock s) = s) ∧
   (∀s. reclock(unclock s) = s with clock := 0) ∧
-  (∀s k. unclock(s with clock := k) = unclock s)
+  (∀s k. unclock(s with clock := k) = unclock s) ∧
+  (∀s k. unclock(dec_clock s) = unclock s)      
 Proof
   rw[unclock_def,reclock_def,panSemTheory.state_component_equality,
-     fetch "-" "bstate_component_equality"]
+     fetch "-" "bstate_component_equality",panSemTheory.dec_clock_def]
 QED
 
 Theorem unclock_reclock_access[simp]:
