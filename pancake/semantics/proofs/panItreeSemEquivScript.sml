@@ -1004,9 +1004,62 @@ Proof
       >~ [‘Call’]
       >- (cheat)
       >~ [‘ExtCall’]
-      >- (cheat)
+      >- (gvs[evaluate_def,AllCaseEqs(),
+              itree_semantics_beh_def,
+              h_prog_def,
+              h_prog_rule_ext_call_def,
+              panPropsTheory.eval_upd_clock_eq,
+              mrec_sem_simps,
+              ltree_lift_cases,
+              some_def,
+              itree_wbisim_neq,
+              EXISTS_PROD,
+              ffiTheory.call_FFI_def,
+              PULL_EXISTS
+             ] >>
+          TRY(rename1 ‘Error’ >>
+              rw[ELIM_UNCURRY] >>
+              metis_tac[SELECT_REFL,FST,SND,PAIR]) >>
+          rw[ELIM_UNCURRY,
+             itree_wbisim_tau_eqn,
+             query_oracle_def,
+             itree_wbisim_neq,
+             ffiTheory.call_FFI_def,
+             empty_locals_defs
+            ])
       >~ [‘ShMem’]
-      >- (cheat) >>
+      >- (gvs[evaluate_def,AllCaseEqs(),
+              itree_semantics_beh_def,
+              h_prog_def,
+              h_prog_rule_sh_mem_def,
+              h_prog_rule_sh_mem_op_def,
+              h_prog_rule_sh_mem_load_def,
+              h_prog_rule_sh_mem_store_def,
+              oneline sh_mem_op_def,
+              sh_mem_load_def,
+              sh_mem_store_def,
+              panPropsTheory.eval_upd_clock_eq,
+              mrec_sem_simps,
+              ltree_lift_cases,
+              some_def,
+              itree_wbisim_neq,
+              EXISTS_PROD,
+              ffiTheory.call_FFI_def,
+              PULL_EXISTS
+             ] >>
+          TRY(rename1 ‘Error’ >>
+              rw[ELIM_UNCURRY] >>
+              metis_tac[SELECT_REFL,FST,SND,PAIR]) >>
+          rw[ELIM_UNCURRY,
+             itree_wbisim_tau_eqn,
+             query_oracle_def,
+             itree_wbisim_neq,
+             ffiTheory.call_FFI_def,
+             empty_locals_defs,
+             set_var_def,
+             panSemTheory.set_var_def
+            ]
+         ) >>
       gvs[evaluate_def,itree_semantics_beh_simps,panPropsTheory.eval_upd_clock_eq,
           AllCaseEqs()] >>
       gvs[dec_clock_def, empty_locals_def, panSemTheory.empty_locals_def]
