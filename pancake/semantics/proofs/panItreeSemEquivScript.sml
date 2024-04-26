@@ -363,11 +363,61 @@ Proof
   cheat
 QED
 
+Definition ltree_lift_state_def:
+  ltree_lift_state f st t =
+  SND $
+  WHILE
+    (λ(t,st). case t of Ret _ => F | _ => T)
+    (λ(t,st).
+        case t of
+        | Ret _ => (t,st)
+        | Tau t => (t,st)
+        | Vis (e,k) g =>
+          let (a,rbytes,st') = f st e in
+            ((g ∘ k) a,st')
+    )
+    (t,st)
+End
+
+Theorem ltree_lift_state_simps:
+  ltree_lift_state f st (Ret x) = st ∧
+  ltree_lift_state f st (Tau t) = ltree_lift_state f st t ∧
+  ltree_lift_state f st (Vis ek g) =
+   let (a,rbytes,st') = f st (FST ek) in
+     ltree_lift_state f st' ((g ∘ (SND ek)) a)
+Proof
+  rpt conj_tac >>
+  rw[ltree_lift_state_def, Once whileTheory.WHILE] >>
+  rw[ELIM_UNCURRY] >>
+  PURE_TOP_CASE_TAC >> rw[]
+QED
+
 Theorem ltree_lift_monad_law:
   ltree_lift f st (mt >>= k) =
-  (ltree_lift f st mt) >>= (ltree_lift f st) o k
+  (ltree_lift f st mt) >>= (ltree_lift f (ltree_lift_state f st mt)) o k
 Proof
-  cheat
+  rw[Once itree_strong_bisimulation] >>
+  qexists ‘CURRY {(ltree_lift f st (mt >>= k),
+                  (ltree_lift f st mt) >>= (ltree_lift f (ltree_lift_state f st mt)) o k)
+                  | T
+                 }’ >>
+  conj_tac >- (rw[ELIM_UNCURRY,EXISTS_PROD] >> metis_tac[]) >>
+  rw[ELIM_UNCURRY,EXISTS_PROD] >>
+  rename [‘ltree_lift f st t >>= _’]
+  >~ [‘Ret’]
+  >- (Cases_on ‘t’ >> gvs[ltree_lift_cases,ltree_lift_state_simps,ltree_lift_Vis_alt,
+                          ELIM_UNCURRY])
+  >~ [‘Tau’]
+  >- (Cases_on ‘t’ >>
+      gvs[ltree_lift_cases,ltree_lift_state_simps,ltree_lift_Vis_alt]
+      >- metis_tac[]
+      >- metis_tac[] >>
+      pairarg_tac >> gvs[ltree_lift_state_simps] >>
+      metis_tac[])
+  >~ [‘Vis’]
+  >- (Cases_on ‘t’ >>
+      gvs[ltree_lift_cases,ltree_lift_state_simps,ltree_lift_Vis_alt,ELIM_UNCURRY] >>
+      rename1 ‘ltree_lift _ _ tt’ >> Cases_on ‘tt’ >> gvs[ltree_lift_cases,ltree_lift_Vis_alt,ELIM_UNCURRY])
 QED
 
 Theorem ltree_lift_bind_left_ident:
