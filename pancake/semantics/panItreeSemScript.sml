@@ -130,7 +130,7 @@ Theorem unclock_reclock_update[simp]:
   (∀f. reclock(base_addr_fupd f t) = base_addr_fupd f (reclock t))
 Proof
   rw[unclock_def,reclock_def] >>
-  rw[state_component_equality,bstate_component_equality]
+  rw[state_component_equality,fetch "-" "bstate_component_equality"]
 QED
 
 Definition empty_locals_def:
