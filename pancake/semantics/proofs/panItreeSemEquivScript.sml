@@ -623,6 +623,48 @@ QED
 
 Theorem itree_semantics_beh_simps:
   (itree_semantics_beh s Skip = SemTerminate (NONE, s) s.ffi.io_events) ∧
+  (itree_semantics_beh s (Assign v src) =
+   case eval (reclock s) src of
+     NONE => SemFail
+   | SOME val =>
+       if is_valid_value s.locals v val then
+         SemTerminate (NONE, s with locals := s.locals |+ (v,val)) s.ffi.io_events
+       else SemFail
+  ) ∧
+  (itree_semantics_beh s (Store dst src) =
+   case (eval (reclock s) dst,eval (reclock s) src) of
+   | (SOME (ValWord addr),SOME value) =>
+       (case mem_stores addr (flatten value) s.memaddrs s.memory of
+          NONE => SemFail
+        | SOME m => SemTerminate (NONE,s with memory := m) s.ffi.io_events)
+   | _ => SemFail) ∧
+  (itree_semantics_beh s (StoreByte dst src) =
+   case (eval (reclock s) dst,eval (reclock s) src) of
+   | (SOME (ValWord addr),SOME (ValWord w)) =>
+       (case mem_store_byte s.memory s.memaddrs s.be addr (w2w w) of
+          NONE => SemFail
+        | SOME m => SemTerminate (NONE,s with memory := m) s.ffi.io_events)
+   | _ => SemFail) ∧
+  (itree_semantics_beh s (Return e) =
+   case eval (reclock s) e of
+         NONE => SemFail
+       | SOME value =>
+         if size_of_shape (shape_of value) ≤ 32 then
+           SemTerminate (SOME (Return value),empty_locals s) s.ffi.io_events
+         else SemFail) ∧
+  (itree_semantics_beh s (Raise eid e) =
+   case (FLOOKUP s.eshapes eid,eval (reclock s) e) of
+          | (SOME sh,SOME value) =>
+            (if shape_of value = sh ∧ size_of_shape (shape_of value) ≤ 32 then
+              SemTerminate (SOME (Exception eid value),empty_locals s) s.ffi.io_events
+             else SemFail)
+          | _ => SemFail) ∧
+  (itree_semantics_beh s Break = SemTerminate (SOME Break,s) s.ffi.io_events
+   ) ∧
+  (itree_semantics_beh s Continue = SemTerminate (SOME Continue,s) s.ffi.io_events
+   ) ∧
+  (itree_semantics_beh s Tick = SemTerminate (NONE,s) s.ffi.io_events
+   ) ∧
   (eval (reclock s) e = NONE ⇒
    itree_semantics_beh s (Dec v e prog) = SemFail)
 Proof
@@ -638,7 +680,84 @@ Proof
       fs [h_prog_def,
           mrec_sem_simps] >>
       fs [ltree_lift_cases] >>
-      fs [Once itree_wbisim_cases])>>
+      fs [Once itree_wbisim_cases])
+  >- (rw [itree_semantics_beh_def] >>
+      DEEP_INTRO_TAC some_intro >> rw []
+      >- (rpt(PURE_CASE_TAC >> gvs[]) >>
+          fs [h_prog_def,h_prog_rule_assign_def,
+              mrec_sem_simps] >>
+          fs [ltree_lift_cases] >>
+          fs [Once itree_wbisim_cases]) >>
+      simp[EXISTS_PROD]>>
+      fs [h_prog_def,h_prog_rule_assign_def,
+          mrec_sem_simps] >>
+      rpt(PURE_CASE_TAC >> gvs[]) >>
+      fs [ltree_lift_cases, mrec_sem_simps] >>
+      fs [Once itree_wbisim_cases, ELIM_UNCURRY])
+  >- (rw [itree_semantics_beh_def] >>
+      DEEP_INTRO_TAC some_intro >> rw []
+      >- (rpt(PURE_CASE_TAC >> gvs[]) >>
+          fs [h_prog_def,h_prog_rule_store_def,
+              mrec_sem_simps] >>
+          fs [ltree_lift_cases] >>
+          fs [Once itree_wbisim_cases]) >>
+      simp[EXISTS_PROD]>>
+      fs [h_prog_def,h_prog_rule_store_def,
+          mrec_sem_simps] >>
+      rpt(PURE_CASE_TAC >> gvs[]) >>
+      fs [ltree_lift_cases, mrec_sem_simps] >>
+      fs [Once itree_wbisim_cases, ELIM_UNCURRY])
+  >- (rw [itree_semantics_beh_def] >>
+      DEEP_INTRO_TAC some_intro >> rw []
+      >- (rpt(PURE_CASE_TAC >> gvs[]) >>
+          fs [h_prog_def,h_prog_rule_store_byte_def,
+              mrec_sem_simps] >>
+          fs [ltree_lift_cases] >>
+          fs [Once itree_wbisim_cases]) >>
+      simp[EXISTS_PROD]>>
+      fs [h_prog_def,h_prog_rule_store_byte_def,
+          mrec_sem_simps] >>
+      rpt(PURE_CASE_TAC >> gvs[]) >>
+      fs [ltree_lift_cases, mrec_sem_simps] >>
+      fs [Once itree_wbisim_cases, ELIM_UNCURRY])
+  >- (rw [itree_semantics_beh_def] >>
+      DEEP_INTRO_TAC some_intro >> rw []
+      >- (rpt(PURE_CASE_TAC >> gvs[]) >>
+          fs [h_prog_def,h_prog_rule_return_def,
+              mrec_sem_simps] >>
+          fs [ltree_lift_cases] >>
+          fs [Once itree_wbisim_cases, empty_locals_def,
+              panSemTheory.empty_locals_def]) >>
+      simp[EXISTS_PROD]>>
+      fs [h_prog_def,h_prog_rule_return_def,
+          mrec_sem_simps] >>
+      rpt(PURE_CASE_TAC >> gvs[]) >>
+      fs [ltree_lift_cases, mrec_sem_simps] >>
+      fs [Once itree_wbisim_cases, ELIM_UNCURRY, empty_locals_def,
+              panSemTheory.empty_locals_def])
+  >- (rw [itree_semantics_beh_def] >>
+      DEEP_INTRO_TAC some_intro >> rw []
+      >- (pairarg_tac >> gvs[] >>
+          rpt(PURE_FULL_CASE_TAC >> simp[]) >>
+          fs [h_prog_def,h_prog_rule_raise_def,
+              mrec_sem_simps] >>
+          fs [ltree_lift_cases] >>
+          rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
+          fs [Once itree_wbisim_cases, empty_locals_def,
+              panSemTheory.empty_locals_def,
+              ltree_lift_cases,mrec_sem_simps
+             ]
+         ) >>
+      simp[EXISTS_PROD]>>
+      fs [h_prog_def,h_prog_rule_raise_def,
+          mrec_sem_simps] >>
+      gvs[FORALL_PROD] >>
+      rpt(PURE_TOP_CASE_TAC >> simp[]) >>
+      fs [ltree_lift_cases, mrec_sem_simps] >>
+      fs [Once itree_wbisim_cases, ELIM_UNCURRY, empty_locals_def,
+              panSemTheory.empty_locals_def] >>
+      rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
+      gvs[mrec_sem_simps,ltree_lift_cases])>>
   rw [itree_semantics_beh_def]>>
   DEEP_INTRO_TAC some_intro >> rw [EXISTS_PROD]>>
   fs [itree_semantics_beh_def,
@@ -875,9 +994,23 @@ Proof
           CONV_TAC SYM_CONV >>
           irule EQ_TRANS>>
           irule_at Any itree_sem_while_no_loop>>
-          fs[unclock_def,panPropsTheory.eval_upd_clock_eq])>>
-      (* All remaining terms... for convg case *)
-      cheat)
+          fs[unclock_def,panPropsTheory.eval_upd_clock_eq])
+      >~ [‘Dec’]
+      >- (cheat)
+      >~ [‘Seq’]
+      >- (cheat)
+      >~ [‘If’]
+      >- (cheat)
+      >~ [‘Call’]
+      >- (cheat)
+      >~ [‘ExtCall’]
+      >- (cheat)
+      >~ [‘ShMem’]
+      >- (cheat) >>
+      gvs[evaluate_def,itree_semantics_beh_simps,panPropsTheory.eval_upd_clock_eq,
+          AllCaseEqs()] >>
+      gvs[dec_clock_def, empty_locals_def, panSemTheory.empty_locals_def]
+     )
   (* Div *)
   >- (CONV_TAC SYM_CONV >>
       Cases_on ‘itree_semantics_beh s prog’ >>
