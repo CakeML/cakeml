@@ -678,6 +678,15 @@ Proof
   metis_tac[]
 QED
 
+Theorem stree_trace_simps:
+  stree_trace f fs (Tau t) = stree_trace f fs t ∧
+  stree_trace f fs (Ret r) = [||]
+  (* TODO: Vis *)
+Proof
+  rw[stree_trace_def] >>
+  rw[Once LUNFOLD]
+QED
+
 Theorem ltree_lift_nonret_bind_stree:
   (∀x. ¬(ltree_lift f st p ≈ Ret x))
   ⇒ stree_trace f st (to_stree p >>= k) = stree_trace f st $ to_stree p
@@ -702,15 +711,6 @@ Proof
       itree_wbisim_neq
      ] >>
   metis_tac[]
-QED
-
-Theorem stree_trace_simps:
-  stree_trace f fs (Tau t) = stree_trace f fs t ∧
-  stree_trace f fs (Ret r) = [||]
-  (* TODO: Vis *)
-Proof
-  rw[stree_trace_def] >>
-  rw[Once LUNFOLD]
 QED
 
 Theorem itree_semantics_beh_Dec:
@@ -758,6 +758,26 @@ Proof
   first_x_assum dxrule >>
   rw[itree_wbisim_neq] >>
   rpt(PURE_TOP_CASE_TAC >> gvs[])
+QED
+
+Theorem itree_semantics_beh_If:
+  itree_semantics_beh s (If e p1 p2) =
+  case eval (reclock s) e of
+  | SOME(ValWord g) => itree_semantics_beh s (if g ≠ 0w then p1 else p2)
+  | _ => SemFail
+Proof
+  rw[itree_semantics_beh_def] >>
+  Cases_on ‘eval (reclock s) e’ >>
+  gvs[h_prog_def,h_prog_rule_cond_def,mrec_sem_simps,ltree_lift_cases,
+      itree_wbisim_neq,
+      ELIM_UNCURRY
+     ] >>
+  CONV_TAC SYM_CONV >>
+  PURE_TOP_CASE_TAC >> gvs[mrec_sem_simps,ltree_lift_cases,itree_wbisim_neq] >>
+  PURE_TOP_CASE_TAC >> gvs[mrec_sem_simps,ltree_lift_cases,itree_wbisim_neq] >>
+  rename1 ‘h_prog(p,s)’ >>
+  PURE_TOP_CASE_TAC >> gvs[] >>
+  gvs[stree_trace_simps,to_stree_simps]
 QED
 
 Theorem itree_semantics_beh_simps:
@@ -1144,7 +1164,10 @@ Proof
       >~ [‘Seq’]
       >- (cheat)
       >~ [‘If’]
-      >- (cheat)
+      >- (gvs[itree_semantics_beh_If,
+              evaluate_def,
+              panPropsTheory.eval_upd_clock_eq,
+              AllCaseEqs()])
       >~ [‘Call’]
       >- (cheat)
       >~ [‘ExtCall’]
