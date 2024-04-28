@@ -1032,7 +1032,56 @@ Proof
          ] >>
       rpt(PURE_FULL_CASE_TAC >> gvs[empty_locals_defs]))
   >~ [‘Call’]
-  >- (cheat)
+  >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
+         h_prog_rule_call_def,
+         ltree_lift_state_simps,
+         ret_eq_funpow_tau
+        ] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps,
+          tau_eq_funpow_tau
+         ] >>
+      gvs[msem_lift_monad_law,ltree_lift_monad_law] >>
+      drule FUNPOW_Tau_bind_thm >>
+      rw[] >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
+          bind_FUNPOW_eqn] >>
+      irule EQ_TRANS >>
+      irule_at (Pos hd) ltree_lift_state_bind_funpow >>
+      first_assum $ irule_at $ Pos hd >>
+      rename [‘ltree_lift _ s.ffi _ = FUNPOW _ mm (Ret st)’] >>
+      Cases_on ‘st’ >>
+      last_assum $ qspec_then ‘mm’ mp_tac >>
+      impl_tac >- simp[] >>
+      disch_then $ resolve_then (Pos hd) mp_tac EQ_TRANS >>
+      disch_then $ drule_at $ Pos last >>
+      qmatch_goalsub_abbrev_tac ‘h_prog (a1,a2)’ >>
+      disch_then $ qspecl_then [‘a2’,‘a1’] mp_tac >>
+      unabbrev_all_tac >>
+      simp[] >>
+      strip_tac >>
+      gvs[] >>
+      gvs[oneline h_handle_call_ret_def] >>
+      rpt(IF_CASES_TAC ORELSE PURE_TOP_CASE_TAC >>
+          gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps,
+              tau_eq_funpow_tau,empty_locals_defs,
+              set_var_def,panSemTheory.set_var_def]) >>
+      qmatch_goalsub_abbrev_tac ‘_ _ a1.ffi (_ (_ (_, a2)))’ >>
+      ‘a1.ffi = a2.ffi’ by(rw[Abbr ‘a1’, Abbr ‘a2’]) >>
+      pop_assum SUBST_ALL_TAC >>
+      first_x_assum irule >>
+      first_x_assum $ irule_at $ Pos last >>
+      simp[])
   >~ [‘Seq’]
   >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
          h_prog_rule_seq_def,
