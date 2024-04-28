@@ -122,8 +122,7 @@ QED
 
 (* this lemma is false as stated. Counterexample: u = Tau $ Ret x
 Theorem itree_wbisim_ret_u:
-  Ret x ≈ u ⇒
-  u = Ret x
+  Ret x ≈ u ⇒ u = Ret x
 Proof
   cheat
 QED
@@ -202,15 +201,6 @@ Proof
   rw [mrec_sem_simps] >>
   rw [msem_bind_left_ident]
 QED
-
-(* TODO: Only the two theorems below need be proved to complete the
- correspondence proof at the level of wbisim equivalence for ltree's, i.e. by
- converting itree's into branches (still an ITree type) and showing equivalence
- with FBS semantics.
-
- NB Part of the work for ltree_lift_msem_resp_wbisim is already complete in
- msem_resp_wbisim.
- *)
 
 Theorem strip_tau_mrec_sem_Ret:
   ∀x y. strip_tau x (Ret y) ⇒ strip_tau (mrec_sem x) (mrec_sem (Ret y))
@@ -354,6 +344,73 @@ Proof
   >- (rw [itree_wbisim_sym])
   >- (rw [itree_bind_thm_wbisim,
             itree_wbisim_refl])
+QED
+
+Theorem msem_tau_cong:
+  mrec_sem ht = Tau u ⇔
+  (∃u'. ht = Tau u' ∧ u = mrec_sem u') ∨
+  (∃e k. ht = Vis (INL e) k ∧ u = mrec_sem (h_prog e >>= k))
+Proof
+  EQ_TAC
+  >- (disch_tac >>
+      Cases_on ‘ht’ >>
+      gvs [mrec_sem_simps] >>
+      reverse $ Cases_on ‘a’
+      >- (gvs [mrec_sem_simps]) >>
+      qexists_tac ‘x’ >>
+      fs [mrec_sem_simps])
+  >- (disch_tac >>
+      Cases_on ‘ht’
+      >- (pop_assum DISJ_CASES_TAC >>
+          gvs [])
+      >- (reverse $ pop_assum DISJ_CASES_TAC
+          >- gvs [mrec_sem_simps] >>
+          ‘u = mrec_sem u'’ by (fs []) >>
+          rw [mrec_sem_simps])
+      >- rgs [mrec_sem_simps])
+QED
+
+(* NB: >>= is not idempotent *)
+Theorem itree_bind_tau_cong:
+  t >>= k = Tau u ⇔
+  (∃x. t = Ret x ∧ Tau u = k x) ∨
+  ∃u'. t = Tau u' ∧ u = u' >>= k
+Proof
+  EQ_TAC
+  >- (disch_tac >>
+      Cases_on ‘t’ >>
+      fs [itree_bind_thm])
+  >- (disch_tac >>
+      Cases_on ‘t’ >>
+      metis_tac [itree_bind_thm])
+QED
+
+Theorem msem_ret_cong:
+  mrec_sem ht = Ret x ⇔ ht = Ret x
+Proof
+  EQ_TAC >>
+  Cases_on ‘ht’ >>
+  rw [mrec_sem_simps] >>
+  Cases_on ‘a’ >>
+  rw [mrec_sem_simps]
+QED
+
+Theorem msem_vis_cong:
+  mrec_sem ht = Vis e k ⇔
+  (∃k'. ht = Vis (INR e) k' ∧ k = Tau o mrec_sem o k')
+Proof
+  EQ_TAC >>
+  Cases_on ‘ht’ >>
+  rw [mrec_sem_simps] >>
+  Cases_on ‘a’ >>
+  fs [mrec_sem_simps]
+QED
+
+Theorem itree_bind_tau_abs:
+  (λx. Tau (f x)) = Tau o f
+Proof
+  CONV_TAC FUN_EQ_CONV >>
+  rw []
 QED
 
 Theorem msem_lift_monad_law:
