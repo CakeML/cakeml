@@ -373,7 +373,7 @@ Proof
       >- metis_tac[] >>
       rename1 ‘Vis e’ >> Cases_on ‘e’ >> gvs[mrec_sem_simps] >>
       metis_tac[itree_bind_assoc])
-  >- metis_tac[]
+  >- metis_tac[] >>
   Cases_on ‘ht’ >> gvs[mrec_sem_simps,PULL_EXISTS,EXISTS_PROD]
   >- metis_tac[] >>
   rename1 ‘mrec_sem (Vis e _)’ >>
@@ -551,7 +551,7 @@ Definition itree_semantics_beh_def:
                     | SOME (Return _) => SemTerminate (r,s') s'.ffi.io_events
                     | SOME Error => SemFail
                     | _ => SemTerminate (r,s') s'.ffi.io_events)
-      | NONE => SemDiverge (stree_trace query_oracle s.ffi (to_stree (mrec_sem (h_prog (prog,s)))))
+      | NONE => SemDiverge (fromList(s.ffi.io_events) ++ₗ stree_trace query_oracle s.ffi (to_stree (mrec_sem (h_prog (prog,s)))))
 End
 
 Theorem itree_sem_div_compos_thm:
@@ -1136,17 +1136,41 @@ Proof
            tau_eq_funpow_tau,empty_locals_defs])
 QED
 
+Theorem stree_trace_Vis:
+  stree_trace f st (Vis e k) =
+  let (a,rbytes,st') = f st e in
+    make_io_event e rbytes:::stree_trace f st' (k a)
+Proof
+  rw[stree_trace_def] >>
+  rw[Once LUNFOLD] >>
+  rw[ELIM_UNCURRY]
+QED
+
+Theorem stree_trace_bind_append:
+  ltree_lift f st t ≈ Ret x
+  ⇒ stree_trace f st (to_stree t >>= k) =
+    stree_trace f st(to_stree t) ++ₗ stree_trace f (ltree_lift_state f st t) (k x)
+Proof
+  strip_tac >> dxrule itree_wbisim_Ret_FUNPOW >>
+  simp[PULL_EXISTS] >>
+  MAP_EVERY qid_spec_tac [‘t’,‘st’] >>
+  Induct_on ‘n’ >>
+  rw[FUNPOW_SUC]
+  >- (Cases_on ‘t’ >> rw[] >>
+      gvs[ltree_lift_cases,to_stree_simps,itree_wbisim_neq,stree_trace_simps,
+          ltree_lift_state_simps,ltree_lift_Vis_alt,ELIM_UNCURRY]) >>
+  Cases_on ‘t’ >> rw[] >>
+  gvs[ltree_lift_cases,to_stree_simps,itree_wbisim_neq,stree_trace_simps,
+      stree_trace_Vis,ltree_lift_state_simps,ltree_lift_Vis_alt,ELIM_UNCURRY]
+QED
+
 Theorem itree_semantics_beh_Seq:
   itree_semantics_beh s (Seq p1 p2) =
   case itree_semantics_beh s p1 of
     SemTerminate (NONE, s') _ =>
-      (case itree_semantics_beh s' p2 of
-         SemDiverge st => ARB (* TODO*)
-       | res => res)
+      itree_semantics_beh s' p2
   | res => res
 Proof
-  cheat
-(*
   rw[itree_semantics_beh_def,h_prog_def,h_prog_rule_seq_def,mrec_sem_simps,ltree_lift_cases,
       itree_wbisim_neq,ELIM_UNCURRY
      ] >>
@@ -1181,12 +1205,69 @@ Proof
       PURE_CASE_TAC >> gvs[]) >>
   drule ltree_lift_state_lift >>
   strip_tac >>
-  gvs[]
-  gvs[ltree_lift_state_lift]
-
-
-      rpt(PURE_TOP_CASE_TAC >> gvs[])
-  *)
+  gvs[ltree_lift_monad_law,msem_lift_monad_law] >>
+  DEEP_INTRO_TAC some_intro >>
+  reverse conj_tac
+  >- (rw[] >> gvs[] >>
+      DEEP_INTRO_TAC some_intro >>
+      conj_tac >- metis_tac[itree_wbisim_trans,itree_wbisim_sym,itree_wbisim_refl] >>
+      disch_then kall_tac >>
+      simp[to_stree_simps,stree_trace_simps,to_stree_monad_law] >>
+      qmatch_goalsub_abbrev_tac ‘_ >>= k1’ >>
+      drule_then (qspec_then ‘k1’ assume_tac) stree_trace_bind_append >>
+      simp[] >>
+      cheat) >>
+  Cases >>
+  rw[] >>
+  PURE_CASE_TAC >> gvs[]
+  >- (DEEP_INTRO_TAC some_intro >>
+      reverse conj_tac
+      >- (simp[FORALL_PROD] >>
+          irule_at (Pos hd) itree_wbisim_trans >>
+          irule_at (Pos hd) itree_bind_resp_t_wbisim >>
+          first_x_assum $ irule_at $ Pos hd >>
+          simp[ltree_lift_cases,mrec_sem_simps] >>
+          metis_tac[]) >>
+      simp[FORALL_PROD] >>
+      rw[] >>
+      dxrule_then assume_tac itree_wbisim_sym >>
+      dxrule itree_wbisim_trans >>
+      disch_then drule >>
+      strip_tac >>
+      dxrule itree_wbisim_sym >>
+      strip_tac >>
+      dxrule_then assume_tac itree_wbisim_sym >>
+      dxrule itree_wbisim_trans >>
+      disch_then drule >>
+      strip_tac >>
+      dxrule itree_wbisim_sym >>
+      strip_tac >>
+      gvs[itree_wbisim_neq]) >>
+  DEEP_INTRO_TAC some_intro >>
+  reverse conj_tac
+  >- (PURE_CASE_TAC >>
+      simp[FORALL_PROD] >>
+      irule_at (Pos hd) itree_wbisim_trans >>
+      irule_at (Pos hd) itree_bind_resp_t_wbisim >>
+      first_x_assum $ irule_at $ Pos hd >>
+      simp[ltree_lift_cases,mrec_sem_simps] >>
+      metis_tac[]) >>
+  simp[FORALL_PROD] >>
+  rw[] >>
+  dxrule_then assume_tac itree_wbisim_sym >>
+  dxrule itree_wbisim_trans >>
+  disch_then drule >>
+  strip_tac >>
+  dxrule itree_wbisim_sym >>
+  strip_tac >>
+  dxrule_then assume_tac itree_wbisim_sym >>
+  dxrule itree_wbisim_trans >>
+  disch_then drule >>
+  strip_tac >>
+  dxrule itree_wbisim_sym >>
+  strip_tac >>
+  gvs[itree_wbisim_neq] >>
+  PURE_CASE_TAC >> gvs[]
 QED
 
 Theorem itree_semantics_beh_simps:
