@@ -103,7 +103,9 @@ Proof
     xlet_autop>>
     `toks = (MAP tokenize ∘ tokens blanks)` by
       metis_tac[toks_def,ETA_AX,o_DEF]>>
-    rw[parse_pbf_def]>> TOP_CASE_TAC>>
+    rw[parse_pbf_def]>>
+    qmatch_goalsub_abbrev_tac`option_CASE AAA`>>
+    Cases_on`AAA`>>
     fs[OPTION_TYPE_def]
     >- (
       xmatch >>

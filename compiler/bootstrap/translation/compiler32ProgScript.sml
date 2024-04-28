@@ -320,7 +320,7 @@ Theorem main_spec:
        * STDIO (full_compile_32 (TL cl) (get_stdin fs) fs)
        * COMMANDLINE cl)
 Proof
-  xcf_with_def "main" main_v_def
+  xcf_with_def main_v_def
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto
   >- (

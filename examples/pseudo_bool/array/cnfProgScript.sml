@@ -83,6 +83,7 @@ Theorem parse_dimacs_body_arr_spec:
 Proof
   Induct
   \\ simp []
+  \\ rpt strip_tac
   \\ xcf "parse_dimacs_body_arr" (get_ml_prog_state ())
   THEN1 (
     xlet ‘(POSTv v.
@@ -204,6 +205,7 @@ Theorem parse_dimacs_toks_arr_spec:
 Proof
   Induct
   \\ simp []
+  \\ rw[]
   \\ xcf "parse_dimacs_toks_arr" (get_ml_prog_state ())
   THEN1 (
     xlet ‘(POSTv v.

@@ -795,6 +795,7 @@ Theorem parse_sstep_spec:
            &(Fail_exn e ∧ parse_sstep fns ss = NONE))
       )
 Proof
+  rpt strip_tac>>
   xcf "parse_sstep" (get_ml_prog_state ())>>
   Cases_on`ss`>>simp[parse_sstep_def]
   >- (
@@ -2162,6 +2163,7 @@ Theorem parse_cstep_spec:
            &(Fail_exn e ∧ parse_cstep fns ss = NONE))
       )
 Proof
+  rw[]>>
   xcf "parse_cstep" (get_ml_prog_state ())>>
   xlet`(POSTve
       (λv.
@@ -3395,6 +3397,7 @@ Theorem check_header_spec:
        INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
        &(OPTION_TYPE NUM res v))
 Proof
+  rw[]>>
   xcf "check_header" (get_ml_prog_state ())>>
   rpt xlet_autop>>
   xlet ‘(POSTv v.
@@ -3484,6 +3487,7 @@ Theorem check_unsat_top_spec:
         sem_output (set fml) obj bound (set fmlt) objt output
       | INL l => T))
 Proof
+  rw[]>>
   xcf"check_unsat_top"(get_ml_prog_state()) >>
   reverse (Cases_on `STD_streams fs`)
   >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
@@ -3706,6 +3710,7 @@ Theorem check_unsat_top_norm_spec:
           (set (SND objft)) (FST objft) output
        | INL l => T))
 Proof
+  rw[]>>
   xcf"check_unsat_top_norm"(get_ml_prog_state()) >>
   xlet_autop>>
   `∃obj fml objt fmlt t.

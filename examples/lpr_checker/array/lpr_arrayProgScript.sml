@@ -107,7 +107,8 @@ Theorem every_one_arr_spec:
       W8ARRAY Carrv Clist *
       &BOOL (EVERY (λi. any_el (index i) Clist w8z = w8o) ls) v)
 Proof
-  Induct>>xcf "every_one_arr" (get_ml_prog_state ())>>
+  Induct>>rw[]>>
+  xcf "every_one_arr" (get_ml_prog_state ())>>
   fs[LIST_TYPE_def]
   >-
     (xmatch>>xcon>>xsimpl)
@@ -138,6 +139,7 @@ Theorem delete_literals_sing_arr_spec:
       (λe. &(Fail_exn e ∧ delete_literals_sing_list Clist ls = NONE)))
 Proof
   Induct>>simp[delete_literals_sing_list_def]>>
+  rpt strip_tac>>
   xcf "delete_literals_sing_arr" (get_ml_prog_state ())
   >- (
     fs[LIST_TYPE_def]>>
@@ -226,7 +228,8 @@ Theorem is_AT_arr_aux_spec:
           (is_AT_list_aux fmlls ls c Clist) v)
       (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ is_AT_list_aux fmlls ls c Clist = NONE)))
 Proof
-  Induct>>xcf "is_AT_arr_aux" (get_ml_prog_state ())>>
+  Induct>>rw[]>>
+  xcf "is_AT_arr_aux" (get_ml_prog_state ())>>
   simp[is_AT_list_aux_def]
   >- (
     fs[LIST_TYPE_def]>>
@@ -310,6 +313,7 @@ Theorem set_array_spec:
           W8ARRAY Carrv (set_list Clist v c))
 Proof
   Induct>>
+  rw[]>>
   xcf "set_array" (get_ml_prog_state ())>>
   rw[set_list_def]>>
   fs[LIST_TYPE_def]
@@ -430,6 +434,7 @@ Theorem is_AT_arr_spec:
           (is_AT_list fmlls ls c Clist) v)
       (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ is_AT_list fmlls ls c Clist = NONE)))
 Proof
+  rw[]>>
   xcf "is_AT_arr" (get_ml_prog_state ())>>
   `WORD8 w8z w8z_v ∧ WORD8 w8o w8o_v` by
     simp[w8z_v_thm,w8o_v_thm]>>
@@ -510,7 +515,9 @@ Theorem check_RAT_arr_spec:
           ))
       (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ check_RAT_list fmlls Clist pp c ik i ci = NONE)))
 Proof
-  simp[check_RAT_list_def]>>  xcf "check_RAT_arr" (get_ml_prog_state ())>>
+  simp[check_RAT_list_def]>>
+  rpt strip_tac>>
+  xcf "check_RAT_arr" (get_ml_prog_state ())>>
   fs[MEMBER_INTRO]>>
   xlet_autop>>
   reverse xif
@@ -619,6 +626,7 @@ Theorem check_PR_arr_spec:
           ))
       (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ check_PR_list fmlls Clist w c ik i ci = NONE)))
 Proof
+  rw[]>>
   xcf "check_PR_arr" (get_ml_prog_state ())>>
   simp[check_PR_list_def]>>
   xlet_autop>>
@@ -784,6 +792,7 @@ Theorem every_check_RAT_inds_arr_spec:
       (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ every_check_RAT_inds_list fmlls Clist pp c ik mini ls acc = NONE)))
 Proof
   Induct>>
+  rw[]>>
   xcf "every_check_RAT_inds_arr" (get_ml_prog_state ())>>
   fs[LIST_TYPE_def,every_check_RAT_inds_list_def]>>
   xmatch >- (
@@ -869,6 +878,7 @@ Theorem every_check_PR_inds_arr_spec:
       (λe. ARRAY fmlv fmllsv * &(Fail_exn e ∧ every_check_PR_inds_list fmlls Clist w c ik mini ls acc = NONE)))
 Proof
   Induct>>
+  rw[]>>
   xcf "every_check_PR_inds_arr" (get_ml_prog_state ())>>
   fs[LIST_TYPE_def,every_check_PR_inds_list_def]>>
   xmatch >- (
@@ -1126,6 +1136,7 @@ Theorem resize_carr_spec:
     (POSTv carrv.
       W8ARRAY carrv (resize_Clist c Clist))
 Proof
+  rw[]>>
   xcf "resize_carr" (get_ml_prog_state ())>>
   rpt xlet_autop>>
   simp[resize_Clist_def]>>xif
@@ -1242,7 +1253,8 @@ Theorem check_earliest_arr_spec:
        ARRAY fmlv fmllsv *
        &(BOOL (check_earliest fmlls x old new is) v))
 Proof
-  Induct>>xcf "check_earliest_arr" (get_ml_prog_state ())>>
+  Induct>>rw[]>>
+  xcf "check_earliest_arr" (get_ml_prog_state ())>>
   fs[LIST_TYPE_def,check_earliest_def]
   >- (
     xmatch>>xcon>>

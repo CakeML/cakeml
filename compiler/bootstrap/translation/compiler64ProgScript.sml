@@ -530,7 +530,8 @@ Theorem main_spec:
        * STDIO (full_compile_64 (TL cl) (get_stdin fs) fs)
        * COMMANDLINE cl)
 Proof
-  xcf_with_def "main" main_v_def
+  rpt strip_tac
+  \\ xcf_with_def main_v_def
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
