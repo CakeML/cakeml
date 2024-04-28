@@ -1221,6 +1221,14 @@ Proof
       stree_trace_Vis,ltree_lift_state_simps,ltree_lift_Vis_alt,ELIM_UNCURRY]
 QED
 
+Theorem stree_trace_ret_events:
+  ltree_lift f st.ffi (mrec_sem (h_prog (p,st))) ≈ Ret (NONE,st')
+  ⇒ fromList st'.ffi.io_events =
+    fromList st.ffi.io_events ++ₗ stree_trace f st.ffi (to_stree (mrec_sem (h_prog (p,st))))
+Proof
+  cheat
+QED
+
 Theorem itree_semantics_beh_Seq:
   itree_semantics_beh s (Seq p1 p2) =
   case itree_semantics_beh s p1 of
@@ -1273,7 +1281,11 @@ Proof
       qmatch_goalsub_abbrev_tac ‘_ >>= k1’ >>
       drule_then (qspec_then ‘k1’ assume_tac) stree_trace_bind_append >>
       simp[] >>
-      cheat) >>
+      drule stree_trace_ret_events >>
+      simp[] >>
+      disch_then kall_tac >>
+      simp[LAPPEND_ASSOC,Abbr ‘k1’,mrec_sem_simps,
+           to_stree_simps,stree_trace_simps]) >>
   Cases >>
   rw[] >>
   PURE_CASE_TAC >> gvs[]
@@ -1325,6 +1337,125 @@ Proof
   strip_tac >>
   gvs[itree_wbisim_neq] >>
   PURE_CASE_TAC >> gvs[]
+QED
+
+Theorem itree_semantics_beh_While:
+  itree_semantics_beh s (While e p) =
+  case eval (reclock s) e of
+    SOME(ValWord w) =>
+      (if w = 0w then
+         SemTerminate (NONE,s) s.ffi.io_events
+       else
+         (case itree_semantics_beh s p of
+            SemTerminate (NONE,s') _ => itree_semantics_beh s' (While e p)
+          | SemTerminate (SOME Break, s') _ => SemTerminate (NONE,s') s'.ffi.io_events
+          | SemTerminate (SOME Continue, s') _ => itree_semantics_beh s' (While e p)
+          | res => res
+         ))
+  | _ => SemFail
+Proof
+  cheat
+(*  rw[itree_semantics_beh_def,h_prog_def,h_prog_rule_seq_def,mrec_sem_simps,ltree_lift_cases,
+      itree_wbisim_neq,ELIM_UNCURRY
+     ] >>
+  CONV_TAC SYM_CONV >>
+  DEEP_INTRO_TAC some_intro >>
+  reverse conj_tac
+  >- (rw[msem_lift_monad_law,
+         ltree_lift_monad_law,
+         ltree_lift_nonret_bind,
+         to_stree_monad_law,
+         to_stree_simps,
+         stree_trace_simps,
+         ltree_lift_nonret_bind_stree
+        ]) >>
+  rw[] >>
+  rename1 ‘Ret r’ >> Cases_on ‘r’ >> gvs[] >>
+  drule ltree_lift_bind_left_ident >>
+  qmatch_goalsub_abbrev_tac ‘_ >>= k1’ >>
+  disch_then $ qspec_then ‘k1’ mp_tac >>
+  unabbrev_all_tac >>
+  reverse $ rw[mrec_sem_simps,ltree_lift_cases]
+  >- (DEEP_INTRO_TAC some_intro >>
+      reverse conj_tac
+      >- (rw[] >> gvs[]) >>
+      rw[] >>
+      dxrule_then strip_assume_tac itree_wbisim_sym >>
+      dxrule itree_wbisim_trans >>
+      strip_tac >>
+      first_x_assum dxrule >>
+      rw[itree_wbisim_neq] >>
+      PURE_CASE_TAC >> gvs[] >>
+      PURE_CASE_TAC >> gvs[]) >>
+  drule ltree_lift_state_lift >>
+  strip_tac >>
+  gvs[ltree_lift_monad_law,msem_lift_monad_law] >>
+  DEEP_INTRO_TAC some_intro >>
+  reverse conj_tac
+  >- (rw[] >> gvs[] >>
+      DEEP_INTRO_TAC some_intro >>
+      conj_tac >- metis_tac[itree_wbisim_trans,itree_wbisim_sym,itree_wbisim_refl] >>
+      disch_then kall_tac >>
+      simp[to_stree_simps,stree_trace_simps,to_stree_monad_law] >>
+      qmatch_goalsub_abbrev_tac ‘_ >>= k1’ >>
+      drule_then (qspec_then ‘k1’ assume_tac) stree_trace_bind_append >>
+      simp[] >>
+      drule stree_trace_ret_events >>
+      simp[] >>
+      disch_then kall_tac >>
+      simp[LAPPEND_ASSOC,Abbr ‘k1’,mrec_sem_simps,
+           to_stree_simps,stree_trace_simps]) >>
+  Cases >>
+  rw[] >>
+  PURE_CASE_TAC >> gvs[]
+  >- (DEEP_INTRO_TAC some_intro >>
+      reverse conj_tac
+      >- (simp[FORALL_PROD] >>
+          irule_at (Pos hd) itree_wbisim_trans >>
+          irule_at (Pos hd) itree_bind_resp_t_wbisim >>
+          first_x_assum $ irule_at $ Pos hd >>
+          simp[ltree_lift_cases,mrec_sem_simps] >>
+          metis_tac[]) >>
+      simp[FORALL_PROD] >>
+      rw[] >>
+      dxrule_then assume_tac itree_wbisim_sym >>
+      dxrule itree_wbisim_trans >>
+      disch_then drule >>
+      strip_tac >>
+      dxrule itree_wbisim_sym >>
+      strip_tac >>
+      dxrule_then assume_tac itree_wbisim_sym >>
+      dxrule itree_wbisim_trans >>
+      disch_then drule >>
+      strip_tac >>
+      dxrule itree_wbisim_sym >>
+      strip_tac >>
+      gvs[itree_wbisim_neq]) >>
+  DEEP_INTRO_TAC some_intro >>
+  reverse conj_tac
+  >- (PURE_CASE_TAC >>
+      simp[FORALL_PROD] >>
+      irule_at (Pos hd) itree_wbisim_trans >>
+      irule_at (Pos hd) itree_bind_resp_t_wbisim >>
+      first_x_assum $ irule_at $ Pos hd >>
+      simp[ltree_lift_cases,mrec_sem_simps] >>
+      metis_tac[]) >>
+  simp[FORALL_PROD] >>
+  rw[] >>
+  dxrule_then assume_tac itree_wbisim_sym >>
+  dxrule itree_wbisim_trans >>
+  disch_then drule >>
+  strip_tac >>
+  dxrule itree_wbisim_sym >>
+  strip_tac >>
+  dxrule_then assume_tac itree_wbisim_sym >>
+  dxrule itree_wbisim_trans >>
+  disch_then drule >>
+  strip_tac >>
+  dxrule itree_wbisim_sym >>
+  strip_tac >>
+  gvs[itree_wbisim_neq] >>
+  PURE_CASE_TAC >> gvs[]*)
 QED
 
 Theorem itree_semantics_beh_simps:
@@ -1680,7 +1811,11 @@ Proof
           qpat_x_assum ‘_ = itree_semantics_beh _ _’ $ strip_assume_tac o GSYM >>
           gvs[])
       >~ [‘Seq’]
-      >- (cheat)
+      >- (gvs[itree_semantics_beh_Seq,
+              evaluate_def
+             ] >>
+          pairarg_tac >> gvs[AllCaseEqs()] >>
+          metis_tac[])
       >~ [‘If’]
       >- (gvs[itree_semantics_beh_If,
               evaluate_def,
