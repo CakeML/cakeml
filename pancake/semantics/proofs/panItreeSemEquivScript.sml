@@ -1468,14 +1468,6 @@ Proof
                        rw [itree_wbisim_refl]))
 QED
 
-(****)
-
-Theorem un_dec_clock[simp]:
-  unclock (dec_clock s) = unclock s
-Proof
-  simp[unclock_def,dec_clock_def]
-QED
-
 Theorem h_prog_Ret_ffi_const:
   ∀p s s'.
   h_prog (p, s) = Ret (r, s') ⇒ s.ffi = s'.ffi
@@ -1536,47 +1528,26 @@ Proof
       simp[Once itree_iter_thm,
            panPropsTheory.eval_upd_clock_eq]>>
       fs[mrec_sem_simps,ltree_lift_cases]>>
-      Cases_on ‘h_prog(c,unclock s)’>>
-      fs[mrec_sem_simps,ltree_lift_cases,h_prog_not_Tau]
-      >- (qmatch_asmsub_abbrev_tac ‘Ret _ ≈ Ret (r, s'')’>>
-          ‘x = (r,s'')’ by
-            fs[Once itree_wbisim_cases]>>gvs[]>>
-          fs[mrec_sem_simps,ltree_lift_cases,Abbr ‘r’]>>
-          TRY (simp[Once itree_wbisim_cases]>>NO_TAC)>>
-          fs[Abbr ‘s''’]>>
-          qmatch_goalsub_abbrev_tac ‘∃x'. X ≈ Ret (_,x')’>>
-          ‘X = ltree_lift query_oracle s.ffi
-                          (mrec_sem (h_prog (While e c, unclock s1)))’ by
-            simp[h_prog_def,h_prog_rule_while_def,Abbr ‘X’]>>
-          fs[]>>
-          pop_assum kall_tac>>
-          pop_assum kall_tac>>
-          imp_res_tac h_prog_Ret_ffi_const>>
-          gvs[unclock_def]>>metis_tac[])>>
-      Cases_on ‘a’>>
-      fs[mrec_sem_simps,ltree_lift_cases]
-      >- (qmatch_goalsub_abbrev_tac ‘g _ >>= X’>>
-          simp[GSYM itree_bind_assoc]>>
-          Cases_on ‘h_prog x’>>Cases_on ‘x’>>
-          fs[h_prog_not_Tau,Once itree_bind_thm]>>
-          fs[mrec_sem_simps,ltree_lift_cases]
-          >- (irule_at Any itree_wbisim_trans>>
-              last_assum $ irule_at Any>>
-              cheat) >>  (* INL - h_prog x = Ret case, cong rule? *)
-          Cases_on ‘a’>>
-          fs[mrec_sem_simps,ltree_lift_cases]
-          >- cheat >> (* div *)
-          fs[mrec_sem_simps,ltree_lift_cases]>>
-          Cases_on ‘y’>>
-          fs[mrec_sem_simps,ltree_lift_cases]>>
-          pairarg_tac>>fs[]>> (* cong rule? *)
-          cheat)>>
-      qmatch_goalsub_abbrev_tac ‘g _ >>= X’>>
-      fs[mrec_sem_simps,ltree_lift_cases]>>
-      Cases_on ‘y’>>
-      fs[mrec_sem_simps,ltree_lift_cases]>>
-      pairarg_tac>>fs[]>>
-      cheat) (* cong rule? *) >>
+      fs[msem_lift_monad_law]>>
+      fs[ltree_lift_monad_law]>>
+      irule_at Any itree_wbisim_trans>>
+      irule_at Any itree_bind_resp_t_wbisim>>
+      first_assum $ irule_at Any>>
+      simp[Once itree_bind_thm]>>
+      simp[mrec_sem_simps,ltree_lift_cases]>>
+      TRY (irule_at Any itree_wbisim_refl>>NO_TAC)>>
+      irule_at Any itree_wbisim_trans>>
+      last_assum $ irule_at Any>>
+
+      simp[h_prog_def,h_prog_rule_while_def]>>
+      qabbrev_tac ‘ss = unclock s’>>
+      ‘(ltree_lift_state query_oracle ss.ffi
+             (mrec_sem (h_prog (c,ss)))) = (unclock s1).ffi’ by
+        (irule ltree_lift_state_lift>>
+         fs[Abbr ‘ss’]>>
+         first_assum $ irule_at Any)>>
+      fs[Abbr ‘ss’]>>
+      irule itree_wbisim_refl)>>
    pairarg_tac>>rw[]>>
    pairarg_tac>>gvs[EXISTS_PROD]
    >- (drule itree_wbisim_sym>>strip_tac>>
@@ -1636,7 +1607,7 @@ Proof
           >- (pairarg_tac >> gvs [AllCaseEqs()]>>
               TRY (qpat_x_assum ‘_ = itree_semantics_beh _ _’ $ assume_tac o GSYM)
               >>~ [‘_ = SemFail’]>>
-              TRY (imp_res_tac itree_semantics_beh_while_SemFail)>>
+              TRY (imp_res_tac itree_semantics_beh_while_SemFail>>NO_TAC)>>
               cheat) >>
           CONV_TAC SYM_CONV >>
           irule EQ_TRANS>>
