@@ -338,12 +338,14 @@ Definition h_prog_rule_ext_call_def:
      (case (read_bytearray conf_ptr_adr (w2n conf_sz) (mem_load_byte s.memory s.memaddrs s.be),
             read_bytearray array_ptr_adr (w2n array_sz) (mem_load_byte s.memory s.memaddrs s.be)) of
         (SOME conf_bytes,SOME array_bytes) =>
-         Vis (INR (FFI_call (ExtCall (explode ffi_name)) conf_bytes array_bytes,
-                   (λres. case res of
-                            FFI_final outcome => (SOME (FinalFFI outcome),empty_locals s):('a result option # ('a,'b) bstate)
-                           | FFI_return new_ffi new_bytes =>
-                              let nmem = write_bytearray array_ptr_adr new_bytes s.memory s.memaddrs s.be in
-                              (NONE,s with <| memory := nmem; ffi := new_ffi |>)))) Ret
+         (if explode ffi_name ≠ "" then
+           Vis (INR (FFI_call (ExtCall (explode ffi_name)) conf_bytes array_bytes,
+                     (λres. case res of
+                              FFI_final outcome => (SOME (FinalFFI outcome),empty_locals s):('a result option # ('a,'b) bstate)
+                             | FFI_return new_ffi new_bytes =>
+                                let nmem = write_bytearray array_ptr_adr new_bytes s.memory s.memaddrs s.be in
+                                (NONE,s with <| memory := nmem; ffi := new_ffi |>)))) Ret
+          else Ret (NONE,s))
        | _ => Ret (SOME Error,s))
    | _ => Ret (SOME Error,s)
 End
