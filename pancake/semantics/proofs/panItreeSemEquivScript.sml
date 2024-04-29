@@ -2237,13 +2237,7 @@ Proof
              empty_locals_defs,
              set_var_def,
              panSemTheory.set_var_def
-            ] >>
-          qexists ‘NONE’ >> qexists_tac ‘unclock s’ >>
-          rw[]
-          >- metis_tac[FST,SND,PAIR] >>
-          gvs[state_component_equality,unclock_def] >>
-          irule $ GSYM read_write_bytearray_lemma >>
-          metis_tac[]
+            ]
          ) >>
       gvs[evaluate_def,itree_semantics_beh_simps,panPropsTheory.eval_upd_clock_eq,
           AllCaseEqs()] >>
