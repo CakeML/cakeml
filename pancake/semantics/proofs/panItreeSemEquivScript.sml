@@ -1222,12 +1222,13 @@ Proof
 QED
 
 Theorem stree_trace_ret_events:
-  ltree_lift query_oracle st.ffi (mrec_sem (h_prog (p,st))) ≈ Ret (res,st')
+  ltree_lift query_oracle st.ffi (mrec_sem (h_prog (p,st))) ≈ Ret (res,st') ∧
+  res ≠ SOME Error
   ⇒ fromList st'.ffi.io_events =
     fromList st.ffi.io_events ++ₗ stree_trace query_oracle st.ffi (to_stree (mrec_sem (h_prog (p,st))))
 Proof
-  cheat
-(*  strip_tac >> dxrule itree_wbisim_Ret_FUNPOW >>
+  cheat (*
+  strip_tac >> dxrule itree_wbisim_Ret_FUNPOW >>
   simp[PULL_EXISTS] >>
   MAP_EVERY qid_spec_tac [‘p’,‘st’,‘res’,‘st'’] >>
   Induct_on ‘n’ using COMPLETE_INDUCTION >>
@@ -1362,7 +1363,7 @@ Proof
       gvs[stree_trace_Vis,make_io_event_def,
           ffiTheory.call_FFI_def,AllCaseEqs(),
           query_oracle_def,to_stree_simps,mrec_sem_simps,stree_trace_simps,
-          GSYM LAPPEND_fromList,
+          GSYM LAPPEND_fromList
          ]
      )
   >~ [‘ShMem’]
@@ -2106,6 +2107,19 @@ Proof
   irule itreeTauTheory.itree_wbisim_refl
 QED
 
+(* TODO: move *)
+Theorem read_write_bytearray_lemma:
+  ∀n addr bytes.
+   good_dimindex(:α) ∧
+   read_bytearray (addr:α word) n (mem_load_byte m addrs be) = SOME bytes
+   ⇒ write_bytearray addr bytes m addrs be = m
+Proof
+  Induct >>
+  rw[Once $ oneline read_bytearray_def,AllCaseEqs(),mem_load_byte_def] >>
+  gvs[write_bytearray_def,mem_store_byte_def] >>
+  gvs[set_byte_get_byte,good_dimindex_def]
+QED
+
 (* Final goal:
 
    1. For every path that can be generated frong
@@ -2115,14 +2129,15 @@ QED
  *)
 
 Theorem itree_semantics_corres:
-  fbs_semantics_beh s prog = itree_semantics_beh s prog
+  good_dimindex(:α) ⇒
+  fbs_semantics_beh s prog = itree_semantics_beh s (prog:α prog)
 Proof
   rw [fbs_semantics_beh_def]
   >- (DEEP_INTRO_TAC some_intro >> reverse $ rw []
       >- (gvs [ELIM_UNCURRY]) >>
       pairarg_tac >> gvs [] >>
       CONV_TAC SYM_CONV >>
-      last_x_assum kall_tac >>
+      qpat_x_assum ‘FST _ ≠ _’ kall_tac >>
       ‘s = unclock(reclock s with clock := k')’
         by(gvs[panItreeSemTheory.reclock_def,
                panItreeSemTheory.unclock_def,
@@ -2184,7 +2199,13 @@ Proof
              itree_wbisim_neq,
              ffiTheory.call_FFI_def,
              empty_locals_defs
-            ])
+            ] >>
+          qexists ‘NONE’ >> qexists_tac ‘unclock s’ >>
+          rw[]
+          >- metis_tac[FST,SND,PAIR] >>
+          gvs[state_component_equality,unclock_def] >>
+          irule $ GSYM read_write_bytearray_lemma >>
+          metis_tac[])
       >~ [‘ShMem’]
       >- (gvs[evaluate_def,AllCaseEqs(),
               itree_semantics_beh_def,
@@ -2216,7 +2237,13 @@ Proof
              empty_locals_defs,
              set_var_def,
              panSemTheory.set_var_def
-            ]
+            ] >>
+          qexists ‘NONE’ >> qexists_tac ‘unclock s’ >>
+          rw[]
+          >- metis_tac[FST,SND,PAIR] >>
+          gvs[state_component_equality,unclock_def] >>
+          irule $ GSYM read_write_bytearray_lemma >>
+          metis_tac[]
          ) >>
       gvs[evaluate_def,itree_semantics_beh_simps,panPropsTheory.eval_upd_clock_eq,
           AllCaseEqs()] >>
