@@ -62,13 +62,16 @@ End
 val st = “st:('a,'b) stree”;
 
 Definition stree_trace_def:
-  stree_trace f fs ^st =
+  stree_trace f p fs ^st =
   LFLATTEN $ LUNFOLD
   (λ(fs',t). case t of
                  Ret r => NONE
                | Tau u => SOME ((fs',u),LNIL)
                | Vis e k => let (a,rbytes,fs'') = f fs' e in
-                                SOME ((fs'',k a),[|make_io_event e rbytes|]))
+                              if p a then
+                                SOME ((fs'',k a),[|make_io_event e rbytes|])
+                              else
+                                SOME ((fs'', k a),LNIL))
   (fs,st)
 End
 
@@ -598,6 +601,11 @@ Definition fbs_semantics_beh_def:
                                (SND (evaluate (prog,(reclock s) with clock := k))).ffi.io_events) UNIV))
 End
 
+Definition event_filter_def:
+  event_filter (FFI_return _ _) = T ∧
+  event_filter _ = F
+End
+
 Definition itree_semantics_beh_def:
   itree_semantics_beh s prog =
   let lt = ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,s))) in
@@ -608,16 +616,17 @@ Definition itree_semantics_beh_def:
                     | SOME (Return _) => SemTerminate (r,s') s'.ffi.io_events
                     | SOME Error => SemFail
                     | _ => SemTerminate (r,s') s'.ffi.io_events)
-      | NONE => SemDiverge (fromList(s.ffi.io_events) ++ₗ stree_trace query_oracle s.ffi (to_stree (mrec_sem (h_prog (prog,s)))))
+      | NONE => SemDiverge (fromList(s.ffi.io_events) ++ₗ stree_trace query_oracle event_filter s.ffi (to_stree (mrec_sem (h_prog (prog,s)))))
 End
 
+(*
 Theorem itree_sem_div_compos_thm:
   itree_semantics_beh (s with locals := s.locals |+ (v,x)) prog = SemDiverge l ⇒
   itree_semantics_beh s (Dec v e prog) = SemDiverge l
 Proof
   cheat
 QED
-
+*)
 Theorem fbs_sem_div_compos_thm:
   fbs_semantics_beh s (Dec v e prog) = SemDiverge l ∧
   eval (reclock s) e = SOME x ⇒
@@ -684,6 +693,7 @@ Proof
   pairarg_tac>>fs[panItreeSemTheory.reclock_def]
 QED
 
+(* These should all be subsumed by simp rules above
 Theorem fbs_sem_conv_compos_thm:
   fbs_semantics_beh s (Dec v e prog) = SemTerminate p l ∧
   eval (reclock s) e = SOME x ⇒
@@ -713,6 +723,7 @@ Theorem itree_sem_fail_compos_thm:
 Proof
   cheat
 QED
+*)
 
 Theorem fbs_semantics_beh_simps:
   fbs_semantics_beh s Skip = SemTerminate (NONE,s) s.ffi.io_events ∧
@@ -755,8 +766,8 @@ Proof
 QED
 
 Theorem stree_trace_simps:
-  stree_trace f fs (Tau t) = stree_trace f fs t ∧
-  stree_trace f fs (Ret r) = [||]
+  stree_trace f p fs (Tau t) = stree_trace f p fs t ∧
+  stree_trace f p fs (Ret r) = [||]
   (* TODO: Vis *)
 Proof
   rw[stree_trace_def] >>
@@ -765,7 +776,7 @@ QED
 
 Theorem ltree_lift_nonret_bind_stree:
   (∀x. ¬(ltree_lift f st p ≈ Ret x))
-  ⇒ stree_trace f st (to_stree p >>= k) = stree_trace f st $ to_stree p
+  ⇒ stree_trace f q st (to_stree p >>= k) = stree_trace f q st $ to_stree p
 Proof
   strip_tac >> CONV_TAC SYM_CONV >>
   simp[stree_trace_def] >>
@@ -1194,9 +1205,12 @@ Proof
 QED
 
 Theorem stree_trace_Vis:
-  stree_trace f st (Vis e k) =
+  stree_trace f p st (Vis e k) =
   let (a,rbytes,st') = f st e in
-    make_io_event e rbytes:::stree_trace f st' (k a)
+    if p a then
+      make_io_event e rbytes:::stree_trace f p st' (k a)
+    else
+      stree_trace f p st' (k a)
 Proof
   rw[stree_trace_def] >>
   rw[Once LUNFOLD] >>
@@ -1205,8 +1219,8 @@ QED
 
 Theorem stree_trace_bind_append:
   ltree_lift f st t ≈ Ret x
-  ⇒ stree_trace f st (to_stree t >>= k) =
-    stree_trace f st(to_stree t) ++ₗ stree_trace f (ltree_lift_state f st t) (k x)
+  ⇒ stree_trace f p st (to_stree t >>= k) =
+    stree_trace f p st (to_stree t) ++ₗ stree_trace f p (ltree_lift_state f st t) (k x)
 Proof
   strip_tac >> dxrule itree_wbisim_Ret_FUNPOW >>
   simp[PULL_EXISTS] >>
@@ -1218,17 +1232,18 @@ Proof
           ltree_lift_state_simps,ltree_lift_Vis_alt,ELIM_UNCURRY]) >>
   Cases_on ‘t’ >> rw[] >>
   gvs[ltree_lift_cases,to_stree_simps,itree_wbisim_neq,stree_trace_simps,
-      stree_trace_Vis,ltree_lift_state_simps,ltree_lift_Vis_alt,ELIM_UNCURRY]
+      stree_trace_Vis,ltree_lift_state_simps,ltree_lift_Vis_alt,ELIM_UNCURRY] >>
+  IF_CASES_TAC >> gvs[]
 QED
 
 Theorem stree_trace_ret_events:
   ltree_lift query_oracle st.ffi (mrec_sem (h_prog (p,st))) ≈ Ret (res,st') ∧
   res ≠ SOME Error
   ⇒ fromList st'.ffi.io_events =
-    fromList st.ffi.io_events ++ₗ stree_trace query_oracle st.ffi (to_stree (mrec_sem (h_prog (p,st))))
+    fromList st.ffi.io_events ++ₗ stree_trace query_oracle event_filter st.ffi (to_stree (mrec_sem (h_prog (p,st))))
 Proof
-  cheat (*
-  strip_tac >> dxrule itree_wbisim_Ret_FUNPOW >>
+  cheat
+(*  strip_tac >> dxrule itree_wbisim_Ret_FUNPOW >>
   simp[PULL_EXISTS] >>
   MAP_EVERY qid_spec_tac [‘p’,‘st’,‘res’,‘st'’] >>
   Induct_on ‘n’ using COMPLETE_INDUCTION >>
@@ -1357,6 +1372,7 @@ Proof
       gvs[query_oracle_def,ELIM_UNCURRY,AllCaseEqs(),
           tau_eq_funpow_tau,ret_eq_funpow_tau,
           to_stree_simps,stree_trace_simps,
+          oneline event_filter_def,
           LAPPEND_NIL_2ND
          ] >>
       rpt(PURE_FULL_CASE_TAC >> gvs[empty_locals_defs]) >>
@@ -1544,7 +1560,7 @@ Proof
       disch_then kall_tac >>
       simp[to_stree_simps,stree_trace_simps,to_stree_monad_law] >>
       qmatch_goalsub_abbrev_tac ‘_ >>= k1’ >>
-      drule_then (qspec_then ‘k1’ assume_tac) stree_trace_bind_append >>
+      drule_then (qspecl_then [‘event_filter’,‘k1’] assume_tac) stree_trace_bind_append >>
       simp[] >>
       drule stree_trace_ret_events >>
       simp[] >>
@@ -1652,7 +1668,7 @@ Proof
          ltree_lift_nonret_bind_stree] >>
       rename1 ‘_ >>= k’ >>
       gvs[FORALL_PROD] >>
-      drule_then (qspec_then ‘k’ mp_tac) $ SIMP_RULE (srw_ss()) [FORALL_PROD] ltree_lift_nonret_bind >>
+      drule_then (qspecl_then [‘k’] mp_tac) $ SIMP_RULE (srw_ss()) [FORALL_PROD] ltree_lift_nonret_bind >>
       rw[] >>
       rw[some_def,ELIM_UNCURRY] >>
       rw[Once mrec_sem_while_unfold] >>
@@ -1700,7 +1716,7 @@ Proof
           disch_then kall_tac >>
           simp[SimpR “$=”, Once mrec_sem_while_unfold,to_stree_simps,stree_trace_simps,to_stree_monad_law] >>
           qmatch_goalsub_abbrev_tac ‘_ >>= k1’ >>
-          drule_then (qspec_then ‘k1’ assume_tac) stree_trace_bind_append >>
+          drule_then (qspecl_then [‘event_filter’, ‘k1’] assume_tac) stree_trace_bind_append >>
           simp[] >>
           drule stree_trace_ret_events >>
           simp[] >>
@@ -1763,7 +1779,7 @@ Proof
           disch_then kall_tac >>
           simp[SimpR “$=”, Once mrec_sem_while_unfold,to_stree_simps,stree_trace_simps,to_stree_monad_law] >>
           qmatch_goalsub_abbrev_tac ‘_ >>= k1’ >>
-          drule_then (qspec_then ‘k1’ assume_tac) stree_trace_bind_append >>
+          drule_then (qspecl_then [‘event_filter’, ‘k1’] assume_tac) stree_trace_bind_append >>
           simp[] >>
           drule stree_trace_ret_events >>
           simp[] >>
