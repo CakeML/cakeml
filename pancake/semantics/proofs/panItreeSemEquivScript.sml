@@ -1787,6 +1787,184 @@ Proof
   PURE_CASE_TAC >> gvs[]
 QED
 
+Theorem mrec_sem_Call_simps:
+  mrec_sem (h_prog (Call ty texp aexp, s)) =
+  case (eval (reclock s) texp,OPT_MMAP (eval (reclock s)) aexp) of
+    (SOME(ValLabel fname), SOME args) =>
+      (case lookup_code s.code fname args of
+         NONE => Ret (SOME Error,s)
+       | SOME (c_prog,newlocals) =>
+           Tau (mrec_sem (h_prog (c_prog,s with locals := newlocals)) >>=
+                         mrec_sem ∘ h_handle_call_ret ty s))
+  | _ => Ret (SOME Error,s)
+Proof
+  simp[h_prog_def,h_prog_rule_call_def,h_handle_call_ret_def]>>
+  rpt (PURE_CASE_TAC>>gvs[])>>
+  simp[mrec_sem_simps,msem_lift_monad_law]
+QED
+
+Theorem itree_semantics_beh_Call:
+  itree_semantics_beh s (Call ty texp aexp) =
+  case (eval (reclock s) texp,OPT_MMAP (eval (reclock s)) aexp) of
+    (SOME (ValLabel fname), SOME args) =>
+      (case lookup_code s.code fname args of
+         NONE => SemFail
+       | SOME (c_prog,newlocals) =>
+           (case itree_semantics_beh (s with locals := newlocals) c_prog of
+              SemTerminate (SOME (Return rv),s') =>
+                (case ty of
+                   NONE => SemTerminate (SOME (Return rv),empty_locals s')
+                 | SOME (rt,_) =>
+                     if is_valid_value s.locals rt rv then
+                       SemTerminate (NONE,set_var rt rv (s' with locals := s.locals))
+                     else SemFail)
+            | SemTerminate (SOME (Exception eid exn),s') =>
+                (case ty of
+                   NONE => SemTerminate (SOME (Exception eid exn),empty_locals s')
+                 | SOME (_, NONE) => SemTerminate (SOME (Exception eid exn),empty_locals s')
+                 | SOME (_, SOME (eid',ev,pp)) =>
+                     if eid = eid' then
+                       (case FLOOKUP s.eshapes eid of
+                          NONE => SemFail
+                        | SOME sh =>
+                            if shape_of exn = sh
+                               ∧ is_valid_value s.locals ev exn then
+                              itree_semantics_beh (set_var ev exn (s' with locals := s.locals)) pp
+                            else SemFail)
+                     else SemTerminate (SOME (Exception eid exn),empty_locals s'))
+            | SemTerminate (SOME Break,s') => SemFail (*SemTerminate (SOME Error,s')*)
+            | SemTerminate (SOME Continue,s') => SemFail (*SemTerminate (SOME Error, s')*)
+            | SemTerminate (NONE,s') => SemFail (*SemTerminate (SOME Error, s')*)
+            | SemTerminate (res,s') => SemTerminate (res,empty_locals s')
+            | res => res)
+       | _ => SemFail)
+  | _ => SemFail
+Proof
+  rw[itree_semantics_beh_def] >>
+  rw[mrec_sem_Call_simps]>>
+  CONV_TAC SYM_CONV >>
+  PURE_TOP_CASE_TAC >> gvs[ltree_lift_cases,itree_wbisim_neq]
+  >- (DEEP_INTRO_TAC some_intro >>
+      rw[EXISTS_PROD,AllCaseEqs()] >>
+      pairarg_tac >> gvs[]) >>
+  reverse PURE_TOP_CASE_TAC >>
+  gvs[ltree_lift_cases,itree_wbisim_neq]
+  >- (DEEP_INTRO_TAC some_intro >>
+      rw[EXISTS_PROD,AllCaseEqs()] >>
+      pairarg_tac >> gvs[]) >>
+  PURE_TOP_CASE_TAC >>
+  gvs[ltree_lift_cases,itree_wbisim_neq]
+  >- (DEEP_INTRO_TAC some_intro >>
+      rw[EXISTS_PROD,AllCaseEqs(),ltree_lift_cases] >>
+      pairarg_tac >> gvs[]) >>
+  PURE_TOP_CASE_TAC >>
+  gvs[ltree_lift_cases,itree_wbisim_neq]
+  >- (DEEP_INTRO_TAC some_intro >>
+      rw[EXISTS_PROD,AllCaseEqs(),ltree_lift_cases] >>
+      pairarg_tac >> gvs[]) >>
+  PURE_TOP_CASE_TAC >>
+  gvs[ltree_lift_cases,itree_wbisim_neq]
+  >- (DEEP_INTRO_TAC some_intro >>
+      rw[EXISTS_PROD,AllCaseEqs(),ltree_lift_cases] >>
+      pairarg_tac >> gvs[]) >>
+
+  PURE_TOP_CASE_TAC>>gvs[]>>
+  gvs[ltree_lift_cases,ltree_lift_monad_law]>>
+  qmatch_goalsub_abbrev_tac ‘X >>= _’>>
+  Cases_on ‘X’>>
+  TRY (rename1 ‘Ret xx’>>Cases_on ‘xx’>>gvs[])
+  >- (DEEP_INTRO_TAC some_intro >>fs[]>>
+      TRY (fs[Once itree_wbisim_cases]>>NO_TAC)>>
+      simp[FORALL_PROD]>>rpt strip_tac>>      
+      ‘ltree_lift query_oracle (s with locals := r).ffi
+       (mrec_sem (h_prog (q,s with locals := r))) ≈ Ret (q',r')’ by
+        simp[Once itree_wbisim_cases]>>
+      drule ltree_lift_state_lift>>
+      pop_assum kall_tac>>strip_tac>>fs[]>>
+      TRY (fs[Once itree_wbisim_cases]>>
+           rw[]>>NO_TAC)>>
+      rename1 ‘_ ≈ Ret (qq,rr)’>>
+      ‘qq = q' ∧ rr = r'’ by fs[Once itree_wbisim_cases]>>
+      fs[]>>
+
+      PURE_CASE_TAC>>gvs[h_handle_call_ret_def]>> (* res *)
+      simp[mrec_sem_simps,ltree_lift_cases]
+      >- (simp[Once itree_wbisim_cases]>>
+          DEEP_INTRO_TAC some_intro >>
+          simp[FORALL_PROD,Once itree_wbisim_cases])>>
+      PURE_CASE_TAC>>gvs[h_handle_call_ret_def]>> (* SOME result *)
+      simp[mrec_sem_simps,ltree_lift_cases]>>
+      DEEP_INTRO_TAC some_intro >>fs[FORALL_PROD]>>
+      TRY (simp[Once itree_wbisim_cases]>>
+           simp[Once itree_wbisim_cases]>>
+           rw[]>>NO_TAC)
+(* Return *)
+      >- (
+       PURE_CASE_TAC>>gvs[h_handle_call_ret_def]
+       >- (simp[mrec_sem_simps,ltree_lift_cases]>>
+           simp[Once itree_wbisim_cases]>>
+           simp[Once itree_wbisim_cases])>>
+       PURE_CASE_TAC>>gvs[]>>
+       simp[mrec_sem_simps,ltree_lift_cases]>>
+       PURE_CASE_TAC>>gvs[]>>
+       simp[mrec_sem_simps,ltree_lift_cases]>>
+       simp[Once itree_wbisim_cases]>>
+       simp[Once itree_wbisim_cases])>>
+(* Exception *)
+      PURE_CASE_TAC>>gvs[]>>  (* calltyp *)
+      simp[mrec_sem_simps,ltree_lift_cases]
+      >- (simp[Once itree_wbisim_cases]>>
+          simp[Once itree_wbisim_cases])>>
+      PURE_CASE_TAC>>gvs[]>>  (* calltyp = SOME _ *)
+      simp[mrec_sem_simps,ltree_lift_cases]>>
+      PURE_CASE_TAC>>gvs[]>>  (* calltyp = SOME (_,?) *)
+      simp[mrec_sem_simps,ltree_lift_cases]
+      >- (simp[Once itree_wbisim_cases]>>
+          simp[Once itree_wbisim_cases])>>
+      rename1 ‘SOME (_, SOME xxx)’>>
+      PairCases_on ‘xxx’>>fs[]>>
+
+      PURE_TOP_CASE_TAC>>gvs[]>>
+      simp[mrec_sem_simps,ltree_lift_cases]>>
+      TRY (simp[Once itree_wbisim_cases]>>
+           simp[Once itree_wbisim_cases]>>NO_TAC)>>
+      PURE_TOP_CASE_TAC>>gvs[]>>
+      simp[mrec_sem_simps,ltree_lift_cases]
+          >- (simp[Once itree_wbisim_cases]>>
+              simp[Once itree_wbisim_cases])>>
+      PURE_TOP_CASE_TAC>>fs[]>>
+      simp[mrec_sem_simps,ltree_lift_cases]
+      >- (rw[]>>gvs[]
+          >- (DEEP_INTRO_TAC some_intro >>
+              simp[FORALL_PROD]>>fs[set_var_defs]>>rw[]>>
+              drule_then rev_drule wbisim_Ret_unique>>
+              rw[]>>gvs[])>>
+          fs[GSYM FORALL_PROD]>>
+          drule ltree_lift_nonret_bind_stree>>strip_tac>>
+          DEEP_INTRO_TAC some_intro >>
+          simp[FORALL_PROD]>>fs[set_var_defs]>>rw[]>>
+          simp[to_stree_simps,stree_trace_simps,to_stree_monad_law]>>cheat)>>
+      qmatch_goalsub_abbrev_tac ‘if X ∧ Y then _ else _’>>
+      Cases_on ‘X’>>gvs[]>>
+      simp[mrec_sem_simps,ltree_lift_cases]>>
+      simp[Once itree_wbisim_cases]>>
+      simp[Once itree_wbisim_cases])
+  >- cheat>>
+  simp[Once itree_wbisim_cases]>>
+  DEEP_INTRO_TAC some_intro >>
+  simp[FORALL_PROD]>>fs[set_var_defs]>>rw[]>>
+  simp[Once itree_wbisim_cases]>>
+DEEP_INTRO_TAC some_intro >>
+  simp[FORALL_PROD]>>
+  qmatch_goalsub_abbrev_tac ‘LAPPEND X _’>>
+  ‘LFINITE X’ by simp[Abbr‘X’,LFINITE_fromList]>>
+  simp[LAPPEND11_FINITE1]>>
+  simp[to_stree_monad_law,to_stree_simps,stree_trace_simps]>>
+  CONV_TAC SYM_CONV>>
+  irule ltree_lift_nonret_bind_stree>>
+  fs[]>>simp[Once itree_wbisim_cases]
+QED
+
 Theorem itree_semantics_beh_While:
   itree_semantics_beh s (While e p) =
   case eval (reclock s) e of
@@ -2358,7 +2536,12 @@ Proof
               panPropsTheory.eval_upd_clock_eq,
               AllCaseEqs()])
       >~ [‘Call’]
-      >- (cheat)
+      >- (qpat_x_assum ‘evaluate _ = _’ $ strip_assume_tac o REWRITE_RULE[Once evaluate_def] >>
+          simp[Once itree_semantics_beh_Call] >>
+          gvs[AllCaseEqs(),panPropsTheory.eval_upd_clock_eq,PULL_EXISTS]>>
+          gvs[panPropsTheory.opt_mmap_eval_upd_clock_eq1,empty_locals_defs,
+              set_var_defs] >>
+          metis_tac[unclock_reclock_access])
       >~ [‘ExtCall’]
       >- (gvs[evaluate_def,AllCaseEqs(),
               itree_semantics_beh_def,
