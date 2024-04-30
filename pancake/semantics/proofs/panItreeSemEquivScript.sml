@@ -1945,7 +1945,7 @@ Proof
            (mrec_sem (h_prog (q,s with locals := r))) ≈
            Ret (SOME (Exception m' v),r')’ by simp[]>>
           drule stree_trace_ret_events>>strip_tac>>fs[]>>
-          simp[Once LAPPEND_ASSOC]
+          simp[Once LAPPEND_ASSOC]>>
           qmatch_goalsub_abbrev_tac ‘LAPPEND X _’>>
           ‘LFINITE X’ by simp[Abbr‘X’,LFINITE_fromList]>>
           simp[LAPPEND11_FINITE1]>>
@@ -1959,12 +1959,127 @@ Proof
       simp[mrec_sem_simps,ltree_lift_cases]>>
       simp[Once itree_wbisim_cases]>>
       simp[Once itree_wbisim_cases])
-  >- cheat>>
+(* Tau *)
+  >- (fs[]>>
+      DEEP_INTRO_TAC some_intro >>
+      simp[FORALL_PROD]>>fs[set_var_defs]>>rw[]>>
+      DEEP_INTRO_TAC some_intro >>
+      simp[FORALL_PROD]>>fs[set_var_defs]>>rw[]
+      >- (qmatch_asmsub_abbrev_tac ‘X = Tau u’>>
+          rename1 ‘u ≈ Ret (v,w)’>>
+          ‘X ≈ Ret (v,w)’ by gvs[Abbr‘X’]>>
+          fs[Abbr‘X’]>>
+          ‘ltree_lift query_oracle (s with locals := r).ffi (mrec_sem (h_prog (q,s with locals := r))) ≈ Ret (v,w)’ by simp[]>>
+          drule ltree_lift_state_lift>>
+          pop_assum kall_tac>>strip_tac>>
+          gvs[]>>
+          qmatch_asmsub_abbrev_tac ‘_ >>= X’>>
+          ‘u >>= X ≈ (Ret (v,w) >>= X)’ by
+            (irule itree_bind_resp_t_wbisim>>fs[])>>
+          gvs[Abbr‘X’]>>
+          qmatch_asmsub_abbrev_tac ‘_ >>= _ ≈ X’>>
+          rename1 ‘_ ≈ Ret (v',w')’>>
+          ‘X ≈ Ret (v',w')’ by
+            (irule itree_wbisim_trans>>
+             first_assum $ irule_at Any>>
+             irule itree_wbisim_sym>>fs[])>>
+          fs[Abbr‘X’]>>
+          
+          PURE_CASE_TAC>>gvs[]>>
+          PURE_CASE_TAC>>gvs[h_handle_call_ret_def]>>
+          TRY (gvs[mrec_sem_simps,ltree_lift_cases]>>
+               fs[Once itree_wbisim_cases]>>NO_TAC)
+          >- (PURE_CASE_TAC>>gvs[]>>
+              PURE_CASE_TAC>>gvs[]>>
+              TRY (gvs[mrec_sem_simps,ltree_lift_cases]>>
+                   fs[Once itree_wbisim_cases]>>NO_TAC)>>
+              PURE_CASE_TAC>>gvs[]>>
+              PURE_CASE_TAC>>gvs[]>>
+              gvs[mrec_sem_simps,ltree_lift_cases,set_var_defs]>>
+              fs[Once itree_wbisim_cases])>>
+          PURE_CASE_TAC>>gvs[]>>
+          PURE_CASE_TAC>>gvs[]>>
+          TRY (gvs[mrec_sem_simps,ltree_lift_cases]>>
+               fs[Once itree_wbisim_cases]>>NO_TAC)>>
+          PURE_CASE_TAC>>gvs[]>>
+          PURE_CASE_TAC>>gvs[]>>
+          TRY (gvs[mrec_sem_simps,ltree_lift_cases]>>
+               fs[Once itree_wbisim_cases]>>NO_TAC)>>
+          PURE_CASE_TAC>>gvs[]>>
+          PURE_CASE_TAC>>gvs[]>>
+          PURE_CASE_TAC>>gvs[]>>
+          TRY (gvs[mrec_sem_simps,ltree_lift_cases]>>
+               fs[Once itree_wbisim_cases]>>NO_TAC)>>
+          PURE_TOP_CASE_TAC>>gvs[]>>
+          gvs[mrec_sem_simps,ltree_lift_cases,set_var_defs]
+          >- (DEEP_INTRO_TAC some_intro >>
+              simp[FORALL_PROD]>>fs[set_var_defs]>>rw[]>>gvs[]>>
+              drule_then rev_drule wbisim_Ret_unique>>rw[])>>
+          qmatch_goalsub_abbrev_tac ‘if X ∧ Y then _ else _’>>
+          Cases_on ‘X’>>gvs[]>>
+          simp[mrec_sem_simps,ltree_lift_cases]>>
+          fs[Once itree_wbisim_cases])
+      >- (qmatch_asmsub_abbrev_tac ‘Y = Tau u’>>
+          rename1 ‘u ≈ Ret (v,w)’>>
+          ‘Y ≈ Ret (v,w)’ by gvs[Abbr‘Y’]>>
+          fs[Abbr‘Y’]>>
+          ‘ltree_lift query_oracle (s with locals := r).ffi (mrec_sem (h_prog (q,s with locals := r))) ≈ Ret (v,w)’ by simp[]>>
+          drule ltree_lift_state_lift>>
+          pop_assum kall_tac>>strip_tac>>
+          gvs[]>>
+          qmatch_asmsub_abbrev_tac ‘_ >>= X’>>
+          ‘u >>= X ≈ X (v,w)’ by
+            (irule itree_wbisim_trans>>
+             irule_at Any itree_bind_resp_t_wbisim>>
+             first_assum $ irule_at Any>>
+             fs[]>>irule itree_wbisim_refl)>>
+          ‘∀x. (u >>= X ≈ Ret x) = (X (v,w) ≈ Ret x)’ by cheat>>fs[]>>
+          pop_assum kall_tac>>
+          gvs[Abbr‘X’]>>
+
+          rpt (PURE_CASE_TAC>>gvs[h_handle_call_ret_def]>>
+               fs[mrec_sem_simps,ltree_lift_cases]>>
+               TRY (rfs[Once itree_wbisim_cases]>>NO_TAC))>>
+          TRY (qpat_x_assum ‘_ = NONE’ mp_tac)>>
+          TRY (qpat_x_assum ‘_ = SOME _’ mp_tac)>>
+          DEEP_INTRO_TAC some_intro >>
+          simp[FORALL_PROD]>>fs[set_var_defs]>>rw[]
+
+          >- (
+           ‘ltree_lift query_oracle (s with locals := r).ffi (mrec_sem (h_prog (q,s with locals := r))) ≈ Ret (SOME (Exception m' v),w)’ by simp[]>>
+           drule stree_trace_ret_events>>strip_tac>>fs[]>>
+           simp[Once LAPPEND_ASSOC]>>
+           qmatch_goalsub_abbrev_tac ‘LAPPEND X _’>>
+           ‘LFINITE X’ by simp[Abbr‘X’,LFINITE_fromList]>>
+           simp[LAPPEND11_FINITE1]>>
+           simp[to_stree_simps,stree_trace_simps,to_stree_monad_law]>>
+           drule (INST_TYPE [delta|->alpha] stree_trace_bind_append)>>strip_tac>>
+           fs[h_handle_call_ret_def]>>
+           simp[mrec_sem_simps,to_stree_simps,stree_trace_simps]>>
+           simp[set_var_defs])>>
+          FULL_CASE_TAC>>fs[]
+          >- fs[mrec_sem_simps,ltree_lift_cases]>>
+          qmatch_asmsub_abbrev_tac ‘X ⇒ Y’>>
+          Cases_on ‘X’>>gvs[]>>
+          fs[mrec_sem_simps,ltree_lift_cases]>>
+          fs[Once itree_wbisim_cases])
+      >- (Cases_on ‘u’>>gvs[Once itree_bind_thm]
+          >- (gvs[Once itree_wbisim_cases,GSYM FORALL_PROD])
+          >- cheat>>
+          gvs[Once itree_wbisim_cases,GSYM FORALL_PROD]>>
+          gvs[Once itree_wbisim_cases,GSYM FORALL_PROD])>>
+      
+      ‘LFINITE (fromList s.ffi.io_events)’ by simp[LFINITE_fromList]>>
+      simp[LAPPEND11_FINITE1]>>
+      simp[to_stree_simps,stree_trace_simps,to_stree_monad_law]>>
+      irule (GSYM ltree_lift_nonret_bind_stree)>>
+      CCONTR_TAC>>gvs[GSYM FORALL_PROD])>>
+(* Vis *)
   simp[Once itree_wbisim_cases]>>
   DEEP_INTRO_TAC some_intro >>
   simp[FORALL_PROD]>>fs[set_var_defs]>>rw[]>>
   simp[Once itree_wbisim_cases]>>
-DEEP_INTRO_TAC some_intro >>
+  DEEP_INTRO_TAC some_intro >>
   simp[FORALL_PROD]>>
   qmatch_goalsub_abbrev_tac ‘LAPPEND X _’>>
   ‘LFINITE X’ by simp[Abbr‘X’,LFINITE_fromList]>>
