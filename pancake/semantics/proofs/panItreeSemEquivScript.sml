@@ -1923,7 +1923,6 @@ Proof
           simp[Once itree_wbisim_cases])>>
       rename1 ‘SOME (_, SOME xxx)’>>
       PairCases_on ‘xxx’>>fs[]>>
-
       PURE_TOP_CASE_TAC>>gvs[]>>
       simp[mrec_sem_simps,ltree_lift_cases]>>
       TRY (simp[Once itree_wbisim_cases]>>
@@ -1939,11 +1938,22 @@ Proof
               simp[FORALL_PROD]>>fs[set_var_defs]>>rw[]>>
               drule_then rev_drule wbisim_Ret_unique>>
               rw[]>>gvs[])>>
-          fs[GSYM FORALL_PROD]>>
-          drule ltree_lift_nonret_bind_stree>>strip_tac>>
           DEEP_INTRO_TAC some_intro >>
           simp[FORALL_PROD]>>fs[set_var_defs]>>rw[]>>
-          simp[to_stree_simps,stree_trace_simps,to_stree_monad_law]>>cheat)>>
+          drule itree_eq_imp_wbisim>>strip_tac>>
+          ‘ltree_lift query_oracle (s with locals := r).ffi
+           (mrec_sem (h_prog (q,s with locals := r))) ≈
+           Ret (SOME (Exception m' v),r')’ by simp[]>>
+          drule stree_trace_ret_events>>strip_tac>>fs[]>>
+          simp[Once LAPPEND_ASSOC]
+          qmatch_goalsub_abbrev_tac ‘LAPPEND X _’>>
+          ‘LFINITE X’ by simp[Abbr‘X’,LFINITE_fromList]>>
+          simp[LAPPEND11_FINITE1]>>
+          drule (INST_TYPE [delta|->alpha] stree_trace_bind_append)>>strip_tac>>
+          simp[to_stree_simps,stree_trace_simps,to_stree_monad_law]>>
+          simp[h_handle_call_ret_def,o_DEF,LAMBDA_PROD]>>
+          simp[mrec_sem_simps,to_stree_simps,stree_trace_simps]>>
+          simp[set_var_defs])>>
       qmatch_goalsub_abbrev_tac ‘if X ∧ Y then _ else _’>>
       Cases_on ‘X’>>gvs[]>>
       simp[mrec_sem_simps,ltree_lift_cases]>>
