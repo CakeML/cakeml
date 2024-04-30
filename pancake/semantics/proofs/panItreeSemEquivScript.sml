@@ -592,7 +592,7 @@ QED
 Datatype:
   sem_behaviour =
     SemDiverge (io_event llist)
-    | SemTerminate (('a result option) # ('a,'b) bstate) (io_event list)
+    | SemTerminate (('a result option) # ('a,'b) bstate)
     | SemFail
 End
 
@@ -601,10 +601,10 @@ Definition fbs_semantics_beh_def:
   if ∃k. FST $ panSem$evaluate (prog,(reclock s) with clock := k) ≠ SOME TimeOut
   then (case some (r,s'). ∃k. evaluate (prog,(reclock s) with clock := k) = (r,s') ∧ r ≠ SOME TimeOut of
          SOME (r,s') => (case r of
-                           SOME (Return _) => SemTerminate (r,unclock s') s'.ffi.io_events
-                         | SOME (FinalFFI _) => SemTerminate (r,unclock s') s'.ffi.io_events
+                           SOME (Return _) => SemTerminate (r,unclock s')
+                         | SOME (FinalFFI _) => SemTerminate (r,unclock s')
                          | SOME Error => SemFail
-                         | _ =>  SemTerminate (r,unclock s') s'.ffi.io_events)
+                         | _ =>  SemTerminate (r,unclock s'))
        | NONE => SemFail)
   else SemDiverge (build_lprefix_lub
                    (IMAGE (λk. fromList
@@ -621,11 +621,11 @@ Definition itree_semantics_beh_def:
   let lt = ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,s))) in
       case some (r,s'). lt ≈ Ret (r,s') of
       | SOME (r,s') => (case r of
-                      SOME TimeOut => SemTerminate (r,s') s'.ffi.io_events
-                    | SOME (FinalFFI _) => SemTerminate (r,s') s'.ffi.io_events
-                    | SOME (Return _) => SemTerminate (r,s') s'.ffi.io_events
+                      SOME TimeOut => SemTerminate (r,s')
+                    | SOME (FinalFFI _) => SemTerminate (r,s')
+                    | SOME (Return _) => SemTerminate (r,s')
                     | SOME Error => SemFail
-                    | _ => SemTerminate (r,s') s'.ffi.io_events)
+                    | _ => SemTerminate (r,s'))
       | NONE => SemDiverge (fromList(s.ffi.io_events) ++ₗ stree_trace query_oracle event_filter s.ffi (to_stree (mrec_sem (h_prog (prog,s)))))
 End
 
@@ -736,8 +736,8 @@ QED
 *)
 
 Theorem fbs_semantics_beh_simps:
-  fbs_semantics_beh s Skip = SemTerminate (NONE,s) s.ffi.io_events ∧
-  (eval (reclock s) e = NONE ⇒ fbs_semantics_beh s (Dec v e prog) ≠ SemTerminate p l)
+  fbs_semantics_beh s Skip = SemTerminate (NONE,s) ∧
+  (eval (reclock s) e = NONE ⇒ fbs_semantics_beh s (Dec v e prog) ≠ SemTerminate p)
 Proof
   rw []
   >- (rw [fbs_semantics_beh_def,
@@ -816,8 +816,8 @@ Theorem itree_semantics_beh_Dec:
     NONE => SemFail
   | SOME value =>
       case itree_semantics_beh (s with locals := s.locals |+ (vname,value)) prog of
-      | SemTerminate (res,s') ffis =>
-          SemTerminate (res,s' with locals := res_var s'.locals (vname,FLOOKUP s.locals vname)) ffis
+      | SemTerminate (res,s') =>
+          SemTerminate (res,s' with locals := res_var s'.locals (vname,FLOOKUP s.locals vname))
       | res => res
 Proof
   rw[itree_semantics_beh_def] >>
@@ -1680,7 +1680,7 @@ QED
 Theorem itree_semantics_beh_Seq:
   itree_semantics_beh s (Seq p1 p2) =
   case itree_semantics_beh s p1 of
-    SemTerminate (NONE, s') _ =>
+    SemTerminate (NONE, s') =>
       itree_semantics_beh s' p2
   | res => res
 Proof
@@ -1792,12 +1792,12 @@ Theorem itree_semantics_beh_While:
   case eval (reclock s) e of
     SOME(ValWord w) =>
       (if w = 0w then
-         SemTerminate (NONE,s) s.ffi.io_events
+         SemTerminate (NONE,s)
        else
          (case itree_semantics_beh s p of
-            SemTerminate (NONE,s') _ => itree_semantics_beh s' (While e p)
-          | SemTerminate (SOME Break, s') _ => SemTerminate (NONE,s') s'.ffi.io_events
-          | SemTerminate (SOME Continue, s') _ => itree_semantics_beh s' (While e p)
+            SemTerminate (NONE,s') => itree_semantics_beh s' (While e p)
+          | SemTerminate (SOME Break, s') => SemTerminate (NONE,s')
+          | SemTerminate (SOME Continue, s') => itree_semantics_beh s' (While e p)
           | res => res
          ))
   | _ => SemFail
@@ -1987,13 +1987,13 @@ Proof
 QED
 
 Theorem itree_semantics_beh_simps:
-  (itree_semantics_beh s Skip = SemTerminate (NONE, s) s.ffi.io_events) ∧
+  (itree_semantics_beh s Skip = SemTerminate (NONE, s)) ∧
   (itree_semantics_beh s (Assign v src) =
    case eval (reclock s) src of
      NONE => SemFail
    | SOME val =>
        if is_valid_value s.locals v val then
-         SemTerminate (NONE, s with locals := s.locals |+ (v,val)) s.ffi.io_events
+         SemTerminate (NONE, s with locals := s.locals |+ (v,val))
        else SemFail
   ) ∧
   (itree_semantics_beh s (Store dst src) =
@@ -2001,34 +2001,34 @@ Theorem itree_semantics_beh_simps:
    | (SOME (ValWord addr),SOME value) =>
        (case mem_stores addr (flatten value) s.memaddrs s.memory of
           NONE => SemFail
-        | SOME m => SemTerminate (NONE,s with memory := m) s.ffi.io_events)
+        | SOME m => SemTerminate (NONE,s with memory := m))
    | _ => SemFail) ∧
   (itree_semantics_beh s (StoreByte dst src) =
    case (eval (reclock s) dst,eval (reclock s) src) of
    | (SOME (ValWord addr),SOME (ValWord w)) =>
        (case mem_store_byte s.memory s.memaddrs s.be addr (w2w w) of
           NONE => SemFail
-        | SOME m => SemTerminate (NONE,s with memory := m) s.ffi.io_events)
+        | SOME m => SemTerminate (NONE,s with memory := m))
    | _ => SemFail) ∧
   (itree_semantics_beh s (Return e) =
    case eval (reclock s) e of
          NONE => SemFail
        | SOME value =>
          if size_of_shape (shape_of value) ≤ 32 then
-           SemTerminate (SOME (Return value),empty_locals s) s.ffi.io_events
+           SemTerminate (SOME (Return value),empty_locals s)
          else SemFail) ∧
   (itree_semantics_beh s (Raise eid e) =
    case (FLOOKUP s.eshapes eid,eval (reclock s) e) of
           | (SOME sh,SOME value) =>
             (if shape_of value = sh ∧ size_of_shape (shape_of value) ≤ 32 then
-              SemTerminate (SOME (Exception eid value),empty_locals s) s.ffi.io_events
+              SemTerminate (SOME (Exception eid value),empty_locals s)
              else SemFail)
           | _ => SemFail) ∧
-  (itree_semantics_beh s Break = SemTerminate (SOME Break,s) s.ffi.io_events
+  (itree_semantics_beh s Break = SemTerminate (SOME Break,s)
    ) ∧
-  (itree_semantics_beh s Continue = SemTerminate (SOME Continue,s) s.ffi.io_events
+  (itree_semantics_beh s Continue = SemTerminate (SOME Continue,s)
    ) ∧
-  (itree_semantics_beh s Tick = SemTerminate (NONE,s) s.ffi.io_events
+  (itree_semantics_beh s Tick = SemTerminate (NONE,s)
    )
 Proof
   rw []
@@ -2167,7 +2167,7 @@ QED
 
 Theorem itree_sem_while_no_loop:
   eval (reclock s) e = SOME (ValWord 0w) ⇒
-  itree_semantics_beh s (While e c) = SemTerminate (NONE,s) s.ffi.io_events
+  itree_semantics_beh s (While e c) = SemTerminate (NONE,s)
 Proof
   rw [itree_semantics_beh_def] >>
   gvs [h_prog_def,
@@ -2217,9 +2217,9 @@ QED
 Theorem itree_semantics_beh_while_SemFail:
   ((itree_semantics_beh (unclock s1) (While e c) = SemFail ∧
     (itree_semantics_beh (unclock s) c =
-     SemTerminate (NONE,unclock s1) s1.ffi.io_events ∨
+     SemTerminate (NONE,unclock s1) ∨
      itree_semantics_beh (unclock s) c =
-     SemTerminate (SOME Continue,unclock s1) s1.ffi.io_events) ∨
+     SemTerminate (SOME Continue,unclock s1)) ∨
     itree_semantics_beh (unclock s) c = SemFail)) ∧
   w ≠ 0w ∧
   eval s e = SOME (ValWord w) ⇒
