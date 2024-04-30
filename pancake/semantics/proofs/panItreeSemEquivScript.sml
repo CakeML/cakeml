@@ -2033,10 +2033,13 @@ Proof
              irule_at Any itree_bind_resp_t_wbisim>>
              first_assum $ irule_at Any>>
              fs[]>>irule itree_wbisim_refl)>>
-          ‘∀x. (u >>= X ≈ Ret x) = (X (v,w) ≈ Ret x)’ by cheat>>fs[]>>
+          ‘∀x. (u >>= X ≈ Ret x) = (X (v,w) ≈ Ret x)’ by
+            (simp[EQ_IMP_THM]>>rw[]>>
+             irule itree_wbisim_trans>>
+             first_assum $ irule_at Any>>fs[]>>
+             irule itree_wbisim_sym>>fs[])>>fs[]>>
           pop_assum kall_tac>>
           gvs[Abbr‘X’]>>
-
           rpt (PURE_CASE_TAC>>gvs[h_handle_call_ret_def]>>
                fs[mrec_sem_simps,ltree_lift_cases]>>
                TRY (rfs[Once itree_wbisim_cases]>>NO_TAC))>>
@@ -2044,7 +2047,6 @@ Proof
           TRY (qpat_x_assum ‘_ = SOME _’ mp_tac)>>
           DEEP_INTRO_TAC some_intro >>
           simp[FORALL_PROD]>>fs[set_var_defs]>>rw[]
-
           >- (
            ‘ltree_lift query_oracle (s with locals := r).ffi (mrec_sem (h_prog (q,s with locals := r))) ≈ Ret (SOME (Exception m' v),w)’ by simp[]>>
            drule stree_trace_ret_events>>strip_tac>>fs[]>>
@@ -2065,10 +2067,13 @@ Proof
           fs[Once itree_wbisim_cases])
       >- (Cases_on ‘u’>>gvs[Once itree_bind_thm]
           >- (gvs[Once itree_wbisim_cases,GSYM FORALL_PROD])
-          >- cheat>>
+          >- (drule itree_wbisim_Ret_FUNPOW>>strip_tac>>
+              drule FUNPOW_Tau_bind_thm>>strip_tac>>
+              qpat_x_assum ‘u' = _’ assume_tac>>
+              drule itree_wbisim_Ret_FUNPOW'>>
+              strip_tac>>gvs[GSYM FORALL_PROD])>>
           gvs[Once itree_wbisim_cases,GSYM FORALL_PROD]>>
           gvs[Once itree_wbisim_cases,GSYM FORALL_PROD])>>
-      
       ‘LFINITE (fromList s.ffi.io_events)’ by simp[LFINITE_fromList]>>
       simp[LAPPEND11_FINITE1]>>
       simp[to_stree_simps,stree_trace_simps,to_stree_monad_law]>>
