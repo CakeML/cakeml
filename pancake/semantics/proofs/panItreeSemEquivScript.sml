@@ -973,7 +973,7 @@ Proof
   MAP_EVERY qid_spec_tac [‘p’,‘s’,‘res’,‘s'’] >>
   Induct_on ‘n’ using COMPLETE_INDUCTION >>
   CONV_TAC $ RESORT_FORALL_CONV rev >>
-  Induct
+  Cases
   >~ [‘Dec’]
   >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
          h_prog_rule_dec_def,
