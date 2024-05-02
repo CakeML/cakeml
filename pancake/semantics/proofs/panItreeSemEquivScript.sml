@@ -2611,6 +2611,26 @@ Proof
   gvs[set_byte_get_byte,good_dimindex_def]
 QED
 
+Theorem llmsem_while_taus_abound:
+  eval s e = SOME (ValWord w) ∧ w ≠ 0w ⇒
+  ltree_lift query_oracle s.ffi
+             (mrec_sem (h_prog (While e prog,unclock s))) ≠ FUNPOW Tau 0 (Ret r)
+Proof
+  disch_tac >>
+  rw [h_prog_def,h_prog_rule_while_def] >>
+  rw [Once itree_iter_thm] >>
+  ‘eval (s with clock := 0) e = SOME (ValWord w)’
+    by (fs [panPropsTheory.eval_upd_clock_eq]) >> rw [] >>
+  rw [mrec_sem_simps,ltree_lift_cases]
+QED
+
+Theorem ll_clock_indep:
+  ltree_lift f (st with clock := k).ffi t =
+  ltree_lift f st.ffi t
+Proof
+  rw []
+QED
+
 (* Final goal:
 
    1. For every path that can be generated frong
@@ -2740,168 +2760,55 @@ Proof
       gvs[dec_clock_def, empty_locals_def, panSemTheory.empty_locals_def]
      )
   (* Div *)
-  >- (CONV_TAC SYM_CONV >>
-      Cases_on ‘itree_semantics_beh s prog’ >>
-      simp []
-      >- (irule $ iffLR lprefix_lubTheory.build_prefix_lub_intro >>
-          rw []
-          (* lprefix case *)
-          >- (rw [lprefix_lubTheory.lprefix_chain_def] >>
-              Induct_on ‘k’ >>
-              Induct_on ‘k'’ >>
-              qid_spec_tac ‘s’ >>
-              qid_spec_tac ‘prog’ >>
-              recInduct panSemTheory.evaluate_ind >>
-              rw []
-              >~ [‘While’]
-               (* lprefix -> while case *)
-              >- (DISJ1_TAC >>
-                  rw [Once panSemTheory.evaluate_def] >>
-                  TOP_CASE_TAC >>
-                  rw []
-               )
-             )
-           (* lprefix_lub case *)
-          >- (cheat
-           ))
-      >- (cheat)
-      >- (cheat)
-      >- (simp [lprefix_lubTheory.lprefix_lub_def] >>
-          conj_asm1_tac
-          >- (cheat)
-          >- (rw [] >>
-              (* Prove l is the least prefix *)
-              cheat)
-          >- (cheat)
-          >- (cheat)))
-     (*    Cases_on ‘eval s e’ *)
-     (* >- (fs [Once evaluate_def, *)
-     (*         panPropsTheory.eval_upd_clock_eq]) *)
-     (* >- (Cases_on ‘x’ >> gvs [] *)
-     (*     >- (Cases_on ‘w’ >> gvs [] *)
-     (*         >- (Cases_on ‘c' ≠ 0w’ >> gvs [] *)
-     (*             >- (Cases_on ‘s'.clock’ >> gvs [] *)
-     (*                ) *)
-     (*            ) *)
-     (*        ) *)
-     (*    Cases_on ‘fbs_semantics_beh s prog’ *)
-     (* (* Div *) *)
-     (* >-  (fs [fbs_semantics_beh_cases] >> *)
-     (*      CONV_TAC SYM_CONV >> *)
-     (*      Q.PAT_UNDISCH_TAC ‘∀k. _ = SOME TimeOut’ >> *)
-     (*      qid_spec_tac ‘s’ >> *)
-     (*      qid_spec_tac ‘prog’ >> *)
-     (*      recInduct evaluate_ind >> *)
-     (*      rw [] *)
-     (*      (* While *) *)
-     (*      >- (Cases_on ‘eval s' e’ *)
-     (*          >- (fs [Once evaluate_def, *)
-     (*                  panPropsTheory.eval_upd_clock_eq]) *)
-     (*          >- (Cases_on ‘x’ >> gvs [] *)
-     (*              >- (Cases_on ‘w’ >> gvs [] *)
-     (*                  >- (Cases_on ‘c' ≠ 0w’ >> gvs [] *)
-     (*                      >- (Cases_on ‘s'.clock’ >> gvs [] *)
-     (*                         ) *)
-     (*                     ) *)
-     (*                 ) *)
-     (*             ) *)
-     (*         ) *)
-     (*      (* Skip *) *)
-     (*      >- (Cases_on ‘fbs_semantics_beh s Skip’ >> *)
-     (*          fs [fbs_semantics_beh_simps] *)
-     (*          (* Fail is equiv *) *)
-     (*          >- (rw [itree_semantics_beh_simps])) *)
-     (*      (* Dec *) *)
-     (*      >- (Cases_on ‘fbs_semantics_beh s (Dec v e prog)’ *)
-     (*          (* Div *) *)
-     (*          >- (Cases_on ‘eval s e’ >> rw [] *)
-     (*              >- (fs [fbs_semantics_beh_def, *)
-     (*                      evaluate_def] >> *)
-     (*                  gvs [panPropsTheory.eval_upd_clock_eq] >> *)
-     (*                  UNDISCH_TAC “(case *)
-     (*                               some(r,s'). ∃k. *)
-     (*                                 (r = SOME Error ∧ s with clock := k = s') ∧ r ≠ SOME TimeOut *)
-     (*                               of *)
-     (*                                 NONE => SemFail *)
-     (*                               | SOME (r,s') => *)
-     (*                                   case r of *)
-     (*                                     NONE => SemFail *)
-     (*                                   | SOME Error => SemFail *)
-     (*                                   | SOME TimeOut => SemFail *)
-     (*                                   | SOME Break => SemFail *)
-     (*                                   | SOME Continue => SemFail *)
-     (*                                   | SOME (Return v6) => SemTerminate (r,s') s'.ffi.io_events *)
-     (*                                   | SOME (Exception v7 v8) => SemFail *)
-     (*                                   | SOME (FinalFFI v9) => SemTerminate (r,s') s'.ffi.io_events) = *)
-     (*                               SemDiverge l” >> *)
-     (*                  DEEP_INTRO_TAC some_intro >> rw [] >> *)
-     (*                  FULL_CASE_TAC >> gvs []) *)
-     (*              >- (drule fbs_sem_div_compos_thm >> disch_tac >> *)
-     (*                  gvs [] >> *)
-     (*                  ‘SemDiverge l = itree_semantics_beh s (Dec v e prog)’ suffices_by (gvs []) >> *)
-     (*                  irule (GSYM itree_sem_div_compos_thm) >> *)
-     (*                  qexists_tac ‘x’ >> rw [])) *)
-     (*          (* Conv *) *)
-     (*          >- (Cases_on ‘eval s e’ >> rw [] *)
-     (*              >- (fs [fbs_semantics_beh_simps]) *)
-     (*              >- (drule fbs_sem_conv_compos_thm >> disch_tac >> *)
-     (*                  gvs [] >> *)
-     (*                  ‘SemTerminate p l = itree_semantics_beh s (Dec v e prog)’ suffices_by (gvs []) >> *)
-     (*                  irule (GSYM itree_sem_conv_compos_thm) >> *)
-     (*                  qexists_tac ‘x’ >> rw [])) *)
-     (*          (* Fail *) *)
-     (*          >- (Cases_on ‘eval s e’ >> rw [] *)
-     (*              >- (fs [itree_semantics_beh_simps]) *)
-     (*              >- (drule fbs_sem_fail_compos_thm >> disch_tac >> *)
-     (*                  gvs [] >> *)
-     (*                  irule itree_sem_fail_compos_thm >> *)
-     (*                  qexists_tac ‘x’ >> rw []))) *)
-     (*      (* Assign *) *)
-     (*      >- (Cases_on ‘fbs_semantics_beh s (Assign v src)’ >> *)
-     (*          fs [fbs_semantics_beh_simps] >> rw [] >> *)
-     (*          rw [itree_semantics_beh_simps]) *)
-     (*      (* Store *) *)
-     (*      >- (Cases_on ‘fbs_semantics_beh s (Store dst src)’ >> *)
-     (*         ) *)
-     (*     ) *)
-QED
-
-(* JÅP: I don't think this below lemma will be provable as stated *)
-
-Theorem evaluate_mtree_path_corr_ltree:
-  ∀p s. s.clock = k ∧ s.ffi = ffis ⇒
-        ltree_lift query_oracle s.ffi (mrec_sem $ h_prog (p,s)) ≈ Ret (evaluate (p,s))
-Proof
-  recInduct evaluate_ind >>
-  rpt strip_tac
-  (* Skip *)
-  >- (rw [evaluate_def] >>
-      rw [h_prog_def] >>
-      rw [mrec_sem_simps] >>
-      rw [ltree_lift_cases] >>
-      rw [itree_wbisim_refl])
-  (* Dec *)
-  >- (Cases_on ‘eval s e’
-      >- (rw [h_prog_def,
-              h_prog_rule_dec_def] >>
-          rw [mrec_sem_simps] >>
-          rw [evaluate_def] >>
-          rw [ltree_lift_cases] >>
-          rw [itree_wbisim_refl])
-      >- (rw [] >>
-          rw [h_prog_def,
-              h_prog_rule_dec_def] >>
-          drule ltree_lift_compos >>
-          disch_tac >>
-          rw [evaluate_def] >>
-          Cases_on ‘evaluate (prog,s with locals := s.locals |+ (v,x))’ >>
-          rw [] >>
-          pop_assum kall_tac >>
-          pop_assum (assume_tac o (SPEC “(λ(res,s'). Ret (res,s' with locals := res_var s'.locals (v,FLOOKUP (s:('a,'b) state).locals v))):('a,'b) hktree”)) >>
-          fs [mrec_sem_simps,
-              ltree_lift_cases]) >>
-      cheat) >>
-  cheat
+  >- (CONV_TAC SYM_CONV >> fs [] >>
+      rw [itree_semantics_beh_def] >>
+      DEEP_INTRO_TAC some_intro >>
+      reverse CONJ_TAC
+      (* Case: ltree_lift and evaluate diverge... *)
+      >- (rw [FORALL_PROD] >> cheat)
+      (* False cases: ltree_lift converges and evalate diverges... *)
+      >- (simp [FORALL_PROD] >> rw [] >>
+          spose_not_then kall_tac >>
+          last_x_assum mp_tac >> simp [] >>
+          drule itree_wbisim_Ret_FUNPOW  >>
+          simp [PULL_EXISTS] >>
+          ‘s = unclock(reclock s with clock := k)’
+            by (gvs [panItreeSemTheory.reclock_def,
+                     panItreeSemTheory.unclock_def,
+                     panItreeSemTheory.bstate_component_equality]) >>
+          pop_assum $ PURE_ONCE_REWRITE_TAC o single >>
+          rename1 ‘ltree_lift query_oracle (unclock t).ffi’ >>
+          first_x_assum kall_tac >>
+          MAP_EVERY qid_spec_tac [‘t’,‘p_1’,‘p_2’,‘prog’] >>
+          simp [] >>
+          completeInduct_on ‘n’ >>
+          Induct
+          >~ [‘While’]
+          >- (rw [Once evaluate_def] >>
+              simp [panPropsTheory.eval_upd_clock_eq] >>
+              Cases_on ‘eval t e’ >> rw [] >>
+              ntac 2 (TOP_CASE_TAC >> rw []) >>
+              Cases_on ‘c = 0w’ >> rw [] >>
+              qrefine ‘SUC _’ >> rw [] >>
+              rw [dec_clock_def] >>
+              gvs [Once mrec_sem_while_unfold,
+                   panPropsTheory.eval_upd_clock_eq,
+                   ltree_lift_cases,
+                   tau_eq_funpow_tau,
+                   ltree_lift_monad_law] >>
+              imp_res_tac FUNPOW_Tau_bind_thm >>
+              gvs [] >>
+              Cases_on ‘y’ >>
+              (* TODO: Generated names *)
+              last_assum $ drule_at (Pos last) >>
+              rw [] >>
+              qrefine ‘k' + _’ >>
+              Cases_on ‘evaluate (prog,t with clock := k')’ >> gvs [] >>
+              drule_all panPropsTheory.evaluate_add_clock_eq >>
+              simp [] >>
+              disch_then kall_tac >>
+              cheat) >>
+          cheat))
 QED
 
 val _ = export_theory();
