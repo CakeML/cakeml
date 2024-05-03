@@ -1875,7 +1875,7 @@ Proof
   TRY (rename1 ‘Ret xx’>>Cases_on ‘xx’>>gvs[])
   >- (DEEP_INTRO_TAC some_intro >>fs[]>>
       TRY (fs[Once itree_wbisim_cases]>>NO_TAC)>>
-      simp[FORALL_PROD]>>rpt strip_tac>>      
+      simp[FORALL_PROD]>>rpt strip_tac>>
       ‘ltree_lift query_oracle (s with locals := r).ffi
        (mrec_sem (h_prog (q,s with locals := r))) ≈ Ret (q',r')’ by
         simp[Once itree_wbisim_cases]>>
@@ -1984,7 +1984,7 @@ Proof
              first_assum $ irule_at Any>>
              irule itree_wbisim_sym>>fs[])>>
           fs[Abbr‘X’]>>
-          
+
           PURE_CASE_TAC>>gvs[]>>
           PURE_CASE_TAC>>gvs[h_handle_call_ret_def]>>
           TRY (gvs[mrec_sem_simps,ltree_lift_cases]>>
@@ -2522,6 +2522,36 @@ Proof
   rpt (FULL_CASE_TAC>>fs[])
 QED
 
+Theorem dec_simps:
+  mrec_sem (h_prog (Dec v a p, s)) ≈
+  (case eval (reclock s) a of
+   | NONE => Ret (SOME Error,s)
+   | SOME x =>
+       mrec_sem (h_prog (p,s with locals := s.locals |+ (v,x)) >>=
+                        (λ(res,s').
+                           Ret
+                           (res,
+                            s' with locals := res_var s'.locals (v,FLOOKUP s.locals v)))))
+Proof
+  simp[h_prog_def,h_prog_rule_dec_def]>>
+  CASE_TAC>>gvs[]>>
+  simp[mrec_sem_simps]>- simp[Once itreeTauTheory.itree_wbisim_cases]>>
+  irule itreeTauTheory.itree_wbisim_refl
+QED
+
+(* TODO: move *)
+Theorem read_write_bytearray_lemma:
+  ∀n addr bytes.
+   good_dimindex(:α) ∧
+   read_bytearray (addr:α word) n (mem_load_byte m addrs be) = SOME bytes
+   ⇒ write_bytearray addr bytes m addrs be = m
+Proof
+  Induct >>
+  rw[Once $ oneline read_bytearray_def,AllCaseEqs(),mem_load_byte_def] >>
+  gvs[write_bytearray_def,mem_store_byte_def] >>
+  gvs[set_byte_get_byte,good_dimindex_def]
+QED
+
 Theorem itree_semantics_beh_while_SemFail:
   ((itree_semantics_beh (unclock s1) (While e c) = SemFail ∧
     (itree_semantics_beh (unclock s) c =
@@ -2581,34 +2611,152 @@ Proof
    first_assum $ irule_at Any)
 QED
 
-Theorem dec_simps:
-  mrec_sem (h_prog (Dec v a p, s)) ≈
-  (case eval (reclock s) a of
-   | NONE => Ret (SOME Error,s)
-   | SOME x =>
-       mrec_sem (h_prog (p,s with locals := s.locals |+ (v,x)) >>=
-                        (λ(res,s').
-                           Ret
-                           (res,
-                            s' with locals := res_var s'.locals (v,FLOOKUP s.locals v)))))
+Theorem itree_semantics_corres_evaluate:
+  ∀prog t r s'.
+    good_dimindex (:α) ∧
+    evaluate (prog:'a prog,t) = (r,s') ∧
+    r ≠ SOME TimeOut ⇒
+    itree_semantics_beh (unclock t) prog =
+    case r of
+      NONE => SemTerminate (r,unclock s')
+    | SOME Error => SemFail
+    | SOME TimeOut => SemTerminate (r,unclock s')
+    | SOME Break => SemTerminate (r,unclock s')
+    | SOME Continue => SemTerminate (r,unclock s')
+    | SOME (Return v6) => SemTerminate (r,unclock s')
+    | SOME (Exception v7 v8) => SemTerminate (r,unclock s')
+    | SOME (FinalFFI v9) => SemTerminate (r,unclock s')
 Proof
-  simp[h_prog_def,h_prog_rule_dec_def]>>
-  CASE_TAC>>gvs[]>>
-  simp[mrec_sem_simps]>- simp[Once itreeTauTheory.itree_wbisim_cases]>>
-  irule itreeTauTheory.itree_wbisim_refl
+  recInduct evaluate_ind >> rw []
+  >~ [‘While’]
+  >- (qpat_x_assum ‘evaluate _ = _’ $ strip_assume_tac o REWRITE_RULE[Once evaluate_def] >>
+      simp[Once itree_semantics_beh_While] >>
+      gvs[AllCaseEqs(),panPropsTheory.eval_upd_clock_eq,PULL_EXISTS] >>
+      pairarg_tac >>
+      gvs[AllCaseEqs(),panPropsTheory.eval_upd_clock_eq,PULL_EXISTS] >>
+      metis_tac[unclock_reclock_access])
+  >~ [‘Dec’]
+  >- (gvs[itree_semantics_beh_Dec,
+          evaluate_def,
+          panPropsTheory.eval_upd_clock_eq,
+          AllCaseEqs()
+         ] >>
+      pairarg_tac >> gvs[] >>
+      qpat_x_assum ‘_ = itree_semantics_beh _ _’ $ strip_assume_tac o GSYM >>
+      gvs[])
+  >~ [‘Seq’]
+  >- (gvs[itree_semantics_beh_Seq,
+          evaluate_def
+         ] >>
+      pairarg_tac >> gvs[AllCaseEqs()] >>
+      metis_tac[])
+  >~ [‘If’]
+  >- (gvs[itree_semantics_beh_If,
+          evaluate_def,
+          panPropsTheory.eval_upd_clock_eq,
+          AllCaseEqs()])
+  >~ [‘Call’]
+  >- (qpat_x_assum ‘evaluate _ = _’ $ strip_assume_tac o REWRITE_RULE[Once evaluate_def] >>
+      simp[Once itree_semantics_beh_Call] >>
+      gvs[AllCaseEqs(),panPropsTheory.eval_upd_clock_eq,PULL_EXISTS]>>
+      gvs[panPropsTheory.opt_mmap_eval_upd_clock_eq1,empty_locals_defs,
+          set_var_defs] >>
+      metis_tac[unclock_reclock_access])
+  >~ [‘ExtCall’]
+  >- (gvs[evaluate_def,AllCaseEqs(),
+          itree_semantics_beh_def,
+          h_prog_def,
+          h_prog_rule_ext_call_def,
+          panPropsTheory.eval_upd_clock_eq,
+          mrec_sem_simps,
+          ltree_lift_cases,
+          some_def,
+          itree_wbisim_neq,
+          EXISTS_PROD,
+          ffiTheory.call_FFI_def,
+          PULL_EXISTS
+         ] >>
+      TRY(rename1 ‘Error’ >>
+          rw[ELIM_UNCURRY] >>
+          metis_tac[SELECT_REFL,FST,SND,PAIR]) >>
+      rw[ELIM_UNCURRY,
+         itree_wbisim_tau_eqn,
+         query_oracle_def,
+         itree_wbisim_neq,
+         ffiTheory.call_FFI_def,
+         empty_locals_defs
+        ] >>
+      qexists ‘NONE’ >> qexists_tac ‘unclock s’ >>
+      rw[]
+      >- metis_tac[FST,SND,PAIR] >>
+      gvs[state_component_equality,unclock_def] >>
+      irule $ GSYM read_write_bytearray_lemma >>
+      metis_tac[])
+  >~ [‘ShMem’]
+  >- (gvs[evaluate_def,AllCaseEqs(),
+          itree_semantics_beh_def,
+          h_prog_def,
+          h_prog_rule_sh_mem_def,
+          h_prog_rule_sh_mem_op_def,
+          h_prog_rule_sh_mem_load_def,
+          h_prog_rule_sh_mem_store_def,
+          oneline sh_mem_op_def,
+          sh_mem_load_def,
+          sh_mem_store_def,
+          panPropsTheory.eval_upd_clock_eq,
+          mrec_sem_simps,
+          ltree_lift_cases,
+          some_def,
+          itree_wbisim_neq,
+          EXISTS_PROD,
+          ffiTheory.call_FFI_def,
+          PULL_EXISTS
+         ] >>
+      TRY(rename1 ‘Error’ >>
+          rw[ELIM_UNCURRY] >>
+          metis_tac[SELECT_REFL,FST,SND,PAIR]) >>
+      rw[ELIM_UNCURRY,
+         itree_wbisim_tau_eqn,
+         query_oracle_def,
+         itree_wbisim_neq,
+         ffiTheory.call_FFI_def,
+         empty_locals_defs,
+         set_var_def,
+         panSemTheory.set_var_def
+        ]
+     ) >>
+  gvs[evaluate_def,itree_semantics_beh_simps,panPropsTheory.eval_upd_clock_eq,
+      AllCaseEqs()] >>
+  gvs[dec_clock_def, empty_locals_def, panSemTheory.empty_locals_def]
 QED
 
-(* TODO: move *)
-Theorem read_write_bytearray_lemma:
-  ∀n addr bytes.
-   good_dimindex(:α) ∧
-   read_bytearray (addr:α word) n (mem_load_byte m addrs be) = SOME bytes
-   ⇒ write_bytearray addr bytes m addrs be = m
+Theorem ltree_lift_corres_evaluate:
+  good_dimindex (:α) ∧
+  evaluate (prog:'a prog,s) = (r,s') ∧
+  r ≠ SOME TimeOut ∧
+  r ≠ SOME Error ⇒
+  ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,unclock s))) ≈ Ret (r,unclock s')
 Proof
-  Induct >>
-  rw[Once $ oneline read_bytearray_def,AllCaseEqs(),mem_load_byte_def] >>
-  gvs[write_bytearray_def,mem_store_byte_def] >>
-  gvs[set_byte_get_byte,good_dimindex_def]
+  rpt strip_tac >>
+  drule_all itree_semantics_corres_evaluate >>
+  rw[itree_semantics_beh_def,AllCaseEqs()] >>
+  qpat_x_assum ‘$some _ = SOME _’ mp_tac >>
+  DEEP_INTRO_TAC some_intro >>
+  simp[FORALL_PROD] >> rw[]
+QED
+
+Theorem ltree_lift_corres_evaluate_error:
+  good_dimindex (:α) ∧
+  evaluate (prog:'a prog,s) = (SOME Error,s') ⇒
+  ∃s''. ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,unclock s))) ≈ Ret (SOME Error,s'')
+Proof
+  rpt strip_tac >>
+  drule_then drule itree_semantics_corres_evaluate >>
+  rw[itree_semantics_beh_def,AllCaseEqs()] >>
+  qpat_x_assum ‘$some _ = SOME _’ mp_tac >>
+  DEEP_INTRO_TAC some_intro >>
+  simp[FORALL_PROD] >> rw[] >>
+  first_x_assum $ irule_at Any
 QED
 
 Theorem llmsem_while_taus_abound:
@@ -2654,111 +2802,7 @@ Proof
                panItreeSemTheory.unclock_def,
                panItreeSemTheory.bstate_component_equality]) >>
       pop_assum $ PURE_ONCE_REWRITE_TAC o single >>
-      rename1 ‘itree_semantics_beh(unclock t)’ >>
-      rpt $ pop_assum MP_TAC >>
-      MAP_EVERY qid_spec_tac [‘s'’,‘r’,‘t’,‘prog’] >>
-      recInduct evaluate_ind >> rw []
-      >~ [‘While’]
-      >- (qpat_x_assum ‘evaluate _ = _’ $ strip_assume_tac o REWRITE_RULE[Once evaluate_def] >>
-          simp[Once itree_semantics_beh_While] >>
-          gvs[AllCaseEqs(),panPropsTheory.eval_upd_clock_eq,PULL_EXISTS] >>
-          pairarg_tac >>
-          gvs[AllCaseEqs(),panPropsTheory.eval_upd_clock_eq,PULL_EXISTS] >>
-          metis_tac[unclock_reclock_access])
-      >~ [‘Dec’]
-      >- (gvs[itree_semantics_beh_Dec,
-              evaluate_def,
-              panPropsTheory.eval_upd_clock_eq,
-              AllCaseEqs()
-             ] >>
-          pairarg_tac >> gvs[] >>
-          qpat_x_assum ‘_ = itree_semantics_beh _ _’ $ strip_assume_tac o GSYM >>
-          gvs[])
-      >~ [‘Seq’]
-      >- (gvs[itree_semantics_beh_Seq,
-              evaluate_def
-             ] >>
-          pairarg_tac >> gvs[AllCaseEqs()] >>
-          metis_tac[])
-      >~ [‘If’]
-      >- (gvs[itree_semantics_beh_If,
-              evaluate_def,
-              panPropsTheory.eval_upd_clock_eq,
-              AllCaseEqs()])
-      >~ [‘Call’]
-      >- (qpat_x_assum ‘evaluate _ = _’ $ strip_assume_tac o REWRITE_RULE[Once evaluate_def] >>
-          simp[Once itree_semantics_beh_Call] >>
-          gvs[AllCaseEqs(),panPropsTheory.eval_upd_clock_eq,PULL_EXISTS]>>
-          gvs[panPropsTheory.opt_mmap_eval_upd_clock_eq1,empty_locals_defs,
-              set_var_defs] >>
-          metis_tac[unclock_reclock_access])
-      >~ [‘ExtCall’]
-      >- (gvs[evaluate_def,AllCaseEqs(),
-              itree_semantics_beh_def,
-              h_prog_def,
-              h_prog_rule_ext_call_def,
-              panPropsTheory.eval_upd_clock_eq,
-              mrec_sem_simps,
-              ltree_lift_cases,
-              some_def,
-              itree_wbisim_neq,
-              EXISTS_PROD,
-              ffiTheory.call_FFI_def,
-              PULL_EXISTS
-             ] >>
-          TRY(rename1 ‘Error’ >>
-              rw[ELIM_UNCURRY] >>
-              metis_tac[SELECT_REFL,FST,SND,PAIR]) >>
-          rw[ELIM_UNCURRY,
-             itree_wbisim_tau_eqn,
-             query_oracle_def,
-             itree_wbisim_neq,
-             ffiTheory.call_FFI_def,
-             empty_locals_defs
-            ] >>
-          qexists ‘NONE’ >> qexists_tac ‘unclock s’ >>
-          rw[]
-          >- metis_tac[FST,SND,PAIR] >>
-          gvs[state_component_equality,unclock_def] >>
-          irule $ GSYM read_write_bytearray_lemma >>
-          metis_tac[])
-      >~ [‘ShMem’]
-      >- (gvs[evaluate_def,AllCaseEqs(),
-              itree_semantics_beh_def,
-              h_prog_def,
-              h_prog_rule_sh_mem_def,
-              h_prog_rule_sh_mem_op_def,
-              h_prog_rule_sh_mem_load_def,
-              h_prog_rule_sh_mem_store_def,
-              oneline sh_mem_op_def,
-              sh_mem_load_def,
-              sh_mem_store_def,
-              panPropsTheory.eval_upd_clock_eq,
-              mrec_sem_simps,
-              ltree_lift_cases,
-              some_def,
-              itree_wbisim_neq,
-              EXISTS_PROD,
-              ffiTheory.call_FFI_def,
-              PULL_EXISTS
-             ] >>
-          TRY(rename1 ‘Error’ >>
-              rw[ELIM_UNCURRY] >>
-              metis_tac[SELECT_REFL,FST,SND,PAIR]) >>
-          rw[ELIM_UNCURRY,
-             itree_wbisim_tau_eqn,
-             query_oracle_def,
-             itree_wbisim_neq,
-             ffiTheory.call_FFI_def,
-             empty_locals_defs,
-             set_var_def,
-             panSemTheory.set_var_def
-            ]
-         ) >>
-      gvs[evaluate_def,itree_semantics_beh_simps,panPropsTheory.eval_upd_clock_eq,
-          AllCaseEqs()] >>
-      gvs[dec_clock_def, empty_locals_def, panSemTheory.empty_locals_def]
-     )
+      metis_tac[itree_semantics_corres_evaluate])
   (* Div *)
   >- (CONV_TAC SYM_CONV >> fs [] >>
       rw [itree_semantics_beh_def] >>
