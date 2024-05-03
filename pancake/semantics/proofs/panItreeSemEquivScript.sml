@@ -1213,6 +1213,15 @@ Proof
            tau_eq_funpow_tau,empty_locals_defs])
 QED
 
+Theorem ltree_lift_state_lift':
+  ltree_lift query_oracle s.ffi (mrec_sem (h_prog (p,(unclock s)))) ≈ Ret (res,s')
+  ⇒
+  (ltree_lift_state query_oracle s.ffi (mrec_sem (h_prog (p,(unclock s))))) = s'.ffi
+Proof
+  ‘s.ffi = (unclock s).ffi’ by simp[]>>
+  metis_tac[ltree_lift_state_lift]
+QED
+
 Theorem stree_trace_Vis:
   stree_trace f p st (Vis e k) =
   let (a,rbytes,st') = f st e in
@@ -1675,6 +1684,16 @@ Proof
            to_stree_simps,stree_trace_simps,
            LAPPEND_NIL_2ND
            ])
+QED
+
+Theorem stree_trace_ret_events':
+  ltree_lift query_oracle st.ffi (mrec_sem (h_prog (p,(unclock st)))) ≈ Ret (res,st')
+  ⇒ fromList st'.ffi.io_events =
+    fromList st.ffi.io_events ++ₗ stree_trace query_oracle event_filter st.ffi (to_stree (mrec_sem (h_prog (p,(unclock st)))))
+Proof
+  strip_tac>>
+  ‘st.ffi = (unclock st).ffi’ by simp[]>>
+  metis_tac[stree_trace_ret_events]
 QED
 
 Theorem itree_semantics_beh_Seq:
