@@ -298,7 +298,7 @@ Definition pancake_lex_aux_def:
  (case next_token input loc of
   | NONE => []
   | SOME (token, Locs locB locE, rest) =>
-      (token, Locs locB locE) :: pancake_lex_aux rest (next_loc 1 loc))
+      (token, Locs locB locE) :: pancake_lex_aux rest locE)
 Termination
   WF_REL_TAC ‘measure (LENGTH o FST)’ >> rw[]
   >> imp_res_tac next_token_LESS
