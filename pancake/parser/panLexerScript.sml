@@ -179,12 +179,31 @@ Definition skip_comment_def:
    | _ => skip_comment xs (next_loc 1 loc))
 End
 
+Definition skip_block_comment_def:
+  skip_block_comment "" _ = NONE ∧
+  skip_block_comment [_] _ = NONE ∧
+  skip_block_comment (x::y::xs) loc =
+  if x = #"*" ∧ y = #"/" then
+    SOME (xs, next_loc 2 loc)
+  else if x = #"\n" then
+    SOME(y::xs, next_line loc)
+  else
+    skip_block_comment (y::xs) (next_loc 1 loc)
+End
+
 Theorem skip_comment_thm:
   ∀xs l l' str. (skip_comment xs l = SOME (str, l')) ⇒
                               LENGTH str < LENGTH xs
 Proof
-  Induct
-  >> fs[skip_comment_def]
+  Induct >> rw[skip_comment_def] >> res_tac >> rw[]
+QED
+
+Theorem skip_block_comment_thm:
+  ∀xs l l' str. (skip_block_comment xs l = SOME (str, l')) ⇒
+                              LENGTH str < LENGTH xs
+Proof
+  recInduct skip_block_comment_ind
+  >> rw[skip_block_comment_def]
   >> rw[]
   >> res_tac
   >> gvs[]
@@ -219,6 +238,10 @@ Definition next_atom_def:
       (case (skip_comment (TL cs) (next_loc 2 loc)) of
        | NONE => SOME (ErrA «Malformed comment», Locs loc (next_loc 2 loc), "")
        | SOME (rest, loc') => next_atom rest loc')
+    else if isPREFIX "/*" (c::cs) then (* block comment *)
+      (case (skip_block_comment (TL cs) (next_loc 2 loc)) of
+       | NONE => SOME (ErrA «Malformed comment», Locs loc (next_loc 2 loc), "")
+       | SOME (rest, loc') => next_atom rest loc')
     else if isAtom_singleton c then
       SOME (SymA (STRING c []), Locs loc loc, cs)
     else if isAtom_begin_group c then
@@ -232,11 +255,10 @@ Definition next_atom_def:
 Termination
   WF_REL_TAC ‘measure (LENGTH o FST)’
   >> REPEAT STRIP_TAC
-  >> fs[skip_comment_thm]
-  >> Cases_on ‘cs’ >> fs[]
-  >> sg ‘STRLEN p_1 < STRLEN t’
-  >- metis_tac[skip_comment_thm]
-  >> fs[LESS_EQ_IFF_LESS_SUC, LE]
+  >> gvs[]
+  >> MAP_EVERY imp_res_tac [skip_comment_thm,skip_block_comment_thm]
+  >> BasicProvers.PURE_FULL_CASE_TAC
+  >> gvs[]
 End
 
 Theorem next_atom_LESS:
