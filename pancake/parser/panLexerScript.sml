@@ -175,7 +175,7 @@ Definition skip_comment_def:
   skip_comment "" _ = NONE ∧
   skip_comment (x::xs) loc =
   (case x of
-   | #"\n" => SOME (xs, next_loc 1 loc)
+   | #"\n" => SOME (xs, next_line loc)
    | _ => skip_comment xs (next_loc 1 loc))
 End
 
