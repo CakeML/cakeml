@@ -186,7 +186,7 @@ Definition skip_block_comment_def:
   if x = #"*" ∧ y = #"/" then
     SOME (xs, next_loc 2 loc)
   else if x = #"\n" then
-    SOME(y::xs, next_line loc)
+    skip_block_comment (y::xs) (next_line loc)
   else
     skip_block_comment (y::xs) (next_loc 1 loc)
 End
