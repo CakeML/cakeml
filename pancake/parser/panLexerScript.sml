@@ -266,18 +266,12 @@ Theorem next_atom_LESS:
     next_atom input l = SOME (s, l', rest) ⇒ LENGTH rest < LENGTH input
 Proof
   recInduct next_atom_ind >> rw[next_atom_def]
-  >- metis_tac[DECIDE “x < y ⇒ x < SUC y”]
-  >- metis_tac[DECIDE “x < y ⇒ x < SUC y”]
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
-  >- (gvs[CaseEqs ["option", "prod", "list"]]
-      >> drule_then assume_tac skip_comment_thm
-      >> sg ‘STRLEN rest < STRLEN (TL cs)’ >> rw[]
-      >> sg ‘STRLEN (TL cs) < SUC (STRLEN cs)’ >> rw[LENGTH_TL]
-      >> Cases_on ‘cs’ >> simp[])
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
+  >> res_tac >> gvs[AllCaseEqs(),pairTheory.ELIM_UNCURRY]
+  >> MAP_EVERY imp_res_tac [skip_comment_thm,skip_block_comment_thm]
+  >> gvs[]
+  >> resolve_then Any mp_tac (GSYM pairTheory.PAIR) read_while_thm
+  >> simp[LESS_EQ_IFF_LESS_SUC]
+  >> BasicProvers.PURE_FULL_CASE_TAC >> gvs[]
 QED
 
 Definition next_token_def:
