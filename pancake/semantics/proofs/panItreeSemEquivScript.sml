@@ -2798,6 +2798,254 @@ Proof
   rw []
 QED
 
+Theorem ltree_Ret_to_evaluate:
+  ∀s r s' prog:'a prog.
+    good_dimindex (:α) ∧
+    ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,s))) ≈ Ret (r,s') ⇒
+    ∃k k'. evaluate (prog,reclock s with clock := k) = (r,reclock s' with clock := k')
+           ∧ r ≠ SOME TimeOut ∧ k' ≤ k
+Proof
+  simp[GSYM AND_IMP_INTRO,GSYM PULL_FORALL] >> strip_tac >>
+  ConseqConv.ONCE_CONSEQ_REWRITE_TAC ([itree_wbisim_Ret_FUNPOW],[],[]) >>
+  simp[PULL_EXISTS] >>
+  Induct_on ‘n’ using COMPLETE_INDUCTION >>
+  ntac 3 strip_tac >> Cases
+  >~ [‘Skip’]
+  >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
+          ltree_lift_cases,
+          ret_eq_funpow_tau,
+          tau_eq_funpow_tau
+         ] >>
+      rw[state_component_equality])
+  >~ [‘Dec’]
+  >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
+          ltree_lift_cases,ret_eq_funpow_tau,
+          tau_eq_funpow_tau,h_prog_rule_dec_def,
+          panPropsTheory.eval_upd_clock_eq
+         ] >>
+      PURE_FULL_CASE_TAC >>
+      gvs[h_prog_def,mrec_sem_simps,
+          ltree_lift_cases,ret_eq_funpow_tau,
+          tau_eq_funpow_tau,h_prog_rule_dec_def,
+          panPropsTheory.eval_upd_clock_eq,
+          msem_lift_monad_law,
+          ltree_lift_monad_law
+         ]
+      >- rw[state_component_equality] >>
+      imp_res_tac FUNPOW_Tau_bind_thm >>
+      gvs[] >>
+      pairarg_tac >>
+      gvs[] >>
+      rename [‘ltree_lift _ _.ffi _ = FUNPOW Tau mm _’] >>
+      last_x_assum $ qspec_then ‘mm’ mp_tac >>
+      impl_tac >- simp[] >>
+      disch_then $ resolve_then (Pos hd) mp_tac EQ_TRANS >>
+      disch_then $ drule_at $ Pos last >>
+      qmatch_goalsub_abbrev_tac ‘h_prog (a1,a2)’ >>
+      disch_then $ qspecl_then [‘a2’,‘a1’] mp_tac >>
+      unabbrev_all_tac >>
+      simp[] >>
+      strip_tac >>
+      first_x_assum $ irule_at $ Pos last >>
+      gvs[bind_FUNPOW_eqn,mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau]
+     )
+  >~ [‘Assign’]
+  >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
+          ltree_lift_cases,ret_eq_funpow_tau,
+          tau_eq_funpow_tau,h_prog_rule_assign_def,
+          panPropsTheory.eval_upd_clock_eq
+         ] >>
+      rpt(IF_CASES_TAC ORELSE PURE_FULL_CASE_TAC >>
+          gvs[h_prog_def,mrec_sem_simps,
+              ltree_lift_cases,ret_eq_funpow_tau,
+              tau_eq_funpow_tau,
+              panPropsTheory.eval_upd_clock_eq,
+              msem_lift_monad_law,
+              ltree_lift_monad_law
+             ]) >>
+      rw[state_component_equality])
+  >~ [‘Store’]
+  >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
+          ltree_lift_cases,ret_eq_funpow_tau,
+          tau_eq_funpow_tau,h_prog_rule_store_def,
+          panPropsTheory.eval_upd_clock_eq
+         ] >>
+      rpt(IF_CASES_TAC ORELSE PURE_FULL_CASE_TAC >>
+          gvs[h_prog_def,mrec_sem_simps,
+              ltree_lift_cases,ret_eq_funpow_tau,
+              tau_eq_funpow_tau,
+              panPropsTheory.eval_upd_clock_eq,
+              msem_lift_monad_law,
+              ltree_lift_monad_law
+             ]) >>
+      rw[state_component_equality])
+  >~ [‘StoreByte’]
+  >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
+          ltree_lift_cases,ret_eq_funpow_tau,
+          tau_eq_funpow_tau,h_prog_rule_store_byte_def,
+          panPropsTheory.eval_upd_clock_eq
+         ] >>
+      rpt(IF_CASES_TAC ORELSE PURE_FULL_CASE_TAC >>
+          gvs[h_prog_def,mrec_sem_simps,
+              ltree_lift_cases,ret_eq_funpow_tau,
+              tau_eq_funpow_tau,
+              panPropsTheory.eval_upd_clock_eq,
+              msem_lift_monad_law,
+              ltree_lift_monad_law
+             ]) >>
+      rw[state_component_equality])
+  >~ [‘Seq’]
+  >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
+          ltree_lift_cases,ret_eq_funpow_tau,
+          tau_eq_funpow_tau,h_prog_rule_seq_def,
+          panPropsTheory.eval_upd_clock_eq,
+          msem_lift_monad_law,ltree_lift_monad_law
+         ] >>
+      imp_res_tac FUNPOW_Tau_bind_thm >>
+      gvs[] >>
+      pairarg_tac >>
+      gvs[] >>
+      rename [‘ltree_lift _ _.ffi _ = FUNPOW Tau mm _’] >>
+      last_assum $ qspec_then ‘mm’ mp_tac >>
+      impl_tac >- simp[] >>
+      disch_then $ resolve_then (Pos hd) mp_tac EQ_TRANS >>
+      disch_then $ drule_at $ Pos last >>
+      qmatch_goalsub_abbrev_tac ‘h_prog (a1,a2)’ >>
+      disch_then $ qspecl_then [‘a2’,‘a1’] mp_tac >>
+      unabbrev_all_tac >>
+      simp[] >>
+      strip_tac >>
+      reverse PURE_FULL_CASE_TAC
+      >- (gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau] >>
+          first_x_assum $ irule_at $ Pos last >>
+          simp[]) >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
+          tau_eq_funpow_tau] >>
+      imp_res_tac itree_wbisim_Ret_FUNPOW' >>
+      imp_res_tac ltree_lift_state_lift >>
+      gvs[] >>
+      rename1 ‘kka ≤ kkb’ >>
+      first_x_assum $ drule_at $ Pos last >>
+      impl_tac >- simp[] >>
+      strip_tac >>
+      rename1 ‘kkc ≤ kkd’ >>
+      qpat_x_assum ‘evaluate _ = (NONE,_)’ assume_tac >>
+      drule_then (qspec_then ‘kkd’ mp_tac)  panPropsTheory.evaluate_add_clock_eq >>
+      rw[] >>
+      qexists ‘kkb + kkd’ >>
+      qexists ‘kka + kkc’ >>
+      simp[] >>
+      rpt $ qpat_x_assum ‘evaluate _ = (NONE,_)’ kall_tac >>
+      drule_then (qspec_then ‘kka’ mp_tac)  panPropsTheory.evaluate_add_clock_eq >>
+      rw[])
+  >~ [‘If’]
+  >- (cheat)
+  >~ [‘While’]
+  >- (cheat)
+  >~ [‘Break’]
+  >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
+          ltree_lift_cases,ret_eq_funpow_tau,
+          tau_eq_funpow_tau,
+          panPropsTheory.eval_upd_clock_eq
+         ] >>
+      rw[state_component_equality])
+  >~ [‘Continue’]
+  >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
+          ltree_lift_cases,ret_eq_funpow_tau,
+          tau_eq_funpow_tau,
+          panPropsTheory.eval_upd_clock_eq
+         ] >>
+      rw[state_component_equality])
+  >~ [‘Call’]
+  >- (cheat)
+  >~ [‘ExtCall’]
+  >- (PRED_ASSUM is_forall kall_tac >>
+      rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
+          ltree_lift_cases,ret_eq_funpow_tau,
+          tau_eq_funpow_tau,h_prog_rule_ext_call_def,
+          panPropsTheory.eval_upd_clock_eq
+         ] >>
+      rpt(IF_CASES_TAC ORELSE PURE_FULL_CASE_TAC >>
+          gvs[h_prog_def,mrec_sem_simps,
+              ltree_lift_cases,ret_eq_funpow_tau,
+              tau_eq_funpow_tau,
+              panPropsTheory.eval_upd_clock_eq,
+              msem_lift_monad_law,
+              ltree_lift_monad_law,
+              ffiTheory.call_FFI_def,
+              query_oracle_def,empty_locals_defs
+             ]) >>
+      rw[state_component_equality] >>
+      metis_tac[read_write_bytearray_lemma])
+  >~ [‘Raise’]
+  >- (PRED_ASSUM is_forall kall_tac >>
+      rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
+          ltree_lift_cases,ret_eq_funpow_tau,
+          tau_eq_funpow_tau,h_prog_rule_raise_def,
+          panPropsTheory.eval_upd_clock_eq
+         ] >>
+      rpt $ qexists ‘0’ >>
+      rpt(IF_CASES_TAC ORELSE PURE_FULL_CASE_TAC >>
+          gvs[h_prog_def,mrec_sem_simps,
+              ltree_lift_cases,ret_eq_funpow_tau,
+              tau_eq_funpow_tau,
+              panPropsTheory.eval_upd_clock_eq,
+              msem_lift_monad_law,
+              ltree_lift_monad_law
+             ]) >>
+      rw[state_component_equality,empty_locals_defs])
+  >~ [‘Return’]
+  >- (PRED_ASSUM is_forall kall_tac >>
+      rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
+          ltree_lift_cases,ret_eq_funpow_tau,
+          tau_eq_funpow_tau,h_prog_rule_return_def,
+          panPropsTheory.eval_upd_clock_eq
+         ] >>
+      rpt $ qexists ‘0’ >>
+      rpt(IF_CASES_TAC ORELSE PURE_FULL_CASE_TAC >>
+          gvs[h_prog_def,mrec_sem_simps,
+              ltree_lift_cases,ret_eq_funpow_tau,
+              tau_eq_funpow_tau,
+              panPropsTheory.eval_upd_clock_eq,
+              msem_lift_monad_law,
+              ltree_lift_monad_law
+             ]) >>
+      rw[state_component_equality,empty_locals_defs])
+  >~ [‘ShMem’]
+  >- (PRED_ASSUM is_forall kall_tac >>
+      rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
+          ltree_lift_cases,ret_eq_funpow_tau,
+          tau_eq_funpow_tau,h_prog_rule_sh_mem_def,
+          oneline h_prog_rule_sh_mem_op_def,
+          oneline h_prog_rule_sh_mem_load_def,
+          oneline h_prog_rule_sh_mem_store_def,
+          panPropsTheory.eval_upd_clock_eq,
+          oneline sh_mem_op_def,
+          oneline sh_mem_store_def,
+          oneline sh_mem_load_def
+         ] >>
+      rpt(IF_CASES_TAC ORELSE PURE_FULL_CASE_TAC >>
+          gvs[h_prog_def,mrec_sem_simps,
+              ltree_lift_cases,ret_eq_funpow_tau,
+              tau_eq_funpow_tau,
+              panPropsTheory.eval_upd_clock_eq,
+              msem_lift_monad_law,
+              ltree_lift_monad_law,
+              ffiTheory.call_FFI_def,
+              query_oracle_def,empty_locals_defs,
+              set_var_def, panSemTheory.set_var_def
+             ]) >>
+      rw[state_component_equality])
+  >~ [‘Tick’]
+  >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
+          ltree_lift_cases,
+          ret_eq_funpow_tau,
+          tau_eq_funpow_tau
+         ] >>
+      qrefine ‘SUC _’ >>
+      rw[state_component_equality,dec_clock_def])
+QED
+
 (* Final goal:
 
    1. For every path that can be generated frong
