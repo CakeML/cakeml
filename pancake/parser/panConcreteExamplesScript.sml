@@ -73,9 +73,9 @@ val treeEx1 = check_success $ parse_pancake ex1;
 val ex2 = ‘
   fun main() {
     if b & (a ^ c) & d {
-      foo(1, <2, 3>);
+      return foo(1, <2, 3>);
         } else {
-      goo(4, 5, 6);
+      return goo(4, 5, 6);
     }
   }’;
 
@@ -227,18 +227,22 @@ val arg_call_tree = check_success $ parse_tree_pancake argument_call;
 
 val arg_call_parse = check_success $ parse_pancake argument_call;
 
-(** Return call example. It is not currently possible to initialise a variable
-    to a value returned from a function as a variable is declared. Instead, the
-    variable has to be declared beforehand as done below. *)
+(** Tail calls and returning calls
+
+    A function call immediately underneath a return is parsed as a tail call.
+    Tail calls overwrite the caller's stack frame with the callee's and
+    thereby prevent stack explosions.
+ **)
 val ret_call = ‘
   fun main() {
     var r = 0;
-    r = g();
+    r = g(); // This is a returning call (but could be optimised to a tail call)
     return r;
   }
 
   fun g() {
-    return 1;
+    g(); // This is a returning call
+    return g(); // This is a tail call
   }’;
 
 val ret_call_parse_tree = check_success $ parse_tree_pancake ret_call;
@@ -331,7 +335,7 @@ val error_line_ex1 =
   // and these
   // single-line comments
   fun fun main() { //should not interfer with error line reporting
-    return /* nor shoud this */ 1;
+    return /* nor should this */ 1;
   }
  ’
 
@@ -345,7 +349,7 @@ val error_line_ex2 =
   // and these
   // single-line comments
   fun main() { //should not interfer with error line reporting
-    return val /* nor shoud this */ 1;
+    return val /* nor should this */ 1;
   }
  ’
 

@@ -442,18 +442,19 @@ Definition conv_Prog_def:
                               SOME $ SOME (excp, var, prog)
                            od
     | _ => NONE) ∧
-
   (conv_Ret tree =
-    case argsNT tree RetNT of
-    | SOME [id; t] => do var <- conv_ident id;
-                         hdl <- conv_Handle t;
-                         SOME $ SOME (var, hdl)
-                      od
-    | SOME [id] => do var <- conv_ident id;
-                      SOME $ SOME (var, NONE)
-                   od
-    | _ => NONE) ∧
-
+   if tokcheck tree (kw RetK) then
+     SOME $ NONE
+   else
+     case argsNT tree RetNT of
+     | SOME [id; t] => do var <- conv_ident id;
+                          hdl <- conv_Handle t;
+                          SOME $ SOME (var, hdl)
+                       od
+     | SOME [id] => do var <- conv_ident id;
+                       SOME $ SOME (var, NONE)
+                    od
+     | _ => NONE) ∧
   (conv_Prog (Nd nodeNT args) =
      if isNT nodeNT DecNT then
        case args of
@@ -487,19 +488,28 @@ Definition conv_Prog_def:
          [] => NONE
        | r::ts =>
            (case conv_Ret r of
-              NONE => do e' <- conv_Exp r;
+              SOME NONE =>
+                (case ts of
+                   [] => NONE
+                 | r::ts =>
+                     do e' <- conv_Exp r;
+                        args' <- (case ts of [] => SOME []
+                                          | args::_ => conv_ArgList args);
+                        SOME $ TailCall e' args'
+                     od)
+            | NONE => do e' <- conv_Exp r;
                          args' <- (case ts of [] => SOME []
                                            | args::_ => conv_ArgList args);
-                         SOME $ TailCall e' args'
+                         SOME $ Dec «» (Const 0w) $ RetCall «» NONE e' args'
                       od
-            | SOME r' =>
+            | SOME(SOME r') =>
                 (case ts of
                    [] => NONE
                  | e::xs =>
                      do e' <- conv_Exp e;
                         args' <- (case xs of [] => SOME []
                                           | args::_ => conv_ArgList args);
-                        SOME $ Call r' e' args'
+                        SOME $ panLang$Call (SOME r') e' args'
                      od))
      else if isNT nodeNT ProgNT then
        case args of

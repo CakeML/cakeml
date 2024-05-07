@@ -174,7 +174,7 @@ Definition pancake_peg_def[nocompute]:
         (INL WhileNT, seql [consume_kw WhileK; mknt ExpNT;
                             consume_tok LCurT; mknt ProgNT;
                             consume_tok RCurT] (mksubtree WhileNT));
-        (INL CallNT, seql [try (mknt RetNT);
+        (INL CallNT, seql [try (choicel [keep_kw RetK; mknt RetNT]);
                            choicel [seql [consume_tok StarT; mknt ExpNT] I;
                                     mknt FLabelNT];
                            consume_tok LParT; try (mknt ArgListNT);
