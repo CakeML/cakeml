@@ -1214,11 +1214,10 @@ Proof
 QED
 
 Theorem ltree_lift_state_lift':
-  ltree_lift query_oracle s.ffi (mrec_sem (h_prog (p,(unclock s)))) ≈ Ret (res,s')
-  ⇒
-  (ltree_lift_state query_oracle s.ffi (mrec_sem (h_prog (p,(unclock s))))) = s'.ffi
+ltree_lift query_oracle (s:('a,'b)state).ffi (mrec_sem (h_prog (p,t))) ≈ Ret (res,s') ∧
+t.ffi = s.ffi  ==>
+(ltree_lift_state query_oracle s.ffi (mrec_sem (h_prog (p,t)))) = s'.ffi
 Proof
-  ‘s.ffi = (unclock s).ffi’ by simp[]>>
   metis_tac[ltree_lift_state_lift]
 QED
 
@@ -1687,13 +1686,12 @@ Proof
 QED
 
 Theorem stree_trace_ret_events':
-  ltree_lift query_oracle st.ffi (mrec_sem (h_prog (p,(unclock st)))) ≈ Ret (res,st')
+  ltree_lift query_oracle (s:('a,'b)state).ffi (mrec_sem (h_prog (p,st))) ≈ Ret (res,st') ∧
+  st.ffi = s.ffi
   ⇒ fromList st'.ffi.io_events =
-    fromList st.ffi.io_events ++ₗ stree_trace query_oracle event_filter st.ffi (to_stree (mrec_sem (h_prog (p,(unclock st)))))
+    fromList st.ffi.io_events ++ₗ stree_trace query_oracle event_filter st.ffi (to_stree (mrec_sem (h_prog (p,st))))
 Proof
-  strip_tac>>
-  ‘st.ffi = (unclock st).ffi’ by simp[]>>
-  metis_tac[stree_trace_ret_events]
+   metis_tac[stree_trace_ret_events]
 QED
 
 Theorem itree_semantics_beh_Seq:
@@ -2798,6 +2796,52 @@ Proof
   rw []
 QED
 
+Theorem  nonret_trans:
+  (∀p. ¬(X ≈ Ret p)) ∧
+  X ≈ Y ⇒
+  (∀w. ¬(Y ≈ Ret w))
+Proof
+  rpt strip_tac>>
+  drule_then rev_drule itree_wbisim_trans>>
+  rw[]
+QED
+
+Theorem ret_bind_nonret2:
+  X ≈ Ret p ⇒
+  (∀p. ¬(X >>= Y ≈ Ret p)) = (∀w. ¬(Y p ≈ Ret w))
+Proof
+  rpt strip_tac>>
+  rw[EQ_IMP_THM]>>strip_tac
+  >- (‘X >>= Y ≈ Ret w’ by
+        (irule itree_wbisim_trans>>
+         irule_at Any itree_bind_resp_t_wbisim>>
+         first_assum $ irule_at Any>>
+         simp[Once itree_bind_thm])>>gvs[])>>
+  ‘Y p ≈ Ret p'’ by
+    (irule itree_wbisim_trans>>
+     first_assum $ irule_at Any>>
+rev_drule itree_bind_resp_t_wbisim>>
+  disch_then $ qspec_then ‘Y’ assume_tac>>
+     fs[Once itree_bind_thm]>>
+     irule itree_wbisim_sym>>gvs[])>>gvs[]
+QED
+
+Theorem bind_left_div_Ret:
+  (∀p. ¬(X >>=
+           ltree_lift query_oracle st ∘ mrec_sem ∘ Ret ≈
+           Ret p)) ⇒
+  (∀p. ¬(X ≈ Ret p))
+Proof
+  rpt strip_tac>>
+  first_x_assum $ qspec_then ‘p’ assume_tac>>
+  qmatch_asmsub_abbrev_tac ‘_ >>= Y’>>
+  ‘X >>= Y ≈ ((Ret p) >>= Y)’
+    by (irule itree_bind_resp_t_wbisim>>gvs[])>>
+  fs[Abbr‘Y’]>>
+  fs[mrec_sem_simps,ltree_lift_cases]>>
+  gvs[]
+QED
+
 Theorem ltree_Ret_to_evaluate:
   ∀s r s' prog:'a prog.
     good_dimindex (:α) ∧
@@ -3044,6 +3088,21 @@ Proof
          ] >>
       qrefine ‘SUC _’ >>
       rw[state_component_equality,dec_clock_def])
+QED
+
+Theorem ltree_Ret_to_evaluate':
+  ∀s r s' prog:'a prog.
+    good_dimindex (:α) ∧
+    ltree_lift query_oracle (t:('a,'b)state).ffi (mrec_sem (h_prog (prog,unclock s))) ≈
+               Ret (r,s')
+    ∧ s.ffi = t.ffi ⇒
+    ∃k k'. evaluate (prog,s with clock := k) = (r,reclock s' with clock := k')
+           ∧ r ≠ SOME TimeOut ∧ k' ≤ k
+Proof
+  rpt strip_tac>>
+  drule ltree_Ret_to_evaluate>>
+  disch_then $ qspecl_then [‘unclock s’,‘r’,‘s'’,‘prog’] assume_tac>>
+  gvs[]>>metis_tac[]
 QED
 
 (* Final goal:
