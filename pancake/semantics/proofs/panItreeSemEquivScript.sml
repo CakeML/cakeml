@@ -3209,7 +3209,12 @@ Proof
     >- (fs[Abbr‘X’]>>Cases_on ‘w’>>
         drule_then drule ltree_Ret_to_evaluate'>>gvs[]>>strip_tac>>
         qspecl_then [‘prog’,‘x’,‘k-x.clock’] assume_tac(panPropsTheory.evaluate_add_clock_io_events_mono)>>
-        ‘x.clock < k’ by cheat>>
+        ‘x.clock < k’ by
+          (CCONTR_TAC>>fs[NOT_LESS]>>
+           drule panPropsTheory.evaluate_add_clock_eq>>
+           disch_then $ qspec_then ‘x.clock-k’ assume_tac>>gvs[]>>
+           ‘x with clock := x.clock = x’ by
+             simp[state_component_equality]>>fs[])>>
         gvs[]>>
         imp_res_tac stree_trace_ret_events'>>gvs[]>>
         drule_then drule (iffLR ret_bind_nonret)>>strip_tac>>
@@ -3263,7 +3268,13 @@ Proof
             qspecl_then [‘x’,‘r'’,‘dec_clock x’,‘NONE’,‘prog’] assume_tac(GEN_ALL ltree_Ret_to_evaluate')>>
             gvs[]>>
             qspecl_then [‘prog’,‘dec_clock x’,‘k-(dec_clock x).clock’] assume_tac(panPropsTheory.evaluate_add_clock_io_events_mono)>>
-            ‘(dec_clock x).clock < k’ by cheat>>
+            ‘(dec_clock x).clock < k’ by
+              (CCONTR_TAC>>fs[NOT_LESS]>>
+               drule panPropsTheory.evaluate_add_clock_eq>>
+               disch_then $ qspec_then ‘(dec_clock x).clock-k’ assume_tac>>
+               gvs[]>>
+               ‘(dec_clock x with clock := (dec_clock x).clock) = dec_clock x’
+                 by simp[state_component_equality]>>fs[])>>
             gvs[IS_PREFIX_APPEND]>>
             imp_res_tac stree_trace_ret_events'>>gvs[]>>
             fs[GSYM LAPPEND_fromList]>>
@@ -3278,7 +3289,13 @@ Proof
         qspecl_then [‘x’,‘r'’,‘dec_clock x’,‘SOME Continue’,‘prog’] assume_tac(GEN_ALL ltree_Ret_to_evaluate')>>
         gvs[]>>
         qspecl_then [‘prog’,‘dec_clock x’,‘k-(dec_clock x).clock’] assume_tac(panPropsTheory.evaluate_add_clock_io_events_mono)>>
-        ‘(dec_clock x).clock < k’ by cheat>>
+        ‘(dec_clock x).clock < k’ by
+              (CCONTR_TAC>>fs[NOT_LESS]>>
+               drule panPropsTheory.evaluate_add_clock_eq>>
+               disch_then $ qspec_then ‘(dec_clock x).clock-k’ assume_tac>>
+               gvs[]>>
+               ‘(dec_clock x with clock := (dec_clock x).clock) = dec_clock x’
+                 by simp[state_component_equality]>>fs[])>>
         gvs[IS_PREFIX_APPEND]>>
         imp_res_tac stree_trace_ret_events'>>gvs[]>>
         fs[GSYM LAPPEND_fromList]>>
@@ -3329,7 +3346,13 @@ Proof
         qspecl_then [‘x’,‘r'’,‘dec_clock x with locals := newlocals’,‘SOME (Exception m v)’,‘prog’] assume_tac(GEN_ALL ltree_Ret_to_evaluate')>>
         gvs[]>>
         qspecl_then [‘prog’,‘dec_clock x with locals := newlocals’,‘k-(dec_clock x).clock’] assume_tac(panPropsTheory.evaluate_add_clock_io_events_mono)>>
-        ‘(dec_clock x).clock < k’ by cheat>>
+        ‘(dec_clock x).clock < k’ by
+              (CCONTR_TAC>>fs[NOT_LESS]>>
+               drule panPropsTheory.evaluate_add_clock_eq>>
+               disch_then $ qspec_then ‘(dec_clock x).clock-k’ assume_tac>>
+               gvs[]>>
+               ‘(dec_clock x with clock := (dec_clock x).clock) = dec_clock x’
+                 by simp[state_component_equality]>>fs[])>>
         gvs[IS_PREFIX_APPEND,empty_locals_defs]>>
         imp_res_tac stree_trace_ret_events'>>gvs[]>>
         fs[GSYM LAPPEND_fromList]>>
