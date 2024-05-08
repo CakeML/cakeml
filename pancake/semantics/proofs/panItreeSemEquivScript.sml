@@ -1213,14 +1213,6 @@ Proof
            tau_eq_funpow_tau,empty_locals_defs])
 QED
 
-Theorem ltree_lift_state_lift':
-ltree_lift query_oracle (s:('a,'b)state).ffi (mrec_sem (h_prog (p,t))) ≈ Ret (res,s') ∧
-t.ffi = s.ffi  ==>
-(ltree_lift_state query_oracle s.ffi (mrec_sem (h_prog (p,t)))) = s'.ffi
-Proof
-  metis_tac[ltree_lift_state_lift]
-QED
-
 Theorem stree_trace_Vis:
   stree_trace f p st (Vis e k) =
   let (a,rbytes,st') = f st e in
@@ -3105,6 +3097,50 @@ Proof
   gvs[]>>metis_tac[]
 QED
 
+Theorem ltree_lift_state_lift':
+  ltree_lift query_oracle s.ffi (mrec_sem (h_prog (p,(unclock s)))) ≈ Ret (res,s')
+  ⇒
+  (ltree_lift_state query_oracle s.ffi (mrec_sem (h_prog (p,(unclock s))))) = s'.ffi
+Proof
+  ‘s.ffi = (unclock s).ffi’ by simp[]>>
+  metis_tac[ltree_lift_state_lift]
+QED
+
+
+val r = “r:('a,'b) bstate”;
+
+Theorem foo:
+  good_dimindex (:α) ∧
+  ltree_lift query_oracle ^r.ffi (mrec_sem (h_prog (prog,r))) ≈ Ret (p,q) ∧ p ≠ SOME TimeOut
+  ⇒
+  ∃k. FST (evaluate (prog,r' with clock := k + r'.clock)) ≠ SOME TimeOut
+Proof
+  cheat
+QED
+
+Theorem mrec_sem_while_never_timeout:
+  ltree_lift query_oracle r.ffi (mrec_sem (h_prog (While e p,r))) = FUNPOW Tau n (Ret (res,r'))
+  ⇔ res ≠ SOME TimeOut
+Proof
+  EQ_TAC
+  >- (rw [Once mrec_sem_while_unfold] >>
+      Cases_on ‘eval (reclock r) e’ >> gvs []
+      >- (gvs [ltree_lift_cases] >>
+          drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+          gvs [itree_wbisim_neq])
+      >- (reverse (Cases_on ‘x’ >> gvs [ltree_lift_cases])
+          >- (dxrule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+              gvs [itree_wbisim_neq])
+          >- (reverse (Cases_on ‘w’ >> gvs [ltree_lift_cases])
+              >- (dxrule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+                  gvs [itree_wbisim_neq])
+              >- (Cases_on ‘c = 0w’ >> gvs [ltree_lift_cases]
+                  >- (dxrule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+                      gvs [itree_wbisim_neq])
+                  >- (cheat)))))
+  >- (cheat)
+QED
+
 (* Final goal:
 
    1. For every path that can be generated frong
@@ -3152,9 +3188,9 @@ Proof
           MAP_EVERY qid_spec_tac [‘t’,‘p_1’,‘p_2’,‘prog’] >>
           simp [] >>
           completeInduct_on ‘n’ >>
-          Induct
+          Cases_on ‘prog’
           >~ [‘While’]
-          >- (rw [Once evaluate_def] >>
+          >- (rw [] >> rw [Once evaluate_def] >>
               simp [panPropsTheory.eval_upd_clock_eq] >>
               Cases_on ‘eval t e’ >> rw [] >>
               ntac 2 (TOP_CASE_TAC >> rw []) >>
@@ -3166,19 +3202,32 @@ Proof
                    ltree_lift_cases,
                    tau_eq_funpow_tau,
                    ltree_lift_monad_law] >>
-              imp_res_tac FUNPOW_Tau_bind_thm >>
-              gvs [] >>
+              imp_res_tac FUNPOW_Tau_bind_thm >> gvs [] >>
               Cases_on ‘y’ >>
               (* TODO: Generated names *)
-              last_assum $ drule_at (Pos last) >>
-              rw [] >>
+              last_assum $ drule_at (Pos last) >> rw [] >>
               qrefine ‘k' + _’ >>
-              Cases_on ‘evaluate (prog,t with clock := k')’ >> gvs [] >>
-              drule_all panPropsTheory.evaluate_add_clock_eq >>
-              simp [] >>
-              disch_then kall_tac >>
-              cheat) >>
-          cheat))
+              Cases_on ‘evaluate (p,t with clock := k')’ >> gvs [] >>
+              drule_all panPropsTheory.evaluate_add_clock_eq >> simp [] >>
+              Cases_on ‘q'’ >> rw []
+              >- (Cases_on ‘q’
+                  >- (gvs [ltree_lift_cases,
+                            tau_eq_funpow_tau] >>
+                      drule_then (assume_tac o (MATCH_MP ltree_lift_state_lift')) itree_wbisim_Ret_FUNPOW' >>
+                      gvs [] >>
+                      ‘ltree_lift query_oracle (reclock r).ffi (mrec_sem (h_prog (While e p,unclock (reclock r)))) =
+                       FUNPOW Tau n' (Ret (p_1,p_2))’ by (fs []) >>
+                      irule foo >> simp [] >>
+                      qexistsl_tac [‘p_1’,‘p_2’,‘r’] >> reverse $ rw []
+                      >- rw [FUNPOW_Tau_wbisim] >>
+                      irule $ iffLR mrec_sem_while_never_timeout >>
+                      metis_tac [])
+                  >- (cheat))
+              >- (FULL_CASE_TAC >> rw [] >>
+                  (* The "continue" case *)
+                  cheat)) >>
+          (* recInduct over all other progs *)
+             cheat))
 QED
 
 val _ = export_theory();
