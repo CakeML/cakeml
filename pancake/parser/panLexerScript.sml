@@ -175,16 +175,35 @@ Definition skip_comment_def:
   skip_comment "" _ = NONE ∧
   skip_comment (x::xs) loc =
   (case x of
-   | #"\n" => SOME (xs, next_loc 1 loc)
+   | #"\n" => SOME (xs, next_line loc)
    | _ => skip_comment xs (next_loc 1 loc))
+End
+
+Definition skip_block_comment_def:
+  skip_block_comment "" _ = NONE ∧
+  skip_block_comment [_] _ = NONE ∧
+  skip_block_comment (x::y::xs) loc =
+  if x = #"*" ∧ y = #"/" then
+    SOME (xs, next_loc 2 loc)
+  else if x = #"\n" then
+    skip_block_comment (y::xs) (next_line loc)
+  else
+    skip_block_comment (y::xs) (next_loc 1 loc)
 End
 
 Theorem skip_comment_thm:
   ∀xs l l' str. (skip_comment xs l = SOME (str, l')) ⇒
                               LENGTH str < LENGTH xs
 Proof
-  Induct
-  >> fs[skip_comment_def]
+  Induct >> rw[skip_comment_def] >> res_tac >> rw[]
+QED
+
+Theorem skip_block_comment_thm:
+  ∀xs l l' str. (skip_block_comment xs l = SOME (str, l')) ⇒
+                              LENGTH str < LENGTH xs
+Proof
+  recInduct skip_block_comment_ind
+  >> rw[skip_block_comment_def]
   >> rw[]
   >> res_tac
   >> gvs[]
@@ -219,6 +238,10 @@ Definition next_atom_def:
       (case (skip_comment (TL cs) (next_loc 2 loc)) of
        | NONE => SOME (ErrA «Malformed comment», Locs loc (next_loc 2 loc), "")
        | SOME (rest, loc') => next_atom rest loc')
+    else if isPREFIX "/*" (c::cs) then (* block comment *)
+      (case (skip_block_comment (TL cs) (next_loc 2 loc)) of
+       | NONE => SOME (ErrA «Malformed comment», Locs loc (next_loc 2 loc), "")
+       | SOME (rest, loc') => next_atom rest loc')
     else if isAtom_singleton c then
       SOME (SymA (STRING c []), Locs loc loc, cs)
     else if isAtom_begin_group c then
@@ -232,11 +255,10 @@ Definition next_atom_def:
 Termination
   WF_REL_TAC ‘measure (LENGTH o FST)’
   >> REPEAT STRIP_TAC
-  >> fs[skip_comment_thm]
-  >> Cases_on ‘cs’ >> fs[]
-  >> sg ‘STRLEN p_1 < STRLEN t’
-  >- metis_tac[skip_comment_thm]
-  >> fs[LESS_EQ_IFF_LESS_SUC, LE]
+  >> gvs[]
+  >> MAP_EVERY imp_res_tac [skip_comment_thm,skip_block_comment_thm]
+  >> BasicProvers.PURE_FULL_CASE_TAC
+  >> gvs[]
 End
 
 Theorem next_atom_LESS:
@@ -244,18 +266,12 @@ Theorem next_atom_LESS:
     next_atom input l = SOME (s, l', rest) ⇒ LENGTH rest < LENGTH input
 Proof
   recInduct next_atom_ind >> rw[next_atom_def]
-  >- metis_tac[DECIDE “x < y ⇒ x < SUC y”]
-  >- metis_tac[DECIDE “x < y ⇒ x < SUC y”]
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
-  >- (gvs[CaseEqs ["option", "prod", "list"]]
-      >> drule_then assume_tac skip_comment_thm
-      >> sg ‘STRLEN rest < STRLEN (TL cs)’ >> rw[]
-      >> sg ‘STRLEN (TL cs) < SUC (STRLEN cs)’ >> rw[LENGTH_TL]
-      >> Cases_on ‘cs’ >> simp[])
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
+  >> res_tac >> gvs[AllCaseEqs(),pairTheory.ELIM_UNCURRY]
+  >> MAP_EVERY imp_res_tac [skip_comment_thm,skip_block_comment_thm]
+  >> gvs[]
+  >> resolve_then Any mp_tac (GSYM pairTheory.PAIR) read_while_thm
+  >> simp[LESS_EQ_IFF_LESS_SUC]
+  >> BasicProvers.PURE_FULL_CASE_TAC >> gvs[]
 QED
 
 Definition next_token_def:
@@ -282,7 +298,7 @@ Definition pancake_lex_aux_def:
  (case next_token input loc of
   | NONE => []
   | SOME (token, Locs locB locE, rest) =>
-      (token, Locs locB locE) :: pancake_lex_aux rest (next_loc 1 loc))
+      (token, Locs locB locE) :: pancake_lex_aux rest locE)
 Termination
   WF_REL_TAC ‘measure (LENGTH o FST)’ >> rw[]
   >> imp_res_tac next_token_LESS

@@ -42,6 +42,7 @@ fun parse_pancake q =
   end
 
 val check_success = assert $ sumSyntax.is_inl o rhs o concl
+val check_failure = assert $ sumSyntax.is_inr o rhs o concl
 
 (** Examples can be written using quoted strings and passed to the ML
     function parse_pancake. *)
@@ -310,5 +311,44 @@ val shmem_ex = ‘
   }’;
 
 val shmem_ex_parse =  check_success $ parse_pancake shmem_ex;
+
+val comment_ex =
+ ‘/* this /* non-recursive block comment
+   */
+  // and these single-line comments
+  fun main() { //should not interfer with parsing
+    return /* nor shoud this */ 1;
+  }
+ ’
+
+val comment_ex_parse = check_success $ parse_pancake comment_ex
+
+val error_line_ex1 =
+ ‘/* this
+  nasty /* non recursive /*
+  block comment
+  */
+  // and these
+  // single-line comments
+  fun fun main() { //should not interfer with error line reporting
+    return /* nor shoud this */ 1;
+  }
+ ’
+
+val error_line_ex1_parse = check_failure $ parse_pancake error_line_ex1
+
+val error_line_ex2 =
+ ‘/* this
+  nasty /* non recursive /*
+  block comment
+  */
+  // and these
+  // single-line comments
+  fun main() { //should not interfer with error line reporting
+    return val /* nor shoud this */ 1;
+  }
+ ’
+
+val error_line_ex2_parse = check_failure $ parse_pancake error_line_ex2
 
 val _ = export_theory();
