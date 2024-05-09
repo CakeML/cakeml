@@ -112,25 +112,6 @@ Proof
      ALLGOALS (rw [Once itree_iter_thm])
 QED
 
-(* this lemma is false as stated.
-    Counterexample:
-      ht = Vis (INL (Skip,ARB)) $ K $ Ret x
-Theorem msem_ret_wbisim_eq:
-  mrec_sem (Vis (INL (Skip,ARB)) $ K $ Ret x) ≈ Ret x ⇒
-  ht ≈ Ret x
-Proof
-  cheat
-QED
-*)
-
-(* this lemma is false as stated. Counterexample: u = Tau $ Ret x
-Theorem itree_wbisim_ret_u:
-  Ret x ≈ u ⇒ u = Ret x
-Proof
-  cheat
-QED
-*)
-
 Theorem strip_tau_FUNPOW:
   ∀t1 t2. strip_tau t1 t2 ⇒
         ∃n. t1 = FUNPOW Tau n $ t2
@@ -576,15 +557,6 @@ Proof
   rw [mrec_sem_simps]
 QED
 
-(* this lemma appears to be about a combinator we no longer use
-Theorem mrec_sem_leaf_compos:
-  leaf_of ffis (mrec_sem (rh seed)) = Return x ⇒
-  leaf_of ffis (mrec_sem (Vis (INL seed) k)) = leaf_of ffis (mrec_sem (k x))
-Proof
-  cheat
-QED
-*)
-
 (* Main correspondence theorem *)
 
 (* Extension for ffi$behaviour capturing evaluation result
@@ -629,14 +601,6 @@ Definition itree_semantics_beh_def:
       | NONE => SemDiverge (fromList(s.ffi.io_events) ++ₗ stree_trace query_oracle event_filter s.ffi (to_stree (mrec_sem (h_prog (prog,s)))))
 End
 
-(*
-Theorem itree_sem_div_compos_thm:
-  itree_semantics_beh (s with locals := s.locals |+ (v,x)) prog = SemDiverge l ⇒
-  itree_semantics_beh s (Dec v e prog) = SemDiverge l
-Proof
-  cheat
-QED
-*)
 Theorem fbs_sem_div_compos_thm:
   fbs_semantics_beh s (Dec v e prog) = SemDiverge l ∧
   eval (reclock s) e = SOME x ⇒
@@ -702,38 +666,6 @@ Proof
   qexists_tac ‘k’>>
   pairarg_tac>>fs[panItreeSemTheory.reclock_def]
 QED
-
-(* These should all be subsumed by simp rules above
-Theorem fbs_sem_conv_compos_thm:
-  fbs_semantics_beh s (Dec v e prog) = SemTerminate p l ∧
-  eval (reclock s) e = SOME x ⇒
-  fbs_semantics_beh (s with locals := s.locals |+ (v,x)) prog = SemTerminate p l
-Proof
-  cheat
-QED
-
-Theorem itree_sem_conv_compos_thm:
-  itree_semantics_beh (s with locals := s.locals |+ (v,x)) prog = SemTerminate p l ⇒
-  itree_semantics_beh s (Dec v e prog) = SemTerminate p l
-Proof
-  cheat
-QED
-
-Theorem fbs_sem_fail_compos_thm:
-  fbs_semantics_beh s (Dec v e prog) = SemFail ∧
-  eval (reclock s) e = SOME x ⇒
-  fbs_semantics_beh (s with locals := s.locals |+ (v,x)) prog = SemFail
-Proof
-  cheat
-QED
-
-Theorem itree_sem_fail_compos_thm:
-  itree_semantics_beh (s with locals := s.locals |+ (v,x)) prog = SemFail ⇒
-  itree_semantics_beh s (Dec v e prog) = SemFail
-Proof
-  cheat
-QED
-*)
 
 Theorem fbs_semantics_beh_simps:
   fbs_semantics_beh s Skip = SemTerminate (NONE,s) ∧
