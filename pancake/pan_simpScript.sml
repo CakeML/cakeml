@@ -39,7 +39,7 @@ End
 Definition seq_call_ret_def:
   seq_call_ret prog =
    dtcase prog of
-    | Seq (RetCall rv1 NONE trgt args) (Return (Var (rv2:mlstring))) =>
+    | Seq (AssignCall rv1 NONE trgt args) (Return (Var (rv2:mlstring))) =>
       if rv1 = rv2 then (TailCall trgt args) else prog
     | other => other
 End

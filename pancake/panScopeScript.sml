@@ -68,7 +68,7 @@ Definition scope_check_prog_def:
     OPTION_CHOICE
       (scope_check_exp ctxt trgt)
       (scope_check_exps ctxt args) ∧
-  scope_check_prog ctxt (RetCall rt hdl trgt args) =
+  scope_check_prog ctxt (AssignCall rt hdl trgt args) =
     OPTION_CHOICE
       (scope_check_exp ctxt trgt)
       (OPTION_CHOICE

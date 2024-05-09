@@ -500,7 +500,7 @@ Definition conv_Prog_def:
             | NONE => do e' <- conv_Exp r;
                          args' <- (case ts of [] => SOME []
                                            | args::_ => conv_ArgList args);
-                         SOME $ Dec «» (Const 0w) $ RetCall «» NONE e' args'
+                         SOME $ Dec «» (Const 0w) $ AssignCall «» NONE e' args'
                       od
             | SOME(SOME r') =>
                 (case ts of
