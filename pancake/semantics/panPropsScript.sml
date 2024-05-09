@@ -538,7 +538,7 @@ Proof
 QED
 
 Theorem evaluate_clock_sub:
-  !p t st res ck.
+  !p t res st ck.
     evaluate (p,t) = (res,st with clock := st.clock + ck) ∧
     res <> SOME TimeOut ⇒
     evaluate (p,t with clock := t.clock - ck) = (res,st)
