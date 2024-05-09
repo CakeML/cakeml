@@ -205,7 +205,18 @@ Definition compile_def:
     | ce::ces =>
      (case rtyp of
        | NONE => Call NONE ce args
-       | SOME (rt, hdl) =>
+       | SOME (NONE, hdl) =>
+           (case hdl of
+             | NONE => Call (SOME (NONE, Skip, NONE)) ce args
+             | SOME (eid, evar, p) =>
+                (case FLOOKUP ctxt.eids eid of
+                  | NONE => Call (SOME (NONE, Skip, NONE)) ce args
+                  | SOME neid =>
+                    let comp_hdl = compile ctxt p;
+                        hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
+                      Call (SOME (NONE, Skip,
+                                  (SOME (neid, hndlr)))) ce args))
+       | SOME (SOME rt, hdl) =>
          (case wrap_rt (FLOOKUP ctxt.vars rt) of
           | NONE =>
             (case hdl of
@@ -229,6 +240,7 @@ Definition compile_def:
                       Call (SOME ((ret_var sh ns), (ret_hdl sh ns),
                               (SOME (neid, hndlr)))) ce args))))
     | [] => Skip) /\
+  (compile ctxt (DecCall v e es p) = Skip (* TODO *)) /\
   (compile ctxt (ExtCall f ptr1 len1 ptr2 len2) =
    let
      (ptr1',sh1) = compile_exp ctxt ptr1;
