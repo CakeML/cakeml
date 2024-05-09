@@ -14,7 +14,7 @@ local open alignmentTheory
            wordLangTheory (* for word_op and word_sh *)
            ffiTheory
            panPropsTheory
-            in end;
+in end;
 
 val _ = new_theory "panItreeSemEquiv";
 
@@ -2985,7 +2985,81 @@ Proof
   >~ [‘If’]
   >- (cheat)
   >~ [‘While’]
-  >- (cheat)
+  >- (rw [Once evaluate_def] >>
+      simp [panPropsTheory.eval_upd_clock_eq] >>
+      Cases_on ‘eval (reclock s) e’ >> rw []
+      >- (gvs [h_prog_def,h_prog_rule_while_def,mrec_sem_simps,
+               Once itree_iter_thm,ltree_lift_cases] >>
+          drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+          ‘r = SOME Error’ by (gvs [itree_wbisim_neq]) >>
+          ‘s = s'’ by (gvs [itree_wbisim_neq]) >>
+          qexistsl_tac [‘k’,‘k’] >> rw []) >>
+          ntac 2 (reverse $ TOP_CASE_TAC
+      >- (gvs [h_prog_def,h_prog_rule_while_def,mrec_sem_simps,
+               Once itree_iter_thm,ltree_lift_cases] >>
+          drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+          ‘r = SOME Error’ by (gvs [itree_wbisim_neq]) >>
+          ‘s = s'’ by (gvs [itree_wbisim_neq]) >>
+          qexistsl_tac [‘k’,‘k’] >> rw [])) >>
+      Cases_on ‘c = 0w’ >> rw []
+      >- (gvs [h_prog_def,h_prog_rule_while_def,mrec_sem_simps,
+               Once itree_iter_thm,ltree_lift_cases] >>
+          drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+          ‘r = NONE’ by (gvs [itree_wbisim_neq]) >>
+          ‘s = s'’ by (gvs [itree_wbisim_neq]) >>
+          qexistsl_tac [‘k’,‘k’] >> rw []) >>
+      qrefine ‘SUC _’ >> rw [] >>
+      rw [dec_clock_def] >>
+      gvs [Once mrec_sem_while_unfold,
+           panPropsTheory.eval_upd_clock_eq,
+           ltree_lift_cases,tau_eq_funpow_tau,
+           ltree_lift_monad_law] >>
+      imp_res_tac FUNPOW_Tau_bind_thm >> gvs [] >>
+      Cases_on ‘y’ >>
+      (* TODO: generated names *)
+      last_assum $ drule_at (Pos last) >> rw [] >>
+      qrefine ‘k + _’ >>
+      drule_all panPropsTheory.evaluate_add_clock_eq >> simp [] >>
+      Cases_on ‘q’ >> gvs []
+      >- (rw [] >>
+          drule_then (assume_tac o MATCH_MP ltree_lift_state_lift) itree_wbisim_Ret_FUNPOW' >>
+          gvs [] >>
+          last_assum $ drule_at (Pos last) >> simp [] >>
+          (* TODO: derive the clock sum and then we're done *)
+          cheat)
+      >- (rw [] >>
+          FULL_CASE_TAC >> gvs []
+          >- (drule_then (assume_tac o MATCH_MP ltree_lift_state_lift) itree_wbisim_Ret_FUNPOW' >>
+              gvs [ltree_lift_cases] >>
+              ntac 3 (pop_assum kall_tac) >>
+              drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+              ‘r = SOME Error ∧ s' = r'’ by (gvs [itree_wbisim_neq]) >>
+                 qexistsl_tac [‘0’,‘k'’] >> rw [])
+          >- (drule_then (assume_tac o MATCH_MP ltree_lift_state_lift) itree_wbisim_Ret_FUNPOW' >>
+              gvs [ltree_lift_cases] >>
+              ntac 3 (pop_assum kall_tac) >>
+              drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+              ‘r = NONE ∧ s' = r'’ by (gvs [itree_wbisim_neq]) >>
+                 qexistsl_tac [‘0’,‘k'’] >> rw [])
+          >- (cheat)
+          >- (drule_then (assume_tac o MATCH_MP ltree_lift_state_lift) itree_wbisim_Ret_FUNPOW' >>
+              gvs [ltree_lift_cases] >>
+              ntac 3 (pop_assum kall_tac) >>
+              drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+              ‘r = SOME (Return v) ∧ s' = r'’ by (gvs [itree_wbisim_neq]) >>
+                 qexistsl_tac [‘0’,‘k'’] >> rw [])
+          >- (drule_then (assume_tac o MATCH_MP ltree_lift_state_lift) itree_wbisim_Ret_FUNPOW' >>
+              gvs [ltree_lift_cases] >>
+              ntac 3 (pop_assum kall_tac) >>
+              drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+              ‘r = SOME (Exception m v) ∧ s' = r'’ by (gvs [itree_wbisim_neq]) >>
+                 qexistsl_tac [‘0’,‘k'’] >> rw [])
+          >- (drule_then (assume_tac o MATCH_MP ltree_lift_state_lift) itree_wbisim_Ret_FUNPOW' >>
+              gvs [ltree_lift_cases] >>
+              ntac 3 (pop_assum kall_tac) >>
+              drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+              ‘r = SOME (FinalFFI f) ∧ s' = r'’ by (gvs [itree_wbisim_neq]) >>
+                 qexistsl_tac [‘0’,‘k'’] >> rw [])))
   >~ [‘Break’]
   >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
           ltree_lift_cases,ret_eq_funpow_tau,
@@ -3104,39 +3178,6 @@ Proof
   gvs[]>>metis_tac[]
 QED
 
-val r = “r:('a,'b) bstate”;
-
-Theorem foo:
-  good_dimindex (:α) ∧
-  ltree_lift query_oracle ^r.ffi (mrec_sem (h_prog (prog,r))) ≈ Ret (p,q) ∧ p ≠ SOME TimeOut
-  ⇒
-  ∃k. FST (evaluate (prog,r' with clock := k + r'.clock)) ≠ SOME TimeOut
-Proof
-  cheat
-QED
-
-Theorem mrec_sem_while_never_timeout:
-  ltree_lift query_oracle r.ffi (mrec_sem (h_prog (While e p,r))) = FUNPOW Tau n (Ret (res,r'))
-  ⇔ res ≠ SOME TimeOut
-Proof
-  EQ_TAC
-  >- (rw [Once mrec_sem_while_unfold] >>
-      Cases_on ‘eval (reclock r) e’ >> gvs []
-      >- (gvs [ltree_lift_cases] >>
-          drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
-          gvs [itree_wbisim_neq])
-      >- (reverse (Cases_on ‘x’ >> gvs [ltree_lift_cases])
-          >- (dxrule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
-              gvs [itree_wbisim_neq])
-          >- (reverse (Cases_on ‘w’ >> gvs [ltree_lift_cases])
-              >- (dxrule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
-                  gvs [itree_wbisim_neq])
-              >- (Cases_on ‘c = 0w’ >> gvs [ltree_lift_cases]
-                  >- (dxrule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
-                      gvs [itree_wbisim_neq])
-                  >- (cheat)))))
-  >- (cheat)
-QED
 
 Theorem evaluate_stree_trace_LPREFIX:
   (∀k. FST (evaluate (prog:'a prog,reclock s with clock := k)) = SOME TimeOut) ∧
@@ -3427,7 +3468,6 @@ Proof
                panItreeSemTheory.bstate_component_equality]) >>
       pop_assum $ PURE_ONCE_REWRITE_TAC o single >>
       metis_tac[itree_semantics_corres_evaluate])
-  (* Div *)
   >- (CONV_TAC SYM_CONV >> fs [] >>
       rw [itree_semantics_beh_def] >>
       DEEP_INTRO_TAC some_intro >>
@@ -3446,58 +3486,9 @@ Proof
       >- (simp [FORALL_PROD] >> rw [] >>
           spose_not_then kall_tac >>
           last_x_assum mp_tac >> simp [] >>
-          drule itree_wbisim_Ret_FUNPOW  >>
-          simp [PULL_EXISTS] >>
-          ‘s = unclock(reclock s with clock := k)’
-            by (gvs [panItreeSemTheory.reclock_def,
-                     panItreeSemTheory.unclock_def,
-                     panItreeSemTheory.bstate_component_equality]) >>
-          pop_assum $ PURE_ONCE_REWRITE_TAC o single >>
-          rename1 ‘ltree_lift query_oracle (unclock t).ffi’ >>
-          first_x_assum kall_tac >>
-          MAP_EVERY qid_spec_tac [‘t’,‘p_1’,‘p_2’,‘prog’] >>
-          simp [] >>
-          completeInduct_on ‘n’ >>
-          Cases_on ‘prog’
-          >~ [‘While’]
-          >- (rw [] >> rw [Once evaluate_def] >>
-              simp [panPropsTheory.eval_upd_clock_eq] >>
-              Cases_on ‘eval t e’ >> rw [] >>
-              ntac 2 (TOP_CASE_TAC >> rw []) >>
-              Cases_on ‘c = 0w’ >> rw [] >>
-              qrefine ‘SUC _’ >> rw [] >>
-              rw [dec_clock_def] >>
-              gvs [Once mrec_sem_while_unfold,
-                   panPropsTheory.eval_upd_clock_eq,
-                   ltree_lift_cases,
-                   tau_eq_funpow_tau,
-                   ltree_lift_monad_law] >>
-              imp_res_tac FUNPOW_Tau_bind_thm >> gvs [] >>
-              Cases_on ‘y’ >>
-              (* TODO: Generated names *)
-              last_assum $ drule_at (Pos last) >> rw [] >>
-              qrefine ‘k' + _’ >>
-              Cases_on ‘evaluate (p,t with clock := k')’ >> gvs [] >>
-              drule_all panPropsTheory.evaluate_add_clock_eq >> simp [] >>
-              Cases_on ‘q'’ >> rw []
-              >- (Cases_on ‘q’
-                  >- (gvs [ltree_lift_cases,
-                            tau_eq_funpow_tau] >>
-                      drule_then (assume_tac o (MATCH_MP ltree_lift_state_lift')) itree_wbisim_Ret_FUNPOW' >>
-                      gvs [] >>
-                      ‘ltree_lift query_oracle (reclock r).ffi (mrec_sem (h_prog (While e p,unclock (reclock r)))) =
-                       FUNPOW Tau n' (Ret (p_1,p_2))’ by (fs []) >>
-                      irule foo >> simp [] >>
-                      qexistsl_tac [‘p_1’,‘p_2’,‘r’] >> reverse $ rw []
-                      >- rw [FUNPOW_Tau_wbisim] >>
-                      irule $ iffLR mrec_sem_while_never_timeout >>
-                      metis_tac [])
-                  >- (cheat))
-              >- (FULL_CASE_TAC >> rw [] >>
-                  (* The "continue" case *)
-                  cheat)) >>
-          (* recInduct over all other progs *)
-             cheat))
+          drule_at (Pos last) ltree_Ret_to_evaluate >>
+          rw [PULL_EXISTS] >>
+          qexists_tac ‘k’ >> rw []))
 QED
 
 val _ = export_theory();
