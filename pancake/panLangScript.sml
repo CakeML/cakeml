@@ -63,7 +63,8 @@ Datatype:
        | While ('a exp) prog
        | Break
        | Continue
-       | Call ((varname # ((eid # varname # prog) option)) option) ('a exp) (('a exp) list)
+       | Call ((varname option # ((eid # varname # prog) option)) option) ('a exp) (('a exp) list)
+       | DecCall varname ('a exp) ('a exp list) prog
        | ExtCall funname ('a exp) ('a exp) ('a exp) ('a exp)
          (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
        | Raise eid ('a exp)
@@ -83,7 +84,8 @@ End
 *)
 
 Overload TailCall = “Call NONE”
-Overload RetCall = “\s h. Call (SOME (s , h))”
+Overload RetCall = “\s h. Call (SOME (SOME s , h))”
+Overload MuteCall = “\s h. Call (SOME (NONE , h))”
 
 (*
 Datatype:

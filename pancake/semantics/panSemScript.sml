@@ -440,7 +440,8 @@ Definition evaluate_def:
               | (SOME (Return retv),st) =>
                   (case caltyp of
                     | NONE      => (SOME (Return retv),empty_locals st)
-                    | SOME (rt,  _) =>
+                    | SOME (NONE, _) => (NONE, st)
+                    | SOME (SOME rt,  _) =>
                        if is_valid_value s.locals rt retv
                        then (NONE, set_var rt retv (st with locals := s.locals))
                        else (SOME Error,st))
@@ -459,7 +460,25 @@ Definition evaluate_def:
                       else (SOME (Exception eid exn), empty_locals st))
               | (res,st) => (res,empty_locals st))
          | _ => (SOME Error,s))
-    | (_, _) => (SOME Error,s)) /\
+     | (_, _) => (SOME Error,s))/\
+  (evaluate (DecCall rt trgt argexps prog1,s) =
+    case (eval s trgt, OPT_MMAP (eval s) argexps) of
+     | (SOME (ValLabel fname), SOME args) =>
+        (case lookup_code s.code fname args of
+          | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s)
+           else
+           let eval_prog = fix_clock ((dec_clock s) with locals := newlocals)
+                                     (evaluate (prog, (dec_clock s) with locals:= newlocals)) in
+           (case eval_prog of
+              | (NONE,st) => (SOME Error,st)
+              | (SOME Break,st) => (SOME Error,st)
+              | (SOME Continue,st) => (SOME Error,st)
+              | (SOME (Return retv),st) =>
+                  let (res',st') = evaluate (prog1, set_var rt retv (st with locals := s.locals)) in
+                    (res',st' with locals := res_var st'.locals (rt, FLOOKUP s.locals rt))
+              | (res,st) => (res,empty_locals st))
+           | _ => (SOME Error,s))
+     | (_, _) => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
    case (eval s ptr1, eval s len1, eval s ptr2, eval s len2) of
       | SOME (ValWord sz1),SOME (ValWord ad1),SOME (ValWord sz2),SOME (ValWord ad2) =>
