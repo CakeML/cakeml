@@ -2915,7 +2915,25 @@ Proof
       drule_then (qspec_then ‘kka’ mp_tac)  panPropsTheory.evaluate_add_clock_eq >>
       rw[])
   >~ [‘If’]
-  >- (cheat)
+  >- (rw [Once evaluate_def] >>
+      simp [panPropsTheory.eval_upd_clock_eq] >>
+      Cases_on ‘eval (reclock s) e’ >> rw []
+      >- (gvs [h_prog_def,h_prog_rule_cond_def,mrec_sem_simps,
+                ltree_lift_cases] >>
+          drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+          ‘r = SOME Error’ by (gvs [itree_wbisim_neq]) >>
+          ‘s = s'’ by (gvs [itree_wbisim_neq]) >>
+          qexistsl_tac [‘k’,‘k’] >> rw []) >>
+      ntac 2 (reverse $ TOP_CASE_TAC
+      >- (gvs [h_prog_def,h_prog_rule_cond_def,mrec_sem_simps,ltree_lift_cases] >>
+          drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+          ‘r = SOME Error’ by (gvs [itree_wbisim_neq]) >>
+          ‘s = s'’ by (gvs [itree_wbisim_neq]) >>
+          qexistsl_tac [‘k’,‘k’] >> rw [])) >>
+      Cases_on ‘c = 0w’ >> rw [] >>
+      gvs [h_prog_def,h_prog_rule_cond_def,mrec_sem_simps,
+           ltree_lift_cases,tau_eq_funpow_tau] >>
+      last_assum $ drule_at (Pos last) >> simp [])
   >~ [‘While’]
   >- (rw [Once evaluate_def] >>
       simp [panPropsTheory.eval_upd_clock_eq] >>
