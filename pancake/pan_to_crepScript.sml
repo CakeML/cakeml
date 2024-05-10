@@ -240,7 +240,33 @@ Definition compile_def:
                       Call (SOME ((ret_var sh ns), (ret_hdl sh ns),
                               (SOME (neid, hndlr)))) ce args))))
     | [] => Skip) /\
-  (compile ctxt (DecCall v e es p) = Skip (* TODO *)) /\
+  (compile ctxt (DecCall v s e es p) =
+   let
+       (cs, sh) = compile_exp ctxt e;
+       cexps = MAP (compile_exp ctxt) es;
+       args = FLAT (MAP FST cexps);
+       vmax = ctxt.vmax;
+       nvars = GENLIST (λx. vmax + SUC x) (size_of_shape s);
+       nctxt = ctxt with  <|vars := ctxt.vars |+ (v, (sh, nvars));
+                            vmax := ctxt.vmax + size_of_shape sh|> in
+     case cs of
+     | [] => Skip
+     | ce::ces =>
+         (case wrap_rt (SOME(s,nvars)) of
+            NONE => Call (SOME (NONE, compile nctxt p, NONE)) ce args
+          | SOME(sh,ns) =>
+              let ret_dec = case ret_var sh ns of
+                              NONE => I
+                            |  SOME n => Dec n (Const 0w);
+                  p' = compile nctxt p;
+                  ret_decl = case ret_var sh ns of
+                               NONE => p'
+                             | SOME _ =>
+                                 nested_decs nvars (load_globals 0w (LENGTH nvars)) p'
+              in ret_dec $
+                Call (SOME ((ret_var sh ns), ret_decl, NONE)) ce args
+         )
+  ) /\
   (compile ctxt (ExtCall f ptr1 len1 ptr2 len2) =
    let
      (ptr1',sh1) = compile_exp ctxt ptr1;

@@ -925,7 +925,7 @@ Definition exps_of_def:
   (exps_of (Call NONE e es) = e::es) ∧
   (exps_of (Call (SOME (_ , (SOME (_ ,  _ , ep)))) e es) = e::es++exps_of ep) ∧
   (exps_of (Call (SOME (_ , NONE)) e es) = e::es) ∧
-  (exps_of (DecCall _ e es p) = e::es++exps_of p) ∧
+  (exps_of (DecCall _ _ e es p) = e::es++exps_of p) ∧
   (exps_of (Store e1 e2) = [e1;e2]) ∧
   (exps_of (StoreByte e1 e2) = [e1;e2]) ∧
   (exps_of (Return e) = [e]) ∧

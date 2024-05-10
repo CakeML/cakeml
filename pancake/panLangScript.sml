@@ -64,7 +64,7 @@ Datatype:
        | Break
        | Continue
        | Call ((varname option # ((eid # varname # prog) option)) option) ('a exp) (('a exp) list)
-       | DecCall varname ('a exp) ('a exp list) prog
+       | DecCall varname shape ('a exp) ('a exp list) prog
        | ExtCall funname ('a exp) ('a exp) ('a exp) ('a exp)
          (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
        | Raise eid ('a exp)

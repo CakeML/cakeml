@@ -461,7 +461,7 @@ Definition evaluate_def:
               | (res,st) => (res,empty_locals st))
          | _ => (SOME Error,s))
      | (_, _) => (SOME Error,s))/\
-  (evaluate (DecCall rt trgt argexps prog1,s) =
+  (evaluate (DecCall rt shape trgt argexps prog1,s) =
     case (eval s trgt, OPT_MMAP (eval s) argexps) of
      | (SOME (ValLabel fname), SOME args) =>
         (case lookup_code s.code fname args of
@@ -474,8 +474,11 @@ Definition evaluate_def:
               | (SOME Break,st) => (SOME Error,st)
               | (SOME Continue,st) => (SOME Error,st)
               | (SOME (Return retv),st) =>
-                  let (res',st') = evaluate (prog1, set_var rt retv (st with locals := s.locals)) in
-                    (res',st' with locals := res_var st'.locals (rt, FLOOKUP s.locals rt))
+                  if size_of_shape(shape_of retv) = size_of_shape shape then
+                    let (res',st') = evaluate (prog1, set_var rt retv (st with locals := s.locals)) in
+                      (res',st' with locals := res_var st'.locals (rt, FLOOKUP s.locals rt))
+                  else
+                    (SOME Error, st)
               | (res,st) => (res,empty_locals st))
            | _ => (SOME Error,s))
      | (_, _) => (SOME Error,s)) /\
