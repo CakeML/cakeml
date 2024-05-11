@@ -248,23 +248,23 @@ Definition compile_def:
        vmax = ctxt.vmax;
        nvars = GENLIST (λx. vmax + SUC x) (size_of_shape s);
        nctxt = ctxt with  <|vars := ctxt.vars |+ (v, (sh, nvars));
-                            vmax := ctxt.vmax + size_of_shape sh|> in
+                            vmax := ctxt.vmax + size_of_shape s|> in
      case cs of
      | [] => Skip
      | ce::ces =>
          (case wrap_rt (SOME(s,nvars)) of
             NONE => Call (SOME (NONE, compile nctxt p, NONE)) ce args
           | SOME(sh,ns) =>
-              let ret_dec = case ret_var sh ns of
+              let ret_dec = case ret_var s ns of
                               NONE => I
                             |  SOME n => Dec n (Const 0w);
                   p' = compile nctxt p;
-                  ret_decl = case ret_var sh ns of
+                  ret_decl = case ret_var s ns of
                                NONE => p'
                              | SOME _ =>
                                  nested_decs nvars (load_globals 0w (LENGTH nvars)) p'
               in ret_dec $
-                Call (SOME ((ret_var sh ns), ret_decl, NONE)) ce args
+                Call (SOME ((ret_var s ns), ret_decl, NONE)) ce args
          )
   ) /\
   (compile ctxt (ExtCall f ptr1 len1 ptr2 len2) =

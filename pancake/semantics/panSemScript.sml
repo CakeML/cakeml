@@ -440,7 +440,7 @@ Definition evaluate_def:
               | (SOME (Return retv),st) =>
                   (case caltyp of
                     | NONE      => (SOME (Return retv),empty_locals st)
-                    | SOME (NONE, _) => (NONE, st)
+                    | SOME (NONE, _) => (NONE, st with locals := s.locals)
                     | SOME (SOME rt,  _) =>
                        if is_valid_value s.locals rt retv
                        then (NONE, set_var rt retv (st with locals := s.locals))
