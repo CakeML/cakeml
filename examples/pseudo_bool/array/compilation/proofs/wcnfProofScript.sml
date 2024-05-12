@@ -74,19 +74,15 @@ Theorem machine_code_sound:
       (
         (LENGTH cl = 2 ∧
         ∃wfml.
-          inFS_fname fs (EL 1 cl) ∧
           get_fml fs (EL 1 cl) = SOME wfml ∧
           out = concat (print_pbf (full_encode wfml))) ∨
         (LENGTH cl = 3 ∧
         ∃wfml bounds.
-          inFS_fname fs (EL 1 cl) ∧
           get_fml fs (EL 1 cl) = SOME wfml ∧
           out = print_maxsat_str bounds ∧
           maxsat_sem wfml bounds) ∨
         (LENGTH cl = 4 ∧
         ∃wfml wfmlt bounds iseqopt.
-          inFS_fname fs (EL 1 cl) ∧
-          inFS_fname fs (EL 3 cl) ∧
           get_fml fs (EL 1 cl) = SOME wfml ∧
           get_fml fs (EL 3 cl) = SOME wfmlt ∧
           out = print_maxsat_str bounds ^
@@ -191,7 +187,6 @@ Theorem machine_code_sound_equiopt:
     LENGTH cl = 4 ∧
     isSuffix «s VERIFIED OUTPUT EQUIOPTIMAL\n» out ⇒
       ∃wfml wfml'.
-        inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 3 cl) ∧
         get_fml fs (EL 1 cl) = SOME wfml ∧
         get_fml fs (EL 3 cl) = SOME wfml' ∧
         opt_cost wfml = opt_cost wfml'
