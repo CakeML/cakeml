@@ -139,6 +139,7 @@ Definition exp_ids_def:
   (exp_ids (If _ p q) = exp_ids p ++ exp_ids q) ∧
   (exp_ids (While _ p) = exp_ids p) ∧
   (exp_ids (Call (SOME (_ , (SOME (e ,  _ , ep)))) _ _) = e::exp_ids ep) ∧
+  (exp_ids (DecCall _ _ _ _ p) = exp_ids p) ∧
   (exp_ids _ = [])
 End
 

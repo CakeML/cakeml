@@ -247,7 +247,7 @@ Definition compile_def:
        args = FLAT (MAP FST cexps);
        vmax = ctxt.vmax;
        nvars = GENLIST (λx. vmax + SUC x) (size_of_shape s);
-       nctxt = ctxt with  <|vars := ctxt.vars |+ (v, (sh, nvars));
+       nctxt = ctxt with  <|vars := ctxt.vars |+ (v, (s, nvars));
                             vmax := ctxt.vmax + size_of_shape s|> in
      case cs of
      | [] => Skip
@@ -260,9 +260,8 @@ Definition compile_def:
                             |  SOME n => Dec n (Const 0w);
                   p' = compile nctxt p;
                   ret_decl = case ret_var s ns of
-                               NONE => p'
-                             | SOME _ =>
-                                 nested_decs nvars (load_globals 0w (LENGTH nvars)) p'
+                               NONE => nested_decs nvars (load_globals 0w (LENGTH nvars)) p'
+                             | SOME _ => p'
               in ret_dec $
                 Call (SOME ((ret_var s ns), ret_decl, NONE)) ce args
          )
