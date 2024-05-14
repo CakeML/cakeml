@@ -907,7 +907,7 @@ Proof
   match_mp_tac (the_ind_thm()) >>
   EVERY (map strip_assume_tac
          [compile_Dec, compile_Seq, compile_ShMem,
-          compile_If, compile_While, compile_Call, compile_DecCall
+          compile_If, compile_While, compile_Call, compile_DecCall,
           compile_ExtCall, compile_Call,compile_Others]) >>
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
