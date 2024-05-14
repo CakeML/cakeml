@@ -140,10 +140,9 @@ Definition pancake_peg_def[nocompute]:
                                    seql [mknt StmtNT;
                                          consume_tok SemiT] I])
                          (mksubtree ProgNT o FLAT));
-        (INL BlockNT, choicel [mknt DecNT; mknt IfNT; mknt WhileNT]);
+        (INL BlockNT, choicel [mknt DecCallNT; mknt DecNT; mknt IfNT; mknt WhileNT]);
         (INL StmtNT, choicel [keep_kw SkipK;
                               mknt CallNT;
-                              mknt DecCallNT;
                               mknt AssignNT; mknt StoreNT;
                               mknt StoreByteNT;
                               mknt SharedLoadByteNT;
@@ -156,6 +155,12 @@ Definition pancake_peg_def[nocompute]:
                               keep_kw TicK;
                               seql [consume_tok LCurT; mknt ProgNT; consume_tok RCurT] I
                               ]);
+        (INL DecCallNT, seql [consume_kw VarK; mknt ShapeNT; keep_ident; consume_tok AssignT;
+                              choicel [seql [consume_tok StarT; mknt ExpNT] I;
+                                       mknt FLabelNT];
+                              consume_tok LParT; try (mknt ArgListNT);
+                              consume_tok RParT;consume_tok SemiT;mknt ProgNT]
+                          (mksubtree DecCallNT));
         (INL DecNT,seql [consume_kw VarK; keep_ident;
                          consume_tok AssignT; mknt ExpNT;
                          consume_tok SemiT;mknt ProgNT]
@@ -182,12 +187,6 @@ Definition pancake_peg_def[nocompute]:
                            consume_tok LParT; try (mknt ArgListNT);
                            consume_tok RParT]
                           (mksubtree CallNT));
-        (INL DecCallNT, seql [consume_kw VarK; mknt ShapeNT; keep_ident; consume_tok AssignT;
-                              choicel [seql [consume_tok StarT; mknt ExpNT] I;
-                                       mknt FLabelNT];
-                              consume_tok LParT; try (mknt ArgListNT);
-                              consume_tok RParT]
-                          (mksubtree DecCallNT));
         (INL RetNT, seql [keep_ident; consume_tok AssignT;
                           try (mknt HandleNT)]
                           (mksubtree RetNT));
@@ -611,12 +610,12 @@ val topo_nts = [“MulOpsNT”, “AddOpsNT”, “ShiftOpsNT”, “CmpOpsNT”
                 “EEqNT”, “EAndNT”, “EXorNT”,
                 “ExpNT”, “ArgListNT”, “ReturnNT”,
                 “RaiseNT”, “ExtCallNT”,
-                “HandleNT”, “RetNT”, “RetCallNT”, “DecCallNT”, “CallNT”,
+                “HandleNT”, “RetNT”, “RetCallNT”, “CallNT”,
                 “WhileNT”, “IfNT”, “StoreByteNT”,
                 “StoreNT”, “AssignNT”,
                 “SharedLoadByteNT”, “SharedLoadNT”,
                 “SharedStoreByteNT”, “SharedStoreNT”, “DecNT”,
-                “StmtNT”, “BlockNT”, “ParamListNT”, “FunNT”
+                “DecCallNT”, “StmtNT”, “BlockNT”, “ParamListNT”, “FunNT”
                 ];
 
 (*  “FunNT”, “FunListNT” *)
