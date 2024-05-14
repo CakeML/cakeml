@@ -4648,7 +4648,7 @@ Proof
          [compile_Skip_Break_Continue, compile_Dec, compile_ShMem,
           compile_Assign, compile_Store, compile_StoreByte, compile_Seq,
           compile_If, compile_While, compile_Call, compile_ExtCall,
-          compile_Raise, compile_Return, compile_Tick]) >>
+          compile_Raise, compile_Return, compile_Tick, compile_DecCall]) >>
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
 
