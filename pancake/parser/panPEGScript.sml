@@ -18,7 +18,7 @@ Datatype:
             | DecNT | AssignNT | StoreNT | StoreByteNT
             | IfNT | WhileNT | CallNT | RetNT | HandleNT
             | ExtCallNT | RaiseNT | ReturnNT
-            | DecCallNT
+            | DecCallNT | RetCallNT
             | ArgListNT
             | ParamListNT
             | EXorNT | EAndNT | EEqNT | ECmpNT
@@ -152,7 +152,7 @@ Definition pancake_peg_def[nocompute]:
                               mknt SharedStoreNT;
                               keep_kw BrK; keep_kw ContK;
                               mknt ExtCallNT;
-                              mknt RaiseNT; mknt ReturnNT;
+                              mknt RaiseNT; mknt RetCallNT; mknt ReturnNT;
                               keep_kw TicK;
                               seql [consume_tok LCurT; mknt ProgNT; consume_tok RCurT] I
                               ]);
@@ -205,6 +205,12 @@ Definition pancake_peg_def[nocompute]:
                              (mksubtree ExtCallNT));
         (INL RaiseNT, seql [consume_kw RaiseK; keep_ident; mknt ExpNT]
                            (mksubtree RaiseNT));
+        (INL RetCallNT, seql [consume_kw RetK;
+                              choicel [seql [consume_tok StarT; mknt ExpNT] I;
+                                       mknt FLabelNT];
+                              consume_tok LParT; try (mknt ArgListNT);
+                              consume_tok RParT]
+                            (mksubtree RetCallNT));
         (INL ReturnNT, seql [consume_kw RetK; mknt ExpNT]
                             (mksubtree ReturnNT));
         (INL ArgListNT, seql [mknt ExpNT;
@@ -605,7 +611,7 @@ val topo_nts = [“MulOpsNT”, “AddOpsNT”, “ShiftOpsNT”, “CmpOpsNT”
                 “EEqNT”, “EAndNT”, “EXorNT”,
                 “ExpNT”, “ArgListNT”, “ReturnNT”,
                 “RaiseNT”, “ExtCallNT”,
-                “HandleNT”, “RetNT”, “DecCallNT”, “CallNT”,
+                “HandleNT”, “RetNT”, “RetCallNT”, “DecCallNT”, “CallNT”,
                 “WhileNT”, “IfNT”, “StoreByteNT”,
                 “StoreNT”, “AssignNT”,
                 “SharedLoadByteNT”, “SharedLoadNT”,
