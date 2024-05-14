@@ -240,8 +240,14 @@ val ret_call = ‘
     return r;
   }
 
+  fun f() {
+    var 1 r = g(); // Function calls can be used to initialise variables,
+                   // but the expected shape of the return value must be declared
+    return r;
+  }
+
   fun g() {
-    g(); // This is a returning call
+    g(); // This is a stand-alone call
     return g(); // This is a tail call
   }’;
 
