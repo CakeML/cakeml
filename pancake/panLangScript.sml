@@ -85,7 +85,7 @@ End
 
 Overload TailCall = “Call NONE”
 Overload AssignCall = “\s h. Call (SOME (SOME s , h))”
-Overload StandAloneCall = “\s h. Call (SOME (NONE , h))”
+Overload StandAloneCall = “\h. Call (SOME (NONE , h))”
 
 (*
 Datatype:
