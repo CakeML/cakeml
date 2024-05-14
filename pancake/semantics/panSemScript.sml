@@ -474,7 +474,7 @@ Definition evaluate_def:
               | (SOME Break,st) => (SOME Error,st)
               | (SOME Continue,st) => (SOME Error,st)
               | (SOME (Return retv),st) =>
-                  if size_of_shape(shape_of retv) = size_of_shape shape then
+                  if shape_of retv = shape then
                     let (res',st') = evaluate (prog1, set_var rt retv (st with locals := s.locals)) in
                       (res',st' with locals := res_var st'.locals (rt, FLOOKUP s.locals rt))
                   else

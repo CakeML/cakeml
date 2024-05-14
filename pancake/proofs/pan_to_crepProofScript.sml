@@ -3607,7 +3607,6 @@ Proof
   Cases_on ‘nres = SOME Error’ >> gvs[] >>
   gvs[CaseEq "option"] >>
   rename1 ‘evaluate (_, dec_clock _ with locals := _) = (SOME nres,ns)’ >>
-
   PURE_TOP_CASE_TAC
   >- (qhdtm_assum ‘state_rel’ $ strip_assume_tac o REWRITE_RULE[state_rel_def] >>
       gvs[evaluate_def,compile_def,AllCaseEqs(),lookup_code_def,ALL_DISTINCT_GENLIST,PULL_EXISTS]
@@ -3647,34 +3646,40 @@ Proof
           qmatch_goalsub_abbrev_tac ‘evaluate (compile newctxt prog1, news)’ >>
           Cases_on ‘evaluate (compile newctxt prog1, news)’ >>
           first_x_assum $ qspecl_then [‘news’,‘newctxt’] mp_tac >>
-          impl_tac >- cheat >>
+          impl_tac
+          >- (conj_asm1_tac
+              >- gvs[state_rel_def,set_var_def,panSemTheory.set_var_def,
+                     Abbr ‘news’] >>
+              conj_asm1_tac
+              >- (imp_res_tac evaluate_code_invariant >>
+                  imp_res_tac crep_evaluate_code_invariant >>
+                  gvs[set_var_def, Abbr ‘newctxt’, Abbr‘news’,
+                      panSemTheory.set_var_def,
+                      dec_clock_def,
+                      panSemTheory.dec_clock_def
+                     ] >>
+                  gvs[code_rel_def]) >>
+              conj_asm1_tac
+              >- (fs[Abbr ‘newctxt’,panSemTheory.set_var_def] >>
+                  imp_res_tac evaluate_invariants >>
+                  gvs[panSemTheory.dec_clock_def]) >>
+              gvs[locals_rel_def] >>
+              conj_asm1_tac
+              >- (gvs[Abbr ‘newctxt’,no_overlap_def,FLOOKUP_UPDATE,ALL_DISTINCT_GENLIST] >>
+                  rw[] >> gvs[] >> res_tac >>
+                  gvs[ALL_DISTINCT_GENLIST,oneline wrap_rt_def,AllCaseEqs()]) >>
+              conj_asm1_tac
+              >- (gvs[Abbr ‘newctxt’,ctxt_max_def,FLOOKUP_UPDATE] >>
+                  rw[] >> gvs[] >> res_tac >>
+                  gvs[ALL_DISTINCT_GENLIST,oneline wrap_rt_def,AllCaseEqs()]) >>
+              rw[] >>
+              gvs[panSemTheory.set_var_def,FLOOKUP_UPDATE,Abbr ‘newctxt’,CaseEq "bool",
+                  Abbr ‘news’] >>
+              gvs[GSYM length_flatten_eq_size_of_shape] >>
+              gvs[oneline wrap_rt_def,AllCaseEqs(),panLangTheory.size_of_shape_def] >>
+              Cases_on ‘flatten retv’ >> gvs[GENLIST_CONS]) >>
           strip_tac >>
-          rpt(PURE_TOP_CASE_TAC >> gvs[]) >>
-          imp_res_tac evaluate_invariants >>
-          imp_res_tac evaluate_code_invariant >>
-          imp_res_tac crep_evaluate_code_invariant >>
-          unabbrev_all_tac >>
-          gvs[dec_clock_def,panSemTheory.dec_clock_def,FLOOKUP_UPDATE,
-              set_var_def,panSemTheory.set_var_def] >>
-          gvs[locals_rel_def,state_rel_def] >>
-          rw[] >>
-          gvs[flookup_res_var_thm,FLOOKUP_pan_res_var_thm,AllCaseEqs()] >>
-          res_tac >> gvs[FLOOKUP_UPDATE] >>
-          match_mp_tac EQ_TRANS >>
-          resolve_then Any (irule_at Any) (iffRL MAP_EQ_f) $ IMP_OPT_MMAP_EQ >>
-          first_assum $ irule_at $ Pos last >>
-          rpt strip_tac >>
-          drule unassigned_vars_evaluate_same >>
-          simp[] >>
-          disch_then irule >>
-          irule not_mem_context_assigned_mem_gt >>
-          simp[] >>
-          rw[FLOOKUP_UPDATE] >>
-          gvs[ctxt_max_def] >>
-          res_tac >>
-          gvs[no_overlap_def] >>
-          gvs[IN_DISJOINT] >>
-          metis_tac[]) >>
+          gvs[wrap_rt_def,AllCaseEqs(),panLangTheory.size_of_shape_def]) >>
       (* Empty shape: Exception or FinalFFI in call*)
       simp[empty_locals_def,panSemTheory.empty_locals_def] >>
       qmatch_goalsub_abbrev_tac ‘evaluate (compile newctxt _, news)’ >>
@@ -3703,7 +3708,16 @@ Proof
   (* shape size 1 *)
   >- (fs[evaluate_def,eval_def,UNCURRY_eq_pair,PULL_EXISTS] >>
       dep_rewrite.DEP_ONCE_REWRITE_TAC [update_locals_not_vars_eval_eq''] >>
-      conj_asm1_tac >- cheat >>
+      conj_asm1_tac
+      >- (rename1 ‘MEM xx $ var_cexp ee’ >>
+          ‘ctxt.vmax < xx’
+            by(gvs[oneline ret_var_def, oneline wrap_rt_def,AllCaseEqs(),
+                   oneline oHD_def,panLangTheory.size_of_shape_def]) >>
+          strip_tac >>
+          drule_at (Pat ‘MEM _ $ var_cexp _’) MEM_compile_exp_vmax >>
+          disch_then $ qspecl_then [‘ctxt’,‘trgt’] mp_tac >>
+          simp[] >>
+          gvs[locals_rel_def]) >>
       simp[locals_id_update] >>
       dep_rewrite.DEP_ONCE_REWRITE_TAC[update_locals_not_vars_eval_mmap] >>
       conj_tac
@@ -3753,7 +3767,139 @@ Proof
               panSemTheory.empty_locals_def]
          )
       (* Shape size 1: Return in call *)
-      >- cheat >>
+      >- (qmatch_goalsub_abbrev_tac ‘evaluate (compile newctxt _, news)’ >>
+          first_x_assum $ qspecl_then [‘news’,‘newctxt’] mp_tac >>
+          impl_tac
+          >- (unabbrev_all_tac >>
+              drule call_preserve_state_code_locals_rel >>
+              rpt $ disch_then drule >>
+              disch_then $ drule_at $ Pat ‘FLOOKUP _ _= _’ >>
+              simp[ALL_DISTINCT_GENLIST] >>
+              simp[slc_def,tlc_def] >>
+              strip_tac >>
+              fs[state_rel_def,dec_clock_def]) >>
+          strip_tac >>
+          simp[] >>
+          gvs[UNCURRY_eq_pair] >>
+          ‘size_of_shape(shape_of v) = 1’
+            by(gvs[oneline ret_var_def,AllCaseEqs(),oneline oHD_def,
+                   panLangTheory.size_of_shape_def,oneline wrap_rt_def]) >>
+          gvs[] >>
+          simp[FLOOKUP_UPDATE] >>
+          unabbrev_all_tac >>
+          qmatch_goalsub_abbrev_tac ‘evaluate (compile newctxt _, news)’ >>
+          first_x_assum $ qspecl_then [‘news’,‘newctxt’] mp_tac >>
+          impl_keep_tac
+          >- (conj_asm1_tac
+              >- gvs[state_rel_def,set_var_def,panSemTheory.set_var_def,
+                     Abbr ‘news’] >>
+              conj_asm1_tac
+              >- (imp_res_tac evaluate_code_invariant >>
+                  imp_res_tac crep_evaluate_code_invariant >>
+                  gvs[set_var_def, Abbr ‘newctxt’, Abbr‘news’,
+                      panSemTheory.set_var_def,
+                      dec_clock_def,
+                      panSemTheory.dec_clock_def
+                     ] >>
+                  gvs[code_rel_def]) >>
+              conj_asm1_tac
+              >- (fs[Abbr ‘newctxt’,panSemTheory.set_var_def] >>
+                  imp_res_tac evaluate_invariants >>
+                  gvs[panSemTheory.dec_clock_def]) >>
+              gvs[locals_rel_def] >>
+              conj_asm1_tac
+              >- (gvs[Abbr ‘newctxt’,no_overlap_def,FLOOKUP_UPDATE] >>
+                  rw[] >> gvs[] >> res_tac >>
+                  gvs[ctxt_max_def] >> res_tac >> gvs[]) >>
+              conj_asm1_tac
+              >- (gvs[Abbr ‘newctxt’,ctxt_max_def,FLOOKUP_UPDATE] >>
+                  rw[] >> gvs[] >> res_tac >> DECIDE_TAC) >>
+              rw[] >>
+              gvs[panSemTheory.set_var_def,FLOOKUP_UPDATE,Abbr ‘newctxt’,CaseEq "bool",
+                  Abbr ‘news’]
+              >- (gvs[oneline ret_var_def,AllCaseEqs(),oneline oHD_def,
+                      oneline wrap_rt_def] >>
+                  gvs[length_flatten_eq_size_of_shape,panLangTheory.size_of_shape_def]) >>
+              res_tac >>
+              gvs[] >>
+              irule opt_mmap_flookup_update >>
+              simp[] >>
+              gvs[oneline ret_var_def,AllCaseEqs(),oneline oHD_def,
+                  oneline wrap_rt_def,ctxt_max_def
+                 ] >>
+              res_tac >>
+              strip_tac >> res_tac >> DECIDE_TAC) >>
+          strip_tac >>
+          simp[] >>
+          conj_asm1_tac >- gvs[state_rel_def] >>
+          conj_asm1_tac
+          >- (imp_res_tac evaluate_code_invariant >>
+              imp_res_tac crep_evaluate_code_invariant >>
+              gvs[set_var_def, Abbr ‘newctxt’, Abbr‘news’,
+                  panSemTheory.set_var_def,
+                  dec_clock_def,
+                  panSemTheory.dec_clock_def
+                 ] >>
+              gvs[code_rel_def]) >>
+          conj_asm1_tac
+          >- (fs[Abbr ‘newctxt’,panSemTheory.set_var_def] >>
+                  imp_res_tac evaluate_invariants >>
+                  gvs[panSemTheory.dec_clock_def]) >>
+          PURE_TOP_CASE_TAC >> gvs[]
+          >- (gvs[locals_rel_def] >>
+              rw[] >>
+              gvs[panSemTheory.set_var_def,FLOOKUP_UPDATE,Abbr ‘newctxt’,CaseEq "bool",
+                  Abbr ‘news’,FLOOKUP_pan_res_var_thm
+                 ]
+              >- (res_tac >> gvs[] >>
+                  match_mp_tac EQ_TRANS >>
+                  first_x_assum $ irule_at $ Pos last >>
+                  resolve_then Any (irule_at Any) (iffRL MAP_EQ_f) $ IMP_OPT_MMAP_EQ >>
+                  rpt strip_tac >>
+                  simp[flookup_res_var_thm] >>
+                  rw[] >>
+                  res_tac >>
+                  gvs[oneline ret_var_def,AllCaseEqs(),oneline oHD_def,
+                      oneline wrap_rt_def] >>
+                  gvs[ctxt_max_def] >>
+                  res_tac >> gvs[] >>
+                  drule unassigned_free_vars_evaluate_same >>
+                  simp[] >>
+                  strip_tac >>
+                  match_mp_tac EQ_TRANS >>
+                  first_x_assum $ irule_at $ Pos hd >>
+                  simp[FLOOKUP_UPDATE] >>
+                  irule not_mem_context_assigned_mem_gt >>
+                  simp[ctxt_max_def,FLOOKUP_UPDATE] >>
+                  rw[] >> rw[] >>
+                  gvs[] >>
+                  rpt strip_tac >>
+                  res_tac >> gvs[] >>
+                  gvs[no_overlap_def] >> res_tac >> gvs[DISJOINT_ALT] >>
+                  metis_tac[]) >>
+              res_tac >>
+              gvs[] >>
+              match_mp_tac EQ_TRANS >>
+              first_x_assum $ irule_at $ Pos last >>
+              resolve_then Any (irule_at Any) (iffRL MAP_EQ_f) $ IMP_OPT_MMAP_EQ >>
+              rpt strip_tac >>
+              simp[flookup_res_var_thm] >>
+              rw[] >>
+              res_tac >>
+              gvs[oneline ret_var_def,AllCaseEqs(),oneline oHD_def,FLOOKUP_UPDATE,
+                  oneline wrap_rt_def] >>
+              gvs[ctxt_max_def] >>
+              res_tac >>
+              gvs[SF DNF_ss,FLOOKUP_UPDATE,AllCaseEqs(),
+                  panLangTheory.size_of_shape_def]) >>
+          PURE_TOP_CASE_TAC >> gvs[]
+          >- cheat
+          >- cheat
+          >- cheat >>
+          PURE_TOP_CASE_TAC >> gvs[] >>
+          gvs[Abbr ‘newctxt’] >>
+          cheat
+         ) >>
       (* Shape size 1: Exception or FinalFFI in call *)
       simp[empty_locals_def,panSemTheory.empty_locals_def] >>
       qmatch_goalsub_abbrev_tac ‘evaluate (compile newctxt _, news)’ >>
@@ -3800,7 +3946,6 @@ Proof
       simp[slc_def,tlc_def]) >>
   strip_tac >>
   simp[] >>
-
   gvs[AllCaseEqs(),empty_locals_def,panSemTheory.empty_locals_def,(*state_rel_def,*)
       Abbr ‘newctxt’, Abbr ‘news’(*,code_rel_def*)
      ]
