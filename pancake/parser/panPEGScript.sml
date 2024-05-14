@@ -18,6 +18,7 @@ Datatype:
             | DecNT | AssignNT | StoreNT | StoreByteNT
             | IfNT | WhileNT | CallNT | RetNT | HandleNT
             | ExtCallNT | RaiseNT | ReturnNT
+            | DecCallNT
             | ArgListNT
             | ParamListNT
             | EXorNT | EAndNT | EEqNT | ECmpNT
@@ -142,6 +143,7 @@ Definition pancake_peg_def[nocompute]:
         (INL BlockNT, choicel [mknt DecNT; mknt IfNT; mknt WhileNT]);
         (INL StmtNT, choicel [keep_kw SkipK;
                               mknt CallNT;
+                              mknt DecCallNT;
                               mknt AssignNT; mknt StoreNT;
                               mknt StoreByteNT;
                               mknt SharedLoadByteNT;
@@ -180,6 +182,12 @@ Definition pancake_peg_def[nocompute]:
                            consume_tok LParT; try (mknt ArgListNT);
                            consume_tok RParT]
                           (mksubtree CallNT));
+        (INL DecCallNT, seql [consume_kw VarK; mknt ShapeNT; keep_ident; consume_tok AssignT;
+                              choicel [seql [consume_tok StarT; mknt ExpNT] I;
+                                       mknt FLabelNT];
+                              consume_tok LParT; try (mknt ArgListNT);
+                              consume_tok RParT]
+                          (mksubtree DecCallNT));
         (INL RetNT, seql [keep_ident; consume_tok AssignT;
                           try (mknt HandleNT)]
                           (mksubtree RetNT));
@@ -597,7 +605,7 @@ val topo_nts = [“MulOpsNT”, “AddOpsNT”, “ShiftOpsNT”, “CmpOpsNT”
                 “EEqNT”, “EAndNT”, “EXorNT”,
                 “ExpNT”, “ArgListNT”, “ReturnNT”,
                 “RaiseNT”, “ExtCallNT”,
-                “HandleNT”, “RetNT”, “CallNT”,
+                “HandleNT”, “RetNT”, “DecCallNT”, “CallNT”,
                 “WhileNT”, “IfNT”, “StoreByteNT”,
                 “StoreNT”, “AssignNT”,
                 “SharedLoadByteNT”, “SharedLoadNT”,
