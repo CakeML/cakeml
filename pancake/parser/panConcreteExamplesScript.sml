@@ -227,7 +227,7 @@ val arg_call_tree = check_success $ parse_tree_pancake argument_call;
 
 val arg_call_parse = check_success $ parse_pancake argument_call;
 
-(** Tail calls and returning calls
+(** Various kinds of function calls.
 
     A function call immediately underneath a return is parsed as a tail call.
     Tail calls overwrite the caller's stack frame with the callee's and
@@ -236,7 +236,7 @@ val arg_call_parse = check_success $ parse_pancake argument_call;
 val ret_call = ‘
   fun main() {
     var r = 0;
-    r = g(); // This is a returning call (but could be optimised to a tail call)
+    r = g(); // This is an assigning call (but could be optimised to a tail call)
     return r;
   }
 
