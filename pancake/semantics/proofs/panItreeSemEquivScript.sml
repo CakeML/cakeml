@@ -3419,6 +3419,23 @@ fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
   fs[Once LAPPEND_ASSOC]>>metis_tac[]
 QED
 
+Theorem nonret_imp_timeout:
+  ∀s r s' prog:'a prog k.
+    good_dimindex (:α) ∧
+    (∀p. ¬(ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,s))) ≈ Ret p)) ⇒
+    ∃s'. evaluate (prog,reclock s with clock := k) = (SOME TimeOut,s')
+Proof
+  rpt strip_tac >>
+  spose_not_then strip_assume_tac >>
+  Cases_on ‘evaluate (prog,reclock s with clock := k)’ >>
+  rename1 ‘_ = (res,st)’ >>
+  Cases_on ‘res = SOME Error’ >> gvs[]
+  >-  (imp_res_tac ltree_lift_corres_evaluate_error >>
+       gvs[]) >>
+  imp_res_tac ltree_lift_corres_evaluate >>
+  gvs[]
+QED
+
 (* Final goal:
 
    1. For every path that can be generated frong
