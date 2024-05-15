@@ -3436,6 +3436,32 @@ Proof
   gvs[]
 QED
 
+Theorem nonret_imp_spin:
+  ∀f st t.
+    (∀p. ¬(ltree_lift f st t ≈ Ret p)) ⇒
+    ltree_lift f st t = spin
+Proof
+  rpt strip_tac >>
+  CONV_TAC SYM_CONV >>
+  rw[Once itree_bisimulation] >>
+  qexists ‘CURRY {(spin, ltree_lift f st t) | (∀p. ¬(ltree_lift f st t ≈ Ret p))}’ >>
+  conj_tac >- (rw[EXISTS_PROD] >> metis_tac[]) >>
+  pop_assum kall_tac >>
+  rw[] >>
+  gvs[UNCURRY_eq_pair]
+  >- (qpat_x_assum ‘_ = spin’ mp_tac >> rw[Once spin])
+  >- (rename1 ‘ltree_lift f st t’ >>
+      Cases_on ‘t’ >>
+      gvs[ltree_lift_cases,itree_wbisim_neq]
+      >- (qpat_x_assum ‘_ = spin’ mp_tac >> rw[Once spin] >> metis_tac[])
+      >- (Cases_on ‘a’ >> gvs[ltree_lift_cases,UNCURRY_eq_pair,PULL_EXISTS] >>
+          pairarg_tac >>
+          gvs[] >>
+          qpat_x_assum ‘_ = spin’ mp_tac >> rw[Once spin] >>
+          metis_tac[]))
+  >- (qpat_x_assum ‘_ = spin’ mp_tac >> rw[Once spin])
+QED
+
 (* Final goal:
 
    1. For every path that can be generated frong
