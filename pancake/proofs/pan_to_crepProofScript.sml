@@ -2979,60 +2979,6 @@ val ret_call_excp_handler_tac =
      fs []) >>
     strip_tac >> fs [])
 
-(* TODO: move *)
-Theorem evaluate_code_invariant:
-  ∀p t res st.
-    panSem$evaluate (p,t) = (res,st) ⇒
-    st.code = t.code
-Proof
-  recInduct panSemTheory.evaluate_ind >> rw[]
-  >~ [‘While’]
-  >- (pop_assum mp_tac >>
-      rw[Once panSemTheory.evaluate_def] >>
-      gvs[AllCaseEqs(),panSemTheory.empty_locals_def,UNCURRY_eq_pair,
-          panSemTheory.dec_clock_def]) >>
-  gvs[panSemTheory.evaluate_def,AllCaseEqs(),
-      oneline panSemTheory.sh_mem_op_def,
-      oneline panSemTheory.sh_mem_load_def,
-      oneline panSemTheory.sh_mem_store_def,
-      panSemTheory.set_var_def,
-      panSemTheory.empty_locals_def,
-      UNCURRY_eq_pair,
-      panSemTheory.dec_clock_def
-     ]
-QED
-
-(* TODO: move *)
-Theorem crep_evaluate_code_invariant:
-  ∀p t res st.
-    crepSem$evaluate (p,t) = (res,st) ⇒
-    st.code = t.code
-Proof
-  recInduct crepSemTheory.evaluate_ind >> rw[]
-  >~ [‘While’]
-  >- (pop_assum mp_tac >>
-      rw[Once crepSemTheory.evaluate_def] >>
-      gvs[AllCaseEqs(),crepSemTheory.empty_locals_def,UNCURRY_eq_pair,
-          crepSemTheory.dec_clock_def])
-  >~ [‘Call’]
-  >- (pop_assum mp_tac >>
-      rw[Once crepSemTheory.evaluate_def] >>
-      rfs[AllCaseEqs(),crepSemTheory.empty_locals_def,
-          crepSemTheory.dec_clock_def] >>
-      rveq >>
-      fs[]) >>
-  gvs[crepSemTheory.evaluate_def,AllCaseEqs(),
-      oneline crepSemTheory.sh_mem_op_def,
-      oneline crepSemTheory.sh_mem_load_def,
-      oneline crepSemTheory.sh_mem_store_def,
-      crepSemTheory.set_var_def,
-      crepSemTheory.empty_locals_def,
-      UNCURRY_eq_pair,
-      crepSemTheory.dec_clock_def,
-      crepSemTheory.set_globals_def
-     ]
-QED
-
 Triviality flatten_nil_no_size:
   flatten x = [] ⇔ size_of_shape(shape_of x) = 0
 Proof
@@ -3299,9 +3245,8 @@ Proof
                impl_tac
                >- (simp[Abbr ‘nst’,set_var_def,panSemTheory.set_var_def] >>
                    imp_res_tac evaluate_invariants >> gvs[dec_clock_def] >>
+                                      gvs[set_var_def,panSemTheory.dec_clock_def] >>
                    imp_res_tac evaluate_code_invariant >>
-                   gvs[set_var_def,panSemTheory.dec_clock_def] >>
-                   imp_res_tac crep_evaluate_code_invariant >>
                    gvs[locals_rel_def] >>
                    rw[FLOOKUP_UPDATE]
                    >- (rw[] >>
@@ -3345,8 +3290,8 @@ Proof
        gvs[] >>
        gvs[Abbr ‘nctxt’,ctxt_fc_def] >>
        conj_tac
-       >- (imp_res_tac evaluate_code_invariant >>
-           imp_res_tac crep_evaluate_code_invariant >>
+       >- (imp_res_tac evaluate_invariants >>
+           imp_res_tac evaluate_code_invariant >>
            gvs[Abbr ‘nt’,dec_clock_def,panSemTheory.dec_clock_def]) >>
        rw[] >>
        gvs[globals_lookup_def]) >>
@@ -3382,15 +3327,6 @@ Proof
   >- (TRY (rpt TOP_CASE_TAC) >> fs [] >> call_tail_ret_impl_tac) >>
   PairCases_on ‘x’ >>
   TRY (rpt TOP_CASE_TAC) >> fs [] >> call_tail_ret_impl_tac
-QED
-
-(* TODO: move *)
-Theorem FLOOKUP_pan_res_var_thm:
-  FLOOKUP (panSem$res_var l (m,v)) n = if n = m then v else FLOOKUP l n
-Proof
-  simp[oneline panSemTheory.res_var_def] >>
-  PURE_FULL_CASE_TAC >>
-  rw[DOMSUB_FLOOKUP_THM,FLOOKUP_UPDATE]
 QED
 
 Triviality locals_id_update:
@@ -3616,7 +3552,6 @@ Proof
           gvs[state_rel_def] >>
           imp_res_tac evaluate_invariants >>
           imp_res_tac evaluate_code_invariant >>
-          imp_res_tac crep_evaluate_code_invariant >>
           gvs[dec_clock_def,panSemTheory.dec_clock_def,Abbr ‘news’])
       (* Empty shape: Return from call*)
       >- (simp[empty_locals_def,panSemTheory.empty_locals_def] >>
@@ -3642,8 +3577,8 @@ Proof
               >- gvs[state_rel_def,set_var_def,panSemTheory.set_var_def,
                      Abbr ‘news’] >>
               conj_asm1_tac
-              >- (imp_res_tac evaluate_code_invariant >>
-                  imp_res_tac crep_evaluate_code_invariant >>
+              >- (imp_res_tac evaluate_invariants >>
+                  imp_res_tac evaluate_code_invariant >>
                   gvs[set_var_def, Abbr ‘newctxt’, Abbr‘news’,
                       panSemTheory.set_var_def,
                       dec_clock_def,
@@ -3689,7 +3624,6 @@ Proof
       gvs[globals_lookup_def,code_rel_def] >>
       imp_res_tac evaluate_invariants >>
       imp_res_tac evaluate_code_invariant >>
-      imp_res_tac crep_evaluate_code_invariant >>
       gvs[dec_clock_def,panSemTheory.dec_clock_def]) >>
   (* Non-empty shapes *)
   fs[] >>
@@ -3753,7 +3687,6 @@ Proof
           gvs[state_rel_def] >>
           imp_res_tac evaluate_invariants >>
           imp_res_tac evaluate_code_invariant >>
-          imp_res_tac crep_evaluate_code_invariant >>
           gvs[dec_clock_def,panSemTheory.dec_clock_def,Abbr ‘news’,
               panSemTheory.empty_locals_def]
          )
@@ -3785,8 +3718,8 @@ Proof
               >- gvs[state_rel_def,set_var_def,panSemTheory.set_var_def,
                      Abbr ‘news’] >>
               conj_asm1_tac
-              >- (imp_res_tac evaluate_code_invariant >>
-                  imp_res_tac crep_evaluate_code_invariant >>
+              >- (imp_res_tac evaluate_invariants >>
+                  imp_res_tac evaluate_code_invariant >>
                   gvs[set_var_def, Abbr ‘newctxt’, Abbr‘news’,
                       panSemTheory.set_var_def,
                       dec_clock_def,
@@ -3824,8 +3757,8 @@ Proof
           simp[] >>
           conj_asm1_tac >- gvs[state_rel_def] >>
           conj_asm1_tac
-          >- (imp_res_tac evaluate_code_invariant >>
-              imp_res_tac crep_evaluate_code_invariant >>
+          >- (imp_res_tac evaluate_invariants >>
+              imp_res_tac evaluate_code_invariant >>
               gvs[set_var_def, Abbr ‘newctxt’, Abbr‘news’,
                   panSemTheory.set_var_def,
                   dec_clock_def,
@@ -3834,8 +3767,8 @@ Proof
               gvs[code_rel_def]) >>
           conj_asm1_tac
           >- (fs[Abbr ‘newctxt’,panSemTheory.set_var_def] >>
-                  imp_res_tac evaluate_invariants >>
-                  gvs[panSemTheory.dec_clock_def]) >>
+              imp_res_tac evaluate_invariants >>
+              gvs[panSemTheory.dec_clock_def]) >>
           PURE_TOP_CASE_TAC >> gvs[]
           >- (gvs[locals_rel_def] >>
               rw[] >>
@@ -4002,7 +3935,6 @@ Proof
       gvs[globals_lookup_def,code_rel_def] >>
       imp_res_tac evaluate_invariants >>
       imp_res_tac evaluate_code_invariant >>
-      imp_res_tac crep_evaluate_code_invariant >>
       gvs[dec_clock_def,panSemTheory.dec_clock_def,empty_locals_def,
           panSemTheory.empty_locals_def]) >>
   (* 1 ≠ size_of_shape shape *)
@@ -4043,8 +3975,8 @@ Proof
                   >- gvs[state_rel_def,set_var_def,panSemTheory.set_var_def,
                          Abbr ‘news’] >>
                   conj_asm1_tac
-                  >- (imp_res_tac evaluate_code_invariant >>
-                      imp_res_tac crep_evaluate_code_invariant >>
+                  >- (imp_res_tac evaluate_invariants >>
+                      imp_res_tac evaluate_code_invariant >>
                       gvs[set_var_def, Abbr ‘newctxt’, Abbr‘news’,
                           panSemTheory.set_var_def,
                           dec_clock_def,
@@ -4145,8 +4077,8 @@ Proof
               >- gvs[state_rel_def,set_var_def,panSemTheory.set_var_def,
                      Abbr ‘news’] >>
               conj_asm1_tac
-              >- (imp_res_tac evaluate_code_invariant >>
-                  imp_res_tac crep_evaluate_code_invariant >>
+              >- (imp_res_tac evaluate_invariants >>
+                  imp_res_tac evaluate_code_invariant >>
                   gvs[set_var_def, Abbr ‘newctxt’, Abbr‘news’,
                       panSemTheory.set_var_def,
                       dec_clock_def,
@@ -4190,8 +4122,8 @@ Proof
           conj_asm1_tac
           >- fs[state_rel_def] >>
           conj_asm1_tac
-          >- (imp_res_tac evaluate_code_invariant >>
-              imp_res_tac crep_evaluate_code_invariant >>
+          >- (imp_res_tac evaluate_invariants >>
+              imp_res_tac evaluate_code_invariant >>
               gvs[panSemTheory.set_var_def,dec_clock_def,Abbr ‘news’,panSemTheory.dec_clock_def]) >>
           conj_asm1_tac
           >- (imp_res_tac evaluate_invariants >>
@@ -4249,8 +4181,8 @@ Proof
               >- gvs[state_rel_def,set_var_def,panSemTheory.set_var_def,
                      Abbr ‘news’] >>
               conj_asm1_tac
-              >- (imp_res_tac evaluate_code_invariant >>
-                  imp_res_tac crep_evaluate_code_invariant >>
+              >- (imp_res_tac evaluate_invariants >>
+                  imp_res_tac evaluate_code_invariant >>
                   gvs[set_var_def, Abbr ‘newctxt’, Abbr‘news’,
                       panSemTheory.set_var_def,
                       dec_clock_def,
@@ -4280,18 +4212,18 @@ Proof
           simp[] >>
           conj_asm1_tac >- gvs[state_rel_def] >>
           conj_asm1_tac
-              >- (imp_res_tac evaluate_code_invariant >>
-                  imp_res_tac crep_evaluate_code_invariant >>
-                  gvs[set_var_def, Abbr ‘newctxt’, Abbr‘news’,
-                      panSemTheory.set_var_def,
-                      dec_clock_def,
-                      panSemTheory.dec_clock_def
-                     ] >>
-                  gvs[code_rel_def]) >>
+          >- (imp_res_tac evaluate_invariants >>
+              imp_res_tac evaluate_code_invariant >>
+              gvs[set_var_def, Abbr ‘newctxt’, Abbr‘news’,
+                  panSemTheory.set_var_def,
+                  dec_clock_def,
+                  panSemTheory.dec_clock_def
+                 ] >>
+              gvs[code_rel_def]) >>
           conj_asm1_tac
-              >- (fs[Abbr ‘newctxt’,panSemTheory.set_var_def] >>
-                  imp_res_tac evaluate_invariants >>
-                  gvs[panSemTheory.dec_clock_def]) >>
+          >- (fs[Abbr ‘newctxt’,panSemTheory.set_var_def] >>
+              imp_res_tac evaluate_invariants >>
+              gvs[panSemTheory.dec_clock_def]) >>
           PURE_TOP_CASE_TAC >> gvs[]
           >- (gvs[locals_rel_def] >>
               rw[] >>
@@ -4398,8 +4330,8 @@ Proof
           >- gvs[state_rel_def,set_var_def,panSemTheory.set_var_def,
                  Abbr ‘news’] >>
           conj_asm1_tac
-          >- (imp_res_tac evaluate_code_invariant >>
-              imp_res_tac crep_evaluate_code_invariant >>
+          >- (imp_res_tac evaluate_invariants >>
+              imp_res_tac evaluate_code_invariant >>
               gvs[set_var_def, Abbr ‘newctxt’, Abbr‘news’,
                   panSemTheory.set_var_def,
                   dec_clock_def,
@@ -4438,8 +4370,8 @@ Proof
       simp[] >>
       conj_asm1_tac >- gvs[state_rel_def] >>
       conj_asm1_tac
-      >- (imp_res_tac evaluate_code_invariant >>
-          imp_res_tac crep_evaluate_code_invariant >>
+      >- (imp_res_tac evaluate_invariants >>
+          imp_res_tac evaluate_code_invariant >>
           gvs[dec_clock_def,panSemTheory.dec_clock_def,Abbr ‘news’,panSemTheory.set_var_def]) >>
       conj_asm1_tac
       >- (fs[Abbr ‘newctxt’,panSemTheory.set_var_def] >>
@@ -4542,14 +4474,14 @@ Proof
   >- (PURE_FULL_CASE_TAC >> gvs[ctxt_fc_def] >>
       conj_asm1_tac >- gvs[state_rel_def] >>
       conj_asm1_tac
-      >- (imp_res_tac evaluate_code_invariant >>
-          imp_res_tac crep_evaluate_code_invariant >>
+      >- (imp_res_tac evaluate_invariants >>
+          imp_res_tac evaluate_code_invariant >>
           gvs[dec_clock_def,panSemTheory.dec_clock_def]) >>
       gvs[globals_lookup_def]) >>
   conj_tac >- gvs[state_rel_def] >>
   conj_asm1_tac
-  >- (imp_res_tac evaluate_code_invariant >>
-      imp_res_tac crep_evaluate_code_invariant >>
+  >- (imp_res_tac evaluate_invariants >>
+      imp_res_tac evaluate_code_invariant >>
       gvs[dec_clock_def,panSemTheory.dec_clock_def]) >>
   imp_res_tac evaluate_invariants >>
   gvs[panSemTheory.dec_clock_def]
@@ -4651,19 +4583,6 @@ Proof
           compile_Raise, compile_Return, compile_Tick, compile_DecCall]) >>
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
-
-(*
-Theorem compile_correct:
-  ^fgoal (p,s)
-Proof
-  rw [] >>
-  ‘FST (evaluate (p,s)) <> SOME Error’ by fs [] >>
-  drule pan_simpProofTheory.compile_correct >>
-  fs [] >> strip_tac >>
-  fs [compile_def] >>
-  metis_tac [pc_compile_correct]
-QED
-*)
 
 Theorem first_compile_prog_all_distinct:
   ALL_DISTINCT (MAP FST prog) ==>

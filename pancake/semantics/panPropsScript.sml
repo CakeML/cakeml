@@ -59,6 +59,14 @@ Proof
   fs [res_var_def, FLOOKUP_UPDATE, DOMSUB_FLOOKUP_NEQ]
 QED
 
+Theorem FLOOKUP_pan_res_var_thm:
+  FLOOKUP (panSem$res_var l (m,v)) n = if n = m then v else FLOOKUP l n
+Proof
+  simp[oneline panSemTheory.res_var_def] >>
+  PURE_FULL_CASE_TAC >>
+  rw[DOMSUB_FLOOKUP_THM,FLOOKUP_UPDATE]
+QED
+
 Theorem list_rel_length_shape_of_flatten:
   !vshs args.
   LIST_REL (λvsh arg. SND vsh = shape_of arg) vshs args ==>
@@ -875,7 +883,8 @@ Theorem evaluate_invariants:
   ∀p t res st.
   evaluate (p,t) = (res,st) ⇒
   st.memaddrs = t.memaddrs ∧ st.sh_memaddrs = t.sh_memaddrs ∧
-  st.be = t.be ∧ st.eshapes = t.eshapes ∧ st.base_addr = t.base_addr
+  st.be = t.be ∧ st.eshapes = t.eshapes ∧ st.base_addr = t.base_addr ∧
+  st.code = t.code
 Proof
   Ho_Rewrite.PURE_REWRITE_TAC[FORALL_AND_THM,IMP_CONJ_THM] >> rpt conj_tac >>
   recInduct evaluate_ind >>
@@ -893,7 +902,6 @@ Proof
      gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,dec_clock_def,set_var_def] >>
      metis_tac[PAIR,FST,SND])
 QED
-
 
 Definition every_exp_def:
   (every_exp P (panLang$Const w) = P(Const w)) ∧

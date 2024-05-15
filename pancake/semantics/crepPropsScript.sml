@@ -1280,6 +1280,36 @@ Proof
   fs []
 QED
 
+Theorem evaluate_code_invariant:
+  ∀p t res st.
+    crepSem$evaluate (p,t) = (res,st) ⇒
+    st.code = t.code
+Proof
+  recInduct crepSemTheory.evaluate_ind >> rw[]
+  >~ [‘While’]
+  >- (pop_assum mp_tac >>
+      rw[Once crepSemTheory.evaluate_def] >>
+      gvs[AllCaseEqs(),crepSemTheory.empty_locals_def,UNCURRY_eq_pair,
+          crepSemTheory.dec_clock_def])
+  >~ [‘Call’]
+  >- (pop_assum mp_tac >>
+      rw[Once crepSemTheory.evaluate_def] >>
+      rfs[AllCaseEqs(),crepSemTheory.empty_locals_def,
+          crepSemTheory.dec_clock_def] >>
+      rveq >>
+      fs[]) >>
+  gvs[crepSemTheory.evaluate_def,AllCaseEqs(),
+      oneline crepSemTheory.sh_mem_op_def,
+      oneline crepSemTheory.sh_mem_load_def,
+      oneline crepSemTheory.sh_mem_store_def,
+      crepSemTheory.set_var_def,
+      crepSemTheory.empty_locals_def,
+      UNCURRY_eq_pair,
+      crepSemTheory.dec_clock_def,
+      crepSemTheory.set_globals_def
+     ]
+QED
+
 Definition exps_of_def:
   (exps_of (Dec _ e p) = e::exps_of p) ∧
   (exps_of (Seq p q) = exps_of p ++ exps_of q) ∧
