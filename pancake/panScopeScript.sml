@@ -115,7 +115,7 @@ End
 
 Definition scope_check_funs_def:
   scope_check_funs fnames [] = NONE ∧
-  scope_check_funs fnames ((fname, vshapes, body)::funs) =
+  scope_check_funs fnames ((fname, _:bool, vshapes, body)::funs) =
     let ctxt = <| vars := MAP FST vshapes ; funcs := fnames ; fname := fname |> in
       OPTION_CHOICE (scope_check_prog ctxt body)
                     (scope_check_funs fnames funs)
