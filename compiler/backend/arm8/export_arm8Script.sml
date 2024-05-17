@@ -94,7 +94,7 @@ val ffi_code' =
        (if ret then
          "     b   cake_return"
        else
-         "     callq   cdecl(cml_exit)");
+         "     b   cdecl(cml_exit)");
        "     .p2align 4";
        "";
        "cake_main:";

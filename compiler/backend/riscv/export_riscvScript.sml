@@ -109,7 +109,7 @@ val entry_point_code =
      "     ld      s9, 0(t1)";
      "     beq     s9, zero, cake_err3";
      "     sd      zero, 0(t1)";
-     "     la      ra, cake_return";
+     "     la      ra, cake_ret";
      "     jr      t0";
      "     .p2align 4";
      "";

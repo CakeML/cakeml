@@ -152,7 +152,7 @@ val entry_point_code =
      "     je      cake_err3";
      "     movq    $0, cdecl(ret_base)(%rip)";
      "     lea     cake_ret(%rip), %rax";
-     "     jmp     %r14";
+     "     jmp     *%r14";
      "     .p2align 4";
      "";
      "";
