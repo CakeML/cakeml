@@ -442,18 +442,19 @@ Definition conv_Prog_def:
                               SOME $ SOME (excp, var, prog)
                            od
     | _ => NONE) ∧
-
   (conv_Ret tree =
-    case argsNT tree RetNT of
-    | SOME [id; t] => do var <- conv_ident id;
-                         hdl <- conv_Handle t;
-                         SOME $ SOME (var, hdl)
-                      od
-    | SOME [id] => do var <- conv_ident id;
-                      SOME $ SOME (var, NONE)
-                   od
-    | _ => NONE) ∧
-
+   if tokcheck tree (kw RetK) then
+     SOME $ NONE
+   else
+     case argsNT tree RetNT of
+     | SOME [id; t] => do var <- conv_ident id;
+                          hdl <- conv_Handle t;
+                          SOME $ SOME (SOME var, hdl)
+                       od
+     | SOME [id] => do var <- conv_ident id;
+                       SOME $ SOME (SOME var, NONE)
+                    od
+     | _ => NONE) ∧
   (conv_Prog (Nd nodeNT args) =
      if isNT nodeNT DecNT then
        case args of
@@ -482,24 +483,56 @@ Definition conv_Prog_def:
                       SOME (While e' p')
                    od
        | _ => NONE
+     else if isNT nodeNT DecCallNT then
+       case args of
+         s::i::e::ts =>
+           do s' <- conv_Shape s;
+              i' <- conv_ident i;
+              e' <- conv_Exp e;
+              args' <- (case ts of [] => NONE | [x] => SOME [] | args::_ => conv_ArgList args);
+              p' <- (case ts of [] => NONE | [p] => conv_Prog p | args::p::_ => conv_Prog p);
+              SOME $ DecCall i' s' e' args' p'
+           od
+       | _ => NONE
      else if isNT nodeNT CallNT then
        case args of
          [] => NONE
        | r::ts =>
            (case conv_Ret r of
-              NONE => do e' <- conv_Exp r;
-                         args' <- (case ts of [] => SOME []
-                                           | args::_ => conv_ArgList args);
-                         SOME $ TailCall e' args'
-                      od
-            | SOME r' =>
+              SOME NONE =>
+                (case ts of
+                   [] => NONE
+                 | r::ts =>
+                     do e' <- conv_Exp r;
+                        args' <- (case ts of [] => SOME []
+                                          | args::_ => conv_ArgList args);
+                        SOME $ TailCall e' args'
+                     od)
+            | NONE =>
+                (case conv_Handle r of
+                   NONE =>
+                     do e' <- conv_Exp r;
+                        args' <- (case ts of [] => SOME []
+                                          | args::_ => conv_ArgList args);
+                        SOME $ StandAloneCall NONE e' args'
+                     od
+                 | SOME h =>
+                     (case ts of
+                      | [] => NONE
+                      | r::ts =>
+                          do e' <- conv_Exp r;
+                             args' <- (case ts of [] => SOME []
+                                               | args::_ => conv_ArgList args);
+                             SOME $ StandAloneCall h e' args'
+                          od))
+            | SOME(SOME r') =>
                 (case ts of
                    [] => NONE
                  | e::xs =>
                      do e' <- conv_Exp e;
                         args' <- (case xs of [] => SOME []
                                           | args::_ => conv_ArgList args);
-                        SOME $ Call r' e' args'
+                        SOME $ panLang$Call (SOME r') e' args'
                      od))
      else if isNT nodeNT ProgNT then
        case args of

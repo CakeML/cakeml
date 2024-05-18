@@ -63,7 +63,8 @@ Datatype:
        | While ('a exp) prog
        | Break
        | Continue
-       | Call ((varname # ((eid # varname # prog) option)) option) ('a exp) (('a exp) list)
+       | Call ((varname option # ((eid # varname # prog) option)) option) ('a exp) (('a exp) list)
+       | DecCall varname shape ('a exp) ('a exp list) prog
        | ExtCall funname ('a exp) ('a exp) ('a exp) ('a exp)
          (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
        | Raise eid ('a exp)
@@ -83,7 +84,8 @@ End
 *)
 
 Overload TailCall = “Call NONE”
-Overload RetCall = “\s h. Call (SOME (s , h))”
+Overload AssignCall = “\s h. Call (SOME (SOME s , h))”
+Overload StandAloneCall = “\h. Call (SOME (NONE , h))”
 
 (*
 Datatype:
@@ -137,6 +139,7 @@ Definition exp_ids_def:
   (exp_ids (If _ p q) = exp_ids p ++ exp_ids q) ∧
   (exp_ids (While _ p) = exp_ids p) ∧
   (exp_ids (Call (SOME (_ , (SOME (e ,  _ , ep)))) _ _) = e::exp_ids ep) ∧
+  (exp_ids (DecCall _ _ _ _ p) = exp_ids p) ∧
   (exp_ids _ = [])
 End
 

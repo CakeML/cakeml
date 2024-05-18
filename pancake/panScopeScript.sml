@@ -42,6 +42,12 @@ Definition scope_check_prog_def:
   scope_check_prog ctxt (Dec v e p) =
     OPTION_CHOICE (scope_check_exp ctxt e)
                   (scope_check_prog (ctxt with vars := v :: ctxt.vars) p) ∧
+  scope_check_prog ctxt (DecCall v s e args p) =
+    OPTION_CHOICE
+        (scope_check_exp ctxt e)
+        (OPTION_CHOICE
+         (scope_check_exps ctxt args)
+         (scope_check_prog (ctxt with vars := v :: ctxt.vars) p)) ∧
   scope_check_prog ctxt (Assign v e) =
     (if ¬MEM v ctxt.vars
         then SOME (v, ctxt.fname)
@@ -68,7 +74,7 @@ Definition scope_check_prog_def:
     OPTION_CHOICE
       (scope_check_exp ctxt trgt)
       (scope_check_exps ctxt args) ∧
-  scope_check_prog ctxt (RetCall rt hdl trgt args) =
+  scope_check_prog ctxt (AssignCall rt hdl trgt args) =
     OPTION_CHOICE
       (scope_check_exp ctxt trgt)
       (OPTION_CHOICE
@@ -77,6 +83,17 @@ Definition scope_check_prog_def:
             then SOME (rt, ctxt.fname)
          else
            case hdl of
+             NONE => NONE
+           | SOME (eid, evar, p) =>
+               if ¬MEM evar ctxt.vars
+                  then SOME (evar, ctxt.fname)
+               else scope_check_prog (ctxt with vars := evar :: ctxt.vars) p)) ∧
+  scope_check_prog ctxt (StandAloneCall hdl trgt args) =
+    OPTION_CHOICE
+      (scope_check_exp ctxt trgt)
+      (OPTION_CHOICE
+        (scope_check_exps ctxt args)
+        (case hdl of
              NONE => NONE
            | SOME (eid, evar, p) =>
                if ¬MEM evar ctxt.vars
@@ -111,4 +128,3 @@ End
 
 
 val _ = export_theory ();
-
