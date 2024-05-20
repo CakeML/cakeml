@@ -697,7 +697,7 @@ Proof
        subexprs_mknt, peg_start, peg_range, DISJ_IMP_THM,FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, keep_tok_def, consume_tok_def,
        keep_kw_def, consume_kw_def, keep_int_def, keep_nat_def,
-       keep_ident_def, keep_ffi_ident_def, try_def] >>
+       keep_ident_def, keep_ffi_ident_def, try_def, try_default_def] >>
   simp(pancake_wfpeg_thm2 :: wfpeg_rwts' @ peg1_rwts @ npeg1_rwts)
 QED
 
