@@ -3506,6 +3506,113 @@ Proof
   metis_tac[]
 QED
 
+Theorem LUB_LAPPEND_fromList:
+  lprefix_chain X ∧ X ≠ ∅ ⇒
+  LAPPEND (fromList l) (LUB X)
+  = LUB {LAPPEND (fromList l) l' | l' | l' ∈ X}
+Proof
+  strip_tac>>
+  simp[lprefix_lubTheory.build_lprefix_lub_def]>>
+  simp[LNTH_EQ]>>
+  qid_spec_tac ‘l’>>
+  simp[Once SWAP_FORALL_THM]>>
+  Induct>>strip_tac
+  (* 0 *)
+  >- (simp[LNTH_LUNFOLD,LNTH_LAPPEND]>>
+      Cases_on ‘l’>>fs[]>>
+      simp[lprefix_lubTheory.build_lprefix_lub_f_def]>>
+      simp[PULL_EXISTS]>>
+      irule lprefix_lubTheory.exists_lprefix_chain_nth>>
+      rw[PULL_EXISTS]>- fs[PULL_EXISTS,MEMBER_NOT_EMPTY]>>
+      fs[lprefix_chain_def]>>rw[]>>
+      gvs[LPREFIX_fromList,LPREFIX_LCONS])>>
+  (* SUC n *)
+  rpt strip_tac>>gvs[LNTH_LAPPEND]>>
+  IF_CASES_TAC>>gvs[LNTH_THM,NOT_LESS]
+  (* SUC n < LENGTH l *)
+  >- (Cases_on ‘l’>>gvs[]>>
+      rename1 ‘h:::(LAPPEND (fromList t) _)’>>
+      first_x_assum $ qspec_then ‘t’ assume_tac>>gvs[]>>
+      CASE_TAC>>gvs[]
+      >- (pop_assum mp_tac>>
+          fs[lprefix_lubTheory.build_lprefix_lub_f_def]>>
+          fs[lprefix_chain_nth_def]>>
+          DEEP_INTRO_TAC some_intro>>simp[]>>
+          rpt strip_tac>>gvs[]>>
+          fs[PULL_FORALL]>>
+          fs[GSYM MEMBER_NOT_EMPTY])>>
+      gvs[LNTH_fromList]>>
+      CASE_TAC>>gvs[]>>rename1 ‘_ = SOME (q,r)’>>
+      qmatch_asmsub_abbrev_tac ‘Y = SOME (q,r)’>>
+      ‘Y = SOME (1,h)’
+        by (simp[Abbr‘Y’]>>
+            pop_assum mp_tac>>
+            fs[lprefix_lubTheory.build_lprefix_lub_f_def]>>
+            fs[lprefix_chain_nth_def]>>
+            DEEP_INTRO_TAC some_intro>>simp[]>>
+            rpt strip_tac>>gvs[])>>gvs[]>>
+      irule (iffLR LNTH_EQ)>>
+      simp[Once LUNFOLD_BISIMULATION]>>
+      qexists ‘CURRY {(n,SUC n) | n | T}’>>
+      rw[]>>
+      pop_assum mp_tac>>
+      fs[lprefix_lubTheory.build_lprefix_lub_f_def]>>
+      fs[lprefix_chain_nth_def]>>
+      DEEP_INTRO_TAC some_intro>>simp[PULL_EXISTS]>>
+      DEEP_INTRO_TAC some_intro>>simp[PULL_EXISTS]>>
+      DEEP_INTRO_TAC some_intro>>simp[PULL_EXISTS])>>
+  (* LENGTH l ≤ SUC n *)
+  gvs[]>>
+  CASE_TAC>>fs[]
+  >- (pop_assum mp_tac>>
+      fs[lprefix_lubTheory.build_lprefix_lub_f_def]>>
+      fs[lprefix_chain_nth_def]>>
+      DEEP_INTRO_TAC some_intro>>simp[]>>
+      rpt strip_tac>>gvs[]>>
+      simp[Once LUNFOLD]>>
+      rpt CASE_TAC>>gvs[]>>
+      pop_assum mp_tac>>
+      fs[lprefix_lubTheory.build_lprefix_lub_f_def]>>
+      fs[lprefix_chain_nth_def]>>
+      DEEP_INTRO_TAC some_intro>>simp[]>>
+      rpt strip_tac>>gvs[]>>
+      Cases_on ‘l’>>gvs[])>>
+  CASE_TAC>>fs[]>>rename1 ‘_ = SOME (q,r)’>>
+  pop_assum mp_tac>>
+  fs[lprefix_lubTheory.build_lprefix_lub_f_def]>>
+  fs[lprefix_chain_nth_def]>>
+  DEEP_INTRO_TAC some_intro>>simp[]>>
+  rpt strip_tac>>gvs[LNTH_LAPPEND,LNTH_fromList]>>
+  Cases_on ‘l’>>gvs[]
+  >- (rpt CASE_TAC>>gvs[]>>
+      pop_assum mp_tac>>
+      fs[lprefix_lubTheory.build_lprefix_lub_f_def]>>
+      fs[lprefix_chain_nth_def]>>
+      DEEP_INTRO_TAC some_intro>>simp[]>>
+      rpt strip_tac>>gvs[LNTH_LAPPEND,LNTH_fromList])>>
+  rename1 ‘h:::(LAPPEND (fromList t) _)’>>
+  first_x_assum $ qspec_then ‘t’ assume_tac>>gvs[]>>
+  irule (iffLR LNTH_EQ)>>
+  simp[Once LUNFOLD_BISIMULATION]>>
+  qexists ‘CURRY {(n,SUC n) | n | T}’>>
+  rw[]>>
+  fs[lprefix_lubTheory.build_lprefix_lub_f_def]>>
+  fs[lprefix_chain_nth_def]>>
+  DEEP_INTRO_TAC some_intro>>simp[PULL_EXISTS]>>
+  DEEP_INTRO_TAC some_intro>>simp[PULL_EXISTS]>>
+  rpt strip_tac>>
+  gvs[PULL_FORALL,LNTH_fromList,LNTH_LAPPEND]>>
+  rpt CASE_TAC>>gvs[MEMBER_NOT_EMPTY,NOT_LESS]>>
+  qmatch_asmsub_abbrev_tac ‘LNTH Y _ = SOME _’>>
+  rename1 ‘LNTH _ l3 = SOME x’>>
+  qexistsl [‘x’,‘l3’]>>gvs[]>>
+  rpt strip_tac>>gvs[lprefix_chain_def]>>
+  rename1 ‘LNTH _ l4 = SOME x2’>>
+  last_x_assum $ qspecl_then [‘l3’,‘l4’] assume_tac>>
+  gvs[llistTheory.LPREFIX_NTH]>>
+  first_x_assum $ qspec_then ‘Y’ assume_tac>>gvs[Abbr‘Y’]
+QED
+
 (* Final goal:
 
    1. For every path that can be generated frong
