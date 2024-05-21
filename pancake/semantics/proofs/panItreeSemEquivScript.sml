@@ -3650,6 +3650,42 @@ Proof
   simp[evaluate_io_events_prefix_chain]
 QED
 
+(* generalise? *)
+Theorem lprefix_chain_LUB_upper:
+  LUB {fromList (SND (evaluate (prog,s with clock := k))).ffi.io_events | k | T} =
+  LUB {fromList (SND (evaluate (prog,s with clock := k))).ffi.io_events | k | n < k}
+Proof
+  qmatch_goalsub_abbrev_tac ‘LUB X = LUB Y’>>
+  ‘lprefix_chain X’
+    by (simp[Abbr‘X’]>>
+        irule evaluate_io_events_lprefix_chain)>>
+  ‘lprefix_chain Y’
+    by (simp[Abbr‘Y’]>>
+        irule lprefix_chain_subset>>
+        first_assum $ irule_at Any>>
+        simp[Abbr‘X’]>>
+        simp[SUBSET_DEF]>>
+        rpt strip_tac>>metis_tac[])>>
+  irule lprefix_lubTheory.IMP_build_lprefix_lub_EQ>>gvs[]>>
+  conj_tac>>simp[lprefix_rel_def]>>rpt strip_tac>>
+  unabbrev_all_tac>>
+  fs[IN_ABS,PULL_EXISTS]
+  >- (Cases_on ‘n < k’>>fs[NOT_LESS]
+      >- (qexists ‘k’>>gvs[])>>
+      qexists ‘n+1’>>gvs[]>>
+      dxrule LESS_EQUAL_ADD>>strip_tac>>gvs[]>>
+      qabbrev_tac ‘x = s with clock := k’>>
+      ‘(SND (evaluate (prog,x))).ffi.io_events ≼
+       (SND (evaluate (prog,x with clock := x.clock + (p + 1)))).ffi.io_events’
+        by (irule panPropsTheory.evaluate_add_clock_io_events_mono)>>
+      fs[IS_PREFIX_APPEND]>>gvs[]>>
+      ‘s with clock := k + (p + 1) = x with clock := p + (x.clock + 1)’
+        by simp[Abbr‘x’]>>simp[]>>gvs[]>>
+      simp[LPREFIX_APPEND]>>
+      simp[GSYM LAPPEND_fromList]>>metis_tac[])>>
+  qexists ‘k’>>gvs[]
+QED
+
 (* Final goal:
 
    1. For every path that can be generated frong
