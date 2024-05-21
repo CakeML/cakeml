@@ -3710,6 +3710,66 @@ Proof
   qexists ‘k'’>>gvs[]
 QED
 
+Theorem initial_io_events_LAPPEND:
+  LUB
+   {fromList
+    (SND (evaluate (prog,s with clock := k))).ffi.io_events | k | T} =
+  LAPPEND (fromList s.ffi.io_events)
+   (LUB {fromList
+      (DROP (LENGTH s.ffi.io_events)
+ (SND (evaluate (prog,s with clock := k))).ffi.io_events)|k|s.clock < k})
+Proof
+  irule EQ_TRANS>>
+  irule_at Any (GSYM LUB_LAPPEND_fromList)>>
+  qmatch_goalsub_abbrev_tac ‘lprefix_chain X’>>
+  conj_tac >-
+   (simp[Abbr‘X’]>>
+    irule (iffRL lprefix_chain_LAPPEND)>>
+    qexists ‘s.ffi.io_events’>>
+    qpat_abbrev_tac ‘X = IMAGE _ _’>>
+    ‘X = IMAGE fromList
+           (IMAGE (λx. s.ffi.io_events ++ x)
+                  {DROP (LENGTH s.ffi.io_events)
+                  (SND (evaluate (prog,s with clock := k))).ffi.io_events | k | s.clock < k})’
+      by simp[IMAGE_DEF,Abbr‘X’,EXTENSION,PULL_EXISTS,
+              LAPPEND_fromList]>>
+    simp[]>>
+    irule prefix_chain_lprefix_chain>>
+    simp[GSYM evaluate_io_events_prefix]>>
+    simp[prefix_chain_def]>>
+    rpt strip_tac>>
+    Cases_on ‘k < k'’>>fs[NOT_LESS]
+    >- (drule_then (assume_tac o GSYM) LESS_ADD>>gvs[]>>
+        disj1_tac>>
+        irule IS_PREFIX_TRANS>>
+        irule_at Any panPropsTheory.evaluate_add_clock_io_events_mono>>
+        qexists_tac ‘p’>>fs[])>>
+    drule_then (assume_tac o GSYM) LESS_EQUAL_ADD>>gvs[]>>
+    disj2_tac>>
+    irule IS_PREFIX_TRANS>>
+    irule_at Any panPropsTheory.evaluate_add_clock_io_events_mono>>
+    qexists_tac ‘p’>>fs[])>>
+  conj_tac >-
+   (simp[Abbr‘X’]>>
+    CCONTR_TAC>>gvs[EXTENSION,NOT_LESS]>>
+    first_x_assum $ qspec_then ‘SUC s.clock’ assume_tac>>gvs[])>>
+  irule EQ_TRANS>>
+  irule_at Any lprefix_chain_LUB_upper>>
+  qexists ‘s.clock’>>
+  AP_TERM_TAC>>
+  simp[Abbr‘X’]>>
+  irule EQ_TRANS>>
+  qexists ‘IMAGE fromList (IMAGE (λx. s.ffi.io_events ++ x)
+                                 {DROP (LENGTH s.ffi.io_events)
+      (SND (evaluate (prog,s with clock := k))).ffi.io_events | k | s.clock < k})’>>
+  reverse conj_tac >- simp[EXTENSION,LAPPEND_fromList,PULL_EXISTS]>>
+  irule EQ_TRANS>>
+  qexists ‘IMAGE fromList {(SND (evaluate (prog,s with clock := k))).ffi.io_events | k | s.clock < k}’>>
+  conj_tac>- simp[EXTENSION,PULL_EXISTS]>>
+  AP_TERM_TAC>>
+  irule evaluate_io_events_prefix
+QED
+
 (* Final goal:
 
    1. For every path that can be generated frong
