@@ -3686,6 +3686,30 @@ Proof
   qexists ‘k’>>gvs[]
 QED
 
+
+Theorem evaluate_io_events_prefix:
+  {(SND (evaluate (prog,s with clock := k))).ffi.io_events | k | s.clock < k} =
+  IMAGE (λx. APPEND s.ffi.io_events x)
+        {DROP (LENGTH s.ffi.io_events)
+              (SND (evaluate (prog,s with clock := k))).ffi.io_events | k | s.clock < k}
+Proof
+  simp[IMAGE_DEF,EXTENSION,PULL_EXISTS]>>
+  simp[EQ_IMP_THM]>>
+  simp[PULL_EXISTS,PULL_FORALL]>>
+  rpt gen_tac>>
+  ‘∀k. (SND (evaluate (prog, s with clock := k))).ffi.io_events
+             = s.ffi.io_events ++
+               DROP (LENGTH s.ffi.io_events)
+                    (SND (evaluate (prog, s with clock := k))).ffi.io_events’ by
+    (strip_tac>>
+     qpat_abbrev_tac ‘X = evaluate _’>>
+     Cases_on ‘X’>>fs[]>>
+     imp_res_tac panPropsTheory.evaluate_io_events_mono>>
+     fs[IS_PREFIX_APPEND]>>
+     fs[DROP_APPEND])>>rw[]>- metis_tac[]>>
+  qexists ‘k'’>>gvs[]
+QED
+
 (* Final goal:
 
    1. For every path that can be generated frong
