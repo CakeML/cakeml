@@ -3474,6 +3474,38 @@ Proof
   fs[LFINITE_fromList,LAPPEND11_FINITE1]>>metis_tac[]
 QED
 
+(* move *)
+Theorem prefix_chain_APPEND:
+  prefix_chain X ⇔
+  prefix_chain (IMAGE (λx. APPEND l x) X)
+Proof
+  simp[EQ_IMP_THM]>>
+  strip_tac>>fs[prefix_chain_def]>>
+  rpt strip_tac>>
+  fs[IS_PREFIX_APPEND]>>
+  first_x_assum $ qspecl_then [‘l ++ l1’,‘l ++ l2’] assume_tac>>
+  gvs[]
+QED
+
+(* move *)
+Theorem lprefix_chain_LAPPEND:
+  lprefix_chain X ⇔
+  lprefix_chain (IMAGE (λx. LAPPEND (fromList l) x) X)
+Proof
+  simp[EQ_IMP_THM]>>
+  strip_tac>>fs[lprefix_chain_def]>>
+  rpt strip_tac>>
+  fs[LPREFIX_APPEND]
+    >- (simp[Once LAPPEND_ASSOC]>>
+        simp[Once LAPPEND_ASSOC]>>
+        simp[LFINITE_fromList,LAPPEND11_FINITE1])>>
+  first_x_assum $ qspecl_then [‘LAPPEND (fromList l) ll1’,‘LAPPEND (fromList l) ll2’] assume_tac>>
+  gvs[LFINITE_fromList,LAPPEND11_FINITE1]>>
+  fs[Once LAPPEND_ASSOC]>>
+  gvs[LFINITE_fromList,LAPPEND11_FINITE1]>>
+  metis_tac[]
+QED
+
 (* Final goal:
 
    1. For every path that can be generated frong
