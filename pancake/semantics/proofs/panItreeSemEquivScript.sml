@@ -3462,6 +3462,18 @@ Proof
   >- (qpat_x_assum ‘_ = spin’ mp_tac >> rw[Once spin])
 QED
 
+(** divergence **)
+
+(* move *)
+Theorem LPREFIX_fromList:
+  (LPREFIX (LAPPEND (fromList l) l1) (LAPPEND (fromList l) l2))
+  ⇔ (LPREFIX l1 l2)
+Proof
+  fs[LPREFIX_APPEND]>>
+  fs[Once LAPPEND_ASSOC]>>
+  fs[LFINITE_fromList,LAPPEND11_FINITE1]>>metis_tac[]
+QED
+
 (* Final goal:
 
    1. For every path that can be generated frong
