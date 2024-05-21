@@ -3613,6 +3613,43 @@ Proof
   first_x_assum $ qspec_then ‘Y’ assume_tac>>gvs[Abbr‘Y’]
 QED
 
+Theorem evaluate_io_events_prefix_chain:
+  prefix_chain
+  {(SND (evaluate (prog,s with clock := k))).ffi.
+  io_events | k | T}
+Proof
+  simp[prefix_chain_def]>>
+  ntac 3 strip_tac>>
+  Cases_on ‘k<k'’>>fs[NOT_LESS]
+  >- (disj1_tac>>
+      qabbrev_tac ‘x=s with clock := k’>>
+      ‘s with clock := k' = x with clock := x.clock + (k'-k) ’
+        by simp[Abbr‘x’]>>
+      pop_assum (fn h => rewrite_tac [h])>>
+      irule panPropsTheory.evaluate_add_clock_io_events_mono)>>
+  disj2_tac>>
+  qabbrev_tac ‘x= s with clock := k'’>>
+  ‘s with clock := k = x with clock := x.clock + (k-k') ’
+    by simp[Abbr‘x’]>>
+  pop_assum (fn h => rewrite_tac [h])>>
+  irule panPropsTheory.evaluate_add_clock_io_events_mono
+QED
+
+Theorem evaluate_io_events_lprefix_chain:
+  lprefix_chain
+  {fromList (SND (evaluate (prog,s with clock := k))).ffi.
+  io_events | k | T}
+Proof
+  qmatch_goalsub_abbrev_tac ‘lprefix_chain X’>>
+  ‘X = IMAGE fromList
+             {(SND (evaluate (prog,s with clock := k))).ffi.
+                                              io_events|k|T}’
+    by (simp[Abbr‘X’,IMAGE_DEF]>>
+        simp[FUN_EQ_THM]>>rw[EQ_IMP_THM]>>metis_tac[])>>simp[]>>
+  irule lprefix_lubTheory.prefix_chain_lprefix_chain>>
+  simp[evaluate_io_events_prefix_chain]
+QED
+
 (* Final goal:
 
    1. For every path that can be generated frong
