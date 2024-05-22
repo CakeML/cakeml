@@ -36,13 +36,10 @@ val startup' =
        "     ld      a2,cdecl(cml_stack)    # arg3: first address of stack";
        "     ld      a3,cdecl(cml_stackend) # arg4: first address past the stack"] ++
        (if ret then
-         ["     addi    sp, sp, -24";
-          "     sd      ra, 16(sp)";
-          "     sd      s9, 8(sp)";
-          "     sd      s8, 0(sp)"]
-       else []) ++
-      ["     j       cake_main";
-       ""]))``
+         ["     j       cml_enter"]
+       else
+         ["     j       cake_main"]) ++
+      [""]))``
 
 val (startup_true, startup_false) =
     (``^startup' T`` |> EVAL |> concl |> rand,
@@ -96,9 +93,19 @@ val ffi_code =
 val entry_point_code =
   ``(List (MAP (\n. strlit(n ++ "\n"))
     [""; "";
+     "cml_enter:";
+     "     addi    sp, sp, -32";
+     "     sd      ra, 24(sp)";
+     "     sd      s10, 16(sp)";
+     "     sd      s9, 8(sp)";
+     "     sd      s8, 0(sp)";
+     "     j       cake_main";
+     "     .p2align 4";
+     ""; "";
      "cake_enter:";
-     "     addi    sp, sp, -24";
-     "     sd      ra, 16(sp)";
+     "     addi    sp, sp, -32";
+     "     sd      ra, 24(sp)";
+     "     sd      s10, 16(sp)";
      "     sd      s9, 8(sp)";
      "     sd      s8, 0(sp)";
      "     la      t1, cdecl(ret_stack)";
@@ -112,8 +119,7 @@ val entry_point_code =
      "     la      ra, cake_ret";
      "     jr      t0";
      "     .p2align 4";
-     "";
-     "";
+     ""; "";
      "cake_ret:";
      "cake_return:";
      "     la      t1, cdecl(ret_stack)";
@@ -122,12 +128,12 @@ val entry_point_code =
      "     sd      s9, 0(t1)";
      "     ld      s8, 0(sp)";
      "     ld      s9, 8(sp)";
-     "     ld      ra, 16(sp)";
-     "     addi    sp, sp, 24";
+     "     ld      s10, 16(sp)";
+     "     ld      ra, 24(sp)";
+     "     addi    sp, sp, 32";
      "     ret";
      "     .p2align 4";
-     "";
-     "";
+     ""; "";
      "cake_err3:";
      "     li      a0, 3";
      "     j       cdecl(cml_err)";

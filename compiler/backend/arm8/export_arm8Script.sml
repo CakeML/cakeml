@@ -52,12 +52,10 @@ val startup' =
        "     _ldrel x3, cdecl(cml_stackend)  /* arg4: first address past the stack */";
        "     ldr    x3,[x3]"] ++
        (if ret then
-         ["     str    x30, [sp, #-32]!";
-          "     str    x27, [sp, #-32]!";
-          "     str    x25, [sp, #-32]!"]
-       else []) ++
-      ["     b      cake_main";
-       "     .ltorg";
+         ["     b      cml_enter"]
+       else
+         ["     b      cake_main"]) ++
+      ["     .ltorg";
        ""]))``
 
 val (startup_true, startup_false) =
@@ -112,8 +110,17 @@ val ffi_code =
 val entry_point_code =
   ``(List (MAP (\n. strlit(n ++ "\n"))
     [""; "";
+     "cml_enter:";
+     "     str    x30, [sp, #-32]!";
+     "     str    x28, [sp, #-32]!";
+     "     str    x27, [sp, #-32]!";
+     "     str    x25, [sp, #-32]!";
+     "     b      cake_main";
+     "     .p2align 4";
+     ""; "";
      "cake_enter:";
      "     str    x30, [sp, #-32]!";
+     "     str    x28, [sp, #-32]!";
      "     str    x27, [sp, #-32]!";
      "     str    x25, [sp, #-32]!";
      "     _ldrel x9, cdecl(ret_stack)";
@@ -127,8 +134,7 @@ val entry_point_code =
      "     _ldrel x30, cake_ret";
      "     br     x10";
      "     .p2align 4";
-     "";
-     "";
+     ""; "";
      "cake_ret:";
      "     mov    x8, x0";
      "cake_return:";
@@ -138,11 +144,11 @@ val entry_point_code =
      "     str    x27, [x9]";
      "     ldr    x25, [sp], #32";
      "     ldr    x27, [sp], #32";
+     "     ldr    x28, [sp], #32";
      "     ldr    x30, [sp], #32";
      "     ret";
      "     .p2align 4";
-     "";
-     "";
+     ""; "";
      "cake_err3:";
      "     mov    x0, #3";
      "     b      cdecl(cml_err)";

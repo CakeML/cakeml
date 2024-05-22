@@ -17,9 +17,9 @@ In addition, the first address on the heap should store the address of cake_bitm
 
 Note: this set up does NOT account for restoring clobbered registers
 *)
-val startup =
-  ``(MAP (\n. strlit(n ++ "\n"))
-      ["/* Start up code */";
+val startup' =
+  ``λret. (MAP (\n. strlit(n ++ "\n"))
+      (["/* Start up code */";
        "";
        "     .text";
        "     .p2align 12";
@@ -48,9 +48,19 @@ val startup =
        "     leaq    cdecl(cake_codebuffer_end)(%rip), %rax";
        "     movq    %rax, 32(%rsi)                  # store code mutable end pointer";
        "     movq    cdecl(cml_stack)(%rip), %rdx    # arg3: first address of stack";
-       "     movq    cdecl(cml_stackend)(%rip), %rcx # arg4: first address past the stack";
-       "     jmp     cake_main";
-       ""])`` |> EVAL |> concl |> rand
+       "     movq    cdecl(cml_stackend)(%rip), %rcx # arg4: first address past the stack"] ++
+       (if ret then
+         ["     jmp     cml_enter"]
+       else
+         ["     jmp     cake_main"]) ++
+      [""]))``
+
+val (startup_true, startup_false) =
+    (``^startup' T`` |> EVAL |> concl |> rand,
+     ``^startup' F`` |> EVAL |> concl |> rand);
+
+val startup =
+  ``λret. if ret then ^startup_true else ^startup_false``;
 
 val ffi_asm_def = Define `
   (ffi_asm [] = Nil) /\
@@ -140,9 +150,24 @@ val windows_ffi_code =
 
 val entry_point_code =
   ``(List (MAP (\n. strlit(n ++ "\n"))
-    ["cake_enter:";
+    ["cml_enter:";
+     "     sub     $0x30, %rsp                     # push callee-saved registers";
+     "     movq    %r12, -0x8(%rbp)";
+     "     movq    %r13, -0x10(%rbp)";
+     "     movq    %r14, -0x18(%rbp)";
+     "     movq    %r15, -0x20(%rbp)";
+     "     movq    %rbx, -0x28(%rbp)";
+     "     jmp     cake_main";
+     ""; "";
+     "cake_enter:";
      "     pushq   %rbp";
      "     movq    %rsp, %rbp";
+     "     sub     $0x30, %rsp";
+     "     movq    %r12, -0x8(%rbp)";
+     "     movq    %r13, -0x10(%rbp)";
+     "     movq    %r14, -0x18(%rbp)";
+     "     movq    %r15, -0x20(%rbp)";
+     "     movq    %rbx, -0x28(%rbp)";
      "     movq    cdecl(ret_stack)(%rip), %r12";
      "     cmp     $0, %r12";
      "     je      cake_err3";
@@ -154,18 +179,21 @@ val entry_point_code =
      "     lea     cake_ret(%rip), %rax";
      "     jmp     *%r14";
      "     .p2align 4";
-     "";
-     "";
+     ""; "";
      "cake_ret:";
      "     mov     %edi, %eax";
      "cake_return:";
      "     movq    %r12, cdecl(ret_stack)(%rip)";
      "     movq    %r13, cdecl(ret_base)(%rip)";
+     "     movq    -0x28(%rbp),%rbx";
+     "     movq    -0x20(%rbp),%r15";
+     "     movq    -0x18(%rbp),%r14";
+     "     movq    -0x10(%rbp),%r13";
+     "     movq    -0x8(%rbp),%r12";
      "     leave";
      "     ret";
      "     .p2align 4";
-     "";
-     "";
+     ""; "";
      "windows_cml_err3:";
      "     movq    %rcx, %r9";
      "     movq    %rdx, %r8";
@@ -204,7 +232,7 @@ val x64_export_def = Define `
       (SmartAppend (List (data_section ".quad" ret))
       (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
       (SmartAppend (List data_buffer)
-      (SmartAppend (List ((strlit"\n")::^startup)) (^ffi_code ret))))))
+      (SmartAppend (List ((strlit"\n")::^startup ret)) (^ffi_code ret))))))
       (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
       (SmartAppend (List code_buffer)
       (emit_symbols lsyms))))
