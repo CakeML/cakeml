@@ -2774,6 +2774,83 @@ Proof
   gvs[]
 QED
 
+Theorem move_locals_to_ffi:
+  ltree_lift query_oracle s.ffi
+  (mrec_sem (h_prog (p,s with locals := r))) = FUNPOW Tau n (Ret (q,r')) ⇔
+  ltree_lift query_oracle (s with locals := r).ffi
+             (mrec_sem (h_prog (p,s with locals := r))) = FUNPOW Tau n (Ret (q,r'))
+
+Proof
+  rw []
+QED
+
+Theorem FUNPOW_Tau_PULL:
+  FUNPOW Tau n (Tau x) = Tau (FUNPOW Tau n x)
+Proof
+  completeInduct_on ‘n’ >>
+  Cases_on ‘n’
+  >- rw [FUNPOW] >>
+  ‘FUNPOW Tau n' (Tau x) = Tau (FUNPOW Tau n' x)’
+    by (gvs []) >>
+  rw [FUNPOW_SUC]
+QED
+
+Theorem FUNPOW_Tau_Ret_inner_eq:
+  FUNPOW Tau n (Ret x) = FUNPOW Tau n' (Ret y) ⇒
+  x = y
+Proof
+  rw [] >>
+  drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+  ‘FUNPOW Tau n (Ret x) ≈ Ret x’ by (gvs [FUNPOW_Tau_wbisim]) >>
+  ‘Ret x ≈ Ret y’ by (metis_tac [itree_wbisim_trans,
+                                 itree_wbisim_sym,itree_wbisim_refl]) >>
+  ‘x = y’ by (gvs [itree_wbisim_neq]) >>
+  ‘FUNPOW Tau n (Ret x) = FUNPOW Tau n' (Ret x)’ by (gvs [])
+QED
+
+Theorem FUNPOW_mono:
+  FUNPOW f n x = FUNPOW f n' x ⇒
+  FUNPOW f (SUC n) x = FUNPOW f (SUC n') x
+Proof
+  rw [FUNPOW_SUC]
+QED
+
+Theorem FUNPOW_Tau_Ret_mono:
+  (FUNPOW Tau n (Ret x):('a,'b,'c) itree) = FUNPOW Tau n' (Ret x) ⇒
+  (FUNPOW Tau (SUC n) (Ret x):('a,'b,'c) itree) = FUNPOW Tau (SUC n') (Ret x)
+Proof
+  rw [FUNPOW_mono]
+QED
+
+Theorem FUNPOW_Tau_Ret_len_eq:
+  FUNPOW Tau n (Ret x) = FUNPOW Tau n' (Ret x) ⇔
+  n = n'
+Proof
+  reverse $ EQ_TAC
+  >- (completeInduct_on ‘n’ >>
+      Cases_on ‘n’ >> rw [])
+  >- (qid_spec_tac ‘n'’ >>
+      completeInduct_on ‘n’ >>
+      Cases_on ‘n'’
+      >- rw [ret_eq_funpow_tau] >>
+      disch_tac >>
+      gvs [FUNPOW_SUC] >>
+      Cases_on ‘n’
+      >- gvs [ret_eq_funpow_tau] >>
+         gvs [FUNPOW_SUC])
+QED
+
+Theorem FUNPOW_Tau_eq_elim:
+  FUNPOW Tau n t = FUNPOW Tau n t' ⇒
+  t = t'
+Proof
+  Induct_on ‘n’
+  >- rw [FUNPOW] >>
+  disch_tac >>
+  ‘FUNPOW Tau n t = FUNPOW Tau n t'’ by (gvs [FUNPOW_SUC]) >>
+  gvs []
+QED
+
 Theorem ltree_Ret_to_evaluate:
   ∀s r s' prog:'a prog.
   good_dimindex (:α) ∧
@@ -3037,7 +3114,174 @@ Proof
         ] >>
       rw[state_component_equality])
   >~ [‘Call’]
-  >- (cheat)
+  >- (rw [Once evaluate_def] >>
+      simp [panPropsTheory.eval_upd_clock_eq] >>
+      Cases_on ‘eval (reclock s) e’ >> rw []
+      >- (gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
+               ltree_lift_cases] >>
+          drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+          ‘r = SOME Error’ by (gvs [itree_wbisim_neq]) >>
+          ‘s = s'’ by (gvs [itree_wbisim_neq]) >>
+          qexistsl_tac [‘k’,‘k’] >> rw []) >>
+      reverse $ TOP_CASE_TAC >> rw []
+      >- (gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
+               ltree_lift_cases] >>
+          drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+          ‘r = SOME Error’ by (gvs [itree_wbisim_neq]) >>
+          ‘s = s'’ by (gvs [itree_wbisim_neq]) >>
+          qexistsl_tac [‘k’,‘k’] >> rw []) >>
+      TOP_CASE_TAC >> rw []
+      >- (gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
+               ltree_lift_cases] >>
+          drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+          ‘r = SOME Error’ by (gvs [itree_wbisim_neq]) >>
+          ‘s = s'’ by (gvs [itree_wbisim_neq]) >>
+          qexistsl_tac [‘k’,‘k’] >> rw []) >>
+      simp [panPropsTheory.opt_mmap_eval_upd_clock_eq1] >>
+      Cases_on ‘OPT_MMAP (eval (reclock s)) l’ >> rw []
+      >- (gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
+               ltree_lift_cases] >>
+          drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+          ‘r = SOME Error’ by (gvs [itree_wbisim_neq]) >>
+          ‘s = s'’ by (gvs [itree_wbisim_neq]) >>
+          qexistsl_tac [‘k’,‘k’] >> rw []) >>
+      Cases_on ‘lookup_code s.code m x’ >> rw []
+      >- (gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
+               ltree_lift_cases] >>
+          drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+          ‘r = SOME Error’ by (gvs [itree_wbisim_neq]) >>
+          ‘s = s'’ by (gvs [itree_wbisim_neq]) >>
+          qexistsl_tac [‘k’,‘k’] >> rw []) >>
+      TOP_CASE_TAC >>
+      qrefine ‘SUC _’ >> simp [dec_clock_def] >>
+      gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
+           ltree_lift_cases,tau_eq_funpow_tau,msem_lift_monad_law,
+           ltree_lift_monad_law] >>
+      imp_res_tac FUNPOW_Tau_bind_thm >>
+      Cases_on ‘y’ >> gvs [] >>
+      pop_assum kall_tac >>
+      ‘ltree_lift query_oracle (s with locals := r').ffi
+       (mrec_sem (h_prog (q,s with locals := r'))) =
+       FUNPOW Tau n'' (Ret (q',r''))’ by (gvs [Once move_locals_to_ffi]) >>
+      last_assum $ drule_at (Pos last) >> rw [] >>
+      drule panPropsTheory.evaluate_add_clock_eq >> simp [] >>
+      disch_tac >>
+      qrefine ‘k + _’ >> rw [] >>
+      Cases_on ‘q'’ >> rw []
+      >- (gvs [bind_FUNPOW_eqn,
+               h_handle_call_ret_def,
+               mrec_sem_simps,ltree_lift_cases] >>
+          drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >> gvs [] >>
+          qexistsl_tac [‘0’,‘k'’] >> rw []) >>
+      TOP_CASE_TAC >> rw [] >>
+      gvs [bind_FUNPOW_eqn,
+           h_handle_call_ret_def,
+           mrec_sem_simps,ltree_lift_cases]
+      >- (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >> gvs [] >>
+          qexistsl_tac [‘0’,‘k'’] >>
+          simp [empty_locals_defs] >>
+          gvs [bind_FUNPOW_eqn,h_handle_call_ret_def,mrec_sem_simps,
+               ltree_lift_cases] >>
+          ‘r = SOME Error ∧ s' = empty_locals r''’
+            by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
+                gvs []) >>
+          rw [empty_locals_defs])
+      >- (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >> gvs [] >>
+          qexistsl_tac [‘0’,‘k'’] >>
+          simp [empty_locals_defs] >>
+          gvs [bind_FUNPOW_eqn,h_handle_call_ret_def,mrec_sem_simps,
+               ltree_lift_cases])
+      >- (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >> gvs [] >>
+          qexistsl_tac [‘0’,‘k'’] >>
+          simp [empty_locals_defs] >>
+          gvs [bind_FUNPOW_eqn,h_handle_call_ret_def,mrec_sem_simps,
+               ltree_lift_cases])
+      >- (Cases_on ‘o'’ >> rw []
+          >- (gvs [bind_FUNPOW_eqn,h_handle_call_ret_def,
+                   mrec_sem_simps,ltree_lift_cases] >>
+              ‘r = SOME (Return v) ∧ s' = empty_locals r''’
+                by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
+                    gvs []) >>
+              qexistsl_tac [‘0’,‘k'’] >>
+              rw [empty_locals_defs]) >>
+          FULL_CASE_TAC >> rw [] >>
+          Cases_on ‘is_valid_value s.locals q' v’ >> rw []
+          >- (gvs [bind_FUNPOW_eqn,h_handle_call_ret_def,
+                   mrec_sem_simps,ltree_lift_cases] >>
+              ‘r = NONE ∧ s' = set_var q' v (r'' with locals := s.locals)’
+                by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
+                    gvs []) >>
+              qexistsl_tac [‘0’,‘k'’] >>
+              rw [set_var_defs]) >>
+          gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
+               ltree_lift_cases] >>
+          drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+          ‘r = SOME Error ∧ s' = r''’ by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
+                                          gvs []) >>
+          qexistsl_tac [‘0’,‘k'’] >> rw [])
+      >- (Cases_on ‘o'’ >> rw []
+          >- (gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
+                   ltree_lift_cases] >>
+              ‘r = SOME (Exception m' v) ∧ s' = empty_locals r''’
+                by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >> gvs []) >>
+              qexistsl_tac [‘0’,‘k'’] >> rw [empty_locals_defs]) >>
+          ntac 2 (FULL_CASE_TAC >> rw [])
+          >- (gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
+                   ltree_lift_cases] >>
+              ‘r = SOME (Exception m' v) ∧ s' = empty_locals r''’
+                by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
+                    gvs []) >>
+              qexistsl_tac [‘0’,‘k'’] >>
+              rw [empty_locals_defs]) >>
+          ntac 4 (FULL_CASE_TAC >> rw [])
+          >- (gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
+                   ltree_lift_cases] >>
+              ‘r = SOME Error ∧ s' = r''’
+                by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
+                    gvs []) >>
+              qexistsl_tac [‘0’,‘k'’] >> rw [])
+          >- (gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
+                   ltree_lift_cases] >>
+              ‘r = SOME (Exception m' v) ∧ s' = empty_locals r''’
+                by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
+                    gvs []) >>
+              qexistsl_tac [‘0’,‘k'’] >>
+              rw [empty_locals_defs])
+          >- (Cases_on ‘shape_of v = x' ∧ is_valid_value s.locals q'' v’ >> rw []
+              >- (gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
+                       ltree_lift_cases,FUNPOW_SUC,set_var_defs] >>
+                  qpat_x_assum ‘ltree_lift query_oracle s.ffi
+                                (mrec_sem (h_prog (q,s with locals := r'))) =
+                                FUNPOW Tau n'' (Ret (SOME (Exception m' v),r''))’ assume_tac >>
+                  drule_at_then (Pos last) assume_tac itree_wbisim_Ret_FUNPOW' >>
+                  ‘ltree_lift query_oracle (s with locals := r').ffi
+                   (mrec_sem (h_prog (q,s with locals := r'))) ≈
+                   Ret (SOME (Exception m' v),r'')’ by (gvs [Once move_locals_to_ffi]) >>
+                  drule_all_then assume_tac ltree_lift_state_lift >>
+                  gvs [FUNPOW_ADD] >>
+                  drule_then assume_tac FUNPOW_Tau_eq_elim >>
+                  gvs [tau_eq_funpow_tau] >>
+                  ‘ltree_lift query_oracle (r'' with locals := s.locals |+ (q'',v)).ffi
+                   (mrec_sem (h_prog (r'⁴',r'' with locals := s.locals |+ (q'',v)))) =
+                   FUNPOW Tau n' (Ret (r,s'))’ by (gvs []) >>
+                  last_assum $ drule_at (Pos last) >> rw [] >>
+                  drule_then assume_tac panPropsTheory.evaluate_add_clock_eq >> gvs [] >>
+                  qexistsl_tac [‘k''’,‘k' + k'''’] >> rw []) >>
+              gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
+                   ltree_lift_cases,FUNPOW_SUC,set_var_defs] >>
+              ‘r = SOME Error ∧ s' = r''’
+                by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
+                    gvs []) >>
+              qexistsl_tac [‘0’,‘k'’] >> rw []) >>
+          gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
+               ltree_lift_cases,FUNPOW_SUC,set_var_defs] >>
+          ‘r = SOME (Exception m' v) ∧ s' = empty_locals r''’
+            by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >> gvs []) >>
+          qexistsl_tac [‘0’,‘k'’] >> rw [empty_locals_defs]) >>
+      ‘r = SOME (FinalFFI f) ∧ s' = empty_locals r''’
+        by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
+            gvs []) >>
+      qexistsl_tac [‘0’,‘k'’] >> rw [empty_locals_defs])
   >~ [‘ExtCall’]
   >- (PRED_ASSUM is_forall kall_tac >>
       rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
