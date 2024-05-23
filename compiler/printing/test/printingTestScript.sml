@@ -8,9 +8,10 @@
   basisTypeCheckTheory.
 *)
 
-open preamble basicComputeLib inferenceComputeLib basisTypeCheckTheory
+open preamble basicComputeLib basisTypeCheckTheory
 open ml_translatorLib ml_progLib basisFunctionsLib
 open addPrintValsTheory addTypePPTheory printTweaksTheory
+open infer_cvTheory cv_transLib;
 local open fromSexpTheory in end
 local open astToSexprLib in end
 
@@ -18,7 +19,6 @@ val _ = new_theory "printingTest"
 
 val _ = translation_extends "basisProg"
 val _ = (use_full_type_names := false);
-
 
 Datatype:
   example = Ex_A num (example list) | Ex_B num
@@ -83,7 +83,8 @@ val res = translate x_list_strs_def;
 
 val res = translate x_maps_def;
 
-val dlet_empty = ``Dlet unknown_loc (Pvar "x_app_list_empty") (Con (SOME (Short "Nil")) [])``
+val dlet_empty =
+  ``Dlet unknown_loc (Pvar "x_app_list_empty") (Con (SOME (Short "Nil")) [])``;
 
 val _ = ml_prog_update remove_snocs;
 
@@ -96,8 +97,31 @@ Definition test_prog_def:
   test_prog = ^test_prog
 End
 
-val basis_tn_eval = EVAL ``init_type_names basis_ienv``;
-val basis_tn = basis_tn_eval |> concl |> rhs
+Definition basis_ienv_def:
+  basis_ienv =
+    case infertype_prog init_config basis of
+    | Success res => res
+    | Failure _ => init_config
+End
+
+val _ = (max_print_depth := 20);
+
+val start_st_eval = EVAL “(init_infer_state <| next_id := basis_infer_st.next_id |>)”
+val start_st = start_st_eval |> concl |> rhs;
+
+val _ = print "Setup done, doing type inference of program.\n";
+
+val _ = cv_auto_trans inferTheory.init_config_def;
+
+val _ = cv_trans_deep_embedding EVAL basisProgTheory.basis_def;
+
+val _ = cv_trans basis_ienv_def;
+
+val basis_ienv_eq = cv_eval “basis_ienv”;
+
+val basis_tn_eval = (REWRITE_CONV [basis_ienv_eq] THENC EVAL)
+                       ``init_type_names basis_ienv``;
+val basis_tn = basis_tn_eval |> concl |> rhs;
 
 val with_pp_eval = EVAL ``add_pp_decs ^basis_tn.pp_fixes test_prog``;
 val with_pp = rhs (concl with_pp_eval);
@@ -106,39 +130,16 @@ Definition test_prog_pp_def:
   test_prog_pp = ^with_pp
 End
 
-(* copied from basisTypeCheck *)
-val cmp = wordsLib.words_compset ()
-val () = computeLib.extend_compset
-    [computeLib.Extenders
-      [inferenceComputeLib.add_inference_compset,
-      basicComputeLib.add_basic_compset
-      ],
-     computeLib.Defs
-      [test_prog_def, test_prog_pp_def, basis_ienv_def,
-        add_print_from_opts_def,
-        add_prints_from_opts_def
-      ],
-    computeLib.Tys
-    [    ]
-    ] cmp
-val inf_eval = computeLib.CBV_CONV cmp
+val _ = cv_trans test_prog_pp_def;
 
-val _ = (max_print_depth := 20);
+val infer_example =
+  cv_eval “infertype_prog init_config (basis ++ test_prog_pp)”
+  |> concl |> rand;
 
-val start_st_eval = EVAL ``(init_infer_state <| next_id := basis_infer_st.next_id |>)``
-val start_st = start_st_eval |> concl |> rhs
-
-val _ = print "Setup done, doing type inference of program.\n";
-
-val infer_example_eval = inf_eval ``infer_ds basis_ienv test_prog_pp ^start_st``
-
-val infer_example_ienv = concl infer_example_eval |> rhs
-    |> dest_pair |> fst |> rand
-val infer_example = concl infer_example_eval |> rhs
-val infer_example_st = infer_example |> dest_pair |> snd
-
-val _ = if can (match_term ``(infer$Success _, _)``) infer_example then () else
+val _ = if can (match_term “infer$Success _”) infer_example then () else
     (print_term infer_example; failwith ("type inference failed on example prog"))
+
+(*
 
 val _ = print "Fetching type-name info and getting print decs.\n";
 
@@ -181,5 +182,6 @@ val res = astToSexprLib.write_ast_to_file "example_print.sexp" full_prog;
 
 val _ = print "Success.\n";
 
-val _ = export_theory ();
+*)
 
+val _ = export_theory ();
