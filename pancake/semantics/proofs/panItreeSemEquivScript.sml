@@ -3372,15 +3372,15 @@ QED
 
 Theorem ltree_Ret_to_evaluate':
     good_dimindex (:α) ∧
-    ltree_lift query_oracle (t:('a,'b)state).ffi (mrec_sem (h_prog (prog,unclock s))) ≈
+    ltree_lift query_oracle (t:('a,'b)state).ffi (mrec_sem (h_prog (prog,s))) ≈
                Ret (r,s')
-    ∧ (s:('a,'b)state).ffi = t.ffi ⇒
-    ∃k k'. evaluate (prog,s with clock := k) = (r,reclock s' with clock := k')
+    ∧ (s:('a,'b)bstate).ffi = t.ffi ⇒
+    ∃k k'. evaluate (prog,reclock s with clock := k) = (r,reclock s' with clock := k')
            ∧ r ≠ SOME TimeOut ∧ k' ≤ k
 Proof
   rpt strip_tac>>
   drule ltree_Ret_to_evaluate>>
-  disch_then $ qspecl_then [‘unclock s’,‘r’,‘s'’,‘prog’] assume_tac>>
+  disch_then $ qspecl_then [‘s’,‘r’,‘s'’,‘prog’] assume_tac>>
   gvs[]>>metis_tac[]
 QED
 
@@ -3406,10 +3406,10 @@ Proof
   rpt (pairarg_tac>>gvs[])>>gvs[]>>
   TRY (drule panPropsTheory.evaluate_io_events_mono>>strip_tac)>>
   fs[LPREFIX_APPEND]>> (* why APPEND?? *)
-  simp[GSYM LAPPEND_fromList]>>
-  simp[Once LAPPEND_ASSOC]>>
-  simp[LFINITE_fromList, LAPPEND11_FINITE1]>>
-  TRY (gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])>>NO_TAC)
+  TRY (simp[GSYM LAPPEND_fromList]>>
+       simp[Once LAPPEND_ASSOC]>>
+       simp[LFINITE_fromList, LAPPEND11_FINITE1]>>
+       gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])>>NO_TAC)
   >- (* Dec *)
    (gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])>>
 fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
@@ -3534,7 +3534,7 @@ fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
          (fs[Abbr‘X’]>>
           Cases_on ‘p’>>rename1 ‘Ret (q,r')’>>
           imp_res_tac ltree_lift_state_lift'>>fs[]>>
-         qspecl_then [‘s’,‘r'’,‘dec_clock s’,‘q’,‘c’] assume_tac(GEN_ALL ltree_Ret_to_evaluate')>>
+         qspecl_then [‘dec_clock s’,‘r'’,‘unclock (dec_clock s)’,‘q’,‘c’] assume_tac(GEN_ALL ltree_Ret_to_evaluate')>>
          gvs[]>>
          qspecl_then [‘c’,‘dec_clock s’,‘k-(dec_clock s).clock’] assume_tac(panPropsTheory.evaluate_add_clock_io_events_mono)>>
          ‘(dec_clock s).clock < k’ by
@@ -3619,7 +3619,7 @@ fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
          TRY (fs[Once itree_wbisim_cases]>>NO_TAC)>>
          gvs[set_var_defs]>>
          imp_res_tac (INST_TYPE [delta|->alpha] stree_trace_bind_append)>>gvs[]>>
-         qspecl_then [‘s’,‘r'’,‘dec_clock s with locals := newlocals’,‘SOME (Exception m v)’,‘prog’] assume_tac(GEN_ALL ltree_Ret_to_evaluate')>>
+         qspecl_then [‘dec_clock s’,‘r'’,‘unclock (dec_clock s) with locals := newlocals’,‘SOME (Exception m v)’,‘prog’] assume_tac(GEN_ALL ltree_Ret_to_evaluate')>>
          gvs[]>>
          qspecl_then [‘prog’,‘dec_clock s with locals := newlocals’,‘k-(dec_clock s).clock’] assume_tac(panPropsTheory.evaluate_add_clock_io_events_mono)>>
          ‘(dec_clock s).clock < k’ by
