@@ -260,6 +260,8 @@ val res = translate
 (* mips *)
 val res = translate mips_configTheory.mips_names_def;
 val res = translate export_mipsTheory.ffi_asm_def;
+val res = translate export_mipsTheory.export_func_def;
+val res = translate export_mipsTheory.export_funcs_def;
 val res = translate export_mipsTheory.mips_export_def;
 val res = translate
           (mips_configTheory.mips_backend_config_def
