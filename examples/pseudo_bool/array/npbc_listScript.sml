@@ -172,7 +172,6 @@ Definition check_rup_list_def:
       (res,zeros2,pre1 ∧ pre2)
 End
 
-(* TODO: check_rup_list should not take [] as input *)
 Definition check_lstep_list_def:
   (check_lstep_list lstep
     b (fml: (npbc # bool) option list)
@@ -214,8 +213,9 @@ Definition check_lstep_list_def:
       else NONE
     | _ => NONE)
   | Check n c =>
-    (case any_el n fml NONE of NONE => NONE
-    | SOME (c',b) =>
+    (case lookup_core_only_list b fml n of
+      NONE => NONE
+    | SOME c' =>
       if c = c' then SOME(fml, NONE, id, zeros)
       else NONE)
   | NoOp => SOME (fml, NONE, id, zeros)) ∧
@@ -954,6 +954,7 @@ Proof
       disch_then match_mp_tac>>
       simp[any_el_update_resize])
     >- (
+      gvs[lookup_core_only_list_def,AllCaseEqs()]>>
       rw[]>>fs[fml_rel_def]>>
       metis_tac[SOME_11]))
   >- fs[check_lstep_list_def,check_lstep_def]
