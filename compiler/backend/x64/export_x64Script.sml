@@ -92,7 +92,7 @@ val ffi_code' =
        "";
        "cake_exit:";
        (if ret then
-         "     jmp     cake_return"
+         "     jmp     cml_return"
        else
          "     callq   cdecl(cml_exit)");
        "     .p2align 4";
@@ -151,13 +151,27 @@ val windows_ffi_code =
 val entry_point_code =
   ``(List (MAP (\n. strlit(n ++ "\n"))
     ["cml_enter:";
-     "     sub     $0x30, %rsp                     # push callee-saved registers";
+     "     sub     $0x30, %rsp";
      "     movq    %r12, -0x8(%rbp)";
      "     movq    %r13, -0x10(%rbp)";
      "     movq    %r14, -0x18(%rbp)";
      "     movq    %r15, -0x20(%rbp)";
      "     movq    %rbx, -0x28(%rbp)";
      "     jmp     cake_main";
+     ""; "";
+     "cml_return:";
+     "     movq    $1, can_enter(%rip)";
+     "     movq    %r14, ret_base(%rip)";
+     "     movq    %r12, ret_stack(%rip)";
+     "     movq    %r13, ret_stackend(%rip)";
+     "     movq    -0x28(%rbp),%rbx";
+     "     movq    -0x20(%rbp),%r15";
+     "     movq    -0x18(%rbp),%r14";
+     "     movq    -0x10(%rbp),%r13";
+     "     movq    -0x8(%rbp),%r12";
+     "     leave";
+     "     ret";
+     "     .p2align 4";
      ""; "";
      "cake_enter:";
      "     pushq   %rbp";
@@ -168,23 +182,20 @@ val entry_point_code =
      "     movq    %r14, -0x18(%rbp)";
      "     movq    %r15, -0x20(%rbp)";
      "     movq    %rbx, -0x28(%rbp)";
-     "     movq    cdecl(ret_stack)(%rip), %r12";
-     "     cmp     $0, %r12";
+     "     movq    can_enter(%rip), %r11";
+     "     cmp     $0, %r11";
      "     je      cake_err3";
-     "     movq    $0, cdecl(ret_stack)(%rip)";
-     "     movq    cdecl(ret_base)(%rip), %r13";
-     "     cmp     $0, %r13";
-     "     je      cake_err3";
-     "     movq    $0, cdecl(ret_base)(%rip)";
-     "     lea     cake_ret(%rip), %rax";
-     "     jmp     *%r14";
+     "     movq    $0, can_enter(%rip)";
+     "     movq    ret_base(%rip), %r14";
+     "     movq    ret_stack(%rip), %r12";
+     "     movq    ret_stackend(%rip), %r13";
+     "     lea     cake_return(%rip), %rax";
+     "     jmp     *%r10";
      "     .p2align 4";
      ""; "";
-     "cake_ret:";
-     "     mov     %edi, %eax";
      "cake_return:";
-     "     movq    %r12, cdecl(ret_stack)(%rip)";
-     "     movq    %r13, cdecl(ret_base)(%rip)";
+     "     movq    $1, can_enter(%rip)";
+     "     mov     %edi, %eax";
      "     movq    -0x28(%rbp),%rbx";
      "     movq    -0x20(%rbp),%r15";
      "     movq    -0x18(%rbp),%r14";
@@ -213,7 +224,7 @@ val export_func_def = Define `
      strlit"     .type   "; name; strlit", function\n";
      strlit"#endif\n";
      strlit"cdecl("; name; strlit"):\n";
-     strlit"     lea     "; name; strlit"_jmp(%rip), %r14\n";
+     strlit"     lea     "; name; strlit"_jmp(%rip), %r10\n";
      strlit"     jmp     cake_enter\n";
             name; strlit"_jmp:\n";
      strlit"     jmp     cdecl("; label; strlit")\n"
