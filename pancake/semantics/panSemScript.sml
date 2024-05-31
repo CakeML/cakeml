@@ -312,36 +312,29 @@ Definition sh_mem_load_def:
 End
 
 Definition sh_mem_store_def:
-  sh_mem_store v (addr:'a word) nb ^s =
-  case FLOOKUP s.locals v of
-    SOME (ValWord w) =>
-      (if nb = 0 then
-         (if addr IN s.sh_memaddrs then
-            (case call_FFI s.ffi (SharedMem MappedWrite) [n2w nb]
-                           (word_to_bytes w F ++ word_to_bytes addr F) of
-               FFI_final outcome => (SOME (FinalFFI outcome), s)
-             | FFI_return new_ffi new_bytes =>
-                 (NONE, s with ffi := new_ffi))
-          else (SOME Error, s))
-       else
-         (if (byte_align addr) IN s.sh_memaddrs then
-            (case call_FFI s.ffi (SharedMem MappedWrite) [n2w nb]
-                           (TAKE nb (word_to_bytes w F)
-                            ++ word_to_bytes addr F) of
-               FFI_final outcome => (SOME (FinalFFI outcome), s)
-             | FFI_return new_ffi new_bytes =>
-                 (NONE, s with ffi := new_ffi))
-          else (SOME Error, s)))
-  | _ => (SOME Error, s)
+  sh_mem_store w (addr:'a word) nb ^s =
+  if nb = 0 then
+    (if addr IN s.sh_memaddrs then
+       (case call_FFI s.ffi (SharedMem MappedWrite) [n2w nb]
+                      (word_to_bytes w F ++ word_to_bytes addr F) of
+          FFI_final outcome => (SOME (FinalFFI outcome), s)
+        | FFI_return new_ffi new_bytes =>
+            (NONE, s with ffi := new_ffi))
+     else (SOME Error, s))
+  else
+    (if (byte_align addr) IN s.sh_memaddrs then
+       (case call_FFI s.ffi (SharedMem MappedWrite) [n2w nb]
+                      (TAKE nb (word_to_bytes w F)
+                       ++ word_to_bytes addr F) of
+          FFI_final outcome => (SOME (FinalFFI outcome), s)
+        | FFI_return new_ffi new_bytes =>
+            (NONE, s with ffi := new_ffi))
+     else (SOME Error, s))
 End
 
-Definition sh_mem_op_def:
-  (sh_mem_op Load r (ad:'a word) (s:('a,'ffi) panSem$state) = sh_mem_load r ad 0 s) ∧
-  (sh_mem_op Store r ad s = sh_mem_store r ad 0 s) ∧
-  (sh_mem_op Load8 r ad s = sh_mem_load r ad 1 s) ∧
-  (sh_mem_op Store8 r ad s = sh_mem_store r ad 1 s)(* ∧
-  (sh_mem_op Load32 r ad s = sh_mem_load r ad s 4) ∧
-  (sh_mem_op Store32 r ad s = sh_mem_store r ad s 4)*)
+Definition nb_op_def:
+  nb_op Op8 = 1:num ∧
+  nb_op OpW = 0
 End
 
 Definition evaluate_def:
@@ -373,16 +366,16 @@ Definition evaluate_def:
           | SOME m => (NONE, s with memory := m)
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
-  (evaluate (ShMem op v ad,s) =
+  (evaluate (ShMemLoad op v ad,s) =
     case eval s ad of
     | SOME (ValWord addr) =>
-        (if is_load op
-         then (case FLOOKUP s.locals v of
-                 SOME (Val _) => sh_mem_op op v addr s
-               | _ => (SOME Error, s))
-         else (case FLOOKUP s.locals v of
-                 SOME (ValWord _) => sh_mem_op op v addr s
-               | _ => (SOME Error, s)))
+        (case FLOOKUP s.locals v of
+           SOME (Val _) => sh_mem_load v addr (nb_op op) s
+         | _ => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
+  (evaluate (ShMemStore op ad e,s) =
+     case (eval s ad,eval s e) of
+     | (SOME (ValWord addr), SOME (ValWord bytes)) => sh_mem_store bytes addr (nb_op op) s
      | _ => (SOME Error, s)) /\
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
@@ -541,7 +534,7 @@ Proof
   imp_res_tac LESS_EQ_TRANS >> fs [] >> rfs [] >>
   ‘s.clock <= s.clock + 1’ by DECIDE_TAC >>
   res_tac >> fs []>>
-  Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def]>>
+  Cases_on ‘op’>>fs[nb_op_def,sh_mem_load_def,sh_mem_store_def]>>
   every_case_tac>>fs[set_var_def,empty_locals_def]>>rveq>>fs[]
 QED
 
