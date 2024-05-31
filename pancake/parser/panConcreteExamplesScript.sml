@@ -72,7 +72,7 @@ val treeEx1 = check_success $ parse_pancake ex1;
     (‘<>’). *)
 val ex2 = ‘
   fun main() {
-    if b & (a ^ c) & d {
+    if !b & (a ^ c) & d {
       return foo(1, <2, 3>);
         } else {
       return goo(4, 5, 6);
@@ -360,5 +360,22 @@ val error_line_ex2 =
  ’
 
 val error_line_ex2_parse = check_failure $ parse_pancake error_line_ex2
+
+(** Function pointers
+
+    & can only be used to get the address of functions.
+    Function pointers can be stored in variables, in shapes, passed as arguments,
+    stored on the heap, and invoked.
+    Any other use of them---including but not limited to arithmetic and
+    shared memory operations---is considered undefined behaviour.
+ *)
+val fun_pointer_ex1 =
+  ‘fun main () {
+     var x = &main;
+     return *x(); //  this is a recursive call
+   }
+  ’
+
+val fun_pointer_ex1_parse = check_success $ parse_pancake fun_pointer_ex1;
 
 val _ = export_theory();

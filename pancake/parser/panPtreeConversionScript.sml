@@ -260,6 +260,10 @@ Definition conv_Exp_def:
                    SOME $ Struct es
                 od
       | _ => NONE
+    else if isNT nodeNT NotNT then
+      case args of
+        [t] => lift (Cmp Equal (Const 0w)) (conv_Exp t)
+      | _ => NONE
     else if isNT nodeNT LoadByteNT then
       case args of
         [t] => lift LoadByte (conv_Exp t)
