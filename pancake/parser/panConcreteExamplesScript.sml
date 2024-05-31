@@ -314,8 +314,8 @@ val struct_argument_parse =  parse_pancake $ struct_arguments;
 val shmem_ex = ‘
   fun test_shmem() {
     var v = 12;
-    !st8 v, 1000; // store byte stored in v (12) to shared memory address 1000
-    !stw v, 1004; // store word stored in v (12) to shared memory address 1004
+    !st8 1000, v; // store byte from variable v (12) to shared memory address 1000
+    !stw 1004, 1+1; // store 1+1 (aka 2) to shared memory address 1004
     !ld8 v, 1000 + 12; // load byte stored in shared memory address 1012 to v
     !ldw v, 1000 + 12 * 2; // load word stored in shared memory address 1024 to v
   }’;

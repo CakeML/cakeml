@@ -286,16 +286,17 @@ Definition compile_def:
   (compile ctxt (ShMemStore op r ad) =
    (case (compile_exp ctxt r,compile_exp ctxt ad) of
       ((e::_,_),(a::_, _)) =>
-        let n = FOLDR MAX 0 $ var_cexp e ++ var_cexp a
+        let n = FOLDR MAX 0 $ var_cexp e
         in
-          Dec (n+1) e $ ShMem (store_op op) (n+1) a
+          Dec (n+1) a $ ShMem (store_op op) (n+1) e
     | _ => Skip)) ∧
   (compile ctxt (ShMemLoad op r ad) =
    (case compile_exp ctxt ad of
       (a::_, _) =>
         (case FLOOKUP ctxt.vars r of
            SOME (_, r'::_) => ShMem (load_op op) r' a
-         | _ => Skip))) ∧
+         | _ => Skip)
+     | _ => Skip)) ∧
   (compile ctxt Tick = Tick)
 End
 
