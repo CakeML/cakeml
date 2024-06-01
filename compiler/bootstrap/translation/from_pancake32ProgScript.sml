@@ -480,7 +480,7 @@ Definition conv_Exp_alt_def:
           | ts::v6::v7 => NONE
         else if isNT nodeNT NotNT then
           case args of
-            [t] => OPTION_MAP (λe. Cmp Equal (Const 0w) e) (conv_Exp t)
+            [t] => OPTION_MAP (λe. Cmp Equal (Const 0w) e) (conv_Exp_alt t)
           | _ => NONE
         else if isNT nodeNT LoadByteNT then
           case args of
