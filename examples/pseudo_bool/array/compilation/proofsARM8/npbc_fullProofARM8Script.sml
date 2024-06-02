@@ -53,7 +53,7 @@ val installed_arm8_asl_def = Define `
     `;
 
 val cake_pb_code_def = Define `
-  cake_pb_code = (code, data, config)
+  cake_pb_code = (arm8_code, arm8_data, arm8_config)
   `;
 
 (* A standard run of cake_pb
