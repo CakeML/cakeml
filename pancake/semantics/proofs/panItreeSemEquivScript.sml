@@ -4024,6 +4024,54 @@ Proof
   irule evaluate_io_events_prefix
 QED
 
+Theorem not_less_opt_lemma:
+  (∀k. ¬less_opt
+       n (SOME
+          (LENGTH
+           (SND (evaluate (prog:'a prog,reclock s with clock := k))).ffi.
+           io_events))) ⇒
+  ∃k'. (∀k. k' ≤ k ⇒
+            LENGTH
+            (SND (evaluate (prog,reclock s with clock := k))).ffi.
+            io_events =
+            LENGTH
+            (SND (evaluate (prog,reclock s with clock := k'))).ffi.
+            io_events)
+Proof
+  strip_tac>>
+  fs[less_opt_def,NOT_LESS]>>
+  qabbrev_tac ‘f = (λx. LENGTH (SND (evaluate (prog, reclock s with clock := x))).ffi.io_events)’>>
+  fs[]>>
+  ‘∀k k'. k ≤ k' ⇒ f k ≤ f k'’
+    by (fs[Abbr‘f’]>>
+        rpt strip_tac>>
+        drule LESS_EQUAL_ADD>>strip_tac>>fs[]>>
+        assume_tac (Q.SPECL [‘prog:'a prog’,‘reclock s with clock := k’,‘p’]
+                     panPropsTheory.evaluate_add_clock_io_events_mono)>>
+        fs[IS_PREFIX_APPEND])>>
+  ‘∃k. ∀k'. k ≤ k' ⇒ f k' ≤  f k’ by
+    (CCONTR_TAC>>fs[NOT_LESS_EQUAL]>>
+     last_x_assum mp_tac>>fs[NOT_LESS_EQUAL]>>
+     Cases_on ‘n < f k’>>fs[NOT_LESS]>- metis_tac[]>>
+     drule LESS_EQUAL_ADD>>strip_tac>>
+     gvs[]>>
+     pop_assum mp_tac>>
+     qid_spec_tac ‘p’>>
+     Induct>>rw[]
+     >- (first_x_assum $ qspec_then ‘k’ assume_tac>>fs[]>>
+         qexists ‘k'’>>rw[])>>
+     fs[PULL_FORALL]>>
+     first_x_assum $ qspec_then ‘k'’ assume_tac>>fs[]>>
+     simp[GSYM ADD_SUC,GSYM LESS_EQ_IFF_LESS_SUC]>>
+     irule_at Any LESS_LESS_EQ_TRANS>>
+     irule_at Any (iffRL LESS_MONO_EQ)>>
+     first_assum $ irule_at Any>>
+     simp[LESS_EQ_IFF_LESS_SUC]>>
+     metis_tac[])>>
+  qexists ‘k’>>rw[]>>
+  metis_tac[LESS_EQUAL_ANTISYM]
+QED
+
 (* Final goal:
 
    1. For every path that can be generated frong
