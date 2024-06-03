@@ -873,14 +873,6 @@ Proof
       ELIM_UNCURRY]
 QED
 
-Theorem bind_FUNPOW_eqn:
-  FUNPOW Tau n (Ret x) >>= k =
-  FUNPOW Tau n (k x)
-Proof
-  Induct_on ‘n’ >>
-  gvs[FUNPOW_SUC]
-QED
-
 Theorem mrec_sem_while_unfold:
   mrec_sem (h_prog (While e p,s)) =
   case eval(reclock s) e of
@@ -1000,7 +992,7 @@ Proof
       rw[] >>
       pairarg_tac >>
       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
-          bind_FUNPOW_eqn,FUNPOW_ADD] >>
+          FUNPOW_bind,FUNPOW_ADD] >>
       last_assum $ drule_at Any >>
       impl_tac >- simp[] >>
       strip_tac >>
@@ -1081,7 +1073,7 @@ Proof
       drule FUNPOW_Tau_bind_thm >>
       rw[] >>
       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
-          bind_FUNPOW_eqn] >>
+          FUNPOW_bind] >>
       irule EQ_TRANS >>
       irule_at (Pos hd) ltree_lift_state_bind_funpow >>
       first_assum $ irule_at $ Pos hd >>
@@ -1120,7 +1112,7 @@ Proof
       rw[] >>
       pairarg_tac >>
       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
-          bind_FUNPOW_eqn,FUNPOW_ADD] >>
+          FUNPOW_bind,FUNPOW_ADD] >>
       last_assum $ drule_at Any >>
       impl_tac >- simp[] >>
       strip_tac >>
@@ -1307,7 +1299,7 @@ Proof
       rw[] >>
       pairarg_tac >>
       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
-          bind_FUNPOW_eqn,FUNPOW_ADD] >>
+          FUNPOW_bind,FUNPOW_ADD] >>
       last_assum $ drule_at Any >>
       impl_tac >- simp[] >>
       strip_tac >>
@@ -1416,7 +1408,7 @@ Proof
       drule FUNPOW_Tau_bind_thm >>
       rw[] >>
       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
-          bind_FUNPOW_eqn,FUNPOW_ADD] >>
+          FUNPOW_bind,FUNPOW_ADD] >>
       rename1 ‘ltree_lift _ s.ffi _ = FUNPOW _ _ (Ret xx)’ >>
       PairCases_on ‘xx’ >>
       qmatch_asmsub_abbrev_tac ‘ltree_lift _ a1’ >>
@@ -1580,7 +1572,7 @@ Proof
       rw[] >>
       pairarg_tac >>
       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
-          bind_FUNPOW_eqn,FUNPOW_ADD] >>
+          FUNPOW_bind,FUNPOW_ADD] >>
       last_assum $ drule_at Any >>
       impl_tac >- simp[] >>
       strip_tac >>
@@ -2917,7 +2909,7 @@ Proof
       simp[] >>
       strip_tac >>
       first_x_assum $ irule_at $ Pos last >>
-      gvs[bind_FUNPOW_eqn,mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau]
+      gvs[FUNPOW_bind,mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau]
      )
   >~ [‘Assign’]
   >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
@@ -3185,19 +3177,19 @@ Proof
       disch_tac >>
       qrefine ‘k + _’ >> rw [] >>
       Cases_on ‘q'’ >> rw []
-      >- (gvs [bind_FUNPOW_eqn,
+      >- (gvs [FUNPOW_bind,
                h_handle_call_ret_def,
                mrec_sem_simps,ltree_lift_cases] >>
           drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >> gvs [] >>
           qexistsl_tac [‘0’,‘k'’] >> rw []) >>
       TOP_CASE_TAC >> rw [] >>
-      gvs [bind_FUNPOW_eqn,
+      gvs [FUNPOW_bind,
            h_handle_call_ret_def,
            mrec_sem_simps,ltree_lift_cases]
       >- (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >> gvs [] >>
           qexistsl_tac [‘0’,‘k'’] >>
           simp [empty_locals_defs] >>
-          gvs [bind_FUNPOW_eqn,h_handle_call_ret_def,mrec_sem_simps,
+          gvs [FUNPOW_bind,h_handle_call_ret_def,mrec_sem_simps,
                ltree_lift_cases] >>
           ‘r = SOME Error ∧ s' = empty_locals r''’
             by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
@@ -3206,15 +3198,15 @@ Proof
       >- (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >> gvs [] >>
           qexistsl_tac [‘0’,‘k'’] >>
           simp [empty_locals_defs] >>
-          gvs [bind_FUNPOW_eqn,h_handle_call_ret_def,mrec_sem_simps,
+          gvs [FUNPOW_bind,h_handle_call_ret_def,mrec_sem_simps,
                ltree_lift_cases])
       >- (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >> gvs [] >>
           qexistsl_tac [‘0’,‘k'’] >>
           simp [empty_locals_defs] >>
-          gvs [bind_FUNPOW_eqn,h_handle_call_ret_def,mrec_sem_simps,
+          gvs [FUNPOW_bind,h_handle_call_ret_def,mrec_sem_simps,
                ltree_lift_cases])
       >- (Cases_on ‘o'’ >> rw []
-          >- (gvs [bind_FUNPOW_eqn,h_handle_call_ret_def,
+          >- (gvs [FUNPOW_bind,h_handle_call_ret_def,
                    mrec_sem_simps,ltree_lift_cases] >>
               ‘r = SOME (Return v) ∧ s' = empty_locals r''’
                 by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
@@ -3223,7 +3215,7 @@ Proof
               rw [empty_locals_defs]) >>
           FULL_CASE_TAC >> rw [] >>
           Cases_on ‘is_valid_value s.locals q' v’ >> rw []
-          >- (gvs [bind_FUNPOW_eqn,h_handle_call_ret_def,
+          >- (gvs [FUNPOW_bind,h_handle_call_ret_def,
                    mrec_sem_simps,ltree_lift_cases] >>
               ‘r = NONE ∧ s' = set_var q' v (r'' with locals := s.locals)’
                 by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
