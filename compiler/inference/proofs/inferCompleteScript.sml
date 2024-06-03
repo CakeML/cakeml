@@ -6,7 +6,7 @@
 
 open preamble semanticPrimitivesTheory namespacePropsTheory
      astTheory astPropsTheory typeSystemTheory typeSysPropsTheory
-     unifyTheory inferTheory inferPropsTheory envRelTheory
+     unifyTheory inferTheory infer_tTheory inferPropsTheory envRelTheory
      infer_eSoundTheory infer_eCompleteTheory type_eDetermTheory type_dCanonTheory;
 
 val _ = new_theory "inferComplete";
@@ -58,37 +58,37 @@ Theorem env_rel_binding_lemma:
      (infer_type_subst (ZIP (fvs,GENLIST (λx. Infer_Tvar_db x) (LENGTH fvs))) t)
 Proof
   ho_match_mp_tac t_ind >>
-  rw [infer_type_subst_def, infer_deBruijn_subst_def, check_freevars_def]
+  rw [infer_type_subst_alt, infer_deBruijn_subst_alt, check_freevars_def]
   >- (
     qmatch_assum_abbrev_tac `MEM name _` >>
     every_case_tac >>
     fs [ALOOKUP_FAILS, SUBSET_DEF, MEM_MAP, MEM_ZIP, LENGTH_COUNT_LIST,
-        infer_deBruijn_subst_def]
+        infer_deBruijn_subst_alt]
     >- (
       every_case_tac >>
-      fs [GSYM find_index_NOT_MEM, infer_deBruijn_subst_def, MEM_EL] >>
+      fs [GSYM find_index_NOT_MEM, infer_deBruijn_subst_alt, MEM_EL] >>
       rw [] >>
       metis_tac [])
     >- (
       every_case_tac >>
-      fs [GSYM find_index_NOT_MEM, infer_deBruijn_subst_def, MEM_EL] >>
+      fs [GSYM find_index_NOT_MEM, infer_deBruijn_subst_alt, MEM_EL] >>
       rw [] >>
       metis_tac [])
     >- (
       every_case_tac >>
-      fs [GSYM find_index_NOT_MEM, infer_deBruijn_subst_def, MEM_EL] >>
+      fs [GSYM find_index_NOT_MEM, infer_deBruijn_subst_alt, MEM_EL] >>
       rw [] >>
       metis_tac [])
     >- (
       imp_res_tac ALOOKUP_MEM >>
       fs [MEM_ZIP, LENGTH_COUNT_LIST] >>
       rw [] >>
-      fs [EL_MAP, LENGTH_COUNT_LIST, infer_deBruijn_subst_def, EL_COUNT_LIST] >>
+      fs [EL_MAP, LENGTH_COUNT_LIST, infer_deBruijn_subst_alt, EL_COUNT_LIST] >>
       drule find_index_ALL_DISTINCT_EL >>
       disch_then drule >>
       disch_then (qspec_then `0` mp_tac) >>
       asm_simp_tac std_ss [] >>
-      rw [infer_deBruijn_subst_def]))
+      rw [infer_deBruijn_subst_alt]))
   >- (
     irule LIST_EQ >>
     rw [EL_MAP] >>
@@ -112,36 +112,36 @@ Theorem env_rel_binding_lemma2:
       (infer_type_subst (ZIP (fvs',MAP Infer_Tvar_db (COUNT_LIST (LENGTH fvs')))) t)
 Proof
   ho_match_mp_tac t_ind >>
-  rw [infer_type_subst_def, infer_deBruijn_subst_def, check_freevars_def]
+  rw [infer_type_subst_alt, infer_deBruijn_subst_alt, check_freevars_def]
   >- (
     qmatch_assum_abbrev_tac `MEM name _` >>
     every_case_tac >>
     fs [ALOOKUP_FAILS, SUBSET_DEF, MEM_MAP, MEM_ZIP, LENGTH_COUNT_LIST,
-        infer_deBruijn_subst_def]
+        infer_deBruijn_subst_alt]
     >- (
       every_case_tac >>
-      fs [GSYM find_index_NOT_MEM, infer_deBruijn_subst_def, MEM_EL] >>
+      fs [GSYM find_index_NOT_MEM, infer_deBruijn_subst_alt, MEM_EL] >>
       rw [] >>
       metis_tac [])
     >- (
       every_case_tac >>
-      fs [GSYM find_index_NOT_MEM, infer_deBruijn_subst_def, MEM_EL] >>
+      fs [GSYM find_index_NOT_MEM, infer_deBruijn_subst_alt, MEM_EL] >>
       rw [] >>
       metis_tac [])
     >- (
       every_case_tac >>
-      fs [GSYM find_index_NOT_MEM, infer_deBruijn_subst_def, MEM_EL] >>
+      fs [GSYM find_index_NOT_MEM, infer_deBruijn_subst_alt, MEM_EL] >>
       rw [] >>
       metis_tac [])
     >- (
       imp_res_tac ALOOKUP_MEM >>
       fs [MEM_ZIP, LENGTH_COUNT_LIST] >>
       rw [] >>
-      fs [EL_MAP, LENGTH_COUNT_LIST, infer_deBruijn_subst_def, EL_COUNT_LIST] >>
+      fs [EL_MAP, LENGTH_COUNT_LIST, infer_deBruijn_subst_alt, EL_COUNT_LIST] >>
       imp_res_tac ALOOKUP_find_index_SOME >>
       fs [MAP_ZIP, EL_ZIP, LENGTH_GENLIST, LENGTH_ZIP] >>
       rfs [MAP_ZIP, EL_ZIP, LENGTH_GENLIST, LENGTH_ZIP] >>
-      rw [infer_deBruijn_subst_def]))
+      rw [infer_deBruijn_subst_alt]))
   >- (
     irule LIST_EQ >>
     rw [EL_MAP] >>
@@ -159,7 +159,7 @@ Theorem unconvert_type_subst:
      MAP (infer_type_subst (MAP (\(x,y). (x, unconvert_t y)) subst)) ts)
 Proof
  Induct >>
- rw [unconvert_t_def, type_subst_def, infer_type_subst_def, MAP_MAP_o,
+ rw [unconvert_t_def, type_subst_def, infer_type_subst_alt, MAP_MAP_o,
      check_freevars_def] >>
  fs [combinTheory.o_DEF]
  >- (
@@ -1659,7 +1659,7 @@ val t_walkstar_infer_deBruijn_subst = Q.prove(`
   MAP ((t_walkstar s) o (infer_deBruijn_subst ls)) ts =
   MAP ((t_walkstar s) o (infer_deBruijn_subst (GENLIST Infer_Tuvar tvs))) ts))`,
   strip_tac>>ho_match_mp_tac infer_tTheory.infer_t_induction>>
-  rw[check_t_def,infer_deBruijn_subst_def]>>
+  rw[check_t_def,infer_deBruijn_subst_alt]>>
   fs[EVERY_MEM,MEM_EL]
   >-
     metis_tac[t_walkstar_no_vars]
@@ -1678,7 +1678,7 @@ val infer_deBruijn_subst_check_t = Q.prove(`
   ⇒
   EVERY (check_t tvs {}) (MAP (infer_deBruijn_subst ls) ts))`,
   strip_tac>>ho_match_mp_tac infer_tTheory.infer_t_induction>>
-  rw[check_t_def,infer_deBruijn_subst_def]>>
+  rw[check_t_def,infer_deBruijn_subst_alt]>>
   fs[EVERY_MEM,MEM_EL]>>
   metis_tac[]);
 

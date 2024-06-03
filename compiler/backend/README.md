@@ -142,6 +142,10 @@ This compiler phase performs closure conversion.  This phase puts
 all of the code into a table of first-order, closed, multi-argument
 functions.
 
+[cv_compute](cv_compute):
+Files that prepare the compiler backend for computation using HOL4's
+cv_compute mechanism.
+
 [dataLangScript.sml](dataLangScript.sml):
 The dataLang intermediate lannguage is the last language with a
 functional-programming-style data abstraction.
