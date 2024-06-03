@@ -167,6 +167,23 @@ Proof
   irule FUNPOW_Tau_wbisim
 QED
 
+Theorem FUNPOW_bind:
+  FUNPOW Tau n t >>= g = FUNPOW Tau n (t >>= g)
+Proof
+  MAP_EVERY qid_spec_tac [‘t’,‘n’]>>
+  Induct_on ‘n’>>rw[]>>
+  simp[FUNPOW]
+QED
+
+Theorem strip_tau_FUNPOW_cancel:
+  (∀u. t ≠ Tau u) ⇒
+  strip_tau (FUNPOW Tau n t) t
+Proof
+  Induct_on ‘n’>>rw[]
+  >- (Cases_on ‘t’>>rw[])>>
+  Cases_on ‘t’>>rw[FUNPOW_SUC]
+QED
+
 Theorem msem_bind_left_ident:
   mrec_sem ht ≈ Ret x ⇒
   mrec_sem (ht >>= k) ≈ mrec_sem (k x)
