@@ -3680,6 +3680,16 @@ Proof
   gvs[]
 QED
 
+Theorem nonret_imp_timeout':
+  good_dimindex (:α) ∧
+    (∀p. ¬(ltree_lift query_oracle (t:('a,'b)state).ffi (mrec_sem (h_prog (prog,s))) ≈ Ret p)) ∧ t.ffi = s.ffi ⇒
+    ∃s'. evaluate (prog:'a prog,reclock s with clock := k) = (SOME TimeOut,s')
+Proof
+  strip_tac>>
+  irule nonret_imp_timeout>>
+  gvs[]
+QED
+
 Theorem nonret_imp_spin:
   ∀f st t.
     (∀p. ¬(ltree_lift f st t ≈ Ret p)) ⇒
