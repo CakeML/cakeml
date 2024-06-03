@@ -3727,6 +3727,75 @@ QED
 
 (** divergence **)
 
+Theorem to_stree_spin:
+  to_stree spin = spin
+Proof
+  simp[Once itree_bisimulation]>>
+  qexists ‘CURRY {(Tau (to_stree spin),Tau spin)}’>>
+  simp[spin]>>
+  simp[Once spin,to_stree_simps]
+QED
+
+Theorem stree_trace_spin_LNIL:
+  stree_trace q p st spin = LNIL
+Proof
+  fs[stree_trace_def]>>
+  qpat_abbrev_tac ‘X=LUNFOLD _’>>
+  ‘every ($= [||]) (X (st,spin))’
+    by (irule every_coind>>
+        qexists ‘{X (st, spin); X (st, Tau spin)}’>>rw[Abbr‘X’]>>
+        TRY (fs[Once LUNFOLD,Once spin]>>NO_TAC)>>
+        disj1_tac>>
+        pop_assum mp_tac>>
+        simp[Once LUNFOLD,Once spin])>>
+  simp[Once LFLATTEN]
+QED
+
+Theorem ltree_lift_FUNPOW_wbisim:
+  ltree_lift q st (FUNPOW Tau n t) ≈ ltree_lift q st t
+Proof
+  MAP_EVERY qid_spec_tac [‘t’,‘n’]>>
+  Induct_on ‘n’>>rw[]
+  >- irule itree_wbisim_refl>>
+  simp[FUNPOW_SUC,ltree_lift_cases]
+QED
+
+Theorem LCONS_nonret_imp_Vis:
+  stree_trace q p st (to_stree ht) = h:::t ∧
+  (∀p. ¬(ltree_lift q st ht ≈ Ret p)) ⇒
+  ∃n e k.
+  to_stree ht = FUNPOW Tau n (Vis e k)
+Proof
+  strip_tac>>
+  Cases_on ‘∃t. strip_tau ht t’>>fs[]
+  >- (imp_res_tac strip_tau_FUNPOW>>fs[]>>
+      Cases_on ‘t'’>>
+      fs[strip_tau_simps,strip_tau_FUNPOW_cancel]
+      >- (‘∀p. ¬ (ltree_lift q st (Ret x) ≈ Ret p)’
+            by (irule nonret_trans>>
+                irule_at Any ltree_lift_FUNPOW_wbisim>>
+                metis_tac[])>>
+          fs[ltree_lift_cases]>>
+          fs[Once itree_wbisim_cases])>>
+      gvs[]>>
+      rpt (pop_assum mp_tac)>>
+      MAP_EVERY qid_spec_tac [‘h’,‘t’,‘a’,‘g’,‘n’]>>
+      completeInduct_on ‘n’>>
+      fs[ltree_lift_cases,to_stree_simps,FUNPOW_SUC]>>rw[]>>
+      fs[stree_trace_simps]>>
+      Cases_on ‘n’>>
+      fs[ltree_lift_cases,to_stree_simps,FUNPOW_SUC]>>rw[]
+      >- (qexists ‘0’>>metis_tac[FUNPOW])>>
+      last_x_assum $ qspec_then ‘n'’ assume_tac>>
+      gvs[stree_trace_simps]>>
+      irule_at Any EQ_TRANS>>
+      irule_at Any (GSYM FUNPOW_SUC)>>
+      simp[]>>metis_tac[])>>
+  imp_res_tac strip_tau_spin>>
+  gvs[to_stree_spin]>>
+  assume_tac stree_trace_spin_LNIL>>fs[]
+QED
+
 (* move *)
 Theorem LPREFIX_fromList:
   (LPREFIX (LAPPEND (fromList l) l1) (LAPPEND (fromList l) l2))
