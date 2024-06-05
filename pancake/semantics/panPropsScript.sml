@@ -535,7 +535,7 @@ Proof
       gvs[AllCaseEqs(),dec_clock_def]) >>
   gvs[evaluate_def,AllCaseEqs(),eval_upd_clock_eq] >>
   rpt(pairarg_tac >> gvs[]) >>
-  gvs[oneline sh_mem_op_def,AllCaseEqs(),
+  gvs[oneline nb_op_def,AllCaseEqs(),
       oneline sh_mem_load_def,
       oneline sh_mem_store_def,
       set_var_def,
@@ -633,7 +633,7 @@ Proof
       gvs[] >>
       metis_tac[]) >>
   gvs[evaluate_def,state_component_equality,AllCaseEqs(),eval_upd_clock_eq,
-      oneline sh_mem_op_def,oneline sh_mem_load_def,
+      oneline nb_op_def,oneline sh_mem_load_def,
       oneline sh_mem_store_def, set_var_def, empty_locals_def,
       dec_clock_def,opt_mmap_eval_upd_clock_eq1
      ] >>
@@ -657,7 +657,7 @@ Proof
       gvs[AllCaseEqs(),dec_clock_def] >>
       imp_res_tac IS_PREFIX_TRANS) >>
   gvs[evaluate_def,AllCaseEqs(),
-      oneline sh_mem_op_def,oneline sh_mem_load_def,
+      oneline nb_op_def,oneline sh_mem_load_def,
       oneline sh_mem_store_def, set_var_def, empty_locals_def,
       dec_clock_def,opt_mmap_eval_upd_clock_eq1,
       ffiTheory.call_FFI_def] >>
@@ -703,7 +703,7 @@ Proof
       gvs[])
   >~ [‘Seq’]
   >- (gvs[evaluate_def,AllCaseEqs(),
-          oneline sh_mem_op_def,oneline sh_mem_load_def,
+          oneline nb_op_def,oneline sh_mem_load_def,
           oneline sh_mem_store_def, set_var_def, empty_locals_def,
           dec_clock_def,opt_mmap_eval_upd_clock_eq1,
           eval_upd_clock_eq,ffiTheory.call_FFI_def] >>
@@ -715,7 +715,7 @@ Proof
       metis_tac[FST,SND,PAIR,evaluate_io_events_mono,IS_PREFIX_TRANS])
   >~ [‘Call’]
   >- (gvs[evaluate_def,AllCaseEqs(),
-          oneline sh_mem_op_def,oneline sh_mem_load_def,
+          oneline nb_op_def,oneline sh_mem_load_def,
           oneline sh_mem_store_def, set_var_def, empty_locals_def,
           dec_clock_def,opt_mmap_eval_upd_clock_eq1,
           eval_upd_clock_eq,ffiTheory.call_FFI_def] >>
@@ -731,7 +731,7 @@ Proof
                 Q.prove(‘(x with locals := y).ffi = x.ffi’,simp[])])
   >~ [‘DecCall’]
   >- (gvs[evaluate_def,AllCaseEqs(),
-          oneline sh_mem_op_def,oneline sh_mem_load_def,
+          oneline nb_op_def,oneline sh_mem_load_def,
           oneline sh_mem_store_def, set_var_def, empty_locals_def,
           dec_clock_def,opt_mmap_eval_upd_clock_eq1,
           eval_upd_clock_eq,ffiTheory.call_FFI_def] >>
@@ -748,7 +748,7 @@ Proof
                 Q.prove(‘(x with locals := y).ffi = x.ffi’,simp[])]
      ) >>
   gvs[evaluate_def,AllCaseEqs(),
-      oneline sh_mem_op_def,oneline sh_mem_load_def,
+      oneline nb_op_def,oneline sh_mem_load_def,
       oneline sh_mem_store_def, set_var_def, empty_locals_def,
       dec_clock_def,opt_mmap_eval_upd_clock_eq1,
       eval_upd_clock_eq,ffiTheory.call_FFI_def] >>
@@ -893,10 +893,16 @@ Proof
      >- (qpat_x_assum ‘evaluate _ = _’ (strip_assume_tac o ONCE_REWRITE_RULE[evaluate_def]) >>
          gvs[AllCaseEqs(),empty_locals_def,ELIM_UNCURRY,dec_clock_def] >>
          metis_tac[PAIR,FST,SND])
-     >~[‘ShMem’]
+     >~[‘ShMemLoad’]
      >- (Cases_on ‘op’>>
          gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,
-             dec_clock_def,set_var_def,sh_mem_op_def,sh_mem_store_def,
+             dec_clock_def,set_var_def,nb_op_def,sh_mem_store_def,
+             sh_mem_load_def] >>
+         metis_tac[PAIR,FST,SND])
+     >~[‘ShMemStore’]
+     >- (Cases_on ‘op’>>
+         gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,
+             dec_clock_def,set_var_def,nb_op_def,sh_mem_store_def,
              sh_mem_load_def] >>
          metis_tac[PAIR,FST,SND])>>
      gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,dec_clock_def,set_var_def] >>
@@ -939,7 +945,8 @@ Definition exps_of_def:
   (exps_of (Return e) = [e]) ∧
   (exps_of (ExtCall _ e1 e2 e3 e4) = [e1;e2;e3;e4]) ∧
   (exps_of (Assign _ e) = [e]) ∧
-  (exps_of (ShMem _ _ e) = [e]) ∧
+  (exps_of (ShMemLoad _ _ e) = [e]) ∧
+  (exps_of (ShMemStore _ e1 e2) = [e1;e2]) ∧
   (exps_of _ = [])
 End
 

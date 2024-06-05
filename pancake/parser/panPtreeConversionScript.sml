@@ -260,6 +260,10 @@ Definition conv_Exp_def:
                    SOME $ Struct es
                 od
       | _ => NONE
+    else if isNT nodeNT NotNT then
+      case args of
+        [t] => lift (Cmp Equal (Const 0w)) (conv_Exp t)
+      | _ => NONE
     else if isNT nodeNT LoadByteNT then
       case args of
         [t] => lift LoadByte (conv_Exp t)
@@ -348,19 +352,19 @@ Definition conv_NonRecStmt_def:
       | _ => NONE
     else if isNT nodeNT SharedLoadNT then
       case args of
-        [v; e] => lift2 (ShMem Load) (conv_ident v) (conv_Exp e)
+        [v; e] => lift2 (ShMemLoad OpW) (conv_ident v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT SharedLoadByteNT then
       case args of
-        [v; e] => lift2 (ShMem Load8) (conv_ident v) (conv_Exp e)
+        [v; e] => lift2 (ShMemLoad Op8) (conv_ident v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT SharedStoreNT then
       case args of
-        [v; e] => lift2 (ShMem Store) (conv_ident v) (conv_Exp e)
+        [v; e] => lift2 (ShMemStore OpW) (conv_Exp v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT SharedStoreByteNT then
       case args of
-        [v; e] => lift2 (ShMem Store8) (conv_ident v) (conv_Exp e)
+        [v; e] => lift2 (ShMemStore Op8) (conv_Exp v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT ExtCallNT then
       case args of

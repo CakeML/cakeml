@@ -1183,6 +1183,9 @@ Proof
       rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]))
   >- (gvs[compile_def]>>
        rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def])>>
+       res_tac >> fs[])
+  >- (gvs[compile_def]>>
+       rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def])>>
        res_tac >> fs[])>>
   gvs[compile_def,assigned_free_vars_def]
 QED
@@ -1618,50 +1621,105 @@ Proof
   fs [state_rel_def]
 QED
 
-Theorem compile_ShMem:
-  ^(get_goal "compile _ (panLang$ShMem _ _ _)")
+Theorem shape_of_alt:
+  ∀x. shape_of(Val x) = One
+Proof
+  Cases >> rw[panSemTheory.shape_of_def]
+QED
+
+Theorem compile_ShMemLoad:
+  ^(get_goal "compile _ (panLang$ShMemLoad _ _ _)")
 Proof
   rpt gen_tac >> rpt strip_tac >>
-  fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "v", CaseEq "word_lab"] >>
-  rveq >>
-  fs [compile_def] >>
-  TOP_CASE_TAC >>
-  drule compile_exp_val_rel >>
-  simp[flatten_def]>>
-  disch_then drule_all >>
-  strip_tac >> fs [shape_of_def] >> rveq >>
-  fs [panLangTheory.size_of_shape_def] >> rveq >>
-  Cases_on ‘op’>>
-  fs[panSemTheory.sh_mem_op_def,panSemTheory.sh_mem_load_def,
-     panSemTheory.sh_mem_store_def,CaseEq"bool",CaseEq"option",CaseEq"v"]>>
-  fs[is_valid_value_def,locals_rel_def]>>
-  TRY (rename1 ‘shape_of x’>>Cases_on ‘x’>>fs[shape_of_def])>>
-  fs[CaseEq"v",CaseEq"word_lab",CaseEq"bool"]>>
-  res_tac>>gvs[flatten_def,shape_of_def]>>
-  rename1 ‘SOME (_,ns)’>>Cases_on ‘ns’>>fs[]>>
-  ‘t' = []’ by
-    (drule opt_mmap_length_eq>>strip_tac>>fs[])>>fs[]>>
-  fs [evaluate_def] >>
-  fs[crepSemTheory.sh_mem_op_def,crepSemTheory.sh_mem_load_def,
-     crepSemTheory.sh_mem_store_def,CaseEq"bool"]>>
-  rename1 ‘eval t x0’>>
-  qpat_x_assum ‘_ = eval t x0’ $ assume_tac o GSYM>>
-  gvs[state_rel_def,set_var_def,panSemTheory.set_var_def]>>
-  rpt (FULL_CASE_TAC>>fs[])>>rveq>>
-  fs[state_component_equality,empty_locals_def,
-     panSemTheory.empty_locals_def,FLOOKUP_UPDATE]>>
-  rpt gen_tac>>strip_tac>>
-  fs[FLOOKUP_UPDATE,CaseEq"bool"]>>
-  rveq>>fs[shape_of_def,FLOOKUP_UPDATE,flatten_def]>>
-   (rename1 ‘Val xxx’>>cases_on ‘xxx’>>fs[shape_of_def])>>
-  first_assum $ qspecl_then [‘vname’, ‘v'’] mp_tac>>
-  disch_then $ drule>>strip_tac>>fs[]>>
-  irule opt_mmap_flookup_update>>fs[no_overlap_def]>>
-  first_assum $ qspecl_then [‘v’, ‘vname’] mp_tac>>
-  disch_then $ drule_at Any>>
-  disch_then $ drule_at Any>>
-  strip_tac>>
-  CCONTR_TAC>>fs[]
+  gvs[AllCaseEqs(),panSemTheory.evaluate_def,compile_def,
+      oneline nb_op_def,
+      panSemTheory.nb_op_def,panSemTheory.sh_mem_load_def,
+      panSemTheory.sh_mem_store_def,panLangTheory.size_of_shape_def,
+      asmTheory.is_load_def,panLangTheory.load_op_def
+      ] >>
+  PURE_TOP_CASE_TAC >>
+  imp_res_tac compile_exp_val_rel >>
+  imp_res_tac locals_rel_lookup_ctxt >>
+  gvs[shape_of_def,panLangTheory.size_of_shape_def,
+      quantHeuristicsTheory.LIST_LENGTH_1,
+      flatten_def,panSemTheory.shape_of_def,
+      crepSemTheory.evaluate_def
+     ] >>
+  qpat_x_assum ‘_ = eval _ _’ $ assume_tac o GSYM >>
+  rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
+  gvs[sh_mem_op_def,
+      sh_mem_load_def,
+      panLangTheory.load_op_def
+     ] >>
+  gvs[state_rel_def,
+      panSemTheory.set_var_def,
+      crepSemTheory.set_var_def,
+      locals_rel_def,
+      FLOOKUP_UPDATE,
+      panSemTheory.empty_locals_def,
+      crepSemTheory.empty_locals_def
+     ] >>
+  rw[] >>
+  res_tac >> rw[] >> rw[panSemTheory.shape_of_def,shape_of_alt] >>
+  gvs[FLOOKUP_UPDATE,flatten_def] >>
+  irule opt_mmap_flookup_update >>
+  gvs[no_overlap_def] >>
+  strip_tac >>
+  res_tac >> rfs[] >> rveq >> rfs[]
+QED
+
+Theorem compile_ShMemStore:
+  ^(get_goal "compile _ (panLang$ShMemStore _ _ _)")
+Proof
+  rpt gen_tac >> rpt strip_tac >>
+  Cases_on ‘op’ >>
+  gvs[AllCaseEqs(),panSemTheory.evaluate_def,compile_def,
+      oneline nb_op_def,
+      panSemTheory.nb_op_def,panSemTheory.sh_mem_load_def,
+      panSemTheory.sh_mem_store_def,panLangTheory.size_of_shape_def,
+      asmTheory.is_load_def,panLangTheory.store_op_def
+      ] >>
+  PURE_TOP_CASE_TAC >>
+  drule_all compile_exp_val_rel >>
+  strip_tac >>
+  gvs[shape_of_def,panLangTheory.size_of_shape_def,
+      quantHeuristicsTheory.LIST_LENGTH_1,
+      flatten_def,panSemTheory.shape_of_def,
+      crepSemTheory.evaluate_def
+     ] >>
+  qpat_x_assum ‘_ = eval _ _’ $ assume_tac o GSYM >>
+  gvs[] >>
+  PURE_TOP_CASE_TAC >>
+  drule_all compile_exp_val_rel >>
+  strip_tac >>
+  gvs[] >>
+  gvs[shape_of_def,panLangTheory.size_of_shape_def,
+      quantHeuristicsTheory.LIST_LENGTH_1,
+      flatten_def,panSemTheory.shape_of_def,
+      crepSemTheory.evaluate_def,
+      miscTheory.UNCURRY_eq_pair,PULL_EXISTS
+     ] >>
+  qpat_x_assum ‘_ = eval _ _’ $ assume_tac o GSYM >>
+  gvs[shape_of_def,panLangTheory.size_of_shape_def,
+      quantHeuristicsTheory.LIST_LENGTH_1,
+      flatten_def,panSemTheory.shape_of_def,
+      crepSemTheory.evaluate_def,
+      miscTheory.UNCURRY_eq_pair,PULL_EXISTS
+     ] >>
+  dep_rewrite.DEP_ONCE_REWRITE_TAC[update_locals_not_vars_eval_eq'] >>
+  simp[FOLDR_MAX_0_list_max,list_max_add_not_mem,FLOOKUP_UPDATE,
+       sh_mem_op_def,sh_mem_store_def] >>
+  gvs[state_rel_def] >>
+  gvs[locals_rel_def] >>
+  rw[] >>
+  res_tac >>
+  gvs[] >>
+  irule EQ_TRANS >>
+  first_x_assum $ irule_at $ Pos last >>
+  AP_THM_TAC >>
+  AP_TERM_TAC >>
+  rw[FUN_EQ_THM,flookup_res_var_thm] >>
+  rw[FLOOKUP_UPDATE]
 QED
 
 Theorem compile_exp_not_mem_load_glob:
@@ -4577,7 +4635,7 @@ Theorem pc_compile_correct:
 Proof
   match_mp_tac (the_ind_thm()) >>
   EVERY (map strip_assume_tac
-         [compile_Skip_Break_Continue, compile_Dec, compile_ShMem,
+         [compile_Skip_Break_Continue, compile_Dec, compile_ShMemLoad, compile_ShMemStore,
           compile_Assign, compile_Store, compile_StoreByte, compile_Seq,
           compile_If, compile_While, compile_Call, compile_ExtCall,
           compile_Raise, compile_Return, compile_Tick, compile_DecCall]) >>
