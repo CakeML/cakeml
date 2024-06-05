@@ -627,16 +627,7 @@ Proof
   Cases_on ‘z’ >> rw[]
 QED
 
-Theorem cv_size_MAP_o_SND_SND:
-  ∀z. cv_size(cv_MAP_o_SND_SND z) ≤ cv_size z
-Proof
-  Induct >> rw[] >>
-  rw[Once $ fetch "-" "cv_MAP_o_SND_SND_def"] >>
-  Cases_on ‘z’ >> rw[] >>
-  Cases_on ‘g'’ >> rw[] (* TODO: generated names *)
-QED
-
-val pre = cv_auto_trans_pre_rec flat_elimTheory.find_loc_def
+val pre = cv_auto_trans_pre_rec (flat_elimTheory.find_loc_def |> PURE_REWRITE_RULE[o_DEF,GSYM MAP_MAP_o])
   (WF_REL_TAC `measure (λ e . case e of
                               | INL x => cv_size x
                               | INR y => cv_size y)` >>
@@ -646,7 +637,9 @@ val pre = cv_auto_trans_pre_rec flat_elimTheory.find_loc_def
        rw[oneline cvTheory.cv_snd_def] >>
        rpt(PURE_FULL_CASE_TAC >> gvs[]))
    >- (irule LESS_EQ_LESS_TRANS >>
-       irule_at (Pos last) cv_size_MAP_o_SND_SND >>
+       irule_at (Pos last) cv_size_map_snd >>
+       irule LESS_EQ_LESS_TRANS >>
+       irule_at (Pos last) cv_size_map_snd >>
        rw[oneline cvTheory.cv_snd_def] >>
        rpt(PURE_FULL_CASE_TAC >> gvs[]))
    >- (irule LESS_EQ_LESS_TRANS >>
@@ -659,9 +652,9 @@ Theorem flat_elim_find_loc_pre[cv_pre]:
   (∀v. flat_elim_find_locL_pre v)
 Proof
   ho_match_mp_tac flat_elimTheory.find_loc_ind >>
-  rw[] >> rw[Once $ fetch "-" "flat_elim_find_loc_pre_cases"]
+  rw[] >> rw[Once $ fetch "-" "flat_elim_find_loc_pre_cases"] >>
+  rw[MAP_MAP_o]
 QED
-
 
 val pre = cv_auto_trans_pre_rec (flat_elimTheory.find_lookups_def |> PURE_REWRITE_RULE[GSYM MAP_MAP_o,o_THM])
   (WF_REL_TAC `measure (λ e . case e of
@@ -815,6 +808,143 @@ QED
 val _ = cv_auto_trans flat_elimTheory.remove_flat_prog_def;
 
 val _ = cv_auto_trans backend_asmTheory.to_flat_def;
+
+(* flat_to_clos *)
+
+val _ = cv_auto_trans flat_to_closTheory.compile_op_def
+
+Theorem list_size_thm:
+  list_size f xs = LENGTH xs + SUM(MAP f xs)
+Proof
+  Induct_on ‘xs’ >> gvs[list_size_def]
+QED
+
+Definition flat_to_clos_compile_alt_def:
+  (flat_to_clos_compile_alts m [] = []) /\
+  (flat_to_clos_compile_alts m (x::xs) = flat_to_clos_compile_alt m x :: flat_to_clos_compile_alts m xs) /\
+  (flat_to_clos_compile_alt m (flatLang$Raise t e) = (closLang$Raise t (flat_to_clos_compile_alt m (e)))) /\
+  (flat_to_clos_compile_alt m (Lit t l) = (compile_lit t l)) /\
+  (flat_to_clos_compile_alt m (Var_local t v) = (Var t (findi (SOME v) m))) /\
+  (flat_to_clos_compile_alt m (Con t n es) =
+     let tag = (case n of SOME (t,_) => t | _ => 0) in
+       (SmartCons t tag (flat_to_clos_compile_alts m (REVERSE es)))) /\
+  (flat_to_clos_compile_alt m (App t op es) =
+     case dest_nop op es of
+     | SOME e => flat_to_clos_compile_alt m e
+     | NONE => (compile_op t op (flat_to_clos_compile_alts m (REVERSE es)))) /\
+  (flat_to_clos_compile_alt m (Fun t v e) =
+     (Fn (mlstring$implode t) NONE NONE 1 (flat_to_clos_compile_alt (SOME v::m) (e)))) /\
+  (flat_to_clos_compile_alt m (If t x1 x2 x3) =
+     (If t (flat_to_clos_compile_alt m (x1))
+           (flat_to_clos_compile_alt m (x2))
+           (flat_to_clos_compile_alt m (x3)))) /\
+  (flat_to_clos_compile_alt m (Let t vo e1 e2) =
+     (Let t [flat_to_clos_compile_alt m (e1)] (flat_to_clos_compile_alt (vo::m) (e2)))) /\
+  (flat_to_clos_compile_alt m (Mat t e pes) = (Op t (Const 0) [])) /\
+  (flat_to_clos_compile_alt m (Handle t e pes) =
+     case dest_pat pes of
+     | SOME (v,h) => (Handle t (flat_to_clos_compile_alt m (e)) (flat_to_clos_compile_alt (SOME v::m) (h)))
+     | _ => flat_to_clos_compile_alt m (e)) /\
+  (flat_to_clos_compile_alt m (Letrec t funs e) =
+     let new_m = MAP (\n. SOME (FST n)) funs ++ m in
+       (Letrec (MAP (\n. join_strings (mlstring$implode t) (mlstring$implode (FST n))) funs) NONE NONE
+          (flat_to_clos_compile_lets_alt new_m funs)
+          (flat_to_clos_compile_alt new_m (e)))) ∧
+  (flat_to_clos_compile_lets_alt m [] = []) /\
+  (flat_to_clos_compile_lets_alt m ((f,v,x)::xs) = (1, flat_to_clos_compile_alt (SOME v :: m) x) :: flat_to_clos_compile_lets_alt m xs)
+Termination
+  wf_rel_tac ‘measure $ λx.
+             case x of
+               INL (m, e) => list_size exp_size e
+             | INR (INL (m,e)) => exp_size e
+             | INR (INR (m,e)) => list_size (exp_size o SND o SND) e’ >>
+  rw[flatLangTheory.exp1_size,flatLangTheory.exp6_size,
+     list_size_thm
+    ] >>
+  gvs[oneline flat_to_closTheory.dest_pat_def,AllCaseEqs(),
+      oneline flat_to_closTheory.dest_nop_def,
+      flatLangTheory.op_size_def,
+      MAP_REVERSE,SUM_REVERSE,SUM_APPEND,
+      flatLangTheory.exp_size_def
+     ] >>
+  qmatch_goalsub_abbrev_tac ‘SUM (MAP a1 funs)’ >>
+  ‘SUM(MAP a1 funs) ≤ SUM (MAP exp2_size funs)’
+    suffices_by gvs[] >>
+  unabbrev_all_tac >>
+  irule SUM_MAP_same_LE >>
+  simp[EVERY_MEM,FORALL_PROD] >>
+  rw[flatLangTheory.exp_size_def]
+End
+
+val _ = cv_auto_trans flat_to_closTheory.dest_nop_def
+val _ = cv_auto_trans flat_to_closTheory.dest_pat_def
+
+val pre = cv_auto_trans_pre_rec flat_to_clos_compile_alt_def
+  (wf_rel_tac ‘measure $ λx.
+                           case x of
+                             INL (m, e) => cv_size e
+                           | INR (INL (m,e)) => cv_size e
+                           | INR (INR (m,e)) => cv_size e’ >>
+   cv_termination_tac
+   >~ [‘cv_REVERSE’]
+   >- (irule LESS_EQ_LESS_TRANS >>
+       irule_at (Pos last) cv_REVERSE_size >>
+       rw[])
+   >~ [‘cv_REVERSE’]
+   >- (irule LESS_EQ_LESS_TRANS >>
+       irule_at (Pos last) cv_REVERSE_size >>
+       rw[]) >>
+   gvs[fetch "-" "cv_flat_to_clos_dest_nop_def",
+       fetch "-" "cv_flat_to_clos_dest_pat_def",
+       AllCaseEqs()] >>
+   simp[oneline cvTheory.cv_snd_def, oneline cvTheory.cv_fst_def] >>
+   rpt(PURE_FULL_CASE_TAC >> gvs[]))
+
+Theorem flat_to_clos_compile_alts_pre[cv_pre]:
+  (∀m v. flat_to_clos_compile_alts_pre m v) ∧
+  (∀m v. flat_to_clos_compile_alt_pre m v) ∧
+  (∀m v. flat_to_clos_compile_lets_alt_pre m v)
+Proof
+  ho_match_mp_tac flat_to_clos_compile_alt_ind >>
+  rw[] >> rw[Once pre]
+QED
+
+Theorem flat_to_clos_compile_alt_thm:
+  (∀m xs. flat_to_clos_compile_alts m xs = compile m xs) ∧
+  (∀m x. flat_to_clos_compile_alt m x = HD(compile m [x])) ∧
+  (∀m xs. flat_to_clos_compile_lets_alt m xs =
+         (MAP ( \ (f,v,x). (1, HD (compile (SOME v :: m) [x]))) xs))
+Proof
+  ho_match_mp_tac flat_to_clos_compile_alt_ind >>
+  rw[flat_to_clos_compile_alt_def,flat_to_closTheory.compile_def]
+  >- (Cases_on ‘xs’ >>
+      gvs[flat_to_closTheory.compile_def,flat_to_closTheory.LENGTH_compile]) >>
+  rpt(PURE_TOP_CASE_TAC >> gvs[])
+QED
+
+val _ = cv_trans $ GSYM $ cj 1 flat_to_clos_compile_alt_thm
+
+val pre = cv_auto_trans_pre_rec closLangTheory.has_install_def
+  (wf_rel_tac ‘measure $ λx. sum_CASE x cv_size cv_size’ >>
+   cv_termination_tac >>
+   irule LESS_EQ_LESS_TRANS >>
+   irule_at (Pos last) cv_size_map_snd >>
+   rw[oneline cvTheory.cv_snd_def] >>
+   rpt(PURE_FULL_CASE_TAC >> gvs[]))
+
+Theorem closLang_has_install_pre[cv_pre]:
+  (∀v. closLang_has_install_pre v) ∧
+  (∀v. closLang_has_install_list_pre v)
+Proof
+  ho_match_mp_tac closLangTheory.has_install_ind >>
+  rw[] >> rw[Once pre]
+QED
+
+val _ = cv_auto_trans flat_to_closTheory.compile_prog_def
+
+(* to_clos *)
+
+val _ = cv_trans backend_asmTheory.to_clos_def
 
 Theorem to_data_fake:
   backend_asm$to_data c p = (c,[],LN)
