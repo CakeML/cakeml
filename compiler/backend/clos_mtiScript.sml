@@ -18,15 +18,17 @@ val collect_args_def = Define `
 
 val collect_args_ind = theorem "collect_args_ind";
 
-val collect_args_size = Q.prove (
-  `!max_app num_args e num_args' e'.
+Theorem collect_args_size:
+  !max_app num_args e num_args' e'.
     (num_args', e') = collect_args max_app num_args e ⇒
-    num_args' + exp_size e' ≤ num_args + exp_size e`,
+    num_args' + exp_size e' ≤ num_args + exp_size e
+Proof
    ho_match_mp_tac collect_args_ind >>
    srw_tac[][collect_args_def, exp_size_def] >>
    srw_tac[][exp_size_def] >>
    res_tac >>
-   decide_tac);
+   decide_tac
+QED
 
 val collect_args_more = Q.prove (
   `!max_app num_args e num_args' e'.
@@ -66,17 +68,19 @@ val exp3_size_append = Q.prove (
  Induct_on `es1` >>
  simp [exp_size_def]);
 
-val collect_apps_size = Q.prove (
-  `!max_app args e args' e'.
+Theorem collect_apps_size:
+   !max_app args e args' e'.
     (args', e') = collect_apps max_app args e ⇒
-    exp3_size args' + exp_size e' ≤ exp3_size args + exp_size e`,
+    exp3_size args' + exp_size e' ≤ exp3_size args + exp_size e
+Proof
    ho_match_mp_tac collect_apps_ind >>
    simp [collect_apps_def, exp_size_def, basicSizeTheory.option_size_def] >>
    srw_tac[][] >>
    simp [exp_size_def, basicSizeTheory.option_size_def] >>
    res_tac >>
    full_simp_tac(srw_ss())[exp_size_def, exp3_size_append] >>
-   decide_tac);
+   decide_tac
+QED
 
 val collect_apps_more = Q.prove (
   `!max_app args e args' e'.
