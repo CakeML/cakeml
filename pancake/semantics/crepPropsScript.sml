@@ -375,6 +375,9 @@ Proof
   fs [evaluate_def, assigned_free_vars_def, dec_clock_def, CaseEq "option",
       CaseEq "word_lab", CaseEq "ffi_result"]  >>
   rveq >> TRY (FULL_CASE_TAC) >>fs [state_component_equality]
+>>
+(Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def]>>
+ every_case_tac>>fs[set_var_def,empty_locals_def]>>rveq>>fs[FLOOKUP_UPDATE])
 QED
 
 Theorem assigned_free_vars_IMP_assigned_vars:
@@ -510,7 +513,8 @@ Theorem evaluate_seq_stores_mem_state_rel:
              s with locals := s.locals |++
                ((ad,Word addr)::ZIP (es,vs))) = (res,t) ==>
    res = NONE ∧ t.memory = m ∧
-   t.memaddrs = s.memaddrs ∧ (t.be ⇔ s.be) /\
+   t.memaddrs = s.memaddrs ∧
+   t.sh_memaddrs = s.sh_memaddrs ∧ (t.be ⇔ s.be) /\
    t.ffi = s.ffi ∧ t.code = s.code /\ t.clock = s.clock /\
    t.base_addr = s.base_addr
 Proof
@@ -963,12 +967,14 @@ Proof
   fs [evaluate_def, eval_upd_clock_eq, AllCaseEqs () ,
       set_var_def, mem_store_def, set_globals_def,
       dec_clock_def, empty_locals_def] >> rveq >>
-  fs [state_component_equality]
+  fs [state_component_equality]>>
+  (Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def]>>
+   every_case_tac>>fs[set_var_def,empty_locals_def]>>rveq>>fs[])
 QED
 
 
 Theorem evaluate_io_events_mono:
-   !exps s1 res s2.
+  !exps s1 res s2.
     evaluate (exps,s1) = (res, s2)
     ⇒
     s1.ffi.io_events ≼ s2.ffi.io_events
@@ -976,54 +982,58 @@ Proof
   recInduct evaluate_ind >>
   rw [] >>
   TRY (
-  rename [‘Seq’] >>
-  fs [evaluate_def] >>
-  pairarg_tac >> fs [] >> rveq >>
-  every_case_tac >> fs [] >> rveq >>
-  metis_tac [IS_PREFIX_TRANS]) >>
+    rename [‘Seq’] >>
+    fs [evaluate_def] >>
+    pairarg_tac >> fs [] >> rveq >>
+    every_case_tac >> fs [] >> rveq >>
+    metis_tac [IS_PREFIX_TRANS]) >>
   TRY (
-  rename [‘ExtCall’] >>
-  fs [evaluate_def, AllCaseEqs(), empty_locals_def,
-      dec_clock_def, ffiTheory.call_FFI_def] >>
-  rveq >> fs []) >>
+    rename [‘ExtCall’] >>
+    fs [evaluate_def, AllCaseEqs(), empty_locals_def,
+        dec_clock_def, ffiTheory.call_FFI_def] >>
+    rveq >> fs []) >>
   TRY (
-  rename [‘If’] >>
-  fs [evaluate_def] >>
-  every_case_tac >> fs []) >>
+    rename [‘If’] >>
+    fs [evaluate_def] >>
+    every_case_tac >> fs []) >>
   TRY (
-  rename [‘While’] >>
-  qpat_x_assum ‘evaluate (While _ _,_) = _’ mp_tac >>
-  once_rewrite_tac [evaluate_def] >>
-  TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs [empty_locals_def]
-  >- (strip_tac >> rveq >> fs []) >>
-  pairarg_tac >> fs [] >>
-  TOP_CASE_TAC >> fs [] >> rveq >> fs []
-  >- (
-   strip_tac >> fs [] >>
-   fs [dec_clock_def] >>
-   metis_tac [IS_PREFIX_TRANS]) >>
-  TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
-  strip_tac >> fs [] >> rveq >> fs [dec_clock_def] >>
-  metis_tac [IS_PREFIX_TRANS]) >>
+    rename [‘While’] >>
+    qpat_x_assum ‘evaluate (While _ _,_) = _’ mp_tac >>
+    once_rewrite_tac [evaluate_def] >>
+    TOP_CASE_TAC >> fs [] >>
+    TOP_CASE_TAC >> fs [] >>
+    TOP_CASE_TAC >> fs [] >>
+    TOP_CASE_TAC >> fs [empty_locals_def]
+    >- (strip_tac >> rveq >> fs []) >>
+    pairarg_tac >> fs [] >>
+    TOP_CASE_TAC >> fs [] >> rveq >> fs []
+    >- (
+      strip_tac >> fs [] >>
+      fs [dec_clock_def] >>
+      metis_tac [IS_PREFIX_TRANS]) >>
+    TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+    strip_tac >> fs [] >> rveq >> fs [dec_clock_def] >>
+    metis_tac [IS_PREFIX_TRANS]) >>
   TRY (
-  rename [‘Call’] >>
-  pop_assum mp_tac >>
-  once_rewrite_tac [evaluate_def, LET_THM] >>
-  fs [AllCaseEqs(), empty_locals_def,
-      dec_clock_def, set_var_def] >>
-  strip_tac >> fs [] >> rveq >> fs [] >>
-  metis_tac [IS_PREFIX_TRANS]) >>
+    rename [‘Call’] >>
+    pop_assum mp_tac >>
+    once_rewrite_tac [evaluate_def, LET_THM] >>
+    fs [AllCaseEqs(), empty_locals_def,
+        dec_clock_def, set_var_def] >>
+    strip_tac >> fs [] >> rveq >> fs [] >>
+    metis_tac [IS_PREFIX_TRANS]) >>
   TRY (
-  rename [‘Dec’] >>
-  fs [evaluate_def, AllCaseEqs () ] >>
-  pairarg_tac >> fs [] >> rveq >> fs []) >>
+    rename [‘Dec’] >>
+    fs [evaluate_def, AllCaseEqs () ] >>
+    pairarg_tac >> fs [] >> rveq >> fs []) >>
   fs [evaluate_def, eval_upd_clock_eq, AllCaseEqs () ,
       set_var_def, mem_store_def, set_globals_def,
       dec_clock_def, empty_locals_def] >> rveq >>
-  fs [state_component_equality]
+  fs [state_component_equality]>>
+  (Cases_on ‘op’>>
+   fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
+      ffiTheory.call_FFI_def,eval_upd_clock_eq]>>
+   every_case_tac>>fs[set_var_def,empty_locals_def]>>rveq>>fs[])
 QED
 
 Theorem evaluate_add_clock_io_events_mono:
@@ -1258,11 +1268,46 @@ Proof
   rename [‘ExtCall’] >>
   fs [evaluate_def, eval_upd_clock_eq] >>
   every_case_tac >> fs []) >>
+  TRY (Cases_on ‘op’>>
+       fs [evaluate_def, eval_upd_clock_eq] >>
+       fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
+          ffiTheory.call_FFI_def,eval_upd_clock_eq]>>
+       every_case_tac>>fs[set_var_def,empty_locals_def]>>rveq>>fs[])>>
   fs [evaluate_def, eval_upd_clock_eq] >>
   every_case_tac >> fs [] >>
   fs [set_var_def, mem_store_def, set_globals_def,
       dec_clock_def, empty_locals_def] >> rveq >>
   fs []
+QED
+
+Theorem evaluate_code_invariant:
+  ∀p t res st.
+    crepSem$evaluate (p,t) = (res,st) ⇒
+    st.code = t.code
+Proof
+  recInduct crepSemTheory.evaluate_ind >> rw[]
+  >~ [‘While’]
+  >- (pop_assum mp_tac >>
+      rw[Once crepSemTheory.evaluate_def] >>
+      gvs[AllCaseEqs(),crepSemTheory.empty_locals_def,UNCURRY_eq_pair,
+          crepSemTheory.dec_clock_def])
+  >~ [‘Call’]
+  >- (pop_assum mp_tac >>
+      rw[Once crepSemTheory.evaluate_def] >>
+      rfs[AllCaseEqs(),crepSemTheory.empty_locals_def,
+          crepSemTheory.dec_clock_def] >>
+      rveq >>
+      fs[]) >>
+  gvs[crepSemTheory.evaluate_def,AllCaseEqs(),
+      oneline crepSemTheory.sh_mem_op_def,
+      oneline crepSemTheory.sh_mem_load_def,
+      oneline crepSemTheory.sh_mem_store_def,
+      crepSemTheory.set_var_def,
+      crepSemTheory.empty_locals_def,
+      UNCURRY_eq_pair,
+      crepSemTheory.dec_clock_def,
+      crepSemTheory.set_globals_def
+     ]
 QED
 
 Definition exps_of_def:
@@ -1278,6 +1323,7 @@ Definition exps_of_def:
   (exps_of (StoreGlob _ e) = [e]) ∧
   (exps_of (Return e) = [e]) ∧
   (exps_of (Assign _ e) = [e]) ∧
+  (exps_of (ShMem _ _ e) = [e]) ∧
   (exps_of _ = [])
 End
 

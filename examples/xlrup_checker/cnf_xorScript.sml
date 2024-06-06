@@ -290,7 +290,7 @@ Theorem print_lit_alt:
   (print_lit (Neg n) = int_to_string (#"-") (-&n))
 Proof
   rw[print_lit_def,int_to_string_thm,num_to_str_thm]>>
-  EVAL_TAC
+  simp[strcat_def,concat_def,implode_def]
 QED
 
 Theorem fromString_print_lit:

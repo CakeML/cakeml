@@ -83,7 +83,7 @@ Definition store_rel_def:
           | Refv v => (?x. FLOOKUP t_refs i = SOME (ValueArray [x]) /\ v_rel v x)
           | Varray vs => (?xs. FLOOKUP t_refs i = SOME (ValueArray xs) /\
                                LIST_REL v_rel vs xs)
-          | W8array bs => FLOOKUP t_refs i = SOME (ByteArray F bs)
+          | W8array bs => FLOOKUP t_refs i = SOME (ByteArray bs)
 End
 
 Definition inc_compile_decs'_def:
@@ -131,7 +131,7 @@ QED
 
 Theorem lookup_byte_array:
   state_rel s1 t1 /\ store_lookup i s1.refs = SOME (W8array bytes) ==>
-  FLOOKUP t1.refs i = SOME (ByteArray F bytes)
+  FLOOKUP t1.refs i = SOME (ByteArray bytes)
 Proof
   fs [state_rel_def,store_rel_def] \\ rw []
   \\ fs [store_lookup_def]

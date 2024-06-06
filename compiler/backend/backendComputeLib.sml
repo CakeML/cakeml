@@ -8,7 +8,7 @@ local
 
 open HolKernel boolLib bossLib computeLib
 open semanticsComputeLib reg_allocComputeLib
-open backendTheory
+open backendTheory mlmapTheory
 
 structure Parse = struct
   open Parse
@@ -944,6 +944,7 @@ val add_backend_compset = computeLib.extend_compset
     ,lab_to_targetTheory.sec_get_zero_labs_acc_def
     ,lab_to_targetTheory.get_zero_labs_acc_def
     ,lab_to_targetTheory.zero_labs_acc_exist_def
+    ,lab_to_targetTheory.get_shmem_info_def
     ,lab_to_targetTheory.compile_lab_def
     ,lab_to_targetTheory.compile_def
     ]

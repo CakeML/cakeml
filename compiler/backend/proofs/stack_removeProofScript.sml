@@ -161,6 +161,7 @@ val state_rel_def = Define `
     s2.ffi_save_regs = s1.ffi_save_regs /\
     s2.fp_regs = s1.fp_regs /\
     s2.code_buffer = s1.code_buffer /\
+    s2.sh_mdomain = s1.sh_mdomain ∧
     s1.compile = (λc p. s2.compile c (MAP (prog_comp jump off k) p)) /\
     (* s2.data_buffer = empty_buffer /\ *)
     s2.compile_oracle = (λn. (I ## MAP (prog_comp jump off k) ## I (*K []*)) (s1.compile_oracle n)) /\
@@ -211,7 +212,8 @@ val state_rel_with_clock = Q.prove(
 Theorem state_rel_const:
    state_rel jump off k s t ⇒
    t.code_buffer = s.code_buffer ∧
-   ¬t.use_stack ∧ s.use_stack ∧
+   t.sh_mdomain = s.sh_mdomain ∧
+   ¬t.use_stack ∧ s.use_stack ∧ t.ffi = s.ffi ∧
    t.compile_oracle = (λn. (I ## MAP (prog_comp jump off k) ## I (*K []*)) (s.compile_oracle n)) ∧
    s.compile = (λc p. t.compile c (MAP (prog_comp jump off k) p))
 Proof
@@ -1890,6 +1892,29 @@ Proof
     \\ conj_tac >- metis_tac[]
     \\ fs[wordSemTheory.buffer_flush_def]
     \\ rveq \\ fs[])
+  THEN1 ( (* ShMemOp *)
+    rw[comp_def]
+    \\ fs[evaluate_def]
+    \\ fs[reg_bound_def]
+    \\ imp_res_tac state_rel_get_var
+    \\ imp_res_tac state_rel_const
+    \\ fs[get_var_def,word_exp_def,IS_SOME_EXISTS,
+         wordLangTheory.word_op_def]>>
+    ntac 2 (FULL_CASE_TAC>>fs[])
+    \\ fs[CaseEq"bool"]
+    >- (imp_res_tac state_rel_IMP>>
+        gvs[empty_env_def,state_rel_def]>>
+        TRY (qexists_tac`0`)>>gvs[])>>
+    qexists_tac ‘0’>>gs[]>>
+    imp_res_tac state_rel_IMP
+    \\ Cases_on ‘op’
+    \\ fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
+          sh_mem_load_byte_def,sh_mem_store_byte_def,get_var_def]
+    \\ imp_res_tac state_rel_get_var >> fs[get_var_def]
+    \\ ntac 2 (TOP_CASE_TAC>>fs[]) >>TRY (ntac 2 (CASE_TAC>>fs[]))>>
+    rveq>>simp[]>>
+    fs[state_rel_def,state_component_equality,FLOOKUP_UPDATE,dec_clock_def]>>rfs[]>>
+    metis_tac[])
   THEN1 ( (* CodeBufferWrite *)
     rw[comp_def]
     \\ fs[evaluate_def]
@@ -3079,6 +3104,7 @@ Theorem init_code_thm:
          init_prop gen_gc max_heap data_sp (get_stack_heap_limit max_heap (read_pointers s))
                    (init_reduce gen_gc jump off k code bitmaps data_sp coracle t) ∧
          s.mdomain = t.mdomain ∧
+         s.sh_mdomain = t.sh_mdomain ∧
          (let t0 = init_reduce gen_gc jump off k code bitmaps data_sp coracle t in
             fun2set (s.memory, t0.mdomain) = fun2set (t.memory, t0.mdomain))
 Proof

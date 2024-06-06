@@ -315,18 +315,17 @@ TextIO.b_closeIn: TextIO.b_instream -> unit
 TextIO.b_input: TextIO.b_instream -> byte_array -> int -> int -> int
 TextIO.b_peekChar: TextIO.b_instream -> char option
 TextIO.b_input1: TextIO.b_instream -> char option
-TextIO.b_inputUntil: TextIO.b_instream -> char -> string
-TextIO.b_inputLine: TextIO.b_instream -> string option
-TextIO.b_inputLineTokens: TextIO.b_instream -> (char -> bool) -> (string -> 'a) -> 'a list option
-TextIO.b_inputLines: TextIO.b_instream -> string list
-TextIO.b_inputLinesFrom: string -> string list option
-TextIO.b_inputLinesStdIn: unit -> string list
-TextIO.b_inputAllTokens: TextIO.b_instream -> (char -> bool) -> (string -> 'a) -> 'a list list
-TextIO.b_inputAllTokensFrom: string -> (char -> bool) -> (string -> 'a) -> 'a list list option
-TextIO.b_inputAllTokensStdIn: (char -> bool) -> (string -> 'a) -> 'a list list option
+TextIO.b_inputLine: char -> TextIO.b_instream -> string option
+TextIO.b_inputLineTokens: char -> TextIO.b_instream -> (char -> bool) -> (string -> 'a) -> 'a list option
+TextIO.b_inputLines: char -> TextIO.b_instream -> string list
+TextIO.b_inputLinesFrom: char -> string -> string list option
+TextIO.b_inputLinesStdIn: char -> string list
+TextIO.b_inputAllTokens: char -> TextIO.b_instream -> (char -> bool) -> (string -> 'a) -> 'a list list
+TextIO.b_inputAllTokensFrom: char -> string -> (char -> bool) -> (string -> 'a) -> 'a list list option
+TextIO.b_inputAllTokensStdIn: char -> (char -> bool) -> (string -> 'a) -> 'a list list option
 TextIO.foldChars: (char -> 'a -> 'a) -> 'a -> string option -> 'a option
-TextIO.foldLines: (string -> 'a -> 'a) -> 'a -> string option -> 'a option
-TextIO.foldTokens: (char -> bool) -> (string -> 'a) -> ('a list -> 'b -> 'b) -> 'b -> string option -> 'b option
+TextIO.foldLines: char -> (string -> 'a -> 'a) -> 'a -> string option -> 'a option
+TextIO.foldTokens: char -> (char -> bool) -> (string -> 'a) -> ('a list -> 'b -> 'b) -> 'b -> string option -> 'b option
 fst: 'a * 'b -> 'a
 snd: 'a * 'b -> 'b
 curry: ('a * 'b -> 'c) -> 'a -> 'b -> 'c

@@ -22,6 +22,7 @@ Definition crep_state_def:
      code     := alist_to_fmap (pan_to_crep$compile_prog pan_code);
      memory   := s.memory;
      memaddrs := s.memaddrs;
+     sh_memaddrs := s.sh_memaddrs;
      clock    := s.clock;
      be       := s.be;
      ffi      := s.ffi;
@@ -40,6 +41,7 @@ Definition loop_state_def:
      globals  := FEMPTY;
      memory   := mk_mem (make_funcs crep_code) s.memory;
      mdomain := s.memaddrs;
+     sh_mdomain := s.sh_memaddrs;
      code     := fromAList (crep_to_loop$compile_prog c crep_code);
      clock    := ck;
      be       := s.be;
@@ -374,6 +376,7 @@ Theorem state_rel_imp_semantics:
   distinct_params pan_code ∧
   consistent_labels s.memory pan_code /\
   t.mdomain = s.memaddrs ∧
+  t.sh_mdomain = s.sh_memaddrs ∧
   t.be = s.be ∧
   t.ffi = s.ffi ∧
   ALOOKUP (fmap_to_alist t.store) CurrHeap = SOME (Word s.base_addr) ∧
@@ -384,7 +387,7 @@ Theorem state_rel_imp_semantics:
   t.code = fromAList (pan_to_word$compile_prog c pan_code) ∧
   s.locals = FEMPTY ∧ size_of_eids pan_code < dimword (:α) ∧
   FDOM s.eshapes = FDOM ((get_eids pan_code):mlstring |-> 'a word) ∧
-  lookup 0 t.locals = SOME (Loc 1 0) /\
+  lookup 0 t.locals = SOME (Loc 1 0) /\ good_dimindex (:'a) ∧
   semantics s start <> Fail ==>
     semantics (t:('a,'b, 'ffi) wordSem$state) (lc+first_name) =
     semantics (s:('a,'ffi) panSem$state) start
@@ -1144,7 +1147,19 @@ Proof
     rpt(PURE_TOP_CASE_TAC \\ gvs[]) \\ rw[crepPropsTheory.exps_of_def,crepLangTheory.assign_ret_def] \\
     rw[every_inst_ok_less_exps_of_nested_seq,EVERY_FLAT,EVERY_MAP,load_globals_alt,MAP2_MAP,MEM_ZIP] \\
     gvs[EVERY_MEM,MEM_ZIP,PULL_EXISTS,PULL_FORALL,crepPropsTheory.exps_of_def,
+        crepPropsTheory.every_exp_def])
+  >~ [‘exp_hdl’] >-
+   (gvs[] \\
+    rpt conj_tac >-
+     (gvs[EVERY_MEM,PULL_FORALL] \\
+      metis_tac[every_inst_ok_less_pan_to_crep_compile_exp,EVERY_MEM,FST,SND,PAIR]) \\
+    simp[DefnBase.one_line_ify NONE pan_to_crepTheory.exp_hdl_def,
+         DefnBase.one_line_ify NONE pan_to_crepTheory.ret_hdl_def] \\
+    rpt(PURE_TOP_CASE_TAC \\ gvs[]) \\ rw[crepPropsTheory.exps_of_def,crepLangTheory.assign_ret_def] \\
+    rw[every_inst_ok_less_exps_of_nested_seq,EVERY_FLAT,EVERY_MAP,load_globals_alt,MAP2_MAP,MEM_ZIP] \\
+    gvs[EVERY_MEM,MEM_ZIP,PULL_EXISTS,PULL_FORALL,crepPropsTheory.exps_of_def,
         crepPropsTheory.every_exp_def]) \\
+  simp[every_inst_ok_nested_decs,crepPropsTheory.exps_of_def,every_inst_ok_nested_decs,crepPropsTheory.length_load_globals_eq_read_size,load_globals_alt] \\
   rw[EVERY_MEM,MAP2_MAP,MEM_ZIP,MEM_MAP,UNCURRY_DEF] \\
   gvs[UNCURRY_DEF,crepPropsTheory.exps_of_def,EVERY_MEM,MEM_EL,PULL_EXISTS,EL_MAP,
       crepPropsTheory.every_exp_def,DefnBase.one_line_ify NONE pan_to_crepTheory.ret_hdl_def] \\

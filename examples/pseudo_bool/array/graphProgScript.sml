@@ -49,7 +49,7 @@ val r = translate noparse_string_def;
 
 val parse_lad = (append_prog o process_topdecs) `
   fun parse_lad f =
-  (case TextIO.b_inputAllTokensFrom f blanks tokenize_num of
+  (case TextIO.b_inputAllTokensFrom #"\n" f blanks tokenize_num of
     None => Inl (notfound_string f)
   | Some lines =>
   (case parse_lad_toks lines of
@@ -106,8 +106,12 @@ Proof
   >- (
     xapp_spec b_inputAllTokensFrom_spec_specialize >>
     xsimpl>>
+    simp[pb_parseTheory.blanks_def]>>
     fs[FILENAME_def,validArg_def,blanks_v_thm]>>
-    EVAL_TAC)>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    qexists_tac`emp`>>xsimpl)>>
   simp[get_graph_lad_def]>>
   reverse IF_CASES_TAC>>fs[OPTION_TYPE_def]>>xmatch
   >- (
@@ -148,7 +152,7 @@ val _ = translate parse_dimacs_toks_def;
 
 val parse_dimacs = (append_prog o process_topdecs) `
   fun parse_dimacs f =
-  (case TextIO.b_inputAllTokensFrom f blanks tokenize_num of
+  (case TextIO.b_inputAllTokensFrom #"\n" f blanks tokenize_num of
     None => Inl (notfound_string f)
   | Some lines =>
   (case parse_dimacs_toks lines of
@@ -192,8 +196,12 @@ Proof
   >- (
     xapp_spec b_inputAllTokensFrom_spec_specialize >>
     xsimpl>>
+    simp[pb_parseTheory.blanks_def]>>
     fs[FILENAME_def,validArg_def,blanks_v_thm]>>
-    EVAL_TAC)>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    qexists_tac`emp`>>xsimpl)>>
   simp[get_graph_dimacs_def]>>
   reverse IF_CASES_TAC>>fs[OPTION_TYPE_def]>>xmatch
   >- (

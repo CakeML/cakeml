@@ -73,6 +73,7 @@ local val comp_quotation = `
               | SOME (p2,l1,l2) => SOME (comp f p2,l1,l2))
     | Install r1 r2 r3 r4 r5 => Install (find_name f r1) (find_name f r2)
       (find_name f r3) (find_name f r4) (find_name f r5)
+    | ShMemOp op r (Addr a w) => ShMemOp op (find_name f r) (Addr (find_name f a) w)
     | CodeBufferWrite r1 r2 => CodeBufferWrite (find_name f r1) (find_name f r2)
     | FFI i r1 r2 r3 r4 r5 => FFI i (find_name f r1) (find_name f r2) (find_name f r3)
                                     (find_name f r4) (find_name f r5)

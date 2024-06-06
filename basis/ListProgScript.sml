@@ -215,8 +215,9 @@ Theorem tabulate_inv_spec:
     ==>
     app (p:'ffi ffi_proj) ^(fetch_v "tabulate" st) [nv; fv] heap_inv (POSTv lv. &LIST_TYPE A ls lv * heap_inv)
 Proof
-  xcf "tabulate" st \\
-  xlet`POSTv v. &LIST_TYPE A [] v * heap_inv`
+  rpt strip_tac
+  \\ xcf "tabulate" st
+  \\ xlet`POSTv v. &LIST_TYPE A [] v * heap_inv`
   >- (xcon \\ xsimpl \\ fs[LIST_TYPE_def] )
   \\ xapp_spec tabulate_aux_inv_spec
   \\ xsimpl

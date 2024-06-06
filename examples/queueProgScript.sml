@@ -134,6 +134,7 @@ Theorem empty_queue_spec:
       app (p:'ffi ffi_proj) ^(fetch_v "empty_queue" st) [nv; errv]
           emp (POSTv qv. QUEUE A n [] qv)
 Proof
+    strip_tac \\
     xcf "empty_queue" st \\
     xs_auto_tac >> simp[QUEUE_def] >> xsimpl >>
     qexists_tac `REPLICATE n a` >>
@@ -166,6 +167,7 @@ Theorem enqueue_spec:
           (QUEUE A mx vs qv * & (A x xv ∧ LENGTH vs < mx))
           (POSTv uv. QUEUE A mx (vs ++ [x]) qv)
 Proof
+    rpt strip_tac >>
     xcf "enqueue" st >>
     xpull >> xs_auto_tac >>
     xlet ‘POSTv bv. QUEUE A mx vs qv * &(BOOL (LENGTH vs = mx) bv)’
@@ -204,6 +206,7 @@ val dequeue_spec_noexn = Q.prove(
     `!qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "dequeue" st) [qv]
           (QUEUE A mx vs qv * &(vs ≠ []))
           (POSTv v. &(A (HD vs) v) * QUEUE A mx (TL vs) qv)`,
+    rpt strip_tac >>
     xcf "dequeue" st >> simp[QUEUE_def] >> xpull >> xs_auto_tac >>
     reverse(rw[]) >- EVAL_TAC >> xlet_auto >- xsimpl >> xif >>
     qexists_tac `F` >> simp[] >> xs_auto_tac
@@ -225,6 +228,7 @@ Theorem dequeue_spec:
        (POSTve (λv. &(vs ≠ [] ∧ A (HD vs) v) * QUEUE A mx (TL vs) qv)
                (λe. &(vs = [] ∧ EmptyQueue_exn e) * QUEUE A mx vs qv))
 Proof
+  rpt strip_tac >>
   xcf "dequeue" st >> simp[QUEUE_def] >> xpull >> xs_auto_tac >>
   reverse(rw[]) >- EVAL_TAC >> xlet_auto >- xsimpl >> xif
   >- ((* throws exception *)

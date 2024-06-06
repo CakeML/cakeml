@@ -56,7 +56,7 @@ val b_inputLineTokens_specialize =
 
 val parse_wcnf_toks_arr = process_topdecs`
   fun parse_wcnf_toks_arr lno fd acc =
-  case TextIO.b_inputLineTokens fd blanks_1 tokenize_1 of
+  case TextIO.b_inputLineTokens #"\n" fd blanks_1 tokenize_1 of
     None => Inr (List.rev acc)
   | Some l =>
     if wnocomment_line l then
@@ -73,23 +73,24 @@ Theorem parse_wcnf_toks_arr_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_wcnf_toks_arr" (get_ml_prog_state()))
     [lnov; fdv; accv]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTv v.
       & (∃err. SUM_TYPE STRING_TYPE (LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE INT)))
       (case parse_wcnf_toks (MAP lpr_parsing$toks lines) acc of
         NONE => INL err
       | SOME x => INR x) v) *
       SEP_EXISTS k lines'.
-         STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k))
+         STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k))
 Proof
   Induct
   \\ simp []
+  \\ rw[]
   \\ xcf "parse_wcnf_toks_arr" (get_ml_prog_state ())
   THEN1 (
     xlet ‘(POSTv v.
             SEP_EXISTS k.
                 STDIO (forwardFD fs fd k) *
-                INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
+                INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
@@ -108,7 +109,7 @@ Proof
   \\ xlet ‘(POSTv v.
             SEP_EXISTS k.
                 STDIO (forwardFD fs fd k) *
-                INSTREAM_LINES fd fdv lines (forwardFD fs fd k) *
+                INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
                 & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (lpr_parsing$toks h)) v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
@@ -221,9 +222,9 @@ Proof
   qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
   xhandle`$POSTv Qval` \\ xsimpl >>
   qunabbrev_tac`Qval`>>
-  xlet_auto_spec (SOME b_openIn_spec_lines) \\ xsimpl >>
+  xlet_auto_spec (SOME (b_openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`)) \\ xsimpl >>
   qmatch_goalsub_abbrev_tac`STDIO fss`>>
-  qmatch_goalsub_abbrev_tac`INSTREAM_LINES fdd fddv lines fss`>>
+  qmatch_goalsub_abbrev_tac`INSTREAM_LINES #"\n" fdd fddv lines fss`>>
   xlet_autop>>
   xlet`(POSTv v.
       & (∃err. SUM_TYPE STRING_TYPE (LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE INT)))
@@ -231,7 +232,7 @@ Proof
         NONE => INL err
       | SOME x => INR x) v) *
       SEP_EXISTS k lines'.
-         STDIO (forwardFD fss fdd k) * INSTREAM_LINES fdd fddv lines' (forwardFD fss fdd k))`
+         STDIO (forwardFD fss fdd k) * INSTREAM_LINES #"\n" fdd fddv lines' (forwardFD fss fdd k))`
   >- (
     xapp>>xsimpl>>
     qexists_tac`emp`>>qexists_tac`lines`>>
@@ -246,6 +247,7 @@ Proof
     qexists_tac `lines'` >>
     qexists_tac `forwardFD fss fdd k` >>
     qexists_tac `fdd` >>
+    qexists_tac `#"\n"` >>
     conj_tac THEN1
      (unabbrev_all_tac
       \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs []
@@ -372,16 +374,16 @@ Definition maxsat_sem_def:
   case copt of NONE => T
   | SOME (lbg,ubg) =>
   (case lbg of
-    NONE => min_unsat wfml = NONE
+    NONE => opt_cost wfml = NONE
   | SOME lb =>
     (case ubg of
-      NONE => (∀w. satisfies_hard w wfml ⇒ lb ≤ weight w wfml)
+      NONE => (∀w. sat_hard w wfml ⇒ lb ≤ cost w wfml)
     | SOME ub =>
       if lb = ub then
-        min_unsat wfml = SOME lb
+        opt_cost wfml = SOME lb
       else
-      (∀w. satisfies_hard w wfml ⇒ lb ≤ weight w wfml) ∧
-      (∃w. satisfies_hard w wfml ∧ weight w wfml ≤ ub)))
+      (∀w. sat_hard w wfml ⇒ lb ≤ cost w wfml) ∧
+      (∃w. sat_hard w wfml ∧ cost w wfml ≤ ub)))
 End
 
 Definition print_maxsat_str_def:
@@ -394,15 +396,15 @@ Definition print_maxsat_str_def:
     (case lbg of
       NONE =>
         strlit "s VERIFIED BOUNDS " ^
-        strlit "sum(unsat weights) <= " ^ toString ub ^ strlit"\n"
+        strlit "COST <= " ^ toString ub ^ strlit"\n"
     | SOME lb =>
       if lb = ub then
-        strlit "s VERIFIED MIN sum(unsat weights) = " ^
+        strlit "s VERIFIED OPTIMAL COST = " ^
         toString ub ^ strlit"\n"
       else
         strlit "s VERIFIED " ^
         (toString lb) ^
-        strlit " <= MIN sum(unsat weights) <= " ^ toString ub ^ strlit"\n"))
+        strlit " <= COST <= " ^ toString ub ^ strlit"\n"))
 End
 
 Definition check_unsat_2_sem_def:
@@ -442,7 +444,7 @@ val check_unsat_2 = (append_prog o process_topdecs) `
     let val objft = default_objf in
       (case
         map_concl_to_string
-          (check_unsat_top_norm objf objft f2) of
+          (check_unsat_top_norm False objf objft f2) of
         Inl err => TextIO.output TextIO.stdErr err
       | Inr s => TextIO.print s)
     end`
@@ -487,6 +489,15 @@ Proof
       ) default_objf v`
   >-
     (xvar>>xsimpl)>>
+  xlet`POSTv v. STDIO fs * &BOOL F v`
+  >-
+    (xcon>>xsimpl)>>
+  drule npbc_parseProgTheory.check_unsat_top_norm_spec>>
+  qpat_x_assum`objf_TYPE y _`assume_tac>>
+  disch_then drule>>
+  qpat_x_assum`objf_TYPE default_objf _`assume_tac>>
+  disch_then drule>>
+  strip_tac>>
   xlet_auto
   >- (
     xsimpl>>
@@ -533,17 +544,17 @@ Proof
     qexists_tac`x`>>simp[maxsat_sem_def]>>
     every_case_tac>>fs[]
     >- (
-      (drule_at Any) full_encode_sem_concl_min_unsat>>
+      (drule_at Any) full_encode_sem_concl_opt_cost>>
       metis_tac[PAIR])
     >- (
       (drule_at Any) full_encode_sem_concl>>
       fs[]>>
       disch_then (drule_at Any)>>simp[])
     >- (
-      (drule_at Any) full_encode_sem_concl_min_unsat>>
+      (drule_at Any) full_encode_sem_concl_opt_cost>>
       metis_tac[PAIR])
     >- (
-      (drule_at Any) full_encode_sem_concl_min_unsat>>
+      (drule_at Any) full_encode_sem_concl_opt_cost>>
       metis_tac[PAIR])
     >- (
       (drule_at Any) full_encode_sem_concl>>
@@ -604,7 +615,7 @@ QED
 
 Definition maxsat_output_sem_def:
   maxsat_output_sem wfml wfml' iseqopt ⇔
-  (iseqopt ⇒ min_unsat wfml = min_unsat wfml')
+  (iseqopt ⇒ opt_cost wfml = opt_cost wfml')
 End
 
 Definition print_maxsat_output_str_def:
@@ -653,7 +664,7 @@ val check_unsat_3 = (append_prog o process_topdecs) `
   | Inr objft =>
       (case
       map_out_concl_to_string
-        (check_unsat_top_norm objf objft f2) of
+        (check_unsat_top_norm True objf objft f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s))`
 
@@ -700,6 +711,9 @@ Proof
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   xmatch>>
+  xlet`POSTv v. STDIO fs * &BOOL T v`
+  >-
+    (xcon>>xsimpl)>>
   xlet_auto
   >- (
     xsimpl>>
@@ -764,24 +778,24 @@ Proof
     fs[maxsat_sem_def]>>
     every_case_tac>>fs[]
     >- (
-      (drule_at Any) full_encode_sem_concl_min_unsat>>
+      (drule_at Any) full_encode_sem_concl_opt_cost>>
       metis_tac[PAIR])
     >- (
       (drule_at Any) full_encode_sem_concl>>
       fs[]>>
       disch_then (drule_at Any)>>simp[])
     >- (
-      (drule_at Any) full_encode_sem_concl_min_unsat>>
+      (drule_at Any) full_encode_sem_concl_opt_cost>>
       metis_tac[PAIR])
     >- (
-      (drule_at Any) full_encode_sem_concl_min_unsat>>
+      (drule_at Any) full_encode_sem_concl_opt_cost>>
       metis_tac[PAIR])
     >- (
       (drule_at Any) full_encode_sem_concl>>
       fs[]>>
       disch_then (drule_at Any)>>simp[]))>>
   rw[]>>fs[]>>
-  (drule_at Any) full_encode_sem_output_min_unsat>>
+  (drule_at Any) full_encode_sem_output_opt_cost>>
   fs[]>>
   metis_tac[PAIR]
 QED

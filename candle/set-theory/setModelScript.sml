@@ -34,49 +34,44 @@ Proof
     rw[]) >>
   conj_tac >- (
     rw[FORALL_SUM] >>
-    qexists_tac`INR (num_from_bin_list
-      (GENLIST (λn. if ODD (EL n (num_to_bin_list (OUTR x))) ∧
+    qexists_tac`INR (l2n 2
+      (GENLIST (λn. if ODD (EL n (n2l 2 (OUTR x))) ∧
                        P (INR n) then 1 else 0)
-        (LENGTH (num_to_bin_list (OUTR x)))))` >>
+        (LENGTH (n2l 2 (OUTR x)))))` >>
     simp[EVERY_GENLIST] >>
     rw[] >>
-    qmatch_abbrev_tac`BIT aa (num_from_bin_list ll) ⇔ BIT aa xx ∧ P a` >>
+    qmatch_abbrev_tac`BIT aa (l2n 2 ll) ⇔ BIT aa xx ∧ P a` >>
     `EVERY ($> 2) ll` by (
       simp[Abbr`ll`,EVERY_GENLIST] >> rw[]) >>
-    Cases_on`aa < LENGTH ll` >- (
-      simp[numposrepTheory.BIT_num_from_bin_list] >>
-      simp[Abbr`ll`] >> fs[] >>
-      simp[numposrepTheory.EL_num_to_bin_list] >>
-      simp[BITV_THM,SBIT_def] >>
-      BasicProvers.CASE_TAC >> simp[] >>
-      simp[Abbr`aa`] >>
-      rw[]) >>
-    fs[numposrepTheory.num_to_bin_list_def,numposrepTheory.LENGTH_n2l] >>
-    rfs[Abbr`ll`] >>
-    simp[BIT_num_from_bin_list_leading] >>
-    disj1_tac >>
-    Cases_on`xx=0`>>simp[BIT_ZERO]>>fs[]>>
-    MATCH_MP_TAC NOT_BIT_GT_LOG2>>
-    simp[LOG2_def] ) >>
+    simp[BIT_DEF, AllCaseEqs(), ODD_MOD2_LEM, SF CONJ_ss,
+         numposrepTheory.LENGTH_n2l,
+         numposrepTheory.EL_n2l, numposrepTheory.BIT_l2n_2] >>
+    Cases_on`aa < LENGTH ll` >>
+    fs[Abbr‘ll’, AllCaseEqs(), numposrepTheory.EL_n2l, SF CONJ_ss]
+    >- simp[ODD_MOD2_LEM] >>
+    ‘(xx DIV 2 ** aa) MOD 2 = 0’ suffices_by simp[] >>
+    ‘xx DIV 2 ** aa = 0’ suffices_by simp[] >>
+    irule LESS_DIV_EQ_ZERO >> gs[NOT_LESS, numposrepTheory.LENGTH_n2l] >>
+    Cases_on ‘xx = 0’ >> gs[] >> irule LESS_LESS_EQ_TRANS >>
+    irule_at Any EXP_BASE_LEQ_MONO_IMP >> simp[] >> first_assum $ irule_at Any>>
+    simp[logrootTheory.LOG]) >>
   conj_tac >- (
     rw[] >>
     qabbrev_tac`xx = OUTR x` >>
-    qexists_tac`INR (num_from_bin_list
+    qexists_tac`INR (l2n 2
       (GENLIST (λa. if (∀b. BIT b a ⇒ BIT b xx) then 1 else 0) (2 * (SUC xx))))` >>
     simp[EVERY_GENLIST] >> rw[] >>
     EQ_TAC >- (
       rw[] >>
-      qmatch_assum_abbrev_tac`BIT aa (num_from_bin_list ll)` >>
+      qmatch_assum_abbrev_tac`BIT aa (l2n 2 ll)` >>
       `EVERY ($> 2) ll` by (
         simp[Abbr`ll`,EVERY_GENLIST] >> rw[] ) >>
-      `¬(LENGTH ll ≤ aa)` by metis_tac[BIT_num_from_bin_list_leading] >>
-      fs[arithmeticTheory.NOT_LESS_EQUAL] >>
-      fs[numposrepTheory.BIT_num_from_bin_list] >>
-      qpat_x_assum`EL aa ll = 1`mp_tac >>
+      gvs[numposrepTheory.BIT_l2n_2] >>
+      qpat_x_assum`EL aa _ = 1`mp_tac >>
       fs[Abbr`ll`] >>
       rw[] ) >>
     strip_tac >>
-    qmatch_abbrev_tac`BIT aa (num_from_bin_list ll)` >>
+    qmatch_abbrev_tac`BIT aa (l2n 2 ll)` >>
     `EVERY ($> 2) ll` by (
       simp[Abbr`ll`,EVERY_GENLIST] >> rw[] ) >>
     `aa < LENGTH ll` by (
@@ -98,7 +93,7 @@ Proof
       `2 * SUC xx < 2 * 2 ** LOG 2 aa` by DECIDE_TAC >>
       `SUC xx < 2 ** LOG 2 aa` by DECIDE_TAC >>
       simp[LOG2_def] ) >>
-    simp[numposrepTheory.BIT_num_from_bin_list] >>
+    simp[numposrepTheory.BIT_l2n_2] >>
     fs[Abbr`ll`] >>
     rw[] >> fs[] >>
     first_x_assum(qspec_then`INR b`mp_tac) >>
@@ -106,26 +101,22 @@ Proof
   conj_tac >- (
     rw[] >>
     qabbrev_tac`xx = OUTR x` >>
-    qexists_tac`INR (num_from_bin_list
+    qexists_tac`INR (l2n 2
       (GENLIST (λa. if (∃b. BIT b xx ∧ BIT a b) then 1 else 0)
-      (LENGTH (num_to_bin_list xx))))` >>
+      (LENGTH (n2l 2 xx))))` >>
     simp[EVERY_GENLIST] >> rw[] >>
-    qmatch_abbrev_tac`BIT aa (num_from_bin_list ll) ⇔ P` >>
+    qmatch_abbrev_tac`BIT aa (l2n 2 ll) ⇔ P` >>
     `EVERY ($> 2) ll` by (
       simp[Abbr`ll`,EVERY_GENLIST] >> rw[] ) >>
     EQ_TAC >- (
       strip_tac >>
-      `¬(LENGTH ll ≤ aa)` by metis_tac[BIT_num_from_bin_list_leading] >>
-      fs[arithmeticTheory.NOT_LESS_EQUAL] >>
-      qpat_x_assum`BIT X Y`mp_tac >>
-      simp[numposrepTheory.BIT_num_from_bin_list] >>
+      gvs[numposrepTheory.BIT_l2n_2] >>
       fs[Abbr`ll`,Abbr`P`] >> rw[] >>
-      qexists_tac`INR b` >>
-      simp[EVERY_GENLIST] ) >>
+      gvs[EVERY_GENLIST, EL_GENLIST, AllCaseEqs()] >>
+      qexists_tac`INR b` >> simp[]) >>
     qunabbrev_tac`P` >> strip_tac >>
     `aa < LENGTH ll` by (
       fs[Abbr`ll`] >>
-      simp[numposrepTheory.num_to_bin_list_def] >>
       simp[numposrepTheory.LENGTH_n2l] >>
       rw[] >> fs[BIT_ZERO] >>
       `¬(LOG2 xx < OUTR b)` by metis_tac[NOT_BIT_GT_LOG2] >>
@@ -136,29 +127,23 @@ Proof
       qsuff_tac`aa < 2 ** aa` >- DECIDE_TAC >>
       match_mp_tac arithmeticTheory.X_LT_EXP_X >>
       simp[] ) >>
-    simp[numposrepTheory.BIT_num_from_bin_list] >>
+    simp[numposrepTheory.BIT_l2n_2] >>
     fs[Abbr`ll`] >>
     rw[] >> metis_tac[] ) >>
   conj_tac >- (
     rw[] >>
     qabbrev_tac`xx = OUTR x` >>
     qabbrev_tac`yy = OUTR y` >>
-    qexists_tac`INR (num_from_bin_list
+    qexists_tac`INR (l2n 2
       (GENLIST (λa. if a = xx ∨ a = yy then 1 else 0) (SUC (MAX xx yy))))` >>
     simp[EVERY_GENLIST] >>
     rw[] >>
-    qmatch_abbrev_tac`BIT aa (num_from_bin_list ll) ⇔ P` >>
+    qmatch_abbrev_tac`BIT aa (l2n 2 ll) ⇔ P` >>
     `EVERY ($> 2) ll` by (
       simp[Abbr`ll`,EVERY_GENLIST] >> rw[] ) >>
     EQ_TAC >- (
-      strip_tac >>
-      `¬(LENGTH ll ≤ aa)` by metis_tac[BIT_num_from_bin_list_leading] >>
-      fs[arithmeticTheory.NOT_LESS_EQUAL] >>
-      simp[Abbr`P`] >>
-      qpat_x_assum`BIT X Y`mp_tac >>
-      simp[numposrepTheory.BIT_num_from_bin_list] >>
-      fs[Abbr`ll`] >>
-      BasicProvers.CASE_TAC >> simp[] >>
+      simp[numposrepTheory.BIT_l2n_2] >>
+      gvs[Abbr`P`, Abbr‘ll’, SF CONJ_ss, AllCaseEqs()] >>
       Cases_on`a`>>Cases_on`y`>>Cases_on`x`>>fs[]) >>
     simp[Abbr`P`] >>
     strip_tac >>
@@ -168,7 +153,7 @@ Proof
       rfs[] >>
       qsuff_tac`q <= r` >- DECIDE_TAC >>
       simp[Abbr`r`] ) >>
-    simp[numposrepTheory.BIT_num_from_bin_list] >>
+    simp[numposrepTheory.BIT_l2n_2] >>
     fs[Abbr`ll`]) >>
   rw[] >>
   Cases_on`OUTR x=0`>>simp[BIT_ZERO] >- (

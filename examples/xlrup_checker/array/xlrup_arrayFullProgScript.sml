@@ -52,7 +52,7 @@ val b_inputLineTokens_specialize =
 
 val parse_body_arr = process_topdecs`
   fun parse_body_arr lno maxvar fd cacc xacc =
-  case TextIO.b_inputLineTokens fd blanks tokenize of
+  case TextIO.b_inputLineTokens #"\n" fd blanks tokenize of
     None => Inr (List.rev cacc, List.rev xacc)
   | Some l =>
     if nocomment_line l then
@@ -77,7 +77,7 @@ Theorem parse_body_arr_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_body_arr" (get_ml_prog_state()))
     [lnov; maxvarv; fdv; caccv; xaccv]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTv v.
       &
       (∃err. SUM_TYPE STRING_TYPE
@@ -87,16 +87,17 @@ Theorem parse_body_arr_spec:
         NONE => INL err
       | SOME x => INR x) v) *
       SEP_EXISTS k lines'.
-         STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k))
+         STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k))
 Proof
   Induct
   \\ simp []
+  \\ rpt strip_tac
   \\ xcf "parse_body_arr" (get_ml_prog_state ())
   THEN1 (
     xlet ‘(POSTv v.
             SEP_EXISTS k.
                 STDIO (forwardFD fs fd k) *
-                INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
+                INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
@@ -115,7 +116,7 @@ Proof
   \\ xlet ‘(POSTv v.
             SEP_EXISTS k.
                 STDIO (forwardFD fs fd k) *
-                INSTREAM_LINES fd fdv lines (forwardFD fs fd k) *
+                INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
                 & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks h)) v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
@@ -185,7 +186,7 @@ QED
 
 val parse_cnf_xor_toks_arr = process_topdecs`
   fun parse_cnf_xor_toks_arr lno fd =
-  case TextIO.b_inputLineTokens fd blanks tokenize of
+  case TextIO.b_inputLineTokens #"\n" fd blanks tokenize of
     None => Inl (format_dimacs_failure lno "failed to find header")
   | Some l =>
     if nocomment_line l then
@@ -208,7 +209,7 @@ Theorem parse_cnf_xor_toks_arr_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_cnf_xor_toks_arr" (get_ml_prog_state()))
     [lnov; fdv]
-    (STDIO fs * INSTREAM_LINES fd fdv lines fs)
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTv v.
       & (∃err. SUM_TYPE STRING_TYPE
         (PAIR_TYPE NUM (PAIR_TYPE NUM
@@ -217,16 +218,17 @@ Theorem parse_cnf_xor_toks_arr_spec:
         NONE => INL err
       | SOME x => INR x) v) *
       SEP_EXISTS k lines'.
-         STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k))
+         STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k))
 Proof
   Induct
   \\ simp []
+  \\ rpt strip_tac
   \\ xcf "parse_cnf_xor_toks_arr" (get_ml_prog_state ())
   THEN1 (
     xlet ‘(POSTv v.
             SEP_EXISTS k.
                 STDIO (forwardFD fs fd k) *
-                INSTREAM_LINES fd fdv [] (forwardFD fs fd k) *
+                INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
@@ -246,7 +248,7 @@ Proof
   \\ xlet ‘(POSTv v.
             SEP_EXISTS k.
                 STDIO (forwardFD fs fd k) *
-                INSTREAM_LINES fd fdv lines (forwardFD fs fd k) *
+                INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
                 & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks h)) v)’
     THEN1 (
       xapp_spec b_inputLineTokens_specialize
@@ -297,7 +299,7 @@ Proof
         NONE => INL err
       | SOME x => INR x) v) *
       SEP_EXISTS k lines'.
-         STDIO (forwardFD fs fd k) * INSTREAM_LINES fd fdv lines' (forwardFD fs fd k))`
+         STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k))`
   >- (
     xapp>>xsimpl>>
     qexists_tac`emp`>>
@@ -395,9 +397,9 @@ Proof
   qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
   xhandle`$POSTv Qval` \\ xsimpl >>
   qunabbrev_tac`Qval`>>
-  xlet_auto_spec (SOME b_openIn_spec_lines) \\ xsimpl >>
+  xlet_auto_spec (SOME (b_openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`)) \\ xsimpl >>
   qmatch_goalsub_abbrev_tac`STDIO fss`>>
-  qmatch_goalsub_abbrev_tac`INSTREAM_LINES fdd fddv lines fss`>>
+  qmatch_goalsub_abbrev_tac`INSTREAM_LINES _ fdd fddv lines fss`>>
   xlet`(POSTv v.
       & (∃err. SUM_TYPE STRING_TYPE (PAIR_TYPE NUM (PAIR_TYPE NUM
         (PAIR_TYPE LL_LIT_TYPE LL_LIT_TYPE)))
@@ -405,7 +407,7 @@ Proof
         NONE => INL err
       | SOME x => INR x) v) *
       SEP_EXISTS k lines'.
-         STDIO (forwardFD fss fdd k) * INSTREAM_LINES fdd fddv lines' (forwardFD fss fdd k))`
+         STDIO (forwardFD fss fdd k) * INSTREAM_LINES #"\n" fdd fddv lines' (forwardFD fss fdd k))`
   >- (
     xapp>>xsimpl>>
     qexists_tac`emp`>>qexists_tac`lines`>>
@@ -420,6 +422,7 @@ Proof
     qexists_tac `lines'` >>
     qexists_tac `forwardFD fss fdd k` >>
     qexists_tac `fdd` >>
+    qexists_tac `#"\n"` >>
     conj_tac THEN1
      (unabbrev_all_tac
       \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs []
@@ -946,6 +949,7 @@ Theorem check_unsat_spec:
      (POSTv uv. &UNIT_TYPE () uv *
      COMMANDLINE cl * SEP_EXISTS err. STDIO (check_unsat_sem cl fs err))
 Proof
+  rw[]>>
   xcf"check_unsat"(get_ml_prog_state())>>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)>>
   rpt xlet_autop >>

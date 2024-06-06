@@ -90,6 +90,13 @@ Definition conv_ident_def:
     | _ => NONE
 End
 
+Definition conv_ffi_ident_def:
+  conv_ffi_ident tree =
+    case destTOK ' (destLf tree) of
+      SOME (ForeignIdent s) => SOME (strlit s)
+    | _ => NONE
+End
+
 Definition conv_var_def:
   conv_var t = lift Var (conv_ident t)
 End
@@ -253,6 +260,10 @@ Definition conv_Exp_def:
                    SOME $ Struct es
                 od
       | _ => NONE
+    else if isNT nodeNT NotNT then
+      case args of
+        [t] => lift (Cmp Equal (Const 0w)) (conv_Exp t)
+      | _ => NONE
     else if isNT nodeNT LoadByteNT then
       case args of
         [t] => lift LoadByte (conv_Exp t)
@@ -339,10 +350,26 @@ Definition conv_NonRecStmt_def:
       case args of
         [dst; src] => lift2 StoreByte (conv_Exp dst) (conv_Exp src)
       | _ => NONE
+    else if isNT nodeNT SharedLoadNT then
+      case args of
+        [v; e] => lift2 (ShMemLoad OpW) (conv_ident v) (conv_Exp e)
+      | _ => NONE
+    else if isNT nodeNT SharedLoadByteNT then
+      case args of
+        [v; e] => lift2 (ShMemLoad Op8) (conv_ident v) (conv_Exp e)
+      | _ => NONE
+    else if isNT nodeNT SharedStoreNT then
+      case args of
+        [v; e] => lift2 (ShMemStore OpW) (conv_Exp v) (conv_Exp e)
+      | _ => NONE
+    else if isNT nodeNT SharedStoreByteNT then
+      case args of
+        [v; e] => lift2 (ShMemStore Op8) (conv_Exp v) (conv_Exp e)
+      | _ => NONE
     else if isNT nodeNT ExtCallNT then
       case args of
         [name; ptr; clen; array; alen] =>
-          do name' <- conv_ident name;
+          do name' <- conv_ffi_ident name;
              ptr' <- conv_Exp ptr;
              clen' <- conv_Exp clen;
              array' <- conv_Exp array;
@@ -419,18 +446,19 @@ Definition conv_Prog_def:
                               SOME $ SOME (excp, var, prog)
                            od
     | _ => NONE) ∧
-
   (conv_Ret tree =
-    case argsNT tree RetNT of
-    | SOME [id; t] => do var <- conv_ident id;
-                         hdl <- conv_Handle t;
-                         SOME $ SOME (var, hdl)
-                      od
-    | SOME [id] => do var <- conv_ident id;
-                      SOME $ SOME (var, NONE)
-                   od
-    | _ => NONE) ∧
-
+   if tokcheck tree (kw RetK) then
+     SOME $ NONE
+   else
+     case argsNT tree RetNT of
+     | SOME [id; t] => do var <- conv_ident id;
+                          hdl <- conv_Handle t;
+                          SOME $ SOME (SOME var, hdl)
+                       od
+     | SOME [id] => do var <- conv_ident id;
+                       SOME $ SOME (SOME var, NONE)
+                    od
+     | _ => NONE) ∧
   (conv_Prog (Nd nodeNT args) =
      if isNT nodeNT DecNT then
        case args of
@@ -459,24 +487,56 @@ Definition conv_Prog_def:
                       SOME (While e' p')
                    od
        | _ => NONE
+     else if isNT nodeNT DecCallNT then
+       case args of
+         s::i::e::ts =>
+           do s' <- conv_Shape s;
+              i' <- conv_ident i;
+              e' <- conv_Exp e;
+              args' <- (case ts of [] => NONE | [x] => SOME [] | args::_ => conv_ArgList args);
+              p' <- (case ts of [] => NONE | [p] => conv_Prog p | args::p::_ => conv_Prog p);
+              SOME $ DecCall i' s' e' args' p'
+           od
+       | _ => NONE
      else if isNT nodeNT CallNT then
        case args of
          [] => NONE
        | r::ts =>
            (case conv_Ret r of
-              NONE => do e' <- conv_Exp r;
-                         args' <- (case ts of [] => SOME []
-                                           | args::_ => conv_ArgList args);
-                         SOME $ TailCall e' args'
-                      od
-            | SOME r' =>
+              SOME NONE =>
+                (case ts of
+                   [] => NONE
+                 | r::ts =>
+                     do e' <- conv_Exp r;
+                        args' <- (case ts of [] => SOME []
+                                          | args::_ => conv_ArgList args);
+                        SOME $ TailCall e' args'
+                     od)
+            | NONE =>
+                (case conv_Handle r of
+                   NONE =>
+                     do e' <- conv_Exp r;
+                        args' <- (case ts of [] => SOME []
+                                          | args::_ => conv_ArgList args);
+                        SOME $ StandAloneCall NONE e' args'
+                     od
+                 | SOME h =>
+                     (case ts of
+                      | [] => NONE
+                      | r::ts =>
+                          do e' <- conv_Exp r;
+                             args' <- (case ts of [] => SOME []
+                                               | args::_ => conv_ArgList args);
+                             SOME $ StandAloneCall h e' args'
+                          od))
+            | SOME(SOME r') =>
                 (case ts of
                    [] => NONE
                  | e::xs =>
                      do e' <- conv_Exp e;
                         args' <- (case xs of [] => SOME []
                                           | args::_ => conv_ArgList args);
-                        SOME $ Call r' e' args'
+                        SOME $ panLang$Call (SOME r') e' args'
                      od))
      else if isNT nodeNT ProgNT then
        case args of
@@ -540,16 +600,22 @@ End
 
 Definition parse_to_ast_def:
   parse_to_ast s =
-    case parse (pancake_lex s) of
+    case parse_statement (pancake_lex s) of
       SOME e => conv_Prog e
     | _ => NONE
 End
 
 Definition parse_funs_to_ast_def:
   parse_funs_to_ast s =
-    case parse (pancake_lex s) of
-      SOME e => conv_FunList e
-    | _ => NONE
+    (case safe_pancake_lex s of
+     | INL toks =>
+        (case parse toks of
+           | INL e =>
+             (case conv_FunList e of
+              | SOME funs => INL funs
+              | NONE => INR [(«Parse tree conversion failed»,unknown_loc)])
+           | INR err => INR err)
+     | INR err => INR err)
 End
 
 val _ = export_theory();

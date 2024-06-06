@@ -81,7 +81,7 @@ Theorem l2c_aux_spec:
 Proof
   Induct_on ‘linesFD fs fd’
   \\ rpt strip_tac
-  \\ xcf_with_def "l2c_aux" (fetch "-" "l2c_aux_v_def")
+  \\ xcf_with_def (fetch "-" "l2c_aux_v_def")
   \\ qpat_x_assum ‘_ = linesFD fs fd’ (assume_tac o SYM) \\ fs []
   \\ ‘IS_SOME (get_file_content fs fd)’
       by fs []
@@ -133,7 +133,7 @@ Theorem l2c_spec:
         STDIO (fastForwardFD fs fd))
 Proof
   strip_tac
-  \\ xcf_with_def "l2c" (fetch "-" "l2c_v_def")
+  \\ xcf_with_def (fetch "-" "l2c_v_def")
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xapp
   \\ Q.LIST_EXISTS_TAC [‘emp’, ‘[]’]
@@ -175,7 +175,7 @@ Theorem l2c_from_spec:
         STDIO fs)
 Proof
   strip_tac
-  \\ xcf_with_def "l2c_from" (fetch "-" "l2c_from_v_def")
+  \\ xcf_with_def (fetch "-" "l2c_from_v_def")
   \\ ‘CARD (set (MAP FST fs.infds)) < fs.maxFD’
     by fs []
   \\ reverse (Cases_on ‘STD_streams fs’)
@@ -267,7 +267,7 @@ val _ = (append_prog o process_topdecs) `
 
 val _ = (append_prog o process_topdecs) `
   fun read_file file =
-    case TextIO.b_inputAllTokensFrom file is_newline tokenize of
+    case TextIO.b_inputAllTokensFrom #"\n" file is_newline tokenize of
       None =>
         TextIO.output TextIO.stdErr (msg_bad_name file)
     | Some ls =>
@@ -301,7 +301,8 @@ Theorem read_stdin_spec:
         STDIO (FST (read_stdin fs refs)) *
         HOL_STORE (FST (SND (read_stdin fs refs))))
 Proof
-  xcf_with_def "read_stdin" (fetch "-" "read_stdin_v_def")
+  strip_tac
+  \\ xcf_with_def (fetch "-" "read_stdin_v_def")
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [STDIO_def] \\ xpull)
   \\ fs [UNIT_TYPE_def, read_stdin_def]
@@ -366,7 +367,7 @@ Theorem b_inputAllTokensFrom_spec2:
   FILENAME fn fnv ∧
   hasFreeFD fs ⇒
     app (p: 'ffi ffi_proj) TextIO_b_inputAllTokensFrom_v
-      [fnv; is_newline_v; tokenize_v]
+      [Litv (Char #"\n") ; fnv; is_newline_v; tokenize_v]
       (STDIO fs)
       (POSTv sv.
         &OPTION_TYPE (LIST_TYPE (LIST_TYPE READER_COMMAND_TYPE))
@@ -378,6 +379,9 @@ Theorem b_inputAllTokensFrom_spec2:
         STDIO fs)
 Proof
   strip_tac
+  \\ `all_lines fs fn = all_lines_gen #"\n" fs fn` by
+    rw[all_lines_def,all_lines_gen_def,lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def]
+  \\ pop_assum SUBST_ALL_TAC
   \\ irule b_inputAllTokensFrom_spec
   \\ simp [theorem "is_newline_v_thm", tokenize_v_thm, is_newline_def]
 QED
@@ -392,7 +396,8 @@ Theorem read_file_spec:
         STDIO (FST (read_file fs refs fnm)) *
         HOL_STORE (FST (SND (read_file fs refs fnm))))
 Proof
-  xcf_with_def "read_file" (fetch "-" "read_file_v_def")
+  strip_tac
+  \\ xcf_with_def (fetch "-" "read_file_v_def")
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [TextIOProofTheory.STDIO_def] \\ xpull)
   \\ reverse (Cases_on`consistentFS fs`)
@@ -495,7 +500,8 @@ Theorem reader_main_spec:
         &UNIT_TYPE () u *
         STDIO (FST (reader_main fs refs (TL cl))))
 Proof
-  xcf_with_def "reader_main" (fetch "-" "reader_main_v_def")
+  strip_tac
+  \\ xcf_with_def (fetch "-" "reader_main_v_def")
   \\ reverse (Cases_on ‘wfcl cl’)
   >- (simp [COMMANDLINE_def] \\ xpull)
   \\ xlet_auto >- (xcon \\ xsimpl)

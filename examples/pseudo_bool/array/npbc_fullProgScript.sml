@@ -34,7 +34,7 @@ val r = translate noparse_string_def;
 
 val parse_pbf_full = (append_prog o process_topdecs) `
   fun parse_pbf_full f =
-  (case TextIO.b_inputAllTokensFrom f blanks tokenize of
+  (case TextIO.b_inputAllTokensFrom #"\n" f blanks tokenize of
     None => Inl (notfound_string f)
   | Some lines =>
   (case parse_pbf_toks lines of
@@ -91,15 +91,21 @@ Proof
   >- (
     xapp_spec b_inputAllTokensFrom_spec_specialize >>
     xsimpl>>
-    fs[FILENAME_def,validArg_def]>>
-    EVAL_TAC)>>
+    simp[pb_parseTheory.blanks_def]>>
+    fs[FILENAME_def,validArg_def,blanks_v_thm]>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    qexists_tac`emp`>>xsimpl)>>
   simp[get_fml_def]>>
   IF_CASES_TAC>>fs[OPTION_TYPE_def]>>xmatch
   >- (
     xlet_autop>>
     `toks = (MAP tokenize ∘ tokens blanks)` by
       metis_tac[toks_def,ETA_AX,o_DEF]>>
-    rw[parse_pbf_def]>> TOP_CASE_TAC>>
+    rw[parse_pbf_def]>>
+    qmatch_goalsub_abbrev_tac`option_CASE AAA`>>
+    Cases_on`AAA`>>
     fs[OPTION_TYPE_def]
     >- (
       xmatch >>
@@ -160,7 +166,7 @@ val check_unsat_2 = (append_prog o process_topdecs) `
     let val objft = default_objf in
       (case
         map_concl_to_string
-          (check_unsat_top_norm objf objft f2) of
+          (check_unsat_top_norm False objf objft f2) of
         Inl err => TextIO.output TextIO.stdErr err
       | Inr s => TextIO.print s)
     end`
@@ -209,6 +215,9 @@ Proof
       ) default_objf v`
   >-
     (xvar>>xsimpl)>>
+  xlet`POSTv v. STDIO fs * &BOOL F v`
+  >-
+    (xcon>>xsimpl)>>
   xlet`(POSTv v.
      STDIO fs *
      SEP_EXISTS res.
@@ -359,7 +368,7 @@ val check_unsat_3 = (append_prog o process_topdecs) `
   | Inr objft =>
     (case
       map_out_concl_to_string
-        (check_unsat_top_norm objf objft f2) of
+        (check_unsat_top_norm True objf objft f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s))`
 
@@ -416,6 +425,9 @@ Proof
   `∃objt fmlt. x' = (objt,fmlt)` by metis_tac[PAIR]>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
+  xlet`POSTv v. STDIO fs * &BOOL T v`
+  >-
+    (xcon>>xsimpl)>>
   xlet`(POSTv v.
      STDIO fs *
      SEP_EXISTS res.

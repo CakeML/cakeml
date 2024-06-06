@@ -130,7 +130,8 @@ Theorem patch'_spec:
         else add_stderr fs (notfound_string f2)
         else add_stderr fs (notfound_string f1)))
 Proof
-  xcf"patch'"(get_ml_prog_state())
+  strip_tac
+  \\ xcf"patch'"(get_ml_prog_state())
   \\ xlet_auto >- xsimpl
   \\ reverse(Cases_on `inFS_fname fs f1`) \\ fs [OPTION_TYPE_def] \\ xmatch
   >- (xlet_auto >- xsimpl

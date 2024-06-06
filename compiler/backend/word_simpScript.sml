@@ -353,6 +353,16 @@ val const_fp_loop_def = Define `
   (const_fp_loop (Alloc n names) cs = (Alloc n names, filter_v is_gc_const (inter cs names))) /\
   (const_fp_loop (StoreConsts a b c d ws) cs = (StoreConsts a b c d ws, delete a (delete b (delete c (delete d cs))))) /\
   (const_fp_loop (Install r1 r2 r3 r4 names) cs = (Install r1 r2 r3 r4 names, delete r1 (filter_v is_gc_const (inter cs names)))) /\
+  (const_fp_loop (Store e v) cs =
+    (Store (const_fp_exp e cs) v, cs)) /\
+  (const_fp_loop (ShareInst Load v e) cs =
+    (ShareInst Load v (const_fp_exp e cs), delete v cs)) /\
+  (const_fp_loop (ShareInst Load8 v e) cs =
+    (ShareInst Load8 v (const_fp_exp e cs), delete v cs)) /\
+  (const_fp_loop (ShareInst Store v e) cs =
+    (ShareInst Store v (const_fp_exp e cs), cs)) /\
+  (const_fp_loop (ShareInst Store8 v e) cs =
+    (ShareInst Store8 v (const_fp_exp e cs), cs)) /\
   (const_fp_loop p cs = (p, cs))`;
 
 Theorem const_fp_loop_pmatch:
@@ -396,6 +406,11 @@ Theorem const_fp_loop_pmatch:
   | (Alloc n names) => (Alloc n names, filter_v is_gc_const (inter cs names))
   | (StoreConsts a b c d ws) => (StoreConsts a b c d ws, delete a (delete b (delete c (delete d cs))))
   | (Install r1 r2 r3 r4 names) => (Install r1 r2 r3 r4 names, delete r1 (filter_v is_gc_const (inter cs names)))
+  | (Store e v) => (Store (const_fp_exp e cs) v, cs)
+  | (ShareInst Load v e) => (ShareInst Load v (const_fp_exp e cs), delete v cs)
+  | (ShareInst Load8 v e) => (ShareInst Load8 v (const_fp_exp e cs), delete v cs)
+  | (ShareInst Store v e) => (ShareInst Store v (const_fp_exp e cs), cs)
+  | (ShareInst Store8 v e) => (ShareInst Store8 v (const_fp_exp e cs), cs)
   | p => (p, cs)
 Proof
   rpt strip_tac
@@ -416,7 +431,8 @@ Proof
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
-  >> Cases_on `p` >> fs[const_fp_loop_def] >> every_case_tac >> fs[pairTheory.ELIM_UNCURRY]
+  >> Cases_on `p` >> fs[const_fp_loop_def] >> every_case_tac >> fs[pairTheory.ELIM_UNCURRY] >>
+  Cases_on `m` >> fs[const_fp_loop_def]
 QED
 
 val const_fp_loop_ind = fetch "-" "const_fp_loop_ind";

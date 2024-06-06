@@ -2,9 +2,7 @@
   This builds a proof checker specialized to the
   packing chromatic number bounds
 *)
-open preamble basis lpr_composeProgTheory UnsafeProofTheory lprTheory lpr_listTheory lpr_parsingTheory HashtableProofTheory lpr_arrayProgTheory ;
-
-open packingTheory;
+open preamble basis lpr_composeProgTheory UnsafeProofTheory lprTheory lpr_listTheory lpr_parsingTheory HashtableProofTheory lpr_arrayProgTheory lpr_arrayParsingProgTheory packingTheory;
 
 val _ = new_theory "lpr_arrayPackingProg"
 
@@ -12,7 +10,7 @@ val _ = temp_delsimps ["NORMEQ_CONV"] (*"*)
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
-val _ = translation_extends"lpr_arrayProg";
+val _ = translation_extends"lpr_arrayParsingProg";
 
 val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
@@ -47,6 +45,7 @@ End
 
 val r = translate parse_numbers_def;
 
+(* NOTE: still written in the old style since this doesn't actually use the UNSAT checker *)
 (* 3 arg *)
 val check_unsat_3 = (append_prog o process_topdecs) `
   fun check_unsat_3 enc r k c =
@@ -148,6 +147,7 @@ Theorem main_spec:
     (POSTv uv. &UNIT_TYPE () uv *
     COMMANDLINE cl * SEP_EXISTS err. STDIO (main_sem cl fs err))
 Proof
+  rw[]>>
   xcf"main"(get_ml_prog_state())>>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)>>
   rpt xlet_autop >>

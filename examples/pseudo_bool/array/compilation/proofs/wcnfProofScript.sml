@@ -47,7 +47,8 @@ val installed_x64_def = Define `
         code cbspace
         data data_sp
         cfg.lab_conf.ffi_names
-        (heap_regs x64_backend_config.stack_conf.reg_names) mc ms
+        (heap_regs x64_backend_config.stack_conf.reg_names) mc
+        cfg.lab_conf.shmem_extra ms
     `;
 
 val cake_pb_wcnf_code_def = Define `
@@ -73,19 +74,15 @@ Theorem machine_code_sound:
       (
         (LENGTH cl = 2 ∧
         ∃wfml.
-          inFS_fname fs (EL 1 cl) ∧
           get_fml fs (EL 1 cl) = SOME wfml ∧
           out = concat (print_pbf (full_encode wfml))) ∨
         (LENGTH cl = 3 ∧
         ∃wfml bounds.
-          inFS_fname fs (EL 1 cl) ∧
           get_fml fs (EL 1 cl) = SOME wfml ∧
           out = print_maxsat_str bounds ∧
           maxsat_sem wfml bounds) ∨
         (LENGTH cl = 4 ∧
         ∃wfml wfmlt bounds iseqopt.
-          inFS_fname fs (EL 1 cl) ∧
-          inFS_fname fs (EL 3 cl) ∧
           get_fml fs (EL 1 cl) = SOME wfml ∧
           get_fml fs (EL 3 cl) = SOME wfmlt ∧
           out = print_maxsat_str bounds ^
@@ -123,5 +120,96 @@ Proof
 QED
 
 val chk = machine_code_sound |> check_thm;
+
+(* Showing how to specialize the main theorem *)
+
+Theorem strcat_cancel:
+  a = b ∧ a ^ y = b ^ z ⇒
+  y = z
+Proof
+  EVAL_TAC>>rw[]>>
+  every_case_tac>>fs[]
+QED
+
+Theorem isSuffix_STRCAT:
+  isSuffix x (y ^ x)
+Proof
+  rw[mlstringTheory.isSuffix_def]>>
+  Cases_on`x`>>Cases_on`y`>>
+  simp[mlstringTheory.strlit_STRCAT]>>
+  DEP_REWRITE_TAC[mlstringTheory.isStringThere_SEG]>>
+  rw[]>>
+  gvs[SEG_TAKE_DROP]>>
+  simp[DROP_LENGTH_APPEND]
+QED
+
+Theorem strcat_isSuffix:
+  x ^ y = a ^ b ⇒
+  isSuffix y b ∨ isSuffix b y
+Proof
+  map_every Cases_on [`x`,`y`,`a`,`b`]>>
+  simp[mlstringTheory.strlit_STRCAT,listTheory.APPEND_EQ_APPEND]>>rw[]>>
+  metis_tac[isSuffix_STRCAT,mlstringTheory.strlit_STRCAT]
+QED
+
+Theorem strcat_isSuffixL:
+  x ^ y = a ⇒
+  isSuffix y a
+Proof
+  `a = a ^ strlit ""` by
+    (Cases_on`a`>>EVAL_TAC)>>
+  rw[]>>
+  metis_tac[isSuffix_STRCAT]
+QED
+
+Theorem isSuffix_exists:
+  isSuffix x y ⇒
+  ∃z. y = z ^ x
+Proof
+  rw[mlstringTheory.isSuffix_def]>>
+  Cases_on`x`>>Cases_on`y`>>
+  pop_assum mp_tac>>
+  DEP_REWRITE_TAC[mlstringTheory.isStringThere_SEG]>>
+  rw[]>>
+  gvs[SEG_TAKE_DROP]>>
+  qexists_tac`strlit (TAKE (STRLEN s' − STRLEN s) s')`>>
+  simp[mlstringTheory.strlit_STRCAT]>>
+  rename1`l ≤ STRLEN s'`>>
+  pop_assum SUBST_ALL_TAC>>simp[GSYM TAKE_SUM]
+QED
+
+Theorem machine_code_sound_equiopt:
+  cake_pb_wcnf_run cl fs mc ms ⇒
+  ∃out err.
+    extract_fs fs (cake_pb_wcnf_io_events cl fs) =
+      SOME (add_stdout (add_stderr fs err) out) ∧
+    (
+    LENGTH cl = 4 ∧
+    isSuffix «s VERIFIED OUTPUT EQUIOPTIMAL\n» out ⇒
+      ∃wfml wfml'.
+        get_fml fs (EL 1 cl) = SOME wfml ∧
+        get_fml fs (EL 3 cl) = SOME wfml' ∧
+        opt_cost wfml = opt_cost wfml'
+    )
+Proof
+  rw[]>>
+  drule machine_code_sound>>rw[]>>
+  first_x_assum (irule_at Any)>>
+  rw[]>>drule isSuffix_exists>>
+  pop_assum kall_tac>>
+  strip_tac>>
+  rename1`pref ^ _`>>
+  gvs[]>>
+  `pref ^ «s VERIFIED OUTPUT EQUIOPTIMAL\n» ≠ «»` by
+    (EVAL_TAC>>
+    rw[])>>
+  gvs[]>>
+  `iseqopt` by
+    (drule strcat_isSuffix>>
+    simp[wcnfProgTheory.print_maxsat_output_str_def]>>
+    IF_CASES_TAC>>simp[]>>
+    EVAL_TAC)>>
+  gvs[wcnfProgTheory.maxsat_output_sem_def]
+QED
 
 val _ = export_theory();

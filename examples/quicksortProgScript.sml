@@ -265,6 +265,7 @@ Theorem partition_spec:
         ARRAY arr_v (elem_vs1 ++ part1 ++ part2 ++ elem_vs3) *
         &(partition_pred cmp (LENGTH elem_vs1) p_v pivot elems2 elem_vs2 part1 part2))
 Proof
+  rpt strip_tac >>
   xcf "partition" (basis_st()) >>
   qmatch_assum_abbrev_tac `INT (&lower) lower_v` >>
   qmatch_assum_abbrev_tac `INT (&upper) upper_v` >>
@@ -1030,6 +1031,7 @@ Theorem quicksort_spec:
               (* We use "not greater than" as equivalent to "less or equal" *)
               SORTED (\x y. ¬(cmp y x)) elems'))
 Proof
+  rpt strip_tac >>
   xcf "quicksort" (basis_st()) >>
   (* The loop invariant for the main loop. Note that we have to quantify over
    * what's in the array because it changes on the recursive calls. *)

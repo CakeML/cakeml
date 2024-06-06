@@ -24,6 +24,12 @@ val () = use_long_names := true;
 
 val spec32 = INST_TYPE[alpha|->``:32``]
 
+val res = translate $ spec32 panScopeTheory.scope_check_exp_def;
+val res = translate $ spec32 panScopeTheory.scope_check_prog_def;
+val res = translate $
+  INST_TYPE[beta|->``:32``] panScopeTheory.scope_check_funs_def;
+val res = translate $ INST_TYPE[beta|->``:32``] panScopeTheory.scope_check_def;
+
 val max_heap_limit_32_def = Define`
   max_heap_limit_32 c =
     ^(spec32 data_to_wordTheory.max_heap_limit_def
@@ -314,7 +320,7 @@ Theorem main_spec:
        * STDIO (full_compile_32 (TL cl) (get_stdin fs) fs)
        * COMMANDLINE cl)
 Proof
-  xcf_with_def "main" main_v_def
+  xcf_with_def main_v_def
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto
   >- (

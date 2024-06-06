@@ -12,6 +12,7 @@ val _ = translation_extends "Word8ArrayProg";
 val basis_st = get_ml_prog_state;
 
 fun prove_array_spec op_name =
+  rpt strip_tac \\
   xcf op_name (basis_st()) \\ TRY xpull \\
   fs [cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def, cf_aw8update_def,
       cf_copyaw8aw8_def, cf_aalloc_def, cf_asub_def, cf_alength_def,
@@ -199,7 +200,8 @@ Theorem w8array_find_aux_spec:
           cond (OPTION_TYPE (PAIR_TYPE NUM WORD8) (findi f (old ++ arr)) v))
 Proof
   Induct_on `arr`
-  \\ xcf_with_def "Word8Array.findi_aux" Word8Array_findi_aux_v_def
+  \\ rpt strip_tac
+  \\ xcf_with_def Word8Array_findi_aux_v_def
   (* Base case *)
   >- (xlet_auto
       >- (xsimpl \\ fs[NUM_def, INT_def])
@@ -262,7 +264,8 @@ Theorem w8array_find_spec:
       (POSTv v. W8ARRAY arrv arr *
           cond (OPTION_TYPE (PAIR_TYPE NUM WORD8) (findi f arr) v))
 Proof
-  xcf_with_def "Word8Array.findi" Word8Array_findi_v_def
+  rpt strip_tac
+  \\ xcf_with_def Word8Array_findi_v_def
   \\ xlet_auto >- xsimpl
   \\ xapp \\ xsimpl \\  fs[findi_def] \\ asm_exists_tac \\ fs[]
 QED

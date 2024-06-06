@@ -25,6 +25,12 @@ val () = use_long_names := true;
 
 val spec64 = INST_TYPE[alpha|->``:64``]
 
+val res = translate $ spec64 $ panScopeTheory.scope_check_exp_def;
+val res = translate $ spec64 $ panScopeTheory.scope_check_prog_def;
+val res = translate $
+  INST_TYPE[beta|->``:64``] panScopeTheory.scope_check_funs_def;
+val res = translate $ INST_TYPE[beta|->``:64``] panScopeTheory.scope_check_def;
+
 val max_heap_limit_64_def = Define`
                                   max_heap_limit_64 c =
 ^(spec64 data_to_wordTheory.max_heap_limit_def
@@ -323,7 +329,9 @@ val compiler_for_eval_alt =
                        EVAL “x64_config.addr_offset”,upper_w2w_eq_I,
                        EVAL “x64_config.ISA”, EVAL “x86_64 = ARMv7”]
 
+val r = translate (lab_to_targetTheory.to_shmem_info_def |> spec64);
 val r = translate (lab_to_targetTheory.inc_config_to_config_def |> spec64);
+val r = translate (lab_to_targetTheory.to_inc_shmem_info_def |> spec64);
 val r = translate (lab_to_targetTheory.config_to_inc_config_def |> spec64);
 val r = translate (backendTheory.inc_config_to_config_def |> spec64);
 val r = translate (backendTheory.config_to_inc_config_def |> spec64);
@@ -522,7 +530,8 @@ Theorem main_spec:
        * STDIO (full_compile_64 (TL cl) (get_stdin fs) fs)
        * COMMANDLINE cl)
 Proof
-  xcf_with_def "main" main_v_def
+  rpt strip_tac
+  \\ xcf_with_def main_v_def
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
