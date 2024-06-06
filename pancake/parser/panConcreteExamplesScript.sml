@@ -81,6 +81,15 @@ val ex2 = ‘
 
 val treeEx2 = check_success $ parse_pancake ex2;
 
+(** Logical operators (as opposed to bitwise operators) are && and || *)
+val ex2_and_a_half = ‘
+  fun main() {
+    return(a && b && c || a || b ^ d);
+  }’;
+
+val treeEx2_and_a_half = check_success $ parse_pancake ex2_and_a_half;
+
+
 (** We also have a selection of boolean operators and
     a ‘return’ statement. NOTE: all Pancake functions should end with a return statement.*)
 val ex3 = ‘
