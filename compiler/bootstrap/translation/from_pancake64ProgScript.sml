@@ -520,6 +520,20 @@ Definition conv_Exp_alt_def:
                          | SOME e2' => if b then SOME (Cmp op' e2' e1')
                                        else SOME (Cmp op' e1' e2'))))
           | e::op::e2::v14::v15 => NONE
+        else if isNT nodeNT ExpNT then (* boolean or *)
+          case args of
+            [e] => conv_Exp_alt e
+          | e1::args' => do es  <- conv_mmap_exp $ e1::args';
+                            SOME $ Cmp NotEqual (Const 0w) $ Op Or es
+                         od
+          | _ => NONE
+        else if isNT nodeNT EBoolAndNT then
+          case args of
+            [e] => conv_Exp_alt e
+          | e1::args' => do es  <- conv_mmap_exp $ e1::args';
+                            SOME $ Op And $ MAP (λe. Cmp NotEqual (Const 0w) e) es
+                         od
+          | _ => NONE
         else if isNT nodeNT EShiftNT then
           case args of
             [] => NONE
@@ -625,6 +639,10 @@ Proof
       >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])>>
       IF_CASES_TAC>>fs[]
       >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])
+      >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])>>
+      IF_CASES_TAC>>fs[]
+      >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])>>
+      IF_CASES_TAC>>fs[]
       >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])>>
       IF_CASES_TAC>>fs[]
       >- (rpt (CASE_TAC>>fs[]))>>
