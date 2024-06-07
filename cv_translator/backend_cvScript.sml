@@ -786,13 +786,6 @@ Definition chunks16_def:
     | other => f other
 End
 
-Theorem SmartAppend_Nil:
-  SmartAppend l Nil = l ∧
-  SmartAppend Nil l = l
-Proof
-  Cases_on ‘l’ \\ gvs [SmartAppend_def]
-QED
-
 Theorem split16_eq_chunks16:
   ∀f xs. split16 f xs = chunks16 f xs
 Proof
