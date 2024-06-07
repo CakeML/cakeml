@@ -669,7 +669,6 @@ Proof
        lab_to_targetTheory.shmem_info_num_component_equality]>>fs[]
 QED
 
-
 Theorem inc_config_to_config_inv:
   asm_c = c.lab_conf.asm_conf ==>
   inc_config_to_config asm_c  (config_to_inc_config c) = c
@@ -804,5 +803,13 @@ Proof
   \\ AP_TERM_TAC
   \\ fs [FUN_EQ_THM,FORALL_PROD]
 QED
+
+Definition ffinames_to_string_list_def:
+  (ffinames_to_string_list [] = []) ∧
+  (ffinames_to_string_list ((ExtCall s)::rest) =
+    s::(ffinames_to_string_list rest)) ∧
+  (ffinames_to_string_list ((SharedMem _)::rest) =
+    ffinames_to_string_list rest)
+End
 
 val _ = export_theory();

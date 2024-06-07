@@ -18,5 +18,11 @@ Translate non-target-specific backend functions to cv equations.
 [backend_x64_cvScript.sml](backend_x64_cvScript.sml):
 Translate x64-specialised functions to cv equations.
 
+[backend_x64_evalLib.sml](backend_x64_evalLib.sml):
+Automation for in-logic evaluation of the x64 compiler backend.
+
+[backend_x64_evalScript.sml](backend_x64_evalScript.sml):
+Experiments with evaluating the compiler using cv_compute
+
 [to_data_cvScript.sml](to_data_cvScript.sml):
 Translation of the to_data compiler function.

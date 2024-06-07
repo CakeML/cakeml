@@ -1,5 +1,6 @@
 INCLUDES = $(HOLDIR)/examples/bootstrap \
            ../compiler/backend \
+           ../compiler/backend/x64 \
            ../compiler/backend/cv_compute
 
 all: $(DEFAULT_TARGETS) README.md

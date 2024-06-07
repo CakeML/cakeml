@@ -3,6 +3,7 @@
 *)
 open preamble cv_transLib cv_stdTheory backend_cvTheory backend_64_cvTheory;
 open backend_x64Theory x64Theory x64_targetTheory to_data_cvTheory;
+open export_x64Theory;
 
 val _ = new_theory "backend_x64_cv";
 
@@ -235,6 +236,14 @@ val _ = cv_trans (compile_0_x64_def
 
 val _ = cv_trans backend_x64Theory.to_word_0_x64_def;
 val _ = cv_auto_trans backend_x64Theory.to_livesets_0_x64_def;
+
+(* export *)
+
+val _ = cv_auto_trans
+        (export_x64Theory.x64_export_def
+           |> REWRITE_RULE [to_words_line_word,
+                            to_words_line_byte,
+                            split16_eq_chunks16]);
 
 (* main two translations below *)
 
