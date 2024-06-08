@@ -977,6 +977,212 @@ val _ = cv_auto_trans flat_to_closTheory.compile_prog_def
 
 val _ = cv_trans backend_asmTheory.to_clos_def
 
+(* clos_mti *)
+
+val _ = cv_trans clos_mtiTheory.collect_args_def
+
+val _ = cv_trans clos_mtiTheory.collect_apps_def
+
+Definition intro_multi_alt_def:
+  (intro_multi_alt 0 max_app exp = (Var (SourceLoc 0 0 0 0) 0)) ∧
+  (intro_multi_alt (SUC ck) max_app (closLang$Var t n) = (Var t n)) ∧
+  (intro_multi_alt (SUC ck) max_app (If t e1 e2 e3) =
+   (If t ((intro_multi_alt ck max_app (e1)))
+         ((intro_multi_alt ck max_app (e2)))
+         ((intro_multi_alt ck max_app (e3))))) ∧
+  (intro_multi_alt (SUC ck) max_app (Let t es e) =
+    (Let t (intro_multis_alt ck max_app es) ((intro_multi_alt ck max_app (e))))) ∧
+  (intro_multi_alt (SUC ck) max_app (Raise t e) =
+    (Raise t ((intro_multi_alt ck max_app (e))))) ∧
+  (intro_multi_alt (SUC ck) max_app (Handle t e1 e2) =
+    (Handle t ((intro_multi_alt ck max_app (e1))) ((intro_multi_alt ck max_app (e2))))) ∧
+  (intro_multi_alt (SUC ck) max_app (Tick t e) =
+    (Tick t ((intro_multi_alt ck max_app (e))))) ∧
+  (intro_multi_alt (SUC ck) max_app (Call t ticks n es) =
+    (Call t ticks n (intro_multis_alt ck max_app es))) ∧
+  (intro_multi_alt (SUC ck) max_app (App t NONE e es) =
+    let (es', e') = collect_apps max_app es e in
+      (App t NONE ((intro_multi_alt ck max_app (e'))) (intro_multis_alt ck max_app es'))) ∧
+  (intro_multi_alt (SUC ck) max_app (App t (SOME l) e es) =
+    (App t (SOME l) ((intro_multi_alt ck max_app (e))) (intro_multis_alt ck max_app es))) ∧
+  (intro_multi_alt (SUC ck) max_app (Fn t NONE NONE num_args e) =
+    let (num_args', e') = collect_args max_app num_args e in
+      (Fn t NONE NONE num_args' ((intro_multi_alt ck max_app (e'))))) ∧
+  (intro_multi_alt (SUC ck) max_app (Fn t loc fvs num_args e) =
+      (Fn t loc fvs num_args ((intro_multi_alt ck max_app (e))))) ∧
+  (intro_multi_alt (SUC ck) max_app (Letrec t NONE NONE funs e) =
+    (Letrec t NONE NONE (intro_multi_collect_alt ck max_app funs)
+            ((intro_multi_alt ck max_app (e))))) ∧
+  (intro_multi_alt (SUC ck) max_app (Letrec t (SOME loc) fvs funs e) =
+     (Letrec t (SOME loc) fvs funs ((intro_multi_alt ck max_app (e))))) ∧
+  (intro_multi_alt (SUC ck) max_app (Letrec t NONE (SOME fvs) funs e) =
+     (Letrec t NONE (SOME fvs) funs ((intro_multi_alt ck max_app (e))))) ∧
+  (intro_multi_alt (SUC ck) max_app (Op t op es) =
+    (Op t op (intro_multis_alt ck max_app es))) ∧
+  (intro_multis_alt 0 max_app _ = []) ∧
+  (intro_multis_alt (SUC ck) max_app [] = []) ∧
+  (intro_multis_alt (SUC ck) max_app (e1::es) =
+    intro_multi_alt ck max_app e1 :: intro_multis_alt ck max_app es) ∧
+  (intro_multi_collect_alt 0 max_app _ = []) ∧
+  (intro_multi_collect_alt (SUC ck) max_app [] = []) ∧
+  (intro_multi_collect_alt (SUC ck) max_app ((num_args,e)::fs) =
+   let (num_args',e') = collect_args max_app num_args e in
+     ((num_args', intro_multi_alt ck max_app e') :: intro_multi_collect_alt ck max_app fs))
+Termination
+  WF_REL_TAC `measure $ λx. case x of
+                              INL(n,_,_) => n
+                            |  INR(INL(n,_,_)) => n
+                            | INR(INR(n,_,_)) => n`
+End
+
+Definition exp_size_alt_def:
+  exp_size_alt (closLang$Var x y) = 1:num ∧
+  exp_size_alt (If a b c d) = 1 + exp_size_alt b + exp_size_alt c + exp_size_alt d ∧
+  exp_size_alt (Let a es e) = 1 + exp_size_alt e + exp_sizes_alt es ∧
+  exp_size_alt (Handle a0 a1 a2) = 1 + exp_size_alt a1 + exp_size_alt a2 ∧
+  exp_size_alt (Raise a0 a1) = 1 + exp_size_alt a1 ∧
+  exp_size_alt (Tick a0 a1) = 1 + exp_size_alt a1 ∧
+  exp_size_alt (Call a0 a1 a2 a3) = 1 + exp_sizes_alt a3 ∧
+  exp_size_alt (App a0 a1 a2 a3) = 1 + exp_size_alt a2 + exp_sizes_alt a3 ∧
+  exp_size_alt (Fn a0 a1 a2 a3 a4) = 1 + exp_size_alt a4 ∧
+  exp_size_alt (Letrec a0 a1 a2 a3 a4) = 1 + exp_sizes_alt (MAP SND a3) + exp_size_alt a4 ∧
+  exp_size_alt (Op a0 a1 a2) = 1 + exp_sizes_alt a2 ∧
+  exp_sizes_alt [] = 0 ∧
+  exp_sizes_alt (x::xs) = 1 + exp_size_alt x + exp_sizes_alt xs
+Termination
+  WF_REL_TAC `measure $ λx. case x of
+                              INL e => exp_size e
+                            | INR es => exp3_size es` >>
+  rpt strip_tac >>
+  sg ‘∀x. closLang$exp3_size(MAP SND x) ≤ exp1_size x’
+  >- (Induct
+      >- rw[closLangTheory.exp_size_def] >>
+      Cases >> rw[closLangTheory.exp_size_def]) >>
+  irule LESS_EQ_LESS_TRANS >>
+  first_x_assum $ irule_at $ Pos last >>
+  rw[]
+End
+
+val pre = cv_auto_trans_pre_rec exp_size_alt_def
+  (WF_REL_TAC `measure $ λx. case x of
+                              INL e => cv_size e
+                            | INR es => cv_size es` >>
+   cv_termination_tac >>
+   irule LESS_EQ_LESS_TRANS >>
+   irule_at (Pos last) cv_size_map_snd >>
+   rw[oneline cvTheory.cv_snd_def] >>
+   rpt(PURE_FULL_CASE_TAC >> gvs[]))
+
+Theorem exp_size_alt_pre[cv_pre]:
+  (∀v. exp_size_alt_pre v) ∧
+  (∀v. exp_sizes_alt_pre v)
+Proof
+  ho_match_mp_tac exp_size_alt_ind >>
+  rw[] >> rw[Once pre]
+QED
+
+Theorem exp_sizes_alt_cons:
+  exp_sizes_alt (x::xs) = 1 + exp_size_alt x + exp_sizes_alt xs
+Proof
+  Cases_on ‘xs’ >> rw[exp_size_alt_def]
+QED
+
+Theorem exp_sizes_alt_append:
+  ∀xs ys. exp_sizes_alt (xs ++ ys) = exp_sizes_alt xs + exp_sizes_alt ys
+Proof
+  Induct_on ‘xs’ >> rw[exp_sizes_alt_cons] >> rw[exp_size_alt_def]
+QED
+
+val pre = cv_auto_trans_pre intro_multi_alt_def
+
+Theorem intro_multi_alt_pre[cv_pre]:
+  (∀v0 max_app v. intro_multi_alt_pre v0 max_app v) ∧
+  (∀v0 max_app v. intro_multis_alt_pre v0 max_app v) ∧
+  (∀v0 max_app v. intro_multi_collect_alt_pre v0 max_app v)
+Proof
+  ho_match_mp_tac intro_multi_alt_ind >>
+  rw[] >>
+  rw[Once pre]
+QED
+
+Theorem exp_size_alt_pos[simp]:
+  ∀e. exp_size_alt e = 0 ⇔ F
+Proof
+  Cases >> rw[exp_size_alt_def]
+QED
+
+Theorem exp_sizes_alt_pos[simp]:
+  ∀es. exp_sizes_alt es = 0 ⇔ es = []
+Proof
+  Cases >> rw[exp_size_alt_def]
+QED
+
+Theorem collect_apps_size_alt:
+  ∀max_app args e args' e'.
+    collect_apps max_app args e = (args',e') ⇒
+    exp_size_alt e' ≤ exp_size_alt e
+Proof
+  recInduct clos_mtiTheory.collect_apps_ind >>
+  rw[exp_size_alt_def,clos_mtiTheory.collect_apps_def] >>
+  gvs[exp_size_alt_def]
+QED
+
+Theorem collect_apps_sizes_alt:
+  ∀max_app args e args' e'.
+    collect_apps max_app args e = (args',e') ⇒
+    exp_size_alt e' + exp_sizes_alt args' ≤ exp_size_alt e + exp_sizes_alt args
+Proof
+  recInduct clos_mtiTheory.collect_apps_ind >>
+  rw[exp_size_alt_def,clos_mtiTheory.collect_apps_def] >>
+  gvs[exp_size_alt_def,exp_sizes_alt_append]
+QED
+
+Theorem collect_args_size_alt:
+  ∀max_app args e args' e'.
+    collect_args max_app args e = (args',e') ⇒
+    exp_size_alt e' ≤ exp_size_alt e
+Proof
+  recInduct clos_mtiTheory.collect_args_ind >>
+  rw[exp_size_alt_def,clos_mtiTheory.collect_args_def] >>
+  gvs[exp_size_alt_def]
+QED
+
+Theorem intro_multi_cons:
+  ∀e es. intro_multi max_app (e::es) = HD(intro_multi max_app [e])::intro_multi max_app es
+Proof
+  Induct_on ‘es’ >> gvs[clos_mtiTheory.intro_multi_def,clos_mtiTheory.intro_multi_length]
+QED
+
+Theorem intro_multi_thm:
+  (∀ck max_app e. exp_size_alt e ≤ ck ⇒ intro_multi_alt ck max_app e = HD(intro_multi max_app [e])) ∧
+  (∀ck max_app es. exp_sizes_alt es ≤ ck ⇒ intro_multis_alt ck max_app es = intro_multi max_app es) ∧
+  (∀ck max_app es. exp_sizes_alt(MAP SND es) ≤ ck ⇒ intro_multi_collect_alt ck max_app es =
+                                           MAP (\(num_args, e).
+                                                              let (num_args', e') = collect_args max_app num_args e in
+                                                                (num_args', HD (intro_multi max_app [e'])))
+                                               es)
+Proof
+  ho_match_mp_tac intro_multi_alt_ind >>
+  rw[exp_size_alt_def,intro_multi_alt_def,clos_mtiTheory.intro_multi_def] >>
+  rpt(pairarg_tac >> gvs[]) >>
+  imp_res_tac collect_args_size_alt >>
+  imp_res_tac collect_apps_sizes_alt >>
+  gvs[] >>
+  CONV_TAC $ RHS_CONV $ PURE_ONCE_REWRITE_CONV [intro_multi_cons] >>
+  gvs[]
+QED
+
+Theorem intro_multi_alt_eq:
+  intro_multi max_app es = intro_multis_alt (exp_sizes_alt es) max_app es
+Proof
+  irule $ GSYM $ cj 2 intro_multi_thm >>
+  rw[]
+QED
+
+val _ = cv_trans intro_multi_alt_eq
+
+val _ = cv_trans clos_mtiTheory.compile_def
+
 Theorem to_data_fake:
   backend_asm$to_data c p = (c,[(InitGlobals_location,0,Skip)],LN)
 Proof
