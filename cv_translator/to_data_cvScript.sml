@@ -1391,9 +1391,124 @@ val _ = cv_trans $ GSYM $ cj 2 free_alt_thm
 
 val _ = cv_auto_trans clos_knownTheory.closed_def
 
+Definition contains_closures_alt_def:
+  (contains_closures_alt (closLang$Var t v) = F) /\
+  (contains_closures_alt (If t x1 x2 x3) =
+     if contains_closures_alt (x1) then T else
+     if contains_closures_alt (x2) then T else
+       contains_closures_alt (x3)) /\
+  (contains_closures_alt (Let t xs x2) =
+     if contains_closures_alts xs then T else
+       contains_closures_alt (x2)) /\
+  (contains_closures_alt (Raise t x1) = contains_closures_alt (x1)) /\
+  (contains_closures_alt (Handle t x1 x2) =
+     if contains_closures_alt (x1) then T else
+       contains_closures_alt (x2)) /\
+  (contains_closures_alt (Op t op xs) = contains_closures_alts xs) /\
+  (contains_closures_alt (Tick t x) = contains_closures_alt (x)) /\
+  (contains_closures_alt (Call t ticks dest xs) = contains_closures_alts xs) /\
+  (contains_closures_alt (Fn t loc_opt ws_opt num_args x1) = T) /\
+  (contains_closures_alt (Letrec t loc_opt ws_opt fns x1) = T) /\
+  (contains_closures_alt (App t loc_opt x1 xs) =
+     if contains_closures_alt (x1) then T else
+       contains_closures_alts xs) ∧
+  (contains_closures_alts [] = F) /\
+  (contains_closures_alts (x::xs) =
+    if contains_closures_alt x then T else
+      contains_closures_alts xs)
+End
+
+val pre = cv_auto_trans_pre contains_closures_alt_def
+
+Theorem contains_closures_alt_pre[cv_pre]:
+  (∀v. contains_closures_alt_pre v) ∧
+  (∀v. contains_closures_alts_pre v)
+Proof
+  Induct >> rw[] >> rw[Once pre]
+QED
+
+Theorem contains_closures_cons:
+  ∀v vs. contains_closures(v::vs) = (contains_closures [v] ∨ contains_closures vs)
+Proof
+  Induct_on ‘vs’ >>
+  gvs[clos_knownTheory.contains_closures_def]
+QED
+
+Theorem contains_closures_alt_thm:
+  (∀v. contains_closures_alt v = contains_closures [v]) ∧
+  (∀v. contains_closures_alts v = contains_closures v)
+Proof
+  Induct >> rw[contains_closures_alt_def,clos_knownTheory.contains_closures_def] >>
+  metis_tac[contains_closures_cons]
+QED
+
+val _ = cv_trans $ GSYM $ cj 2 contains_closures_alt_thm
+
+Definition merge_alt_def:
+  (merge_alt Impossible y = y) ∧
+  (merge_alt x Impossible = x) ∧
+  (merge_alt (Tuple tg1 xs) (Tuple tg2 ys) =
+     if LENGTH xs = LENGTH ys ∧ tg1 = tg2 then Tuple tg1 (merge_alts xs ys)
+     else Other) ∧
+  (merge_alt (ClosNoInline m1 n1) (ClosNoInline m2 n2) =
+     if m1 = m2 ∧ n1 = n2
+       then ClosNoInline m1 n1 else Other) ∧
+  (merge_alt (Clos m1 n1 e1 s1) (Clos m2 n2 e2 s2) =
+     if m1 = m2 ∧ n1 = n2 /\ e1 = e2 /\ s1 = s2
+       then Clos m1 n1 e1 s1 else Other) ∧
+  (merge_alt (Int i) (Int j) = if i = j then Int i else Other) ∧
+  (merge_alt _ _ = Other) ∧
+  (merge_alts (x::xs) (y::ys) =
+   merge_alt x y::merge_alts xs ys) ∧
+  (merge_alts _ _ = [])
+Termination
+  wf_rel_tac ‘measure $ λx. sum_CASE x (val_approx_size o FST) (val_approx1_size o FST)’
+End
+
+val pre = cv_auto_trans_pre merge_alt_def
+
+Theorem merge_alt_pre[cv_pre]:
+  (∀v0 v. merge_alt_pre v0 v) ∧
+  (∀v0 v. merge_alts_pre v0 v)
+Proof
+  ho_match_mp_tac merge_alt_ind >>
+  rw[] >> rw[Once pre]
+QED
+
+Theorem merge_alt_thm:
+  (∀v0 v. merge_alt v0 v = merge v0 v) ∧
+  (∀v0 v. merge_alts v0 v = MAP2 merge v0 v)
+Proof
+  ho_match_mp_tac merge_alt_ind >>
+  rw[merge_alt_def,clos_knownTheory.merge_def]
+QED
+
+val _ = cv_trans $ GSYM $ cj 1 merge_alt_thm
+
+val pre = cv_trans_pre clos_knownTheory.known_op_def
+
+Theorem clos_known_known_op_pre[cv_pre]:
+  ∀v as g. clos_known_known_op_pre v as g
+Proof
+  ho_match_mp_tac clos_knownTheory.known_op_ind >>
+  rw[] >> rw[Once pre] >>
+  intLib.COOPER_TAC
+QED
+
+val _ = cv_trans clos_knownTheory.clos_approx_def
+
+val _ = cv_trans clos_knownTheory.clos_gen_noinline_def
+
+val _ = cv_trans clos_knownTheory.isGlobal_def
+
+val _ = cv_trans clos_knownTheory.gO_destApx_def
+
+val _ = cv_trans clos_knownTheory.mk_Ticks_def
+
+val _ = cv_auto_trans clos_knownTheory.decide_inline_def
 
 (* TODO
-next: contains_closures_def
+next: known_def
 val _ = cv_trans clos_knownTheory.compile_def
 *)
 
