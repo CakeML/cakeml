@@ -1201,6 +1201,215 @@ Proof
   rw[] >> rw[Once pre]
 QED
 
+(* clos_known *)
+
+Definition get_size_sc_aux_alt_def:
+  (get_size_sc_aux_alt n (Var t v) = n - 1) /\
+  (get_size_sc_aux_alt n (If t x1 x2 x3) =
+     let n = n - 1 in if n = 0 then 0 else
+     let n = get_size_sc_aux_alt n x1 in if n = 0 then 0 else
+     let n = get_size_sc_aux_alt n x2 in if n = 0 then 0 else
+       get_size_sc_aux_alt n x3) /\
+  (get_size_sc_aux_alt n (Let t xs x2) =
+     let n = n - 1 in if n = 0 then 0 else
+     let n = get_size_sc_aux_alts n xs in if n = 0 then 0 else
+       get_size_sc_aux_alt n x2) /\
+  (get_size_sc_aux_alt n (Raise t x1) =
+     let n = n - 1 in if n = 0 then 0 else
+       get_size_sc_aux_alt n x1) /\
+  (get_size_sc_aux_alt n (Handle t x1 x2) =
+     let n = n - 1 in if n = 0 then 0 else
+     let n = get_size_sc_aux_alt n x1 in if n = 0 then 0 else
+       get_size_sc_aux_alt n x2) /\
+  (get_size_sc_aux_alt n (Op t op xs) =
+     let n = n - 1 in if n = 0 then 0 else
+       get_size_sc_aux_alts n xs) /\
+  (get_size_sc_aux_alt n (Tick t x) = get_size_sc_aux_alt n x) /\
+  (get_size_sc_aux_alt n (Call t ticks dest xs) =
+     let n = n - 1 in if n = 0 then 0 else
+       get_size_sc_aux_alts n xs) /\
+  (get_size_sc_aux_alt n (Fn t loc_opt ws_opt num_args x1) =
+     let n = n - 1 in if n = 0 then 0 else
+       get_size_sc_aux_alt n x1) /\
+  (get_size_sc_aux_alt n (Letrec t loc_opt ws_opt fns x1) =
+     let n = n - 1 in if n = 0 then 0 else
+     let n = get_size_sc_aux_alts n (MAP SND fns) in if n = 0 then 0 else
+       get_size_sc_aux_alt n x1) /\
+  (get_size_sc_aux_alt n (App t loc_opt x1 xs) =
+     let n = n - 1 in if n = 0 then 0 else
+     let n = get_size_sc_aux_alt n x1 in if n = 0 then 0 else
+       get_size_sc_aux_alts n xs) ∧
+  (get_size_sc_aux_alts n [] = n) /\
+  (get_size_sc_aux_alts n (x::xs) =
+     if n = 0n then n else
+       let n = get_size_sc_aux_alt n x in if n = 0 then n else
+         get_size_sc_aux_alts n xs)
+Termination
+  WF_REL_TAC `measure $ λx. sum_CASE x (exp_size o SND) (exp3_size o SND)`
+  \\ simp [] \\ rpt strip_tac
+  \\ `exp3_size (MAP SND fns) <= exp1_size fns`
+     by (Induct_on `fns` \\ simp [closLangTheory.exp_size_def] \\ Cases \\ simp [closLangTheory.exp_size_def])
+  \\ simp []
+End
+
+val pre = cv_auto_trans_pre_rec get_size_sc_aux_alt_def
+  (WF_REL_TAC `measure $ λx. sum_CASE x (cv_size o SND) (cv_size o SND)` >>
+   cv_termination_tac >>
+   irule LESS_EQ_LESS_TRANS >>
+   irule_at (Pos last) cv_size_map_snd >>
+   rw[oneline cvTheory.cv_snd_def] >>
+   rpt(PURE_FULL_CASE_TAC >> gvs[]))
+
+Theorem get_size_sc_aux_alt_pre[cv_pre]:
+  (∀n v. get_size_sc_aux_alt_pre n v) ∧
+  (∀n v. get_size_sc_aux_alts_pre n v)
+Proof
+  ho_match_mp_tac get_size_sc_aux_alt_ind >>
+  rw[] >> rw[Once pre]
+QED
+
+Theorem get_size_aux_sc_alt_thm:
+  (∀n v. get_size_sc_aux_alt n v = get_size_sc_aux n [v]) ∧
+  (∀n vs. get_size_sc_aux_alts n vs = get_size_sc_aux n vs)
+Proof
+  ho_match_mp_tac get_size_sc_aux_alt_ind >>
+  rw[get_size_sc_aux_alt_def,clos_knownTheory.get_size_sc_aux_def] >>
+  gvs[]
+  >- gvs[clos_knownTheory.get_size_sc_aux_correct] >>
+  Cases_on ‘vs’ >> gvs[clos_knownTheory.get_size_sc_aux_def]
+QED
+
+val _ = cv_trans $ GSYM $ cj 2 get_size_aux_sc_alt_thm
+
+val _ = cv_trans $ GSYM $ cj 2 get_size_aux_sc_alt_thm
+
+val _ = cv_trans clos_knownTheory.get_size_sc_def
+
+Definition free_alt_def:
+  (free_alt (closLang$Var t v) = ((closLang$Var t v), db_vars$Var v)) /\
+  (free_alt (If t x1 x2 x3) =
+     let (c1,l1) = free_alt (x1) in
+     let (c2,l2) = free_alt (x2) in
+     let (c3,l3) = free_alt (x3) in
+       ((If t ( c1) ( c2) ( c3)),mk_Union l1 (mk_Union l2 l3))) /\
+  (free_alt (Let t xs x2) =
+     let (c1,l1) = free_alts xs in
+     let (c2,l2) = free_alt (x2) in
+       ((Let t c1 ( c2)),mk_Union l1 (Shift (LENGTH xs) l2))) /\
+  (free_alt (Raise t x1) =
+     let (c1,l1) = free_alt (x1) in
+       ((Raise t ( c1)),l1)) /\
+  (free_alt (Tick t x1) =
+     let (c1,l1) = free_alt (x1) in
+       ((Tick t ( c1)),l1)) /\
+  (free_alt (Op t op xs) =
+     let (c1,l1) = free_alts xs in
+       ((Op t op c1),l1)) /\
+  (free_alt (App t loc_opt x1 xs2) =
+     let (c1,l1) = free_alt (x1) in
+     let (c2,l2) = free_alts xs2 in
+       ((App t loc_opt ( c1) c2),mk_Union l1 l2)) /\
+  (free_alt (Fn t loc _ num_args x1) =
+     let (c1,l1) = free_alt (x1) in
+     let l2 = Shift num_args l1 in
+       ((Fn t loc (SOME (vars_to_list l2)) num_args ( c1)),l2)) /\
+  (free_alt (Letrec t loc _ fns x1) =
+     let m = LENGTH fns in
+     let res = free_let_alts m fns in
+     let c1 = MAP FST res in
+     let l1 = list_mk_Union (MAP SND res) in
+     let (c2,l2) = free_alt (x1) in
+       ((Letrec t loc (SOME (vars_to_list l1)) c1 ( c2)),
+        mk_Union l1 (Shift (LENGTH fns) l2))) /\
+  (free_alt (Handle t x1 x2) =
+     let (c1,l1) = free_alt (x1) in
+     let (c2,l2) = free_alt (x2) in
+       ((Handle t ( c1) ( c2)),mk_Union l1 (Shift 1 l2))) /\
+  (free_alt (Call t ticks dest xs) =
+     let (c1,l1) = free_alts xs in
+       ((Call t ticks dest c1),l1)) ∧
+  (free_alts [] = ([],Empty)) /\
+  (free_alts ((x:closLang$exp)::xs) =
+     let (c1,l1) = free_alt x in
+     let (c2,l2) = free_alts xs in
+       (c1::c2,mk_Union l1 l2)) ∧
+  (free_let_alts m [] = []) /\
+  (free_let_alts m ((n,x)::xs) =
+   let (c,l) = free_alt (x)
+   in
+     ((n, c),Shift (n + m) l)::free_let_alts m xs)
+Termination
+  WF_REL_TAC `measure $ λa. case a of
+                            | INL x => closLang$exp_size x
+                            | INR(INL xs) => exp3_size xs
+                            | INR(INR(_,xs)) => exp3_size (MAP SND xs)` >>
+  rw[] >> gvs[closLangTheory.exp_size_eq,list_size_def] >>
+  ‘list_size exp_size (MAP SND fns) ≤ list_size (pair_size (λx. x) exp_size) fns’
+    suffices_by simp[] >>
+  Induct_on ‘fns’ >>
+  simp[list_size_def] >>
+  Cases >>
+  rw[] >>
+  rw[basicSizeTheory.pair_size_def]
+End
+
+val pre = cv_auto_trans_pre free_alt_def
+
+Theorem free_alt_pre[cv_pre]:
+  (∀v. free_alt_pre v) ∧
+  (∀v. free_alts_pre v) ∧
+  (∀m v. free_let_alts_pre m v)
+Proof
+  ho_match_mp_tac free_alt_ind >>
+  rw[] >> rw[Once pre]
+QED
+
+Triviality free_LENGTH_LEMMA:
+  !xs ys s1. free xs = (ys,s1) ⇒ LENGTH xs = LENGTH ys
+Proof
+  recInduct clos_knownTheory.free_ind \\ rpt strip_tac
+  \\ gvs [clos_knownTheory.free_def,UNCURRY_eq_pair]
+QED
+
+Theorem free_alt_thm:
+  (∀v. free_alt v = (λ(x,y). (HD x, y)) $ free [v]) ∧
+  (∀v. free_alts v = free v) ∧
+  (∀m v. free_let_alts m v =
+         MAP (\(n,x). let (c,l) = free [x] in
+                        ((n,HD c),Shift (n + m) l)) v)
+Proof
+  ho_match_mp_tac free_alt_ind >>
+  rw[free_alt_def,clos_knownTheory.free_def] >>
+  rpt(pairarg_tac >> gvs[]) >>
+  imp_res_tac free_LENGTH_LEMMA >>
+  gvs[LENGTH_EQ_1] >>
+  rename1 ‘free (_::xx)’ >> Cases_on ‘xx’ >> gvs[] >>
+  gvs[clos_knownTheory.free_def]
+QED
+
+val _ = cv_trans $ GSYM $ cj 2 free_alt_thm
+
+val _ = cv_auto_trans clos_knownTheory.closed_def
+
+
+(* TODO
+next: contains_closures_def
+val _ = cv_trans clos_knownTheory.compile_def
+*)
+
+(* clos_call *)
+
+(* TODO *)
+
+(* clos_annotate *)
+
+(* TODO *)
+
+(* clos_to_bvl *)
+
+(* TODO: chain_exps *)
+(* TODO: compile *)
+
 Theorem to_data_fake:
   backend_asm$to_data c p = (c,[(InitGlobals_location,0,Skip)],LN)
 Proof
