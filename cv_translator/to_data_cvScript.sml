@@ -1183,6 +1183,24 @@ val _ = cv_trans intro_multi_alt_eq
 
 val _ = cv_trans clos_mtiTheory.compile_def
 
+(* clos_number *)
+
+val pre = cv_trans_pre_rec clos_numberTheory.renumber_code_locs_def
+  (wf_rel_tac ‘measure $ λx. sum_CASE x (cv_size o SND) (cv_size o SND)’ >>
+   cv_termination_tac >>
+   irule LESS_EQ_LESS_TRANS >>
+   irule_at (Pos last) cv_size_map_snd >>
+   rw[oneline cvTheory.cv_snd_def] >>
+   rpt(PURE_FULL_CASE_TAC >> gvs[]))
+
+Theorem clos_number_renumber_code_locs_list_pre[cv_pre]:
+  (∀n v. clos_number_renumber_code_locs_list_pre n v) ∧
+  (∀n v. clos_number_renumber_code_locs_pre n v)
+Proof
+  ho_match_mp_tac clos_numberTheory.renumber_code_locs_ind >>
+  rw[] >> rw[Once pre]
+QED
+
 Theorem to_data_fake:
   backend_asm$to_data c p = (c,[(InitGlobals_location,0,Skip)],LN)
 Proof
