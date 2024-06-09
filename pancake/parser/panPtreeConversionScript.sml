@@ -103,7 +103,7 @@ End
 
 (** Collection of binop expression nodes, n >= 2 *)
 Definition binaryExps_def:
-  binaryExps = [ExpNT; EXorNT; EAndNT; EAddNT]
+  binaryExps = [EOrNT; EXorNT; EAndNT; EAddNT]
 End
 
 Definition panExps_def:
@@ -285,6 +285,20 @@ Definition conv_Exp_def:
                                   else Cmp op' e1' e2'
                         od
       | _ => NONE
+    else if isNT nodeNT ExpNT then (* boolean or *)
+      case args of
+        [e] => conv_Exp e
+      | e1::args' => do es  <- OPT_MMAP conv_Exp $ e1::args';
+                        SOME $ Cmp NotEqual (Const 0w) $ Op Or es
+                     od
+      | _ => NONE
+    else if isNT nodeNT EBoolAndNT then
+      case args of
+        [e] => conv_Exp e
+      | e1::args' => do es  <- OPT_MMAP conv_Exp $ e1::args';
+                        SOME $ Op And $ MAP (λe. Cmp NotEqual (Const 0w) e) es
+                     od
+      | _ => NONE
     else if isNT nodeNT EShiftNT then
       case args of
         (e::es) => conv_Shift es ' (conv_Exp e)
@@ -328,6 +342,11 @@ Termination
                            | INL x => ptree_size x
                            | INR (INR(INL x)) => ptree1_size (FST x)
                            | INR (INR(INR x)) => ptree1_size (FST x))’ >> rw[]
+  >> rename1 ‘ptree_size tree’
+  >> Cases_on ‘tree’
+  >> gvs[argsNT_def,parsetree_size_def]
+  >> drule_then assume_tac mem_ptree_thm >> gvs[]
+  >> rename1 ‘ptree_size tree’
   >> Cases_on ‘tree’
   >> gvs[argsNT_def,parsetree_size_def]
   >> drule_then assume_tac mem_ptree_thm >> gvs[]
