@@ -1518,47 +1518,183 @@ val _ = cv_trans clos_knownTheory.compile_def
 
 (* clos_annotate *)
 
-(* TODO *)
+(* bvl_jump *)
+
+Theorem cv_LENGTH_right_depth:
+  cv_LENGTH cv_xs = Num (cv_right_depth cv_xs)
+Proof
+  gvs [cv_LENGTH_def]
+  \\ qsuff_tac ‘∀v n. cv_LEN v (Num n) = Num (cv_right_depth v + n)’
+  \\ gvs [] \\ Induct
+  \\ simp [cv_right_depth_def,Once cv_LEN_def]
+QED
+
+Theorem cv_right_depth_cv_TAKE:
+  ∀cv_xs n.
+    n ≤ cv_right_depth cv_xs ⇒
+    cv_right_depth (cv_TAKE (Num n) cv_xs) = n
+Proof
+  Induct \\ simp [cv_right_depth_def,Once cv_TAKE_def]
+  \\ Cases \\ gvs [cv_right_depth_def]
+QED
+
+Theorem cv_right_depth_cv_DROP:
+  ∀cv_xs n.
+    n ≤ cv_right_depth cv_xs ⇒
+    cv_right_depth (cv_DROP (Num n) cv_xs) = cv_right_depth cv_xs - n
+Proof
+  Induct \\ simp [cv_right_depth_def,Once cv_DROP_def]
+  \\ Cases \\ gvs [cv_right_depth_def]
+QED
+
+val _ = cv_auto_trans_rec bvl_jumpTheory.JumpList_def
+   (WF_REL_TAC ‘measure $ cv_right_depth o SND’
+    \\ rpt strip_tac
+    \\ Cases_on ‘cv_LENGTH cv_xs’ \\ gvs []
+    \\ Cases_on ‘m = 0’ \\ gvs []
+    \\ Cases_on ‘m = 1’ \\ gvs [cv_LENGTH_right_depth]
+    \\ DEP_REWRITE_TAC [cv_right_depth_cv_TAKE,cv_right_depth_cv_DROP]
+    \\ gvs [DIV_LE_X,DIV_LT_X,X_LT_DIV]);
 
 (* clos_to_bvl *)
 
-(* TODO: chain_exps *)
-(* TODO: compile *)
+val _ = cv_auto_trans clos_to_bvlTheory.init_globals_def;
+val _ = cv_auto_trans clos_to_bvlTheory.init_code_def;
 
-
-(* to_bvi *)
-
-val _ = cv_auto_trans bvl_to_bviTheory.get_names_def;
-val _ = cv_trans bvi_tailrecTheory.is_rec_def;
-val _ = cv_auto_trans bvi_tailrecTheory.let_wrap_def;
-
-Triviality term_ok_int_eq:
-  term_ok_int ts expr ⇔
-  case expr of
-  | Var i => if i < LENGTH ts then EL i ts = Int else F
-  | Op op xs =>
-     (if xs = [] ∧ is_const op then T else
-        case xs of
-        | [x;y] => is_arith op ∧ term_ok_int ts x ∧ term_ok_int ts y
-        | _ => F)
-  | _ => F
+Theorem cv_size_cv_map_snd_le:
+  ∀xs. cv_size (cv_map_snd xs) ≤ cv_size xs
 Proof
-  simp [Once bvi_tailrecTheory.term_ok_int_def]
-  \\ Cases_on ‘expr’ \\ gvs []
-  \\ gvs [bvi_tailrecTheory.get_bin_args_def]
-  \\ Cases_on ‘l’ \\ gvs []
-  \\ Cases_on ‘t’ \\ gvs []
-  \\ Cases_on ‘t'’ \\ gvs []
+  Induct
+  \\ simp [Once cv_map_snd_def]
+  \\ Cases_on ‘xs’ \\ gvs []
 QED
 
-val pre = cv_auto_trans_pre term_ok_int_eq;
-Theorem bvi_tailrec_term_ok_int_pre[cv_pre,local]:
-  ∀ts expr. bvi_tailrec_term_ok_int_pre ts expr
+val pre = cv_auto_trans_pre_rec clos_to_bvlTheory.get_src_names_sing_def
+  (WF_REL_TAC ‘measure $ λx. case x of
+                | INL (e,_) => cv_size e
+                | INR (e,_) => cv_size e’
+   \\ cv_termination_tac
+   \\ irule LESS_EQ_LESS_TRANS
+   \\ irule_at Any cv_size_cv_map_snd_le \\ gvs []);
+
+Theorem clos_to_bvl_get_src_names_sing_pre[cv_pre,local]:
+  (∀v l. clos_to_bvl_get_src_names_sing_pre v l) ∧
+  (∀v l. clos_to_bvl_get_src_names_list_pre v l)
 Proof
-  ho_match_mp_tac bvi_tailrecTheory.term_ok_int_ind
-  \\ rw [] \\ simp [Once pre] \\ rw []
-  \\ gvs [bvi_tailrecTheory.get_bin_args_def]
+  ho_match_mp_tac clos_to_bvlTheory.get_src_names_sing_ind
+  \\ rpt strip_tac \\ simp [Once pre]
 QED
+
+val _ = cv_auto_trans clos_to_bvlTheory.make_name_alist_eq;
+
+val pre = cv_auto_trans_pre clos_to_bvlTheory.recc_Lets_def;
+Theorem clos_to_bvl_recc_Lets_pre[cv_pre]:
+  ∀n nargs k rest.
+    clos_to_bvl_recc_Lets_pre n nargs k rest ⇔ k ≤ LENGTH nargs
+Proof
+  Induct_on ‘k’ \\ gvs [] \\ simp [Once pre] \\ Cases \\ gvs []
+QED
+
+val _ = cv_trans clos_to_bvlTheory.recc_Let0_def;
+
+val pre = cv_trans_pre clos_to_bvlTheory.build_recc_lets_def;
+Theorem clos_to_bvl_build_recc_lets_pre[cv_pre]:
+  ∀nargs vs n1 fns_l c3.
+    clos_to_bvl_build_recc_lets_pre nargs vs n1 fns_l c3
+    ⇔
+    nargs ≠ [] ∧ fns_l ≤ LENGTH nargs
+Proof
+  gvs [pre] \\ Cases using SNOC_CASES \\ gvs [REVERSE_SNOC]
+QED
+
+val _ = cv_auto_trans clos_to_bvlTheory.add_parts_def;
+
+val pre = cv_auto_trans_pre_rec clos_to_bvlTheory.compile_exp_sing_def
+  (WF_REL_TAC ‘measure $ λx. case x of
+                             | INL (_,e,_) => cv_size e
+                             | INR (_,e,_) => cv_size e’
+   \\ cv_termination_tac
+   \\ irule LESS_EQ_LESS_TRANS
+   \\ irule_at Any cv_size_cv_map_snd_le \\ gvs []);
+
+Theorem clos_to_bvl_compile_exp_sing_pre[cv_pre]:
+  (∀max_app v aux. clos_to_bvl_compile_exp_sing_pre max_app v aux) ∧
+  (∀max_app v aux. clos_to_bvl_compile_exp_list_pre max_app v aux)
+Proof
+  ho_match_mp_tac clos_to_bvlTheory.compile_exp_sing_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+  \\ rpt strip_tac \\ gvs [cv_stdTheory.genlist_eq_GENLIST]
+QED
+
+val _ = cv_auto_trans clos_to_bvlTheory.compile_prog_eq;
+
+val _ = cv_trans clos_to_bvlTheory.code_split_def;
+
+val _ = cv_trans_rec clos_to_bvlTheory.code_merge_def
+  (WF_REL_TAC ‘measure $ λ(x,y). cv_size x + cv_size y’
+   \\ cv_termination_tac) ;
+
+Theorem cv_clos_to_bvl_code_split_imp:
+  ∀x y z r1 r2.
+    cv_clos_to_bvl_code_split x y z = Pair r1 r2 ∧
+    cv_size y ≠ 0  ∧ cv_size z ≠ 0 ⇒
+    cv_size r1 < cv_size x + cv_size y + cv_size z ∧
+    cv_size r2 < cv_size x + cv_size y + cv_size z
+Proof
+  Induct
+  \\ simp [Once $ fetch "-" "cv_clos_to_bvl_code_split_def"]
+  \\ rw [] \\ res_tac \\ gvs []
+QED
+
+val pre = cv_trans_pre_rec clos_to_bvlTheory.code_sort_def
+  (WF_REL_TAC ‘measure cv_size’
+   \\ cv_termination_tac
+   \\ imp_res_tac cv_clos_to_bvl_code_split_imp \\ gvs []);
+
+Theorem clos_to_bvl_code_sort_pre[cv_pre]:
+  ∀v. clos_to_bvl_code_sort_pre v
+Proof
+  ho_match_mp_tac clos_to_bvlTheory.code_sort_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+(* TODO: rest of clos_to_bvl functions
+clos_to_bvlTheory.compile_common_def
+clos_to_bvlTheory.compile_def
+backend_asmTheory.to_bvl_def
+*)
+
+(* bvl_const *)
+
+val _ = cv_auto_trans bvl_constTheory.dest_simple_def;
+(* TODO: rest of bvl_const functions
+val pre = cv_auto_trans_pre bvl_constTheory.SmartOp2_def; (* HO functions *)
+val pre = cv_auto_trans_pre bvl_constTheory.compile_sing_def;
+val _ = cv_trans bvl_constTheory.compile_exp_eq;
+*)
+
+(* bvl_handle *)
+
+val _ = cv_trans bvl_handleTheory.SmartLet_def;
+val _ = cv_auto_trans bvl_handleTheory.LetLet_def;
+val _ = cv_auto_trans bvl_handleTheory.OptionalLetLet_sing_def;
+
+val pre = cv_auto_trans_pre bvl_handleTheory.compile_sing_def;
+Theorem bvl_handle_compile_sing_pre[cv_pre,local]:
+  (∀v l n. bvl_handle_compile_sing_pre l n v) ∧
+  (∀v l n. bvl_handle_compile_list_pre l n v)
+Proof
+  Induct \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+(* TODO: rest of bvl_handle functions
+bvl_handleTheory.handle_simp_def
+bvl_handleTheory.compile_exp_eq
+bvl_handleTheory.compile_seqs_def
+bvl_handleTheory.compile_any_def
+*)
+
+(* bvl_inline *)
 
 val _ = cv_auto_trans bvl_inlineTheory.tick_inline_sing_def;
 
@@ -1607,19 +1743,152 @@ Proof
   Induct \\ rpt strip_tac \\ simp [Once pre]
 QED
 
-(*
-
-bvl_handleTheory.compile_exp_def
-bvl_handleTheory.compile_seqs_def
-bvl_handleTheory.compile_any_def
-
-val _ = cv_trans bvl_handleTheory.compile_any_def;
+(* TODO: rest of bvl_inline functions:
 val _ = cv_trans bvl_inlineTheory.optimise_eq;
-
 val _ = cv_auto_trans bvl_inlineTheory.compile_inc_def;
 val _ = cv_trans bvl_inlineTheory.compile_prog_def;
-
 *)
+
+(* bvi_tailrec *)
+
+val _ = cv_trans bvi_tailrecTheory.is_rec_def;
+val _ = cv_auto_trans bvi_tailrecTheory.let_wrap_def;
+
+Triviality term_ok_int_eq:
+  term_ok_int ts expr ⇔
+  case expr of
+  | Var i => if i < LENGTH ts then EL i ts = Int else F
+  | Op op xs =>
+     (if xs = [] ∧ is_const op then T else
+        case xs of
+        | [x;y] => is_arith op ∧ term_ok_int ts x ∧ term_ok_int ts y
+        | _ => F)
+  | _ => F
+Proof
+  simp [Once bvi_tailrecTheory.term_ok_int_def]
+  \\ Cases_on ‘expr’ \\ gvs []
+  \\ gvs [bvi_tailrecTheory.get_bin_args_def]
+  \\ Cases_on ‘l’ \\ gvs []
+  \\ Cases_on ‘t’ \\ gvs []
+  \\ Cases_on ‘t'’ \\ gvs []
+QED
+
+val pre = cv_auto_trans_pre term_ok_int_eq;
+Theorem bvi_tailrec_term_ok_int_pre[cv_pre,local]:
+  ∀ts expr. bvi_tailrec_term_ok_int_pre ts expr
+Proof
+  ho_match_mp_tac bvi_tailrecTheory.term_ok_int_ind
+  \\ rw [] \\ simp [Once pre] \\ rw []
+  \\ gvs [bvi_tailrecTheory.get_bin_args_def]
+QED
+
+(* TODO:
+...
+bvi_tailrecTheory.compile_prog_def
+*)
+
+(* bvi_let *)
+
+Theorem cv_size_LAST:
+  ∀g. cv_size (cv_LAST g) ≤ cv_size g
+Proof
+  Induct \\ simp [Once cv_LAST_def] \\ rw []
+QED
+
+Theorem cv_size_FRONT:
+  ∀g. cv_size (cv_FRONT g) ≤ cv_size g
+Proof
+  Induct \\ simp [Once cv_FRONT_def] \\ rw []
+QED
+
+val pre = cv_trans_pre_rec bvi_letTheory.compile_sing_def
+  (WF_REL_TAC ‘measure $ λx. case x of
+                             | INL (_,_,e) => cv_size e
+                             | INR (_,_,e) => cv_size e’
+   \\ cv_termination_tac
+   \\ gvs [cv_LENGTH_right_depth]
+   \\ Cases_on ‘z’ \\ gvs [cv_right_depth_def]
+   \\ irule LESS_EQ_LESS_TRANS
+   \\ (irule_at Any cv_size_FRONT ORELSE
+       irule_at Any cv_size_LAST)
+   \\ gvs []);
+
+Theorem bvi_let_compile_sing_pre[cv_pre]:
+  (∀env d v. bvi_let_compile_sing_pre env d v) ∧
+  (∀env d v. bvi_let_compile_list_pre env d v)
+Proof
+  ho_match_mp_tac bvi_letTheory.compile_sing_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val _ = cv_trans bvi_letTheory.compile_exp_eq;
+
+(* bvl_to_bvi *)
+
+val _ = cv_auto_trans bvl_to_bviTheory.get_names_def;
+val _ = cv_auto_trans bvl_to_bviTheory.stubs_def;
+val _ = cv_trans bvl_to_bviTheory.destLet_def;
+
+val cv_bvl_to_bvi_destLet_def = fetch "-" "cv_bvl_to_bvi_destLet_def";
+
+Theorem destLet_lemma[local]:
+  cv_bvl_to_bvi_destLet (cv_fst z) = Pair x1 x2 ⇒
+  cv_size x1 ≤ cv_size z ∧
+  cv_size x2 ≤ cv_size z
+Proof
+  Cases_on ‘z’ \\ gvs [cv_bvl_to_bvi_destLet_def]
+  \\ rename [‘_ ≤ cv_size g1 + (cv_size g2 + 1)’]
+  \\ Cases_on ‘g1’ \\ gvs []
+  \\ Cases_on ‘g’ \\ gvs [AllCaseEqs()] \\ rw []
+  \\ Cases_on ‘g'’ \\ gvs []
+QED
+
+Theorem destLet_lemma2[local]:
+  cv_bvl_to_bvi_destLet (cv_snd z) = Pair x1 x2 ⇒
+  cv_size x1 ≤ cv_size z ∧
+  cv_size x2 ≤ cv_size z
+Proof
+  Cases_on ‘z’ \\ gvs [cv_bvl_to_bvi_destLet_def]
+  \\ rename [‘_ ≤ cv_size g1 + (cv_size g2 + 1)’]
+  \\ Cases_on ‘g2’ \\ gvs []
+  \\ Cases_on ‘g’ \\ gvs [AllCaseEqs()] \\ rw []
+  \\ Cases_on ‘g'’ \\ gvs []
+QED
+
+val pre = cv_auto_trans_pre_rec bvl_to_bviTheory.compile_exps_sing_def
+  (WF_REL_TAC ‘measure $ λx. case x of
+                             | INL (_,e) => cv_size e
+                             | INR (_,e) => cv_size e’
+   \\ cv_termination_tac
+   \\ imp_res_tac destLet_lemma
+   \\ imp_res_tac destLet_lemma2
+   \\ gvs []);
+
+Theorem bvl_to_bvi_compile_exps_sing_pre[cv_pre]:
+  (∀n v. bvl_to_bvi_compile_exps_sing_pre n v) ∧
+  (∀n v. bvl_to_bvi_compile_exps_list_pre n v)
+Proof
+  ho_match_mp_tac bvl_to_bviTheory.compile_exps_sing_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val _ = cv_trans bvl_to_bviTheory.compile_single_eq;
+
+val pre = cv_trans_pre bvl_to_bviTheory.global_count_sing_def;
+Theorem bvl_to_bvi_global_count_sing_pre[cv_pre]:
+  (∀v. bvl_to_bvi_global_count_sing_pre v) ∧
+  (∀v. bvl_to_bvi_global_count_list_pre v)
+Proof
+  Induct \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans bvl_to_bviTheory.compile_prog_eq;
+
+(* TODO:
+bvl_to_bviTheory.compile_def
+*)
+
+(* to_bvi *)
 
 Theorem to_bvi_fake:
   backend_asm$to_bvi c p = (c,[(InitGlobals_location,0,Var 0)],LN)
