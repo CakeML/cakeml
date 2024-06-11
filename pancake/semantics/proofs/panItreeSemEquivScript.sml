@@ -112,6 +112,39 @@ Proof
      ALLGOALS (rw [Once itree_iter_thm])
 QED
 
+(** FUNPOW **)
+
+Theorem FUNPOW_INJ:
+  INJ f UNIV UNIV ⇒ INJ (FUNPOW f n) UNIV UNIV
+Proof
+  Induct_on ‘n’>>rw[]>>
+  fs[FUNPOW_SUC,INJ_DEF]
+QED
+
+Theorem FUNPOW_eq_elim:
+  FUNPOW f n t = FUNPOW f n t' ∧
+  INJ f UNIV UNIV ⇒
+  t = t'
+Proof
+  Induct_on ‘n’>>rw[]>>
+  fs[FUNPOW_SUC,INJ_DEF]
+QED
+
+Theorem FUNPOW_min_cancel:
+  n ≤ n' ∧ INJ f UNIV UNIV ∧
+  FUNPOW f n X = FUNPOW f n' X' ⇒
+  X = FUNPOW f (n' - n) X'
+Proof
+  Induct_on ‘n'-n’>>rw[FUNPOW_SUC]
+  >- (drule_then rev_drule LESS_EQUAL_ANTISYM>>strip_tac>>gvs[]>>
+      imp_res_tac FUNPOW_INJ>>gvs[INJ_DEF]>>
+      first_x_assum irule>>metis_tac[])>>
+  imp_res_tac FUNPOW_INJ>>gvs[INJ_DEF]>>
+  ‘FUNPOW f n' X' = FUNPOW f n (FUNPOW f (n' - n) X')’
+    by simp[GSYM FUNPOW_ADD]>>fs[]>>
+  first_assum $ qspec_then ‘n’ assume_tac>>fs[]
+QED
+
 Theorem strip_tau_FUNPOW:
   ∀t1 t2. strip_tau t1 t2 ⇒
         ∃n. t1 = FUNPOW Tau n $ t2
