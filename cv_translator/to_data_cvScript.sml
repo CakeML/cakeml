@@ -1525,13 +1525,152 @@ val _ = cv_trans clos_knownTheory.compile_def
 (* TODO: chain_exps *)
 (* TODO: compile *)
 
-Theorem to_data_fake:
-  backend_asm$to_data c p = (c,[(InitGlobals_location,0,Skip)],LN)
+
+(* to_bvi *)
+
+val _ = cv_auto_trans bvl_to_bviTheory.get_names_def;
+val _ = cv_trans bvi_tailrecTheory.is_rec_def;
+val _ = cv_auto_trans bvi_tailrecTheory.let_wrap_def;
+
+Triviality term_ok_int_eq:
+  term_ok_int ts expr ⇔
+  case expr of
+  | Var i => if i < LENGTH ts then EL i ts = Int else F
+  | Op op xs =>
+     (if xs = [] ∧ is_const op then T else
+        case xs of
+        | [x;y] => is_arith op ∧ term_ok_int ts x ∧ term_ok_int ts y
+        | _ => F)
+  | _ => F
+Proof
+  simp [Once bvi_tailrecTheory.term_ok_int_def]
+  \\ Cases_on ‘expr’ \\ gvs []
+  \\ gvs [bvi_tailrecTheory.get_bin_args_def]
+  \\ Cases_on ‘l’ \\ gvs []
+  \\ Cases_on ‘t’ \\ gvs []
+  \\ Cases_on ‘t'’ \\ gvs []
+QED
+
+val pre = cv_auto_trans_pre term_ok_int_eq;
+Theorem bvi_tailrec_term_ok_int_pre[cv_pre,local]:
+  ∀ts expr. bvi_tailrec_term_ok_int_pre ts expr
+Proof
+  ho_match_mp_tac bvi_tailrecTheory.term_ok_int_ind
+  \\ rw [] \\ simp [Once pre] \\ rw []
+  \\ gvs [bvi_tailrecTheory.get_bin_args_def]
+QED
+
+val _ = cv_auto_trans bvl_inlineTheory.tick_inline_sing_def;
+
+val pre = cv_auto_trans_pre bvl_inlineTheory.is_small_sing_def;
+Theorem bvl_inline_is_small_sing_pre[cv_pre,local]:
+  (∀v n. bvl_inline_is_small_sing_pre n v) ∧
+  (∀v n. bvl_inline_is_small_list_pre n v)
+Proof
+  Induct \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans bvl_inlineTheory.is_small_eq;
+
+val pre = cv_auto_trans_pre bvl_inlineTheory.is_rec_sing_def;
+Theorem bvl_inline_is_rec_sing_pre[cv_pre,local]:
+  (∀v n. bvl_inline_is_rec_sing_pre n v) ∧
+  (∀v n. bvl_inline_is_rec_list_pre n v)
+Proof
+  Induct \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans bvl_inlineTheory.must_inline_eq;
+
+val pre = cv_auto_trans_pre bvl_inlineTheory.tick_inline_all_eq;
+Theorem bvl_inline_tick_inline_all_pre[cv_pre,local]:
+  ∀v limit cs aux. bvl_inline_tick_inline_all_pre limit cs v aux
+Proof
+  Induct \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val pre = cv_trans bvl_inlineTheory.tick_compile_prog_def;
+
+val pre = cv_auto_trans_pre bvl_inlineTheory.let_op_one_def;
+Theorem bvl_inline_let_op_one_pre[cv_pre,local]:
+  (∀v. bvl_inline_let_op_one_pre v) ∧
+  (∀v. bvl_inline_let_op_list_pre v)
+Proof
+  Induct \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val pre = cv_auto_trans_pre bvl_inlineTheory.remove_ticks_sing_def;
+Theorem bvl_inline_remove_ticks_sing_pre[cv_pre,local]:
+  (∀v. bvl_inline_remove_ticks_sing_pre v) ∧
+  (∀v. bvl_inline_remove_ticks_list_pre v)
+Proof
+  Induct \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+(*
+
+bvl_handleTheory.compile_exp_def
+bvl_handleTheory.compile_seqs_def
+bvl_handleTheory.compile_any_def
+
+val _ = cv_trans bvl_handleTheory.compile_any_def;
+val _ = cv_trans bvl_inlineTheory.optimise_eq;
+
+val _ = cv_auto_trans bvl_inlineTheory.compile_inc_def;
+val _ = cv_trans bvl_inlineTheory.compile_prog_def;
+
+*)
+
+Theorem to_bvi_fake:
+  backend_asm$to_bvi c p = (c,[(InitGlobals_location,0,Var 0)],LN)
 Proof
   cheat
 QED
 
-val _ = cv_auto_trans to_data_fake;
+val _ = cv_auto_trans to_bvi_fake;
+
+(* to_data *)
+
+Definition num_size_acc_def:
+  num_size_acc n acc =
+    if n < 2 ** 32 then acc + 2:num else num_size_acc (n DIV 2 ** 32) (acc + 1)
+End
+
+Theorem num_size_eq_acc:
+  num_size n = num_size_acc n 0
+Proof
+  qsuff_tac ‘∀n acc. num_size_acc n acc = num_size n + acc’ \\ gvs []
+  \\ ho_match_mp_tac data_spaceTheory.num_size_ind \\ rw []
+  \\ once_rewrite_tac [data_spaceTheory.num_size_def, num_size_acc_def]
+  \\ rw [] \\ gvs []
+QED
+
+val _ = cv_trans num_size_acc_def;
+val _ = cv_trans num_size_eq_acc;
+
+val pre = cv_auto_trans_pre data_liveTheory.compile_def;
+Theorem data_live_compile_pre[cv_pre,local]:
+  ∀v live. data_live_compile_pre v live
+Proof
+  ho_match_mp_tac data_liveTheory.compile_ind \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans bvi_to_dataTheory.optimise_def;
+val _ = cv_auto_trans bvi_to_dataTheory.op_requires_names_eqn;
+
+val pre = cv_auto_trans_pre bvi_to_dataTheory.compile_sing_def;
+Theorem bvi_to_data_compile_sing_pre[cv_pre,local]:
+  (∀n env tail live v. bvi_to_data_compile_sing_pre n env tail live v) ∧
+  (∀n env live v. bvi_to_data_compile_list_pre n env live v)
+Proof
+  ho_match_mp_tac bvi_to_dataTheory.compile_sing_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans rich_listTheory.COUNT_LIST_GENLIST;
+val _ = cv_trans bvi_to_dataTheory.compile_exp_eq;
+val _ = cv_auto_trans bvi_to_dataTheory.compile_prog_def;
+val _ = cv_trans to_data_def;
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();

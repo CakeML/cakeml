@@ -9,7 +9,7 @@ val _ = new_theory "bvl_inline";
 
 (* tick_inline -- a function that inlines a function body *)
 
-val tick_inline_def = tDefine "tick_inline" `
+Definition tick_inline_def:
   (tick_inline cs [] = []) /\
   (tick_inline cs (x::y::xs) =
      HD (tick_inline cs [x]) :: tick_inline cs (y::xs)) /\
@@ -25,7 +25,7 @@ val tick_inline_def = tDefine "tick_inline" `
      [Raise (HD (tick_inline cs [x1]))]) /\
   (tick_inline cs [Handle x1 x2] =
      [Handle (HD (tick_inline cs [x1]))
-              (HD (tick_inline cs [x2]))]) /\
+             (HD (tick_inline cs [x2]))]) /\
   (tick_inline cs [Op op xs] =
      [Op op (tick_inline cs xs)]) /\
   (tick_inline cs [Tick x] =
@@ -34,13 +34,51 @@ val tick_inline_def = tDefine "tick_inline" `
      case dest of NONE => [Call ticks dest (tick_inline cs xs)] | SOME n =>
      case lookup n cs of
      | NONE => [Call ticks dest (tick_inline cs xs)]
-     | SOME (arity,code) => [Let (tick_inline cs xs) (mk_tick (SUC ticks) code)])`
-  (WF_REL_TAC `measure (exp1_size o SND)`);
+     | SOME (arity,code) => [Let (tick_inline cs xs) (mk_tick (SUC ticks) code)])
+Termination
+  WF_REL_TAC `measure (exp1_size o SND)`
+End
 
-val tick_inline_ind = theorem"tick_inline_ind";
+Definition tick_inline_sing_def:
+  (tick_inline_sing cs (Var v) = Var v) /\
+  (tick_inline_sing cs (If x1 x2 x3) =
+     (If (tick_inline_sing cs x1)
+         (tick_inline_sing cs x2)
+         (tick_inline_sing cs x3))) /\
+  (tick_inline_sing cs (Let xs x2) =
+     (Let (tick_inline_list cs xs)
+          (tick_inline_sing cs x2))) /\
+  (tick_inline_sing cs (Raise x1) =
+     (Raise (tick_inline_sing cs x1))) /\
+  (tick_inline_sing cs (Handle x1 x2) =
+     (Handle (tick_inline_sing cs x1)
+             (tick_inline_sing cs x2))) /\
+  (tick_inline_sing cs (Op op xs) =
+     (Op op (tick_inline_list cs xs))) /\
+  (tick_inline_sing cs (Tick x) =
+     (Tick (tick_inline_sing cs x))) /\
+  (tick_inline_sing cs (Call ticks dest xs) =
+     case dest of NONE => Call ticks dest (tick_inline_list cs xs) | SOME n =>
+     case lookup n cs of
+     | NONE => Call ticks dest (tick_inline_list cs xs)
+     | SOME (arity,code) =>
+         Let (tick_inline_list cs xs) (mk_tick (SUC ticks) code)) ∧
+  (tick_inline_list cs [] = []) /\
+  (tick_inline_list cs (x::xs) =
+     (tick_inline_sing cs x) :: tick_inline_list cs xs)
+End
+
+Theorem tick_inline_sing:
+  (∀e. tick_inline cs [e] = [tick_inline_sing cs e]) ∧
+  (∀es. tick_inline_list cs es = tick_inline cs es)
+Proof
+  Induct \\ gvs [tick_inline_sing_def,tick_inline_def]
+  \\ rw [] \\ every_case_tac
+  \\ Cases_on ‘es’ \\ gvs [tick_inline_sing_def,tick_inline_def]
+QED
 
 (* This definition is written to exit as soon as possible. *)
-val is_small_aux_def = tDefine "is_small_aux" `
+Definition is_small_aux_def:
   (is_small_aux n [] = n) /\
   (is_small_aux n (x::y::xs) =
      if n = 0n then n else
@@ -69,13 +107,61 @@ val is_small_aux_def = tDefine "is_small_aux" `
   (is_small_aux n [Tick x] = is_small_aux n [x]) /\
   (is_small_aux n [Call ticks dest xs] =
      let n = n - 1 in if n = 0 then 0 else
-       is_small_aux n xs)`
-  (WF_REL_TAC `measure (exp1_size o SND)`);
+       is_small_aux n xs)
+Termination
+  WF_REL_TAC `measure (exp1_size o SND)`
+End
 
-val is_small_def = Define `
-  is_small limit e = ~(is_small_aux limit [e] = 0)`;
+Definition is_small_sing_def:
+  (is_small_sing n (Var v) = n) /\
+  (is_small_sing n (If x1 x2 x3) =
+     let n = n - 1 in if n = 0 then 0 else
+     let n = is_small_sing n x1 in if n = 0 then 0 else
+     let n = is_small_sing n x2 in if n = 0 then 0 else
+       is_small_sing n x3) /\
+  (is_small_sing n (Let xs x2) =
+     let n = n - 1 in if n = 0 then 0 else
+     let n = is_small_list n xs in if n = 0 then 0 else
+       is_small_sing n x2) /\
+  (is_small_sing n (Raise x1) =
+     let n = n - 1 in if n = 0 then 0 else
+       is_small_sing n x1) /\
+  (is_small_sing n (Handle x1 x2) =
+     let n = n - 1 in if n = 0 then 0 else
+     let n = is_small_sing n x1 in if n = 0 then 0 else
+       is_small_sing n x2) /\
+  (is_small_sing n (Op op xs) =
+     let n = n - 1 in if n = 0 then 0 else
+       is_small_list n xs) /\
+  (is_small_sing n (Tick x) = is_small_sing n x) /\
+  (is_small_sing n (Call ticks dest xs) =
+     let n = n - 1 in if n = 0 then 0 else
+       is_small_list n xs) /\
+  (is_small_list n [] = n) /\
+  (is_small_list n (x::xs) =
+     if n = 0n then n else
+       let n = is_small_sing n x in if n = 0 then n else
+         is_small_list n xs)
+End
 
-val is_rec_def = tDefine "is_rec" `
+Theorem is_small_sing:
+  (∀e n. is_small_aux n [e] = is_small_sing n e) ∧
+  (∀es n. is_small_list n es = is_small_aux n es)
+Proof
+  Induct \\ gvs [is_small_sing_def,is_small_aux_def] \\ rw []
+  \\ Cases_on ‘es’ \\ gvs [is_small_sing_def,is_small_aux_def]
+  \\ qsuff_tac ‘(∀e. is_small_sing 0 e = 0) ∧
+                (∀e. is_small_list 0 e = 0)’ \\ gvs []
+  \\ Induct \\ gvs [is_small_sing_def]
+QED
+
+Definition is_small_def:
+  is_small limit e = ~(is_small_aux limit [e] = 0)
+End
+
+Theorem is_small_eq = is_small_def |> SRULE [is_small_sing];
+
+Definition is_rec_def:
   (is_rec n [] = F) /\
   (is_rec n (x::y::xs) =
      if is_rec n [x] then T else
@@ -95,22 +181,63 @@ val is_rec_def = tDefine "is_rec" `
   (is_rec n [Op op xs] = is_rec n xs) /\
   (is_rec n [Tick x] = is_rec n [x]) /\
   (is_rec n [Call ticks dest xs] =
-     if dest = SOME n then T else is_rec n xs)`
-  (WF_REL_TAC `measure (exp1_size o SND)`);
+     if dest = SOME n then T else is_rec n xs)
+Termination
+  WF_REL_TAC `measure (exp1_size o SND)`
+End
 
-val must_inline_def = Define `
+Definition is_rec_sing_def:
+  (is_rec_sing n (Var v) = F) /\
+  (is_rec_sing n (If x1 x2 x3) =
+     if is_rec_sing n x1 then T else
+     if is_rec_sing n x2 then T else
+       is_rec_sing n x3) /\
+  (is_rec_sing n (Let xs x2) =
+     if is_rec_list n xs then T else
+       is_rec_sing n x2) /\
+  (is_rec_sing n (Raise x1) = is_rec_sing n x1) /\
+  (is_rec_sing n (Handle x1 x2) =
+     if is_rec_sing n x1 then T else
+       is_rec_sing n x2) /\
+  (is_rec_sing n (Op op xs) = is_rec_list n xs) /\
+  (is_rec_sing n (Tick x) = is_rec_sing n x) /\
+  (is_rec_sing n (Call ticks dest xs) =
+     if dest = SOME n then T else is_rec_list n xs) /\
+  (is_rec_list n [] = F) /\
+  (is_rec_list n (x::xs) =
+     if is_rec_sing n x then T else
+       is_rec_list n xs)
+End
+
+Theorem is_rec_sing:
+  (∀e n. is_rec n [e] = is_rec_sing n e) ∧
+  (∀es n. is_rec_list n es = is_rec n es)
+Proof
+  Induct \\ gvs [is_rec_sing_def,is_rec_def] \\ rw []
+  \\ Cases_on ‘es’ \\ gvs [is_rec_sing_def,is_rec_def]
+QED
+
+Definition must_inline_def:
   must_inline name limit e =
-    if is_small limit e then ~(is_rec name [e]) else F`
+    if is_small limit e then ~(is_rec name [e]) else F
+End
 
-val tick_inline_all_def = Define `
+Theorem must_inline_eq = must_inline_def |> SRULE [is_rec_sing];
+
+Definition tick_inline_all_def:
   (tick_inline_all limit cs [] aux = (cs,REVERSE aux)) /\
   (tick_inline_all limit cs ((n,arity:num,e1)::xs) aux =
      let e2 = HD (tick_inline cs [e1]) in
      let cs2 = if must_inline n limit e2 then insert n (arity,e2) cs else cs in
-       tick_inline_all limit cs2 xs ((n,arity,e2)::aux))`;
+       tick_inline_all limit cs2 xs ((n,arity,e2)::aux))
+End
 
-val tick_compile_prog_def = Define `
-  tick_compile_prog limit cs prog = tick_inline_all limit cs prog []`
+Theorem tick_inline_all_eq =
+  tick_inline_all_def |> SRULE [tick_inline_sing];
+
+Definition tick_compile_prog_def:
+  tick_compile_prog limit cs prog = tick_inline_all limit cs prog []
+End
 
 Theorem LENGTH_tick_inline:
    !cs xs. LENGTH (tick_inline cs xs) = LENGTH xs
@@ -129,7 +256,7 @@ QED
 
 (* remove_ticks -- a function that removes Ticks *)
 
-val remove_ticks_def = tDefine "remove_ticks" `
+Definition remove_ticks_def:
   (remove_ticks [] = []) /\
   (remove_ticks (x::y::xs) =
      HD (remove_ticks [x]) :: remove_ticks (y::xs)) /\
@@ -149,8 +276,41 @@ val remove_ticks_def = tDefine "remove_ticks" `
      [Op op (remove_ticks xs)]) /\
   (remove_ticks [Tick x] = remove_ticks [x]) /\
   (remove_ticks [Call ticks dest xs] =
-     [Call 0 dest (remove_ticks xs)])`
-  (WF_REL_TAC `measure exp1_size`);
+     [Call 0 dest (remove_ticks xs)])
+Termination
+  WF_REL_TAC `measure exp1_size`
+End
+
+Definition remove_ticks_sing_def:
+  (remove_ticks_sing (Var v) = Var v) /\
+  (remove_ticks_sing (If x1 x2 x3) =
+     If (remove_ticks_sing x1)
+        (remove_ticks_sing x2)
+        (remove_ticks_sing x3)) /\
+  (remove_ticks_sing (Let xs x2) =
+     Let (remove_ticks_list xs) (remove_ticks_sing x2)) /\
+  (remove_ticks_sing (Raise x1) =
+     Raise (remove_ticks_sing x1)) /\
+  (remove_ticks_sing (Handle x1 x2) =
+     Handle (remove_ticks_sing x1)
+            (remove_ticks_sing x2)) /\
+  (remove_ticks_sing (Op op xs) =
+     Op op (remove_ticks_list xs)) /\
+  (remove_ticks_sing (Tick x) = remove_ticks_sing x) /\
+  (remove_ticks_sing (Call ticks dest xs) =
+     Call 0 dest (remove_ticks_list xs)) /\
+  (remove_ticks_list [] = []) /\
+  (remove_ticks_list (x::xs) =
+     (remove_ticks_sing x) :: remove_ticks_list xs)
+End
+
+Theorem remove_ticks_sing:
+  (∀e. remove_ticks [e] = [remove_ticks_sing e]) ∧
+  (∀es. remove_ticks_list es = remove_ticks es)
+Proof
+  Induct \\ gvs [remove_ticks_sing_def,remove_ticks_def] \\ rw []
+  \\ Cases_on ‘es’ \\ gvs [remove_ticks_sing_def,remove_ticks_def]
+QED
 
 Theorem LENGTH_remove_ticks[simp]:
    !xs. LENGTH (remove_ticks xs) = LENGTH xs
@@ -168,16 +328,18 @@ QED
 
 (* let_op -- a function that optimises Let [...] (Op op [Var ...]) *)
 
-val var_list_def = Define `
+Definition var_list_def:
   var_list n [] [] = T /\
   var_list n (bvl$Var m :: xs) (y::ys) = (m = n /\ var_list (n+1) xs ys) /\
-  var_list _ _ _ = F`
+  var_list _ _ _ = F
+End
 
-val dest_op_def = Define `
+Definition dest_op_def:
   dest_op (bvl$Op op xs) args = (if var_list 0 xs args then SOME op else NONE) /\
-  dest_op _ _ = NONE`
+  dest_op _ _ = NONE
+End
 
-val let_op_def = tDefine "let_op" `
+Definition let_op_def:
   (let_op [] = []) /\
   (let_op ((x:bvl$exp)::y::xs) =
      HD (let_op [x]) :: let_op (y::xs)) /\
@@ -200,27 +362,72 @@ val let_op_def = tDefine "let_op" `
   (let_op [Op op xs] =
      [Op op (let_op xs)]) /\
   (let_op [Tick x] = [Tick (HD (let_op [x]))]) /\
-  (let_op [Call ticks dest xs] = [Call ticks dest (let_op xs)])`
-  (WF_REL_TAC `measure exp1_size`);
+  (let_op [Call ticks dest xs] = [Call ticks dest (let_op xs)])
+Termination
+  WF_REL_TAC `measure exp1_size`
+End
 
-val let_op_sing_def = Define `
+Definition let_op_one_def:
+  (let_op_one (Var v) = Var v) /\
+  (let_op_one (If x1 x2 x3) =
+     If (let_op_one x1)
+        (let_op_one x2)
+        (let_op_one x3)) /\
+  (let_op_one (Let xs x2) =
+     let xs = let_op_list xs in
+     let x2 = let_op_one x2 in
+       case dest_op x2 xs of
+       | SOME op => Op op xs
+       | NONE => Let xs x2) /\
+  (let_op_one (Raise x1) =
+     Raise (let_op_one x1)) /\
+  (let_op_one (Handle x1 x2) =
+     Handle (let_op_one x1)
+            (let_op_one x2)) /\
+  (let_op_one (Op op xs) =
+     Op op (let_op_list xs)) /\
+  (let_op_one (Tick x) = Tick (let_op_one x)) /\
+  (let_op_one (Call ticks dest xs) = Call ticks dest (let_op_list xs)) /\
+  (let_op_list [] = []) /\
+  (let_op_list ((x:bvl$exp)::xs) =
+     (let_op_one x) :: let_op_list xs)
+End
+
+Theorem let_op_one:
+  (∀e. let_op [e] = [let_op_one e]) ∧
+  (∀es. let_op_list es = let_op es)
+Proof
+  Induct \\ gvs [let_op_one_def,let_op_def] \\ rw []
+  \\ every_case_tac \\ gvs []
+  \\ Cases_on ‘es’ \\ gvs [let_op_one_def,let_op_def]
+QED
+
+Definition let_op_sing_def:
   let_op_sing x =
     case let_op [x] of
     | (y::ys) => y
-    | _ => Op (Const 0) []`;
+    | _ => Op (Const 0) []
+End
 
-val optimise_def = Define `
+Theorem let_op_sing_eq = let_op_sing_def |> SRULE [let_op_one];
+
+Definition optimise_def:
   optimise split_seq cut_size (name,arity, exp) =
     (name,arity,bvl_handle$compile_any split_seq cut_size arity
-                  (let_op_sing (HD (remove_ticks [exp]))))`;
+                  (let_op_sing (HD (remove_ticks [exp]))))
+End
 
-val compile_inc_def = Define `
+Theorem optimise_eq = optimise_def |> SRULE [remove_ticks_sing];
+
+Definition compile_inc_def:
   compile_inc limit split_seq cut_size cs prog =
     let (cs,prog1) = tick_compile_prog limit cs prog in
-      (cs, MAP (optimise split_seq cut_size) prog1)`
+      (cs, MAP (optimise split_seq cut_size) prog1)
+End
 
-val compile_prog_def = Define `
+Definition compile_prog_def:
   compile_prog limit split_seq cut_size prog =
-    compile_inc limit split_seq cut_size LN prog`
+    compile_inc limit split_seq cut_size LN prog
+End
 
 val _ = export_theory();
