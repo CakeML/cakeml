@@ -528,6 +528,77 @@ val scan_expr_def = tDefine "scan_expr" `
             [(ts, Any, F, NONE)])`
     (WF_REL_TAC `measure (exp2_size o SND o SND)`);
 
+
+Definition scan_expr_sing_def:
+  (scan_expr_sing ts loc (Var n) =
+    let ty = if n < LENGTH ts then EL n ts else Any in
+      (ts, ty, F, NONE)) ∧
+  (scan_expr_sing ts loc (If xi xt xe) =
+    let (ti, tyi, _, oi) = scan_expr_sing ts loc xi in
+    let (tt, ty1, _, ot) = scan_expr_sing ti loc xt in
+    let (te, ty2, _, oe) = scan_expr_sing ti loc xe in
+    let op = dtcase ot of NONE => oe | _ => ot in
+    let ty = dtcase op of
+               NONE => decide_ty ty1 ty2
+             | SOME opr => decide_ty ty1 (decide_ty ty2 (op_type opr)) in
+      (MAP2 decide_ty tt te, ty, IS_SOME oe, op)) ∧
+  (scan_expr_sing ts loc (Let xs x) =
+    let ys = scan_expr_list ts loc xs in
+    let tt = MAP (FST o SND) ys in
+    let tr = (dtcase LAST1 ys of SOME c => FST c | NONE => ts) in
+    let (tu, ty, _, op) = scan_expr_sing (tt ++ tr) loc x in
+      (DROP (LENGTH ys) tu, ty, F, op)) ∧
+  (scan_expr_sing ts loc (Raise x) = (ts, Any, F, NONE)) ∧
+  (scan_expr_sing ts loc (Tick x) = scan_expr_sing ts loc x) ∧
+  (scan_expr_sing ts loc (Call t d xs h) = (ts, Any, F, NONE)) ∧
+  (scan_expr_sing ts loc (Op op xs) =
+    let opr = from_op op in
+    let opt = op_type opr in
+      dtcase opr of
+        Noop => (* Constants? *)
+          if arg_ty op = Int then
+            dtcase get_bin_args (Op op xs) of
+              NONE =>
+                if is_const op then
+                  (ts, Int, F, NONE)
+                else
+                  (ts, Any, F, NONE)
+            | SOME (x, y) =>
+                if ~is_const op then
+                  (update_context Int ts x y, Any, F, NONE)
+                else
+                  (ts, Any, F, NONE)
+          else if op = Cons 0 /\ xs = [] then (* list nil *)
+            (ts, List, F, NONE)
+          else
+            (ts, Any, F, NONE)
+      | _ => (* Things we can optimize *)
+          if IS_SOME (check_op ts opr loc (Op op xs)) then
+            (ts, opt, F, SOME opr)
+          else if term_ok ts opt (Op op xs) then
+            dtcase get_bin_args (Op op xs) of
+              NONE => (ts, Any, F, NONE)
+            | SOME (x, y) =>
+                (update_context opt ts x y, opt, F, NONE)
+          else
+            (ts, Any, F, NONE)) ∧
+
+  (scan_expr_list ts loc [] = []) ∧
+  (scan_expr_list ts loc (x::xs) =
+    let (tx, ty, r, op) = scan_expr_sing ts loc x in
+      (tx, ty, r, op)::scan_expr_list tx loc xs)
+End
+
+Theorem scan_expr_eq:
+  (∀e ts loc. scan_expr ts loc [e] = [scan_expr_sing ts loc e]) ∧
+  (∀es ts loc. scan_expr ts loc es = scan_expr_list ts loc es)
+Proof
+  Induct >> rw[] >> gvs[scan_expr_def, scan_expr_sing_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  rpt (TOP_CASE_TAC >> gvs[]) >>
+  Cases_on `es` >> simp[Once scan_expr_def, scan_expr_sing_def]
+QED
+
 val push_call_def = Define `
   (push_call n op acc exp (SOME (ticks, dest, args, handler)) =
     Call ticks (SOME n) (args ++ [apply_op op (Var acc) exp]) handler) ∧
@@ -592,6 +663,10 @@ Proof
   \\ recInduct (theorem "rewrite_ind") \\ rw [rewrite_def]
 QED
 
+
+Theorem rewrite_eq = rewrite_def |> SRULE [scan_expr_eq];
+
+
 (* --- Top-level expression check --- *)
 
 val has_rec_def = tDefine "has_rec" `
@@ -611,6 +686,35 @@ val has_rec_def = tDefine "has_rec" `
   (WF_REL_TAC `measure (exp2_size o SND)`);
 
 val has_rec1_def = Define `has_rec1 loc x = has_rec loc [x]`;
+
+Definition has_rec_sing_def:
+  (has_rec_sing loc (If x1 x2 x3) =
+    if has_rec_sing loc x2 then T
+    else has_rec_sing loc x3) /\
+  (has_rec_sing loc (Let xs x) = has_rec_sing loc x) /\
+  (has_rec_sing loc (Tick x) = has_rec_sing loc x) /\
+  (has_rec_sing loc (Op op xs) =
+    if EXISTS (is_rec loc) xs then T
+    else has_rec_list loc xs) /\
+  (has_rec_sing loc x = F) ∧
+
+  (has_rec_list loc [] = F) /\
+  (has_rec_list loc (x::xs) =
+    if has_rec_sing loc x then T
+    else has_rec_list loc xs)
+Termination
+  WF_REL_TAC `measure (λx. case x of INL (_,e) => exp_size e
+                                   | INR (_,es) => list_size exp_size es)` >>
+  simp[bviTheory.exp_size_def, listTheory.list_size_def, bviTheory.exp_size_eq]
+End
+
+Theorem has_rec_eq:
+  (∀e loc. has_rec loc [e] = has_rec_sing loc e) ∧
+  (∀es loc. has_rec loc es = has_rec_list loc es)
+Proof
+  Induct >> rw[has_rec_def, has_rec_sing_def] >>
+  Cases_on `es` >> gvs[has_rec_def]
+QED
 
 val test1_tm = ``Let [] (Call 0 (SOME 0) [] NONE)``
 Theorem has_rec_test1:
@@ -637,6 +741,9 @@ val check_exp_def = Define `
               NONE => NONE
             | SOME op =>
                 if ty <> op_type op then NONE else opr`;
+
+Theorem check_exp_eq = check_exp_def |>
+                       SRULE [scan_expr_eq, has_rec1_def, has_rec_eq];
 
 val let_wrap_def = Define `
   let_wrap arity id exp =
