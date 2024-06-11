@@ -29,7 +29,11 @@ val startup' =
        "     .globl  cdecl(cml_heap)";
        "     .globl  cdecl(cml_stack)";
        "     .globl  cdecl(cml_stackend)";
-       "#ifndef __APPLE__";
+       "#if defined(__APPLE__)";
+       "";
+       "#elif defined(__WIN32)";
+       "     .func   cml_main";
+       "#else";
        "     .type   cml_main, function";
        "#endif";
        "cdecl(cml_main):";
@@ -53,7 +57,10 @@ val startup' =
          ["     jmp     cml_enter"]
        else
          ["     jmp     cake_main"]) ++
-      [""]))``
+      ["";
+       "#if defined(__WIN32)";
+       "     .endfunc";
+       "#endif"]))``
 
 val (startup_true, startup_false) =
     (``^startup' T`` |> EVAL |> concl |> rand,
@@ -130,16 +137,21 @@ val windows_ffi_code' =
     SmartAppend
      (windows_ffi_asm (REVERSE ffi_names))
      (List (MAP (\n. strlit(n ++ "\n"))
-      (["windows_cml_exit:";
-       "     movq    %rcx, %r9";
-       "     movq    %rdx, %r8";
-       "     movq    %rsi, %rdx";
-       "     movq    %rdi, %rcx";
-      (if ret then
-         "     jmp     cake_return"
+      (["windows_cml_clear:";
+         "     movq    %rcx, %r9";
+         "     movq    %rdx, %r8";
+         "     movq    %rsi, %rdx";
+         "     movq    %rdi, %rcx";
+         "     jmp     cdecl(cml_clear)"] ++
+       (if ret then (* don't need to treat cake_exit as a function *)
+        []
        else
-         "     callq   cdecl(cml_exit)");
-       ""]))))``;
+        ["windows_cml_exit:";
+         "     movq    %rcx, %r9";
+         "     movq    %rdx, %r8";
+         "     movq    %rsi, %rdx";
+         "     movq    %rdi, %rcx";
+         "     callq   cdecl(cml_exit)"])))))``;
 
 val (windows_ffi_code_true,windows_ffi_code_false) =
     (``^windows_ffi_code' T`` |> EVAL |> concl |> rand,
@@ -158,7 +170,7 @@ val entry_point_code =
      "     movq    %r15, -0x20(%rbp)";
      "     movq    %rbx, -0x28(%rbp)";
      "     jmp     cake_main";
-     ""; "";
+     "";
      "cml_return:";
      "     movq    $1, can_enter(%rip)";
      "     movq    %r14, ret_base(%rip)";
@@ -172,7 +184,13 @@ val entry_point_code =
      "     leave";
      "     ret";
      "     .p2align 4";
-     ""; "";
+     "";
+     "windows_cake_enter:";
+     "     movq    %rcx, %rdi";
+     "     movq    %rdx, %rsi";
+     "     movq    %r8, %rdx";
+     "     movq    %r9, %rcx";
+     "";
      "cake_enter:";
      "     pushq   %rbp";
      "     movq    %rsp, %rbp";
@@ -192,7 +210,7 @@ val entry_point_code =
      "     lea     cake_return(%rip), %rax";
      "     jmp     *%r10";
      "     .p2align 4";
-     ""; "";
+     "";
      "cake_return:";
      "     movq    $1, can_enter(%rip)";
      "     mov     %edi, %eax";
@@ -204,30 +222,40 @@ val entry_point_code =
      "     leave";
      "     ret";
      "     .p2align 4";
-     ""; "";
-     "windows_cml_err3:";
+     "";
+     "cake_err3:";
+     "     pushq   %rax";
+     "     movq    $3, %rdi";
+     "     jmp     wcdecl(cml_err)";
+     "     .p2align 4";
+     "";
+     "windows_cml_err:";
      "     movq    %rcx, %r9";
      "     movq    %rdx, %r8";
      "     movq    %rsi, %rdx";
      "     movq    %rdi, %rcx";
-     "cake_err3:";
-     "     movq    $3, %rdi";
-     "     callq   cdecl(cml_err)";
-     "     .p2align 4";
+     "     jmp     cdecl(cml_err)";
      ""]))`` |> EVAL |> concl |> rand;
 
 val export_func_def = Define `
   export_func appl (name,label,start,len) =
     SmartAppend appl (List
     [strlit"\n    .globl cdecl("; name; strlit")\n";
-     strlit"#ifndef __APPLE__\n";
-     strlit"     .type   "; name; strlit", function\n";
+     strlit"#if defined(__APPLE__)\n";
+     strlit"\n";
+     strlit"#elif defined(__WIN32)\n";
+     strlit"     .func   cdecl("; name; strlit")\n";
+     strlit"#else\n";
+     strlit"     .type   cdecl("; name; strlit"), function\n";
      strlit"#endif\n";
      strlit"cdecl("; name; strlit"):\n";
      strlit"     lea     "; name; strlit"_jmp(%rip), %r10\n";
-     strlit"     jmp     cake_enter\n";
+     strlit"     jmp     wcml(cake_enter)\n";
             name; strlit"_jmp:\n";
-     strlit"     jmp     cdecl("; label; strlit")\n"
+     strlit"     jmp     "; label; strlit"\n";
+     strlit"#if defined(__WIN32)\n";
+     strlit"     .endfunc\n";
+     strlit"#endif\n";
     ])`;
 
 val export_funcs_def = Define `

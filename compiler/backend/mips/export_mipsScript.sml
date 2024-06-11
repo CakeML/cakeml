@@ -174,7 +174,7 @@ val export_func_def = Define `
      strlit"     dla     $t0, "; name; strlit"_jmp\n";
      strlit"     j       cake_enter\n";
             name; strlit"_jmp:\n";
-     strlit"     j       cdecl("; label; strlit")\n"
+     strlit"     j       "; label; strlit"\n"
     ])`;
 
 val export_funcs_def = Define `

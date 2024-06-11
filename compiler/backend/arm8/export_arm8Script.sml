@@ -183,7 +183,7 @@ val export_func_def = Define `
      strlit"     _ldrel x10, "; name; strlit"_jmp\n";
      strlit"     b      cake_enter\n";
             name; strlit"_jmp:\n";
-     strlit"     b      cdecl("; label; strlit")\n"
+     strlit"     b      "; label; strlit"\n"
     ])`;
 
 val export_funcs_def = Define `
