@@ -106,6 +106,8 @@ val _ = r |> hyp |> null orelse
 val res = translate all_bytes_eq
 val res = translate byte_to_string_eq
 val res = translate escape_sym_char_def
+val res = translate get_sym_label_def
+val res = translate get_sym_labels_def
 val res = translate emit_symbol_def
 val res = translate emit_symbols_def
 
