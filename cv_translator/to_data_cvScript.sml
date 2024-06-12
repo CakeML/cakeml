@@ -1926,6 +1926,16 @@ val _ = cv_trans $ GSYM free_eq_free
 
 (* clos_annotate *)
 
+(* TODO *)
+
+Theorem clos_to_bvl_compile_common:
+  clos_to_bvl$compile_common c es = (c,[])
+Proof
+  cheat
+QED
+
+val _ = cv_trans clos_to_bvl_compile_common;
+
 (* bvl_jump *)
 
 Theorem cv_LENGTH_right_depth:
@@ -2005,7 +2015,7 @@ QED
 
 val _ = cv_trans clos_to_bvlTheory.recc_Let0_def;
 
-val pre = cv_trans_pre clos_to_bvlTheory.build_recc_lets_def;
+val pre = cv_auto_trans_pre clos_to_bvlTheory.build_recc_lets_def;
 Theorem clos_to_bvl_build_recc_lets_pre[cv_pre]:
   ∀nargs vs n1 fns_l c3.
     clos_to_bvl_build_recc_lets_pre nargs vs n1 fns_l c3
@@ -2066,20 +2076,166 @@ Proof
   \\ rpt strip_tac \\ simp [Once pre]
 QED
 
-(* TODO: rest of clos_to_bvl functions
-clos_to_bvlTheory.compile_common_def
-clos_to_bvlTheory.compile_def
-backend_asmTheory.to_bvl_def
-*)
+val _ = cv_auto_trans clos_to_bvlTheory.compile_def;
+
+(* to_bvl *)
+
+val _ = cv_auto_trans backend_asmTheory.to_bvl_def;
 
 (* bvl_const *)
 
+Definition mk_add_const_def:
+  mk_add_const = λx1 c2.
+            if c2 = 0 then x1 else Op Add [x1; Op (Const c2) []]
+End
+
+Definition mk_add_def:
+  mk_add = λx1 x2.
+  (let
+     default = Op Add [x1; x2]
+   in
+     case dest_simple x2 of
+       NONE =>
+         (case case_op_const x1 of
+            NONE => default
+          | SOME v5 =>
+            case case_op_const x2 of
+              NONE => default
+            | SOME (op2,x21,n22) =>
+              case v5 of
+                (op1,x11,n12) =>
+                  if op1 = Add ∧ op2 = Add then
+                    mk_add_const (Op Add [x11; x21]) (n22 + n12)
+                  else if op1 = Add ∧ op2 = Sub then
+                    Op Sub
+                      [Op Sub [x11; x21];
+                       Op (Const (n22 + n12)) []]
+                  else if op1 = Sub ∧ op2 = Add then
+                    mk_add_const (Op Sub [x11; x21]) (n22 + n12)
+                  else default)
+     | SOME n2 =>
+       case case_op_const x1 of
+         NONE =>
+           (case dest_simple x1 of
+              NONE => mk_add_const x1 n2
+            | SOME n1 => Op (Const (n2 + n1)) [])
+       | SOME (Add,x11,n12) => mk_add_const x11 (n2 + n12)
+       | SOME (Sub,x11,n12) =>
+         Op Sub [x11; Op (Const (n2 + n12)) []]
+       | SOME (op,x11,n12) => default)
+End
+
+Definition mk_sub_def:
+  mk_sub = λx1 x2.
+  (let
+     default = Op Sub [x1; x2]
+   in
+     case dest_simple x2 of
+       NONE =>
+         (case case_op_const x1 of
+            NONE => default
+          | SOME v5 =>
+            case case_op_const x2 of
+              NONE => default
+            | SOME (op2,x21,n22) =>
+              case v5 of
+                (op1,x11,n12) =>
+                  if op1 = Add ∧ op2 = Add then
+                    Op Add
+                      [Op Sub [x11; x21];
+                       Op (Const (n22 − n12)) []]
+                  else if op1 = Add ∧ op2 = Sub then
+                    Op Sub
+                      [Op Add [x11; x21];
+                       Op (Const (n22 − n12)) []]
+                  else if op1 = Sub ∧ op2 = Add then
+                    mk_add_const (Op Add [x11; x21]) (n22 − n12)
+                  else default)
+     | SOME n2 =>
+       case case_op_const x1 of
+         NONE =>
+           (case dest_simple x1 of
+              NONE => default
+            | SOME n1 => Op (Const (n2 − n1)) [])
+       | SOME (Add,x11,n12) =>
+         Op Sub [x11; Op (Const (n2 − n12)) []]
+       | SOME (Sub,x11,n12) => mk_add_const x11 (n2 − n12)
+       | SOME (op,x11,n12) => default)
+End
+
+Definition mk_mul_def:
+  mk_mul = λx1 x2.
+  (let
+     default = Op Mult [x1; x2]
+   in
+     case dest_simple x2 of
+       NONE =>
+         (case case_op_const x1 of
+            NONE => default
+          | SOME v5 =>
+            case case_op_const x2 of
+              NONE => default
+            | SOME (op2,x21,n22) =>
+              case v5 of
+                (op1,x11,n12) =>
+                  if op1 = Mult ∧ op2 = Mult then
+                    Op Mult
+                      [Op (Const (n22 * n12)) [];
+                       Op Mult [x11; x21]]
+                  else default)
+     | SOME n2 =>
+       case case_op_const x1 of
+         NONE =>
+           (case dest_simple x1 of
+              NONE =>
+                if n2 = 1 then x1
+                else if n2 = -1 then
+                  (let
+                     default = Op Sub [x1; Op (Const 0) []]
+                   in
+                     case case_op_const x1 of
+                       NONE =>
+                         (case dest_simple x1 of
+                            NONE => default
+                          | SOME n1 => Op (Const (-n1)) [])
+                     | SOME (Add,x11,n12) =>
+                       Op Sub [x11; Op (Const (-n12)) []]
+                     | SOME (Sub,x11,n12) =>
+                       mk_add_const x11 (-n12)
+                     | SOME (op,x11,n12) => default)
+                else default
+            | SOME n1 => Op (Const (n2 * n1)) [])
+       | SOME (Mult,x11,n12) =>
+         Op Mult [x11; Op (Const (n2 * n12)) []]
+       | SOME (op,x11,n12) => default)
+End
+
+Theorem SmartOp2_eq = bvl_constTheory.SmartOp2_def
+  |> SRULE [GSYM mk_add_const_def]
+  |> SRULE [Once LET_THM]
+  |> SRULE [GSYM mk_add_def]
+  |> SRULE [Once LET_THM]
+  |> SRULE [GSYM mk_sub_def]
+  |> SRULE [Once LET_THM]
+  |> SRULE [GSYM mk_mul_def]
+  |> SRULE [Once LET_THM];
+
 val _ = cv_auto_trans bvl_constTheory.dest_simple_def;
-(* TODO: rest of bvl_const functions
-val pre = cv_auto_trans_pre bvl_constTheory.SmartOp2_def; (* HO functions *)
+val _ = cv_trans (mk_add_const_def |> SRULE [FUN_EQ_THM]);
+val _ = cv_trans (mk_add_def |> SRULE [FUN_EQ_THM]);
+val _ = cv_trans (mk_sub_def |> SRULE [FUN_EQ_THM]);
+val _ = cv_trans (mk_mul_def |> SRULE [FUN_EQ_THM]);
+val _ = cv_auto_trans SmartOp2_eq;
+
 val pre = cv_auto_trans_pre bvl_constTheory.compile_sing_def;
+Theorem bvl_const_compile_sing_pre[cv_pre]:
+  (∀v env. bvl_const_compile_sing_pre env v) ∧
+  (∀v env. bvl_const_compile_list_pre env v)
+Proof
+  Induct \\ rpt strip_tac \\ simp [Once pre]
+QED
+
 val _ = cv_trans bvl_constTheory.compile_exp_eq;
-*)
 
 (* bvl_handle *)
 
@@ -2095,12 +2251,55 @@ Proof
   Induct \\ rpt strip_tac \\ simp [Once pre]
 QED
 
-(* TODO: rest of bvl_handle functions
-bvl_handleTheory.handle_simp_def
-bvl_handleTheory.compile_exp_eq
-bvl_handleTheory.compile_seqs_def
-bvl_handleTheory.compile_any_def
-*)
+val _ = cv_auto_trans bvl_handleTheory.can_raise_def;
+val _ = cv_trans bvl_handleTheory.dest_handle_If_def;
+val _ = cv_trans bvl_handleTheory.dest_handle_Let_def;
+
+val pre = cv_auto_trans_pre bvl_handleTheory.handle_adj_vars_def;
+Theorem bvl_handle_handle_adj_vars_pre[cv_pre]:
+  (∀v l d. bvl_handle_handle_adj_vars_pre l d v) ∧
+  (∀v l d. bvl_handle_handle_adj_vars1_pre l d v)
+Proof
+  Induct \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val pre = cv_auto_trans_pre_rec bvl_handleTheory.handle_simp_def
+  (WF_REL_TAC ‘measure $ λx. case x of
+                             | INL e => cv_size e
+                             | INR (INL e) => cv_size e
+                             | INR (INR (e1,e2,_)) => cv_size e1 + cv_size e2 + 1’
+   \\ cv_termination_tac
+   \\ TRY (Cases_on ‘z’ \\ gvs [] \\ NO_TAC)
+   \\ gvs [fetch "-" "cv_bvl_handle_dest_handle_If_def",AllCaseEqs()]
+   \\ gvs [fetch "-" "cv_bvl_handle_dest_handle_Let_def",AllCaseEqs()]
+   \\ cv_termination_tac);
+
+Theorem bvl_handle_handle_simp_pre[cv_pre]:
+  (∀v. bvl_handle_handle_simp_pre v) ∧
+  (∀v. bvl_handle_handle_simp_list_pre v) ∧
+  (∀x1 x2 l. bvl_handle_make_handle_pre x1 x2 l)
+Proof
+  ho_match_mp_tac bvl_handleTheory.handle_simp_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val _ = cv_trans bvl_handleTheory.compile_exp_eq;
+val _ = bvl_handleTheory.dest_Seq_def |> CONJUNCT2 |> oneline |> cv_trans;
+
+val pre = cv_auto_trans_pre_rec bvl_handleTheory.compile_seqs_def
+  (WF_REL_TAC ‘measure $ λ(_,e,_). cv_size e’
+   \\ cv_termination_tac
+   \\ gvs [fetch "-" "cv_bvl_handle_dest_Seq_def",AllCaseEqs()]
+   \\ cv_termination_tac);
+
+Theorem bvl_handle_compile_seqs_pre[cv_pre]:
+  ∀cut_size e acc. bvl_handle_compile_seqs_pre cut_size e acc
+Proof
+  ho_match_mp_tac bvl_handleTheory.compile_seqs_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val _ = cv_trans bvl_handleTheory.compile_any_def;
 
 (* bvl_inline *)
 
@@ -2143,6 +2342,8 @@ Proof
   Induct \\ rpt strip_tac \\ simp [Once pre]
 QED
 
+val _ = cv_trans bvl_inlineTheory.let_op_sing_eq;
+
 val pre = cv_auto_trans_pre bvl_inlineTheory.remove_ticks_sing_def;
 Theorem bvl_inline_remove_ticks_sing_pre[cv_pre,local]:
   (∀v. bvl_inline_remove_ticks_sing_pre v) ∧
@@ -2151,11 +2352,9 @@ Proof
   Induct \\ rpt strip_tac \\ simp [Once pre]
 QED
 
-(* TODO: rest of bvl_inline functions:
 val _ = cv_trans bvl_inlineTheory.optimise_eq;
 val _ = cv_auto_trans bvl_inlineTheory.compile_inc_def;
 val _ = cv_trans bvl_inlineTheory.compile_prog_def;
-*)
 
 (* bvi_tailrec *)
 
@@ -2190,10 +2389,67 @@ Proof
   \\ gvs [bvi_tailrecTheory.get_bin_args_def]
 QED
 
-(* TODO:
-...
-bvi_tailrecTheory.compile_prog_def
-*)
+val _ = cv_trans bvi_tailrecTheory.get_bin_args_def;
+
+Triviality cv_bvi_tailrec_get_bin_args_lemma:
+  cv_bvi_tailrec_get_bin_args (Pair t v) = Pair x (Pair y z) ⇒
+  cv_size y ≤ cv_size v ∧
+  cv_size z ≤ cv_size v
+Proof
+  gvs [fetch "-" "cv_bvi_tailrec_get_bin_args_def",AllCaseEqs()]
+  \\ cv_termination_tac
+QED
+
+val pre = cv_auto_trans_pre_rec bvi_tailrecTheory.term_ok_any_def
+  (WF_REL_TAC ‘measure $ λ(_,_,e). cv_size e’
+   \\ cv_termination_tac
+   \\ Cases_on ‘z’ \\ gvs []
+   \\ imp_res_tac cv_bvi_tailrec_get_bin_args_lemma
+   \\ gvs []);
+
+Theorem bvi_tailrec_term_ok_any_pre[cv_pre]:
+  ∀ts list v. bvi_tailrec_term_ok_any_pre ts list v
+Proof
+  ho_match_mp_tac bvi_tailrecTheory.term_ok_any_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+  \\ rpt strip_tac \\ gvs []
+QED
+
+val pre = cv_auto_trans_pre bvi_tailrecTheory.scan_expr_sing_def;
+Theorem bvi_tailrec_scan_expr_sing_pre[cv_pre]:
+  (∀v ts loc. bvi_tailrec_scan_expr_sing_pre ts loc v) ∧
+  (∀v ts loc. bvi_tailrec_scan_expr_list_pre ts loc v)
+Proof
+  Induct \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val pre = cv_auto_trans_pre bvi_tailrecTheory.rewrite_eq;
+Theorem bvi_tailrec_rewrite_pre[cv_pre]:
+  ∀loc next opr acc ts v. bvi_tailrec_rewrite_pre loc next opr acc ts v
+Proof
+  ho_match_mp_tac bvi_tailrecTheory.rewrite_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+  \\ rpt strip_tac \\ gvs [bvi_tailrecTheory.scan_expr_eq]
+QED
+
+val pre = cv_auto_trans_pre bvi_tailrecTheory.has_rec_sing_def;
+Theorem bvi_tailrec_has_rec_sing_pre[cv_pre]:
+  (∀v loc. bvi_tailrec_has_rec_sing_pre loc v) ∧
+  (∀v loc. bvi_tailrec_has_rec_list_pre loc v)
+Proof
+  Induct \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans bvi_tailrecTheory.check_exp_eq;
+val _ = cv_auto_trans bvi_tailrecTheory.compile_exp_def;
+
+val pre = cv_auto_trans_pre bvi_tailrecTheory.compile_prog_def;
+Theorem bvi_tailrec_compile_prog_pre[cv_pre]:
+  ∀next v. bvi_tailrec_compile_prog_pre next v
+Proof
+  ho_match_mp_tac bvi_tailrecTheory.compile_prog_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
 
 (* bvi_let *)
 
@@ -2209,7 +2465,7 @@ Proof
   Induct \\ simp [Once cv_FRONT_def] \\ rw []
 QED
 
-val pre = cv_trans_pre_rec bvi_letTheory.compile_sing_def
+val pre = cv_auto_trans_pre_rec bvi_letTheory.compile_sing_def
   (WF_REL_TAC ‘measure $ λx. case x of
                              | INL (_,_,e) => cv_size e
                              | INR (_,_,e) => cv_size e’
@@ -2291,20 +2547,11 @@ Proof
 QED
 
 val _ = cv_auto_trans bvl_to_bviTheory.compile_prog_eq;
-
-(* TODO:
-bvl_to_bviTheory.compile_def
-*)
+val _ = cv_auto_trans bvl_to_bviTheory.compile_def;
 
 (* to_bvi *)
 
-Theorem to_bvi_fake:
-  backend_asm$to_bvi c p = (c,[(InitGlobals_location,0,Var 0)],LN)
-Proof
-  cheat
-QED
-
-val _ = cv_auto_trans to_bvi_fake;
+val _ = cv_auto_trans backend_asmTheory.to_bvi_def;
 
 (* to_data *)
 
