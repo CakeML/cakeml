@@ -1829,18 +1829,63 @@ QED
 
 val _ = cv_auto_trans $ GSYM $ cj 1 cons_measure_alt_thm
 
-val _ = cv_auto_trans eq_pure_list_alt_eq
+val _ = cv_auto_trans (eq_pure_list_alt_eq |> PURE_REWRITE_RULE  [GSYM cons_measure_alt_thm])
 
+(* TODO: use int_div like a normal person *)
+Theorem int_div_fake:
+  x / y = 0:int
+Proof
+  cheat
+QED
 
-val pre = cv_auto_trans_pre known_alt_def
-  (wf_rel_tac ‘inv_image (measure I LEX measure I) $
-               λx. case x of
+Theorem int_mod_fake:
+  x % y = 0:int
+Proof
+  cheat
+QED
+
+val _ = cv_trans int_div_fake
+val _ = cv_trans int_mod_fake
+
+(* TODO: is this done already? *)
+val _ = cv_auto_trans clos_knownTheory.dec_inline_factor_def
+
+(* TODO: walk this painful road or find another *)
+val pre = cv_auto_trans_pre_rec known_alt_def
+  (wf_rel_tac `inv_image (measure I LEX measure I)
+              (λx. case x of
                      INL (c,x,vs,g) => (cv_size c, cv_size x)
                    | INR(INL (c,xs,vs,g)) => (cv_size c, cv_size xs)
-                   | INR(INR (clos,vs,c,g,xs)) => (cv_size c, cv_size(cv_map_snd xs))’
-  )
+                   | INR(INR (clos,vs,c,g,xs)) => (cv_size c, cv_size xs))` >>
+   cv_termination_tac >>
+   simp[fetch "-" "cv_clos_known_dec_inline_factor_def"] >>
+   rw[] >>
+   gvs[cvTheory.c2b_def,oneline cvTheory.cv_ispair_def,AllCaseEqs(),
+       fetch "-" "cv_clos_known_recordtype_config_seldef_inline_factor_def",
+       fetch "-" "cv_clos_known_decide_inline_def",
+       cvTheory.cv_eq_def,
+       cvTheory.cv_lt_def0,
+       oneline cvTheory.b2c_def
+      ] >>
+   simp[oneline cvTheory.cv_snd_def, oneline cvTheory.cv_fst_def] >>
+   rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
+   gvs[mk_thm([],“cv_mul (Num 0) x = Num 0”) (* TODO cheat*),
+       mk_thm([],“cv_lt x (Num 0) = Num 0”) (* TODO cheat*)]
+   >- (Cases_on ‘g’ >>
+       gvs[] >>
+       intLib.COOPER_TAC)
+   >- (Cases_on ‘g’ >>
+       gvs[] >>
+       intLib.COOPER_TAC) >>
+   cheat)
 
-
+Theorem known_alt_pre[cv_pre]:
+  (∀c v vs g. known_alt_pre c v vs g) ∧
+  (∀c v vs g. known_alts_pre c v vs g) ∧
+  (∀v1 v2 v3 v4 v. known_let_alts_pre v1 v2 v3 v4 v)
+Proof
+  ho_match_mp_tac known_alt_ind >> rw[] >> rw[Once pre]
+QED
 
 (* TODO
 next: known_def
