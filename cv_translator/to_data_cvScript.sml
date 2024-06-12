@@ -1507,12 +1507,375 @@ val _ = cv_trans clos_knownTheory.mk_Ticks_def
 
 val _ = cv_auto_trans clos_knownTheory.decide_inline_def
 
+Definition pure_alt_def:
+  (pure_alt (Var _ _) ⇔ T)
+    ∧
+  (pure_alt (If _ e1 e2 e3) ⇔ pure_alt e1 ∧ pure_alt e2 ∧ pure_alt e3)
+    ∧
+  (pure_alt (Let _ es e2) ⇔ pure_alts es ∧ pure_alt e2)
+    ∧
+  (pure_alt (Raise _ _) ⇔ F)
+    ∧
+  (pure_alt (Handle _ e1 e2) ⇔ pure_alt e1)
+    ∧
+  (pure_alt (Tick _ _) ⇔ F)
+    ∧
+  (pure_alt (Call _ _ _ _) ⇔ F)
+    ∧
+  (pure_alt (App _ _ _ _) ⇔ F)
+    ∧
+  (pure_alt (Fn _ _ _ _ _) ⇔ T)
+    ∧
+  (pure_alt (Letrec _ _ _ _ x) ⇔ pure_alt x)
+    ∧
+  (pure_alt (Op _ opn es) ⇔ pure_alts es ∧ pure_op opn)
+    ∧
+  (pure_alts [] = T)
+    ∧
+  (pure_alts (x::xs) ⇔ pure_alt x ∧ pure_alts xs)
+End
+
+val pre = cv_auto_trans_pre pure_alt_def
+
+Theorem pure_alt_pre[cv_pre]:
+  (∀v. pure_alt_pre v) ∧
+  (∀v. pure_alts_pre v)
+Proof
+  Induct >>
+  rw[] >> rw[Once pre]
+QED
+
+Theorem pure_alt_thm:
+  (∀v. pure_alt v = pure v) ∧
+  (∀v. pure_alts v = EVERY pure v)
+Proof
+  Induct >> rw[pure_alt_def,closLangTheory.pure_def] >>
+  metis_tac[]
+QED
+
+val _ = cv_trans $ GSYM $ cj 1 pure_alt_thm
+
+Definition known_alt_def:
+  (known_alt c (Var t v) vs g =
+     (((Var t v,any_el v vs Other)),g)) /\
+  (known_alt c (If t x1 x2 x3) vs g =
+     let (ea1,g) = known_alt c (x1) vs g in
+     let (ea2,g) = known_alt c (x2) vs g in
+     let (ea3,g) = known_alt c (x3) vs g in
+     let (e1,a1) = ea1 in
+     let (e2,a2) = ea2 in
+     let (e3,a3) = ea3 in
+       (((If t e1 e2 e3), merge a2 a3),g)) /\
+  (known_alt c (Let t xs x2) vs g =
+     let (ea1,g) = known_alts c xs vs g in
+     let (ea2,g) = known_alt c (x2) (MAP SND ea1 ++ vs) g in
+     let (e2,a2) = ea2 in
+       (((Let t (MAP FST ea1) e2, a2)),g)) /\
+  (known_alt c (Raise t x1) vs g =
+     let (ea1,g) = known_alt c (x1) vs g in
+     let (e1,a1) = ea1 in
+       (((Raise t e1,Impossible)),g)) /\
+  (known_alt c (Tick t x1) vs g =
+     let (ea1,g) = known_alt c (x1) vs g in
+     let (e1,a1) = ea1 in
+       (((Tick t e1,a1)),g)) /\
+  (known_alt c (Handle t x1 x2) vs g =
+     let (ea1,g) = known_alt c (x1) vs g in
+     let (ea2,g) = known_alt c (x2) (Other::vs) g in
+     let (e1,a1) = ea1 in
+     let (e2,a2) = ea2 in
+       (((Handle t e1 e2,merge a1 a2)),g)) /\
+  (known_alt c (Call t ticks dest xs) vs g =
+     let (ea1,g) = known_alts c xs vs g in
+       (((Call t ticks dest (MAP FST ea1),Other)),g)) /\
+  (known_alt c (Op t op xs) vs g =
+     let (ea1,g) = known_alts c xs vs g in
+     let (a,g) = known_op op (REVERSE (MAP SND ea1)) g in
+     let e =
+         (if isGlobal op then
+           case gO_destApx a of
+             | gO_None => SmartOp t op (MAP FST ea1)
+             | gO_Int i => Op t (Const i) (MAP FST ea1)
+             | gO_NullTuple tag => Op t (Cons tag) (MAP FST ea1)
+          else SmartOp t op (MAP FST ea1))
+     in
+       (((e,a)),g)) /\
+  (known_alt c (App t loc_opt x xs) vs g =
+     let (ea2,g) = known_alts c xs vs g in
+     let (ea1,g) = known_alt c (x) vs g in
+     let (e1,a1) = ea1
+     in
+       case decide_inline c a1 loc_opt (LENGTH xs) of
+         | inlD_Nothing => (((App t loc_opt e1 (MAP FST ea2), Other)), g)
+         | inlD_Annotate new_loc => (((App t (SOME new_loc) e1 (MAP FST ea2), Other)), g)
+         | inlD_LetInline body =>
+             let (eabody,_) = known_alt (dec_inline_factor c) (body) (MAP SND ea2) g in
+             let (ebody, abody) = eabody in
+               if pure x then
+                 (* We don't have to evaluate x *)
+                 (((Let (t§0) (MAP FST ea2)
+                              (mk_Ticks t 1 (LENGTH xs) ebody), abody)), g)
+               else
+                 (* We need to evaluate x for its side-effects,
+                    but we must do so after evaluating the args. *)
+                 (((Let (t§0) (SNOC e1 (MAP FST ea2))
+                              (mk_Ticks t 1 (LENGTH xs) ebody), abody)), g)) /\
+  (known_alt c (Fn t loc_opt ws_opt num_args x1) vs g =
+     let (ea1,g) = known_alt c (x1) (REPLICATE num_args Other ++ vs) g in
+     let (body,a1) = ea1 in
+       (((Fn t loc_opt NONE num_args body,
+          case loc_opt of
+            | SOME loc => clos_approx c.inline_max_body_size loc num_args x1
+            | NONE => Other)), g)) /\
+  (known_alt c (Letrec t loc_opt _ fns x1) vs g =
+     let clos = case loc_opt of
+                   NONE => REPLICATE (LENGTH fns) Other
+                |  SOME loc => clos_gen_noinline loc 0 fns in
+     (* The following ignores SetGlobal within fns, but it shouldn't
+        appear there, and missing it just means this opt will do less. *)
+     let new_fns = known_let_alts clos vs c g fns in
+     let (ea1,g) = known_alt c (x1) (clos ++ vs) g in
+     let (e1,a1) = ea1 in
+       (((Letrec t loc_opt NONE new_fns e1,a1)),g)) ∧
+  (known_alts c [] vs (g:val_approx spt) = ([],g)) /\
+  (known_alts c ((x:closLang$exp)::xs) vs g =
+     let (eas1,g) = known_alt c (x) vs g in
+     let (eas2,g) = known_alts c (xs) vs g in
+       (eas1::eas2,g)) ∧
+  (known_let_alts _ _ _ _ [] = []) ∧
+  (known_let_alts clos vs c g ((num_args,x)::xs) =
+   let
+     new_vs = REPLICATE num_args Other ++ clos ++ vs;
+     res = known_alt c x new_vs g
+   in
+     (num_args,FST (FST res))::known_let_alts clos vs c g xs)
+Termination
+  wf_rel_tac `inv_image (measure I LEX measure I)
+                        (λx. case x of
+                               INL (c,x,vs,g) => (c.inline_factor, closLang$exp_size x)
+                             | INR(INL (c,xs,vs,g)) => (c.inline_factor, closLang$exp3_size xs)
+                             | INR(INR (clos,vs,c,g,xs)) => (c.inline_factor, closLang$exp1_size xs))`
+  \\ simp [clos_knownTheory.dec_inline_factor_def] \\ rpt strip_tac
+  \\ imp_res_tac clos_knownTheory.decide_inline_LetInline \\ fs []
+End
+
+val pre = cv_auto_trans_pre_rec clos_opTheory.lift_exps_def
+  (fn x =>
+     (wf_rel_tac ‘measure $ λx. cv_size(FST x)’ >>
+      cv_termination_tac >>
+      gvs[fetch "-" "cv_dest_Op_dest_Cons_def",AllCaseEqs(),
+          cvTheory.c2b_def,cvTheory.cv_lt_def0,
+          cvTheory.b2c_if,
+          oneline cvTheory.cv_ispair_def,
+          fetch "-" "cv_clos_op_dest_Cons_def"
+         ] >>
+      gvs[oneline cvTheory.cv_fst_def,
+          oneline cvTheory.cv_snd_def,
+          AllCaseEqs()])
+     x)
+
+Theorem clos_op_lift_exps_pre[cv_pre]:
+  ∀v n binds. clos_op_lift_exps_pre v n binds
+Proof
+  ho_match_mp_tac clos_opTheory.lift_exps_ind >>
+  rw[] >> rw[Once pre]
+QED
+
+Definition eq_pure_list_alt:
+  eq_pure_list_alt (SUC ck) [(x,y)] =
+   (case eq_direct x y of
+    | SOME z => List [z]
+    | NONE =>
+      case dest_Op dest_Cons x, dest_Op dest_Cons y of
+      | (NONE, NONE) => List [Op None Equal [x;y]]
+      | (SOME (t1,xs), SOME (t2,ys)) =>
+           if t1 ≠ t2 ∨ LENGTH xs ≠ LENGTH ys then List [MakeBool F]
+           else eq_pure_list_alt ck (ZIP (REVERSE xs, REVERSE ys))
+      | (SOME (t1,xs), NONE) =>
+           Append (List [Op None (TagLenEq t1 (LENGTH xs)) [y]])
+                  (eq_pure_list_alt ck (MAPi (λi x. (x, Op None (ElemAt i) [y])) (REVERSE xs)))
+      | (NONE, SOME (t1,ys)) => eq_pure_list_alt ck [(y,x)]) ∧
+  eq_pure_list_alt (SUC ck) (xy::xys) = Append (eq_pure_list_alt ck [xy]) (eq_pure_list_alt ck xys) ∧
+  eq_pure_list_alt _ _ = Nil
+End
+
+val _ = cv_auto_trans_pre eq_pure_list_alt
+
+Theorem eq_pure_list_alt_pre[cv_pre]:
+  ∀v0 v. eq_pure_list_alt_pre v0 v
+Proof
+  ho_match_mp_tac eq_pure_list_alt_ind >> rw[] >>
+  rw[Once $ fetch "-" "eq_pure_list_alt_pre_cases"] >>
+  rw[] >>
+  gvs[cv_stdTheory.MAPi_eq_list_mapi]
+QED
+
+Triviality SUM_MAP_const =
+  SUM_MAP_PLUS
+        |> CONV_RULE SWAP_FORALL_CONV
+        |> Q.SPEC ‘K x’
+        |> SIMP_RULE std_ss [MAP_K_REPLICATE,SUM_REPLICATE];
+
+Theorem eq_pure_list_alt_thm:
+  ∀ck xs. SUM (MAP (λ(x,y). 1 + cons_measure x + cons_measure y +
+                             if cons_measure x < cons_measure y then 1 else 0) xs) ≤ ck ⇒ eq_pure_list_alt ck xs = eq_pure_list xs
+Proof
+  recInduct eq_pure_list_alt_ind >> rpt strip_tac >>
+  gvs[] >>
+  rw[eq_pure_list_alt,Once clos_opTheory.eq_pure_list_def] >>
+  rpt(IF_CASES_TAC ORELSE PURE_FULL_CASE_TAC >> gvs[GSYM cv_stdTheory.MAPi_eq_list_mapi]) >>
+  imp_res_tac clos_opTheory.cons_measure_lemma >>
+  gvs[UNCURRY_eq_pair] >>
+  rpt(pairarg_tac >> gvs[])
+  >- (first_x_assum irule >>
+      gvs[o_DEF] >>
+      gvs[clos_opTheory.cons_measure_lemma,MAP_REVERSE,SUM_REVERSE,SUM_MAP_const])
+  >- (first_x_assum irule >>
+      gvs[GSYM REVERSE_ZIP,MAP_REVERSE,SUM_REVERSE] >>
+      rename1 ‘ZIP (xs, ys)’ >>
+      qmatch_goalsub_abbrev_tac ‘MAP f _’ >>
+      irule LESS_EQ_TRANS >>
+      Q.SUBGOAL_THEN
+        ‘SUM (MAP f (ZIP (xs, ys)))
+         ≤ SUM(MAP (λx. cons_measure x + 1) xs) + SUM(MAP (λx. cons_measure x + 1) ys)’
+        $ irule_at $ Pos hd >>
+      unabbrev_all_tac
+      >- (qpat_x_assum ‘LENGTH _ = LENGTH _’ mp_tac >>
+          rpt $ pop_assum kall_tac >>
+          MAP_EVERY qid_spec_tac [‘ys’,‘xs’] >>
+          Induct >>
+          Cases_on ‘ys’ >>
+          rw[] >>
+          first_x_assum drule >>
+          gvs[]) >>
+      gvs[SUM_MAP_const])
+  >- (first_x_assum irule >>
+      gvs[GSYM REVERSE_ZIP,MAP_REVERSE,SUM_REVERSE] >>
+      rename1 ‘ZIP (xs, ys)’ >>
+      qmatch_goalsub_abbrev_tac ‘MAP f _’ >>
+      irule LESS_EQ_TRANS >>
+      Q.SUBGOAL_THEN
+        ‘SUM (MAP f (ZIP (xs, ys)))
+         ≤ SUM(MAP (λx. cons_measure x + 1) xs) + SUM(MAP (λx. cons_measure x + 1) ys)’
+        $ irule_at $ Pos hd >>
+      unabbrev_all_tac
+      >- (qpat_x_assum ‘LENGTH _ = LENGTH _’ mp_tac >>
+          rpt $ pop_assum kall_tac >>
+          MAP_EVERY qid_spec_tac [‘ys’,‘xs’] >>
+          Induct >>
+          Cases_on ‘ys’ >>
+          rw[] >>
+          first_x_assum drule >>
+          gvs[]) >>
+      gvs[SUM_MAP_const])
+QED
+
+Theorem eq_pure_list_alt_eq:
+  ∀xs. eq_pure_list xs = eq_pure_list_alt
+                         (SUM (MAP (λ(x,y). 1 + cons_measure x + cons_measure y +
+                                            if cons_measure x < cons_measure y then 1 else 0) xs)) xs
+Proof
+  strip_tac >> irule $ GSYM eq_pure_list_alt_thm >> rw[]
+QED
+
+Definition cons_measure_alt_def:
+  cons_measure_alt x =
+  (case dest_Op dest_Cons x of
+   | NONE => 0
+   | SOME (_,xs) => cons_measures_alt xs + LENGTH xs + 1) ∧
+  cons_measures_alt [] = 0 ∧
+  cons_measures_alt (x::xs) = cons_measure_alt x + cons_measures_alt xs
+Termination
+  WF_REL_TAC ‘measure $ λx. sum_CASE x exp_size exp3_size’ >>
+  gvs[oneline clos_opTheory.dest_Op_def,AllCaseEqs(),PULL_EXISTS,
+      oneline clos_opTheory.dest_Cons_def,closLangTheory.exp_size_def]
+End
+
+val pre = cv_trans_pre_rec cons_measure_alt_def
+  (wf_rel_tac ‘measure $ λx. sum_CASE x cv_size cv_size’ >>
+   cv_termination_tac >>
+   gvs[fetch "-" "cv_dest_Op_dest_Cons_def",AllCaseEqs(),
+       cvTheory.c2b_def,cvTheory.cv_lt_def0,
+       cvTheory.b2c_if,
+       oneline cvTheory.cv_ispair_def,
+       fetch "-" "cv_clos_op_dest_Cons_def"
+      ] >>
+   gvs[oneline cvTheory.cv_fst_def,
+       oneline cvTheory.cv_snd_def,
+       AllCaseEqs()])
+
+Theorem cons_measure_alt_pre[cv_pre]:
+  (∀x. cons_measure_alt_pre x) ∧
+  (∀v. cons_measures_alt_pre v)
+Proof
+  ho_match_mp_tac cons_measure_alt_ind >>
+  rw[] >> rw[Once pre]
+QED
+
+Triviality cons_measure_pmatch_elim = clos_opTheory.cons_measure_def
+                                        |> CONV_RULE $ QUANT_CONV $ RHS_CONV $ patternMatchesLib.PMATCH_ELIM_CONV;
+
+Theorem cons_measure_alt_thm:
+  (∀x. cons_measure_alt x = cons_measure x) ∧
+  (∀v. cons_measures_alt v = SUM(MAP cons_measure v))
+Proof
+  reverse Induct >> rw[] >>
+  PURE_ONCE_REWRITE_TAC [cons_measure_pmatch_elim, cons_measure_alt_def]
+  >- (gvs[] >> rw[Once cons_measure_pmatch_elim]) >>
+  gvs[oneline clos_opTheory.dest_Op_def] >>
+  rpt(PURE_TOP_CASE_TAC >> gvs[]) >>
+  gvs[AllCaseEqs()] >> metis_tac[]
+QED
+
+val _ = cv_auto_trans $ GSYM $ cj 1 cons_measure_alt_thm
+
+val _ = cv_auto_trans eq_pure_list_alt_eq
+
+
+val pre = cv_auto_trans_pre known_alt_def
+  (wf_rel_tac ‘inv_image (measure I LEX measure I) $
+               λx. case x of
+                     INL (c,x,vs,g) => (cv_size c, cv_size x)
+                   | INR(INL (c,xs,vs,g)) => (cv_size c, cv_size xs)
+                   | INR(INR (clos,vs,c,g,xs)) => (cv_size c, cv_size(cv_map_snd xs))’
+  )
+
+
+
 (* TODO
 next: known_def
 val _ = cv_trans clos_knownTheory.compile_def
 *)
 
 (* clos_call *)
+
+(* TODO: free_def is duplicated between clos_known and clos_call; it
+   should probably be moved to a common ancestor theory *)
+Theorem free_eq_free:
+  ∀xs. clos_known$free xs = clos_call$free xs
+Proof
+  recInduct clos_knownTheory.free_ind >>
+  rw[clos_knownTheory.free_def,clos_callTheory.free_def] >>
+  rpt(pairarg_tac >> gvs[]) >>
+  rpt conj_tac
+  >- (ntac 2 AP_TERM_TAC >>
+      rw[MAP_MAP_o] >>
+      rw[MAP_EQ_f] >>
+      rpt(pairarg_tac >> gvs[]) >>
+      res_tac >> gvs[])
+  >- (rw[MAP_MAP_o] >>
+      rw[MAP_EQ_f] >>
+      rpt(pairarg_tac >> gvs[]) >>
+      res_tac >> gvs[])
+  >- (AP_THM_TAC >>
+      ntac 2 AP_TERM_TAC >>
+      rw[MAP_MAP_o] >>
+      rw[MAP_EQ_f] >>
+      rpt(pairarg_tac >> gvs[]) >>
+      res_tac >> gvs[])
+QED
+
+val _ = cv_trans $ GSYM free_eq_free
 
 (* TODO *)
 
