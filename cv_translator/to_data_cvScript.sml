@@ -2222,7 +2222,7 @@ Theorem SmartOp2_eq = bvl_constTheory.SmartOp2_def
 
 val _ = cv_auto_trans bvl_constTheory.dest_simple_def;
 val _ = cv_trans (mk_add_const_def |> SRULE [FUN_EQ_THM]);
-val _ = cv_trans (mk_add_def |> SRULE [FUN_EQ_THM]);
+val _ = cv_auto_trans (mk_add_def |> SRULE [FUN_EQ_THM]);
 val _ = cv_trans (mk_sub_def |> SRULE [FUN_EQ_THM]);
 val _ = cv_trans (mk_mul_def |> SRULE [FUN_EQ_THM]);
 val _ = cv_auto_trans SmartOp2_eq;
