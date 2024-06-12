@@ -1831,24 +1831,27 @@ val _ = cv_auto_trans $ GSYM $ cj 1 cons_measure_alt_thm
 
 val _ = cv_auto_trans (eq_pure_list_alt_eq |> PURE_REWRITE_RULE  [GSYM cons_measure_alt_thm])
 
-(* TODO: use int_div like a normal person *)
-Theorem int_div_fake:
-  x / y = 0:int
-Proof
-  cheat
-QED
-
-Theorem int_mod_fake:
-  x % y = 0:int
-Proof
-  cheat
-QED
-
-val _ = cv_trans int_div_fake
-val _ = cv_trans int_mod_fake
-
 (* TODO: is this done already? *)
 val _ = cv_auto_trans clos_knownTheory.dec_inline_factor_def
+
+Triviality int_div_lemma:
+  j ≠ 0 ⇒ i / j = total_int_div i j
+Proof
+  gvs [cv_primTheory.total_int_div_def]
+QED
+
+Triviality int_mod_lemma:
+  j ≠ 0 ⇒ i % j = i - (total_int_div i j) * j
+Proof
+  rewrite_tac [integerTheory.INT_EQ_SUB_LADD]
+  \\ simp [cv_primTheory.total_int_div_def]
+  \\ strip_tac \\ drule integerTheory.INT_DIVISION
+  \\ disch_then $ qspec_then ‘i’ strip_assume_tac
+  \\ metis_tac [integerTheory.INT_ADD_COMM]
+QED
+
+val _ = cv_trans (clos_opTheory.int_op_def
+                    |> SRULE [int_div_lemma,int_mod_lemma]);
 
 (* TODO: walk this painful road or find another *)
 val pre = cv_auto_trans_pre_rec known_alt_def
