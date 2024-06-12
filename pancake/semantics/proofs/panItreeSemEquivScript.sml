@@ -145,6 +145,29 @@ Proof
   first_assum $ qspec_then ‘n’ assume_tac>>fs[]
 QED
 
+Theorem Tau_INJ:
+  INJ Tau UNIV UNIV
+Proof
+  simp[INJ_DEF]
+QED
+
+Theorem FUNPOW_Tau_neq[simp]:
+  Ret x ≠ FUNPOW Tau n (Vis a g) ∧
+  Vis a g ≠ FUNPOW Tau n (Ret x)
+Proof
+  MAP_EVERY qid_spec_tac [‘x’,‘a’,‘g’,‘n’]>>
+  Induct>>rw[FUNPOW_SUC]
+QED
+
+Theorem FUNPOW_Tau_neq2[simp]:
+  FUNPOW Tau n' (Ret x) ≠ FUNPOW Tau n (Vis a g)
+Proof
+  Cases_on ‘n < n'’>>fs[NOT_LESS]>>strip_tac
+  >- (imp_res_tac (GSYM LESS_ADD)>>fs[FUNPOW_ADD]>>
+      imp_res_tac FUNPOW_eq_elim>>fs[Tau_INJ])>>
+     imp_res_tac FUNPOW_min_cancel>>fs[Tau_INJ]
+QED
+
 Theorem strip_tau_FUNPOW:
   ∀t1 t2. strip_tau t1 t2 ⇒
         ∃n. t1 = FUNPOW Tau n $ t2
@@ -1188,9 +1211,9 @@ Proof
 QED
 
 Theorem ltree_lift_state_lift':
-ltree_lift query_oracle (s:('a,'b)state).ffi (mrec_sem (h_prog (p,t))) ≈ Ret (res,s') ∧
-t.ffi = s.ffi  ==>
-(ltree_lift_state query_oracle s.ffi (mrec_sem (h_prog (p,t)))) = s'.ffi
+  ltree_lift query_oracle (s:('a,'b)state).ffi (mrec_sem (h_prog (p,t))) ≈ Ret (res,s') ∧
+  t.ffi = s.ffi  ==>
+  (ltree_lift_state query_oracle s.ffi (mrec_sem (h_prog (p,t)))) = s'.ffi
 Proof
   metis_tac[ltree_lift_state_lift]
 QED
