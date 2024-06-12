@@ -1853,6 +1853,18 @@ QED
 val _ = cv_trans (clos_opTheory.int_op_def
                     |> SRULE [int_div_lemma,int_mod_lemma]);
 
+Theorem cv_mul_zero:
+  cv_mul (Num 0) x = Num 0
+Proof
+  Cases_on ‘x’ \\ gvs []
+QED
+
+Theorem cv_lt_zero:
+  cv_lt x (Num 0) = Num 0
+Proof
+  Cases_on ‘x’ \\ gvs []
+QED
+
 (* TODO: walk this painful road or find another *)
 val pre = cv_auto_trans_pre_rec known_alt_def
   (wf_rel_tac `inv_image (measure I LEX measure I)
@@ -1872,8 +1884,7 @@ val pre = cv_auto_trans_pre_rec known_alt_def
       ] >>
    simp[oneline cvTheory.cv_snd_def, oneline cvTheory.cv_fst_def] >>
    rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
-   gvs[mk_thm([],“cv_mul (Num 0) x = Num 0”) (* TODO cheat*),
-       mk_thm([],“cv_lt x (Num 0) = Num 0”) (* TODO cheat*)]
+   gvs[cv_mul_zero, cv_lt_zero]
    >- (Cases_on ‘g’ >>
        gvs[] >>
        intLib.COOPER_TAC)
