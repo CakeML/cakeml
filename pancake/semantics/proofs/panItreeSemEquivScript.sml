@@ -4256,4 +4256,67 @@ Proof
           qexists_tac ‘k’ >> rw []))
 QED
 
+(* A path p (aka. maximal answer trace) is an (:'a semtree_ans llist)
+ that describes a particular path in an itree. Such a path is valid iff
+ is_valid_path t p = T
+*)
+CoInductive is_valid_path:
+  (∀x. is_valid_path (Ret x) [||]) ∧
+  (∀t p. is_valid_path t p ⇒ is_valid_path (Tau t) p) ∧
+  (∀e k t. is_valid_path t p ∧ (∃a. k a = t) ⇒ is_valid_path (Vis e k) (a:::p))
+End
+
+Datatype:
+  atrace_ffi =
+  <| alist : 'a semtree_ans llist |>
+End
+
+(* Inverse of stree_trace *)
+(* Given an llist of answers (not events), produces an oracle that
+ returns those answers in the order given and hence which would produce the same
+         path as the given llist.
+ *)
+
+Definition stree_trace_oracle_def:
+  (stree_trace_oracle : 'a atrace_ffi oracle) s st conf bytes =
+     case st.alist of
+       (FFI_return st' bytes):::as => Oracle_return (st with alist := as) bytes
+     | (FFI_final (Final_event s' conf' bytes' outcome)):::as => Oracle_final outcome
+     | LNIL => Oracle_final FFI_failed
+End
+
+Theorem itree_semantics_completeness:
+  good_dimindex(:α) ⇒
+  ∀(path : 'a semtree_ans llist).
+    is_valid_path (to_stree (mrec_sem (h_prog (prog,s)))) path ⇒
+    ∃(or : 'a atrace_ffi oracle).
+      let ffi_or_state = <| oracle := or; ffi_state := <| alist := path |>; io_events := [] |> in
+        (build_lprefix_lub (IMAGE (λk. fromList (SND (evaluate (prog,((reclock s) with <| clock := k; ffi := ffi_or_state |>)))).ffi.io_events) UNIV) =
+         stree_trace query_oracle event_filter ffi_or_state (to_stree (mrec_sem (h_prog (prog,s))))) ∧
+        case toList path of
+             SOME finPath =>
+          let (r,s') = evaluate (prog,(reclock s) with ffi := ffi_or_state) in
+            ltree_lift query_oracle ffi_or_state (mrec_sem (h_prog (prog,s))) ≈ Ret (r,unclock s')
+            | NONE => T
+Proof
+  rw [] >>
+  qexists_tac ‘stree_trace_oracle’ >> reverse $ rw []
+  >- (Cases_on ‘toList path’ >> rw [] >>
+      qpat_x_assum ‘is_valid_path _ _’ mp_tac >>
+      pairarg_tac >> rw [] >>
+      qpat_x_assum ‘evaluate _ = (r,s')’ mp_tac >>
+      MAP_EVERY qid_spec_tac [‘s’,‘r’,‘s'’,‘prog’] >>
+      recInduct evaluate_ind >> rw []
+      >~ [‘Skip’]
+      >- (gvs [Once evaluate_def] >>
+          rw [h_prog_def,mrec_sem_simps,ltree_lift_cases,
+              itree_wbisim_neq] >>
+          (* TODO: Reduces to proving itree state is the same as FBS state which has the specific oracle
+             implanted. *)
+          (* Not sure if this is true and whether we want to take another approach. *)
+          cheat) >>
+      cheat)
+  >- (cheat)
+QED
+
 val _ = export_theory();
