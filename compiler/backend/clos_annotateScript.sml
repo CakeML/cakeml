@@ -123,8 +123,7 @@ Definition alt_free_sing_def:
    (*  if no_overlap m l2 then
          ([Let t (REPLICATE m (const_0 t)) (HD c2)], Shift m l2)
        else  *)
-     let res = MAP (\(n,x). let (c,l) = alt_free_sing x in
-                              ((n,c),Shift (n + m) l)) fns in
+     let res = alt_free_letrec m fns in
      let c1 = MAP FST res in
      let l1 = list_mk_Union (MAP SND res) in
        (Letrec t loc (SOME (vars_to_list l1)) c1 c2,
@@ -137,37 +136,48 @@ Definition alt_free_sing_def:
      let (c1,l1) = alt_free_list xs in
        (Call t ticks dest c1,l1)) ∧
 
-  (alt_free_list [] = ([],Empty)) /\
+  (alt_free_list [] = ([],Empty)) ∧
   (alt_free_list ((x:closLang$exp)::xs) =
      let (c1,l1) = alt_free_sing x in
      let (c2,l2) = alt_free_list xs in
-       (c1 :: c2,mk_Union l1 l2))
+       (c1 :: c2,mk_Union l1 l2)) ∧
+
+  (alt_free_letrec m [] = []) ∧
+  (alt_free_letrec m ((n,x)::rest) =
+     let (c,l) = alt_free_sing x in
+       ((n,c),Shift (n + m) l) :: alt_free_letrec m rest)
 Termination
   WF_REL_TAC `measure $ λx. case x of INL e => exp_size e
-                                    | INR es => exp3_size es`
+                                    | INR (INL es) => exp3_size es
+                                    | INR (INR (_,fns)) => exp1_size fns`
 End
 
 Theorem alt_free_sing_eq:
   (∀e. alt_free [e] = (λ(e,dbs). [e], dbs) $ alt_free_sing e) ∧
-  (∀es. alt_free es = alt_free_list es)
+  (∀es. alt_free es = alt_free_list es) ∧
+  (∀m fns. EVERY (λ(n,e). alt_free [e] = (λ(e,dbs). [e], dbs) $ alt_free_sing e) fns ∧
+           alt_free_letrec m fns =
+           MAP (λ(n,x). let (c,l) = alt_free_sing x in
+                          ((n,c),Shift (n + m) l)) fns)
 Proof
   ho_match_mp_tac alt_free_sing_ind >> reverse $ rw[alt_free_def, alt_free_sing_def] >>
   rpt (pairarg_tac >> gvs[]) >> rpt (TOP_CASE_TAC >> gvs[])
   >- (Cases_on `es` >> gvs[alt_free_def, alt_free_sing_def]) >>
-  simp[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >> rw[]
+  simp[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >> rw[] >>
+  gvs [EVERY_MEM]
   >- (
     ntac 2 AP_TERM_TAC >>
     rw[MAP_EQ_f] >> PairCases_on `x` >>
-    last_x_assum drule >> pairarg_tac >> gvs[]
+    last_x_assum drule >> rpt (pairarg_tac >> gvs[])
     )
   >- (
     rw[MAP_EQ_f] >> PairCases_on `x` >>
-    last_x_assum drule >> pairarg_tac >> gvs[]
+    last_x_assum drule >> rpt (pairarg_tac >> gvs[])
     )
   >- (
     AP_THM_TAC >> ntac 2 AP_TERM_TAC >>
     rw[MAP_EQ_f] >> PairCases_on `x` >>
-    last_x_assum drule >> pairarg_tac >> gvs[]
+    last_x_assum drule >> rpt (pairarg_tac >> gvs[])
     )
 QED
 
@@ -329,8 +339,7 @@ Definition shift_sing_def:
      let vars = MAP (get_var m l i) live in
      let new_i = shifted_env 0 live in
      let fns_len = LENGTH fns in
-     let cs = MAP (\(n,x). let c = shift_sing x k (n + fns_len) new_i in
-                             (n,c)) fns in
+     let cs = shift_letrec fns_len k new_i fns in
      let c1 = shift_sing x1 m (l + LENGTH fns) i in
        (Letrec t loc (SOME vars) cs c1)) /\
   (shift_sing (Handle t x1 x2) m l i =
@@ -345,19 +354,32 @@ Definition shift_sing_def:
   (shift_list ((x:closLang$exp)::xs) m l i =
      let c1 = shift_sing x m l i in
      let c2 = shift_list xs m l i in
-       (c1 :: c2:closLang$exp list))
+       (c1 :: c2:closLang$exp list)) ∧
+
+  (shift_letrec fns_len k new_i [] = []) ∧
+  (shift_letrec fns_len k new_i ((n,x)::rest) =
+     let c = shift_sing x k (n + fns_len) new_i in
+       (n,c) :: shift_letrec fns_len k new_i rest)
 Termination
   WF_REL_TAC `measure $ λx. case x of INL (e,_,_,_) => exp_size e
-                                    | INR (es,_,_,_) => exp3_size es`
+                                    | INR (INL (es,_,_,_)) => exp3_size es
+                                    | INR (INR (_,_,_,l)) => exp1_size l`
 End
 
 Theorem shift_sing_eq:
   (∀e m l i. shift [e] m l i = [shift_sing e m l i]) ∧
-  (∀es m l i. shift es m l i = shift_list es m l i)
+  (∀es m l i. shift es m l i = shift_list es m l i) ∧
+  (∀fns_len k new_i fns.
+     EVERY (λ(n,e). shift [e] k (n + fns_len) new_i =
+                    [shift_sing e k (n + fns_len) new_i]) fns ∧
+     shift_letrec fns_len k new_i fns =
+       MAP (λ(n,x). let c = shift_sing x k (n + fns_len) new_i in
+                      (n,c)) fns)
 Proof
   ho_match_mp_tac shift_sing_ind >> reverse $ rw[shift_def, shift_sing_def]
   >- (Cases_on `es` >> gvs[shift_def, shift_sing_def]) >>
-  rw[MAP_EQ_f] >> pairarg_tac >> gvs[]
+  rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
+  gvs [EVERY_MEM] >> res_tac >> fs []
 QED
 
 Theorem shift_LENGTH_LEMMA:

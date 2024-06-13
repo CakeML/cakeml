@@ -8,16 +8,6 @@ open to_data_cvTheory;
 
 val _ = new_theory "backend_x64_eval";
 
-fun dest_path path = let
-  fun loop [] = I
-    | loop (c::cs) =
-         if c = #"r" then loop cs o rand else
-         if c = #"l" then loop cs o rator else
-         if c = #"a" then loop cs o snd o dest_abs else
-         if c = #"b" then loop (#"r" :: #"a" :: cs) else
-           failwith ("dest_path does not understand " ^ implode [c])
-  in loop (explode path) end
-
 fun write_cv_char_list_to_file filename cv_char_list_tm = let
   val f = TextIO.openOut filename
   fun loop tm = let

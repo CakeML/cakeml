@@ -8,6 +8,8 @@ val _ = new_theory "to_data_cv";
 
 val _ = cv_memLib.use_long_names := true;
 
+Triviality list_mem[cv_inline] = listTheory.MEM;
+
 val _ = cv_trans sptreeTheory.fromAList_def;
 val _ = cv_trans miscTheory.SmartAppend_def;
 val _ = cv_trans miscTheory.append_aux_def;
@@ -1834,24 +1836,7 @@ val _ = cv_auto_trans (eq_pure_list_alt_eq |> PURE_REWRITE_RULE  [GSYM cons_meas
 (* TODO: is this done already? *)
 val _ = cv_auto_trans clos_knownTheory.dec_inline_factor_def
 
-Triviality int_div_lemma:
-  j ≠ 0 ⇒ i / j = total_int_div i j
-Proof
-  gvs [cv_primTheory.total_int_div_def]
-QED
-
-Triviality int_mod_lemma:
-  j ≠ 0 ⇒ i % j = i - (total_int_div i j) * j
-Proof
-  rewrite_tac [integerTheory.INT_EQ_SUB_LADD]
-  \\ simp [cv_primTheory.total_int_div_def]
-  \\ strip_tac \\ drule integerTheory.INT_DIVISION
-  \\ disch_then $ qspec_then ‘i’ strip_assume_tac
-  \\ metis_tac [integerTheory.INT_ADD_COMM]
-QED
-
-val _ = cv_trans (clos_opTheory.int_op_def
-                    |> SRULE [int_div_lemma,int_mod_lemma]);
+val _ = cv_auto_trans clos_opTheory.int_op_def;
 
 Theorem cv_mul_zero:
   cv_mul (Num 0) x = Num 0
@@ -1906,6 +1891,16 @@ next: known_def
 val _ = cv_trans clos_knownTheory.compile_def
 *)
 
+Theorem clos_known_fake:
+  clos_known$compile c es = (c,es)
+Proof
+  Cases_on ‘c’
+  >- simp [clos_knownTheory.compile_def]
+  \\ cheat
+QED
+
+val _ = cv_trans clos_known_fake
+
 (* clos_call *)
 
 (* TODO: free_def is duplicated between clos_known and clos_call; it
@@ -1936,19 +1931,45 @@ QED
 
 val _ = cv_trans $ GSYM free_eq_free
 
-(* TODO *)
+Theorem clos_call_fake:
+  clos_call$compile c x = (x,LN,[])
+Proof
+  Cases_on ‘~c’
+  >- simp [clos_callTheory.compile_def]
+  \\ cheat
+QED
+
+val _ = cv_trans clos_call_fake
 
 (* clos_annotate *)
 
-(* TODO *)
-
-Theorem clos_to_bvl_compile_common:
-  clos_to_bvl$compile_common c es = (c,[])
+val pre = cv_auto_trans_pre clos_annotateTheory.shift_sing_def;
+Theorem clos_annotate_shift_sing_pre[cv_pre]:
+  (∀v m l i. clos_annotate_shift_sing_pre v m l i) ∧
+  (∀v m l i. clos_annotate_shift_list_pre v m l i) ∧
+  (∀fns_len k new_i v. clos_annotate_shift_letrec_pre fns_len k new_i v)
 Proof
-  cheat
+  ho_match_mp_tac clos_annotateTheory.shift_sing_ind
+  \\ rpt strip_tac \\ simp [Once pre] \\ gvs []
 QED
 
-val _ = cv_trans clos_to_bvl_compile_common;
+val pre = cv_auto_trans_pre clos_annotateTheory.alt_free_sing_def;
+Theorem clos_annotate_alt_free_sing_pre[cv_pre]:
+  (∀v. clos_annotate_alt_free_sing_pre v) ∧
+  (∀v. clos_annotate_alt_free_list_pre v) ∧
+  (∀m v. clos_annotate_alt_free_letrec_pre m v)
+Proof
+  ho_match_mp_tac clos_annotateTheory.alt_free_sing_ind
+  \\ rpt strip_tac \\ simp [Once pre] \\ gvs []
+QED
+
+val _ = cv_trans clos_annotateTheory.annotate_sing_def;
+val _ = cv_auto_trans clos_annotateTheory.compile_eq;
+
+(* compile_common from clos_to_bvl *)
+
+val _ = cv_trans clos_to_bvlTheory.chain_exps_def;
+val _ = cv_auto_trans clos_to_bvlTheory.compile_common_def;
 
 (* bvl_jump *)
 
