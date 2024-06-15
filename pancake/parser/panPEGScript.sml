@@ -21,9 +21,9 @@ Datatype:
             | DecCallNT | RetCallNT
             | ArgListNT | NotNT
             | ParamListNT
-            | EXorNT | EAndNT | EEqNT | ECmpNT
+            | EXorNT | EOrNT | EAndNT | EEqNT | ECmpNT
             | EShiftNT | EAddNT | EMulNT
-            | EBaseNT
+            | EBaseNT | EBoolAndNT
             | StructNT | LoadNT | LoadByteNT | LabelNT | FLabelNT
             | ShapeNT | ShapeCombNT
             | EqOpsNT | CmpOpsNT | ShiftOpsNT | AddOpsNT | MulOpsNT
@@ -217,10 +217,18 @@ Definition pancake_peg_def[nocompute]:
                                          mknt ExpNT] I)
                                   FLAT]
                              (mksubtree ArgListNT));
-        (INL ExpNT, seql [mknt EXorNT;
-                          rpt (seql [keep_tok OrT; mknt EXorNT] I)
+        (INL ExpNT, seql [mknt EBoolAndNT;
+                          rpt (seql [consume_tok BoolOrT; mknt EBoolAndNT] I)
                               FLAT]
                          (mksubtree ExpNT));
+        (INL EBoolAndNT, seql [mknt EOrNT;
+                          rpt (seql [consume_tok BoolAndT; mknt EOrNT] I)
+                              FLAT]
+                         (mksubtree EBoolAndNT));
+        (INL EOrNT, seql [mknt EXorNT;
+                          rpt (seql [keep_tok OrT; mknt EXorNT] I)
+                              FLAT]
+                         (mksubtree EOrNT));
         (INL EXorNT, seql [mknt EAndNT;
                            rpt (seql [keep_tok XorT; mknt EAndNT] I)
                                FLAT]
@@ -610,7 +618,7 @@ val topo_nts = [“MulOpsNT”, “AddOpsNT”, “ShiftOpsNT”, “CmpOpsNT”
                 “ShapeCombNT”, “NotNT”, “LabelNT”, “FLabelNT”, “LoadByteNT”,
                 “LoadNT”, “StructNT”,
                 “EBaseNT”, “EMulNT”, “EAddNT”, “EShiftNT”, “ECmpNT”,
-                “EEqNT”, “EAndNT”, “EXorNT”,
+                “EEqNT”, “EAndNT”, “EXorNT”, “EOrNT”, “EBoolAndNT”,
                 “ExpNT”, “ArgListNT”, “ReturnNT”,
                 “RaiseNT”, “ExtCallNT”,
                 “HandleNT”, “RetNT”, “RetCallNT”, “CallNT”,
