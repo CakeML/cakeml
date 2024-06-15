@@ -257,7 +257,7 @@ val res = translate (extend_conf_def |> spec32 |> SIMP_RULE (srw_ss()) [MEMBER_I
 val res = translate parse_target_32_def;
 val res = translate add_tap_output_def;
 
-val res = translate ffinames_to_string_list_def;
+val res = translate backendTheory.ffinames_to_string_list_def;
 
 val res = format_compiler_result_def
         |> Q.GENL[`bytes`,`c`]

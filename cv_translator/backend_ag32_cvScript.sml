@@ -141,6 +141,14 @@ val _ = cv_trans (compile_0_ag32_def
 val _ = cv_trans backend_ag32Theory.to_word_0_ag32_def;
 val _ = cv_auto_trans backend_ag32Theory.to_livesets_0_ag32_def;
 
+(* export *)
+
+val _ = cv_auto_trans
+        (export_ag32Theory.ag32_export_def
+           |> REWRITE_RULE [to_words_line_word,
+                            to_words_line_byte,
+                            split16_eq_chunks16]);
+
 (* main two translations below *)
 
 val _ = cv_trans backend_ag32Theory.to_livesets_ag32_def;

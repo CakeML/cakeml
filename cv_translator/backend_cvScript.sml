@@ -3,6 +3,7 @@
 *)
 open preamble cv_transLib cv_stdTheory;
 open backendTheory to_data_cvTheory exportTheory;
+open unify_cvTheory infer_cvTheory basis_cvTheory;
 
 val _ = new_theory "backend_cv";
 
@@ -766,7 +767,7 @@ Theorem export_byte_to_string_pre[cv_pre]:
   ∀b. export_byte_to_string_pre b
 Proof
   simp [pre] \\ gen_tac
-  \\ rpt $ irule_at Any IMP_toChar_pre \\ gvs []
+  \\ rpt $ irule_at Any basis_cvTheory.IMP_toChar_pre \\ gvs []
   \\ gvs [DIV_LT_X]
   \\ irule LESS_LESS_EQ_TRANS
   \\ irule_at Any w2n_lt \\ gvs []

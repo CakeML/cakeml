@@ -2,7 +2,8 @@ ARCH = x64
 WORD_SIZE = 64
 INCLUDES = $(CAKEMLDIR)/semantics $(CAKEMLDIR)/basis ../../../.. $(CAKEMLDIR)/unverified/sexpr-bootstrap \
 					 ../../../../encoders/asm ../../../../encoders/$(ARCH)\
-					 ../../../../backend/$(ARCH) ../../../../backend/serialiser ../../../translation
+					 ../../../../backend/$(ARCH) ../../../../backend/serialiser ../../../translation \
+                                         $(CAKEMLDIR)/cv_translator
 
 all: $(DEFAULT_TARGETS) README.md cake-$(ARCH)-$(WORD_SIZE).tar.gz
 .PHONY: all
@@ -26,3 +27,7 @@ cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile hello.cml how-to.m
 	diff output expected_output   # returns non-zero if files differ
 
 EXTRA_CLEANS = cake.S cake-$(ARCH)-$(WORD_SIZE).tar.gz cake test-hello.cake output expected_output
+
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
+endif

@@ -3,7 +3,8 @@
 *)
 open preamble miscTheory;
 open cv_transLib;
-open astTheory namespaceTheory inferTheory inferPropsTheory unify_cvTheory;
+open astTheory namespaceTheory inferTheory inferPropsTheory;
+open basis_cvTheory unify_cvTheory;
 
 val _ = new_theory "infer_cv";
 
@@ -20,8 +21,6 @@ val _ = cv_auto_trans $ expand write_def;
 val _ = cv_trans $ init_infer_state_def;
 val _ = cv_trans $ expand init_state_def;
 
-val _ = cv_trans $ expand mlstringTheory.implode_def;
-val _ = cv_auto_trans mlstringTheory.concat_def;
 val _ = cv_auto_trans lookup_st_ex_def;
 
 val _ = cv_auto_trans $ expand fresh_uvar_def;
@@ -66,27 +65,6 @@ Proof
   ho_match_mp_tac infer_tTheory.get_tyname_ind
   \\ rw [] \\ simp [Once res]
 QED
-
-val toChar_pre = cv_trans_pre mlintTheory.toChar_def
-val num_to_chars_pre = cv_auto_trans_pre mlintTheory.num_to_chars_def;
-
-Theorem num_to_chars_pre[cv_pre,local]:
-  ∀a0 a1 a2 a3. num_to_chars_pre a0 a1 a2 a3
-Proof
-  ho_match_mp_tac mlintTheory.num_to_chars_ind \\ rw []
-  \\ rw [] \\ simp [Once num_to_chars_pre]
-  \\ once_rewrite_tac [toChar_pre] \\ gvs [] \\ rw []
-  \\ ‘k MOD 10 < 10’ by gvs [] \\ simp []
-QED
-
-Triviality Num_ABS:
-  Num (ABS i) = Num i
-Proof
-  Cases_on ‘i’ \\ gvs []
-QED
-
-val _ = cv_trans (mlintTheory.toString_def |> SRULE [Num_ABS]);
-val _ = cv_trans mlintTheory.num_to_str_def;
 
 val _ = cv_auto_trans infer_tTheory.type_ident_to_string_def;
 

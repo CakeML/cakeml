@@ -250,6 +250,14 @@ val _ = cv_trans (compile_0_arm8_def
 val _ = cv_trans backend_arm8Theory.to_word_0_arm8_def;
 val _ = cv_auto_trans backend_arm8Theory.to_livesets_0_arm8_def;
 
+(* export *)
+
+val _ = cv_auto_trans
+        (export_arm8Theory.arm8_export_def
+           |> REWRITE_RULE [to_words_line_word,
+                            to_words_line_byte,
+                            split16_eq_chunks16]);
+
 (* main two translations below *)
 
 val _ = cv_trans backend_arm8Theory.to_livesets_arm8_def;
