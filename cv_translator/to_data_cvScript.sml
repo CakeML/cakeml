@@ -1945,15 +1945,46 @@ val _ = cv_auto_trans $
   resolve_then.gen_resolve_then Any EQ_REFL (cj 2 known_alt_thm)
   (fn thm => resolve_then.gen_resolve_then Any EQ_REFL thm GSYM)
 
-Theorem clos_known_fake:
-  clos_known$compile c es = (c,es)
+val pre = cv_auto_trans_pre clos_fvsTheory.remove_fvs_sing_def
+
+Theorem clos_fvs_remove_fvs_sing_pre[cv_pre]:
+  (∀fvs v. clos_fvs_remove_fvs_sing_pre fvs v) ∧
+  (∀fvs v. clos_fvs_remove_fvs_list_pre fvs v) ∧
+  (∀m fvs v. clos_fvs_remove_fvs_let_pre m fvs v)
 Proof
-  Cases_on ‘c’
-  >- simp [clos_knownTheory.compile_def]
-  \\ cheat
+  ho_match_mp_tac clos_fvsTheory.remove_fvs_sing_ind >> rw[] >> rw[Once pre]
 QED
 
-val _ = cv_trans clos_known_fake
+val _ = cv_trans $ cj 2 clos_fvsTheory.remove_fvs_sing_eq
+
+val _ = cv_auto_trans clos_fvsTheory.compile_def
+
+val pre = cv_auto_trans_pre clos_ticksTheory.remove_ticks_sing_def
+
+Theorem clos_ticks_remove_ticks_sing_pre[cv_pre]:
+  (∀v. clos_ticks_remove_ticks_sing_pre v) ∧
+  (∀v. clos_ticks_remove_ticks_list_pre v) ∧
+  (∀v. clos_ticks_remove_ticks_let_pre v)
+Proof
+  ho_match_mp_tac clos_ticksTheory.remove_ticks_sing_ind >> rw[] >> rw[Once pre]
+QED
+
+val _ = cv_trans $ cj 2 clos_ticksTheory.remove_ticks_sing_eq
+
+val pre = cv_auto_trans_pre clos_letopTheory.let_op_sing_def
+
+Theorem clos_letop_let_op_sing_pre[cv_pre]:
+  (∀v. clos_letop_let_op_sing_pre v) ∧
+  (∀v. clos_letop_let_op_list_pre v) ∧
+  (∀v. clos_letop_let_op_let_pre v)
+Proof
+  ho_match_mp_tac clos_letopTheory.let_op_sing_ind >>
+  rw[] >> rw[Once pre]
+QED
+
+val _ = cv_trans $ cj 2 clos_letopTheory.let_op_sing_eq
+
+val _ = cv_trans clos_knownTheory.compile_def
 
 (* clos_call *)
 
