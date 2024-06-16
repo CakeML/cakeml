@@ -2016,15 +2016,38 @@ QED
 
 val _ = cv_trans $ GSYM free_eq_free
 
-Theorem clos_call_fake:
-  clos_call$compile c x = (x,LN,[])
+val pre = cv_auto_trans_pre_rec (clos_callTheory.calls_sing_def |> PURE_REWRITE_RULE [LIST_REL_EVERY_ZIP])
+  (wf_rel_tac `measure $ λx. case x of INL (e,_) => cv_size e
+                                    | INR (es,_) => cv_size es` >>
+   cv_termination_tac >>
+   irule LESS_EQ_LESS_TRANS >>
+   irule_at (Pos last) cv_size_map_snd >>
+   rw[oneline cvTheory.cv_snd_def] >>
+   rpt(PURE_FULL_CASE_TAC >> gvs[]))
+
+Theorem clos_call_calls_sing_pre[cv_pre]:
+  (∀v g. clos_call_calls_sing_pre v g) ∧
+  (∀v g. clos_call_calls_sing_list_pre v g)
 Proof
-  Cases_on ‘~c’
-  >- simp [clos_callTheory.compile_def]
-  \\ cheat
+  ho_match_mp_tac clos_callTheory.calls_sing_ind >>
+  rw[] >> rw[Once pre] >> gvs[]
+  >- (first_x_assum match_mp_tac >>
+      gvs[LIST_REL_EVERY_ZIP] >>
+      gvs[EVERY_MEM] >>
+      rw[] >>
+      res_tac >>
+      rpt(pairarg_tac >> fs[])) >>
+  first_x_assum match_mp_tac >>
+  gvs[LIST_REL_EVERY_ZIP] >>
+  rw[] >> res_tac >>
+  fs[EXISTS_MEM] >>
+  first_x_assum $ irule_at $ Pos hd >>
+  rpt(pairarg_tac >> fs[])
 QED
 
-val _ = cv_trans clos_call_fake
+val _ = cv_trans $ cj 2 clos_callTheory.calls_sing_eq
+
+val _ = cv_trans clos_callTheory.compile_def
 
 (* clos_annotate *)
 
