@@ -208,7 +208,7 @@ val code_list_def = Define `
      code_list (loc+2n) xs (g1,(loc+1,n,p)::g2))`
 
 val GENLIST_Var_def = Define `
-  GENLIST_Var t i n =
+  GENLIST_Var t (i:num) n =
     if n = 0 then [] else
       GENLIST_Var t (i+1) (n-1:num) ++ [Var t (n-1)]`;
 
@@ -451,7 +451,7 @@ Theorem compile_nil:
 Proof
   Cases_on`x` \\ rw[compile_def]
   \\ pairarg_tac \\ fs[] \\ fs[calls_def] \\ rw[]
-QED
+Qed
 
 val selftest = let
   (* example code *)
