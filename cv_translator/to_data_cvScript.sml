@@ -1469,8 +1469,6 @@ val _ = cv_trans clos_knownTheory.gO_destApx_def
 
 val _ = cv_trans clos_knownTheory.mk_Ticks_def
 
-val _ = cv_auto_trans clos_knownTheory.decide_inline_def
-
 Definition pure_alt_def:
   (pure_alt (Var _ _) ⇔ T)
     ∧
@@ -1519,41 +1517,78 @@ QED
 
 val _ = cv_trans $ GSYM $ cj 1 pure_alt_thm
 
+Definition decide_inline_alt_def:
+  decide_inline_alt c fapx app_lopt app_arity =
+    case fapx of
+      | ClosNoInline loc arity =>
+          if app_lopt = NONE /\ app_arity = arity
+            then inlD_Annotate loc
+            else inlD_Nothing
+      | Clos loc arity body body_size =>
+          if app_lopt = NONE /\ app_arity = arity then
+            (if body_size < c * (1 + app_arity) /\
+                ~contains_closures [body] /\
+                closed (Fn (strlit "") NONE NONE app_arity body)
+                (* Consider moving these checks to the point where Clos approximations
+                   are created, and bake them into the val_approx_val relation. *)
+               then inlD_LetInline body
+               else inlD_Annotate loc)
+          else inlD_Nothing
+      | _ => inlD_Nothing
+End
+
+val _ = cv_auto_trans decide_inline_alt_def
+
+Theorem decide_inline_alt_thm:
+  decide_inline c fapx app_lopt app_arity = decide_inline_alt c.inline_factor fapx app_lopt app_arity
+Proof
+  rw[clos_knownTheory.decide_inline_def,decide_inline_alt_def]
+QED
+
+Theorem decide_inline_alt_LetInline:
+   !c fapx lopt arity body.
+     decide_inline_alt c fapx lopt arity = inlD_LetInline body ==> 0 < c
+Proof
+  rpt strip_tac
+  \\ Cases_on `fapx` \\ fs [decide_inline_alt_def, bool_case_eq]
+  \\ spose_not_then assume_tac \\ fs []
+QED
+
 Definition known_alt_def:
-  (known_alt c (Var t v) vs g =
+  (known_alt inl_factor inl_max (Var t v) vs g =
      (((Var t v,any_el v vs Other)),g)) /\
-  (known_alt c (If t x1 x2 x3) vs g =
-     let (ea1,g) = known_alt c (x1) vs g in
-     let (ea2,g) = known_alt c (x2) vs g in
-     let (ea3,g) = known_alt c (x3) vs g in
+  (known_alt inl_factor inl_max (If t x1 x2 x3) vs g =
+     let (ea1,g) = known_alt inl_factor inl_max (x1) vs g in
+     let (ea2,g) = known_alt inl_factor inl_max (x2) vs g in
+     let (ea3,g) = known_alt inl_factor inl_max (x3) vs g in
      let (e1,a1) = ea1 in
      let (e2,a2) = ea2 in
      let (e3,a3) = ea3 in
        (((If t e1 e2 e3), merge a2 a3),g)) /\
-  (known_alt c (Let t xs x2) vs g =
-     let (ea1,g) = known_alts c xs vs g in
-     let (ea2,g) = known_alt c (x2) (MAP SND ea1 ++ vs) g in
+  (known_alt inl_factor inl_max (Let t xs x2) vs g =
+     let (ea1,g) = known_alts inl_factor inl_max xs vs g in
+     let (ea2,g) = known_alt inl_factor inl_max (x2) (MAP SND ea1 ++ vs) g in
      let (e2,a2) = ea2 in
        (((Let t (MAP FST ea1) e2, a2)),g)) /\
-  (known_alt c (Raise t x1) vs g =
-     let (ea1,g) = known_alt c (x1) vs g in
+  (known_alt inl_factor inl_max (Raise t x1) vs g =
+     let (ea1,g) = known_alt inl_factor inl_max (x1) vs g in
      let (e1,a1) = ea1 in
        (((Raise t e1,Impossible)),g)) /\
-  (known_alt c (Tick t x1) vs g =
-     let (ea1,g) = known_alt c (x1) vs g in
+  (known_alt inl_factor inl_max (Tick t x1) vs g =
+     let (ea1,g) = known_alt inl_factor inl_max (x1) vs g in
      let (e1,a1) = ea1 in
        (((Tick t e1,a1)),g)) /\
-  (known_alt c (Handle t x1 x2) vs g =
-     let (ea1,g) = known_alt c (x1) vs g in
-     let (ea2,g) = known_alt c (x2) (Other::vs) g in
+  (known_alt inl_factor inl_max (Handle t x1 x2) vs g =
+     let (ea1,g) = known_alt inl_factor inl_max (x1) vs g in
+     let (ea2,g) = known_alt inl_factor inl_max (x2) (Other::vs) g in
      let (e1,a1) = ea1 in
      let (e2,a2) = ea2 in
        (((Handle t e1 e2,merge a1 a2)),g)) /\
-  (known_alt c (Call t ticks dest xs) vs g =
-     let (ea1,g) = known_alts c xs vs g in
+  (known_alt inl_factor inl_max (Call t ticks dest xs) vs g =
+     let (ea1,g) = known_alts inl_factor inl_max xs vs g in
        (((Call t ticks dest (MAP FST ea1),Other)),g)) /\
-  (known_alt c (Op t op xs) vs g =
-     let (ea1,g) = known_alts c xs vs g in
+  (known_alt inl_factor inl_max (Op t op xs) vs g =
+     let (ea1,g) = known_alts inl_factor inl_max xs vs g in
      let (a,g) = known_op op (REVERSE (MAP SND ea1)) g in
      let e =
          (if isGlobal op then
@@ -1564,16 +1599,16 @@ Definition known_alt_def:
           else SmartOp t op (MAP FST ea1))
      in
        (((e,a)),g)) /\
-  (known_alt c (App t loc_opt x xs) vs g =
-     let (ea2,g) = known_alts c xs vs g in
-     let (ea1,g) = known_alt c (x) vs g in
+  (known_alt inl_factor inl_max (App t loc_opt x xs) vs g =
+     let (ea2,g) = known_alts inl_factor inl_max xs vs g in
+     let (ea1,g) = known_alt inl_factor inl_max (x) vs g in
      let (e1,a1) = ea1
      in
-       case decide_inline c a1 loc_opt (LENGTH xs) of
+       case decide_inline_alt inl_factor a1 loc_opt (LENGTH xs) of
          | inlD_Nothing => (((App t loc_opt e1 (MAP FST ea2), Other)), g)
          | inlD_Annotate new_loc => (((App t (SOME new_loc) e1 (MAP FST ea2), Other)), g)
          | inlD_LetInline body =>
-             let (eabody,_) = known_alt (dec_inline_factor c) (body) (MAP SND ea2) g in
+             let (eabody,_) = known_alt (inl_factor DIV 2) inl_max (body) (MAP SND ea2) g in
              let (ebody, abody) = eabody in
                if pure x then
                  (* We don't have to evaluate x *)
@@ -1584,43 +1619,43 @@ Definition known_alt_def:
                     but we must do so after evaluating the args. *)
                  (((Let (t§0) (SNOC e1 (MAP FST ea2))
                               (mk_Ticks t 1 (LENGTH xs) ebody), abody)), g)) /\
-  (known_alt c (Fn t loc_opt ws_opt num_args x1) vs g =
-     let (ea1,g) = known_alt c (x1) (REPLICATE num_args Other ++ vs) g in
+  (known_alt inl_factor inl_max (Fn t loc_opt ws_opt num_args x1) vs g =
+     let (ea1,g) = known_alt inl_factor inl_max (x1) (REPLICATE num_args Other ++ vs) g in
      let (body,a1) = ea1 in
        (((Fn t loc_opt NONE num_args body,
           case loc_opt of
-            | SOME loc => clos_approx c.inline_max_body_size loc num_args x1
+            | SOME loc => clos_approx inl_max loc num_args x1
             | NONE => Other)), g)) /\
-  (known_alt c (Letrec t loc_opt _ fns x1) vs g =
+  (known_alt inl_factor inl_max (Letrec t loc_opt _ fns x1) vs g =
      let clos = case loc_opt of
                    NONE => REPLICATE (LENGTH fns) Other
                 |  SOME loc => clos_gen_noinline loc 0 fns in
      (* The following ignores SetGlobal within fns, but it shouldn't
         appear there, and missing it just means this opt will do less. *)
-     let new_fns = known_let_alts clos vs c g fns in
-     let (ea1,g) = known_alt c (x1) (clos ++ vs) g in
+     let new_fns = known_let_alts clos vs inl_factor inl_max g fns in
+     let (ea1,g) = known_alt inl_factor inl_max (x1) (clos ++ vs) g in
      let (e1,a1) = ea1 in
        (((Letrec t loc_opt NONE new_fns e1,a1)),g)) ∧
-  (known_alts c [] vs (g:val_approx spt) = ([],g)) /\
-  (known_alts c ((x:closLang$exp)::xs) vs g =
-     let (eas1,g) = known_alt c (x) vs g in
-     let (eas2,g) = known_alts c (xs) vs g in
+  (known_alts inl_factor inl_max [] vs (g:val_approx spt) = ([],g)) /\
+  (known_alts inl_factor inl_max ((x:closLang$exp)::xs) vs g =
+     let (eas1,g) = known_alt inl_factor inl_max (x) vs g in
+     let (eas2,g) = known_alts inl_factor inl_max (xs) vs g in
        (eas1::eas2,g)) ∧
-  (known_let_alts _ _ _ _ [] = []) ∧
-  (known_let_alts clos vs c g ((num_args,x)::xs) =
+  (known_let_alts _ _ _ _ _ [] = []) ∧
+  (known_let_alts clos vs inl_factor inl_max g ((num_args,x)::xs) =
    let
      new_vs = REPLICATE num_args Other ++ clos ++ vs;
-     res = known_alt c x new_vs g
+     res = known_alt inl_factor inl_max x new_vs g
    in
-     (num_args,FST (FST res))::known_let_alts clos vs c g xs)
+     (num_args,FST (FST res))::known_let_alts clos vs inl_factor inl_max g xs)
 Termination
   wf_rel_tac `inv_image (measure I LEX measure I)
                         (λx. case x of
-                               INL (c,x,vs,g) => (c.inline_factor, closLang$exp_size x)
-                             | INR(INL (c,xs,vs,g)) => (c.inline_factor, closLang$exp3_size xs)
-                             | INR(INR (clos,vs,c,g,xs)) => (c.inline_factor, closLang$exp1_size xs))`
+                               INL (c,_,x,vs,g) => (c, closLang$exp_size x)
+                             | INR(INL (c,_,xs,vs,g)) => (c, closLang$exp3_size xs)
+                             | INR(INR (clos,vs,c,_,g,xs)) => (c, closLang$exp1_size xs))`
   \\ simp [clos_knownTheory.dec_inline_factor_def] \\ rpt strip_tac
-  \\ imp_res_tac clos_knownTheory.decide_inline_LetInline \\ fs []
+  \\ imp_res_tac decide_inline_alt_LetInline \\ fs []
 End
 
 val pre = cv_auto_trans_pre_rec clos_opTheory.lift_exps_def
@@ -1795,9 +1830,6 @@ val _ = cv_auto_trans $ GSYM $ cj 1 cons_measure_alt_thm
 
 val _ = cv_auto_trans (eq_pure_list_alt_eq |> PURE_REWRITE_RULE  [GSYM cons_measure_alt_thm])
 
-(* TODO: is this done already? *)
-val _ = cv_auto_trans clos_knownTheory.dec_inline_factor_def
-
 val _ = cv_auto_trans clos_opTheory.int_op_def;
 
 Theorem cv_mul_zero:
@@ -1812,46 +1844,106 @@ Proof
   Cases_on ‘x’ \\ gvs []
 QED
 
-(* TODO: walk this painful road or find another *)
+Triviality cv_lt_eq_SUC:
+  cv_lt x y = Num(SUC k) ⇔
+  k = 0 ∧ ∃n m. x = Num n ∧ y = Num m ∧ n < m
+Proof
+  Cases_on ‘x’ >> gvs[cvTheory.cv_lt_def0] >>
+  PURE_TOP_CASE_TAC >> gvs[oneline cvTheory.b2c_def] >>
+  rw[]
+QED
+
+(* why doesn't online cvTheory.cv_mul_def achieve this?*)
+Theorem cv_mul_oneline:
+  cv_mul x y =
+  case (x,y) of
+    (Num m, Num n) => Num(m*n)
+  | _ => Num 0
+Proof
+  Cases_on ‘x’ >> Cases_on ‘y’ >> gvs[]
+QED
+
+Theorem cv_add_oneline:
+  cv_add x y =
+  case (x,y) of
+    (Num m, Num n) => Num(m+n)
+  | (Num m, _) => Num m
+  | (_, Num n) => Num n
+  | _ => Num 0
+Proof
+  Cases_on ‘x’ >> Cases_on ‘y’ >> gvs[]
+QED
+
 val pre = cv_auto_trans_pre_rec known_alt_def
   (wf_rel_tac `inv_image (measure I LEX measure I)
               (λx. case x of
-                     INL (c,x,vs,g) => (cv_size c, cv_size x)
-                   | INR(INL (c,xs,vs,g)) => (cv_size c, cv_size xs)
-                   | INR(INR (clos,vs,c,g,xs)) => (cv_size c, cv_size xs))` >>
+                     INL (c,_,x,vs,g) => (cv_size c, cv_size x)
+                   | INR(INL (c,_,xs,vs,g)) => (cv_size c, cv_size xs)
+                   | INR(INR (clos,vs,c,_,g,xs)) => (cv_size c, cv_size xs))` >>
    cv_termination_tac >>
-   simp[fetch "-" "cv_clos_known_dec_inline_factor_def"] >>
-   rw[] >>
    gvs[cvTheory.c2b_def,oneline cvTheory.cv_ispair_def,AllCaseEqs(),
-       fetch "-" "cv_clos_known_recordtype_config_seldef_inline_factor_def",
-       fetch "-" "cv_clos_known_decide_inline_def",
+       fetch "-" "cv_decide_inline_alt_def",
        cvTheory.cv_eq_def,
        cvTheory.cv_lt_def0,
        oneline cvTheory.b2c_def
       ] >>
    simp[oneline cvTheory.cv_snd_def, oneline cvTheory.cv_fst_def] >>
    rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
-   gvs[cv_mul_zero, cv_lt_zero]
-   >- (Cases_on ‘g’ >>
-       gvs[] >>
-       intLib.COOPER_TAC)
-   >- (Cases_on ‘g’ >>
-       gvs[] >>
-       intLib.COOPER_TAC) >>
-   cheat)
+   gvs[cv_mul_zero, cv_lt_zero,cv_lt_eq_SUC] >>
+   gvs[cv_mul_oneline,AllCaseEqs(),cv_add_oneline]
+   >- intLib.COOPER_TAC >>
+   rename1 ‘m DIV 2’ >>
+   ‘m ≠ 0’ by(strip_tac >> gvs[]) >>
+   gvs[])
 
 Theorem known_alt_pre[cv_pre]:
-  (∀c v vs g. known_alt_pre c v vs g) ∧
-  (∀c v vs g. known_alts_pre c v vs g) ∧
-  (∀v1 v2 v3 v4 v. known_let_alts_pre v1 v2 v3 v4 v)
+  (∀inl_factor inl_max v vs g. known_alt_pre inl_factor inl_max v vs g) ∧
+  (∀inl_factor inl_max v vs g. known_alts_pre inl_factor inl_max v vs g) ∧
+  (∀v1 v2 v3 v4 v5 v. known_let_alts_pre v1 v2 v3 v4 v5 v)
 Proof
   ho_match_mp_tac known_alt_ind >> rw[] >> rw[Once pre]
 QED
 
-(* TODO
-next: known_def
-val _ = cv_trans clos_knownTheory.compile_def
-*)
+Theorem known_alt_thm:
+  (∀inf inm v vs g c.
+    inf = c.inline_factor ∧ inm = c.inline_max_body_size ⇒
+    known_alt c.inline_factor c.inline_max_body_size v vs g =
+    (λ(x,y). (HD x, y)) (known c [v] vs g)) ∧
+  (∀inf inm v vs g c.
+    inf = c.inline_factor ∧ inm = c.inline_max_body_size ⇒
+    known_alts c.inline_factor c.inline_max_body_size v vs g =
+    known c v vs g) ∧
+  (∀clos vs inf inm g fns c.
+    inf = c.inline_factor ∧ inm = c.inline_max_body_size ⇒
+    known_let_alts clos vs c.inline_factor c.inline_max_body_size g fns =
+    MAP (λ(num_args,x).
+           let new_vs = REPLICATE num_args Other ++ clos ++ vs in
+             let res = known c [x] new_vs g in
+               (num_args,FST (HD (FST res)))) fns)
+Proof
+  ho_match_mp_tac known_alt_ind >>
+  rw[known_alt_def,clos_knownTheory.known_def] >>
+  rpt(pairarg_tac ORELSE IF_CASES_TAC  ORELSE PURE_FULL_CASE_TAC >> gvs[decide_inline_alt_thm])
+  >- (imp_res_tac clos_knownTheory.known_sing_EQ_E >> gvs[] >>
+      gvs[UNCURRY_eq_pair,PULL_EXISTS,PULL_FORALL] >>
+      gvs[clos_knownTheory.dec_inline_factor_def] >>
+      rpt $ first_x_assum $ qspec_then ‘c with inline_factor := c.inline_factor DIV 2’ strip_assume_tac >> gvs[])
+  >- (imp_res_tac clos_knownTheory.known_sing_EQ_E >> gvs[] >>
+      gvs[UNCURRY_eq_pair,PULL_EXISTS,PULL_FORALL] >>
+      gvs[clos_knownTheory.dec_inline_factor_def] >>
+      rpt $ first_x_assum $ qspec_then ‘c with inline_factor := c.inline_factor DIV 2’ strip_assume_tac >> gvs[])
+  >- (imp_res_tac clos_knownTheory.known_sing_EQ_E >> gvs[] >>
+      gvs[UNCURRY_eq_pair,PULL_EXISTS,PULL_FORALL] >>
+      gvs[clos_knownTheory.dec_inline_factor_def] >>
+      imp_res_tac clos_knownTheory.known_LENGTH_EQ_E >>
+      rename1 ‘known _ (_::vvs)’ >>
+      Cases_on ‘vvs’ >>
+      gvs[clos_knownTheory.known_def])
+QED
+
+val _ = cv_auto_trans $
+  resolve_then.gen_resolve_then Any EQ_REFL (cj 2 known_alt_thm)
+  (fn thm => resolve_then.gen_resolve_then Any EQ_REFL thm GSYM)
 
 Theorem clos_known_fake:
   clos_known$compile c es = (c,es)
