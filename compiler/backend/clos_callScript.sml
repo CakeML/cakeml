@@ -451,7 +451,7 @@ Theorem compile_nil:
 Proof
   Cases_on`x` \\ rw[compile_def]
   \\ pairarg_tac \\ fs[] \\ fs[calls_def] \\ rw[]
-Qed
+QED
 
 val selftest = let
   (* example code *)
