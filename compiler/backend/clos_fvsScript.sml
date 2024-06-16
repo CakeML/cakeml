@@ -76,30 +76,34 @@ Definition remove_fvs_sing_def:
   (remove_fvs_sing fvs (Letrec t loc_opt vs fns x1) =
      let m = LENGTH fns in
      let new_fvs = case vs of NONE => fvs | SOME x => LENGTH x in
-     let new_fns =
-       MAP (\(num_args, x).
-         (num_args, remove_fvs_sing (num_args+m+new_fvs) x)) fns in
+     let new_fns = remove_fvs_let m new_fvs fns in
      Letrec t loc_opt vs new_fns (remove_fvs_sing (m + fvs) x1)) /\
   (remove_fvs_sing fvs (Fn t loc_opt vs num_args x1) =
     let fvs = case vs of NONE => fvs | SOME x => LENGTH x in
     Fn t loc_opt vs num_args (remove_fvs_sing (num_args+fvs) x1)) ∧
-
   (remove_fvs_list fvs [] = []) /\
   (remove_fvs_list fvs ((x:closLang$exp)::xs) =
-     remove_fvs_sing fvs x :: remove_fvs_list fvs xs)
+     remove_fvs_sing fvs x :: remove_fvs_list fvs xs) ∧
+  (remove_fvs_let m fvs [] = []) /\
+  (remove_fvs_let m new_fvs ((num_args,x)::xs) =
+     (num_args, remove_fvs_sing (num_args+m+new_fvs) x)::remove_fvs_let m new_fvs xs)
 Termination
   WF_REL_TAC `measure $ λx. case x of INL (_,e) => exp_size e
-                                    | INR (_,es) => exp3_size es`
+                                    | INR(INL (_,es)) => exp3_size es
+                                    | INR(INR (_,_,es)) => exp1_size es`
 End
 
 Theorem remove_fvs_sing_eq:
   (∀fvs e. remove_fvs fvs [e] = [remove_fvs_sing fvs e]) ∧
-  (∀fvs es. remove_fvs fvs es = remove_fvs_list fvs es)
+  (∀fvs es. remove_fvs fvs es = remove_fvs_list fvs es) ∧
+  (∀m new_fvs fns.
+    remove_fvs_let m new_fvs fns =
+    MAP (λ(num_args, x). (num_args, HD (remove_fvs (num_args+m+new_fvs) [x]))) fns
+  )
 Proof
   ho_match_mp_tac remove_fvs_sing_ind >>
-  reverse $ rw[remove_fvs_def, remove_fvs_sing_def]
-  >- (Cases_on `es` >> gvs[remove_fvs_def, remove_fvs_sing_def]) >>
-  rw[MAP_EQ_f] >> pairarg_tac >> gvs[]
+  reverse $ rw[remove_fvs_def, remove_fvs_sing_def] >>
+  Cases_on `es` >> gvs[remove_fvs_def, remove_fvs_sing_def]
 QED
 
 val compile_def = Define`
