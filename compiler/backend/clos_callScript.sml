@@ -213,7 +213,7 @@ val GENLIST_Var_def = Define `
       GENLIST_Var t (i+1) (n-1:num) ++ [Var t (n-1)]`;
 
 val calls_list_def = Define `
-  (calls_list t i loc [] = []) /\
+  (calls_list t (i:num) loc [] = []) /\
   (calls_list t i loc ((n,_)::xs) =
      (n,Call t 0 (loc+1) (GENLIST_Var t 1 n))::
           calls_list t (i+1) (loc+2n) xs)`;
