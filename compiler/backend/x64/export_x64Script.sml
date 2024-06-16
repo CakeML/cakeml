@@ -57,7 +57,7 @@ val startup' =
          ["     jmp     cml_enter"]
        else
          ["     jmp     cake_main"]) ++
-      ["";
+       ["";
        "#if defined(__WIN32)";
        "     .endfunc";
        "#endif"]))``
@@ -97,12 +97,12 @@ val ffi_code' =
        "     ret";
        "     .p2align 4";
        "";
-       "cake_exit:";
+       "cake_exit:"] ++
        (if ret then
-         "     jmp     cml_return"
+         ["     jmp     cml_return"]
        else
-         "     callq   cdecl(cml_exit)");
-       "     .p2align 4";
+         ["     callq   cdecl(cml_exit)"]) ++
+       ["     .p2align 4";
        "";
        "cake_main:";
        "";
@@ -138,15 +138,15 @@ val windows_ffi_code' =
      (windows_ffi_asm (REVERSE ffi_names))
      (List (MAP (\n. strlit(n ++ "\n"))
       (["windows_cml_clear:";
-         "     movq    %rcx, %r9";
-         "     movq    %rdx, %r8";
-         "     movq    %rsi, %rdx";
-         "     movq    %rdi, %rcx";
-         "     jmp     cdecl(cml_clear)"] ++
+        "     movq    %rcx, %r9";
+        "     movq    %rdx, %r8";
+        "     movq    %rsi, %rdx";
+        "     movq    %rdi, %rcx";
+        "     jmp     cdecl(cml_clear)"] ++
        (if ret then (* don't need to treat cake_exit as a function *)
-        []
+         []
        else
-        ["windows_cml_exit:";
+         ["windows_cml_exit:";
          "     movq    %rcx, %r9";
          "     movq    %rdx, %r8";
          "     movq    %rsi, %rdx";

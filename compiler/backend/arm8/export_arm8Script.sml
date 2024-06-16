@@ -84,21 +84,21 @@ val ffi_code' =
     SmartAppend
      (ffi_asm (REVERSE ffi_names))
      (List (MAP (\n. strlit(n ++ "\n"))
-      ["cake_clear:";
+      (["cake_clear:";
        "     b   cdecl(cml_exit)";
        "     .p2align 4";
        "";
-       "cake_exit:";
+       "cake_exit:"] ++
        (if ret then
-         "     b   cml_return"
+         ["     b   cml_return"]
        else
-         "     b   cdecl(cml_exit)");
-       "     .p2align 4";
+         ["     b   cdecl(cml_exit)"]) ++
+       ["     .p2align 4";
        "";
        "cake_main:";
        "";
        "/* Generated machine code follows */";
-       ""])))``
+       ""]))))``
 
 val (ffi_code_true,ffi_code_false) =
     (``^ffi_code' T`` |> EVAL |> concl |> rand,
