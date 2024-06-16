@@ -69,7 +69,7 @@ val hello_startup_clock_def =
   |> SIMP_RULE bool_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]);
 
 val compile_correct_applied =
-  MATCH_MP compile_correct hello_compiled
+  MATCH_MP compile_correct (cj 1 hello_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP hello_not_fail
   |> C MATCH_MP ag32_backend_config_ok

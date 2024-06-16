@@ -10,10 +10,12 @@ open exportTheory;
 open to_data_cvTheory;
 
 type arch_thms =
-  { default_config_def : thm
-  , to_livesets_def    : thm
-  , compile_cake_def   : thm
-  , cv_export_def      : thm }
+  { default_config_def  : thm
+  , default_config_simp : thm
+  , to_livesets_def     : thm
+  , compile_cake_def    : thm
+  , compile_cake_imp    : thm
+  , cv_export_def       : thm }
 
 type comp_input =
   { prefix               : string
@@ -35,8 +37,8 @@ fun write_cv_char_list_to_file filename cv_char_list_tm = let
 fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val { prefix, conf_def, prog_def
       , output_filename , output_conf_filename } = input
-  val { default_config_def, to_livesets_def
-      , compile_cake_def, cv_export_def } = arch
+  val { default_config_def, default_config_simp, to_livesets_def
+      , compile_cake_def, compile_cake_imp, cv_export_def } = arch
   fun define_abbrev name tm =
     Feedback.trace ("Theory.allow_rebinds", 1)
       (mk_abbrev (prefix ^ name)) tm
@@ -50,11 +52,11 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val oracles = let
     val graphs = cv_eval input_tm |> rconc
     in reg_allocComputeLib.get_oracle reg_alloc.Irc graphs end
-  val oracle_def = define_abbrev "oracle" oracles;
+  val oracle_def = define_abbrev "temp_oracle" oracles;
   val _ = cv_trans_deep_embedding EVAL oracle_def
   val oracle_tm = oracle_def |> concl |> lhs
   val c_tm = c |> concl |> lhs
-  val c_oracle_tm = backend_cvTheory.inc_set_oracle_def
+  val c_oracle_tm = backendTheory.inc_set_oracle_def
                       |> SPEC (c |> concl |> rhs)
                       |> SPEC oracle_tm |> concl |> lhs
   val input_tm = compile_cake_def |> GEN_ALL
@@ -79,7 +81,17 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val (ffis_def,th) = abbrev_inside "ffis" "rrrrlr" th
   val (syms_def,th) = abbrev_inside "syms" "rrrrrlr" th
   val (conf_def,th) = abbrev_inside "conf" "rrrrrr" th
-  val result_th = th
+  fun new_spec th =
+    new_specification(prefix ^ "compiled",
+                      [prefix ^ "oracle", prefix ^ "info"], th)
+  val result_th = MATCH_MP compile_cake_imp th
+    |> REWRITE_RULE [backendTheory.inc_set_oracle_pull,
+                     backendTheory.inc_config_to_config_config_to_inc_config]
+    |> REWRITE_RULE [default_config_simp]
+    |> CONV_RULE (UNBETA_CONV oracle_tm)
+    |> MATCH_MP backend_asmTheory.exists_oracle
+    |> CONV_RULE (PATH_CONV "b" BETA_CONV)
+    |> new_spec
   (* --- *)
   val e = cv_export_def |> concl |> strip_forall |> snd |> lhs
   val cv_ty = cvSyntax.cv
@@ -104,7 +116,12 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val _ = case output_conf_filename of NONE => ()
           | SOME fname => write_cv_char_list_to_file fname
                             (conf_def |> concl |> rhs |> rand)
-  in th end
+  (* --- *)
+  val _ = Theory.delete_binding (prefix ^ "temp_oracle_cv_eq")
+  val _ = Theory.delete_binding (prefix ^ "temp_oracle_cv_def")
+  val _ = Theory.delete_binding (prefix ^ "temp_oracle_def")
+  val _ = Theory.delete_binding (prefix ^ "syms_def")
+  in result_th end
 
 fun eval_cake_compile_with_conf arch prefix conf_def prog_def filename =
   eval_cake_compile_general arch
@@ -118,5 +135,16 @@ fun eval_cake_compile arch prefix =
   eval_cake_compile_with_conf arch prefix (#default_config_def arch);
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+(* --- for debugging ---
+   val _ = (max_print_depth := 15);
+   val arch = x64_arch_thms;
+   val input =
+       { prefix               = "x64_"
+       , conf_def             = #default_config_def x64_arch_thms
+       , prog_def             = Define `prog = [] : ast$dec list`
+       , output_filename      = "test.S"
+       , output_conf_filename = SOME "test_conf.txt" } : comp_input;
+*)
 
 end

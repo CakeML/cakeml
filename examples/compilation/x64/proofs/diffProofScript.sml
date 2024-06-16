@@ -17,7 +17,7 @@ val (diff_sem,diff_output) = diff_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_P
 val (diff_not_fail,diff_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail diff_sem |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct diff_compiled
+  MATCH_MP compile_correct (cj 1 diff_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP diff_not_fail
   |> C MATCH_MP x64_backend_config_ok

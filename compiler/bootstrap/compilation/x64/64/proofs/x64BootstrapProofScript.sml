@@ -56,7 +56,7 @@ val (cake_sem,cake_output) = cake_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_P
 val (cake_not_fail,cake_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_sem |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct_eval cake_compiled
+  MATCH_MP compile_correct_eval (cj 1 cake_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO,
                          with_clos_conf_simp]
   |> Q.INST [‘ev’|->‘SOME compiler_instance’]

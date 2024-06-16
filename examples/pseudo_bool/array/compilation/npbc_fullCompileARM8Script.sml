@@ -1,11 +1,11 @@
 (*
   Compiles the PB checker example by evaluation inside the logic of HOL
 *)
-open preamble compilationLib npbc_fullProgTheory
+open preamble npbc_fullProgTheory eval_cake_compile_arm8Lib
 
 val _ = new_theory "npbc_fullCompileARM8"
 
-val pb_arrayFull_compiled = save_thm("npbc_full_compiled",
-  compile_arm8 "cake_pb_arm8" main_prog_def);
+Theorem npbc_full_compiled =
+  eval_cake_compile_arm8 "" main_prog_def "cake_pb_arm8.S";
 
 val _ = export_theory ();

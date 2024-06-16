@@ -3,7 +3,7 @@
 *)
 open preamble cv_transLib cv_stdTheory backend_cvTheory backend_64_cvTheory;
 open backend_x64Theory x64Theory x64_targetTheory to_data_cvTheory;
-open export_x64Theory;
+open export_x64Theory x64_configTheory;
 
 val _ = new_theory "backend_x64_cv";
 
@@ -249,6 +249,14 @@ val _ = cv_auto_trans
 
 val _ = cv_trans backend_x64Theory.to_livesets_x64_def;
 val _ = cv_trans backend_x64Theory.compile_cake_x64_def;
+
+(* lemma used by automation *)
+
+Theorem set_asm_conf_x64_backend_config:
+  set_asm_conf x64_backend_config x64_config = x64_backend_config
+Proof
+  irule backendTheory.set_asm_conf_id \\ EVAL_TAC
+QED
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();

@@ -728,13 +728,7 @@ QED
 val _ = word_allocTheory.canonize_moves_def |> SRULE [GSYM QSORT_canonize_def]
                                             |> cv_auto_trans;
 
-Definition inc_set_oracle_def:
-  inc_set_oracle c oracle =
-    c with inc_word_to_word_conf :=
-        (c.inc_word_to_word_conf with col_oracle := oracle)
-End
-
-val _ = cv_trans inc_set_oracle_def;
+val _ = cv_trans backendTheory.inc_set_oracle_def;
 
 val _ = cv_trans (exportTheory.escape_sym_char_def |> SRULE [GREATER_EQ]);
 val _ = cv_auto_trans exportTheory.emit_symbol_def;

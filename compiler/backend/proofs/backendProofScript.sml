@@ -156,6 +156,14 @@ Proof
   rw[mc_init_ok_def]
 QED
 
+Theorem set_oracle_simp[simp]:
+  backend_config_ok (set_oracle c x) = backend_config_ok c ∧
+  mc_init_ok (backend$set_oracle c x) = mc_init_ok c ∧
+  (set_oracle c x).stack_conf = c.stack_conf
+Proof
+  gvs [backendTheory.set_oracle_def,mc_init_ok_def,FUN_EQ_THM]
+QED
+
 Theorem mc_init_ok_call_empty_ffi[simp]:
    mc_init_ok (cc with
       data_conf updated_by (λc. c with call_empty_ffi updated_by x)) =

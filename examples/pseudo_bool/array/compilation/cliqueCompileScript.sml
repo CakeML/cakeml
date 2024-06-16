@@ -1,11 +1,11 @@
 (*
   Compiles the max clique + PB checker
 *)
-open preamble compilationLib cliqueProgTheory
+open preamble cliqueProgTheory eval_cake_compile_x64Lib
 
 val _ = new_theory "cliqueCompile"
 
-val clique_compiled = save_thm("clique_compiled",
-  compile_x64 "cake_pb_clique" main_prog_def);
+Theorem clique_compiled =
+  eval_cake_compile_x64 "" main_prog_def "cake_pb_clique.S";
 
 val _ = export_theory ();

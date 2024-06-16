@@ -493,4 +493,10 @@ Proof
   \\ rw [] \\ gvs []
 QED
 
+Theorem exists_oracle:
+  P x ⇒ ∃oracle. P oracle
+Proof
+  metis_tac []
+QED
+
 val _ = export_theory();

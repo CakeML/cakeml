@@ -9,10 +9,12 @@ local
   open eval_cake_compileLib;
 
   val arm8_arch_thms =
-    { default_config_def = arm8_configTheory.arm8_backend_config_def
-    , to_livesets_def    = backend_arm8Theory.to_livesets_arm8_def
-    , compile_cake_def   = backend_arm8Theory.compile_cake_arm8_def
-    , cv_export_def      = backend_arm8_cvTheory.cv_arm8_export_def } : arch_thms;
+    { default_config_def  = arm8_configTheory.arm8_backend_config_def
+    , default_config_simp = backend_arm8_cvTheory.set_asm_conf_arm8_backend_config
+    , to_livesets_def     = backend_arm8Theory.to_livesets_arm8_def
+    , compile_cake_def    = backend_arm8Theory.compile_cake_arm8_def
+    , compile_cake_imp    = backend_arm8Theory.compile_cake_arm8_thm
+    , cv_export_def       = backend_arm8_cvTheory.cv_arm8_export_def } : arch_thms;
 
 in
 

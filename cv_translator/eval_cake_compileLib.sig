@@ -5,10 +5,12 @@ sig
   include Abbrev
 
   type arch_thms =
-    { default_config_def : thm
-    , to_livesets_def    : thm
-    , compile_cake_def   : thm
-    , cv_export_def      : thm }
+    { default_config_def  : thm
+    , default_config_simp : thm
+    , to_livesets_def     : thm
+    , compile_cake_def    : thm
+    , compile_cake_imp    : thm
+    , cv_export_def       : thm }
 
   type comp_input =
     { prefix               : string

@@ -3,6 +3,7 @@
 *)
 open preamble cv_transLib cv_stdTheory backend_cvTheory backend_32_cvTheory;
 open backend_ag32Theory ag32Theory ag32_targetTheory to_data_cvTheory;
+open export_ag32Theory ag32_configTheory;
 
 val _ = new_theory "backend_ag32_cv";
 
@@ -153,6 +154,14 @@ val _ = cv_auto_trans
 
 val _ = cv_trans backend_ag32Theory.to_livesets_ag32_def;
 val _ = cv_trans backend_ag32Theory.compile_cake_ag32_def;
+
+(* lemma used by automation *)
+
+Theorem set_asm_conf_ag32_backend_config:
+  set_asm_conf ag32_backend_config ag32_config = ag32_backend_config
+Proof
+  irule backendTheory.set_asm_conf_id \\ EVAL_TAC
+QED
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();
