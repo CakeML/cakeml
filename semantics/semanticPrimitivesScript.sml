@@ -5,7 +5,7 @@
 open HolKernel Parse boolLib bossLib;
 open libTheory astTheory namespaceTheory ffiTheory fpValTreeTheory fpSemTheory realOpsTheory;
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 val _ = new_theory "semanticPrimitives"
 

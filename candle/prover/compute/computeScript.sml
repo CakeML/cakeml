@@ -8,7 +8,7 @@ open compute_syntaxTheory compute_evalTheory compute_execTheory;
 
 val _ = new_theory "compute";
 
-val _ = numLib.prefer_num ();
+val _ = numLib.temp_prefer_num ();
 
 val st_ex_monadinfo : monadinfo = {
   bind = “st_ex_bind”,

@@ -4,7 +4,7 @@
 *)
 open preamble cardinalTheory
 
-val _ = numLib.prefer_num()
+val _ = numLib.temp_prefer_num()
 
 val _ = new_theory"jrhSet"
 

@@ -5,7 +5,7 @@ open preamble pbcTheory pbc_normaliseTheory npbc_checkTheory;
 
 val _ = new_theory "pb_parse";
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 (* Print mlstring pbc *)
 Definition lit_string_def:
