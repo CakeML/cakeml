@@ -240,6 +240,27 @@ Proof
   Cases_on ‘t’>>rw[FUNPOW_SUC]
 QED
 
+Theorem spin_bind:
+  spin >>= k = spin
+Proof
+  simp[Once itree_bisimulation]>>
+  qexists ‘CURRY {(spin >>= k, spin)}’>>
+  simp[]>>rw[]
+  >- fs[Once spin]
+  >- irule (GSYM spin)
+  >- fs[Once spin,itree_bind_thm]>>
+  fs[Once spin]
+QED
+
+Theorem spin_FUNPOW_Tau:
+  ∀n. spin = FUNPOW Tau n spin
+Proof
+  Induct>>rw[]>>fs[FUNPOW_SUC]>>
+  irule (GSYM spin)
+QED
+
+(***)
+
 Theorem msem_bind_left_ident:
   mrec_sem ht ≈ Ret x ⇒
   mrec_sem (ht >>= k) ≈ mrec_sem (k x)
@@ -629,7 +650,6 @@ Proof
   rpt strip_tac >>
   rw [mrec_sem_simps]
 QED
-
 (* Main correspondence theorem *)
 
 (* Extension for ffi$behaviour capturing evaluation result
@@ -813,6 +833,27 @@ Proof
       itree_wbisim_neq
      ] >>
   metis_tac[]
+QED
+
+
+Theorem ltree_lift_FUNPOW_Tau:
+  ltree_lift f st (FUNPOW Tau n t) = FUNPOW Tau n (ltree_lift f st t)
+Proof
+  Induct_on ‘n’>>fs[FUNPOW_SUC,ltree_lift_cases]
+QED
+
+Theorem to_stree_FUNPOW_Tau:
+  to_stree (FUNPOW Tau n t) = FUNPOW Tau n (to_stree t)
+Proof
+  MAP_EVERY qid_spec_tac [‘t’,‘n’]>>
+  Induct_on ‘n’>>rw[]>>
+  simp[FUNPOW_SUC,to_stree_simps]
+QED
+
+Theorem stree_trace_FUNPOW_Tau:
+  stree_trace f p st (FUNPOW Tau n t) = stree_trace f p st t
+Proof
+  Induct_on ‘n’>>fs[FUNPOW_SUC,stree_trace_simps]
 QED
 
 Theorem itree_semantics_beh_Dec:
