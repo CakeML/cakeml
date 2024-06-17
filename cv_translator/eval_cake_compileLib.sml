@@ -68,26 +68,33 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
             |> CONV_RULE (PATH_CONV "lr" (REWRITE_CONV [GSYM c]))
   val th2 = th1 |> CONV_RULE (PATH_CONV "r" (REWR_CONV to_option_some))
             handle HOL_ERR _ => failwith "compiler returned NONE"
-  val th3 = th2 |> CONV_RULE (PATH_CONV "rr" (REWR_CONV to_pair))
-                |> CONV_RULE (PATH_CONV "rrr" (REWR_CONV to_pair))
-                |> CONV_RULE (PATH_CONV "rrrr" (REWR_CONV to_pair))
-                |> CONV_RULE (PATH_CONV "rrrrr" (REWR_CONV to_pair))
+  val c2n_Num = cvTheory.c2n_def |> cj 1
+  val th3 = th2 |> CONV_RULE (PATH_CONV "rr" (REWR_CONV to_pair)
+                        THENC PATH_CONV "rrr" (REWR_CONV to_pair)
+                        THENC PATH_CONV "rrrr" (REWR_CONV to_pair)
+                        THENC PATH_CONV "rrrrr" (REWR_CONV to_pair)
+                        THENC PATH_CONV "rrrrrr" (REWR_CONV to_pair)
+                        THENC PATH_CONV "rrrrrrr" (REWR_CONV to_pair)
+                        THENC PATH_CONV "rrrrrrrr" (REWR_CONV to_pair)
+                        THENC PATH_CONV "rrrlr" (REWR_CONV c2n_Num)
+                        THENC PATH_CONV "rrrrrlr" (REWR_CONV c2n_Num)
+                        THENC PATH_CONV "rrrrrrrlr" (REWR_CONV c2n_Num))
   fun abbrev_inside name path th = let
     val tm = dest_path path (concl th)
     val def = define_abbrev name tm
     in (def, CONV_RULE (PATH_CONV path (REWR_CONV (SYM def))) th) end
   val (code_def,th) = abbrev_inside "code" "rrlr" th3
-  val (data_def,th) = abbrev_inside "data" "rrrlr" th
-  val (ffis_def,th) = abbrev_inside "ffis" "rrrrlr" th
-  val (syms_def,th) = abbrev_inside "syms" "rrrrrlr" th
-  val (conf_def,th) = abbrev_inside "conf" "rrrrrr" th
+  val (data_def,th) = abbrev_inside "data" "rrrrlr" th
+  val (ffis_def,th) = abbrev_inside "ffis" "rrrrrrlr" th
+  val (syms_def,th) = abbrev_inside "syms" "rrrrrrrrlr" th
+  val (conf_def,th) = abbrev_inside "conf" "rrrrrrrrr" th
   fun new_spec th =
     new_specification(prefix ^ "compiled",
                       [prefix ^ "oracle", prefix ^ "info"], th)
   val result_th = MATCH_MP compile_cake_imp th
     |> REWRITE_RULE [backendTheory.inc_set_oracle_pull,
                      backendTheory.inc_config_to_config_config_to_inc_config]
-    |> REWRITE_RULE [default_config_simp]
+    |> REWRITE_RULE [default_config_simp,LENGTH_NIL]
     |> CONV_RULE (UNBETA_CONV oracle_tm)
     |> MATCH_MP backend_asmTheory.exists_oracle
     |> CONV_RULE (PATH_CONV "b" BETA_CONV)

@@ -14,7 +14,7 @@ README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmeP
 	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
 
 cake.S: *$(ARCH)BootstrapScript.sml
-config_enc_str.txt: *$(ARCH)_config_encScript.sml
+config_enc_str.txt: *$(ARCH)BootstrapScript.sml
 
 cake-sexpr-32: *sexprBootstrap32Script.sml
 cake-sexpr-64: *sexprBootstrap64Script.sml

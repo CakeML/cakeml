@@ -17,7 +17,7 @@ val (wordfreq_sem,wordfreq_output) = wordfreq_io_events_def |> SPEC_ALL |> UNDIS
 val (wordfreq_not_fail,wordfreq_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail wordfreq_sem |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct wordfreq_compiled
+  MATCH_MP compile_correct (cj 1 wordfreq_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP wordfreq_not_fail
   |> C MATCH_MP x64_backend_config_ok
@@ -32,12 +32,13 @@ val wordfreq_compiled_lemma =
   |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
   |> DISCH_ALL;
 
-val compiler_output_def = Define `
-  compiler_output = (code,data,config)`;
+Definition compiler_output_def:
+  compiler_output = (code,data,info)
+End
 
 (* TODO: move  *)
 
-val get_file_contents_def = Define `
+Definition get_file_contents_def:
   get_file_contents fs fname =
     if inFS_fname fs fname then
       case ALOOKUP fs.files fname of
@@ -46,16 +47,19 @@ val get_file_contents_def = Define `
           case ALOOKUP fs.inode_tbl (File ino) of
           | NONE => NONE
           | SOME s => SOME (implode s)
-    else NONE`
+    else NONE
+End
 
-val wfFS_def = Define `
-  wfFS fs <=> fsFFIProps$wfFS fs ∧ STD_streams fs`;
+Definition wfFS_def:
+  wfFS fs <=> fsFFIProps$wfFS fs ∧ STD_streams fs
+End
 
-val x64_installed_def = Define `
+Definition x64_installed_def:
   x64_installed (c,d,conf) cbspace data_sp mc ms <=>
     is_x64_machine_config mc ∧
     targetSem$installed c cbspace d data_sp conf.lab_conf.ffi_names
-      (heap_regs x64_backend_config.stack_conf.reg_names) mc conf.lab_conf.shmem_extra ms`
+      (heap_regs x64_backend_config.stack_conf.reg_names) mc conf.lab_conf.shmem_extra ms
+End
 
 (* -- *)
 
@@ -71,7 +75,7 @@ Theorem wordfreq_compiled_thm:
 Proof
   strip_tac
   \\ assume_tac wordfreq_compiled_lemma
-  \\ rfs [get_file_contents_def,wfFS_def,compiler_output_def,x64_installed_def]
+  \\ rfs [get_file_contents_def,wfFS_def,x64_installed_def,compiler_output_def]
   \\ asm_exists_tac \\ fs [option_case_eq]
   \\ metis_tac [wordfreqProgTheory.wordfreq_output_spec_def]
 QED

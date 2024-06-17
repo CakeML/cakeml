@@ -2706,7 +2706,7 @@ Proof
   \\ gs []
 QED
 
-Triviality compile_asm_config_eq:
+Theorem compile_asm_config_eq:
   compile (c : 'a config) prog = SOME (b,bm,c') ==>
   c'.lab_conf.asm_conf = c.lab_conf.asm_conf
 Proof

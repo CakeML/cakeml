@@ -20,7 +20,7 @@ val (check_unsat_sem,check_unsat_output) = check_unsat_io_events_def |> SPEC_ALL
 val (check_unsat_not_fail,check_unsat_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail check_unsat_sem |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct lpr_ramsey_compiled
+  MATCH_MP compile_correct (cj 1 lpr_ramsey_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP check_unsat_not_fail
   |> C MATCH_MP x64_backend_config_ok
