@@ -122,23 +122,20 @@ Proof
 QED
 
 Theorem FUNPOW_eq_elim:
-  FUNPOW f n t = FUNPOW f n t' ∧
   INJ f UNIV UNIV ⇒
-  t = t'
+  (FUNPOW f n t = FUNPOW f n t' ⇔
+     t = t')
 Proof
-  Induct_on ‘n’>>rw[]>>
+  Induct_on ‘n’>>rw[EQ_IMP_THM]>>
   fs[FUNPOW_SUC,INJ_DEF]
 QED
 
 Theorem FUNPOW_min_cancel:
-  n ≤ n' ∧ INJ f UNIV UNIV ∧
-  FUNPOW f n X = FUNPOW f n' X' ⇒
-  X = FUNPOW f (n' - n) X'
+  n ≤ n' ∧ INJ f UNIV UNIV ⇒
+  (FUNPOW f n X = FUNPOW f n' X' ⇔
+     X = FUNPOW f (n' - n) X')
 Proof
-  Induct_on ‘n'-n’>>rw[FUNPOW_SUC]
-  >- (drule_then rev_drule LESS_EQUAL_ANTISYM>>strip_tac>>gvs[]>>
-      imp_res_tac FUNPOW_INJ>>gvs[INJ_DEF]>>
-      first_x_assum irule>>metis_tac[])>>
+  Induct_on ‘n'-n’>>rw[FUNPOW_SUC,EQ_IMP_THM]>>
   imp_res_tac FUNPOW_INJ>>gvs[INJ_DEF]>>
   ‘FUNPOW f n' X' = FUNPOW f n (FUNPOW f (n' - n) X')’
     by simp[GSYM FUNPOW_ADD]>>fs[]>>
@@ -164,8 +161,8 @@ Theorem FUNPOW_Tau_neq2[simp]:
 Proof
   Cases_on ‘n < n'’>>fs[NOT_LESS]>>strip_tac
   >- (imp_res_tac (GSYM LESS_ADD)>>fs[FUNPOW_ADD]>>
-      imp_res_tac FUNPOW_eq_elim>>fs[Tau_INJ])>>
-     imp_res_tac FUNPOW_min_cancel>>fs[Tau_INJ]
+      fs[FUNPOW_eq_elim,Tau_INJ])>>
+  gvs[FUNPOW_min_cancel,Tau_INJ]
 QED
 
 Theorem strip_tau_FUNPOW:
