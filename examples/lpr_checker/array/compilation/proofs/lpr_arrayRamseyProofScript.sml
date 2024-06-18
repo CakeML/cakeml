@@ -53,7 +53,7 @@ val installed_x64_def = Define `
     `;
 
 val check_unsat_code_def = Define `
-  check_unsat_code = (code, data, config)
+  check_unsat_code = (code, data, info)
   `;
 
 (* A standard run of ramsey satisfying all the default assumptions *)

@@ -53,7 +53,7 @@ val installed_x64_def = Define `
     `;
 
 val main_code_def = Define `
-  main_code = (code, data, config)
+  main_code = (code, data, info)
   `;
 
 (* A standard run of packing satisfying all the default assumptions *)
