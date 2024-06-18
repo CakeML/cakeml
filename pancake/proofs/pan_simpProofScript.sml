@@ -301,7 +301,8 @@ Theorem ret_to_tail_Others:
   ^(get_goal "panLang$Continue") /\
   ^(get_goal "panLang$ExtCall") /\
   ^(get_goal "panLang$Raise") /\
-  ^(get_goal "panLang$ShMem") /\
+  ^(get_goal "panLang$ShMemLoad") /\
+  ^(get_goal "panLang$ShMemStore") /\
   ^(get_goal "panLang$Return") /\
   ^(get_goal "panLang$Tick")
 Proof
@@ -862,14 +863,32 @@ Proof
   strip_tac >> fs []
 QED
 
-Theorem compile_ShMem:
-  ^(get_goal "panLang$ShMem")
+Theorem compile_ShMemLoad:
+  ^(get_goal "panLang$ShMemLoad")
 Proof
   rw [] >>
   fs [evaluate_seq_assoc, evaluate_skip_seq] >>
   Cases_on ‘op’>>
   fs [evaluate_def] >> rveq >>
-  fs [sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
+  fs [nb_op_def,sh_mem_load_def,sh_mem_store_def,
+      set_var_def,empty_locals_def] >>
+  last_x_assum mp_tac >>
+  rpt (TOP_CASE_TAC >> fs []) >>
+  MAP_EVERY imp_res_tac [compile_eval_correct,compile_eval_correct_none] >> gvs[] >>
+  rfs [state_rel_def, state_component_equality,
+       empty_locals_def, dec_clock_def] >> rveq >> fs [] >>
+  rveq >> fs [] >> rveq >> rfs [] >>
+  strip_tac >> fs []
+QED
+
+Theorem compile_ShMemStore:
+  ^(get_goal "panLang$ShMemStore")
+Proof
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  Cases_on ‘op’>>
+  fs [evaluate_def] >> rveq >>
+  fs [nb_op_def,sh_mem_load_def,sh_mem_store_def,
       set_var_def,empty_locals_def] >>
   last_x_assum mp_tac >>
   rpt (TOP_CASE_TAC >> fs []) >>
@@ -906,7 +925,7 @@ Theorem compile_correct:
 Proof
   match_mp_tac (the_ind_thm()) >>
   EVERY (map strip_assume_tac
-         [compile_Dec, compile_Seq, compile_ShMem,
+         [compile_Dec, compile_Seq, compile_ShMemLoad, compile_ShMemStore,
           compile_If, compile_While, compile_Call, compile_DecCall,
           compile_ExtCall, compile_Call,compile_Others]) >>
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)

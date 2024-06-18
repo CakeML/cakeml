@@ -5,7 +5,7 @@ open preamble;
 open mlstringTheory mlintTheory;
 open astTheory semanticPrimitivesTheory typeSystemTheory;
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 val _ = new_theory "infer_t";
 

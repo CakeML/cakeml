@@ -103,10 +103,13 @@ Definition scope_check_prog_def:
     scope_check_exps ctxt [ptr1;len1;ptr2;len2] ∧
   scope_check_prog ctxt (Raise eid excp) = scope_check_exp ctxt excp ∧
   scope_check_prog ctxt (Return rt) = scope_check_exp ctxt rt ∧
-  scope_check_prog ctxt (ShMem mop v e) =
+  scope_check_prog ctxt (ShMemLoad mop v e) =
     (if ¬MEM v ctxt.vars
         then SOME (v, ctxt.fname)
      else scope_check_exp ctxt e) ∧
+  scope_check_prog ctxt (ShMemStore mop e1 e2) =
+    OPTION_CHOICE (scope_check_exp ctxt e1)
+                  (scope_check_exp ctxt e2) ∧
   scope_check_prog ctxt Tick = NONE
 End
 

@@ -5,7 +5,7 @@ open preamble mlratTheory real_sigmaTheory sptree_unionWithTheory realLib;
 
 val _ = new_theory "milp";
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 (* this should really be a finite map x |-> r
 
@@ -357,8 +357,11 @@ Proof
   >- (
     simp[real_sigmaTheory.SUM_0']>>
     match_mp_tac real_sigmaTheory.SUM_EQ_0'>>
+    simp[SUM_0']>>
+    match_mp_tac SUM_EQ_0'>>
     simp[PULL_EXISTS,eval_real_term_def])>>
   match_mp_tac real_sigmaTheory.SUM_EQ_GENERAL_INVERSES>>
+  match_mp_tac SUM_EQ_GENERAL_INVERSES>>
   rw[PULL_EXISTS]>>
   qexists_tac`(λ(x,v).(x, r⁻¹ * v) )`>>
   qexists_tac`(λ(x,v).(x, r * v) )`>> simp[]>>

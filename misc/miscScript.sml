@@ -34,7 +34,7 @@ val asm_exists_tac = first_assum(match_exists_tac o concl)
 
 (* TODO: move/categorize *)
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 (* theorem behind impl_tac *)
 val IMP_IMP = save_thm("IMP_IMP",METIS_PROVE[]``(P /\ (Q ==> R)) ==> ((P ==> Q) ==> R)``);

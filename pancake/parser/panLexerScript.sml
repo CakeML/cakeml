@@ -24,7 +24,7 @@ Datatype:
 End
 
 Datatype:
-  token = AndT | OrT | XorT | NotT
+  token = AndT | OrT | BoolAndT | BoolOrT | XorT | NotT
   | EqT | NeqT | LessT | GreaterT | GeqT | LeqT
   | PlusT | MinusT | DotT | StarT
   | LslT | LsrT | AsrT | RorT
@@ -41,18 +41,18 @@ Datatype:
 End
 
 Definition isAtom_singleton_def:
-  isAtom_singleton c = MEM c "+-&^|*().,;:[]{}"
+  isAtom_singleton c = MEM c "+-^*().,;:[]{}"
 End
 
 Definition isAtom_begin_group_def:
   (* # is for only for RorT,
   * and should remove it to avoid collision with
   * C-preprocessor later *)
-  isAtom_begin_group c = MEM c "#=><!"
+  isAtom_begin_group c = MEM c "#=><!&|"
 End
 
 Definition isAtom_in_group_def:
-  isAtom_in_group c = MEM c "=<>"
+  isAtom_in_group c = MEM c "=<>|&"
 End
 
 Definition isAlphaNumOrWild_def:
@@ -71,6 +71,8 @@ End
 
 Definition get_token_def:
   get_token s =
+  if s = "&&" then BoolAndT else
+  if s = "||" then BoolOrT else
   if s = "&" then AndT else
   if s = "|" then OrT else
   if s = "^" then XorT else

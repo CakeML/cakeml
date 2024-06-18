@@ -53,6 +53,10 @@ Datatype:
 End
 
 Datatype:
+  opsize = Op8 | OpW
+End
+
+Datatype:
   prog = Skip
        | Dec varname ('a exp) prog
        | Assign    varname ('a exp)  (* dest, source *)
@@ -69,7 +73,8 @@ Datatype:
          (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
        | Raise eid ('a exp)
        | Return ('a exp)
-       | ShMem memop varname ('a exp)
+       | ShMemLoad opsize varname ('a exp)
+       | ShMemStore opsize ('a exp) ('a exp)
        | Tick;
 End
 
@@ -200,6 +205,16 @@ End
 Definition destruct_def:
   (destruct (Struct es) = es) /\
   (destruct _ = [])
+End
+
+Definition load_op_def:
+  load_op Op8 = Load8 ∧
+  load_op OpW = Load
+End
+
+Definition store_op_def:
+  store_op Op8 = Store8 ∧
+  store_op OpW = Store
 End
 
 val _ = export_theory();

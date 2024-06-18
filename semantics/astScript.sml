@@ -4,8 +4,6 @@
 open HolKernel Parse boolLib bossLib;
 open namespaceTheory fpSemTheory fpValTreeTheory realOpsTheory;
 
-val _ = numLib.prefer_num();
-
 local open integerTheory wordsTheory stringTheory namespaceTheory locationTheory in end;
 val _ = new_theory "ast"
 val _ = set_grammar_ancestry ["integer", "words", "string", "namespace", "location"];

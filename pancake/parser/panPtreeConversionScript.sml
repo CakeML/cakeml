@@ -103,7 +103,7 @@ End
 
 (** Collection of binop expression nodes, n >= 2 *)
 Definition binaryExps_def:
-  binaryExps = [ExpNT; EXorNT; EAndNT; EAddNT]
+  binaryExps = [EOrNT; EXorNT; EAndNT; EAddNT]
 End
 
 Definition panExps_def:
@@ -260,6 +260,10 @@ Definition conv_Exp_def:
                    SOME $ Struct es
                 od
       | _ => NONE
+    else if isNT nodeNT NotNT then
+      case args of
+        [t] => lift (Cmp Equal (Const 0w)) (conv_Exp t)
+      | _ => NONE
     else if isNT nodeNT LoadByteNT then
       case args of
         [t] => lift LoadByte (conv_Exp t)
@@ -280,6 +284,20 @@ Definition conv_Exp_def:
                            SOME $ if b then Cmp op' e2' e1'
                                   else Cmp op' e1' e2'
                         od
+      | _ => NONE
+    else if isNT nodeNT ExpNT then (* boolean or *)
+      case args of
+        [e] => conv_Exp e
+      | e1::args' => do es  <- OPT_MMAP conv_Exp $ e1::args';
+                        SOME $ Cmp NotEqual (Const 0w) $ Op Or es
+                     od
+      | _ => NONE
+    else if isNT nodeNT EBoolAndNT then
+      case args of
+        [e] => conv_Exp e
+      | e1::args' => do es  <- OPT_MMAP conv_Exp $ e1::args';
+                        SOME $ Op And $ MAP (λe. Cmp NotEqual (Const 0w) e) es
+                     od
       | _ => NONE
     else if isNT nodeNT EShiftNT then
       case args of
@@ -324,6 +342,11 @@ Termination
                            | INL x => ptree_size x
                            | INR (INR(INL x)) => ptree1_size (FST x)
                            | INR (INR(INR x)) => ptree1_size (FST x))’ >> rw[]
+  >> rename1 ‘ptree_size tree’
+  >> Cases_on ‘tree’
+  >> gvs[argsNT_def,parsetree_size_def]
+  >> drule_then assume_tac mem_ptree_thm >> gvs[]
+  >> rename1 ‘ptree_size tree’
   >> Cases_on ‘tree’
   >> gvs[argsNT_def,parsetree_size_def]
   >> drule_then assume_tac mem_ptree_thm >> gvs[]
@@ -348,19 +371,19 @@ Definition conv_NonRecStmt_def:
       | _ => NONE
     else if isNT nodeNT SharedLoadNT then
       case args of
-        [v; e] => lift2 (ShMem Load) (conv_ident v) (conv_Exp e)
+        [v; e] => lift2 (ShMemLoad OpW) (conv_ident v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT SharedLoadByteNT then
       case args of
-        [v; e] => lift2 (ShMem Load8) (conv_ident v) (conv_Exp e)
+        [v; e] => lift2 (ShMemLoad Op8) (conv_ident v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT SharedStoreNT then
       case args of
-        [v; e] => lift2 (ShMem Store) (conv_ident v) (conv_Exp e)
+        [v; e] => lift2 (ShMemStore OpW) (conv_Exp v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT SharedStoreByteNT then
       case args of
-        [v; e] => lift2 (ShMem Store8) (conv_ident v) (conv_Exp e)
+        [v; e] => lift2 (ShMemStore Op8) (conv_Exp v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT ExtCallNT then
       case args of

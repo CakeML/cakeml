@@ -72,7 +72,7 @@ val treeEx1 = check_success $ parse_pancake ex1;
     (‘<>’). *)
 val ex2 = ‘
   fun main() {
-    if b & (a ^ c) & d {
+    if !b & (a ^ c) & d {
       return foo(1, <2, 3>);
         } else {
       return goo(4, 5, 6);
@@ -80,6 +80,15 @@ val ex2 = ‘
   }’;
 
 val treeEx2 = check_success $ parse_pancake ex2;
+
+(** Logical operators (as opposed to bitwise operators) are && and || *)
+val ex2_and_a_half = ‘
+  fun main() {
+    return(a && b && c || a || b ^ d);
+  }’;
+
+val treeEx2_and_a_half = check_success $ parse_pancake ex2_and_a_half;
+
 
 (** We also have a selection of boolean operators and
     a ‘return’ statement. NOTE: all Pancake functions should end with a return statement.*)
@@ -314,8 +323,8 @@ val struct_argument_parse =  parse_pancake $ struct_arguments;
 val shmem_ex = ‘
   fun test_shmem() {
     var v = 12;
-    !st8 v, 1000; // store byte stored in v (12) to shared memory address 1000
-    !stw v, 1004; // store word stored in v (12) to shared memory address 1004
+    !st8 1000, v; // store byte from variable v (12) to shared memory address 1000
+    !stw 1004, 1+1; // store 1+1 (aka 2) to shared memory address 1004
     !ld8 v, 1000 + 12; // load byte stored in shared memory address 1012 to v
     !ldw v, 1000 + 12 * 2; // load word stored in shared memory address 1024 to v
   }’;
@@ -360,5 +369,22 @@ val error_line_ex2 =
  ’
 
 val error_line_ex2_parse = check_failure $ parse_pancake error_line_ex2
+
+(** Function pointers
+
+    & can only be used to get the address of functions.
+    Function pointers can be stored in variables, in shapes, passed as arguments,
+    stored on the heap, and invoked.
+    Any other use of them---including but not limited to arithmetic and
+    shared memory operations---is considered undefined behaviour.
+ *)
+val fun_pointer_ex1 =
+  ‘fun main () {
+     var x = &main;
+     return *x(); //  this is a recursive call
+   }
+  ’
+
+val fun_pointer_ex1_parse = check_success $ parse_pancake fun_pointer_ex1;
 
 val _ = export_theory();

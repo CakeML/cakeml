@@ -8,7 +8,7 @@ open preamble
      arm8_asl_configProofTheory
      TextIOProofTheory
      npbc_fullProgTheory
-     npbc_fullCompileARM8Theory;
+     npbc_fullCompileTheory;
 
 val _ = new_theory"npbc_fullProofARM8";
 
@@ -20,7 +20,7 @@ val (cake_pb_sem,cake_pb_output) = cake_pb_io_events_def |> SPEC_ALL |> UNDISCH 
 val (cake_pb_not_fail,cake_pb_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_pb_sem |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct (cj 1 npbc_full_compiled)
+  MATCH_MP compile_correct (cj 1 npbc_full_compiled_arm8)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP cake_pb_not_fail
   |> C MATCH_MP arm8_configProofTheory.arm8_backend_config_ok
@@ -53,7 +53,7 @@ val installed_arm8_asl_def = Define `
     `;
 
 val cake_pb_code_def = Define `
-  cake_pb_code = (code, data, info)
+  cake_pb_code = (arm8_code, arm8_data, arm8_info)
   `;
 
 (* A standard run of cake_pb
