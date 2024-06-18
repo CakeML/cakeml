@@ -220,6 +220,14 @@ Proof
   irule FUNPOW_Tau_wbisim
 QED
 
+Theorem itree_wbisim_Vis_FUNPOW:
+  t ≈ Vis a g ⇒ ∃n k. t = FUNPOW Tau n $ Vis a k ∧ (∀r. k r ≈ g r)
+Proof
+  simp[Once itree_wbisim_cases] >> rw[] >>
+  imp_res_tac strip_tau_FUNPOW>>
+  pop_assum $ irule_at Any>>fs[]
+QED
+
 Theorem FUNPOW_Tau_bind:
   FUNPOW Tau n t >>= g = FUNPOW Tau n (t >>= g)
 Proof
