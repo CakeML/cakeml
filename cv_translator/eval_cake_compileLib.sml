@@ -34,6 +34,8 @@ fun write_cv_char_list_to_file filename cv_char_list_tm = let
   val _ = loop cv_char_list_tm
   in TextIO.closeOut f end;
 
+fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f;
+
 fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val { prefix, conf_def, prog_def
       , output_filename , output_conf_filename } = input
@@ -45,7 +47,7 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val conf = conf_def |> concl |> lhs
   val c = backendTheory.config_to_inc_config_def
             |> ISPEC conf |> CONV_RULE (RAND_CONV EVAL)
-  val _ = cv_trans_deep_embedding EVAL prog_def
+  val _ = allowing_rebind (cv_trans_deep_embedding EVAL) prog_def
   val input_tm = to_livesets_def |> GEN_ALL
     |> SPEC (prog_def |> concl |> lhs)
     |> SPEC (c |> concl |> rand) |> concl |> lhs |> mk_fst
@@ -53,7 +55,7 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
     val graphs = cv_eval input_tm |> rconc
     in reg_allocComputeLib.get_oracle reg_alloc.Irc graphs end
   val oracle_def = define_abbrev "temp_oracle" oracles;
-  val _ = cv_trans_deep_embedding EVAL oracle_def
+  val _ = allowing_rebind (cv_trans_deep_embedding EVAL) oracle_def
   val oracle_tm = oracle_def |> concl |> lhs
   val c_tm = c |> concl |> lhs
   val c_oracle_tm = backendTheory.inc_set_oracle_def
