@@ -3,7 +3,7 @@
 *)
 open preamble;
 open cv_transLib unifyTheory;
-open cv_stdTheory
+open cv_stdTheory basis_cvTheory;
 
 val _ = new_theory "unify_cv";
 

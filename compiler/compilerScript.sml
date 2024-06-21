@@ -634,14 +634,6 @@ val add_tap_output_def = Define`
   add_tap_output td out =
     if td = Nil then out else td :mlstring app_list`;
 
-Definition ffinames_to_string_list_def:
-  (ffinames_to_string_list [] = []) ∧
-  (ffinames_to_string_list ((ExtCall s)::rest) =
-    s::(ffinames_to_string_list rest)) ∧
-  (ffinames_to_string_list ((SharedMem _)::rest) =
-    ffinames_to_string_list rest)
-End
-
 (* The top-level compiler with everything instantiated except it doesn't do exporting *)
 
 (* The top-level compiler with almost everything instantiated except the top-level configuration *)

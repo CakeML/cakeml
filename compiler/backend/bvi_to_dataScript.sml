@@ -82,7 +82,7 @@ val iAssign_def = Define `
 
 val _ = Parse.hide"tail";
 
-val compile_def = tDefine "compile" `
+Definition compile_def:
   (compile (n:num) (env:num list) tail live [] =
     (Skip,[]:num list,n)) /\
   (compile n env tail live (x::y::xs) =
@@ -127,10 +127,85 @@ val compile_def = tDefine "compile" `
      let (c2,v,n2) = compile (n1+1) (n1::env) F live [handler] in
      let ret = SOME (n2, list_to_num_set (live ++ env)) in
      let c3 = (if tail then Return n2 else Skip) in
-       (Seq c1 (mk_ticks ticks (Seq (Call ret dest vs (SOME (n1,Seq c2 (Move n2 (HD v))))) c3)), [n2], n2+1))`
- (WF_REL_TAC `measure (exp2_size o SND o SND o SND o SND)`);
+       (Seq c1 (mk_ticks ticks (Seq (Call ret dest vs (SOME (n1,Seq c2 (Move n2 (HD v))))) c3)), [n2], n2+1))
+Termination
+  WF_REL_TAC `measure (exp2_size o SND o SND o SND o SND)`
+End
 
-val compile_ind = theorem"compile_ind";
+Definition compile_sing_def:
+  (compile_sing n env tail live ((Var v):bvi$exp) =
+     let var = any_el v env 0n in
+     if tail
+     then (Return var, n, n+1)
+     else (Skip, var, MAX n (var+1))) /\
+  (compile_sing n env tail live (If x1 x2 x3) =
+     let (c1,v1,n1) = compile_sing n env F live x1 in
+     let (c2,v2,n2) = compile_sing n1 env tail live x2 in
+     let (c3,v3,n3) = compile_sing n2 env tail live x3 in
+       if tail then
+         (Seq c1 (If v1 c2 c3),n3,n3+1)
+       else
+         (Seq c1 (If v1 (Seq c2 (Move n3 v2))
+                           (Seq c3 (Move n3 v3))),n3,n3+1)) /\
+  (compile_sing n env tail live (Let xs x2) =
+     let (c1,vs,n1) = compile_list n env live xs in
+     let (c2,v2,n2) = compile_sing n1 (vs ++ env) tail live x2 in
+       (Seq c1 c2, v2, n2)) /\
+  (compile_sing n env tail live (Raise x1) =
+     let (c1,v1,n1) = compile_sing n env F live x1 in
+       (Seq c1 (Raise v1), v1, n1)) /\
+  (compile_sing n env tail live (Op op xs) =
+     let (c1,vs,n1) = compile_list n env live xs in
+     let c2 = Seq c1 (iAssign n1 op (REVERSE vs) live env) in
+       (if tail then Seq c2 (Return n1) else c2, n1, n1+1)) /\
+  (compile_sing n env tail live (Tick x1) =
+     let (c1,v1,n1) = compile_sing n env tail live x1 in
+       (Seq Tick c1, v1, n1)) /\
+  (compile_sing n env tail live (Call ticks dest xs NONE) =
+     let (c1,vs,n1) = compile_list n env live xs in
+     let ret = (if tail then NONE
+                else SOME (n1, list_to_num_set (live ++ env))) in
+       (Seq c1 (mk_ticks ticks (Call ret dest vs NONE)), n1, n1+1)) /\
+  (compile_sing n env tail live (Call ticks dest xs (SOME handler)) =
+     let (c1,vs,n1) = compile_list n env live xs in
+     let (c2,v,n2) = compile_sing (n1+1) (n1::env) F live handler in
+     let ret = SOME (n2, list_to_num_set (live ++ env)) in
+     let c3 = (if tail then Return n2 else Skip) in
+       (Seq c1 (mk_ticks ticks
+          (Seq (Call ret dest vs (SOME (n1,Seq c2 (Move n2 v)))) c3)),
+        n2, n2+1)) /\
+  (compile_list (n:num) (env:num list) live [] =
+    (Skip,[]:num list,n)) /\
+  (compile_list n env live (x::xs) =
+     let (c1,v1,n1) = compile_sing n env F live x in
+       if NULL xs then (c1,[v1],n1) else
+         let (c2,vs,n2) = compile_list n1 env (v1::live) xs in
+           (Seq c1 c2, v1 :: vs, n2))
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of
+                            | INL (n,env,t,l,x) => exp_size x
+                            | INR (n,env,l,xs) => exp2_size xs’
+  \\ rw [] \\ gvs [exp_size_def]
+End
+
+Theorem compile_sing_eq:
+  (∀n env t l x c1 v1 n1.
+     compile_sing n env t l x = (c1,v1,n1) ⇒
+     compile n env t l [x] = (c1,[v1],n1)) ∧
+  (∀n env l xs.
+     compile_list n env l xs =
+     compile n env F l xs)
+Proof
+  ho_match_mp_tac compile_sing_ind \\ rw []
+  \\ once_rewrite_tac [compile_sing_def,compile_def] \\ gvs []
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [compile_sing_def]
+  \\ rpt (IF_CASES_TAC \\ gvs [])
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ Cases_on ‘xs’ \\ gvs [compile_sing_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [compile_def]
+QED
 
 val compile_LESS_EQ_lemma = Q.prove(
   `!n env tail live xs.
@@ -178,15 +253,28 @@ val optimise_def = Define `
 (* the top-level compiler includes the optimisations, because the correctness
    proofs are combined *)
 
-val compile_exp = Define `
+Definition compile_exp_def:
   compile_exp arg_count exp =
-    optimise (FST (compile arg_count (COUNT_LIST arg_count) T [] [exp]))`
+    optimise (FST (compile arg_count (COUNT_LIST arg_count) T [] [exp]))
+End
 
-val compile_part = Define `
+Definition compile_part_def:
   compile_part (name:num, arg_count, exp) =
-    (name, arg_count, compile_exp arg_count exp)`
+    (name, arg_count, compile_exp arg_count exp)
+End
 
-val compile_prog_def = Define `
-  compile_prog prog = MAP compile_part prog`;
+Definition compile_prog_def:
+  compile_prog prog = MAP compile_part prog
+End
+
+Theorem compile_exp_eq:
+  compile_exp arg_count exp =
+    optimise (FST (compile_sing arg_count (COUNT_LIST arg_count) T [] exp))
+Proof
+  ‘∃z. compile_sing arg_count (COUNT_LIST arg_count) T [] exp = z’ by fs []
+  \\ PairCases_on ‘z’ \\ gvs []
+  \\ drule $ cj 1 compile_sing_eq
+  \\ gvs [compile_exp_def]
+QED
 
 val _ = export_theory();

@@ -1,5 +1,8 @@
 The CakeML compiler backend.
 
+[San](San):
+A case study for the shared memory feature.
+
 [ag32](ag32):
 This directory contains the Silver-specific part of the compiler
 backend and associated proofs.

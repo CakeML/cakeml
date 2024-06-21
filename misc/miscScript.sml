@@ -213,6 +213,13 @@ Proof
   Cases \\ Cases \\ rw[]
 QED
 
+Theorem SmartAppend_Nil:
+  SmartAppend l Nil = l ∧
+  SmartAppend Nil l = l
+Proof
+  Cases_on ‘l’ \\ gvs [SmartAppend_def]
+QED
+
 Theorem append_SmartAppend[simp]:
    append (SmartAppend l1 l2) = append l1 ++ append l2
 Proof

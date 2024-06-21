@@ -2,7 +2,8 @@
   Translate non-target-specific backend functions to cv equations.
 *)
 open preamble cv_transLib cv_stdTheory;
-open backendTheory to_data_cvTheory;
+open backendTheory to_data_cvTheory exportTheory;
+open unify_cvTheory infer_cvTheory basis_cvTheory;
 
 val _ = new_theory "backend_cv";
 
@@ -726,6 +727,142 @@ QED
 
 val _ = word_allocTheory.canonize_moves_def |> SRULE [GSYM QSORT_canonize_def]
                                             |> cv_auto_trans;
+
+val _ = cv_trans backendTheory.inc_set_oracle_def;
+
+val _ = cv_trans (exportTheory.escape_sym_char_def |> SRULE [GREATER_EQ]);
+val _ = cv_auto_trans exportTheory.emit_symbol_def;
+val _ = cv_auto_trans exportTheory.emit_symbols_def;
+val _ = cv_trans (exportTheory.data_section_def |> SRULE []);
+val _ = cv_trans (exportTheory.data_buffer_def |> SRULE []);
+val _ = cv_trans (exportTheory.code_buffer_def |> SRULE []);
+
+Triviality eq_toChar:
+  ∀n. n < 16 ⇒ EL n "0123456789ABCDEF" = toChar n
+Proof
+  Cases \\ gvs [] \\ EVAL_TAC
+  \\ ntac 10 (Cases_on ‘n'’ \\ gvs [] \\ Cases_on ‘n’ \\ gvs [])
+QED
+
+Theorem byte_to_string_eq_toChar_toChar:
+  byte_to_string b =
+    strlit (STRING #"0" (STRING #"x" (STRING (toChar (w2n b DIV 16))
+                                     (STRING (toChar (w2n b MOD 16)) []))))
+Proof
+  simp [exportTheory.byte_to_string_def]
+  \\ DEP_REWRITE_TAC [eq_toChar]
+  \\ gvs [DIV_LT_X]
+  \\ irule LESS_LESS_EQ_TRANS
+  \\ irule_at Any w2n_lt \\ gvs []
+QED
+
+val pre = cv_trans_pre byte_to_string_eq_toChar_toChar;
+Theorem export_byte_to_string_pre[cv_pre]:
+  ∀b. export_byte_to_string_pre b
+Proof
+  simp [pre] \\ gen_tac
+  \\ rpt $ irule_at Any basis_cvTheory.IMP_toChar_pre \\ gvs []
+  \\ gvs [DIV_LT_X]
+  \\ irule LESS_LESS_EQ_TRANS
+  \\ irule_at Any w2n_lt \\ gvs []
+QED
+
+val _ = cv_trans exportTheory.preamble_def
+
+Definition chunks16_def:
+  chunks16 f xs =
+    case xs of
+      [] => Nil
+    | (x0::x1::x2::x3::x4::x5::x6::x7::
+       x8::x9::x10::x11::x12::x13::x14::x15::ys) =>
+         SmartAppend
+           (f [x0;x1;x2;x3;x4;x5;x6;x7;x8;x9;x10;x11;x12;x13;x14;x15])
+           (chunks16 f ys)
+    | other => f other
+End
+
+Theorem split16_eq_chunks16:
+  ∀f xs. split16 f xs = chunks16 f xs
+Proof
+  rpt gen_tac
+  \\ completeInduct_on ‘LENGTH xs’
+  \\ rw [] \\ gvs [PULL_FORALL]
+  \\ simp [Once chunks16_def]
+  \\ every_case_tac \\ gvs []
+  \\ simp [Once split16_def]
+  \\ simp [Once chunks16_def,SmartAppend_Nil]
+QED
+
+Definition comma_cat_byte_to_string_def:
+  comma_cat_byte_to_string x =
+   case x of
+     [] => [newl_strlit]
+   | [x] => [byte_to_string x; newl_strlit]
+   | (x::xs) => byte_to_string x::comm_strlit::comma_cat_byte_to_string xs
+End
+
+Definition comma_cat_word_to_string_def:
+  comma_cat_word_to_string x =
+   case x of
+     [] => [newl_strlit]
+   | [x] => [word_to_string x; newl_strlit]
+   | (x::xs) => word_to_string x::comm_strlit::comma_cat_word_to_string xs
+End
+
+val _ = cv_trans word_to_string_def;
+val _ = cv_trans newl_strlit_def;
+val _ = cv_trans comm_strlit_def;
+val _ = cv_trans comma_cat_byte_to_string_def;
+val _ = cv_trans comma_cat_word_to_string_def;
+
+Theorem to_comma_cat_byte_to_string:
+  ∀xs. comma_cat byte_to_string xs =
+       comma_cat_byte_to_string xs
+Proof
+  ho_match_mp_tac comma_cat_byte_to_string_ind
+  \\ rw []
+  \\ simp [Once comma_cat_def, Once comma_cat_byte_to_string_def]
+  \\ Cases_on ‘xs’ \\ gvs []
+  \\ Cases_on ‘t’ \\ gvs []
+QED
+
+Theorem to_comma_cat_word_to_string:
+  ∀xs. comma_cat word_to_string xs =
+       comma_cat_word_to_string xs
+Proof
+  ho_match_mp_tac comma_cat_word_to_string_ind
+  \\ rw []
+  \\ simp [Once comma_cat_def, Once comma_cat_word_to_string_def]
+  \\ Cases_on ‘xs’ \\ gvs []
+  \\ Cases_on ‘t’ \\ gvs []
+QED
+
+Definition words_line_byte_def:
+  words_line_byte word_directive ls =
+    List (word_directive :: comma_cat_byte_to_string ls)
+End
+
+Definition words_line_word_def:
+  words_line_word word_directive ls =
+    List (word_directive :: comma_cat_word_to_string ls)
+End
+
+val _ = cv_trans words_line_byte_def;
+val _ = cv_trans words_line_word_def;
+
+Theorem to_words_line_byte:
+  words_line wd byte_to_string = words_line_byte wd
+Proof
+  gvs [FUN_EQ_THM,words_line_byte_def,
+       to_comma_cat_byte_to_string,words_line_def]
+QED
+
+Theorem to_words_line_word:
+  words_line wd word_to_string = words_line_word wd
+Proof
+  gvs [FUN_EQ_THM,words_line_word_def,
+       to_comma_cat_word_to_string,words_line_def]
+QED
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();

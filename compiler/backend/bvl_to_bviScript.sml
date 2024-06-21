@@ -69,6 +69,42 @@ Termination
   WF_REL_TAC `measure exp1_size`
 End
 
+Definition global_count_sing_def:
+  (global_count_sing ((Var _):bvl$exp) = 0) /\
+  (global_count_sing (If x y z) =
+     global_count_sing x +
+     global_count_sing y +
+     global_count_sing z) /\
+  (global_count_sing (Handle x y) =
+     global_count_sing x +
+     global_count_sing y) /\
+  (global_count_sing (Tick x) = global_count_sing x) /\
+  (global_count_sing (Raise x) = global_count_sing x) /\
+  (global_count_sing (Let xs x) =
+     global_count_sing x + global_count_list xs) /\
+  (global_count_sing (Call _ _ xs) = global_count_list xs) /\
+  (global_count_sing (Op op xs) =
+     if op = AllocGlobal then 1 + global_count_list xs
+                         else global_count_list xs) /\
+  (global_count_list [] = 0:num) /\
+  (global_count_list (x::xs) =
+     global_count_sing x + global_count_list xs)
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of
+                            | INL e => bvl$exp_size e
+                            | INR es => bvl$exp1_size es’
+  \\ rpt strip_tac \\ simp [bvlTheory.exp_size_def]
+End
+
+Theorem alloc_glob_count_eq_global_count_list:
+  (∀e. global_count_sing e = alloc_glob_count [e]) ∧
+  (∀es. global_count_list es = alloc_glob_count es)
+Proof
+  Induct \\ gvs [global_count_sing_def,alloc_glob_count_def]
+  \\ rw [] \\ Cases_on ‘es’ \\ gvs []
+  \\ gvs [global_count_sing_def,alloc_glob_count_def]
+QED
+
 val AllocGlobal_location_def = Define`
   AllocGlobal_location = data_num_stubs`;
 val CopyGlobals_location_def = Define`
@@ -327,7 +363,75 @@ Termination
   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
 End
 
-val compile_exps_ind = theorem"compile_exps_ind";
+Definition compile_exps_sing_def:
+  (compile_exps_sing n (Var v) = (((Var v):bvi$exp), Nil, n)) /\
+  (compile_exps_sing n (If x1 x2 x3) =
+     let (c1,aux1,n1) = compile_exps_sing n x1 in
+     let (c2,aux2,n2) = compile_exps_sing n1 x2 in
+     let (c3,aux3,n3) = compile_exps_sing n2 x3 in
+       (If c1 c2 c3,aux1++aux2++aux3,n3)) /\
+  (compile_exps_sing n (Let xs x2) =
+     if NULL xs (* i.e. a marker *) then
+       let (args,x0) = destLet x2 in
+       let (c1,aux1,n1) = compile_exps_list n args in
+       let (c2,aux2,n2) = compile_exps_sing n1 x0 in
+       let n3 = n2 + 1 in
+         ((Call 0 (SOME (num_stubs + nss * n2 + 1)) c1 NONE),
+          aux1++aux2++compile_aux(n2,LENGTH args,c2), n3)
+     else
+       let (c1,aux1,n1) = compile_exps_list n xs in
+       let (c2,aux2,n2) = compile_exps_sing n1 x2 in
+         ((Let c1 (c2)), aux1++aux2, n2)) /\
+  (compile_exps_sing n (Raise x1) =
+     let (c1,aux1,n1) = compile_exps_sing n x1 in
+       (Raise c1, aux1, n1)) /\
+  (compile_exps_sing n (Tick x1) =
+     let (c1,aux1,n1) = compile_exps_sing n x1 in
+       (Tick c1, aux1, n1)) /\
+  (compile_exps_sing n (Op op xs) =
+     let (c1,aux1,n1) = compile_exps_list n xs in
+       (compile_op op c1,aux1,n1)) /\
+  (compile_exps_sing n (Handle x1 x2) =
+     let (args,x0) = destLet x1 in
+     let (c1,aux1,n1) = compile_exps_list n args in
+     let (c2,aux2,n2) = compile_exps_sing n1 x0 in
+     let (c3,aux3,n3) = compile_exps_sing n2 x2 in
+     let aux4 = compile_aux(n3,LENGTH args,c2) in
+     let n4 = n3 + 1 in
+       ((Call 0 (SOME (num_stubs + nss * n3 + 1)) c1 (SOME c3)),
+        aux1++aux2++aux3++aux4, n4)) /\
+  (compile_exps_sing n (Call ticks dest xs) =
+     let (c1,aux1,n1) = compile_exps_list n xs in
+       ((Call ticks
+              (dtcase dest of
+               | NONE => NONE
+               | SOME n => SOME (num_stubs + nss * n)) c1 NONE),aux1,n1)) /\
+  (compile_exps_list n [] = ([],Nil,n)) /\
+  (compile_exps_list n ((x:bvl$exp)::xs) =
+     let (c1,aux1,n1) = compile_exps_sing n x in
+     let (c2,aux2,n2) = compile_exps_list n1 xs in
+       (c1::c2, aux1 ++ aux2, n2))
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of INL (n,e) => exp_size e
+                                    | INR (n,es) => exp1_size es’
+  \\ rpt strip_tac
+  \\ rpt $ qpat_x_assum ‘(_,_,_) = _’ kall_tac
+  \\ gvs [bvlTheory.exp_size_def]
+  \\ gvs [oneline destLet_def, AllCaseEqs(), bvlTheory.exp_size_def]
+End
+
+Theorem compile_exps_sing:
+  (∀n e. compile_exps n [e] =
+         (let (x,y,z) = compile_exps_sing n e in ([x],y,z))) ∧
+  (∀n es. compile_exps_list n es = compile_exps n es)
+Proof
+  ho_match_mp_tac compile_exps_sing_ind \\ rpt strip_tac
+  \\ gvs [compile_exps_def,compile_exps_sing_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ rpt IF_CASES_TAC \\ gvs []
+  \\ Cases_on ‘es’ \\ gvs []
+  \\ gvs [compile_exps_def,compile_exps_sing_def,SmartAppend_Nil]
+QED
 
 val compile_exps_LENGTH_lemma = Q.prove(
   `!n xs. (LENGTH (FST (compile_exps n xs)) = LENGTH xs)`,
@@ -355,6 +459,16 @@ Definition compile_single_def:
         ++ aux, n1)
 End
 
+Theorem compile_single_eq:
+  compile_single n (name,arg_count,exp) =
+    let (c,aux,n1) = compile_exps_sing n exp in
+      (List [(num_stubs + nss * name,arg_count,bvi_let$compile_exp c)]
+        ++ aux, n1)
+Proof
+  gvs [compile_single_def,compile_exps_sing]
+  \\ rpt (pairarg_tac \\ gvs [])
+QED
+
 Definition compile_list_def:
   (compile_list n [] = (List [],n)) /\
   (compile_list n (p::progs) =
@@ -375,6 +489,9 @@ Definition compile_prog_def:
     let (code,n1) = compile_list n prog in
       (InitGlobals_location, bvl_to_bvi$stubs (num_stubs + nss * start) k ++ append code, n1)
 End
+
+Theorem compile_prog_eq =
+  compile_prog_def |> SRULE [GSYM alloc_glob_count_eq_global_count_list];
 
 Datatype:
   config = <| inline_size_limit : num (* zero disables inlining *)

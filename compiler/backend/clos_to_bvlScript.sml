@@ -466,11 +466,118 @@ val compile_exps_def = tDefine "compile_exps" `
 
 val compile_exps_ind = theorem"compile_exps_ind";
 
+Definition compile_exp_sing_def:
+  (compile_exp_sing max_app (Var t v) aux = ((Var v):bvl$exp, aux)) /\
+  (compile_exp_sing max_app (If t x1 x2 x3) aux =
+     let (c1,aux1) = compile_exp_sing max_app x1 aux in
+     let (c2,aux2) = compile_exp_sing max_app x2 aux1 in
+     let (c3,aux3) = compile_exp_sing max_app x3 aux2 in
+       (If c1 c2 c3,aux3)) /\
+  (compile_exp_sing max_app (Let t xs x2) aux =
+     let (c1,aux1) = compile_exp_list max_app xs aux in
+     let (c2,aux2) = compile_exp_sing max_app x2 aux1 in
+       (Let c1 c2, aux2)) /\
+  (compile_exp_sing max_app (Raise t x1) aux =
+     let (c1,aux1) = compile_exp_sing max_app x1 aux in
+       (Raise c1, aux1)) /\
+  (compile_exp_sing max_app (Tick t x1) aux =
+     let (c1,aux1) = compile_exp_sing max_app x1 aux in
+       (Tick c1, aux1)) /\
+  (compile_exp_sing max_app (Op t op xs) aux =
+     let (c1,aux1) = compile_exp_list max_app xs aux in
+     (if op = Install then Call 0 NONE [Op Install c1]
+      else Op (compile_op op) c1
+     ,aux1)) /\
+  (compile_exp_sing max_app (App t loc_opt x1 xs2) aux =
+     let (c1,aux1) = compile_exp_sing max_app x1 aux in
+     let (c2,aux2) = compile_exp_list max_app xs2 aux1 in
+       ((dtcase loc_opt of
+         | NONE =>
+             Let (c2++[c1]) (mk_cl_call (Var (LENGTH c2)) (GENLIST Var (LENGTH c2)))
+         | SOME loc =>
+             (Call (LENGTH c2 - 1) (SOME (loc + (num_stubs max_app))) (c2 ++ [c1]))),
+        aux2)) /\
+  (compile_exp_sing max_app (Fn t loc_opt vs_opt num_args x1) aux =
+     let loc = dtcase loc_opt of NONE => 0 | SOME n => n in
+     let vs = dtcase vs_opt of NONE => [] | SOME vs => vs in
+     let (c1,aux1) = compile_exp_sing max_app x1 aux in
+     let c2 =
+       Let (GENLIST Var num_args ++ free_let (Var num_args) (LENGTH vs)) c1
+     in
+       (Op (Cons closure_tag)
+           (REVERSE (mk_label (loc + num_stubs max_app) :: mk_const (num_args - 1) :: MAP Var vs)),
+        (loc + (num_stubs max_app),num_args+1,c2) :: aux1)) /\
+  (compile_exp_sing max_app (Letrec t loc_opt vsopt fns x1) aux =
+     let loc = dtcase loc_opt of NONE => 0 | SOME n => n in
+     let vs = dtcase vsopt of NONE => [] | SOME x => x in
+     dtcase fns of
+     | [] => compile_exp_sing max_app x1 aux
+     | [(num_args, exp)] =>
+         let (c1,aux1) = compile_exp_sing max_app exp aux in
+         let c3 = Let (GENLIST Var num_args ++ [Var num_args] ++ free_let (Var num_args) (LENGTH vs)) c1 in
+         let (c2,aux2) = compile_exp_sing max_app x1 ((loc + (num_stubs max_app),num_args+1,c3)::aux1) in
+         let c4 =
+           Op (Cons closure_tag)
+              (REVERSE (mk_label (loc + (num_stubs max_app)) :: mk_const (num_args - 1) :: MAP Var vs))
+         in
+           (bvl$Let [c4] c2, aux2)
+     | _ =>
+         let fns_l = LENGTH fns in
+         let l = fns_l + LENGTH vs in
+         let (cs,aux1) = compile_exp_list max_app (MAP SND fns) aux in
+         let cs1 = MAP2 (code_for_recc_case l) (MAP FST fns) cs in
+         let (n2,aux2) = build_aux (loc + (num_stubs max_app)) cs1 aux1 in
+         let (c3,aux3) = compile_exp_sing max_app x1 aux2 in
+         let c4 = build_recc_lets (MAP FST fns) vs (loc + (num_stubs max_app)) fns_l c3 in
+           (c4,aux3)) /\
+  (compile_exp_sing max_app (Handle t x1 x2) aux =
+     let (c1,aux1) = compile_exp_sing max_app x1 aux in
+     let (c2,aux2) = compile_exp_sing max_app x2 aux1 in
+       (Handle c1 c2, aux2)) /\
+  (compile_exp_sing max_app (Call t ticks dest xs) aux =
+     let (c1,aux1) = compile_exp_list max_app xs aux in
+       (Call ticks (SOME (dest + (num_stubs max_app))) c1,aux1)) ∧
+
+  (compile_exp_list max_app [] aux = ([],aux)) /\
+  (compile_exp_list max_app ((x:closLang$exp)::xs) aux =
+     let (c1,aux1) = compile_exp_sing max_app x aux in
+     let (c2,aux2) = compile_exp_list max_app xs aux1 in
+       (c1 :: c2, aux2))
+Termination
+  WF_REL_TAC `measure $ λx. case x of INL (_,e,_) => exp_size e
+                                    | INR (_,es,_) => exp3_size es` >>
+  srw_tac [ARITH_ss] [closLangTheory.exp_size_def] >>
+  `!l. closLang$exp3_size (MAP SND l) <= exp1_size l` by (
+    Induct_on `l` >> rw [closLangTheory.exp_size_def] >>
+    PairCases_on `h` >> full_simp_tac (srw_ss()++ARITH_ss) [closLangTheory.exp_size_def]) >>
+  pop_assum (qspec_then `v7` assume_tac) >> decide_tac
+End
+
+Theorem compile_exp_sing_eq:
+  (∀n e l. compile_exps n [e] l = (λ(a,b). ([a], b)) (compile_exp_sing n e l)) ∧
+  (∀n es l. compile_exps n es l = compile_exp_list n es l)
+Proof
+  ho_match_mp_tac compile_exp_sing_ind >>
+  reverse $ rw[compile_exps_def, compile_exp_sing_def] >>
+  rpt (pairarg_tac >> gvs[])
+  >- (Cases_on `es` >> simp[compile_exps_def] >> gvs[compile_exp_sing_def]) >>
+  `compile_exps n (MAP SND fns) l = compile_exp_list n (MAP SND fns) l` by (
+    namedCases_on `fns` ["", "fnsh fnst"] >>
+    gvs[compile_exps_def, compile_exp_sing_def] >>
+    rpt (pairarg_tac >> gvs[]) >>
+    PairCases_on `fnsh` >> gvs[] >> Cases_on `fnst` >> gvs[] >>
+    gvs[compile_exps_def, compile_exp_sing_def]) >>
+  TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[]>>
+  PairCases_on `h` >> gvs[] >> rpt (pairarg_tac >> gvs[])
+QED
+
 val compile_prog_def = Define`
   compile_prog max_app prog =
     let (new_exps, aux) = compile_exps max_app (MAP (SND o SND) prog) [] in
       MAP2 (λ(loc,args,_) exp. (loc + num_stubs max_app, args, exp))
         prog new_exps ++ aux`;
+
+Theorem compile_prog_eq = compile_prog_def |> SRULE [compile_exp_sing_eq];
 
 val pair_lem1 = Q.prove (
   `!f x. (\(a,b). f a b) x = f (FST x) (SND x)`,
@@ -666,6 +773,49 @@ Termination
   \\ fs [FORALL_PROD,closLangTheory.exp_size_def]
 End
 
+Definition get_src_names_sing_def:
+  get_src_names_sing (closLang$If _ x y z) l =
+    get_src_names_sing x (get_src_names_sing y (get_src_names_sing z l)) ∧
+  get_src_names_sing (closLang$Var _ _) l = l ∧
+  get_src_names_sing (closLang$Let _ xs x) l =
+    get_src_names_list xs (get_src_names_sing x l) ∧
+  get_src_names_sing (Raise _ x) l = get_src_names_sing x l ∧
+  get_src_names_sing (Handle _ x y) l = get_src_names_sing x (get_src_names_sing y l) ∧
+  get_src_names_sing (Tick _ x) l = get_src_names_sing x l ∧
+  get_src_names_sing (Call _ _ _ xs) l = get_src_names_list xs l ∧
+  get_src_names_sing (Op _ _ xs) l = get_src_names_list xs l ∧
+  get_src_names_sing (App _ _ x xs) l =
+    get_src_names_list xs (get_src_names_sing x l) ∧
+  get_src_names_sing (Fn name loc_opt _ _ x) l =
+    (let l1 = get_src_names_sing x l in
+       dtcase loc_opt of NONE => l1
+                       | SOME n => add_src_names n [name] l1) ∧
+  get_src_names_sing (Letrec names loc_opt _ funs x) l =
+    (let l0 = get_src_names_list (MAP SND funs) l in
+     let l1 = get_src_names_sing x l0 in
+       dtcase loc_opt of NONE => l1
+                       | SOME n => add_src_names n names l1) ∧
+
+  get_src_names_list [] l = l ∧
+  get_src_names_list (x::xs) l = get_src_names_list xs (get_src_names_sing x l)
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of INL (e,_) => closLang$exp_size e
+                                    | INR (es,_) => closLang$exp3_size es’
+  \\ rw [closLangTheory.exp_size_def]
+  \\ qsuff_tac ‘exp3_size (MAP SND funs) <= exp1_size funs’ \\ fs []
+  \\ Induct_on ‘funs’ \\ fs [closLangTheory.exp_size_def]
+  \\ fs [FORALL_PROD,closLangTheory.exp_size_def]
+End
+
+Theorem get_src_names_sing_eq:
+  (∀e l. get_src_names [e] l = get_src_names_sing e l) ∧
+  (∀es l. get_src_names es l = get_src_names_list es l)
+Proof
+  ho_match_mp_tac get_src_names_sing_ind >>
+  rw[get_src_names_def, get_src_names_sing_def] >>
+  Cases_on `es` >> rw[get_src_names_def, get_src_names_sing_def]
+QED
+
 Definition make_name_alist_def:
   make_name_alist nums prog nstubs dec_start (dec_length:num) =
     let src_names = get_src_names (MAP (SND o SND) prog) LN in
@@ -680,6 +830,9 @@ Definition make_name_alist_def:
                                | SOME s => s)) nums)
         : mlstring$mlstring num_map
 End
+
+Theorem make_name_alist_eq =
+  make_name_alist_def |> SRULE [get_src_names_sing_eq];
 
 val compile_def = Define `
   compile c0 es =

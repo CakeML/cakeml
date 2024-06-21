@@ -212,11 +212,16 @@ Definition lab_to_target_def:
 End
 
 Definition attach_bitmaps_def:
-  attach_bitmaps names (c:inc_config) bm (SOME (bytes,c')) =
-     SOME (bytes,bm, encode_backend_config $ c with
-        <| inc_lab_conf := c';
-           inc_symbols := MAP (λ(n,p,l). (lookup_any n names «NOTFOUND»,p,l))
-                          c'.inc_sec_pos_len |>) ∧
+  attach_bitmaps names (c:inc_config) data (SOME (code_bytes,c')) =
+    (let ffi_names = ffinames_to_string_list (the [] c'.inc_ffi_names) in
+     let syms = MAP (λ(n,p,l). (lookup_any n names «NOTFOUND»,p,l))
+                    c'.inc_sec_pos_len
+     in
+       SOME (code_bytes, LENGTH code_bytes,
+             data, LENGTH data,
+             ffi_names, LENGTH c'.inc_shmem_extra,
+             syms, encode_backend_config $ c with
+               <| inc_lab_conf := c'; inc_symbols := syms |>)) ∧
   attach_bitmaps names c bm NONE = NONE
 End
 
@@ -306,9 +311,16 @@ End
  *----------------------------------------------------------------*)
 
 Theorem from_lab_thm[local]:
-  from_lab asm_conf c names p bm = SOME (bytes,bm1,conf_str) ⇒
+  from_lab asm_conf c names p bm =
+  SOME (bytes,bytes_len,bm1,bm1_len,ffi_names,shmem_len,syms,conf_str) ⇒
   ∃c1.
-    backend$from_lab (inc_config_to_config asm_conf c) names p bm = SOME (bytes,bm1,c1) ∧
+    backend$from_lab (inc_config_to_config asm_conf c) names p bm =
+      SOME (bytes,bm1,c1) ∧
+    ffi_names = ffinames_to_string_list (the [] c1.lab_conf.ffi_names) ∧
+    syms = c1.symbols ∧
+    LENGTH bytes = bytes_len ∧
+    LENGTH bm1 = bm1_len ∧
+    LENGTH c1.lab_conf.shmem_extra = shmem_len ∧
     conf_str = encode_backend_config (config_to_inc_config c1)
 Proof
   gvs [from_lab_def,backendTheory.from_lab_def]
@@ -328,9 +340,15 @@ Proof
 QED
 
 Theorem from_stack_thm[local]:
-  from_stack asm_conf c names p bm = SOME (bytes,bm1,conf_str) ⇒
+  from_stack asm_conf c names p bm =
+  SOME (bytes,bytes_len,bm1,bm1_len,ffi_names,shmem_len,syms,conf_str) ⇒
   ∃c1.
     backend$from_stack (inc_config_to_config asm_conf c) names p bm = SOME (bytes,bm1,c1) ∧
+    ffi_names = ffinames_to_string_list (the [] c1.lab_conf.ffi_names) ∧
+    syms = c1.symbols ∧
+    LENGTH bytes = bytes_len ∧
+    LENGTH bm1 = bm1_len ∧
+    LENGTH c1.lab_conf.shmem_extra = shmem_len ∧
     conf_str = encode_backend_config (config_to_inc_config c1)
 Proof
   gvs [from_stack_def,backendTheory.from_stack_def] \\ rw []
@@ -360,9 +378,15 @@ Proof
 QED
 
 Theorem from_word_0_thm[local]:
-  from_word_0 asm_conf (c,p,names) = SOME (bytes,bm,conf_str) ⇒
+  from_word_0 asm_conf (c,p,names) =
+  SOME (bytes,bytes_len,bm1,bm1_len,ffi_names,shmem_len,syms,conf_str) ⇒
   ∃c1.
-    backend$from_word_0 (inc_config_to_config asm_conf c) names p = SOME (bytes,bm,c1) ∧
+    backend$from_word_0 (inc_config_to_config asm_conf c) names p = SOME (bytes,bm1,c1) ∧
+    ffi_names = ffinames_to_string_list (the [] c1.lab_conf.ffi_names) ∧
+    syms = c1.symbols ∧
+    LENGTH bytes = bytes_len ∧
+    LENGTH bm1 = bm1_len ∧
+    LENGTH c1.lab_conf.shmem_extra = shmem_len ∧
     conf_str = encode_backend_config (config_to_inc_config c1)
 Proof
   gvs [from_word_0_def,from_word_def,AllCaseEqs()] \\ strip_tac \\ gvs []
@@ -465,9 +489,15 @@ QED
 
 Theorem compile_cake_thm:
   ∀asm_conf:'a asm_config.
-    compile_cake asm_conf c p = SOME (bytes,bm,conf_str) ⇒
+    compile_cake asm_conf c p =
+    SOME (bytes,bytes_len,bm,bm_len,ffi_names,shmem_len,syms,conf_str) ⇒
     ∃c1.
       backend$compile (inc_config_to_config asm_conf c) p = SOME (bytes,bm,c1) ∧
+      ffi_names = ffinames_to_string_list (the [] c1.lab_conf.ffi_names) ∧
+      syms = c1.symbols ∧
+      LENGTH bytes = bytes_len ∧
+      LENGTH bm = bm_len ∧
+      LENGTH c1.lab_conf.shmem_extra = shmem_len ∧
       conf_str = encode_backend_config (config_to_inc_config c1)
 Proof
   rw [compile_cake_def]
@@ -480,6 +510,12 @@ Proof
   \\ pairarg_tac \\ gvs []
   \\ drule_all to_word_0_thm
   \\ rw [] \\ gvs []
+QED
+
+Theorem exists_oracle:
+  P x ⇒ ∃oracle. P oracle
+Proof
+  metis_tac []
 QED
 
 val _ = export_theory();

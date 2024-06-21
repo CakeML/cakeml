@@ -282,7 +282,7 @@ val res = format_compiler_result_def
             |> spec64
             |> translate;
 
-val res = translate ffinames_to_string_list_def;
+val res = translate backendTheory.ffinames_to_string_list_def;
 
 val res = translate compile_64_def;
 

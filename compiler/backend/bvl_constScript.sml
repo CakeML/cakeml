@@ -317,6 +317,45 @@ Termination
   WF_REL_TAC `measure (exp1_size o SND)`
 End
 
+Definition compile_sing_def:
+  (compile_sing env (Var v) =
+     dtcase LLOOKUP env v of
+     | NONE => Var v
+     | SOME NONE => Var v
+     | SOME (SOME (Var i)) => Var (v + i)
+     | SOME (SOME x) => x) /\
+  (compile_sing env (If x1 x2 x3) =
+     let y1 = compile_sing env x1 in
+     let y2 = compile_sing env x2 in
+     let y3 = compile_sing env x3 in
+       if y1 = Bool T then y2 else
+       if y1 = Bool F then y3 else
+         If y1 y2 y3) /\
+  (compile_sing env (Let xs x2) =
+     let ys = compile_list env xs in
+       Let (MAP delete_var ys)
+           (compile_sing (extract_list ys ++ env) x2)) /\
+  (compile_sing env (Handle x1 x2) =
+     Handle (compile_sing env x1) (compile_sing (NONE::env) x2)) /\
+  (compile_sing env (Raise x1) =
+     Raise (compile_sing env x1)) /\
+  (compile_sing env (Op op xs) = SmartOp op (compile_list env xs)) /\
+  (compile_sing env (Tick x) = Tick (compile_sing env x)) /\
+  (compile_sing env (Call t dest xs) = Call t dest (compile_list env xs)) ∧
+
+  (compile_list env [] = []) /\
+  (compile_list env (x::xs) = compile_sing env x :: compile_list env xs)
+End
+
+Theorem compile_eq:
+  (∀e env. compile env [e] = [compile_sing env e]) ∧
+  (∀es env. compile env es = compile_list env es)
+Proof
+  Induct >> rw[compile_def, compile_sing_def] >>
+  rpt (TOP_CASE_TAC >> gvs[]) >>
+  Cases_on `es` >> simp[compile_def, compile_sing_def]
+QED
+
 Theorem compile_length[simp]:
    !n xs. LENGTH (compile n xs) = LENGTH xs
 Proof
@@ -336,5 +375,7 @@ Definition compile_exp_def:
   compile_exp x =
     dtcase compile [] [x] of (y::_) => y | _ => Var 0 (* impossible *)
 End
+
+Theorem compile_exp_eq = compile_exp_def |> SRULE [compile_eq];
 
 val _ = export_theory();

@@ -20,30 +20,37 @@ val hello_io_events_def =
 val (hello_sem,hello_output) = hello_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
 val (hello_not_fail,hello_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail hello_sem |> CONJ_PAIR
 
-val ffi_names =
-  ``config.lab_conf.ffi_names``
-  |> (REWRITE_CONV[helloCompileTheory.config_def] THENC EVAL)
+val ffinames_to_string_list_def = backendTheory.ffinames_to_string_list_def;
 
-val LENGTH_code =
-  ``LENGTH code``
-  |> (REWRITE_CONV[helloCompileTheory.code_def] THENC listLib.LENGTH_CONV)
+Theorem extcalls_ffi_names:
+  extcalls info.lab_conf.ffi_names = ffis
+Proof
+  rewrite_tac [hello_compiled]
+  \\ qspec_tac (‘info.lab_conf.ffi_names’,‘xs’) \\ Cases
+  \\ gvs [extcalls_def,ffinames_to_string_list_def,libTheory.the_def]
+  \\ Induct_on ‘x’
+  \\ gvs [extcalls_def,ffinames_to_string_list_def,libTheory.the_def]
+  \\ Cases \\ gvs [extcalls_def,ffinames_to_string_list_def,libTheory.the_def]
+QED
 
-val LENGTH_data =
-  ``LENGTH data``
-  |> (REWRITE_CONV[helloCompileTheory.data_def] THENC listLib.LENGTH_CONV)
+val ffis = ffis_def |> CONV_RULE (RAND_CONV EVAL);
+val ffi_names = extcalls_ffi_names |> SRULE [ffis]
 
-val shmem =
-  ``config.lab_conf.shmem_extra``
-  |> (REWRITE_CONV[helloCompileTheory.config_def] THENC EVAL)
+val LENGTH_code = “LENGTH code” |> SCONV [hello_compiled];
+val LENGTH_data = “LENGTH data” |> SCONV [hello_compiled];
+val shmem = “info.lab_conf.shmem_extra” |> SCONV [hello_compiled];
 
 Overload hello_machine_config =
-  ``ag32_machine_config (extcalls config.lab_conf.ffi_names) (LENGTH code) (LENGTH data)``
+  “ag32_machine_config (extcalls info.lab_conf.ffi_names) (LENGTH code) (LENGTH data)”
 
 Theorem target_state_rel_hello_start_asm_state:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (extcalls config.lab_conf.ffi_names) (cl,inp)) ms ⇒
-   ∃n. target_state_rel ag32_target (init_asm_state code data (extcalls config.lab_conf.ffi_names) (cl,inp)) (FUNPOW Next n ms) ∧
+   is_ag32_init_state (init_memory code data (extcalls info.lab_conf.ffi_names)
+      (cl,inp)) ms ⇒
+   ∃n. target_state_rel ag32_target
+           (init_asm_state code data (extcalls info.lab_conf.ffi_names) (cl,inp))
+           (FUNPOW Next n ms) ∧
        ((FUNPOW Next n ms).io_events = ms.io_events) ∧
        (∀x. x ∉ (ag32_startup_addresses) ⇒
          ((FUNPOW Next n ms).MEM x = ms.MEM x))
@@ -52,7 +59,7 @@ Proof
   \\ drule (GEN_ALL init_asm_state_RTC_asm_step)
   \\ disch_then drule
   \\ simp_tac std_ss []
-  \\ disch_then(qspecl_then[`code`,`data`,`extcalls config.lab_conf.ffi_names`]mp_tac)
+  \\ disch_then(qspecl_then[`code`,`data`,`extcalls info.lab_conf.ffi_names`]mp_tac)
   \\ impl_tac >- ( EVAL_TAC>> fs[ffi_names,LENGTH_data,LENGTH_code,extcalls_def,shmem])
   \\ strip_tac
   \\ drule (GEN_ALL target_state_rel_ag32_init)
@@ -69,8 +76,9 @@ val hello_startup_clock_def =
   |> SIMP_RULE bool_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]);
 
 val compile_correct_applied =
-  MATCH_MP compile_correct hello_compiled
-  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
+  MATCH_MP compile_correct (cj 1 hello_compiled)
+  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,
+                         GSYM AND_IMP_INTRO]
   |> C MATCH_MP hello_not_fail
   |> C MATCH_MP ag32_backend_config_ok
   |> REWRITE_RULE[hello_sem_sing,AND_IMP_INTRO]
@@ -81,29 +89,33 @@ val compile_correct_applied =
   |> Q.GEN`cbspace` |> Q.SPEC`0`
   |> Q.GEN`data_sp` |> Q.SPEC`0`
 
-Triviality to_MAP_ExtCall:
-  [ExtCall n] = MAP ExtCall [n] ∧
-  (ExtCall n::MAP ExtCall ns) = MAP ExtCall (n::ns)
-Proof
-  fs []
-QED
-
 Theorem hello_installed:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (extcalls config.lab_conf.ffi_names) (cl,inp)) ms0 ⇒
-   installed code 0 data 0 config.lab_conf.ffi_names
+   is_ag32_init_state (init_memory code data (extcalls info.lab_conf.ffi_names) (cl,inp)) ms0 ⇒
+   installed code 0 data 0 info.lab_conf.ffi_names
      (heap_regs ag32_backend_config.stack_conf.reg_names)
-     (hello_machine_config) config.lab_conf.shmem_extra
+     (hello_machine_config) info.lab_conf.shmem_extra
      (FUNPOW Next (hello_startup_clock ms0 inp cl) ms0)
 Proof
   rewrite_tac[ffi_names, extcalls_def, shmem]
   \\ strip_tac
-  \\ rewrite_tac [to_MAP_ExtCall]
+  \\ qmatch_asmsub_abbrev_tac ‘init_memory _ _ ff’
+  \\ qmatch_goalsub_abbrev_tac ‘installed _ _ _ _ dd’
+  \\ ‘dd = SOME (MAP ExtCall ff)’ by
+   (unabbrev_all_tac
+    \\ assume_tac (cj 1 hello_compiled)
+    \\ drule ag32_configProofTheory.compile_imp_ffi_names
+    \\ gvs [hello_compiled]
+    \\ gvs [GSYM hello_compiled,ffis]
+    \\ simp [backendTheory.set_oracle_def,
+             ag32_configTheory.ag32_backend_config_def])
+  \\ asm_rewrite_tac []
   \\ irule ag32_installed
   \\ drule hello_startup_clock_def
   \\ disch_then drule
   \\ rewrite_tac[ffi_names, extcalls_def]
+  \\ unabbrev_all_tac
   \\ disch_then drule
   \\ strip_tac
   \\ simp[]
@@ -161,7 +173,8 @@ QED
 Theorem hello_ag32_next:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ wfcl cl ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (extcalls config.lab_conf.ffi_names) (cl,inp)) ms0
+   is_ag32_init_state (init_memory code data (extcalls info.lab_conf.ffi_names)
+                      (cl,inp)) ms0
   ⇒
    ∃k1. ∀k. k1 ≤ k ⇒
      let ms = FUNPOW Next k ms0 in
