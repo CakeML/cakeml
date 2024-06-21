@@ -17,7 +17,7 @@ open flat_elimTheory flat_patternTheory evaluateTheory;
 
 val _ = new_theory"source_to_flat";
 val _ = set_grammar_ancestry ["ast", "flatLang", "evaluate"];
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 val _ = temp_tight_equality ();
 
 val _ = Datatype `

@@ -7,7 +7,7 @@ open preamble holSyntaxTheory holSyntaxExtraTheory holSyntaxLibTheory
 
 val _ = new_theory "compute_syntax";
 
-val _ = numLib.prefer_num ();
+val _ = numLib.temp_prefer_num ();
 
 (* Numbers, bools *)
 

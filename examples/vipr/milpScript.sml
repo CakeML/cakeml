@@ -5,7 +5,7 @@ open preamble mlratTheory real_sigmaTheory sptree_unionWithTheory realLib;
 
 val _ = new_theory "milp";
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 (* this should really be a finite map x |-> r
 
