@@ -19,4 +19,7 @@ cake.S: cake-sexpr-$(ARCH)-$(WORD_SIZE) $(CAKE_BIN)
 cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE) how-to.md
 	tar -chzf $@ --transform='s|^|cake-unverified-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE) how-to.md
 
+cake: cake.S basis_ffi.c
+	make $@
+
 EXTRA_CLEANS = cake.S cake-sexpr-$(ARCH)-$(WORD_SIZE) cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz
