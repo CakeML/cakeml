@@ -289,7 +289,8 @@ Definition pancake_peg_def[nocompute]:
                                      (mknt ShapeNT) (flip K)) FLAT]
                              (mksubtree ShapeCombNT));
         (INL EqOpsNT, choicel [keep_tok EqT; keep_tok NeqT]);
-        (INL CmpOpsNT, choicel [keep_tok LessT; keep_tok GeqT; keep_tok GreaterT; keep_tok LeqT]);
+        (INL CmpOpsNT, choicel [keep_tok LessT; keep_tok GeqT; keep_tok GreaterT; keep_tok LeqT;
+                                keep_tok LowerT; keep_tok HigherT; keep_tok HigheqT; keep_tok LoweqT]);
         (INL ShiftOpsNT, choicel [keep_tok LslT; keep_tok LsrT;
                                   keep_tok AsrT; keep_tok RorT]);
         (INL AddOpsNT, choicel [keep_tok PlusT; keep_tok MinusT]);

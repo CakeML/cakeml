@@ -25,7 +25,7 @@ End
 
 Datatype:
   token = AndT | OrT | BoolAndT | BoolOrT | XorT | NotT
-  | EqT | NeqT | LessT | GreaterT | GeqT | LeqT
+  | EqT | NeqT | LessT | GreaterT | GeqT | LeqT | LowerT | HigherT | HigheqT | LoweqT
   | PlusT | MinusT | DotT | StarT
   | LslT | LsrT | AsrT | RorT
   | IntT int | IdentT string | ForeignIdent string (* @ffi_str except @base *)
@@ -52,7 +52,7 @@ Definition isAtom_begin_group_def:
 End
 
 Definition isAtom_in_group_def:
-  isAtom_in_group c = MEM c "=<>|&"
+  isAtom_in_group c = MEM c "=<>|&+"
 End
 
 Definition isAlphaNumOrWild_def:
@@ -82,6 +82,10 @@ Definition get_token_def:
   if s = ">" then GreaterT else
   if s = ">=" then GeqT else
   if s = "<=" then LeqT else
+  if s = "<+" then LowerT else
+  if s = ">+" then HigherT else
+  if s = ">+=" then HigheqT else
+  if s = "<+=" then LoweqT else
   if s = "=>" then DArrowT else
   if s = "!" then NotT else
   if s = "+" then PlusT else
