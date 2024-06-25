@@ -84,8 +84,8 @@ Definition get_token_def:
   if s = "<=" then LeqT else
   if s = "<+" then LowerT else
   if s = ">+" then HigherT else
-  if s = ">+=" then HigheqT else
-  if s = "<+=" then LoweqT else
+  if s = ">=+" then HigheqT else
+  if s = "<=+" then LoweqT else
   if s = "=>" then DArrowT else
   if s = "!" then NotT else
   if s = "+" then PlusT else
