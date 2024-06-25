@@ -144,7 +144,6 @@ val entry_point_code =
      "     jr      $t0";
      "     .p2align 4";
      ""; "";
-     "cake_ret:";
      "cake_return:";
      "     dla     $t1, can_enter";
      "     li      $t2, 1";
