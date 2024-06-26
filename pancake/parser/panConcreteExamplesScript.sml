@@ -180,9 +180,13 @@ val ex8 = ‘
   fun cmps () {
     x = a < b;
     x = b > a;
-    x =  b >= a;
+    x = b >= a;
     x = a <= b;
     x = a != b;
+    x = a <+ b;
+    x = b >+ a;
+    x = b >=+ a;
+    x = a <=+ b;
   }’;
 
 val treeEx8 = check_success $ parse_tree_pancake ex8;
