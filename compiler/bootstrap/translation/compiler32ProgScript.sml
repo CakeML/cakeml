@@ -245,6 +245,8 @@ val res = translate
 (* arm7 *)
 val res = translate arm7_configTheory.arm7_names_def;
 val res = translate export_arm7Theory.ffi_asm_def;
+val res = translate export_arm7Theory.export_func_def;
+val res = translate export_arm7Theory.export_funcs_def;
 val res = translate export_arm7Theory.arm7_export_def;
 val res = translate
   (arm7_configTheory.arm7_backend_config_def
