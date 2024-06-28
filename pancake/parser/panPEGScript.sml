@@ -221,10 +221,16 @@ Definition pancake_peg_def[nocompute]:
                           rpt (seql [consume_tok BoolOrT; mknt EBoolAndNT] I)
                               FLAT]
                          (mksubtree ExpNT));
-        (INL EBoolAndNT, seql [mknt EOrNT;
-                          rpt (seql [consume_tok BoolAndT; mknt EOrNT] I)
-                              FLAT]
-                         (mksubtree EBoolAndNT));
+        (INL EBoolAndNT, seql [mknt EEqNT;
+                               rpt (seql [consume_tok BoolAndT; mknt EEqNT] I)
+                                   FLAT]
+                              (mksubtree EBoolAndNT));
+        (INL EEqNT, seql [mknt ECmpNT;
+                          try (seql [mknt EqOpsNT; mknt ECmpNT] I)]
+                         (mksubtree EEqNT));
+        (INL ECmpNT, seql [mknt EOrNT;
+                           try (seql [mknt CmpOpsNT; mknt EOrNT] I)]
+                          (mksubtree ECmpNT));
         (INL EOrNT, seql [mknt EXorNT;
                           rpt (seql [keep_tok OrT; mknt EXorNT] I)
                               FLAT]
@@ -233,16 +239,10 @@ Definition pancake_peg_def[nocompute]:
                            rpt (seql [keep_tok XorT; mknt EAndNT] I)
                                FLAT]
                           (mksubtree EXorNT));
-        (INL EAndNT, seql [mknt EEqNT;
-                           rpt (seql [keep_tok AndT; mknt EEqNT] I)
+        (INL EAndNT, seql [mknt EShiftNT;
+                           rpt (seql [keep_tok AndT; mknt EShiftNT] I)
                                FLAT]
                           (mksubtree EAndNT));
-        (INL EEqNT, seql [mknt ECmpNT;
-                          try (seql [mknt EqOpsNT; mknt ECmpNT] I)]
-                         (mksubtree EEqNT));
-        (INL ECmpNT, seql [mknt EShiftNT;
-                           try (seql [mknt CmpOpsNT; mknt EShiftNT] I)]
-                          (mksubtree ECmpNT));
         (INL EShiftNT, seql [mknt EAddNT;
                              rpt (seql [mknt ShiftOpsNT; keep_nat] I)
                                  FLAT]
