@@ -86,7 +86,7 @@ OPTIONS:
   --explore     outputs intermediate forms of the compiled program
 
   --pancake     takes a pancake program as input
-  
+
   --main_return=B   here B can be either true or false; the default is
                 false; setting this to true causes the main function to
                 return to caller instead of exit; this option is
