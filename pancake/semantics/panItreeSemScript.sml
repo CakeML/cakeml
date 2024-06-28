@@ -180,42 +180,6 @@ Type semtree[pp] = “:('b ffi_result, sem_vis_event, 'a result option) itree”
 Type sem8tree[pp] = “:('b ffi_result, sem_vis_event, 8 result option) itree”;
 Type sem16tree[pp] = “:('b ffi_result, sem_vis_event, 16 result option) itree”;
 
-Definition mrec_iter_body_def:
-  mrec_iter_body rh t =
-  case t of
-   | Ret r => Ret (INR r)
-   | Tau t => Ret (INL t)
-   | Vis (INL seed') k => Ret (INL (itree_bind (rh seed') k))
-   | Vis (INR e) k => Vis e (Ret o INL o k)
-End
-
-Definition itree_mrec_def:
-  itree_mrec rh seed =
-  itree_iter (mrec_iter_body rh) (rh seed)
-End
-
-(* mrec theory *)
-
-(* Characterisation of infinite itree:s in terms of their paths. *)
-Definition itree_finite_def:
-  itree_finite t = ∃p x. itree_el t p = Return x
-End
-
-Definition itree_infinite_def:
-  itree_infinite t = ¬(itree_finite t)
-End
-
-(* Simp rules for characteristics predicates of
- ITrees *)
-Theorem itree_char_simps[simp,compute]:
-  (∀r. ¬(itree_infinite $ Ret r))
-Proof
-  rw [itree_infinite_def,itree_finite_def] >>
-  qexists_tac ‘[]’  >>
-  qexists_tac ‘r’ >>
-  rw [itreeTauTheory.itree_el_def]
-QED
-
 (* The rules for the recursive event handler, that decide
  how to evaluate each term of the program command grammar. *)
 Definition h_prog_rule_dec_def:
@@ -512,7 +476,7 @@ Theorem mrec_iter_body_simp[simp]:
         | Vis (INR e) k => Vis e (Ret ∘ INL ∘ k))
 Proof
   rw [FUN_EQ_THM] >>
-  rw [mrec_iter_body_def]
+  rw [itreeTauTheory.mrec_iter_body_def]
 QED
 
 Theorem mrec_sem_simps:
@@ -522,7 +486,7 @@ Theorem mrec_sem_simps:
   (mrec_sem (Ret r) = Ret r) ∧
   (mrec_sem (Tau u) = Tau (mrec_sem u))
 Proof
-  rw [mrec_sem_def,mrec_iter_body_def] >>
+  rw [mrec_sem_def,itreeTauTheory.mrec_iter_body_def] >>
   rw [Once itreeTauTheory.itree_iter_thm] >>
   CONV_TAC FUN_EQ_CONV >> rw [] >>
   rw [mrec_sem_def]
