@@ -239,6 +239,24 @@ val _ = cv_auto_trans backend_x64Theory.to_livesets_0_x64_def;
 
 (* export *)
 
+Definition export_funcs_alt_def:
+  export_funcs_alt [] e = e ∧
+  export_funcs_alt (x::xs) e = export_funcs_alt xs (export_func e x)
+End
+
+Theorem export_funcs_alt_thm:
+  ∀xs e. export_funcs_alt xs e = FOLDL export_func e xs
+Proof
+  Induct >> rw[export_funcs_alt_def]
+QED
+
+val _ = cv_auto_trans export_funcs_alt_def;
+
+val _ = cv_auto_trans
+        (export_x64Theory.export_funcs_def
+           |> SRULE [combinTheory.o_DEF, combinTheory.C_DEF,GSYM export_funcs_alt_thm,
+                     MEM_EXISTS]);
+
 val _ = cv_auto_trans
         (export_x64Theory.x64_export_def
            |> REWRITE_RULE [to_words_line_word,
