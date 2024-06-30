@@ -143,7 +143,7 @@ void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
   #ifdef EVAL
   int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
   #else
-  int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC);
+  int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
   #endif
   if (0 <= fd){
     a[0] = 0;
