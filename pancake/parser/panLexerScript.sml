@@ -20,7 +20,7 @@ val _ = new_theory "panLexer";
 Datatype:
   keyword = SkipK | StoreK | StoreBK | IfK | ElseK | WhileK
   | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK
-  | LdsK | LdbK | LdwK | BaseK | InK | FunK | TrueK | FalseK
+  | LdsK | LdbK | LdwK | BaseK | InK | FunK | ExportK | TrueK | FalseK
 End
 
 Datatype:
@@ -32,6 +32,7 @@ Datatype:
   | LParT | RParT | CommaT | SemiT | ColonT | DArrowT | AddrT
   | LBrakT | RBrakT | LCurT | RCurT
   | AssignT
+  | StaticT
   | KeywordT keyword
   | LexErrorT mlstring
 End
@@ -133,6 +134,7 @@ Definition get_keyword_def:
   if s = "true" then (KeywordT TrueK) else
   if s = "false" then (KeywordT FalseK) else
   if s = "fun" then (KeywordT FunK) else
+  if s = "export" then (KeywordT ExportK) else
   if s = "" then LexErrorT $ «Expected keyword, found empty string» else
   if 2 <= LENGTH s ∧ EL 0 s = #"@" then ForeignIdent (DROP 1 s)
   else

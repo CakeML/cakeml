@@ -106,6 +106,8 @@ val _ = r |> hyp |> null orelse
 val res = translate all_bytes_eq
 val res = translate byte_to_string_eq
 val res = translate escape_sym_char_def
+val res = translate get_sym_label_def
+val res = translate get_sym_labels_def
 val res = translate emit_symbol_def
 val res = translate emit_symbols_def
 
@@ -243,6 +245,8 @@ val res = translate
 (* arm7 *)
 val res = translate arm7_configTheory.arm7_names_def;
 val res = translate export_arm7Theory.ffi_asm_def;
+val res = translate export_arm7Theory.export_func_def;
+val res = translate export_arm7Theory.export_funcs_def;
 val res = translate export_arm7Theory.arm7_export_def;
 val res = translate
   (arm7_configTheory.arm7_backend_config_def

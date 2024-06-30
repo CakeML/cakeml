@@ -112,6 +112,11 @@ Definition try_def:
   try s = choicel [s; empty []]
 End
 
+(* like try, but stores given token without consumption on failure *)
+Definition try_default_def:
+  try_default s t = choicel [s; empty $ mkleaf (t, unknown_loc)]
+End
+
 Definition pancake_peg_def[nocompute]:
   pancake_peg = <|
     start := mknt FunListNT;
@@ -121,7 +126,8 @@ Definition pancake_peg_def[nocompute]:
     notFAIL := "Not combinator failed";
     rules := FEMPTY |++ [
         (INL FunListNT, seql [rpt (mknt FunNT) FLAT] (mksubtree FunListNT));
-        (INL FunNT, seql [consume_kw FunK;
+        (INL FunNT, seql [try_default (keep_kw ExportK) StaticT;
+                          consume_kw FunK;
                           keep_ident;
                           consume_tok LParT;
                           try (mknt ParamListNT);
@@ -645,7 +651,7 @@ fun wfnt tm (t,acc) = let
                    (pancake_peg_applied @
                     [wfpeg_mknt, wfpeg_mknt',
                      REWRITE_RULE [mknt_def] wfpeg_mknt',
-                     FDOM_pancake_peg, try_def,
+                     FDOM_pancake_peg, try_def, try_default_def,
                      seql_def, keep_tok_def, consume_tok_def,
                      keep_kw_def, consume_kw_def, keep_int_def,
                      keep_nat_def, keep_ident_def, keep_ffi_ident_def,
@@ -680,7 +686,7 @@ Proof
        subexprs_mknt, peg_start, peg_range, DISJ_IMP_THM,FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, keep_tok_def, consume_tok_def,
        keep_kw_def, consume_kw_def, keep_int_def, keep_nat_def,
-       keep_ident_def, keep_ffi_ident_def, try_def] >>
+       keep_ident_def, keep_ffi_ident_def, try_def, try_default_def] >>
   simp(pancake_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
 QED
 
@@ -691,7 +697,7 @@ Proof
        subexprs_mknt, peg_start, peg_range, DISJ_IMP_THM,FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, keep_tok_def, consume_tok_def,
        keep_kw_def, consume_kw_def, keep_int_def, keep_nat_def,
-       keep_ident_def, keep_ffi_ident_def, try_def] >>
+       keep_ident_def, keep_ffi_ident_def, try_def, try_default_def] >>
   simp(pancake_wfpeg_thm2 :: wfpeg_rwts' @ peg1_rwts @ npeg1_rwts)
 QED
 

@@ -55,7 +55,8 @@ val x64_backend_config_def = Define`
                stack_conf:=^(x64_stack_conf);
                lab_conf:=^(x64_lab_conf);
                symbols:=[];
-               tap_conf:=default_tap_config
+               tap_conf:=default_tap_config;
+               exported:=[]
                |>`;
 
 val _ = export_theory();

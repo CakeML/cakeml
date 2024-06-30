@@ -281,6 +281,18 @@ val result = translate FRONT_DEF;
 val _ = next_ml_names := ["splitAtPki"];
 val result = translate (splitAtPki_def |> REWRITE_RULE [SUC_LEMMA])
 
+Triviality SPLITP_alt:
+  SPLITP P [] = ([],[]) ∧
+  SPLITP P (x::l) =
+  if P x then ([],x::l) else
+    let (l',l'') = SPLITP P l in
+      (x::l',l'')
+Proof
+  rw[rich_listTheory.SPLITP,pairTheory.ELIM_UNCURRY]
+QED
+val _ = next_ml_names := ["split"];
+val result = translate SPLITP_alt
+
 val front_side_def = Q.prove(
   `!xs. front_side xs = ~(xs = [])`,
   Induct THEN ONCE_REWRITE_TAC [fetch "-" "front_side_def"]
