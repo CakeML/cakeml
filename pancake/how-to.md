@@ -52,7 +52,7 @@ TODO
 Limitations
 ---------------------------
 
-TODO: more stuff :)
+TODO: empty blocks, globals
 
 Bonus content
 ---------------------------
