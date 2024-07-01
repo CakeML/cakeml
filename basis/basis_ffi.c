@@ -225,6 +225,14 @@ void cml_exit(int arg) {
   exit(arg);
 }
 
+void cml_err(int arg) {
+  if (arg == 3) {
+    fprintf(stderr,"Memory not ready for entry. You may have not run the init code yet, or be trying to enter during an FFI call.\n");
+  }
+
+  cml_exit(arg);
+}
+
 void ffiexit (unsigned char *c, long clen, unsigned char *a, long alen) {
   assert(alen == 1);
   exit((int)a[0]);

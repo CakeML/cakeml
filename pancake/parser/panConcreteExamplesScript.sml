@@ -180,9 +180,13 @@ val ex8 = ‘
   fun cmps () {
     x = a < b;
     x = b > a;
-    x =  b >= a;
+    x = b >= a;
     x = a <= b;
     x = a != b;
+    x = a <+ b;
+    x = b >+ a;
+    x = b >=+ a;
+    x = a <=+ b;
   }’;
 
 val treeEx8 = check_success $ parse_tree_pancake ex8;
@@ -386,5 +390,22 @@ val fun_pointer_ex1 =
   ’
 
 val fun_pointer_ex1_parse = check_success $ parse_pancake fun_pointer_ex1;
+
+(* Exporting a function, that is, making a function callable for external entry into Pancake,
+   uses the `export` keyword. Functions without this keyword are not callable in this way *)
+val entry_fun =
+ ‘
+  export fun f() {
+    // this function can be called externally
+    return 1;
+  }
+
+  fun g() {
+    // this function cannot
+    return 2;
+  }
+ ’
+
+val entry_fun_parse =  check_success $ parse_pancake entry_fun;
 
 val _ = export_theory();

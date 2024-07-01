@@ -106,6 +106,8 @@ val _ = r |> hyp |> null orelse
 val res = translate all_bytes_eq
 val res = translate byte_to_string_eq
 val res = translate escape_sym_char_def
+val res = translate get_sym_label_def
+val res = translate get_sym_labels_def
 val res = translate emit_symbol_def
 val res = translate emit_symbols_def
 
@@ -243,6 +245,8 @@ val res = translate
 (* arm7 *)
 val res = translate arm7_configTheory.arm7_names_def;
 val res = translate export_arm7Theory.ffi_asm_def;
+val res = translate export_arm7Theory.export_func_def;
+val res = translate export_arm7Theory.export_funcs_def;
 val res = translate export_arm7Theory.arm7_export_def;
 val res = translate
   (arm7_configTheory.arm7_backend_config_def
@@ -257,7 +261,7 @@ val res = translate (extend_conf_def |> spec32 |> SIMP_RULE (srw_ss()) [MEMBER_I
 val res = translate parse_target_32_def;
 val res = translate add_tap_output_def;
 
-val res = translate ffinames_to_string_list_def;
+val res = translate backendTheory.ffinames_to_string_list_def;
 
 val res = format_compiler_result_def
         |> Q.GENL[`bytes`,`c`]

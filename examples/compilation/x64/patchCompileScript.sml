@@ -1,11 +1,11 @@
 (*
   Compiles the patch example by evaluation inside the logic of HOL
 *)
-open preamble compilationLib patchProgTheory
+open preamble patchProgTheory eval_cake_compile_x64Lib
 
 val _ = new_theory "patchCompile"
 
-val patch_compiled = save_thm("patch_compiled",
-  compile_x64 "patch" patch_prog_def);
+Theorem patch_compiled =
+  eval_cake_compile_x64 "" patch_prog_def "patch.S";
 
 val _ = export_theory ();

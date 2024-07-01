@@ -6,6 +6,9 @@ from these by the translator.
 [basisComputeLib.sml](basisComputeLib.sml):
 compset for the pure basis functions.
 
+[basis_cvScript.sml](basis_cvScript.sml):
+Translation of basis types and functions for use with cv_compute.
+
 [mlintScript.sml](mlintScript.sml):
 Pure functions for the Int module.
 

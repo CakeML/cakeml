@@ -163,19 +163,23 @@ End
 
 Definition conv_cmp_def:
   (conv_cmp (Nd nodeNT args) =
-     if isNT nodeNT CmpOpsNT ∨ isNT nodeNT EqOpsNT then
-       case args of
-         [leaf] => conv_cmp leaf
-       | _ => NONE
-     else NONE) ∧
+   if isNT nodeNT CmpOpsNT ∨ isNT nodeNT EqOpsNT then
+     case args of
+       [leaf] => conv_cmp leaf
+     | _ => NONE
+   else NONE) ∧
   conv_cmp leaf =
-   if tokcheck leaf EqT then SOME(Equal,F)
-   else if tokcheck leaf NeqT then SOME(NotEqual,F)
-   else if tokcheck leaf LessT then SOME(Less,F)
-   else if tokcheck leaf GeqT then SOME(NotLess,F)
-   else if tokcheck leaf GreaterT then SOME(Less,T)
-   else if tokcheck leaf LeqT then SOME(NotLess,T)
-   else NONE
+  if tokcheck leaf EqT then SOME(Equal,F)
+  else if tokcheck leaf NeqT then SOME(NotEqual,F)
+  else if tokcheck leaf LessT then SOME(Less,F)
+  else if tokcheck leaf GeqT then SOME(NotLess,F)
+  else if tokcheck leaf GreaterT then SOME(Less,T)
+  else if tokcheck leaf LeqT then SOME(NotLess,T)
+  else if tokcheck leaf LowerT then SOME(Lower,F)
+  else if tokcheck leaf HigherT then SOME(Lower,T)
+  else if tokcheck leaf HigheqT then SOME(NotLower,F)
+  else if tokcheck leaf LoweqT then SOME(NotLower,T)
+  else NONE
 End
 
 (** A single tree is smaller than the forest. *)
@@ -589,21 +593,31 @@ Termination
   gs[]
 End
 
+Definition conv_expos_def:
+  conv_expos tree =
+    case destTOK ' (destLf tree) of
+      SOME (KeywordT ExportK) => SOME T
+    | SOME (StaticT) => SOME F
+    | _ => NONE
+End
+
 Definition conv_Fun_def:
   conv_Fun tree =
   case argsNT tree FunNT of
-    SOME [n;c] =>
+    SOME [e;n;c] =>
       (do body <- conv_Prog c;
           n'   <- conv_ident n;
-          SOME (n', [], body)
+          e'   <- conv_expos e;
+          SOME (n', e', [], body)
        od)
-  | SOME [n;ps;c] =>
+  | SOME [e;n;ps;c] =>
       (case (argsNT ps ParamListNT) of
          SOME args =>
            (do ps'  <- conv_params args;
                body <- conv_Prog c;
                n'   <- conv_ident n;
-               SOME (n', ps', body)
+               e'   <- conv_expos e;
+               SOME (n', e', ps', body)
             od)
        | _ => NONE)
   | _ => NONE

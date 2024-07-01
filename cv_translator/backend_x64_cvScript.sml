@@ -3,6 +3,7 @@
 *)
 open preamble cv_transLib cv_stdTheory backend_cvTheory backend_64_cvTheory;
 open backend_x64Theory x64Theory x64_targetTheory to_data_cvTheory;
+open export_x64Theory x64_configTheory;
 
 val _ = new_theory "backend_x64_cv";
 
@@ -236,10 +237,44 @@ val _ = cv_trans (compile_0_x64_def
 val _ = cv_trans backend_x64Theory.to_word_0_x64_def;
 val _ = cv_auto_trans backend_x64Theory.to_livesets_0_x64_def;
 
+(* export *)
+
+Definition export_funcs_alt_def:
+  export_funcs_alt [] e = e ∧
+  export_funcs_alt (x::xs) e = export_funcs_alt xs (export_func e x)
+End
+
+Theorem export_funcs_alt_thm:
+  ∀xs e. export_funcs_alt xs e = FOLDL export_func e xs
+Proof
+  Induct >> rw[export_funcs_alt_def]
+QED
+
+val _ = cv_auto_trans export_funcs_alt_def;
+
+val _ = cv_auto_trans
+        (export_x64Theory.export_funcs_def
+           |> SRULE [combinTheory.o_DEF, combinTheory.C_DEF,GSYM export_funcs_alt_thm,
+                     MEM_EXISTS]);
+
+val _ = cv_auto_trans
+        (export_x64Theory.x64_export_def
+           |> REWRITE_RULE [to_words_line_word,
+                            to_words_line_byte,
+                            split16_eq_chunks16]);
+
 (* main two translations below *)
 
 val _ = cv_trans backend_x64Theory.to_livesets_x64_def;
 val _ = cv_trans backend_x64Theory.compile_cake_x64_def;
+
+(* lemma used by automation *)
+
+Theorem set_asm_conf_x64_backend_config:
+  set_asm_conf x64_backend_config x64_config = x64_backend_config
+Proof
+  irule backendTheory.set_asm_conf_id \\ EVAL_TAC
+QED
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();
