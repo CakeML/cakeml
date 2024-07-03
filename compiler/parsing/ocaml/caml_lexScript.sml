@@ -8,11 +8,6 @@ val _ = set_grammar_ancestry [ "misc", "location", "lexer_impl", "lexer_fun" ];
 
 val _ = new_theory "caml_lex";
 
-
-(* TODO
- * - Location spans might be wrong just about everywhere
- *)
-
 (* -------------------------------------------------------------------------
  * Tokens
  * ------------------------------------------------------------------------- *)
