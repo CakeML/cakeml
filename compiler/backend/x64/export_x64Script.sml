@@ -18,7 +18,7 @@ In addition, the first address on the heap should store the address of cake_bitm
 Note: this set up does NOT account for restoring clobbered registers
 *)
 val startup' =
-  ``λret. (MAP (\n. strlit(n ++ "\n"))
+  ``λret pk. (MAP (\n. strlit(n ++ "\n"))
       (["/* Start up code */";
        "";
        "     .text";
@@ -40,18 +40,20 @@ val startup' =
        "     pushq   %rbp                            # push base pointer";
        "     movq    %rsp, %rbp                      # save stack pointer";
        "     leaq    cake_main(%rip), %rdi           # arg1: entry address";
-       "     movq    cdecl(cml_heap)(%rip), %rsi     # arg2: first address of heap";
-       "     leaq    cake_bitmaps(%rip), %rax";
-       "     movq    %rax, 0(%rsi)                   # store bitmap pointer";
-       "     leaq    cdecl(cake_bitmaps_buffer_begin)(%rip), %rax";
-       "     movq    %rax, 8(%rsi)                   # store bitmap mutable start pointer";
-       "     leaq    cdecl(cake_bitmaps_buffer_end)(%rip), %rax";
-       "     movq    %rax, 16(%rsi)                  # store bitmap mutable end pointer";
-       "     leaq    cdecl(cake_codebuffer_begin)(%rip), %rax";
-       "     movq    %rax, 24(%rsi)                  # store code mutable start pointer";
-       "     leaq    cdecl(cake_codebuffer_end)(%rip), %rax";
-       "     movq    %rax, 32(%rsi)                  # store code mutable end pointer";
-       "     movq    cdecl(cml_stack)(%rip), %rdx    # arg3: first address of stack";
+       "     movq    cdecl(cml_heap)(%rip), %rsi     # arg2: first address of heap"] ++
+       (if ~pk then
+         ["     leaq    cake_bitmaps(%rip), %rax";
+          "     movq    %rax, 0(%rsi)                   # store bitmap pointer";
+          "     leaq    cdecl(cake_bitmaps_buffer_begin)(%rip), %rax";
+          "     movq    %rax, 8(%rsi)                   # store bitmap mutable start pointer";
+          "     leaq    cdecl(cake_bitmaps_buffer_end)(%rip), %rax";
+          "     movq    %rax, 16(%rsi)                  # store bitmap mutable end pointer";
+          "     leaq    cdecl(cake_codebuffer_begin)(%rip), %rax";
+          "     movq    %rax, 24(%rsi)                  # store code mutable start pointer";
+          "     leaq    cdecl(cake_codebuffer_end)(%rip), %rax";
+          "     movq    %rax, 32(%rsi)                  # store code mutable end pointer"]
+        else []) ++
+       ["     movq    cdecl(cml_stack)(%rip), %rdx    # arg3: first address of stack";
        "     movq    cdecl(cml_stackend)(%rip), %rcx # arg4: first address past the stack"] ++
        (if ret then
          ["     jmp     cml_enter"]
@@ -263,7 +265,7 @@ val export_funcs_def = Define `
     FOLDL export_func misc$Nil (FILTER ((flip MEM exp) o FST) lsyms)`;
 
 val x64_export_def = Define `
-  x64_export ffi_names bytes (data:word64 list) syms exp ret =
+  x64_export ffi_names bytes (data:word64 list) syms exp ret pk =
     let lsyms = get_sym_labels syms in
     SmartAppend
       (SmartAppend
@@ -271,7 +273,7 @@ val x64_export_def = Define `
       (SmartAppend (List (data_section ".quad" ret))
       (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
       (SmartAppend (List data_buffer)
-      (SmartAppend (List ((strlit"\n")::^startup ret)) (^ffi_code ret))))))
+      (SmartAppend (List ((strlit"\n")::^startup ret pk)) (^ffi_code ret))))))
       (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
       (SmartAppend (List code_buffer)
       (emit_symbols lsyms))))

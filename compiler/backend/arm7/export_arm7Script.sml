@@ -18,7 +18,7 @@ In addition, the first address on the heap should store the address of cake_bitm
 Note: this set up does NOT account for restoring clobbered registers
 *)
 val startup' =
-  ``λret. (MAP (\n. strlit(n ++ "\n"))
+  ``λret pk. (MAP (\n. strlit(n ++ "\n"))
       (["/* Start up code */";
        "";
        "     .text";
@@ -31,10 +31,12 @@ val startup' =
        "cdecl(cml_main):";
        "     ldr    r0,=cake_main            /* arg1: entry address */";
        "     ldr    r1,=cdecl(cml_heap)      /* arg2: first address of heap */";
-       "     ldr    r1,[r1]";
-       "     ldr    r2,=cake_bitmaps";
-       "     str    r2,[r1]                  /* store bitmap pointer */";
-       "     ldr    r2,=cdecl(cml_stack)     /* arg3: first address of stack */";
+       "     ldr    r1,[r1]"] ++
+       (if ~pk then
+         ["     ldr    r2,=cake_bitmaps";
+          "     str    r2,[r1]                  /* store bitmap pointer */"]
+        else []) ++
+       ["     ldr    r2,=cdecl(cml_stack)     /* arg3: first address of stack */";
        "     ldr    r2,[r2]";
        "     ldr    r3,=cdecl(cml_stackend)  /* arg4: first address past the stack */";
        "     ldr    r3,[r3]"] ++
@@ -167,14 +169,14 @@ val export_funcs_def = Define `
     FOLDL export_func misc$Nil (FILTER ((flip MEM exp) o FST) lsyms)`;
 
 val arm7_export_def = Define `
-  arm7_export ffi_names bytes (data:word32 list) syms exp ret =
+  arm7_export ffi_names bytes (data:word32 list) syms exp ret pk =
     let lsyms = get_sym_labels syms in
     SmartAppend
       (SmartAppend (List preamble)
       (SmartAppend (List (data_section ".long" ret))
       (SmartAppend (split16 (words_line (strlit"\t.long ") word_to_string) data)
       (SmartAppend (List data_buffer)
-      (SmartAppend (List ((strlit"\n")::(^startup ret))) (^ffi_code ret))))))
+      (SmartAppend (List ((strlit"\n")::(^startup ret pk))) (^ffi_code ret))))))
       (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
       (SmartAppend (List code_buffer)
       (SmartAppend (emit_symbols lsyms)
