@@ -829,6 +829,26 @@ Definition ptree_Bool_def:
       fail (locs, «Expected a boolean literal non-terminal»)
 End
 
+Definition ptree_Double_def:
+  ptree_Double (Lf (_, locs)) =
+    fail (locs, «Expected a float literal non-terminal») ∧
+  ptree_Double (Nd (nterm, locs) args) =
+    if nterm = INL nLiteral then
+      case args of
+        [arg] =>
+          do
+            lf <- destLf arg;
+            tk <- option $ destTOK lf;
+            if isFloat tk then
+              return $ Lit $ StrLit $ THE $ destFloat tk
+            else
+              fail (locs, «not a float literal»)
+          od
+      | _ => fail (locs, «Impossible: nLiteral (float)»)
+    else
+      fail (locs, «Expected a float literal non-terminal»)
+End
+
 Definition nterm_of_def:
   nterm_of (Lf (_, locs)) = fail (locs, «nterm_of: Not a parsetree node») ∧
   nterm_of (Nd (nterm, _) args) = return nterm
@@ -1414,17 +1434,12 @@ Definition build_lets_def:
           binds body
 End
 
-(* TODO
- * With these functions it's not possible to mix value definitions
- * and recursive function definitions.
+(* N.B. The match-building functions do not accept mixing value definitions
+ * (i.e., with no function arguments) with recursive definitions (let rec y =
+ * ...). For example, the parser won't accept this:
  *
- * NOTE
- * I think this means that the parser won't accept
- *
- *   let rec f x = something
- *   and y = 5;;
- *
- * which is a bit annoying but it hardly matters.
+ *   let rec f x = y
+ *   and z = 5;;
  *)
 
 (* Build pattern match rows from lists of patterns that contain record matches.
@@ -1585,7 +1600,9 @@ Definition ptree_Expr_def:
               ptree_Expr nERecUpdate arg
             else if n = INL nLiteral then
               fmap (λid. Con (SOME id) []) (ptree_Bool arg) ++
-              fmap Lit (ptree_Literal arg)
+              fmap Lit (ptree_Literal arg) ++
+              fmap (λx. App Opapp [Var (Long "Double" (Short "fromString")); x])
+                   (ptree_Double arg)
             else if n = INL nValuePath then
               do
                 cns <- ptree_ValuePath arg;
