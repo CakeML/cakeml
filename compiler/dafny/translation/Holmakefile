@@ -1,0 +1,21 @@
+# $(CAKEMLDIR)/compiler/dafny -> dafny_astTheory
+# $(CAKEMLDIR)/translator -> ml_translatorLib
+# $(CAKEMLDIR)/basis -> basisProg
+# $(CAKEMLDIR)/basis/pure -> mlint
+# $(CAKEMLDIR)/compiler/parsing -> fromSexpTheory
+# $(CAKEMLDIR)/semantics -> astTheory
+# $(CAKEMLDIR)/misc -> preamble
+# $(HOLDIR)/examples/formal-languages/context-free -> simpleSexpTheory
+INCLUDES = $(CAKEMLDIR)/compiler/dafny $(CAKEMLDIR)/translator $(CAKEMLDIR)/basis
+
+all: $(DEFAULT_TARGETS) README.md
+.PHONY: all
+
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
+
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/basis/basis_heap
+endif
