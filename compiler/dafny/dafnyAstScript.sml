@@ -10,18 +10,18 @@ Type name = “:string”
 
 Datatype:
   ident =
-    Ident name
+  | Ident name
 End
 
 Datatype:
   attribute =
   (* Attribute name args *)
-    Attribute string (string list)
+  | Attribute string (string list)
 End
 
 Datatype:
   primitive =
-    Int
+  | Int
   | Real
   | String
   | Bool
@@ -30,26 +30,26 @@ End
 
 Datatype:
   collKind =
-    CollKind_Seq
+  | CollKind_Seq
   | CollKind_Array
   | CollKind_Map
 End
 
 Datatype:
   typeArgBound =
-    SupportsEquality
+  | SupportsEquality
   | SupportsDefault
 End
 
 Datatype:
   typeArgDecl =
   (* TypeArgDecl name bounds *)
-    TypeArgDecl ident (typeArgBound list)
+  | TypeArgDecl ident (typeArgBound list)
 End
 
 Datatype:
   newtypeRange =
-    U8 | I8
+  | U8 | I8
   | U16 | I16
   | U32 | I32
   | U64 | I64
@@ -59,17 +59,17 @@ End
 
 Datatype:
   unaryOp =
-  Not | BitwiseNot
+  | Not | BitwiseNot
   | Cardinality
 End
 
 Datatype:
   binOp =
   (* Eq referential nullable *)
-    Eq bool bool
+  | Eq bool bool
   | Div | EuclidianDiv
   | Mod | EuclidianMod
-  (* // a ≤ b is !(b < a) *)
+  (* a ≤ b is !(b < a) *)
   | Lt | LtChar
   | Plus | Minus | Times
   | BitwiseAnd | BitwiseOr | BitwiseXor
@@ -89,12 +89,12 @@ End
 Datatype:
   datatypeType =
   (* DatatypeType path attributes *)
-    DatatypeType (ident list) (attribute list)
+  | DatatypeType (ident list) (attribute list)
 End
 
 Datatype:
   resolvedType =
-    ResolvedType_Datatype datatypeType
+  | ResolvedType_Datatype datatypeType
   (* Trait path attributes *)
   | ResolvedType_Trait (ident list) (attribute list)
   (* Newtype baseType range erase attributes *)
@@ -102,7 +102,7 @@ Datatype:
 
   type =
   (* Path idents typeArgs resolved *)
-    Path (ident list) (type list) resolvedType
+  | Path (ident list) (type list) resolvedType
   | Nullable type
   | Tuple (type list)
   (* Array element dims *)
@@ -123,7 +123,7 @@ End
 
 Datatype:
   literal =
-  BoolLiteral bool
+  | BoolLiteral bool
   | IntLiteral string type
   | DecLiteral string string type
   (* StringLiteral str verbatim *)
@@ -135,19 +135,19 @@ End
 
 Datatype:
   formal =
-    Formal name type (attribute list)
+  | Formal name type (attribute list)
 End
 
 Datatype:
   callSignature =
-    (* CallSignature parameters *)
-    CallSignature (formal list)
+  (* CallSignature parameters *)
+  | CallSignature (formal list)
 End
 
 Datatype:
   callName =
-    (* CallName name onType signature *)
-    CallName name (type option) callSignature
+  (* CallName name onType signature *)
+  | CallName name (type option) callSignature
   | MapBuilderAdd
   | MapBuilderBuild
   | SetBuilderAdd
@@ -156,14 +156,14 @@ End
 
 Datatype:
   assignLhs =
-    AssignLhs_Ident ident
+  | AssignLhs_Ident ident
   (* Select expr field *)
   | AssignLhs_Select expression name
   (* Index expr indices *)
   | AssignLhs_Index expression (expression list) ;
 
   expression =
-  Literal literal
+  | Literal literal
   | Expression_Ident name
   | Companion (ident list)
   | Expression_Tuple (expression list)
@@ -234,7 +234,7 @@ Datatype:
   | IntRange expression expression ;
 
   statement =
-    DeclareVar name type (expression option)
+  | DeclareVar name type (expression option)
   | Assign assignLhs expression
   (* If cond thn els *)
   | If expression (statement list) (statement list)
@@ -259,74 +259,74 @@ End
 
 Datatype:
   method =
-    (* Method isStatic hasBody overridingPath name
-              typeParams params body
-              outTypes outVars *)
-    Method bool bool ((ident list) option) name
+  (* Method isStatic hasBody overridingPath name
+            typeParams params body
+            outTypes outVars *)
+  | Method bool bool ((ident list) option) name
            (typeArgDecl list) (formal list) (statement list)
            (type list) ((ident list) option)
 End
 
 Datatype:
   field =
-    (* Field formal defaultValue *)
-    Field formal (expression option)
+  (* Field formal defaultValue *)
+  | Field formal (expression option)
 End
 
 Datatype:
   classItem =
-  ClassItem_Method(method)
+  | ClassItem_Method(method)
 End
 
 Datatype:
   class =
-    (* Class name enclosingModule typeParams superClasses fields
-             body attributes *)
-    Class name ident (typeArgDecl list) (type list) (field list)
+  (* Class name enclosingModule typeParams superClasses fields
+           body attributes *)
+  | Class name ident (typeArgDecl list) (type list) (field list)
           (classItem list) (attribute list)
 End
 
 Datatype:
   trait =
-    (* Trait name typeParams body attributes *)
-    Trait name (typeArgDecl list) (classItem list) (attribute list)
+  (* Trait name typeParams body attributes *)
+  | Trait name (typeArgDecl list) (classItem list) (attribute list)
 End
 
 Datatype:
   newtype =
-    (* Newtype name typeParams base range
-               witnessStmts witnessExpr attributes *)
-    Newtype name (typeArgDecl list) type newtypeRange
+  (* Newtype name typeParams base range
+             witnessStmts witnessExpr attributes *)
+  | Newtype name (typeArgDecl list) type newtypeRange
             (statement list) (expression option) (attribute list)
 End
 
 Datatype:
   datatypeDtor =
-    (* DatatypeDtor formal callName *)
-    DatatypeDtor formal (string option)
+  (* DatatypeDtor formal callName *)
+  | DatatypeDtor formal (string option)
 End
 
 Datatype:
   datatypeCtor =
-    (* DatatypeCtor name args hasAnyArgs (* includes ghost *) *)
-    DatatypeCtor name (datatypeDtor list) bool
+  (* DatatypeCtor name args hasAnyArgs (* includes ghost *) *)
+  | DatatypeCtor name (datatypeDtor list) bool
 End
 
 Datatype:
   datatype =
-    (* Datatype name enclosingModule typeParams ctors
-                body isCo attributes *)
-    Datatype name ident (typeArgDecl list) (datatypeCtor list)
+  (* Datatype name enclosingModule typeParams ctors
+              body isCo attributes *)
+  | Datatype name ident (typeArgDecl list) (datatypeCtor list)
              (classItem list) bool (attribute list)
 End
 
 Datatype:
   module =
-    (* Module name attributes body *)
-    Module name (attribute list) ((moduleItem list) option) ;
+  (* Module name attributes body *)
+  | Module name (attribute list) ((moduleItem list) option) ;
 
   moduleItem =
-    ModuleItem_Module module
+  | ModuleItem_Module module
   | ModuleItem_Class class
   | ModuleItem_Trait trait
   | ModuleItem_Newtype newtype
