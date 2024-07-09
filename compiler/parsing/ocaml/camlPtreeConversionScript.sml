@@ -1023,7 +1023,7 @@ Definition ptree_PRecFields_def:
             expect_tok lbrace LbraceT;
             fn <- ptree_FieldName fname;
             fns <- ptree_FieldsList rest;
-            return (QSORT string_lt (fn::fns))
+            return (fn::fns)
           od
       | _ => fail (locs, «Impossible: nPRecFields»)
     else
