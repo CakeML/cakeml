@@ -17,39 +17,44 @@ In addition, the first address on the heap should store the address of cake_bitm
 
 Note: this set up does NOT account for restoring clobbered registers
 *)
-val startup' =
-  ``λret pk. (MAP (\n. strlit(n ++ "\n"))
-      (["#### Start up code";
-       "";
-       "     .text";
-       "     .p2align 3";
-       "     .globl  cdecl(cml_main)";
-       "     .globl  cdecl(cml_heap)";
-       "     .globl  cdecl(cml_stack)";
-       "     .globl  cdecl(cml_stackend)";
-       "     .type   cml_main, function";
-       "cdecl(cml_main):";
-       "     dla     $a0,cake_main           # arg1: entry address";
-       "     ld      $a1,cdecl(cml_heap)     # arg2: first address of heap"] ++
-       (if ~pk then
-         ["     dla     $t0,cake_bitmaps";
-          "     sd      $t0, 0($a1)             # store bitmap pointer"]
-        else []) ++
-       ["     ld      $a2,cdecl(cml_stack)    # arg3: first address of stack";
-       "     ld      $a3,cdecl(cml_stackend) # arg4: first address past the stack"] ++
-       (if ret then
-         ["     j       cml_enter"]
-       else
-         ["     j       cake_main"]) ++
-      ["     nop";
-       ""]))``
+val startup_def = Define `
+  startup ret pk =
+    SmartAppend (List
+      [strlit"\n";
+       strlit"#### Start up code\n";
+       strlit"     .text\n";
+       strlit"     .p2align 3\n";
+       strlit"     .globl  cdecl(cml_main)\n";
+       strlit"     .globl  cdecl(cml_heap)\n";
+       strlit"     .globl  cdecl(cml_stack)\n";
+       strlit"     .globl  cdecl(cml_stackend)\n";
+       strlit"     .type   cml_main, function\n";
+       strlit"cdecl(cml_main):\n";
+       strlit"     dla     $a0,cake_main           # arg1: entry address\n";
+       strlit"     ld      $a1,cdecl(cml_heap)     # arg2: first address of heap\n"])
+    (SmartAppend (List
+      (if ~pk then
+        [strlit"     dla     $t0,cake_bitmaps\n";
+         strlit"     sd      $t0, 0($a1)             # store bitmap pointer\n"]
+      else []))
+    (SmartAppend (List
+      [strlit"     ld      $a2,cdecl(cml_stack)    # arg3: first address of stack\n";
+       strlit"     ld      $a3,cdecl(cml_stackend) # arg4: first address past the stack\n"])
+    (SmartAppend (List
+      (if ret then
+        [strlit"     j       cml_enter\n"]
+      else
+        [strlit"     j       cake_main\n"]))
+    (List
+      [strlit"     nop\n";
+       strlit"\n"]))))`
 
-val (startup_true, startup_false) =
+(* val (startup_true, startup_false) =
     (``^startup' T`` |> EVAL |> concl |> rand,
      ``^startup' F`` |> EVAL |> concl |> rand);
 
 val startup =
-  ``λret. if ret then ^startup_true else ^startup_false``;
+  ``λret. if ret then ^startup_true else ^startup_false``; *)
 
 val ffi_asm_def = Define `
   (ffi_asm [] = Nil) /\
@@ -190,7 +195,7 @@ val mips_export_def = Define `
       (SmartAppend (List (data_section ".quad" ret))
       (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
       (SmartAppend (List data_buffer)
-      (SmartAppend (List ((strlit"\n")::(^startup ret pk))) (^ffi_code ret))))))
+      (SmartAppend (startup ret pk) (^ffi_code ret))))))
       (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
       (SmartAppend (List code_buffer)
       (SmartAppend (emit_symbols lsyms)

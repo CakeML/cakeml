@@ -17,59 +17,65 @@ In addition, the first address on the heap should store the address of cake_bitm
 
 Note: this set up does NOT account for restoring clobbered registers
 *)
-val startup' =
-  ``λret pk. (MAP (\n. strlit(n ++ "\n"))
-      (["/* Start up code */";
-       "";
-       "     .text";
-       "     .p2align 12";
-       "     .globl  cdecl(cake_text_begin)";
-       "cdecl(cake_text_begin):";
-       "     .globl  cdecl(cml_main)";
-       "     .globl  cdecl(cml_heap)";
-       "     .globl  cdecl(cml_stack)";
-       "     .globl  cdecl(cml_stackend)";
-       "#if defined(__APPLE__)";
-       "";
-       "#elif defined(__WIN32)";
-       "     .func   cml_main";
-       "#else";
-       "     .type   cml_main, function";
-       "#endif";
-       "cdecl(cml_main):";
-       "     pushq   %rbp                            # push base pointer";
-       "     movq    %rsp, %rbp                      # save stack pointer";
-       "     leaq    cake_main(%rip), %rdi           # arg1: entry address";
-       "     movq    cdecl(cml_heap)(%rip), %rsi     # arg2: first address of heap"] ++
-       (if ~pk then
-         ["     leaq    cake_bitmaps(%rip), %rax";
-          "     movq    %rax, 0(%rsi)                   # store bitmap pointer";
-          "     leaq    cdecl(cake_bitmaps_buffer_begin)(%rip), %rax";
-          "     movq    %rax, 8(%rsi)                   # store bitmap mutable start pointer";
-          "     leaq    cdecl(cake_bitmaps_buffer_end)(%rip), %rax";
-          "     movq    %rax, 16(%rsi)                  # store bitmap mutable end pointer";
-          "     leaq    cdecl(cake_codebuffer_begin)(%rip), %rax";
-          "     movq    %rax, 24(%rsi)                  # store code mutable start pointer";
-          "     leaq    cdecl(cake_codebuffer_end)(%rip), %rax";
-          "     movq    %rax, 32(%rsi)                  # store code mutable end pointer"]
-        else []) ++
-       ["     movq    cdecl(cml_stack)(%rip), %rdx    # arg3: first address of stack";
-       "     movq    cdecl(cml_stackend)(%rip), %rcx # arg4: first address past the stack"] ++
-       (if ret then
-         ["     jmp     cml_enter"]
-       else
-         ["     jmp     cake_main"]) ++
-       ["";
-       "#if defined(__WIN32)";
-       "     .endfunc";
-       "#endif"]))``
+val startup_def = Define `
+  startup ret pk =
+    SmartAppend (List
+      [strlit"\n";
+       strlit"/* Start up code */\n";
+       strlit"\n";
+       strlit"     .text\n";
+       strlit"     .p2align 12\n";
+       strlit"     .globl  cdecl(cake_text_begin)\n";
+       strlit"cdecl(cake_text_begin):\n";
+       strlit"     .globl  cdecl(cml_main)\n";
+       strlit"     .globl  cdecl(cml_heap)\n";
+       strlit"     .globl  cdecl(cml_stack)\n";
+       strlit"     .globl  cdecl(cml_stackend)\n";
+       strlit"#if defined(__APPLE__)\n";
+       strlit"\n";
+       strlit"#elif defined(__WIN32)\n";
+       strlit"     .func   cml_main\n";
+       strlit"#else\n";
+       strlit"     .type   cml_main, function\n";
+       strlit"#endif\n";
+       strlit"cdecl(cml_main):\n";
+       strlit"     pushq   %rbp                            # push base pointer\n";
+       strlit"     movq    %rsp, %rbp                      # save stack pointer\n";
+       strlit"     leaq    cake_main(%rip), %rdi           # arg1: entry address\n";
+       strlit"     movq    cdecl(cml_heap)(%rip), %rsi     # arg2: first address of heap\n"])
+    (SmartAppend (List
+      (if ~pk then
+        [strlit"     leaq    cake_bitmaps(%rip), %rax\n";
+         strlit"     movq    %rax, 0(%rsi)                   # store bitmap pointer\n";
+         strlit"     leaq    cdecl(cake_bitmaps_buffer_begin)(%rip), %rax\n";
+         strlit"     movq    %rax, 8(%rsi)                   # store bitmap mutable start pointer\n";
+         strlit"     leaq    cdecl(cake_bitmaps_buffer_end)(%rip), %rax\n";
+         strlit"     movq    %rax, 16(%rsi)                  # store bitmap mutable end pointer\n";
+         strlit"     leaq    cdecl(cake_codebuffer_begin)(%rip), %rax\n";
+         strlit"     movq    %rax, 24(%rsi)                  # store code mutable start pointer\n";
+         strlit"     leaq    cdecl(cake_codebuffer_end)(%rip), %rax\n";
+         strlit"     movq    %rax, 32(%rsi)                  # store code mutable end pointer\n"]
+      else []))
+    (SmartAppend (List
+      [strlit"     movq    cdecl(cml_stack)(%rip), %rdx    # arg3: first address of stack\n";
+       strlit"     movq    cdecl(cml_stackend)(%rip), %rcx # arg4: first address past the stack\n"])
+    (SmartAppend (List
+      (if ret then
+        [strlit"     jmp     cml_enter\n"]
+      else
+        [strlit"     jmp     cake_main\n"]))
+    (List
+      [strlit"\n";
+       strlit"#if defined(__WIN32)\n";
+       strlit"     .endfunc\n";
+       strlit"#endif\n"]))))`
 
-val (startup_true, startup_false) =
+(* val (startup_true, startup_false) =
     (``^startup' T`` |> EVAL |> concl |> rand,
      ``^startup' F`` |> EVAL |> concl |> rand);
 
 val startup =
-  ``λret. if ret then ^startup_true else ^startup_false``;
+  ``λret. if ret then ^startup_true else ^startup_false``; *)
 
 val ffi_asm_def = Define `
   (ffi_asm [] = Nil) /\
@@ -273,7 +279,7 @@ val x64_export_def = Define `
       (SmartAppend (List (data_section ".quad" ret))
       (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
       (SmartAppend (List data_buffer)
-      (SmartAppend (List ((strlit"\n")::^startup ret pk)) (^ffi_code ret))))))
+      (SmartAppend (startup ret pk) (^ffi_code ret))))))
       (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
       (SmartAppend (List code_buffer)
       (emit_symbols lsyms))))
