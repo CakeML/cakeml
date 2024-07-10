@@ -49,13 +49,6 @@ val startup_def = Define `
     (List
       [strlit"\n"]))))`
 
-(* val (startup_true, startup_false) =
-    (``^startup' T`` |> EVAL |> concl |> rand,
-     ``^startup' F`` |> EVAL |> concl |> rand);
-
-val startup =
-  ``λret. if ret then ^startup_true else ^startup_false``; *)
-
 val ffi_asm_def = Define `
   (ffi_asm [] = Nil) /\
   (ffi_asm (ffi::ffis) =
