@@ -60,7 +60,7 @@ val startup_def = Define `
     (SmartAppend (List
       (if ret then
         [strlit"     b      cml_enter\n"]
-       else
+      else
         [strlit"     b      cake_main\n"]))
     (List
       [strlit"     .ltorg\n";
