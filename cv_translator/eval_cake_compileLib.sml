@@ -114,10 +114,11 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
      get_one_subst "cv_data" data_def,
      get_one_subst "cv_bytes" code_def,
      get_one_subst "cv_syms" syms_def,
-     (* TODO: exp and ret need to be passed as arguments for in-logic
+     (* TODO: exp/ret/pk need to be passed as arguments for in-logic
         Pancake compiler evaluation *)
      mk_var("cv_exp",cvSyntax.cv) |-> cvSyntax.mk_cv_num numSyntax.zero_tm,
-     mk_var("cv_ret",cvSyntax.cv) |-> cvSyntax.mk_cv_num numSyntax.zero_tm]
+     mk_var("cv_ret",cvSyntax.cv) |-> cvSyntax.mk_cv_num numSyntax.zero_tm,
+     mk_var("cv_pk",cvSyntax.cv) |-> cvSyntax.mk_cv_num numSyntax.zero_tm]
   val _ = null (free_vars export_tm) orelse failwith "failed to eval export"
   (*
     cv_repLib.cv_rep_for []
