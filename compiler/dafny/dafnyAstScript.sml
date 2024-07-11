@@ -6,7 +6,10 @@ open preamble
 
 val _ = new_theory "dafnyAst";
 
-Type name = “:string”
+Datatype:
+  name =
+  | Name string
+End
 
 Datatype:
   ident =
@@ -251,7 +254,7 @@ Datatype:
   (* Break toLabel *)
   | Break (string option)
   (* TailRecurisve body *)
-  | TailRecurisve (statement list)
+  | TailRecursive (statement list)
   | JumpTailCallStart
   | Halt
   | Print expression
