@@ -118,7 +118,7 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
         Pancake compiler evaluation *)
      mk_var("cv_exp",cvSyntax.cv) |-> cvSyntax.mk_cv_num numSyntax.zero_tm,
      mk_var("cv_ret",cvSyntax.cv) |-> cvSyntax.mk_cv_num numSyntax.zero_tm,
-     mk_var("cv_pk",cvSyntax.cv) |-> cvSyntax.mk_cv_num numSyntax.zero_tm]
+     mk_var("cv_pk",cvSyntax.cv)  |-> cvSyntax.mk_cv_num numSyntax.zero_tm]
   val _ = null (free_vars export_tm) orelse failwith "failed to eval export"
   (*
     cv_repLib.cv_rep_for []
