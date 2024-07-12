@@ -536,7 +536,7 @@ End
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "Foo {b; a}"
-  (SOME $ eval “[mkrec (Short "Foo", ["a"; "b"])]”)
+  (SOME $ eval “[mkrec (Short "Foo", ["b"; "a"])]”)
   ;
 
 val _ = parsetest0 “nStart” “ptree_Start”
@@ -1036,22 +1036,25 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   " try f x with Ea _ -> g x\
   \            | Eb -> h"
-  (SOME “Let (SOME " e") (App Opapp [V "f"; V "x"])
-             (Handle (V " e")
-                     [(Pc "Ea" [Pany], App Opapp [V "g"; V "x"]);
-                      (Pc "Eb" [], V "h")])”)
+  (SOME “Handle (App Opapp [V "f"; V "x"])
+           [(Pv " e", Mat (V " e")
+               [(Pc "Ea" [Pany],App Opapp [V "g"; V "x"]);
+                (Pc "Eb" [],V "h");
+                (Pany, Raise (V " e"))])]”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "try f ()\n\
   \with Bar when P -> X"
   (SOME “
-    Handle (V"") [
-      (Pany, Let (SOME " p") (Fun " u" (Raise (V"")))
-                 (Mat (V"")
-                      [(Pc "Bar" [],
-                        If (V "P") (V "X") (App Opapp [V " p"; Con NONE []]));
-                       (Pany, App Opapp [V " p"; Con NONE []])]))]”)
+    Handle (App Opapp [V "f"; Con NONE []])
+     [(Pv " e",
+       Let (SOME " p") (Fun " u" (Raise (V " e")))
+           (Mat (V " e")
+                [(Pc "Bar" [],
+                  If (V "P") (V "X")
+                     (App Opapp [V " p"; Con NONE []]));
+                 (Pany, App Opapp [V " p"; Con NONE []])]))]”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”

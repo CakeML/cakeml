@@ -1491,15 +1491,15 @@ End
 
 Definition build_handle_def:
   build_handle x rows =
-    if EXISTS (λ(p,x,g). case g of SOME _ => T | _ => F) rows then
-      let exn = Var (Short "") in
-      (Handle exn [
-        Pany,build_pmatch "" [] ((INR Pany,Raise exn,NONE)::REVERSE rows)])
-    else
-      let mvar = " e" in
-      Let (SOME mvar) x
-          (Handle (Var (Short mvar))
-                  (MAP (λ(p,x,g). build_match_row mvar (p,x)) rows))
+    (* Save the handled exception in a variable by first matching with Handle
+     * on a single variable, and then applying Mat to the variable. Reraise the
+     * exception in case of no match.
+     *
+     * This trickery is used to support pattern guards and fake records.
+     *)
+    let mvar = " e" in
+    let rows' = (INR Pany, Raise (Var (Short mvar)), NONE)::REVERSE rows in
+    Handle x [Pvar mvar, build_pmatch mvar [] rows']
 End
 
 Definition build_function_def:
