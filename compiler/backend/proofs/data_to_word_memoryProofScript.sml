@@ -9706,24 +9706,23 @@ Proof
     \\ strip_tac
     \\ once_rewrite_tac [word_eq_def]
     \\ IF_CASES_TAC \\ fs []
-    >- ( every_case_tac \\ fs[] )
+    >- gvs[AllCaseEqs()]
     \\ drule memory_rel_RefPtr_IMP \\ fs []
     \\ drule memory_rel_tail \\ strip_tac
     \\ drule memory_rel_RefPtr_IMP \\ fs []
     \\ rpt strip_tac \\ fs [word_bit,word_header_def]
     \\ IF_CASES_TAC \\ fs []
-    \\ IF_CASES_TAC \\ fs [] \\ fs []
     >- (
-      every_case_tac \\  fs[]
+      gvs[AllCaseEqs()]
       \\ drule (GEN_ALL memory_rel_ByteArray_IMP)
       \\ qhdtm_x_assum`memory_rel`kall_tac
       \\ drule (GEN_ALL memory_rel_ByteArray_IMP)
       \\ simp[] \\ strip_tac \\ fs[]
       \\ simp[] \\ strip_tac \\ fs[]
-      \\ clean_tac \\ strip_tac \\  fs[] )
+      \\ clean_tac \\ strip_tac \\  fs[])
     \\ IF_CASES_TAC \\ fs [] \\ fs []
     >- (
-      every_case_tac \\  fs[]
+      gvs[AllCaseEqs()]
       \\ drule (GEN_ALL memory_rel_ByteArray_IMP)
       \\ qhdtm_x_assum`memory_rel`kall_tac
       \\ drule (GEN_ALL memory_rel_ByteArray_IMP)
