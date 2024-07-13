@@ -31,7 +31,7 @@ let s = z.a_string;;
 
 print (s ^ "\n");;
 print (Int.toString (m1 x) ^ " " ^ Int.toString (m1 y) ^ "\n");;
-print (a_string ^ "\n");
+print (a_string ^ "\n");;
 
 (* Limitations:
  * - It is not possible to name the matched fields in record pattern matches
