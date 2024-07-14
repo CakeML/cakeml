@@ -107,7 +107,8 @@ Theorem diff'_spec:
          else add_stderr fs (notfound_string f2)
          else add_stderr fs (notfound_string f1)))
 Proof
-  xcf"diff'"(get_ml_prog_state())
+  rpt strip_tac
+  \\ xcf"diff'"(get_ml_prog_state())
   \\ xlet_auto_spec(SOME inputLinesFrom_spec)
   >- xsimpl
   \\ reverse(Cases_on `inFS_fname fs f1`) \\ fs[OPTION_TYPE_def]

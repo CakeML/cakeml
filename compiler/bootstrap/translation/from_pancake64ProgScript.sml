@@ -309,6 +309,8 @@ val res = translate destTOK_def;
 
 val res = translate $ PURE_REWRITE_RULE [GSYM mlstringTheory.implode_def] conv_ident_def;
 
+val res = translate $ PURE_REWRITE_RULE [GSYM mlstringTheory.implode_def] conv_ffi_ident_def;
+
 val res = translate isNT_def;
 
 val res = translate conv_int_def;
@@ -480,6 +482,10 @@ Definition conv_Exp_alt_def:
             [] => NONE
           | [ts] => do es <- conv_ArgList_alt ts; SOME (Struct es) od
           | ts::v6::v7 => NONE
+        else if isNT nodeNT NotNT then
+          case args of
+            [t] => OPTION_MAP (λe. Cmp Equal (Const 0w) e) (conv_Exp_alt t)
+          | _ => NONE
         else if isNT nodeNT LoadByteNT then
           case args of
             [] => NONE
@@ -514,6 +520,20 @@ Definition conv_Exp_alt_def:
                          | SOME e2' => if b then SOME (Cmp op' e2' e1')
                                        else SOME (Cmp op' e1' e2'))))
           | e::op::e2::v14::v15 => NONE
+        else if isNT nodeNT ExpNT then (* boolean or *)
+          case args of
+            [e] => conv_Exp_alt e
+          | e1::args' => do es  <- conv_mmap_exp $ e1::args';
+                            SOME $ Cmp NotEqual (Const 0w) $ Op Or es
+                         od
+          | _ => NONE
+        else if isNT nodeNT EBoolAndNT then
+          case args of
+            [e] => conv_Exp_alt e
+          | e1::args' => do es  <- conv_mmap_exp $ e1::args';
+                            SOME $ Op And $ MAP (λe. Cmp NotEqual (Const 0w) e) es
+                         od
+          | _ => NONE
         else if isNT nodeNT EShiftNT then
           case args of
             [] => NONE
@@ -612,11 +632,17 @@ Proof
       IF_CASES_TAC
       >- (fs[]>>ntac 2 (CASE_TAC>>fs[]))>>
       IF_CASES_TAC
+      >- (fs[]>>ntac 2 (CASE_TAC>>fs[]) >> metis_tac[])>>
+      IF_CASES_TAC
       >- (fs[]>>ntac 6 (CASE_TAC>>fs[]))>>
       IF_CASES_TAC>>fs[]
       >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])>>
       IF_CASES_TAC>>fs[]
       >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])
+      >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])>>
+      IF_CASES_TAC>>fs[]
+      >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])>>
+      IF_CASES_TAC>>fs[]
       >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])>>
       IF_CASES_TAC>>fs[]
       >- (rpt (CASE_TAC>>fs[]))>>
@@ -679,6 +705,8 @@ val _ = conv_Prog_ind  |> update_precondition;
 val res  = translate $ spec64 conv_Fun_def;
 
 val res = translate $ spec64 conv_FunList_def;
+
+val res = translate $ spec64 panLexerTheory.dest_lexErrorT_def;
 
 val res = translate $ spec64 parse_funs_to_ast_def;
 

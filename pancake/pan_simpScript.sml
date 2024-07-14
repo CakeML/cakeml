@@ -33,13 +33,15 @@ Definition seq_assoc_def:
                    | SOME (eid , ev , ep) =>
                       SOME (rv , (SOME (eid , ev , (seq_assoc Skip ep)))))
                  name args)) /\
+  (seq_assoc p (DecCall v s e es q) =
+    SmartSeq p (DecCall v s e es (seq_assoc Skip q))) /\
   (seq_assoc p q = SmartSeq p q)
 End
 
 Definition seq_call_ret_def:
   seq_call_ret prog =
    dtcase prog of
-    | Seq (RetCall rv1 NONE trgt args) (Return (Var (rv2:mlstring))) =>
+    | Seq (AssignCall rv1 NONE trgt args) (Return (Var (rv2:mlstring))) =>
       if rv1 = rv2 then (TailCall trgt args) else prog
     | other => other
 End
@@ -58,6 +60,7 @@ Definition ret_to_tail_def:
                     | SOME (eid , ev , ep) =>
                         SOME (eid, ev, (ret_to_tail ep)))))
         name args) /\
+  (ret_to_tail (DecCall v s e es q) = DecCall v s e es (ret_to_tail q)) /\
   (ret_to_tail p = p)
 End
 
@@ -95,7 +98,8 @@ Theorem seq_assoc_pmatch:
                    | SOME (rv , (SOME (eid , ev , ep))) =>
                        SOME (rv , (SOME (eid , ev , (seq_assoc Skip ep)))))
                   name args)
-   | q => SmartSeq p q
+  | (DecCall v s e es q) => SmartSeq p (DecCall v s e es (seq_assoc Skip q))
+  | q => SmartSeq p q
 Proof
   rpt strip_tac >>
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >>
@@ -121,6 +125,7 @@ Theorem ret_to_tail_pmatch:
                     | SOME (rv , (SOME (eid , ev , ep))) =>
                        SOME (rv , (SOME (eid , ev , (ret_to_tail ep)))))
       name args
+   | (DecCall v s e es q) => DecCall v s e es (ret_to_tail q)
    | p => p
 Proof
   rpt strip_tac >>

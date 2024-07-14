@@ -24,6 +24,12 @@ val () = use_long_names := true;
 
 val spec32 = INST_TYPE[alpha|->``:32``]
 
+val res = translate $ spec32 panScopeTheory.scope_check_exp_def;
+val res = translate $ spec32 panScopeTheory.scope_check_prog_def;
+val res = translate $
+  INST_TYPE[beta|->``:32``] panScopeTheory.scope_check_funs_def;
+val res = translate $ INST_TYPE[beta|->``:32``] panScopeTheory.scope_check_def;
+
 val max_heap_limit_32_def = Define`
   max_heap_limit_32 c =
     ^(spec32 data_to_wordTheory.max_heap_limit_def
@@ -100,6 +106,8 @@ val _ = r |> hyp |> null orelse
 val res = translate all_bytes_eq
 val res = translate byte_to_string_eq
 val res = translate escape_sym_char_def
+val res = translate get_sym_label_def
+val res = translate get_sym_labels_def
 val res = translate emit_symbol_def
 val res = translate emit_symbols_def
 
@@ -236,7 +244,10 @@ val res = translate
 
 (* arm7 *)
 val res = translate arm7_configTheory.arm7_names_def;
+val res = translate export_arm7Theory.startup_def;
 val res = translate export_arm7Theory.ffi_asm_def;
+val res = translate export_arm7Theory.export_func_def;
+val res = translate export_arm7Theory.export_funcs_def;
 val res = translate export_arm7Theory.arm7_export_def;
 val res = translate
   (arm7_configTheory.arm7_backend_config_def
@@ -251,7 +262,7 @@ val res = translate (extend_conf_def |> spec32 |> SIMP_RULE (srw_ss()) [MEMBER_I
 val res = translate parse_target_32_def;
 val res = translate add_tap_output_def;
 
-val res = translate ffinames_to_string_list_def;
+val res = translate backendTheory.ffinames_to_string_list_def;
 
 val res = format_compiler_result_def
         |> Q.GENL[`bytes`,`c`]
@@ -314,7 +325,7 @@ Theorem main_spec:
        * STDIO (full_compile_32 (TL cl) (get_stdin fs) fs)
        * COMMANDLINE cl)
 Proof
-  xcf_with_def "main" main_v_def
+  xcf_with_def main_v_def
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto
   >- (

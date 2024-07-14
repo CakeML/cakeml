@@ -19,7 +19,7 @@ val (cake_pb_wcnf_sem,cake_pb_wcnf_output) = cake_pb_wcnf_io_events_def |> SPEC_
 val (cake_pb_wcnf_not_fail,cake_pb_wcnf_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_pb_wcnf_sem |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct wcnf_compiled
+  MATCH_MP compile_correct (cj 1 wcnf_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP cake_pb_wcnf_not_fail
   |> C MATCH_MP x64_backend_config_ok
@@ -52,7 +52,7 @@ val installed_x64_def = Define `
     `;
 
 val cake_pb_wcnf_code_def = Define `
-  cake_pb_wcnf_code = (code, data, config)
+  cake_pb_wcnf_code = (code, data, info)
   `;
 
 (* A standard run of cake_pb_wcnf
@@ -74,19 +74,15 @@ Theorem machine_code_sound:
       (
         (LENGTH cl = 2 ∧
         ∃wfml.
-          inFS_fname fs (EL 1 cl) ∧
           get_fml fs (EL 1 cl) = SOME wfml ∧
           out = concat (print_pbf (full_encode wfml))) ∨
         (LENGTH cl = 3 ∧
         ∃wfml bounds.
-          inFS_fname fs (EL 1 cl) ∧
           get_fml fs (EL 1 cl) = SOME wfml ∧
           out = print_maxsat_str bounds ∧
           maxsat_sem wfml bounds) ∨
         (LENGTH cl = 4 ∧
         ∃wfml wfmlt bounds iseqopt.
-          inFS_fname fs (EL 1 cl) ∧
-          inFS_fname fs (EL 3 cl) ∧
           get_fml fs (EL 1 cl) = SOME wfml ∧
           get_fml fs (EL 3 cl) = SOME wfmlt ∧
           out = print_maxsat_str bounds ^
@@ -191,7 +187,6 @@ Theorem machine_code_sound_equiopt:
     LENGTH cl = 4 ∧
     isSuffix «s VERIFIED OUTPUT EQUIOPTIMAL\n» out ⇒
       ∃wfml wfml'.
-        inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 3 cl) ∧
         get_fml fs (EL 1 cl) = SOME wfml ∧
         get_fml fs (EL 3 cl) = SOME wfml' ∧
         opt_cost wfml = opt_cost wfml'

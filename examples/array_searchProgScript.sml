@@ -60,6 +60,7 @@ Theorem linear_search_spec:
               )
         )
 Proof
+    rpt strip_tac >>
     xcf "linear_search" (basis_st()) >>
     reverse (xfun_spec `search_aux`
         `∀ sublist sublist_vs offset offset_v .
@@ -92,7 +93,7 @@ Proof
                 let e = (start + 1) in
                 search_aux e
         *)
-        gen_tac >> Induct_on `sublist` >> rw[] >>
+        Induct >> rw[] >>
         `(∀ x y z . a x y ∧ a x z ⇒ y = z) ∧
          (∀ x y z . a x z ∧ a y z ⇒ x = y)` by (
           rw[] >- imp_res_tac EQTYPE_UNICITY_R
@@ -114,7 +115,8 @@ Proof
                xcon >>
                xsimpl >>
                fs[std_preludeTheory.OPTION_TYPE_def]
-            )
+            ) >>
+        rename [‘_ :: sublist1 = DROP _ _’]
         >>
             last_x_assum xapp_spec >>
             xlet_auto (* a *)
@@ -153,11 +155,11 @@ Proof
                     DISJ1_TAC >>
                     qsuff_tac `EL 0 (DROP offset elems) = h`
                         >- fs[EL_DROP] >>
-                    `DROP offset elems = h::sublist` by fs[] >> fs[])
+                    `DROP offset elems = h::sublist1` by fs[] >> fs[])
             >> fs[] >>
                `EL offset elems = h` by (
                     `h = EL 0 (DROP offset elems)` by (fs[] >>
-                        `DROP offset elems = h::sublist` by fs[] >> fs[]) >>
+                        `DROP offset elems = h::sublist1` by fs[] >> fs[]) >>
                     fs[] >> match_mp_tac EL_HD_DROP >> fs[]) >>
                 imp_res_tac LIST_REL_EL_EQN >>
             xlet_auto
@@ -173,7 +175,7 @@ Proof
                         `a (EL offset elems) (EL offset elem_vs)` by fs[] >>
                         metis_tac[]) >>
                   fs[] >>
-                  `sublist = DROP (offset + 1) elems`
+                  `sublist1 = DROP (offset + 1) elems`
                     by metis_tac[DROP_EQ_CONS_IMP_DROP_SUC, ADD1] >>
                   fs[] >> rveq >> rw[] >> fs[]
 QED
@@ -342,11 +344,12 @@ Theorem binary_search_spec:
              )
         )
 Proof
+  rpt strip_tac >>
   xcf "binary_search" (basis_st()) >>
   reverse (xfun_spec `search_aux`
-           `∀ sublist sublist_vs start finish start_v finish_v .
-                      sublist = DROP start (TAKE finish elems) ∧
-              LIST_REL a sublist sublist_vs ∧
+           `∀ sub_list sub_list_vs start finish start_v finish_v .
+                      sub_list = DROP start (TAKE finish elems) ∧
+              LIST_REL a sub_list sub_list_vs ∧
               finish ≥ start ∧
               LENGTH elems ≥ finish ∧
               NUM start start_v ∧
@@ -358,10 +361,10 @@ Proof
                    (ARRAY arr_v elem_vs) *
                    &(∃ u .
                        OPTION_TYPE NUM u u_v ∧
-                       (MEM value sublist ⇒
+                       (MEM value sub_list ⇒
                         ∃ n . u = SOME n ∧ EL n elems = value ∧
                               start ≤ n ∧ n ≤ finish) ∧
-                       (¬(MEM value sublist) ⇒ u = NONE)
+                       (¬(MEM value sub_list) ⇒ u = NONE)
                     )
                   )`
           )
@@ -380,7 +383,7 @@ Proof
   fs[]
   )
   >>  gen_tac >>
-  completeInduct_on `LENGTH sublist` >> rw[] >>
+  completeInduct_on `LENGTH sub_list` >> rw[] >>
   `(∀ x y z . a x y ∧ a x z ⇒ y = z) ∧
   (∀ x y z . a x z ∧ a y z ⇒ x = y) ∧
   (∀ x y u v . a x y ∧ a u v ∧ y ≠ v ⇒ x ≠ u)` by (
@@ -493,9 +496,9 @@ Proof
       last_x_assum match_mp_tac >>
       fs[DIV_LT_X]) >>
   qabbrev_tac `mid = (finish + start) DIV 2` >> fs[] >>
-  qabbrev_tac `sublist = DROP start (TAKE finish elems)` >>
+  qabbrev_tac `sub_list = DROP start (TAKE finish elems)` >>
   xif
-  >- ( (* LOWER CASE - value in left half of sublist *)
+  >- ( (* LOWER CASE - value in left half of sub_list *)
   qabbrev_tac `rec_len = mid - start` >>
   first_x_assum (qspec_then `rec_len` mp_tac) >>
   strip_tac >> fs[] >>
@@ -503,26 +506,26 @@ Proof
     (UNABBREV_TAC "rec_len" >> fs[] >>
      UNABBREV_TAC "mid" >> fs[DIV_LT_X]) >>
   fs[] >>
-  first_x_assum (qspec_then `TAKE rec_len sublist` mp_tac) >>
+  first_x_assum (qspec_then `TAKE rec_len sub_list` mp_tac) >>
   strip_tac >> fs[] >>
-  `rec_len = LENGTH (TAKE rec_len sublist)` by (
-    qsuff_tac `rec_len ≤ LENGTH sublist`
+  `rec_len = LENGTH (TAKE rec_len sub_list)` by (
+    qsuff_tac `rec_len ≤ LENGTH sub_list`
     >- fs[LENGTH_TAKE] >>
     UNABBREV_TAC "rec_len" >>
     fs[DIV_LE_X] >> imp_res_tac LIST_REL_LENGTH >> fs[]) >>
   fs[] >>
   first_x_assum (qspecl_then
-                 [`TAKE rec_len sublist_vs`, `start`, `mid`] mp_tac) >>
+                 [`TAKE rec_len sub_list_vs`, `start`, `mid`] mp_tac) >>
   strip_tac >> fs[] >> last_x_assum xapp_spec >>
   xsimpl >> fs[] >> UNABBREV_TAC "rec_len" >>
   imp_res_tac LIST_REL_LENGTH >> rw[]
   >- (`elems =
-      (TAKE start elems)++sublist++(DROP finish elems)` by (
-       UNABBREV_TAC "sublist" >> fs[] >>
+      (TAKE start elems)++sub_list++(DROP finish elems)` by (
+       UNABBREV_TAC "sub_list" >> fs[] >>
        (qspecl_then [`elems`, `start`, `finish`]
         mp_tac) drop_take_partition >>
        impl_tac >> fs[]) >>
-      UNABBREV_TAC "sublist" >> fs[] >>
+      UNABBREV_TAC "sub_list" >> fs[] >>
       `DROP start (TAKE mid elems) =
       TAKE (mid - start) (DROP start elems)` by (
         match_mp_tac drop_take >>
@@ -547,7 +550,7 @@ Proof
     >- (qsuff_tac
         `MEM value (DROP start (TAKE mid elems))` >>
         rw[] >> fs[] >>
-        UNABBREV_TAC "sublist" >>
+        UNABBREV_TAC "sub_list" >>
         fs[] >>
         drule strict_weak_order_cmp_TAKE >>
         disch_then match_mp_tac >>
@@ -559,7 +562,7 @@ Proof
             metis_tac[SUB_ADD])
         >- fs[sorted_drop])
     >- (first_x_assum match_mp_tac >> fs[] >>
-        UNABBREV_TAC "sublist" >> fs[] >>
+        UNABBREV_TAC "sub_list" >> fs[] >>
         fs[] >>
         (qspecl_then [`DROP start elems`,
                       `mid - start`, `finish - start`, `value`]
@@ -567,7 +570,7 @@ Proof
         strip_tac >> rfs[])
     )
   )
-  >- ( (* UPPER CASE - value in right half of sublist *)
+  >- ( (* UPPER CASE - value in right half of sub_list *)
   xlet_auto (* g *)
   >- xsimpl >>
   qabbrev_tac `rec_len = finish - (mid + 1)` >>
@@ -581,14 +584,14 @@ Proof
     fs[GSYM LE_LT1, X_LE_DIV]) >>
   fs[] >>
   first_x_assum (qspec_then
-                 `DROP (mid - start + 1) sublist` mp_tac) >>
+                 `DROP (mid - start + 1) sub_list` mp_tac) >>
   strip_tac >> fs[] >>
-  `rec_len = LENGTH sublist - (mid - start + 1)` by (
+  `rec_len = LENGTH sub_list - (mid - start + 1)` by (
     UNABBREV_TAC "rec_len" >> fs[] >>
     imp_res_tac LIST_REL_LENGTH >> fs[]) >>
   fs[] >>
   first_x_assum (qspecl_then
-                 [`DROP (mid - start + 1) sublist_vs`,
+                 [`DROP (mid - start + 1) sub_list_vs`,
                   `mid + 1`, `finish`] mp_tac) >>
   strip_tac >> fs[] >>
   last_x_assum xapp_spec >>
@@ -597,7 +600,7 @@ Proof
   imp_res_tac LIST_REL_LENGTH >>
   rw[]
   >- (
-    UNABBREV_TAC "sublist" >> fs[] >>
+    UNABBREV_TAC "sub_list" >> fs[] >>
     `(mid - start + 1) + start = mid + 1` by (
       `∀ m s . m ≥ s ⇒ m - s + 1 + s = m + 1n` by (
          Induct >> fs[]) >>
@@ -624,7 +627,7 @@ Proof
       rw[] >> fs[]
       >- (UNABBREV_TAC "mid" >>
           fs[LE_LT1] >> fs[DIV_LT_X]) >>
-      UNABBREV_TAC "sublist" >> fs[] >>
+      UNABBREV_TAC "sub_list" >> fs[] >>
       match_mp_tac strict_weak_order_cmp_DROP >>
       qexists_tac `cmp` >> fs[] >>
       `mid < finish` by (
@@ -643,7 +646,7 @@ Proof
         (qspecl_then [`TAKE finish elems`, `start`,
                       `mid + 1`, `value` ] mp_tac) mem_drop_impl >>
         strip_tac >> fs[] >>
-        UNABBREV_TAC "sublist" >> rfs[] >>
+        UNABBREV_TAC "sub_list" >> rfs[] >>
         first_x_assum match_mp_tac >>
         UNABBREV_TAC "mid" >>
         qsuff_tac `start ≤ (finish + start) DIV 2` >>

@@ -17,53 +17,62 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 (* 'a is the type of the state, 'b is the type of successful computations, and
  * 'c is the type of exceptions *)
 
-val _ = Datatype `
-  exc = Success 'a | Failure 'b`;
+Datatype:
+  exc = Success 'a | Failure 'b
+End
 
 Type err_var = (type_of ``primTypes$prim_tenv.t``)
 
-val _ = Datatype `
+Datatype:
   loc_err_info = <| loc : locs option ;
-                    err : err_var |>`
+                    err : err_var |>
+End
 
 Type M = ``:'a -> ('b, 'c) exc # 'a``
 
-val st_ex_bind_def = Define `
-(st_ex_bind : (α, β, γ) M -> (β -> (α, δ, γ) M) -> (α, δ, γ) M) x f =
+Definition st_ex_bind_def:
+  (st_ex_bind : (α, β, γ) M -> (β -> (α, δ, γ) M) -> (α, δ, γ) M) x f =
   λs.
     dtcase x s of
       (Success y,s) => f y s
-    | (Failure x,s) => (Failure x,s)`;
+    | (Failure x,s) => (Failure x,s)
+End
 
-val st_ex_return_def = Define `
-(st_ex_return (*: α -> (β, α, γ) M*)) x =
-  λs. (Success x, s)`;
+Definition st_ex_return_def:
+  (st_ex_return (*: α -> (β, α, γ) M*)) x =
+    λs. (Success x, s)
+End
 
 Overload monad_bind[local] = ``st_ex_bind``
 Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
 Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
 Overload return[local] = ``st_ex_return``
 
-val failwith_def = Define `
-(failwith : loc_err_info -> α -> (β, γ, (locs option # α)) M) l msg =
-    (\s. (Failure (l.loc, msg), s))`;
+Definition failwith_def:
+  (failwith : loc_err_info -> α -> (β, γ, (locs option # α)) M) l msg =
+    (\s. (Failure (l.loc, msg), s))
+End
 
-val guard_def = Define `
-guard P l msg = if P then return () else failwith l msg`;
+Definition guard_def:
+  guard P l msg = if P then return () else failwith l msg
+End
 
-val read_def = Define `
-(read : (α, α, β) M) =
-  \s. (Success s, s)`;
+Definition read_def:
+  (read : (α, α, β) M) =
+  \s. (Success s, s)
+End
 
-val write_def = Define `
-(write : α -> (α, unit, β) M) v =
-  \s. (Success (), v)`;
+Definition write_def:
+  (write : α -> (α, unit, β) M) v =
+  \s. (Success (), v)
+End
 
-val lookup_st_ex_def = Define `
+Definition lookup_st_ex_def:
   lookup_st_ex l err id ienv st =
     dtcase nsLookup ienv id of
     | NONE => (Failure (l.loc, concat [implode "Undefined "; implode err; implode ": "; id_to_string id]), st)
-    | SOME v => (Success v, st)`;
+    | SOME v => (Success v, st)
+End
 
 Datatype:
   infer_st = <| next_uvar : num;
@@ -72,36 +81,41 @@ Datatype:
               |>
 End
 
-val fresh_uvar_def = Define `
-(fresh_uvar : (infer_st, infer_t, α) M) =
-  \s. (Success (Infer_Tuvar s.next_uvar), s with <| next_uvar := s.next_uvar + 1 |>)`;
+Definition fresh_uvar_def:
+  (fresh_uvar : (infer_st, infer_t, α) M) =
+  \s. (Success (Infer_Tuvar s.next_uvar), s with <| next_uvar := s.next_uvar + 1 |>)
+End
 
-val n_fresh_uvar_def = Define  `
-n_fresh_uvar (n:num) =
+Definition n_fresh_uvar_def:
+  n_fresh_uvar (n:num) =
   if n = 0 then
     return []
   else
     do v <- fresh_uvar;
        vs <- n_fresh_uvar (n - 1);
        return (v::vs)
-    od`;
+    od
+End
 
-val n_fresh_id_def = Define`
-n_fresh_id n =
+Definition n_fresh_id_def:
+  n_fresh_id n =
   λs.
-  (Success (GENLIST (λx. s.next_id+x) n), s with next_id := s.next_id+n)`
+  (Success (GENLIST (λx. s.next_id+x) n), s with next_id := s.next_id+n)
+End
 
 (* Doesn't reset the ID component *)
-val init_infer_state_def = Define `
-  init_infer_state st = st with <| next_uvar := 0; subst := FEMPTY |>`;
+Definition init_infer_state_def:
+  init_infer_state st = st with <| next_uvar := 0; subst := FEMPTY |>
+End
 
-val init_state_def = Define `
-init_state =
+Definition init_state_def:
+  init_state =
   \st.
-    (Success (), init_infer_state st)`;
+    (Success (), init_infer_state st)
+End
 
-val add_constraint_def = Define `
-add_constraint (l : loc_err_info) t1 t2 =
+Definition add_constraint_def:
+  add_constraint (l : loc_err_info) t1 t2 =
   \st.
     dtcase t_unify st.subst t1 t2 of
       | NONE =>
@@ -112,9 +126,10 @@ add_constraint (l : loc_err_info) t1 t2 =
                                    inf_type_to_string l.err
                                          (t_walkstar st.subst t2)]), st)
       | SOME s =>
-          (Success (), st with <| subst := s |>)`;
+          (Success (), st with <| subst := s |>)
+End
 
-val add_constraints_def = Define `
+Definition add_constraints_def:
 (add_constraints l [] [] =
   return ()) ∧
 (add_constraints l (t1::ts1) (t2::ts2) =
@@ -123,23 +138,27 @@ val add_constraints_def = Define `
      return ()
   od) ∧
 (add_constraints l _ _ =
-  failwith l (implode "Internal error: Bad call to add_constraints"))`;
+  failwith l (implode "Internal error: Bad call to add_constraints"))
+End
 
-val get_next_uvar_def = Define `
+Definition get_next_uvar_def:
 get_next_uvar =
-  \st. (Success st.next_uvar, st)`;
+  \st. (Success st.next_uvar, st)
+End
 
-val apply_subst_def = Define `
+Definition apply_subst_def:
 apply_subst t =
   do st <- read;
      return (t_walkstar st.subst t)
-  od`;
+  od
+End
 
-val apply_subst_list_def = Define `
+Definition apply_subst_list_def:
 apply_subst_list ts =
   do st <- read;
      return (MAP (t_walkstar st.subst) ts)
-  od`;
+  od
+End
 
 (* We use a state argument for the inferencer's typing environment. This corresponds to the type system's typing environment
   The module and variable environment's types differ slightly.
@@ -156,7 +175,7 @@ End
 (* Generalise the unification variables greater than m, starting at deBruijn index n.
  * Return how many were generalised, the generalised type, and a substitution
  * that describes the generalisation *)
-val generalise_def = Define `
+Definition generalise_def:
 (generalise m n s (Infer_Tapp ts tc) =
   let (num_gen, s', ts') = generalise_list m n s ts in
     (num_gen, s', Infer_Tapp ts' tc)) ∧
@@ -175,9 +194,10 @@ val generalise_def = Define `
 (generalise_list m n s (t::ts) =
   let (num_gen, s', t') = generalise m n s t in
   let (num_gen', s'', ts') = generalise_list m (num_gen + n) s' ts in
-    (num_gen+num_gen', s'', t'::ts'))`;
+    (num_gen+num_gen', s'', t'::ts'))
+End
 
-val infer_type_subst_def = tDefine "infer_type_subst" `
+Definition infer_type_subst_def:
 (infer_type_subst s (Tvar tv) =
   dtcase ALOOKUP s tv of
    | SOME t => t
@@ -185,15 +205,43 @@ val infer_type_subst_def = tDefine "infer_type_subst" `
 (infer_type_subst s (Tvar_db n) =
   Infer_Tvar_db n) ∧
 (infer_type_subst s (Tapp ts tn) =
-  Infer_Tapp (MAP (infer_type_subst s) ts) tn)`
-(WF_REL_TAC `measure (t_size o SND)` >>
- rw [] >>
- TRY (induct_on `ts`) >>
- rw [t_size_def] >>
- res_tac >>
- decide_tac);
+  Infer_Tapp (infer_type_subst_list s ts) tn) ∧
+(infer_type_subst_list s [] = []) ∧
+(infer_type_subst_list s (x::xs) =
+  infer_type_subst s x :: infer_type_subst_list s xs)
+End
 
-val infer_deBruijn_subst_def = tDefine "infer_deBruijn_subst" `
+Theorem infer_type_subst_alt:
+(infer_type_subst s (Tvar tv) =
+  dtcase ALOOKUP s tv of
+   | SOME t => t
+   | NONE => Infer_Tvar_db 0) ∧ (* should not happen *)
+(infer_type_subst s (Tvar_db n) =
+  Infer_Tvar_db n) ∧
+(infer_type_subst s (Tapp ts tn) =
+  Infer_Tapp (MAP (infer_type_subst s) ts) tn)
+Proof
+  rewrite_tac [infer_type_subst_def]
+  \\ Induct_on ‘ts’ \\ gvs [infer_type_subst_def]
+QED
+
+Definition infer_deBruijn_subst_def:
+(infer_deBruijn_subst s (Infer_Tvar_db n) =
+  if n < LENGTH s then
+    EL n s
+  else
+    (* should not happen *)
+    Infer_Tvar_db (n - LENGTH s)) ∧
+(infer_deBruijn_subst s (Infer_Tapp ts tn) =
+  Infer_Tapp (infer_deBruijn_subst_list s ts) tn) ∧
+(infer_deBruijn_subst s (Infer_Tuvar n) =
+  Infer_Tuvar n) ∧
+(infer_deBruijn_subst_list s [] = []) ∧
+(infer_deBruijn_subst_list s (t::ts) =
+  infer_deBruijn_subst s t :: infer_deBruijn_subst_list s ts)
+End
+
+Theorem infer_deBruijn_subst_alt:
 (infer_deBruijn_subst s (Infer_Tvar_db n) =
   if n < LENGTH s then
     EL n s
@@ -203,15 +251,13 @@ val infer_deBruijn_subst_def = tDefine "infer_deBruijn_subst" `
 (infer_deBruijn_subst s (Infer_Tapp ts tn) =
   Infer_Tapp (MAP (infer_deBruijn_subst s) ts) tn) ∧
 (infer_deBruijn_subst s (Infer_Tuvar n) =
-  Infer_Tuvar n)`
-(WF_REL_TAC `measure (infer_t_size o SND)` >>
- rw [] >>
- TRY (induct_on `ts`) >>
- rw [infer_t_size_def] >>
- res_tac >>
- decide_tac);
+  Infer_Tuvar n)
+Proof
+  rewrite_tac [infer_deBruijn_subst_def]
+  \\ Induct_on ‘ts’ \\ gvs [infer_deBruijn_subst_def]
+QED
 
-val type_name_check_subst_def = Define `
+Definition type_name_check_subst_def:
   (type_name_check_subst l err_string_f tenvT fvs (Atvar tv) =
     do
       guard (MEM tv fvs) l (err_string_f tv);
@@ -244,17 +290,180 @@ val type_name_check_subst_def = Define `
       t' <- type_name_check_subst l f tenvT fvs t;
       ts' <- type_name_check_subst_list l f tenvT fvs ts;
       return (t'::ts');
-    od)`;
+    od)
+End
 
-val check_dups_def = Define `
+Theorem bind_guard:
+  st_ex_bind (guard b l x) g =
+  λs. if b then g () s else (Failure (l.loc,x),s)
+Proof
+  rw [st_ex_bind_def,FUN_EQ_THM,guard_def,st_ex_return_def,failwith_def]
+QED
+
+Theorem st_ex_bind_pair:
+  monad_bind x f =
+  (λs.
+     dtcase x s of
+     | (Success (y,z),s) => f (y,z) s
+     | (Failure x,s) => (Failure x,s))
+Proof
+  gvs [st_ex_bind_def,FUN_EQ_THM]
+  \\ rw [] \\ Cases_on ‘x s’ \\ gvs []
+  \\ Cases_on ‘q’ \\ gvs [] \\ PairCases_on ‘a’ \\ gvs []
+QED
+
+Theorem st_ex_bind_triple:
+  monad_bind x f =
+  (λs.
+     dtcase x s of
+     | (Success (y,z,q),s) => f (y,z,q) s
+     | (Failure x,s) => (Failure x,s))
+Proof
+  gvs [st_ex_bind_def,FUN_EQ_THM]
+  \\ rw [] \\ Cases_on ‘x s’ \\ gvs []
+  \\ Cases_on ‘q’ \\ gvs [] \\ PairCases_on ‘a’ \\ gvs []
+QED
+
+val type_name_check_subst_alt =
+  type_name_check_subst_def
+  |> SRULE [bind_guard]
+  |> SRULE [st_ex_bind_pair]
+  |> SRULE [st_ex_bind_def,lookup_st_ex_def,st_ex_return_def];
+
+Definition type_name_check_sub_def:
+   (type_name_check_sub l tenvT fvs (Atvar tv) =
+        (λs. if MEM tv fvs then (Success (Tvar tv),s)
+             else (Failure (l.loc,INR tv),s))) ∧
+   (type_name_check_sub l tenvT fvs (Attup ts) =
+        (λs. dtcase type_name_check_sub_list l tenvT fvs ts s of
+               (Success ts',s) => (Success (Ttup ts'),s)
+             | (Failure x,s) => (Failure x,s))) ∧
+   (type_name_check_sub l tenvT fvs (Atfun t1 t2) =
+        (λs. dtcase type_name_check_sub l tenvT fvs t1 s of
+               (Success t1',s) =>
+                 (dtcase type_name_check_sub l tenvT fvs t2 s of
+                    (Success t2',s) => (Success (Tfn t1' t2'),s)
+                  | (Failure x,s) => (Failure x,s))
+             | (Failure x,s) => (Failure x,s))) ∧
+   (type_name_check_sub l tenvT fvs (Atapp ts tc) =
+        (λs. dtcase type_name_check_sub_list l tenvT fvs ts s of
+               (Success ts',s) =>
+                 (dtcase
+                    dtcase nsLookup tenvT tc of
+                      NONE =>
+                        (Failure
+                           (l.loc, INL $
+                            concat
+                              [implode "Undefined ";
+                               implode "type constructor"; implode ": ";
+                               id_to_string tc]),s)
+                    | SOME v => (Success v,s)
+                  of
+                    (Success (y,z),s) =>
+                      if LENGTH y = LENGTH ts then
+                        (Success (type_subst (alist_to_fmap (ZIP (y,ts'))) z),
+                         s)
+                      else
+                        (Failure
+                           (l.loc, INL $
+                            concat
+                              [implode "Type constructor "; id_to_string tc;
+                               implode " given "; toString (LENGTH ts);
+                               implode " arguments, but expected ";
+                               toString (LENGTH y)]),s)
+                  | (Failure x,s) => (Failure x,s))
+             | (Failure x,s) => (Failure x,s))) ∧
+   (type_name_check_sub_list l tenvT fvs [] = (λs. (Success [],s))) ∧
+   (type_name_check_sub_list l tenvT fvs (t::ts) =
+       (λs. dtcase type_name_check_sub l tenvT fvs t s of
+              (Success t',s) =>
+                (dtcase type_name_check_sub_list l tenvT fvs ts s of
+                   (Success ts',s) => (Success (t'::ts'),s)
+                 | (Failure x,s) => (Failure x,s))
+            | (Failure x,s) => (Failure x,s)))
+End
+
+Theorem to_type_name_check_sub:
+  (∀t l f tenvT fvs.
+     type_name_check_subst l f tenvT fvs t =
+     λs:'a. dtcase type_name_check_sub l tenvT fvs t s of
+         | (Failure (x,INR r),s) => (Failure (x,f r),s)
+         | (Failure (x,INL r),s) => (Failure (x,r),s)
+         | (Success y,s) => (Success y,s)) ∧
+  (∀t l f tenvT fvs.
+     type_name_check_subst_list l f tenvT fvs t =
+     λs:'a. dtcase type_name_check_sub_list l tenvT fvs t s of
+         | (Failure (x,INR r),s) => (Failure (x,f r),s)
+         | (Failure (x,INL r),s) => (Failure (x,r),s)
+         | (Success y,s) => (Success y,s))
+Proof
+  ho_match_mp_tac ast_t_induction \\ rpt strip_tac
+  \\ simp [type_name_check_subst_alt,type_name_check_sub_def,FUN_EQ_THM]
+  \\ rw []
+  >-
+   (Cases_on ‘type_name_check_sub l tenvT fvs t s’ \\ gvs []
+    \\ Cases_on ‘q’ \\ gvs []
+    \\ Cases_on ‘type_name_check_sub l tenvT fvs t' r’ \\ gvs []
+    \\ rpt (TOP_CASE_TAC \\ gvs [AllCaseEqs()])
+    \\ gvs [AllCaseEqs()])
+  >-
+   (Cases_on ‘type_name_check_sub_list l tenvT fvs t s’ \\ gvs []
+    \\ Cases_on ‘q’ \\ gvs []
+    \\ rpt (TOP_CASE_TAC \\ gvs [AllCaseEqs()])
+    \\ gvs [AllCaseEqs()])
+  >-
+   (Cases_on ‘type_name_check_sub_list l tenvT fvs t s’ \\ gvs []
+    \\ Cases_on ‘q’ \\ gvs []
+    \\ rpt (TOP_CASE_TAC \\ gvs [])
+    \\ rpt (FULL_CASE_TAC \\ gvs []))
+  \\ rpt (FULL_CASE_TAC \\ gvs [])
+QED
+
+Theorem bind_type_name_check_subst:
+  (st_ex_bind (type_name_check_subst l f tenvT fvs t) g =
+   λs:'a. dtcase type_name_check_sub l tenvT fvs t s of
+          | (Failure (x,INR r),s) => (Failure (x,f r),s)
+          | (Failure (x,INL r),s) => (Failure (x,r),s)
+          | (Success y,s) => g y s) ∧
+  (st_ex_bind (type_name_check_subst_list l f tenvT fvs ts) gs =
+   λs:'a. dtcase type_name_check_sub_list l tenvT fvs ts s of
+          | (Failure (x,INR r),s) => (Failure (x,f r),s)
+          | (Failure (x,INL r),s) => (Failure (x,r),s)
+          | (Success y,s) => gs y s)
+Proof
+  rw [to_type_name_check_sub,st_ex_bind_def,FUN_EQ_THM]
+  \\ rpt (FULL_CASE_TAC \\ gvs [])
+QED
+
+Definition find_dup_def:
+  find_dup [] = NONE ∧
+  find_dup (x::xs) = if MEM x xs then SOME x else find_dup xs
+End
+
+Definition check_dups_def:
   (check_dups l f [] = return ()) ∧
   (check_dups l f (h::t) =
      if MEM h t then
        failwith l (f h)
      else
-       check_dups l f t)`;
+       check_dups l f t)
+End
 
-val check_ctor_types_def = Define `
+Theorem check_dups_eq_find_dup:
+  ∀xs.
+    st_ex_bind (check_dups l f xs) g =
+    λs. dtcase find_dup xs of
+        | NONE => g () s
+        | SOME x => (Failure (l.loc, f x), s)
+Proof
+  Induct
+  \\ simp [check_dups_def,st_ex_return_def,find_dup_def]
+  >- gvs [st_ex_bind_def]
+  \\ rw [failwith_def]
+  \\ gvs [st_ex_bind_def]
+QED
+
+Definition check_ctor_types_def:
   (check_ctor_types l tenvT tvs [] = return ()) ∧
   (check_ctor_types l tenvT tvs ((cn,ts)::ctors) =
     do
@@ -264,9 +473,13 @@ val check_ctor_types_def = Define `
                           implode cn])
             tenvT tvs ts;
       check_ctor_types l tenvT tvs ctors
-    od)`;
+    od)
+End
 
-val check_ctors_def = Define `
+Theorem check_ctor_types_expand = check_ctor_types_def
+  |> SRULE [bind_type_name_check_subst,FUN_EQ_THM,st_ex_return_def];
+
+Definition check_ctors_def:
   (check_ctors l tenvT [] = return ()) ∧
   (check_ctors l tenvT ((tvs,tn,ctors)::tds) =
     do
@@ -282,9 +495,13 @@ val check_ctors_def = Define `
                  tvs;
       check_ctor_types l tenvT tvs ctors;
       check_ctors l tenvT tds;
-    od)`;
+    od)
+End
 
-val check_type_definition_def = Define `
+Theorem check_ctors_expand = check_ctors_def
+  |> SRULE [check_dups_eq_find_dup,FUN_EQ_THM,st_ex_bind_def,st_ex_return_def];
+
+Definition check_type_definition_def:
   check_type_definition l tenvT tds =
     do
       check_dups l
@@ -292,9 +509,13 @@ val check_type_definition_def = Define `
                               implode " in a mutually recursive type definition"])
                  (MAP (FST o SND) tds);
       check_ctors l tenvT tds;
-    od`;
+    od
+End
 
-val infer_p_def = tDefine "infer_p" `
+Theorem check_type_definition_expand = check_type_definition_def
+  |> SRULE [check_dups_eq_find_dup,FUN_EQ_THM,st_ex_bind_def,st_ex_return_def];
+
+Definition infer_p_def:
 (infer_p l ienv (Pvar n) =
   do t <- fresh_uvar;
      return (t, [(n,t)])
@@ -353,77 +574,93 @@ val infer_p_def = tDefine "infer_p" `
   do (t, tenv) <- infer_p l ienv p;
      (ts, tenv') <- infer_ps l ienv ps;
      return (t::ts, tenv'++tenv)
-  od)`
-(WF_REL_TAC `measure (\x. dtcase x of INL (_,_,p) => pat_size p
-                                  | INR (_,_,ps) => pat1_size ps)` >>
- rw []);
+  od)
+Termination
+ WF_REL_TAC `measure (\x. dtcase x of INL (_,_,p) => pat_size p
+                                    | INR (_,_,ps) => pat1_size ps)` >>
+ rw []
+End
 
-val infer_p_ind = fetch "-" "infer_p_ind";
+Theorem option_case_rand:
+  (dtcase x of NONE => y | SOME a => f a) s =
+  (dtcase x of NONE => y s | SOME a => f a s)
+Proof
+  Cases_on ‘x’ \\ gvs []
+QED
 
-val word_tc_def = Define`
+Theorem infer_p_expand = infer_p_def
+  |> SRULE [check_dups_eq_find_dup,bind_guard,bind_type_name_check_subst]
+  |> SRULE [st_ex_bind_triple]
+  |> SRULE [st_ex_bind_pair]
+  |> SRULE [st_ex_bind_def,FUN_EQ_THM,st_ex_return_def,
+            failwith_def,option_case_rand];
+
+Definition word_tc_def:
   (word_tc W8 = Tword8_num) ∧
-  (word_tc W64 = Tword64_num)`;
+  (word_tc W64 = Tword64_num)
+End
 
-val op_to_string_def = Define `
-(op_to_string (Opn _) = (implode "Opn", 2n)) ∧
-(op_to_string (Opb _) = (implode "Opb", 2)) ∧
-(op_to_string (Opw _ _) = (implode "Opw", 2)) ∧
-(op_to_string (FP_top _) = (implode "FP_top", 3)) ∧
-(op_to_string (FP_bop _) = (implode "FP_bop", 2)) ∧
-(op_to_string (FP_uop _) = (implode "FP_uop", 1)) ∧
-(op_to_string (FP_cmp _) = (implode "FP_cmp", 2)) ∧
-(op_to_string (FpToWord) = (implode "FpToWord", 1)) /\
-(op_to_string (FpFromWord) = (implode "FpFromWord", 1)) /\
-(op_to_string (Real_bop _) = (implode "Real_bop", 2)) ∧
-(op_to_string (Real_uop _) = (implode "Real_uop", 1)) ∧
-(op_to_string (Real_cmp _) = (implode "Real_cmp", 2)) ∧
-(op_to_string (RealFromFP) = (implode "RealFromFP", 1)) ∧
-(op_to_string (Shift _ _ _) = (implode "Shift", 1)) ∧
-(op_to_string Equality = (implode "Equality", 2)) ∧
-(op_to_string Opapp = (implode "Opapp", 2)) ∧
-(op_to_string Opassign = (implode "Opassign", 2)) ∧
-(op_to_string Opref = (implode "Opref", 1)) ∧
-(op_to_string Opderef = (implode "Opderef", 1)) ∧
-(op_to_string Aw8alloc = (implode "Aw8alloc", 2)) ∧
-(op_to_string Aw8sub = (implode "Aw8sub", 2)) ∧
-(op_to_string Aw8length = (implode "Aw8length", 1)) ∧
-(op_to_string Aw8update = (implode "Aw8update", 3)) ∧
-(op_to_string Aw8sub_unsafe = (implode "Aw8sub_unsafe", 2)) ∧
-(op_to_string Aw8update_unsafe = (implode "Aw8update_unsafe", 3)) ∧
-(op_to_string (WordFromInt _) = (implode "WordFromInt", 1)) ∧
-(op_to_string (WordToInt _) = (implode "WordToInt", 1)) ∧
-(op_to_string CopyStrStr = (implode "CopyStrStr", 3)) ∧
-(op_to_string CopyStrAw8 = (implode "CopyStrAw8", 5)) ∧
-(op_to_string CopyAw8Str = (implode "CopyAw8Str", 3)) ∧
-(op_to_string CopyAw8Aw8 = (implode "CopyAw8Aw8", 5)) ∧
-(op_to_string Chr = (implode "Chr", 1)) ∧
-(op_to_string Ord = (implode "Ord", 1)) ∧
-(op_to_string (Chopb _) = (implode "Chopb", 2)) ∧
-(op_to_string Strsub = (implode "Strsub", 2)) ∧
-(op_to_string Implode = (implode "Implode", 1)) ∧
-(op_to_string Explode = (implode "Explode", 1)) ∧
-(op_to_string Strlen = (implode "Strlen", 1)) ∧
-(op_to_string Strcat = (implode "Strcat", 1)) ∧
-(op_to_string VfromList = (implode "VfromList", 1)) ∧
-(op_to_string Vsub = (implode "Vsub", 2)) ∧
-(op_to_string Vlength = (implode "Vlength", 1)) ∧
-(op_to_string Aalloc = (implode "Aalloc", 2)) ∧
-(op_to_string AallocEmpty = (implode "AallocEmpty", 1)) ∧
-(op_to_string AallocFixed = (implode "AallocFixed", 1)) ∧
-(op_to_string Asub = (implode "Asub", 2)) ∧
-(op_to_string Alength = (implode "Alength", 1)) ∧
-(op_to_string Aupdate = (implode "Aupdate", 3)) ∧
-(op_to_string Asub_unsafe = (implode "Asub_unsafe", 2)) ∧
-(op_to_string Aupdate_unsafe = (implode "Aupdate_unsafe", 3)) ∧
-(op_to_string ConfigGC = (implode "ConfigGC", 2)) ∧
-(op_to_string Eval = (implode "Eval", 6)) ∧
-(op_to_string Env_id = (implode "Env_id", 1)) ∧
-(op_to_string ListAppend = (implode "ListAppend", 2)) ∧
-(op_to_string (FFI _) = (implode "FFI", 2))`;
+Definition op_to_string_def:
+  (op_to_string (Opn _) = (implode "Opn", 2n)) ∧
+  (op_to_string (Opb _) = (implode "Opb", 2)) ∧
+  (op_to_string (Opw _ _) = (implode "Opw", 2)) ∧
+  (op_to_string (FP_top _) = (implode "FP_top", 3)) ∧
+  (op_to_string (FP_bop _) = (implode "FP_bop", 2)) ∧
+  (op_to_string (FP_uop _) = (implode "FP_uop", 1)) ∧
+  (op_to_string (FP_cmp _) = (implode "FP_cmp", 2)) ∧
+  (op_to_string (FpToWord) = (implode "FpToWord", 1)) /\
+  (op_to_string (FpFromWord) = (implode "FpFromWord", 1)) /\
+  (op_to_string (Real_bop _) = (implode "Real_bop", 2)) ∧
+  (op_to_string (Real_uop _) = (implode "Real_uop", 1)) ∧
+  (op_to_string (Real_cmp _) = (implode "Real_cmp", 2)) ∧
+  (op_to_string (RealFromFP) = (implode "RealFromFP", 1)) ∧
+  (op_to_string (Shift _ _ _) = (implode "Shift", 1)) ∧
+  (op_to_string Equality = (implode "Equality", 2)) ∧
+  (op_to_string Opapp = (implode "Opapp", 2)) ∧
+  (op_to_string Opassign = (implode "Opassign", 2)) ∧
+  (op_to_string Opref = (implode "Opref", 1)) ∧
+  (op_to_string Opderef = (implode "Opderef", 1)) ∧
+  (op_to_string Aw8alloc = (implode "Aw8alloc", 2)) ∧
+  (op_to_string Aw8sub = (implode "Aw8sub", 2)) ∧
+  (op_to_string Aw8length = (implode "Aw8length", 1)) ∧
+  (op_to_string Aw8update = (implode "Aw8update", 3)) ∧
+  (op_to_string Aw8sub_unsafe = (implode "Aw8sub_unsafe", 2)) ∧
+  (op_to_string Aw8update_unsafe = (implode "Aw8update_unsafe", 3)) ∧
+  (op_to_string (WordFromInt _) = (implode "WordFromInt", 1)) ∧
+  (op_to_string (WordToInt _) = (implode "WordToInt", 1)) ∧
+  (op_to_string CopyStrStr = (implode "CopyStrStr", 3)) ∧
+  (op_to_string CopyStrAw8 = (implode "CopyStrAw8", 5)) ∧
+  (op_to_string CopyAw8Str = (implode "CopyAw8Str", 3)) ∧
+  (op_to_string CopyAw8Aw8 = (implode "CopyAw8Aw8", 5)) ∧
+  (op_to_string Chr = (implode "Chr", 1)) ∧
+  (op_to_string Ord = (implode "Ord", 1)) ∧
+  (op_to_string (Chopb _) = (implode "Chopb", 2)) ∧
+  (op_to_string Strsub = (implode "Strsub", 2)) ∧
+  (op_to_string Implode = (implode "Implode", 1)) ∧
+  (op_to_string Explode = (implode "Explode", 1)) ∧
+  (op_to_string Strlen = (implode "Strlen", 1)) ∧
+  (op_to_string Strcat = (implode "Strcat", 1)) ∧
+  (op_to_string VfromList = (implode "VfromList", 1)) ∧
+  (op_to_string Vsub = (implode "Vsub", 2)) ∧
+  (op_to_string Vlength = (implode "Vlength", 1)) ∧
+  (op_to_string Aalloc = (implode "Aalloc", 2)) ∧
+  (op_to_string AallocEmpty = (implode "AallocEmpty", 1)) ∧
+  (op_to_string AallocFixed = (implode "AallocFixed", 1)) ∧
+  (op_to_string Asub = (implode "Asub", 2)) ∧
+  (op_to_string Alength = (implode "Alength", 1)) ∧
+  (op_to_string Aupdate = (implode "Aupdate", 3)) ∧
+  (op_to_string Asub_unsafe = (implode "Asub_unsafe", 2)) ∧
+  (op_to_string Aupdate_unsafe = (implode "Aupdate_unsafe", 3)) ∧
+  (op_to_string ConfigGC = (implode "ConfigGC", 2)) ∧
+  (op_to_string Eval = (implode "Eval", 6)) ∧
+  (op_to_string Env_id = (implode "Env_id", 1)) ∧
+  (op_to_string ListAppend = (implode "ListAppend", 2)) ∧
+  (op_to_string (FFI _) = (implode "FFI", 2))
+End
 
 Overload Tem[local,inferior] = ``Infer_Tapp []``
 
-val op_simple_constraints_def = Define `
+Definition op_simple_constraints_def:
 op_simple_constraints op =
   dtcase op of
    | Opn _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tint_num)
@@ -463,107 +700,112 @@ op_simple_constraints op =
         Tem Tstring_num)
    | Explode => (T, [Tem Tstring_num], Infer_Tapp [Tem Tchar_num] Tlist_num)
    | Strcat => (T, [Infer_Tapp [Tem Tstring_num] Tlist_num], Tem Tstring_num)
-   | _ => (F, [], Tem Tbool_num)`;
+   | _ => (F, [], Tem Tbool_num)
+End
 
-val op_n_args_msg_def = Define `
+Definition op_n_args_msg_def:
   op_n_args_msg op n =
     let (ops, args) = op_to_string op in
     concat [implode "Primitive "; ops; implode " given ";
         toString (& n); implode " arguments, but expects ";
-        toString (& args)]`;
+        toString (& args)]
+End
 
 Definition constrain_op_def[nocompute]:
-constrain_op l op ts =
+constrain_op l op ts s =
   let (simple, op_arg_ts, op_ret_t) = op_simple_constraints op in
   if simple then
     if LENGTH ts <> LENGTH op_arg_ts
-    then failwith l (op_n_args_msg op (LENGTH ts))
+    then failwith l (op_n_args_msg op (LENGTH ts)) s
     else do () <- add_constraints l ts (MAP I op_arg_ts);
       return op_ret_t
-    od
+    od s
   else case (op,ts) of
    | (Equality, [t1;t2]) =>
        do () <- add_constraint l t1 t2;
           return (Infer_Tapp [] Tbool_num)
-       od
+       od s
    | (Opapp, [t1;t2]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint l t1 (Infer_Tapp [t2;uvar] Tfn_num);
           return uvar
-       od
+       od s
    | (Opassign, [t1;t2]) =>
        do () <- add_constraint l t1 (Infer_Tapp [t2] Tref_num);
           return (Infer_Tapp [] Ttup_num)
-       od
-   | (Opref, [t]) => return (Infer_Tapp [t] Tref_num)
+       od s
+   | (Opref, [t]) => return (Infer_Tapp [t] Tref_num) s
    | (Opderef, [t]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint l t (Infer_Tapp [uvar] Tref_num);
           return uvar
-       od
+       od s
    | (VfromList, [t]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint l t (Infer_Tapp [uvar] Tlist_num);
           return (Infer_Tapp [uvar] Tvector_num)
-       od
+       od s
    | (Vsub, [t1;t2]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint l t1 (Infer_Tapp [uvar] Tvector_num);
           () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
           return uvar
-       od
+       od s
    | (Vlength, [t]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint l t (Infer_Tapp [uvar] Tvector_num);
           return (Infer_Tapp [] Tint_num)
-       od
+       od s
    | (Aalloc, [t1;t2]) =>
        do () <- add_constraint l t1 (Infer_Tapp [] Tint_num);
           return (Infer_Tapp [t2] Tarray_num)
-       od
+       od s
    | (AallocEmpty, [t1]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint l t1 (Infer_Tapp [] Ttup_num);
           return (Infer_Tapp [uvar] Tarray_num)
-       od
+       od s
    | (Asub, [t1;t2]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint l t1 (Infer_Tapp [uvar] Tarray_num);
           () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
           return uvar
-       od
+       od s
    | (Alength, [t]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint l t (Infer_Tapp [uvar] Tarray_num);
           return (Infer_Tapp [] Tint_num)
-       od
+       od s
    | (Aupdate, [t1;t2;t3]) =>
        do () <- add_constraint l t1 (Infer_Tapp [t3] Tarray_num);
           () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
           return (Infer_Tapp [] Ttup_num)
-       od
+       od s
    | (ListAppend, [t1;t2]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint l t1 (Infer_Tapp [uvar] Tlist_num);
           () <- add_constraint l t2 (Infer_Tapp [uvar] Tlist_num);
           return (Infer_Tapp [uvar] Tlist_num)
-       od
-   | (Asub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
-   | (Aupdate_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
-   | (Aw8sub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
-   | (Aw8update_unsafe, _) => failwith l (implode "Unsafe ops do not have a type")
-   | (Real_uop _, _) => failwith l (implode "Reals do not have a type")
-   | (Real_bop _, _) => failwith l (implode "Reals do not have a type")
-   | (Real_cmp _, _) => failwith l (implode "Reals do not have a type")
-   | (RealFromFP, _) => failwith l (implode "Reals do not have a type")
-   | (AallocFixed, _) => failwith l (implode "Unsafe ops do not have a type") (* not actually unsafe *)
-   | (Eval, _) => failwith l (implode "Unsafe ops do not have a type")
-   | (Env_id, _) => failwith l (implode "Unsafe ops do not have a type")
-   | _ => failwith l (op_n_args_msg op (LENGTH ts))
+       od s
+   | (Asub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
+   | (Aupdate_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
+   | (Aw8sub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
+   | (Aw8update_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
+   | (Real_uop _, _) => failwith l (implode "Reals do not have a type") s
+   | (Real_bop _, _) => failwith l (implode "Reals do not have a type") s
+   | (Real_cmp _, _) => failwith l (implode "Reals do not have a type") s
+   | (RealFromFP, _) => failwith l (implode "Reals do not have a type") s
+   | (AallocFixed, _) => failwith l (implode "Unsafe ops do not have a type")  s(* not actually unsafe *)
+   | (Eval, _) => failwith l (implode "Unsafe ops do not have a type") s
+   | (Env_id, _) => failwith l (implode "Unsafe ops do not have a type") s
+   | _ => failwith l (op_n_args_msg op (LENGTH ts)) s
 End
 
 Theorem constrain_op_dtcase_def[compute] = CONV_RULE
   (TOP_DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV) constrain_op_def;
+
+Theorem constrain_op_expand = constrain_op_dtcase_def
+  |> SRULE [st_ex_bind_def,st_ex_return_def];
 
 Theorem st_ex_bind_failure:
   st_ex_bind f g s = (Failure r, s') <=>
@@ -597,7 +839,7 @@ Proof
  unabbrev_all_tac >> fs []
 QED
 
-val infer_e_def = tDefine "infer_e" `
+Definition infer_e_def:
 (infer_e l ienv (Raise e) =
   do t2 <- infer_e l ienv e;
      () <- add_constraint l t2 (Infer_Tapp [] Texn_num);
@@ -760,28 +1002,43 @@ val infer_e_def = tDefine "infer_e" `
      t <- infer_e l (ienv with inf_v := nsBind x (0,uvar) ienv.inf_v) e;
      ts <- infer_funs l ienv funs;
      return (Infer_Tapp [uvar;t] Tfn_num::ts)
-  od)`
-(WF_REL_TAC `measure (\x. dtcase x of | INL (_,_,e) => exp_size e
+  od)
+Termination
+ WF_REL_TAC `measure (\x. dtcase x of | INL (_,_,e) => exp_size e
                                     | INR (INL (_,_,es)) => exp6_size es
                                     | INR (INR (INL (_,_,pes,_,_))) => exp3_size pes
                                     | INR (INR (INR (_,_,funs))) => exp1_size funs)` >>
- rw []);
+ rw []
+End
 
-val extend_dec_ienv_def = Define `
+Triviality FUN_EQ_THM_state:
+  f = g ⇔ ∀s. f s = g s
+Proof
+  gvs [FUN_EQ_THM]
+QED
+
+Theorem infer_e_expand = infer_e_def
+  |> SRULE [check_dups_eq_find_dup,bind_guard,bind_type_name_check_subst]
+  |> SRULE [st_ex_bind_triple]
+  |> SRULE [st_ex_bind_pair]
+  |> SRULE [st_ex_bind_def,FUN_EQ_THM_state,st_ex_return_def,
+            failwith_def,option_case_rand,COND_RATOR];
+
+Definition extend_dec_ienv_def:
   extend_dec_ienv ienv' ienv =
      <| inf_v := nsAppend ienv'.inf_v ienv.inf_v;
         inf_c := nsAppend ienv'.inf_c ienv.inf_c;
-        inf_t := nsAppend ienv'.inf_t ienv.inf_t |>`;
+        inf_t := nsAppend ienv'.inf_t ienv.inf_t |>
+End
 
-val lift_ienv_def = Define `
+Definition lift_ienv_def:
   lift_ienv mn ienv =
     <| inf_v := nsLift mn ienv.inf_v;
        inf_c := nsLift mn ienv.inf_c;
-       inf_t := nsLift mn ienv.inf_t |>`;
+       inf_t := nsLift mn ienv.inf_t |>
+End
 
-
-
-val infer_d_def = Define `
+Definition infer_d_def:
 (infer_d ienv (Dlet locs p e) =
   do () <- init_state;
      n <- get_next_uvar;
@@ -872,269 +1129,155 @@ val infer_d_def = Define `
     ienv' <- infer_d ienv d;
     ienv'' <- infer_ds (extend_dec_ienv ienv' ienv) ds;
     return (extend_dec_ienv ienv'' ienv')
-  od)`;
+  od)
+End
 
-  (*
-val t_to_freevars_def = Define `
-(t_to_freevars (Tvar tn) =
-  return [tn]) ∧
-(t_to_freevars (Tvar_db _) =
-  failwith NONE (implode "deBruijn index in type definition")) ∧
-(t_to_freevars (Tapp ts tc) =
-  ts_to_freevars ts) ∧
-(ts_to_freevars [] = return []) ∧
-(ts_to_freevars (t::ts) =
-  do fvs1 <- t_to_freevars t;
-     fvs2 <- ts_to_freevars ts;
-     return (fvs1++fvs2)
-  od)`;
-
-val check_specs_def = Define `
-(check_specs mn tenvT idecls ienv [] =
-  return (idecls,ienv)) ∧
-(check_specs mn tenvT idecls ienv (Sval x t::specs) =
-  do fvs <- t_to_freevars t;
-     fvs' <- return (nub fvs);
-     () <- guard (check_type_names tenvT t) NONE (implode "Bad type annotation");
-     check_specs mn tenvT idecls
-       (ienv with inf_v := nsBind x (LENGTH fvs', infer_type_subst (ZIP (fvs', MAP Infer_Tvar_db (COUNT_LIST (LENGTH fvs'))))
-                                                     (type_name_subst tenvT t))
-                              ienv.inf_v)
-        specs
-  od) ∧
-(check_specs mn tenvT idecls ienv (Stype tdefs :: specs) =
-  do new_tenvT <- return (alist_to_ns (MAP (λ(tvs,tn,ctors). (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) tdefs));
-     tenvT' <- return (nsAppend new_tenvT tenvT);
-     () <- guard (check_ctor_tenv tenvT' tdefs) NONE (implode "Bad type definition");
-     new_tdecls <- return (MAP (\(tvs,tn,ctors). mk_id mn tn) tdefs);
-     check_specs mn tenvT' (idecls with <|inf_defined_types:=new_tdecls++idecls.inf_defined_types|>)
-       <| inf_v := ienv.inf_v;
-          inf_c := nsAppend (build_ctor_tenv mn tenvT' tdefs) ienv.inf_c;
-          inf_t := (nsAppend new_tenvT ienv.inf_t) |>
-       specs
-  od) ∧
-(check_specs mn tenvT idecls ienv (Stabbrev tvs tn t :: specs) =
-  do () <- guard (ALL_DISTINCT tvs) NONE (implode "Duplicate type variables");
-     () <- guard (check_freevars 0 tvs t ∧ check_type_names tenvT t) NONE (implode "Bad type definition");
-     new_tenvT <- return (nsSing tn (tvs,type_name_subst tenvT t));
-     check_specs mn (nsAppend new_tenvT tenvT) idecls (ienv with inf_t := nsAppend new_tenvT ienv.inf_t) specs
-  od) ∧
-(check_specs mn tenvT idecls ienv (Sexn cn ts :: specs) =
-  do () <- guard (check_exn_tenv mn cn ts ∧ EVERY (check_type_names tenvT) ts) NONE
-                 (implode "Bad exception definition");
-     check_specs mn tenvT (idecls with <|inf_defined_exns:=mk_id mn cn::idecls.inf_defined_exns|>)
-       (ienv with inf_c := nsBind cn ([], MAP (\x. type_name_subst tenvT x) ts, TypeExn (mk_id mn cn)) ienv.inf_c) specs
-  od) ∧
-(check_specs mn tenvT idecls ienv (Stype_opq tvs tn :: specs) =
-  do () <- guard (ALL_DISTINCT tvs) NONE (implode "Duplicate type variables");
-     new_tenvT <- return (nsSing tn (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))));
-     check_specs mn (nsAppend new_tenvT tenvT) (idecls with <|inf_defined_types:=mk_id mn tn::idecls.inf_defined_types|>)
-       (ienv with inf_t := nsAppend new_tenvT ienv.inf_t) specs
-  od)`;
-
-val check_weak_decls_def = Define `
-check_weak_decls decls_impl decls_spec ⇔
-  list_set_eq decls_spec.inf_defined_mods decls_impl.inf_defined_mods ∧
-  list_subset decls_spec.inf_defined_types decls_impl.inf_defined_types ∧
-  list_subset decls_spec.inf_defined_exns decls_impl.inf_defined_exns`;
-
-val check_tscheme_inst_def = Define `
-  check_tscheme_inst _ (tvs_spec, t_spec) (tvs_impl, t_impl) ⇔
-    let M =
-    do () <- init_state;
-       uvs <- n_fresh_uvar tvs_impl;
-       t <- return (infer_deBruijn_subst uvs t_impl);
-       () <- add_constraint NONE t_spec t
-    od
-    in
-    dtcase M init_infer_state of
-    | (Success _, _) => T
-    | (Failure _, _) => F `;
-
-val check_weak_ienv_def = Define `
-  check_weak_ienv ienv_impl ienv_spec ⇔
-    nsSub_compute [] check_tscheme_inst ienv_spec.inf_v ienv_impl.inf_v ∧
-    nsSub_compute [] (λ_ x y. x = y) ienv_spec.inf_c ienv_impl.inf_c ∧
-    nsSub_compute [] weak_tenvT ienv_spec.inf_t ienv_impl.inf_t`;
-
-val check_signature_def = Define `
-(check_signature mn tenvT init_decls decls1 ienv NONE =
-  return (decls1, ienv)) ∧
-(check_signature mn tenvT init_decls decls1 ienv (SOME specs) =
-  do (decls', ienv') <- check_specs mn tenvT empty_inf_decls <|inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |> specs;
-     () <- guard (check_weak_ienv ienv ienv') NONE (implode "Signature mismatch");
-     () <- guard (check_weak_decls decls1 decls') NONE (implode "Signature mismatch");
-     return (decls',ienv')
-  od)`;
-
-val ienvLift_def = Define `
-  ienvLift mn ienv =
-    <|inf_v := nsLift mn ienv.inf_v; inf_c := nsLift mn ienv.inf_c; inf_t := nsLift mn ienv.inf_t|>`;
-
-val infer_top_def = Define `
-(infer_top idecls ienv (Tdec d) =
-  do
-    (decls',ienv') <- infer_d [] idecls ienv d;
-    return (decls', ienv')
-  od) ∧
-(infer_top idecls ienv (Tmod mn spec ds1) =
-  do
-    () <- guard (~MEM [mn] idecls.inf_defined_mods) NONE (concat [implode "Duplicate module: "; implode mn]);
-    (decls',ienv') <- infer_ds [mn] idecls ienv ds1;
-    (new_decls,ienv'') <- check_signature [mn] ienv.inf_t idecls decls' ienv' spec;
-    return (new_decls with inf_defined_mods := [mn] :: new_decls.inf_defined_mods, ienvLift mn ienv'')
-  od)`;
-
-val infer_prog_def = Define `
-(infer_prog idecls ienv [] =
-  return (empty_inf_decls, <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |>)) ∧
-(infer_prog idecls ienv (t_op::t_ops) =
-  do
-    (idecls',ienv') <- infer_top idecls ienv t_op;
-    (idecls'', ienv'') <- infer_prog (append_decls idecls' idecls) (extend_dec_ienv ienv' ienv) t_ops;
-    return (append_decls idecls'' idecls', extend_dec_ienv ienv'' ienv')
-  od)`;
-  *)
+Theorem infer_d_expand = infer_d_def
+  |> SRULE [check_dups_eq_find_dup,bind_guard,bind_type_name_check_subst]
+  |> SRULE [st_ex_bind_triple]
+  |> SRULE [st_ex_bind_pair]
+  |> SRULE [st_ex_bind_def,FUN_EQ_THM,st_ex_return_def,
+            failwith_def,option_case_rand];
 
 (* The starting Id should be greater than Tlist_num :: (Tbool_num :: prim_type_nums) *)
-val start_type_id_def = Define`
+Definition start_type_id_def:
   start_type_id =
-    ^(EVAL``(FOLDR MAX 0 (Tlist_num :: (Tbool_num :: prim_type_nums)))+1`` |> rconc)`
+    ^(EVAL``(FOLDR MAX 0 (Tlist_num :: (Tbool_num :: prim_type_nums)))+1`` |> rconc)
+End
 
-val infertype_prog_def = Define`
+Definition infertype_prog_def:
   infertype_prog ienv prog =
     dtcase FST (infer_ds ienv prog (init_infer_state <| next_uvar := 0; subst := FEMPTY; next_id := start_type_id |>)) of
     | Success new_ienv => Success (extend_dec_ienv new_ienv ienv)
-    | Failure x => Failure x`;
+    | Failure x => Failure x
+End
 
-    (*
-val conf = ``<| inf_v := nsEmpty; inf_c := nsEmpty ; inf_t := nsEmpty |>``
+Definition infertype_prog_inc_def:
+  infertype_prog_inc (ienv, next_id) prog =
+  dtcase infer_ds ienv prog (init_infer_state <| next_id := next_id |>) of
+    (Success new_ienv, st) =>
+    (Success (extend_dec_ienv new_ienv ienv, st.next_id))
+  | (Failure x, _) => Failure x
+End
 
-val init_config = Define`
-  init_config = ^(EVAL ``infertype_prog ^(conf) prim_types_program``
-                 |> concl |> rand |> rand)`
-                 *)
-
-
-val init_config = Define`
+Definition init_config_def:
   init_config : inf_env =
     <| inf_c := primTypes$prim_tenv.c;
        inf_v := nsEmpty;
-       inf_t := primTypes$prim_tenv.t|>`;
-
-
-(*
-val Infer_Tfn_def = Define `
-Infer_Tfn t1 t2 = Infer_Tapp [t1;t2] Tfn_num`;
-
-val Infer_Tint = Define `
-Infer_Tint = Infer_Tapp [] Tint_num`;
-
-val Infer_Tbool = Define `
-Infer_Tbool = Infer_Tapp [] (TC_name (Short "bool"))`;
-
-val Infer_Tunit = Define `
-Infer_Tunit = Infer_Tapp [] Ttup_num`;
-
-val Infer_Tref = Define `
-Infer_Tref t = Infer_Tapp [t] Tref_num`;
-*)
+       inf_t := primTypes$prim_tenv.t|>
+End
 
 (* The following aren't needed to run the inferencer, but are useful in the proofs
  * about it *)
 
-val infer_deBruijn_inc_def = tDefine "infer_deBruijn_inc" `
+Definition infer_deBruijn_inc_def:
 (infer_deBruijn_inc n (Infer_Tvar_db m) =
   Infer_Tvar_db (m + n)) ∧
 (infer_deBruijn_inc n (Infer_Tapp ts tn) =
   Infer_Tapp (MAP (infer_deBruijn_inc n) ts) tn) ∧
 (infer_deBruijn_inc n (Infer_Tuvar m) =
-  Infer_Tuvar m)`
-(WF_REL_TAC `measure (infer_t_size o SND)` >>
+  Infer_Tuvar m)
+Termination
+ WF_REL_TAC `measure (infer_t_size o SND)` >>
  rw [] >>
  induct_on `ts` >>
  rw [infer_t_size_def] >>
  res_tac >>
- decide_tac);
+ decide_tac
+End
 
-val infer_subst_def = tDefine "infer_subst" `
+Definition infer_subst_def:
 (infer_subst s (Infer_Tvar_db n) = Infer_Tvar_db n) ∧
 (infer_subst s (Infer_Tapp ts tc) = Infer_Tapp (MAP (infer_subst s) ts) tc) ∧
 (infer_subst s (Infer_Tuvar n) =
   dtcase FLOOKUP s n of
       NONE => Infer_Tuvar n
-    | SOME m => Infer_Tvar_db m)`
-(wf_rel_tac `measure (infer_t_size o SND)` >>
+    | SOME m => Infer_Tvar_db m)
+Termination
+ wf_rel_tac `measure (infer_t_size o SND)` >>
  rw [] >>
  induct_on `ts` >>
  srw_tac[ARITH_ss] [infer_t_size_def] >>
  res_tac >>
- decide_tac);
+ decide_tac
+End
 
-val pure_add_constraints_def = Define `
+Definition pure_add_constraints_def:
 (pure_add_constraints s [] s' = (s = s')) ∧
 (pure_add_constraints s1 ((t1,t2)::rest) s' =
   ?s2. (t_unify s1 t1 t2 = SOME s2) ∧
-       pure_add_constraints s2 rest s')`;
+       pure_add_constraints s2 rest s')
+End
 
-val check_t_def = tDefine "check_t" `
+Definition check_t_def:
 (check_t n uvars (Infer_Tuvar v) = (v ∈ uvars)) ∧
 (check_t n uvars (Infer_Tvar_db n') =
   (n' < n)) ∧
-(check_t n uvars (Infer_Tapp ts tc) = EVERY (check_t n uvars) ts)`
-(WF_REL_TAC `measure (infer_t_size o SND o SND)` >>
+(check_t n uvars (Infer_Tapp ts tc) = EVERY (check_t n uvars) ts)
+Termination
+ WF_REL_TAC `measure (infer_t_size o SND o SND)` >>
  rw [] >>
  induct_on `ts` >>
  rw [infer_t_size_def] >>
  res_tac >>
- decide_tac);
+ decide_tac
+End
 
-val ienv_val_ok_def = Define `
+Definition ienv_val_ok_def:
 ienv_val_ok uvars env =
-  nsAll (\x (tvs,t). check_t tvs uvars t) env`;
+  nsAll (\x (tvs,t). check_t tvs uvars t) env
+End
 
-val check_s_def = Define `
+Definition check_s_def:
 check_s tvs uvs s =
-  !uv. uv ∈ FDOM s ⇒ check_t tvs uvs (s ' uv)`;
+  !uv. uv ∈ FDOM s ⇒ check_t tvs uvs (s ' uv)
+End
 
 (* Adding the constraints extra_constraints moves the constraint set from s1 to
  * s2, and s2 is required to be complete in that it assigns to (at least) all
  * the uvars ≤ next_uvar, and when we apply it to any uvar, we get back a type
  * without any uvars in it. *)
-val sub_completion_def = Define `
+Definition sub_completion_def:
 sub_completion tvs next_uvar s1 extra_constraints s2 =
   (pure_add_constraints s1 extra_constraints s2 ∧
    (count next_uvar SUBSET FDOM s2) ∧
-   (!uv. uv ∈ FDOM s2 ⇒ check_t tvs {} (t_walkstar s2 (Infer_Tuvar uv))))`;
+   (!uv. uv ∈ FDOM s2 ⇒ check_t tvs {} (t_walkstar s2 (Infer_Tuvar uv))))
+End
 
 (* printing of types *)
 
-val alist_nub_def = tDefine "alist_nub" `
+Definition alist_nub_def:
   alist_nub [] = [] /\
-  alist_nub ((x,y)::xs) = (x,y) :: alist_nub (FILTER (\t. x <> FST t) xs)`
-  (WF_REL_TAC `measure LENGTH` \\ fs [LESS_EQ,LENGTH_FILTER_LEQ]);
+  alist_nub ((x,y)::xs) = (x,y) :: alist_nub (FILTER (\t. x <> FST t) xs)
+Termination
+  WF_REL_TAC `measure LENGTH` \\ fs [LESS_EQ,LENGTH_FILTER_LEQ]
+End
 
-val ns_nub_def = tDefine "ns_nub" `
+Definition ns_nub_def:
   ns_nub (Bind xs ys) = Bind (alist_nub xs)
-                             (alist_nub (MAP (\(x,y). (x, ns_nub y)) ys))`
- (WF_REL_TAC `measure (namespace_size (K 0) (K 0) (K 0))` \\ fs []
+                             (alist_nub (MAP (\(x,y). (x, ns_nub y)) ys))
+Termination
+  WF_REL_TAC `measure (namespace_size (K 0) (K 0) (K 0))` \\ fs []
   \\ Induct_on `ys` \\ fs [FORALL_PROD] \\ rw []
   \\ fs [namespace_size_def] \\ res_tac \\ fs []
-  \\ pop_assum (assume_tac o SPEC_ALL) \\ fs []);
+  \\ pop_assum (assume_tac o SPEC_ALL) \\ fs []
+End
 
-val ns_to_alist = Define `
+Definition ns_to_alist_def:
   (ns_to_alist (Bind [] []) = []) /\
   (ns_to_alist (Bind [] ((n,x)::ms)) =
     MAP (\(x,y). (n++"."++x,y)) (ns_to_alist x) ++
     ns_to_alist (Bind [] ms)) /\
-  (ns_to_alist (Bind ((s,x)::xs) m) = (s,x) :: ns_to_alist (Bind xs m))`
+  (ns_to_alist (Bind ((s,x)::xs) m) = (s,x) :: ns_to_alist (Bind xs m))
+End
 
-val inf_env_to_types_string_def = Define `
+Definition inf_env_to_types_string_def:
   inf_env_to_types_string s =
     let l = ns_to_alist (ns_nub s.inf_v) in
     let xs = MAP (\(n,_,t). concat [implode n; strlit ": ";
                                     inf_type_to_string s.inf_t t;
                                     strlit "\n";]) l in
-      (* QSORT mlstring_le *) REVERSE xs`
+      (* QSORT mlstring_le *) REVERSE xs
+End
 
 val _ = export_theory ();

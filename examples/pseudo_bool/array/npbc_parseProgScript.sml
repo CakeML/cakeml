@@ -132,6 +132,14 @@ val r = translate parse_constraint_npbc_def;
 
 val r = translate parse_red_header_def;
 
+val r = translate parse_constraint_npbc_2_def;
+val r = translate strip_numbers_end_def;
+val strip_numbers_end_side_def = fetch "-" "strip_numbers_end_side_def";
+val strip_numbers_end_side = Q.prove(
+  `∀x y. strip_numbers_end_side x y <=> T`,
+  Induct>>rw[Once strip_numbers_end_side_def]>>
+  intLib.ARITH_TAC) |> update_precondition;
+
 val r = translate parse_rup_def;
 
 val r = translate parse_lstep_aux_def;
@@ -156,25 +164,30 @@ open mlintTheory;
 (* TODO: Mostly copied from mlintTheory *)
 val result = translate fromChar_unsafe_def;
 
-val fromChars_range_unsafe_tail_def = Define`
-  fromChars_range_unsafe_tail l 0       str mul acc = acc ∧
-  fromChars_range_unsafe_tail l (SUC n) str mul acc =
-    fromChars_range_unsafe_tail l n str (mul * 10)  (acc + fromChar_unsafe (strsub str (l + n)) * mul)`;
+Definition fromChars_range_unsafe_tail_def:
+  fromChars_range_unsafe_tail l n       str mul acc =
+  if n ≤ l then acc
+  else
+    let n1 = n - 1 in
+    fromChars_range_unsafe_tail l n1 str (mul * 10)  (acc + fromChar_unsafe (strsub str n1) * mul)
+End
 
 Theorem fromChars_range_unsafe_tail_eq:
   ∀n l s mul acc.
-  fromChars_range_unsafe_tail l n s mul acc = (fromChars_range_unsafe l n s) * mul + acc
+  fromChars_range_unsafe_tail l (n+l) s mul acc = (fromChars_range_unsafe l n s) * mul + acc
 Proof
-  Induct>>rw[fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]
+  Induct>>rw[Once fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]>>
+  gvs[ADD1]
 QED
 
 Theorem fromChars_range_unsafe_alt:
-  fromChars_range_unsafe l n s = fromChars_range_unsafe_tail l n s 1 0
+  fromChars_range_unsafe l n s = fromChars_range_unsafe_tail l (n + l) s 1 0
 Proof
   rw[fromChars_range_unsafe_tail_eq]
 QED
 
 val result = translate fromChars_range_unsafe_tail_def;
+
 val result = translate fromChars_range_unsafe_alt;
 
 val res = translate_no_ind (mlintTheory.fromChars_unsafe_def
@@ -782,6 +795,7 @@ Theorem parse_sstep_spec:
            &(Fail_exn e ∧ parse_sstep fns ss = NONE))
       )
 Proof
+  rpt strip_tac>>
   xcf "parse_sstep" (get_ml_prog_state ())>>
   Cases_on`ss`>>simp[parse_sstep_def]
   >- (
@@ -2149,6 +2163,7 @@ Theorem parse_cstep_spec:
            &(Fail_exn e ∧ parse_cstep fns ss = NONE))
       )
 Proof
+  rw[]>>
   xcf "parse_cstep" (get_ml_prog_state ())>>
   xlet`(POSTve
       (λv.
@@ -2357,15 +2372,15 @@ QED
 (* returns the necessary information to check the
   output and conclusion sections *)
 val check_unsat'' = process_topdecs `
-  fun check_unsat'' fns fd lno fml inds vimap vomap pc =
+  fun check_unsat'' fns fd lno fml zeros inds vimap vomap pc =
     case parse_cstep fns fd lno of
       (Inl s, (fns', lno')) =>
       (lno', (s, (fns',
         (fml, (inds, pc)))))
     | (Inr cstep, (fns', lno')) =>
-      (case check_cstep_arr lno cstep fml inds vimap vomap pc of
-        (fml', (inds', (vimap', (vomap', pc')))) =>
-        check_unsat'' fns' fd lno' fml' inds' vimap' vomap' pc')` |> append_prog
+      (case check_cstep_arr lno cstep fml zeros inds vimap vomap pc of
+        (fml', (zeros', (inds', (vimap', (vomap', pc'))))) =>
+        check_unsat'' fns' fd lno' fml' zeros' inds' vimap' vomap' pc')` |> append_prog
 
 Theorem parse_sstep_LENGTH:
   ∀f ss res f' ss'.
@@ -2410,15 +2425,15 @@ QED
   returning the last encountered state *)
 Definition parse_and_run_def:
   parse_and_run fns ss
-    fml inds vimap vomap pc =
+    fml zeros inds vimap vomap pc =
   case parse_cstep fns ss of
     NONE => NONE
   | SOME (INL s, fns', rest) =>
     SOME (rest, s, fns', fml, inds, pc)
   | SOME (INR cstep, fns', rest) =>
-    (case check_cstep_list cstep fml inds vimap vomap pc of
-      SOME (fml', inds', vimap', vomap', pc') =>
-        parse_and_run fns' rest fml' inds' vimap' vomap' pc'
+    (case check_cstep_list cstep fml zeros inds vimap vomap pc of
+      SOME (fml', zeros', inds', vimap', vomap', pc') =>
+        parse_and_run fns' rest fml' zeros' inds' vimap' vomap' pc'
     | res => NONE)
 Termination
   WF_REL_TAC `measure (LENGTH o FST o SND)`>>
@@ -2457,8 +2472,8 @@ Proof
 QED
 
 Theorem check_unsat''_spec:
-  ∀fns ss fmlls inds vimap vomap pc
-    fnsv lno lnov fmllsv indsv pcv lines fs fmlv vimapv vomapv.
+  ∀fns ss fmlls zeros inds vimap vomap pc
+    fnsv lno lnov fmllsv zerosv indsv pcv lines fs fmlv vimapv vomapv.
   fns_TYPE a fns fnsv ∧
   NUM lno lnov ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
@@ -2466,12 +2481,14 @@ Theorem check_unsat''_spec:
   NPBC_CHECK_PROOF_CONF_TYPE pc pcv ∧
   vimap_TYPE vimap vimapv ∧
   vomap_TYPE vomap vomapv ∧
+  EVERY (λw. w = 0w) zeros ∧
   MAP toks_fast lines = ss
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
-    [fnsv; fdv; lnov; fmlv; indsv; vimapv; vomapv; pcv]
-    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs * ARRAY fmlv fmllsv)
+    [fnsv; fdv; lnov; fmlv; zerosv; indsv; vimapv; vomapv; pcv]
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs *
+      ARRAY fmlv fmllsv * W8ARRAY zerosv zeros)
     (POSTve
       (λv.
          SEP_EXISTS k lines' lno' fmlv' fmllsv' res.
@@ -2479,7 +2496,7 @@ Theorem check_unsat''_spec:
          INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          ARRAY fmlv' fmllsv' *
          &(
-          parse_and_run fns ss fmlls inds vimap vomap pc =
+          parse_and_run fns ss fmlls zeros inds vimap vomap pc =
             SOME (MAP toks_fast lines',res) ∧
             PAIR_TYPE NUM (
             PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (
@@ -2494,7 +2511,7 @@ Theorem check_unsat''_spec:
            ARRAY fmlv' fmllsv' *
            STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧
-            parse_and_run fns ss fmlls inds vimap vomap pc = NONE)))
+            parse_and_run fns ss fmlls zeros inds vimap vomap pc = NONE)))
 Proof
   ho_match_mp_tac (fetch "-" "parse_and_run_ind")>>
   rw[]>>
@@ -2511,7 +2528,7 @@ Proof
       xapp>>xsimpl>>
       asm_exists_tac>>simp[]>>
       asm_exists_tac>>simp[]>>
-      qexists_tac`ARRAY fmlv fmllsv`>>
+      qexists_tac`ARRAY fmlv fmllsv * W8ARRAY zerosv zeros`>>
       qexists_tac`lines`>>simp[]>>
       qexists_tac`fs`>>qexists_tac`fd`>>xsimpl>>
       rw[]>>
@@ -2526,7 +2543,7 @@ Proof
     SEP_EXISTS k lines' lno'.
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
-         ARRAY fmlv fmllsv *
+         ARRAY fmlv fmllsv * W8ARRAY zerosv zeros *
          &(
             case parse_cstep fns (MAP toks_fast lines) of
               NONE => F
@@ -2541,7 +2558,8 @@ Proof
     xapp>>xsimpl>>
     asm_exists_tac>>simp[]>>
     asm_exists_tac>>simp[]>>
-    qexists_tac`ARRAY fmlv fmllsv`>>qexists_tac`lines`>>simp[]>>
+    qexists_tac`ARRAY fmlv fmllsv * W8ARRAY zerosv zeros`>>
+    qexists_tac`lines`>>simp[]>>
     qexists_tac`fs`>>qexists_tac`fd`>>xsimpl>>
     PairCases_on`x`>>fs[]>>rw[]>>
     fs[OPTION_TYPE_def,PAIR_TYPE_def]>>
@@ -2565,14 +2583,42 @@ Proof
     simp[Once parse_and_run_def])>>
   (* INR *)
   xmatch>>
-  xlet_auto
+  xlet`
+  POSTve
+    (λv'.
+         SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
+           W8ARRAY zerosv' zeros' * ARRAY fmlv' fmllsv' *
+           STDIO (forwardFD fs fd k) *
+           INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
+           &case check_cstep_list y fmlls zeros inds vimap vomap pc of
+             NONE => F
+           | SOME res =>
+             PAIR_TYPE
+               (λl v.
+                    LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
+                    v = fmlv')
+               (PAIR_TYPE
+                  (λl v. l = zeros' ∧ v = zerosv' ∧ EVERY (λw. w = 0w) zeros')
+                  (PAIR_TYPE (LIST_TYPE NUM)
+                     (PAIR_TYPE vimap_TYPE
+                        (PAIR_TYPE vomap_TYPE NPBC_CHECK_PROOF_CONF_TYPE))))
+               res v')
+    (λe.
+         SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
+           ARRAY fmlv' fmllsv' *
+           STDIO (forwardFD fs fd k) *
+           INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
+           &(Fail_exn e ∧
+            check_cstep_list y fmlls zeros inds vimap vomap pc = NONE))`
   >- (
-    xsimpl>>reverse (rw[])
-    >-
-      metis_tac[ARRAY_refl]>>
-    TOP_CASE_TAC>>fs[]>>
-    asm_exists_tac>>simp[]>>
-    xsimpl)
+    xapp>>
+    xsimpl>>reverse (rw[])>>
+    rpt(first_x_assum (irule_at Any))>>xsimpl>>
+    CONJ_TAC >-
+      metis_tac[ARRAY_W8ARRAY_refl]>>
+    rw[]>>
+    rename1`ARRAY aa bb`>>
+    qexists_tac`aa`>>qexists_tac`bb`>>xsimpl)
   >- (
     xsimpl>>rw[]>>
     simp[Once parse_and_run_def]>>
@@ -2676,7 +2722,7 @@ Definition fold_update_vimap_enum_def:
   (fold_update_vimap_enum (k:num) [] acc = acc) ∧
   (fold_update_vimap_enum k (x::xs) acc =
     fold_update_vimap_enum (k+1)
-      xs (update_vimap acc k (FST x)))
+      xs (update_vimap_aux acc k (FST x)))
 End
 
 Definition fold_update_vimap_enum_full_def:
@@ -2687,14 +2733,14 @@ End
 Theorem fold_update_vimap_enum_FOLDL:
   ∀xs k acc.
   fold_update_vimap_enum k xs acc =
-  (FOLDL (λacc (i,v). update_vimap acc i (FST v)) acc (enumerate k xs))
+  (FOLDL (λacc (i,v). update_vimap_aux acc i (FST v)) acc (enumerate k xs))
 Proof
   Induct>>rw[fold_update_vimap_enum_def,miscTheory.enumerate_def]
 QED
 
 Theorem fold_update_vimap_enum_full_FOLDL:
   fold_update_vimap_enum_full k xs =
-  (FOLDL (λacc (i,v). update_vimap acc i (FST v)) LN (enumerate k xs))
+  (FOLDL (λacc (i,v). update_vimap_aux acc i (FST v)) LN (enumerate k xs))
 Proof
   rw[fold_update_vimap_enum_full_def,fold_update_vimap_enum_FOLDL]
 QED
@@ -2998,18 +3044,34 @@ Proof
   xapp>>xsimpl
 QED
 
+Definition mk_vimap_fml_def:
+  mk_vimap_fml b fml =
+  if b then SOME (fold_update_vimap_enum_full 1 fml)
+  else NONE
+End
+
+Theorem mk_vimap_fml_eq:
+  mk_vimap_fml b fml = mk_vimap_opt b (enumerate 1 fml)
+Proof
+  rw[mk_vimap_fml_def,npbc_listTheory.mk_vimap_opt_def,fold_update_vimap_enum_full_FOLDL]
+QED
+
+val res = translate mk_vimap_fml_def;
+
+(* NOTE: 100000 just a random number *)
 val check_unsat' = process_topdecs `
-  fun check_unsat' fns fd lno fml obj fmlt objt =
+  fun check_unsat' b fns fd lno fml obj fmlt objt =
   let
     val id = List.length fml + 1
     val arr = Array.array (2*id) None
     val arr = fill_arr arr 1 fml
+    val zeros = Word8Array.array 100000 w8z
     val inds = rev_enum_full 1 fml
-    val vimap = fold_update_vimap_enum_full 1 fml
+    val vimap = mk_vimap_fml b fml
     val vomap = mk_vomap_opt_arr obj
     val pc = init_conf id True obj
   in
-    (case check_unsat'' fns fd lno arr inds vimap vomap pc of
+    (case check_unsat'' fns fd lno arr zeros inds vimap vomap pc of
       (lno', (s, (fns',(
         (fml', (inds', pc')))))) =>
     conv_boutput_hconcl
@@ -3022,10 +3084,10 @@ val check_unsat' = process_topdecs `
   end` |> append_prog;
 
 Theorem parse_and_run_check_csteps_list:
-  ∀fns ss fml inds vimap vomap pc rest s fns' fml' inds' pc'.
-  parse_and_run fns ss fml inds vimap vomap pc = SOME (rest, s, fns', (fml', inds', pc')) ⇒
-  ∃csteps vimap' vomap'.
-  check_csteps_list csteps fml inds vimap vomap pc = SOME (fml', inds', vimap', vomap', pc')
+  ∀fns ss fml zeros inds vimap vomap pc rest s fns' fml' inds' pc'.
+  parse_and_run fns ss fml zeros inds vimap vomap pc = SOME (rest, s, fns', (fml', inds', pc')) ⇒
+  ∃csteps zeros' vimap' vomap'.
+  check_csteps_list csteps fml zeros inds vimap vomap pc = SOME (fml', zeros', inds', vimap', vomap', pc')
 Proof
   ho_match_mp_tac parse_and_run_ind>>
   rw[]>>
@@ -3060,6 +3122,7 @@ Proof
 QED
 
 Theorem check_unsat'_spec:
+  BOOL b bv ∧
   fns_TYPE a fns fnsv ∧
   NUM lno lnov ∧
   LIST_TYPE constraint_TYPE fml fmlv ∧
@@ -3069,7 +3132,7 @@ Theorem check_unsat'_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat'" (get_ml_prog_state()))
-    [fnsv; fdv; lnov; fmlv; objv; fmltv; objtv]
+    [bv; fnsv; fdv; lnov; fmlv; objv; fmltv; objtv]
     (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTv v.
      SEP_EXISTS k lines' res.
@@ -3111,6 +3174,7 @@ Proof
     xsimpl>>
     asm_exists_tac>>xsimpl>>
     asm_exists_tac>>xsimpl)>>
+  assume_tac w8z_v_thm>>
   rpt xlet_autop>>
   qmatch_asmsub_abbrev_tac`LIST_REL _ fmlls fmllsv`>>
   qmatch_asmsub_abbrev_tac`LIST_TYPE _ inds indsv`>>
@@ -3120,8 +3184,11 @@ Proof
 
   qmatch_asmsub_abbrev_tac`vimap_TYPE vimap vimapv`>>
   qmatch_asmsub_abbrev_tac`vomap_TYPE vomap vomapv`>>
+  qmatch_goalsub_abbrev_tac`W8ARRAY zerosv zeros`>>
+  `EVERY (λw. w = 0w) zeros` by
+    gvs[Abbr`zeros`,w8z_def]>>
   Cases_on`
-    parse_and_run fns (MAP toks_fast lines) fmlls inds vimap
+    parse_and_run fns (MAP toks_fast lines) fmlls zeros inds vimap
       vomap
       (init_conf (LENGTH fml + 1)  T obj)`
   >- (
@@ -3177,7 +3244,7 @@ Proof
          ARRAY fmlv' fmllsv' *
          &(
           parse_and_run fns (MAP toks_fast lines)
-            fmlls inds vimap vomap (init_conf (LENGTH fml + 1)  T obj) =
+            fmlls zeros inds vimap vomap (init_conf (LENGTH fml + 1)  T obj) =
               SOME (MAP toks_fast lines',res) ∧
             PAIR_TYPE NUM (
             PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (
@@ -3263,13 +3330,13 @@ Proof
         match_mp_tac (GEN_ALL npbc_listTheory.check_csteps_list_concl)>>
         first_x_assum (irule_at Any)>>
         unabbrev_all_tac>>
-        gs[rev_enum_full_rev_enumerate, fold_update_vimap_enum_full_FOLDL]>>
+        gs[rev_enum_full_rev_enumerate, mk_vimap_fml_eq]>>
         metis_tac[])>>
       simp[get_bound_def]>>
       match_mp_tac (GEN_ALL npbc_listTheory.check_csteps_list_output)>>
       first_x_assum (irule_at Any)>>
       unabbrev_all_tac>>
-      gs[rev_enum_full_rev_enumerate, fold_update_vimap_enum_full_FOLDL]>>
+      gs[rev_enum_full_rev_enumerate, mk_vimap_fml_eq]>>
       metis_tac[])>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
   xsimpl
@@ -3330,6 +3397,7 @@ Theorem check_header_spec:
        INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
        &(OPTION_TYPE NUM res v))
 Proof
+  rw[]>>
   xcf "check_header" (get_ml_prog_state ())>>
   rpt xlet_autop>>
   xlet ‘(POSTv v.
@@ -3365,7 +3433,7 @@ End
 val r = translate notfound_string_def;
 
 val check_unsat_top = process_topdecs `
-  fun check_unsat_top fns fml obj fmlt objt fname =
+  fun check_unsat_top b fns fml obj fmlt objt fname =
   let
     val fd = TextIO.b_openIn fname
   in
@@ -3375,7 +3443,7 @@ val check_unsat_top = process_topdecs `
       Inl (format_failure n "Unable to parse header"))
     | None =>
       let val res =
-        (check_unsat' fns fd 3 fml obj fmlt objt)
+        (check_unsat' b fns fd 3 fml obj fmlt objt)
         val close = TextIO.b_closeIn fd;
       in
         res
@@ -3393,6 +3461,7 @@ Proof
 QED
 
 Theorem check_unsat_top_spec:
+  BOOL b bv ∧
   fns_TYPE a fns fnsv ∧
   LIST_TYPE constraint_TYPE fml fmlv ∧
   obj_TYPE obj objv ∧
@@ -3402,7 +3471,7 @@ Theorem check_unsat_top_spec:
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_top"(get_ml_prog_state()))
-  [fnsv; fmlv; objv; fmltv; objtv; fv]
+  [bv; fnsv; fmlv; objv; fmltv; objtv; fv]
   (STDIO fs)
   (POSTv v.
      STDIO fs *
@@ -3418,6 +3487,7 @@ Theorem check_unsat_top_spec:
         sem_output (set fml) obj bound (set fmlt) objt output
       | INL l => T))
 Proof
+  rw[]>>
   xcf"check_unsat_top"(get_ml_prog_state()) >>
   reverse (Cases_on `STD_streams fs`)
   >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
@@ -3596,10 +3666,10 @@ End
 val res = translate name_to_num_var_nf_def;
 
 val check_unsat_top_norm = process_topdecs `
-  fun check_unsat_top_norm objf objft fname =
+  fun check_unsat_top_norm b objf objft fname =
   case normalise_full_2 objf objft of
     ((obj,fml),((objt,fmlt),t)) =>
-    check_unsat_top (name_to_num_var_nf,t) fml obj fmlt objt fname
+    check_unsat_top b (name_to_num_var_nf,t) fml obj fmlt objt fname
     `|> append_prog
 
 Overload "objf_TYPE" = ``
@@ -3615,6 +3685,7 @@ Overload "objf_TYPE" = ``
         INT)))``
 
 Theorem check_unsat_top_norm_spec:
+  BOOL b bv ∧
   objf_TYPE objf objfv ∧
   objf_TYPE objft objftv ∧
   FILENAME f fv ∧
@@ -3622,7 +3693,7 @@ Theorem check_unsat_top_norm_spec:
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_top_norm"
     (get_ml_prog_state()))
-  [objfv; objftv; fv]
+  [bv; objfv; objftv; fv]
   (STDIO fs)
   (POSTv v.
      STDIO fs *
@@ -3639,6 +3710,7 @@ Theorem check_unsat_top_norm_spec:
           (set (SND objft)) (FST objft) output
        | INL l => T))
 Proof
+  rw[]>>
   xcf"check_unsat_top_norm"(get_ml_prog_state()) >>
   xlet_autop>>
   `∃obj fml objt fmlt t.
