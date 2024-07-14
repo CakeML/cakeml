@@ -299,7 +299,8 @@ Definition h_handle_call_ret_def:
   (h_handle_call_ret calltyp s (SOME Continue,s') = Ret (SOME Error,s')) ∧
   (h_handle_call_ret calltyp s (SOME (Return retv),s') = case calltyp of
                                                   NONE => Ret (SOME (Return retv),empty_locals s')
-                                                 | SOME (rt,_) =>
+                                                 | SOME (NONE, _) => Ret (NONE, s' with locals := s.locals)
+                                                 | SOME (SOME rt,_) =>
                                                     if is_valid_value s.locals rt retv
                                                     then Ret (NONE,set_var rt retv (s' with locals := s.locals))
                                                     else Ret (SOME Error,s')) ∧
@@ -326,6 +327,30 @@ Definition h_prog_rule_call_def:
       (case lookup_code s.code fname args of
         | SOME (callee_prog,newlocals) =>
            Vis (INL (callee_prog,s with locals := newlocals)) (h_handle_call_ret calltyp s)
+        | _ => Ret (SOME Error,s))
+   | (_,_) => Ret (SOME Error,s)
+End
+
+(* Handles the return value and exception passing of function dec calls. *)
+Definition h_handle_deccall_ret_def:
+  (h_handle_deccall_ret rt shape prog1 s (NONE,s') = Ret (SOME Error,s')) ∧
+  (h_handle_deccall_ret rt shape prog1 s (SOME Break,s') = Ret (SOME Error,s')) ∧
+  (h_handle_deccall_ret rt shape prog1 s (SOME Continue,s') = Ret (SOME Error,s')) ∧
+  (h_handle_deccall_ret rt shape prog1 s (SOME (Return retv),s') =
+   if shape_of retv = shape then
+     Vis (INL (prog1, set_var rt retv (s' with locals := s.locals)))
+              (λ(res', s'). Ret (res',s' with locals := res_var s'.locals (rt, FLOOKUP s.locals rt)))
+   else Ret (SOME Error, s')) ∧
+  (h_handle_deccall_ret rt shape prog1 s (res,s') = Ret (res,empty_locals s'))
+End
+
+Definition h_prog_rule_deccall_def:
+  h_prog_rule_deccall rt shape tgtexp argexps prog1 s =
+  case (eval (reclock s) tgtexp,OPT_MMAP (eval (reclock s)) argexps) of
+   | (SOME (ValLabel fname),SOME args) =>
+      (case lookup_code s.code fname args of
+        | SOME (callee_prog,newlocals) =>
+           Vis (INL (callee_prog,s with locals := newlocals)) (h_handle_deccall_ret rt shape prog1 s)
         | _ => Ret (SOME Error,s))
    | (_,_) => Ret (SOME Error,s)
 End
@@ -371,8 +396,8 @@ Definition h_prog_rule_return_def:
    | _ => Ret (SOME Error,s)
 End
 
-Definition h_prog_rule_sh_mem_load_def:
-  h_prog_rule_sh_mem_load v (addr:'a word) nb ^s =
+Definition h_prog_rule_sh_mem_load_nb_def:
+  h_prog_rule_sh_mem_load_nb v (addr:'a word) nb ^s =
   if nb = 0 then
     (if addr IN s.sh_memaddrs then
        Vis (INR (FFI_call (SharedMem MappedRead) [n2w nb] (word_to_bytes addr F),
@@ -391,49 +416,46 @@ Definition h_prog_rule_sh_mem_load_def:
      else Ret (SOME Error,s))
 End
 
-Definition h_prog_rule_sh_mem_store_def:
-  h_prog_rule_sh_mem_store v (addr:'a word) nb ^s =
-  case FLOOKUP s.locals v of
-    SOME (ValWord w) =>
-     (if nb = 0 then
-        (if addr IN s.sh_memaddrs then
-           Vis (INR (FFI_call (SharedMem MappedWrite) [n2w nb]
-                              (word_to_bytes w F ++ word_to_bytes addr F),
-                (λres. case res of
-                         FFI_final outcome => (SOME (FinalFFI outcome),s)
-                        | FFI_return new_ffi new_bytes => (NONE,s with ffi := new_ffi)))) Ret
-         else Ret (SOME Error,s))
-      else
-        (if (byte_align addr) IN s.sh_memaddrs then
-           Vis (INR (FFI_call (SharedMem MappedWrite) [n2w nb]
-                              (TAKE nb (word_to_bytes w F) ++ word_to_bytes addr F),
-                (λres. case res of
-                         FFI_final outcome => (SOME (FinalFFI outcome),s)
-                        | FFI_return new_ffi new_bytes =>
-                           (NONE,s with ffi := new_ffi)))) Ret
-         else Ret (SOME Error,s)))
-   | _ => Ret (SOME Error,s)
+Definition h_prog_rule_sh_mem_store_nb_def:
+  h_prog_rule_sh_mem_store_nb w (addr:'a word) nb ^s =
+  if nb = 0 then
+     (if addr IN s.sh_memaddrs then
+        Vis (INR (FFI_call (SharedMem MappedWrite) [n2w nb]
+                           (word_to_bytes w F ++ word_to_bytes addr F),
+             (λres. case res of
+                      FFI_final outcome => (SOME (FinalFFI outcome),s)
+                     | FFI_return new_ffi new_bytes => (NONE,s with ffi := new_ffi)))) Ret
+      else Ret (SOME Error,s))
+   else
+     (if (byte_align addr) IN s.sh_memaddrs then
+        Vis (INR (FFI_call (SharedMem MappedWrite) [n2w nb]
+                           (TAKE nb (word_to_bytes w F) ++ word_to_bytes addr F),
+             (λres. case res of
+                      FFI_final outcome => (SOME (FinalFFI outcome),s)
+                     | FFI_return new_ffi new_bytes =>
+                        (NONE,s with ffi := new_ffi)))) Ret
+      else Ret (SOME Error,s))
 End
 
-Definition h_prog_rule_sh_mem_op_def:
-  (h_prog_rule_sh_mem_op Load r (ad:'a word) (s:('a,'ffi) bstate) =
-   h_prog_rule_sh_mem_load r ad 0 s) ∧
-  (h_prog_rule_sh_mem_op Store r ad s = h_prog_rule_sh_mem_store r ad 0 s) ∧
-  (h_prog_rule_sh_mem_op Load8 r ad s = h_prog_rule_sh_mem_load r ad 1 s) ∧
-  (h_prog_rule_sh_mem_op Store8 r ad s = h_prog_rule_sh_mem_store r ad 1 s)
+Definition h_prog_rule_nb_op_def:
+  (h_prog_rule_nb_op Op8 = 1:num) ∧
+  (h_prog_rule_nb_op OpW = 0)
 End
 
-Definition h_prog_rule_sh_mem_def:
-  h_prog_rule_sh_mem op v ad s =
+Definition h_prog_rule_sh_mem_load_def:
+  h_prog_rule_sh_mem_load op v ad s =
   case eval (reclock s) ad of
     SOME (ValWord addr) =>
-     (if is_load op
-      then (case FLOOKUP s.locals v of
-              SOME (Val _) => h_prog_rule_sh_mem_op op v addr s
-             | _ => Ret (SOME Error, s))
-      else (case FLOOKUP s.locals v of
-              SOME (ValWord _) => h_prog_rule_sh_mem_op op v addr s
-             | _ => Ret (SOME Error, s)))
+     (case FLOOKUP s.locals v of
+        SOME (Val _) => h_prog_rule_sh_mem_load_nb v addr (h_prog_rule_nb_op op) s
+       | _ => Ret (SOME Error, s))
+   | _ => Ret (SOME Error, s)
+End
+
+Definition h_prog_rule_sh_mem_store_def:
+  h_prog_rule_sh_mem_store op ad e s =
+  case (eval (reclock s) ad, eval (reclock s) e) of
+    (SOME (ValWord addr), SOME (ValWord bytes)) => h_prog_rule_sh_mem_store_nb bytes addr (h_prog_rule_nb_op op) s
    | _ => Ret (SOME Error, s)
 End
 
@@ -444,13 +466,15 @@ Definition h_prog_def:
   (h_prog (Assign vname e,s) = h_prog_rule_assign vname e s) ∧
   (h_prog (Store dst src,s) = h_prog_rule_store dst src s) ∧
   (h_prog (StoreByte dst src,s) = h_prog_rule_store_byte dst src s) ∧
-  (h_prog (ShMem op v ad,s) = h_prog_rule_sh_mem op v ad s) ∧
+  (h_prog (ShMemLoad op v ad,s) = h_prog_rule_sh_mem_load op v ad s) ∧
+  (h_prog (ShMemStore op ad e,s) = h_prog_rule_sh_mem_store op ad e s) ∧
   (h_prog (Seq p1 p2,s) = h_prog_rule_seq p1 p2 s) ∧
   (h_prog (If gexp p1 p2,s) = h_prog_rule_cond gexp p1 p2 s) ∧
   (h_prog (While gexp p,s) = h_prog_rule_while gexp p s) ∧
   (h_prog (Break,s) = Ret (SOME Break,s)) ∧
   (h_prog (Continue,s) = Ret (SOME Continue,s)) ∧
   (h_prog (Call calltyp tgtexp argexps,s) = h_prog_rule_call calltyp tgtexp argexps s) ∧
+  (h_prog (DecCall rt shape tgtexp argexps prog1,s) = h_prog_rule_deccall rt shape tgtexp argexps prog1 s) ∧
   (h_prog (ExtCall ffi_name conf_ptr conf_len array_ptr array_len,s) =
           h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len s) ∧
   (h_prog (Raise eid e,s) = h_prog_rule_raise eid e s) ∧

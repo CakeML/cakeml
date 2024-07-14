@@ -115,9 +115,11 @@ Proof
      h_prog_rule_raise_def,
      h_prog_rule_ext_call_def,
      h_prog_rule_call_def,
+     h_prog_rule_deccall_def,
      h_prog_rule_while_def,
      h_prog_rule_cond_def,
-     h_prog_rule_sh_mem_def,
+     h_prog_rule_sh_mem_load_def,
+     h_prog_rule_sh_mem_store_def,
      h_prog_rule_seq_def,
      h_prog_rule_store_def,
      h_prog_rule_store_byte_def,
@@ -126,10 +128,11 @@ Proof
   rpt (CASE_TAC>>fs[])>>
   simp[Once itree_iter_thm]>>
   rpt (CASE_TAC>>fs[])>>
+  simp[h_prog_rule_sh_mem_store_nb_def]>>
+  rpt (CASE_TAC>>fs[])>>
   Cases_on ‘m’>>
-  simp[h_prog_rule_sh_mem_op_def,
-       h_prog_rule_sh_mem_load_def,
-       h_prog_rule_sh_mem_store_def]>>
+  simp[h_prog_rule_nb_op_def,
+       h_prog_rule_sh_mem_load_nb_def]>>
   rpt (CASE_TAC>>fs[])
 QED
 
@@ -137,7 +140,8 @@ Theorem h_prog_Vis_INR:
   ∀prog s t.
   case prog of
     ExtCall _ _ _ _ _ => h_prog (prog, s) = Vis (INR x) k ⇒ k = Ret
-  | ShMem _ _ _ => h_prog (prog, s) = Vis (INR x) k ⇒ k = Ret
+  | ShMemLoad _ _ _ => h_prog (prog, s) = Vis (INR x) k ⇒ k = Ret
+  | ShMemStore _ _ _ => h_prog (prog, s) = Vis (INR x) k ⇒ k = Ret
   | _ => h_prog (prog, s) ≠ Vis (INR x) k
 Proof
   Induct>>
@@ -147,9 +151,11 @@ Proof
      h_prog_rule_raise_def,
      h_prog_rule_ext_call_def,
      h_prog_rule_call_def,
+     h_prog_rule_deccall_def,
      h_prog_rule_while_def,
      h_prog_rule_cond_def,
-     h_prog_rule_sh_mem_def,
+     h_prog_rule_sh_mem_load_def,
+     h_prog_rule_sh_mem_store_def,
      h_prog_rule_seq_def,
      h_prog_rule_store_def,
      h_prog_rule_store_byte_def,
@@ -158,10 +164,11 @@ Proof
   rpt (CASE_TAC>>fs[])>>
   simp[Once itree_iter_thm]>>
   rpt (CASE_TAC>>fs[])>>
+  simp[h_prog_rule_sh_mem_store_nb_def]>>
+  rpt (CASE_TAC>>fs[])>>
   Cases_on ‘m’>>
-  simp[h_prog_rule_sh_mem_op_def,
-       h_prog_rule_sh_mem_load_def,
-       h_prog_rule_sh_mem_store_def]>>
+  simp[h_prog_rule_nb_op_def,
+       h_prog_rule_sh_mem_load_nb_def]>>
   rpt (CASE_TAC>>fs[])
 QED
 
