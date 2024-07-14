@@ -109,7 +109,6 @@ val _ = update_precondition ptree_op_side;
 
 val r = preprocess ptree_Literal_def |> translate;
 
-
 Theorem ptree_literal_side[local]:
   ∀x. camlptreeconversion_ptree_literal_side x
 Proof
@@ -137,6 +136,8 @@ Proof
 QED
 
 val _ = update_precondition precparse_side;
+
+val r = preprocess ptree_PRecFields_def |> translate;
 
 val r = preprocess ptree_PPattern_def |> translate;
 
@@ -188,7 +189,8 @@ Proof
     \\ simp [SF CONJ_ss]
     \\ rpt strip_tac
     \\ simp [Once (fetch "-" "camlptreeconversion_ptree_expr_side_def")]
-    \\ rw [] \\ gs [caml_lexTheory.isSymbol_thm])
+    \\ simp [fetch "-" "camlptreeconversion_ptree_double_side_def"]
+    \\ rw [] \\ gs [caml_lexTheory.isSymbol_thm, caml_lexTheory.isFloat_thm])
   \\ rw []
   \\ simp [Once (fetch "-" "camlptreeconversion_ptree_expr_side_def")]
 QED
