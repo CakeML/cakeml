@@ -16,3 +16,12 @@ CC=gcc
 endif
 basis_ffi.o: basis_ffi.c
 	$(CC) -c $< -o $@
+
+EXTRA_CLEANS = basis_heap
+
+ifdef POLY
+all: basis_heap
+
+basis_heap: basis.uo basisProgTheory.uo
+	$(HOLDIR)/bin/buildheap -o $@ $<
+endif

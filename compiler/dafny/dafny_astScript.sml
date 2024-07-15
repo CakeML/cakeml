@@ -4,7 +4,7 @@
 
 open preamble
 
-val _ = new_theory "dafnyAst";
+val _ = new_theory "dafny_ast";
 
 Datatype:
   name =
