@@ -461,27 +461,39 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
 (* record projection and update *)
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
-  "x.foo"
-  (SOME $ eval “App Opapp [V (mk_record_proj_name "foo"); V "x"]”)
+  "x.Cons.foo"
+  (SOME $ eval “App Opapp [V (mk_record_proj_name "foo" "Cons");
+                           V "x"]”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
-  "{x with foo = bar}"
+  "Foo {x with foo = bar}"
   (SOME $ eval “App Opapp [App Opapp [
-                        V (mk_record_update_name "foo"); V "x"]; V "bar"]”)
+                        V (mk_record_update_name "foo" "Foo"); V "x"];
+                        V "bar"]”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
-  "{x with foo = bar;}"
+  "Foo {x with foo = bar;}"
   (SOME $ eval “App Opapp [App Opapp [
-                        V (mk_record_update_name "foo"); V "x"]; V "bar"]”)
+                        V (mk_record_update_name "foo" "Foo"); V "x"];
+                        V "bar"]”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
-  "{x with foo = bar; baz = quux;}"
-  (SOME $ eval “App Opapp [App Opapp [V (mk_record_update_name "baz");
-           App Opapp [App Opapp [V (mk_record_update_name "foo");
+  "Foo {x with foo = bar; baz = quux;}"
+  (SOME $ eval “App Opapp [App Opapp [V (mk_record_update_name "baz" "Foo");
+           App Opapp [App Opapp [V (mk_record_update_name "foo" "Foo");
              V "x"]; V "bar"]]; V "quux"]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Bar.Foo {x with foo = bar; baz = quux;}"
+  (SOME $ eval “App Opapp [App Opapp [
+                  Var (Long "Bar" (Short (mk_record_update_name "baz" "Foo")));
+                  App Opapp [App Opapp [
+                    Var (Long "Bar" (Short (mk_record_update_name "foo" "Foo")));
+                    V "x"]; V "bar"]]; V "quux"]”)
   ;
 
 (* construction *)
@@ -499,6 +511,11 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   NONE
   ;
 
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Bar.Foo { f2 = 2; f1 = 1; f3 = 3;}"
+  NONE
+  ;
+
 (* declaration *)
 
 val _ = parsetest0 “nStart” “ptree_Start”
@@ -512,16 +529,16 @@ val _ = parsetest0 “nStart” “ptree_Start”
       [Dtype L [([],"rec1",[("Foo",[Attup [Atapp [] (Short "bool"); Atapp [] (Short "int")]])])];
        Dlet L1 (Pv (mk_record_constr_name "Foo" ["bar";"foo"]))
           (Fun "bar" (Fun "foo" (C "Foo" [Con NONE [V "bar"; V "foo"]])));
-        Dlet L2 (Pv (mk_record_proj_name "bar"))
+        Dlet L2 (Pv (mk_record_proj_name "bar" "Foo"))
           (Fun "" (Mat (V "") [(Pc "Foo" [Pcon NONE [Pv "bar"; Pv "foo"]],V "bar")]));
-        Dlet L3 (Pv (mk_record_proj_name "foo"))
+        Dlet L3 (Pv (mk_record_proj_name "foo" "Foo"))
           (Fun "" (Mat (V "") [(Pc "Foo" [Pcon NONE [Pv "bar"; Pv "foo"]],V "foo")]));
-        Dlet L4 (Pv (mk_record_update_name "bar"))
+        Dlet L4 (Pv (mk_record_update_name "bar" "Foo"))
           (Fun ""
              (Mat (V "")
                 [(Pc "Foo" [Pcon NONE [Pv "bar"; Pv "foo"]],
                   Fun "bar" (C "Foo" [Con NONE [V "bar"; V "foo"]]))]));
-        Dlet L5 (Pv (mk_record_update_name "foo"))
+        Dlet L5 (Pv (mk_record_update_name "foo" "Foo"))
           (Fun ""
              (Mat (V "")
                 [(Pc "Foo" [Pcon NONE [Pv "bar"; Pv "foo"]],
@@ -546,6 +563,12 @@ val _ = parsetest0 “nStart” “ptree_Start”
 val _ = parsetest0 “nStart” “ptree_Start”
   "match y with\
   \  Foo {z} -> f z;;"
+  NONE
+  ;
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "match y with\
+  \  Bar.Foo {z} -> f z;;"
   NONE
   ;
 

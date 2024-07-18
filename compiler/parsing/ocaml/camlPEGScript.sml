@@ -540,16 +540,17 @@ Definition camlPEG_def[nocompute]:
        seql [pnt nUpdate; try (seql [tokeq SemiT; pnt nUpdates] I)]
             (bindNT nUpdates));
       (INL nERecUpdate,
-       seql [tokeq LbraceT; pnt nExpr; tokeq WithT; pnt nUpdates;
+       seql [pnt nConstr; tokeq LbraceT; pnt nExpr; tokeq WithT; pnt nUpdates;
              try (tokeq SemiT); tokeq RbraceT]
             (bindNT nERecUpdate));
       (INL nEBase,
        choicel [
          pegf (pnt nLiteral) (bindNT nEBase);
          pegf (pnt nValuePath) (bindNT nEBase);
+         (* N.B. nERecUpdate goes before nConstr, because they coincide *)
+         pegf (pnt nERecUpdate) (bindNT nEBase);
          pegf (pnt nConstr) (bindNT nEBase);
          pegf (pnt nEList) (bindNT nEBase);
-         pegf (pnt nERecUpdate) (bindNT nEBase);
          seql [tokeq LparT; tokeq RparT] (bindNT nEBase); (* unit *)
          seql [tokeq BeginT; tokeq EndT] (bindNT nEBase); (* unit *)
          seql [tokeq LparT; pnt nExpr;
@@ -576,7 +577,7 @@ Definition camlPEG_def[nocompute]:
       (* -- Expr14.5 ------------------------------------------------------- *)
       (INL nERecProj,
        seql [pnt nEIndex;
-             try (seql [tokeq DotT; pnt nFieldName] I)]
+             try (seql [tokeq DotT; pnt nConstr; tokeq DotT; pnt nFieldName] I)]
             (bindNT nERecProj));
       (* -- Expr14 --------------------------------------------------------- *)
       (INL nEAssert,

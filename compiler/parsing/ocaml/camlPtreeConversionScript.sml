@@ -1279,21 +1279,28 @@ End
  *)
 
 Definition mk_record_update_name_def:
-  mk_record_update_name field = "{record_update(" ++ field ++ ")}"
+  mk_record_update_name field cons =
+    "{record_update(" ++ cons ++ "." ++ field ++ ")}"
+End
+
+Definition id_map_def:
+  id_map f (Long mn id) = Long mn (id_map f id) /\
+  id_map f (Short nm) = Short (f nm)
 End
 
 Definition build_record_upd_def:
-  build_record_upd b (f,x) =
-    App Opapp [App Opapp [Var (Short (mk_record_update_name f)); b]; x]
+  build_record_upd cons b (f,x) =
+    App Opapp [App Opapp [Var (id_map (mk_record_update_name f) cons); b]; x]
 End
 
 Definition mk_record_proj_name_def:
-  mk_record_proj_name field = "{record_projection(" ++ field ++ ")}"
+  mk_record_proj_name field cons =
+    "{record_projection(" ++ cons ++ "." ++ field ++ ")}"
 End
 
 Definition build_record_proj_def:
-  build_record_proj f x =
-    App Opapp [Var (Short (mk_record_proj_name f)); x]
+  build_record_proj cons f x =
+    App Opapp [Var (id_map (mk_record_proj_name f) cons); x]
 End
 
 Definition mk_record_constr_name_def:
@@ -1343,7 +1350,7 @@ End
 Definition mk_record_match_aux_def:
   mk_record_match_aux recv constr body [] = body /\
   mk_record_match_aux recv constr body (f::fs) =
-    Let (SOME f) (build_record_proj f (Var (Short recv)))
+    Let (SOME f) (build_record_proj constr f (Var (Short recv)))
                  (mk_record_match_aux recv constr body fs)
 End
 
@@ -1623,7 +1630,7 @@ Definition ptree_Expr_def:
       | _ => fail (locs, «Impossible: nEBase»)
     else if nterm = INL nERecUpdate then
       case args of
-        [lb; x; witht; upds; semi; rb] =>
+        [arg; lb; x; witht; upds; semi; rb] =>
           do
             expect_tok lb LbraceT;
             expect_tok witht WithT;
@@ -1631,16 +1638,20 @@ Definition ptree_Expr_def:
             expect_tok rb RbraceT;
             e <- ptree_Expr nExpr x;
             us <- ptree_Updates upds;
-            return $ FOLDL build_record_upd e us
+            cns <- ptree_Constr arg;
+            ns <- path_to_ns locs cns;
+            return $ FOLDL (build_record_upd ns) e us
           od
-      | [lb; x; witht; upds; rb] =>
+      | [arg; lb; x; witht; upds; rb] =>
           do
             expect_tok lb LbraceT;
             expect_tok witht WithT;
             expect_tok rb RbraceT;
             e <- ptree_Expr nExpr x;
             us <- ptree_Updates upds;
-            return $ FOLDL build_record_upd e us
+            cns <- ptree_Constr arg;
+            ns <- path_to_ns locs cns;
+            return $ FOLDL (build_record_upd ns) e us
           od
       | _ => fail (locs, «Impossible: nERecUpdate»)
     else if nterm = INL nEIndex then
@@ -1662,12 +1673,15 @@ Definition ptree_Expr_def:
     else if nterm = INL nERecProj then
       case args of
         [arg] => ptree_Expr nEIndex arg
-      | [arg; dot; fn] =>
+      | [arg; dot1; cons; dot2; fn] =>
           do
-            expect_tok dot DotT;
+            expect_tok dot1 DotT;
+            expect_tok dot2 DotT;
             x <- ptree_Expr nEIndex arg;
             f <- ptree_FieldName fn;
-            return $ build_record_proj f x
+            cns <- ptree_Constr cons;
+            ns <- path_to_ns locs cns;
+            return $ build_record_proj ns f x
           od
       | _ => fail (locs, «Impossible: nERecProj»)
     else if nterm = INL nERecCons then
@@ -2721,11 +2735,11 @@ Definition build_rec_funs_def:
                     | _::_::_ => [Pcon NONE pvars]
                     | _ => pvars) in
     let projs = MAP (λf.
-                  Dlet locs (Pvar (mk_record_proj_name f))
+                  Dlet locs (Pvar (mk_record_proj_name f cname))
                     (Fun "" (Mat (Var (Short ""))
                         [(pat, Var (Short f))]))) fds in
     let upds = MAP (λf.
-                  Dlet locs (Pvar (mk_record_update_name f))
+                  Dlet locs (Pvar (mk_record_update_name f cname))
                     (Fun "" (Mat (Var (Short ""))
                         [(pat, Fun f rhs)]))) fds in
       constr :: projs ++ upds
@@ -2850,7 +2864,7 @@ Definition build_dlet_def:
                Dlocal
                  [Dlet locs (Pvar v) x]
                  (MAP (λf. Dlet locs (Pvar f)
-                                     (build_record_proj f (Var (Short v)))) fs)
+                                (build_record_proj c f (Var (Short v)))) fs)
            | INL (INR p, x) =>
                Dlet locs p x
            | INR (f,ps,bd) =>
