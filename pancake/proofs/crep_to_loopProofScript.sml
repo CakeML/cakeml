@@ -3231,8 +3231,8 @@ Proof
       )
       >- (
         gs []
-	\\ GEN_EXISTS_TAC "ck''" `ck'`
-	\\ simp [evaluate_def, set_var_def, get_var_imm_def, asmTheory.word_cmp_def]
+        \\ GEN_EXISTS_TAC "ck''" `ck'`
+        \\ simp [evaluate_def, set_var_def, get_var_imm_def, asmTheory.word_cmp_def]
         \\ simp [cut_res_def, call_env_def]
         \\ gvs []
         \\ fs [state_rel_def, empty_locals_def, ctxt_fc_def]
