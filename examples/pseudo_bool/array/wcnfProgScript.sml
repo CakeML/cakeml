@@ -84,6 +84,7 @@ Theorem parse_wcnf_toks_arr_spec:
 Proof
   Induct
   \\ simp []
+  \\ rw[]
   \\ xcf "parse_wcnf_toks_arr" (get_ml_prog_state ())
   THEN1 (
     xlet ‘(POSTv v.

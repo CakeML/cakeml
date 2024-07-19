@@ -107,6 +107,8 @@ val _ = r |> hyp |> null orelse
 val res = translate all_bytes_eq
 val res = translate byte_to_string_eq
 val res = translate escape_sym_char_def
+val res = translate get_sym_label_def
+val res = translate get_sym_labels_def
 val res = translate emit_symbol_def
 val res = translate emit_symbols_def
 
@@ -236,8 +238,11 @@ val res = translate backendTheory.prim_src_config_eq;
 
 (* x64 *)
 val res = translate x64_configTheory.x64_names_def;
+val res = translate export_x64Theory.startup_def;
 val res = translate export_x64Theory.ffi_asm_def;
 val res = translate export_x64Theory.windows_ffi_asm_def;
+val res = translate export_x64Theory.export_func_def;
+val res = translate export_x64Theory.export_funcs_def;
 val res = translate export_x64Theory.x64_export_def;
 val res = translate
           (x64_configTheory.x64_backend_config_def
@@ -245,7 +250,10 @@ val res = translate
 
 (* riscv *)
 val res = translate riscv_configTheory.riscv_names_def;
+val res = translate export_riscvTheory.startup_def;
 val res = translate export_riscvTheory.ffi_asm_def;
+val res = translate export_riscvTheory.export_func_def;
+val res = translate export_riscvTheory.export_funcs_def;
 val res = translate export_riscvTheory.riscv_export_def;
 val res = translate
           (riscv_configTheory.riscv_backend_config_def
@@ -253,7 +261,10 @@ val res = translate
 
 (* mips *)
 val res = translate mips_configTheory.mips_names_def;
+val res = translate export_mipsTheory.startup_def;
 val res = translate export_mipsTheory.ffi_asm_def;
+val res = translate export_mipsTheory.export_func_def;
+val res = translate export_mipsTheory.export_funcs_def;
 val res = translate export_mipsTheory.mips_export_def;
 val res = translate
           (mips_configTheory.mips_backend_config_def
@@ -261,7 +272,10 @@ val res = translate
 
 (* arm8 *)
 val res = translate arm8_configTheory.arm8_names_def;
+val res = translate export_arm8Theory.startup_def;
 val res = translate export_arm8Theory.ffi_asm_def;
+val res = translate export_arm8Theory.export_func_def;
+val res = translate export_arm8Theory.export_funcs_def;
 val res = translate export_arm8Theory.arm8_export_def;
 val res = translate
           (arm8_configTheory.arm8_backend_config_def
@@ -282,7 +296,7 @@ val res = format_compiler_result_def
             |> spec64
             |> translate;
 
-val res = translate ffinames_to_string_list_def;
+val res = translate backendTheory.ffinames_to_string_list_def;
 
 val res = translate compile_64_def;
 
@@ -530,7 +544,8 @@ Theorem main_spec:
        * STDIO (full_compile_64 (TL cl) (get_stdin fs) fs)
        * COMMANDLINE cl)
 Proof
-  xcf_with_def "main" main_v_def
+  rpt strip_tac
+  \\ xcf_with_def main_v_def
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)

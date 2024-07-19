@@ -42,6 +42,12 @@ Definition scope_check_prog_def:
   scope_check_prog ctxt (Dec v e p) =
     OPTION_CHOICE (scope_check_exp ctxt e)
                   (scope_check_prog (ctxt with vars := v :: ctxt.vars) p) ∧
+  scope_check_prog ctxt (DecCall v s e args p) =
+    OPTION_CHOICE
+        (scope_check_exp ctxt e)
+        (OPTION_CHOICE
+         (scope_check_exps ctxt args)
+         (scope_check_prog (ctxt with vars := v :: ctxt.vars) p)) ∧
   scope_check_prog ctxt (Assign v e) =
     (if ¬MEM v ctxt.vars
         then SOME (v, ctxt.fname)
@@ -68,7 +74,7 @@ Definition scope_check_prog_def:
     OPTION_CHOICE
       (scope_check_exp ctxt trgt)
       (scope_check_exps ctxt args) ∧
-  scope_check_prog ctxt (RetCall rt hdl trgt args) =
+  scope_check_prog ctxt (AssignCall rt hdl trgt args) =
     OPTION_CHOICE
       (scope_check_exp ctxt trgt)
       (OPTION_CHOICE
@@ -82,20 +88,34 @@ Definition scope_check_prog_def:
                if ¬MEM evar ctxt.vars
                   then SOME (evar, ctxt.fname)
                else scope_check_prog (ctxt with vars := evar :: ctxt.vars) p)) ∧
+  scope_check_prog ctxt (StandAloneCall hdl trgt args) =
+    OPTION_CHOICE
+      (scope_check_exp ctxt trgt)
+      (OPTION_CHOICE
+        (scope_check_exps ctxt args)
+        (case hdl of
+             NONE => NONE
+           | SOME (eid, evar, p) =>
+               if ¬MEM evar ctxt.vars
+                  then SOME (evar, ctxt.fname)
+               else scope_check_prog (ctxt with vars := evar :: ctxt.vars) p)) ∧
   scope_check_prog ctxt (ExtCall fname ptr1 len1 ptr2 len2) =
     scope_check_exps ctxt [ptr1;len1;ptr2;len2] ∧
   scope_check_prog ctxt (Raise eid excp) = scope_check_exp ctxt excp ∧
   scope_check_prog ctxt (Return rt) = scope_check_exp ctxt rt ∧
-  scope_check_prog ctxt (ShMem mop v e) =
+  scope_check_prog ctxt (ShMemLoad mop v e) =
     (if ¬MEM v ctxt.vars
         then SOME (v, ctxt.fname)
      else scope_check_exp ctxt e) ∧
+  scope_check_prog ctxt (ShMemStore mop e1 e2) =
+    OPTION_CHOICE (scope_check_exp ctxt e1)
+                  (scope_check_exp ctxt e2) ∧
   scope_check_prog ctxt Tick = NONE
 End
 
 Definition scope_check_funs_def:
   scope_check_funs fnames [] = NONE ∧
-  scope_check_funs fnames ((fname, vshapes, body)::funs) =
+  scope_check_funs fnames ((fname, _:bool, vshapes, body)::funs) =
     let ctxt = <| vars := MAP FST vshapes ; funcs := fnames ; fname := fname |> in
       OPTION_CHOICE (scope_check_prog ctxt body)
                     (scope_check_funs fnames funs)
@@ -111,4 +131,3 @@ End
 
 
 val _ = export_theory ();
-

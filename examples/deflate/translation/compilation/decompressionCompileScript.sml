@@ -1,12 +1,11 @@
 (*
   Compiles the simple decompression schema
 *)
-
-open preamble compilationLib decompressionProgTheory;
+open preamble decompressionProgTheory eval_cake_compile_x64Lib;
 
 val _ = new_theory "decompressionCompile"
 
 Theorem decompression_compiled =
-  compile_x64 "decompression" decompression_prog_def;
+  eval_cake_compile_x64 "" decompression_prog_def "decompression.S";
 
 val _ = export_theory ();

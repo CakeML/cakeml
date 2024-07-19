@@ -32,6 +32,7 @@ val _ = Datatype`config =
    ; lab_conf : 'a lab_to_target$config
    ; symbols : (mlstring # num # num) list
    ; tap_conf : tap_config
+   ; exported : mlstring list (* field for Pancake entry points - empty for CakeML *)
    |>`;
 
 val config_component_equality = theorem"config_component_equality";
@@ -612,6 +613,7 @@ Datatype:
    ; inc_lab_conf : lab_to_target$inc_config
    ; inc_symbols : (mlstring # num # num) list
    ; inc_tap_conf : tap_config
+   ; inc_exported : mlstring list
    |>
 End
 
@@ -627,6 +629,7 @@ Definition config_to_inc_config_def:
    ; inc_lab_conf := lab_to_target$config_to_inc_config c.lab_conf
    ; inc_symbols := c.symbols
    ; inc_tap_conf := c.tap_conf
+   ; inc_exported := c.exported
    |>
 End
 
@@ -642,6 +645,7 @@ Definition inc_config_to_config_def:
    ; lab_conf := lab_to_target$inc_config_to_config asm_c c.inc_lab_conf
    ; symbols := c.inc_symbols
    ; tap_conf := c.inc_tap_conf
+   ; exported := c.inc_exported
    |>
 End
 
@@ -668,7 +672,6 @@ Proof
        lab_to_targetTheory.to_shmem_info_def,
        lab_to_targetTheory.shmem_info_num_component_equality]>>fs[]
 QED
-
 
 Theorem inc_config_to_config_inv:
   asm_c = c.lab_conf.asm_conf ==>
@@ -803,6 +806,60 @@ Proof
   \\ AP_THM_TAC
   \\ AP_TERM_TAC
   \\ fs [FUN_EQ_THM,FORALL_PROD]
+QED
+
+Definition ffinames_to_string_list_def:
+  (ffinames_to_string_list [] = []) ∧
+  (ffinames_to_string_list ((ExtCall s)::rest) =
+    s::(ffinames_to_string_list rest)) ∧
+  (ffinames_to_string_list ((SharedMem _)::rest) =
+    ffinames_to_string_list rest)
+End
+
+
+Definition inc_set_oracle_def:
+  inc_set_oracle c oracle =
+    c with inc_word_to_word_conf :=
+        (c.inc_word_to_word_conf with col_oracle := oracle)
+End
+
+Definition set_oracle_def:
+  set_oracle c oracle =
+    c with
+    word_to_word_conf := c.word_to_word_conf with col_oracle := oracle
+End
+
+Definition set_asm_conf_def:
+  set_asm_conf c asm_c =
+    c with lab_conf := c.lab_conf with asm_conf := asm_c
+End
+
+Theorem inc_set_oracle_pull:
+  ∀oracle c. inc_config_to_config b (inc_set_oracle c oracle) =
+             set_oracle (inc_config_to_config b c) oracle
+Proof
+  gvs [inc_set_oracle_def,inc_config_to_config_def,set_oracle_def]
+QED
+
+Theorem inc_config_to_config_config_to_inc_config:
+  inc_config_to_config asm_c (config_to_inc_config c) =
+  set_asm_conf c asm_c
+Proof
+  gvs [inc_config_to_config_def,
+       config_to_inc_config_def,
+       lab_to_targetTheory.inc_config_to_config_def,
+       lab_to_targetTheory.config_to_inc_config_def,
+       config_component_equality,
+       lab_to_targetTheory.config_component_equality,
+       set_asm_conf_def]
+QED
+
+Theorem set_asm_conf_id:
+  c.lab_conf.asm_conf = asm_c ⇒
+  set_asm_conf c asm_c = c
+Proof
+  gvs [set_asm_conf_def, fetch "-" "config_component_equality",
+       lab_to_targetTheory.config_component_equality]
 QED
 
 val _ = export_theory();

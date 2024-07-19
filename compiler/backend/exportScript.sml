@@ -34,9 +34,23 @@ val preamble_tm =
        "#endif";
        "";
        "#if defined(__APPLE__)";
-       "# define makesym(name,base,len)";
+       "# define wcml(s) s";
        "#elif defined(__WIN32)";
-       "# define makesym(name,base,len)";
+       "# define wcml(s) windows_##s";
+       "#else";
+       "# define wcml(s) s";
+       "#endif";
+       "";
+       "#if defined(__APPLE__)";
+       ".macro _makesym name, base, len";
+       ".set \\name, cake_main+\\base";
+       ".endm";
+       "# define makesym(name,base,len) _makesym name, base, len";
+       "#elif defined(__WIN32)";
+       ".macro _makesym name, base, len";
+       ".set \\name, cake_main+\\base";
+       ".endm";
+       "# define makesym(name,base,len) _makesym name, base, len";
        "#else";
        ".macro _makesym name, base, len";
        ".local \\name";
@@ -54,15 +68,21 @@ val preamble_tm =
        ""])`` |> EVAL |> rconc;
 val preamble_def = Define`preamble = ^preamble_tm`;
 
-val data_section_def = Define`data_section word_directive =
+val data_section_def = Define`data_section word_directive ret =
      MAP (\n. strlit (n ++ "\n"))
-       ["     .data";
+       (["     .data";
         "     .p2align 3";
         "cdecl(cml_heap): " ++ word_directive ++ " 0";
         "cdecl(cml_stack): " ++ word_directive ++ " 0";
-        "cdecl(cml_stackend): " ++ word_directive ++ " 0";
-        "     .p2align 3";
-        "cake_bitmaps:"]`;
+        "cdecl(cml_stackend): " ++ word_directive ++ " 0"] ++
+        (if ret then
+          ["ret_base: " ++ word_directive ++ " 0";
+           "ret_stack: " ++ word_directive ++ " 0";
+           "ret_stackend: " ++ word_directive ++ " 0";
+           "can_enter: " ++ word_directive ++ " 0"]
+         else []) ++
+        ["     .p2align 3";
+        "cake_bitmaps:"])`;
 
 Definition data_buffer_def:
   data_buffer =
@@ -135,13 +155,25 @@ val escape_sym_char_def = Define`
        code >= 0x30 /\ code <= 0x39 \/ code = 0x5F then str ch else
     «$» ^ toString(code) ^ «_»`
 
-val emit_symbol_def = Define`
-  emit_symbol (ix,appl) (name,start,len) = (ix + 1, misc$Append appl (misc$List
-      [«    makesym(cml_» ^ concat (MAP escape_sym_char (explode name)) ^
-      «_» ^ toString(ix) ^ «, » ^ toString(start) ^ «, » ^
-      toString(len) ^ «)\n»]))`
+val get_sym_label_def = Define `
+  get_sym_label (ix,appl) (name,start,len) =
+    let label =
+      «cml_» ^ concat (MAP escape_sym_char (explode name)) ^
+      «_» ^ toString(ix) in
+    (ix + 1, appl ++ [(name,label,start,len)])`;
+
+val get_sym_labels_def = Define `
+  get_sym_labels syms =
+    SND $ FOLDL get_sym_label (0, []) syms`;
+
+val emit_symbol_def = Define `
+  emit_symbol appl (name,label,start,len) =
+    misc$Append appl (misc$List
+      [«    makesym(» ^ label ^ «, » ^ toString(start) ^ «, » ^
+      toString(len) ^ «)\n»])`;
 
 val emit_symbols_def = Define `
-  emit_symbols ls = SND $ FOLDL emit_symbol (0, misc$Nil) ls`;
+  emit_symbols lsyms =
+    FOLDL emit_symbol misc$Nil lsyms`;
 
 val _ = export_theory ();

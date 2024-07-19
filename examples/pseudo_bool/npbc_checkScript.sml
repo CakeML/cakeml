@@ -5,7 +5,7 @@ open preamble npbcTheory mlstringTheory mlintTheory mlvectorTheory spt_to_vecThe
 
 val _ = new_theory "npbc_check";
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 (* Proof steps are classified in a hierachy of three descending levels
 

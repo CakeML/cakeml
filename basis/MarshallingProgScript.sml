@@ -95,6 +95,7 @@ Theorem n2w2_spec:
        (W8ARRAY bl b)
        (POSTv u. &UNIT_TYPE () u * W8ARRAY bl (insert_atI (n2w2 n) off b))
 Proof
+  rpt strip_tac >>
   xcf "Marshalling.n2w2" (get_ml_prog_state()) >>
   NTAC 6 (xlet_auto >- xsimpl) >>
   xcon >> xsimpl >>
@@ -109,6 +110,7 @@ Theorem w22n_spec:
        (W8ARRAY bl b)
        (POSTv nv. &NUM (w22n [EL off b; EL (off+1) b]) nv * W8ARRAY bl b)
 Proof
+  rpt strip_tac >>
   xcf "Marshalling.w22n" (get_ml_prog_state()) >>
   NTAC 6 (xlet_auto >- xsimpl) >>
   xapp >> xsimpl  >> fs[w22n_def,NUM_def,INT_def,integerTheory.INT_ADD]

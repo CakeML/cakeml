@@ -19,7 +19,7 @@ val (cake_pb_mccis_sem,cake_pb_mccis_output) = cake_pb_mccis_io_events_def |> SP
 val (cake_pb_mccis_not_fail,cake_pb_mccis_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_pb_mccis_sem |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct mccis_compiled
+  MATCH_MP compile_correct (cj 1 mccis_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP cake_pb_mccis_not_fail
   |> C MATCH_MP x64_backend_config_ok
@@ -52,7 +52,7 @@ val installed_x64_def = Define `
     `;
 
 val cake_pb_mccis_code_def = Define `
-  cake_pb_mccis_code = (code, data, config)
+  cake_pb_mccis_code = (code, data, info)
   `;
 
 (* A standard run of cake_pb_mccis

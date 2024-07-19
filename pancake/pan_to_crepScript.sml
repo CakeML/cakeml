@@ -205,7 +205,18 @@ Definition compile_def:
     | ce::ces =>
      (case rtyp of
        | NONE => Call NONE ce args
-       | SOME (rt, hdl) =>
+       | SOME (NONE, hdl) =>
+           (case hdl of
+             | NONE => Call (SOME (NONE, Skip, NONE)) ce args
+             | SOME (eid, evar, p) =>
+                (case FLOOKUP ctxt.eids eid of
+                  | NONE => Call (SOME (NONE, Skip, NONE)) ce args
+                  | SOME neid =>
+                    let comp_hdl = compile ctxt p;
+                        hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
+                      Call (SOME (NONE, Skip,
+                                  (SOME (neid, hndlr)))) ce args))
+       | SOME (SOME rt, hdl) =>
          (case wrap_rt (FLOOKUP ctxt.vars rt) of
           | NONE =>
             (case hdl of
@@ -229,6 +240,32 @@ Definition compile_def:
                       Call (SOME ((ret_var sh ns), (ret_hdl sh ns),
                               (SOME (neid, hndlr)))) ce args))))
     | [] => Skip) /\
+  (compile ctxt (DecCall v s e es p) =
+   let
+       (cs, sh) = compile_exp ctxt e;
+       cexps = MAP (compile_exp ctxt) es;
+       args = FLAT (MAP FST cexps);
+       vmax = ctxt.vmax;
+       nvars = GENLIST (λx. vmax + SUC x) (size_of_shape s);
+       nctxt = ctxt with  <|vars := ctxt.vars |+ (v, (s, nvars));
+                            vmax := ctxt.vmax + size_of_shape s|> in
+     case cs of
+     | [] => Skip
+     | ce::ces =>
+         (case wrap_rt (SOME(s,nvars)) of
+            NONE => Call (SOME (NONE, compile nctxt p, NONE)) ce args
+          | SOME(sh,ns) =>
+              let ret_dec = case ret_var s ns of
+                              NONE => I
+                            |  SOME n => Dec n (Const 0w);
+                  p' = compile nctxt p;
+                  ret_decl = case ret_var s ns of
+                               NONE => nested_decs nvars (load_globals 0w (LENGTH nvars)) p'
+                             | SOME _ => p'
+              in ret_dec $
+                Call (SOME ((ret_var s ns), ret_decl, NONE)) ce args
+         )
+  ) /\
   (compile ctxt (ExtCall f ptr1 len1 ptr2 len2) =
    let
      (ptr1',sh1) = compile_exp ctxt ptr1;
@@ -246,16 +283,22 @@ Definition compile_def:
          $ Dec (n+4) lc'
          $ crepLang$ExtCall f (n+1) (n+2) (n+3) (n+4)
      | _ => Skip) /\
-  (compile ctxt (ShMem op r ad) =
+  (compile ctxt (ShMemStore op r ad) =
+   (case (compile_exp ctxt r,compile_exp ctxt ad) of
+      ((e::_,_),(a::_, _)) =>
+        let n = FOLDR MAX 0 $ var_cexp e
+        in
+          Dec (n+1) a $ ShMem (store_op op) (n+1) e
+    | _ => Skip)) ∧
+  (compile ctxt (ShMemLoad op r ad) =
    (case compile_exp ctxt ad of
       (a::_, _) =>
         (case FLOOKUP ctxt.vars r of
-           SOME (_, r'::_) => ShMem op r' a
+           SOME (_, r'::_) => ShMem (load_op op) r' a
          | _ => Skip)
-    | _ => Skip)) ∧
+     | _ => Skip)) ∧
   (compile ctxt Tick = Tick)
 End
-
 
 Definition mk_ctxt_def:
   mk_ctxt vmap fs m (es:panLang$eid |-> 'a word) =

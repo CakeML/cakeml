@@ -1,12 +1,11 @@
 (*
   Compiles the binary for the Deflate decoder
 *)
-
-open preamble compilationLib deflateDecodeProgTheory;
+open preamble deflateDecodeProgTheory eval_cake_compile_x64Lib;
 
 val _ = new_theory "deflateDecodeCompile"
 
 Theorem deflateDecode_compiled =
-  compile_x64 "deflateDecode" deflateDecode_prog_def;
+  eval_cake_compile_x64 "" deflateDecode_prog_def "deflateDecode.S";
 
 val _ = export_theory ();

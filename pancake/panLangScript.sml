@@ -53,6 +53,10 @@ Datatype:
 End
 
 Datatype:
+  opsize = Op8 | OpW
+End
+
+Datatype:
   prog = Skip
        | Dec varname ('a exp) prog
        | Assign    varname ('a exp)  (* dest, source *)
@@ -63,12 +67,14 @@ Datatype:
        | While ('a exp) prog
        | Break
        | Continue
-       | Call ((varname # ((eid # varname # prog) option)) option) ('a exp) (('a exp) list)
+       | Call ((varname option # ((eid # varname # prog) option)) option) ('a exp) (('a exp) list)
+       | DecCall varname shape ('a exp) ('a exp list) prog
        | ExtCall funname ('a exp) ('a exp) ('a exp) ('a exp)
          (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
        | Raise eid ('a exp)
        | Return ('a exp)
-       | ShMem memop varname ('a exp)
+       | ShMemLoad opsize varname ('a exp)
+       | ShMemStore opsize ('a exp) ('a exp)
        | Tick;
 End
 
@@ -83,7 +89,8 @@ End
 *)
 
 Overload TailCall = “Call NONE”
-Overload RetCall = “\s h. Call (SOME (s , h))”
+Overload AssignCall = “\s h. Call (SOME (SOME s , h))”
+Overload StandAloneCall = “\h. Call (SOME (NONE , h))”
 
 (*
 Datatype:
@@ -137,6 +144,7 @@ Definition exp_ids_def:
   (exp_ids (If _ p q) = exp_ids p ++ exp_ids q) ∧
   (exp_ids (While _ p) = exp_ids p) ∧
   (exp_ids (Call (SOME (_ , (SOME (e ,  _ , ep)))) _ _) = e::exp_ids ep) ∧
+  (exp_ids (DecCall _ _ _ _ p) = exp_ids p) ∧
   (exp_ids _ = [])
 End
 
@@ -197,6 +205,16 @@ End
 Definition destruct_def:
   (destruct (Struct es) = es) /\
   (destruct _ = [])
+End
+
+Definition load_op_def:
+  load_op Op8 = Load8 ∧
+  load_op OpW = Load
+End
+
+Definition store_op_def:
+  store_op Op8 = Store8 ∧
+  store_op OpW = Store
 End
 
 val _ = export_theory();

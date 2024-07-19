@@ -89,8 +89,9 @@ QED
   The current relation might be wrong *)
 
 (* the set of ids n1 .... n2-1 *)
-val set_ids_def = Define`
-  set_ids n1 (n2:num) = {m | n1 ≤ m ∧ m < n2}`
+Definition set_ids_def:
+  set_ids n1 (n2:num) = {m | n1 ≤ m ∧ m < n2}
+End
 
 val set_ids_eq = Q.prove(`
   set_ids n1 n2 =
@@ -735,7 +736,7 @@ Theorem db_subst_infer_subst_swap2:
 Proof
 ho_match_mp_tac infer_t_induction >>
 rw [convert_t_def, deBruijn_subst_def, EL_MAP, t_walkstar_eqn1,
-    infer_deBruijn_subst_def, MAP_MAP_o, combinTheory.o_DEF, check_t_def,
+    infer_deBruijn_subst_alt, MAP_MAP_o, combinTheory.o_DEF, check_t_def,
     LENGTH_COUNT_LIST]
 QED
 

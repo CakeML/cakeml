@@ -5,7 +5,7 @@ open preamble pbcTheory;
 
 val _ = new_theory "npbc";
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 Type var = “:num”
 

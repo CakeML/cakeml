@@ -61,6 +61,7 @@ List.all_distinct: 'a list -> bool
 List.isPrefix: 'a list -> 'a list -> bool
 List.front: 'a list -> 'a list
 List.splitAtPki: (int -> 'a -> bool) -> ('a list -> 'a list -> 'b) -> 'a list -> 'b
+List.split: ('a -> bool) -> 'a list -> 'a list * 'a list
 List.update: 'a -> int -> 'a list -> 'a list
 List.compare: ('a -> 'b -> ordering) -> 'a list -> 'b list -> ordering
 List.sort: ('a -> 'a -> bool) -> 'a list -> 'a list

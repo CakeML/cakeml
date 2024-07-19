@@ -346,6 +346,7 @@ Theorem sort_spec:
         &UNIT_TYPE () uv *
           STDIO (sort_sem cl fs) * COMMANDLINE cl)
 Proof
+  strip_tac >>
   xcf "sort" (get_ml_prog_state ()) >>
   xmatch >>
   qabbrev_tac `fnames = TL cl` >>

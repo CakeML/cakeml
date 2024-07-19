@@ -87,6 +87,11 @@ OPTIONS:
 
   --pancake     takes a pancake program as input
 
+  --main_return=B   here B can be either true or false; the default is
+                false; setting this to true causes the main function to
+                return to caller instead of exit; this option is
+                required to use multiple entry points with Pancake.
+
 ADDITIONAL OPTIONS:
 
 Optimisations can be configured using the following advanced options.
@@ -600,13 +605,15 @@ val parse_top_config_def = Define`
   let typeinference = find_bool (strlit"--skip_type_inference=") ls F in
   let sexpprint = MEMBER (strlit"--print_sexp") ls in
   let onlyprinttypes = MEMBER (strlit"--types") ls in
-  case (sexp,prelude,typeinference) of
-    (INL sexp,INL prelude,INL typeinference) =>
-      INL (sexp,prelude,typeinference,onlyprinttypes,sexpprint)
+  let mainreturn = find_bool (strlit"--main_return=") ls F in
+  case (sexp,prelude,typeinference,mainreturn) of
+    (INL sexp,INL prelude,INL typeinference,INL mainreturn) =>
+      INL (sexp,prelude,typeinference,onlyprinttypes,sexpprint,mainreturn)
   | _ => INR (concat [
                get_err_str sexp;
                get_err_str prelude;
-               get_err_str typeinference])`
+               get_err_str typeinference;
+               get_err_str mainreturn])`
 
 (* Check for version flag *)
 val has_version_flag_def = Define `
@@ -634,14 +641,6 @@ val add_tap_output_def = Define`
   add_tap_output td out =
     if td = Nil then out else td :mlstring app_list`;
 
-Definition ffinames_to_string_list_def:
-  (ffinames_to_string_list [] = []) ∧
-  (ffinames_to_string_list ((ExtCall s)::rest) =
-    s::(ffinames_to_string_list rest)) ∧
-  (ffinames_to_string_list ((SharedMem _)::rest) =
-    ffinames_to_string_list rest)
-End
-
 (* The top-level compiler with everything instantiated except it doesn't do exporting *)
 
 (* The top-level compiler with almost everything instantiated except the top-level configuration *)
@@ -650,7 +649,7 @@ Definition compile_64_def:
   let confexp = parse_target_64 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
-    (INL (conf,export), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint)) =>
+    (INL (conf,export), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret)) =>
     (let ext_conf = extend_conf cl conf in
     case ext_conf of
       INL ext_conf =>
@@ -668,7 +667,7 @@ Definition compile_64_def:
             (add_tap_output td (export
               (ffinames_to_string_list
                 $ the [] c.lab_conf.ffi_names)
-                bytes data c.symbols),
+                bytes data c.symbols c.exported mainret F),
               implode "")
         | (Failure err, td) => (add_tap_output td (List []), error_to_str err))
     | INR err =>
@@ -686,7 +685,7 @@ Definition compile_pancake_64_def:
       let topconf = parse_top_config cl in
       case (topconf) of
       | INR err => (List[], error_to_str (ConfigError err))
-      | INL (sexp, prelude, sexpprint) =>
+      | INL (sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret) =>
           let ext_conf = extend_conf cl conf in
           case ext_conf of
           | INR err =>
@@ -697,7 +696,7 @@ Definition compile_pancake_64_def:
                   (List[], error_to_str err)
               | (Success (bytes, data, c)) =>
                   (export (ffinames_to_string_list $
-                    the [] c.lab_conf.ffi_names) bytes data c.symbols, implode "")
+                    the [] c.lab_conf.ffi_names) bytes data c.symbols c.exported mainret T, implode "")
 End
 
 Definition full_compile_64_def:
@@ -721,7 +720,7 @@ Definition compile_32_def:
   let confexp = parse_target_32 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
-    (INL (conf,export), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint)) =>
+    (INL (conf,export), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret)) =>
     (let ext_conf = extend_conf cl conf in
     case ext_conf of
       INL ext_conf =>
@@ -739,7 +738,7 @@ Definition compile_32_def:
             (add_tap_output td (export
               (ffinames_to_string_list $
                 the [] c.lab_conf.ffi_names)
-                bytes data c.symbols),
+                bytes data c.symbols c.exported mainret F),
               implode "")
         | (Failure err, td) => (List [], error_to_str err))
     | INR err =>
@@ -757,7 +756,7 @@ Definition compile_pancake_32_def:
       let topconf = parse_top_config cl in
       case (topconf) of
       | INR err => (List[], error_to_str (ConfigError err))
-      | INL (sexp, prelude, sexpprint) =>
+      | INL (sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret) =>
           let ext_conf = extend_conf cl conf in
           case ext_conf of
           | INR err =>
@@ -768,7 +767,7 @@ Definition compile_pancake_32_def:
                   (List[], error_to_str err)
               | (Success (bytes, data, c)) =>
                   (export (ffinames_to_string_list $
-                    the [] c.lab_conf.ffi_names) bytes data c.symbols, implode "")
+                    the [] c.lab_conf.ffi_names) bytes data c.symbols c.exported mainret T, implode "")
 End
 
 Definition full_compile_32_def:

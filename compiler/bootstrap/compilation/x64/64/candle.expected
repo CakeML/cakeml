@@ -1,0 +1,11 @@
+#     val x = Bb ("1", false, 2): thing
+# val y = Aa 5: thing
+#     val z = Bb ("1", true, 3): thing
+#     val s = "1": string
+#   1
+val it = (): unit
+# 2 5
+val it = (): unit
+# 5
+val it = (): unit
+#     

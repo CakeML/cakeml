@@ -5,7 +5,7 @@
 open HolKernel Parse boolLib bossLib;
 open libTheory namespaceTheory astTheory ffiTheory semanticPrimitivesTheory;
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 
 

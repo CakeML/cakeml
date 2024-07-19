@@ -20,18 +20,19 @@ val _ = new_theory "panLexer";
 Datatype:
   keyword = SkipK | StoreK | StoreBK | IfK | ElseK | WhileK
   | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK
-  | LdsK | LdbK | LdwK | BaseK | InK | FunK | TrueK | FalseK
+  | LdsK | LdbK | LdwK | BaseK | InK | FunK | ExportK | TrueK | FalseK
 End
 
 Datatype:
-  token = AndT | OrT | XorT | NotT
-  | EqT | NeqT | LessT | GreaterT | GeqT | LeqT
+  token = AndT | OrT | BoolAndT | BoolOrT | XorT | NotT
+  | EqT | NeqT | LessT | GreaterT | GeqT | LeqT | LowerT | HigherT | HigheqT | LoweqT
   | PlusT | MinusT | DotT | StarT
   | LslT | LsrT | AsrT | RorT
   | IntT int | IdentT string | ForeignIdent string (* @ffi_str except @base *)
   | LParT | RParT | CommaT | SemiT | ColonT | DArrowT | AddrT
   | LBrakT | RBrakT | LCurT | RCurT
   | AssignT
+  | StaticT
   | KeywordT keyword
   | LexErrorT mlstring
 End
@@ -41,18 +42,18 @@ Datatype:
 End
 
 Definition isAtom_singleton_def:
-  isAtom_singleton c = MEM c "+-&^|*().,;:[]{}"
+  isAtom_singleton c = MEM c "+-^*().,;:[]{}"
 End
 
 Definition isAtom_begin_group_def:
   (* # is for only for RorT,
   * and should remove it to avoid collision with
   * C-preprocessor later *)
-  isAtom_begin_group c = MEM c "#=><!"
+  isAtom_begin_group c = MEM c "#=><!&|"
 End
 
 Definition isAtom_in_group_def:
-  isAtom_in_group c = MEM c "=<>"
+  isAtom_in_group c = MEM c "=<>|&+"
 End
 
 Definition isAlphaNumOrWild_def:
@@ -71,6 +72,8 @@ End
 
 Definition get_token_def:
   get_token s =
+  if s = "&&" then BoolAndT else
+  if s = "||" then BoolOrT else
   if s = "&" then AndT else
   if s = "|" then OrT else
   if s = "^" then XorT else
@@ -80,6 +83,10 @@ Definition get_token_def:
   if s = ">" then GreaterT else
   if s = ">=" then GeqT else
   if s = "<=" then LeqT else
+  if s = "<+" then LowerT else
+  if s = ">+" then HigherT else
+  if s = ">=+" then HigheqT else
+  if s = "<=+" then LoweqT else
   if s = "=>" then DArrowT else
   if s = "!" then NotT else
   if s = "+" then PlusT else
@@ -127,6 +134,7 @@ Definition get_keyword_def:
   if s = "true" then (KeywordT TrueK) else
   if s = "false" then (KeywordT FalseK) else
   if s = "fun" then (KeywordT FunK) else
+  if s = "export" then (KeywordT ExportK) else
   if s = "" then LexErrorT $ «Expected keyword, found empty string» else
   if 2 <= LENGTH s ∧ EL 0 s = #"@" then ForeignIdent (DROP 1 s)
   else
@@ -175,16 +183,35 @@ Definition skip_comment_def:
   skip_comment "" _ = NONE ∧
   skip_comment (x::xs) loc =
   (case x of
-   | #"\n" => SOME (xs, next_loc 1 loc)
+   | #"\n" => SOME (xs, next_line loc)
    | _ => skip_comment xs (next_loc 1 loc))
+End
+
+Definition skip_block_comment_def:
+  skip_block_comment "" _ = NONE ∧
+  skip_block_comment [_] _ = NONE ∧
+  skip_block_comment (x::y::xs) loc =
+  if x = #"*" ∧ y = #"/" then
+    SOME (xs, next_loc 2 loc)
+  else if x = #"\n" then
+    skip_block_comment (y::xs) (next_line loc)
+  else
+    skip_block_comment (y::xs) (next_loc 1 loc)
 End
 
 Theorem skip_comment_thm:
   ∀xs l l' str. (skip_comment xs l = SOME (str, l')) ⇒
                               LENGTH str < LENGTH xs
 Proof
-  Induct
-  >> fs[skip_comment_def]
+  Induct >> rw[skip_comment_def] >> res_tac >> rw[]
+QED
+
+Theorem skip_block_comment_thm:
+  ∀xs l l' str. (skip_block_comment xs l = SOME (str, l')) ⇒
+                              LENGTH str < LENGTH xs
+Proof
+  recInduct skip_block_comment_ind
+  >> rw[skip_block_comment_def]
   >> rw[]
   >> res_tac
   >> gvs[]
@@ -219,6 +246,10 @@ Definition next_atom_def:
       (case (skip_comment (TL cs) (next_loc 2 loc)) of
        | NONE => SOME (ErrA «Malformed comment», Locs loc (next_loc 2 loc), "")
        | SOME (rest, loc') => next_atom rest loc')
+    else if isPREFIX "/*" (c::cs) then (* block comment *)
+      (case (skip_block_comment (TL cs) (next_loc 2 loc)) of
+       | NONE => SOME (ErrA «Malformed comment», Locs loc (next_loc 2 loc), "")
+       | SOME (rest, loc') => next_atom rest loc')
     else if isAtom_singleton c then
       SOME (SymA (STRING c []), Locs loc loc, cs)
     else if isAtom_begin_group c then
@@ -232,11 +263,10 @@ Definition next_atom_def:
 Termination
   WF_REL_TAC ‘measure (LENGTH o FST)’
   >> REPEAT STRIP_TAC
-  >> fs[skip_comment_thm]
-  >> Cases_on ‘cs’ >> fs[]
-  >> sg ‘STRLEN p_1 < STRLEN t’
-  >- metis_tac[skip_comment_thm]
-  >> fs[LESS_EQ_IFF_LESS_SUC, LE]
+  >> gvs[]
+  >> MAP_EVERY imp_res_tac [skip_comment_thm,skip_block_comment_thm]
+  >> BasicProvers.PURE_FULL_CASE_TAC
+  >> gvs[]
 End
 
 Theorem next_atom_LESS:
@@ -244,18 +274,12 @@ Theorem next_atom_LESS:
     next_atom input l = SOME (s, l', rest) ⇒ LENGTH rest < LENGTH input
 Proof
   recInduct next_atom_ind >> rw[next_atom_def]
-  >- metis_tac[DECIDE “x < y ⇒ x < SUC y”]
-  >- metis_tac[DECIDE “x < y ⇒ x < SUC y”]
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
-  >- (gvs[CaseEqs ["option", "prod", "list"]]
-      >> drule_then assume_tac skip_comment_thm
-      >> sg ‘STRLEN rest < STRLEN (TL cs)’ >> rw[]
-      >> sg ‘STRLEN (TL cs) < SUC (STRLEN cs)’ >> rw[LENGTH_TL]
-      >> Cases_on ‘cs’ >> simp[])
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
-  >- (pairarg_tac >> drule read_while_thm >> gvs[])
+  >> res_tac >> gvs[AllCaseEqs(),pairTheory.ELIM_UNCURRY]
+  >> MAP_EVERY imp_res_tac [skip_comment_thm,skip_block_comment_thm]
+  >> gvs[]
+  >> resolve_then Any mp_tac (GSYM pairTheory.PAIR) read_while_thm
+  >> simp[LESS_EQ_IFF_LESS_SUC]
+  >> BasicProvers.PURE_FULL_CASE_TAC >> gvs[]
 QED
 
 Definition next_token_def:
@@ -282,7 +306,7 @@ Definition pancake_lex_aux_def:
  (case next_token input loc of
   | NONE => []
   | SOME (token, Locs locB locE, rest) =>
-      (token, Locs locB locE) :: pancake_lex_aux rest (next_loc 1 loc))
+      (token, Locs locB locE) :: pancake_lex_aux rest locE)
 Termination
   WF_REL_TAC ‘measure (LENGTH o FST)’ >> rw[]
   >> imp_res_tac next_token_LESS

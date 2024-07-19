@@ -55,12 +55,11 @@ val r = translate add_def;
 
 val r = translate op_str_def;
 val r = translate print_coeff_var_def;
-val r = translate combine_rle_def;
 val r = translate spt_center_def;
-val r = translate apsnd_cons_def;
-val r = translate spt_centers_def;
 val r = translate spt_right_def;
 val r = translate spt_left_def;
+val r = translate spts_to_alist_add_pause_def;
+val r = translate spts_to_alist_aux_def;
 val r = translate spts_to_alist_def;
 val r = translate toSortedAList_def;
 val r = translate print_lc_def;
@@ -154,7 +153,7 @@ Theorem main_spec_stdin:
                 COMMANDLINE cl)
 Proof
   strip_tac
-  \\ xcf_with_def () main_v_def
+  \\ xcf_with_def main_v_def
   \\ reverse $ xhandle ‘(POSTv uv. &UNIT_TYPE () uv *
                 STDIO (add_stdout (fastForwardFD fs 0) $
                          run_vipr (lines_of (implode text))) *
@@ -214,7 +213,7 @@ Theorem main_spec_file:
                 COMMANDLINE cl)
 Proof
   strip_tac
-  \\ xcf_with_def () main_v_def
+  \\ xcf_with_def main_v_def
   \\ reverse $ xhandle ‘(POSTv uv. &UNIT_TYPE () uv *
                 STDIO (add_stdout fs $
                          run_vipr (lines_of (implode text))) *

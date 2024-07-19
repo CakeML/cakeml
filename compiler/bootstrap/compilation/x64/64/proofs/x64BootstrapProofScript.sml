@@ -8,20 +8,22 @@ open preamble
 
 val _ = new_theory"x64BootstrapProof";
 
-val with_clos_conf_simp = prove(
-  ``(mc_init_ok (x64_backend_config with <| clos_conf := z ; bvl_conf updated_by
+Triviality with_clos_conf_simp:
+    (mc_init_ok (x64_backend_config with <| clos_conf := z ; bvl_conf updated_by
                     (λc. c with <|inline_size_limit := t1; exp_cut := t2|>) |>) =
      mc_init_ok x64_backend_config) /\
     (x.max_app <> 0 /\ (case x.known_conf of NONE => T | SOME k => k.val_approx_spt = LN) ==>
      (backend_config_ok (x64_backend_config with clos_conf := x) =
-      backend_config_ok x64_backend_config))``,
+      backend_config_ok x64_backend_config))
+Proof
   fs [mc_init_ok_def,FUN_EQ_THM,backend_config_ok_def]
-  \\ rw [] \\ eq_tac \\ rw [] \\ EVAL_TAC);
+  \\ rw [] \\ eq_tac \\ rw [] \\ EVAL_TAC
+QED
 
 Definition compiler_instance_def:
   compiler_instance =
-    <| init_state := config_to_inc_config cake_config ;
-       compiler_fun := compile_inc_progs_for_eval cake_config.lab_conf.asm_conf ;
+    <| init_state := config_to_inc_config info;
+       compiler_fun := compile_inc_progs_for_eval x64_config ;
        config_dom := UNIV ;
        config_v := BACKEND_INC_CONFIG_v ;
        decs_dom := decs_allowed ;
@@ -30,17 +32,19 @@ End
 
 Triviality compiler_instance_lemma:
   INJ compiler_instance.config_v 𝕌(:inc_config) 𝕌(:semanticPrimitives$v) ∧
-  compiler_instance.init_state = config_to_inc_config cake_config ∧
-  compiler_instance.compiler_fun =
-    compile_inc_progs_for_eval cake_config.lab_conf.asm_conf
+  compiler_instance.init_state = config_to_inc_config info ∧
+  compiler_instance.compiler_fun = compile_inc_progs_for_eval x64_config
 Proof
   fs [compiler_instance_def]
 QED
 
-Theorem cake_config_lab_conf_asm_conf:
-  cake_config.lab_conf.asm_conf = x64_config
+Theorem info_asm_conf:
+  info.lab_conf.asm_conf = x64_config
 Proof
-  once_rewrite_tac [cake_config_def] \\ EVAL_TAC
+  assume_tac $ cj 1 compiler64_compiled
+  \\ drule compile_asm_config_eq
+  \\ gvs [backendTheory.set_oracle_def]
+  \\ strip_tac \\ EVAL_TAC
 QED
 
 val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
@@ -56,11 +60,12 @@ val (cake_sem,cake_output) = cake_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_P
 val (cake_not_fail,cake_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_sem |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct_eval cake_compiled
-  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO,
-                         with_clos_conf_simp]
+  MATCH_MP compile_correct_eval (cj 1 compiler64_compiled)
+  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,
+                         GSYM AND_IMP_INTRO,with_clos_conf_simp]
   |> Q.INST [‘ev’|->‘SOME compiler_instance’]
-  |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,compiler_instance_lemma]
+  |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,
+                           compiler_instance_lemma,info_asm_conf]
   |> C MATCH_MP cake_not_fail
   |> C MATCH_MP x64_backend_config_ok
   |> REWRITE_RULE[cake_sem_sing,AND_IMP_INTRO]
@@ -87,9 +92,7 @@ Theorem mk_init_eval_state_lemma =
        source_evalProofTheory.mk_init_eval_state_def]
   |> ONCE_REWRITE_RULE [mk_compiler_fun_from_ci_tuple]
   |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_compiler_fun_from_ci_def,
-        GSYM compiler_inst_def,cake_config_lab_conf_asm_conf];
-
-Overload config_env_str = “encode_backend_config (config_to_inc_config cake_config)”
+        GSYM compiler_inst_def];
 
 Overload init_eval_state_for =
   “λcl fs. (init_state (basis_ffi cl fs) with
@@ -116,24 +119,25 @@ Theorem repl_not_fail =
   |> Q.GEN ‘s’ |> ISPEC (mk_init_eval_state_lemma |> concl |> rand |> rand)
   |> REWRITE_RULE [GSYM mk_init_eval_state_lemma]
   |> SIMP_RULE (srw_ss()) [IN_DEF]
-  |> Q.INST [‘conf’|->‘config_to_inc_config cake_config’]
+  |> Q.GEN ‘conf’ |> Q.SPEC ‘config_to_inc_config info’
   |> REWRITE_RULE [GSYM (SIMP_CONV (srw_ss()) [] “hasFreeFD fs”)];
 
 Overload basis_init_ok =
   “λcl fs. STD_streams fs ∧ wfFS fs ∧ wfcl cl ∧ hasFreeFD fs ∧
-           file_content fs «config_enc_str.txt» = SOME config_env_str”;
+           file_content fs «config_enc_str.txt» = SOME conf”;
 
 Theorem repl_not_fail_thm:
   has_repl_flag (TL cl) ∧ basis_init_ok cl fs ⇒
   Fail ∉ semantics_prog (init_eval_state_for cl fs) init_env compiler64_prog
 Proof
   rw [IN_DEF] \\ irule repl_not_fail \\ fs []
+  \\ simp [compiler64_compiled]
 QED
 
 val compile_correct_applied2 =
-  MATCH_MP compile_correct_eval cake_compiled
-  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO,
-                         with_clos_conf_simp]
+  MATCH_MP compile_correct_eval (cj 1 compiler64_compiled)
+  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,
+                         GSYM AND_IMP_INTRO,with_clos_conf_simp]
   |> Q.INST [‘ev’|->‘SOME compiler_instance’]
   |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,
       x64_configProofTheory.x64_backend_config_ok,compiler_instance_lemma]
@@ -144,12 +148,12 @@ Definition repl_ready_to_run_def:
     ∃cbspace data_sp.
       has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
       hasFreeFD fs ∧
-      file_content fs «config_enc_str.txt» = SOME config_env_str ∧
+      file_content fs «config_enc_str.txt» = SOME conf ∧
       mc_conf_ok mc ∧ mc_init_ok x64_backend_config mc ∧
-      installed cake_code cbspace cake_data data_sp
-        cake_config.lab_conf.ffi_names
+      installed code cbspace data data_sp
+        info.lab_conf.ffi_names
         (heap_regs x64_backend_config.stack_conf.reg_names)
-        mc cake_config.lab_conf.shmem_extra ms
+        mc info.lab_conf.shmem_extra ms
 End
 
 Overload machine_sem = “λffi (mc,ms). targetSem$machine_sem mc ffi ms”
@@ -164,6 +168,7 @@ Proof
   PairCases_on ‘ms’ \\ rw [IN_DEF,repl_ready_to_run_def]
   \\ irule compile_correct_applied2 \\ fs []
   \\ first_x_assum $ irule_at Any
+  \\ rewrite_tac [info_asm_conf]
 QED
 
 Triviality isPREFIX_MEM:
