@@ -254,6 +254,8 @@ val _ = translate $ spec64 compile_crepop_def;
 
 val _ = translate $ spec64 compile_exp_def;
 
+val _ = translate $ spec64 call_label_def;
+
 val _ = translate $ spec64 compile_def;
 
 val _ = translate $ spec64 comp_func_def;
