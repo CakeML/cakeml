@@ -43,14 +43,14 @@ val res = translate delete_def;
 val res = translate insert_def;
 val res = translate lookup_def;
 val res = translate map_def;
-val r = translate combine_rle_def;
-val r = translate spt_center_def;
-val r = translate apsnd_cons_def;
-val r = translate spt_centers_def;
-val r = translate spt_right_def;
-val r = translate spt_left_def;
-val r = translate spts_to_alist_def;
-val r = translate toSortedAList_def;
+
+val res = translate spt_center_def;
+val res = translate spt_right_def;
+val res = translate spt_left_def;
+val res = translate spts_to_alist_add_pause_def;
+val res = translate spts_to_alist_aux_def;
+val res = translate spts_to_alist_def;
+val res = translate toSortedAList_def;
 
 val res = translate lrnext_def;
 val res = translate foldi_def;
