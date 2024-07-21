@@ -50,10 +50,10 @@ val riscv_sh_def = Define`
 
 val riscv_memop_def = Define`
    (riscv_memop Load    = INL LD) /\
-(* (riscv_memop Load32  = INL LWU) /\ *)
+   (riscv_memop Load32  = INL LWU) /\
    (riscv_memop Load8   = INL LBU) /\
    (riscv_memop Store   = INR SD) /\
-(* (riscv_memop Store32 = INR SW) /\ *)
+   (riscv_memop Store32 = INR SW) /\
    (riscv_memop Store8  = INR SB)`
 
 val riscv_const32_def = Define`

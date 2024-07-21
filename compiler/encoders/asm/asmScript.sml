@@ -117,14 +117,9 @@ val () = Datatype `
 val () = Datatype `
   addr = Addr reg ('a word)`
 
-(* old version
 val () = Datatype `
-  mem_op = Load  | Load8  | Load32
-         | Store | Store8 | Store32`
-*)
-
-val () = Datatype `
-  memop = Load  | Load8 | Store | Store8`
+  memop = Load  | Load8  | Load32
+        | Store | Store8 | Store32`
 
 val () = Datatype `
   inst = Skip
