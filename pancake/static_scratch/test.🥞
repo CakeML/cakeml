@@ -1,0 +1,7 @@
+fun main () {
+    return foo()
+}
+
+fun foo() {
+    return 2;
+}
