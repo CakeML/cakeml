@@ -420,8 +420,8 @@ Definition share_mem_op_def:
   (share_mem_op Load8 r ad s = share_mem_load r ad s 1) /\
   (share_mem_op Store r ad s = share_mem_store r ad s 0) /\
   (share_mem_op Store8 r ad s = share_mem_store r ad s 1)
-  (*(share_mem_op Load32 r ad s = share_mem_load r ad s 4) /\
-  (share_mem_op Store32 r ad s = share_mem_store r ad s 4) *)
+  (share_mem_op Load32 r ad s = share_mem_load r ad s 4) /\
+  (share_mem_op Store32 r ad s = share_mem_store r ad s 4)
 End
 
 val evaluate_def = tDefine "evaluate" `

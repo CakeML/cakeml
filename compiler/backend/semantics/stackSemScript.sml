@@ -231,9 +231,9 @@ Definition sh_mem_op_def:
   (sh_mem_op Load r ad (s:('a,'c,'ffi) stackSem$state) = sh_mem_load r ad s) ∧
   (sh_mem_op Store r ad s = sh_mem_store r ad s) ∧
   (sh_mem_op Load8 r ad s = sh_mem_load_byte r ad s) ∧
-  (sh_mem_op Store8 r ad s = sh_mem_store_byte r ad s)(* ∧
+  (sh_mem_op Store8 r ad s = sh_mem_store_byte r ad s) ∧
   (sh_mem_op Load32 r ad s = sh_mem_load r ad s 4) ∧
-  (sh_mem_op Store32 r ad s = sh_mem_store r ad s 4)*)
+  (sh_mem_op Store32 r ad s = sh_mem_store r ad s 4)
 End
 
 val full_read_bitmap_def = Define `
