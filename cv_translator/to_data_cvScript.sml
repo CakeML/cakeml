@@ -17,7 +17,14 @@ val _ = cv_trans source_letTheory.dest_Letrec_def;
 val _ = cv_trans source_letTheory.dest_Let_def;
 val _ = cv_trans source_letTheory.lift_let_def;
 val _ = cv_trans source_letTheory.lift_lets_def;
-val _ = cv_trans source_letTheory.compile_decs_def;
+
+val pre = cv_trans_pre source_letTheory.compile_decs_def;
+Theorem source_let_compile_decs_pre[cv_pre]:
+  ∀v. source_let_compile_decs_pre v
+Proof
+  ho_match_mp_tac source_letTheory.compile_decs_ind
+  \\ rw [] \\ simp [Once pre]
+QED
 
 (* source_to_source *)
 
