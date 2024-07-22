@@ -906,6 +906,14 @@ Proof
       loop_to_wordProofTheory.loop_inst_ok_def]
 QED
 
+Theorem call_label_eq_if:
+  call_label ctxt e = (dest, indirect_dest) ==>
+  indirect_dest = (if dest = NONE then [e] else [])
+Proof
+  simp [crep_to_loopTheory.call_label_def]
+  \\ rw [CaseEq "crepLang$exp"] \\ simp []
+QED
+
 Theorem every_inst_ok_less_crep_to_loop_compile:
   ∀ctxt ns body.
     ctxt.target = c.ISA ∧
@@ -924,27 +932,18 @@ Proof
       crep_to_loopTheory.compile_def]
   >~ [‘MAP2’] >-
     (drule $ cj 2 every_inst_ok_less_crep_to_loop_compile_exp \\
-     disch_then $ qspecl_then [‘ctxt.vmax + 1’,‘ns’,‘es ++ [e]’] mp_tac \\
+     fs [MAP2_ZIP, crep_to_loopTheory.gen_temps_def, EVERY_MAP, UNCURRY,
+        loopPropsTheory.every_prog_def, loop_inst_ok_def] \\
+     disch_then $ qspecl_then [‘ctxt.vmax + 1’,‘ns’,‘es ++ indirect_dest’] mp_tac \\
+     drule_then assume_tac call_label_eq_if \\
+     simp [] \\
+     gs [CaseEq "prod", CaseEq "option", crepPropsTheory.exps_of_def] \\
+     gvs [] \\
+     rpt (TOP_CASE_TAC \\ fs []) \\
+     gs [crepPropsTheory.exps_of_def] \\
      rw[MAP2_ZIP,EVERY_MEM,crep_to_loopTheory.gen_temps_def,MEM_MAP,MEM_ZIP,PULL_EXISTS,
         loopPropsTheory.every_prog_def,loop_inst_ok_def
-       ])
-  >~ [‘MAP2’] >-
-    (conj_asm1_tac
-     >- (drule $ cj 2 every_inst_ok_less_crep_to_loop_compile_exp \\
-         disch_then $ qspecl_then [‘ctxt.vmax + 1’,‘ns’,‘es ++ [e]’] mp_tac \\
-         Cases_on ‘hdl’ \\
-         rw[MAP2_ZIP,EVERY_MEM,crep_to_loopTheory.gen_temps_def,MEM_MAP,MEM_ZIP,PULL_EXISTS,
-            loopPropsTheory.every_prog_def,loop_inst_ok_def
-           ] \\
-         gvs[crepPropsTheory.exps_of_def,EVERY_MEM] \\
-         rename1 ‘SOME (_,_,SOME xx)’ \\ Cases_on ‘xx’ \\
-         gvs[crepPropsTheory.exps_of_def,EVERY_MEM]) \\
-     rpt(PURE_TOP_CASE_TAC \\ gvs[]) \\
-     gvs[loopPropsTheory.every_prog_def,loop_inst_ok_def,
-         crep_to_loopTheory.compile_def,
-         every_prog_loop_inst_ok_nested_seq,
-         crepPropsTheory.exps_of_def
-        ]) \\
+       ]) \\
   imp_res_tac (cj 1 every_inst_ok_less_crep_to_loop_compile_exp) \\
   every_case_tac \\
   gvs[loopPropsTheory.every_prog_def,loopLangTheory.nested_seq_def,
