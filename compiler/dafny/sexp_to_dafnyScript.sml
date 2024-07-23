@@ -1138,7 +1138,7 @@ Definition sexp_module_def:
      n <- sexp_name (EL 0 args);
      attrs <- opt_mmap_sexp_list sexp_attribute (EL 1 args);
      opt <- sxsym_to_opt (EL 2 args);
-     body <<- monad_bind opt (opt_mmap_sexp_list sexp_moduleItem);
+     body <- map_opt_sexp_moduleItem opt;
      return (Module n attrs body)
    od
   )
@@ -1173,9 +1173,36 @@ Definition sexp_module_def:
        od
      else fail
    od
+  ) ∧
+  (map_sexp_moduleItem ses =
+   case ses of
+   | [] => return []
+   | (se::rest) =>
+       do
+         se' <- sexp_moduleItem se;
+         rest' <- map_sexp_moduleItem rest;
+         return (se'::rest')
+       od
+  ) ∧
+  (map_opt_sexp_moduleItem se_opt =
+   case se_opt of
+   | NONE => return NONE
+   | SOME se =>
+       do
+         ses <- strip_sxcons se;
+         mis <- map_sexp_moduleItem ses;
+         return (SOME mis)
+       od
   )
 Termination
-  cheat
+  WF_REL_TAC ‘measure $ λx. case x of
+                            | INL se => sexp_size se
+                            | INR (INL se) => sexp_size se
+                            | INR (INR (INL ses)) => list_size sexp_size ses
+                            | INR (INR (INR se_opt)) => option_size sexp_size se_opt’ \\ rw[]
+  \\ gvs[LENGTH_EQ_NUM_compute, oneline dstrip_sexp_def, sexp_size_def,
+         AllCaseEqs(), oneline strip_sxcons_def, sexp_size_eq,
+         oneline sxsym_to_opt_def, option_size_def]
 End
 
 (* sexp -> ((module list) option) *)
