@@ -80,26 +80,6 @@ Definition opt_mmap_sexp_list_def:
   od
 End
 
-(* If possible, interprets the S-expression as a tuple and maps the functions
-   accordingly. *)
-Definition opt_mmap_sexp_tuple_def:
-  opt_mmap_sexp_tuple f1 f2 ses =
-  do
-    ses <- strip_sxcons ses;
-    assert (LENGTH ses = 2);
-    t1 <- f1 (EL 0 ses);
-    t2 <- f2 (EL 1 ses);
-    return (t1, t2)
-  od
-End
-
-(* If possible, interprets the S-expression as a list of tuples and maps the
-   functions accordingly. *)
-Definition opt_mmap_sexp_tuple_list_def:
-  opt_mmap_sexp_tuple_list f1 f2 ses =
-  opt_mmap_sexp_list (λ t. opt_mmap_sexp_tuple f1 f2 t) ses
-End
-
 (*
  * Converting S-expressions to Dafny's AST
  *)
@@ -566,7 +546,7 @@ End
 
 (* TODO Move sexp_statement to the first position in sexp_statement_def
  *
- * I have the submission that the name for the induction in the translator is
+ * I have the suspicion that the name for the induction in the translator is
  *  based on what is defined first, not the name of Definition. *)
 
 (* Defines the mutually recursive functions sexp_assignLhs, sexp_expression, and
@@ -589,7 +569,8 @@ Definition sexp_statement_def:
      else if (ss = "AssignLhs.Index" ∧ LENGTH args = 2) then
        do
          expr <- sexp_expression (EL 0 args);
-         indices <- opt_mmap_sexp_list sexp_expression (EL 1 args);
+         arg1_list <- strip_sxcons (EL 1 args);
+         indices <- map_sexp_expression arg1_list;
          return (AssignLhs_Index expr indices)
        od
      else fail
@@ -615,19 +596,22 @@ Definition sexp_statement_def:
        od
      else if (ss = "Expression.Tuple" ∧ LENGTH args = 1) then
        do
-         exprs <- opt_mmap_sexp_list sexp_expression (EL 0 args);
+         arg0_list <- strip_sxcons (EL 0 args);
+         exprs <- map_sexp_expression arg0_list;
          return (Expression_Tuple exprs)
        od
      else if (ss = "Expression.New" ∧ LENGTH args = 3) then
        do
          path <- opt_mmap_sexp_list sexp_ident (EL 0 args);
          typeArgs <- opt_mmap_sexp_list sexp_type (EL 1 args);
-         new_args <- opt_mmap_sexp_list sexp_expression (EL 2 args);
+         arg2_list <- strip_sxcons (EL 2 args);
+         new_args <- map_sexp_expression arg2_list;
          return (New path typeArgs new_args)
        od
      else if (ss = "Expression.NewArray" ∧ LENGTH args = 2) then
        do
-         dims <- opt_mmap_sexp_list sexp_expression (EL 0 args);
+         arg0_list <- strip_sxcons (EL 0 args);
+         dims <- map_sexp_expression arg0_list;
          typ <- sexp_type (EL 1 args);
          return (NewArray dims typ)
        od
@@ -637,9 +621,8 @@ Definition sexp_statement_def:
          typeArgs <- opt_mmap_sexp_list sexp_type (EL 1 args);
          variant <- sexp_name (EL 2 args);
          isCo <- sxsym_to_bool (EL 3 args);
-         contents <- opt_mmap_sexp_tuple_list sxstr_to_str
-                                              sexp_expression
-                                              (EL 4 args);
+         arg4_list <- strip_sxcons (EL 4 args);
+         contents <- map_sxstr_to_str_sexp_expression_tuple arg4_list;
          return (DatatypeValue dtType typeArgs variant isCo contents)
        od
      else if (ss = "Expression.Convert" ∧ LENGTH args = 3) then
@@ -657,25 +640,27 @@ Definition sexp_statement_def:
        od
      else if (ss = "Expression.SeqValue" ∧ LENGTH args = 2) then
        do
-         exprs <- opt_mmap_sexp_list sexp_expression (EL 0 args);
+         arg0_list <- strip_sxcons (EL 0 args);
+         exprs <- map_sexp_expression arg0_list;
          typ <- sexp_type (EL 1 args);
          return (SeqValue exprs typ)
        od
      else if (ss = "Expression.SetValue" ∧ LENGTH args = 1) then
        do
-         exprs <- opt_mmap_sexp_list sexp_expression (EL 0 args);
+         arg0_list <- strip_sxcons (EL 0 args);
+         exprs <- map_sexp_expression arg0_list;
          return (SetValue exprs)
        od
      else if (ss = "Expression.MultisetValue" ∧ LENGTH args = 1) then
        do
-         exprs <- opt_mmap_sexp_list sexp_expression (EL 0 args);
+         arg0_list <- strip_sxcons (EL 0 args);
+         exprs <- map_sexp_expression arg0_list;
          return (MultisetValue exprs)
        od
      else if (ss = "Expression.MapValue" ∧ LENGTH args = 1) then
        do
-         e_tuples <- opt_mmap_sexp_tuple_list sexp_expression
-                                              sexp_expression
-                                              (EL 0 args);
+         arg0_list <- strip_sxcons (EL 0 args);
+         e_tuples <- map_sexp_expression_sexp_expression_tuple arg0_list;
          return (MapValue e_tuples)
        od
      else if (ss = "Expression.MapBuilder" ∧ LENGTH args = 2) then
@@ -768,7 +753,8 @@ Definition sexp_statement_def:
        do
          expr <- sexp_expression (EL 0 args);
          cK <- sexp_collKind (EL 1 args);
-         indices <- opt_mmap_sexp_list sexp_expression (EL 2 args);
+         arg2_list <- strip_sxcons (EL 2 args);
+         indices <- map_sexp_expression arg2_list;
          return (Index expr cK indices)
        od
      else if (ss = "Expression.IndexRange" ∧ LENGTH args = 4) then
@@ -776,9 +762,9 @@ Definition sexp_statement_def:
          expr <- sexp_expression (EL 0 args);
          isArray <- sxsym_to_bool (EL 1 args);
          opt <- sxsym_to_opt (EL 2 args);
-         low <<- monad_bind opt sexp_expression;
+         low <- opt_sexp_expression opt;
          opt <- sxsym_to_opt (EL 3 args);
-         high <<- monad_bind opt sexp_expression;
+         high <- opt_sexp_expression opt;
          return (IndexRange expr isArray low high)
        od
      else if (ss = "Expression.TupleSelect" ∧ LENGTH args = 3) then
@@ -793,21 +779,22 @@ Definition sexp_statement_def:
          on <- sexp_expression (EL 0 args);
          callName <- sexp_callName (EL 1 args);
          typeArgs <- opt_mmap_sexp_list sexp_type (EL 2 args);
-         call_args <- opt_mmap_sexp_list sexp_expression (EL 3 args);
+         arg3_list <- strip_sxcons (EL 3 args);
+         call_args <- map_sexp_expression arg3_list;
          return (Expression_Call on callName typeArgs call_args)
        od
      else if (ss = "Expression.Lambda" ∧ LENGTH args = 3) then
        do
          params <- opt_mmap_sexp_list sexp_formal (EL 0 args);
          retTyp <- sexp_type (EL 1 args);
-         body <- opt_mmap_sexp_list sexp_statement (EL 2 args);
+         arg2_list <- strip_sxcons (EL 2 args);
+         body <- map_sexp_statement arg2_list;
          return (Lambda params retTyp body)
        od
      else if (ss = "Expression.BetaRedex" ∧ LENGTH args = 3) then
        do
-         vs <- opt_mmap_sexp_tuple_list sexp_formal
-                                        sexp_expression
-                                        (EL 0 args);
+         arg0_list <- strip_sxcons (EL 0 args);
+         vs <- map_sexp_formal_sexp_expression_tuple arg0_list;
          retTyp <- sexp_type (EL 1 args);
          expr <- sexp_expression (EL 2 args);
          return (BetaRedex vs retTyp expr)
@@ -823,7 +810,8 @@ Definition sexp_statement_def:
      else if (ss = "Expression.Apply" ∧ LENGTH args = 2) then
        do
          expr <- sexp_expression (EL 0 args);
-         app_args <- opt_mmap_sexp_list sexp_expression (EL 1 args);
+         arg1_list <- strip_sxcons (EL 1 args);
+         app_args <- map_sexp_expression arg1_list;
          return (Apply expr app_args)
        od
      else if (ss = "Expression.TypeTest" ∧ LENGTH args = 3) then
@@ -859,8 +847,59 @@ Definition sexp_statement_def:
        od
      else fail
    od
-  )
-  ∧
+  ) ∧
+  (* Need these functions to avoid recursively passing a function to another *)
+  (map_sexp_expression ses =
+   case ses of
+   | [] => return []
+   | (se::rest) =>
+       do
+         fse <- sexp_expression se;
+         frest <- map_sexp_expression rest;
+         return (fse::frest)
+       od) ∧
+  (map_sexp_expression_sexp_expression_tuple ses =
+   case ses of
+   | [] => return []
+   | ((Expr [se1; se2])::rest) =>
+       do
+         se1' <- sexp_expression se1;
+         se2' <- sexp_expression se2;
+         rest' <- map_sexp_expression_sexp_expression_tuple rest;
+         return ((se1',se2')::rest')
+       od
+   | _ => fail) ∧
+  (map_sxstr_to_str_sexp_expression_tuple ses =
+   case ses of
+   | [] => return []
+   | ((Expr [se1; se2])::rest) =>
+       do
+         se1' <- sxstr_to_str se1;
+         se2' <- sexp_expression se2;
+         rest' <- map_sxstr_to_str_sexp_expression_tuple rest;
+         return ((se1',se2')::rest')
+       od
+   | _ => fail) ∧
+  (map_sexp_formal_sexp_expression_tuple ses =
+   case ses of
+   | [] => return []
+   | ((Expr [se1; se2])::rest) =>
+       do
+         se1' <- sexp_formal se1;
+         se2' <- sexp_expression se2;
+         rest' <- map_sexp_formal_sexp_expression_tuple rest;
+         return ((se1',se2')::rest')
+       od
+   | _ => fail) ∧
+  (opt_sexp_expression se_opt =
+   case se_opt of
+   | NONE => return NONE
+   | SOME se =>
+       do
+         se' <- sexp_expression se;
+         return (SOME se')
+       od
+   ) ∧
   (sexp_statement se =
    do
      (ss, args) <- dstrip_sexp se;
@@ -870,7 +909,7 @@ Definition sexp_statement_def:
          typ <- sexp_type (EL 1 args);
          (* TODO Extract this pattern opt <- ... out? *)
          opt <- sxsym_to_opt (EL 2 args);
-         expr <<- monad_bind opt sexp_expression;
+         expr <- opt_sexp_expression opt;
          return (DeclareVar n typ expr)
        od
      else if (ss = "Statement.Assign" ∧ LENGTH args = 2) then
@@ -882,20 +921,24 @@ Definition sexp_statement_def:
      else if (ss = "Statement.If" ∧ LENGTH args = 3) then
        do
          cond <- sexp_expression (EL 0 args);
-         thn <- opt_mmap_sexp_list sexp_statement (EL 1 args);
-         els <- opt_mmap_sexp_list sexp_statement (EL 2 args);
+         arg1_list <- strip_sxcons (EL 1 args);
+         thn <- map_sexp_statement arg1_list;
+         arg2_list <- strip_sxcons (EL 2 args);
+         els <- map_sexp_statement arg2_list;
          return (If cond thn els)
        od
      else if (ss = "Statement.Labeled" ∧ LENGTH args = 2) then
        do
          lbl <- sxstr_to_str (EL 0 args);
-         body <- opt_mmap_sexp_list sexp_statement (EL 1 args);
+         arg1_list <- strip_sxcons (EL 1 args);
+         body <- map_sexp_statement arg1_list;
          return (Labeled lbl body)
        od
      else if (ss = "Statement.While" ∧ LENGTH args = 2) then
        do
          expr <- sexp_expression (EL 0 args);
-         stmts <- opt_mmap_sexp_list sexp_statement (EL 1 args);
+         arg1_list <- strip_sxcons (EL 1 args);
+         stmts <- map_sexp_statement arg1_list;
          return (While expr stmts)
        od
      else if (ss = "Statement.Foreach" ∧ LENGTH args = 4) then
@@ -903,7 +946,8 @@ Definition sexp_statement_def:
          boundNam <- sexp_name (EL 0 args);
          boundTyp <- sexp_type (EL 1 args);
          over <- sexp_expression (EL 2 args);
-         body <- opt_mmap_sexp_list sexp_statement (EL 3 args);
+         arg3_list <- strip_sxcons (EL 3 args);
+         body <- map_sexp_statement arg3_list;
          return (Foreach boundNam boundTyp over body)
        od
      else if (ss = "Statement.Call" ∧ LENGTH args = 5) then
@@ -911,7 +955,8 @@ Definition sexp_statement_def:
          on <- sexp_expression (EL 0 args);
          callNam <- sexp_callName (EL 1 args);
          ts <- opt_mmap_sexp_list sexp_type (EL 2 args);
-         exprs <- opt_mmap_sexp_list sexp_expression (EL 3 args);
+         arg3_list <- strip_sxcons (EL 3 args);
+         exprs <- map_sexp_expression arg3_list;
          opt <- sxsym_to_opt (EL 4 args);
          ids <<- monad_bind opt (opt_mmap_sexp_list sexp_ident);
          return (Call on callNam ts exprs ids)
@@ -931,7 +976,8 @@ Definition sexp_statement_def:
        od
      else if (ss = "Statement.TailRecursive" ∧ LENGTH args = 1) then
        do
-         body <- opt_mmap_sexp_list sexp_statement (EL 0 args);
+         arg0_list <- strip_sxcons (EL 0 args);
+         body <- map_sexp_statement arg0_list;
          return (TailRecursive body)
        od
      else if (ss = "Statement.JumpTailCallStart" ∧ LENGTH args = 0) then
@@ -945,9 +991,30 @@ Definition sexp_statement_def:
        od
      else fail
    od
-  )
+  ) ∧
+  (map_sexp_statement ses =
+   case ses of
+   | [] => return []
+   | (se::rest) =>
+       do
+         fse <- sexp_statement se;
+         frest <- map_sexp_statement rest;
+         return (fse::frest)
+       od)
 Termination
-  cheat
+  WF_REL_TAC ‘measure $ λx. case x of
+                            | INL se => sexp_size se
+                            | INR (INL se) => sexp_size se
+                            | INR (INR (INL ses)) => list_size sexp_size ses
+                            | INR (INR (INR (INL ses))) => list_size sexp_size ses
+                            | INR (INR (INR (INR (INL ses)))) => list_size sexp_size ses
+                            | INR (INR (INR (INR (INR (INL ses))))) => list_size sexp_size ses
+                            | INR (INR (INR (INR (INR (INR (INL se_opt)))))) => option_size sexp_size se_opt
+                            | INR (INR (INR (INR (INR (INR (INR (INL se))))))) => sexp_size se
+                            | INR (INR (INR (INR (INR (INR (INR (INR ses))))))) => list_size sexp_size ses’ \\ rw[]
+  \\ gvs[LENGTH_EQ_NUM_compute, oneline dstrip_sexp_def, sexp_size_def,
+         AllCaseEqs(), oneline strip_sxcons_def, sexp_size_eq,
+         oneline sxsym_to_opt_def, option_size_def]
 End
 
 Definition sexp_method_def:
