@@ -375,7 +375,8 @@ Definition sexp_type_def:
      if (ss = "Type.Path" ∧ LENGTH args = 3) then
        do
          ids <- opt_mmap_sexp_list sexp_ident (EL 0 args);
-         typeArgs <- opt_mmap_sexp_list sexp_type (EL 1 args);
+         arg1_list <- strip_sxcons (EL 1 args);
+         typeArgs <- map_sexp_type arg1_list;
          resolved <- sexp_resolvedType (EL 2 args);
          return (Path ids typeArgs resolved)
        od
@@ -386,7 +387,8 @@ Definition sexp_type_def:
        od
      else if (ss = "Type.Tuple" ∧ LENGTH args = 1) then
        do
-         typs <- opt_mmap_sexp_list sexp_type (EL 0 args);
+         arg0_list <- strip_sxcons (EL 0 args);
+         typs <- map_sexp_type arg0_list;
          return (Tuple typs)
        od
      else if (ss = "Type.Array" ∧ LENGTH args = 2) then
@@ -430,7 +432,8 @@ Definition sexp_type_def:
      else if (ss = "Type.Arrow" ∧ LENGTH args = 2) then
        do
          (* shadowing args is not a good idea *)
-         arr_args <- opt_mmap_sexp_list sexp_type (EL 0 args);
+         arg0_list <- strip_sxcons (EL 0 args);
+         arr_args <- map_sexp_type arg0_list;
          result <- sexp_type (EL 1 args);
          return (Arrow arr_args result)
        od
@@ -452,6 +455,15 @@ Definition sexp_type_def:
      else fail
    od)
   ∧
+  (map_sexp_type ses =
+   case ses of
+   | [] => return []
+   | (se::rest) =>
+       do
+         fse <- sexp_type se;
+         frest <- map_sexp_type rest;
+         return (fse::frest)
+       od) ∧
   (sexp_resolvedType se =
    do
      (ss, args) <- dstrip_sexp se;
@@ -477,7 +489,12 @@ Definition sexp_type_def:
      else fail
    od)
 Termination
-  cheat
+  WF_REL_TAC ‘measure $ λx. case x of
+                            | INL se => sexp_size se
+                            | INR (INL ses) => list_size sexp_size ses
+                            | INR (INR se) => sexp_size se’ \\ rw[]
+  \\ gvs[LENGTH_EQ_NUM_compute, oneline dstrip_sexp_def, sexp_size_def,
+         AllCaseEqs(), oneline strip_sxcons_def, sexp_size_eq]
 End
 
 (* sexp -> (literal option) *)
@@ -561,7 +578,7 @@ Definition sexp_callName_def:
       do
         n <- sexp_name (EL 0 args);
         (* TODO turn rhs into option/error
-           return_option (sysym_to_opt ..), define using return/fail *) 
+           return_option (sysym_to_opt ..), define using return/fail *)
         opt <- sxsym_to_opt (EL 1 args);
         typ_opt <<- monad_bind opt sexp_type;
         sig <- sexp_callSignature (EL 2 args);
