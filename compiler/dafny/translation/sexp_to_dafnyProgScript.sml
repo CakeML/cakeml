@@ -17,7 +17,7 @@ val r = translate sexp_to_dafnyTheory.sxstr_to_ch_def;
 val r = translate sexp_to_dafnyTheory.sxnum_to_num_def;
 val r = translate sexp_to_dafnyTheory.sxsym_to_bool_def;
 
-(* Expressions regarding EL were copied from to_flatProgScript.sml *)
+(* Expressions about EL were copied from to_flatProgScript.sml *)
 val r = translate EL;
 val el_side = Q.prove(
   `!n xs. el_side n xs = (n < LENGTH xs)`,
@@ -30,12 +30,10 @@ val r = translate sexp_to_dafnyTheory.sxsym_to_opt_def;
 val r = translate listTheory.OPT_MMAP_def;
 val r = translate sexp_to_dafnyTheory.opt_mmap_sexp_list_def;
 
-val r = translate optionTheory.OPTION_IGNORE_BIND_def;
 val r = translate optionTheory.OPTION_GUARD_def;
-val r = translate sexp_to_dafnyTheory.opt_mmap_sexp_tuple_def;
-
-val r = translate sexp_to_dafnyTheory.opt_mmap_sexp_tuple_list_def;
+val r = translate optionTheory.OPTION_IGNORE_BIND_def;
 val r = translate sexp_to_dafnyTheory.sexp_name_def;
+
 val r = translate sexp_to_dafnyTheory.sexp_ident_def;
 val r = translate sexp_to_dafnyTheory.sexp_attribute_def;
 val r = translate sexp_to_dafnyTheory.sexp_primitive_def;
