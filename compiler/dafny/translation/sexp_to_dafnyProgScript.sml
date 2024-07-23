@@ -4,6 +4,7 @@
 
 open preamble ml_translatorLib
 open dafny_sexpProgTheory
+open sexp_to_dafnyTheory
 
 val _ = new_theory "sexp_to_dafnyProg";
 
@@ -46,20 +47,28 @@ val r = translate sexp_to_dafnyTheory.sexp_unaryOp_def;
 val r = translate sexp_to_dafnyTheory.sexp_binOp_def;
 val r = translate sexp_to_dafnyTheory.sexp_datatypeType_def;
 
-(* Suggested by translator after interrupting metis *)
-val r = translate_no_ind sexp_to_dafnyTheory.sexp_type_def;
+val r = sexp_to_dafnyTheory.sexp_type_def
+          |> SRULE[oneline OPTION_BIND_def, UNCURRY]
+          |> translate_no_ind;
+
 Triviality sexp_type_ind:
   sexp_type_ind
 Proof
-  (* once_rewrite_tac [fetch "-" "sexp_type_ind_def"] *)
-  (* \\ rpt gen_tac *)
-  (* \\ rpt (disch_then strip_assume_tac) *)
-  (* \\ match_mp_tac (latest_ind ()) *)
-  (* \\ rpt strip_tac *)
-  (* \\ last_x_assum match_mp_tac *)
-  (* \\ rpt strip_tac *)
-  (* \\ gvs [FORALL_PROD] *)
-  cheat
+  once_rewrite_tac [fetch "-" "sexp_type_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  >>~- ([`∀se rest. ses = se::rest ⇒ P se`],
+        res_tac >> simp[])
+  >>~- ([`FST foo = "ResolvedType.Newtype"`],
+        (PairCases_on `foo`
+         >> rpt (qpat_x_assum `_` mp_tac)
+         >> once_asm_rewrite_tac[FST,SND,EL]
+         >> rpt strip_tac >> res_tac))
+  \\ gvs [AllCaseEqs(), oneline dstrip_sexp_def]
 QED
 val _ = sexp_type_ind |> update_precondition;
 
