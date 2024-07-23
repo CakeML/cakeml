@@ -532,6 +532,7 @@ Proof
     \\ fs [Once comp_def,evaluate_def,sh_mem_op_def,get_var_def,
            mem_store_def,word_exp_def,wordLangTheory.word_op_def,
            sh_mem_load_def,sh_mem_store_def,
+           sh_mem_load32_def,sh_mem_store32_def,
            sh_mem_load_byte_def,sh_mem_store_byte_def]
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq,CaseEq"ffi_result",pair_case_eq,
            CaseEq"inst",CaseEq"arith",IS_SOME_EXISTS,CaseEq"list",CaseEq"memop",

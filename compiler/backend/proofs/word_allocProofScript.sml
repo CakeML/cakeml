@@ -2385,8 +2385,23 @@ Proof
       fs[GSYM numset_list_insert_def] >>
       irule numset_list_insert_eq_UNION >>
       rw[IMAGE_DEF,get_reads_exp_get_live_exp] >>
-      metis_tac[wf_insert,wf_get_live_exp] )
-  >- ((*ShareInst Load/Load8*)
+      metis_tac[wf_insert,wf_get_live_exp])
+  >- ((*ShareInst Store32*)
+      start_tac >>
+      fs[domain_union,UNION_COMM,get_reads_exp_get_live_exp] >>
+      conj_tac >- (
+        drule_then irule INJ_less >> rw[] >>
+        metis_tac[SUBSET_UNION,SUBSET_OF_INSERT,SUBSET_TRANS]) >>
+      CONV_TAC $ RHS_CONV $ SCONV[Once insert_union] >>
+      simp[union_assoc] >>
+      CONV_TAC $ RHS_CONV $ RATOR_CONV $ RAND_CONV $
+        REWRITE_CONV[Once union_num_set_sym] >>
+      simp[union_insert_LN] >>
+      fs[GSYM numset_list_insert_def] >>
+      irule numset_list_insert_eq_UNION >>
+      rw[IMAGE_DEF,get_reads_exp_get_live_exp] >>
+      metis_tac[wf_insert,wf_get_live_exp])
+  >- ((*ShareInst Load/Load8/Load32*)
     start_tac
     >- (
       conj_tac >- (
@@ -3126,8 +3141,8 @@ Proof
     rveq>>fs[]>>
     rpt(qpat_x_assum `_ (call_env _ _) = _` (mp_tac o GSYM))>>
     simp[call_env_def,flush_state_def]) >>
-  rename1`m=Store \/ m = Store8` >>
-  qabbrev_tac`mcase=(m=Store \/ m = Store8)`>>
+  rename1`m=Store \/ m = Store8 \/ m = Store32` >>
+  qabbrev_tac`mcase=(m=Store \/ m = Store8 \/ m = Store32)`>>
   fs[AllCaseEqs(),PULL_EXISTS] >>
   Cases_on`mcase` >> gvs[]
   >- (
@@ -6594,8 +6609,8 @@ Proof
     exists_tac >>
     pairarg_tac >>
     simp[] >>
-    rename1`m = Store \/ m = Store8`>>
-    qabbrev_tac `mcase = (m = Store \/ m = Store8)`>>
+    rename1`m = Store \/ m = Store8 \/ m = Store32`>>
+    qabbrev_tac `mcase = (m = Store \/ m = Store8 \/ m = Store32)`>>
     fs[AllCaseEqs()] >>
     IF_CASES_TAC >>
     gvs[next_var_rename_def,evaluate_def] >>
