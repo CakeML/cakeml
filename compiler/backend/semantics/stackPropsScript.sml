@@ -286,6 +286,7 @@ Proof
   strip_tac>>Cases_on`op` >>
   fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
      sh_mem_load_byte_def,sh_mem_store_byte_def,
+     sh_mem_load32_def,sh_mem_store32_def,
      ffiTheory.call_FFI_def] >>
   every_case_tac >> gvs[get_var_def]
 QED
@@ -431,7 +432,7 @@ Proof
   TRY (CHANGED_TAC(full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]) >>
        every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
   TRY (Cases_on ‘op’>>fs[sh_mem_op_def]>>
-       fs[sh_mem_load_def,sh_mem_store_def,
+       fs[sh_mem_load_def,sh_mem_store_def,sh_mem_load32_def,sh_mem_store32_def,
           sh_mem_load_byte_def,sh_mem_store_byte_def]>>
        fs[ffiTheory.call_FFI_def]>>
        rpt (FULL_CASE_TAC>>gvs[]))>>
@@ -521,7 +522,7 @@ Proof
     rename1`call_FFI` >>
     pairarg_tac >> full_simp_tac(srw_ss())[] >> rveq >> simp[] ) >>
   Cases_on ‘op’>>fs[sh_mem_op_def]>>
-  gs[sh_mem_load_def,sh_mem_store_def,get_var_def,
+  gs[sh_mem_load_def,sh_mem_store_def,get_var_def,sh_mem_load32_def,sh_mem_store32_def,
      sh_mem_load_byte_def,sh_mem_store_byte_def,ffiTheory.call_FFI_def]>>
   rpt (FULL_CASE_TAC>>gvs[])
 QED
@@ -578,6 +579,7 @@ Proof
     every_case_tac >> fs[get_var_def])>>
   TRY (Cases_on ‘op’>>fs[sh_mem_op_def]>>
        gs[sh_mem_load_def,sh_mem_store_def,ffiTheory.call_FFI_def,
+          sh_mem_load32_def,sh_mem_store32_def,
           sh_mem_load_byte_def,sh_mem_store_byte_def,get_var_def]>>
       rpt (FULL_CASE_TAC>>gvs[]))>>
   metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR]

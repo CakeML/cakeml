@@ -296,6 +296,7 @@ val word_cmp_def = Define `
 Definition is_load_def[simp]:
   (is_load Load = T) ∧
   (is_load Load8 = T) ∧
+  (is_load Load32 = T) ∧
   (is_load _ = F)
 End
 

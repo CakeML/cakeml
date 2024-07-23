@@ -1472,8 +1472,8 @@ Proof
     gvs[AllCaseEqs()]>>
     drule apply_colour_exp_lemma >>
     disch_then $ qspecl_then [`cst`,`f`] mp_tac >>
-    rename1`m = Store \/ m = Store8`>>
-    qabbrev_tac `mcase = (m = Store \/ m = Store8)`>>
+    rename1`m = Store \/ m = Store8 \/ m = Store32`>>
+    qabbrev_tac `mcase = (m = Store \/ m = Store8 \/ m = Store32)`>>
     qpat_x_assum `strong_locals_rel _ _ _ _` mp_tac >>
     IF_CASES_TAC >>
     fs[] >>
