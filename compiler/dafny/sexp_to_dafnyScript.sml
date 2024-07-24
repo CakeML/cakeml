@@ -17,9 +17,9 @@ val _ = enable_monad "option";
  *)
 
 (* TODO Swap to monad defined in dafny_util *)
-(* TODO rename sexp_to_dafnyScript *)
 (* TODO rename str to s *)
 (* TODO update stale names referring to old sexp type *)
+(* TODO? replace names sexp_<type> to sexp_to_<type> *)
 
 Definition dstrip_sexp_def:
   dstrip_sexp (Expr ((Atom s)::rest)) = return (s, rest) ∧
@@ -31,27 +31,21 @@ Definition strip_sxcons_def:
   strip_sxcons _ = fail
 End
 
-(* sexp -> (string option) *)
 Definition sxstr_to_str_def:
   (sxstr_to_str (Atom str) = return str) ∧
   (sxstr_to_str _ = fail)
 End
 
-(* As described above, this function is probably wrong due to the way
-   Dafny deals with characters. *)
-(* sexp -> (char option) *)
 Definition sxstr_to_ch_def:
   (sxstr_to_ch (Atom [c]) = return c) ∧
   (sxstr_to_ch _ = fail)
 End
 
-(* sexp -> (num option) *)
 Definition sxnum_to_num_def:
   (sxnum_to_num (Atom s) = fromNatString (implode s)) ∧
   (sxnum_to_num _ = fail)
 End
 
-(* sexp -> (bool option) *)
 Definition sxsym_to_bool_def:
   (sxsym_to_bool (Atom str) =
    (* We do not use case on strings, since the resulting theorem blows up for
@@ -64,9 +58,6 @@ Definition sxsym_to_bool_def:
   (sxsym_to_bool _ = fail)
 End
 
-(* sexp -> ((sexp option) option) *)
-(* The outer option indicates whether the conversion to the inner option was
-   successful. *)
 Definition sxsym_to_opt_def:
   sxsym_to_opt se =
   do
@@ -78,11 +69,9 @@ Definition sxsym_to_opt_def:
     else fail
   od
 End
-(* TODO: test this *)
 
 (* If possible, interprets the S-expression as a list and maps the given
    function over it. *)
-(* (sexp -> (α option)) -> sexp -> ((α list) option) *)
 Definition opt_mmap_sexp_list_def:
   opt_mmap_sexp_list f ses =
   do
@@ -93,7 +82,6 @@ End
 
 (* If possible, interprets the S-expression as a tuple and maps the functions
    accordingly. *)
-(* (sexp -> (α option)) -> (sexp -> (β option)) -> sexp -> ((α # β) option) *)
 Definition opt_mmap_sexp_tuple_def:
   opt_mmap_sexp_tuple f1 f2 ses =
   do
@@ -107,18 +95,15 @@ End
 
 (* If possible, interprets the S-expression as a list of tuples and maps the
    functions accordingly. *)
-(* (sexp -> (α option)) -> (sexp -> (β option)) -> sexp -> (((α # β) list) option) *)
 Definition opt_mmap_sexp_tuple_list_def:
   opt_mmap_sexp_tuple_list f1 f2 ses =
   opt_mmap_sexp_list (λ t. opt_mmap_sexp_tuple f1 f2 t) ses
 End
-(* TODO: test this *)
 
 (*
  * Converting S-expressions to Dafny's AST
  *)
 
-(* sexp -> (ident option) *)
 Definition sexp_name_def:
   sexp_name se =
   do
@@ -129,7 +114,6 @@ Definition sexp_name_def:
   od
 End
 
-(* sexp -> (ident option) *)
 Definition sexp_ident_def:
   sexp_ident se =
   do
@@ -140,7 +124,6 @@ Definition sexp_ident_def:
   od
 End
 
-(* sexp -> (attribute option) *)
 Definition sexp_attribute_def:
   sexp_attribute se =
   do
@@ -152,7 +135,6 @@ Definition sexp_attribute_def:
   od
 End
 
-(* sexp -> (primitive option) *)
 Definition sexp_primitive_def:
   sexp_primitive se =
   do
@@ -172,7 +154,6 @@ Definition sexp_primitive_def:
   od
 End
 
-(* sexp -> (collKind option) *)
 Definition sexp_collKind_def:
   sexp_collKind se =
   do
@@ -188,7 +169,6 @@ Definition sexp_collKind_def:
   od
 End
 
-(* sexp -> (typeArgBound option) *)
 Definition sexp_typeArgBound_def:
   sexp_typeArgBound se =
   do
@@ -201,9 +181,7 @@ Definition sexp_typeArgBound_def:
     else fail
   od
 End
-(* TODO Missing test *)
 
-(* sexp -> (typeArgDecl option) *)
 Definition sexp_typeArgDecl_def:
   sexp_typeArgDecl se =
   do
@@ -215,7 +193,6 @@ Definition sexp_typeArgDecl_def:
   od
 End
 
-(* sexp -> (newtypeRange option) *)
 Definition sexp_newtypeRange_def:
   sexp_newtypeRange se =
   do
@@ -249,7 +226,6 @@ Definition sexp_newtypeRange_def:
   od
 End
 
-(* sexp -> (unaryOp option) *)
 Definition sexp_unaryOp_def:
   sexp_unaryOp se =
   do
@@ -265,7 +241,6 @@ Definition sexp_unaryOp_def:
   od
 End
 
-(* sexp -> (binOp option) *)
 Definition sexp_binOp_def:
   sexp_binOp se =
   do
@@ -353,7 +328,6 @@ Definition sexp_binOp_def:
   od
 End
 
-(* sexp -> (datatypeType option) *)
 Definition sexp_datatypeType_def:
   sexp_datatypeType se =
   do
@@ -364,11 +338,8 @@ Definition sexp_datatypeType_def:
     return (DatatypeType path attrs)
   od
 End
-(* TODO add test *)
 
-(* Defines the mutually recursive functions
- * sexp_resolvedType: sexp -> (resolvedType option)
- * sexp_type: sexp -> (type option) *)
+(* Defines the mutually recursive functions sexp_resolvedType and sexp_type *)
 Definition sexp_type_def:
   (sexp_type se =
    do
@@ -498,7 +469,6 @@ Termination
          AllCaseEqs(), oneline strip_sxcons_def, sexp_size_eq]
 End
 
-(* sexp -> (literal option) *)
 Definition sexp_literal_def:
   sexp_literal se =
   do
@@ -546,7 +516,6 @@ Definition sexp_literal_def:
   od
 End
 
-(* sexp -> (formal option) *)
 Definition sexp_formal_def:
   sexp_formal se =
   do
@@ -559,7 +528,6 @@ Definition sexp_formal_def:
   od
 End
 
-(* sexp -> (callSignature option) *)
 Definition sexp_callSignature_def:
   sexp_callSignature se =
   do
@@ -570,7 +538,6 @@ Definition sexp_callSignature_def:
   od
 End
 
-(* sexp -> (callName option) *)
 Definition sexp_callName_def:
   sexp_callName se =
   do
@@ -597,10 +564,13 @@ Definition sexp_callName_def:
   od
 End
 
-(* Defines the mutually recursive functions
-   sexp_assignLhs: sexp -> (assignLhs option)
-   sexp_expression: sexp -> (expression option)
-   sexp_statement: sexp -> (statement option) *)
+(* TODO Move sexp_statement to the first position in sexp_statement_def
+ *
+ * I have the submission that the name for the induction in the translator is
+ *  based on what is defined first, not the name of Definition. *)
+
+(* Defines the mutually recursive functions sexp_assignLhs, sexp_expression, and
+ * sexp_statement *)
 Definition sexp_statement_def:
   (sexp_assignLhs se =
    do
@@ -980,8 +950,6 @@ Termination
   cheat
 End
 
-
-(* sexp -> (method option) *)
 Definition sexp_method_def:
   sexp_method se =
   do
@@ -1003,8 +971,6 @@ Definition sexp_method_def:
   od
 End
 
-
-(* sexp -> (field option) *)
 Definition sexp_field_def:
   sexp_field se =
   do
@@ -1016,9 +982,7 @@ Definition sexp_field_def:
     return (Field f expr)
   od
 End
-(* TODO Add test for sexp_field *)
 
-(* sexp -> (classItem option) *)
 Definition sexp_classItem_def:
   sexp_classItem se =
   do
@@ -1029,8 +993,6 @@ Definition sexp_classItem_def:
   od
 End
 
-
-(* sexp -> (class option) *)
 Definition sexp_class_def:
   sexp_class se =
   do
@@ -1047,8 +1009,6 @@ Definition sexp_class_def:
   od
 End
 
-
-(* sexp -> (trait option) *)
 Definition sexp_trait_def:
   sexp_trait se =
   do
@@ -1061,9 +1021,7 @@ Definition sexp_trait_def:
     return (Trait n typeParams body attrs)
   od
 End
-(* TODO Add test for sexp_trait *)
 
-(* sexp -> (newtype option) *)
 Definition sexp_newtype_def:
   sexp_newtype se =
   do
@@ -1081,8 +1039,6 @@ Definition sexp_newtype_def:
   od
 End
 
-
-(* sexp -> (datatypeDtor option) *)
 Definition sexp_datatypeDtor_def:
   sexp_datatypeDtor se =
   do
@@ -1095,8 +1051,6 @@ Definition sexp_datatypeDtor_def:
   od
 End
 
-
-(* sexp -> (datatypeCtor option) *)
 Definition sexp_datatypeCtor_def:
   sexp_datatypeCtor se =
   do
@@ -1109,8 +1063,6 @@ Definition sexp_datatypeCtor_def:
   od
 End
 
-
-(* sexp -> (datatype sexp) *)
 Definition sexp_datatype_def:
   sexp_datatype se =
   do
@@ -1127,10 +1079,7 @@ Definition sexp_datatype_def:
   od
 End
 
-
-(* Defines the mutually recursive functions
-   sexp_module: sexp -> (module option)
-   sexp_moduleItem: sexp -> (moduleItem option) *)
+(* Defines the mutually recursive functions sexp_module and sexp_moduleItem *)
 Definition sexp_module_def:
   (sexp_module se =
    do
@@ -1142,8 +1091,7 @@ Definition sexp_module_def:
      body <- map_opt_sexp_moduleItem opt;
      return (Module n attrs body)
    od
-  )
-  ∧
+  ) ∧
   (sexp_moduleItem se =
    do
      (ss, args) <- dstrip_sexp se;
@@ -1206,7 +1154,6 @@ Termination
          oneline sxsym_to_opt_def, option_size_def]
 End
 
-(* sexp -> ((module list) option) *)
 Definition sexp_program_def:
   (sexp_program se =
    do
