@@ -5,6 +5,7 @@
 open preamble
 open dafny_sexpTheory
 open dafny_astTheory
+open basicSizeTheory
 
 val _ = new_theory "sexp_to_dafny";
 
