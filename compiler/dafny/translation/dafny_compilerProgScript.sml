@@ -13,8 +13,6 @@ val _ = translation_extends "dafny_to_cakemlProg";
 val r = translate dafny_compilerTheory.sexp_program_m_def;
 val r = translate dafny_compilerTheory.dfy_to_cml_def;
 
-(* TODO Unsure whether this is the "correct" way of translating toString
- * Using mlint may be preferred, but did not immediately work *)
 val r = translate numposrepTheory.n2l_def;
 val r = translate ASCIInumbersTheory.n2s_def;
 val r = translate ASCIInumbersTheory.HEX_def;

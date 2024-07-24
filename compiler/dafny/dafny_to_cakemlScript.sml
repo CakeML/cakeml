@@ -9,8 +9,6 @@ open dafny_astTheory
 
 val _ = new_theory "dafny_to_cakeml";
 
-(* TODO Add type annotations? *)
-
 Overload True = “Con (SOME (Short "True")) []”
 Overload False = “Con (SOME (Short "False")) []”
 Overload None = “Con (SOME (Short "None")) []”
@@ -36,15 +34,13 @@ Definition gen_literal_def:
          i <- from_string s;
          return (Lit (IntLit i))
        od
-   (* TODO Unclear how to handle this case
-      Rust: https://github.com/dafny-lang/dafny/blob/ddea4d4f0f3e3c84276bf2dcf2b3f91e82f373cf/Source/DafnyCore/Backends/Rust/Dafny-compiler-rust.dfy#L3829-L3832*)
    | IntLiteral _ _ =>
        fail "IntLiteral _ _: Unclear how to handle"
    (* TODO Look into Rat module in basis *)
    | DecLiteral s1 s2 typ =>
        fail "DecLiteral s1 s2 typ: TODO"
-   (* FIXME String/Char support incomplete or incorrect - see
-      toDafnyAstScript for more details *)
+   (* TODO String/Char support incomplete or incorrect - see
+      to_dafny_astScript for more details *)
    | StringLiteral s verbatim =>
        return (Lit (StrLit s))
    | CharLiteral ch =>
@@ -78,12 +74,12 @@ End
 Definition compile_def:
   compile p =
   do
-    (* FIXME: Assume that we only have a main function *)
+    (* TODO Assume that we only have a main function *)
     if (LENGTH p ≠ 2) then
       fail "Program should have exactly 2 modules"
     else
       do
-        (* FIXME Ignore first module which contains definitions for nat and tuples for now *)
+        (* TODO Ignore first module which contains definitions for nat and tuples for now *)
         case (EL 1 p) of
         | Module _ _ (SOME [ModuleItem_Class (Class _ _ _ _ _ [ClassItem_Method m] _)]) =>
             (case m of
@@ -116,5 +112,12 @@ Definition unpack_def:
       [Dlet (Locs (POSN 0 14) UNKNOWNpt) (Pvar "it")
        (App Opapp [Var (Short "print"); Lit (StrLit s)])]
 End
+
+(* Testing *)
+(* open TextIO *)
+(* val inStream = TextIO.openIn "./test.sexpr"; *)
+(* val fileContent = TextIO.inputAll inStream; *)
+(* val _ = TextIO.closeIn inStream; *)
+(* val fileContent_tm = stringSyntax.fromMLstring fileContent; *)
 
 val _ = export_theory();
