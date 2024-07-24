@@ -8,6 +8,7 @@ val _ = new_theory "loop_call"
 Definition is_load_def:
   (is_load Load = T) ∧
   (is_load Load8 = T) ∧
+  (is_load Load32 = T) ∧
   (is_load _ = F)
 End
 

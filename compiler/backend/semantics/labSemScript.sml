@@ -405,7 +405,7 @@ Definition share_mem_store_def:
                [n2w n]
                ((if n = 0
                  then word_to_bytes w F
-                 else [get_byte 0w w F]) ++ (word_to_bytes v F)) of
+                 else TAKE n (word_to_bytes w F)) ++ (word_to_bytes v F)) of
               | FFI_final outcome => SOME (FFI_final outcome,s)
               | FFI_return new_ffi new_bytes =>
                  SOME ((FFI_return new_ffi new_bytes),

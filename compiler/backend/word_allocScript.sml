@@ -411,7 +411,7 @@ val ssa_cc_trans_def = Define`
         (prog,ssa_fin,na_fin))) /\
   (ssa_cc_trans (ShareInst op v exp) ssa na =
     let exp' = ssa_cc_trans_exp ssa exp in
-      if op = Store ∨ op = Store8
+      if op = Store ∨ op = Store8 ∨ op = Store32
       then
         (ShareInst op (option_lookup ssa v) exp',ssa,na)
       else

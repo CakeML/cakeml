@@ -220,7 +220,7 @@ Definition sh_mem_store32_def:
      SOME (Word w) =>
        if byte_align a IN s.sh_mdomain then
          (case call_FFI s.ffi (SharedMem MappedWrite) [4w:word8]
-                        ([get_byte 0w w F] ++ word_to_bytes a F) of
+                        (TAKE 4 (word_to_bytes w F) ++ word_to_bytes a F) of
             FFI_final outcome => (SOME (FinalFFI outcome), s)
           | FFI_return new_ffi new_bytes => (NONE,s with ffi := new_ffi))
        else (SOME Error, s)
