@@ -51,6 +51,7 @@ val r = sexp_to_dafnyTheory.sexp_type_def
           |> SRULE[oneline OPTION_BIND_def, UNCURRY]
           |> translate_no_ind;
 
+(* Proof takes around one minute *)
 Triviality sexp_type_ind:
   sexp_type_ind
 Proof
@@ -65,11 +66,13 @@ Proof
         res_tac >> simp[])
   >>~- ([`FST foo = "ResolvedType.Newtype"`],
         (PairCases_on `foo`
-         >> rpt (qpat_x_assum `_` mp_tac)
-         >> once_asm_rewrite_tac[FST,SND,EL]
-         >> rpt strip_tac >> res_tac))
+         >> rpt (pop_assum mp_tac)
+         >> once_rewrite_tac[FST, SND, EL]
+         >> rpt strip_tac
+         >> res_tac))
   \\ gvs [AllCaseEqs(), oneline dstrip_sexp_def]
 QED
+
 val _ = sexp_type_ind |> update_precondition;
 
 val r = translate sexp_to_dafnyTheory.sexp_literal_def;
