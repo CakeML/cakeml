@@ -27,7 +27,7 @@ test-hello-cake: cake-$(ARCH)-$(WORD_SIZE).tar.gz
 
 test-candle-records: cake-$(ARCH)-$(WORD_SIZE).tar.gz
 	make cake
-	./cake --candle < candle_records.ml | tail -n11 > candle.out
+	./cake --candle < candle_records.ml | tail -n29 > candle.out
 	diff candle.out candle.expected
 
 cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile hello.cml how-to.md cake-sexpr-32 cake-sexpr-64 config_enc_str.txt candle_boot.ml repl_boot.cml
