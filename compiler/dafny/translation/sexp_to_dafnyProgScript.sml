@@ -78,24 +78,96 @@ val r = translate sexp_to_dafnyTheory.sexp_formal_def;
 val r = translate sexp_to_dafnyTheory.sexp_callSignature_def;
 val r = translate sexp_to_dafnyTheory.sexp_callName_def;
 
-(* TODO just imitated sexp_type after sexp_statement didn't translate;
-   not sure whether that makes sense *)
-val r = translate_no_ind sexp_to_dafnyTheory.sexp_statement_def;
-Triviality sexp_statement_ind:
-  sexp_statement_ind
+Triviality OPTION_BIND_dstrip_sexp:
+  OPTION_BIND (dstrip_sexp x) f =
+  case dstrip_sexp x of
+  | SOME (ss,as) => f (ss,as)
+  | NONE => NONE
 Proof
-  (* once_rewrite_tac [fetch "-" "sexp_statement_ind_def"] *)
-  (* \\ rpt gen_tac *)
-  (* \\ rpt (disch_then strip_assume_tac) *)
-  (* \\ match_mp_tac (latest_ind ()) *)
-  (* \\ rpt strip_tac *)
-  (* \\ last_x_assum match_mp_tac *)
-  (* \\ rpt strip_tac *)
-  (* \\ gvs [FORALL_PROD] *)
-  cheat
+  Cases_on ‘dstrip_sexp x’ \\ gvs []
+  \\ rename [‘_ = SOME x’] \\ PairCases_on ‘x’ \\ gvs []
 QED
-(* TODO does not seem to terminate *)
-(* val _ = sexp_statement_ind |> update_precondition; *)
+
+Triviality OPTION_BIND_strip_sxcons:
+  OPTION_BIND (strip_sxcons x) f =
+  case strip_sxcons x of
+  | SOME l => f l
+  | NONE => NONE
+Proof
+  Cases_on ‘strip_sxcons x’ \\ gvs []
+QED
+
+val r = sexp_to_dafnyTheory.sexp_statement_def
+          |> SRULE [OPTION_BIND_dstrip_sexp]
+          |> SRULE [oneline OPTION_BIND_def]
+          |> SRULE [UNCURRY]
+          |> REWRITE_RULE [GSYM EL]
+          |> translate_no_ind;
+
+Triviality pair_eq_lemma:
+  x = y ⇔ FST x = FST y ∧ SND x = SND y
+Proof
+  PairCases_on ‘x’ \\ PairCases_on ‘y’ \\ gvs []
+QED
+
+Triviality sexp_assignlhs_ind: (* this is a slow proof, but it works *)
+  sexp_assignlhs_ind
+Proof
+  once_rewrite_tac [fetch "-" "sexp_assignlhs_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt (gen_tac ORELSE disch_tac)
+  >-
+   (rpt strip_tac
+    \\ rpt $ pop_assum (mp_tac o SRULE []) \\ rpt strip_tac
+    \\ rewrite_tac [EL]
+    \\ metis_tac [])
+  >-
+   (rpt strip_tac
+    \\ rpt $ pop_assum (mp_tac o SRULE []) \\ rpt strip_tac
+    \\ rewrite_tac [EL]
+    \\ metis_tac [])
+  >- metis_tac []
+  >- metis_tac []
+  >- metis_tac []
+  >- metis_tac []
+  >- metis_tac []
+  >-
+   (rpt strip_tac
+    \\ rpt $ pop_assum (mp_tac o SRULE []) \\ rpt strip_tac
+    \\ rewrite_tac [EL]
+    \\ metis_tac [])
+  >- metis_tac []
+QED
+
+val _ = sexp_assignlhs_ind |> update_precondition;
+
+val side_lemma =
+  sexp_assignlhs_ind |> REWRITE_RULE [fetch "-" "sexp_assignlhs_ind_def"]
+  |> SPECL [“sexp_assignlhs_side”,
+            “sexp_expression_side”,
+            “map_sexp_expression_side”,
+            “map_sexp_expression_sexp_expression_tuple_side”,
+            “map_sxstr_to_str_sexp_expression_tuple_side”,
+            “map_sexp_formal_sexp_expression_tuple_side”,
+            “opt_sexp_expression_side”,
+            “sexp_statement_side”,
+            “map_sexp_statement_side”]
+
+(*
+Triviality sexp_assignlhs_side:
+  ^(side_lemma |> concl |> dest_imp |> snd)
+Proof
+  match_mp_tac side_lemma
+  \\ rpt strip_tac
+  \\ once_rewrite_tac [fetch "-" "sexp_assignlhs_side_def"]
+  \\ rpt strip_tac
+  \\ ...
+QED
+*)
 
 val r = translate sexp_to_dafnyTheory.sexp_method_def;
 val r = translate sexp_to_dafnyTheory.sexp_field_def;
@@ -107,21 +179,33 @@ val r = translate sexp_to_dafnyTheory.sexp_datatypeDtor_def;
 val r = translate sexp_to_dafnyTheory.sexp_datatypeCtor_def;
 val r = translate sexp_to_dafnyTheory.sexp_datatype_def;
 
-(* Suggested by translator *)
-val res = translate_no_ind sexp_to_dafnyTheory.sexp_module_def;
+Triviality bind_guard:
+  OPTION_IGNORE_BIND (OPTION_GUARD b) x =
+  if b then x else NONE
+Proof
+  Cases_on ‘b’ \\ gvs []
+QED
+
+val res = sexp_to_dafnyTheory.sexp_module_def
+          |> SRULE [OPTION_BIND_dstrip_sexp]
+          |> SRULE [oneline OPTION_BIND_def,bind_guard]
+          |> SRULE [UNCURRY]
+          |> REWRITE_RULE [GSYM EL]
+          |> translate_no_ind;
+
 Triviality sexp_module_ind:
   sexp_module_ind
 Proof
-  (* once_rewrite_tac [fetch "-" "sexp_module_ind_def"] *)
-  (* \\ rpt gen_tac *)
-  (* \\ rpt (disch_then strip_assume_tac) *)
-  (* \\ match_mp_tac (latest_ind ()) *)
-  (* \\ rpt strip_tac *)
-  (* \\ last_x_assum match_mp_tac *)
-  (* \\ rpt strip_tac *)
-  (* \\ gvs [FORALL_PROD] *)
-  cheat
+  once_rewrite_tac [fetch "-" "sexp_module_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
 QED
+
 val _ = sexp_module_ind |> update_precondition;
 
 val r = translate sexp_to_dafnyTheory.sexp_program_def;
