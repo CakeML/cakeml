@@ -10,6 +10,10 @@ val _ = new_theory "dafny_compilerProg";
 
 val _ = translation_extends "dafny_to_cakemlProg";
 
+(* TODO Prove sideconditions in all translation files
+   (it may make sense to refactor the functions to reduce #sideconditions)
+ *)
+
 val r = translate dafny_compilerTheory.sexp_program_m_def;
 val r = translate dafny_compilerTheory.dfy_to_cml_def;
 
