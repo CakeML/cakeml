@@ -6928,23 +6928,23 @@ Proof
     \\ Cases_on `m` >>
     fs[share_mem_op_def,share_mem_load_def,share_mem_store_def]>>
     gvs[pair_case_eq,option_case_eq, ffi_result_case_eq,CaseEq"word_loc"]>>
-     fs[asm_fetch_def,state_rel_def]>>
-     drule_all IMP_bytes_in_memory_ShareMem>>strip_tac>>
-     fs[share_mem_domain_code_rel_def]>>
-     qpat_assum `!pc op re a inst len i. asm_fetch_aux _ _ = SOME _ /\
-     mmio_pcs_min_index _ = SOME _ ==> _` drule_all>>strip_tac>>
-     fs[get_memop_info_def]>>
-     drule find_index_is_MEM>>strip_tac>>
-     simp[Once targetSemTheory.evaluate_def]>>
-     qpat_x_assum ‘target_state_rel _ _ _’ assume_tac>>
-     fs[target_state_rel_def]>>
+    fs[asm_fetch_def,state_rel_def]>>
+    drule_all IMP_bytes_in_memory_ShareMem>>strip_tac>>
+    fs[share_mem_domain_code_rel_def]>>
+    qpat_assum `!pc op re a inst len i. asm_fetch_aux _ _ = SOME _ /\
+    mmio_pcs_min_index _ = SOME _ ==> _` drule_all>>strip_tac>>
+    fs[get_memop_info_def]>>
+    drule find_index_is_MEM>>strip_tac>>
+    simp[Once targetSemTheory.evaluate_def]>>
+    qpat_x_assum ‘target_state_rel _ _ _’ assume_tac>>
+    fs[target_state_rel_def]>>
 
     qpat_assum ‘share_mem_state_rel _ _ _ _ ’ assume_tac>>
     fs[share_mem_state_rel_def]>>
     qpat_assum `!index' i'. mmio_pcs_min_index _ = SOME i' /\ index' < _ /\
     _ ==> _` $ qspecl_then [`index`, `i`] drule>>
 
-   (impl_tac>-(drule find_index_LESS_LENGTH >> fs[]))>>
+    (impl_tac>-(drule find_index_LESS_LENGTH >> fs[]))>>
     strip_tac>>
     `mc_conf.target.get_pc ms1 <> mc_conf.ccache_pc /\
     mc_conf.target.get_pc ms1 <> mc_conf.halt_pc` by (
@@ -6966,6 +6966,16 @@ Proof
     rfs[]>>
     ‘∀x. word_to_bytes_aux 1n x F = [get_byte 0w x F]’
       by (rewrite_tac[word_to_bytes_aux_def,ONE]>>simp[])>>
+    ‘∀x:'a word. TAKE 1 (word_to_bytes x F) = [get_byte 0w x F]’
+      by (qhdtm_x_assum ‘good_dimindex’ mp_tac >>
+          rw[good_dimindex_def] >>
+          rw[word_to_bytes_def,
+             CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV word_to_bytes_aux_def]) >>
+    ‘∀x:'a word. TAKE 4 (word_to_bytes x F) = word_to_bytes_aux 4 x F’
+      by (qhdtm_x_assum ‘good_dimindex’ mp_tac >>
+          rw[good_dimindex_def] >>
+          rw[word_to_bytes_def,
+             CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV word_to_bytes_aux_def]) >>
     Cases_on ‘ALOOKUP mc_conf.mmio_info index’>>fs[]>>
     fs[]
     >>~- ([‘Halt (FFI_outcome _)’],
