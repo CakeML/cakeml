@@ -181,9 +181,6 @@ val _ = translate (compilerTheory.parse_sexp_input_def
 val def = spec64 (compilerTheory.compile_def);
 val res = translate def;
 
-val _ = print "About to translate basis (this takes some time) ";
-val res = translate basisProgTheory.basis_def;
-
 val res = translate (primTypesTheory.prim_tenv_def
                        |> CONV_RULE (RAND_CONV EVAL));
 
