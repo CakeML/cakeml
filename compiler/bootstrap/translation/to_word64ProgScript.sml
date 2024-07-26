@@ -359,6 +359,12 @@ val _ = translate (asmTheory.word_cmp_def |> REWRITE_RULE[WORD_LO,WORD_LT] |> sp
 (* TODO: remove when pmatch is fixed *)
 val _ = translate (spec64 const_fp_loop_def)
 
+val _ = translate (spec64 is_simple_def)
+val _ = translate (spec64 dest_Raise_num_def)
+val _ = translate (spec64 try_if_hoist2_def)
+val _ = translate (spec64 try_if_hoist1_def)
+val _ = translate (spec64 simp_duplicate_if_def)
+
 val _ = translate (spec64 compile_exp_def)
 
 val _ = translate (wordLangTheory.max_var_inst_def |> conv64)
