@@ -441,13 +441,128 @@ Definition const_fp_def:
   const_fp p = FST (const_fp_loop p LN)
 End
 
+(*
+Optimise near-consecutive If/If pairs into a single If when there are only two
+possible control-flow paths.
+
+This case looks like:
+  (if C then X else Y) ; Zs ; (if C2 then X2 else Y2)
+
+Also, the number of intermediate Zs is small, (X ; Zs) guarantees either C2 or
+not C2, and (Y ; Zs) guarantees the opposite. The second If can be removed at
+the cost of duplicating the Zs.
+
+The strategy here is (1) recognise the case, (2) expand the first If to cover
+everything, hoisting copies of the second If into both branches and (3) re-run
+the const_fp pass to simplify each branch down to a straight line.
+
+This means the correctness follows straightforwardly from that of const_fp.
+
+To recognise the case (1), step through Seq sequences which we expect to be
+right-associated, and incrementally build up their left-associated variant
+(which we will need eventually to pull things into the first If). Give up if
+this takes too many steps (too many Zs). When an If is found, test-run the
+const_fp pass to see if it would reduce the condition in the second If.
+*)
+
+Definition rewrite_duplicate_if_max_reassoc_def:
+  rewrite_duplicate_if_max_reassoc = 8n
+End
+
+Definition dest_Raise_num_pmatch_def[nocompute]:
+  dest_Raise_num p = case p of wordLang$Raise n => n | _ => 0n
+End
+
+Theorem dest_Raise_num_def[compute] = dest_Raise_num_pmatch_def
+  |> CONV_RULE (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+
+Definition is_simple_pmatch_def[nocompute]:
+  is_simple p = case p of
+    | Tick => T
+    | Skip => T
+    | Move _ _ => T
+    | Assign _ _ => T
+    | _ => F
+End
+
+Theorem is_simple_def[compute] = is_simple_pmatch_def
+  |> CONV_RULE (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+
+Definition try_if_hoist2_pmatch_def[nocompute]:
+  try_if_hoist2 N p1 interm dummy p2 = if N = 0n then NONE
+  else case p1 of
+    | wordLang$If cmp lhs rhs br1 br2 =>
+      let res1 = dest_Raise_num (SND (dest_Seq (const_fp (Seq (Seq br1 interm) dummy)))) in
+      if res1 = 0n then NONE
+      else
+      let res2 = dest_Raise_num (SND (dest_Seq (const_fp (Seq (Seq br2 interm) dummy)))) in
+      if res1 + res2 <> 3n then NONE
+      else SOME (const_fp (If cmp lhs rhs (Seq (Seq br1 interm) p2)
+          (Seq (Seq br2 interm) p2)))
+    | Seq p3 p4 => (
+      dtcase dest_If p4 of
+      | SOME (cmp, lhs, rhs, br1, br2) =>
+      let res1 = dest_Raise_num (SND (dest_Seq (const_fp (Seq (Seq br1 interm) dummy)))) in
+      if res1 = 0n then NONE
+      else
+      let res2 = dest_Raise_num (SND (dest_Seq (const_fp (Seq (Seq br2 interm) dummy)))) in
+      if res1 + res2 <> 3n then NONE
+      else SOME (Seq p3 (const_fp (If cmp lhs rhs (Seq (Seq br1 interm) p2)
+          (Seq (Seq br2 interm) p2))))
+      | NONE =>
+      if is_simple p4
+      then try_if_hoist2 (N - 1n) p3 (Seq p4 interm) dummy p2
+      else NONE
+      )
+    | _ => NONE
+End
+
+Theorem try_if_hoist2_def[compute] = try_if_hoist2_pmatch_def
+  |> CONV_RULE (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+
+Definition try_if_hoist1_def:
+  try_if_hoist1 p1 p2 = (dtcase dest_If p2 of
+  | NONE => NONE
+  | SOME (cmp, lhs, rhs, _, _) => (
+    let dummy = wordLang$If cmp lhs rhs (Raise 1) (Raise 2) in
+    try_if_hoist2 rewrite_duplicate_if_max_reassoc p1 Skip dummy p2
+  )
+  )
+End
+
+Definition simp_duplicate_if_pmatch_def[nocompute]:
+  simp_duplicate_if p = case p of
+  | MustTerminate q => MustTerminate (simp_duplicate_if q)
+  | Call ret_prog dest args handler =>
+     Call (dtcase ret_prog of
+           | NONE => NONE
+           | SOME (x1,x2,q1,x3,x4) => SOME (x1,x2,simp_duplicate_if q1,x3,x4))
+       dest args
+          (dtcase handler of
+           | NONE => NONE
+           | SOME (y1,q2,y2,y3) => SOME (y1,simp_duplicate_if q2,y2,y3))
+  | If cmp lhs rhs br1 br2 =>
+    If cmp lhs rhs (simp_duplicate_if br1) (simp_duplicate_if br2)
+  | Seq p1 p2 => (
+    let p1x = simp_duplicate_if p1;
+        p2x = simp_duplicate_if p2 in
+    dtcase try_if_hoist1 p1x p2x of
+    | NONE => Seq p1x p2x
+    | SOME p3 => Seq_assoc Skip p3
+  )
+  | _ => p
+End
+
+Theorem simp_duplicate_if_def[compute] = simp_duplicate_if_pmatch_def
+  |> CONV_RULE (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+
 (* all of them together *)
 
 Definition compile_exp_def:
   compile_exp (e:'a wordLang$prog) =
     let e = Seq_assoc Skip e in
-    let e = simp_if e in
     let e = const_fp e in
+    let e = simp_duplicate_if e in
       e
 End
 
