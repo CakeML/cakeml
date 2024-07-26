@@ -10,11 +10,13 @@ val _ = new_theory "dafny_to_cakemlProg";
 val _ = translation_extends "sexp_to_dafnyProg";
 
 val r = translate dafny_to_cakemlTheory.from_string_def;
+val r = translate dafny_to_cakemlTheory.dest_Name_def;
 val r = translate dafny_to_cakemlTheory.from_literal_def;
+val r = translate dafny_to_cakemlTheory.dafny_type_of_def;
 val r = translate dafny_to_cakemlTheory.from_expression_def;
+val r = translate dafny_to_cakemlTheory.arb_value_def;
 val r = translate dafny_to_cakemlTheory.from_InitVal_def;
 val r = translate dafny_to_cakemlTheory.is_indep_stmt_def;
-val r = translate dafny_to_cakemlTheory.name_to_string_def;
 val r = translate dafny_to_cakemlTheory.from_ident_def;
 val r = translate dafny_to_cakemlTheory.from_assignLhs_def;
 val r = translate dafny_to_cakemlTheory.from_indep_stmt_def;
