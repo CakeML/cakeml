@@ -529,10 +529,10 @@ let () =
     let loadMsg s = print ("- Loading " ^ s ^ "\n") in
     let load_use fname =
       loadMsg fname;
-      Text_io.b_inputLinesFrom #"\n" fname in
+      Text_io.b_inputLinesFrom '\n' fname in
     let load fname =
       loadMsg fname;
-      match Text_io.b_inputLinesFrom #"\n" fname with
+      match Text_io.b_inputLinesFrom '\n' fname with
       | None -> None
       | Some lns ->
           begin

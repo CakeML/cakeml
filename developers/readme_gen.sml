@@ -28,14 +28,18 @@ val OUTPUT_FILENAME = "README.md"
 val CHECK_OPT = "--check"
 val AUTO_INCLUDE_SUFFIXES = ["Script.sml","Syntax.sml","Lib.sml",".lem",".c",".cml"]
 val FIRST_TARGET_PREFIX = "all: $(DEFAULT_TARGETS) README.md"
+val PHONY_SUGGESTION = ".PHONY: all"
 
 val HOLMAKEFILE_SUGGESTION =
- concat ["README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) ",
-         "$(wildcard *Syntax.sml)\n",
-         "DIRS = $(wildcard */)\n",
-         "README.md: $(CAKEMLDIR)/developers/readme_gen",
-         " readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)\n",
-         "\t$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)\n"]
+concat ["INCLUDES =\n\n",
+        FIRST_TARGET_PREFIX ^ "\n",
+        PHONY_SUGGESTION ^ "\n\n",
+        "README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) ",
+        "$(wildcard *Syntax.sml)\n",
+        "DIRS = $(wildcard */)\n",
+        "README.md: $(CAKEMLDIR)/developers/readme_gen",
+        " readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)\n",
+        "\t$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)\n"]
 
 val ILLEGAL_STRINGS =
   [("store_thm(\"", "The Theorem syntax is to be used instead of store_thm."),

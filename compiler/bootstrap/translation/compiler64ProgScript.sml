@@ -181,9 +181,6 @@ val _ = translate (compilerTheory.parse_sexp_input_def
 val def = spec64 (compilerTheory.compile_def);
 val res = translate def;
 
-val _ = print "About to translate basis (this takes some time) ";
-val res = translate basisProgTheory.basis_def;
-
 val res = translate (primTypesTheory.prim_tenv_def
                        |> CONV_RULE (RAND_CONV EVAL));
 
@@ -238,6 +235,7 @@ val res = translate backendTheory.prim_src_config_eq;
 
 (* x64 *)
 val res = translate x64_configTheory.x64_names_def;
+val res = translate export_x64Theory.startup_def;
 val res = translate export_x64Theory.ffi_asm_def;
 val res = translate export_x64Theory.windows_ffi_asm_def;
 val res = translate export_x64Theory.export_func_def;
@@ -249,6 +247,7 @@ val res = translate
 
 (* riscv *)
 val res = translate riscv_configTheory.riscv_names_def;
+val res = translate export_riscvTheory.startup_def;
 val res = translate export_riscvTheory.ffi_asm_def;
 val res = translate export_riscvTheory.export_func_def;
 val res = translate export_riscvTheory.export_funcs_def;
@@ -259,6 +258,7 @@ val res = translate
 
 (* mips *)
 val res = translate mips_configTheory.mips_names_def;
+val res = translate export_mipsTheory.startup_def;
 val res = translate export_mipsTheory.ffi_asm_def;
 val res = translate export_mipsTheory.export_func_def;
 val res = translate export_mipsTheory.export_funcs_def;
@@ -269,6 +269,7 @@ val res = translate
 
 (* arm8 *)
 val res = translate arm8_configTheory.arm8_names_def;
+val res = translate export_arm8Theory.startup_def;
 val res = translate export_arm8Theory.ffi_asm_def;
 val res = translate export_arm8Theory.export_func_def;
 val res = translate export_arm8Theory.export_funcs_def;
