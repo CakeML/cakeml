@@ -1071,7 +1071,6 @@ Proof
                by metis_tac [mem_lem1, wordsTheory.WORD_ADD_COMM]
                \\ load_tac
                )
-            (*
             >- (
                (*--------------
                    Load32
@@ -1093,7 +1092,6 @@ Proof
                \\ qpat_x_assum `~(a /\ b)` (K all_tac)
                \\ load_tac
                )
-            *)
             >- (
                (*--------------
                    Store
@@ -1122,7 +1120,6 @@ Proof
                ]
                \\ store_tac
                )
-            (*
                (*--------------
                    Store32
                  --------------*)
@@ -1136,7 +1133,6 @@ Proof
             by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
             \\ qpat_x_assum `~(a /\ b)` (K all_tac)
             \\ store_tac
-            *)
             )
          (*--------------
              FP
