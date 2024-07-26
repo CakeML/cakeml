@@ -29,6 +29,10 @@ Proof
   fs [labels_rel_def,ALL_DISTINCT_APPEND,SUBSET_DEF] \\ metis_tac []
 QED
 
+Triviality labels_rel_CONS =
+   labels_rel_APPEND |> Q.GENL [`xs`, `xs1`] |> Q.SPECL [`[x]`, `[x1]`]
+   |> SIMP_RULE std_ss [APPEND]
+
 Theorem PERM_IMP_labels_rel:
    PERM xs ys ==> labels_rel ys xs
 Proof
@@ -1128,15 +1132,12 @@ Proof
   Cases_on `evaluate (p, s)` \\ res_tac
 QED
 
-Theorem extract_labels_const_fp:
-   labels_rel (extract_labels p) (extract_labels (const_fp p))
+Triviality extract_labels_const_fp_loop:
+  !p cs p1 cs1.
+  const_fp_loop p cs = (p1,cs1) ==>
+  labels_rel (extract_labels p) (extract_labels p1)
 Proof
-  fs [const_fp_def] \\ Cases_on `const_fp_loop p LN`
-  \\ rename1 `const_fp_loop p cs = (p1,cs1)` \\ fs []
-  \\ pop_assum mp_tac
-  \\ qspec_tac (`cs1`,`cs1`) \\ qspec_tac (`p1`,`p1`)
-  \\ qspec_tac (`cs`,`cs`) \\ qspec_tac (`p`,`p`)
-  \\ ho_match_mp_tac const_fp_loop_ind
+  ho_match_mp_tac const_fp_loop_ind
   \\ ntac 6 (conj_tac THEN1
    (fs [const_fp_loop_def] \\ rw [] \\ fs [extract_labels_def]
     \\ every_case_tac
@@ -1161,6 +1162,14 @@ Proof
   \\ fs [labels_rel_def,ALL_DISTINCT_APPEND,SUBSET_DEF]
 QED
 
+Theorem extract_labels_const_fp:
+   labels_rel (extract_labels p) (extract_labels (const_fp p))
+Proof
+  fs [const_fp_def] \\ Cases_on `const_fp_loop p LN`
+  \\ drule extract_labels_const_fp_loop
+  \\ simp []
+QED
+
 Theorem every_inst_inst_ok_less_const_fp:
    ∀prog.
     every_inst (inst_ok_less ac) prog ⇒
@@ -1179,6 +1188,220 @@ Proof
   \\ pairarg_tac \\ fs [] \\ rw [] \\ fs [every_inst_def]
 QED
 
+(* the duplicate-if pass *)
+
+Triviality evaluate_try_if_hoist2:
+  ! N p1 interm dummy p2 s.
+  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
+  gc_fun_const_ok s.gc_fun ==>
+  evaluate (p3, s) = evaluate (Seq (Seq p1 interm) p2, s)
+Proof
+  ho_match_mp_tac try_if_hoist2_pmatch_ind
+  \\ rpt gen_tac
+  \\ rpt disch_tac
+  \\ REWRITE_TAC [Once try_if_hoist2_def]
+  \\ rw []
+  \\ fs [CaseEq "bool", CaseEq "wordLang$prog",
+        CaseEq "option", CaseEq "prod"]
+  \\ gvs []
+  >- (
+    ONCE_REWRITE_TAC [GSYM evaluate_Seq_assoc]
+    \\ simp [Seq_assoc_def]
+  )
+  >- (
+    fs [dest_If_thm]
+    \\ simp [evaluate_def]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ imp_res_tac evaluate_gc_fun_const_ok
+    \\ fs [evaluate_const_fp]
+    \\ fs [evaluate_def]
+    \\ rpt ((pairarg_tac ORELSE TOP_CASE_TAC) \\ fs [])
+    \\ gs []
+  )
+  >- (
+    fs [dest_If_thm]
+    \\ simp [evaluate_const_fp]
+    \\ simp [evaluate_def]
+    \\ rpt ((pairarg_tac ORELSE TOP_CASE_TAC) \\ fs [])
+    \\ gs []
+  )
+QED
+
+Triviality evaluate_try_if_hoist1:
+  try_if_hoist1 p1 p2 = SOME p3 ==>
+  gc_fun_const_ok s.gc_fun ==>
+  evaluate (p3, s) = evaluate (Seq p1 p2, s)
+Proof
+  simp [try_if_hoist1_def]
+  \\ every_case_tac \\ fs []
+  \\ rw []
+  \\ drule evaluate_try_if_hoist2
+  \\ rw []
+  \\ ONCE_REWRITE_TAC [GSYM evaluate_Seq_assoc]
+  \\ simp [Seq_assoc_def]
+QED
+
+Triviality DISJ_CONTR_1_INTRO:
+  (~ P ==> Q) ==> P \/ Q
+Proof
+  metis_tac []
+QED
+
+Theorem evaluate_simp_duplicate_if:
+  !p s. gc_fun_const_ok s.gc_fun ==>
+  evaluate (simp_duplicate_if p, s) = evaluate (p, s)
+Proof
+  ho_match_mp_tac simp_duplicate_if_pmatch_ind
+  \\ rw []
+  \\ simp [Once simp_duplicate_if_def]
+  \\ ((Cases_on `p` \\ fs []) >~ [`Seq`] >~ [`Call`])
+  >- (
+    irule (Q.prove (`((?x y. a = (x, y)) ==> a = b) ==> a = b`,
+        Cases_on `a` \\ simp []))
+    \\ rpt (TOP_CASE_TAC \\ fs [])
+    \\ strip_tac
+    \\ fs [evaluate_def]
+    \\ fs [CaseEq "option", CaseEq "bool", CaseEq "prod",
+        CaseEq "wordSem$result",
+        add_ret_loc_def]
+    \\ gvs []
+    \\ fs [set_var_def, call_env_def]
+    \\ imp_res_tac pop_env_stack_gc
+    \\ imp_res_tac evaluate_gc_fun_const_ok
+    \\ gs [dec_clock_def, push_env_def]
+  )
+  >- (
+    TOP_CASE_TAC
+    >- (
+      simp [evaluate_def]
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ imp_res_tac evaluate_gc_fun_const_ok
+      \\ simp []
+    )
+    >- (
+      simp [evaluate_Seq_assoc]
+      \\ imp_res_tac evaluate_try_if_hoist1
+      \\ simp [evaluate_def]
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ imp_res_tac evaluate_gc_fun_const_ok
+      \\ simp []
+    )
+  )
+  \\ simp [evaluate_def]
+QED
+
+Triviality const_fp_loop_Seq =
+  const_fp_loop_def |> BODY_CONJUNCTS
+  |> filter (can (find_term (fn t => total (fst o dest_const) t = SOME "Seq")) o concl)
+  |> LIST_CONJ
+
+Triviality labels_rel_append_imp:
+  labels_rel (Y ++ X) Z ==> labels_rel (X ++ Y) Z
+Proof
+  metis_tac [PERM_APPEND, labels_rel_TRANS, PERM_IMP_labels_rel]
+QED
+
+(* The tricky part: to prove this syntactic property (and only for this) we
+   have to show that the strategy actually works, and that any program which
+   the hoist mechanism hoists will simplify (via const_fp) back to a program
+   in which nothing is duplicated. *)
+Triviality const_fp_loop_dummy_cases:
+  const_fp_loop (If cmp lhs rhs (Raise 1) (Raise 2)) cs = (p2, cs2) ==>
+  (dest_Raise_num p2 = 1 /\
+  (! br1 br2 . const_fp_loop (If cmp lhs rhs br1 br2) cs = const_fp_loop br1 cs)) \/
+  (dest_Raise_num p2 = 2 /\
+  (! br1 br2 . const_fp_loop (If cmp lhs rhs br1 br2) cs = const_fp_loop br2 cs)) \/
+  (dest_Raise_num p2 = 0)
+Proof
+  rw [const_fp_loop_def, dest_Raise_num_def]
+  \\ gvs [CaseEq "option", CaseEq "bool"]
+QED
+
+fun FIRST_THEN tacs tac = FIRST (map (fn t => t \\ tac) tacs)
+
+val try_cancel_labels_rel_append =
+  FIRST_THEN [ALL_TAC, irule labels_rel_append_imp]
+  (FIRST_THEN [REWRITE_TAC [GSYM APPEND_ASSOC],
+      REWRITE_TAC [APPEND_ASSOC], ONCE_REWRITE_TAC [APPEND_ASSOC]]
+  (FIRST_THEN [ALL_TAC, irule labels_rel_append_imp]
+  (FIRST_THEN [REWRITE_TAC [GSYM APPEND_ASSOC], REWRITE_TAC [APPEND_ASSOC]]
+  (drule_at_then Any irule labels_rel_APPEND))));
+
+Triviality labels_rel_hoist2:
+  ! N p1 interm dummy p2 s.
+  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
+  dest_If p2 = SOME (cmp, lhs, rhs, br1, br2) ==>
+  dummy = If cmp lhs rhs (Raise 1) (Raise 2) ==>
+  extract_labels interm = [] ==>
+  labels_rel (extract_labels p1 ++ extract_labels p2)
+    (extract_labels p3)
+Proof
+  ho_match_mp_tac try_if_hoist2_pmatch_ind
+  \\ rpt gen_tac
+  \\ rpt disch_tac
+  \\ REWRITE_TAC [Once try_if_hoist2_def]
+  \\ rw []
+  \\ fs [CaseEq "bool", CaseEq "wordLang$prog",
+        CaseEq "option", CaseEq "prod"]
+  \\ gvs []
+  \\ fs [extract_labels_def, dest_If_thm]
+  >- (
+    fs [is_simple_def] \\ every_case_tac
+    \\ gs [extract_labels_def]
+  )
+  >- (
+    fs [const_fp_def, const_fp_loop_Seq]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ gvs [dest_Seq_def]
+    \\ simp [Once const_fp_loop_def]
+    \\ rpt (dxrule const_fp_loop_dummy_cases)
+    \\ rw [] \\ fs []
+    \\ gs []
+    \\ fs [const_fp_loop_Seq]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ gvs [extract_labels_def]
+    \\ imp_res_tac extract_labels_const_fp_loop
+    \\ gs [extract_labels_def, EVAL ``labels_rel [] _``]
+    \\ rpt try_cancel_labels_rel_append
+    \\ simp []
+  )
+  >- (
+    fs [const_fp_def, const_fp_loop_Seq]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ gvs [dest_Seq_def]
+    \\ simp [Once const_fp_loop_def]
+    \\ rpt (dxrule const_fp_loop_dummy_cases)
+    \\ rw [] \\ fs []
+    \\ gs []
+    \\ fs [const_fp_loop_Seq]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ gvs [extract_labels_def]
+    \\ imp_res_tac extract_labels_const_fp_loop
+    \\ gs [extract_labels_def, EVAL ``labels_rel [] _``]
+    \\ rpt try_cancel_labels_rel_append
+    \\ simp []
+  )
+QED
+
+Theorem labels_rel_simp_duplicate_if:
+  !p. labels_rel (extract_labels p) (extract_labels (simp_duplicate_if p))
+Proof
+  ho_match_mp_tac simp_duplicate_if_pmatch_ind
+  \\ rw []
+  \\ simp [Once simp_duplicate_if_def]
+  \\ Cases_on `p` \\ fs []
+  \\ simp [extract_labels_def]
+  \\ every_case_tac
+  \\ fs [extract_labels_def, labels_rel_CONS, labels_rel_APPEND]
+  \\ simp [extract_labels_Seq_assoc_lemma, extract_labels_def]
+  \\ fs [try_if_hoist1_def, CaseEq "option", CaseEq "prod", EXISTS_PROD]
+  \\ drule labels_rel_hoist2
+  \\ rw [extract_labels_def]
+  \\ drule_at_then Any irule labels_rel_TRANS
+  \\ irule labels_rel_APPEND
+  \\ simp []
+QED
+
 (* putting it all together *)
 
 Theorem compile_exp_thm:
@@ -1187,16 +1410,19 @@ Theorem compile_exp_thm:
    evaluate (word_simp$compile_exp prog,s) = (res,s2)
 Proof
     fs [word_simpTheory.compile_exp_def,evaluate_simp_if,evaluate_Seq_assoc,
-        evaluate_const_fp]
+        evaluate_const_fp, evaluate_simp_duplicate_if]
 QED
 
 Theorem extract_labels_compile_exp[simp]:
    !p. labels_rel (extract_labels p)
                   (extract_labels (word_simp$compile_exp p))
 Proof
-  fs [word_simpTheory.compile_exp_def]>>
-  metis_tac[extract_labels_simp_if,extract_labels_Seq_assoc,PERM_TRANS,
-            extract_labels_const_fp,PERM_IMP_labels_rel,labels_rel_TRANS]
+  rw [word_simpTheory.compile_exp_def] >>
+  irule labels_rel_TRANS >> ONCE_REWRITE_TAC [CONJ_COMM] >>
+  irule_at Any labels_rel_simp_duplicate_if >>
+  irule labels_rel_TRANS >> ONCE_REWRITE_TAC [CONJ_COMM] >>
+  irule_at Any extract_labels_const_fp >>
+  simp [extract_labels_Seq_assoc]
 QED
 
 val dest_Seq_no_inst = Q.prove(`
@@ -1230,6 +1456,41 @@ val Seq_assoc_no_inst = Q.prove(`
   fs[every_inst_def]>>
   every_case_tac>>fs[])
 
+Triviality try_if_hoist2_no_inst:
+  ! N p1 interm dummy p2 s.
+  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
+  every_inst (inst_ok_less ac) p1 ==>
+  every_inst (inst_ok_less ac) interm ==>
+  every_inst (inst_ok_less ac) p2 ==>
+  every_inst (inst_ok_less ac) p3
+Proof
+  ho_match_mp_tac try_if_hoist2_pmatch_ind
+  \\ rpt gen_tac
+  \\ rpt disch_tac
+  \\ REWRITE_TAC [Once try_if_hoist2_def]
+  \\ rw []
+  \\ fs [CaseEq "bool", CaseEq "wordLang$prog",
+        CaseEq "option", CaseEq "prod"]
+  \\ gvs [dest_If_thm]
+  \\ fs [every_inst_def, every_inst_inst_ok_less_const_fp]
+QED
+
+Triviality simp_duplicate_if_no_inst:
+  !p. every_inst (inst_ok_less ac) p ==> every_inst (inst_ok_less ac) (simp_duplicate_if p)
+Proof
+  ho_match_mp_tac simp_duplicate_if_pmatch_ind
+  \\ rw []
+  \\ simp [Once simp_duplicate_if_def]
+  \\ Cases_on `p` \\ fs []
+  \\ fs [every_inst_def]
+  \\ every_case_tac \\ fs []
+  \\ fs [every_inst_def]
+  \\ fs [try_if_hoist1_def, CaseEq "option", CaseEq "prod"]
+  \\ imp_res_tac try_if_hoist2_no_inst
+  \\ gs [dest_If_thm]
+  \\ fs [every_inst_def, Seq_assoc_no_inst, every_inst_inst_ok_less_const_fp]
+QED
+
 Theorem compile_exp_no_inst:
   ∀prog.
     every_inst (inst_ok_less ac) prog ⇒
@@ -1237,7 +1498,7 @@ Theorem compile_exp_no_inst:
 Proof
   fs[compile_exp_def]>>
   metis_tac[simp_if_no_inst,Seq_assoc_no_inst,every_inst_def,
-            every_inst_inst_ok_less_const_fp]
+            every_inst_inst_ok_less_const_fp,simp_duplicate_if_no_inst]
 QED
 
 val _ = export_theory();
