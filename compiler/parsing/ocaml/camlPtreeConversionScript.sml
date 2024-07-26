@@ -3184,7 +3184,7 @@ Definition peg_def:
 End
 
 Overload cmlpegexec[local] =
-  ``λn t. peg_exec cmlPEG$cmlPEG (pnt n) t [] NONE [] done failed``;
+  ``λn t. peg_exec cmlPEG$cmlPEG (cmlPEG$pnt n) t [] NONE [] done failed``;
 
 Definition ptree_Definition_def:
   (ptree_Definition (Lf (_, locs)) =
