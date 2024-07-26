@@ -784,7 +784,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPRecFields));
       (INL nPCons, (* ::= constr ('{' fields '}' | p?) *)
        pegf (choicel [seql [pnt nConstr;
-                            choicel [pnt nPRecFields; try (pnt nPBase)]] I;
+                            choicel [pnt nPRecFields; try (pnt nPCons)]] I;
                       pnt nPBase])
             (bindNT nPCons));
       (INL nPAs, (* ::= p ('as' id)* *)

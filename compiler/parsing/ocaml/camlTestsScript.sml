@@ -1495,6 +1495,13 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
                             Pc "Append" [Pv "w"; Pv "t"]]]”)
   ;
 
+
+(* 2024-07-25: Pattern constructors applied to pattern constructors *)
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "Some Some None"
+  (SOME $ eval “[mkpat $  Pc "Some" [Pc "Some" [Pc "None" []]]]”)
+  ;
+
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "Append (Append (v, s), Append (w, t))"
   (SOME “C "Append" [C "Append" [V "v"; V "s"];
