@@ -236,8 +236,10 @@ End
 Definition memOpToNum_def:
   memOpToNum Load = (21:num) ∧
   memOpToNum Load8 = 22 ∧
+  memOpToNum Load32 = 44 ∧
   memOpToNum Store = 23 ∧
-  memOpToNum Store8 = 24
+  memOpToNum Store8 = 24 ∧
+  memOpToNum Store34 = 45
 End
 
 Definition fpToNumList_def:
@@ -338,8 +340,10 @@ End
 Definition is_store_def:
   is_store Load = F ∧
   is_store Load8 = F ∧
+  is_store Load32 = F ∧
   is_store Store = T ∧
-  is_store Store8 = T
+  is_store Store8 = T ∧
+  is_store Store32 = T
 End
 
 Definition is_complex_def:
