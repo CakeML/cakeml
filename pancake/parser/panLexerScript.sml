@@ -18,9 +18,9 @@ open mlstringTheory;
 val _ = new_theory "panLexer";
 
 Datatype:
-  keyword = SkipK | StoreK | StoreBK | IfK | ElseK | WhileK
+  keyword = SkipK | StoreK | StoreBK | Store32K | IfK | ElseK | WhileK
   | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK
-  | LdsK | LdbK | LdwK | BaseK | InK | FunK | ExportK | TrueK | FalseK
+  | LdsK | LdbK | LdwK | Ld32K | BaseK | InK | FunK | ExportK | TrueK | FalseK
 End
 
 Datatype:
@@ -115,6 +115,7 @@ Definition get_keyword_def:
   if s = "skip" then (KeywordT SkipK) else
   if s = "stw" then (KeywordT StoreK) else
   if s = "st8" then (KeywordT StoreBK) else
+  if s = "st32" then (KeywordT Store32K) else
   if s = "if" then (KeywordT IfK) else
   if s = "else" then (KeywordT ElseK) else
   if s = "while" then (KeywordT WhileK) else
@@ -130,6 +131,7 @@ Definition get_keyword_def:
   if s = "lds" then (KeywordT LdsK) else
   if s = "ldw" then (KeywordT LdwK) else
   if s = "ld8" then (KeywordT LdbK) else
+  if s = "ld32" then (KeywordT Ld32K) else
   if s = "@base" then (KeywordT BaseK) else
   if s = "true" then (KeywordT TrueK) else
   if s = "false" then (KeywordT FalseK) else
