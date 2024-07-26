@@ -40,7 +40,6 @@ fun list_mk_fun_type [ty] = ty
   | list_mk_fun_type _ = fail()
 
 val _ = add_preferred_thy "-";
-(*val _ = add_preferred_thy "termination";*)
 
 Theorem NOT_NIL_AND_LEMMA:
    (b <> [] /\ x) = if b = [] then F else x
@@ -153,7 +152,7 @@ QED
 
 val _ = update_precondition ptree_PPattern_side;
 
-val r = preprocess ptree_Pattern_def |> translate;
+val r = preprocess ptree_Pattern_PMATCH |> translate;
 
 (* This takes a long time.
  *)
