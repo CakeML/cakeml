@@ -797,8 +797,13 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPOps));
       (INL nPattern,
        pegf (pnt nPOps) (bindNT nPattern));
+      (* This rule is used for the patterns in let (rec) and fun, and since
+       * these allow curried pattern arguments, we must not let applications
+       * and similar be unparenthesized. This is why we accept nPBase instead
+       * of nPattern. nPBase contains single-token patterns, and patterns
+       * enclosed in [] or (). *)
       (INL nPatterns,
-       seql [pnt nPattern; try (pnt nPatterns)]
+       seql [pnt nPBase; try (pnt nPatterns)]
             (bindNT nPatterns));
       (INL nStart,
        seql [try (pnt nModuleItems)] (bindNT nStart))
