@@ -4482,27 +4482,43 @@ Proof
   \\ imp_res_tac s_key_eq_stack_size \\ fs []
 QED
 
-(****** no_alloc ******)
+(****** not_created_subprogs ******)
 
-val no_alloc_def = Define `
-  (no_alloc (MustTerminate p) = no_alloc p) ∧
-  (no_alloc (Call ret _ _ handler) =
-     (case ret of
-      | NONE =>
-            (case handler of
-             | NONE => T
-             | SOME (_,ph,_,_) => no_alloc ph)
-      | SOME (_,_,pr,_,_) =>
-            (case handler of
-             | NONE => no_alloc pr
-             | SOME (_,ph,_,_) => no_alloc ph ∧ no_alloc pr))) ∧
-  (no_alloc (Seq p1 p2) = (no_alloc p1 ∧ no_alloc p2)) ∧
-  (no_alloc (If _ _ _ p1 p2) = (no_alloc p1 ∧ no_alloc p2)) ∧
-  (no_alloc (Alloc _ _) = F) ∧
-  (no_alloc _ = T)
-`
+(* Examines various syntactic elements within programs that some phases are
+   expected to possibly remove but not create. *)
 
-val no_alloc_ind = theorem "no_alloc_ind";
+Definition not_created_subprogs_def:
+  not_created_subprogs P (MustTerminate p : 'a prog) =
+    (P (MustTerminate (Skip : 'a prog)) /\ not_created_subprogs P p) /\
+  not_created_subprogs P (Seq p1 p2) = (not_created_subprogs P p1 /\
+    not_created_subprogs P p2) /\
+  not_created_subprogs P (If _ _ _ p1 p2) = (not_created_subprogs P p1 /\
+    not_created_subprogs P p2) /\
+  not_created_subprogs P (wordLang$Call r dest args h) =
+    (P (wordLang$Call NONE dest [] NONE) /\
+    (case r of NONE => T | SOME (_, _, p, _) => not_created_subprogs P p) /\
+    (case h of NONE => T | SOME (_, p, h1, _) =>
+        P (wordLang$Call NONE NONE [] (SOME (0, Skip, h1, 0))) /\
+        not_created_subprogs P p)) /\
+  not_created_subprogs P (Alloc _ _) = P (Alloc 0 LN) /\
+  not_created_subprogs P (LocValue _ l) = P (LocValue 0 l) /\
+  not_created_subprogs P (ShareInst _ _ _) = P (ShareInst ARB 0 (Var 0)) /\
+  not_created_subprogs P (Install _ _ _ _ _) = P (Install 0 0 0 0 LN) /\
+  not_created_subprogs _ _ = T
+End
+
+Definition no_alloc_def:
+  no_alloc p = not_created_subprogs ((<>) (Alloc 0 LN)) p
+End
+
+(* Sigh ... *)
+val not_created_lhs_pats = not_created_subprogs_def |> BODY_CONJUNCTS
+    |> map (snd o dest_comb o lhs o concl o SPEC_ALL)
+
+Theorem no_alloc_def2 =
+  map (fn t => REWRITE_CONV [no_alloc_def, not_created_subprogs_def] ``no_alloc ^t``)
+        not_created_lhs_pats
+    |> map (REWRITE_RULE [GSYM no_alloc_def]) |> LIST_CONJ
 
 val no_alloc_code_def = Define `
   no_alloc_code (code : (num # ('a wordLang$prog)) num_map) ⇔
@@ -4520,30 +4536,14 @@ Proof
   metis_tac[]
 QED
 
+Definition no_install_def:
+  no_install p = not_created_subprogs ((<>) (Install 0 0 0 0 LN)) p
+End
 
-(**************************** no_install *****************************)
-
-(*  ensures there are no install instructions in the code to be optimised -
-    these will break the dead code elimination
-    pass as they introduce new code at runtime,
-    which may reference code that has been eliminated *)
-
-val no_install_def = Define `
-    (no_install (MustTerminate p) = no_install p) ∧
-    (no_install (Call ret _ _ handler) = (case ret of
-        | NONE => (case handler of
-            | NONE => T
-            | SOME (_,ph,_,_) => no_install ph)
-        | SOME (_,_,pr,_,_) => (case handler of
-            | NONE => no_install pr
-            | SOME (_,ph,_,_) => no_install ph ∧ no_install pr))) ∧
-    (no_install (Seq p1 p2) = (no_install p1 ∧ no_install p2)) ∧
-    (no_install (If _ _ _ p1 p2) = (no_install p1 ∧ no_install p2)) ∧
-    (no_install (Install _ _ _ _ _) = F) ∧
-    (no_install _ = T)
-`
-
-val no_install_ind = theorem "no_install_ind";
+Theorem no_install_def2 =
+  map (fn t => REWRITE_CONV [no_install_def, not_created_subprogs_def] ``no_install ^t``)
+        not_created_lhs_pats
+    |> map (REWRITE_RULE [GSYM no_install_def]) |> LIST_CONJ
 
 val no_install_code_def = Define `
     no_install_code (code : (num # ('a wordLang$prog)) num_map) ⇔
@@ -4582,13 +4582,13 @@ Proof
     >- (EVERY_CASE_TAC >> fs[call_env_def, flush_state_def, dec_clock_def] >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> fs[] >> rename1 `evaluate (p, st)` >>
         Cases_on `evaluate (p, st)` >>
-        fs[no_install_def] >> EVERY_CASE_TAC >> fs[] >> rw[] >> fs[])
-    >- (Cases_on `evaluate (c1,s)` >> fs[no_install_def] >> CASE_TAC >> rfs[])
+        fs[no_install_def2] >> EVERY_CASE_TAC >> fs[] >> rw[] >> fs[])
+    >- (Cases_on `evaluate (c1,s)` >> fs[no_install_def2] >> CASE_TAC >> rfs[])
     >- (EVERY_CASE_TAC >> fs[call_env_def, flush_state_def] >> rw[] >> fs[])
     >- (fs[jump_exc_def] >> EVERY_CASE_TAC >> rw[] >> fs[])
-    >- (fs[no_install_def] >> EVERY_CASE_TAC >> rw[] >> fs[])
+    >- (fs[no_install_def2] >> EVERY_CASE_TAC >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> fs[set_var_def] >> rw[] >> fs[])
-    >- (fs[no_install_def])
+    >- (fs[no_install_def2])
     >- (EVERY_CASE_TAC >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> rw[] >> fs[] >> fs[ffiTheory.call_FFI_def] >>
@@ -4597,7 +4597,7 @@ Proof
       strip_tac >>
       drule share_inst_const >>
       simp[] )
-    >- (fs[no_install_def, dec_clock_def, call_env_def, flush_state_def, push_env_def,
+    >- (fs[no_install_def2, dec_clock_def, call_env_def, flush_state_def, push_env_def,
         cut_env_def, pop_env_def, set_var_def] >>
         EVERY_CASE_TAC >> rw[] >> fs[] >> metis_tac[no_install_find_code])
 QED
@@ -4684,7 +4684,7 @@ Theorem permute_swap_lemma2:
 Proof
    ho_match_mp_tac (evaluate_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >>
    rw[] >> pairarg_tac >> rw[]
-   >~ [‘Alloc’] >- gvs[no_alloc_def]
+   >~ [‘Alloc’] >- gvs[no_alloc_def2]
    >~ [‘Move’]
    >- gvs[evaluate_def,set_vars_def,s_key_eq_refl,AllCaseEqs(),state_component_equality]
    >~ [‘Inst’]
@@ -4695,17 +4695,18 @@ Proof
    >~ [‘MustTerminate’]
    >- (gvs[evaluate_def, AllCaseEqs()] >>
        ntac 2 (pairarg_tac >> gvs[]) >>
-       gvs[AllCaseEqs(),no_alloc_def,no_install_def] >>
+       gvs[AllCaseEqs(),no_alloc_def2,no_install_def2] >>
        first_x_assum drule >>
        disch_then(qspec_then ‘perm’ mp_tac) >>
        rw[] >> simp[state_component_equality])
    >~ [‘Seq’]
    >- (gvs[evaluate_def, AllCaseEqs()] >>
        ntac 2 (pairarg_tac >> gvs[]) >>
-       gvs[AllCaseEqs(),no_alloc_def,no_install_def] >>
+       gvs[AllCaseEqs(),no_alloc_def2,no_install_def2] >>
        first_x_assum drule >>
        disch_then(qspec_then ‘perm’ mp_tac) >>
        rw[] >>
+       fs[]>>
        drule_then drule no_install_evaluate_const_code >>
        simp[] >>
        disch_then $ ASSUME_TAC o GSYM >>
@@ -4730,12 +4731,12 @@ Proof
        metis_tac[PERM_fromAList])
    >~ [‘If’]
    >- (gvs[evaluate_def, AllCaseEqs(),get_var_imm_perm,get_var_imm_stack,
-           no_alloc_def,no_install_def] >>
+           no_alloc_def2,no_install_def2] >>
        first_x_assum drule >>
        disch_then(qspec_then ‘perm’ mp_tac) >>
        rw[] >> simp[state_component_equality])
    >~ [‘Install’]
-   >- gvs[no_install_def]
+   >- gvs[no_install_def2]
    >~ [‘Call’]
    >- (gvs[evaluate_def] >>
        PURE_TOP_CASE_TAC >> gvs[] >>
@@ -4872,14 +4873,14 @@ Proof
                    simp[] >>
                    disch_then $ ASSUME_TAC o GSYM >>
                    simp[] >>
-                   gvs[no_alloc_def,no_install_def])
+                   gvs[no_alloc_def2,no_install_def2])
                >- (first_x_assum match_mp_tac >>
                    simp[] >>
                    drule_then drule no_install_evaluate_const_code >>
                    simp[] >>
                    disch_then $ ASSUME_TAC o GSYM >>
                    simp[] >>
-                   gvs[no_alloc_def,no_install_def])) >>
+                   gvs[no_alloc_def2,no_install_def2])) >>
            PairCases_on ‘x'’ >>
            gvs[set_var_def,PULL_EXISTS,push_env_def,env_to_list_def] >>
            drule_all no_alloc_find_code >>
@@ -4909,14 +4910,14 @@ Proof
                simp[] >>
                disch_then $ ASSUME_TAC o GSYM >>
                simp[] >>
-               gvs[no_alloc_def,no_install_def])
+               gvs[no_alloc_def2,no_install_def2])
            >- (first_x_assum match_mp_tac >>
                simp[] >>
                drule_then drule no_install_evaluate_const_code >>
                simp[] >>
                disch_then $ ASSUME_TAC o GSYM >>
                simp[] >>
-               gvs[no_alloc_def,no_install_def]))
+               gvs[no_alloc_def2,no_install_def2]))
        >~ [‘evaluate _ = (SOME(Exception _ _),_)’]
        >- (gvs[call_env_def,dec_clock_def] >>
            ‘stack_size stack = stack_size st.stack’ by gvs[stack_size_perm] >>
@@ -4962,7 +4963,7 @@ Proof
            simp[] >>
            disch_then $ ASSUME_TAC o GSYM >>
            simp[] >>
-           gvs[no_alloc_def,no_install_def])
+           gvs[no_alloc_def2,no_install_def2])
       )
    >~ [`ShareInst`]
    >- (
