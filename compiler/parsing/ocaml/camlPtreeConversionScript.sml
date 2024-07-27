@@ -1101,15 +1101,21 @@ Definition ptree_PPattern_def:
             n <- nterm_of arg;
             if n = INL nValueName then
               fmap Pp_var (ptree_ValueName arg)
-            else if n = INL nPatLiteral then
-              ptree_PPattern arg
-            else if n = INL nPAny ∨ n = INL nPList ∨ n = INL nPPar then
+            else if n = INL nConstr then
+              do
+                cns <- ptree_Constr arg;
+                id <- path_to_ns locs cns;
+                return $ Pp_con (SOME id) []
+              od
+            else if n = INL nPatLiteral ∨ n = INL nPAny ∨ n = INL nPList ∨
+                    n = INL nPPar then
               ptree_PPattern arg
             else
               fail (locs, «Impossible: nPBase»)
          od
       | _ => fail (locs, «Impossible: nPBase»)
-    else if nterm = INL nPCons then case args of
+    else if nterm = INL nPCons then
+      case args of
         [cn] =>
           do
             cns <- ptree_Constr cn;
