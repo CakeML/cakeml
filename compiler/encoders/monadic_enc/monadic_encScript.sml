@@ -39,8 +39,11 @@ val hash_shift_def = Define`
 val hash_memop_def = Define`
   (hash_memop Load   = 17n) ∧
   (hash_memop Load8  = 18n) ∧
+  (hash_memop Load32  = 56n) ∧
   (hash_memop Store  = 19n) ∧
-  (hash_memop Store8 = 20n)`
+  (hash_memop Store8 = 20n) ∧
+  (hash_memop Store32  = 56n)
+`
 
 val roll_hash_def = Define`
   (roll_hash [] acc = acc) ∧
