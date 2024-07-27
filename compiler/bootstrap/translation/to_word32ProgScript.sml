@@ -368,11 +368,11 @@ val _ = translate (asmTheory.word_cmp_def |> REWRITE_RULE[WORD_LO,WORD_LT] |> sp
 (* TODO: remove when pmatch is fixed *)
 val _ = translate (spec32 const_fp_loop_def)
 
-val _ = translate (spec32 is_simple_def)
-val _ = translate (spec32 dest_Raise_num_def)
-val _ = translate (spec32 try_if_hoist2_def)
+val _ = translate (spec32 is_simple_pmatch_def)
+val _ = translate (spec32 dest_Raise_num_pmatch_def)
+val _ = translate (spec32 try_if_hoist2_pmatch_def)
 val _ = translate (spec32 try_if_hoist1_def)
-val _ = translate (spec32 simp_duplicate_if_def)
+val _ = translate (spec32 simp_duplicate_if_pmatch_def)
 
 val _ = translate (spec32 compile_exp_def)
 
