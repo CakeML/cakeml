@@ -9,6 +9,8 @@ val _ = new_theory "dafny_to_cakemlProg";
 
 val _ = translation_extends "sexp_to_dafnyProg";
 
+val r = translate locationTheory.unknown_loc_def;
+
 val r = translate dafny_to_cakemlTheory.from_string_def;
 val r = translate dafny_to_cakemlTheory.dest_Name_def;
 val r = translate dafny_to_cakemlTheory.from_literal_def;
@@ -17,13 +19,17 @@ val r = translate dafny_to_cakemlTheory.from_expression_def;
 val r = translate dafny_to_cakemlTheory.arb_value_def;
 val r = translate dafny_to_cakemlTheory.from_InitVal_def;
 val r = translate dafny_to_cakemlTheory.is_indep_stmt_def;
+val r = translate dafny_to_cakemlTheory.from_name_def;
 val r = translate dafny_to_cakemlTheory.from_ident_def;
+val r = translate dafny_to_cakemlTheory.from_callName_def;
 val r = translate dafny_to_cakemlTheory.from_assignLhs_def;
 val r = translate dafny_to_cakemlTheory.from_indep_stmt_def;
 val r = translate dafny_to_cakemlTheory.is_DeclareVar_def;
 val r = translate dafny_to_cakemlTheory.dest_DeclareVar_def;
 val r = translate dafny_to_cakemlTheory.dest_SOME_def;
 val r = translate dafny_to_cakemlTheory.from_stmts_def;
+val r = translate dafny_to_cakemlTheory.from_method_def;
+val r = translate dafny_to_cakemlTheory.from_classItem_def;
 val r = translate dafny_to_cakemlTheory.compile_def;
 val r = translate dafny_to_cakemlTheory.unpack_def;
 
