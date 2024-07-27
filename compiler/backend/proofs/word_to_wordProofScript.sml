@@ -833,14 +833,48 @@ Proof
      no_install_def]
 QED
 
+Theorem try_if_hoist2_no_install:
+  ! N p1 interm dummy p2 s.
+  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
+  no_install p1 ==> no_install p2 ==> no_install interm ==>
+  no_install p3
+Proof
+  ho_match_mp_tac word_simpTheory.try_if_hoist2_pmatch_ind
+  \\ rpt gen_tac
+  \\ rpt disch_tac
+  \\ REWRITE_TAC [Once word_simpTheory.try_if_hoist2_def]
+  \\ rw []
+  \\ fs [CaseEq "bool", CaseEq "wordLang$prog",
+        CaseEq "option", CaseEq "prod"]
+  \\ gvs []
+  \\ fs [no_install_def]
+  \\ irule (const_fp_no_install |> Q.GEN `r` |> SIMP_RULE std_ss [])
+  \\ gs [no_install_def, word_simpProofTheory.dest_If_thm]
+QED
+
+Theorem simp_duplicate_if_no_install:
+  !prog. no_install prog ==>
+  no_install (simp_duplicate_if prog)
+Proof
+  ho_match_mp_tac word_simpTheory.simp_duplicate_if_pmatch_ind
+  \\ rw []
+  \\ ONCE_REWRITE_TAC [word_simpTheory.simp_duplicate_if_def]
+  \\ TOP_CASE_TAC \\ fs [no_install_def]
+  \\ every_case_tac \\ fs [no_install_def]
+  \\ irule Seq_assoc_no_install
+  \\ fs [no_install_def, word_simpTheory.try_if_hoist1_def, CaseEq "option", CaseEq "prod"]
+  \\ drule try_if_hoist2_no_install
+  \\ simp [no_install_def]
+QED
+
 Theorem compile_exp_no_install:
   no_install prog ⇒
   no_install (compile_exp prog)
 Proof
   rw[word_simpTheory.compile_exp_def]>>
+  irule simp_duplicate_if_no_install>>gs[]>>
   irule const_fp_no_install>>gs[]>>
-  qexists_tac ‘simp_if (Seq_assoc Skip prog)’>>rw[]>>
-  irule simp_if_no_install>>
+  irule_at Any EQ_REFL >>
   irule Seq_assoc_no_install>>
   rw[no_install_def]
 QED
@@ -1136,14 +1170,48 @@ Proof
      no_alloc_def]
 QED
 
+Theorem try_if_hoist2_no_alloc:
+  ! N p1 interm dummy p2 s.
+  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
+  no_alloc p1 ==> no_alloc p2 ==> no_alloc interm ==>
+  no_alloc p3
+Proof
+  ho_match_mp_tac word_simpTheory.try_if_hoist2_pmatch_ind
+  \\ rpt gen_tac
+  \\ rpt disch_tac
+  \\ REWRITE_TAC [Once word_simpTheory.try_if_hoist2_def]
+  \\ rw []
+  \\ fs [CaseEq "bool", CaseEq "wordLang$prog",
+        CaseEq "option", CaseEq "prod"]
+  \\ gvs []
+  \\ fs [no_alloc_def]
+  \\ irule (const_fp_no_alloc |> Q.GEN `r` |> SIMP_RULE std_ss [])
+  \\ gs [no_alloc_def, word_simpProofTheory.dest_If_thm]
+QED
+
+Theorem simp_duplicate_if_no_alloc:
+  !prog. no_alloc prog ==>
+  no_alloc (simp_duplicate_if prog)
+Proof
+  ho_match_mp_tac word_simpTheory.simp_duplicate_if_pmatch_ind
+  \\ rw []
+  \\ ONCE_REWRITE_TAC [word_simpTheory.simp_duplicate_if_def]
+  \\ TOP_CASE_TAC \\ fs [no_alloc_def]
+  \\ every_case_tac \\ fs [no_alloc_def]
+  \\ irule Seq_assoc_no_alloc
+  \\ fs [no_alloc_def, word_simpTheory.try_if_hoist1_def, CaseEq "option", CaseEq "prod"]
+  \\ drule try_if_hoist2_no_alloc
+  \\ simp [no_alloc_def]
+QED
+
 Theorem compile_exp_no_alloc:
   no_alloc prog ⇒
   no_alloc (compile_exp prog)
 Proof
   rw[word_simpTheory.compile_exp_def]>>
+  irule simp_duplicate_if_no_alloc >>
   irule const_fp_no_alloc>>gs[]>>
-  qexists_tac ‘simp_if (Seq_assoc Skip prog)’>>rw[]>>
-  irule simp_if_no_alloc>>
+  irule_at Any EQ_REFL >>
   irule Seq_assoc_no_alloc>>
   rw[no_alloc_def]
 QED
@@ -1922,14 +1990,48 @@ Proof
      no_mt_def]
 QED
 
+Theorem try_if_hoist2_no_mt:
+  ! N p1 interm dummy p2 s.
+  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
+  no_mt p1 ==> no_mt p2 ==> no_mt interm ==>
+  no_mt p3
+Proof
+  ho_match_mp_tac word_simpTheory.try_if_hoist2_pmatch_ind
+  \\ rpt gen_tac
+  \\ rpt disch_tac
+  \\ REWRITE_TAC [Once word_simpTheory.try_if_hoist2_def]
+  \\ rw []
+  \\ fs [CaseEq "bool", CaseEq "wordLang$prog",
+        CaseEq "option", CaseEq "prod"]
+  \\ gvs []
+  \\ fs [no_mt_def]
+  \\ irule (const_fp_no_mt |> Q.GEN `r` |> SIMP_RULE std_ss [])
+  \\ gs [no_mt_def, word_simpProofTheory.dest_If_thm]
+QED
+
+Theorem simp_duplicate_if_no_mt:
+  !prog. no_mt prog ==>
+  no_mt (simp_duplicate_if prog)
+Proof
+  ho_match_mp_tac word_simpTheory.simp_duplicate_if_pmatch_ind
+  \\ rw []
+  \\ ONCE_REWRITE_TAC [word_simpTheory.simp_duplicate_if_def]
+  \\ TOP_CASE_TAC \\ fs [no_mt_def]
+  \\ every_case_tac \\ fs [no_mt_def]
+  \\ irule Seq_assoc_no_mt
+  \\ fs [no_mt_def, word_simpTheory.try_if_hoist1_def, CaseEq "option", CaseEq "prod"]
+  \\ drule try_if_hoist2_no_mt
+  \\ simp [no_mt_def]
+QED
+
 Theorem compile_exp_no_mt:
   no_mt prog ==>
   no_mt (compile_exp prog)
 Proof
   rw[word_simpTheory.compile_exp_def]>>
+  irule simp_duplicate_if_no_mt >>
   irule const_fp_no_mt>>gs[]>>
-  qexists_tac ‘simp_if (Seq_assoc Skip prog)’>>rw[]>>
-  irule simp_if_no_mt>>
+  irule_at Any EQ_REFL >>
   irule Seq_assoc_no_mt>>
   rw[no_mt_def]
 QED
@@ -2327,14 +2429,48 @@ Proof
      no_share_inst_def]
 QED
 
+Theorem try_if_hoist2_no_share_inst:
+  ! N p1 interm dummy p2 s.
+  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
+  no_share_inst p1 ==> no_share_inst p2 ==> no_share_inst interm ==>
+  no_share_inst p3
+Proof
+  ho_match_mp_tac word_simpTheory.try_if_hoist2_pmatch_ind
+  \\ rpt gen_tac
+  \\ rpt disch_tac
+  \\ REWRITE_TAC [Once word_simpTheory.try_if_hoist2_def]
+  \\ rw []
+  \\ fs [CaseEq "bool", CaseEq "wordLang$prog",
+        CaseEq "option", CaseEq "prod"]
+  \\ gvs []
+  \\ fs [no_share_inst_def]
+  \\ irule (const_fp_no_share_inst |> Q.GEN `r` |> SIMP_RULE std_ss [])
+  \\ gs [no_share_inst_def, word_simpProofTheory.dest_If_thm]
+QED
+
+Theorem simp_duplicate_if_no_share_inst:
+  !prog. no_share_inst prog ==>
+  no_share_inst (simp_duplicate_if prog)
+Proof
+  ho_match_mp_tac word_simpTheory.simp_duplicate_if_pmatch_ind
+  \\ rw []
+  \\ ONCE_REWRITE_TAC [word_simpTheory.simp_duplicate_if_def]
+  \\ TOP_CASE_TAC \\ fs [no_share_inst_def]
+  \\ every_case_tac \\ fs [no_share_inst_def]
+  \\ irule Seq_assoc_no_share_inst
+  \\ fs [no_share_inst_def, word_simpTheory.try_if_hoist1_def, CaseEq "option", CaseEq "prod"]
+  \\ drule try_if_hoist2_no_share_inst
+  \\ simp [no_share_inst_def]
+QED
+
 Theorem compile_exp_no_share_inst:
   no_share_inst prog ⇒
   no_share_inst (compile_exp prog)
 Proof
   rw[word_simpTheory.compile_exp_def]>>
+  irule simp_duplicate_if_no_share_inst>>gs[]>>
   irule const_fp_no_share_inst>>gs[]>>
-  qexists_tac ‘simp_if (Seq_assoc Skip prog)’>>rw[]>>
-  irule simp_if_no_share_inst>>
+  irule_at Any EQ_REFL >>
   irule Seq_assoc_no_share_inst>>
   rw[no_share_inst_def]
 QED
