@@ -12,6 +12,8 @@ open alistTheory
 val _ = new_theory "dafny_to_cakeml";
 
 (* TODO Check if we can reduce the number of generated cases *)
+(* TODO Add missing wildcard for function that are defined using pattern matching
+ (even if all cases seem to be covered) *)
 
 Overload True = “Con (SOME (Short "True")) []”
 Overload False = “Con (SOME (Short "False")) []”
@@ -108,7 +110,6 @@ Termination
   cheat
 End
 
-
 (* TODO At the moment this is similar to from_InitVal. Merge in the future? *)
 Definition arb_value_def:
   arb_value (t: dafny_ast$type) =
@@ -133,12 +134,29 @@ Definition is_indep_stmt_def:
   case s of
   | DeclareVar _ _ _=> F
   | Assign _ _ => T
+  | Call _ _ _ _ _ => T
   | Print _ => T
   | _ => F
 End
 
+Definition from_name_def:
+  from_name n = Var (Short (dest_Name n))
+End
+
 Definition from_ident_def:
-  from_ident (Ident n) = Var (Short (dest_Name n))
+  from_ident (Ident n) = from_name n
+End
+
+Definition from_callName_def:
+  (from_callName (CallName nam onType sig) =
+   if onType ≠ NONE then
+     fail "from_callName: non-empty onType currently unsupported"
+   else if sig ≠ CallSignature [] then
+     fail "from_callName: non_empty callSignature currently unsupported"
+   else
+     return (from_name nam)) ∧
+  (from_callName _ = fail ("from_callName: " ++
+                           "Passed callName currently unsupported"))
 End
 
 Definition from_assignLhs_def:
@@ -156,6 +174,23 @@ Definition from_indep_stmt_def:
         cml_lhs <- from_assignLhs lhs;
         cml_rhs <- from_expression e env;
         return (App Opassign [cml_lhs; cml_rhs])
+      od
+  | Call on call_nam typeArgs args outs =>
+      do
+        if on ≠ (Companion [Ident (Name "_module");
+                            Ident (Name "__default")]) then
+          fail "from_indep_stmt: (Call) Unsupported on expression"
+        else if typeArgs ≠ [] then
+          fail "from_indep_stmt: (Call) type arguments currently unsupported"
+        else if args ≠ [] then
+          fail "from_indep_stmt: (Call) Arguments currently unsupported"
+        else if outs ≠ NONE then
+          fail "from_indep_stmt: (Call) Return values currently unsupported"
+        else
+          do
+            fun_name <- from_callName call_nam;
+            return (App Opapp [fun_name; (Con NONE [])])
+          od
       od
   | Print e =>
       do
@@ -237,34 +272,57 @@ Definition from_stmts_def:
      fail "from_stmts: Unsupported statement")
 End
 
+Definition from_method_def:
+  from_method (Method isStatic hasBody overridingPath nam
+                      typeParams params body outTypes outVars) =
+  if isStatic = F then
+    fail "from_method: non-static methods currently unsupported"
+  else if hasBody = F then
+    fail "from_method: Method must have a body"
+  else if overridingPath ≠ NONE then
+    fail "from_method: Overriding methods currently unsupported"
+  else if (LENGTH typeParams) > 0 then
+    fail "from_method: Type parameters for methods currently unsupported"
+  else if (LENGTH params) > 0 then
+    fail "from_method: Methods with parameters currently unsupported"
+  else if (LENGTH outTypes) > 0 then
+    fail "from_method: Methods with return values currently unsupported"
+  else if outVars = NONE then
+    fail "from_method: NONE for outVars is unexpected"
+  else if outVars ≠ SOME [] then
+    fail "from_method: Methods with return values currently unsupported"
+  else
+    do
+      fun_name <<- dest_Name nam;
+      (cml_body, _) <- from_stmts body [];
+      return (fun_name, "", Mat (Var (Short "")) [(Pcon NONE [], cml_body)])
+    od
+End
+
+Definition from_classItem_def:
+  from_classItem (ClassItem_Method m) = from_method m
+End
+
 Definition compile_def:
-  compile p =
-  do
-    (* TODO Assume that we only have a main function *)
-    if (LENGTH p ≠ 2) then
-      fail "Program should have exactly 2 modules"
-    else
-      do
-        (* TODO Ignore first module which contains definitions for nat and tuples for now *)
-        case (EL 1 p) of
-        | Module _ _ (SOME [ModuleItem_Class (Class _ _ _ _ _ [ClassItem_Method m] _)]) =>
-            (case m of
-            | Method _ _ _ _ _ _ body _ _ =>
-                do
-                  (main_stmts, _) <- from_stmts body [];
-                  return ([Dletrec (Locs (POSN 0 15) (POSN 0 50))
-                                   [("Main","",
-                                     Mat (Var (Short ""))
-                                         [(Pcon NONE [],
-                                           main_stmts)])];
-                           Dlet (Locs (POSN 0 52) (POSN 0 66)) Pany
-                                (Let (SOME " v0") (Con NONE [])
-                                     (App Opapp [Var (Short "Main"); Var (Short " v0")]))])
-                od
-            | _ => fail "Unexpected something")
-        | _ => fail "Unexpected ModuleItem"
-      od
-  od
+  (compile ([mod1; mod2]: dafny_ast$module list) =
+   (* TODO Don't ignore first module which contains definitions for nat
+        and tuples for now *)
+   (* TODO Properly handle module (containing main) *)
+   case mod2 of
+   | Module _ _ (SOME [ModuleItem_Class (Class _ _ _ _ _ cis _)]) =>
+       do
+         fun_defs <- result_mmap from_classItem cis;
+         (* TODO Pretending functions are mutually recursive even though they
+            are not avoids work of finding which ones are independent and
+            in which order they should appear; but this may have unknown
+            consequences *)
+         fun_defs <<- [(Dletrec unknown_loc fun_defs)];
+         return (fun_defs ++ [Dlet unknown_loc Pany
+                                   (App Opapp [Var (Short "Main");
+                                               (Con NONE [])])])
+       od
+   | _ => fail "Unexpected ModuleItem") ∧
+  compile _ = fail "compile: Program does not contain exactly two modules"
 End
 
 (* Unpacks the AST from M. If the process failed, create a program that prints
@@ -275,7 +333,7 @@ Definition unpack_def:
   | INR d =>
       d
   | INL s =>
-      [Dlet (Locs (POSN 0 14) UNKNOWNpt) (Pvar "it")
+      [Dlet unknown_loc (Pvar "it")
        (App Opapp [Var (Short "print"); Lit (StrLit s)])]
 End
 
@@ -286,7 +344,7 @@ open fromSexpTheory simpleSexpParseTheory
 open TextIO
 val _ = astPP.enable_astPP();
 
-val inStream = TextIO.openIn "./tests/string_concat.sexp";
+val inStream = TextIO.openIn "./tests/method_call.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
@@ -299,7 +357,7 @@ val cakeml_r = EVAL “(compile ^dafny_r)” |> concl |> rhs |> rand;
 val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^cakeml_r)))”
                    |> concl |> rhs |> rand;
 val cml_sexp_str_r = stringSyntax.fromHOLstring cml_sexp_r;
-val outFile = TextIO.openOut "./tests/string_concat.cml.sexp";
+val outFile = TextIO.openOut "./tests/method_call.cml.sexp";
 val _ = TextIO.output (outFile, cml_sexp_str_r);
 val _ = TextIO.closeOut outFile
 
