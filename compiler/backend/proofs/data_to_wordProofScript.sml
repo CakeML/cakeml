@@ -2198,7 +2198,7 @@ Proof
   )
 QED
 
-Triviality word_good_handlers_simp_duplicate_if:
+Triviality word_get_code_labels_simp_duplicate_if:
   !p. word_get_code_labels (simp_duplicate_if p) SUBSET word_get_code_labels p
 Proof
   ho_match_mp_tac simp_duplicate_if_pmatch_ind
@@ -2220,7 +2220,7 @@ val word_get_code_labels_word_simp = Q.prove(`
   word_get_code_labels (word_simp$compile_exp ps) ⊆
   word_get_code_labels ps`,
   rw [compile_exp_def]>>
-  irule SUBSET_TRANS >> irule_at Any word_good_handlers_simp_duplicate_if >>
+  irule SUBSET_TRANS >> irule_at Any word_get_code_labels_simp_duplicate_if >>
   simp [const_fp_def] >>
   irule SUBSET_TRANS >> irule_at Any word_get_code_labels_const_fp_loop >>
   simp [word_get_code_labels_Seq_assoc]
