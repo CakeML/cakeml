@@ -109,6 +109,25 @@ Proof
   fs [extract_labels_Seq_assoc_lemma,extract_labels_def]
 QED
 
+Triviality not_created_subprogs_SmartSeq:
+   not_created_subprogs P (SmartSeq p1 p2) =
+   (not_created_subprogs P p1 /\ not_created_subprogs P p2)
+Proof
+  rw [SmartSeq_def,not_created_subprogs_def]
+QED
+
+Theorem not_created_subprogs_Seq_assoc:
+  !p1 p2. not_created_subprogs P (Seq_assoc p1 p2) =
+  (not_created_subprogs P p1 /\ not_created_subprogs P p2)
+Proof
+  ho_match_mp_tac Seq_assoc_ind
+  \\ fs [Seq_assoc_def, not_created_subprogs_def, not_created_subprogs_SmartSeq]
+  \\ rw []
+  \\ every_case_tac
+  \\ EQ_TAC \\ rw []
+  \\ fs [UNION_ASSOC]
+QED
+
 (** verification of simp_if **)
 
 Theorem dest_If_Eq_Imm_thm:
@@ -1188,6 +1207,30 @@ Proof
   \\ pairarg_tac \\ fs [] \\ rw [] \\ fs [every_inst_def]
 QED
 
+Triviality not_created_subprogs_const_fp_loop:
+  !p cs p1 cs1.
+  const_fp_loop p cs = (p1,cs1) ==>
+  not_created_subprogs P p ==>
+  not_created_subprogs P p1
+Proof
+  ho_match_mp_tac const_fp_loop_ind
+  \\ rw []
+  \\ gvs [not_created_subprogs_def, const_fp_loop_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [CaseEq "exp", CaseEq "option", CaseEq "bool", CaseEq "prod", not_created_subprogs_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [not_created_subprogs_def]
+QED
+
+Theorem not_created_subprogs_const_fp:
+  not_created_subprogs P p ==>
+  not_created_subprogs P (const_fp p)
+Proof
+  rw [const_fp_def]
+  \\ Cases_on `const_fp_loop p LN` \\ fs []
+  \\ imp_res_tac not_created_subprogs_const_fp_loop
+QED
+
 (* the duplicate-if pass *)
 
 Triviality evaluate_try_if_hoist2:
@@ -1402,6 +1445,41 @@ Proof
   \\ simp []
 QED
 
+Triviality not_created_subprogs_hoist2:
+  ! N p1 interm dummy p2.
+  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
+  not_created_subprogs P p1 ==> not_created_subprogs P interm ==>
+  not_created_subprogs P p2 ==>
+  not_created_subprogs P p3
+Proof
+  ho_match_mp_tac try_if_hoist2_pmatch_ind
+  \\ rpt gen_tac
+  \\ disch_tac
+  \\ REWRITE_TAC [Once try_if_hoist2_def]
+  \\ rw []
+  \\ fs [CaseEq "bool", CaseEq "wordLang$prog",
+        CaseEq "option", CaseEq "prod"]
+  \\ gvs []
+  \\ gs [not_created_subprogs_def, dest_If_thm]
+  \\ irule not_created_subprogs_const_fp
+  \\ fs [not_created_subprogs_def]
+QED
+
+Triviality not_created_subprogs_simp_duplicate_if:
+  !p. not_created_subprogs P p ==>
+  not_created_subprogs P (simp_duplicate_if p)
+Proof
+  ho_match_mp_tac simp_duplicate_if_pmatch_ind
+  \\ rw []
+  \\ simp [Once simp_duplicate_if_def]
+  \\ Cases_on `p` \\ fs [not_created_subprogs_def]
+  \\ every_case_tac \\ fs []
+  \\ simp [not_created_subprogs_Seq_assoc, not_created_subprogs_def]
+  \\ fs [try_if_hoist1_def, CaseEq "option", CaseEq "prod", EXISTS_PROD]
+  \\ drule_then drule not_created_subprogs_hoist2
+  \\ fs [not_created_subprogs_def]
+QED
+
 (* putting it all together *)
 
 Theorem compile_exp_thm:
@@ -1499,6 +1577,15 @@ Proof
   fs[compile_exp_def]>>
   metis_tac[simp_if_no_inst,Seq_assoc_no_inst,every_inst_def,
             every_inst_inst_ok_less_const_fp,simp_duplicate_if_no_inst]
+QED
+
+Theorem compile_exp_not_created_subprogs:
+  not_created_subprogs P p ==>
+  not_created_subprogs P (compile_exp p)
+Proof
+  rw [compile_exp_def, not_created_subprogs_const_fp,
+    not_created_subprogs_simp_duplicate_if, not_created_subprogs_Seq_assoc,
+    not_created_subprogs_def]
 QED
 
 val _ = export_theory();

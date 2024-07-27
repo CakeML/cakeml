@@ -10869,6 +10869,7 @@ Proof
 QED
 
 (* no_install is preserved *)
+
 Theorem wMoveAux_no_install_lem:
   !xs kf. no_install $ wMoveAux xs kf
 Proof
@@ -11214,7 +11215,7 @@ Proof
     raise_stub_def,store_consts_stub_def]
 QED
 
-Theorem word_to_stack_comple_no_install:
+Theorem word_to_stack_compile_no_install:
   ALL_DISTINCT (MAP FST prog) ∧
   no_install_code (fromAList prog) ∧
   word_to_stack$compile ac prog = (bm, c, fs, p) ⇒
