@@ -770,9 +770,9 @@ Definition camlPEG_def[nocompute]:
        choicel [pegf (pnt nLiteral) (bindNT nPatLiteral);
                 seql [tokeq MinusT; tok isInt mktokLf]
                      (bindNT nPatLiteral)]);
-      (INL nPBase, (* ::= any / var / lit / list / '(' p ')' *)
+      (INL nPBase, (* ::= any / var / lit / list / '(' p ')' / constr *)
        pegf (choicel [pnt nPatLiteral; pnt nValueName; pnt nPAny; pnt nPList;
-                      pnt nPPar])
+                      pnt nPPar; pnt nConstr])
             (bindNT nPBase));
       (* -- Pat2 ----------------------------------------------------------- *)
       (INL nPRecFields, (* '{' field (';' field)* ';'? '}' *)
@@ -784,7 +784,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPRecFields));
       (INL nPCons, (* ::= constr ('{' fields '}' | p?) *)
        pegf (choicel [seql [pnt nConstr;
-                            choicel [pnt nPRecFields; try (pnt nPCons)]] I;
+                            choicel [pnt nPRecFields; pnt nPBase]] I;
                       pnt nPBase])
             (bindNT nPCons));
       (INL nPAs, (* ::= p ('as' id)* *)
