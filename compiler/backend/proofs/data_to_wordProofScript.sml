@@ -2114,37 +2114,6 @@ Proof
   \\ every_case_tac \\ fs[]
 QED
 
-Theorem word_good_handlers_apply_if_opt:
-   ∀x y z. apply_if_opt x y = SOME z ∧
-           word_good_handlers n x ∧ word_good_handlers n y
-           ⇒
-           word_good_handlers n z
-Proof
-  rw[apply_if_opt_def]
-  \\ fs[CaseEq"option",CaseEq"prod"]
-  \\ pairarg_tac \\ fs[]
-  \\ fs[CaseEq"option",CaseEq"prod"]
-  \\ rveq
-  \\ fs[CaseEq"bool"] \\ rveq
-  \\ rw[SmartSeq_def]
-  \\ rename1`dest_If iff`
-  \\ Cases_on`iff` \\ fs[dest_If_def]
-  \\ rveq \\ fs[]
-  \\ fs[dest_If_Eq_Imm_def,CaseEq"option",CaseEq"prod",CaseEq"cmp",CaseEq"reg_imm"]
-  \\ Cases_on`y` \\ fs[dest_If_def] \\ rveq
-  \\ Cases_on`x` \\ fs[dest_Seq_def] \\ rveq \\ fs[]
-QED
-
-val word_good_handlers_simp_if = Q.prove(`
-  ∀p.
-  word_good_handlers n p ⇒
-  word_good_handlers n (simp_if p)`,
-  recInduct simp_if_ind
-  \\ rw[simp_if_def]
-  \\ CASE_TAC \\ simp[]
-  >- ( old_drule word_good_handlers_apply_if_opt \\ rw[] )
-  \\ every_case_tac \\ fs[]);
-
 val word_get_code_labels_Seq_assoc = Q.prove(`
   ∀p1 p2.
   word_get_code_labels (Seq_assoc p1 p2) = word_get_code_labels p1 ∪ word_get_code_labels p2`,
@@ -2161,32 +2130,110 @@ val word_good_handlers_Seq_assoc = Q.prove(`
   fs[Seq_assoc_def,SmartSeq_def]>>rw[]>>
   every_case_tac>>fs[]>>metis_tac[]);
 
+Triviality word_good_handlers_try_if_hoist2:
+  ! N p1 interm dummy p2 s.
+  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
+  word_good_handlers n p1 /\ word_good_handlers n p2 /\ word_good_handlers n interm ==>
+  word_good_handlers n p3
+Proof
+  ho_match_mp_tac try_if_hoist2_pmatch_ind
+  \\ rpt gen_tac
+  \\ rpt disch_tac
+  \\ REWRITE_TAC [Once try_if_hoist2_def]
+  \\ rpt disch_tac
+  \\ fs [CaseEq "bool", CaseEq "wordLang$prog",
+        CaseEq "option", CaseEq "prod"]
+  \\ gvs []
+  \\ gs [word_simpProofTheory.dest_If_thm]
+  \\ simp [const_fp_def]
+  \\ irule word_good_handlers_const_fp_loop
+  \\ simp []
+QED
+
+Triviality word_good_handlers_simp_duplicate_if:
+  !p. word_good_handlers n p ==> word_good_handlers n (simp_duplicate_if p)
+Proof
+  ho_match_mp_tac simp_duplicate_if_pmatch_ind
+  \\ rw []
+  \\ simp [Once simp_duplicate_if_def]
+  \\ Cases_on `p` \\ fs []
+  \\ simp []
+  \\ every_case_tac
+  \\ fs []
+  \\ fs [try_if_hoist1_def, CaseEq "option", CaseEq "prod", EXISTS_PROD]
+  \\ drule word_good_handlers_try_if_hoist2
+  \\ fs [word_good_handlers_Seq_assoc]
+QED
+
+Triviality word_get_code_labels_try_if_hoist2:
+  ! N p1 interm dummy p2 s.
+  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
+  word_get_code_labels p3 SUBSET
+  (word_get_code_labels p1 UNION word_get_code_labels interm UNION word_get_code_labels p2)
+Proof
+  ho_match_mp_tac try_if_hoist2_pmatch_ind
+  \\ rpt gen_tac
+  \\ rpt disch_tac
+  \\ REWRITE_TAC [Once try_if_hoist2_def]
+  \\ rpt disch_tac
+  \\ fs [CaseEq "bool", CaseEq "wordLang$prog",
+        CaseEq "option", CaseEq "prod"]
+  \\ gvs []
+  \\ gs [word_simpProofTheory.dest_If_thm]
+  >- (
+    drule_then irule SUBSET_TRANS
+    \\ simp [SUBSET_DEF]
+  )
+  >- (
+    irule_at (Pat `word_get_code_labels (const_fp _) SUBSET _`) SUBSET_TRANS
+    \\ simp [const_fp_def]
+    \\ irule_at Any word_get_code_labels_const_fp_loop
+    \\ simp [SUBSET_DEF, DISJ_IMP_THM]
+  )
+  >- (
+    irule_at (Pat `word_get_code_labels (const_fp _) SUBSET _`) SUBSET_TRANS
+    \\ simp [const_fp_def]
+    \\ irule_at Any word_get_code_labels_const_fp_loop
+    \\ simp [SUBSET_DEF, DISJ_IMP_THM]
+  )
+QED
+
+Triviality word_get_code_labels_simp_duplicate_if:
+  !p. word_get_code_labels (simp_duplicate_if p) SUBSET word_get_code_labels p
+Proof
+  ho_match_mp_tac simp_duplicate_if_pmatch_ind
+  \\ rw []
+  \\ simp [Once simp_duplicate_if_def]
+  \\ Cases_on `p` \\ fs []
+  \\ simp []
+  \\ every_case_tac
+  \\ fs []
+  \\ fs [SUBSET_DEF]
+  \\ fs [try_if_hoist1_def, CaseEq "option", CaseEq "prod", EXISTS_PROD]
+  \\ drule word_get_code_labels_try_if_hoist2
+  \\ fs [word_get_code_labels_Seq_assoc, SUBSET_DEF]
+  \\ metis_tac []
+QED
+
 val word_get_code_labels_word_simp = Q.prove(`
   ∀ps.
   word_get_code_labels (word_simp$compile_exp ps) ⊆
   word_get_code_labels ps`,
-  PURE_REWRITE_TAC [compile_exp_def]>>
-  LET_ELIM_TAC>>
-  match_mp_tac SUBSET_TRANS >>
-  qexists_tac`word_get_code_labels e'`>>rw[]
-  >- (
-    unabbrev_all_tac>>EVAL_TAC>>
-    metis_tac[word_get_code_labels_const_fp_loop])>>
-  match_mp_tac SUBSET_TRANS >>
-  qexists_tac`word_get_code_labels e`>>rw[]
-  >- (
-    unabbrev_all_tac>>EVAL_TAC>>
-    metis_tac[word_get_code_labels_simp_if, SUBSET_REFL])>>
-  unabbrev_all_tac>>
-  fs[word_get_code_labels_Seq_assoc]);
+  rw [compile_exp_def]>>
+  irule SUBSET_TRANS >> irule_at Any word_get_code_labels_simp_duplicate_if >>
+  simp [const_fp_def] >>
+  irule SUBSET_TRANS >> irule_at Any word_get_code_labels_const_fp_loop >>
+  simp [word_get_code_labels_Seq_assoc]
+);
 
 val word_good_handlers_word_simp = Q.prove(`
   ∀ps.
   word_good_handlers n ps ⇒
   word_good_handlers n (word_simp$compile_exp ps)`,
   rw[compile_exp_def]>>
-  EVAL_TAC>>match_mp_tac word_good_handlers_const_fp_loop>>
-  match_mp_tac word_good_handlers_simp_if>>
+  irule word_good_handlers_simp_duplicate_if >>
+  simp [const_fp_def] >>
+  match_mp_tac word_good_handlers_const_fp_loop>>
   fs[word_good_handlers_Seq_assoc]);
 
 Theorem word_good_handlers_word_to_word_incr_helper:
