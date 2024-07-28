@@ -117,17 +117,18 @@ val _ = (append_prog o process_topdecs) `
 val _ = (append_prog o process_topdecs) `
   fun write_bytes offset d =
     let
-      val a = Word8Array.update bytes offset (byte0 d);
-      val b = Word8Array.update bytes (offset + 1) (byte1 d);
-      val c = Word8Array.update bytes (offset + 2) (byte2 d);
-      val d = Word8Array.update bytes (offset + 3) (byte3 d);
-      val e = Word8Array.update bytes (offset + 4) (byte4 d);
-      val f = Word8Array.update bytes (offset + 5) (byte5 d);
-      val g = Word8Array.update bytes (offset + 6) (byte6 d);
-      val h = Word8Array.update bytes (offset + 7) (byte7 d);
+      val _ = Word8Array.update bytes offset (byte_0 d);
+      val _ = Word8Array.update bytes (offset + 1) (byte_1 d);
+      val _ = Word8Array.update bytes (offset + 2) (byte_2 d);
+      val _ = Word8Array.update bytes (offset + 3) (byte_3 d);
+      val _ = Word8Array.update bytes (offset + 4) (byte_4 d);
+      val _ = Word8Array.update bytes (offset + 5) (byte_5 d);
+      val _ = Word8Array.update bytes (offset + 6) (byte_6 d);
+      val _ = Word8Array.update bytes (offset + 7) (byte_7 d);
     in
       ()
     end`;
+
 
 Definition prepareString_def:
   prepareString (s:mlstring) = translate (\c. if c = #"~" then #"-" else c) s
@@ -152,7 +153,6 @@ val _ = append_prog
 val _ = (append_prog o process_topdecs) `
   fun fromString s =
     let
-      val sPrepped = preparestring s;
       val _ = #(double_fromString) (preparestring s) bytes;
       val err = Word8Array.sub bytes 0
     in
@@ -168,10 +168,10 @@ val _ = (append_prog o process_topdecs) `
   fun toString d =
     let
       val _ = write_bytes 0 (toWord d)
-      val _ = #(double_toString) "" iobuff;
-      val n = fst (Option.valOf (Word8Array.findi is_0_byte iobuff));
+      val _ = #(double_toString) "" bytes;
+      val n = fst (Option.valOf (Word8Array.findi is_0_byte bytes));
     in
-      Word8Array.substring iobuff 0 n
+      Word8Array.substring bytes 0 n
     end
   `;
 
@@ -180,7 +180,7 @@ val _ = (append_prog o process_topdecs) `
   fun fromInt n =
     let
       val _ = write_bytes 0 (Word64.fromInt n)
-      val _ = #(double_fromInt) "" iobuff;
+      val _ = #(double_fromInt) "" bytes;
     in
       fromWord (read_bytes 0)
     end
@@ -191,7 +191,7 @@ val _ = (append_prog o process_topdecs) `
   fun toInt d =
     let
       val _ = write_bytes 0 (toWord d)
-      val _ = #(double_toInt) "" iobuff;
+      val _ = #(double_toInt) "" bytes;
     in
       Word64.toIntSigned (read_bytes 0)
     end
@@ -203,7 +203,7 @@ val _ = (append_prog o process_topdecs) `
     let
       val _ = write_bytes 0 (toWord x)
       val _ = write_bytes 8 (toWord y)
-      val _ = #(double_pow) "" iobuff;
+      val _ = #(double_pow) "" bytes;
     in
       fromWord (read_bytes 0)
     end
@@ -214,7 +214,7 @@ val _ = (append_prog o process_topdecs) `
   fun ln d =
     let
       val _ = write_bytes 0 (toWord d)
-      val _ = #(double_ln) "" iobuff;
+      val _ = #(double_ln) "" bytes;
     in
       fromWord (read_bytes 0)
     end
@@ -225,7 +225,7 @@ val _ = (append_prog o process_topdecs) `
   fun exp d =
     let
       val _ = write_bytes 0 (toWord d)
-      val _ = #(double_exp) "" iobuff;
+      val _ = #(double_exp) "" bytes;
     in
       fromWord (read_bytes 0)
     end
@@ -236,7 +236,7 @@ val _ = (append_prog o process_topdecs) `
   fun floor d =
     let
       val _ = write_bytes 0 (toWord d)
-      val _ = #(double_floor) "" iobuff;
+      val _ = #(double_floor) "" bytes;
     in
       fromWord (read_bytes 0)
     end
