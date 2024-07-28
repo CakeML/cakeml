@@ -24,50 +24,65 @@ val _ = ml_prog_update (add_dec
 
 val _ = ml_prog_update open_local_block;
 
-val replaceMLneg_def = Define ‘replaceMLneg x = if x = #"~" then #"-" else x’;
-val _ = translate replaceMLneg_def;
+(* --------------------------------------------------------------------------
+ * Byte array for the FFI communication
+ * ------------------------------------------------------------------------- *)
 
-val prepareString_def = Define ‘prepareString (s:mlstring) = translate replaceMLneg s’
-val _ = translate prepareString_def;
+local
+  val bytes_e = ``(App Aw8alloc [Lit (IntLit 256); Lit (Word8 0w)])``
+  val env = get_ml_prog_state () |> ml_progLib.get_env
+  val st = get_ml_prog_state () |> ml_progLib.get_state
+  val new_st = ``^st with refs := ^st.refs ++ [W8array (REPLICATE 256 0w)]``
+  val goal = list_mk_icomb (prim_mk_const {Thy="ml_prog", Name="eval_rel"},
+    [st, env, bytes_e, new_st, mk_var ("x", semanticPrimitivesSyntax.v_ty)])
+  val lemma = goal
+    |> (EVAL THENC SCONV[semanticPrimitivesTheory.state_component_equality])
+  val v_thm = prove(mk_imp(lemma |> concl |> rand, goal),
+    rpt strip_tac \\ rveq \\ match_mp_tac(#2(EQ_IMP_RULE lemma))
+    \\ asm_simp_tac bool_ss [])
+    |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL;
+  val v_tm = v_thm |> concl |> strip_comb |> #2 |> last
+  val v_def = define_abbrev false "bytes_loc" v_tm
+  val eval_thm =  v_thm |> REWRITE_RULE [GSYM v_def]
+in
+  val _ = ml_prog_update (add_Dlet eval_thm "bytes");
+end
 
-val _ = ml_prog_update open_local_in_block;
+(* --------------------------------------------------------------------------
+ * Helper functions
+ * ------------------------------------------------------------------------- *)
 
-val _ = append_prog “[Dlet unknown_loc (Pvar "fromWord")
-                        (Fun "v1" (App FpFromWord [Var (Short "v1")]))]”
+Definition byte_0_def:
+  byte_0 (d:word64) = (w2w d):word8
+End
 
-val _ = append_prog “[Dlet unknown_loc (Pvar "toWord")
-                        (Fun "v1" (App FpToWord [Var (Short "v1")]))]”
+Definition byte_1_def:
+  byte_1 (d:word64) = (w2w (d >>> 8)):word8
+End
 
-val _ = process_topdecs
-  `fun fromString s =
-    let
-      val sPrepped = preparestring s;
-      val iobuff = Word8Array.array 8 (Word8.fromInt 0);
-      val _ = #(double_fromString) sPrepped iobuff;
-      val a = Word8Array.sub iobuff 0;
-      val b = Word8Array.sub iobuff 1;
-      val c = Word8Array.sub iobuff 2;
-      val d = Word8Array.sub iobuff 3;
-      val e = Word8Array.sub iobuff 4;
-      val f = Word8Array.sub iobuff 5;
-      val g = Word8Array.sub iobuff 6;
-      val h = Word8Array.sub iobuff 7;
-    in
-      fromWord (Word64.concatAll a b c d e f g h)
-    end;` |> append_prog;
+Definition byte_2_def:
+  byte_2 (d:word64) = (w2w (d >>> 16)):word8
+End
 
-val _ = ml_prog_update close_local_blocks;
+Definition byte_3_def:
+  byte_3 (d:word64) = (w2w (d >>> 24)):word8
+End
 
-val _ = ml_prog_update open_local_block;
+Definition byte_4_def:
+  byte_4 (d:word64) = (w2w (d >>> 32)):word8
+End
 
-val byte_0_def = Define `byte_0 (d:word64) = (w2w d):word8`;
-val byte_1_def = Define `byte_1 (d:word64) = (w2w (d >>> 8)):word8`;
-val byte_2_def = Define `byte_2 (d:word64) = (w2w (d >>> 16)):word8`;
-val byte_3_def = Define `byte_3 (d:word64) = (w2w (d >>> 24)):word8`;
-val byte_4_def = Define `byte_4 (d:word64) = (w2w (d >>> 32)):word8`;
-val byte_5_def = Define `byte_5 (d:word64) = (w2w (d >>> 40)):word8`;
-val byte_6_def = Define `byte_6 (d:word64) = (w2w (d >>> 48)):word8`;
-val byte_7_def = Define `byte_7 (d:word64) = (w2w (d >>> 56)):word8`;
+Definition byte_5_def:
+  byte_5 (d:word64) = (w2w (d >>> 40)):word8
+End
+
+Definition byte_6_def:
+  byte_6 (d:word64) = (w2w (d >>> 48)):word8
+End
+
+Definition byte_7_def:
+  byte_7 (d:word64) = (w2w (d >>> 56)):word8
+End
 
 val _ = translate byte_0_def;
 val _ = translate byte_1_def;
@@ -78,51 +93,175 @@ val _ = translate byte_5_def;
 val _ = translate byte_6_def;
 val _ = translate byte_7_def;
 
-val is_0_byte_def = Define `
-  is_0_byte (c:word8) = (c = n2w 0)`;
+Definition is_0_byte_def:
+  is_0_byte (c: word8) = (c = n2w 0)
+End
 
 val _ = translate is_0_byte_def;
 
+val _ = (append_prog o process_topdecs) `
+  fun read_bytes offset =
+    let
+      val a = Word8Array.sub bytes offset;
+      val b = Word8Array.sub bytes (offset + 1);
+      val c = Word8Array.sub bytes (offset + 2);
+      val d = Word8Array.sub bytes (offset + 3);
+      val e = Word8Array.sub bytes (offset + 4);
+      val f = Word8Array.sub bytes (offset + 5);
+      val g = Word8Array.sub bytes (offset + 6);
+      val h = Word8Array.sub bytes (offset + 7);
+    in
+      Word64.concatAll a b c d e f g h
+    end`;
+
+val _ = (append_prog o process_topdecs) `
+  fun write_bytes offset d =
+    let
+      val a = Word8Array.update bytes offset (byte0 d);
+      val b = Word8Array.update bytes (offset + 1) (byte1 d);
+      val c = Word8Array.update bytes (offset + 2) (byte2 d);
+      val d = Word8Array.update bytes (offset + 3) (byte3 d);
+      val e = Word8Array.update bytes (offset + 4) (byte4 d);
+      val f = Word8Array.update bytes (offset + 5) (byte5 d);
+      val g = Word8Array.update bytes (offset + 6) (byte6 d);
+      val h = Word8Array.update bytes (offset + 7) (byte7 d);
+    in
+      ()
+    end`;
+
+Definition prepareString_def:
+  prepareString (s:mlstring) = translate (\c. if c = #"~" then #"-" else c) s
+End
+val _ = translate prepareString_def;
+
 val _ = ml_prog_update open_local_in_block;
 
-val _ = process_topdecs
-  `fun toString d =
+val _ = append_prog
+  “[Dlet unknown_loc (Pvar "fromWord")
+                     (Fun "x" (App FpFromWord [Var (Short "x")]))]”
+
+val _ = append_prog
+  “[Dlet unknown_loc (Pvar "toWord")
+                     (Fun "x" (App FpToWord [Var (Short "x")]))]”
+
+(* --------------------------------------------------------------------------
+ * Functions that use the FFI
+ * ------------------------------------------------------------------------- *)
+
+(* 0: Double.fromString *)
+val _ = (append_prog o process_topdecs) `
+  fun fromString s =
     let
-      val w = toWord d
-      val iobuff = Word8Array.array (256) (Word8.fromInt 0);
-      val _ = Word8Array.update iobuff 0 (byte_0 w);
-      val _ = Word8Array.update iobuff 1 (byte_1 w);
-      val _ = Word8Array.update iobuff 2 (byte_2 w);
-      val _ = Word8Array.update iobuff 3 (byte_3 w);
-      val _ = Word8Array.update iobuff 4 (byte_4 w);
-      val _ = Word8Array.update iobuff 5 (byte_5 w);
-      val _ = Word8Array.update iobuff 6 (byte_6 w);
-      val _ = Word8Array.update iobuff 7 (byte_7 w);
+      val sPrepped = preparestring s;
+      val _ = #(double_fromString) (preparestring s) bytes;
+      val err = Word8Array.sub bytes 0
+    in
+      if err = Word8.fromInt 0 then
+        Some (fromWord (read_bytes 1))
+      else
+        None
+    end
+  `;
+
+(* 1: Double.toString *)
+val _ = (append_prog o process_topdecs) `
+  fun toString d =
+    let
+      val _ = write_bytes 0 (toWord d)
       val _ = #(double_toString) "" iobuff;
       val n = fst (Option.valOf (Word8Array.findi is_0_byte iobuff));
     in
-        Word8Array.substring iobuff 0 n
-    end;` |> append_prog;
+      Word8Array.substring iobuff 0 n
+    end
+  `;
 
-val _ = ml_prog_update close_local_blocks;
+(* 2: Double.fromInt *)
+val _ = (append_prog o process_topdecs) `
+  fun fromInt n =
+    let
+      val _ = write_bytes 0 (Word64.fromInt n)
+      val _ = #(double_fromInt) "" iobuff;
+    in
+      fromWord (read_bytes 0)
+    end
+  `;
 
-(* Ternary operations *)
+(* 3: Double.toInt *)
+val _ = (append_prog o process_topdecs) `
+  fun toInt d =
+    let
+      val _ = write_bytes 0 (toWord d)
+      val _ = #(double_toInt) "" iobuff;
+    in
+      Word64.toIntSigned (read_bytes 0)
+    end
+  `;
 
-val fma = “[Dlet unknown_loc (Pvar "fma")
-  (Fun "v1" (Fun "v2" (Fun "v3" (FpOptimise NoOpt (App (FP_top FP_Fma)
-  [Var (Short "v3"); Var (Short "v1"); Var (Short "v2")])))))]”
+(* 4: Double.pow *)
+val _ = (append_prog o process_topdecs) `
+  fun pow x y =
+    let
+      val _ = write_bytes 0 (toWord x)
+      val _ = write_bytes 8 (toWord y)
+      val _ = #(double_pow) "" iobuff;
+    in
+      fromWord (read_bytes 0)
+    end
+  `;
 
-val _ = append_prog fma;
+(* 5: Double.ln *)
+val _ = (append_prog o process_topdecs) `
+  fun ln d =
+    let
+      val _ = write_bytes 0 (toWord d)
+      val _ = #(double_ln) "" iobuff;
+    in
+      fromWord (read_bytes 0)
+    end
+  `;
 
-(* Binary operations *)
+(* 6: Double.exp *)
+val _ = (append_prog o process_topdecs) `
+  fun exp d =
+    let
+      val _ = write_bytes 0 (toWord d)
+      val _ = #(double_exp) "" iobuff;
+    in
+      fromWord (read_bytes 0)
+    end
+  `;
+
+(* 7: Double.floor *)
+val _ = (append_prog o process_topdecs) `
+  fun floor d =
+    let
+      val _ = write_bytes 0 (toWord d)
+      val _ = #(double_floor) "" iobuff;
+    in
+      fromWord (read_bytes 0)
+    end
+  `;
+
+(* --------------------------------------------------------------------------
+ * Ternary operations
+ * ------------------------------------------------------------------------- *)
+
+val _ = append_prog
+  “[Dlet unknown_loc (Pvar "fma") (Fun "x" (Fun "y" (Fun "z"
+    (FpOptimise NoOpt (App (FP_top FP_Fma) [Var (Short "z"); Var (Short "x");
+    Var (Short "y")])))))]”
+
+(* --------------------------------------------------------------------------
+ * Binary operations
+ * ------------------------------------------------------------------------- *)
 
 fun binop s b = “[Dlet unknown_loc (Pvar ^s)
-  (Fun "v1" (Fun "v2" (FpOptimise NoOpt (App (FP_bop ^b) [Var (Short
-  "v1"); Var (Short "v2")]))))]”
+  (Fun "x" (Fun "y" (FpOptimise NoOpt (App (FP_bop ^b) [Var (Short
+  "x"); Var (Short "y")]))))]”
 
 fun cmp s b = “[Dlet unknown_loc (Pvar ^s)
-  (Fun "v1" (Fun "v2" (FpOptimise NoOpt (App (FP_cmp ^b) [Var (Short
-  "v1"); Var (Short "v2")]))))]”
+  (Fun "x" (Fun "y" (FpOptimise NoOpt (App (FP_cmp ^b) [Var (Short
+  "x"); Var (Short "y")]))))]”
 
 val _ = append_prog $ binop “"+"” “FP_Add”;
 val _ = append_prog $ binop “"-"” “FP_Sub”;
@@ -135,25 +274,29 @@ val _ = append_prog $ cmp “">"” “FP_Greater”;
 val _ = append_prog $ cmp “">="” “FP_GreaterEqual”;
 val _ = append_prog $ cmp “"="” “FP_Equal”;
 
-(* Unary operations *)
+(* --------------------------------------------------------------------------
+ * Unary operations
+ * ------------------------------------------------------------------------- *)
 
 fun monop s b = “[Dlet unknown_loc (Pvar ^s)
-  (Fun "v1" (FpOptimise NoOpt (App (FP_uop ^b) [Var (Short "v1")])))]”
+  (Fun "x" (FpOptimise NoOpt (App (FP_uop ^b) [Var (Short "x")])))]”
 
 val _ = append_prog $ monop “"abs"” “FP_Abs”;
 val _ = append_prog $ monop “"sqrt"” “FP_Sqrt”;
 val _ = append_prog $ monop “"~"” “FP_Neg”;
 
-(* Pretty-printer *)
+(* --------------------------------------------------------------------------
+ * Pretty-printer
+ * ------------------------------------------------------------------------- *)
 
-val pp_double_tm = “
+val _ = append_prog “
   [Dlet unknown_loc
      (Pvar "pp_double")
      (Fun "x" (App Opapp [
         Var (Long "PrettyPrinter" (Short "token"));
         App Opapp [Var (Short "toString"); Var (Short "x")]]))]”;
-val _ = append_prog pp_double_tm;
 
+val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
 
 val _ = export_theory();
