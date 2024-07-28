@@ -1,4 +1,4 @@
-INCLUDES = developers compiler/bootstrap/compilation/x64/64/proofs
+INCLUDES = developers compiler/bootstrap/compilation/x64/64/proofs compiler/bootstrap/compilation/arm8/64/proofs
 
 all: $(DEFAULT_TARGETS) README.md cake-x64-64.tar.gz
 .PHONY: all
@@ -9,4 +9,7 @@ README.md: developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)
 	developers/readme_gen $(README_SOURCES)
 
 cake-x64-64.tar.gz: compiler/bootstrap/compilation/x64/64/cake-x64-64.tar.gz
+	$(CP) $< $@
+
+cake-arm8-64.tar.gz: compiler/bootstrap/compilation/arm8/64/cake-arm8-64.tar.gz
 	$(CP) $< $@

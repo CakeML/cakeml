@@ -18,7 +18,7 @@ open riscv_configTheory export_riscvTheory
 open mips_configTheory export_mipsTheory
 open arm7_configTheory export_arm7Theory
 open ag32_configTheory export_ag32Theory
-open panPtreeConversionTheory pan_to_targetTheory panScopeTheory
+open panPtreeConversionTheory pan_to_targetTheory panScopeTheory pan_passesTheory
 
 val _ = new_theory"compiler";
 
@@ -282,18 +282,18 @@ Definition compile_pancake_def:
   let _ = empty_ffi (strlit "finished: start up") in
   case panPtreeConversion$parse_funs_to_ast input of
   | INR errs =>
-    Failure $ ParseError $ concat $
-      MAP (λ(msg,loc). concat [msg; strlit " at ";
-                               locs_to_string (implode input) (SOME loc); strlit "\n"])
-          errs
+    ((Failure $ ParseError $ concat $
+       MAP (λ(msg,loc). concat [msg; strlit " at ";
+                                locs_to_string (implode input) (SOME loc); strlit "\n"])
+           errs), Nil)
   | INL funs =>
       case scope_check funs of
-      | SOME (x, fname) => (Failure (ScopeError x fname))
+      | SOME (x, fname) => (Failure (ScopeError x fname),Nil)
       | NONE =>
           let _ = empty_ffi (strlit "finished: lexing and parsing") in
-          case pan_to_target$compile_prog c funs of
-          | NONE => (Failure AssembleError)
-          | SOME (bytes,data,c) => (Success (bytes,data,c))
+          case pan_passes$pan_compile_tap c funs of
+          | (NONE,td) => (Failure AssembleError,td)
+          | (SOME (bytes,data,c),td) => (Success (bytes,data,c),td)
 End
 
 (* The top-level compiler *)
@@ -692,11 +692,14 @@ Definition compile_pancake_64_def:
               (List[], error_to_str (ConfigError (get_err_str ext_conf)))
           | INL ext_conf =>
               case compiler$compile_pancake ext_conf input of
-              | (Failure err) =>
+              | (Failure err, td) =>
                   (List[], error_to_str err)
-              | (Success (bytes, data, c)) =>
-                  (export (ffinames_to_string_list $
-                    the [] c.lab_conf.ffi_names) bytes data c.symbols c.exported mainret T, implode "")
+              | (Success (bytes, data, c), td) =>
+                  (add_tap_output td
+                    (export (ffinames_to_string_list $
+                      the [] c.lab_conf.ffi_names) bytes data c.symbols
+                      c.exported mainret T),
+                   implode "")
 End
 
 Definition full_compile_64_def:
@@ -763,11 +766,14 @@ Definition compile_pancake_32_def:
               (List[], error_to_str (ConfigError (get_err_str ext_conf)))
           | INL ext_conf =>
               case compiler$compile_pancake ext_conf input of
-              | (Failure err) =>
+              | (Failure err, td) =>
                   (List[], error_to_str err)
-              | (Success (bytes, data, c)) =>
-                  (export (ffinames_to_string_list $
-                    the [] c.lab_conf.ffi_names) bytes data c.symbols c.exported mainret T, implode "")
+              | (Success (bytes, data, c), td) =>
+                  (add_tap_output td
+                    (export (ffinames_to_string_list $
+                      the [] c.lab_conf.ffi_names) bytes data c.symbols
+                      c.exported mainret T),
+                   implode "")
 End
 
 Definition full_compile_32_def:

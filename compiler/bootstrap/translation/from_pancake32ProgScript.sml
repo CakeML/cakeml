@@ -253,6 +253,8 @@ val _ = translate $ spec32 compile_crepop_def;
 
 val _ = translate $ spec32 compile_exp_def;
 
+val _ = translate $ spec32 call_label_def;
+
 val _ = translate $ spec32 compile_def;
 
 val _ = translate $ spec32 comp_func_def;
