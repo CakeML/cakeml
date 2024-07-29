@@ -44,6 +44,10 @@ Scope checking for Pancake.
 [pan_commonScript.sml](pan_commonScript.sml):
 Common definitions for Pancake compiler
 
+[pan_passesScript.sml](pan_passesScript.sml):
+Reformulates compile definition to expose the result of each internal
+compiler pass
+
 [pan_simpScript.sml](pan_simpScript.sml):
 Compilation from panLang to crepLang.
 

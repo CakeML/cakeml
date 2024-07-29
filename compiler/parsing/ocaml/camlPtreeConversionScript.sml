@@ -8,6 +8,9 @@ local open cmlParseTheory lexer_implTheory in end
 
 val _ = new_theory "camlPtreeConversion";
 
+val _ = set_grammar_ancestry [
+  "misc", "pegexec", "caml_lex", "camlPEG", "ast", "precparser", "sum"];
+
 (* -------------------------------------------------------------------------
  * Sum monad syntax
  * ------------------------------------------------------------------------- *)
@@ -1098,15 +1101,21 @@ Definition ptree_PPattern_def:
             n <- nterm_of arg;
             if n = INL nValueName then
               fmap Pp_var (ptree_ValueName arg)
-            else if n = INL nPatLiteral then
-              ptree_PPattern arg
-            else if n = INL nPAny ∨ n = INL nPList ∨ n = INL nPPar then
+            else if n = INL nConstr then
+              do
+                cns <- ptree_Constr arg;
+                id <- path_to_ns locs cns;
+                return $ Pp_con (SOME id) []
+              od
+            else if n = INL nPatLiteral ∨ n = INL nPAny ∨ n = INL nPList ∨
+                    n = INL nPPar then
               ptree_PPattern arg
             else
               fail (locs, «Impossible: nPBase»)
          od
       | _ => fail (locs, «Impossible: nPBase»)
-    else if nterm = INL nPCons then case args of
+    else if nterm = INL nPCons then
+      case args of
         [cn] =>
           do
             cns <- ptree_Constr cn;
@@ -3180,6 +3189,9 @@ Definition peg_def:
   peg (Success (_: (tokens$token # locs) list) x _) = return x
 End
 
+Overload cmlpegexec[local] =
+  ``λn t. peg_exec cmlPEG$cmlPEG (cmlPEG$pnt n) t [] NONE [] done failed``;
+
 Definition ptree_Definition_def:
   (ptree_Definition (Lf (_, locs)) =
     fail (locs, «Expected a top-level definition non-terminal»)) ∧
@@ -3200,9 +3212,9 @@ Definition ptree_Definition_def:
               fail (locs, «The CakeML lexer failed»)
             else
               do
-                pts <- peg (destResult (cmlpegexec nTopLevelDecs toks));
+                pts <- peg (destResult (cmlpegexec gram$nTopLevelDecs toks));
                 pt <- option $ oHD pts;
-                option $ ptree_TopLevelDecs pt
+                option $ cmlPtreeConversion$ptree_TopLevelDecs pt
               od ++ fail (locs, «The CakeML parser failed»)
           od
       | _ => fail (locs, «Impossible: nCakeMLPragma»)

@@ -770,9 +770,9 @@ Definition camlPEG_def[nocompute]:
        choicel [pegf (pnt nLiteral) (bindNT nPatLiteral);
                 seql [tokeq MinusT; tok isInt mktokLf]
                      (bindNT nPatLiteral)]);
-      (INL nPBase, (* ::= any / var / lit / list / '(' p ')' *)
+      (INL nPBase, (* ::= any / var / lit / list / '(' p ')' / constr *)
        pegf (choicel [pnt nPatLiteral; pnt nValueName; pnt nPAny; pnt nPList;
-                      pnt nPPar])
+                      pnt nPPar; pnt nConstr])
             (bindNT nPBase));
       (* -- Pat2 ----------------------------------------------------------- *)
       (INL nPRecFields, (* '{' field (';' field)* ';'? '}' *)
@@ -784,7 +784,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPRecFields));
       (INL nPCons, (* ::= constr ('{' fields '}' | p?) *)
        pegf (choicel [seql [pnt nConstr;
-                            choicel [pnt nPRecFields; try (pnt nPBase)]] I;
+                            choicel [pnt nPRecFields; pnt nPBase]] I;
                       pnt nPBase])
             (bindNT nPCons));
       (INL nPAs, (* ::= p ('as' id)* *)
@@ -797,8 +797,13 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPOps));
       (INL nPattern,
        pegf (pnt nPOps) (bindNT nPattern));
+      (* This rule is used for the patterns in let (rec) and fun, and since
+       * these allow curried pattern arguments, we must not let applications
+       * and similar be unparenthesized. This is why we accept nPBase instead
+       * of nPattern. nPBase contains single-token patterns, and patterns
+       * enclosed in [] or (). *)
       (INL nPatterns,
-       seql [pnt nPattern; try (pnt nPatterns)]
+       seql [pnt nPBase; try (pnt nPatterns)]
             (bindNT nPatterns));
       (INL nStart,
        seql [try (pnt nModuleItems)] (bindNT nStart))
