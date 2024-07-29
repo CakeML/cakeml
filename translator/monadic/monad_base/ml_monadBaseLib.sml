@@ -269,7 +269,7 @@ fun define_monad_exception_functions exn_type state_type =
     (* case x st of (res, st) => ... *)
     val x_st_tm = mk_comb(x_var, state_var)
     val case_x_st_tm = case_const_of pair_ty |>
-        Term.inst [alpha |-> pair_exc_type, beta |-> exc_type, gamma |-> state_type]
+        Term.inst [alpha |-> exc_type, beta |-> state_type, gamma |-> pair_exc_type]
     val case_x_st_tm = mk_comb(case_x_st_tm, x_st_tm)
     val res_var = mk_var("res", exc_type)
 
