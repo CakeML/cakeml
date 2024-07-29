@@ -18,6 +18,7 @@ val _ = new_theory "dafny_to_cakeml";
 Overload True = “Con (SOME (Short "True")) []”
 Overload False = “Con (SOME (Short "False")) []”
 Overload None = “Con (SOME (Short "None")) []”
+Overload Unit = “Con NONE []”
 
 Definition from_string_def:
   from_string s =
@@ -26,6 +27,23 @@ Definition from_string_def:
       return i
   | NONE =>
       fail ("Could not convert into int: " ++ s)
+End
+
+Definition cml_ref_def:
+  cml_ref n val_e in_e = (Let (SOME n) ((App Opref [val_e])) in_e)
+End
+
+Definition cml_fapp_aux_def:
+  cml_fapp_aux fun_name [] = App Opapp [fun_name; Unit] ∧
+  cml_fapp_aux fun_name (e::rest) =
+  if rest = [] then (App Opapp [fun_name; e])
+  else
+    let inner_app = cml_fapp_aux fun_name rest in
+      (App Opapp [inner_app; e])
+End
+
+Definition cml_fapp_def:
+  cml_fapp fun_name args = cml_fapp_aux fun_name (REVERSE args)
 End
 
 (* TODO? Move to dafny_ast *)
@@ -69,7 +87,7 @@ Definition dafny_type_of_def:
   | Expression_Ident n =>
       case ALOOKUP env n of
       | SOME t => return t
-      | NONE => fail ("dafny_type_of: Unknown Name" ++ (dest_Name n))
+      | NONE => fail ("dafny_type_of: Unknown Name " ++ (dest_Name n))
   | _ => fail "dafny_type_of: Unsupported expression"
 End
 
@@ -96,11 +114,8 @@ Definition from_expression_def:
            do
              cml_e1 <- from_expression env e1;
              cml_e2 <- from_expression env e2;
-             (* TODO replace with call to cml_fapp *)
-             return (App Opapp
-                         [App Opapp [Var (Long "String" (Short "strcat"));
-                                     cml_e1];
-                          cml_e2])
+             return (cml_fapp (Var (Long "String" (Short "strcat")))
+                              [cml_e1; cml_e2])
            od
        else
          fail "from_binOp: Unsupported bop"
@@ -167,19 +182,6 @@ Definition from_assignLhs_def:
   | _ => fail "from_assignLhs: Unsupported"
 End
 
-Definition cml_fapp_aux_def:
-  cml_fapp_aux fun_name [] _ = App Opapp [fun_name; (Con NONE [])] ∧
-  cml_fapp_aux fun_name (e::rest) env =
-  if rest = [] then (App Opapp [fun_name; e])
-  else
-    let inner_app = cml_fapp_aux fun_name rest env in
-      (App Opapp [inner_app; e])
-End
-
-Definition cml_fapp_def:
-  cml_fapp fun_name args env = cml_fapp_aux fun_name (REVERSE args) env
-End
-
 Definition from_indep_stmt_def:
   from_indep_stmt (s: dafny_ast$statement) (env: ((name, type) alist)) =
   (case s of
@@ -202,14 +204,13 @@ Definition from_indep_stmt_def:
           do
             fun_name <- from_callName call_nam;
             cml_args <- result_mmap (from_expression env) args;
-            return (cml_fapp fun_name cml_args env)
+            return (cml_fapp fun_name cml_args)
           od
       od
   | Print e =>
       do
         cml_e <- from_expression env e;
-        (* TODO replace with call to cml_fapp *)
-        return (App Opapp [Var (Short "print"); cml_e])
+        return (cml_fapp (Var (Short "print")) [cml_e])
       od
   | _ => fail "from_indep_stmt_def: Unsupported or not independent statement")
 End
@@ -276,12 +277,10 @@ Definition from_stmts_def:
      do
        (n, t, e_opt) <- dest_DeclareVar s1;
        n_str <<- dest_Name n;
-
        iv_e <- if e_opt = NONE then arb_value t
                else do e <- dest_SOME e_opt; from_InitVal e od;
        (in_e, env') <- from_stmts (s2::rest) ((n, t)::env);
-       (* TODO extract reference generation (Opref) into function *)
-       return ((Let (SOME n_str) ((App Opref [iv_e])) in_e), env')
+       return (cml_ref n_str iv_e in_e, env')
      od
    else
      fail "from_stmts: Unsupported statement")
@@ -325,13 +324,11 @@ Definition declare_init_param_refs_def:
      ref_name <- varN_from_formal fo;
      ref_value_name <- internal_varN_from_formal fo;
      if rest = [] then
-       return (Let (SOME ref_name)
-                   (App Opref [Var (Short ref_value_name)]) in_exp)
+       return (cml_ref ref_name (Var (Short ref_value_name)) in_exp)
      else
        do
          next_declare <- declare_init_param_refs rest in_exp;
-         return (Let (SOME ref_name)
-                     (App Opref [Var (Short ref_value_name)]) next_declare)
+         return (cml_ref ref_name (Var (Short ref_value_name)) next_declare)
        od
    od)
 End
@@ -387,11 +384,9 @@ Definition from_method_def:
     fail "from_method: Method must have a body"
   else if overridingPath ≠ NONE then
     fail "from_method: Overriding methods currently unsupported"
-  else if (LENGTH typeParams) > 0 then
+  else if typeParams ≠ [] then
     fail "from_method: Type parameters for methods currently unsupported"
-  else if (LENGTH params) > 0 then
-    fail "from_method: Methods with parameters currently unsupported"
-  else if (LENGTH outTypes) > 0 then
+  else if outTypes ≠ [] then
     fail "from_method: Methods with return values currently unsupported"
   else if outVars = NONE then
     fail "from_method: NONE for outVars is unexpected"
@@ -421,14 +416,12 @@ Definition compile_def:
    | Module _ _ (SOME [ModuleItem_Class (Class _ _ _ _ _ cis _)]) =>
        do
          fun_defs <- result_mmap from_classItem cis;
-         (* TODO Pretending functions are mutually recursive even though they
-            are not avoids work of finding which ones are independent and
-            in which order they should appear; but this may have unknown
-            consequences *)
+         (* TODO Look at how PureCake detangles Dletrecs
+          * Having one big Dletrec probably does not result in a performance
+          * penalty unless functions are used in a higher order way *)
          fun_defs <<- [(Dletrec unknown_loc fun_defs)];
          return (fun_defs ++ [Dlet unknown_loc Pany
-                                   (App Opapp [Var (Short "Main");
-                                               (Con NONE [])])])
+                                   (cml_fapp (Var (Short "Main")) [Unit])])
        od
    | _ => fail "Unexpected ModuleItem") ∧
   compile _ = fail "compile: Program does not contain exactly two modules"
@@ -442,8 +435,8 @@ Definition unpack_def:
   | INR d =>
       d
   | INL s =>
-      [Dlet unknown_loc (Pvar "it")
-       (App Opapp [Var (Short "print"); Lit (StrLit s)])]
+      [Dlet unknown_loc Pany
+            (cml_fapp (Var (Short "print")) [Lit (StrLit s)])]
 End
 
 (* Testing *)
