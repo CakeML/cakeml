@@ -92,6 +92,7 @@ val treeEx2_and_a_half = check_success $ parse_pancake ex2_and_a_half;
 
 (** We also have a selection of boolean operators and
     a ‘return’ statement. NOTE: all Pancake functions should end with a return statement.*)
+
 val ex3 = ‘
   fun boolfun() {
     if b & (a ^ c) & d { return true; }
@@ -99,6 +100,20 @@ val ex3 = ‘
   }’;
 
 val treeEx3 = check_success $ parse_pancake ex3;
+
+(** Bool operators have higher precedence than comparators, so z is always 1*)
+val ex3_and_a_half = ‘
+  fun cmps () {
+    var x = 2;
+    var y = 3;
+    var z = (x & y != 0);
+    z = ((x & y) != 0);
+    z = (y & x != 0);
+    z = ((y & x) != 0);
+}’;
+
+val treeEx3_and_a_half = check_success $ parse_pancake ex3_and_a_half;
+
 
 (** Loops: standard looping construct. *)
 
