@@ -124,6 +124,15 @@ end;
 
 fun parsetest t1 t2 s = parsetest0 t1 t2 s NONE;
 
+exception ExpectedFailure;
+fun expectFailure prefix test =
+  (test (); raise ExpectedFailure)
+  handle Fail m =>
+    if String.isPrefix ("Failed " ^ prefix) m then
+      print ("OK, failed as expected, message: " ^ m ^ "\n")
+    else
+      (print "Unexpected failure!\n"; raise Fail m);
+
 (* -------------------------------------------------------------------------
  * Various identifiers
  * ------------------------------------------------------------------------- *)
@@ -209,12 +218,10 @@ val _ = parsetest0 “nStart” “ptree_Start”
           Dlet L2 (Pv "y") (V "y")]”)
   ;
 
-(* This fails, as expected:
-val _ = parsetest0 “nStart” “ptree_Start”
-  "let x = (*CML val x = x; *) 6;;"
-  NONE
-  ;
- *)
+val _ = expectFailure "REMAINING INPUT"
+      (fn () => parsetest0 “nStart” “ptree_Start”
+                           "let x = (*CML val x = x; *) 6;;"
+                           NONE);
 
 (* -------------------------------------------------------------------------
  * Types
@@ -1507,7 +1514,6 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
                                     Pc "Comb" [Pany; Pany]]]”)
   ;
 
-
 val _ = parsetest0 “nStart” “ptree_Start”
   "let x = 2 ;; (*CML val x = 5; print \"z\"; fun ref x = Ref x; *)"
   (SOME “[Dlet L1 (Pv "x") (Lit (IntLit 2));
@@ -1618,6 +1624,50 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "Double.(-)"
   (SOME “Var (Long "Double" (Short "-"))”)
   ;
+
+(* 2024-07-25: Pattern constructors applied to pattern constructors *)
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "Some (Some None)"
+  (SOME $ eval “[mkpat $  Pc "Some" [Pc "Some" [Pc "None" []]]]”)
+  ;
+
+(* 2024-07-27: Parse patterns in function lets properly: require parenthesis
+ * around anything below nPBase.
+ *)
+
+(* Application of the constructor Some to the variable x: *)
+val _ = parsetest0 “nStart” “ptree_Start”
+  "let f (Some x) = y"
+  (SOME $ eval
+   “[Dlet L (Pv "f") (Fun "" (Mat (V"") [(Pc "Some" [Pv "x"], V "y")]))]”)
+  ;
+
+(* A function with two arguments: the first pattern-matching on the constructor
+ * Some (with no arguments), and the second, a variable: *)
+val _ = parsetest0 “nStart” “ptree_Start”
+  "let f Some x = y"
+  (SOME $ eval
+   “[Dlet L (Pv "f") (Fun "" (Mat (V"") [(Pc "Some" [], Fun "x" (V "y"))]))]”)
+  ;
+
+(* This should fail: we require parenthesis around ambiguous patterns here: *)
+val _ = expectFailure "FAILED" (fn () =>
+  parsetest0 “nExpr” “ptree_Expr nExpr”
+  "fun x,y -> z"
+  NONE);
+
+
+(* This should fail: we require parenthesis around ambiguous patterns here: *)
+val _ = expectFailure "REMAINING INPUT" (fn () =>
+  parsetest0 “nStart” “ptree_Start”
+  "let f x,y = z"
+  NONE);
+
+(* This is OK though: *)
+val _ =
+  parsetest0 “nStart” “ptree_Start”
+  "let x,y = z"
+  NONE;
 
 val _ = export_theory ();
 
