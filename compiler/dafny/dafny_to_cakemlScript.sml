@@ -92,12 +92,20 @@ Definition dafny_type_of_def:
 End
 
 Definition from_expression_def:
-  (from_expression (env: ((name, type) alist)) (e: dafny_ast$expression) =
+  (from_expression (env: ((name, type) alist))
+                   (e: dafny_ast$expression) : (ast$exp result) =
    case e of
    | Literal l =>
        from_literal l
    | Expression_Ident (Name n) =>
        return (App Opderef [Var (Short n)])
+   | Ite cnd thn els =>
+       do
+         cml_cnd <- from_expression env cnd;
+         cml_thn <- from_expression env thn;
+         cml_els <- from_expression env els;
+         return (If cml_cnd cml_thn cml_els)
+       od
    | BinOp bop e1 e2 =>
        from_binOp bop e1 e2 env
    | _ => fail "from_expression: Unsupported expression") ∧
@@ -125,19 +133,16 @@ Termination
   cheat
 End
 
-(* TODO At the moment this is similar to from_InitVal. Merge in the future? *)
 Definition arb_value_def:
   arb_value (t: dafny_ast$type) =
   (case t of
    | Primitive String => return (Lit (StrLit ""))
+   | Primitive Bool => return False
    | _ => fail "arb_value_def: Unsupported type")
 End
 
 Definition from_InitVal_def:
-  from_InitVal (InitializationValue t) =
-  (case t of
-   | Primitive String => return (Lit (StrLit ""))
-   | _ => fail "from_InitVal: Unsupported type") ∧
+  from_InitVal (InitializationValue t) = arb_value t ∧
   from_InitVal _ = fail "from_InitVal: Unexpected case"
 End
 
@@ -447,7 +452,7 @@ open TextIO
 (* val _ = astPP.disable_astPP(); *)
 val _ = astPP.enable_astPP();
 
-val inStream = TextIO.openIn "./tests/method_call_with_args.sexp";
+val inStream = TextIO.openIn "./tests/print_bool.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
@@ -460,7 +465,7 @@ val cakeml_r = EVAL “(compile ^dafny_r)” |> concl |> rhs |> rand;
 val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^cakeml_r)))”
                    |> concl |> rhs |> rand;
 val cml_sexp_str_r = stringSyntax.fromHOLstring cml_sexp_r;
-val outFile = TextIO.openOut "./tests/method_call_with_args.cml.sexp";
+val outFile = TextIO.openOut "./tests/print_bool.cml.sexp";
 val _ = TextIO.output (outFile, cml_sexp_str_r);
 val _ = TextIO.closeOut outFile
 
