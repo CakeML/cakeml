@@ -74,7 +74,7 @@ Definition dafny_type_of_def:
 End
 
 Definition from_expression_def:
-  (from_expression (e: dafny_ast$expression) (env: ((name, type) alist)) =
+  (from_expression (env: ((name, type) alist)) (e: dafny_ast$expression) =
    case e of
    | Literal l =>
        from_literal l
@@ -94,9 +94,9 @@ Definition from_expression_def:
          if (e1_t = (Primitive String) ∧ e1_t = e2_t)
          then
            do
-             cml_e1 <- from_expression e1 env;
-             cml_e2 <- from_expression e2 env;
-             (* TODO place this kind of pattern into a helper *)
+             cml_e1 <- from_expression env e1;
+             cml_e2 <- from_expression env e2;
+             (* TODO replace with call to cml_fapp *)
              return (App Opapp
                          [App Opapp [Var (Long "String" (Short "strcat"));
                                      cml_e1];
@@ -151,8 +151,9 @@ Definition from_callName_def:
   (from_callName (CallName nam onType sig) =
    if onType ≠ NONE then
      fail "from_callName: non-empty onType currently unsupported"
-   else if sig ≠ CallSignature [] then
-     fail "from_callName: non_empty callSignature currently unsupported"
+   (* TODO Confirm that we can ignore the call signature *)
+   (* else if sig ≠ CallSignature [] then *)
+   (*   fail "from_callName: non_empty callSignature currently unsupported" *)
    else
      return (from_name nam)) ∧
   (from_callName _ = fail ("from_callName: " ++
@@ -166,13 +167,26 @@ Definition from_assignLhs_def:
   | _ => fail "from_assignLhs: Unsupported"
 End
 
+Definition cml_fapp_aux_def:
+  cml_fapp_aux fun_name [] _ = App Opapp [fun_name; (Con NONE [])] ∧
+  cml_fapp_aux fun_name (e::rest) env =
+  if rest = [] then (App Opapp [fun_name; e])
+  else
+    let inner_app = cml_fapp_aux fun_name rest env in
+      (App Opapp [inner_app; e])
+End
+
+Definition cml_fapp_def:
+  cml_fapp fun_name args env = cml_fapp_aux fun_name (REVERSE args) env
+End
+
 Definition from_indep_stmt_def:
   from_indep_stmt (s: dafny_ast$statement) (env: ((name, type) alist)) =
   (case s of
   | Assign lhs e =>
       do
         cml_lhs <- from_assignLhs lhs;
-        cml_rhs <- from_expression e env;
+        cml_rhs <- from_expression env e;
         return (App Opassign [cml_lhs; cml_rhs])
       od
   | Call on call_nam typeArgs args outs =>
@@ -182,19 +196,19 @@ Definition from_indep_stmt_def:
           fail "from_indep_stmt: (Call) Unsupported on expression"
         else if typeArgs ≠ [] then
           fail "from_indep_stmt: (Call) type arguments currently unsupported"
-        else if args ≠ [] then
-          fail "from_indep_stmt: (Call) Arguments currently unsupported"
         else if outs ≠ NONE then
           fail "from_indep_stmt: (Call) Return values currently unsupported"
         else
           do
             fun_name <- from_callName call_nam;
-            return (App Opapp [fun_name; (Con NONE [])])
+            cml_args <- result_mmap (from_expression env) args;
+            return (cml_fapp fun_name cml_args env)
           od
       od
   | Print e =>
       do
-        cml_e <- from_expression e env;
+        cml_e <- from_expression env e;
+        (* TODO replace with call to cml_fapp *)
         return (App Opapp [Var (Short "print"); cml_e])
       od
   | _ => fail "from_indep_stmt_def: Unsupported or not independent statement")
@@ -266,10 +280,102 @@ Definition from_stmts_def:
        iv_e <- if e_opt = NONE then arb_value t
                else do e <- dest_SOME e_opt; from_InitVal e od;
        (in_e, env') <- from_stmts (s2::rest) ((n, t)::env);
+       (* TODO extract reference generation (Opref) into function *)
        return ((Let (SOME n_str) ((App Opref [iv_e])) in_e), env')
      od
    else
      fail "from_stmts: Unsupported statement")
+End
+
+Definition varN_from_formal_def:
+  (varN_from_formal (Formal n _ attrs) =
+   if attrs ≠ [] then
+     fail "param_from_formals: Attributes currently unsupported"
+   else
+     return (dest_Name n)) ∧
+  (varN_from_formal _ = fail "varN_from_formal: Unreachable")
+End
+
+Definition internal_varN_from_formal_def:
+  internal_varN_from_formal fo =
+  do
+    n <- varN_from_formal fo;
+    (* TODO Find better way to generate internal names *)
+    return (n ++ "_CML_param")
+  od
+End
+
+Definition param_defs_from_formals_def:
+  (param_defs_from_formals ([]: (dafny_ast$formal list)) x =
+   fail "param_defs_from_formals: No parameters to define") ∧
+  (param_defs_from_formals (fo::rest) x =
+   do
+     param_name <- internal_varN_from_formal fo;
+     param_exp <- if rest = [] then return x
+                  else param_defs_from_formals rest x;
+     return (Fun param_name param_exp)
+   od)
+End
+
+Definition declare_init_param_refs_def:
+  declare_init_param_refs [] in_exp =
+  fail ("declare_init_param_refs: Nothing to declare and initialize") ∧
+  (declare_init_param_refs (fo::rest) in_exp =
+   do
+     ref_name <- varN_from_formal fo;
+     ref_value_name <- internal_varN_from_formal fo;
+     if rest = [] then
+       return (Let (SOME ref_name)
+                   (App Opref [Var (Short ref_value_name)]) in_exp)
+     else
+       do
+         next_declare <- declare_init_param_refs rest in_exp;
+         return (Let (SOME ref_name)
+                     (App Opref [Var (Short ref_value_name)]) next_declare)
+       od
+   od)
+End
+
+Definition method_preamble_from_formal_def:
+  method_preamble_from_formal [] =
+  do
+    param <<- "";
+    (* Encodes a function without parameters as foo () = ... *)
+    preamble <<- λx. (return (Mat (Var (Short "")) [(Pcon NONE [], x)]));
+    return (param, preamble)
+  od ∧
+  method_preamble_from_formal (fo::rest) =
+  do
+    param <- internal_varN_from_formal fo;
+    if rest = [] then
+      do
+        preamble <<- λx. (declare_init_param_refs [fo] x);
+        return (param, preamble)
+      od
+    else
+      do
+        preamble <<- (λx.
+                         do
+                           inner_exp <- declare_init_param_refs (fo::rest) x;
+                           (* Adds rest of parameters as
+                            * (Fun foo_CML_param <initialize refs>) *)
+                           param_defs_from_formals rest inner_exp
+                         od);
+        return (param, preamble)
+      od
+  od
+End
+
+Definition initial_type_env_def:
+  initial_type_env [] = return [] ∧
+  initial_type_env ((Formal n t attrs)::rest) =
+  if attrs ≠ [] then
+    fail "initial_type_env: Attributes unsupported"
+  else
+    do
+      rest' <- initial_type_env rest;
+      return ((n, t)::rest')
+    od
 End
 
 Definition from_method_def:
@@ -294,8 +400,11 @@ Definition from_method_def:
   else
     do
       fun_name <<- dest_Name nam;
-      (cml_body, _) <- from_stmts body [];
-      return (fun_name, "", Mat (Var (Short "")) [(Pcon NONE [], cml_body)])
+      (cml_param, preamble) <- method_preamble_from_formal params;
+      env <- initial_type_env params;
+      (cml_body, _) <- from_stmts body env;
+      cml_body <- preamble cml_body;
+      return (fun_name, cml_param, cml_body)
     od
 End
 
@@ -342,9 +451,10 @@ open dafny_sexpTheory
 open sexp_to_dafnyTheory
 open fromSexpTheory simpleSexpParseTheory
 open TextIO
+(* val _ = astPP.disable_astPP(); *)
 val _ = astPP.enable_astPP();
 
-val inStream = TextIO.openIn "./tests/method_call.sexp";
+val inStream = TextIO.openIn "./tests/method_call_with_args.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
@@ -357,7 +467,7 @@ val cakeml_r = EVAL “(compile ^dafny_r)” |> concl |> rhs |> rand;
 val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^cakeml_r)))”
                    |> concl |> rhs |> rand;
 val cml_sexp_str_r = stringSyntax.fromHOLstring cml_sexp_r;
-val outFile = TextIO.openOut "./tests/method_call.cml.sexp";
+val outFile = TextIO.openOut "./tests/method_call_with_args.cml.sexp";
 val _ = TextIO.output (outFile, cml_sexp_str_r);
 val _ = TextIO.closeOut outFile
 
