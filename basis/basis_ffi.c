@@ -322,14 +322,14 @@ void ffidouble_fromString(char *c, long clen, char *a, long alen) {
 
 void ffidouble_toString(char *c, long clen, char *a, long alen) {
     double_bytes d;
-    memcpy(d.bytes, &a[1], sizeof d.bytes);
+    memcpy(d.bytes, a, sizeof d.bytes);
     snprintf(a, 255, "%.20g", d.num);
 }
 
 void ffidouble_fromInt(char *c, long clen, char *a, long alen) {
     double_bytes d;
     int_bytes i;
-    memcpy(i.bytes, &a[1], sizeof i.bytes);
+    memcpy(i.bytes, a, sizeof i.bytes);
     d.num = (double) i.num;
     memcpy(a, d.bytes, sizeof d.bytes);
 }
@@ -337,7 +337,7 @@ void ffidouble_fromInt(char *c, long clen, char *a, long alen) {
 void ffidouble_toInt(char *c, long clen, char *a, long alen) {
     double_bytes d;
     int_bytes i;
-    memcpy(d.bytes, &a[1], sizeof d.bytes);
+    memcpy(d.bytes, a, sizeof d.bytes);
     i.num = (int64_t) d.num;
     memcpy(a, i.bytes, sizeof i.bytes);
 }
@@ -352,21 +352,21 @@ void ffidouble_pow(char *c, long clen, char *a, long alen) {
 
 void ffidouble_ln(char *c, long clen, char *a, long alen) {
     double_bytes d;
-    memcpy(d.bytes, &a[1], sizeof d.bytes);
+    memcpy(d.bytes, a, sizeof d.bytes);
     d.num = log(d.num);
     memcpy(a, d.bytes, sizeof d.bytes);
 }
 
 void ffidouble_exp(char *c, long clen, char *a, long alen) {
     double_bytes d;
-    memcpy(d.bytes, &a[1], sizeof d.bytes);
+    memcpy(d.bytes, a, sizeof d.bytes);
     d.num = exp(d.num);
     memcpy(a, d.bytes, sizeof d.bytes);
 }
 
 void ffidouble_floor(char *c, long clen, char *a, long alen) {
     double_bytes d;
-    memcpy(d.bytes, &a[1], sizeof d.bytes);
+    memcpy(d.bytes, a, sizeof d.bytes);
     d.num = floor(d.num);
     memcpy(a, d.bytes, sizeof d.bytes);
 }
