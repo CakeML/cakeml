@@ -26,6 +26,8 @@ ifeq ($(OS),Darwin)
 	EVALFLAG =
 endif
 
+CFLAGS+=-O2
+LDFLAGS+=-lm
 CMLS = $(wildcard *.cml)
 CML_PROGS = $(patsubst %.cml,%.cake$(SUFF),$(CMLS))
 
@@ -35,7 +37,7 @@ all: cake$(SUFF)
 # Linking the CakeML compiler
 
 cake$(SUFF): cake.S basis_ffi.c
-	$(CC) $(LDFLAGS) $< basis_ffi.c $(LOADLIBES) $(LDLIBS) $(EVALFLAG) -o $@
+	$(CC) $(CFLAGS) $< basis_ffi.c $(LOADLIBES) $(LDLIBS) $(EVALFLAG) -o $@ $(LDFLAGS)
 
 # Note: While this Makefile is shared the sexpr files used in the example rules
 # below are only included in the verified cake-x64-64.tar.gz release package
@@ -45,20 +47,20 @@ cake$(SUFF): cake.S basis_ffi.c
 
 cake_verbose$(SUFF): cake-sexpr-64 basis_ffi.c cake$(SUFF)
 	CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 $(PREF)cake$(SUFF) --sexp=true --exclude_prelude=true --skip_type_inference=true --emit_empty_ffi=true --reg_alg=0 < $< > $<.S
-	$(CC) $(CFLAGS) $(LDFLAGS) -DDEBUG_FFI -o $@ $<.S basis_ffi.c
+	$(CC) $(CFLAGS) -DDEBUG_FFI -o $@ $<.S basis_ffi.c $(LDFLAGS)
 
 # *UNVERIFIED* compiler supporting 32-bit targets; see cake-x64-32.tar.gz for a
 # verified compiler
 
 cake_unverified32$(SUFF): cake-sexpr-32 basis_ffi.c cake$(SUFF)
 	CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 $(PREF)cake$(SUFF) --sexp=true --exclude_prelude=true --skip_type_inference=true --reg_alg=0 < $< > $<.S
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<.S basis_ffi.c
+	$(CC) $(CFLAGS) -o $@ $<.S basis_ffi.c $(LDFLAGS)
 
 # Example of cross-compiling the compiler itself
 RISCV_CC ?= riscv64-unknown-linux-gnu-cc
 cake_riscv_host: cake-sexpr-64 basis_ffi.c cake$(SUFF)
 	CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 $(PREF)cake$(SUFF) --sexp=true --exclude_prelude=true --skip_type_inference=true --target=riscv --reg_alg=0 < $< > $<.riscv.S
-	$(RISCV_CC) $(CFLAGS) $(LDFLAGS) -o $@ $<.riscv.S basis_ffi.c
+	$(RISCV_CC) $(CFLAGS) -o $@ $<.riscv.S basis_ffi.c $(LDFLAGS)
 
 # Using the CakeML compiler
 
@@ -73,7 +75,7 @@ cake_riscv_host: cake-sexpr-64 basis_ffi.c cake$(SUFF)
 	$(PREF)cake$(SUFF) $(CAKEFLAGS) <$< >$@
 
 %.cake$(SUFF) : %.cake.S basis_ffi.c
-	$(CC) $(LDFLAGS) $< basis_ffi.c $(LOADLIBES) $(LDLIBS) -o $@
+	$(CC) $< basis_ffi.c $(LOADLIBES) $(LDLIBS) -o $@ $(LDFLAGS)
 
 clean:
 	$(RM) basis_ffi.o cake.o cake$(SUFF) *.cake.o *.cake.S *.cake$(SUFF)
