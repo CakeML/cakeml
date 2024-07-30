@@ -204,7 +204,7 @@ Proof
     \\ fs [repl_prog_st_def]
     \\ every_case_tac \\ fs []
     \\ gvs []
-    \\ qmatch_goalsub_abbrev_tac ‘W8array (_::ys)’
+    \\ qmatch_goalsub_abbrev_tac ‘_ :: W8array (_::ys) :: _’
     \\ qexists_tac ‘0w::ys’ \\ fs [EVAL  “store2heap_aux 0 (W8array x :: xs)”]
     \\ unabbrev_all_tac \\ EVAL_TAC)
   \\ rpt (pop_assum $ irule_at Any)
