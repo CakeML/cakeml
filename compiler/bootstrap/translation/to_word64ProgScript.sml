@@ -361,9 +361,9 @@ val _ = translate (spec64 const_fp_loop_def)
 
 val _ = translate (spec64 is_simple_pmatch_def)
 val _ = translate (spec64 dest_Raise_num_pmatch_def)
-val _ = translate (spec64 try_if_hoist2_pmatch_def)
+val _ = translate (spec64 try_if_hoist2_def)
 val _ = translate (spec64 try_if_hoist1_def)
-val _ = translate (spec64 simp_duplicate_if_pmatch_def)
+val _ = translate (spec64 simp_duplicate_if_def)
 
 val _ = translate (spec64 compile_exp_def)
 
