@@ -488,9 +488,9 @@ End
 Theorem is_simple_def[compute] = is_simple_pmatch_def
   |> CONV_RULE (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
 
-Definition try_if_hoist2_pmatch_def[nocompute]:
+Definition try_if_hoist2_def:
   try_if_hoist2 N p1 interm dummy p2 = if N = 0n then NONE
-  else case p1 of
+  else dtcase p1 of
     | wordLang$If cmp lhs rhs br1 br2 =>
       let res1 = dest_Raise_num (SND (dest_Seq (const_fp (Seq (Seq br1 interm) dummy)))) in
       if res1 = 0n then NONE
@@ -517,9 +517,6 @@ Definition try_if_hoist2_pmatch_def[nocompute]:
     | _ => NONE
 End
 
-Theorem try_if_hoist2_def[compute] = try_if_hoist2_pmatch_def
-  |> CONV_RULE (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-
 Definition try_if_hoist1_def:
   try_if_hoist1 p1 p2 = (dtcase dest_If p2 of
   | NONE => NONE
@@ -530,8 +527,8 @@ Definition try_if_hoist1_def:
   )
 End
 
-Definition simp_duplicate_if_pmatch_def[nocompute]:
-  simp_duplicate_if p = case p of
+Definition simp_duplicate_if_def:
+  simp_duplicate_if p = dtcase p of
   | MustTerminate q => MustTerminate (simp_duplicate_if q)
   | Call ret_prog dest args handler =>
      Call (dtcase ret_prog of
@@ -552,9 +549,6 @@ Definition simp_duplicate_if_pmatch_def[nocompute]:
   )
   | _ => p
 End
-
-Theorem simp_duplicate_if_def[compute] = simp_duplicate_if_pmatch_def
-  |> CONV_RULE (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
 
 (* all of them together *)
 
