@@ -3,7 +3,7 @@
 *)
 open preamble crepLangTheory
      loopLangTheory sptreeTheory
-     loop_liveTheory
+     loop_liveTheory crep_arithTheory
 
 val _ = new_theory "crep_to_loop"
 
@@ -250,7 +250,7 @@ Definition compile_prog_def:
    MAP2 (λn (name, params, body).
          (n,
           (GENLIST I o LENGTH) params,
-          loop_live$optimise (comp params body)))
+          loop_live$optimise (comp params (crep_arith$simp_prog body))))
    fnums prog
 End
 
