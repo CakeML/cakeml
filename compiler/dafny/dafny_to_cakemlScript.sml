@@ -14,11 +14,36 @@ val _ = new_theory "dafny_to_cakeml";
 (* TODO Check if we can reduce the number of generated cases *)
 (* TODO Add missing wildcard for function that are defined using pattern matching
  (even if all cases seem to be covered) *)
+(* TODO Verify that EarlyReturn is just Return without a value *)
+(* TODO? Place all ast constructors behind definitions? *)
 
+(* TODO Look into when to use Overload vs Definition *)
 Overload True = “Con (SOME (Short "True")) []”
 Overload False = “Con (SOME (Short "False")) []”
 Overload None = “Con (SOME (Short "None")) []”
+Overload Some = “λx. Con (SOME (Short "Some")) [x]”
 Overload Unit = “Con NONE []”
+
+(* Definitions to deal with (Early)Return in Dafny *)
+
+(* TODO Since the generated program does not necessarily need to type-check,
+ * it may be possible to use something like exception Result of 'a instead of
+ * using a reference for the result *)
+Definition result_name_def:
+  result_name = "res_CML_ref"
+End
+
+Definition return_exn_name_def:
+  return_exn_name = "Return_CML_con"
+End
+
+Definition return_dexn_def:
+  return_dexn = Dexn unknown_loc return_exn_name []
+End
+
+Definition raise_return_def:
+  raise_return = Raise (Con (SOME (Short return_exn_name)) [])
+End
 
 Definition from_string_def:
   from_string s =
@@ -27,6 +52,10 @@ Definition from_string_def:
       return i
   | NONE =>
       fail ("Could not convert into int: " ++ s)
+End
+
+Definition cml_ref_ass_def:
+  cml_ref_ass lhs rhs = (App Opassign [lhs; rhs])
 End
 
 Definition cml_ref_def:
@@ -44,6 +73,16 @@ End
 
 Definition cml_fapp_def:
   cml_fapp fun_name args = cml_fapp_aux fun_name (REVERSE args)
+End
+
+Definition add_handle_def:
+  add_handle return_unit e =
+  let return_value =
+      if return_unit then Unit
+      else cml_fapp (Var (Long "Option" (Short "valOf")))
+                    [(App Opderef [Var (Short result_name)])]
+  in
+    Handle e [Pcon (SOME (Short return_exn_name)) [], return_value]
 End
 
 (* TODO? Move to dafny_ast *)
@@ -82,13 +121,41 @@ Definition from_literal_def:
 End
 
 Definition dafny_type_of_def:
-  dafny_type_of (e: dafny_ast$expression) (env: ((name, type) alist)) =
+  dafny_type_of (env: ((name, type) alist)) (e: dafny_ast$expression) =
   case e of
   | Expression_Ident n =>
       case ALOOKUP env n of
       | SOME t => return t
       | NONE => fail ("dafny_type_of: Unknown Name " ++ (dest_Name n))
   | _ => fail "dafny_type_of: Unsupported expression"
+End
+
+Definition from_name_def:
+  from_name n = Var (Short (dest_Name n))
+End
+
+Definition from_ident_def:
+  from_ident (Ident n) = from_name n
+End
+
+Definition from_assignLhs_def:
+  from_assignLhs (lhs: dafny_ast$assignLhs) =
+  case lhs of
+  | AssignLhs_Ident id => return (from_ident id)
+  | _ => fail "from_assignLhs: Unsupported"
+End
+
+Definition from_callName_def:
+  (from_callName (CallName nam onType sig) =
+   if onType ≠ NONE then
+     fail "from_callName: non-empty onType currently unsupported"
+   (* TODO Confirm that we can ignore the call signature *)
+   (* else if sig ≠ CallSignature [] then *)
+   (*   fail "from_callName: non_empty callSignature currently unsupported" *)
+   else
+     return (from_name nam)) ∧
+  (from_callName _ = fail ("from_callName: " ++
+                           "Passed callName currently unsupported"))
 End
 
 Definition from_expression_def:
@@ -107,16 +174,30 @@ Definition from_expression_def:
          return (If cml_cnd cml_thn cml_els)
        od
    | BinOp bop e1 e2 =>
-       from_binOp bop e1 e2 env
+       from_binOp env bop e1 e2
+   | Expression_Call on call_nam typeArgs args =>
+       do
+         if on ≠ (Companion [Ident (Name "_module");
+                             Ident (Name "__default")]) then
+           fail "from_expression: (Call) Unsupported on expression"
+         else if typeArgs ≠ [] then
+           fail "from_expression: (Call) type arguments currently unsupported"
+         else
+           do
+             fun_name <- from_callName call_nam;
+             cml_args <- result_mmap (from_expression env) args;
+             return (cml_fapp fun_name cml_args)
+           od
+       od
    | _ => fail "from_expression: Unsupported expression") ∧
-  (from_binOp (bop: dafny_ast$binOp) (e1: dafny_ast$expression)
-              (e2: dafny_ast$expression) (env: ((name, type) alist)) =
+  (from_binOp (env: ((name, type) alist)) (bop: dafny_ast$binOp)
+              (e1: dafny_ast$expression) (e2: dafny_ast$expression) =
    case bop of
    | Concat =>
        do
          (* TODO if this is repeated, pull out of case *)
-         e1_t <- dafny_type_of e1 env;
-         e2_t <- dafny_type_of e2 env;
+         e1_t <- dafny_type_of env e1;
+         e2_t <- dafny_type_of env e2;
          if (e1_t = (Primitive String) ∧ e1_t = e2_t)
          then
            do
@@ -154,70 +235,12 @@ Definition is_indep_stmt_def:
   case s of
   | DeclareVar _ _ _=> F
   | Assign _ _ => T
+  | If _ _ _ => T
   | Call _ _ _ _ _ => T
+  | Return _ => T
+  | EarlyReturn => T
   | Print _ => T
   | _ => F
-End
-
-Definition from_name_def:
-  from_name n = Var (Short (dest_Name n))
-End
-
-Definition from_ident_def:
-  from_ident (Ident n) = from_name n
-End
-
-Definition from_callName_def:
-  (from_callName (CallName nam onType sig) =
-   if onType ≠ NONE then
-     fail "from_callName: non-empty onType currently unsupported"
-   (* TODO Confirm that we can ignore the call signature *)
-   (* else if sig ≠ CallSignature [] then *)
-   (*   fail "from_callName: non_empty callSignature currently unsupported" *)
-   else
-     return (from_name nam)) ∧
-  (from_callName _ = fail ("from_callName: " ++
-                           "Passed callName currently unsupported"))
-End
-
-Definition from_assignLhs_def:
-  from_assignLhs (lhs: dafny_ast$assignLhs) =
-  case lhs of
-  | AssignLhs_Ident id => return (from_ident id)
-  | _ => fail "from_assignLhs: Unsupported"
-End
-
-Definition from_indep_stmt_def:
-  from_indep_stmt (s: dafny_ast$statement) (env: ((name, type) alist)) =
-  (case s of
-  | Assign lhs e =>
-      do
-        cml_lhs <- from_assignLhs lhs;
-        cml_rhs <- from_expression env e;
-        return (App Opassign [cml_lhs; cml_rhs])
-      od
-  | Call on call_nam typeArgs args outs =>
-      do
-        if on ≠ (Companion [Ident (Name "_module");
-                            Ident (Name "__default")]) then
-          fail "from_indep_stmt: (Call) Unsupported on expression"
-        else if typeArgs ≠ [] then
-          fail "from_indep_stmt: (Call) type arguments currently unsupported"
-        else if outs ≠ NONE then
-          fail "from_indep_stmt: (Call) Return values currently unsupported"
-        else
-          do
-            fun_name <- from_callName call_nam;
-            cml_args <- result_mmap (from_expression env) args;
-            return (cml_fapp fun_name cml_args)
-          od
-      od
-  | Print e =>
-      do
-        cml_e <- from_expression env e;
-        return (cml_fapp (Var (Short "print")) [cml_e])
-      od
-  | _ => fail "from_indep_stmt_def: Unsupported or not independent statement")
 End
 
 (* TODO move this to dafny_ast? *)
@@ -245,50 +268,85 @@ End
 (* TODO is_<constructor> calls could maybe be replaced using monad choice *)
 (* At the moment we assume that only statements can change env *)
 Definition from_stmts_def:
-  (from_stmts ([]: (dafny_ast$statement list))
-              (env: ((name, type) alist)) =
+  (from_stmts (env: ((name, type) alist)) ([]: (dafny_ast$statement list)) =
    fail "from_stmts: List of statements must not be empty") ∧
-  (from_stmts [s] env =
-   if s = EarlyReturn then
-     (* TODO Handle EarlyReturn properly *)
-     fail "from_stmts: Cannot convert single EarlyReturn"
-   else if is_indep_stmt s then
+  (from_stmts env [s] =
+   if is_indep_stmt s then
      do
-       cml_e <- from_indep_stmt s env;
-       return (cml_e, env)
+       cml_e <- from_indep_stmt env s;
+       return (env, cml_e)
      od
    else
      fail ("from_stmts: " ++
            "Cannot convert single non-self-contained statement")) ∧
-  (from_stmts (s1::s2::rest) env =
-   if s1 = EarlyReturn then
-     (* TODO Handle EarlyReturn properly *)
-     fail ("from_stmts: " ++
-           "TODO EarlyReturn can only appear at the end of a " ++
-           "non-singleton list.")
-   else if is_indep_stmt s1 then
-     if (s2 = EarlyReturn ∧ rest = []) then
-       do
-         cml_e <- from_indep_stmt s1 env;
-         return (cml_e, env)
-       od
-     else
-       do
-         e1 <- from_indep_stmt s1 env;
-         (e2, env') <- from_stmts (s2::rest) env;
-         return ((Let NONE e1 e2), env')
-       od
+  (from_stmts env (s1::s2::rest) =
+   if is_indep_stmt s1 then
+     do
+       e1 <- from_indep_stmt env s1;
+       (env', e2) <- from_stmts env (s2::rest);
+       return (env', (Let NONE e1 e2))
+     od
    else if is_DeclareVar s1 then
      do
        (n, t, e_opt) <- dest_DeclareVar s1;
        n_str <<- dest_Name n;
        iv_e <- if e_opt = NONE then arb_value t
                else do e <- dest_SOME e_opt; from_InitVal e od;
-       (in_e, env') <- from_stmts (s2::rest) ((n, t)::env);
-       return (cml_ref n_str iv_e in_e, env')
+       (env', in_e) <- from_stmts ((n, t)::env) (s2::rest);
+       return (env', cml_ref n_str iv_e in_e)
      od
    else
-     fail "from_stmts: Unsupported statement")
+     fail "from_stmts: Unsupported statement") ∧
+  (from_indep_stmt (env: ((name, type) alist)) (s: dafny_ast$statement) =
+   (case s of
+    | Assign lhs e =>
+        do
+          cml_lhs <- from_assignLhs lhs;
+          cml_rhs <- from_expression env e;
+          return (cml_ref_ass cml_lhs cml_rhs)
+        od
+    | If cnd thn els =>
+        do
+          cml_cnd <- from_expression env cnd;
+          (_, cml_thn) <- from_stmts env thn;
+          (_, cml_els) <- from_stmts env els;
+          return (If cml_cnd cml_thn cml_els)
+        od
+    | Call on call_nam typeArgs args outs =>
+        do
+          if on ≠ (Companion [Ident (Name "_module");
+                              Ident (Name "__default")]) then
+            fail "from_indep_stmt: (Call) Unsupported on expression"
+          else if typeArgs ≠ [] then
+            fail "from_indep_stmt: (Call) type arguments currently unsupported"
+          else if outs ≠ NONE then
+            fail "from_indep_stmt: (Call) Return values currently unsupported"
+          else
+            do
+              fun_name <- from_callName call_nam;
+              cml_args <- result_mmap (from_expression env) args;
+              return (cml_fapp fun_name cml_args)
+            od
+        od
+    | Return e =>
+        do
+          lhs <<- Var (Short result_name);
+          cml_rhs <- from_expression env e;
+          return (Let NONE (cml_ref_ass lhs (Some cml_rhs)) raise_return)
+        od
+    | EarlyReturn =>
+        return raise_return
+    | Print e =>
+        do
+          cml_e <- from_expression env e;
+          (* TODO Check if it makes sense to extract Var (...) into a function
+         * in particular look at from_name *)
+          return (cml_fapp (Var (Short "print")) [cml_e])
+      od
+    | _ => fail ("from_indep_stmt_def: Unsupported or " ++
+                 "not independent statement")))
+Termination
+  cheat
 End
 
 Definition varN_from_formal_def:
@@ -341,30 +399,27 @@ End
 Definition method_preamble_from_formal_def:
   method_preamble_from_formal [] =
   do
+    (* Encode function without parameters as foo () = x *)
     param <<- "";
-    (* Encodes a function without parameters as foo () = ... *)
     preamble <<- λx. (return (Mat (Var (Short "")) [(Pcon NONE [], x)]));
+    return (param, preamble)
+  od ∧
+  method_preamble_from_formal [fo] =
+  do
+    param <- internal_varN_from_formal fo;
+    preamble <<- λx. (declare_init_param_refs [fo] x);
     return (param, preamble)
   od ∧
   method_preamble_from_formal (fo::rest) =
   do
     param <- internal_varN_from_formal fo;
-    if rest = [] then
-      do
-        preamble <<- λx. (declare_init_param_refs [fo] x);
-        return (param, preamble)
-      od
-    else
-      do
-        preamble <<- (λx.
-                         do
-                           inner_exp <- declare_init_param_refs (fo::rest) x;
-                           (* Adds rest of parameters as
-                            * (Fun foo_CML_param <initialize refs>) *)
-                           param_defs_from_formals rest inner_exp
-                         od);
-        return (param, preamble)
-      od
+    preamble <<- (λx. do
+                        inner_exp <- declare_init_param_refs (fo::rest) x;
+                        (* Adds rest of parameters as
+                         * (Fun foo_CML_param <initialize refs>) *)
+                        param_defs_from_formals rest inner_exp
+                      od);
+    return (param, preamble)
   od
 End
 
@@ -380,6 +435,24 @@ Definition initial_type_env_def:
     od
 End
 
+Definition process_params_def:
+  process_params params =
+  do
+    (cml_param, preamble) <- method_preamble_from_formal params;
+    env <- initial_type_env params;
+    return (env, cml_param, preamble)
+  od
+End
+
+Definition add_result_ref:
+  add_result_ref exp_acc [] = return exp_acc ∧
+  add_result_ref exp_acc [t] =
+  return (λx. exp_acc (cml_ref result_name None x)) ∧
+  add_result_ref exp_acc outTypes =
+  fail ("add_result_ref: Methods with more than one return value " ++
+        " currently unsupported")
+End
+
 Definition from_method_def:
   from_method (Method isStatic hasBody overridingPath nam
                       typeParams params body outTypes outVars) =
@@ -391,18 +464,18 @@ Definition from_method_def:
     fail "from_method: Overriding methods currently unsupported"
   else if typeParams ≠ [] then
     fail "from_method: Type parameters for methods currently unsupported"
-  else if outTypes ≠ [] then
-    fail "from_method: Methods with return values currently unsupported"
-  else if outVars = NONE then
-    fail "from_method: NONE for outVars is unexpected"
-  else if outVars ≠ SOME [] then
-    fail "from_method: Methods with return values currently unsupported"
+  else if (outVars ≠ SOME [] ∧ outVars ≠ NONE) then
+    fail "from_method: Methods with out parameters currently unsupported"
   else
     do
       fun_name <<- dest_Name nam;
-      (cml_param, preamble) <- method_preamble_from_formal params;
-      env <- initial_type_env params;
-      (cml_body, _) <- from_stmts body env;
+      (env, cml_param, preamble) <- process_params params;
+      (* TODO improve how we handle different cases of outTypes *)
+      (* TODO optimize generation of res/raise/handle
+         in some cases it may be enough to return "normally" like in ML *)
+      preamble <- add_result_ref preamble outTypes;
+      (_, cml_body) <- from_stmts env body;
+      cml_body <<- add_handle (outTypes = []) cml_body;
       cml_body <- preamble cml_body;
       return (fun_name, cml_param, cml_body)
     od
@@ -425,8 +498,9 @@ Definition compile_def:
           * Having one big Dletrec probably does not result in a performance
           * penalty unless functions are used in a higher order way *)
          fun_defs <<- [(Dletrec unknown_loc fun_defs)];
-         return (fun_defs ++ [Dlet unknown_loc Pany
-                                   (cml_fapp (Var (Short "Main")) [Unit])])
+         return ([return_dexn] ++
+                 fun_defs ++
+                 [Dlet unknown_loc Pany (cml_fapp (Var (Short "Main")) [Unit])])
        od
    | _ => fail "Unexpected ModuleItem") ∧
   compile _ = fail "compile: Program does not contain exactly two modules"
@@ -452,7 +526,7 @@ open TextIO
 (* val _ = astPP.disable_astPP(); *)
 val _ = astPP.enable_astPP();
 
-val inStream = TextIO.openIn "./tests/print_bool.sexp";
+val inStream = TextIO.openIn "./tests/bool_to_string.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
@@ -465,7 +539,7 @@ val cakeml_r = EVAL “(compile ^dafny_r)” |> concl |> rhs |> rand;
 val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^cakeml_r)))”
                    |> concl |> rhs |> rand;
 val cml_sexp_str_r = stringSyntax.fromHOLstring cml_sexp_r;
-val outFile = TextIO.openOut "./tests/print_bool.cml.sexp";
+val outFile = TextIO.openOut "./tests/bool_to_string.cml.sexp";
 val _ = TextIO.output (outFile, cml_sexp_str_r);
 val _ = TextIO.closeOut outFile
 
