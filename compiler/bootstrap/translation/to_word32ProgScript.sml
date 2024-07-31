@@ -313,16 +313,13 @@ Theorem word_cse_ind[local]:
   word_cse_word_cse_ind
 Proof
   rewrite_tac [fetch "-" "word_cse_word_cse_ind_def"]
-  \\ rpt strip_tac
-  \\ rename [‘P x y’]
-  \\ qid_spec_tac ‘x’
-  \\ qid_spec_tac ‘y’
-  \\ ho_match_mp_tac word_simpTheory.simp_if_ind
+  \\ rpt gen_tac \\ rpt disch_tac
+  \\ ONCE_REWRITE_TAC [SWAP_FORALL_THM]
+  \\ ho_match_mp_tac wordLangTheory.max_var_ind
   \\ rpt strip_tac
   \\ last_x_assum irule
   \\ fs []
 QED
-
 val _ = word_cse_ind |> update_precondition;
 
 val res = translate (word_cseTheory.word_common_subexp_elim_def |> spec32);

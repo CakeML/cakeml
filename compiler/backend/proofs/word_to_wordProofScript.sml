@@ -910,24 +910,37 @@ Proof
   rveq>>irule apply_colour_not_created>>rw[]
 QED
 
+Triviality word_cseInst_not_created:
+  !env i. not_created_subprogs P (SND (word_cseInst env i))
+Proof
+  ho_match_mp_tac word_cseTheory.word_cseInst_ind
+  \\ rw [word_cseTheory.word_cseInst_def]
+  \\ fs [not_created_subprogs_def]
+  \\ fs [word_cseTheory.add_to_data_def, word_cseTheory.add_to_data_aux_def]
+  \\ every_case_tac
+  \\ fs [not_created_subprogs_def]
+QED
+
+Triviality word_cse_not_created:
+   !p env. not_created_subprogs P p ==>
+   not_created_subprogs P (SND (word_cse env p))
+Proof
+  Induct \\ rw [word_cseTheory.word_cse_def]
+  \\ fs [not_created_subprogs_def, word_cseInst_not_created]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [not_created_subprogs_def]
+  \\ gvs [PAIR_FST_SND_EQ]
+  \\ fs [word_cseTheory.add_to_data_aux_def]
+  \\ every_case_tac
+  \\ fs [not_created_subprogs_def, word_cseInst_not_created]
+QED
+
 Theorem word_common_subexp_elim_not_created:
   not_created_subprogs P prog ⇒
   not_created_subprogs P (word_common_subexp_elim prog)
 Proof
   fs [word_cseTheory.word_common_subexp_elim_def]
-  \\ pairarg_tac \\ fs []
-  \\ rename [‘_ e p = (a,np)’]
-  \\ pop_assum mp_tac
-  \\ MAP_EVERY qid_spec_tac [‘np’,‘e’,‘a’,‘p’]
-  \\ ho_match_mp_tac word_simpTheory.simp_if_ind
-  \\ rpt strip_tac \\ fs []
-  \\ fs [word_cseTheory.word_cse_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ gvs [not_created_subprogs_def,AllCaseEqs(),word_cseTheory.add_to_data_aux_def]
-  \\ res_tac \\ fs []
-  \\ gvs [word_cseTheory.word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
-  \\ gvs [not_created_subprogs_def,AllCaseEqs(),word_cseTheory.add_to_data_aux_def,
-          word_cseTheory.add_to_data_def]
+  \\ simp [ELIM_UNCURRY, word_cse_not_created]
 QED
 
 Theorem compile_single_not_created:
