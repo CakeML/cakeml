@@ -1564,13 +1564,15 @@ Theorem code_rel_no_share_inst:
   find_code op args c2 sz = SOME v' ⇒
   no_share_inst (FST (SND v'))
 Proof
-  gs[code_rel_def, no_share_inst_def]>>Cases_on ‘op’>>
-  gs[find_code_def]>>every_case_tac>>rw[]>>gs[]>-
-   (rename1 ‘lookup n c1 = SOME (q', r)’>>
-    last_x_assum (qspecl_then [‘n’, ‘(q' ,r)’] assume_tac)>>gs[]>>
-    drule_all compile_single_not_created>>gs[])>>
-  res_tac>>gs[]>>
-  irule compile_single_not_created>>metis_tac[]
+  simp [code_rel_def]
+  \\ Cases_on `op` \\ fs [find_code_def]
+  \\ every_case_tac \\ fs []
+  \\ rw [] \\ fs []
+  \\ first_x_assum drule
+  \\ rw []
+  \\ fs [no_share_inst_subprogs_def]
+  \\ drule_all compile_single_not_created
+  \\ simp []
 QED
 
 Theorem remove_must_terminate_no_share_inst:
