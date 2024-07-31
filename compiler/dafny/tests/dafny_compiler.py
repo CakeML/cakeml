@@ -72,7 +72,15 @@ def dafny_compiler(program_path, dafny_path, dafny_to_cakeml_path, cakeml_path,
     if emit_uncompilable_code:
         command.append("--emit-uncompilable-code")
     command.extend(["--output", dafny_sexp_path])
-    subprocess.run(command, check=True, capture_output=(not verbose))
+    # TODO Figure out why this command tends to fail
+    while True:
+        result = subprocess.run(command, check=False,
+                                capture_output=(not verbose))
+        if result.returncode == 0:
+            break
+        elif verbose:
+            print(f"Command failed with return code {result.returncode}. "
+                  "Retrying...")
 
     if verbose:
         print("Compile from Dafny S-expression to CakeML S-expression...")
