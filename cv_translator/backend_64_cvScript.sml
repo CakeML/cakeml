@@ -376,8 +376,6 @@ val _ = word_allocTheory.full_ssa_cc_trans_def |> arch_spec |> cv_trans;
 
 val _ = word_simpTheory.SmartSeq_def |> arch_spec |> cv_trans;
 val _ = word_simpTheory.Seq_assoc_def |> arch_spec |> cv_trans;
-val _ = word_simpTheory.apply_if_opt_def |> arch_spec |> cv_trans;
-val _ = word_simpTheory.simp_if_def |> arch_spec |> cv_trans;
 val _ = word_simpTheory.const_fp_inst_cs_def |> arch_spec |> cv_trans;
 val _ = word_simpTheory.strip_const_def |> arch_spec |> cv_trans;
 val _ = wordLangTheory.word_sh_def |> arch_spec

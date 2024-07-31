@@ -128,8 +128,6 @@ Proof
   \\ fs [UNION_ASSOC]
 QED
 
-(** verification of simp_if **)
-
 Theorem dest_If_Eq_Imm_thm:
    dest_If_Eq_Imm x2 = SOME (n,w,p1,p2) <=>
     x2 = If Equal n (Imm w) p1 p2
@@ -158,84 +156,6 @@ Proof
   fs [dest_Seq_Assign_Const_def] \\ pairarg_tac \\ fs []
   \\ Cases_on `p2` \\ fs [] \\ Cases_on `e` \\ fs []
   \\ rw [] \\ imp_res_tac dest_Seq_IMP \\ fs []
-QED
-
-Theorem evaluate_apply_if_opt:
-   apply_if_opt p1 p2 = SOME x ==>
-    evaluate (Seq p1 p2,s) = evaluate (x,^s)
-Proof
-  fs [apply_if_opt_def]
-  \\ pairarg_tac \\ fs []
-  \\ every_case_tac \\ fs []
-  \\ fs [dest_If_Eq_Imm_thm] \\ strip_tac \\ rveq
-  \\ fs [evaluate_SmartSeq]
-  \\ imp_res_tac dest_Seq_IMP \\ fs []
-  \\ fs [dest_If_thm]
-  \\ fs [evaluate_def]
-  \\ Cases_on `evaluate (x0,s)` \\ fs []
-  \\ rename1 `evaluate (x0,s) = (res1,s1)` \\ fs []
-  \\ Cases_on `res1` \\ fs []
-  \\ rpt (BasicProvers.TOP_CASE_TAC \\ fs [])
-  \\ fs [get_var_imm_def]
-  \\ imp_res_tac dest_Seq_Assign_Const_IMP \\ fs []
-  \\ rename1 `dest_Seq_Assign_Const v1 t1 = SOME (t1a,w1)`
-  \\ qpat_x_assum `dest_Seq_Assign_Const v1 t1 = SOME (t1a,w1)` mp_tac
-  \\ rename1 `dest_Seq_Assign_Const v2 t2 = SOME (t2a,w2)`
-  \\ qpat_x_assum `dest_Seq_Assign_Const v2 t2 = SOME (t2a,w2)` mp_tac
-  \\ rw [] \\ rpt (qpat_x_assum `!x._` kall_tac)
-  \\ fs [evaluate_def]
-  \\ pairarg_tac \\ fs [] \\ rveq \\ fs [] \\ IF_CASES_TAC \\ fs []
-  \\ pairarg_tac \\ fs [] \\ fs []
-  \\ Cases_on `res' = NONE` \\ fs [word_exp_def] \\ rveq
-  \\ fs [get_var_def,set_var_def,asmTheory.word_cmp_def]
-QED
-
-Theorem evaluate_simp_if:
-   !p s. evaluate (simp_if p,s) = evaluate (p,^s)
-Proof
-  HO_MATCH_MP_TAC simp_if_ind \\ fs [simp_if_def,evaluate_def] \\ rw []
-  THEN1
-   (CASE_TAC \\ fs [evaluate_def]
-    \\ imp_res_tac evaluate_apply_if_opt \\ fs []
-    \\ pop_assum (fn th => once_rewrite_tac [GSYM th])
-    \\ fs [evaluate_def])
-  \\ Cases_on `get_vars args s` \\ fs [] \\ IF_CASES_TAC \\ fs []
-  \\ Cases_on `ret_prog` \\ fs []
-  \\ Cases_on `handler` \\ fs [] \\ fs [add_ret_loc_def]
-  \\ PairCases_on `x'` \\ fs[add_ret_loc_def,push_env_def]
-  \\ TRY (PairCases_on `x''`) \\ fs[add_ret_loc_def,push_env_def]
-QED
-
-(*
-Theorem simp_if_works:
-   IS_SOME (apply_if_opt
-     (If Less 5 (Imm 5w) (Assign 3 (Const 5w)) (Assign 3 (Const (4w:word32))))
-     (If Equal 3 (Imm (4w:word32)) (Raise 1) (Raise 2)))
-Proof
-  EVAL_TAC
-QED *)
-
-Theorem extract_labels_apply_if_opt:
-   apply_if_opt p1 p2 = SOME p ==>
-    PERM (extract_labels p) (extract_labels p1 ++ extract_labels p2)
-Proof
-  fs [apply_if_opt_def]
-  \\ every_case_tac \\ fs [] \\ pairarg_tac \\ fs []
-  \\ every_case_tac \\ fs [] \\ rw []
-  \\ fs [dest_If_thm,dest_If_Eq_Imm_thm] \\ rveq
-  \\ fs [extract_labels_def,extract_labels_SmartSeq]
-  \\ Cases_on `p1` \\ fs [dest_Seq_def] \\ rveq \\ fs [extract_labels_def]
-  \\ metis_tac[PERM_APPEND,APPEND_ASSOC,PERM_APPEND_IFF]
-QED
-
-Theorem extract_labels_simp_if:
-   !p. PERM (extract_labels (simp_if p)) (extract_labels p)
-Proof
-  HO_MATCH_MP_TAC simp_if_ind \\ fs [simp_if_def] \\ rw []
-  \\ fs [extract_labels_def]
-  \\ every_case_tac \\ fs [extract_labels_def]
-  \\ imp_res_tac extract_labels_apply_if_opt
-  \\ metis_tac[PERM_APPEND,PERM_TRANS,PERM_APPEND_IFF]
 QED
 
 (** verification of const_fp **)
@@ -1487,7 +1407,7 @@ Theorem compile_exp_thm:
    gc_fun_const_ok s.gc_fun ==>
    evaluate (word_simp$compile_exp prog,s) = (res,s2)
 Proof
-    fs [word_simpTheory.compile_exp_def,evaluate_simp_if,evaluate_Seq_assoc,
+    fs [word_simpTheory.compile_exp_def,evaluate_Seq_assoc,
         evaluate_const_fp, evaluate_simp_duplicate_if]
 QED
 
@@ -1509,22 +1429,6 @@ val dest_Seq_no_inst = Q.prove(`
   every_inst (inst_ok_less ac) (FST (dest_Seq prog)) ∧
   every_inst (inst_ok_less ac) (SND (dest_Seq prog))`,
   ho_match_mp_tac dest_Seq_ind>>rw[dest_Seq_def]>>fs[every_inst_def])
-
-val simp_if_no_inst = Q.prove(`
-  ∀prog.
-  every_inst (inst_ok_less ac) prog ⇒
-  every_inst (inst_ok_less ac) (simp_if prog)`,
-  ho_match_mp_tac simp_if_ind>>rw[simp_if_def]>>
-  EVERY_CASE_TAC>>
-  fs[every_inst_def,apply_if_opt_def]>>
-  pop_assum mp_tac>>EVERY_CASE_TAC>>
-  pairarg_tac>>fs[]>>
-  FULL_CASE_TAC>>
-  PairCases_on`x'`>>
-  fs[dest_If_thm]>>
-  EVERY_CASE_TAC>>fs[SmartSeq_def]>>
-  EVERY_CASE_TAC>>rw[]>>rveq>>fs[every_inst_def,dest_If_Eq_Imm_thm]>>
-  imp_res_tac dest_Seq_no_inst>> rfs[every_inst_def])
 
 val Seq_assoc_no_inst = Q.prove(`
   ∀p1 p2.
@@ -1575,7 +1479,7 @@ Theorem compile_exp_no_inst:
     every_inst (inst_ok_less ac) (compile_exp prog)
 Proof
   fs[compile_exp_def]>>
-  metis_tac[simp_if_no_inst,Seq_assoc_no_inst,every_inst_def,
+  metis_tac[Seq_assoc_no_inst,every_inst_def,
             every_inst_inst_ok_less_const_fp,simp_duplicate_if_no_inst]
 QED
 

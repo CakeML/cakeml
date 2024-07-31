@@ -2085,35 +2085,6 @@ val word_good_handlers_const_fp_loop = Q.prove(`
   \\ every_case_tac\\ fs[]
   \\ rpt (pairarg_tac \\ fs[]));
 
-Theorem word_get_code_labels_apply_if_opt:
-   ∀x y z. apply_if_opt x y = SOME z ⇒ word_get_code_labels z = word_get_code_labels x ∪ word_get_code_labels y
-Proof
-  rw[apply_if_opt_def]
-  \\ fs[CaseEq"option",CaseEq"prod"]
-  \\ pairarg_tac \\ fs[]
-  \\ fs[CaseEq"option",CaseEq"prod"]
-  \\ rveq
-  \\ fs[CaseEq"bool"] \\ rveq
-  \\ rw[SmartSeq_def]
-  \\ rename1`dest_If iff`
-  \\ Cases_on`iff` \\ fs[dest_If_def]
-  \\ rveq \\ fs[]
-  \\ fs[dest_If_Eq_Imm_def,CaseEq"option",CaseEq"prod",CaseEq"cmp",CaseEq"reg_imm"]
-  \\ Cases_on`y` \\ fs[dest_If_def] \\ rveq
-  \\ Cases_on`x` \\ fs[dest_Seq_def] \\ rveq \\ fs[]
-  \\ rw[EXTENSION, EQ_IMP_THM] \\ rw[]
-QED
-
-Theorem word_get_code_labels_simp_if[simp]:
-    ∀p.  word_get_code_labels (simp_if p) = word_get_code_labels p
-Proof
-  recInduct simp_if_ind
-  \\ rw[simp_if_def]
-  \\ CASE_TAC \\ simp[]
-  >- ( old_drule word_get_code_labels_apply_if_opt \\ rw[] )
-  \\ every_case_tac \\ fs[]
-QED
-
 val word_get_code_labels_Seq_assoc = Q.prove(`
   ∀p1 p2.
   word_get_code_labels (Seq_assoc p1 p2) = word_get_code_labels p1 ∪ word_get_code_labels p2`,
