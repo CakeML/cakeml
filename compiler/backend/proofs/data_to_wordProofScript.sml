@@ -2639,10 +2639,9 @@ QED
 Theorem stubs_no_share_inst:
   EVERY (\x. no_share_inst (SND $ SND x)) (data_to_word$stubs (:'a) data_conf)
 Proof
-  rw[data_to_wordTheory.stubs_def,list_Seq_no_share_inst,no_share_inst_def] >>
   EVAL_TAC >>
-  TOP_CASE_TAC >>
-  rw[data_to_wordTheory.stubs_def,list_Seq_no_share_inst,no_share_inst_def]
+  rw [] >>
+  EVAL_TAC
 QED
 
 Theorem comp_no_share_inst:
@@ -2697,14 +2696,12 @@ Proof
   >> gvs[comp_def,no_share_inst_def] (* Raise | Return | Tick *)
 QED
 
-Triviality EVERY_FST_ZIP[local]:
-  !xs. EVERY P (FST xs) ==>
-  EVERY (\x. P (FST x)) (ZIP xs)
+Triviality MAP_FST_ZIP:
+  !xs ys. MAP FST (ZIP (xs, ys)) = TAKE (LENGTH ys) xs
 Proof
-  ho_match_mp_tac ZIP_ind >>
-  gvs[ZIP] >>
-  rpt strip_tac >>
-  simp[ZIP_def]
+  Induct \\ simp [ZIP_def]
+  \\ gen_tac
+  \\ Cases \\ simp [ZIP_def]
 QED
 
 Theorem compile_no_share_inst:
@@ -2718,16 +2715,20 @@ Proof
   irule MONO_EVERY >>
   simp[] >>
   qexists `no_share_inst o SND o SND o FST` >>
-  simp[compile_single_no_share_inst',o_DEF] >>
-  ho_match_mp_tac EVERY_FST_ZIP >>
+  conj_tac
+  >- (
+    simp [FORALL_PROD, no_share_inst_subprogs_def]
+    \\ simp [compile_single_not_created |> GEN_ALL |> SIMP_RULE std_ss [PAIR_FST_SND_EQ]]
+  )
+  >>
+  REWRITE_TAC [combinTheory.o_ASSOC] >>
+  REWRITE_TAC [GSYM rich_listTheory.ALL_EL_MAP] >>
+  simp [MAP_FST_ZIP] >>
+  simp [EVERY_MAP] >>
+  irule EVERY_TAKE >>
   simp[stubs_no_share_inst,EVERY_MAP] >>
-  Induct_on `prog` >>
-  rw[] >>
-  rename1 `compile_part _ p` >>
-  PairCases_on `p` >>
-  simp[compile_part_def] >>
-  irule comp_no_share_inst >>
-  metis_tac[FST_EQ_EQUIV]
+  rw [EVERY_MEM, FORALL_PROD, compile_part_def] >>
+  simp [comp_no_share_inst |> SIMP_RULE std_ss [PAIR_FST_SND_EQ]]
 QED
 
 end
