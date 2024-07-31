@@ -944,11 +944,11 @@ Proof
 QED
 
 Theorem compile_single_not_created:
-  not_created_subprogs P prog ∧
-  (q, r) = (SND (compile_single two_reg_arith reg_count alg c
-                 ((name_num,arg_count,prog),col_opt))) ⇒
-  not_created_subprogs P r
+  not_created_subprogs P (SND (SND (FST prog_opt))) ==>
+  not_created_subprogs P (SND (SND
+    (compile_single two_reg_arith reg_count alg c prog_opt)))
 Proof
+  PairCases_on `prog_opt`>>
   rw[word_to_wordTheory.compile_single_def]>>
   irule word_alloc_not_created>>
   TRY (irule three_to_two_reg_not_created)>>
@@ -967,12 +967,11 @@ Theorem code_rel_not_created:
   not_created_subprogs P (FST (SND v'))
 Proof
   gs[code_rel_def]>>Cases_on ‘op’>>
-  gs[find_code_def]>>every_case_tac>>rw[]>>gs[]>-
-   (rename1 ‘lookup n c1 = SOME (q', r)’>>
-    last_x_assum (qspecl_then [‘n’, ‘(q' ,r)’] assume_tac)>>gs[]>>
-    drule_all compile_single_not_created>>gs[])>>
+  gs[find_code_def]>>every_case_tac>>rw[]>>gs[]>>
   res_tac>>gs[]>>
-  irule compile_single_not_created>>metis_tac[]
+  gvs[PAIR_FST_SND_EQ]>>
+  irule compile_single_not_created>>
+  simp []
 QED
 
 Triviality code_rel_P = Q.GEN `P` code_rel_not_created
@@ -1467,15 +1466,13 @@ Theorem no_mt_full_compile_single:
   compile_single tt kk aa c x
 Proof
   fs[word_to_wordTheory.full_compile_single_def]>>
-  qpat_abbrev_tac ‘prog = compile_single _ _ _ _ _’>>
-  pairarg_tac>>gs[]>>
-  strip_tac>>
+  rpt(pairarg_tac >> fs [])>>
+  rw []>>
   irule no_mt_remove_must_terminate_const>>
-  PairCases_on ‘x’>>gs[]>>
-  ‘(arg_count, reg_prog) =
-   SND (compile_single tt kk aa c ((x0,x1,x2),x3))’ by gs[]>>
+  gvs [PAIR_FST_SND_EQ]>>
   fs[no_mt_subprogs_def]>>
-  drule_all compile_single_not_created>>gs[]
+  irule compile_single_not_created >>
+  simp []
 QED
 
 Theorem no_mt_code_full_compile_single:
@@ -1564,15 +1561,8 @@ Theorem code_rel_no_share_inst:
   find_code op args c2 sz = SOME v' ⇒
   no_share_inst (FST (SND v'))
 Proof
-  simp [code_rel_def]
-  \\ Cases_on `op` \\ fs [find_code_def]
-  \\ every_case_tac \\ fs []
-  \\ rw [] \\ fs []
-  \\ first_x_assum drule
-  \\ rw []
-  \\ fs [no_share_inst_subprogs_def]
-  \\ drule_all compile_single_not_created
-  \\ simp []
+  simp [no_share_inst_subprogs_def]
+  \\ metis_tac [code_rel_not_created]
 QED
 
 Theorem remove_must_terminate_no_share_inst:
@@ -1587,6 +1577,22 @@ Proof
   gvs[word_removeTheory.remove_must_terminate_def,
     no_share_inst_def,AllCaseEqs()]
 QED
+
+Theorem full_compile_single_no_share_inst:
+  no_share_inst (SND (SND (FST prog_info))) ==>
+  no_share_inst
+    (SND (SND (full_compile_single two_reg_arith reg_count alg c prog_info)))
+Proof
+  PairCases_on `prog_info`
+  \\ rw []
+  \\ fs [full_compile_single_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [PAIR_FST_SND_EQ]
+  \\ simp[remove_must_terminate_no_share_inst]
+  \\ fs [no_share_inst_subprogs_def]
+  \\ simp [compile_single_not_created]
+QED
+
 
 (***** word_to_word semantics correctness for Pancake *****)
 
@@ -1622,7 +1628,8 @@ Proof
         PairCases_on ‘x’>>gs[]>>
         first_x_assum (qspecl_then [‘k’, ‘(x0, x1)’] assume_tac)>>gs[]>>
         fs[no_mt_subprogs_def, no_install_subprogs_def, no_alloc_subprogs_def]>>
-        res_tac >> imp_res_tac compile_single_not_created >> gs [])>>
+        gvs[PAIR_FST_SND_EQ]>>
+        irule compile_single_not_created >> res_tac >> gs [])>>
   drule no_install_no_alloc_compile_single_correct>>
   fs[]>>
   disch_then(qspec_then`prog`mp_tac)>>
