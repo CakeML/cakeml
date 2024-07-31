@@ -102,6 +102,19 @@ Definition exists_def:
   exists f (Map cmp t) = balanced_map$exists f t
 End
 
+Definition member_def:
+  member k (Map cmp t) = balanced_map$member cmp k t
+End
+
+Definition singleton_def:
+  singleton cmp k v = Map cmp (balanced_map$singleton k v)
+End
+
+Definition compare_def:
+  compare vcmp (Map cmp m1) (Map _ m2) =
+    balanced_map$compare cmp vcmp m1 m2
+End
+
 (* definitions for proofs *)
 
 Definition map_ok_def:
