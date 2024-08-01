@@ -23,6 +23,7 @@ val r = translate dafny_to_cakemlTheory.cml_emod_name_def;
 val r = translate dafny_to_cakemlTheory.cml_emod_def_def;
 val r = translate dafny_to_cakemlTheory.cml_ediv_name_def;
 val r = translate dafny_to_cakemlTheory.cml_ediv_def_def;
+val r = translate dafny_to_cakemlTheory.cml_while_name_def;
 val r = translate dafny_to_cakemlTheory.from_string_def;
 val r = translate dafny_to_cakemlTheory.cml_ref_ass_def;
 val r = translate dafny_to_cakemlTheory.cml_ref_def;

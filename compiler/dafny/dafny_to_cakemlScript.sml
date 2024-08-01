@@ -8,6 +8,7 @@ open astTheory semanticPrimitivesTheory (* CakeML AST *)
 open dafny_astTheory
 
 open alistTheory
+open mlintTheory
 
 val _ = new_theory "dafny_to_cakeml";
 
@@ -108,6 +109,10 @@ Definition cml_ediv_def_def:
                             [App (Opn Divide)
                                  [Var (Short "i"); (cml_fapp (Var (Short "~"))
                                                              [Var (Short "j")])]]))))]
+End
+
+Definition cml_while_name_def:
+  cml_while_name (lvl: int) = "CML_while_" ++ (explode (toString lvl))
 End
 
 Definition from_string_def:
@@ -222,6 +227,18 @@ Definition dafny_type_of_def:
         else
           return thn_t
       od
+  | UnOp Not e =>
+      do
+        e_t <- dafny_type_of env e;
+        if e_t = (Primitive Bool) then
+          return (Primitive Bool)
+        else
+          fail "dafny_type_of (UnOp Not): Unsupported type for e"
+      od
+  | UnOp BitwiseNot _ =>
+      fail "dafny_type_of (UnOp BitwiseNot): Unsupported"
+  | UnOp Cardinality _ =>
+      fail "dafny_type_of (UnOp Cardinality): Unsupported"
   | BinOp bop e1 e2 =>
       (* TODO? Figure out why using | BinOp Lt _ _ and
        * | BinOp (Eq _ _) _ _ results in the | BinOp bop e1 e2 case to be
@@ -235,6 +252,8 @@ Definition dafny_type_of_def:
             return (Primitive Int)
           else if (bop = EuclidianMod ∧ e1_t = (Primitive Int) ∧
                    e1_t = e2_t) then
+            return (Primitive Int)
+          else if (bop = Plus ∧ e1_t = (Primitive Int) ∧ e1_t = e2_t) then
             return (Primitive Int)
           else if (bop = Minus ∧ e1_t = (Primitive Int) ∧ e1_t = e2_t) then
             return (Primitive Int)
@@ -302,6 +321,8 @@ Definition from_expression_def:
          cml_els <- from_expression env els;
          return (If cml_cnd cml_thn cml_els)
        od
+   | UnOp uop e =>
+       from_unaryOp env uop e
    | BinOp bop e1 e2 =>
        from_binOp env bop e1 e2
    | Expression_Call on call_nam typeArgs args =>
@@ -319,6 +340,21 @@ Definition from_expression_def:
            od
        od
    | _ => fail "from_expression: Unsupported expression") ∧
+  (from_unaryOp (env: ((name, type) alist)) (uop: dafny_ast$unaryOp)
+                (e: dafny_ast$expression) =
+   do
+     e_t <- dafny_type_of env e;
+     cml_e <- from_expression env e;
+     if uop = Not then
+       return (cml_fapp (Var (Short "not")) [cml_e])
+     else if uop = BitwiseNot then
+       fail "from_unaryOp: BitwiseNot unsupported"
+     else if uop = Cardinality then
+       fail "from_unaryOp: Cardinality unsupported"
+     else
+       fail "from_unaryOp: Unexpected unary operation"
+   od
+  ) ∧
   (from_binOp (env: ((name, type) alist)) (bop: dafny_ast$binOp)
               (e1: dafny_ast$expression) (e2: dafny_ast$expression) =
    do
@@ -353,6 +389,11 @@ Definition from_expression_def:
             return (App (Opb Lt) [cml_e1; cml_e2])
           else
             fail "from_binOp (Lt): Unsupported types"
+      | Plus =>
+          if (e1_t = (Primitive Int) ∧ e1_t = e2_t) then
+            return (App (Opn Plus) [cml_e1; cml_e2])
+          else
+            fail "from_binOp (Plus): Unsupported types"
       | Minus =>
           if (e1_t = (Primitive Int) ∧ e1_t = e2_t) then
             return (App (Opn Minus) [cml_e1; cml_e2])
@@ -372,6 +413,7 @@ End
 Definition arb_value_def:
   arb_value (t: dafny_ast$type) =
   (case t of
+   | Primitive Int => return (Lit (IntLit 0))
    | Primitive String => return (Lit (StrLit ""))
    | Primitive Bool => return False
    | _ => fail "arb_value_def: Unsupported type")
@@ -391,6 +433,7 @@ Definition is_indep_stmt_def:
   | DeclareVar _ _ _=> F
   | Assign _ _ => T
   | If _ _ _ => T
+  | While _ _ => T
   | Call _ _ _ _ _ => T
   | Return _ => T
   | EarlyReturn => T
@@ -422,23 +465,25 @@ End
 
 (* TODO is_<constructor> calls could maybe be replaced using monad choice *)
 (* At the moment we assume that only statements can change env *)
+(* lvl = level of the next while loop *)
 Definition from_stmts_def:
-  (from_stmts (env: ((name, type) alist)) ([]: (dafny_ast$statement list)) =
+  (from_stmts (env: ((name, type) alist)) (lvl: int)
+              ([]: (dafny_ast$statement list)) =
    fail "from_stmts: List of statements must not be empty") ∧
-  (from_stmts env [s] =
+  (from_stmts env lvl [s] =
    if is_indep_stmt s then
      do
-       cml_e <- from_indep_stmt env s;
+       cml_e <- from_indep_stmt env lvl s;
        return (env, cml_e)
      od
    else
      fail ("from_stmts: " ++
            "Cannot convert single non-self-contained statement")) ∧
-  (from_stmts env (s1::s2::rest) =
+  (from_stmts env lvl (s1::s2::rest) =
    if is_indep_stmt s1 then
      do
-       e1 <- from_indep_stmt env s1;
-       (env', e2) <- from_stmts env (s2::rest);
+       e1 <- from_indep_stmt env lvl s1;
+       (env', e2) <- from_stmts env lvl (s2::rest);
        return (env', (Let NONE e1 e2))
      od
    else if is_DeclareVar s1 then
@@ -447,12 +492,13 @@ Definition from_stmts_def:
        n_str <<- dest_Name n;
        iv_e <- if e_opt = NONE then arb_value t
                else do e <- dest_SOME e_opt; from_InitVal e od;
-       (env', in_e) <- from_stmts ((n, t)::env) (s2::rest);
+       (env', in_e) <- from_stmts ((n, t)::env) lvl (s2::rest);
        return (env', cml_ref n_str iv_e in_e)
      od
    else
      fail "from_stmts: Unsupported statement") ∧
-  (from_indep_stmt (env: ((name, type) alist)) (s: dafny_ast$statement) =
+  (from_indep_stmt (env: ((name, type) alist)) (lvl: int)
+                   (s: dafny_ast$statement) =
    (case s of
     | Assign lhs e =>
         do
@@ -463,9 +509,19 @@ Definition from_stmts_def:
     | If cnd thn els =>
         do
           cml_cnd <- from_expression env cnd;
-          (_, cml_thn) <- from_stmts env thn;
-          (_, cml_els) <- from_stmts env els;
+          (_, cml_thn) <- from_stmts env lvl thn;
+          (_, cml_els) <- from_stmts env lvl els;
           return (If cml_cnd cml_thn cml_els)
+        od
+    | While cnd body =>
+        do
+          cml_cnd <- from_expression env cnd;
+          (_, cml_body) <- from_stmts env (lvl + 1) body;
+          exec_iter <<- (cml_fapp (Var (Short (cml_while_name lvl))) [Unit]);
+          cml_while_def <<- Letrec [
+              ((cml_while_name lvl), "",
+               If (cml_cnd) (Let NONE cml_body exec_iter) (Unit))] exec_iter;
+          return cml_while_def
         od
     | Call on call_nam typeArgs args outs =>
         do
@@ -495,7 +551,7 @@ Definition from_stmts_def:
         do
           cml_e <- from_expression env e;
           (* TODO Check if it makes sense to extract Var (...) into a function
-         * in particular look at from_name *)
+           * in particular look at from_name *)
           return (cml_fapp (Var (Short "print")) [cml_e])
       od
     | _ => fail ("from_indep_stmt_def: Unsupported or " ++
@@ -631,7 +687,7 @@ Definition from_method_def:
       (* TODO optimize generation of res/raise/handle
          in some cases it may be enough to return "normally" like in ML *)
       preamble <- add_result_ref preamble outTypes;
-      (_, cml_body) <- from_stmts env body;
+      (_, cml_body) <- from_stmts env 0 body;
       cml_body <<- add_handle (outTypes = []) cml_body;
       cml_body <- preamble cml_body;
       return (fun_name, cml_param, cml_body)
@@ -687,7 +743,7 @@ open TextIO
 (* val _ = astPP.disable_astPP(); *)
 (* val _ = astPP.enable_astPP(); *)
 
-val inStream = TextIO.openIn "./tests/int_to_string.sexp";
+val inStream = TextIO.openIn "./tests/while.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
@@ -700,7 +756,7 @@ val cakeml_r = EVAL “(compile ^dafny_r)” |> concl |> rhs |> rand;
 val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^cakeml_r)))”
                    |> concl |> rhs |> rand;
 val cml_sexp_str_r = stringSyntax.fromHOLstring cml_sexp_r;
-val outFile = TextIO.openOut "./tests/int_to_string.cml.sexp";
+val outFile = TextIO.openOut "./tests/while.cml.sexp";
 val _ = TextIO.output (outFile, cml_sexp_str_r);
 val _ = TextIO.closeOut outFile
 
