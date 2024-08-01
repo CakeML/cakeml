@@ -288,6 +288,7 @@ Double.=: Double.double -> Double.double -> bool
 Double.abs: Double.double -> Double.double
 Double.sqrt: Double.double -> Double.double
 Double.~: Double.double -> Double.double
+Double.pp_double: Double.double -> PrettyPrinter.pp_data
 Marshalling.n2w2: int -> byte_array -> int -> unit
 Marshalling.w22n: byte_array -> int -> int
 TextIO.stdIn: TextIO.instream
