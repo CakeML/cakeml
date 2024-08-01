@@ -59,6 +59,33 @@ Definition raise_return_def:
   raise_return = Raise (Con (SOME (Short return_exn_name)) [])
 End
 
+Definition add_return_handle_def:
+  add_return_handle return_unit e =
+  let return_value =
+      if return_unit then Unit
+      else cml_fapp (Var (Long "Option" (Short "valOf")))
+                    [(App Opderef [Var (Short result_name)])]
+  in
+    Handle e [Pcon (SOME (Short return_exn_name)) [], return_value]
+End
+
+(* Definitions to deal with break statements *)
+Definition break_exn_name_def:
+  break_exn_name = "Break_CML_con"
+End
+
+Definition break_dexn_def:
+  break_dexn = Dexn unknown_loc break_exn_name []
+End
+
+Definition raise_break_def:
+  raise_break = Raise (Con (SOME (Short break_exn_name)) [])
+End
+
+Definition add_break_handle_def:
+  add_break_handle e = Handle e [Pcon (SOME (Short break_exn_name)) [], Unit]
+End
+
 (* Definitions for Euclidean modulo and division
  * Based on HOL's definitions at https://hol-theorem-prover.org/trindemossen-1-helpdocs/help/src-sml/htmlsigs/integerTheory.html#EDIV_DEF-val *)
 (* TODO Verify that this is correct according to the semantics of CakeML and
@@ -130,16 +157,6 @@ End
 
 Definition cml_ref_def:
   cml_ref n val_e in_e = (Let (SOME n) ((App Opref [val_e])) in_e)
-End
-
-Definition add_handle_def:
-  add_handle return_unit e =
-  let return_value =
-      if return_unit then Unit
-      else cml_fapp (Var (Long "Option" (Short "valOf")))
-                    [(App Opderef [Var (Short result_name)])]
-  in
-    Handle e [Pcon (SOME (Short return_exn_name)) [], return_value]
 End
 
 (* TODO? Move to dafny_ast *)
@@ -437,6 +454,7 @@ Definition is_indep_stmt_def:
   | Call _ _ _ _ _ => T
   | Return _ => T
   | EarlyReturn => T
+  | Break NONE => T
   | Print _ => T
   | _ => F
 End
@@ -518,9 +536,10 @@ Definition from_stmts_def:
           cml_cnd <- from_expression env cnd;
           (_, cml_body) <- from_stmts env (lvl + 1) body;
           exec_iter <<- (cml_fapp (Var (Short (cml_while_name lvl))) [Unit]);
-          cml_while_def <<- Letrec [
-              ((cml_while_name lvl), "",
-               If (cml_cnd) (Let NONE cml_body exec_iter) (Unit))] exec_iter;
+          cml_while_def <<- (Letrec [((cml_while_name lvl), "",
+                                     If (cml_cnd)
+                                        (Let NONE cml_body exec_iter) (Unit))]
+                                    (add_break_handle exec_iter));
           return cml_while_def
         od
     | Call on call_nam typeArgs args outs =>
@@ -547,6 +566,11 @@ Definition from_stmts_def:
         od
     | EarlyReturn =>
         return raise_return
+    (* TODO Check if we can better test this case
+     * It seems that only non-deterministic while loops make use of this, while
+       other break statements are transformed into labeled ones. *)
+    | Break NONE =>
+        return raise_break
     | Print e =>
         do
           cml_e <- from_expression env e;
@@ -688,7 +712,7 @@ Definition from_method_def:
          in some cases it may be enough to return "normally" like in ML *)
       preamble <- add_result_ref preamble outTypes;
       (_, cml_body) <- from_stmts env 0 body;
-      cml_body <<- add_handle (outTypes = []) cml_body;
+      cml_body <<- add_return_handle (outTypes = []) cml_body;
       cml_body <- preamble cml_body;
       return (fun_name, cml_param, cml_body)
     od
@@ -715,7 +739,8 @@ Definition compile_def:
           * Having one big Dletrec probably does not result in a performance
           * penalty unless functions are used in a higher order way *)
          fun_defs <<- [(Dletrec unknown_loc fun_defs)];
-         return ([return_dexn; cml_abs_def; cml_emod_def; cml_ediv_def] ++
+         return ([return_dexn; break_dexn;
+                  cml_abs_def; cml_emod_def; cml_ediv_def] ++
                  fun_defs ++
                  [Dlet unknown_loc Pany (cml_fapp (Var (Short "Main")) [Unit])])
        od
@@ -743,7 +768,7 @@ open TextIO
 (* val _ = astPP.disable_astPP(); *)
 (* val _ = astPP.enable_astPP(); *)
 
-val inStream = TextIO.openIn "./tests/while.sexp";
+val inStream = TextIO.openIn "./tests/while_non_det.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
@@ -756,7 +781,7 @@ val cakeml_r = EVAL “(compile ^dafny_r)” |> concl |> rhs |> rand;
 val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^cakeml_r)))”
                    |> concl |> rhs |> rand;
 val cml_sexp_str_r = stringSyntax.fromHOLstring cml_sexp_r;
-val outFile = TextIO.openOut "./tests/while.cml.sexp";
+val outFile = TextIO.openOut "./tests/while_non_det.cml.sexp";
 val _ = TextIO.output (outFile, cml_sexp_str_r);
 val _ = TextIO.closeOut outFile
 
