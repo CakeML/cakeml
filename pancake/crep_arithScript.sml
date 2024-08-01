@@ -17,7 +17,7 @@ End
 Definition dest_2exp_def:
   dest_2exp n w = if w = 0w then NONE
     else if w = 1w then SOME n
-    else if word_bit 0 w then NONE
+    else if (w && 1w) <> 0w then NONE
     else dest_2exp (n + 1n) (word_lsr w 1n)
 End
 
@@ -38,7 +38,7 @@ Proof
     \\ simp [align_shift]
   )
   >- (
-    fs [aligned_1_lsb, word_lsb_def, word_bit_def]
+    simp [aligned_bitwise_and]
   )
 QED
 
