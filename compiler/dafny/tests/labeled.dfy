@@ -27,14 +27,23 @@ function int_to_string(x: int) : string {
 }
 
 method Main() {
-	var x := 0;
-  while x < 5 {
-		print ("x: " + int_to_string(x) + " ");
-    var y := 0;
-    while y != 5 {
-			print ("y: " + int_to_string(y) + " ");
-			y := y + 1;
-    }
-		x := x + 1;
-  }
+	foo(false);
+	foo(true);
+}
+
+method foo(brk: bool) {
+	label A: {
+		print "A ";
+		label B : {
+			print "B ";
+			label C : {
+				print "C ";
+				if brk {break A;}
+			}
+			print "left C ";
+		}
+		print "left B ";
+	}
+	print "left A " ;
+
 }

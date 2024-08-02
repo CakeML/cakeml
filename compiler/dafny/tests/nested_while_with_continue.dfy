@@ -27,14 +27,20 @@ function int_to_string(x: int) : string {
 }
 
 method Main() {
-	var x := 0;
+  var x := 0;
   while x < 5 {
+    x := x + 1;
+    if x % 2 == 0 {
+      continue;
+    }
 		print ("x: " + int_to_string(x) + " ");
     var y := 0;
-    while y != 5 {
+    while y < 5 {
+      y := y + 1;
+      if y % 2 == 0 {
+        continue;
+      }
 			print ("y: " + int_to_string(y) + " ");
-			y := y + 1;
     }
-		x := x + 1;
   }
 }
