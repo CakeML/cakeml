@@ -69,7 +69,7 @@ Definition add_return_handle_def:
     Handle e [Pcon (SOME (Short return_exn_name)) [], return_value]
 End
 
-(* Definitions to deal with break statements *)
+(* Definitions to deal with unlabeled break statements *)
 Definition break_exn_name_def:
   break_exn_name = "Break_CML_con"
 End
@@ -84,6 +84,34 @@ End
 
 Definition add_break_handle_def:
   add_break_handle e = Handle e [Pcon (SOME (Short break_exn_name)) [], Unit]
+End
+
+(* Definitions to deal with labeled break statements *)
+
+(* TODO Double check these definitions and use them to implement
+ * labeled breaks *)
+
+Definition labeled_break_exn_name_def:
+  labeled_break_exn_name = "LabeledBreak_CML_con"
+End
+
+Definition labeled_break_dexn_def:
+  labeled_break_dexn = Dexn unknown_loc labeled_break_exn_name
+                            [Atapp [] (Short "string")]
+End
+
+Definition raise_labeled_break_def:
+  raise_labeled_break lbl = Raise (Con (SOME (Short labeled_break_exn_name))
+                                       [Lit (StrLit lbl)])
+End
+
+Definition add_labeled_break_handle_def:
+  add_labeled_break_handle cur_lbl e =
+  Handle e [Pcon (SOME (Short labeled_break_exn_name)) [Pvar "lbl"],
+            (If (App Equality [Var (Short "lbl"); Lit (StrLit cur_lbl)])
+                (Unit)
+                (Raise (Con (SOME (Short labeled_break_exn_name))
+                            [Var (Short "lbl")])))]
 End
 
 (* Definitions for Euclidean modulo and division
@@ -450,11 +478,12 @@ Definition is_indep_stmt_def:
   | DeclareVar _ _ _=> F
   | Assign _ _ => T
   | If _ _ _ => T
+  | Labeled _ _ => T
   | While _ _ => T
   | Call _ _ _ _ _ => T
   | Return _ => T
   | EarlyReturn => T
-  | Break NONE => T
+  | Break _ => T
   | Print _ => T
   | _ => F
 End
@@ -487,7 +516,9 @@ End
 Definition from_stmts_def:
   (from_stmts (env: ((name, type) alist)) (lvl: int)
               ([]: (dafny_ast$statement list)) =
-   fail "from_stmts: List of statements must not be empty") ∧
+   return (env, Unit)) ∧
+  (* TODO Can we simplify this by just always using something like stmt1; stmt2?
+     in this case, it would become s; () *)
   (from_stmts env lvl [s] =
    if is_indep_stmt s then
      do
@@ -531,6 +562,11 @@ Definition from_stmts_def:
           (_, cml_els) <- from_stmts env lvl els;
           return (If cml_cnd cml_thn cml_els)
         od
+    | Labeled lbl body =>
+        do
+          (_, cml_body) <- from_stmts env lvl body;
+          return (add_labeled_break_handle lbl cml_body)
+        od
     | While cnd body =>
         do
           cml_cnd <- from_expression env cnd;
@@ -571,6 +607,8 @@ Definition from_stmts_def:
        other break statements are transformed into labeled ones. *)
     | Break NONE =>
         return raise_break
+    | Break (SOME lbl) =>
+        return (raise_labeled_break lbl)
     | Print e =>
         do
           cml_e <- from_expression env e;
@@ -739,7 +777,7 @@ Definition compile_def:
           * Having one big Dletrec probably does not result in a performance
           * penalty unless functions are used in a higher order way *)
          fun_defs <<- [(Dletrec unknown_loc fun_defs)];
-         return ([return_dexn; break_dexn;
+         return ([return_dexn; break_dexn; labeled_break_dexn;
                   cml_abs_def; cml_emod_def; cml_ediv_def] ++
                  fun_defs ++
                  [Dlet unknown_loc Pany (cml_fapp (Var (Short "Main")) [Unit])])
@@ -768,7 +806,7 @@ open TextIO
 (* val _ = astPP.disable_astPP(); *)
 (* val _ = astPP.enable_astPP(); *)
 
-val inStream = TextIO.openIn "./tests/while_non_det.sexp";
+val inStream = TextIO.openIn "./tests/while_with_break.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
@@ -781,7 +819,7 @@ val cakeml_r = EVAL “(compile ^dafny_r)” |> concl |> rhs |> rand;
 val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^cakeml_r)))”
                    |> concl |> rhs |> rand;
 val cml_sexp_str_r = stringSyntax.fromHOLstring cml_sexp_r;
-val outFile = TextIO.openOut "./tests/while_non_det.cml.sexp";
+val outFile = TextIO.openOut "./tests/while_with_break.cml.sexp";
 val _ = TextIO.output (outFile, cml_sexp_str_r);
 val _ = TextIO.closeOut outFile
 

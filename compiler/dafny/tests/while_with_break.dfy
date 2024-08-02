@@ -27,14 +27,14 @@ function int_to_string(x: int) : string {
 }
 
 method Main() {
+	assume {:axiom} false;
 	var x := 0;
-  while x < 5 {
-		print ("x: " + int_to_string(x) + " ");
-    var y := 0;
-    while y != 5 {
-			print ("y: " + int_to_string(y) + " ");
-			y := y + 1;
+
+  while true {
+    x := x + 1;
+    print int_to_string(x);
+    if x == 10 {
+      break;
     }
-		x := x + 1;
   }
 }
