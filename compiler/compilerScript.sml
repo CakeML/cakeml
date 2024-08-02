@@ -786,4 +786,40 @@ Definition full_compile_32_def:
       add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err
 End
 
+
+Definition some_default_config_def:
+  some_default_config =
+  let confexp = parse_target_64 [] in
+  let topconf = parse_top_config [] in
+    (case (confexp, topconf) of
+       (INL (conf,export), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret)) =>
+         (let ext_conf = extend_conf [] conf in
+            (case ext_conf of
+               INL ext_conf =>
+                  <| inferencer_config   := init_config;
+                     backend_config      := ext_conf;
+                     input_is_sexp       := sexp;
+                     exclude_prelude     := T;
+                     skip_type_inference := typeinfer;
+                     only_print_types    := onlyprinttypes;
+                     only_print_sexp     := sexpprint;
+                  |>
+                )
+         ))
+End
+
+Definition test_prog1_def:
+  test_prog1 = case (parse_cml_input "1 + 2;") of
+               | INR prog => prog
+               | INL _ => []
+End
+
+Definition compiled_prog1_def:
+  compiled_prog1 = backend$compile some_default_config.backend_config test_prog1
+End
+
+
+
+
+
 val _ = export_theory();

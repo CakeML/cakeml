@@ -638,7 +638,7 @@ Definition icompile_def:
   let target = lab_to_target$compile c.lab_conf (p:'a prog) in
     let c = c with lab_conf updated_by (case target of NONE => I
       | SOME (_, c') => K c') in
-  (c, target)
+  (c, OPTION_MAP (\(bytes, _). (bytes, cur_bm)) target)
 
 End
 
