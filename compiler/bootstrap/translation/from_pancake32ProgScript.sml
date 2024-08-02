@@ -245,6 +245,18 @@ val _ = translate $ spec32 comp_def;
 
 val _ = translate $ spec32 optimise_def;
 
+open crep_arithTheory;
+
+val _ = translate $ spec32 dest_const_def;
+
+val _ = translate $ spec32 dest_2exp_def;
+
+val _ = translate $ spec32 mul_const_def;
+
+val _ = translate $ spec32 simp_exp_def;
+
+val _ = translate $ spec32 simp_prog_def;
+
 open crep_to_loopTheory;
 
 val _ = translate $ spec32 prog_if_def;
