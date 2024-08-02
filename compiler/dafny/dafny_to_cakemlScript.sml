@@ -59,16 +59,6 @@ Definition raise_return_def:
   raise_return = Raise (Con (SOME (Short return_exn_name)) [])
 End
 
-Definition add_return_handle_def:
-  add_return_handle return_unit e =
-  let return_value =
-      if return_unit then Unit
-      else cml_fapp (Var (Long "Option" (Short "valOf")))
-                    [(App Opderef [Var (Short result_name)])]
-  in
-    Handle e [Pcon (SOME (Short return_exn_name)) [], return_value]
-End
-
 (* Definitions to deal with unlabeled break statements *)
 Definition break_exn_name_def:
   break_exn_name = "Break_CML_con"
@@ -87,9 +77,6 @@ Definition add_break_handle_def:
 End
 
 (* Definitions to deal with labeled break statements *)
-
-(* TODO Double check these definitions and use them to implement
- * labeled breaks *)
 
 Definition labeled_break_exn_name_def:
   labeled_break_exn_name = "LabeledBreak_CML_con"
@@ -170,6 +157,59 @@ Definition cml_while_name_def:
   cml_while_name (lvl: int) = "CML_while_" ++ (explode (toString lvl))
 End
 
+(* TODO move this to dafny_ast? *)
+Definition is_DeclareVar_def:
+  is_DeclareVar s =
+  case s of
+  | DeclareVar _ _ _ => T
+  | _ => F
+End
+
+(* TODO? Merge is_<Con> and dest_<Con> into one def returning an option *)
+Definition is_Eq_def:
+  is_Eq bop =
+  case bop of
+  | Eq _ _ => T
+  | _ => F
+End
+
+(* TODO? Move to dafny_ast *)
+Definition dest_Name_def:
+  dest_Name (Name s) = s
+End
+
+Definition dest_Ident_def:
+  (dest_Ident (Ident n) = return n) ∧
+  (dest_Ident _ = fail "(Unreachable) dest_Ident: Unexpected case")
+End
+
+(* TODO move this to dafny_ast? *)
+Definition dest_DeclareVar_def:
+  dest_DeclareVar s =
+  case s of
+  | DeclareVar n t e_opt => return (n, t, e_opt)
+  | _ => fail "dest_DeclareVar: Not a DeclareVar"
+End
+
+(* TODO move this to result_monad? *)
+Definition dest_SOME_def:
+  dest_SOME (SOME x) = return x ∧
+  dest_SOME NONE = fail "dest_SOME: Not a SOME"
+End
+
+(* TODO? Move to dafny_ast *)
+Definition dest_Method_def:
+  (dest_Method (Method isStatic hasBody overridingPath nam
+                       typeParams params body outTypes outVars) =
+   return (isStatic, hasBody, overridingPath, nam,
+           typeParams, params, body, outTypes, outVars)) ∧
+  (dest_Method _ = fail "(Unreachable) dest_Method: Unexpected case")
+End
+
+Definition call_type_name_def:
+  call_type_name (Name n) = Name (n ++ "_call_CML_name")
+End
+
 Definition from_string_def:
   from_string s =
   case (fromString (implode s)) of
@@ -187,9 +227,97 @@ Definition cml_ref_def:
   cml_ref n val_e in_e = (Let (SOME n) ((App Opref [val_e])) in_e)
 End
 
-(* TODO? Move to dafny_ast *)
-Definition dest_Name_def:
-  dest_Name (Name s) = s
+Definition varN_from_formal_def:
+  (varN_from_formal (Formal n _ attrs) =
+   if attrs ≠ [] then
+     fail "param_from_formals: Attributes currently unsupported"
+   else
+     return (dest_Name n)) ∧
+  (varN_from_formal _ = fail "varN_from_formal: Unreachable")
+End
+
+Definition internal_varN_from_formal_def:
+  internal_varN_from_formal fo =
+  do
+    n <- varN_from_formal fo;
+    (* TODO Find better way to generate internal names *)
+    return (n ++ "_CML_param")
+  od
+End
+
+Definition internal_varN_from_ident_def:
+  (internal_varN_from_ident (Ident (Name n)) = return (n ++ "_CML_out_ref")) ∧
+  (internal_varN_from_ident _ = fail ("(Unreachable) internal_varN_from_ident: " ++
+                                      "Unexpected case"))
+End
+
+Definition arb_value_def:
+  arb_value (t: dafny_ast$type) =
+  (case t of
+   | Primitive Int => return (Lit (IntLit 0))
+   | Primitive String => return (Lit (StrLit ""))
+   | Primitive Bool => return False
+   | _ => fail "arb_value_def: Unsupported type")
+End
+
+Definition from_name_def:
+  from_name n = Var (Short (dest_Name n))
+End
+
+Definition from_ident_def:
+  from_ident (Ident n) = from_name n
+End
+
+(* It appears that function and methods in Dafny are both represented by the
+ * same datatype, even though they are slightly different *)
+(* TODO? Use dest_method here *)
+Definition method_is_function_def:
+  method_is_function (Method isStatic hasBody overridingPath nam
+                             typeParams params body outTypes outVars) =
+  (* Function has one outType and no outVars *)
+  if LENGTH outTypes ≠ 1 ∨ outVars ≠ NONE then
+    return F
+  else if ¬isStatic then
+    fail ("method_is_function: Did not expect function " ++ (dest_Name nam) ++
+          " to be static")
+  else if ¬hasBody then
+    fail ("method_is_function: Function " ++ (dest_Name nam) ++
+          " did not have a body, even though it must")
+  else if overridingPath ≠ NONE then
+    fail ("method_is_function: Did not expect function " ++ (dest_Name nam) ++
+          " to have an overriding path")
+  else if typeParams ≠ [] then
+    fail ("method_is_function: Type parameters are currently unsupported (in "
+          ++ (dest_Name nam) ++ ")")
+  else
+    return T
+End
+
+(* TODO? Use dest_method here *)
+Definition method_is_method_def:
+  method_is_method (Method isStatic hasBody overridingPath nam
+                           typeParams params body outTypes outVars) =
+  case outVars of
+  | SOME outVars_list =>
+      if LENGTH outTypes ≠ LENGTH outVars_list then
+        fail ("method_is_method: Function " ++ (dest_Name nam) ++
+              " did not have the same number of outTypes and outVars, even" ++
+              " though it must")
+      else if ¬isStatic then
+        fail ("method_is_method: non-static methods are currently " ++
+              "unsupported (in " ++ (dest_Name nam) ++ ")")
+      else if ¬hasBody then
+        fail ("method_is_method: Method " ++ (dest_Name nam) ++
+              " did not have a body, even though it must")
+      else if overridingPath ≠ NONE then
+        fail ("method_is_method: Overriding path for methods are currently " ++
+              "unsupported (in " ++ (dest_Name nam) ++ ")")
+      else if typeParams ≠ [] then
+        fail ("method_is_method: Type parameters are currently unsupported (in "
+              ++ (dest_Name nam) ++ ")")
+      else
+        return T
+  | NONE => return F
 End
 
 Definition from_literal_def:
@@ -222,35 +350,34 @@ Definition from_literal_def:
        return None
 End
 
-(* TODO? Merge is_<Con> and dest_<Con> into one def returning an option *)
-Definition is_Eq_def:
-  is_Eq bop =
-  case bop of
-  | Eq _ _ => T
-  | _ => F
-End
-
-Definition call_type_name_def:
-  call_type_name (Name n) = Name (n ++ "_call_CML_name")
-End
-
 (* TODO Make this definition cleaner *)
 Definition call_type_env_def:
   call_type_env [] = return []  ∧
-  call_type_env ((ClassItem_Method
-                 (Method isStatic hasBody overridingPath nam
-                         typeParams params body outTypes
-                         outVars))::rest) =
-  (* We do not check the things that from_method checks again *)
-  if outTypes = [] then
-    (call_type_env rest)
-  else if (LENGTH outTypes = 1) then
-    do
-      type_env <- (call_type_env rest);
-      return ((call_type_name nam, HD outTypes)::type_env)
-    od
-  else
-    fail "call_type_env: More than 1 out type currently unsupported"
+  call_type_env ((ClassItem_Method m)::rest) =
+  do
+    is_function <- method_is_function m;
+    if is_function then
+      do
+        (_, _, _, nam, _, _, _, outTypes, _) <- dest_Method m;
+        type_env <- (call_type_env rest);
+        return ((call_type_name nam, HD outTypes)::type_env)
+      od
+    else
+      (* call_type_name is only used in Expression_Call, and since methods
+       * cannot be called in expressions, we do not add them to the (type)
+       * environment *)
+      call_type_env rest
+  od
+  (* (* We do not check the things that from_method checks again *) *)
+  (* if outTypes = [] then *)
+  (*   (call_type_env rest) *)
+  (* else if (LENGTH outTypes = 1) then *)
+  (*   do *)
+  (*     type_env <- (call_type_env rest); *)
+  (*     return ((call_type_name nam, HD outTypes)::type_env) *)
+  (*   od *)
+  (* else *)
+  (*   fail "call_type_env: More than 1 out type currently unsupported" *)
 End
 
 Definition dafny_type_of_def:
@@ -323,14 +450,6 @@ Definition dafny_type_of_def:
   | _ => fail "dafny_type_of: Unsupported expression"
 End
 
-Definition from_name_def:
-  from_name n = Var (Short (dest_Name n))
-End
-
-Definition from_ident_def:
-  from_ident (Ident n) = from_name n
-End
-
 Definition from_assignLhs_def:
   from_assignLhs (lhs: dafny_ast$assignLhs) =
   case lhs of
@@ -357,8 +476,8 @@ Definition from_expression_def:
    case e of
    | Literal l =>
        from_literal l
-   | Expression_Ident (Name n) =>
-       return (App Opderef [Var (Short n)])
+   | Expression_Ident n =>
+       return (App Opderef [Var (Short (dest_Name n))])
    | Ite cnd thn els =>
        do
          cml_cnd <- from_expression env cnd;
@@ -384,6 +503,8 @@ Definition from_expression_def:
              return (cml_fapp fun_name cml_args)
            od
        od
+   | InitializationValue t =>
+       arb_value t
    | _ => fail "from_expression: Unsupported expression") ∧
   (from_unaryOp (env: ((name, type) alist)) (uop: dafny_ast$unaryOp)
                 (e: dafny_ast$expression) =
@@ -455,20 +576,6 @@ Termination
   cheat
 End
 
-Definition arb_value_def:
-  arb_value (t: dafny_ast$type) =
-  (case t of
-   | Primitive Int => return (Lit (IntLit 0))
-   | Primitive String => return (Lit (StrLit ""))
-   | Primitive Bool => return False
-   | _ => fail "arb_value_def: Unsupported type")
-End
-
-Definition from_InitVal_def:
-  from_InitVal (InitializationValue t) = arb_value t ∧
-  from_InitVal _ = fail "from_InitVal: Unexpected case"
-End
-
 (* An independent statement must not depend on statements outside of it *)
 (* TODO Fill out cases properly; wildcard means that I did not explicitly
    consider it yet *)
@@ -488,65 +595,44 @@ Definition is_indep_stmt_def:
   | _ => F
 End
 
-(* TODO move this to dafny_ast? *)
-Definition is_DeclareVar_def:
-  is_DeclareVar s =
-  case s of
-  | DeclareVar _ _ _ => T
-  | _ => F
-End
-
-(* TODO move this to dafny_ast? *)
-Definition dest_DeclareVar_def:
-  dest_DeclareVar s =
-  case s of
-  | DeclareVar n t e_opt => return (n, t, e_opt)
-  | _ => fail "dest_DeclareVar: Not a DeclareVar"
-End
-
-(* TODO move this to result_monad? *)
-Definition dest_SOME_def:
-  dest_SOME (SOME x) = return x ∧
-  dest_SOME NONE = fail "dest_SOME: Not a SOME"
-End
-
 (* TODO is_<constructor> calls could maybe be replaced using monad choice *)
 (* At the moment we assume that only statements can change env *)
 (* lvl = level of the next while loop *)
 Definition from_stmts_def:
-  (from_stmts (env: ((name, type) alist)) (lvl: int)
+  (from_stmts (is_function: bool) (env: ((name, type) alist)) (lvl: int) (epilogue)
               ([]: (dafny_ast$statement list)) =
    return (env, Unit)) ∧
-  (* TODO Can we simplify this by just always using something like stmt1; stmt2?
-     in this case, it would become s; () *)
-  (from_stmts env lvl [s] =
+  (from_stmts is_function env lvl epilogue [s] =
+   (* TODO Can we simplify this by just always using something like stmt1; stmt2?
+    * in this case, it would become s; () *)
    if is_indep_stmt s then
      do
-       cml_e <- from_indep_stmt env lvl s;
+       cml_e <- from_indep_stmt is_function env lvl epilogue s;
        return (env, cml_e)
      od
    else
      fail ("from_stmts: " ++
            "Cannot convert single non-self-contained statement")) ∧
-  (from_stmts env lvl (s1::s2::rest) =
+  (from_stmts is_function env lvl epilogue (s1::s2::rest) =
    if is_indep_stmt s1 then
      do
-       e1 <- from_indep_stmt env lvl s1;
-       (env', e2) <- from_stmts env lvl (s2::rest);
+       e1 <- from_indep_stmt is_function env lvl epilogue s1;
+       (env', e2) <- from_stmts is_function env lvl epilogue (s2::rest);
        return (env', (Let NONE e1 e2))
      od
    else if is_DeclareVar s1 then
      do
        (n, t, e_opt) <- dest_DeclareVar s1;
        n_str <<- dest_Name n;
+       (* TODO look into when/why this is NONE *)
        iv_e <- if e_opt = NONE then arb_value t
-               else do e <- dest_SOME e_opt; from_InitVal e od;
-       (env', in_e) <- from_stmts ((n, t)::env) lvl (s2::rest);
+               else do e <- dest_SOME e_opt; from_expression env e od;
+       (env', in_e) <- from_stmts is_function ((n, t)::env) lvl epilogue (s2::rest);
        return (env', cml_ref n_str iv_e in_e)
      od
    else
      fail "from_stmts: Unsupported statement") ∧
-  (from_indep_stmt (env: ((name, type) alist)) (lvl: int)
+  (from_indep_stmt (is_function: bool) (env: ((name, type) alist)) (lvl: int) epilogue
                    (s: dafny_ast$statement) =
    (case s of
     | Assign lhs e =>
@@ -558,19 +644,19 @@ Definition from_stmts_def:
     | If cnd thn els =>
         do
           cml_cnd <- from_expression env cnd;
-          (_, cml_thn) <- from_stmts env lvl thn;
-          (_, cml_els) <- from_stmts env lvl els;
+          (_, cml_thn) <- from_stmts is_function env lvl epilogue thn;
+          (_, cml_els) <- from_stmts is_function env lvl epilogue els;
           return (If cml_cnd cml_thn cml_els)
         od
     | Labeled lbl body =>
         do
-          (_, cml_body) <- from_stmts env lvl body;
+          (_, cml_body) <- from_stmts is_function env lvl epilogue body;
           return (add_labeled_break_handle lbl cml_body)
         od
     | While cnd body =>
         do
           cml_cnd <- from_expression env cnd;
-          (_, cml_body) <- from_stmts env (lvl + 1) body;
+          (_, cml_body) <- from_stmts is_function env (lvl + 1) epilogue body;
           exec_iter <<- (cml_fapp (Var (Short (cml_while_name lvl))) [Unit]);
           cml_while_def <<- (Letrec [((cml_while_name lvl), "",
                                      If (cml_cnd)
@@ -585,23 +671,33 @@ Definition from_stmts_def:
             fail "from_indep_stmt: (Call) Unsupported on expression"
           else if typeArgs ≠ [] then
             fail "from_indep_stmt: (Call) type arguments currently unsupported"
-          else if outs ≠ NONE then
-            fail "from_indep_stmt: (Call) Return values currently unsupported"
+          (* else if outs ≠ NONE then *)
+          (*   fail "from_indep_stmt: (Call) Return values currently unsupported" *)
           else
             do
               fun_name <- from_callName call_nam;
-              cml_args <- result_mmap (from_expression env) args;
-              return (cml_fapp fun_name cml_args)
+              cml_param_args <- result_mmap (from_expression env) args;
+              cml_out_args <- (case outs of
+                               | NONE => return []
+                               | SOME outs =>
+                                   return (MAP from_ident outs));
+              return (cml_fapp fun_name (cml_param_args ++ cml_out_args))
             od
         od
     | Return e =>
         do
-          lhs <<- Var (Short result_name);
-          cml_rhs <- from_expression env e;
-          return (Let NONE (cml_ref_ass lhs (Some cml_rhs)) raise_return)
+          if ¬is_function then
+            fail ("from_indep_stmt: Assumption that Return does not occur in " ++
+                  "methods was violated")
+          else
+            from_expression env e
         od
     | EarlyReturn =>
-        return raise_return
+        if is_function then
+          fail ("from_indep_stmt: Assumption that EarlyReturn does not occur in " ++
+                "functions was violated")
+        else
+          return epilogue
     (* TODO Check if we can better test this case
      * It seems that only non-deterministic while loops make use of this, while
        other break statements are transformed into labeled ones. *)
@@ -620,24 +716,6 @@ Definition from_stmts_def:
                  "not independent statement")))
 Termination
   cheat
-End
-
-Definition varN_from_formal_def:
-  (varN_from_formal (Formal n _ attrs) =
-   if attrs ≠ [] then
-     fail "param_from_formals: Attributes currently unsupported"
-   else
-     return (dest_Name n)) ∧
-  (varN_from_formal _ = fail "varN_from_formal: Unreachable")
-End
-
-Definition internal_varN_from_formal_def:
-  internal_varN_from_formal fo =
-  do
-    n <- varN_from_formal fo;
-    (* TODO Find better way to generate internal names *)
-    return (n ++ "_CML_param")
-  od
 End
 
 Definition param_defs_from_formals_def:
@@ -708,56 +786,136 @@ Definition param_type_env_def:
     od
 End
 
+(* TODO Clean up definition *)
 Definition process_params_def:
-  process_params params =
+  process_params env params =
   do
     (cml_param, preamble) <- method_preamble_from_formal params;
-    env <- param_type_env params;
-    return (env, cml_param, preamble)
+    param_env <- param_type_env params;
+    return (param_env ++ env, cml_param, preamble)
   od
 End
 
-Definition add_result_ref:
-  add_result_ref exp_acc [] = return exp_acc ∧
-  add_result_ref exp_acc [t] =
-  return (λx. exp_acc (cml_ref result_name None x)) ∧
-  add_result_ref exp_acc outTypes =
-  fail ("add_result_ref: Methods with more than one return value " ++
-        " currently unsupported")
+Definition process_function_body_def:
+  process_function_body env preamble stmts =
+   do
+     (env, cml_body) <- from_stmts T env 0 Unit stmts;
+     preamble cml_body
+   od
 End
 
-(* TODO? merge into from_classItem *)
-Definition from_method_def:
-  from_method env (Method isStatic hasBody overridingPath nam
-                          typeParams params body outTypes outVars) =
-  if isStatic = F then
-    fail "from_method: non-static methods currently unsupported"
-  else if hasBody = F then
-    fail "from_method: Method must have a body"
-  else if overridingPath ≠ NONE then
-    fail "from_method: Overriding methods currently unsupported"
-  else if typeParams ≠ [] then
-    fail "from_method: Type parameters for methods currently unsupported"
-  else if (outVars ≠ SOME [] ∧ outVars ≠ NONE) then
-    fail "from_method: Methods with out parameters currently unsupported"
-  else
-    do
-      fun_name <<- dest_Name nam;
-      (param_env, cml_param, preamble) <- process_params params;
-      env <<- param_env ++ env;
-      (* TODO improve how we handle different cases of outTypes *)
-      (* TODO optimize generation of res/raise/handle
-         in some cases it may be enough to return "normally" like in ML *)
-      preamble <- add_result_ref preamble outTypes;
-      (_, cml_body) <- from_stmts env 0 body;
-      cml_body <<- add_return_handle (outTypes = []) cml_body;
-      cml_body <- preamble cml_body;
-      return (fun_name, cml_param, cml_body)
-    od
+Definition process_method_body_def:
+  process_method_body env preamble epilogue body =
+  do
+    (_, cml_body) <- from_stmts F env 0 epilogue body;
+    cml_body <<- (Handle cml_body
+                   [Pcon (SOME (Short return_exn_name)) [], Unit]);
+    preamble cml_body
+  od
+End
+
+Definition preamble_from_outs_def:
+  (preamble_from_outs preamble [] = return preamble) ∧
+  (preamble_from_outs preamble (v::rest_v) =
+   do
+     out_ref_name <- internal_varN_from_ident v;
+     preamble <<- (λx. preamble (Fun out_ref_name x));
+     preamble_from_outs preamble rest_v
+   od)
+End
+
+(* TODO Put Opderef into separate function *)
+Definition env_and_epilogue_from_outs_def:
+  (env_and_epilogue_from_outs env epilogue [] [] =
+   do
+     epilogue <<- epilogue raise_return;
+     return (env, epilogue)
+   od) ∧
+  (env_and_epilogue_from_outs env epilogue (t::rest_t) (v::rest_v) =
+   do
+     if LENGTH rest_t ≠ LENGTH rest_v then
+       fail ("env_and_epilogue_from_outs: Length of outTypes and outVars " ++
+             "is different")
+     else
+       do
+         v_nam <- dest_Ident v;
+         v_str <<- dest_Name v_nam;
+         env <<- ((v_nam, t)::env);
+         out_ref_name <- internal_varN_from_ident v;
+         epilogue <<- (λx. epilogue (Let NONE (cml_ref_ass
+                                               (Var (Short out_ref_name))
+                                               ((App Opderef
+                                                     [Var (Short v_str)])))
+                                         x));
+         env_and_epilogue_from_outs env epilogue rest_t rest_v
+       od
+   od)
+End
+
+Definition gen_param_preamble_epilogue_def:
+  gen_param_preamble_epilogue env [] [] [] =
+  do
+    (* Encode method without parameters or out as foo () = x *)
+    param <<- "";
+    preamble <<- λx. (return (Mat (Var (Short "")) [(Pcon NONE [], x)]));
+    epilogue <<- Unit;
+    return (env, param, preamble, epilogue)
+  od ∧
+  gen_param_preamble_epilogue env [] (t::rest_t) (v::rest_v) =
+  do
+    param <- internal_varN_from_ident v;
+    preamble <- preamble_from_outs (λx. return x) rest_v;
+    (env, epilogue) <- env_and_epilogue_from_outs env (λx. x)
+                                                  (t::rest_t) (v::rest_v);
+    return (env, param, preamble, epilogue)
+  od ∧
+  gen_param_preamble_epilogue env (p::rest_p) outTypes outVars =
+  do
+    param <- internal_varN_from_formal p;
+    preamble <<- (λx. do
+                        if rest_p ≠ [] then
+                          do
+                            param_refs <- declare_init_param_refs (p::rest_p) x;
+                            param_defs_from_formals rest_p param_refs
+                          od
+                        else
+                          declare_init_param_refs (p::rest_p) x
+                      od);
+    env <- param_type_env (p::rest_p);
+    preamble <- preamble_from_outs preamble outVars;
+    (env, epilogue) <- env_and_epilogue_from_outs env (λx. x)
+                                                  outTypes outVars;
+    return (env, param, preamble, epilogue)
+  od
 End
 
 Definition from_classItem_def:
-  from_classItem env (ClassItem_Method m)= from_method env m
+  from_classItem env (ClassItem_Method m) =
+  do
+    is_function <- method_is_function m;
+    is_method <- method_is_method m;
+    if is_function then
+      do
+        (_, _, _, nam, _, params, body, _, _) <- dest_Method m;
+        fun_name <<- dest_Name nam;
+        (env, cml_param, preamble) <- process_params env params;
+        cml_body <- process_function_body env preamble body;
+        return (fun_name, cml_param, cml_body)
+      od
+    else if is_method then
+      do
+        (_, _, _, nam, _, params, body, outTypes, outVars) <- dest_Method m;
+        outVars <- dest_SOME outVars;
+        fun_name <<- dest_Name nam;
+        (env, cml_param,
+         preamble, epilogue) <- gen_param_preamble_epilogue env params
+                                                            outTypes outVars;
+        cml_body <- process_method_body env preamble epilogue body;
+        return (fun_name, cml_param, cml_body)
+      od
+    else
+      fail "(Unreachable) from_method: m was neither a function nor method"
+  od
 End
 
 Definition compile_def:
@@ -806,7 +964,7 @@ open TextIO
 (* val _ = astPP.disable_astPP(); *)
 (* val _ = astPP.enable_astPP(); *)
 
-val inStream = TextIO.openIn "./tests/while_with_break.sexp";
+val inStream = TextIO.openIn "./tests/multiple_out_values.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
@@ -819,7 +977,7 @@ val cakeml_r = EVAL “(compile ^dafny_r)” |> concl |> rhs |> rand;
 val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^cakeml_r)))”
                    |> concl |> rhs |> rand;
 val cml_sexp_str_r = stringSyntax.fromHOLstring cml_sexp_r;
-val outFile = TextIO.openOut "./tests/while_with_break.cml.sexp";
+val outFile = TextIO.openOut "./tests/test.cml.sexp";
 val _ = TextIO.output (outFile, cml_sexp_str_r);
 val _ = TextIO.closeOut outFile
 
