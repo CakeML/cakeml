@@ -312,7 +312,7 @@ Definition crep_prog_to_display_def:
                    | Load32 => [String (strlit "load"); String (strlit "halfword")]
                    | Store => [String (strlit "store"); String (strlit "word")]
                    | Store8 => [String (strlit "store"); String (strlit "byte")]
-                   | Store8 => [String (strlit "store"); String (strlit "halfword")]) in
+                   | Store32 => [String (strlit "store"); String (strlit "halfword")]) in
        Item NONE (strlit "shared_mem")
             (prefix ++ [num_to_display v; crep_exp_to_display e])) ∧
   (crep_prog_to_display (ExtCall f e1 e2 e3 e4) =
