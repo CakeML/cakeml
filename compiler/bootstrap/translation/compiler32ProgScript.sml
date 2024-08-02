@@ -89,16 +89,57 @@ val r = backend_passesTheory.to_lab_all_def |> spec32
 
 val r = backend_passesTheory.to_target_all_def |> spec32 |> translate;
 
+val r = backend_passesTheory.from_lab_all_def |> spec32 |> translate;
+
+val r = backend_passesTheory.from_stack_all_def |> spec32
+          |> REWRITE_RULE[max_heap_limit_32_thm] |> translate;
+
+val r = backend_passesTheory.from_word_all_def |> spec32 |> translate;
+
+val r = backend_passesTheory.from_word_0_all_def |> spec32
+          |> REWRITE_RULE[max_heap_limit_32_thm] |> translate;
+
 val r = presLangTheory.word_to_strs_def |> spec32 |> translate
 val r = presLangTheory.stack_to_strs_def |> spec32 |> translate
 val r = presLangTheory.lab_to_strs_def |> spec32 |> translate
 
 val r = backend_passesTheory.any_prog_pp_def |> spec32 |> translate;
-val r = backend_passesTheory.any_prog_pp_with_title_def |> spec32 |> translate;
+val r = backend_passesTheory.pp_with_title_def |> translate;
 val r = backend_passesTheory.compile_tap_def |> spec32 |> translate;
 
 val _ = r |> hyp |> null orelse
-        failwith "Unproved side condition in the translation of backendTheory.compile_def.";
+        failwith ("Unproved side condition in the translation of " ^
+                  "backend_passesTheory.compile_tap_def.");
+
+val r = pan_passesTheory.pan_to_target_all_def |> spec32
+          |> REWRITE_RULE [NULL_EQ] |> translate;
+
+val r = pan_passesTheory.opsize_to_display_def |> translate;
+val r = pan_passesTheory.shape_to_str_def |> translate;
+val r = pan_passesTheory.insert_es_def |> translate;
+val r = pan_passesTheory.pan_exp_to_display_def |> spec32 |> translate;
+val r = pan_passesTheory.crep_exp_to_display_def |> spec32 |> translate;
+val r = pan_passesTheory.loop_exp_to_display_def |> spec32 |> translate;
+
+val r = pan_passesTheory.pan_seqs_def |> spec32 |> translate;
+val r = pan_passesTheory.crep_seqs_def |> spec32 |> translate;
+val r = pan_passesTheory.loop_seqs_def |> spec32 |> translate;
+val r = pan_passesTheory.pan_prog_to_display_def |> spec32 |> translate;
+val r = pan_passesTheory.crep_prog_to_display_def |> spec32 |> translate;
+val r = pan_passesTheory.loop_prog_to_display_def |> spec32 |> translate;
+val r = pan_passesTheory.pan_fun_to_display_def |> spec32 |> translate;
+val r = pan_passesTheory.crep_fun_to_display_def |> spec32 |> translate;
+val r = pan_passesTheory.loop_fun_to_display_def |> spec32 |> translate;
+val r = pan_passesTheory.pan_to_strs_def |> spec32 |> translate;
+val r = pan_passesTheory.crep_to_strs_def |> spec32 |> translate;
+val r = pan_passesTheory.loop_to_strs_def |> spec32 |> translate;
+val r = pan_passesTheory.any_pan_prog_pp_def |> spec32 |> translate;
+
+val r = pan_passesTheory.pan_compile_tap_def |> spec32 |> translate;
+
+val _ = r |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "pan_passesTheory.pan_compile_tap_def.");
 
 (* exportTheory *)
 (* TODO: exportTheory functions that don't depend on the word size
@@ -179,9 +220,6 @@ val _ = translate (compilerTheory.parse_sexp_input_def
 
 val def = spec32 (compilerTheory.compile_def);
 val res = translate def;
-
-val _ = print "About to translate basis (this takes some time) ";
-val res = translate basisProgTheory.basis_def;
 
 val res = translate (primTypesTheory.prim_tenv_def
                      |> CONV_RULE (RAND_CONV EVAL));

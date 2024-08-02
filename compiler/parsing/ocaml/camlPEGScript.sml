@@ -540,16 +540,17 @@ Definition camlPEG_def[nocompute]:
        seql [pnt nUpdate; try (seql [tokeq SemiT; pnt nUpdates] I)]
             (bindNT nUpdates));
       (INL nERecUpdate,
-       seql [tokeq LbraceT; pnt nExpr; tokeq WithT; pnt nUpdates;
+       seql [pnt nConstr; tokeq LbraceT; pnt nExpr; tokeq WithT; pnt nUpdates;
              try (tokeq SemiT); tokeq RbraceT]
             (bindNT nERecUpdate));
       (INL nEBase,
        choicel [
          pegf (pnt nLiteral) (bindNT nEBase);
          pegf (pnt nValuePath) (bindNT nEBase);
+         (* N.B. nERecUpdate goes before nConstr, because they coincide *)
+         pegf (pnt nERecUpdate) (bindNT nEBase);
          pegf (pnt nConstr) (bindNT nEBase);
          pegf (pnt nEList) (bindNT nEBase);
-         pegf (pnt nERecUpdate) (bindNT nEBase);
          seql [tokeq LparT; tokeq RparT] (bindNT nEBase); (* unit *)
          seql [tokeq BeginT; tokeq EndT] (bindNT nEBase); (* unit *)
          seql [tokeq LparT; pnt nExpr;
@@ -576,7 +577,7 @@ Definition camlPEG_def[nocompute]:
       (* -- Expr14.5 ------------------------------------------------------- *)
       (INL nERecProj,
        seql [pnt nEIndex;
-             try (seql [tokeq DotT; pnt nFieldName] I)]
+             try (seql [tokeq DotT; pnt nConstr; tokeq DotT; pnt nFieldName] I)]
             (bindNT nERecProj));
       (* -- Expr14 --------------------------------------------------------- *)
       (INL nEAssert,
@@ -769,9 +770,9 @@ Definition camlPEG_def[nocompute]:
        choicel [pegf (pnt nLiteral) (bindNT nPatLiteral);
                 seql [tokeq MinusT; tok isInt mktokLf]
                      (bindNT nPatLiteral)]);
-      (INL nPBase, (* ::= any / var / lit / list / '(' p ')' *)
+      (INL nPBase, (* ::= any / var / lit / list / '(' p ')' / constr *)
        pegf (choicel [pnt nPatLiteral; pnt nValueName; pnt nPAny; pnt nPList;
-                      pnt nPPar])
+                      pnt nPPar; pnt nConstr])
             (bindNT nPBase));
       (* -- Pat2 ----------------------------------------------------------- *)
       (INL nPRecFields, (* '{' field (';' field)* ';'? '}' *)
@@ -783,7 +784,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPRecFields));
       (INL nPCons, (* ::= constr ('{' fields '}' | p?) *)
        pegf (choicel [seql [pnt nConstr;
-                            choicel [pnt nPRecFields; try (pnt nPBase)]] I;
+                            choicel [pnt nPRecFields; pnt nPBase]] I;
                       pnt nPBase])
             (bindNT nPCons));
       (INL nPAs, (* ::= p ('as' id)* *)
@@ -796,8 +797,13 @@ Definition camlPEG_def[nocompute]:
             (bindNT nPOps));
       (INL nPattern,
        pegf (pnt nPOps) (bindNT nPattern));
+      (* This rule is used for the patterns in let (rec) and fun, and since
+       * these allow curried pattern arguments, we must not let applications
+       * and similar be unparenthesized. This is why we accept nPBase instead
+       * of nPattern. nPBase contains single-token patterns, and patterns
+       * enclosed in [] or (). *)
       (INL nPatterns,
-       seql [pnt nPattern; try (pnt nPatterns)]
+       seql [pnt nPBase; try (pnt nPatterns)]
             (bindNT nPatterns));
       (INL nStart,
        seql [try (pnt nModuleItems)] (bindNT nStart))

@@ -40,7 +40,6 @@ fun list_mk_fun_type [ty] = ty
   | list_mk_fun_type _ = fail()
 
 val _ = add_preferred_thy "-";
-(*val _ = add_preferred_thy "termination";*)
 
 Theorem NOT_NIL_AND_LEMMA:
    (b <> [] /\ x) = if b = [] then F else x
@@ -153,7 +152,7 @@ QED
 
 val _ = update_precondition ptree_PPattern_side;
 
-val r = preprocess ptree_Pattern_def |> translate;
+val r = preprocess ptree_Pattern_PMATCH |> translate;
 
 (* This takes a long time.
  *)
@@ -227,6 +226,13 @@ val r = preprocess ptree_TypeDefinition_def |> translate;
 val r = preprocess ptree_ModuleType_def |> translate;
 val r = preprocess ptree_Definition_def |> translate;
 
+Theorem destresult_side[local]:
+  pegexec_destresult_side v = (?r. v = Result r)
+Proof
+  rw [fetch "-" "pegexec_destresult_side_def"]
+  \\ Cases_on `v` \\ gs []
+QED
+
 Theorem ptree_definition_side:
   (∀x. camlptreeconversion_ptree_definition_side x) ∧
   (∀x. camlptreeconversion_ptree_modexpr_side x) ∧
@@ -241,9 +247,10 @@ Proof
            parserProgTheory.peg_exec_side_def,
            parserProgTheory.coreloop_side_def]
   \\ rename [‘lexer_fun inp’]
-  \\ qspec_then ‘lexer_fun inp’ strip_assume_tac
+  \\ qspec_then ‘lexer_fun$lexer_fun inp’ strip_assume_tac
                 cmlPEGTheory.owhile_TopLevelDecs_total
   \\ fs [parserProgTheory.INTRO_FLOOKUP, SF ETA_ss]
+  \\ simp [destresult_side, cmlPEGTheory.parse_TopLevelDecs_total]
 QED
 
 val _ = List.map update_precondition (CONJUNCTS ptree_definition_side);
