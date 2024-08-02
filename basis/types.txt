@@ -263,7 +263,7 @@ Map.all: ('a -> 'b -> bool) -> ('a, 'b) map -> bool
 Map.exists: ('a -> 'b -> bool) -> ('a, 'b) map -> bool
 Map.filterWithKey: ('a -> 'b -> bool) -> ('a, 'b) map -> ('a, 'b) map
 Map.filter: ('a -> bool) -> ('b, 'a) map -> ('b, 'a) map
-Map.compare: ('a -> 'b -> ordering) -> ('c, 'a) map -> ('c, 'b) map -> ordering
+Map.compare: ('a -> 'a -> ordering) -> ('b, 'a) map -> ('b, 'a) map -> ordering
 Set.singleton: ('a -> 'a -> ordering) -> 'a -> 'a set
 Set.member: 'a -> 'a set -> bool
 Set.delete: 'a -> 'a set -> 'a set

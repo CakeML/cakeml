@@ -111,7 +111,7 @@ Definition singleton_def:
 End
 
 Definition compare_def:
-  compare vcmp (Map cmp m1) (Map _ m2) =
+  compare vcmp (Map cmp m1: ('a, 'b) map) (Map _ m2: ('a, 'b) map) =
     balanced_map$compare cmp vcmp m1 m2
 End
 
