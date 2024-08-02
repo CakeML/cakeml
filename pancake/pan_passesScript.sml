@@ -38,8 +38,9 @@ Definition pan_to_target_all_def:
           funcs = make_funcs prog_b;
           target = c.lab_conf.asm_conf.ISA;
           comp = comp_func target funcs;
+          asimp = crep_arith$simp_prog;
           prog_b1 = MAP2 (λn (name,params,body).
-                      (n,(GENLIST I ∘ LENGTH) params, comp params body)) fnums prog_b;
+                      (n,(GENLIST I ∘ LENGTH) params, comp params (asimp body))) fnums prog_b;
           prog_c = MAP (λ(name,params,body). (name,params,loop_live$optimise body)) prog_b1;
           prog_c1 = loop_remove$comp_prog prog_c;
           prog2 = loop_to_word$compile_prog prog_c1;
