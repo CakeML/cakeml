@@ -121,7 +121,7 @@ Proof
   qexists_tac `\f. some c. encode c = f` \\ fs [encode_11]
 QED
 
-Theorem decode_encode = new_specification(
+val decode_encode = new_specification(
   "decode_encode",
   ["decode"],
   encode_decode_exists);
