@@ -199,10 +199,22 @@ val ssa_cc_trans_inst_def = Define`
       let (r2',ssa'',na'') = next_var_rename r2 ssa' na' in
         (Inst (FP (FPMovToReg r1' r2' d)),ssa'',na'')) ∧
   (ssa_cc_trans_inst (FP (FPMovFromReg d r1 r2)) ssa na =
-    let r1' = option_lookup ssa r1 in
-    let r2' = (dtcase lookup r2 ssa of NONE => 4 | SOME v => v) in
-      (Inst (FP (FPMovFromReg d r1' r2')),ssa,na)) ∧
-  (*Catchall -- for future instructions to be added, and all other FP *)
+    if dimindex(:'a) = 64 then
+      let r1' = option_lookup ssa r1 in
+        (Inst (FP (FPMovFromReg d r1' 0)),ssa,na)
+    else
+      let r1' = option_lookup ssa r1 in
+      let r2' = option_lookup ssa r2 in
+      if r1' = r2'
+      then
+        (* force distinct with an extra Move *)
+        let (r2'',ssa',na') = next_var_rename r2 ssa na in
+        let mov_in = Move 0 [(r2'',r2')] in
+        (Seq mov_in (Inst (FP (FPMovFromReg d r1' r2''))),
+        ssa',na')
+      else
+        (Inst (FP (FPMovFromReg d r1' r2')),ssa,na)) ∧
+        (*Catchall -- for future instructions to be added, and all other FP *)
   (ssa_cc_trans_inst x ssa na = (Inst x,ssa,na))`
 
 (*Expressions only ever need to lookup a variable's current ssa map
@@ -231,21 +243,24 @@ val list_next_var_rename_move_def = Define`
     let (new_ls,ssa',n') = list_next_var_rename ls ssa n in
     (Move 1 (ZIP(new_ls,cur_ls)),ssa',n')`
 
-(* force the renaming map to send x -> y *)
+(* force the renaming map to send x -> y unless
+  x is already remapped *)
 Definition force_rename_def:
   (force_rename [] ssa = ssa) ∧
   (force_rename ((x,y)::xs) ssa =
     force_rename xs (insert x y ssa))
 End
 
-val ssa_cc_trans_def = Define`
+Definition ssa_cc_trans_def:
   (ssa_cc_trans Skip ssa na = (Skip,ssa,na)) ∧
   (ssa_cc_trans (Move pri ls) ssa na =
     let ls_1 = MAP FST ls in
     let ls_2 = MAP SND ls in
     let ren_ls2 = MAP (option_lookup ssa) ls_2 in
     let (ren_ls1,ssa',na') = list_next_var_rename ls_1 ssa na in
-      (Move pri (ZIP(ren_ls1,ren_ls2)),force_rename (ZIP(ls_2,ren_ls1)) ssa',na')) ∧
+    let force =
+      FILTER (λ(x,y). ¬ MEM x ls_1) (ZIP(ls_2,ren_ls1)) in
+      (Move pri (ZIP(ren_ls1,ren_ls2)),force_rename force ssa',na')) ∧
   (ssa_cc_trans (StoreConsts a b c d ws) ssa na =
     let c1 = option_lookup ssa c in
     let d1 = option_lookup ssa d in
@@ -423,7 +438,8 @@ val ssa_cc_trans_def = Define`
         (ShareInst op (option_lookup ssa v) exp',ssa,na)
       else
         let (v',ssa',na') = next_var_rename v ssa na in
-          (ShareInst op v' exp',ssa',na'))`
+          (ShareInst op v' exp',ssa',na'))
+End
 
 (*Recursively applying colours to a program*)
 
