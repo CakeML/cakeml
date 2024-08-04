@@ -288,7 +288,7 @@ Definition compile_pancake_def:
     ((Failure $ ParseError $ concat $
        MAP (λ(msg,loc). concat [msg; strlit " at ";
                                 locs_to_string (implode input) (SOME loc); strlit "\n"])
-           errs), Nil)
+           errs), Nil, [])
   | INL funs =>
       case scope_check funs of
       | (SOME (x, fname), warn_strs) => (Failure (ScopeError x fname),Nil, MAP (WarningError o implode) warn_strs)
@@ -726,7 +726,7 @@ Definition compile_pancake_64_def:
           | INL ext_conf =>
               case compiler$compile_pancake ext_conf input of
               | (Failure err, td, warns) =>
-                  (List[], concat (MAP error_to_str (err::warns))
+                  (List[], concat (MAP error_to_str (err::warns)))
               | (Success (bytes, data, c), td, warns) =>
                   (add_tap_output td
                     (export (ffinames_to_string_list $
@@ -800,7 +800,7 @@ Definition compile_pancake_32_def:
           | INL ext_conf =>
               case compiler$compile_pancake ext_conf input of
               | (Failure err, td, warns) =>
-                  (List[], concat (MAP error_to_str (err::warns))
+                  (List[], concat (MAP error_to_str (err::warns)))
               | (Success (bytes, data, c), td, warns) =>
                   (add_tap_output td
                     (export (ffinames_to_string_list $
