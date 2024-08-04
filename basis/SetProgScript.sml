@@ -5,6 +5,7 @@
 open preamble
   ml_translatorLib ml_translatorTheory ml_progLib
   balanced_mapTheory MapProgTheory basisFunctionsLib
+local open mlsetTheory in end
 
 val _ = new_theory "SetProg"
 
@@ -159,5 +160,11 @@ val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc ["'a"] "set" (Atapp [Atvar "'a"] (Short "mlset"))`` I);
 
 val _ = ml_prog_update close_local_block;
+
+(* Remove all overloads introduced by loading mlset: *)
+val _ = List.app (fn nm => remove_ovl_mapping nm {Name = nm, Thy = "mlset"})
+                 ["singleton","member","delete","union","isSubset","compare",
+                  "all", "exists", "translate", "map", "filter", "fromList",
+                  "toList", "null", "size", "fold", "empty", "insert"];
 
 val _ = export_theory ();
