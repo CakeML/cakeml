@@ -179,6 +179,7 @@ Datatype:
                 | AssembleError
                 | ConfigError mlstring
                 | ScopeError mlstring mlstring
+                | WarningError mlstring
 End
 
 Definition find_next_newline_def:
@@ -290,12 +291,12 @@ Definition compile_pancake_def:
            errs), Nil)
   | INL funs =>
       case scope_check funs of
-      | SOME (x, fname) => (Failure (ScopeError x fname),Nil)
-      | NONE =>
+      | (SOME (x, fname), warn_strs) => (Failure (ScopeError x fname),Nil, MAP (WarningError o implode) warn_strs)
+      | (NONE, warn_strs) =>
           let _ = empty_ffi (strlit "finished: lexing and parsing") in
           case pan_passes$pan_compile_tap c funs of
-          | (NONE,td) => (Failure AssembleError,td)
-          | (SOME (bytes,data,c),td) => (Success (bytes,data,c),td)
+          | (NONE,td) => (Failure AssembleError,td, MAP (WarningError o implode) warn_strs)
+          | (SOME (bytes,data,c),td) => (Success (bytes,data,c),td, MAP (WarningError o implode) warn_strs)
 End
 
 (* The top-level compiler *)
@@ -311,7 +312,8 @@ Definition error_to_str_def:
   (error_to_str (ConfigError s) = concat [strlit "### ERROR: config error\n"; s; strlit "\n"]) /\
   (error_to_str AssembleError = strlit "### ERROR: assembly error\n") /\
   (error_to_str (ScopeError name fname) =
-    concat [strlit "### ERROR: scope error\n"; name; strlit " is not in scope in "; fname; strlit "\n"])
+    concat [strlit "### ERROR: scope error\n"; name; strlit " is not in scope in "; fname; strlit "\n"]) /\
+  (error_to_str (WarningError s) = concat [strlit "### WARNING:\n"; s; strlit "\n"])
 End
 
 Definition is_error_msg_def:
@@ -723,14 +725,14 @@ Definition compile_pancake_64_def:
               (List[], error_to_str (ConfigError (get_err_str ext_conf)))
           | INL ext_conf =>
               case compiler$compile_pancake ext_conf input of
-              | (Failure err, td) =>
-                  (List[], error_to_str err)
-              | (Success (bytes, data, c), td) =>
+              | (Failure err, td, warns) =>
+                  (List[], concat (MAP error_to_str (err::warns))
+              | (Success (bytes, data, c), td, warns) =>
                   (add_tap_output td
                     (export (ffinames_to_string_list $
                       the [] c.lab_conf.ffi_names) bytes data c.symbols
                       c.exported mainret T),
-                   implode "")
+                   concat (MAP error_to_str warns))
 End
 
 Definition full_compile_64_def:
@@ -797,14 +799,14 @@ Definition compile_pancake_32_def:
               (List[], error_to_str (ConfigError (get_err_str ext_conf)))
           | INL ext_conf =>
               case compiler$compile_pancake ext_conf input of
-              | (Failure err, td) =>
-                  (List[], error_to_str err)
-              | (Success (bytes, data, c), td) =>
+              | (Failure err, td, warns) =>
+                  (List[], concat (MAP error_to_str (err::warns))
+              | (Success (bytes, data, c), td, warns) =>
                   (add_tap_output td
                     (export (ffinames_to_string_list $
                       the [] c.lab_conf.ffi_names) bytes data c.symbols
                       c.exported mainret T),
-                   implode "")
+                   concat (MAP error_to_str warns))
 End
 
 Definition full_compile_32_def:

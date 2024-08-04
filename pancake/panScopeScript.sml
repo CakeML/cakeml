@@ -128,7 +128,7 @@ End
    within the function fname. The first component name may be the name of a
    variable or a function. *)
 Definition scope_check_def:
-  scope_check funs = scope_check_funs (MAP FST funs) funs
+  scope_check funs = (scope_check_funs (MAP FST funs) funs, [""])
 End
 
 
