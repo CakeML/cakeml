@@ -260,10 +260,12 @@ Definition v2pretty_sing_def:
     (case v of
      | Str s => String s
      | GrabLine w => Size 100000 (v2pretty_sing w)
-     | _ => let (l,e) = dest_list v in
+     | Pair h t => let (rest,e) = dest_list t in
               Parenthesis
-              (if e = Str «» then newlines (v2pretty_list l) else
-                 Append (newlines (v2pretty_list l)) T
+              (if e = Str «» then
+                 newlines (v2pretty_sing h :: v2pretty_list rest)
+               else
+                 Append (newlines (v2pretty_sing h :: v2pretty_list rest)) T
                   (Append (String « . ») T (v2pretty_sing e)))) ∧
   v2pretty_list [] = [] ∧
   v2pretty_list (x::xs) = v2pretty_sing x :: v2pretty_list xs
@@ -273,9 +275,8 @@ Termination
                             | INR e => list_size str_tree$str_tree_size e’
   \\ rw [] \\ gvs [str_treeTheory.dest_list_def]
   \\ rpt (pairarg_tac \\ gvs [])
-  \\ imp_res_tac (GSYM dest_list_size_lemma)
+  \\ imp_res_tac dest_list_size_lemma
   \\ gvs [str_treeTheory.str_tree_size_def,list_size_def]
-  \\ Cases_on ‘e’ \\ gvs [str_treeTheory.str_tree_size_def]
 End
 
 Theorem v2pretty_eq_v2pretty_sing:
@@ -285,8 +286,9 @@ Proof
   ho_match_mp_tac v2pretty_sing_ind \\ rpt strip_tac
   \\ once_rewrite_tac [v2pretty_sing_def] \\ fs []
   \\ simp [Once str_treeTheory.v2pretty_def]
-  \\ Cases_on ‘v’ \\ gvs []
+  \\ TOP_CASE_TAC \\ gvs[]
   \\ pairarg_tac \\ gvs [] \\ rw [SF ETA_ss]
+  \\ pairarg_tac >> gvs[str_treeTheory.dest_list_def]
 QED
 
 val _ = cv_auto_trans (str_treeTheory.smart_remove_def |> SRULE [GSYM GREATER_DEF]);
@@ -294,21 +296,34 @@ val _ = cv_auto_trans (str_treeTheory.smart_remove_def |> SRULE [GSYM GREATER_DE
 val _ = cv_trans str_treeTheory.dest_list_def;
 val cv_dest_list_def = fetch "-" "cv_dest_list_def";
 
+Theorem cv_size_cv_fst_snd:
+  cv_size (cv_fst z) + cv_size (cv_snd z) ≤ cv_size z
+Proof
+  Cases_on`z`>>cv_termination_tac
+QED
+
 Triviality cv_dest_list_size:
   ∀v x1 x2.
     cv_dest_list v = Pair x1 x2 ⇒
     cv_size x1 < cv_size v ∧
-    cv_size x2 < cv_size v
+    cv_size x2 ≤ cv_size v
 Proof
-  Induct
+  ho_match_mp_tac (fetch "-" "cv_dest_list_ind")
+  \\ rw[]
+  \\ pop_assum mp_tac
   \\ simp [Once cv_dest_list_def]
-  \\ cheat
+  \\ rw[]
+  \\ cv_termination_tac
+  \\ Cases_on`k` \\ gvs[]
+  \\ assume_tac cv_size_cv_fst_snd
+  \\ gvs[]
 QED
 
 val pre = cv_auto_trans_pre_rec v2pretty_sing_def
   (WF_REL_TAC ‘measure $ λx. case x of INL v => cv_size v | INR v => cv_size v’
    \\ cv_termination_tac \\ Cases_on ‘k’ \\ gvs []
-   \\ imp_res_tac cv_dest_list_size \\ gvs []);
+   \\ imp_res_tac cv_dest_list_size
+   \\ assume_tac cv_size_cv_fst_snd \\ gvs []);
 
 Theorem v2pretty_sing_pre[cv_pre]:
   (∀v. v2pretty_sing_pre v) ∧
@@ -350,7 +365,10 @@ val _ = cv_auto_trans
 
 val _ = cv_trans backend_x64Theory.to_livesets_x64_def;
 val _ = cv_trans backend_x64Theory.compile_cake_x64_def;
-(* val _ = cv_auto_trans backend_x64Theory.compile_cake_explore_x64_def; *)
+
+(*
+val _ = cv_auto_trans backend_x64Theory.compile_cake_explore_x64_def;
+*)
 
 (* lemma used by automation *)
 
