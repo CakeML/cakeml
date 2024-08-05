@@ -43,10 +43,10 @@ Datatype:
      ; memaddrs    : ('a word) set
      ; sh_memaddrs    : ('a word) set
      ; be          : bool
-     ; ffi         : 'ffi ffi_state
      ; base_addr   : 'a word |>
 End
 
+(* removes clock and ffi by converting state to bstate *)
 Definition unclock_def:
   unclock (s:('a,'b) panSem$state) =
     <| locals      := s.locals
@@ -56,13 +56,14 @@ Definition unclock_def:
      ; memaddrs    := s.memaddrs
      ; sh_memaddrs := s.sh_memaddrs
      ; be          := s.be
-     ; ffi         := s.ffi
      ; base_addr   := s.base_addr
 |>
 End
 
+(* restores bstate to state, setting clock to 0
+ and ffi to argument *)
 Definition reclock_def:
-  reclock (s:('a,'b) bstate) =
+  reclock (s:'a bstate) (fs:'ffi ffi_state) =
     <| locals      := s.locals
      ; code        := s.code
      ; eshapes     := s.eshapes
@@ -70,7 +71,7 @@ Definition reclock_def:
      ; memaddrs    := s.memaddrs
      ; sh_memaddrs := s.sh_memaddrs
      ; be          := s.be
-     ; ffi         := s.ffi
+     ; ffi         := fs
      ; base_addr   := s.base_addr
      ; clock       := 0
 |>
@@ -146,14 +147,14 @@ End
 
 Theorem set_var_defs = CONJ panSemTheory.set_var_def set_var_def;
 
-val s = “s:('a,'b) bstate”;
-val s1 = “s1:('a,'b) bstate”;
+val s = “s:'a bstate”;
+val s1 = “s1:'a bstate”;
 val p1 = “p1:'a panLang$prog”;
 val p2 = “p2:'a panLang$prog”;
 
 (* TODO: Call this mtree_ret *)
-Type mtree_ans[pp] = “:'a result option # ('a,'b) bstate”;
-Type htree_seed[pp] = “:'a panLang$prog # ('a,'b) bstate”;
+Type mtree_ans[pp] = “:'a result option # 'a bstate”;
+Type htree_seed[pp] = “:'a panLang$prog # 'a bstate”;
 Type semtree_ans[pp] = “:'b ffi_result”;
 
 (* Continuation for mtrees: these are nested inside the ITree event type of
@@ -341,10 +342,10 @@ Definition h_prog_rule_ext_call_def:
          (if explode ffi_name ≠ "" then
            Vis (INR (FFI_call (ExtCall (explode ffi_name)) conf_bytes array_bytes,
                      (λres. case res of
-                              FFI_final outcome => (SOME (FinalFFI outcome),empty_locals s):('a result option # ('a,'b) bstate)
+                              FFI_final outcome => (SOME (FinalFFI outcome),empty_locals s):('a result option # 'a bstate)
                              | FFI_return new_ffi new_bytes =>
                                 let nmem = write_bytearray array_ptr_adr new_bytes s.memory s.memaddrs s.be in
-                                (NONE,s with <| memory := nmem; ffi := new_ffi |>)))) Ret
+                                (NONE,s with <| memory := nmem |>)))) Ret
           else Ret (NONE,s))
        | _ => Ret (SOME Error,s))
    | _ => Ret (SOME Error,s)
@@ -379,7 +380,7 @@ Definition h_prog_rule_sh_mem_load_def:
                  (λres. case res of
                           FFI_final outcome => (SOME (FinalFFI outcome),empty_locals s)
                          | FFI_return new_ffi new_bytes =>
-                            (NONE, (set_var v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)))) Ret
+                            (NONE, (set_var v (ValWord (word_of_bytes F 0w new_bytes)) s))))) Ret
      else Ret (SOME Error,s))
   else
     (if (byte_align addr) IN s.sh_memaddrs then
@@ -387,7 +388,7 @@ Definition h_prog_rule_sh_mem_load_def:
        (λres. case res of
                 FFI_final outcome => (SOME (FinalFFI outcome),empty_locals s)
                | FFI_return new_ffi new_bytes =>
-                  (NONE,(set_var v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)))) Ret
+                  (NONE,(set_var v (ValWord (word_of_bytes F 0w new_bytes)) s))))) Ret
      else Ret (SOME Error,s))
 End
 
@@ -401,7 +402,7 @@ Definition h_prog_rule_sh_mem_store_def:
                               (word_to_bytes w F ++ word_to_bytes addr F),
                 (λres. case res of
                          FFI_final outcome => (SOME (FinalFFI outcome),s)
-                        | FFI_return new_ffi new_bytes => (NONE,s with ffi := new_ffi)))) Ret
+                        | FFI_return new_ffi new_bytes => (NONE,s)))) Ret
          else Ret (SOME Error,s))
       else
         (if (byte_align addr) IN s.sh_memaddrs then
@@ -410,7 +411,7 @@ Definition h_prog_rule_sh_mem_store_def:
                 (λres. case res of
                          FFI_final outcome => (SOME (FinalFFI outcome),s)
                         | FFI_return new_ffi new_bytes =>
-                           (NONE,s with ffi := new_ffi)))) Ret
+                           (NONE,s)))) Ret
          else Ret (SOME Error,s)))
    | _ => Ret (SOME Error,s)
 End
