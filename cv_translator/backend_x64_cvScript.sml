@@ -237,6 +237,89 @@ val _ = cv_trans (compile_0_x64_def
 val _ = cv_trans backend_x64Theory.to_word_0_x64_def;
 val _ = cv_auto_trans backend_x64Theory.to_livesets_0_x64_def;
 
+val _ = cv_auto_trans (backend_x64Theory.to_word_all_x64_def
+                         |> SRULE [data_to_wordTheory.stubs_def,to_map_compile_part,
+                                   backend_64_cvTheory.inline]);
+val _ = cv_trans backend_x64Theory.to_stack_all_x64_def;
+val _ = cv_trans (backend_x64Theory.to_lab_all_x64_def
+                    |> SRULE [data_to_wordTheory.max_heap_limit_def,
+                              backend_64_cvTheory.inline]);
+
+Triviality dest_list_size_lemma:
+  ∀x v w.
+    (v,w) = dest_list x ⇒
+    list_size str_tree_size v + str_tree_size w ≤ str_tree_size x
+Proof
+  Induct \\ gvs [str_treeTheory.dest_list_def]
+  \\ gvs [str_treeTheory.str_tree_size_def,list_size_def]
+  \\ pairarg_tac \\ gvs [str_treeTheory.str_tree_size_def,list_size_def]
+QED
+
+Definition v2pretty_sing_def:
+  v2pretty_sing v =
+    (case v of
+     | Str s => String s
+     | GrabLine w => Size 100000 (v2pretty_sing w)
+     | _ => let (l,e) = dest_list v in
+              Parenthesis
+              (if e = Str «» then newlines (v2pretty_list l) else
+                 Append (newlines (v2pretty_list l)) T
+                  (Append (String « . ») T (v2pretty_sing e)))) ∧
+  v2pretty_list [] = [] ∧
+  v2pretty_list (x::xs) = v2pretty_sing x :: v2pretty_list xs
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of
+                            | INL e => str_tree$str_tree_size e
+                            | INR e => list_size str_tree$str_tree_size e’
+  \\ rw [] \\ gvs [str_treeTheory.dest_list_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ imp_res_tac (GSYM dest_list_size_lemma)
+  \\ gvs [str_treeTheory.str_tree_size_def,list_size_def]
+  \\ Cases_on ‘e’ \\ gvs [str_treeTheory.str_tree_size_def]
+End
+
+Theorem v2pretty_eq_v2pretty_sing:
+  (∀v. v2pretty v = v2pretty_sing v) ∧
+  (∀v. MAP v2pretty v = v2pretty_list v)
+Proof
+  ho_match_mp_tac v2pretty_sing_ind \\ rpt strip_tac
+  \\ once_rewrite_tac [v2pretty_sing_def] \\ fs []
+  \\ simp [Once str_treeTheory.v2pretty_def]
+  \\ Cases_on ‘v’ \\ gvs []
+  \\ pairarg_tac \\ gvs [] \\ rw [SF ETA_ss]
+QED
+
+val _ = cv_auto_trans (str_treeTheory.smart_remove_def |> SRULE [GSYM GREATER_DEF]);
+
+val _ = cv_trans str_treeTheory.dest_list_def;
+val cv_dest_list_def = fetch "-" "cv_dest_list_def";
+
+Triviality cv_dest_list_size:
+  ∀v x1 x2.
+    cv_dest_list v = Pair x1 x2 ⇒
+    cv_size x1 < cv_size v ∧
+    cv_size x2 < cv_size v
+Proof
+  Induct
+  \\ simp [Once cv_dest_list_def]
+  \\ cheat
+QED
+
+val pre = cv_auto_trans_pre_rec v2pretty_sing_def
+  (WF_REL_TAC ‘measure $ λx. case x of INL v => cv_size v | INR v => cv_size v’
+   \\ cv_termination_tac \\ Cases_on ‘k’ \\ gvs []
+   \\ imp_res_tac cv_dest_list_size \\ gvs []);
+
+Theorem v2pretty_sing_pre[cv_pre]:
+  (∀v. v2pretty_sing_pre v) ∧
+  (∀v. v2pretty_list_pre v)
+Proof
+  ho_match_mp_tac v2pretty_sing_ind
+  \\ rw [] \\ simp [Once pre] \\ gvs []
+QED
+
+val _ = cv_auto_trans (str_treeTheory.v2strs_def |> SRULE [v2pretty_eq_v2pretty_sing]);
+
 (* export *)
 
 Definition export_funcs_alt_def:
@@ -263,10 +346,11 @@ val _ = cv_auto_trans
                             to_words_line_byte,
                             split16_eq_chunks16]);
 
-(* main two translations below *)
+(* main translations below *)
 
 val _ = cv_trans backend_x64Theory.to_livesets_x64_def;
 val _ = cv_trans backend_x64Theory.compile_cake_x64_def;
+(* val _ = cv_auto_trans backend_x64Theory.compile_cake_explore_x64_def; *)
 
 (* lemma used by automation *)
 

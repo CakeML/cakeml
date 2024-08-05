@@ -10,17 +10,19 @@ open exportTheory;
 open to_data_cvTheory;
 
 type arch_thms =
-  { default_config_def  : thm
-  , default_config_simp : thm
-  , to_livesets_def     : thm
-  , compile_cake_def    : thm
-  , compile_cake_imp    : thm
-  , cv_export_def       : thm }
+  { default_config_def       : thm
+  , default_config_simp      : thm
+  , to_livesets_def          : thm
+  , compile_cake_def         : thm
+  , compile_cake_imp         : thm
+  , compile_cake_explore_def : thm
+  , cv_export_def            : thm }
 
 type comp_input =
   { prefix               : string
   , conf_def             : thm
   , prog_def             : thm
+  , run_as_explorer      : bool
   , output_filename      : string
   , output_conf_filename : string option }
 
@@ -37,9 +39,9 @@ fun write_cv_char_list_to_file filename cv_char_list_tm = let
 fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f;
 
 fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
-  val { prefix, conf_def, prog_def
+  val { prefix, conf_def, prog_def, run_as_explorer
       , output_filename , output_conf_filename } = input
-  val { default_config_def, default_config_simp, to_livesets_def
+  val { default_config_def, default_config_simp, to_livesets_def, compile_cake_explore_def
       , compile_cake_def, compile_cake_imp, cv_export_def } = arch
   fun define_abbrev name tm =
     Feedback.trace ("Theory.allow_rebinds", 1)
@@ -61,11 +63,15 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val c_oracle_tm = backendTheory.inc_set_oracle_def
                       |> SPEC (c |> concl |> rhs)
                       |> SPEC oracle_tm |> concl |> lhs
-  val input_tm = compile_cake_def |> GEN_ALL
+  val def = if run_as_explorer then compile_cake_explore_def else compile_cake_def
+  val input_tm = def |> GEN_ALL
     |> SPEC (prog_def |> concl |> lhs)
     |> SPEC c_oracle_tm |> concl |> lhs
   val to_option_some = cv_typeTheory.to_option_def |> cj 2
   val to_pair = cv_typeTheory.to_pair_def |> cj 1
+
+
+
   val th1 = cv_eval_raw input_tm
             |> CONV_RULE (PATH_CONV "lr" (REWRITE_CONV [GSYM c]))
   val th2 = th1 |> CONV_RULE (PATH_CONV "r" (REWR_CONV to_option_some))
@@ -157,6 +163,7 @@ val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
        { prefix               = "x64_"
        , conf_def             = #default_config_def x64_arch_thms
        , prog_def             = Define `prog = [] : ast$dec list`
+       , run_as_explorer      = true
        , output_filename      = "test.S"
        , output_conf_filename = SOME "test_conf.txt" } : comp_input;
 *)

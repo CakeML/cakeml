@@ -2746,5 +2746,21 @@ val _ = cv_trans bvi_to_dataTheory.compile_exp_eq;
 val _ = cv_auto_trans bvi_to_dataTheory.compile_prog_def;
 val _ = cv_trans to_data_def;
 
+val _ = cv_trans backend_asmTheory.to_flat_all_def;
+val _ = cv_trans backend_asmTheory.to_clos_all_def;
+val _ = cv_trans backend_asmTheory.to_bvl_all_def;
+val _ = cv_auto_trans (backend_asmTheory.to_bvi_all_def
+                         |> REWRITE_RULE [bvl_inlineTheory.remove_ticks_sing,HD]);
+
+Triviality bvi_to_data_compile_sing:
+  FST (bvi_to_data$compile n env t l [x]) = FST (compile_sing n env t l x)
+Proof
+  ‘∃y. compile_sing n env t l x = y’ by gvs []
+  \\ PairCases_on ‘y’ \\ gvs []
+  \\ imp_res_tac bvi_to_dataTheory.compile_sing_eq \\ gvs []
+QED
+
+val _ = cv_auto_trans (to_data_all_def |> REWRITE_RULE [bvi_to_data_compile_sing]);
+
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();
