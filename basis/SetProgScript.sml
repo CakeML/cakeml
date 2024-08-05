@@ -162,9 +162,9 @@ val _ = ml_prog_update (add_dec
 val _ = ml_prog_update close_local_block;
 
 (* Remove all overloads introduced by loading mlset: *)
-val _ = List.app (fn nm => remove_ovl_mapping nm {Name = nm, Thy = "mlset"})
-                 ["singleton","member","delete","union","isSubset","compare",
-                  "all", "exists", "translate", "map", "filter", "fromList",
-                  "toList", "null", "size", "fold", "empty", "insert"];
+val _ = List.app (fn tm => let val {Name, Thy,...} = dest_thy_const tm
+                           in remove_ovl_mapping Name {Name = Name, Thy = Thy}
+                           end)
+                 (constants "mlset");
 
 val _ = export_theory ();
