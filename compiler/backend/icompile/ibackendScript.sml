@@ -5,31 +5,39 @@
 *)
 
 open preamble
-     backendTheory
+     backend_asmTheory
+     backend_x64Theory
+     to_data_cvTheory
+     cv_transLib
+     x64_configTheory;
 
 val _ = new_theory"ibackend";
 
 (*
   High-level idea:
 
-  We'll define incremental compilation in three steps:
+  We'll define incremental compilation in three steps to
+    simulate to_lab:
 
-  1) init_icompile:
+  1. init_icompile:
 
     This should initialize incremental compilation by running
     the CakeML compiler to insert all of its initial stubs.
 
-  2) icompile:
+  2. icompile:
 
     This should run incremental compilation on a chunk of
     input source program.
 
-  3) finalize_icompile:
+  3. end_icompile:
 
-    This should "finalize" compilation by inserting the main
+    This should "end" compilation by inserting the main
     entry point of the whole program.
 
-  Initially, we'll attempt to syntactically simulate to_lab
+  Then, we'll do a whole program assembly step
+
+  4. assembl/finalize
+
 *)
 
 (* TODO: fill the "ARBs" in, the types might be wrong *)
@@ -89,5 +97,16 @@ Theorem icompile_eq:
 Proof
   cheat
 QED
+
+(* Quick testing *)
+
+(* using the default config for x64 *)
+val conf = x64_backend_config_def |> concl |> lhs
+val c = backendTheory.config_to_inc_config_def
+       |> ISPEC conf |> CONV_RULE (RAND_CONV EVAL) |> rconc
+
+(* everything up to to_data is already cv_translated
+  so we can simply cv_eval it *)
+val foo = cv_eval ``to_data ^(c) []``
 
 val _ = export_theory();
