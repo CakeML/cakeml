@@ -13,12 +13,7 @@ open mlintTheory
 val _ = new_theory "dafny_to_cakeml";
 
 (* TODO Check if we can reduce the number of generated cases *)
-(* TODO Add missing wildcard for function that are defined using pattern matching
- (even if all cases seem to be covered) *)
-(* TODO Verify that EarlyReturn is just Return without a value *)
-(* TODO? Place all ast constructors behind definitions? *)
 
-(* TODO Look into when to use Overload vs Definition *)
 Overload True = “Con (SOME (Short "True")) []”
 Overload False = “Con (SOME (Short "False")) []”
 Overload None = “Con (SOME (Short "None")) []”
@@ -179,8 +174,7 @@ Definition dest_Name_def:
 End
 
 Definition dest_Ident_def:
-  (dest_Ident (Ident n) = return n) ∧
-  (dest_Ident _ = fail "(Unreachable) dest_Ident: Unexpected case")
+  dest_Ident (Ident n) = n
 End
 
 (* TODO move this to dafny_ast? *)
@@ -199,11 +193,9 @@ End
 
 (* TODO? Move to dafny_ast *)
 Definition dest_Method_def:
-  (dest_Method (Method isStatic hasBody overridingPath nam
-                       typeParams params body outTypes outVars) =
-   return (isStatic, hasBody, overridingPath, nam,
-           typeParams, params, body, outTypes, outVars)) ∧
-  (dest_Method _ = fail "(Unreachable) dest_Method: Unexpected case")
+  dest_Method (Method isStatic hasBody overridingPath nam
+                      typeParams params body outTypes outVars) =
+  (isStatic, hasBody, overridingPath, nam, typeParams, params, body, outTypes, outVars)
 End
 
 Definition call_type_name_def:
@@ -227,28 +219,26 @@ Definition cml_ref_def:
   cml_ref n val_e in_e = (Let (SOME n) ((App Opref [val_e])) in_e)
 End
 
+(* TODO Find better way to generate internal names *)
+
 Definition varN_from_formal_def:
-  (varN_from_formal (Formal n _ attrs) =
-   if attrs ≠ [] then
-     fail "param_from_formals: Attributes currently unsupported"
-   else
-     return (dest_Name n)) ∧
-  (varN_from_formal _ = fail "varN_from_formal: Unreachable")
+  varN_from_formal (Formal n _ attrs) =
+  if attrs ≠ [] then
+    fail "param_from_formals: Attributes currently unsupported"
+  else
+    return (dest_Name n)
 End
 
 Definition internal_varN_from_formal_def:
   internal_varN_from_formal fo =
   do
     n <- varN_from_formal fo;
-    (* TODO Find better way to generate internal names *)
     return (n ++ "_CML_param")
   od
 End
 
 Definition internal_varN_from_ident_def:
-  (internal_varN_from_ident (Ident (Name n)) = return (n ++ "_CML_out_ref")) ∧
-  (internal_varN_from_ident _ = fail ("(Unreachable) internal_varN_from_ident: " ++
-                                      "Unexpected case"))
+  internal_varN_from_ident (Ident (Name n)) = (n ++ "_CML_out_ref")
 End
 
 Definition arb_value_def:
@@ -270,7 +260,6 @@ End
 
 (* It appears that function and methods in Dafny are both represented by the
  * same datatype, even though they are slightly different *)
-(* TODO? Use dest_method here *)
 Definition method_is_function_def:
   method_is_function (Method isStatic hasBody overridingPath nam
                              typeParams params body outTypes outVars) =
@@ -293,7 +282,6 @@ Definition method_is_function_def:
     return T
 End
 
-(* TODO? Use dest_method here *)
 Definition method_is_method_def:
   method_is_method (Method isStatic hasBody overridingPath nam
                            typeParams params body outTypes outVars) =
@@ -350,34 +338,26 @@ Definition from_literal_def:
        return None
 End
 
-(* TODO Make this definition cleaner *)
 Definition call_type_env_def:
   call_type_env [] = return []  ∧
   call_type_env ((ClassItem_Method m)::rest) =
   do
     is_function <- method_is_function m;
+    is_method <- method_is_method m;
     if is_function then
       do
-        (_, _, _, nam, _, _, _, outTypes, _) <- dest_Method m;
+        (_, _, _, nam, _, _, _, outTypes, _) <<- dest_Method m;
         type_env <- (call_type_env rest);
         return ((call_type_name nam, HD outTypes)::type_env)
       od
-    else
+    else if is_method then
       (* call_type_name is only used in Expression_Call, and since methods
        * cannot be called in expressions, we do not add them to the (type)
        * environment *)
       call_type_env rest
+    else
+      fail "call_type_env: ClassItem_Method m was neither method nor function."
   od
-  (* (* We do not check the things that from_method checks again *) *)
-  (* if outTypes = [] then *)
-  (*   (call_type_env rest) *)
-  (* else if (LENGTH outTypes = 1) then *)
-  (*   do *)
-  (*     type_env <- (call_type_env rest); *)
-  (*     return ((call_type_name nam, HD outTypes)::type_env) *)
-  (*   od *)
-  (* else *)
-  (*   fail "call_type_env: More than 1 out type currently unsupported" *)
 End
 
 Definition dafny_type_of_def:
@@ -461,9 +441,6 @@ Definition from_callName_def:
   (from_callName (CallName nam onType sig) =
    if onType ≠ NONE then
      fail "from_callName: non-empty onType currently unsupported"
-   (* TODO Confirm that we can ignore the call signature *)
-   (* else if sig ≠ CallSignature [] then *)
-   (*   fail "from_callName: non_empty callSignature currently unsupported" *)
    else
      return (from_name nam)) ∧
   (from_callName _ = fail ("from_callName: " ++
@@ -671,8 +648,6 @@ Definition from_stmts_def:
             fail "from_indep_stmt: (Call) Unsupported on expression"
           else if typeArgs ≠ [] then
             fail "from_indep_stmt: (Call) type arguments currently unsupported"
-          (* else if outs ≠ NONE then *)
-          (*   fail "from_indep_stmt: (Call) Return values currently unsupported" *)
           else
             do
               fun_name <- from_callName call_nam;
@@ -718,113 +693,15 @@ Termination
   cheat
 End
 
-Definition param_defs_from_formals_def:
-  (param_defs_from_formals ([]: (dafny_ast$formal list)) x =
-   fail "param_defs_from_formals: No parameters to define") ∧
-  (param_defs_from_formals (fo::rest) x =
-   do
-     param_name <- internal_varN_from_formal fo;
-     param_exp <- if rest = [] then return x
-                  else param_defs_from_formals rest x;
-     return (Fun param_name param_exp)
-   od)
-End
-
-Definition declare_init_param_refs_def:
-  declare_init_param_refs [] in_exp =
-  fail ("declare_init_param_refs: Nothing to declare and initialize") ∧
-  (declare_init_param_refs (fo::rest) in_exp =
-   do
-     ref_name <- varN_from_formal fo;
-     ref_value_name <- internal_varN_from_formal fo;
-     if rest = [] then
-       return (cml_ref ref_name (Var (Short ref_value_name)) in_exp)
-     else
-       do
-         next_declare <- declare_init_param_refs rest in_exp;
-         return (cml_ref ref_name (Var (Short ref_value_name)) next_declare)
-       od
-   od)
-End
-
-Definition method_preamble_from_formal_def:
-  method_preamble_from_formal [] =
-  do
-    (* Encode function without parameters as foo () = x *)
-    param <<- "";
-    preamble <<- λx. (return (Mat (Var (Short "")) [(Pcon NONE [], x)]));
-    return (param, preamble)
-  od ∧
-  method_preamble_from_formal [fo] =
-  do
-    param <- internal_varN_from_formal fo;
-    preamble <<- λx. (declare_init_param_refs [fo] x);
-    return (param, preamble)
-  od ∧
-  method_preamble_from_formal (fo::rest) =
-  do
-    param <- internal_varN_from_formal fo;
-    preamble <<- (λx. do
-                        inner_exp <- declare_init_param_refs (fo::rest) x;
-                        (* Adds rest of parameters as
-                         * (Fun foo_CML_param <initialize refs>) *)
-                        param_defs_from_formals rest inner_exp
-                      od);
-    return (param, preamble)
-  od
-End
-
 Definition param_type_env_def:
-  param_type_env [] = return [] ∧
-  param_type_env ((Formal n t attrs)::rest) =
+  param_type_env [] acc = return acc ∧
+  param_type_env ((Formal n t attrs)::rest) acc =
   if attrs ≠ [] then
     fail "param_type_env: Attributes unsupported"
   else
-    do
-      rest' <- param_type_env rest;
-      return ((n, t)::rest')
-    od
+    param_type_env rest ((n, t)::acc)
 End
 
-(* TODO Clean up definition *)
-Definition process_params_def:
-  process_params env params =
-  do
-    (cml_param, preamble) <- method_preamble_from_formal params;
-    param_env <- param_type_env params;
-    return (param_env ++ env, cml_param, preamble)
-  od
-End
-
-Definition process_function_body_def:
-  process_function_body env preamble stmts =
-   do
-     (env, cml_body) <- from_stmts T env 0 Unit stmts;
-     preamble cml_body
-   od
-End
-
-Definition process_method_body_def:
-  process_method_body env preamble epilogue body =
-  do
-    (_, cml_body) <- from_stmts F env 0 epilogue body;
-    cml_body <<- (Handle cml_body
-                   [Pcon (SOME (Short return_exn_name)) [], Unit]);
-    preamble cml_body
-  od
-End
-
-Definition preamble_from_outs_def:
-  (preamble_from_outs preamble [] = return preamble) ∧
-  (preamble_from_outs preamble (v::rest_v) =
-   do
-     out_ref_name <- internal_varN_from_ident v;
-     preamble <<- (λx. preamble (Fun out_ref_name x));
-     preamble_from_outs preamble rest_v
-   od)
-End
-
-(* TODO Put Opderef into separate function *)
 Definition env_and_epilogue_from_outs_def:
   (env_and_epilogue_from_outs env epilogue [] [] =
    do
@@ -838,10 +715,10 @@ Definition env_and_epilogue_from_outs_def:
              "is different")
      else
        do
-         v_nam <- dest_Ident v;
+         v_nam <<- dest_Ident v;
          v_str <<- dest_Name v_nam;
          env <<- ((v_nam, t)::env);
-         out_ref_name <- internal_varN_from_ident v;
+         out_ref_name <<- internal_varN_from_ident v;
          epilogue <<- (λx. epilogue (Let NONE (cml_ref_ass
                                                (Var (Short out_ref_name))
                                                ((App Opderef
@@ -852,19 +729,52 @@ Definition env_and_epilogue_from_outs_def:
    od)
 End
 
+(* Allows us to pass in out references as parameters *)
+Definition fun_from_outs_def:
+  fun_from_outs preamble [] = preamble ∧
+  fun_from_outs preamble (v::rest_v) =
+     fun_from_outs (λx. preamble (Fun (internal_varN_from_ident v) x)) rest_v
+End
+
+(* Declares additional parameters using Fun x => ... *)
+Definition fun_from_params_def:
+  (fun_from_params preamble [] = return preamble) ∧
+  (fun_from_params preamble (fo::rest) =
+   do
+     param_name <- internal_varN_from_formal fo;
+     preamble <<- (λx. preamble (Fun param_name x));
+     fun_from_params preamble rest
+   od)
+End
+
+(* Declares and initializes references for the parameters that the body will use
+ *
+ * We do this since within the body the parameter names act as variables, which
+ * we encode using references. *)
+Definition ref_from_params_def:
+  (ref_from_params preamble [] = return preamble) ∧
+  (ref_from_params preamble (fo::rest) =
+   do
+     ref_name <- varN_from_formal fo;
+     ref_value_name <- internal_varN_from_formal fo;
+     preamble <<- (λx. preamble ((cml_ref ref_name
+                                          (Var (Short ref_value_name)) x)));
+     ref_from_params preamble rest
+   od)
+End
+
 Definition gen_param_preamble_epilogue_def:
   gen_param_preamble_epilogue env [] [] [] =
   do
-    (* Encode method without parameters or out as foo () = x *)
     param <<- "";
-    preamble <<- λx. (return (Mat (Var (Short "")) [(Pcon NONE [], x)]));
+    preamble <<- λx. x;
     epilogue <<- Unit;
     return (env, param, preamble, epilogue)
   od ∧
   gen_param_preamble_epilogue env [] (t::rest_t) (v::rest_v) =
   do
-    param <- internal_varN_from_ident v;
-    preamble <- preamble_from_outs (λx. return x) rest_v;
+    param <<- internal_varN_from_ident v;
+    preamble <<- fun_from_outs (λx. x) rest_v;
     (env, epilogue) <- env_and_epilogue_from_outs env (λx. x)
                                                   (t::rest_t) (v::rest_v);
     return (env, param, preamble, epilogue)
@@ -872,20 +782,39 @@ Definition gen_param_preamble_epilogue_def:
   gen_param_preamble_epilogue env (p::rest_p) outTypes outVars =
   do
     param <- internal_varN_from_formal p;
-    preamble <<- (λx. do
-                        if rest_p ≠ [] then
-                          do
-                            param_refs <- declare_init_param_refs (p::rest_p) x;
-                            param_defs_from_formals rest_p param_refs
-                          od
-                        else
-                          declare_init_param_refs (p::rest_p) x
-                      od);
-    env <- param_type_env (p::rest_p);
-    preamble <- preamble_from_outs preamble outVars;
+    preamble <- fun_from_params (λx. x) rest_p;
+    preamble <<- fun_from_outs preamble outVars;
+    preamble <- ref_from_params preamble (p::rest_p);
+    env <- param_type_env (p::rest_p) env;
     (env, epilogue) <- env_and_epilogue_from_outs env (λx. x)
                                                   outTypes outVars;
     return (env, param, preamble, epilogue)
+  od
+End
+
+Definition gen_param_preamble_def:
+  gen_param_preamble env params =
+  do
+    (env, param, preamble, _) <- gen_param_preamble_epilogue env params [] [];
+    return (env, param, preamble)
+  od
+End
+
+Definition process_function_body_def:
+  process_function_body env preamble stmts =
+   do
+     (env, cml_body) <- from_stmts T env 0 Unit stmts;
+     return (preamble cml_body)
+   od
+End
+
+Definition process_method_body_def:
+  process_method_body env preamble epilogue body =
+  do
+    (_, cml_body) <- from_stmts F env 0 epilogue body;
+    cml_body <<- (Handle cml_body
+                   [Pcon (SOME (Short return_exn_name)) [], Unit]);
+    return (preamble cml_body)
   od
 End
 
@@ -896,15 +825,15 @@ Definition from_classItem_def:
     is_method <- method_is_method m;
     if is_function then
       do
-        (_, _, _, nam, _, params, body, _, _) <- dest_Method m;
+        (_, _, _, nam, _, params, body, _, _) <<- dest_Method m;
         fun_name <<- dest_Name nam;
-        (env, cml_param, preamble) <- process_params env params;
+        (env, cml_param, preamble) <- gen_param_preamble env params;
         cml_body <- process_function_body env preamble body;
         return (fun_name, cml_param, cml_body)
       od
     else if is_method then
       do
-        (_, _, _, nam, _, params, body, outTypes, outVars) <- dest_Method m;
+        (_, _, _, nam, _, params, body, outTypes, outVars) <<- dest_Method m;
         outVars <- dest_SOME outVars;
         fun_name <<- dest_Name nam;
         (env, cml_param,
