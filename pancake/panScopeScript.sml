@@ -16,9 +16,9 @@ End
 Definition scope_check_exp_def:
   scope_check_exp ctxt (Const c) = NONE ∧
   scope_check_exp ctxt (Var vname) =
-    (if ¬MEM vname ctxt.vars then SOME (vname, ctxt.fname) else NONE) ∧
+    (if ¬MEM vname ctxt.vars then SOME (INL vname, ctxt.fname) else NONE) ∧
   scope_check_exp ctxt (Label fname) =
-    (if ¬MEM fname ctxt.funcs then SOME (fname, ctxt.fname) else NONE) ∧
+    (if ¬MEM fname ctxt.funcs then SOME (INR fname, ctxt.fname) else NONE) ∧
   scope_check_exp ctxt (Struct es) =
     scope_check_exps ctxt es ∧
   scope_check_exp ctxt (Field index e) = scope_check_exp ctxt e ∧
@@ -51,7 +51,7 @@ Definition scope_check_prog_def:
          (scope_check_prog (ctxt with vars := v :: ctxt.vars) p)) ∧
   scope_check_prog ctxt (Assign v e) =
     (if ¬MEM v ctxt.vars
-        then SOME (v, ctxt.fname)
+        then SOME (INL v, ctxt.fname)
      else scope_check_exp ctxt e) ∧
   scope_check_prog ctxt (Store ad v) =
     OPTION_CHOICE (scope_check_exp ctxt ad)
@@ -81,13 +81,13 @@ Definition scope_check_prog_def:
       (OPTION_CHOICE
         (scope_check_exps ctxt args)
         (if ¬MEM rt ctxt.vars
-            then SOME (rt, ctxt.fname)
+            then SOME (INL rt, ctxt.fname)
          else
            case hdl of
              NONE => NONE
            | SOME (eid, evar, p) =>
                if ¬MEM evar ctxt.vars
-                  then SOME (evar, ctxt.fname)
+                  then SOME (INL evar, ctxt.fname)
                else scope_check_prog (ctxt with vars := evar :: ctxt.vars) p)) ∧
   scope_check_prog ctxt (StandAloneCall hdl trgt args) =
     OPTION_CHOICE
@@ -98,7 +98,7 @@ Definition scope_check_prog_def:
              NONE => NONE
            | SOME (eid, evar, p) =>
                if ¬MEM evar ctxt.vars
-                  then SOME (evar, ctxt.fname)
+                  then SOME (INL evar, ctxt.fname)
                else scope_check_prog (ctxt with vars := evar :: ctxt.vars) p)) ∧
   scope_check_prog ctxt (ExtCall fname ptr1 len1 ptr2 len2) =
     scope_check_exps ctxt [ptr1;len1;ptr2;len2] ∧
@@ -106,7 +106,7 @@ Definition scope_check_prog_def:
   scope_check_prog ctxt (Return rt) = scope_check_exp ctxt rt ∧
   scope_check_prog ctxt (ShMemLoad mop v e) =
     (if ¬MEM v ctxt.vars
-        then SOME (v, ctxt.fname)
+        then SOME (INL v, ctxt.fname)
      else scope_check_exp ctxt e) ∧
   scope_check_prog ctxt (ShMemStore mop e1 e2) =
     OPTION_CHOICE (scope_check_exp ctxt e1)

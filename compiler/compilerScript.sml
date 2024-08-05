@@ -178,7 +178,7 @@ Datatype:
                 | TypeError mlstring
                 | AssembleError
                 | ConfigError mlstring
-                | ScopeError mlstring mlstring
+                | ScopeError (mlstring + mlstring) mlstring
                 | WarningError mlstring
 End
 
@@ -312,7 +312,11 @@ Definition error_to_str_def:
   (error_to_str (ConfigError s) = concat [strlit "### ERROR: config error\n"; s; strlit "\n"]) /\
   (error_to_str AssembleError = strlit "### ERROR: assembly error\n") /\
   (error_to_str (ScopeError name fname) =
-    concat [strlit "### ERROR: scope error\n"; name; strlit " is not in scope in "; fname; strlit "\n"]) /\
+    case name of
+    | INL v =>
+      concat [strlit "### ERROR: scope error\nvariable "; v; strlit " is not in scope in "; fname; strlit "\n"]
+    | INR f =>
+      concat [strlit "### ERROR: scope error\nfunction "; f; strlit " is not in scope in "; fname; strlit "\n"]) /\
   (error_to_str (WarningError s) = concat [strlit "### WARNING:\n"; s; strlit "\n"])
 End
 
