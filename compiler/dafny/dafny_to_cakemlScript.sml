@@ -409,6 +409,8 @@ Definition dafny_type_of_def:
             return (Primitive Int)
           else if (bop = Minus ∧ e1_t = (Primitive Int) ∧ e1_t = e2_t) then
             return (Primitive Int)
+          else if (bop = Times ∧ e1_t = (Primitive Int) ∧ e1_t = e2_t) then
+            return (Primitive Int)
           else if (bop = Concat ∧ e1_t = (Primitive String) ∧
                    e1_t = e2_t) then
             return (Primitive String)
@@ -542,6 +544,11 @@ Definition from_expression_def:
             return (App (Opn Minus) [cml_e1; cml_e2])
           else
             fail "from_binOp (Minus): Unsupported types"
+      | Times =>
+          if (e1_t = (Primitive Int) ∧ e1_t = e2_t) then
+            return (App (Opn Times) [cml_e1; cml_e2])
+          else
+            fail "from_binOp (Times): Unsupported types"
       | Concat =>
           if (e1_t = (Primitive String) ∧ e1_t = e2_t) then
             return (cml_fapp (Var (Long "String" (Short "strcat"))) [cml_e1; cml_e2])
@@ -893,7 +900,7 @@ open TextIO
 (* val _ = astPP.disable_astPP(); *)
 (* val _ = astPP.enable_astPP(); *)
 
-val inStream = TextIO.openIn "./tests/multiple_out_values.sexp";
+val inStream = TextIO.openIn "./tests/factorial.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
