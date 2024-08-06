@@ -178,7 +178,7 @@ Datatype:
                 | TypeError mlstring
                 | AssembleError
                 | ConfigError mlstring
-                | ScopeError (mlstring + mlstring) mlstring
+                | ScopeError unbound
                 | WarningError mlstring
 End
 
@@ -291,8 +291,8 @@ Definition compile_pancake_def:
            errs), Nil, [])
   | INL funs =>
       case scope_check funs of
-      | (SOME (x, fname), warn_strs) => (Failure (ScopeError x fname),Nil, MAP (WarningError o implode) warn_strs)
-      | (NONE, warn_strs) =>
+      | (StatFailure unb warn_strs) => (Failure (ScopeError unb),Nil, MAP (WarningError o implode) warn_strs)
+      | (StatSuccess () warn_strs) =>
           let _ = empty_ffi (strlit "finished: lexing and parsing") in
           case pan_passes$pan_compile_tap c funs of
           | (NONE,td) => (Failure AssembleError,td, MAP (WarningError o implode) warn_strs)
@@ -311,11 +311,11 @@ Definition error_to_str_def:
      else s) /\
   (error_to_str (ConfigError s) = concat [strlit "### ERROR: config error\n"; s; strlit "\n"]) /\
   (error_to_str AssembleError = strlit "### ERROR: assembly error\n") /\
-  (error_to_str (ScopeError name fname) =
-    case name of
-    | INL v =>
+  (error_to_str (ScopeError unb) =
+    case unb of
+    | UnbVar v fname =>
       concat [strlit "### ERROR: scope error\nvariable "; v; strlit " is not in scope in "; fname; strlit "\n"]
-    | INR f =>
+    | UnbFunc f fname =>
       concat [strlit "### ERROR: scope error\nfunction "; f; strlit " is not in scope in "; fname; strlit "\n"]) /\
   (error_to_str (WarningError s) = concat [strlit "### WARNING:\n"; s; strlit "\n"])
 End
