@@ -291,12 +291,12 @@ Definition compile_pancake_def:
            errs), Nil, [])
   | INL funs =>
       case scope_check funs of
-      | (StatFailure unb warn_strs) => (Failure (ScopeError unb),Nil, MAP (WarningError o implode) warn_strs)
-      | (StatSuccess () warn_strs) =>
+      | (error unb, warn_strs) => (Failure (ScopeError unb),Nil, MAP WarningError warn_strs)
+      | (return (), warn_strs) =>
           let _ = empty_ffi (strlit "finished: lexing and parsing") in
           case pan_passes$pan_compile_tap c funs of
-          | (NONE,td) => (Failure AssembleError,td, MAP (WarningError o implode) warn_strs)
-          | (SOME (bytes,data,c),td) => (Success (bytes,data,c),td, MAP (WarningError o implode) warn_strs)
+          | (NONE,td) => (Failure AssembleError,td, MAP WarningError warn_strs)
+          | (SOME (bytes,data,c),td) => (Success (bytes,data,c),td, MAP WarningError warn_strs)
 End
 
 (* The top-level compiler *)
