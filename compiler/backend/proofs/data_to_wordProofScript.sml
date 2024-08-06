@@ -2107,7 +2107,7 @@ Triviality word_good_handlers_try_if_hoist2:
   word_good_handlers n p1 /\ word_good_handlers n p2 /\ word_good_handlers n interm ==>
   word_good_handlers n p3
 Proof
-  ho_match_mp_tac try_if_hoist2_pmatch_ind
+  ho_match_mp_tac try_if_hoist2_ind
   \\ rpt gen_tac
   \\ rpt disch_tac
   \\ REWRITE_TAC [Once try_if_hoist2_def]
@@ -2124,7 +2124,7 @@ QED
 Triviality word_good_handlers_simp_duplicate_if:
   !p. word_good_handlers n p ==> word_good_handlers n (simp_duplicate_if p)
 Proof
-  ho_match_mp_tac simp_duplicate_if_pmatch_ind
+  ho_match_mp_tac simp_duplicate_if_ind
   \\ rw []
   \\ simp [Once simp_duplicate_if_def]
   \\ Cases_on `p` \\ fs []
@@ -2142,7 +2142,7 @@ Triviality word_get_code_labels_try_if_hoist2:
   word_get_code_labels p3 SUBSET
   (word_get_code_labels p1 UNION word_get_code_labels interm UNION word_get_code_labels p2)
 Proof
-  ho_match_mp_tac try_if_hoist2_pmatch_ind
+  ho_match_mp_tac try_if_hoist2_ind
   \\ rpt gen_tac
   \\ rpt disch_tac
   \\ REWRITE_TAC [Once try_if_hoist2_def]
@@ -2172,7 +2172,7 @@ QED
 Triviality word_get_code_labels_simp_duplicate_if:
   !p. word_get_code_labels (simp_duplicate_if p) SUBSET word_get_code_labels p
 Proof
-  ho_match_mp_tac simp_duplicate_if_pmatch_ind
+  ho_match_mp_tac simp_duplicate_if_ind
   \\ rw []
   \\ simp [Once simp_duplicate_if_def]
   \\ Cases_on `p` \\ fs []

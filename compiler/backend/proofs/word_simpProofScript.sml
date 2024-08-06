@@ -1159,7 +1159,7 @@ Triviality evaluate_try_if_hoist2:
   gc_fun_const_ok s.gc_fun ==>
   evaluate (p3, s) = evaluate (Seq (Seq p1 interm) p2, s)
 Proof
-  ho_match_mp_tac try_if_hoist2_pmatch_ind
+  ho_match_mp_tac try_if_hoist2_ind
   \\ rpt gen_tac
   \\ rpt disch_tac
   \\ REWRITE_TAC [Once try_if_hoist2_def]
@@ -1204,17 +1204,11 @@ Proof
   \\ simp [Seq_assoc_def]
 QED
 
-Triviality DISJ_CONTR_1_INTRO:
-  (~ P ==> Q) ==> P \/ Q
-Proof
-  metis_tac []
-QED
-
 Theorem evaluate_simp_duplicate_if:
   !p s. gc_fun_const_ok s.gc_fun ==>
   evaluate (simp_duplicate_if p, s) = evaluate (p, s)
 Proof
-  ho_match_mp_tac simp_duplicate_if_pmatch_ind
+  ho_match_mp_tac simp_duplicate_if_ind
   \\ rw []
   \\ simp [Once simp_duplicate_if_def]
   \\ ((Cases_on `p` \\ fs []) >~ [`Seq`] >~ [`Call`])
@@ -1299,7 +1293,7 @@ Triviality labels_rel_hoist2:
   labels_rel (extract_labels p1 ++ extract_labels p2)
     (extract_labels p3)
 Proof
-  ho_match_mp_tac try_if_hoist2_pmatch_ind
+  ho_match_mp_tac try_if_hoist2_ind
   \\ rpt gen_tac
   \\ rpt disch_tac
   \\ REWRITE_TAC [Once try_if_hoist2_def]
@@ -1349,7 +1343,7 @@ QED
 Theorem labels_rel_simp_duplicate_if:
   !p. labels_rel (extract_labels p) (extract_labels (simp_duplicate_if p))
 Proof
-  ho_match_mp_tac simp_duplicate_if_pmatch_ind
+  ho_match_mp_tac simp_duplicate_if_ind
   \\ rw []
   \\ simp [Once simp_duplicate_if_def]
   \\ Cases_on `p` \\ fs []
@@ -1372,7 +1366,7 @@ Triviality not_created_subprogs_hoist2:
   not_created_subprogs P p2 ==>
   not_created_subprogs P p3
 Proof
-  ho_match_mp_tac try_if_hoist2_pmatch_ind
+  ho_match_mp_tac try_if_hoist2_ind
   \\ rpt gen_tac
   \\ disch_tac
   \\ REWRITE_TAC [Once try_if_hoist2_def]
@@ -1389,7 +1383,7 @@ Triviality not_created_subprogs_simp_duplicate_if:
   !p. not_created_subprogs P p ==>
   not_created_subprogs P (simp_duplicate_if p)
 Proof
-  ho_match_mp_tac simp_duplicate_if_pmatch_ind
+  ho_match_mp_tac simp_duplicate_if_ind
   \\ rw []
   \\ simp [Once simp_duplicate_if_def]
   \\ Cases_on `p` \\ fs [not_created_subprogs_def]
@@ -1446,7 +1440,7 @@ Triviality try_if_hoist2_no_inst:
   every_inst (inst_ok_less ac) p2 ==>
   every_inst (inst_ok_less ac) p3
 Proof
-  ho_match_mp_tac try_if_hoist2_pmatch_ind
+  ho_match_mp_tac try_if_hoist2_ind
   \\ rpt gen_tac
   \\ rpt disch_tac
   \\ REWRITE_TAC [Once try_if_hoist2_def]
@@ -1460,7 +1454,7 @@ QED
 Triviality simp_duplicate_if_no_inst:
   !p. every_inst (inst_ok_less ac) p ==> every_inst (inst_ok_less ac) (simp_duplicate_if p)
 Proof
-  ho_match_mp_tac simp_duplicate_if_pmatch_ind
+  ho_match_mp_tac simp_duplicate_if_ind
   \\ rw []
   \\ simp [Once simp_duplicate_if_def]
   \\ Cases_on `p` \\ fs []
