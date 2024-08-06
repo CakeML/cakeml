@@ -245,6 +245,40 @@ val _ = cv_trans (backend_x64Theory.to_lab_all_x64_def
                     |> SRULE [data_to_wordTheory.max_heap_limit_def,
                               backend_64_cvTheory.inline]);
 
+(* export *)
+
+Definition export_funcs_alt_def:
+  export_funcs_alt [] e = e ∧
+  export_funcs_alt (x::xs) e = export_funcs_alt xs (export_func e x)
+End
+
+Theorem export_funcs_alt_thm:
+  ∀xs e. export_funcs_alt xs e = FOLDL export_func e xs
+Proof
+  Induct >> rw[export_funcs_alt_def]
+QED
+
+val _ = cv_auto_trans export_funcs_alt_def;
+
+val _ = cv_auto_trans
+        (export_x64Theory.export_funcs_def
+           |> SRULE [combinTheory.o_DEF, combinTheory.C_DEF,GSYM export_funcs_alt_thm,
+                     MEM_EXISTS]);
+
+val _ = cv_auto_trans
+        (export_x64Theory.x64_export_def
+           |> REWRITE_RULE [to_words_line_word,
+                            to_words_line_byte,
+                            split16_eq_chunks16]);
+
+(* main translations below *)
+
+val _ = cv_trans backend_x64Theory.to_livesets_x64_def;
+val _ = cv_trans backend_x64Theory.compile_cake_x64_def;
+
+(* Explorer *)
+val _ = cv_auto_trans (str_treeTheory.smart_remove_def |> SRULE [GSYM GREATER_DEF]);
+
 Triviality dest_list_size_lemma:
   ∀x v w.
     (v,w) = dest_list x ⇒
@@ -291,8 +325,6 @@ Proof
   \\ pairarg_tac >> gvs[str_treeTheory.dest_list_def]
 QED
 
-val _ = cv_auto_trans (str_treeTheory.smart_remove_def |> SRULE [GSYM GREATER_DEF]);
-
 val _ = cv_trans str_treeTheory.dest_list_def;
 val cv_dest_list_def = fetch "-" "cv_dest_list_def";
 
@@ -333,42 +365,134 @@ Proof
   \\ rw [] \\ simp [Once pre] \\ gvs []
 QED
 
-val _ = cv_auto_trans (str_treeTheory.v2strs_def |> SRULE [v2pretty_eq_v2pretty_sing]);
+val _ = cv_trans (v2pretty_eq_v2pretty_sing |> CONJUNCT1);
 
-(* export *)
+val _ = cv_auto_trans str_treeTheory.v2strs_def;
 
-Definition export_funcs_alt_def:
-  export_funcs_alt [] e = e ∧
-  export_funcs_alt (x::xs) e = export_funcs_alt xs (export_func e x)
-End
+val _ = cv_trans_pre jsonLangTheory.num_to_hex_digit_def;
 
-Theorem export_funcs_alt_thm:
-  ∀xs e. export_funcs_alt xs e = FOLDL export_func e xs
+Theorem num_to_hex_digit_pre[cv_pre]:
+  ∀n. num_to_hex_digit_pre n
 Proof
-  Induct >> rw[export_funcs_alt_def]
+  rw[fetch "-""num_to_hex_digit_pre_cases"]
 QED
 
-val _ = cv_auto_trans export_funcs_alt_def;
+val _ = cv_trans_pre_rec presLangTheory.num_to_hex_def
+  (WF_REL_TAC ‘measure cv_size’
+   \\ cv_termination_tac
+   \\ Cases_on`cv_n`
+   \\ gvs[cvTheory.cv_div_def,cvTheory.c2b_def]
+   \\ intLib.ARITH_TAC);
 
-val _ = cv_auto_trans
-        (export_x64Theory.export_funcs_def
-           |> SRULE [combinTheory.o_DEF, combinTheory.C_DEF,GSYM export_funcs_alt_thm,
-                     MEM_EXISTS]);
+Theorem num_to_hex_pre[cv_pre]:
+  ∀n. num_to_hex_pre n
+Proof
+  completeInduct_on`n`>>
+  rw[Once (fetch "-""num_to_hex_pre_cases")]
+QED
 
-val _ = cv_auto_trans
-        (export_x64Theory.x64_export_def
-           |> REWRITE_RULE [to_words_line_word,
-                            to_words_line_byte,
-                            split16_eq_chunks16]);
+val _ = cv_auto_trans presLangTheory.ast_t_to_display_def;
 
-(* main translations below *)
+val _ = cv_auto_trans presLangTheory.pat_to_display_def;
 
-val _ = cv_trans backend_x64Theory.to_livesets_x64_def;
-val _ = cv_trans backend_x64Theory.compile_cake_x64_def;
+Theorem foo:
+  presLang$exp_to_display x = List []
+Proof
+  cheat
+QED
 
-(*
+val _ = cv_trans foo;
+
+val _ = cv_auto_trans presLangTheory.source_to_display_dec_def;
+
+val _ = cv_auto_trans presLangTheory.flat_pat_to_display_def;
+
+Theorem foo:
+  presLang$flat_to_display x = List []
+Proof
+  cheat
+QED
+
+val _ = cv_trans foo;
+
+val _ = cv_auto_trans displayLangTheory.display_to_str_tree_def;
+
+val _ = cv_trans_pre_rec presLangTheory.num_to_varn_def
+  (WF_REL_TAC ‘measure cv_size’
+   \\ cv_termination_tac
+   \\ Cases_on`cv_n`
+   \\ gvs[cvTheory.cv_div_def,cvTheory.c2b_def]
+   \\ intLib.ARITH_TAC);
+
+Theorem num_to_varn_pre[cv_pre]:
+  ∀n. num_to_varn_pre n
+Proof
+  completeInduct_on`n`>>
+  rw[Once (fetch "-""num_to_varn_pre_cases")]
+  >- (
+    first_x_assum match_mp_tac>>
+    intLib.ARITH_TAC)>>
+  intLib.ARITH_TAC
+QED
+
+val _ = cv_trans_pre_rec presLangTheory.num_to_varn_list_def
+  (WF_REL_TAC ‘measure (cv_size o SND)’
+   \\ cv_termination_tac
+   \\ Cases_on`cv_n`
+   \\ gvs[cvTheory.cv_div_def,cvTheory.c2b_def]);
+
+Theorem num_to_varn_list_pre[cv_pre]:
+  ∀ls n. num_to_varn_list_pre ls n
+Proof
+  completeInduct_on`n`>>
+  rw[Once (fetch "-""num_to_varn_list_pre_cases")]
+QED
+
+val _ = cv_auto_trans presLangTheory.const_to_display_def;
+
+val pre = cv_auto_trans_pre presLangTheory.clos_to_display_def;
+
+Theorem clos_to_display_pre[cv_pre]:
+  (∀ns h v. clos_to_display_pre ns h v) ∧
+  (∀ns h v. clos_to_display_list_pre ns h v) ∧
+  (∀ns h i v. clos_to_display_lets_pre ns h i v) ∧
+  (∀ns h i len v. clos_to_display_letrecs_pre ns h i len v)
+Proof
+  ho_match_mp_tac presLangTheory.clos_to_display_ind \\
+  rw[] \\ simp[Once pre]
+QED
+
+val pre = cv_auto_trans_pre presLangTheory.bvl_to_display_def;
+
+Theorem bvl_to_display_pre[cv_pre]:
+  (∀ns h v. bvl_to_display_pre ns h v) ∧
+  (∀ns h v. bvl_to_display_list_pre ns h v) ∧
+  (∀ns h i v. bvl_to_display_lets_pre ns h i v)
+Proof
+  ho_match_mp_tac presLangTheory.bvl_to_display_ind \\
+  rw[] \\ simp[Once pre]
+QED
+
+val pre = cv_auto_trans_pre presLangTheory.bvi_to_display_def;
+
+Theorem bvi_to_display_pre[cv_pre]:
+  (∀ns h v. bvi_to_display_pre ns h v) ∧
+  (∀ns h v. bvi_to_display_list_pre ns h v) ∧
+  (∀ns h i v. bvi_to_display_lets_pre ns h i v)
+Proof
+  ho_match_mp_tac presLangTheory.bvi_to_display_ind \\
+  rw[] \\ simp[Once pre]
+QED
+
+val _ = cv_auto_trans_rec presLangTheory.data_prog_to_display_def cheat;
+
+val _ = cv_auto_trans presLangTheory.word_exp_to_display_def;
+
+val _ = cv_auto_trans_rec presLangTheory.word_prog_to_display_def cheat;
+
+val _ = cv_auto_trans_rec presLangTheory.stack_prog_to_display_def cheat;
+
 val _ = cv_auto_trans backend_x64Theory.compile_cake_explore_x64_def;
-*)
 
 (* lemma used by automation *)
 

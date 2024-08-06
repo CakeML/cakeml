@@ -2153,6 +2153,8 @@ Proof
   \\ rpt strip_tac \\ simp [Once pre]
 QED
 
+val _ = cv_trans (clos_to_bvlTheory.get_src_names_sing_eq |> CONJUNCT2);
+
 val _ = cv_auto_trans clos_to_bvlTheory.make_name_alist_eq;
 
 val pre = cv_auto_trans_pre clos_to_bvlTheory.recc_Lets_def;
