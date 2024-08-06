@@ -942,7 +942,9 @@ Proof
 QED
 
 Definition data_prog_to_display_def:
-  (data_prog_to_display ns prog = case prog of
+  (data_prog_to_display 0 ns prog = empty_item (strlit "...") ) ∧
+  (data_prog_to_display (SUC k) ns prog =
+      case prog of
     | dataLang$Skip => empty_item (strlit "skip")
     | dataLang$Move x y => Tuple
         [num_to_display x; String (strlit ":="); num_to_display y]
@@ -958,7 +960,7 @@ Definition data_prog_to_display_def:
             String (attach_name ns target);
             list_to_display num_to_display args;
             Item NONE (strlit "some") [Tuple [num_to_display v;
-                data_prog_to_display ns handler]]]
+                data_prog_to_display k ns handler]]]
     | Assign n op args n_set => Tuple
         [num_to_display n;
          String (strlit ":=");
@@ -967,25 +969,26 @@ Definition data_prog_to_display_def:
             option_to_display num_set_to_display n_set]
     | Seq x y =>
         (let xs = append (Append (data_seqs x) (data_seqs y)) in
-           separate_lines (strlit "seq") (data_prog_to_display_list ns xs))
+           separate_lines (strlit "seq") (data_prog_to_display_list k ns xs))
     | If n x y => Item NONE (strlit "if")
-        [num_to_display n; data_prog_to_display ns x; data_prog_to_display ns y]
+        [num_to_display n; data_prog_to_display k ns x; data_prog_to_display k ns y]
     | MakeSpace n ns => Item NONE (strlit "make_space")
         [num_to_display n; num_set_to_display ns]
     | Raise n => Item NONE (strlit "raise") [num_to_display n]
     | Return n => Item NONE (strlit "return") [num_to_display n]
     | Tick => empty_item (strlit "tick")
   )  ∧
-  (data_prog_to_display_list ns [] = []) ∧
-  (data_prog_to_display_list ns (x::xs) =
-    data_prog_to_display ns x :: data_prog_to_display_list ns xs)
+  (data_prog_to_display_list k ns [] = []) ∧
+  (data_prog_to_display_list k ns (x::xs) =
+    case k of
+      0 => []
+    | SUC k =>
+    data_prog_to_display k ns x :: data_prog_to_display_list k ns xs)
 Termination
-  (* more careful measure needed because every Seq increases length by 2 *)
   WF_REL_TAC ‘measure $ λx.
   case x of
-    INL (_,v) => prog_size v
-  | INR (_,v) => list_size prog_size v’
-  \\ cheat
+    INL (k,_,_) => k
+  | INR (k,_,_) => k’
 End
 
 Definition data_fun_to_display_def:
@@ -993,7 +996,7 @@ Definition data_fun_to_display_def:
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (GENLIST num_to_display argc);
-           data_prog_to_display names body]
+           data_prog_to_display 1000000000 names body]
 End
 
 (* asm *)
@@ -1144,16 +1147,17 @@ Proof
 QED
 
 Definition stack_prog_to_display_def:
-  stack_prog_to_display ns stackLang$Skip = empty_item «skip» ∧
-  stack_prog_to_display ns (Inst i) = asm_inst_to_display i ∧
-  stack_prog_to_display ns (Get n sn) = Tuple
+  stack_prog_to_display 0 ns prog = empty_item «...» ∧
+  stack_prog_to_display (SUC k) ns stackLang$Skip = empty_item «skip» ∧
+  stack_prog_to_display (SUC k) ns (Inst i) = asm_inst_to_display i ∧
+  stack_prog_to_display (SUC k) ns (Get n sn) = Tuple
     [num_to_display n; String (strlit "<-"); store_name_to_display sn] ∧
-  stack_prog_to_display ns (Set sn n) = Tuple
+  stack_prog_to_display (SUC k) ns (Set sn n) = Tuple
     [store_name_to_display sn; String (strlit "<-"); num_to_display n] ∧
-  stack_prog_to_display ns (OpCurrHeap b n1 n2) = Tuple
+  stack_prog_to_display (SUC k) ns (OpCurrHeap b n1 n2) = Tuple
     [num_to_display n1; String (strlit ":="); String (strlit "CurrHeap");
      asm_binop_to_display b; num_to_display n2] ∧
-  stack_prog_to_display ns (Call rh tgt eh) =
+  stack_prog_to_display (SUC k) ns (Call rh tgt eh) =
     Item NONE «call»
          [(case rh of
            | NONE => empty_item «tail»
@@ -1162,7 +1166,7 @@ Definition stack_prog_to_display_def:
                     [num_to_display lr;
                      String (attach_name ns (SOME l1));
                      num_to_display l2;
-                     stack_prog_to_display ns p]);
+                     stack_prog_to_display k ns p]);
          (case tgt of
           | INL l => Item NONE «direct» [String (attach_name ns (SOME l))]
           | INR r => item_with_num «reg» r);
@@ -1172,80 +1176,80 @@ Definition stack_prog_to_display_def:
               Item NONE «handler»
                    [String (attach_name ns (SOME l1));
                     num_to_display l2;
-                    stack_prog_to_display ns p])] ∧
-   stack_prog_to_display ns (Seq x y) =
+                    stack_prog_to_display k ns p])] ∧
+   stack_prog_to_display (SUC k) ns (Seq x y) =
         (let xs = append (Append (stack_seqs x) (stack_seqs y)) in
-           separate_lines (strlit "seq") (stack_prog_to_display_list ns xs)) ∧
-   stack_prog_to_display ns (If c n to x y) = Item NONE «if»
+           separate_lines (strlit "seq") (stack_prog_to_display_list k ns xs)) ∧
+   stack_prog_to_display (SUC k) ns (If c n to x y) = Item NONE «if»
         [Tuple [asm_cmp_to_display c; num_to_display n; asm_reg_imm_to_display to];
-         stack_prog_to_display ns x;
-         stack_prog_to_display ns y] ∧
-   stack_prog_to_display ns (While c n to x) = Item NONE «while»
+         stack_prog_to_display k ns x;
+         stack_prog_to_display k ns y] ∧
+   stack_prog_to_display (SUC k) ns (While c n to x) = Item NONE «while»
         [Tuple [asm_cmp_to_display c; num_to_display n; asm_reg_imm_to_display to];
-         stack_prog_to_display ns x] ∧
-   stack_prog_to_display ns (JumpLower n1 n2 n3) =
+         stack_prog_to_display k ns x] ∧
+   stack_prog_to_display (SUC k) ns (JumpLower n1 n2 n3) =
      item_with_nums «jump_lower» [n1; n2; n3] ∧
-   stack_prog_to_display ns (Alloc n) = item_with_num «alloc» n ∧
-   stack_prog_to_display ns (StoreConsts n1 n2 _) = item_with_nums «store_consts» [n1; n2] ∧
-   stack_prog_to_display ns (Raise n) = item_with_num «raise» n ∧
-   stack_prog_to_display ns (Return n1 n2) = item_with_nums «return» [n1; n2] ∧
-   stack_prog_to_display ns (FFI nm cp cl ap al ra) = Item NONE «ffi»
+   stack_prog_to_display (SUC k) ns (Alloc n) = item_with_num «alloc» n ∧
+   stack_prog_to_display (SUC k) ns (StoreConsts n1 n2 _) = item_with_nums «store_consts» [n1; n2] ∧
+   stack_prog_to_display (SUC k) ns (Raise n) = item_with_num «raise» n ∧
+   stack_prog_to_display (SUC k) ns (Return n1 n2) = item_with_nums «return» [n1; n2] ∧
+   stack_prog_to_display (SUC k) ns (FFI nm cp cl ap al ra) = Item NONE «ffi»
         (string_imp nm :: MAP num_to_display [cp; cl; ap; al; ra]) ∧
-   stack_prog_to_display ns (Tick) = empty_item «tick» ∧
-   stack_prog_to_display ns (LocValue n1 n2 n3) =
+   stack_prog_to_display (SUC k) ns (Tick) = empty_item «tick» ∧
+   stack_prog_to_display (SUC k) ns (LocValue n1 n2 n3) =
      Item NONE «loc_value» [num_to_display n1;
                             String (attach_name ns (SOME n2));
                             num_to_display n3] ∧
-   stack_prog_to_display ns (Install n1 n2 n3 n4 n5) =
+   stack_prog_to_display (SUC k) ns (Install n1 n2 n3 n4 n5) =
      item_with_nums «install» [n1; n2; n3; n4; n5] ∧
-   stack_prog_to_display ns (ShMemOp mop r a) =
+   stack_prog_to_display (SUC k) ns (ShMemOp mop r a) =
      Item NONE (strlit "sh_mem") [asm_memop_to_display mop;
                                   num_to_display r; asm_addr_to_display a] ∧
-   stack_prog_to_display ns (CodeBufferWrite n1 n2) =
+   stack_prog_to_display (SUC k) ns (CodeBufferWrite n1 n2) =
      item_with_nums «code_buffer_write» [n1; n2] ∧
-   stack_prog_to_display ns (DataBufferWrite n1 n2) =
+   stack_prog_to_display (SUC k) ns (DataBufferWrite n1 n2) =
      item_with_nums «data_buffer_write» [n1; n2] ∧
-   stack_prog_to_display ns (RawCall n) =
+   stack_prog_to_display (SUC k) ns (RawCall n) =
      Item NONE «raw_call» [String (attach_name ns (SOME n))] ∧
-   stack_prog_to_display ns (StackAlloc n) = item_with_num «stack_alloc» n ∧
-   stack_prog_to_display ns (StackFree n) = item_with_num «stack_free» n ∧
-   stack_prog_to_display ns (StackStore n m) =
+   stack_prog_to_display (SUC k) ns (StackAlloc n) = item_with_num «stack_alloc» n ∧
+   stack_prog_to_display (SUC k) ns (StackFree n) = item_with_num «stack_free» n ∧
+   stack_prog_to_display (SUC k) ns (StackStore n m) =
      Tuple [String («stack[» ^ num_to_hex_mlstring n ^ «] := » ^ toString m)] ∧
-   stack_prog_to_display ns (StackStoreAny n m) =
+   stack_prog_to_display (SUC k) ns (StackStoreAny n m) =
      Tuple [String («stack[var » ^ toString n ^ «] := » ^ toString m)] ∧
-   stack_prog_to_display ns (StackLoad n m) =
+   stack_prog_to_display (SUC k) ns (StackLoad n m) =
      Tuple [String (concat [toString n;
                             strlit " := stack[";
                             num_to_hex_mlstring m; strlit"]"])] ∧
-   stack_prog_to_display ns (StackLoadAny n m) =
+   stack_prog_to_display (SUC k) ns (StackLoadAny n m) =
      Tuple [String (concat [toString n;
                             strlit " := stack[var ";
                             toString m; strlit"]"])] ∧
-   stack_prog_to_display ns (StackGetSize n) = item_with_num «stack_get_size» n ∧
-   stack_prog_to_display ns (StackSetSize n) = item_with_num «stack_set_size» n ∧
-   stack_prog_to_display ns (BitmapLoad n m) =
+   stack_prog_to_display (SUC k) ns (StackGetSize n) = item_with_num «stack_get_size» n ∧
+   stack_prog_to_display (SUC k) ns (StackSetSize n) = item_with_num «stack_set_size» n ∧
+   stack_prog_to_display (SUC k) ns (BitmapLoad n m) =
      Tuple [String (concat [toString n;
                             strlit " := bitmap[";
                             num_to_hex_mlstring m;
                             strlit"]"])] ∧
-   stack_prog_to_display ns (Halt n) = item_with_num «halt» n  ∧
-  (stack_prog_to_display_list ns [] = []) ∧
-  (stack_prog_to_display_list ns (x::xs) =
-    stack_prog_to_display ns x :: stack_prog_to_display_list ns xs)
+   stack_prog_to_display (SUC k) ns (Halt n) = item_with_num «halt» n  ∧
+  (stack_prog_to_display_list k ns [] = []) ∧
+  (stack_prog_to_display_list k ns (x::xs) =
+    case k of 0 => []
+    | SUC k =>
+    stack_prog_to_display k ns x :: stack_prog_to_display_list k ns xs)
 Termination
   WF_REL_TAC ‘measure $ λx.
   case x of
-    INL (_,v) => prog_size ARB v
-  | INR (_,v) => list_size (prog_size ARB) v’ >>
-  rw[list_size_append] >>
-  cheat
+    INL (k,_,_) => k
+  | INR (k,_,_) => k’
 End
 
 Definition stack_fun_to_display_def:
   stack_fun_to_display names (n,body) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
-           stack_prog_to_display names body]
+           stack_prog_to_display 1000000000 names body]
 End
 
 (* labLang *)
@@ -1341,95 +1345,98 @@ Definition ws_to_display_def:
 End
 
 Definition word_prog_to_display_def:
-  (word_prog_to_display ns Skip = empty_item (strlit "skip")) /\
-  (word_prog_to_display ns (Move n mvs) = Item NONE (strlit "move")
+  (word_prog_to_display 0 ns x = empty_item (strlit "...")) /\
+  (word_prog_to_display (SUC k) ns Skip = empty_item (strlit "skip")) /\
+  (word_prog_to_display (SUC k) ns (Move n mvs) = Item NONE (strlit "move")
     [num_to_display n; displayLang$Tuple (MAP (\(n1, n2). Tuple
         [num_to_display n1;
          String (strlit ":=");
          num_to_display n2]) mvs)]) /\
-  (word_prog_to_display ns (Inst i) =
+  (word_prog_to_display (SUC k) ns (Inst i) =
     Item NONE (strlit "inst") [asm_inst_to_display i]) /\
-  (word_prog_to_display ns (Assign n exp) =
+  (word_prog_to_display (SUC k) ns (Assign n exp) =
      Tuple [num_to_display n;
             String (strlit ":=");
             word_exp_to_display exp]) /\
-  (word_prog_to_display ns (Get n sn) = Tuple
+  (word_prog_to_display (SUC k) ns (Get n sn) = Tuple
     [num_to_display n; String (strlit "<-"); store_name_to_display sn]) /\
-  (word_prog_to_display ns (Set sn exp) = Tuple
+  (word_prog_to_display (SUC k) ns (Set sn exp) = Tuple
     [store_name_to_display sn; String (strlit "<-"); word_exp_to_display exp]) /\
-  (word_prog_to_display ns (Store exp n) = Tuple
+  (word_prog_to_display (SUC k) ns (Store exp n) = Tuple
     [String (strlit "mem"); word_exp_to_display exp;
      String (strlit ":="); num_to_display n]) /\
-  (word_prog_to_display ns (ShareInst mop n exp) = Tuple
+  (word_prog_to_display (SUC k) ns (ShareInst mop n exp) = Tuple
     [String (strlit "share_mem"); asm_memop_to_display mop;
      num_to_display n; word_exp_to_display exp]) /\
-  (word_prog_to_display ns (MustTerminate prog) = Item NONE (strlit "must_terminate")
-    [word_prog_to_display ns prog]) /\
-  (word_prog_to_display ns (Call a b c d) = Item NONE (strlit "call")
-    [word_prog_to_display_ret ns a;
+  (word_prog_to_display (SUC k) ns (MustTerminate prog) = Item NONE (strlit "must_terminate")
+    [word_prog_to_display k ns prog]) /\
+  (word_prog_to_display (SUC k) ns (Call a b c d) = Item NONE (strlit "call")
+    [word_prog_to_display_ret k ns a;
      option_to_display (λn. String (attach_name ns (SOME n))) b;
      list_to_display num_to_display c;
-     word_prog_to_display_handler ns d]) /\
-  (word_prog_to_display ns (OpCurrHeap b n1 n2) = Tuple
+     word_prog_to_display_handler k ns d]) /\
+  (word_prog_to_display (SUC k) ns (OpCurrHeap b n1 n2) = Tuple
     [num_to_display n1; String (strlit ":="); String (strlit "CurrHeap");
      asm_binop_to_display b; num_to_display n2]) /\
-  (word_prog_to_display ns (Seq prog1 prog2) =
+  (word_prog_to_display (SUC k) ns (Seq prog1 prog2) =
     (let xs = append (Append (word_seqs prog1) (word_seqs prog2)) in
-       separate_lines (strlit "seq") (word_prog_to_display_list ns xs))) /\
-  (word_prog_to_display ns (If cmp n reg p1 p2) =
+       separate_lines (strlit "seq") (word_prog_to_display_list k ns xs))) /\
+  (word_prog_to_display (SUC k) ns (If cmp n reg p1 p2) =
     Item NONE (strlit "if")
       [Tuple [asm_cmp_to_display cmp;
               num_to_display n;
               asm_reg_imm_to_display reg];
-       word_prog_to_display ns p1; word_prog_to_display ns p2]) /\
-  (word_prog_to_display ns (Alloc n ms) = Item NONE (strlit "alloc")
+       word_prog_to_display k ns p1; word_prog_to_display k ns p2]) /\
+  (word_prog_to_display (SUC k) ns (Alloc n ms) = Item NONE (strlit "alloc")
     [num_to_display n; num_set_to_display ms]) /\
-  (word_prog_to_display ns (StoreConsts a b c d ws) = Item NONE (strlit "store_consts")
+  (word_prog_to_display (SUC k) ns (StoreConsts a b c d ws) = Item NONE (strlit "store_consts")
     [num_to_display a;
      num_to_display b;
      num_to_display c;
      num_to_display d;
      Tuple (ws_to_display ws)]) /\
-  (word_prog_to_display ns (Raise n) = item_with_num (strlit "raise") n) /\
-  (word_prog_to_display ns (Return n1 n2) = item_with_nums (strlit "return") [n1; n2]) /\
-  (word_prog_to_display ns Tick = empty_item (strlit "tick")) /\
-  (word_prog_to_display ns (LocValue n1 n2) =
+  (word_prog_to_display (SUC k) ns (Raise n) = item_with_num (strlit "raise") n) /\
+  (word_prog_to_display (SUC k) ns (Return n1 n2) = item_with_nums (strlit "return") [n1; n2]) /\
+  (word_prog_to_display (SUC k) ns Tick = empty_item (strlit "tick")) /\
+  (word_prog_to_display (SUC k) ns (LocValue n1 n2) =
     Item NONE (strlit "loc_value") [String (attach_name ns (SOME n1)); num_to_display n2]) /\
-  (word_prog_to_display ns (Install n1 n2 n3 n4 ms) =
+  (word_prog_to_display (SUC k) ns (Install n1 n2 n3 n4 ms) =
     Item NONE (strlit "install") (MAP num_to_display [n1; n2; n3; n4]
         ++ [num_set_to_display ms])) /\
-  (word_prog_to_display ns (CodeBufferWrite n1 n2) =
+  (word_prog_to_display (SUC k) ns (CodeBufferWrite n1 n2) =
     item_with_nums (strlit "code_buffer_write") [n1; n2]) /\
-  (word_prog_to_display ns (DataBufferWrite n1 n2) =
+  (word_prog_to_display (SUC k) ns (DataBufferWrite n1 n2) =
     item_with_nums (strlit "data_buffer_write") [n1; n2]) /\
-  (word_prog_to_display ns (FFI nm n1 n2 n3 n4 ms) =
+  (word_prog_to_display (SUC k) ns (FFI nm n1 n2 n3 n4 ms) =
     Item NONE (strlit "ffi") (string_imp nm :: MAP num_to_display [n1; n2; n3; n4]
         ++ [num_set_to_display ms]))  ∧
-  (word_prog_to_display_list ns [] = []) ∧
-  (word_prog_to_display_list ns (x::xs) =
-    word_prog_to_display ns x :: word_prog_to_display_list ns xs) /\
-  (word_prog_to_display_ret ns NONE = empty_item (strlit "tail")) /\
-  (word_prog_to_display_ret ns (SOME (n1, ms, prog, n2, n3)) =
+  (word_prog_to_display_list k ns [] = []) ∧
+  (word_prog_to_display_list k ns (x::xs) =
+    case k of 0 => []
+    | SUC k =>
+    word_prog_to_display k ns x :: word_prog_to_display_list k ns xs) /\
+  (word_prog_to_display_ret k ns NONE = empty_item (strlit "tail")) /\
+  (word_prog_to_display_ret k ns (SOME (n1, ms, prog, n2, n3)) =
+    case k of 0 => empty_item (strlit "...")
+    | SUC k =>
     Item NONE (strlit "returning") [Tuple [num_to_display n1; num_set_to_display ms;
-        word_prog_to_display ns prog;
+        word_prog_to_display k ns prog;
         String (attach_name ns (SOME n2));
         num_to_display n3]]) /\
-  (word_prog_to_display_handler ns NONE = empty_item (strlit "no_handler")) /\
-  (word_prog_to_display_handler ns (SOME (n1, prog, n2, n3)) =
+  (word_prog_to_display_handler k ns NONE = empty_item (strlit "no_handler")) /\
+  (word_prog_to_display_handler k ns (SOME (n1, prog, n2, n3)) =
+    case k of 0 => empty_item (strlit "...")
+    | SUC k =>
     Item NONE (strlit "handler") [Tuple [num_to_display n1;
-        word_prog_to_display ns prog;
+        word_prog_to_display k ns prog;
         String (attach_name ns (SOME n2));
         num_to_display n3]])
 Termination
-  cheat
-  (*
   WF_REL_TAC `measure (\x. case x of
-        | INL (_,p) => wordLang$prog_size ARB p
-        | INR (INL (_,ps)) => list_size (wordLang$prog_size ARB) ps
-        | INR (INR (INL (_,v))) => wordLang$prog1_size ARB v
-        | INR (INR (INR (_,v))) => wordLang$prog3_size ARB v)`
-  \\ rw []
-  \\ imp_res_tac MEM_append_word_seqs \\ rw [] *)
+        | INL (k,_) => k
+        | INR (INL (k,_)) => k
+        | INR (INR (INL (k,_))) => k
+        | INR (INR (INR (k,_))) => k)`
 End
 
 Definition word_fun_to_display_def:
@@ -1437,7 +1444,7 @@ Definition word_fun_to_display_def:
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (GENLIST (λn. num_to_display (2 * n)) argc);
-           word_prog_to_display names body]
+           word_prog_to_display 1000000000 names body]
 End
 
 (* tap configuration *)
