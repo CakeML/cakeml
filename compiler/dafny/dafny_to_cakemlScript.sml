@@ -391,6 +391,18 @@ Definition dafny_type_of_def:
        | NONE => fail ("dafny_type_of: Unknown Name " ++ (dest_Name n)))
   | SeqValue _ t =>
       return (Seq t)
+  | SeqUpdate se idx v =>
+      do
+        se_t <- dafny_type_of env se;
+        idx_t <- dafny_type_of env idx;
+        v_t <- dafny_type_of env v;
+        if se_t ≠ Seq v_t then
+          fail "dafny_type_of (SeqUpdate): Unexpectedly, se_t <> Seq v_t"
+        else if idx_t ≠ Primitive Int then
+          fail "dafny_type_of (SeqUpdate): Unexpectedly, idx_t wasn't an int"
+        else
+          return se_t
+      od
   | Ite cnd thn els =>
       do
         thn_t <- dafny_type_of env thn;
@@ -423,6 +435,7 @@ Definition dafny_type_of_def:
       (* TODO? Figure out why using | BinOp Lt _ _ and
        * | BinOp (Eq _ _) _ _ results in the | BinOp bop e1 e2 case to be
        * repeated over and over again *)
+      (* TODO Add sanity checks as done below *)
       if (bop = Lt ∨ (is_Eq bop)) then return (Primitive Bool)
       else
         do
@@ -442,6 +455,35 @@ Definition dafny_type_of_def:
           else if (bop = Concat ∧ e1_t = (Primitive String) ∧
                    e1_t = e2_t) then
             return (Primitive String)
+          else if (bop = Concat ∧ is_Seq e1_t ∧ e1_t = e2_t) then
+            return e1_t
+          else if (bop = In ∧ is_Seq e2_t) then
+            do
+              seq_t <- dest_Seq e2_t;
+              if e1_t ≠ seq_t then
+                fail "dafny_type_of (BinOp In): Types did not match"
+              else
+                return (Primitive Bool)
+            od
+          else if (bop = SeqPrefix ∧ is_Seq e1_t ∧ is_Seq e2_t) then
+            do
+              seq1_t <- dest_Seq e1_t;
+              seq2_t <- dest_Seq e2_t;
+              if seq1_t ≠ seq2_t then
+                fail "dafny_type_of (BinOp SeqPrefix): Types did not match"
+              else
+                return (Primitive Bool)
+            od
+          else if (bop = SeqProperPrefix ∧ is_Seq e1_t ∧ is_Seq e2_t) then
+            do
+              seq1_t <- dest_Seq e1_t;
+              seq2_t <- dest_Seq e2_t;
+              if seq1_t ≠ seq2_t then
+                fail ("dafny_type_of (BinOp SeqProperPrefix): Types did " ++
+                      "not match")
+              else
+                return (Primitive Bool)
+            od
           else
             fail "dafny_type_of (BinOp): Unsupported bop/types"
         od
@@ -490,6 +532,9 @@ Definition from_callName_def:
                            "Passed callName currently unsupported"))
 End
 
+(* TODO Clean up from_expression/dafny_type_of: Some code parts may be duplicated,
+ some checks may be unnecessary (depending on the assumptions we make about/get from
+ the Dafny AST *)
 Definition from_expression_def:
   (from_expression (env: ((name, type) alist))
                    (e: dafny_ast$expression) : (ast$exp result) =
@@ -502,6 +547,24 @@ Definition from_expression_def:
        do
          cml_els <- map_from_expression env els;
          return (cml_list cml_els)
+       od
+   | SeqUpdate se idx v =>
+       do
+         se_t <- dafny_type_of env se;
+         idx_t <- dafny_type_of env idx;
+         v_t <- dafny_type_of env v;
+         if se_t ≠ Seq v_t then
+           fail "dafny_type_of (SeqUpdate): Unexpectedly, se_t <> Seq v_t"
+         else if idx_t ≠ Primitive Int then
+           fail "dafny_type_of (SeqUpdate): Unexpectedly, idx_t wasn't an int"
+         else
+           do
+             cml_se <- from_expression env se;
+             cml_idx <- from_expression env idx;
+             cml_v <- from_expression env v;
+             return (cml_fapp (Var (Long "List" (Short "update")))
+                              [cml_v; cml_idx; cml_se])
+           od
        od
    | Ite cnd thn els =>
        do
@@ -622,9 +685,56 @@ Definition from_expression_def:
             return (App (Opn Times) [cml_e1; cml_e2])
           else
             fail "from_binOp (Times): Unsupported types"
+      | In =>
+          if is_Seq e2_t then
+            do
+              seq_t <- dest_Seq e2_t;
+              if e1_t ≠ seq_t then
+                fail "from_binOp (In): Types did not match"
+              else
+                return (cml_fapp (Var (Long "List" (Short "member")))
+                                 [cml_e1; cml_e2])
+            od
+          else
+            fail "from_binOp (In): Unsupported types"
+      | SeqProperPrefix =>
+          if is_Seq e1_t ∧ is_Seq e2_t then
+            do
+              seq1_t <- dest_Seq e1_t;
+              seq2_t <- dest_Seq e2_t;
+              if seq1_t ≠ seq2_t then
+                fail ("from_binOp (SeqProperPrefix): Unexpectedly types " ++
+                      "did not match")
+              else
+                do
+                  not_eq_check <<- (cml_fapp (Var (Short "not"))
+                                             [App Equality [cml_e1; cml_e2]]);
+                  is_prefix_check <<- (cml_fapp (Var (Long "List"
+                                                           (Short "isPrefix")))
+                                                [cml_e1; cml_e2]);
+                  return (Log And not_eq_check is_prefix_check)
+                od
+            od
+          else
+            fail "from_binOp (SeqPrefix): Unexpected types"
+      | SeqPrefix =>
+          if is_Seq e1_t ∧ is_Seq e2_t then
+            do
+              seq1_t <- dest_Seq e1_t;
+              seq2_t <- dest_Seq e2_t;
+              if seq1_t ≠ seq2_t then
+                fail "from_binOp (SeqPrefix): Unexpectedly types did not match"
+              else
+                return (cml_fapp (Var (Long "List" (Short "isPrefix")))
+                                 [cml_e1; cml_e2])
+            od
+          else
+            fail "from_binOp (SeqPrefix): Unexpected types"
       | Concat =>
           if (e1_t = (Primitive String) ∧ e1_t = e2_t) then
             return (cml_fapp (Var (Long "String" (Short "strcat"))) [cml_e1; cml_e2])
+          else if (is_Seq e1_t ∧ e1_t = e2_t) then
+            return (cml_fapp (Var (Long "List" (Short "@"))) [cml_e1; cml_e2])
           else
             fail "from_binOp (Concat): Unsupported types"
       | _ => fail "from_binOp: Unsupported bop")
@@ -973,7 +1083,7 @@ open TextIO
 (* val _ = astPP.disable_astPP(); *)
 (* val _ = astPP.enable_astPP(); *)
 
-val inStream = TextIO.openIn "./tests/maximum.sexp";
+val inStream = TextIO.openIn "./tests/seq_update.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
