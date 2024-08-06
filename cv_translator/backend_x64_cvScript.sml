@@ -395,25 +395,13 @@ val _ = cv_auto_trans presLangTheory.ast_t_to_display_def;
 
 val _ = cv_auto_trans presLangTheory.pat_to_display_def;
 
-Theorem foo:
-  presLang$exp_to_display x = List []
-Proof
-  cheat
-QED
-
-val _ = cv_trans foo;
+val _ = cv_auto_trans presLangTheory.exp_to_display_def;
 
 val _ = cv_auto_trans presLangTheory.source_to_display_dec_def;
 
 val _ = cv_auto_trans presLangTheory.flat_pat_to_display_def;
 
-Theorem foo:
-  presLang$flat_to_display x = List []
-Proof
-  cheat
-QED
-
-val _ = cv_trans foo;
+val _ = cv_auto_trans presLangTheory.flat_to_display_def;
 
 val _ = cv_auto_trans displayLangTheory.display_to_str_tree_def;
 

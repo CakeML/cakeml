@@ -544,7 +544,7 @@ Definition flat_to_display_def:
   /\
   (flat_to_display (Mat tra exp pes) =
     Item (SOME tra) (strlit "mat") (flat_to_display exp
-        :: MAP (\(pat,exp). displayLang$Tuple [flat_pat_to_display pat; flat_to_display exp]) pes))
+        :: pat_flat_to_display_list pes))
   /\
   (flat_to_display (Let tra varN_opt exp1 exp2) =
     Item (SOME tra) (strlit "let") [option_to_display string_imp varN_opt;
@@ -552,14 +552,25 @@ Definition flat_to_display_def:
   /\
   (flat_to_display (Letrec name_hint funs exp) =
     Item (SOME None) (add_name_hint (strlit "letrec") (implode name_hint))
-        [Tuple (MAP (\(v1,v2,e). Tuple [string_imp v1; string_imp v2;
-              flat_to_display e]) funs); flat_to_display exp]
+        [Tuple (fun_flat_to_display_list funs); flat_to_display exp]
   )  ∧
   (flat_to_display_list [] = []) ∧
   (flat_to_display_list (x::xs) =
-    flat_to_display x :: flat_to_display_list xs)
+    flat_to_display x :: flat_to_display_list xs)  ∧
+  (pat_flat_to_display_list [] = []) ∧
+  (pat_flat_to_display_list ((pat,exp)::xs) =
+    displayLang$Tuple [flat_pat_to_display pat; flat_to_display exp] :: pat_flat_to_display_list xs) ∧
+  (fun_flat_to_display_list [] = []) ∧
+  (fun_flat_to_display_list ((v1,v2,e)::xs) =
+     Tuple [string_imp v1; string_imp v2; flat_to_display e] ::
+        fun_flat_to_display_list xs)
 Termination
-  WF_REL_TAC ‘measure $ λx. case x of INL v => flatLang$exp_size v | INR v => list_size flatLang$exp_size v’
+  WF_REL_TAC ‘measure $ λx.
+    case x of
+    INL v => flatLang$exp_size v
+  | INR (INL v) => list_size flatLang$exp_size v
+  | INR (INR (INL v)) => flatLang$exp3_size v
+  | INR (INR (INR v)) => flatLang$exp1_size v’
 End
 
 Definition flat_to_display_dec_def:
