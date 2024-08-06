@@ -520,7 +520,7 @@ Definition flat_to_display_def:
   /\
   (flat_to_display (Handle tra exp pes) =
     Item (SOME tra) (strlit "handle") (flat_to_display exp
-        :: MAP (\(pat,exp). displayLang$Tuple [flat_pat_to_display pat; flat_to_display exp]) pes))
+        :: pat_flat_to_display_list pes))
   /\
   (flat_to_display (Lit tra lit) = Item (SOME tra) (strlit "lit") [])
   /\

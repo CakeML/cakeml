@@ -395,13 +395,33 @@ val _ = cv_auto_trans presLangTheory.ast_t_to_display_def;
 
 val _ = cv_auto_trans presLangTheory.pat_to_display_def;
 
-val _ = cv_auto_trans presLangTheory.exp_to_display_def;
+val pre = cv_auto_trans_pre presLangTheory.exp_to_display_def;
+
+Theorem exp_to_display_pre[cv_pre]:
+  (∀c. exp_to_display_pre c) ∧
+  (∀v. exp_to_display_list_pre v) ∧
+  (∀v. pat_exp_to_display_list_pre v) ∧
+  (∀v. fun_to_display_list_pre v)
+Proof
+  ho_match_mp_tac presLangTheory.exp_to_display_ind>>
+  rw[] \\ simp[Once pre]
+QED
 
 val _ = cv_auto_trans presLangTheory.source_to_display_dec_def;
 
 val _ = cv_auto_trans presLangTheory.flat_pat_to_display_def;
 
-val _ = cv_auto_trans presLangTheory.flat_to_display_def;
+val pre = cv_auto_trans_pre flat_to_display_def;
+
+Theorem flat_to_display_pre[cv_pre]:
+  (∀v. flat_to_display_pre v) ∧
+  (∀v. flat_to_display_list_pre v) ∧
+  (∀v. pat_flat_to_display_list_pre v) ∧
+  (∀v. fun_flat_to_display_list_pre v)
+Proof
+  ho_match_mp_tac flat_to_display_ind
+  rw[] \\ simp[Once pre]
+QED
 
 val _ = cv_auto_trans displayLangTheory.display_to_str_tree_def;
 
@@ -472,13 +492,13 @@ Proof
   rw[] \\ simp[Once pre]
 QED
 
-val _ = cv_auto_trans_rec presLangTheory.data_prog_to_display_def cheat;
+val _ = cv_auto_trans presLangTheory.data_prog_to_display_def;
 
 val _ = cv_auto_trans presLangTheory.word_exp_to_display_def;
 
-val _ = cv_auto_trans_rec presLangTheory.word_prog_to_display_def cheat;
+val _ = cv_auto_trans presLangTheory.word_prog_to_display_def;
 
-val _ = cv_auto_trans_rec presLangTheory.stack_prog_to_display_def cheat;
+val _ = cv_auto_trans presLangTheory.stack_prog_to_display_def;
 
 val _ = cv_auto_trans backend_x64Theory.compile_cake_explore_x64_def;
 
