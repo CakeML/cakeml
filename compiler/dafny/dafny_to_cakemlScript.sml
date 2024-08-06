@@ -20,6 +20,13 @@ Overload None = “Con (SOME (Short "None")) []”
 Overload Some = “λx. Con (SOME (Short "Some")) [x]”
 Overload Unit = “Con NONE []”
 
+(* Converts a HOL list of CakeML expressions into a CakeML list. *)
+Definition cml_list_def:
+  (cml_list [] = Con (SOME (Short "[]")) []) ∧
+  (cml_list (x::rest) =
+   Con (SOME (Short "::")) [x; cml_list rest])
+End
+
 Definition cml_fapp_aux_def:
   cml_fapp_aux fun_name [] = App Opapp [fun_name; Unit] ∧
   cml_fapp_aux fun_name (e::rest) =
@@ -168,6 +175,18 @@ Definition is_Eq_def:
   | _ => F
 End
 
+Definition is_Seq_def:
+  is_Seq typ =
+  case typ of
+  | Seq _ => T
+  | _ => F
+End
+
+Definition dest_Seq_def:
+  dest_Seq (Seq t) = return t ∧
+  dest_Seq _ = fail "dest_Seq: Not a Seq"
+End
+
 (* TODO? Move to dafny_ast *)
 Definition dest_Name_def:
   dest_Name (Name s) = s
@@ -247,6 +266,7 @@ Definition arb_value_def:
    | Primitive Int => return (Lit (IntLit 0))
    | Primitive String => return (Lit (StrLit ""))
    | Primitive Bool => return False
+   | Seq _ => return (cml_list [])
    | _ => fail "arb_value_def: Unsupported type")
 End
 
@@ -369,6 +389,8 @@ Definition dafny_type_of_def:
        (case ALOOKUP env n of
        | SOME t => return t
        | NONE => fail ("dafny_type_of: Unknown Name " ++ (dest_Name n)))
+  | SeqValue _ t =>
+      return (Seq t)
   | Ite cnd thn els =>
       do
         thn_t <- dafny_type_of env thn;
@@ -389,8 +411,14 @@ Definition dafny_type_of_def:
       od
   | UnOp BitwiseNot _ =>
       fail "dafny_type_of (UnOp BitwiseNot): Unsupported"
-  | UnOp Cardinality _ =>
-      fail "dafny_type_of (UnOp Cardinality): Unsupported"
+  | UnOp Cardinality e' =>
+      do
+        e'_t <- dafny_type_of env e';
+        if is_Seq e'_t then
+          return (Primitive Int)
+        else
+          fail "dafny_type_of (UnOp Cardinality): Unsupported type"
+      od
   | BinOp bop e1 e2 =>
       (* TODO? Figure out why using | BinOp Lt _ _ and
        * | BinOp (Eq _ _) _ _ results in the | BinOp bop e1 e2 case to be
@@ -417,6 +445,19 @@ Definition dafny_type_of_def:
           else
             fail "dafny_type_of (BinOp): Unsupported bop/types"
         od
+  | Index e' cok idxs =>
+      do
+        e'_t <- dafny_type_of env e';
+        if cok = CollKind_Seq then
+          if idxs = [] then
+            fail "dafny_type_of (Index): Unexpectedly idxs was empty"
+          else if LENGTH idxs > 1 then
+            fail "dafny_type_of (Index): multi-dimensional indexing unsupported"
+          else
+            dest_Seq e'_t
+        else
+          fail "dafny_type_of (Index): Unsupported kind of collection"
+      od
   | Expression_Call on (CallName nam onType _) _ _ =>
       if on ≠ (Companion [Ident (Name "_module");
                           Ident (Name "__default")]) then
@@ -457,6 +498,11 @@ Definition from_expression_def:
        from_literal l
    | Expression_Ident n =>
        return (App Opderef [Var (Short (dest_Name n))])
+   | SeqValue els t =>
+       do
+         cml_els <- map_from_expression env els;
+         return (cml_list cml_els)
+       od
    | Ite cnd thn els =>
        do
          cml_cnd <- from_expression env cnd;
@@ -468,6 +514,21 @@ Definition from_expression_def:
        from_unaryOp env uop e
    | BinOp bop e1 e2 =>
        from_binOp env bop e1 e2
+   | Index ce cok idxs =>
+       if cok = CollKind_Seq then
+         if idxs = [] then
+           fail ("from_expression: Unexpectedly received an empty " ++
+                 "list of indices")
+         else if LENGTH idxs > 1 then
+           fail "from_expression: multi-dimensional indexing unsupported"
+         else
+           do
+             cml_ce <- from_expression env ce;
+             idx <- from_expression env (EL 0 idxs);
+             return (cml_fapp (Var (Long "List" (Short "nth"))) [cml_ce; idx])
+           od
+       else
+         fail "from_expression: Unsupported kind of collection"
    | Expression_Call on call_nam typeArgs args =>
        do
          if on ≠ (Companion [Ident (Name "_module");
@@ -485,6 +546,15 @@ Definition from_expression_def:
    | InitializationValue t =>
        arb_value t
    | _ => fail "from_expression: Unsupported expression") ∧
+  (map_from_expression env es =
+   case es of
+   | [] => return []
+   | (e::rest) =>
+       do
+         se' <- from_expression env e;
+         rest' <- map_from_expression env rest;
+         return (se'::rest')
+       od) ∧
   (from_unaryOp (env: ((name, type) alist)) (uop: dafny_ast$unaryOp)
                 (e: dafny_ast$expression) =
    do
@@ -495,7 +565,10 @@ Definition from_expression_def:
      else if uop = BitwiseNot then
        fail "from_unaryOp: BitwiseNot unsupported"
      else if uop = Cardinality then
-       fail "from_unaryOp: Cardinality unsupported"
+       if is_Seq e_t then
+         return (cml_fapp (Var (Long "List" (Short "length"))) [cml_e])
+       else
+         fail "from_unaryOp (Cardinality): Unsupported type"
      else
        fail "from_unaryOp: Unexpected unary operation"
    od
@@ -900,7 +973,7 @@ open TextIO
 (* val _ = astPP.disable_astPP(); *)
 (* val _ = astPP.enable_astPP(); *)
 
-val inStream = TextIO.openIn "./tests/factorial.sexp";
+val inStream = TextIO.openIn "./tests/maximum.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
