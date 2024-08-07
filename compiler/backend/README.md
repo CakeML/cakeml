@@ -384,5 +384,8 @@ This compiler phase composes the phases internal to wordLang:
     5) reg_alloc;
     6) word_to_stack.
 
+[word_unreachScript.sml](word_unreachScript.sml):
+This compilation pass removes trivially unreachable code.
+
 [x64](x64):
 This directory contains the x64-specific part of the compiler backend.

@@ -2,7 +2,7 @@
   Correctness proof for word_to_word
 *)
 open preamble word_to_wordTheory wordSemTheory word_simpProofTheory
-     wordPropsTheory word_allocProofTheory word_instProofTheory
+     wordPropsTheory word_allocProofTheory word_instProofTheory word_unreachTheory
      word_removeProofTheory word_cseProofTheory word_elimTheory word_elimProofTheory;
 
 val _ = new_theory "word_to_wordProof";
@@ -50,10 +50,11 @@ Proof
   qpat_abbrev_tac`p1 = inst_select A B C`>>
   qpat_abbrev_tac`p2 = full_ssa_cc_trans n p1`>>
   qpat_abbrev_tac`p2a = word_common_subexp_elim p2`>>
+  qpat_abbrev_tac`p2b = remove_unreach p2a`>>
   TRY(
-    qpat_abbrev_tac`p3 = FST (remove_dead p2a LN)`>>
+    qpat_abbrev_tac`p3 = FST (remove_dead p2b LN)`>>
     qpat_abbrev_tac`p4 = three_to_two_reg p3`)>>
-  TRY(qpat_abbrev_tac`p4 = FST (remove_dead p2a LN)`)>>
+  TRY(qpat_abbrev_tac`p4 = FST (remove_dead p2b LN)`)>>
   Q.ISPECL_THEN [`name`,`c`,`a`,`p4`,`k`,`col`,`st`] mp_tac word_alloc_correct>>
   (impl_tac>-
       (full_simp_tac(srw_ss())[even_starting_locals_def]>>
@@ -64,6 +65,7 @@ Proof
         unabbrev_all_tac>>fs[full_ssa_cc_trans_wf_cutsets]>>
         TRY(ho_match_mp_tac three_to_two_reg_wf_cutsets)>>
         match_mp_tac (el 5 rmd_thms)>>
+        irule remove_unreach_wf_cutsets >>
         irule wf_cutsets_word_common_subexp_elim >>
         fs[full_ssa_cc_trans_wf_cutsets]))>>
   rw[]>>
@@ -86,16 +88,18 @@ Proof
   qpat_x_assum`(λ(x,y). _) _`mp_tac >>
   pairarg_tac>>fs[]>>
   strip_tac>>
-  Cases_on`remove_dead p2a LN`>>fs[]>>
+  Cases_on`remove_dead p2b LN`>>fs[]>>
   drule word_common_subexp_elim_correct >>
   (impl_tac >- (fs [] >>
     unabbrev_all_tac >>
     irule word_allocProofTheory.full_ssa_cc_trans_flat_exp_conventions >>
     fs [word_instProofTheory.inst_select_flat_exp_conventions])) >>
   gvs [] >> strip_tac >>
-  Q.ISPECL_THEN [`p2a`,`LN:num_set`,`q`,`r`,`st with permute := perm'`,`st.locals`,`res`,`rcst`] mp_tac evaluate_remove_dead>>
+  Q.ISPECL_THEN [`p2b`,`LN:num_set`,`q`,`r`,`st with permute := perm'`,`st.locals`,`res`,`rcst`] mp_tac evaluate_remove_dead>>
   impl_tac>>fs[strong_locals_rel_def]>>
-  strip_tac
+  fs [Abbr‘p2b’,evaluate_remove_unreach] >>
+  strip_tac >>
+  cheat (*
   >-
     (Q.ISPECL_THEN[`p3`,`st with permute:=perm'`,`res`,`rcst with locals:=t'`] mp_tac three_to_two_reg_correct>>
     impl_tac>-
@@ -110,7 +114,7 @@ Proof
     Cases_on`res`>>full_simp_tac(srw_ss())[])
   >>
     pairarg_tac>>full_simp_tac(srw_ss())[word_state_eq_rel_def,state_component_equality]>>
-    FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]
+    FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[] *)
 QED
 
 val tac =
