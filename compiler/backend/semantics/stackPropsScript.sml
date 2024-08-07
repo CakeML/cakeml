@@ -851,7 +851,7 @@ val fp_name_def = Define `
 val addr_name_def = Define`
   addr_name m (Addr r w) c ⇔
   reg_name r c ∧
-  (if m IN {Load; Store} then addr_offset_ok c w else byte_offset_ok c w)`
+  (if m IN {Load; Store; Load32; Store32} then addr_offset_ok c w else byte_offset_ok c w)`
 
 val inst_name_def = Define`
   (inst_name c (Const r w) ⇔ reg_name r c) ∧
