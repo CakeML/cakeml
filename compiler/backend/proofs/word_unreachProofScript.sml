@@ -76,21 +76,128 @@ Theorem extract_labels_Seq_assoc_right_lemma:
 Proof
   HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
   \\ fs [Seq_assoc_right_def,extract_labels_def,extract_labels_SimpSeq]
-  \\ cheat
+  >- (
+    gvs[SUBSET_DEF]
+    \\ metis_tac[])
+  >~ [`Call`]
+  >- (
+    every_case_tac \\ gvs[extract_labels_def]
+    \\ irule SUBSET_TRANS
+    \\ irule_at Any extract_labels_SimpSeq
+    \\ fs [Seq_assoc_right_def,extract_labels_def,extract_labels_SimpSeq]
+    \\ gvs[SUBSET_DEF]
+  )
+  \\ irule SUBSET_TRANS
+  \\ irule_at Any extract_labels_SimpSeq
+  \\ fs [Seq_assoc_right_def,extract_labels_def,extract_labels_SimpSeq]
+  \\ gvs[SUBSET_DEF]
 QED
 
-Theorem extract_labels_Seq_assoc_right:
-   set (extract_labels (Seq_assoc_right Skip p)) ⊆ set (extract_labels p)
+Theorem extract_labels_remove_unreach:
+   set (extract_labels (remove_unreach p)) ⊆ set (extract_labels p)
 Proof
-  irule SUBSET_TRANS
+  simp[remove_unreach_def]
+  \\ irule SUBSET_TRANS
   \\ irule_at (Pos hd) extract_labels_Seq_assoc_right_lemma
   \\ gvs [extract_labels_def]
 QED
 
-Theorem remove_unreach_wf_cutsets:
+Theorem wf_cutsets_SimpSeq:
+  wf_cutsets p1 ∧ wf_cutsets p2 ⇒
+  wf_cutsets (SimpSeq p1 p2)
+Proof
+  rw [SimpSeq_def,wf_cutsets_def]
+  \\ Cases_on ‘p1’ \\ rw [wf_cutsets_def]
+QED
+
+Theorem wf_cutsets_Seq_assoc_right_lemma:
+  ∀p1 p2.
+  wf_cutsets p1 ∧ wf_cutsets p2 ⇒
+  wf_cutsets (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,wf_cutsets_def]
+  >~ [`Call`]
+  >- (
+    every_case_tac \\ gvs[wf_cutsets_def]
+    \\ match_mp_tac wf_cutsets_SimpSeq
+    \\ gvs[wf_cutsets_def])
+  \\ match_mp_tac wf_cutsets_SimpSeq
+  \\ gvs[wf_cutsets_def]
+QED
+
+Theorem wf_cutsets_remove_unreach:
   wf_cutsets p ⇒ wf_cutsets (remove_unreach p)
 Proof
-  cheat
+  rw[remove_unreach_def]
+  \\ irule wf_cutsets_Seq_assoc_right_lemma
+  \\ gvs[wf_cutsets_def]
+QED
+
+Theorem every_inst_distinct_tar_reg_SimpSeq:
+  every_inst distinct_tar_reg p1 ∧ every_inst distinct_tar_reg p2 ⇒
+  every_inst distinct_tar_reg (SimpSeq p1 p2)
+Proof
+  rw [SimpSeq_def,every_inst_def]
+  \\ Cases_on ‘p1’ \\ rw [every_inst_def]
+QED
+
+Theorem every_inst_distinct_tar_reg_Seq_assoc_right_lemma:
+  ∀p1 p2.
+  every_inst distinct_tar_reg p1 ∧ every_inst distinct_tar_reg p2 ⇒
+  every_inst distinct_tar_reg (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,every_inst_def]
+  >~ [`Call`]
+  >- (
+    every_case_tac \\ gvs[every_inst_def]
+    \\ match_mp_tac every_inst_distinct_tar_reg_SimpSeq
+    \\ gvs[every_inst_def])
+  \\ match_mp_tac every_inst_distinct_tar_reg_SimpSeq
+  \\ gvs[every_inst_def]
+QED
+
+Theorem every_inst_distinct_tar_reg_remove_unreach:
+  every_inst distinct_tar_reg p ⇒
+  every_inst distinct_tar_reg (remove_unreach p)
+Proof
+  rw[remove_unreach_def]
+  \\ irule every_inst_distinct_tar_reg_Seq_assoc_right_lemma
+  \\ gvs[every_inst_def]
+QED
+
+Theorem flat_exp_conventions_SimpSeq:
+  flat_exp_conventions p1 ∧ flat_exp_conventions p2 ⇒
+  flat_exp_conventions (SimpSeq p1 p2)
+Proof
+  rw [SimpSeq_def,flat_exp_conventions_def]
+  \\ Cases_on ‘p1’ \\ rw [flat_exp_conventions_def]
+QED
+
+Theorem flat_exp_conventions_Seq_assoc_right_lemma:
+  ∀p1 p2.
+  flat_exp_conventions p1 ∧ flat_exp_conventions p2 ⇒
+  flat_exp_conventions (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,flat_exp_conventions_def]
+  >~ [`Call`]
+  >- (
+    every_case_tac \\ gvs[flat_exp_conventions_def]
+    \\ match_mp_tac flat_exp_conventions_SimpSeq
+    \\ gvs[flat_exp_conventions_def])
+  \\ match_mp_tac flat_exp_conventions_SimpSeq
+  \\ gvs[flat_exp_conventions_def]
+QED
+
+Theorem flat_exp_conventions_remove_unreach:
+  flat_exp_conventions p ⇒
+  flat_exp_conventions (remove_unreach p)
+Proof
+  rw[remove_unreach_def]
+  \\ irule flat_exp_conventions_Seq_assoc_right_lemma
+  \\ gvs[flat_exp_conventions_def]
 QED
 
 val _ = export_theory();
