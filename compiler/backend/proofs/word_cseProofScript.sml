@@ -29,17 +29,17 @@ Definition data_inv_def:
        v IN domain data.to_canonical ∧
        r IN domain data.to_canonical) ∧
     (∀n c v.
-       lookup data.instrs_mem (instToNumList (Const n c)) = SOME v ⇒
+       balanced_map$lookup listCmp (instToNumList (Const n c)) data.instrs_mem = SOME v ⇒
        lookup v s.locals = SOME (Word c) ∧
        v IN domain data.to_canonical) ∧
     (∀(a:'a arith) v.
-       lookup data.instrs_mem (instToNumList (Arith a)) = SOME v ⇒
+       balanced_map$lookup listCmp (instToNumList (Arith a)) data.instrs_mem = SOME v ⇒
        v IN domain data.to_canonical ∧
        in_names_set a (domain data.to_canonical) ∧
        ∃w. get_var v s = SOME w ∧
            evaluate (Inst (Arith a), s) = (NONE, set_var (firstRegOfArith a) w s)) ∧
     (∀op src v.
-       lookup data.instrs_mem (OpCurrHeapToNumList op src) = SOME v ⇒
+       balanced_map$lookup listCmp (OpCurrHeapToNumList op src) data.instrs_mem = SOME v ⇒
        v IN domain data.to_canonical ∧
        src IN domain data.to_canonical ∧
        ∃w. word_exp s (Op op [Var src; Lookup CurrHeap]) = SOME w ∧
@@ -48,7 +48,7 @@ Definition data_inv_def:
        ALOOKUP data.gets_mem x = SOME v ⇒
        v IN domain data.to_canonical ∧
        ∃w. FLOOKUP s.store x = SOME w ∧ get_var v s = SOME w) ∧
-    map_ok data.instrs_mem
+    balanced_map$invariant listCmp data.instrs_mem
 End
 
 Theorem canonicalRegs_correct[simp]:
@@ -321,6 +321,7 @@ Proof
   gvs [TotOrd, listCmpEq_correct, antisym_listCmp, transit_listCmp, SF SFY_ss]
 QED
 
+(*
 Theorem map_ok_insert[simp]:
   ∀m l v. map_ok m ⇒ map_ok (insert m l v)
 Proof
@@ -332,11 +333,24 @@ Theorem map_ok_empty[simp]:
 Proof
   gvs [mlmapTheory.empty_thm]
 QED
+*)
+
+Theorem lookup_listCmp_empty[simp]:
+  lookup listCmp k empty = NONE
+Proof
+  EVAL_TAC
+QED
 
 Theorem data_inv_empty[simp]:
   ∀s. data_inv empty_data s
 Proof
-  gvs [data_inv_def, empty_data_def, lookup_def]
+  gvs [data_inv_def, empty_data_def] \\ EVAL_TAC \\ gvs []
+QED
+
+Theorem invariant_listCmp_empty[simp]:
+  invariant listCmp empty
+Proof
+  EVAL_TAC
 QED
 
 (* setting up the goal *)

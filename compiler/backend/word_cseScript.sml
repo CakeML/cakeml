@@ -3,7 +3,7 @@
   This pass is to run immediately after the SSA-like renaming.
 *)
 
-open preamble wordLangTheory wordsTheory boolTheory mlmapTheory sptreeTheory
+open preamble wordLangTheory wordsTheory boolTheory balanced_mapTheory sptreeTheory;
 
 val _ = new_theory "word_cse";
 
@@ -43,7 +43,7 @@ Datatype:
     to_canonical : num num_map ;
     to_latest    : num num_map ;
     gets_mem     : (store_name, num) alist ;
-    instrs_mem   : (num list, num) map
+    instrs_mem   : (num list, num) balanced_map
   |>
 End
 
@@ -63,7 +63,7 @@ Definition empty_data_def:
   empty_data = <| to_canonical := LN ;
                   to_latest    := LN ;
                   gets_mem     := [] ;
-                  instrs_mem   := empty listCmp |>
+                  instrs_mem   := empty |>
 End
 
 (* Whether we're allowed to keep the data
@@ -294,7 +294,7 @@ End
 
 Definition add_to_data_aux_def:
   add_to_data_aux data r i x =
-    case mlmap$lookup data.instrs_mem i of
+    case balanced_map$lookup listCmp i data.instrs_mem of
     | SOME r' => let k = lookup_any r' data.to_latest r' in
                    if EVEN r then
                      (data, Move 0 [(r,k)])
@@ -304,7 +304,7 @@ Definition add_to_data_aux_def:
     | NONE    => if EVEN r then
                    (data, x)
                  else
-                   (data with <| instrs_mem := insert data.instrs_mem i r;
+                   (data with <| instrs_mem := insert listCmp i r data.instrs_mem;
                                  to_canonical := insert r r data.to_canonical;
                                  to_latest := insert r r data.to_latest |>, x)
 End
