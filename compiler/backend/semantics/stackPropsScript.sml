@@ -743,7 +743,7 @@ QED
 Definition addr_ok_def:
   addr_ok op (Addr a w) c ⇔
   (reg_ok a c ∧
-   if op ∈ {Load; Store} then addr_offset_ok c w else byte_offset_ok c w)
+   if op ∈ {Load; Store; Load32; Store32} then addr_offset_ok c w else byte_offset_ok c w)
 End
 
 (* TODO: This is not updated for Install, CBW and DBW *)
