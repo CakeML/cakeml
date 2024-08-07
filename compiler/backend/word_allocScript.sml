@@ -19,6 +19,9 @@ val _ = set_grammar_ancestry [
 ]
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
+Overload Move0[inferior] = ``Move 0n``;
+Overload Move1[inferior] = ``Move 1n``;
+
 (*SSA form*)
 val apply_nummap_key_def = Define`
   apply_nummap_key f names =
@@ -46,7 +49,7 @@ val fake_move_def = Define`
   fake_move v : α wordLang$prog = Inst (Const v 0w)`
 
 (*Do the merging moves only*)
-val merge_moves_def = Define`
+Definition merge_moves_def:
   (merge_moves [] ssa_L ssa_R (na:num) = ([],[],na,ssa_L,ssa_R)) ∧
   (merge_moves (x::xs) ssa_L ssa_R na =
     let (seqL,seqR,na',ssa_L',ssa_R') =
@@ -62,35 +65,54 @@ val merge_moves_def = Define`
         let Rmove = (na',Ly) in
         (Lmove::seqL, Rmove::seqR,na'+4, insert x na' ssa_L'
                                        , insert x na' ssa_R')
-    | _ => (seqL,seqR,na',ssa_L',ssa_R'))`
+    | _ => (seqL,seqR,na',ssa_L',ssa_R'))
+End
+
+(* tracking priority of moves
+  0 = unprioritized
+  1 = base "high" priority
+  2 = higher priority than base
+
+  T, INL <- left side
+  F, INR <- right side
+*)
+Definition priority_def:
+  (priority NONE b = 1n) ∧
+  (priority (SOME (INL())) b =
+    if b then 2 else 1) ∧
+  (priority (SOME (INR())) b =
+    if b then 1 else 2)
+End
 
 (*Separately do the fake moves*)
-val fake_moves_def = Define`
-  (fake_moves [] ssa_L ssa_R (na:num) = (Skip:'a wordLang$prog,Skip:'a wordLang$prog,na,ssa_L,ssa_R)) ∧
-  (fake_moves (x::xs) ssa_L ssa_R na =
+Definition fake_moves_def:
+  (fake_moves prio [] ssa_L ssa_R (na:num) = (Skip:'a wordLang$prog,Skip:'a wordLang$prog,na,ssa_L,ssa_R)) ∧
+  (fake_moves prio (x::xs) ssa_L ssa_R na =
     let (seqL,seqR,na',ssa_L',ssa_R') =
-      fake_moves xs ssa_L ssa_R na in
+      fake_moves prio xs ssa_L ssa_R na in
     let optLx = lookup x ssa_L' in
     let optLy = lookup x ssa_R' in
     dtcase (optLx,optLy) of
       (NONE,SOME Ly) =>
         let Lmove = Seq seqL (fake_move na') in
-        let Rmove = Seq seqR (Move 1 [(na',Ly)]) in
+        let Rmove = Seq seqR (Move (priority prio F) [(na',Ly)]) in
         (Lmove, Rmove,na'+4, insert x na' ssa_L', insert x na' ssa_R')
     | (SOME Lx,NONE) =>
-        let Lmove = Seq seqL (Move 1 [(na',Lx)]) in
+        let Lmove = Seq seqL (Move (priority prio T) [(na',Lx)]) in
         let Rmove = Seq seqR (fake_move na') in
         (Lmove, Rmove,na'+4, insert x na' ssa_L', insert x na' ssa_R')
-    | _ => (seqL,seqR,na',ssa_L',ssa_R'))`
+    | _ => (seqL,seqR,na',ssa_L',ssa_R'))
+End
 
-val fix_inconsistencies_def = Define`
-  fix_inconsistencies ssa_L ssa_R na =
+Definition fix_inconsistencies_def:
+  fix_inconsistencies prio ssa_L ssa_R na =
   let var_union = MAP FST (toAList (union ssa_L ssa_R)) in
   let (Lmov,Rmov,na',ssa_L',ssa_R') =
     merge_moves var_union ssa_L ssa_R na in
   let (Lseq,Rseq,na'',ssa_L'',ssa_R'') =
-    fake_moves var_union ssa_L' ssa_R' na' in
-    (Seq (Move 1 Lmov) Lseq,Seq (Move 1 Rmov) Rseq,na'',ssa_L'')`
+    fake_moves prio var_union ssa_L' ssa_R' na' in
+    (Seq (Move (priority prio T) Lmov) Lseq,Seq (Move (priority prio F) Rmov) Rseq,na'',ssa_L'')
+End
 
 (*ssa_cc_trans_inst does not need to interact with stack*)
 (* Note: this needs to return a prog to support specific registers for AddCarry and other special insts
@@ -125,9 +147,9 @@ val ssa_cc_trans_inst_def = Define`
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
-    let mov_in = Move 0 [(0,r4')] in
+    let mov_in = Move1 [(0,r4')] in
     let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
-    let mov_out = Move 0 [(r4'',0)] in
+    let mov_out = Move1 [(r4'',0)] in
       (Seq mov_in (Seq (Inst (Arith (AddCarry r1' r2' r3' 0))) mov_out), ssa'',na'')) ∧
   (* Note: for AddOverflow and SubOverflow, setting r4 to 0 is not necessary
      However, this helps with word_to_stack which currently only spills
@@ -139,31 +161,31 @@ val ssa_cc_trans_inst_def = Define`
     (* TODO: This might need to be made a strong preference *)
     let (r1',ssa',na') = next_var_rename r1 ssa na in
     let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
-    let mov_out = Move 0 [(r4'',0)] in
+    let mov_out = Move1 [(r4'',0)] in
       (Seq (Inst (Arith (AddOverflow r1' r2' r3' 0))) mov_out, ssa'',na'')) ∧
   (ssa_cc_trans_inst (Arith (SubOverflow r1 r2 r3 r4)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
     let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
-    let mov_out = Move 0 [(r4'',0)] in
+    let mov_out = Move1 [(r4'',0)] in
       (Seq (Inst (Arith (SubOverflow r1' r2' r3' 0))) mov_out, ssa'',na'')) ∧
   (ssa_cc_trans_inst (Arith (LongMul r1 r2 r3 r4)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
-    let mov_in = Move 0 [(0,r3');(4,r4')] in
+    let mov_in = Move1 [(0,r3');(4,r4')] in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
     let (r2',ssa'',na'') = next_var_rename r2 ssa' na' in
-    let mov_out = Move 0 [(r2',0);(r1',6)] in
+    let mov_out = Move1 [(r2',0);(r1',6)] in
       (Seq mov_in  (Seq (Inst (Arith (LongMul 6 0 0 4))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Arith (LongDiv r1 r2 r3 r4 r5)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
     let r5' = option_lookup ssa r5 in
-    let mov_in = Move 0 [(6,r3');(0,r4')] in
+    let mov_in = Move1 [(6,r3');(0,r4')] in
     let (r2',ssa',na') = next_var_rename r2 ssa na in
     let (r1',ssa'',na'') = next_var_rename r1 ssa' na' in
-    let mov_out = Move 0 [(r2',6);(r1',0)] in
+    let mov_out = Move1 [(r2',6);(r1',0)] in
       (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 6 6 0 r5'))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Mem Load r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
@@ -209,7 +231,7 @@ val ssa_cc_trans_inst_def = Define`
       then
         (* force distinct with an extra Move *)
         let (r2'',ssa',na') = next_var_rename r2 ssa na in
-        let mov_in = Move 0 [(r2'',r2')] in
+        let mov_in = Move0 [(r2'',r2')] in
         (Seq mov_in (Inst (FP (FPMovFromReg d r1' r2''))),
         ssa',na')
       else
@@ -241,7 +263,7 @@ val list_next_var_rename_move_def = Define`
   list_next_var_rename_move ssa n ls =
     let cur_ls = MAP (option_lookup ssa) ls in
     let (new_ls,ssa',n') = list_next_var_rename ls ssa n in
-    (Move 1 (ZIP(new_ls,cur_ls)),ssa',n')`
+    (Move0 (ZIP(new_ls,cur_ls)),ssa',n')`
 
 (* force the renaming map to send x -> y unless
   x is already remapped *)
@@ -249,6 +271,13 @@ Definition force_rename_def:
   (force_rename [] ssa = ssa) ∧
   (force_rename ((x,y)::xs) ssa =
     force_rename xs (insert x y ssa))
+End
+
+Definition mk_prio_def:
+  mk_prio el er =
+  if el = Skip then SOME (INL())
+  else if er = Skip then SOME (INR())
+  else NONE
 End
 
 Definition ssa_cc_trans_def:
@@ -266,9 +295,9 @@ Definition ssa_cc_trans_def:
     let d1 = option_lookup ssa d in
     let (d2,ssa',na') = next_var_rename d ssa na in
     let (c2,ssa'',na'') = next_var_rename c ssa' na' in
-    let prog = Seq (Move 0 [(4,c1);(6,d1)])
+    let prog = Seq (Move1 [(4,c1);(6,d1)])
       (Seq (StoreConsts 0 2 4 6 ws)
-           (Move 0 [(c2,4);(d2,6)])) in
+           (Move1 [(c2,4);(d2,6)])) in
     (prog, ssa'',na'')
   ) ∧
   (ssa_cc_trans (Inst i) ssa na =
@@ -306,8 +335,10 @@ Definition ssa_cc_trans_def:
     let (e3',ssa3,na3) = ssa_cc_trans e3 ssa na2 in
     (*ssa3 is the ssa map for the second branch, notice we
       continued using na2 here though!*)
+    (* prioritizing original skips *)
+    let prio = mk_prio e2' e3' in
     let (e2_cons,e3_cons,na_fin,ssa_fin) =
-      fix_inconsistencies ssa2 ssa3 na3 in
+      fix_inconsistencies prio ssa2 ssa3 na3 in
     (If cmp r1' ri' (Seq e2' e2_cons) (Seq e3' e3_cons),ssa_fin,na_fin)) ∧
   (*For cutsets, we must restart the ssa mapping to maintain consistency*)
   (ssa_cc_trans (Alloc num numset) ssa na =
@@ -323,12 +354,12 @@ Definition ssa_cc_trans_def:
     let (ret_mov,ssa'',na'') =
       list_next_var_rename_move ssa_cut (na'+2) ls in
     let prog = (Seq (stack_mov)
-               (Seq (Move 0 [(2,num')])
+               (Seq (Move1 [(2,num')])
                (Seq (Alloc 2 stack_set) (ret_mov)))) in
     (prog,ssa'',na'')) ∧
   (ssa_cc_trans (Raise num) ssa na =
     let num' = option_lookup ssa num in
-    let mov = Move 0 [(2,num')] in
+    let mov = Move1 [(2,num')] in
     (Seq mov (Raise 2),ssa,na)) ∧
   (ssa_cc_trans (OpCurrHeap b dst src) ssa na=
     let src' = option_lookup ssa src in
@@ -337,7 +368,7 @@ Definition ssa_cc_trans_def:
   (ssa_cc_trans (Return num1 num2) ssa na=
     let num1' = option_lookup ssa num1 in
     let num2' = option_lookup ssa num2 in
-    let mov = Move 0 [(2,num2')] in
+    let mov = Move1 [(2,num2')] in
     (Seq mov (Return num1' 2),ssa,na)) ∧
   (ssa_cc_trans Tick ssa na = (Tick,ssa,na)) ∧
   (ssa_cc_trans (Set n exp) ssa na =
@@ -359,9 +390,9 @@ Definition ssa_cc_trans_def:
     let (ret_mov,ssa''',na''') =
       list_next_var_rename_move ssa'' na'' ls in
     let prog = (Seq (stack_mov)
-               (Seq (Move 0 [(2,ptr');(4,len')])
+               (Seq (Move1 [(2,ptr');(4,len')])
                (Seq (Install 2 4 dptr' dlen' stack_set)
-               (Seq (Move 0 [(ptr'',2)]) ret_mov)))) in
+               (Seq (Move1 [(ptr'',2)]) ret_mov)))) in
     (prog,ssa''',na''')) ∧
   (ssa_cc_trans (CodeBufferWrite r1 r2) ssa na =
     let r1' = option_lookup ssa r1 in
@@ -383,13 +414,13 @@ Definition ssa_cc_trans_def:
     let (ret_mov,ssa'',na'') =
       list_next_var_rename_move ssa_cut (na'+2) ls in
     let prog = (Seq (stack_mov)
-               (Seq (Move 0 [(2,cptr1);(4,clen1);(6,cptr2);(8,clen2)])
+               (Seq (Move1 [(2,cptr1);(4,clen1);(6,cptr2);(8,clen2)])
                (Seq (FFI ffi_index 2 4 6 8 stack_set) (ret_mov)))) in
     (prog,ssa'',na'')) ∧
   (ssa_cc_trans (Call NONE dest args h) ssa na =
     let names = MAP (option_lookup ssa) args in
     let conv_args = GENLIST (\x.2*x) (LENGTH names) in
-    let move_args = (Move 0 (ZIP (conv_args,names))) in
+    let move_args = (Move1 (ZIP (conv_args,names))) in
     let prog = Seq move_args (Call NONE dest conv_args h) in
       (prog,ssa,na)) ∧
   (ssa_cc_trans (Call (SOME(ret,numset,ret_handler,l1,l2)) dest args h) ssa na =
@@ -398,7 +429,7 @@ Definition ssa_cc_trans_def:
     let stack_set = apply_nummap_key (option_lookup ssa') numset in
     let names = MAP (option_lookup ssa) args in
     let conv_args = GENLIST (\x.2*(x+1)) (LENGTH names) in
-    let move_args = (Move 0 (ZIP (conv_args,names))) in
+    let move_args = (Move1 (ZIP (conv_args,names))) in
     let ssa_cut = inter ssa' numset in
     let (ret_mov,ssa'',na'') =
       list_next_var_rename_move ssa_cut (na'+2) ls in
@@ -408,7 +439,7 @@ Definition ssa_cc_trans_def:
     let (ren_ret_handler,ssa_2,na_2) =
       ssa_cc_trans ret_handler ssa_2_p na_2_p in
     let mov_ret_handler =
-        (Seq ret_mov (Seq (Move 0 [ret',2]) (ren_ret_handler))) in
+        (Seq ret_mov (Seq (Move1 [ret',2]) (ren_ret_handler))) in
     (dtcase h of
       NONE =>
         let prog =
@@ -421,9 +452,10 @@ Definition ssa_cc_trans_def:
         let (ren_exc_handler,ssa_3,na_3) =
             (ssa_cc_trans h ssa_3_p na_3_p) in
         let mov_exc_handler =
-            (Seq ret_mov (Seq(Move 0 [n',2]) (ren_exc_handler))) in
+            (Seq ret_mov (Seq(Move1 [n',2]) (ren_exc_handler))) in
+        let prio = mk_prio mov_ret_handler mov_exc_handler in
         let (ret_cons,exc_cons,na_fin,ssa_fin) =
-            fix_inconsistencies ssa_2 ssa_3 na_3 in
+            fix_inconsistencies prio ssa_2 ssa_3 na_3 in
         let cons_ret_handler = Seq mov_ret_handler ret_cons in
         let cons_exc_handler = Seq mov_exc_handler exc_cons in
         let prog =
@@ -1445,7 +1477,7 @@ val setup_ssa_def = Define`
   setup_ssa n lim (prog:'a wordLang$prog) =
   let args = even_list n in
   let (new_ls,ssa',n') = list_next_var_rename args LN lim in
-    (Move 1 (ZIP(new_ls,args)),ssa',n')`
+    (Move1 (ZIP(new_ls,args)),ssa',n')`
 
 val limit_var_def = Define`
   limit_var prog =
