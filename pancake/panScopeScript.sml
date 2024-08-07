@@ -24,6 +24,31 @@ End
 Type static_result = ``:('a, unbound) error # mlstring list``
 *)
 
+Definition repeats_def:
+  repeats xs =
+    case xs of
+      (x1::x2::xs) =>
+        if x1 = x2
+          then x1 :: (repeats $ dropWhile ((=) x1) xs)
+        else repeats $ x2::xs
+    | _ => []
+Termination
+  WF_REL_TAC ‘measure LENGTH’ >>
+  rw[] >>
+  irule arithmeticTheory.LESS_EQ_LESS_TRANS >>
+  irule_at Any listTheory.LENGTH_dropWhile_LESS_EQ >>
+  rw[]
+End
+
+Definition mapM_def:
+  mapM f [] = return [] ∧
+  mapM f (x::xs) = do
+    e <- f x;
+    es <- mapM f xs;
+    return (e::es);
+  od
+End
+
 Definition scope_check_exp_def:
   scope_check_exp ctxt (Const c) = return () ∧
   scope_check_exp ctxt (Var vname) =
@@ -60,7 +85,7 @@ Definition scope_check_prog_def:
       scope_check_exp ctxt e;
       if MEM v ctxt.vars
         then return ()
-      else log (concat [strlit "variable "; v; strlit " redeclared in "; ctxt.fname; strlit "\n"]);
+      else log $ concat [strlit "variable "; v; strlit " is redeclared in "; ctxt.fname; strlit "\n"];
       scope_check_prog (ctxt with vars := v :: ctxt.vars) p
     od ∧
   scope_check_prog ctxt (DecCall v s e args p) =
@@ -158,12 +183,20 @@ Definition scope_check_funs_def:
       od
 End
 
-(* The scope checker returns StatSuccess () to indicate that there is no scope error, and
-   StatFailure (name, fname) to indicate that name is not in scope in an expression
+(* The scope checker returns NONE to indicate that there is no scope error, and
+   SOME (name, fname) to indicate that name is not in scope in an expression
    within the function fname. The first component name may be the name of a
    variable or a function. *)
 Definition scope_check_def:
-  scope_check funs = scope_check_funs (MAP FST funs) funs
+  scope_check funs =
+    do
+      fnames <<- MAP FST funs;
+      renames <<- repeats $ QSORT mlstring_lt fnames;
+      mapM (\f. log $ concat [strlit "function "; f; strlit " is redeclared\n"]) renames; (*
+      expfnames <<- MAP FST $ FILTER (\(_,_,ps,_). LENGTH ps > 4) $ FILTER (FST o SND) funs // actually, only need the first one
+      *mapM (\f. error $ StaticError $ concat [strlit "exported function "; f; strlit " has more than 4 arguments\n"]) expfnames *)
+      scope_check_funs fnames funs
+    od
 End
 
 
