@@ -19,9 +19,20 @@ local
 
 in
 
-  val eval_cake_compile_x64 = eval_cake_compile x64_arch_thms;
-  val eval_cake_compile_x64_with_conf = eval_cake_compile_with_conf x64_arch_thms;
-  val eval_cake_compile_x64_general = eval_cake_compile_general x64_arch_thms;
+  val eval_cake_compile_x64 =
+      eval_cake_compile x64_arch_thms;
+
+  val eval_cake_compile_x64_with_conf =
+      eval_cake_compile_with_conf x64_arch_thms;
+
+  val eval_cake_compile_explore_x64 =
+      eval_cake_compile_explore x64_arch_thms;
+
+  val eval_cake_compile_explore_x64_with_conf =
+      eval_cake_compile_explore_with_conf x64_arch_thms;
+
+  val eval_cake_compile_x64_general =
+      eval_cake_compile_general x64_arch_thms;
 
 end
 

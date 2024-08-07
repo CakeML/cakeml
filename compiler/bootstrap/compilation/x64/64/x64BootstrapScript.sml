@@ -29,6 +29,7 @@ Theorem compiler64_compiled =
     { prefix               = ""
     , conf_def             = init_conf_eq
     , prog_def             = compiler64_prog_def
+    , run_as_explorer      = false
     , output_filename      = "cake.S"
     , output_conf_filename = SOME "config_enc_str.txt" };
 
