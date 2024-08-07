@@ -1,5 +1,8 @@
 Proofs files for compiling Pancake.
 
+[crep_arithProofScript.sml](crep_arithProofScript.sml):
+Correctness proof for crep_arith pass
+
 [crep_to_loopProofScript.sml](crep_to_loopProofScript.sml):
 Correctness proof for ---
 
