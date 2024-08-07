@@ -864,5 +864,9 @@ Proof
        to_comma_cat_word_to_string,words_line_def]
 QED
 
+val _ = cv_trans word_unreachTheory.SimpSeq_def;
+val _ = cv_trans word_unreachTheory.Seq_assoc_right_def;
+val _ = cv_trans word_unreachTheory.remove_unreach_def;
+
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();

@@ -74,7 +74,8 @@ Definition to_livesets_0_def:
     let inst_prog = inst_select asm_conf maxv prog in
     let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
     let cse_prog = word_common_subexp_elim ssa_prog in
-    let rm_prog = FST(remove_dead cse_prog LN) in
+    let unreach_prog = remove_unreach cse_prog in
+    let rm_prog = FST(remove_dead unreach_prog LN) in
       if asm_conf.two_reg_arith then
         let prog = three_to_two_reg rm_prog in
           (name_num,arg_count,prog)
@@ -267,7 +268,8 @@ Definition each_inlogic_def:
        inst_prog = inst_select asm_conf maxv prog;
        ssa_prog = full_ssa_cc_trans arg_count inst_prog;
        cse_prog = word_common_subexp_elim ssa_prog;
-       rm_prog = FST (remove_dead cse_prog LN);
+       unreach_prog = remove_unreach cse_prog;
+       rm_prog = FST (remove_dead unreach_prog LN);
    in
      case word_alloc_inlogic asm_conf
             (if asm_conf.two_reg_arith then three_to_two_reg rm_prog else rm_prog)
@@ -652,6 +654,9 @@ Definition to_word_all_def:
     let p = MAP (λ((name_num,arg_count,prog),col_opt).
                   ((name_num,arg_count,word_common_subexp_elim prog),col_opt)) p in
     let ps = ps ++ [(strlit "after word_cse",Word (MAP FST p) names)] in
+    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+                  ((name_num,arg_count,remove_unreach prog),col_opt)) p in
+    let ps = ps ++ [(strlit "after word_unreach",Word (MAP FST p) names)] in
     let p = MAP (λ((name_num,arg_count,prog),col_opt).
                   ((name_num,arg_count,FST (remove_dead prog LN)),col_opt)) p in
     let ps = ps ++ [(strlit "after remove_dead in word_alloc",Word (MAP FST p) names)] in

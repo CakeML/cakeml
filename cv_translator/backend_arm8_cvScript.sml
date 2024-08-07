@@ -278,10 +278,11 @@ val _ = cv_auto_trans
                             to_words_line_byte,
                             split16_eq_chunks16]);
 
-(* main two translations below *)
+(* main translations below *)
 
 val _ = cv_trans backend_arm8Theory.to_livesets_arm8_def;
 val _ = cv_trans backend_arm8Theory.compile_cake_arm8_def;
+val _ = cv_auto_trans backend_arm8Theory.compile_cake_explore_arm8_def;
 
 (* lemma used by automation *)
 

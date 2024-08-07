@@ -2,8 +2,8 @@
   Correctness proof for word_to_word
 *)
 open preamble word_to_wordTheory wordSemTheory word_simpProofTheory
-     wordPropsTheory word_allocProofTheory word_instProofTheory
-     word_removeProofTheory word_cseProofTheory word_elimTheory word_elimProofTheory;
+     wordPropsTheory word_allocProofTheory word_instProofTheory word_unreachTheory
+     word_removeProofTheory word_cseProofTheory word_elimTheory word_elimProofTheory word_unreachProofTheory;
 
 val _ = new_theory "word_to_wordProof";
 
@@ -31,7 +31,7 @@ QED
 
 (*Chains up compile_single theorems*)
 Theorem compile_single_lem:
- ∀prog n st.
+  ∀prog n st.
   domain st.locals = set(even_list n) ∧
   gc_fun_const_ok st.gc_fun
   ⇒
@@ -46,14 +46,15 @@ Theorem compile_single_lem:
       SOME _ => rst.locals = rcst.locals
     | _ => T
 Proof
-  full_simp_tac(srw_ss())[compile_single_def,LET_DEF]>>srw_tac[][]>>
+  fs[compile_single_def,LET_DEF]>>rw[]>>
   qpat_abbrev_tac`p1 = inst_select A B C`>>
   qpat_abbrev_tac`p2 = full_ssa_cc_trans n p1`>>
   qpat_abbrev_tac`p2a = word_common_subexp_elim p2`>>
+  qpat_abbrev_tac`p2b = remove_unreach p2a`>>
   TRY(
-    qpat_abbrev_tac`p3 = FST (remove_dead p2a LN)`>>
+    qpat_abbrev_tac`p3 = FST (remove_dead p2b LN)`>>
     qpat_abbrev_tac`p4 = three_to_two_reg p3`)>>
-  TRY(qpat_abbrev_tac`p4 = FST (remove_dead p2a LN)`)>>
+  TRY(qpat_abbrev_tac`p4 = FST (remove_dead p2b LN)`)>>
   Q.ISPECL_THEN [`name`,`c`,`a`,`p4`,`k`,`col`,`st`] mp_tac word_alloc_correct>>
   (impl_tac>-
       (full_simp_tac(srw_ss())[even_starting_locals_def]>>
@@ -64,6 +65,7 @@ Proof
         unabbrev_all_tac>>fs[full_ssa_cc_trans_wf_cutsets]>>
         TRY(ho_match_mp_tac three_to_two_reg_wf_cutsets)>>
         match_mp_tac (el 5 rmd_thms)>>
+        irule wf_cutsets_remove_unreach >>
         irule wf_cutsets_word_common_subexp_elim >>
         fs[full_ssa_cc_trans_wf_cutsets]))>>
   rw[]>>
@@ -86,28 +88,30 @@ Proof
   qpat_x_assum`(λ(x,y). _) _`mp_tac >>
   pairarg_tac>>fs[]>>
   strip_tac>>
-  Cases_on`remove_dead p2a LN`>>fs[]>>
+  Cases_on`remove_dead p2b LN`>>fs[]>>
   drule word_common_subexp_elim_correct >>
   (impl_tac >- (fs [] >>
     unabbrev_all_tac >>
     irule word_allocProofTheory.full_ssa_cc_trans_flat_exp_conventions >>
     fs [word_instProofTheory.inst_select_flat_exp_conventions])) >>
   gvs [] >> strip_tac >>
-  Q.ISPECL_THEN [`p2a`,`LN:num_set`,`q`,`r`,`st with permute := perm'`,`st.locals`,`res`,`rcst`] mp_tac evaluate_remove_dead>>
+  Q.ISPECL_THEN [`p2b`,`LN:num_set`,`q`,`r`,`st with permute := perm'`,`st.locals`,`res`,`rcst`] mp_tac evaluate_remove_dead>>
   impl_tac>>fs[strong_locals_rel_def]>>
+  fs [Abbr‘p2b’,evaluate_remove_unreach] >>
   strip_tac
-  >-
-    (Q.ISPECL_THEN[`p3`,`st with permute:=perm'`,`res`,`rcst with locals:=t'`] mp_tac three_to_two_reg_correct>>
-    impl_tac>-
-      (rev_full_simp_tac(srw_ss())[]>>
-      qspecl_then [‘p2a’,‘LN’] mp_tac (el 4 rmd_thms) >>
+  >- (
+    Q.ISPECL_THEN[`p3`,`st with permute:=perm'`,`res`,`rcst with locals:=t'`] mp_tac three_to_two_reg_correct>>
+    impl_tac>- (
+      rfs[]>>
+      qspecl_then [‘remove_unreach p2a’,‘LN’] mp_tac (el 4 rmd_thms) >>
       fs [] >> disch_then irule >>
+      match_mp_tac every_inst_distinct_tar_reg_remove_unreach>>
       unabbrev_all_tac>>rpt var_eq_tac >> fs[] >>
       irule every_inst_distinct_tar_reg_word_common_subexp_elim >>
       fs [full_ssa_cc_trans_distinct_tar_reg]) >>
-    srw_tac[][]>>
-    full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
-    Cases_on`res`>>full_simp_tac(srw_ss())[])
+    rw[]>>
+    fs[word_state_eq_rel_def]>>
+    Cases_on`res`>>fs[])
   >>
     pairarg_tac>>full_simp_tac(srw_ss())[word_state_eq_rel_def,state_component_equality]>>
     FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]
@@ -672,7 +676,7 @@ Proof
   fs[]>>fs[state_component_equality]
 QED
 
-val rmt_thms = (remove_must_terminate_conventions|>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS
+val rmt_thms = (remove_must_terminate_conventions|>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS;
 
 (* syntax going into stackLang *)
 Theorem compile_to_word_conventions:
@@ -704,8 +708,8 @@ Proof
     fs[compile_single_def]>>
     pop_assum mp_tac>>
     fs[EL_MAP,EL_ZIP])
-  >-
-    (simp[LIST_REL_EL_EQN,EL_MAP,full_compile_single_def]>>
+  >- (
+    simp[LIST_REL_EL_EQN,EL_MAP,full_compile_single_def]>>
     rw[]>>
     qpat_abbrev_tac`q = EL x A`>>
     fs[markerTheory.Abbrev_def]>>PairCases_on`q`>>
@@ -714,33 +718,42 @@ Proof
     fs[compile_single_def]>>
     fs[GSYM (el 5 rmt_thms),GSYM word_alloc_lab_pres]>>
     IF_CASES_TAC>>
-    fs[GSYM three_to_two_reg_lab_pres,GSYM full_ssa_cc_trans_lab_pres,
+    fs[GSYM three_to_two_reg_lab_pres,GSYM (el 6 rmd_thms)]>>
+    (* labels_rel *)
+    cheat>>
+    gvs[
+    GSYM full_ssa_cc_trans_lab_pres,
        GSYM inst_select_lab_pres,GSYM (el 6 rmd_thms),
        extract_labels_word_common_subexp_elim])>>
   fs[EVERY_MAP,EVERY_MEM,MEM_ZIP,FORALL_PROD]>>rw[]>>
   fs[full_compile_single_def,compile_single_def]>>
-  CONJ_TAC>-
-    (match_mp_tac (el 1 rmt_thms)>>
+  CONJ_TAC>- (
+    match_mp_tac (el 1 rmt_thms)>>
     match_mp_tac word_alloc_flat_exp_conventions>>
     IF_CASES_TAC>>
     TRY(match_mp_tac three_to_two_reg_flat_exp_conventions)>>
     match_mp_tac (el 1 rmd_thms)>>
+    match_mp_tac flat_exp_conventions_remove_unreach>>
     irule flat_exp_conventions_word_common_subexp_elim >>
     match_mp_tac full_ssa_cc_trans_flat_exp_conventions>>
     fs[inst_select_flat_exp_conventions])>>
-  CONJ_TAC>-
-    (match_mp_tac (el 3 rmt_thms)>>
+  CONJ_TAC>- (
+    match_mp_tac (el 3 rmt_thms)>>
     match_mp_tac pre_post_conventions_word_alloc>>
     IF_CASES_TAC>>
     TRY(match_mp_tac three_to_two_reg_pre_alloc_conventions)>>
     match_mp_tac (el 3 rmd_thms)>>
+    (* pre_alloc_conventions *)
+    cheat >>
     irule pre_alloc_conventions_word_common_subexp_elim >>
     fs[full_ssa_cc_trans_pre_alloc_conventions])>>
-  CONJ_TAC>-
-    (rw[]>>match_mp_tac (el 2 rmt_thms)>>
+  CONJ_TAC>- (
+    rw[]>>match_mp_tac (el 2 rmt_thms)>>
     match_mp_tac word_alloc_full_inst_ok_less>>
     TRY(match_mp_tac three_to_two_reg_full_inst_ok_less)>>
     match_mp_tac (el 2 rmd_thms)>>
+    (* full_inst_ok_less *)
+    cheat>>
     irule full_inst_ok_less_word_common_subexp_elim >>
     match_mp_tac full_ssa_cc_trans_full_inst_ok_less>>
     match_mp_tac inst_select_full_inst_ok_less>>
@@ -889,7 +902,7 @@ Proof
 QED
 
 Theorem fake_moves_no_install:
-  fake_moves ls nL nR n = (prog1, prog2, n' ,ssa, ssa') ⇒
+  fake_moves prio ls nL nR n = (prog1, prog2, n' ,ssa, ssa') ⇒
   no_install prog1 ∧ no_install prog2
 Proof
   MAP_EVERY qid_spec_tac [‘ssa'’, ‘ssa’, ‘n'’, ‘prog2’, ‘prog1’, ‘n’, ‘nR’, ‘NL’, ‘ls’]>>
@@ -1023,6 +1036,39 @@ Proof
           word_cseTheory.add_to_data_def]
 QED
 
+Theorem SimpSeq_no_install:
+  no_install p1 ∧ no_install p2 ⇒
+  no_install (SimpSeq p1 p2)
+Proof
+  rw [SimpSeq_def,no_install_def]
+  \\ Cases_on ‘p1’ \\ rw [no_install_def]
+QED
+
+Theorem Seq_assoc_right_lemma_no_install:
+  ∀p1 p2.
+  no_install p1 ∧ no_install p2 ⇒
+  no_install (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,no_install_def]
+  >~ [`Call`]
+  >- (
+    every_case_tac \\ gvs[no_install_def]
+    \\ match_mp_tac SimpSeq_no_install
+    \\ gvs[no_install_def])
+  \\ match_mp_tac SimpSeq_no_install
+  \\ gvs[no_install_def]
+QED
+
+Theorem remove_unreach_no_install:
+  no_install p ⇒
+  no_install (remove_unreach p)
+Proof
+  rw[remove_unreach_def]
+  \\ irule Seq_assoc_right_lemma_no_install
+  \\ gvs[no_install_def]
+QED
+
 Theorem compile_single_no_install:
   no_install prog ∧
   (q, r) = (SND (compile_single two_reg_arith reg_count alg c
@@ -1033,6 +1079,7 @@ Proof
   irule word_alloc_no_install>>
   TRY (irule three_to_two_reg_no_install)>>
   irule remove_dead_no_install>>
+  irule remove_unreach_no_install>>
   irule word_common_subexp_elim_no_install>>
   irule full_ssa_cc_trans_no_install>>
   irule inst_select_no_install>>
@@ -1192,7 +1239,7 @@ Proof
 QED
 
 Theorem fake_moves_no_alloc:
-  fake_moves ls nL nR n = (prog1, prog2, n' ,ssa, ssa') ⇒
+  fake_moves prio ls nL nR n = (prog1, prog2, n' ,ssa, ssa') ⇒
   no_alloc prog1 ∧ no_alloc prog2
 Proof
   MAP_EVERY qid_spec_tac [‘ssa'’, ‘ssa’, ‘n'’, ‘prog2’, ‘prog1’, ‘n’, ‘nR’, ‘NL’, ‘ls’]>>
@@ -1326,6 +1373,39 @@ Proof
           word_cseTheory.add_to_data_def]
 QED
 
+Theorem SimpSeq_no_alloc:
+  no_alloc p1 ∧ no_alloc p2 ⇒
+  no_alloc (SimpSeq p1 p2)
+Proof
+  rw [SimpSeq_def,no_alloc_def]
+  \\ Cases_on ‘p1’ \\ rw [no_alloc_def]
+QED
+
+Theorem Seq_assoc_right_lemma_no_alloc:
+  ∀p1 p2.
+  no_alloc p1 ∧ no_alloc p2 ⇒
+  no_alloc (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,no_alloc_def]
+  >~ [`Call`]
+  >- (
+    every_case_tac \\ gvs[no_alloc_def]
+    \\ match_mp_tac SimpSeq_no_alloc
+    \\ gvs[no_alloc_def])
+  \\ match_mp_tac SimpSeq_no_alloc
+  \\ gvs[no_alloc_def]
+QED
+
+Theorem remove_unreach_no_alloc:
+  no_alloc p ⇒
+  no_alloc (remove_unreach p)
+Proof
+  rw[remove_unreach_def]
+  \\ irule Seq_assoc_right_lemma_no_alloc
+  \\ gvs[no_alloc_def]
+QED
+
 Theorem compile_single_no_alloc:
   no_alloc prog ∧
   (q, r) = (SND (compile_single two_reg_arith reg_count alg c
@@ -1336,6 +1416,7 @@ Proof
   irule word_alloc_no_alloc>>
   TRY (irule three_to_two_reg_no_alloc)>>
   irule remove_dead_no_alloc>>
+  irule remove_unreach_no_alloc>>
   irule word_common_subexp_elim_no_alloc>>
   irule full_ssa_cc_trans_no_alloc>>
   irule inst_select_no_alloc>>
@@ -1978,7 +2059,7 @@ Proof
 QED
 
 Theorem fake_moves_no_mt:
-  fake_moves ls nL nR n = (prog1, prog2, n' ,ssa, ssa') ==>
+  fake_moves prio ls nL nR n = (prog1, prog2, n' ,ssa, ssa') ==>
   no_mt prog1 /\ no_mt prog2
 Proof
   MAP_EVERY qid_spec_tac [‘ssa'’, ‘ssa’, ‘n'’, ‘prog2’, ‘prog1’, ‘n’, ‘nR’, ‘NL’, ‘ls’]>>
@@ -2112,6 +2193,39 @@ Proof
           word_cseTheory.add_to_data_def]
 QED
 
+Theorem SimpSeq_no_mt:
+  no_mt p1 ∧ no_mt p2 ⇒
+  no_mt (SimpSeq p1 p2)
+Proof
+  rw [SimpSeq_def,no_mt_def]
+  \\ Cases_on ‘p1’ \\ rw [no_mt_def]
+QED
+
+Theorem Seq_assoc_right_lemma_no_mt:
+  ∀p1 p2.
+  no_mt p1 ∧ no_mt p2 ⇒
+  no_mt (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,no_mt_def]
+  >~ [`Call`]
+  >- (
+    every_case_tac \\ gvs[no_mt_def]
+    \\ match_mp_tac SimpSeq_no_mt
+    \\ gvs[no_mt_def])
+  \\ match_mp_tac SimpSeq_no_mt
+  \\ gvs[no_mt_def]
+QED
+
+Theorem remove_unreach_no_mt:
+  no_mt p ⇒
+  no_mt (remove_unreach p)
+Proof
+  rw[remove_unreach_def]
+  \\ irule Seq_assoc_right_lemma_no_mt
+  \\ gvs[no_mt_def]
+QED
+
 Theorem compile_single_no_mt:
   no_mt prog /\
   (q, r) = (SND (compile_single two_reg_arith reg_count alg c
@@ -2122,6 +2236,7 @@ Proof
   irule word_alloc_no_mt>>
   TRY (irule three_to_two_reg_no_mt)>>
   irule remove_dead_no_mt>>
+  irule remove_unreach_no_mt>>
   irule word_common_subexp_elim_no_mt>>
   irule full_ssa_cc_trans_no_mt>>
   irule inst_select_no_mt>>
@@ -2383,7 +2498,7 @@ Proof
 QED
 
 Theorem fake_moves_no_share_inst:
-  fake_moves ls nL nR n = (prog1, prog2, n' ,ssa, ssa') ⇒
+  fake_moves prio ls nL nR n = (prog1, prog2, n' ,ssa, ssa') ⇒
   no_share_inst prog1 ∧ no_share_inst prog2
 Proof
   MAP_EVERY qid_spec_tac [‘ssa'’, ‘ssa’, ‘n'’, ‘prog2’, ‘prog1’, ‘n’, ‘nR’, ‘NL’, ‘ls’]>>
@@ -2517,6 +2632,39 @@ Proof
           word_cseTheory.add_to_data_def]
 QED
 
+Theorem SimpSeq_no_share_inst:
+  no_share_inst p1 ∧ no_share_inst p2 ⇒
+  no_share_inst (SimpSeq p1 p2)
+Proof
+  rw [SimpSeq_def,no_share_inst_def]
+  \\ Cases_on ‘p1’ \\ rw [no_share_inst_def]
+QED
+
+Theorem Seq_assoc_right_lemma_no_share_inst:
+  ∀p1 p2.
+  no_share_inst p1 ∧ no_share_inst p2 ⇒
+  no_share_inst (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,no_share_inst_def]
+  >~ [`Call`]
+  >- (
+    every_case_tac \\ gvs[no_share_inst_def]
+    \\ match_mp_tac SimpSeq_no_share_inst
+    \\ gvs[no_share_inst_def])
+  \\ match_mp_tac SimpSeq_no_share_inst
+  \\ gvs[no_share_inst_def]
+QED
+
+Theorem remove_unreach_no_share_inst:
+  no_share_inst p ⇒
+  no_share_inst (remove_unreach p)
+Proof
+  rw[remove_unreach_def]
+  \\ irule Seq_assoc_right_lemma_no_share_inst
+  \\ gvs[no_share_inst_def]
+QED
+
 Theorem compile_single_no_share_inst:
   no_share_inst prog ∧
   (q, r) = (SND (compile_single two_reg_arith reg_count alg c
@@ -2527,6 +2675,7 @@ Proof
   irule word_alloc_no_share_inst>>
   TRY (irule three_to_two_reg_no_share_inst)>>
   irule remove_dead_no_share_inst>>
+  irule remove_unreach_no_share_inst>>
   irule word_common_subexp_elim_no_share_inst>>
   irule full_ssa_cc_trans_no_share_inst>>
   irule inst_select_no_share_inst>>

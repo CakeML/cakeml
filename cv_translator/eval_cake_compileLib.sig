@@ -24,7 +24,13 @@ sig
   val eval_cake_compile :
     arch_thms -> string -> thm -> string -> thm
 
+  val eval_cake_compile_explore :
+    arch_thms -> string -> thm -> string -> thm
+
   val eval_cake_compile_with_conf :
+    arch_thms -> string -> thm -> thm -> string -> thm
+
+  val eval_cake_compile_explore_with_conf:
     arch_thms -> string -> thm -> thm -> string -> thm
 
   val eval_cake_compile_general :

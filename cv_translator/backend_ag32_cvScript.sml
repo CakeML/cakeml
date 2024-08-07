@@ -150,10 +150,11 @@ val _ = cv_auto_trans
                             to_words_line_byte,
                             split16_eq_chunks16]);
 
-(* main two translations below *)
+(* main translations below *)
 
 val _ = cv_trans backend_ag32Theory.to_livesets_ag32_def;
 val _ = cv_trans backend_ag32Theory.compile_cake_ag32_def;
+val _ = cv_auto_trans backend_ag32Theory.compile_cake_explore_ag32_def;
 
 (* lemma used by automation *)
 

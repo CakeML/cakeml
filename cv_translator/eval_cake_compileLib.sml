@@ -27,16 +27,26 @@ type comp_input =
   , output_conf_filename : string option }
 
 fun write_cv_char_list_to_file filename cv_char_list_tm = let
+  val s = print ("Writing cv to file: " ^ filename ^"\n")
   val f = TextIO.openOut filename
-  fun loop tm = let
+  fun loop tm =
+  if can (cvSyntax.dest_cv_pair) tm
+  then
+  let
     val (n,rest) = cvSyntax.dest_cv_pair tm
     val c = cvSyntax.dest_cv_num n |> numSyntax.int_of_term |> chr
     val _ = TextIO.output1(f,c)
-    in loop rest end handle HOL_ERR _ => ();
+    in
+      loop rest
+    end
+  else
+    ()
   val _ = loop cv_char_list_tm
   in TextIO.closeOut f end;
 
 fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f;
+
+exception EarlyReturn;
 
 fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val { prefix, conf_def, prog_def, run_as_explorer
@@ -69,11 +79,13 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
     |> SPEC c_oracle_tm |> concl |> lhs
   val to_option_some = cv_typeTheory.to_option_def |> cj 2
   val to_pair = cv_typeTheory.to_pair_def |> cj 1
-
-
-
   val th1 = cv_eval_raw input_tm
             |> CONV_RULE (PATH_CONV "lr" (REWRITE_CONV [GSYM c]))
+  val _ =
+    if not run_as_explorer then () else let
+      val tm = th1 |> concl |> rhs |> rand |> rand
+      val _ = write_cv_char_list_to_file output_filename tm
+      in raise EarlyReturn end
   val th2 = th1 |> CONV_RULE (PATH_CONV "r" (REWR_CONV to_option_some))
             handle HOL_ERR _ => failwith "compiler returned NONE"
   val c2n_Num = cvTheory.c2n_def |> cj 1
@@ -141,18 +153,31 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val _ = Theory.delete_binding (prefix ^ "temp_oracle_cv_def")
   val _ = Theory.delete_binding (prefix ^ "temp_oracle_def")
   val _ = Theory.delete_binding (prefix ^ "syms_def")
-  in result_th end
+  in result_th end handle EarlyReturn => TRUTH;
 
 fun eval_cake_compile_with_conf arch prefix conf_def prog_def filename =
   eval_cake_compile_general arch
     { prefix               = prefix
     , conf_def             = conf_def
     , prog_def             = prog_def
+    , run_as_explorer      = false
     , output_filename      = filename
     , output_conf_filename = NONE };
 
 fun eval_cake_compile arch prefix =
   eval_cake_compile_with_conf arch prefix (#default_config_def arch);
+
+fun eval_cake_compile_explore_with_conf arch prefix conf_def prog_def filename =
+  eval_cake_compile_general arch
+    { prefix               = prefix
+    , conf_def             = conf_def
+    , prog_def             = prog_def
+    , run_as_explorer      = true
+    , output_filename      = filename
+    , output_conf_filename = NONE };
+
+fun eval_cake_compile_explore arch prefix =
+  eval_cake_compile_explore_with_conf arch prefix (#default_config_def arch);
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 

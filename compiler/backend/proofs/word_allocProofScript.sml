@@ -3374,8 +3374,8 @@ val mov_eval_head = Q.prove(`
   full_simp_tac(srw_ss())[set_vars_def,alist_insert_def]>>
   qpat_x_assum `A=rst` (sym_sub_tac)>>full_simp_tac(srw_ss())[]);
 
-val merge_moves_correctL = Q.prove(`
-  ∀ls na ssaL ssaR stL cstL pri.
+Triviality merge_moves_correctL:
+  ∀ls na ssaL ssaR (stL:(α, β, γ) wordSem$state) (cstL:(α, β, γ) wordSem$state) pri.
   is_alloc_var na ∧
   ALL_DISTINCT ls ∧
   ssa_map_ok na ssaL
@@ -3388,7 +3388,8 @@ val merge_moves_correctL = Q.prove(`
     (∀x y. (x < na ∧ lookup x cstL.locals = SOME y)
     ⇒  lookup x rcstL.locals = SOME y) ∧
     ssa_locals_rel na' ssaL' stL.locals rcstL.locals ∧
-    word_state_eq_rel cstL rcstL)`,
+    word_state_eq_rel cstL rcstL)
+Proof
   Induct>>full_simp_tac(srw_ss())[merge_moves_def]>-
   (srw_tac[][]>>
   full_simp_tac(srw_ss())[evaluate_def,word_state_eq_rel_def,get_vars_def,set_vars_def,alist_insert_def]>>
@@ -3447,10 +3448,11 @@ val merge_moves_correctL = Q.prove(`
     >-
       (res_tac>>DECIDE_TAC))
   >>
-      full_simp_tac(srw_ss())[word_state_eq_rel_def]);
+      full_simp_tac(srw_ss())[word_state_eq_rel_def]
+QED
 
-val merge_moves_correctR = Q.prove(`
-  ∀ls na ssaL ssaR stR cstR pri.
+Triviality merge_moves_correctR:
+  ∀ls na ssaL ssaR (stR:(α, β, γ) wordSem$state) (cstR:(α, β, γ) wordSem$state) pri.
   is_alloc_var na ∧
   ALL_DISTINCT ls ∧
   ssa_map_ok na ssaR
@@ -3463,7 +3465,8 @@ val merge_moves_correctR = Q.prove(`
     (∀x y. (x < na ∧ lookup x cstR.locals = SOME y)
     ⇒  lookup x rcstR.locals = SOME y) ∧
     ssa_locals_rel na' ssaR' stR.locals rcstR.locals ∧
-    word_state_eq_rel cstR rcstR)`,
+    word_state_eq_rel cstR rcstR)
+Proof
   Induct>>full_simp_tac(srw_ss())[merge_moves_def]>-
   (srw_tac[][]>>
   full_simp_tac(srw_ss())[evaluate_def,word_state_eq_rel_def,get_vars_def,set_vars_def,alist_insert_def]>>
@@ -3522,13 +3525,14 @@ val merge_moves_correctR = Q.prove(`
     >-
       (res_tac>>DECIDE_TAC))
   >>
-      full_simp_tac(srw_ss())[word_state_eq_rel_def]);
+      full_simp_tac(srw_ss())[word_state_eq_rel_def]
+QED
 
 val fake_moves_frame = Q.prove(`
   ∀ls na ssaL ssaR.
   is_alloc_var na
   ⇒
-  let(moveL,moveR,na',ssaL',ssaR') = fake_moves ls ssaL ssaR na in
+  let(moveL,moveR,na',ssaL',ssaR') = fake_moves prio ls ssaL ssaR na in
   is_alloc_var na' ∧
   na ≤ na' ∧
   (ssa_map_ok na ssaL ⇒ ssa_map_ok na' ssaL') ∧
@@ -3540,7 +3544,7 @@ val fake_moves_frame = Q.prove(`
   full_simp_tac(srw_ss())[LET_THM]>>
   last_x_assum(qspecl_then[`na`,`ssaL`,`ssaR`] assume_tac)>>
   rev_full_simp_tac(srw_ss())[]>>
-  Cases_on`fake_moves ls ssaL ssaR na`>>PairCases_on`r`>>rev_full_simp_tac(srw_ss())[]>>
+  Cases_on`fake_moves prio ls ssaL ssaR na`>>PairCases_on`r`>>rev_full_simp_tac(srw_ss())[]>>
   EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
   (CONJ_TAC>-
     (full_simp_tac(srw_ss())[is_alloc_var_def]>>
@@ -3555,7 +3559,7 @@ val fake_moves_frame = Q.prove(`
 
 val fake_moves_frame2 = Q.prove(`
   ∀ls na ssaL ssaR.
-  let(moveL,moveR,na',ssaL',ssaR') = fake_moves ls ssaL ssaR na in
+  let(moveL,moveR,na',ssaL',ssaR') = fake_moves prio ls ssaL ssaR na in
   domain ssaL' = domain ssaL ∪ (set ls ∩ (domain ssaR ∪ domain ssaL)) ∧
   domain ssaR' = domain ssaR ∪ (set ls ∩ (domain ssaR ∪ domain ssaL)) ∧
   ∀x. MEM x ls ∧ x ∉ domain(inter ssaL ssaR) ⇒ lookup x ssaL' = lookup x ssaR'`,
@@ -3566,14 +3570,14 @@ val fake_moves_frame2 = Q.prove(`
   full_simp_tac(srw_ss())[LET_THM]>>
   last_x_assum(qspecl_then[`na`,`ssaL`,`ssaR`] assume_tac)>>
   rev_full_simp_tac(srw_ss())[LET_THM]>>
-  Cases_on`fake_moves ls ssaL ssaR na`>>PairCases_on`r`>>rev_full_simp_tac(srw_ss())[]>>
+  Cases_on`fake_moves prio ls ssaL ssaR na`>>PairCases_on`r`>>rev_full_simp_tac(srw_ss())[]>>
   EVERY_CASE_TAC>>
   full_simp_tac(srw_ss())[EXTENSION,domain_inter]>>srw_tac[][]>>
   metis_tac[domain_lookup,lookup_insert]);
 
 val fake_moves_frame3 = Q.prove(`
   ∀ls na ssaL ssaR.
-  let(moveL,moveR,na',ssaL',ssaR') = fake_moves ls ssaL ssaR na in
+  let(moveL,moveR,na',ssaL',ssaR') = fake_moves prio ls ssaL ssaR na in
   ∀x. ¬ MEM x ls ∨ x ∈ domain(inter ssaL ssaR) ⇒
     lookup x ssaL' = lookup x ssaL ∧
     lookup x ssaR' = lookup x ssaR`,
@@ -3584,7 +3588,7 @@ val fake_moves_frame3 = Q.prove(`
   full_simp_tac(srw_ss())[LET_THM]>>
   last_x_assum(qspecl_then[`na`,`ssaL`,`ssaR`] assume_tac)>>
   rev_full_simp_tac(srw_ss())[LET_THM]>>
-  Cases_on`fake_moves ls ssaL ssaR na`>>PairCases_on`r`>>rev_full_simp_tac(srw_ss())[]>>
+  Cases_on`fake_moves prio ls ssaL ssaR na`>>PairCases_on`r`>>rev_full_simp_tac(srw_ss())[]>>
   Q.ISPECL_THEN[`ls`,`na`,`ssaL`,`ssaR`] assume_tac fake_moves_frame2>>
   rev_full_simp_tac(srw_ss())[LET_THM]>>
   EVERY_CASE_TAC>>
@@ -3596,12 +3600,12 @@ val fake_moves_frame3 = Q.prove(`
   full_simp_tac(srw_ss())[lookup_NONE_domain]);
 
 val fake_moves_correctL = Q.prove(`
-  ∀ls na ssaL ssaR stL cstL.
+  ∀ls na ssaL ssaR (stL:(α, β, γ) wordSem$state) (cstL:(α, β, γ) wordSem$state).
   is_alloc_var na ∧
   ALL_DISTINCT ls ∧
   ssa_map_ok na ssaL
   ⇒
-  let(moveL,moveR,na',ssaL',ssaR') = fake_moves ls ssaL ssaR na in
+  let(moveL,moveR,na',ssaL',ssaR') = fake_moves prio ls ssaL ssaR na in
   (ssa_locals_rel na ssaL stL.locals cstL.locals ⇒
   let (resL,rcstL) = evaluate(moveL,cstL) in
     resL = NONE ∧
@@ -3621,7 +3625,7 @@ val fake_moves_correctL = Q.prove(`
     metis_tac[])>>
   strip_tac>>
   rev_full_simp_tac(srw_ss())[LET_THM]>>
-  Cases_on`fake_moves ls ssaL ssaR na`>>PairCases_on`r`>>full_simp_tac(srw_ss())[]>>
+  Cases_on`fake_moves prio ls ssaL ssaR na`>>PairCases_on`r`>>full_simp_tac(srw_ss())[]>>
   EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
   strip_tac>>full_simp_tac(srw_ss())[]>>
   full_simp_tac(srw_ss())[evaluate_def,LET_THM,evaluate_def,fake_move_def,word_exp_def,inst_def,assign_def]>>
@@ -3629,7 +3633,7 @@ val fake_moves_correctL = Q.prove(`
   `na ≤ r1 ∧ ssa_map_ok r1 r2` by
     (imp_res_tac fake_moves_frame>>
     full_simp_tac(srw_ss())[LET_THM]>>
-    pop_assum(qspecl_then[`ssaR`,`ssaL`,`ls`]assume_tac)>>rev_full_simp_tac(srw_ss())[])
+    pop_assum(qspecl_then[`ssaR`,`ssaL`,`prio`,`ls`]assume_tac)>>rev_full_simp_tac(srw_ss())[])
   >-
     (full_simp_tac(srw_ss())[ssa_locals_rel_def]>>
     res_tac>>
@@ -3694,7 +3698,7 @@ val fake_moves_correctR = Q.prove(`
   ALL_DISTINCT ls ∧
   ssa_map_ok na ssaR
   ⇒
-  let(moveL,moveR,na',ssaL',ssaR') = fake_moves ls ssaL ssaR na in
+  let(moveL,moveR,na',ssaL',ssaR') = fake_moves prio ls ssaL ssaR na in
   (ssa_locals_rel na ssaR stR.locals cstR.locals ⇒
   let (resR,rcstR) = evaluate(moveR,cstR) in
     resR = NONE ∧
@@ -3714,7 +3718,7 @@ val fake_moves_correctR = Q.prove(`
     metis_tac[])>>
   strip_tac>>
   rev_full_simp_tac(srw_ss())[LET_THM]>>
-  Cases_on`fake_moves ls ssaL ssaR na`>>PairCases_on`r`>>full_simp_tac(srw_ss())[]>>
+  Cases_on`fake_moves prio ls ssaL ssaR na`>>PairCases_on`r`>>full_simp_tac(srw_ss())[]>>
   EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
   strip_tac>>full_simp_tac(srw_ss())[]>>
   full_simp_tac(srw_ss())[evaluate_def,LET_THM,evaluate_def,fake_move_def,word_exp_def,inst_def,assign_def]>>
@@ -3722,7 +3726,7 @@ val fake_moves_correctR = Q.prove(`
   `na ≤ r1 ∧ ssa_map_ok r1 r3` by
     (imp_res_tac fake_moves_frame>>
     full_simp_tac(srw_ss())[LET_THM]>>
-    pop_assum(qspecl_then[`ssaR`,`ssaL`,`ls`]assume_tac)>>rev_full_simp_tac(srw_ss())[])
+    pop_assum(qspecl_then[`ssaR`,`ssaL`,`prio`,`ls`]assume_tac)>>rev_full_simp_tac(srw_ss())[])
   >-
     (full_simp_tac(srw_ss())[ssa_locals_rel_def]>>
     res_tac>>
@@ -3816,27 +3820,28 @@ val get_var_ignore = Q.prove(`
   srw_tac[][]>>
   Cases_on`a`>>full_simp_tac(srw_ss())[alist_insert_def,lookup_insert]);
 
-val fix_inconsistencies_correctL = Q.prove(`
+Triviality fix_inconsistencies_correctL:
   ∀na ssaL ssaR.
   is_alloc_var na ∧
   ssa_map_ok na ssaL
   ⇒
-  let(moveL,moveR,na',ssaU) = fix_inconsistencies ssaL ssaR na in
+  let(moveL,moveR,na',ssaU) = fix_inconsistencies prio ssaL ssaR na in
   (∀(stL:('a,'b,'c) wordSem$state) (cstL:('a,'b,'c) wordSem$state).
   ssa_locals_rel na ssaL stL.locals cstL.locals ⇒
   let (resL,rcstL) = evaluate(moveL,cstL) in
     resL = NONE ∧
     ssa_locals_rel na' ssaU stL.locals rcstL.locals ∧
-    word_state_eq_rel cstL rcstL)`,
+    word_state_eq_rel cstL rcstL)
+Proof
   full_simp_tac(srw_ss())[fix_inconsistencies_def]>>LET_ELIM_TAC>>
-  Q.ISPECL_THEN [`var_union`,`na`,`ssaL`,`ssaR`,`stL`,`cstL`,`1`] mp_tac
+  rename1`Move pp`>>
+  Q.ISPECL_THEN [`var_union`,`na`,`ssaL`,`ssaR`,`stL`,`cstL`,`pp`] mp_tac
       merge_moves_correctL>>
   full_simp_tac(srw_ss())[]>>
   (impl_keep_tac>-
     (full_simp_tac(srw_ss())[Abbr`var_union`,ALL_DISTINCT_MAP_FST_toAList]))>>
   LET_ELIM_TAC>>
-  Q.ISPECL_THEN [`var_union`,`na'`,`ssaL'`,`ssaR'`,`stL`,`rcstL'`]mp_tac
-      fake_moves_correctL>>
+  Q.ISPECL_THEN [`var_union`,`na'`,`ssaL'`,`ssaR'`,`stL`,`rcstL'`]mp_tac fake_moves_correctL>>
   (impl_tac>-
       (Q.ISPECL_THEN [`var_union`,`na`,`ssaL`,`ssaR`] assume_tac merge_moves_frame>>rev_full_simp_tac(srw_ss())[LET_THM]))>>
   LET_ELIM_TAC>>
@@ -3844,31 +3849,32 @@ val fix_inconsistencies_correctL = Q.prove(`
   qpat_x_assum`A=moveL` sym_sub_tac>>
   qpat_x_assum`A=(resL,B)` mp_tac>>
   simp[Once evaluate_def]>>
-  full_simp_tac(srw_ss())[]>>
-  rpt VAR_EQ_TAC>>full_simp_tac(srw_ss())[]>>
-  srw_tac[][]>>full_simp_tac(srw_ss())[word_state_eq_rel_def]);
+  gvs[]>>
+  srw_tac[][]>>full_simp_tac(srw_ss())[word_state_eq_rel_def]
+QED
 
-val fix_inconsistencies_correctR = Q.prove(`
-  ∀na ssaL ssaR.
+Triviality fix_inconsistencies_correctR:
+  ∀na ssaL ssaR prio.
   is_alloc_var na ∧
   ssa_map_ok na ssaR
   ⇒
-  let(moveL,moveR,na',ssaU) = fix_inconsistencies ssaL ssaR na in
+  let(moveL,moveR,na',ssaU) = fix_inconsistencies prio ssaL ssaR na in
   (∀(stR:('a,'b,'c) wordSem$state) (cstR:('a,'b,'c) wordSem$state).
   ssa_locals_rel na ssaR stR.locals cstR.locals ⇒
   let (resR,rcstR) = evaluate(moveR,cstR) in
     resR = NONE ∧
     ssa_locals_rel na' ssaU stR.locals rcstR.locals ∧
-    word_state_eq_rel cstR rcstR)`,
+    word_state_eq_rel cstR rcstR)
+Proof
   full_simp_tac(srw_ss())[fix_inconsistencies_def]>>LET_ELIM_TAC>>
-  Q.ISPECL_THEN [`var_union`,`na`,`ssaL`,`ssaR`,`stR`,`cstR`,`1`] mp_tac
-      merge_moves_correctR>>
+  rename1`Move ppl Lmov`>>
+  rename1`Move ppr Rmov`>>
+  Q.ISPECL_THEN [`var_union`,`na`,`ssaL`,`ssaR`,`stR`,`cstR`,`ppr`] mp_tac merge_moves_correctR>>
   full_simp_tac(srw_ss())[]>>
   (impl_keep_tac>-
     (full_simp_tac(srw_ss())[Abbr`var_union`,ALL_DISTINCT_MAP_FST_toAList]))>>
   LET_ELIM_TAC>>
-  Q.ISPECL_THEN [`var_union`,`na'`,`ssaL'`,`ssaR'`,`stR`,`rcstR'`]mp_tac
-        fake_moves_correctR>>
+  Q.ISPECL_THEN [`var_union`,`na'`,`ssaL'`,`ssaR'`,`stR`,`rcstR'`]mp_tac fake_moves_correctR>>
   (impl_tac>-
       (Q.ISPECL_THEN [`var_union`,`na`,`ssaL`,`ssaR`] assume_tac merge_moves_frame>>rev_full_simp_tac(srw_ss())[LET_THM]))>>
   LET_ELIM_TAC>>
@@ -3900,7 +3906,8 @@ val fix_inconsistencies_correctR = Q.prove(`
     metis_tac[lookup_NONE_domain])
   >>
     full_simp_tac(srw_ss())[domain_inter]>>
-    metis_tac[]);
+    metis_tac[]
+QED
 
 fun use_ALOOKUP_ALL_DISTINCT_MEM (g as (asl,w)) =
   let
@@ -4245,7 +4252,7 @@ val exp_tac = (LET_ELIM_TAC>>full_simp_tac(srw_ss())[next_var_rename_def]>>
 
 val fix_inconsistencies_props = Q.prove(`
   ∀ssaL ssaR na a b na' ssaU.
-  fix_inconsistencies ssaL ssaR na = (a,b,na',ssaU) ∧
+  fix_inconsistencies prio ssaL ssaR na = (a,b,na',ssaU) ∧
   is_alloc_var na ∧
   ssa_map_ok na ssaL ∧
   ssa_map_ok na ssaR
@@ -6061,8 +6068,9 @@ Proof
       Cases_on`q'''`>>full_simp_tac(srw_ss())[]>>
       Cases_on`q''`>>full_simp_tac(srw_ss())[]>>
       (*Fix inconsistencies*)
-      Q.SPECL_THEN [`na_3`,`ssa_2`,`ssa_3`] assume_tac fix_inconsistencies_correctR>>
-        rev_full_simp_tac(srw_ss())[LET_THM]>>
+      rename1`fix_inconsistencies prio _ _`>>
+      Q.SPECL_THEN [`na_3`,`ssa_2`,`ssa_3`,`prio`] assume_tac fix_inconsistencies_correctR >>
+      rev_full_simp_tac(srw_ss())[LET_THM]>>
       pop_assum (qspecl_then[`r''`,`r'''`] mp_tac)>>
       impl_tac>-
         (metis_tac[ssa_locals_rel_more,ssa_map_ok_more])>>
@@ -6159,7 +6167,8 @@ Proof
       Cases_on`evaluate(e3',cst)`>>full_simp_tac(srw_ss())[]>>
       Cases_on`q'`>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
       (*Start reasoning about fix_inconsistencies*)
-      Q.SPECL_THEN [`na3`,`ssa2`,`ssa3`] mp_tac fix_inconsistencies_correctR>>
+      rename1`fix_inconsistencies prio _ _`>>
+      Q.SPECL_THEN [`na3`,`ssa2`,`ssa3`,`prio`] mp_tac fix_inconsistencies_correctR>>
       impl_tac>-
         (imp_res_tac ssa_cc_trans_props>>
         metis_tac[ssa_map_ok_more])>>
@@ -6985,7 +6994,7 @@ QED
 
 val fake_moves_conventions = Q.prove(`
   ∀ls ssaL ssaR na.
-  let (a,b,c,d,e) = fake_moves ls ssaL ssaR na in
+  let (a,b,c,d,e) = fake_moves prio ls ssaL ssaR na in
   every_stack_var is_stack_var a ∧
   every_stack_var is_stack_var b ∧
   call_arg_convention a ∧
@@ -7000,9 +7009,9 @@ val fake_moves_conventions = Q.prove(`
   full_simp_tac(srw_ss())[call_arg_convention_def,every_stack_var_def,fake_moves_def,inst_arg_convention_def]);
 
 val fix_inconsistencies_conventions = Q.prove(`
-  ∀ssaL ssaR na.
+  ∀ssaL ssaR na prio.
   let (a:'a wordLang$prog,b:'a wordLang$prog,c,d) =
-    fix_inconsistencies ssaL ssaR na in
+    fix_inconsistencies prio ssaL ssaR na in
   every_stack_var is_stack_var a ∧
   every_stack_var is_stack_var b ∧
   call_arg_convention a ∧
@@ -7040,8 +7049,8 @@ Proof
   >-
     (first_x_assum(qspecl_then [`p`,`ssa`,`na`] mp_tac)>>
     size_tac>>simp[])
-  >-
-  (Cases_on`o'`
+  >- (
+  Cases_on`o'`
   >-
     (full_simp_tac(srw_ss())[ssa_cc_trans_def]>>LET_ELIM_TAC>>
     unabbrev_all_tac>>
@@ -7112,27 +7121,28 @@ Proof
   full_simp_tac(srw_ss())[every_stack_var_def,call_arg_convention_def]>>
   full_simp_tac(srw_ss())[every_name_def,toAList_domain,EVERY_MEM]>>
   rev_full_simp_tac(srw_ss())[]>>
-  TRY(Q.ISPECL_THEN [`ssa_2`,`ssa_3`,`na_3`] assume_tac fix_inconsistencies_conventions>>
-  rev_full_simp_tac(srw_ss())[LET_THM]))
-  >-
-  (*Seq*)
-  (first_assum(qspecl_then[`p`,`ssa`,`na`] assume_tac)>>
-  first_x_assum(qspecl_then[`p0`,`ssa'`,`na'`] assume_tac)>>
-  ntac 2 (pop_assum mp_tac >> size_tac)>>
-  srw_tac[][]>>metis_tac[ssa_cc_trans_props])
-  >-
-  (*If*)
-  (FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>
-  imp_res_tac ssa_cc_trans_props>>
-  first_assum(qspecl_then[`p`,`ssa`,`na`] mp_tac)>>
-  (size_tac>>impl_tac>-full_simp_tac(srw_ss())[])>>
-  strip_tac>>
-  first_x_assum(qspecl_then[`p0`,`ssa`,`na2`] mp_tac)>>
-  (size_tac>>impl_tac>-metis_tac[ssa_map_ok_more])>>
-  strip_tac>>
-  rev_full_simp_tac(srw_ss())[]>>
-  Q.SPECL_THEN [`ssa2`,`ssa3`,`na3`] assume_tac fix_inconsistencies_conventions>>
+  TRY(
+  rename1`fix_inconsistencies prio`>>
+  Q.ISPECL_THEN [`ssa_2`,`ssa_3`,`na_3`,`prio`] assume_tac fix_inconsistencies_conventions>>
+  gvs[EQ_SYM_EQ,LET_THM])>>
   rev_full_simp_tac(srw_ss())[LET_THM])
+  >- ( (*Seq*)
+    first_assum(qspecl_then[`p`,`ssa`,`na`] assume_tac)>>
+    first_x_assum(qspecl_then[`p0`,`ssa'`,`na'`] assume_tac)>>
+    ntac 2 (pop_assum mp_tac >> size_tac)>>
+    srw_tac[][]>>metis_tac[ssa_cc_trans_props])
+  >- ( (*If*)
+    FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>
+    imp_res_tac ssa_cc_trans_props>>
+    first_assum(qspecl_then[`p`,`ssa`,`na`] mp_tac)>>
+    (size_tac>>impl_tac>-full_simp_tac(srw_ss())[])>>
+    strip_tac>>
+    first_x_assum(qspecl_then[`p0`,`ssa`,`na2`] mp_tac)>>
+    (size_tac>>impl_tac>-metis_tac[ssa_map_ok_more])>>
+    strip_tac>>
+    rev_full_simp_tac(srw_ss())[]>>
+    Q.SPECL_THEN [`ssa2`,`ssa3`,`na3`,`prio`] assume_tac fix_inconsistencies_conventions>>
+    rev_full_simp_tac(srw_ss())[LET_THM])
   >>
   (*Alloc and FFI*)
   TRY(full_simp_tac(srw_ss())[Abbr`prog`,list_next_var_rename_move_def]>>
@@ -7244,7 +7254,7 @@ QED
 
 val fake_moves_wf_cutsets = Q.prove(`
   ∀ls A B C L R D E G.
-  fake_moves ls A B C = (L,R,D,E,G) ⇒
+  fake_moves prio ls A B C = (L,R,D,E,G) ⇒
   wf_cutsets L ∧ wf_cutsets R`,
   Induct>>fs[fake_moves_def,wf_cutsets_def]>>rw[]>>
   pairarg_tac>>fs[]>>EVERY_CASE_TAC>>fs[]>>
@@ -7287,7 +7297,7 @@ QED
 
 val fake_moves_distinct_tar_reg = Q.prove(`
   ∀ls ssal ssar na l r a b c conf.
-  fake_moves ls ssal ssar na = (l,r,a,b,c) ⇒
+  fake_moves prio ls ssal ssar na = (l,r,a,b,c) ⇒
   every_inst distinct_tar_reg l ∧
   every_inst distinct_tar_reg r`,
   Induct>>full_simp_tac(srw_ss())[fake_moves_def]>>srw_tac[][]>>full_simp_tac(srw_ss())[every_inst_def]>>
@@ -7440,7 +7450,7 @@ QED
 
 Theorem fake_moves_conventions2[local]:
   ∀ls ssal ssar na l r a b c conf.
-  fake_moves ls ssal ssar na = (l,r,a,b,c) ⇒
+  fake_moves prio ls ssal ssar na = (l,r,a,b,c) ⇒
   flat_exp_conventions l ∧
   flat_exp_conventions r ∧
   full_inst_ok_less conf l ∧
@@ -8039,7 +8049,7 @@ QED
 (* label preservation theorems *)
 val fake_moves_no_labs = Q.prove(`
   ∀ls a b c d e f g h.
-  fake_moves ls a b c = (d,e,f,g,h) ⇒
+  fake_moves prio ls a b c = (d,e,f,g,h) ⇒
   extract_labels d = [] ∧ extract_labels e = []`,
   Induct>>fs[fake_moves_def,extract_labels_def,fake_move_def]>>rw[]>>
   rpt(pairarg_tac>>fs[])>>
