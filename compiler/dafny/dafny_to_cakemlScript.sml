@@ -500,6 +500,14 @@ Definition dafny_type_of_def:
         else
           fail "dafny_type_of (Index): Unsupported kind of collection"
       od
+  | IndexRange se isArray lo hi =>
+      do
+        if isArray then
+          (* According to Dafny ref, it seems that this should return a sequence *)
+          fail "dafny_type_of (IndexRange): Arrays currently unsupported"
+        else
+          dafny_type_of env se
+      od
   | Expression_Call on (CallName nam onType _) _ _ =>
       if on ≠ (Companion [Ident (Name "_module");
                           Ident (Name "__default")]) then
@@ -592,6 +600,29 @@ Definition from_expression_def:
            od
        else
          fail "from_expression: Unsupported kind of collection"
+   | IndexRange se isArray lo hi =>
+       if isArray then
+         fail "from_expression (IndexRange): Arrays currently unsupported"
+       else
+         do
+           cml_se <- from_expression env se;
+           cml_se <- case hi of
+                     | NONE => return cml_se
+                     | SOME hi =>
+                         do
+                           cml_hi <- from_expression env hi;
+                           return (cml_fapp (Var (Long "List" (Short "take")))
+                                            [cml_se; cml_hi])
+                         od;
+           case lo of
+           | NONE => return cml_se
+           | SOME lo =>
+               do
+                 cml_lo <- from_expression env lo;
+                 return (cml_fapp (Var (Long "List" (Short "drop")))
+                                  [cml_se; cml_lo])
+               od
+         od
    | Expression_Call on call_nam typeArgs args =>
        do
          if on ≠ (Companion [Ident (Name "_module");
@@ -1083,7 +1114,7 @@ open TextIO
 (* val _ = astPP.disable_astPP(); *)
 (* val _ = astPP.enable_astPP(); *)
 
-val inStream = TextIO.openIn "./tests/seq_update.sexp";
+val inStream = TextIO.openIn "./tests/seq_indexrange.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
