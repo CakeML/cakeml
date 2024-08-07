@@ -27,12 +27,20 @@ type comp_input =
   , output_conf_filename : string option }
 
 fun write_cv_char_list_to_file filename cv_char_list_tm = let
+  val s = print ("Writing cv to file: " ^ filename ^"\n")
   val f = TextIO.openOut filename
-  fun loop tm = let
+  fun loop tm =
+  if can (cvSyntax.dest_cv_pair) tm
+  then
+  let
     val (n,rest) = cvSyntax.dest_cv_pair tm
     val c = cvSyntax.dest_cv_num n |> numSyntax.int_of_term |> chr
     val _ = TextIO.output1(f,c)
-    in loop rest end handle HOL_ERR _ => ();
+    in
+      loop rest
+    end
+  else
+    ()
   val _ = loop cv_char_list_tm
   in TextIO.closeOut f end;
 
