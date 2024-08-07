@@ -13,6 +13,8 @@ open mlintTheory
 val _ = new_theory "dafny_to_cakeml";
 
 (* TODO Check if we can reduce the number of generated cases *)
+(* TODO Check if it makes sense to extract Var (...) into a function
+ * in particular look at from_name *)
 
 Overload True = “Con (SOME (Short "True")) []”
 Overload False = “Con (SOME (Short "False")) []”
@@ -769,9 +771,85 @@ Definition from_expression_def:
           else
             fail "from_binOp (Concat): Unsupported types"
       | _ => fail "from_binOp: Unsupported bop")
-  od)
+   od)
 Termination
   cheat
+End
+
+(* fun bool_to_string b = if b then "true" else "false" *)
+Definition cml_bool_to_string_def:
+  cml_bool_to_string =
+  Dletrec unknown_loc
+          [("cml_bool_to_string", "b",
+            (If (Var (Short "b")) (Lit (StrLit "true")) (Lit (StrLit "false"))))]
+End
+
+Definition cml_int_to_string_def:
+  cml_int_to_string =
+  Dletrec unknown_loc [("cml_int_to_string", "i",
+                        cml_fapp (Var (Long "Int" (Short "int_to_string")))
+                                 [(Lit (Char #"-")); Var (Short "i")])]
+End
+
+Definition cml_str_to_string_def:
+  cml_str_to_string =
+  Dletrec unknown_loc [("cml_str_to_string", "s", Var (Short "s"))]
+End
+
+Definition cml_char_to_string_def:
+  cml_char_to_string =
+  let char_as_string = cml_fapp (Var (Long "String" (Short "str")))
+                                [(Var (Short "c"))] in
+    Dletrec unknown_loc [("cml_char_to_string", "c",
+                          cml_fapp (Var (Long "String" (Short "concat")))
+                                   [cml_list [Lit (StrLit "'");
+                                              char_as_string;
+                                              Lit (StrLit "'")]])]
+End
+
+Definition cml_list_to_string_def:
+  cml_list_to_string =
+  Dletrec unknown_loc
+          [("cml_list_to_string", "f",
+            Fun "l" (cml_fapp (Var (Long "String" (Short "concat")))
+                              [cml_list
+                               [Lit (StrLit "[");
+                                cml_fapp (Var (Long "String"
+                                                    (Short "concatWith")))
+                                         [(Lit (StrLit ", "));
+                                          cml_fapp (Var (Long "List"(Short "map")))
+                                                   [Var (Short "f");
+                                                    Var (Short "l")]];
+                                Lit (StrLit "]")]]))]
+End
+
+(* In Dafny, strings within collections are printed as a list of chars *)
+Definition cml_str_elem_to_string_def:
+  cml_str_elem_to_string =
+  Dletrec unknown_loc
+          [("cml_str_elem_to_string", "s",
+            cml_fapp (Var (Short "cml_list_to_string"))
+                     [Var (Short "cml_char_to_string");
+                      cml_fapp (Var (Long "String" (Short "explode")))
+                               [Var (Short "s")]])]
+End
+
+(* Returns a function that can be applied to a CakeML expression to turn it into
+ * a string *)
+Definition to_string_fun_def:
+  (to_string_fun inCol (Primitive String) =
+   if inCol then return (Var (Short "cml_str_elem_to_string"))
+   else return (Var (Short "cml_str_to_string"))) ∧
+  (to_string_fun _ (Primitive Int) =
+   return (Var (Short "cml_int_to_string"))) ∧
+  (to_string_fun _ (Primitive Bool) =
+   return (Var (Short "cml_bool_to_string"))) ∧
+  (to_string_fun _ (Seq t) =
+   do
+     elem_to_string <- to_string_fun T t;
+     return (cml_fapp (Var (Short "cml_list_to_string")) [elem_to_string])
+   od) ∧
+  (to_string_fun _ _ = fail "to_string_fun: Unsupported type")
 End
 
 (* An independent statement must not depend on statements outside of it *)
@@ -801,8 +879,6 @@ Definition from_stmts_def:
               ([]: (dafny_ast$statement list)) =
    return (env, Unit)) ∧
   (from_stmts is_function env lvl epilogue [s] =
-   (* TODO Can we simplify this by just always using something like stmt1; stmt2?
-    * in this case, it would become s; () *)
    if is_indep_stmt s then
      do
        cml_e <- from_indep_stmt is_function env lvl epilogue s;
@@ -903,11 +979,12 @@ Definition from_stmts_def:
         return (raise_labeled_break lbl)
     | Print e =>
         do
+          e_t <- dafny_type_of env e;
+          cml_e_to_string <- to_string_fun F e_t;
           cml_e <- from_expression env e;
-          (* TODO Check if it makes sense to extract Var (...) into a function
-           * in particular look at from_name *)
-          return (cml_fapp (Var (Short "print")) [cml_e])
-      od
+          cml_e_string <<- cml_fapp cml_e_to_string [cml_e];
+          return (cml_fapp (Var (Short "print")) [cml_e_string])
+        od
     | _ => fail ("from_indep_stmt_def: Unsupported or " ++
                  "not independent statement")))
 Termination
@@ -1086,6 +1163,9 @@ Definition compile_def:
           * penalty unless functions are used in a higher order way *)
          fun_defs <<- [(Dletrec unknown_loc fun_defs)];
          return ([return_dexn; break_dexn; labeled_break_dexn;
+                  cml_bool_to_string; cml_int_to_string; cml_str_to_string;
+                  cml_char_to_string; cml_list_to_string;
+                  cml_str_elem_to_string;
                   cml_abs_def; cml_emod_def; cml_ediv_def] ++
                  fun_defs ++
                  [Dlet unknown_loc Pany (cml_fapp (Var (Short "Main")) [Unit])])
@@ -1112,7 +1192,7 @@ open sexp_to_dafnyTheory
 open fromSexpTheory simpleSexpParseTheory
 open TextIO
 (* val _ = astPP.disable_astPP(); *)
-(* val _ = astPP.enable_astPP(); *)
+val _ = astPP.enable_astPP();
 
 val inStream = TextIO.openIn "./tests/seq_indexrange.sexp";
 val fileContent = TextIO.inputAll inStream;
