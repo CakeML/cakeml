@@ -267,7 +267,7 @@ val inst_ok_def = Define `
   (inst_ok (FP x) c = fp_ok x c) /\
   (inst_ok (Mem m r1 (Addr r2 w) : 'a inst) c <=>
      reg_ok r1 c /\ reg_ok r2 c /\
-     (if m IN {Load; Store} then
+     (if m IN {Load; Store; Load32; Store32} then
         addr_offset_ok c w
       else
         byte_offset_ok c w))`

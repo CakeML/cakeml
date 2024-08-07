@@ -285,7 +285,8 @@ Proof
   strip_tac
   \\ asmLib.asm_cases_tac `i`
   \\ simp [arm8_enc_def, length_arm8_enc, length_arm8_encode,
-           arm8_encode_fail_def, arm8_ast, arm8_load_store_ast_def]
+           arm8_encode_fail_def, arm8_ast, arm8_load_store_ast_def,
+           arm8_load_store_ast32_def]
   \\ REPEAT CASE_TAC
   \\ rw [length_arm8_encode, arm8_encode_not_nil]
 QED
@@ -527,6 +528,18 @@ Proof
                next_tac `0`
                \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
                ,
+               Cases_on `c = sw2sw ((8 >< 0) c)`
+               >| [next_tac `0`
+                   \\ Cases_on `¬word_msb c ∧ c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2`,
+                   Cases_on `word_msb c`
+                   >| [next_tac `1`,
+                       Cases_on ‘c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2’
+                       >| [next_tac `0`,
+                           next_tac `1`
+                       ]
+                   ]
+               ]
+               ,
                Cases_on `c = sw2sw ((8 >< 0) c : word9)`
                >| [next_tac `0`
                    \\ Cases_on
@@ -542,12 +555,26 @@ Proof
                ,
                next_tac `0`
                \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
+               ,
+               Cases_on `c = sw2sw ((8 >< 0) c)`
+               >| [next_tac `0`
+                   \\ Cases_on `¬word_msb c ∧ c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2`,
+                   Cases_on `word_msb c`
+                   >| [next_tac `1`,
+                       Cases_on ‘c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2’
+                       >| [next_tac `0`,
+                           next_tac `1`
+                       ]
+                   ]
+               ]
             ]
             \\ enc_rwts_tac
             \\ rfs []
             \\ fs [lem7, lem7b, lem31, lem35]
             \\ TRY (`aligned 3 (c + ms.REG (n2w n'))`
                     by (imp_res_tac lem14 \\ NO_TAC))
+            \\ TRY (`aligned 2 (c + ms.REG (n2w n'))`
+                    by (imp_res_tac lem14b \\ NO_TAC))
             \\ split_bytes_in_memory_tac 4
             \\ next_state_tac01
             \\ TRY (asmLib.split_bytes_in_memory_tac 4
