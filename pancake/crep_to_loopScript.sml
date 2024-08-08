@@ -3,7 +3,7 @@
 *)
 open preamble crepLangTheory
      loopLangTheory sptreeTheory
-     loop_liveTheory
+     loop_liveTheory crep_arithTheory
 
 val _ = new_theory "crep_to_loop"
 
@@ -110,6 +110,12 @@ Definition rt_var_def:
      | SOME m => m
 End
 
+Definition call_label_def:
+  call_label ctxt e = case e of
+    | Label l => (SOME (find_lab ctxt l), [])
+    | _ => (NONE, [e])
+End
+
 Definition compile_def:
   (compile _ _ (Skip:'a crepLang$prog) = (Skip:'a loopLang$prog)) /\
   (compile _ _ Break = Break) /\
@@ -169,26 +175,24 @@ Definition compile_def:
                 If NotEqual tmp (Imm 0w)
                    (Seq lp Continue) Break l]))
           l) /\
-  (compile ctxt l (Call NONE e es) =
-   let (p, les, tmp, nl) = compile_exps ctxt (ctxt.vmax + 1) l (es ++ [e]);
-       nargs = gen_temps tmp (LENGTH les) in
-   nested_seq (p ++ MAP2 Assign nargs les ++
-               [Call NONE NONE nargs NONE])) /\
-  (compile ctxt l (Call (SOME (rt, rp, hdl)) e es) =
-   let (p, les, tmp, nl) = compile_exps ctxt (ctxt.vmax + 1) l (es ++ [e]);
+  (compile ctxt l (Call call_type  e es) =
+   let (dest, indirect_dest) = call_label ctxt e;
+       (p, les, tmp, nl) = compile_exps ctxt (ctxt.vmax + 1) l (es ++ indirect_dest);
        nargs = gen_temps tmp (LENGTH les);
-       rn  = rt_var ctxt.vars rt (ctxt.vmax + 1) (ctxt.vmax + 1);
-       en  = ctxt.vmax + 1;
-       pr  = compile ctxt l rp;
-       pe  = case hdl of
-              | NONE => Raise en
-              | SOME (eid, ep) =>
-                let cpe = compile ctxt l ep in
-                  (If NotEqual en (Imm eid) (Raise en) (Seq Tick cpe) l)
+       (rt1, rt2) = case call_type of
+         | NONE => (NONE, NONE)
+         | SOME (rt, rp, hdl) =>
+           let rn = rt_var ctxt.vars rt (ctxt.vmax + 1) (ctxt.vmax + 1);
+               en  = ctxt.vmax + 1;
+               pr  = compile ctxt l rp;
+               pe  = case hdl of
+                  | NONE => Raise en
+                  | SOME (eid, ep) =>
+                    let cpe = compile ctxt l ep in
+                      (If NotEqual en (Imm eid) (Raise en) (Seq Tick cpe) l)
+           in (SOME (rn, l), SOME (en, pe, pr, l))
    in
-      nested_seq (p ++ MAP2 Assign nargs les ++
-               [Call (SOME (rn, l)) NONE nargs
-                     (SOME (en, pe, pr, l))])) /\
+      nested_seq (p ++ MAP2 Assign nargs les ++ [Call rt1 dest nargs rt2])) /\
   (compile ctxt l (ExtCall f ptr1 len1 ptr2 len2) =
     case (FLOOKUP ctxt.vars ptr1, FLOOKUP ctxt.vars len1,
           FLOOKUP ctxt.vars ptr2, FLOOKUP ctxt.vars len2) of
@@ -246,7 +250,7 @@ Definition compile_prog_def:
    MAP2 (λn (name, params, body).
          (n,
           (GENLIST I o LENGTH) params,
-          loop_live$optimise (comp params body)))
+          loop_live$optimise (comp params (crep_arith$simp_prog body))))
    fnums prog
 End
 

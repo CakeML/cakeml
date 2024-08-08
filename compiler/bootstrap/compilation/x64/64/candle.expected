@@ -1,0 +1,29 @@
+#             val pp_thing = <fun>: thing -> pp_data
+val {record_constructor(Bb)(a_string)(boolean)(integer)} = <fun>: string -> bool -> int -> thing
+val {record_projection(Bb.a_string)} = <fun>: thing -> string
+val {record_projection(Bb.boolean)} = <fun>: thing -> bool
+val {record_projection(Bb.integer)} = <fun>: thing -> int
+val {record_update(Bb.a_string)} = <fun>: thing -> string -> thing
+val {record_update(Bb.boolean)} = <fun>: thing -> bool -> thing
+val {record_update(Bb.integer)} = <fun>: thing -> int -> thing
+#           val m1 = <fun>: thing -> int
+#     val a_string = "5": string
+#     val x = Bb ("1", false, 2): thing
+# val y = Aa 5: thing
+#     val z = Bb ("1", true, 3): thing
+#     val s = "1": string
+#   1
+val it = (): unit
+# 2 5
+val it = (): unit
+# 5
+val it = (): unit
+#         val Mod.pp_blob = <fun>: blob -> pp_data
+val Mod.{record_constructor(Cc)(cc)} = <fun>: bool -> blob
+val Mod.{record_projection(Cc.cc)} = <fun>: blob -> bool
+val Mod.{record_update(Cc.cc)} = <fun>: blob -> bool -> blob
+val Mod.x = Cc true: blob
+#     cc=val it = (): unit
+# true
+val it = (): unit
+#     

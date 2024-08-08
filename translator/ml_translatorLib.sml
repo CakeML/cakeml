@@ -2565,7 +2565,7 @@ local
   val BINOP1_CONV = RATOR_CONV o RAND_CONV
   (* pabs_intro_conv: \x. case x of (x,y,z) => ... ---> \(x,y,z). ... *)
   fun pabs_intro_conv tm =
-    (ABS_CONV (REWR_CONV pair_CASE_UNCURRY
+    (ABS_CONV (REWR_CONV ml_translatorTheory.pair_CASE_UNCURRY
      THENC (BINOP1_CONV (ABS_CONV pabs_intro_conv))) THENC ETA_CONV) tm
     handle HOL_ERR _ => ALL_CONV tm
   fun fix_pmatch_row_names tm = let

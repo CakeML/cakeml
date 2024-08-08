@@ -276,7 +276,7 @@ Definition to_lab_all_def:
     let ps = ps ++ [(strlit "after stack_names",Stack prog names)] in
     let p = MAP prog_to_section prog in
     let ps = ps ++ [(strlit "after stack_to_lab",Lab p names)] in
-      ((ps: (mlstring # 'a any_prog) list),bm,c,p:'a prog,names)
+      ((ps: (mlstring # 'a any_prog) list),bm:'a word list,c,p:'a prog,names)
 End
 
 Theorem to_lab_thm:
@@ -302,6 +302,152 @@ Proof
   assume_tac to_lab_thm
   \\ fs [to_target_all_def,to_target_def,lab_to_targetTheory.compile_def]
   \\ rpt (pairarg_tac \\ gvs [])
+QED
+
+Definition from_lab_all_def:
+  from_lab_all ps (c:'a config) names p (bm:'a word list) =
+    let p = filter_skip p in
+    let ps = ps ++ [(strlit "after filter_skip",Lab p names)] in
+    let p = compile_lab c.lab_conf p in
+      ((ps: (mlstring # 'a any_prog) list), attach_bitmaps names c bm p)
+End
+
+Theorem from_lab_thm:
+  SND (from_lab_all ps c names p bm) = from_lab c names p bm
+Proof
+  gvs [from_lab_all_def,from_lab_def,lab_to_targetTheory.compile_def]
+QED
+
+Definition from_stack_all_def:
+  from_stack_all ps (c:'a config) names p bm =
+    let stack_conf = c.stack_conf in
+    let data_conf = c.data_conf in
+    let max_heap = 2 * max_heap_limit (:'a) c.data_conf - 1 in
+    let sp = c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3) in
+    let offset = c.lab_conf.asm_conf.addr_offset in
+    let prog = stack_rawcall$compile p in
+    let ps = ps ++ [(strlit "after stack_rawcall",Stack prog names)] in
+    let prog = stack_alloc$compile data_conf prog in
+    let ps = ps ++ [(strlit "after stack_alloc",Stack prog names)] in
+    let prog = stack_remove$compile stack_conf.jump offset (is_gen_gc data_conf.gc_kind)
+                 max_heap sp InitGlobals_location prog in
+    let ps = ps ++ [(strlit "after stack_remove",Stack prog names)] in
+    let prog = stack_names$compile stack_conf.reg_names prog in
+    let ps = ps ++ [(strlit "after stack_names",Stack prog names)] in
+    let p = MAP prog_to_section prog in
+    let ps = ps ++ [(strlit "after stack_to_lab",Lab p names)] in
+      from_lab_all ps c names p bm
+End
+
+Theorem from_stack_thm:
+  SND (from_stack_all ps c names p bm) = from_stack c names p bm
+Proof
+  gvs [from_stack_all_def,from_stack_def,stack_to_labTheory.compile_def,
+       from_lab_thm]
+QED
+
+Definition from_word_all_def:
+  from_word_all ps (c:'a config) names p =
+    let (bm,c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
+    let ps = ps ++ [(strlit "after word_to_stack",Stack p names)] in
+    let c = c with word_conf := c' in
+      from_stack_all ps c names p bm
+End
+
+Theorem from_word_thm:
+  SND (from_word_all ps c names p) = from_word c names p
+Proof
+  gvs [from_word_all_def,from_word_def,word_to_stackTheory.compile_def]
+  \\ pairarg_tac \\ gvs [from_stack_thm]
+QED
+
+Definition from_word_0_all_def:
+  from_word_0_all ps (c:'a config) names p =
+    let word_conf = c.word_to_word_conf in
+    let asm_conf = c.lab_conf.asm_conf in
+    let (two_reg_arith,reg_count) =
+            (asm_conf.two_reg_arith,
+             asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs)) in
+    let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
+    let p = ZIP (p,n_oracles) in
+    let alg = word_conf.reg_alg in
+    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+                  ((name_num,arg_count,word_simp$compile_exp prog),col_opt)) p in
+    let ps = ps ++ [(strlit "after word_simp",Word (MAP FST p) names)] in
+    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+                  ((name_num,arg_count,
+                     inst_select asm_conf (max_var prog + 1) prog),col_opt)) p in
+    let ps = ps ++ [(strlit "after word_inst",Word (MAP FST p) names)] in
+    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+                  ((name_num,arg_count,full_ssa_cc_trans arg_count prog),col_opt)) p in
+    let ps = ps ++ [(strlit "after word_ssa",Word (MAP FST p) names)] in
+    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+                  ((name_num,arg_count,word_common_subexp_elim prog),col_opt)) p in
+    let ps = ps ++ [(strlit "after word_cse",Word (MAP FST p) names)] in
+    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+                  ((name_num,arg_count,FST (remove_dead prog LN)),col_opt)) p in
+    let ps = ps ++ [(strlit "after remove_dead in word_alloc",Word (MAP FST p) names)] in
+    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+                  ((name_num,arg_count,
+                   if two_reg_arith then three_to_two_reg prog else prog),col_opt)) p in
+    let ps = ps ++ [(strlit "after three_to_two_reg from word_inst",Word (MAP FST p) names)] in
+    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+                  ((name_num,arg_count,
+                   remove_must_terminate
+                     (word_alloc name_num asm_conf alg reg_count prog col_opt)))) p in
+    let ps = ps ++ [(strlit "after word_alloc (and remove_must_terminate)",Word p names)] in
+    let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
+      from_word_all ps c names p
+End
+
+Theorem from_word_0_thm:
+  SND (from_word_0_all ps c names p) = from_word_0 c names p
+Proof
+  gvs [from_word_0_all_def,from_word_0_def]
+  \\ fs [to_word_all_def,to_word_def,data_to_wordTheory.compile_def,
+         word_to_wordTheory.compile_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [MAP_MAP_o,o_DEF,LAMBDA_PROD]
+  \\ gvs [MAP_EQ_f,FORALL_PROD,word_to_wordTheory.full_compile_single_def,
+          word_to_wordTheory.compile_single_def,from_word_thm]
+  \\ AP_TERM_TAC
+  \\ gvs [MAP_MAP_o,o_DEF,LAMBDA_PROD]
+  \\ gvs [MAP_EQ_f,FORALL_PROD,word_to_wordTheory.full_compile_single_def,
+          word_to_wordTheory.compile_single_def,from_word_thm]
+QED
+
+Definition from_data_all_def:
+  from_data_all ps c names p =
+    let data_conf = c.data_conf in
+    let word_conf = c.word_to_word_conf in
+    let asm_conf = c.lab_conf.asm_conf in
+    let data_conf =
+            data_conf with
+            <|has_fp_ops := (1 < asm_conf.fp_reg_count);
+              has_fp_tern :=
+                (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
+    let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) p in
+    let ps = ps ++ [(strlit "after data_to_word",Word p names)] in
+      from_word_0_all ps c names p
+End
+
+Theorem from_data_thm:
+  SND (from_data_all ps c names p) = from_data c names p
+Proof
+  gvs [from_data_all_def,from_data_def,from_word_0_thm]
+  \\ gvs [backendTheory.from_word_0_def]
+  \\ gvs [data_to_wordTheory.compile_def]
+QED
+
+Theorem to_data_all_from_data_all_correctness:
+  to_target_all c p =
+    let (ps,c',p,ns) = to_data_all c p in
+      from_data_all ps c' ns p
+Proof
+  gvs [to_target_all_def,to_lab_all_def,to_stack_all_def,to_word_all_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [from_data_all_def,from_word_0_all_def,from_word_all_def,
+          from_stack_all_def,from_lab_all_def]
 QED
 
 Theorem compile_eq_to_target_all:
@@ -337,17 +483,17 @@ Definition any_prog_pp_def:
     | Lab p names => lab_to_strs names p
 End
 
-Definition any_prog_pp_with_title_def:
-  any_prog_pp_with_title (title,p) acc =
+Definition pp_with_title_def:
+  pp_with_title pp (title,p) acc =
     Append (List [strlit "# "; title; strlit "\n\n"]) $
-    Append (any_prog_pp p) acc
+    Append (pp p) acc
 End
 
 Definition compile_tap_def:
   compile_tap (c:'a config) p =
     if c.tap_conf.explore_flag then
       let (ps,out) = to_target_all c p in
-        (out, FOLDR any_prog_pp_with_title Nil ps)
+        (out, FOLDR (pp_with_title any_prog_pp) Nil ps)
     else (compile c p, Nil)
 End
 

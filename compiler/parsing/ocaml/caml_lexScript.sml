@@ -8,10 +8,7 @@ val _ = set_grammar_ancestry [ "misc", "location", "lexer_impl", "lexer_fun" ];
 
 val _ = new_theory "caml_lex";
 
-
-(* TODO
- * - Location spans might be wrong just about everywhere
- *)
+val _ = numLib.prefer_num ();
 
 (* -------------------------------------------------------------------------
  * Tokens
@@ -42,6 +39,7 @@ Datatype:
     | PragmaT string
     (* literals and identifiers: *)
     | IntT int
+    | FloatT string
     | CharT char
     | StringT string
     | IdentT string
@@ -63,6 +61,22 @@ Theorem isInt_thm:
   isInt x ⇔ ∃y. x = IntT y
 Proof
   Cases_on ‘x’ \\ rw [isInt_def]
+QED
+
+Definition isFloat_def:
+  isFloat (FloatT s) = T ∧
+  isFloat _ = F
+End
+
+Definition destFloat_def[simp]:
+  destFloat (FloatT s) = SOME s ∧
+  destFloat _ = NONE
+End
+
+Theorem isFloat_thm:
+  isFloat x ⇔ ∃y. x = FloatT y
+Proof
+  Cases_on ‘x’ \\ rw [isFloat_def]
 QED
 
 Definition isChar_def:
@@ -152,6 +166,7 @@ QED
 Datatype:
   symbol
     = NumberS int
+    | FloatS string
     | StringS string
     | CharS char
     | OtherS string
@@ -394,6 +409,76 @@ Definition scan_number_def:
               rest)
 End
 
+(* FLOATS
+ *
+ *   float-lit ::= [0-9] [0-9_]* ("." [0-9_]* )? ([eE] [+-]? [0-9_]* )?
+ *
+ *)
+
+(* [0-9] [0-9_]* *)
+Definition scan_float1_def:
+  scan_float1 cs =
+    if cs = "" ∨ ¬isDigit (HD cs) then NONE else
+      let (cs', rest) = take_while (λc. c = #"_" ∨ isDigit c) cs in
+      let n = FILTER ($≠ #"_") cs' in
+        SOME (n, LENGTH cs', rest)
+End
+
+(* "." [0-9_]* *)
+Definition scan_float2_def:
+  scan_float2 cs =
+    if cs = "" ∨ HD cs ≠ #"." then NONE else
+      let (cs', rest) = take_while (λc. c = #"_" ∨ isDigit c) (TL cs) in
+      let n = FILTER ($≠ #"_") cs' in
+        SOME (#"." :: n, LENGTH cs' + 1, rest)
+End
+
+(* [eE] [+-]? *)
+Definition scan_float3_def:
+  scan_float3 cs =
+    case cs of
+      x :: y :: rest =>
+        if ¬MEM x "eE" then NONE
+        else if MEM y "+-" then
+          if rest = "" ∨ ¬isDigit (HD rest) then NONE else
+            let (cs', rest') = take_while (λc. c = #"_" ∨ isDigit c) rest in
+            let n = FILTER ($≠ #"_") cs' in
+              SOME (x::y::n, 2 + LENGTH cs', rest')
+        else if ¬isDigit y then NONE
+        else
+          let (cs', rest') = take_while (λc. c = #"_" ∨ isDigit c) rest in
+          let n = FILTER ($≠ #"_") cs' in
+            SOME (x::y::n, 2 + LENGTH cs', rest')
+    | _ => NONE
+End
+
+(* At least one of scan_float2 or scan_float3 must succeed. If they fail,
+ * try to scan an integer instead.
+ *)
+Definition scan_float_or_int_def:
+  scan_float_or_int cs loc =
+    case scan_float1 cs of
+      NONE => SOME (ErrorS, Locs loc loc, cs)
+    | SOME (s1, n1, cs1) =>
+        case scan_float2 cs1 of
+          NONE =>
+            (* try scan_float3 *)
+            (case scan_float3 cs1 of
+              NONE => scan_number isDigit (λs. &dec2num s) 0 cs loc
+            | SOME (s2, n2, cs2) => SOME (FloatS (s1 ++ s2),
+                                          Locs loc (next_loc (n1 + n2) loc),
+                                          cs2))
+        | SOME (s2, n2, cs2) =>
+            (case scan_float3 cs2 of
+              NONE => SOME (FloatS (s1 ++ s2),
+                            Locs loc (next_loc (n1 + n2) loc),
+                            cs2)
+            | SOME (s3, n3, cs3) =>
+                SOME (FloatS (s1 ++ s2 ++ s3),
+                      Locs loc (next_loc (n1 + n2 + n3) loc),
+                      cs3))
+End
+
 Definition scan_pragma_def:
   scan_pragma (level: num) (n: num) cs loc =
   case cs of
@@ -434,6 +519,17 @@ Proof
   \\ gvs [NOT_NIL_EQ_LENGTH_NOT_0, LENGTH_TL, CaseEq "bool"]
 QED
 
+Theorem scan_float_or_int_thm:
+  scan_float_or_int cs loc = SOME (sym, locs, ds) ⇒ LENGTH ds ≤ LENGTH cs
+Proof
+  simp [scan_float_or_int_def, scan_float1_def, scan_float2_def,
+        scan_float3_def, CaseEqs ["prod", "string", "option", "bool"],
+        IS_SOME_EXISTS]
+  \\ rw [] \\ gvs [UNCURRY_eq_pair, NOT_NIL_EQ_LENGTH_NOT_0]
+  \\ imp_res_tac take_while_thm \\ gs [LENGTH_TL]
+  \\ imp_res_tac scan_number_thm \\ gs []
+QED
+
 Definition isSym_def:
   isSym c ⇔ MEM c "#$&*+-/=>@^|~!?%<:.;"
 End
@@ -458,9 +554,9 @@ Definition next_sym_def:
         else if HD cs = #"b" ∨ HD cs = #"B" then
           scan_number isBinDigit (λs. &bin2num s) 2 (TL cs) loc
         else
-          scan_number isDigit (λs. &dec2num s) 0 (c::cs) loc
+          scan_float_or_int (c::cs) loc
       else
-        scan_number isDigit (λs. &dec2num s) 0 (c::cs) loc
+        scan_float_or_int (c::cs) loc
     else if c = #"\"" then
       scan_strlit [] cs (next_loc 1 loc)
     else if c = #"'" then
@@ -520,6 +616,27 @@ Proof
   \\ CASE_TAC \\ gs [] \\ rw [] \\ gs []
 QED
 
+Theorem scan_float2_thm[local]:
+  scan_float2 cs = SOME (s, n, ds) ⇒
+    0 < n ∧
+    LENGTH cs = n + LENGTH ds
+Proof
+  rw [scan_float2_def, UNCURRY_eq_pair] \\ gs []
+  \\ drule_then assume_tac take_while_thm
+  \\ gs [NOT_NIL_EQ_LENGTH_NOT_0, LENGTH_TL]
+QED
+
+Theorem scan_float3_thm[local]:
+  scan_float3 cs = SOME (s, n, ds) ⇒
+    0 < n ∧
+    LENGTH cs = n + LENGTH ds
+Proof
+  rw [scan_float3_def, UNCURRY_eq_pair] \\ gs []
+  \\ gvs [CaseEqs ["string", "bool", "option"], UNCURRY_eq_pair]
+  \\ drule_then assume_tac take_while_thm
+  \\ gs [NOT_NIL_EQ_LENGTH_NOT_0, LENGTH_TL]
+QED
+
 Theorem next_sym_thm:
   ∀cs loc sym locs ds.
     next_sym cs loc = SOME (sym, locs, ds) ⇒
@@ -530,26 +647,37 @@ Proof
   \\ pop_assum mp_tac
   \\ rw [Once next_sym_def] \\ gs []
   \\ map_every imp_res_tac [
+    scan_float_or_int_thm,
     scan_number_thm,
-    scan_strlit_thm,
-    scan_pragma_thm,
-    scan_charlit_thm ] \\ gs []
-  \\ gs [NOT_NIL_EQ_LENGTH_NOT_0, LENGTH_TL]
-  \\ imp_res_tac skip_comment_thm \\ gs []
-  \\ imp_res_tac take_while_thm \\ gs []
-  \\ gs [take_while_def, Once scan_number_def, isAlphaNum_def]
-  \\ gvs [CaseEqs ["option", "prod", "bool"]]
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs [CaseEqs ["option", "prod", "bool"]]
-  \\ imp_res_tac take_while_lemma \\ gs []
-  \\ gs [GSYM take_while_def]
-  \\ imp_res_tac take_while_thm
-  \\ gs [NOT_NIL_EQ_LENGTH_NOT_0, LENGTH_TL]
-  \\ imp_res_tac scan_charlit_thm \\ gs []
-  \\ imp_res_tac scan_pragma_thm \\ gs []
+    scan_strlit_thm] \\ gs []
+  \\ gs [CaseEqs ["option", "prod", "bool"], UNCURRY_eq_pair]
+  \\ imp_res_tac scan_charlit_thm
+  (* Various scan_number calls: *)
+  \\ TRY (gs [NOT_NIL_EQ_LENGTH_NOT_0, LENGTH_TL] \\ NO_TAC)
+  (* Two identical scan_float goals: *)
+  \\ TRY (
+    qpat_x_assum ‘scan_float_or_int _ _ = _’ mp_tac
+    \\ simp [scan_float_or_int_def]
+    \\ CASE_TAC \\ gs []
+    \\ gvs [scan_float1_def, UNCURRY_eq_pair]
+    \\ rw [CaseEqs ["option", "prod"]] \\ gs []
+    \\ gvs [scan_number_def, UNCURRY_eq_pair, CaseEq "bool"]
+    \\ map_every imp_res_tac [
+        scan_float2_thm,
+        scan_float3_thm,
+        take_while_thm]
+    \\ gs [NOT_NIL_EQ_LENGTH_NOT_0, LENGTH_TL]
+    \\ gs [take_while_def]
+    \\ drule_at (Pos (el 3)) take_while_lemma \\ gs [])
+  \\ map_every imp_res_tac [
+      scan_pragma_thm,
+      skip_comment_thm] \\ gs []
   \\ Cases_on ‘cs’ \\ gs []
-  \\ imp_res_tac skip_comment_thm \\ gs []
-  \\ Cases_on ‘c’ \\ gs []
+  \\ Cases_on ‘ds’ \\ gs []
+  \\ imp_res_tac take_while_thm \\ gvs []
+  \\ gs [take_while_def, isAlphaNum_def]
+  \\ imp_res_tac take_while_lemma \\ gvs []
+  \\ gs [take_while_aux_def]
 QED
 
 (*
@@ -577,6 +705,12 @@ EVAL “next_sym "(= bar)" loc”
 EVAL “next_sym "=<! bar" loc”
 
 EVAL “next_sym "*" loc”
+
+EVAL “next_sym "123.456e+33" loc”
+EVAL “next_sym "123.456E33" loc”
+EVAL “next_sym "123." loc”
+EVAL “next_sym "0.3e" loc”
+
  *)
 
 Definition get_token_def:
@@ -701,6 +835,7 @@ Definition sym2token_def:
   sym2token s =
     case s of
       NumberS i => IntT i
+    | FloatS s => FloatT s
     | StringS s => StringT s
     | CharS c => CharT c
     | ErrorS => LexErrorT
@@ -782,6 +917,26 @@ Theorem destInt_PMATCH:
   ∀x. destInt x =
         case x of
           IntT i => SOME i
+        | _ => NONE
+Proof
+  CONV_TAC (DEPTH_CONV PMCONV)
+  \\ Cases \\ rw []
+QED
+
+Theorem isFloat_PMATCH:
+  ∀x. isFloat x =
+        case x of
+          FloatT i => T
+        | _ => F
+Proof
+  CONV_TAC (DEPTH_CONV PMCONV)
+  \\ Cases \\ rw [isFloat_def]
+QED
+
+Theorem destFloat_PMATCH:
+  ∀x. destFloat x =
+        case x of
+          FloatT i => SOME i
         | _ => NONE
 Proof
   CONV_TAC (DEPTH_CONV PMCONV)

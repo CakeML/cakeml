@@ -17,53 +17,54 @@ In addition, the first address on the heap should store the address of cake_bitm
 
 Note: this set up does NOT account for restoring clobbered registers
 *)
-val startup' =
-  ``λret. (MAP (\n. strlit(n ++ "\n"))
-      (["/* Start up code */";
-       "";
-       "     .text";
-       "     .p2align 3";
-       "     .globl  cdecl(cml_main)";
-       "     .globl  cdecl(cml_heap)";
-       "     .globl  cdecl(cml_stack)";
-       "     .globl  cdecl(cml_stackend)";
-       "#ifndef __APPLE__";
-       "     .type   cml_main, function";
-       "#endif";
-       "";
-       ".macro _ldrel reg sym";
-       "#ifdef __APPLE__";
-       "adrp \\reg, \\sym@PAGE";
-       "add  \\reg, \\reg, \\sym@PAGEOFF";
-       "#else";
-       "adrp \\reg, \\sym";
-       "add  \\reg, \\reg, :lo12:\\sym";
-       "#endif";
-       ".endm";
-       "";
-       "cdecl(cml_main):";
-       "     _ldrel x0, cake_main            /* arg1: entry address */";
-       "     _ldrel x1, cdecl(cml_heap)      /* arg2: first address of heap */";
-       "     ldr    x1,[x1]";
-       "     _ldrel x2, cake_bitmaps";
-       "     str    x2,[x1]                  /* store bitmap pointer */";
-       "     _ldrel x2, cdecl(cml_stack)     /* arg3: first address of stack */";
-       "     ldr    x2,[x2]";
-       "     _ldrel x3, cdecl(cml_stackend)  /* arg4: first address past the stack */";
-       "     ldr    x3,[x3]"] ++
-       (if ret then
-         ["     b      cml_enter"]
-       else
-         ["     b      cake_main"]) ++
-      ["     .ltorg";
-       ""]))``
-
-val (startup_true, startup_false) =
-    (``^startup' T`` |> EVAL |> concl |> rand,
-     ``^startup' F`` |> EVAL |> concl |> rand);
-
-val startup =
-  ``λret. if ret then ^startup_true else ^startup_false``;
+val startup_def = Define `
+  startup ret pk =
+    SmartAppend (List
+      [strlit"\n";
+       strlit"/* Start up code */\n";
+       strlit"\n";
+       strlit"     .text\n";
+       strlit"     .p2align 3\n";
+       strlit"     .globl  cdecl(cml_main)\n";
+       strlit"     .globl  cdecl(cml_heap)\n";
+       strlit"     .globl  cdecl(cml_stack)\n";
+       strlit"     .globl  cdecl(cml_stackend)\n";
+       strlit"#ifndef __APPLE__\n";
+       strlit"     .type   cml_main, function\n";
+       strlit"#endif\n";
+       strlit"\n";
+       strlit".macro _ldrel reg sym\n";
+       strlit"#ifdef __APPLE__\n";
+       strlit"adrp \\reg, \\sym@PAGE\n";
+       strlit"add  \\reg, \\reg, \\sym@PAGEOFF\n";
+       strlit"#else\n";
+       strlit"adrp \\reg, \\sym\n";
+       strlit"add  \\reg, \\reg, :lo12:\\sym\n";
+       strlit"#endif\n";
+       strlit".endm\n";
+       strlit"\n";
+       strlit"cdecl(cml_main):\n";
+       strlit"     _ldrel x0, cake_main            /* arg1: entry address */\n";
+       strlit"     _ldrel x1, cdecl(cml_heap)      /* arg2: first address of heap */\n";
+       strlit"     ldr    x1,[x1]\n"])
+    (SmartAppend (List
+      (if ~pk then
+        [strlit"     _ldrel x2, cake_bitmaps\n";
+         strlit"     str    x2,[x1]                  /* store bitmap pointer */\n"]
+      else []))
+    (SmartAppend (List
+      [strlit"     _ldrel x2, cdecl(cml_stack)     /* arg3: first address of stack */\n";
+       strlit"     ldr    x2,[x2]\n";
+       strlit"     _ldrel x3, cdecl(cml_stackend)  /* arg4: first address past the stack */\n";
+       strlit"     ldr    x3,[x3]\n"])
+    (SmartAppend (List
+      (if ret then
+        [strlit"     b      cml_enter\n"]
+      else
+        [strlit"     b      cake_main\n"]))
+    (List
+      [strlit"     .ltorg\n";
+       strlit"\n"]))))`
 
 val ffi_asm_def = Define `
   (ffi_asm [] = Nil) /\
@@ -191,14 +192,14 @@ val export_funcs_def = Define `
     FOLDL export_func misc$Nil (FILTER ((flip MEM exp) o FST) lsyms)`;
 
 val arm8_export_def = Define `
-  arm8_export ffi_names bytes (data:word64 list) syms exp ret =
+  arm8_export ffi_names bytes (data:word64 list) syms exp ret pk =
     let lsyms = get_sym_labels syms in
     SmartAppend
       (SmartAppend (List preamble)
       (SmartAppend (List (data_section ".quad" ret))
       (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
       (SmartAppend (List data_buffer)
-      (SmartAppend (List ((strlit"\n")::(^startup ret))) (^ffi_code ret))))))
+      (SmartAppend (startup ret pk) (^ffi_code ret))))))
       (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
       (SmartAppend (List code_buffer)
       (SmartAppend (emit_symbols lsyms)

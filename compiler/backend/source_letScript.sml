@@ -60,7 +60,10 @@ End
 Definition lift_lets_def:
   lift_lets sofar d =
     case lift_let d of
-    | NONE => (REVERSE sofar, d)
+    | NONE =>
+        (case sofar of
+        | [] => NONE
+        | _ => SOME (REVERSE sofar, d))
     | SOME (d1, d2) => lift_lets (d1::sofar) d2
 Termination
   wf_rel_tac ‘measure (dec_size o SND)’
@@ -72,8 +75,17 @@ End
 Definition compile_decs_def:
   (compile_decs [] = []) ∧
   (compile_decs (d::ds) =
-    let (pre, d) = lift_lets [] d in
-    Dlocal pre [d] :: compile_decs ds)
+    case lift_lets [] d of
+    | SOME (pre, d) => Dlocal pre [d] :: compile_decs ds
+    | NONE =>
+        case d of
+        | Dmod mn ds1 =>
+            Dmod mn (compile_decs ds1) :: compile_decs ds
+        | Dlocal ds1 ds2 =>
+            Dlocal (compile_decs ds1) (compile_decs ds2) :: compile_decs ds
+        | _ => d :: compile_decs ds)
+Termination
+  wf_rel_tac ‘measure (list_size dec_size)’
 End
 
 (*
@@ -82,6 +94,17 @@ val test3 = EVAL “
     Dlet l (Pvar "foo")
       (Letrec [("bar", "x", App Opapp [Var (Short "baz"); Con NONE []])]
               (Var (Short "glob")))]”;
+val test4 = EVAL “
+  compile_decs [
+    Dlocal [
+        Dlet l (Pvar "foo")
+          (Letrec [("bar", "x", App Opapp [Var (Short "baz"); Con NONE []])]
+                  (Var (Short "glob")))] []
+    ]”;
+val test5 = EVAL “
+  compile_decs [
+    Dlet l (Pvar "foo") (Var (Short "bar"))
+    ]”;
  *)
 
 val _ = export_theory ();

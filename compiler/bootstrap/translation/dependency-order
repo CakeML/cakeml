@@ -24,14 +24,18 @@ reg_alloc
 infer
 explorer
 sexp_parser
+basis_def
 --- (the translation splits into two paths for 32- and 64-bit targets)
 to_word32
 to_target32
 arm7
+ag32
 compiler32
 ---
+printing
 to_word64
 to_target64
+from_pancake64
 x64
 arm8
 riscv

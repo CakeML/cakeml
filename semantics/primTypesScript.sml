@@ -62,6 +62,7 @@ Definition prim_tenv_def:
               [("array",["'a"],Tapp [Tvar "'a"] Tarray_num);
                ("bool",[],Tapp [] Tbool_num);
                ("char",[],Tapp [] Tchar_num);
+               ("double",[],Tapp [] Tdouble_num);
                ("exn",[],Tapp [] Texn_num);
                ("int",[],Tapp [] Tint_num);
                (* Tfn is ->, specially handled *)

@@ -47,6 +47,29 @@ Proof
   \\ strip_tac \\ EVAL_TAC
 QED
 
+Theorem set_asm_conf_init_conf:
+  set_asm_conf init_conf x64_config = init_conf
+Proof
+  gvs [init_conf_def,backendTheory.set_asm_conf_def,
+       x64_targetTheory.x64_config_def,
+       x64_configTheory.x64_backend_config_def,
+       backendTheory.config_component_equality]
+QED
+
+Theorem backend_config_ok_init_conf:
+  backend_config_ok init_conf
+Proof
+  assume_tac x64_backend_config_ok
+  \\ gvs [backendProofTheory.backend_config_ok_def,init_conf_def]
+  \\ EVAL_TAC
+QED
+
+Theorem mc_init_ok_init_conf:
+  mc_init_ok init_conf mc = mc_init_ok x64_backend_config mc
+Proof
+  simp [mc_init_ok_def,init_conf_def]
+QED
+
 val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
   semantics_compiler64_prog
   |> Q.INST[‘eval_state_var’|->‘the_EvalDecs (mk_init_eval_state compiler_instance)’]
@@ -62,12 +85,12 @@ val (cake_not_fail,cake_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail c
 val compile_correct_applied =
   MATCH_MP compile_correct_eval (cj 1 compiler64_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,
-                         GSYM AND_IMP_INTRO,with_clos_conf_simp]
+                         GSYM AND_IMP_INTRO,set_asm_conf_init_conf,with_clos_conf_simp]
   |> Q.INST [‘ev’|->‘SOME compiler_instance’]
   |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,
-                           compiler_instance_lemma,info_asm_conf]
+                           compiler_instance_lemma,info_asm_conf,mc_init_ok_init_conf]
   |> C MATCH_MP cake_not_fail
-  |> C MATCH_MP x64_backend_config_ok
+  |> C MATCH_MP backend_config_ok_init_conf
   |> REWRITE_RULE[cake_sem_sing,AND_IMP_INTRO]
   |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
   |> C MATCH_MP (CONJ(UNDISCH x64_machine_config_ok)(UNDISCH x64_init_ok))
@@ -166,9 +189,12 @@ Theorem compile_correct_applied:
       (semantics_prog (init_eval_state_for cl fs) init_env compiler64_prog)
 Proof
   PairCases_on ‘ms’ \\ rw [IN_DEF,repl_ready_to_run_def]
-  \\ irule compile_correct_applied2 \\ fs []
-  \\ first_x_assum $ irule_at Any
+  \\ irule compile_correct_applied2 \\ fs [set_asm_conf_init_conf]
   \\ rewrite_tac [info_asm_conf]
+  \\ ‘init_conf.stack_conf.reg_names =
+      x64_backend_config.stack_conf.reg_names’ by EVAL_TAC
+  \\ gvs [] \\ first_x_assum $ irule_at Any
+  \\ gvs [backend_config_ok_init_conf,mc_init_ok_init_conf]
 QED
 
 Triviality isPREFIX_MEM:

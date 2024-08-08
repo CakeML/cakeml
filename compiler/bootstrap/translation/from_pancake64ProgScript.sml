@@ -246,6 +246,18 @@ val _ = translate $ spec64 comp_def;
 
 val _ = translate $ spec64 optimise_def;
 
+open crep_arithTheory;
+
+val _ = translate $ spec64 dest_const_def;
+
+val _ = translate $ spec64 dest_2exp_def;
+
+val _ = translate $ spec64 mul_const_def;
+
+val _ = translate $ spec64 simp_exp_def;
+
+val _ = translate $ spec64 simp_prog_def;
+
 open crep_to_loopTheory;
 
 val _ = translate $ spec64 prog_if_def;
@@ -253,6 +265,8 @@ val _ = translate $ spec64 prog_if_def;
 val _ = translate $ spec64 compile_crepop_def;
 
 val _ = translate $ spec64 compile_exp_def;
+
+val _ = translate $ spec64 call_label_def;
 
 val _ = translate $ spec64 compile_def;
 

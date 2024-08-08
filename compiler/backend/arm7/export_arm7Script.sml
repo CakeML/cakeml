@@ -17,40 +17,41 @@ In addition, the first address on the heap should store the address of cake_bitm
 
 Note: this set up does NOT account for restoring clobbered registers
 *)
-val startup' =
-  ``λret. (MAP (\n. strlit(n ++ "\n"))
-      (["/* Start up code */";
-       "";
-       "     .text";
-       "     .p2align 3";
-       "     .globl  cdecl(cml_main)";
-       "     .globl  cdecl(cml_heap)";
-       "     .globl  cdecl(cml_stack)";
-       "     .globl  cdecl(cml_stackend)";
-       "     .type   cml_main, function";
-       "cdecl(cml_main):";
-       "     ldr    r0,=cake_main            /* arg1: entry address */";
-       "     ldr    r1,=cdecl(cml_heap)      /* arg2: first address of heap */";
-       "     ldr    r1,[r1]";
-       "     ldr    r2,=cake_bitmaps";
-       "     str    r2,[r1]                  /* store bitmap pointer */";
-       "     ldr    r2,=cdecl(cml_stack)     /* arg3: first address of stack */";
-       "     ldr    r2,[r2]";
-       "     ldr    r3,=cdecl(cml_stackend)  /* arg4: first address past the stack */";
-       "     ldr    r3,[r3]"] ++
-       (if ret then
-         ["     b      cml_enter"]
-       else
-         ["     b      cake_main"]) ++
-      ["     .ltorg";
-       ""]))``
-
-val (startup_true, startup_false) =
-    (``^startup' T`` |> EVAL |> concl |> rand,
-     ``^startup' F`` |> EVAL |> concl |> rand);
-
-val startup =
-  ``λret. if ret then ^startup_true else ^startup_false``;
+val startup_def = Define `
+  startup ret pk =
+    SmartAppend (List
+      [strlit"\n";
+       strlit"/* Start up code */\n";
+       strlit"\n";
+       strlit"     .text\n";
+       strlit"     .p2align 3\n";
+       strlit"     .globl  cdecl(cml_main)\n";
+       strlit"     .globl  cdecl(cml_heap)\n";
+       strlit"     .globl  cdecl(cml_stack)\n";
+       strlit"     .globl  cdecl(cml_stackend)\n";
+       strlit"     .type   cml_main, function\n";
+       strlit"cdecl(cml_main):\n";
+       strlit"     ldr    r0,=cake_main            /* arg1: entry address */\n";
+       strlit"     ldr    r1,=cdecl(cml_heap)      /* arg2: first address of heap */\n";
+       strlit"     ldr    r1,[r1]\n"])
+    (SmartAppend (List
+      (if ~pk then
+        [strlit"     ldr    r2,=cake_bitmaps\n";
+         strlit"     str    r2,[r1]                  /* store bitmap pointer */\n"]
+      else []))
+    (SmartAppend (List
+      [strlit"     ldr    r2,=cdecl(cml_stack)     /* arg3: first address of stack */\n";
+       strlit"     ldr    r2,[r2]\n";
+       strlit"     ldr    r3,=cdecl(cml_stackend)  /* arg4: first address past the stack */\n";
+       strlit"     ldr    r3,[r3]\n"])
+    (SmartAppend (List
+      (if ret then
+        [strlit"     b      cml_enter\n"]
+      else
+        [strlit"     b      cake_main\n"]))
+    (List
+      [strlit"     .ltorg\n";
+       strlit"\n"]))))`
 
 val ffi_asm_def = Define `
   (ffi_asm [] = Nil) /\
@@ -167,14 +168,14 @@ val export_funcs_def = Define `
     FOLDL export_func misc$Nil (FILTER ((flip MEM exp) o FST) lsyms)`;
 
 val arm7_export_def = Define `
-  arm7_export ffi_names bytes (data:word32 list) syms exp ret =
+  arm7_export ffi_names bytes (data:word32 list) syms exp ret pk =
     let lsyms = get_sym_labels syms in
     SmartAppend
       (SmartAppend (List preamble)
       (SmartAppend (List (data_section ".long" ret))
       (SmartAppend (split16 (words_line (strlit"\t.long ") word_to_string) data)
       (SmartAppend (List data_buffer)
-      (SmartAppend (List ((strlit"\n")::(^startup ret))) (^ffi_code ret))))))
+      (SmartAppend (startup ret pk) (^ffi_code ret))))))
       (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
       (SmartAppend (List code_buffer)
       (SmartAppend (emit_symbols lsyms)
