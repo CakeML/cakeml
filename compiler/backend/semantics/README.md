@@ -74,3 +74,6 @@ Properties about wordLang and its semantics
 
 [wordSemScript.sml](wordSemScript.sml):
 The formal semantics of wordLang
+
+[wordSem_oldScript.sml](wordSem_oldScript.sml):
+The formal semantics of wordLang

@@ -12,27 +12,30 @@ val _ = set_grammar_ancestry
    "wordSem" (* for word_loc *)
   ];
 
-val _ = Datatype `
+Datatype:
   result = Result ('w word_loc)
          | Exception ('w word_loc)
          | Halt ('w word_loc)
          | TimeOut
          | FinalFFI final_event
-         | Error `
+         | Error
+End
 
-val bit_length_def = Define `
-  bit_length w = if w = 0w then (0:num) else bit_length (w >>> 1) + 1`;
+Definition bit_length_def:
+  bit_length w = if w = 0w then (0:num) else bit_length (w >>> 1) + 1
+End
 
-val filter_bitmap_def = Define `
+Definition filter_bitmap_def:
   (filter_bitmap [] rs = SOME ([],rs)) /\
   (filter_bitmap (F::bs) (r::rs) = filter_bitmap bs rs) /\
   (filter_bitmap (T::bs) (r::rs) =
      case filter_bitmap bs rs of
      | NONE => NONE
      | SOME (ts,rs') => SOME (r::ts,rs')) /\
-  (filter_bitmap _ _ = NONE)`
+  (filter_bitmap _ _ = NONE)
+End
 
-val map_bitmap_def = Define `
+Definition map_bitmap_def:
   (map_bitmap [] ts rs = SOME ([],ts,rs)) /\
   (map_bitmap (F::bs) ts (r::rs) =
      case map_bitmap bs ts rs of
@@ -42,7 +45,8 @@ val map_bitmap_def = Define `
      case map_bitmap bs ts rs of
      | NONE => NONE
      | SOME (xs,ys,zs) => SOME (t::xs,ys,zs)) /\
-  (map_bitmap _ _ _ = NONE)`
+  (map_bitmap _ _ _ = NONE)
+End
 
 Theorem filter_bitmap_LENGTH:
    !bs xs x y. (filter_bitmap bs xs = SOME (x,y)) ==> LENGTH y <= LENGTH xs
@@ -67,7 +71,7 @@ Proof
   \\ res_tac \\ fs[] \\ decide_tac
 QED
 
-val read_bitmap_def = Define `
+Definition read_bitmap_def:
   (read_bitmap [] = NONE) /\
   (read_bitmap ((w:'a word)::ws) =
      if word_msb w then (* there is a continuation *)
@@ -75,9 +79,10 @@ val read_bitmap_def = Define `
        | NONE => NONE
        | SOME bs => SOME (GENLIST (\i. w ' i) (dimindex (:'a) - 1) ++ bs)
      else (* this is the last bitmap word *)
-       SOME (GENLIST (\i. w ' i) (bit_length w - 1)))`
+       SOME (GENLIST (\i. w ' i) (bit_length w - 1)))
+End
 
-val _ = Datatype `
+Datatype:
   state =
     <| regs    : num |-> 'a word_loc
      ; fp_regs : num |-> word64
@@ -100,7 +105,8 @@ val _ = Datatype `
      ; code    : ('a stackLang$prog) num_map
      ; ffi     : 'ffi ffi_state
      ; ffi_save_regs : num set
-     ; be      : bool (* is big-endian *) |> `
+     ; be      : bool (* is big-endian *) |>
+End
 
 val mem_store_def = Define `
   mem_store (addr:'a word) (w:'a word_loc) (s:('a,'c,'ffi) stackSem$state) =
@@ -320,13 +326,14 @@ val alloc_def = Define `
             | SOME F => (* fail, GC didn't free up enough space *)
                         (SOME (Halt (Word (1w:'a word))),empty_env s)))`
 
-val assign_def = Define `
+Definition assign_def:
   assign reg exp s =
     case word_exp s exp of
      | NONE => NONE
-     | SOME w => SOME (set_var reg (Word w) s)`;
+     | SOME w => SOME (set_var reg (Word w) s)
+End
 
-val inst_def = Define `
+Definition inst_def:
   inst i (s:('a,'c,'ffi) stackSem$state) =
     case i of
     | Skip => SOME s
@@ -358,7 +365,6 @@ val inst_def = Define `
           let res = w2n l + w2n r + if c = (0w:'a word) then 0 else 1 in
             SOME (set_var r4 (Word (if dimword(:'a) ≤ res then (1w:'a word) else 0w))
                  (set_var r1 (Word (n2w res)) s))
-
         | _ => NONE)
     | Arith (AddOverflow r1 r2 r3 r4) =>
         (let vs = get_vars [r2;r3] s in
@@ -538,29 +544,35 @@ val inst_def = Define `
           let i =  w2i (if ODD d2 then (63 >< 32) v else (31 >< 0) v : 'a word) in
             SOME (set_fp_var d1 (int_to_fp64 roundTiesToEven i) s)
         | NONE => NONE
-    | _ => NONE`
+    | _ => NONE
+End
 
-val get_var_imm_def = Define`
+Definition get_var_imm_def:
   (get_var_imm ((Reg n):'a reg_imm) s = get_var n s) /\
-  (get_var_imm (Imm w) s = SOME(Word w))`
+  (get_var_imm (Imm w) s = SOME(Word w))
+End
 
-val find_code_def = Define `
+Definition find_code_def:
   (find_code (INL p) regs code = sptree$lookup p code) /\
   (find_code (INR r) regs code =
      case FLOOKUP regs r of
        SOME (Loc loc 0) => lookup loc code
-     | other => NONE)`
+     | other => NONE)
+End
 
-val fix_clock_def = Define `
-  fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)`
+Definition fix_clock_def:
+  fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
+End
 
 val fix_clock_IMP = Q.prove(
   `fix_clock s x = (res,s1) ==> s1.clock <= s.clock`,
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
 
-val STOP_def = Define `STOP x = x`;
+Definition STOP_def:
+  STOP x = x
+End
 
-val get_labels_def = Define `
+Definition get_labels_def:
   (get_labels (Seq p1 p2) = get_labels p1 UNION get_labels p2) /\
   (get_labels (If _ _ _ p1 p2) = get_labels p1 UNION get_labels p2) /\
   (get_labels (Call ret _ handler) =
@@ -571,12 +583,14 @@ val get_labels_def = Define `
            | NONE => {}
            | SOME (r,l1,l2) => (l1,l2) INSERT get_labels r))) /\
   (get_labels (Halt _) = {}) /\
-  (get_labels _ = {})`
+  (get_labels _ = {})
+End
 
-val loc_check_def = Define `
+Definition loc_check_def:
   loc_check code (l1,l2) <=>
     (l2 = 0 /\ l1 ∈ domain code) \/
-    ?n e. lookup n code = SOME e /\ (l1,l2) IN get_labels e`;
+    ?n e. lookup n code = SOME e /\ (l1,l2) IN get_labels e
+End
 
 Definition copy_words_for_pattern_def:
   copy_words_for_pattern (pattern :'a word) (i:num) (a :'a word) (off :'a word) bs dm m =
@@ -636,7 +650,7 @@ End
 Definition check_store_consts_opt_def:
   check_store_consts_opt t1 t2 NONE _ = T ∧
   check_store_consts_opt t1 t2 (SOME n) c =
-    (lookup n c = SOME (Seq (StoreConsts t1 t2 NONE) (Return 0 0)))
+    (lookup n c = SOME (Seq (StoreConsts t1 t2 NONE) (Return 0)))
 End
 
 Definition dest_Seq_def:
@@ -685,9 +699,9 @@ Definition evaluate_def:
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
        if res = NONE then evaluate (c2,s1) else (res,s1)) /\
-  (evaluate (Return n m,s) =
-     case (get_var n s ,get_var m s) of
-     | (SOME (Loc l1 l2),SOME _) => (SOME (Result (Loc l1 l2)),s)
+  (evaluate (Return n,s) =
+     case get_var n s of
+     | SOME (Loc l1 l2) => (SOME (Result (Loc l1 l2)),s)
      | _ => (SOME Error,s)) /\
   (evaluate (Raise n,s) =
      case get_var n s of
@@ -987,7 +1001,7 @@ Theorem evaluate_ind[allow_rebind] =
 
 (* observational semantics *)
 
-val semantics_def = Define `
+Definition semantics_def:
   semantics start s =
   let prog = Call NONE (INL start) NONE in
   if ∃k. let res = FST (evaluate (prog, s with clock := k)) in
@@ -1010,7 +1024,8 @@ val semantics_def = Define `
     | NONE =>
       Diverge
          (build_lprefix_lub
-           (IMAGE (λk. fromList (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))`;
+           (IMAGE (λk. fromList (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
+End
 
 (* record accessors *)
 

@@ -14,14 +14,15 @@ val _ = new_theory "stackLang";
 val _ = set_grammar_ancestry["asm", "backend_common",
   "misc" (* for bytes_in_word *)];
 
-val _ = Datatype `
+Datatype:
   store_name =
     NextFree | EndOfHeap | TriggerGC | HeapLength | ProgStart | BitmapBase |
     CurrHeap | OtherHeap | AllocSize | Globals | GlobReal | Handler | GenStart |
     CodeBuffer | CodeBufferEnd | BitmapBuffer | BitmapBufferEnd |
-    Temp (5 word)`
+    Temp (5 word)
+End
 
-val _ = Datatype `
+Datatype:
   prog = Skip
        | Inst ('a inst)
        | Get num store_name
@@ -39,7 +40,7 @@ val _ = Datatype `
        | Alloc num
        | StoreConsts num num (num option) (* reg, reg, stub name to call *)
        | Raise num
-       | Return num num
+       | Return num
        | FFI string num num num num num (* FFI index, conf_ptr, conf_len,
                                            array_ptr, array_len, ret_addr *)
        | Tick
@@ -60,7 +61,8 @@ val _ = Datatype `
        | StackGetSize num       (* used when installing exc handler *)
        | StackSetSize num       (* used by implementation of raise *)
        | BitmapLoad num num     (* load word from read-only region *)
-       | Halt num`;
+       | Halt num
+End
 
 val _ = map overload_on
   [("move",``\dest src. Inst (Arith (Binop Or dest src (Reg src)))``),
@@ -79,10 +81,11 @@ val _ = map overload_on
    ("load_inst",``\r a. Inst (Mem Load r (Addr a 0w))``),
    ("store_inst",``\r a. Inst (Mem Store r (Addr a 0w))``)]
 
-val list_Seq_def = Define `
+Definition list_Seq_def:
   (list_Seq [] = Skip) /\
   (list_Seq [x] = x) /\
-  (list_Seq (x::y::xs) = Seq x (list_Seq (y::xs)))`;
+  (list_Seq (x::y::xs) = Seq x (list_Seq (y::xs)))
+End
 
 val gc_stub_location_def = Define`
   gc_stub_location = stack_num_stubs-1`;
