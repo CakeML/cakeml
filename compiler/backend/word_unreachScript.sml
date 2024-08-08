@@ -7,6 +7,20 @@ val _ = new_theory "word_unreach";
 
 (* function that makes all Seq associate to the right *)
 
+Definition dest_Seq_Move_def:
+  dest_Seq_Move (wordLang$Move n l) = SOME (n,l,Skip) ∧
+  dest_Seq_Move (Seq (Move n l) rest) = SOME (n,l,rest) ∧
+  dest_Seq_Move _ = NONE
+End
+
+Definition merge_moves_def:
+  merge_moves l1 l2 =
+    let l2' = MAP (λ(x,y). case ALOOKUP l1 y of
+                           | NONE => (x,y)
+                           | SOME v => (x,v)) l2 in
+      anub (l2' ++ l1) ([]:num list)
+End
+
 Definition SimpSeq_def:
   SimpSeq p1 (p2:'a wordLang$prog) =
     let default = Seq p1 p2 in
@@ -15,6 +29,15 @@ Definition SimpSeq_def:
         | Skip => p2
         | Raise _ => p1
         | Return _ _ => p1
+        | Move n1 l1 =>
+            (case dest_Seq_Move p2 of
+             | NONE => default
+             | SOME (n2,l2,rest) =>
+                 if n1 ≠ n2 then default else
+                   let l = merge_moves l1 l2 in
+                     if rest = Skip
+                     then Move n1 l
+                     else Seq (Move n1 l) rest)
         | _ => default
 End
 
@@ -42,5 +65,14 @@ Definition remove_unreach_def:
   remove_unreach (e:'a wordLang$prog) =
     Seq_assoc_right e Skip
 End
+
+Triviality remove_unreach_test:
+  remove_unreach (Seq (Move 1 [(1,11);(2,22);(3,33)])
+                      (Move 1 [(3,1);(2,99)]))
+  =
+  Move 1 [(3,11); (2,99); (1,11)]
+Proof
+  EVAL_TAC
+QED
 
 val _ = export_theory();

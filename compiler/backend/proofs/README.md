@@ -178,3 +178,6 @@ Correctness proof for word_to_stack
 
 [word_to_wordProofScript.sml](word_to_wordProofScript.sml):
 Correctness proof for word_to_word
+
+[word_unreachProofScript.sml](word_unreachProofScript.sml):
+Correctness proof for word_unreach

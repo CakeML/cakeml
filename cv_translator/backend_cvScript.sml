@@ -864,6 +864,8 @@ Proof
        to_comma_cat_word_to_string,words_line_def]
 QED
 
+val _ = cv_trans word_unreachTheory.dest_Seq_Move_def;
+val _ = cv_auto_trans word_unreachTheory.merge_moves_def;
 val _ = cv_trans word_unreachTheory.SimpSeq_def;
 val _ = cv_trans word_unreachTheory.Seq_assoc_right_def;
 val _ = cv_trans word_unreachTheory.remove_unreach_def;
