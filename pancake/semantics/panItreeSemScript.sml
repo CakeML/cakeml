@@ -24,6 +24,7 @@ enable_monad "itree";
 (* Unicode operator overloads *)
 val _ = temp_set_fixity "≈" (Infixl 500);
 Overload "≈" = “itree_wbisim”;
+
 val _ = temp_set_fixity ">>=" (Infixl 500);
 Overload ">>=" = “itree_bind”;
 
@@ -47,8 +48,8 @@ Datatype:
 End
 
 (* removes clock and ffi by converting state to bstate *)
-Definition unclock_def:
-  unclock (s:('a,'b) panSem$state) =
+Definition to_bstate_def:
+  to_bstate (s:('a,'b) panSem$state) =
     <| locals      := s.locals
      ; code        := s.code
      ; eshapes     := s.eshapes
@@ -62,8 +63,8 @@ End
 
 (* restores bstate to state, setting clock to 0
  and ffi to argument *)
-Definition reclock_def:
-  reclock (s:'a bstate) (fs:'ffi ffi_state) =
+Definition from_bstate_def:
+  from_bstate (s:'a bstate) (fs:'ffi ffi_state) =
     <| locals      := s.locals
      ; code        := s.code
      ; eshapes     := s.eshapes
@@ -77,72 +78,97 @@ Definition reclock_def:
 |>
 End
 
-Theorem unclock_reclock_simps[simp]:
-  (∀s. unclock(reclock s) = s) ∧
-  (∀s. reclock(unclock s) = s with clock := 0) ∧
-  (∀s k. unclock(s with clock := k) = unclock s) ∧
-  (∀s k. unclock(dec_clock s) = unclock s)      
+Definition dummy_oracle_f_def:
+  dummy_oracle_f (f:unit) by1 by2 = Oracle_return f []
+End
+
+Definition dummy_oracle_def:
+  dummy_oracle name = dummy_oracle_f
+End
+
+Definition from_bstate_noffi_def:
+  from_bstate_noffi (s:'a bstate) =
+  <| locals      := s.locals
+     ; code        := s.code
+     ; eshapes     := s.eshapes
+     ; memory      := s.memory
+     ; memaddrs    := s.memaddrs
+     ; sh_memaddrs := s.sh_memaddrs
+     ; be          := s.be
+     ; ffi         := <| oracle := dummy_oracle; ffi_state := (); io_events := [] |>
+     ; base_addr   := s.base_addr
+     ; clock       := 0
+  |>
+End
+
+Theorem to_bstate_from_bstate_simps[simp]:
+  (∀s fs. to_bstate (from_bstate s fs) = s) ∧
+  (∀s fs. from_bstate (to_bstate s) fs = s with <| clock := 0; ffi := fs |>) ∧
+  (∀s k. to_bstate (s with clock := k) = to_bstate s) ∧
+  (∀s k. to_bstate (dec_clock s) = to_bstate s)
 Proof
-  rw[unclock_def,reclock_def,panSemTheory.state_component_equality,
+  rw[to_bstate_def,from_bstate_def,panSemTheory.state_component_equality,
      fetch "-" "bstate_component_equality",panSemTheory.dec_clock_def]
 QED
 
-Theorem unclock_reclock_access[simp]:
-  (unclock s).locals = s.locals ∧
-  (unclock s).code = s.code ∧
-  (unclock s).eshapes = s.eshapes ∧
-  (unclock s).memory = s.memory ∧
-  (unclock s).memaddrs = s.memaddrs ∧
-  (unclock s).sh_memaddrs = s.sh_memaddrs ∧
-  (unclock s).be = s.be ∧
-  (unclock s).ffi = s.ffi ∧
-  (unclock s).base_addr = s.base_addr ∧
-  (reclock t).locals = t.locals ∧
-  (reclock t).code = t.code ∧
-  (reclock t).eshapes = t.eshapes ∧
-  (reclock t).memory = t.memory ∧
-  (reclock t).memaddrs = t.memaddrs ∧
-  (reclock t).sh_memaddrs = t.sh_memaddrs ∧
-  (reclock t).be = t.be ∧
-  (reclock t).ffi = t.ffi ∧
-  (reclock t).base_addr = t.base_addr ∧
-  (reclock t).clock = 0
+Theorem to_from_bstate_access[simp]:
+  (to_bstate s).locals = s.locals ∧
+  (to_bstate s).code = s.code ∧
+  (to_bstate s).eshapes = s.eshapes ∧
+  (to_bstate s).memory = s.memory ∧
+  (to_bstate s).memaddrs = s.memaddrs ∧
+  (to_bstate s).sh_memaddrs = s.sh_memaddrs ∧
+  (to_bstate s).be = s.be ∧
+  (to_bstate s).base_addr = s.base_addr ∧
+  (from_bstate t fs).locals = t.locals ∧
+  (from_bstate t fs).code = t.code ∧
+  (from_bstate t fs).eshapes = t.eshapes ∧
+  (from_bstate t fs).memory = t.memory ∧
+  (from_bstate t fs).memaddrs = t.memaddrs ∧
+  (from_bstate t fs).sh_memaddrs = t.sh_memaddrs ∧
+  (from_bstate t fs).be = t.be ∧
+  (from_bstate t fs).ffi = fs ∧
+  (from_bstate t fs).base_addr = t.base_addr ∧
+  (from_bstate t fs).clock = 0
 Proof
-  rw[unclock_def,reclock_def]
+  rw[to_bstate_def,from_bstate_def]
 QED
 
-Theorem unclock_reclock_update[simp]:
-  (∀f. unclock(locals_fupd f s) = locals_fupd f (unclock s)) ∧
-  (∀f. unclock(code_fupd f s) = code_fupd f (unclock s)) ∧
-  (∀f. unclock(eshapes_fupd f s) = eshapes_fupd f (unclock s)) ∧
-  (∀f. unclock(memory_fupd f s) = memory_fupd f (unclock s)) ∧
-  (∀f. unclock(memaddrs_fupd f s) = memaddrs_fupd f (unclock s)) ∧
-  (∀f. unclock(sh_memaddrs_fupd f s) = sh_memaddrs_fupd f (unclock s)) ∧
-  (∀f. unclock(be_fupd f s) = be_fupd f (unclock s)) ∧
-  (∀f. unclock(ffi_fupd f s) = ffi_fupd f (unclock s)) ∧
-  (∀f. unclock(base_addr_fupd f s) = base_addr_fupd f (unclock s)) ∧
-  (∀f. reclock(locals_fupd f t) = locals_fupd f (reclock t)) ∧
-  (∀f. reclock(code_fupd f t) = code_fupd f (reclock t)) ∧
-  (∀f. reclock(eshapes_fupd f t) = eshapes_fupd f (reclock t)) ∧
-  (∀f. reclock(memory_fupd f t) = memory_fupd f (reclock t)) ∧
-  (∀f. reclock(memaddrs_fupd f t) = memaddrs_fupd f (reclock t)) ∧
-  (∀f. reclock(sh_memaddrs_fupd f t) = sh_memaddrs_fupd f (reclock t)) ∧
-  (∀f. reclock(be_fupd f t) = be_fupd f (reclock t)) ∧
-  (∀f. reclock(ffi_fupd f t) = ffi_fupd f (reclock t)) ∧
-  (∀f. reclock(base_addr_fupd f t) = base_addr_fupd f (reclock t))
+(* TODO: Confirm this still works with ffi removed. *)
+Theorem to_from_bstate_update[simp]:
+  (∀f. to_bstate (locals_fupd f s) = locals_fupd f (to_bstate s)) ∧
+  (∀f. to_bstate (code_fupd f s) = code_fupd f (to_bstate s)) ∧
+  (∀f. to_bstate (eshapes_fupd f s) = eshapes_fupd f (to_bstate s)) ∧
+  (∀f. to_bstate (memory_fupd f s) = memory_fupd f (to_bstate s)) ∧
+  (∀f. to_bstate (memaddrs_fupd f s) = memaddrs_fupd f (to_bstate s)) ∧
+  (∀f. to_bstate (sh_memaddrs_fupd f s) = sh_memaddrs_fupd f (to_bstate s)) ∧
+  (∀f. to_bstate (be_fupd f s) = be_fupd f (to_bstate s)) ∧
+  (* (∀f. to_bstate (ffi_fupd f s) = ffi_fupd f (to_bstate s)) ∧ *)
+  (∀f. to_bstate (base_addr_fupd f s) = base_addr_fupd f (to_bstate s)) ∧
+  (∀f fs. from_bstate (locals_fupd f t) fs = locals_fupd f (from_bstate t fs)) ∧
+  (∀f fs. from_bstate (code_fupd f t) fs = code_fupd f (from_bstate t fs)) ∧
+  (∀f fs. from_bstate (eshapes_fupd f t) fs = eshapes_fupd f (from_bstate t fs)) ∧
+  (∀f fs. from_bstate (memory_fupd f t) fs = memory_fupd f (from_bstate t fs)) ∧
+  (∀f fs. from_bstate (memaddrs_fupd f t) fs = memaddrs_fupd f (from_bstate t fs)) ∧
+  (∀f fs. from_bstate (sh_memaddrs_fupd f t) fs = sh_memaddrs_fupd f (from_bstate t fs)) ∧
+  (∀f fs. from_bstate (be_fupd f t) fs = be_fupd f (from_bstate t fs)) ∧
+  (* (∀f fs. from_bstate (ffi_fupd f t) fs = ffi_fupd f (from_bstate t fs)) ∧ *)
+  (∀f fs. from_bstate (base_addr_fupd f t) fs = base_addr_fupd f (from_bstate t fs))
 Proof
-  rw[unclock_def,reclock_def] >>
+  rw[to_bstate_def,from_bstate_def] >>
   rw[state_component_equality,fetch "-" "bstate_component_equality"]
 QED
 
+(* TODO: Confirm this still works as expected. *)
 Definition empty_locals_def:
-  empty_locals = unclock ∘ (panSem$empty_locals) ∘ reclock
+  empty_locals = to_bstate ∘ (panSem$empty_locals)
 End
 
 Theorem empty_locals_defs = CONJ panSemTheory.empty_locals_def empty_locals_def;
 
+(* TODO: Confirm this still works as expected. *)
 Definition set_var_def:
-  set_var x v = unclock ∘ (panSem$set_var x v) ∘ reclock
+  set_var x v = to_bstate ∘ (panSem$set_var x v)
 End
 
 Theorem set_var_defs = CONJ panSemTheory.set_var_def set_var_def;
@@ -152,30 +178,29 @@ val s1 = “s1:'a bstate”;
 val p1 = “p1:'a panLang$prog”;
 val p2 = “p2:'a panLang$prog”;
 
-(* TODO: Call this mtree_ret *)
-Type mtree_ans[pp] = “:'a result option # 'a bstate”;
+Type mtree_ret[pp] = “:'a result option # 'a bstate”;
 Type htree_seed[pp] = “:'a panLang$prog # 'a bstate”;
 Type semtree_ans[pp] = “:'b ffi_result”;
 
 (* Continuation for mtrees: these are nested inside the ITree event type of
 mtree's and htree's. *)
-Type mtree_cont[pp] = “:'b ffi_result -> ('a,'b) mtree_ans”;
+Type mtree_cont[pp] = “:'b ffi_result -> 'a mtree_ret”;
 Type mtree_event[pp] = “:sem_vis_event # ('a,'b) mtree_cont”;
 
-Type htree[pp] = “:(('a,'b) mtree_ans,
-                    ('a,'b) htree_seed + ('a,'b) mtree_event,
-                    ('a,'b) mtree_ans) itree”;
-Type hktree[pp] = “:('a,'b) mtree_ans -> ('a,'b) htree”;
+Type htree[pp] = “:('a mtree_ret,
+                    'a htree_seed + ('a,'b) mtree_event,
+                    'a mtree_ret) itree”;
+Type hktree[pp] = “:'a mtree_ret -> ('a,'b) htree”;
 
-Type mtree[pp] = “:(('a,'b) mtree_ans,
+Type mtree[pp] = “:('a mtree_ret,
                     ('a,'b) mtree_event,
-                    ('a,'b) mtree_ans) itree”;
-Type mktree[pp] = “:('a,'b) mtree_ans -> ('a,'b) mtree”;
+                    'a mtree_ret) itree”;
+Type mktree[pp] = “:'a mtree_ret -> ('a,'b) mtree”;
 
-Type ltree[pp] = “:(unit,unit,('a,'b) mtree_ans) itree”;
-Type lktree[pp] = “:('a,'b) mtree_ans -> ('a,'b) ltree”;
+Type ltree[pp] = “:(unit,unit,'a mtree_ret) itree”;
+Type lktree[pp] = “:'a mtree_ret -> 'a ltree”;
 
-Type stree[pp] = “:('b ffi_result, sem_vis_event, ('a,'b) mtree_ans) itree”;
+Type stree[pp] = “:('b ffi_result, sem_vis_event, 'a mtree_ret) itree”;
 
 Type semtree[pp] = “:('b ffi_result, sem_vis_event, 'a result option) itree”;
 Type sem8tree[pp] = “:('b ffi_result, sem_vis_event, 8 result option) itree”;
@@ -221,9 +246,10 @@ QED
  how to evaluate each term of the program command grammar. *)
 Definition h_prog_rule_dec_def:
   h_prog_rule_dec vname e p s =
-  case (eval (reclock s) e) of
+  case (eval (from_bstate_noffi s) e) of
    | SOME value => Vis (INL (p,s with locals := s.locals |+ (vname,value)))
-                       (λ(res,s'). Ret (res,s' with locals := res_var s'.locals (vname, FLOOKUP s.locals vname)))
+                       (λ(res,s'). Ret (res, s' with locals :=
+                                             res_var s'.locals (vname, FLOOKUP s.locals vname)))
    | NONE => Ret (SOME Error,s)
 End
 
@@ -236,7 +262,7 @@ End
 
 Definition h_prog_rule_assign_def:
   h_prog_rule_assign vname e s =
-  case eval (reclock s) e of
+  case eval (from_bstate_noffi s) e of
    | SOME value =>
       if is_valid_value s.locals vname value
       then Ret (NONE,s with locals := s.locals |+ (vname,value))
@@ -246,7 +272,7 @@ End
 
 Definition h_prog_rule_store_def:
   h_prog_rule_store dst src s =
-  case (eval (reclock s) dst,eval (reclock s) src) of
+  case (eval (from_bstate_noffi s) dst,eval (from_bstate_noffi s) src) of
    | (SOME (ValWord addr),SOME value) =>
       (case mem_stores addr (flatten value) s.memaddrs s.memory of
         | SOME m => Ret (NONE,s with memory := m)
@@ -256,7 +282,7 @@ End
 
 Definition h_prog_rule_store_byte_def:
   h_prog_rule_store_byte dst src s =
-  case (eval (reclock s) dst,eval (reclock s) src) of
+  case (eval (from_bstate_noffi s) dst,eval (from_bstate_noffi s) src) of
    | (SOME (ValWord addr),SOME (ValWord w)) =>
       (case mem_store_byte s.memory s.memaddrs s.be addr (w2w w) of
         | SOME m => Ret (NONE,s with memory := m)
@@ -266,7 +292,7 @@ End
 
 Definition h_prog_rule_cond_def:
   h_prog_rule_cond gexp p1 p2 s =
-  case (eval (reclock s) gexp) of
+  case (eval (from_bstate_noffi s) gexp) of
    | SOME (ValWord g) => Vis (INL (if g ≠ 0w then p1 else p2,s)) Ret
    | _ => Ret (SOME Error,s)
 End
@@ -279,7 +305,7 @@ End
  termination of the loop; when the guard is false. *)
 Definition h_prog_rule_while_def:
   h_prog_rule_while g p s = itree_iter
-                               (λ(p,s). case (eval (reclock s) g) of
+                               (λ(p,s). case (eval (from_bstate_noffi s) g) of
                                         | SOME (ValWord w) =>
                                            if (w ≠ 0w)
                                            then (Vis (INL (p,s))
@@ -320,9 +346,10 @@ Definition h_handle_call_ret_def:
   (h_handle_call_ret calltyp s (res,s') = Ret (res,empty_locals s'))
 End
 
+(* TODO: Fix this *)
 Definition h_prog_rule_call_def:
   h_prog_rule_call calltyp tgtexp argexps s =
-  case (eval (reclock s) tgtexp,OPT_MMAP (eval (reclock s)) argexps) of
+  case (eval (from_bstate_noffi s) tgtexp,OPT_MMAP (eval (from_bstate_noffi s)) argexps) of
    | (SOME (ValLabel fname),SOME args) =>
       (case lookup_code s.code fname args of
         | SOME (callee_prog,newlocals) =>
@@ -333,7 +360,7 @@ End
 
 Definition h_prog_rule_ext_call_def:
   h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len ^s =
-  case (eval (reclock s) conf_ptr,eval (reclock s) conf_len,eval (reclock s) array_ptr,eval (reclock s) array_len) of
+  case (eval (from_bstate_noffi s) conf_ptr,eval (from_bstate_noffi s) conf_len,eval (from_bstate_noffi s) array_ptr,eval (from_bstate_noffi s) array_len) of
     (SOME (ValWord conf_ptr_adr),SOME (ValWord conf_sz),
      SOME (ValWord array_ptr_adr),SOME (ValWord array_sz)) =>
      (case (read_bytearray conf_ptr_adr (w2n conf_sz) (mem_load_byte s.memory s.memaddrs s.be),
@@ -353,7 +380,7 @@ End
 
 Definition h_prog_rule_raise_def:
   h_prog_rule_raise eid e s =
-  case (FLOOKUP s.eshapes eid, eval (reclock s) e) of
+  case (FLOOKUP s.eshapes eid, eval (from_bstate_noffi s) e) of
    | (SOME sh, SOME value) =>
       if shape_of value = sh ∧
          size_of_shape (shape_of value) <= 32
@@ -364,7 +391,7 @@ End
 
 Definition h_prog_rule_return_def:
   h_prog_rule_return e s =
-  case (eval (reclock s) e) of
+  case (eval (from_bstate_noffi s) e) of
    | SOME value =>
       if size_of_shape (shape_of value) <= 32
       then Ret (SOME (Return value),empty_locals s)
@@ -426,7 +453,7 @@ End
 
 Definition h_prog_rule_sh_mem_def:
   h_prog_rule_sh_mem op v ad s =
-  case eval (reclock s) ad of
+  case eval (from_bstate_noffi s) ad of
     SOME (ValWord addr) =>
      (if is_load op
       then (case FLOOKUP s.locals v of
