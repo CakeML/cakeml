@@ -928,6 +928,32 @@ Proof
   gvs[stree_trace_simps,to_stree_simps]
 QED
 
+Theorem FUNPOW_Tau_Vis_eq:
+  FUNPOW Tau n (Vis a g) = FUNPOW Tau m (Vis e k) ⇒
+  n = m ∧ a = e ∧ g = k
+Proof
+  strip_tac>>
+  Cases_on ‘n < m’>>fs[NOT_LESS]
+  >- (fs[FUNPOW_min_cancel,Tau_INJ]>>
+      Cases_on ‘m - n’>>fs[FUNPOW_SUC])>>
+  last_x_assum $ assume_tac o GSYM>>
+  rfs[FUNPOW_min_cancel,Tau_INJ]>>
+  Cases_on ‘n - m’>>fs[FUNPOW_SUC]
+QED
+
+Theorem FUNPOW_Tau_Ret_eq:
+  FUNPOW Tau n (Ret x) = FUNPOW Tau m (Ret y) ⇒
+  n = m ∧ x = y
+Proof
+  strip_tac>>
+  Cases_on ‘n < m’>>fs[NOT_LESS]
+  >- (fs[FUNPOW_min_cancel,Tau_INJ]>>
+      Cases_on ‘m - n’>>fs[FUNPOW_SUC])>>
+  last_x_assum $ assume_tac o GSYM>>
+  rfs[FUNPOW_min_cancel,Tau_INJ]>>
+  Cases_on ‘n - m’>>fs[FUNPOW_SUC]
+QED
+
 Theorem ret_eq_funpow_tau:
   (Ret x = FUNPOW Tau n (Ret y)) ⇔ x = y ∧ n = 0
 Proof
