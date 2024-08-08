@@ -280,6 +280,18 @@ Definition mk_prio_def:
   else NONE
 End
 
+Definition SmartIf_def:
+  SmartIf cmp r1 ri pl pr fixl fixr =
+  if pl = Skip then
+    Seq fixl
+      (If cmp r1 ri Skip (Seq pr fixr))
+  else if pr = Skip then
+    Seq fixr
+      (If cmp r1 ri (Seq pl fixl) Skip)
+  else
+    If cmp r1 ri (Seq pl fixl) (Seq pr fixr)
+End
+
 Definition ssa_cc_trans_def:
   (ssa_cc_trans Skip ssa na = (Skip,ssa,na)) ∧
   (ssa_cc_trans (Move pri ls) ssa na =
@@ -339,7 +351,7 @@ Definition ssa_cc_trans_def:
     let prio = mk_prio e2' e3' in
     let (e2_cons,e3_cons,na_fin,ssa_fin) =
       fix_inconsistencies prio ssa2 ssa3 na3 in
-    (If cmp r1' ri' (Seq e2' e2_cons) (Seq e3' e3_cons),ssa_fin,na_fin)) ∧
+    (SmartIf cmp r1' ri' e2' e2_cons e3' e3_cons,ssa_fin,na_fin)) ∧
   (*For cutsets, we must restart the ssa mapping to maintain consistency*)
   (ssa_cc_trans (Alloc num numset) ssa na =
     let ls = MAP FST (toAList numset) in
