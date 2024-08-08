@@ -8,7 +8,7 @@
       6) word_to_stack.
 *)
 open preamble asmTheory wordLangTheory word_allocTheory word_removeTheory
-open word_simpTheory word_cseTheory word_unreachTheory
+open word_simpTheory word_cseTheory word_unreachTheory word_copyTheory
 local open word_instTheory in (* word-to-word transformations *) end
 open mlstringTheory
 
@@ -27,7 +27,8 @@ val compile_single_def = Define`
   let inst_prog = inst_select c maxv prog in
   let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
   let cse_prog = word_common_subexp_elim ssa_prog in
-  let unreach_prog = remove_unreach cse_prog in
+  let cp_prog = copy_prop cse_prog in
+  let unreach_prog = remove_unreach cp_prog in
   let rm_prog = FST(remove_dead unreach_prog LN) in
   let prog = if two_reg_arith then three_to_two_reg rm_prog
                               else rm_prog in
@@ -65,7 +66,9 @@ Definition full_compile_single_for_eval_def:
     let _ = empty_ffi (strlit "finished: word_ssa") in
     let cse_prog = word_common_subexp_elim ssa_prog in
     let _ = empty_ffi (strlit "finished: word_cse") in
-    let unreach_prog = remove_unreach cse_prog in
+    let cp_prog = copy_prop cse_prog in
+    let _ = empty_ffi (strlit "finished: word_copy") in
+    let unreach_prog = remove_unreach cp_prog in
     let _ = empty_ffi (strlit "finished: word_unreach") in
     let rm_prog = FST(remove_dead unreach_prog LN) in
     let _ = empty_ffi (strlit "finished: word_remove_dead") in
@@ -103,7 +106,9 @@ Theorem compile_alt:
     let _ = empty_ffi (strlit "finished: word_ssa") in
     let cse_ps = MAP word_common_subexp_elim ssa_ps in
     let _ = empty_ffi (strlit "finished: word_cse") in
-    let unreach_ps = MAP remove_unreach cse_ps in
+    let cp_ps = MAP copy_prop cse_ps in
+    let _ = empty_ffi (strlit "finished: word_copy") in
+    let unreach_ps = MAP remove_unreach cp_ps in
     let _ = empty_ffi (strlit "finished: word_unreach") in
     let dead_ps = MAP (\p. FST (remove_dead p LN)) unreach_ps in
     let _ = empty_ffi (strlit "finished: word_remove_dead") in

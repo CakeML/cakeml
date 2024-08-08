@@ -303,7 +303,8 @@ val to_livesets_def = Define`
     let inst_prog = inst_select asm_conf maxv prog in
     let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
     let cse_prog = word_common_subexp_elim ssa_prog in
-    let unreach_prog = remove_unreach cse_prog in
+    let cp_prog = copy_prop cse_prog in
+    let unreach_prog = remove_unreach cp_prog in
     let rm_prog = FST(remove_dead unreach_prog LN) in
     let prog = if two_reg_arith then three_to_two_reg rm_prog
                                 else rm_prog in
@@ -326,7 +327,8 @@ val to_livesets_0_def = Define`
     let inst_prog = inst_select asm_conf maxv prog in
     let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
     let cse_prog = word_common_subexp_elim ssa_prog in
-    let unreach_prog = remove_unreach cse_prog in
+    let cp_prog = copy_prop cse_prog in
+    let unreach_prog = remove_unreach cp_prog in
     let rm_prog = FST(remove_dead unreach_prog LN) in
     let prog = if two_reg_arith then three_to_two_reg rm_prog
                                 else rm_prog in
