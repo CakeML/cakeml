@@ -281,7 +281,7 @@ Definition mk_prio_def:
 End
 
 Definition SmartIf_def:
-  SmartIf cmp r1 ri pl fixl pr fixr =
+  SmartIf cmp r1 ri pl pr fixl fixr =
   if pl = Skip then
     Seq fixl
       (If cmp r1 ri Skip (Seq pr fixr))
