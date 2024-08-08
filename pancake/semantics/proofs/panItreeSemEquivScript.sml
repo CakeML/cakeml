@@ -136,13 +136,13 @@ Theorem FUNPOW_min_cancel:
      X = FUNPOW f (n' - n) X')
 Proof
   Induct_on ‘n'-n’>>rw[FUNPOW_SUC,EQ_IMP_THM]>>
-  imp_res_tac FUNPOW_INJ>>gvs[INJ_DEF]>>
+  imp_res_tac FUNPOW_INJ>>
   ‘FUNPOW f n' X' = FUNPOW f n (FUNPOW f (n' - n) X')’
     by simp[GSYM FUNPOW_ADD]>>fs[]>>
-  first_assum $ qspec_then ‘n’ assume_tac>>fs[]
+  first_assum $ qspec_then ‘n’ assume_tac>>gvs[FUNPOW_eq_elim]
 QED
 
-Theorem Tau_INJ:
+Theorem Tau_INJ[simp]:
   INJ Tau UNIV UNIV
 Proof
   simp[INJ_DEF]
@@ -2921,71 +2921,11 @@ Proof
   rw []
 QED
 
-Theorem FUNPOW_Tau_PULL:
-  FUNPOW Tau n (Tau x) = Tau (FUNPOW Tau n x)
-Proof
-  completeInduct_on ‘n’ >>
-  Cases_on ‘n’
-  >- rw [FUNPOW] >>
-  ‘FUNPOW Tau n' (Tau x) = Tau (FUNPOW Tau n' x)’
-    by (gvs []) >>
-  rw [FUNPOW_SUC]
-QED
-
-Theorem FUNPOW_Tau_Ret_inner_eq:
-  FUNPOW Tau n (Ret x) = FUNPOW Tau n' (Ret y) ⇒
-  x = y
-Proof
-  rw [] >>
-  drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
-  ‘FUNPOW Tau n (Ret x) ≈ Ret x’ by (gvs [FUNPOW_Tau_wbisim]) >>
-  ‘Ret x ≈ Ret y’ by (metis_tac [itree_wbisim_trans,
-                                 itree_wbisim_sym,itree_wbisim_refl]) >>
-  ‘x = y’ by (gvs [itree_wbisim_neq]) >>
-  ‘FUNPOW Tau n (Ret x) = FUNPOW Tau n' (Ret x)’ by (gvs [])
-QED
-
-Theorem FUNPOW_mono:
-  FUNPOW f n x = FUNPOW f n' x ⇒
-  FUNPOW f (SUC n) x = FUNPOW f (SUC n') x
-Proof
-  rw [FUNPOW_SUC]
-QED
-
-Theorem FUNPOW_Tau_Ret_mono:
-  (FUNPOW Tau n (Ret x):('a,'b,'c) itree) = FUNPOW Tau n' (Ret x) ⇒
-  (FUNPOW Tau (SUC n) (Ret x):('a,'b,'c) itree) = FUNPOW Tau (SUC n') (Ret x)
-Proof
-  rw [FUNPOW_mono]
-QED
-
-Theorem FUNPOW_Tau_Ret_len_eq:
-  FUNPOW Tau n (Ret x) = FUNPOW Tau n' (Ret x) ⇔
-  n = n'
-Proof
-  reverse $ EQ_TAC
-  >- (completeInduct_on ‘n’ >>
-      Cases_on ‘n’ >> rw [])
-  >- (qid_spec_tac ‘n'’ >>
-      completeInduct_on ‘n’ >>
-      Cases_on ‘n'’
-      >- rw [ret_eq_funpow_tau] >>
-      disch_tac >>
-      gvs [FUNPOW_SUC] >>
-      Cases_on ‘n’
-      >- gvs [ret_eq_funpow_tau] >>
-         gvs [FUNPOW_SUC])
-QED
-
-Theorem FUNPOW_Tau_eq_elim:
-  FUNPOW Tau n t = FUNPOW Tau n t' ⇒
+Theorem FUNPOW_Tau_eq_elim[simp]:
+  FUNPOW Tau n t = FUNPOW Tau n t' ⇔
   t = t'
 Proof
-  Induct_on ‘n’
-  >- rw [FUNPOW] >>
-  disch_tac >>
-  ‘FUNPOW Tau n t = FUNPOW Tau n t'’ by (gvs [FUNPOW_SUC]) >>
-  gvs []
+  simp[FUNPOW_eq_elim]
 QED
 
 Theorem ltree_Ret_to_evaluate:
@@ -3308,27 +3248,27 @@ Proof
       >- (gvs [FUNPOW_Tau_bind,
                h_handle_call_ret_def,
                mrec_sem_simps,ltree_lift_cases] >>
-          drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >> gvs [] >>
+          drule_then assume_tac FUNPOW_Tau_Ret_eq >> gvs [] >>
           qexistsl_tac [‘0’,‘k'’] >> rw []) >>
       TOP_CASE_TAC >> rw [] >>
       gvs [FUNPOW_Tau_bind,
            h_handle_call_ret_def,
            mrec_sem_simps,ltree_lift_cases]
-      >- (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >> gvs [] >>
+      >- (drule_then assume_tac FUNPOW_Tau_Ret_eq >> gvs [] >>
           qexistsl_tac [‘0’,‘k'’] >>
           simp [empty_locals_defs] >>
           gvs [FUNPOW_Tau_bind,h_handle_call_ret_def,mrec_sem_simps,
                ltree_lift_cases] >>
           ‘r = SOME Error ∧ s' = empty_locals r''’
-            by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
+            by (drule_then assume_tac FUNPOW_Tau_Ret_eq >>
                 gvs []) >>
           rw [empty_locals_defs])
-      >- (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >> gvs [] >>
+      >- (drule_then assume_tac FUNPOW_Tau_Ret_eq >> gvs [] >>
           qexistsl_tac [‘0’,‘k'’] >>
           simp [empty_locals_defs] >>
           gvs [FUNPOW_Tau_bind,h_handle_call_ret_def,mrec_sem_simps,
                ltree_lift_cases])
-      >- (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >> gvs [] >>
+      >- (drule_then assume_tac FUNPOW_Tau_Ret_eq >> gvs [] >>
           qexistsl_tac [‘0’,‘k'’] >>
           simp [empty_locals_defs] >>
           gvs [FUNPOW_Tau_bind,h_handle_call_ret_def,mrec_sem_simps,
@@ -3337,7 +3277,7 @@ Proof
           >- (gvs [FUNPOW_Tau_bind,h_handle_call_ret_def,
                    mrec_sem_simps,ltree_lift_cases] >>
               ‘r = SOME (Return v) ∧ s' = empty_locals r''’
-                by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
+                by (drule_then assume_tac FUNPOW_Tau_Ret_eq >>
                     gvs []) >>
               qexistsl_tac [‘0’,‘k'’] >>
               rw [empty_locals_defs]) >>
@@ -3346,27 +3286,27 @@ Proof
           >- (gvs [FUNPOW_Tau_bind,h_handle_call_ret_def,
                    mrec_sem_simps,ltree_lift_cases] >>
               ‘r = NONE ∧ s' = set_var q' v (r'' with locals := s.locals)’
-                by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
+                by (drule_then assume_tac FUNPOW_Tau_Ret_eq >>
                     gvs []) >>
               qexistsl_tac [‘0’,‘k'’] >>
               rw [set_var_defs]) >>
           gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
                ltree_lift_cases] >>
           drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
-          ‘r = SOME Error ∧ s' = r''’ by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
+          ‘r = SOME Error ∧ s' = r''’ by (drule_then assume_tac FUNPOW_Tau_Ret_eq >>
                                           gvs []) >>
           qexistsl_tac [‘0’,‘k'’] >> rw [])
       >- (Cases_on ‘o'’ >> rw []
           >- (gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
                    ltree_lift_cases] >>
               ‘r = SOME (Exception m' v) ∧ s' = empty_locals r''’
-                by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >> gvs []) >>
+                by (drule_then assume_tac FUNPOW_Tau_Ret_eq >> gvs []) >>
               qexistsl_tac [‘0’,‘k'’] >> rw [empty_locals_defs]) >>
           ntac 2 (FULL_CASE_TAC >> rw [])
           >- (gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
                    ltree_lift_cases] >>
               ‘r = SOME (Exception m' v) ∧ s' = empty_locals r''’
-                by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
+                by (drule_then assume_tac FUNPOW_Tau_Ret_eq >>
                     gvs []) >>
               qexistsl_tac [‘0’,‘k'’] >>
               rw [empty_locals_defs]) >>
@@ -3374,13 +3314,13 @@ Proof
           >- (gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
                    ltree_lift_cases] >>
               ‘r = SOME Error ∧ s' = r''’
-                by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
+                by (drule_then assume_tac FUNPOW_Tau_Ret_eq >>
                     gvs []) >>
               qexistsl_tac [‘0’,‘k'’] >> rw [])
           >- (gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
                    ltree_lift_cases] >>
               ‘r = SOME (Exception m' v) ∧ s' = empty_locals r''’
-                by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
+                by (drule_then assume_tac FUNPOW_Tau_Ret_eq >>
                     gvs []) >>
               qexistsl_tac [‘0’,‘k'’] >>
               rw [empty_locals_defs])
@@ -3396,7 +3336,6 @@ Proof
                    Ret (SOME (Exception m' v),r'')’ by (gvs [Once move_locals_to_ffi]) >>
                   drule_all_then assume_tac ltree_lift_state_lift >>
                   gvs [FUNPOW_ADD] >>
-                  drule_then assume_tac FUNPOW_Tau_eq_elim >>
                   gvs [tau_eq_funpow_tau] >>
                   ‘ltree_lift query_oracle (r'' with locals := s.locals |+ (q'',v)).ffi
                    (mrec_sem (h_prog (r'⁴',r'' with locals := s.locals |+ (q'',v)))) =
@@ -3407,16 +3346,16 @@ Proof
               gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
                    ltree_lift_cases,FUNPOW_SUC,set_var_defs] >>
               ‘r = SOME Error ∧ s' = r''’
-                by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
+                by (drule_then assume_tac FUNPOW_Tau_Ret_eq >>
                     gvs []) >>
               qexistsl_tac [‘0’,‘k'’] >> rw []) >>
           gvs [h_prog_def,h_prog_rule_call_def,mrec_sem_simps,
                ltree_lift_cases,FUNPOW_SUC,set_var_defs] >>
           ‘r = SOME (Exception m' v) ∧ s' = empty_locals r''’
-            by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >> gvs []) >>
+            by (drule_then assume_tac FUNPOW_Tau_Ret_eq >> gvs []) >>
           qexistsl_tac [‘0’,‘k'’] >> rw [empty_locals_defs]) >>
       ‘r = SOME (FinalFFI f) ∧ s' = empty_locals r''’
-        by (drule_then assume_tac FUNPOW_Tau_Ret_inner_eq >>
+        by (drule_then assume_tac FUNPOW_Tau_Ret_eq >>
             gvs []) >>
       qexistsl_tac [‘0’,‘k'’] >> rw [empty_locals_defs])
   >~ [‘ExtCall’]
