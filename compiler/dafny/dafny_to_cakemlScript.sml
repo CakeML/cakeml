@@ -1145,33 +1145,84 @@ Definition from_classItem_def:
   od
 End
 
+Definition is_moditem_module_def:
+  is_moditem_module (ModuleItem_Module _) = T ∧
+  is_moditem_module _ = F
+End
+
+Definition is_moditem_class_def:
+  is_moditem_class (ModuleItem_Class _) = T ∧
+  is_moditem_class _ = F
+End
+
+Definition is_moditem_trait_def:
+  is_moditem_trait (ModuleItem_Trait _) = T ∧
+  is_moditem_trait _ = F
+End
+
+Definition is_moditem_newtype_def:
+  is_moditem_newtype (ModuleItem_Newtype _) = T ∧
+  is_moditem_newtype _ = F
+End
+
+Definition is_moditem_datatype_def:
+  is_moditem_datatype (ModuleItem_Datatype _) = T ∧
+  is_moditem_datatype _ = F
+End
+
+Definition body_from_classlist_def:
+  (body_from_classlist [ModuleItem_Class
+                        (Class name enclosingModule typeParams
+                               superClasses fields body attributes)] =
+   if name ≠ (Name "__default") then
+     fail "dest_classlist: Unsupported name"
+   else if enclosingModule ≠ (Ident (Name "_module")) then
+     fail "dest_classlist: Unsupported enclosing module"
+   else if typeParams ≠ [] then
+     fail "dest_classlist: Type params unsupported"
+   else if superClasses ≠ [] then
+    fail "dest_classlist: Superclasses unsupported"
+   else if fields ≠ [] then
+     fail "dest_classlist: Fields unsupported"
+   else if attributes ≠ [] then
+     fail "dest_classlist: Attributes unsupported"
+   else
+     return body) ∧
+  (body_from_classlist _ =
+   fail "dest_classlist: Unsupported item list")
+End
+
 Definition compile_def:
-  (compile ([mod1; mod2]: dafny_ast$module list) =
-   (* TODO Don't ignore first module which contains definitions for nat
-        and tuples for now *)
-   (* TODO Properly handle module (containing main) *)
-   (* TODO Once we add support for modules/classes we will probably need
-      to rework the way we generated the type environment for Call
-      expressions *)
-   case mod2 of
-   | Module _ _ (SOME [ModuleItem_Class (Class _ _ _ _ _ cis _)]) =>
-       do
-         env <- call_type_env cis;
-         fun_defs <- result_mmap (from_classItem env) cis;
-         (* TODO Look at how PureCake detangles Dletrecs
-          * Having one big Dletrec probably does not result in a performance
-          * penalty unless functions are used in a higher order way *)
-         fun_defs <<- [(Dletrec unknown_loc fun_defs)];
-         return ([return_dexn; break_dexn; labeled_break_dexn;
-                  cml_bool_to_string; cml_int_to_string; cml_str_to_string;
-                  cml_char_to_string; cml_list_to_string;
-                  cml_str_elem_to_string;
-                  cml_abs_def; cml_emod_def; cml_ediv_def] ++
-                 fun_defs ++
-                 [Dlet unknown_loc Pany (cml_fapp (Var (Short "Main")) [Unit])])
-       od
-   | _ => fail "Unexpected ModuleItem") ∧
-  compile _ = fail "compile: Program does not contain exactly two modules"
+  (* TODO ATM we ignore the first module which contains various definitions *)
+  (compile ([_; Module _ attrs (SOME modItems)]: dafny_ast$module list) =
+   if attrs ≠ [] then
+     fail "compile: attributes unsupported"
+   else if EXISTS is_moditem_module modItems then
+     fail "compile: nested modules unsupported"
+   else if EXISTS is_moditem_trait modItems then
+     fail "compile: traits unsupported"
+   else if EXISTS is_moditem_newtype modItems then
+     fail "compile: newtypes unsupported"
+   else
+     do
+       clss <<- FILTER is_moditem_class modItems;
+       body <- body_from_classlist clss;
+       env <- call_type_env body;
+       fun_defs <- result_mmap (from_classItem env) body;
+       (* TODO Look at how PureCake detangles Dletrecs
+        * Having one big Dletrec probably does not result in a performance
+        * penalty unless functions are used in a higher order way *)
+       fun_defs <<- [(Dletrec unknown_loc fun_defs)];
+       return ([return_dexn; break_dexn; labeled_break_dexn;
+                cml_bool_to_string; cml_int_to_string; cml_str_to_string;
+                cml_char_to_string; cml_list_to_string;
+                cml_str_elem_to_string;
+                cml_abs_def; cml_emod_def; cml_ediv_def] ++
+               fun_defs ++
+               [Dlet unknown_loc Pany (cml_fapp (Var (Short "Main")) [Unit])])
+     od
+  ) ∧
+  (compile _ = fail "compile: Module layout unsupported")
 End
 
 (* Unpacks the AST from M. If the process failed, create a program that prints
@@ -1194,7 +1245,7 @@ open TextIO
 (* val _ = astPP.disable_astPP(); *)
 val _ = astPP.enable_astPP();
 
-val inStream = TextIO.openIn "./tests/seq_indexrange.sexp";
+val inStream = TextIO.openIn "./tests/test.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
