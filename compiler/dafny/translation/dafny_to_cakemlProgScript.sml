@@ -79,6 +79,12 @@ val r = translate dafny_to_cakemlTheory.gen_param_preamble_def;
 val r = translate dafny_to_cakemlTheory.process_function_body_def;
 val r = translate dafny_to_cakemlTheory.process_method_body_def;
 val r = translate dafny_to_cakemlTheory.from_classItem_def;
+val r = translate dafny_to_cakemlTheory.is_moditem_module_def;
+val r = translate dafny_to_cakemlTheory.is_moditem_class_def;
+val r = translate dafny_to_cakemlTheory.is_moditem_trait_def;
+val r = translate dafny_to_cakemlTheory.is_moditem_newtype_def;
+val r = translate dafny_to_cakemlTheory.is_moditem_datatype_def;
+val r = translate dafny_to_cakemlTheory.body_from_classlist_def;
 val r = translate dafny_to_cakemlTheory.compile_def;
 val r = translate dafny_to_cakemlTheory.unpack_def;
 
