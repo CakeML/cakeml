@@ -190,8 +190,9 @@ Definition copy_prop_move_def:
   (copy_prop_move [] cs = ([],cs)) ∧
   (copy_prop_move ((x,y)::xs) cs =
     let y' = lookup_eq cs y in
-    let cs' = set_eq (remove_eq cs x) x y in
-    copy_prop_move xs cs')
+    let (ms,cs') = copy_prop_move xs cs in
+    let cs'' = set_eq (remove_eq cs' x) x y in
+    ((x,y') :: ms, cs'') )
 End
 
 Definition copy_prop_share_def:
