@@ -342,17 +342,6 @@ Proof
   \\ gvs [wordLangTheory.exp_size_def, wordLangTheory.exp_size_eq]
 QED
 
-val _ = word_cseTheory.add_to_data_aux_def |> arch_spec
-         |> SRULE [GSYM lookup_listCmp_def, GSYM insert_listCmp_def] |> cv_auto_trans;
-val _ = word_cseTheory.wordToNum_def |> arch_spec |> cv_trans;
-val _ = word_cseTheory.regImmToNumList_def |> arch_spec |> cv_trans;
-val _ = word_cseTheory.arithToNumList_def |> arch_spec |> cv_trans;
-val _ = word_cseTheory.instToNumList_def |> arch_spec |> cv_trans;
-val _ = word_cseTheory.add_to_data_def |> arch_spec |> cv_trans;
-val _ = word_cseTheory.word_cseInst_def |> arch_spec |> cv_trans;
-val _ = word_cseTheory.word_cse_def |> arch_spec |> cv_trans;
-val _ = word_cseTheory.word_common_subexp_elim_def |> arch_spec |> cv_trans;
-
 val _ = word_allocTheory.limit_var_def |> arch_spec |> cv_trans;
 val _ = word_allocTheory.setup_ssa_def |> arch_spec |> cv_trans;
 val _ = word_allocTheory.ssa_cc_trans_inst_def |> arch_spec |> cv_trans;
