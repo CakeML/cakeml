@@ -361,7 +361,7 @@ Definition from_literal_def:
 End
 
 Definition call_type_env_def:
-  call_type_env [] = return []  ∧
+  call_type_env [] = return [] ∧
   call_type_env ((ClassItem_Method m)::rest) =
   do
     is_function <- method_is_function m;
@@ -385,6 +385,7 @@ End
 Definition dafny_type_of_def:
   dafny_type_of (env: ((name, type) alist)) (e: dafny_ast$expression) =
   case e of
+  | Literal (BoolLiteral _) => return (Primitive Bool)
   | Literal (IntLiteral _ t) => return t
   | Literal (StringLiteral _ _) => return (Primitive String)
   | Expression_Ident n =>
