@@ -228,6 +228,20 @@ Proof
   pop_assum $ irule_at Any>>fs[]
 QED
 
+Theorem wbisim_FUNPOW_Tau:
+  (t ≈ FUNPOW Tau n ht ⇔ t ≈ ht) ∧
+  (FUNPOW Tau n ht ≈ t ⇔ ht ≈ t)
+Proof
+  rw[EQ_IMP_THM]>>
+  TRY (irule itree_wbisim_trans>>
+       irule_at Any FUNPOW_Tau_wbisim>>
+       fs[]>>metis_tac[]>>NO_TAC)>>
+  irule itree_wbisim_trans>>
+  first_assum $ irule_at Any>>
+  irule itree_wbisim_sym>>
+  irule FUNPOW_Tau_wbisim
+QED
+
 Theorem FUNPOW_Tau_bind:
   FUNPOW Tau n t >>= g = FUNPOW Tau n (t >>= g)
 Proof
@@ -3793,6 +3807,33 @@ Proof
 QED
 
 (** divergence **)
+
+(* move *)
+Theorem wbisim_spin_eq:
+  t ≈ spin ⇔ t = spin
+Proof
+  rw[EQ_IMP_THM]
+  >- (simp[Once itree_bisimulation]>>
+      qexists ‘CURRY {(t,spin)|t|t ≈ spin}’>>
+      rw[]
+      >- fs[Once itree_wbisim_cases,spin_strip_tau]
+      >- irule (GSYM spin)>>
+      fs[Once itree_wbisim_cases,spin_strip_tau])>>
+  irule itree_wbisim_refl
+QED
+
+(* move *)
+Definition lnil_def:
+ lnil = LUNFOLD (λu. SOME ((),[||])) ()
+End
+
+(* move *)
+Theorem lnil:
+  [||]:::lnil = lnil
+Proof
+  simp[lnil_def]>>
+  simp[SimpR“$=”,Once LUNFOLD]
+QED
 
 Theorem to_stree_spin:
   to_stree spin = spin
