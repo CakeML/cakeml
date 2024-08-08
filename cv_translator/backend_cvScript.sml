@@ -864,6 +864,10 @@ Proof
        to_comma_cat_word_to_string,words_line_def]
 QED
 
+val _ = cv_trans word_unreachTheory.SimpSeq_def;
+val _ = cv_trans word_unreachTheory.Seq_assoc_right_def;
+val _ = cv_trans word_unreachTheory.remove_unreach_def;
+
 val pre = cv_auto_trans_pre word_copyTheory.copy_prop_prog_def;
 
 Theorem word_copy_copy_prop_prog_pre[cv_pre]:
