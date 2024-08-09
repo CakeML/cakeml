@@ -1133,8 +1133,6 @@ Proof
                             fs[dest_result_loc_def] >> fs[SUBSET_DEF] >>
                             metis_tac[])
                         >- metis_tac[get_stack_hd_thm]
-                        >- (Cases_on `handler` >> fs[] >>
-                            PairCases_on `x'` >> fs[])
                         >- (`s'.code = removed_state.code` by
                                 (imp_res_tac no_install_evaluate_const_code >>
                                  fs[]) >> rveq >> fs[])
@@ -1178,8 +1176,6 @@ Proof
                             fs[dest_result_loc_def] >> fs[SUBSET_DEF] >>
                             metis_tac[])
                         >- metis_tac[get_stack_hd_thm]
-                        >- (Cases_on `handler` >> fs[] >>
-                            PairCases_on `x'` >> fs[])
                         >- (`s'.code = removed_state.code` by
                                 (imp_res_tac no_install_evaluate_const_code >>
                                 fs[]) >>
