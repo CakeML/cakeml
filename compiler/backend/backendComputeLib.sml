@@ -284,6 +284,7 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_handleTheory.handle_simp_def
     ,bvl_handleTheory.LetLet_def
     ,bvl_handleTheory.SmartLet_def
+    ,bvl_handleTheory.LetLet_def
     ,bvl_handleTheory.OptionalLetLet_def
     ,bvl_handleTheory.compile_def
     ,bvl_handleTheory.compile_exp_def
@@ -713,6 +714,7 @@ val add_backend_compset = computeLib.extend_compset
     ,word_allocTheory.apply_colour_exp_def
     ,word_allocTheory.ssa_cc_trans_exp_def
     ,word_allocTheory.list_next_var_rename_move_def
+    ,word_allocTheory.force_rename_def
     ,word_allocTheory.ssa_cc_trans_inst_def
     ,word_allocTheory.fix_inconsistencies_def
     ,word_allocTheory.fake_moves_def
