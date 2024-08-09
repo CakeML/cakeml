@@ -330,6 +330,36 @@ Definition method_is_method_def:
   | NONE => return F
 End
 
+(* Adapted from
+ * https://github.com/dafny-lang/dafny/blob/bc6b587e264e3c531c4d6698abd421abdff3aea9/Source/DafnyCore/Generic/Util.cs#L341
+ *)
+Definition unescape_string_def:
+  (unescape_string (c1::c2::rest) verbatim =
+  if verbatim then
+    if c1 = #"\"" ∧ c2 = #"\"" then
+      #"\""::(unescape_string rest verbatim)
+    else
+      c1::(unescape_string (c2::rest) verbatim)
+  else if c1 = #"\\" ∧ c2 = #"'" then
+    #"'"::(unescape_string rest verbatim)
+  else if c1 = #"\\" ∧ c2 = #"\"" then
+    #"\""::(unescape_string rest verbatim)
+  else if c1 = #"\\" ∧ c2 = #"\\" then
+    #"\\"::(unescape_string rest verbatim)
+  else if c1 = #"\\" ∧ c2 = #"0" then
+    #"\000"::(unescape_string rest verbatim)
+  else if c1 = #"\\" ∧ c2 = #"n" then
+    #"\n"::(unescape_string rest verbatim)
+  else if c1 = #"\\" ∧ c2 = #"r" then
+    #"\r"::(unescape_string rest verbatim)
+  else if c1 = #"\\" ∧ c2 = #"t" then
+    #"\t"::(unescape_string rest verbatim)
+  else
+    c1::(unescape_string (c2::rest) verbatim)) ∧
+  (unescape_string (c::rest) verbatim = c::(unescape_string rest verbatim)) ∧
+  (unescape_string "" _ = "")
+End
+
 Definition from_literal_def:
   from_literal (l: dafny_ast$literal) =
    case l of
@@ -350,7 +380,7 @@ Definition from_literal_def:
    (* TODO String/Char support incomplete or incorrect - see
       to_dafny_astScript for more details *)
    | StringLiteral s verbatim =>
-       return (Lit (StrLit s))
+       return (Lit (StrLit (unescape_string s verbatim)))
    | CharLiteral ch =>
        return (Lit (Char ch))
    | CharLiteralUTF16 n =>
@@ -388,6 +418,7 @@ Definition dafny_type_of_def:
   | Literal (BoolLiteral _) => return (Primitive Bool)
   | Literal (IntLiteral _ t) => return t
   | Literal (StringLiteral _ _) => return (Primitive String)
+  | Literal (CharLiteral _) => return (Primitive Char)
   | Expression_Ident n =>
        (case ALOOKUP env n of
        | SOME t => return t
@@ -797,15 +828,44 @@ Definition cml_str_to_string_def:
   Dletrec unknown_loc [("cml_str_to_string", "s", Var (Short "s"))]
 End
 
+Definition cml_escape_char_def:
+  cml_escape_char =
+  Dletrec unknown_loc [("cml_escape_char", "c",
+                        (If (App Equality [Var (Short "c");
+                                           Lit (Char #"'")])
+                            (Lit (StrLit "\\'"))
+                            ((If (App Equality [Var (Short "c");
+                                                Lit (Char #"\"")])
+                            (Lit (StrLit "\\\""))
+                            ((If (App Equality [Var (Short "c");
+                                           Lit (Char #"\\")])
+                            (Lit (StrLit "\\\\"))
+                            ((If (App Equality [Var (Short "c");
+                                           Lit (Char #"\000")])
+                            (Lit (StrLit "\\0"))
+                            ((If (App Equality [Var (Short "c");
+                                           Lit (Char #"\n")])
+                            (Lit (StrLit "\\n"))
+                            ((If (App Equality [Var (Short "c");
+                                           Lit (Char #"\r")])
+                            (Lit (StrLit "\\r"))
+                            ((If (App Equality [Var (Short "c");
+                                           Lit (Char #"\t")])
+                            (Lit (StrLit "\\t"))
+                            (cml_fapp (Var (Long "String" (Short "str")))
+                                           [Var (Short "c")])))))))))))))))]
+End
+
 Definition cml_char_to_string_def:
   cml_char_to_string =
-  let char_as_string = cml_fapp (Var (Long "String" (Short "str")))
-                                [(Var (Short "c"))] in
-    Dletrec unknown_loc [("cml_char_to_string", "c",
-                          cml_fapp (Var (Long "String" (Short "concat")))
-                                   [cml_list [Lit (StrLit "'");
-                                              char_as_string;
-                                              Lit (StrLit "'")]])]
+  let
+    char_as_string = cml_fapp (Var (Short "cml_escape_char"))
+                            [(Var (Short "c"))];
+  in Dletrec unknown_loc [("cml_char_to_string", "c",
+                           cml_fapp (Var (Long "String" (Short "concat")))
+                                    [cml_list [Lit (StrLit "'");
+                                               char_as_string;
+                                               Lit (StrLit "'")]])]
 End
 
 Definition cml_list_to_string_def:
@@ -835,16 +895,31 @@ Definition cml_str_elem_to_string_def:
                                [Var (Short "s")]])]
 End
 
+(* In Dafny, strings within collections are printed as a list of chars *)
+Definition cml_char_list_to_string_def:
+  cml_char_list_to_string =
+  Dletrec unknown_loc
+          [("cml_char_list_to_string", "cs",
+            cml_fapp (Var (Short "cml_list_to_string"))
+                     [Var (Short "cml_char_to_string");
+                      Var (Short "cs")])]
+End
+
 (* Returns a function that can be applied to a CakeML expression to turn it into
  * a string *)
 Definition to_string_fun_def:
   (to_string_fun inCol (Primitive String) =
    if inCol then return (Var (Short "cml_str_elem_to_string"))
    else return (Var (Short "cml_str_to_string"))) ∧
+  (to_string_fun _ (Primitive Char) =
+   return (Var (Short "cml_char_to_string"))) ∧
   (to_string_fun _ (Primitive Int) =
    return (Var (Short "cml_int_to_string"))) ∧
   (to_string_fun _ (Primitive Bool) =
    return (Var (Short "cml_bool_to_string"))) ∧
+  (to_string_fun inCol (Seq (Primitive Char)) =
+   if inCol then return (Var (Short "cml_bool_to_string"))
+   else return (Var (Long "String" (Short "implode")))) ∧
   (to_string_fun _ (Seq t) =
    do
      elem_to_string <- to_string_fun T t;
@@ -1215,9 +1290,10 @@ Definition compile_def:
         * penalty unless functions are used in a higher order way *)
        fun_defs <<- [(Dletrec unknown_loc fun_defs)];
        return ([return_dexn; break_dexn; labeled_break_dexn;
+                cml_escape_char;
                 cml_bool_to_string; cml_int_to_string; cml_str_to_string;
                 cml_char_to_string; cml_list_to_string;
-                cml_str_elem_to_string;
+                cml_str_elem_to_string; cml_char_list_to_string;
                 cml_abs_def; cml_emod_def; cml_ediv_def] ++
                fun_defs ++
                [Dlet unknown_loc Pany (cml_fapp (Var (Short "Main")) [Unit])])
@@ -1246,7 +1322,7 @@ open TextIO
 (* val _ = astPP.disable_astPP(); *)
 val _ = astPP.enable_astPP();
 
-val inStream = TextIO.openIn "./tests/test.sexp";
+val inStream = TextIO.openIn "./tests/print_escape.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
