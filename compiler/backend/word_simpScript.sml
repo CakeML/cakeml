@@ -347,7 +347,7 @@ val const_fp_loop_def = Define `
               (wordLang$If cmp lhs rhs p1'' p2'', inter_eq p1cs p2cs))) /\
   (const_fp_loop (Call ret dest args handler) cs =
     dtcase ret of
-      | NONE => (Call ret dest args handler, filter_v is_gc_const cs)
+      | NONE => (SmartSeq (drop_consts cs) (Call ret dest args handler), filter_v is_gc_const cs)
       | SOME (n, names, ret_handler, l1, l2) =>
         (if handler = NONE then
            (let cs' = delete n (filter_v is_gc_const (inter cs names)) in
