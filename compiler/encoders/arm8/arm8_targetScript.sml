@@ -80,6 +80,24 @@ val arm8_load_store_ast_def = Define`
           (3w, F, ls, AccType_NORMAL, F, F, F, F, F, unsigned, a,
            n2w r2, n2w r1))]`
 
+val arm8_load_store_ast32_def = Define`
+  arm8_load_store_ast32 ls r1 r2 a =
+  let unsigned = ~word_msb a in
+  if a <> sw2sw ((8 >< 0) a : word9) /\
+     (unsigned ==> a <> w2w ((11 >< 0) (a >>> 2) : word12) << 2) then
+    let (b, c) = if unsigned then (a - 0xFFw, 0xFFw) else (-a - 0x100w, -0x100w)
+    in
+      [Data (AddSubImmediate@64 (1w, ~unsigned, F, b, n2w r2, ^temp));
+       LoadStore
+         (LoadStoreImmediate@32
+            (2w, T, ls, AccType_NORMAL, F, F, F, F, F, unsigned, c,
+             ^temp, n2w r1))]
+  else
+    [LoadStore
+       (LoadStoreImmediate@32
+          (2w, T, ls, AccType_NORMAL, F, F, F, F, F, unsigned, a,
+           n2w r2, n2w r1))]`
+
 val arm8_ast_def = Define`
    (arm8_ast (Inst Skip) = [NoOperation]) /\
    (arm8_ast (Inst (Const r i)) =
@@ -167,13 +185,8 @@ val arm8_ast_def = Define`
        Data (ConditionalSelect@64 (1w, F, T, 7w, 31w, 31w, n2w r4))]) /\
    (arm8_ast (Inst (Mem Load r1 (Addr r2 a))) =
       arm8_load_store_ast MemOp_LOAD r1 r2 a) /\
-   (*
    (arm8_ast (Inst (Mem Load32 r1 (Addr r2 a))) =
-        (LoadStore
-           (LoadStoreImmediate@32
-              (2w, T, MemOp_LOAD, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
-               a, n2w r2, n2w r1)))) /\
-   *)
+    arm8_load_store_ast32 MemOp_LOAD r1 r2 a) /\
    (arm8_ast (Inst (Mem Load8 r1 (Addr r2 a))) =
       [LoadStore
          (LoadStoreImmediate@8
@@ -181,13 +194,8 @@ val arm8_ast_def = Define`
              a, n2w r2, n2w r1))]) /\
    (arm8_ast (Inst (Mem Store r1 (Addr r2 a))) =
       arm8_load_store_ast MemOp_STORE r1 r2 a) /\
-   (*
    (arm8_ast (Inst (Mem Store32 r1 (Addr r2 a))) =
-        (LoadStore
-           (LoadStoreImmediate@32
-              (2w, T, MemOp_STORE, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
-               a, n2w r2, n2w r1)))) /\
-   *)
+    arm8_load_store_ast32 MemOp_STORE r1 r2 a) /\
    (arm8_ast (Inst (Mem Store8 r1 (Addr r2 a))) =
       [LoadStore
          (LoadStoreImmediate@8

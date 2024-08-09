@@ -117,6 +117,16 @@ val ag32_enc_def = Define`
         (ag32_constant (temp_reg, a) ++
          [Normal (fAdd, n2w r1, Reg (n2w r2), Reg temp_reg);
          LoadMEM (n2w r1, Reg (n2w r1))])) /\
+   (ag32_enc (Inst (Mem Load32 r1 (Addr r2 a))) =
+    if -32w <= a /\ a < 32w then
+      ag32_encode
+        [Normal (fAdd, n2w r1, Reg (n2w r2), Imm (w2w a));
+         LoadMEM (n2w r1, Reg (n2w r1))]
+    else
+      ag32_encode
+        (ag32_constant (temp_reg, a) ++
+         [Normal (fAdd, n2w r1, Reg (n2w r2), Reg temp_reg);
+         LoadMEM (n2w r1, Reg (n2w r1))])) /\
    (ag32_enc (Inst (Mem Load8 r1 (Addr r2 a))) =
     if -32w <= a /\ a < 32w then
       ag32_encode
@@ -128,6 +138,16 @@ val ag32_enc_def = Define`
          [Normal (fAdd, n2w r1, Reg (n2w r2), Reg temp_reg);
          LoadMEMByte (n2w r1, Reg (n2w r1))])) /\
    (ag32_enc (Inst (Mem Store r1 (Addr r2 a))) =
+    if -32w <= a /\ a < 32w then
+      ag32_encode
+        [Normal (fAdd, temp_reg, Reg (n2w r2), Imm (w2w a));
+         StoreMEM (Reg (n2w r1), Reg temp_reg)]
+    else
+      ag32_encode
+        (ag32_constant (temp_reg, a) ++
+         [Normal (fAdd, temp_reg, Reg (n2w r2), Reg temp_reg);
+         StoreMEM (Reg (n2w r1), Reg temp_reg)])) /\
+   (ag32_enc (Inst (Mem Store32 r1 (Addr r2 a))) =
     if -32w <= a /\ a < 32w then
       ag32_encode
         [Normal (fAdd, temp_reg, Reg (n2w r2), Imm (w2w a));

@@ -76,10 +76,10 @@ val is_valid_mapped_read_def = Define`
     then
       (bytes_in_memory pc (t.config.encode (Inst (Mem Load r ad)))
         (t.get_byte ms) md)
-    (* else if nb = 4w
+    else if nb = 4w
     then
       (bytes_in_memory pc (t.config.encode (Inst (Mem Load32 r ad)))
-        (t.get_byte ms) md) *)
+        (t.get_byte ms) md)
     else F`;
 
 val is_valid_mapped_write_def = Define`
@@ -92,10 +92,10 @@ val is_valid_mapped_write_def = Define`
     then
         (bytes_in_memory pc (t.config.encode (Inst (Mem Store r ad)))
           (t.get_byte ms) md)
-    (* else if nb = 4w
+    else if nb = 4w
     then
         (bytes_in_memory pc (t.config.encode (Inst (Mem Store32 r ad)))
-          (t.get_byte ms) md) *)
+          (t.get_byte ms) md)
     else F`;
 
 val evaluate_def = Define `

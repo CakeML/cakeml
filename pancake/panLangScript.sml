@@ -53,7 +53,7 @@ Datatype:
 End
 
 Datatype:
-  opsize = Op8 | OpW
+  opsize = Op8 | OpW | Op32
 End
 
 Datatype:
@@ -209,12 +209,14 @@ End
 
 Definition load_op_def:
   load_op Op8 = Load8 ∧
-  load_op OpW = Load
+  load_op OpW = Load ∧
+  load_op Op32 = Load32
 End
 
 Definition store_op_def:
   store_op Op8 = Store8 ∧
-  store_op OpW = Store
+  store_op OpW = Store ∧
+  store_op Op32 = Store32
 End
 
 val _ = export_theory();

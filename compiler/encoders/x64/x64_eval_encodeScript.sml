@@ -39,7 +39,7 @@ val xmm_reg2 = Q.prove(
 local
   val n = ["skip", "const", "binop reg", "binop imm", "shift", "div",
            "long mul", "long div", "add carry", "add overflow", "sub overflow",
-           "load", (* "load32", *) "load8", "store", (* "store32", *) "store8",
+           "load", "load32", "load8", "store", "store32", "store8",
            "fp less", "fp less eq", "fp eq", "fp mov", "fp abs", "fp neg",
            "fp sqrt", "fp add", "fp sub", "fp mul", "fp div", "fp fma", "fp to reg",
            "fp from reg", "fp to int", "fp from int",
@@ -158,10 +158,10 @@ local
      mk_let_thm `(rex_prefix (7w && v),1w: word8)`]
 in
   val load_rwt = enc_thm "load" thms
-(*val load32_rwt = enc_thm "load32" thms *)
+  val load32_rwt = enc_thm "load32" thms
   val load8_rwt = enc_thm "load8" thms
   val store_rwt = enc_thm "store" thms
-(*val store32_rwt = enc_thm "store32" thms *)
+  val store32_rwt = enc_thm "store32" thms
   val store8_rwt = enc_thm "store8" thms
 end
 
@@ -213,8 +213,8 @@ val x64_encode_rwts = Theory.save_thm("x64_encode_rwts",
   Drule.LIST_CONJ
     [skip_rwt, div_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_rwt,
      long_div_rwt, long_mul_rwt, add_carry_rwt, add_overflow_rwt,
-     sub_overflow_rwt, load_rwt, (* load32_rwt, *) load8_rwt, store_rwt,
-     (* store32_rwt, *) store8_rwt, jump_rwt, jump_cmp_rwt,
+     sub_overflow_rwt, load_rwt, load32_rwt, load8_rwt, store_rwt,
+     store32_rwt, store8_rwt, jump_rwt, jump_cmp_rwt,
      jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt,
      fp_less, fp_leq, fp_eq, fp_mov, fp_abs, fp_neg, fp_sqrt, fp_add, fp_sub,
      fp_mul, fp_div, fp_fma, fp_to_reg, fp_from_reg, fp_to_int, fp_from_int])

@@ -405,7 +405,7 @@ Definition share_mem_store_def:
                [n2w n]
                ((if n = 0
                  then word_to_bytes w F
-                 else [get_byte 0w w F]) ++ (word_to_bytes v F)) of
+                 else TAKE n (word_to_bytes w F)) ++ (word_to_bytes v F)) of
               | FFI_final outcome => SOME (FFI_final outcome,s)
               | FFI_return new_ffi new_bytes =>
                  SOME ((FFI_return new_ffi new_bytes),
@@ -419,9 +419,9 @@ Definition share_mem_op_def:
     share_mem_load r ad s 0) /\
   (share_mem_op Load8 r ad s = share_mem_load r ad s 1) /\
   (share_mem_op Store r ad s = share_mem_store r ad s 0) /\
-  (share_mem_op Store8 r ad s = share_mem_store r ad s 1)
-  (*(share_mem_op Load32 r ad s = share_mem_load r ad s 4) /\
-  (share_mem_op Store32 r ad s = share_mem_store r ad s 4) *)
+  (share_mem_op Store8 r ad s = share_mem_store r ad s 1) /\
+  (share_mem_op Load32 r ad s = share_mem_load r ad s 4) /\
+  (share_mem_op Store32 r ad s = share_mem_store r ad s 4)
 End
 
 val evaluate_def = tDefine "evaluate" `

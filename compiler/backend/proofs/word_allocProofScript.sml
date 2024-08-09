@@ -1472,8 +1472,8 @@ Proof
     gvs[AllCaseEqs()]>>
     drule apply_colour_exp_lemma >>
     disch_then $ qspecl_then [`cst`,`f`] mp_tac >>
-    rename1`m = Store \/ m = Store8`>>
-    qabbrev_tac `mcase = (m = Store \/ m = Store8)`>>
+    rename1`m = Store \/ m = Store8 \/ m = Store32`>>
+    qabbrev_tac `mcase = (m = Store \/ m = Store8 \/ m = Store32)`>>
     qpat_x_assum `strong_locals_rel _ _ _ _` mp_tac >>
     IF_CASES_TAC >>
     fs[] >>
@@ -1487,9 +1487,10 @@ Proof
          ,strong_locals_rel_subset])
     >- (
       strip_tac >>
-      gvs[DefnBase.one_line_ify NONE share_inst_def,
-        DefnBase.one_line_ify NONE sh_mem_store_def,
-        DefnBase.one_line_ify NONE sh_mem_store_byte_def,
+      gvs[oneline share_inst_def,
+        oneline sh_mem_store_def,
+        oneline sh_mem_store_byte_def,
+        oneline sh_mem_store32_def,
         flush_state_def,
         markerTheory.Abbrev_def,AllCaseEqs()] >>
       first_x_assum $ drule_at (Pos last) >>
@@ -1506,10 +1507,11 @@ Proof
          ,strong_locals_rel_subset])
     >- (
       strip_tac >>
-      gvs[DefnBase.one_line_ify NONE share_inst_def,
-        DefnBase.one_line_ify NONE sh_mem_load_def,
-        DefnBase.one_line_ify NONE sh_mem_load_byte_def,
-        DefnBase.one_line_ify NONE sh_mem_set_var_def,
+      gvs[oneline share_inst_def,
+        oneline sh_mem_load_def,
+        oneline sh_mem_load_byte_def,
+        oneline sh_mem_load32_def,
+        oneline sh_mem_set_var_def,
         flush_state_def,set_var_def,
         markerTheory.Abbrev_def,AllCaseEqs()] >>
       (irule strong_locals_rel_insert >>
@@ -2383,8 +2385,23 @@ Proof
       fs[GSYM numset_list_insert_def] >>
       irule numset_list_insert_eq_UNION >>
       rw[IMAGE_DEF,get_reads_exp_get_live_exp] >>
-      metis_tac[wf_insert,wf_get_live_exp] )
-  >- ((*ShareInst Load/Load8*)
+      metis_tac[wf_insert,wf_get_live_exp])
+  >- ((*ShareInst Store32*)
+      start_tac >>
+      fs[domain_union,UNION_COMM,get_reads_exp_get_live_exp] >>
+      conj_tac >- (
+        drule_then irule INJ_less >> rw[] >>
+        metis_tac[SUBSET_UNION,SUBSET_OF_INSERT,SUBSET_TRANS]) >>
+      CONV_TAC $ RHS_CONV $ SCONV[Once insert_union] >>
+      simp[union_assoc] >>
+      CONV_TAC $ RHS_CONV $ RATOR_CONV $ RAND_CONV $
+        REWRITE_CONV[Once union_num_set_sym] >>
+      simp[union_insert_LN] >>
+      fs[GSYM numset_list_insert_def] >>
+      irule numset_list_insert_eq_UNION >>
+      rw[IMAGE_DEF,get_reads_exp_get_live_exp] >>
+      metis_tac[wf_insert,wf_get_live_exp])
+  >- ((*ShareInst Load/Load8/Load32*)
     start_tac
     >- (
       conj_tac >- (
@@ -3124,14 +3141,15 @@ Proof
     rveq>>fs[]>>
     rpt(qpat_x_assum `_ (call_env _ _) = _` (mp_tac o GSYM))>>
     simp[call_env_def,flush_state_def]) >>
-  rename1`m=Store \/ m = Store8` >>
-  qabbrev_tac`mcase=(m=Store \/ m = Store8)`>>
+  rename1`m=Store \/ m = Store8 \/ m = Store32` >>
+  qabbrev_tac`mcase=(m=Store \/ m = Store8 \/ m = Store32)`>>
   fs[AllCaseEqs(),PULL_EXISTS] >>
   Cases_on`mcase` >> gvs[]
   >- (
-    gvs[DefnBase.one_line_ify NONE share_inst_def,
-      DefnBase.one_line_ify NONE sh_mem_store_def,
-      DefnBase.one_line_ify NONE sh_mem_store_byte_def,
+    gvs[oneline share_inst_def,
+      oneline sh_mem_store_def,
+      oneline sh_mem_store_byte_def,
+      oneline sh_mem_store32_def,
       markerTheory.Abbrev_def,flush_state_def] >>
     drule_all_then (irule_at (Pos hd)) strong_locals_rel_I_word_exp >>
     gvs[domain_union,AllCaseEqs(),PULL_EXISTS] >>
@@ -3140,10 +3158,11 @@ Proof
     fs[strong_locals_rel_def] >>
     metis_tac[]
   ) >>
-  gvs[DefnBase.one_line_ify NONE share_inst_def,
-    DefnBase.one_line_ify NONE sh_mem_load_def,
-    DefnBase.one_line_ify NONE sh_mem_load_byte_def,
-    DefnBase.one_line_ify NONE sh_mem_set_var_def,
+  gvs[oneline share_inst_def,
+    oneline sh_mem_load_def,
+    oneline sh_mem_load_byte_def,
+    oneline sh_mem_load32_def,
+    oneline sh_mem_set_var_def,
     AllCaseEqs(),set_var_def,
     markerTheory.Abbrev_def,flush_state_def] >>
   drule_all_then (irule_at (Pos hd)) strong_locals_rel_I_word_exp >>
@@ -6590,8 +6609,8 @@ Proof
     exists_tac >>
     pairarg_tac >>
     simp[] >>
-    rename1`m = Store \/ m = Store8`>>
-    qabbrev_tac `mcase = (m = Store \/ m = Store8)`>>
+    rename1`m = Store \/ m = Store8 \/ m = Store32`>>
+    qabbrev_tac `mcase = (m = Store \/ m = Store8 \/ m = Store32)`>>
     fs[AllCaseEqs()] >>
     IF_CASES_TAC >>
     gvs[next_var_rename_def,evaluate_def] >>
@@ -6599,18 +6618,20 @@ Proof
     >- (
       impl_tac >- simp[word_state_eq_rel_def] >>
       disch_then (fn t => simp[t]) >>
-      gvs[DefnBase.one_line_ify NONE share_inst_def,
-        DefnBase.one_line_ify NONE sh_mem_store_def,
-        DefnBase.one_line_ify NONE sh_mem_store_byte_def,
+      gvs[oneline share_inst_def,
+        oneline sh_mem_store_def,
+        oneline sh_mem_store_byte_def,
+        oneline sh_mem_store32_def,
         markerTheory.Abbrev_def,flush_state_def,AllCaseEqs()] >>
       drule_then (drule_then assume_tac) ssa_locals_rel_get_var >>
       simp[]) >>
     impl_tac >- simp[word_state_eq_rel_def] >>
     disch_then (fn t => simp[t]) >>
-    gvs[DefnBase.one_line_ify NONE share_inst_def,
-      DefnBase.one_line_ify NONE sh_mem_load_def,
-      DefnBase.one_line_ify NONE sh_mem_load_byte_def,
-      DefnBase.one_line_ify NONE sh_mem_set_var_def,
+    gvs[oneline share_inst_def,
+      oneline sh_mem_load_def,
+      oneline sh_mem_load_byte_def,
+      oneline sh_mem_load32_def,
+      oneline sh_mem_set_var_def,
       set_var_def,flush_state_def,AllCaseEqs(),
       markerTheory.Abbrev_def] >>
     irule ssa_locals_rel_set_var >>

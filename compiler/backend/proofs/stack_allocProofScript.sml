@@ -5737,6 +5737,7 @@ Proof
     rw[Once comp_def,evaluate_def,get_var_def] \\
     Cases_on ‘op’>>
     fs[word_exp_def,sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,IS_SOME_EXISTS,
+       sh_mem_load32_def,sh_mem_store32_def,
        wordLangTheory.word_op_def,sh_mem_load_byte_def,sh_mem_store_byte_def,
        get_var_def,dec_clock_def,empty_env_def]>>
     fs[case_eq_thms] \\ rw[] \\

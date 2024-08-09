@@ -117,14 +117,9 @@ val () = Datatype `
 val () = Datatype `
   addr = Addr reg ('a word)`
 
-(* old version
 val () = Datatype `
-  mem_op = Load  | Load8  | Load32
-         | Store | Store8 | Store32`
-*)
-
-val () = Datatype `
-  memop = Load  | Load8 | Store | Store8`
+  memop = Load  | Load8  | Load32
+        | Store | Store8 | Store32`
 
 val () = Datatype `
   inst = Skip
@@ -272,7 +267,7 @@ val inst_ok_def = Define `
   (inst_ok (FP x) c = fp_ok x c) /\
   (inst_ok (Mem m r1 (Addr r2 w) : 'a inst) c <=>
      reg_ok r1 c /\ reg_ok r2 c /\
-     (if m IN {Load; Store} then
+     (if m IN {Load; Store; Load32; Store32} then
         addr_offset_ok c w
       else
         byte_offset_ok c w))`
@@ -301,6 +296,7 @@ val word_cmp_def = Define `
 Definition is_load_def[simp]:
   (is_load Load = T) ∧
   (is_load Load8 = T) ∧
+  (is_load Load32 = T) ∧
   (is_load _ = F)
 End
 
