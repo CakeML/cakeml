@@ -9,7 +9,7 @@ method Main() {
 	var i := 1;
   while *
   {
-		print "hello from while";
+		print "hello from while", "\n";
   }
 
 }

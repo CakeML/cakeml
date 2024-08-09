@@ -2,13 +2,13 @@ method Main()
 {
 	var x: int;
 	x := Maximum([1, 3, -3, 18, 0]);
-	print x, " ";
+	print x, "\n";
 
 	x := Maximum([0]);
-	print x, " ";
+	print x, "\n";
 
 	x := Maximum([-3, -3, 18, -174, 1947]);
-	print x, " ";
+	print x, "\n";
 }
 
 /*

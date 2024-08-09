@@ -1,6 +1,6 @@
 method Main() {
   var a, b, c := foo();
-	print a, " ", b, " ", c, " ";
+	print a, " ", b, " ", c, "\n";
 }
 
 method foo() returns (a: int, b: int, c: int) {

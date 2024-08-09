@@ -1,10 +1,10 @@
 method Main()
 {
-	print int_to_string(0), " ";
-	print int_to_string(-0), " ";
-	print int_to_string(42), " ";
-	print int_to_string(-1337), " ";
-	print int_to_string(314159265358979323846), " ";
+	print int_to_string(0), "\n";
+	print int_to_string(-0), "\n";
+	print int_to_string(42), "\n";
+	print int_to_string(-1337), "\n";
+	print int_to_string(314159265358979323846), "\n";
 }
 
 function abs(x: int) : int {

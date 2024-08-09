@@ -5,6 +5,6 @@ method Main() {
     if x % 2 == 0 {
       continue;
     }
-    print x;
+    print x, "\n";
   }
 }

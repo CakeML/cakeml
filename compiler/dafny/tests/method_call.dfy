@@ -4,5 +4,5 @@ method Main()
 }
 
 method other_side() {
-	print "hello from the other side";
+	print "hello from the other side\n";
 }
