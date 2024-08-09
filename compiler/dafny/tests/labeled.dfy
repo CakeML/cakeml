@@ -5,17 +5,16 @@ method Main() {
 
 method foo(brk: bool) {
 	label A: {
-		print "A ";
+		print "A\n";
 		label B : {
-			print "B ";
+			print "B\n";
 			label C : {
-				print "C ";
+				print "C\n";
 				if brk {break A;}
 			}
-			print "left C ";
+			print "left C\n";
 		}
-		print "left B ";
+		print "left B\n";
 	}
-	print "left A " ;
-
+	print "left A\n" ;
 }

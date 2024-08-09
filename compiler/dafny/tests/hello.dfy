@@ -1,4 +1,4 @@
 method Main()
 {
-  print "Hello, Cake";
+  print "Hello, Cake\n";
 }

@@ -1,9 +1,9 @@
 method Main() {
-	print factorial(0), " ";
-	print factorial(1), " ";
-	print factorial(3), " ";
-	print factorial(5), " ";
-	print factorial(23), " ";
+	print factorial(0), "\n";
+	print factorial(1), "\n";
+	print factorial(3), "\n";
+	print factorial(5), "\n";
+	print factorial(23), "\n";
 }
 
 function {:tailrecursion false} factorial(x: int): int

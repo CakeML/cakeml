@@ -3,7 +3,7 @@ method Main() {
   while x < 5 {
     var y := 0;
     while y != 5 {
-			print 5 * x + y;
+			print 5 * x + y, "\n";
 			y := y + 1;
     }
 		x := x + 1;

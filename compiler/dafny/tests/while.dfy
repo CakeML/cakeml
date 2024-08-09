@@ -9,5 +9,5 @@ method Main() {
     i := i + 1;
   }
 
-	print sum;
+	print sum, "\n";
 }

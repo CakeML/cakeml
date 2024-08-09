@@ -5,14 +5,14 @@ method Main() {
     if x % 2 == 0 {
       continue;
     }
-		print "x: ", x, " ";
+		print "x: ", x, "\n";
     var y := 0;
     while y < 5 {
       y := y + 1;
       if y % 2 == 0 {
         continue;
       }
-			print "y: ", y, " ";
+			print "y: ", y, "\n";
     }
   }
 }

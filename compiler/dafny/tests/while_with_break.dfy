@@ -4,7 +4,7 @@ method Main() {
 
   while true {
     x := x + 1;
-    print x;
+    print x, "\n";
     if x == 10 {
       break;
     }
