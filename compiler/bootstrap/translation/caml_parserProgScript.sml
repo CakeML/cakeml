@@ -188,7 +188,6 @@ Proof
     \\ simp [SF CONJ_ss]
     \\ rpt strip_tac
     \\ simp [Once (fetch "-" "camlptreeconversion_ptree_expr_side_def")]
-    \\ simp [fetch "-" "camlptreeconversion_ptree_double_side_def"]
     \\ rw [] \\ gs [caml_lexTheory.isSymbol_thm, caml_lexTheory.isFloat_thm])
   \\ rw []
   \\ simp [Once (fetch "-" "camlptreeconversion_ptree_expr_side_def")]

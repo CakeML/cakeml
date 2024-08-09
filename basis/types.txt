@@ -294,8 +294,14 @@ CommandLine.name: unit -> string
 CommandLine.arguments: unit -> string list
 Double.fromWord: Word64.word -> Double.double
 Double.toWord: Double.double -> Word64.word
-Double.fromString: string -> Double.double
+Double.fromString: string -> Double.double option
 Double.toString: Double.double -> string
+Double.fromInt: int -> Double.double
+Double.toInt: Double.double -> int
+Double.pow: Double.double -> Double.double -> Double.double
+Double.ln: Double.double -> Double.double
+Double.exp: Double.double -> Double.double
+Double.floor: Double.double -> Double.double
 Double.fma: Double.double -> Double.double -> Double.double -> Double.double
 Double.+: Double.double -> Double.double -> Double.double
 Double.-: Double.double -> Double.double -> Double.double
