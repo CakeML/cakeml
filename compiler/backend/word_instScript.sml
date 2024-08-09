@@ -36,7 +36,7 @@ val rm_const_def = Define`
 
 val convert_sub_def = Define`
   (convert_sub [Const w1;Const w2] = Const (w1 -w2)) ∧
-  (convert_sub [x;Const w] = Op Add [x;Const (-w)]) ∧
+  (convert_sub [x;Const w] = Op Add [Const (-w); x]) ∧
   (convert_sub ls = Op Sub ls)`
 
 Theorem convert_sub_pmatch:
@@ -44,7 +44,7 @@ Theorem convert_sub_pmatch:
   convert_sub l =
   case l of
     [Const w1;Const w2] => Const (w1 -w2)
-  | [x;Const w] => Op Add [x;Const (-w)]
+  | [x;Const w] => Op Add [Const (-w);x]
   | ls => Op Sub ls
 Proof
   rpt strip_tac
@@ -81,6 +81,8 @@ val optimize_consts_def = Define`
         [] => Const w
       | _ => Op op (Const w::nconst_ls)`
 
+(* If this expression contains a constant it should
+    be head of the output operation list *)
 val pull_exp_def = tDefine "pull_exp"`
   (pull_exp (Op Sub ls) =
     let new_ls = MAP pull_exp ls in
@@ -134,6 +136,7 @@ QED
  /\
 c d
 *)
+
 val flatten_exp_def = tDefine "flatten_exp" `
   (flatten_exp (Op Sub exps) = Op Sub (MAP flatten_exp exps)) ∧
   (flatten_exp (Op op []) = op_consts op) ∧
