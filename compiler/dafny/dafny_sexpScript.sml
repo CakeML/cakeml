@@ -28,6 +28,8 @@ Definition read_quoted_aux_def:
     return ((REVERSE acc), rest) ∧
   read_quoted_aux (#"\\"::#"\""::rest) acc =
     read_quoted_aux rest (#"\""::acc) ∧
+  read_quoted_aux (#"\\"::#"\\"::rest) acc =
+    read_quoted_aux rest (#"\\"::acc) ∧
   read_quoted_aux (c::cs) acc =
     read_quoted_aux cs (c::acc)
 End
