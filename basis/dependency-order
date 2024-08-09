@@ -23,6 +23,7 @@ Word8
 Word8Array
 Array
 Map
+Set
 Hashtable
 CommandLine
 Double
