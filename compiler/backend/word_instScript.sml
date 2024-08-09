@@ -70,16 +70,30 @@ Proof
   >> fs[op_consts_def]
 QED
 
-val optimize_consts_def = Define`
+(* Returns a definite value *)
+Definition reduce_const_def:
+  reduce_const op w rest =
+  if w = 0w then
+    if op = Add ∨ op = Or ∨ op = Xor then
+      dtcase rest of
+        []  => Const w
+      | [x] => x
+      | _ => Op op rest
+    else if op = And then
+      Const 0w
+    else Op op (Const w::rest)
+  else Op op (Const w::rest)
+End
+
+Definition optimize_consts_def:
   optimize_consts op ls =
   let (const_ls,nconst_ls) = PARTITION is_const ls in
     dtcase const_ls of
       [] => Op op nconst_ls
     | _ =>
       let w = THE (word_op op (MAP rm_const const_ls)) in
-      dtcase nconst_ls of
-        [] => Const w
-      | _ => Op op (Const w::nconst_ls)`
+      reduce_const op w nconst_ls
+End
 
 (* If this expression contains a constant it should
     be head of the output operation list *)
