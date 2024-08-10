@@ -108,8 +108,8 @@ Definition compile_def:
        let l1 = list_insert vs (delete v live) in
          (Assign v op vs NONE,l1)) /\
   (compile (Assign v op vs (SOME names)) live =
-     let l1 = inter names (list_insert vs (delete v live)) in
-       (Assign v op vs (SOME l1),l1)) /\
+     let l1 = inter names (delete v live) in
+       (Assign v op vs (SOME l1),list_insert vs l1)) /\
   (compile (If n c2 c3) live =
      let (d3,l3) = compile c3 live in
      let (d2,l2) = compile c2 live in
