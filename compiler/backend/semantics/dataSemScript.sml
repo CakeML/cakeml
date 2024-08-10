@@ -1144,16 +1144,22 @@ Definition evaluate_def:
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
      | SOME v => (NONE, set_var dest v s)) /\
   (evaluate (Assign dest op args names_opt,s) =
-     if op_requires_names op /\ IS_NONE names_opt then (SOME (Rerr(Rabort Rtype_error)),s) else
-     case cut_state_opt names_opt s of
-     | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-     | SOME s =>
-       (case get_vars args s.locals of
-        | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-        | SOME xs => (case do_app op xs s of
-                      | Rerr e => (SOME (Rerr e),flush_state T (install_sfs op s))
-                      | Rval (v,s) =>
-                        (NONE, set_var dest v (install_sfs op s))))) /\
+     if op_requires_names op /\ IS_NONE names_opt then
+       (SOME (Rerr(Rabort Rtype_error)),s)
+     else
+       case cut_state_opt (OPTION_MAP (list_insert args) names_opt) s of
+       | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+       | SOME s =>
+           case get_vars args s.locals of
+           | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+           | SOME xs =>
+               case do_app op xs s of
+               | Rerr e => (SOME (Rerr e),flush_state T (install_sfs op s))
+               | Rval (v,s) =>
+                   case cut_state_opt names_opt s of
+                   | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+                   | SOME s =>
+                       (NONE, set_var dest v (install_sfs op s))) /\
   (evaluate (Tick,s) =
      if s.clock = 0 then (SOME (Rerr(Rabort Rtimeout_error)),flush_state T s)
                     else (NONE,dec_clock s)) /\
