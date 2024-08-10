@@ -3,6 +3,7 @@
 *)
 
 open preamble
+open cfTacticsLib (* process_topdecs *)
 open result_monadTheory
 open astTheory semanticPrimitivesTheory (* CakeML AST *)
 open dafny_astTheory
@@ -11,6 +12,52 @@ open alistTheory
 open mlintTheory
 
 val _ = new_theory "dafny_to_cakeml";
+
+(* Defines the Dafny module containing the Dafny runtime *)
+Quote dafny_module = process_topdecs:
+  structure Dafny =
+  struct
+
+  exception Return;
+  exception Break;
+  exception LabeledBreak string;
+
+  (* Adapted from ABS, ediv, and emod from HOL's integerTheory *)
+  fun abs n = if n < 0 then ~n else n;
+
+  fun ediv i j = if 0 < j then i div j else ~(i div ~j);
+
+  fun emod i j = i mod (abs j);
+
+
+  fun bool_to_string b = if b then "true" else "false";
+
+  fun int_to_string i = Int.int_to_string #"-" i;
+
+  fun escape_char c =
+    if c = #"'" then "\\'"
+    else if c = #"\"" then "\\\""
+    else if c = #"\\" then "\\\\"
+    else if c = #"\000" then "\\0"
+    else if c = #"\n" then "\\n"
+    (* #"\r" leads to "not terminated with nil" exception *)
+    else if c = #"\013" then "\\r"
+    else if c = #"\t" then "\\t"
+    else String.str c;
+
+  fun char_to_string c = String.concat ["'", escape_char c, "'"];
+
+  fun list_to_string f lst =
+    String.concat ["[", String.concatWith ", " (List.map f lst), "]"];
+
+  fun char_list_to_string cs = list_to_string char_to_string cs;
+
+  (* In Dafny, strings within collections are printed as a list of chars *)
+  fun string_element_to_string s =
+    list_to_string char_to_string (String.explode s);
+
+  end
+End
 
 (* TODO Check if we can reduce the number of generated cases *)
 (* TODO Check if it makes sense to extract Var (...) into a function
@@ -42,119 +89,32 @@ Definition cml_fapp_def:
   cml_fapp fun_name args = cml_fapp_aux fun_name (REVERSE args)
 End
 
-(* Definitions to deal with (Early)Return in Dafny *)
-
-(* TODO Since the generated program does not necessarily need to type-check,
- * it may be possible to use something like exception Result of 'a instead of
- * using a reference for the result *)
-Definition result_name_def:
-  result_name = "res_CML_ref"
-End
-
-Definition return_exn_name_def:
-  return_exn_name = "Return_CML_con"
-End
-
-Definition return_dexn_def:
-  return_dexn = Dexn unknown_loc return_exn_name []
-End
-
 Definition raise_return_def:
-  raise_return = Raise (Con (SOME (Short return_exn_name)) [])
-End
-
-(* Definitions to deal with unlabeled break statements *)
-Definition break_exn_name_def:
-  break_exn_name = "Break_CML_con"
-End
-
-Definition break_dexn_def:
-  break_dexn = Dexn unknown_loc break_exn_name []
+  raise_return = Raise (Con (SOME (Long "Dafny" (Short "Return"))) [])
 End
 
 Definition raise_break_def:
-  raise_break = Raise (Con (SOME (Short break_exn_name)) [])
+  raise_break = Raise (Con (SOME (Long "Dafny" (Short "Break"))) [])
 End
 
 Definition add_break_handle_def:
-  add_break_handle e = Handle e [Pcon (SOME (Short break_exn_name)) [], Unit]
-End
-
-(* Definitions to deal with labeled break statements *)
-
-Definition labeled_break_exn_name_def:
-  labeled_break_exn_name = "LabeledBreak_CML_con"
-End
-
-Definition labeled_break_dexn_def:
-  labeled_break_dexn = Dexn unknown_loc labeled_break_exn_name
-                            [Atapp [] (Short "string")]
+  add_break_handle e = Handle e [Pcon (SOME (Long "Dafny" (Short "Break"))) [],
+                                 Unit]
 End
 
 Definition raise_labeled_break_def:
-  raise_labeled_break lbl = Raise (Con (SOME (Short labeled_break_exn_name))
+  raise_labeled_break lbl = Raise (Con (SOME (Long "Dafny"
+                                                   (Short "LabeledBreak")))
                                        [Lit (StrLit lbl)])
 End
 
 Definition add_labeled_break_handle_def:
   add_labeled_break_handle cur_lbl e =
-  Handle e [Pcon (SOME (Short labeled_break_exn_name)) [Pvar "lbl"],
+  Handle e [Pcon (SOME (Long "Dafny" (Short "LabeledBreak"))) [Pvar "lbl"],
             (If (App Equality [Var (Short "lbl"); Lit (StrLit cur_lbl)])
                 (Unit)
-                (Raise (Con (SOME (Short labeled_break_exn_name))
+                (Raise (Con (SOME (Long "Dafny" (Short "LabeledBreak")))
                             [Var (Short "lbl")])))]
-End
-
-(* Definitions for Euclidean modulo and division
- * Based on HOL's definitions at https://hol-theorem-prover.org/trindemossen-1-helpdocs/help/src-sml/htmlsigs/integerTheory.html#EDIV_DEF-val *)
-(* TODO Verify that this is correct according to the semantics of CakeML and
- * Dafny *)
-(* TODO Place these definition into separate modules *)
-Definition cml_abs_name_def:
-  cml_abs_name = "abs_CML_fun"
-End
-
-(* fun cml_abs i = if i < 0 then ~i else i; *)
-Definition cml_abs_def_def:
-  cml_abs_def =
-  Dletrec unknown_loc
-          [(cml_abs_name,"i",
-            (If
-             (App (Opb Lt) [Var (Short "i"); Lit (IntLit 0)])
-             (cml_fapp (Var (Short "~")) [Var (Short "i")])
-             ((Var (Short "i")))))]
-End
-
-Definition cml_emod_name_def:
-  cml_emod_name = "emod_CML_fun"
-End
-
-(* fun emod i j = i % (cml_abs j); *)
-Definition cml_emod_def_def:
-  cml_emod_def =
-  Dletrec unknown_loc
-          [(cml_emod_name, "i",
-            (Fun "j" (App (Opn Modulo) [Var (Short "i");
-                                        cml_fapp (Var (Short cml_abs_name)) [Var (Short "j")]])))]
-End
-
-Definition cml_ediv_name_def:
-  cml_ediv_name = "ediv_CML_fun"
-End
-
-(* fun ediv i j = if 0 < j then i div j else ~(i div ~j); *)
-Definition cml_ediv_def_def:
-  cml_ediv_def =
-  Dletrec unknown_loc
-          [(cml_ediv_name, "i",
-            (Fun "j"
-                 (If
-                  (App (Opb Lt) [Lit (IntLit 0); Var (Short "j")])
-                  (App (Opn Divide) [Var (Short "i"); Var (Short "j")])
-                  (cml_fapp (Var (Short "~"))
-                            [App (Opn Divide)
-                                 [Var (Short "i"); (cml_fapp (Var (Short "~"))
-                                                             [Var (Short "j")])]]))))]
 End
 
 Definition cml_while_name_def:
@@ -722,12 +682,14 @@ Definition from_expression_def:
             fail "from_binOp (Eq): Unsupported type"
       | EuclidianDiv =>
           if (e1_t = (Primitive Int) ∧ e1_t = e2_t) then
-            return (cml_fapp (Var (Short cml_ediv_name)) [cml_e1; cml_e2])
+            return (cml_fapp (Var (Long "Dafny" (Short "ediv")))
+                             [cml_e1; cml_e2])
           else
             fail "from_binOp (EuclideanDiv): Unsupported types"
       | EuclidianMod =>
           if (e1_t = (Primitive Int) ∧ e1_t = e2_t) then
-            return (cml_fapp (Var (Short cml_emod_name)) [cml_e1; cml_e2])
+            return (cml_fapp (Var (Long "Dafny" (Short "emod")))
+                             [cml_e1; cml_e2])
           else
             fail "from_binOp (EuclideanMod): Unexpected types"
       | Lt =>
@@ -808,122 +770,29 @@ Termination
   cheat
 End
 
-(* fun bool_to_string b = if b then "true" else "false" *)
-Definition cml_bool_to_string_def:
-  cml_bool_to_string =
-  Dletrec unknown_loc
-          [("cml_bool_to_string", "b",
-            (If (Var (Short "b")) (Lit (StrLit "true")) (Lit (StrLit "false"))))]
-End
-
-Definition cml_int_to_string_def:
-  cml_int_to_string =
-  Dletrec unknown_loc [("cml_int_to_string", "i",
-                        cml_fapp (Var (Long "Int" (Short "int_to_string")))
-                                 [(Lit (Char #"-")); Var (Short "i")])]
-End
-
-Definition cml_str_to_string_def:
-  cml_str_to_string =
-  Dletrec unknown_loc [("cml_str_to_string", "s", Var (Short "s"))]
-End
-
-Definition cml_escape_char_def:
-  cml_escape_char =
-  Dletrec unknown_loc [("cml_escape_char", "c",
-                        (If (App Equality [Var (Short "c");
-                                           Lit (Char #"'")])
-                            (Lit (StrLit "\\'"))
-                            ((If (App Equality [Var (Short "c");
-                                                Lit (Char #"\"")])
-                            (Lit (StrLit "\\\""))
-                            ((If (App Equality [Var (Short "c");
-                                           Lit (Char #"\\")])
-                            (Lit (StrLit "\\\\"))
-                            ((If (App Equality [Var (Short "c");
-                                           Lit (Char #"\000")])
-                            (Lit (StrLit "\\0"))
-                            ((If (App Equality [Var (Short "c");
-                                           Lit (Char #"\n")])
-                            (Lit (StrLit "\\n"))
-                            ((If (App Equality [Var (Short "c");
-                                           Lit (Char #"\r")])
-                            (Lit (StrLit "\\r"))
-                            ((If (App Equality [Var (Short "c");
-                                           Lit (Char #"\t")])
-                            (Lit (StrLit "\\t"))
-                            (cml_fapp (Var (Long "String" (Short "str")))
-                                           [Var (Short "c")])))))))))))))))]
-End
-
-Definition cml_char_to_string_def:
-  cml_char_to_string =
-  let
-    char_as_string = cml_fapp (Var (Short "cml_escape_char"))
-                            [(Var (Short "c"))];
-  in Dletrec unknown_loc [("cml_char_to_string", "c",
-                           cml_fapp (Var (Long "String" (Short "concat")))
-                                    [cml_list [Lit (StrLit "'");
-                                               char_as_string;
-                                               Lit (StrLit "'")]])]
-End
-
-Definition cml_list_to_string_def:
-  cml_list_to_string =
-  Dletrec unknown_loc
-          [("cml_list_to_string", "f",
-            Fun "l" (cml_fapp (Var (Long "String" (Short "concat")))
-                              [cml_list
-                               [Lit (StrLit "[");
-                                cml_fapp (Var (Long "String"
-                                                    (Short "concatWith")))
-                                         [(Lit (StrLit ", "));
-                                          cml_fapp (Var (Long "List"(Short "map")))
-                                                   [Var (Short "f");
-                                                    Var (Short "l")]];
-                                Lit (StrLit "]")]]))]
-End
-
-(* In Dafny, strings within collections are printed as a list of chars *)
-Definition cml_str_elem_to_string_def:
-  cml_str_elem_to_string =
-  Dletrec unknown_loc
-          [("cml_str_elem_to_string", "s",
-            cml_fapp (Var (Short "cml_list_to_string"))
-                     [Var (Short "cml_char_to_string");
-                      cml_fapp (Var (Long "String" (Short "explode")))
-                               [Var (Short "s")]])]
-End
-
-(* In Dafny, strings within collections are printed as a list of chars *)
-Definition cml_char_list_to_string_def:
-  cml_char_list_to_string =
-  Dletrec unknown_loc
-          [("cml_char_list_to_string", "cs",
-            cml_fapp (Var (Short "cml_list_to_string"))
-                     [Var (Short "cml_char_to_string");
-                      Var (Short "cs")])]
-End
-
 (* Returns a function that can be applied to a CakeML expression to turn it into
  * a string *)
 Definition to_string_fun_def:
   (to_string_fun inCol (Primitive String) =
-   if inCol then return (Var (Short "cml_str_elem_to_string"))
-   else return (Var (Short "cml_str_to_string"))) ∧
+   if inCol then
+     return (Var (Long "Dafny" (Short "string_element_to_string")))
+   else
+     return (Var (Short "id"))) ∧
   (to_string_fun _ (Primitive Char) =
-   return (Var (Short "cml_char_to_string"))) ∧
+   return (Var (Long "Dafny" (Short "char_to_string")))) ∧
   (to_string_fun _ (Primitive Int) =
-   return (Var (Short "cml_int_to_string"))) ∧
+   return (Var (Long "Dafny" (Short "int_to_string")))) ∧
   (to_string_fun _ (Primitive Bool) =
-   return (Var (Short "cml_bool_to_string"))) ∧
+   return (Var (Long "Dafny" (Short "bool_to_string")))) ∧
   (to_string_fun inCol (Seq (Primitive Char)) =
-   if inCol then return (Var (Short "cml_bool_to_string"))
+   if inCol then
+     return (Var (Long "Dafny" (Short "char_list_to_string")))
    else return (Var (Long "String" (Short "implode")))) ∧
   (to_string_fun _ (Seq t) =
    do
      elem_to_string <- to_string_fun T t;
-     return (cml_fapp (Var (Short "cml_list_to_string")) [elem_to_string])
+     return (cml_fapp (Var (Long "Dafny" (Short "list_to_string")))
+                      [elem_to_string])
    od) ∧
   (to_string_fun _ _ = fail "to_string_fun: Unsupported type")
 End
@@ -1187,7 +1056,7 @@ Definition process_method_body_def:
   do
     (_, cml_body) <- from_stmts F env 0 epilogue body;
     cml_body <<- (Handle cml_body
-                   [Pcon (SOME (Short return_exn_name)) [], Unit]);
+                   [Pcon (SOME (Long "Dafny" (Short "Return"))) [], Unit]);
     return (preamble cml_body)
   od
 End
@@ -1289,12 +1158,7 @@ Definition compile_def:
         * Having one big Dletrec probably does not result in a performance
         * penalty unless functions are used in a higher order way *)
        fun_defs <<- [(Dletrec unknown_loc fun_defs)];
-       return ([return_dexn; break_dexn; labeled_break_dexn;
-                cml_escape_char;
-                cml_bool_to_string; cml_int_to_string; cml_str_to_string;
-                cml_char_to_string; cml_list_to_string;
-                cml_str_elem_to_string; cml_char_list_to_string;
-                cml_abs_def; cml_emod_def; cml_ediv_def] ++
+       return (^dafny_module ++
                fun_defs ++
                [Dlet unknown_loc Pany (cml_fapp (Var (Short "Main")) [Unit])])
      od
@@ -1322,7 +1186,7 @@ open TextIO
 (* val _ = astPP.disable_astPP(); *)
 val _ = astPP.enable_astPP();
 
-val inStream = TextIO.openIn "./tests/print_escape.sexp";
+val inStream = TextIO.openIn "./tests/test.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
@@ -1334,6 +1198,9 @@ val cakeml_r = EVAL “(compile ^dafny_r)” |> concl |> rhs |> rand;
 
 val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^cakeml_r)))”
                    |> concl |> rhs |> rand;
+(* Test Dafny module *)
+(* val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^dafny_module)))” *)
+(*                    |> concl |> rhs |> rand; *)
 val cml_sexp_str_r = stringSyntax.fromHOLstring cml_sexp_r;
 val outFile = TextIO.openOut "./tests/test.cml.sexp";
 val _ = TextIO.output (outFile, cml_sexp_str_r);
