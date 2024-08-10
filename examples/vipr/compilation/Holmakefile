@@ -11,5 +11,8 @@ ifdef POLY
 HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
 endif
 
+CFLAGS+=-O2
+LDLIBS+=-lm
+
 cake_vipr: viprCompileTheory.uo
-	gcc -o cake_vipr cake_vipr.S $(CAKEMLDIR)/basis/basis_ffi.c
+	$(CC) $(CFLAGS) -o $@ $@.S $(CAKEMLDIR)/basis/basis_ffi.c $(LDLIBS)

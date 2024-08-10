@@ -29,7 +29,7 @@ ifeq ($(OS),Darwin)
 endif
 
 CFLAGS+=-O2
-LDFLAGS+=-lm
+LDLIBS+=-lm
 CMLS = $(wildcard *.cml)
 CML_PROGS = $(patsubst %.cml,%.cake$(SUFF),$(CMLS))
 
@@ -39,7 +39,7 @@ all: cake$(SUFF)
 # Linking the CakeML compiler. On aarch
 
 cake$(SUFF): cake.S basis_ffi.c
-	$(CC) $(CFLAGS) $< basis_ffi.c $(LOADLIBES) $(LDLIBS) $(EVALFLAG) -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $< basis_ffi.c $(LOADLIBES) $(EVALFLAG) -o $@ $(LDFLAGS) $(LDLIBS)
 
 # Note: While this Makefile is shared the sexpr files used in the example rules
 # below are only included in the verified cake-arm8-64.tar.gz release package
@@ -49,20 +49,20 @@ cake$(SUFF): cake.S basis_ffi.c
 
 cake_verbose$(SUFF): cake-sexpr-64 basis_ffi.c cake$(SUFF)
 	CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 $(PREF)cake$(SUFF) --sexp=true --exclude_prelude=true --skip_type_inference=true --emit_empty_ffi=true --reg_alg=0 < $< > $<.S
-	$(CC) $(CFLAGS) -DDEBUG_FFI -o $@ $<.S basis_ffi.c $(LDFLAGS)
+	$(CC) $(CFLAGS) -DDEBUG_FFI -o $@ $<.S basis_ffi.c $(LDFLAGS) $(LDLIBS)
 
 # *UNVERIFIED* compiler supporting 32-bit targets; see cake-arm8-32.tar.gz for a
 # verified compiler
 
 cake_unverified32$(SUFF): cake-sexpr-32 basis_ffi.c cake$(SUFF)
 	CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 $(PREF)cake$(SUFF) --sexp=true --exclude_prelude=true --skip_type_inference=true --reg_alg=0 < $< > $<.S
-	$(CC) $(CFLAGS) -o $@ $<.S basis_ffi.c $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $<.S basis_ffi.c $(LDFLAGS) $(LDLIBS)
 
 # Example of cross-compiling the compiler itself
 RISCV_CC ?= riscv64-unknown-linux-gnu-cc
 cake_riscv_host: cake-sexpr-64 basis_ffi.c cake$(SUFF)
 	CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 $(PREF)cake$(SUFF) --sexp=true --exclude_prelude=true --skip_type_inference=true --target=riscv --reg_alg=0 < $< > $<.riscv.S
-	$(RISCV_CC) $(CFLAGS) -o $@ $<.riscv.S basis_ffi.c $(LDFLAGS)
+	$(RISCV_CC) $(CFLAGS) -o $@ $<.riscv.S basis_ffi.c $(LDFLAGS) $(LDLIBS)
 
 # Using the CakeML compiler
 
@@ -77,7 +77,7 @@ cake_riscv_host: cake-sexpr-64 basis_ffi.c cake$(SUFF)
 	$(PREF)cake$(SUFF) $(CAKEFLAGS) --target=arm8 <$< >$@
 
 %.cake$(SUFF) : %.cake.S basis_ffi.c
-	$(CC) $< basis_ffi.c $(LOADLIBES) $(LDLIBS) -o $@ $(LDFLAGS)
+	$(CC) $< basis_ffi.c $(LOADLIBES) $(LDLIBS) -o $@ $(LDFLAGS) $(LDLIBS)
 
 clean:
 	$(RM) basis_ffi.o cake.o cake$(SUFF) *.cake.o *.cake.S *.cake$(SUFF)
