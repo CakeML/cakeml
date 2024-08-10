@@ -30,6 +30,7 @@ Quote dafny_module = process_topdecs:
   fun emod i j = i mod (abs j);
 
 
+  (* to_string functions to be used for "Dafny-conform" printing *)
   fun bool_to_string b = if b then "true" else "false";
 
   fun int_to_string i = Int.int_to_string #"-" i;
@@ -52,9 +53,11 @@ Quote dafny_module = process_topdecs:
 
   fun char_list_to_string cs = list_to_string char_to_string cs;
 
+  (* Commented out because we use CakeML char list's instead of strings *)
+
   (* In Dafny, strings within collections are printed as a list of chars *)
-  fun string_element_to_string s =
-    list_to_string char_to_string (String.explode s);
+  (* fun string_element_to_string s = *)
+  (*   list_to_string char_to_string (String.explode s); *)
 
   end
 End
@@ -74,6 +77,11 @@ Definition cml_list_def:
   (cml_list [] = Con (SOME (Short "[]")) []) ∧
   (cml_list (x::rest) =
    Con (SOME (Short "::")) [x; cml_list rest])
+End
+
+(* Converts a HOL string into a CakeML char list *)
+Definition string_to_cml_char_list_def:
+  string_to_cml_char_list s = cml_list (MAP (λx. (Lit (Char x))) s)
 End
 
 Definition cml_fapp_aux_def:
@@ -222,11 +230,50 @@ Definition internal_varN_from_ident_def:
   internal_varN_from_ident (Ident (Name n)) = (n ++ "_CML_out_ref")
 End
 
+(* In Dafny, the string and seq<char> type are synonyms. We replace the *)
+(* former with the latter for consistency *)
+Definition replace_string_type_def:
+  (replace_string_type t =
+   case t of
+   | Primitive String => Seq (Primitive Char)
+   | Path idents typeArgs resolvedT =>
+       Path idents
+            (map_replace_string_type typeArgs)
+            (replace_string_resolvedType resolvedT)
+   | Nullable t => Nullable (replace_string_type t)
+   | Tuple ts => Tuple (map_replace_string_type ts)
+   | Array elem dims => Array (replace_string_type elem) dims
+   | Seq t => Seq (replace_string_type t)
+   | Set t => Set (replace_string_type t)
+   | Multiset t => Multiset (replace_string_type t)
+   | Map kt vt => Map (replace_string_type kt) (replace_string_type vt)
+   | SetBuilder t => SetBuilder (replace_string_type t)
+   | MapBuilder kt vt => MapBuilder (replace_string_type kt)
+                                    (replace_string_type vt)
+   | Arrow argsT resT => Arrow (map_replace_string_type argsT)
+                               (replace_string_type resT)
+   | Primitive _ => t
+   | Passthrough _ => t
+   | TypeArg _ => t) ∧
+  (map_replace_string_type ts =
+   case ts of
+   | [] => []
+   | (t::rest) =>
+       (replace_string_type t)::(map_replace_string_type rest)) ∧
+  (replace_string_resolvedType resolvedT =
+   case resolvedT of
+   | ResolvedType_Datatype _ => resolvedT
+   | ResolvedType_Trait _ _ => resolvedT
+   | ResolvedType_Newtype baseT rnge erase attrs =>
+       ResolvedType_Newtype (replace_string_type baseT) rnge erase attrs)
+Termination
+  cheat
+End
+
 Definition arb_value_def:
   arb_value (t: dafny_ast$type) =
   (case t of
    | Primitive Int => return (Lit (IntLit 0))
-   | Primitive String => return (Lit (StrLit ""))
    | Primitive Bool => return False
    | Seq _ => return (cml_list [])
    | _ => fail "arb_value_def: Unsupported type")
@@ -340,7 +387,7 @@ Definition from_literal_def:
    (* TODO String/Char support incomplete or incorrect - see
       to_dafny_astScript for more details *)
    | StringLiteral s verbatim =>
-       return (Lit (StrLit (unescape_string s verbatim)))
+       return (string_to_cml_char_list (unescape_string s verbatim))
    | CharLiteral ch =>
        return (Lit (Char ch))
    | CharLiteralUTF16 n =>
@@ -359,6 +406,7 @@ Definition call_type_env_def:
     if is_function then
       do
         (_, _, _, nam, _, _, _, outTypes, _) <<- dest_Method m;
+        outTypes <<- map_replace_string_type outTypes;
         type_env <- (call_type_env rest);
         return ((call_type_name nam, HD outTypes)::type_env)
       od
@@ -376,15 +424,15 @@ Definition dafny_type_of_def:
   dafny_type_of (env: ((name, type) alist)) (e: dafny_ast$expression) =
   case e of
   | Literal (BoolLiteral _) => return (Primitive Bool)
-  | Literal (IntLiteral _ t) => return t
-  | Literal (StringLiteral _ _) => return (Primitive String)
+  | Literal (IntLiteral _ (Primitive Int)) => return (Primitive Int)
+  | Literal (StringLiteral _ _) => return (Seq (Primitive Char))
   | Literal (CharLiteral _) => return (Primitive Char)
   | Expression_Ident n =>
        (case ALOOKUP env n of
        | SOME t => return t
        | NONE => fail ("dafny_type_of: Unknown Name " ++ (dest_Name n)))
   | SeqValue _ t =>
-      return (Seq t)
+      return (Seq (replace_string_type t))
   | SeqUpdate se idx v =>
       do
         se_t <- dafny_type_of env se;
@@ -446,9 +494,9 @@ Definition dafny_type_of_def:
             return (Primitive Int)
           else if (bop = Times ∧ e1_t = (Primitive Int) ∧ e1_t = e2_t) then
             return (Primitive Int)
-          else if (bop = Concat ∧ e1_t = (Primitive String) ∧
+          else if (bop = Concat ∧ e1_t = (Seq (Primitive Char)) ∧
                    e1_t = e2_t) then
-            return (Primitive String)
+            return (Seq (Primitive Char))
           else if (bop = Concat ∧ is_Seq e1_t ∧ e1_t = e2_t) then
             return e1_t
           else if (bop = In ∧ is_Seq e2_t) then
@@ -545,7 +593,7 @@ Definition from_expression_def:
        from_literal l
    | Expression_Ident n =>
        return (App Opderef [Var (Short (dest_Name n))])
-   | SeqValue els t =>
+   | SeqValue els _ =>
        do
          cml_els <- map_from_expression env els;
          return (cml_list cml_els)
@@ -632,7 +680,7 @@ Definition from_expression_def:
            od
        od
    | InitializationValue t =>
-       arb_value t
+       arb_value (replace_string_type t)
    | _ => fail "from_expression: Unsupported expression") ∧
   (map_from_expression env es =
    case es of
@@ -758,9 +806,7 @@ Definition from_expression_def:
           else
             fail "from_binOp (SeqPrefix): Unexpected types"
       | Concat =>
-          if (e1_t = (Primitive String) ∧ e1_t = e2_t) then
-            return (cml_fapp (Var (Long "String" (Short "strcat"))) [cml_e1; cml_e2])
-          else if (is_Seq e1_t ∧ e1_t = e2_t) then
+          if (is_Seq e1_t ∧ e1_t = e2_t) then
             return (cml_fapp (Var (Long "List" (Short "@"))) [cml_e1; cml_e2])
           else
             fail "from_binOp (Concat): Unsupported types"
@@ -773,11 +819,6 @@ End
 (* Returns a function that can be applied to a CakeML expression to turn it into
  * a string *)
 Definition to_string_fun_def:
-  (to_string_fun inCol (Primitive String) =
-   if inCol then
-     return (Var (Long "Dafny" (Short "string_element_to_string")))
-   else
-     return (Var (Short "id"))) ∧
   (to_string_fun _ (Primitive Char) =
    return (Var (Long "Dafny" (Short "char_to_string")))) ∧
   (to_string_fun _ (Primitive Int) =
@@ -794,7 +835,7 @@ Definition to_string_fun_def:
      return (cml_fapp (Var (Long "Dafny" (Short "list_to_string")))
                       [elem_to_string])
    od) ∧
-  (to_string_fun _ _ = fail "to_string_fun: Unsupported type")
+  (to_string_fun _ t = fail "to_string_fun: Unsupported type")
 End
 
 (* An independent statement must not depend on statements outside of it *)
@@ -842,6 +883,7 @@ Definition from_stmts_def:
    else if is_DeclareVar s1 then
      do
        (n, t, e_opt) <- dest_DeclareVar s1;
+       t <<- replace_string_type t;
        n_str <<- dest_Name n;
        (* TODO look into when/why this is NONE *)
        iv_e <- if e_opt = NONE then arb_value t
@@ -942,7 +984,7 @@ Definition param_type_env_def:
   if attrs ≠ [] then
     fail "param_type_env: Attributes unsupported"
   else
-    param_type_env rest ((n, t)::acc)
+    param_type_env rest ((n, (replace_string_type t))::acc)
 End
 
 Definition env_and_epilogue_from_outs_def:
@@ -1077,6 +1119,7 @@ Definition from_classItem_def:
     else if is_method then
       do
         (_, _, _, nam, _, params, body, outTypes, outVars) <<- dest_Method m;
+        outTypes <<- map_replace_string_type outTypes;
         outVars <- dest_SOME outVars;
         fun_name <<- dest_Name nam;
         (env, cml_param,
@@ -1186,7 +1229,7 @@ open TextIO
 (* val _ = astPP.disable_astPP(); *)
 val _ = astPP.enable_astPP();
 
-val inStream = TextIO.openIn "./tests/test.sexp";
+val inStream = TextIO.openIn "./tests/print_collection.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
@@ -1204,6 +1247,6 @@ val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^cakeml_r))
 val cml_sexp_str_r = stringSyntax.fromHOLstring cml_sexp_r;
 val outFile = TextIO.openOut "./tests/test.cml.sexp";
 val _ = TextIO.output (outFile, cml_sexp_str_r);
-val _ = TextIO.closeOut outFile
+val _ = TextIO.closeOut outFile;
 
 val _ = export_theory();

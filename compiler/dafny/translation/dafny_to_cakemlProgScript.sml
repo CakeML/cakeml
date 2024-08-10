@@ -12,6 +12,7 @@ val _ = translation_extends "sexp_to_dafnyProg";
 val r = translate locationTheory.unknown_loc_def;
 
 val r = translate dafny_to_cakemlTheory.cml_list_def;
+val r = translate dafny_to_cakemlTheory.string_to_cml_char_list_def;
 val r = translate dafny_to_cakemlTheory.cml_fapp_aux_def;
 val r = translate dafny_to_cakemlTheory.cml_fapp_def;
 val r = translate dafny_to_cakemlTheory.raise_return_def;
@@ -36,6 +37,7 @@ val r = translate dafny_to_cakemlTheory.cml_ref_def;
 val r = translate dafny_to_cakemlTheory.varN_from_formal_def;
 val r = translate dafny_to_cakemlTheory.internal_varN_from_formal_def;
 val r = translate dafny_to_cakemlTheory.internal_varN_from_ident_def;
+val r = translate dafny_to_cakemlTheory.replace_string_type_def;
 val r = translate dafny_to_cakemlTheory.arb_value_def;
 val r = translate dafny_to_cakemlTheory.from_name_def;
 val r = translate dafny_to_cakemlTheory.from_ident_def;
