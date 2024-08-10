@@ -7,3 +7,7 @@ README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax
 DIRS = $(wildcard */)
 README.md: ../developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(protect ../developers/readme_gen) $(README_SOURCES)
+
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/misc/cakeml-heap
+endif
