@@ -3543,7 +3543,7 @@ Proof
   >> (unabbrev_all_tac>>EVERY_CASE_TAC>>fs[every_var_imm_def])
 QED
 
-val get_code_labels_def = Define`
+Definition get_code_labels_def[simp]:
   (get_code_labels (Call r d a h) =
     (case d of SOME x => {x} | _ => {}) ∪
     (case r of SOME (_,_,x,_,_) => get_code_labels x | _ => {}) ∪
@@ -3552,8 +3552,8 @@ val get_code_labels_def = Define`
   (get_code_labels (If _ _ _ p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
   (get_code_labels (MustTerminate p) = get_code_labels p) ∧
   (get_code_labels (LocValue _ l1) = {l1}) ∧
-  (get_code_labels _ = {})`;
-val _ = export_rewrites["get_code_labels_def"];
+  (get_code_labels _ = {})
+End
 
 (* TODO: This seems like it must have been established before
   handler labels point only within the current table entry
@@ -4482,27 +4482,48 @@ Proof
   \\ imp_res_tac s_key_eq_stack_size \\ fs []
 QED
 
-(****** no_alloc ******)
+(****** not_created_subprogs ******)
 
-val no_alloc_def = Define `
-  (no_alloc (MustTerminate p) = no_alloc p) ∧
-  (no_alloc (Call ret _ _ handler) =
-     (case ret of
-      | NONE =>
-            (case handler of
-             | NONE => T
-             | SOME (_,ph,_,_) => no_alloc ph)
-      | SOME (_,_,pr,_,_) =>
-            (case handler of
-             | NONE => no_alloc pr
-             | SOME (_,ph,_,_) => no_alloc ph ∧ no_alloc pr))) ∧
-  (no_alloc (Seq p1 p2) = (no_alloc p1 ∧ no_alloc p2)) ∧
-  (no_alloc (If _ _ _ p1 p2) = (no_alloc p1 ∧ no_alloc p2)) ∧
-  (no_alloc (Alloc _ _) = F) ∧
-  (no_alloc _ = T)
-`
+(* Examines various syntactic elements within programs that some phases are
+   expected to possibly remove but not create. *)
 
-val no_alloc_ind = theorem "no_alloc_ind";
+Definition not_created_subprogs_def:
+  not_created_subprogs P (MustTerminate p : 'a prog) =
+    (P (MustTerminate (Skip : 'a prog)) /\ not_created_subprogs P p) /\
+  not_created_subprogs P (Seq p1 p2) = (not_created_subprogs P p1 /\
+    not_created_subprogs P p2) /\
+  not_created_subprogs P (If _ _ _ p1 p2) = (not_created_subprogs P p1 /\
+    not_created_subprogs P p2) /\
+  not_created_subprogs P (wordLang$Call r dest args h) =
+    (P (wordLang$Call NONE dest [] NONE) /\
+    (case r of NONE => T | SOME (_, _, p, _) => not_created_subprogs P p) /\
+    (case h of NONE => T | SOME (_, p, h1, _) =>
+        P (wordLang$Call NONE NONE [] (SOME (0, Skip, h1, 0))) /\
+        not_created_subprogs P p)) /\
+  not_created_subprogs P (Alloc _ _) = P (Alloc 0 LN) /\
+  not_created_subprogs P (LocValue _ l) = P (LocValue 0 l) /\
+  not_created_subprogs P (ShareInst _ _ _) = P (ShareInst ARB 0 (Var 0)) /\
+  not_created_subprogs P (Install _ _ _ _ _) = P (Install 0 0 0 0 LN) /\
+  not_created_subprogs _ _ = T
+End
+
+Theorem not_created_subprogs_P_def = not_created_subprogs_def
+  |> BODY_CONJUNCTS
+  |> map (fn t => GEN (hd (snd (strip_comb (lhs (concl t))))) t)
+  |> map (Q.SPEC `P`) |> LIST_CONJ
+  |> Q.GEN `P`
+
+(* no_alloc specialisation *)
+
+val no_alloc_P = ``((<>) (Alloc 0 LN))``
+
+Definition no_alloc_subprogs_def:
+  no_alloc p = not_created_subprogs ^no_alloc_P p
+End
+
+Theorem no_alloc_def = not_created_subprogs_P_def
+  |> ISPEC no_alloc_P
+  |> REWRITE_RULE [GSYM no_alloc_subprogs_def]
 
 val no_alloc_code_def = Define `
   no_alloc_code (code : (num # ('a wordLang$prog)) num_map) ⇔
@@ -4520,30 +4541,15 @@ Proof
   metis_tac[]
 QED
 
+val no_install_P = ``((<>) (Install 0 0 0 0 LN))``
 
-(**************************** no_install *****************************)
+Definition no_install_subprogs_def:
+  no_install p = not_created_subprogs ^no_install_P p
+End
 
-(*  ensures there are no install instructions in the code to be optimised -
-    these will break the dead code elimination
-    pass as they introduce new code at runtime,
-    which may reference code that has been eliminated *)
-
-val no_install_def = Define `
-    (no_install (MustTerminate p) = no_install p) ∧
-    (no_install (Call ret _ _ handler) = (case ret of
-        | NONE => (case handler of
-            | NONE => T
-            | SOME (_,ph,_,_) => no_install ph)
-        | SOME (_,_,pr,_,_) => (case handler of
-            | NONE => no_install pr
-            | SOME (_,ph,_,_) => no_install ph ∧ no_install pr))) ∧
-    (no_install (Seq p1 p2) = (no_install p1 ∧ no_install p2)) ∧
-    (no_install (If _ _ _ p1 p2) = (no_install p1 ∧ no_install p2)) ∧
-    (no_install (Install _ _ _ _ _) = F) ∧
-    (no_install _ = T)
-`
-
-val no_install_ind = theorem "no_install_ind";
+Theorem no_install_def = not_created_subprogs_P_def
+  |> ISPEC no_install_P
+  |> REWRITE_RULE [GSYM no_install_subprogs_def]
 
 val no_install_code_def = Define `
     no_install_code (code : (num # ('a wordLang$prog)) num_map) ⇔
@@ -4600,6 +4606,18 @@ Proof
     >- (fs[no_install_def, dec_clock_def, call_env_def, flush_state_def, push_env_def,
         cut_env_def, pop_env_def, set_var_def] >>
         EVERY_CASE_TAC >> rw[] >> fs[] >> metis_tac[no_install_find_code])
+QED
+
+Theorem get_code_labels_not_created:
+  !p x. (x IN get_code_labels p) <=>
+  (~ (not_created_subprogs (\sp. sp <> (wordLang$Call NONE (SOME x) [] NONE) /\
+    sp <> LocValue 0 x) p))
+Proof
+  ho_match_mp_tac get_code_labels_ind
+  \\ fs [not_created_subprogs_def]
+  \\ rw []
+  \\ every_case_tac \\ fs []
+  \\ EQ_TAC \\ rw [] \\ fs []
 QED
 
 (*** permute_swap for no_install & no_alloc ***)
@@ -4706,6 +4724,7 @@ Proof
        first_x_assum drule >>
        disch_then(qspec_then ‘perm’ mp_tac) >>
        rw[] >>
+       fs[]>>
        drule_then drule no_install_evaluate_const_code >>
        simp[] >>
        disch_then $ ASSUME_TAC o GSYM >>
@@ -5005,24 +5024,15 @@ QED
 
 (****** no_mt : no MustTerminate ******)
 
-val no_mt_def = Define `
-  (no_mt (MustTerminate p) = F) /\
-  (no_mt (Call ret _ _ handler) =
-     (case ret of
-      | NONE =>
-            (case handler of
-             | NONE => T
-             | SOME (_,ph,_,_) => no_mt ph)
-      | SOME (_,_,pr,_,_) =>
-            (case handler of
-             | NONE => no_mt pr
-             | SOME (_,ph,_,_) => no_mt ph /\ no_mt pr))) /\
-  (no_mt (Seq p1 p2) = (no_mt p1 /\ no_mt p2)) /\
-  (no_mt (If _ _ _ p1 p2) = (no_mt p1 /\ no_mt p2)) /\
-  (no_mt _ = T)
-`
+val no_mt_P = ``((<>) (MustTerminate Skip))``
 
-val no_mt_ind = theorem "no_mt_ind";
+Definition no_mt_subprogs_def:
+  no_mt p = not_created_subprogs ^no_mt_P p
+End
+
+Theorem no_mt_def = not_created_subprogs_P_def
+  |> ISPEC no_mt_P
+  |> REWRITE_RULE [GSYM no_mt_subprogs_def]
 
 val no_mt_code_def = Define `
   no_mt_code (code : (num # ('a wordLang$prog)) num_map) <=>
@@ -5041,22 +5051,15 @@ Proof
 QED
 
 (* no_share_inst: no ShareInst *)
-Definition no_share_inst_def:
-  (no_share_inst (ShareInst _ _ _) = F) /\
-  (no_share_inst (MustTerminate p) = no_share_inst p) ∧
-  (no_share_inst (Call ret _ _ handler) =
-     (case ret of
-      | NONE =>
-          (case handler of
-           | NONE => T
-           | SOME (_,ph,_,_) => no_share_inst ph)
-      | SOME (_,_,pr,_,_) =>
-          (case handler of
-           | NONE => no_share_inst pr
-           | SOME (_,ph,_,_) => no_share_inst ph /\ no_share_inst pr))) /\
-  (no_share_inst (Seq p1 p2) = (no_share_inst p1 /\ no_share_inst p2)) /\
-  (no_share_inst (If _ _ _ p1 p2) = (no_share_inst p1 /\ no_share_inst p2)) /\
-  (no_share_inst _ = T)
+
+val no_share_inst_P = ``((<>) (ShareInst ARB 0 (Var 0)))``
+
+Definition no_share_inst_subprogs_def:
+  no_share_inst p = not_created_subprogs ^no_share_inst_P p
 End
+
+Theorem no_share_inst_def = not_created_subprogs_P_def
+  |> ISPEC no_share_inst_P
+  |> REWRITE_RULE [GSYM no_share_inst_subprogs_def]
 
 val _ = export_theory();
