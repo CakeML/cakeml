@@ -10,6 +10,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
+from pprint import pprint
 
 def main():
     """Main function of the end-to-end compiler."""
@@ -24,8 +25,13 @@ def main():
     else:
         print("Running test suite...")
 
+        failures = 0
+        total = 0
+        failed_tests = []
+
         test_files = list(args.test_path.glob("*.dfy"))
         for test_file in test_files:
+            print(f"{test_file}")
             command = [args.dafny_path, "run", test_file, "--no-verify"]
             if args.emit_uncompilable_code:
                 command.append("--emit-uncompilable-code")
@@ -43,16 +49,25 @@ def main():
                                         verbose=False)
 
             if dfy_result == cml_result:
-                print(f"\033[92mPASS: {test_file}\033[0m with matching output:")
+                print(f"\033[92mPASS\033[0m with matching output:")
                 print(dfy_result)
             else:
-                print(f"\033[91mFAIL: {test_file}\033[0m")
+                print(f"\033[91mFAIL\033[0m")
                 print("When ran by Dafny:")
                 print(dfy_result)
                 print("When ran after compiling to CakeML:")
                 print(cml_result)
+                failures += 1
+                failed_tests.append(test_file)
 
-        print("Finished test suite.")
+            print()
+            total += 1
+
+        print()
+        print(f"{total - failures} out of {total} tests passed.")
+        if failures != 0:
+            print(f"The following {failures} test(s) failed:")
+            pprint(failed_tests)
 
 def dafny_compiler(program_path, dafny_path, dafny_to_cakeml_path, cakeml_path,
                    output_path, emit_uncompilable_code, capture_output,
