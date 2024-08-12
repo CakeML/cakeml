@@ -19,9 +19,8 @@ def main():
     if args.program_path:
         dafny_compiler(args.program_path, args.dafny_path,
                        args.dafny_to_cakeml_path, args.cakeml_path,
-                       args.output_path, args.emit_uncompilable_code,
-                       capture_output=False,
-                       verbose=True)
+                       args.output_path, capture_output=False,
+                       verbose=args.verbose)
     else:
         print("Running test suite...")
 
@@ -29,24 +28,23 @@ def main():
         total = 0
         failed_tests = []
 
-        test_files = list(args.test_path.glob("*.dfy"))
+        test_files = sorted(args.test_path.glob("*.dfy"))
         for test_file in test_files:
             print(f"{test_file}")
             command = [args.dafny_path, "run", test_file, "--no-verify"]
-            if args.emit_uncompilable_code:
-                command.append("--emit-uncompilable-code")
+            print("- Running program with Dafny...")
             dfy_result = subprocess.run(command, capture_output=True,
                                         text=True, check=True)
             # Drop empty line + Dafny message
             dfy_result = dfy_result.stdout.split("\n")[2:]
             dfy_result = "\n".join(dfy_result)
 
+            print("- Translating the program to CakeML and running it...")
             cml_result = dafny_compiler(test_file, args.dafny_path,
                                         args.dafny_to_cakeml_path,
                                         args.cakeml_path, args.output_path,
-                                        args.emit_uncompilable_code,
                                         capture_output=True,
-                                        verbose=False)
+                                        verbose=args.verbose)
 
             if dfy_result == cml_result:
                 print(f"\033[92mPASS\033[0m with matching output:")
@@ -55,7 +53,7 @@ def main():
                 print(f"\033[91mFAIL\033[0m")
                 print("When ran by Dafny:")
                 print(dfy_result)
-                print("When ran after compiling to CakeML:")
+                print("When trying to compile to CakeML and run:")
                 print(cml_result)
                 failures += 1
                 failed_tests.append(test_file)
@@ -70,8 +68,7 @@ def main():
             pprint(failed_tests)
 
 def dafny_compiler(program_path, dafny_path, dafny_to_cakeml_path, cakeml_path,
-                   output_path, emit_uncompilable_code, capture_output,
-                   verbose):
+                   output_path, capture_output, verbose):
     program_name = program_path.stem
     cakeml_assembly_name = (program_name + '.cake.S')
     program_binary_name = program_name + '.cake'
@@ -82,23 +79,26 @@ def dafny_compiler(program_path, dafny_path, dafny_to_cakeml_path, cakeml_path,
     program_binary_path = output_path / program_binary_name
 
     if verbose:
-        print("Run Dafny...")
-    command = [dafny_path, "translate", "sexp", program_path]
-    if emit_uncompilable_code:
-        command.append("--emit-uncompilable-code")
+        print("- Run Dafny...")
+    command = [dafny_path, "translate", "sexp", program_path, "--no-verify"]
     command.extend(["--output", dafny_sexp_path])
     # TODO Figure out why this command tends to fail
+    failed_attempts = 0
     while True:
-        result = subprocess.run(command, check=False,
+        result = subprocess.run(command, check=False, text=True,
                                 capture_output=(not verbose))
         if result.returncode == 0:
             break
-        elif verbose:
-            print(f"Command failed with return code {result.returncode}. "
-                  "Retrying...")
+        elif failed_attempts < 3:
+            failed_attempts += 1
+            if verbose:
+                print(f"- Command failed with return code {result.returncode}. "
+                      "Retrying...")
+        elif failed_attempts >= 3:
+            return result.stdout
 
     if verbose:
-        print("Compile from Dafny S-expression to CakeML S-expression...")
+        print("- Compile from Dafny S-expression to CakeML S-expression...")
     command = [dafny_to_cakeml_path]
     with open(dafny_sexp_path, 'r') as dafny_sexp:
         with open(cakeml_sexp_path, 'w') as cakeml_sexp:
@@ -106,7 +106,7 @@ def dafny_compiler(program_path, dafny_path, dafny_to_cakeml_path, cakeml_path,
                            text=True, check=True)
 
     if verbose:
-        print("Generate assembly from CakeML S-expression...")
+        print("- Generate assembly from CakeML S-expression...")
     command = [cakeml_path / "cake", "--sexp=true"]
     with open(cakeml_sexp_path, 'r') as cakeml_sexp:
         with open(cakeml_assembly_path, 'w') as cakeml_assembly:
@@ -114,22 +114,22 @@ def dafny_compiler(program_path, dafny_path, dafny_to_cakeml_path, cakeml_path,
                            text=True, check=True)
 
     if verbose:
-        print("Make executable:")
-        print("Copy assembly to CakeML directory...")
+        print("- Make executable:")
+        print("  - Copy assembly to CakeML directory...")
     copied_assembly_path = cakeml_path / cakeml_assembly_name
     shutil.copyfile(cakeml_assembly_path, copied_assembly_path)
     if verbose:
-        print(f"Run make {program_binary_name}...")
+        print(f"  - Run make {program_binary_name}...")
     command = ["make", program_binary_name]
     subprocess.run(command, cwd=cakeml_path, check=True,
                    capture_output=(not verbose))
     if verbose:
-        print("Delete assembly file, move generated program...")
+        print("  - Delete assembly file, move generated program...")
     os.remove(copied_assembly_path)
     shutil.move(cakeml_path / program_binary_name, program_binary_path)
 
     if verbose:
-        print("Execute generated binary...")
+        print("- Execute generated binary...")
     command = [program_binary_path]
 
     if capture_output:
@@ -156,8 +156,8 @@ def parse_args():
                         help="path to folder containing the CakeML binary and Makefile")
     parser.add_argument("--output_path", type=folder_path, required=True,
                         help="path to store output files")
-    parser.add_argument("--emit_uncompilable_code", action="store_true", required=False,
-                        help="passes --emit-uncompilable-code to Dafny")
+    parser.add_argument("--verbose", action="store_true", required=False,
+                        help="print additional info")
     return parser.parse_args()
 
 def program_path(string):
