@@ -1,6 +1,3 @@
-// NONUNIFORM: https://github.com/dafny-lang/dafny/issues/4108
-// RUN: %testDafnyForEachCompiler --refresh-exit-code=0 "%s" -- --relax-definite-assignment
-//
 // This fragment of comp/Dt.dfy serves to facilitate incremental compiler development.
 
 datatype List = Nil | Cons(head: int, tail: List)

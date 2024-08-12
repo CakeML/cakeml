@@ -1,5 +1,3 @@
-// RUN: %testDafnyForEachCompiler --refresh-exit-code=0 "%s" -- --relax-definite-assignment
-//
 // This fragment of comp/Arrays.dfy serves to facilitate incremental compiler development.
 
 method LinearSearch(a: array<int>, key: int) returns (n: nat)
@@ -8,7 +6,7 @@ method LinearSearch(a: array<int>, key: int) returns (n: nat)
 {
   n := 0;
   while n < a.Length
-    invariant n <= a.Length 
+    invariant n <= a.Length
   {
     if a[n] == key {
       return;
@@ -48,13 +46,13 @@ method Main() {
   print s, "\n";
   s := a[..8];
   print s, "\n";
-    
+
   // Conversion to sequence should copy elements (sequences are immutable!)
   a[0] := 42;
   print s, "\n";
   MultipleDimensions();
 }
-     
+
 method PrintMatrix<A>(m: array2<A>) {
   var i := 0;
   while i < m.Length0 {
@@ -67,7 +65,7 @@ method PrintMatrix<A>(m: array2<A>) {
    i := i + 1;
   }
 }
-   
+
 method MultipleDimensions() {
   var matrix := new int[2,8];
   PrintMatrix(matrix);
@@ -79,7 +77,7 @@ method MultipleDimensions() {
   }
   PrintArrayArray(jagged);
 }
-   
+
 method PrintArrayArray<A>(a: array<array<A>>) {
   var i := 0;
   while i < a.Length {

@@ -1,5 +1,3 @@
-// RUN: %testDafnyForEachCompiler --refresh-exit-code=0 "%s" -- --relax-definite-assignment
-//
 // This fragment of comp/Calls.dfy serves to facilitate incremental compiler development.
 
 function F(x: int, y: bool): int {
