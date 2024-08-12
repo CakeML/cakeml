@@ -13,6 +13,8 @@ open mlintTheory
 
 val _ = new_theory "dafny_to_cakeml";
 
+(* TODO Instead of breaking strings with ++, use SML style \ in all files *)
+
 (* Defines the Dafny module containing the Dafny runtime *)
 Quote dafny_module = process_topdecs:
   structure Dafny =
@@ -28,6 +30,10 @@ Quote dafny_module = process_topdecs:
   fun ediv i j = if 0 < j then i div j else ~(i div ~j);
 
   fun emod i j = i mod (abs j);
+
+
+  (* Array functions *)
+  fun array_to_list arr = Array.foldr (fn x => fn xs => x :: xs) [] arr;
 
 
   (* to_string functions to be used for "Dafny-conform" printing *)
@@ -129,6 +135,10 @@ Definition cml_while_name_def:
   cml_while_name (lvl: int) = "CML_while_" ++ (explode (toString lvl))
 End
 
+Definition cml_get_arr_def:
+  cml_get_arr cml_e = (cml_fapp (Var (Long "Option" (Short "valOf"))) [cml_e])
+End
+
 (* TODO move this to dafny_ast? *)
 Definition is_DeclareVar_def:
   is_DeclareVar s =
@@ -150,6 +160,11 @@ Definition is_Seq_def:
   case typ of
   | Seq _ => T
   | _ => F
+End
+
+Definition dest_Array_def:
+  dest_Array (Array t dims) = return (t, dims) ∧
+  dest_Array _ = fail "dest_Array: Not an Array"
 End
 
 Definition dest_Seq_def:
@@ -276,6 +291,7 @@ Definition arb_value_def:
    | Primitive Int => return (Lit (IntLit 0))
    | Primitive Bool => return False
    | Seq _ => return (cml_list [])
+   | Array _ _ => return None  (* we essentially initialize with null *)
    | _ => fail "arb_value_def: Unsupported type")
 End
 
@@ -427,6 +443,16 @@ Definition dafny_type_of_def:
   | Literal (IntLiteral _ (Primitive Int)) => return (Primitive Int)
   | Literal (StringLiteral _ _) => return (Seq (Primitive Char))
   | Literal (CharLiteral _) => return (Primitive Char)
+  | NewArray [_] typ => return (Array (replace_string_type typ) 1)
+  | Convert _ fro tot =>
+      do
+        fro <<- replace_string_type fro;
+        tot <<- replace_string_type tot;
+        if fro ≠ tot then
+          fail "dafny_type_of (Convert): Different types unsupported"
+        else
+          return tot
+      od
   | Expression_Ident n =>
        (case ALOOKUP env n of
        | SOME t => return t
@@ -529,27 +555,41 @@ Definition dafny_type_of_def:
           else
             fail "dafny_type_of (BinOp): Unsupported bop/types"
         od
+  | ArrayLen _ _ => return (Primitive Int)
   | Index e' cok idxs =>
       do
         e'_t <- dafny_type_of env e';
         if cok = CollKind_Seq then
           if idxs = [] then
-            fail "dafny_type_of (Index): Unexpectedly idxs was empty"
+            fail "dafny_type_of (Index/Seq): Unexpectedly idxs was empty"
           else if LENGTH idxs > 1 then
-            fail "dafny_type_of (Index): multi-dimensional indexing unsupported"
+            fail "dafny_type_of (Index/Seq): multi-dimensional indexing \
+                 \unsupported"
           else
             dest_Seq e'_t
+        else if cok = CollKind_Array then
+          if idxs = [] then
+            fail "dafny_type_of (Index/Array): Unexpectedly idxs was empty"
+          else if LENGTH idxs > 1 then
+            fail "dafny_type_of (Index/Array): multi-dimensional indexing \
+                 \unsupported"
+          else
+            do
+              (t, _) <- dest_Array e'_t;
+              return t
+            od
         else
           fail "dafny_type_of (Index): Unsupported kind of collection"
       od
   | IndexRange se isArray lo hi =>
-      do
-        if isArray then
-          (* According to Dafny ref, it seems that this should return a sequence *)
-          fail "dafny_type_of (IndexRange): Arrays currently unsupported"
-        else
-          dafny_type_of env se
-      od
+      if isArray then
+        do
+          arr_t <- dafny_type_of env se;
+          (elem_t, _) <- dest_Array arr_t;
+          return (Seq elem_t)
+        od
+      else
+        dafny_type_of env se
   | Expression_Call on (CallName nam onType _) _ _ =>
       if on ≠ (Companion [Ident (Name "_module");
                           Ident (Name "__default")]) then
@@ -562,14 +602,7 @@ Definition dafny_type_of_def:
          | SOME t => return t
          | NONE => fail ("dafny_type_of: Unknown Name " ++
                          dest_Name ct_name))
-  | _ => fail "dafny_type_of: Unsupported expression"
-End
-
-Definition from_assignLhs_def:
-  from_assignLhs (lhs: dafny_ast$assignLhs) =
-  case lhs of
-  | AssignLhs_Ident id => return (from_ident id)
-  | _ => fail "from_assignLhs: Unsupported"
+  | _ => fail ("dafny_type_of: Unsupported expression")
 End
 
 Definition from_callName_def:
@@ -593,6 +626,24 @@ Definition from_expression_def:
        from_literal l
    | Expression_Ident n =>
        return (App Opderef [Var (Short (dest_Name n))])
+   | NewArray [dim0] t =>
+       do
+         t <<- replace_string_type t;
+         cml_dim0 <- from_expression env dim0;
+         fill_val <- arb_value t;
+         return (Some (cml_fapp (Var (Long "Array" (Short "array")))
+                                [cml_dim0; fill_val]))
+       od
+   | Convert val fro tot =>
+       do
+         fro <<- replace_string_type fro;
+         tot <<- replace_string_type tot;
+         if fro ≠ tot then
+           fail ("from_expression (Convert): Converting different types " ++
+                 "unsupported")
+         else
+           from_expression env val
+       od
    | SeqValue els _ =>
        do
          cml_els <- map_from_expression env els;
@@ -627,6 +678,15 @@ Definition from_expression_def:
        from_unaryOp env uop e
    | BinOp bop e1 e2 =>
        from_binOp env bop e1 e2
+   | ArrayLen e dim =>
+       if dim ≠ 0 then
+         fail "from_expression (ArrayLen): != 1 dimension unsupported"
+       else
+         do
+           cml_e <- from_expression env e;
+           return (cml_fapp (Var (Long "Array" (Short "length")))
+                            [cml_get_arr cml_e])
+         od
    | Index ce cok idxs =>
        if cok = CollKind_Seq then
          if idxs = [] then
@@ -640,31 +700,46 @@ Definition from_expression_def:
              idx <- from_expression env (EL 0 idxs);
              return (cml_fapp (Var (Long "List" (Short "nth"))) [cml_ce; idx])
            od
+       else if cok = CollKind_Array then
+         if idxs = [] then
+           fail "from_expression (Index/Array): Unexpectedly received an \
+                \empty list of indices"
+         else if LENGTH idxs > 1 then
+           fail "from_expression (Index/Array): multi-dimensional indexing \
+                \unsupported"
+         else
+           do
+             cml_ce <- from_expression env ce;
+             idx <- from_expression env (EL 0 idxs);
+             return (cml_fapp (Var (Long "Array" (Short "sub")))
+                              [cml_get_arr cml_ce; idx])
+           od
        else
          fail "from_expression: Unsupported kind of collection"
-   | IndexRange se isArray lo hi =>
-       if isArray then
-         fail "from_expression (IndexRange): Arrays currently unsupported"
-       else
-         do
-           cml_se <- from_expression env se;
-           cml_se <- case hi of
-                     | NONE => return cml_se
-                     | SOME hi =>
-                         do
-                           cml_hi <- from_expression env hi;
-                           return (cml_fapp (Var (Long "List" (Short "take")))
-                                            [cml_se; cml_hi])
-                         od;
-           case lo of
-           | NONE => return cml_se
-           | SOME lo =>
+   | IndexRange ce isArray lo hi =>
+       do
+         cml_ce <- from_expression env ce;
+         cml_se <<- if isArray then
+                     cml_fapp (Var (Long "Dafny" (Short "array_to_list")))
+                              [cml_get_arr cml_ce]
+                    else cml_ce;
+         cml_se <- case hi of
+                   | NONE => return cml_se
+                   | SOME hi =>
+                       do
+                         cml_hi <- from_expression env hi;
+                         return (cml_fapp (Var (Long "List" (Short "take")))
+                                          [cml_se; cml_hi])
+                       od;
+         case lo of
+         | NONE => return cml_se
+         | SOME lo =>
                do
                  cml_lo <- from_expression env lo;
                  return (cml_fapp (Var (Long "List" (Short "drop")))
                                   [cml_se; cml_lo])
                od
-         od
+       od
    | Expression_Call on call_nam typeArgs args =>
        do
          if on ≠ (Companion [Ident (Name "_module");
@@ -681,7 +756,7 @@ Definition from_expression_def:
        od
    | InitializationValue t =>
        arb_value (replace_string_type t)
-   | _ => fail "from_expression: Unsupported expression") ∧
+   | _ => fail ("from_expression: Unsupported expression")) ∧
   (map_from_expression env es =
    case es of
    | [] => return []
@@ -898,9 +973,20 @@ Definition from_stmts_def:
    (case s of
     | Assign lhs e =>
         do
-          cml_lhs <- from_assignLhs lhs;
           cml_rhs <- from_expression env e;
-          return (cml_ref_ass cml_lhs cml_rhs)
+          case lhs of
+          | AssignLhs_Ident id =>
+              return (cml_ref_ass (from_ident id) cml_rhs)
+          | AssignLhs_Index e' [idx] =>
+              do
+                cml_e' <- from_expression env e';
+                cml_arr <<- cml_get_arr cml_e';
+                cml_idx <- from_expression env idx;
+                return (cml_fapp (Var (Long "Array" (Short "update")))
+                                 [cml_arr; cml_idx; cml_rhs])
+              od
+          | _ =>
+              fail "from_indep_stmt (Assign): Unsupported LHS"
         od
     | If cnd thn els =>
         do
@@ -1229,7 +1315,7 @@ open TextIO
 (* val _ = astPP.disable_astPP(); *)
 val _ = astPP.enable_astPP();
 
-val inStream = TextIO.openIn "./tests/print_collection.sexp";
+val inStream = TextIO.openIn "./tests/basic/array_indexrange.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
