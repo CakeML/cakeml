@@ -304,11 +304,9 @@ Theorem word_cse_ind[local]:
   word_cse_word_cse_ind
 Proof
   rewrite_tac [fetch "-" "word_cse_word_cse_ind_def"]
-  \\ rpt strip_tac
-  \\ rename [‘P x y’]
-  \\ qid_spec_tac ‘x’
-  \\ qid_spec_tac ‘y’
-  \\ ho_match_mp_tac word_simpTheory.simp_if_ind
+  \\ rpt gen_tac \\ rpt disch_tac
+  \\ ONCE_REWRITE_TAC [SWAP_FORALL_THM]
+  \\ ho_match_mp_tac wordLangTheory.max_var_ind
   \\ rpt strip_tac
   \\ last_x_assum irule
   \\ fs []
@@ -359,6 +357,12 @@ val _ = translate (asmTheory.word_cmp_def |> REWRITE_RULE[WORD_LO,WORD_LT] |> sp
 
 (* TODO: remove when pmatch is fixed *)
 val _ = translate (spec64 const_fp_loop_def)
+
+val _ = translate (spec64 is_simple_pmatch_def)
+val _ = translate (spec64 dest_Raise_num_pmatch_def)
+val _ = translate (spec64 try_if_hoist2_def)
+val _ = translate (spec64 try_if_hoist1_def)
+val _ = translate (spec64 simp_duplicate_if_def)
 
 val _ = translate (spec64 compile_exp_def)
 

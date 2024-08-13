@@ -15,7 +15,7 @@ open preamble primSemEnvTheory semanticsPropsTheory
      lab_to_targetProofTheory
      backend_commonTheory
      backendPropsTheory
-local open dataPropsTheory finite_mapSyntax in end
+local open dataPropsTheory finite_mapSyntax backend_passesTheory in end
 open word_to_stackTheory
 
 val _ = new_theory"backendProof";
@@ -3709,7 +3709,6 @@ Proof
           \\ fs [Abbr `stoff`, backend_config_ok_def, asmTheory.offset_ok_def]
           \\ asm_exists_tac
           \\ simp [])
-
         (* lab_to_targetProof$no_share_mem_inst (newly installed code)*)
         \\ drule_then (fn t => gvs[t]) stack_to_lab_orac_eq_std_sym
         \\ pop_assum mp_tac
@@ -3727,25 +3726,13 @@ Proof
         \\ qpat_x_assum `word_oracle = _` kall_tac
         \\ qpat_x_assum `pure_co _ _ = (_,prg)` mp_tac
         \\ simp[pure_co_def,combinTheory.o_DEF,PAIR_MAP]
-        \\ simp[word_to_wordTheory.full_compile_single_def]
-        \\ rw[]
-        \\ simp[EVERY_MAP,EVERY_MEM]
-        \\ rw[]
+        \\ rw []
+        \\ simp [EVERY_MAP]
+        \\ rw [EVERY_MEM]
         \\ simp[ELIM_UNCURRY]
-        \\ simp[word_to_wordProofTheory.remove_must_terminate_no_share_inst]
-        \\ qpat_abbrev_tac `csing = SND (_ _ _)`
-        \\ Cases_on `csing`
-        \\ simp[]
-        \\ pop_assum $ mp_tac o PURE_REWRITE_RULE[markerTheory.Abbrev_def]
-        \\ qpat_abbrev_tac `cpart = data_to_word$compile_part _ _`
-        \\ PairCases_on `cpart`
-        \\ strip_tac
-        \\ drule_at_then (Pos last) irule word_to_wordProofTheory.compile_single_no_share_inst
-        \\ qpat_x_assum `Abbrev _` $ mp_tac o GSYM o
-          PURE_REWRITE_RULE[markerTheory.Abbrev_def]
+        \\ irule word_to_wordProofTheory.full_compile_single_no_share_inst
         \\ simp[DefnBase.one_line_ify NONE data_to_wordTheory.compile_part_def]
         \\ rpt (TOP_CASE_TAC >> simp[])
-        \\ rw[]
         \\ irule comp_no_share_inst
         \\ metis_tac[FST_EQ_EQUIV])
       \\ fs [markerTheory.Abbrev_def]

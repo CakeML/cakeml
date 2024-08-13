@@ -378,8 +378,6 @@ val _ = word_allocTheory.full_ssa_cc_trans_def |> arch_spec |> cv_trans;
 
 val _ = word_simpTheory.SmartSeq_def |> arch_spec |> cv_trans;
 val _ = word_simpTheory.Seq_assoc_def |> arch_spec |> cv_trans;
-val _ = word_simpTheory.apply_if_opt_def |> arch_spec |> cv_trans;
-val _ = word_simpTheory.simp_if_def |> arch_spec |> cv_trans;
 val _ = word_simpTheory.const_fp_inst_cs_def |> arch_spec |> cv_trans;
 val _ = word_simpTheory.strip_const_def |> arch_spec |> cv_trans;
 val _ = wordLangTheory.word_sh_def |> arch_spec
@@ -401,6 +399,12 @@ Proof
 QED
 
 val _ = word_simpTheory.const_fp_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.is_simple_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.dest_Raise_num_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.try_if_hoist2_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.rewrite_duplicate_if_max_reassoc_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.try_if_hoist1_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.simp_duplicate_if_def |> arch_spec |> cv_trans;
 val _ = word_simpTheory.compile_exp_def |> arch_spec |> cv_trans;
 
 val _ = data_to_wordTheory.real_addr_def |> arch_spec

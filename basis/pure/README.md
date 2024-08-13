@@ -31,6 +31,11 @@ Types and pure functions for pretty printing
 [mlratScript.sml](mlratScript.sml):
 Pure functions for the Rat module.
 
+[mlsetScript.sml](mlsetScript.sml):
+Pure functions for the Set module.
+This file defines a wrapper around the balanced_map type. See
+$HOLDIR/examples/balanced_bst/osetScript.sml.
+
 [mlstringLib.sml](mlstringLib.sml):
 More ML functions for manipulating HOL terms involving mlstrings.
 
