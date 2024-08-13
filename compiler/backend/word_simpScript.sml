@@ -238,7 +238,7 @@ val is_gc_const_def = Define `is_gc_const c = ((c && 1w) = 0w)`
 Definition drop_consts_def:
   drop_consts cs [] = Skip ∧
   drop_consts cs (n::ns) =
-    case lookup n cs of
+    dtcase lookup n cs of
     | NONE => drop_consts cs ns
     | SOME w => SmartSeq (drop_consts cs ns) (Assign n (Const w))
 End
