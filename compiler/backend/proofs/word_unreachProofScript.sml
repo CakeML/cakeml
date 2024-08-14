@@ -24,11 +24,37 @@ Proof
   \\ rpt (pairarg_tac \\ fs [] \\ rw [] \\ fs [])
 QED
 
+Theorem evaluate_Seq_assoc:
+  evaluate (Seq p1 (Seq p2 p3), s) = evaluate (Seq (Seq p1 p2) p3, s)
+Proof
+  gvs [evaluate_def] \\ rpt (pairarg_tac \\ gvs []) \\ rw [] \\ gvs []
+QED
+
+Theorem merge_moves_thm:
+  ∀p n l1 l2 s.
+    evaluate (Seq (Move n l1) (Seq (Move n l2) p),s) =
+    evaluate (Seq (Move n (merge_moves l1 l2)) p,s)
+Proof
+  cheat
+QED
+
+Theorem merge_moves_Skip =
+  merge_moves_thm |> Q.SPEC ‘Skip’
+                  |> SRULE [evaluate_Seq_Skip,evaluate_Seq_assoc]
+
 Theorem evaluate_SimpSeq[local,simp]:
   evaluate (SimpSeq p1 p2,s) = evaluate (Seq p1 p2,^s)
 Proof
-  rw [SimpSeq_def,evaluate_Seq_Skip]
+  Cases_on ‘SimpSeq p1 p2 = Seq p1 p2’ >- simp []
+  \\ gvs [SimpSeq_def,evaluate_Seq_Skip]
+  \\ gvs [AllCaseEqs(),evaluate_Seq_Skip]
+  \\ rw [evaluate_Seq_Skip]
   \\ Cases_on ‘p1’ \\ gvs [evaluate_Skip_Seq]
+  >~ [‘dest_Seq_Move’] >-
+   (Cases_on ‘dest_Seq_Move p2’ \\ gvs []
+    \\ PairCases_on ‘x’ \\ gvs []
+    \\ gvs [oneline dest_Seq_Move_def,AllCaseEqs()] \\ rw []
+    \\ gvs [merge_moves_Skip,merge_moves_thm,evaluate_Seq_Skip])
   \\ gvs [evaluate_def]
   \\ pairarg_tac \\ gvs [] \\ rw [] \\ gvs []
   \\ gvs [evaluate_def,AllCaseEqs()]
@@ -68,6 +94,11 @@ Theorem extract_labels_SimpSeq:
 Proof
   rw [SimpSeq_def,extract_labels_def]
   \\ Cases_on ‘p1’ \\ rw [extract_labels_def] \\ gvs [SUBSET_DEF]
+  \\ Cases_on ‘dest_Seq_Move p2’ \\ gvs []
+  \\ rw [extract_labels_def] \\ gvs [SUBSET_DEF]
+  \\ PairCases_on ‘x’ \\ gvs []
+  \\ pop_assum mp_tac \\ rw []
+  \\ gvs [oneline dest_Seq_Move_def, AllCaseEqs(), extract_labels_def]
 QED
 
 Theorem extract_labels_Seq_assoc_right_lemma:
@@ -108,6 +139,11 @@ Theorem wf_cutsets_SimpSeq:
 Proof
   rw [SimpSeq_def,wf_cutsets_def]
   \\ Cases_on ‘p1’ \\ rw [wf_cutsets_def]
+  \\ Cases_on ‘dest_Seq_Move p2’ \\ gvs []
+  \\ rw [wf_cutsets_def] \\ gvs [SUBSET_DEF]
+  \\ PairCases_on ‘x’ \\ gvs []
+  \\ pop_assum mp_tac \\ rw []
+  \\ gvs [oneline dest_Seq_Move_def, AllCaseEqs(), wf_cutsets_def]
 QED
 
 Theorem wf_cutsets_Seq_assoc_right_lemma:
@@ -140,6 +176,11 @@ Theorem every_inst_distinct_tar_reg_SimpSeq:
 Proof
   rw [SimpSeq_def,every_inst_def]
   \\ Cases_on ‘p1’ \\ rw [every_inst_def]
+  \\ Cases_on ‘dest_Seq_Move p2’ \\ gvs []
+  \\ rw [every_inst_def] \\ gvs [SUBSET_DEF]
+  \\ PairCases_on ‘x’ \\ gvs []
+  \\ pop_assum mp_tac \\ rw []
+  \\ gvs [oneline dest_Seq_Move_def, AllCaseEqs(), every_inst_def]
 QED
 
 Theorem every_inst_distinct_tar_reg_Seq_assoc_right_lemma:
@@ -173,6 +214,11 @@ Theorem flat_exp_conventions_SimpSeq:
 Proof
   rw [SimpSeq_def,flat_exp_conventions_def]
   \\ Cases_on ‘p1’ \\ rw [flat_exp_conventions_def]
+  \\ Cases_on ‘dest_Seq_Move p2’ \\ gvs []
+  \\ rw [flat_exp_conventions_def] \\ gvs [SUBSET_DEF]
+  \\ PairCases_on ‘x’ \\ gvs []
+  \\ pop_assum mp_tac \\ rw []
+  \\ gvs [oneline dest_Seq_Move_def, AllCaseEqs(), flat_exp_conventions_def]
 QED
 
 Theorem flat_exp_conventions_Seq_assoc_right_lemma:
