@@ -59,6 +59,10 @@ Quote dafny_module = process_topdecs:
 
   fun char_list_to_string cs = list_to_string char_to_string cs;
 
+  (* f converts the tuple into a list of strings *)
+  fun tuple_to_string f tpl =
+    String.concat ["(", String.concatWith ", " (f tpl), ")"];
+
   (* Commented out because we use CakeML char list's instead of strings *)
 
   (* In Dafny, strings within collections are printed as a list of chars *)
@@ -77,6 +81,40 @@ Overload False = “Con (SOME (Short "False")) []”
 Overload None = “Con (SOME (Short "None")) []”
 Overload Some = “λx. Con (SOME (Short "Some")) [x]”
 Overload Unit = “Con NONE []”
+
+Definition int_to_string_def:
+  int_to_string (i: int) = explode (toString i)
+End
+
+Definition num_to_string_def:
+  num_to_string (n: num) = int_to_string (&n)
+End
+
+Definition string_to_int_def:
+  string_to_int s =
+  case (fromString (implode s)) of
+  | SOME i =>
+      return i
+  | NONE =>
+      fail ("Could not convert into int: " ++ s)
+End
+
+Definition string_to_num_def:
+  string_to_num s =
+  do
+    i <- string_to_int s;
+    if i < 0
+    then fail "string_to_num: Number was negative"
+    else return (Num i)
+  od
+End
+
+Definition strip_prefix_def:
+  strip_prefix prefix str =
+  if isPREFIX prefix str
+  then SOME (DROP (LENGTH prefix) str)
+  else NONE
+End
 
 (* Converts a HOL list of CakeML expressions into a CakeML list. *)
 Definition cml_list_def:
@@ -109,6 +147,35 @@ Definition cml_id_def:
   cml_id (n::rest) = do rest' <- cml_id rest; return (Long n rest') od
 End
 
+Definition cml_tuple_def:
+  cml_tuple [_] = fail "cml_tuple: Cannot create 1-tuple" ∧
+  cml_tuple cml_es = return (Con NONE cml_es)
+End
+
+Definition cml_tuple_select_def:
+  cml_tuple_select len cml_te (idx: num) =
+  let field_vars = GENLIST (λn. Pvar ("t" ++ (num_to_string n))) len in
+    Mat cml_te [Pcon NONE field_vars, Var (Short ("t" ++ (num_to_string idx)))]
+End
+
+Definition zip_with_def:
+  zip_with f [] _ = [] ∧
+  zip_with f _ [] = [] ∧
+  zip_with f (x::xs) (y::ys) = (f x y)::(zip_with f xs ys)
+End
+
+Definition cml_tuple_to_string_list_def:
+  cml_tuple_to_string_list fs =
+  let field_name = GENLIST (λn. ("t" ++ (num_to_string n))) (LENGTH fs);
+      field_pvars = (MAP (λx. Pvar x) field_name);
+      field_vars = (MAP (λx. [Var (Short x)]) field_name);
+      string_list = cml_list (zip_with cml_fapp fs field_vars);
+      tuple_name = "tpl" in
+    Fun tuple_name
+        (Mat (Var (Short tuple_name))
+             [Pcon NONE field_pvars, string_list])
+End
+
 Definition raise_return_def:
   raise_return = Raise (Con (SOME (Long "Dafny" (Short "Return"))) [])
 End
@@ -138,7 +205,7 @@ Definition add_labeled_break_handle_def:
 End
 
 Definition cml_while_name_def:
-  cml_while_name (lvl: int) = "CML_while_" ++ (explode (toString lvl))
+  cml_while_name (lvl: int) = "CML_while_" ++ (int_to_string lvl)
 End
 
 Definition cml_get_arr_def:
@@ -237,15 +304,6 @@ Definition dest_Method_def:
   (isStatic, hasBody, overridingPath, nam, typeParams, params, body, outTypes, outVars)
 End
 
-Definition from_string_def:
-  from_string s =
-  case (fromString (implode s)) of
-  | SOME i =>
-      return i
-  | NONE =>
-      fail ("Could not convert into int: " ++ s)
-End
-
 Definition cml_ref_ass_def:
   cml_ref_ass lhs rhs = (App Opassign [lhs; rhs])
 End
@@ -276,42 +334,32 @@ Definition internal_varN_from_ident_def:
   internal_varN_from_ident (Ident (Name n)) = (n ++ "_CML_out_ref")
 End
 
-(* In Dafny, the string and seq<char> type are synonyms. We replace the *)
-(* former with the latter for consistency *)
-Definition replace_string_type_def:
-  (replace_string_type t =
-   case t of
+(* In Dafny, the string and seq<char> type are synonyms. We replace the
+ * former with the latter for consistency. We also replace newtypes by their
+ * base type (which may be incorrect) *)
+Definition normalize_type_def:
+  normalize_type t =
+  (case t of
    | Primitive String => Seq (Primitive Char)
-   | Path idents typeArgs resolvedT =>
-       Path idents
-            (map_replace_string_type typeArgs)
-            (replace_string_resolvedType resolvedT)
-   | Nullable t => Nullable (replace_string_type t)
-   | Tuple ts => Tuple (map_replace_string_type ts)
-   | Array elem dims => Array (replace_string_type elem) dims
-   | Seq t => Seq (replace_string_type t)
-   | Set t => Set (replace_string_type t)
-   | Multiset t => Multiset (replace_string_type t)
-   | Map kt vt => Map (replace_string_type kt) (replace_string_type vt)
-   | SetBuilder t => SetBuilder (replace_string_type t)
-   | MapBuilder kt vt => MapBuilder (replace_string_type kt)
-                                    (replace_string_type vt)
-   | Arrow argsT resT => Arrow (map_replace_string_type argsT)
-                               (replace_string_type resT)
-   | Primitive _ => t
-   | Passthrough _ => t
-   | TypeArg _ => t) ∧
-  (map_replace_string_type ts =
-   case ts of
+   | Path _ _ (ResolvedType_Newtype bt _ _ _) => normalize_type bt
+   | Nullable t => Nullable (normalize_type t)
+   | Tuple ts => Tuple (map_normalize_type ts)
+   | Array elem dims => Array (normalize_type elem) dims
+   | Seq t => Seq (normalize_type t)
+   | Set t => Set (normalize_type t)
+   | Multiset t => Multiset (normalize_type t)
+   | Map kt vt => Map (normalize_type kt) (normalize_type vt)
+   | SetBuilder t => SetBuilder (normalize_type t)
+   | MapBuilder kt vt => MapBuilder (normalize_type kt)
+                                    (normalize_type vt)
+   | Arrow argsT resT => Arrow (map_normalize_type argsT)
+                               (normalize_type resT)
+   | _ => t) ∧
+  map_normalize_type ts =
+  (case ts of
    | [] => []
    | (t::rest) =>
-       (replace_string_type t)::(map_replace_string_type rest)) ∧
-  (replace_string_resolvedType resolvedT =
-   case resolvedT of
-   | ResolvedType_Datatype _ => resolvedT
-   | ResolvedType_Trait _ _ => resolvedT
-   | ResolvedType_Newtype baseT rnge erase attrs =>
-       ResolvedType_Newtype (replace_string_type baseT) rnge erase attrs)
+       (normalize_type t)::(map_normalize_type rest))
 Termination
   cheat
 End
@@ -322,8 +370,39 @@ Definition arb_value_def:
    | Primitive Int => return (Lit (IntLit 0))
    | Primitive Bool => return False
    | Seq _ => return (cml_list [])
+   | Tuple ts =>
+       do
+         arb_elems <- map_arb_value ts;
+         cml_tuple arb_elems
+       od
    | Array _ _ => return None  (* we essentially initialize with null *)
-   | _ => fail "arb_value_def: Unsupported type")
+   | Path _ [] resT => arb_value_resolved_type resT
+   | _ => fail "arb_value_def: Unsupported type") ∧
+  arb_value_resolved_type resT =
+  (case resT of
+   | ResolvedType_Newtype baseT rang eras attrs =>
+       if baseT ≠ Primitive Int then
+         fail "arb_value_resolved_type: Unsupported base type"
+       else if rang ≠ NoRange then
+         fail "arb_value_resolved_type: Unsupported range"
+       else if ¬eras then
+         fail "arb_value_resolved_type: non-erased newtypes unsupported"
+       else if attrs ≠ [Attribute "axiom" []] then
+         fail "arb_value_resolved_type: unsupported attributes"
+       else
+         arb_value baseT
+   | _ => fail "arb_value_resolved_type: Unsupported resolved type") ∧
+  map_arb_value ts =
+  (case ts of
+   | [] => return []
+   | t::rest =>
+       do
+         v <- arb_value t;
+         vs <- map_arb_value rest;
+         return (v::vs)
+       od)
+Termination
+  cheat
 End
 
 Definition from_name_def:
@@ -423,7 +502,7 @@ Definition from_literal_def:
        return False
    | IntLiteral s (Primitive Int) =>
        do
-         i <- from_string s;
+         i <- string_to_int s;
          return (Lit (IntLit i))
        od
    | IntLiteral _ _ =>
@@ -456,7 +535,7 @@ Definition call_type_env_from_class_body_def:
     if is_function then
       do
         (_, _, _, nam, _, _, _, outTypes, _) <<- dest_Method m;
-        outTypes <<- map_replace_string_type outTypes;
+        outTypes <<- MAP normalize_type outTypes;
         acc <<- (((comp, nam), HD outTypes)::acc);
         call_type_env_from_class_body acc comp rest;
       od
@@ -478,171 +557,189 @@ Definition local_env_name_def:
   local_env_name n = (Companion [], n)
 End
 
+Definition tuple_len_def:
+  tuple_len (Tuple ts) = return (LENGTH ts) ∧
+  tuple_len _ = fail "tuple_len: Not a tuple type"
+End
+
 Definition dafny_type_of_def:
   dafny_type_of (env: (((expression # name), type) alist))
                 (e: dafny_ast$expression) =
-  case e of
-  | Literal (BoolLiteral _) => return (Primitive Bool)
-  | Literal (IntLiteral _ (Primitive Int)) => return (Primitive Int)
-  | Literal (StringLiteral _ _) => return (Seq (Primitive Char))
-  | Literal (CharLiteral _) => return (Primitive Char)
-  | NewArray [_] typ => return (Array (replace_string_type typ) 1)
-  | Convert _ fro tot =>
-      do
-        fro <<- replace_string_type fro;
-        tot <<- replace_string_type tot;
-        if fro ≠ tot then
-          fail "dafny_type_of (Convert): Different types unsupported"
-        else
-          return tot
-      od
-  | Expression_Ident n =>
+  (case e of
+   | Literal (BoolLiteral _) => return (Primitive Bool)
+   | Literal (IntLiteral _ (Primitive Int)) => return (Primitive Int)
+   | Literal (StringLiteral _ _) => return (Seq (Primitive Char))
+   | Literal (CharLiteral _) => return (Primitive Char)
+   | Expression_Ident n =>
        (case ALOOKUP env (local_env_name n) of
-       | SOME t => return t
-       | NONE => fail ("dafny_type_of: Unknown Name " ++ (dest_Name n)))
-  | SeqValue _ t =>
-      return (Seq (replace_string_type t))
-  | SeqUpdate se idx v =>
-      do
-        se_t <- dafny_type_of env se;
-        idx_t <- dafny_type_of env idx;
-        v_t <- dafny_type_of env v;
-        if se_t ≠ Seq v_t then
-          fail "dafny_type_of (SeqUpdate): Unexpectedly, se_t <> Seq v_t"
-        else if idx_t ≠ Primitive Int then
-          fail "dafny_type_of (SeqUpdate): Unexpectedly, idx_t wasn't an int"
-        else
-          return se_t
-      od
-  | Ite cnd thn els =>
-      do
-        thn_t <- dafny_type_of env thn;
-        els_t <- dafny_type_of env els;
-        if (thn_t ≠ els_t) then
-          fail ("dafny_type_of (Ite): Unexpectedly, branches have " ++
-                "different types")
-        else
-          return thn_t
-      od
-  | UnOp Not e =>
-      do
-        e_t <- dafny_type_of env e;
-        if e_t = (Primitive Bool) then
-          return (Primitive Bool)
-        else
-          fail "dafny_type_of (UnOp Not): Unsupported type for e"
-      od
-  | UnOp BitwiseNot _ =>
-      fail "dafny_type_of (UnOp BitwiseNot): Unsupported"
-  | UnOp Cardinality e' =>
-      do
-        e'_t <- dafny_type_of env e';
-        if is_Seq e'_t then
-          return (Primitive Int)
-        else
-          fail "dafny_type_of (UnOp Cardinality): Unsupported type"
-      od
-  | BinOp bop e1 e2 =>
-      (* TODO? Figure out why using | BinOp Lt _ _ and
-       * | BinOp (Eq _ _) _ _ results in the | BinOp bop e1 e2 case to be
-       * repeated over and over again *)
-      (* TODO Add sanity checks as done below *)
-      if (bop = Lt ∨ (is_Eq bop)) then return (Primitive Bool)
-      else
-        do
-          e1_t <- dafny_type_of env e1;
-          e2_t <- dafny_type_of env e2;
-          if (bop = EuclidianDiv ∧ e1_t = (Primitive Int) ∧ e1_t = e2_t) then
-            return (Primitive Int)
-          else if (bop = EuclidianMod ∧ e1_t = (Primitive Int) ∧
-                   e1_t = e2_t) then
-            return (Primitive Int)
-          else if (bop = Plus ∧ e1_t = (Primitive Int) ∧ e1_t = e2_t) then
-            return (Primitive Int)
-          else if (bop = Minus ∧ e1_t = (Primitive Int) ∧ e1_t = e2_t) then
-            return (Primitive Int)
-          else if (bop = Times ∧ e1_t = (Primitive Int) ∧ e1_t = e2_t) then
-            return (Primitive Int)
-          else if (bop = Concat ∧ e1_t = (Seq (Primitive Char)) ∧
-                   e1_t = e2_t) then
-            return (Seq (Primitive Char))
-          else if (bop = Concat ∧ is_Seq e1_t ∧ e1_t = e2_t) then
-            return e1_t
-          else if (bop = In ∧ is_Seq e2_t) then
-            do
-              seq_t <- dest_Seq e2_t;
-              if e1_t ≠ seq_t then
-                fail "dafny_type_of (BinOp In): Types did not match"
-              else
-                return (Primitive Bool)
-            od
-          else if (bop = SeqPrefix ∧ is_Seq e1_t ∧ is_Seq e2_t) then
-            do
-              seq1_t <- dest_Seq e1_t;
-              seq2_t <- dest_Seq e2_t;
-              if seq1_t ≠ seq2_t then
-                fail "dafny_type_of (BinOp SeqPrefix): Types did not match"
-              else
-                return (Primitive Bool)
-            od
-          else if (bop = SeqProperPrefix ∧ is_Seq e1_t ∧ is_Seq e2_t) then
-            do
-              seq1_t <- dest_Seq e1_t;
-              seq2_t <- dest_Seq e2_t;
-              if seq1_t ≠ seq2_t then
-                fail ("dafny_type_of (BinOp SeqProperPrefix): Types did " ++
-                      "not match")
-              else
-                return (Primitive Bool)
-            od
-          else
-            fail "dafny_type_of (BinOp): Unsupported bop/types"
-        od
-  | ArrayLen _ _ => return (Primitive Int)
-  | Index e' cok idxs =>
-      do
-        e'_t <- dafny_type_of env e';
-        if cok = CollKind_Seq then
-          if idxs = [] then
-            fail "dafny_type_of (Index/Seq): Unexpectedly idxs was empty"
-          else if LENGTH idxs > 1 then
-            fail "dafny_type_of (Index/Seq): multi-dimensional indexing \
-                 \unsupported"
-          else
-            dest_Seq e'_t
-        else if cok = CollKind_Array then
-          if idxs = [] then
-            fail "dafny_type_of (Index/Array): Unexpectedly idxs was empty"
-          else if LENGTH idxs > 1 then
-            fail "dafny_type_of (Index/Array): multi-dimensional indexing \
-                 \unsupported"
-          else
-            do
-              (t, _) <- dest_Array e'_t;
-              return t
-            od
-        else
-          fail "dafny_type_of (Index): Unsupported kind of collection"
-      od
-  | IndexRange se isArray lo hi =>
-      if isArray then
-        do
-          arr_t <- dafny_type_of env se;
-          (elem_t, _) <- dest_Array arr_t;
-          return (Seq elem_t)
-        od
-      else
-        dafny_type_of env se
-  | Expression_Call on (CallName nam onType _) _ _ =>
-      if onType ≠ NONE then
-        fail "dafny_type_of: (Call) Unsupported onType"
-      else
-        let ct_name = nam in
-        (case ALOOKUP env (on, ct_name) of
-         | SOME t => return t
-         | NONE => fail ("dafny_type_of: Unknown Name " ++
-                         dest_Name ct_name))
-  | _ => fail ("dafny_type_of: Unsupported expression")
+        | SOME t => return t
+        | NONE => fail ("dafny_type_of: Unknown Name " ++ (dest_Name n)))
+   | Expression_Tuple es =>
+       do
+         ts <- map_dafny_type_of env es;
+         return (Tuple ts)
+       od
+   | NewArray [_] typ => return (Array (normalize_type typ) 1)
+   | Convert _ fro tot =>
+       (* Assume that we are given a "correct" Dafny program, and this convert
+        * is safe *)
+       return (normalize_type tot)
+   | SeqValue _ t =>
+       return (Seq (normalize_type t))
+   | SeqUpdate se idx v =>
+       do
+         se_t <- dafny_type_of env se;
+         idx_t <- dafny_type_of env idx;
+         v_t <- dafny_type_of env v;
+         if se_t ≠ Seq v_t then
+           fail "dafny_type_of (SeqUpdate): Unexpectedly, se_t <> Seq v_t"
+         else if idx_t ≠ Primitive Int then
+           fail "dafny_type_of (SeqUpdate): Unexpectedly, idx_t wasn't an int"
+         else
+           return se_t
+       od
+   | Ite cnd thn els =>
+       do
+         thn_t <- dafny_type_of env thn;
+         els_t <- dafny_type_of env els;
+         if (thn_t ≠ els_t) then
+           fail ("dafny_type_of (Ite): Unexpectedly, branches have " ++
+                 "different types")
+         else
+           return thn_t
+       od
+   | UnOp Not e =>
+       do
+         e_t <- dafny_type_of env e;
+         if e_t = (Primitive Bool) then
+           return (Primitive Bool)
+         else
+           fail "dafny_type_of (UnOp Not): Unsupported type for e"
+       od
+   | UnOp BitwiseNot _ =>
+       fail "dafny_type_of (UnOp BitwiseNot): Unsupported"
+   | UnOp Cardinality e' =>
+       do
+         e'_t <- dafny_type_of env e';
+         if is_Seq e'_t then
+           return (Primitive Int)
+         else
+           fail "dafny_type_of (UnOp Cardinality): Unsupported type"
+       od
+   | BinOp bop e1 e2 =>
+       (* TODO? Figure out why using | BinOp Lt _ _ and
+        * | BinOp (Eq _ _) _ _ results in the | BinOp bop e1 e2 case to be
+        * repeated over and over again *)
+       (* TODO Add sanity checks as done below *)
+       if (bop = Lt ∨ (is_Eq bop)) then return (Primitive Bool)
+       else
+         do
+           e1_t <- dafny_type_of env e1;
+           e2_t <- dafny_type_of env e2;
+           if (bop = EuclidianDiv ∧ e1_t = (Primitive Int) ∧ e1_t = e2_t) then
+             return (Primitive Int)
+           else if (bop = EuclidianMod ∧ e1_t = (Primitive Int) ∧
+                    e1_t = e2_t) then
+             return (Primitive Int)
+           else if (bop = Plus ∧ e1_t = (Primitive Int) ∧ e1_t = e2_t) then
+             return (Primitive Int)
+           else if (bop = Minus ∧ e1_t = (Primitive Int) ∧ e1_t = e2_t) then
+             return (Primitive Int)
+           else if (bop = Times ∧ e1_t = (Primitive Int) ∧ e1_t = e2_t) then
+             return (Primitive Int)
+           else if (bop = Concat ∧ e1_t = (Seq (Primitive Char)) ∧
+                    e1_t = e2_t) then
+             return (Seq (Primitive Char))
+           else if (bop = Concat ∧ is_Seq e1_t ∧ e1_t = e2_t) then
+             return e1_t
+           else if (bop = In ∧ is_Seq e2_t) then
+             do
+               seq_t <- dest_Seq e2_t;
+               if e1_t ≠ seq_t then
+                 fail "dafny_type_of (BinOp In): Types did not match"
+               else
+                 return (Primitive Bool)
+             od
+           else if (bop = SeqPrefix ∧ is_Seq e1_t ∧ is_Seq e2_t) then
+             do
+               seq1_t <- dest_Seq e1_t;
+               seq2_t <- dest_Seq e2_t;
+               if seq1_t ≠ seq2_t then
+                 fail "dafny_type_of (BinOp SeqPrefix): Types did not match"
+               else
+                 return (Primitive Bool)
+             od
+           else if (bop = SeqProperPrefix ∧ is_Seq e1_t ∧ is_Seq e2_t) then
+             do
+               seq1_t <- dest_Seq e1_t;
+               seq2_t <- dest_Seq e2_t;
+               if seq1_t ≠ seq2_t then
+                 fail ("dafny_type_of (BinOp SeqProperPrefix): Types did " ++
+                       "not match")
+               else
+                 return (Primitive Bool)
+             od
+           else
+             fail "dafny_type_of (BinOp): Unsupported bop/types"
+         od
+   | ArrayLen _ _ => return (Primitive Int)
+   | Index e' cok idxs =>
+       do
+         e'_t <- dafny_type_of env e';
+         if cok = CollKind_Seq then
+           if idxs = [] then
+             fail "dafny_type_of (Index/Seq): Unexpectedly idxs was empty"
+           else if LENGTH idxs > 1 then
+             fail "dafny_type_of (Index/Seq): multi-dimensional indexing \
+                    \unsupported"
+           else
+             dest_Seq e'_t
+         else if cok = CollKind_Array then
+           if idxs = [] then
+             fail "dafny_type_of (Index/Array): Unexpectedly idxs was empty"
+           else if LENGTH idxs > 1 then
+             fail "dafny_type_of (Index/Array): multi-dimensional indexing \
+                 \uns            upported"
+           else
+             do
+               (t, _) <- dest_Array e'_t;
+               return t
+             od
+         else
+           fail "dafny_type_of (Index): Unsupported kind of collection"
+       od
+   | IndexRange se isArray lo hi =>
+       if isArray then
+         do
+           arr_t <- dafny_type_of env se;
+           (elem_t, _) <- dest_Array arr_t;
+           return (Seq elem_t)
+         od
+       else
+         dafny_type_of env se
+   | TupleSelect _ _ fieldT =>
+       return (normalize_type fieldT)
+   | Expression_Call on (CallName nam onType _) _ _ =>
+       if onType ≠ NONE then
+         fail "dafny_type_of: (Call) Unsupported onType"
+       else
+         let ct_name = nam in
+           (case ALOOKUP env (on, ct_name) of
+            | SOME t => return t
+            | NONE => fail ("dafny_type_of: Unknown Name " ++
+                            dest_Name ct_name))
+           | _ => fail ("dafny_type_of: Unsupported expression" ++ (ARB e))) ∧
+  map_dafny_type_of env ts =
+  (case ts of
+   | [] => return []
+   | t::rest =>
+       do
+         t <- dafny_type_of env t;
+         rest <- map_dafny_type_of env rest;
+         return (t::rest)
+       od)
+Termination
+  cheat
 End
 
 Definition dest_Companion_def:
@@ -684,9 +781,14 @@ Definition from_expression_def:
        from_literal l
    | Expression_Ident n =>
        return (App Opderef [Var (Short (dest_Name n))])
+   | Expression_Tuple es =>
+       do
+         cml_es <- map_from_expression comp env es;
+         cml_tuple cml_es
+       od
    | NewArray [dim0] t =>
        do
-         t <<- replace_string_type t;
+         t <<- normalize_type t;
          cml_dim0 <- from_expression comp env dim0;
          fill_val <- arb_value t;
          return (Some (cml_fapp (Var (Long "Array" (Short "array")))
@@ -694,11 +796,9 @@ Definition from_expression_def:
        od
    | Convert val fro tot =>
        do
-         fro <<- replace_string_type fro;
-         tot <<- replace_string_type tot;
-         if fro ≠ tot then
-           fail ("from_expression (Convert): Converting different types " ++
-                 "unsupported")
+         if normalize_type fro ≠ normalize_type tot then
+           fail "from_expression (Convert): Converting different types \
+                \(after normalization) unsupported"
          else
            from_expression comp env val
        od
@@ -798,6 +898,13 @@ Definition from_expression_def:
                                   [cml_se; cml_lo])
                od
        od
+   | TupleSelect te idx type =>
+       do
+         te_t <- dafny_type_of env te;
+         len <- tuple_len te_t;
+         cml_te <- from_expression comp env te;
+         return (cml_tuple_select len cml_te idx)
+       od
    | Expression_Call on call_nam typeArgs args =>
        do
          if typeArgs ≠ [] then
@@ -810,8 +917,8 @@ Definition from_expression_def:
            od
        od
    | InitializationValue t =>
-       arb_value (replace_string_type t)
-   | _ => fail ("from_expression: Unsupported expression")) ∧
+       arb_value (normalize_type t)
+   | _ => fail ("from_expression: Unsupported expression" ++ (ARB e))) ∧
   (map_from_expression comp env es =
    case es of
    | [] => return []
@@ -965,7 +1072,25 @@ Definition to_string_fun_def:
      return (cml_fapp (Var (Long "Dafny" (Short "list_to_string")))
                       [elem_to_string])
    od) ∧
-  (to_string_fun _ t = fail "to_string_fun: Unsupported type")
+  (to_string_fun _ (Tuple ts) =
+   do
+     elems_to_string <- map_to_string_fun T ts;
+     string_list <<- cml_tuple_to_string_list elems_to_string;
+     return (cml_fapp (Var (Long "Dafny" (Short "tuple_to_string")))
+                           [string_list])
+   od) ∧
+  (to_string_fun _ t = fail ("to_string_fun: Unsupported type" ++ ARB t)) ∧
+  (map_to_string_fun inCol ts =
+   case ts of
+   | [] => return []
+   | (t::rest) =>
+       do
+         t <- to_string_fun inCol t;
+         rest <- map_to_string_fun inCol rest;
+         return (t::rest)
+       od)
+Termination
+  cheat
 End
 
 (* An independent statement must not depend on statements outside of it *)
@@ -1014,7 +1139,7 @@ Definition from_stmts_def:
    else if is_DeclareVar s1 then
      do
        (n, t, e_opt) <- dest_DeclareVar s1;
-       t <<- replace_string_type t;
+       t <<- normalize_type t;
        n_str <<- dest_Name n;
        (* TODO look into when/why this is NONE *)
        iv_e <- if e_opt = NONE then arb_value t
@@ -1125,7 +1250,7 @@ Definition param_type_env_def:
   if attrs ≠ [] then
     fail "param_type_env: Attributes unsupported"
   else
-    param_type_env rest ((local_env_name n, (replace_string_type t))::acc)
+    param_type_env rest ((local_env_name n, (normalize_type t))::acc)
 End
 
 Definition env_and_epilogue_from_outs_def:
@@ -1260,7 +1385,7 @@ Definition from_classItem_def:
     else if is_method then
       do
         (_, _, _, nam, _, params, body, outTypes, outVars) <<- dest_Method m;
-        outTypes <<- map_replace_string_type outTypes;
+        outTypes <<- MAP normalize_type outTypes;
         outVars <- dest_SOME outVars;
         fun_name <<- dest_Name nam;
         (env, cml_param,
@@ -1355,19 +1480,65 @@ Definition find_main_def:
   od
 End
 
+Definition validate_system_module_body_def:
+  (validate_system_module_body [] = return ()) ∧
+  (validate_system_module_body ((ModuleItem_Newtype
+                               (Newtype nam typeParams base rang
+                                        witnessStmts witnessExpr
+                                        attrs))::rest) =
+   (* Restrict newtype support to Int *)
+   if typeParams ≠ [] then
+     fail "validate_system_module_body: Type parameters unsupported"
+   else if base ≠ Primitive Int then
+     fail "validate_system_module_body: base other than Primitive Int \
+          \unsupported"
+   else if rang ≠ NoRange then
+     fail "validate_system_module_body: range other than NoRange unsupported"
+   else if witnessStmts ≠ [] then
+     fail "validate_system_module_body: Witness statements unsupported"
+   else if witnessExpr ≠ NONE then
+     fail "validate_system_module_body: Witness expression unsupported"
+   else if attrs ≠ [Attribute "axiom" []] then
+     fail "validate_system_module_body: Unsupported attribute list"
+   else
+     validate_system_module_body rest) ∧
+  (validate_system_module_body ((ModuleItem_Datatype
+                               (Datatype nam enclosingModule
+                                             _ _ _ _ _)::rest)) =
+   (* Restrict datatype support to tuples *)
+   if enclosingModule ≠ (Ident (Name "_System")) then
+     fail "validate_system_module_body: Unsupported enclosing module"
+   else
+     case strip_prefix "Tuple" (dest_Name nam) of
+     | NONE => fail "validate_system_module_body: Unsupported datatype name"
+     | SOME sfx => do string_to_num sfx; validate_system_module_body rest od) ∧
+  (validate_system_module_body _ =
+   fail "validate_system_module_body: Unsupported module item")
+End
+
+Definition validate_system_module_def:
+  validate_system_module (Module nam attrs body) =
+  if nam ≠ Name "_System" then
+    fail "validate_system_module: Not module _System"
+  else if attrs ≠ [] then
+    fail "validate_system_module: Expected empty attribute list"
+  else
+    case body of
+    | NONE => fail "validate_system_module: Unexpectedly body was empty"
+    | SOME body => validate_system_module_body body
+End
+
 Definition compile_def:
-  (* TODO ATM we ignore the first module which contains various definitions *)
-  (compile ((_::ms) : dafny_ast$module list) =
-   do
-     (env, cml_ms) <- map_from_module [] ms;
-     (* fail (""++(ARB env)) *)
-     main_id <- find_main env;
-     return (^dafny_module ++
-             cml_ms ++
-             [Dlet unknown_loc Pany (cml_fapp main_id [Unit])])
-   od
-  ) ∧
-  (compile _ = fail "compile: Module layout unsupported")
+  compile ((sys_mod::ms) : dafny_ast$module list) =
+  do
+    validate_system_module sys_mod;
+    (env, cml_ms) <- map_from_module [] ms;
+    main_id <- find_main env;
+    return (^dafny_module ++
+            cml_ms ++
+            [Dlet unknown_loc Pany (cml_fapp main_id [Unit])])
+  od ∧
+  compile _ = fail "compile: Module layout unsupported"
 End
 
 (* Unpacks the AST from M. If the process failed, create a program that prints
@@ -1390,7 +1561,7 @@ open TextIO
 (* val _ = astPP.disable_astPP(); *)
 val _ = astPP.enable_astPP();
 
-val inStream = TextIO.openIn "./tests/basic/factorial.sexp";
+val inStream = TextIO.openIn "./tests/dafny/firstSteps/3_Calls-As.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
