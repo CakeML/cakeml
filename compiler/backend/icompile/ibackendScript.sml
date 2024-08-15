@@ -171,9 +171,6 @@ QED
 
 
 
-Theorem source_to_flat_compile_decs_lemma:
-  source_to_flat$compile_decs t n next env envs (d :: ds) =
-  
                 
 Theorem icompile_source_to_flat_lemma:
   source_to_flat$compile_decs t n next env envs (xs ++ ys) =
