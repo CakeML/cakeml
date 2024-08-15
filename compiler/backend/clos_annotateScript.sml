@@ -85,6 +85,102 @@ Termination
   \\ simp[]
 End
 
+Definition alt_free_sing_def:
+  (alt_free_sing (Var t v) = (Var t v, Var v)) /\
+  (alt_free_sing (If t x1 x2 x3) =
+     let (c1,l1) = alt_free_sing x1 in
+     let (c2,l2) = alt_free_sing x2 in
+     let (c3,l3) = alt_free_sing x3 in
+       (If t c1 c2 c3,mk_Union l1 (mk_Union l2 l3))) /\
+  (alt_free_sing (Let t xs x2) =
+     let m = LENGTH xs in
+     let (c2,l2) = alt_free_sing x2 in
+       if no_overlap m l2 /\ EVERY pure xs then
+         (Let t (REPLICATE m (const_0 t)) c2, Shift m l2)
+       else
+         let (c1,l1) = alt_free_list xs in
+           (Let t c1 c2,mk_Union l1 (Shift (LENGTH xs) l2))) /\
+  (alt_free_sing (Raise t x1) =
+     let (c1,l1) = alt_free_sing x1 in
+       (Raise t c1,l1)) /\
+  (alt_free_sing (Tick t x1) =
+     let (c1,l1) = alt_free_sing x1 in
+       (Tick t c1,l1)) /\
+  (alt_free_sing (Op t op xs) =
+     let (c1,l1) = alt_free_list xs in
+       (Op t op c1,l1)) /\
+  (alt_free_sing (App t loc_opt x1 xs2) =
+     let (c1,l1) = alt_free_sing x1 in
+     let (c2,l2) = alt_free_list xs2 in
+       (App t loc_opt c1 c2,mk_Union l1 l2)) /\
+  (alt_free_sing (Fn t loc _ num_args x1) =
+     let (c1,l1) = alt_free_sing x1 in
+     let l2 = Shift num_args l1 in
+       (Fn t loc (SOME (vars_to_list l2)) num_args c1,l2)) /\
+  (alt_free_sing (Letrec t loc _ fns x1) =
+     let m = LENGTH fns in
+     let (c2,l2) = alt_free_sing x1 in
+   (*  if no_overlap m l2 then
+         ([Let t (REPLICATE m (const_0 t)) (HD c2)], Shift m l2)
+       else  *)
+     let res = alt_free_letrec m fns in
+     let c1 = MAP FST res in
+     let l1 = list_mk_Union (MAP SND res) in
+       (Letrec t loc (SOME (vars_to_list l1)) c1 c2,
+        mk_Union l1 (Shift (LENGTH fns) l2))) /\
+  (alt_free_sing (Handle t x1 x2) =
+     let (c1,l1) = alt_free_sing x1 in
+     let (c2,l2) = alt_free_sing x2 in
+       (Handle t c1 c2,mk_Union l1 (Shift 1 l2))) /\
+  (alt_free_sing (Call t ticks dest xs) =
+     let (c1,l1) = alt_free_list xs in
+       (Call t ticks dest c1,l1)) ∧
+
+  (alt_free_list [] = ([],Empty)) ∧
+  (alt_free_list ((x:closLang$exp)::xs) =
+     let (c1,l1) = alt_free_sing x in
+     let (c2,l2) = alt_free_list xs in
+       (c1 :: c2,mk_Union l1 l2)) ∧
+
+  (alt_free_letrec m [] = []) ∧
+  (alt_free_letrec m ((n,x)::rest) =
+     let (c,l) = alt_free_sing x in
+       ((n,c),Shift (n + m) l) :: alt_free_letrec m rest)
+Termination
+  WF_REL_TAC `measure $ λx. case x of INL e => exp_size e
+                                    | INR (INL es) => exp3_size es
+                                    | INR (INR (_,fns)) => exp1_size fns`
+End
+
+Theorem alt_free_sing_eq:
+  (∀e. alt_free [e] = (λ(e,dbs). [e], dbs) $ alt_free_sing e) ∧
+  (∀es. alt_free es = alt_free_list es) ∧
+  (∀m fns. EVERY (λ(n,e). alt_free [e] = (λ(e,dbs). [e], dbs) $ alt_free_sing e) fns ∧
+           alt_free_letrec m fns =
+           MAP (λ(n,x). let (c,l) = alt_free_sing x in
+                          ((n,c),Shift (n + m) l)) fns)
+Proof
+  ho_match_mp_tac alt_free_sing_ind >> reverse $ rw[alt_free_def, alt_free_sing_def] >>
+  rpt (pairarg_tac >> gvs[]) >> rpt (TOP_CASE_TAC >> gvs[])
+  >- (Cases_on `es` >> gvs[alt_free_def, alt_free_sing_def]) >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >> rw[] >>
+  gvs [EVERY_MEM]
+  >- (
+    ntac 2 AP_TERM_TAC >>
+    rw[MAP_EQ_f] >> PairCases_on `x` >>
+    last_x_assum drule >> rpt (pairarg_tac >> gvs[])
+    )
+  >- (
+    rw[MAP_EQ_f] >> PairCases_on `x` >>
+    last_x_assum drule >> rpt (pairarg_tac >> gvs[])
+    )
+  >- (
+    AP_THM_TAC >> ntac 2 AP_TERM_TAC >>
+    rw[MAP_EQ_f] >> PairCases_on `x` >>
+    last_x_assum drule >> rpt (pairarg_tac >> gvs[])
+    )
+QED
+
 Triviality alt_free_LENGTH_LEMMA:
   !xs. (case alt_free xs of (ys,s1) => (LENGTH xs = LENGTH ys))
 Proof
@@ -204,6 +300,88 @@ Termination
   \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC
 End
 
+Definition shift_sing_def:
+  (shift_sing (Var t v) m l i =
+     Var t (get_var m l i v)) /\
+  (shift_sing (If t x1 x2 x3) m l i =
+     let c1 = shift_sing x1 m l i in
+     let c2 = shift_sing x2 m l i in
+     let c3 = shift_sing x3 m l i in
+       (If t c1 c2 c3)) /\
+  (shift_sing (Let t xs x2) m l i =
+     let c1 = shift_list xs m l i in
+     let c2 = shift_sing x2 m (l + LENGTH xs) i in
+       (Let t c1 c2)) /\
+  (shift_sing (Raise t x1) m l i =
+     let (c1) = shift_sing x1 m l i in
+       (Raise t c1)) /\
+  (shift_sing (Tick t x1) m l i =
+     let c1 = shift_sing x1 m l i in
+       (Tick t c1)) /\
+  (shift_sing (Op t op xs) m l i =
+     let c1 = shift_list xs m l i in
+       (Op t op c1)) /\
+  (shift_sing (App t loc_opt x1 xs2) m l i =
+     let c1 = shift_sing x1 m l i in
+     let c2 = shift_list xs2 m l i in
+       (App t loc_opt c1 c2)) /\
+  (shift_sing (Fn t loc vs_opt num_args x1) m l i =
+     let k = m + l in
+     let vs = case vs_opt of NONE => [] | SOME vs => vs in
+     let live = FILTER (\n. n < k) vs in
+     let vars = MAP (get_var m l i) live in
+     let c1 = shift_sing x1 k num_args (shifted_env 0 live) in
+       (Fn t loc (SOME vars) num_args c1)) /\
+  (shift_sing (Letrec t loc vsopt fns x1) m l i =
+     let vs = case vsopt of NONE => [] | SOME x => x in
+     let k = m + l in
+     let live = FILTER (\n. n < k) vs in
+     let vars = MAP (get_var m l i) live in
+     let new_i = shifted_env 0 live in
+     let fns_len = LENGTH fns in
+     let cs = shift_letrec fns_len k new_i fns in
+     let c1 = shift_sing x1 m (l + LENGTH fns) i in
+       (Letrec t loc (SOME vars) cs c1)) /\
+  (shift_sing (Handle t x1 x2) m l i =
+     let c1 = shift_sing x1 m l i in
+     let c2 = shift_sing x2 m (l+1) i in
+       (Handle t c1 c2)) /\
+  (shift_sing (Call t ticks dest xs) m l i =
+     let c1 = shift_list xs m l i in
+       (Call t ticks dest c1)) ∧
+
+  (shift_list [] (m:num) (l:num) (i:num num_map) = []) /\
+  (shift_list ((x:closLang$exp)::xs) m l i =
+     let c1 = shift_sing x m l i in
+     let c2 = shift_list xs m l i in
+       (c1 :: c2:closLang$exp list)) ∧
+
+  (shift_letrec fns_len k new_i [] = []) ∧
+  (shift_letrec fns_len k new_i ((n,x)::rest) =
+     let c = shift_sing x k (n + fns_len) new_i in
+       (n,c) :: shift_letrec fns_len k new_i rest)
+Termination
+  WF_REL_TAC `measure $ λx. case x of INL (e,_,_,_) => exp_size e
+                                    | INR (INL (es,_,_,_)) => exp3_size es
+                                    | INR (INR (_,_,_,l)) => exp1_size l`
+End
+
+Theorem shift_sing_eq:
+  (∀e m l i. shift [e] m l i = [shift_sing e m l i]) ∧
+  (∀es m l i. shift es m l i = shift_list es m l i) ∧
+  (∀fns_len k new_i fns.
+     EVERY (λ(n,e). shift [e] k (n + fns_len) new_i =
+                    [shift_sing e k (n + fns_len) new_i]) fns ∧
+     shift_letrec fns_len k new_i fns =
+       MAP (λ(n,x). let c = shift_sing x k (n + fns_len) new_i in
+                      (n,c)) fns)
+Proof
+  ho_match_mp_tac shift_sing_ind >> reverse $ rw[shift_def, shift_sing_def]
+  >- (Cases_on `es` >> gvs[shift_def, shift_sing_def]) >>
+  rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
+  gvs [EVERY_MEM] >> res_tac >> fs []
+QED
+
 Theorem shift_LENGTH_LEMMA:
    !xs m l i. LENGTH (shift xs m l i) = LENGTH xs
 Proof
@@ -247,5 +425,37 @@ End
 Definition compile_inc_def:
   compile_inc (e,aux) = (annotate 0 e,clos_annotate$compile aux)
 End
+
+(* cv versions *)
+
+Definition annotate_sing_def:
+  annotate_sing arity x = shift_sing (FST (alt_free_sing x)) 0 arity LN
+End
+
+Definition annotate_list_def:
+  annotate_list arity xs = shift_list (FST (alt_free_list xs)) 0 arity LN
+End
+
+Theorem annotate_sing_eq:
+  annotate arity [e] = [annotate_sing arity e] ∧
+  annotate arity es = annotate_list arity es
+Proof
+  simp[annotate_def, annotate_sing_def, annotate_list_def] >>
+  simp[alt_free_sing_eq, shift_sing_eq] >>
+  pairarg_tac >> gvs[shift_sing_def]
+QED
+
+Theorem compile_eq:
+  compile prog =
+    MAP (λ(n,args,exp). (n,args, annotate_sing args exp)) prog
+Proof
+  simp[compile_def, annotate_sing_eq]
+QED
+
+Theorem compile_inc_eq:
+  compile_inc (e,aux) = (annotate_list 0 e, clos_annotate$compile aux)
+Proof
+  simp[compile_inc_def, annotate_sing_eq]
+QED
 
 val _ = export_theory();

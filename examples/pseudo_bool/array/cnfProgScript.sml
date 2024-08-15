@@ -83,6 +83,7 @@ Theorem parse_dimacs_body_arr_spec:
 Proof
   Induct
   \\ simp []
+  \\ rpt strip_tac
   \\ xcf "parse_dimacs_body_arr" (get_ml_prog_state ())
   THEN1 (
     xlet ‘(POSTv v.
@@ -204,6 +205,7 @@ Theorem parse_dimacs_toks_arr_spec:
 Proof
   Induct
   \\ simp []
+  \\ rw[]
   \\ xcf "parse_dimacs_toks_arr" (get_ml_prog_state ())
   THEN1 (
     xlet ‘(POSTv v.
@@ -577,7 +579,7 @@ val check_unsat_2 = (append_prog o process_topdecs) `
     case default_nobjf of (nobjt,nfmlt) =>
     (case
       ores_to_string (
-        check_unsat_top (plainlim_ns nv) fml None nfmlt nobjt f2) of
+        check_unsat_top False (plainlim_ns nv) fml None nfmlt nobjt f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s)`
 
@@ -629,7 +631,11 @@ Proof
   gvs[default_nobjf_def,PAIR_TYPE_def]>>
   qpat_x_assum`_ = default_nobjf_v` (assume_tac o SYM)>>
   xmatch>>
-  rpt xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet`POSTv v. STDIO fs * &BOOL F v`
+  >-
+    (xcon>>xsimpl)>>
   xlet`POSTv v.
     STDIO fs *
     SEP_EXISTS res.
@@ -643,7 +649,8 @@ Proof
            sem_concl (set (fml_to_pbf fml)) NONE concl
         | INL l => T)`
   >- (
-    drule check_unsat_top_spec>>
+    drule_at (Pos (el 2)) check_unsat_top_spec>>
+    disch_then drule>>
     strip_tac>>
     xapp>>
     xsimpl>>
@@ -775,7 +782,7 @@ Proof
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb_cnf <OPB file> <optional: PB proof file>\n"
+  usage_string = strlit "Usage: cake_pb_cnf <DIMACS CNF file> <optional: PB proof file>\n"
 End
 
 val r = translate usage_string_def;

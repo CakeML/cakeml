@@ -11,7 +11,7 @@ open preamble backendTheory
      riscv_compileLib export_riscvTheory
      ag32_compileLib export_ag32Theory
      x64_compileLib export_x64Theory
-    mlstringSyntax presLangLib
+     mlstringSyntax mlmapTheory presLangLib
 
 val _ = Globals.max_print_depth := 20;
 
@@ -1586,6 +1586,11 @@ val (word_directive, add_encode_compset, backend_config_def,
 
 val intermediate_prog_prefix = ref ""
 
+(*
+val backend_config_def = arm8_backend_config_def
+val cbv_to_bytes = cbv_to_bytes_arm8
+*)
+
 fun compile backend_config_def cbv_to_bytes name prog_def =
   let
     val cs = compilation_compset()
@@ -1607,8 +1612,22 @@ fun compile backend_config_def cbv_to_bytes name prog_def =
     val code_name = (!intermediate_prog_prefix) ^ "code"
     val data_name = (!intermediate_prog_prefix) ^ "data"
     val config_name = (!intermediate_prog_prefix) ^ "config";
+    val oracle_name = (!intermediate_prog_prefix) ^ "oracle";
+
+    val oracle_def = definition(mk_abbrev_name "oracle");
+
+    val stack_to_lab_thm' =
+      if oracle_name = "oracle" then stack_to_lab_thm
+      else
+      let
+        val oracle_name_def = mk_abbrev oracle_name (rconc oracle_def);
+        val oracle_eq = oracle_def |> PURE_REWRITE_RULE[GSYM oracle_name_def]
+      in
+        stack_to_lab_thm |> PURE_REWRITE_RULE[oracle_eq]
+      end;
+
     val from_word_0_thm =
-      cbv_to_bytes stack_to_lab_thm lab_prog_def code_name data_name config_name (name^".S");
+      cbv_to_bytes stack_to_lab_thm' lab_prog_def code_name data_name config_name (name^".S");
 
     val final_thm = compose_to_word_0_from_word_0 to_word_0_thm from_word_0_thm
   in final_thm end

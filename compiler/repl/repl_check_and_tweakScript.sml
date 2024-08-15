@@ -26,14 +26,6 @@ End
 
 (* main correctness result *)
 
-Definition infertype_prog_inc_def:
-  infertype_prog_inc (ienv, next_id) prog =
-  case infer_ds ienv prog (init_infer_state <| next_id := next_id |>) of
-    (Success new_ienv, st) =>
-    (Success (extend_dec_ienv new_ienv ienv, st.next_id))
-  | (Failure x, _) => Failure x
-End
-
 Theorem check_and_tweak: (* used in replProof *)
   check_and_tweak (decs,types,input_str) = INR (safe_decs,new_types) ⇒
   infertype_prog_inc (SND types) safe_decs = Success (SND new_types) ∧

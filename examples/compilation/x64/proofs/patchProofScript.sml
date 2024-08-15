@@ -17,7 +17,7 @@ val (patch_sem,patch_output) = patch_io_events_def |> SPEC_ALL |> UNDISCH |> CON
 val (patch_not_fail,patch_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail patch_sem |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct patch_compiled
+  MATCH_MP compile_correct (cj 1 patch_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP patch_not_fail
   |> C MATCH_MP x64_backend_config_ok

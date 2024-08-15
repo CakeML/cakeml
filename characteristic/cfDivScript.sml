@@ -4174,25 +4174,25 @@ Proof
 QED
 
 Theorem repeat_POSTe:
-    !p fv xv H Q.
-      (?Hs vs j.
-         vs 0 = xv /\ H ==>> Hs 0 /\
-         (!i. i < j ==>
-            app p fv [vs i] (Hs i)
-                            (POSTv v. &(v = vs (SUC i)) * Hs (SUC i))) /\
-         app p fv [vs j] (Hs j) ($POSTe Q))
-      ==>
-      app p repeat_v [fv; xv] H ($POSTe Q)
+  !(p: 'ffi ffi_proj) fv xv H Q.
+    (?Hs vs j.
+        vs 0 = xv /\ H ==>> Hs 0 /\
+        (!i. i < j ==>
+          app p fv [vs i] (Hs i) (POSTv v. &(v = vs (SUC i)) * Hs (SUC i))) /\
+        app p fv [vs j] (Hs j) ($POSTe Q)) ==>
+          app p repeat_v [fv; xv] H ($POSTe Q)
 Proof
   rpt strip_tac
   \\ `!i. i <= j ==> app p repeat_v [fv; vs i] (Hs i) ($POSTe Q)` by (
     rpt strip_tac
     \\ Induct_on `j - i`
     THEN1 (
-      xcf "repeat" st
+      rpt strip_tac
+      \\ xcf "repeat" st
       \\ `i = j` by decide_tac \\ rveq
       \\ xlet `$POSTe Q` THEN1 xapp
       \\ xsimpl)
+    \\ rpt strip_tac
     \\ xcf "repeat" st
     \\ `i < j` by decide_tac
     \\ xlet `POSTv v. &(v = vs (SUC i)) * Hs (SUC i)`

@@ -65,6 +65,59 @@ Proof
   \\ rw [] \\ CASE_TAC \\ simp []
 QED
 
+Definition let_op_sing_def:
+  (let_op_sing (Var t v) = (Var t v)) /\
+  (let_op_sing (If t x1 x2 x3) =
+     (If t ( (let_op_sing (x1)))
+           ( (let_op_sing (x2)))
+           ( (let_op_sing (x3))))) /\
+  (let_op_sing (Let t xs x2) =
+     let xs = let_op_list xs in
+     let x2 =  (let_op_sing (x2)) in
+       case dest_op x2 xs of
+       | SOME op => (Op t op xs)
+       | NONE => (Let t xs x2)) /\
+  (let_op_sing (Raise t x1) =
+     (Raise t ( (let_op_sing (x1))))) /\
+  (let_op_sing (Handle t x1 x2) =
+     (Handle t ( (let_op_sing (x1)))
+              ( (let_op_sing (x2))))) /\
+  (let_op_sing (Op t op xs) =
+     (Op t op (let_op_list xs))) /\
+  (let_op_sing (Tick t x) = (Tick t ( (let_op_sing (x))))) /\
+  (let_op_sing (Call t ticks dest xs) = (Call t ticks dest (let_op_list xs))) /\
+  (let_op_sing (App t loc_opt x1 xs) = (App t loc_opt ( (let_op_sing (x1))) (let_op_list xs))) /\
+  (let_op_sing (Letrec t loc_opt vs fns x1) =
+     let new_fns = let_op_let fns in
+     (Letrec t loc_opt vs new_fns ( (let_op_sing (x1))))) /\
+  (let_op_sing (Fn t loc_opt vs num_args x1) = (Fn t loc_opt vs num_args ( (let_op_sing (x1))))) ∧
+  (let_op_list [] = []) /\
+  (let_op_list ((x:closLang$exp)::xs) =
+   let_op_sing x :: let_op_list xs) ∧
+  (let_op_let [] = []) /\
+  (let_op_let ((num_args,x:closLang$exp)::xs) =
+   (num_args, let_op_sing x) :: let_op_let xs)
+Termination
+  wf_rel_tac ‘measure $ λx. case x of
+                            | INL x => exp_size x
+                            | INR(INL x) => exp3_size x
+                            | INR(INR x) => exp1_size x’
+End
+
+Theorem let_op_sing_eq:
+  (∀e. let_op [e] = [let_op_sing e]) ∧
+  (∀es. let_op es = let_op_list es) ∧
+  (∀fns.
+    let_op_let fns =
+    MAP (λ(num_args, x). (num_args, HD (let_op [x]))) fns
+  )
+Proof
+  ho_match_mp_tac let_op_sing_ind >>
+  reverse $ rw[let_op_def, let_op_sing_def]
+  >- (Cases_on `es` >> gvs[let_op_def, let_op_sing_def]) >>
+  rpt(PURE_TOP_CASE_TAC >> gvs[])
+QED
+
 val compile_inc_def = Define `
   compile_inc (e, xs) = (let_op e, [])`;
 

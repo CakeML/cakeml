@@ -24,7 +24,7 @@ Theorem double_spec:
         ⇒ app (p:'ffi ffi_proj) ^(fetch_v "double" (basis_st())) [x_v]
         emp (POSTv v. &(NUM (2 * x) v))
 Proof
-    Induct_on `x` >>
+    Induct_on `x` >> rw [] >>
     xcf "double" (basis_st())
     >- (xlet_auto
         >- xsimpl
@@ -63,6 +63,7 @@ Theorem double_tail_rec_spec:
         ⇒ app (p:'ffi ffi_proj) ^(fetch_v "double_tail_rec" (basis_st())) [x_v]
         emp (POSTv v. &(NUM (2 * x) v))
 Proof
+    rw [] >>
     xcf "double_tail_rec" (basis_st()) >>
     xlet_auto
         >- xsimpl >>
@@ -129,7 +130,7 @@ Theorem double_ref_spec:
                 (ret_ref ~~> ret_v) * &(NUM (2 * inp) ret_v))
         )
 Proof
-    Induct_on `inp` >>
+    Induct_on `inp` >> rw [] >>
     xcf "double_ref" (basis_st())
     >- (xlet_auto
         >- xsimpl
@@ -197,7 +198,7 @@ Theorem double_ref_same_spec:
             )
         )
 Proof
-    Induct_on `inp` >>
+    Induct_on `inp` >> rw [] >>
     xcf "double_ref_same" (basis_st())
     >- (
         xlet_auto

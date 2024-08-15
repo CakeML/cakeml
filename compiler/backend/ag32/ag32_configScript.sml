@@ -30,7 +30,8 @@ val ag32_backend_config_def = Define`
                stack_conf:=^(ag32_stack_conf);
                lab_conf:=^(ag32_lab_conf);
                symbols:=[];
-               tap_conf:=default_tap_config
+               tap_conf:=default_tap_config;
+               exported:=[]
                |>`;
 
 val _ = export_theory();

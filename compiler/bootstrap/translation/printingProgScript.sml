@@ -3,13 +3,13 @@
 *)
 
 open preamble ml_translatorLib ml_translatorTheory
-     sexp_parserProgTheory std_preludeTheory printTweaksTheory
+     basis_defProgTheory std_preludeTheory printTweaksTheory
 
 val _ = set_grammar_ancestry ["infer","misc"];
 
 val _ = new_theory "printingProg"
 
-val _ = translation_extends "sexp_parserProg";
+val _ = translation_extends "basis_defProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "printingProg");
 

@@ -115,7 +115,7 @@ Theorem md5_of_SOME:
                       retv))
 Proof
   rpt strip_tac
-  \\ xcf_with_def "md5_of" md5_of_v_def
+  \\ xcf_with_def md5_of_v_def
   \\ assume_tac md5_update_v
   \\ assume_tac init_v
   \\ drule_all (foldChars_SOME |> GEN_ALL)
@@ -144,7 +144,7 @@ Theorem md5_of_NONE:
                  & (OPTION_TYPE STRING_TYPE (SOME (implode (md5 text))) retv))
 Proof
   rpt strip_tac
-  \\ xcf_with_def "md5_of" md5_of_v_def
+  \\ xcf_with_def md5_of_v_def
   \\ assume_tac md5_update_v
   \\ assume_tac init_v
   \\ drule_all (foldChars_NONE |> GEN_ALL)

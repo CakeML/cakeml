@@ -2,7 +2,7 @@
   Prove completeness of the type inferencer for the expression-level.
 *)
 open preamble;
-open libTheory typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory;
+open libTheory typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory infer_tTheory;
 open astPropsTheory;
 open typeSysPropsTheory;
 open inferPropsTheory;
@@ -1111,7 +1111,7 @@ val infer_type_subst_check_t_less = Q.prove(
   strip_tac>>
   Induct>>rw[]
   >-
-    (fs[check_freevars_def,infer_type_subst_def]>>
+    (fs[check_freevars_def,infer_type_subst_alt]>>
     `?x. ALOOKUP (ZIP(tvs,ls)) s = SOME x` by
       (SPOSE_NOT_THEN assume_tac>>
       imp_res_tac NOT_SOME_NONE>>
@@ -1121,7 +1121,7 @@ val infer_type_subst_check_t_less = Q.prove(
     Q.ISPECL_THEN [`tvs`,`ls`,`s,x`] assume_tac MEM_ZIP>> rfs[]>>
     metis_tac[EVERY_EL])
   >>
-    fs[infer_type_subst_def,check_t_def,check_freevars_def]>>
+    fs[infer_type_subst_alt,check_t_def,check_freevars_def]>>
     fs[EVERY_MAP]>>metis_tac[]);
 
 Theorem infer_p_complete:
@@ -1657,8 +1657,8 @@ val convert_infer_deBruijn_subst = Q.prove(`
   check_t (LENGTH subst) {} t ⇒
   convert_t (infer_deBruijn_subst subst t) =
   deBruijn_subst 0 (MAP convert_t subst) (convert_t t)`,
-  ho_match_mp_tac infer_deBruijn_subst_ind>>
-  rw[]>>
+  gen_tac \\ ho_match_mp_tac infer_t_ind >>
+  rw[infer_deBruijn_subst_alt]>>
   EVAL_TAC>>simp[EL_MAP]>>rw[]>>fs[check_t_def]>>
   fs[MAP_MAP_o,MAP_EQ_f]>>rw[]>>
   first_assum (match_mp_tac o MP_CANON)>>
@@ -1683,7 +1683,7 @@ val t_walkstar_infer_db_subst = Q.prove(`
   imp_res_tac t_wfs_SUBMAP>>
   ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[]>>
-  fs[infer_deBruijn_subst_def]
+  fs[infer_deBruijn_subst_alt]
   >-
     (IF_CASES_TAC>>fs[LENGTH_COUNT_LIST,EL_MAP,check_t_def,EL_COUNT_LIST])
   >-

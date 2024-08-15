@@ -116,6 +116,7 @@ Theorem insertsort_spec:
               PERM (ZIP (elems', elem_vs')) (ZIP (elems, elem_vs)) ∧
               SORTED (\x y. ¬(cmp y x)) elems'))
 Proof
+  rpt strip_tac >>
   xcf "insertsort" insertsort_st >>
   xfun_spec `outer_loop`
     `!elem_vs2 elems1 elems2 elem_vs1 prefix_v.

@@ -19,7 +19,7 @@ val (wordcount_sem,wordcount_output) = wordcount_io_events_def |> SPEC_ALL |> UN
 val (wordcount_not_fail,wordcount_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail wordcount_sem |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct wordcount_compiled
+  MATCH_MP compile_correct (cj 1 wordcount_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP wordcount_not_fail
   |> C MATCH_MP x64_backend_config_ok

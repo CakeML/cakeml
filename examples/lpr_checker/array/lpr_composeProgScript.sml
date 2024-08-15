@@ -220,7 +220,7 @@ Theorem line_count_of_spec:
       & (OPTION_TYPE NUM (SOME (LENGTH (lines_of (strlit proof)))) retv))
 Proof
   rpt strip_tac
-  \\ xcf_with_def "line_count_of" (fetch "-" "line_count_of_v_def")
+  \\ xcf_with_def (fetch "-" "line_count_of_v_def")
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ assume_tac add_one_v
   \\ drule_at Any TextIOProofTheory.foldLines_SOME
@@ -275,7 +275,7 @@ Theorem check_compose_spec:
       & (UNIT_TYPE () retv))
 Proof
   rpt strip_tac
-  \\ xcf_with_def "check_compose" (fetch "-" "check_compose_v_def")
+  \\ xcf_with_def (fetch "-" "check_compose_v_def")
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ rw []
   \\ xlet ‘(POSTv retv. STDIO fs * &OPTION_TYPE STRING_TYPE
@@ -338,7 +338,7 @@ Theorem check_compose_spec_fail:
         STDIO (add_stderr fs err))
 Proof
   rpt strip_tac
-  \\ xcf_with_def "check_compose" (fetch "-" "check_compose_v_def")
+  \\ xcf_with_def (fetch "-" "check_compose_v_def")
   \\ reverse (Cases_on ‘STD_streams fs’)
   THEN1 (fs [STDIO_def] \\ xpull)
   \\ reverse (Cases_on ‘consistentFS fs’)

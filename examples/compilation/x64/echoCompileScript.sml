@@ -1,11 +1,11 @@
 (*
   Compiles the echo example by evaluation inside the logic of HOL
 *)
-open preamble compilationLib echoProgTheory
+open preamble echoProgTheory eval_cake_compile_x64Lib
 
 val _ = new_theory "echoCompile"
 
-val echo_compiled = save_thm("echo_compiled",
-  compile_x64 "echo" echo_prog_def);
+Theorem echo_compiled =
+  eval_cake_compile_x64 "" echo_prog_def "echo.S";
 
 val _ = export_theory ();

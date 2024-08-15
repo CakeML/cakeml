@@ -16,6 +16,7 @@
 *.S
 
 # Generated tarball
+cake-arm-64.tar.gz
 cake-x64-64.tar.gz
 config_enc_str.txt
 

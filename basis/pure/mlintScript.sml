@@ -34,14 +34,14 @@ Theorem maxSmall_DEC_def = EVAL ``maxSmall_DEC``
 val exp_thm = EVAL ``10n ** exp_for_dec_enc``
 val exp_tm = rhs (concl exp_thm)
 
-Definition num_to_rev_chars_def:
-  num_to_rev_chars i 0 k = num_to_rev_chars (i DIV ^exp_tm)
-        exp_for_dec_enc ((i MOD ^exp_tm) + k) /\
-  num_to_rev_chars i (SUC j) k = (if k < 10 /\ i = 0 then [toChar k]
-        else toChar (k MOD 10) :: num_to_rev_chars i j (k DIV 10))
+Definition num_to_chars_def:
+  num_to_chars i 0 k acc = num_to_chars (i DIV ^exp_tm)
+        exp_for_dec_enc ((i MOD ^exp_tm) + k) acc /\
+  num_to_chars i (SUC j) k acc = (if k < 10 /\ i = 0 then toChar k :: acc
+        else num_to_chars i j (k DIV 10) (toChar (k MOD 10) :: acc))
 Termination
   WF_REL_TAC `inv_image (measure I LEX measure I)
-    (\(i, j, k). (i * (10 ** j)) + k, exp_for_dec_enc - j)`
+    (\(i, j, k, _). (i * (10 ** j)) + k, exp_for_dec_enc - j)`
   \\ simp [GSYM DIVISION, GSYM exp_thm]
   \\ rw [exp_for_dec_enc_def]
   \\ simp [EXP]
@@ -59,16 +59,18 @@ Proof
   \\ CCONTR_TAC \\ fs []
 QED
 
-Theorem num_to_rev_chars_thm:
-  !i j k. num_to_rev_chars i j k = REVERSE (num_to_dec_string (k + (i * (10 ** j))))
+Theorem num_to_chars_thm:
+  !i j k acc.
+    num_to_chars i j k acc =
+    num_to_dec_string (k + (i * (10 ** j))) ++ acc
 Proof
-  ho_match_mp_tac num_to_rev_chars_ind
+  ho_match_mp_tac num_to_chars_ind
   \\ simp [GSYM DIVISION, GSYM exp_thm]
   \\ simp [num_to_dec_string_def, n2s_def]
   \\ rw []
-  >- simp [num_to_rev_chars_def, GSYM exp_thm]
+  >- simp [num_to_chars_def, GSYM exp_thm]
   \\ REWRITE_TAC [Once numposrepTheory.n2l_def]
-  \\ simp [num_to_rev_chars_def, ZERO_EXP, add_lt_divisible_iff]
+  \\ simp [num_to_chars_def, ZERO_EXP, add_lt_divisible_iff]
   \\ simp [arithmeticTheory.ADD_DIV_RWT, EXP]
   \\ simp [arithmeticTheory.MULT_DIV |> REWRITE_RULE [Once MULT_COMM]]
   \\ rw []
@@ -79,8 +81,8 @@ QED
 Definition int_to_string_def:
   int_to_string neg_char i =
     (if 0i <= i
-        then implode (REVERSE (num_to_rev_chars (Num i) 0 0))
-        else implode ([neg_char] ++ REVERSE (num_to_rev_chars (Num (ABS i)) 0 0)))
+        then implode (num_to_chars (Num i) 0 0 [])
+        else implode (neg_char :: num_to_chars (Num (ABS i)) 0 0 []))
 End
 
 Definition toString_def1:
@@ -93,7 +95,7 @@ Theorem int_to_string_thm:
   int_to_string neg_char i =
   implode ((if i < 0i then [neg_char] else []) ++ num_to_dec_string (Num (ABS i)))
 Proof
-  rw[int_to_string_def, num_to_rev_chars_thm, integerTheory.INT_ABS]
+  rw[int_to_string_def, num_to_chars_thm, integerTheory.INT_ABS]
   \\ `F` by intLib.COOPER_TAC
 QED
 

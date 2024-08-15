@@ -8,7 +8,7 @@ open ml_monadBaseTheory ml_monadBaseLib;
 
 val _ = new_theory "compute_eval";
 
-val _ = numLib.prefer_num ();
+val _ = numLib.temp_prefer_num ();
 
 (* -------------------------------------------------------------------------
  * st_ex_monad setup

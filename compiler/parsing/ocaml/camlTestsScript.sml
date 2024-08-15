@@ -124,6 +124,15 @@ end;
 
 fun parsetest t1 t2 s = parsetest0 t1 t2 s NONE;
 
+exception ExpectedFailure;
+fun expectFailure prefix test =
+  (test (); raise ExpectedFailure)
+  handle Fail m =>
+    if String.isPrefix ("Failed " ^ prefix) m then
+      print ("OK, failed as expected, message: " ^ m ^ "\n")
+    else
+      (print "Unexpected failure!\n"; raise Fail m);
+
 (* -------------------------------------------------------------------------
  * Various identifiers
  * ------------------------------------------------------------------------- *)
@@ -209,12 +218,10 @@ val _ = parsetest0 “nStart” “ptree_Start”
           Dlet L2 (Pv "y") (V "y")]”)
   ;
 
-(* This fails, as expected:
-val _ = parsetest0 “nStart” “ptree_Start”
-  "let x = (*CML val x = x; *) 6;;"
-  NONE
-  ;
- *)
+val _ = expectFailure "REMAINING INPUT"
+      (fn () => parsetest0 “nStart” “ptree_Start”
+                           "let x = (*CML val x = x; *) 6;;"
+                           NONE);
 
 (* -------------------------------------------------------------------------
  * Types
@@ -279,52 +286,61 @@ val _ = tytest0 "('a,'b) d"
  * Patterns
  * ------------------------------------------------------------------------- *)
 
+Definition mkpat_def:
+  mkpat p = INR p : (modN, varN) id # string list + pat
+End
+
+val eval = rconc o EVAL;
+
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "Cc a as i, Dd b as j" (* = ((Cc a as i), Dd b) as j *)
-  (SOME “[Pas (Pcon NONE [Pas (Pc "Cc" [Pv "a"]) "i"; Pc "Dd" [Pv "b"]]) "j"]”)
+  (SOME $ eval “[mkpat $ Pas (Pcon NONE [Pas (Pc "Cc" [Pv "a"]) "i";
+                                         Pc "Dd" [Pv "b"]]) "j"]” )
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "(x) as i :: j" (* = (x as i) :: j *)
-  (SOME “[Pc "::" [Pas (Pv "x") "i"; Pv "j"]]”)
+  (SOME $ eval “[mkpat $ Pc "::" [Pas (Pv "x") "i"; Pv "j"]]”)
   ;
 
 (* , is below :: in prec. but we can raise it by wrapping it with 'as i' *)
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "x,y as i :: j"
-  (SOME “[Pc "::" [Pas (Pcon NONE [Pv "x"; Pv "y"]) "i"; Pv "j"]]”)
+  (SOME $ eval “[mkpat $ Pc "::" [Pas (Pcon NONE [Pv "x"; Pv "y"]) "i";
+                                  Pv "j"]]”)
   ;
 
 (* can nest 'as' arbitrarily deep (though its a pretty useless feature) *)
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "x as i as j as k"
-  (SOME “[Pas (Pas (Pas (Pv "x") "i") "j") "k"]”)
+  (SOME $ eval “[mkpat $ Pas (Pas (Pas (Pv "x") "i") "j") "k"]”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "x as i as j as k :: j"
-  (SOME “[Pc "::" [Pas (Pas (Pas (Pv "x") "i") "j") "k"; Pv "j"]]”)
+  (SOME $ eval “[mkpat $ Pc "::" [Pas (Pas (Pas (Pv "x") "i") "j") "k";
+                                  Pv "j"]]”)
   ;
 
 (* as needs to bind anything to its left *)
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "x as i :: y as j"
-  (SOME “[Pas (Pc "::" [Pas (Pv "x") "i"; Pv "y"]) "j"]”)
+  (SOME $ eval “[mkpat $ Pas (Pc "::" [Pas (Pv "x") "i"; Pv "y"]) "j"]”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "x as i :: y as j :: z as k"
-  (SOME “[Pas (Pc "::" [
+  (SOME $ eval “[mkpat $ Pas (Pc "::" [
                  Pas (Pc "::" [Pas (Pv "x") "i"; Pv "y"]) "j"; Pv "z"])
               "k"]”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "x,y as i :: y as j :: z as k"
-  (SOME “[Pas (Pc "::" [
+  (SOME $ eval “[mkpat $ Pas (Pc "::" [
                  Pas (Pc "::" [Pas (Pcon NONE [Pv "x"; Pv "y"]) "i";
                                Pv "y"]) "j";
                  Pv "z"]) "k"]”)
@@ -332,46 +348,47 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "a, b | c, d"
-  (SOME “[Pcon NONE [Pv "a"; Pv "b"];
-          Pcon NONE [Pv "c"; Pv "d"]]”)
+  (SOME $ eval “[mkpat $ Pcon NONE [Pv "a"; Pv "b"];
+                 mkpat $ Pcon NONE [Pv "c"; Pv "d"]]”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "Comb (a,b) as c, d"
-  (SOME “[Pcon NONE [Pas (Pc "Comb" [Pv "a"; Pv "b"]) "c"; Pv "d"]]”)
+  (SOME $ eval “[mkpat $ Pcon NONE [Pas (Pc "Comb" [Pv "a"; Pv "b"]) "c";
+                 Pv "d"]]”)
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "false::[]"
-  (SOME “[Pc "::" [Pc "False" []; Pc "[]" []]]”)
+  (SOME $ eval “[mkpat $ Pc "::" [Pc "False" []; Pc "[]" []]]”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "x as y"
-  (SOME “[Pas (Pvar "x") "y"]”)
+  (SOME $ eval “[mkpat $ Pas (Pvar "x") "y"]”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "x | y"
-  (SOME “[Pvar "x"; Pvar "y"]”)
+  (SOME $ eval “[mkpat $ Pvar "x"; mkpat $ Pvar "y"]”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "Some x | y"
-  (SOME “[Pc "Some" [Pvar "x"]; Pvar "y"]”)
+  (SOME $ eval “[mkpat $ Pc "Some" [Pvar "x"]; mkpat $ Pvar "y"]”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "y,z,x"
-  (SOME “[Pcon NONE [Pvar "y"; Pvar "z"; Pvar "x"]]”)
+  (SOME $ eval “[mkpat $ Pcon NONE [Pvar "y"; Pvar "z"; Pvar "x"]]”)
   ;
 
 (* Make sure or-patterns distribute OK *)
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "Some (x | Inl (y | z))"
-  (SOME “[Pc "Some" [Pv "x"];
-          Pc "Some" [Pc "Inl" [Pv "y"]];
-          Pc "Some" [Pc "Inl" [Pv "z"]]]”)
+  (SOME $ eval “[mkpat $ Pc "Some" [Pv "x"];
+                 mkpat $ Pc "Some" [Pc "Inl" [Pv "y"]];
+                 mkpat $ Pc "Some" [Pc "Inl" [Pv "z"]]]”)
   ;
 
 (* Make sure the precedence parser can handle commas correctly
@@ -380,32 +397,32 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "(y,z),x"
-  (SOME “[Pcon NONE [Pcon NONE [Pvar "y"; Pvar "z"]; Pvar "x"]]”)
+  (SOME $ eval “[mkpat $ Pcon NONE [Pcon NONE [Pvar "y"; Pvar "z"]; Pvar "x"]]”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "y,(z,x)"
-  (SOME “[Pcon NONE [Pv "y"; Pcon NONE [Pvar "z"; Pvar "x"]]]”)
+  (SOME $ eval “[mkpat $ Pcon NONE [Pv "y"; Pcon NONE [Pvar "z"; Pvar "x"]]]”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "(x: int)"
-  (SOME “[Ptannot (Pvar "x") (Atapp [] (Short "int"))]”)
+  (SOME $ eval “[mkpat $ Ptannot (Pvar "x") (Atapp [] (Short "int"))]”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "Aa (Bb (Cc x))"
-  (SOME “[Pc "Aa" [Pc "Bb" [Pc "Cc" [Pvar "x"]]]]”)
+  (SOME $ eval “[mkpat $ Pc "Aa" [Pc "Bb" [Pc "Cc" [Pvar "x"]]]]”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "a :: 1"
-  (SOME “[Pc "::" [Pvar "a"; Plit (IntLit 1)]]”)
+  (SOME $ eval “[mkpat $ Pc "::" [Pvar "a"; Plit (IntLit 1)]]”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "[a,b ; c]"
-  (SOME “[Pc "::" [Pcon NONE [Pvar "a"; Pvar "b"];
+  (SOME $ eval “[mkpat $ Pc "::" [Pcon NONE [Pvar "a"; Pvar "b"];
                    Pc "::" [Pvar "c"; Pc "[]" []]]]”)
   ;
 
@@ -423,8 +440,9 @@ val _ = parsetest0 “nPattern” “ptree_PPattern”
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "a,b :: c, d | zs as i"
-  (SOME (“[Pas (Pcon NONE [Pv "a"; Pc "::" [Pv "b"; Pv "c"]; Pv "d"]) "i";
-           Pas (Pv "zs") "i"]”))
+  (SOME $ eval “[mkpat $ Pas (Pcon NONE [Pv "a"; Pc "::" [Pv "b"; Pv "c"];
+                                   Pv "d"]) "i";
+                 mkpat $ Pas (Pv "zs") "i"]”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_PPattern”
@@ -440,7 +458,7 @@ val _ = parsetest0 “nPattern” “ptree_PPattern”
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "Cn(x,(y as z))"
-  (SOME “[Pc "Cn" [Pcon NONE [Pv "x"; Pas (Pv "y") "z"]]]”)
+  (SOME $ eval “[mkpat $ Pc "Cn" [Pcon NONE [Pv "x"; Pas (Pv "y") "z"]]]”)
   ;
 
 (* -------------------------------------------------------------------------
@@ -450,41 +468,58 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
 (* record projection and update *)
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
-  "x.foo"
-  (SOME (rconc $ EVAL “App Opapp [V (mk_record_proj_name "foo"); V "x"]”))
+  "x.Cons.foo"
+  (SOME $ eval “App Opapp [V (mk_record_proj_name "foo" "Cons");
+                           V "x"]”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
-  "{x with foo = bar}"
-  (SOME (rconc $ EVAL “App Opapp [App Opapp [
-                        V (mk_record_update_name "foo"); V "x"]; V "bar"]”))
+  "Foo {x with foo = bar}"
+  (SOME $ eval “App Opapp [App Opapp [
+                        V (mk_record_update_name "foo" "Foo"); V "x"];
+                        V "bar"]”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
-  "{x with foo = bar;}"
-  (SOME (rconc $ EVAL “App Opapp [App Opapp [
-                        V (mk_record_update_name "foo"); V "x"]; V "bar"]”))
+  "Foo {x with foo = bar;}"
+  (SOME $ eval “App Opapp [App Opapp [
+                        V (mk_record_update_name "foo" "Foo"); V "x"];
+                        V "bar"]”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
-  "{x with foo = bar; baz = quux;}"
-  (SOME (rconc $ EVAL “App Opapp [App Opapp [V (mk_record_update_name "baz");
-           App Opapp [App Opapp [V (mk_record_update_name "foo");
-             V "x"]; V "bar"]]; V "quux"]”))
+  "Foo {x with foo = bar; baz = quux;}"
+  (SOME $ eval “App Opapp [App Opapp [V (mk_record_update_name "baz" "Foo");
+           App Opapp [App Opapp [V (mk_record_update_name "foo" "Foo");
+             V "x"]; V "bar"]]; V "quux"]”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Bar.Foo {x with foo = bar; baz = quux;}"
+  (SOME $ eval “App Opapp [App Opapp [
+                  Var (Long "Bar" (Short (mk_record_update_name "baz" "Foo")));
+                  App Opapp [App Opapp [
+                    Var (Long "Bar" (Short (mk_record_update_name "foo" "Foo")));
+                    V "x"]; V "bar"]]; V "quux"]”)
   ;
 
 (* construction *)
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "Foo { foo = 5; bar = true }"
-  (SOME (rconc $ EVAL
+  (SOME $ eval
     “App Opapp [App Opapp [V (mk_record_constr_name "Foo" ["bar";"foo"]);
                            (C "True" [])];
-                    Lit (IntLit 5)]”))
+                    Lit (IntLit 5)]”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "Foo { f2 = 2; f1 = 1; f3 = 3;}"
+  NONE
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "Bar.Foo { f2 = 2; f1 = 1; f3 = 3;}"
   NONE
   ;
 
@@ -497,24 +532,51 @@ val _ = parsetest0 “nStart” “ptree_Start”
 
 val _ = parsetest0 “nStart” “ptree_Start”
   "type rec1 = Foo of {foo: int; bar: bool};;"
-  (SOME (rconc $ EVAL “
+  (SOME $ eval “
       [Dtype L [([],"rec1",[("Foo",[Attup [Atapp [] (Short "bool"); Atapp [] (Short "int")]])])];
        Dlet L1 (Pv (mk_record_constr_name "Foo" ["bar";"foo"]))
           (Fun "bar" (Fun "foo" (C "Foo" [Con NONE [V "bar"; V "foo"]])));
-        Dlet L2 (Pv (mk_record_proj_name "bar"))
+        Dlet L2 (Pv (mk_record_proj_name "bar" "Foo"))
           (Fun "" (Mat (V "") [(Pc "Foo" [Pcon NONE [Pv "bar"; Pv "foo"]],V "bar")]));
-        Dlet L3 (Pv (mk_record_proj_name "foo"))
+        Dlet L3 (Pv (mk_record_proj_name "foo" "Foo"))
           (Fun "" (Mat (V "") [(Pc "Foo" [Pcon NONE [Pv "bar"; Pv "foo"]],V "foo")]));
-        Dlet L4 (Pv (mk_record_update_name "bar"))
+        Dlet L4 (Pv (mk_record_update_name "bar" "Foo"))
           (Fun ""
              (Mat (V "")
                 [(Pc "Foo" [Pcon NONE [Pv "bar"; Pv "foo"]],
                   Fun "bar" (C "Foo" [Con NONE [V "bar"; V "foo"]]))]));
-        Dlet L5 (Pv (mk_record_update_name "foo"))
+        Dlet L5 (Pv (mk_record_update_name "foo" "Foo"))
           (Fun ""
              (Mat (V "")
                 [(Pc "Foo" [Pcon NONE [Pv "bar"; Pv "foo"]],
-                  Fun "foo" (C "Foo" [Con NONE [V "bar"; V "foo"]]))]))]”))
+                  Fun "foo" (C "Foo" [Con NONE [V "bar"; V "foo"]]))]))]”)
+  ;
+
+(* 2024-06-06: pattern matching *)
+
+Definition mkrec_def:
+  mkrec x = INL x : (modN, varN) id # string list + pat
+End
+
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "Foo {b; a}"
+  (SOME $ eval “[mkrec (Short "Foo", ["b"; "a"])]”)
+  ;
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "let f d (Foo {c; a}) b = z;;"
+  NONE;
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "match y with\
+  \  Foo {z} -> f z;;"
+  NONE
+  ;
+
+val _ = parsetest0 “nStart” “ptree_Start”
+  "match y with\
+  \  Bar.Foo {z} -> f z;;"
+  NONE
   ;
 
 (* -------------------------------------------------------------------------
@@ -533,7 +595,9 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "0 + match x with y -> z"
-  (SOME (“vbinop (Short "+") (Lit (IntLit 0)) (Mat (V "x") [(Pv "y", V "z")])”))
+  (SOME (“vbinop (Short "+") (Lit (IntLit 0))
+                 (Let (SOME " m") (V "x")
+                   (Mat (V " m") [(Pv "y", V "z")]))”))
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
@@ -554,18 +618,22 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "a, match x with y -> z, w"
-  (SOME “Con NONE [V "a"; Mat (V "x") [(Pv "y", Con NONE [V "z"; V "w"])]]”)
+  (SOME “Con NONE [V "a";
+                   Let (SOME " m") (V "x")
+                       (Mat (V " m") [(Pv "y", Con NONE [V "z"; V "w"])])]”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "match x with y -> z, w"
-  (SOME “Mat (V "x") [(Pv "y", Con NONE [V "z"; V "w"])]”)
+  (SOME “Let (SOME " m") (V "x")
+             (Mat (V " m") [(Pv "y", Con NONE [V "z"; V "w"])])”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "match !myref () with a -> b"
-  (SOME “Mat (App Opapp [App Opapp [V "!"; V "myref"]; Con NONE []])
-             ([(Pv "a", V "b")])”)
+  (SOME “Let (SOME " m")
+             (App Opapp [App Opapp [V "!"; V "myref"]; Con NONE []])
+             (Mat (V " m") ([(Pv "a", V "b")]))”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
@@ -674,9 +742,10 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   \ | a -> f; c \
   \ | b -> q; w"
   (SOME “
-    Mat (V "x")
-        [(Pv "a", Let NONE (V "f") (V "c"));
-         (Pv "b", Let NONE (V "q") (V "w"))]”)
+    Let (SOME " m") (V "x")
+      (Mat (V " m")
+          [(Pv "a", Let NONE (V "f") (V "c"));
+           (Pv "b", Let NONE (V "q") (V "w"))])”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
@@ -920,20 +989,22 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   " match x with\
   \ | [] -> 3\
   \ | [e;_] -> e"
-  (SOME “Mat (Var (Short "x"))
-             [(Pc "[]" [], Lit (IntLit 3));
-              (Pc "::" [Pvar "e"; Pc "::" [Pany; Pc "[]" []]],
-                       V "e")]”)
+  (SOME “Let (SOME " m") (V "x")
+             (Mat (V " m")
+                  [(Pc "[]" [], Lit (IntLit 3));
+                   (Pc "::" [Pvar "e"; Pc "::" [Pany; Pc "[]" []]],
+                            V "e")])”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   " match x with\
   \ | Some 3 | Some 4 -> e\
   \ | _ -> d"
-  (SOME “Mat (V "x")
-             [(Pc "Some" [Plit (IntLit 3)], V "e");
-              (Pc "Some" [Plit (IntLit 4)], V "e");
-              (Pany, V "d")]”)
+  (SOME “Let (SOME " m") (V "x")
+             (Mat (V " m")
+                  [(Pc "Some" [Plit (IntLit 3)], V "e");
+                   (Pc "Some" [Plit (IntLit 4)], V "e");
+                   (Pany, V "d")])”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
@@ -941,11 +1012,12 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   \ | [] -> 3\
   \ | [] :: _ -> 1\
   \ | (h::t) :: rest -> 2"
-  (SOME “Mat (V "x")
-             [(Pc "[]" [], Lit (IntLit 3));
-              (Pc "::" [Pc "[]" []; Pany], Lit (IntLit 1));
-              (Pc "::" [Pc "::" [Pvar "h"; Pvar "t"]; Pvar "rest"],
-               Lit (IntLit 2))]”)
+  (SOME “Let (SOME " m") (V "x")
+             (Mat (V " m")
+                  [(Pc "[]" [], Lit (IntLit 3));
+                   (Pc "::" [Pc "[]" []; Pany], Lit (IntLit 1));
+                   (Pc "::" [Pc "::" [Pvar "h"; Pvar "t"]; Pvar "rest"],
+                    Lit (IntLit 2))])”)
   ;
 
 (* pattern match with guard;
@@ -961,11 +1033,10 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   \| [] -> z \n\
   \| _ -> w"
   (SOME “
-    Let (SOME "") (V "x")
-      (Let (SOME " p") (Fun " u" (Mat (V "") [(Pc "[]" [],V "z");
-                                              (Pany,V "w");
-                                             ]))
-       (Mat (V "")
+    Let (SOME " m") (V "x")
+      (Let (SOME " p") (Fun " u" (Mat (V " m") [(Pc "[]" [],V "z");
+                                                (Pany,V "w")]))
+       (Mat (V " m")
           [(Pc "::" [Pv "h"; Pv "t"],
             If (V "P") (V "z") (App Opapp [V " p"; Con NONE []]));
            (Pany,App Opapp [V " p"; Con NONE []])]))”);
@@ -978,17 +1049,17 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   \| r3 when x3 -> y3\n\
   \| r4 -> y4\n"
   (SOME “
-    Let (SOME "") (V "x")
+    Let (SOME " m") (V "x")
       (Let (SOME " p")
-        (Fun " u" (Mat (V "") [
+        (Fun " u" (Mat (V " m") [
                     (Pv "r2", V "y2");
                     (Pany, Let (SOME " p")
-                             (Fun " u" (Mat (V "") [(Pv "r4",V "y4")]))
-                             (Mat (V "") [
+                             (Fun " u" (Mat (V " m") [(Pv "r4",V "y4")]))
+                             (Mat (V " m") [
                                (Pv "r3", If (V "x3") (V "y3")
                                          (App Opapp [V " p"; Con NONE []]));
                                (Pany,App Opapp [V " p"; Con NONE []])]))]))
-        (Mat (V "") [
+        (Mat (V " m") [
           (Pv "r1",If (V "x1") (V "y1") (App Opapp [V " p"; Con NONE []]));
           (Pany,App Opapp [V " p"; Con NONE []])]))”);
 
@@ -996,20 +1067,24 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   " try f x with Ea _ -> g x\
   \            | Eb -> h"
   (SOME “Handle (App Opapp [V "f"; V "x"])
-                [(Pc "Ea" [Pany], App Opapp [V "g"; V "x"]);
-                 (Pc "Eb" [], V "h")]”)
+           [(Pv " e", Mat (V " e")
+               [(Pc "Ea" [Pany],App Opapp [V "g"; V "x"]);
+                (Pc "Eb" [],V "h");
+                (Pany, Raise (V " e"))])]”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "try f ()\n\
   \with Bar when P -> X"
   (SOME “
-    Handle (V"") [
-      (Pany, Let (SOME " p") (Fun " u" (Raise (V"")))
-                 (Mat (V"")
-                      [(Pc "Bar" [],
-                        If (V "P") (V "X") (App Opapp [V " p"; Con NONE []]));
-                       (Pany, App Opapp [V " p"; Con NONE []])]))]”)
+    Handle (App Opapp [V "f"; Con NONE []])
+     [(Pv " e",
+       Let (SOME " p") (Fun " u" (Raise (V " e")))
+           (Mat (V " e")
+                [(Pc "Bar" [],
+                  If (V "P") (V "X")
+                     (App Opapp [V " p"; Con NONE []]));
+                 (Pany, App Opapp [V " p"; Con NONE []])]))]”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
@@ -1064,15 +1139,33 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   (SOME “App Opapp [Var (Long "Int" (Short "~")); Lit (IntLit 3)]”)
   ;
 
-(* TODO: floating point literals not handled; not sure how to handle.
- *       call Double.fromString on them? *)
+(* 2024-06-07: floating point literals *)
 
-(*
+Definition mkfloat_def:
+  mkfloat s = App Opapp [Var (Long "Double" (Short "fromString"));
+                         Lit (StrLit s)]
+End
+
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "-. 3.0"
-  (SOME “App Opapp [Var (Long "Double" (Short "~")); Lit (IntLit 3)]”)
+  (SOME $ eval “App Opapp [Var (Long "Double" (Short "~"));
+                           mkfloat "3.0"]”)
   ;
- *)
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "3_000e+37"
+  (SOME $ eval “mkfloat "3000e+37"”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "1E-77"
+  (SOME $ eval “mkfloat "1E-77"”)
+  ;
+
+val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
+  "3.14151E+0_0__0"
+  (SOME $ eval “mkfloat "3.14151E+000"”)
+  ;
 
 (* if without the else *)
 
@@ -1400,13 +1493,13 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "Comb (Var (v, s), Const (w, t))"
-  (SOME “[Pc "Comb" [Pc "Var" [Pv "v"; Pv "s"]; Pc "Const" [Pv "w"; Pv "t"]]]”)
+  (SOME $ eval “[mkpat $ Pc "Comb" [Pc "Var" [Pv "v"; Pv "s"]; Pc "Const" [Pv "w"; Pv "t"]]]”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "Append (Append (v, s), Append (w, t))"
-  (SOME “[Pc "Append" [Pc "Append" [Pv "v"; Pv "s"];
-                       Pc "Append" [Pv "w"; Pv "t"]]]”)
+  (SOME $ eval “[mkpat $  Pc "Append" [Pc "Append" [Pv "v"; Pv "s"];
+                            Pc "Append" [Pv "w"; Pv "t"]]]”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
@@ -1417,9 +1510,9 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "Var _, Comb _"
-  (SOME “[Pcon NONE [Pc "Var" [Pany; Pany]; Pc "Comb" [Pany; Pany]]]”)
+  (SOME $ eval “[mkpat $ Pcon NONE [Pc "Var" [Pany; Pany];
+                                    Pc "Comb" [Pany; Pany]]]”)
   ;
-
 
 val _ = parsetest0 “nStart” “ptree_Start”
   "let x = 2 ;; (*CML val x = 5; print \"z\"; fun ref x = Ref x; *)"
@@ -1509,7 +1602,7 @@ val _ = parsetest0 “nStart” “ptree_Start”
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "-1"
-  (SOME “[Plit (IntLit (-1))]”)
+  (SOME $ eval “[mkpat $ Plit (IntLit (-1))]”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
@@ -1531,6 +1624,50 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "Double.(-)"
   (SOME “Var (Long "Double" (Short "-"))”)
   ;
+
+(* 2024-07-25: Pattern constructors applied to pattern constructors *)
+val _ = parsetest0 “nPattern” “ptree_Pattern”
+  "Some (Some None)"
+  (SOME $ eval “[mkpat $  Pc "Some" [Pc "Some" [Pc "None" []]]]”)
+  ;
+
+(* 2024-07-27: Parse patterns in function lets properly: require parenthesis
+ * around anything below nPBase.
+ *)
+
+(* Application of the constructor Some to the variable x: *)
+val _ = parsetest0 “nStart” “ptree_Start”
+  "let f (Some x) = y"
+  (SOME $ eval
+   “[Dlet L (Pv "f") (Fun "" (Mat (V"") [(Pc "Some" [Pv "x"], V "y")]))]”)
+  ;
+
+(* A function with two arguments: the first pattern-matching on the constructor
+ * Some (with no arguments), and the second, a variable: *)
+val _ = parsetest0 “nStart” “ptree_Start”
+  "let f Some x = y"
+  (SOME $ eval
+   “[Dlet L (Pv "f") (Fun "" (Mat (V"") [(Pc "Some" [], Fun "x" (V "y"))]))]”)
+  ;
+
+(* This should fail: we require parenthesis around ambiguous patterns here: *)
+val _ = expectFailure "FAILED" (fn () =>
+  parsetest0 “nExpr” “ptree_Expr nExpr”
+  "fun x,y -> z"
+  NONE);
+
+
+(* This should fail: we require parenthesis around ambiguous patterns here: *)
+val _ = expectFailure "REMAINING INPUT" (fn () =>
+  parsetest0 “nStart” “ptree_Start”
+  "let f x,y = z"
+  NONE);
+
+(* This is OK though: *)
+val _ =
+  parsetest0 “nStart” “ptree_Start”
+  "let x,y = z"
+  NONE;
 
 val _ = export_theory ();
 

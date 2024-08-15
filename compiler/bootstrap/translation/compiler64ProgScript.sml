@@ -25,6 +25,12 @@ val () = use_long_names := true;
 
 val spec64 = INST_TYPE[alpha|->``:64``]
 
+val res = translate $ spec64 $ panScopeTheory.scope_check_exp_def;
+val res = translate $ spec64 $ panScopeTheory.scope_check_prog_def;
+val res = translate $
+  INST_TYPE[beta|->``:64``] panScopeTheory.scope_check_funs_def;
+val res = translate $ INST_TYPE[beta|->``:64``] panScopeTheory.scope_check_def;
+
 val max_heap_limit_64_def = Define`
                                   max_heap_limit_64 c =
 ^(spec64 data_to_wordTheory.max_heap_limit_def
@@ -84,16 +90,57 @@ val r = backend_passesTheory.to_lab_all_def |> spec64
 
 val r = backend_passesTheory.to_target_all_def |> spec64 |> translate;
 
+val r = backend_passesTheory.from_lab_all_def |> spec64 |> translate;
+
+val r = backend_passesTheory.from_stack_all_def |> spec64
+          |> REWRITE_RULE[max_heap_limit_64_thm] |> translate;
+
+val r = backend_passesTheory.from_word_all_def |> spec64 |> translate;
+
+val r = backend_passesTheory.from_word_0_all_def |> spec64
+          |> REWRITE_RULE[max_heap_limit_64_thm] |> translate;
+
 val r = presLangTheory.word_to_strs_def |> spec64 |> translate
 val r = presLangTheory.stack_to_strs_def |> spec64 |> translate
 val r = presLangTheory.lab_to_strs_def |> spec64 |> translate
 
 val r = backend_passesTheory.any_prog_pp_def |> spec64 |> translate;
-val r = backend_passesTheory.any_prog_pp_with_title_def |> spec64 |> translate;
+val r = backend_passesTheory.pp_with_title_def |> translate;
 val r = backend_passesTheory.compile_tap_def |> spec64 |> translate;
 
 val _ = r |> hyp |> null orelse
-        failwith "Unproved side condition in the translation of backendTheory.compile_def.";
+        failwith ("Unproved side condition in the translation of " ^
+                  "backend_passesTheory.compile_tap_def.");
+
+val r = pan_passesTheory.pan_to_target_all_def |> spec64
+          |> REWRITE_RULE [NULL_EQ] |> translate;
+
+val r = pan_passesTheory.opsize_to_display_def |> translate;
+val r = pan_passesTheory.shape_to_str_def |> translate;
+val r = pan_passesTheory.insert_es_def |> translate;
+val r = pan_passesTheory.pan_exp_to_display_def |> spec64 |> translate;
+val r = pan_passesTheory.crep_exp_to_display_def |> spec64 |> translate;
+val r = pan_passesTheory.loop_exp_to_display_def |> spec64 |> translate;
+
+val r = pan_passesTheory.pan_seqs_def |> spec64 |> translate;
+val r = pan_passesTheory.crep_seqs_def |> spec64 |> translate;
+val r = pan_passesTheory.loop_seqs_def |> spec64 |> translate;
+val r = pan_passesTheory.pan_prog_to_display_def |> spec64 |> translate;
+val r = pan_passesTheory.crep_prog_to_display_def |> spec64 |> translate;
+val r = pan_passesTheory.loop_prog_to_display_def |> spec64 |> translate;
+val r = pan_passesTheory.pan_fun_to_display_def |> spec64 |> translate;
+val r = pan_passesTheory.crep_fun_to_display_def |> spec64 |> translate;
+val r = pan_passesTheory.loop_fun_to_display_def |> spec64 |> translate;
+val r = pan_passesTheory.pan_to_strs_def |> spec64 |> translate;
+val r = pan_passesTheory.crep_to_strs_def |> spec64 |> translate;
+val r = pan_passesTheory.loop_to_strs_def |> spec64 |> translate;
+val r = pan_passesTheory.any_pan_prog_pp_def |> spec64 |> translate;
+
+val r = pan_passesTheory.pan_compile_tap_def |> spec64 |> translate;
+
+val _ = r |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "pan_passesTheory.pan_compile_tap_def.");
 
 (* exportTheory *)
 (* TODO: exportTheory functions that don't depend on the word size
@@ -101,6 +148,8 @@ val _ = r |> hyp |> null orelse
 val res = translate all_bytes_eq
 val res = translate byte_to_string_eq
 val res = translate escape_sym_char_def
+val res = translate get_sym_label_def
+val res = translate get_sym_labels_def
 val res = translate emit_symbol_def
 val res = translate emit_symbols_def
 
@@ -173,9 +222,6 @@ val _ = translate (compilerTheory.parse_sexp_input_def
 val def = spec64 (compilerTheory.compile_def);
 val res = translate def;
 
-val _ = print "About to translate basis (this takes some time) ";
-val res = translate basisProgTheory.basis_def;
-
 val res = translate (primTypesTheory.prim_tenv_def
                        |> CONV_RULE (RAND_CONV EVAL));
 
@@ -230,8 +276,11 @@ val res = translate backendTheory.prim_src_config_eq;
 
 (* x64 *)
 val res = translate x64_configTheory.x64_names_def;
+val res = translate export_x64Theory.startup_def;
 val res = translate export_x64Theory.ffi_asm_def;
 val res = translate export_x64Theory.windows_ffi_asm_def;
+val res = translate export_x64Theory.export_func_def;
+val res = translate export_x64Theory.export_funcs_def;
 val res = translate export_x64Theory.x64_export_def;
 val res = translate
           (x64_configTheory.x64_backend_config_def
@@ -239,7 +288,10 @@ val res = translate
 
 (* riscv *)
 val res = translate riscv_configTheory.riscv_names_def;
+val res = translate export_riscvTheory.startup_def;
 val res = translate export_riscvTheory.ffi_asm_def;
+val res = translate export_riscvTheory.export_func_def;
+val res = translate export_riscvTheory.export_funcs_def;
 val res = translate export_riscvTheory.riscv_export_def;
 val res = translate
           (riscv_configTheory.riscv_backend_config_def
@@ -247,7 +299,10 @@ val res = translate
 
 (* mips *)
 val res = translate mips_configTheory.mips_names_def;
+val res = translate export_mipsTheory.startup_def;
 val res = translate export_mipsTheory.ffi_asm_def;
+val res = translate export_mipsTheory.export_func_def;
+val res = translate export_mipsTheory.export_funcs_def;
 val res = translate export_mipsTheory.mips_export_def;
 val res = translate
           (mips_configTheory.mips_backend_config_def
@@ -255,7 +310,10 @@ val res = translate
 
 (* arm8 *)
 val res = translate arm8_configTheory.arm8_names_def;
+val res = translate export_arm8Theory.startup_def;
 val res = translate export_arm8Theory.ffi_asm_def;
+val res = translate export_arm8Theory.export_func_def;
+val res = translate export_arm8Theory.export_funcs_def;
 val res = translate export_arm8Theory.arm8_export_def;
 val res = translate
           (arm8_configTheory.arm8_backend_config_def
@@ -276,7 +334,7 @@ val res = format_compiler_result_def
             |> spec64
             |> translate;
 
-val res = translate ffinames_to_string_list_def;
+val res = translate backendTheory.ffinames_to_string_list_def;
 
 val res = translate compile_64_def;
 
@@ -524,7 +582,8 @@ Theorem main_spec:
        * STDIO (full_compile_64 (TL cl) (get_stdin fs) fs)
        * COMMANDLINE cl)
 Proof
-  xcf_with_def "main" main_v_def
+  rpt strip_tac
+  \\ xcf_with_def main_v_def
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)

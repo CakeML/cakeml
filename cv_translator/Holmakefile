@@ -1,0 +1,25 @@
+INCLUDES = $(HOLDIR)/examples/bootstrap \
+           ../basis/pure \
+           ../compiler/inference \
+           ../compiler/backend \
+           ../compiler/backend/x64 \
+           ../compiler/backend/arm8 \
+           ../compiler/backend/ag32 \
+           ../compiler/backend/cv_compute
+
+all: $(DEFAULT_TARGETS) README.md
+.PHONY: all
+
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(patsubst bootstrap/,,$(patsubst encoders/,,$(wildcard */)))
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
+
+EXTRA_CLEANS = cake_compile_heap
+
+ifdef POLY
+all: cake_compile_heap
+
+cake_compile_heap: eval_cake_compile_x64Lib.uo eval_cake_compile_arm8Lib.uo
+	$(HOLDIR)/bin/buildheap -o $@ $<
+endif

@@ -24,6 +24,12 @@ val () = use_long_names := true;
 
 val spec32 = INST_TYPE[alpha|->``:32``]
 
+val res = translate $ spec32 panScopeTheory.scope_check_exp_def;
+val res = translate $ spec32 panScopeTheory.scope_check_prog_def;
+val res = translate $
+  INST_TYPE[beta|->``:32``] panScopeTheory.scope_check_funs_def;
+val res = translate $ INST_TYPE[beta|->``:32``] panScopeTheory.scope_check_def;
+
 val max_heap_limit_32_def = Define`
   max_heap_limit_32 c =
     ^(spec32 data_to_wordTheory.max_heap_limit_def
@@ -83,16 +89,57 @@ val r = backend_passesTheory.to_lab_all_def |> spec32
 
 val r = backend_passesTheory.to_target_all_def |> spec32 |> translate;
 
+val r = backend_passesTheory.from_lab_all_def |> spec32 |> translate;
+
+val r = backend_passesTheory.from_stack_all_def |> spec32
+          |> REWRITE_RULE[max_heap_limit_32_thm] |> translate;
+
+val r = backend_passesTheory.from_word_all_def |> spec32 |> translate;
+
+val r = backend_passesTheory.from_word_0_all_def |> spec32
+          |> REWRITE_RULE[max_heap_limit_32_thm] |> translate;
+
 val r = presLangTheory.word_to_strs_def |> spec32 |> translate
 val r = presLangTheory.stack_to_strs_def |> spec32 |> translate
 val r = presLangTheory.lab_to_strs_def |> spec32 |> translate
 
 val r = backend_passesTheory.any_prog_pp_def |> spec32 |> translate;
-val r = backend_passesTheory.any_prog_pp_with_title_def |> spec32 |> translate;
+val r = backend_passesTheory.pp_with_title_def |> translate;
 val r = backend_passesTheory.compile_tap_def |> spec32 |> translate;
 
 val _ = r |> hyp |> null orelse
-        failwith "Unproved side condition in the translation of backendTheory.compile_def.";
+        failwith ("Unproved side condition in the translation of " ^
+                  "backend_passesTheory.compile_tap_def.");
+
+val r = pan_passesTheory.pan_to_target_all_def |> spec32
+          |> REWRITE_RULE [NULL_EQ] |> translate;
+
+val r = pan_passesTheory.opsize_to_display_def |> translate;
+val r = pan_passesTheory.shape_to_str_def |> translate;
+val r = pan_passesTheory.insert_es_def |> translate;
+val r = pan_passesTheory.pan_exp_to_display_def |> spec32 |> translate;
+val r = pan_passesTheory.crep_exp_to_display_def |> spec32 |> translate;
+val r = pan_passesTheory.loop_exp_to_display_def |> spec32 |> translate;
+
+val r = pan_passesTheory.pan_seqs_def |> spec32 |> translate;
+val r = pan_passesTheory.crep_seqs_def |> spec32 |> translate;
+val r = pan_passesTheory.loop_seqs_def |> spec32 |> translate;
+val r = pan_passesTheory.pan_prog_to_display_def |> spec32 |> translate;
+val r = pan_passesTheory.crep_prog_to_display_def |> spec32 |> translate;
+val r = pan_passesTheory.loop_prog_to_display_def |> spec32 |> translate;
+val r = pan_passesTheory.pan_fun_to_display_def |> spec32 |> translate;
+val r = pan_passesTheory.crep_fun_to_display_def |> spec32 |> translate;
+val r = pan_passesTheory.loop_fun_to_display_def |> spec32 |> translate;
+val r = pan_passesTheory.pan_to_strs_def |> spec32 |> translate;
+val r = pan_passesTheory.crep_to_strs_def |> spec32 |> translate;
+val r = pan_passesTheory.loop_to_strs_def |> spec32 |> translate;
+val r = pan_passesTheory.any_pan_prog_pp_def |> spec32 |> translate;
+
+val r = pan_passesTheory.pan_compile_tap_def |> spec32 |> translate;
+
+val _ = r |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "pan_passesTheory.pan_compile_tap_def.");
 
 (* exportTheory *)
 (* TODO: exportTheory functions that don't depend on the word size
@@ -100,6 +147,8 @@ val _ = r |> hyp |> null orelse
 val res = translate all_bytes_eq
 val res = translate byte_to_string_eq
 val res = translate escape_sym_char_def
+val res = translate get_sym_label_def
+val res = translate get_sym_labels_def
 val res = translate emit_symbol_def
 val res = translate emit_symbols_def
 
@@ -172,9 +221,6 @@ val _ = translate (compilerTheory.parse_sexp_input_def
 val def = spec32 (compilerTheory.compile_def);
 val res = translate def;
 
-val _ = print "About to translate basis (this takes some time) ";
-val res = translate basisProgTheory.basis_def;
-
 val res = translate (primTypesTheory.prim_tenv_def
                      |> CONV_RULE (RAND_CONV EVAL));
 
@@ -236,7 +282,10 @@ val res = translate
 
 (* arm7 *)
 val res = translate arm7_configTheory.arm7_names_def;
+val res = translate export_arm7Theory.startup_def;
 val res = translate export_arm7Theory.ffi_asm_def;
+val res = translate export_arm7Theory.export_func_def;
+val res = translate export_arm7Theory.export_funcs_def;
 val res = translate export_arm7Theory.arm7_export_def;
 val res = translate
   (arm7_configTheory.arm7_backend_config_def
@@ -251,7 +300,7 @@ val res = translate (extend_conf_def |> spec32 |> SIMP_RULE (srw_ss()) [MEMBER_I
 val res = translate parse_target_32_def;
 val res = translate add_tap_output_def;
 
-val res = translate ffinames_to_string_list_def;
+val res = translate backendTheory.ffinames_to_string_list_def;
 
 val res = format_compiler_result_def
         |> Q.GENL[`bytes`,`c`]
@@ -314,7 +363,7 @@ Theorem main_spec:
        * STDIO (full_compile_32 (TL cl) (get_stdin fs) fs)
        * COMMANDLINE cl)
 Proof
-  xcf_with_def "main" main_v_def
+  xcf_with_def main_v_def
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto
   >- (

@@ -6,6 +6,9 @@ from these by the translator.
 [basisComputeLib.sml](basisComputeLib.sml):
 compset for the pure basis functions.
 
+[basis_cvScript.sml](basis_cvScript.sml):
+Translation of basis types and functions for use with cv_compute.
+
 [mlintScript.sml](mlintScript.sml):
 Pure functions for the Int module.
 
@@ -27,6 +30,11 @@ Types and pure functions for pretty printing
 
 [mlratScript.sml](mlratScript.sml):
 Pure functions for the Rat module.
+
+[mlsetScript.sml](mlsetScript.sml):
+Pure functions for the Set module.
+This file defines a wrapper around the balanced_map type. See
+$HOLDIR/examples/balanced_bst/osetScript.sml.
 
 [mlstringLib.sml](mlstringLib.sml):
 More ML functions for manipulating HOL terms involving mlstrings.

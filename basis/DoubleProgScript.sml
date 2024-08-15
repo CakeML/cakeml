@@ -20,7 +20,7 @@ val _ = ml_prog_update (open_module "Double");
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] "double" (Atapp [] (Short "word64"))`` I);
+  ``Dtabbrev unknown_loc [] "double" (Atapp [] (Short "double"))`` I);
 
 val _ = ml_prog_update open_local_block;
 
@@ -143,6 +143,16 @@ fun monop s b = “[Dlet unknown_loc (Pvar ^s)
 val _ = append_prog $ monop “"abs"” “FP_Abs”;
 val _ = append_prog $ monop “"sqrt"” “FP_Sqrt”;
 val _ = append_prog $ monop “"~"” “FP_Neg”;
+
+(* Pretty-printer *)
+
+val pp_double_tm = “
+  [Dlet unknown_loc
+     (Pvar "pp_double")
+     (Fun "x" (App Opapp [
+        Var (Long "PrettyPrinter" (Short "token"));
+        App Opapp [Var (Short "toString"); Var (Short "x")]]))]”;
+val _ = append_prog pp_double_tm;
 
 val _ = ml_prog_update (close_module NONE);
 

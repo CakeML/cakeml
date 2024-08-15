@@ -94,3 +94,6 @@ Some experimental code for emulating evars support in HOL.
 
 [examples](examples):
 This directory contains examples of how the CF tactics can be used.
+
+[xcfScript.sml](xcfScript.sml):
+Definitions used to trick EVAL in xcf.sml.

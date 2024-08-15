@@ -11,7 +11,7 @@ local open helperLib in end
 
 val _ = new_theory "evaluate_skip";
 
-val _ = numLib.prefer_num ();
+val _ = numLib.temp_prefer_num ();
 
 Theorem NOT_NIL_CONS:
   xs ≠ [] ⇔ ∃y ys. xs = y::ys

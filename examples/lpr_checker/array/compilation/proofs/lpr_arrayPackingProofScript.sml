@@ -20,7 +20,7 @@ val (main_sem,main_output) = main_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_R
 val (main_not_fail,main_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail main_sem |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct lpr_packing_compiled
+  MATCH_MP compile_correct (cj 1 lpr_packing_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP main_not_fail
   |> C MATCH_MP x64_backend_config_ok
@@ -53,7 +53,7 @@ val installed_x64_def = Define `
     `;
 
 val main_code_def = Define `
-  main_code = (code, data, config)
+  main_code = (code, data, info)
   `;
 
 (* A standard run of packing satisfying all the default assumptions *)

@@ -6,7 +6,7 @@ open HolKernel Parse boolLib bossLib;
 open libTheory namespaceTheory astTheory semanticPrimitivesTheory
      smallStepTheory bigStepTheory;
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 val _ = new_theory "bigSmallInvariants"
 

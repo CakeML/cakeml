@@ -150,7 +150,8 @@ Theorem every_one_arr_spec:
       W8ARRAY Carrv Clist *
       &BOOL (EVERY (λi. list_lookup Clist w8z (index i) = w8o) ls) v)
 Proof
-  Induct>>xcf "every_one_arr" (get_ml_prog_state ())>>
+  Induct>>rw[]>>
+  xcf "every_one_arr" (get_ml_prog_state ())>>
   fs[LIST_TYPE_def]
   >-
     (xmatch>>xcon>>xsimpl)
@@ -182,6 +183,7 @@ Theorem delete_literals_sing_arr_spec:
       (λe. &(Fail_exn e ∧ delete_literals_sing_list Clist ls = NONE)))
 Proof
   Induct>>simp[delete_literals_sing_list_def]>>
+  rpt strip_tac>>
   xcf "delete_literals_sing_arr" (get_ml_prog_state ())
   >- (
     fs[LIST_TYPE_def]>>
@@ -279,7 +281,9 @@ Theorem is_rup_arr_aux_spec:
       (λe. ARRAY fmlv fmllsv *
         &(Fail_exn e ∧ is_rup_list_aux fmlls ls c Clist = NONE)))
 Proof
-  Induct>>xcf "is_rup_arr_aux" (get_ml_prog_state ())>>
+  Induct>>
+  rw[]>>
+  xcf "is_rup_arr_aux" (get_ml_prog_state ())>>
   simp[is_rup_list_aux_def]
   >- (
     fs[LIST_TYPE_def]>>
@@ -371,6 +375,7 @@ Theorem set_array_spec:
           W8ARRAY Carrv (set_list Clist v c))
 Proof
   Induct>>
+  rw[]>>
   xcf "set_array" (get_ml_prog_state ())>>
   rw[set_list_def]>>
   fs[LIST_TYPE_def]
@@ -487,6 +492,7 @@ Theorem is_rup_arr_spec:
       (λe. ARRAY fmlv fmllsv *
         &(Fail_exn e ∧ is_rup_list fmlls ls c Clist = NONE)))
 Proof
+  rw[]>>
   xcf "is_rup_arr" (get_ml_prog_state ())>>
   `WORD8 w8z w8z_v ∧ WORD8 w8o w8o_v` by
     simp[w8z_v_thm,w8o_v_thm]>>
@@ -634,6 +640,7 @@ Theorem add_xors_aux_c_arr_spec:
         &(Fail_exn e ∧ add_xors_aux_c_list fmlls ls cs = NONE)))
 Proof
   Induct>>
+  rw[]>>
   xcf "add_xors_aux_c_arr" (get_ml_prog_state ())>>
   fs[LIST_TYPE_def]>>xmatch
   >- (
@@ -720,6 +727,7 @@ Theorem get_bit_arr_spec:
     (W8ARRAY csv cs)
     (POSTv v. W8ARRAY csv cs * & BOOL (get_bit_list cs n) v)
 Proof
+  rw[]>>
   xcf "get_bit_arr" (get_ml_prog_state ())>>
   rpt xlet_autop>>
   xapp>>xsimpl>>
@@ -750,6 +758,7 @@ Theorem set_bit_arr_spec:
       &UNIT_TYPE () v *
       W8ARRAY csv (set_bit_list cs n b))
 Proof
+  rw[]>>
   xcf "set_bit_arr" (get_ml_prog_state ())>>
   rpt xlet_autop>>
   xapp>>xsimpl>>
@@ -805,6 +814,7 @@ Theorem flip_bit_arr_spec:
       &UNIT_TYPE () v *
       W8ARRAY csv (flip_bit_list cs n))
 Proof
+  rw[]>>
   xcf "flip_bit_arr" (get_ml_prog_state ())>>
   rpt xlet_autop>>
   xapp>>xsimpl>>
@@ -853,6 +863,7 @@ Theorem unit_prop_xor_arr_spec:
         &(UNIT_TYPE () v) *
         W8ARRAY csv (unit_prop_xor_list t l cs))
 Proof
+  rw[]>>
   xcf "unit_prop_xor_arr" (get_ml_prog_state ())>>
   rpt xlet_autop>>
   fs[unit_prop_xor_list_def,nabs_def,OPTION_TYPE_SPLIT]>>
@@ -926,6 +937,7 @@ Theorem unit_props_xor_arr_spec:
         &(Fail_exn e ∧ unit_props_xor_list fmlls t ls cs = NONE)))
 Proof
   Induct>>
+  rw[]>>
   xcf "unit_props_xor_arr" (get_ml_prog_state ())>>
   fs[LIST_TYPE_def]>>xmatch
   >- (
@@ -1034,12 +1046,11 @@ Definition tn_to_string_def:
   concatWith (strlit " ; ") ss
 End
 
-val res = translate combine_rle_def;
 val res = translate spt_center_def;
-val res = translate apsnd_cons_def;
-val res = translate spt_centers_def;
 val res = translate spt_right_def;
 val res = translate spt_left_def;
+val res = translate spts_to_alist_add_pause_def;
+val res = translate spts_to_alist_aux_def;
 val res = translate spts_to_alist_def;
 val res = translate toSortedAList_def;
 val res = translate tn_to_string_def;
@@ -1132,6 +1143,7 @@ Theorem is_xor_arr_spec:
          ARRAY fmlv fmllsv * ARRAY cfmlv cfmllsv *
          &(Fail_exn e ∧ ¬is_xor_list def fmlls ls cfmlls cls (FST tn) s)))
 Proof
+  rw[]>>
   xcf "is_xor_arr" (get_ml_prog_state ())>>
   rw[is_xor_list_def]>>
   assume_tac w8z_v_thm>>
@@ -1266,6 +1278,7 @@ Theorem resize_carr_spec:
     (POSTv carrv.
       W8ARRAY carrv (resize_Clist c Clist))
 Proof
+  rw[]>>
   xcf "resize_carr" (get_ml_prog_state ())>>
   rpt xlet_autop>>
   simp[resize_Clist_def]>>xif
@@ -1304,6 +1317,7 @@ Theorem extend_s_arr_spec:
       W8ARRAY v cs' *
       &(extend_s_list cs n = cs'))
 Proof
+  rw[]>>
   xcf "extend_s_arr" (get_ml_prog_state ())>>
   rpt xlet_autop>>
   simp[extend_s_list_def]>>
@@ -1345,6 +1359,7 @@ Theorem conv_xor_aux_arr_spec:
       &(conv_xor_aux_list cs xs = cs'))
 Proof
   Induct>>
+  rw[]>>
   xcf "conv_xor_aux_arr" (get_ml_prog_state ())>>
   fs[conv_xor_aux_list_def,LIST_TYPE_def]>>xmatch
   >-
@@ -1388,6 +1403,7 @@ Theorem conv_rawxor_arr_spec:
     (POSTv v.
       &(STRING_TYPE (conv_rawxor_list n xs) v))
 Proof
+  rw[]>>
   xcf "conv_rawxor_arr" (get_ml_prog_state ())>>
   assume_tac w8z_v_thm>>
   xlet_autop>>
@@ -1468,6 +1484,7 @@ Theorem is_cfromx_arr_spec:
          ARRAY fmlv fmllsv *
          &(Fail_exn e ∧ ¬is_cfromx_list def fmlls ls s)))
 Proof
+  rw[]>>
   xcf "is_cfromx_arr" (get_ml_prog_state ())>>
   rw[is_cfromx_list_def]>>
   assume_tac w8z_v_thm>>
@@ -1511,7 +1528,9 @@ Theorem get_clauses_arr_spec:
       (λe. ARRAY fmlv fmllsv *
         &(Fail_exn e ∧ get_clauses_list fmlls ls = NONE)))
 Proof
-  Induct>>xcf "get_clauses_arr" (get_ml_prog_state ())>>
+  Induct>>
+  rw[]>>
+  xcf "get_clauses_arr" (get_ml_prog_state ())>>
   simp[get_clauses_list_def]
   >- (
     fs[LIST_TYPE_def]>>
@@ -1584,6 +1603,7 @@ Theorem is_xfromc_arr_spec:
          ARRAY fmlv fmllsv *
          &(Fail_exn e ∧ ¬is_xfromc_list fmlls ls rx)))
 Proof
+  rw[]>>
   xcf "is_xfromc_arr" (get_ml_prog_state ())>>
   simp[is_xfromc_list_def]>>
   xlet_autop
@@ -1621,6 +1641,7 @@ Theorem conv_xor_mv_arr_spec:
     (POSTv v.
       &(STRING_TYPE (conv_xor_mv_list n xs) v))
 Proof
+  rw[]>>
   xcf "conv_xor_mv_arr" (get_ml_prog_state ())>>
   xlet_autop>>
   xapp>>
@@ -2081,6 +2102,7 @@ Theorem contains_emp_arr_spec:
       &(BOOL (contains_emp_list cfmlls) resv) *
       ARRAY cfmlv cfmllsv)
 Proof
+  rw[]>>
   xcf "contains_emp_arr" (get_ml_prog_state ())>>
   xlet_autop>>
   xapp>>xsimpl>>
@@ -2608,6 +2630,7 @@ Theorem check_unsat'_spec:
         INL err
       ) v)
 Proof
+  rw[]>>
   xcf"check_unsat'"(get_ml_prog_state()) >>
   reverse (Cases_on `STD_streams fs`)
   >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>

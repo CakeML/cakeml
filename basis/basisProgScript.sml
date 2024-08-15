@@ -55,12 +55,12 @@ Proof
   pop_assum mp_tac \\ simp[PULL_FORALL] \\ qid_spec_tac`fs` \\
   reverse (Induct_on`ls`) \\ rw[APP_LIST_TYPE_def]
   >- (
-    xcf_with_def () (fetch "-" "print_app_list_aux_v_def")
+    xcf_with_def (fetch "-" "print_app_list_aux_v_def")
     \\ xmatch \\ xcon
     \\ DEP_REWRITE_TAC[GEN_ALL add_stdo_nil]
     \\ xsimpl \\ metis_tac[STD_streams_stdout])
   >- (
-    xcf_with_def () (fetch "-" "print_app_list_aux_v_def")
+    xcf_with_def (fetch "-" "print_app_list_aux_v_def")
     \\ xmatch
     \\ xlet_auto >- xsimpl
     \\ xapp
@@ -71,7 +71,7 @@ Proof
     \\ simp[mlstringTheory.concat_thm,mlstringTheory.strcat_thm]
     \\ xsimpl
     \\ metis_tac[STD_streams_stdout])
-  \\ xcf_with_def () (fetch "-" "print_app_list_aux_v_def")
+  \\ xcf_with_def (fetch "-" "print_app_list_aux_v_def")
   \\ xmatch
   \\ xapp
   \\ simp[]
@@ -83,7 +83,7 @@ Theorem print_app_list_spec:
      (STDIO fs) (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (concat (append ls))))
 Proof
   rw []
-  \\ xcf_with_def () (fetch "-" "print_app_list_v_def")
+  \\ xcf_with_def (fetch "-" "print_app_list_v_def")
   \\ xlet_auto >- xsimpl
   \\ once_rewrite_tac [GSYM mlstringTheory.str_app_list_opt_thm]
   \\ xapp_spec print_app_list_aux_spec \\ fs []
@@ -97,7 +97,8 @@ Theorem print_int_spec:
    app (p:'ffi ffi_proj) ^(fetch_v "print_int" (get_ml_prog_state())) [iv]
      (STDIO fs) (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (toString i)))
 Proof
-  xcf"print_int"(get_ml_prog_state())
+  strip_tac
+  \\ xcf"print_int"(get_ml_prog_state())
   \\ xlet_auto >- xsimpl
   \\ xapp \\ xsimpl
 QED
@@ -110,7 +111,8 @@ Theorem print_pp_spec:
    app (p:'ffi ffi_proj) ^(fetch_v "print_pp" (get_ml_prog_state())) [lv]
      (STDIO fs) (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (concat (append (pp_contents pp)))))
 Proof
-  xcf "print_pp" (get_ml_prog_state())
+  rpt strip_tac
+  \\ xcf "print_pp" (get_ml_prog_state())
   \\ xlet_auto >- xsimpl
   \\ xapp
   \\ xsimpl

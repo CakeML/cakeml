@@ -210,7 +210,8 @@ Theorem charsFrom_spec:
     (STDIO fs)
     (POSTv retv. STDIO fs * cond (LIST_TYPE CHAR content retv))
 Proof
-  xcf_with_def "Repl.charsFrom" (fetch "-" "Repl_charsFrom_v_def")
+  strip_tac
+  \\ xcf_with_def (fetch "-" "Repl_charsFrom_v_def")
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xlet ‘POSTv retv. STDIO fs *

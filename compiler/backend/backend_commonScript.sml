@@ -12,7 +12,7 @@ val _ = set_grammar_ancestry ["arithmetic", "integer", "words"];
 val small_enough_int_def = Define `
   small_enough_int i <=> -268435457 <= i /\ i <= 268435457:int`;
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 (* these must match what the prim_types_program generates *)
 

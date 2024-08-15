@@ -553,7 +553,8 @@ Theorem print_matching_lines_in_file_spec:
                             (FILTER m (all_lines fs f))))
                    else add_stderr fs (notfound_string f)))
 Proof
-  xcf"print_matching_lines_in_file"(get_ml_prog_state())
+  rpt strip_tac
+  \\ xcf"print_matching_lines_in_file"(get_ml_prog_state())
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
   \\ reverse(Cases_on`consistentFS fs`)
   >-(fs[STDIO_def,IOFS_def] >> xpull >> fs[wfFS_def,consistentFS_def] >> res_tac)

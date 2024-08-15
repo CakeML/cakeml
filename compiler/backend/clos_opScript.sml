@@ -259,7 +259,7 @@ Termination
   \\ rw [] \\ res_tac \\ fs []
 End
 
-Triviality cons_measure_lemma:
+Theorem cons_measure_lemma:
   (dest_Op_Cons x = SOME (t,xs) ⇒ cons_measure x = SUM (MAP cons_measure xs) + LENGTH xs + 1) ∧
   (dest_Op_Cons x = NONE ⇒ cons_measure x = 0) ∧
   (cons_measure (Op None (ElemAt i) [y]) = 0)

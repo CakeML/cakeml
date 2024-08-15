@@ -7,7 +7,7 @@ local open patternMatchesLib in end;
 
 val _ = new_theory "compute_pmatch";
 
-val _ = numLib.prefer_num ();
+val _ = numLib.temp_prefer_num ();
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
 

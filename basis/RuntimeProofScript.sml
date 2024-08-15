@@ -80,7 +80,8 @@ Theorem Runtime_abort_spec:
      (RUNTIME)
      (POSTf n. λc b. RUNTIME * &(n = "exit" /\ c = [] /\ b = [1w]))
 Proof
-  xcf "Runtime.abort" st
+  rpt strip_tac
+  \\ xcf "Runtime.abort" st
   \\ fs [UNIT_TYPE_def]
   \\ xmatch
   \\ xapp

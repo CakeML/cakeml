@@ -9,6 +9,7 @@ open ConseqConv
 open set_sepTheory cfAppTheory cfHeapsTheory cfTheory cfTacticsTheory
 open helperLib cfHeapsBaseLib cfHeapsLib cfTacticsBaseLib evarsConseqConvLib
 open cfAppLib cfSyntax semanticPrimitivesSyntax
+open xcf;
 
 val ERR = mk_HOL_ERR "cfTacticsLib";
 
@@ -195,68 +196,9 @@ val xsimpl =
   CHANGED_TAC (rpt (hsimpl \\ sep_imp_instantiate_tac))
   ORELSE sep_imp_instantiate_tac
 
-(* [xcf] *)
+(* [xcf], [xcfs] *)
 
-fun naryFun_repack_conv tm =
-  let
-    val (base_case, rec_case) = CONJ_PAIR (GSYM naryFun_def)
-    val Fun_pat = ``Fun _ _``
-    val conv =
-        if can (match_term Fun_pat) tm then
-          (RAND_CONV naryFun_repack_conv) THENC
-          (REWR_CONV rec_case)
-        else
-          REWR_CONV base_case
-  in conv tm
-  end
-
-val naryClosure_repack_conv =
-  (RAND_CONV naryFun_repack_conv) THENC (REWR_CONV (GSYM naryClosure_def))
-
-fun xcf_with_defs name f_defs =
-  let
-    val Closure_tac =
-      CONV_TAC (DEPTH_CONV naryClosure_repack_conv) \\
-      irule app_of_cf THEN
-      CONJ_TAC THEN1 eval_tac THEN
-      CONJ_TAC THEN1 eval_tac THEN
-      rpt(CHANGED_TAC(PURE_ONCE_REWRITE_TAC[cf_def] \\ reduce_tac))
-
-    val Recclosure_tac =
-      CONV_TAC (DEPTH_CONV (REWR_CONV (GSYM letrec_pull_params_repack))) \\
-      irule app_rec_of_cf THEN
-      CONJ_TAC THEN1 eval_tac THEN
-        rpt(CHANGED_TAC(PURE_ONCE_REWRITE_TAC[cf_def] \\ reduce_tac))\\
-        CONV_TAC (
-          DEPTH_CONV (
-            REWR_CONV letrec_pull_params_repack THENC
-            EVERY_CONV (map (fn def =>
-              TRY_CONV (REWR_CONV (GSYM def))) f_defs)))
-    fun closure_tac (g as (_, w)) =
-      let val (_, c, _, _, _) = cfAppSyntax.dest_app w in
-          if is_Closure c then
-            Closure_tac g
-          else if is_Recclosure c then
-            Recclosure_tac g
-          else
-            err_tac "xcf" "argument of app is not a closure" g
-      end
-      handle HOL_ERR _ =>
-             err_tac "xcf" "goal is not an app" g
-  in
-    rpt strip_tac \\ simp f_defs \\ closure_tac \\ reduce_tac
-  end;
-
-fun xcfs names st =
-  let
-    val f_defs = map (fn name => fetch_def name st) names
-  in
-    xcf_with_defs names f_defs
-  end;
-
-fun xcf_with_def name f_def = xcf_with_defs name [f_def];
-
-fun xcf name st = xcfs [name] st;
+(* Implemented in xcf.sml *)
 
 (* [xlet] *)
 

@@ -157,6 +157,12 @@ QED
 
 val _ = update_precondition scan_escseq_side;
 
+val r = translate scan_float1_def;
+val r = translate scan_float2_def
+val r = translate scan_float3_def
+val r = translate scan_number_def;
+val r = translate scan_float_or_int_def;
+
 val r = translate caml_lexTheory.next_sym_def;
 
 Theorem next_sym_side[local]:

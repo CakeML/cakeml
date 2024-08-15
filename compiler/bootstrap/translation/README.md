@@ -13,6 +13,9 @@ Translate the ARMv7 instruction encoder and ARMv7-specific config.
 [arm8ProgScript.sml](arm8ProgScript.sml):
 Translate the ARMv8 instruction encoder and ARMv8-specific config.
 
+[basis_defProgScript.sml](basis_defProgScript.sml):
+Translate the basis library term.
+
 [caml_lexProgScript.sml](caml_lexProgScript.sml):
 Translation of the OCaml lexer.
 

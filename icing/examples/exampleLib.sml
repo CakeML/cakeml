@@ -1138,7 +1138,7 @@ end;
         \\ first_x_assum $ mp_then Any assume_tac
                          $ SIMP_RULE std_ss [is_Double_def] (INST_TYPE [“:'ffi”|->“:'a”] theAST_spec)
         \\ gs[DOUBLE_def]
-        \\ xcf "main" st
+        \\ rpt strip_tac \\ xcf "main" st
         (* let for unit value *)
         \\ xlet_auto >- (xcon \\ xsimpl)
         \\ ‘^(numSyntax.term_of_int (numArgs+1)) = LENGTH cl’ by (rveq \\ fs[])

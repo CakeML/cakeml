@@ -10,7 +10,7 @@ open computeTheory;
 
 val _ = new_theory "computeProof";
 
-val _ = numLib.prefer_num ();
+val _ = numLib.temp_prefer_num ();
 
 Theorem compute_init_thy_ok:
   compute_init ths ∧

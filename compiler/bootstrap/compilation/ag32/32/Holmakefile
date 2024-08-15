@@ -1,6 +1,6 @@
 ARCH = ag32
 WORD_SIZE = 32
-INCLUDES = $(CAKEMLDIR)/semantics $(CAKEMLDIR)/basis ../../../..\
+INCLUDES = $(CAKEMLDIR)/semantics $(CAKEMLDIR)/basis $(CAKEMLDIR)/cv_translator ../../../..\
 					 ../../../../encoders/asm ../../../../encoders/$(ARCH)\
 					 ../../../../backend/$(ARCH) ../../../translation
 
@@ -18,3 +18,7 @@ cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile
 	tar -chzf $@ --transform='s|^|cake-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile
 
 EXTRA_CLEANS = cake.S cake-$(ARCH)-$(WORD_SIZE).tar.gz
+
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
+endif

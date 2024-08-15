@@ -1,6 +1,7 @@
 (**
  * Pancake concrete syntax examples
  * 9th May 2023: Updated with function declarations
+ * March 2024: Updated with shared memory instructions
  *)
 open HolKernel Parse boolLib bossLib stringLib numLib intLib;
 open preamble panPtreeConversionTheory;
@@ -40,7 +41,8 @@ fun parse_pancake q =
     EVAL “parse_funs_to_ast ^code”
   end
 
-val check_success = assert $ optionSyntax.is_some o rhs o concl
+val check_success = assert $ sumSyntax.is_inl o rhs o concl
+val check_failure = assert $ sumSyntax.is_inr o rhs o concl
 
 (** Examples can be written using quoted strings and passed to the ML
     function parse_pancake. *)
@@ -70,17 +72,27 @@ val treeEx1 = check_success $ parse_pancake ex1;
     (‘<>’). *)
 val ex2 = ‘
   fun main() {
-    if b & (a ^ c) & d {
-      foo(1, <2, 3>);
+    if !b & (a ^ c) & d {
+      return foo(1, <2, 3>);
         } else {
-      goo(4, 5, 6);
+      return goo(4, 5, 6);
     }
   }’;
 
 val treeEx2 = check_success $ parse_pancake ex2;
 
+(** Logical operators (as opposed to bitwise operators) are && and || *)
+val ex2_and_a_half = ‘
+  fun main() {
+    return(a && b && c || a || b ^ d);
+  }’;
+
+val treeEx2_and_a_half = check_success $ parse_pancake ex2_and_a_half;
+
+
 (** We also have a selection of boolean operators and
     a ‘return’ statement. NOTE: all Pancake functions should end with a return statement.*)
+
 val ex3 = ‘
   fun boolfun() {
     if b & (a ^ c) & d { return true; }
@@ -88,6 +100,20 @@ val ex3 = ‘
   }’;
 
 val treeEx3 = check_success $ parse_pancake ex3;
+
+(** Bool operators have higher precedence than comparators, so z is always 1*)
+val ex3_and_a_half = ‘
+  fun cmps () {
+    var x = 2;
+    var y = 3;
+    var z = (x & y != 0);
+    z = ((x & y) != 0);
+    z = (y & x != 0);
+    z = ((y & x) != 0);
+}’;
+
+val treeEx3_and_a_half = check_success $ parse_pancake ex3_and_a_half;
+
 
 (** Loops: standard looping construct. *)
 
@@ -97,8 +123,8 @@ val ex4 = ‘
       if x >= 5 {
         break;
       } else {
-        strb y, 8; // store byte
-        #foo(x,y,k,z); // ffi function call with pointer args
+        st8 y, 8; // store byte
+        @foo(x,y,k,z); // ffi function call with pointer args
         x = x + 1;
         y = x + 1;
       }
@@ -169,9 +195,13 @@ val ex8 = ‘
   fun cmps () {
     x = a < b;
     x = b > a;
-    x =  b >= a;
+    x = b >= a;
     x = a <= b;
     x = a != b;
+    x = a <+ b;
+    x = b >+ a;
+    x = b >=+ a;
+    x = a <=+ b;
   }’;
 
 val treeEx8 = check_success $ parse_tree_pancake ex8;
@@ -198,8 +228,8 @@ val ex9 = ‘
    var b = 8;
    var c = @base + 16;
    var d = 1;
-   #out_morefun(a,b,c,d);
-   str @base, ic;
+   @out_morefun(a,b,c,d);
+   stw @base, ic;
    return 0;
  }’;
 
@@ -223,25 +253,35 @@ val argument_call = ‘
 
 val arg_call_tree = check_success $ parse_tree_pancake argument_call;
 
-val arg_call_parse =  parse_pancake $ argument_call;
+val arg_call_parse = check_success $ parse_pancake argument_call;
 
-(** Return call example. It is not currently possible to initialise a variable
-    to a value returned from a function as a variable is declared. Instead, the
-    variable has to be declared beforehand as done below. *)
+(** Various kinds of function calls.
+
+    A function call immediately underneath a return is parsed as a tail call.
+    Tail calls overwrite the caller's stack frame with the callee's and
+    thereby prevent stack explosions.
+ **)
 val ret_call = ‘
   fun main() {
     var r = 0;
-    r = g();
+    r = g(); // This is an assigning call (but could be optimised to a tail call)
+    return r;
+  }
+
+  fun f() {
+    var 1 r = g(); // Function calls can be used to initialise variables,
+                   // but the expected shape of the return value must be declared
     return r;
   }
 
   fun g() {
-    return 1;
+    g(); // This is a stand-alone call
+    return g(); // This is a tail call
   }’;
 
 val ret_call_parse_tree = check_success $ parse_tree_pancake ret_call;
 
-val ret_call_parse =  parse_pancake $ ret_call;
+val ret_call_parse = check_success $ parse_pancake ret_call;
 
 (** Shapes and Structs. *)
 val struct_access = ‘
@@ -254,7 +294,7 @@ val struct_access = ‘
 
 val struct_access_parse_tree = check_success $ parse_tree_pancake struct_access;
 
-val struct_access_parse =  parse_pancake $ struct_access;
+val struct_access_parse = check_success $ parse_pancake struct_access;
 
 
 (* Writing ‘n’ for a shape is convenient syntax which is equivalent to ‘{1,1,...,1}’
@@ -298,5 +338,89 @@ val struct_arguments = ‘
 val struct_argument_parse_tree =  parse_tree_pancake $ struct_arguments;
 
 val struct_argument_parse =  parse_pancake $ struct_arguments;
+
+val shmem_ex = ‘
+  fun test_shmem() {
+    var v = 12;
+    !st8 1000, v; // store byte from variable v (12) to shared memory address 1000
+    !stw 1004, 1+1; // store 1+1 (aka 2) to shared memory address 1004
+    !ld8 v, 1000 + 12; // load byte stored in shared memory address 1012 to v
+    !ldw v, 1000 + 12 * 2; // load word stored in shared memory address 1024 to v
+  }’;
+
+val shmem_ex_parse =  check_success $ parse_pancake shmem_ex;
+
+val comment_ex =
+ ‘/* this /* non-recursive block comment
+   */
+  // and these single-line comments
+  fun main() { //should not interfer with parsing
+    return /* nor shoud this */ 1;
+  }
+ ’
+
+val comment_ex_parse = check_success $ parse_pancake comment_ex
+
+val error_line_ex1 =
+ ‘/* this
+  nasty /* non recursive /*
+  block comment
+  */
+  // and these
+  // single-line comments
+  fun fun main() { //should not interfer with error line reporting
+    return /* nor should this */ 1;
+  }
+ ’
+
+val error_line_ex1_parse = check_failure $ parse_pancake error_line_ex1
+
+val error_line_ex2 =
+ ‘/* this
+  nasty /* non recursive /*
+  block comment
+  */
+  // and these
+  // single-line comments
+  fun main() { //should not interfer with error line reporting
+    return val /* nor should this */ 1;
+  }
+ ’
+
+val error_line_ex2_parse = check_failure $ parse_pancake error_line_ex2
+
+(** Function pointers
+
+    & can only be used to get the address of functions.
+    Function pointers can be stored in variables, in shapes, passed as arguments,
+    stored on the heap, and invoked.
+    Any other use of them---including but not limited to arithmetic and
+    shared memory operations---is considered undefined behaviour.
+ *)
+val fun_pointer_ex1 =
+  ‘fun main () {
+     var x = &main;
+     return *x(); //  this is a recursive call
+   }
+  ’
+
+val fun_pointer_ex1_parse = check_success $ parse_pancake fun_pointer_ex1;
+
+(* Exporting a function, that is, making a function callable for external entry into Pancake,
+   uses the `export` keyword. Functions without this keyword are not callable in this way *)
+val entry_fun =
+ ‘
+  export fun f() {
+    // this function can be called externally
+    return 1;
+  }
+
+  fun g() {
+    // this function cannot
+    return 2;
+  }
+ ’
+
+val entry_fun_parse =  check_success $ parse_pancake entry_fun;
 
 val _ = export_theory();

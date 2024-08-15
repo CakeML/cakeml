@@ -2,7 +2,7 @@
 open HolKernel Parse boolLib bossLib;
 open lem_pervasivesTheory alistTheory llistTheory locationTheory sptreeTheory wordsTheory integer_wordTheory;
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 
 

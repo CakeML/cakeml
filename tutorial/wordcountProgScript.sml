@@ -42,7 +42,8 @@ Theorem inputLinesFromAny_spec:
                            | SOME f => all_lines fs f)
        else NONE) sv * STDIO (if IS_SOME fo then fs else fastForwardFD fs 0))
 Proof
-  xcf"inputLinesFromAny"(get_ml_prog_state())
+  rpt strip_tac
+  \\ xcf"inputLinesFromAny"(get_ml_prog_state())
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull )
   \\ reverse(Cases_on`∃ll. wfFS (fs with numchars := ll)`) >- (fs[STDIO_def,IOFS_def] \\ xpull)
   \\ Cases_on`fo` \\ fs[OPTION_TYPE_def]

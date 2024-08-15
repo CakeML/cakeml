@@ -5,7 +5,7 @@ open preamble pbcTheory pbc_normaliseTheory npbc_checkTheory;
 
 val _ = new_theory "pb_parse";
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 (* Print mlstring pbc *)
 Definition lit_string_def:
@@ -356,17 +356,52 @@ Definition parse_red_header_def:
   | _ => NONE
 End
 
-(* TODO: formatting
-  rup constraint ; ID1 ID2 ...
-*)
+(* formatting
+  rup constraint ; ID1 ID2 ... *)
+Definition parse_constraint_npbc_2_def:
+  parse_constraint_npbc_2 f_ns line =
+  case parse_constraint_LHS line [] of (rest,lhs) =>
+  (case rest of (INL cmp :: INR deg :: INL term :: rest) =>
+    if term = str #";" ∧ cmp = strlit">=" then
+      case map_f_ns f_ns lhs of NONE => NONE
+      | SOME (lhs',f_ns') =>
+        SOME (
+          pbc_to_npbc (GreaterEqual,lhs',deg),
+          rest,
+          f_ns')
+    else
+      NONE
+  | _ => NONE)
+End
+
+Definition strip_numbers_end_def:
+  (strip_numbers_end [] acc = SOME (REVERSE acc)) ∧
+  (strip_numbers_end (x::xs) acc =
+  case x of INR n =>
+    if n ≥ 0 then
+      strip_numbers_end xs (Num n::acc)
+    else NONE
+  | INL s =>
+    if s = strlit"~" then
+      strip_numbers_end xs (0::acc)
+    else NONE)
+End
+
 Definition parse_rup_def:
   parse_rup f_ns line =
-  case parse_constraint_npbc f_ns line of
+  case parse_constraint_npbc_2 f_ns line of
     SOME (constr,rest,f_ns') =>
-      (case strip_numbers rest [] of NONE => NONE
+      (case strip_numbers_end rest [] of NONE => NONE
       | SOME ns => SOME(constr,ns,f_ns'))
   | _ => NONE
 End
+
+(*
+EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2 ;"))``
+EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2;"))``
+EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2 5;"))``
+*)
+
 
 (* Parse a single line of an lstep,
   Except "Red", which will be handled later *)
@@ -388,14 +423,14 @@ Definition parse_lstep_aux_def:
         | SOME (c,s,f_ns') =>
           SOME (INR (c,s),f_ns')
       else if r = INL (strlit "e") then
-        (case rs of
-          INR id::rest =>
-          if id ≥ 0 then
-            (case parse_constraint_npbc f_ns rest of
-              SOME (c,[],f_ns') => SOME (INL (Check (Num id) c),f_ns')
-            | _ => NONE)
-          else NONE
-        | _ => NONE)
+        (case parse_constraint_npbc f_ns rs of
+          NONE => NONE
+        | SOME (c,rest,f_ns') =>
+          case rest of [INR id] =>
+            if id ≥ 0 then
+              SOME (INL (Check (Num id) c), f_ns')
+            else NONE
+          | _ => NONE)
       else if r = INL (strlit "*") then SOME (INL NoOp,f_ns)
       else NONE)
 End

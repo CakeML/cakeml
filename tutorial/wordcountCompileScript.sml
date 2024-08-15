@@ -3,11 +3,11 @@
   in the logic.
 *)
 
-open preamble wordcountProgTheory compilationLib
+open preamble wordcountProgTheory eval_cake_compile_x64Lib
 
 val _ = new_theory"wordcountCompile";
 
-val wordcount_compiled = save_thm("wordcount_compiled",
-  compile_x64 "wordcount" wordcount_prog_def);
+Theorem wordcount_compiled =
+  eval_cake_compile_x64 "" wordcount_prog_def "wordcount.S";
 
 val _ = export_theory();

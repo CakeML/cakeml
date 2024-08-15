@@ -1346,7 +1346,7 @@ Definition word_fun_to_display_def:
   word_fun_to_display names (n,argc,body) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
-           Tuple (GENLIST num_to_display argc);
+           Tuple (GENLIST (λn. num_to_display (2 * n)) argc);
            word_prog_to_display names body]
 End
 

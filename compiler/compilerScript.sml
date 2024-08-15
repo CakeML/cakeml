@@ -18,7 +18,7 @@ open riscv_configTheory export_riscvTheory
 open mips_configTheory export_mipsTheory
 open arm7_configTheory export_arm7Theory
 open ag32_configTheory export_ag32Theory
-open panPtreeConversionTheory pan_to_targetTheory
+open panPtreeConversionTheory pan_to_targetTheory panScopeTheory pan_passesTheory
 
 val _ = new_theory"compiler";
 
@@ -86,6 +86,11 @@ OPTIONS:
   --explore     outputs intermediate forms of the compiled program
 
   --pancake     takes a pancake program as input
+
+  --main_return=B   here B can be either true or false; the default is
+                false; setting this to true causes the main function to
+                return to caller instead of exit; this option is
+                required to use multiple entry points with Pancake.
 
 ADDITIONAL OPTIONS:
 
@@ -171,6 +176,7 @@ Datatype:
                 | TypeError mlstring
                 | AssembleError
                 | ConfigError mlstring
+                | ScopeError mlstring mlstring
 End
 
 Definition find_next_newline_def:
@@ -275,12 +281,19 @@ Definition compile_pancake_def:
   compile_pancake c input =
   let _ = empty_ffi (strlit "finished: start up") in
   case panPtreeConversion$parse_funs_to_ast input of
-  | NONE => Failure (ParseError (strlit "Failed pancake parsing"))
-  | SOME funs =>
-      let _ = empty_ffi (strlit "finished: lexing and parsing") in
-      case pan_to_target$compile_prog c funs of
-      | NONE => (Failure AssembleError)
-      | SOME (bytes,data,c) => (Success (bytes,data,c))
+  | INR errs =>
+    ((Failure $ ParseError $ concat $
+       MAP (λ(msg,loc). concat [msg; strlit " at ";
+                                locs_to_string (implode input) (SOME loc); strlit "\n"])
+           errs), Nil)
+  | INL funs =>
+      case scope_check funs of
+      | SOME (x, fname) => (Failure (ScopeError x fname),Nil)
+      | NONE =>
+          let _ = empty_ffi (strlit "finished: lexing and parsing") in
+          case pan_passes$pan_compile_tap c funs of
+          | (NONE,td) => (Failure AssembleError,td)
+          | (SOME (bytes,data,c),td) => (Success (bytes,data,c),td)
 End
 
 (* The top-level compiler *)
@@ -294,7 +307,9 @@ val error_to_str_def = Define`
        concat [strlit "### ERROR: type error\n"; s; strlit "\n"]
      else s) /\
   (error_to_str (ConfigError s) = concat [strlit "### ERROR: config error\n"; s; strlit "\n"]) /\
-  (error_to_str AssembleError = strlit "### ERROR: assembly error\n")`;
+  (error_to_str AssembleError = strlit "### ERROR: assembly error\n") /\
+  (error_to_str (ScopeError name fname) =
+    concat [strlit "### ERROR: scope error\n"; name; strlit " is not in scope in "; fname; strlit "\n"])`;
 
 val is_error_msg_def = Define `
   is_error_msg x = mlstring$isPrefix (strlit "###") x`;
@@ -590,13 +605,15 @@ val parse_top_config_def = Define`
   let typeinference = find_bool (strlit"--skip_type_inference=") ls F in
   let sexpprint = MEMBER (strlit"--print_sexp") ls in
   let onlyprinttypes = MEMBER (strlit"--types") ls in
-  case (sexp,prelude,typeinference) of
-    (INL sexp,INL prelude,INL typeinference) =>
-      INL (sexp,prelude,typeinference,onlyprinttypes,sexpprint)
+  let mainreturn = find_bool (strlit"--main_return=") ls F in
+  case (sexp,prelude,typeinference,mainreturn) of
+    (INL sexp,INL prelude,INL typeinference,INL mainreturn) =>
+      INL (sexp,prelude,typeinference,onlyprinttypes,sexpprint,mainreturn)
   | _ => INR (concat [
                get_err_str sexp;
                get_err_str prelude;
-               get_err_str typeinference])`
+               get_err_str typeinference;
+               get_err_str mainreturn])`
 
 (* Check for version flag *)
 val has_version_flag_def = Define `
@@ -624,14 +641,6 @@ val add_tap_output_def = Define`
   add_tap_output td out =
     if td = Nil then out else td :mlstring app_list`;
 
-Definition ffinames_to_string_list_def:
-  (ffinames_to_string_list [] = []) ∧
-  (ffinames_to_string_list ((ExtCall s)::rest) =
-    s::(ffinames_to_string_list rest)) ∧
-  (ffinames_to_string_list ((SharedMem _)::rest) =
-    ffinames_to_string_list rest)
-End
-
 (* The top-level compiler with everything instantiated except it doesn't do exporting *)
 
 (* The top-level compiler with almost everything instantiated except the top-level configuration *)
@@ -640,7 +649,7 @@ Definition compile_64_def:
   let confexp = parse_target_64 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
-    (INL (conf,export), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint)) =>
+    (INL (conf,export), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret)) =>
     (let ext_conf = extend_conf cl conf in
     case ext_conf of
       INL ext_conf =>
@@ -658,7 +667,7 @@ Definition compile_64_def:
             (add_tap_output td (export
               (ffinames_to_string_list
                 $ the [] c.lab_conf.ffi_names)
-                bytes data c.symbols),
+                bytes data c.symbols c.exported mainret F),
               implode "")
         | (Failure err, td) => (add_tap_output td (List []), error_to_str err))
     | INR err =>
@@ -676,18 +685,21 @@ Definition compile_pancake_64_def:
       let topconf = parse_top_config cl in
       case (topconf) of
       | INR err => (List[], error_to_str (ConfigError err))
-      | INL (sexp, prelude, sexpprint) =>
+      | INL (sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret) =>
           let ext_conf = extend_conf cl conf in
           case ext_conf of
           | INR err =>
               (List[], error_to_str (ConfigError (get_err_str ext_conf)))
           | INL ext_conf =>
               case compiler$compile_pancake ext_conf input of
-              | (Failure err) =>
+              | (Failure err, td) =>
                   (List[], error_to_str err)
-              | (Success (bytes, data, c)) =>
-                  (export (ffinames_to_string_list $
-                    the [] c.lab_conf.ffi_names) bytes data c.symbols, implode "")
+              | (Success (bytes, data, c), td) =>
+                  (add_tap_output td
+                    (export (ffinames_to_string_list $
+                      the [] c.lab_conf.ffi_names) bytes data c.symbols
+                      c.exported mainret T),
+                   implode "")
 End
 
 Definition full_compile_64_def:
@@ -711,7 +723,7 @@ Definition compile_32_def:
   let confexp = parse_target_32 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
-    (INL (conf,export), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint)) =>
+    (INL (conf,export), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret)) =>
     (let ext_conf = extend_conf cl conf in
     case ext_conf of
       INL ext_conf =>
@@ -729,7 +741,7 @@ Definition compile_32_def:
             (add_tap_output td (export
               (ffinames_to_string_list $
                 the [] c.lab_conf.ffi_names)
-                bytes data c.symbols),
+                bytes data c.symbols c.exported mainret F),
               implode "")
         | (Failure err, td) => (List [], error_to_str err))
     | INR err =>
@@ -747,18 +759,21 @@ Definition compile_pancake_32_def:
       let topconf = parse_top_config cl in
       case (topconf) of
       | INR err => (List[], error_to_str (ConfigError err))
-      | INL (sexp, prelude, sexpprint) =>
+      | INL (sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret) =>
           let ext_conf = extend_conf cl conf in
           case ext_conf of
           | INR err =>
               (List[], error_to_str (ConfigError (get_err_str ext_conf)))
           | INL ext_conf =>
               case compiler$compile_pancake ext_conf input of
-              | (Failure err) =>
+              | (Failure err, td) =>
                   (List[], error_to_str err)
-              | (Success (bytes, data, c)) =>
-                  (export (ffinames_to_string_list $
-                    the [] c.lab_conf.ffi_names) bytes data c.symbols, implode "")
+              | (Success (bytes, data, c), td) =>
+                  (add_tap_output td
+                    (export (ffinames_to_string_list $
+                      the [] c.lab_conf.ffi_names) bytes data c.symbols
+                      c.exported mainret T),
+                   implode "")
 End
 
 Definition full_compile_32_def:

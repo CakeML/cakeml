@@ -3,7 +3,7 @@
 *)
 open preamble astTheory flatLangTheory;
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 val _ = new_theory "flat_uncheck_ctors";
 val _ = set_grammar_ancestry ["flatLang", "lib"];

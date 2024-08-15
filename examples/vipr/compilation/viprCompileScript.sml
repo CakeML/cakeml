@@ -1,12 +1,11 @@
 (*
   Compile cake_vipr
 *)
-
-open preamble compilationLib viprProgTheory;
+open preamble viprProgTheory eval_cake_compile_x64Lib
 
 val _ = new_theory "viprCompile"
 
 Theorem vipr_encoder_compiled =
-  compile_x64 "cake_vipr" vipr_prog_def;
+  eval_cake_compile_x64 "" vipr_prog_def "cake_vipr.S";
 
 val _ = export_theory ();

@@ -21,7 +21,7 @@ val (reader_not_fail, reader_sem_sing) =
   MATCH_MP semantics_prog_Terminate_not_Fail reader_sem |> CONJ_PAIR;
 
 val compile_correct_applied =
-  MATCH_MP compile_correct reader_compiled
+  MATCH_MP compile_correct (cj 1 reader_compiled)
   |> SIMP_RULE (srw_ss()) [LET_THM, ml_progTheory.init_state_env_thm,
                            GSYM AND_IMP_INTRO]
   |> C MATCH_MP reader_not_fail
@@ -57,7 +57,7 @@ Definition installed_x64_def:
 End
 
 Definition reader_code_def:
-  reader_code = (code, data, config)
+  reader_code = (code, data, info)
 End
 
 val _ = Parse.hide "mem";
@@ -91,4 +91,3 @@ Proof
 QED
 
 val _ = export_theory ();
-

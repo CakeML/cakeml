@@ -292,6 +292,7 @@ Theorem check_unsat_spec:
       STDIO (add_stdout (add_stderr fs err) out) *
       &(check_unsat_sem cl fs out))
 Proof
+  rw[]>>
   xcf"check_unsat"(get_ml_prog_state())>>
   reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)>>

@@ -67,7 +67,8 @@ Theorem double_fromWord_spec:
       (emp)
       (POSTv v. cond (v = FP_WordTree $ Fp_const w))
 Proof
-  xcf_with_def "fromWord" Double_fromWord_v_def
+  rpt strip_tac
+  \\ xcf_with_def Double_fromWord_v_def
   \\ gs[cf_fpfromword_def, local_def, emp_def] \\ rpt strip_tac
   \\ qexists_tac ‘GC’ \\ qexists_tac ‘emp’
   \\ gs[emp_def, GC_def, set_sepTheory.SEP_EXISTS, set_sepTheory.STAR_def,
@@ -99,7 +100,8 @@ Theorem double_fromString_spec:
     (DoubleIO df)
     (POSTv v. cond (v = FP_WordTree $ Fp_const $ string2Double s df) * DoubleIO df)
 Proof
-  xcf_with_def "Double.fromString" Double_fromString_v_def
+  rpt strip_tac
+  \\ xcf_with_def Double_fromString_v_def
   \\ reverse (Cases_on `doubleFuns_ok df`)
   >- (fs[DoubleIO_def] \\ xpull)
   \\ gs[string2Double_def]
@@ -213,7 +215,8 @@ Theorem double_toWord_spec:
       (emp)
       (POSTv v. cond (WORD (compress_word fp) v))
 Proof
-  xcf_with_def "toWord" Double_toWord_v_def
+  rpt strip_tac
+  \\ xcf_with_def Double_toWord_v_def
   \\ gs[cf_fptoword_def, local_def, emp_def] \\ rpt strip_tac
   \\ qexists_tac ‘GC’ \\ qexists_tac ‘emp’
   \\ gs[emp_def, GC_def, set_sepTheory.SEP_EXISTS, set_sepTheory.STAR_def,
@@ -245,7 +248,8 @@ Theorem double_toString_spec:
         (DoubleIO df)
         (POSTv v. cond (STRING_TYPE (implode (df.toString w)) v) * DoubleIO df)
 Proof
-  xcf_with_def "Double.toString" Double_toString_v_def
+  rpt strip_tac
+  \\ xcf_with_def Double_toString_v_def
   \\ reverse (Cases_on `doubleFuns_ok df`)
   >- (fs[DoubleIO_def] \\ xpull)
   \\ ntac 19 (xlet_auto >- (fs[] \\ xsimpl))

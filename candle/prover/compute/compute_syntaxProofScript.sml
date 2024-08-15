@@ -7,7 +7,7 @@ open preamble holSyntaxTheory holSyntaxExtraTheory holSyntaxLibTheory
 
 val _ = new_theory "compute_syntaxProof";
 
-val _ = numLib.prefer_num ();
+val _ = numLib.temp_prefer_num ();
 
 fun SIMPR ths = SIMP_RULE (srw_ss()) ths;
 fun SIMPC ths = SIMP_CONV (srw_ss()) ths;

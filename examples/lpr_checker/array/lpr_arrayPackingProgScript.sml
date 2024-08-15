@@ -147,6 +147,7 @@ Theorem main_spec:
     (POSTv uv. &UNIT_TYPE () uv *
     COMMANDLINE cl * SEP_EXISTS err. STDIO (main_sem cl fs err))
 Proof
+  rw[]>>
   xcf"main"(get_ml_prog_state())>>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)>>
   rpt xlet_autop >>

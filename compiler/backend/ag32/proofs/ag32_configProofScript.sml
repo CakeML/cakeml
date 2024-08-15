@@ -79,4 +79,63 @@ val ag32_compile_correct =
   |> DISCH_ALL
   |> curry save_thm"ag32_compile_correct";
 
+Theorem get_shmem_info_LENGTH:
+  ∀xs c l1 l2.
+    get_shmem_info xs c l1 l2 = (t1,t2) ∧ LENGTH l1 = LENGTH l2 ⇒
+    LENGTH t1 = LENGTH t2
+Proof
+  ho_match_mp_tac lab_to_targetTheory.get_shmem_info_ind \\ rw []
+  \\ gvs [lab_to_targetTheory.get_shmem_info_def]
+  \\ pairarg_tac \\ gvs []
+QED
+
+Triviality IMP_EVERY_list_add_if_fresh:
+  ∀xs x p. p x ∧ EVERY p xs ⇒ EVERY p (list_add_if_fresh x xs)
+Proof
+  Induct \\ gvs [lab_to_targetTheory.list_add_if_fresh_def] \\ rw []
+QED
+
+Theorem find_ffi_names_ExtCall:
+  ∀xs. EVERY (λx. ∃i. ExtCall i = x) (find_ffi_names xs)
+Proof
+  ho_match_mp_tac lab_to_targetTheory.find_ffi_names_ind
+  \\ rpt strip_tac
+  \\ asm_rewrite_tac [lab_to_targetTheory.find_ffi_names_def,EVERY_DEF]
+  \\ Cases_on ‘x’ \\ gvs []
+  \\ Cases_on ‘a’ \\ gvs []
+  \\ irule IMP_EVERY_list_add_if_fresh \\ gvs []
+QED
+
+Theorem MAP_ExtCall_ffinames:
+  ∀xs.
+    EVERY (λx. ∃i. ExtCall i = x) xs ⇒
+    xs = MAP ExtCall (ffinames_to_string_list xs)
+Proof
+  Induct \\ gvs [backendTheory.ffinames_to_string_list_def]
+  \\ Cases \\ gvs [backendTheory.ffinames_to_string_list_def]
+QED
+
+Theorem compile_imp_ffi_names:
+  backend$compile c p = SOME (b,d,c1) ∧
+  c1.lab_conf.shmem_extra = [] ∧ f ≠ [] ∧
+  c.lab_conf.ffi_names = NONE ∧
+  ffinames_to_string_list (the [] c1.lab_conf.ffi_names) = f ⇒
+  c1.lab_conf.ffi_names = SOME (MAP ExtCall f)
+Proof
+  Cases_on ‘c1.lab_conf.ffi_names’
+  \\ gvs [libTheory.the_def,backendTheory.ffinames_to_string_list_def]
+  \\ gvs [backendTheory.compile_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [oneline backendTheory.attach_bitmaps_def, AllCaseEqs()]
+  \\ strip_tac \\ gvs []
+  \\ gvs [lab_to_targetTheory.compile_def]
+  \\ gvs [lab_to_targetTheory.compile_lab_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ drule get_shmem_info_LENGTH \\ gvs [] \\ rw []
+  \\ irule MAP_ExtCall_ffinames
+  \\ gvs [find_ffi_names_ExtCall]
+QED
+
 val _ = export_theory();

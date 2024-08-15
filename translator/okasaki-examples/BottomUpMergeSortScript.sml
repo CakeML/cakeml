@@ -4,7 +4,7 @@
 *)
 open preamble
 open okasaki_miscTheory bagLib bagTheory sortingTheory ml_translatorLib ListProgTheory;
-val _ = numLib.prefer_num()
+val _ = numLib.temp_prefer_num()
 
 val _ = new_theory "BottomUpMergeSort"
 

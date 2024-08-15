@@ -5,7 +5,7 @@ open preamble mlratTheory real_sigmaTheory sptree_unionWithTheory realLib;
 
 val _ = new_theory "milp";
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 (* this should really be a finite map x |-> r
 
@@ -352,13 +352,13 @@ Theorem eval_lhs_cmul:
   r * eval_lhs w lhs
 Proof
   simp[eval_lhs_sum,cmul_def,lookup_map]>>
-  simp[GSYM iterateTheory.SUM_LMUL]>>
+  simp[GSYM SUM_LMUL]>>
   Cases_on`r=0`
   >- (
-    simp[iterateTheory.SUM_0']>>
-    match_mp_tac iterateTheory.SUM_EQ_0'>>
+    simp[SUM_0']>>
+    match_mp_tac SUM_EQ_0'>>
     simp[PULL_EXISTS,eval_real_term_def])>>
-  match_mp_tac iterateTheory.SUM_EQ_GENERAL_INVERSES>>
+  match_mp_tac SUM_EQ_GENERAL_INVERSES>>
   rw[PULL_EXISTS]>>
   qexists_tac`(λ(x,v).(x, r⁻¹ * v) )`>>
   qexists_tac`(λ(x,v).(x, r * v) )`>> simp[]>>
@@ -371,7 +371,7 @@ Theorem eval_lhs_sum_2:
     (λk. eval_real_term w (k,THE (lookup k lhs)) )
 Proof
   simp[eval_lhs_sum]>>
-  match_mp_tac iterateTheory.SUM_EQ_GENERAL_INVERSES>>
+  match_mp_tac SUM_EQ_GENERAL_INVERSES>>
   simp[PULL_EXISTS,domain_lookup]>>
   qexists_tac`FST`>>simp[]>>
   qexists_tac`λk. (k, THE (lookup k lhs))`>>simp[]
@@ -388,7 +388,7 @@ Theorem eval_lhs_unionWith_add_r_add_n:
 Proof
   rw[eval_lhs_sum] >>
   simp[EQ_SYM_EQ]>>
-  match_mp_tac iterateTheory.SUM_SUPERSET>>
+  match_mp_tac SUM_SUPERSET>>
   simp[SUBSET_DEF,PULL_EXISTS,lookup_unionWith]>>
   rw[]>>
   every_case_tac>>fs[add_r_def,add_n_def,eval_real_term_def]>>
@@ -462,29 +462,29 @@ Proof
   last_x_assum SUBST1_TAC>>
   unabbrev_all_tac>>
   simp[domain_unionWith_add_n]>>
-  DEP_REWRITE_TAC [iterateTheory.SUM_UNION]>>
+  DEP_REWRITE_TAC [SUM_UNION]>>
   simp[]>>
   CONJ_TAC >-
     simp[DISJOINT_DIFF_INTER]>>
   simp[arith]>>
   match_mp_tac arith2>>
   reverse CONJ_TAC>-(
-    DEP_REWRITE_TAC[GSYM iterateTheory.SUM_ADD']>>
+    DEP_REWRITE_TAC[GSYM SUM_ADD']>>
     simp[]>>
-    match_mp_tac iterateTheory.SUM_EQ'>>
+    match_mp_tac SUM_EQ'>>
     simp[lookup_unionWith,FORALL_PROD,domain_lookup]>>
     rw[]>>
     simp[eval_real_term_def,add_n_def]>>
     realLib.REAL_ASM_ARITH_TAC)>>
   match_mp_tac arith2>>
   CONJ_TAC>- (
-    match_mp_tac iterateTheory.SUM_EQ'>>
+    match_mp_tac SUM_EQ'>>
     simp[lookup_unionWith,FORALL_PROD,domain_lookup]>>
     rw[]>>
     `lookup x lhs' = NONE` by
       metis_tac[option_CLAUSES]>>
     fs[])>>
-  match_mp_tac iterateTheory.SUM_EQ'>>
+  match_mp_tac SUM_EQ'>>
   simp[lookup_unionWith,FORALL_PROD,domain_lookup]>>
   rw[]>>
   `lookup x lhs = NONE` by

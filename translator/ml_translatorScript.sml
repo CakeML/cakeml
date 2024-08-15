@@ -1707,8 +1707,8 @@ QED
 (* pair definition *)
 
 Definition PAIR_TYPE_def:
-    PAIR_TYPE b c (x_2:'b,x_1:'c) v <=>
-    ?v1_1 v1_2. v = Conv NONE [v1_1; v1_2] /\ b x_2 v1_1 /\ c x_1 v1_2
+    PAIR_TYPE a b (x_2:'a,x_1:'b) v <=>
+    ?v1_1 v1_2. v = Conv NONE [v1_1; v1_2] /\ a x_2 v1_1 /\ b x_1 v1_2
 End
 
 val PAIR_TYPE_SIMP = Q.prove(

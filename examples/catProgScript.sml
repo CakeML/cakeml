@@ -235,6 +235,7 @@ Theorem cat1_spec:
           &UNIT_TYPE () u *
           STDIO (add_stdout fs (catfile_string fs fnm)))
 Proof
+  rpt strip_tac >>
   xcf "cat1" (get_ml_prog_state()) >>
   xhandle `POSTve
              (\u. SEP_EXISTS content ino. &UNIT_TYPE () u *

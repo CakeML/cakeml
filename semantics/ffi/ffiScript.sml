@@ -4,7 +4,7 @@
 open HolKernel Parse boolLib bossLib;
 open libTheory;
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 val _ = new_theory "ffi"
 

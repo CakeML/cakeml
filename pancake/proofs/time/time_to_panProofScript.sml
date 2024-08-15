@@ -65,9 +65,9 @@ Definition build_ffi_def:
   build_ffi (:'a) be outs (seq:time_input) io =
      <| oracle    :=
         (λs f conf bytes.
-          if s = "get_time_input"
+          if s = ExtCall "get_time_input"
           then Oracle_return (next_ffi f) (time_input (:'a) be f)
-          else if MEM s outs
+          else if MEM s (MAP ExtCall outs)
           then Oracle_return f bytes
           else Oracle_final FFI_failed)
       ; ffi_state := seq
@@ -152,7 +152,9 @@ End
 
 Definition well_behaved_ffi_def:
   well_behaved_ffi ffi_name (s:(α, β) panSem$state) n (m:num) <=>
-  explode ffi_name ≠ "" ∧ n < m ∧
+  case ffi_name of
+    ExtCall
+  ffi_name ≠ ExtCall(implode "" ∧ n < m ∧
   ∃bytes.
     read_bytearray s.base_addr n
                    (mem_load_byte s.memory s.memaddrs s.be) =

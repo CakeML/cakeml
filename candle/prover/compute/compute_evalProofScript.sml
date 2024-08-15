@@ -9,7 +9,7 @@ open ml_monadBaseTheory ml_monadBaseLib;
 
 val _ = new_theory "compute_evalProof";
 
-val _ = numLib.prefer_num ();
+val _ = numLib.temp_prefer_num ();
 
 fun SIMPR ths = SIMP_RULE (srw_ss()) ths;
 fun SIMPC ths = SIMP_CONV (srw_ss()) ths;

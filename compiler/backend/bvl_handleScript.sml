@@ -136,6 +136,21 @@ val OptionalLetLet_def = Define `
       let flat_live = vars_from_list (MAP FST (toAList fvs)) in
         ([(Let [] (LetLet env_size fvs e))],flat_live,0n,nr)`;
 
+Definition OptionalLetLet_sing_def:
+  OptionalLetLet_sing e env_size live s (limit:num) (nr:bool) =
+    if s < limit then (e,live,s,nr) else
+      let fvs = db_to_set live in
+      let flat_live = vars_from_list (MAP FST (toAList fvs)) in
+        ((Let [] (LetLet env_size fvs e)),flat_live,0n,nr)
+End
+
+Theorem OptionalLetLet_sing_eq:
+  OptionalLetLet e sz lv s lim nr =
+    (λ(d,l,s,nr). ([d],l,s,nr)) (OptionalLetLet_sing e sz lv s lim nr)
+Proof
+  rw[OptionalLetLet_def, OptionalLetLet_sing_def]
+QED
+
 val compile_def = tDefine "compile" `
   (compile l n [] = ([]:bvl$exp list,Empty,0n,T)) /\
   (compile l n (x::y::xs) =
@@ -184,9 +199,73 @@ val compile_def = tDefine "compile" `
 
 val compile_ind = theorem"compile_ind";
 
+Definition compile_sing_def:
+  (compile_sing l n (Var v) = if v < n then (Var v,Var v,1,T)
+                         else (Op (Const 0) [],Empty,1,T)) /\
+  (compile_sing l n (If x1 x2 x3) =
+     let (x1,l1,s1,nr1) = compile_sing l n x1 in
+     let (x2,l2,s2,nr2) = compile_sing l n x2 in
+     let (x3,l3,s3,nr3) = compile_sing l n x3 in
+       OptionalLetLet_sing (If x1 x2 x3) n
+         (mk_Union l1 (mk_Union l2 l3)) (s1+s2+s3+1) l
+         (nr1 /\ nr2 /\ nr3)) /\
+  (compile_sing l n (Let xs x2) =
+     if NULL xs then
+       compile_sing l n x2
+     else
+       let k = LENGTH xs in
+       let (xs,l1,s1,nr1) = compile_list l n xs in
+       let (x2,l2,s2,nr2) = compile_sing l (n + k) x2 in
+         OptionalLetLet_sing (Let xs x2) n
+           (mk_Union l1 (Shift k l2)) (s1+s2+1) l (nr1 /\ nr2)) /\
+  (compile_sing l n (Handle x1 x2) =
+     let (y1,l1,s1,nr1) = compile_sing l n x1 in
+       if nr1 then (y1,l1,s1,T) else
+         let (y2,l2,s2,nr2) = compile_sing l (n+1) x2 in
+           (Handle (LetLet n (db_to_set l1) y1) y2,
+            mk_Union l1 (Shift 1 l2),
+            s2 (* s1 intentionally left out because
+                  it does not contrib to exp size in BVI *), nr2)) /\
+  (compile_sing l n (Raise x1) =
+     let (dx,lx,s1,nr1) = compile_sing l n x1 in
+       OptionalLetLet_sing (Raise dx) n lx (s1+1) l F) /\
+  (compile_sing l n (Op op xs) =
+     let (ys,lx,s1,nr1) = compile_list l n xs in
+       OptionalLetLet_sing (Op op ys) n lx (s1+1) l nr1) /\
+  (compile_sing l n (Tick x) =
+     let (y,lx,s1,nr1) = compile_sing l n x in
+       (Tick y,lx,s1,nr1)) /\
+  (compile_sing l n (Call t dest xs) =
+     let (ys,lx,s1,nr1) = compile_list l n xs in
+       OptionalLetLet_sing (Call t dest ys) n lx (s1+1) l F) ∧
+
+  (compile_list l n [] = ([]:bvl$exp list,Empty,0n,T)) /\
+  (compile_list l n (x::xs) =
+     let (dx,lx,s1,nr1) = compile_sing l n x in
+     let (dy,ly,s2,nr2) = compile_list l n xs in
+       (dx :: dy, mk_Union lx ly, s1+s2, nr1 /\ nr2))
+End
+
+Theorem compile_sing_eq:
+  (∀e l n. compile l n [e] = (λ(d,l,s,nr). ([d],l,s,nr)) (compile_sing l n e)) ∧
+  (∀es l n. compile l n es = compile_list l n es)
+Proof
+  Induct >> rw[compile_def, compile_sing_def, OptionalLetLet_sing_eq] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  rpt (TOP_CASE_TAC >> gvs[]) >>
+  Cases_on `es` >> gvs[compile_def]
+QED
+
 val compile_exp_def = Define `
   compile_exp cut_size arity e =
     HD (FST (compile cut_size arity [handle_simp (bvl_const$compile_exp e)]))`;
+
+Theorem compile_exp_eq:
+  compile_exp cut_size arity e =
+    FST (compile_sing cut_size arity (handle_simp (bvl_const$compile_exp e)))
+Proof
+  rw[compile_exp_def, compile_sing_eq] >> pairarg_tac >> gvs[]
+QED
 
 val dest_Seq_def = PmatchHeuristics.with_classic_heuristic Define `
   (dest_Seq (Let [e1;e2] (Var 1)) = SOME (e1,e2)) /\

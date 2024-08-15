@@ -1,11 +1,11 @@
 (*
   Compiles the grep example by evaluation inside the logic of HOL
 *)
-open preamble compilationLib grepProgTheory
+open preamble grepProgTheory eval_cake_compile_x64Lib
 
 val _ = new_theory "grepCompile"
 
-val grep_compiled = save_thm("grep_compiled",
-  compile_x64 "grep" grep_prog_def);
+Theorem grep_compiled =
+  eval_cake_compile_x64 "" grep_prog_def "grep.S";
 
 val _ = export_theory ();

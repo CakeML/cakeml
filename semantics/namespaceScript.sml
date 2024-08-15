@@ -4,7 +4,7 @@
 *)
 open HolKernel Parse boolLib bossLib;
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 local open alistTheory in end;
 val _ = new_theory "namespace"

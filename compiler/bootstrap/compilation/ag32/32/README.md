@@ -13,11 +13,3 @@ library, as a thin wrapper around the relevant system calls.
 [proofs](proofs):
 This directory contains the end-to-end correctness theorem for the
 32-bit version of the CakeML compiler.
-
-[to_dataBootstrapScript.sml](to_dataBootstrapScript.sml):
-Evaluate the 32-bit version of the compiler down to a DataLang
-program.
-
-[to_lab_ag32BootstrapScript.sml](to_lab_ag32BootstrapScript.sml):
-Evaluate the 32-bit version of the compiler down to a LabLang
-program (an assembly program).

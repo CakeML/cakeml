@@ -8,7 +8,7 @@ local
 
 open HolKernel boolLib bossLib computeLib
 open semanticsComputeLib reg_allocComputeLib
-open backendTheory
+open backendTheory mlmapTheory
 
 structure Parse = struct
   open Parse
@@ -660,8 +660,12 @@ val add_backend_compset = computeLib.extend_compset
     ,word_simpTheory.dest_If_def
     ,word_simpTheory.dest_If_Eq_Imm_def
     ,word_simpTheory.dest_Seq_Assign_Const_def
-    ,word_simpTheory.apply_if_opt_def
-    ,word_simpTheory.simp_if_def
+    ,word_simpTheory.rewrite_duplicate_if_max_reassoc_def
+    ,word_simpTheory.dest_Raise_num_def
+    ,word_simpTheory.is_simple_def
+    ,word_simpTheory.try_if_hoist2_def
+    ,word_simpTheory.try_if_hoist1_def
+    ,word_simpTheory.simp_duplicate_if_def
     ,word_simpTheory.strip_const_def
     ,word_simpTheory.const_fp_exp_def
     ,word_simpTheory.const_fp_move_cs_def

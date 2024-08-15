@@ -469,14 +469,14 @@ Theorem infer_deBruijn_subst_walkstar:
     =
     t_walkstar s (infer_deBruijn_subst ts t)
 Proof
- ho_match_mp_tac infer_deBruijn_subst_ind
- >> rw [infer_deBruijn_subst_def, EL_MAP]
- >- metis_tac [SUBMAP_REFL, t_walkstar_idempotent]
- >> rw [t_walkstar_eqn1, MAP_EQ_EVERY2, LIST_REL_EL_EQN]
- >> `MEM (EL n ts') ts'` by (rw [MEM_EL] >> metis_tac [])
- >> first_x_assum drule
- >> disch_then drule
- >> simp [EL_MAP]
+  gen_tac \\ ho_match_mp_tac infer_t_ind
+  >> rw [infer_deBruijn_subst_alt, EL_MAP]
+  >- metis_tac [SUBMAP_REFL, t_walkstar_idempotent]
+  >> rw [t_walkstar_eqn1, MAP_EQ_EVERY2, LIST_REL_EL_EQN]
+  >> `MEM (EL n l) l` by (rw [MEM_EL] >> metis_tac [])
+  >> first_x_assum drule
+  >> disch_then drule
+  >> simp [EL_MAP]
 QED
 
 Theorem infer_e_sound:

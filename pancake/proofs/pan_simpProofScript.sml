@@ -282,6 +282,16 @@ Proof
   fs [evaluate_def, ret_to_tail_def]
 QED
 
+Theorem ret_to_tail_DecCall:
+  ^(get_goal "panLang$DecCall")
+Proof
+  rw [] >>
+  fs [ret_to_tail_def, evaluate_def] >>
+  every_case_tac >>
+  fs [evaluate_def, ret_to_tail_def,UNCURRY_eq_pair,PULL_EXISTS] >>
+  pairarg_tac >> gvs[]
+QED
+
 Theorem ret_to_tail_Others:
   ^(get_goal "panLang$Skip") /\
   ^(get_goal "panLang$Assign") /\
@@ -291,7 +301,8 @@ Theorem ret_to_tail_Others:
   ^(get_goal "panLang$Continue") /\
   ^(get_goal "panLang$ExtCall") /\
   ^(get_goal "panLang$Raise") /\
-  ^(get_goal "panLang$ShMem") /\
+  ^(get_goal "panLang$ShMemLoad") /\
+  ^(get_goal "panLang$ShMemStore") /\
   ^(get_goal "panLang$Return") /\
   ^(get_goal "panLang$Tick")
 Proof
@@ -305,7 +316,7 @@ Proof
   EVERY (map strip_assume_tac
          [ret_to_tail_Dec, ret_to_tail_Seq,
           ret_to_tail_If, ret_to_tail_While, ret_to_tail_Call,
-          ret_to_tail_Others]) >>
+          ret_to_tail_DecCall, ret_to_tail_Others]) >>
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
 
@@ -755,6 +766,50 @@ Proof
   fs [state_rel_def, state_component_equality]
 QED
 
+Theorem compile_DecCall:
+  ^(get_goal "panLang$DecCall")
+Proof
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  fs [evaluate_def] >>
+  gvs[AllCaseEqs(),PULL_EXISTS] >>
+  imp_res_tac compile_eval_correct >>
+  gvs[] >>
+  irule_at (Pos hd) EQ_TRANS >>
+  first_assum $ irule_at $ Pos $ hd o tl >>
+  irule_at (Pos hd) IMP_OPT_MMAP_EQ >>
+  simp[GSYM PULL_EXISTS] >>
+  (conj_asm1_tac
+   >- (fs [pan_commonPropsTheory.opt_mmap_eq_some] >>
+       fs [MAP_EQ_EVERY2] >>
+       fs [LIST_REL_EL_EQN] >>
+       rw [] >>
+       metis_tac [compile_eval_correct])) >>
+  gvs[state_rel_def,lookup_code_def,AllCaseEqs(),PULL_EXISTS] >>
+  first_assum drule >> strip_tac >> fs[] >>
+  ‘t.clock = s.clock’ by (gvs[state_component_equality]) >>
+  gvs[] >>
+  gvs[empty_locals_def] >>
+  simp[]
+  >- gvs[state_component_equality] >>
+  qmatch_goalsub_abbrev_tac ‘compile _, tt’ >>
+  last_x_assum $ qspec_then ‘tt’ mp_tac >>
+  unabbrev_all_tac >>
+  (impl_tac >- gvs[dec_clock_def,state_component_equality]) >>
+  strip_tac >>
+  simp[] >>
+  gvs[evaluate_seq_assoc, evaluate_skip_seq,compile_def,ret_to_tail_correct] >>
+  gvs[state_component_equality,PULL_EXISTS,UNCURRY_eq_pair] >>
+  qmatch_goalsub_abbrev_tac ‘evaluate(_, tt)’ >>
+  last_x_assum $ qspec_then ‘tt’ mp_tac o CONV_RULE SWAP_FORALL_CONV >>
+  simp[Abbr ‘tt’,set_var_def] >>
+  disch_then(qspec_then ‘s1 with locals := st'.locals’ mp_tac) >>
+  simp[] >>
+  strip_tac >>
+  simp[] >>
+  qexists ‘s1 with code := t1'.code’ >>
+  simp[]
+QED
 
 Theorem compile_While:
   ^(get_goal "panLang$While")
@@ -808,14 +863,32 @@ Proof
   strip_tac >> fs []
 QED
 
-Theorem compile_ShMem:
-  ^(get_goal "panLang$ShMem")
+Theorem compile_ShMemLoad:
+  ^(get_goal "panLang$ShMemLoad")
 Proof
   rw [] >>
   fs [evaluate_seq_assoc, evaluate_skip_seq] >>
   Cases_on ‘op’>>
   fs [evaluate_def] >> rveq >>
-  fs [sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
+  fs [nb_op_def,sh_mem_load_def,sh_mem_store_def,
+      set_var_def,empty_locals_def] >>
+  last_x_assum mp_tac >>
+  rpt (TOP_CASE_TAC >> fs []) >>
+  MAP_EVERY imp_res_tac [compile_eval_correct,compile_eval_correct_none] >> gvs[] >>
+  rfs [state_rel_def, state_component_equality,
+       empty_locals_def, dec_clock_def] >> rveq >> fs [] >>
+  rveq >> fs [] >> rveq >> rfs [] >>
+  strip_tac >> fs []
+QED
+
+Theorem compile_ShMemStore:
+  ^(get_goal "panLang$ShMemStore")
+Proof
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  Cases_on ‘op’>>
+  fs [evaluate_def] >> rveq >>
+  fs [nb_op_def,sh_mem_load_def,sh_mem_store_def,
       set_var_def,empty_locals_def] >>
   last_x_assum mp_tac >>
   rpt (TOP_CASE_TAC >> fs []) >>
@@ -852,8 +925,8 @@ Theorem compile_correct:
 Proof
   match_mp_tac (the_ind_thm()) >>
   EVERY (map strip_assume_tac
-         [compile_Dec, compile_Seq, compile_ShMem,
-          compile_If, compile_While, compile_Call,
+         [compile_Dec, compile_Seq, compile_ShMemLoad, compile_ShMemStore,
+          compile_If, compile_While, compile_Call, compile_DecCall,
           compile_ExtCall, compile_Call,compile_Others]) >>
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED

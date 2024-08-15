@@ -49,7 +49,8 @@ val arm8_backend_config_def = Define`
                stack_conf:=^(arm8_stack_conf);
                lab_conf:=^(arm8_lab_conf);
                symbols:=[];
-               tap_conf:=default_tap_config
+               tap_conf:=default_tap_config;
+               exported:=[]
                |>`;
 
 val _ = export_theory();

@@ -19,7 +19,7 @@ val (cake_pb_cnf_sem,cake_pb_cnf_output) = cake_pb_cnf_io_events_def |> SPEC_ALL
 val (cake_pb_cnf_not_fail,cake_pb_cnf_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_pb_cnf_sem |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct cnf_compiled
+  MATCH_MP compile_correct (cj 1 cnf_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP cake_pb_cnf_not_fail
   |> C MATCH_MP x64_backend_config_ok
@@ -52,7 +52,7 @@ val installed_x64_def = Define `
     `;
 
 val cake_pb_cnf_code_def = Define `
-  cake_pb_cnf_code = (code, data, config)
+  cake_pb_cnf_code = (code, data, info)
   `;
 
 (* A standard run of cake_pb_cnf

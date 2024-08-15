@@ -5,7 +5,7 @@ open preamble pbcTheory;
 
 val _ = new_theory "npbc";
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 Type var = “:num”
 
@@ -872,23 +872,23 @@ Definition check_contradiction_def:
     lslack ls < num
 End
 
+Theorem lslack_thm:
+  ∀l. SUM (MAP (eval_term w) l) ≤ lslack l
+Proof
+  Induct \\ gvs [lslack_def,FORALL_PROD]
+  \\ rw [] \\ Cases_on ‘w p_2’ \\ gvs []
+QED
+
 Theorem check_contradiction_unsat:
   check_contradiction c ⇒
   ¬satisfies_npbc w c
 Proof
   Cases_on`c`>>
   rename1`(l,n)`>>
-  rw[check_contradiction_def,satisfies_npbc_def,lslack_def]>>
-  fs[o_DEF]>>
-  qmatch_asmsub_abbrev_tac`SUM ll < n`>>
-  `SUM (MAP (eval_term w) l) ≤ SUM ll` by
-      (
-      fs[Abbr`ll`]>>
-      match_mp_tac SUM_MAP_same_LE>>
-      fs[EVERY_MEM,FORALL_PROD]>>
-      rw[]>>
-      Cases_on`w p_2`>>fs[])>>
-  fs[]
+  rw[check_contradiction_def,satisfies_npbc_def,GREATER_EQ,GSYM NOT_LESS]>>
+  irule LESS_EQ_LESS_TRANS >>
+  pop_assum $ irule_at Any >>
+  fs [lslack_thm]
 QED
 
 (* constraint c1 implies constraint c2 *)

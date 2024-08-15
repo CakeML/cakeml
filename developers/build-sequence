@@ -70,6 +70,8 @@ compiler/backend/arm8_asl
 compiler/backend/mips/proofs
 compiler/backend/riscv/proofs
 compiler/backend/ag32/proofs
+compiler/backend/cv_compute
+cv_translator
 
 # candle
 candle/set-theory
@@ -121,6 +123,7 @@ examples/pseudo_bool/graph_encoding
 examples/pseudo_bool/array
 examples/pseudo_bool/array/compilation
 examples/pseudo_bool/array/compilation/proofs
+examples/pseudo_bool/array/compilation/proofsARM8
 
 examples/opentheory
 examples/opentheory
@@ -164,5 +167,7 @@ compiler/bootstrap/compilation/x64/64:cake-x64-64.tar.gz
 compiler/bootstrap/compilation/x64/64/proofs
 compiler/bootstrap/compilation/x64/32:cake-x64-32.tar.gz
 compiler/bootstrap/compilation/x64/32/proofs
+compiler/bootstrap/compilation/arm8/64:cake-arm8-64.tar.gz
+compiler/bootstrap/compilation/arm8/64/proofs
 compiler/bootstrap/compilation/ag32/32
 compiler/bootstrap/compilation/ag32/32/proofs

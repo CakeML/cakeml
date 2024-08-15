@@ -6,7 +6,7 @@ open preamble mlintTheory;
 
 val _ = new_theory "pbc";
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 Datatype:
   lit = Pos 'a | Neg 'a

@@ -909,7 +909,8 @@ Proof
   rw [] >> qpat_abbrev_tac `Q = POSTve _ _` >>
   simp [IOFS_def, fs_ffi_part_def, IOx_def, IO_def] >>
   xpull >> qunabbrev_tac `Q` >>
-  xcf_with_def "TextIO.openIn" TextIO_openIn_v_def >>
+  rpt strip_tac >>
+  xcf_with_def TextIO_openIn_v_def >>
   fs[FILENAME_def, strlen_def, IOFS_def, IOFS_iobuff_def] >>
   REVERSE (Cases_on`consistentFS fs`) >-(xpull >> fs[wfFS_def]) >>
   xpull >> rename [`W8ARRAY _ fnm0`] >>
@@ -1019,7 +1020,8 @@ Proof
   rw [] >> qpat_abbrev_tac `Q = POSTve _ _` >>
   simp [IOFS_def, fs_ffi_part_def, IOx_def, IO_def] >>
   xpull >> qunabbrev_tac `Q` >>
-  xcf_with_def "TextIO.closeIn" TextIO_closeIn_v_def >>
+  rpt strip_tac >>
+  xcf_with_def TextIO_closeIn_v_def >>
   fs[IOFS_def, IOFS_iobuff_def,INSTREAM_def] >> xpull >>
   rename [`W8ARRAY _ buf`] >> cases_on`buf` >> fs[LUPDATE_def] >>
   xlet_auto >- xsimpl >> fs [get_in_def] >>
@@ -1067,7 +1069,8 @@ Proof
   rw [] >> qpat_abbrev_tac `Q = POSTve _ _` >>
   simp [IOFS_def, fs_ffi_part_def, IOx_def, IO_def] >>
   xpull >> qunabbrev_tac `Q` >>
-  xcf_with_def "TextIO.closeOut" TextIO_closeOut_v_def >>
+  rpt strip_tac >>
+  xcf_with_def TextIO_closeOut_v_def >>
   fs[IOFS_def, IOFS_iobuff_def,OUTSTREAM_def] >> xpull >>
   rename [`W8ARRAY _ buf`] >> cases_on`buf` >> fs[LUPDATE_def] >>
   xlet_auto >- xsimpl >> fs [get_out_def] >>
@@ -1173,7 +1176,8 @@ Proof
   map_every qid_spec_tac [`bc`, `h4`, `h3`, `h2`, `h1`, `fs`] >>
   NTAC 2 (FIRST_X_ASSUM MP_TAC) >> qid_spec_tac `ll` >>
   HO_MATCH_MP_TAC always_eventually_ind >>
-  xcf_with_def "TextIO.writei" TextIO_writei_v_def >> fs[FD_def]
+  rpt strip_tac >>
+  xcf_with_def TextIO_writei_v_def >> fs[FD_def]
 (* next el is <> 0 *)
   >-(sg`Lnext_pos ll = 0`
      >-(fs[Lnext_pos_def,Once Lnext_def,liveFS_def,live_numchars_def,always_thm] >>
@@ -1306,7 +1310,8 @@ Proof
   strip_tac >> `?N. n <= N` by (qexists_tac`n` >> fs[]) >>
   FIRST_X_ASSUM MP_TAC >> qid_spec_tac`n` >>
   Induct_on`N` >>
-  xcf_with_def "TextIO.write" TextIO_write_v_def
+  rpt strip_tac >>
+  xcf_with_def TextIO_write_v_def
   >>(xlet_auto >- xsimpl >> xif
          >-(TRY instantiate >> xcon >>
                 simp[IOFS_iobuff_def,IOFS_def] >> xsimpl >> qexists_tac`0` >>
@@ -1353,7 +1358,8 @@ Theorem output1_spec:
       &UNIT_TYPE () uv * SEP_EXISTS k.
       IOFS (fsupdate fs fd k (pos+1) (insert_atI [c] pos content)))
 Proof
-  xcf_with_def "TextIO.output1" TextIO_output1_v_def >>
+  rpt strip_tac >>
+  xcf_with_def TextIO_output1_v_def >>
   fs[IOFS_def,IOFS_iobuff_def] >>
   xpull >> rename [`W8ARRAY _ bdef`] >>
   ntac 3 (xlet_auto >- xsimpl) >>
@@ -1451,7 +1457,8 @@ Proof
   `?n. strlen s <= n` by (qexists_tac`strlen s` >> fs[]) >>
   FIRST_X_ASSUM MP_TAC >> qid_spec_tac`s` >>
   Induct_on`n` >>
-  xcf_with_def "TextIO.output" TextIO_output_v_def >>
+  rpt strip_tac >>
+  xcf_with_def TextIO_output_v_def >>
   fs[IOFS_def,IOFS_iobuff_def] >>
   xpull >> rename [`W8ARRAY _ buff`] >>
   Cases_on `buff` >> fs[] >> qmatch_goalsub_rename_tac`h1 :: t` >>
@@ -1561,7 +1568,8 @@ Theorem print_spec:
     (STDIO fs)
     (POSTv uv. &(UNIT_TYPE () uv) * STDIO (add_stdout fs s))
 Proof
-  xcf_with_def "TextIO.print" TextIO_print_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_print_v_def
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
   \\ xapp_spec output_STDIO_spec
   \\ tac
@@ -1605,7 +1613,8 @@ Theorem print_err_spec:
     (STDIO fs)
     (POSTv uv. &(UNIT_TYPE () uv) * STDIO (add_stderr fs s))
 Proof
-  xcf_with_def "TextIO.print_err" TextIO_print_err_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_print_err_v_def
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
   \\ xapp_spec output_stderr_spec \\ fs []
 QED
@@ -1647,7 +1656,8 @@ Theorem read_spec:
         MAP (n2w o ORD) (TAKE nr (DROP pos content))++DROP nr rest))
      (\e. &InvalidFD_exn e * &(get_file_content fs fd = NONE ∨ get_mode fs fd ≠ SOME ReadMode) * IOFS fs))
 Proof
-   xcf_with_def "TextIO.read" TextIO_read_v_def >>
+   rpt strip_tac >>
+   xcf_with_def TextIO_read_v_def >>
    fs[IOFS_def,IOFS_iobuff_def] >>
    xlet_auto >- xsimpl >>
    simp[insert_atI_def,n2w2_def] >>
@@ -1759,7 +1769,8 @@ Theorem read_into_spec:
         MAP (n2w o ORD) (TAKE nr (DROP pos content))++DROP nr rest))
      (\e. &InvalidFD_exn e * &(get_file_content fs fd = NONE ∨ get_mode fs fd ≠ SOME ReadMode) * IOFS_WO_iobuff fs))
 Proof
-   xcf_with_def "TextIO.read_into" TextIO_read_into_v_def >>
+   rpt strip_tac >>
+   xcf_with_def TextIO_read_into_v_def >>
    fs[IOFS_WO_iobuff_def] >>
    xlet_auto >- xsimpl >>
    simp[insert_atI_def,n2w2_def] >>
@@ -1867,7 +1878,8 @@ Theorem read_byte_spec:
       (\e.  &(EndOfFile_exn e /\ eof fd fs = SOME T) *
             IOFS(bumpFD fd fs 0)))
 Proof
-  xcf_with_def "TextIO.read_byte" TextIO_read_byte_v_def >>
+  rpt strip_tac >>
+  xcf_with_def TextIO_read_byte_v_def >>
   fs[IOFS_def,IOFS_iobuff_def] >>
   xpull >> rename [`W8ARRAY _ bdef`] >>
   Cases_on `bdef` >> fs[] >> qmatch_goalsub_rename_tac`h1 :: t` >>
@@ -1924,7 +1936,8 @@ Theorem input1_spec:
         STDIO (bumpFD fd fs 0)
       | _ => &F)
 Proof
-  xcf_with_def "TextIO.input1" TextIO_input1_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_input1_v_def
   \\ xhandle`POSTve (λv. &OPTION_TYPE CHAR (SOME (EL pos content)) v *
                          STDIO (forwardFD fs fd 1) * &(eof fd fs = SOME F))
                     (λe. &EndOfFile_exn e * STDIO fs * &(eof fd fs = SOME T))`
@@ -1961,7 +1974,8 @@ Theorem input_IOFS_spec:
                                  off buf) *
        SEP_EXISTS k. IOFS (fsupdate fs fd k (MIN (len + pos) (MAX pos (LENGTH content))) content))
 Proof
-  xcf_with_def "TextIO.input" TextIO_input_v_def >>
+  rpt strip_tac >>
+  xcf_with_def TextIO_input_v_def >>
   reverse(Cases_on`pos ≤ LENGTH content`) >- (
     imp_res_tac get_file_content_eof \\ rfs[] \\
     reverse(Cases_on`wfFS fs`) >- (fs[IOFS_def] \\ xpull) \\
@@ -2201,7 +2215,8 @@ Theorem b_openStdInSetBufferSize_spec:
        (IOFS fs)
        (POSTv is. INSTREAM_BUFFERED_FD [] 0 is * IOFS fs)
 Proof
-  xcf_with_def "TextIO.b_openStdInSetBufferSize_v_def" TextIO_b_openStdInSetBufferSize_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_b_openStdInSetBufferSize_v_def
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
@@ -2230,7 +2245,8 @@ Theorem b_openStdIn_spec:
        (IOFS fs)
        (POSTv is. INSTREAM_BUFFERED_FD [] 0 is * IOFS fs)
 Proof
-  xcf_with_def "TextIO.b_openStdIn" TextIO_b_openStdIn_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_b_openStdIn_v_def
   \\ xmatch \\ fs[UNIT_TYPE_def] \\ conj_tac
   >- (xapp \\ fs[INT_NUM_EXISTS])
   \\ EVAL_TAC \\ simp[]
@@ -2265,7 +2281,8 @@ Theorem b_openInSetBufferSize_spec:
           (\e. &(BadFileName_exn e ∧ ~inFS_fname fs s)
                    * IOFS fs))
 Proof
-  xcf_with_def "TextIO.b_openInSetBufferSize_v_def" TextIO_b_openInSetBufferSize_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_b_openInSetBufferSize_v_def
   \\ xlet_auto >- xsimpl >- (xsimpl)
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
@@ -2301,7 +2318,8 @@ Theorem b_openIn_spec:
           (\e. &(BadFileName_exn e ∧ ~inFS_fname fs s)
                    * IOFS fs))
 Proof
-  xcf_with_def "TextIO.b_openIn" TextIO_b_openIn_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_b_openIn_v_def
   \\ xapp \\ fs[INT_NUM_EXISTS]
 QED
 
@@ -2336,7 +2354,8 @@ Theorem b_closeIn_spec:
                IOFS (fs with infds updated_by ADELKEY fd))
           (\e. &(InvalidFD_exn e /\ ¬ validFileFD fd fs.infds) * IOFS fs))
 Proof
-  xcf_with_def "TextIO.b_closeIn" TextIO_b_closeIn_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_b_closeIn_v_def
   \\ simp[INSTREAM_BUFFERED_FD_def] \\ xpull \\ xmatch
   \\ xapp_spec closeIn_spec \\ asm_exists_tac \\ CONV_TAC (SWAP_EXISTS_CONV)
   \\ qexists_tac `fs` \\ xsimpl
@@ -2403,7 +2422,8 @@ Theorem b_refillBuffer_with_read_spec:
                     (explode_fromI nr content pos) fd is *
                  IOFS (bumpFD fd fs nr))
 Proof
-  xcf_with_def "TextIO.b_refillBuffer_with_read" TextIO_b_refillBuffer_with_read_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_b_refillBuffer_with_read_v_def
   \\ fs[explode_fromI_def, take_fromI_def]
   \\ reverse(Cases_on`pos ≤ LENGTH content`)
     >-(imp_res_tac get_file_content_eof \\ rfs[]
@@ -2474,7 +2494,8 @@ Theorem b_input1_aux_spec:
         &OPTION_TYPE CHAR (SOME ((CHR o w2n) c)) chv *
         INSTREAM_BUFFERED_BL_FD_RW bcontent cs fd (r + 1) w is)
 Proof
-  xcf_with_def "TextIO.b_input1_aux" TextIO_b_input1_aux_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_b_input1_aux_v_def
   \\ fs[INSTREAM_BUFFERED_BL_FD_RW_def, REF_NUM_def] \\ xpull
   \\ xmatch \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
@@ -2543,7 +2564,8 @@ Theorem b_peekChar_aux_spec:
         &OPTION_TYPE CHAR (SOME ((CHR o w2n) c)) chv *
         INSTREAM_BUFFERED_BL_FD_RW bcontent bactive fd r w is)
 Proof
-  xcf_with_def "TextIO.b_peekChar_aux" TextIO_b_peekChar_aux_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_b_peekChar_aux_v_def
   \\ fs[INSTREAM_BUFFERED_BL_FD_RW_def, REF_NUM_def] \\ xpull
   \\ xmatch \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
@@ -2633,7 +2655,8 @@ Theorem b_input1_IOFS_spec:
                &(leftover = explode_fromI (LENGTH leftover) content (pos + 1) /\
                 (pos + LENGTH leftover + 1 <= STRLEN content)))
 Proof
-    xcf_with_def "TextIO.b_input1" TextIO_b_input1_v_def
+    rpt strip_tac
+    \\ xcf_with_def TextIO_b_input1_v_def
     \\ simp[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
     \\ xpull
     \\ xmatch
@@ -2755,7 +2778,8 @@ Theorem b_peekChar_IOFS_spec:
                &(leftover = explode_fromI (LENGTH leftover) content pos /\
                 (pos + LENGTH leftover <= STRLEN content)))
 Proof
-    xcf_with_def "TextIO.b_peekChar" TextIO_b_peekChar_v_def
+    rpt strip_tac
+    \\ xcf_with_def TextIO_b_peekChar_v_def
     \\ simp[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
     \\ xpull
     \\ xmatch
@@ -4978,7 +5002,8 @@ Theorem b_input_aux_w_content_spec:
                     (insert_atI (TAKE len bactive) off outcont) *
                   INSTREAM_BUFFERED_BL_FD bcontent (DROP len bactive) fd is)
 Proof
-  xcf_with_def "TextIO.b_input_aux" TextIO_b_input_aux_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_b_input_aux_v_def
   \\ fs[INSTREAM_BUFFERED_BL_FD_def, REF_NUM_def] \\ xpull
   \\ xmatch \\ xlet_auto >- xsimpl
   \\ fs[instream_buffered_inv_def]
@@ -5006,7 +5031,8 @@ Theorem b_input_aux_spec:
                     (insert_atI (TAKE len bactive) off outcont) *
                   INSTREAM_BUFFERED_FD (DROP len bactive) fd is)
 Proof
-  xcf_with_def "TextIO.b_input_aux" TextIO_b_input_aux_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_b_input_aux_v_def
   \\ fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def] \\ xpull
   \\ xmatch \\ xlet_auto >- xsimpl
   \\ fs[instream_buffered_inv_def]
@@ -5043,7 +5069,8 @@ Theorem b_input_spec:
     (\e. &(IllegalArgument_exn e /\ LENGTH buf < req + off) *
           STDIO fs * W8ARRAY bufv buf * INSTREAM_BUFFERED_FD bactive fd is))
 Proof
-  xcf_with_def "TextIO.b_input" TextIO_b_input_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_b_input_v_def
   \\ fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def]
   \\ xpull \\ xmatch
   \\ xlet_auto >- xsimpl
@@ -5366,7 +5393,8 @@ Theorem extend_array_spec:
   app (p:'ffi ffi_proj) TextIO_extend_array_v [arrv] (W8ARRAY arrv arr)
         (POSTv v. W8ARRAY v (arr ++ (REPLICATE (LENGTH arr) 0w)))
 Proof
-  xcf_with_def "TextIO.extend_array" TextIO_extend_array_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_extend_array_v_def
   \\ ntac 5 (xlet_auto >- xsimpl)
   \\ xret \\ xsimpl
   \\ simp[DROP_REPLICATE]
@@ -5382,7 +5410,7 @@ Theorem inputLine_spec:
        STDIO (lineForwardFD fs fd))
 Proof
   strip_tac \\
-  xcf_with_def "TextIO.inputLine" TextIO_inputLine_v_def \\
+  xcf_with_def TextIO_inputLine_v_def \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
   qpat_abbrev_tac`protect = STDIO fs` \\
@@ -5669,7 +5697,8 @@ Proof
     \\ `LENGTH content - pos = 0` by simp[]
     \\ pop_assum SUBST1_TAC
     \\ `DROP pos content = []` by fs[DROP_NIL]
-    \\ xcf_with_def "TextIO.inputLines" TextIO_inputLines_v_def
+    \\ rpt strip_tac
+    \\ xcf_with_def TextIO_inputLines_v_def
     \\ `IS_SOME (get_file_content fs fd)` by fs[IS_SOME_EXISTS]
     \\ xlet_auto >- xsimpl
     \\ rfs[std_preludeTheory.OPTION_TYPE_def,lineFD_def]
@@ -5679,7 +5708,8 @@ Proof
     \\ xsimpl
     \\ fs[LIST_TYPE_def])
   \\ qpat_x_assum`_::_ = _`(assume_tac o SYM) \\ fs[]
-  \\ xcf_with_def "TextIO.inputLines" TextIO_inputLines_v_def
+  \\ rpt strip_tac
+  \\ xcf_with_def TextIO_inputLines_v_def
   \\ `IS_SOME (get_file_content fs fd)` by fs[IS_SOME_EXISTS]
   \\ xlet_auto >- xsimpl
   \\ rfs[lineFD_def]
@@ -5735,7 +5765,8 @@ Theorem inputLinesFrom_spec:
              else NONE) sv
              * STDIO fs)
 Proof
-  xcf_with_def "TextIO.inputLinesFrom" TextIO_inputLinesFrom_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_inputLinesFrom_v_def
   \\ reverse(xhandle`POSTve
        (λv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
          (if inFS_fname fs f
@@ -5848,7 +5879,8 @@ Theorem inputAll_spec:
      &STRING_TYPE (implode (DROP pos content)) v *
      STDIO (fastForwardFD fs fd))
 Proof
-  xcf_with_def "TextIO.inputAll" TextIO_inputAll_v_def \\
+  rpt strip_tac \\
+  xcf_with_def TextIO_inputAll_v_def \\
   reverse(Cases_on`pos ≤ LENGTH content`)
   >- (
     xfun_spec `inputAll_aux`
@@ -5995,7 +6027,7 @@ Theorem print_list_spec:
      (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (concat ls)))
 Proof
   Induct \\ rw[LIST_TYPE_def]
-  \\ xcf_with_def "TextIO.print_list" TextIO_print_list_v_def
+  \\ xcf_with_def TextIO_print_list_v_def
   \\ (reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull))
   \\ xmatch
   >- (xcon \\ fs[STD_streams_stdout,add_stdo_nil] \\ xsimpl)
@@ -6031,7 +6063,7 @@ Proof
     by (qexists_tac`STRLEN content1 - pos` >> fs[]) >>
   FIRST_X_ASSUM MP_TAC >> qid_spec_tac`pos` >>
   Induct_on`N` >> rw[] >>
-  xcf_with_def "TextIO.copy" TextIO_copy_v_def >>
+  xcf_with_def TextIO_copy_v_def >>
   fs[STDIO_def,IOFS_def,IOFS_iobuff_def] >> xpull >>
   rename [`W8ARRAY _ bdef`] >>
   Cases_on `bdef` >> fs[] >> qmatch_goalsub_rename_tac`h1::t` >>
@@ -6817,7 +6849,7 @@ Proof
   \\ qid_spec_tac ‘i’
   \\ completeInduct_on ‘LENGTH wl - i’
   \\ rw [] \\ gvs [PULL_FORALL]
-  \\ xcf_with_def "TextIO.find_surplus" TextIO_find_surplus_v_def
+  \\ xcf_with_def TextIO_find_surplus_v_def
   \\ xlet_auto >- xsimpl
   \\ simp [Once find_surplus_fun_def]
   \\ IF_CASES_TAC \\ gvs []
@@ -6886,7 +6918,7 @@ Theorem b_inputUntil_1_not_found:
              (INL (implode (MAP (CHR o w2n) bactive))) retv))
 Proof
   rw [] \\ gvs [PULL_FORALL]
-  \\ xcf_with_def "TextIO.b_inputUntil_1" TextIO_b_inputUntil_1_v_def
+  \\ xcf_with_def TextIO_b_inputUntil_1_v_def
   \\ simp[INSTREAM_BUFFERED_FD_def] \\ xpull \\ xmatch
   \\ simp [REF_NUM_def] \\ xpull
   \\ xlet_auto >- xsimpl
@@ -6934,7 +6966,7 @@ Theorem b_inputUntil_1_found:
              (INR (implode (MAP (CHR o w2n) bs1 ++ [c]))) retv))
 Proof
   rw [] \\ gvs [PULL_FORALL]
-  \\ xcf_with_def "TextIO.b_inputUntil_1" TextIO_b_inputUntil_1_v_def
+  \\ xcf_with_def TextIO_b_inputUntil_1_v_def
   \\ simp[INSTREAM_BUFFERED_FD_def] \\ xpull \\ xmatch
   \\ simp [REF_NUM_def] \\ xpull
   \\ xlet_auto >- xsimpl
@@ -7089,7 +7121,7 @@ Theorem b_refillBuffer_with_read_guard_spec_STR:
          & BOOL (NULL input) retv)
 Proof
   rw [] \\ gvs [PULL_FORALL]
-  \\ xcf_with_def "" TextIO_b_refillBuffer_with_read_guard_v_def
+  \\ xcf_with_def TextIO_b_refillBuffer_with_read_guard_v_def
   \\ xlet_auto_spec (SOME b_refillBuffer_with_read_spec_STR)
   >-
    (qexists_tac ‘emp’ \\ qexists_tac ‘input’
@@ -7166,7 +7198,7 @@ Theorem b_inputUntil_2_spec_STR_lemma[local]:
 Proof
   gen_tac \\ completeInduct_on ‘LENGTH input’
   \\ rw [] \\ gvs [PULL_FORALL]
-  \\ xcf_with_def "" TextIO_b_inputUntil_2_v_def
+  \\ xcf_with_def TextIO_b_inputUntil_2_v_def
   \\ xlet_auto_spec (SOME (b_inputUntil_1_spec |> Q.INST [‘non_empty’|->‘T’,‘is_empty’|->‘F’]))
   >- (rw [] \\ xsimpl \\ rw [] \\ qexists_tac ‘STDIO fs’ \\ xsimpl
       \\ qexists_tac ‘fs’ \\ xsimpl \\ rw []
@@ -7264,7 +7296,7 @@ Theorem b_inputUntil_2_spec_STR:
              (if input = "" then NONE else SOME $ gen_inputLine c input) retv)
 Proof
   strip_tac \\ gvs [PULL_FORALL]
-  \\ xcf_with_def "" TextIO_b_inputUntil_2_v_def
+  \\ xcf_with_def TextIO_b_inputUntil_2_v_def
   \\ xlet_auto_spec (SOME (b_inputUntil_1_spec
                              |> Q.INST [‘non_empty’|->‘F’,‘is_empty’|->‘F’]
                              |> REWRITE_RULE [INSTREAM_STR'_F_F]))
@@ -7407,7 +7439,8 @@ Theorem b_inputLine_spec_STR[local]:
                 STDIO (forwardFD fs fd k) *
                 INSTREAM_STR fd is (TL text) (forwardFD fs fd k))
 Proof
-  xcf_with_def "TextIO.b_inputLine" TextIO_b_inputLine_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_b_inputLine_v_def
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xapp_spec b_inputUntil_2_spec_STR
   \\ simp[LIST_TYPE_def]
@@ -7462,7 +7495,8 @@ Theorem b_inputLineTokens_spec_STR[local]:
                 STDIO (forwardFD fs fd k) *
                 INSTREAM_STR fd is (TL text) (forwardFD fs fd k))
 Proof
-  xcf_with_def "TextIO.b_inputLineTokens" TextIO_b_inputLineTokens_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_b_inputLineTokens_v_def
   \\ xlet_auto_spec (SOME b_inputLine_spec_STR)
   >- (
     qexists_tac`emp`>>
@@ -7577,7 +7611,7 @@ Theorem b_inputAllTokens_aux_spec:
 Proof
   gen_tac \\ completeInduct_on `LENGTH lines`
   \\ rpt strip_tac
-  \\ xcf_with_def "TextIO.b_inputAllTokens_aux" TextIO_b_inputAllTokens_aux_v_def
+  \\ xcf_with_def TextIO_b_inputAllTokens_aux_v_def
   \\ rveq \\ fs [PULL_FORALL]
   \\ xlet `POSTv v.
        SEP_EXISTS k.
@@ -7617,7 +7651,7 @@ Theorem b_inputAllTokens_spec:
           & LIST_TYPE (LIST_TYPE a) (MAP (MAP g o tokens f) lines) v)
 Proof
   rw []
-  \\ xcf_with_def "TextIO.b_inputAllTokens" TextIO_b_inputAllTokens_v_def
+  \\ xcf_with_def TextIO_b_inputAllTokens_v_def
   \\ xlet_auto
   THEN1 (xcon \\ xsimpl \\ fs [])
   \\ xapp_spec b_inputAllTokens_aux_spec
@@ -7648,7 +7682,8 @@ Theorem b_inputAllTokensStdIn_spec:
                    sv
       * STDIO (fastForwardFD fs 0))
 Proof
-  xcf_with_def "TextIO.b_inputAllTokensStdIn" TextIO_b_inputAllTokensStdIn_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_b_inputAllTokensStdIn_v_def
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [STDIO_def] \\ xpull)
   \\ reverse (Cases_on`consistentFS fs`)
@@ -7705,7 +7740,8 @@ Theorem b_inputAllTokensFrom_spec:
                SOME(MAP (MAP g o tokens f) (all_lines_gen c0 fs fname))
              else NONE) sv * STDIO fs)
 Proof
-  xcf_with_def "TextIO.b_inputAllTokensFrom" TextIO_b_inputAllTokensFrom_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_b_inputAllTokensFrom_v_def
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [STDIO_def] \\ xpull)
   \\ reverse (Cases_on`consistentFS fs`)
@@ -7823,7 +7859,7 @@ Theorem b_inputLines_aux_spec:
 Proof
   gen_tac \\ completeInduct_on `LENGTH lines`
   \\ rpt strip_tac
-  \\ xcf_with_def "TextIO.b_inputLines_aux" TextIO_b_inputLines_aux_v_def
+  \\ xcf_with_def TextIO_b_inputLines_aux_v_def
   \\ rveq \\ fs [PULL_FORALL]
   \\ xlet `POSTv v.
        SEP_EXISTS k.
@@ -7861,7 +7897,7 @@ Theorem b_inputLines_spec:
          & LIST_TYPE STRING_TYPE lines v)
 Proof
   rw []
-  \\ xcf_with_def "TextIO.b_inputLines" TextIO_b_inputLines_v_def
+  \\ xcf_with_def TextIO_b_inputLines_v_def
   \\ xlet_auto
   THEN1 (xcon \\ xsimpl \\ fs [])
   \\ xapp_spec b_inputLines_aux_spec
@@ -7904,7 +7940,8 @@ Theorem b_inputLinesFrom_spec:
              else NONE) sv
              * STDIO fs)
 Proof
-  xcf_with_def "TextIO.b_inputLinesFrom" TextIO_b_inputLinesFrom_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_b_inputLinesFrom_v_def
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [STDIO_def] \\ xpull)
   \\ reverse (Cases_on`consistentFS fs`)
@@ -7968,7 +8005,8 @@ Theorem b_inputLinesStdIn_spec:
        & LIST_TYPE STRING_TYPE (lines_of_gen c0 (implode text)) sv
        * STDIO (fastForwardFD fs 0))
 Proof
-  xcf_with_def "TextIO.b_inputLinesStdIn" TextIO_b_inputLinesStdIn_v_def
+  rpt strip_tac
+  \\ xcf_with_def TextIO_b_inputLinesStdIn_v_def
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [STDIO_def] \\ xpull)
   \\ reverse (Cases_on`consistentFS fs`)
@@ -8034,7 +8072,8 @@ Proof
   ntac 4 strip_tac
   \\ Induct
   THEN1
-   (xcf_with_def "TextIO.fold_chars_loop" TextIO_fold_chars_loop_v_def
+   (rw []
+    \\ xcf_with_def TextIO_fold_chars_loop_v_def
     \\ xlet ‘(POSTv chv. SEP_EXISTS k.
           STDIO (forwardFD fs fd k) *
           INSTREAM_STR fd is [] (forwardFD fs fd k) *
@@ -8050,7 +8089,7 @@ Proof
     \\ fs [mllistTheory.foldl_def]
     \\ xsimpl \\ qexists_tac ‘k’ \\ xsimpl)
   \\ rw[]
-  \\ xcf_with_def "TextIO.fold_chars_loop" TextIO_fold_chars_loop_v_def
+  \\ xcf_with_def TextIO_fold_chars_loop_v_def
   \\ xlet ‘(POSTv chv. SEP_EXISTS k.
             STDIO (forwardFD fs fd k) *
             INSTREAM_STR fd is s (forwardFD fs fd k) *
@@ -8098,7 +8137,8 @@ Proof
   ntac 4 strip_tac
   \\ Induct
   THEN1
-   (xcf_with_def "TextIO.fold_lines_loop" TextIO_fold_lines_loop_v_def
+   (rw []
+    \\ xcf_with_def TextIO_fold_lines_loop_v_def
     \\ xlet ‘(POSTv chv. SEP_EXISTS k.
           STDIO (forwardFD fs fd k) *
           INSTREAM_LINES c0 fd is [] (forwardFD fs fd k) *
@@ -8115,7 +8155,7 @@ Proof
     \\ fs [mllistTheory.foldl_def]
     \\ xsimpl \\ qexists_tac ‘k’ \\ xsimpl)
   \\ rw[]
-  \\ xcf_with_def "TextIO.fold_lines_loop" TextIO_fold_lines_loop_v_def
+  \\ xcf_with_def TextIO_fold_lines_loop_v_def
   \\ xlet ‘(POSTv chv. SEP_EXISTS k.
             STDIO (forwardFD fs fd k) *
             INSTREAM_LINES c0 fd is s (forwardFD fs fd k) *
@@ -8159,7 +8199,8 @@ Theorem b_consume_rest_spec:
 Proof
   Induct
   THEN1
-   (xcf_with_def "TextIO.b_consume_rest" TextIO_b_consume_rest_v_def
+   (rw[]
+    \\ xcf_with_def TextIO_b_consume_rest_v_def
     \\ xlet ‘(POSTv chv.
           STDIO (fastForwardFD fs fd) *
           INSTREAM_STR fd is "" (fastForwardFD fs fd) *
@@ -8177,7 +8218,7 @@ Proof
     \\ xmatch \\ xvar \\ fs [INSTREAM_STR_fastForwardFD]
     \\ xsimpl)
   \\ rw[]
-  \\ xcf_with_def "TextIO.b_consume_rest" TextIO_b_consume_rest_v_def
+  \\ xcf_with_def TextIO_b_consume_rest_v_def
   \\ xlet ‘(POSTv chv. SEP_EXISTS k.
             STDIO (forwardFD fs fd k) *
             INSTREAM_STR fd is s (forwardFD fs fd k) *
@@ -8218,7 +8259,7 @@ Proof
   rpt strip_tac \\ fs []
   \\ gvs [std_preludeTheory.OPTION_TYPE_def]
   \\ rename [‘FILENAME s sv’]
-  \\ xcf_with_def "TextIO.b_open_option" TextIO_b_open_option_v_def
+  \\ xcf_with_def TextIO_b_open_option_v_def
   \\ xmatch
   \\ reverse (xhandle ‘(POSTve
             (λis.
@@ -8262,7 +8303,7 @@ Proof
   rpt strip_tac \\ fs []
   \\ gvs [std_preludeTheory.OPTION_TYPE_def]
   \\ rename [‘FILENAME s sv’]
-  \\ xcf_with_def "TextIO.b_open_option" TextIO_b_open_option_v_def
+  \\ xcf_with_def TextIO_b_open_option_v_def
   \\ xmatch
   \\ reverse (xhandle ‘
     (POSTv retv. SEP_EXISTS is f.
@@ -8318,7 +8359,7 @@ Theorem b_open_option_NONE:
 Proof
   rpt strip_tac \\ fs []
   \\ gvs [std_preludeTheory.OPTION_TYPE_def]
-  \\ xcf_with_def "TextIO.b_open_option" TextIO_b_open_option_v_def
+  \\ xcf_with_def TextIO_b_open_option_v_def
   \\ xmatch
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xlet_auto_spec (SOME b_openStdIn_spec_str)
@@ -8374,7 +8415,7 @@ Theorem foldChars_SOME:
                       retv))
 Proof
   rpt strip_tac
-  \\ xcf_with_def "TextIO.foldChars" TextIO_foldChars_v_def
+  \\ xcf_with_def TextIO_foldChars_v_def
   \\ reverse (Cases_on ‘STD_streams fs’)
   THEN1 (fs [STDIO_def] \\ xpull)
   \\ reverse (Cases_on ‘consistentFS fs’)
@@ -8446,7 +8487,7 @@ Theorem foldChars_NONE:
                  & (OPTION_TYPE a (SOME (foldl f x text)) retv))
 Proof
   rpt strip_tac
-  \\ xcf_with_def "TextIO.foldChars" TextIO_foldChars_v_def
+  \\ xcf_with_def TextIO_foldChars_v_def
   \\ drule_all (SIMP_RULE std_ss [] b_open_option_NONE)
   \\ disch_then (assume_tac o SPEC_ALL)
   \\ xlet_auto
@@ -8499,7 +8540,7 @@ Theorem foldLines_SOME:
                       retv))
 Proof
   rpt strip_tac
-  \\ xcf_with_def "TextIO.foldLines" TextIO_foldLines_v_def
+  \\ xcf_with_def TextIO_foldLines_v_def
   \\ reverse (Cases_on ‘STD_streams fs’)
   THEN1 (fs [STDIO_def] \\ xpull)
   \\ reverse (Cases_on ‘consistentFS fs’)
@@ -8578,7 +8619,7 @@ Theorem foldLines_NONE:
         & (OPTION_TYPE a (SOME (foldl f x (lines_of_gen c0 (implode text)))) retv))
 Proof
   rpt strip_tac
-  \\ xcf_with_def "TextIO.foldLines" TextIO_foldLines_v_def
+  \\ xcf_with_def TextIO_foldLines_v_def
   \\ drule_all (SIMP_RULE std_ss [] b_open_option_NONE)
   \\ disch_then (assume_tac o SPEC_ALL)
   \\ xlet_auto

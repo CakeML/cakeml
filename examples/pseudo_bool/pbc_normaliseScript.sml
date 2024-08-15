@@ -5,7 +5,7 @@ open preamble pbcTheory npbcTheory mlmapTheory mergesortTheory;
 
 val _ = new_theory "pbc_normalise";
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 (* Normalization proceeds in three steps (for string variables):
 

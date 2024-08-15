@@ -143,7 +143,7 @@ void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
   #ifdef EVAL
   int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
   #else
-  int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC);
+  int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
   #endif
   if (0 <= fd){
     a[0] = 0;
@@ -223,6 +223,14 @@ void cml_exit(int arg) {
   #endif
 
   exit(arg);
+}
+
+void cml_err(int arg) {
+  if (arg == 3) {
+    fprintf(stderr,"Memory not ready for entry. You may have not run the init code yet, or be trying to enter during an FFI call.\n");
+  }
+
+  cml_exit(arg);
 }
 
 void ffiexit (unsigned char *c, long clen, unsigned char *a, long alen) {

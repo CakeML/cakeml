@@ -37,6 +37,6 @@ cake: cake.S basis_ffi.c
 
 basis-types-output: cake
 	echo "" | ./cake --types 2> $@
-	diff $@ $(CAKEMLDIR)/basis/types.txt
+	diff --context $(CAKEMLDIR)/basis/types.txt $@
 
 EXTRA_CLEANS = cake.S cake-sexpr-$(ARCH)-$(WORD_SIZE) cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz how-to.output how-to.cake how-to.cml extract_code.cake cake basis-types-output

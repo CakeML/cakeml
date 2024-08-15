@@ -8,6 +8,9 @@ local open cmlParseTheory lexer_implTheory in end
 
 val _ = new_theory "camlPtreeConversion";
 
+val _ = set_grammar_ancestry [
+  "misc", "pegexec", "caml_lex", "camlPEG", "ast", "precparser", "sum"];
+
 (* -------------------------------------------------------------------------
  * Sum monad syntax
  * ------------------------------------------------------------------------- *)
@@ -96,7 +99,7 @@ End
  * is just too annoying. Until the CakeML syntax supports the latter, we can
  * use this pre-pattern type.
  *
- * Pp_prod and Pp_as correspond to Pp_con NONE and Pp_alias and are used to
+ * Pp_prod and Pp_as correspond to Pp_con NONE and Pp_alias, and are used to
  * trick the precparser into producing n-ary tuples and suffixes (i.e. the
  * as-patterns).
  *)
@@ -106,6 +109,7 @@ Datatype:
        | Pp_var varN
        | Pp_lit lit
        | Pp_con ((modN, conN) id option) (ppat list)
+       | Pp_record ((modN, conN) id) (varN list)
        | Pp_prod (ppat list)
        | Pp_or ppat ppat
        | Pp_tannot ppat ast_t
@@ -118,6 +122,7 @@ Definition ppat_size'_def:
   ppat_size' (Pp_var a) = 1 ∧
   ppat_size' (Pp_lit a) = 1 ∧
   ppat_size' (Pp_con x xs) = (1 + list_size ppat_size' xs) ∧
+  ppat_size' (Pp_record x xs) = (1 + list_size (list_size char_size) xs) ∧
   ppat_size' (Pp_prod xs) = (1 + list_size ppat_size' xs) ∧
   ppat_size' (Pp_or x y) = (1 + ppat_size' x + ppat_size' y) ∧
   ppat_size' (Pp_tannot x y) = (1 + ppat_size' x) ∧
@@ -129,26 +134,52 @@ End
 
 (* Convert ppat patterns to CakeML patterns by distributing or-patterns at the
  * top-level (returning a list of patterns).
+ *
+ * Record patterns don't fit this very well, as there is no syntax for them. To
+ * make things simple, we only allow them at the top-level, and this function
+ * will bail out if it finds one.
  *)
 
 Definition ppat_to_pat_def:
-  ppat_to_pat Pp_any = [Pany] ∧
-  ppat_to_pat (Pp_var v) = [Pvar v] ∧
-  ppat_to_pat (Pp_lit l) = [Plit l] ∧
+  ppat_to_pat Pp_any =
+    return [Pany] ∧
+  ppat_to_pat (Pp_var v) =
+    return [Pvar v] ∧
+  ppat_to_pat (Pp_lit l) =
+    return [Plit l] ∧
   ppat_to_pat (Pp_tannot pp t) =
-    (MAP (λp. Ptannot p t) (ppat_to_pat pp)) ∧
+    fmap (MAP (λp. Ptannot p t)) (ppat_to_pat pp) ∧
   ppat_to_pat (Pp_con id pps) =
-    (MAP (λps. Pcon id ps) (list_cart_prod (MAP ppat_to_pat pps))) ∧
+    do
+      qs <- ppat_to_pats pps;
+      return (MAP (λps. Pcon id ps) (list_cart_prod qs))
+    od ∧
+  ppat_to_pat (Pp_record id fs) =
+    fail (unknown_loc, «») ∧
   ppat_to_pat (Pp_prod pps) =
-    (MAP (λps. Pcon NONE ps) (list_cart_prod (MAP ppat_to_pat pps))) ∧
+    do
+      qs <- (ppat_to_pats pps);
+      return (MAP (λps. Pcon NONE ps) (list_cart_prod qs))
+    od ∧
   ppat_to_pat (Pp_alias pp ns) =
-    (MAP (λp. FOLDL Pas p ns) (ppat_to_pat pp)) ∧
+    fmap (MAP (λp. FOLDL Pas p ns)) (ppat_to_pat pp) ∧
   ppat_to_pat (Pp_as pp n) =
-    (MAP (λp. Pas p n) (ppat_to_pat pp)) ∧
+    fmap (MAP (λp. Pas p n)) (ppat_to_pat pp) ∧
   ppat_to_pat (Pp_or p1 p2) =
-    ppat_to_pat p1 ++ ppat_to_pat p2
+    do
+      ps1 <- ppat_to_pat p1;
+      ps2 <- ppat_to_pat p2;
+      return (ps1 ++ ps2)
+    od ∧
+  ppat_to_pats [] = return [] ∧
+  ppat_to_pats (p::ps) =
+    do
+      p1 <- ppat_to_pat p;
+      ps1 <- ppat_to_pats ps;
+      return (p1::ps1)
+    od
 Termination
-  WF_REL_TAC ‘measure ppat_size’
+  WF_REL_TAC ‘measure sum_size ppat_size (list_size ppat_size)’
 End
 
 (* Fix some constructor applications that needs to be in CakeML's curried
@@ -445,7 +476,6 @@ Definition ptree_ValueName_def:
     else
       fail (locs, «Expected value-name non-terminal»)
 End
-
 
 Definition ptree_ConstrName_def:
   ptree_ConstrName (Lf (_, locs)) =
@@ -802,6 +832,26 @@ Definition ptree_Bool_def:
       fail (locs, «Expected a boolean literal non-terminal»)
 End
 
+Definition ptree_Double_def:
+  ptree_Double (Lf (_, locs)) =
+    fail (locs, «Expected a float literal non-terminal») ∧
+  ptree_Double (Nd (nterm, locs) args) =
+    if nterm = INL nLiteral then
+      case args of
+        [arg] =>
+          do
+            lf <- destLf arg;
+            tk <- option $ destTOK lf;
+            if isFloat tk then
+              return $ Lit $ StrLit $ THE $ destFloat tk
+            else
+              fail (locs, «not a float literal»)
+          od
+      | _ => fail (locs, «Impossible: nLiteral (float)»)
+    else
+      fail (locs, «Expected a float literal non-terminal»)
+End
+
 Definition nterm_of_def:
   nterm_of (Lf (_, locs)) = fail (locs, «nterm_of: Not a parsetree node») ∧
   nterm_of (Nd (nterm, _) args) = return nterm
@@ -943,6 +993,46 @@ Definition build_list_ppat_def:
           (Pp_con (SOME (Short "[]")) [])
 End
 
+Definition ptree_FieldsList_def:
+  (ptree_FieldsList [rbrace] =
+    do
+      expect_tok rbrace RbraceT;
+      return []
+    od) ∧
+  (ptree_FieldsList [semi; rbrace] =
+    do
+      expect_tok semi SemiT;
+      expect_tok rbrace RbraceT;
+      return []
+    od) ∧
+  (ptree_FieldsList (semi::fname::fs) =
+    do
+      expect_tok semi SemiT;
+      fn <- ptree_FieldName fname;
+      fns <- ptree_FieldsList fs;
+      return (fn::fns)
+    od) ∧
+  (ptree_FieldsList [] = fail (unknown_loc, «Impossible: ptree_FieldsList»))
+End
+
+Definition ptree_PRecFields_def:
+  (ptree_PRecFields (Lf (_, locs)) =
+    fail (locs, «Expected a pattern record fields non-terminal»)) ∧
+  (ptree_PRecFields (Nd (nterm, locs) args) =
+    if nterm = INL nPRecFields then
+      case args of
+        lbrace::fname::rest =>
+          do
+            expect_tok lbrace LbraceT;
+            fn <- ptree_FieldName fname;
+            fns <- ptree_FieldsList rest;
+            return (fn::fns)
+          od
+      | _ => fail (locs, «Impossible: nPRecFields»)
+    else
+      fail (locs, «Expected a pattern record fields non-terminal»))
+End
+
 Definition ptree_PPattern_def:
   (ptree_PPattern (Lf (_, locs)) =
     fail (locs, «Expected a pattern non-terminal»)) ∧
@@ -1011,26 +1101,38 @@ Definition ptree_PPattern_def:
             n <- nterm_of arg;
             if n = INL nValueName then
               fmap Pp_var (ptree_ValueName arg)
-            else if n = INL nPatLiteral then
-              ptree_PPattern arg
-            else if n = INL nPAny ∨ n = INL nPList ∨ n = INL nPPar then
+            else if n = INL nConstr then
+              do
+                cns <- ptree_Constr arg;
+                id <- path_to_ns locs cns;
+                return $ Pp_con (SOME id) []
+              od
+            else if n = INL nPatLiteral ∨ n = INL nPAny ∨ n = INL nPList ∨
+                    n = INL nPPar then
               ptree_PPattern arg
             else
               fail (locs, «Impossible: nPBase»)
          od
       | _ => fail (locs, «Impossible: nPBase»)
-    else if nterm = INL nPCons then case args of
+    else if nterm = INL nPCons then
+      case args of
         [cn] =>
           do
             cns <- ptree_Constr cn;
             id <- path_to_ns locs cns;
             return $ Pp_con (SOME id) []
           od ++ ptree_PPattern cn
-      | [cn; pat] =>
+      | [cn; arg] =>
           do
             cns <- ptree_Constr cn;
             id <- path_to_ns locs cns;
-            p <- ptree_PPattern pat;
+            fs <- ptree_PRecFields arg;
+            return $ Pp_record id fs
+          od ++
+          do
+            cns <- ptree_Constr cn;
+            id <- path_to_ns locs cns;
+            p <- ptree_PPattern arg;
             return $ compatCurryP id p
           od
       | _ => fail (locs, «Impossible: nPCons»)
@@ -1103,8 +1205,28 @@ End
 Theorem ptree_PPattern_ind[allow_rebind] =
   SIMP_RULE (srw_ss() ++ CONJ_ss) [] ptree_PPattern_ind;
 
+(* The pattern parser functions return INL for record patterns, and INR for
+ * real patterns. Record patterns do not have a counterpart in the :pat type,
+ * so we perform some bookkeeping here.
+ *
+ * To simplify matters, we don't accept record patterns anywhere but at the
+ * top-level. The function ppat_to_pat fails if it encounters a record pattern.
+ * We convert record patterns directly in this function instead.
+ *)
+
 Definition ptree_Pattern_def:
-  ptree_Pattern p = fmap ppat_to_pat (ptree_PPattern p)
+  ptree_Pattern p =
+    do
+      pp <- ptree_PPattern p;
+      case pp of
+        Pp_record id fs => return $ [INL (id, fs)] (* record *)
+      | _ =>
+        do
+          ps <- ppat_to_pat pp;
+          return $ MAP INR ps
+        od ++
+        fail (unknown_loc, «Record patterns may only appear at the top level»)
+    od
 End
 
 Definition ptree_Patterns_def:
@@ -1160,6 +1282,93 @@ Definition build_funapp_def:
       | _ => App Opapp [a; b]) f xs
 End
 
+(* Functions for records.
+ * TODO Make it so that the names include the constructor function, so that we
+ *      can have the same record field name defined for different record types.
+ *)
+
+Definition mk_record_update_name_def:
+  mk_record_update_name field cons =
+    "{record_update(" ++ cons ++ "." ++ field ++ ")}"
+End
+
+Definition id_map_def:
+  id_map f (Long mn id) = Long mn (id_map f id) /\
+  id_map f (Short nm) = Short (f nm)
+End
+
+Definition build_record_upd_def:
+  build_record_upd cons b (f,x) =
+    App Opapp [App Opapp [Var (id_map (mk_record_update_name f) cons); b]; x]
+End
+
+Definition mk_record_proj_name_def:
+  mk_record_proj_name field cons =
+    "{record_projection(" ++ cons ++ "." ++ field ++ ")}"
+End
+
+Definition build_record_proj_def:
+  build_record_proj cons f x =
+    App Opapp [Var (id_map (mk_record_proj_name f) cons); x]
+End
+
+Definition mk_record_constr_name_def:
+  mk_record_constr_name constr fields =
+    FLAT $ ["{record_constructor("; constr; ")"] ++
+           MAP (λfn. "(" ++ fn ++ ")") fields ++ ["}"]
+End
+
+Definition build_record_cons_id_def:
+  build_record_cons_id fns [] =
+    fail (unknown_loc, «build_record_cons_id: empty path») ∧
+  build_record_cons_id fns [cn] =
+    return $ Short $ mk_record_constr_name cn fns ∧
+  build_record_cons_id fns (c::cs) =
+    do
+      id <- build_record_cons_id fns cs;
+      return $ Long c id
+    od
+End
+
+Definition build_record_cons_def:
+  build_record_cons path upds =
+    let (names,exprs) = UNZIP (QSORT (λ(f,_) (g,_). string_lt f g) upds) in
+      do
+        id <- build_record_cons_id names path;
+        return $ build_funapp (Var id) exprs
+      od
+End
+
+(* Pattern match on a record: first pattern match on the constructor (with
+ * a wildcard for the pattern that would otherwise contain the argument tuple)
+ * and then generate a let-binding for each field name matched on. Example:
+ *
+ *   type a = Foo of { a: int; b: bool; c: string };;
+ *   match x with
+ *   | Foo { a, b } -> f a b
+ *
+ * becomes
+ *
+ *   type a = Foo of int * bool * string;;
+ *   match x with
+ *   | Foo _ -> let a = <build_record_proj(Foo,a)>(x) in
+ *              let b = <build_record_proj(Foo,a)>(x) in
+ *                f a b
+ *)
+
+Definition mk_record_match_aux_def:
+  mk_record_match_aux recv constr body [] = body /\
+  mk_record_match_aux recv constr body (f::fs) =
+    Let (SOME f) (build_record_proj constr f (Var (Short recv)))
+                 (mk_record_match_aux recv constr body fs)
+End
+
+Definition mk_record_match_def:
+  mk_record_match constr fs recv body =
+    Mat (Var (Short recv))
+        [Pcon (SOME constr) [Pany], mk_record_match_aux recv constr body fs]
+End
+
 (* Turns a curried lambda with patterns, e.g. “fun a [3;4] c -> e”
  * into a sequence of lambdas, possibly with pattern matches:
  * “fun a -> fun fresh -> match fresh with [3;4] -> fun c -> e”.
@@ -1168,8 +1377,9 @@ End
 Definition build_fun_lam_def:
   build_fun_lam body pats =
       FOLDR (λp b. case p of
-                     Pvar x => Fun x b
-                   | _ => Fun "" (Mat (Var (Short "")) [p, b]))
+                     INL (c, fs) => Fun "" (mk_record_match c fs "" b)
+                   | INR (Pvar x) => Fun x b
+                   | INR p => Fun "" (Mat (Var (Short "")) [p, b]))
             body pats
 End
 
@@ -1209,88 +1419,108 @@ Definition build_letrec_def:
            case ps of
              [] =>
                (f, "", App Opapp [x; Var (Short "")])
-           | Pvar v::ps =>
+           | INL (c, fs) ::ps =>
+               (f, "", mk_record_match c fs "" (build_fun_lam x ps))
+           | INR (Pvar v)::ps =>
                (f, v, build_fun_lam x ps)
-           | p::ps =>
+           | INR p::ps =>
                (f, "", Mat (Var (Short "")) [(p, build_fun_lam x ps)]))
 End
 
 (* Builds a sequence of lets out of a list of let bindings.
+ *
+ * N.B. The sum type determines whether we're building a regular let (INL), or
+ * a let rec (INR).
  *)
 
 Definition build_lets_def:
   build_lets binds body =
     FOLDR (λbind rest.
              case bind of
-               INL (Pvar v,x) =>
+               INL (INL (c, fs), x) =>
+                 Let (SOME " r") x (mk_record_match c fs " r" rest)
+             | INL (INR (Pvar v), x) =>
                  Let (SOME v) x rest
-             | INL (Pany,x) =>
+             | INL (INR Pany, x) =>
                  Let NONE x rest
-             | INL (p,x) =>
+             | INL (INR p, x) =>
                  Mat x [p, rest]
              | INR (f, ps, bd) =>
                  Let (SOME f) (build_fun_lam bd ps) rest)
           binds body
 End
 
-(* TODO
- * With these functions it's not possible to mix value definitions
- * and recursive function definitions.
+(* N.B. The match-building functions do not accept mixing value definitions
+ * (i.e., with no function arguments) with recursive definitions (let rec y =
+ * ...). For example, the parser won't accept this:
  *
- * NOTE
- * I think this means that the parser won't accept
- *
- *   let rec f x = something
- *   and y = 5;;
- *
- * which is a bit annoying but it hardly matters.
+ *   let rec f x = y
+ *   and z = 5;;
  *)
+
+(* Build pattern match rows from lists of patterns that contain record matches.
+ *)
+
+Definition build_match_row_def:
+  build_match_row mvar (INL (c, fs), x) =
+     (Pcon (SOME c) [Pany], mk_record_match c fs mvar x) ∧
+  build_match_row y (INR p, x) =
+     (p, x)
+End
+
+(* I don't remember what was smart about this? *)
+
+Definition SmartMat_def:
+  SmartMat mvar [INR Pany, y] = y ∧
+  SmartMat mvar rows =
+    Mat (Var (Short mvar)) (MAP (build_match_row mvar) rows)
+End
 
 (* Builds a pattern match expression that allocates a closure each time a guard
  * expression is encountered. N.B. this expects a call with pattern rows in
  * reverse order.
  *)
 
-Definition SmartMat_def:
-  SmartMat (Var x) [Pany, y] = y ∧
-  SmartMat x ps = Mat x ps
-End
-
 Definition build_pmatch_def:
-  build_pmatch mvar match_fn acc [] =
-    match_fn (Var (Short mvar)) acc ∧
-  build_pmatch mvar match_fn acc ((pat,exp,NONE)::ps) =
-    build_pmatch mvar match_fn ((pat,exp)::acc) ps ∧
-  build_pmatch mvar match_fn acc ((pat,exp,SOME guard)::ps) =
-    let mexp = match_fn (Var (Short mvar)) acc in
+  build_pmatch mvar acc [] =
+    SmartMat mvar acc ∧
+  build_pmatch mvar acc ((pat,exp,NONE)::ps) =
+    build_pmatch mvar ((pat,exp)::acc) ps ∧
+  build_pmatch mvar acc ((pat,exp,SOME guard)::ps) =
+    let mexp = SmartMat mvar acc in
     let clos = Let (SOME " p") (Fun " u" mexp) in
     let call = App Opapp [Var (Short " p"); Con NONE []] in
-    let mat = match_fn (Var (Short mvar))
-                       [(pat,If guard exp call); (Pany,call)] in
-      build_pmatch mvar match_fn [Pany,clos mat] ps
+    let mat = SmartMat mvar [(pat,If guard exp call); (INR Pany,call)] in
+      build_pmatch mvar [INR Pany,clos mat] ps
 End
 
 Definition build_match_def:
   build_match x rows =
-    if EXISTS (λ(p,x,g). case g of SOME _ => T | _ => F) rows then
-      Let (SOME "") x (build_pmatch "" SmartMat [] (REVERSE rows))
-    else
-      Mat x (MAP (λ(p,x,g). (p,x)) rows)
+    let mvar = " m" in
+    Let (SOME mvar) x
+      (if EXISTS (λ(p,x,g). case g of SOME _ => T | _ => F) rows then
+         build_pmatch mvar [] (REVERSE rows)
+       else
+         (Mat (Var (Short mvar))
+              (MAP (λ(p,x,g). build_match_row mvar (p,x)) rows)))
 End
 
 Definition build_handle_def:
   build_handle x rows =
-    if EXISTS (λ(p,x,g). case g of SOME _ => T | _ => F) rows then
-      let exn = Var (Short "") in
-      (Handle exn [
-        Pany,build_pmatch "" SmartMat [] ((Pany,Raise exn,NONE)::REVERSE rows)])
-    else
-      Handle x (MAP (λ(p,x,g). (p,x)) rows)
+    (* Save the handled exception in a variable by first matching with Handle
+     * on a single variable, and then applying Mat to the variable. Reraise the
+     * exception in case of no match.
+     *
+     * This trickery is used to support pattern guards and fake records.
+     *)
+    let mvar = " e" in
+    let rows' = (INR Pany, Raise (Var (Short mvar)), NONE)::REVERSE rows in
+    Handle x [Pvar mvar, build_pmatch mvar [] rows']
 End
 
 Definition build_function_def:
   build_function rows =
-    Fun ""  (build_pmatch "" SmartMat [] (REVERSE rows))
+    Fun ""  (build_pmatch "" [] (REVERSE rows))
 End
 
 (* Flatten the row-alternatives in a pattern-match.
@@ -1298,51 +1528,6 @@ End
 
 Definition flatten_pmatch_def:
   flatten_pmatch pss = FLAT (MAP (λ(ps,x,w). MAP (λp. (p,x,w)) ps) pss)
-End
-
-Definition mk_record_update_name_def:
-  mk_record_update_name field = "{record_update(" ++ field ++ ")}"
-End
-
-Definition build_record_upd_def:
-  build_record_upd b (f,x) =
-    App Opapp [App Opapp [Var (Short (mk_record_update_name f)); b]; x]
-End
-
-Definition mk_record_proj_name_def:
-  mk_record_proj_name field = "{record_projection(" ++ field ++ ")}"
-End
-
-Definition build_record_proj_def:
-  build_record_proj f x =
-    App Opapp [Var (Short (mk_record_proj_name f)); x]
-End
-
-Definition mk_record_constr_name_def:
-  mk_record_constr_name constr fields =
-    FLAT $ ["{record_constructor("; constr; ")"] ++
-           MAP (λfn. "(" ++ fn ++ ")") fields ++ ["}"]
-End
-
-Definition build_record_cons_id_def:
-  build_record_cons_id fns [] =
-    fail (unknown_loc, «build_record_cons_id: empty path») ∧
-  build_record_cons_id fns [cn] =
-    return $ Short $ mk_record_constr_name cn fns ∧
-  build_record_cons_id fns (c::cs) =
-    do
-      id <- build_record_cons_id fns cs;
-      return $ Long c id
-    od
-End
-
-Definition build_record_cons_def:
-  build_record_cons path upds =
-    let (names,exprs) = UNZIP (QSORT (λ(f,_) (g,_). string_lt f g) upds) in
-      do
-        id <- build_record_cons_id names path;
-        return $ build_funapp (Var id) exprs
-      od
 End
 
 Definition ptree_Expr_def:
@@ -1431,7 +1616,9 @@ Definition ptree_Expr_def:
               ptree_Expr nERecUpdate arg
             else if n = INL nLiteral then
               fmap (λid. Con (SOME id) []) (ptree_Bool arg) ++
-              fmap Lit (ptree_Literal arg)
+              fmap Lit (ptree_Literal arg) ++
+              fmap (λx. App Opapp [Var (Long "Double" (Short "fromString")); x])
+                   (ptree_Double arg)
             else if n = INL nValuePath then
               do
                 cns <- ptree_ValuePath arg;
@@ -1452,7 +1639,7 @@ Definition ptree_Expr_def:
       | _ => fail (locs, «Impossible: nEBase»)
     else if nterm = INL nERecUpdate then
       case args of
-        [lb; x; witht; upds; semi; rb] =>
+        [arg; lb; x; witht; upds; semi; rb] =>
           do
             expect_tok lb LbraceT;
             expect_tok witht WithT;
@@ -1460,16 +1647,20 @@ Definition ptree_Expr_def:
             expect_tok rb RbraceT;
             e <- ptree_Expr nExpr x;
             us <- ptree_Updates upds;
-            return $ FOLDL build_record_upd e us
+            cns <- ptree_Constr arg;
+            ns <- path_to_ns locs cns;
+            return $ FOLDL (build_record_upd ns) e us
           od
-      | [lb; x; witht; upds; rb] =>
+      | [arg; lb; x; witht; upds; rb] =>
           do
             expect_tok lb LbraceT;
             expect_tok witht WithT;
             expect_tok rb RbraceT;
             e <- ptree_Expr nExpr x;
             us <- ptree_Updates upds;
-            return $ FOLDL build_record_upd e us
+            cns <- ptree_Constr arg;
+            ns <- path_to_ns locs cns;
+            return $ FOLDL (build_record_upd ns) e us
           od
       | _ => fail (locs, «Impossible: nERecUpdate»)
     else if nterm = INL nEIndex then
@@ -1491,12 +1682,15 @@ Definition ptree_Expr_def:
     else if nterm = INL nERecProj then
       case args of
         [arg] => ptree_Expr nEIndex arg
-      | [arg; dot; fn] =>
+      | [arg; dot1; cons; dot2; fn] =>
           do
-            expect_tok dot DotT;
+            expect_tok dot1 DotT;
+            expect_tok dot2 DotT;
             x <- ptree_Expr nEIndex arg;
             f <- ptree_FieldName fn;
-            return $ build_record_proj f x
+            cns <- ptree_Constr cons;
+            ns <- path_to_ns locs cns;
+            return $ build_record_proj ns f x
           od
       | _ => fail (locs, «Impossible: nERecProj»)
     else if nterm = INL nERecCons then
@@ -1967,7 +2161,7 @@ Definition ptree_Expr_def:
             nm <- ptree_ValueName id;
             ty <- ptree_Type type;
             bd <- ptree_Expr nExpr bod;
-            return $ INL (Pvar nm, Tannot bd ty)
+            return $ INL (INR (Pvar nm), Tannot bd ty)
           od
       | [id; pats; colon; type; eq; bod] =>
           do
@@ -2530,6 +2724,9 @@ End
 
 (* Builds the constructor, projection, and update functions for a record
  * datatype constructor.
+ *
+ * TODO It would be possible to build a pretty-printing function for the
+ *      datatype, too.
  *)
 
 Definition build_rec_funs_def:
@@ -2547,11 +2744,11 @@ Definition build_rec_funs_def:
                     | _::_::_ => [Pcon NONE pvars]
                     | _ => pvars) in
     let projs = MAP (λf.
-                  Dlet locs (Pvar (mk_record_proj_name f))
+                  Dlet locs (Pvar (mk_record_proj_name f cname))
                     (Fun "" (Mat (Var (Short ""))
                         [(pat, Var (Short f))]))) fds in
     let upds = MAP (λf.
-                  Dlet locs (Pvar (mk_record_update_name f))
+                  Dlet locs (Pvar (mk_record_update_name f cname))
                     (Fun "" (Mat (Var (Short ""))
                         [(pat, Fun f rhs)]))) fds in
       constr :: projs ++ upds
@@ -2671,7 +2868,13 @@ Definition build_dlet_def:
   build_dlet locs binds =
     MAP (λbind.
            case bind of
-             INL (p, x) =>
+             INL (INL (c, fs), x) =>
+               let v = " c" in
+               Dlocal
+                 [Dlet locs (Pvar v) x]
+                 (MAP (λf. Dlet locs (Pvar f)
+                                (build_record_proj c f (Var (Short v)))) fs)
+           | INL (INR p, x) =>
                Dlet locs p x
            | INR (f,ps,bd) =>
                Dlet locs (Pvar f) (build_fun_lam bd ps))
@@ -2986,6 +3189,9 @@ Definition peg_def:
   peg (Success (_: (tokens$token # locs) list) x _) = return x
 End
 
+Overload cmlpegexec[local] =
+  ``λn t. peg_exec cmlPEG$cmlPEG (cmlPEG$pnt n) t [] NONE [] done failed``;
+
 Definition ptree_Definition_def:
   (ptree_Definition (Lf (_, locs)) =
     fail (locs, «Expected a top-level definition non-terminal»)) ∧
@@ -3006,9 +3212,9 @@ Definition ptree_Definition_def:
               fail (locs, «The CakeML lexer failed»)
             else
               do
-                pts <- peg (destResult (cmlpegexec nTopLevelDecs toks));
+                pts <- peg (destResult (cmlpegexec gram$nTopLevelDecs toks));
                 pt <- option $ oHD pts;
-                option $ ptree_TopLevelDecs pt
+                option $ cmlPtreeConversion$ptree_TopLevelDecs pt
               od ++ fail (locs, «The CakeML parser failed»)
           od
       | _ => fail (locs, «Impossible: nCakeMLPragma»)
@@ -3194,16 +3400,35 @@ End
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
 
 Theorem SmartMat_PMATCH:
-  ∀v ps.
-    SmartMat v ps =
-      case v, ps of
-        Var x, [Pany, y] => y
-      | _, _ => Mat v ps
+  ∀mvar rows.
+    SmartMat mvar rows =
+      case rows of
+        [INR Pany, y] => y
+      | _ => Mat (Var (Short mvar)) (MAP (build_match_row mvar) rows)
 Proof
   CONV_TAC (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  \\ Cases_on ‘v’ \\ Cases_on ‘ps’ \\ simp [SmartMat_def]
+  \\ Cases_on ‘rows’ \\ simp [SmartMat_def]
   \\ rename [‘(h::t)’]
   \\ PairCases_on ‘h’ \\ rpt CASE_TAC \\ simp [SmartMat_def]
+QED
+
+Theorem ptree_Pattern_PMATCH:
+  ∀p.
+    ptree_Pattern p =
+      do
+        pp <- ptree_PPattern p;
+        case pp of
+          Pp_record id fs => return $ [INL (id, fs)] (* record *)
+        | _ =>
+          do
+            ps <- ppat_to_pat pp;
+            return $ MAP INR ps
+          od ++
+          fail (unknown_loc, «Record patterns may only appear at the top level»)
+      od
+Proof
+  CONV_TAC (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ gen_tac \\ simp [ptree_Pattern_def]
 QED
 
 val _ = export_theory ();

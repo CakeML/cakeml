@@ -5,7 +5,7 @@ open preamble npbcTheory mlstringTheory mlintTheory mlvectorTheory spt_to_vecThe
 
 val _ = new_theory "npbc_check";
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 (* Proof steps are classified in a hierachy of three descending levels
 
@@ -130,29 +130,57 @@ Definition insert_fml_def:
     id+1)
 End
 
-(* TODO: this is a dummy for now
-  Reduce c according to the assignment,
+Definition rup_pass1_def:
+  rup_pass1 assg [] acc ys = (acc,ys) ∧
+  rup_pass1 assg ((i:int,n:num)::xs) acc ys =
+    let k = Num (ABS i) in
+      case FLOOKUP assg n of
+      | NONE   => rup_pass1 assg xs (acc + k) ((k,i,n)::ys)
+      | SOME T => rup_pass1 assg xs (if i < 0 then acc else acc + k) ys
+      | SOME F => rup_pass1 assg xs (if i < 0 then acc + k else acc) ys
+End
+
+Definition rup_pass2_def:
+  rup_pass2 assg max [] l = SOME assg ∧
+  rup_pass2 assg max ((k:num,i:int,n:num)::ys) l =
+    if max < l + k then
+      rup_pass2 (assg |+ (n,0 ≤ i)) max ys l
+    else
+      rup_pass2 assg max ys l
+End
+
+(* Reduce c according to the assignment,
   return NONE if it gives a contradiction
-  otherwise return the updated assignment using units in c *)
+  otherwise return the updated assignment using units in (ls,n) *)
 Definition update_assg_def:
-  update_assg assg c =
-  if check_contradiction c then NONE
-  else SOME assg
+  update_assg assg (ls,n) do_check =
+    let (max,ls1) = rup_pass1 assg ls 0 [] in
+      if max < n ∧ do_check then NONE else
+        rup_pass2 assg max ls1 n
 End
 
 (* Here, assg could be a finite map of variables to T/F
-  assg' should be assg updated with all units of c under assg *)
-Definition check_rup_def:
-  (check_rup b fml (assg: num |-> bool) [] = F) ∧
-  (check_rup b fml assg (n::ns) =
-  case lookup_core_only b fml n of
-    NONE => F
-  | SOME c =>
-    case update_assg assg c of NONE => T
-    | SOME assg' => check_rup b fml assg' ns)
+  assg' should be assg updated with all units under assg
+  id = 0 is special for nc
+*)
+Definition get_rup_constraint_def:
+  get_rup_constraint b fml n nc =
+  if n = 0 then SOME nc
+  else
+    lookup_core_only b fml n
 End
 
-(* TODO: for Rup decide what the next ID will be, id1 or id? *)
+Definition check_rup_def:
+  (check_rup b nc fml (assg: num |-> bool) [] = F) ∧
+  (check_rup b nc fml assg (n::ns) =
+  case get_rup_constraint b fml n nc of
+    NONE => F
+  | SOME c =>
+    case update_assg assg c (NULL ns) of
+    | NONE       => T
+    | SOME assg' => check_rup b nc fml assg' ns)
+End
+
 Definition check_lstep_def:
   (check_lstep lstep b (fml:pbf) (id:num) =
   case lstep of
@@ -166,8 +194,7 @@ Definition check_lstep_def:
     | SOME c =>
       SOME (insert_fml b fml id c))
   | Rup c ls =>
-    let (fml_not_c,id1) = insert_fml b fml id (not c) in
-    if check_rup b fml_not_c FEMPTY ls then
+    if check_rup b (not c) fml FEMPTY ls then
       SOME (insert_fml b fml id c)
     else NONE
   | Con c pf n =>
@@ -384,46 +411,141 @@ Definition agree_assg_def:
     w x = b
 End
 
+Theorem rup_pass1_thm:
+  ∀assg xs acc ys acc1 ys1 w.
+    rup_pass1 assg xs acc ys = (acc1,ys1) ∧ agree_assg assg w ⇒
+    SUM (MAP (eval_term w) xs) + acc ≤ acc1 ∧
+    (∀n i k. MEM (n,i,k) ys1 ⇒ MEM (n,i,k) ys ∨ n = Num (ABS i)) ∧
+    ∃xs1.
+      SUM (MAP (eval_term w) xs1) + lslack (MAP SND ys1) + acc ≤ acc1 + lslack (MAP SND ys) ∧
+      SUM (MAP (eval_term w) xs) + SUM (MAP (eval_term w) (MAP SND ys)) =
+      SUM (MAP (eval_term w) xs1) + SUM (MAP (eval_term w) (MAP SND ys1))
+Proof
+  Induct_on ‘xs’ \\ fs [rup_pass1_def]
+  >- (rw [] \\ qexists_tac ‘[]’ \\ gvs [])
+  \\ PairCases \\ fs [rup_pass1_def]
+  \\ rpt gen_tac \\ gvs [AllCaseEqs()] \\ strip_tac \\ gvs []
+  >- (last_x_assum dxrule_all \\ fs [lslack_def] \\ strip_tac \\ gvs []
+      \\ conj_tac >- (Cases_on ‘w h1’ \\ gvs [] \\ metis_tac [])
+      \\ conj_tac >- metis_tac []
+      \\ qexists_tac ‘xs1’ \\ gvs [])
+  \\ last_x_assum drule_all \\ strip_tac \\ fs []
+  \\ gvs [agree_assg_def] \\ res_tac \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  >- (qexists_tac ‘xs1’ \\ gvs [])
+  >- (qexists_tac ‘(h0,h1)::xs1’ \\ gvs [])
+  >- (qexists_tac ‘(h0,h1)::xs1’ \\ gvs [])
+  >- (qexists_tac ‘xs1’ \\ gvs [])
+QED
+
+Theorem rup_pass2_thm:
+  ∀assg d1 slack ls1 d hc.
+    agree_assg assg w ∧
+    c1 ≤ d + SUM (MAP (eval_term w) (MAP SND ls1)) ∧
+    d + lslack (MAP SND ls1) ≤ max ∧
+    (∀n i k. MEM (n,i,k) ls1 ⇒ n = Num (ABS i)) ∧
+    rup_pass2 assg max ls1 c1 = SOME assg1
+    ⇒
+    agree_assg assg1 w
+Proof
+  Induct_on ‘ls1’ \\ fs [rup_pass2_def] \\ PairCases
+  \\ gvs [rup_pass2_def] \\ rpt gen_tac \\ strip_tac
+  \\ qabbrev_tac ‘x = if h1 < 0 then 1 − b2n (w h2) else b2n (w h2)’
+  \\ ‘x ≤ 1’ by (rw [Abbr‘x’] \\ Cases_on ‘w h2’ \\ gvs [])
+  \\ reverse (Cases_on ‘max < c1 + h0’) \\ gvs []
+  \\ last_x_assum irule \\ fs []
+  \\ gvs [SF DNF_ss,SF SFY_ss]
+  \\ fs [lslack_def] \\ fs [GSYM lslack_def]
+  \\ qexists_tac ‘d + Num (ABS h1)’ \\ gvs []
+  \\ ‘c1 ≤ d + (Num (ABS h1) + SUM (MAP (eval_term w) (MAP SND ls1)))’ by
+    (Cases_on ‘x’ \\ gvs [ADD1] \\ Cases_on ‘n’ \\ gvs []) \\ fs []
+  \\ first_x_assum $ irule_at $ Pos hd \\ fs []
+  \\ gvs [agree_assg_def,FLOOKUP_SIMP] \\ rw [] \\ gvs []
+  \\ rpt $ qpat_x_assum ‘∀x._’ kall_tac
+  \\ dxrule_all LESS_EQ_LESS_TRANS \\ strip_tac
+  \\ ‘d + lslack (MAP SND ls1) < c1’ by gvs []
+  \\ Cases_on ‘x = 1’ >- (Cases_on ‘w h2’ \\ gvs [AllCaseEqs()] \\ intLib.COOPER_TAC)
+  \\ ‘x = 0’ by gvs [] \\ gvs []
+  \\ ‘SUM (MAP (eval_term w) (MAP SND ls1)) ≤ lslack (MAP SND ls1)’ by fs [lslack_thm]
+  \\ gvs []
+QED
+
 Theorem update_assg_NONE:
-  update_assg assg c = NONE ⇒
+  update_assg assg c flag = NONE ⇒
   ∀w. agree_assg assg w ⇒
     ¬ satisfies_npbc w c
 Proof
-  rw[update_assg_def]>>
-  drule check_contradiction_unsat>>
-  metis_tac[]
+  PairCases_on ‘c’
+  \\ rw[update_assg_def]
+  \\ pairarg_tac \\ gvs []
+  \\ drule_all rup_pass1_thm \\ strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ gvs [satisfies_npbc_def,GREATER_EQ,GSYM NOT_LESS]
+  \\ CCONTR_TAC \\ gvs [lslack_def]
+  \\ qsuff_tac
+     ‘∀assg m ls1 c1. rup_pass2 assg m ls1 c1 ≠ NONE’
+  >- (strip_tac \\ gvs [])
+  \\ rpt $ pop_assum kall_tac
+  \\ Induct_on ‘ls1’ \\ gvs [rup_pass2_def]
+  \\ gvs [FORALL_PROD]
+  \\ gvs [rup_pass2_def] \\ rw []
 QED
 
 Theorem update_assg_SOME:
-  update_assg assg c = SOME assg' ⇒
+  update_assg assg c flag = SOME assg' ⇒
   ∀w. agree_assg assg w ∧ satisfies_npbc w c ⇒
-  agree_assg assg' w
+      agree_assg assg' w
 Proof
-  rw[update_assg_def]
+  PairCases_on ‘c’
+  \\ rw[update_assg_def]
+  \\ pairarg_tac \\ gvs []
+  \\ drule_all rup_pass1_thm \\ strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ gvs [satisfies_npbc_def,GREATER_EQ,EVAL “lslack []”]
+  \\ irule rup_pass2_thm
+  \\ last_x_assum $ irule_at Any
+  \\ gvs [SF SFY_ss]
 QED
 
 Theorem check_rup_unsat:
   ∀ns assg.
-  check_rup b fml assg ns ∧
+  check_rup b nc fml assg ns ∧
   agree_assg assg w ⇒
-  ¬satisfies w (core_only_fml b fml)
+  ¬(satisfies_npbc w nc ∧
+   satisfies w (core_only_fml b fml))
 Proof
   Induct>>rw[check_rup_def]>>
-  every_case_tac>>fs[]
+  gvs[get_rup_constraint_def,AllCasePreds(),AllCaseEqs()]
   >- (
     drule update_assg_NONE>>
     disch_then drule>>
     fs[lookup_core_only_def,core_only_fml_def]>>
     every_case_tac>>fs[satisfies_def,PULL_EXISTS]>>
-    metis_tac[]) >>
-  drule update_assg_SOME>>
-  disch_then drule>>
-  Cases_on`satisfies_npbc w x`>>rw[]
-  >-
-    metis_tac[]>>
-  fs[lookup_core_only_def,core_only_fml_def]>>
-  every_case_tac>>fs[satisfies_def,PULL_EXISTS]>>
-  metis_tac[]
+    metis_tac[])
+  >- (
+    drule update_assg_SOME>>
+    disch_then drule>>
+    Cases_on`satisfies_npbc w x`>>rw[]
+    >-
+      metis_tac[]>>
+    fs[lookup_core_only_def,core_only_fml_def]>>
+    every_case_tac>>fs[satisfies_def,PULL_EXISTS]>>
+    metis_tac[])
+  >- (
+    drule update_assg_NONE>>
+    disch_then drule>>
+    fs[lookup_core_only_def,core_only_fml_def]>>
+    every_case_tac>>fs[satisfies_def,PULL_EXISTS]>>
+    metis_tac[])
+  >- (
+    drule update_assg_SOME>>
+    disch_then drule>>
+    Cases_on`satisfies_npbc w c`>>rw[]
+    >-
+      metis_tac[]>>
+    fs[lookup_core_only_def,core_only_fml_def]>>
+    every_case_tac>>fs[satisfies_def,PULL_EXISTS]>>
+    metis_tac[])
 QED
 
 (* if b = F, then the core should be untouched,
@@ -504,7 +626,6 @@ Proof
   \\ Cases_on `∃c ls. step = Rup c ls`
   THEN1 (
     fs[check_lstep_def] \\
-    pairarg_tac \\ fs[] \\
     every_case_tac \\
     gvs[insert_fml_def]
     \\ CONJ_TAC >- fs[id_ok_def]
