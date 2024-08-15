@@ -169,10 +169,39 @@ Proof
   cheat
 QED
 
+Triviality extend_env_assoc:
+  extend_env e1 ( extend_env e2 e3) = extend_env (extend_env e1 e2) e3
+Proof
+  cheat
+QED
 
-
-                
-Theorem icompile_source_to_flat_lemma:
+Triviality extend_env_empty_env:
+  extend_env empty_env env = env ∧
+  extend_env env empty_env = env
+                                
+Proof
+  rw[source_to_flatTheory.extend_env_def] >> cheat
+QED
+          
+Theorem source_to_flat_compile_decs_lemma_cons:
+  compile_decs t n next env envs (d :: ds) =
+  let (n', next1, new_env1, envs1, d') = compile_decs t n next env envs [d] in
+  let (n'', next2, new_env2, envs2, ds') =
+      compile_decs t n' next1 (extend_env new_env1 env) envs1 ds
+  in
+    (n'', next2, extend_env new_env2 new_env1, envs2, d'++ds')
+Proof
+  rw [source_to_flatTheory.compile_decs_def] >>
+  pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
+  Cases_on ‘ds’ >- (
+  fs[source_to_flatTheory.compile_decs_def] >> gvs[extend_env_empty_env]
+  ) >- (
+  rw[source_to_flatTheory.compile_decs_def] 
+  )              
+QED
+        
+Theorem source_to_flat_compile_decs_lemma:
+  ∀ t n next env envs xs ys.
   source_to_flat$compile_decs t n next env envs (xs ++ ys) =
   let (n', next1, new_env1, envs1, xs') = source_to_flat$compile_decs t n next env envs xs in
   let (n'', next2, new_env2, envs2, ys') = source_to_flat$compile_decs t n' next1 (extend_env new_env1 env) envs1 ys in
@@ -183,28 +212,25 @@ Proof
   rw[] >> pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
   fs[source_to_flatTheory.compile_decs_def]  >> gvs[extend_env_empty_env]      
   ) >- (
-  rw[] >> pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
+  rpt gen_tac >>
+  once_rewrite_tac[source_to_flat_compile_decs_lemma_cons] >>
+                                       
+  rw[] >> rpt (pairarg_tac >> gvs[])  >>
+  last_x_assum $ qspecl_then [‘t’, ‘n'³'’, ‘next1'’, ‘(extend_env new_env1' env)’, ‘envs1'’] assume_tac >>
+  pairarg_tac >> gvs[] >>
+  qpat_x_assum ‘∀ys''.
+               compile_decs t n'³' next1' (extend_env new_env1' env) envs1'
+                       (xs ++ ys'') =
+          (λ(n'',next2,new_env2,envs2,ys').
+             (n'',next2,extend_env new_env2 new_env1'',envs2,ds' ++ ys'))
+          (compile_decs t n' next1
+                        (extend_env new_env1'' (extend_env new_env1' env)) envs1 ys'')’ $ qspec_then ‘ys’ assume_tac >>
+  fs[extend_env_assoc] >> gvs[] >> gvs[] >>
+  once_rewrite_tac[source_to_flat_compile_decs_lemma_cons] >> gvs[]
    )
-            
 QED
         
-
-Triviality env_self:
-  <|c := env.c; v := env.v |> = env
-Proof
-  cheat
-QED        
-
-Triviality extend_env_empty_env:
-  extend_env empty_env env = env ∧
-  extend_env env empty_env = env
-                                
-Proof
-  rw[source_to_flatTheory.extend_env_def] >> cheat
-QED
-        
-        
-        
+   
 
         
 Definition init_icompile_def:
