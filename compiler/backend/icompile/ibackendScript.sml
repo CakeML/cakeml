@@ -10,11 +10,10 @@ open preamble
      to_data_cvTheory
      cv_transLib
      arm8_configTheory;
-
+open backendTheory;
 
 val _ = new_theory"ibackend";
 
-Definition     
 
     
 (*
@@ -44,27 +43,65 @@ Definition
 
 *)
 
-(* TODO: fill the "ARBs" in, the types might be wrong *)
-Definition init_icompile_def:
-  init_icompile (c: 'a config) =
-  let asm_conf = c.lab_conf.asm_conf in
-  let (bm, c, p, names) = to_lab c [] in
-  (* ignore the names for now *)      
-  let ic = config_to_inc_config c in
-  (ic, bm, p)
+(* end icompilation, ready for assembly *)
+Definition end_icompile_def:
+  end_icompile (asm_conf: 'a asm_config)
+    (c: inc_config) = ARB
+    
 End
 
-Overload bvi_to_data_compile_prog[local] = ``bvi_to_data$compile_prog``
-Overload bvl_to_bvi_compile_prog[local] = ``bvl_to_bvi$compile_prog``
-Overload bvl_to_bvi_compile_inc[local] = ``bvl_to_bvi$compile_inc``
-Overload flat_to_clos_inc_compile[local] = ``flat_to_clos$inc_compile_decs``
-       
-(* incrementally compile a chunk of source program, a super naive version that probably doesnt work*)
-Definition icompile_def:
-  icompile (asm_conf: 'a asm_config)
-  (ic: inc_config) (prog : ast$dec list) =
-  let c = inc_config_to_config asm_conf ic in      
-  let p = source_to_source$compile prog in 
+(* Quick testing *)
+
+(* using the default config for arm8 *)
+val c = arm8_backend_config_def |> concl |> lhs
+val arm8_ic_term = backendTheory.config_to_inc_config_def
+       |> ISPEC c |> CONV_RULE (RAND_CONV EVAL) |> rconc
+val arm8_c_term = EVAL c |> rconc
+
+
+           
+                                                
+Definition decs_to_eval_def:
+  decs_to_eval =
+  [Dlet unknown_loc (Pvar "it")
+     (App Opassign [Var (Short "the_string_ref");
+                    Lit (StrLit "eval'd code did this\n")])]
+End
+
+val decs_term = decs_to_eval_def |> concl |> rhs        
+
+
+Definition icompile_init_v1_def:
+  icompile_init_v1 (c: 'a config) =
+(* dont need source to source *)
+(* dont need source_to_flat, because we return empty config for empty programs, cannot inc compile *) 
+(* just do regular flat_to_close$compile_prog to attach interpreter (why) *)
+  let p = flat_to_clos$compile_prog [] in
+  let (c',p, names) = clos_to_bvl$compile c.clos_conf p in 
+  let c = c with clos_conf := c' in
+  let (s,p,l,n1,n2,names) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf names p in
+  let c = c with clos_conf updated_by (λc. c with start:=s) in
+  let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
+  let p = bvi_to_data$compile_prog p in
+  let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
+  let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
+  let names = sptree$union (sptree$fromAList $ (data_to_word$stub_names () ++
+                                                word_to_stack$stub_names () ++ stack_alloc$stub_names () ++
+                                                stack_remove$stub_names ())) names in
+  let (bm,c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
+  let c = c with word_conf := c' in
+  let p = stack_to_lab$compile
+          c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
+          (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
+          (c.lab_conf.asm_conf.addr_offset) p
+  in (c, bm, p, names)
+End
+
+Definition icompile_v1_def:
+  icompile_v1 (c: 'a config) p =
+  if p = [] then (c, [], [])
+  else                   
+  let p = source_to_source$compile p in 
   let (c', p) = source_to_flat$compile c.source_conf p in
   let c = c with source_conf := c' in
   let p = flat_to_clos_inc_compile p in
@@ -90,57 +127,20 @@ Definition icompile_def:
   (c, cur_bm, p)
 End
 
-
-
-
-Definition comile_decs_here:
-  compile_decs_here = source_to_flat$compile_decs
+Definition to_lab_without_names_def:
+  to_lab_without_names c p =
+  case to_lab c p of
+  | (bm, c, p, names) => (c, bm, p)
 End
-val _ = EVAL “compile_decs_here []”        
-           
-
-(* Random cakeml value got from some example file *)        
-Definition decs_to_eval_def:
-  decs_to_eval =
-  [Dlet unknown_loc (Pvar "it")
-     (App Opassign [Var (Short "the_string_ref");
-                    Lit (StrLit "eval'd code did this\n")])]
-End
-
-(* end icompilation, ready for assembly *)
-Definition end_icompile_def:
-  end_icompile (asm_conf: 'a asm_config)
-    (c: inc_config) = ARB
-    
-End
-
-(* Virtual fold of icompile over a list of source programs
-    and accumulate its output.
-   In reality, we run this as separate compile steps *)
-
-Definition fold_icompile_aux_def:
-  fold_icompile_aux asm_conf ic [] bm_acc prog_acc = (ic, REV bm_acc, REV prog_acc)
-  ∧
-  fold_icompile_aux asm_conf ic (prog :: progs') bm_acc prog_acc =
-  let (c, bm, prog') = icompile asm_conf ic prog in
-  let ic' = config_to_inc_config c in
-  fold_icompile_aux asm_conf ic' progs' (bm ++ bm_acc) (prog ++ prog_acc)
-End
-
-Definition fold_icompile_def:
-  fold_icompile (asm_conf: 'a asm_config)
-  (ic: inc_config) (progs : (ast$dec list) list) =
-  fold_icompile_aux asm_conf ic progs [] [] 
-End
-
+        
         
 (* final theorem should give us a syntactic equality
 
   TODO: not sure what to do with "names" output of to_lab *)
 Theorem icompile_eq:
-  init_icompile (c:'a config) = (ic, bm, ip) ∧
-  fold_icompile (asm_c:'a asm_config) ic progs = (ic', bm', ip') ∧
-  end_icompile asm_c ic' = (ic'', bm'', ip'') ⇒
+  init_icompile (c:'a config) = (ic, bm, ip) /\
+  fold_icompile (asm_c:'a asm_config) ic progs = (ic', bm', ip') /\
+  end_icompile asm_c ic' = (ic'', bm'', ip'') ==>
   to_lab c (FLAT prog) = (
     bm ++ bm' ++ bm'',
     inc_config_to_config asm_c ic'',
@@ -151,68 +151,118 @@ Proof
   cheat
 QED
 
-(* Quick testing *)
-
-(* using the default config for arm8 *)
-val c = arm8_backend_config_def |> concl |> lhs
-val arm8_ic_term = backendTheory.config_to_inc_config_def
-       |> ISPEC c |> CONV_RULE (RAND_CONV EVAL) |> rconc
-val arm8_c_term = EVAL c |> rconc
+(******************************************************************************)
+(*                                                                            *)
+(* Source to flat                                                             *)
+(*                                                                            *)
+(******************************************************************************)     
 
 
-           
-                                                
-Definition decs_to_eval_def:
-  decs_to_eval =
-  [Dlet unknown_loc (Pvar "it")
-     (App Opassign [Var (Short "the_string_ref");
-                    Lit (StrLit "eval'd code did this\n")])]
+        
+Definition icompile_source_to_flat_def:
+  ARB
 End
 
-val decs_term = decs_to_eval_def |> concl |> rhs        
+Triviality append_assoc_rev :
+  (h :: (xs ++ ys)) = (h :: xs ++ ys)
+Proof
+  cheat
+QED
 
 
-(* Testing with empty programs up to source_to_flat *)                                                        
-      
-Definition icompile_incomplete:
-  icompile_incomplete c prog =       
-  let p = source_to_source$compile prog in 
-  let (c', p) = source_to_flat$compile c.source_conf p in
-  let c = c with source_conf := c' in
-    c
-End
 
-Definition mcompile_incomplete:
-  mcompile_incomplete c p =
-  let (c, p) = backend$to_flat c p in
-  c      
-End
-
-Definition init_then_icompile:
-  init_then_icompile c p =
-  let (c', p') = backend$to_flat c [] in
-  icompile_incomplete c' p                             
-End
-
-(* we see a discrepency here *)        
-val config_from_mcompile = EVAL “(mcompile_incomplete ^(arm8_c_term) []).source_conf” |> rconc 
-val config_from_init_then_icompile = EVAL “(init_then_icompile ^(arm8_c_term) []).source_conf” |> rconc 
-
-(* do not increment the vidx *)                   
-Definition icompile_to_flat_def:
-  icompile_to_flat (c : source_to_flat$config)  p =
-  let next = c.next in                    
-  let envs = <| next := 0; generation := c.envs.next; envs := LN |> in
-  let (_,next,e,gen,p') = compile_decs [] 1n next c.mod_env envs p in
-    let envs2 = <| next := c.envs.next + 1;
-        env_gens := insert c.envs.next gen.envs c.envs.env_gens |> in
-    (c with <| next := next; envs := envs2; mod_env := e |>,
-        glob_alloc next c :: alloc_env_ref :: p')
-End
-
-val test = EVAL “icompile_to_flat arm8_backend_config.source_conf decs_to_eval”        
+Theorem source_to_flat_compile_decs_lemma:
+  source_to_flat$compile_decs t n next env envs (d :: ds) =
+  
+                
+Theorem icompile_source_to_flat_lemma:
+  source_to_flat$compile_decs t n next env envs (xs ++ ys) =
+  let (n', next1, new_env1, envs1, xs') = source_to_flat$compile_decs t n next env envs xs in
+  let (n'', next2, new_env2, envs2, ys') = source_to_flat$compile_decs t n' next1 (extend_env new_env1 env) envs1 ys in
+  (n'', next2, extend_env new_env2 new_env1, envs2, xs' ++ ys')
+        
+Proof
+  Induct_on ‘xs’ >- (
+  rw[] >> pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
+  fs[source_to_flatTheory.compile_decs_def]  >> gvs[extend_env_empty_env]      
+  ) >- (
+  rw[] >> pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
+   )
             
+QED
+        
+
+Triviality env_self:
+  <|c := env.c; v := env.v |> = env
+Proof
+  cheat
+QED        
+
+Triviality extend_env_empty_env:
+  extend_env empty_env env = env ∧
+  extend_env env empty_env = env
+                                
+Proof
+  rw[source_to_flatTheory.extend_env_def] >> cheat
+QED
+        
+        
+        
+
+        
+Definition init_icompile_def:
+  init_icompile = ()
+End
+
+                          
+Definition icompile_def:
+  icompile source_config p =
+  icompile_source_to_flat source_config p
+End
+
+        
+Definition fold_icompile_def:
+  fold_icompile c []  = (c, [])
+  /\
+  fold_icompile c (prog :: progs) =
+  let (c', prog') = icompile c prog in
+    let (c'', progs') = fold_icompile c progs in
+      (c'', prog' ++ progs')
+        
+End
+
+Definition config_prog_rel_def:
+  config_prog_rel source_conf' progs' c' ps' =
+  (source_conf' = c'.source_conf /\
+  progs' = ps')                
+End
+                
+Theorem icompile_eq:
+  icompile c.source_conf prog = (source_conf', prog') /\
+  to_flat c prog = (c', prog'') ==>
+  config_prog_rel source_conf' progs'' c' ps'
+Proof
+  rw [to_flat_def] >>
+  fs [source_to_sourceTheory.compile_def, source_letTheory.compile_decs_def] >>
+     cheat
+QED
+        
+Theorem icompile_icompile:
+  icompile source_conf prog1 = (source_conf', prog1') /\
+  icompile source_conf' prog2 = (source_conf'', prog2') ==>
+  icompile source_conf (prog1 ++ prog2) = (source_conf'', prog1' ++ prog2')
+Proof
+  rw[icompile_def, icompile_source_to_flat_def] >>
+  pairarg_tac >> gvs[] >>
+  pairarg_tac >> gvs[] >>
+  pairarg_tac >> gvs[] >> cheat
+       
+QED
+        
+                  
+ 
 
 
-     
+        
+        
 val _ = export_theory();
