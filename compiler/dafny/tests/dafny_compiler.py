@@ -28,7 +28,8 @@ def main():
         cakeml_fails = []
         total = 0
 
-        test_files = sorted(args.test_path.glob("*.dfy"))
+        root = "*.dfy" if not args.recursive else "**/*.dfy"
+        test_files = sorted(args.test_path.glob(root))
         for test_file in test_files:
             print(f"{test_file}")
             command = [args.dafny_path, "run", test_file, "--no-verify"]
@@ -176,6 +177,10 @@ def parse_args():
                         help="path to store output files")
     parser.add_argument("--verbose", action="store_true", required=False,
                         help="print additional info")
+    parser.add_argument("--recursive", action="store_true", required=False,
+                        help=("whether test path should be traversed"
+                              "recursively (no effect if program path is "
+                              "given)"))
     return parser.parse_args()
 
 def program_path(string):
