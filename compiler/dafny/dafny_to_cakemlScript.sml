@@ -116,102 +116,6 @@ Definition strip_prefix_def:
   else NONE
 End
 
-(* Converts a HOL list of CakeML expressions into a CakeML list. *)
-Definition cml_list_def:
-  (cml_list [] = Con (SOME (Short "[]")) []) ∧
-  (cml_list (x::rest) =
-   Con (SOME (Short "::")) [x; cml_list rest])
-End
-
-(* Converts a HOL string into a CakeML char list *)
-Definition string_to_cml_char_list_def:
-  string_to_cml_char_list s = cml_list (MAP (λx. (Lit (Char x))) s)
-End
-
-Definition cml_fapp_aux_def:
-  cml_fapp_aux fun_name [] = App Opapp [fun_name; Unit] ∧
-  cml_fapp_aux fun_name (e::rest) =
-  if rest = [] then (App Opapp [fun_name; e])
-  else
-    let inner_app = cml_fapp_aux fun_name rest in
-      (App Opapp [inner_app; e])
-End
-
-Definition cml_fapp_def:
-  cml_fapp fun_name args = cml_fapp_aux fun_name (REVERSE args)
-End
-
-Definition cml_id_def:
-  cml_id [] = fail "cml_id: Cannot make id from empty list" ∧
-  cml_id [n] = return (Short n) ∧
-  cml_id (n::rest) = do rest' <- cml_id rest; return (Long n rest') od
-End
-
-Definition cml_tuple_def:
-  cml_tuple [_] = fail "cml_tuple: Cannot create 1-tuple" ∧
-  cml_tuple cml_es = return (Con NONE cml_es)
-End
-
-Definition cml_tuple_select_def:
-  cml_tuple_select len cml_te (idx: num) =
-  let field_vars = GENLIST (λn. Pvar ("t" ++ (num_to_string n))) len in
-    Mat cml_te [Pcon NONE field_vars, Var (Short ("t" ++ (num_to_string idx)))]
-End
-
-Definition zip_with_def:
-  zip_with f [] _ = [] ∧
-  zip_with f _ [] = [] ∧
-  zip_with f (x::xs) (y::ys) = (f x y)::(zip_with f xs ys)
-End
-
-Definition cml_tuple_to_string_list_def:
-  cml_tuple_to_string_list fs =
-  let field_name = GENLIST (λn. ("t" ++ (num_to_string n))) (LENGTH fs);
-      field_pvars = (MAP (λx. Pvar x) field_name);
-      field_vars = (MAP (λx. [Var (Short x)]) field_name);
-      string_list = cml_list (zip_with cml_fapp fs field_vars);
-      tuple_name = "tpl" in
-    Fun tuple_name
-        (Mat (Var (Short tuple_name))
-             [Pcon NONE field_pvars, string_list])
-End
-
-Definition raise_return_def:
-  raise_return = Raise (Con (SOME (Long "Dafny" (Short "Return"))) [])
-End
-
-Definition raise_break_def:
-  raise_break = Raise (Con (SOME (Long "Dafny" (Short "Break"))) [])
-End
-
-Definition add_break_handle_def:
-  add_break_handle e = Handle e [Pcon (SOME (Long "Dafny" (Short "Break"))) [],
-                                 Unit]
-End
-
-Definition raise_labeled_break_def:
-  raise_labeled_break lbl = Raise (Con (SOME (Long "Dafny"
-                                                   (Short "LabeledBreak")))
-                                       [Lit (StrLit lbl)])
-End
-
-Definition add_labeled_break_handle_def:
-  add_labeled_break_handle cur_lbl e =
-  Handle e [Pcon (SOME (Long "Dafny" (Short "LabeledBreak"))) [Pvar "lbl"],
-            (If (App Equality [Var (Short "lbl"); Lit (StrLit cur_lbl)])
-                (Unit)
-                (Raise (Con (SOME (Long "Dafny" (Short "LabeledBreak")))
-                            [Var (Short "lbl")])))]
-End
-
-Definition cml_while_name_def:
-  cml_while_name (lvl: int) = "CML_while_" ++ (int_to_string lvl)
-End
-
-Definition cml_get_arr_def:
-  cml_get_arr cml_e = (cml_fapp (Var (Long "Option" (Short "valOf"))) [cml_e])
-End
-
 (* TODO move this to dafny_ast? *)
 Definition is_DeclareVar_def:
   is_DeclareVar s =
@@ -304,12 +208,62 @@ Definition dest_Method_def:
   (isStatic, hasBody, overridingPath, nam, typeParams, params, body, outTypes, outVars)
 End
 
+
+
 Definition cml_ref_ass_def:
   cml_ref_ass lhs rhs = (App Opassign [lhs; rhs])
 End
 
 Definition cml_ref_def:
   cml_ref n val_e in_e = (Let (SOME n) ((App Opref [val_e])) in_e)
+End
+
+(* Converts a HOL list of CakeML expressions into a CakeML list. *)
+Definition cml_list_def:
+  (cml_list [] = Con (SOME (Short "[]")) []) ∧
+  (cml_list (x::rest) =
+   Con (SOME (Short "::")) [x; cml_list rest])
+End
+
+(* Converts a HOL string into a CakeML char list *)
+Definition string_to_cml_char_list_def:
+  string_to_cml_char_list s = cml_list (MAP (λx. (Lit (Char x))) s)
+End
+
+Definition cml_fapp_aux_def:
+  cml_fapp_aux fun_name [] = App Opapp [fun_name; Unit] ∧
+  cml_fapp_aux fun_name (e::rest) =
+  if rest = [] then (App Opapp [fun_name; e])
+  else
+    let inner_app = cml_fapp_aux fun_name rest in
+      (App Opapp [inner_app; e])
+End
+
+Definition cml_fapp_def:
+  cml_fapp fun_name args = cml_fapp_aux fun_name (REVERSE args)
+End
+
+Definition cml_id_def:
+  cml_id [] = fail "cml_id: Cannot make id from empty list" ∧
+  cml_id [n] = return (Short n) ∧
+  cml_id (n::rest) = do rest' <- cml_id rest; return (Long n rest') od
+End
+
+Definition cml_tuple_def:
+  cml_tuple [_] = fail "cml_tuple: Cannot create 1-tuple" ∧
+  cml_tuple cml_es = return (Con NONE cml_es)
+End
+
+Definition cml_tuple_select_def:
+  cml_tuple_select len cml_te (idx: num) =
+  let field_vars = GENLIST (λn. Pvar ("t" ++ (num_to_string n))) len in
+    Mat cml_te [Pcon NONE field_vars, Var (Short ("t" ++ (num_to_string idx)))]
+End
+
+Definition zip_with_def:
+  zip_with f [] _ = [] ∧
+  zip_with f _ [] = [] ∧
+  zip_with f (x::xs) (y::ys) = (f x y)::(zip_with f xs ys)
 End
 
 (* TODO Find better way to generate internal names *)
@@ -332,6 +286,22 @@ End
 
 Definition internal_varN_from_ident_def:
   internal_varN_from_ident (Ident (Name n)) = (n ++ "_CML_out_ref")
+End
+
+(* Declares additional parameters using Fun x => ... *)
+Definition fun_from_params_def:
+  (fun_from_params preamble [] = return preamble) ∧
+  (fun_from_params preamble (fo::rest) =
+   do
+     param_name <- internal_varN_from_formal fo;
+     preamble <<- (λx. preamble (Fun param_name x));
+     fun_from_params preamble rest
+   od)
+End
+
+
+Definition local_env_name_def:
+  local_env_name n = (Companion [], n)
 End
 
 (* In Dafny, the string and seq<char> type are synonyms. We replace the
@@ -364,6 +334,225 @@ Termination
   cheat
 End
 
+Definition compose_all_def:
+  compose_all = FOLDR (o) I
+End
+
+Definition cml_tuple_to_string_list_def:
+  cml_tuple_to_string_list fs =
+  let field_name = GENLIST (λn. ("t" ++ (num_to_string n))) (LENGTH fs);
+      field_pvars = (MAP (λx. Pvar x) field_name);
+      field_vars = (MAP (λx. [Var (Short x)]) field_name);
+      string_list = cml_list (zip_with cml_fapp fs field_vars);
+      tuple_name = "tpl" in
+    Fun tuple_name
+        (Mat (Var (Short tuple_name))
+             [Pcon NONE field_pvars, string_list])
+End
+
+Definition raise_return_def:
+  raise_return = Raise (Con (SOME (Long "Dafny" (Short "Return"))) [])
+End
+
+Definition raise_break_def:
+  raise_break = Raise (Con (SOME (Long "Dafny" (Short "Break"))) [])
+End
+
+Definition add_break_handle_def:
+  add_break_handle e = Handle e [Pcon (SOME (Long "Dafny" (Short "Break"))) [],
+                                 Unit]
+End
+
+Definition raise_labeled_break_def:
+  raise_labeled_break lbl = Raise (Con (SOME (Long "Dafny"
+                                                   (Short "LabeledBreak")))
+                                       [Lit (StrLit lbl)])
+End
+
+Definition add_labeled_break_handle_def:
+  add_labeled_break_handle cur_lbl e =
+  Handle e [Pcon (SOME (Long "Dafny" (Short "LabeledBreak"))) [Pvar "lbl"],
+            (If (App Equality [Var (Short "lbl"); Lit (StrLit cur_lbl)])
+                (Unit)
+                (Raise (Con (SOME (Long "Dafny" (Short "LabeledBreak")))
+                            [Var (Short "lbl")])))]
+End
+
+Definition cml_while_name_def:
+  cml_while_name (lvl: int) = "CML_while_" ++ (int_to_string lvl)
+End
+
+Definition cml_get_arr_def:
+  cml_get_arr cml_e = (cml_fapp (Var (Long "Option" (Short "valOf"))) [cml_e])
+End
+
+Definition fun_from_lambda_params_def:
+  fun_from_lambda_params [] = return [] ∧
+  fun_from_lambda_params ((Formal nam _ attrs)::rest) =
+  if attrs ≠ [] then
+    fail "fun_from_lambda_params: attributes unsupported"
+  else
+    do
+      rest <- fun_from_lambda_params rest;
+      return ((λe. Fun (dest_Name nam) e)::rest)
+    od
+End
+
+Definition param_type_env_def:
+  param_type_env [] acc = return acc ∧
+  param_type_env ((Formal n t attrs)::rest) acc =
+  if attrs ≠ [] then
+    fail "param_type_env: Attributes unsupported"
+  else
+    param_type_env rest ((local_env_name n, (normalize_type t))::acc)
+End
+
+Definition env_and_epilogue_from_outs_def:
+  (env_and_epilogue_from_outs env epilogue [] [] =
+   do
+     epilogue <<- epilogue raise_return;
+     return (env, epilogue)
+   od) ∧
+  (env_and_epilogue_from_outs env epilogue (t::rest_t) (v::rest_v) =
+   do
+     if LENGTH rest_t ≠ LENGTH rest_v then
+       fail ("env_and_epilogue_from_outs: Length of outTypes and outVars " ++
+             "is different")
+     else
+       do
+         v_nam <<- dest_Ident v;
+         v_str <<- dest_Name v_nam;
+         env <<- ((local_env_name v_nam, t)::env);
+         out_ref_name <<- internal_varN_from_ident v;
+         epilogue <<- (λx. epilogue (Let NONE (cml_ref_ass
+                                               (Var (Short out_ref_name))
+                                               ((App Opderef
+                                                     [Var (Short v_str)])))
+                                         x));
+         env_and_epilogue_from_outs env epilogue rest_t rest_v
+       od
+   od)
+End
+
+(* Allows us to pass in out references as parameters *)
+Definition fun_from_outs_def:
+  fun_from_outs preamble [] = preamble ∧
+  fun_from_outs preamble (v::rest_v) =
+     fun_from_outs (λx. preamble (Fun (internal_varN_from_ident v) x)) rest_v
+End
+
+(* Declares and initializes references for the parameters that the body will use
+ *
+ * We do this since within the body the parameter names act as variables, which
+ * we encode using references. *)
+Definition ref_from_params_def:
+  (ref_from_params preamble [] = return preamble) ∧
+  (ref_from_params preamble (fo::rest) =
+   do
+     ref_name <- varN_from_formal fo;
+     ref_value_name <- internal_varN_from_formal fo;
+     preamble <<- (λx. preamble ((cml_ref ref_name
+                                          (Var (Short ref_value_name)) x)));
+     ref_from_params preamble rest
+   od)
+End
+
+Definition gen_param_preamble_epilogue_def:
+  gen_param_preamble_epilogue env [] [] [] =
+  do
+    param <<- "";
+    preamble <<- λx. x;
+    epilogue <<- Unit;
+    return (env, param, preamble, epilogue)
+  od ∧
+  gen_param_preamble_epilogue env [] (t::rest_t) (v::rest_v) =
+  do
+    param <<- internal_varN_from_ident v;
+    preamble <<- fun_from_outs (λx. x) rest_v;
+    (env, epilogue) <- env_and_epilogue_from_outs env (λx. x)
+                                                  (t::rest_t) (v::rest_v);
+    return (env, param, preamble, epilogue)
+  od ∧
+  gen_param_preamble_epilogue env (p::rest_p) outTypes outVars =
+  do
+    param <- internal_varN_from_formal p;
+    preamble <- fun_from_params (λx. x) rest_p;
+    preamble <<- fun_from_outs preamble outVars;
+    preamble <- ref_from_params preamble (p::rest_p);
+    env <- param_type_env (p::rest_p) env;
+    (env, epilogue) <- env_and_epilogue_from_outs env (λx. x)
+                                                  outTypes outVars;
+    return (env, param, preamble, epilogue)
+  od
+End
+
+Definition gen_param_preamble_def:
+  gen_param_preamble env params =
+  do
+    (env, param, preamble, _) <- gen_param_preamble_epilogue env params [] [];
+    return (env, param, preamble)
+  od
+End
+
+(* Returns a function that can be applied to a CakeML expression to turn it into
+ * a string *)
+Definition to_string_fun_def:
+  (to_string_fun _ (Primitive Char) =
+   return (Var (Long "Dafny" (Short "char_to_string")))) ∧
+  (to_string_fun _ (Primitive Int) =
+   return (Var (Long "Dafny" (Short "int_to_string")))) ∧
+  (to_string_fun _ (Primitive Bool) =
+   return (Var (Long "Dafny" (Short "bool_to_string")))) ∧
+  (to_string_fun inCol (Seq (Primitive Char)) =
+   if inCol then
+     return (Var (Long "Dafny" (Short "char_list_to_string")))
+   else return (Var (Long "String" (Short "implode")))) ∧
+  (to_string_fun _ (Seq t) =
+   do
+     elem_to_string <- to_string_fun T t;
+     return (cml_fapp (Var (Long "Dafny" (Short "list_to_string")))
+                      [elem_to_string])
+   od) ∧
+  (to_string_fun _ (Tuple ts) =
+   do
+     elems_to_string <- map_to_string_fun T ts;
+     string_list <<- cml_tuple_to_string_list elems_to_string;
+     return (cml_fapp (Var (Long "Dafny" (Short "tuple_to_string")))
+                           [string_list])
+   od) ∧
+  (to_string_fun _ t = fail ("to_string_fun: Unsupported type")) ∧
+  (map_to_string_fun inCol ts =
+   case ts of
+   | [] => return []
+   | (t::rest) =>
+       do
+         t <- to_string_fun inCol t;
+         rest <- map_to_string_fun inCol rest;
+         return (t::rest)
+       od)
+Termination
+  cheat
+End
+
+(* An independent statement must not depend on statements outside of it *)
+(* TODO Fill out cases properly; wildcard means that I did not explicitly
+   consider it yet *)
+Definition is_indep_stmt_def:
+  is_indep_stmt (s: dafny_ast$statement) =
+  case s of
+  | DeclareVar _ _ _=> F
+  | Assign _ _ => T
+  | If _ _ _ => T
+  | Labeled _ _ => T
+  | While _ _ => T
+  | Call _ _ _ _ _ => T
+  | Return _ => T
+  | EarlyReturn => T
+  | Break _ => T
+  | Print _ => T
+  | _ => F
+End
+
 Definition arb_value_def:
   arb_value (t: dafny_ast$type) =
   (case t of
@@ -377,6 +566,16 @@ Definition arb_value_def:
        od
    | Array _ _ => return None  (* we essentially initialize with null *)
    | Path _ [] resT => arb_value_resolved_type resT
+   | Arrow ts t =>
+       do
+         arb_ret <- arb_value t;
+         nr_params <<- (LENGTH ts);
+         params <<- if nr_params = 0
+                    then [λx. Fun "u" x]
+                    else GENLIST (λx. Fun ("p" ++ (num_to_string x)))
+                                 (LENGTH ts);
+         return (compose_all params arb_ret)
+       od
    | _ => fail "arb_value_def: Unsupported type") ∧
   arb_value_resolved_type resT =
   (case resT of
@@ -523,6 +722,18 @@ Definition from_literal_def:
        return None
 End
 
+Definition type_from_formals_def:
+  type_from_formals [] = return [] ∧
+  type_from_formals ((Formal _ t attrs)::rest) =
+  if attrs ≠ [] then
+    fail "type_from_formals: Attributes unsupported"
+  else
+    do
+      restTs <- type_from_formals rest;
+      return ((normalize_type t)::(map_normalize_type restTs))
+    od
+End
+
 (* Cannot merge with from_classitem, since methods may be mutually recursive/
  * not defined in the proper order, resulting in being referenced before they
  * have been added to the context *)
@@ -534,27 +745,25 @@ Definition call_type_env_from_class_body_def:
     is_method <- method_is_method m;
     if is_function then
       do
-        (_, _, _, nam, _, _, _, outTypes, _) <<- dest_Method m;
+        (_, _, _, nam, _, params, _, outTypes, _) <<- dest_Method m;
+        param_t <- type_from_formals params;
         outTypes <<- MAP normalize_type outTypes;
-        acc <<- (((comp, nam), HD outTypes)::acc);
+        acc <<- (((comp, nam), Arrow param_t (HD outTypes))::acc);
         call_type_env_from_class_body acc comp rest;
       od
     else if is_method then
       do
-        (_, _, _, nam, _, _, _, _, _) <<- dest_Method m;
+        (_, _, _, nam, _, params, _, _, _) <<- dest_Method m;
         (* outTypes refers to the type of outVars; the method itself returns
          * Unit (I think) *)
-        acc <<- (((comp, nam), Tuple [])::acc);
+        param_t <- type_from_formals params;
+        acc <<- (((comp, nam), Arrow param_t (Tuple []))::acc);
         call_type_env_from_class_body acc comp rest
       od
     else
       fail "call_type_env_from_class_body: ClassItem_Method m was neither \
            \method nor function."
   od
-End
-
-Definition local_env_name_def:
-  local_env_name n = (Companion [], n)
 End
 
 Definition tuple_len_def:
@@ -683,6 +892,16 @@ Definition dafny_type_of_def:
              fail "dafny_type_of (BinOp): Unsupported bop/types"
          od
    | ArrayLen _ _ => return (Primitive Int)
+   | SelectFn comp nam onDt isStatic _ =>
+       if onDt then
+         fail "dafny_type_of (SelectFn): On datatype unsupported"
+       else if ¬isStatic then
+         fail "dafny_type_of (SelectFn): non-static unsupported"
+       else
+         (case ALOOKUP env (comp, nam) of
+          | SOME t => return t
+          | NONE => fail ("dafny_type_of (SelectFn): Unknown name" ++
+                          (dest_Name nam)))
    | Index e' cok idxs =>
        do
          e'_t <- dafny_type_of env e';
@@ -723,12 +942,35 @@ Definition dafny_type_of_def:
        if onType ≠ NONE then
          fail "dafny_type_of: (Call) Unsupported onType"
        else
-         let ct_name = nam in
-           (case ALOOKUP env (on, ct_name) of
-            | SOME t => return t
-            | NONE => fail ("dafny_type_of: Unknown Name " ++
-                            dest_Name ct_name))
-           | _ => fail ("dafny_type_of: Unsupported expression" ++ (ARB e))) ∧
+         (let ct_name = nam in
+            case ALOOKUP env (on, ct_name) of
+            | SOME (Arrow _ retT) => return retT
+            | NONE => fail ("dafny_type_of: " ++ dest_Name ct_name ++
+                            "not found or bad type"))
+   | Lambda params retT _ =>
+       do
+         argT <- type_from_formals params;
+         retT <<- normalize_type retT;
+         return (Arrow argT retT)
+       od
+   | Apply e args =>
+       do
+         nr_args <<- LENGTH args;
+         e_t <- dafny_type_of env e;
+         case e_t of
+         | Arrow f_argT f_retT =>
+             (* We do not bother type checking again *)
+             if LENGTH f_argT = nr_args then
+               return f_retT
+             else if LENGTH f_argT > nr_args then
+               return (Arrow (DROP nr_args f_argT) f_retT)
+             else
+               fail "dafny_type_of (Apply): Unexpectedly, tried to apply \
+                    \too many arguments"
+         | _ => fail "dafny_type_of (Apply): Unexpectedly, apply used on \
+                     \non-arrow type"
+       od
+   | _ => fail ("dafny_type_of: Unsupported expression")) ∧
   map_dafny_type_of env ts =
   (case ts of
    | [] => return []
@@ -845,6 +1087,13 @@ Definition from_expression_def:
            return (cml_fapp (Var (Long "Array" (Short "length")))
                             [cml_get_arr cml_e])
          od
+   | SelectFn f_comp nam onDt isStatic _ =>
+       if onDt then
+         fail "dafny_type_of (SelectFn): On datatype unsupported"
+       else if ¬isStatic then
+         fail "dafny_type_of (SelectFn): non-static unsupported"
+       else
+         gen_call_name comp f_comp (CallName nam NONE (CallSignature []))
    | Index ce cok idxs =>
        if cok = CollKind_Seq then
          if idxs = [] then
@@ -912,13 +1161,26 @@ Definition from_expression_def:
          else
            do
              fun_name <- gen_call_name comp on call_nam;
-             cml_args <- result_mmap (from_expression comp env) args;
+             cml_args <- map_from_expression comp env args;
              return (cml_fapp fun_name cml_args)
            od
        od
+   | Lambda params _ body =>
+       do
+         (env, param, preamble) <- gen_param_preamble env params;
+         param <<- if param = "" then "u" else param;
+         (_, cml_e) <- from_stmts comp T env 0 Unit body;
+         return (Fun param (preamble cml_e))
+       od
+   | Apply e args =>
+       do
+         cml_e <- from_expression comp env e;
+         cml_args <- map_from_expression comp env args;
+         return (cml_fapp cml_e cml_args)
+       od
    | InitializationValue t =>
        arb_value (normalize_type t)
-   | _ => fail ("from_expression: Unsupported expression" ++ (ARB e))) ∧
+   | _ => fail ("from_expression: Unsupported expression")) ∧
   (map_from_expression comp env es =
    case es of
    | [] => return []
@@ -1048,74 +1310,10 @@ Definition from_expression_def:
           else
             fail "from_binOp (Concat): Unsupported types"
       | _ => fail "from_binOp: Unsupported bop")
-   od)
-Termination
-  cheat
-End
-
-(* Returns a function that can be applied to a CakeML expression to turn it into
- * a string *)
-Definition to_string_fun_def:
-  (to_string_fun _ (Primitive Char) =
-   return (Var (Long "Dafny" (Short "char_to_string")))) ∧
-  (to_string_fun _ (Primitive Int) =
-   return (Var (Long "Dafny" (Short "int_to_string")))) ∧
-  (to_string_fun _ (Primitive Bool) =
-   return (Var (Long "Dafny" (Short "bool_to_string")))) ∧
-  (to_string_fun inCol (Seq (Primitive Char)) =
-   if inCol then
-     return (Var (Long "Dafny" (Short "char_list_to_string")))
-   else return (Var (Long "String" (Short "implode")))) ∧
-  (to_string_fun _ (Seq t) =
-   do
-     elem_to_string <- to_string_fun T t;
-     return (cml_fapp (Var (Long "Dafny" (Short "list_to_string")))
-                      [elem_to_string])
    od) ∧
-  (to_string_fun _ (Tuple ts) =
-   do
-     elems_to_string <- map_to_string_fun T ts;
-     string_list <<- cml_tuple_to_string_list elems_to_string;
-     return (cml_fapp (Var (Long "Dafny" (Short "tuple_to_string")))
-                           [string_list])
-   od) ∧
-  (to_string_fun _ t = fail ("to_string_fun: Unsupported type" ++ ARB t)) ∧
-  (map_to_string_fun inCol ts =
-   case ts of
-   | [] => return []
-   | (t::rest) =>
-       do
-         t <- to_string_fun inCol t;
-         rest <- map_to_string_fun inCol rest;
-         return (t::rest)
-       od)
-Termination
-  cheat
-End
-
-(* An independent statement must not depend on statements outside of it *)
-(* TODO Fill out cases properly; wildcard means that I did not explicitly
-   consider it yet *)
-Definition is_indep_stmt_def:
-  is_indep_stmt (s: dafny_ast$statement) =
-  case s of
-  | DeclareVar _ _ _=> F
-  | Assign _ _ => T
-  | If _ _ _ => T
-  | Labeled _ _ => T
-  | While _ _ => T
-  | Call _ _ _ _ _ => T
-  | Return _ => T
-  | EarlyReturn => T
-  | Break _ => T
-  | Print _ => T
-  | _ => F
-End
-
 (* TODO is_<constructor> calls could maybe be replaced using monad choice *)
 (* At the moment we assume that only statements can change env *)
 (* lvl = level of the next while loop *)
-Definition from_stmts_def:
   (from_stmts (comp: expression) (is_function: bool)
               (env: ((expression # name, type) alist))
               (lvl: int) epilogue ([]: (dafny_ast$statement list)) =
@@ -1201,7 +1399,7 @@ Definition from_stmts_def:
           else
             do
               fun_name <- gen_call_name comp on call_nam;
-              cml_param_args <- result_mmap (from_expression comp env) args;
+              cml_param_args <- map_from_expression comp env args;
               cml_out_args <- (case outs of
                                | NONE => return []
                                | SOME outs =>
@@ -1242,113 +1440,6 @@ Definition from_stmts_def:
                  "not independent statement")))
 Termination
   cheat
-End
-
-Definition param_type_env_def:
-  param_type_env [] acc = return acc ∧
-  param_type_env ((Formal n t attrs)::rest) acc =
-  if attrs ≠ [] then
-    fail "param_type_env: Attributes unsupported"
-  else
-    param_type_env rest ((local_env_name n, (normalize_type t))::acc)
-End
-
-Definition env_and_epilogue_from_outs_def:
-  (env_and_epilogue_from_outs env epilogue [] [] =
-   do
-     epilogue <<- epilogue raise_return;
-     return (env, epilogue)
-   od) ∧
-  (env_and_epilogue_from_outs env epilogue (t::rest_t) (v::rest_v) =
-   do
-     if LENGTH rest_t ≠ LENGTH rest_v then
-       fail ("env_and_epilogue_from_outs: Length of outTypes and outVars " ++
-             "is different")
-     else
-       do
-         v_nam <<- dest_Ident v;
-         v_str <<- dest_Name v_nam;
-         env <<- ((local_env_name v_nam, t)::env);
-         out_ref_name <<- internal_varN_from_ident v;
-         epilogue <<- (λx. epilogue (Let NONE (cml_ref_ass
-                                               (Var (Short out_ref_name))
-                                               ((App Opderef
-                                                     [Var (Short v_str)])))
-                                         x));
-         env_and_epilogue_from_outs env epilogue rest_t rest_v
-       od
-   od)
-End
-
-(* Allows us to pass in out references as parameters *)
-Definition fun_from_outs_def:
-  fun_from_outs preamble [] = preamble ∧
-  fun_from_outs preamble (v::rest_v) =
-     fun_from_outs (λx. preamble (Fun (internal_varN_from_ident v) x)) rest_v
-End
-
-(* Declares additional parameters using Fun x => ... *)
-Definition fun_from_params_def:
-  (fun_from_params preamble [] = return preamble) ∧
-  (fun_from_params preamble (fo::rest) =
-   do
-     param_name <- internal_varN_from_formal fo;
-     preamble <<- (λx. preamble (Fun param_name x));
-     fun_from_params preamble rest
-   od)
-End
-
-(* Declares and initializes references for the parameters that the body will use
- *
- * We do this since within the body the parameter names act as variables, which
- * we encode using references. *)
-Definition ref_from_params_def:
-  (ref_from_params preamble [] = return preamble) ∧
-  (ref_from_params preamble (fo::rest) =
-   do
-     ref_name <- varN_from_formal fo;
-     ref_value_name <- internal_varN_from_formal fo;
-     preamble <<- (λx. preamble ((cml_ref ref_name
-                                          (Var (Short ref_value_name)) x)));
-     ref_from_params preamble rest
-   od)
-End
-
-Definition gen_param_preamble_epilogue_def:
-  gen_param_preamble_epilogue env [] [] [] =
-  do
-    param <<- "";
-    preamble <<- λx. x;
-    epilogue <<- Unit;
-    return (env, param, preamble, epilogue)
-  od ∧
-  gen_param_preamble_epilogue env [] (t::rest_t) (v::rest_v) =
-  do
-    param <<- internal_varN_from_ident v;
-    preamble <<- fun_from_outs (λx. x) rest_v;
-    (env, epilogue) <- env_and_epilogue_from_outs env (λx. x)
-                                                  (t::rest_t) (v::rest_v);
-    return (env, param, preamble, epilogue)
-  od ∧
-  gen_param_preamble_epilogue env (p::rest_p) outTypes outVars =
-  do
-    param <- internal_varN_from_formal p;
-    preamble <- fun_from_params (λx. x) rest_p;
-    preamble <<- fun_from_outs preamble outVars;
-    preamble <- ref_from_params preamble (p::rest_p);
-    env <- param_type_env (p::rest_p) env;
-    (env, epilogue) <- env_and_epilogue_from_outs env (λx. x)
-                                                  outTypes outVars;
-    return (env, param, preamble, epilogue)
-  od
-End
-
-Definition gen_param_preamble_def:
-  gen_param_preamble env params =
-  do
-    (env, param, preamble, _) <- gen_param_preamble_epilogue env params [] [];
-    return (env, param, preamble)
-  od
 End
 
 Definition process_function_body_def:
@@ -1441,7 +1532,7 @@ Definition from_module_def:
        else if EXISTS is_moditem_trait modItems then
          fail "from_module: traits unsupported"
        else if EXISTS is_moditem_datatype modItems then
-         fail "from_module: newtypes unsupported"
+         fail "from_module: datatype unsupported"
        else if EXISTS is_moditem_module modItems then
          fail "from_module: Unexpected nested module"
        else
@@ -1537,31 +1628,31 @@ Definition unpack_def:
 End
 
 (* Testing *)
-open dafny_sexpTheory
-open sexp_to_dafnyTheory
-open fromSexpTheory simpleSexpParseTheory
-open TextIO
-(* val _ = astPP.disable_astPP(); *)
-val _ = astPP.enable_astPP();
+(* open dafny_sexpTheory *)
+(* open sexp_to_dafnyTheory *)
+(* open fromSexpTheory simpleSexpParseTheory *)
+(* open TextIO *)
+(* (* val _ = astPP.disable_astPP(); *) *)
+(* val _ = astPP.enable_astPP(); *)
 
-val inStream = TextIO.openIn "./tests/dafny/int_newtypes.sexp";
-val fileContent = TextIO.inputAll inStream;
-val _ = TextIO.closeIn inStream;
-val fileContent_tm = stringSyntax.fromMLstring fileContent;
+(* val inStream = TextIO.openIn "./tests/dafny/built_ins.sexp"; *)
+(* val fileContent = TextIO.inputAll inStream; *)
+(* val _ = TextIO.closeIn inStream; *)
+(* val fileContent_tm = stringSyntax.fromMLstring fileContent; *)
 
-val lex_r = EVAL “(lex ^fileContent_tm)” |> concl |> rhs |> rand;
-val parse_r = EVAL “(parse ^lex_r)” |> concl |> rhs |> rand;
-val dafny_r = EVAL “(sexp_program ^parse_r)” |> concl |> rhs |> rand;
-val cakeml_r = EVAL “(compile ^dafny_r)” |> concl |> rhs |> rand;
+(* val lex_r = EVAL “(lex ^fileContent_tm)” |> concl |> rhs |> rand; *)
+(* val parse_r = EVAL “(parse ^lex_r)” |> concl |> rhs |> rand; *)
+(* val dafny_r = EVAL “(sexp_program ^parse_r)” |> concl |> rhs |> rand; *)
+(* val cakeml_r = EVAL “(compile ^dafny_r)” |> concl |> rhs |> rand; *)
 
-val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^cakeml_r)))”
-                   |> concl |> rhs |> rand;
-(* Test Dafny module *)
-(* val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^dafny_module)))” *)
+(* val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^cakeml_r)))” *)
 (*                    |> concl |> rhs |> rand; *)
-val cml_sexp_str_r = stringSyntax.fromHOLstring cml_sexp_r;
-val outFile = TextIO.openOut "./tests/test.cml.sexp";
-val _ = TextIO.output (outFile, cml_sexp_str_r);
-val _ = TextIO.closeOut outFile;
+(* (* Test Dafny module *) *)
+(* (* val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^dafny_module)))” *) *)
+(* (*                    |> concl |> rhs |> rand; *) *)
+(* val cml_sexp_str_r = stringSyntax.fromHOLstring cml_sexp_r; *)
+(* val outFile = TextIO.openOut "./tests/test.cml.sexp"; *)
+(* val _ = TextIO.output (outFile, cml_sexp_str_r); *)
+(* val _ = TextIO.closeOut outFile; *)
 
 val _ = export_theory();
