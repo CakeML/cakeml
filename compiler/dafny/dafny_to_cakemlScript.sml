@@ -1440,8 +1440,6 @@ Definition from_module_def:
          fail "from_module: attributes unsupported"
        else if EXISTS is_moditem_trait modItems then
          fail "from_module: traits unsupported"
-       else if EXISTS is_moditem_newtype modItems then
-         fail "from_module: newtypes unsupported"
        else if EXISTS is_moditem_datatype modItems then
          fail "from_module: newtypes unsupported"
        else if EXISTS is_moditem_module modItems then
@@ -1483,25 +1481,10 @@ End
 Definition validate_system_module_body_def:
   (validate_system_module_body [] = return ()) ∧
   (validate_system_module_body ((ModuleItem_Newtype
-                               (Newtype nam typeParams base rang
-                                        witnessStmts witnessExpr
-                                        attrs))::rest) =
-   (* Restrict newtype support to Int *)
-   if typeParams ≠ [] then
-     fail "validate_system_module_body: Type parameters unsupported"
-   else if base ≠ Primitive Int then
-     fail "validate_system_module_body: base other than Primitive Int \
-          \unsupported"
-   else if rang ≠ NoRange then
-     fail "validate_system_module_body: range other than NoRange unsupported"
-   else if witnessStmts ≠ [] then
-     fail "validate_system_module_body: Witness statements unsupported"
-   else if witnessExpr ≠ NONE then
-     fail "validate_system_module_body: Witness expression unsupported"
-   else if attrs ≠ [Attribute "axiom" []] then
-     fail "validate_system_module_body: Unsupported attribute list"
-   else
-     validate_system_module_body rest) ∧
+                                 (Newtype _ _ _ _ _ _ _))::rest) =
+   (* We essentially ignore newtypes, since we simply interpret them
+      as their base type *)
+   validate_system_module_body rest) ∧
   (validate_system_module_body ((ModuleItem_Datatype
                                (Datatype nam enclosingModule
                                              _ _ _ _ _)::rest)) =
@@ -1561,7 +1544,7 @@ open TextIO
 (* val _ = astPP.disable_astPP(); *)
 val _ = astPP.enable_astPP();
 
-val inStream = TextIO.openIn "./tests/dafny/firstSteps/3_Calls-As.sexp";
+val inStream = TextIO.openIn "./tests/dafny/int_newtypes.sexp";
 val fileContent = TextIO.inputAll inStream;
 val _ = TextIO.closeIn inStream;
 val fileContent_tm = stringSyntax.fromMLstring fileContent;
