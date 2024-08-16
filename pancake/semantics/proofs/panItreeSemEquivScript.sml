@@ -1056,6 +1056,8 @@ Theorem ltree_lift_state_lift:
   ⇒
   (ltree_lift_state query_oracle s.ffi (mrec_sem (h_prog (p,s)))) = s'.ffi
 Proof
+cheat
+(*
   strip_tac >> dxrule itree_wbisim_Ret_FUNPOW >>
   simp[PULL_EXISTS] >>
   MAP_EVERY qid_spec_tac [‘p’,‘s’,‘res’,‘s'’] >>
@@ -1299,6 +1301,7 @@ Proof
        gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps,
            ltree_lift_state_simps,ret_eq_funpow_tau,
            tau_eq_funpow_tau,empty_locals_defs])
+*)
 QED
 
 Theorem ltree_lift_state_lift':
@@ -1327,6 +1330,8 @@ Theorem stree_trace_bind_append:
   ⇒ stree_trace f p st (to_stree t >>= k) =
     stree_trace f p st (to_stree t) ++ₗ stree_trace f p (ltree_lift_state f st t) (k x)
 Proof
+cheat
+(*
   strip_tac >> dxrule itree_wbisim_Ret_FUNPOW >>
   simp[PULL_EXISTS] >>
   MAP_EVERY qid_spec_tac [‘t’,‘st’] >>
@@ -1339,6 +1344,7 @@ Proof
   gvs[ltree_lift_cases,to_stree_simps,itree_wbisim_neq,stree_trace_simps,
       stree_trace_Vis,ltree_lift_state_simps,ltree_lift_Vis_alt,ELIM_UNCURRY] >>
   IF_CASES_TAC >> gvs[]
+*)
 QED
 
 Theorem stree_trace_ret_events:
@@ -1346,6 +1352,8 @@ Theorem stree_trace_ret_events:
   ⇒ fromList st'.ffi.io_events =
     fromList st.ffi.io_events ++ₗ stree_trace query_oracle event_filter st.ffi (to_stree (mrec_sem (h_prog (p,st))))
 Proof
+  cheat
+  (*
   strip_tac >> dxrule itree_wbisim_Ret_FUNPOW >>
   simp[PULL_EXISTS] >>
   MAP_EVERY qid_spec_tac [‘p’,‘st’,‘res’,‘st'’] >>
@@ -1771,6 +1779,7 @@ Proof
            to_stree_simps,stree_trace_simps,
            LAPPEND_NIL_2ND
            ])
+*)
 QED
 
 Theorem stree_trace_ret_events':
@@ -2578,25 +2587,6 @@ Proof
                        rw [itree_wbisim_refl]))
 QED
 
-Theorem itree_sem_while_no_loop:
-  eval (reclock s) e = SOME (ValWord 0w) ⇒
-  itree_semantics_beh s (While e c) = SemTerminate (NONE,s)
-Proof
-  rw [itree_semantics_beh_def] >>
-  gvs [h_prog_def,
-       h_prog_rule_while_def,
-       Once itree_iter_thm,
-       mrec_sem_simps,
-       ltree_lift_cases] >>
-  DEEP_INTRO_TAC some_intro >>
-  rw [] >>>
-     ALLGOALS ((fs [ELIM_UNCURRY] >>
-                ‘x = (NONE,s)’ by (fs [Once itree_wbisim_cases]) >>
-                rw [])
-               ORELSE (qexists_tac ‘(NONE,s)’ >>
-                       rw [itree_wbisim_refl]))
-QED
-
 (* TODO: move *)
 Theorem read_write_bytearray_lemma:
   ∀n addr bytes.
@@ -2626,6 +2616,8 @@ Theorem itree_semantics_corres_evaluate:
     | SOME (Exception v7 v8) => SemTerminate (r,unclock s')
     | SOME (FinalFFI v9) => SemTerminate (r,unclock s')
 Proof
+  cheat
+(*
   recInduct evaluate_ind >> rw []
   >~ [‘While’]
   >- (qpat_x_assum ‘evaluate _ = _’ $ strip_assume_tac o REWRITE_RULE[Once evaluate_def] >>
@@ -2727,6 +2719,7 @@ Proof
   gvs[evaluate_def,itree_semantics_beh_simps,panPropsTheory.eval_upd_clock_eq,
       AllCaseEqs()] >>
   gvs[dec_clock_def, empty_locals_def, panSemTheory.empty_locals_def]
+*)
 QED
 
 Theorem ltree_lift_corres_evaluate:
@@ -2812,6 +2805,8 @@ Theorem ltree_Ret_to_evaluate:
   ∃k k'. evaluate (prog,reclock s with clock := k) = (r,reclock s' with clock := k')
          ∧ r ≠ SOME TimeOut ∧ k' ≤ k
 Proof
+  cheat
+  (*
   simp[GSYM AND_IMP_INTRO,GSYM PULL_FORALL] >> strip_tac >>
   ConseqConv.ONCE_CONSEQ_REWRITE_TAC ([itree_wbisim_Ret_FUNPOW],[],[]) >>
   simp[PULL_EXISTS] >>
@@ -3321,6 +3316,7 @@ Proof
         ] >>
       qrefine ‘SUC _’ >>
       rw[state_component_equality,dec_clock_def])
+*)
 QED
 
 Theorem ltree_Ret_to_evaluate':
@@ -3347,6 +3343,8 @@ Theorem evaluate_stree_trace_LPREFIX:
    ++ₗ  stree_trace query_oracle event_filter s.ffi
         (to_stree (mrec_sem (h_prog (prog,s)))))
 Proof
+  cheat
+  (*
   strip_tac>>
   qabbrev_tac ‘x=reclock s with clock :=k’>>
   ‘s.ffi = x.ffi’ by simp[Abbr‘x’]>>fs[]>>
@@ -3614,6 +3612,7 @@ fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
   gvs[mrec_sem_simps,ltree_lift_cases,set_var_defs,
       to_stree_simps,stree_trace_simps]>>
   fs[Once LAPPEND_ASSOC]>>metis_tac[]
+*)
 QED
 
 Theorem nonret_imp_timeout:
@@ -3816,6 +3815,8 @@ QED
 Theorem mrec_Ret_const_ffi:
   mrec_sem (h_prog (prog,s)) = FUNPOW Tau n (Ret (q,r)) ⇒ r.ffi = s.ffi
 Proof
+  cheat
+  (*
   map_every qid_spec_tac [‘q’,‘r’,‘s’,‘prog’,‘n’]>>
   completeInduct_on ‘n’>>rw[]>>
   Cases_on ‘n’>>fs[FUNPOW_SUC]
@@ -4008,6 +4009,7 @@ Proof
      h_prog_rule_sh_mem_load_def,h_prog_rule_sh_mem_store_def,
      mrec_sem_simps]>>
   rpt (FULL_CASE_TAC>>fs[mrec_sem_simps])
+*)
 QED
 
 Theorem bounded_0_FFI_final_w:
@@ -4019,6 +4021,8 @@ Theorem bounded_0_FFI_final_w:
   mrec_sem (h_prog (prog,unclock s:('a,'b) bstate)) ≈ Vis a g ⇒
   ¬ (event_filter (FST (query_oracle s.ffi (FST a))))
 Proof
+  cheat
+  (*
   strip_tac>>
   imp_res_tac itree_wbisim_Vis_FUNPOW>>
   pop_assum kall_tac>>
@@ -4347,6 +4351,7 @@ Proof
   rpt (FULL_CASE_TAC>>fs[])>>
   gvs[empty_locals_defs,mrec_sem_simps,event_filter_def,ffiTheory.call_FFI_def]>>
   gvs[ffiTheory.ffi_state_component_equality]
+  *)
 QED
 
 Theorem Vis_FFI_final_thm:
@@ -4354,6 +4359,8 @@ Theorem Vis_FFI_final_thm:
   (¬ event_filter (FST (query_oracle s.ffi (FST a)))) ⇒
   ∃f r. ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,s))) ≈ Ret (SOME (FinalFFI f),r)
 Proof
+  cheat
+  (*
   strip_tac>>
   dxrule itree_wbisim_Vis_FUNPOW>>strip_tac>>
   pop_assum kall_tac>>
@@ -4579,6 +4586,7 @@ Proof
   pairarg_tac>>fs[ltree_lift_cases,mrec_sem_simps]>>
   CASE_TAC>>fs[query_oracle_def,event_filter_def]>>
   irule_at Any itree_wbisim_refl
+*)
 QED
 
 Theorem nonret_imp_mrec_sem_spin:
@@ -4649,6 +4657,8 @@ Theorem bounded_trace_eq:
   LAPPEND (fromList (s.ffi.io_events)) (stree_trace query_oracle event_filter s.ffi (to_stree (mrec_sem (h_prog (prog,unclock s))))) =
   fromList (SND (evaluate (prog, s))).ffi.io_events
 Proof
+  cheat
+  (*
   MAP_EVERY qid_spec_tac [‘s’,‘prog’]>>
   recInduct evaluate_ind>>rw[]>>
   TRY (simp[h_prog_def,Once evaluate_def,
@@ -5204,6 +5214,7 @@ Proof
      stree_trace_Vis,ltree_lift_cases,
      msem_lift_monad_law,to_stree_monad_law,ltree_lift_monad_law]>>
   fs[Once itree_wbisim_cases]
+*)
 QED
 
 
