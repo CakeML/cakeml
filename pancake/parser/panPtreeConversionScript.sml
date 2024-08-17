@@ -317,6 +317,7 @@ Definition conv_Exp_def:
       | (e::es) => conv_panops es ' (conv_Exp e)
     else NONE) ∧
   (conv_Exp leaf = if tokcheck leaf (kw BaseK) then SOME BaseAddr
+                   else if tokcheck leaf (kw BiwK) then SOME BytesInWord
                    else if tokcheck leaf (kw TrueK) then SOME $ Const 1w
                    else if tokcheck leaf (kw FalseK) then SOME $ Const 0w
                   else NONE) ∧

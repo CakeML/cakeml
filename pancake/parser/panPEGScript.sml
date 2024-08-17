@@ -267,7 +267,7 @@ Definition pancake_peg_def[nocompute]:
                                      keep_kw TrueK; keep_kw FalseK;
                                      keep_int; keep_ident; mknt LabelNT;
                                      mknt StructNT; mknt LoadNT;
-                                     mknt LoadByteNT; keep_kw BaseK;
+                                     mknt LoadByteNT; keep_kw BaseK; keep_kw BiwK;
                                      ];
                             rpt (seql [consume_tok DotT; keep_nat] I)
                                 FLAT]

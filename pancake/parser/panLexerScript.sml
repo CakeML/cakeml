@@ -19,7 +19,7 @@ val _ = new_theory "panLexer";
 
 Datatype:
   keyword = SkipK | StoreK | StoreBK | IfK | ElseK | WhileK
-  | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK
+  | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK | BiwK
   | LdsK | LdbK | LdwK | BaseK | InK | FunK | ExportK | TrueK | FalseK
 End
 
@@ -131,6 +131,7 @@ Definition get_keyword_def:
   if s = "ldw" then (KeywordT LdwK) else
   if s = "ld8" then (KeywordT LdbK) else
   if s = "@base" then (KeywordT BaseK) else
+  if s = "@biw" then (KeywordT BiwK) else
   if s = "true" then (KeywordT TrueK) else
   if s = "false" then (KeywordT FalseK) else
   if s = "fun" then (KeywordT FunK) else
