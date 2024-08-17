@@ -156,11 +156,26 @@ QED
 (* Source to flat                                                             *)
 (*                                                                            *)
 (******************************************************************************)     
-
+Datatype:
+  source_iconfig =
+  <| n : num ;
+     next : next_indices;
+     env : environment;
+     envs : environment_generation_store |>
+End
+        
 
         
 Definition icompile_source_to_flat_def:
-  ARB
+  icompile_source_to_flat (source_conf: source_iconfig) p =
+  let n = source_conf.n in
+  let next = source_conf.next in
+  let env = source_conf.env in
+  let envs = source_conf.envs in
+  let (n', next1, new_env1, envs1, p') = compile_decs [] n next env envs p in
+  let source_conf = source_conf with <| n := n'; next := next1; env := extend_env new_env1 env; envs := envs1 |> in
+  (source_conf, p)
+                          
 End
 
 Triviality append_assoc_rev :
@@ -239,8 +254,8 @@ End
 
                           
 Definition icompile_def:
-  icompile source_config p =
-  icompile_source_to_flat source_config p
+  icompile (source_conf : source_iconfig)  p =
+  icompile_source_to_flat source_conf p
 End
 
         
@@ -276,10 +291,12 @@ Theorem icompile_icompile:
   icompile source_conf (prog1 ++ prog2) = (source_conf'', prog1' ++ prog2')
 Proof
   rw[icompile_def, icompile_source_to_flat_def] >>
-  pairarg_tac >> gvs[] >>
-  pairarg_tac >> gvs[] >>
-  pairarg_tac >> gvs[] >> cheat
-       
+  rpt (pairarg_tac >> gvs[]) >>
+  qspecl_then [‘[]’, ‘source_conf.n’, ‘source_conf.next’, ‘source_conf.env’, ‘source_conf.envs’, ‘prog1’, ‘prog2’]
+              assume_tac
+              source_to_flat_compile_decs_lemma >>
+  fs[] >> pairarg_tac >> gvs[] >>
+  rw[extend_env_assoc]
 QED
         
                   
