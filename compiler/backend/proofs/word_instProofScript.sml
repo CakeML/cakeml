@@ -2,8 +2,9 @@
   Correctness proof for word_inst
 *)
 open preamble
-     wordLangTheory wordPropsTheory word_instTheory wordSemTheory
-     asmTheory
+     wordLangTheory wordPropsTheory
+     word_instTheory wordSemTheory
+     asmTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
@@ -188,67 +189,75 @@ val EVERY_is_const_word_exp = Q.prove(`
   EVERY IS_SOME (MAP (λa. word_exp s a) ls)`,
   Induct>>srw_tac[][]>>Cases_on`h`>>full_simp_tac(srw_ss())[is_const_def,word_exp_def]);
 
-val all_consts_simp = Q.prove(`
+Triviality all_consts_simp:
   op ≠ Sub ⇒
   ∀ls.
   EVERY is_const ls ⇒
   word_exp s (Op op ls) =
-  SOME( Word(THE (word_op op (MAP rm_const ls))))`,
-  strip_tac>>Induct>>full_simp_tac(srw_ss())[word_exp_def,the_words_def]
+  SOME( Word(THE (word_op op (MAP rm_const ls))))
+Proof
+  strip_tac>>Induct>>
+  fs[word_exp_def,the_words_def]
   >-
-    (full_simp_tac(srw_ss())[word_op_def]>>
+    (fs[word_op_def]>>
     Cases_on`op`>>full_simp_tac(srw_ss())[])
   >>
-  ntac 2 strip_tac>>
-  Cases_on`h`>>full_simp_tac(srw_ss())[is_const_def,word_exp_def]>>
-  FULL_CASE_TAC>>fs[EVERY_is_const_word_exp]>>
-  Cases_on`op`>>full_simp_tac(srw_ss())[word_op_def,rm_const_def]);
+  rw[]>>
+  Cases_on`h`>>
+  gvs[is_const_def,word_exp_def,AllCaseEqs()]>>
+  drule EVERY_is_const_word_exp>>rw[]>>
+  Cases_on`op`>>fs[word_op_def,rm_const_def]
+QED
 
-val optimize_consts_ok = Q.prove(`
-  op ≠ Sub ⇒
-  ∀ls. word_exp s (optimize_consts op ls) =
-       word_exp s (Op op ls)`,
-  strip_tac>>srw_tac[][optimize_consts_def]>>
-  Cases_on`const_ls`>>full_simp_tac(srw_ss())[]
-  >-
-    (imp_res_tac word_exp_op_permute_lem>>pop_assum match_mp_tac>>
-    metis_tac[PERM_PARTITION,APPEND_NIL,PERM_SYM])
-  >>
-    LET_ELIM_TAC>>
-    `EVERY is_const (h::t)` by
-      (full_simp_tac(srw_ss())[PARTITION_DEF]>>
-      imp_res_tac (GSYM PARTs_HAVE_PROP)>>full_simp_tac(srw_ss())[EVERY_MEM])>>
-    imp_res_tac all_consts_simp>>
-    `PERM ls ((h::t)++nconst_ls)` by metis_tac[PERM_PARTITION]>>
+Triviality word_exp_reduce_const:
+  word_exp s (Op op (Const w :: rest)) = SOME x ⇒
+  word_exp s (reduce_const op w rest) = SOME x
+Proof
+  rw[reduce_const_def,word_exp_def]>>
+  every_case_tac>>
+  gvs[the_words_def,word_exp_def,word_op_def,AllCaseEqs()]
+QED
+
+Triviality optimize_consts_ok:
+  op ≠ Sub ∧ word_exp s (Op op ls) = SOME x ⇒
+  word_exp s (optimize_consts op ls) = SOME x
+Proof
+  rw[optimize_consts_def]>>
+  pairarg_tac>>gvs[]>>
+  Cases_on`const_ls`>>gvs[]
+  >- (
     imp_res_tac word_exp_op_permute_lem>>
-    pop_assum(qspec_then`s` SUBST_ALL_TAC)>>
-    Cases_on`nconst_ls`>>full_simp_tac(srw_ss())[]
-    >-
-      full_simp_tac(srw_ss())[word_exp_def,LET_THM]
-    >>
-    imp_res_tac word_exp_swap_head>>
-    pop_assum(qspecl_then [`w`,`s`,`h::t`] assume_tac)>>
-    rev_full_simp_tac(srw_ss())[]>>
-    pop_assum(qspec_then`h'::t'` assume_tac)>>
-    pop_assum sym_sub_tac>>
-    pop_assum kall_tac>>imp_res_tac word_exp_op_permute_lem>>
+    qpat_x_assum` _ = SOME _` sym_sub_tac>>
     pop_assum match_mp_tac>>
-    qpat_abbrev_tac`A = h'::t'`>>
-    qpat_abbrev_tac`Z = h::t`>>
-    `h:: (t ++A) = Z ++A` by full_simp_tac(srw_ss())[]>>pop_assum SUBST_ALL_TAC>>
-    metis_tac[PERM_APPEND]);
+    metis_tac[PERM_PARTITION,APPEND_NIL,PERM_SYM])>>
+  `EVERY is_const (h::t)` by (
+    gvs[PARTITION_DEF]>>
+    drule (GSYM PARTs_HAVE_PROP)>>
+    simp[EVERY_MEM])>>
+  drule all_consts_simp>>
+  disch_then drule>>
+  disch_then (qspec_then`s` assume_tac)>>
+  `PERM ls ((h::t)++nconst_ls)` by metis_tac[PERM_PARTITION]>>
+  imp_res_tac word_exp_op_permute_lem>>
+  pop_assum(qspec_then`s` SUBST_ALL_TAC)>>
+  match_mp_tac word_exp_reduce_const>>
+  drule_all word_exp_swap_head>>
+  simp[]>>
+  disch_then (qspec_then `nconst_ls` sym_sub_tac)>>
+  metis_tac[word_exp_op_permute_lem,PERM_APPEND]
+QED
 
-val pull_exp_ok = Q.prove(`
+Triviality pull_exp_ok:
   ∀exp s x.
   word_exp s exp = SOME x ⇒
-  word_exp s (pull_exp exp) = SOME x`,
+  word_exp s (pull_exp exp) = SOME x
+Proof
   ho_match_mp_tac pull_exp_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[pull_exp_def,LET_THM]>>
   TRY(full_simp_tac(srw_ss())[op_consts_def,word_exp_def,LET_THM,word_op_def,the_words_def]>>
     FULL_CASE_TAC>>fs[]>>
     FULL_CASE_TAC>>fs[]>>NO_TAC)
-  >-
-    (fs[convert_sub_ok,word_exp_def,MAP_MAP_o]>>
+  >- (fs[convert_sub_ok,word_exp_def,MAP_MAP_o]>>
     pop_assum mp_tac>>
     qpat_abbrev_tac`ws = MAP f ls`>>
     qpat_abbrev_tac`ws = MAP f ls`>>
@@ -259,11 +268,11 @@ val pull_exp_ok = Q.prove(`
       fs[EVERY_MAP,EVERY_MEM]>>
       rw[]>>res_tac>>
       fs[IS_SOME_EXISTS])>>
-    fs[])
-  >>
-  fs[optimize_consts_ok,pull_ops_ok]>>
+    fs[]) >>
+  TRY(irule optimize_consts_ok)>>
+  simp[pull_ops_ok]>>
   fs[word_exp_def,the_words_def]>>
-  (*4 goals*)
+  (* 6 goals *)
   TRY(pop_assum mp_tac>>
     ntac 5(FULL_CASE_TAC>>fs[])>>
     rw[]>>
@@ -282,7 +291,8 @@ val pull_exp_ok = Q.prove(`
     fs[])>>
   EVERY_CASE_TAC>>fs[]>>
   res_tac>>fs[]>>
-  rfs[]);
+  rfs[]
+QED
 
 (* pull_exp syntax *)
 val convert_sub_every_var_exp = Q.prove(`
@@ -299,6 +309,7 @@ val optimize_consts_every_var_exp = Q.prove(`
   srw_tac[][optimize_consts_def]>>
   `PERM ls (const_ls++nconst_ls)` by metis_tac[PERM_PARTITION]>>full_simp_tac(srw_ss())[]>>
   imp_res_tac PERM_MEM_EQ>>
+  rw[reduce_const_def]>>
   EVERY_CASE_TAC>>full_simp_tac(srw_ss())[every_var_exp_def,LET_THM,EVERY_MEM]);
 
 val pull_ops_every_var_exp = Q.prove(`
@@ -638,7 +649,7 @@ val locals_rm = Q.prove(`
     with possibly more locals used
 *)
 Theorem inst_select_thm:
-    ∀c temp prog st res rst loc.
+  ∀c temp prog st res rst loc.
   evaluate (prog,st) = (res,rst) ∧
   every_var (λx. x < temp) prog ∧
   res ≠ SOME Error ∧
