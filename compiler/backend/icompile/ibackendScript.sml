@@ -174,7 +174,7 @@ Definition icompile_source_to_flat_def:
   let envs = source_conf.envs in
   let (n', next1, new_env1, envs1, p') = compile_decs [] n next env envs p in
   let source_conf = source_conf with <| n := n'; next := next1; env := extend_env new_env1 env; envs := envs1 |> in
-  (source_conf, p)
+  (source_conf, p')
                           
 End
 
@@ -245,8 +245,41 @@ Proof
    )
 QED
         
-   
 
+Definition source_to_flat_compile_prog_alt_def:
+  source_to_flat_compile_prog (c: source_to_flat$config) p =
+  let next = c.next with <| vidx := c.next.vidx + 1 |> in
+  let envs = <| next := 0; generation := c.envs.next; envs := LN |> in
+  let (_, next, e, gen, p') = compile_decs [] 1n next c.mod_env envs p in  
+  let envs2 = <| next := c.envs.next + 1;
+                 env_gens := insert c.envs.next gen.envs c.envs.env_gens |> in
+    (c with <| next := next; envs := envs2; mod_env := e |>,
+     alloc_env_ref :: p')
+End
+        
+
+Definition source_to_flat_compile_alt_def:
+  source_to_flat_compile_alt (c: source_to_flat$config) p =
+  let (c', p') = compile_prog c p in
+  let p' = MAP (flat_pattern$compile_dec c'.pattern_cfg) p' in 
+  (c', p')                              
+End
+
+Definition to_flat_alt_def:
+  to_flat_alt (c: 'a config) p =
+  let p = source_to_source$compile p in
+  let (c': source_to_flat$config, p) = source_to_flat_compile_alt c.source_conf p in
+  let c = c with source_conf := c' in
+    (c, p)
+End
+
+      
+
+
+(************************************************************)
+
+
+   
         
 Definition init_icompile_def:
   init_icompile = ()
@@ -274,7 +307,32 @@ Definition config_prog_rel_def:
   (source_conf' = c'.source_conf /\
   progs' = ps')                
 End
-                
+
+
+Theorem icompile_icompile:
+  icompile source_conf prog1 = (source_conf', prog1') /\
+  icompile source_conf' prog2 = (source_conf'', prog2') ==>
+  icompile source_conf (prog1 ++ prog2) = (source_conf'', prog1' ++ prog2')
+Proof
+  rw[icompile_def, icompile_source_to_flat_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  qspecl_then [‘[]’,
+               ‘source_conf.n’,
+               ‘source_conf.next’,
+               ‘source_conf.env’,
+               ‘source_conf.envs’,
+               ‘prog1’,
+               ‘prog2’]
+              assume_tac
+              source_to_flat_compile_decs_lemma >>
+  fs[] >> pairarg_tac >> gvs[] >>
+  rw[extend_env_assoc]
+QED
+
+
+
+
+        
 Theorem icompile_eq:
   icompile c.source_conf prog = (source_conf', prog') /\
   to_flat c prog = (c', prog'') ==>
@@ -285,24 +343,10 @@ Proof
      cheat
 QED
         
-Theorem icompile_icompile:
-  icompile source_conf prog1 = (source_conf', prog1') /\
-  icompile source_conf' prog2 = (source_conf'', prog2') ==>
-  icompile source_conf (prog1 ++ prog2) = (source_conf'', prog1' ++ prog2')
-Proof
-  rw[icompile_def, icompile_source_to_flat_def] >>
-  rpt (pairarg_tac >> gvs[]) >>
-  qspecl_then [‘[]’, ‘source_conf.n’, ‘source_conf.next’, ‘source_conf.env’, ‘source_conf.envs’, ‘prog1’, ‘prog2’]
-              assume_tac
-              source_to_flat_compile_decs_lemma >>
-  fs[] >> pairarg_tac >> gvs[] >>
-  rw[extend_env_assoc]
-QED
-        
-                  
- 
+
+
 
 
         
-        
+
 val _ = export_theory();
