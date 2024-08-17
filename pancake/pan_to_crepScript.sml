@@ -83,7 +83,8 @@ Definition compile_exp_def:
    case FST (compile_exp ctxt e) of
    | [] => ([Const 0w], One)
    | e::es => ([Shift sh e n], One)) /\
-  (compile_exp ctxt BaseAddr = ([BaseAddr], One))
+  (compile_exp ctxt BaseAddr = ([BaseAddr], One)) /\
+  (compile_exp ctxt BytesInWord = ([Const bytes_in_word], One))
 Termination
   wf_rel_tac `measure (\e. panLang$exp_size ARB (SND e))` >>
   rpt strip_tac >>

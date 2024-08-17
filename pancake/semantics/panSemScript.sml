@@ -176,7 +176,9 @@ Definition eval_def:
      | SOME (ValWord w) => OPTION_MAP ValWord (word_sh sh w n)
      | _ => NONE) /\
   (eval s BaseAddr =
-        SOME (ValWord s.base_addr))
+        SOME (ValWord s.base_addr)) /\
+  (eval s BytesInWord =
+        SOME (ValWord bytes_in_word))
 Termination
   wf_rel_tac `measure (exp_size ARB o SND)`
   \\ rpt strip_tac \\ imp_res_tac MEM_IMP_exp_size
