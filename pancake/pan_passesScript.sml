@@ -32,8 +32,10 @@ Definition pan_to_target_all_def:
           ps = [(«initial pancake program»,Pan prog1)];
           prog_a = pan_simp$compile_prog prog1;
           ps = ps ++ [(«after pan_simp»,Pan prog_a)];
-          prog_b = pan_to_crep$compile_prog prog_a;
-          ps = ps ++ [(«after pan_to_crep»,Crep prog_b)];
+          prog_b0 = pan_to_crep$compile_prog prog_a;
+          ps = ps ++ [(«after pan_to_crep»,Crep prog_b0)];
+          prog_b = MAP (λ(n,ps,e). (n,ps,crep_arith$simp_prog e)) prog_b0;
+          ps = ps ++ [(«after crep_arith»,Crep prog_b)];
           fnums = GENLIST (λn. n + first_name) (LENGTH prog_b);
           funcs = make_funcs prog_b;
           target = c.lab_conf.asm_conf.ISA;
@@ -57,10 +59,29 @@ Definition pan_to_target_all_def:
           (ps ++ MAP (λ(n,p). (n,Cake p)) ps1,out)
 End
 
+Triviality MAP2_MAP:
+  ∀xs ys. MAP2 g xs (MAP f ys) = MAP2 (λx y. g x (f y)) xs ys
+Proof
+  Induct \\ Cases_on ‘ys’ \\ gvs []
+QED
+
 Triviality MAP_MAP2:
   ∀xs ys. MAP f (MAP2 g xs ys) = MAP2 (λx y. f (g x y)) xs ys
 Proof
   Induct \\ Cases_on ‘ys’ \\ gvs []
+QED
+
+Triviality make_funcs_MAP:
+  ∀xs. make_funcs (MAP (λ(n,ps,e). (n,ps,f e)) xs) = crep_to_loop$make_funcs xs
+Proof
+  simp [crep_to_loopTheory.make_funcs_def]
+  \\ qspec_tac (‘first_name’,‘nn’)
+  \\ Induct_on ‘xs’ \\ gvs []
+  \\ PairCases \\ gvs [] \\ gvs [GENLIST_CONS]
+  \\ gvs [o_DEF,ADD1] \\ rw []
+  \\ pop_assum $ qspec_then ‘nn+1’ assume_tac
+  \\ gvs [GSYM ADD1,ADD_CLAUSES,AC ADD_COMM ADD_ASSOC]
+  \\ once_rewrite_tac [ADD_COMM] \\ gvs []
 QED
 
 Theorem compile_prog_eq_pan_to_target_all:
@@ -71,7 +92,8 @@ Proof
   \\ IF_CASES_TAC >- gvs []
   \\ pop_assum kall_tac
   \\ gvs [backend_passesTheory.from_word_0_thm,pan_to_wordTheory.compile_prog_def,
-          loop_to_wordTheory.compile_def,crep_to_loopTheory.compile_prog_def,MAP_MAP2]
+          loop_to_wordTheory.compile_def,crep_to_loopTheory.compile_prog_def,
+          MAP_MAP2,MAP2_MAP,make_funcs_MAP]
   \\ gvs [LAMBDA_PROD,loop_to_wordTheory.compile_def]
 QED
 

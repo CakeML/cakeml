@@ -3,10 +3,10 @@
 *)
 open preamble
      ml_translatorLib ml_progLib basisFunctionsLib
-     MapProgTheory
+     SetProgTheory
 
 val _ = new_theory "HashtableProg"
-val _ = translation_extends "MapProg"
+val _ = translation_extends "SetProg"
 val () = ml_prog_update(open_module "Hashtable");
 
 (*Local structure:

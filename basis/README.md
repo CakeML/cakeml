@@ -77,6 +77,10 @@ forcing a full GC to run, a function for producing debug output.
 [RuntimeProofScript.sml](RuntimeProofScript.sml):
 Proof about the exit function in the Runtime module.
 
+[SetProgScript.sml](SetProgScript.sml):
+This module contains CakeML code implementing a functional set type
+using a self-balancing binary tree.
+
 [StringProgScript.sml](StringProgScript.sml):
 Module about the built-in string tyoe.
 
