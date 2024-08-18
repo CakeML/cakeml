@@ -599,53 +599,6 @@ val compile_inc_progs_def = Define`
         | SOME (_, c') => K c') in
     (c, ps)`;
 
-
-
-(* static inc_compile *)
-Definition icompile_def:
-  icompile c p =
-  let p = source_to_source$compile p in
-
-
-  (*  this is the only part changed non-trivlially
-
-     this program will not be evaluated in a separate environment
-     and there is no need to restore cur_gen and next_id *)
-
-  let (c', p) = source_to_flat$compile c.source_conf p in
-
-  let c = c with source_conf := c' in
-  let p = flat_to_clos_inc_compile p in
-  let (c', p) = clos_to_bvl_compile_inc c.clos_conf p in
-  let c = c with clos_conf := c' in
-  let (c', p) = bvl_to_bvi_compile_inc_all c.bvl_conf p in
-  let c = c with <| bvl_conf := c' |> in
-  let p = bvi_to_data_compile_prog p in
-  let asm_c = c.lab_conf.asm_conf in
-  let dc = ensure_fp_conf_ok asm_c c.data_conf in
-  let p = MAP (compile_part dc) p in
-  let reg_count1 = asm_c.reg_count - (5 + LENGTH asm_c.avoid_regs) in
-  let p = MAP (\p. full_compile_single asm_c.two_reg_arith reg_count1
-      c.word_to_word_conf.reg_alg asm_c (p, NONE)) p in
-  let bm0 = c.word_conf.bitmaps_length in
-  let (p, fs, bm) = compile_word_to_stack reg_count1 p (Nil, bm0) in
-  let cur_bm = append (FST bm) in
-  let c = c with word_conf := (c.word_conf with bitmaps_length := SND bm) in
-  let reg_count2 = asm_c.reg_count - (3 + LENGTH asm_c.avoid_regs) in
-  let p = stack_to_lab$compile_no_stubs
-      c.stack_conf.reg_names c.stack_conf.jump asm_c.addr_offset
-      reg_count2 p in
-  let target = lab_to_target$compile c.lab_conf (p:'a prog) in
-    let c = c with lab_conf updated_by (case target of NONE => I
-      | SOME (_, c') => K c') in
-  (c, OPTION_MAP (\(bytes, _). (bytes, cur_bm)) target)
-
-End
-
-
-
-
-
 (* this type is used to construct the oracle in the eval semantics,
    and must be translated so that its IsTypeRep thm is proven *)
 Datatype:
@@ -908,11 +861,5 @@ Proof
   gvs [set_asm_conf_def, fetch "-" "config_component_equality",
        lab_to_targetTheory.config_component_equality]
 QED
-
-
-
-
-
-
 
 val _ = export_theory();

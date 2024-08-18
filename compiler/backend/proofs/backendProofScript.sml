@@ -4134,35 +4134,6 @@ Proof
   \\ fs [extend_with_resource_limit'_SUBSET]
 QED
 
-
-Definition resolve_bytes_and_bitmaps_def:
-  (* some dummy resolve that returns the first pair of bytes and bitmaps *)
-  resolve_bytes_and_bitmaps (bytes, bitmaps, bytes', bitmaps') = SOME (bytes, bitmaps)
-End
-
-
-Theorem icompile_correct:
-  ∀ p1 p2.
-    compile c p1 = SOME (bytes, bitmaps, c') ⇒
-    icompile c' p2 = (c'', SOME (bytes', bitmaps')) ⇒
-    resolve_bytes_and_bitmaps (bytes, bitmaps, bytes', bitmaps') = SOME (bytes'', bitmaps'') ⇒
-    let (s, env) = THE (prim_sem_env (ffi: 'ffi ffi_state)) in
-    ¬semantics_prog s env (p1++p2) Fail ∧
-    backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧
-    installed bytes'' cbspace bitmaps'' data_sp c''.lab_conf.ffi_names
-              (heap_regs c.stack_conf.reg_names) mc c''.lab_conf.shmem_extra ms ⇒
-    machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
-                extend_with_resource_limit (semantics_prog s env (p1++p2))
-Proof
-  cheat
-QED
-
-
-
-
-
-
-
 Theorem semantics_prog_sing:
   ?x. semantics_prog s env prog = { x }
 Proof
