@@ -1,7 +1,7 @@
 (*
   Quick test file for ibackend
 *)
-open preamble ibackendTheory;
+open preamble ibackendTheory
      backend_asmTheory
      backend_arm8Theory
      to_data_cvTheory
