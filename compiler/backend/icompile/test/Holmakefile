@@ -1,4 +1,4 @@
-INCLUDES = ..
+INCLUDES = .. ../.. ../../cv_compute ../../../../cv_translator
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

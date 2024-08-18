@@ -1,12 +1,14 @@
 (*
-  Defines a new incremental backend which is
-  meant to be syntactically equal to backend but allows
-  compiling program in a part-by-part manner
+  Quick test file for ibackend
 *)
+open preamble ibackendTheory;
+     backend_asmTheory
+     backend_arm8Theory
+     to_data_cvTheory
+     cv_transLib
+     arm8_configTheory;
 
-open preamble backendTheory;
-
-val _ = new_theory"ibackend";
+val _ = new_theory"ibackend_cv";
 
 (*
   High-level idea:
