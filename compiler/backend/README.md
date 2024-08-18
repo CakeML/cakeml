@@ -217,6 +217,9 @@ This compiler phase replaces tuples with constructors (with tag 0).
 This directory contains the garbage collector (GC) algorithms and
 their verification proofs.
 
+[icompile](icompile):
+An simple incremental version of the backend.
+
 [jsonLangScript.sml](jsonLangScript.sml):
 This module contains a datatype for representing JSON objects, and
 related functions. A JSON object can be an array of objects, a
