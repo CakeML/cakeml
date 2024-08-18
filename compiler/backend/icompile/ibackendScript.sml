@@ -161,20 +161,22 @@ Datatype:
   <| n : num ;
      next : next_indices;
      env : environment;
-     envs : environment_generation_store |>
+     env_gens : environment_generation_store;
+     pattern_cfg : flat_pattern$config
+     |>
 End
         
 
         
 Definition icompile_source_to_flat_def:
-  icompile_source_to_flat (source_conf: source_iconfig) p =
-  let n = source_conf.n in
-  let next = source_conf.next in
-  let env = source_conf.env in
-  let envs = source_conf.envs in
-  let (n', next1, new_env1, envs1, p') = compile_decs [] n next env envs p in
-  let source_conf = source_conf with <| n := n'; next := next1; env := extend_env new_env1 env; envs := envs1 |> in
-  (source_conf, p')
+  icompile_source_to_flat (source_iconf: source_iconfig) p =
+  let n = source_iconf.n in
+  let next = source_iconf.next in
+  let env = source_iconf.env in
+  let envs = source_iconf.env_gens in
+  let (n', next1, new_env1, env_gens1, p') = compile_decs [] n next env envs p in
+  let source_iconf = source_iconf with <| n := n'; next := next1; env := extend_env new_env1 env; env_gens := env_gens1|> in
+  (source_iconf, MAP (flat_pattern$compile_dec source_iconf.pattern_cfg) p')
                           
 End
 
@@ -260,7 +262,7 @@ End
 
 Definition source_to_flat_compile_alt_def:
   source_to_flat_compile_alt (c: source_to_flat$config) p =
-  let (c', p') = compile_prog c p in
+  let (c', p') = source_to_flat_compile_prog c p in
   let p' = MAP (flat_pattern$compile_dec c'.pattern_cfg) p' in 
   (c', p')                              
 End
@@ -275,22 +277,49 @@ End
 
       
 
-
 (************************************************************)
 
 
    
         
 Definition init_icompile_def:
-  init_icompile = ()
+  init_icompile (source_conf : source_to_flat$config) =
+  let next = source_conf.next with <| vidx := source_conf.next.vidx + 1 |> in
+  let env_gens = <| next := 0; generation := source_conf.envs.next; envs := LN |> in
+    <| n := 1n;
+       next := next;
+       env := source_conf.mod_env;
+       env_gens := env_gens;
+       pattern_cfg := source_conf.pattern_cfg |> : source_iconfig
+                
 End
 
                           
 Definition icompile_def:
-  icompile (source_conf : source_iconfig)  p =
-  icompile_source_to_flat source_conf p
+  icompile (source_iconf : source_iconfig)  p =
+  icompile_source_to_flat source_iconf p
 End
 
+Definition end_icompile_def:
+  end_icompile (source_iconf: source_iconfig) (source_conf: source_to_flat$config) =
+  let envs =
+      <| next := source_conf.envs.next + 1;
+         env_gens :=
+         insert source_conf.envs.next
+                source_iconf.env_gens.envs
+                source_conf.envs.env_gens;
+      |> in
+    source_conf with
+                <| next := source_iconf.next;
+                   envs := envs;
+                   mod_env := source_iconf.env |>
+End
+        
+                   
+        
+                
+
+        
         
 Definition fold_icompile_def:
   fold_icompile c []  = (c, [])
@@ -304,23 +333,22 @@ End
 
 Definition config_prog_rel_def:
   config_prog_rel source_conf' progs' c' ps' =
-  (source_conf' = c'.source_conf /\
-  progs' = ps')                
+  progs' = ps'
 End
 
 
 Theorem icompile_icompile:
-  icompile source_conf prog1 = (source_conf', prog1') /\
-  icompile source_conf' prog2 = (source_conf'', prog2') ==>
-  icompile source_conf (prog1 ++ prog2) = (source_conf'', prog1' ++ prog2')
+  icompile source_iconf prog1 = (source_iconf', prog1') /\
+  icompile source_iconf' prog2 = (source_iconf'', prog2') ==>
+  icompile source_iconf (prog1 ++ prog2) = (source_iconf'', prog1' ++ prog2')
 Proof
   rw[icompile_def, icompile_source_to_flat_def] >>
   rpt (pairarg_tac >> gvs[]) >>
   qspecl_then [‘[]’,
-               ‘source_conf.n’,
-               ‘source_conf.next’,
-               ‘source_conf.env’,
-               ‘source_conf.envs’,
+               ‘source_iconf.n’,
+               ‘source_iconf.next’,
+               ‘source_iconf.env’,
+               ‘source_iconf.env_gens’,
                ‘prog1’,
                ‘prog2’]
               assume_tac
@@ -329,18 +357,24 @@ Proof
   rw[extend_env_assoc]
 QED
 
-
-
-
         
 Theorem icompile_eq:
-  icompile c.source_conf prog = (source_conf', prog') /\
-  to_flat c prog = (c', prog'') ==>
-  config_prog_rel source_conf' progs'' c' ps'
+  init_icompile (source_conf : source_to_flat$config) = (source_iconf : source_iconfig) ∧
+  icompile source_iconf prog = (source_iconf', icompiled_prog) ∧
+  end_icompile source_iconf' source_conf = source_conf' ∧
+  to_flat_alt (c : 'a config) prog = (c', compiled_prog) ==>
+  config_prog_rel source_conf' icompiled_prog c' compiled_prog
 Proof
-  rw [to_flat_def] >>
-  fs [source_to_sourceTheory.compile_def, source_letTheory.compile_decs_def] >>
-     cheat
+  rw[] >>
+  fs [init_icompile_def, icompile_def, end_icompile_def, icompile_source_to_flat_def] >>
+  pairarg_tac >> gvs[] >>              
+  fs [to_flat_alt_def, source_to_flat_compile_alt_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  fs[source_to_flat_compile_prog_alt_def] >>
+  rpt (pairarg_tac >> gvs[]) >> fs[] >>
+  (* more knot tying stuff to happen *)
+  >>cheat
+  
 QED
         
 
