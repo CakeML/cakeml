@@ -1928,7 +1928,8 @@ Theorem itree_semantics_beh_Call:
               SemTerminate (SOME (Return rv),s') =>
                 (case ty of
                    NONE => SemTerminate (SOME (Return rv),empty_locals s')
-                 | SOME (rt,_) =>
+                 | SOME (NONE,_) => SemTerminate (NONE, s' with locals := s.locals)
+                 | SOME (SOME rt,_) =>
                      if is_valid_value s.locals rt rv then
                        SemTerminate (NONE,set_var rt rv (s' with locals := s.locals))
                      else SemFail)
@@ -2020,7 +2021,7 @@ Proof
            simp[Once itree_wbisim_cases])>>
        PURE_CASE_TAC>>gvs[]>>
        simp[mrec_sem_simps,ltree_lift_cases]>>
-       PURE_CASE_TAC>>gvs[]>>
+       rpt (PURE_CASE_TAC>>gvs[])>>
        simp[mrec_sem_simps,ltree_lift_cases]>>
        simp[Once itree_wbisim_cases]>>
        simp[Once itree_wbisim_cases])>>
