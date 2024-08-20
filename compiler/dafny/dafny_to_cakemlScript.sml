@@ -993,23 +993,23 @@ Definition gen_call_name_def:
   (gen_call_name comp on (CallName nam onType _) =
    if onType ≠ NONE then
      fail "gen_call_name: non-empty onType currently unsupported"
-   else if comp = on then
-     do
-       cml_call_name <- cml_id [dest_Name nam];
-       return (Var cml_call_name)
-     od
    else
      do
+       comp <- dest_Companion comp;
        on <- dest_Companion on;
        (* Convert to strings *)
+       comp <<- MAP (dest_Name ∘ dest_Ident) comp;
        on <<- MAP (dest_Name ∘ dest_Ident) on;
-       (* TODO This only works because we ignore/do not support classes ATM *)
+       (* TODO This only works because we ignore classes at the moment *)
+       comp <<- FILTER (λn. n ≠ "__default") comp;
        on <<- FILTER (λn. n ≠ "__default") on;
-       cml_call_name <- cml_id (SNOC (dest_Name nam) on);
-       return (Var cml_call_name)
+       if comp = on then
+         cml_id [dest_Name nam]
+       else
+         cml_id (SNOC (dest_Name nam) on)
      od) ∧
-  gen_call_name _ _ _ = fail "gen_call_name: Passed callName currently \
-                           \unsupported"
+  gen_call_name _ _ _ =
+  fail "gen_call_name: Passed callName currently unsupported"
 End
 
 (* TODO Clean up from_expression/dafny_type_of: Some code parts may be duplicated,
@@ -1093,7 +1093,11 @@ Definition from_expression_def:
        else if ¬isStatic then
          fail "dafny_type_of (SelectFn): non-static unsupported"
        else
-         gen_call_name comp f_comp (CallName nam NONE (CallSignature []))
+         do
+           f_name <- gen_call_name comp f_comp
+                                   (CallName nam NONE (CallSignature []));
+           return (Var f_name)
+         od
    | Index ce cok idxs =>
        if cok = CollKind_Seq then
          if idxs = [] then
@@ -1162,7 +1166,7 @@ Definition from_expression_def:
            do
              fun_name <- gen_call_name comp on call_nam;
              cml_args <- map_from_expression comp env args;
-             return (cml_fapp fun_name cml_args)
+             return (cml_fapp (Var fun_name) cml_args)
            od
        od
    | Lambda params _ body =>
@@ -1404,7 +1408,7 @@ Definition from_expression_def:
                                | NONE => return []
                                | SOME outs =>
                                    return (MAP from_ident outs));
-              return (cml_fapp fun_name (cml_param_args ++ cml_out_args))
+              return (cml_fapp (Var fun_name) (cml_param_args ++ cml_out_args))
             od
         od
     | Return e =>
@@ -1564,7 +1568,9 @@ Definition find_main_def:
     else
       do
         ((on, nam), _) <<- HD main_defs;
-        gen_call_name (Companion []) on (CallName nam NONE (CallSignature []))
+        main_name <- gen_call_name (Companion []) on
+                                   (CallName nam NONE (CallSignature []));
+        return (Var main_name)
       od
   od
 End
