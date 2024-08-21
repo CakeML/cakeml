@@ -856,6 +856,10 @@ Definition dafny_type_of_def:
              return (Primitive Int)
            else if (bop = Times ∧ e1_t = (Primitive Int) ∧ e1_t = e2_t) then
              return (Primitive Int)
+           else if (bop = And ∧ e1_t = Primitive Bool ∧ e1_t = e2_t) then
+             return (Primitive Bool)
+           else if (bop = Or ∧ e1_t = Primitive Bool ∧ e1_t = e2_t) then
+             return (Primitive Bool)
            else if (bop = Concat ∧ e1_t = (Seq (Primitive Char)) ∧
                     e1_t = e2_t) then
              return (Seq (Primitive Char))
@@ -1263,6 +1267,14 @@ Definition from_expression_def:
             return (App (Opn Times) [cml_e1; cml_e2])
           else
             fail "from_binOp (Times): Unsupported types"
+      | And =>
+          if (e1_t = Primitive Bool ∧ e1_t = e2_t) then
+            return (Log And cml_e1 cml_e2)
+          else fail "from_binOp (And): Unsupported type"
+      | Or =>
+          if (e1_t = Primitive Bool ∧ e1_t = e2_t) then
+            return (Log Or cml_e1 cml_e2)
+          else fail "from_binOp (Or): Unsupported type"
       | In =>
           if is_Seq e2_t then
             do
@@ -1641,7 +1653,7 @@ End
 (* (* val _ = astPP.disable_astPP(); *) *)
 (* val _ = astPP.enable_astPP(); *)
 
-(* val inStream = TextIO.openIn "./tests/dafny/built_ins.sexp"; *)
+(* val inStream = TextIO.openIn "./tests/basic/and_or.sexp"; *)
 (* val fileContent = TextIO.inputAll inStream; *)
 (* val _ = TextIO.closeIn inStream; *)
 (* val fileContent_tm = stringSyntax.fromMLstring fileContent; *)
