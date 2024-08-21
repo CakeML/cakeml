@@ -159,28 +159,20 @@ Proof
   rw[state_component_equality,fetch "-" "bstate_component_equality"]
 QED
 
-(* TODO: Confirm this still works as expected. *)
 Definition empty_locals_def:
-  empty_locals = to_bstate ∘ (panSem$empty_locals)
+  empty_locals = to_bstate ∘ (panSem$empty_locals) o from_bstate_noffi
 End
 
 Theorem empty_locals_defs = CONJ panSemTheory.empty_locals_def empty_locals_def;
 
-(* TODO: Confirm this still works as expected. *)
 Definition set_var_def:
-  set_var x v = to_bstate ∘ (panSem$set_var x v)
+  set_var x v = to_bstate ∘ (panSem$set_var x v) o from_bstate_noffi
 End
 
 Theorem set_var_defs = CONJ panSemTheory.set_var_def set_var_def;
 
-val s = “s:'a bstate”;
-val s1 = “s1:'a bstate”;
-val p1 = “p1:'a panLang$prog”;
-val p2 = “p2:'a panLang$prog”;
-
 Type mtree_ret[pp] = “:'a result option # 'a bstate”;
 Type htree_seed[pp] = “:'a panLang$prog # 'a bstate”;
-Type semtree_ans[pp] = “:'b ffi_result”;
 
 (* Continuation for mtrees: these are nested inside the ITree event type of
 mtree's and htree's. *)
@@ -254,7 +246,7 @@ Definition h_prog_rule_dec_def:
 End
 
 Definition h_prog_rule_seq_def:
-  h_prog_rule_seq ^p1 ^p2 ^s = Vis (INL (p1,s))
+  h_prog_rule_seq p1 p2 s = Vis (INL (p1,s))
                                 (λ(res,s'). if res = NONE
                                             then Vis (INL (p2,s')) Ret
                                             else Ret (res,s'))
@@ -321,7 +313,7 @@ End
 
 (* Handles the return value and exception passing of function calls. *)
 Definition h_handle_call_ret_def:
-  (h_handle_call_ret calltyp s (NONE,s') = Ret (SOME Error,s')) ∧
+  (h_handle_call_ret calltyp s (NONE,(s' : 'a bstate)) = Ret (SOME Error,s')) ∧
   (h_handle_call_ret calltyp s (SOME Break,s') = Ret (SOME Error,s')) ∧
   (h_handle_call_ret calltyp s (SOME Continue,s') = Ret (SOME Error,s')) ∧
   (h_handle_call_ret calltyp s (SOME (Return retv),s') = case calltyp of
@@ -359,7 +351,7 @@ Definition h_prog_rule_call_def:
 End
 
 Definition h_prog_rule_ext_call_def:
-  h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len ^s =
+  h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len s =
   case (eval (from_bstate_noffi s) conf_ptr,eval (from_bstate_noffi s) conf_len,eval (from_bstate_noffi s) array_ptr,eval (from_bstate_noffi s) array_len) of
     (SOME (ValWord conf_ptr_adr),SOME (ValWord conf_sz),
      SOME (ValWord array_ptr_adr),SOME (ValWord array_sz)) =>
@@ -400,7 +392,7 @@ Definition h_prog_rule_return_def:
 End
 
 Definition h_prog_rule_sh_mem_load_def:
-  h_prog_rule_sh_mem_load v (addr:'a word) nb ^s =
+  h_prog_rule_sh_mem_load v (addr:'a word) nb s =
   if nb = 0 then
     (if addr IN s.sh_memaddrs then
        Vis (INR (FFI_call (SharedMem MappedRead) [n2w nb] (word_to_bytes addr F),
@@ -420,7 +412,7 @@ Definition h_prog_rule_sh_mem_load_def:
 End
 
 Definition h_prog_rule_sh_mem_store_def:
-  h_prog_rule_sh_mem_store v (addr:'a word) nb ^s =
+  h_prog_rule_sh_mem_store v (addr:'a word) nb s =
   case FLOOKUP s.locals v of
     SOME (ValWord w) =>
      (if nb = 0 then
@@ -444,7 +436,7 @@ Definition h_prog_rule_sh_mem_store_def:
 End
 
 Definition h_prog_rule_sh_mem_op_def:
-  (h_prog_rule_sh_mem_op Load r (ad:'a word) (s:('a,'ffi) bstate) =
+  (h_prog_rule_sh_mem_op Load r (ad:'a word) (s:'a bstate) =
    h_prog_rule_sh_mem_load r ad 0 s) ∧
   (h_prog_rule_sh_mem_op Store r ad s = h_prog_rule_sh_mem_store r ad 0 s) ∧
   (h_prog_rule_sh_mem_op Load8 r ad s = h_prog_rule_sh_mem_load r ad 1 s) ∧
@@ -517,14 +509,14 @@ Definition itree_evaluate_def:
 End
 
 (* Observational ITree semantics *)
-val s = ``(s:('a,'ffi) bstate)``;
+val s = ``(s:'a bstate)``;
 
 (* XXX: We may want to remove this as it only corresponds
  to the FBS semantics function that assumes single entrypoint. *)
 Definition itree_semantics_def:
-  itree_semantics ^s entry =
+  itree_semantics s entry =
   let prog = Call NONE (Label entry) [] in
-  to_semtree (itree_evaluate prog ^s)
+  to_semtree (itree_evaluate prog s)
 End
 
 Definition mrec_sem_def:
