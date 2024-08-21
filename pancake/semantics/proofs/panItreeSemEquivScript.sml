@@ -1056,8 +1056,6 @@ Theorem ltree_lift_state_lift:
   ⇒
   (ltree_lift_state query_oracle s.ffi (mrec_sem (h_prog (p,s)))) = s'.ffi
 Proof
-cheat
-(*
   strip_tac >> dxrule itree_wbisim_Ret_FUNPOW >>
   simp[PULL_EXISTS] >>
   MAP_EVERY qid_spec_tac [‘p’,‘s’,‘res’,‘s'’] >>
@@ -1182,12 +1180,27 @@ cheat
           tau_eq_funpow_tau,ret_eq_funpow_tau
          ] >>
       rpt(PURE_FULL_CASE_TAC >> gvs[empty_locals_defs]))
-  >~ [‘ShMem’]
+  >~ [‘ShMemLoad’]
   >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-         h_prog_rule_sh_mem_def,
-         oneline h_prog_rule_sh_mem_op_def,
          h_prog_rule_sh_mem_load_def,
+         oneline h_prog_rule_nb_op_def,
+         h_prog_rule_sh_mem_load_nb_def,
+         ltree_lift_state_simps,
+         ret_eq_funpow_tau
+        ] >>
+      rpt(PURE_TOP_CASE_TAC >>
+          gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps,
+              ltree_lift_state_simps,ret_eq_funpow_tau,
+              tau_eq_funpow_tau]) >>
+      gvs[query_oracle_def,ELIM_UNCURRY,AllCaseEqs(),
+          tau_eq_funpow_tau,ret_eq_funpow_tau
+         ] >>
+      rpt(PURE_FULL_CASE_TAC >> gvs[empty_locals_defs]))
+  >~ [‘ShMemStore’]
+  >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
          h_prog_rule_sh_mem_store_def,
+         oneline h_prog_rule_nb_op_def,
+         h_prog_rule_sh_mem_store_nb_def,
          ltree_lift_state_simps,
          ret_eq_funpow_tau
         ] >>
@@ -1249,6 +1262,70 @@ cheat
       first_x_assum irule >>
       first_x_assum $ irule_at $ Pos last >>
       simp[])
+  >~ [‘DecCall’]
+   >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
+         h_prog_rule_deccall_def,
+         ltree_lift_state_simps,
+         ret_eq_funpow_tau
+        ] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps,
+          tau_eq_funpow_tau] >>
+      gvs[msem_lift_monad_law,ltree_lift_monad_law] >>
+      drule FUNPOW_Tau_bind_thm >>
+      rw[] >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
+          FUNPOW_Tau_bind] >>
+      irule EQ_TRANS >>
+      irule_at (Pos hd) ltree_lift_state_bind_funpow >>
+      first_assum $ irule_at $ Pos hd >>
+      rename [‘ltree_lift _ s.ffi _ = FUNPOW _ mm (Ret st)’] >>
+      Cases_on ‘st’ >>
+      last_assum $ qspec_then ‘mm’ mp_tac >>
+      impl_tac >- simp[] >>
+      disch_then $ resolve_then (Pos hd) mp_tac EQ_TRANS >>
+      disch_then $ drule_at $ Pos last >>
+      qmatch_goalsub_abbrev_tac ‘h_prog (a1,a2)’ >>
+      disch_then $ qspecl_then [‘a2’,‘a1’] mp_tac >>
+      unabbrev_all_tac >>
+      simp[] >>
+      strip_tac >>
+      gvs[] >>
+      gvs[oneline h_handle_deccall_ret_def] >>
+      (* TODO *)
+      rpt(IF_CASES_TAC ORELSE PURE_TOP_CASE_TAC >>
+          gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps,
+              tau_eq_funpow_tau,empty_locals_defs,
+              set_var_def,panSemTheory.set_var_def]) >>
+      gvs[msem_lift_monad_law,ltree_lift_monad_law] >>
+      drule FUNPOW_Tau_bind_thm >>
+      rw[] >>
+      pairarg_tac >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau] >>
+      rename [‘ltree_lift _ _ _ = FUNPOW Tau mm _’] >>
+      last_x_assum $ qspec_then ‘mm’ mp_tac >>
+      impl_tac >- simp[] >>
+      disch_then $ resolve_then (Pos hd) mp_tac EQ_TRANS >>
+      disch_then $ drule_at $ Pos last >>
+      qmatch_goalsub_abbrev_tac ‘h_prog (a1,a2)’ >>
+      disch_then $ qspecl_then [‘a2’,‘a1’] mp_tac >>
+      unabbrev_all_tac >>
+      simp[] >>
+      strip_tac >>
+      qmatch_goalsub_abbrev_tac ‘_ >>= a1’ >>
+      drule_then (qspec_then ‘a1’ mp_tac) ltree_lift_state_bind_funpow >>
+      unabbrev_all_tac >>
+      rw[mrec_sem_simps,ltree_lift_state_simps])
   >~ [‘Seq’]
   >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
          h_prog_rule_seq_def,
@@ -1301,7 +1378,6 @@ cheat
        gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps,
            ltree_lift_state_simps,ret_eq_funpow_tau,
            tau_eq_funpow_tau,empty_locals_defs])
-*)
 QED
 
 Theorem ltree_lift_state_lift':
@@ -1330,8 +1406,6 @@ Theorem stree_trace_bind_append:
   ⇒ stree_trace f p st (to_stree t >>= k) =
     stree_trace f p st (to_stree t) ++ₗ stree_trace f p (ltree_lift_state f st t) (k x)
 Proof
-cheat
-(*
   strip_tac >> dxrule itree_wbisim_Ret_FUNPOW >>
   simp[PULL_EXISTS] >>
   MAP_EVERY qid_spec_tac [‘t’,‘st’] >>
@@ -1344,7 +1418,6 @@ cheat
   gvs[ltree_lift_cases,to_stree_simps,itree_wbisim_neq,stree_trace_simps,
       stree_trace_Vis,ltree_lift_state_simps,ltree_lift_Vis_alt,ELIM_UNCURRY] >>
   IF_CASES_TAC >> gvs[]
-*)
 QED
 
 Theorem stree_trace_ret_events:
@@ -1352,8 +1425,6 @@ Theorem stree_trace_ret_events:
   ⇒ fromList st'.ffi.io_events =
     fromList st.ffi.io_events ++ₗ stree_trace query_oracle event_filter st.ffi (to_stree (mrec_sem (h_prog (p,st))))
 Proof
-  cheat
-  (*
   strip_tac >> dxrule itree_wbisim_Ret_FUNPOW >>
   simp[PULL_EXISTS] >>
   MAP_EVERY qid_spec_tac [‘p’,‘st’,‘res’,‘st'’] >>
@@ -1510,12 +1581,34 @@ Proof
           oneline event_filter_def,
           LAPPEND_NIL_2ND]
      )
-  >~ [‘ShMem’]
+  >~ [‘ShMemLoad’]
   >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-         h_prog_rule_sh_mem_def,
-         oneline h_prog_rule_sh_mem_op_def,
          h_prog_rule_sh_mem_load_def,
+         oneline h_prog_rule_nb_op_def,
+         h_prog_rule_sh_mem_load_nb_def,
+         ltree_lift_state_simps,
+         ret_eq_funpow_tau
+        ] >>
+      rpt(PURE_TOP_CASE_TAC >>
+          gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps,
+              ltree_lift_state_simps,ret_eq_funpow_tau,
+              tau_eq_funpow_tau]) >>
+      gvs[query_oracle_def,ELIM_UNCURRY,AllCaseEqs(),
+          tau_eq_funpow_tau,ret_eq_funpow_tau,
+          to_stree_simps,stree_trace_simps,
+          oneline event_filter_def,
+          LAPPEND_NIL_2ND
+         ] >>
+      rpt(PURE_FULL_CASE_TAC >> gvs[empty_locals_defs]) >>
+      gvs[stree_trace_Vis,make_io_event_def,
+          ffiTheory.call_FFI_def,AllCaseEqs(),
+          query_oracle_def,to_stree_simps,mrec_sem_simps,stree_trace_simps,
+          GSYM LAPPEND_fromList, oneline event_filter_def, LAPPEND_NIL_2ND])
+  >~ [‘ShMemStore’]
+  >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
          h_prog_rule_sh_mem_store_def,
+         oneline h_prog_rule_nb_op_def,
+         h_prog_rule_sh_mem_store_nb_def,
          ltree_lift_state_simps,
          ret_eq_funpow_tau
         ] >>
@@ -1643,7 +1736,20 @@ Proof
               simp[] >>
               irule_at (Pos hd) EQ_REFL >>
               simp[]) >>
-          PURE_TOP_CASE_TAC >> gvs[] >> IF_CASES_TAC >>
+          PURE_TOP_CASE_TAC >> gvs[] >> CASE_TAC
+          >- (gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,to_stree_simps,
+                  stree_trace_simps,LAPPEND_NIL_2ND] >>
+              simp[set_var_def,panSemTheory.set_var_def] >>
+              irule EQ_TRANS >>
+              last_x_assum $ irule_at $ Pos hd >>
+              irule_at Any EQ_TRANS >>
+              first_x_assum $ irule_at $ Pos $ hd o tl >>
+              simp[] >>
+              qrefine ‘_ with locals := _’ >>
+              simp[] >>
+              irule_at (Pos hd) EQ_REFL >>
+              simp[]) >>
+          CASE_TAC >>
           gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,to_stree_simps,
               stree_trace_simps,LAPPEND_NIL_2ND] >>
           simp[set_var_def,panSemTheory.set_var_def] >>
@@ -1712,6 +1818,177 @@ Proof
           simp[] >>
           irule_at (Pos hd) EQ_REFL >>
           simp[]))
+  >~ [‘DecCall’]
+  >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
+         h_prog_rule_deccall_def,
+         ltree_lift_state_simps,
+         ret_eq_funpow_tau
+        ] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps,
+          to_stree_simps,stree_trace_simps,LAPPEND_NIL_2ND] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps,
+          to_stree_simps,stree_trace_simps,LAPPEND_NIL_2ND] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps,
+          to_stree_simps,stree_trace_simps,LAPPEND_NIL_2ND] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps,
+          to_stree_simps,stree_trace_simps,LAPPEND_NIL_2ND] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps,
+          to_stree_simps,stree_trace_simps,LAPPEND_NIL_2ND] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps,
+          tau_eq_funpow_tau,to_stree_simps,stree_trace_simps,LAPPEND_NIL_2ND
+         ] >>
+      gvs[msem_lift_monad_law,ltree_lift_monad_law,to_stree_monad_law] >>
+      drule FUNPOW_Tau_bind_thm >>
+      rw[] >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
+          FUNPOW_Tau_bind,FUNPOW_ADD] >>
+      PairCases_on ‘y’ >>
+      qmatch_asmsub_abbrev_tac ‘ltree_lift _ a1’ >>
+      subgoal ‘a1 = y1.ffi’ >> unabbrev_all_tac
+      >- (PURE_REWRITE_TAC [Once $ GSYM $ SIMP_CONV (srw_ss()) [] “(s with locals := r).ffi”] >>
+          irule ltree_lift_state_lift >>
+          irule_at (Pos hd) itree_wbisim_Ret_FUNPOW' >>
+          simp[] >> metis_tac[]) >>
+      simp[] >>
+      gvs[] >>
+      gvs[oneline h_handle_deccall_ret_def] >>
+      CONV_TAC SYM_CONV >>
+      irule EQ_TRANS >>
+      irule_at (Pos hd) $ METIS_PROVE []  “x = y ⇒ f x = f y” >>
+      irule_at (Pos hd) stree_trace_bind_append >>
+      irule_at (Pos hd) itree_wbisim_Ret_FUNPOW' >>
+      first_assum $ irule_at $ Pos hd >>
+      simp[to_stree_simps,stree_trace_simps,mrec_sem_simps,LAPPEND_NIL_2ND] >>
+      CONV_TAC SYM_CONV >>
+      simp[oneline h_handle_deccall_ret_def] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
+          to_stree_simps,stree_trace_simps,LAPPEND_NIL_2ND]
+      >- (irule EQ_TRANS >>
+          last_x_assum $ irule_at $ Pos hd >>
+          irule_at Any EQ_TRANS >>
+          first_x_assum $ irule_at $ Pos $ hd o tl >>
+          qrefine ‘_ with locals := _’ >>
+          simp[] >>
+          irule_at (Pos hd) EQ_REFL >>
+          simp[]) >>
+      PURE_TOP_CASE_TAC >>
+      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
+          to_stree_simps,stree_trace_simps,LAPPEND_NIL_2ND] >>
+      simp[empty_locals_defs]
+      >- (irule EQ_TRANS >>
+          last_x_assum $ irule_at $ Pos hd >>
+          irule_at Any EQ_TRANS >>
+          first_x_assum $ irule_at $ Pos $ hd o tl >>
+          qrefine ‘_ with locals := _’ >>
+          simp[] >>
+          irule_at (Pos hd) EQ_REFL >>
+          simp[])
+      >- (irule EQ_TRANS >>
+          last_x_assum $ irule_at $ Pos hd >>
+          irule_at Any EQ_TRANS >>
+          first_x_assum $ irule_at $ Pos $ hd o tl >>
+          qrefine ‘_ with locals := _’ >>
+          simp[] >>
+          irule_at (Pos hd) EQ_REFL >>
+          simp[])
+      >- (irule EQ_TRANS >>
+          last_x_assum $ irule_at $ Pos hd >>
+          irule_at Any EQ_TRANS >>
+          first_x_assum $ irule_at $ Pos $ hd o tl >>
+          qrefine ‘_ with locals := _’ >>
+          simp[] >>
+          irule_at (Pos hd) EQ_REFL >>
+          simp[])
+      >- (irule EQ_TRANS >>
+          last_x_assum $ irule_at $ Pos hd >>
+          irule_at Any EQ_TRANS >>
+          first_x_assum $ irule_at $ Pos $ hd o tl >>
+          qrefine ‘_ with locals := _’ >>
+          simp[] >>
+          irule_at (Pos hd) EQ_REFL >>
+          simp[])
+      >- (IF_CASES_TAC >>
+          gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps,
+              h_prog_rule_dec_def, ret_eq_funpow_tau,
+              ltree_lift_state_simps,ret_eq_funpow_tau,
+              tau_eq_funpow_tau,
+              to_stree_simps,stree_trace_simps,
+              LAPPEND_NIL_2ND
+             ] >>
+           gvs[msem_lift_monad_law,ltree_lift_monad_law,
+               to_stree_monad_law]
+           >- (gvs[set_var_def,panSemTheory.set_var_def] >>
+               simp[GSYM LAPPEND_ASSOC] >>
+               drule FUNPOW_Tau_bind_thm >>
+               rw[] >>
+               pairarg_tac >>
+               gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau] >>
+               rename [‘ltree_lift _ y1.ffi _ = FUNPOW Tau mm _’] >>
+               last_assum $ qspec_then ‘mm’ mp_tac >>
+               impl_tac >- simp[] >>
+               disch_then $ resolve_then (Pos hd) mp_tac EQ_TRANS >>
+               disch_then $ drule_at $ Pos last >>
+               qmatch_goalsub_abbrev_tac ‘h_prog (a1,a2)’ >>
+               disch_then $ qspecl_then [‘a2’,‘a1’] mp_tac >>
+               unabbrev_all_tac >>
+               simp[] >>
+               strip_tac >>
+               (* TODO: Any prettier way? *)
+               qsuff_tac ‘fromList y1.ffi.io_events = fromList st.ffi.io_events ++ₗ stree_trace query_oracle event_filter st.ffi (to_stree (mrec_sem (h_prog (q,st with locals := r))))’
+               >- (rw[] >>
+                   AP_TERM_TAC >>
+                   CONV_TAC SYM_CONV >>
+                   irule EQ_TRANS >>
+                   irule_at (Pos hd) stree_trace_bind_append >>
+                   irule_at (Pos hd) itree_wbisim_Ret_FUNPOW' >>
+                   first_x_assum $ irule_at $ Pos hd >>
+                   simp[to_stree_simps,stree_trace_simps,mrec_sem_simps,LAPPEND_NIL_2ND])
+               >- (irule EQ_TRANS >>
+                   last_x_assum $ irule_at $ Pos hd >>
+                   irule_at Any EQ_TRANS >>
+                   first_x_assum $ irule_at $ Pos $ hd o tl >>
+                   simp[] >>
+                   qrefine ‘_ with locals := _’ >>
+                   simp[] >>
+                   irule_at (Pos hd) EQ_REFL >>
+                   simp[]
+               )
+           )
+           >- (irule EQ_TRANS >>
+               last_x_assum $ irule_at $ Pos hd >>
+               irule_at Any EQ_TRANS >>
+               first_x_assum $ irule_at $ Pos $ hd o tl >>
+               simp[] >>
+               qrefine ‘_ with locals := _’ >>
+               simp[] >>
+               irule_at (Pos hd) EQ_REFL >>
+               simp[]
+           )
+      )
+      >- (irule EQ_TRANS >>
+          last_x_assum $ irule_at $ Pos hd >>
+          irule_at Any EQ_TRANS >>
+          first_x_assum $ irule_at $ Pos $ hd o tl >>
+          qrefine ‘_ with locals := _’ >>
+          simp[] >>
+          irule_at (Pos hd) EQ_REFL >>
+          simp[])
+      >- (irule EQ_TRANS >>
+          last_x_assum $ irule_at $ Pos hd >>
+          irule_at Any EQ_TRANS >>
+          first_x_assum $ irule_at $ Pos $ hd o tl >>
+          qrefine ‘_ with locals := _’ >>
+          simp[] >>
+          irule_at (Pos hd) EQ_REFL >>
+          simp[])
+      )
   >~ [‘Seq’]
   >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
          h_prog_rule_seq_def,
@@ -1779,7 +2056,6 @@ Proof
            to_stree_simps,stree_trace_simps,
            LAPPEND_NIL_2ND
            ])
-*)
 QED
 
 Theorem stree_trace_ret_events':
