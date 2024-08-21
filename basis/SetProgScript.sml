@@ -1,23 +1,20 @@
 (*
-  This module contains CakeML code implementing a functional map type
+  This module contains CakeML code implementing a functional set type
   using a self-balancing binary tree.
 *)
 open preamble
   ml_translatorLib ml_translatorTheory ml_progLib
-  balanced_mapTheory ArrayProgTheory basisFunctionsLib
+  balanced_mapTheory MapProgTheory basisFunctionsLib
+local open mlsetTheory in end
 
-val _ = new_theory "MapProg"
+val _ = new_theory "SetProg"
 
-val _ = translation_extends "ArrayProg";
-
-val _ = (use_full_type_names := false);
-val _ = register_type ``:('a,'b) balanced_map$balanced_map``;
-val _ = (use_full_type_names := true);
+val _ = translation_extends "MapProg";
 
 val _ = ml_prog_update open_local_block;
 
 val _ = (use_full_type_names := false);
-val _ = register_type ``:('a,'b) mlmap$map``;
+val _ = register_type ``:'a mlset$mlset``;
 val _ = (use_full_type_names := true);
 
 val _ = next_ml_names := ["size", "singleton"];
@@ -25,6 +22,8 @@ val _ = translate size_def;
 val _ = translate singleton_def;
 
 (* Helpers *)
+
+val _ = translate FOLDL;
 val _ = translate ratio_def;
 val _ = translate delta_def;
 val _ = translate balanceL_def;
@@ -91,95 +90,81 @@ val _ = translate submap'_def;
 
 (* Exported functions *)
 val _ = next_ml_names :=
-  ["null", "member", "empty", "insert", "delete",
-   "union", "unionWithKey", "unionWith", "foldrWithKey",
-   "toAscList", "compare", "mapWithKey", "map", "isSubmapOfBy",
-   "isSubmapOf", "fromList", "filterWithKey", "filter", "all",
-   "exists"];
+  ["null", "member", "empty", "insert", "delete", "union", "foldrWithKey",
+   "toAscList", "compare", "isSubmapOfBy", "isSubmapOf", "fromList",
+   "filterWithKey", "all", "exists"];
 val _ = translate null_def;
 val _ = translate member_def;
 val _ = translate empty_def;
 val _ = translate insert_def;
 val _ = translate delete_def;
 val _ = translate union_def;
-val _ = translate unionWithKey_def;
-val _ = translate unionWith_def;
 val _ = translate foldrWithKey_def;
 val _ = translate toAscList_def;
 val _ = translate compare_def;
-val _ = translate mapWithKey_def;
-val _ = translate map_def;
 val _ = translate isSubmapOfBy_def;
 val _ = translate isSubmapOf_def;
 val _ = translate fromList_def;
 val _ = translate filterWithKey_def;
-val _ = translate filter_def;
 val _ = translate every_def;
 val _ = translate exists_def;
 
 val _ = ml_prog_update open_local_in_block;
 
-val _ = ml_prog_update (open_module "Map");
+val _ = ml_prog_update (open_module "Set");
 
-(* provides the Map.map name for the map type *)
+(* provides the Set.set name for the set type *)
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc ["'a";"'b"] "map"
-             (Atapp [Atvar "'a"; Atvar "'b"] (Short "map"))`` I);
+  ``Dtabbrev unknown_loc ["'a"] "set" (Atapp [Atvar "'a"] (Short "mlset"))`` I);
 
-val _ = next_ml_names := ["lookup"];
-val _ = translate mlmapTheory.lookup_def;
-val _ = next_ml_names := ["member"];
-val _ = translate mlmapTheory.member_def;
-val _ = next_ml_names := ["insert"];
-val _ = translate mlmapTheory.insert_def;
-val _ = next_ml_names := ["delete"];
-val _ = translate mlmapTheory.delete_def;
-val _ = next_ml_names := ["null"];
-val _ = translate mlmapTheory.null_def;
-val _ = next_ml_names := ["size"];
-val _ = translate mlmapTheory.size_def;
-val _ = next_ml_names := ["empty"];
-val _ = translate mlmapTheory.empty_def;
 val _ = next_ml_names := ["singleton"];
-val _ = translate mlmapTheory.singleton_def;
+val _ = translate mlsetTheory.singleton_def;
+val _ = next_ml_names := ["member"];
+val _ = translate mlsetTheory.member_def;
+val _ = next_ml_names := ["delete"];
+val _ = translate mlsetTheory.delete_def;
 val _ = next_ml_names := ["union"];
-val _ = translate mlmapTheory.union_def;
-val _ = next_ml_names := ["unionWith"];
-val _ = translate mlmapTheory.unionWith_def;
-val _ = next_ml_names := ["unionWithKey"];
-val _ = translate mlmapTheory.unionWithKey_def;
-val _ = next_ml_names := ["foldrWithKey"];
-val _ = translate mlmapTheory.foldrWithKey_def;
-val _ = next_ml_names := ["map"];
-val _ = translate mlmapTheory.map_def;
-val _ = next_ml_names := ["mapWithKey"];
-val _ = translate mlmapTheory.mapWithKey_def;
-val _ = next_ml_names := ["toAscList"];
-val _ = translate mlmapTheory.toAscList_def;
-val _ = next_ml_names := ["fromList"];
-val _ = translate mlmapTheory.fromList_def;
-val _ = next_ml_names := ["isSubmapBy"];
-val _ = translate mlmapTheory.isSubmapBy_def;
-val _ = next_ml_names := ["isSubmap"];
-val _ = translate mlmapTheory.isSubmap_def;
-val _ = next_ml_names := ["all"];
-val _ = translate mlmapTheory.all_def;
-val _ = next_ml_names := ["exists"];
-val _ = translate mlmapTheory.exists_def;
-val _ = next_ml_names := ["filterWithKey"];
-val _ = translate mlmapTheory.filterWithKey_def;
-val _ = next_ml_names := ["filter"];
-val _ = translate mlmapTheory.filter_def;
+val _ = translate mlsetTheory.union_def;
+val _ = next_ml_names := ["isSubset"];
+val _ = translate mlsetTheory.isSubset_def;
 val _ = next_ml_names := ["compare"];
-val _ = translate mlmapTheory.compare_def;
+val _ = translate mlsetTheory.compare_def;
+val _ = next_ml_names := ["all"];
+val _ = translate mlsetTheory.all_def;
+val _ = next_ml_names := ["exists"];
+val _ = translate mlsetTheory.exists_def;
+val _ = next_ml_names := ["translate"];
+val _ = translate mlsetTheory.translate_def;
+val _ = next_ml_names := ["map"];
+val _ = translate mlsetTheory.map_def;
+val _ = next_ml_names := ["filter"];
+val _ = translate mlsetTheory.filter_def;
+val _ = next_ml_names := ["fromList"];
+val _ = translate mlsetTheory.fromList_def;
+val _ = next_ml_names := ["toList"];
+val _ = translate mlsetTheory.toList_def;
+val _ = next_ml_names := ["null"];
+val _ = translate mlsetTheory.null_def;
+val _ = next_ml_names := ["size"];
+val _ = translate mlsetTheory.size_def;
+val _ = next_ml_names := ["fold"];
+val _ = translate mlsetTheory.fold_def;
+val _ = next_ml_names := ["empty"];
+val _ = translate mlsetTheory.empty_def;
+val _ = next_ml_names := ["insert"];
+val _ = translate mlsetTheory.insert_def;
 
 val _ = ml_prog_update (close_module NONE);
 
-(* this is here so that the type name is accessible without the full name *)
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc ["'a";"'b"] "map"
-             (Atapp [Atvar "'a"; Atvar "'b"] (Short "map"))`` I);
+  ``Dtabbrev unknown_loc ["'a"] "set" (Atapp [Atvar "'a"] (Short "mlset"))`` I);
 
 val _ = ml_prog_update close_local_block;
+
+(* Remove all overloads introduced by loading mlset: *)
+val _ = List.app (fn tm => let val {Name, Thy,...} = dest_thy_const tm
+                           in remove_ovl_mapping Name {Name = Name, Thy = Thy}
+                           end)
+                 (constants "mlset");
 
 val _ = export_theory ();
