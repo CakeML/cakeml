@@ -169,6 +169,16 @@ Definition dest_Array_def:
   dest_Array _ = fail "dest_Array: Not an Array"
 End
 
+Definition dest_Arrow_def:
+  dest_Arrow (Arrow argTs retT) = return (argTs, retT) ∧
+  dest_Arrow _ = fail "dest_Arrow: Not an arrow"
+End
+
+Definition dest_singleton_list_def:
+  dest_singleton_list [x] = return x ∧
+  dest_singleton_list _ = fail "dest_singleton_list: Not a singleton list"
+End
+
 Definition dest_Seq_def:
   dest_Seq (Seq t) = return t ∧
   dest_Seq _ = fail "dest_Seq: Not a Seq"
@@ -793,6 +803,17 @@ Definition dafny_type_of_def:
        (* Assume that we are given a "correct" Dafny program, and this convert
         * is safe *)
        return (normalize_type tot)
+   | SeqConstruct _ fe =>
+       do
+         fe_t <- dafny_type_of env fe;
+         (argTs, retT) <- dest_Arrow fe_t;
+         argT <- dest_singleton_list argTs;
+         if argT ≠ Primitive Int then
+           fail "dafny_type_of (SeqConstruct): Argument of function was not \
+                \an int"
+         else
+           return (Seq retT)
+       od
    | SeqValue _ t =>
        return (Seq (normalize_type t))
    | SeqUpdate se idx v =>
@@ -1045,6 +1066,22 @@ Definition from_expression_def:
                 \(after normalization) unsupported"
          else
            from_expression comp env val
+       od
+   | SeqConstruct len f_e =>
+       do
+         fe_t <- dafny_type_of env f_e;
+         (argTs, retT) <- dest_Arrow fe_t;
+         argT <- dest_singleton_list argTs;
+         if argT ≠ Primitive Int then
+           fail "from_expression (SeqConstruct): Argument of function was not \
+                \an int"
+         else
+           do
+             cml_len <- from_expression comp env len;
+             cml_f <- from_expression comp env f_e;
+             return (cml_fapp (Var (Long "List" (Short "genlist")))
+                              [cml_f; cml_len])
+           od
        od
    | SeqValue els _ =>
        do
@@ -1649,7 +1686,7 @@ End
 (* (* val _ = astPP.disable_astPP(); *) *)
 (* val _ = astPP.enable_astPP(); *)
 
-(* val inStream = TextIO.openIn "./tests/basic/and_or.sexp"; *)
+(* val inStream = TextIO.openIn "./tests/basic/seq_from_function.sexp"; *)
 (* val fileContent = TextIO.inputAll inStream; *)
 (* val _ = TextIO.closeIn inStream; *)
 (* val fileContent_tm = stringSyntax.fromMLstring fileContent; *)
