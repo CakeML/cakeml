@@ -136,9 +136,9 @@ Definition fold_icompile_def:
   let (c', prog') = icompile c prog in
   let (c'', progs') = fold_icompile c' progs in
     (c'', prog' ++ progs')
-        
+
 End
-        
+
 
 Definition end_icompile_def:
   end_icompile (source_iconf: source_iconfig) (source_conf: source_to_flat$config) =
@@ -240,15 +240,15 @@ Theorem source_to_source_compile_and_list_append_commute_with_each_other:
   (source_to_source$compile p1 ++ source_to_source$compile p2)
 Proof
   Induct >- (
-  rw[APPEND, source_to_sourceTheory.compile_def, source_letTheory.compile_decs_def] 
-    
+  rw[APPEND, source_to_sourceTheory.compile_def, source_letTheory.compile_decs_def]
+
   ) >- (
   cheat
   )
-QED        
+QED
 
 
-        
+
 (* Composing adjacent icompile runs *)
 Theorem icompile_icompile:
   ∀source_iconf source_iconf' prog1 prog2 prog1' prog2' source_iconf''.
@@ -278,7 +278,7 @@ Definition config_prog_rel_def:
 End
 
 
-        
+
 Theorem init_icompile_icompile_end_icompile:
   ∀prog.
   init_icompile (source_conf : source_to_flat$config) = (source_iconf : source_iconfig)
@@ -297,14 +297,14 @@ Theorem init_icompile_icompile_end_icompile:
 Proof
   rw[] >>
   fs [init_icompile_def, icompile_def, end_icompile_def, icompile_source_to_flat_def] >>
-  pairarg_tac >> gvs[] >> 
+  pairarg_tac >> gvs[] >>
   fs [compile_alt_def,source_to_flat_compile_alt_def]>>
   rpt (pairarg_tac >> gvs[]) >>
   fs[source_to_flat_compile_prog_alt_def] >>
-  rpt (pairarg_tac >> gvs[])  >> 
-  rw[extend_env_empty_env] >> 
+  rpt (pairarg_tac >> gvs[])  >>
+  rw[extend_env_empty_env] >>
   rw[config_prog_rel_def]
-  
+
 QED
 
 Triviality source_iconf_lemma:
@@ -315,14 +315,14 @@ Triviality source_iconf_lemma:
 Proof
   cheat
 QED
-        
-                
+
+
 Theorem fold_icompile_collapse:
   ∀progs source_iconf.
   fold_icompile source_iconf progs =
   icompile source_iconf (FLAT (progs))
 Proof
-  
+
   Induct_on ‘progs’ >- (
   rw[fold_icompile_def] >> cheat
   ) >- (
@@ -333,9 +333,9 @@ Proof
 QED
 
 
-        
-        
-       
+
+
+
 Theorem icompile_eq:
   init_icompile (source_conf : source_to_flat$config) = (source_iconf : source_iconfig)
   ∧
@@ -354,8 +354,8 @@ Proof
   strip_tac >>
   fs[fold_icompile_collapse] >>
   qspec_then ‘(FLAT progs)’ mp_tac init_icompile_icompile_end_icompile >>
-  qpat_x_assum ‘init_icompile c.source_conf = source_iconf’ $ mp_tac >> rw[] 
+  qpat_x_assum ‘init_icompile c.source_conf = source_iconf’ $ mp_tac >> rw[]
 QED
-        
+
 
 val _ = export_theory();
