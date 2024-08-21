@@ -3346,7 +3346,7 @@ val full_inst_ok_less_def = Define`
   (full_inst_ok_less c (ShareInst op r ad) =
     case exp_to_addr ad of
     | SOME (Addr _ w) =>
-      if op IN {Load; Store}
+      if op IN {Load; Store; Load32; Store32}
         then addr_offset_ok c w
         else byte_offset_ok c w
     | NONE => F) ∧
