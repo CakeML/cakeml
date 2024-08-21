@@ -910,11 +910,9 @@ Definition dafny_type_of_def:
        do
          e'_t <- dafny_type_of env e';
          if cok = CollKind_Seq then
-           if idxs = [] then
-             fail "dafny_type_of (Index/Seq): Unexpectedly idxs was empty"
-           else if LENGTH idxs > 1 then
-             fail "dafny_type_of (Index/Seq): multi-dimensional indexing \
-                    \unsupported"
+           if LENGTH idxs ≠ 1 then
+             fail "dafny_type_of (Index/Seq): Unexpectedly, did not receive \
+                  \exactly one index"
            else
              dest_Seq e'_t
          else if cok = CollKind_Array then
@@ -922,7 +920,7 @@ Definition dafny_type_of_def:
              fail "dafny_type_of (Index/Array): Unexpectedly idxs was empty"
            else if LENGTH idxs > 1 then
              fail "dafny_type_of (Index/Array): multi-dimensional indexing \
-                 \uns            upported"
+                 \unsupported"
            else
              do
                (t, _) <- dest_Array e'_t;
@@ -1104,11 +1102,9 @@ Definition from_expression_def:
          od
    | Index ce cok idxs =>
        if cok = CollKind_Seq then
-         if idxs = [] then
-           fail ("from_expression: Unexpectedly received an empty " ++
-                 "list of indices")
-         else if LENGTH idxs > 1 then
-           fail "from_expression: multi-dimensional indexing unsupported"
+         if LENGTH idxs ≠ 1 then
+           fail "from_expression (Index): Unexpectedly, did not receive \
+                \exactly one index"
          else
            do
              cml_ce <- from_expression comp env ce;
