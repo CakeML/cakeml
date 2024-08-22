@@ -51,6 +51,12 @@ Definition tokcheck_def:
 End
 (** End copy **)
 
+Definition is_annot_tok_def:
+  is_annot_tok pt = case (OPTION_BIND (destLf pt) destTOK) of
+      SOME (AnnotCommentT _) => T
+    | _ => F
+End
+
 Definition kw_def:
   kw k = KeywordT k
 End
@@ -417,6 +423,7 @@ Definition conv_NonRecStmt_def:
     else if tokcheck leaf (kw BrK) then SOME Break
     else if tokcheck leaf (kw ContK) then SOME Continue
     else if tokcheck leaf (kw TicK) then SOME Tick
+    else if is_annot_tok leaf then SOME Skip
     else NONE
 End
 

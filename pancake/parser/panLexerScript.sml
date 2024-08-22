@@ -1,5 +1,5 @@
 (**
- * The beginnings of a lexer for the Pancake language.
+ * A lexer for the Pancake language.
  *)
 
 (**
@@ -34,11 +34,12 @@ Datatype:
   | AssignT
   | StaticT
   | KeywordT keyword
+  | AnnotCommentT string
   | LexErrorT mlstring
 End
 
 Datatype:
-  atom = NumberA int | WordA string | SymA string | ErrA mlstring
+  atom = NumberA int | WordA string | SymA string | ErrA mlstring | AnnotCommentA string
 End
 
 Definition isAtom_singleton_def:
@@ -148,6 +149,7 @@ Definition token_of_atom_def:
   | WordA s => get_keyword s
   | SymA s => get_token s
   | ErrA s => LexErrorT s
+  | AnnotCommentA s => AnnotCommentT s
 End
 
 Definition read_while_def:
@@ -180,42 +182,26 @@ Definition loc_row_def:
 End
 
 Definition skip_comment_def:
-  skip_comment "" _ = NONE ∧
-  skip_comment (x::xs) loc =
+  skip_comment "" _ _ = NONE ∧
+  skip_comment (x::xs) loc i =
   (case x of
-   | #"\n" => SOME (xs, next_line loc)
-   | _ => skip_comment xs (next_loc 1 loc))
+   | #"\n" => SOME (next_line loc, i + 1n)
+   | _ => skip_comment xs (next_loc 1 loc) (i + 1n))
 End
 
+(* return SOME (loc, i, j) -> i characters in comment, DROP j characters to
+   continue parsing (after the closing '*/') at loc *)
 Definition skip_block_comment_def:
-  skip_block_comment "" _ = NONE ∧
-  skip_block_comment [_] _ = NONE ∧
-  skip_block_comment (x::y::xs) loc =
+  skip_block_comment "" _ _ = NONE ∧
+  skip_block_comment [_] _ _ = NONE ∧
+  skip_block_comment (x::y::xs) loc i =
   if x = #"*" ∧ y = #"/" then
-    SOME (xs, next_loc 2 loc)
+    SOME (next_loc 2 loc, i, i + 2)
   else if x = #"\n" then
-    skip_block_comment (y::xs) (next_line loc)
+    skip_block_comment (y::xs) (next_line loc) (i + 1n)
   else
-    skip_block_comment (y::xs) (next_loc 1 loc)
+    skip_block_comment (y::xs) (next_loc 1 loc) (i + 1n)
 End
-
-Theorem skip_comment_thm:
-  ∀xs l l' str. (skip_comment xs l = SOME (str, l')) ⇒
-                              LENGTH str < LENGTH xs
-Proof
-  Induct >> rw[skip_comment_def] >> res_tac >> rw[]
-QED
-
-Theorem skip_block_comment_thm:
-  ∀xs l l' str. (skip_block_comment xs l = SOME (str, l')) ⇒
-                              LENGTH str < LENGTH xs
-Proof
-  recInduct skip_block_comment_ind
-  >> rw[skip_block_comment_def]
-  >> rw[]
-  >> res_tac
-  >> gvs[]
-QED
 
 Definition unhex_alt_def:
   unhex_alt x = if isHexDigit x then UNHEX x else 0n
@@ -243,13 +229,18 @@ Definition next_atom_def:
             Locs loc (next_loc (LENGTH n) loc),
             rest)
     else if isPREFIX "//" (c::cs) then (* comment *)
-      (case (skip_comment (TL cs) (next_loc 2 loc)) of
+      (case (skip_comment (TL cs) (next_loc 2 loc) 0n) of
        | NONE => SOME (ErrA «Malformed comment», Locs loc (next_loc 2 loc), "")
-       | SOME (rest, loc') => next_atom rest loc')
+       | SOME (loc', len) => next_atom (DROP (len + 1) cs) loc')
+    else if isPREFIX "/*@" (c::cs) then (* annotation block comment *)
+      (case (skip_block_comment (TL cs) (next_loc 3 loc) 0n) of
+       | NONE => SOME (ErrA «Malformed comment», Locs loc (next_loc 3 loc), "")
+       | SOME (loc', i, len) => SOME (AnnotCommentA (TAKE i (TL cs)),
+            Locs loc loc', DROP (len + 1) cs))
     else if isPREFIX "/*" (c::cs) then (* block comment *)
-      (case (skip_block_comment (TL cs) (next_loc 2 loc)) of
+      (case (skip_block_comment (TL cs) (next_loc 2 loc) 0n) of
        | NONE => SOME (ErrA «Malformed comment», Locs loc (next_loc 2 loc), "")
-       | SOME (rest, loc') => next_atom rest loc')
+       | SOME (loc', _, len) => next_atom (DROP (len + 1) cs) loc')
     else if isAtom_singleton c then
       SOME (SymA (STRING c []), Locs loc loc, cs)
     else if isAtom_begin_group c then
@@ -261,25 +252,22 @@ Definition next_atom_def:
     else (* input not recognised *)
       SOME (ErrA $ concat [«Unrecognised symbol: »; str c], Locs loc loc, cs)
 Termination
-  WF_REL_TAC ‘measure (LENGTH o FST)’
-  >> REPEAT STRIP_TAC
-  >> gvs[]
-  >> MAP_EVERY imp_res_tac [skip_comment_thm,skip_block_comment_thm]
-  >> BasicProvers.PURE_FULL_CASE_TAC
-  >> gvs[]
+  WF_REL_TAC `measure (LENGTH o FST)`
+  \\ simp []
 End
 
 Theorem next_atom_LESS:
   ∀input l s l' rest.
     next_atom input l = SOME (s, l', rest) ⇒ LENGTH rest < LENGTH input
 Proof
-  recInduct next_atom_ind >> rw[next_atom_def]
-  >> res_tac >> gvs[AllCaseEqs(),pairTheory.ELIM_UNCURRY]
-  >> MAP_EVERY imp_res_tac [skip_comment_thm,skip_block_comment_thm]
-  >> gvs[]
-  >> resolve_then Any mp_tac (GSYM pairTheory.PAIR) read_while_thm
-  >> simp[LESS_EQ_IFF_LESS_SUC]
-  >> BasicProvers.PURE_FULL_CASE_TAC >> gvs[]
+  recInduct next_atom_ind \\ simp [next_atom_def]
+  \\ rw []
+  \\ TRY (first_x_assum drule)
+  \\ fs [miscTheory.UNCURRY_eq_pair, CaseEq "option", CaseEq "prod"]
+  \\ gvs []
+  \\ imp_res_tac read_while_thm
+  \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs []
 QED
 
 Definition next_token_def:
@@ -325,7 +313,7 @@ Definition safe_pancake_lex_def:
 End
 
 (* Tests :
-   EVAL “pancake_ex "x + 1 --Then check y\n && y - 2 <= -3 || !z”;
+   EVAL ``pancake_lex "x + 1 --Then check y\n && y - 2 <= -3 || !z"``;
 *)
 
 val _ = export_theory();
