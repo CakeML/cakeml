@@ -304,6 +304,7 @@ Theorem ret_to_tail_Others:
   ^(get_goal "panLang$ShMemLoad") /\
   ^(get_goal "panLang$ShMemStore") /\
   ^(get_goal "panLang$Return") /\
+  ^(get_goal "panLang$Annot") /\
   ^(get_goal "panLang$Tick")
 Proof
   rw [ret_to_tail_def]
@@ -908,6 +909,7 @@ Theorem compile_Others:
   ^(get_goal "panLang$Continue") /\
   ^(get_goal "panLang$Raise") /\
   ^(get_goal "panLang$Return") /\
+  ^(get_goal "panLang$Annot _") /\
   ^(get_goal "panLang$Tick")
 Proof
   rw [] >>
