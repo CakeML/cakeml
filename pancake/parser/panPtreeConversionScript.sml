@@ -476,7 +476,9 @@ Definition parsetree_locs_def:
 End
 
 Definition posn_string_def:
-  posn_string (POSN lnum cnum) = (toString lnum ++ ":" ++ toString cnum)
+  posn_string (POSN lnum cnum) = (toString lnum ++ ":" ++ toString cnum) /\
+  posn_string EOFpt = "EOF" /\
+  posn_string UNKNOWNpt = "UNKNOWN"
 End
 
 Definition locs_comment_def:
