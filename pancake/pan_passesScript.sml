@@ -212,6 +212,7 @@ Definition pan_prog_to_display_def:
   (pan_prog_to_display (StoreByte e1 e2) = Tuple
     [String (strlit "mem"); pan_exp_to_display e1;
      String (strlit ":="); String (strlit "byte"); pan_exp_to_display e2]) ∧
+  (pan_prog_to_display (Annot str) = Item NONE (strlit "annot" [empty_item str]) ∧
   (pan_prog_to_display Tick = empty_item (strlit "tick")) ∧
   (pan_prog_to_display Break = empty_item (strlit "break")) ∧
   (pan_prog_to_display Continue = empty_item (strlit "continue")) ∧
