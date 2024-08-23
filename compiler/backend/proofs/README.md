@@ -151,6 +151,9 @@ Correctness proof for word_alloc
 [word_bignumProofScript.sml](word_bignumProofScript.sml):
 Correctness proof for word_bignum
 
+[word_copyProofScript.sml](word_copyProofScript.sml):
+Correctness proof for word_copy
+
 [word_cseProofScript.sml](word_cseProofScript.sml):
 Correctness proof for word_cse
 
