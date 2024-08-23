@@ -7,6 +7,8 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "satSem";
 
+val _ = set_grammar_ancestry ["pred_set", "list", "rich_list"];
+
 (*** Semantics ***
 
   A literal is drawn from the sum 'a + 'a with the left projection being positive
