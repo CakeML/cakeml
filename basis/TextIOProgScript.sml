@@ -600,11 +600,11 @@ val _ = (append_prog o process_topdecs)`
   fun b_inputLine c0 is = b_inputUntil_2 is c0 []`;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputLineTokens c0 is f g =
+  fun b_inputLineTokens c0 is tokP mp =
     case b_inputLine c0 is of
       None => None
     | Some l =>
-      Some (List.map g (String.tokens f l))`;
+      Some (List.map mp (String.tokens tokP l))`;
 
 val _ = ml_prog_update open_local_block;
 
@@ -647,8 +647,8 @@ val _ = (append_prog o process_topdecs) `
     case b_inputLine c0 is of
       None => y
     | Some c => fold_lines_loop c0 f is (f c y);
-  fun fold_tokens_loop c0 g h f is y =
-    case b_inputLineTokens c0 is g h of
+  fun fold_tokens_loop c0 tokP mp fld is y =
+    case b_inputLineTokens c0 is tokP mp of
       None => y
     | Some c => fold_tokens_loop c0 g h f is (f c y);`;
 
@@ -720,12 +720,12 @@ val _ = (append_prog o process_topdecs) `
        handle e => (close (); raise e))`;
 
 val _ = (append_prog o process_topdecs) `
-  fun foldTokens c0 g h f x stdin_or_fname =
+  fun foldTokens c0 tokP mp fld x stdin_or_fname =
     case b_open_option stdin_or_fname of
       None => None
     | Some (is,close) =>
       (let
-         val res = fold_tokens_loop c0 g h f is x
+         val res = fold_tokens_loop c0 tokP mp fld is x
          val _ = close ()
        in Some res end
        handle e => (close (); raise e))`;
