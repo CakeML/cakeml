@@ -2,7 +2,7 @@
   A program logic for pancake in the Hoare/Floyd style.
 *)
 
-open preamble panLangTheory panPropsTheory;
+open preamble panLangTheory panPropsTheory panSemTheory;
 local open alignmentTheory
            miscTheory
            wordLangTheory
@@ -13,18 +13,26 @@ val _ = set_grammar_ancestry [
   "panLang", "panSem", "ffi" ]
 
 
+Type trip[local] = ``: (('a, 'ffi) state -> bool) # 'a prog #
+        ('a result -> ('a, 'ffi) state -> bool)``
 
 Datatype:
   hoare_context = <|
-      exceptions_ok     :    eid -> bool
-    ; ffi_rely          :    io_event list ->
+      ffi_rely          :    io_event list ->
                              (ffiname # word8 list # word8 list) ->
                              ('ffi oracle_result) -> bool
     ; ffi_guarantee     :    io_event list ->
                              (ffiname # word8 list # word8 list) -> bool
     ; termination       :    bool
-    ; triples           :    mlstring |-> ((('a, 'ffi) state -> bool) # (('a, 'ffi) state -> bool))
+    ; triples           :    (('a, 'ffi) trip) list
+    ; future_triples    :    (('a, 'ffi) trip) list
   |>
+End
+
+Definition tick_context_def:
+  tick_context context = if NULL context.future_triples then context
+    else (context with <| triples := context.future_triples ++ context.triples;
+        future_triples := [] |>)
 End
 
 (* should this be presented syntactically via Inductive? *)
@@ -41,61 +49,102 @@ End
 
 Theorem opt_op_precond_elim = hd (RES_CANON opt_op_precond_def)
 
+Definition res_any_def:
+  res_any nm P s = (!prev. P (s with locals := res_var s.locals (nm, prev)))
+End
+
+Theorem res_any_drop_update:
+  res_any nm P (s with locals := (locs |+ (nm, v))) = res_any nm P (s with locals := locs)
+Proof
+  simp [res_any_def]
+  \\ AP_TERM_TAC
+  \\ simp [FUN_EQ_THM]
+  \\ Cases
+  \\ simp [res_var_def]
+QED
+
+Theorem res_any_same:
+  (res_any nm P (s with locals := s.locals) ==> P s) /\
+  (res_any nm P s ==> P s)
+Proof
+  qsuff_tac `(s with locals := res_var s.locals (nm, FLOOKUP s.locals nm)) = s`
+  >- (
+    simp [res_any_def] \\ metis_tac []
+  )
+  \\ simp [panSemTheory.state_component_equality]
+  \\ Cases_on `FLOOKUP s.locals nm`
+  \\ simp [res_var_def, DOMSUB_NOT_IN_DOM, FUPDATE_ELIM, TO_FLOOKUP]
+QED
+
 Inductive hoare_logic:
 
 [hoare_logic_weaken_pre:]
-  (! Q.
+  (! P Q R.
     (!s. P s ==> Q s) /\
     hoare_logic G Q p R ==>
     hoare_logic G P p R
   )
 
 [hoare_logic_equiv:]
-  (! Q.
+  (! P Q R.
     (!s r s1. P s /\ evaluate (p, s) = (r, s1) ==>
-        ?s2. evaluate (p2, s) = (r, s2) /\ empty_locals s2 = empty_locals s1 /\
-            (((r = NONE) \/ (r = SOME Break) \/ (r = SOME Continue)) ==> s1 = s2)) /\
+        ?s2. evaluate (p2, s) = (r, s2) /\
+        s2.ffi = s1.ffi /\ (R r s2 ==> R r s1)) /\
     hoare_logic G Q p2 R ==>
     hoare_logic G (\s. P s /\ Q s) p R
   )
 
 [hoare_logic_Skip:]
-  (
-    hoare_logic G P Skip P
+  ( !P.
+    hoare_logic G (P NONE) Skip P
   )
 
 [hoare_logic_Dec:]
   (
-    ! Q.
+    ! P Q R.
     eval_logic G P e v Q /\
-    (!prev. hoare_logic G Q p
-        (\s. R (s with locals := res_var s.locals (v, prev))))
+    hoare_logic G Q p (\res s. res_any v (R res) s)
     ==>
     hoare_logic G P (Dec v e p) R
   )
 
 [hoare_logic_Assign:]
-  (
-    eval_logic G P e v Q ==>
+  ( ! P Q.
+    eval_logic G P e v (Q NONE) ==>
     hoare_logic G (\s. P s /\
             OPTION_MAP shape_of (FLOOKUP s.locals v) =
-            SOME (exp_shape (FMAP_MAP2 (shape_of o SND) s.locals) e))
+            SOME (panProps$exp_shape (FMAP_MAP2 (shape_of o SND) s.locals) e))
         (Assign v e) Q
   )
 
 [hoare_logic_Seq:]
   (
-    ! Q.
-    hoare_logic G P p1 Q /\
+    ! P Q R.
+    hoare_logic G P p1 (\r s. if r = NONE then Q s else R r s) /\
     hoare_logic G Q p2 R ==>
     hoare_logic G P (Seq p1 p2) R
+  )
+
+[hoare_logic_If:]
+  (
+    ! P Q1 Q2 R.
+    eval_logic G P cond_exp cond_nm (\s. (?w. FLOOKUP s.locals cond_nm = SOME (ValWord w)) /\
+        if FLOOKUP s.locals cond_nm <> SOME (ValWord 0w)
+        then res_any cond_nm Q1 s else res_any cond_nm Q2 s) /\
+    hoare_logic G Q1 p1 R /\
+    hoare_logic G Q2 p2 R ==>
+    hoare_logic G (\s. FLOOKUP s.locals cond_nm = NONE /\ P s) (If cond_exp p1 p2) R
   )
 
 [hoare_logic_While:]
   (
     ! Q.
-    eval_logic_word G P e (\x s. if x = 0w then R s else Q (dec_clock s)) /\
-    hoare_logic G Q p P ==>
+    eval_logic G P e cond_nm (\s. (?w. FLOOKUP s.locals cond_nm = SOME (ValWord w)) /\
+        res_any cond_nm (if FLOOKUP s.locals cond_nm = SOME (ValWord 0w)
+          then R NONE else if s.clock = 0 then (R (SOME TimeOut) o empty_locals)
+          else (Q o dec_clock)) s) /\
+    hoare_logic G Q p (\r s. case r of NONE => P s | SOME Break => R NONE s
+            | SOME Continue => P s | _ => R r s) ==>
     hoare_logic G P (While e p) R
   )
 
@@ -144,32 +193,31 @@ val eval_ind_rule =
   evaluate_ind |> Q.SPEC `UNCURRY P` |> REWRITE_RULE [UNCURRY_DEF] |> Q.GEN `P`
 
 Theorem evaluate_While_inv_final:
-  (! s. P s ==> (?w. eval s e = SOME (ValWord w)) /\
-    (! w r s'. eval s e = SOME (ValWord w) ==> w <> 0w ==>
-        evaluate (p, dec_clock s) = (r, s') ==>
-        (r = SOME TimeOut /\ Q s' \/ (r = NONE /\ P s' /\ Q (empty_locals s'))))) ==>
-  ! s res s'.
   evaluate (While e p, s) = (res, s') ==>
-  P s /\ Q (empty_locals s) ==>
-  (res = SOME TimeOut /\ Q s') \/
-  (res = NONE /\ P s' /\ eval s' e = SOME (ValWord 0w))
+  (! s. P s ==> (?w. eval s e = SOME (ValWord w)) /\
+    (! w r s'. eval s e = SOME (ValWord w) /\ w <> 0w /\ s.clock > 0 /\
+        evaluate (p, dec_clock s) = (r, s') /\ (r = NONE \/ r = SOME Continue) ==>
+    P s')) ==>
+  P s ==>
+  (? fs. evaluate (While e p, fs) = (res, s') /\
+  P fs /\
+  (~ (eval fs e <> SOME (ValWord 0w) /\ fs.clock > 0 /\
+          (FST (evaluate (p, dec_clock fs)) IN {NONE; SOME Continue}))
+  ))
 Proof
-  disch_tac \\ gen_tac
+  ntac 2 strip_tac
+  \\ last_x_assum mp_tac
   \\ measureInduct_on `s.clock`
-  \\ rpt GEN_TAC
-  \\ ONCE_REWRITE_TAC [evaluate_def]
-  \\ rpt disch_tac
-  \\ fs []
-  \\ last_x_assum drule
-  \\ rpt disch_tac
-  \\ gs []
-  \\ fs [CaseEq "bool"]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ gs []
-  \\ last_x_assum (drule_at (Pat `evaluate (While _ _, _) = _`))
-  \\ fs [dec_clock_def]
+  \\ reverse (Cases_on `eval s e <> SOME (ValWord 0w) /\ s.clock > 0 /\
+        FST (evaluate (p, dec_clock s)) IN {NONE; SOME Continue}`)
+  >- metis_tac []
+  \\ disch_then (assume_tac o ONCE_REWRITE_RULE [evaluate_def])
+  \\ disch_tac
+  \\ last_x_assum (drule_then assume_tac)
+  \\ last_x_assum (qspec_then `SND (evaluate (p, dec_clock s))` mp_tac)
+  \\ gs [CaseEq "bool", UNCURRY_eq_pair, CaseEq "option", CaseEq "result"]
   \\ imp_res_tac evaluate_clock
-  \\ fs []
+  \\ gvs [dec_clock_def]
 QED
 
 Definition events_meet_guarantee_def:
@@ -268,9 +316,8 @@ Theorem hoare_logic_sound:
   hoare_logic G P p Q ==>
   (! s res s'. evaluate (p, s) = (res, s') ==> P s ==>
     ffi_g_ok G s.ffi ==>
-    (res = SOME TimeOut \/ (res = NONE /\
-        Q s' /\ ffi_g_ok G s'.ffi)) /\
-    (ffi_g_imp G s s')
+    Q res s' /\ (res <> SOME TimeOut ==> ffi_g_ok G s'.ffi) /\
+    ffi_g_imp G s s'
   )
 
 Proof
@@ -278,17 +325,13 @@ Proof
   ho_match_mp_tac (Q.SPEC `G` hoare_logic_ind)
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
+
   >- (
     metis_tac []
   )
-
   >- (
-    fs []
-    \\ res_tac \\ res_tac \\ fs []
-    \\ imp_res_tac empty_locals_eq_IMP
-    \\ gvs []
+    fs [] \\ metis_tac []
   )
-
   >- (
     gs [evaluate_def]
   )
@@ -296,9 +339,10 @@ Proof
     fs [evaluate_def]
     \\ drule_then (drule_then assume_tac) eval_logic_elim
     \\ gs []
-    \\ (pairarg_tac \\ fs [])
+    \\ rpt (pairarg_tac \\ fs [])
     \\ first_x_assum (drule_then drule)
     \\ rw []
+    \\ fs [res_any_def]
   )
   >- (
     fs [evaluate_def]
@@ -312,29 +356,47 @@ Proof
     fs [evaluate_def]
     \\ pairarg_tac \\ fs []
     \\ first_x_assum (drule_then (drule_then assume_tac))
-    \\ gvs []
-    \\ first_x_assum (drule_then (drule_then assume_tac))
+    \\ fs [CaseEq "bool"] \\ gvs []
     \\ metis_tac []
   )
   >- (
-    dxrule_at (Pat `evaluate (While _ _, _) = _`) evaluate_While_inv_final
-    \\ disch_then (qspec_then `ffi_g_imp G s` mp_tac)
+    fs [evaluate_def]
+    \\ drule_then (drule_then assume_tac) eval_logic_elim
+    \\ gs [FLOOKUP_UPDATE]
+    \\ rename [`if cond_w <> 0w then _ else _`]
+    \\ Cases_on `cond_w = 0w` \\ fs []
+    \\ first_x_assum (drule_then irule)
+    \\ fs [res_any_drop_update]
+    \\ imp_res_tac res_any_same
+  )
+
+  >- (
+    dxrule evaluate_While_inv_final
     \\ disch_then (qspec_then `\s'. P s' /\ ffi_g_ok G s'.ffi /\ ffi_g_imp G s s'` mp_tac)
     \\ impl_tac \\ fs []
     >- (
-      simp [empty_locals_def]
+      rpt (gen_tac ORELSE disch_tac)
+      \\ fs []
+      \\ drule_then (drule_then assume_tac) eval_logic_elim
+      \\ gs [FLOOKUP_UPDATE]
+      \\ fs [res_any_drop_update]
+      \\ imp_res_tac res_any_same
       \\ rpt (gen_tac ORELSE disch_tac)
       \\ fs []
-      \\ drule_then (drule_then assume_tac) eval_logic_word_elim
-      \\ fs []
-      \\ rw []
-      \\ first_x_assum drule
-      \\ gs [dec_clock_def]
+      \\ first_x_assum (drule_then drule)
+      \\ simp [dec_clock_def]
     )
-    \\ strip_tac
-    \\ fs []
-    \\ drule_then (drule_then assume_tac) eval_logic_word_elim
-    \\ gs []
+    \\ simp [PULL_EXISTS]
+    \\ gen_tac
+    \\ Cases_on `P fs` \\ fs []
+    \\ dxrule_then (drule_then assume_tac) eval_logic_elim
+    \\ gs [FLOOKUP_UPDATE, res_any_drop_update]
+    \\ imp_res_tac res_any_same
+    \\ ONCE_REWRITE_TAC [evaluate_def]
+    \\ rw [] \\ gs [empty_locals_def]
+    \\ gs [UNCURRY_eq_pair]
+    \\ last_x_assum (drule_then assume_tac)
+    \\ gs [CaseEq "option", dec_clock_def, CaseEq "result"]
   )
 
   >- (

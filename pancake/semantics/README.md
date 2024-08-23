@@ -15,6 +15,9 @@ Properties of loopLang and loopSem
 [loopSemScript.sml](loopSemScript.sml):
 The formal semantics of loopLang
 
+[panHoareScript.sml](panHoareScript.sml):
+A program logic for pancake in the Hoare/Floyd style.
+
 [panPropsScript.sml](panPropsScript.sml):
 panLang Properties
 
