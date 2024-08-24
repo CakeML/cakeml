@@ -32,6 +32,7 @@ Definition scope_check_exp_def:
       (scope_check_exp ctxt e2) ∧
   scope_check_exp ctxt (Shift sh e n) = scope_check_exp ctxt e ∧
   scope_check_exp ctxt BaseAddr = NONE ∧
+  scope_check_exp ctxt BytesInWord = NONE ∧
   scope_check_exps ctxt [] = NONE ∧
   scope_check_exps ctxt (e::es) =
     OPTION_CHOICE (scope_check_exp ctxt e) (scope_check_exps ctxt es)
