@@ -63,6 +63,8 @@ Definition source_to_flat_compile_prog_alt_def:
      alloc_env_ref :: p')
 End
 
+
+
 Definition source_to_flat_compile_alt_def:
   source_to_flat_compile_alt (c: source_to_flat$config) p =
   let (c', p') = source_to_flat_compile_prog_alt c p in
@@ -70,11 +72,19 @@ Definition source_to_flat_compile_alt_def:
   (c', p')
 End
 
+(* we always insert the clos_interpreter code, this should be put into config *)
+Definition flat_to_clos_compile_alt_def:
+  flat_to_clos_compile_alt p =
+  (clos_interp$compile_init T) :: flat_to_clos$compile_decs p
+End
+
+        
 (* TODO: extend this step-by-step *)
 Definition compile_alt_def:
   compile_alt c p =
     let p = source_to_source$compile p in
     let (c',p) = source_to_flat_compile_alt c.source_conf p in
+    let p = flat_to_clos_compile_alt p in       
     (c',p)
 End
 
