@@ -78,13 +78,13 @@ Definition flat_to_clos_compile_alt_def:
   (clos_interp$compile_init T) :: flat_to_clos$compile_decs p
 End
 
-        
+
 (* TODO: extend this step-by-step *)
 Definition compile_alt_def:
   compile_alt c p =
     let p = source_to_source$compile p in
     let (c',p) = source_to_flat_compile_alt c.source_conf p in
-    let p = flat_to_clos_compile_alt p in       
+    let p = flat_to_clos_compile_alt p in
     (c',p)
 End
 
@@ -99,6 +99,43 @@ End
 (* Source to flat                                                             *)
 (*                                                                            *)
 (******************************************************************************)
+
+(* Some diagram to remind me *)
+
+(*
+      Given P as input
+
+      mono_compile
+
+      P --- source_to_source ---> P ---source_to_flat---> [source_to_flat_stub] ++ P ---flat_to_clos---> [flat_to_clos_stub] ++ P
+
+
+      icompile_init                                     icompile                icompile_end
+
+        conf                               +------->  (iconf, p: source)        +---> iconf
+          |                                |              |                     |       |
+          | s_to_f_init                    |              |                     |       |
+          |                                |              |                     |       |
+          ∨                                |              ∨                     |       ∨
+      (iconf, s_to_f_stub)                 |           (iconf, p: flat)         |     conf
+          |                                |              |                     |       |
+          | f_to_c init                    |              |                     |       |
+          |                                |              |                     |       |
+          ∨                                |              ∨                     |       ∨
+      (iconf, -----------------------------+            (iconf,-----------------+      conf
+       f_to_c_compile (s_to_f_stub)                      p: clos)
+       ++ f_to_c_stub)
+
+-------> boundary
+
+
+
+
+*)
+
+
+
+
 Datatype:
   source_iconfig =
   <| n : num ;
@@ -120,24 +157,36 @@ Definition icompile_source_to_flat_def:
   (source_iconf, MAP (flat_pattern$compile_dec source_iconf.pattern_cfg) p')
 End
 
+Definition icompile_flat_to_clos_def:
+  icompile_flat_to_clos p =
+  flat_to_clos$compile_decs p
+End
+
+
 Definition init_icompile_def:
   init_icompile (source_conf : source_to_flat$config) =
   let next = source_conf.next with <| vidx := source_conf.next.vidx + 1 |> in
   let env_gens = <| next := 0; generation := source_conf.envs.next; envs := LN |> in
-  let source_to_flat_stub = flat_pattern$compile_dec source_conf.pattern_cfg source_to_flat$alloc_env_ref in
+  let flat_stub = flat_pattern$compile_dec source_conf.pattern_cfg source_to_flat$alloc_env_ref in
+  (* always insert interpreter code *)
+  let clos_stub = (clos_interp$compile_init T) :: (flat_to_clos$compile_decs [flat_stub]) in
+
     (<| n := 1n;
        next := next;
        env := source_conf.mod_env;
        env_gens := env_gens;
        pattern_cfg := source_conf.pattern_cfg |> : source_iconfig,
-     [source_to_flat_stub])
+     clos_stub)
 
 End
 
 Definition icompile_def:
   icompile (source_iconf : source_iconfig)  p =
   let p = source_to_source$compile p in
-  icompile_source_to_flat source_iconf p
+  let (source_iconf, p) = icompile_source_to_flat source_iconf p in
+  let p = icompile_flat_to_clos p in
+  (source_iconf, p)
+
 End
 
 
@@ -227,8 +276,36 @@ Proof
   rpt gen_tac >>
   simp[] >>
   once_rewrite_tac[source_to_flat_compile_decs_lemma_cons] >>
-  rw[] >> rpt (pairarg_tac >> gvs[])  >> gvs[extend_env_assoc]
+  rw[] >> rpt (pairarg_tac >> gvs[])  >> gvs[extend_env_assoc])
 QED
+
+
+
+Theorem flat_to_clos_compile_decs_and_append_commute:
+  ∀p1.
+  flat_to_clos$compile_decs (p1 ++ p2) =
+  (flat_to_clos$compile_decs p1) ++ (flat_to_clos$compile_decs p2)
+Proof
+  Induct >> rw[flat_to_closTheory.compile_decs_def] >>
+  Cases_on ‘h’ >> simp[flat_to_closTheory.compile_decs_def]
+QED
+
+Theorem flat_to_clos_compile_decs_cons:
+  flat_to_clos$compile_decs (p :: ps) =
+  flat_to_clos$compile_decs ([p] ++ ps)
+Proof
+  rw[flat_to_closTheory.compile_decs_def]
+QED
+
+
+
+Theorem icompile_flat_to_clos_and_append_commute:
+  icompile_flat_to_clos (p1 ++ p2) =
+  (icompile_flat_to_clos p1) ++ (icompile_flat_to_clos p2)
+Proof
+  rw[icompile_flat_to_clos_def] >> simp[flat_to_clos_compile_decs_and_append_commute]
+QED
+
 
 Theorem source_to_source_compile_append:
   ∀p1 p2.
@@ -240,8 +317,6 @@ Proof
   every_case_tac >> gs[]
 QED
 
-
-
 (* Composing adjacent icompile runs *)
 Theorem icompile_icompile:
   icompile source_iconf prog1 = (source_iconf', prog1') ∧
@@ -250,7 +325,7 @@ Theorem icompile_icompile:
 Proof
   rw[icompile_def, icompile_source_to_flat_def] >>
   rpt (pairarg_tac >> gvs[]) >>
-  gvs[source_to_source_compile_append, source_to_flat_compile_decs_lemma, extend_env_assoc]
+  gvs[source_to_source_compile_append, source_to_flat_compile_decs_lemma, extend_env_assoc, icompile_flat_to_clos_and_append_commute]
 QED
 
 Definition config_prog_rel_def:
@@ -279,13 +354,19 @@ Theorem init_icompile_icompile_end_icompile:
 Proof
   rw[] >>
   fs [init_icompile_def, icompile_def, end_icompile_def, icompile_source_to_flat_def] >>
-  pairarg_tac >> gvs[] >>
+  rpt (pairarg_tac >> gvs[]) >>
   fs [compile_alt_def,source_to_flat_compile_alt_def]>>
   rpt (pairarg_tac >> gvs[]) >>
   fs[source_to_flat_compile_prog_alt_def] >>
   rpt (pairarg_tac >> gvs[])  >>
   rw[extend_env_empty_env] >>
-  rw[config_prog_rel_def]
+  rw[flat_to_clos_compile_alt_def, icompile_flat_to_clos_def, APPEND] >>
+  rw[config_prog_rel_def] >>
+  once_rewrite_tac[flat_to_clos_compile_decs_cons] >>
+  assume_tac (GEN_ALL flat_to_clos_compile_decs_and_append_commute) >>
+  (* i dont know how else to avoid this... *)
+  first_x_assum $ qspecl_then [‘MAP (compile_dec c.source_conf.pattern_cfg) p'’, ‘[compile_dec c.source_conf.pattern_cfg alloc_env_ref]’] assume_tac >>
+  gvs[]
 QED
 
 
@@ -296,18 +377,20 @@ Theorem fold_icompile_collapse:
 Proof
   Induct >> rw[fold_icompile_def] >- (
   rw[icompile_def, icompile_source_to_flat_def] >>
-  pairarg_tac >> gvs[] >>
+  rpt (pairarg_tac >> gvs[]) >>
   gvs[source_to_flatTheory.compile_decs_def,
       source_to_sourceTheory.compile_def,
       source_letTheory.compile_decs_def] >>
-  rw[theorem "source_iconfig_component_equality", extend_env_empty_env] )
+  rw[theorem "source_iconfig_component_equality", extend_env_empty_env] >>
+  rw[icompile_flat_to_clos_def, flat_to_closTheory.compile_decs_def]
+  )
   >>
   rpt (pairarg_tac >> gvs[]) >>
   metis_tac[icompile_icompile]
 QED
 
 Theorem icompile_eq:
-  init_icompile (source_conf : source_to_flat$config) = (source_iconf : source_iconfig, stub_prog : dec list)
+  init_icompile (source_conf : source_to_flat$config) = (source_iconf : source_iconfig, stub_prog)
   ∧
   fold_icompile source_iconf progs = (source_iconf', icompiled_prog)
   ∧
