@@ -565,6 +565,7 @@ Definition conv_Exp_alt_def:
         else NONE
     | Lf v12 =>
         if tokcheck (Lf v12) (kw BaseK) then SOME BaseAddr
+        else if tokcheck (Lf v12) (kw BiwK) then SOME BytesInWord
         else if tokcheck (Lf v12) (kw TrueK) then SOME $ Const 1w
                    else if tokcheck (Lf v12) (kw FalseK) then SOME $ Const 0w
         else NONE)) ∧
