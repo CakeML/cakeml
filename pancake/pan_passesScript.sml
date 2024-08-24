@@ -129,6 +129,8 @@ Definition pan_exp_to_display_def:
     = Item NONE (strlit "Label") [String n]) ∧
   (pan_exp_to_display BaseAddr
     = Item NONE (strlit "BaseAddr") []) ∧
+  (pan_exp_to_display BytesInWord
+    = Item NONE (strlit "BytesInWord") []) ∧
   (pan_exp_to_display (panLang$Load shape exp2)
     = Item NONE (strlit "MemLoad")
            [String (shape_to_str shape);
