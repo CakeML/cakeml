@@ -178,8 +178,10 @@ val _ = translate $ spec64 comp_field_def;
 
 val _ = translate $ spec64 exp_hdl_def;
 
-val _ = translate $ INST_TYPE[alpha|->“:64”,
-                              beta|->“:64”] compile_exp_def
+val _ = translate $ SIMP_RULE std_ss [byteTheory.bytes_in_word_def,lem]
+                  $ INST_TYPE[alpha|->“:64”,
+                              beta|->“:64”]
+                  compile_exp_def;
 
 val res = translate_no_ind $ spec64 compile_def;
 
