@@ -6,7 +6,7 @@ The Pancake parser.
 * March 2024: Updated with shared memory instructions
 
 [panLexerScript.sml](panLexerScript.sml):
-* The beginnings of a lexer for the Pancake language.
+* A lexer for the Pancake language.
 
 [panPEGScript.sml](panPEGScript.sml):
 * The beginnings of a PEG parser for the Pancake language.

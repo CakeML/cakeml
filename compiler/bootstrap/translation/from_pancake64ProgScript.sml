@@ -698,12 +698,14 @@ val res = translate $ spec64 $ GSYM $ cj 2 conv_Exp_thm
 
 val res = translate $ spec64 $ SIMP_RULE std_ss [option_map_thm, OPTION_MAP2_thm] conv_NonRecStmt_def;
 
+val res = translate $ spec64 $ add_locs_annot_def;
+
 val res = translate butlast_def;
 
 val res = preprocess $ spec64 conv_Prog_def |> translate_no_ind;
 
 Theorem conv_Prog_ind:
-  panptreeconversion_conv_handle_ind (:'b)
+  panptreeconversion_conv_handle_ind
 Proof
   PURE_REWRITE_TAC [fetch "-" "panptreeconversion_conv_handle_ind_def"]
   \\ rpt gen_tac

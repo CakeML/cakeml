@@ -419,6 +419,7 @@ Definition evaluate_def:
   (evaluate (Tick,s) =
     if s.clock = 0 then (SOME TimeOut,empty_locals s)
     else (NONE,dec_clock s)) /\
+  (evaluate (Annot _,s) = (NONE, s)) /\
   (evaluate (Call caltyp trgt argexps,s) =
     case (eval s trgt, OPT_MMAP (eval s) argexps) of
      | (SOME (ValLabel fname), SOME args) =>

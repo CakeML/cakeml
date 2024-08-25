@@ -75,7 +75,8 @@ Datatype:
        | Return ('a exp)
        | ShMemLoad opsize varname ('a exp)
        | ShMemStore opsize ('a exp) ('a exp)
-       | Tick;
+       | Tick
+       | Annot mlstring
 End
 
 (*

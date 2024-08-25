@@ -73,6 +73,12 @@ Definition keep_ident_def:
                        | _ => F) mkleaf
 End
 
+Definition keep_annot_def:
+  keep_annot = tok (λt. case t of
+                       | AnnotCommentT _ => T
+                       | _ => F) mkleaf
+End
+
 Definition keep_ffi_ident_def:
   keep_ffi_ident = tok (λt. case t of
                        | ForeignIdent _ => T
@@ -143,6 +149,7 @@ Definition pancake_peg_def[nocompute]:
                                            FLAT]
                                (mksubtree ParamListNT));
         (INL ProgNT, rpt (choicel [mknt BlockNT;
+                                   keep_annot;
                                    seql [mknt StmtNT;
                                          consume_tok SemiT] I])
                          (mksubtree ProgNT o FLAT));
@@ -434,7 +441,7 @@ val wfpeg_rwts = wfpeg_cases
                                      ‘consume_tok t’, ‘keep_kw k’,
                                      ‘consume_kw k’, ‘keep_int’,
                                      ‘keep_nat’,‘keep_ffi_ident’,
-                                     ‘keep_ident’,
+                                     ‘keep_ident’,‘keep_annot’,
                                      ‘pegf e f’])
                    |> map (CONV_RULE
                            (RAND_CONV (SIMP_CONV (srw_ss())
@@ -663,7 +670,7 @@ fun wfnt tm (t,acc) = let
                      seql_def, keep_tok_def, consume_tok_def,
                      keep_kw_def, consume_kw_def, keep_int_def,
                      keep_nat_def, keep_ident_def, keep_ffi_ident_def,
-                     peg_accfupds]) THEN
+                     keep_annot_def, peg_accfupds]) THEN
           simp(wfpeg_rwts @ wfpeg_rwts' @ npeg0_rwts @ npeg1_rwts @ peg0_rwts @ peg1_rwts @ acc
               ) THEN
           simp(mknt_def::wfpeg_rwts @ wfpeg_rwts' @ npeg0_rwts @ npeg1_rwts @ peg0_rwts @ peg1_rwts @ acc @
@@ -694,7 +701,8 @@ Proof
        subexprs_mknt, peg_start, peg_range, DISJ_IMP_THM,FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, keep_tok_def, consume_tok_def,
        keep_kw_def, consume_kw_def, keep_int_def, keep_nat_def,
-       keep_ident_def, keep_ffi_ident_def, try_def, try_default_def] >>
+       keep_ident_def, keep_annot_def, keep_ffi_ident_def, try_def,
+       try_default_def] >>
   simp(pancake_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
 QED
 
@@ -705,7 +713,8 @@ Proof
        subexprs_mknt, peg_start, peg_range, DISJ_IMP_THM,FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, keep_tok_def, consume_tok_def,
        keep_kw_def, consume_kw_def, keep_int_def, keep_nat_def,
-       keep_ident_def, keep_ffi_ident_def, try_def, try_default_def] >>
+       keep_ident_def, keep_annot_def, keep_ffi_ident_def, try_def,
+       try_default_def] >>
   simp(pancake_wfpeg_thm2 :: wfpeg_rwts' @ peg1_rwts @ npeg1_rwts)
 QED
 

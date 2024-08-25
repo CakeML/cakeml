@@ -297,7 +297,8 @@ Definition compile_def:
            SOME (_, r'::_) => ShMem (load_op op) r' a
          | _ => Skip)
      | _ => Skip)) ∧
-  (compile ctxt Tick = Tick)
+  (compile ctxt Tick = Tick) ∧
+  (compile _ (Annot _) = Skip)
 End
 
 Definition mk_ctxt_def:

@@ -121,6 +121,7 @@ val r = pan_passesTheory.pan_exp_to_display_def |> spec32 |> translate;
 val r = pan_passesTheory.crep_exp_to_display_def |> spec32 |> translate;
 val r = pan_passesTheory.loop_exp_to_display_def |> spec32 |> translate;
 
+val r = pan_passesTheory.dest_annot_def |> spec32 |> translate;
 val r = pan_passesTheory.pan_seqs_def |> spec32 |> translate;
 val r = pan_passesTheory.crep_seqs_def |> spec32 |> translate;
 val r = pan_passesTheory.loop_seqs_def |> spec32 |> translate;

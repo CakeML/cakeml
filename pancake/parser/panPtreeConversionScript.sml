@@ -51,6 +51,12 @@ Definition tokcheck_def:
 End
 (** End copy **)
 
+Definition dest_annot_tok_def:
+  dest_annot_tok pt = case (OPTION_BIND (destLf pt) destTOK) of
+      SOME (AnnotCommentT c) => SOME c
+    | _ => NONE
+End
+
 Definition kw_def:
   kw k = KeywordT k
 End
@@ -425,7 +431,9 @@ Definition conv_NonRecStmt_def:
     else if tokcheck leaf (kw BrK) then SOME Break
     else if tokcheck leaf (kw ContK) then SOME Continue
     else if tokcheck leaf (kw TicK) then SOME Tick
-    else NONE
+    else (case dest_annot_tok leaf of
+      | SOME c => SOME (Annot (implode c))
+      | NONE => NONE)
 End
 
 Definition butlast_def:
@@ -468,6 +476,27 @@ Proof
   gs[]
 QED
 
+Definition parsetree_locs_def:
+  parsetree_locs tree = (case tree of
+    | Nd (_, Locs p1 p2) _ => (p1, p2)
+    | Lf (_, Locs p1 p2) => (p1, p2)
+  )
+End
+
+Definition posn_string_def:
+  posn_string (POSN lnum cnum) = (toString lnum ++ ":" ++ toString cnum) /\
+  posn_string EOFpt = "EOF" /\
+  posn_string UNKNOWNpt = "UNKNOWN"
+End
+
+Definition locs_comment_def:
+  locs_comment (p1, p2) = implode ("(location " ++ posn_string p1 ++ " " ++ posn_string p2 ++ ")")
+End
+
+Definition add_locs_annot_def:
+  add_locs_annot ptree prog = panLang$Seq (Annot (locs_comment (parsetree_locs ptree))) prog
+End
+
 Definition conv_Prog_def:
   (conv_Handle tree =
     case argsNT tree HandleNT of
@@ -491,31 +520,32 @@ Definition conv_Prog_def:
                     od
      | _ => NONE) ∧
   (conv_Prog (Nd nodeNT args) =
+     let nd = Nd nodeNT args in
      if isNT nodeNT DecNT then
        case args of
          [id; e; p] => do v <- conv_ident id;
                           e' <- conv_Exp e;
                           p' <- conv_Prog p;
-                          SOME (Dec v e' p')
+                          SOME (add_locs_annot nd (Dec v e' p'))
                        od
        | _ => NONE
      else if isNT nodeNT IfNT then
        case args of
          [e; p] => do e' <- conv_Exp e;
                       p' <- conv_Prog p;
-                      SOME (If e' p' Skip)
+                      SOME (add_locs_annot nd (If e' p' Skip))
                    od
        | [e; p1; p2] => do e' <- conv_Exp e;
                            p1' <- conv_Prog p1;
                            p2' <- conv_Prog p2;
-                           SOME (If e' p1' p2')
+                           SOME (add_locs_annot nd (If e' p1' p2'))
                         od
        | _ => NONE
      else if isNT nodeNT WhileNT then
        case args of
          [e; p] => do e' <- conv_Exp e;
                       p' <- conv_Prog p;
-                      SOME (While e' p')
+                      SOME (add_locs_annot nd (While e' p'))
                    od
        | _ => NONE
      else if isNT nodeNT DecCallNT then
@@ -526,7 +556,7 @@ Definition conv_Prog_def:
               e' <- conv_Exp e;
               args' <- (case ts of [] => NONE | [x] => SOME [] | args::_ => conv_ArgList args);
               p' <- (case ts of [] => NONE | [p] => conv_Prog p | args::p::_ => conv_Prog p);
-              SOME $ DecCall i' s' e' args' p'
+              SOME $ add_locs_annot nd $ DecCall i' s' e' args' p'
            od
        | _ => NONE
      else if isNT nodeNT CallNT then
@@ -541,7 +571,7 @@ Definition conv_Prog_def:
                      do e' <- conv_Exp r;
                         args' <- (case ts of [] => SOME []
                                           | args::_ => conv_ArgList args);
-                        SOME $ TailCall e' args'
+                        SOME $ add_locs_annot nd $ TailCall e' args'
                      od)
             | NONE =>
                 (case conv_Handle r of
@@ -549,7 +579,7 @@ Definition conv_Prog_def:
                      do e' <- conv_Exp r;
                         args' <- (case ts of [] => SOME []
                                           | args::_ => conv_ArgList args);
-                        SOME $ StandAloneCall NONE e' args'
+                        SOME $ add_locs_annot nd $ StandAloneCall NONE e' args'
                      od
                  | SOME h =>
                      (case ts of
@@ -558,7 +588,7 @@ Definition conv_Prog_def:
                           do e' <- conv_Exp r;
                              args' <- (case ts of [] => SOME []
                                                | args::_ => conv_ArgList args);
-                             SOME $ StandAloneCall h e' args'
+                             SOME $ add_locs_annot nd $ StandAloneCall h e' args'
                           od))
             | SOME(SOME r') =>
                 (case ts of
@@ -567,7 +597,7 @@ Definition conv_Prog_def:
                      do e' <- conv_Exp e;
                         args' <- (case xs of [] => SOME []
                                           | args::_ => conv_ArgList args);
-                        SOME $ panLang$Call (SOME r') e' args'
+                        SOME $ add_locs_annot nd $ panLang$Call (SOME r') e' args'
                      od))
      else if isNT nodeNT ProgNT then
        case args of
@@ -576,8 +606,8 @@ Definition conv_Prog_def:
                              (MAP conv_Prog (t::(butlast ts)))
                   else conv_Prog t
        | _ => NONE
-     else conv_NonRecStmt (Nd nodeNT args)) ∧
-  conv_Prog leaf = conv_NonRecStmt leaf
+     else OPTION_MAP (add_locs_annot nd) (conv_NonRecStmt (Nd nodeNT args))) ∧
+  conv_Prog leaf = OPTION_MAP (add_locs_annot leaf) (conv_NonRecStmt leaf)
 Termination
   WF_REL_TAC ‘measure (λx. case x of
                              INR x => sum_CASE x ptree_size ptree_size
