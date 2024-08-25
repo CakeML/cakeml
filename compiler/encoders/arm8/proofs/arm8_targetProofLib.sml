@@ -138,14 +138,12 @@ val lem14 = Q.prove(
    rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def]
    )
 
-(*
 val lem14b = Q.prove(
    `!s state c: word64 n.
-      target_state_rel arm8_target s state /\ n <> 26 /\ n <> 31 /\ n < 32 /\
+      target_state_rel arm8_target s state /\ n <> 18 /\ n <> 31 /\ n <> 26 /\ n < 32 /\
       aligned 2 (c + s.regs n) ==> aligned 2 (c + state.REG (n2w n))`,
    rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def]
    )
-*)
 
 val lem16 =
    blastLib.BBLAST_PROVE
@@ -367,7 +365,8 @@ val encode_rwts =
    let
       open arm8Theory
    in
-      [arm8_enc, arm8_ast, arm8_load_store_ast_def, arm8_encode_def, Encode_def,
+      [arm8_enc, arm8_ast, arm8_load_store_ast_def, arm8_load_store_ast32_def,
+       arm8_encode_def, Encode_def,
        e_data_def, e_branch_def, e_load_store_def, e_sf_def,
        e_LoadStoreImmediate_def, EncodeLogicalOp_def, NoOperation_def,
        ShiftType2num_thm, SystemHintOp2num_thm, ShiftType2num_thm,

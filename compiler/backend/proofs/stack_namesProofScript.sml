@@ -141,6 +141,26 @@ Proof
   gs[rename_state_def]
 QED
 
+Theorem sh_mem_load32_rename_state[simp]:
+  BIJ (find_name f) UNIV UNIV ⇒
+  sh_mem_load32 (find_name f x) y (rename_state c f s) =
+  (FST (sh_mem_load32 x y s), (rename_state c f) (SND (sh_mem_load32 x y s)))
+Proof
+  rw[sh_mem_load32_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  gs[rename_state_def,BIJ_DEF]>>
+  dep_rewrite.DEP_REWRITE_TAC[MAP_KEYS_FUPDATE]>>
+  metis_tac[BIJ_IMP_11,INJ_DEF,IN_UNIV]
+QED
+
+Theorem sh_mem_store32_rename_state[simp]:
+  BIJ (find_name f) UNIV UNIV ⇒
+  sh_mem_store32 (find_name f x) y (rename_state c f s) =
+  (FST (sh_mem_store32 x y s), (rename_state c f) (SND (sh_mem_store32 x y s)))
+Proof
+  simp[sh_mem_store32_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  gs[rename_state_def]
+QED
+
 Theorem sh_mem_op_rename_store[simp]:
   BIJ (find_name f) UNIV UNIV ⇒
   sh_mem_op op (find_name f r) a (rename_state c f s) =

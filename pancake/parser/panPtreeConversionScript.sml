@@ -381,6 +381,10 @@ Definition conv_NonRecStmt_def:
       case args of
         [v; e] => lift2 (ShMemLoad Op8) (conv_ident v) (conv_Exp e)
       | _ => NONE
+    else if isNT nodeNT SharedLoad32NT then
+      case args of
+        [v; e] => lift2 (ShMemLoad Op32) (conv_ident v) (conv_Exp e)
+      | _ => NONE
     else if isNT nodeNT SharedStoreNT then
       case args of
         [v; e] => lift2 (ShMemStore OpW) (conv_Exp v) (conv_Exp e)
@@ -388,6 +392,10 @@ Definition conv_NonRecStmt_def:
     else if isNT nodeNT SharedStoreByteNT then
       case args of
         [v; e] => lift2 (ShMemStore Op8) (conv_Exp v) (conv_Exp e)
+      | _ => NONE
+    else if isNT nodeNT SharedStore32NT then
+      case args of
+        [v; e] => lift2 (ShMemStore Op32) (conv_Exp v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT ExtCallNT then
       case args of

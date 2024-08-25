@@ -112,7 +112,8 @@ End
 
 Definition opsize_to_display_def:
   opsize_to_display Op8 = empty_item (strlit "byte") ∧
-  opsize_to_display OpW = empty_item (strlit "word")
+  opsize_to_display OpW = empty_item (strlit "word") ∧
+  opsize_to_display Op32 = empty_item (strlit "halfword")
 End
 
 Definition insert_es_def:
@@ -330,8 +331,10 @@ Definition crep_prog_to_display_def:
      let prefix = (case mop of
                    | Load => [String (strlit "load"); String (strlit "word")]
                    | Load8 => [String (strlit "load"); String (strlit "byte")]
+                   | Load32 => [String (strlit "load"); String (strlit "halfword")]
                    | Store => [String (strlit "store"); String (strlit "word")]
-                   | Store8 => [String (strlit "store"); String (strlit "byte")]) in
+                   | Store8 => [String (strlit "store"); String (strlit "byte")]
+                   | Store32 => [String (strlit "store"); String (strlit "halfword")]) in
        Item NONE (strlit "shared_mem")
             (prefix ++ [num_to_display v; crep_exp_to_display e])) ∧
   (crep_prog_to_display (ExtCall f e1 e2 e3 e4) =
