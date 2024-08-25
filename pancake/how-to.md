@@ -27,7 +27,7 @@ To invoke the Pancake compiler on this program, run the following (assuming `cak
 
     $ cake --pancake < test.🥞 > test.S
 
-The `--pancake` compiler flag indicates that we want to compile Pancake code; by default, `cake` assumes you want to compile CakeML, regardless of file extension). The compiler accepts Pancake source code on `stdin`, and outputs the compiled assembly template to `stdout`. We pipe these to and from the desired files.
+The `--pancake` compiler flag indicates that we want to compile Pancake code; by default, `cake` assumes you want to compile CakeML, regardless of file extension. The compiler accepts Pancake source code on `stdin`, and outputs the compiled assembly template to `stdout`. We pipe these to and from the desired files.
 
 ### Running the compiler output
 
@@ -71,17 +71,21 @@ TODO: globals, dynamic alloc
 
 ### Known issues
 
-TODO: empty loops, bitmap store, 
+TODO: empty loops
 
 ### Planned features
 
-TODO: shape annotations, continuations?
+TODO: shape annotations
 
 ## Bonus content
 
 ### The C preprocessor and Pancake
 
 TODO: you can use it
+
+### The `--explore` compiler option
+
+TODO: it exists now
 
 ### Compiler output details
 
