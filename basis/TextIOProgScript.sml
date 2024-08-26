@@ -650,7 +650,7 @@ val _ = (append_prog o process_topdecs) `
   fun fold_tokens_loop c0 tokP mp fld is y =
     case b_inputLineTokens c0 is tokP mp of
       None => y
-    | Some c => fold_tokens_loop c0 g h f is (f c y);`;
+    | Some c => fold_tokens_loop c0 tokP mp fld is (fld c y);`;
 
 val _ = ml_prog_update open_local_in_block;
 
