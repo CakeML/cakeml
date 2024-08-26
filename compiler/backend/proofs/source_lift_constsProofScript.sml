@@ -341,6 +341,24 @@ Proof
   metis_tac[]
 QED
 
+Theorem lift_exp_acc_aux:
+  (∀b xs n e e' n' xs'.
+    lift_exp b xs n e = (e',n',xs') ⇒
+    ∀ys. lift_exp b (xs++ys) n e = (e',n',xs'++ys)) ∧
+  (∀b xs n es es' n' xs'.
+    lift_exps b xs n es = (es',n',xs') ⇒
+    ∀ys. lift_exps b (xs++ys) n es = (es',n',xs'++ys)) ∧
+  (∀b xs n pes pes' n' xs'.
+    lift_pes b xs n pes = (pes',n',xs') ⇒
+    ∀ys. lift_pes b (xs++ys) n pes = (pes',n',xs'++ys)) ∧
+  (∀b xs n funs funs' n' xs'.
+    lift_funs b xs n funs = (funs',n',xs') ⇒
+    ∀ys. lift_funs b (xs++ys) n funs = (funs',n',xs'++ys))
+Proof
+  ho_match_mp_tac lift_exp_ind>>rw[lift_exp_def]>>
+  rpt(pairarg_tac>>fs[])>>strip_tac>>gvs[]
+QED
+
 Theorem lift_exp_acc:
   ∀e b xs n e' n' xs'.
     lift_exp b xs n e = (e',n',xs') ⇒
@@ -348,7 +366,23 @@ Theorem lift_exp_acc:
       xs' = ys ++ xs ∧
       lift_exp b [] n e = (e',n',ys)
 Proof
-  cheat
+  rpt strip_tac>>
+  ‘let
+     (e'0,n'0,xs0) = lift_exp b [] n e;
+     (e',n',xs') = lift_exp b xs n e
+   in
+     e'0=e' ∧ n'0=n' ∧ xs'=xs0++xs’ by
+  (
+    rw[]>>rpt(pairarg_tac>>fs[])>>
+    ‘(∀b xs n e e' n' xs'.
+       lift_exp b xs n e = (e',n',xs') ⇒
+       ∀ys. lift_exp b (xs ++ ys) n e = (e',n',xs' ++ ys))’
+      by metis_tac[lift_exp_acc_aux]>>
+    ‘lift_exp b ([]++xs) n e = (e'0,n'0,xs0 ++ xs)’
+      by metis_tac[]>>
+    fs[]
+  )
+  >>fs[]>>rpt(pairarg_tac>>fs[])
 QED
 
 Theorem lift_exps_acc:
@@ -358,7 +392,7 @@ Theorem lift_exps_acc:
       xs' = ys ++ xs ∧
       lift_exps b [] n es = (es',n',ys)
 Proof
-  cheat
+  cheat (* similar *)
 QED
 
 Theorem FDOM_SUBSET_SUBMAP:
