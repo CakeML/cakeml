@@ -50,6 +50,7 @@ Datatype:
       | Cmp cmp exp exp
       | Shift shift exp num
       | BaseAddr
+      | BytesInWord
 End
 
 Datatype:

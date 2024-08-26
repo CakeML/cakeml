@@ -178,8 +178,10 @@ val _ = translate $ spec64 comp_field_def;
 
 val _ = translate $ spec64 exp_hdl_def;
 
-val _ = translate $ INST_TYPE[alpha|->“:64”,
-                              beta|->“:64”] compile_exp_def
+val _ = translate $ SIMP_RULE std_ss [byteTheory.bytes_in_word_def,lem]
+                  $ INST_TYPE[alpha|->“:64”,
+                              beta|->“:64”]
+                  compile_exp_def;
 
 val res = translate_no_ind $ spec64 compile_def;
 
@@ -569,6 +571,7 @@ Definition conv_Exp_alt_def:
         else NONE
     | Lf v12 =>
         if tokcheck (Lf v12) (kw BaseK) then SOME BaseAddr
+        else if tokcheck (Lf v12) (kw BiwK) then SOME BytesInWord
         else if tokcheck (Lf v12) (kw TrueK) then SOME $ Const 1w
                    else if tokcheck (Lf v12) (kw FalseK) then SOME $ Const 0w
         else NONE)) ∧
