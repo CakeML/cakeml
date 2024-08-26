@@ -2750,7 +2750,8 @@ Proof
                   disch_then $ qspec_then ‘k1’ mp_tac >>
                   unabbrev_all_tac >>
                   simp[mrec_sem_simps,ltree_lift_cases])
-             >- (‘ltree_lift query_oracle (s with locals := r).ffi (mrec_sem (h_prog (q,s with locals := r))) ≈ Ret (SOME (Return v),w)’ by simp[]>>
+             >- (‘ltree_lift query_oracle (s with locals := r).ffi
+                  (mrec_sem (h_prog (q,s with locals := r))) ≈ Ret (SOME (Return v),w)’ by simp[]>>
                  drule stree_trace_ret_events>>strip_tac>>fs[]>>
                  simp[Once LAPPEND_ASSOC]>>
                  qmatch_goalsub_abbrev_tac ‘LAPPEND X _’>>
@@ -4165,8 +4166,6 @@ Theorem evaluate_stree_trace_LPREFIX:
    ++ₗ  stree_trace query_oracle event_filter s.ffi
         (to_stree (mrec_sem (h_prog (prog,s)))))
 Proof
-  cheat
-  (*
   strip_tac>>
   qabbrev_tac ‘x=reclock s with clock :=k’>>
   ‘s.ffi = x.ffi’ by simp[Abbr‘x’]>>fs[]>>
@@ -4185,7 +4184,7 @@ Proof
        gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])>>NO_TAC)
   >- (* Dec *)
    (gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])>>
-fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
+    fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
        msem_lift_monad_law,to_stree_simps,stree_trace_simps,to_stree_monad_law,
        panPropsTheory.eval_upd_clock_eq,ltree_lift_monad_law]>>
     qmatch_asmsub_abbrev_tac ‘¬(X >>= Y ≈ _)’>>
@@ -4198,14 +4197,23 @@ fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
     fs[Abbr‘X’]>>
     drule (INST_TYPE [delta|->alpha] ltree_lift_nonret_bind_stree)>>
     strip_tac>>fs[]>>metis_tac[])
-  (* ShMem *)
-   >>~- ([‘ShMem’],
+  (* ShMemLoad *)
+   >>~- ([‘ShMemLoad’],
          gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])>>
-         fs[h_prog_def,h_prog_rule_sh_mem_def,mrec_sem_simps,ltree_lift_cases,
+         fs[h_prog_def,h_prog_rule_sh_mem_load_def,mrec_sem_simps,ltree_lift_cases,
             to_stree_simps,stree_trace_simps,ltree_lift_monad_law,
          panPropsTheory.opt_mmap_eval_upd_clock_eq1,set_var_defs,
          panPropsTheory.eval_upd_clock_eq,to_stree_monad_law]>>
-         Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def]>>
+         Cases_on ‘op’>>fs[nb_op_def,sh_mem_load_def, h_prog_rule_sh_mem_load_nb_def]>>
+         rpt (FULL_CASE_TAC>>gvs[]))
+   (* ShMemStore *)
+   >>~- ([‘ShMemStore’],
+         gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])>>
+         fs[h_prog_def,h_prog_rule_sh_mem_store_def,mrec_sem_simps,ltree_lift_cases,
+            to_stree_simps,stree_trace_simps,ltree_lift_monad_law,
+            panPropsTheory.opt_mmap_eval_upd_clock_eq1,set_var_defs,
+            panPropsTheory.eval_upd_clock_eq,to_stree_monad_law]>>
+         Cases_on ‘op’>>fs[nb_op_def,sh_mem_store_def, h_prog_rule_sh_mem_store_nb_def]>>
          rpt (FULL_CASE_TAC>>gvs[]))
   >- (* Seq *)
    (gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])
@@ -4361,11 +4369,85 @@ fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
   >~[‘Tick’]
   >- (gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])>>
       fs[h_prog_def,empty_locals_defs,mrec_sem_simps,to_stree_simps,
-         stree_trace_simps]>>metis_tac[])>>
-(* Call *)
+         stree_trace_simps]>>metis_tac[])
+  >~ [‘Call’]
+  >- (gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])
+      >- (fs[empty_locals_defs]>>metis_tac[])
+      >- (fs[Once mrec_sem_Call_simps,
+             panPropsTheory.eval_upd_clock_eq,
+             panPropsTheory.opt_mmap_eval_upd_clock_eq1]>>
+          fs[to_stree_simps,stree_trace_simps,ltree_lift_cases,
+             ltree_lift_monad_law,to_stree_monad_law]>>
+          ‘(dec_clock s).ffi = s.ffi’ by simp[dec_clock_def]>>fs[]>>
+          qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
+          Cases_on ‘∃p. X ≈ Ret p’
+          >-(fs[Abbr‘X’]>>Cases_on ‘p’>>rename1 ‘Ret (q,r')’>>
+             imp_res_tac ltree_lift_state_lift'>>fs[]>>
+             drule_then drule (iffLR ret_bind_nonret)>>strip_tac>>
+             Cases_on ‘q’>>gvs[Abbr‘Y’]>>
+             gvs[mrec_sem_simps,ltree_lift_cases,h_handle_call_ret_def]>>
+             TRY (fs[Once itree_wbisim_cases]>>NO_TAC)>>
+             rename1 ‘Ret (SOME xx,r')’>>Cases_on ‘xx’>>
+             gvs[mrec_sem_simps,ltree_lift_cases,h_handle_call_ret_def]>>
+             TRY (fs[Once itree_wbisim_cases]>>NO_TAC)
+             (* Return *)
+             >- (rpt (FULL_CASE_TAC>>
+                      gvs[mrec_sem_simps,ltree_lift_cases])>>
+                 fs[Once itree_wbisim_cases])>>
+             (* Exception *)
+             rpt (FULL_CASE_TAC>>
+                  gvs[mrec_sem_simps,ltree_lift_cases])>>
+             TRY (fs[Once itree_wbisim_cases]>>NO_TAC)>>
+             gvs[set_var_defs]>>
+             imp_res_tac (INST_TYPE [delta|->alpha] stree_trace_bind_append)>>gvs[]>>
+             qspecl_then [‘dec_clock s’,‘r'’,‘unclock (dec_clock s) with locals := newlocals’,
+                          ‘SOME (Exception m v)’,‘prog’] assume_tac(GEN_ALL ltree_Ret_to_evaluate')>>
+             gvs[]>>
+             qspecl_then [‘prog’,‘dec_clock s with locals := newlocals’,
+                          ‘k-(dec_clock s).clock’] assume_tac(panPropsTheory.evaluate_add_clock_io_events_mono)>>
+             ‘(dec_clock s).clock < k’ by
+               (CCONTR_TAC>>fs[NOT_LESS]>>
+                drule panPropsTheory.evaluate_add_clock_eq>>
+                disch_then $ qspec_then ‘(dec_clock s).clock-k’ assume_tac>>
+                gvs[]>>
+                ‘(dec_clock s with clock := (dec_clock s).clock) = dec_clock s’
+                  by simp[state_component_equality]>>fs[])>>
+             gvs[h_handle_call_ret_def]>>
+             gvs[mrec_sem_simps,ltree_lift_cases,set_var_defs,
+                 to_stree_simps,stree_trace_simps]>>
+             drule panPropsTheory.evaluate_io_events_mono>>strip_tac>>fs[]>>
+             gvs[IS_PREFIX_APPEND,empty_locals_defs]>>
+             imp_res_tac stree_trace_ret_events'>>gvs[]>>
+             qpat_assum ‘_ ++ _ = _ ++ _’ $ assume_tac o GSYM>>fs[]>>
+             fs[GSYM LAPPEND_fromList]>>
+             fs[Once (GSYM LAPPEND_ASSOC)]>>
+             qpat_x_assum ‘LAPPEND _ _ = LAPPEND _ _’ $ assume_tac o GSYM >> fs[]>>
+             fs[Once LAPPEND_ASSOC]>>metis_tac[])>>
+          gvs[Abbr‘X’]>>
+          drule (INST_TYPE [delta|->alpha] ltree_lift_nonret_bind_stree)>>
+          strip_tac>>gvs[empty_locals_defs]>>metis_tac[])>>
+      (* RetCall *)
+      fs[Once mrec_sem_Call_simps,set_var_defs,
+         panPropsTheory.eval_upd_clock_eq,
+         panPropsTheory.opt_mmap_eval_upd_clock_eq1]>>
+      fs[to_stree_simps,stree_trace_simps,ltree_lift_cases,
+         ltree_lift_monad_law,to_stree_monad_law]>>
+      ‘(dec_clock s).ffi = s.ffi’ by simp[dec_clock_def]>>fs[]>>
+      drule_then rev_drule ltree_lift_corres_evaluate>>strip_tac>>gvs[]>>
+      imp_res_tac ltree_lift_state_lift'>>gvs[]>>
+      imp_res_tac stree_trace_ret_events'>>gvs[]>>
+      imp_res_tac (INST_TYPE [delta|->alpha] stree_trace_bind_append)>>gvs[]>>
+      drule_then drule (iffLR ret_bind_nonret)>>strip_tac>>
+      fs[to_stree_simps,stree_trace_simps,ltree_lift_cases,
+         ltree_lift_monad_law,to_stree_monad_law]>>
+      gvs[h_handle_call_ret_def]>>
+      gvs[mrec_sem_simps,ltree_lift_cases,set_var_defs,
+          to_stree_simps,stree_trace_simps]>>
+      fs[Once LAPPEND_ASSOC]>>metis_tac[]) >>
+(* DecCall*)
   gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])
   >- (fs[empty_locals_defs]>>metis_tac[])
-  >- (fs[Once mrec_sem_Call_simps,
+  >- (fs[Once mrec_sem_DecCall_simps,
          panPropsTheory.eval_upd_clock_eq,
          panPropsTheory.opt_mmap_eval_upd_clock_eq1]>>
       fs[to_stree_simps,stree_trace_simps,ltree_lift_cases,
@@ -4377,24 +4459,22 @@ fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
          imp_res_tac ltree_lift_state_lift'>>fs[]>>
          drule_then drule (iffLR ret_bind_nonret)>>strip_tac>>
          Cases_on ‘q’>>gvs[Abbr‘Y’]>>
-         gvs[mrec_sem_simps,ltree_lift_cases,h_handle_call_ret_def]>>
+         gvs[mrec_sem_simps,ltree_lift_cases,h_handle_deccall_ret_def]>>
          TRY (fs[Once itree_wbisim_cases]>>NO_TAC)>>
          rename1 ‘Ret (SOME xx,r')’>>Cases_on ‘xx’>>
-         gvs[mrec_sem_simps,ltree_lift_cases,h_handle_call_ret_def]>>
-         TRY (fs[Once itree_wbisim_cases]>>NO_TAC)
+         gvs[mrec_sem_simps,ltree_lift_cases,h_handle_deccall_ret_def]>>
+         TRY (fs[Once itree_wbisim_cases]>>NO_TAC)>>
          (* Return *)
-         >- (rpt (FULL_CASE_TAC>>
-                  gvs[mrec_sem_simps,ltree_lift_cases])>>
-             fs[Once itree_wbisim_cases])>>
-         (* Exception *)
          rpt (FULL_CASE_TAC>>
               gvs[mrec_sem_simps,ltree_lift_cases])>>
          TRY (fs[Once itree_wbisim_cases]>>NO_TAC)>>
          gvs[set_var_defs]>>
          imp_res_tac (INST_TYPE [delta|->alpha] stree_trace_bind_append)>>gvs[]>>
-         qspecl_then [‘dec_clock s’,‘r'’,‘unclock (dec_clock s) with locals := newlocals’,‘SOME (Exception m v)’,‘prog’] assume_tac(GEN_ALL ltree_Ret_to_evaluate')>>
+         qspecl_then [‘dec_clock s’,‘r'’,‘unclock (dec_clock s) with locals := newlocals’,
+                      ‘SOME (Return v)’,‘prog’] assume_tac(GEN_ALL ltree_Ret_to_evaluate')>>
          gvs[]>>
-         qspecl_then [‘prog’,‘dec_clock s with locals := newlocals’,‘k-(dec_clock s).clock’] assume_tac(panPropsTheory.evaluate_add_clock_io_events_mono)>>
+         qspecl_then [‘prog’,‘dec_clock s with locals := newlocals’,
+                      ‘k-(dec_clock s).clock’] assume_tac(panPropsTheory.evaluate_add_clock_io_events_mono)>>
          ‘(dec_clock s).clock < k’ by
            (CCONTR_TAC>>fs[NOT_LESS]>>
             drule panPropsTheory.evaluate_add_clock_eq>>
@@ -4402,7 +4482,7 @@ fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
             gvs[]>>
             ‘(dec_clock s with clock := (dec_clock s).clock) = dec_clock s’
               by simp[state_component_equality]>>fs[])>>
-         gvs[h_handle_call_ret_def]>>
+         gvs[h_handle_deccall_ret_def]>>
          gvs[mrec_sem_simps,ltree_lift_cases,set_var_defs,
              to_stree_simps,stree_trace_simps]>>
          drule panPropsTheory.evaluate_io_events_mono>>strip_tac>>fs[]>>
@@ -4416,8 +4496,8 @@ fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
       gvs[Abbr‘X’]>>
       drule (INST_TYPE [delta|->alpha] ltree_lift_nonret_bind_stree)>>
       strip_tac>>gvs[empty_locals_defs]>>metis_tac[])>>
-  (* RetCall *)
-  fs[Once mrec_sem_Call_simps,set_var_defs,
+  (* prog1 Return *)
+  fs[Once mrec_sem_DecCall_simps,set_var_defs,
      panPropsTheory.eval_upd_clock_eq,
      panPropsTheory.opt_mmap_eval_upd_clock_eq1]>>
   fs[to_stree_simps,stree_trace_simps,ltree_lift_cases,
@@ -4430,11 +4510,33 @@ fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
   drule_then drule (iffLR ret_bind_nonret)>>strip_tac>>
   fs[to_stree_simps,stree_trace_simps,ltree_lift_cases,
      ltree_lift_monad_law,to_stree_monad_law]>>
-  gvs[h_handle_call_ret_def]>>
+  gvs[h_handle_deccall_ret_def]>>
   gvs[mrec_sem_simps,ltree_lift_cases,set_var_defs,
       to_stree_simps,stree_trace_simps]>>
-  fs[Once LAPPEND_ASSOC]>>metis_tac[]
-*)
+  Cases_on ‘∀x. ¬(ltree_lift query_oracle st.ffi
+            (mrec_sem (h_prog (prog1,unclock st with locals := s.locals |+ (rt,retv)))) ≈ Ret x)’
+  >- (rw[msem_lift_monad_law,
+         ltree_lift_monad_law,
+         ltree_lift_nonret_bind,
+         to_stree_monad_law,
+         to_stree_simps,
+         stree_trace_simps,
+         ltree_lift_nonret_bind_stree] >>
+      fs[Once LAPPEND_ASSOC] >>
+      metis_tac[]) >>
+  gvs[mrec_sem_simps,
+      msem_lift_monad_law,
+      ltree_lift_monad_law,
+      ltree_lift_nonret_bind,
+      to_stree_monad_law,
+      to_stree_simps,
+      stree_trace_simps,
+      ltree_lift_nonret_bind_stree] >>
+  drule_then drule (iffLR ret_bind_nonret)>>strip_tac>>
+  Cases_on ‘x’ >>
+  gvs[mrec_sem_simps,ltree_lift_cases,set_var_defs,
+      to_stree_simps,stree_trace_simps]>>
+  fs[Once itree_wbisim_cases]
 QED
 
 Theorem nonret_imp_timeout:
