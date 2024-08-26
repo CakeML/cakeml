@@ -4739,8 +4739,6 @@ QED
 Theorem mrec_Ret_const_ffi:
   mrec_sem (h_prog (prog,s)) = FUNPOW Tau n (Ret (q,r)) ⇒ r.ffi = s.ffi
 Proof
-  cheat
-  (*
   map_every qid_spec_tac [‘q’,‘r’,‘s’,‘prog’,‘n’]>>
   completeInduct_on ‘n’>>rw[]>>
   Cases_on ‘n’>>fs[FUNPOW_SUC]
@@ -4752,6 +4750,7 @@ Proof
               h_prog_rule_return_def,
               h_prog_rule_raise_def,
               h_prog_rule_call_def,
+              h_prog_rule_deccall_def,
               h_prog_rule_ext_call_def,
               h_prog_rule_cond_def,
               h_prog_rule_seq_def,
@@ -4766,9 +4765,9 @@ Proof
       >- (fs[Once mrec_sem_while_unfold,mrec_sem_simps,
              panPropsTheory.eval_upd_clock_eq]>>
           rpt (FULL_CASE_TAC>>fs[mrec_sem_simps]))>>
-      Cases_on ‘m’>>
-      fs[h_prog_def,h_prog_rule_sh_mem_def,h_prog_rule_sh_mem_op_def,
-         h_prog_rule_sh_mem_load_def,h_prog_rule_sh_mem_store_def,
+      TRY (Cases_on ‘m’)>>
+      fs[h_prog_def,h_prog_rule_sh_mem_load_def, h_prog_rule_sh_mem_store_def, nb_op_def,
+         h_prog_rule_sh_mem_load_nb_def,h_prog_rule_sh_mem_store_nb_def,
          mrec_sem_simps]>>
       rpt (FULL_CASE_TAC>>fs[mrec_sem_simps]))>>
   rename1 ‘SUC n’>>
@@ -4785,7 +4784,7 @@ Proof
           h_prog_rule_store_def,
           h_prog_rule_store_byte_def,
           h_prog_rule_assign_def,
-         panPropsTheory.eval_upd_clock_eq]>>
+          panPropsTheory.eval_upd_clock_eq]>>
        rpt (FULL_CASE_TAC>>fs[mrec_sem_simps])>>NO_TAC)
   (* Dec *)
   >- (fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,
@@ -4820,10 +4819,10 @@ Proof
           FULL_CASE_TAC>>fs[mrec_sem_simps]>>
           fs[GSYM FUNPOW]
           >- (‘SUC n' ≤ n’ by
-               (CCONTR_TAC>>fs[NOT_LESS_EQUAL]>>
-                qhdtm_x_assum ‘FUNPOW’ $ assume_tac o GSYM>>
-                rfs[FUNPOW_min_cancel,Tau_INJ]>>
-                Cases_on ‘SUC n' - n’>>fs[FUNPOW_SUC])>>
+                (CCONTR_TAC>>fs[NOT_LESS_EQUAL]>>
+                 qhdtm_x_assum ‘FUNPOW’ $ assume_tac o GSYM>>
+                 rfs[FUNPOW_min_cancel,Tau_INJ]>>
+                 Cases_on ‘SUC n' - n’>>fs[FUNPOW_SUC])>>
               fs[FUNPOW_min_cancel,Tau_INJ]>>
               irule EQ_TRANS>>
               first_assum $ irule_at (Pos last)>>
@@ -4924,16 +4923,69 @@ Proof
       qhdtm_x_assum ‘FUNPOW’ mp_tac>>
       rewrite_tac[Once (Q.SPEC ‘n’ spin_FUNPOW_Tau)]>>
       simp[FUNPOW_eq_elim,Tau_INJ,Once spin])
+  (* DecCall *)
+  >- (fs[Once mrec_sem_DecCall_simps,mrec_sem_simps,
+         panPropsTheory.eval_upd_clock_eq]>>
+      rpt (FULL_CASE_TAC>>fs[mrec_sem_simps])>>
+      fs[msem_lift_monad_law]>>
+      qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
+      Cases_on ‘∃t. strip_tau X t’>>fs[]
+      >- (imp_res_tac strip_tau_FUNPOW>>
+          Cases_on ‘t’>>
+          fs[Abbr‘X’,Abbr‘Y’,FUNPOW_Tau_bind,mrec_sem_FUNPOW_Tau]>>
+          fs[ELIM_UNCURRY,mrec_sem_simps]>>
+          rename1 ‘FUNPOW _ _ (Ret x')’>>Cases_on ‘x'’>>
+          rename1 ‘FUNPOW _ _ (Ret (q0,r0))’>>
+          Cases_on ‘q0’>>fs[h_handle_deccall_ret_def,mrec_sem_simps]
+          >- (imp_res_tac FUNPOW_Tau_Ret_eq>>gvs[]>>
+              irule EQ_TRANS>>
+              first_x_assum $ irule_at (Pos hd)>>
+              first_assum $ irule_at Any>>gvs[])>>
+          rename1 ‘(SOME x',_)’>>Cases_on ‘x'’>>
+          fs[h_handle_deccall_ret_def,mrec_sem_simps]>>
+          rpt (FULL_CASE_TAC>>fs[mrec_sem_simps])>>
+          fs[empty_locals_defs]>>
+          TRY (imp_res_tac FUNPOW_Tau_Ret_eq>>gvs[]>>
+               irule EQ_TRANS>>
+               first_x_assum $ irule_at (Pos hd)>>
+               first_assum $ irule_at Any>>gvs[]>>NO_TAC) >>
+          fs[GSYM FUNPOW, set_var_defs]>>
+          ‘SUC n' ≤ n’ by
+            (CCONTR_TAC>>fs[NOT_LESS_EQUAL]>>
+             qhdtm_x_assum ‘FUNPOW’ $ assume_tac o GSYM>>
+             rfs[FUNPOW_min_cancel,Tau_INJ]>>
+             Cases_on ‘SUC n' - n’>>fs[FUNPOW_SUC])>>
+          fs[FUNPOW_min_cancel,Tau_INJ,set_var_defs, msem_lift_monad_law]>>
+          qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
+          Cases_on ‘∃t. strip_tau X t’>>fs[]
+          >- (drule_then assume_tac strip_tau_FUNPOW>> fs[] >>
+              Cases_on ‘t’>>
+              fs[Abbr‘X’,Abbr‘Y’,FUNPOW_Tau_bind,mrec_sem_FUNPOW_Tau]>>
+              fs[ELIM_UNCURRY,mrec_sem_simps]>>
+              rename1 ‘FUNPOW _ _ (Ret x')’>>Cases_on ‘x'’>>
+              drule FUNPOW_Tau_Ret_eq>>strip_tac>>gvs[]>>
+              first_assum $ drule_at Any >>
+              first_x_assum kall_tac >>
+              rw[] >>
+              first_assum $ drule_at Any >>
+              rw[]) >>
+          imp_res_tac strip_tau_spin>>gvs[spin_bind]>>
+          qhdtm_x_assum ‘FUNPOW’ mp_tac>>
+          rewrite_tac[Once (Q.SPEC ‘n - SUC n'’ spin_FUNPOW_Tau)]>>
+          simp[FUNPOW_eq_elim,Tau_INJ,Once spin])>>
+      imp_res_tac strip_tau_spin>>gvs[spin_bind]>>
+      qhdtm_x_assum ‘FUNPOW’ mp_tac>>
+      rewrite_tac[Once (Q.SPEC ‘n’ spin_FUNPOW_Tau)]>>
+      simp[FUNPOW_eq_elim,Tau_INJ,Once spin])
   (* ExtCall *)
   >- (fs[h_prog_def,h_prog_rule_ext_call_def,mrec_sem_simps,
          panPropsTheory.eval_upd_clock_eq]>>
       rpt (FULL_CASE_TAC>>fs[mrec_sem_simps]))>>
-  Cases_on ‘m’>>
-  fs[h_prog_def,h_prog_rule_sh_mem_def,h_prog_rule_sh_mem_op_def,
-     h_prog_rule_sh_mem_load_def,h_prog_rule_sh_mem_store_def,
+  TRY (Cases_on ‘m’)>>
+  fs[h_prog_def,h_prog_rule_sh_mem_load_def, h_prog_rule_sh_mem_store_def, nb_op_def,
+     h_prog_rule_sh_mem_load_nb_def,h_prog_rule_sh_mem_store_nb_def,
      mrec_sem_simps]>>
   rpt (FULL_CASE_TAC>>fs[mrec_sem_simps])
-*)
 QED
 
 Theorem bounded_0_FFI_final_w:
