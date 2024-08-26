@@ -207,9 +207,9 @@ Definition sh_mem_op_def:
   (sh_mem_op Load r (ad:'a word) (s:('a,'ffi) crepSem$state) = sh_mem_load r ad 0 s) ∧
   (sh_mem_op Store r ad s = sh_mem_store r ad 0 s) ∧
   (sh_mem_op Load8 r ad s = sh_mem_load r ad 1 s) ∧
-  (sh_mem_op Store8 r ad s = sh_mem_store r ad 1 s)(* ∧
-  (sh_mem_op Load32 r ad s = sh_mem_load r ad s 4) ∧
-  (sh_mem_op Store32 r ad s = sh_mem_store r ad s 4)*)
+  (sh_mem_op Store8 r ad s = sh_mem_store r ad 1 s) ∧
+  (sh_mem_op Load32 r ad s = sh_mem_load r ad 4 s) ∧
+  (sh_mem_op Store32 r ad s = sh_mem_store r ad 4 s)
 End
 
 Definition evaluate_def:

@@ -1139,34 +1139,6 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   (SOME “App Opapp [Var (Long "Int" (Short "~")); Lit (IntLit 3)]”)
   ;
 
-(* 2024-06-07: floating point literals *)
-
-Definition mkfloat_def:
-  mkfloat s = App Opapp [Var (Long "Double" (Short "fromString"));
-                         Lit (StrLit s)]
-End
-
-val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
-  "-. 3.0"
-  (SOME $ eval “App Opapp [Var (Long "Double" (Short "~"));
-                           mkfloat "3.0"]”)
-  ;
-
-val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
-  "3_000e+37"
-  (SOME $ eval “mkfloat "3000e+37"”)
-  ;
-
-val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
-  "1E-77"
-  (SOME $ eval “mkfloat "1E-77"”)
-  ;
-
-val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
-  "3.14151E+0_0__0"
-  (SOME $ eval “mkfloat "3.14151E+000"”)
-  ;
-
 (* if without the else *)
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”

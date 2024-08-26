@@ -214,6 +214,19 @@ Definition sh_mem_store_byte_def:
    | _ => (SOME Error, s))
 End
 
+Definition sh_mem_store32_def:
+  sh_mem_store32 r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  (case get_var r s of
+     SOME (Word w) =>
+       if byte_align a IN s.sh_mdomain then
+         (case call_FFI s.ffi (SharedMem MappedWrite) [4w:word8]
+                        (TAKE 4 (word_to_bytes w F) ++ word_to_bytes a F) of
+            FFI_final outcome => (SOME (FinalFFI outcome), s)
+          | FFI_return new_ffi new_bytes => (NONE,s with ffi := new_ffi))
+       else (SOME Error, s)
+   | _ => (SOME Error, s))
+End
+
 Definition sh_mem_load_byte_def:
   sh_mem_load_byte r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
   if byte_align a IN s.sh_mdomain then
@@ -227,13 +240,26 @@ Definition sh_mem_load_byte_def:
   else (SOME Error, s)
 End
 
+Definition sh_mem_load32_def:
+  sh_mem_load32 r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  if byte_align a IN s.sh_mdomain then
+    (case call_FFI s.ffi (SharedMem MappedRead) [4w:word8] (word_to_bytes a F) of
+       FFI_final outcome => (SOME (FinalFFI outcome), s)
+     | FFI_return new_ffi new_bytes =>
+         (NONE,
+          s with <|
+              regs := s.regs |+ (r, Word (word_of_bytes F 0w new_bytes)) ;
+              ffi := new_ffi |>))
+  else (SOME Error, s)
+End
+
 Definition sh_mem_op_def:
   (sh_mem_op Load r ad (s:('a,'c,'ffi) stackSem$state) = sh_mem_load r ad s) ∧
   (sh_mem_op Store r ad s = sh_mem_store r ad s) ∧
   (sh_mem_op Load8 r ad s = sh_mem_load_byte r ad s) ∧
-  (sh_mem_op Store8 r ad s = sh_mem_store_byte r ad s)(* ∧
-  (sh_mem_op Load32 r ad s = sh_mem_load r ad s 4) ∧
-  (sh_mem_op Store32 r ad s = sh_mem_store r ad s 4)*)
+  (sh_mem_op Store8 r ad s = sh_mem_store_byte r ad s) ∧
+  (sh_mem_op Load32 r ad s = sh_mem_load32 r ad s) ∧
+  (sh_mem_op Store32 r ad s = sh_mem_store32 r ad s)
 End
 
 val full_read_bitmap_def = Define `
@@ -406,6 +432,7 @@ val inst_def = Define `
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
         | _ => NONE)
+    | Mem Load32 _ _ => NONE
     | Mem Store r (Addr a w) =>
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME a, SOME w) =>
@@ -420,6 +447,7 @@ val inst_def = Define `
              | SOME new_m => SOME (s with memory := new_m)
              | NONE => NONE)
         | _ => NONE)
+    | Mem Store32 _ _ => NONE
     | FP (FPLess r d1 d2) =>
       (case (get_fp_var d1 s,get_fp_var d2 s) of
       | (SOME f1 ,SOME f2) =>
@@ -945,7 +973,7 @@ Theorem sh_mem_op_clock[local]:
   sh_mem_op op r a s = (res, s') ⇒ s'. clock ≤ s.clock
 Proof
   strip_tac>>Cases_on ‘op’>>
-  fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,
+  fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,sh_mem_store32_def,sh_mem_load32_def,
      sh_mem_store_byte_def,sh_mem_load_byte_def,ffiTheory.call_FFI_def]>>
   every_case_tac>>gvs[]
 QED

@@ -630,7 +630,8 @@ val state_rel_def = Define`
         ALL_DISTINCT (MAP FST ps) ) ∧
     ¬s.use_stack ∧
     ¬s.use_store ∧
-    ¬s.use_alloc`;
+    ¬s.use_alloc ∧
+    good_dimindex(:'a)`;
 
 Theorem loc_check_IMP_loc_to_pc:
    loc_check s.code (l1,l2) /\ state_rel s t1 ==>
@@ -2347,13 +2348,17 @@ Proof
       fs[o_DEF]))>>
   conj_tac >- (
     rename [`ShMemOp`] >>rpt gen_tac>>strip_tac>>
+    ‘∀w:'a word. TAKE 1 (word_to_bytes w F) = [get_byte 0w w F]’
+      by(fs[state_rel_def,good_dimindex_def,word_to_bytes_def,
+            CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV word_to_bytes_aux_def]) >>
     Cases_on ‘op’>>
     fs[stackSemTheory.evaluate_def,flatten_def]>>
     fs[word_exp_def,IS_SOME_EXISTS,wordLangTheory.word_op_def]>>
     gs[case_eq_thms]>>
     rveq>>fs[]>>
     gs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,
-       sh_mem_store_byte_def,sh_mem_load_byte_def]>>
+       sh_mem_store_byte_def,sh_mem_load_byte_def,
+       sh_mem_store32_def,sh_mem_load32_def]>>
     imp_res_tac state_rel_read_reg_FLOOKUP_regs>>
     pop_assum (assume_tac o GSYM)>>
     gs[case_eq_thms]>>rveq>>fs[]
@@ -2369,11 +2374,8 @@ Proof
           rpt (CASE_TAC>>fs[])>>
           fs[state_rel_def,dec_clock_def,inc_pc_def]>>
           gs[])>>
-
     TRY (qexists_tac ‘0’>>qexists_tac ‘t1’>>fs[state_rel_def]>>NO_TAC)>>
-
     qpat_x_assum ‘call_args (ShMemOp _ _ _) _ _ _ _ _’ mp_tac
-       (* Load *)
     >>~- ([‘call_args (ShMemOp Load _ _) _ _ _ _ _’],
          strip_tac>>
          qexists_tac`0`>>
@@ -2392,8 +2394,25 @@ Proof
          conj_tac >> rpt strip_tac>-
           (FULL_CASE_TAC>>gs[APPLY_UPDATE_THM])>>
          metis_tac[])
-  (* Load *)
     >>~- ([‘call_args (ShMemOp Load8 _ _) _ _ _ _ _’],
+         strip_tac>>
+         qexists_tac`0`>>
+                    qexists_tac ‘dec_clock t1
+                    with <| regs := t1.regs⦇r ↦ Word (word_of_bytes F 0w new_bytes)⦈;
+                            io_regs := shift_seq 1 t1.io_regs;
+                            pc:=t1.pc+1; ffi := new_ffi|>’ >>
+         simp[]>>
+         fs[code_installed_def,call_args_def] >>
+         simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+         gs[share_mem_op_def,share_mem_load_def,share_mem_store_def,addr_def]>>
+         fs[state_rel_def,stackSemTheory.dec_clock_def,dec_clock_def,inc_pc_def]>>
+         gs[]>>
+         fs[code_installed_def,call_args_def,shift_seq_def] >>
+         fs[FLOOKUP_UPDATE]>>
+         conj_tac >> rpt strip_tac>-
+          (FULL_CASE_TAC>>gs[APPLY_UPDATE_THM])>>
+         metis_tac[])
+    >>~- ([‘call_args (ShMemOp Load32 _ _) _ _ _ _ _’],
          strip_tac>>
          qexists_tac`0`>>
                     qexists_tac ‘dec_clock t1
@@ -2968,7 +2987,8 @@ Theorem state_rel_make_init:
     (∀k i n. k ∈ save_regs ⇒ s.io_regs n i k = NONE) ∧
     (∀k n. k ∈ save_regs ⇒ s.cc_regs n k = NONE) ∧
     (∀x. x ∈ s.mem_domain ⇒ w2n x MOD (dimindex (:α) DIV 8) = 0) ∧
-    (∀x. x ∈ s.shared_mem_domain ⇒ w2n x MOD (dimindex (:α) DIV 8) = 0)
+    (∀x. x ∈ s.shared_mem_domain ⇒ w2n x MOD (dimindex (:α) DIV 8) = 0) ∧
+    good_dimindex(:'a)
 Proof
   fs [state_rel_def,make_init_def,FLOOKUP_regs]
   \\ eq_tac \\ strip_tac \\ fs []

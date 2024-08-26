@@ -615,8 +615,8 @@ Proof
     rpt (TOP_CASE_TAC >> fs[state_component_equality]) >>
     fs[DefnBase.one_line_ify NONE share_inst_def,
       DefnBase.one_line_ify NONE sh_mem_set_var_def,
-      sh_mem_load_def,sh_mem_load_byte_def,
-      sh_mem_store_def,sh_mem_store_byte_def] >>
+      sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
+      sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def] >>
     rpt (TOP_CASE_TAC >>
       fs[state_component_equality,set_var_def,flush_state_def]))
 QED
@@ -1442,8 +1442,8 @@ Proof
     rpt (TOP_CASE_TAC >> fs[state_component_equality]) >>
     fs[DefnBase.one_line_ify NONE share_inst_def,
       DefnBase.one_line_ify NONE sh_mem_set_var_def,
-      sh_mem_load_def,sh_mem_load_byte_def,
-      sh_mem_store_def,sh_mem_store_byte_def] >>
+      sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
+      sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def] >>
     rpt (TOP_CASE_TAC >>
       fs[state_component_equality,set_var_def,flush_state_def]))
   >>gs[no_alloc_def, no_install_def]>>tac

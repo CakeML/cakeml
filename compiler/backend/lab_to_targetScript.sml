@@ -354,10 +354,10 @@ val find_ffi_names_def = Define `
 
 Definition get_memop_info_def:
   get_memop_info Load = (MappedRead, 0w) /\
-  (* get_memop_info Load32 = (MappedRead,4w) /\ *)
+  get_memop_info Load32 = (MappedRead,4w) /\
   get_memop_info Load8 = (MappedRead,1w) /\
   get_memop_info Store = (MappedWrite, 0w) /\
-  (* get_memop_info Store32 = (MappedWrite,4w) /\ *)
+  get_memop_info Store32 = (MappedWrite,4w) /\
   get_memop_info Store8 =(MappedWrite,1w)
 End
 
