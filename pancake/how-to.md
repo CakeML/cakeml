@@ -51,7 +51,7 @@ TODO: key structures and quirks, link to separate syntax ref sheet
 
 ### C file requirements
 
-TODO: memory alloc, cml_exit, etc
+TODO: memory alloc, cml_exit, void vs int cml_main, etc.
 
 ### Calling C from Pancake code
 
