@@ -787,6 +787,12 @@ Proof
   \\ metis_tac []
 QED
 
+Theore update_locals_not_vars_eval_eq_alt:
+  (~ MEM n (var_exp e) ==>
+  eval (s with locals := locs |+ (n, w)) e = eval s e)
+  /\
+  (s with locals := s.locals) = s
+
 Theorem write_bytearray_update_byte:
   ∀bytes ad ad' m adrs be.
     byte_aligned ad ∧
@@ -977,9 +983,9 @@ QED
 
 Theorem update_locals_not_vars_evaluate_eq:
   !prog s res s'.
+  evaluate (prog, s) = (res, s') /\
   ~MEM n (FLAT (MAP var_exp (exps_of prog))) /\
-  ~MEM n (assigns_of prog) /\
-  evaluate (prog, s) = (res, s') ==>
+  ~MEM n (assigns_of prog) ==>
   ?b.
   evaluate (prog, s with locals := s.locals |+ (n, w)) =
   (res, if b then (s' with locals := s'.locals |+ (n, w)) else s') /\
