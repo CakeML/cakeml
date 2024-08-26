@@ -193,8 +193,8 @@ Definition scope_check_def:
       fnames <<- MAP FST funs;
       renames <<- repeats $ QSORT mlstring_lt fnames;
       mapM (\f. log $ concat [strlit "function "; f; strlit " is redeclared\n"]) renames; (*
-      expfnames <<- MAP FST $ FILTER (\(_,_,ps,_). LENGTH ps > 4) $ FILTER (FST o SND) funs // actually, only need the first one
-      *mapM (\f. error $ StaticError $ concat [strlit "exported function "; f; strlit " has more than 4 arguments\n"]) expfnames *)
+      expnames <<- MAP FST $ FILTER (\(_,_,ps,_). LENGTH ps > 4) $ FILTER (FST o SND) funs // actually, only need the first one
+      mapM (\f. error $ StaticError $ concat [strlit "exported function "; f; strlit " has more than 4 arguments\n"]) expnames *)
       scope_check_funs fnames funs
     od
 End

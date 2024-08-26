@@ -180,6 +180,8 @@ Datatype:
                 | ConfigError mlstring
                 | ScopeError unbound
                 | WarningError mlstring
+                (* | ShapeError mlstring
+                | StaticError mlstring *)
 End
 
 Definition find_next_newline_def:
