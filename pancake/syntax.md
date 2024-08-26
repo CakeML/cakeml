@@ -18,8 +18,8 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 | Variable creation | `var NAME = EXP;` | |
 | Assignment | `NAME = EXP;` | No struct field assignment yet |
 | Memory store | `st ADDR, VAR`, `st8 ADDR, VAR;` | <!--!TODO: Hey should we rename stw to sts?--> |
-| Shared memory store | `!stw VAR, ADDR`, `!st8 VAR, ADDR;`, `!st32 VAR, ADDR;` | |
-| Shared memory load | `!ldw VAR, ADDR`, `!ld8 VAR, ADDR;`, `!ld32 VAR, ADDR;` | |
+| Shared memory store | `!stw ADDR, VAR`, `!st8 ADDR, VAR;`, `!st32 ADDR, VAR;` | |
+| Shared memory load | `!ldw ADDR, VAR`, `!ld8 ADDR, VAR;`, `!ld32 ADDR, VAR;` | |
 | Function calls | `var SHAPE VAR = FUNC(ARGS);`, `FUNC(ARGS);`, `VAR = FUNC(ARGS);`, `return FUNC(ARGS);` | Declaring call, stand-alone call, assigning call, tail call. Function can be identifier or dereferenced function pointer. Calls can NOT be used as expressions |
 | Return | `return EXP;` | |
 
