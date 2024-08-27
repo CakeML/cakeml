@@ -642,7 +642,7 @@ val topo_nts = [“MulOpsNT”, “AddOpsNT”, “ShiftOpsNT”, “CmpOpsNT”
                 “EqOpsNT”, “ShapeNT”,
                 “ShapeCombNT”, “NotNT”, “LabelNT”, “FLabelNT”, “StructNT”,
                 “EBaseNT”, “EMulNT”, “EAddNT”, “EShiftNT”, “EAndNT”, “EXorNT”, “EOrNT”,
-                “ELoadNT”, “ELoadByteNT”, “ECmpNT”, “EEqNT”, “EBoolAndNT”,
+                “ELoadByteNT”, “ELoadNT”, “ECmpNT”, “EEqNT”, “EBoolAndNT”,
                 “ExpNT”, “ArgListNT”, “ReturnNT”,
                 “RaiseNT”, “ExtCallNT”,
                 “HandleNT”, “RetNT”, “RetCallNT”, “CallNT”,
