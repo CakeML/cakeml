@@ -38,19 +38,37 @@ fun parse_pancake q =
     EVAL “parse_funs_to_ast ^code”
   end
 
+fun lex_pancake_from_file path =
+  let
+    val is = TextIO.openIn path;
+    val contents = TextIO.inputAll is;
+    val _ = TextIO.closeIn is;
+  in
+    EVAL “pancake_lex ^(fromMLstring contents)”
+  end
+
+fun parse_tree_pancake_from_file path =
+  let
+    val is = TextIO.openIn path;
+    val contents = TextIO.inputAll is;
+    val _ = TextIO.closeIn is;
+  in
+    EVAL “parse (pancake_lex ^(fromMLstring contents))”
+  end
+
 fun parse_pancake_from_file path =
-    let
-      val is = TextIO.openIn path;
-      val contents = TextIO.inputAll is;
-      val _ = TextIO.closeIn is;
-    in
-      EVAL “parse_funs_to_ast ^(fromMLstring contents)”
-    end
+  let
+    val is = TextIO.openIn path;
+    val contents = TextIO.inputAll is;
+    val _ = TextIO.closeIn is;
+  in
+    EVAL “parse_funs_to_ast ^(fromMLstring contents)”
+  end
 
 val check_success = assert $ sumSyntax.is_inl o rhs o concl
 val check_failure = assert $ sumSyntax.is_inr o rhs o concl
 
-val my_program = parse_pancake ‘fun main() {return 1+1; }’ |> concl |> rhs |> rand
+val my_program = parse_pancake ‘fun main() { return 1 + 1; }’ |> concl |> rhs |> rand
 
 val my_check = EVAL “scope_check ^my_program”
 
@@ -58,8 +76,8 @@ val my_program2 = parse_pancake ‘fun main() {return y; }’ |> concl |> rhs |>
 
 val my_check2 = EVAL “scope_check ^my_program2”
 
-val my_program = parse_pancake_from_file "test.🥞" |> concl |> rhs |> rand
+val my_program = parse_tree_pancake_from_file "test.🥞" |> concl |> rhs |> rand
 
-val my_check = EVAL “scope_check ^my_program”                                         
-                                              
+val my_check = EVAL “scope_check ^my_program”
+
 val _ = export_theory();
