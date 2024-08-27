@@ -497,10 +497,10 @@ Definition conv_Exp_alt_def:
           case args of
             [t] => OPTION_MAP (λe. Cmp Equal (Const 0w) e) (conv_Exp_alt t)
           | _ => NONE
-        else if isNT nodeNT LoadByteNT then
+        else if isNT nodeNT ELoadByteNT then
           case args of
             [] => NONE
-          | [t] => OPTION_MAP ELoadByte (conv_Exp_alt t)
+          | [t] => OPTION_MAP LoadByte (conv_Exp_alt t)
           | t::v6::v7 => NONE
         else if isNT nodeNT ELoadNT then
           case args of
