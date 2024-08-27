@@ -274,11 +274,11 @@ Definition conv_Exp_def:
       case args of
         [t] => lift (Cmp Equal (Const 0w)) (conv_Exp t)
       | _ => NONE
-    else if isNT nodeNT LoadByteNT then
+    else if isNT nodeNT ELoadByteNT then
       case args of
         [t] => lift LoadByte (conv_Exp t)
       | _ => NONE
-    else if isNT nodeNT LoadNT then
+    else if isNT nodeNT ELoadNT then
       case args of
         [t1; t2] => do s <- conv_Shape t1;
                        e <- conv_Exp t2;

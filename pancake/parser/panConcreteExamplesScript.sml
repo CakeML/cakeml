@@ -339,6 +339,17 @@ val struct_argument_parse_tree =  parse_tree_pancake $ struct_arguments;
 
 val struct_argument_parse =  parse_pancake $ struct_arguments;
 
+val locmem_ex = ‘
+  fun test_locmem() {
+    var v = 12;
+    st 1000, 1 + 1; // store 1 + 1 (ie 2) at local memory address 1000
+    st8 1000 + 4, v; // store byte from variable v (12) to local memory address 1004
+    v = lds 1 1000 + 8; // load word from local address 1008 and assign to variable v
+    v = ld8 1000 + 4 * 3; // load byte from local address 1012 and assign to variable v
+  }’;
+
+val locmem_ex_parse =  check_success $ parse_pancake locmem_ex;
+
 val shmem_ex = ‘
   fun test_shmem() {
     var v = 12;

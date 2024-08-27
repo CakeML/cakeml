@@ -500,9 +500,9 @@ Definition conv_Exp_alt_def:
         else if isNT nodeNT LoadByteNT then
           case args of
             [] => NONE
-          | [t] => OPTION_MAP LoadByte (conv_Exp_alt t)
+          | [t] => OPTION_MAP ELoadByte (conv_Exp_alt t)
           | t::v6::v7 => NONE
-        else if isNT nodeNT LoadNT then
+        else if isNT nodeNT ELoadNT then
           case args of
             [] => NONE
           | [t1] => NONE
