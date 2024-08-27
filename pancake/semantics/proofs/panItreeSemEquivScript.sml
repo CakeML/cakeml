@@ -5445,9 +5445,7 @@ Theorem Vis_FFI_final_thm:
   mrec_sem(h_prog(prog,s)) ≈ Vis a g ∧
   (¬ event_filter (FST (query_oracle s.ffi (FST a)))) ⇒
   ∃f r. ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,s))) ≈ Ret (SOME (FinalFFI f),r)
-Proof
-  cheat
-  (*
+Proof  
   strip_tac>>
   dxrule itree_wbisim_Vis_FUNPOW>>strip_tac>>
   pop_assum kall_tac>>
@@ -5458,7 +5456,7 @@ Proof
   pop_assum mp_tac>>
   MAP_EVERY qid_spec_tac [‘q’,‘r’,‘a’,‘k’,‘s’,‘prog’]>>
   Induct >>rpt gen_tac>>ntac 3 strip_tac>>
- TRY (fs[h_prog_def,
+  TRY (fs[h_prog_def,
             h_prog_rule_assign_def,
             h_prog_rule_raise_def,
             h_prog_rule_return_def,
@@ -5652,6 +5650,85 @@ Proof
       rewrite_tac[Once (Q.SPEC ‘n'’ spin_FUNPOW_Tau)]>>
       simp[FUNPOW_eq_elim,Tau_INJ]>>
       simp[Once spin])
+  (* DecCall *)
+  >- (fs[Once mrec_sem_DecCall_simps,mrec_sem_simps,ltree_lift_cases,
+         panPropsTheory.eval_upd_clock_eq]>>
+      rpt (FULL_CASE_TAC>>fs[mrec_sem_simps])>>
+      Cases_on ‘n’>>fs[FUNPOW_SUC,ltree_lift_cases,mrec_sem_simps]>>
+      qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
+      Cases_on ‘∃t. strip_tau X t’>>fs[]
+      >- (imp_res_tac strip_tau_FUNPOW>>
+          fs[Abbr‘X’]>>Cases_on ‘t’>>
+          fs[wbisim_FUNPOW_Tau,itree_bind_thm,FUNPOW_Tau_bind]>>
+          gvs[Abbr‘Y’]
+          >- (rename1 ‘Ret x'’>>Cases_on ‘x'’>>fs[]>>rename1 ‘Ret (q',r')’>>
+              Cases_on ‘q'’>>fs[h_handle_deccall_ret_def,mrec_sem_simps]>>
+              rename1 ‘Ret (SOME x',r')’>>Cases_on ‘x'’>>
+              fs[h_handle_deccall_ret_def,mrec_sem_simps]>>
+              rpt (FULL_CASE_TAC>>fs[mrec_sem_simps])>>
+              fs[GSYM FUNPOW,set_var_defs]>>
+              ‘SUC n ≤ n'’
+                by (CCONTR_TAC>>dxrule (iffLR  NOT_LESS_EQUAL)>>strip_tac>>
+                    qhdtm_x_assum ‘FUNPOW’ $ assume_tac o GSYM>>
+                    rfs[FUNPOW_min_cancel,Tau_INJ]>>
+                    Cases_on ‘SUC n - n'’>>fs[FUNPOW_SUC])>>
+              fs[FUNPOW_min_cancel,Tau_INJ]>>gvs[]>>
+              drule mrec_Ret_const_ffi>>strip_tac>>
+              pop_assum $ assume_tac o GSYM>>fs[]>>
+              fs[msem_lift_monad_law] >>
+              qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
+              Cases_on ‘∃t. strip_tau X t’>>fs[]
+              >- (imp_res_tac strip_tau_FUNPOW>>
+                  fs[Abbr‘X’]>>Cases_on ‘t’>>
+                  fs[wbisim_FUNPOW_Tau,itree_bind_thm,FUNPOW_Tau_bind]>>
+                  gvs[Abbr‘Y’,ELIM_UNCURRY,mrec_sem_simps, o_DEF]>>
+                  fs[ltree_lift_FUNPOW_Tau,wbisim_FUNPOW_Tau]>>
+                  dxrule FUNPOW_Tau_Vis_eq>>strip_tac>>gvs[]>>
+                  last_x_assum kall_tac >>
+                  last_x_assum $ qspec_then ‘n' - SUC n’ assume_tac >> gvs[] >>
+                  qmatch_asmsub_abbrev_tac ‘(prog,t)’>>
+                  first_x_assum $ qspecl_then [‘prog’,‘t’,‘g’,‘a’] assume_tac>>
+                  gvs[]>>
+                  ‘t.ffi = r'.ffi’ by simp[Abbr‘t’]>>fs[]>>gvs[]>>
+                  fs[ltree_lift_Vis_alt]>>
+                  pairarg_tac>>fs[ltree_lift_monad_law]>>
+                  Cases_on ‘FST a’>>fs[]>>
+                  fs[query_oracle_def]>>
+                  rpt (FULL_CASE_TAC>>gvs[])>>
+                  dxrule EQ_SYM>>strip_tac>>gvs[event_filter_def]>>
+                  fs[o_DEF,ltree_lift_cases]>>
+                  qmatch_goalsub_abbrev_tac ‘X >>= _ ≈ _’>>
+                  Cases_on ‘∃p. strip_tau X p’>>fs[]
+                  >- (drule strip_tau_FUNPOW>>strip_tac>>
+                      fs[FUNPOW_Tau_bind,wbisim_FUNPOW_Tau]>>
+                      Cases_on ‘p’>>fs[itree_bind_thm]
+                      >- fs[itree_wbisim_neq]>>
+                      fs[Once itree_wbisim_cases]) >>
+                  imp_res_tac strip_tau_spin>>fs[spin_bind]>>
+                  rev_dxrule itree_wbisim_sym>>strip_tac>>
+                  drule (iffLR wbisim_spin_eq)>>
+                  simp[Once spin]) >>
+              imp_res_tac strip_tau_spin>>fs[spin_bind]>>
+              qpat_x_assum ‘FUNPOW _ _ _ = spin’ mp_tac>>
+              rewrite_tac[Once (Q.SPEC ‘n' - SUC n’ spin_FUNPOW_Tau)]>>
+              simp[FUNPOW_eq_elim,Tau_INJ]>>
+              simp[Once spin]) >>
+          dxrule FUNPOW_Tau_Vis_eq>>strip_tac>>fs[]>>
+          first_x_assum $ qspec_then ‘n'’ assume_tac>>fs[]>>
+          first_x_assum $ qspecl_then [‘q’,‘s' with locals := r’,‘g’,‘a’] assume_tac>>
+          gvs[ltree_lift_Vis_alt,ltree_lift_FUNPOW_Tau,wbisim_FUNPOW_Tau]>>
+          pairarg_tac>>fs[ltree_lift_monad_law]>>
+          irule_at Any itree_wbisim_trans>>
+          irule_at Any itree_bind_resp_t_wbisim>>
+          first_assum $ irule_at Any>>
+          simp[itree_bind_thm,ltree_lift_cases,mrec_sem_simps,
+               h_handle_deccall_ret_def]>>
+          irule_at Any itree_wbisim_refl) >>
+      imp_res_tac strip_tau_spin>>fs[spin_bind]>>
+      qpat_x_assum ‘FUNPOW _ _ _ = spin’ mp_tac>>
+      rewrite_tac[Once (Q.SPEC ‘n'’ spin_FUNPOW_Tau)]>>
+      simp[FUNPOW_eq_elim,Tau_INJ]>>
+      simp[Once spin])
   (* ExitCall *)
   >- (fs[h_prog_def,h_prog_rule_ext_call_def,
          panPropsTheory.eval_upd_clock_eq]>>
@@ -5661,19 +5738,20 @@ Proof
       pairarg_tac>>fs[ltree_lift_cases,mrec_sem_simps]>>
       CASE_TAC>>fs[query_oracle_def,event_filter_def]>>
       irule_at Any itree_wbisim_refl)>>
-  Cases_on ‘m’>>
-  fs[h_prog_def,h_prog_rule_sh_mem_def,
-     h_prog_rule_sh_mem_op_def,mrec_sem_simps,
-     h_prog_rule_sh_mem_load_def,h_prog_rule_sh_mem_store_def,
-     panPropsTheory.eval_upd_clock_eq,ltree_lift_cases,
-     panPropsTheory.opt_mmap_eval_upd_clock_eq1]>>
+  TRY (Cases_on ‘m’)>>
+   fs[h_prog_def,h_prog_rule_sh_mem_store_def,
+     h_prog_rule_sh_mem_load_def, Once evaluate_def,
+     h_prog_rule_sh_mem_load_nb_def,h_prog_rule_sh_mem_store_nb_def,
+     h_prog_rule_nb_op_def,ltree_lift_cases,
+     panPropsTheory.eval_upd_clock_eq,
+     panPropsTheory.opt_mmap_eval_upd_clock_eq1,
+     mrec_sem_simps]>>
   rpt (PURE_FULL_CASE_TAC>>fs[mrec_sem_simps])>>
   Cases_on ‘n’>>fs[FUNPOW_SUC,ltree_lift_cases,mrec_sem_simps]>>
   gvs[ltree_lift_Vis_alt]>>
   pairarg_tac>>fs[ltree_lift_cases,mrec_sem_simps]>>
   CASE_TAC>>fs[query_oracle_def,event_filter_def]>>
   irule_at Any itree_wbisim_refl
-*)
 QED
 
 Theorem nonret_imp_mrec_sem_spin:
