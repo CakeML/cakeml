@@ -69,7 +69,7 @@ Definition to_bvl_all_def:
     let c0 = c.clos_conf in
     let es = clos_mti$compile c0.do_mti c0.max_app es0 in
     let ps = ps ++ [(strlit "after clos_mti",Clos es [])] in
-    let loc = c0.next_loc + MAX 1 (LENGTH es) in
+    let loc = c0.next_loc in
     let loc = if loc MOD 2 = 0 then loc else loc + 1 in
     let (n,es) = clos_number$renumber_code_locs_list loc es in
     let ps = ps ++ [(strlit "after clos_number",Clos es [])] in
@@ -77,11 +77,11 @@ Definition to_bvl_all_def:
     let ps = ps ++ [(strlit "after clos_known",Clos es [])] in
     let (es,g,aux) = clos_call$compile c0.do_call es in
     let ps = ps ++ [(strlit "after clos_call",Clos es aux)] in
-    let prog = chain_exps c0.next_loc es ++ aux in
+    let prog = chain_exps n es ++ aux in
     let prog = clos_annotate$compile prog in
     let ps = ps ++ [(strlit "after clos_annotate",Clos [] prog)] in
     let c1 = c0 with
-         <|start := c0.next_loc; next_loc := n; known_conf := kc;
+         <|start := n; next_loc := n + MAX 1 (LENGTH es); known_conf := kc;
            call_state := (g,aux)|> in
     let init_stubs = toAList (init_code c1.max_app) in
     let init_globs =
@@ -91,12 +91,11 @@ Definition to_bvl_all_def:
     let prog' = init_stubs ++ init_globs ++ comp_progs in
     let func_names =
             make_name_alist (MAP FST prog') prog (num_stubs c1.max_app)
-              c0.next_loc (LENGTH es0) in
+              n (LENGTH es0) in
     let ps = ps ++ [(strlit "after clos_to_bvl",Bvl prog' func_names)] in
     let c2 = c1 with start := num_stubs c1.max_app − 1 in
-    let p = code_sort prog' in
     let c = c with clos_conf := c2 in
-      ((ps: (mlstring # 'a any_prog) list),c,p,func_names)
+      ((ps: (mlstring # 'a any_prog) list),c,prog',func_names)
 End
 
 Theorem to_bvl_thm:

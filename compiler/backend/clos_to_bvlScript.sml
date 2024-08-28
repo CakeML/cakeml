@@ -841,7 +841,7 @@ val compile_def = Define `
     let comp_progs = compile_prog c.max_app prog in
     let prog' = init_stubs ++ init_globs ++ comp_progs in
     let func_names = make_name_alist (MAP FST prog') prog (num_stubs c.max_app)
-                       c0.next_loc (LENGTH es) in
+                       c.start (LENGTH es) in
     let c = c with start := num_stubs c.max_app - 1 in
       (c, prog', func_names)`;
 
