@@ -197,14 +197,12 @@ Definition scope_check_def:
       fnames <<- MAP FST funs;
       renames <<- repeats $ QSORT mlstring_lt fnames;
       mapM (\f. log $ WarningErr $ concat [strlit "function "; f; strlit " is redeclared\n"]) renames;
-      case SPLITP (\(n,_,_,_). n = «main») funs of
+      case SPLITP (\(f,_,_,_). f = «main») funs of
         (xs,(_,T,_,_)::ys) => error $ GenErr $ strlit "main function is exported\n"
       | _ => (return ()):(unit) static_result;
-      (*
-      case SPLITP (\(_,_,ps,_). LENGTH ps > 4) $ FILTER (FST o SND) funs
-        (xs,(f,_,_,_)::ys) => error $ StaticError $ concat [strlit "exported function "; f; strlit " has more than 4 arguments\n"]of
-      | (xs,[]) => return ()
-      mapM (\f. error $ StaticError $ at [strlit "exported function "; f; strlit " has more than 4 arguments\n"]) expnames *)
+      case SPLITP (\(_,_,ps,_). LENGTH ps > 4) $ FILTER (FST o SND) funs of
+        (xs,(f,_,_,_)::ys) => error $ GenErr $ concat [strlit "exported function "; f; strlit " has more than 4 arguments\n"]
+      | (xs,[]) => return ();
       scope_check_funs fnames funs
     od
 End

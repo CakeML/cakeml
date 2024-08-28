@@ -79,14 +79,14 @@ val check_failure = assert $ sumSyntax.is_inr o rhs o concl
 
 val my_program = parse_pancake ‘fun main() { return 1 + 1; }’ |> concl |> rhs |> rand
 
-val my_check = EVAL “scope_check ^my_program”
+val my_check = EVAL “scope_check ^my_program” |> concl |> rhs
 
 val my_program2 = parse_pancake ‘fun main() {return y; }’ |> concl |> rhs |> rand
 
-val my_check2 = EVAL “scope_check ^my_program2”
+val my_check2 = EVAL “scope_check ^my_program2” |> concl |> rhs
 
 val my_program = parse_pancake_from_file "test.🥞" |> concl |> rhs |> rand
 
-val my_check = EVAL “scope_check ^my_program”
+val my_check = EVAL “scope_check ^my_program” |> concl |> rhs
 
 val _ = export_theory();

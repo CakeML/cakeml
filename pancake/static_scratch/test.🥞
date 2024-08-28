@@ -28,3 +28,11 @@
 // export fun main () {
 //     return 1;
 // }
+
+// // exported func with >4 args
+// export fun f (1 a, 1 b, 1 c, 1 d) {
+//     return 1;
+// }
+// export fun g (1 a, 1 b, 1 c, 1 d, 1 e) {
+//     return 1;
+// }
