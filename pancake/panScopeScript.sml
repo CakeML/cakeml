@@ -245,7 +245,7 @@ Definition scope_check_def:
     do
       fnames <<- MAP FST funs;
       renames <<- repeats $ QSORT mlstring_lt fnames;
-      mapM (\f. log (WarningErr $ concat [strlit "function "; f; strlit " is redeclared\n"])) renames;
+      mapM (\f. log (WarningErr $ concat [strlit "function "; f; strlit " is redeclared\n"])) renames; (* #!TODO change to error *)
       case SPLITP (\(f,_,_,_). f = «main») funs of
         (xs,(_,T,_,_)::ys) => error (GenErr $ strlit "main function is exported\n")
       | _ => return ();
