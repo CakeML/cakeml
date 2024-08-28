@@ -39,10 +39,11 @@
 //     return 1;
 // }
 
-// // missing return statement
+// // missing return statement + statements after return
 // fun a () {
 //     var x = 0;
 //     return 1;
+//     skip;
 // }
 // // fun b () {
 // //     skip;
@@ -55,6 +56,7 @@
 //     var x = 0;
 //     if true {
 //         return 1;
+//         skip;
 //     } else {
 //         return 1;
 //     }
@@ -69,8 +71,10 @@
 // // }
 // fun f () {
 //     return f();
+//     skip;
 // }
 // fun g () {
 //     raise Err 1;
+//     skip;
 // }
 

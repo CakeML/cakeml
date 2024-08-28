@@ -53,11 +53,11 @@ Definition scope_check_exp_def:
   scope_check_exp ctxt (Const c) = return () ∧
   scope_check_exp ctxt (Var vname) =
     (if ¬MEM vname ctxt.vars
-      then error (ScopeErr $ concat [strlit "variable "; vname; strlit " is not in scope in "; ctxt.fname; strlit "\n"])
+      then error (ScopeErr $ concat [strlit "variable "; vname; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
     else return ()) ∧
   scope_check_exp ctxt (Label fname) =
     (if ¬MEM fname ctxt.funcs
-      then error (ScopeErr $ concat [strlit "function "; fname; strlit " is not in scope in "; ctxt.fname; strlit "\n"])
+      then error (ScopeErr $ concat [strlit "function "; fname; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
     else return ()) ∧
   scope_check_exp ctxt (Struct es) =
     scope_check_exps ctxt es ∧
@@ -87,7 +87,7 @@ Definition scope_check_prog_def:
   scope_check_prog ctxt (Dec v e p) =
     do
       if MEM v ctxt.vars
-        then log (WarningErr $ concat [strlit "variable "; v; strlit " is redeclared in "; ctxt.fname; strlit "\n"])
+        then log (WarningErr $ concat [strlit "variable "; v; strlit " is redeclared in function "; ctxt.fname; strlit "\n"])
       else return ();
       scope_check_exp ctxt e;
       scope_check_prog (ctxt with vars := v :: ctxt.vars) p
@@ -95,7 +95,7 @@ Definition scope_check_prog_def:
   scope_check_prog ctxt (DecCall v s e args p) =
     do
       if MEM v ctxt.vars
-        then log (WarningErr $ concat [strlit "variable "; v; strlit " is redeclared in "; ctxt.fname; strlit "\n"])
+        then log (WarningErr $ concat [strlit "variable "; v; strlit " is redeclared in function "; ctxt.fname; strlit "\n"])
       else return ();
       scope_check_exp ctxt e;
       scope_check_exps ctxt args;
@@ -104,7 +104,7 @@ Definition scope_check_prog_def:
   scope_check_prog ctxt (Assign v e) =
     do
       if ¬MEM v ctxt.vars
-          then error (ScopeErr $ concat [strlit "variable "; v; strlit " is not in scope in "; ctxt.fname; strlit "\n"])
+          then error (ScopeErr $ concat [strlit "variable "; v; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
       else scope_check_exp ctxt e;
       return F
     od ∧
@@ -122,9 +122,13 @@ Definition scope_check_prog_def:
     od ∧
   scope_check_prog ctxt (Seq p1 p2) =
     do
+      case p1 of
+        (Seq _ (Return _))     => log (WarningErr $ concat [strlit "statements after return in function ";    ctxt.fname; strlit "\n"])
+      | (Seq _ (Raise _ _))    => log (WarningErr $ concat [strlit "statements after raise in function ";     ctxt.fname; strlit "\n"])
+      | (Seq _ (TailCall _ _)) => log (WarningErr $ concat [strlit "statements after tail call in function "; ctxt.fname; strlit "\n"])
+      | _ => return ();
       rt1 <- scope_check_prog ctxt p1;
       rt2 <- scope_check_prog ctxt p2;
-      (* TODO: if rt1 is Return or Raise, then log $ WarningErr $ concat [strlit "statements after return in "; f; strlit "\n"] *)
       return (rt1 \/ rt2)
     od ∧
   scope_check_prog ctxt (If e p1 p2) =
@@ -152,13 +156,13 @@ Definition scope_check_prog_def:
       scope_check_exp ctxt trgt;
       scope_check_exps ctxt args;
       if ¬MEM rt ctxt.vars
-        then error (ScopeErr $ concat [strlit "variable "; rt; strlit " is not in scope in "; ctxt.fname; strlit "\n"])
+        then error (ScopeErr $ concat [strlit "variable "; rt; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
       else
         case hdl of
           NONE => return F
         | SOME (eid, evar, p) =>
             if ¬MEM evar ctxt.vars
-              then error (ScopeErr $ concat [strlit "variable "; evar; strlit " is not in scope in "; ctxt.fname; strlit "\n"])
+              then error (ScopeErr $ concat [strlit "variable "; evar; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
             else scope_check_prog (ctxt with vars := evar :: ctxt.vars) p;
       return F
     od ∧
@@ -170,7 +174,7 @@ Definition scope_check_prog_def:
         NONE => return F
       | SOME (eid, evar, p) =>
           if ¬MEM evar ctxt.vars
-            then error (ScopeErr $ concat [strlit "variable "; evar; strlit " is not in scope in "; ctxt.fname; strlit "\n"])
+            then error (ScopeErr $ concat [strlit "variable "; evar; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
           else scope_check_prog (ctxt with vars := evar :: ctxt.vars) p;
       return F
     od ∧
@@ -192,7 +196,7 @@ Definition scope_check_prog_def:
   scope_check_prog ctxt (ShMemLoad mop v e) =
     do
       if ¬MEM v ctxt.vars
-        then error (ScopeErr $ concat [strlit "variable "; v; strlit " is not in scope in "; ctxt.fname; strlit "\n"])
+        then error (ScopeErr $ concat [strlit "variable "; v; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
       else scope_check_exp ctxt e;
       return F
     od ∧
