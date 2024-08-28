@@ -76,7 +76,7 @@ val my_program2 = parse_pancake ‘fun main() {return y; }’ |> concl |> rhs |>
 
 val my_check2 = EVAL “scope_check ^my_program2”
 
-val my_program = parse_tree_pancake_from_file "test.🥞" |> concl |> rhs |> rand
+val my_program = parse_pancake_from_file "test.🥞" |> concl |> rhs |> rand
 
 val my_check = EVAL “scope_check ^my_program”
 

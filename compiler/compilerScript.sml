@@ -178,10 +178,7 @@ Datatype:
                 | TypeError mlstring
                 | AssembleError
                 | ConfigError mlstring
-                | ScopeError unbound
-                | WarningError mlstring
-                (* | ShapeError mlstring
-                | StaticError mlstring *)
+                | StaticError staterr
 End
 
 Definition find_next_newline_def:
@@ -293,12 +290,12 @@ Definition compile_pancake_def:
            errs), Nil, [])
   | INL funs =>
       case scope_check funs of
-      | (error unb, warn_strs) => (Failure (ScopeError unb),Nil, MAP WarningError warn_strs)
-      | (return (), warn_strs) =>
+      | (error e, warns) => (Failure $ StaticError e, Nil, MAP StaticError warns)
+      | (return (), warns) =>
           let _ = empty_ffi (strlit "finished: lexing and parsing") in
           case pan_passes$pan_compile_tap c funs of
-          | (NONE,td) => (Failure AssembleError,td, MAP WarningError warn_strs)
-          | (SOME (bytes,data,c),td) => (Success (bytes,data,c),td, MAP WarningError warn_strs)
+          | (NONE,td) => (Failure AssembleError, td, MAP StaticError warns)
+          | (SOME (bytes,data,c),td) => (Success (bytes,data,c), td, MAP StaticError warns)
 End
 
 (* The top-level compiler *)
@@ -313,13 +310,12 @@ Definition error_to_str_def:
      else s) /\
   (error_to_str (ConfigError s) = concat [strlit "### ERROR: config error\n"; s; strlit "\n"]) /\
   (error_to_str AssembleError = strlit "### ERROR: assembly error\n") /\
-  (error_to_str (ScopeError unb) =
-    case unb of
-    | UnbVar v fname =>
-      concat [strlit "### ERROR: scope error\nvariable "; v; strlit " is not in scope in "; fname; strlit "\n"]
-    | UnbFunc f fname =>
-      concat [strlit "### ERROR: scope error\nfunction "; f; strlit " is not in scope in "; fname; strlit "\n"]) /\
-  (error_to_str (WarningError s) = concat [strlit "### WARNING:\n"; s; strlit "\n"])
+  (error_to_str (StaticError e) =
+    case e of
+      ScopeErr   s => concat [strlit "### ERROR: scope error\n";  s; strlit "\n"]
+    | WarningErr s => concat [strlit "### WARNING:\n";            s; strlit "\n"]
+    | GenErr     s => concat [strlit "### ERROR: static error\n"; s; strlit "\n"]
+    | ShapeErr   s => concat [strlit "### ERROR: shape error\n";  s; strlit "\n"])
 End
 
 Definition is_error_msg_def:

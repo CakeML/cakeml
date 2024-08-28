@@ -1,3 +1,30 @@
-fun main () {
-    return 1+1;
-}
+// // undeclared func
+// fun f () {
+//     foo();
+//     return 1;
+// }
+
+// // undeclared var
+// fun f () {
+//     return x;
+// }
+
+// // redeclared var
+// fun f () {
+//     var x = 0;
+//     var x = 0;
+//     return 1;
+// }
+
+// // redeclared func
+// fun f () {
+//     return 1;
+// }
+// fun f () {
+//     return 1;
+// }
+
+// // exported main
+// export fun main () {
+//     return 1;
+// }

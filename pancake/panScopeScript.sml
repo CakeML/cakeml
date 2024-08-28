@@ -16,12 +16,14 @@ Datatype:
 End
 
 Datatype:
-  unbound = UnbVar varname funname
-          | UnbFunc funname funname
+  staterr = ScopeErr mlstring
+          | WarningErr mlstring
+          | GenErr mlstring
+          | ShapeErr mlstring
 End
 
 (* ???
-Type static_result = ``:('a, unbound) error # mlstring list``
+Type static_result = ``:('a, staterr) error # mlstring list``
 *)
 
 Definition repeats_def:
@@ -52,9 +54,13 @@ End
 Definition scope_check_exp_def:
   scope_check_exp ctxt (Const c) = return () ∧
   scope_check_exp ctxt (Var vname) =
-    (if ¬MEM vname ctxt.vars then error (UnbVar vname ctxt.fname) else return ()) ∧
+    (if ¬MEM vname ctxt.vars
+      then error $ ScopeErr $ concat [strlit "variable "; vname; strlit " is not in scope in "; ctxt.fname; strlit "\n"]
+    else return ()) ∧
   scope_check_exp ctxt (Label fname) =
-    (if ¬MEM fname ctxt.funcs then error (UnbFunc fname ctxt.fname) else return ()) ∧
+    (if ¬MEM fname ctxt.funcs
+      then error $ ScopeErr $ concat [strlit "function "; fname; strlit " is not in scope in "; ctxt.fname; strlit "\n"]
+    else return ()) ∧
   scope_check_exp ctxt (Struct es) =
     scope_check_exps ctxt es ∧
   scope_check_exp ctxt (Field index e) = scope_check_exp ctxt e ∧
@@ -85,7 +91,7 @@ Definition scope_check_prog_def:
       scope_check_exp ctxt e;
       if MEM v ctxt.vars
         then return ()
-      else log $ concat [strlit "variable "; v; strlit " is redeclared in "; ctxt.fname; strlit "\n"];
+      else log $ WarningErr $ concat [strlit "variable "; v; strlit " is redeclared in "; ctxt.fname; strlit "\n"];
       scope_check_prog (ctxt with vars := v :: ctxt.vars) p
     od ∧
   scope_check_prog ctxt (DecCall v s e args p) =
@@ -96,7 +102,7 @@ Definition scope_check_prog_def:
     od ∧
   scope_check_prog ctxt (Assign v e) =
     (if ¬MEM v ctxt.vars
-        then error (UnbVar v ctxt.fname)
+        then error $ ScopeErr $ concat [strlit "variable "; v; strlit " is not in scope in "; ctxt.fname; strlit "\n"]
     else scope_check_exp ctxt e) ∧
   scope_check_prog ctxt (Store ad v) =
     do
@@ -136,13 +142,13 @@ Definition scope_check_prog_def:
       scope_check_exp ctxt trgt;
       scope_check_exps ctxt args;
       if ¬MEM rt ctxt.vars
-        then error (UnbVar rt ctxt.fname)
+        then error $ ScopeErr $ concat [strlit "variable "; rt; strlit " is not in scope in "; ctxt.fname; strlit "\n"]
       else
         case hdl of
           NONE => return ()
         | SOME (eid, evar, p) =>
             if ¬MEM evar ctxt.vars
-              then error (UnbVar evar ctxt.fname)
+              then error $ ScopeErr $ concat [strlit "variable "; evar; strlit " is not in scope in "; ctxt.fname; strlit "\n"]
             else scope_check_prog (ctxt with vars := evar :: ctxt.vars) p
     od ∧
   scope_check_prog ctxt (StandAloneCall hdl trgt args) =
@@ -153,7 +159,7 @@ Definition scope_check_prog_def:
         NONE => return ()
       | SOME (eid, evar, p) =>
           if ¬MEM evar ctxt.vars
-            then error (UnbVar evar ctxt.fname)
+            then error $ ScopeErr $ concat [strlit "variable "; evar; strlit " is not in scope in "; ctxt.fname; strlit "\n"]
           else scope_check_prog (ctxt with vars := evar :: ctxt.vars) p
     od ∧
   scope_check_prog ctxt (ExtCall fname ptr1 len1 ptr2 len2) =
@@ -162,7 +168,7 @@ Definition scope_check_prog_def:
   scope_check_prog ctxt (Return rt) = scope_check_exp ctxt rt ∧
   scope_check_prog ctxt (ShMemLoad mop v e) =
     (if ¬MEM v ctxt.vars
-      then error (UnbVar v ctxt.fname)
+      then error $ ScopeErr $ concat [strlit "variable "; v; strlit " is not in scope in "; ctxt.fname; strlit "\n"]
     else scope_check_exp ctxt e) ∧
   scope_check_prog ctxt (ShMemStore mop e1 e2) =
     do
@@ -176,11 +182,11 @@ End
 Definition scope_check_funs_def:
   scope_check_funs fnames [] = return () ∧
   scope_check_funs fnames ((fname, _:bool, vshapes, body)::funs) =
-    let ctxt = <| vars := MAP FST vshapes ; funcs := fnames ; fname := fname |> in
-      do
-        scope_check_prog ctxt body;
-        scope_check_funs fnames funs
-      od
+    do
+      ctxt <<- <| vars := MAP FST vshapes ; funcs := fnames ; fname := fname |>;
+      scope_check_prog ctxt body;
+      scope_check_funs fnames funs
+    od
 End
 
 (* The scope checker returns NONE to indicate that there is no scope error, and
@@ -192,8 +198,16 @@ Definition scope_check_def:
     do
       fnames <<- MAP FST funs;
       renames <<- repeats $ QSORT mlstring_lt fnames;
-      mapM (\f. log $ concat [strlit "function "; f; strlit " is redeclared\n"]) renames; (*
-      expnames <<- MAP FST $ FILTER (\(_,_,ps,_). LENGTH ps > 4) $ FILTER (FST o SND) funs // actually, only need the first one
+      mapM (\f. log $ WarningErr $ concat [strlit "function "; f; strlit " is redeclared\n"]) renames;
+      (* case SPLITP (\(n,e,p,b). n = «main») prog of
+                | (xs,(_,T,_,_)::ys) => error $ StaticError $ strlit "main function is exported\n"
+                | (xs,[]) => return () *)
+      (*
+      expnames <<- MAP FST $
+      case SPLITP (\(_,_,ps,_). LENGTH ps > 4) $ FILTER (FST o SND) funs of
+        ([],ys) => ys
+      | (xs,[]) => («main»,F,[],Return (Const 0w))::xs
+      | (xs,y::ys) => y::xs ++ ys in
       mapM (\f. error $ StaticError $ concat [strlit "exported function "; f; strlit " has more than 4 arguments\n"]) expnames *)
       scope_check_funs fnames funs
     od
