@@ -2,7 +2,7 @@
   Random crap.
 *)
 
-open preamble panPtreeConversionTheory panScopeTheory boolLib bossLib stringLib numLib intLib;
+open preamble panPtreeConversionTheory panScopeTheory boolLib bossLib stringLib numLib intLib (*compilerTheory*);
 open helperLib Parse;
 val _ = new_theory "playground";
 
@@ -64,6 +64,15 @@ fun parse_pancake_from_file path =
   in
     EVAL “parse_funs_to_ast ^(fromMLstring contents)”
   end
+
+(* fun compile_pancake_from_file path =
+  let
+    val is = TextIO.openIn path;
+    val contents = TextIO.inputAll is;
+    val _ = TextIO.closeIn is;
+  in
+    EVAL “compile_pancake x64_backend_config ^(fromMLstring contents)”
+end *)
 
 val check_success = assert $ sumSyntax.is_inl o rhs o concl
 val check_failure = assert $ sumSyntax.is_inr o rhs o concl

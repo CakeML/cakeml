@@ -22,9 +22,7 @@ Datatype:
           | ShapeErr mlstring
 End
 
-(* ???
-Type static_result = ``:('a, staterr) error # mlstring list``
-*)
+Type static_result = ``:('a, staterr) error # staterr list``
 
 Definition repeats_def:
   repeats xs =
@@ -199,16 +197,14 @@ Definition scope_check_def:
       fnames <<- MAP FST funs;
       renames <<- repeats $ QSORT mlstring_lt fnames;
       mapM (\f. log $ WarningErr $ concat [strlit "function "; f; strlit " is redeclared\n"]) renames;
-      (* case SPLITP (\(n,e,p,b). n = «main») prog of
-                | (xs,(_,T,_,_)::ys) => error $ StaticError $ strlit "main function is exported\n"
-                | (xs,[]) => return () *)
+      case SPLITP (\(n,_,_,_). n = «main») funs of
+        (xs,(_,T,_,_)::ys) => error $ GenErr $ strlit "main function is exported\n"
+      | _ => (return ()):(unit) static_result;
       (*
-      expnames <<- MAP FST $
-      case SPLITP (\(_,_,ps,_). LENGTH ps > 4) $ FILTER (FST o SND) funs of
-        ([],ys) => ys
-      | (xs,[]) => («main»,F,[],Return (Const 0w))::xs
-      | (xs,y::ys) => y::xs ++ ys in
-      mapM (\f. error $ StaticError $ concat [strlit "exported function "; f; strlit " has more than 4 arguments\n"]) expnames *)
+      case SPLITP (\(_,_,ps,_). LENGTH ps > 4) $ FILTER (FST o SND) funs
+        (xs,(f,_,_,_)::ys) => error $ StaticError $ concat [strlit "exported function "; f; strlit " has more than 4 arguments\n"]of
+      | (xs,[]) => return ()
+      mapM (\f. error $ StaticError $ at [strlit "exported function "; f; strlit " has more than 4 arguments\n"]) expnames *)
       scope_check_funs fnames funs
     od
 End
