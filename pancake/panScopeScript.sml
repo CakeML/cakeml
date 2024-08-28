@@ -12,7 +12,8 @@ val _ = monadsyntax.enable_monad "errorLog";
 Datatype:
   context = <| vars : varname list
              ; funcs : funname list
-             ; fname : funname |>
+             ; fname : funname
+             ; loop_n : num |>
 End
 
 Datatype:
@@ -141,10 +142,22 @@ Definition scope_check_prog_def:
   scope_check_prog ctxt (While e p) =
     do
       scope_check_exp ctxt e;
-      scope_check_prog ctxt p
+      scope_check_prog (ctxt with loop_n := ctxt.loop_n + 1) p
     od ∧
-  scope_check_prog ctxt Break = return F ∧
-  scope_check_prog ctxt Continue = return F ∧
+  scope_check_prog ctxt Break =
+    do
+      if ctxt.loop_n = 0
+        then error (GenErr $ concat [strlit "break statement outside loop in function "; ctxt.fname; strlit "\n"])
+      else return ();
+      return F
+    od ∧
+  scope_check_prog ctxt Continue =
+    do
+      if ctxt.loop_n = 0
+        then error (GenErr $ concat [strlit "continue statement outside loop in function "; ctxt.fname; strlit "\n"])
+      else return ();
+      return F
+    od ∧
   scope_check_prog ctxt (TailCall trgt args) =
     do
       scope_check_exp ctxt trgt;
@@ -214,7 +227,7 @@ Definition scope_check_funs_def:
   scope_check_funs fnames [] = return () ∧
   scope_check_funs fnames ((fname, _:bool, vshapes, body)::funs) =
     do
-      ctxt <<- <| vars := MAP FST vshapes ; funcs := fnames ; fname := fname |>;
+      ctxt <<- <| vars := MAP FST vshapes ; funcs := fnames ; fname := fname ; loop_n := 0 |>;
       returned <- scope_check_prog ctxt body;
       if ~returned
         then error (GenErr $ concat [strlit "branches missing return statement in function "; fname; strlit "\n"])

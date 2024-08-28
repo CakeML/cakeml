@@ -78,3 +78,30 @@
 //     skip;
 // }
 
+// rogue break/continue
+// fun f () {
+//     break;
+// }
+// fun f () {
+//     continue;
+// }
+// fun f () {
+//     while true {
+//         continue;
+//         while true {
+//             continue;
+//         }
+//         continue;
+//     }
+//     break;
+// }
+// fun f () {
+//     while true {
+//         break;
+//         while true {
+//             break;
+//         }
+//         break;
+//     }
+//     continue;
+// }
