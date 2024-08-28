@@ -725,16 +725,15 @@ val chain_exps = Define `
 val compile_common_def = Define `
   compile_common c es =
     let es = clos_mti$compile c.do_mti c.max_app es in
-    (* Add space for functions to call the expressions *)
-    let loc = c.next_loc + MAX 1 (LENGTH es) in
+    let loc = c.next_loc in
     (* Alignment padding *)
     let loc = if loc MOD 2 = 0 then loc else loc + 1 in
     let (n,es) = renumber_code_locs_list loc es in
     let (kc, es) = clos_known$compile c.known_conf es in
     let (es,g,aux) = clos_call$compile c.do_call es in
-    let prog = chain_exps c.next_loc es ++ aux in
+    let prog = chain_exps n es ++ aux in
     let prog = clos_annotate$compile prog in
-      (c with <| start := c.next_loc; next_loc := n; known_conf := kc;
+      (c with <| start := n; next_loc := n + MAX 1 (LENGTH es); known_conf := kc;
                  call_state := (g,aux) |>,
        prog)`;
 
@@ -844,7 +843,7 @@ val compile_def = Define `
     let func_names = make_name_alist (MAP FST prog') prog (num_stubs c.max_app)
                        c0.next_loc (LENGTH es) in
     let c = c with start := num_stubs c.max_app - 1 in
-      (c, code_sort prog', func_names)`;
+      (c, prog', func_names)`;
 
 val extract_name_def = Define `
   extract_name [] = (0,[]) /\
