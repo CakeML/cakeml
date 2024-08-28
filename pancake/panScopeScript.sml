@@ -10,9 +10,9 @@ val _ = monadsyntax.enable_monadsyntax();
 val _ = monadsyntax.enable_monad "errorLog";
 
 Datatype:
-  context = <| vars : varname list ;
-               funcs : funname list ;
-               fname : funname |>
+  context = <| vars : varname list
+             ; funcs : funname list
+             ; fname : funname |>
 End
 
 Datatype:
@@ -53,11 +53,11 @@ Definition scope_check_exp_def:
   scope_check_exp ctxt (Const c) = return () ∧
   scope_check_exp ctxt (Var vname) =
     (if ¬MEM vname ctxt.vars
-      then error $ ScopeErr $ concat [strlit "variable "; vname; strlit " is not in scope in "; ctxt.fname; strlit "\n"]
+      then error (ScopeErr $ concat [strlit "variable "; vname; strlit " is not in scope in "; ctxt.fname; strlit "\n"])
     else return ()) ∧
   scope_check_exp ctxt (Label fname) =
     (if ¬MEM fname ctxt.funcs
-      then error $ ScopeErr $ concat [strlit "function "; fname; strlit " is not in scope in "; ctxt.fname; strlit "\n"]
+      then error (ScopeErr $ concat [strlit "function "; fname; strlit " is not in scope in "; ctxt.fname; strlit "\n"])
     else return ()) ∧
   scope_check_exp ctxt (Struct es) =
     scope_check_exps ctxt es ∧
@@ -83,98 +83,127 @@ Definition scope_check_exp_def:
 End
 
 Definition scope_check_prog_def:
-  scope_check_prog ctxt Skip = return () ∧
+  scope_check_prog ctxt Skip = return F ∧
   scope_check_prog ctxt (Dec v e p) =
     do
-      scope_check_exp ctxt e;
       if MEM v ctxt.vars
-        then return ()
-      else log $ WarningErr $ concat [strlit "variable "; v; strlit " is redeclared in "; ctxt.fname; strlit "\n"];
+        then log (WarningErr $ concat [strlit "variable "; v; strlit " is redeclared in "; ctxt.fname; strlit "\n"])
+      else return ();
+      scope_check_exp ctxt e;
       scope_check_prog (ctxt with vars := v :: ctxt.vars) p
     od ∧
   scope_check_prog ctxt (DecCall v s e args p) =
     do
+      if MEM v ctxt.vars
+        then log (WarningErr $ concat [strlit "variable "; v; strlit " is redeclared in "; ctxt.fname; strlit "\n"])
+      else return ();
       scope_check_exp ctxt e;
       scope_check_exps ctxt args;
       scope_check_prog (ctxt with vars := v :: ctxt.vars) p
     od ∧
   scope_check_prog ctxt (Assign v e) =
-    (if ¬MEM v ctxt.vars
-        then error $ ScopeErr $ concat [strlit "variable "; v; strlit " is not in scope in "; ctxt.fname; strlit "\n"]
-    else scope_check_exp ctxt e) ∧
+    do
+      if ¬MEM v ctxt.vars
+          then error (ScopeErr $ concat [strlit "variable "; v; strlit " is not in scope in "; ctxt.fname; strlit "\n"])
+      else scope_check_exp ctxt e;
+      return F
+    od ∧
   scope_check_prog ctxt (Store ad v) =
     do
       scope_check_exp ctxt ad;
-      scope_check_exp ctxt v
+      scope_check_exp ctxt v;
+      return F
     od ∧
   scope_check_prog ctxt (StoreByte dest src) =
     do
       scope_check_exp ctxt dest;
-      scope_check_exp ctxt src
+      scope_check_exp ctxt src;
+      return F
     od ∧
   scope_check_prog ctxt (Seq p1 p2) =
     do
-      scope_check_prog ctxt p1;
-      scope_check_prog ctxt p2
+      rt1 <- scope_check_prog ctxt p1;
+      rt2 <- scope_check_prog ctxt p2;
+      (* TODO: if rt1 is Return or Raise, then log $ WarningErr $ concat [strlit "statements after return in "; f; strlit "\n"] *)
+      return (rt1 \/ rt2)
     od ∧
   scope_check_prog ctxt (If e p1 p2) =
     do
       scope_check_exp ctxt e;
-      scope_check_prog ctxt p1;
-      scope_check_prog ctxt p2
+      rt1 <- scope_check_prog ctxt p1;
+      rt2 <- scope_check_prog ctxt p2;
+      return (rt1 /\ rt2)
     od ∧
   scope_check_prog ctxt (While e p) =
     do
       scope_check_exp ctxt e;
       scope_check_prog ctxt p
     od ∧
-  scope_check_prog ctxt Break = return () ∧
-  scope_check_prog ctxt Continue = return () ∧
+  scope_check_prog ctxt Break = return F ∧
+  scope_check_prog ctxt Continue = return F ∧
   scope_check_prog ctxt (TailCall trgt args) =
     do
       scope_check_exp ctxt trgt;
-      scope_check_exps ctxt args
+      scope_check_exps ctxt args;
+      return T
     od ∧
   scope_check_prog ctxt (AssignCall rt hdl trgt args) =
     do
       scope_check_exp ctxt trgt;
       scope_check_exps ctxt args;
       if ¬MEM rt ctxt.vars
-        then error $ ScopeErr $ concat [strlit "variable "; rt; strlit " is not in scope in "; ctxt.fname; strlit "\n"]
+        then error (ScopeErr $ concat [strlit "variable "; rt; strlit " is not in scope in "; ctxt.fname; strlit "\n"])
       else
         case hdl of
-          NONE => return ()
+          NONE => return F
         | SOME (eid, evar, p) =>
             if ¬MEM evar ctxt.vars
-              then error $ ScopeErr $ concat [strlit "variable "; evar; strlit " is not in scope in "; ctxt.fname; strlit "\n"]
-            else scope_check_prog (ctxt with vars := evar :: ctxt.vars) p
+              then error (ScopeErr $ concat [strlit "variable "; evar; strlit " is not in scope in "; ctxt.fname; strlit "\n"])
+            else scope_check_prog (ctxt with vars := evar :: ctxt.vars) p;
+      return F
     od ∧
   scope_check_prog ctxt (StandAloneCall hdl trgt args) =
     do
       scope_check_exp ctxt trgt;
       scope_check_exps ctxt args;
       case hdl of
-        NONE => return ()
+        NONE => return F
       | SOME (eid, evar, p) =>
           if ¬MEM evar ctxt.vars
-            then error $ ScopeErr $ concat [strlit "variable "; evar; strlit " is not in scope in "; ctxt.fname; strlit "\n"]
-          else scope_check_prog (ctxt with vars := evar :: ctxt.vars) p
+            then error (ScopeErr $ concat [strlit "variable "; evar; strlit " is not in scope in "; ctxt.fname; strlit "\n"])
+          else scope_check_prog (ctxt with vars := evar :: ctxt.vars) p;
+      return F
     od ∧
   scope_check_prog ctxt (ExtCall fname ptr1 len1 ptr2 len2) =
-    scope_check_exps ctxt [ptr1;len1;ptr2;len2] ∧
-  scope_check_prog ctxt (Raise eid excp) = scope_check_exp ctxt excp ∧
-  scope_check_prog ctxt (Return rt) = scope_check_exp ctxt rt ∧
+    do
+      scope_check_exps ctxt [ptr1;len1;ptr2;len2];
+      return F
+    od ∧
+  scope_check_prog ctxt (Raise eid excp) =
+    do
+      scope_check_exp ctxt excp;
+      return T
+    od ∧
+  scope_check_prog ctxt (Return rt) =
+    do
+      scope_check_exp ctxt rt;
+      return T
+    od ∧
   scope_check_prog ctxt (ShMemLoad mop v e) =
-    (if ¬MEM v ctxt.vars
-      then error $ ScopeErr $ concat [strlit "variable "; v; strlit " is not in scope in "; ctxt.fname; strlit "\n"]
-    else scope_check_exp ctxt e) ∧
+    do
+      if ¬MEM v ctxt.vars
+        then error (ScopeErr $ concat [strlit "variable "; v; strlit " is not in scope in "; ctxt.fname; strlit "\n"])
+      else scope_check_exp ctxt e;
+      return F
+    od ∧
   scope_check_prog ctxt (ShMemStore mop e1 e2) =
     do
       scope_check_exp ctxt e1;
-      scope_check_exp ctxt e2
+      scope_check_exp ctxt e2;
+      return F
     od ∧
-  scope_check_prog ctxt Tick = return () ∧
-  scope_check_prog ctxt (Annot _ _) = return ()
+  scope_check_prog ctxt Tick = return F ∧
+  scope_check_prog ctxt (Annot _ _) = return F
 End
 
 Definition scope_check_funs_def:
@@ -182,7 +211,10 @@ Definition scope_check_funs_def:
   scope_check_funs fnames ((fname, _:bool, vshapes, body)::funs) =
     do
       ctxt <<- <| vars := MAP FST vshapes ; funcs := fnames ; fname := fname |>;
-      scope_check_prog ctxt body;
+      returned <- scope_check_prog ctxt body;
+      if ~returned
+        then error (GenErr $ concat [strlit "branches missing return statement in function "; fname; strlit "\n"])
+      else return ();
       scope_check_funs fnames funs
     od
 End
@@ -196,12 +228,12 @@ Definition scope_check_def:
     do
       fnames <<- MAP FST funs;
       renames <<- repeats $ QSORT mlstring_lt fnames;
-      mapM (\f. log $ WarningErr $ concat [strlit "function "; f; strlit " is redeclared\n"]) renames;
+      mapM (\f. log (WarningErr $ concat [strlit "function "; f; strlit " is redeclared\n"])) renames;
       case SPLITP (\(f,_,_,_). f = «main») funs of
-        (xs,(_,T,_,_)::ys) => error $ GenErr $ strlit "main function is exported\n"
-      | _ => (return ()):(unit) static_result;
+        (xs,(_,T,_,_)::ys) => error (GenErr $ strlit "main function is exported\n")
+      | _ => return ();
       case SPLITP (\(_,_,ps,_). LENGTH ps > 4) $ FILTER (FST o SND) funs of
-        (xs,(f,_,_,_)::ys) => error $ GenErr $ concat [strlit "exported function "; f; strlit " has more than 4 arguments\n"]
+        (xs,(f,_,_,_)::ys) => error (GenErr $ concat [strlit "exported function "; f; strlit " has more than 4 arguments\n"])
       | (xs,[]) => return ();
       scope_check_funs fnames funs
     od

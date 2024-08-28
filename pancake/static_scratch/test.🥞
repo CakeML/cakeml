@@ -13,6 +13,8 @@
 // fun f () {
 //     var x = 0;
 //     var x = 0;
+//     var y = 0;
+//     var 1 y = f();
 //     return 1;
 // }
 
@@ -36,3 +38,39 @@
 // export fun g (1 a, 1 b, 1 c, 1 d, 1 e) {
 //     return 1;
 // }
+
+// // missing return statement
+// fun a () {
+//     var x = 0;
+//     return 1;
+// }
+// // fun b () {
+// //     skip;
+// // }
+// // fun c () {
+// //     var x = 0;
+// //     x = 1;
+// // }
+// fun d () {
+//     var x = 0;
+//     if true {
+//         return 1;
+//     } else {
+//         return 1;
+//     }
+// }
+// // fun e () {
+// //     var x = 0;
+// //     if true {
+// //         return 1;
+// //     } else {
+// //         x = 1;
+// //     }
+// // }
+// fun f () {
+//     return f();
+// }
+// fun g () {
+//     raise Err 1;
+// }
+
