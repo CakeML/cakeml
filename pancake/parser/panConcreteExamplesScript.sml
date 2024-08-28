@@ -229,7 +229,7 @@ val ex9 = ‘
    var c = @base + 16;
    var d = 1;
    @out_morefun(a,b,c,d);
-   stw @base, ic;
+   st @base, ic;
    return 0;
  }’;
 
