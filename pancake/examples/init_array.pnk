@@ -1,0 +1,11 @@
+
+
+fun init_array (1 base_addr, 1 len) {
+  var i = 0;
+  while (i < len) {
+    stw base_addr + (i * 8), i;
+    i = i + 1;
+  }
+  return 0;
+}
+
