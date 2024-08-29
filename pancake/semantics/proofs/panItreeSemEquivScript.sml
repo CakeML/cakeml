@@ -59,10 +59,10 @@ End
 
 (* Produces a llist of the IO events on a path in the given tree
  determined by a stateful branching choice function. *)
-val st = “st:('a,'b) stree”;
+(* val st = “st:('a,'b) stree”; *)
 
 Definition stree_trace_def:
-  stree_trace f p fs ^st =
+  stree_trace f p fs st =
   LFLATTEN $ LUNFOLD
   (λ(fs',t). case t of
                  Ret r => NONE
@@ -82,7 +82,7 @@ ltree_lift lifts the mtree monad into the ltree monad and satisfies the usual
 monad transformer laws. *)
 
 Definition ltree_lift_def:
-  (ltree_lift f st (mt:('a,'b) mtree)):('a,'b) ltree =
+  (ltree_lift f st (mt:('a,'b) mtree)):('a ltree) =
   itree_iter
   (λ(t,st). case t of
         Ret x => Ret (INR x)
@@ -287,16 +287,17 @@ QED
 
 (* corollary of ltree left ident law specialised to mrec_sem *)
 Theorem msem_compos:
-  mrec_sem (h_prog seed) ≈ Ret x ⇒
-  mrec_sem (Vis (INL seed) k) ≈ mrec_sem (k x)
+  mrec_sem (h_prog seed) ≈ (Ret x : ('a,'ffi) mtree) ⇒
+  mrec_sem (Vis (INL seed) (k:('a,'ffi) hktree)) ≈ mrec_sem (k x)
 Proof
   disch_tac >>
   rw [mrec_sem_simps] >>
-  rw [msem_bind_left_ident]
+  drule msem_bind_left_ident >> rw []
 QED
 
 Theorem strip_tau_mrec_sem_Ret:
-  ∀x y. strip_tau x (Ret y) ⇒ strip_tau (mrec_sem x) (mrec_sem (Ret y))
+  ∀x y. strip_tau x (Ret y) ⇒
+        strip_tau (mrec_sem x) (mrec_sem (Ret y))
 Proof
   Induct_on ‘strip_tau’ >>
   rw[mrec_sem_simps]
@@ -422,11 +423,9 @@ Proof
   metis_tac[ltree_lift_resp_wbisim,msem_resp_wbisim]
 QED
 
-val g = “g:('a,'b) mtree_ans -> ('a,'b) ltree”;
-
 Theorem ltree_wbisim_bind_conv:
   ltree_lift f st (mrec_sem ht) ≈ Ret x ⇒
-  (ltree_lift f st (mrec_sem ht) >>= ^g) ≈ g x
+  (ltree_lift f st (mrec_sem ht) >>= (g:'a lktree)) ≈ g x
 Proof
   disch_tac >>
   ‘ltree_lift f st (mrec_sem ht) ≈ ltree_lift f st (mrec_sem ht)’
@@ -594,8 +593,7 @@ Theorem ltree_lift_bind_left_ident:
   (ltree_lift f st (mrec_sem (ht >>= k))) ≈ (ltree_lift f (ltree_lift_state f st (mrec_sem ht)) (mrec_sem (k x)))
 Proof
   disch_tac >>
-  rw [msem_lift_monad_law] >>
-  rw [ltree_lift_monad_law] >>
+  rw [msem_lift_monad_law,ltree_lift_monad_law] >>
   drule ltree_wbisim_bind_conv >>
   disch_tac >>
   irule itree_wbisim_trans >>
@@ -662,7 +660,7 @@ QED
 Datatype:
   sem_behaviour =
     SemDiverge (io_event llist)
-    | SemTerminate (('a result option) # ('a,'b) bstate)
+    | SemTerminate (('a result option) # 'a bstate)
     | SemFail
 End
 

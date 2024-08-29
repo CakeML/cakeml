@@ -171,32 +171,35 @@ End
 
 Theorem set_var_defs = CONJ panSemTheory.set_var_def set_var_def;
 
-Type mtree_ret[pp] = “:'a result option # 'a bstate”;
+
+Type htree_ret[pp] = “:'a result option # 'a bstate”;
+
+(* mtrees *)
+Type mtree[pp] = “:('a htree_ret,
+                    sem_vis_event # ('ffi ffi_result -> 'a htree_ret),
+                    'a htree_ret) itree”;
+
+(* htrees *)
 Type htree_seed[pp] = “:'a panLang$prog # 'a bstate”;
 
-(* Continuation for mtrees: these are nested inside the ITree event type of
-mtree's and htree's. *)
-Type mtree_cont[pp] = “:'b ffi_result -> 'a mtree_ret”;
-Type mtree_event[pp] = “:sem_vis_event # ('a,'b) mtree_cont”;
+Type htree[pp] = “:('a htree_ret,
+                    'a htree_seed + sem_vis_event # ('ffi ffi_result -> 'a htree_ret),
+                    'a htree_ret) itree”;
 
-Type htree[pp] = “:('a mtree_ret,
-                    'a htree_seed + ('a,'b) mtree_event,
-                    'a mtree_ret) itree”;
-Type hktree[pp] = “:'a mtree_ret -> ('a,'b) htree”;
+Type hktree[pp] = “:'a htree_ret -> ('a,'ffi) htree”;
 
-Type mtree[pp] = “:('a mtree_ret,
-                    ('a,'b) mtree_event,
-                    'a mtree_ret) itree”;
-Type mktree[pp] = “:'a mtree_ret -> ('a,'b) mtree”;
+(* ltrees *)
+Type ltree[pp] = “:(unit,unit,'a htree_ret) itree”;
 
-Type ltree[pp] = “:(unit,unit,'a mtree_ret) itree”;
-Type lktree[pp] = “:'a mtree_ret -> 'a ltree”;
+Type lktree[pp] = “:'a htree_ret -> 'a ltree”;
 
-Type stree[pp] = “:('b ffi_result, sem_vis_event, 'a mtree_ret) itree”;
+(* strees *)
+Type stree[pp] = “:('ffi ffi_result, sem_vis_event, 'a htree_ret) itree”;
 
-Type semtree[pp] = “:('b ffi_result, sem_vis_event, 'a result option) itree”;
-Type sem8tree[pp] = “:('b ffi_result, sem_vis_event, 8 result option) itree”;
-Type sem16tree[pp] = “:('b ffi_result, sem_vis_event, 16 result option) itree”;
+(* semtrees *)
+(* Type semtree[pp] = “:('b ffi_result, sem_vis_event, 'a result option) itree”; *)
+(* Type sem8tree[pp] = “:('b ffi_result, sem_vis_event, 8 result option) itree”; *)
+(* Type sem16tree[pp] = “:('b ffi_result, sem_vis_event, 16 result option) itree”; *)
 
 Definition mrec_iter_body_def:
   mrec_iter_body rh t =
@@ -478,25 +481,21 @@ Definition h_prog_def:
   (h_prog (Tick,s) = Ret (NONE,s))
 End
 
-val mt = “mt:('a,'b) mtree”;
-
 (* Converts mtree into stree *)
 Definition to_stree_def:
   to_stree =
   itree_unfold
-  (λ^mt. case mt of
+  (λmt. case mt of
          Ret r => Ret' r
         | Tau t => Tau' t
         | Vis (e,k) g => Vis' e (g o k))
 End
 
 (* Converts stree into semtree *)
-val stree = “stree:('a,'b) stree”;
-
 Definition to_semtree_def:
   to_semtree =
   itree_unfold
-  (λ^stree. case stree of
+  (λstree. case stree of
          Ret (res,s) => Ret' res
         | Tau t => Tau' t
         | Vis e k => Vis' e k)
@@ -520,7 +519,8 @@ Definition itree_semantics_def:
 End
 
 Definition mrec_sem_def:
-  mrec_sem (seed:(('a,'b) htree)) = itree_iter (mrec_iter_body h_prog) seed
+  mrec_sem (seed : ('a,'b) htree) =
+  itree_iter (mrec_iter_body h_prog) seed
 End
 
 Theorem mrec_iter_body_simp[simp]:
