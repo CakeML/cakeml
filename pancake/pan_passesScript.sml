@@ -157,7 +157,7 @@ Termination
 End
 
 Definition dest_annot_def:
-  dest_annot (Annot str) = SOME str /\
+  dest_annot (Annot k str) = SOME (k, str) /\
   dest_annot _ = NONE
 End
 
@@ -223,7 +223,8 @@ Definition pan_prog_to_display_def:
   (pan_prog_to_display (StoreByte e1 e2) = Tuple
     [String (strlit "mem"); pan_exp_to_display e1;
      String (strlit ":="); String (strlit "byte"); pan_exp_to_display e2]) ∧
-  (pan_prog_to_display (Annot str) = Item NONE (strlit "annot") [String str]) ∧
+  (pan_prog_to_display (Annot k str) = Item NONE (strlit "annot")
+    [String (escape_str k); String (escape_str str)]) ∧
   (pan_prog_to_display Tick = empty_item (strlit "tick")) ∧
   (pan_prog_to_display Break = empty_item (strlit "break")) ∧
   (pan_prog_to_display Continue = empty_item (strlit "continue")) ∧

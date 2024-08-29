@@ -112,7 +112,7 @@ Definition scope_check_prog_def:
     OPTION_CHOICE (scope_check_exp ctxt e1)
                   (scope_check_exp ctxt e2) ∧
   scope_check_prog ctxt Tick = NONE ∧
-  scope_check_prog ctxt (Annot _) = NONE
+  scope_check_prog ctxt (Annot _ _) = NONE
 End
 
 Definition scope_check_funs_def:
