@@ -12,6 +12,11 @@ Datatype:
 End
 
 Datatype:
+  varName =
+  | VarName string
+End
+
+Datatype:
   ident =
   | Ident name
 End
@@ -45,9 +50,14 @@ Datatype:
 End
 
 Datatype:
+  variance =
+  | Nonvariant | Covariant | Contravariant
+End
+
+Datatype:
   typeArgDecl =
-  (* TypeArgDecl name bounds *)
-  | TypeArgDecl ident (typeArgBound list)
+  (* TypeArgDecl name bounds variance *)
+  | TypeArgDecl ident (typeArgBound list) variance
 End
 
 Datatype:
@@ -68,8 +78,8 @@ End
 
 Datatype:
   binOp =
-  (* Eq referential nullable *)
-  | Eq bool bool
+  (* Eq referential *)
+  | Eq bool
   | Div | EuclidianDiv
   | Mod | EuclidianMod
   (* a ≤ b is !(b < a) *)
@@ -90,23 +100,28 @@ Datatype:
 End
 
 Datatype:
-  datatypeType =
-  (* DatatypeType path attributes *)
-  | DatatypeType (ident list) (attribute list)
+  datatypeType = DatatypeType
 End
 
 Datatype:
+  traitType = TraitType
+End
+
+Datatype:
+  resolvedTypeBase =
+  | ResolvedTypeBase_Class
+  | ResolvedTypeBase_Datatype (variance list)
+  | ResolvedTypeBase_Trait
+  (* Newtype baseType range erase *)
+  | ResolvedTypeBase_Newtype type newtypeRange bool ;
+
   resolvedType =
-  | ResolvedType_Datatype datatypeType
-  (* Trait path attributes *)
-  | ResolvedType_Trait (ident list) (attribute list)
-  (* Newtype baseType range erase attributes *)
-  | ResolvedType_Newtype type newtypeRange bool (attribute list) ;
+  (* ResolvedType path typeArgs kind attributes properMethods extendedTypes *)
+  | ResolvedType (ident list) (type list) resolvedTypeBase (attribute list)
+                 (name list) (type list) ;
 
   type =
-  (* Path idents typeArgs resolved *)
-  | Path (ident list) (type list) resolvedType
-  | Nullable type
+  | UserDefined resolvedType
   | Tuple (type list)
   (* Array element dims *)
   | Array type num
@@ -121,7 +136,13 @@ Datatype:
   (* Arrow args result *)
   | Arrow (type list) type
   | Primitive primitive | Passthrough string
-  | TypeArg ident
+  | TypeArg ident | Object
+End
+
+Datatype:
+  newtypeType =
+  (* NewtypeType baseType range erase *)
+  | NewtypeType type newtypeRange bool
 End
 
 Datatype:
@@ -138,7 +159,7 @@ End
 
 Datatype:
   formal =
-  | Formal name type (attribute list)
+  | Formal varName type (attribute list)
 End
 
 Datatype:
@@ -149,8 +170,8 @@ End
 
 Datatype:
   callName =
-  (* CallName name onType signature *)
-  | CallName name (type option) callSignature
+  (* CallName name onType receiverArg receiverAsArgument signature *)
+  | CallName name (type option) (formal option) bool callSignature
   | MapBuilderAdd
   | MapBuilderBuild
   | SetBuilderAdd
@@ -159,24 +180,28 @@ End
 
 Datatype:
   assignLhs =
-  | AssignLhs_Ident ident
+  | AssignLhs_Ident varName
   (* Select expr field *)
-  | AssignLhs_Select expression name
+  | AssignLhs_Select expression varName
   (* Index expr indices *)
   | AssignLhs_Index expression (expression list) ;
 
   expression =
   | Literal literal
-  | Expression_Ident name
-  | Companion (ident list)
+  | Expression_Ident varName
+  (* Companion ids typeArgs *)
+  | Companion (ident list) (type list)
+  | ExternCompanion (ident list)
   | Expression_Tuple (expression list)
   (* New path typeArgs args *)
   | New (ident list) (type list) (expression list)
-  (* NewArray dims typ *)
-  | NewArray (expression list) type
+  (* NewUninitArray dims typ *)
+  | NewUninitArray (expression list) type
+  | ArrayIndexToInt expression
+  | FinalizeNewArray expression type
   (* DatatypeValue datatypeType typeArgs variant isCo contents *)
-  | DatatypeValue datatypeType (type list) name bool
-                  ((string # expression) list)
+  | DatatypeValue resolvedType (type list) name bool
+                  ((varName # expression) list)
   (* Convert value from type *)
   | Convert expression type type
   (* SeqConstruct length elem *)
@@ -201,14 +226,15 @@ Datatype:
   | UnOp unaryOp expression
   (* BinOp op left right *)
   | BinOp binOp expression expression
-  (* ArrayLen expr dim *)
-  | ArrayLen expression num
+  (* ArrayLen expr exprType dim native *)
+  | ArrayLen expression type num bool
   | MapKeys expression
   | MapValues expression
+  | MapItems expression
   (* Select expr field isConstant onDatatype fieldType *)
-  | Select expression name bool bool type
-  (* SelectFn expr field onDatatype isStatic arity *)
-  | SelectFn expression name bool bool num
+  | Select expression varName bool bool type
+  (* SelectFn expr field onDatatype isStatic isConstant arguments *)
+  | SelectFn expression varName bool bool bool (type list)
   (* Index expr collKind indices *)
   | Index expression collKind (expression list)
   (* IndexRange expr isArray low high *)
@@ -222,22 +248,30 @@ Datatype:
   (* BetaRedex values retType expr *)
   | BetaRedex ((formal # expression) list) type expression
   (* IIFE name typ value iifeBody *)
-  | IIFE ident type expression expression
+  | IIFE varName type expression expression
   (* Apply expr args *)
   | Apply expression (expression list)
   (* TypeTest on dType variant *)
   | TypeTest expression (ident list) name
+  (* Is expr fromType toType *)
+  | Is expression type type
   | InitializationValue type
   | BoolBoundedPool
   (* SetBoundedPool of *)
   | SetBoundedPool expression
+  (* MapBoundedPool of *)
+  | MapBoundedPool expression
   (* SeqBoundedPool of includeDuplicates *)
   | SeqBoundedPool expression bool
-  (* IntRange lo hi *)
-  | IntRange expression expression ;
+  (* IntRange elemType lo hi up *)
+  | IntRange type expression expression bool
+  (* UnboundedIntRange start up *)
+  | UnboundedIntRange expression bool
+  (* Quantifier elemType collection is_forall lambda *)
+  | Quantifier type expression bool expression ;
 
   statement =
-  | DeclareVar name type (expression option)
+  | DeclareVar varName type (expression option)
   | Assign assignLhs expression
   (* If cond thn els *)
   | If expression (statement list) (statement list)
@@ -245,10 +279,10 @@ Datatype:
   | Labeled string (statement list)
   | While expression (statement list)
   (* Foreach boundName boundType over body *)
-  | Foreach name type expression (statement list)
+  | Foreach varName type expression (statement list)
   (* Call on callName typeArgs args outs *)
   | Call expression callName (type list) (expression list)
-         ((ident list) option)
+         ((varName list) option)
   | Return expression
   | EarlyReturn
   (* Break toLabel *)
@@ -258,16 +292,30 @@ Datatype:
   | JumpTailCallStart
   | Halt
   | Print expression
+  (* ConstructorNewSeparator fields *)
+  | ConstructorNewSeparator (formal list)
+End
+
+(* Dafny comment:
+ * At this point, constraints have been entirely removed,
+ * but synonym types might have different witnesses to use for by the compiler
+ *)
+Datatype:
+  synonymType =
+  | SynonymType name (typeArgDecl list) type (statement list)
+                (expression option) (attribute list)
 End
 
 Datatype:
   method =
-  (* Method isStatic hasBody overridingPath name
-            typeParams params body
-            outTypes outVars *)
-  | Method bool bool ((ident list) option) name
+  (* Method isStatic hasBody outVarsAreUninitFieldsToAssign wasFunction
+            overridingPath name typeParams params body outTypes outVars *)
+  (* Comments from Dafny (probably Rust specific) *)
+  (* outVarsAreUninitFieldsToAssign: for constructors *)
+  (* wasFunction: to choose between "&self" and "&mut self" *)
+  | Method bool bool bool bool ((ident list) option) name
            (typeArgDecl list) (formal list) (statement list)
-           (type list) ((ident list) option)
+           (type list) ((varName list) option)
 End
 
 Datatype:
@@ -282,6 +330,12 @@ Datatype:
 End
 
 Datatype:
+  trait =
+  (* Trait name typeParams parents body attributes *)
+  | Trait name (typeArgDecl list) (type list) (classItem list) (attribute list)
+End
+
+Datatype:
   class =
   (* Class name enclosingModule typeParams superClasses fields
            body attributes *)
@@ -290,16 +344,16 @@ Datatype:
 End
 
 Datatype:
-  trait =
-  (* Trait name typeParams body attributes *)
-  | Trait name (typeArgDecl list) (classItem list) (attribute list)
+  newtypeConstraint =
+  (* NewtypeConstraint variable constraintStmts *)
+  | NewtypeConstraint formal (statement list)
 End
 
 Datatype:
   newtype =
-  (* Newtype name typeParams base range
+  (* Newtype name typeParams base range constraint
              witnessStmts witnessExpr attributes *)
-  | Newtype name (typeArgDecl list) type newtypeRange
+  | Newtype name (typeArgDecl list) type newtypeRange (newtypeConstraint option)
             (statement list) (expression option) (attribute list)
 End
 
@@ -325,14 +379,15 @@ End
 
 Datatype:
   module =
-  (* Module name attributes body *)
-  | Module name (attribute list) ((moduleItem list) option) ;
+  (* Module name attributes requiresExterns body *)
+  | Module name (attribute list) bool ((moduleItem list) option) ;
 
   moduleItem =
   | ModuleItem_Module module
   | ModuleItem_Class class
   | ModuleItem_Trait trait
   | ModuleItem_Newtype newtype
+  | ModuleItem_SynonymType synonymType
   | ModuleItem_Datatype datatype
 End
 
