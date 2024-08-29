@@ -615,20 +615,22 @@ QED
 
 Theorem fbs_semantics_beh_simps:
   fbs_semantics_beh s Skip = SemTerminate (NONE,s) ∧
+  fbs_semantics_beh s (Annot ann) = SemTerminate (NONE,s) ∧
   (eval (reclock s) e = NONE ⇒ fbs_semantics_beh s (Dec v e prog) ≠ SemTerminate p)
 Proof
   rw []
+  >~ [‘Dec _ _ _’]
   >- (rw [fbs_semantics_beh_def,
+          evaluate_def] >>
+      rw [panPropsTheory.eval_upd_clock_eq] >>
+      DEEP_INTRO_TAC some_intro >> rw [] >>
+      FULL_CASE_TAC >> fs [])>>
+ (rw [fbs_semantics_beh_def,
           evaluate_def] >>
       DEEP_INTRO_TAC some_intro >> rw [EXISTS_PROD] >>
       ntac 2 TOP_CASE_TAC >>
       pairarg_tac >> gvs [panItreeSemTheory.unclock_def,panItreeSemTheory.reclock_def,
                           panItreeSemTheory.bstate_component_equality])
-  >- (rw [fbs_semantics_beh_def,
-          evaluate_def] >>
-      rw [panPropsTheory.eval_upd_clock_eq] >>
-      DEEP_INTRO_TAC some_intro >> rw [] >>
-      FULL_CASE_TAC >> fs [])
 QED
 
 Theorem ltree_lift_nonret_bind:
@@ -990,9 +992,7 @@ Proof
       rpt(PURE_FULL_CASE_TAC >> gvs[empty_locals_defs]))
   >~ [‘ShMemLoad’]
   >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-         h_prog_rule_sh_mem_load_def,
-         oneline h_prog_rule_nb_op_def,
-         h_prog_rule_sh_mem_load_nb_def,
+         h_prog_rule_sh_mem_load_def,nb_op_def,
          ltree_lift_state_simps,
          ret_eq_funpow_tau
         ] >>
@@ -1006,9 +1006,7 @@ Proof
       rpt(PURE_FULL_CASE_TAC >> gvs[empty_locals_defs]))
   >~ [‘ShMemStore’]
   >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-         h_prog_rule_sh_mem_store_def,
-         oneline h_prog_rule_nb_op_def,
-         h_prog_rule_sh_mem_store_nb_def,
+         h_prog_rule_sh_mem_store_def,nb_op_def,
          ltree_lift_state_simps,
          ret_eq_funpow_tau
         ] >>
@@ -1391,9 +1389,7 @@ Proof
      )
   >~ [‘ShMemLoad’]
   >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-         h_prog_rule_sh_mem_load_def,
-         oneline h_prog_rule_nb_op_def,
-         h_prog_rule_sh_mem_load_nb_def,
+         h_prog_rule_sh_mem_load_def,nb_op_def,
          ltree_lift_state_simps,
          ret_eq_funpow_tau
         ] >>
@@ -1414,9 +1410,7 @@ Proof
           GSYM LAPPEND_fromList, oneline event_filter_def, LAPPEND_NIL_2ND])
   >~ [‘ShMemStore’]
   >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-         h_prog_rule_sh_mem_store_def,
-         oneline h_prog_rule_nb_op_def,
-         h_prog_rule_sh_mem_store_nb_def,
+         h_prog_rule_sh_mem_store_def,nb_op_def,
          ltree_lift_state_simps,
          ret_eq_funpow_tau
         ] >>
@@ -2815,6 +2809,7 @@ QED
 
 Theorem itree_semantics_beh_simps:
   (itree_semantics_beh s Skip = SemTerminate (NONE, s)) ∧
+  (itree_semantics_beh s (Annot ann) = SemTerminate (NONE, s)) ∧
   (itree_semantics_beh s (Assign v src) =
    case eval (reclock s) src of
      NONE => SemFail
@@ -2859,6 +2854,18 @@ Theorem itree_semantics_beh_simps:
    )
 Proof
   rw []
+  >- (rw [itree_semantics_beh_def] >>
+      DEEP_INTRO_TAC some_intro >> rw []
+      >- (ntac 2 TOP_CASE_TAC >>
+          fs [h_prog_def,
+              mrec_sem_simps] >>
+          fs [ltree_lift_cases] >>
+          fs [Once itree_wbisim_cases]) >>
+      simp[EXISTS_PROD]>>
+      fs [h_prog_def,
+          mrec_sem_simps] >>
+      fs [ltree_lift_cases] >>
+      fs [Once itree_wbisim_cases])
   >- (rw [itree_semantics_beh_def] >>
       DEEP_INTRO_TAC some_intro >> rw []
       >- (ntac 2 TOP_CASE_TAC >>
@@ -3103,8 +3110,6 @@ Proof
           itree_semantics_beh_def,
           h_prog_def,
           h_prog_rule_sh_mem_load_def,
-          h_prog_rule_nb_op_def,
-          h_prog_rule_sh_mem_load_nb_def,
           nb_op_def,
           sh_mem_load_def,
           panPropsTheory.eval_upd_clock_eq,
@@ -3125,8 +3130,7 @@ Proof
          itree_wbisim_neq,
          ffiTheory.call_FFI_def,
          empty_locals_defs,
-         set_var_def,
-         panSemTheory.set_var_def
+         set_var_defs
         ]
      )
   >~ [‘ShMemStore’]
@@ -3136,8 +3140,6 @@ Proof
           itree_semantics_beh_def,
           h_prog_def,
           h_prog_rule_sh_mem_store_def,
-          h_prog_rule_nb_op_def,
-          h_prog_rule_sh_mem_store_nb_def,
           nb_op_def,
           sh_mem_store_def,
           panPropsTheory.eval_upd_clock_eq,
@@ -3158,8 +3160,7 @@ Proof
          itree_wbisim_neq,
          ffiTheory.call_FFI_def,
          empty_locals_defs,
-         set_var_def,
-         panSemTheory.set_var_def
+         set_var_defs
         ]
      ) >>
   gvs[evaluate_def,itree_semantics_beh_simps,panPropsTheory.eval_upd_clock_eq,
@@ -3254,14 +3255,13 @@ Proof
   ConseqConv.ONCE_CONSEQ_REWRITE_TAC ([itree_wbisim_Ret_FUNPOW],[],[]) >>
   simp[PULL_EXISTS] >>
   Induct_on ‘n’ using COMPLETE_INDUCTION >>
-  ntac 3 strip_tac >> Cases
-  >~ [‘Skip’]
-  >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
-         ltree_lift_cases,
-         ret_eq_funpow_tau,
-         tau_eq_funpow_tau
-        ] >>
-      rw[state_component_equality])
+  ntac 3 strip_tac >> Cases >>
+  TRY (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
+          ltree_lift_cases,
+          ret_eq_funpow_tau,
+          tau_eq_funpow_tau
+         ] >>
+       rw[state_component_equality]>>NO_TAC)
   >~ [‘Dec’]
   >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
          ltree_lift_cases,ret_eq_funpow_tau,
@@ -3491,20 +3491,6 @@ Proof
               drule_then assume_tac FUNPOW_Tau_imp_wbisim >>
               ‘r = SOME (FinalFFI f) ∧ s' = r'’ by (gvs [itree_wbisim_neq]) >>
               qexistsl_tac [‘0’,‘k'’] >> rw [])))
-  >~ [‘Break’]
-  >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
-         ltree_lift_cases,ret_eq_funpow_tau,
-         tau_eq_funpow_tau,
-         panPropsTheory.eval_upd_clock_eq
-        ] >>
-      rw[state_component_equality])
-  >~ [‘Continue’]
-  >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
-         ltree_lift_cases,ret_eq_funpow_tau,
-         tau_eq_funpow_tau,
-         panPropsTheory.eval_upd_clock_eq
-        ] >>
-      rw[state_component_equality])
   >~ [‘Call’]
   >- (rw [Once evaluate_def] >>
       simp [panPropsTheory.eval_upd_clock_eq] >>
@@ -3891,8 +3877,6 @@ Proof
       rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
          ltree_lift_cases,ret_eq_funpow_tau,
          tau_eq_funpow_tau,h_prog_rule_sh_mem_load_def,
-         oneline h_prog_rule_nb_op_def,
-         oneline h_prog_rule_sh_mem_load_nb_def,
          panPropsTheory.eval_upd_clock_eq,
          oneline nb_op_def,
          oneline sh_mem_load_def
@@ -3914,8 +3898,6 @@ Proof
       rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
          ltree_lift_cases,ret_eq_funpow_tau,
          tau_eq_funpow_tau,h_prog_rule_sh_mem_store_def,
-         oneline h_prog_rule_nb_op_def,
-         oneline h_prog_rule_sh_mem_store_nb_def,
          panPropsTheory.eval_upd_clock_eq,
          oneline nb_op_def,
          oneline sh_mem_store_def
@@ -4004,7 +3986,7 @@ Proof
             to_stree_simps,stree_trace_simps,ltree_lift_monad_law,
          panPropsTheory.opt_mmap_eval_upd_clock_eq1,set_var_defs,
          panPropsTheory.eval_upd_clock_eq,to_stree_monad_law]>>
-         Cases_on ‘op’>>fs[nb_op_def,sh_mem_load_def, h_prog_rule_sh_mem_load_nb_def]>>
+         Cases_on ‘op’>>fs[nb_op_def,sh_mem_load_def]>>
          rpt (FULL_CASE_TAC>>gvs[]))
    (* ShMemStore *)
    >>~- ([‘ShMemStore’],
@@ -4013,7 +3995,7 @@ Proof
             to_stree_simps,stree_trace_simps,ltree_lift_monad_law,
             panPropsTheory.opt_mmap_eval_upd_clock_eq1,set_var_defs,
             panPropsTheory.eval_upd_clock_eq,to_stree_monad_law]>>
-         Cases_on ‘op’>>fs[nb_op_def,sh_mem_store_def, h_prog_rule_sh_mem_store_nb_def]>>
+         Cases_on ‘op’>>fs[nb_op_def,sh_mem_store_def]>>
          rpt (FULL_CASE_TAC>>gvs[]))
   >- (* Seq *)
    (gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])
@@ -4552,8 +4534,8 @@ Proof
              panPropsTheory.eval_upd_clock_eq]>>
           rpt (FULL_CASE_TAC>>fs[mrec_sem_simps]))>>
       TRY (Cases_on ‘m’)>>
-      fs[h_prog_def,h_prog_rule_sh_mem_load_def, h_prog_rule_sh_mem_store_def, nb_op_def,
-         h_prog_rule_sh_mem_load_nb_def,h_prog_rule_sh_mem_store_nb_def,
+      fs[h_prog_def,h_prog_rule_sh_mem_load_def,
+         h_prog_rule_sh_mem_store_def, nb_op_def,
          mrec_sem_simps]>>
       rpt (FULL_CASE_TAC>>fs[mrec_sem_simps]))>>
   rename1 ‘SUC n’>>
@@ -4768,8 +4750,8 @@ Proof
          panPropsTheory.eval_upd_clock_eq]>>
       rpt (FULL_CASE_TAC>>fs[mrec_sem_simps]))>>
   TRY (Cases_on ‘m’)>>
-  fs[h_prog_def,h_prog_rule_sh_mem_load_def, h_prog_rule_sh_mem_store_def, nb_op_def,
-     h_prog_rule_sh_mem_load_nb_def,h_prog_rule_sh_mem_store_nb_def,
+  fs[h_prog_def,h_prog_rule_sh_mem_load_def,
+     h_prog_rule_sh_mem_store_def, nb_op_def,
      mrec_sem_simps]>>
   rpt (FULL_CASE_TAC>>fs[mrec_sem_simps])
 QED
@@ -5211,13 +5193,12 @@ Proof
   TRY(Cases_on ‘m’)>>
   fs[h_prog_def,h_prog_rule_sh_mem_store_def,
      h_prog_rule_sh_mem_load_def, Once evaluate_def,
-     h_prog_rule_sh_mem_load_nb_def,h_prog_rule_sh_mem_store_nb_def,
-     h_prog_rule_nb_op_def,
+     nb_op_def,
      panPropsTheory.eval_upd_clock_eq,
      panPropsTheory.opt_mmap_eval_upd_clock_eq1,
      mrec_sem_simps]>>
   rpt (FULL_CASE_TAC>>fs[mrec_sem_simps])>>
-  Cases_on ‘o'’ >> gvs[h_prog_rule_nb_op_def] >>
+  Cases_on ‘o'’ >> gvs[nb_op_def] >>
   Cases_on ‘n’>>fs[FUNPOW_SUC]>>
   fs[nb_op_def,sh_mem_load_def,sh_mem_store_def]>>
   rpt (FULL_CASE_TAC>>fs[])>>
@@ -5527,8 +5508,7 @@ Proof
   TRY (Cases_on ‘m’)>>
    fs[h_prog_def,h_prog_rule_sh_mem_store_def,
      h_prog_rule_sh_mem_load_def, Once evaluate_def,
-     h_prog_rule_sh_mem_load_nb_def,h_prog_rule_sh_mem_store_nb_def,
-     h_prog_rule_nb_op_def,ltree_lift_cases,
+     nb_op_def,ltree_lift_cases,
      panPropsTheory.eval_upd_clock_eq,
      panPropsTheory.opt_mmap_eval_upd_clock_eq1,
      mrec_sem_simps]>>
@@ -5657,8 +5637,7 @@ Proof
   >~ [‘ShMemLoad’]
   >- (Cases_on ‘op’>>
       fs[h_prog_def,h_prog_rule_sh_mem_load_def,
-         nb_op_def, h_prog_rule_nb_op_def,
-         h_prog_rule_sh_mem_load_nb_def,
+         nb_op_def,
          panPropsTheory.eval_upd_clock_eq,ltree_lift_cases,
          panPropsTheory.opt_mmap_eval_upd_clock_eq1,
          mrec_sem_simps,to_stree_simps,stree_trace_simps]>>
@@ -5674,8 +5653,7 @@ Proof
   >~ [‘ShMemStore’]
   >- (Cases_on ‘op’>>
       fs[h_prog_def,h_prog_rule_sh_mem_store_def,
-         nb_op_def, h_prog_rule_nb_op_def,
-         h_prog_rule_sh_mem_store_nb_def,
+         nb_op_def,
          panPropsTheory.eval_upd_clock_eq,ltree_lift_cases,
          panPropsTheory.opt_mmap_eval_upd_clock_eq1,
          mrec_sem_simps,to_stree_simps,stree_trace_simps]>>

@@ -118,8 +118,6 @@ Proof
      h_prog_rule_deccall_def,
      h_prog_rule_while_def,
      h_prog_rule_cond_def,
-     h_prog_rule_sh_mem_load_def,
-     h_prog_rule_sh_mem_store_def,
      h_prog_rule_seq_def,
      h_prog_rule_store_def,
      h_prog_rule_store_byte_def,
@@ -127,12 +125,11 @@ Proof
   rpt gen_tac>>
   rpt (CASE_TAC>>fs[])>>
   simp[Once itree_iter_thm]>>
-  rpt (CASE_TAC>>fs[])>>
-  simp[h_prog_rule_sh_mem_store_nb_def]>>
-  rpt (CASE_TAC>>fs[])>>
-  Cases_on ‘m’>>
-  simp[h_prog_rule_nb_op_def,
-       h_prog_rule_sh_mem_load_nb_def]>>
+  rpt (PURE_CASE_TAC>>fs[])>>
+  Cases_on ‘o'’>>
+  simp[h_prog_rule_sh_mem_load_def,
+       h_prog_rule_sh_mem_store_def,
+       panSemTheory.nb_op_def]>>
   rpt (CASE_TAC>>fs[])
 QED
 
@@ -154,8 +151,6 @@ Proof
      h_prog_rule_deccall_def,
      h_prog_rule_while_def,
      h_prog_rule_cond_def,
-     h_prog_rule_sh_mem_load_def,
-     h_prog_rule_sh_mem_store_def,
      h_prog_rule_seq_def,
      h_prog_rule_store_def,
      h_prog_rule_store_byte_def,
@@ -164,24 +159,11 @@ Proof
   rpt (CASE_TAC>>fs[])>>
   simp[Once itree_iter_thm]>>
   rpt (CASE_TAC>>fs[])>>
-  simp[h_prog_rule_sh_mem_store_nb_def]>>
-  rpt (CASE_TAC>>fs[])>>
-  Cases_on ‘m’>>
-  simp[h_prog_rule_nb_op_def,
-       h_prog_rule_sh_mem_load_nb_def]>>
+  Cases_on ‘o'’>>
+  fs[panSemTheory.nb_op_def,
+     h_prog_rule_sh_mem_load_def,
+     h_prog_rule_sh_mem_store_def]>>
   rpt (CASE_TAC>>fs[])
-QED
-
-(* a better version than the one in panPropsTheory *)
-Theorem opt_mmap_eval_upd_clock_eq:
-  !es s ck. OPT_MMAP (eval (s with clock := ck)) es =
-            OPT_MMAP (eval s) es
-Proof
-  rw [] >>
-  match_mp_tac IMP_OPT_MMAP_EQ >>
-  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
-  rw [] >>
-  metis_tac [panPropsTheory.eval_upd_clock_eq]
 QED
 
 Theorem wbisim_Ret_unique:
