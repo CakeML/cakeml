@@ -396,66 +396,62 @@ Definition h_prog_rule_return_def:
    | _ => Ret (SOME Error,s)
 End
 
-Definition h_prog_rule_sh_mem_load_nb_def:
-  h_prog_rule_sh_mem_load_nb v (addr:'a word) nb ^s =
-  if nb = 0 then
-    (if addr IN s.sh_memaddrs then
-       Vis (INR (FFI_call (SharedMem MappedRead) [n2w nb] (word_to_bytes addr F),
-                 (λres. case res of
-                          FFI_final outcome => (SOME (FinalFFI outcome),empty_locals s)
-                         | FFI_return new_ffi new_bytes =>
-                            (NONE, (set_var v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)))) Ret
-     else Ret (SOME Error,s))
-  else
-    (if (byte_align addr) IN s.sh_memaddrs then
-       Vis (INR (FFI_call (SharedMem MappedRead) [n2w nb] (word_to_bytes addr F),
-       (λres. case res of
-                FFI_final outcome => (SOME (FinalFFI outcome),empty_locals s)
-               | FFI_return new_ffi new_bytes =>
-                  (NONE,(set_var v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)))) Ret
-     else Ret (SOME Error,s))
-End
-
-Definition h_prog_rule_sh_mem_store_nb_def:
-  h_prog_rule_sh_mem_store_nb w (addr:'a word) nb ^s =
-  if nb = 0 then
-     (if addr IN s.sh_memaddrs then
-        Vis (INR (FFI_call (SharedMem MappedWrite) [n2w nb]
-                           (word_to_bytes w F ++ word_to_bytes addr F),
-             (λres. case res of
-                      FFI_final outcome => (SOME (FinalFFI outcome),s)
-                     | FFI_return new_ffi new_bytes => (NONE,s with ffi := new_ffi)))) Ret
-      else Ret (SOME Error,s))
-   else
-     (if (byte_align addr) IN s.sh_memaddrs then
-        Vis (INR (FFI_call (SharedMem MappedWrite) [n2w nb]
-                           (TAKE nb (word_to_bytes w F) ++ word_to_bytes addr F),
-             (λres. case res of
-                      FFI_final outcome => (SOME (FinalFFI outcome),s)
-                     | FFI_return new_ffi new_bytes =>
-                        (NONE,s with ffi := new_ffi)))) Ret
-      else Ret (SOME Error,s))
-End
-
-Definition h_prog_rule_nb_op_def:
-  (h_prog_rule_nb_op Op8 = 1:num) ∧
-  (h_prog_rule_nb_op OpW = 0)
-End
-
 Definition h_prog_rule_sh_mem_load_def:
   h_prog_rule_sh_mem_load op v ad s =
   case eval (reclock s) ad of
     SOME (ValWord addr) =>
      (case FLOOKUP s.locals v of
-        SOME (Val _) => h_prog_rule_sh_mem_load_nb v addr (h_prog_rule_nb_op op) s
-       | _ => Ret (SOME Error, s))
-   | _ => Ret (SOME Error, s)
+        SOME (Val _) =>
+          (let nb = nb_op op in
+             if nb = 0 then
+               (if addr IN s.sh_memaddrs then
+                  Vis (INR (FFI_call (SharedMem MappedRead) [n2w nb]
+                                     (word_to_bytes addr F),
+                            (λres. case res of
+                                     FFI_final outcome =>
+                                       (SOME (FinalFFI outcome),empty_locals s)
+                                   | FFI_return new_ffi new_bytes =>
+                                       (NONE, (set_var v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)))) Ret
+                else Ret (SOME Error,s))
+             else
+               (if (byte_align addr) IN s.sh_memaddrs then
+                  Vis (INR (FFI_call (SharedMem MappedRead) [n2w nb]
+                                     (word_to_bytes addr F),
+                            (λres. case res of
+                                     FFI_final outcome =>
+                                       (SOME (FinalFFI outcome),empty_locals s)
+                                   | FFI_return new_ffi new_bytes =>
+                                       (NONE,(set_var v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)))) Ret
+                else Ret (SOME Error,s)))
+            | _ => Ret (SOME Error, s))
+  | _ => Ret (SOME Error, s)
 End
 
 Definition h_prog_rule_sh_mem_store_def:
   h_prog_rule_sh_mem_store op ad e s =
   case (eval (reclock s) ad, eval (reclock s) e) of
-    (SOME (ValWord addr), SOME (ValWord bytes)) => h_prog_rule_sh_mem_store_nb bytes addr (h_prog_rule_nb_op op) s
+    (SOME (ValWord addr), SOME (ValWord w)) =>
+      (let nb = nb_op op in
+         if nb = 0 then
+           (if addr IN s.sh_memaddrs then
+              Vis (INR (FFI_call (SharedMem MappedWrite) [n2w nb]
+                                 (word_to_bytes w F ++ word_to_bytes addr F),
+                        (λres. case res of
+                                 FFI_final outcome =>
+                                   (SOME (FinalFFI outcome),s)
+                               | FFI_return new_ffi new_bytes =>
+                                   (NONE,s with ffi := new_ffi)))) Ret
+            else Ret (SOME Error,s))
+         else
+           (if (byte_align addr) IN s.sh_memaddrs then
+              Vis (INR (FFI_call (SharedMem MappedWrite) [n2w nb]
+                                 (TAKE nb (word_to_bytes w F) ++ word_to_bytes addr F),
+                        (λres. case res of
+                                 FFI_final outcome =>
+                                   (SOME (FinalFFI outcome),s)
+                               | FFI_return new_ffi new_bytes =>
+                                   (NONE,s with ffi := new_ffi)))) Ret
+            else Ret (SOME Error,s)))
    | _ => Ret (SOME Error, s)
 End
 
