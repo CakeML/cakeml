@@ -96,7 +96,7 @@ val defaults = [arm8_ast_def, arm8_encode_def, Encode_def,
   EncodeLogicalOp_def, bop_enc_def, e_sf_def, v2w_rw,
   arm8_encode_fail_def, e_load_store_def, arm8_load_store_ast_def,
   e_LoadStoreImmediate_def, e_branch_def, asmSemTheory.is_test_def,
-  cmp_cond_def, dfn'Hint_def];
+  cmp_cond_def, dfn'Hint_def, arm8_load_store_ast32_def];
 
 val arm8_enc_thms =
   arm8_enc_def
@@ -396,11 +396,17 @@ val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Store a b c =
 val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Store8 a b c =
                     arm8_enc (Inst (Mem Store8 a (Addr b c)))’
   |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Store32 a b c =
+                    arm8_enc (Inst (Mem Store32 a (Addr b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Load a b c =
                     arm8_enc (Inst (Mem Load a (Addr b c)))’
   |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Load8 a b c =
                     arm8_enc (Inst (Mem Load8 a (Addr b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Load32 a b c =
+                    arm8_enc (Inst (Mem Load32 a (Addr b c)))’
   |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_SubOverflow a b c d =
                     arm8_enc (Inst (Arith (SubOverflow a b c d)))’

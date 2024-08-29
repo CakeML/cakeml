@@ -118,10 +118,12 @@ val r = pan_passesTheory.pan_to_target_all_def |> spec64
 val r = pan_passesTheory.opsize_to_display_def |> translate;
 val r = pan_passesTheory.shape_to_str_def |> translate;
 val r = pan_passesTheory.insert_es_def |> translate;
-val r = pan_passesTheory.pan_exp_to_display_def |> spec64 |> translate;
+val lem = Q.prove(‘dimindex(:64) = 64’, EVAL_TAC);
+val r = pan_passesTheory.pan_exp_to_display_def |> spec64 |> SIMP_RULE std_ss [byteTheory.bytes_in_word_def,lem] |> translate;
 val r = pan_passesTheory.crep_exp_to_display_def |> spec64 |> translate;
 val r = pan_passesTheory.loop_exp_to_display_def |> spec64 |> translate;
 
+val r = pan_passesTheory.dest_annot_def |> spec64 |> translate;
 val r = pan_passesTheory.pan_seqs_def |> spec64 |> translate;
 val r = pan_passesTheory.crep_seqs_def |> spec64 |> translate;
 val r = pan_passesTheory.loop_seqs_def |> spec64 |> translate;

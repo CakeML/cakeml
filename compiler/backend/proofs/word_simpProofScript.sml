@@ -811,10 +811,10 @@ Proof
     \\ (* Other cases *)
     (rw [] \\ rw []))
   >~ [`ShareInst`]
-  >- (gvs[evaluate_def,DefnBase.one_line_ify NONE share_inst_def,
-      sh_mem_store_def,sh_mem_store_byte_def,
-      sh_mem_load_def,sh_mem_load_byte_def,
-      DefnBase.one_line_ify NONE sh_mem_set_var_def] >>
+  >- (gvs[evaluate_def,oneline share_inst_def,
+      sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
+      sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
+      oneline sh_mem_set_var_def] >>
     rw[] >>
     gvs[AllCaseEqs(),set_var_def,flush_state_def] >>
     irule EVERY2_refl >>
@@ -1041,10 +1041,10 @@ Proof
   (** ShareInst **)
   >>~- ([`ShareInst`],
     fs[const_fp_loop_def] \\
-    gvs[evaluate_def,DefnBase.one_line_ify NONE share_inst_def,
-      sh_mem_store_def,sh_mem_store_byte_def,
-      sh_mem_load_def,sh_mem_load_byte_def,
-      DefnBase.one_line_ify NONE sh_mem_set_var_def] \\
+    gvs[evaluate_def,oneline share_inst_def,
+      sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
+      sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
+      oneline sh_mem_set_var_def] \\
     rw[] \\
     gvs[AllCaseEqs(),set_var_def,flush_state_def,
       get_var_def,lookup_insert,lookup_delete] \\

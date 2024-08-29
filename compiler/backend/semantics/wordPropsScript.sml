@@ -667,6 +667,33 @@ Proof
   gvs[flush_state_def]
 QED
 
+Theorem sh_mem_store32_const:
+  sh_mem_store32 ad v s = (res, s') ==>
+  s'.clock = s.clock ∧
+  s'.compile_oracle = s.compile_oracle ∧
+  s'.compile = s.compile ∧
+  s'.be = s.be ∧
+  s'.gc_fun = s.gc_fun ∧
+  s'.code = s.code ∧
+  s'.code_buffer = s.code_buffer ∧
+  s'.data_buffer = s.data_buffer ∧
+  s'.permute = s.permute ∧
+  s'.handler = s.handler ∧
+  s'.stack_limit = s.stack_limit ∧
+  s'.stack_max = s.stack_max ∧
+  (res = SOME Error ==> s'.locals_size = s.locals_size) ∧
+  (res = NONE ==> s'.locals_size = s.locals_size) ∧
+  (res = NONE ==> s'.stack_max = s.stack_max) ∧
+  (res = SOME Error ==> s'.stack_max = s.stack_max) ∧
+  (res = NONE ==> s'.stack_size = s.stack_size) ∧
+  (res = SOME Error ==> s'.stack_size = s.stack_size)
+Proof
+  gvs[sh_mem_store32_def] >>
+  rpt (TOP_CASE_TAC>> fs[]) >>
+  rpt strip_tac >>
+  gvs[flush_state_def]
+QED
+
 Theorem share_inst_const:
   share_inst op v c s = (res, s') ==>
   s'.code = s.code ∧
@@ -689,7 +716,7 @@ Proof
   >> gvs[AllCaseEqs()]
   >> rpt strip_tac
   >> gvs[]
-  >> metis_tac[sh_mem_store_const,sh_mem_store_byte_const]
+  >> metis_tac[sh_mem_set_var_const,sh_mem_store_const,sh_mem_store_byte_const,sh_mem_store32_const]
 QED
 
 Theorem sh_mem_set_var_with_const:
@@ -715,6 +742,12 @@ Proof
   gvs[sh_mem_load_byte_def]
 QED
 
+Theorem sh_mem_load32_with_const:
+  sh_mem_load32 a (s with clock := k) = sh_mem_load32 a s
+Proof
+  gvs[sh_mem_load32_def]
+QED
+
 Theorem sh_mem_store_with_const:
   sh_mem_store a w s = (r, s') ==>
   sh_mem_store a w (s with clock := k) = (r, s' with clock := k)
@@ -735,6 +768,16 @@ Proof
   gvs[]
 QED
 
+Theorem sh_mem_store32_with_const:
+  sh_mem_store32 a w s = (r, s') ==>
+  sh_mem_store32 a w (s with clock := k) = (r, s' with clock := k)
+Proof
+  gvs[sh_mem_store32_def] >>
+  rpt strip_tac >>
+  rpt (TOP_CASE_TAC >> gvs[]) >>
+  gvs[]
+QED
+
 Theorem share_inst_with_const:
   share_inst op v c s = (r,s') ==>
   share_inst op v c (s with clock := k) = (r, s' with clock := k)
@@ -745,10 +788,11 @@ Proof
   >- metis_tac[sh_mem_set_var_with_const,
     sh_mem_load_with_const]
   >- metis_tac[sh_mem_set_var_with_const,
-    sh_mem_load_byte_with_const] >>
+    sh_mem_load_byte_with_const]
+  >- metis_tac[sh_mem_set_var_with_const,
+    sh_mem_load32_with_const] >>
   rpt (TOP_CASE_TAC >> gvs[])
-  >- metis_tac[sh_mem_store_with_const]
-  >- metis_tac[sh_mem_store_byte_with_const]
+  >> metis_tac[sh_mem_store_with_const,sh_mem_store32_with_const,sh_mem_store_byte_with_const]
 QED
 
 (*code and gc_fun are unchanged across eval*)
@@ -788,8 +832,15 @@ Proof
   >- (
     Cases_on `op` >>
     gvs[share_inst_def,sh_mem_load_def,
-      sh_mem_load_byte_def,sh_mem_store_def,
-      sh_mem_store_byte_def]
+      sh_mem_load_byte_def,sh_mem_load32_def,
+      sh_mem_store_def,sh_mem_store_byte_def,
+      sh_mem_store32_def]
+    >- (
+      IF_CASES_TAC >>
+      gvs[sh_mem_set_var_def] >>
+      qpat_abbrev_tac`res = call_FFI _ _ _ _` >>
+      Cases_on `res` >>
+      gvs[sh_mem_set_var_def] )
     >- (
       IF_CASES_TAC >>
       gvs[sh_mem_set_var_def] >>
@@ -917,25 +968,15 @@ Proof
   >- (tac>>fs[cut_env_def]>> rveq >> fs [])
   >- (
     tac >>
-    Cases_on `op` >>
-    fs[share_inst_def]
-    >- (
-      gvs[sh_mem_load_def,sh_mem_load_byte_def] >>
-      IF_CASES_TAC >>
-      gvs[sh_mem_set_var_def] >>
-      qpat_abbrev_tac `x = call_FFI _ _ _ _` >>
-      Cases_on `x` >>
-      gvs[sh_mem_set_var_def]
-    )
-    >- (
-      gvs[sh_mem_load_def,sh_mem_load_byte_def] >>
-      IF_CASES_TAC >>
-      gvs[sh_mem_set_var_def] >>
-      qpat_abbrev_tac `x = call_FFI _ _ _ _` >>
-      Cases_on `x` >>
-      gvs[sh_mem_set_var_def]
-    ) >>
-    gvs[AllCaseEqs(),sh_mem_store_def,sh_mem_store_byte_def] )
+    gvs[oneline share_inst_def,AllCaseEqs(),
+        oneline sh_mem_set_var_def,
+        sh_mem_load_def,
+        sh_mem_load_byte_def,
+        sh_mem_load32_def,
+        sh_mem_store_def,
+        sh_mem_store_byte_def,
+        sh_mem_store32_def
+       ])
   >>
     qpat_x_assum`A=(res,rst)` mp_tac>>
     ntac 6 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
@@ -1006,37 +1047,12 @@ Proof
   TRY (pairarg_tac >> full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[]) >>
   rveq
   >~ [`share_inst`]
-  >- (
-    Cases_on `op` >>
-    gvs[share_inst_def,sh_mem_store_def,sh_mem_store_byte_def,
-      sh_mem_load_def,sh_mem_load_byte_def,AllCaseEqs()]
-    >- (
-      rename1 `ad IN s.sh_mdomain` >>
-      Cases_on `ad IN s.sh_mdomain`
-      >- (
-        gvs[ffiTheory.call_FFI_def] >>
-        every_case_tac >>
-        gvs[sh_mem_set_var_def]
-      ) >>
-      drule sh_mem_set_var_const >>
-      gvs[]
-    )
-    >- (
-      rename1 `ad IN s.sh_mdomain` >>
-      Cases_on `ad IN s.sh_mdomain`
-      >- (
-        gvs[ffiTheory.call_FFI_def] >>
-        every_case_tac >>
-        gvs[sh_mem_set_var_def]
-      ) >>
-      drule sh_mem_set_var_const >>
-      gvs[]
-    ) >>
-    gvs[ffiTheory.call_FFI_def] >>
-    every_case_tac >>
-    gvs[]
-  ) >>
-   TRY (CHANGED_TAC(full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]) >>
+  >- (gvs[oneline share_inst_def,sh_mem_store_def,sh_mem_store_byte_def,
+          sh_mem_load_def,sh_mem_load_byte_def,AllCaseEqs(),
+          oneline sh_mem_set_var_def, oneline ffiTheory.call_FFI_def,
+          sh_mem_load32_def,sh_mem_store32_def
+         ]) >>
+  TRY (CHANGED_TAC(full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]) >>
        every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
   metis_tac[IS_PREFIX_TRANS]
 QED
@@ -1188,19 +1204,8 @@ Proof
   \\ TRY(pairarg_tac \\ fs[])
   \\ EVERY_CASE_TAC
   >>~ [`share_inst`]
-  >- (
-    Cases_on `op` >>
-    gvs[share_inst_def]
-    >>~- ([`sh_mem_set_var`],
-      qmatch_asmsub_abbrev_tac `sh_mem_set_var res` >>
-      Cases_on `res` >>
-      gvs[sh_mem_set_var_def] >>
-      rename1 `sh_mem_set_var (SOME res)` >>
-      Cases_on `res` >>
-      gvs[sh_mem_set_var_def,set_var_def,flush_state_def]
-    ) >>
-    gvs[AllCaseEqs(),sh_mem_store_def,sh_mem_store_byte_def,flush_state_def]
-  )
+  >- (gvs[oneline share_inst_def,oneline sh_mem_set_var_def,set_var_def,flush_state_def,
+          AllCaseEqs(),sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def])
   \\ fs[set_vars_def,state_component_equality
        ,set_var_def,set_store_def,mem_store_def
        ,call_env_def,flush_state_def,dec_clock_def,flush_state_def]
@@ -1929,11 +1934,11 @@ Proof
     TRY (fs [call_env_def,flush_state_def] \\ EVAL_TAC \\ NO_TAC) >>
     metis_tac[s_key_eq_refl])
   >- (*ShareInst*)
-    (gvs[evaluate_def] >>
+   (gvs[evaluate_def] >>
     rw[] >> fs[case_eq_thms] >>
     Cases_on `op` >>
-    gvs[share_inst_def,sh_mem_store_byte_def,sh_mem_store_def,
-      sh_mem_load_def,sh_mem_load_byte_def] >>
+    gvs[share_inst_def,sh_mem_store_byte_def,sh_mem_store_def,sh_mem_store32_def,
+      sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def] >>
     rpt strip_tac
     >>~- ([`sh_mem_set_var`],
       every_case_tac >>
@@ -2594,11 +2599,10 @@ Proof
     (fs[AllCaseEqs()] >>
     qexists_tac `perm` >>
     Cases_on `op` >>
-    gvs[share_inst_def,sh_mem_load_def,sh_mem_load_byte_def,
-      sh_mem_store_def,sh_mem_store_byte_def] >>
+    gvs[share_inst_def,sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
+      sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def] >>
     every_case_tac
     >>~- ([`sh_mem_set_var (SOME (call_FFI _ _ _ _))`],
-
     qmatch_asmsub_abbrev_tac `sh_mem_set_var (SOME x)` >>
     Cases_on `x` >>
     gvs[sh_mem_set_var_def,flush_state_def]) >>
@@ -3164,7 +3168,8 @@ Proof
     rpt strip_tac >>
     rename1 `share_inst op n ad _` >>
     Cases_on `op` >>
-    gvs[share_inst_def,sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def]
+    gvs[share_inst_def,sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,
+        sh_mem_store_byte_def,sh_mem_load32_def,sh_mem_store32_def]
     >>~- ([`sh_mem_set_var`],
       IF_CASES_TAC
       >- (
@@ -3241,7 +3246,7 @@ val inst_ok_less_def = Define`
   (inst_ok_less c (Arith (SubOverflow r1 r2 r3 r4)) ⇔
     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
   (inst_ok_less c (Mem m r (Addr r' w)) ⇔
-    if m IN {Load; Store} then addr_offset_ok c w else byte_offset_ok c w) ∧
+    if m IN {Load; Store; Load32; Store32} then addr_offset_ok c w else byte_offset_ok c w) ∧
   (inst_ok_less c (FP (FPLess r d1 d2)) ⇔  fp_reg_ok d1 c ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPLessEqual r d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPEqual r d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c)  ∧
@@ -3341,7 +3346,7 @@ val full_inst_ok_less_def = Define`
   (full_inst_ok_less c (ShareInst op r ad) =
     case exp_to_addr ad of
     | SOME (Addr _ w) =>
-      if op IN {Load; Store}
+      if op IN {Load; Store; Load32; Store32}
         then addr_offset_ok c w
         else byte_offset_ok c w
     | NONE => F) ∧
@@ -3828,7 +3833,8 @@ Proof
     every_case_tac >>
     gvs[] >>
     Cases_on `op` >>
-    gvs[share_inst_def,sh_mem_store_def,sh_mem_load_def,sh_mem_store_byte_def,sh_mem_load_byte_def]
+    gvs[share_inst_def,sh_mem_store_def,sh_mem_load_def,sh_mem_store_byte_def,
+        sh_mem_load_byte_def,sh_mem_load32_def,sh_mem_store32_def]
     >>~- ([`sh_mem_set_var`],
       every_case_tac
       >- (
@@ -4985,9 +4991,9 @@ Proof
       )
    >~ [`ShareInst`]
    >- (
-     gvs[evaluate_def,DefnBase.one_line_ify NONE share_inst_def,AllCaseEqs(),
+     gvs[evaluate_def,oneline share_inst_def,AllCaseEqs(),
       sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def,
-      DefnBase.one_line_ify NONE sh_mem_set_var_def] >>
+      sh_mem_load32_def,sh_mem_store32_def,oneline sh_mem_set_var_def] >>
      simp[state_component_equality,set_var_def,flush_state_def] ) >>
    (* else *)
    gvs[evaluate_def,AllCaseEqs(),set_var_def,set_store_def,mem_store_def,flush_state_def,

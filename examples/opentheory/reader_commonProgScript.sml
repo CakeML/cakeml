@@ -250,21 +250,21 @@ Theorem HOL_STORE_init_precond:
     Mem (^(prior_length ``init_context_v``))
         (Refv init_context_v)}
 Proof
-  qmatch_goalsub_abbrev_tac`1 + l1`
-  \\ qmatch_goalsub_abbrev_tac`2 + l2`
-  \\ qmatch_goalsub_abbrev_tac`3 + l3`
-  \\ qmatch_goalsub_abbrev_tac`4 + l4`
+  qmatch_goalsub_abbrev_tac`2 + l1`
+  \\ qmatch_goalsub_abbrev_tac`3 + l2`
+  \\ qmatch_goalsub_abbrev_tac`4 + l3`
+  \\ qmatch_goalsub_abbrev_tac`5 + l4`
   \\ rw[HOL_STORE_def,ml_monad_translatorBaseTheory.REF_REL_def,init_refs_def]
   \\ rw[STAR_def,SEP_EXISTS_THM]
-  \\ qmatch_goalsub_abbrev_tac`Mem (l1+1) v1`
-  \\ qmatch_goalsub_abbrev_tac`Mem (l2+2) v2`
-  \\ qmatch_goalsub_abbrev_tac`Mem (l3+3) v3`
-  \\ qmatch_goalsub_abbrev_tac`Mem (l4+4) v4`
-  \\ qexists_tac`{Mem(l1+1)v1;Mem(l2+2)v2;Mem(l3+3)v3}`
-  \\ qexists_tac`{Mem(l4+4)v4}`
-  \\ `l1+1 < l2+2` by simp[Abbr`l1`,Abbr`l2`]
-  \\ `l2+2 < l3+3` by simp[Abbr`l2`,Abbr`l3`]
-  \\ `l3+3 < l4+4` by simp[Abbr`l3`,Abbr`l4`]
+  \\ qmatch_goalsub_abbrev_tac`Mem (l1+2) v1`
+  \\ qmatch_goalsub_abbrev_tac`Mem (l2+3) v2`
+  \\ qmatch_goalsub_abbrev_tac`Mem (l3+4) v3`
+  \\ qmatch_goalsub_abbrev_tac`Mem (l4+5) v4`
+  \\ qexists_tac`{Mem(l1+2)v1;Mem(l2+3)v2;Mem(l3+4)v3}`
+  \\ qexists_tac`{Mem(l4+5)v4}`
+  \\ `l1+2 < l2+3` by simp[Abbr`l1`,Abbr`l2`]
+  \\ `l2+3 < l3+4` by simp[Abbr`l2`,Abbr`l3`]
+  \\ `l3+4 < l4+5` by simp[Abbr`l3`,Abbr`l4`]
   \\ conj_tac >- SPLIT_TAC
   \\ reverse conj_tac
   >- (
@@ -275,8 +275,8 @@ Proof
     \\ simp[init_context_v_thm]
     \\ unabbrev_all_tac
     \\ SPLIT_TAC )
-  \\ qexists_tac`{Mem(l1+1)v1;Mem(l2+2)v2}`
-  \\ qexists_tac`{Mem(l3+3)v3}`
+  \\ qexists_tac`{Mem(l1+2)v1;Mem(l2+3)v2}`
+  \\ qexists_tac`{Mem(l3+4)v3}`
   \\ conj_tac >- SPLIT_TAC
   \\ reverse conj_tac
   >- (
@@ -287,8 +287,8 @@ Proof
     \\ simp[init_axioms_v_thm]
     \\ unabbrev_all_tac
     \\ SPLIT_TAC )
-  \\ qexists_tac`{Mem(l1+1)v1}`
-  \\ qexists_tac`{Mem(l2+2)v2}`
+  \\ qexists_tac`{Mem(l1+2)v1}`
+  \\ qexists_tac`{Mem(l2+3)v2}`
   \\ conj_tac >- SPLIT_TAC
   \\ reverse conj_tac
   >- (

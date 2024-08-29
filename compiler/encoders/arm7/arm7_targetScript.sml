@@ -143,7 +143,10 @@ val arm7_enc_def = Define`
       let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
       enc (Load (LoadWord (add, T, F, n2w r1, n2w r2,
                            immediate_form1 imm12)))) /\
-   (* (arm7_enc (Inst (Mem Load32 _ _)) = arm7_encode_fail) /\ *)
+   (arm7_enc (Inst (Mem Load32 r1 (Addr r2 a))) =
+      let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
+      enc (Load (LoadWord (add, T, F, n2w r1, n2w r2,
+                           immediate_form1 imm12)))) /\
    (arm7_enc (Inst (Mem Load8 r1 (Addr r2 a))) =
       let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
       enc (Load (LoadByte (T, add, T, F, n2w r1, n2w r2,
@@ -152,7 +155,10 @@ val arm7_enc_def = Define`
       let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
       enc (Store (StoreWord (add, T, F, n2w r1, n2w r2,
                              immediate_form1 imm12)))) /\
-   (* (arm7_enc (Inst (Mem Store32 r1 (Addr r2 a))) = arm7_encode_fail) /\ *)
+   (arm7_enc (Inst (Mem Store32 r1 (Addr r2 a))) =
+      let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
+      enc (Store (StoreWord (add, T, F, n2w r1, n2w r2,
+                             immediate_form1 imm12)))) /\
    (arm7_enc (Inst (Mem Store8 r1 (Addr r2 a))) =
       let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
       enc (Store (StoreByte (add, T, F, n2w r1, n2w r2,

@@ -587,6 +587,8 @@ Proof
   gvs[inc_pc_def,dec_clock_def]
   >- share_mem_load_filter_correct_tac
   >- share_mem_load_filter_correct_tac
+  >- share_mem_load_filter_correct_tac
+  >- share_mem_store_filter_correct_tac
   >- share_mem_store_filter_correct_tac
   >- share_mem_store_filter_correct_tac
 QED

@@ -5,6 +5,8 @@ open preamble miscTheory mlstringTheory satSemTheory;
 
 val _ = new_theory "lpr";
 
+val _ = set_grammar_ancestry ["mlstring","satSem","sptree","integer","misc"];
+
 (*
   Bridging implementation and semantics
 
@@ -68,7 +70,7 @@ val delete_literals_def = Define`
 val is_AT_def = Define`
   (is_AT fml [] (C:cclause) = SOME (INR C)) ∧
   (is_AT fml (i::is) C =
-  case lookup i fml of
+  case sptree$lookup i fml of
     NONE => NONE
   | SOME Ci =>
   case delete_literals Ci C of

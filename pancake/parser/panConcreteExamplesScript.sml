@@ -343,8 +343,10 @@ val shmem_ex = ‘
   fun test_shmem() {
     var v = 12;
     !st8 1000, v; // store byte from variable v (12) to shared memory address 1000
+    !st32 1000, v; // store 32 bits from variable v (12) to shared memory address 1000
     !stw 1004, 1+1; // store 1+1 (aka 2) to shared memory address 1004
     !ld8 v, 1000 + 12; // load byte stored in shared memory address 1012 to v
+    !ld32 v, 1000 + 12; // load 32 bits from shared memory address 1012 to v
     !ldw v, 1000 + 12 * 2; // load word stored in shared memory address 1024 to v
   }’;
 
@@ -422,5 +424,24 @@ val entry_fun =
  ’
 
 val entry_fun_parse =  check_success $ parse_pancake entry_fun;
+
+(* Using the annotation comment syntax. *)
+val annot_fun =
+  `
+  /* this is a function with an annot-comment in it */
+  fun f () {
+    var x = 1;
+    var y = 2;
+    /*@ good place to check y - x == 1 @*/
+    var z = x + y;
+    return z;
+  }
+  `
+
+val annot_fun_parse = check_success $ parse_pancake annot_fun;
+val annot_fun_lex = lex_pancake annot_fun;
+val annots = annot_fun_lex |> concl |> rhs |> listSyntax.dest_list |> fst
+  |> filter (can (find_term (can (match_term ``AnnotCommentT``))))
+val has_annot = assert (not o null) annots;
 
 val _ = export_theory();

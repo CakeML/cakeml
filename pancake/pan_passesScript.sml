@@ -112,7 +112,8 @@ End
 
 Definition opsize_to_display_def:
   opsize_to_display Op8 = empty_item (strlit "byte") ∧
-  opsize_to_display OpW = empty_item (strlit "word")
+  opsize_to_display OpW = empty_item (strlit "word") ∧
+  opsize_to_display Op32 = empty_item (strlit "halfword")
 End
 
 Definition insert_es_def:
@@ -129,6 +130,8 @@ Definition pan_exp_to_display_def:
     = Item NONE (strlit "Label") [String n]) ∧
   (pan_exp_to_display BaseAddr
     = Item NONE (strlit "BaseAddr") []) ∧
+  (pan_exp_to_display BytesInWord
+    = Item NONE (strlit "BytesInWord") []) ∧
   (pan_exp_to_display (panLang$Load shape exp2)
     = Item NONE (strlit "MemLoad")
            [String (shape_to_str shape);
@@ -153,10 +156,17 @@ Termination
   WF_REL_TAC `measure (panLang$exp_size ARB)`
 End
 
+Definition dest_annot_def:
+  dest_annot (Annot str) = SOME str /\
+  dest_annot _ = NONE
+End
+
+(* treat (Seq (Annot _) _) as a special case, and don't flatten it *)
 Definition pan_seqs_def:
   pan_seqs z =
     case z of
-    | panLang$Seq x y => Append (pan_seqs x) (pan_seqs y)
+    | panLang$Seq x y => (case dest_annot x of SOME _ => List [z]
+        | _ => Append (pan_seqs x) (pan_seqs y))
     | _ => List [z]
 End
 
@@ -166,6 +176,7 @@ Triviality MEM_append_pan_seqs:
     prog_size ARB a ≤ prog_size ARB prog1
 Proof
   Induct \\ simp [Once pan_seqs_def]
+  \\ every_case_tac
   \\ gvs [panLangTheory.prog_size_def]
   \\ rw [] \\ res_tac \\ fs []
 QED
@@ -212,6 +223,7 @@ Definition pan_prog_to_display_def:
   (pan_prog_to_display (StoreByte e1 e2) = Tuple
     [String (strlit "mem"); pan_exp_to_display e1;
      String (strlit ":="); String (strlit "byte"); pan_exp_to_display e2]) ∧
+  (pan_prog_to_display (Annot str) = Item NONE (strlit "annot") [String str]) ∧
   (pan_prog_to_display Tick = empty_item (strlit "tick")) ∧
   (pan_prog_to_display Break = empty_item (strlit "break")) ∧
   (pan_prog_to_display Continue = empty_item (strlit "continue")) ∧
@@ -220,8 +232,8 @@ Definition pan_prog_to_display_def:
   (pan_prog_to_display (Raise n e) =
      Item NONE (strlit "raise") [String n; pan_exp_to_display e]) ∧
   (pan_prog_to_display (Seq prog1 prog2) =
-    (let xs = append (Append (pan_seqs prog1) (pan_seqs prog2)) in
-       separate_lines (strlit "seq") (MAP pan_prog_to_display xs))) ∧
+     let xs = append (Append (pan_seqs prog1) (pan_seqs prog2)) in
+     separate_lines (strlit "seq") (MAP pan_prog_to_display xs)) ∧
   (pan_prog_to_display (panLang$Call ret_opt dest args) =
      case ret_opt of
      | NONE =>
@@ -330,8 +342,10 @@ Definition crep_prog_to_display_def:
      let prefix = (case mop of
                    | Load => [String (strlit "load"); String (strlit "word")]
                    | Load8 => [String (strlit "load"); String (strlit "byte")]
+                   | Load32 => [String (strlit "load"); String (strlit "halfword")]
                    | Store => [String (strlit "store"); String (strlit "word")]
-                   | Store8 => [String (strlit "store"); String (strlit "byte")]) in
+                   | Store8 => [String (strlit "store"); String (strlit "byte")]
+                   | Store32 => [String (strlit "store"); String (strlit "halfword")]) in
        Item NONE (strlit "shared_mem")
             (prefix ++ [num_to_display v; crep_exp_to_display e])) ∧
   (crep_prog_to_display (ExtCall f e1 e2 e3 e4) =
