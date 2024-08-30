@@ -27,6 +27,8 @@ fun parse_pancake_file fname =
     else failwith ("parse_pancake_file: failed to EVAL")
   end
 
+val fname = "../examples/init_array.pnk"
+
 val (ast, _) = parse_pancake_file "../examples/init_array.pnk"
 
 Definition the_code_def:
@@ -213,6 +215,12 @@ val dest_logic_postcond = let
     val (f, _) = strip_comb tm
   in if exists (same_const f) ls then SOME (rand tm) else NONE end end
 
+val is_logic_imp = let
+    val li = ``logic_imp``
+  in fn tm => let
+    val (f, _) = strip_comb tm
+  in same_const li f end end
+
 fun unbeta_all [] tm = ALL_CONV tm
   | unbeta_all (x :: xs) tm = (UNBETA_CONV x THENC RATOR_CONV (unbeta_all xs)) tm
 
@@ -265,17 +273,40 @@ val hoare_tactic2 =
     \\ rpt abbrev_waiting
 
 val hoare_tactic3 =
-    MAP_FIRST (irule_at Any) [eval_logic_Const, eval_logic_Cmp,
+    MAP_FIRST (irule_at Any) [eval_logic_Const,
         eval_logic_Var,
-        eval_logic_Struct_CONS, eval_logic_Struct_NIL, eval_logic_args,
+        (* eval_logic_Cmp,
+        eval_logic_Struct_CONS, eval_logic_Struct_NIL, eval_logic_args, *)
+        eval_logic_gen,
         hoare_logic_Seq, hoare_logic_Return,
         hoare_logic_annot_While, hoare_logic_Dec, hoare_logic_Store,
         hoare_logic_Assign]
-    \\ hoare_tactic2 
+    \\ hoare_tactic2
 
 Theorem bool_case_eq_specs =
     CONJ (bool_case_eq |> Q.GEN `t` |> Q.SPEC `v`)
         (bool_case_eq |> Q.GEN `f` |> Q.SPEC `v`)
+
+
+val rev_hoare_simp = let
+    val rev_hoare_v = ``rev_hoare``
+    fun conv t = let
+        val (f, _) = strip_comb t
+      in (if same_const rev_hoare_v f
+        then RAND_CONV (SIMP_CONV (srw_ss ()) hoare_simp_rules)
+        else if is_abs f
+        then (BETA_CONV THENC conv)
+        else if boolSyntax.is_conj t
+        then BINOP_CONV conv
+        else ALL_CONV) t
+      end
+  in CONV_TAC conv end
+
+val rev_hoare_tac = MAP_FIRST match_mp_tac
+        [hoare_logic_rev_Dec, hoare_logic_rev_Seq, hoare_logic_rev_Return,
+            eval_logic_rev, hoare_logic_rev_annot_While, hoare_logic_rev_Assign,
+            hoare_logic_rev_Store]
+    \\ rev_hoare_simp
 
 Theorem init_array_Hoare_correct:
   hoare_logic G
@@ -293,8 +324,8 @@ Theorem init_array_Hoare_correct:
     (TailCall (Label «init_array») [Var «base_addr»; Var «len»])
     (\res s ls. Q res s.memory s.ffi)
 Proof
-  irule hoare_logic_weaken_imp
-  \\ qspec_then `the_code` (irule_at Any) hoare_logic_TailCall_code
+  irule hoare_logic_rev_init
+  \\ qspec_then `the_code` irule hoare_logic_rev_TailCall_code
   \\ simp [lookup_init_array]
   \\ qspec_then `\s ls.
     local_word s.locals «i» <> NONE /\
@@ -309,12 +340,13 @@ Proof
     set (MAP (\i. (addr + (i * 8w))) (w_count i len)) SUBSET s.memaddrs /\
     (Q (SOME (Return (ValWord 0w))) m2 s.ffi) /\ (!m. Q (SOME TimeOut) m s.ffi)`
     (REWRITE_TAC o single) (GSYM annot_While_def)
-  \\ rpt hoare_tactic3
+  \\ rpt rev_hoare_tac
   \\ conj_tac
   >- (
     rw [logic_imp_def]
     \\ imp_res_tac neq_NONE_IMP \\ gs []
     \\ imp_res_tac neq_NONE_IMP \\ gs [val_word_of_eq_SOME]
+    \\ simp hoare_simp_rules
     \\ simp [pan_op_def, wordLangTheory.word_op_def, flatten_def,
         asmTheory.word_cmp_def, bool_case_eq_specs]
     \\ gvs []
@@ -325,12 +357,11 @@ Proof
     \\ fs [w_count_cons, mem_stores_def, mem_store_def, miscTheory.UPDATE_LIST_THM]
     \\ simp [shape_of_def]
   )
-  >- (
-    rw [logic_imp_def]
-    \\ imp_res_tac neq_NONE_IMP \\ gs []
-    \\ imp_res_tac neq_NONE_IMP \\ gs [val_word_of_eq_SOME]
-    \\ simp [shape_of_def]
-  )
+  \\ rpt rev_hoare_tac
+  \\ rw ([logic_imp_def] @ hoare_simp_rules)
+  \\ imp_res_tac neq_NONE_IMP \\ gs []
+  \\ imp_res_tac neq_NONE_IMP \\ gs [val_word_of_eq_SOME]
+  \\ simp [shape_of_def]
 QED
 
 val _ = export_theory ();

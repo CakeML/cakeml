@@ -70,32 +70,30 @@ End
 
 Theorem opt_op_precond_elim = hd (RES_CANON opt_op_precond_def)
 
-Definition res_any_def:
-  res_any nm P s = (!prev. P (s with locals := res_var s.locals (nm, prev)))
+Definition is_continuing_result_def[simp]:
+  is_continuing_result NONE = T /\
+  is_continuing_result (SOME Continue) = T /\
+  is_continuing_result _ = F
 End
 
-Theorem res_any_drop_update:
-  res_any nm P (s with locals := (locs |+ (nm, v))) = res_any nm P (s with locals := locs)
-Proof
-  simp [res_any_def]
-  \\ AP_TERM_TAC
-  \\ simp [FUN_EQ_THM]
-  \\ Cases
-  \\ simp [res_var_def]
-QED
+Definition is_fcall_result_def[simp]:
+  is_fcall_result (SOME (Return _)) = T /\
+  is_fcall_result (SOME (Exception _ _)) = T /\
+  is_fcall_result (SOME (FinalFFI _)) = T /\
+  is_fcall_result (SOME TimeOut) = T /\
+  is_fcall_result _ = F
+End
 
-Theorem res_any_same:
-  (res_any nm P (s with locals := s.locals) ==> P s) /\
-  (res_any nm P s ==> P s)
-Proof
-  qsuff_tac `(s with locals := res_var s.locals (nm, FLOOKUP s.locals nm)) = s`
-  >- (
-    simp [res_any_def] \\ metis_tac []
-  )
-  \\ simp [panSemTheory.state_component_equality]
-  \\ Cases_on `FLOOKUP s.locals nm`
-  \\ simp [res_var_def, DOMSUB_NOT_IN_DOM, FUPDATE_ELIM, TO_FLOOKUP]
-QED
+Definition result_return_val_def[simp]:
+  result_return_val (SOME (Return v)) = (SOME v) /\
+  result_return_val _ = NONE
+End
+
+Definition result_exception_val_def[simp]:
+  result_exception_val eid (SOME (Exception raised_eid v)) =
+    (if raised_eid = eid then SOME v else NONE) /\
+  result_exception_val _ _ = NONE
+End
 
 Inductive hoare_logic:
 
@@ -240,8 +238,8 @@ Inductive hoare_logic:
         | SOME w => if w = 0w then R NONE s (DROP 1 ls)
           else if s.clock = 0 then R (SOME TimeOut) (empty_locals s) (DROP 1 ls)
           else Q (dec_clock s) (DROP 1 ls)) /\
-    hoare_logic G Q p (\r s ls. case r of NONE => Inv s ls | SOME Break => R NONE s ls
-            | SOME Continue => Inv s ls | _ => R r s ls) ==>
+    hoare_logic G Q p (\r s ls. if is_continuing_result r then Inv s ls
+            else R (if r = SOME Break then NONE else r) s ls) ==>
     hoare_logic G Inv (While e p) R
   )
 
@@ -256,12 +254,7 @@ Inductive hoare_logic:
             | _ => F)
     /\
     hoare_logic G Q prog (\res s ls. R res (empty_locals s) (DROP 1 ls) /\
-        (case res of
-            | SOME (Return r) => T
-            | SOME (FinalFFI fres) => T
-            | SOME (Exception eid exn) => T
-            | SOME TimeOut => T
-            | _ => F))
+        (is_fcall_result res))
     ==>
     hoare_logic G (\s ls. FLOOKUP s.code nm = SOME (vshs, prog) /\ P s (FEMPTY :: ls))
         (TailCall (Label nm) args) R
@@ -270,18 +263,15 @@ Inductive hoare_logic:
 [hoare_logic_GenCall:]
   (
     hoare_logic G P (TailCall (Label nm) args)
-        (\res s ls. case res of
-            | SOME (Return retv) => (case ret of
+        (\res s ls. case result_return_val res of
+            | SOME retv => (case ret of
                 | NONE => R NONE (s with locals := HD ls) (DROP 1 ls)
                 | SOME ret_nm => (case FLOOKUP (HD ls) ret_nm of
                     | SOME prev_retv => shape_of retv = shape_of prev_retv /\
                         R NONE (s with locals := (HD ls |+ (ret_nm, retv))) (DROP 1 ls)
-                | NONE => F)
+                    | NONE => F)
             )
-            | SOME (FinalFFI _) => R res s (DROP 1 ls)
-            | SOME (Exception _ _) => R res s (DROP 1 ls)
-            | SOME TimeOut => R res s (DROP 1 ls)
-            | _ => F)
+            | NONE => is_fcall_result res /\ R res s (DROP 1 ls))
     ==>
     hoare_logic G (\s ls. P s (s.locals :: ls))
         (Call (SOME (ret, NONE)) (Label nm) args) R
@@ -290,30 +280,25 @@ Inductive hoare_logic:
 [hoare_logic_GenCall_Handler:]
   ( !Q.
     hoare_logic G P (TailCall (Label nm) args)
-        (\res s ls. case res of
-            | SOME (Return retv) => (case ret of
+        (\res s ls. case (result_return_val res, result_exception_val eid res) of
+            | (SOME retv, _) => (case ret of
                 | NONE => R NONE (s with locals := HD ls) (DROP 1 ls)
                 | SOME ret_nm => (case FLOOKUP (HD ls) ret_nm of
                     | SOME prev_retv => shape_of retv = shape_of prev_retv /\
                         R NONE (s with locals := (HD ls |+ (ret_nm, retv))) (DROP 1 ls)
-                | NONE => F)
+                    | NONE => F)
             )
-            | SOME (FinalFFI _) => R res s (DROP 1 ls)
-            | SOME TimeOut => R res s (DROP 1 ls)
-            | SOME (Exception raised_eid exc_val) => if raised_eid = eid
-                then (FLOOKUP s.eshapes eid = SOME (shape_of exc_val) /\
+            | (NONE, SOME exc_val) => FLOOKUP s.eshapes eid = SOME (shape_of exc_val) /\
                     (case FLOOKUP (HD ls) exc_var of SOME prev => shape_of exc_val = shape_of prev
                         | _ => F) /\
-                    Q (s with locals := (HD ls |+ (exc_var, exc_val))) (DROP 1 ls))
-                else R res s (DROP 1 ls)
-            | _ => F)
+                    Q (s with locals := (HD ls |+ (exc_var, exc_val))) (DROP 1 ls)
+            | _ => R res s (DROP 1 ls))
     /\
     hoare_logic G Q hprog R
     ==>
     hoare_logic G (\s ls. P s (s.locals :: ls))
         (Call (SOME (ret, (SOME (eid, exc_var, hprog)))) (Label nm) args) R
   )
-
 
 [hoare_logic_ExtCall:]
   ( ! Q.
@@ -739,33 +724,16 @@ End
 Theorem hoare_logic_weaken_imp =
     REWRITE_RULE [GSYM logic_imp_def] hoare_logic_weaken_pre
 
+val Inv = mk_var ("Inv", ``: (('a, 'ffi) state -> (mlstring |-> 'a v) list -> bool)``)
+
 Definition annot_While_def:
-  annot_While
-    (Inv : (('a, 'ffi) state -> (mlstring |-> 'a v) list -> bool))
+  annot_While ^Inv
     (c : 'a panLang$exp) (b : 'a panLang$prog) =
     panLang$While c b
 End
 
-Theorem hoare_logic_annot_While:
-  logic_imp Inv (\s ls. P s (FEMPTY :: ls)) /\
-  eval_logic G P e (strlit "condition") (\s ls.
-        case local_word (HD ls) (strlit "condition") of
-        | NONE => F
-        | SOME w => if w = 0w then R NONE s (DROP 1 ls)
-          else if s.clock = 0 then R (SOME TimeOut) (empty_locals s) (DROP 1 ls)
-          else Q (dec_clock s) (DROP 1 ls)) /\
-  hoare_logic G Q p (\r s ls. case r of NONE => Inv s ls | SOME Break => R NONE s ls
-        | SOME Continue => Inv s ls | _ => R r s ls) ==>
-  hoare_logic G Inv (annot_While Inv e p) R
-Proof
-  rw [annot_While_def, logic_imp_def]
-  \\ qspec_then `Inv` irule hoare_logic_While
-  \\ rpt (first_assum (irule_at Any))
-  \\ simp []
-QED
-
-
-
+Theorem hoare_logic_annot_While = hoare_logic_While
+    |> ISPEC Inv |> REWRITE_RULE [GSYM annot_While_def] |> GEN_ALL
 
 Definition exp_args_def:
   exp_args (Struct xs) = xs /\
@@ -985,12 +953,7 @@ Theorem hoare_logic_TailCall_code:
             | _ => F)
     /\
     hoare_logic G Q prog (\res s ls. R res (empty_locals s) (DROP 1 ls) /\
-        (case res of
-            | SOME (Return r) => T
-            | SOME (FinalFFI fres) => T
-            | SOME (Exception eid exn) => T
-            | SOME TimeOut => T
-            | _ => F))
+        is_fcall_result res)
     ==>
     hoare_logic G (\s ls. code SUBMAP s.code /\ P s (FEMPTY :: ls))
         (TailCall (Label nm) args) R
@@ -1003,6 +966,154 @@ Proof
   \\ imp_res_tac FLOOKUP_SUBMAP
 QED
 
+(* Embed the Dijstra-style back-propagation (weakest precond order) of the
+   Hoare logic into an explicit constant that forces things to be done in that
+   order. *)
+Definition rev_hoare_def:
+  rev_hoare cont cur_goal = (?Q. cont Q /\ cur_goal Q)
+End
+
+Theorem hoare_logic_rev_init:
+  rev_hoare (\Q. logic_imp P Q) (\Q. hoare_logic G Q f R) ==>
+  hoare_logic G P f R
+Proof
+  rw [rev_hoare_def, logic_imp_def]
+  \\ drule_then irule hoare_logic_weaken_pre
+  \\ fs []
+QED
+
+Theorem hoare_logic_rev_Seq:
+  rev_hoare (\Q. rev_hoare cont (\P.
+        hoare_logic G P p1 (\r s ls. if r = NONE then Q s ls else R r s ls)))
+    (\Q. hoare_logic G Q p2 R)
+  ==>
+  rev_hoare cont (\P. hoare_logic G P (Seq p1 p2) R)
+Proof
+  rw [rev_hoare_def]
+  \\ irule_at Any hoare_logic_Seq
+  \\ metis_tac []
+QED
+
+Theorem hoare_logic_rev_Return:
+  rev_hoare (\P. cont (\s ls. P s (FEMPTY :: ls)))
+    (\P. eval_logic G P e (strlit "return-val")
+        (\s ls. case FLOOKUP (HD ls) (strlit "return-val") of
+            | NONE => F
+            | SOME v => size_of_shape (shape_of v) <= 32 /\
+                Q (SOME (Return v)) (empty_locals s) (DROP 1 ls)))
+  ==>
+  rev_hoare cont (\P. hoare_logic G P (Return e) Q)
+Proof
+  rw [rev_hoare_def]
+  \\ irule_at Any hoare_logic_Return
+  \\ metis_tac []
+QED
+
+Theorem hoare_logic_rev_Dec:
+  rev_hoare (\Q. rev_hoare (\P. cont (\s ls. P s (FEMPTY :: ls)))
+        (\P. eval_logic G P e v
+            (\s ls. Q (s with locals := fcopy v (HD ls) s.locals)
+                (fcopy v s.locals FEMPTY :: DROP 1 ls))))
+    (\Q.hoare_logic G Q p
+        (\res s ls. R res (s with locals := fcopy v (HD ls) s.locals) (DROP 1 ls)))
+  ==>
+  rev_hoare cont (\P. hoare_logic G P (Dec v e p) R)
+Proof
+  rw [rev_hoare_def]
+  \\ irule_at Any hoare_logic_Dec
+  \\ metis_tac []
+QED
+
+Theorem hoare_logic_rev_Assign:
+  rev_hoare (\P. cont (\s ls. P s (FEMPTY :: ls) /\
+            OPTION_MAP shape_of (FLOOKUP s.locals v) =
+            SOME (panProps$exp_shape (FMAP_MAP2 (shape_of o SND) s.locals) e)))
+    (\P. eval_logic G P e v
+        (\s ls. Q NONE (s with locals := fcopy v (HD ls) s.locals) (DROP 1 ls)))
+  ==>
+  rev_hoare cont (\P. hoare_logic G P (Assign v e) Q)
+Proof
+  rw [rev_hoare_def]
+  \\ irule_at Any hoare_logic_Assign
+  \\ fs []
+  \\ metis_tac []
+QED
+
+Theorem hoare_logic_rev_annot_While:
+  rev_hoare (\Q. rev_hoare (\P. logic_imp Inv (\s ls. P s (FEMPTY :: ls)) /\ cont Inv)
+        (\P. eval_logic G P e (strlit "condition") (\s ls.
+            case local_word (HD ls) (strlit "condition") of
+            | NONE => F
+            | SOME w => if w = 0w then R NONE s (DROP 1 ls)
+              else if s.clock = 0 then R (SOME TimeOut) (empty_locals s) (DROP 1 ls)
+              else Q (dec_clock s) (DROP 1 ls))))
+    (\Q. hoare_logic G Q p (\r s ls. if is_continuing_result r then Inv s ls
+        else R (if r = SOME Break then NONE else r) s ls))
+  ==>
+  rev_hoare cont (\P0. hoare_logic G P0 (annot_While Inv e p) R)
+Proof
+  rw [rev_hoare_def, logic_imp_def]
+  \\ irule_at Any hoare_logic_annot_While
+  \\ metis_tac []
+QED
+
+Theorem hoare_logic_rev_Store:
+  rev_hoare (\Q. rev_hoare (\P. cont (\s ls. P s (FEMPTY :: ls)))
+        (\P. eval_logic G P addr_e (strlit "addr") Q))
+    (\Q. eval_logic G Q val_e (strlit "val") (\s ls.
+        case local_word (HD ls) (strlit "addr") of
+        | NONE => F
+        | SOME addr =>
+        (case FLOOKUP (HD ls) (strlit "val") of
+        | NONE => F
+        | SOME v =>
+        (case mem_stores addr (flatten v) s.memaddrs s.memory of
+        | NONE => F
+        | SOME m => R NONE (s with memory := m) (DROP 1 ls)))))
+  ==>
+  rev_hoare cont (\P. hoare_logic G P (Store addr_e val_e) R)
+Proof
+  rw [rev_hoare_def]
+  \\ irule_at Any hoare_logic_Store
+  \\ metis_tac []
+QED
+
+Theorem hoare_logic_rev_TailCall_code:
+  ! code.
+  FLOOKUP code nm = SOME (vshs, prog) /\
+  ALL_DISTINCT (MAP FST vshs) /\
+  rev_hoare (\Q. rev_hoare (\P. cont (\s ls. code SUBMAP s.code /\ P s (FEMPTY :: ls)))
+        (\P. eval_logic G P (Struct args) (strlit "args_struct")
+            (\s ls. case FLOOKUP (HD ls) (strlit "args_struct") of
+                | SOME (Struct vs) => LIST_REL (\vsh x. SND vsh = shape_of x) vshs vs /\
+                    (if s.clock = 0 then R (SOME TimeOut) (empty_locals s) (DROP 1 ls)
+                        else Q (dec_clock s with locals := (FEMPTY |++ ZIP (MAP FST vshs, vs))) ls)
+                | _ => F)))
+      (\Q. hoare_logic G Q prog (\res s ls. R res (empty_locals s) (DROP 1 ls) /\
+        (case res of
+            | SOME (Return r) => T
+            | SOME (FinalFFI fres) => T
+            | SOME (Exception eid exn) => T
+            | SOME TimeOut => T
+            | _ => F)))
+  ==>
+  rev_hoare cont (\P. hoare_logic G P (TailCall (Label nm) args) R)
+Proof
+  rw [rev_hoare_def]
+  \\ drule_then (irule_at Any) hoare_logic_TailCall_code
+  \\ rpt (first_assum (irule_at Any))
+  \\ rw []
+QED
+
+Theorem eval_logic_rev:
+  cont (\s ls. case eval s expr of NONE => F | SOME v => Q s ((HD ls |+ (v_nm, v)) :: DROP 1 ls))
+  ==>
+  rev_hoare cont (\P. eval_logic G P expr v_nm Q)
+Proof
+  rw [rev_hoare_def]
+  \\ irule_at Any eval_logic_gen
+  \\ simp []
+QED
 
 val _ = export_theory();
 
