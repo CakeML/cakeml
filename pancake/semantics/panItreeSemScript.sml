@@ -218,23 +218,23 @@ QED
 
 (* The rules for the recursive event handler, that decide
  how to evaluate each term of the program command grammar. *)
-Definition h_prog_rule_dec_def:
-  h_prog_rule_dec vname e p s =
+Definition h_prog_dec_def:
+  h_prog_dec vname e p s =
   case (eval (reclock s) e) of
    | SOME value => Vis (INL (p,s with locals := s.locals |+ (vname,value)))
                        (λ(res,s'). Ret (res,s' with locals := res_var s'.locals (vname, FLOOKUP s.locals vname)))
    | NONE => Ret (SOME Error,s)
 End
 
-Definition h_prog_rule_seq_def:
-  h_prog_rule_seq ^p1 ^p2 ^s = Vis (INL (p1,s))
+Definition h_prog_seq_def:
+  h_prog_seq ^p1 ^p2 ^s = Vis (INL (p1,s))
                                 (λ(res,s'). if res = NONE
                                             then Vis (INL (p2,s')) Ret
                                             else Ret (res,s'))
 End
 
-Definition h_prog_rule_assign_def:
-  h_prog_rule_assign vname e s =
+Definition h_prog_assign_def:
+  h_prog_assign vname e s =
   case eval (reclock s) e of
    | SOME value =>
       if is_valid_value s.locals vname value
@@ -243,8 +243,8 @@ Definition h_prog_rule_assign_def:
    | NONE => Ret (SOME Error,s)
 End
 
-Definition h_prog_rule_store_def:
-  h_prog_rule_store dst src s =
+Definition h_prog_store_def:
+  h_prog_store dst src s =
   case (eval (reclock s) dst,eval (reclock s) src) of
    | (SOME (ValWord addr),SOME value) =>
       (case mem_stores addr (flatten value) s.memaddrs s.memory of
@@ -253,8 +253,8 @@ Definition h_prog_rule_store_def:
    | _ => Ret (SOME Error,s)
 End
 
-Definition h_prog_rule_store_byte_def:
-  h_prog_rule_store_byte dst src s =
+Definition h_prog_store_byte_def:
+  h_prog_store_byte dst src s =
   case (eval (reclock s) dst,eval (reclock s) src) of
    | (SOME (ValWord addr),SOME (ValWord w)) =>
       (case mem_store_byte s.memory s.memaddrs s.be addr (w2w w) of
@@ -263,8 +263,8 @@ Definition h_prog_rule_store_byte_def:
    | _ => Ret (SOME Error,s)
 End
 
-Definition h_prog_rule_cond_def:
-  h_prog_rule_cond gexp p1 p2 s =
+Definition h_prog_cond_def:
+  h_prog_cond gexp p1 p2 s =
   case (eval (reclock s) gexp) of
    | SOME (ValWord g) => Vis (INL (if g ≠ 0w then p1 else p2,s)) Ret
    | _ => Ret (SOME Error,s)
@@ -276,8 +276,8 @@ End
 
 (* Inf ITree of Vis nodes, with inf many branches allowing
  termination of the loop; when the guard is false. *)
-Definition h_prog_rule_while_def:
-  h_prog_rule_while g p s = itree_iter
+Definition h_prog_while_def:
+  h_prog_while g p s = itree_iter
                                (λ(p,s). case (eval (reclock s) g) of
                                         | SOME (ValWord w) =>
                                            if (w ≠ 0w)
@@ -320,8 +320,8 @@ Definition h_handle_call_ret_def:
   (h_handle_call_ret calltyp s (res,s') = Ret (res,empty_locals s'))
 End
 
-Definition h_prog_rule_call_def:
-  h_prog_rule_call calltyp tgtexp argexps s =
+Definition h_prog_call_def:
+  h_prog_call calltyp tgtexp argexps s =
   case (eval (reclock s) tgtexp,OPT_MMAP (eval (reclock s)) argexps) of
    | (SOME (ValLabel fname),SOME args) =>
       (case lookup_code s.code fname args of
@@ -344,8 +344,8 @@ Definition h_handle_deccall_ret_def:
   (h_handle_deccall_ret rt shape prog1 s (res,s') = Ret (res,empty_locals s'))
 End
 
-Definition h_prog_rule_deccall_def:
-  h_prog_rule_deccall rt shape tgtexp argexps prog1 s =
+Definition h_prog_deccall_def:
+  h_prog_deccall rt shape tgtexp argexps prog1 s =
   case (eval (reclock s) tgtexp,OPT_MMAP (eval (reclock s)) argexps) of
    | (SOME (ValLabel fname),SOME args) =>
       (case lookup_code s.code fname args of
@@ -355,8 +355,8 @@ Definition h_prog_rule_deccall_def:
    | (_,_) => Ret (SOME Error,s)
 End
 
-Definition h_prog_rule_ext_call_def:
-  h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len ^s =
+Definition h_prog_ext_call_def:
+  h_prog_ext_call ffi_name conf_ptr conf_len array_ptr array_len ^s =
   case (eval (reclock s) conf_ptr,eval (reclock s) conf_len,eval (reclock s) array_ptr,eval (reclock s) array_len) of
     (SOME (ValWord conf_ptr_adr),SOME (ValWord conf_sz),
      SOME (ValWord array_ptr_adr),SOME (ValWord array_sz)) =>
@@ -375,8 +375,8 @@ Definition h_prog_rule_ext_call_def:
    | _ => Ret (SOME Error,s)
 End
 
-Definition h_prog_rule_raise_def:
-  h_prog_rule_raise eid e s =
+Definition h_prog_raise_def:
+  h_prog_raise eid e s =
   case (FLOOKUP s.eshapes eid, eval (reclock s) e) of
    | (SOME sh, SOME value) =>
       if shape_of value = sh ∧
@@ -386,8 +386,8 @@ Definition h_prog_rule_raise_def:
    | _ => Ret (SOME Error,s)
 End
 
-Definition h_prog_rule_return_def:
-  h_prog_rule_return e s =
+Definition h_prog_return_def:
+  h_prog_return e s =
   case (eval (reclock s) e) of
    | SOME value =>
       if size_of_shape (shape_of value) <= 32
@@ -396,8 +396,8 @@ Definition h_prog_rule_return_def:
    | _ => Ret (SOME Error,s)
 End
 
-Definition h_prog_rule_sh_mem_load_def:
-  h_prog_rule_sh_mem_load op v ad s =
+Definition h_prog_sh_mem_load_def:
+  h_prog_sh_mem_load op v ad s =
   case eval (reclock s) ad of
     SOME (ValWord addr) =>
      (case FLOOKUP s.locals v of
@@ -427,8 +427,8 @@ Definition h_prog_rule_sh_mem_load_def:
   | _ => Ret (SOME Error, s)
 End
 
-Definition h_prog_rule_sh_mem_store_def:
-  h_prog_rule_sh_mem_store op ad e s =
+Definition h_prog_sh_mem_store_def:
+  h_prog_sh_mem_store op ad e s =
   case (eval (reclock s) ad, eval (reclock s) e) of
     (SOME (ValWord addr), SOME (ValWord w)) =>
       (let nb = nb_op op in
@@ -459,23 +459,23 @@ End
 Definition h_prog_def:
   (h_prog (Skip,s) = Ret (NONE,s)) ∧
   (h_prog (Annot _,s) = Ret (NONE,s)) ∧
-  (h_prog (Dec vname e p,s) = h_prog_rule_dec vname e p s) ∧
-  (h_prog (Assign vname e,s) = h_prog_rule_assign vname e s) ∧
-  (h_prog (Store dst src,s) = h_prog_rule_store dst src s) ∧
-  (h_prog (StoreByte dst src,s) = h_prog_rule_store_byte dst src s) ∧
-  (h_prog (ShMemLoad op v ad,s) = h_prog_rule_sh_mem_load op v ad s) ∧
-  (h_prog (ShMemStore op ad e,s) = h_prog_rule_sh_mem_store op ad e s) ∧
-  (h_prog (Seq p1 p2,s) = h_prog_rule_seq p1 p2 s) ∧
-  (h_prog (If gexp p1 p2,s) = h_prog_rule_cond gexp p1 p2 s) ∧
-  (h_prog (While gexp p,s) = h_prog_rule_while gexp p s) ∧
+  (h_prog (Dec vname e p,s) = h_prog_dec vname e p s) ∧
+  (h_prog (Assign vname e,s) = h_prog_assign vname e s) ∧
+  (h_prog (Store dst src,s) = h_prog_store dst src s) ∧
+  (h_prog (StoreByte dst src,s) = h_prog_store_byte dst src s) ∧
+  (h_prog (ShMemLoad op v ad,s) = h_prog_sh_mem_load op v ad s) ∧
+  (h_prog (ShMemStore op ad e,s) = h_prog_sh_mem_store op ad e s) ∧
+  (h_prog (Seq p1 p2,s) = h_prog_seq p1 p2 s) ∧
+  (h_prog (If gexp p1 p2,s) = h_prog_cond gexp p1 p2 s) ∧
+  (h_prog (While gexp p,s) = h_prog_while gexp p s) ∧
   (h_prog (Break,s) = Ret (SOME Break,s)) ∧
   (h_prog (Continue,s) = Ret (SOME Continue,s)) ∧
-  (h_prog (Call calltyp tgtexp argexps,s) = h_prog_rule_call calltyp tgtexp argexps s) ∧
-  (h_prog (DecCall rt shape tgtexp argexps prog1,s) = h_prog_rule_deccall rt shape tgtexp argexps prog1 s) ∧
+  (h_prog (Call calltyp tgtexp argexps,s) = h_prog_call calltyp tgtexp argexps s) ∧
+  (h_prog (DecCall rt shape tgtexp argexps prog1,s) = h_prog_deccall rt shape tgtexp argexps prog1 s) ∧
   (h_prog (ExtCall ffi_name conf_ptr conf_len array_ptr array_len,s) =
-          h_prog_rule_ext_call ffi_name conf_ptr conf_len array_ptr array_len s) ∧
-  (h_prog (Raise eid e,s) = h_prog_rule_raise eid e s) ∧
-  (h_prog (Return e,s) = h_prog_rule_return e s) ∧
+          h_prog_ext_call ffi_name conf_ptr conf_len array_ptr array_len s) ∧
+  (h_prog (Raise eid e,s) = h_prog_raise eid e s) ∧
+  (h_prog (Return e,s) = h_prog_return e s) ∧
   (h_prog (Tick,s) = Ret (NONE,s))
 End
 

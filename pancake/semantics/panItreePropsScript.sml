@@ -110,25 +110,25 @@ Theorem h_prog_not_Tau:
 Proof
   Induct>>
   fs[h_prog_def,
-     h_prog_rule_dec_def,
-     h_prog_rule_return_def,
-     h_prog_rule_raise_def,
-     h_prog_rule_ext_call_def,
-     h_prog_rule_call_def,
-     h_prog_rule_deccall_def,
-     h_prog_rule_while_def,
-     h_prog_rule_cond_def,
-     h_prog_rule_seq_def,
-     h_prog_rule_store_def,
-     h_prog_rule_store_byte_def,
-     h_prog_rule_assign_def]>>
+     h_prog_dec_def,
+     h_prog_return_def,
+     h_prog_raise_def,
+     h_prog_ext_call_def,
+     h_prog_call_def,
+     h_prog_deccall_def,
+     h_prog_while_def,
+     h_prog_cond_def,
+     h_prog_seq_def,
+     h_prog_store_def,
+     h_prog_store_byte_def,
+     h_prog_assign_def]>>
   rpt gen_tac>>
   rpt (CASE_TAC>>fs[])>>
   simp[Once itree_iter_thm]>>
   rpt (PURE_CASE_TAC>>fs[])>>
   Cases_on ‘o'’>>
-  simp[h_prog_rule_sh_mem_load_def,
-       h_prog_rule_sh_mem_store_def,
+  simp[h_prog_sh_mem_load_def,
+       h_prog_sh_mem_store_def,
        panSemTheory.nb_op_def]>>
   rpt (CASE_TAC>>fs[])
 QED
@@ -143,26 +143,26 @@ Theorem h_prog_Vis_INR:
 Proof
   Induct>>
   fs[h_prog_def,
-     h_prog_rule_dec_def,
-     h_prog_rule_return_def,
-     h_prog_rule_raise_def,
-     h_prog_rule_ext_call_def,
-     h_prog_rule_call_def,
-     h_prog_rule_deccall_def,
-     h_prog_rule_while_def,
-     h_prog_rule_cond_def,
-     h_prog_rule_seq_def,
-     h_prog_rule_store_def,
-     h_prog_rule_store_byte_def,
-     h_prog_rule_assign_def]>>
+     h_prog_dec_def,
+     h_prog_return_def,
+     h_prog_raise_def,
+     h_prog_ext_call_def,
+     h_prog_call_def,
+     h_prog_deccall_def,
+     h_prog_while_def,
+     h_prog_cond_def,
+     h_prog_seq_def,
+     h_prog_store_def,
+     h_prog_store_byte_def,
+     h_prog_assign_def]>>
   rpt gen_tac>>
   rpt (CASE_TAC>>fs[])>>
   simp[Once itree_iter_thm]>>
   rpt (CASE_TAC>>fs[])>>
   Cases_on ‘o'’>>
   fs[panSemTheory.nb_op_def,
-     h_prog_rule_sh_mem_load_def,
-     h_prog_rule_sh_mem_store_def]>>
+     h_prog_sh_mem_load_def,
+     h_prog_sh_mem_store_def]>>
   rpt (CASE_TAC>>fs[])
 QED
 
