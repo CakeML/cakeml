@@ -2,13 +2,12 @@
 An itree semantics for Pancake.
 *)
 
-open preamble panLangTheory
+open preamble panLangTheory itreeTauTheory
               panSemTheory;
 local open alignmentTheory
         miscTheory     (* for read_bytearray *)
         wordLangTheory (* for word_op and word_sh *)
-        ffiTheory
-        itreeTauTheory in end;
+        ffiTheory in end;
 
 val _ = new_theory "panItreeSem";
 
@@ -188,15 +187,15 @@ Definition mrec_iter_body_def:
    | Vis (INL seed') k => Ret (INL (itree_bind (rh seed') k))
    | Vis (INR e) k => Vis e (Ret o INL o k)
 End
-
+(*
 Definition itree_mrec_def:
   itree_mrec rh seed =
   itree_iter (mrec_iter_body rh) (rh seed)
 End
-
+*)
 (* mrec theory *)
 
-(* Characterisation of infinite itree:s in terms of their paths. *)
+(* Characterisation of infinite itree:s in terms of their paths. 
 Definition itree_finite_def:
   itree_finite t = ∃p x. itree_el t p = Return x
 End
@@ -215,7 +214,7 @@ Proof
   qexists_tac ‘r’ >>
   rw [itreeTauTheory.itree_el_def]
 QED
-
+*)
 (* The rules for the recursive event handler, that decide
  how to evaluate each term of the program command grammar. *)
 Definition h_prog_dec_def:
@@ -491,7 +490,17 @@ Definition to_stree_def:
         | Vis (e,k) g => Vis' e (g o k))
 End
 
-(* Converts stree into semtree *)
+Theorem to_stree_simps:
+  to_stree (Ret x:('a,'b)mtree) = Ret x ∧
+  to_stree (Tau t) = Tau (to_stree t) ∧
+  to_stree (Vis eg k) = Vis (FST eg) (to_stree ∘ k ∘ SND eg)
+Proof
+  rw[to_stree_def] >>
+  rw[Once itree_unfold] >>
+  Cases_on ‘eg’ >> gvs[]
+QED
+
+(* Converts stree into semtree
 val stree = “stree:('a,'b) stree”;
 
 Definition to_semtree_def:
@@ -502,8 +511,8 @@ Definition to_semtree_def:
         | Tau t => Tau' t
         | Vis e k => Vis' e k)
 End
-
-(* ITree semantics for program commands *)
+*)
+(* ITree semantics for program commands 
 Definition itree_evaluate_def:
   itree_evaluate p s =
   to_stree (itree_mrec h_prog (p,s))
@@ -519,7 +528,7 @@ Definition itree_semantics_def:
   let prog = Call NONE (Label entry) [] in
   to_semtree (itree_evaluate prog ^s)
 End
-
+*)
 Definition mrec_sem_def:
   mrec_sem (seed:(('a,'b) htree)) = itree_iter (mrec_iter_body h_prog) seed
 End
@@ -547,6 +556,120 @@ Proof
   rw [Once itreeTauTheory.itree_iter_thm] >>
   CONV_TAC FUN_EQ_CONV >> rw [] >>
   rw [mrec_sem_def]
+QED
+
+(* more definitions *)
+
+(* ltree is the monad of leaves of an mtree (essentially branches that contain
+only Ret and Tau nodes).
+
+ltree_lift lifts the mtree monad into the ltree monad and satisfies the usual
+monad transformer laws. *)
+
+Definition ltree_lift_def:
+  (ltree_lift f (st:'b ffi_state) (mt:('a,'b) mtree)):('a,'b) ltree =
+  itree_iter
+  (λ(t,st). case t of
+        Ret x => Ret (INR x)
+       | Tau u => Ret (INL (u,st))
+       | Vis (e,k) g => let (a,rbytes,st') = (f st e) in
+                            Ret (INL ((g o k) a,st')))
+  (mt,st)
+End
+
+Theorem ltree_lift_cases:
+  (ltree_lift f st (Ret x) = Ret x) ∧
+  (ltree_lift f st (Tau u) = Tau (ltree_lift f st u)) ∧
+  (ltree_lift f st (Vis (e,k) g) = let (a,rbytes,st') = (f st e) in
+                                   Tau (ltree_lift f st' ((g o k) a)))
+Proof
+  rpt strip_tac >>
+  rw [ltree_lift_def] >>>
+     LASTGOAL (Cases_on ‘f st e’ >> Cases_on ‘r’) >>>
+     ALLGOALS (rw [Once itree_iter_thm])
+QED
+
+Theorem ltree_lift_Vis_alt:
+  ltree_lift f st (Vis ek g) =
+  (let (a,rbytes,st') = f st $ FST ek in Tau (ltree_lift f st' ((g ∘ (SND ek)) a)))
+Proof
+  Cases_on ‘ek’ >> rw[ltree_lift_cases]
+QED
+
+(***)
+
+Definition make_io_event_def[nocompute]:
+  make_io_event (FFI_call s conf bytes) rbytes =
+                IO_event s conf (ZIP (bytes,rbytes))
+End
+
+(* Produces a llist of the IO events on a path in the given tree
+ determined by a stateful branching choice function. *)
+Definition stree_trace_def:
+  stree_trace f p (fs:'b ffi_state) st =
+  LFLATTEN $ LUNFOLD
+  (λ(fs',t). case t of
+                 Ret r => NONE
+               | Tau u => SOME ((fs',u),LNIL)
+               | Vis e k => let (a,rbytes,fs'') = f fs' e in
+                              if p a then
+                                SOME ((fs'',k a),[|make_io_event e rbytes|])
+                              else
+                                SOME ((fs'', k a),LNIL))
+  (fs,st)
+End
+
+Theorem stree_trace_simps:
+  stree_trace f p fs (Tau t) = stree_trace f p fs t ∧
+  stree_trace f p fs (Ret r) = [||]
+  (* TODO: Vis *)
+Proof
+  rw[stree_trace_def] >>
+  rw[Once LUNFOLD]
+QED
+
+Theorem stree_trace_Vis:
+  stree_trace f p st (Vis e k) =
+  let (a,rbytes,st') = f st e in
+    if p a then
+      make_io_event e rbytes:::stree_trace f p st' (k a)
+    else
+      stree_trace f p st' (k a)
+Proof
+  rw[stree_trace_def] >>
+  rw[Once LUNFOLD] >>
+  rw[ELIM_UNCURRY]
+QED
+
+(* ltree_lift_state *)
+
+Definition ltree_lift_state_def:
+  ltree_lift_state f (st:'b ffi_state) t =
+  SND $
+  WHILE
+    (λ(t,st). case t of Ret _ => F | _ => T)
+    (λ(t,st).
+        case t of
+        | Ret _ => (t,st)
+        | Tau t => (t,st)
+        | Vis (e,k) g =>
+          let (a,rbytes,st') = f st e in
+            ((g ∘ k) a,st')
+    )
+    (t,st)
+End
+
+Theorem ltree_lift_state_simps:
+  ltree_lift_state f st (Ret x) = st ∧
+  ltree_lift_state f st (Tau t) = ltree_lift_state f st t ∧
+  ltree_lift_state f st (Vis ek g) =
+   let (a,rbytes,st') = f st (FST ek) in
+     ltree_lift_state f st' ((g ∘ (SND ek)) a)
+Proof
+  rpt conj_tac >>
+  rw[ltree_lift_state_def, Once whileTheory.WHILE] >>
+  rw[ELIM_UNCURRY] >>
+  PURE_TOP_CASE_TAC >> rw[]
 QED
 
 val _ = export_theory();
