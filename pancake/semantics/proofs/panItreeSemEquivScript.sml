@@ -354,7 +354,7 @@ Proof
   rw []
 QED
 
-Theorem msem_lift_monad_law:
+Theorem mrec_sem_monad_law:
   mrec_sem (ht >>= k) =
   (mrec_sem ht) >>= mrec_sem o k
 Proof
@@ -442,7 +442,7 @@ Theorem ltree_lift_bind_left_ident:
   (ltree_lift f st (mrec_sem (ht >>= k))) ≈ (ltree_lift f (ltree_lift_state f st (mrec_sem ht)) (mrec_sem (k x)))
 Proof
   disch_tac >>
-  rw [msem_lift_monad_law] >>
+  rw [mrec_sem_monad_law] >>
   rw [ltree_lift_monad_law] >>
   drule ltree_wbisim_bind_conv >>
   disch_tac >>
@@ -735,7 +735,7 @@ Proof
   CONV_TAC SYM_CONV >>
   DEEP_INTRO_TAC some_intro >>
   reverse conj_tac
-  >- (rw[msem_lift_monad_law,
+  >- (rw[mrec_sem_monad_law,
          ltree_lift_monad_law,
          ltree_lift_nonret_bind,
          to_stree_monad_law,
@@ -852,7 +852,7 @@ Proof
   PURE_TOP_CASE_TAC >> gvs[mrec_sem_simps] >>
   PURE_TOP_CASE_TAC >> gvs[mrec_sem_simps] >>
   reverse $ PURE_TOP_CASE_TAC >> gvs[mrec_sem_simps] >>
-  rw[msem_lift_monad_law] >>
+  rw[mrec_sem_monad_law] >>
   AP_TERM_TAC >>
   simp[FUN_EQ_THM] >>
   PairCases >>
@@ -884,7 +884,7 @@ Proof
           ltree_lift_state_simps,ret_eq_funpow_tau,
           tau_eq_funpow_tau
          ] >>
-      gvs[msem_lift_monad_law,ltree_lift_monad_law] >>
+      gvs[mrec_sem_monad_law,ltree_lift_monad_law] >>
       drule FUNPOW_Tau_bind_thm >>
       rw[] >>
       pairarg_tac >>
@@ -944,7 +944,7 @@ Proof
       PURE_TOP_CASE_TAC >>
       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
       gvs[tau_eq_funpow_tau] >>
-      gvs[msem_lift_monad_law,ltree_lift_monad_law] >>
+      gvs[mrec_sem_monad_law,ltree_lift_monad_law] >>
       drule FUNPOW_Tau_bind_thm >>
       rw[] >>
       pairarg_tac >>
@@ -1037,7 +1037,7 @@ Proof
       PURE_TOP_CASE_TAC >>
       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps,
           tau_eq_funpow_tau] >>
-      gvs[msem_lift_monad_law,ltree_lift_monad_law] >>
+      gvs[mrec_sem_monad_law,ltree_lift_monad_law] >>
       drule FUNPOW_Tau_bind_thm >>
       rw[] >>
       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
@@ -1087,7 +1087,7 @@ Proof
       PURE_TOP_CASE_TAC >>
       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps,
           tau_eq_funpow_tau] >>
-      gvs[msem_lift_monad_law,ltree_lift_monad_law] >>
+      gvs[mrec_sem_monad_law,ltree_lift_monad_law] >>
       drule FUNPOW_Tau_bind_thm >>
       rw[] >>
       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
@@ -1113,7 +1113,7 @@ Proof
           gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps,
               tau_eq_funpow_tau,empty_locals_defs,
               set_var_def,panSemTheory.set_var_def]) >>
-      gvs[msem_lift_monad_law,ltree_lift_monad_law] >>
+      gvs[mrec_sem_monad_law,ltree_lift_monad_law] >>
       drule FUNPOW_Tau_bind_thm >>
       rw[] >>
       pairarg_tac >>
@@ -1139,7 +1139,7 @@ Proof
          ret_eq_funpow_tau
         ] >>
       gvs[tau_eq_funpow_tau] >>
-      gvs[msem_lift_monad_law,ltree_lift_monad_law] >>
+      gvs[mrec_sem_monad_law,ltree_lift_monad_law] >>
       drule FUNPOW_Tau_bind_thm >>
       rw[] >>
       pairarg_tac >>
@@ -1251,7 +1251,7 @@ Proof
           to_stree_simps,stree_trace_simps,
           LAPPEND_NIL_2ND
          ] >>
-      gvs[msem_lift_monad_law,ltree_lift_monad_law,
+      gvs[mrec_sem_monad_law,ltree_lift_monad_law,
          to_stree_monad_law] >>
       drule FUNPOW_Tau_bind_thm >>
       rw[] >>
@@ -1326,7 +1326,7 @@ Proof
       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps,
           to_stree_simps,stree_trace_simps,LAPPEND_NIL_2ND] >>
       gvs[tau_eq_funpow_tau] >>
-      gvs[msem_lift_monad_law,ltree_lift_monad_law,to_stree_monad_law] >>
+      gvs[mrec_sem_monad_law,ltree_lift_monad_law,to_stree_monad_law] >>
       drule FUNPOW_Tau_bind_thm >>
       rw[] >>
       pairarg_tac >>
@@ -1454,7 +1454,7 @@ Proof
       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps,
           tau_eq_funpow_tau,to_stree_simps,stree_trace_simps,LAPPEND_NIL_2ND
          ] >>
-      gvs[msem_lift_monad_law,ltree_lift_monad_law,to_stree_monad_law] >>
+      gvs[mrec_sem_monad_law,ltree_lift_monad_law,to_stree_monad_law] >>
       drule FUNPOW_Tau_bind_thm >>
       rw[] >>
       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
@@ -1645,7 +1645,7 @@ Proof
       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps,
           tau_eq_funpow_tau,to_stree_simps,stree_trace_simps,LAPPEND_NIL_2ND
          ] >>
-      gvs[msem_lift_monad_law,ltree_lift_monad_law,to_stree_monad_law] >>
+      gvs[mrec_sem_monad_law,ltree_lift_monad_law,to_stree_monad_law] >>
       drule FUNPOW_Tau_bind_thm >>
       rw[] >>
       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
@@ -1724,7 +1724,7 @@ Proof
               to_stree_simps,stree_trace_simps,
               LAPPEND_NIL_2ND
              ] >>
-           gvs[msem_lift_monad_law,ltree_lift_monad_law,
+           gvs[mrec_sem_monad_law,ltree_lift_monad_law,
                to_stree_monad_law]
            >- (gvs[set_var_def,panSemTheory.set_var_def] >>
                simp[GSYM LAPPEND_ASSOC] >>
@@ -1788,7 +1788,7 @@ Proof
          LAPPEND_NIL_2ND
         ] >>
       gvs[tau_eq_funpow_tau] >>
-      gvs[msem_lift_monad_law,ltree_lift_monad_law,
+      gvs[mrec_sem_monad_law,ltree_lift_monad_law,
           to_stree_monad_law] >>
       drule FUNPOW_Tau_bind_thm >>
       rw[] >>
@@ -1870,7 +1870,7 @@ Proof
   CONV_TAC SYM_CONV >>
   DEEP_INTRO_TAC some_intro >>
   reverse conj_tac
-  >- (rw[msem_lift_monad_law,
+  >- (rw[mrec_sem_monad_law,
          ltree_lift_monad_law,
          ltree_lift_nonret_bind,
          to_stree_monad_law,
@@ -1898,7 +1898,7 @@ Proof
       PURE_CASE_TAC >> gvs[]) >>
   drule ltree_lift_state_lift >>
   strip_tac >>
-  gvs[ltree_lift_monad_law,msem_lift_monad_law] >>
+  gvs[ltree_lift_monad_law,mrec_sem_monad_law] >>
   DEEP_INTRO_TAC some_intro >>
   reverse conj_tac
   >- (rw[] >> gvs[] >>
@@ -1980,7 +1980,7 @@ Theorem mrec_sem_Call_simps:
 Proof
   simp[h_prog_def,h_prog_call_def,h_handle_call_ret_def]>>
   rpt (PURE_CASE_TAC>>gvs[])>>
-  simp[mrec_sem_simps,msem_lift_monad_law]
+  simp[mrec_sem_simps,mrec_sem_monad_law]
 QED
 
 Theorem itree_semantics_beh_Call:
@@ -2289,7 +2289,7 @@ Theorem mrec_sem_DecCall_simps:
 Proof
   simp[h_prog_def, h_prog_deccall_def, h_handle_deccall_ret_def]>>
   rpt (PURE_CASE_TAC>>gvs[])>>
-  simp[mrec_sem_simps,msem_lift_monad_law]
+  simp[mrec_sem_simps,mrec_sem_monad_law]
 QED
 
 Theorem itree_semantics_beh_DecCall:
@@ -2395,7 +2395,7 @@ Proof
           simp[FORALL_PROD]>>fs[]>>rw[] >>
           gvs[itree_wbisim_neq])
       >- (DEEP_INTRO_TAC some_intro >>
-          simp[FORALL_PROD]>>fs[]>>rw[msem_lift_monad_law,
+          simp[FORALL_PROD]>>fs[]>>rw[mrec_sem_monad_law,
                                       ltree_lift_monad_law,
                                       ltree_lift_nonret_bind,
                                       to_stree_monad_law,
@@ -2426,7 +2426,7 @@ Proof
           simp[mrec_sem_simps,to_stree_simps,stree_trace_simps]>>
           simp[set_var_defs] >>
           AP_TERM_TAC >>
-          rw[msem_lift_monad_law,
+          rw[mrec_sem_monad_law,
              ltree_lift_monad_law,
              ltree_lift_nonret_bind,
              to_stree_monad_law,
@@ -2495,7 +2495,7 @@ Proof
                 first_x_assum dxrule >>
                 rw[itree_wbisim_neq] >>
                 rpt(PURE_TOP_CASE_TAC >> gvs[])) >>
-             gvs[msem_lift_monad_law,
+             gvs[mrec_sem_monad_law,
                  ltree_lift_monad_law,
                  ltree_lift_nonret_bind,
                  to_stree_monad_law,
@@ -2557,7 +2557,7 @@ Proof
                  simp[mrec_sem_simps,to_stree_simps,stree_trace_simps]>>
                  simp[set_var_defs] >>
                  AP_TERM_TAC >>
-                 rw[msem_lift_monad_law,
+                 rw[mrec_sem_monad_law,
                     ltree_lift_monad_law,
                     ltree_lift_nonret_bind,
                     to_stree_monad_law,
@@ -2647,7 +2647,7 @@ Proof
       pairarg_tac >> gvs[]) >>
   DEEP_INTRO_TAC some_intro >>
   reverse conj_tac
-  >- (rw[msem_lift_monad_law,
+  >- (rw[mrec_sem_monad_law,
          ltree_lift_monad_law,
          ltree_lift_nonret_bind,
          to_stree_monad_law,
@@ -2675,7 +2675,7 @@ Proof
               pop_assum mp_tac >>
               rw[FORALL_PROD,EXISTS_PROD] >>
               irule_at (Pos hd) itree_wbisim_trans >>
-              simp[msem_lift_monad_law,ltree_lift_monad_law] >>
+              simp[mrec_sem_monad_law,ltree_lift_monad_law] >>
               irule_at (Pos hd) itree_bind_resp_t_wbisim >>
               first_assum $ irule_at $ Pos hd >>
               simp[ltree_lift_cases] >>
@@ -2684,7 +2684,7 @@ Proof
           rpt strip_tac >>
           dxrule_then strip_assume_tac itree_wbisim_sym >>
           dxrule itree_wbisim_trans >>
-          simp[msem_lift_monad_law,ltree_lift_monad_law] >>
+          simp[mrec_sem_monad_law,ltree_lift_monad_law] >>
           disch_then $ resolve_then Any mp_tac itree_bind_resp_t_wbisim >>
           disch_then drule >>
           simp[] >>
@@ -2717,7 +2717,7 @@ Proof
       spose_not_then kall_tac >>
       qpat_x_assum ‘∀x. _’ mp_tac >>
       simp[] >>
-      gvs[msem_lift_monad_law,ltree_lift_monad_law] >>
+      gvs[mrec_sem_monad_law,ltree_lift_monad_law] >>
       dxrule_then strip_assume_tac itree_wbisim_sym >>
       dxrule itree_wbisim_trans >>
       disch_then $ resolve_then Any mp_tac itree_bind_resp_t_wbisim >>
@@ -2738,7 +2738,7 @@ Proof
               pop_assum mp_tac >>
               rw[FORALL_PROD,EXISTS_PROD] >>
               irule_at (Pos hd) itree_wbisim_trans >>
-              simp[msem_lift_monad_law,ltree_lift_monad_law] >>
+              simp[mrec_sem_monad_law,ltree_lift_monad_law] >>
               irule_at (Pos hd) itree_bind_resp_t_wbisim >>
               first_assum $ irule_at $ Pos hd >>
               simp[ltree_lift_cases] >>
@@ -2747,7 +2747,7 @@ Proof
           rpt strip_tac >>
           dxrule_then strip_assume_tac itree_wbisim_sym >>
           dxrule itree_wbisim_trans >>
-          simp[msem_lift_monad_law,ltree_lift_monad_law] >>
+          simp[mrec_sem_monad_law,ltree_lift_monad_law] >>
           disch_then $ resolve_then Any mp_tac itree_bind_resp_t_wbisim >>
           disch_then drule >>
           simp[] >>
@@ -2780,7 +2780,7 @@ Proof
       spose_not_then kall_tac >>
       qpat_x_assum ‘∀x. _’ mp_tac >>
       simp[] >>
-      gvs[msem_lift_monad_law,ltree_lift_monad_law] >>
+      gvs[mrec_sem_monad_law,ltree_lift_monad_law] >>
       dxrule_then strip_assume_tac itree_wbisim_sym >>
       dxrule itree_wbisim_trans >>
       disch_then $ resolve_then Any mp_tac itree_bind_resp_t_wbisim >>
@@ -2795,12 +2795,12 @@ Proof
    >- (rpt strip_tac >>
        dxrule_then strip_assume_tac itree_wbisim_sym >>
        dxrule itree_wbisim_trans >>
-       simp[msem_lift_monad_law,ltree_lift_monad_law] >>
+       simp[mrec_sem_monad_law,ltree_lift_monad_law] >>
        disch_then $ resolve_then Any mp_tac itree_bind_resp_t_wbisim >>
        disch_then drule >>
        simp[ltree_lift_cases,itree_wbisim_neq])) >>
   irule_at (Pos hd) itree_wbisim_trans >>
-  simp[msem_lift_monad_law,ltree_lift_monad_law] >>
+  simp[mrec_sem_monad_law,ltree_lift_monad_law] >>
   irule_at (Pos hd) itree_bind_resp_t_wbisim >>
   first_assum $ irule_at $ Pos hd >>
   simp[ltree_lift_cases] >>
@@ -3273,7 +3273,7 @@ Proof
           ltree_lift_cases,ret_eq_funpow_tau,
           tau_eq_funpow_tau,h_prog_dec_def,
           panPropsTheory.eval_upd_clock_eq,
-          msem_lift_monad_law,
+          mrec_sem_monad_law,
           ltree_lift_monad_law
          ]
       >- rw[state_component_equality] >>
@@ -3305,7 +3305,7 @@ Proof
               ltree_lift_cases,ret_eq_funpow_tau,
               tau_eq_funpow_tau,
               panPropsTheory.eval_upd_clock_eq,
-              msem_lift_monad_law,
+              mrec_sem_monad_law,
               ltree_lift_monad_law
              ]) >>
       rw[state_component_equality])
@@ -3320,7 +3320,7 @@ Proof
               ltree_lift_cases,ret_eq_funpow_tau,
               tau_eq_funpow_tau,
               panPropsTheory.eval_upd_clock_eq,
-              msem_lift_monad_law,
+              mrec_sem_monad_law,
               ltree_lift_monad_law
              ]) >>
       rw[state_component_equality])
@@ -3335,7 +3335,7 @@ Proof
               ltree_lift_cases,ret_eq_funpow_tau,
               tau_eq_funpow_tau,
               panPropsTheory.eval_upd_clock_eq,
-              msem_lift_monad_law,
+              mrec_sem_monad_law,
               ltree_lift_monad_law
              ]) >>
       rw[state_component_equality])
@@ -3344,7 +3344,7 @@ Proof
          ltree_lift_cases,ret_eq_funpow_tau,
          tau_eq_funpow_tau,h_prog_seq_def,
          panPropsTheory.eval_upd_clock_eq,
-         msem_lift_monad_law,ltree_lift_monad_law
+         mrec_sem_monad_law,ltree_lift_monad_law
         ] >>
       imp_res_tac FUNPOW_Tau_bind_thm >>
       gvs[] >>
@@ -3533,7 +3533,7 @@ Proof
       TOP_CASE_TAC >>
       qrefine ‘SUC _’ >> simp [dec_clock_def] >>
       gvs [h_prog_def,h_prog_call_def,mrec_sem_simps,
-           ltree_lift_cases,tau_eq_funpow_tau,msem_lift_monad_law,
+           ltree_lift_cases,tau_eq_funpow_tau,mrec_sem_monad_law,
            ltree_lift_monad_law] >>
       imp_res_tac FUNPOW_Tau_bind_thm >>
       Cases_on ‘y’ >> gvs [] >>
@@ -3730,7 +3730,7 @@ Proof
       TOP_CASE_TAC >>
       qrefine ‘SUC _’ >> simp [dec_clock_def] >>
       gvs [h_prog_def,h_prog_deccall_def,mrec_sem_simps,
-           ltree_lift_cases,tau_eq_funpow_tau,msem_lift_monad_law,
+           ltree_lift_cases,tau_eq_funpow_tau,mrec_sem_monad_law,
            ltree_lift_monad_law] >>
       imp_res_tac FUNPOW_Tau_bind_thm >>
       Cases_on ‘y’ >> gvs [] >>
@@ -3776,7 +3776,7 @@ Proof
               ltree_lift_cases,ret_eq_funpow_tau,
               tau_eq_funpow_tau,h_prog_dec_def,
               panPropsTheory.eval_upd_clock_eq,
-              msem_lift_monad_law,
+              mrec_sem_monad_law,
               ltree_lift_monad_law,
               set_var_defs,
               FUNPOW_ADD]
@@ -3831,7 +3831,7 @@ Proof
               ltree_lift_cases,ret_eq_funpow_tau,
               tau_eq_funpow_tau,
               panPropsTheory.eval_upd_clock_eq,
-              msem_lift_monad_law,
+              mrec_sem_monad_law,
               ltree_lift_monad_law,
               ffiTheory.call_FFI_def,
               query_oracle_def,empty_locals_defs
@@ -3851,7 +3851,7 @@ Proof
               ltree_lift_cases,ret_eq_funpow_tau,
               tau_eq_funpow_tau,
               panPropsTheory.eval_upd_clock_eq,
-              msem_lift_monad_law,
+              mrec_sem_monad_law,
               ltree_lift_monad_law
              ]) >>
       rw[state_component_equality,empty_locals_defs])
@@ -3868,7 +3868,7 @@ Proof
               ltree_lift_cases,ret_eq_funpow_tau,
               tau_eq_funpow_tau,
               panPropsTheory.eval_upd_clock_eq,
-              msem_lift_monad_law,
+              mrec_sem_monad_law,
               ltree_lift_monad_law
              ]) >>
       rw[state_component_equality,empty_locals_defs])
@@ -3886,7 +3886,7 @@ Proof
               ltree_lift_cases,ret_eq_funpow_tau,
               tau_eq_funpow_tau,
               panPropsTheory.eval_upd_clock_eq,
-              msem_lift_monad_law,
+              mrec_sem_monad_law,
               ltree_lift_monad_law,
               ffiTheory.call_FFI_def,
               query_oracle_def,empty_locals_defs,
@@ -3907,7 +3907,7 @@ Proof
               ltree_lift_cases,ret_eq_funpow_tau,
               tau_eq_funpow_tau,
               panPropsTheory.eval_upd_clock_eq,
-              msem_lift_monad_law,
+              mrec_sem_monad_law,
               ltree_lift_monad_law,
               ffiTheory.call_FFI_def,
               query_oracle_def,empty_locals_defs,
@@ -3967,7 +3967,7 @@ Proof
   >- (* Dec *)
    (gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])>>
     fs[h_prog_def,h_prog_dec_def,mrec_sem_simps,ltree_lift_cases,
-       msem_lift_monad_law,to_stree_simps,stree_trace_simps,to_stree_monad_law,
+       mrec_sem_monad_law,to_stree_simps,stree_trace_simps,to_stree_monad_law,
        panPropsTheory.eval_upd_clock_eq,ltree_lift_monad_law]>>
     qmatch_asmsub_abbrev_tac ‘¬(X >>= Y ≈ _)’>>
     Cases_on ‘∃w. X ≈ Ret w’>>fs[]
@@ -4001,7 +4001,7 @@ Proof
    (gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])
     >- (drule_then drule ltree_lift_corres_evaluate>>strip_tac>>fs[]>>
         fs[h_prog_def,h_prog_seq_def,mrec_sem_simps,ltree_lift_cases,
-           msem_lift_monad_law,to_stree_simps,stree_trace_simps,
+           mrec_sem_monad_law,to_stree_simps,stree_trace_simps,
            to_stree_monad_law,
            panPropsTheory.eval_upd_clock_eq,ltree_lift_monad_law]>>
         imp_res_tac ltree_lift_state_lift'>>fs[]>>
@@ -4014,7 +4014,7 @@ Proof
         metis_tac[])>>
     fs[h_prog_def,h_prog_seq_def,mrec_sem_simps,ltree_lift_cases,
        to_stree_simps,stree_trace_simps,panPropsTheory.eval_upd_clock_eq]>>
-    fs[msem_lift_monad_law,ltree_lift_monad_law,to_stree_monad_law]>>
+    fs[mrec_sem_monad_law,ltree_lift_monad_law,to_stree_monad_law]>>
     qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
     Cases_on ‘∃w. X ≈ Ret w’
     >- (fs[Abbr‘X’]>>Cases_on ‘w’>>
@@ -4297,7 +4297,7 @@ Proof
       to_stree_simps,stree_trace_simps]>>
   Cases_on ‘∀x. ¬(ltree_lift query_oracle st.ffi
             (mrec_sem (h_prog (prog1,unclock st with locals := s.locals |+ (rt,retv)))) ≈ Ret x)’
-  >- (rw[msem_lift_monad_law,
+  >- (rw[mrec_sem_monad_law,
          ltree_lift_monad_law,
          ltree_lift_nonret_bind,
          to_stree_monad_law,
@@ -4307,7 +4307,7 @@ Proof
       fs[Once LAPPEND_ASSOC] >>
       metis_tac[]) >>
   gvs[mrec_sem_simps,
-      msem_lift_monad_law,
+      mrec_sem_monad_law,
       ltree_lift_monad_law,
       ltree_lift_nonret_bind,
       to_stree_monad_law,
@@ -4558,7 +4558,7 @@ Proof
   >- (fs[h_prog_def,h_prog_dec_def,mrec_sem_simps,
          panPropsTheory.eval_upd_clock_eq]>>
       rpt (FULL_CASE_TAC>>fs[mrec_sem_simps])>>
-      fs[msem_lift_monad_law]>>
+      fs[mrec_sem_monad_law]>>
       qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
       Cases_on ‘∃t. strip_tau X t’>>fs[]
       >- (imp_res_tac strip_tau_FUNPOW>>
@@ -4576,7 +4576,7 @@ Proof
       simp[FUNPOW_eq_elim,Tau_INJ,Once spin])
   (* Seq *)
   >- (fs[h_prog_def,h_prog_seq_def,mrec_sem_simps]>>
-      fs[msem_lift_monad_law]>>
+      fs[mrec_sem_monad_law]>>
       qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
       Cases_on ‘∃t. strip_tau X t’>>fs[]
       >- (imp_res_tac strip_tau_FUNPOW>>
@@ -4614,7 +4614,7 @@ Proof
   >- (fs[Once mrec_sem_while_unfold,mrec_sem_simps,
          panPropsTheory.eval_upd_clock_eq]>>
       rpt (FULL_CASE_TAC>>fs[mrec_sem_simps])>>
-      fs[msem_lift_monad_law]>>
+      fs[mrec_sem_monad_law]>>
       qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
       Cases_on ‘∃t. strip_tau X t’>>fs[]
       >- (imp_res_tac strip_tau_FUNPOW>>
@@ -4646,7 +4646,7 @@ Proof
   >- (fs[Once mrec_sem_Call_simps,mrec_sem_simps,
          panPropsTheory.eval_upd_clock_eq]>>
       rpt (FULL_CASE_TAC>>fs[mrec_sem_simps])>>
-      fs[msem_lift_monad_law]>>
+      fs[mrec_sem_monad_law]>>
       qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
       Cases_on ‘∃t. strip_tau X t’>>fs[]
       >- (imp_res_tac strip_tau_FUNPOW>>
@@ -4695,7 +4695,7 @@ Proof
   >- (fs[Once mrec_sem_DecCall_simps,mrec_sem_simps,
          panPropsTheory.eval_upd_clock_eq]>>
       rpt (FULL_CASE_TAC>>fs[mrec_sem_simps])>>
-      fs[msem_lift_monad_law]>>
+      fs[mrec_sem_monad_law]>>
       qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
       Cases_on ‘∃t. strip_tau X t’>>fs[]
       >- (imp_res_tac strip_tau_FUNPOW>>
@@ -4723,7 +4723,7 @@ Proof
              qhdtm_x_assum ‘FUNPOW’ $ assume_tac o GSYM>>
              rfs[FUNPOW_min_cancel,Tau_INJ]>>
              Cases_on ‘SUC n' - n’>>fs[FUNPOW_SUC])>>
-          fs[FUNPOW_min_cancel,Tau_INJ,set_var_defs, msem_lift_monad_law]>>
+          fs[FUNPOW_min_cancel,Tau_INJ,set_var_defs, mrec_sem_monad_law]>>
           qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
           Cases_on ‘∃t. strip_tau X t’>>fs[]
           >- (drule_then assume_tac strip_tau_FUNPOW>> fs[] >>
@@ -4791,11 +4791,11 @@ Proof
   pop_assum mp_tac>>simp[]
   (* Dec *)
   >- (fs[h_prog_def,h_prog_dec_def,mrec_sem_simps,
-         Once evaluate_def,msem_lift_monad_law,
+         Once evaluate_def,mrec_sem_monad_law,
          panPropsTheory.eval_upd_clock_eq]>>
       rpt (FULL_CASE_TAC>>fs[mrec_sem_simps])>>
       Cases_on ‘n’>>fs[FUNPOW_SUC]>>
-      fs[ELIM_UNCURRY,msem_lift_monad_law]>>
+      fs[ELIM_UNCURRY,mrec_sem_monad_law]>>
       qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
       Cases_on ‘∃t. strip_tau X t’>>fs[]
       >- (imp_res_tac strip_tau_FUNPOW>>
@@ -4816,7 +4816,7 @@ Proof
   (* Seq *)
   >- (fs[h_prog_def,h_prog_seq_def,mrec_sem_simps,
         Once evaluate_def]>>
-      fs[msem_lift_monad_law]>>
+      fs[mrec_sem_monad_law]>>
       Cases_on ‘n’>>fs[FUNPOW_SUC]>>
       qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
       Cases_on ‘∃t. strip_tau X t’>>fs[wbisim_FUNPOW_Tau]
@@ -4888,7 +4888,7 @@ Proof
       simp[FUNPOW_eq_elim,Tau_INJ,Once spin])
   (* If *)
   >- (fs[h_prog_def,h_prog_cond_def,mrec_sem_simps,
-         Once evaluate_def,msem_lift_monad_law,
+         Once evaluate_def,mrec_sem_monad_law,
          panPropsTheory.eval_upd_clock_eq]>>
       rpt (FULL_CASE_TAC>>fs[mrec_sem_simps])>>
       Cases_on ‘n’>>fs[FUNPOW_SUC]>>
@@ -4979,7 +4979,7 @@ Proof
       simp[FUNPOW_eq_elim,Tau_INJ,Once spin])
   (* Call *)
   >- (fs[Once mrec_sem_Call_simps,mrec_sem_simps,
-         Once evaluate_def,msem_lift_monad_law,
+         Once evaluate_def,mrec_sem_monad_law,
          panPropsTheory.eval_upd_clock_eq,
          panPropsTheory.opt_mmap_eval_upd_clock_eq1]>>
       pop_assum mp_tac>>
@@ -5070,7 +5070,7 @@ Proof
       simp[Once spin])
   (* DecCall *)
   >- (fs[Once mrec_sem_DecCall_simps,mrec_sem_simps,
-         Once evaluate_def,msem_lift_monad_law,
+         Once evaluate_def,mrec_sem_monad_law,
          panPropsTheory.eval_upd_clock_eq,
          panPropsTheory.opt_mmap_eval_upd_clock_eq1]>>
       pop_assum mp_tac>>
@@ -5097,7 +5097,7 @@ Proof
               fs[FUNPOW_min_cancel,Tau_INJ,mrec_sem_FUNPOW_Tau]>>
               drule mrec_Ret_const_ffi>>strip_tac>>
               pop_assum $ assume_tac o GSYM>>fs[]>>
-              fs[msem_lift_monad_law] >>
+              fs[mrec_sem_monad_law] >>
               qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
               Cases_on ‘∃t. strip_tau X t’>>fs[]
               >- (drule_then assume_tac strip_tau_FUNPOW>> fs[] >>
@@ -5241,7 +5241,7 @@ Proof
          panPropsTheory.eval_upd_clock_eq,mrec_sem_simps]>>
       rpt FULL_CASE_TAC>>
       fs[mrec_sem_simps,ltree_lift_cases,
-         msem_lift_monad_law,ltree_lift_monad_law]>>
+         mrec_sem_monad_law,ltree_lift_monad_law]>>
       Cases_on ‘n’>>fs[FUNPOW_SUC,ltree_lift_cases]>>
       fs[o_DEF,mrec_sem_simps,ELIM_UNCURRY]>>
       fs[ltree_lift_FUNPOW_Tau,wbisim_FUNPOW_Tau]>>
@@ -5285,7 +5285,7 @@ Proof
          panPropsTheory.eval_upd_clock_eq,ltree_lift_cases]>>
       rpt FULL_CASE_TAC>>
       fs[mrec_sem_simps,ltree_lift_cases,ltree_lift_FUNPOW_Tau,
-         msem_lift_monad_law,ltree_lift_monad_law,wbisim_FUNPOW_Tau]>>
+         mrec_sem_monad_law,ltree_lift_monad_law,wbisim_FUNPOW_Tau]>>
       Cases_on ‘n’>>fs[FUNPOW_SUC,ltree_lift_cases]>>
       fs[o_DEF,mrec_sem_simps,ELIM_UNCURRY]>>
       qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
@@ -5442,7 +5442,7 @@ Proof
               fs[FUNPOW_min_cancel,Tau_INJ]>>gvs[]>>
               drule mrec_Ret_const_ffi>>strip_tac>>
               pop_assum $ assume_tac o GSYM>>fs[]>>
-              fs[msem_lift_monad_law] >>
+              fs[mrec_sem_monad_law] >>
               qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
               Cases_on ‘∃t. strip_tau X t’>>fs[]
               >- (imp_res_tac strip_tau_FUNPOW>>
@@ -5613,7 +5613,7 @@ Proof
       rpt CASE_TAC>>rpt FULL_CASE_TAC>>
       fs[mrec_sem_simps,to_stree_simps,stree_trace_simps,
          LAPPEND_NIL_2ND,stree_trace_Vis,ltree_lift_cases,
-         msem_lift_monad_law,to_stree_monad_law,ltree_lift_monad_law]>>
+         mrec_sem_monad_law,to_stree_monad_law,ltree_lift_monad_law]>>
       pairarg_tac>>gvs[]>>
       qmatch_asmsub_abbrev_tac ‘evaluate (_,t)’>>
       qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
@@ -5644,7 +5644,7 @@ Proof
       rpt (CASE_TAC>>
            fs[mrec_sem_simps,to_stree_simps,stree_trace_simps,
               stree_trace_Vis,ltree_lift_cases,
-              msem_lift_monad_law,
+              mrec_sem_monad_law,
               to_stree_monad_law,ltree_lift_monad_law])>>
       TRY (fs[Once itree_wbisim_cases]>>NO_TAC)>>
       pairarg_tac>>fs[]>>FULL_CASE_TAC>>
@@ -5660,7 +5660,7 @@ Proof
       rpt (CASE_TAC>>
            fs[mrec_sem_simps,to_stree_simps,stree_trace_simps,
               stree_trace_Vis,ltree_lift_cases,
-              msem_lift_monad_law,
+              mrec_sem_monad_law,
               to_stree_monad_law,ltree_lift_monad_law])>>
       TRY (fs[Once itree_wbisim_cases]>>NO_TAC)>>
       pairarg_tac>>fs[]>>FULL_CASE_TAC>>
@@ -5672,7 +5672,7 @@ Proof
       rpt FULL_CASE_TAC>>pairarg_tac>>
       fs[mrec_sem_simps,to_stree_simps,stree_trace_simps,stree_trace_Vis,
          ltree_lift_cases,
-         msem_lift_monad_law,to_stree_monad_law,ltree_lift_monad_law]>>
+         mrec_sem_monad_law,to_stree_monad_law,ltree_lift_monad_law]>>
       FULL_CASE_TAC>>fs[]
       (* NONE *)
       >- (drule_then drule ltree_lift_corres_evaluate>>strip_tac>>gvs[]>>
@@ -5794,7 +5794,7 @@ Proof
       rpt CASE_TAC>>
       fs[mrec_sem_simps,to_stree_simps,stree_trace_simps,stree_trace_Vis,
          ltree_lift_cases,
-         msem_lift_monad_law,to_stree_monad_law,ltree_lift_monad_law]>>
+         mrec_sem_monad_law,to_stree_monad_law,ltree_lift_monad_law]>>
       TRY (fs[Once itree_wbisim_cases]>>NO_TAC)>>
       fs[Once evaluate_def]>>
       fs[Once evaluate_def,panPropsTheory.eval_upd_clock_eq]>>
@@ -5832,7 +5832,7 @@ Proof
       rpt CASE_TAC>>
       fs[mrec_sem_simps,to_stree_simps,stree_trace_simps,
          stree_trace_Vis,ltree_lift_cases,
-         msem_lift_monad_law,to_stree_monad_law,ltree_lift_monad_law]>>
+         mrec_sem_monad_law,to_stree_monad_law,ltree_lift_monad_law]>>
       TRY (fs[Once itree_wbisim_cases]>>NO_TAC)>>
       strip_tac>>
       qmatch_asmsub_abbrev_tac ‘X >>= Y’>>
@@ -5983,7 +5983,7 @@ Proof
       fs[mrec_sem_simps,to_stree_simps,stree_trace_simps,
          stree_trace_Vis,ltree_lift_cases,set_var_defs,
          panPropsTheory.opt_mmap_eval_upd_clock_eq1,
-         msem_lift_monad_law,to_stree_monad_law,ltree_lift_monad_law,
+         mrec_sem_monad_law,to_stree_monad_law,ltree_lift_monad_law,
          LAPPEND_NIL_2ND]>>
       TRY (fs[Once itree_wbisim_cases]>>NO_TAC)>>
       qmatch_asmsub_abbrev_tac ‘¬(X >>= Y ≈ _)’>>
@@ -6167,7 +6167,7 @@ Proof
       fs[mrec_sem_simps,to_stree_simps,stree_trace_simps,
          stree_trace_Vis,ltree_lift_cases,set_var_defs,
          panPropsTheory.opt_mmap_eval_upd_clock_eq1,
-         msem_lift_monad_law,to_stree_monad_law,ltree_lift_monad_law,
+         mrec_sem_monad_law,to_stree_monad_law,ltree_lift_monad_law,
          LAPPEND_NIL_2ND]>>
       TRY (fs[Once itree_wbisim_cases]>>NO_TAC)>>
       qmatch_asmsub_abbrev_tac ‘¬(X >>= Y ≈ _)’>>
@@ -6189,7 +6189,7 @@ Proof
               fs[Once itree_wbisim_cases]) >>
           gvs[h_handle_deccall_ret_def,mrec_sem_simps,
               to_stree_simps,stree_trace_simps,
-              msem_lift_monad_law,to_stree_monad_law,
+              mrec_sem_monad_law,to_stree_monad_law,
               ltree_lift_monad_law, LAPPEND_NIL_2ND,
               stree_trace_Vis,ltree_lift_cases] >>
           rpt (FULL_CASE_TAC>>fs[mrec_sem_simps,ltree_lift_cases])
@@ -6209,11 +6209,11 @@ Proof
                   stree_trace_simps,set_var_defs,dec_clock_def]>>
               gvs[h_handle_deccall_ret_def,mrec_sem_simps,
                   to_stree_simps,stree_trace_simps,
-                  msem_lift_monad_law,to_stree_monad_law,
+                  mrec_sem_monad_law,to_stree_monad_law,
                   ltree_lift_monad_law, LAPPEND_NIL_2ND,
                   stree_trace_Vis,ltree_lift_cases] >>
               gvs[ltree_lift_cases, o_DEF, mrec_sem_simps,
-                  ltree_lift_monad_law, msem_lift_monad_law, ELIM_UNCURRY] >>
+                  ltree_lift_monad_law, mrec_sem_monad_law, ELIM_UNCURRY] >>
               qmatch_asmsub_abbrev_tac ‘_ >>= Y’ >>
               ‘∀w. ¬(ltree_lift query_oracle r'.ffi
                                 (mrec_sem (h_prog (prog1,r' with locals := s.locals |+ (rt,retv)))) ≈ Ret w)’
@@ -6351,12 +6351,12 @@ Proof
   rpt (PURE_CASE_TAC>>
        fs[mrec_sem_simps,to_stree_simps,stree_trace_simps,
           stree_trace_Vis,ltree_lift_cases,LAPPEND_NIL_2ND,
-          msem_lift_monad_law,to_stree_monad_law,ltree_lift_monad_law])>>
+          mrec_sem_monad_law,to_stree_monad_law,ltree_lift_monad_law])>>
   TRY (fs[Once itree_wbisim_cases]>>NO_TAC)>>
   pairarg_tac>>fs[]>>FULL_CASE_TAC>>
   fs[mrec_sem_simps,to_stree_simps,stree_trace_simps,
      stree_trace_Vis,ltree_lift_cases,
-     msem_lift_monad_law,to_stree_monad_law,ltree_lift_monad_law]>>
+     mrec_sem_monad_law,to_stree_monad_law,ltree_lift_monad_law]>>
   fs[Once itree_wbisim_cases]
 QED
 
