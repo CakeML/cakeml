@@ -25,30 +25,24 @@ End
 
 Type static_result = ``:('a, staterr) error # staterr list``
 
-Definition repeats_def:
-  repeats xs =
+Definition first_repeat_def:
+  first_repeat xs =
     case xs of
       (x1::x2::xs) =>
         if x1 = x2
-          then x1 :: (repeats $ dropWhile ((=) x1) xs)
-        else repeats $ x2::xs
-    | _ => []
-Termination
-  WF_REL_TAC ‘measure LENGTH’ >>
-  rw[] >>
-  irule arithmeticTheory.LESS_EQ_LESS_TRANS >>
-  irule_at Any listTheory.LENGTH_dropWhile_LESS_EQ >>
-  rw[]
+          then SOME x1
+        else first_repeat $ x2::xs
+    | _ => NONE
 End
 
-Definition mapM_def:
+(* Definition mapM_def:
   mapM f [] = return [] ∧
   mapM f (x::xs) = do
     e <- f x;
     es <- mapM f xs;
     return (e::es);
   od
-End
+End *)
 
 Definition scope_check_exp_def:
   scope_check_exp ctxt (Const c) = return () ∧
@@ -244,8 +238,9 @@ Definition scope_check_def:
   scope_check funs =
     do
       fnames <<- MAP FST funs;
-      renames <<- repeats $ QSORT mlstring_lt fnames;
-      mapM (\f. log (WarningErr $ concat [strlit "function "; f; strlit " is redeclared\n"])) renames; (* #!TODO change to error *)
+      case first_repeat $ QSORT mlstring_lt fnames of
+        SOME f => error (GenErr $ concat [strlit "function "; f; strlit " is redeclared\n"])
+      | NONE => return ();
       case SPLITP (\(f,_,_,_). f = «main») funs of
         (xs,(_,T,_,_)::ys) => error (GenErr $ strlit "main function is exported\n")
       | _ => return ();

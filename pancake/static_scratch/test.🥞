@@ -25,6 +25,12 @@
 // fun f () {
 //     return 1;
 // }
+// fun g () {
+//     return 1;
+// }
+// fun g () {
+//     return 1;
+// }
 
 // // exported main
 // export fun main () {
