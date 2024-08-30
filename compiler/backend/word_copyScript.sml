@@ -188,6 +188,14 @@ Definition set_eq_def:
     cs
 End
 
+(* conservatively merge two equivalence classes *)
+Definition merge_eqs_def:
+  merge_eqs cs ds =
+  <|  to_eq := inter_eq cs.to_eq ds.to_eq;
+    from_eq := inter_eq cs.from_eq ds.from_eq;
+      next  := MAX cs.next ds.next |>
+End
+
 (* shouldn't matter whether we put y or y' in set_eq? *)
 Definition copy_prop_move_def:
   (copy_prop_move [] cs = ([],cs)) ∧
@@ -241,8 +249,7 @@ Definition copy_prop_prog_def:
      let (q1,cs') = copy_prop_prog p1 cs in
      let (q2,cs'') = copy_prop_prog p2 cs in
        (If cmp r' ri' q1 q2,
-        (* TODO: union them somehow *)
-       empty_eq)) ∧
+       merge_eqs cs' cs'')) ∧
   (copy_prop_prog (Set name exp) cs =
     case exp of
       Var n =>
