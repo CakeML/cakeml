@@ -13,7 +13,7 @@ Datatype:
   context = <| vars : varname list
              ; funcs : funname list
              ; fname : funname
-             ; loop_n : num |>
+             ; in_loop : bool |>
 End
 
 Datatype:
@@ -142,18 +142,18 @@ Definition scope_check_prog_def:
   scope_check_prog ctxt (While e p) =
     do
       scope_check_exp ctxt e;
-      scope_check_prog (ctxt with loop_n := ctxt.loop_n + 1) p
+      scope_check_prog (ctxt with in_loop := T) p
     od ∧
   scope_check_prog ctxt Break =
     do
-      if ctxt.loop_n = 0
+      if ~ctxt.in_loop
         then error (GenErr $ concat [strlit "break statement outside loop in function "; ctxt.fname; strlit "\n"])
       else return ();
       return F
     od ∧
   scope_check_prog ctxt Continue =
     do
-      if ctxt.loop_n = 0
+      if ~ctxt.in_loop
         then error (GenErr $ concat [strlit "continue statement outside loop in function "; ctxt.fname; strlit "\n"])
       else return ();
       return F
@@ -227,7 +227,7 @@ Definition scope_check_funs_def:
   scope_check_funs fnames [] = return () ∧
   scope_check_funs fnames ((fname, _:bool, vshapes, body)::funs) =
     do
-      ctxt <<- <| vars := MAP FST vshapes ; funcs := fnames ; fname := fname ; loop_n := 0 |>;
+      ctxt <<- <| vars := MAP FST vshapes ; funcs := fnames ; fname := fname ; in_loop := F |>;
       returned <- scope_check_prog ctxt body;
       if ~returned
         then error (GenErr $ concat [strlit "branches missing return statement in function "; fname; strlit "\n"])
