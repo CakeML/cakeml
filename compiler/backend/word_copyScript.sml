@@ -28,7 +28,9 @@ val _ = new_theory "word_copy";
 
 Datatype:
   copy_state =
-  <| to_eq : num num_map ;
+  <| (* maps var to its equivalence class *)
+     to_eq : num num_map ;
+     (* maps equivalence class to its representative *)
      from_eq : num num_map ;
      next : num |>
 End
@@ -175,12 +177,13 @@ Definition set_eq_def:
   then
     case lookup y cs.to_eq of
       NONE =>
-      <| to_eq := insert y cs.next cs.to_eq;
+      <| to_eq := insert x cs.next (insert y cs.next cs.to_eq);
          from_eq := insert cs.next x cs.from_eq;
          next := cs.next +1 |>
     | SOME c =>
-      cs with
-        from_eq := insert c x cs.from_eq
+      <| to_eq := insert x c cs.to_eq;
+         from_eq := insert c x cs.from_eq;
+         next := cs.next |>
   else
     cs
 End
