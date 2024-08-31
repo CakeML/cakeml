@@ -79,6 +79,19 @@ Definition flat_to_clos_compile_alt_def:
 End
 
 
+(* partial, to delete this when complete *)
+Definition clos_to_bvl_compile_common_def:
+  clos_to_bvl_compile_common (c: clos_to_bvl$config) p =
+  let p = clos_mti$compile c.do_mti c.max_app p in
+  p
+End
+
+
+
+
+
+
+
 (* TODO: extend this step-by-step *)
 Definition compile_alt_def:
   compile_alt c p =
@@ -146,6 +159,17 @@ Datatype:
      |>
 End
 
+Datatype:
+  clos_iconfig =
+  <| do_mti : bool;
+     max_app: num;
+     next_loc : num; |>
+End
+
+
+
+
+
 Definition icompile_source_to_flat_def:
   icompile_source_to_flat (source_iconf: source_iconfig) p =
   let n = source_iconf.n in
@@ -160,6 +184,19 @@ End
 Definition icompile_flat_to_clos_def:
   icompile_flat_to_clos p =
   flat_to_clos$compile_decs p
+End
+
+
+
+Definition icompile_clos_to_bvl_common_def:
+  icompile_clos_to_bvl_common (clos_iconf: clos_iconfig) p =
+  let p = clos_mti$compile clos_iconf.do_mti clos_iconf.max_app p in
+  let next_loc = clos_iconf.next_loc in
+  let loc = if next_loc MOD 2 = 0 then next_loc else next_loc + 1 in
+  let (n, p) = renumber_code_locs_list loc p in
+  let clos_iconf = clos_iconf with <| next_loc := n |> in
+  (clos_iconf, p)
+
 End
 
 
@@ -181,11 +218,12 @@ Definition init_icompile_def:
 End
 
 Definition icompile_def:
-  icompile (source_iconf : source_iconfig)  p =
+  icompile (source_iconf : source_iconfig) (clos_iconf: clos_iconfig)  p =
   let p = source_to_source$compile p in
   let (source_iconf, p) = icompile_source_to_flat source_iconf p in
   let p = icompile_flat_to_clos p in
-  (source_iconf, p)
+  let (clos_iconf, p) = icompile_clos_to_bvl_compile_common clos_iconf p in
+  (source_iconf, clos_iconf, p)
 
 End
 
@@ -218,7 +256,7 @@ End
 
 (******************************************************************************)
 (*                                                                            *)
-(* Syntactic correctness or icompile                                         *)
+(* Syntactic correctness or icompile                                          *)
 (*                                                                            *)
 (******************************************************************************)
 
@@ -317,15 +355,113 @@ Proof
   every_case_tac >> gs[]
 QED
 
+Theorem intro_multi_cons:
+  ∀e es. intro_multi max_app (e::es) = HD(intro_multi max_app [e])::intro_multi max_app es
+Proof
+  Induct_on ‘es’ >> gvs[clos_mtiTheory.intro_multi_def,clos_mtiTheory.intro_multi_length]
+QED
+
+Theorem intro_multi_append:
+  ∀p1. intro_multi max_app (p1 ++ p2) = (intro_multi max_app p1) ++ (intro_multi max_app p2)
+Proof
+  Induct >> rw[clos_mtiTheory.intro_multi_def] >>
+  once_rewrite_tac[intro_multi_cons] >>
+  every_case_tac >> gvs[]
+QED
+
+Theorem clos_mti_compile_append:
+  clos_mti$compile do_mti max_app (p1 ++ p2) =
+  clos_mti$compile do_mti max_app p1 ++ clos_mti$compile do_mti max_app p2
+Proof
+  rw[clos_mtiTheory.compile_def] >>
+  Cases_on ‘do_mti’ >- (
+  rw[clos_mtiTheory.compile_def, intro_multi_append]
+  ) >- (
+  fs[clos_mtiTheory.compile_def]
+  )
+QED
+
+Theorem renumber_code_locs_even_lemma:
+  renumber_code_locs_list n p1 = (n1, p1_renumbered) ∧
+  (n1 MOD 2 = 0) ∧
+  renumber_code_locs_list n1 p2 = (n2, p2_renumbered) ⇒
+  renumber_code_locs_list n (p1 ++ p2) = (n2, p1_renumbered ++p2_renumbered)
+Proof
+  cheat
+QED
+
+Theorem renumber_code_locs_odd_lemma:
+  renumber_code_locs_list n p1 = (n1, p1_renumbered) ∧
+  (n1 MOD 2 ≠ 0) ∧
+  renumber_code_locs_list (n1 + 1) p2 = (n2, p2_renumbered) ⇒
+  renumber_code_locs_list n (p1 ++ p2) = (n2, p1_renumbered ++p2_renumbered)
+Proof
+  cheat
+QED
+
+
+Theorem icompile_icompile_clos_to_bvl:
+  icompile_clos_to_bvl_compile_common clos_iconf p1 = (clos_iconf_p1, p1_bvl) ∧
+  icompile_clos_to_bvl_compile_common clos_iconf_p1 p2 = (clos_iconf_p2, p2_bvl) ⇒
+  icompile_clos_to_bvl_compile_common clos_iconf (p1 ++ p2) = (clos_iconf_p2, p1_bvl ++ p2_bvl)
+
+Proof
+  rw[icompile_clos_to_bvl_compile_common_def] >> rpt (pairarg_tac >> gvs[]) >>
+  gvs[clos_mti_compile_append] >>
+  qabbrev_tac ‘p1_compiled_mti = (compile clos_iconf.do_mti clos_iconf.max_app p1)’ >>
+  qabbrev_tac ‘p2_compiled_mti = (compile clos_iconf.do_mti clos_iconf.max_app p2)’ >>
+  pop_assum kall_tac >> pop_assum kall_tac >>
+
+  qabbrev_tac ‘n1 = n''’ >> pop_assum kall_tac >>
+  qabbrev_tac ‘n2 = n'’ >> pop_assum kall_tac
+  >- (drule_all renumber_code_locs_even_lemma >> gvs[])
+  >- (drule_all renumber_code_locs_odd_lemma >> gvs[])
+  >- (drule_all renumber_code_locs_even_lemma >> gvs[])
+  >- (drule_all renumber_code_locs_odd_lemma >> gvs[])
+QED
+
+Theorem icompile_icompile_source_to_flat:
+  icompile_source_to_flat source_iconf p1 = (source_iconf_p1, p1_flat) ∧
+  icompile_source_to_flat source_iconf_p1 p2 = (source_iconf_p2, p2_flat) ⇒
+  icompile_source_to_flat source_iconf (p1 ++ p2) = (source_iconf_p2, p1_flat ++ p2_flat)
+Proof
+  rw[icompile_source_to_flat_def] >> rpt (pairarg_tac >> gvs[]) >>
+  gvs[source_to_flat_compile_decs_lemma, extend_env_assoc]
+
+QED
+
+
+
 (* Composing adjacent icompile runs *)
 Theorem icompile_icompile:
-  icompile source_iconf prog1 = (source_iconf', prog1') ∧
-  icompile source_iconf' prog2 = (source_iconf'', prog2') ⇒
-  icompile source_iconf (prog1 ++ prog2) = (source_iconf'', prog1' ++ prog2')
+  icompile source_iconf clos_iconf prog1 = (source_iconf', clos_iconf', prog1') ∧
+  icompile source_iconf' clos_iconf' prog2 = (source_iconf'', clos_iconf'', prog2') ⇒
+  icompile source_iconf clos_iconf (prog1 ++ prog2) = (source_iconf'', clos_iconf'',  prog1' ++ prog2')
 Proof
-  rw[icompile_def, icompile_source_to_flat_def] >>
-  rpt (pairarg_tac >> gvs[]) >>
-  gvs[source_to_source_compile_append, source_to_flat_compile_decs_lemma, extend_env_assoc, icompile_flat_to_clos_and_append_commute]
+  rw[] >>
+  gvs[icompile_def] >> rpt (pairarg_tac >> gvs[]) >>
+  (* yikes naming mistakes, note to self, DO NOT USE "'" *)
+  rename1 ‘icompile_source_to_flat source_iconf (compile (prog1 ++ prog2)) = (source_iconf_p1_p2, p1_p2_flat)’ >>
+  rename1 ‘ icompile_clos_to_bvl_compile_common clos_iconf (icompile_flat_to_clos p1_p2_flat) = (clos_iconf_p1_p2, p1_p2_bvl)’ >>
+  rename1 ‘icompile_source_to_flat source_iconf (compile prog1) = (source_iconf_p1, p1_flat)’ >>
+  rename1 ‘icompile_source_to_flat source_iconf_p1 (compile prog2) = (source_iconf_p2, p2_flat)’ >>
+  rename1 ‘icompile_clos_to_bvl_compile_common clos_iconf (icompile_flat_to_clos p1_flat) = (clos_iconf_p1 , p1_bvl)’ >>
+  rename1 ‘icompile_clos_to_bvl_compile_common clos_iconf_p1 (icompile_flat_to_clos p2_flat) = (clos_iconf_p2,p_2_bvl)’ >>
+
+  fs[source_to_source_compile_append] >>
+
+  qabbrev_tac ‘p1 = compile prog1’ >> pop_assum kall_tac >>
+  qabbrev_tac ‘p2 = compile prog2’ >> pop_assum kall_tac >>
+
+  drule_all icompile_icompile_source_to_flat >> strip_tac >> gvs[] >>
+
+  fs[icompile_flat_to_clos_and_append_commute] >>
+
+  qabbrev_tac ‘p1_clos = icompile_flat_to_clos p1_flat’ >> pop_assum kall_tac >>
+  qabbrev_tac ‘p2_clos = icompile_flat_to_clos p2_flat’ >> pop_assum kall_tac >>
+
+  drule_all icompile_icompile_clos_to_bvl >>
+  gvs[]
 QED
 
 Definition config_prog_rel_def:
