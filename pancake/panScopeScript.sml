@@ -90,7 +90,8 @@ Definition scope_check_prog_def:
   scope_check_prog ctxt (Dec v e p) =
     do
       case FLOOKUP ctxt.vars v of
-        SOME _ => log (WarningErr $ concat [strlit "variable "; v; strlit " is redeclared in function "; ctxt.fname; strlit "\n"])
+        SOME _ => log (WarningErr $ concat
+          [strlit "variable "; v; strlit " is redeclared in function "; ctxt.fname; strlit "\n"])
       | NONE => return ();
       scope_check_exp ctxt e;
       scope_check_prog (ctxt with vars := FUPDATE ctxt.vars (v,())) p
@@ -98,7 +99,8 @@ Definition scope_check_prog_def:
   scope_check_prog ctxt (DecCall v s e args p) =
     do
       case FLOOKUP ctxt.vars v of
-        SOME _ => log (WarningErr $ concat [strlit "variable "; v; strlit " is redeclared in function "; ctxt.fname; strlit "\n"])
+        SOME _ => log (WarningErr $ concat
+          [strlit "variable "; v; strlit " is redeclared in function "; ctxt.fname; strlit "\n"])
       | NONE => return ();
       scope_check_exp ctxt e;
       scope_check_exps ctxt args;
@@ -107,7 +109,8 @@ Definition scope_check_prog_def:
   scope_check_prog ctxt (Assign v e) =
     do
       case FLOOKUP ctxt.vars v of
-        NONE => error (ScopeErr $ concat [strlit "variable "; v; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
+        NONE => error (ScopeErr $ concat
+          [strlit "variable "; v; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
       | SOME _ => return ();
       scope_check_exp ctxt e;
       return F
@@ -127,9 +130,12 @@ Definition scope_check_prog_def:
   scope_check_prog ctxt (Seq p1 p2) =
     do
       case p1 of
-        (Seq _ (Return _))     => log (WarningErr $ concat [strlit "statements after return in function ";    ctxt.fname; strlit "\n"])
-      | (Seq _ (Raise _ _))    => log (WarningErr $ concat [strlit "statements after raise in function ";     ctxt.fname; strlit "\n"])
-      | (Seq _ (TailCall _ _)) => log (WarningErr $ concat [strlit "statements after tail call in function "; ctxt.fname; strlit "\n"])
+        (Seq _ (Return _))     => log (WarningErr $ concat
+          [strlit "statements after return in function ";    ctxt.fname; strlit "\n"])
+      | (Seq _ (Raise _ _))    => log (WarningErr $ concat
+          [strlit "statements after raise in function ";     ctxt.fname; strlit "\n"])
+      | (Seq _ (TailCall _ _)) => log (WarningErr $ concat
+          [strlit "statements after tail call in function "; ctxt.fname; strlit "\n"])
       | _ => return ();
       rt1 <- scope_check_prog ctxt p1;
       rt2 <- scope_check_prog ctxt p2;
@@ -150,14 +156,16 @@ Definition scope_check_prog_def:
   scope_check_prog ctxt Break =
     do
       if ~ctxt.in_loop
-        then error (GenErr $ concat [strlit "break statement outside loop in function "; ctxt.fname; strlit "\n"])
+        then error (GenErr $ concat
+          [strlit "break statement outside loop in function "; ctxt.fname; strlit "\n"])
       else return ();
       return F
     od ∧
   scope_check_prog ctxt Continue =
     do
       if ~ctxt.in_loop
-        then error (GenErr $ concat [strlit "continue statement outside loop in function "; ctxt.fname; strlit "\n"])
+        then error (GenErr $ concat
+          [strlit "continue statement outside loop in function "; ctxt.fname; strlit "\n"])
       else return ();
       return F
     od ∧
@@ -170,7 +178,8 @@ Definition scope_check_prog_def:
   scope_check_prog ctxt (AssignCall rt hdl trgt args) =
     do
       case FLOOKUP ctxt.vars rt of
-        NONE => error (ScopeErr $ concat [strlit "variable "; rt; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
+        NONE => error (ScopeErr $ concat
+          [strlit "variable "; rt; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
       | SOME _ => return ();
       scope_check_exp ctxt trgt;
       scope_check_exps ctxt args;
@@ -178,7 +187,8 @@ Definition scope_check_prog_def:
         NONE => return F
       | SOME (eid, evar, p) =>
         case FLOOKUP ctxt.vars evar of
-          NONE => error (ScopeErr $ concat [strlit "variable "; evar; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
+          NONE => error (ScopeErr $ concat
+            [strlit "variable "; evar; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
         | SOME _ => scope_check_prog (ctxt with vars := FUPDATE ctxt.vars (evar,())) p;
       return F
     od ∧
@@ -190,7 +200,8 @@ Definition scope_check_prog_def:
         NONE => return F
       | SOME (eid, evar, p) =>
         case FLOOKUP ctxt.vars evar of
-          NONE => error (ScopeErr $ concat [strlit "variable "; evar; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
+          NONE => error (ScopeErr $ concat
+            [strlit "variable "; evar; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
         | SOME _ => scope_check_prog (ctxt with vars := FUPDATE ctxt.vars (evar,())) p;
       return F
     od ∧
@@ -212,7 +223,8 @@ Definition scope_check_prog_def:
   scope_check_prog ctxt (ShMemLoad mop v e) =
     do
       case FLOOKUP ctxt.vars v of
-        NONE => error (ScopeErr $ concat [strlit "variable "; v; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
+        NONE => error (ScopeErr $ concat
+          [strlit "variable "; v; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
       | SOME _ => return ();
       scope_check_exp ctxt e;
       return F
@@ -231,10 +243,14 @@ Definition scope_check_funs_def:
   scope_check_funs fnames [] = return () ∧
   scope_check_funs fnames ((fname, _:bool, vshapes, body)::funs) =
     do
-      ctxt <<- <| vars := FOLDL (\f (v,_). FUPDATE f (v,())) FEMPTY vshapes ; funcs := fnames ; fname := fname ; in_loop := F |>;
+      ctxt <<- <| vars := FOLDL (\f (v,_). FUPDATE f (v,())) FEMPTY vshapes
+                ; funcs := fnames
+                ; fname := fname
+                ; in_loop := F |>;
       returned <- scope_check_prog ctxt body;
       if ~returned
-        then error (GenErr $ concat [strlit "branches missing return statement in function "; fname; strlit "\n"])
+        then error (GenErr $ concat
+          [strlit "branches missing return statement in function "; fname; strlit "\n"])
       else return ();
       scope_check_funs fnames funs
     od
@@ -249,13 +265,16 @@ Definition scope_check_def:
     do
       fnames <<- MAP FST funs;
       case first_repeat $ QSORT mlstring_lt fnames of
-        SOME f => error (GenErr $ concat [strlit "function "; f; strlit " is redeclared\n"])
+        SOME f => error (GenErr $ concat
+          [strlit "function "; f; strlit " is redeclared\n"])
       | NONE => return ();
       case SPLITP (\(f,_,_,_). f = «main») funs of
-        (xs,(_,T,_,_)::ys) => error (GenErr $ strlit "main function is exported\n")
+        (xs,(_,T,_,_)::ys) => error (GenErr $
+          strlit "main function is exported\n")
       | _ => return ();
       case SPLITP (\(_,_,ps,_). LENGTH ps > 4) $ FILTER (FST o SND) funs of
-        (xs,(f,_,_,_)::ys) => error (GenErr $ concat [strlit "exported function "; f; strlit " has more than 4 arguments\n"])
+        (xs,(f,_,_,_)::ys) => error (GenErr $ concat
+          [strlit "exported function "; f; strlit " has more than 4 arguments\n"])
       | _ => return ();
       scope_check_funs fnames funs
     od
