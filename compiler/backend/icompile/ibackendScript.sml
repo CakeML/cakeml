@@ -382,15 +382,22 @@ Proof
 QED
 
 Theorem renumber_code_locs_even_lemma:
+  ∀n p1 p1_renumbered.
   renumber_code_locs_list n p1 = (n1, p1_renumbered) ∧
   (n1 MOD 2 = 0) ∧
   renumber_code_locs_list n1 p2 = (n2, p2_renumbered) ⇒
   renumber_code_locs_list n (p1 ++ p2) = (n2, p1_renumbered ++p2_renumbered)
 Proof
-  cheat
+  Induct_on ‘p1’ >> rw[clos_numberTheory.renumber_code_locs_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  rename1 ‘renumber_code_locs n h = (n_h, h_renumbered)’ >>
+  rename1 ‘renumber_code_locs_list n_h p1 = (n_p1, p1_renumbered)’ >>
+  rename1 ‘renumber_code_locs_list n_h (p1 ++ p2) = (n_p1p2, p1p2_renumbered)’ >>
+  last_x_assum drule_all >> gvs[]
 QED
 
 Theorem renumber_code_locs_odd_lemma:
+  ∀n p1 p1_renumbered.
   renumber_code_locs_list n p1 = (n1, p1_renumbered) ∧
   (n1 MOD 2 ≠ 0) ∧
   renumber_code_locs_list (n1 + 1) p2 = (n2, p2_renumbered) ⇒
