@@ -9,7 +9,9 @@
 *)
 open preamble asmTheory wordLangTheory word_allocTheory word_removeTheory
 open word_simpTheory word_cseTheory word_unreachTheory word_copyTheory
-local open word_instTheory in (* word-to-word transformations *) end
+local
+  open word_instTheory
+in (* word-to-word transformations *) end
 open mlstringTheory
 
 val _ = new_theory "word_to_word";
@@ -20,7 +22,7 @@ val _ = Datatype`config =
   <| reg_alg : num
    ; col_oracle : (num num_map) option list |>`;
 
-val compile_single_def = Define`
+Definition compile_single_def:
   compile_single two_reg_arith reg_count alg c ((name_num:num,arg_count,prog),col_opt) =
   let prog = word_simp$compile_exp prog in
   let maxv = max_var prog + 1 in
@@ -28,12 +30,13 @@ val compile_single_def = Define`
   let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
   let cse_prog = word_common_subexp_elim ssa_prog in
   let cp_prog = copy_prop cse_prog in
-  let unreach_prog = remove_unreach cp_prog in
+  let two_prog = if two_reg_arith then three_to_two_reg cp_prog
+                              else cp_prog in
+  let unreach_prog = remove_unreach two_prog in
   let rm_prog = FST(remove_dead unreach_prog LN) in
-  let prog = if two_reg_arith then three_to_two_reg rm_prog
-                              else rm_prog in
-  let reg_prog = word_alloc name_num c alg reg_count prog col_opt in
-    (name_num,arg_count,reg_prog)`
+  let reg_prog = word_alloc name_num c alg reg_count rm_prog col_opt in
+    (name_num,arg_count,reg_prog)
+End
 
 val full_compile_single_def = Define`
   full_compile_single two_reg_arith reg_count alg c p =
@@ -47,12 +50,13 @@ val next_n_oracle_def = Define`
   else
     (REPLICATE n NONE, [])`
 
-val compile_def = Define `
+Definition compile_def:
   compile word_conf (asm_conf:'a asm_config) progs =
     let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
     let (n_oracles,col) = next_n_oracle (LENGTH progs) word_conf.col_oracle in
     let progs = ZIP (progs,n_oracles) in
-    (col,MAP (full_compile_single two_reg_arith reg_count word_conf.reg_alg asm_conf) progs)`
+    (col,MAP (full_compile_single two_reg_arith reg_count word_conf.reg_alg asm_conf) progs)
+End
 
 Definition full_compile_single_for_eval_def:
   full_compile_single_for_eval two_reg_arith reg_count alg c p =
@@ -68,14 +72,14 @@ Definition full_compile_single_for_eval_def:
     let _ = empty_ffi (strlit "finished: word_cse") in
     let cp_prog = copy_prop cse_prog in
     let _ = empty_ffi (strlit "finished: word_copy") in
-    let unreach_prog = remove_unreach cp_prog in
+    let two_prog = if two_reg_arith then three_to_two_reg cp_prog
+                                else cp_prog in
+    let _ = empty_ffi (strlit "finished: word_two_reg") in
+    let unreach_prog = remove_unreach two_prog in
     let _ = empty_ffi (strlit "finished: word_unreach") in
     let rm_prog = FST(remove_dead unreach_prog LN) in
     let _ = empty_ffi (strlit "finished: word_remove_dead") in
-    let prog = if two_reg_arith then three_to_two_reg rm_prog
-                                else rm_prog in
-    let _ = empty_ffi (strlit "finished: word_two_reg") in
-    let reg_prog = word_alloc name_num c alg reg_count prog col_opt in
+    let reg_prog = word_alloc name_num c alg reg_count rm_prog col_opt in
     let _ = empty_ffi (strlit "finished: word_alloc") in
     let rmt_prog = remove_must_terminate reg_prog in
     let _ = empty_ffi (strlit "finished: word_remove") in
@@ -108,13 +112,13 @@ Theorem compile_alt:
     let _ = empty_ffi (strlit "finished: word_cse") in
     let cp_ps = MAP copy_prop cse_ps in
     let _ = empty_ffi (strlit "finished: word_copy") in
-    let unreach_ps = MAP remove_unreach cp_ps in
+    let two_ps = if two_reg_arith then MAP three_to_two_reg cp_ps else cp_ps in
+    let _ = empty_ffi (strlit "finished: word_two_reg") in
+    let unreach_ps = MAP remove_unreach two_ps in
     let _ = empty_ffi (strlit "finished: word_unreach") in
     let dead_ps = MAP (\p. FST (remove_dead p LN)) unreach_ps in
     let _ = empty_ffi (strlit "finished: word_remove_dead") in
-    let two_ps = if two_reg_arith then MAP three_to_two_reg dead_ps else dead_ps in
-    let _ = empty_ffi (strlit "finished: word_two_reg") in
-    let reg_ps = MAP2 (λc (n,p). word_alloc n asm_conf alg reg_count p c) n_oracles (ZIP(names,two_ps)) in
+    let reg_ps = MAP2 (λc (n,p). word_alloc n asm_conf alg reg_count p c) n_oracles (ZIP(names,dead_ps)) in
     let _ = empty_ffi (strlit "finished: word_alloc") in
     let rmt_ps = MAP remove_must_terminate reg_ps in
     let _ = empty_ffi (strlit "finished: word_remove") in
