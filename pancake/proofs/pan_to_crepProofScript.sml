@@ -466,7 +466,7 @@ Theorem compile_Skip_Break_Continue_Annot:
   ^(get_goal "compile _ panLang$Skip") /\
   ^(get_goal "compile _ panLang$Break") /\
   ^(get_goal "compile _ panLang$Continue") /\
-  ^(get_goal "compile _ (panLang$Annot _)")
+  ^(get_goal "compile _ (panLang$Annot _ _)")
 Proof
   rpt strip_tac >>
   fs [panSemTheory.evaluate_def, evaluate_def,
