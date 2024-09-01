@@ -33,11 +33,11 @@ Definition SimpSeq_def:
             (case dest_Seq_Move p2 of
              | NONE => default
              | SOME (n2,l2,rest) =>
-                 if n1 ≠ n2 then default else
+                 (* if n1 ≠ n2 then default else *)
                    let l = merge_moves l1 l2 in
                      if rest = Skip
-                     then Move n1 l
-                     else Seq (Move n1 l) rest)
+                     then Move (MAX n1 n2) l
+                     else Seq (Move (MAX n1 n2) l) rest)
         | _ => default
 End
 
