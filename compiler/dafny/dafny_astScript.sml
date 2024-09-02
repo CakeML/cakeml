@@ -391,4 +391,50 @@ Datatype:
   | ModuleItem_Datatype datatype
 End
 
+Definition dest_Ident_def:
+  dest_Ident (Ident n) = n
+End
+
+Definition dest_varName_def:
+  dest_varName (VarName s) = s
+End
+
+Definition dest_Method_def:
+  dest_Method (Method isStatic hasBody outVarsAreUninitFieldsToAssign
+                      wasFunction overridingPath nam typeParams params body
+                      outTypes outVars) =
+  (isStatic, hasBody, outVarsAreUninitFieldsToAssign, wasFunction,
+   overridingPath, nam, typeParams, params, body, outTypes, outVars)
+End
+
+(* Adapted from
+ * https://github.com/dafny-lang/dafny/blob/bc6b587e264e3c531c4d6698abd421abdff3aea9/Source/DafnyCore/Generic/Util.cs#L341
+ *)
+Definition unescape_string_def:
+  (unescape_string (c1::c2::rest) verbatim =
+  if verbatim then
+    if c1 = #"\"" ∧ c2 = #"\"" then
+      #"\""::(unescape_string rest verbatim)
+    else
+      c1::(unescape_string (c2::rest) verbatim)
+  else if c1 = #"\\" ∧ c2 = #"'" then
+    #"'"::(unescape_string rest verbatim)
+  else if c1 = #"\\" ∧ c2 = #"\"" then
+    #"\""::(unescape_string rest verbatim)
+  else if c1 = #"\\" ∧ c2 = #"\\" then
+    #"\\"::(unescape_string rest verbatim)
+  else if c1 = #"\\" ∧ c2 = #"0" then
+    #"\000"::(unescape_string rest verbatim)
+  else if c1 = #"\\" ∧ c2 = #"n" then
+    #"\n"::(unescape_string rest verbatim)
+  else if c1 = #"\\" ∧ c2 = #"r" then
+    #"\r"::(unescape_string rest verbatim)
+  else if c1 = #"\\" ∧ c2 = #"t" then
+    #"\t"::(unescape_string rest verbatim)
+  else
+    c1::(unescape_string (c2::rest) verbatim)) ∧
+  (unescape_string (c::rest) verbatim = c::(unescape_string rest verbatim)) ∧
+  (unescape_string "" _ = "")
+End
+
 val _ = export_theory();

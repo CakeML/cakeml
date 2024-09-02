@@ -199,14 +199,6 @@ Definition dest_Name_def:
   dest_Name (Name s) = s
 End
 
-Definition dest_varName_def:
-  dest_varName (VarName s) = s
-End
-
-Definition dest_Ident_def:
-  dest_Ident (Ident n) = n
-End
-
 (* TODO move this to dafny_ast? *)
 Definition dest_DeclareVar_def:
   dest_DeclareVar s =
@@ -219,15 +211,6 @@ End
 Definition dest_SOME_def:
   dest_SOME (SOME x) = return x ∧
   dest_SOME NONE = fail "dest_SOME: Not a SOME"
-End
-
-(* TODO? Move to dafny_ast *)
-Definition dest_Method_def:
-  dest_Method (Method isStatic hasBody outVarsAreUninitFieldsToAssign
-                      wasFunction overridingPath nam typeParams params body
-                      outTypes outVars) =
-  (isStatic, hasBody, outVarsAreUninitFieldsToAssign, wasFunction,
-   overridingPath, nam, typeParams, params, body, outTypes, outVars)
 End
 
 Definition cml_ref_ass_def:
@@ -715,36 +698,6 @@ Definition method_is_method_def:
       else
         return T
   | NONE => return F
-End
-
-(* Adapted from
- * https://github.com/dafny-lang/dafny/blob/bc6b587e264e3c531c4d6698abd421abdff3aea9/Source/DafnyCore/Generic/Util.cs#L341
- *)
-Definition unescape_string_def:
-  (unescape_string (c1::c2::rest) verbatim =
-  if verbatim then
-    if c1 = #"\"" ∧ c2 = #"\"" then
-      #"\""::(unescape_string rest verbatim)
-    else
-      c1::(unescape_string (c2::rest) verbatim)
-  else if c1 = #"\\" ∧ c2 = #"'" then
-    #"'"::(unescape_string rest verbatim)
-  else if c1 = #"\\" ∧ c2 = #"\"" then
-    #"\""::(unescape_string rest verbatim)
-  else if c1 = #"\\" ∧ c2 = #"\\" then
-    #"\\"::(unescape_string rest verbatim)
-  else if c1 = #"\\" ∧ c2 = #"0" then
-    #"\000"::(unescape_string rest verbatim)
-  else if c1 = #"\\" ∧ c2 = #"n" then
-    #"\n"::(unescape_string rest verbatim)
-  else if c1 = #"\\" ∧ c2 = #"r" then
-    #"\r"::(unescape_string rest verbatim)
-  else if c1 = #"\\" ∧ c2 = #"t" then
-    #"\t"::(unescape_string rest verbatim)
-  else
-    c1::(unescape_string (c2::rest) verbatim)) ∧
-  (unescape_string (c::rest) verbatim = c::(unescape_string rest verbatim)) ∧
-  (unescape_string "" _ = "")
 End
 
 Definition from_literal_def:
