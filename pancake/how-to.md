@@ -35,7 +35,7 @@ TODO: linking and running `.S` file, including sample minimum c file
 
 ## Writing the Pancake file
 
-### Shapes?
+### Shapes
 
 TODO: existing shape stuff, maybe the shape annotation stuff later?
 
@@ -45,7 +45,7 @@ TODO: @base, local vs shared mem, etc + bitmap store issue
 
 ### Syntax
 
-TODO: key structures and quirks, link to separate syntax ref sheet
+TODO: key structures and quirks eg. exp vs statements (esp with function calls), link to separate syntax ref sheet
 
 ## Using the C file
 
