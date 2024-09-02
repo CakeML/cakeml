@@ -93,5 +93,5 @@ TODO: cml_main and friends
 
 # (other tasks)
 
-TODO: separate syntax ref sheet  
 TODO: example programs
+TODO: update /pancake README with new .md files
