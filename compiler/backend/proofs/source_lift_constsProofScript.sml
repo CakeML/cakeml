@@ -392,7 +392,23 @@ Theorem lift_exps_acc:
       xs' = ys ++ xs ∧
       lift_exps b [] n es = (es',n',ys)
 Proof
-  cheat (* similar *)
+  rpt strip_tac>>
+  ‘let
+     (es'0,n'0,xs0) = lift_exps b [] n es;
+     (es',n',xs') = lift_exps b xs n es
+   in
+     es'0=es' ∧ n'0=n' ∧ xs'=xs0++xs’ by
+  (
+    rw[]>>rpt(pairarg_tac>>fs[])>>
+    ‘(∀b xs n es es' n' xs'.
+       lift_exps b xs n es = (es',n',xs') ⇒
+       ∀ys. lift_exps b (xs ++ ys) n es = (es',n',xs' ++ ys))’
+      by metis_tac[lift_exp_acc_aux]>>
+    ‘lift_exps b ([]++xs) n es = (es'0,n'0,xs0 ++ xs)’
+      by metis_tac[]>>
+    fs[]
+  )
+  >>fs[]>>rpt(pairarg_tac>>fs[])
 QED
 
 Theorem FDOM_SUBSET_SUBMAP:
