@@ -48,8 +48,6 @@ QED
 
 Overload local_word = ``\locs nm. OPTION_BIND (FLOOKUP locs nm) val_word_of``
 
-Overload fcopy[local] = ``\nm locs_from locs_to. res_var locs_to (nm, FLOOKUP locs_from nm)``
-
 Definition tick_context_def:
   tick_context context = if NULL context.future_triples then context
     else (context with <| triples := context.future_triples ++ context.triples;
@@ -57,8 +55,8 @@ Definition tick_context_def:
 End
 
 Definition eval_logic_def:
-  eval_logic G P exp v Q = (! s ls. P s ls ==> ?x. eval s exp = SOME x /\
-    Q s (((HD ls) |+ (v, x)) :: DROP 1 ls))
+  eval_logic G P exp Q = (! s ls. P s ls ==> ?x. eval s exp = SOME x /\
+    Q x s ls)
 End
 
 Theorem eval_logic_elim = hd (RES_CANON eval_logic_def)
@@ -95,11 +93,23 @@ Definition result_exception_val_def[simp]:
   result_exception_val _ _ = NONE
 End
 
+(* Provide a way of specifying the invariant to use at a While loop. *)
+Definition annot_While_def:
+  annot_While
+    (Inv : (('a, 'ffi) state -> (mlstring |-> 'a v) list -> bool))
+    (c : 'a panLang$exp) (b : 'a panLang$prog) =
+    panLang$While c b
+End
+
+Definition logic_imp_def:
+  logic_imp P Q = (!s ls. P s ls ==> Q s ls)
+End
+
 Inductive hoare_logic:
 
-[hoare_logic_weaken_pre:]
+[hoare_logic_weaken_pre_imp:]
   (! P Q R.
-    (!s ls. P s ls ==> Q s ls) /\
+    logic_imp P Q /\
     hoare_logic G Q p R ==>
     hoare_logic G P p R
   )
@@ -128,24 +138,20 @@ Inductive hoare_logic:
 
 [hoare_logic_Return:]
   ( !P.
-    eval_logic G P e (strlit "return-val")
-        (\s ls. case FLOOKUP (HD ls) (strlit "return-val") of
-            | NONE => F
-            | SOME v => size_of_shape (shape_of v) <= 32 /\
-                Q (SOME (Return v)) (empty_locals s) (DROP 1 ls)) ==>
-    hoare_logic G (\s ls. P s (FEMPTY :: ls)) (Return e) Q
+    eval_logic G P e
+        (\v s ls. size_of_shape (shape_of v) <= 32 /\
+            Q (SOME (Return v)) (empty_locals s) ls) ==>
+    hoare_logic G P (Return e) Q
   )
 
 [hoare_logic_Raise:]
-  ( !P.
-    eval_logic G P e (strlit "exn-val")
-        (\s ls. case FLOOKUP (HD ls) (strlit "exn-val") of
-            | NONE => F
-            | SOME v => (case FLOOKUP s.eshapes eid of
+  (
+    eval_logic G P e
+        (\v s ls. case FLOOKUP s.eshapes eid of
                 | NONE => F
                 | SOME sh => shape_of v = sh /\ size_of_shape sh <= 32 /\
-                    Q (SOME (Exception eid v)) (empty_locals s) (DROP 1 ls))) ==>
-    hoare_logic G (\s ls. P s (FEMPTY :: ls)) (Raise eid e) Q
+                    Q (SOME (Exception eid v)) (empty_locals s) ls) ==>
+    hoare_logic G P (Raise eid e) Q
   )
 
 [hoare_logic_Tick:]
@@ -155,108 +161,94 @@ Inductive hoare_logic:
   )
 
 [hoare_logic_Store:]
-  ( !P Q R.
-    eval_logic G P addr_e (strlit "addr") Q /\
-    eval_logic G Q val_e (strlit "val") (\s ls.
-        case local_word (HD ls) (strlit "addr") of
-        | NONE => F
-        | SOME addr =>
-        (case FLOOKUP (HD ls) (strlit "val") of
-        | NONE => F
-        | SOME v =>
-        (case mem_stores addr (flatten v) s.memaddrs s.memory of
-        | NONE => F
-        | SOME m => R NONE (s with memory := m) (DROP 1 ls)))) ==>
-    hoare_logic G (\s ls. P s (FEMPTY :: ls)) (Store addr_e val_e) R
+  ( !P R.
+    eval_logic G P (Struct [addr_e; val_e]) (\args s ls.
+        case args of Struct [ValWord addr; v] =>
+            (case mem_stores addr (flatten v) s.memaddrs s.memory of
+            | NONE => F
+            | SOME m => R NONE (s with memory := m) ls)
+        | _ => F) ==>
+    hoare_logic G P (Store addr_e val_e) R
   )
 
 [hoare_logic_StoreByte:]
-  ( !P Q R.
-    eval_logic G P addr_e (strlit "addr") Q /\
-    eval_logic G Q val_e (strlit "val") (\s ls.
-        case local_word (HD ls) (strlit "addr") of
-        | NONE => F
-        | SOME addr =>
-        (case local_word (HD ls) (strlit "val") of
-        | NONE => F
-        | SOME b =>
-        (case mem_store_byte s.memory s.memaddrs s.be addr (w2w b) of
-        | NONE => F
-        | SOME m => R NONE (s with memory := m) (DROP 1 ls)))) ==>
-    hoare_logic G (\s ls. P s (FEMPTY :: ls)) (StoreByte addr_e val_e) R
+  ( !P R.
+    eval_logic G P (Struct [addr_e; val_e]) (\args s ls.
+        case args of Struct [ValWord addr; ValWord b] =>
+            (case mem_store_byte s.memory s.memaddrs s.be addr (w2w b) of
+            | NONE => F
+            | SOME m => R NONE (s with memory := m) ls)
+        | _ => F) ==>
+    hoare_logic G P (StoreByte addr_e val_e) R
   )
 
 [hoare_logic_Dec:]
   (
     ! P Q R.
-    eval_logic G P e v
-        (\s ls. Q (s with locals := fcopy v (HD ls) s.locals)
-            (fcopy v s.locals FEMPTY :: DROP 1 ls)) /\
+    eval_logic G P e
+        (\x s ls. Q (s with locals := s.locals |+ (v, x)) (s.locals :: ls)) /\
     hoare_logic G Q p
-        (\res s ls. R res (s with locals := fcopy v (HD ls) s.locals) (DROP 1 ls))
+        (\res s ls. R res (s with locals := res_var s.locals
+                (v, (FLOOKUP (HD ls) v))) (DROP 1 ls))
     ==>
-    hoare_logic G (\s ls. P s (FEMPTY :: ls)) (Dec v e p) R
+    hoare_logic G P (Dec v e p) R
   )
 
 [hoare_logic_Assign:]
   ( ! P Q.
-    eval_logic G P e v
-        (\s ls. Q NONE (s with locals := fcopy v (HD ls) s.locals) (DROP 1 ls)) ==>
-    hoare_logic G (\s ls. P s (FEMPTY :: ls) /\
-            OPTION_MAP shape_of (FLOOKUP s.locals v) =
-            SOME (panProps$exp_shape (FMAP_MAP2 (shape_of o SND) s.locals) e))
-        (Assign v e) Q
+    eval_logic G P e
+        (\x s ls. OPTION_MAP shape_of (FLOOKUP s.locals v) = SOME (shape_of x) /\
+            Q NONE (s with locals := s.locals |+ (v, x)) ls) ==>
+    hoare_logic G P (Assign v e) Q
   )
 
 [hoare_logic_Seq:]
   (
     ! P Q R.
     hoare_logic G P p1 (\r s ls. if r = NONE then Q s ls else R r s ls) /\
-    hoare_logic G Q p2 R ==>
+    hoare_logic G Q p2 R
+    ==>
     hoare_logic G P (Seq p1 p2) R
   )
 
 [hoare_logic_If:]
   (
     ! P Q1 Q2 R.
-    eval_logic G P cond_exp (strlit "condition") (\s ls.
-        case local_word (HD ls) (strlit "condition") of
-        | NONE => F
-        | SOME w => if w <> 0w then Q1 s (DROP 1 ls) else Q2 s (DROP 1 ls)) /\
+    eval_logic G P cond_exp (\c s ls.  val_word_of c <> NONE /\
+                if c <> ValWord 0w then Q1 s ls else Q2 s ls) /\
     hoare_logic G Q1 p1 R /\
-    hoare_logic G Q2 p2 R ==>
-    hoare_logic G (\s ls. P s (FEMPTY :: ls)) (If cond_exp p1 p2) R
+    hoare_logic G Q2 p2 R
+    ==>
+    hoare_logic G P (If cond_exp p1 p2) R
   )
 
-[hoare_logic_While:]
+[hoare_logic_annot_While:]
   (
-    ! Inv P Q G e p R.
-    (!s ls. Inv s ls ==> P s (FEMPTY :: ls)) /\
-    eval_logic G P e (strlit "condition") (\s ls.
-        case local_word (HD ls) (strlit "condition") of
-        | NONE => F
-        | SOME w => if w = 0w then R NONE s (DROP 1 ls)
-          else if s.clock = 0 then R (SOME TimeOut) (empty_locals s) (DROP 1 ls)
-          else Q (dec_clock s) (DROP 1 ls)) /\
+    ! Inv P Q e p R.
+    logic_imp Inv P /\
+    eval_logic G P e (\v s ls.
+        val_word_of v <> NONE /\
+        if v = ValWord 0w then R NONE s ls
+        else if s.clock = 0 then R (SOME TimeOut) (empty_locals s) ls
+        else Q (dec_clock s) ls) /\
     hoare_logic G Q p (\r s ls. if is_continuing_result r then Inv s ls
-            else R (if r = SOME Break then NONE else r) s ls) ==>
-    hoare_logic G Inv (While e p) R
+        else R (if r = SOME Break then NONE else r) s ls)
+    ==>
+    hoare_logic G Inv (annot_While Inv e p) R
   )
 
 [hoare_logic_TailCall:]
   ( !vshs prog P Q.
     ALL_DISTINCT (MAP FST vshs) /\
-    eval_logic G P (Struct args) (strlit "args_struct")
-        (\s ls. case FLOOKUP (HD ls) (strlit "args_struct") of
-            | SOME (Struct vs) => LIST_REL (\vsh x. SND vsh = shape_of x) vshs vs /\
-                (if s.clock = 0 then R (SOME TimeOut) (empty_locals s) (DROP 1 ls)
+    eval_logic G P (Struct args) (\vs s ls. case vs of
+            | Struct vs => LIST_REL (\vsh x. SND vsh = shape_of x) vshs vs /\
+                (if s.clock = 0 then R (SOME TimeOut) (empty_locals s) ls
                     else Q (dec_clock s with locals := (FEMPTY |++ ZIP (MAP FST vshs, vs))) ls)
-            | _ => F)
-    /\
-    hoare_logic G Q prog (\res s ls. R res (empty_locals s) (DROP 1 ls) /\
-        (is_fcall_result res))
+            | _ => F) /\
+    hoare_logic G Q prog (\res s ls. R res (empty_locals s) ls /\
+            (is_fcall_result res))
     ==>
-    hoare_logic G (\s ls. FLOOKUP s.code nm = SOME (vshs, prog) /\ P s (FEMPTY :: ls))
+    hoare_logic G (\s ls. FLOOKUP s.code nm = SOME (vshs, prog) /\ P s ls)
         (TailCall (Label nm) args) R
   )
 
@@ -292,8 +284,7 @@ Inductive hoare_logic:
                     (case FLOOKUP (HD ls) exc_var of SOME prev => shape_of exc_val = shape_of prev
                         | _ => F) /\
                     Q (s with locals := (HD ls |+ (exc_var, exc_val))) (DROP 1 ls)
-            | _ => R res s (DROP 1 ls))
-    /\
+            | _ => R res s (DROP 1 ls)) /\
     hoare_logic G Q hprog R
     ==>
     hoare_logic G (\s ls. P s (s.locals :: ls))
@@ -302,9 +293,9 @@ Inductive hoare_logic:
 
 [hoare_logic_ExtCall:]
   ( ! Q.
-    eval_logic G Q (Struct [ptr1_e; len1_e; ptr2_e; len2_e]) (strlit "args_struct")
-        (\s ls. case FLOOKUP (HD ls) (strlit "args_struct") of
-            | SOME (Struct args) =>
+    eval_logic G Q (Struct [ptr1_e; len1_e; ptr2_e; len2_e])
+        (\v s ls. case v of
+            | Struct args =>
             (case val_word_of (EL 0 args) of NONE => F | SOME p1 =>
             (case val_word_of (EL 1 args) of NONE => F | SOME l1 =>
             (case val_word_of (EL 2 args) of NONE => F | SOME p2 =>
@@ -315,31 +306,32 @@ Inductive hoare_logic:
                 of NONE => F | SOME bs2 =>
             (let ffi_nm = ExtCall (explode f) in
             (if explode f = ""
-            then R NONE (s with memory := write_bytearray p2 bs2 s.memory s.memaddrs s.be)
-                (DROP 1 ls)
+            then R NONE (s with memory := write_bytearray p2 bs2 s.memory s.memaddrs s.be) ls
             else (G.ffi_guarantee s.ffi.io_events (ffi_nm, bs1, bs2) /\
             (! rv. G.ffi_rely s.ffi.io_events (ffi_nm, bs1, bs2) rv ==>
                 (case rv of
                     | Oracle_final res =>
                         R (SOME (FinalFFI (Final_event ffi_nm bs1 bs2 res)))
-                            (empty_locals s) (DROP 1 ls)
+                            (empty_locals s) ls
                     | Oracle_return ffi l => LENGTH l = LENGTH bs2 /\
                     let ev = IO_event ffi_nm bs1 (ZIP (bs2, l)) in
                     R NONE (s with <| memory := write_bytearray p2 l s.memory s.memaddrs s.be;
                             ffi := s.ffi with <| ffi_state := ffi; io_events := s.ffi.io_events ++ [ev] |> |>)
-                        (DROP 1 ls))))
+                        ls)))
             ))))))))
             | _ => F
         )
     ==>
-    hoare_logic G (\s ls. Q s (FEMPTY :: ls))
-        (ExtCall f ptr1_e len1_e ptr2_e len2_e) R
+    hoare_logic G Q (ExtCall f ptr1_e len1_e ptr2_e len2_e) R
   )
 
 End
 
-val eval_ind_rule =
-  evaluate_ind |> Q.SPEC `UNCURRY P` |> REWRITE_RULE [UNCURRY_DEF] |> Q.GEN `P`
+Theorem hoare_logic_weaken_pre = hoare_logic_weaken_pre_imp
+    |> REWRITE_RULE [logic_imp_def]
+
+Theorem hoare_logic_While = hoare_logic_annot_While
+    |> REWRITE_RULE [annot_While_def, logic_imp_def]
 
 Theorem evaluate_While_inv_final:
   evaluate (While e p, s) = (res, s') ==>
@@ -430,16 +422,9 @@ Overload ffi_g_imp[local] = ``\G s s'.
     events_meet_guarantee G.ffi_guarantee s'.ffi.io_events
     ``;
 
-Triviality empty_locals_eq_IMP:
-  empty_locals s = empty_locals s2 ==>
-  ?l. s = (s2 with locals := l)
-Proof
-  simp [state_component_equality, empty_locals_def]
-QED
-
 Theorem hoare_logic_sound:
 
-  ! G P p Q.
+  ! P p Q.
   hoare_logic G P p Q ==>
   (! s ls res s'. evaluate (p, s) = (res, s') ==> P s ls ==>
     ffi_g_ok G s.ffi ==>
@@ -450,6 +435,7 @@ Proof
 
   ho_match_mp_tac hoare_logic_ind
   \\ rpt conj_tac
+  \\ simp [logic_imp_def]
   \\ rpt (gen_tac ORELSE disch_tac)
 
   >~ [`Dec _ _ _`]
@@ -499,15 +485,18 @@ Proof
   >~ [`Store _ _`]
   >- (
     fs [evaluate_def]
-    \\ rpt (dxrule_then (drule_then assume_tac) eval_logic_elim \\ fs [])
+    \\ drule_then (drule_then assume_tac) eval_logic_elim
+    \\ fs [eval_def]
     \\ gvs [FLOOKUP_UPDATE, CaseEq "v", CaseEq "word_lab", CaseEq "option"]
   )
 
   >~ [`StoreByte _ _`]
   >- (
     fs [evaluate_def]
-    \\ rpt (dxrule_then (drule_then assume_tac) eval_logic_elim \\ fs [])
+    \\ drule_then (drule_then assume_tac) eval_logic_elim
+    \\ fs [eval_def]
     \\ gvs [FLOOKUP_UPDATE, CaseEq "v", CaseEq "word_lab", CaseEq "option"]
+    \\ every_case_tac \\ fs []
   )
 
   >~ [`Seq _ _`]
@@ -531,10 +520,11 @@ Proof
     \\ fs []
   )
 
-  >~ [`While _ _`]
+  >~ [`annot_While _ _ _`]
   >- (
-    dxrule evaluate_While_inv_final
-    \\ disch_then (qspec_then `\s'. P' s' (FEMPTY :: ls) /\
+    fs [annot_While_def]
+    \\ dxrule evaluate_While_inv_final
+    \\ disch_then (qspec_then `\s'. P' s' ls /\
         ffi_g_ok G s'.ffi /\ ffi_g_imp G s s'` mp_tac)
     \\ impl_tac \\ fs []
     >- (
@@ -542,25 +532,25 @@ Proof
       rpt (gen_tac ORELSE disch_tac)
       \\ fs []
       \\ dxrule_then drule eval_logic_elim
-      \\ fs [FLOOKUP_UPDATE, PULL_EXISTS]
-      \\ rpt gen_tac
-      \\ TOP_CASE_TAC
-      \\ fs [val_word_of_eq_SOME]
-      \\ rw [dec_clock_def] \\ res_tac \\ gs []
+      \\ disch_tac \\ fs []
+      \\ imp_res_tac val_word_of_neq_NONE
+      \\ fs [GSYM AND_IMP_INTRO]
+      \\ rpt (gen_tac ORELSE disch_tac)
+      \\ gs []
+      \\ first_x_assum (drule_then drule)
+      \\ gvs [dec_clock_def]
     )
     \\ simp [PULL_EXISTS]
     \\ gen_tac
-    \\ Cases_on `P' fs (FEMPTY :: ls)` \\ fs []
+    \\ Cases_on `P' fs ls` \\ fs []
     \\ dxrule_then drule eval_logic_elim
     \\ simp [FLOOKUP_UPDATE, PULL_EXISTS]
     \\ rpt gen_tac
-    \\ TOP_CASE_TAC
-    \\ fs [val_word_of_eq_SOME]
     \\ ONCE_REWRITE_TAC [evaluate_def]
-    \\ fs [empty_locals_def, dec_clock_def]
-    \\ rpt (pairarg_tac \\ fs [])
-    \\ first_x_assum (drule_then (qspec_then `ls` mp_tac))
-    \\ rw [] \\ fs []
+    \\ rpt disch_tac
+    \\ gs [CaseEq "v", CaseEq "word_lab", CaseEq "bool", UNCURRY_eq_pair] \\ gvs [empty_locals_def]
+    \\ first_x_assum (drule_then drule)
+    \\ fs [dec_clock_def]
     \\ gs [CaseEq "option", CaseEq "result"] \\ gvs []
   )
 
@@ -652,326 +642,81 @@ Proof
 QED
 
 
-Theorem evaluate_add_Dec:
-  evaluate (p, s) = (r, s1) /\
-  ~ MEM nm (FLAT (MAP var_exp (panProps$exps_of p))) /\
-  ~ MEM nm (panProps$assigns_of p) /\
-  FLOOKUP s.locals nm = NONE /\
-  (r <> SOME Error ==> eval s e <> NONE) ==>
-  ?s2.
-  evaluate (Dec nm e p, s) = (r, s2) /\ (r <> SOME Error ==> s2 = s1)
-Proof
-  simp [evaluate_def]
-  \\ Cases_on `eval s e` \\ simp []
-  \\ rw []
-  \\ drule_then (qspec_then `nm` mp_tac) evaluate_locals_not_assigned
-  \\ drule_all update_locals_not_vars_evaluate_eq
-  \\ disch_then (qspec_then `THE (eval s e)` mp_tac)
-  \\ rw []
-  \\ simp [res_var_def]
-  \\ rw [] \\ gs []
-  \\ simp [DOMSUB_NOT_IN_DOM, FUPDATE_ELIM, TO_FLOOKUP]
-  \\ simp [panSemTheory.state_component_equality]
-QED
-
-
-Theorem evaluate_ExtCall_add_Decs:
-  evaluate (ExtCall f ptr1_e len1_e ptr2_e len2_e, s) = (r, s1) /\
-  MAP (FLOOKUP s.locals) [ptr1_nm; len1_nm; ptr2_nm; len2_nm] = [NONE; NONE; NONE; NONE] /\
-  ALL_DISTINCT [ptr1_nm; len1_nm; ptr2_nm; len2_nm] /\
-  DISJOINT (set [ptr1_nm; len1_nm; ptr2_nm; len2_nm])
-        (set (FLAT (MAP var_exp ((panProps$exps_of p) ++ [ptr1_e; len1_e; ptr2_e; len2_e])))) /\
-  DISJOINT (set [ptr1_nm; len1_nm; ptr2_nm; len2_nm]) (set (panProps$assigns_of p))
-  ==>
-  ?s2.
-  evaluate (Dec ptr1_nm ptr1_e (Dec len1_nm len1_e (Dec ptr2_nm ptr2_e (Dec len2_nm len2_e
-    (ExtCall f (Var ptr1_nm) (Var len1_nm) (Var ptr2_nm) (Var len2_nm))))), s) = (r, s2) /\
-  (r <> SOME Error ==> s2 = s1)
-Proof
-  rw []
-  \\ drule_then (qspecl_then [`len2_nm`, `len2_e`] mp_tac) evaluate_add_Dec
-  \\ simp [panPropsTheory.exps_of_def, panPropsTheory.assigns_of_def]
-  \\ impl_tac >- ( rw [] \\ fs [evaluate_def, AllCaseEqs ()] )
-  \\ rw []
-  \\ dxrule_then (qspecl_then [`ptr2_nm`, `ptr2_e`] mp_tac) evaluate_add_Dec
-  \\ simp [panPropsTheory.exps_of_def, panPropsTheory.assigns_of_def]
-  \\ impl_tac >- ( rw [] \\ fs [evaluate_def, AllCaseEqs ()] )
-  \\ rw []
-  \\ dxrule_then (qspecl_then [`len1_nm`, `len1_e`] mp_tac) evaluate_add_Dec
-  \\ simp [panPropsTheory.exps_of_def, panPropsTheory.assigns_of_def]
-  \\ impl_tac >- ( rw [] \\ fs [evaluate_def, AllCaseEqs ()] )
-  \\ rw []
-  \\ dxrule_then (qspecl_then [`ptr1_nm`, `ptr1_e`] mp_tac) evaluate_add_Dec
-  \\ simp [panPropsTheory.exps_of_def, panPropsTheory.assigns_of_def]
-  \\ impl_tac >- ( rw [] \\ fs [evaluate_def, AllCaseEqs ()] )
-  \\ rw []
-  \\ fs [EVAL ``evaluate (Dec nm e p, s)``]
-  \\ fs [AllCaseEqs (), UNCURRY_eq_pair]
-  \\ gvs []
-  \\ simp [PULL_EXISTS]
-  \\ qpat_x_assum `evaluate (ExtCal _ _ _ _ _, _) = _` mp_tac
-  \\ simp [evaluate_def, update_locals_not_vars_eval_eq_alt, eval_def, FLOOKUP_UPDATE]
-  \\ rw []
-  \\ fs [AllCaseEqs ()]
-  \\ gvs []
-  \\ simp [FLOOKUP_UPDATE]
-QED
-
-Definition logic_imp_def:
-  logic_imp P Q = (!s ls. P s ls ==> Q s ls)
-End
-
-Theorem hoare_logic_weaken_imp =
-    REWRITE_RULE [GSYM logic_imp_def] hoare_logic_weaken_pre
-
-val Inv = mk_var ("Inv", ``: (('a, 'ffi) state -> (mlstring |-> 'a v) list -> bool)``)
-
-Definition annot_While_def:
-  annot_While ^Inv
-    (c : 'a panLang$exp) (b : 'a panLang$prog) =
-    panLang$While c b
-End
-
-Theorem hoare_logic_annot_While = hoare_logic_While
-    |> ISPEC Inv |> REWRITE_RULE [GSYM annot_While_def] |> GEN_ALL
-
-Definition exp_args_def:
-  exp_args (Struct xs) = xs /\
-  exp_args (Field ix e) = [e] /\
-  exp_args (Load sh addr) = [addr] /\
-  exp_args (LoadByte addr) = [addr] /\
-  exp_args (Op bop xs) = xs /\
-  exp_args (Panop pop xs) = xs /\
-  exp_args (Cmp cmp x y) = [x; y] /\
-  exp_args (Shift sh_type x n) = [x] /\
-  exp_args _ = []
-End
-
-Definition eval_args_def:
-  eval_args s vs (Const w) = SOME (ValWord w) /\
-  eval_args s vs (Var v) = FLOOKUP s.locals v /\
-  eval_args s vs (Label fname) =
-    OPTION_MAP (\_. ValLabel fname) (FLOOKUP s.code fname) /\
-  eval_args s vs (Struct es) = SOME (Struct vs) /\
-  eval_args s vs (Field index e) = (case LLOOKUP vs 0 of
-    | SOME (Struct vs2) => LLOOKUP vs2 index
-    | _ => NONE) /\
-  eval_args s (vs : ('a v) list) (Load shape addr) = OPTION_BIND (LLOOKUP vs 0)
-    (\v. OPTION_BIND (val_word_of v) (\w. mem_load shape w s.memaddrs s.memory)) /\
-  eval_args s (vs : ('a v) list) (LoadByte addr) = OPTION_BIND (LLOOKUP vs 0)
-    (\v. OPTION_BIND (val_word_of v)
-        (OPTION_MAP (ValWord o w2w) o mem_load_byte s.memory s.memaddrs s.be)) /\
-  eval_args s vs (Op op es) = OPTION_BIND (OPT_MMAP val_word_of vs)
-    (OPTION_MAP ValWord o word_op op) /\
-  eval_args s vs (Panop pop es) = OPTION_BIND (OPT_MMAP val_word_of vs)
-    (OPTION_MAP ValWord o pan_op pop) /\
-  eval_args s vs (Cmp cmp e1 e2) = OPTION_MAP
-    (\ws. ValWord (if OPTREL (word_cmp cmp) (LLOOKUP ws 0) (LLOOKUP ws 1) then 1w else 0w))
-    (OPT_MMAP val_word_of vs) /\
-  eval_args s vs (Shift sh e n) = OPTION_BIND (LLOOKUP vs 0)
-    (\v. OPTION_BIND (val_word_of v) (\w. OPTION_MAP ValWord (word_sh sh w n))) /\
-  eval_args s vs BaseAddr = SOME (ValWord s.base_addr)
-End
-
-Triviality eval_args_thm_helper:
-  OPT_MMAP val_word_of xs = (if EVERY (\x. case x of (ValWord _) => T | _ => F) xs
-    then SOME (MAP (\x. case x of (ValWord w) => w) xs) else NONE)
-Proof
-  Induct_on `xs` \\ simp []
-  \\ Cases \\ simp []
-  \\ Cases_on `w` \\ simp []
-  \\ rpt (TOP_CASE_TAC \\ fs [])
-QED
-
-Theorem eval_args_thm:
-  eval s exp = OPTION_BIND (OPT_MMAP (eval s) (exp_args exp)) (\vs. eval_args s vs exp)
-Proof
-  Cases_on `exp`
-  \\ simp [eval_def, exp_args_def, eval_args_def, Q.ISPEC `eval _` ETA_THM]
-  >~ [`word_op _`]
-  >- (
-    TOP_CASE_TAC \\ simp []
-    \\ simp [eval_args_thm_helper]
-    \\ rw []
-  )
-  >~ [`pan_op _`]
-  >- (
-    TOP_CASE_TAC \\ simp []
-    \\ simp [eval_args_thm_helper]
-    \\ rw []
-  )
-  \\ simp [eval_def, exp_args_def, eval_args_def, Q.ISPEC `eval _` ETA_THM]
-  \\ every_case_tac \\ simp [miscTheory.LLOOKUP_THM]
-QED
-
-Theorem eval_logic_args:
-  eval_logic G P (Struct (exp_args exp)) (strlit "args_struct")
-    (\s ls. case FLOOKUP (HD ls) (strlit "args_struct") of
-        | SOME (Struct vs) => (case eval_args s vs exp of
-            | SOME v => Q s ((HD (DROP 1 ls) |+ (v_nm, v)) :: DROP 2 ls)
-            | NONE => F)
-        | _ => F) ==>
-  eval_logic G (\s ls. P s (FEMPTY :: ls)) exp v_nm Q
-Proof
-  rw []
-  \\ rw [eval_logic_def, eval_args_thm]
-  \\ dxrule_then drule eval_logic_elim
-  \\ rw []
-  \\ fs [eval_def, CaseEq "option", FLOOKUP_UPDATE, Q.ISPEC `eval _` ETA_THM]
-  \\ gvs []
-  \\ every_case_tac \\ fs []
-QED
-
-Theorem eval_logic_Const:
-  eval_logic G (\s ls. Q s ((HD ls |+ (v_nm, ValWord c)) :: DROP 1 ls))
-    (Const c) v_nm Q
-Proof
-  simp [eval_logic_def, eval_def]
-QED
-
-Theorem eval_logic_Var:
-  eval_logic G (\s ls. case FLOOKUP s.locals v of
-        NONE => F | SOME x => Q s ((HD ls |+ (v_nm, x)) :: DROP 1 ls))
-    (Var v) v_nm Q
-Proof
-  rw [eval_logic_def, eval_def]
-  \\ every_case_tac \\ fs []
-QED
-
-Theorem eval_logic_Label:
-  eval_logic G (\s ls. case FLOOKUP s.code lab of
-        NONE => F | SOME _ => Q s ((HD ls |+ (v_nm, ValLabel lab)) :: DROP 1 ls))
-    (Label lab) v_nm Q
-Proof
-  rw [eval_logic_def, eval_def]
-  \\ every_case_tac \\ fs []
-QED
-
-Theorem eval_logic_Struct_CONS:
-  eval_logic G P exp (strlit "field") Q /\
-  eval_logic G Q (Struct exps) (strlit "struct")
-    (\s ls. case
-            (FLOOKUP (HD ls) (strlit "field"), FLOOKUP (HD ls) (strlit "struct")) of
-        | (SOME fld, SOME (Struct xs)) => R s ((HD (DROP 1 ls) |+ (v_nm, Struct (fld :: xs))) :: DROP 2 ls)
-        | _ => F)
-  ==>
-  eval_logic G (\s ls. P s (FEMPTY :: ls)) (Struct (exp :: exps)) v_nm R
-Proof
-  rw []
-  \\ irule eval_logic_intro \\ rw []
-  \\ rpt (dxrule_then drule eval_logic_elim \\ rw [])
-  \\ fs [eval_def, FLOOKUP_UPDATE, CaseEq "option"]
-  \\ gvs []
-QED
-
-Theorem eval_logic_Struct_NIL:
-  eval_logic G (\s ls. Q s ((HD ls |+ (v_nm, Struct [])) :: DROP 1 ls)) (Struct []) v_nm Q
-Proof
-  simp [eval_logic_def, eval_def]
-QED
-
-Theorem eval_logic_Field:
-  eval_logic G P str_e (strlit "struct")
-    (\s ls. case FLOOKUP (HD ls) (strlit "struct") of
-        | SOME (Struct xs) => ix < LENGTH xs /\
-            Q s ((HD (DROP 1 ls) |+ (v_nm, EL ix xs)) :: DROP 2 ls)
-        | _ => F)
-  ==>
-  eval_logic G (\s ls. P s (FEMPTY :: ls)) (Field ix str_e) v_nm Q
-Proof
-  rw [] \\ irule eval_logic_intro \\ rw []
-  \\ rpt (dxrule_then drule eval_logic_elim \\ rw [])
-  \\ fs [FLOOKUP_UPDATE, eval_def]
-  \\ every_case_tac \\ fs []
-QED
-
-Theorem eval_logic_Load:
-  eval_logic G P addr_e (strlit "addr")
-    (\s ls. case FLOOKUP (HD ls) (strlit "addr") of
-        | SOME (ValWord x) => (case mem_load shape x s.memaddrs s.memory of
-            | SOME v => Q s ((HD (DROP 1 ls) |+ (v_nm, v)) :: DROP 2 ls)
-            | _ => F)
-        | _ => F)
-  ==>
-  eval_logic G (\s ls. P s (FEMPTY :: ls)) (Load shape addr_e) v_nm Q
-Proof
-  rw [] \\ irule eval_logic_intro \\ rw []
-  \\ rpt (dxrule_then drule eval_logic_elim \\ rw [])
-  \\ fs [FLOOKUP_UPDATE, eval_def]
-  \\ every_case_tac \\ fs []
-QED
-
-Theorem eval_logic_LoadByte:
-  eval_logic G P addr_e (strlit "addr")
-    (\s ls. case FLOOKUP (HD ls) (strlit "addr") of
-        | SOME (ValWord x) => (case mem_load_byte s.memory s.memaddrs s.be x of
-            | SOME v => Q s ((HD (DROP 1 ls) |+ (v_nm, ValWord (w2w v))) :: DROP 2 ls)
-            | _ => F)
-        | _ => F)
-  ==>
-  eval_logic G (\s ls. P s (FEMPTY :: ls)) (LoadByte addr_e) v_nm Q
-Proof
-  rw [] \\ irule eval_logic_intro \\ rw []
-  \\ rpt (dxrule_then drule eval_logic_elim \\ rw [])
-  \\ fs [FLOOKUP_UPDATE, eval_def]
-  \\ every_case_tac \\ fs []
-QED
-
-Theorem eval_logic_Cmp:
-  eval_logic G P x_e (strlit "lhs_expr") P1 /\
-  eval_logic G P1 y_e (strlit "rhs_expr")
-    (\s ls. case (FLOOKUP (HD ls) (strlit "lhs_expr"), FLOOKUP (HD ls) (strlit "rhs_expr")) of
-        | (SOME (ValWord x), SOME (ValWord y)) => Q s ((HD (DROP 1 ls) |+ (v_nm, ValWord (if word_cmp cmp x y then 1w else 0w))) :: DROP 2 ls)
-        | _ => F)
-  ==>
-  eval_logic G (\s ls. P s (FEMPTY :: ls)) (Cmp cmp x_e y_e) v_nm Q
-Proof
-  rw [] \\ irule eval_logic_intro \\ rw []
-  \\ rpt (dxrule_then drule eval_logic_elim \\ rw [])
-  \\ fs [FLOOKUP_UPDATE, eval_def]
-  \\ every_case_tac \\ fs []
-QED
-
-Theorem eval_logic_gen:
-  eval_logic G (\s ls. case eval s expr of NONE => F
-        | SOME v => Q s ((HD ls |+ (v_nm, v)) :: DROP 1 ls))
-    expr v_nm Q
-Proof
-  rw [eval_logic_def]
-  \\ every_case_tac \\ fs []
-QED
-
-Theorem hoare_logic_TailCall_code:
-  ! code.
-    FLOOKUP code nm = SOME (vshs, prog) /\
-    ALL_DISTINCT (MAP FST vshs) /\
-    eval_logic G P (Struct args) (strlit "args_struct")
-        (\s ls. case FLOOKUP (HD ls) (strlit "args_struct") of
-            | SOME (Struct vs) => LIST_REL (\vsh x. SND vsh = shape_of x) vshs vs /\
-                (if s.clock = 0 then R (SOME TimeOut) (empty_locals s) (DROP 1 ls)
-                    else Q (dec_clock s with locals := (FEMPTY |++ ZIP (MAP FST vshs, vs))) ls)
-            | _ => F)
-    /\
-    hoare_logic G Q prog (\res s ls. R res (empty_locals s) (DROP 1 ls) /\
-        is_fcall_result res)
-    ==>
-    hoare_logic G (\s ls. code SUBMAP s.code /\ P s (FEMPTY :: ls))
-        (TailCall (Label nm) args) R
-Proof
-  rw []
-  \\ irule hoare_logic_weaken_pre
-  \\ irule_at Any hoare_logic_TailCall
-  \\ rpt (first_assum (irule_at Any))
-  \\ rw []
-  \\ imp_res_tac FLOOKUP_SUBMAP
-QED
 
 (* Embed the Dijstra-style back-propagation (weakest precond order) of the
-   Hoare logic into an explicit constant that forces things to be done in that
-   order. *)
+   Hoare logic into an explicit constant that forces introduction steps of
+   the logic to be performed in the right order. The intermediate condition
+   `Q` will be discovered by solving the current goal, and fed onwards. *)
 Definition rev_hoare_def:
   rev_hoare cont cur_goal = (?Q. cont Q /\ cur_goal Q)
 End
+
+Theorem rev_hoare_intro = hd (tl (RES_CANON rev_hoare_def))
+    |> REWRITE_RULE [PULL_FORALL, AND_IMP_INTRO]
+
+
+
+
+Theorem eval_logic_rev:
+  cont (\s ls. case eval s expr of NONE => F | SOME v => Q v s ls)
+  ==>
+  rev_hoare cont (\P. eval_logic G P expr Q)
+Proof
+  rw [rev_hoare_def, eval_logic_def]
+  \\ first_assum (irule_at Any)
+  \\ rw []
+  \\ every_case_tac \\ fs []
+QED
+
+val rev_hoare_tm = SPEC_ALL rev_hoare_def |> concl |> dest_eq |> fst |> strip_comb |> fst
+val hoare_logic_tm = SPEC_ALL hoare_logic_Skip |> concl |> strip_comb |> fst
+val eval_logic_tm = SPEC_ALL eval_logic_def |> concl |> dest_eq |> fst |> strip_comb |> fst
+
+Triviality hoare_logic_to_rev:
+  hoare_logic G P f Q ==> cont P ==> rev_hoare cont (\P. hoare_logic G P f Q)
+Proof
+  simp [rev_hoare_def] \\ metis_tac []
+QED
+
+fun get_precond tm = let
+    val (f, xs) = strip_comb tm
+  in
+    if is_var f then SOME (hd xs)
+    else if same_const f eval_logic_tm
+    then SOME (hd (tl xs))
+    else if same_const f hoare_logic_tm
+    then SOME (hd (tl xs))
+    else NONE
+  end
+
+fun has_precond tm = can valOf (get_precond tm)
+
+fun conjs_to_rev_hoare tm [] = tm
+  | conjs_to_rev_hoare tm (ltm :: ltms) = let
+    val p = valOf (get_precond ltm)
+    val rh = conjs_to_rev_hoare tm ltms
+  in list_mk_icomb (rev_hoare_tm, [mk_abs (p, rh), mk_abs (p, ltm)])
+  end
+
+fun hoare_logic_rule_to_rev_form thm = let
+    val thm1 = thm |> REWRITE_RULE [PULL_EXISTS] |> SPEC_ALL
+    val assms = fst (strip_imp (concl thm1))
+    val thm2 = UNDISCH_ALL thm1
+    val thm3 = MATCH_MP hoare_logic_to_rev thm2
+    val thm4 = foldl (uncurry DISCH) thm3 assms
+        |> REWRITE_RULE [PULL_EXISTS, AND_IMP_INTRO]
+    val (lhs, rhs) = dest_imp (concl thm4)
+    val (logs, others) = partition has_precond (strip_conj lhs)
+    val (cont :: other_logs) = rev logs
+    val rh = conjs_to_rev_hoare (list_mk_conj (others @ [cont])) other_logs
+    val gl = mk_imp (rh, rhs)
+  in prove (gl,
+    disch_then (strip_assume_tac o REWRITE_RULE [rev_hoare_def])
+    \\ match_mp_tac (GEN_ALL thm4)
+    \\ full_simp_tac bool_ss []
+    \\ rpt (first_assum (irule_at Any))
+    \\ full_simp_tac bool_ss []
+  ) end
 
 Theorem hoare_logic_rev_init:
   rev_hoare (\Q. logic_imp P Q) (\Q. hoare_logic G Q f R) ==>
@@ -982,138 +727,43 @@ Proof
   \\ fs []
 QED
 
-Theorem hoare_logic_rev_Seq:
-  rev_hoare (\Q. rev_hoare cont (\P.
-        hoare_logic G P p1 (\r s ls. if r = NONE then Q s ls else R r s ls)))
-    (\Q. hoare_logic G Q p2 R)
-  ==>
-  rev_hoare cont (\P. hoare_logic G P (Seq p1 p2) R)
-Proof
-  rw [rev_hoare_def]
-  \\ irule_at Any hoare_logic_Seq
-  \\ metis_tac []
-QED
+Theorem hoare_logic_rev_rules = LIST_CONJ (map hoare_logic_rule_to_rev_form
+  [hoare_logic_Skip, hoare_logic_Break, hoare_logic_Continue,
+    hoare_logic_Return, hoare_logic_Raise, hoare_logic_Tick,
+    hoare_logic_Store, hoare_logic_StoreByte, hoare_logic_Dec,
+    hoare_logic_Assign, hoare_logic_Seq, hoare_logic_If,
+    hoare_logic_annot_While, hoare_logic_GenCall,
+    hoare_logic_GenCall_Handler, hoare_logic_ExtCall])
 
-Theorem hoare_logic_rev_Return:
-  rev_hoare (\P. cont (\s ls. P s (FEMPTY :: ls)))
-    (\P. eval_logic G P e (strlit "return-val")
-        (\s ls. case FLOOKUP (HD ls) (strlit "return-val") of
-            | NONE => F
-            | SOME v => size_of_shape (shape_of v) <= 32 /\
-                Q (SOME (Return v)) (empty_locals s) (DROP 1 ls)))
-  ==>
-  rev_hoare cont (\P. hoare_logic G P (Return e) Q)
-Proof
-  rw [rev_hoare_def]
-  \\ irule_at Any hoare_logic_Return
-  \\ metis_tac []
-QED
-
-Theorem hoare_logic_rev_Dec:
-  rev_hoare (\Q. rev_hoare (\P. cont (\s ls. P s (FEMPTY :: ls)))
-        (\P. eval_logic G P e v
-            (\s ls. Q (s with locals := fcopy v (HD ls) s.locals)
-                (fcopy v s.locals FEMPTY :: DROP 1 ls))))
-    (\Q.hoare_logic G Q p
-        (\res s ls. R res (s with locals := fcopy v (HD ls) s.locals) (DROP 1 ls)))
-  ==>
-  rev_hoare cont (\P. hoare_logic G P (Dec v e p) R)
-Proof
-  rw [rev_hoare_def]
-  \\ irule_at Any hoare_logic_Dec
-  \\ metis_tac []
-QED
-
-Theorem hoare_logic_rev_Assign:
-  rev_hoare (\P. cont (\s ls. P s (FEMPTY :: ls) /\
-            OPTION_MAP shape_of (FLOOKUP s.locals v) =
-            SOME (panProps$exp_shape (FMAP_MAP2 (shape_of o SND) s.locals) e)))
-    (\P. eval_logic G P e v
-        (\s ls. Q NONE (s with locals := fcopy v (HD ls) s.locals) (DROP 1 ls)))
-  ==>
-  rev_hoare cont (\P. hoare_logic G P (Assign v e) Q)
-Proof
-  rw [rev_hoare_def]
-  \\ irule_at Any hoare_logic_Assign
-  \\ fs []
-  \\ metis_tac []
-QED
-
-Theorem hoare_logic_rev_annot_While:
-  rev_hoare (\Q. rev_hoare (\P. logic_imp Inv (\s ls. P s (FEMPTY :: ls)) /\ cont Inv)
-        (\P. eval_logic G P e (strlit "condition") (\s ls.
-            case local_word (HD ls) (strlit "condition") of
-            | NONE => F
-            | SOME w => if w = 0w then R NONE s (DROP 1 ls)
-              else if s.clock = 0 then R (SOME TimeOut) (empty_locals s) (DROP 1 ls)
-              else Q (dec_clock s) (DROP 1 ls))))
-    (\Q. hoare_logic G Q p (\r s ls. if is_continuing_result r then Inv s ls
-        else R (if r = SOME Break then NONE else r) s ls))
-  ==>
-  rev_hoare cont (\P0. hoare_logic G P0 (annot_While Inv e p) R)
-Proof
-  rw [rev_hoare_def, logic_imp_def]
-  \\ irule_at Any hoare_logic_annot_While
-  \\ metis_tac []
-QED
-
-Theorem hoare_logic_rev_Store:
-  rev_hoare (\Q. rev_hoare (\P. cont (\s ls. P s (FEMPTY :: ls)))
-        (\P. eval_logic G P addr_e (strlit "addr") Q))
-    (\Q. eval_logic G Q val_e (strlit "val") (\s ls.
-        case local_word (HD ls) (strlit "addr") of
-        | NONE => F
-        | SOME addr =>
-        (case FLOOKUP (HD ls) (strlit "val") of
-        | NONE => F
-        | SOME v =>
-        (case mem_stores addr (flatten v) s.memaddrs s.memory of
-        | NONE => F
-        | SOME m => R NONE (s with memory := m) (DROP 1 ls)))))
-  ==>
-  rev_hoare cont (\P. hoare_logic G P (Store addr_e val_e) R)
-Proof
-  rw [rev_hoare_def]
-  \\ irule_at Any hoare_logic_Store
-  \\ metis_tac []
-QED
-
-Theorem hoare_logic_rev_TailCall_code:
+Theorem hoare_logic_TailCall_code:
   ! code.
-  FLOOKUP code nm = SOME (vshs, prog) /\
-  ALL_DISTINCT (MAP FST vshs) /\
-  rev_hoare (\Q. rev_hoare (\P. cont (\s ls. code SUBMAP s.code /\ P s (FEMPTY :: ls)))
-        (\P. eval_logic G P (Struct args) (strlit "args_struct")
-            (\s ls. case FLOOKUP (HD ls) (strlit "args_struct") of
-                | SOME (Struct vs) => LIST_REL (\vsh x. SND vsh = shape_of x) vshs vs /\
-                    (if s.clock = 0 then R (SOME TimeOut) (empty_locals s) (DROP 1 ls)
-                        else Q (dec_clock s with locals := (FEMPTY |++ ZIP (MAP FST vshs, vs))) ls)
-                | _ => F)))
-      (\Q. hoare_logic G Q prog (\res s ls. R res (empty_locals s) (DROP 1 ls) /\
-        (case res of
-            | SOME (Return r) => T
-            | SOME (FinalFFI fres) => T
-            | SOME (Exception eid exn) => T
-            | SOME TimeOut => T
-            | _ => F)))
-  ==>
-  rev_hoare cont (\P. hoare_logic G P (TailCall (Label nm) args) R)
+    FLOOKUP code nm = SOME (vshs, prog) /\
+    ALL_DISTINCT (MAP FST vshs) ==>
+    eval_logic G P (Struct args)
+        (\vs s ls. case vs of
+            | Struct vs => LIST_REL (\vsh x. SND vsh = shape_of x) vshs vs /\
+                (if s.clock = 0 then R (SOME TimeOut) (empty_locals s) ls
+                    else Q (dec_clock s with locals := (FEMPTY |++ ZIP (MAP FST vshs, vs))) ls)
+            | _ => F)
+    /\
+    hoare_logic G Q prog (\res s ls. R res (empty_locals s) ls /\
+        is_fcall_result res)
+    ==>
+    hoare_logic G (\s ls. code SUBMAP s.code /\ P s ls)
+        (TailCall (Label nm) args) R
 Proof
-  rw [rev_hoare_def]
-  \\ drule_then (irule_at Any) hoare_logic_TailCall_code
+  rw []
+  \\ irule hoare_logic_weaken_pre
+  \\ irule_at Any hoare_logic_TailCall
   \\ rpt (first_assum (irule_at Any))
   \\ rw []
+  \\ imp_res_tac FLOOKUP_SUBMAP
 QED
 
-Theorem eval_logic_rev:
-  cont (\s ls. case eval s expr of NONE => F | SOME v => Q s ((HD ls |+ (v_nm, v)) :: DROP 1 ls))
-  ==>
-  rev_hoare cont (\P. eval_logic G P expr v_nm Q)
-Proof
-  rw [rev_hoare_def]
-  \\ irule_at Any eval_logic_gen
-  \\ simp []
-QED
+Theorem hoare_logic_TailCall_rev_code = hoare_logic_rule_to_rev_form
+        (UNDISCH (SPEC_ALL hoare_logic_TailCall_code))
+    |> DISCH_ALL
+    |> Q.GEN `code`
 
 val _ = export_theory();
 

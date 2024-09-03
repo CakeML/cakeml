@@ -3,7 +3,8 @@
 *)
 
 open preamble HolKernel Parse boolLib bossLib stringLib numLib intLib
-     panLangTheory panPtreeConversionTheory panSemTheory panHoareTheory;
+     panLangTheory panPtreeConversionTheory panSemTheory;
+open panHoareTheory;
 
 val _ = new_theory "initArray";
 
@@ -140,7 +141,6 @@ Triviality init_array_loop_correct:
     in (empty_locals st1 with <| memory := m2; clock := st1.clock - n |>)
   ))
 Proof
-
   ho_match_mp_tac clock_after_induct
   \\ simp [GSYM while_then_def]
   \\ rpt (disch_tac ORELSE gen_tac)
@@ -206,87 +206,7 @@ val hoare_simp_rules =
     [DROP_DROP_T, FLOOKUP_UPDATE, res_var_def, FLOOKUP_FUPDATE_LIST,
         shape_of_def, size_of_shape_def, empty_locals_def, dec_clock_def,
         Cong option_case_cong, Cong panSemTheory.result_case_cong,
-        PULL_EXISTS, exp_args_def, eval_args_def, eval_def,
-        panPropsTheory.exp_shape_def]
-
-val dest_logic_postcond = let
-    val ls = [``hoare_logic``, ``eval_logic``, ``logic_imp``]
-  in fn tm => let
-    val (f, _) = strip_comb tm
-  in if exists (same_const f) ls then SOME (rand tm) else NONE end end
-
-val is_logic_imp = let
-    val li = ``logic_imp``
-  in fn tm => let
-    val (f, _) = strip_comb tm
-  in same_const li f end end
-
-fun unbeta_all [] tm = ALL_CONV tm
-  | unbeta_all (x :: xs) tm = (UNBETA_CONV x THENC RATOR_CONV (unbeta_all xs)) tm
-
-fun conv_waiting tm = let
-    val (qs, body) = strip_exists tm
-    val all_fvs = free_vars body
-    fun unbeta_qs_conv tm = case (total dest_conj tm, dest_logic_postcond tm) of
-        (SOME (lc, rc), _) => BINOP_CONV unbeta_qs_conv tm
-      | (NONE, SOME q) => let
-            val q_fvs = free_vars q
-            val all_fvs = free_vars tm
-            val waiting_on = filter (fn ex_q => exists (Term.aconv ex_q) q_fvs) qs
-            val extra = filter (fn ex_q => exists (Term.aconv ex_q) all_fvs) qs
-                |> filter (fn ex_q => not (exists (Term.aconv ex_q) waiting_on))
-          in if null waiting_on then ALL_CONV tm
-            else unbeta_all (waiting_on @ [mk_var ("unit_v", oneSyntax.one_ty)] @ extra) tm end
-      | _ => ALL_CONV tm
-  in STRIP_QUANT_CONV unbeta_qs_conv tm end
-
-fun abbrev_waiting (assms, gl) = let
-    val (qs, body) = strip_exists gl
-    val bc = strip_conj body
-    fun is_waiting t = is_comb t andalso is_abs (fst (strip_comb t))
-    fun new_waiting t = let
-        val free = free_varsl (gl :: assms)
-        val nm = "waiting_on_" ^ Int.toString (length free)
-        val v = Term.variant free (mk_var (nm, type_of t))
-      in mk_eq (v, t) end
-  in case List.find is_waiting bc of
-    SOME t => ABBREV_TAC (new_waiting (fst (strip_comb t))) (assms, gl)
-  | NONE => NO_TAC (assms, gl)
-  end
-
-fun unabbrev_waiting (assms, gl) = let
-    fun unblocked_arg t = is_comb t andalso
-        not (type_of (rand t) = oneSyntax.one_ty)
-        andalso (not (is_var (rand t)) orelse unblocked_arg (rator t))
-    val unblockeds = strip_exists gl |> snd |> strip_conj
-        |> filter (is_var o fst o strip_comb)
-        |> filter unblocked_arg
-        |> map (fst o strip_comb)
-  in if null unblockeds then NO_TAC (assms, gl)
-    else UNABBREV_TAC (fst (dest_var (hd unblockeds))) (assms, gl)
-  end
-
-val hoare_tactic2 =
-    rpt unabbrev_waiting
-    \\ simp hoare_simp_rules
-    \\ CONV_TAC conv_waiting
-    \\ rpt abbrev_waiting
-
-val hoare_tactic3 =
-    MAP_FIRST (irule_at Any) [eval_logic_Const,
-        eval_logic_Var,
-        (* eval_logic_Cmp,
-        eval_logic_Struct_CONS, eval_logic_Struct_NIL, eval_logic_args, *)
-        eval_logic_gen,
-        hoare_logic_Seq, hoare_logic_Return,
-        hoare_logic_annot_While, hoare_logic_Dec, hoare_logic_Store,
-        hoare_logic_Assign]
-    \\ hoare_tactic2
-
-Theorem bool_case_eq_specs =
-    CONJ (bool_case_eq |> Q.GEN `t` |> Q.SPEC `v`)
-        (bool_case_eq |> Q.GEN `f` |> Q.SPEC `v`)
-
+        PULL_EXISTS, eval_def, panPropsTheory.exp_shape_def]
 
 val rev_hoare_simp = let
     val rev_hoare_v = ``rev_hoare``
@@ -303,10 +223,13 @@ val rev_hoare_simp = let
   in CONV_TAC conv end
 
 val rev_hoare_tac = MAP_FIRST match_mp_tac
-        [hoare_logic_rev_Dec, hoare_logic_rev_Seq, hoare_logic_rev_Return,
-            eval_logic_rev, hoare_logic_rev_annot_While, hoare_logic_rev_Assign,
-            hoare_logic_rev_Store]
+        (CONJUNCTS hoare_logic_rev_rules @ [eval_logic_rev])
     \\ rev_hoare_simp
+
+Theorem bool_case_eq_specs =
+    CONJ (bool_case_eq |> Q.GEN `t` |> Q.SPEC `v`)
+        (bool_case_eq |> Q.GEN `f` |> Q.SPEC `v`)
+
 
 Theorem init_array_Hoare_correct:
   hoare_logic G
@@ -325,7 +248,7 @@ Theorem init_array_Hoare_correct:
     (\res s ls. Q res s.memory s.ffi)
 Proof
   irule hoare_logic_rev_init
-  \\ qspec_then `the_code` irule hoare_logic_rev_TailCall_code
+  \\ qspec_then `the_code` irule hoare_logic_TailCall_rev_code
   \\ simp [lookup_init_array]
   \\ qspec_then `\s ls.
     local_word s.locals «i» <> NONE /\
@@ -343,10 +266,9 @@ Proof
   \\ rpt rev_hoare_tac
   \\ conj_tac
   >- (
-    rw [logic_imp_def]
+    rw ([logic_imp_def] @ hoare_simp_rules)
     \\ imp_res_tac neq_NONE_IMP \\ gs []
     \\ imp_res_tac neq_NONE_IMP \\ gs [val_word_of_eq_SOME]
-    \\ simp hoare_simp_rules
     \\ simp [pan_op_def, wordLangTheory.word_op_def, flatten_def,
         asmTheory.word_cmp_def, bool_case_eq_specs]
     \\ gvs []
