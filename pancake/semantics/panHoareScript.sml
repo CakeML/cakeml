@@ -13,8 +13,11 @@ val _ = set_grammar_ancestry [
   "panLang", "panSem", "ffi" ]
 
 
-Type trip[local] = ``: (('a, 'ffi) state -> bool) # 'a prog #
-        ('a result -> ('a, 'ffi) state -> bool)``
+Type prop[local] =
+    ``: (('a, 'ffi) state -> (mlstring |-> 'a v) list -> bool)``
+
+Type trip[local] = ``: (('a, 'ffi) prop) # 'a panLang$prog #
+        ('a result option -> ('a, 'ffi) prop)``;
 
 Datatype:
   hoare_context = <|
@@ -121,6 +124,19 @@ Inductive hoare_logic:
     hoare_logic G P p R
   )
 
+[hoare_logic_use_context_triple:]
+  (! P p Q.
+    MEM (P, p, Q) G.triples ==>
+    hoare_logic G P p Q
+  )
+
+[hoare_logic_add_context_triple:]
+  (! P p Q.
+    hoare_logic (G with future_triples :=
+        (P, p, Q) :: G.future_triples) P p Q ==>
+    hoare_logic G P p Q
+  )
+
 [hoare_logic_Skip:]
   ( !P.
     hoare_logic G (P NONE) Skip P
@@ -156,7 +172,8 @@ Inductive hoare_logic:
 
 [hoare_logic_Tick:]
   ( !P.
-    hoare_logic G (\s ls. if s.clock = 0 then P (SOME TimeOut) (empty_locals s) ls
+    hoare_logic G (\s ls. if s.clock = 0
+        then P (SOME TimeOut) (empty_locals s) ls
         else P NONE (dec_clock s) ls) Tick P
   )
 
@@ -231,8 +248,9 @@ Inductive hoare_logic:
         if v = ValWord 0w then R NONE s ls
         else if s.clock = 0 then R (SOME TimeOut) (empty_locals s) ls
         else Q (dec_clock s) ls) /\
-    hoare_logic G Q p (\r s ls. if is_continuing_result r then Inv s ls
-        else R (if r = SOME Break then NONE else r) s ls)
+    hoare_logic (tick_context G) Q p
+        (\r s ls. if is_continuing_result r then Inv s ls
+            else R (if r = SOME Break then NONE else r) s ls)
     ==>
     hoare_logic G Inv (annot_While Inv e p) R
   )
@@ -245,7 +263,8 @@ Inductive hoare_logic:
                 (if s.clock = 0 then R (SOME TimeOut) (empty_locals s) ls
                     else Q (dec_clock s with locals := (FEMPTY |++ ZIP (MAP FST vshs, vs))) ls)
             | _ => F) /\
-    hoare_logic G Q prog (\res s ls. R res (empty_locals s) ls /\
+    hoare_logic (tick_context G) Q prog
+        (\res s ls. R res (empty_locals s) ls /\
             (is_fcall_result res))
     ==>
     hoare_logic G (\s ls. FLOOKUP s.code nm = SOME (vshs, prog) /\ P s ls)
@@ -422,12 +441,29 @@ Overload ffi_g_imp[local] = ``\G s s'.
     events_meet_guarantee G.ffi_guarantee s'.ffi.io_events
     ``;
 
-Theorem hoare_logic_sound:
+Overload sound_upto_n[local] = ``\clock_pred G P p Q.
+  (! s ls res s'. evaluate (p, s) = (res, s') /\ P s ls /\
+    ffi_g_ok G s.ffi /\ clock_pred s.clock
+    ==>
+    res <> SOME Error /\ Q res s' ls /\ ffi_g_ok G s'.ffi /\ ffi_g_imp G s s'
+  )``
 
-  ! P p Q.
+Theorem hoare_logic_sound_ind:
+
+  ! G P p Q.
   hoare_logic G P p Q ==>
-  (! s ls res s'. evaluate (p, s) = (res, s') ==> P s ls ==>
-    ffi_g_ok G s.ffi ==>
+  !n.
+  (! P p Q. MEM (P, p, Q) s.triples ==> sound_upto_n (\clock. clock <= n) G P p Q) /\
+  (! P p Q. MEM (P, p, Q) s.future_triples ==> sound_upto_n (\clock. clock < n) G P p Q) /\
+  (! P p Q s ls res s'. MEM (P, p, Q) s.triples /\
+        s.clock <= n /\ evaluate (p, s) = (res, s') /\
+        P s ls /\ ffi_g_ok G s.ffi
+        ==>
+  sound_upto_n (\clock. clock = n)
+
+  (! n s ls res s'. evaluate (p, s) = (res, s') /\ P s ls /\
+    ffi_g_ok G s.ffi /\ s.clock <= n /\
+    ==>
     res <> SOME Error /\ Q res s' ls /\ ffi_g_ok G s'.ffi /\ ffi_g_imp G s s'
   )
 
@@ -437,6 +473,11 @@ Proof
   \\ rpt conj_tac
   \\ simp [logic_imp_def]
   \\ rpt (gen_tac ORELSE disch_tac)
+
+  >~ [`MEM _ s.triples`]
+  >- (
+    
+  )
 
   >~ [`Dec _ _ _`]
   >- (
