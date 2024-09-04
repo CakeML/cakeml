@@ -90,7 +90,7 @@ Proof
   >- (rw [])
 QED
 
-Theorem itree_wbisim_neq:
+Theorem wbisim_Ret_eq:
   Ret r ≈ Ret r' ⇔ r = r'
 Proof
   EQ_TAC >>
