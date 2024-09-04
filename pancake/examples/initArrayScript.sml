@@ -46,6 +46,18 @@ Definition w_count_def:
     else GENLIST (\j. i + n2w j) (w2n (x - i)))
 End
 
+Triviality word_plus_one_le:
+  x < y ==> x + 1w <= y
+Proof
+  qspec_then `w2n (x + 1w)` mp_tac (GEN_ALL wordsTheory.word_msb_n2w_numeric)
+  \\ qspec_then `w2n x` mp_tac (GEN_ALL wordsTheory.word_msb_n2w_numeric)
+  \\ simp [w2n_lt]
+  \\ qspec_then `x` mp_tac w2n_plus1
+  \\ qspec_then `y` mp_tac w2n_lt
+  \\ rw [] \\ fs [WORD_LE, WORD_LT, wordsTheory.w2n_minus1]
+  \\ fs []
+QED
+
 Theorem w_count_cons:
   i < x ==> w_count i x = i :: w_count (i + 1w) x
 Proof
@@ -61,8 +73,9 @@ Proof
     \\ fs [wordsTheory.WORD_EQ_SUB_ZERO]
   )
   >- (
-    (* requires some rules about inequalities and 1w *)
-    cheat
+    fs [WORD_NOT_LESS]
+    \\ drule_then mp_tac WORD_LESS_EQUAL_ANTISYM
+    \\ simp [word_plus_one_le]
   )
 QED
 
