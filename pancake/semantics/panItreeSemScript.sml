@@ -79,7 +79,7 @@ Theorem unclock_reclock_simps[simp]:
   (∀s. unclock(reclock s) = s) ∧
   (∀s. reclock(unclock s) = s with clock := 0) ∧
   (∀s k. unclock(s with clock := k) = unclock s) ∧
-  (∀s k. unclock(dec_clock s) = unclock s)      
+  (∀s k. unclock(dec_clock s) = unclock s)
 Proof
   rw[unclock_def,reclock_def,panSemTheory.state_component_equality,
      fetch "-" "bstate_component_equality",panSemTheory.dec_clock_def]
@@ -195,7 +195,7 @@ End
 *)
 (* mrec theory *)
 
-(* Characterisation of infinite itree:s in terms of their paths. 
+(* Characterisation of infinite itree:s in terms of their paths.
 Definition itree_finite_def:
   itree_finite t = ∃p x. itree_el t p = Return x
 End
@@ -512,7 +512,7 @@ Definition to_semtree_def:
         | Vis e k => Vis' e k)
 End
 *)
-(* ITree semantics for program commands 
+(* ITree semantics for program commands
 Definition itree_evaluate_def:
   itree_evaluate p s =
   to_stree (itree_mrec h_prog (p,s))
