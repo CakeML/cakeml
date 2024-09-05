@@ -167,7 +167,8 @@ Datatype:
      known_conf : clos_known$config option;
      known_g : val_approx sptree$num_map;
      do_call : bool;
-     clos_call_state : sptree$num_set # (num # num# closLang$exp) list;
+     clos_call_aux : (num # num# closLang$exp) list;
+     clos_call_g : sptree$num_set;
      es_to_chain : closLang$exp list
   |>
 End
@@ -210,13 +211,15 @@ Definition icompile_clos_to_bvl_common_def:
 
   let (p, (clos_call_g, aux)) = ( case clos_iconf.do_call of
                            | F => (p, (LN, []))
-                           | T => clos_call$calls p clos_iconf.clos_call_state
-                              ) in
+                           | T => clos_call$calls p (clos_iconf.clos_call_g,[])
+                                ) in
 
   let clos_iconf = clos_iconf with <| known_conf := kc;
                                       next_loc := n;
                                       known_g := g;
-                                      clos_call_state := (clos_call_g, aux);
+                                      (* keep it for now, just to make config same *)
+                                      clos_call_aux :=  aux ++ clos_iconf.clos_call_aux;
+                                      clos_call_g := clos_call_g;
                                       es_to_chain := clos_iconf.es_to_chain ++ p;
                                    |> in
     let p = clos_annotate$compile aux in
@@ -458,7 +461,7 @@ Theorem known_append:
   known c p2 vs g1 = (p2_known, g2) ⇒
   known c (p1 ++ p2) vs g = (p1_known ++ p2_known, g2)
 Proof
-  Induct_on ‘p1’ >> rw[clos_knownTheory.known_def] >> gvs[] >>
+  Induct_on ‘p1’  >> rw[clos_knownTheory.known_def] >> gvs[] >>
   once_rewrite_tac[known_cons] >>
   rw[] >>
   rpt (pairarg_tac >> gvs[]) >>
@@ -466,7 +469,6 @@ Proof
   once_rewrite_tac[known_cons] >>
   rw[] >>
   rpt (pairarg_tac >> gvs[]) >>
-  (* can i do something like last_x_assum (fn t => mp_tac (GEN_ALL t)) *)
   last_x_assum drule_all >>
   gvs[]
 QED
@@ -524,6 +526,22 @@ Proof
   pairarg_tac >> gvs[]
 QED
 
+
+Theorem clos_call_calls_cons_alt:
+  clos_call$calls (p :: ps) (g, []) =
+  let (p_head, g, acc_head) = clos_call$calls [p] (g, []) in
+  let (p_tail, g, acc_tail) = clos_call$calls ps (g, []) in
+  (p_head ++ p_tail, g, acc_tail ++ acc_head)
+Proof
+  Cases_on ‘ps’ >> gvs[] >> rpt (pairarg_tac >> gvs[])
+  >- (gvs[clos_callTheory.calls_def])
+  >- (gvs[clos_callTheory.calls_def] >>
+      rpt (pairarg_tac >> gvs[]) >>
+      qspecl_then [‘(h::t)’, ‘g'’, ‘acc_head’] mp_tac calls_acc >>
+      gvs[] >> strip_tac >> gvs[])
+
+QED
+
 Theorem clos_call_calls_append:
   ∀p1 p2 p1_calls p2_calls g g1 g2.
   clos_call$calls p1 g = (p1_calls, g1) ∧
@@ -542,14 +560,36 @@ QED
 Theorem clos_annotate_compile_append:
   clos_annotate$compile (p1 ++ p2) = clos_annotate$compile p1 ++ clos_annotate$compile p2
 Proof
-  cheat
+  rw[clos_annotateTheory.compile_def]
 QED
+
+
+Theorem calls_acc:
+   !xs d old res d1 aux.
+     clos_call$calls xs (d, []) = (res, d1, aux) ==>
+     clos_call$calls xs (d, old) = (res, d1, aux ++ old)
+Proof
+  cheat (* proved in clos_callProofScript *)
+QED
+
+Theorem clos_call_calls_append_alt:
+  ∀p1 p2 p1_calls p2_calls g g1 g2 acc1 acc2.
+  clos_call$calls p1 (g, []) = (p1_calls, g1, acc1) ∧
+  clos_call$calls p2 (g1, []) = (p2_calls, g2, acc2) ⇒
+  clos_call$calls (p1 ++ p2) (g, []) = (p1_calls ++ p2_calls, g2,  acc2 ++ acc1)
+Proof
+  Induct >> rw[clos_callTheory.calls_def] >> rpt (pairarg_tac >> gvs[]) >>
+  qpat_x_assum ‘calls (h :: p1) _ = _’ $ mp_tac >>once_rewrite_tac[clos_call_calls_cons_alt] >>
+  rw [] >> rpt (pairarg_tac >> gvs[]) >>
+  last_x_assum drule_all >> gvs[]
+QED
+
 
 
 Theorem icompile_icompile_clos_to_bvl:
   icompile_clos_to_bvl_common clos_iconf p1 = (clos_iconf_p1, p1_bvl) ∧
   icompile_clos_to_bvl_common clos_iconf_p1 p2 = (clos_iconf_p2, p2_bvl) ⇒
-  icompile_clos_to_bvl_common clos_iconf (p1 ++ p2) = (clos_iconf_p2, p1_bvl ++ p2_bvl)
+  icompile_clos_to_bvl_common clos_iconf (p1 ++ p2) = (clos_iconf_p2, p2_bvl ++ p1_bvl)
 
 Proof
   rw[icompile_clos_to_bvl_common_def] >> rpt (pairarg_tac >> gvs[]) >>
@@ -558,51 +598,24 @@ Proof
   qabbrev_tac ‘clos_mti_compiled_p2 = compile clos_iconf.do_mti clos_iconf.max_app p2’ >> pop_assum kall_tac >>
   drule_all (GEN_ALL renumber_code_locs_lemma) >> gvs[] >> strip_tac >> gvs[] >>
   rename1 ‘ renumber_code_locs_list clos_iconf.next_loc
-            (clos_mti_compiled_p1 ++ clos_mti_compiled_p2) = (n,p1_renamed ++ p2_renamed)’
+            (_ ++ _) = (n,p1_renamed ++ p2_renamed)’  >>
+  rpt (qpat_x_assum ‘renumber_code_locs_list _ _ = _’ kall_tac) >>
 
-
-  Cases_on ‘clos_iconf.known_conf’
-  >- ( gvs[] >>
+  Cases_on ‘clos_iconf.known_conf’ >> gvs[]
+  >- ( Cases_on ‘clos_iconf.do_call’ >> gvs[]
+       >- (drule_all (GEN_ALL clos_call_calls_append_alt) >>
+           gvs[] >> rpt (strip_tac) >> gvs[clos_annotate_compile_append])
+       >- (rw[clos_annotateTheory.compile_def]))
+  >- ( gvs[clos_fvs_compile_append] >>
+       rpt (pairarg_tac >> gvs[]) >>
+       drule_all known_append  >> gvs[] >> strip_tac >> gvs[] >>
        Cases_on ‘clos_iconf.do_call’ >> gvs[]
-       >- ( drule_all (GEN_ALL clos_call_calls_append) >>
-            gvs[] >> rpt (strip_tac) >> gvs[] >> cheat
-          )
-       >- (cheat))
-       >- (cheat)
-
-
-(*
-  gvs[] >> drule_all (GEN_ALL renumber_code_locs_lemma) >> gvs[] >>
-       Cases_on ‘clos_iconf.do_call’
-       >- ( gvs[] >>
-            drule_all (GEN_ALL clos_call_calls_append) >>
-            gvs[] >>
-            rpt (strip_tac) >> gvs[]
-       )
-       >>
-       gvs[] >>
-       drule_all (GEN_ALL clos_call_calls_append) >>
-       gvs[] >> rpt (strip_tac) >> gvs[])
-  >- (
-  gvs[] >>
-  rev_drule_all (GEN_ALL renumber_code_locs_lemma) >> gvs[] >>
-  rpt (pairarg_tac >> gvs[]) >>
-  (*
-  qabbrev_tac ‘p1_p2_renumbered = p’ >> pop_assum kall_tac >>
-  qabbrev_tac ‘p1_renumbered = p'⁴'’ >> pop_assum kall_tac >>
-  qabbrev_tac ‘p2_renumbered = p''’ >> pop_assum kall_tac >>
-  *)
-  strip_tac >>
-  gvs[clos_fvs_compile_append] >>
-  drule_all known_append  >>
-  rw[let_op_remove_ticks_append] >>
-  Cases_on ‘clos_iconf.do_call’ >>
-  gvs[let_op_remove_ticks_append] >>
-  drule_all (GEN_ALL clos_call_calls_append) >>
-  gvs[] >> rpt (strip_tac) >> gvs[]
-  )
-
-  *)
+       >- ( gvs[let_op_remove_ticks_append] >>
+            rev_drule_all (GEN_ALL clos_call_calls_append_alt) >>
+            gvs[] >> rpt strip_tac >> gvs[] >>
+            gvs[clos_annotate_compile_append])
+       >- ( gvs[let_op_remove_ticks_append] >>
+            rw[clos_annotateTheory.compile_def]))
 QED
 
 
