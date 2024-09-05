@@ -163,7 +163,13 @@ Datatype:
   clos_iconfig =
   <| do_mti : bool;
      max_app: num;
-     next_loc : num; |>
+     next_loc : num;
+     known_conf : clos_known$config option;
+     known_g : val_approx sptree$num_map;
+     do_call : bool;
+     clos_call_state : sptree$num_set # (num # num# closLang$exp) list;
+     es_to_chain : closLang$exp list
+  |>
 End
 
 
@@ -191,13 +197,32 @@ End
 Definition icompile_clos_to_bvl_common_def:
   icompile_clos_to_bvl_common (clos_iconf: clos_iconfig) p =
   let p = clos_mti$compile clos_iconf.do_mti clos_iconf.max_app p in
-  let next_loc = clos_iconf.next_loc in
-  let loc = if next_loc MOD 2 = 0 then next_loc else next_loc + 1 in
+  let loc = clos_iconf.next_loc in
   let (n, p) = renumber_code_locs_list loc p in
-  let clos_iconf = clos_iconf with <| next_loc := n |> in
-  (clos_iconf, p)
+  let (kc, p, g) = (case clos_iconf.known_conf of
+                 | NONE => (NONE, p, LN)
+                 | SOME c =>
+                     let p = clos_fvs$compile p in
+                     let (p, g) = known c p [] clos_iconf.known_g in
+                     let p = remove_ticks (MAP FST p) in
+                     let p = let_op p in
+                       (SOME c, p, g)) in
 
+  let (p, (clos_call_g, aux)) = ( case clos_iconf.do_call of
+                           | F => (p, (LN, []))
+                           | T => clos_call$calls p clos_iconf.clos_call_state
+                              ) in
+
+  let clos_iconf = clos_iconf with <| known_conf := kc;
+                                      next_loc := n;
+                                      known_g := g;
+                                      clos_call_state := (clos_call_g, aux);
+                                      es_to_chain := clos_iconf.es_to_chain ++ p;
+                                   |> in
+    let p = clos_annotate$compile aux in
+  (clos_iconf, p)
 End
+
 
 
 Definition init_icompile_def:
@@ -381,12 +406,11 @@ Proof
   )
 QED
 
-Theorem renumber_code_locs_even_lemma:
+Theorem renumber_code_locs_lemma:
   ∀n p1 p1_renumbered.
   renumber_code_locs_list n p1 = (n1, p1_renumbered) ∧
-  (n1 MOD 2 = 0) ∧
   renumber_code_locs_list n1 p2 = (n2, p2_renumbered) ⇒
-  renumber_code_locs_list n (p1 ++ p2) = (n2, p1_renumbered ++p2_renumbered)
+  renumber_code_locs_list n (p1 ++ p2) = (n2, p1_renumbered ++ p2_renumbered)
 Proof
   Induct_on ‘p1’ >> rw[clos_numberTheory.renumber_code_locs_def] >>
   rpt (pairarg_tac >> gvs[]) >>
@@ -396,36 +420,191 @@ Proof
   last_x_assum drule_all >> gvs[]
 QED
 
-Theorem renumber_code_locs_odd_lemma:
-  ∀n p1 p1_renumbered.
-  renumber_code_locs_list n p1 = (n1, p1_renumbered) ∧
-  (n1 MOD 2 ≠ 0) ∧
-  renumber_code_locs_list (n1 + 1) p2 = (n2, p2_renumbered) ⇒
-  renumber_code_locs_list n (p1 ++ p2) = (n2, p1_renumbered ++p2_renumbered)
+
+
+Theorem remove_fvs_cons:
+  remove_fvs 0 (p :: ps) = remove_fvs 0 [p] ++ remove_fvs 0 ps
+Proof
+  Cases_on ‘ps’ >- (
+  gvs[clos_fvsTheory.remove_fvs_def]
+  ) >- (
+  rw[clos_fvsTheory.remove_fvs_def] >>
+  Cases_on ‘p’ >> rw[clos_fvsTheory.remove_fvs_def]
+  )
+QED
+
+Theorem clos_fvs_compile_append:
+  clos_fvs$compile (p1 ++ p2) = clos_fvs$compile p1 ++ clos_fvs$compile p2
+Proof
+  Induct_on ‘p1’ >> gvs[clos_fvsTheory.compile_def, clos_fvsTheory.remove_fvs_def] >>
+  once_rewrite_tac[remove_fvs_cons] >> rw[]
+QED
+
+Theorem known_cons:
+  known c (p :: ps) vs g =
+  let (p_head,g) = known c [p] vs g in
+  let (p_tail,g) = known c ps vs g in
+    (p_head ++ p_tail,g)
+
+Proof
+  rw[] >> pairarg_tac >> gvs[] >>
+  Cases_on ‘ps’ >> gvs[clos_knownTheory.known_def]
+QED
+
+
+Theorem known_append:
+  ∀ p1 p2 vs g p1_known p2_known g1 g2.
+  known c p1 vs g = (p1_known, g1) ∧
+  known c p2 vs g1 = (p2_known, g2) ⇒
+  known c (p1 ++ p2) vs g = (p1_known ++ p2_known, g2)
+Proof
+  Induct_on ‘p1’ >> rw[clos_knownTheory.known_def] >> gvs[] >>
+  once_rewrite_tac[known_cons] >>
+  rw[] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  qpat_x_assum ‘ known c (h::p1) vs g = (p1_known,g1)’ $ mp_tac >>
+  once_rewrite_tac[known_cons] >>
+  rw[] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  (* can i do something like last_x_assum (fn t => mp_tac (GEN_ALL t)) *)
+  last_x_assum drule_all >>
+  gvs[]
+QED
+
+Theorem clos_remove_ticks_cons:
+   clos_ticks$remove_ticks (p :: ps) = clos_ticks$remove_ticks [p] ++ clos_ticks$remove_ticks ps
+Proof
+  Cases_on ‘ps’ >> rw[clos_ticksTheory.remove_ticks_def] >>
+  rw[clos_ticksTheory.remove_ticks_sing_eq]
+QED
+
+Theorem clos_remove_ticks_append:
+  clos_ticks$remove_ticks (p1 ++ p2) =
+  clos_ticks$remove_ticks p1 ++ clos_ticks$remove_ticks p2
+Proof
+  Induct_on ‘p1’ >> rw[clos_ticksTheory.remove_ticks_def] >>
+
+  rw[] >>
+  once_rewrite_tac[clos_remove_ticks_cons] >>
+  rw[clos_ticksTheory.remove_ticks_def]
+QED
+
+Theorem clos_let_op_cons:
+  clos_letop$let_op (p :: ps) =
+  clos_letop$let_op [p] ++ clos_letop$let_op ps
+Proof
+  Cases_on ‘ps’ >> rw[clos_letopTheory.let_op_def] >>
+  rw[clos_letopTheory.let_op_sing_eq]
+QED
+Theorem clos_let_op_append:
+  clos_letop$let_op (p1 ++ p2) =
+  clos_letop$let_op p1 ++ clos_letop$let_op p2
+Proof
+  Induct_on ‘p1’ >> rw[clos_letopTheory.let_op_def] >>
+  rw[] >>
+  once_rewrite_tac[clos_let_op_cons] >>
+  rw[]
+QED
+
+
+Theorem let_op_remove_ticks_append:
+  clos_letop$let_op (remove_ticks (p1 ++ p2)) =
+  clos_letop$let_op (remove_ticks p1) ++ clos_letop$let_op (remove_ticks p2)
+Proof
+  rw[clos_remove_ticks_append, clos_let_op_append]
+QED
+
+Theorem clos_call_calls_cons:
+  clos_call$calls (p :: ps) g =
+  let (p_head, g) = clos_call$calls [p] g in
+  let (p_tail, g) = clos_call$calls ps g in
+  (p_head ++ p_tail, g)
+Proof
+  Cases_on ‘ps’ >> rw[clos_callTheory.calls_def] >>
+  pairarg_tac >> gvs[]
+QED
+
+Theorem clos_call_calls_append:
+  ∀p1 p2 p1_calls p2_calls g g1 g2.
+  clos_call$calls p1 g = (p1_calls, g1) ∧
+  clos_call$calls p2 g1 = (p2_calls, g2) ⇒
+  clos_call$calls (p1 ++ p2) g = (p1_calls ++ p2_calls, g2)
+
+Proof
+  Induct >> rw[clos_callTheory.calls_def] >> rpt (pairarg_tac >> gvs[]) >>
+  once_rewrite_tac[clos_call_calls_cons] >>
+  rw [] >> rpt (pairarg_tac >> gvs[]) >>
+  qpat_x_assum ‘calls (h :: p1) g = _’ $ mp_tac >>
+  once_rewrite_tac[clos_call_calls_cons] >> rw[] >> pairarg_tac >> gvs[] >>
+  last_x_assum drule_all >> gvs[]
+QED
+
+Theorem clos_annotate_compile_append:
+  clos_annotate$compile (p1 ++ p2) = clos_annotate$compile p1 ++ clos_annotate$compile p2
 Proof
   cheat
 QED
 
 
 Theorem icompile_icompile_clos_to_bvl:
-  icompile_clos_to_bvl_compile_common clos_iconf p1 = (clos_iconf_p1, p1_bvl) ∧
-  icompile_clos_to_bvl_compile_common clos_iconf_p1 p2 = (clos_iconf_p2, p2_bvl) ⇒
-  icompile_clos_to_bvl_compile_common clos_iconf (p1 ++ p2) = (clos_iconf_p2, p1_bvl ++ p2_bvl)
+  icompile_clos_to_bvl_common clos_iconf p1 = (clos_iconf_p1, p1_bvl) ∧
+  icompile_clos_to_bvl_common clos_iconf_p1 p2 = (clos_iconf_p2, p2_bvl) ⇒
+  icompile_clos_to_bvl_common clos_iconf (p1 ++ p2) = (clos_iconf_p2, p1_bvl ++ p2_bvl)
 
 Proof
-  rw[icompile_clos_to_bvl_compile_common_def] >> rpt (pairarg_tac >> gvs[]) >>
+  rw[icompile_clos_to_bvl_common_def] >> rpt (pairarg_tac >> gvs[]) >>
   gvs[clos_mti_compile_append] >>
-  qabbrev_tac ‘p1_compiled_mti = (compile clos_iconf.do_mti clos_iconf.max_app p1)’ >>
-  qabbrev_tac ‘p2_compiled_mti = (compile clos_iconf.do_mti clos_iconf.max_app p2)’ >>
-  pop_assum kall_tac >> pop_assum kall_tac >>
+  qabbrev_tac ‘clos_mti_compiled_p1 = compile clos_iconf.do_mti clos_iconf.max_app p1’ >> pop_assum kall_tac >>
+  qabbrev_tac ‘clos_mti_compiled_p2 = compile clos_iconf.do_mti clos_iconf.max_app p2’ >> pop_assum kall_tac >>
+  drule_all (GEN_ALL renumber_code_locs_lemma) >> gvs[] >> strip_tac >> gvs[] >>
+  rename1 ‘ renumber_code_locs_list clos_iconf.next_loc
+            (clos_mti_compiled_p1 ++ clos_mti_compiled_p2) = (n,p1_renamed ++ p2_renamed)’
 
-  qabbrev_tac ‘n1 = n''’ >> pop_assum kall_tac >>
-  qabbrev_tac ‘n2 = n'’ >> pop_assum kall_tac
-  >- (drule_all renumber_code_locs_even_lemma >> gvs[])
-  >- (drule_all renumber_code_locs_odd_lemma >> gvs[])
-  >- (drule_all renumber_code_locs_even_lemma >> gvs[])
-  >- (drule_all renumber_code_locs_odd_lemma >> gvs[])
+
+  Cases_on ‘clos_iconf.known_conf’
+  >- ( gvs[] >>
+       Cases_on ‘clos_iconf.do_call’ >> gvs[]
+       >- ( drule_all (GEN_ALL clos_call_calls_append) >>
+            gvs[] >> rpt (strip_tac) >> gvs[] >> cheat
+          )
+       >- (cheat))
+       >- (cheat)
+
+
+(*
+  gvs[] >> drule_all (GEN_ALL renumber_code_locs_lemma) >> gvs[] >>
+       Cases_on ‘clos_iconf.do_call’
+       >- ( gvs[] >>
+            drule_all (GEN_ALL clos_call_calls_append) >>
+            gvs[] >>
+            rpt (strip_tac) >> gvs[]
+       )
+       >>
+       gvs[] >>
+       drule_all (GEN_ALL clos_call_calls_append) >>
+       gvs[] >> rpt (strip_tac) >> gvs[])
+  >- (
+  gvs[] >>
+  rev_drule_all (GEN_ALL renumber_code_locs_lemma) >> gvs[] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  (*
+  qabbrev_tac ‘p1_p2_renumbered = p’ >> pop_assum kall_tac >>
+  qabbrev_tac ‘p1_renumbered = p'⁴'’ >> pop_assum kall_tac >>
+  qabbrev_tac ‘p2_renumbered = p''’ >> pop_assum kall_tac >>
+  *)
+  strip_tac >>
+  gvs[clos_fvs_compile_append] >>
+  drule_all known_append  >>
+  rw[let_op_remove_ticks_append] >>
+  Cases_on ‘clos_iconf.do_call’ >>
+  gvs[let_op_remove_ticks_append] >>
+  drule_all (GEN_ALL clos_call_calls_append) >>
+  gvs[] >> rpt (strip_tac) >> gvs[]
+  )
+
+  *)
 QED
+
 
 Theorem icompile_icompile_source_to_flat:
   icompile_source_to_flat source_iconf p1 = (source_iconf_p1, p1_flat) ∧
