@@ -274,11 +274,11 @@ Definition conv_Exp_def:
       case args of
         [t] => lift (Cmp Equal (Const 0w)) (conv_Exp t)
       | _ => NONE
-    else if isNT nodeNT LoadByteNT then
+    else if isNT nodeNT ELoadByteNT then
       case args of
         [t] => lift LoadByte (conv_Exp t)
       | _ => NONE
-    else if isNT nodeNT LoadNT then
+    else if isNT nodeNT ELoadNT then
       case args of
         [t1; t2] => do s <- conv_Shape t1;
                        e <- conv_Exp t2;
@@ -433,7 +433,7 @@ Definition conv_NonRecStmt_def:
     else if tokcheck leaf (kw ContK) then SOME Continue
     else if tokcheck leaf (kw TicK) then SOME Tick
     else (case dest_annot_tok leaf of
-      | SOME c => SOME (Annot (implode c))
+      | SOME c => SOME (Annot (strlit "@") (implode c))
       | NONE => NONE)
 End
 
@@ -491,11 +491,11 @@ Definition posn_string_def:
 End
 
 Definition locs_comment_def:
-  locs_comment (p1, p2) = implode ("(location " ++ posn_string p1 ++ " " ++ posn_string p2 ++ ")")
+  locs_comment (p1, p2) = implode ("(" ++ posn_string p1 ++ " " ++ posn_string p2 ++ ")")
 End
 
 Definition add_locs_annot_def:
-  add_locs_annot ptree prog = panLang$Seq (Annot (locs_comment (parsetree_locs ptree))) prog
+  add_locs_annot ptree prog = panLang$Seq (Annot (strlit "location") (locs_comment (parsetree_locs ptree))) prog
 End
 
 Definition conv_Prog_def:
