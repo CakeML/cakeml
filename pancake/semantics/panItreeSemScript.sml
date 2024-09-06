@@ -457,7 +457,7 @@ End
 (* Recursive event handler for program commands *)
 Definition h_prog_def:
   (h_prog (Skip,s) = Ret (NONE,s)) ∧
-  (h_prog (Annot _,s) = Ret (NONE,s)) ∧
+  (h_prog (Annot _ _,s) = Ret (NONE,s)) ∧
   (h_prog (Dec vname e p,s) = h_prog_dec vname e p s) ∧
   (h_prog (Assign vname e,s) = h_prog_assign vname e s) ∧
   (h_prog (Store dst src,s) = h_prog_store dst src s) ∧

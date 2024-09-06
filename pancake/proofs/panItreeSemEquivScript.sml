@@ -182,7 +182,7 @@ QED
 
 Theorem fbs_semantics_beh_simps:
   fbs_semantics_beh s Skip = SemTerminate (NONE,s) ∧
-  fbs_semantics_beh s (Annot ann) = SemTerminate (NONE,s) ∧
+  fbs_semantics_beh s (Annot _ _) = SemTerminate (NONE,s) ∧
   (eval (reclock s) e = NONE ⇒ fbs_semantics_beh s (Dec v e prog) ≠ SemTerminate p)
 Proof
   rw []
@@ -2233,7 +2233,7 @@ QED
 
 Theorem itree_semantics_beh_simps:
   (itree_semantics_beh s Skip = SemTerminate (NONE, s)) ∧
-  (itree_semantics_beh s (Annot ann) = SemTerminate (NONE, s)) ∧
+  (itree_semantics_beh s (Annot _ _) = SemTerminate (NONE, s)) ∧
   (itree_semantics_beh s (Assign v src) =
    case eval (reclock s) src of
      NONE => SemFail
