@@ -2254,19 +2254,25 @@ End
 Definition v_iff_npbc_def:
   v_iff_npbc v c ⇔
   (* v ⇒ c *)
-   (not (add ([(1,v)],1) (not c)),
+   (add ([(1,v)],1) (not c),
   (* c ⇒ v *)
-    not(add c ([(-1,v)],1)))
+    add c ([(-1,v)],1))
+End
+
+(* this equation is annoying when unfolded *)
+Definition v_iff_npbc_sem_def:
+  v_iff_npbc_sem v c w =
+  (w v ⇔ satisfies_npbc w c)
 End
 
 Theorem satisfies_npbc_v_iff_npbc:
   v_iff_npbc v c = (vc,cv) ∧
-  satisfies_npbc w vc ∧
-  satisfies_npbc w cv
+  ¬ satisfies_npbc w vc ∧
+  ¬ satisfies_npbc w cv
   ⇒
-  (w v ⇔ satisfies_npbc w c)
+  v_iff_npbc_sem v c w
 Proof
-  rw[v_iff_npbc_def]>>gvs[not_thm]>>
+  rw[v_iff_npbc_sem_def,v_iff_npbc_def]>>gvs[not_thm]>>
   Cases_on`w v`>> gvs[]
   >- (
     `satisfies_npbc w ([(1,v)],1)` by
@@ -2281,8 +2287,8 @@ Proof
   metis_tac[add_thm,not_thm]
 QED
 
-Definition pres_subgoals_def:
-  pres_subgoals v c =
+Definition change_pres_subgoals_def:
+  change_pres_subgoals v c =
   let (vc,cv) = v_iff_npbc v c in
   [[vc]; [cv]]
 End
@@ -2292,12 +2298,17 @@ Definition pres_only_def:
   EVERY (\(c,vv). lookup vv pres = SOME () ∧ vv ≠ v) l
 End
 
+Definition update_pres_def:
+  update_pres b (v:num) pres =
+    if b then insert v () pres else delete v pres
+End
+
 Definition check_change_pres_def:
   check_change_pres b fml id pres v c pfs ⇔
   case pres of NONE => NONE
   | SOME pres =>
     if pres_only c pres v then
-    ( let csubs = pres_subgoals v c in
+    ( let csubs = change_pres_subgoals v c in
       case extract_clauses (λx. NONE) T fml csubs pfs [] of
         NONE => NONE
       | SOME cpfs =>
@@ -2312,9 +2323,7 @@ Definition check_change_pres_def:
               )
               (enumerate 0 csubs)
         then
-          let pres' =
-            if b then insert v () pres else delete v pres in
-          SOME (pres',id')
+          SOME (update_pres b v pres,id')
         else NONE))
     else NONE
 End
@@ -2472,10 +2481,14 @@ Definition check_cstep_def:
   )
 End
 
+Definition valid_req_def:
+  valid_req chk ord = (chk ∨ IS_SOME ord)
+End
+
 Definition valid_conf_def:
-  valid_conf pres ord obj tcb fml ⇔
+  valid_conf chk pres ord obj tcb fml ⇔
   (tcb ⇒ core_only_fml T fml ⊨ core_only_fml F fml) ∧
-  (IS_SOME ord ⇒
+  (valid_req chk ord ⇒
     sat_obj_po (pres_set_spt pres) ord obj
       (core_only_fml T fml)
       (core_only_fml F fml))
@@ -2502,6 +2515,8 @@ Definition imp_obj_def:
   (sat_obj_le fopt1 v C1 ⇒ sat_obj_le fopt2 v C2)
 End
 
+(* Redundant, but in various cases, we can drop
+  from bimp_pres_obj to use this as it is simpler *)
 Definition bimp_obj_def:
   bimp_obj bound fopt1 C1 fopt2 C2 ⇔
   ∀v. opt_lt (SOME v) bound ⇒
@@ -2692,7 +2707,7 @@ QED
 Theorem all_core_valid_conf:
   OPTION_ALL good_spo ord ∧
   all_core fml ⇒
-  valid_conf pres ord obj tcb fml
+  valid_conf chk pres ord obj tcb fml
 Proof
   rw[valid_conf_def]>>
   fs[all_core_core_only_fml_eq]>>
@@ -2748,16 +2763,159 @@ Proof
   rw[id_ok_def]
 QED
 
+Theorem pres_set_spt_SOME[simp]:
+  pres_set_spt (SOME pres) = domain pres
+Proof
+  EVAL_TAC
+QED
+
+Theorem domain_update_pres:
+  domain (update_pres b v pres) =
+  if b then v INSERT domain pres else domain pres DELETE v
+Proof
+  rw[update_pres_def]
+QED
+
+Theorem pres_only_dependency:
+  pres_only c pres v ∧
+  (∀x. x ∈ domain pres ∧ x ≠ v ⇒ (w x ⇔ w' x)) ⇒
+  satisfies_npbc w c = satisfies_npbc w' c
+Proof
+  Cases_on`c`>>rw[pres_only_def,satisfies_npbc_def]>>
+  `SUM (MAP (eval_term w) q) =
+   SUM (MAP (eval_term w') q)` by
+    (Induct_on`q`>>gvs[]>>rw[]>>
+    pairarg_tac>>gvs[domain_lookup])>>
+  simp[]
+QED
+
+(* We only prove one direction, but converse works too.
+  It is important that the equivalence is proved over core *)
+Theorem valid_conf_update_pres:
+  pres_only c pres v ∧
+  (∀w.
+      satisfies w (core_only_fml T fml) ⇒
+      v_iff_npbc_sem v c w) ∧
+  valid_conf chk (SOME pres) ord obj tcb fml ⇒
+  valid_conf chk (SOME (update_pres b v pres)) ord obj tcb fml
+Proof
+  rw[valid_conf_def,sat_obj_po_def]>>gvs[]>>
+  first_x_assum drule>>rw[]>>
+  first_x_assum (irule_at Any)>>
+  simp[]>>
+  rw[domain_update_pres]
+  >- (
+    `satisfies w' (core_only_fml T fml)` by
+      metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F]>>
+    metis_tac[pres_only_dependency,v_iff_npbc_sem_def])
+  >-
+    metis_tac[]
+QED
+
+(* from pre-updated to updated *)
+Theorem bimp_pres_obj_update_pres_1:
+  pres_only c pres v ∧
+  (∀w.
+      satisfies w (core_only_fml T fml) ⇒
+      v_iff_npbc_sem v c w) ⇒
+  bimp_pres_obj dbound
+    (SOME (domain pres)) obj
+    (core_only_fml F fml)
+    (SOME (domain (update_pres b v pres))) obj
+    (core_only_fml F fml)
+Proof
+  rw[bimp_pres_obj_def]>>
+  gvs[pbcTheory.proj_pres_def,pbcTheory.pres_set_def,domain_update_pres]>>
+  drule pres_only_dependency>>rw[]
+  >- ( (* insertion: the injection maps v to its definition *)
+    qexists_tac
+      `λw x. if x = v then satisfies_npbc w c else w x` >>
+    rw[INJ_DEF]
+    >- (
+      first_x_assum (irule_at Any)>>
+      simp[EXTENSION]>>rw[]>>
+      rename1`satisfies w _`>>
+      last_x_assum(qspec_then`w` mp_tac)>>
+      impl_tac >-
+        metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F]>>
+      simp[v_iff_npbc_sem_def,IN_DEF])
+    >- (
+      gvs[EXTENSION]>>
+      metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F,v_iff_npbc_sem_def,IN_DEF]))
+  >- ( (* deletion: The injection drops v *)
+    qexists_tac`λw x. if x = v then F else w x`>>
+    rw[INJ_DEF]
+    >- (
+      first_x_assum (irule_at Any)>>
+      simp[EXTENSION]>>rw[]>>
+      metis_tac[])
+    >- (
+      gvs[EXTENSION]>>
+      metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F,v_iff_npbc_sem_def,IN_DEF]))
+QED
+
+(* from updated to pre-updated *)
+Theorem bimp_pres_obj_update_pres_2:
+  pres_only c pres v ∧
+  (∀w.
+      satisfies w (core_only_fml T fml) ⇒
+      v_iff_npbc_sem v c w) ⇒
+  bimp_pres_obj dbound
+    (SOME (domain (update_pres b v pres))) obj
+    (core_only_fml T fml)
+    (SOME (domain pres)) obj
+    (core_only_fml T fml)
+Proof
+  rw[bimp_pres_obj_def]>>
+  gvs[pbcTheory.proj_pres_def,pbcTheory.pres_set_def,domain_update_pres]>>
+  drule pres_only_dependency>>rw[]
+  >- ( (* reversed insertion: The injection drops v *)
+    Cases_on`v ∈ domain pres`
+    >- (
+      `v INSERT domain pres = domain pres` by
+        (fs[EXTENSION]>>metis_tac[])>>
+      qexists_tac`I`>>simp[INJ_DEF])>>
+    qexists_tac`λw x. if x = v then F else w x`>>
+    rw[INJ_DEF]
+    >- (
+      first_x_assum (irule_at Any)>>
+      simp[EXTENSION]>>rw[]>>
+      metis_tac[])
+    >- (
+      gvs[EXTENSION]>>
+      metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F,v_iff_npbc_sem_def,IN_DEF]))
+  >- ( (* reversed deletion: maps v to its definition *)
+    reverse (Cases_on`v ∈ domain pres`)
+    >- (
+      `domain pres DELETE v = domain pres` by
+        (fs[EXTENSION]>>metis_tac[])>>
+      qexists_tac`I`>>simp[INJ_DEF])>>
+    qexists_tac
+      `λw x. if x = v then satisfies_npbc w c else w x` >>
+    rw[INJ_DEF]
+    >- (
+      first_x_assum (irule_at Any)>>
+      simp[EXTENSION]>>rw[]>>
+      rename1`satisfies w _`>>
+      last_x_assum(qspec_then`w` mp_tac)>>
+      impl_tac >-
+        metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F]>>
+      simp[v_iff_npbc_sem_def,IN_DEF])
+    >- (
+      gvs[EXTENSION]>>
+      metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F,v_iff_npbc_sem_def,IN_DEF]))
+QED
+
 Theorem check_cstep_correct:
   id_ok fml pc.id ∧
   OPTION_ALL good_spo pc.ord ∧
   EVERY (good_ord_t o SND) pc.orders ∧
-  valid_conf pc.pres pc.ord pc.obj pc.tcb fml ⇒
+  valid_conf pc.chk pc.pres pc.ord pc.obj pc.tcb fml ⇒
   case check_cstep cstep fml pc of NONE => T
   | SOME (fml',pc') =>
       pc.id ≤ pc'.id ∧
       id_ok fml' pc'.id ∧
-      valid_conf pc'.pres pc'.ord pc'.obj pc'.tcb fml' ∧
+      valid_conf pc'.chk pc'.pres pc'.ord pc'.obj pc'.tcb fml' ∧
       opt_le pc'.bound pc.bound ∧
       opt_le pc'.dbound pc.dbound ∧
       (opt_lt pc'.bound pc.bound ⇒
@@ -3102,7 +3260,7 @@ Proof
     CONJ_TAC >- metis_tac[id_ok_FOLDL_delete] >>
     CONJ_TAC >- (
       fs[]
-      >- fs[valid_conf_def]>>
+      >- fs[valid_req_def,valid_conf_def]>>
       match_mp_tac all_core_valid_conf>>
       fs[all_core_def,EVERY_MEM,MEM_toAList,FORALL_PROD]>>
       rw[lookup_FOLDL_delete]>>
@@ -3187,7 +3345,10 @@ Proof
   >- ( (* UnloadOrder *)
     rw[]>>
     every_case_tac>>
-    fs[valid_conf_def,opt_le_def])
+    fs[]>>
+    fs[valid_conf_def,opt_le_def,valid_req_def]>>
+    gvs[sat_obj_po_def]>>rw[]>>
+    metis_tac[])
   >- ( (* StoreOrder *)
     rw[]>>fs[opt_le_def,bimp_obj_refl]>>
     every_case_tac>>fs[]>>
@@ -3454,8 +3615,70 @@ Proof
     metis_tac[]*))
   >-
     (every_case_tac>>rw[])
-  >- (* TODO: most important to prove first *)
-    cheat
+  >- (
+    (* ChangePres *)
+    rw[]>>
+    simp[check_change_pres_def,AllCasePreds()]>>
+    every_case_tac>>
+    fs[]>>
+    pairarg_tac>>gvs[]>>
+    drule check_subproofs_correct>>
+    rename1`check_subproofs pfs`>>
+    disch_then(qspecl_then[`pfs`,`T`] mp_tac)>>simp[]>>
+    strip_tac>>
+    fs[EVERY_MEM,MEM_MAP,EXISTS_PROD]>>
+    gvs[change_pres_subgoals_def,MEM_enumerate_iff,ADD1,PULL_EXISTS]>>
+    pairarg_tac>>gvs[]>>
+    rename1`v_iff_npbc v c = (vc,cv)`>>
+    `unsatisfiable (core_only_fml T fml ∪ {vc})` by (
+      first_x_assum(qspec_then`0` mp_tac)>>
+      simp[]>>
+      PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
+      strip_tac
+      >- (
+        drule_all lookup_extract_pids_r>>
+        simp[]>> strip_tac>>
+        drule_all extract_clauses_MEM_INR>>
+        simp[]>>
+        strip_tac>>
+        first_x_assum drule>>simp[])
+      >- (
+        drule check_contradiction_unsat>>
+        simp[unsatisfiable_def,satisfiable_def]
+      ))>>
+    `unsatisfiable (core_only_fml T fml ∪ {cv})` by (
+      first_x_assum(qspec_then`1` mp_tac)>>
+      simp[]>>
+      PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
+      strip_tac
+      >- (
+        drule_all lookup_extract_pids_r>>
+        simp[]>> strip_tac>>
+        drule_all extract_clauses_MEM_INR>>
+        simp[]>>
+        strip_tac>>
+        first_x_assum drule>>simp[])
+      >- (
+        drule check_contradiction_unsat>>
+        simp[unsatisfiable_def,satisfiable_def]
+      ))>>
+
+    `∀w.
+      satisfies w (core_only_fml T fml) ⇒
+      v_iff_npbc_sem v c w` by (
+      fs[unsatisfiable_def,satisfiable_def]>>
+      rw[]>>gvs[]>>
+      drule satisfies_npbc_v_iff_npbc>>
+      disch_then match_mp_tac>>
+      metis_tac[]) >>
+
+    CONJ_TAC >-
+      fs[id_ok_def]>>
+
+    CONJ_TAC >- metis_tac[valid_conf_update_pres]>>
+
+    CONJ_TAC >- metis_tac[bimp_pres_obj_update_pres_1]>>
+    metis_tac[bimp_pres_obj_update_pres_2] )
 QED
 
 Definition check_csteps_def:
@@ -3519,12 +3742,12 @@ Theorem check_csteps_correct:
   id_ok fml pc.id ∧
   OPTION_ALL good_spo pc.ord ∧
   EVERY (good_ord_t ∘ SND) pc.orders ∧
-  valid_conf pc.pres pc.ord pc.obj pc.tcb fml ∧
+  valid_conf pc.chk pc.pres pc.ord pc.obj pc.tcb fml ∧
   check_csteps csteps fml pc = SOME(fml',pc') ⇒
     hide (
     pc.id ≤ pc'.id ∧
     id_ok fml' pc'.id ∧
-    valid_conf pc'.pres pc'.ord pc'.obj pc'.tcb fml' ∧
+    valid_conf pc'.chk pc'.pres pc'.ord pc'.obj pc'.tcb fml' ∧
     opt_le pc'.bound pc.bound ∧
     opt_le pc'.dbound pc.dbound ∧
     (opt_lt pc'.bound pc.bound ⇒
@@ -3566,24 +3789,16 @@ Proof
     qpat_x_assum`opt_le pc'.bound pc''.bound` mp_tac>>
     simp[opt_le_def]>>
     strip_tac>>fs[]>>
-    cheat
-    (*
-    fs[bimp_obj_def,imp_obj_def]>>
     `opt_lt (SOME (THE pc'.bound)) pc''.bound` by
       (Cases_on`pc'.bound`>>fs[opt_lt_def])>>
     Cases_on`pc'.chk`>>fs[]>>
     Cases_on`pc''.chk`>>fs[]>>
+    gvs[]>>imp_res_tac bimp_pres_obj_bimp_obj>>
+    fs[bimp_obj_def,imp_obj_def]>>
     gvs[]>>
-    fs[]*))>>
+    fs[])>>
   rw[]>>fs[]>>
   metis_tac[bimp_pres_obj_trans,bimp_pres_obj_le]
-QED
-
-(* Sanity checking *)
-Theorem valid_conf_setup:
-  valid_conf pres NONE obj F fml
-Proof
-  fs[valid_conf_def]
 QED
 
 Theorem opt_le_exists:
@@ -3816,7 +4031,8 @@ Theorem check_csteps_check_hconcl:
 Proof
   rw[]>>
   drule_at Any check_csteps_correct>>
-  simp[init_conf_def,valid_conf_setup]>>
+  DEP_ONCE_REWRITE_TAC[all_core_valid_conf]>>
+  simp[init_conf_def]>>
   rw[hide_def]>>
   Cases_on`hconcl`>>
   fs[hconcl_concl_def,sem_concl_def,check_hconcl_def]
@@ -3837,7 +4053,7 @@ Proof
     drule bimp_pres_obj_NONE>>
     rw[]>>
     fs[all_core_core_only_fml_eq,unsatisfiable_def])
-  >- ((* HOBound *)
+  >- ( (* HOBound *)
     CONJ_TAC >- (
       qpat_x_assum`_ o1 _ _` kall_tac>>
       fs[check_implies_fml_def]>>every_case_tac>>
@@ -3849,7 +4065,8 @@ Proof
         drule bimp_pres_obj_NONE>>
         fs[all_core_core_only_fml_eq,unsatisfiable_def]>>
         metis_tac[])>>
-      fs[bimp_pres_obj_def]>>rw[]>>
+      imp_res_tac bimp_pres_obj_bimp_obj>>
+      fs[bimp_obj_def,imp_obj_def]>>rw[]>>
       qpat_x_assum`opt_le _ pc'.dbound` mp_tac>>
       rw[]>>
       CCONTR_TAC>>fs[]>>
@@ -3862,8 +4079,6 @@ Proof
         rpt(pop_assum kall_tac)>>
         simp[opt_le_def,opt_lt_def]>>
         intLib.ARITH_TAC)>>
-      cheat
-      (*
       impl_tac>- (
         simp[sat_obj_le_def]>>
         qexists_tac`w`>>gvs[all_core_core_only_fml_eq])>>
@@ -3884,7 +4099,7 @@ Proof
       qpat_x_assum`~(_ ≤ _)` mp_tac>>
       qpat_x_assum`(_ ≤ (_:int))` mp_tac>>
       rpt (pop_assum kall_tac)>>
-      intLib.ARITH_TAC*))>>
+      intLib.ARITH_TAC)>>
     qpat_x_assum`_ o' _ _` kall_tac>>
     EVERY_CASE_TAC>>gvs[]
     >- (
@@ -3923,8 +4138,8 @@ Definition opt_eq_obj_def:
 End
 
 Definition check_output_def:
-  (check_output fml pres obj bound dbound chk
-    fml' pres' obj' NoOutput = T) ∧
+  (check_output fml (pres:num_set option) obj bound dbound chk
+    fml' (pres':num_set option) obj' NoOutput = T) ∧
   (check_output fml pres obj bound dbound chk
     fml' pres' obj' Derivable =
     let cls =
@@ -3948,8 +4163,45 @@ Definition check_output_def:
       opt_eq_obj obj obj') ∧
   (check_output fml pres obj bound dbound chk
     fml' pres' obj' Equisolvable =
-    F (* TODO*) )
+    let cls =
+      (MAP SND (toAList (mk_core_fml T fml))) in
+      chk ∧ opt_le bound dbound ∧
+      fml_include cls fml' ∧
+      fml_include fml' cls ∧
+      opt_eq_obj obj obj' ∧
+      pres = pres')
 End
+
+Theorem valid_conf_proj_pres_eq:
+  valid_conf T pres ord obj tcb fml ⇒
+  proj_pres (OPTION_MAP domain pres)
+    {w | satisfies w (core_only_fml T fml) ∧ eval_obj obj w ≤ v} =
+  proj_pres (OPTION_MAP domain pres)
+    {w | satisfies w (core_only_fml F fml) ∧ eval_obj obj w ≤ v}
+Proof
+  rw[valid_conf_def,valid_req_def,sat_obj_po_def,pbcTheory.proj_pres_def,EXTENSION,EQ_IMP_THM,pres_set_spt_def]
+  >- (
+    first_x_assum drule>>
+    rw[]>>
+    first_x_assum (irule_at Any)>>
+    metis_tac[integerTheory.INT_LE_TRANS,IN_DEF])
+  >- (
+    `satisfies w (core_only_fml T fml)` by
+      metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F]>>
+    metis_tac[integerTheory.INT_LE_TRANS])
+QED
+
+Theorem BIJ_INJ_INJ:
+  INJ f s t ∧ INJ g t s ⇒
+  ∃h. BIJ h s t
+Proof
+  Cases_on`t = {}`
+  >-
+    rw[INJ_DEF]>>
+  rw[]>>irule_at Any BIJ_INJ_SURJ>>
+  drule inj_surj>>rw[]>>
+  metis_tac[]
+QED
 
 Theorem check_csteps_check_output:
   id_ok fml id ∧
@@ -3957,22 +4209,25 @@ Theorem check_csteps_check_output:
     fml (init_conf id chk pres obj) = SOME (fml',pc') ∧
   all_core fml ∧
   check_output fml' pc'.pres pc'.obj pc'.bound pc'.dbound pc'.chk fmlt prest objt output ⇒
-  sem_output (core_only_fml T fml) obj (OPTION_MAP domain pres) pc'.bound
-    (set fmlt) objt prest output
+  sem_output
+    (core_only_fml T fml) obj
+      (OPTION_MAP domain pres) pc'.bound
+    (set fmlt) objt
+      (OPTION_MAP domain prest) output
 Proof
   rw[]>>
   drule_at Any check_csteps_correct>>
-  simp[init_conf_def,valid_conf_setup]>>
+  DEP_ONCE_REWRITE_TAC[all_core_valid_conf]>>
+  simp[init_conf_def]>>
   rw[hide_def]>>
   Cases_on`output`>>
-  fs[sem_output_def,check_output_def]>>
-  cheat
-  (*
+  fs[sem_output_def,check_output_def]
   >- ( (* Derivable *)
     rw[satisfiable_def]>>
     drule fml_include_satisfies>>
     disch_then (irule_at Any)>>
     drule all_core_core_only_fml_eq>>rw[]>>
+    imp_res_tac bimp_pres_obj_bimp_obj>>
     gvs[bimp_obj_def,opt_lt_def,imp_obj_def,sat_obj_le_def,PULL_EXISTS]>>
     first_x_assum drule>>
     disch_then(qspec_then`eval_obj obj w` assume_tac)>>fs[]>>
@@ -3982,6 +4237,7 @@ Proof
   >- (  (* Equisatisfiable *)
     eq_tac>>rw[satisfiable_def]
     >- (
+      imp_res_tac bimp_pres_obj_bimp_obj>>
       qpat_x_assum`fml_include _ fmlt` assume_tac>>
       drule fml_include_satisfies>>
       disch_then (irule_at Any)>>
@@ -3994,6 +4250,8 @@ Proof
       metis_tac[])>>
     drule_all fml_include_satisfies>>
     simp[GSYM range_toAList,range_mk_core_fml]>>
+    gvs[]>>
+    imp_res_tac bimp_pres_obj_bimp_obj>>
     gvs[bimp_obj_def,opt_lt_def,imp_obj_def,sat_obj_le_def,PULL_EXISTS]>>
     strip_tac>>first_x_assum drule>>
     disch_then(qspec_then`eval_obj pc'.obj w` assume_tac)>>fs[]>>
@@ -4010,6 +4268,7 @@ Proof
       (Cases_on`pc'.bound`>>fs[opt_lt_def])>>
     eq_tac>>rw[]
     >- (
+      imp_res_tac bimp_pres_obj_bimp_obj>>
       gvs[bimp_obj_def,opt_lt_def,imp_obj_def,sat_obj_le_def,PULL_EXISTS]>>
       `opt_le (SOME (eval_obj obj w)) (SOME v)` by
         (simp[opt_le_def,opt_lt_def]>>
@@ -4029,9 +4288,48 @@ Proof
       metis_tac[])>>
     drule_all fml_include_satisfies>>
     simp[GSYM range_toAList,range_mk_core_fml]>>
+    gvs[]>>
+    imp_res_tac bimp_pres_obj_bimp_obj>>
     gvs[bimp_obj_def,opt_lt_def,imp_obj_def,sat_obj_le_def,PULL_EXISTS]>>
     strip_tac>>first_x_assum drule_all>>
-    metis_tac[]) *)
+    metis_tac[])
+  >- ( (* Equisolvable *)
+    rw[]>>
+    `∀w. eval_obj pc'.obj w = eval_obj objt w` by
+      (Cases_on`pc'.obj`>>Cases_on`objt`>>
+      gvs[opt_eq_obj_def]>>
+      drule eq_obj_eval_obj>>
+      simp[])>>
+    drule all_core_core_only_fml_eq>>rw[]>>
+    `opt_lt (SOME v) pc'.bound` by
+      (Cases_on`pc'.bound`>>fs[opt_lt_def])>>
+    `opt_lt (SOME v) pc'.dbound` by
+       metis_tac[opt_lt_le]>>
+    `proj_pres (OPTION_MAP domain pc'.pres)
+      {w | satisfies w (core_only_fml T fml') ∧ eval_obj objt w ≤ v} =
+     proj_pres (OPTION_MAP domain pc'.pres)
+      {w' | satisfies w' (set fmlt) ∧ eval_obj objt w' ≤ v}`
+      by (
+      pop_assum kall_tac>>
+      simp[EXTENSION]>>
+      gvs[pbcTheory.proj_pres_def]>>
+      rw[EQ_IMP_THM]
+      >- (
+        irule_at Any (GEN_ALL fml_include_satisfies)>>
+        first_x_assum (irule_at Any)>>
+        first_x_assum (irule_at Any)>> simp[]>>
+        simp[GSYM range_toAList,range_mk_core_fml])>>
+      drule_all fml_include_satisfies>>
+      simp[GSYM range_toAList,range_mk_core_fml]>>
+      rw[]>>
+      metis_tac[])>>
+    gvs[]>>
+    imp_res_tac bimp_pres_obj_bimp_obj>>
+    gvs[bimp_pres_obj_def]>>
+    rpt(first_x_assum drule)>>
+    rw[]>>
+    drule valid_conf_proj_pres_eq>>rw[]>>
+    metis_tac[BIJ_INJ_INJ])
 QED
 
 (* EXPERIMENTAL UNUSED
