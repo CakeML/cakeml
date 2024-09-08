@@ -2906,6 +2906,13 @@ Proof
       metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F,v_iff_npbc_sem_def,IN_DEF]))
 QED
 
+Theorem proj_pres_SUBSET:
+  x ⊆ y ⇒
+  proj_pres p x ⊆ proj_pres p y
+Proof
+  rw[pbcTheory.proj_pres_def]
+QED
+
 Theorem check_cstep_correct:
   id_ok fml pc.id ∧
   OPTION_ALL good_spo pc.ord ∧
@@ -2939,12 +2946,11 @@ Proof
   Cases_on`cstep`>>
   fs[check_cstep_def]
   >- ( (* Dominance *)
-    cheat
-    (*
     Cases_on`pc.ord`>>fs[]>>
     pairarg_tac>>gvs[]>>
     TOP_CASE_TAC>>
     pop_assum mp_tac>>
+    IF_CASES_TAC>>gvs[]>>
     TOP_CASE_TAC>>
     TOP_CASE_TAC>>
     TOP_CASE_TAC>>
@@ -2960,19 +2966,19 @@ Proof
     rename1`insert cc (p,_) fml`>>
     CONJ_TAC>-
       gvs[id_ok_def,SUBSET_DEF]>>
-    fs[valid_conf_def]>>
+    fs[valid_conf_def,valid_req_def]>>
     simp[opt_le_def,GSYM CONJ_ASSOC]>>
     CONJ_TAC >- (
       rw[]>>fs[]>>
       DEP_REWRITE_TAC[core_only_fml_T_insert_T,core_only_fml_F_insert_b]>>
       fs[id_ok_def]>>
       metis_tac[sat_implies_INSERT])>>
-    `sat_obj_po (SOME x) pc.obj
+    `sat_obj_po (pres_set_spt pc.pres) (SOME x) pc.obj
       (core_only_fml T fml)
       (core_only_fml F (insert cc (p,F) fml))` by (
       reverse (every_case_tac)
       >- (
-        `sat_obj_po (SOME x) pc.obj
+        `sat_obj_po (pres_set_spt pc.pres) (SOME x) pc.obj
           (core_only_fml F fml)
           (core_only_fml F (insert cc (p,F) fml))` by (
           DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
@@ -2998,9 +3004,11 @@ Proof
       simp[]>>
       qexists_tac ‘subst_fun (mk_subst l)’>>fs[]>>
       CONJ_TAC >-
+        metis_tac[check_pres_subst_fun]>>
+      CONJ_TAC >-
         metis_tac[core_only_fml_T_SUBSET_F]>>
       CONJ_TAC >-
-        fs[sat_obj_po_def]>>
+        gvs[sat_obj_po_def]>>
       `pc.id ∉ domain fml` by fs[id_ok_def]>>
       fs[core_only_fml_F_insert_b]>>
       fs[EVERY_MEM,MEM_MAP,EXISTS_PROD]>>
@@ -3160,7 +3168,7 @@ Proof
       fs[id_ok_def]>>
       simp[SUBSET_DEF])>>
     CONJ_TAC >- (
-      match_mp_tac (GEN_ALL sat_obj_po_bimp_obj)>>
+      match_mp_tac (GEN_ALL sat_obj_po_bimp_pres_obj)>>
       qexists_tac`SOME x`>>
       `core_only_fml F (insert cc (p,F) fml) =
         core_only_fml F (insert cc (p,pc.tcb) fml)` by
@@ -3169,12 +3177,13 @@ Proof
         fs[id_ok_def])>>
       fs[]>>
       drule sat_obj_po_more>>
+      simp[pres_set_spt_def]>>
       disch_then match_mp_tac>>
       metis_tac[core_only_fml_T_SUBSET_F])>>
-    rw[]>>match_mp_tac bimp_obj_SUBSET>>
+    rw[]>>match_mp_tac bimp_pres_obj_SUBSET>>
     Cases_on`pc.tcb`>> simp[]>>
     DEP_REWRITE_TAC[core_only_fml_T_insert_T,core_only_fml_T_insert_F]>>
-    fs[id_ok_def,SUBSET_DEF]*) )
+    fs[id_ok_def,SUBSET_DEF] )
   >- ( (* Sstep *)
     rw[]>>
     drule check_sstep_correct>>
@@ -3297,21 +3306,24 @@ Proof
       first_x_assum (irule_at Any)>> simp[]>>
       fs[satisfies_def,core_only_fml_def]>>
       metis_tac[])>>
-    cheat
-    (*
-    rw[]>>fs[bimp_obj_def,imp_obj_def,sat_obj_le_def]>>
+    rw[]>>fs[bimp_pres_obj_def]>>
     gvs[core_only_fml_F_insert_b_same,core_only_fml_T_insert_T_same,PULL_EXISTS]>>
-    rw[]>>first_x_assum drule>>
-    disch_then (drule_at Any)>>
-    disch_then (drule_at Any)
+    rw[]>>first_x_assum drule
     >- (
-      disch_then match_mp_tac>>
+      rw[]>>irule_at Any INJ_SUBSET>>
+      pop_assum (irule_at Any)>>
+      simp[]>>
+      match_mp_tac proj_pres_SUBSET>>
+      simp[SUBSET_DEF]>>
       fs[core_only_fml_def,satisfies_def]>>
       metis_tac[])
-    >-
-      metis_tac[]*))
-  >- (
-    (* Strengthen-to-core *)
+    >- (
+      rw[]>>irule_at Any INJ_SUBSET>>
+      pop_assum (irule_at Any)>>
+      simp[]>>
+      match_mp_tac proj_pres_SUBSET>>
+      simp[SUBSET_DEF]))
+  >- ( (* Strengthen-to-core *)
     strip_tac>>
     reverse IF_CASES_TAC>>
     fs[valid_conf_def,id_ok_map]>>
@@ -3459,12 +3471,8 @@ Proof
       drule check_contradiction_unsat>>
       simp[unsatisfiable_def,satisfiable_def]>>
       once_rewrite_tac [subst_eta] >> fs [] >>
-      rw[ALOOKUP_ZIP_MAP] )
-    )
-  >- (
-    (* Obj *)
-    cheat
-    (*
+      rw[ALOOKUP_ZIP_MAP] ) )
+  >- ( (* Obj *)
     strip_tac>>
     every_case_tac>>simp[]
     >- (
@@ -3497,30 +3505,33 @@ Proof
       CONJ_TAC>- (
         reverse IF_CASES_TAC>>simp[]
         >- (
-          DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
-          fs[bimp_obj_def,imp_obj_def]>>
+          simp[core_only_fml_F_insert_b,bimp_pres_obj_def]>>
           rw[]>>
-          fs[sat_obj_le_def,satisfies_npbc_model_improving,opt_lt_def]>>
-          first_assum (irule_at Any)>> simp[]>>
+          qexists_tac`I`>>
+          simp[INJ_DEF,satisfies_npbc_model_improving]>>
           Cases_on`pc.dbound`>>fs[opt_lt_def]>>
+          rw[pbcTheory.proj_pres_def]>>
+          first_assum (irule_at Any)>>simp[]>>
           intLib.ARITH_TAC)>>
-        DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
-        fs[bimp_obj_def,imp_obj_def]>>
+        simp[core_only_fml_F_insert_b]>>
+        fs[bimp_pres_obj_def]>>
         rw[]>>
-        fs[sat_obj_le_def,satisfies_npbc_model_improving,opt_lt_def]>>
-        first_assum (irule_at Any)>> simp[]>>
+        qexists_tac`I`>>
+        simp[INJ_DEF,satisfies_npbc_model_improving]>>
+        Cases_on`pc.dbound`>>fs[opt_lt_def]>>
+        rw[pbcTheory.proj_pres_def]>>
+        first_assum (irule_at Any)>>simp[]>>
         intLib.ARITH_TAC)>>
       strip_tac>>
-      match_mp_tac bimp_obj_SUBSET>>
+      match_mp_tac bimp_pres_obj_SUBSET>>
       DEP_REWRITE_TAC[core_only_fml_T_insert_T]>>
-      fs[SUBSET_DEF,id_ok_def,valid_conf_def])>>
+      fs[SUBSET_DEF])>>
     gvs[update_bound_def]>>
-    IF_CASES_TAC>>simp[opt_le_def]>>
-    simp[sat_obj_le_def]>>
+    IF_CASES_TAC>>simp[opt_le_def,sat_obj_le_def]>>
     drule check_obj_imp>>rw[]>>
     fs[GSYM range_mk_core_fml,range_toAList]>>
     asm_exists_tac>>
-    simp[]*))
+    simp[])
   >- (
     (* ChangeObj *)
     strip_tac>>
@@ -3602,17 +3613,15 @@ Proof
         fs[core_only_fml_def,satisfies_def]>>
         metis_tac[])>>
       intLib.ARITH_TAC)>>
-    cheat
-    (*
     CONJ_TAC >- (
-      rw[bimp_obj_def,imp_obj_def,sat_obj_le_def]>>
-      asm_exists_tac>>simp[]>>
+      rw[bimp_pres_obj_def]>>
+      qexists_tac`I`>>rw[INJ_DEF,pbcTheory.proj_pres_def]>>
+      first_assum (irule_at Any)>> simp[]>>
       fs[satisfies_def,core_only_fml_def]>>
       metis_tac[])>>
-    fs[valid_conf_def]>>
-    rw[bimp_obj_def,imp_obj_def,sat_obj_le_def]>>
-    first_x_assum drule>>
-    metis_tac[]*))
+    rw[bimp_pres_obj_def]>>
+    qexists_tac`I`>>rw[INJ_DEF,pbcTheory.proj_pres_def]>>
+    first_assum (irule_at Any)>> simp[])
   >-
     (every_case_tac>>rw[])
   >- (
