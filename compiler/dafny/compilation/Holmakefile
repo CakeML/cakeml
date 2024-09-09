@@ -12,4 +12,4 @@ HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
 endif
 
 dafny_compiler: dafny_compilerCompileTheory.uo
-	gcc -o dafny_compiler dafny_compiler.S $(CAKEMLDIR)/basis/basis_ffi.c
+	gcc -lm -o dafny_compiler dafny_compiler.S $(CAKEMLDIR)/basis/basis_ffi.c
