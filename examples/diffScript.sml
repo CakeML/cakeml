@@ -842,23 +842,17 @@ Proof
   >> fs[GSYM ADD1]
 QED
 
-val IS_SUFFIX_induct_aux =
-  Q.prove(`!P l. P [] /\ (!h l. (!sl. IS_SUFFIX l sl ==> P sl) ==> P (h::l)) ==> (!sl. IS_SUFFIX l sl ==> P sl)`,
-  strip_tac >> Induct_on `l`
-  >> rpt strip_tac
-  >> fs[]
-  >- (qspec_then `sl` assume_tac SNOC_CASES >> fs[] >> fs[IS_SUFFIX_compute,REVERSE_APPEND])
-  >> Cases_on `sl` >> fs[IS_SUFFIX]
-  >> Cases_on `IS_SUFFIX l (h'::t)` >> fs[]
-  >> fs[IS_SUFFIX_compute]
-  >> fs[] >> fs[IS_SUFFIX_compute,REVERSE_APPEND]
-  >> FULL_SIMP_TAC std_ss [GSYM SNOC_APPEND, IS_PREFIX_SNOC]
-  >> fs[])
-
 Theorem IS_SUFFIX_induct:
    !P. P [] /\ (!h l. (!sl. IS_SUFFIX l sl ==> P sl) ==> P (h::l)) ==> !l. P l
 Proof
-  metis_tac[IS_SUFFIX_induct_aux,IS_SUFFIX_REFL]
+  rpt strip_tac
+  \\ completeInduct_on ‘LENGTH l’
+  \\ rw [] \\ gvs [PULL_FORALL]
+  \\ Cases_on ‘l’ \\ gvs []
+  \\ last_x_assum irule \\ rw []
+  \\ last_x_assum irule \\ rw []
+  \\ gvs [IS_SUFFIX_compute]
+  \\ drule IS_PREFIX_LENGTH \\ gvs []
 QED
 
 Theorem IS_SUFFIX_DROP:
