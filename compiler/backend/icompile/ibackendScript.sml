@@ -250,7 +250,7 @@ Definition icompile_def:
   let p = source_to_source$compile p in
   let (source_iconf, p) = icompile_source_to_flat source_iconf p in
   let p = icompile_flat_to_clos p in
-  let (clos_iconf, p) = icompile_clos_to_bvl_compile_common clos_iconf p in
+  let (clos_iconf, p) = icompile_clos_to_bvl_common clos_iconf p in
   (source_iconf, clos_iconf, p)
 
 End
@@ -526,6 +526,13 @@ Proof
   pairarg_tac >> gvs[]
 QED
 
+Theorem calls_acc:
+   !xs d old res d1 aux.
+     clos_call$calls xs (d, []) = (res, d1, aux) ==>
+     clos_call$calls xs (d, old) = (res, d1, aux ++ old)
+Proof
+  cheat (* proved in clos_callProofScript *)
+QED
 
 Theorem clos_call_calls_cons_alt:
   clos_call$calls (p :: ps) (g, []) =
@@ -564,13 +571,7 @@ Proof
 QED
 
 
-Theorem calls_acc:
-   !xs d old res d1 aux.
-     clos_call$calls xs (d, []) = (res, d1, aux) ==>
-     clos_call$calls xs (d, old) = (res, d1, aux ++ old)
-Proof
-  cheat (* proved in clos_callProofScript *)
-QED
+
 
 Theorem clos_call_calls_append_alt:
   ∀p1 p2 p1_calls p2_calls g g1 g2 acc1 acc2.
@@ -635,17 +636,17 @@ QED
 Theorem icompile_icompile:
   icompile source_iconf clos_iconf prog1 = (source_iconf', clos_iconf', prog1') ∧
   icompile source_iconf' clos_iconf' prog2 = (source_iconf'', clos_iconf'', prog2') ⇒
-  icompile source_iconf clos_iconf (prog1 ++ prog2) = (source_iconf'', clos_iconf'',  prog1' ++ prog2')
+  icompile source_iconf clos_iconf (prog1 ++ prog2) = (source_iconf'', clos_iconf'',  prog2' ++ prog1')
 Proof
   rw[] >>
   gvs[icompile_def] >> rpt (pairarg_tac >> gvs[]) >>
   (* yikes naming mistakes, note to self, DO NOT USE "'" *)
   rename1 ‘icompile_source_to_flat source_iconf (compile (prog1 ++ prog2)) = (source_iconf_p1_p2, p1_p2_flat)’ >>
-  rename1 ‘ icompile_clos_to_bvl_compile_common clos_iconf (icompile_flat_to_clos p1_p2_flat) = (clos_iconf_p1_p2, p1_p2_bvl)’ >>
+  rename1 ‘icompile_clos_to_bvl_common clos_iconf (icompile_flat_to_clos p1_p2_flat) = (clos_iconf_p1_p2, p1_p2_bvl)’ >>
   rename1 ‘icompile_source_to_flat source_iconf (compile prog1) = (source_iconf_p1, p1_flat)’ >>
   rename1 ‘icompile_source_to_flat source_iconf_p1 (compile prog2) = (source_iconf_p2, p2_flat)’ >>
-  rename1 ‘icompile_clos_to_bvl_compile_common clos_iconf (icompile_flat_to_clos p1_flat) = (clos_iconf_p1 , p1_bvl)’ >>
-  rename1 ‘icompile_clos_to_bvl_compile_common clos_iconf_p1 (icompile_flat_to_clos p2_flat) = (clos_iconf_p2,p_2_bvl)’ >>
+  rename1 ‘icompile_clos_to_bvl_common clos_iconf (icompile_flat_to_clos p1_flat) = (clos_iconf_p1 , p1_bvl)’ >>
+  rename1 ‘icompile_clos_to_bvl_common clos_iconf_p1 (icompile_flat_to_clos p2_flat) = (clos_iconf_p2,p_2_bvl)’ >>
 
   fs[source_to_source_compile_append] >>
 
@@ -659,6 +660,8 @@ Proof
   qabbrev_tac ‘p1_clos = icompile_flat_to_clos p1_flat’ >> pop_assum kall_tac >>
   qabbrev_tac ‘p2_clos = icompile_flat_to_clos p2_flat’ >> pop_assum kall_tac >>
 
+  (* why doesnt this pattern match icompile_source_to_flat _ = _ *)
+  rpt (qpat_x_assum ‘icompile_source_to_flat _ _ = _’ kall_tac ) >>
   drule_all icompile_icompile_clos_to_bvl >>
   gvs[]
 QED
