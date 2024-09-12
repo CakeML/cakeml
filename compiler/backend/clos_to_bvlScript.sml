@@ -634,6 +634,15 @@ Proof
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
 QED
 
+
+Theorem compile_exps_eq_append:
+  compile_exps max_app xs aux =
+    ((\(ys, aux2). (ys, aux2 ++ aux)) (I compile_exps max_app xs []))
+Proof
+  mp_tac (Q.SPECL [`aux`, `max_app`, `xs`, `[]`]
+    (GEN_ALL compile_exps_append_aux))
+  \\ rpt (pairarg_tac \\ fs [])
+QED
 Theorem compile_exps_SNOC:
    !xs x aux max_app.
       compile_exps max_app (SNOC x xs) aux =

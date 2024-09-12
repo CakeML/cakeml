@@ -169,7 +169,8 @@ Datatype:
      do_call : bool;
      clos_call_aux : (num # num# closLang$exp) list;
      clos_call_g : sptree$num_set;
-     es_to_chain : closLang$exp list
+     es_to_chain : closLang$exp list;
+     new_bvl_exps: bvl$exp list;
   |>
 End
 
@@ -226,7 +227,26 @@ Definition icompile_clos_to_bvl_common_def:
   (clos_iconf, p)
 End
 
+Definition icompile_clos_to_bvl_prog_def:
+  icompile_clos_to_bvl_prog (clos_iconf: clos_iconfig) p =
+  let p = MAP (SND o SND) p in
+  let (new_exps, aux) = clos_to_bvl$compile_exps clos_iconf.max_app p [] in
+  let clos_iconf = clos_iconf with <| new_bvl_exps := clos_iconf.new_bvl_exps ++ new_exps; |> in
+    (clos_iconf, aux)
+End
 
+Definition icompile_clos_to_bvl_def:
+  icompile_clos_to_bvl (clos_iconf: clos_iconfig) p =
+  let (clos_iconf, p) = icompile_clos_to_bvl_common clos_iconf p in
+  let (clos_iconf, p) = icompile_clos_to_bvl_prog clos_iconf p in
+    (clos_iconf, p)
+End
+
+        
+
+        
+  
+  
 
 Definition init_icompile_def:
   init_icompile (source_conf : source_to_flat$config) =
@@ -251,6 +271,7 @@ Definition icompile_def:
   let (source_iconf, p) = icompile_source_to_flat source_iconf p in
   let p = icompile_flat_to_clos p in
   let (clos_iconf, p) = icompile_clos_to_bvl_common clos_iconf p in
+  let (clos_iconf, p) = icompile_clos_to_bvl_prog clos_iconf p in
   (source_iconf, clos_iconf, p)
 
 End
@@ -381,6 +402,16 @@ Proof
   simp[source_to_sourceTheory.compile_def] >>
   Induct >> rw[source_letTheory.compile_decs_def] >>
   every_case_tac >> gs[]
+QED
+  
+Theorem icompile_icompile_source_to_flat:
+  icompile_source_to_flat source_iconf p1 = (source_iconf_p1, p1_flat) ∧
+  icompile_source_to_flat source_iconf_p1 p2 = (source_iconf_p2, p2_flat) ⇒
+  icompile_source_to_flat source_iconf (p1 ++ p2) = (source_iconf_p2, p1_flat ++ p2_flat)
+Proof
+  rw[icompile_source_to_flat_def] >> rpt (pairarg_tac >> gvs[]) >>
+  gvs[source_to_flat_compile_decs_lemma, extend_env_assoc]
+
 QED
 
 Theorem intro_multi_cons:
@@ -585,8 +616,44 @@ Proof
   last_x_assum drule_all >> gvs[]
 QED
 
+Theorem compile_exps_eq_append:
+  compile_exps max_app xs aux =
+    ((\(ys, aux2). (ys, aux2 ++ aux)) (I compile_exps max_app xs []))
+Proof
+  cheat
+QED
 
 
+(* Super ugly, to fix, also how to do a drule for this *)        
+Theorem clos_to_bvl_compile_exps_append :
+  ∀ p1 p2 p1' aux_p1 p2' aux_p2.
+  compile_exps max_app p1 [] = (p1', aux_p1) ∧
+  compile_exps max_app p2 [] = (p2', aux_p2) ⇒
+  compile_exps max_app (p1 ++ p2) [] = (p1' ++ p2', aux_p2 ++ aux_p1)
+Proof
+  Induct_on ‘p1’
+  >- (gvs[clos_to_bvlTheory.compile_exps_def])
+  >- (once_rewrite_tac[clos_to_bvlTheory.compile_exps_CONS] >>
+      rw[] >>
+      rpt (pairarg_tac >> gvs[]) >>
+      first_x_assum mp_tac >>
+      once_rewrite_tac[compile_exps_eq_append] >>
+      rpt (pairarg_tac >> gvs[]) >>
+      first_x_assum mp_tac >>
+      once_rewrite_tac[clos_to_bvlTheory.compile_exps_CONS] >> rw[] >>
+      rpt (pairarg_tac >> gvs[]) >>
+      first_x_assum mp_tac >>
+      once_rewrite_tac[compile_exps_eq_append] >>
+      rpt (pairarg_tac >> gvs[]) >>
+      rw[] >>
+      last_x_assum rev_drule >> gvs[] >>
+      rpt (pairarg_tac >> gvs[]) >>
+      first_x_assum mp_tac >>
+      once_rewrite_tac[compile_exps_eq_append] >>
+      rpt (pairarg_tac >> gvs[]) >>
+      last_x_assum rev_drule >> gvs[])
+QED
+        
 Theorem icompile_icompile_clos_to_bvl:
   icompile_clos_to_bvl_common clos_iconf p1 = (clos_iconf_p1, p1_bvl) ∧
   icompile_clos_to_bvl_common clos_iconf_p1 p2 = (clos_iconf_p2, p2_bvl) ⇒
@@ -620,46 +687,70 @@ Proof
 QED
 
 
-Theorem icompile_icompile_source_to_flat:
-  icompile_source_to_flat source_iconf p1 = (source_iconf_p1, p1_flat) ∧
-  icompile_source_to_flat source_iconf_p1 p2 = (source_iconf_p2, p2_flat) ⇒
-  icompile_source_to_flat source_iconf (p1 ++ p2) = (source_iconf_p2, p1_flat ++ p2_flat)
+Theorem icompile_icompile_clos_to_bvl_compile_prog:
+  icompile_clos_to_bvl_prog clos_iconf p1 = (clos_iconf_p1, p1_bvl) ∧
+  icompile_clos_to_bvl_prog clos_iconf_p1 p2 = (clos_iconf_p2, p2_bvl) ⇒
+  icompile_clos_to_bvl_prog clos_iconf (p1 ++ p2) = (clos_iconf_p2, p2_bvl ++ p1_bvl)
 Proof
-  rw[icompile_source_to_flat_def] >> rpt (pairarg_tac >> gvs[]) >>
-  gvs[source_to_flat_compile_decs_lemma, extend_env_assoc]
-
+  rw[icompile_clos_to_bvl_prog_def] >> rpt (pairarg_tac >> gvs[]) >>
+  rename1 ‘compile_exps _ p1 _ = (new_exps_p1, aux_p1)’ >>
+  rename1 ‘compile_exps _ p2 _ = (new_exps_p2, aux_p2)’ >>
+  
+  qspecl_then [‘clos_iconf.max_app’, ‘p1’, ‘p2’, ‘new_exps_p1’, ‘aux_p1’, ‘new_exps_p2’, ‘aux_p2’] mp_tac (GEN_ALL clos_to_bvl_compile_exps_append) >>
+  rw[] >> gvs[] 
 QED
 
+Theorem ic        
+Theorem icompile_icompile_clos_to_bvl:
+  icompile_clos_to_bvl clos_iconf p1 = (clos_iconf_p1, p1_bvl) ∧
+  icompile_clos_to_bvl clos_iconf_p1 p2 = (clos_iconf_p2, p2_bvl) ⇒
+  icompile_clos_to_bvl clos_iconf (p1 ++ p2) = (clos_iconf_p2, p1_bvl ++ p2_bvl)
+Proof
+  rw[icompile_clos_to_bvl_def] >> rpt (pairarg_tac >> gvs[]) >>
+  
+                               
+  
+  
 
 
 (* Composing adjacent icompile runs *)
 Theorem icompile_icompile:
   icompile source_iconf clos_iconf prog1 = (source_iconf', clos_iconf', prog1') ∧
   icompile source_iconf' clos_iconf' prog2 = (source_iconf'', clos_iconf'', prog2') ⇒
-  icompile source_iconf clos_iconf (prog1 ++ prog2) = (source_iconf'', clos_iconf'',  prog2' ++ prog1')
+  icompile source_iconf clos_iconf (prog1 ++ prog2) = (source_iconf'', clos_iconf'',  prog1' ++ prog2')
 Proof
   rw[] >>
   gvs[icompile_def] >> rpt (pairarg_tac >> gvs[]) >>
   (* yikes naming mistakes, note to self, DO NOT USE "'" *)
   rename1 ‘icompile_source_to_flat source_iconf (compile (prog1 ++ prog2)) = (source_iconf_p1_p2, p1_p2_flat)’ >>
-  rename1 ‘icompile_clos_to_bvl_common clos_iconf (icompile_flat_to_clos p1_p2_flat) = (clos_iconf_p1_p2, p1_p2_bvl)’ >>
+  rename1 ‘icompile_clos_to_bvl_common clos_iconf (icompile_flat_to_clos p1_p2_flat) = (clos_icoanf_p1_p2, p1_p2_bvl)’ >>
   rename1 ‘icompile_source_to_flat source_iconf (compile prog1) = (source_iconf_p1, p1_flat)’ >>
   rename1 ‘icompile_source_to_flat source_iconf_p1 (compile prog2) = (source_iconf_p2, p2_flat)’ >>
-  rename1 ‘icompile_clos_to_bvl_common clos_iconf (icompile_flat_to_clos p1_flat) = (clos_iconf_p1 , p1_bvl)’ >>
+  rename1 ‘icompile_clos_to_bvl_common clos_iconf (icompile_flat_to_clos p1_flat) = (clos_iconf_p1, p1_bvl)’ >>
   rename1 ‘icompile_clos_to_bvl_common clos_iconf_p1 (icompile_flat_to_clos p2_flat) = (clos_iconf_p2,p_2_bvl)’ >>
 
+  ntac 3 (qpat_x_assum ‘icompile_source_to_flat _ _ = _’ mp_tac) >> ntac 3 (strip_tac)
   fs[source_to_source_compile_append] >>
 
+ (* source to flat *)                                      
   qabbrev_tac ‘p1 = compile prog1’ >> pop_assum kall_tac >>
   qabbrev_tac ‘p2 = compile prog2’ >> pop_assum kall_tac >>
-
   drule_all icompile_icompile_source_to_flat >> strip_tac >> gvs[] >>
+  rename1 ‘icompile_source_to_flat _ p1 = (source_iconf_p1, p1_flat)’ >>
+  rename1 ‘icompile_source_to_flat _ p2 = (source_iconf_p2, p2_flat)’ >>
 
+
+
+  ntac 3 (qpat_x_assum ‘icompile_clos_to_bvl_common _ _ = _’ mp_tac) >> ntac 3 (strip_tac) >>
   fs[icompile_flat_to_clos_and_append_commute] >>
-
   qabbrev_tac ‘p1_clos = icompile_flat_to_clos p1_flat’ >> pop_assum kall_tac >>
   qabbrev_tac ‘p2_clos = icompile_flat_to_clos p2_flat’ >> pop_assum kall_tac >>
+  rename1 ‘icompile_clos_to_bvl_common clos_iconf p1_clos = (clos_iconf_p1, p1_clos')’ >>
+  rename1 ‘icompile_clos_to_bvl_common clos_iconf_p1 p2_clos = (clos_iconf_p2, p2_clos')’ >>
+  rename1 ‘icompile_source_to_flat _ p2 = (source_iconf_p2, p2_flat)’ >>
 
+
+          
   (* why doesnt this pattern match icompile_source_to_flat _ = _ *)
   rpt (qpat_x_assum ‘icompile_source_to_flat _ _ = _’ kall_tac ) >>
   drule_all icompile_icompile_clos_to_bvl >>
