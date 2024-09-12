@@ -178,7 +178,7 @@ def parse_args():
     parser.add_argument("--verbose", action="store_true", required=False,
                         help="print additional info")
     parser.add_argument("--recursive", action="store_true", required=False,
-                        help=("whether test path should be traversed"
+                        help=("whether test path should be traversed "
                               "recursively (no effect if program path is "
                               "given)"))
     return parser.parse_args()
