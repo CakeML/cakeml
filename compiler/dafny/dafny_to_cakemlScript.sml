@@ -491,7 +491,8 @@ Definition gen_param_preamble_epilogue_def:
   do
     param <<- "";
     preamble <<- λx. x;
-    epilogue <<- Unit;
+    (env, epilogue) <- env_and_epilogue_from_outs env (λx. x)
+                                                  [] [];
     return (env, param, preamble, epilogue)
   od ∧
   gen_param_preamble_epilogue env [] (t::rest_t) (v::rest_v) =
@@ -1775,9 +1776,9 @@ End
 (* open fromSexpTheory simpleSexpParseTheory *)
 (* open TextIO *)
 (* (* val _ = astPP.disable_astPP(); *) *)
-(* val _ = astPP.enable_astPP(); *)
+(* (* val _ = astPP.enable_astPP(); *) *)
 
-(* val inStream = TextIO.openIn "./tests/test.sexp"; *)
+(* val inStream = TextIO.openIn "/home/daniel/dafny-to-cakeml/2024-09-12_demo/simple_modules.sexp"; *)
 (* val fileContent = TextIO.inputAll inStream; *)
 (* val _ = TextIO.closeIn inStream; *)
 (* val fileContent_tm = stringSyntax.fromMLstring fileContent; *)
