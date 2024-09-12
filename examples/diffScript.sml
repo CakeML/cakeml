@@ -16,27 +16,32 @@ fun drule0 th =
 
 (* Diff algorithm definition *)
 
-val line_numbers_def = Define `
-  (line_numbers l n =
+Definition line_numbers_def:
+  line_numbers l n =
    if LENGTH l <= 1 then
      toString (n:num)
    else
-      strcat (toString n) (strcat(implode ",") (toString (n+LENGTH l))))`
+      strcat (toString n) (strcat(implode ",") (toString (n+LENGTH l)))
+End
 
-val acd_def = Define `
-  (acd [] [] = #" ")
-  /\ (acd l [] = #"d")
-  /\ (acd [] l = #"a")
-  /\ (acd l l' = #"c")`
+Definition acd_def:
+  acd [] [] = #" " ∧
+  acd l [] = #"d" ∧
+  acd [] l = #"a" ∧
+  acd l l' = #"c"
+End
 
-val diff_single_header_def = Define `
-  (diff_single_header l n l' n' =
-   strcat (strcat (line_numbers  l n) (strcat (implode [acd l l']) (line_numbers l' n'))) (strlit "\n"))`
+Definition diff_single_header_def:
+  diff_single_header l n l' n' =
+  line_numbers l n ^ implode [acd l l'] ^ line_numbers l' n' ^ «\n»
+End
 
-val diff_add_prefix_def = Define `
-  diff_add_prefix l h = MAP (strcat h) l `
 
-val diff_single_def = Define `
+Definition diff_add_prefix_def:
+  diff_add_prefix l h = MAP (strcat h) l
+End
+
+Definition diff_single_def:
   diff_single l n l' n' =
     diff_single_header l n l' n'::
     if l = [] then (* add *)
@@ -45,29 +50,33 @@ val diff_single_def = Define `
       diff_add_prefix l (strlit "< ")
     else (* change *)
       diff_add_prefix l (strlit "< ")
-      ++ (strlit "---\n")::diff_add_prefix l' (strlit "> ")`
+      ++ (strlit "---\n")::diff_add_prefix l' (strlit "> ")
+End
 
-val diff_with_lcs_def = Define `
+Definition diff_with_lcs_def:
   (diff_with_lcs [] l n l' n' =
       if l = [] /\ l' = [] then
         []
       else
-        diff_single l n l' n') /\
+        diff_single l n l' n') ∧
   (diff_with_lcs (f::r) l n l' n' =
       let (ll,lr) = SPLITP ($= f) l in
         let (l'l,l'r) = SPLITP ($= f) l' in
           if ll = [] /\ l'l = [] then
             diff_with_lcs r (TL lr) (n+1) (TL l'r) (n+1)
           else
-            diff_single ll n l'l n' ++ diff_with_lcs r (TL lr) (n+LENGTH ll+1) (TL l'r) (n'+LENGTH l'l+1))`
+            diff_single ll n l'l n' ++ diff_with_lcs r (TL lr) (n+LENGTH ll+1) (TL l'r) (n'+LENGTH l'l+1))
+End
 
-val diff_alg_def = Define `
-  diff_alg l l' = diff_with_lcs (optimised_lcs l l') l 0 l' 0`
+Definition diff_alg_def:
+  diff_alg l l' = diff_with_lcs (optimised_lcs l l') l 0 l' 0
+End
 
-val diff_alg_offs_def = Define `
-  diff_alg_offs l n l' n' = diff_with_lcs (dynamic_lcs l l') l n l' n'`
+Definition diff_alg_offs_def:
+  diff_alg_offs l n l' n' = diff_with_lcs (dynamic_lcs l l') l n l' n'
+End
 
-val diff_alg2_def = Define `
+Definition diff_alg2_def:
   diff_alg2 l l' =
     let prefix_length = LENGTH(longest_common_prefix l l');
         l = DROP prefix_length l;
@@ -83,7 +92,8 @@ val diff_alg2_def = Define `
         l = TAKE (llength - suffix_length) l;
         l' = TAKE (l'length - suffix_length) l'
     in
-      diff_with_lcs (dynamic_lcs l l') l prefix_length l' prefix_length`
+      diff_with_lcs (dynamic_lcs l l') l prefix_length l' prefix_length
+End
 
 Theorem diff_alg2_thm:
     diff_alg2 l l' =
@@ -107,10 +117,10 @@ QED
 
 (* Diff algorithm properties *)
 
-Theorem diff_with_lcs_refl:
-   !n n'. diff_with_lcs l l n l n' = []
+Triviality diff_with_lcs_refl:
+   ∀n n'. diff_with_lcs l l n l n' = []
 Proof
-  Induct_on `l` >> rw[diff_with_lcs_def,SPLITP]
+  Induct_on ‘l’ >> rw[diff_with_lcs_def,SPLITP]
 QED
 
 Theorem diff_alg_refl:
@@ -128,7 +138,7 @@ QED
 
 (* Patch algorithm definition *)
 
-val parse_patch_header_def = Define `
+Definition parse_patch_header_def:
     parse_patch_header s =
     case tokens (\x. x = #"a" \/ x = #"d" \/ x = #"c" \/ x = #"\n") s of
       | [l;r] =>
@@ -167,9 +177,10 @@ val parse_patch_header_def = Define `
                 | _ => NONE)
               | _ => NONE)
            | _ => NONE)
-      | _ => NONE`;
+      | _ => NONE
+End
 
-val depatch_line_def = Define `
+Definition depatch_line_def:
   depatch_line s =
   if strlen s > 1 then
     if substring s 0 2 = strlit "> " then
@@ -177,19 +188,21 @@ val depatch_line_def = Define `
     else
       NONE
   else
-      NONE`
+      NONE
+End
 
-val depatch_lines_def = Define `
-  (depatch_lines [] = SOME []) /\
-  (depatch_lines (s::r) =
+Definition depatch_lines_def:
+  depatch_lines [] = SOME [] ∧
+  depatch_lines (s::r) =
    case depatch_line s of
        NONE => NONE
      | SOME s' =>
        case depatch_lines r of
            NONE => NONE
-         | SOME r' => SOME(s'::r'))`
+         | SOME r' => SOME(s'::r')
+End
 
-val patch_aux_def = tDefine "patch_aux" `
+Definition patch_aux_def:
  (patch_aux [] file remfl n = SOME file) /\
  (patch_aux (h::patch) file remfl n =
   case parse_patch_header h of
@@ -233,153 +246,154 @@ val patch_aux_def = tDefine "patch_aux" `
                             SOME rf' => SOME(lf++p++rf')
                           | NONE => NONE))
             | SOME _ => NONE
- )`
-  (WF_REL_TAC `inv_image $< (LENGTH o FST)` >> fs[]);
+ )
+Termination
+  WF_REL_TAC `inv_image $< (LENGTH o FST)` >> fs[]
+End
 
-val patch_alg_def = Define `
-  patch_alg patch file = patch_aux patch file (LENGTH file) 0`
+Definition patch_alg_def:
+  patch_alg patch file = patch_aux patch file (LENGTH file) 0
+End
 
-val patch_alg_offs_def = Define `
-  patch_alg_offs n patch file = patch_aux patch file (LENGTH file) n`
+Definition patch_alg_offs_def:
+  patch_alg_offs n patch file = patch_aux patch file (LENGTH file) n
+End
 
 (* Patch cancels diff *)
 
-Theorem string_concat_empty:
- !s. s ^ strlit "" = s /\ strlit "" ^ s = s
-Proof
-fs[strcat_thm,implode_explode]
-QED
-
 Theorem tokens_append_strlit:
-   ∀P s1 x s2.
-   P x ⇒ tokens P (s1 ^ strlit [x] ^ s2) = tokens P s1 ++ tokens P s2
+  ∀P s1 x s2. P x ⇒ tokens P (s1 ^ strlit [x] ^ s2) = tokens P s1 ++ tokens P s2
 Proof
-  rpt strip_tac >> drule0 tokens_append >> fs[str_def,implode_def]
+  rw[] >> drule tokens_append >> rw[str_def,implode_def]
 QED
 
 Theorem tokens_append_right_strlit:
-   ∀P s x.
-   P x ⇒ tokens P (s ^ strlit [x]) = tokens P s
+  ∀NP s x. P x ⇒ tokens P (s ^ strlit [x]) = tokens P s
 Proof
-  rpt strip_tac >> drule0 tokens_append_strlit
-  >> disch_then (qspecl_then [`s`,`strlit ""`] assume_tac)
-  >> fs[string_concat_empty,tokens_def,tokens_aux_def]
+  rw[] >> drule tokens_append_strlit >>
+  disch_then $ qspecl_then [`s`,`strlit ""`] mp_tac >>
+  rw[tokens_def,tokens_aux_def]
 QED
 
-Theorem one_to_ten:
-   !P. P 0 /\ P 1 /\ P 2 /\ P 3 /\ P 4 /\ P 5 /\ P 6 /\ P 7 /\ P 8 /\ P 9 /\ (!n. (n:num) >= 10 ==> P n) ==> !n. P n
+Triviality one_to_ten:
+   ∀P. P 0 /\ P 1 /\ P 2 /\ P 3 /\ P 4 /\ P 5 /\ P 6 /\ P 7 /\ P 8 /\ P 9 /\ (∀n. (n:num) >= 10 ==> P n) ==> ∀n. P n
 Proof
-  rpt strip_tac >> Cases_on `n` >> fs[]
-  >> qmatch_goalsub_rename_tac `SUC n`
-  >> Cases_on `n` >> fs[]
-  >> qmatch_goalsub_rename_tac `SUC(SUC n)`
-  >> Cases_on `n` >> fs[]
-  >> qmatch_goalsub_rename_tac `SUC(SUC(SUC n))`
-  >> Cases_on `n` >> fs[]
-  >> qmatch_goalsub_rename_tac `SUC(SUC(SUC(SUC n)))`
-  >> Cases_on `n` >> fs[]
-  >> qmatch_goalsub_rename_tac `SUC(SUC(SUC(SUC(SUC n))))`
-  >> Cases_on `n` >> fs[]
-  >> qmatch_goalsub_rename_tac `SUC(SUC(SUC(SUC(SUC(SUC n)))))`
-  >> Cases_on `n` >> fs[]
-  >> qmatch_goalsub_rename_tac `SUC(SUC(SUC(SUC(SUC(SUC(SUC n))))))`
-  >> Cases_on `n` >> fs[]
-  >> qmatch_goalsub_rename_tac `SUC(SUC(SUC(SUC(SUC(SUC(SUC(SUC n)))))))`
-  >> Cases_on `n` >> fs[]
-  >> qmatch_goalsub_rename_tac `SUC(SUC(SUC(SUC(SUC(SUC(SUC(SUC(SUC n))))))))`
-  >> Cases_on `n` >> fs[]
+  ntac 2 strip_tac >>
+  rpt(Cases >> simp[] >>
+      (fn g as (hs,c) => ID_SPEC_TAC (hd $ free_vars c) g))
 QED
 
-val SPLITP_HEX = Q.prove(
-`!n. n < 10 ==> SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
-     (STRING (HEX n) acc) =
-     let (l,r) = SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") acc in
-       (STRING (HEX n) l,r)`,
-  recInduct one_to_ten >> rpt strip_tac >> fs[] >> pairarg_tac >> fs[SPLITP]);
+Triviality SPLITP_HEX:
+  ∀n. n < 10 ==> SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
+                        (STRING (HEX n) acc) =
+                 let (l,r) = SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") acc in
+                   (STRING (HEX n) l,r)
+Proof
+  recInduct one_to_ten >> fs[ELIM_UNCURRY,SPLITP]
+QED
 
 Overload ml_num_toString[local] = ``mlint$num_to_str``
 Overload hol_int_toString[local] = ``integer_word$toString``
 Overload num_toString[local] = ``num_to_dec_string``
 
-val SPLITP_num_toString = Q.prove(
-  `!i.
-   SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
-   (toString (i:num)) = (toString i,[])`,
+Triviality SPLITP_num_toString:
+  ∀i.
+  SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
+         (toString (i:num)) = (toString i,[])
+Proof
   recInduct COMPLETE_INDUCTION >> rpt strip_tac
   >> fs[ASCIInumbersTheory.num_to_dec_string_def]
   >> fs[ASCIInumbersTheory.n2s_def]
   >> PURE_ONCE_REWRITE_TAC[numposrepTheory.n2l_def] >> rw[] >> fs[SPLITP,SPLITP_HEX]
   >> first_x_assum (qspec_then `n DIV 10` assume_tac) >> rfs[]
   >> fs[SPLITP_APPEND,SPLITP_NIL_SND_EVERY]
-  >> `n MOD 10 < 10` by fs[] >> rename [`HEX n`]
+  >> ‘n MOD 10 < 10’ by fs[] >> rename [`HEX n`]
   >> pop_assum mp_tac >> rpt(pop_assum kall_tac)
-  >> Q.SPEC_TAC (`n`,`n`) >> recInduct one_to_ten >> fs[]);
+  >> qid_spec_tac ‘n’
+  >> recInduct one_to_ten >> fs[]
+QED
 
-val SPLITP_int_toString = Q.prove(
-  `!i.
-   SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
-   (toString (i:int)) = (toString i,[])`,
-  rpt strip_tac >> fs[integer_wordTheory.toString_def] >> rw[] >> fs[SPLITP,SPLITP_num_toString]);
+Triviality SPLITP_int_toString:
+  ∀i. SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
+             (toString (i:int)) = (toString i,[])
+Proof
+  rpt strip_tac >> fs[integer_wordTheory.toString_def] >> rw[] >> fs[SPLITP,SPLITP_num_toString]
+QED
 
-val TOKENS_tostring = Q.prove(
-`TOKENS (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") (toString(n:num)) = [toString n]`,
+Triviality TOKENS_tostring:
+  TOKENS (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") (toString(n:num)) = [toString n]
+Proof
   Cases_on `num_toString n` >> fs[TOKENS_def]
   >> qpat_x_assum `_ = STRING _ _` (assume_tac o GSYM) >> fs[]
   >> pairarg_tac >> pop_assum (assume_tac o GSYM)
   >> fs[SPLITP_num_toString,TOKENS_def]
-  >> qpat_x_assum `STRING _ _ = _` (assume_tac o GSYM) >> fs[]);
+  >> qpat_x_assum `STRING _ _ = _` (assume_tac o GSYM) >> fs[]
+QED
 
-val num_le_10 = Q.prove(
-  `!n. 0 ≤ n /\ n < 10 ==> Num n < 10`,
-  Cases >> fs[]);
+Triviality num_le_10:
+  ∀n. 0 ≤ n /\ n < 10 ==> Num n < 10
+Proof
+  Cases >> fs[]
+QED
 
-val tokens_toString = Q.prove(
-`tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") (toString (n:num)) = [toString n]`,
-  simp [toString_thm, num_to_str_thm, TOKENS_eq_tokens_sym, TOKENS_tostring]);
+Triviality tokens_toString:
+  tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") (toString (n:num)) = [toString n]
+Proof
+  simp [toString_thm, num_to_str_thm, TOKENS_eq_tokens_sym, TOKENS_tostring]
+QED
 
-val tokens_strcat = Q.prove(
-`l ≠ [] ==>
-(tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
-                                   (toString (n:num) ^
-                                    strlit (STRING (acd l r) "") ^ toString (m:num) ^ strlit "\n")
- = [toString n; toString m])`,
+Triviality tokens_strcat:
+  l ≠ [] ==>
+  (tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
+          (toString (n:num) ^
+                    strlit (STRING (acd l r) "") ^ toString (m:num) ^ strlit "\n")
+   = [toString n; toString m])
+Proof
   Cases_on `l` >> Cases_on `r` >> fs[acd_def] >>
-  fs[tokens_append_strlit,strcat_assoc,tokens_append_right_strlit,tokens_toString]);
+  fs[tokens_append_strlit,strcat_assoc,tokens_append_right_strlit,tokens_toString]
+QED
 
-val tokens_strcat' = Q.prove(
-`r ≠ [] ==>
-(tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
-                                   (toString (n:num) ^
-                                    strlit (STRING (acd l r) "") ^ toString (m:num) ^ strlit "\n")
- = [toString n; toString m])`,
-  Cases_on `l` >> Cases_on `r` >> fs[acd_def] >>
-  fs[tokens_append_strlit,strcat_assoc,tokens_append_right_strlit,tokens_toString]);
+Triviality tokens_strcat':
+  r ≠ [] ==>
+  (tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
+          (toString (n:num) ^
+                    strlit (STRING (acd l r) "") ^ toString (m:num) ^ strlit "\n")
+   = [toString n; toString m])
+Proof
+  Cases_on `l` >> Cases_on `r` >>
+  fs[acd_def,tokens_append_strlit,strcat_assoc,tokens_append_right_strlit,tokens_toString]
+QED
 
-val strsub_strcat =
-    Q.prove(`!s s'. strsub(s ^ s') n = if n < strlen s then strsub s n else strsub s' (n - strlen s)`,
+Triviality strsub_strcat:
+  ∀s s'. strsub(s ^ s') n = if n < strlen s then strsub s n else strsub s' (n - strlen s)
+Proof
     Induct >> simp[strcat_thm,implode_def,strsub_def,EL_APPEND_EQN]
-    \\ gen_tac \\ Cases \\ simp[]);
+    \\ gen_tac \\ Cases \\ simp[]
+QED
 
-Theorem strsub_str:
+Triviality strsub_str:
    strsub (str c) 0 = c
 Proof
   rw[str_def,implode_def,strsub_def]
 QED
 
-val acd_simps =
-    Q.prove(`l ≠ [] ==> (acd [] l = #"a" /\ acd l [] = #"d")`,
-    Cases_on `l` >> fs[acd_def])
+Triviality acd_simps:
+  (l ≠ [] ⇒ acd [] l = #"a" ∧ acd l [] = #"d") ∧
+  (l ≠ [] ∧ r ≠ [] ⇒ acd l r = #"c")
+Proof
+  strip_tac >> fs[oneline acd_def] >>
+  rpt(PURE_TOP_CASE_TAC >> fs[])
+QED
 
-val acd_more_simps =
-    Q.prove(`l ≠ [] /\ r ≠ [] ==> (acd l r = #"c")`,
-    Cases_on `l` >> Cases_on `r` >> fs[acd_def])
-
-val HEX_isDigit = Q.prove(`!n. n < 10 ==> isDigit(HEX n)`,
-  recInduct one_to_ten >> fs[isDigit_def]);
+Triviality HEX_isDigit:
+  !n. n < 10 ==> isDigit(HEX n)
+Proof
+  recInduct one_to_ten >> fs[isDigit_def]
+QED
 
 (* TODO: move at least these (and probably others in this file) *)
 Theorem toString_isDigit:
-   !n. EVERY isDigit (toString(n:num))
+   ∀n. EVERY isDigit (toString(n:num))
 Proof
   recInduct COMPLETE_INDUCTION
   >> rpt strip_tac
@@ -392,44 +406,53 @@ QED
 
 (*`!n. explode (toString n) = toString n`*)
 Theorem int_abs_toString_num:
- !n. toString (&n) = toString n
+  ∀n. toString (&n) = toString n
 Proof
   recInduct COMPLETE_INDUCTION >> strip_tac
   >> fs[integer_wordTheory.toString_def]
 QED
 
-val substring_adhoc_simps = Q.prove(`!h.
-   (substring (strlit "> " ^ h) 0 2 = strlit "> ")
-/\ (substring (strlit "> " ^ h) 2 (strlen h) = h)
-/\ (substring (strlit "< " ^ h) 0 2 = strlit "< ")
-/\ (substring (strlit "< " ^ h) 2 (strlen h) = h)
-`,
+Triviality substring_adhoc_simps:
+  ∀h.
+   substring (strlit "> " ^ h) 0 2 = strlit "> " ∧
+   substring (strlit "> " ^ h) 2 (strlen h) = h ∧
+   substring (strlit "< " ^ h) 0 2 = strlit "< " ∧
+   substring (strlit "< " ^ h) 2 (strlen h) = h
+Proof
   Induct >> rpt strip_tac >> fs[strcat_thm,implode_def,substring_def,strlen_def]
   >> fs[ADD1,MIN_DEF] >> fs[SEG_compute] >> simp_tac pure_ss [ONE,TWO,SEG_SUC_CONS]
-  >> fs[SEG_LENGTH_ID])
+  >> fs[SEG_LENGTH_ID]
+QED
 
-val depatch_lines_strcat_cancel = Q.prove(
-  `!r. depatch_lines (MAP (strcat (strlit "> ")) r) = SOME r`,
-  Induct >> fs[depatch_lines_def,depatch_line_def,strlen_strcat,substring_adhoc_simps])
+Triviality depatch_lines_strcat_cancel:
+  ∀r. depatch_lines (MAP (strcat (strlit "> ")) r) = SOME r
+Proof
+  Induct >> fs[depatch_lines_def,depatch_line_def,strlen_strcat,substring_adhoc_simps]
+QED
 
-Theorem depatch_lines_diff_add_prefix_cancel:
+Triviality depatch_lines_diff_add_prefix_cancel:
    depatch_lines (diff_add_prefix l (strlit "> ")) = SOME l
 Proof
   fs[diff_add_prefix_def,depatch_lines_strcat_cancel]
 QED
 
-val patch_aux_nil = Q.prove(`patch_aux [] file remfl n = SOME file`,fs[patch_aux_def]);
+Triviality patch_aux_nil:
+  patch_aux [] file remfl n = SOME file
+Proof
+  fs[patch_aux_def]
+QED
 
-val line_numbers_not_empty = Q.prove(
-  `!l n . line_numbers l n <> strlit ""`,
+Triviality line_numbers_not_empty:
+  ∀l n . line_numbers l n <> strlit ""
+Proof
   fs[line_numbers_def, num_to_str_thm, implode_def]
   \\ rw []
   \\ simp_tac std_ss [GSYM explode_11, explode_strcat]
   \\ simp []
-  );
+QED
 
 Theorem tokens_eq_sing:
-   !s f. EVERY ($~ o f) (explode s) /\ s <> strlit "" ==> tokens f s = [s]
+   ∀s f. EVERY ($¬ ∘ f) (explode s) ∧ s <> strlit "" ⇒ tokens f s = [s]
 Proof
   Cases
   \\ fs[TOKENS_eq_tokens_sym,toString_thm,explode_implode,implode_def]
@@ -437,51 +460,66 @@ Proof
   \\ fs [o_DEF,SPLITP_EVERY,TOKENS_def]
 QED
 
-val tokens_toString_comma =
-    Q.prove(`tokens ($= #",") (toString (n:num)) = [toString n]`,
+Triviality tokens_toString_comma:
+  tokens ($= #",") (toString (n:num)) = [toString n]
+Proof
   rw [] \\ match_mp_tac tokens_eq_sing
   \\ fs [num_to_str_thm,implode_def]
   \\ fs [num_to_str_def]
   \\ match_mp_tac (MP_CANON EVERY_MONOTONIC)
   \\ qexists_tac `isDigit`
-  \\ fs [EVERY_isDigit_num_to_dec_string] \\ EVAL_TAC);
+  \\ fs [EVERY_isDigit_num_to_dec_string] \\ EVAL_TAC
+QED
 
-val tokens_comma_lemma = Q.prove(
-  `tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
-     (line_numbers l n) = [line_numbers l n]`,
-  `EVERY (λx. isDigit x \/ x = #",") (explode(line_numbers l n))`
-  by(fs[line_numbers_def] >> rw[]
-     \\ fs[toString_thm,num_to_str_def]
-     \\ fs[explode_implode,strcat_thm]
-     \\ match_mp_tac (MP_CANON EVERY_MONOTONIC)
-     \\ qexists_tac `isDigit` \\ fs [toString_isDigit])
+Triviality tokens_comma_lemma:
+  tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
+     (line_numbers l n) = [line_numbers l n]
+Proof
+  ‘EVERY (λx. isDigit x ∨ x = #",") (explode(line_numbers l n))’
+    by(fs[line_numbers_def] >> rw[]
+       \\ fs[toString_thm,num_to_str_def]
+       \\ fs[explode_implode,strcat_thm]
+       \\ match_mp_tac (MP_CANON EVERY_MONOTONIC)
+       \\ qexists_tac `isDigit` \\ fs [toString_isDigit])
   \\ match_mp_tac tokens_eq_sing
   \\ conj_tac THEN1
    (match_mp_tac (MP_CANON EVERY_MONOTONIC)
     \\ goal_assum (first_x_assum o mp_then Any mp_tac)
     \\ fs [] \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs [isDigit_def])
   \\ rw [line_numbers_def,num_to_str_thm,implode_def]
-  \\ fs [strcat_def,concat_def]);
+  \\ fs [strcat_def,concat_def]
+QED
 
-Theorem parse_header_cancel:
- l <> [] \/ l' <> [] ==>
- (parse_patch_header(diff_single_header l n l' n') =
-  SOME(n,if LENGTH l <= 1 then NONE else SOME(n+LENGTH l),
-       if l = [] then #"a" else if l' = [] then #"d" else #"c",
-       n',if LENGTH l' <= 1 then NONE else SOME(n'+LENGTH l')))
+Triviality parse_header_cancel:
+ l ≠ [] ∨ l' ≠ [] ⇒
+ parse_patch_header(diff_single_header l n l' n') =
+  SOME(n,
+       if LENGTH l <= 1 then NONE else SOME(n+LENGTH l),
+       if l = [] then
+         #"a"
+       else if l' = [] then
+         #"d"
+       else
+         #"c",
+       n',
+       if LENGTH l' <= 1 then
+         NONE
+       else
+         SOME(n'+LENGTH l'))
 Proof
   rw[diff_single_header_def,parse_patch_header_def,
      option_case_eq,list_case_eq,PULL_EXISTS,
      strsub_strcat,tokens_append_right_strlit,GSYM str_def,
-     tokens_append,acd_simps,acd_more_simps,tokens_comma_lemma,
+     tokens_append,acd_simps,tokens_comma_lemma,
      tokens_comma_lemma]
   \\ rw[line_numbers_def,tokens_toString_comma,
         fromNatString_toString,
         GSYM str_def,tokens_append,strsub_str]
 QED
 
-val patch_aux_cancel_base_case = Q.prove(
-  `patch_aux (diff_with_lcs [] r n r' m) r (LENGTH r) n = SOME r'`,
+Triviality patch_aux_cancel_base_case:
+  patch_aux (diff_with_lcs [] r n r' m) r (LENGTH r) n = SOME r'
+Proof
   fs[diff_with_lcs_def,diff_single_def] >> rw[]
   >> fs[patch_aux_def]
   >> fs[patch_aux_def,parse_header_cancel,
@@ -491,8 +529,9 @@ val patch_aux_cancel_base_case = Q.prove(
   >> fs[DROP_LENGTH_TOO_LONG,TAKE_LENGTH_TOO_LONG,patch_aux_def,
         quantHeuristicsTheory.LIST_LENGTH_0,
         DROP_APPEND,depatch_lines_strcat_cancel]
-  >> `LENGTH r = 1` by (Cases_on `LENGTH r` >> fs[])
-  >> fs[depatch_lines_strcat_cancel]);
+  >> ‘LENGTH r = 1’ by (Cases_on ‘LENGTH r’ >> fs[])
+  >> fs[depatch_lines_strcat_cancel]
+QED
 
 Theorem SPLITP_NIL_FST:
    ∀ls P r. SPLITP P ls = ([],r) ⇔ (r = ls ∧ ((ls <> []) ==> P(HD ls)))
@@ -502,41 +541,50 @@ Proof
 QED
 
 Theorem diff_add_prefix_length:
- !l s. LENGTH (diff_add_prefix l s) = LENGTH l
+  ∀l s. LENGTH (diff_add_prefix l s) = LENGTH l
 Proof
-fs[diff_add_prefix_def]
+  fs[diff_add_prefix_def]
 QED
 
 Theorem diff_add_prefix_TAKE:
-   !l n s. TAKE n (diff_add_prefix l s) = diff_add_prefix (TAKE n l) s
+   ∀l n s. TAKE n (diff_add_prefix l s) = diff_add_prefix (TAKE n l) s
 Proof
   fs[diff_add_prefix_def,MAP_TAKE]
 QED
 
 Theorem diff_add_prefix_DROP:
-   !l n s. DROP n (diff_add_prefix l s) = diff_add_prefix (DROP n l) s
+   ∀l n s. DROP n (diff_add_prefix l s) = diff_add_prefix (DROP n l) s
 Proof
   fs[diff_add_prefix_def,MAP_DROP]
 QED
 
 Theorem diff_add_prefix_nil:
-   !s. (diff_add_prefix [] s) = []
+  ∀s. (diff_add_prefix [] s) = []
 Proof
   fs[diff_add_prefix_def]
 QED
 
-val ONE_MINUS_SUCC = Q.prove(`1 - SUC x = 0`,intLib.COOPER_TAC);
+Triviality ONE_MINUS_SUCC:
+  1 - SUC x = 0
+Proof
+  intLib.COOPER_TAC
+QED
 
-val SUCC_LE_ONE = Q.prove(`(SUC n ≤ 1) = (n = 0)`,intLib.COOPER_TAC);
+Triviality SUCC_LE_ONE:
+  SUC n ≤ 1 ⇔ n = 0
+Proof
+  intLib.COOPER_TAC
+QED
 
-val patch_aux_keep_init = Q.prove(
-`!l p t n t' m.
- common_subsequence l t t' ==>
- patch_aux (diff_with_lcs l t (n + LENGTH p) t' (m + LENGTH p)) (p ++ t) (LENGTH t + LENGTH p) n
- =
- case patch_aux (diff_with_lcs l t (n + LENGTH p) t' (m + LENGTH p)) t (LENGTH t) (n+LENGTH p) of
-   SOME r => SOME(p++r)
- | NONE => NONE`,
+Triviality patch_aux_keep_init:
+  ∀l p t n t' m.
+  common_subsequence l t t' ==>
+  patch_aux (diff_with_lcs l t (n + LENGTH p) t' (m + LENGTH p)) (p ++ t) (LENGTH t + LENGTH p) n
+  =
+  case patch_aux (diff_with_lcs l t (n + LENGTH p) t' (m + LENGTH p)) t (LENGTH t) (n+LENGTH p) of
+    SOME r => SOME(p++r)
+  | NONE => NONE
+Proof
   Induct >> rpt strip_tac
   >- (fs[patch_aux_cancel_base_case]
       >> fs[diff_with_lcs_def,diff_single_def,diff_add_prefix_def] >> rw[]
@@ -549,9 +597,9 @@ val patch_aux_keep_init = Q.prove(
   >> fs[diff_with_lcs_def]
   >> rpt(pairarg_tac>>fs[]) >> rw[]
   >- (fs[SPLITP_NIL_FST] >> rveq
-      >> Cases_on `lr` >> fs[common_subsequence_empty']
-      >> Cases_on `l'r` >> fs[common_subsequence_empty']
-      >> rveq >> first_assum(qspecl_then [`p++[h]`,`t`,`n`,`t'`,`n`] mp_tac)
+      >> Cases_on `lr` >> gvs[common_subsequence_empty']
+      >> Cases_on `l'r` >> gvs[common_subsequence_empty']
+      >> first_assum(qspecl_then [`p++[h]`,`t`,`n`,`t'`,`n`] mp_tac)
       >> first_x_assum(qspecl_then [`[h]`,`t`,`n+LENGTH p`,`t'`,`n+LENGTH p`] mp_tac)
       >> fs[cons_common_subsequence]
       >> full_simp_tac pure_ss [GSYM APPEND_ASSOC,APPEND,ADD1]
@@ -565,134 +613,152 @@ val patch_aux_keep_init = Q.prove(
         depatch_lines_diff_add_prefix_cancel,ONE_MINUS_SUCC,SUCC_LE_ONE,
         quantHeuristicsTheory.LIST_LENGTH_0,diff_add_prefix_DROP,diff_add_prefix_nil,
         DROP_LENGTH_NIL,DROP_LENGTH_TOO_LONG]
-  >> TOP_CASE_TAC >> fs[]);
+  >> PURE_TOP_CASE_TAC >> fs[]
+QED
 
-val patch_aux_keep_init_cons = Q.prove(`
-   !l t n t' h m.
-   common_subsequence l t t' ==>
-   patch_aux (diff_with_lcs l t (n + 1) t' (m + 1)) (h::t) (SUC (LENGTH t)) n
-   =
-   case patch_aux (diff_with_lcs l t (n + 1) t' (m + 1)) t (LENGTH t) (n+1) of
-     SOME r => SOME(h::r)
-    | NONE => NONE`,
-    rpt strip_tac >> drule0 patch_aux_keep_init
-    >> disch_then (qspecl_then [`[h]`,`n`,`m`] assume_tac) >> fs[ADD1]);
+Triviality patch_aux_keep_init_cons:
+  ∀l t n t' h m.
+  common_subsequence l t t' ⇒
+  patch_aux (diff_with_lcs l t (n + 1) t' (m + 1)) (h::t) (SUC (LENGTH t)) n
+  =
+  case patch_aux (diff_with_lcs l t (n + 1) t' (m + 1)) t (LENGTH t) (n+1) of
+    SOME r => SOME(h::r)
+  | NONE => NONE
+Proof
+  rpt strip_tac >> drule patch_aux_keep_init >>
+  disch_then $ qspec_then ‘[h]’ assume_tac >> fs[ADD1]
+QED
 
-val list_nil_sub_length = Q.prove(`l ≠ [] ==> (1 - LENGTH l = 0)`,
-  Cases_on `l` >> fs[])
+Triviality list_nil_sub_length:
+  l ≠ [] ⇒ 1 - LENGTH l = 0
+Proof
+  Cases_on `l` >> fs[]
+QED
 
-val list_length_1_lemma = Q.prove(`l ≠ [] /\ LENGTH l <= 1 ==> LENGTH l = 1`,
-  Cases_on `LENGTH l` >> fs[])
+Triviality list_length_1_lemma:
+  l ≠ [] ∧ LENGTH l <= 1 ⇒ LENGTH l = 1
+Proof
+  Cases_on `LENGTH l` >> fs[]
+QED
 
-val minus_add_too_large = Q.prove(`a - ((a:num) + n) = 0`,intLib.COOPER_TAC);
+Triviality minus_add_too_large:
+  a - ((a:num) + n) = 0
+Proof
+  intLib.COOPER_TAC
+QED
 
-val minus_add_too_large' = Q.prove(`(a + 1) - ((a:num) + 2) = 0`,intLib.COOPER_TAC);
+Triviality minus_add_too_large':
+  (a + 1) - ((a:num) + 2) = 0
+Proof
+  intLib.COOPER_TAC
+QED
 
 Theorem patch_aux_diff_cancel:
- !l r n r' m.
-common_subsequence l r r' ==>
-(patch_aux (diff_with_lcs l r n r' m) r (LENGTH r) n = SOME r')
+ ∀l r n r' m.
+  common_subsequence l r r' ==>
+  (patch_aux (diff_with_lcs l r n r' m) r (LENGTH r) n = SOME r')
 Proof
-Induct
->> rpt strip_tac
->-fs[patch_aux_cancel_base_case]
->> fs[diff_with_lcs_def,diff_single_def,
-      diff_add_prefix_def]
->> rpt(pairarg_tac >> fs[])
->> rw[]
->- (fs[SPLITP_NIL_FST] >> rveq
-    >> Cases_on `lr` >> fs[common_subsequence_empty']
-    >> Cases_on `l'r` >> fs[common_subsequence_empty']
-    >> rveq >> fs[cons_common_subsequence,patch_aux_keep_init_cons])
->- (fs[SPLITP_NIL_FST] >> rveq
-    >> Cases_on `lr` >> fs[common_subsequence_empty']
-    >> Cases_on `l'r` >> fs[common_subsequence_empty',SPLITP_NIL_SND_EVERY]
-    >> rveq
-    >> fs[cons_common_subsequence,patch_aux_keep_init_cons]
-    >> drule0 common_subsequence_split_css2
-    >> fs[SPLITP_EVERY,o_DEF,common_subsequence_empty',SPLITP]
-    >> drule0 SPLITP_IMP >> rpt strip_tac >> fs[] >> rveq >> fs[cons_common_subsequence]
-    >> fs[patch_aux_def] >> rw[]
-    >> fs[parse_header_cancel,TAKE_APPEND]
-    >> rw[] >> fs[quantHeuristicsTheory.LIST_LENGTH_0,TAKE_LENGTH_TOO_LONG,list_nil_sub_length,
-                  depatch_lines_strcat_cancel,DROP_LENGTH_TOO_LONG,DROP_APPEND]
-    >> drule0 patch_aux_keep_init_cons
-    >> disch_then(qspecl_then [`n`,`h`,`m + LENGTH l'l`] assume_tac)
-    >> drule0 SPLITP_JOIN
-    >> fs[])
->- (fs[SPLITP_NIL_FST] >> rveq
-    >> Cases_on `lr` >> fs[common_subsequence_empty']
-    >> Cases_on `l'r` >> fs[common_subsequence_empty',SPLITP_NIL_SND_EVERY]
-    >> rveq
-    >> fs[cons_common_subsequence,patch_aux_keep_init_cons]
-    >> drule0 common_subsequence_split_css
-    >> fs[SPLITP_EVERY,o_DEF,common_subsequence_empty',SPLITP]
-    >> drule0 SPLITP_IMP >> rpt strip_tac >> fs[] >> rveq >> fs[cons_common_subsequence]
-    >> fs[patch_aux_def] >> rw[]
-    >> fs[parse_header_cancel,TAKE_APPEND]
-    >> rw[]
-    >> drule0 SPLITP_JOIN >> strip_tac >> fs[]
-    >> fs[quantHeuristicsTheory.LIST_LENGTH_0,TAKE_LENGTH_TOO_LONG,list_nil_sub_length,
-          depatch_lines_strcat_cancel,DROP_LENGTH_TOO_LONG,DROP_APPEND,list_length_1_lemma,
-          minus_add_too_large]
-    >> drule0 patch_aux_keep_init_cons
-    >> disch_then(qspecl_then [`n + LENGTH ll`,`h`,`m`] mp_tac)
-    >> fs[list_length_1_lemma,ADD1])
->- (fs[SPLITP_NIL_FST] >> rveq
-    >> Cases_on `lr` >> fs[common_subsequence_empty']
-    >> Cases_on `l'r` >> fs[common_subsequence_empty',SPLITP_NIL_SND_EVERY]
-    >> rveq
-    >> fs[cons_common_subsequence,patch_aux_keep_init_cons]
-    >> drule0 common_subsequence_split_css >> strip_tac >> drule0 common_subsequence_split_css2
-    >> fs[SPLITP_EVERY,o_DEF,common_subsequence_empty',SPLITP]
-    >> drule0 SPLITP_IMP >> qpat_x_assum `SPLITP _ _ = _ ` mp_tac
-    >> drule0 SPLITP_IMP >> rpt strip_tac >> fs[] >> rveq >> fs[cons_common_subsequence]
-    >> fs[patch_aux_def] >> rw[]
-    >> fs[parse_header_cancel,TAKE_APPEND]
-    >> rw[]
-    >> drule0 SPLITP_JOIN >> qpat_x_assum `SPLITP _ _ = _` mp_tac
-    >> drule0 SPLITP_JOIN >> ntac 3 strip_tac
-    >> fs[quantHeuristicsTheory.LIST_LENGTH_0,TAKE_LENGTH_TOO_LONG,list_nil_sub_length,
-          depatch_lines_strcat_cancel,DROP_LENGTH_TOO_LONG,DROP_APPEND,list_length_1_lemma,
-          minus_add_too_large,TAKE_APPEND,minus_add_too_large',ONE_MINUS_SUCC]
-    >> drule0 patch_aux_keep_init_cons
-    >> disch_then(qspecl_then [`n + LENGTH ll`,`h`,`m + LENGTH l'l`] mp_tac)
-    >> fs[ADD1,list_length_1_lemma])
+  Induct
+  >> rpt strip_tac
+  >- fs[patch_aux_cancel_base_case]
+  >> fs[diff_with_lcs_def,diff_single_def,
+        diff_add_prefix_def]
+  >> rpt(pairarg_tac >> fs[])
+  >> rw[]
+  >- (fs[SPLITP_NIL_FST] >> rveq
+      >> Cases_on `lr` >> fs[common_subsequence_empty']
+      >> Cases_on `l'r` >> fs[common_subsequence_empty']
+      >> rveq >> fs[cons_common_subsequence,patch_aux_keep_init_cons])
+  >- (fs[SPLITP_NIL_FST] >> rveq
+      >> Cases_on `lr` >> fs[common_subsequence_empty']
+      >> Cases_on `l'r` >> fs[common_subsequence_empty',SPLITP_NIL_SND_EVERY]
+      >> rveq
+      >> fs[cons_common_subsequence,patch_aux_keep_init_cons]
+      >> drule common_subsequence_split_css2
+      >> fs[SPLITP_EVERY,o_DEF,common_subsequence_empty',SPLITP]
+      >> drule SPLITP_IMP >> rpt strip_tac >> fs[] >> rveq >> fs[cons_common_subsequence]
+      >> fs[patch_aux_def] >> rw[]
+      >> fs[parse_header_cancel,TAKE_APPEND]
+      >> rw[] >> fs[quantHeuristicsTheory.LIST_LENGTH_0,TAKE_LENGTH_TOO_LONG,list_nil_sub_length,
+                    depatch_lines_strcat_cancel,DROP_LENGTH_TOO_LONG,DROP_APPEND]
+      >> drule patch_aux_keep_init_cons
+      >> disch_then(qspecl_then [`n`,`h`,`m + LENGTH l'l`] assume_tac)
+      >> drule SPLITP_JOIN
+      >> fs[])
+  >- (fs[SPLITP_NIL_FST] >> rveq
+      >> Cases_on `lr` >> fs[common_subsequence_empty']
+      >> Cases_on `l'r` >> fs[common_subsequence_empty',SPLITP_NIL_SND_EVERY]
+      >> rveq
+      >> fs[cons_common_subsequence,patch_aux_keep_init_cons]
+      >> drule common_subsequence_split_css
+      >> fs[SPLITP_EVERY,o_DEF,common_subsequence_empty',SPLITP]
+      >> drule SPLITP_IMP >> rpt strip_tac >> fs[] >> rveq >> fs[cons_common_subsequence]
+      >> fs[patch_aux_def] >> rw[]
+      >> fs[parse_header_cancel,TAKE_APPEND]
+      >> rw[]
+      >> drule SPLITP_JOIN >> strip_tac >> fs[]
+      >> fs[quantHeuristicsTheory.LIST_LENGTH_0,TAKE_LENGTH_TOO_LONG,list_nil_sub_length,
+            depatch_lines_strcat_cancel,DROP_LENGTH_TOO_LONG,DROP_APPEND,list_length_1_lemma,
+            minus_add_too_large]
+      >> drule patch_aux_keep_init_cons
+      >> disch_then(qspecl_then [`n + LENGTH ll`,`h`,`m`] mp_tac)
+      >> fs[list_length_1_lemma,ADD1])
+  >- (fs[SPLITP_NIL_FST] >> rveq
+      >> Cases_on `lr` >> fs[common_subsequence_empty']
+      >> Cases_on `l'r` >> fs[common_subsequence_empty',SPLITP_NIL_SND_EVERY]
+      >> rveq
+      >> fs[cons_common_subsequence,patch_aux_keep_init_cons]
+      >> drule common_subsequence_split_css >> strip_tac >> drule common_subsequence_split_css2
+      >> fs[SPLITP_EVERY,o_DEF,common_subsequence_empty',SPLITP]
+      >> drule SPLITP_IMP >> qpat_x_assum `SPLITP _ _ = _ ` mp_tac
+      >> drule SPLITP_IMP >> rpt strip_tac >> fs[] >> rveq >> fs[cons_common_subsequence]
+      >> fs[patch_aux_def] >> rw[]
+      >> fs[parse_header_cancel,TAKE_APPEND]
+      >> rw[]
+      >> drule SPLITP_JOIN >> qpat_x_assum `SPLITP _ _ = _` mp_tac
+      >> drule SPLITP_JOIN >> ntac 3 strip_tac
+      >> fs[quantHeuristicsTheory.LIST_LENGTH_0,TAKE_LENGTH_TOO_LONG,list_nil_sub_length,
+            depatch_lines_strcat_cancel,DROP_LENGTH_TOO_LONG,DROP_APPEND,list_length_1_lemma,
+            minus_add_too_large,TAKE_APPEND,minus_add_too_large',ONE_MINUS_SUCC]
+      >> drule patch_aux_keep_init_cons
+      >> disch_then(qspecl_then [`n + LENGTH ll`,`h`,`m + LENGTH l'l`] mp_tac)
+      >> fs[ADD1,list_length_1_lemma])
 QED
 
 Theorem patch_diff_cancel:
    patch_alg (diff_alg l r) l = SOME r
 Proof
-  fs[patch_alg_def,diff_alg_def]
-  >> mp_tac (GEN_ALL (INST_TYPE [alpha|->``:mlstring``] optimised_lcs_correct))
-  >> disch_then (qspecl_then [`r`,`l`] assume_tac)
-  >> fs[patch_aux_diff_cancel,lcs_def]
+  fs[patch_alg_def,diff_alg_def] >>
+  irule patch_aux_diff_cancel >>
+  irule $ cj 1 $ iffLR lcs_def >>
+  irule optimised_lcs_correct
 QED
 
-val headers_within_def = Define `
+Definition headers_within_def:
   headers_within n m l =
     EVERY (OPTION_ALL (λ(n':num,m':num option,c,_,_).
-      (n <= n' /\ n' <= m /\ (IS_NONE m' /\ (c = #"d" \/ c = #"c") ==>
-       n'+1 <= m) /\
-      (IS_SOME m' ==> (n <= THE m' /\ THE m' <= m)))))
-         (MAP parse_patch_header l)`
+      (n <= n' ∧ n' <= m ∧ (IS_NONE m' ∧ (c = #"d" ∨ c = #"c") ⇒
+       n'+1 <= m) ∧
+      (IS_SOME m' ==> (n ≤ THE m' ∧ THE m' ≤ m)))))
+         (MAP parse_patch_header l)
+End
 
 Theorem headers_within_IMP:
-   headers_within n m (h::t) /\ parse_patch_header h = SOME(q,NONE,c,tup)
-     ==> n <= q /\ q <= m /\ ((c= #"d" \/ c = #"c") ==> q+1 <= m)
+   headers_within n m (h::t) ∧ parse_patch_header h = SOME(q,NONE,c,tup)
+   ⇒ n <= q ∧ q <= m ∧ ((c= #"d" ∨ c = #"c") ⇒ q+1 <= m)
 Proof
-  rpt strip_tac >> fs[headers_within_def] >> rfs[pairTheory.ELIM_UNCURRY]
+  rpt strip_tac >> fs[headers_within_def] >> rfs[ELIM_UNCURRY]
 QED
 
 Theorem headers_within_IMP_SOME:
-   headers_within n m (h::t) /\ parse_patch_header h = SOME(q,SOME q',c,tup)
-     ==> n <= q /\ q <= m /\ n <= q' /\ q' <= m
+   headers_within n m (h::t) ∧ parse_patch_header h = SOME(q,SOME q',c,tup)
+   ⇒ n ≤ q ∧ q ≤ m ∧ n ≤ q' ∧ q' ≤ m
 Proof
-  rpt strip_tac >> fs[headers_within_def] >> rfs[pairTheory.ELIM_UNCURRY]
+  rpt strip_tac >> fs[headers_within_def] >> rfs[ELIM_UNCURRY]
 QED
 
 Theorem headers_within_grow:
-   headers_within n' m' l /\ n <= n' /\ m' <= m ==> headers_within n m l
+   headers_within n' m' l ∧ n ≤ n' ∧ m' ≤ m ⇒ headers_within n m l
 Proof
   Induct_on `l` >> rpt strip_tac >> fs[headers_within_def]
   >> Cases_on `parse_patch_header h` >> fs[pairTheory.ELIM_UNCURRY]
@@ -700,46 +766,40 @@ Proof
 QED
 
 Theorem headers_within_append:
-   headers_within n m (l++l') = (headers_within n m l /\ headers_within n m l')
+   headers_within n m (l++l') = (headers_within n m l ∧ headers_within n m l')
 Proof
   simp[headers_within_def]
 QED
 
 Theorem headers_within_dest_cons:
-   headers_within n m (e::l') ==> headers_within n m l'
+   headers_within n m (e::l') ⇒ headers_within n m l'
 Proof
   simp[headers_within_def]
 QED
 
-(* todo: move to richlist? *)
-Theorem EVERY_DROP_T:
-   !P l m. EVERY P l ==> EVERY P (DROP m l)
-Proof
-  Induct_on `l` >> rw[DROP_def]
-QED
-
 Theorem headers_within_drop:
-   headers_within n m (l) ==> headers_within n m (DROP x l)
+   headers_within n m (l) ⇒ headers_within n m (DROP x l)
 Proof
-  simp[headers_within_def,MAP_DROP,EVERY_DROP_T]
+  simp[headers_within_def,MAP_DROP,EVERY_DROP]
 QED
 
 Theorem fromString_gt:
-   fromString (implode (STRING #">" x)) = NONE /\
+   fromString (implode (STRING #">" x)) = NONE ∧
    fromString (implode (STRING #"<" x)) = NONE
 Proof
   rw [] \\ match_mp_tac fromString_EQ_NONE \\ EVAL_TAC
 QED
 
 Theorem fromNatString_gt:
-   fromNatString (implode (STRING #">" x)) = NONE /\
+   fromNatString (implode (STRING #">" x)) = NONE ∧
    fromNatString (implode (STRING #"<" x)) = NONE
 Proof
   rw [fromNatString_def,fromString_gt]
 QED
 
-val parse_nonheader_lemma = Q.prove(
-  `!f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r (strlit "> ")))`,
+Triviality parse_nonheader_lemma:
+  ∀f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r (strlit "> ")))
+Proof
   strip_tac >> Induct
   >- fs[diff_add_prefix_def]
   >> strip_tac >> Cases_on `h`
@@ -750,10 +810,12 @@ val parse_nonheader_lemma = Q.prove(
   >> fs[TOKENS_def,pairTheory.ELIM_UNCURRY,SPLITP] >> rveq
   >> fs[explode_implode,TOKENS_def,SPLITP,pairTheory.ELIM_UNCURRY]
   >> rveq
-  >> fs[explode_implode,isDigit_def,fromNatString_gt]);
+  >> fs[explode_implode,isDigit_def,fromNatString_gt]
+QED
 
-val parse_nonheader_lemma2 = Q.prove(
-  `!f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r (strlit "< ")))`,
+Triviality parse_nonheader_lemma2:
+  ∀f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r (strlit "< ")))
+Proof
   strip_tac >> Induct
   >- fs[diff_add_prefix_def]
   >> strip_tac >> Cases_on `h`
@@ -764,37 +826,40 @@ val parse_nonheader_lemma2 = Q.prove(
   >> fs[TOKENS_def,pairTheory.ELIM_UNCURRY,SPLITP] >> rveq
   >> fs[explode_implode,TOKENS_def,SPLITP,pairTheory.ELIM_UNCURRY]
   >> rveq
-  >> fs[explode_implode,isDigit_def,fromNatString_gt]);
+  >> fs[explode_implode,isDigit_def,fromNatString_gt]
+QED
 
-val parse_nonheader_lemma3 = Q.prove(
-  `parse_patch_header (strlit "---\n") = NONE`,
+Triviality parse_nonheader_lemma3:
+  parse_patch_header (strlit "---\n") = NONE
+Proof
   fs[parse_patch_header_def]
   >> every_case_tac
   >> fs[strcat_def,mlstringTheory.concat_def]
   >> fs[tokens_append_strlit,TOKENS_eq_tokens_sym]
-  >> fs[TOKENS_def,pairTheory.ELIM_UNCURRY,SPLITP] >> rveq);
+  >> fs[TOKENS_def,pairTheory.ELIM_UNCURRY,SPLITP] >> rveq
+QED
 
 Theorem diff_with_lcs_headers_within:
-   !l r n r' m. common_subsequence l r r' ==>
-    headers_within n (n + LENGTH r) (diff_with_lcs l r n r' m)
+  ∀l r n r' m.
+  common_subsequence l r r' ⇒
+  headers_within n (n + LENGTH r) (diff_with_lcs l r n r' m)
 Proof
   Induct
   >> rpt strip_tac
   >- (fs[diff_with_lcs_def,headers_within_def,diff_single_def]
       >> rw[] >> fs[parse_header_cancel]
       >> rw[]
-      >> TRY(MATCH_ACCEPT_TAC parse_nonheader_lemma)
-      >> TRY(MATCH_ACCEPT_TAC parse_nonheader_lemma2)
-      >> fs[parse_nonheader_lemma3]
+      >> fs[parse_nonheader_lemma,parse_nonheader_lemma2,
+            parse_nonheader_lemma3]
       >> Cases_on `r` >> fs[])
   >> fs[diff_with_lcs_def]
   >> rpt(pairarg_tac >> fs[])
   >> IF_CASES_TAC
-  >- (drule0 split_common_subsequence
+  >- (drule split_common_subsequence
       >> strip_tac
-      >> first_x_assum drule0 >> fs[]
+      >> first_x_assum drule >> fs[]
       >> disch_then(qspecl_then [`n+1`,`n+1`] assume_tac)
-      >> drule0(GEN_ALL headers_within_grow)
+      >> drule headers_within_grow
       >> disch_then match_mp_tac
       >> fs[SPLITP_NIL_FST]
       >> Cases_on `r` >> fs[common_subsequence_empty'])
@@ -803,47 +868,34 @@ Proof
   >- (fs[headers_within_def,diff_single_def]
       >> fs[parse_header_cancel]
       >> rw[]
-      >> Q.ISPECL_THEN [`($= h)`,`r`] assume_tac (GEN_ALL (GSYM SPLITP_LENGTH))
-      >> fs[]
-      >> TRY(MATCH_ACCEPT_TAC parse_nonheader_lemma)
-      >> TRY(MATCH_ACCEPT_TAC parse_nonheader_lemma2)
-      >> fs[parse_nonheader_lemma3] >> rfs[]
-      >> drule0 common_subsequence_split >> strip_tac >> fs[] >> rveq >> fs[])
-  >> drule0 split_common_subsequence
-  >> drule0 common_subsequence_split
-  >> drule0 common_subsequence_split2
-  >> rpt strip_tac >> fs[] >> rveq
-  >> fs[] >> rfs[] >> first_x_assum drule0
+      >> fs[parse_nonheader_lemma,parse_nonheader_lemma2,
+            parse_nonheader_lemma3]
+      >> drule common_subsequence_split >> strip_tac >> gvs[]
+      >> imp_res_tac SPLITP_JOIN >> gvs[])
+  >> drule split_common_subsequence
+  >> drule common_subsequence_split
+  >> drule common_subsequence_split2
+  >> rpt strip_tac
+  >> gvs[] >> first_x_assum drule
   >> disch_then(qspecl_then [`n + (LENGTH ll + 1)`,`m + (LENGTH l'l + 1)`] assume_tac)
-  >> drule0(GEN_ALL headers_within_grow)
+  >> drule headers_within_grow
   >> disch_then match_mp_tac
-  >> Q.ISPECL_THEN [`($= h)`,`r`] assume_tac (GEN_ALL (GSYM SPLITP_LENGTH))
-  >> fs[]
+  >> imp_res_tac SPLITP_JOIN >> gvs[]
 QED
 
-val highly_specific_implication = Q.prove(
-  `¬(q < n + 1) /\ ¬(m < q − n) ==> n + (SUC m) - (q + 1) = (n + m - q)`,
-  fs[]);
-
-val highly_specific_implication2 = Q.prove(
-  `¬(SUC m < (q+1) − n) ==> n + (SUC m) - (q + 1) = (n + m - q)`,
-  fs[]);
-
 Theorem headers_within_cons:
- headers_within (n+1) m p1 /\ m >= n+1 ==>
+ headers_within (n+1) m p1 ∧ m >= n+1 ⇒
   patch_alg_offs n p1 (e::l) = OPTION_MAP (CONS e) (patch_alg_offs (n+1) p1 l)
 Proof
-  Cases_on `p1` >> rpt strip_tac
-  >> fs[patch_alg_offs_def,patch_aux_def]
-  >> every_case_tac
-  >> fs[headers_within_def] >> rfs[]
-  >> TRY(drule0(GEN_ALL highly_specific_implication) >> disch_then drule0 >> disch_then (fn x => fs[x]))
-  >> TRY(drule0(GEN_ALL highly_specific_implication2) >> disch_then (fn x => fs[x]))
-  >> fs[GSYM ADD1]
+  Cases_on `p1` >> rpt strip_tac >>
+  gvs[headers_within_def,patch_alg_offs_def,patch_aux_def,
+      oneline OPTION_ALL_def] >>
+  rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
+  gvs[DROP_DROP_T,ADD1]
 QED
 
 Theorem IS_SUFFIX_induct:
-   !P. P [] /\ (!h l. (!sl. IS_SUFFIX l sl ==> P sl) ==> P (h::l)) ==> !l. P l
+  ∀P. P [] ∧ (∀h l. (∀sl. IS_SUFFIX l sl ⇒ P sl) ⇒ P (h::l)) ⇒ ∀l. P l
 Proof
   rpt strip_tac
   \\ completeInduct_on ‘LENGTH l’
@@ -862,8 +914,9 @@ Proof
   >> metis_tac[IS_SUFFIX_CONS]
 QED
 
-Theorem headers_within_snoc:
- !p1 n l m e. headers_within m (n + LENGTH l) p1 /\ m <= (n + LENGTH l) ==>
+Triviality headers_within_snoc:
+  ∀p1 n l m e.
+  headers_within m (n + LENGTH l) p1 ∧ m <= (n + LENGTH l) ⇒
   patch_alg_offs n p1 (SNOC e l) = OPTION_MAP (SNOC e) (patch_alg_offs n p1 l)
 Proof
   ho_match_mp_tac IS_SUFFIX_induct
@@ -991,8 +1044,8 @@ Proof
 QED
 
 Theorem headers_within_append1:
- !l' l. headers_within (n+LENGTH l') m p1 /\ m >= n+LENGTH l' ==>
-  patch_alg_offs n p1 (l' ++ l) = OPTION_MAP (APPEND l') (patch_alg_offs (n+LENGTH l') p1 l)
+ ∀l' l. headers_within (n+LENGTH l') m p1 ∧ m >= n+LENGTH l' ⇒
+        patch_alg_offs n p1 (l' ++ l) = OPTION_MAP (APPEND l') (patch_alg_offs (n+LENGTH l') p1 l)
 Proof
   ho_match_mp_tac SNOC_INDUCT
   >> rpt strip_tac
@@ -1000,19 +1053,20 @@ Proof
   >> rpt strip_tac
   >> fs[SNOC_APPEND]
   >> FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC]
-  >> drule0(GEN_ALL headers_within_grow)
+  >> drule headers_within_grow
   >> disch_then(qspecl_then[`n + LENGTH l'`,`m`] assume_tac)
   >> `!opt. OPTION_MAP ($++ (l' ⧺ [x])) opt = OPTION_MAP ($++ l') (OPTION_MAP (CONS x) opt)`
        by(Cases >> fs[])
   >> fs[ADD1]
   >> FULL_SIMP_TAC std_ss [ADD_ASSOC]
   >> pop_assum kall_tac
-  >> drule0(GEN_ALL headers_within_cons)
+  >> drule headers_within_cons
   >> fs[]
 QED
 
 Theorem headers_within_append1':
- !l' l. headers_within (LENGTH l) m p1 /\ m >= LENGTH l+LENGTH l' ==>
+  ∀l' l.
+  headers_within (LENGTH l) m p1 ∧ m >= LENGTH l+LENGTH l' ⇒
   patch_alg p1 (l ++ l') = OPTION_MAP (APPEND l) (patch_alg_offs (LENGTH l) p1 l')
 Proof
   rpt strip_tac
@@ -1022,25 +1076,26 @@ Proof
 QED
 
 Theorem headers_within_append2:
- !l' l. headers_within m (n + LENGTH l) p1 /\ m <= n+LENGTH l ==>
+  ∀l' l.
+  headers_within m (n + LENGTH l) p1 ∧ m <= n+LENGTH l ⇒
   patch_alg_offs n p1 (l ++ l') = OPTION_MAP (combin$C APPEND l') (patch_alg_offs n p1 l)
 Proof
   Induct
   >> rpt strip_tac
   >- (fs[] >> qmatch_goalsub_abbrev_tac `OPTION_MAP _ a1` >> Cases_on `a1` >> fs[])
   >> SIMP_TAC bool_ss [Once CONS_APPEND,APPEND_ASSOC]
-  >> drule0(GEN_ALL headers_within_grow)
+  >> drule headers_within_grow
   >> disch_then(qspecl_then[`m`,`n + LENGTH(l ++ [h])`] mp_tac)
   >> impl_tac >> fs[]
-  >> strip_tac >> first_x_assum drule0
+  >> strip_tac >> first_x_assum drule
   >> fs[]
-  >> `!opt. OPTION_MAP (combin$C $++ (h::l')) opt = OPTION_MAP (combin$C $++ l') (OPTION_MAP (SNOC h) opt)`
-       by(Cases >> fs[] )
-       >> fs[ADD1]
+  >> `∀opt. OPTION_MAP (combin$C $++ (h::l')) opt = OPTION_MAP (combin$C $++ l') (OPTION_MAP (SNOC h) opt)`
+    by(Cases >> fs[] )
+  >> fs[ADD1]
   >> pop_assum kall_tac
   >> FULL_SIMP_TAC std_ss [ADD_ASSOC]
   >> fs[GSYM SNOC_APPEND]
-  >> drule0(GEN_ALL headers_within_snoc)
+  >> drule headers_within_snoc
   >> fs[]
 QED
 
@@ -1123,11 +1178,11 @@ Proof
   >> fs[lcs_def]
   >> imp_res_tac diff_with_lcs_headers_within
   >> pop_assum(qspecl_then [`a1`,`a1`] assume_tac)
-  >> drule0(GEN_ALL headers_within_grow)
+  >> drule headers_within_grow
   >> disch_then(qspecl_then [`a1`,`a1 + (LENGTH a3 - a2 + a2)`] mp_tac)
   >> impl_tac >- (unabbrev_all_tac >> fs[])
   >> qunabbrev_tac `a1` >> strip_tac
-  >> drule0 headers_within_append1'
+  >> drule headers_within_append1'
   >> disch_then(qspec_then `TAKE (LENGTH a3 − a2) a3 ++ longest_common_suffix a3 a4` mp_tac)
   >> impl_tac >- (unabbrev_all_tac >> fs[])
   >> strip_tac
@@ -1138,14 +1193,14 @@ Proof
   >> fs[]
   >> conj_tac
   >- (ntac 2 (pop_assum kall_tac)
-      >> drule0 (GEN_ALL(headers_within_append2 |> PURE_ONCE_REWRITE_RULE [ADD_SYM]))
+      >> drule (headers_within_append2 |> PURE_ONCE_REWRITE_RULE [ADD_SYM])
       >> disch_then(qspec_then `longest_common_suffix a3 a4` mp_tac)
       >> impl_tac >- fs[]
       >> strip_tac
       >> `a6 = LENGTH a3 - LENGTH(longest_common_suffix a3 a4)`
            by(unabbrev_all_tac >> fs[])
        >> rveq >> fs[]
-       >> drule0 patch_aux_diff_cancel
+       >> drule patch_aux_diff_cancel
        >> fs[patch_alg_offs_def]
        >> disch_then kall_tac
        >> unabbrev_all_tac >> fs[])
@@ -1159,31 +1214,37 @@ QED
    reports is precisely the number of deviations from the lcs of the
    files. *)
 
-val is_patch_line_def = Define `
+Definition is_patch_line_def:
   is_patch_line s =
   if strlen s > 1 then
     if substring s 0 2 = strlit "> " then
       T
     else substring s 0 2 = strlit "< "
   else
-      F`
+      F
+End
 
-val is_patch_line_simps = Q.prove(
-  `!r. (FILTER is_patch_line (MAP (strcat (strlit "> ")) r) = (MAP (strcat (strlit "> ")) r))
-       /\ (FILTER is_patch_line (MAP (strcat (strlit "< ")) r) = MAP (strcat (strlit "< ")) r)
-`,
+Triviality is_patch_line_simps:
+  ∀r.
+  FILTER is_patch_line (MAP (strcat (strlit "> ")) r) = (MAP (strcat (strlit "> ")) r) ∧
+  FILTER is_patch_line (MAP (strcat (strlit "< ")) r) = MAP (strcat (strlit "< ")) r
+Proof
   Induct_on `r` >> fs[] >> Induct
   >> fs[is_patch_line_def,strlen_def,strcat_thm,implode_def,substring_def,MIN_DEF]
-  >> simp_tac pure_ss [ONE,TWO,SEG] >> fs[]);
+  >> simp_tac pure_ss [ONE,TWO,SEG] >> fs[]
+QED
 
-val toString_obtain_digits = Q.prove(
-  `!n. ?f r. toString (n:num) = strlit(f::r) /\ isDigit f /\ EVERY isDigit r`,
+Triviality toString_obtain_digits:
+  ∀n. ∃f r. toString (n:num) = strlit(f::r) ∧ isDigit f ∧ EVERY isDigit r
+Proof
   strip_tac >> fs[num_to_str_thm,implode_def]
   >> qspec_then `n` assume_tac toString_isDigit
-  >> Cases_on `num_toString n` >> fs[]);
+  >> Cases_on `num_toString n` >> fs[]
+QED
 
-val diff_single_patch_length = Q.prove(
-  `!r n r' m. LENGTH (FILTER is_patch_line (diff_single r n r' m)) = LENGTH r + LENGTH r'`,
+Triviality diff_single_patch_length:
+  ∀r n r' m. LENGTH (FILTER is_patch_line (diff_single r n r' m)) = LENGTH r + LENGTH r'
+Proof
   rpt strip_tac
   >> fs[diff_single_def,diff_single_header_def,is_patch_line_def,line_numbers_def,
         diff_add_prefix_def,is_patch_line_simps]
@@ -1193,29 +1254,33 @@ val diff_single_patch_length = Q.prove(
   >> fs[is_patch_line_simps,substring_def,strcat_thm,implode_def,explode_thm,MIN_DEF, isDigit_def]
   >> rfs[] >> full_simp_tac pure_ss [ONE,TWO,SEG] >> fs[FILTER_APPEND,is_patch_line_simps]
   >> fs[is_patch_line_def,substring_def,implode_def] >> full_simp_tac pure_ss [ONE,TWO,SEG]
-  >> fs[]);
+  >> fs[]
+QED
 
-val diff_with_lcs_optimal = Q.prove(
-  `!l r r' n m. lcs l r r' ==>
-    LENGTH(FILTER is_patch_line (diff_with_lcs l r n r' m)) = LENGTH r + LENGTH r' - (2*LENGTH l)`,
+Triviality diff_with_lcs_optimal:
+  ∀l r r' n m.
+  lcs l r r' ⇒
+  LENGTH(FILTER is_patch_line (diff_with_lcs l r n r' m)) = LENGTH r + LENGTH r' - (2*LENGTH l)
+Proof
   Induct >> fs[diff_with_lcs_def] >> rw[] >> fs[diff_single_patch_length]
   >> ntac 2 (pairarg_tac >> fs[]) >> rw[]
   >> fs[SPLITP_NIL_FST,FILTER_APPEND,diff_single_patch_length] >> rveq
   >- (Cases_on `lr` >> Cases_on `l'r` >> fs[lcs_empty']
       >> rveq >> fs[cons_lcs_optimal_substructure])
-  >> drule0 lcs_split_lcs >> strip_tac >> drule0 lcs_split_lcs2 >> strip_tac
+  >> drule lcs_split_lcs >> strip_tac >> drule lcs_split_lcs2 >> strip_tac
   >> Cases_on `lr` >> Cases_on `l'r` >> rfs[lcs_empty']
-  >> drule0 SPLITP_IMP
-  >> qpat_x_assum `SPLITP _ _ = _` mp_tac >> drule0 SPLITP_IMP
+  >> drule SPLITP_IMP
+  >> qpat_x_assum `SPLITP _ _ = _` mp_tac >> drule SPLITP_IMP
   >> ntac 3 strip_tac >> fs[] >> rveq
-  >> drule0 SPLITP_JOIN >> qpat_x_assum `SPLITP _ _ = _` mp_tac >> drule0 SPLITP_IMP
-  >> drule0 SPLITP_JOIN >> rpt strip_tac
+  >> drule SPLITP_JOIN >> qpat_x_assum `SPLITP _ _ = _` mp_tac >> drule SPLITP_IMP
+  >> drule SPLITP_JOIN >> rpt strip_tac
   >> fs[cons_lcs_optimal_substructure,MULT_SUC,SUB_LEFT_ADD]
   >> rw[] >> rpt (qpat_x_assum `lcs (_::_) _ _` kall_tac)
-  >> drule0 lcs_max_length >> fs[]);
+  >> drule lcs_max_length >> fs[]
+QED
 
 Theorem diff_optimal:
-   !l r r'. lcs l r r' ==>
+   !l r r'. lcs l r r' ⇒
    LENGTH(FILTER is_patch_line (diff_alg r r')) = LENGTH r + LENGTH r' - (2*LENGTH l)
 Proof
   rpt strip_tac >> fs[diff_alg_def]
@@ -1226,7 +1291,7 @@ Proof
 QED
 
 Theorem REVERSE_DROP_REVERSE_TAKE:
-   !l n. n <= LENGTH l ==>
+   !l n. n <= LENGTH l ⇒
   REVERSE((DROP n (REVERSE l))) = TAKE (LENGTH l - n) l
 Proof
   Induct >> rpt strip_tac >> fs[DROP_def,DROP_APPEND] >> rw[]
@@ -1236,8 +1301,9 @@ Proof
 QED
 
 Theorem diff2_optimal:
-   !l r r'. lcs l r r' ==>
-   LENGTH(FILTER is_patch_line (diff_alg2 r r')) = LENGTH r + LENGTH r' - (2*LENGTH l)
+  ∀l r r'.
+  lcs l r r' ⇒
+  LENGTH(FILTER is_patch_line (diff_alg2 r r')) = LENGTH r + LENGTH r' - (2*LENGTH l)
 Proof
   rpt strip_tac >> fs[diff_alg2_thm]
   >> qmatch_goalsub_abbrev_tac `longest_common_suffix a1 a2`
@@ -1278,8 +1344,8 @@ Proof
           >> rw[SUB_RIGHT_ADD,SUB_LEFT_ADD] >> fs[] >> rfs[]
           >> Q.ISPECL_THEN [`l`,`r`] assume_tac LENGTH_suffix_prefix'
           >> fs[])
-  >> pop_assum (fn x => PURE_ONCE_REWRITE_TAC[x])
-  >> pop_assum (fn x => PURE_ONCE_REWRITE_TAC[x])
+  >> pop_assum $ PURE_ONCE_REWRITE_TAC o single
+  >> pop_assum $ PURE_ONCE_REWRITE_TAC o single
   >> fs[]
 QED
 
