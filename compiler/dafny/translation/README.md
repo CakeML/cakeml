@@ -3,6 +3,9 @@ Translation scripts for the Dafny compiler.
 [cakeml_and_dafny_astProgScript.sml](cakeml_and_dafny_astProgScript.sml):
 * Translates CakeML's and Dafny's AST types.
 
+[dafny_astProgScript.sml](dafny_astProgScript.sml):
+* Translates functions for Dafny's AST.
+
 [dafny_compilerProgScript.sml](dafny_compilerProgScript.sml):
 * Translates the Dafny to CakeML compiler.
 

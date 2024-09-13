@@ -18,8 +18,14 @@ Definitions to convert Dafny's AST into CakeML's AST.
 [result_monadScript.sml](result_monadScript.sml):
 * Definition of a specialized Either monad, where an error is a string.
 
+[semantics](semantics):
+Definition of Dafny's semantics.
+
 [sexp_to_dafnyScript.sml](sexp_to_dafnyScript.sml):
 Definition of functions to generate Dafny's abstract syntax tree.
+
+[tests](tests):
+Contains programs and scripts to test the compiler.
 
 [translation](translation):
 Translation scripts for the Dafny compiler.
