@@ -94,6 +94,12 @@ pancake/semantics
 pancake/parser
 pancake/proofs
 
+# dafny compiler
+compiler/dafny
+compiler/dafny/translation
+compiler/dafny/compilation
+compiler/dafny/semantics
+
 # examples and tests
 characteristic/examples
 tutorial/solutions
