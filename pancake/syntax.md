@@ -40,9 +40,9 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 | --- | --- | --- |
 | Word shape | `1` | `1` and `{1}` are distinct |
 | Repeated shape | `N` | Equivalent to struct of N words, ie. `{1,1,...,1}` where 1 appears N times |
-| Struct shape | eg. `{1,2,{1}}`| `1` and `{1}` are distinct |
-| Struct value | eg. `<1,<2,3>,<4>>` | |
-| Struct field access | `STRUCT.INDEX` | 0-indexed. `STRUCT` can be an expression |
+| Struct shape | eg. `{1,2,{1}}`| Can be nested. `1` and `{1}` are distinct |
+| Struct value | eg. `<1,<2,3>,<4>>` | Can be nested |
+| Struct field access | `STRUCT.INDEX` | 0-indexed. `STRUCT` can be an expression. `INDEX` must be a (non-negative) number |
 
 ## Specials
 
