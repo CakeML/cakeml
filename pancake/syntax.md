@@ -16,7 +16,7 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 | Feature | Syntax | Notes |
 | --- | --- | --- |
 | Variable declaration | `var VNAME = EXP;`, `var SHAPE VNAME = FUNC(ARGS);` | Note that declaration via function call needs shape annotation. `FUNC` can be an expression <!-- !TODO: remove former note after shape annotations added --> |
-| Assignment | `VNAME = EXP;`, `VNAM = FUNC(ARGS);` | Variable assignment only; no struct field assignment yet. `FUNC` can be an expression |
+| Assignment | `VNAME = EXP;`, `VNAME = FUNC(ARGS);` | Variable assignment only; no struct field assignment yet. `FUNC` can be an expression |
 | Memory store | `st ADDR, VAR;`, `st8 ADDR, VAR;` |  |
 | Shared memory store | `!stw ADDR, VAR;`, `!st8 ADDR, VAR;`, `!st32 ADDR, VAR;` | |
 | Shared memory load | `!ldw VAR, ADDR;`, `!ld8 VAR, ADDR;`, `!ld32 VAR, ADDR;` | Note that shared memory loads are statements, unlike local loads |
