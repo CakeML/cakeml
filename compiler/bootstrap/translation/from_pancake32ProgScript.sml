@@ -476,7 +476,7 @@ Definition conv_Exp_alt_def:
               OPTION_CHOICE (OPTION_CHOICE (conv_const t) (conv_var t))
                             (conv_Exp_alt t)
           | t::v4::v5 =>
-              FOLDR (λt. OPTION_MAP2 Field (conv_nat t))
+              FOLDL (λe t. OPTION_MAP2 Field (conv_nat t) e)
                     (OPTION_CHOICE (conv_var t) (conv_Exp_alt t)) (v4::v5)
         else if isNT nodeNT LabelNT then
           case args of
