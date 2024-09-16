@@ -16,7 +16,7 @@ val _ = set_grammar_ancestry [
 Type prop[local] =
     ``: (('a, 'ffi) state -> (mlstring |-> 'a v) list -> bool)``
 
-Type trip[local] = ``: (('a, 'ffi) prop) # 'a panLang$prog #
+Type trip[local] = ``: num # ('a, 'ffi) prop # 'a panLang$prog #
         ('a result option -> ('a, 'ffi) prop)``;
 
 Datatype:
@@ -28,7 +28,6 @@ Datatype:
                              (ffiname # word8 list # word8 list) -> bool
     ; termination       :    bool
     ; triples           :    (('a, 'ffi) trip) list
-    ; future_triples    :    (('a, 'ffi) trip) list
   |>
 End
 
@@ -50,12 +49,6 @@ Proof
 QED
 
 Overload local_word = ``\locs nm. OPTION_BIND (FLOOKUP locs nm) val_word_of``
-
-Definition tick_context_def:
-  tick_context context = if NULL context.future_triples then context
-    else (context with <| triples := context.future_triples ++ context.triples;
-        future_triples := [] |>)
-End
 
 Definition eval_logic_def:
   eval_logic G P exp Q = (! s ls. P s ls ==> ?x. eval s exp = SOME x /\
@@ -126,14 +119,13 @@ Inductive hoare_logic:
 
 [hoare_logic_use_context_triple:]
   (! P p Q.
-    MEM (P, p, Q) G.triples ==>
+    MEM (0n, P, p, Q) G.triples ==>
     hoare_logic G P p Q
   )
 
-[hoare_logic_add_context_triple:]
+[hoare_logic_triple_induction:]
   (! P p Q.
-    hoare_logic (G with future_triples :=
-        (P, p, Q) :: G.future_triples) P p Q ==>
+    hoare_logic (G with triples := (1, P, p, Q) :: G.triples) P p Q ==>
     hoare_logic G P p Q
   )
 
@@ -231,7 +223,7 @@ Inductive hoare_logic:
 [hoare_logic_If:]
   (
     ! P Q1 Q2 R.
-    eval_logic G P cond_exp (\c s ls.  val_word_of c <> NONE /\
+    eval_logic G P cond_exp (\c s ls. val_word_of c <> NONE /\
                 if c <> ValWord 0w then Q1 s ls else Q2 s ls) /\
     hoare_logic G Q1 p1 R /\
     hoare_logic G Q2 p2 R
@@ -248,7 +240,7 @@ Inductive hoare_logic:
         if v = ValWord 0w then R NONE s ls
         else if s.clock = 0 then R (SOME TimeOut) (empty_locals s) ls
         else Q (dec_clock s) ls) /\
-    hoare_logic (tick_context G) Q p
+    hoare_logic G Q p
         (\r s ls. if is_continuing_result r then Inv s ls
             else R (if r = SOME Break then NONE else r) s ls)
     ==>
@@ -263,7 +255,8 @@ Inductive hoare_logic:
                 (if s.clock = 0 then R (SOME TimeOut) (empty_locals s) ls
                     else Q (dec_clock s with locals := (FEMPTY |++ ZIP (MAP FST vshs, vs))) ls)
             | _ => F) /\
-    hoare_logic (tick_context G) Q prog
+    hoare_logic (G with triples := MAP (PRE ## I) G.triples)
+        Q prog
         (\res s ls. R res (empty_locals s) ls /\
             (is_fcall_result res))
     ==>
@@ -441,42 +434,123 @@ Overload ffi_g_imp[local] = ``\G s s'.
     events_meet_guarantee G.ffi_guarantee s'.ffi.io_events
     ``;
 
-Overload sound_upto_n[local] = ``\clock_pred G P p Q.
+Definition hoare_evaluate_def:
+  hoare_evaluate G P p Q =
   (! s ls res s'. evaluate (p, s) = (res, s') /\ P s ls /\
-    ffi_g_ok G s.ffi /\ clock_pred s.clock
-    ==>
-    res <> SOME Error /\ Q res s' ls /\ ffi_g_ok G s'.ffi /\ ffi_g_imp G s s'
-  )``
-
-Theorem hoare_logic_sound_ind:
-
-  ! G P p Q.
-  hoare_logic G P p Q ==>
-  !n.
-  (! P p Q. MEM (P, p, Q) s.triples ==> sound_upto_n (\clock. clock <= n) G P p Q) /\
-  (! P p Q. MEM (P, p, Q) s.future_triples ==> sound_upto_n (\clock. clock < n) G P p Q) /\
-  (! P p Q s ls res s'. MEM (P, p, Q) s.triples /\
-        s.clock <= n /\ evaluate (p, s) = (res, s') /\
-        P s ls /\ ffi_g_ok G s.ffi
-        ==>
-  sound_upto_n (\clock. clock = n)
-
-  (! n s ls res s'. evaluate (p, s) = (res, s') /\ P s ls /\
-    ffi_g_ok G s.ffi /\ s.clock <= n /\
+    ffi_g_ok G s.ffi
     ==>
     res <> SOME Error /\ Q res s' ls /\ ffi_g_ok G s'.ffi /\ ffi_g_imp G s s'
   )
+End
 
+Triviality hoare_evaluate_intro = List.last (RES_CANON (hoare_evaluate_def))
+Triviality hoare_evaluate_dest = MATCH_MP EQ_IMPLIES (SPEC_ALL hoare_evaluate_def)
+Triviality hoare_evaluate_dest_conj = Q.GEN `P` hoare_evaluate_dest
+  |> Q.SPEC `\s ls. P1 s ls /\ P2 s ls` |> SIMP_RULE std_ss [GSYM CONJ_ASSOC]
+
+Triviality hoare_evaluate_triples:
+  hoare_evaluate (G with triples := t) = hoare_evaluate G
+Proof
+  simp [FUN_EQ_THM, hoare_evaluate_def]
+QED
+
+Triviality hoare_evaluate_weaken_pre:
+  hoare_evaluate G P p Q /\
+  (!s ls. P' s ls ==> P s ls) ==>
+  hoare_evaluate G P' p Q
+Proof
+  simp [hoare_evaluate_def]
+  \\ metis_tac []
+QED
+
+Triviality hoare_evaluate_name_pre:
+  (!s ls. P s ls ==> hoare_evaluate G (\s2 ls2. s2 = s /\ ls2 = ls) p Q) ==>
+  hoare_evaluate G P p Q
+Proof
+  simp [hoare_evaluate_def]
+  \\ metis_tac []
+QED
+
+Triviality EVERY_hoare_evaluate_clock_mono:
+  (?k. EVERY (\(n, P, p, Q). hoare_evaluate G (\s2 ls. P s ls /\ s2.clock + n <= k) p Q) G.triples /\
+      m <= k) ==>
+  EVERY (\(n, P, p, Q). hoare_evaluate G (\s2 ls. P s ls /\ s2.clock + n <= m) p Q) G.triples
+Proof
+  rw []
+  \\ dxrule_at_then Any irule MONO_EVERY
+  \\ simp [FORALL_PROD]
+  \\ rw []
+  \\ irule hoare_evaluate_intro
+  \\ rw []
+  \\ first_x_assum (drule_then drule o SIMP_RULE std_ss [hoare_evaluate_def])
+  \\ simp []
+QED
+
+val EVERY_mono_he_tac =
+  dxrule_at_then Any irule MONO_EVERY
+  \\ rw [] \\ fs []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ dxrule_then irule hoare_evaluate_weaken_pre
+  \\ fs []
+
+val he_dest_simp_tac =
+  drule_then drule hoare_evaluate_dest \\ simp []
+  \\ disch_then drule \\ simp []
+
+
+Triviality hoare_logic_sound_ind:
+  ! G P p Q.
+  hoare_logic G P p Q ==>
+  hoare_evaluate G (\s ls. P s ls /\
+        EVERY (\(n, P, p, Q). hoare_evaluate G (\s2 ls. P s2 ls /\ s2.clock + n <= s.clock) p Q)
+            G.triples)
+    p Q
 Proof
 
   ho_match_mp_tac hoare_logic_ind
-  \\ rpt conj_tac
-  \\ simp [logic_imp_def]
+  \\ rw []
+  \\ irule hoare_evaluate_intro
   \\ rpt (gen_tac ORELSE disch_tac)
+  \\ fs []
 
-  >~ [`MEM _ s.triples`]
+  >~ [`MEM (0, _) _.triples`]
   >- (
-    
+    dxrule_then drule (hd (RES_CANON EVERY_MEM))
+    \\ simp []
+    \\ disch_tac
+    \\ he_dest_simp_tac
+  )
+
+  >~ [`_ with triples := (_ :: _)`]
+  >- (
+    fs [hoare_evaluate_triples]
+    \\ irule hoare_evaluate_dest
+    \\ qpat_assum `evaluate_ = _` (irule_at Any)
+    \\ qsuff_tac `?n. s.clock = n` \\ rpt strip_tac \\ fs []
+    \\ qexists_tac `\s ls. P s ls /\ s.clock <= n`
+    \\ simp []
+    \\ qpat_x_assum `EVERY _ _` mp_tac
+    \\ qpat_x_assum `_.clock = _` kall_tac
+    \\ measureInduct_on `I n`
+    \\ rw []
+    \\ dxrule_then irule hoare_evaluate_weaken_pre
+    \\ simp []
+    \\ rpt (gen_tac ORELSE disch_tac)
+    \\ Cases_on `n = 0`
+    >- (
+      fs []
+      \\ simp [hoare_evaluate_def]
+    )
+    \\ rw []
+    >- (
+      first_x_assum (qspec_then `n - 1` mp_tac)
+      \\ simp []
+      \\ impl_tac \\ TRY EVERY_mono_he_tac
+      \\ rw []
+      \\ dxrule_then irule hoare_evaluate_weaken_pre
+      \\ simp []
+    )
+    \\ EVERY_mono_he_tac
   )
 
   >~ [`Dec _ _ _`]
@@ -485,10 +559,9 @@ Proof
     \\ drule_then (drule_then assume_tac) eval_logic_elim
     \\ gs []
     \\ rpt (pairarg_tac \\ fs [])
-    \\ fs [FLOOKUP_UPDATE, res_var_def]
-    \\ first_x_assum (drule_then drule)
+    \\ fs [res_var_def]
+    \\ he_dest_simp_tac
     \\ rw []
-    \\ fs [FLOOKUP_UPDATE, FLOOKUP_pan_res_var_thm]
   )
 
   >~ [`Assign _ _`]
@@ -522,7 +595,6 @@ Proof
     \\ gvs [CaseEq "bool", empty_locals_def, dec_clock_def]
   )
 
-
   >~ [`Store _ _`]
   >- (
     fs [evaluate_def]
@@ -542,23 +614,27 @@ Proof
 
   >~ [`Seq _ _`]
   >- (
-    fs [evaluate_def]
-    \\ pairarg_tac \\ fs []
-    \\ first_x_assum (drule_then (drule_then assume_tac))
+    fs [evaluate_def, UNCURRY_eq_pair]
+    \\ he_dest_simp_tac
+    \\ disch_tac
     \\ fs [CaseEq "bool"] \\ gvs []
-    \\ metis_tac []
+    \\ he_dest_simp_tac
+    \\ impl_tac \\ fs []
+    \\ EVERY_mono_he_tac
+    \\ imp_res_tac evaluate_clock
+    \\ simp []
   )
 
   >~ [`If _ _ _`]
   >- (
     fs [evaluate_def]
     \\ drule_then (drule_then assume_tac) eval_logic_elim
-    \\ fs [FLOOKUP_UPDATE]
     \\ gs [CaseEq "option", CaseEq "v", CaseEq "word_lab"]
     \\ imp_res_tac (Q.prove (`(if P then x else y) ==> (P \/ ~ P)`, metis_tac []))
     \\ fs []
-    \\ first_x_assum (drule_then irule)
-    \\ fs []
+    \\ drule_then drule hoare_evaluate_dest \\ simp []
+    \\ disch_then drule
+    \\ simp []
   )
 
   >~ [`annot_While _ _ _`]
@@ -566,40 +642,45 @@ Proof
     fs [annot_While_def]
     \\ dxrule evaluate_While_inv_final
     \\ disch_then (qspec_then `\s'. P' s' ls /\
-        ffi_g_ok G s'.ffi /\ ffi_g_imp G s s'` mp_tac)
+        ffi_g_ok G s'.ffi /\ ffi_g_imp G s s' /\ s'.clock <= s.clock` mp_tac)
     \\ impl_tac \\ fs []
     >- (
+      fs [logic_imp_def]
       (* prove invariant preserved *)
-      rpt (gen_tac ORELSE disch_tac)
+      \\ rpt (gen_tac ORELSE disch_tac)
       \\ fs []
       \\ dxrule_then drule eval_logic_elim
       \\ disch_tac \\ fs []
       \\ imp_res_tac val_word_of_neq_NONE
       \\ fs [GSYM AND_IMP_INTRO]
       \\ rpt (gen_tac ORELSE disch_tac)
-      \\ gs []
-      \\ first_x_assum (drule_then drule)
-      \\ gvs [dec_clock_def]
+      \\ qpat_x_assum `_ \/ _` mp_tac
+      \\ fs []
+      \\ he_dest_simp_tac
+      \\ imp_res_tac evaluate_clock
+      \\ fs [dec_clock_def]
+      \\ impl_tac \\ fs [] \\ TRY EVERY_mono_he_tac
+      \\ rw [] \\ fs []
     )
-    \\ simp [PULL_EXISTS]
-    \\ gen_tac
-    \\ Cases_on `P' fs ls` \\ fs []
+    \\ simp [PULL_EXISTS, GSYM AND_IMP_INTRO]
+    \\ rpt (gen_tac ORELSE disch_tac)
+    \\ qpat_x_assum `_ \/ _` mp_tac
     \\ dxrule_then drule eval_logic_elim
     \\ simp [FLOOKUP_UPDATE, PULL_EXISTS]
     \\ rpt gen_tac
-    \\ ONCE_REWRITE_TAC [evaluate_def]
+    \\ fs [Once evaluate_def]
     \\ rpt disch_tac
     \\ gs [CaseEq "v", CaseEq "word_lab", CaseEq "bool", UNCURRY_eq_pair] \\ gvs [empty_locals_def]
-    \\ first_x_assum (drule_then drule)
+    \\ he_dest_simp_tac
     \\ fs [dec_clock_def]
+    \\ impl_tac \\ TRY EVERY_mono_he_tac
     \\ gs [CaseEq "option", CaseEq "result"] \\ gvs []
   )
 
   >~ [`evaluate (Call (SOME (ret, NONE)) (Label nm) args, s)`]
   >- (
-    fs []
-    \\ Cases_on `evaluate (TailCall (Label nm) args, s)`
-    \\ first_x_assum (drule_then drule)
+    Cases_on `evaluate (TailCall (Label nm) args, s)`
+    \\ he_dest_simp_tac
     \\ fs [evaluate_def]
     \\ gs [CaseEq "option", CaseEq "v", CaseEq "word_lab", CaseEq "prod", CaseEq "bool"]
     \\ gs [CaseEq "result", CaseEq "option"] \\ gvs []
@@ -611,9 +692,8 @@ Proof
 
   >~ [`evaluate (Call (SOME (ret, SOME (exc_id, exc_var, hprog))) (Label nm) args, s)`]
   >- (
-    fs []
-    \\ Cases_on `evaluate (TailCall (Label nm) args, s)`
-    \\ first_x_assum (drule_then drule)
+    Cases_on `evaluate (TailCall (Label nm) args, s)`
+    \\ he_dest_simp_tac
     \\ fs [evaluate_def]
     \\ gs [CaseEq "option", CaseEq "v", CaseEq "word_lab", CaseEq "prod", CaseEq "bool"]
     \\ gvs [CaseEq "result", CaseEq "option", empty_locals_def]
@@ -631,22 +711,24 @@ Proof
       \\ TOP_CASE_TAC \\ fs [is_valid_value_def]
       \\ disch_tac \\ gs [CaseEq "bool"]
       \\ fs [set_var_def]
-      \\ first_x_assum (drule_then drule)
-      \\ simp []
+      \\ he_dest_simp_tac
+      \\ impl_tac \\ fs []
+      \\ imp_res_tac evaluate_clock
+      \\ EVERY_mono_he_tac
     )
   )
 
   >~ [`TailCall _ _`]
   >- (
-    fs []
-    \\ dxrule_then drule eval_logic_elim
+    dxrule_then drule eval_logic_elim
     \\ simp [eval_def, Q.ISPEC `eval _` ETA_THM]
     \\ fs [evaluate_def, eval_def, CaseEq "option", lookup_code_def] \\ gvs []
-    \\ simp [FLOOKUP_UPDATE]
     \\ fs [CaseEq "bool", CaseEq "prod"] \\ gvs [empty_locals_def]
     \\ disch_tac
-    \\ first_x_assum (drule_then drule)
+    \\ he_dest_simp_tac
     \\ fs [dec_clock_def]
+    \\ impl_tac
+    \\ fs [EVERY_MAP, hoare_evaluate_triples] \\ TRY EVERY_mono_he_tac
     \\ fs [CaseEq "result", CaseEq "option"] \\ gvs []
   )
 
@@ -663,9 +745,7 @@ Proof
     \\ Cases_on `explode f = ""` \\ fs []
     >- (
       gvs []
-      \\ disch_tac
-      \\ qsuff_tac `!s t ls. Q NONE s ls /\ s = t ==> Q NONE t ls`
-      \\ TRY (disch_then (drule_then irule))
+      \\ match_mp_tac (Q.prove (`!s t ls. s = t ==> Q NONE s ls ==> Q NONE t ls`, metis_tac []))
       \\ simp [panSemTheory.state_component_equality]
     )
     \\ strip_tac
@@ -677,10 +757,26 @@ Proof
     \\ simp [events_meet_guarantee_snoc, MAP_ZIP, empty_locals_def]
   )
 
-  \\ gs [evaluate_def]
-  \\ metis_tac []
+  \\ gs [evaluate_def, logic_imp_def]
+  \\ TRY (drule_then irule hoare_evaluate_dest)
+  \\ TRY he_dest_simp_tac
+  \\ simp []
 
 QED
+
+Theorem hoare_logic_sound:
+  hoare_logic G P p Q /\
+  EVERY (\(n, P, p, Q). hoare_evaluate G P p Q) G.triples ==>
+  hoare_evaluate G P p Q
+Proof
+  rw []
+  \\ drule hoare_logic_sound_ind
+  \\ rw []
+  \\ dxrule_then irule hoare_evaluate_weaken_pre
+  \\ rw []
+  \\ EVERY_mono_he_tac
+QED
+
 
 
 
@@ -780,15 +876,15 @@ Theorem hoare_logic_TailCall_code:
   ! code.
     FLOOKUP code nm = SOME (vshs, prog) /\
     ALL_DISTINCT (MAP FST vshs) ==>
-    eval_logic G P (Struct args)
-        (\vs s ls. case vs of
+    eval_logic G P (Struct args) (\vs s ls. case vs of
             | Struct vs => LIST_REL (\vsh x. SND vsh = shape_of x) vshs vs /\
                 (if s.clock = 0 then R (SOME TimeOut) (empty_locals s) ls
                     else Q (dec_clock s with locals := (FEMPTY |++ ZIP (MAP FST vshs, vs))) ls)
-            | _ => F)
-    /\
-    hoare_logic G Q prog (\res s ls. R res (empty_locals s) ls /\
-        is_fcall_result res)
+            | _ => F) /\
+    hoare_logic (G with triples := MAP (PRE ## I) G.triples)
+        Q prog
+        (\res s ls. R res (empty_locals s) ls /\
+            (is_fcall_result res))
     ==>
     hoare_logic G (\s ls. code SUBMAP s.code /\ P s ls)
         (TailCall (Label nm) args) R
