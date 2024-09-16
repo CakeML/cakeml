@@ -46,9 +46,70 @@ Theorem set_eq_inv:
 Proof
   rpt strip_tac>>
   ‘∀c. c<cs.next ⇒ lookup c cs.from_eq ≠ SOME t’
-    by (fs[CPstate_inv_def]>>metis_tac[NOT_NONE_SOME])
-
-  >>cheat
+    by (fs[CPstate_inv_def]>>metis_tac[NOT_NONE_SOME])>>
+  Cases_on‘is_alloc_var t ∧ is_alloc_var s’THENL
+  [
+    namedCases_on‘lookup s cs.to_eq’["","c_s"]THENL
+    [
+      (* lookup s cs.to_eq = NONE *)
+      last_x_assum mp_tac>>
+      rw[CPstate_inv_def,set_eq_def]THENL
+      [
+        (* inv. 1 *)
+        qpat_x_assum‘_=SOME c’mp_tac>>
+        rewrite_tac[lookup_insert]>>
+        (Cases_on‘v=t’>-rw[])>>
+        (Cases_on‘v=s’>-rw[])>>
+        rw[]>>
+        ‘c<cs.next’ by metis_tac[]>>
+        decide_tac,
+        (* inv. 2 *)
+        rw[lookup_insert]>>
+        qpat_x_assum‘_=SOME v’mp_tac>>
+        rw[lookup_insert]>>
+        metis_tac[]>>
+        ‘c<cs.next’ by decide_tac>>
+        metis_tac[NOT_NONE_SOME],
+        (* inv. 3 *)
+        rw[lookup_insert]>-(
+          qpat_x_assum‘_=SOME t’mp_tac>>
+          rw[lookup_insert]>>
+          qpat_x_assum‘_=SOME s’mp_tac>>
+          rw[lookup_insert]>>
+          ‘c<cs.next’ by decide_tac>>
+          metis_tac[NOT_NONE_SOME]
+          )>>
+        qpat_x_assum‘_=SOME v’mp_tac>>
+        (Cases_on‘c=cs.next’>-rw[lookup_insert])>>
+        ‘c<cs.next’ by decide_tac>>rw[lookup_insert]>>
+        metis_tac[NOT_NONE_SOME],
+        (* inv. 4 *)
+        ‘c<cs.next’ by decide_tac>>
+        rw[lookup_insert]
+      ],
+      (* lookup s cs.to_eq = SOME c_s *)
+      last_x_assum mp_tac>>
+      rw[CPstate_inv_def,set_eq_def]THENL
+      [
+        (* inv. 1 *)
+        qpat_x_assum‘_=SOME c’mp_tac>>
+        rewrite_tac[lookup_insert]>>
+        Cases_on‘v=t’>>Cases_on‘v=s’>>metis_tac[NOT_NONE_SOME],
+        (* inv. 2 *)
+        Cases_on‘c=c_s’>>asm_rewrite_tac[lookup_insert]>-rw[]>>
+        metis_tac[],
+        (* inv. 3 *)
+        Cases_on‘v=t’>>asm_rewrite_tac[lookup_insert]>-metis_tac[lookup_insert,NOT_NONE_SOME]>>
+        ‘lookup c cs.from_eq = SOME v’by(
+          qpat_x_assum‘_=SOME v’mp_tac>>
+          Cases_on‘c=c_s’>>rw[lookup_insert]>>metis_tac[NOT_NONE_SOME])>>
+        rw[lookup_insert],
+        (* inv. 4 *)
+        rw[lookup_insert]
+      ]
+    ],
+    rw[set_eq_def]
+  ]
 QED
 
 (* TODO: insert an induction over copy_prop_prog *)
