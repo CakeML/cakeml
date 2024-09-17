@@ -129,6 +129,15 @@ Inductive hoare_logic:
     hoare_logic G P p Q
   )
 
+[hoare_logic_equiv:]
+  (! P Q R.
+    (!s r s1. P s /\ evaluate (p, s) = (r, s1) ==>
+        ?s2. evaluate (p2, s) = (r, s2) /\
+        (r <> SOME Error ==> s2.ffi = s1.ffi /\ (!ls. R r s2 ls ==> R r s1 ls))) /\
+    hoare_logic G Q p2 R ==>
+    hoare_logic G (\s ls. P s /\ Q s ls) p R
+  )
+
 [hoare_logic_Skip:]
   ( !P.
     hoare_logic G (P NONE) Skip P
@@ -264,7 +273,19 @@ Inductive hoare_logic:
         (TailCall (Label nm) args) R
   )
 
-[hoare_logic_GenCall:]
+[hoare_logic_TailCall_normalise:]
+  ( ! P Q nm arg_nms args.
+    ALL_DISTINCT arg_nms /\
+    LENGTH arg_nms = LENGTH args /\
+    eval_logic G P (Struct args) (\v s ls. case v of
+            | Struct vs => Q (s with locals := s.locals |++ ZIP (arg_nms, vs)) (s.locals :: ls)
+            | _ => F) /\
+    hoare_logic G Q (TailCall (Label nm) (MAP Var arg_nms)) (\res s ls. R res s (DROP 1 ls))
+    ==>
+    hoare_logic G P (TailCall (Label nm) args) R
+  )
+
+[hoare_logic_GenCall_normalise:]
   (
     hoare_logic G P (TailCall (Label nm) args)
         (\res s ls. case result_return_val res of
@@ -281,7 +302,7 @@ Inductive hoare_logic:
         (Call (SOME (ret, NONE)) (Label nm) args) R
   )
 
-[hoare_logic_GenCall_Handler:]
+[hoare_logic_GenCall_Handler_normalise:]
   ( !Q.
     hoare_logic G P (TailCall (Label nm) args)
         (\res s ls. case (result_return_val res, result_exception_val eid res) of
@@ -553,6 +574,15 @@ Proof
     \\ EVERY_mono_he_tac
   )
 
+  >~ [`_ /\ evaluate _ = _ ==> _`]
+  >- (
+    first_x_assum (drule_then drule)
+    \\ disch_tac \\ fs []
+    \\ he_dest_simp_tac
+    \\ disch_tac \\ fs []
+    \\ gs []
+  )
+
   >~ [`Dec _ _ _`]
   >- (
     fs [evaluate_def]
@@ -718,6 +748,29 @@ Proof
     )
   )
 
+  >~ [`TailCall (Label nm) (MAP Var arg_nms)`]
+  >- (
+    dxrule_then drule eval_logic_elim
+    \\ simp [PULL_EXISTS]
+    \\ gen_tac
+    \\ simp [eval_def, Q.ISPEC `eval _` ETA_THM]
+    \\ every_case_tac \\ fs []
+    \\ disch_tac \\ fs []
+    \\ simp [eval_def]
+    \\ dxrule hoare_evaluate_dest
+    \\ simp []
+    \\ disch_then (drule_at (Pat `P' _ _`))
+    \\ fs [evaluate_def, eval_def, OPT_MMAP_MAP_o, o_DEF]
+    \\ imp_res_tac pan_commonPropsTheory.opt_mmap_length_eq
+    \\ simp [Q.ISPEC `FLOOKUP _` ETA_THM,
+        pan_commonPropsTheory.opt_mmap_some_eq_zip_flookup]
+    \\ fs [CaseEq "option", CaseEq "v", CaseEq "word_lab"]
+    \\ gvs []
+    \\ gs [lookup_code_def]
+    \\ fs [CaseEq "prod", CaseEq "bool", empty_locals_def, CaseEq "option"]
+    \\ gvs [dec_clock_def]
+  )
+
   >~ [`TailCall _ _`]
   >- (
     dxrule_then drule eval_logic_elim
@@ -869,8 +922,8 @@ Theorem hoare_logic_rev_rules = LIST_CONJ (map hoare_logic_rule_to_rev_form
     hoare_logic_Return, hoare_logic_Raise, hoare_logic_Tick,
     hoare_logic_Store, hoare_logic_StoreByte, hoare_logic_Dec,
     hoare_logic_Assign, hoare_logic_Seq, hoare_logic_If,
-    hoare_logic_annot_While, hoare_logic_GenCall,
-    hoare_logic_GenCall_Handler, hoare_logic_ExtCall])
+    hoare_logic_annot_While, hoare_logic_GenCall_normalise,
+    hoare_logic_GenCall_Handler_normalise, hoare_logic_ExtCall])
 
 Theorem hoare_logic_TailCall_code:
   ! code.
@@ -901,6 +954,30 @@ Theorem hoare_logic_TailCall_rev_code = hoare_logic_rule_to_rev_form
         (UNDISCH (SPEC_ALL hoare_logic_TailCall_code))
     |> DISCH_ALL
     |> Q.GEN `code`
+
+Theorem hoare_logic_TailCall_norm_args_code:
+  ! code.
+  FLOOKUP code nm = SOME (vshs, prog) /\
+  ALL_DISTINCT (MAP FST vshs) /\
+  LENGTH vshs = LENGTH args ==>
+  eval_logic G P (Struct args) (\v s ls. case v of
+        | Struct vs => Q (s with locals := s.locals |++ ZIP (MAP FST vshs, vs)) (s.locals :: ls)
+        | _ => F) /\
+  hoare_logic G Q (TailCall (Label nm) (MAP Var (MAP FST vshs))) (\res s ls. R res s (DROP 1 ls))
+  ==>
+  hoare_logic G P (TailCall (Label nm) args) R
+Proof
+  rw []
+  \\ irule hoare_logic_TailCall_normalise
+  \\ rpt (first_assum (irule_at Any))
+  \\ simp []
+QED
+
+Theorem hoare_logic_TailCall_norm_args_rev_code = hoare_logic_rule_to_rev_form
+        (UNDISCH (SPEC_ALL hoare_logic_TailCall_norm_args_code))
+    |> DISCH_ALL
+    |> Q.GEN `code`
+
 
 val _ = export_theory();
 
