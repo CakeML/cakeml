@@ -92,6 +92,16 @@ Definition compile_alt_def:
     (c, p) (* to add names later *)
 End
 
+
+Definition compile_alt1_def:
+  compile_alt1 source_conf p =
+ (* skip source to source for now *)               
+  let (source_conf', compiled_p_flat) = source_to_flat_compile_alt source_conf p in
+  let compiled_p_clos = flat_to_clos_compile_alt compiled_p_flat in
+    (source_conf', compiled_p_clos)
+End
+        
+      
 (******************************************************************************)
 (*                                                                            *)
 (* Defining icompile                                                          *)
@@ -238,8 +248,68 @@ Definition icompile_clos_to_bvl_def:
     (clos_iconf, clos_iconf1, p)
 End
 
+Definition init_icompile_source_to_flat_def:
+  init_icompile_source_to_flat source_conf =
+  let next = source_conf.next with <| vidx := source_conf.next.vidx + 1 |> in
+  let env_gens = <| next := 0; generation := source_conf.envs.next; envs := LN |> in
+  let source_iconf = <| n := 1n;
+                        next := next;
+                        env := source_conf.mod_env;
+                        env_gens := env_gens;
+                        pattern_cfg := source_conf.pattern_cfg |> in
+  let flat_stub = flat_pattern$compile_dec source_conf.pattern_cfg source_to_flat$alloc_env_ref in                        
+  (source_iconf, [flat_stub])
+
+End
+
+Definition end_icompile_source_to_flat_def:
+  end_icompile_source_to_flat (source_iconf: source_iconfig) (source_conf: source_to_flat$config) =
+  let envs =
+      <| next := source_conf.envs.next + 1;
+         env_gens :=
+         insert source_conf.envs.next
+                source_iconf.env_gens.envs
+                source_conf.envs.env_gens;
+      |> in
+    source_conf with
+                <| next := source_iconf.next;
+                   envs := envs;
+                   mod_env := source_iconf.env |>
+End
+                 
+Definition init_icompile_flat_to_clos_def:
+  init_icompile_flat_to_clos flat_stub =
+  let clos_stub = (clos_interp$compile_init T) :: (flat_to_clos$compile_decs flat_stub) in
+  clos_stub  
+End
+
+Definition end_icompile_flat_to_clos_def:
+  end_icompile_flat_to_clos = ()
+End
+                                
+Definition init_icompile_alt_def:
+  init_icompile_alt source_conf =
+  let (source_iconf, flat_stub) = init_icompile_source_to_flat source_conf in
+  let clos_stub = init_icompile_flat_to_clos flat_stub in
+  (source_iconf, clos_stub)      
+End
+        
+Definition end_icompile_alt_def:
+  end_icompile_alt source_iconf source_conf =
+  end_icompile_source_to_flat source_iconf source_conf
+End
+        
+
+Definition icompile_alt_def:
+  icompile_alt source_iconf p =
+  let (source_iconf', icompiled_p_flat) = icompile_source_to_flat source_iconf p in
+  let icompiled_p_clos = icompile_flat_to_clos icompiled_p_flat in
+    (source_iconf', icompiled_p_clos)
+End
 
 
+        
+        
 Definition init_icompile_def:
   init_icompile (source_conf : source_to_flat$config) (clos_conf : clos_to_bvl$config) =
   let next = source_conf.next with <| vidx := source_conf.next.vidx + 1 |> in
@@ -810,8 +880,124 @@ Definition init_config_rel_def:
   source_conf = source_to_flat$empty_config ∧
   clos_conf = clos_to_bvl$default_config)
 End
+
+Definition init_config_rel_s2f_def:
+  init_config_rel c source_conf =
+  (c.source_conf = source_conf
+  ∧
+  source_conf = source_to_flat$empty_config)
+End
+
+
+Definition config_prog_rel_s2f_def:
+  config_prog_rel_s2f source_conf_after_ic icompiled_p source_conf_after_c compiled_p ⇔
+    source_conf_after_ic = source_conf_after_c ∧
+    icompiled_p = compiled_p
+End
+
+Definition config_prog_rel_alt_def:
+  config_prog_rel_alt source_conf_after_ic icompiled_p_finalised source_conf_after_c compiled_p ⇔
+    source_conf_after_ic = source_conf_after_c
+    ∧
+    icompiled_p_finalised = compiled_p
+End
         
-                        
+                      
+
+Theorem init_icompile_icompile_end_icompile_s2f:
+  init_icompile_source_to_flat source_conf = (source_iconf, flat_stub)
+  ∧
+  icompile_source_to_flat source_iconf p = (source_iconf', icompiled_p)
+  ∧
+  end_icompile_source_to_flat source_iconf' source_conf = source_conf_after_ic
+  ∧
+  source_to_flat_compile_alt source_conf p = (source_conf_after_c, compiled_p)
+  ∧
+  source_conf = source_to_flat$empty_config
+  ⇒
+  config_prog_rel_s2f source_conf_after_ic (flat_stub ++ icompiled_p)
+                      source_conf_after_c compiled_p
+Proof
+  rw[] >>
+  fs[init_icompile_source_to_flat_def,
+     icompile_source_to_flat_def,
+     source_to_flat_compile_alt_def,
+     source_to_flat_compile_prog_alt_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  fs[source_to_flatTheory.empty_config_def] >>
+  rw[end_icompile_source_to_flat_def] >>
+  rw[extend_env_empty_env] >>
+  gvs[source_to_flatTheory.compile_decs_def] >>
+  rw[config_prog_rel_s2f_def]
+QED
+
+Theorem init_icompile_icompile_end_icompile_f2c:
+  (init_icompile_flat_to_clos flat_stub = clos_stub)
+  ∧
+  (icompile_flat_to_clos flat_p = icompiled_p)
+  ∧
+  (flat_to_clos_compile_alt (flat_stub ++ flat_p) = compiled_p)
+  ⇒
+  clos_stub ++ icompiled_p = compiled_p
+Proof
+  rw[init_icompile_flat_to_clos_def,
+     icompile_flat_to_clos_def,
+     flat_to_clos_compile_alt_def] >>
+  once_rewrite_tac[flat_to_clos_compile_decs_cons] >>
+  qspecl_then [‘flat_p’, ‘flat_stub’] mp_tac (GEN_ALL flat_to_clos_compile_decs_and_append_commute) >>
+  rw[]
+QED
+        
+Theorem init_icompile_icompile_end_icompile_s2c:
+  init_icompile_source_to_flat source_conf = (source_iconf, flat_stub)
+  ∧
+  init_icompile_flat_to_clos flat_stub = clos_stub
+  ∧
+  icompile_source_to_flat source_iconf p = (source_iconf', icompiled_p_flat)
+  ∧
+  icompile_flat_to_clos icompiled_p_flat = icompiled_p_clos
+  ∧
+  end_icompile_source_to_flat source_iconf' source_conf = source_conf_after_ic
+  ∧
+  source_to_flat_compile_alt source_conf p = (source_conf_after_c, compiled_p_flat)
+  ∧
+  flat_to_clos_compile_alt compiled_p_flat = compiled_p_clos
+  ∧
+  source_conf = source_to_flat$empty_config
+  ⇒
+  config_prog_rel_s2f source_conf_after_ic (clos_stub ++ icompiled_p_clos)
+                      source_conf_after_c compiled_p_clos
+Proof
+  strip_tac >>
+  drule_all init_icompile_icompile_end_icompile_s2f >>
+  simp[config_prog_rel_s2f_def] >>
+  strip_tac >> pop_assum (fn f => assume_tac (GSYM f)) >>
+  fs[] >>
+  drule_all init_icompile_icompile_end_icompile_f2c >>
+  rw[] 
+QED
+
+Theorem init_icompile_icompile_end_icompile_alt: 
+  init_icompile_alt source_conf = (source_iconf, stub_p)
+  ∧
+  icompile_alt source_iconf p = (source_iconf', icompiled_p)
+  ∧
+  end_icompile_alt source_iconf' source_conf = (source_conf_after_ic)
+  ∧
+  compile_alt1 source_conf p = (source_conf_after_c, compiled_p)
+  ∧
+  source_conf = source_to_flat$empty_config
+  ⇒
+  config_prog_rel_alt source_conf_after_ic (stub_p ++ icompiled_p)
+                      source_conf_after_c  compiled_p
+Proof
+  once_rewrite_tac[init_icompile_alt_def, icompile_alt_def, end_icompile_alt_def, compile_alt1_def] >>
+  simp[] >> rpt (pairarg_tac >> gvs[]) >> strip_tac >> 
+  pop_assum mp_tac >> fs[] >> strip_tac >>
+  drule_all init_icompile_icompile_end_icompile_s2c >>
+  once_rewrite_tac[config_prog_rel_s2f_def, config_prog_rel_alt_def] >>
+  rw[]
+QED        
 
 Theorem init_icompile_icompile_end_icompile:
   ∀prog.
@@ -820,7 +1006,7 @@ Theorem init_icompile_icompile_end_icompile:
   icompile source_iconf clos_iconf clos_iconf1 prog = (source_iconf', clos_iconf', clos_iconf1', icompiled_prog)
   ∧
   end_icompile source_iconf' source_conf clos_iconf' clos_iconf1' clos_conf (stub_prog ++ icompiled_prog) =
-               (source_conf', clos_conf', cat_prog)
+  (source_conf', clos_conf', cat_prog)
   ∧
   compile_alt (c : 'a config) prog = (c', compiled_prog)
   ∧
@@ -829,20 +1015,16 @@ Theorem init_icompile_icompile_end_icompile:
   config_prog_rel source_conf' clos_conf' cat_prog  c' compiled_prog
 Proof
   rw[] >>
-  fs [init_icompile_def, icompile_def, end_icompile_def, icompile_source_to_flat_def] >>
+  fs [init_icompile_def, icompile_def, end_icompile_def, compile_alt_def] >>
   rpt (pairarg_tac >> gvs[]) >>
-  fs [compile_alt_def,source_to_flat_compile_alt_def]>>
-  rpt (pairarg_tac >> gvs[]) >>
-  fs[source_to_flat_compile_prog_alt_def] >>
-  rpt (pairarg_tac >> gvs[])  >>
+
+  qmatch_goalsub_rename_tac ‘config_prog_rel source_conf' clos_conf' cat_prog c' compiled_prog’ >>
+  gvs[source_to_flat_compile_alt_def, source_to_flat_compile_prog_alt_def] >> rpt (pairarg_tac >> gvs[]) >>
+  gvs[icompile_source_to_flat_def] >> (pairarg_tac >> gvs[]) >>
+  gvs[init_config_rel_def, source_to_flatTheory.empty_config_def] >>
   rw[extend_env_empty_env] >>
-  rw[flat_to_clos_compile_alt_def, icompile_flat_to_clos_def, APPEND] >>
-  rw[config_prog_rel_def] >>
-  once_rewrite_tac[flat_to_clos_compile_decs_cons] >>
-  assume_tac (GEN_ALL flat_to_clos_compile_decs_and_append_commute) >>
-  (* i dont know how else to avoid this... *)
-  first_x_assum $ qspecl_then [‘MAP (compile_dec c.source_conf.pattern_cfg) p'’, ‘[compile_dec c.source_conf.pattern_cfg alloc_env_ref]’] assume_tac >>
-  gvs[] >> cheat
+  cheat
+
 QED
 
 (*
