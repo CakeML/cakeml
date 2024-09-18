@@ -1,4 +1,4 @@
-Pancake changelog
+Pancake Changelog
 ======================================
 
 User-facing changes to the Pancake language and compiler are
@@ -90,7 +90,7 @@ should be callable from outside Pancake should be prefixed with the
 
 Exported functions can take at most four arguments, and the arguments
 must have shape `1`. Calling any exported function before the initial
-call to `cml_main()` results in a runtime error. `main` cannot be
+call to `cml_main` results in a runtime error. `main` cannot be
 explicitly exported.
 
 The Pancake `main` function (that gets invoked via `cml_main`) is
@@ -214,7 +214,7 @@ May 29th 2023
 -------------------
 
 Syntax for function declarations has now been added. Previously, only
-statements was implemented.
+statements were implemented.
 
 March 20th 2023
 -------------------
