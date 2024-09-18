@@ -180,20 +180,26 @@ generate nonsense.
 March 23rd 2024
 -------------------
 
+### Load and store syntax ###
+
+The keywords for local loads and stores have been changed: `st8`, `stw`,
+`ld8` instead of `strb`, `str`, and `ldb`.
+
+### Shared memory operations ###
+
 Shared memory load and store operators have been added to
 Pancake. These are intended for reading and writing to memory outside
 the local Pancake heap, such as shared memory pages or device
 registers.  Unlike local memory accesses, these cannot be optimised
 away or reordered by the compiler, similarly to `volatile` in C.
 
-The keywords for local loads and stores have been changed: `st8`, `stw`,
-`ld8` instead of `strb`, `str`, and `ldb`.
-
 Shared memory operations are prefixed with `!`, so `!st8` stores a
 byte to shared memory and `!ldw` stores a word to shared memory. Note
 that shared memory loads are statements, whereas local memory loads
 are expressions; this is to retain the side-effect freedom of
 expressions.
+
+### Foreign function call syntax ###
 
 Foreign function names are now written `@name` instead of `#name`.
 
