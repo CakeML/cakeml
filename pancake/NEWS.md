@@ -38,7 +38,7 @@ August 25th 2024
 ### 32-bit shared memory loads and stores ###
 
 32-bit shared memory loads and stores have now been added. These are
-primarily intended for reading and writing device registers for 32-bit
+primarily intended for reading and writing to device registers for 32-bit
 devices. The syntax is as follows:
 
     !st32 1000, v; // store 32 bits from variable v (12) to shared memory address 1000
@@ -76,7 +76,7 @@ The compiler now supports the `--explore` command line parameter when
 compiling Pancake programs. It can be used to output the various
 intermediate representations produced during compilation as text.
 
-July 9th 2024
+July 1st 2024
 -------------------
 
 Pancake now supports multiple entry points, to simplify interaction
@@ -105,12 +105,12 @@ The new compiler flag `main_return` can be used to return control to
 the caller, instead of exiting, after the main function has finished
 executing. By default, this flag is set to `false`.
 
-June 25th 2024
+June 26th 2024
 -------------------
 
 Signed word comparison operators `<+`, `<=+`, `>=+` and `>+` have been added.
 
-June 14th 2024
+June 9th 2024
 -------------------
 
 The operators `&&` (logical AND) and `||` (logical OR) have been added.
@@ -224,5 +224,5 @@ CakeML compiler binary. Use the compiler flag `--pancake` to indicate
 that the source is a Pancake program.
 
 Only statement parsing is implemented currently; the expected input is
-a semicolon-separated list of statements, which will be taken to be
-the body of the `main` function.
+a semicolon-separated list of statements, which is interpreted as the
+body of the `main` function.
