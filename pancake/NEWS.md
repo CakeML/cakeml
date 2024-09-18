@@ -39,7 +39,7 @@ August 25th 2024
 
 32-bit shared memory loads and stores have now been added. These are
 primarily intended for reading and writing device registers for 32-bit
-devices. Syntax is as follows:
+devices. The syntax is as follows:
 
     !st32 1000, v; // store 32 bits from variable v (12) to shared memory address 1000
     !ld32 v, 1000 + 12; // load 32 bits from shared memory address 1012 to v
@@ -65,7 +65,7 @@ from the Pancake main function to the caller via `cml_main`.
 July 29th 2024
 -------------------
 
-The precedence of bitwise operators `&`, `^` and `|` is now higher
+The precedence of bitwise operators (`&`, `^` and `|`) is now higher
 than comparison operators. For example, `1 & 2 != 0` will now parse as
 `(1 & 2) != 0` instead of `1 & (2 != 0)`.
 
@@ -93,7 +93,7 @@ must have shape `1`. Calling any exported function before the initial
 call to `cml_main()` results in a runtime error. `main` cannot be
 explicitly exported.
 
-The Pancake `main` function (that gets invoked via `cml_main()`) is
+The Pancake `main` function (that gets invoked via `cml_main`) is
 now taken to be the function named `main` if one exists; previously,
 the first function was taken to be the `main` function regardless of
 name. If no function named `main` exists, a default `main` function is
