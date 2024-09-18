@@ -7,8 +7,8 @@ documented here when they are merged into `master`.
 September 15th 2024
 -------------------
 
-Fixed a parser bug that caused struct field accesses to be ordered
-incorrectly. That is, the value of the expression
+A parser bug that caused struct field accesses to be ordered
+incorrectly is now fixed. That is, the value of the expression
 
     <<1,2>,<3,4>>.0.1
 
@@ -17,17 +17,17 @@ is now `2`, whereas previously it was `3`.
 August 29th 2024
 -------------------
 
-- The `stw` operator for storing shapes has been renamed `st`. As the
-  new name indicates, this operator can store not just word but
-  arbitrary shapes.
-- The precedence of load expressions (`lds` and `ld8`) has been
-  changed so that their precedence is between comparisons and bitwise
-  operators.
+`st` has replaced the former `stw` operator for storing shapes. As the
+new name indicates, this operator can store not just word but
+arbitrary shapes.
+
+The precedence of load expressions (`lds` and `ld8`) has also been
+changed to be between that of comparisons and bitwise operators.
 
 August 26th 2024
 -------------------
 
-Adds the `@biw` (bytes in word) keyword to Pancake. `@biw` is a
+A new keyword, `@biw` (bytes in word), has been added. `@biw` is a
 constant expression whose value is `8` on 64-bit architectures and `4`
 on 32-bit architectures. Its purpose is to make it easier to write
 portable code.
@@ -37,53 +37,52 @@ August 25th 2024
 
 ### 32-bit shared memory loads and stores ###
 
-Adds 32-bit shared memory loads and stores to Pancake. These are
+32-bit shared memory loads and stores have now been added. These are
 primarily intended for reading and writing device registers for 32-bit
 devices. Syntax is as follows:
 
     !st32 1000, v; // store 32 bits from variable v (12) to shared memory address 1000
     !ld32 v, 1000 + 12; // load 32 bits from shared memory address 1012 to v
 
-### Annotation commennts ###
+### Annotation comments ###
 
 The parser now supports a special comment format called *annotations*,
-which are any comments of the form `/*@ ... @/`.  These are retained
-by the parser in the form of `Annot` nodes and are thus visible in
-explorer output; thus, they can be used to convey information to tools
-that consume Pancake abstract syntax produced by the explorer.
+which are any comments of the form `/*@ ... @*/`.  These are retained
+by the parser in the form of `Annot` nodes and are made visible in
+explorer output; they can be used to convey information to tools that
+consume Pancake abstract syntax produced by the explorer.
 
-Location information is furthermore retained in the AST in the form of
+Location information is also retained in the AST in the form of
 such `Annot` nodes.
 
 August 24th 2024
 -------------------
 
 The compiler flag `--main_return=true` now passes the return value
-from the Pancake main function to the caller.
+from the Pancake main function to the caller via `cml_main`.
 
 
 July 29th 2024
 -------------------
 
-Changed the precedence of bitwise operators `&`, `^` and `|` to be
-higher than comparison operators.
-
-So, e.g. `1 & 2 != 0` will now parse as `(1 & 2) != 0` instead of `1 & (2 != 0)`.
+The precedence of bitwise operators `&`, `^` and `|` is now higher
+than comparison operators. For example, `1 & 2 != 0` will now parse as
+`(1 & 2) != 0` instead of `1 & (2 != 0)`.
 
 July 28th 2024
 -------------------
 
 The compiler now supports the `--explore` command line parameter when
-compiling Pancake programs. This can be used to see the various
-intermediate representations produced during compilation.
+compiling Pancake programs. It can be used to output the various
+intermediate representations produced during compilation as text.
 
 July 9th 2024
 -------------------
 
-Added support for multiple entry points to Pancake, to simplify
-interaction between Pancake and other languages (usually C).
-Functions that should be callable from outside Pancake should be
-prefixed with the `export` keyword, as follows:
+Pancake now supports multiple entry points, to simplify interaction
+between Pancake and other languages (usually C).  Functions that
+should be callable from outside Pancake should be prefixed with the
+`export` keyword, as follows:
 
     export fun my_function(<args>) {
       <body>
@@ -91,7 +90,8 @@ prefixed with the `export` keyword, as follows:
 
 Exported functions can take at most four arguments, and the arguments
 must have shape `1`. Calling any exported function before the initial
-call to `cml_main()` results in a runtime error.
+call to `cml_main()` results in a runtime error. `main` cannot be
+explicitly exported.
 
 The Pancake `main` function (that gets invoked via `cml_main()`) is
 now taken to be the function named `main` if one exists; previously,
@@ -108,26 +108,30 @@ executing.
 June 25th 2024
 -------------------
 
-Added the signed word comparison operators `<+`, `<=+` `>=+` and `>+`to
-Pancake.
+Signed word comparison operators `<+`, `<=+`, `>=+` and `>+` have been added.
 
 June 14th 2024
 -------------------
 
-Added the operators `&&` and `||` (logical and, and logical or,
-respectively) to Pancake.
+The operators `&&` (logical AND) and `||` (logical OR) have been added.
 
 June 5th 2024
 -------------------
 
-- `!` in expressions now denotes boolean negation. `!` was previously
-  used for obtaining the address of a function; `&` now serves this
-  role instead.
-- Changed the argumend order of shared memory stores so that it agrees with
-  local memory stores. Instead of, e.g., `!st8 <payload>, <address>` the order
-  is now `!st8 <address>, <payload>`.   
-- The first argument to a shared memory store can now be an arbitrary
-  expression; previously, it had to be a variable.
+### Negation syntax ###
+
+`!` in expressions now denotes boolean negation. `!` was previously
+used for obtaining the address of a function; `&` now serves this
+role instead.
+
+### Shared memory syntax ###
+
+The argument order of shared memory stores so that it agrees with
+local memory stores. Instead of, e.g., `!st8 <payload>, <address>` the order
+is now `!st8 <address>, <payload>`.
+
+The first argument to a shared memory store can now be an arbitrary
+expression; previously, it had to be a variable.
 
 May 19th 2024
 -------------------
@@ -139,31 +143,31 @@ function calls were allowed:
        var x = 5;
        g(); // tail call, causes f() to return
        x = g(); // assigning call (formerly and confusingly known as "returning call")
-       return 0
+       return 0;
      }
 
 In the new style, we allow four forms of function calls:
 
     fun f() {
       var 1 x = g(); // declaring call
-      g(); //stand-alone call (does not cause f() to return)
+      g(); //stand-alone call, does not cause f() to return
       x = g(); // assigning call
-      return g(); // tail call (causes f() to return)
+      return g(); // tail call, causes f() to return
     }
 
 Declaring calls need a shape annotation on the variable, because in
-general the shape of the return value is not statically known
+general the shape of the return value is not statically known.
 
 May 8th 2024
 -------------------
 
-Fix line number reporting in error messages to account for comments
+Line number reporting in error messages now accounts for comments
 correctly.
 
 April 12th 2024
 -------------------
 
-Adds rudimentary line number reporting for Pancake parse errors.
+Rudimentary line nuber reporting ahs been added to parse errors.
 
 March 24th 2024
 -------------------
@@ -176,17 +180,17 @@ generate nonsense.
 March 23rd 2024
 -------------------
 
-Adds shared memory load and store operators to Pancake. These are
-intended for reading and writing to memory outside the local Pancake
-heap, such as shared memory pages or device registers.  Unlike local
-memory accesses, these cannot be optimised away or reordered by the
-compiler, similarly to `volatile` in C.
+Shared memory load and store operators have been added to
+Pancake. These are intended for reading and writing to memory outside
+the local Pancake heap, such as shared memory pages or device
+registers.  Unlike local memory accesses, these cannot be optimised
+away or reordered by the compiler, similarly to `volatile` in C.
 
 The keywords for local loads and stores is changed: `st8`, `stw`,
 `ld8` instead of `strb`, `str`, and `ldb`.
 
 Shared memory operations are prefixed with `!`, so `!st8` stores a
-byte to shared memory. `!ldw` stores a word to shared memory; note
+byte to shared memory. `!ldw` stores a word to shared memory. Note
 that shared memory loads are statements, whereas local memory loads
 are expressions; this is to retain the side-effect freedom of
 expressions.
@@ -196,20 +200,20 @@ Foreign function names are now written `@name` instead of `#name`.
 August 27th 2023
 -------------------
 
-- Not-equals is now `!=` instead of `<>`.
-- Function calls can now be written simply `f(<args>)` instead of `!f(args)`.
+Not-equals is now `!=` instead of `<>`, and function calls can now be
+written simply `f(<args>)` instead of `!f(<args>)`.
 
 June 3rd 2023
 -------------------
 
-. Added unsigned word multiplication to Pancake, unsurprisingly denoted
-`*`.
-- Added `true` and `false` as keywords denoting `1` and `0`, respectively.
+Three new syntax elements have been added to Pancake: infix `*` for
+unsigned word multiplication, and `true` and `false` as keywords
+denoting `1` and `0`, respectively.
 
 May 29th 2023
 -------------------
 
-Adds syntax for function declarations to the Pancake compiler
+Added syntax for function declarations to the Pancake compiler
 (previously, only statements had syntax).
 
 March 20th 2023
