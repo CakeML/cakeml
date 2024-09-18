@@ -18,7 +18,7 @@ August 29th 2024
 -------------------
 
 `st` has replaced the former `stw` operator for storing shapes. As the
-new name indicates, this operator can store not just word but
+new name indicates, this operator can store not just words but
 arbitrary shapes.
 
 The precedence of load expressions (`lds` and `ld8`) has also been
@@ -29,8 +29,8 @@ August 26th 2024
 
 A new keyword, `@biw` (bytes in word), has been added. `@biw` is a
 constant expression whose value is `8` on 64-bit architectures and `4`
-on 32-bit architectures. Its purpose is to make it easier to write
-portable code.
+on 32-bit architectures. Its purpose is to make portable code easier
+to write.
 
 August 25th 2024
 -------------------
@@ -103,7 +103,7 @@ used:
 
 The new compiler flag `main_return` can be used to return control to
 the caller, instead of exiting, after the main function has finished
-executing.
+executing. By default, this flag is set to `false`.
 
 June 25th 2024
 -------------------
@@ -126,9 +126,9 @@ role instead.
 
 ### Shared memory syntax ###
 
-The argument order of shared memory stores so that it agrees with
-local memory stores. Instead of, e.g., `!st8 <payload>, <address>` the order
-is now `!st8 <address>, <payload>`.
+The argument order of shared memory stores has been changed so that it
+agrees with local memory stores. For example, instead of
+`!st8 <payload>, <address>` the order is now `!st8 <address>, <payload>`.
 
 The first argument to a shared memory store can now be an arbitrary
 expression; previously, it had to be a variable.
@@ -150,7 +150,7 @@ In the new style, we allow four forms of function calls:
 
     fun f() {
       var 1 x = g(); // declaring call
-      g(); //stand-alone call, does not cause f() to return
+      g(); // stand-alone call, does not cause f() to return
       x = g(); // assigning call
       return g(); // tail call, causes f() to return
     }
@@ -167,7 +167,7 @@ correctly.
 April 12th 2024
 -------------------
 
-Rudimentary line nuber reporting ahs been added to parse errors.
+Rudimentary line number reporting has been added to parse errors.
 
 March 24th 2024
 -------------------
@@ -186,11 +186,11 @@ the local Pancake heap, such as shared memory pages or device
 registers.  Unlike local memory accesses, these cannot be optimised
 away or reordered by the compiler, similarly to `volatile` in C.
 
-The keywords for local loads and stores is changed: `st8`, `stw`,
+The keywords for local loads and stores have been changed: `st8`, `stw`,
 `ld8` instead of `strb`, `str`, and `ldb`.
 
 Shared memory operations are prefixed with `!`, so `!st8` stores a
-byte to shared memory. `!ldw` stores a word to shared memory. Note
+byte to shared memory and `!ldw` stores a word to shared memory. Note
 that shared memory loads are statements, whereas local memory loads
 are expressions; this is to retain the side-effect freedom of
 expressions.
@@ -213,8 +213,8 @@ denoting `1` and `0`, respectively.
 May 29th 2023
 -------------------
 
-Added syntax for function declarations to the Pancake compiler
-(previously, only statements had syntax).
+Syntax for function declarations has now been added. Previously, only
+statements was implemented.
 
 March 20th 2023
 -------------------
