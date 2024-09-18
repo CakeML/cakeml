@@ -1,6 +1,10 @@
 The Pancake compiler, i.e. a C-like compiler built from the lower
 parts of the CakeML compiler.
 
+[NEWS.md](NEWS.md):
+User-facing changes to the Pancake language and compiler are
+documented here when they are merged into `master`.
+
 [crepLangScript.sml](crepLangScript.sml):
 Abstract syntax of Crepe language
 Crepe: instrctuons are similar to that of
@@ -52,7 +56,7 @@ Reformulates compile definition to expose the result of each internal
 compiler pass
 
 [pan_simpScript.sml](pan_simpScript.sml):
-Compilation from panLang to crepLang.
+Simplification of panLang.
 
 [pan_to_crepScript.sml](pan_to_crepScript.sml):
 Compilation from panLang to crepLang.
