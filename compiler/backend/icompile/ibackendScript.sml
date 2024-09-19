@@ -364,39 +364,12 @@ Definition icompile_alt_def:
   let (source_iconf', icompiled_p_flat) = icompile_source_to_flat source_iconf p in
   let icompiled_p_clos = icompile_flat_to_clos icompiled_p_flat in
   let (clos_iconf', clos_iconf1', icompiled_p_bvl) = icompile_clos_to_bvl clos_iconf clos_iconf1 icompiled_p_clos in
-
       (source_iconf', clos_iconf', clos_iconf1', icompiled_p_bvl)
 End
 
 
 
 (*
-Definition init_icompile_def:
-  init_icompile (source_conf : source_to_flat$config) (clos_conf : clos_to_bvl$config) =
-  let next = source_conf.next with <| vidx := source_conf.next.vidx + 1 |> in
-  let env_gens = <| next := 0; generation := source_conf.envs.next; envs := LN |> in
-  let flat_stub = flat_pattern$compile_dec source_conf.pattern_cfg source_to_flat$alloc_env_ref in
-  (* always insert interpreter code *)
-  let clos_stub = (clos_interp$compile_init T) :: (flat_to_clos$compile_decs [flat_stub]) in
-  let source_iconf = <| n := 1n;
-                        next := next;
-                        env := source_conf.mod_env;
-                        env_gens := env_gens;
-                        pattern_cfg := source_conf.pattern_cfg |> in
-  let clos_iconf = <| do_mti := clos_conf.do_mti;
-                      max_app := clos_conf.max_app;
-                      next_loc := 0;
-                      known_conf:= clos_conf.known_conf;
-                      known_g := LN;
-                      do_call := clos_conf.do_call;
-                      clos_call_aux := [];
-                      clos_call_g := N;
-                      es_to_chain := [] |> in
-  let clos_iconf1 = <| max_app := clos_conf.max_app;
-                       new_bvl_exps := [] |> in
-  let (clos_iconf, clos_iconf1, stub_prog) = icompile_clos_to_bvl clos_iconf clos_iconf1 clos_stub in
-  (source_iconf, clos_iconf, clos_iconf1, stub_prog)
-End
 
 Definition icompile_def:
   icompile (source_iconf : source_iconfig) (clos_iconf: clos_iconfig) (clos_iconf1: clos_iconfig1) p =
@@ -1080,7 +1053,7 @@ Proof
 QED
 
 
-REWRITE_CONV  [init_icompile_alt_def] (concl init_icompile_icompile_end_icompile_s2b)
+
 Theorem init_icompile_icompile_end_icompile_s2b:
   init_icompile_source_to_flat source_conf = (source_iconf, flat_stub)
   ∧
@@ -1128,6 +1101,26 @@ Proof
   rw[config_prog_rel_s2b_def]
 QED
 
+Theorem about_init_icompile_alt:
+  init_icompile_source_to_flat source_conf = (source_iconf, flat_stub)
+  ∧
+  init_icompile_flat_to_clos flat_stub = clos_stub
+  ∧
+  init_icompile_clos_to_bvl clos_conf clos_stub = (clos_iconf, clos_iconf1, bvl_stub) ⇒
+  init_icompile_alt source_conf clos_conf = (source_iconf, clos_iconf, clos_iconf1, bvl_stub)
+Proof
+  rw[init_icompile_alt_def]
+QED
+
+Theorem init_icompile_icompile_end_icompile_f2c_alt:
+  init_icompile_source_to_flat source_conf = (source_iconf, flat_stub) ⇒
+  flat_to_clos_compile_alt (flat_stub ++ icompiled_p_flat) =
+  init_icompile_flat_to_clos flat_stub ++ icompile_flat_to_clos icompiled_p_flat
+Proof
+  metis_tac[init_icompile_icompile_end_icompile_f2c]
+QED
+
+
 
 Theorem init_icompile_icompile_end_icompile_alt:
   init_icompile_alt source_conf clos_conf = (source_iconf, clos_iconf, clos_iconf1, stub_p)
@@ -1136,7 +1129,7 @@ Theorem init_icompile_icompile_end_icompile_alt:
   ∧
   end_icompile_alt source_iconf' source_conf
                    clos_iconf' clos_iconf1' clos_conf icompiled_p stub_p
-                   = (source_conf_after_ic, clos_conf_after_ic, icompile_p_finalised)
+                   = (source_conf_after_ic, clos_conf_after_ic, icompiled_p_finalised)
   ∧
   compile_alt1 source_conf clos_conf p = (source_conf_after_c, clos_conf_after_c, compiled_p)
   ∧
@@ -1148,39 +1141,28 @@ Theorem init_icompile_icompile_end_icompile_alt:
                       source_conf_after_c clos_conf_after_c compiled_p
 Proof
   once_rewrite_tac[init_icompile_alt_def, icompile_alt_def, end_icompile_alt_def, compile_alt1_def] >>
-
-  strip_tac >> ntac 2 (pop_assum mp_tac) >>
-  last_x_assum mp_tac >>
-  once_rewrite_tac[] >> cheat
-
+  simp[] >>
+  strip_tac >>
+  ntac 2 (pop_assum mp_tac) >>
+  rpt (pairarg_tac >> fs[]) >>
+  qpat_x_assum ‘end_icompile_source_to_flat _ _ = _’ mp_tac >>
+  gvs[] >> rpt strip_tac >>
+  drule_all init_icompile_icompile_end_icompile_s2f >>
+  simp[config_prog_pair_rel_def] >>
+  strip_tac >>
+  pop_assum (fn f => assume_tac (GSYM f)) >>
+  qpat_x_assum ‘clos_conf = _ ’ mp_tac >>
+  qpat_x_assum ‘clos_to_bvl_compile_alt _ _ = _ ’ mp_tac >> simp[] >>
+  strip_tac >>
+  drule_all init_icompile_icompile_end_icompile_f2c_alt >>
+  strip_tac >> pop_assum $ qspec_then ‘icompiled_p_flat’ assume_tac >>
+  gvs[] >>
+  strip_tac >>
+  drule_all init_icompile_icompile_end_icompile_c2b >>
+  rw[config_prog_pair_rel_def] >>
+  rw[config_prog_rel_s2b_def]
 QED
 
-Theorem init_icompile_icompile_end_icompile:
-  ∀prog.
-  init_icompile source_conf clos_conf = (source_iconf, clos_iconf, clos_iconf1, stub_prog)
-  ∧
-  icompile source_iconf clos_iconf clos_iconf1 prog = (source_iconf', clos_iconf', clos_iconf1', icompiled_prog)
-  ∧
-  end_icompile source_iconf' source_conf clos_iconf' clos_iconf1' clos_conf (stub_prog ++ icompiled_prog) =
-  (source_conf', clos_conf', cat_prog)
-  ∧
-  compile_alt (c : 'a config) prog = (c', compiled_prog)
-  ∧
-  init_config_rel c source_conf clos_conf
-  ⇒
-  config_prog_rel source_conf' clos_conf' cat_prog  c' compiled_prog
-Proof
-  rw[] >>
-  fs [init_icompile_def, icompile_def, end_icompile_def, compile_alt_def] >>
-  rpt (pairarg_tac >> gvs[]) >>
-  qmatch_goalsub_rename_tac ‘config_prog_rel source_conf' clos_conf' cat_prog c' compiled_prog’ >>
-  gvs[source_to_flat_compile_alt_def, source_to_flat_compile_prog_alt_def] >> rpt (pairarg_tac >> gvs[]) >>
-  gvs[icompile_source_to_flat_def] >> (pairarg_tac >> gvs[]) >>
-  gvs[init_config_rel_def, source_to_flatTheory.empty_config_def] >>
-  rw[extend_env_empty_env] >>
-  cheat
-
-QED
 
 (*
 Theorem fold_icompile_collapse:
