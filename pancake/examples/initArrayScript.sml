@@ -128,12 +128,6 @@ Proof
   \\ fs [clock_after_def]
 QED
 
-Theorem neq_NONE_IMP:
-  (x <> NONE) ==> (?y. x = SOME y)
-Proof
-  Cases_on `x` \\ fs []
-QED
-
 Triviality init_array_loop_correct:
   ! st1 res st2. panSem$evaluate (^init_array_loop, st1) = (res, st2) ==>
   local_word st1.locals «i» <> NONE /\
@@ -161,7 +155,7 @@ Proof
   \\ rpt (disch_tac ORELSE gen_tac)
   \\ fs [evaluate_def, eval_def]
   \\ gs [GSYM optionTheory.IS_SOME_EQ_NOT_NONE |> REWRITE_RULE [optionTheory.IS_SOME_EXISTS],
-    val_word_of_eq_SOME]
+    val_of_eq_SOME, word_of_eq_SOME]
   \\ rename [`word_cmp Less i_v len_v`]
   \\ reverse (Cases_on `word_cmp Less i_v len_v`) \\ fs []
   >- (
@@ -235,14 +229,81 @@ val rev_hoare_simp = let
       end
   in CONV_TAC conv end
 
-val rev_hoare_tac = MAP_FIRST match_mp_tac
+val rev_hoare_step_tac = MAP_FIRST match_mp_tac
         (CONJUNCTS hoare_logic_rev_rules @ [eval_logic_rev])
     \\ rev_hoare_simp
+
+val rev_hoare_v = ``rev_hoare``
+
+fun goal_tac (gtac : term -> tactic) : tactic =
+  (fn (asms, gl) => gtac gl (asms, gl))
+
+fun do_hide_abbrev nm tm (asms, gl) = let
+    val fvs = free_varsl (gl :: asms)
+    val v = variant fvs (mk_var (nm, type_of tm))
+    val v_name = fst (dest_var v)
+    val v_def = variant fvs (mk_var (v_name ^ "_def", bool))
+    val v_def_name = fst (dest_var v_def)
+    val tac = markerLib.ABBREV_TAC (mk_eq (v, tm))
+        \\ pop_assum (markerLib.hide_tac v_def_name)
+  in tac (asms, gl) end
+
+fun unabbrev_hidden_tac var = FIRST_ASSUM (fn assm => let
+    val (nm, tm) = dest_hide (concl assm)
+    val (v2, _) = dest_eq (rand tm)
+  in if dest_var v2 = dest_var var
+    then use_hidden_assum nm (fn t => REWRITE_TAC [REWRITE_RULE [markerTheory.Abbrev_def] t])
+    else NO_TAC
+    end)
+
+val hide_abbrev_cont_tac = goal_tac (fn goal => let
+    val err = mk_HOL_ERR "panHoare" "hide_abbrev_pre_tac"
+    val cont = case strip_comb goal of
+        (f, [x, y]) => if same_const f rev_hoare_v
+            then x else raise (err "not a rev_hoare")
+      | _ => raise (err "not a rev_hoare")
+    val _ = if is_var cont then raise (err "cont already a variable") else ()
+  in do_hide_abbrev "cont" cont end)
+
+val unabbr_cont_tac = goal_tac (fn goal => case strip_comb goal of
+    (v, [arg]) => if is_var v
+    then (unabbrev_hidden_tac v \\ BETA_TAC)
+    else NO_TAC | _ => NO_TAC)
+
+val hide_abbrev_gamma_upd_tac = goal_tac (fn goal => let
+    val g_upds = TypeBase.updates_of ``: ('a, 'ffi) hoare_context``
+        |> map (fst o strip_comb o lhs o snd o strip_forall o concl)
+    val g_upd = find_term (fn t => case strip_comb t of
+        (f, [_, _]) => exists (same_const f) g_upds
+        | _ => false) goal
+  in do_hide_abbrev "Γ" g_upd end)
+
+val acc_abbrev_gamma_tac = goal_tac (fn goal => let
+    val accs = TypeBase.accessors_of ``: ('a, 'ffi) hoare_context``
+        |> map (fst o strip_comb o lhs o snd o strip_forall o concl)
+    fun is_acc_app t = case strip_comb t of
+        (f, [x]) => is_var x andalso exists (same_const f) accs
+      | _ => false
+    val ts = find_terms is_acc_app goal
+  in if null ts then NO_TAC else FIRST_ASSUM (fn assm => let
+    val (nm, tm) = dest_hide (concl assm)
+    val (v2, _) = dest_eq (rand tm)
+    fun matches t = aconv v2 (rand t)
+  in case List.find matches ts of
+    NONE => NO_TAC
+  | SOME t => use_hidden_assum nm (fn thm =>
+    REWRITE_TAC [REWRITE_CONV [REWRITE_RULE [markerTheory.Abbrev_def] thm] t])
+  end) end)
+
+val rev_hoare_tac = FIRST
+  [hide_abbrev_cont_tac, unabbr_cont_tac, hide_abbrev_gamma_upd_tac,
+    rev_hoare_step_tac]
+
+
 
 Theorem bool_case_eq_specs =
     CONJ (bool_case_eq |> Q.GEN `t` |> Q.SPEC `v`)
         (bool_case_eq |> Q.GEN `f` |> Q.SPEC `v`)
-
 
 Theorem init_array_Hoare_correct:
   hoare_logic G
@@ -280,8 +341,8 @@ Proof
   \\ conj_tac
   >- (
     rw ([logic_imp_def] @ hoare_simp_rules)
-    \\ imp_res_tac neq_NONE_IMP \\ gs []
-    \\ imp_res_tac neq_NONE_IMP \\ gs [val_word_of_eq_SOME]
+    \\ ntac 3 (imp_res_tac neq_NONE_IMP \\ fs [])
+    \\ gs [val_of_eq_SOME, word_of_eq_SOME]
     \\ simp [pan_op_def, wordLangTheory.word_op_def, flatten_def,
         asmTheory.word_cmp_def, bool_case_eq_specs]
     \\ gvs []
@@ -294,8 +355,8 @@ Proof
   )
   \\ rpt rev_hoare_tac
   \\ rw ([logic_imp_def] @ hoare_simp_rules)
-  \\ imp_res_tac neq_NONE_IMP \\ gs []
-  \\ imp_res_tac neq_NONE_IMP \\ gs [val_word_of_eq_SOME]
+  \\ ntac 3 (imp_res_tac neq_NONE_IMP \\ fs [])
+  \\ fs [val_of_eq_SOME, word_of_eq_SOME]
   \\ simp [shape_of_def]
 QED
 

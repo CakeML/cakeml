@@ -16,8 +16,8 @@ val _ = set_grammar_ancestry [
 Type prop[local] =
     ``: (('a, 'ffi) state -> (mlstring |-> 'a v) list -> bool)``
 
-Type trip[local] = ``: num # ('a, 'ffi) prop # 'a panLang$prog #
-        ('a result option -> ('a, 'ffi) prop)``;
+Type trips[local] = ``: num # 'a panLang$prog #
+        ((('a, 'ffi) prop # ('a result option -> ('a, 'ffi) prop)) set)``;
 
 Datatype:
   hoare_context = <|
@@ -27,25 +27,38 @@ Datatype:
     ; ffi_guarantee     :    io_event list ->
                              (ffiname # word8 list # word8 list) -> bool
     ; termination       :    bool
-    ; triples           :    (('a, 'ffi) trip) list
+    ; triples           :    (('a, 'ffi) trips) list
   |>
 End
 
-Definition val_word_of_def[simp]:
-  val_word_of (Val (Word w)) = SOME w /\
-  val_word_of _ = NONE
+Definition word_of_def[simp]:
+  word_of (Word w) = SOME w /\
+  word_of _ = NONE
 End
 
-Theorem val_word_of_eq_SOME:
-  !v. (val_word_of v = SOME w) <=> (v = ValWord w)
+Theorem word_of_eq_SOME:
+  !v. (word_of v = SOME w) <=> (v = Word w)
 Proof
-  ho_match_mp_tac val_word_of_ind \\ simp [val_word_of_def]
+  ho_match_mp_tac word_of_ind \\ simp [word_of_def]
 QED
 
-Theorem val_word_of_neq_NONE:
-  !v. val_word_of v <> NONE ==> (?w. v = ValWord w)
+Definition val_of_def[simp]:
+  val_of (Val v) = SOME v /\
+  val_of _ = NONE
+End
+
+Theorem val_of_eq_SOME:
+  !v. (val_of v = SOME x) <=> (v = Val x)
 Proof
-  ho_match_mp_tac val_word_of_ind \\ simp [val_word_of_def]
+  ho_match_mp_tac val_of_ind \\ simp [val_of_def]
+QED
+
+Overload val_word_of = ``\v. OPTION_BIND (val_of v) word_of``
+
+Theorem neq_NONE_IMP:
+  !v. v <> NONE ==> (?x. v = SOME x)
+Proof
+  Cases_on `v` \\ simp []
 QED
 
 Overload local_word = ``\locs nm. OPTION_BIND (FLOOKUP locs nm) val_word_of``
@@ -118,14 +131,16 @@ Inductive hoare_logic:
   )
 
 [hoare_logic_use_context_triple:]
-  (! P p Q.
-    MEM (0n, P, p, Q) G.triples ==>
+  (! P p Q PQs.
+    MEM (0n, p, PQs) G.triples /\ (P, Q) ∈ PQs ==>
     hoare_logic G P p Q
   )
 
 [hoare_logic_triple_induction:]
-  (! P p Q.
-    hoare_logic (G with triples := (1, P, p, Q) :: G.triples) P p Q ==>
+  (! P p Q PQs.
+    (!P2 Q2. (P2, Q2) ∈ PQs ==>
+        hoare_logic (G with triples := (1, p, PQs) :: G.triples) P2 p Q2) /\
+    (P, Q) ∈ PQs ==>
     hoare_logic G P p Q
   )
 
@@ -492,25 +507,12 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality EVERY_hoare_evaluate_clock_mono:
-  (?k. EVERY (\(n, P, p, Q). hoare_evaluate G (\s2 ls. P s ls /\ s2.clock + n <= k) p Q) G.triples /\
-      m <= k) ==>
-  EVERY (\(n, P, p, Q). hoare_evaluate G (\s2 ls. P s ls /\ s2.clock + n <= m) p Q) G.triples
-Proof
-  rw []
-  \\ dxrule_at_then Any irule MONO_EVERY
-  \\ simp [FORALL_PROD]
-  \\ rw []
-  \\ irule hoare_evaluate_intro
-  \\ rw []
-  \\ first_x_assum (drule_then drule o SIMP_RULE std_ss [hoare_evaluate_def])
-  \\ simp []
-QED
-
 val EVERY_mono_he_tac =
   dxrule_at_then Any irule MONO_EVERY
   \\ rw [] \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
+  \\ rw []
+  \\ rpt (first_x_assum (drule_then strip_assume_tac))
   \\ dxrule_then irule hoare_evaluate_weaken_pre
   \\ fs []
 
@@ -519,11 +521,51 @@ val he_dest_simp_tac =
   \\ disch_then drule \\ simp []
 
 
+Triviality hoare_logic_triple_ind:
+  (!P2 Q2. (P2, Q2) ∈ PQs ==> hoare_evaluate G (\s ls. P2 s ls /\
+        (∀P3 Q3. (P3, Q3) ∈ PQs ==>
+            hoare_evaluate G (\s2 ls. P3 s2 ls /\ s2.clock + 1 ≤ s.clock) p Q3) /\
+        EVERY (\(m, p, PQs). ∀P Q. (P, Q) ∈ PQs ==>
+            hoare_evaluate G (\s2 ls. P s2 ls ∧ m + s2.clock ≤ s.clock) p Q) G.triples)
+    p Q2) ==>
+  !n P Q.
+  (P, Q) ∈ PQs /\
+  EVERY (\(m, p, PQs). ∀P Q. (P, Q) ∈ PQs ==>
+    hoare_evaluate G (\s ls. P s ls ∧ m + s.clock ≤ n) p Q) G.triples
+  ==>
+  hoare_evaluate G (\s ls. P s ls ∧ s.clock ≤ n) p Q
+Proof
+  disch_tac
+  \\ Induct
+  >- (
+    rw []
+    \\ irule hoare_evaluate_weaken_pre
+    \\ first_x_assum (drule_then (irule_at Any))
+    \\ simp []
+    \\ simp [hoare_evaluate_def]
+  )
+  >- (
+    rw []
+    \\ fs []
+    \\ irule hoare_evaluate_weaken_pre
+    \\ last_x_assum (drule_then (irule_at Any))
+    \\ rw []
+    >- (
+      irule hoare_evaluate_weaken_pre
+      \\ first_x_assum (drule_then (irule_at Any))
+      \\ simp []
+      \\ EVERY_mono_he_tac
+    )
+    >- EVERY_mono_he_tac
+  )
+QED
+
 Triviality hoare_logic_sound_ind:
   ! G P p Q.
   hoare_logic G P p Q ==>
   hoare_evaluate G (\s ls. P s ls /\
-        EVERY (\(n, P, p, Q). hoare_evaluate G (\s2 ls. P s2 ls /\ s2.clock + n <= s.clock) p Q)
+        EVERY (\(n, p, PQs). ! P Q. (P, Q) IN PQs ==>
+                hoare_evaluate G (\s2 ls. P s2 ls /\ s2.clock + n <= s.clock) p Q)
             G.triples)
     p Q
 Proof
@@ -538,6 +580,7 @@ Proof
   >- (
     dxrule_then drule (hd (RES_CANON EVERY_MEM))
     \\ simp []
+    \\ disch_then drule
     \\ disch_tac
     \\ he_dest_simp_tac
   )
@@ -547,31 +590,11 @@ Proof
     fs [hoare_evaluate_triples]
     \\ irule hoare_evaluate_dest
     \\ qpat_assum `evaluate_ = _` (irule_at Any)
-    \\ qsuff_tac `?n. s.clock = n` \\ rpt strip_tac \\ fs []
-    \\ qexists_tac `\s ls. P s ls /\ s.clock <= n`
+    \\ irule_at Any hoare_logic_triple_ind
+    \\ qpat_assum `(_, _) ∈ _` (irule_at Any)
     \\ simp []
-    \\ qpat_x_assum `EVERY _ _` mp_tac
-    \\ qpat_x_assum `_.clock = _` kall_tac
-    \\ measureInduct_on `I n`
-    \\ rw []
-    \\ dxrule_then irule hoare_evaluate_weaken_pre
+    \\ irule_at Any arithmeticTheory.LESS_EQ_REFL
     \\ simp []
-    \\ rpt (gen_tac ORELSE disch_tac)
-    \\ Cases_on `n = 0`
-    >- (
-      fs []
-      \\ simp [hoare_evaluate_def]
-    )
-    \\ rw []
-    >- (
-      first_x_assum (qspec_then `n - 1` mp_tac)
-      \\ simp []
-      \\ impl_tac \\ TRY EVERY_mono_he_tac
-      \\ rw []
-      \\ dxrule_then irule hoare_evaluate_weaken_pre
-      \\ simp []
-    )
-    \\ EVERY_mono_he_tac
   )
 
   >~ [`_ /\ evaluate _ = _ ==> _`]
@@ -681,8 +704,8 @@ Proof
       \\ fs []
       \\ dxrule_then drule eval_logic_elim
       \\ disch_tac \\ fs []
-      \\ imp_res_tac val_word_of_neq_NONE
-      \\ fs [GSYM AND_IMP_INTRO]
+      \\ ntac 2 (imp_res_tac neq_NONE_IMP \\ fs [])
+      \\ fs [word_of_eq_SOME, val_of_eq_SOME, GSYM AND_IMP_INTRO]
       \\ rpt (gen_tac ORELSE disch_tac)
       \\ qpat_x_assum `_ \/ _` mp_tac
       \\ fs []
@@ -819,7 +842,7 @@ QED
 
 Theorem hoare_logic_sound:
   hoare_logic G P p Q /\
-  EVERY (\(n, P, p, Q). hoare_evaluate G P p Q) G.triples ==>
+  EVERY (\(n, p, PQs). !P Q. (P, Q) ∈ PQs ==> hoare_evaluate G P p Q) G.triples ==>
   hoare_evaluate G P p Q
 Proof
   rw []
@@ -978,6 +1001,21 @@ Theorem hoare_logic_TailCall_norm_args_rev_code = hoare_logic_rule_to_rev_form
     |> DISCH_ALL
     |> Q.GEN `code`
 
+Theorem hoare_logic_image_triple_induction:
+  (!x. P x ==>
+    hoare_logic (G with triples := (1, f, IMAGE (\x. (Q x, R x)) {x | P x}) :: G.triples) (Q x) f (R x))
+  ==>
+  !x. P x ==> hoare_logic G (Q x) f (R x)
+Proof
+  rw []
+  \\ irule hoare_logic_triple_induction
+  \\ qexists_tac `IMAGE (\x. (Q x, R x)) {x | P x}`
+  \\ simp [PULL_EXISTS]
+  \\ metis_tac []
+QED
+
+Theorem hoare_logic_use_context_triple_rev = hoare_logic_rule_to_rev_form
+    hoare_logic_use_context_triple
 
 val _ = export_theory();
 
