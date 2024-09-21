@@ -10,6 +10,8 @@ val _ = new_theory"TextIOProg";
 
 val _ = translation_extends "MarshallingProg";
 
+val cakeml = append_prog o process_topdecs;
+
 val _ = ml_prog_update (open_module "TextIO");
 
 val _ = ml_prog_update open_local_block;
@@ -38,8 +40,6 @@ val _ = (use_full_type_names := false);
 val _ = register_type ``:instream``;
 val _ = register_type ``:outstream``;
 val _ = (use_full_type_names := true);
-
-val cakeml = (append_prog o process_topdecs)
 
 Quote cakeml:
   datatype instreambuffered =
@@ -341,7 +341,7 @@ efficient if we switch to buffered streams.  I.e., the buffering
 shouldn't be inputLine-specific.
 
 (* generalisable to splitl *)
-val _ = process_topdecs`
+Quote cakeml:
 fun find_newline s i l =
   if i >= l then l else
   if String.sub s i = #"\n" then i
@@ -351,11 +351,11 @@ fun split_newline s =
       val i = find_newline s 0 l in
         (String.substring s 0 i, String.substring s i (l-i))
   end
-` |> append_prog
+End
 
 (* using lets/ifs as case take a while in xlet *)
 (* if/if take a while in xcf *)
-val _ = process_topdecs`
+
 fun inputLine fd lbuf =
   let fun inputLine_aux lacc =
     let val nr = read fd (Word8.fromInt 255) in

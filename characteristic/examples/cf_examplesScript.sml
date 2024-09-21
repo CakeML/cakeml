@@ -9,10 +9,14 @@ local open basisProgTheory in end
 
 val _ = new_theory "cf_examples";
 val _ = translation_extends "basisProg"
+val cakeml = append_prog o process_topdecs;
 
 fun xcf' s = xcf_with_def (DB.fetch "-" (s ^ "_v_def"))
-val _ = (append_prog o process_topdecs)
-  `fun example_let0 n = let val a = 3; in a end`;
+
+Quote cakeml:
+  fun example_let0 n = let val a = 3; in a end
+End
+
 val example_let0_v_def = DB.fetch "-" "example_let0_v_def"
 
 Theorem example_let0_spec[local]:
@@ -23,8 +27,9 @@ Proof
   xret \\ xsimpl
 QED
 
-val _ = (append_prog o process_topdecs)
-  `fun example_let1 _ = let val a = (); in a end`
+Quote cakeml:
+  fun example_let1 _ = let val a = (); in a end
+End
 
 Theorem example_let1_spec[local]:
   !uv. app (p:'ffi ffi_proj) example_let1_v [uv] emp (POSTv v. & UNIT_TYPE () v)
@@ -35,8 +40,9 @@ Proof
   xret \\ xsimpl
 QED
 
-val _ = (append_prog o process_topdecs)
-  `fun example_let2 u = let val a = u; in a end`
+Quote cakeml:
+  fun example_let2 u = let val a = u; in a end
+End
 
 Theorem example_let2_spec[local]:
   !uv. app (p:'ffi ffi_proj) example_let2_v [uv] emp (POSTv v. & (v = uv))
@@ -46,8 +52,9 @@ Proof
   xret \\ xsimpl
 QED
 
-val _ = (append_prog o process_topdecs)
-  `fun example_let n = let val a = n + 1; val b = n - 1; in a+b end`
+Quote cakeml:
+  fun example_let n = let val a = n + 1; val b = n - 1; in a+b end
+End
 
 Theorem example_let_spec[local]:
   !n nv.
@@ -63,8 +70,10 @@ Proof
   xapp \\ xsimpl \\ fs [INT_def] \\ intLib.ARITH_TAC
 QED
 
-val _ = (append_prog o process_topdecs)
-  `fun alloc_ref2 a b = (Ref a, Ref b);`
+Quote cakeml:
+  fun alloc_ref2 a b = (Ref a, Ref b);
+End
+
 val alloc_ref2_v_def = fetch "-" "alloc_ref2_v_def"
 
 Theorem alloc_ref2_spec[local]:
@@ -83,8 +92,9 @@ Proof
   xret \\ fs [PAIR_TYPE_def] \\ xsimpl
 QED
 
-val _ = (append_prog o process_topdecs)
-  `fun swap r1 r2 = let val x1 = !r1 in r1 := !r2; r2 := x1 end`
+Quote cakeml:
+  fun swap r1 r2 = let val x1 = !r1 in r1 := !r2; r2 := x1 end
+End
 
 Theorem swap_spec[local]:
   !xv yv r1v r2v.
@@ -103,8 +113,9 @@ Proof
   xapp \\ xsimpl
 QED
 
-val _ = (append_prog o process_topdecs)
-  `fun example_if n = if n > 0 then 1 else 2`
+Quote cakeml:
+  fun example_if n = if n > 0 then 1 else 2
+End
 
 Theorem example_if_spec[local]:
   !n nv.
@@ -119,8 +130,9 @@ Proof
   xif \\ xret \\ xsimpl
 QED
 
-val _ = (append_prog o process_topdecs)
-  `fun is_nil l = case l of [] => True | x::xs => False`
+Quote cakeml:
+  fun is_nil l = case l of [] => True | x::xs => False
+End
 
 Theorem is_nil_spec[local]:
   !lv a l.
@@ -134,8 +146,9 @@ Proof
   xmatch \\ xret \\ xsimpl
 QED
 
-val _ = (append_prog o process_topdecs)
-  `fun is_none opt = case opt of None => True | Some _ => False`
+Quote cakeml:
+  fun is_none opt = case opt of None => True | Some _ => False
+End
 
 val OPTION_TYPE_def = std_preludeTheory.OPTION_TYPE_def;
 
@@ -151,8 +164,9 @@ Proof
   xmatch \\ xcon \\ xsimpl
 QED
 
-val example_eq = (append_prog o process_topdecs)
-  `fun example_eq x = (x = 3)`
+Quote cakeml:
+  fun example_eq x = (x = 3)
+End
 
 Theorem example_eq_spec[local]:
   !x xv.
@@ -165,8 +179,9 @@ Proof
   fs [EqualityType_NUM_BOOL]
 QED
 
-val example_and = (append_prog o process_topdecs)
-  `fun example_and u = True andalso False`
+Quote cakeml:
+  fun example_and u = True andalso False
+End
 
 Theorem example_and_spec[local]:
   !uv.
@@ -179,10 +194,10 @@ Proof
   xlog \\ xret \\ xsimpl
 QED
 
-val example_raise = (append_prog o process_topdecs)
-  `exception Foo
-   fun example_raise u = raise Foo`
-
+Quote cakeml:
+  exception Foo
+  fun example_raise u = raise Foo
+End
 
 Theorem example_raise_spec[local]:
   !uv.
@@ -196,9 +211,10 @@ Proof
   xraise \\ xsimpl
 QED
 
-val example_handle = (append_prog o process_topdecs)
-  `exception Foo int
-   fun example_handle x = (raise Foo 3) handle Foo i => i`
+Quote cakeml:
+  exception Foo int
+  fun example_handle x = (raise Foo 3) handle Foo i => i
+End
 
 Definition Foo_exn_def:
   Foo_exn st i v = (v = Conv (SOME (ExnStamp st)) [Litv (IntLit i)])
@@ -221,14 +237,15 @@ Proof
   fs [Foo_exn_def] \\ xcases \\ xvar \\ xsimpl
 QED
 
-val _ = (append_prog o process_topdecs)
-  `exception Foo int
-   fun example_handle2 x =
+Quote cakeml:
+  exception Foo int
+  fun example_handle2 x =
      (if x > 0 then
         1
       else
         raise (Foo (~1)))
-     handle Foo i => i`
+     handle Foo i => i
+End
 
 Theorem example_handle2_spec[local]:
   !x xv.
@@ -257,8 +274,9 @@ Proof
   fs [Foo_exn_def] \\ xcases \\ xret \\ xsimpl \\ intLib.ARITH_TAC
 QED
 
-val example_nested_apps = (append_prog o process_topdecs)
-  `fun f i = ~ (~ (~ i))`;
+Quote cakeml:
+  fun f i = ~ (~ (~ i))
+End
 
 Theorem example_nested_apps_spec[local]:
   !x xv.
@@ -273,8 +291,8 @@ Proof
   xapp \\ fs []
 QED
 
-val bytearray_fromlist = (append_prog o process_topdecs)
-  `fun length l =
+Quote cakeml:
+   fun length l =
      case l of
          [] => 0
        | x::xs => (length xs) + 1
@@ -285,7 +303,8 @@ val bytearray_fromlist = (append_prog o process_topdecs)
            case ls of
                [] => a
              | h::t => (Word8Array.update a i h; f t (i+1))
-     in f ls 0 end`
+     in f ls 0 end
+End
 
 Theorem list_length_spec:
    !a l lv.
@@ -351,8 +370,9 @@ Proof
   xapp \\ fs [] \\ xsimpl \\ fs [LENGTH_NIL_SYM, LENGTH_REPLICATE]
 QED
 
-val strcat_foo = (append_prog o process_topdecs)
-  `fun strcat_foo r = r := !r ^ "foo"`
+Quote cakeml:
+  fun strcat_foo r = r := !r ^ "foo"
+End
 
 val xlet_auto = cfLetAutoLib.xlet_auto
 
@@ -373,8 +393,9 @@ Proof
   rveq >> xapp >> xsimpl
 QED
 
-val example_ffidiv = (append_prog o process_topdecs) `
-   fun example_ffidiv b = if b then Runtime.abort () else ()`
+Quote cakeml:
+  fun example_ffidiv b = if b then Runtime.abort () else ()
+End
 
 Theorem example_ffidiv_spec[local]:
   !b bv.
@@ -397,11 +418,12 @@ Proof
   >> xcon >> xsimpl
 QED
 
-val example_mutrec = (append_prog o process_topdecs) `
+Quote cakeml:
   fun is_even n =
     if n = 0 then True else is_odd(n-1)
   and is_odd n =
-    if n = 0 then False else is_even(n-1)`
+    if n = 0 then False else is_even(n-1)
+End
 
 Definition even_odd_def:
   (even n = if n = 0n then T else odd (n-1)) ∧
