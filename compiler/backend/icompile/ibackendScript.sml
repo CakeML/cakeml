@@ -367,7 +367,7 @@ Definition icompile_alt_def:
       (source_iconf', clos_iconf', clos_iconf1', icompiled_p_bvl)
 End
 
-        
+
 
 Definition icompile_def:
   icompile (source_iconf : source_iconfig) (clos_iconf: clos_iconfig) (clos_iconf1: clos_iconfig1) p =
@@ -378,19 +378,19 @@ Definition icompile_def:
   (source_iconf, clos_iconf, clos_iconf1, p)
 End
 
-        
+
 
 Definition fold_icompile_def:
   fold_icompile source_iconf clos_iconf clos_iconf1 []  = icompile_alt source_iconf clos_iconf clos_iconf1 []
   /\
-  fold_icompile source_iconf clos_iconf clos_iconf1 (p :: ps)  = 
+  fold_icompile source_iconf clos_iconf clos_iconf1 (p :: ps)  =
   let (source_iconf', clos_iconf', clos_iconf1', p') = icompile_alt source_iconf clos_iconf clos_iconf1 p in
   let (source_iconf'', clos_iconf'', clos_iconf1'', ps') = fold_icompile source_iconf' clos_iconf' clos_iconf1' ps in
     (source_iconf'', clos_iconf'', clos_iconf1'', p' ++ ps')
 
 End
 
-        
+
 (******************************************************************************)
 (*                                                                            *)
 (* Syntactic correctness or icompile                                          *)
@@ -1114,7 +1114,7 @@ QED
 
 Theorem fold_icompile_collapse:
   ∀pss source_iconf clos_iconf clos_iconf1.
-  fold_icompile source_iconf clos_iconf clos_iconf1 pss = 
+  fold_icompile source_iconf clos_iconf clos_iconf1 pss =
   icompile_alt source_iconf clos_iconf clos_iconf1 (FLAT (pss))
 Proof
   Induct >> rw[fold_icompile_def] >>
@@ -1145,7 +1145,7 @@ Proof
   fs[fold_icompile_collapse] >>
   metis_tac[init_icompile_icompile_end_icompile_alt]
 QED
-        
+
 
 
 val _ = export_theory();
