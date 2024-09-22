@@ -140,6 +140,8 @@ Definition sexp_primitive_def:
       return Bool
     else if (ss = "Primitive.Char") then
       return Char
+    else if (ss = "Primitive.Native") then
+      return Native
     else fail
   od
 End
@@ -227,6 +229,8 @@ Definition sexp_newtypeRange_def:
       return I128
     else if (ss = "NewtypeRange.BigInt") then
       return BigInt
+    else if (ss = "NewtypeRange.USIZE") then
+      return USIZE
     else if (ss = "NewtypeRange.NoRange") then
       return NoRange
     else fail
@@ -933,6 +937,11 @@ Definition sexp_statement_def:
          includeDuplicates <- sxsym_to_bool (EL 1 args);
          return (SeqBoundedPool of_expr includeDuplicates)
        od
+     else if (ss = "Expression.ExactBoundedPool" ∧ LENGTH args = 1) then
+       do
+         of_expr <- sexp_expression (EL 0 args);
+         return (ExactBoundedPool of_expr)
+       od
      else if (ss = "Expression.IntRange" ∧ LENGTH args = 4) then
        do
          elemT <- sexp_type (EL 0 args);
@@ -1138,21 +1147,22 @@ Definition sexp_method_def:
   sexp_method se =
   do
     (ss, args) <- dstrip_sexp se;
-    assert (ss = "Method.Method" ∧ LENGTH args = 11);
-    isStatic <- sxsym_to_bool (EL 0 args);
-    hasBody <- sxsym_to_bool (EL 1 args);
-    outVarsAreUninitFieldsToAssign <- sxsym_to_bool (EL 2 args);
-    wasFunction <- sxsym_to_bool (EL 3 args);
-    opt <- sxsym_to_opt (EL 4 args);
+    assert (ss = "Method.Method" ∧ LENGTH args = 12);
+    attrs <- opt_mmap_sexp_list sexp_attribute (EL 0 args);
+    isStatic <- sxsym_to_bool (EL 1 args);
+    hasBody <- sxsym_to_bool (EL 2 args);
+    outVarsAreUninitFieldsToAssign <- sxsym_to_bool (EL 3 args);
+    wasFunction <- sxsym_to_bool (EL 4 args);
+    opt <- sxsym_to_opt (EL 5 args);
     overridingPath <<- monad_bind opt (opt_mmap_sexp_list sexp_ident);
-    n <- sexp_name (EL 5 args);
-    typeParams <- opt_mmap_sexp_list sexp_typeArgDecl (EL 6 args);
-    params <- opt_mmap_sexp_list sexp_formal (EL 7 args);
-    body <- opt_mmap_sexp_list sexp_statement (EL 8 args);
-    outTypes <- opt_mmap_sexp_list sexp_type (EL 9 args);
-    opt <- sxsym_to_opt (EL 10 args);
+    n <- sexp_name (EL 6 args);
+    typeParams <- opt_mmap_sexp_list sexp_typeArgDecl (EL 7 args);
+    params <- opt_mmap_sexp_list sexp_formal (EL 8 args);
+    body <- opt_mmap_sexp_list sexp_statement (EL 9 args);
+    outTypes <- opt_mmap_sexp_list sexp_type (EL 10 args);
+    opt <- sxsym_to_opt (EL 11 args);
     outVars <<- monad_bind opt (opt_mmap_sexp_list sexp_varName);
-    return (Method isStatic hasBody outVarsAreUninitFieldsToAssign
+    return (Method attrs isStatic hasBody outVarsAreUninitFieldsToAssign
                    wasFunction overridingPath n typeParams params body
                    outTypes outVars)
   od
