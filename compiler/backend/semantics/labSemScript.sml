@@ -388,7 +388,7 @@ Definition next_label_def:
   (next_label ((Section k (y::ys))::xs) = next_label (Section k ys::xs))
 End
 
-Definition get_lab_after_pos_def:
+Definition get_lab_after_def:
   (get_lab_after pos [] = NONE) /\
   (get_lab_after pos ((Section k [])::xs) = get_lab_after pos xs) /\
   (get_lab_after pos ((Section k (y::ys))::xs) =

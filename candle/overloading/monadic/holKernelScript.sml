@@ -139,7 +139,7 @@ val _ = Define `
     else the_type_constants := (name,arity)::(!the_type_constants)
 *)
 
-Definition add_def:
+Definition add_def_def:
   add_def d = do defs <- get_the_context ;
                  set_the_context (d::defs) od
 End

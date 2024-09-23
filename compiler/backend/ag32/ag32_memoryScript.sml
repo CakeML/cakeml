@@ -369,7 +369,7 @@ Definition ffi_code_start_offset_def:
     output_offset + 8 + 4 + output_buffer_size + 4
 End
 
-Definition length_ag32_ffi_code:
+Definition length_ag32_ffi_code_def:
   length_ag32_ffi_code = 1272n
 End
 

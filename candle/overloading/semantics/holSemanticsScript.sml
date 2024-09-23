@@ -46,7 +46,7 @@ Definition nonbuiltin_types_def:
   nonbuiltin_types = {ty | ¬is_builtin_type ty}
 End
 
-Definition builtin_consts:
+Definition builtin_consts_def:
   builtin_consts = {(s,ty) | s = strlit "=" /\ ?ty'. ty = Fun ty' (Fun ty' Bool)}
 End
 
@@ -743,7 +743,7 @@ Proof
   >> fs[pairTheory.ELIM_UNCURRY,is_sig_fragment_def] >> rw[]
   >> Cases_on `x` (* TODO: generated name *)
   >> rw[ext_term_frag_builtins_def] >> fs[]
-  >- (fs[nonbuiltin_constinsts_def,builtin_consts,pred_setTheory.SUBSET_DEF]
+  >- (fs[nonbuiltin_constinsts_def,builtin_consts_def,pred_setTheory.SUBSET_DEF]
       >> rpt(first_x_assum drule) >> simp[])
   >- (first_x_assum drule >> fs[]
       >> CONV_TAC(RAND_CONV(SIMP_CONV (srw_ss()) [Once ext_type_frag_builtins_def]))
@@ -758,7 +758,7 @@ Proof
       >> rw[]
       >> drule abstract_in_funspace >> disch_then match_mp_tac
       >> rw[] >> metis_tac[boolean_in_boolset])
-  >- (rfs[builtin_terms_def,builtin_consts] >> metis_tac[])
+  >- (rfs[builtin_terms_def,builtin_consts_def] >> metis_tac[])
 QED
 
 Type valuation = ``:mlstring # type -> 'U``
@@ -814,7 +814,7 @@ Proof
   >- (fs[VFREE_IN_def,termsem_def])
   >- (fs[termsem_def,is_frag_interpretation_def,terms_of_frag_uninst_def,consts_of_term_def]
       >> rfs[is_std_interpretation_def,ext_std_type_assignment]
-      >> fs[nonbuiltin_constinsts_def,builtin_consts,pred_setTheory.SUBSET_DEF]
+      >> fs[nonbuiltin_constinsts_def,builtin_consts_def,pred_setTheory.SUBSET_DEF]
       >> fs[allTypes_def]
       >> reverse(Cases_on `?ty. Const m (TYPE_SUBSTf sigma t) = Equal ty`)
       >- (fs[pairTheory.ELIM_UNCURRY]
@@ -997,7 +997,7 @@ Proof
   >- (MAP_EVERY Cases_on [`frag1`,`frag2`]
       >> fs[termsem_def,fleq_def]
       >> fs[terms_of_frag_uninst_def,consts_of_term_def,allTypes_def]
-      >> fs[nonbuiltin_constinsts_def,builtin_consts]
+      >> fs[nonbuiltin_constinsts_def,builtin_consts_def]
       >> fs[pred_setTheory.SUBSET_DEF]
       >> rw[ext_term_frag_builtins_def]
       >> fs[]

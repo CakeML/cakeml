@@ -664,7 +664,7 @@ QED
 *)
 
 (* Fixed-size arrays *)
-Definition ARRAY_REL:
+Definition ARRAY_REL_def:
   ARRAY_REL TYPE rv l = SEP_EXISTS av. ARRAY rv av * &LIST_REL TYPE l av
 End
 

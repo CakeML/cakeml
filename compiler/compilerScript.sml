@@ -382,7 +382,7 @@ Definition find_num_def:
   | NONE => INR (concat [strlit"Unable to parse as num: ";rest;strlit " for flag: ";flag])
 End
 
-Definition get_err_str:
+Definition get_err_str_def:
   (get_err_str (INL n) = strlit"") ∧
   (get_err_str (INR n) = concat[n;strlit"\n"])
 End

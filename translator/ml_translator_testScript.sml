@@ -196,20 +196,20 @@ val res = translate string_to_bytes_def;
 
 val res = translate miscTheory.any_word64_ror_def
 
-Definition def:
+Definition bar_def:
   bar = []:'a list
 End
-val res = translate def
+val res = translate bar_def
 
-Definition def:
+Definition foo1_def:
   foo1 = if bar = []:'a list then [] else []:'a list
 End
-val res = translate def
+val res = translate foo1_def
 
-Definition def:
+Definition foo2_def:
   foo2 = 4:num
 End
-val res = translate def
+val res = translate foo2_def
 
 val _ = Datatype`
   foo = <| next_loc : num

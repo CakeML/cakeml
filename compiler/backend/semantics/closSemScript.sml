@@ -454,7 +454,7 @@ val fix_clock_IMP = Q.prove(
    convenience of subsequent proofs, the evaluation function is
    defined to evaluate a list of clos_exp expressions. *)
 
-Definition check_loc_opt_def:
+Definition check_loc_def:
   (check_loc (max_app:num) NONE loc num_params num_args so_far ⇔
     num_args ≤ max_app) /\
   (check_loc max_app (SOME p) loc num_params num_args so_far ⇔

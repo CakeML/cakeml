@@ -3109,11 +3109,11 @@ QED
 
 (* should be set l1 ⊆ set l2 *)
 Definition list_subset_def:
-list_subset l1 l2 = EVERY (\x. MEM x l2) l1
+  list_subset l1 l2 = EVERY (\x. MEM x l2) l1
 End
 
-Definition list_set_eq:
-list_set_eq l1 l2 ⇔ list_subset l1 l2 ∧ list_subset l2 l1
+Definition list_set_eq_def:
+  list_set_eq l1 l2 ⇔ list_subset l1 l2 ∧ list_subset l2 l1
 End
 
 Theorem list_subset_LENGTH:

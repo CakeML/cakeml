@@ -18,7 +18,7 @@ val _ = Datatype `
 Type tenv_store = ``:(num, store_t) fmap``
 
 (* Check that the type names map to valid types *)
-Definition tenv_abbrev_ok_def_:
+Definition tenv_abbrev_ok_def:
   tenv_abbrev_ok tenvT ⇔ nsAll (\id (tvs,t). check_freevars 0 tvs t) tenvT
 End
 

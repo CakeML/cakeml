@@ -740,7 +740,7 @@ val code_sort_def = tDefine "code_sort" `
   \\ drule code_split_NULL \\ fs [] \\ full_simp_tac std_ss [GSYM LENGTH_NIL] >>
   decide_tac);
 
-Definition chain_exps:
+Definition chain_exps_def:
   (chain_exps i [] = [(i, 0n, Op None (Const 0) [])]) ∧
   (chain_exps i [e] = [(i, 0n, e)]) ∧
   (chain_exps i (e::es) =

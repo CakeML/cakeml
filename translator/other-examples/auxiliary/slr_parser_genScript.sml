@@ -31,12 +31,12 @@ Datatype:
   symbol = TS string | NTS string
 End
 
-Definition isNonTmnlSym:
+Definition isNonTmnlSym_def:
   (isNonTmnlSym (NTS _) = T) /\
   (isNonTmnlSym _ = F)
 End
 
-Definition sym2Str:
+Definition sym2Str_def:
   (sym2Str (TS s) = s) /\ (sym2Str (NTS s) = s)
 End
 
@@ -44,10 +44,10 @@ Datatype:
   rule = rule string (symbol list)
 End
 
-Definition ruleRhs:
+Definition ruleRhs_def:
   ruleRhs (rule l r) = r
 End
-Definition ruleLhs:
+Definition ruleLhs_def:
   ruleLhs (rule l r) = l
 End
 
@@ -69,12 +69,12 @@ Datatype:
   action = REDUCE rule | GOTO state | NA
 End
 
-Definition ptree2Sym:
+Definition ptree2Sym_def:
   (ptree2Sym (Node nt ptl) = NTS nt) /\
   (ptree2Sym (Leaf tm) = TS tm)
 End
 
-Definition buildTree:
+Definition buildTree_def:
   (buildTree p r =
      let s = take (LENGTH r) (MAP (ptree2Sym o SND) p) in
        if s = NONE then
@@ -85,14 +85,14 @@ Definition buildTree:
          NONE)
 End
 
-Definition addRule:
+Definition addRule_def:
   (addRule p (rule l r) =
          let x =  buildTree p (REVERSE r) in
               if (x = NONE) then NONE
               else SOME (Node l (REVERSE (THE x))))
 End
 
-Definition findItemInRules:
+Definition findItemInRules_def:
   (findItemInRules (item l1 (r1,[])) [] = F) /\
   (findItemInRules (item l1 (r1,[])) ((rule l2 r2)::rst) = T) /\
   (findItemInRules (item l1 (r1,[])) (_::rst) = findItemInRules (item l1 (r1,[])) rst) /\
@@ -108,7 +108,7 @@ val itemEqRuleList_defn = tDefine "itemEqRuleList" `
        if (findItemInRules (HD l1) l2) then itemEqRuleList (TL l1) l2 else F)`
   (WF_REL_TAC (`measure (\(l1,l2).LENGTH l1)`) THEN SRW_TAC [] [])
 
-Definition getState:
+Definition getState_def:
    getState (sg,red) (itl:item list) sym =
       let newitl = sg itl sym and rl = red itl (sym2Str sym) in
         case (newitl,rl) of
@@ -122,22 +122,22 @@ Definition getState:
               NA
 End
 
-Definition stackSyms:
+Definition stackSyms_def:
   stackSyms stl = (REVERSE (MAP FST (MAP FST stl)))
 End
 
-Definition exitCond:
+Definition exitCond_def:
   exitCond (eof,oldSym)  (inp,stl,csl) =
     (~(stl=([]:((symbol # state) # ptree) list)) /\
      (stackSyms stl = [oldSym]) /\
      (inp = [TS eof]))
 End
 
-Definition init:
+Definition init_def:
   init inis sl =  (sl,([]:((symbol# state) # ptree) list),[inis])
 End
 
-Definition doReduce:
+Definition doReduce_def:
   doReduce m ((sym::rst), os, ((s, itl)::rem)) ru =
      if isNonTmnlSym sym then
        NONE
@@ -167,7 +167,7 @@ Definition doReduce:
                               push newStateStk ns)))))
 End
 
-Definition parse:
+Definition parse_def:
   parse mac (inp, os, ((s, itl)::rem)) =
     case mac of NONE => NONE
     | (SOME m) =>
@@ -187,14 +187,14 @@ Definition parse:
                            | (REDUCE ru) => doReduce m ((sym::rst), os, ((s, itl)::rem)) ru)
 End
 
-Definition mwhile:
+Definition mwhile_def:
   mwhile g f s =
     OWHILE (\opt. case opt of NONE => F | SOME s => g s)
            (\opt. case opt of NONE => NONE | SOME s => f s)
            (SOME s)
 End
 
-Definition parser:
+Definition parser_def:
   parser (initState, eof, oldS) m sl =
     let
       out = (mwhile (\s. ~(exitCond (eof,NTS oldS) s))

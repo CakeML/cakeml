@@ -1067,7 +1067,7 @@ Definition fp_cmp_inst_def:
   fp_cmp_inst FP_Equal = FPEqual 3 0 1
 End
 
-Definition fp_top_inst_def_def:
+Definition fp_top_inst_def:
   fp_top_inst FP_Fma = FPFma 0 1 2
 End
 
