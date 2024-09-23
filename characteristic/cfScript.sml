@@ -2000,8 +2000,7 @@ Definition cf_def:
   cf (p:'ffi ffi_proj) (Tannot e _) = cf p e /\
   cf _ _ = cf_bottom
 Termination
-  WF_REL_TAC
-Endmeasure (exp_size o SND)` \\ rw []
+  WF_REL_TAC `measure (exp_size o SND)` \\ rw []
     THEN1 (
       Cases_on `opt` \\ Cases_on `e1` \\ fs [is_bound_Fun_def] \\
       drule Fun_body_exp_size \\ strip_tac \\ fs [astTheory.exp_size_def]
@@ -2014,7 +2013,6 @@ Endmeasure (exp_size o SND)` \\ rw []
       drule Fun_body_exp_size \\ strip_tac \\ fs [astTheory.exp_size_def]
     )
 End
-
 val cf_defs = [
   cf_def,
   cf_lit_def,
