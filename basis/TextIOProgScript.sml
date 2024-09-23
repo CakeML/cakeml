@@ -128,19 +128,28 @@ val _ = ml_prog_update open_local_in_block;
 Definition stdIn_def:
   stdIn = Instream (strlit (MAP (CHR o w2n) (n2w8 0)))
 End
-  |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+
 Definition stdOut_def:
   stdOut = Outstream (strlit (MAP (CHR o w2n) (n2w8 1)))
 End
-  |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+
 Definition stdErr_def:
   stdErr = Outstream (strlit (MAP (CHR o w2n) (n2w8 2)))
 End
-  |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def];
+
 val _ = next_ml_names := ["stdIn","stdOut","stdErr"];
-val r = translate stdIn_def;
-val r = translate stdOut_def;
-val r = translate stdErr_def;
+
+val r = stdIn_def
+          |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+          |> translate;
+
+val r = stdOut_def
+          |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+          |> translate;
+
+val r = stdErr_def
+          |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+          |> translate ;
 
 val _ = ml_prog_update open_local_block;
 

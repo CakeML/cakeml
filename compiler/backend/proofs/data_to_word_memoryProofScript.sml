@@ -10788,7 +10788,8 @@ Definition list_copy_bwd_def:
                            LUPDATE (EL (minus xp 1) xs) (minus yp 1) o
                            LUPDATE (EL (minus xp 0) xs) (minus yp 0)) ys)
     else NONE
-End |> REWRITE_RULE [minus_def]
+End
+val list_copy_bwd_def = list_copy_bwd_def |> REWRITE_RULE [minus_def];
 
 Definition list_copy_bwd_alias_def:
   list_copy_bwd_alias n xp yp ys =
@@ -10806,7 +10807,9 @@ Definition list_copy_bwd_alias_def:
                            LUPDATE (EL (minus xp 1) ys) (minus yp 1) o
                            LUPDATE (EL (minus xp 0) ys) (minus yp 0)) ys)
     else NONE
-End |> REWRITE_RULE [minus_def];
+End
+val list_copy_bwd_alias_def = list_copy_bwd_alias_def
+                                |> REWRITE_RULE [minus_def];
 
 Theorem word_copy_bwd_thm:
    !n xp yp ys ys1 m.

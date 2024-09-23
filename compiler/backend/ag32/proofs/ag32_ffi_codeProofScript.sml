@@ -3751,7 +3751,9 @@ QED
 Definition ag32_ffi_open_in_fail_code_def:
   ag32_ffi_open_in_fail_code = ag32_ffi_fail_code "open_in"
 End
-    |> REWRITE_RULE [ag32_ffi_fail_code_def]
+val ag32_ffi_open_in_fail_code_def = ag32_ffi_open_in_fail_code_def
+                                       |> REWRITE_RULE [ag32_ffi_fail_code_def];
+
 
 val (ag32_ffi_open_in_fail_SPEC,
      ag32_ffi_open_in_fail_decomp_def) = ag32_decompile
@@ -3808,7 +3810,8 @@ QED
 Definition ag32_ffi_open_out_fail_code_def:
   ag32_ffi_open_out_fail_code = ag32_ffi_fail_code "open_out"
 End
-    |> REWRITE_RULE [ag32_ffi_fail_code_def]
+val ag32_ffi_open_out_fail_code_def = ag32_ffi_open_out_fail_code_def
+                                        |> REWRITE_RULE [ag32_ffi_fail_code_def];
 
 val (ag32_ffi_open_out_fail_SPEC,
      ag32_ffi_open_out_fail_decomp_def) = ag32_decompile
@@ -3863,7 +3866,8 @@ QED
 Definition ag32_ffi_close_fail_code_def:
   ag32_ffi_close_fail_code = ag32_ffi_fail_code "close"
 End
-    |> REWRITE_RULE [ag32_ffi_fail_code_def]
+val ag32_ffi_close_fail_code_def = ag32_ffi_close_fail_code_def
+                                     |> REWRITE_RULE [ag32_ffi_fail_code_def];
 
 val (ag32_ffi_close_fail_SPEC,
      ag32_ffi_close_fail_decomp_def) = ag32_decompile
