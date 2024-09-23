@@ -52,7 +52,9 @@ Theorem yes_prog_def = mk_abbrev "yes_prog" yes;
 (* A small IO model *)
 open cfDivTheory;
 
-val names_def = Define `names = ["put_char"]`;
+Definition names_def:
+  names = ["put_char"]
+End
 
 Definition put_char_event_def:
   put_char_event c = IO_event "put_char" [n2w (ORD c)] []
@@ -284,8 +286,10 @@ Definition sio_proj1_def:
                           [("put_char", sio_oracle "put_char")]) ffi))
 End
 
-val sio_proj2 = Define `sio_proj2 =
-  [(["put_char"],update)]`
+Definition sio_proj2:
+  sio_proj2 =
+  [(["put_char"],update)]
+End
 
 Theorem limited_parts_proj:
   limited_parts ["put_char"] (sio_proj1,sio_proj2)
@@ -293,8 +297,10 @@ Proof
   rw[limited_parts_def,sio_proj2]
 QED
 
-val sio_ffi_state_def = Define `sio_ffi_state =
-  <|oracle:=sio_oracle; ffi_state := (); io_events := []|>`;
+Definition sio_ffi_state_def:
+  sio_ffi_state =
+  <|oracle:=sio_oracle; ffi_state := (); io_events := []|>
+End
 
 Theorem parts_ok_filter:
   parts_ok sio_ffi_state (sio_proj1,sio_proj2)

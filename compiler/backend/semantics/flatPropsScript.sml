@@ -881,7 +881,9 @@ Definition is_Dlet_def:
   (is_Dlet _ <=> F)
 End
 
-val dest_Dlet_def = Define `dest_Dlet (Dlet e) = e`;
+Definition dest_Dlet_def:
+  dest_Dlet (Dlet e) = e
+End
 
 val _ = export_rewrites ["is_Dlet_def", "dest_Dlet_def"];
 

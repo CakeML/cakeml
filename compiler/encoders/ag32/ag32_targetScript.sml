@@ -31,7 +31,9 @@ Definition ag32_encode1_def:
   [(7 >< 0) w; (15 >< 8) w; (23 >< 16) w; (31 >< 24) w] : word8 list
 End
 
-val ag32_encode_def = Define `ag32_encode = combin$C LIST_BIND ag32_encode1`
+Definition ag32_encode_def:
+  ag32_encode = combin$C LIST_BIND ag32_encode1
+End
 
 Definition ag32_bop_def:
    (ag32_bop Add = fAdd) /\

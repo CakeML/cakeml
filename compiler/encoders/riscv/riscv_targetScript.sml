@@ -8,7 +8,9 @@ val () = new_theory "riscv_target"
 
 val () = wordsLib.guess_lengths()
 
-val riscv_next_def = Define `riscv_next s = THE (NextRISCV s)`
+Definition riscv_next_def:
+  riscv_next s = THE (NextRISCV s)
+End
 
 (* --- Valid RISC-V states --- *)
 

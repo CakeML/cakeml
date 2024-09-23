@@ -513,7 +513,9 @@ QED
 
 (* fv_max *)
 
-val fv_max_def = Define `fv_max n xs = !v. fv v xs ==> v < n`;
+Definition fv_max_def:
+  fv_max n xs = !v. fv v xs ==> v < n
+End
 
 Theorem fv_max_SmartOp:
   fv_max n [Op t op xs] ⇒ fv_max n [SmartOp t op xs]

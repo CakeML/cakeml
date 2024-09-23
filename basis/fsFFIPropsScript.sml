@@ -1253,13 +1253,14 @@ Proof
 QED
 
 (* Property ensuring that standard streams are correctly opened *)
-val STD_streams_def = Define
-  `STD_streams fs = ?inp out err.
+Definition STD_streams_def:
+  STD_streams fs = ?inp out err.
     (ALOOKUP fs.inode_tbl (UStream(strlit "stdout")) = SOME out) ∧
     (ALOOKUP fs.inode_tbl (UStream(strlit "stderr")) = SOME err) ∧
     (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stdin"),md,off) ⇔ fd = 0 ∧ md = ReadMode ∧ off = inp) ∧
     (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stdout"),md,off) ⇔ fd = 1 ∧ md = WriteMode ∧ off = LENGTH out) ∧
-    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stderr"),md,off) ⇔ fd = 2 ∧ md = WriteMode ∧ off = LENGTH err)`;
+    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stderr"),md,off) ⇔ fd = 2 ∧ md = WriteMode ∧ off = LENGTH err)
+End
 
 Theorem STD_streams_fsupdate:
    ! fs fd k pos c.

@@ -30,14 +30,30 @@ Overload P[local] = ``Var (strlit "P") (Fun A Bool)``
 Overload x[local] = ``Var (strlit "x") A``
 Overload FAx[local] = ``Forall (strlit "x") A``
 
-val TrueDef_def = Define`TrueDef = Abs p p === Abs p p`
-val AndDef_def = Define`AndDef = Abs p (Abs q (Abs f (Comb (Comb f p) q) === Abs f (Comb (Comb f True) True)))`
-val ImpliesDef_def = Define`ImpliesDef = Abs p (Abs q (And p q === p))`
-val ForallDef_def = Define`ForallDef = Abs P (P === Abs x True)`
-val ExistsDef_def = Define`ExistsDef = Abs P (FAq (Implies (FAx (Implies (Comb P x) q)) q))`
-val OrDef_def = Define`OrDef = Abs p (Abs q (FAr (Implies (Implies p r) (Implies (Implies q r) r))))`
-val FalseDef_def = Define`FalseDef = FAp p`
-val NotDef_def = Define`NotDef = Abs p (Implies p False)`
+Definition TrueDef_def:
+  TrueDef = Abs p p === Abs p p
+End
+Definition AndDef_def:
+  AndDef = Abs p (Abs q (Abs f (Comb (Comb f p) q) === Abs f (Comb (Comb f True) True)))
+End
+Definition ImpliesDef_def:
+  ImpliesDef = Abs p (Abs q (And p q === p))
+End
+Definition ForallDef_def:
+  ForallDef = Abs P (P === Abs x True)
+End
+Definition ExistsDef_def:
+  ExistsDef = Abs P (FAq (Implies (FAx (Implies (Comb P x) q)) q))
+End
+Definition OrDef_def:
+  OrDef = Abs p (Abs q (FAr (Implies (Implies p r) (Implies (Implies q r) r))))
+End
+Definition FalseDef_def:
+  FalseDef = FAp p
+End
+Definition NotDef_def:
+  NotDef = Abs p (Implies p False)
+End
 val Defs = [TrueDef_def, AndDef_def, ImpliesDef_def, ForallDef_def, ExistsDef_def, OrDef_def, FalseDef_def, NotDef_def]
 Definition mk_bool_ctxt_def:
   mk_bool_ctxt ctxt =

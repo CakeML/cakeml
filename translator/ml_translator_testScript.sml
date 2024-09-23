@@ -196,13 +196,19 @@ val res = translate string_to_bytes_def;
 
 val res = translate miscTheory.any_word64_ror_def
 
-val def = Define `bar = []:'a list`
+Definition def:
+  bar = []:'a list
+End
 val res = translate def
 
-val def = Define `foo1 = if bar = []:'a list then [] else []:'a list`
+Definition def:
+  foo1 = if bar = []:'a list then [] else []:'a list
+End
 val res = translate def
 
-val def = Define `foo2 = 4:num`
+Definition def:
+  foo2 = 4:num
+End
 val res = translate def
 
 val _ = Datatype`
@@ -276,7 +282,9 @@ QED
 
 val _ = arith_shift_right_ind |> update_precondition;
 
-val shift_test_def = Define `shift_test (x:word64) y = arith_shift_right x y`
+Definition shift_test_def:
+  shift_test (x:word64) y = arith_shift_right x y
+End
 
 val res = translate shift_test_def;
 
@@ -287,18 +295,24 @@ val _ = Datatype` idrec = <|v : num; f : 'a|>`;
 
 val _ = Datatype` t = V num | F 'a | D t t`;
 
-val test_def = Define`test ids = D (F ids.f) (V ids.v)`;
+Definition test_def:
+  test ids = D (F ids.f) (V ids.v)
+End
 
 val res = translate test_def;
 
 (* Test floating-point support *)
-val test1_def = Define `test1 f = fp64_add roundTiesToEven f f`
+Definition test1_def:
+  test1 f = fp64_add roundTiesToEven f f
+End
 
 val res = translate test1_def;
 
 (* FMA: *)
 
-val test2_def = Define `test2 f1 f2 f3 = (fp64_mul_add roundTiesToEven) f1 f2 f3`
+Definition test2_def:
+  test2 f1 f2 f3 = (fp64_mul_add roundTiesToEven) f1 f2 f3
+End
 
 val res = translate test2_def;
 
@@ -334,8 +348,10 @@ val r = translate_no_ind test3_def;
 (* registering types inside modules *)
 
 val _ = Datatype `my_type = my_case1 | my_case2 | my_case3`;
-val my_fun_def = Define `(my_fun my_case1 = 0n) /\ (my_fun my_case2 = 1n) /\
-                         (my_fun my_case3 = 2n)`;
+Definition my_fun_def:
+  (my_fun my_case1 = 0n) /\ (my_fun my_case2 = 1n) /\
+                         (my_fun my_case3 = 2n)
+End
 
 val r = register_type ``:'a option``;
 
@@ -353,10 +369,14 @@ val _ = ml_prog_update (close_module NONE);
 
 (* test the abstract translator is working *)
 
-val map_again_def = Define `map_again f [] = []
-  /\ map_again f (x :: xs) = f x :: map_again f xs`;
+Definition map_again_def:
+  map_again f [] = []
+  /\ map_again f (x :: xs) = f x :: map_again f xs
+End
 
-val inc_list_def = Define `inc_list xs = map_again (\x. x + SUC 0) xs`;
+Definition inc_list_def:
+  inc_list xs = map_again (\x. x + SUC 0) xs
+End
 
 val r = abs_translate map_again_def;
 val r = abs_translate inc_list_def;
@@ -407,12 +427,24 @@ val part_dummy_v_fun = fetch_v_fun ``: non_eq_type``;
 
 (* translating within nested local blocks and modules *)
 
-val hidden_f1_def = Define `hidden_f1 xs = REVERSE xs ++ [()]`;
-val global_f2_def = Define `global_f2 xs = hidden_f1 xs ++ [()]`;
-val hidden_f3_def = Define `hidden_f3 xs = global_f2 (hidden_f1 xs)`;
-val module_f4_def = Define `module_f4 xs = hidden_f3 (global_f2 xs)`;
-val module_f5_def = Define `module_f5 xs = module_f4 xs`;
-val global_f6_def = Define `global_f6 xs = module_f5 xs ++ module_f4 xs`;
+Definition hidden_f1_def:
+  hidden_f1 xs = REVERSE xs ++ [()]
+End
+Definition global_f2_def:
+  global_f2 xs = hidden_f1 xs ++ [()]
+End
+Definition hidden_f3_def:
+  hidden_f3 xs = global_f2 (hidden_f1 xs)
+End
+Definition module_f4_def:
+  module_f4 xs = hidden_f3 (global_f2 xs)
+End
+Definition module_f5_def:
+  module_f5 xs = module_f4 xs
+End
+Definition global_f6_def:
+  global_f6 xs = module_f5 xs ++ module_f4 xs
+End
 
 val r = translate REVERSE_DEF;
 val _ = ml_prog_update open_local_block;
@@ -434,11 +466,21 @@ val r = translate global_f6_def;
 
 (* translating within nested modules *)
 
-val m1_m2_f_def = Define `m1_m2_f i = SUC 1 + i`;
-val m1_m3_f_def = Define `m1_m3_f i = m1_m2_f (SUC i)`;
-val m1_f_def = Define `m1_f i = m1_m2_f (m1_m3_f i)`;
-val m4_f_def = Define `m4_f i = m1_f i + m1_m3_f (m1_m2_f i)`;
-val m4_m5_f_def = Define `m4_m5_f i = m1_f i + m4_f i + m1_m2_f i`;
+Definition m1_m2_f_def:
+  m1_m2_f i = SUC 1 + i
+End
+Definition m1_m3_f_def:
+  m1_m3_f i = m1_m2_f (SUC i)
+End
+Definition m1_f_def:
+  m1_f i = m1_m2_f (m1_m3_f i)
+End
+Definition m4_f_def:
+  m4_f i = m1_f i + m1_m3_f (m1_m2_f i)
+End
+Definition m4_m5_f_def:
+  m4_m5_f i = m1_f i + m4_f i + m1_m2_f i
+End
 
 val _ = ml_prog_update (open_module "m1");
 val _ = ml_prog_update (open_module "m2");

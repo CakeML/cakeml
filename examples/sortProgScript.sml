@@ -567,7 +567,9 @@ Proof
 QED
 
 val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state ()) "sort" (UNDISCH sort_whole_prog_spec)
-val sort_prog_def = Define `sort_prog = ^prog_tm`;
+Definition sort_prog_def:
+  sort_prog = ^prog_tm
+End
 
 val sort_semantics =
   sem_thm |> ONCE_REWRITE_RULE[GSYM sort_prog_def]

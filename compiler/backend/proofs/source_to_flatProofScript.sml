@@ -732,12 +732,13 @@ val env_all_rel_weak = Q.prove (
   rw [] >>
   metis_tac [SUBMAP_FDOM_SUBSET, SUBSET_TRANS]);
 
-val match_result_rel_def = Define
-  `(match_result_rel genv env' (Match env) (Match env_i1) =
+Definition match_result_rel_def:
+  (match_result_rel genv env' (Match env) (Match env_i1) =
      ?env''. env = env'' ++ env' ∧ env_rel genv (alist_to_ns env'') env_i1) ∧
    (match_result_rel genv env' No_match No_match = T) ∧
    (match_result_rel genv env' Match_type_error _ = T) ∧
-   (match_result_rel genv env' _ _ = F)`;
+   (match_result_rel genv env' _ _ = F)
+End
 
 Theorem match_result_rel_imp:
   match_result_rel genv env m1 m2 ==>

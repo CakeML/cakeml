@@ -56,13 +56,21 @@ Definition asm_fetch_def:
   asm_fetch s = asm_fetch_aux s.pc s.code
 End
 
-val upd_pc_def   = Define `upd_pc pc s = s with pc := pc`
-val upd_reg_def  = Define `upd_reg r w s = s with regs := (r =+ w) s.regs`
-val upd_mem_def  = Define `upd_mem a w s = s with mem := (a =+ w) s.mem`
+Definition upd_pc_def:
+  upd_pc pc s = s with pc := pc
+End
+Definition upd_reg_def:
+  upd_reg r w s = s with regs := (r =+ w) s.regs
+End
+Definition upd_mem_def:
+  upd_mem a w s = s with mem := (a =+ w) s.mem
+End
 
 Overload read_reg = ``λr s. s.regs r``
 
-val assert_def = Define `assert b s = s with failed := (~b \/ s.failed)`
+Definition assert_def:
+  assert b s = s with failed := (~b \/ s.failed)
+End
 
 Definition reg_imm_def:
   (reg_imm (Reg r) s = read_reg r s) /\
@@ -147,8 +155,12 @@ Definition arith_upd_def:
 End
 
 
-val upd_fp_reg_def  = Define `upd_fp_reg r v s = s with fp_regs := (r =+ v) s.fp_regs`
-val read_fp_reg_def = Define `read_fp_reg r s = s.fp_regs r`
+Definition upd_fp_reg_def:
+  upd_fp_reg r v s = s with fp_regs := (r =+ v) s.fp_regs
+End
+Definition read_fp_reg_def:
+  read_fp_reg r s = s.fp_regs r
+End
 
 Definition fp_upd_def:
   (fp_upd (FPLess r d1 d2) (s:('a,'c,'ffi) state) =
@@ -224,7 +236,9 @@ Definition addr_def:
     | _ => NONE
 End
 
-val is_Loc_def = Define `(is_Loc (Loc _ _) = T) /\ (is_Loc _ = F)`;
+Definition is_Loc_def:
+  (is_Loc (Loc _ _) = T) /\ (is_Loc _ = F)
+End
 
 Definition mem_store_def:
   mem_store r a (s:('a,'c,'ffi) labSem$state) =

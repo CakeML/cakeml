@@ -175,7 +175,9 @@ Proof
   `j = 0` by decide_tac \\ fs[SEG]
 QED
 
-val strcat_def = Define`strcat s1 s2 = concat [s1; s2]`
+Definition strcat_def:
+  strcat s1 s2 = concat [s1; s2]
+End
 val _ = Parse.add_infix("^",480,Parse.LEFT)
 Overload "^" = ``λx y. strcat x y``
 
@@ -1373,6 +1375,8 @@ QED
 (* The translator turns each `empty_ffi s` into a call to the FFI with
    an empty name and passing `s` as the argument. The empty FFI is
    used for logging/timing purposes. *)
-val empty_ffi_def = Define `empty_ffi (s:mlstring) = ()`
+Definition empty_ffi_def:
+  empty_ffi (s:mlstring) = ()
+End
 
 val _ = export_theory()

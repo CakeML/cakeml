@@ -27,7 +27,9 @@ val toList_aux_def = tDefine "toList_aux"`
 
 val toList_aux_ind = theorem"toList_aux_ind";
 
-val toList_def = Define`toList vec = toList_aux vec 0`;
+Definition toList_def:
+  toList vec = toList_aux vec 0
+End
 
 val toList_aux_thm = Q.prove (
   `!vec n. toList_aux vec n = case vec of Vector vs => DROP n vs`,

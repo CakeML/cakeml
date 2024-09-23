@@ -1010,7 +1010,9 @@ local
 val name = "check_unsat"
 val (sem_thm,prog_tm) =
   whole_prog_thm (get_ml_prog_state()) name (UNDISCH check_unsat_whole_prog_spec2)
-val check_unsat_prog_def = Define`check_unsat_prog = ^prog_tm`;
+Definition check_unsat_prog_def:
+  check_unsat_prog = ^prog_tm
+End
 
 in
 

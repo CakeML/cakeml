@@ -70,7 +70,9 @@ QED
 
 (* FFI part for the commandline *)
 
-val encode_def = Define `encode = encode_list (Str o explode)`;
+Definition encode_def:
+  encode = encode_list (Str o explode)
+End
 
 val encode_11 = prove(
   ``!x y. encode x = encode y <=> x = y``,

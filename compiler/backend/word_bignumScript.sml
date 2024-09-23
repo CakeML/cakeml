@@ -442,9 +442,15 @@ Definition compile_exp_def:
   compile_exp _ = Const 0w
 End
 
-val TempIn1_def = Define `TempIn1 = Temp 31w`
-val TempIn2_def = Define `TempIn2 = Temp 30w`
-val TempOut_def = Define `TempOut = Temp 29w`
+Definition TempIn1_def:
+  TempIn1 = Temp 31w
+End
+Definition TempIn2_def:
+  TempIn2 = Temp 30w
+End
+Definition TempOut_def:
+  TempOut = Temp 29w
+End
 
 Definition SeqTemp_def:
   SeqTemp i r p = Seq (wordLang$Assign i (Lookup (Temp (n2w r)))) p

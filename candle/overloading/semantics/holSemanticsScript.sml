@@ -42,33 +42,38 @@ Definition ground_consts_def:
   {(n,ty) | ty ∈ ground_types sig /\ term_ok sig (Const n ty)}
 End
 
-val nonbuiltin_types_def = Define `nonbuiltin_types = {ty | ¬is_builtin_type ty}`
+Definition nonbuiltin_types_def:
+  nonbuiltin_types = {ty | ¬is_builtin_type ty}
+End
 
-val builtin_consts =
-  Define `builtin_consts = {(s,ty) | s = strlit "=" /\ ?ty'. ty = Fun ty' (Fun ty' Bool)}`
+Definition builtin_consts:
+  builtin_consts = {(s,ty) | s = strlit "=" /\ ?ty'. ty = Fun ty' (Fun ty' Bool)}
+End
 
-val nonbuiltin_constinsts_def =
-  Define `nonbuiltin_constinsts = {c | c ∉ builtin_consts}`
+Definition nonbuiltin_constinsts_def:
+  nonbuiltin_constinsts = {c | c ∉ builtin_consts}
+End
 
-val consts_of_term_def = Define
-  `(consts_of_term(Abs x y) = consts_of_term x ∪ consts_of_term y) /\
+Definition consts_of_term_def:
+  (consts_of_term(Abs x y) = consts_of_term x ∪ consts_of_term y) /\
    (consts_of_term(Comb x y) = consts_of_term x ∪ consts_of_term y) /\
    (consts_of_term(Const n ty) = {(n,ty)}) /\
-   (consts_of_term _ = {})`
+   (consts_of_term _ = {})
+End
 
-val is_sig_fragment_def = Define
-  `is_sig_fragment sig (tys,consts) =
+Definition is_sig_fragment_def:
+  is_sig_fragment sig (tys,consts) =
    (tys ⊆ ground_types sig ∧ tys ⊆ nonbuiltin_types
     ∧ consts ⊆ ground_consts sig ∧ consts ⊆ nonbuiltin_constinsts
     ∧ (!s c. (s,c) ∈ consts ==> c ∈ builtin_closure tys)
    )
-  `
+End
 
-val terms_of_frag_def = Define
-  `terms_of_frag (tys,consts) =
+Definition terms_of_frag_def:
+  terms_of_frag (tys,consts) =
    {t | consts_of_term t ∩ nonbuiltin_constinsts ⊆ consts
         /\ set(allTypes t) ⊆ tys /\ welltyped t}
-  `
+End
 
 val TYPE_SUBSTf_def = tDefine "TYPE_SUBSTf" `
   (TYPE_SUBSTf i (Tyvar v) = i v) ∧
@@ -81,20 +86,23 @@ val TYPE_SUBSTf_def = tDefine "TYPE_SUBSTf" `
 
 val _ = export_rewrites["TYPE_SUBSTf_def"]
 
-val terms_of_frag_uninst_def = Define
-  `terms_of_frag_uninst (tys,consts) sigma =
+Definition terms_of_frag_uninst_def:
+  terms_of_frag_uninst (tys,consts) sigma =
    {t | (IMAGE (I ## TYPE_SUBSTf sigma) (consts_of_term t) ∩ nonbuiltin_constinsts) ⊆ consts
         /\ set(FLAT (MAP allTypes'(MAP (TYPE_SUBSTf sigma) (allTypes t)))) ⊆ tys /\ welltyped t}
-  `
+End
 
-val ground_terms_def = Define
-  `ground_terms sig = {t | ?ty. t has_type ty /\ ty ∈ ground_types sig}`
+Definition ground_terms_def:
+  ground_terms sig = {t | ?ty. t has_type ty /\ ty ∈ ground_types sig}
+End
 
-val ground_terms_uninst_def = Define
-  `ground_terms_uninst sig sigma = {t | ?ty. t has_type ty /\ TYPE_SUBSTf sigma ty ∈ ground_types sig}`
+Definition ground_terms_uninst_def:
+  ground_terms_uninst sig sigma = {t | ?ty. t has_type ty /\ TYPE_SUBSTf sigma ty ∈ ground_types sig}
+End
 
-val types_of_frag_def = Define
-  `types_of_frag (tys,consts) = builtin_closure tys`
+Definition types_of_frag_def:
+  types_of_frag (tys,consts) = builtin_closure tys
+End
 
 (* Lemma 8 from Kunčar and Popescu's ITP2015 paper *)
 
@@ -664,8 +672,9 @@ val ext_term_frag_builtins_def = xDefine "ext_term_frag_builtins"`
 
 Overload ext_term_frag_builtins = ``ext_term_frag_builtins0 ^mem``
 
-val builtin_terms_def = Define
-  `builtin_terms tyfrag = builtin_consts ∩ {const | SND const ∈ tyfrag}`
+Definition builtin_terms_def:
+  builtin_terms tyfrag = builtin_consts ∩ {const | SND const ∈ tyfrag}
+End
 
 Theorem ext_type_frag_idem:
   !ty δ.
@@ -907,11 +916,12 @@ val empty_valuation = xDefine "empty_valuation"
 
 Overload empty_valuation = ``empty_valuation0 ^mem``
 
-val fleq_def = Define
-  `fleq ((tyfrag1,tmfrag1),(δ1: type -> 'U,γ1: mlstring # type -> 'U)) ((tyfrag2,tmfrag2),(δ2,γ2)) =
+Definition fleq_def:
+  fleq ((tyfrag1,tmfrag1),(δ1: type -> 'U,γ1: mlstring # type -> 'U)) ((tyfrag2,tmfrag2),(δ2,γ2)) =
    (tmfrag1 ⊆ tmfrag2 /\ tyfrag1 ⊆ tyfrag2
     /\ (!c ty. (c,ty) ∈ tmfrag1 ==> γ1(c,ty) = γ2(c,ty))
-    /\ (!ty. ty ∈ tyfrag1 ==> δ1 ty = δ2 ty))`
+    /\ (!ty. ty ∈ tyfrag1 ==> δ1 ty = δ2 ty))
+End
 
 val builtin_closure_mono_lemma = Q.prove(
   `!tys1 ty. builtin_closure tys1 ty ==> !tys2. tys1 ⊆ tys2 ==> builtin_closure tys2 ty`,

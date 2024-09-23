@@ -4342,13 +4342,15 @@ QED
     representation in memory
    ------------------------------------------------------- *)
 
-val pointer_bits_def = Define ` (* pointers have tag and len bits *)
+Definition pointer_bits_def:
+  (* pointers have tag and len bits *)
   pointer_bits conf abs_heap n =
     case heap_lookup n abs_heap of
     | SOME (DataElement xs l (BlockTag tag,[])) =>
         maxout_bits (LENGTH xs) conf.len_bits (conf.tag_bits + 2) ||
         maxout_bits tag conf.tag_bits 2 || 1w
-    | _ => all_ones (conf.len_bits + conf.tag_bits + 1) 0`
+    | _ => all_ones (conf.len_bits + conf.tag_bits + 1) 0
+End
 
 Definition is_all_ones_def:
   is_all_ones m n w = ((all_ones m n && w) = all_ones m n)
@@ -10766,7 +10768,9 @@ val word_copy_bwd_def = tDefine "word_copy_bwd" `
   \\ fs [WORD_LO] \\ rfs [NOT_LESS]
   \\ rewrite_tac [addressTheory.word_arith_lemma2,GSYM word_sub_def] \\ fs [])
 
-val minus_def = Define `minus m n = m - n:num`;
+Definition minus_def:
+  minus m n = m - n:num
+End
 
 Definition list_copy_bwd_def:
   list_copy_bwd n xp xs yp ys =

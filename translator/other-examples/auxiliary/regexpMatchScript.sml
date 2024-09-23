@@ -93,13 +93,13 @@ val regexp_cases = TypeBase.nchotomy_of ``:'a regexp``;
 (* as a list) is in the language of regular expression r.                    *)
 (*---------------------------------------------------------------------------*)
 
-val sem_def =
- Define
-  `(sem Epsilon w     = (w = []))                                         /\
+Definition sem_def:
+  (sem Epsilon w     = (w = []))                                         /\
    (sem (Charset C) w = (?x. (w = [x]) /\ MEM x C))                       /\
    (sem (r1 + r2) w   = sem r1 w \/ sem r2 w)                             /\
    (sem (r1 # r2) w   = ?w1 w2. (w = w1 ++ w2) /\ sem r1 w1 /\ sem r2 w2) /\
-   (sem (Repeat r) w  = ?wlist. (w = FLAT wlist) /\ EVERY (sem r) wlist)`;
+   (sem (Repeat r) w  = ?wlist. (w = FLAT wlist) /\ EVERY (sem r) wlist)
+End
 
 (*---------------------------------------------------------------------------*)
 (* Some basic equivalences for regular expressions.                          *)
@@ -160,45 +160,45 @@ val match_defn =
 (* Epsilon size 0 which won't work for the matcher's termination proof.      *)
 (*---------------------------------------------------------------------------*)
 
-val my_regexp_size_def =
- Define
-  `(my_regexp_size Epsilon     = 1) /\
+Definition my_regexp_size_def:
+  (my_regexp_size Epsilon     = 1) /\
    (my_regexp_size (Charset _) = 1) /\
    (my_regexp_size (r1 + r2)   = 1 + my_regexp_size r1 + my_regexp_size r2) /\
    (my_regexp_size (r1 # r2)   = 1 + my_regexp_size r1 + my_regexp_size r2) /\
-   (my_regexp_size (Repeat r)  = 1 + my_regexp_size r)`;
+   (my_regexp_size (Repeat r)  = 1 + my_regexp_size r)
+End
 
 (*---------------------------------------------------------------------------*)
 (* Star height of a regular expression                                       *)
 (*---------------------------------------------------------------------------*)
 
-val starHeight_def =
- Define
-  `(starHeight Epsilon     = 0:num) /\
+Definition starHeight_def:
+  (starHeight Epsilon     = 0:num) /\
    (starHeight (Charset _) = 0) /\
    (starHeight (r1 + r2)   = MAX (starHeight r1) (starHeight r2)) /\
    (starHeight (r1 # r2)   = MAX (starHeight r1) (starHeight r2)) /\
-   (starHeight (Repeat r)  = 1 + starHeight r)`;
+   (starHeight (Repeat r)  = 1 + starHeight r)
+End
 
-val front_starHeight_def =
- Define
-  `(front_starHeight [] sl = 0) /\
+Definition front_starHeight_def:
+  (front_starHeight [] sl = 0) /\
    (front_starHeight (h::t) sl =
       if (sl = SOME (h::t)) /\ ?r. h = Repeat r
        then 0
-       else MAX (starHeight h) (front_starHeight t sl))`;
+       else MAX (starHeight h) (front_starHeight t sl))
+End
 
 (*---------------------------------------------------------------------------*)
 (* SUM (MAP my_regexp_size res) doesn't count the conses in the list like    *)
 (* the builtin list measure does.  This is important for termination proof.  *)
 (*---------------------------------------------------------------------------*)
 
-val term_meas_def =
- Define
-   `term_meas (res, str, stop) =
+Definition term_meas_def:
+  term_meas (res, str, stop) =
      (LENGTH str,
       front_starHeight res stop,
-      SUM (MAP my_regexp_size res))`;
+      SUM (MAP my_regexp_size res))
+End
 
 val (match_def, match_ind) = Defn.tprove
 (match_defn,
@@ -241,22 +241,22 @@ val match_implies_sem = Q.prove
 (* ends with T.                                                              *)
 (*---------------------------------------------------------------------------*)
 
-val m_def =
- Define
-  `(m (Epsilon::t,w,s)  x     = (x = (t,w,s))) /\
+Definition m_def:
+  (m (Epsilon::t,w,s)  x     = (x = (t,w,s))) /\
    (m (Charset C::t,d::w,s) x = (x = (t,w,NONE)) /\ MEM d C) /\
    (m ((r1 + r2)::t, w, s) x  = (x = (r1::t,w,s)) \/ (x = (r2::t,w,s))) /\
    (m ((r1 # r2)::t, w, s) x  = (x = (r1::r2::t,w,s))) /\
    (m (Repeat r::t, w,s) x    = (x = (t, w, s)) \/
                                 (x = (r::Repeat r::t, w, SOME(Repeat r::t))))/\
-   (m _ _ = F)`;
+   (m _ _ = F)
+End
 
 
-val match_seq_def =
- Define
-  `(match_seq [] = T) /\
+Definition match_seq_def:
+  (match_seq [] = T) /\
    (match_seq [a] = (FST a = []) /\ (FST (SND a) = [])) /\
-   (match_seq (a::b::rest) = m a b /\ match_seq (b::rest))`;
+   (match_seq (a::b::rest) = m a b /\ match_seq (b::rest))
+End
 
 (*---------------------------------------------------------------------------*)
 (* Induction and case analysis theorems for match sequences                  *)
@@ -346,9 +346,8 @@ val match_seq_down_closed = Q.prove
 (* previous one.                                                             *)
 (*---------------------------------------------------------------------------*)
 
-val change_stop_on_prefix_def =
- Define
-  `(change_stop_on_prefix ([] : ('a regexp list # 'a list #
+Definition change_stop_on_prefix_def:
+  (change_stop_on_prefix ([] : ('a regexp list # 'a list #
                                  'a regexp list option) list) ns = []) /\
    (change_stop_on_prefix ((Repeat r::t,w,s)::b::c) ns =
      if b = (r::Repeat r::t, w, SOME (Repeat r::t))
@@ -357,7 +356,8 @@ val change_stop_on_prefix_def =
    (change_stop_on_prefix ((Charset c1::t,w,s)::c) ns
        = (Charset c1::t,w,ns)::c) /\
    (change_stop_on_prefix ((rl,w,s)::c) ns
-       = (rl,w,ns)::change_stop_on_prefix c ns)`;
+       = (rl,w,ns)::change_stop_on_prefix c ns)
+End
 
 val csp_def = change_stop_on_prefix_def;
 val csp_ind = fetch "-" "change_stop_on_prefix_ind";
@@ -388,15 +388,15 @@ val LENGTH_CSP = Q.prove
 (* sequences can be joined.                                                  *)
 (*---------------------------------------------------------------------------*)
 
-val compose_m_seq_def =
- Define
-  `(compose_m_seq [] x2 = x2) /\
+Definition compose_m_seq_def:
+  (compose_m_seq [] x2 = x2) /\
    (compose_m_seq x1 [] = x1) /\
    (compose_m_seq x1 ((r1,w1,s1)::x2) =
      let x1 = MAP (\(r,w,s). (r++r1, w++w1, OPTION_MAP (\e. e++r1) s)) x1 in
      let x2 = change_stop_on_prefix ((r1,w1,s1)::x2) (SND (SND (LAST x1)))
      in
-       x1 ++ TL x2)`;
+       x1 ++ TL x2)
+End
 
 val compose_m_seq_null = Q.prove
 (`(!x. compose_m_seq [] x = x) /\ (!x. compose_m_seq x [] = x)`,
@@ -542,11 +542,11 @@ end;
 (* Split a list in two around the first point where predicate P holds.       *)
 (*---------------------------------------------------------------------------*)
 
-val split_def =
- Define
-  `(split P [] acc = NONE) /\
+Definition split_def:
+  (split P [] acc = NONE) /\
    (split P (h::t) acc = if P h then SOME (acc, h, t)
-                                else split P t (acc++[h]))`;
+                                else split P t (acc++[h]))
+End
 
 val split_thm = Q.prove
 (`!P l acc l1 v l2.

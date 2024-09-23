@@ -17,8 +17,12 @@ val _ = new_theory "intervalArith";
 val NEG_INF = (rconc o EVAL) ``((INT_MINw: 32 word) + 1w)``
 val POS_INF = (rconc o EVAL) ``((INT_MAXw: 32 word) )``
 
-val NEG_INF_def = Define`NEG_INF:word32 = ^NEG_INF`
-val POS_INF_def = Define`POS_INF:word32 = ^POS_INF`
+Definition NEG_INF_def:
+  NEG_INF:word32 = ^NEG_INF
+End
+Definition POS_INF_def:
+  POS_INF:word32 = ^POS_INF
+End
 
 val _ = Datatype`
   trm = Const word32

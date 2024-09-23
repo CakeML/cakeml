@@ -247,7 +247,9 @@ Definition get_var_imm_cs_def:
   (get_var_imm_cs (Imm i) _ = SOME i)
 End
 
-val is_gc_const_def = Define `is_gc_const c = ((c && 1w) = 0w)`
+Definition is_gc_const_def:
+  is_gc_const c = ((c && 1w) = 0w)
+End
 
 Definition const_fp_loop_def:
   (const_fp_loop (Move pri moves) cs = (Move pri moves, const_fp_move_cs moves cs cs)) /\

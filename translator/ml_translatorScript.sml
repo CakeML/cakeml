@@ -66,7 +66,9 @@ Definition Eq_def:
     (\y v. (x = y) /\ abs y v)
 End
 
-val And_def = Define `And a P x v = (P x /\ a (x:'a) (v:v))`;
+Definition And_def:
+  And a P x v = (P x /\ a (x:'a) (v:v))
+End
 
 Definition UNIT_TYPE_def:
   UNIT_TYPE (u:unit) (v:v) = (v = Conv NONE [])
@@ -124,11 +126,17 @@ Definition HOL_STRING_TYPE_def:
   HOL_STRING_TYPE cs = STRING_TYPE (implode cs)
 End
 
-val CONTAINER_def = Define `CONTAINER x = x`;
+Definition CONTAINER_def:
+  CONTAINER x = x
+End
 
-val TAG_def = Define `TAG n x = x`;
+Definition TAG_def:
+  TAG n x = x
+End
 
-val PRECONDITION_def = Define `PRECONDITION b = (b:bool)`;
+Definition PRECONDITION_def:
+  PRECONDITION b = (b:bool)
+End
 
 Definition PreImp_def:
   PreImp b1 b2 = (PRECONDITION b1 ==> b2)
@@ -882,7 +890,9 @@ Proof
   \\ FULL_SIMP_TAC std_ss []
 QED
 
-val SafeVar_def = Define `SafeVar = Var`;
+Definition SafeVar_def:
+  SafeVar = Var
+End
 
 Theorem Eval_Eq_Recclosure:
    LOOKUP_VAR name env (Recclosure x1 x2 x3) ==>
@@ -2347,8 +2357,12 @@ QED
 val PUSH_FORALL_INTO_IMP = save_thm("PUSH_FORALL_INTO_IMP",
   METIS_PROVE [] ``!P Q. (!x. P x ==> Q x) ==> (!x. P x) ==> (!x. Q x)``);
 
-val FALSE_def = Define `FALSE = F`;
-val TRUE_def = Define `TRUE = T`;
+Definition FALSE_def:
+  FALSE = F
+End
+Definition TRUE_def:
+  TRUE = T
+End
 
 Theorem Eval_Val_BOOL_FALSE:
    Eval env (App (Opb Lt) [Lit (IntLit 0); Lit (IntLit 0)]) (BOOL FALSE)

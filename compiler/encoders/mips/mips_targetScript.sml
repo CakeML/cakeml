@@ -38,7 +38,9 @@ End
 
 val nop = ``Shift (SLL (0w, 0w, 0w))``
 
-val mips_encode_fail_def = Define `mips_encode_fail = [^nop]`
+Definition mips_encode_fail_def:
+  mips_encode_fail = [^nop]
+End
 
 Definition mips_encode_def:
    mips_encode i =

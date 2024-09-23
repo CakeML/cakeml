@@ -299,9 +299,10 @@ Definition extract_write_def:
 End
 val _ = export_rewrites["extract_write_def"];
 
-val extract_writes_def = Define
-  `extract_writes fd io_events =
-     FLAT (MAP extract_write (FILTER (is_write fd) io_events))`;
+Definition extract_writes_def:
+  extract_writes fd io_events =
+     FLAT (MAP extract_write (FILTER (is_write fd) io_events))
+End
 
 Overload extract_stdout = ``extract_writes 1w``
 Overload extract_stderr = ``extract_writes 2w``;

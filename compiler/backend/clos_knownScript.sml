@@ -108,7 +108,9 @@ End
 
 val get_size_aux_ind = theorem "get_size_aux_ind";
 
-val get_size_def = Define `get_size e = get_size_aux [e]`;
+Definition get_size_def:
+  get_size e = get_size_aux [e]
+End
 
 Theorem get_size_sc_aux_correct:
    !xs limit n. get_size_sc_aux limit xs = limit - get_size_aux xs
@@ -490,7 +492,9 @@ val _ = Datatype`
             ; val_approx_spt : val_approx spt (* TODO: this could replace the explicit g argument in known_def *)
             |>`;
 
-val default_inline_factor_def = Define`default_inline_factor = 8n`;
+Definition default_inline_factor_def:
+  default_inline_factor = 8n
+End
 Definition default_max_body_size_def:
   default_max_body_size max_app inline_factor = (max_app + 1n) * inline_factor
 End

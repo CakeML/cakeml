@@ -1685,7 +1685,9 @@ Proof
    srw_tac[][] >> res_tac >> (decide_tac ORELSE metis_tac[ADD_COMM,ADD_ASSOC])
 QED
 
-val in_ns_def = Define`in_ns k n ⇔ n MOD nss = k`;
+Definition in_ns_def:
+  in_ns k n ⇔ n MOD nss = k
+End
 
 Theorem nss_in_ns[simp]:
    in_ns k nss ⇔ k = 0

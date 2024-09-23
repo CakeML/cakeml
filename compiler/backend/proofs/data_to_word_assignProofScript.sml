@@ -3406,7 +3406,9 @@ val evaluate_AppendMainLoop_code = prove(
   \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
   \\ fs [] \\ rw [] \\ fs []);
 
-val STOP_def = Define `STOP x = x`;
+Definition STOP_def:
+  STOP x = x
+End
 
 val evaluate_AppendMainLoop_code_alt = prove(
   ``!xs ww (t:('a,'c,'ffi)wordSem$state) vars ptr hdr l k frame r1 r2 next_free ts v.

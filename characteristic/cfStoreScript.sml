@@ -19,7 +19,9 @@ Definition store2heap_aux_def:
 End
 
 (* store2heap: v store -> heap *)
-val store2heap_def = Define `store2heap l = store2heap_aux (0: num) l`
+Definition store2heap_def:
+  store2heap l = store2heap_aux (0: num) l
+End
 
 Definition ffi_has_index_in_def:
   ffi_has_index_in ns (IO_event (ExtCall i) conf ws) = (MEM i ns) /\

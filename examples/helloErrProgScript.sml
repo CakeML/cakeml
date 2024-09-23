@@ -46,7 +46,9 @@ Proof
 QED
 
 val (helloErr_sem_thm, helloErr_prog_tm) = whole_prog_thm st "helloErr" helloErr_whole_prog_spec;
-val helloErr_prog_def = Define`helloErr_prog = ^helloErr_prog_tm`;
+Definition helloErr_prog_def:
+  helloErr_prog = ^helloErr_prog_tm
+End
 
 val helloErr_semantics = save_thm("helloErr_semantics",
   helloErr_sem_thm |> ONCE_REWRITE_RULE[GSYM helloErr_prog_def]

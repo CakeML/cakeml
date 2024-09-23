@@ -50,22 +50,25 @@ val if_length_lemma = Q.prove(`TAKE (if LENGTH r <= 1 then 1 else LENGTH r) r = 
     lcs l1 l2 l3
    is true iff l1 is the longest common subsequence of l2 and l3. *)
 
-val is_subsequence_def =
-Define `(is_subsequence [] l = T) ∧
+Definition is_subsequence_def:
+  (is_subsequence [] l = T) ∧
 (is_subsequence (f::r) l =
  case l of
     | [] => F
     | f'::r' =>
-      (((f = f') /\ is_subsequence r r') \/ is_subsequence (f::r) r'))`
+      (((f = f') /\ is_subsequence r r') \/ is_subsequence (f::r) r'))
+End
 
-val common_subsequence_def =
-Define `common_subsequence s t u =
-         (is_subsequence s t ∧ is_subsequence s u)`
+Definition common_subsequence_def:
+  common_subsequence s t u =
+         (is_subsequence s t ∧ is_subsequence s u)
+End
 
-val lcs_def =
-Define `lcs s t u =
+Definition lcs_def:
+  lcs s t u =
          (common_subsequence s t u ∧
-          (∀s'. common_subsequence s' t u ⇒ LENGTH s' <= LENGTH s))`
+          (∀s'. common_subsequence s' t u ⇒ LENGTH s' <= LENGTH s))
+End
 
 (* Properties of lcs and its auxiliary functions *)
 
@@ -566,18 +569,19 @@ QED
 
 (* A naive, exponential-time LCS algorithm that's easy to verify *)
 
-val longest_def =
-Define `longest l l' = if LENGTH l >= LENGTH l' then l else l'`
+Definition longest_def:
+  longest l l' = if LENGTH l >= LENGTH l' then l else l'
+End
 
-val naive_lcs_def =
-Define
-`(naive_lcs l [] = []) ∧
+Definition naive_lcs_def:
+  (naive_lcs l [] = []) ∧
 (naive_lcs [] l = []) ∧
 (naive_lcs (f::r) (f'::r') =
  if f = f' then
    f::naive_lcs r r'
  else
-   longest(naive_lcs (f::r) r') (naive_lcs r (f'::r')))`
+   longest(naive_lcs (f::r) r') (naive_lcs r (f'::r')))
+End
 
 (* Properties of the naive lcs algorithm *)
 
@@ -671,8 +675,9 @@ QED
 
 (* A quadratic-time LCS algorithm in dynamic programming style *)
 
-val longest'_def =
-Define `longest' (l,n) (l',n') = if n:num >= n' then (l,n) else (l',n')`
+Definition longest'_def:
+  longest' (l,n) (l',n') = if n:num >= n' then (l,n) else (l',n')
+End
 
 val longest'_thm = Q.prove(
   `!l l'. longest' l l' = if SND l >= SND l' then l else l'`,

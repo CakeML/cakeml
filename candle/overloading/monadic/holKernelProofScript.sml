@@ -67,7 +67,9 @@ Definition THM_def:
   THM ctxt (Sequent asl c) = ((thyof ctxt, asl) |- c)
 End
 
-val lift_tm_def = Define `lift_tm c = Sequent [] c`;
+Definition lift_tm_def:
+  lift_tm c = Sequent [] c
+End
 
 Definition STATE_def:
   STATE ctxt state =

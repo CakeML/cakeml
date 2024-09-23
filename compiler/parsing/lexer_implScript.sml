@@ -167,8 +167,12 @@ Definition unhex_alt_def:
   unhex_alt x = (if isHexDigit x then UNHEX x else 0n)
 End
 
-val num_from_dec_string_alt_def = Define `num_from_dec_string_alt = s2n 10 unhex_alt`;
-val num_from_hex_string_alt_def = Define `num_from_hex_string_alt = s2n 16 unhex_alt`;
+Definition num_from_dec_string_alt_def:
+  num_from_dec_string_alt = s2n 10 unhex_alt
+End
+Definition num_from_hex_string_alt_def:
+  num_from_hex_string_alt = s2n 16 unhex_alt
+End
 
 val next_sym_alt_def = tDefine "next_sym_alt" `
   (next_sym_alt "" _ = NONE) /\

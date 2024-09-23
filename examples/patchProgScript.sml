@@ -227,7 +227,9 @@ QED
 
 val name = "patch"
 val (sem_thm,prog_tm) = whole_prog_thm st name (UNDISCH patch_whole_prog_spec)
-val patch_prog_def = Define`patch_prog = ^prog_tm`;
+Definition patch_prog_def:
+  patch_prog = ^prog_tm
+End
 
 val patch_semantics = save_thm("patch_semantics",
   sem_thm |> REWRITE_RULE[GSYM patch_prog_def]

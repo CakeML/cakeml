@@ -2162,7 +2162,9 @@ Proof
     rw [lookup_default_id_def, lookup_insert]
 QED
 
-val id_def = Define `id x = x`
+Definition id_def:
+  id x = x
+End
 
 Theorem find_reg_exchange_FOLDR_correct:
      !l colors exch invexch k.

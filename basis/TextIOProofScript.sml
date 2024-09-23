@@ -73,7 +73,9 @@ Definition STDIO_def:
 End
 
 (* Used by the monadic translator *)
-val MONAD_IO_def = Define `MONAD_IO fs = STDIO fs * &hasFreeFD fs`;
+Definition MONAD_IO_def:
+  MONAD_IO fs = STDIO fs * &hasFreeFD fs
+End
 
 Theorem STDIO_numchars:
   STDIO (fs with numchars := x) = STDIO fs
@@ -221,8 +223,9 @@ Proof
 rw[stdo_def] >> EQ_TAC >> rw[explode_11]
 QED
 
-val up_stdo_def = Define
-`up_stdo fd fs out = fsupdate fs fd 0 (strlen out) (explode out)`
+Definition up_stdo_def:
+  up_stdo fd fs out = fsupdate fs fd 0 (strlen out) (explode out)
+End
 Overload up_stdout = ``up_stdo 1``;
 Overload up_stderr = ``up_stdo 2``;
 
@@ -713,12 +716,14 @@ Proof
   gs[]
 QED
 
-val stdin_def = Define
-`stdin fs inp pos = (ALOOKUP fs.infds 0 = SOME(UStream(strlit"stdin"),ReadMode,pos) /\
-                     ALOOKUP fs.inode_tbl (UStream(strlit"stdin"))= SOME inp)`
+Definition stdin_def:
+  stdin fs inp pos = (ALOOKUP fs.infds 0 = SOME(UStream(strlit"stdin"),ReadMode,pos) /\
+                     ALOOKUP fs.inode_tbl (UStream(strlit"stdin"))= SOME inp)
+End
 
-val up_stdin_def = Define
-`up_stdin inp pos fs = fsupdate fs 0 0 pos inp`
+Definition up_stdin_def:
+  up_stdin inp pos fs = fsupdate fs 0 0 pos inp
+End
 
 Definition get_stdin_def:
   get_stdin fs = let (inp,pos) = @(inp,pos). stdin fs inp pos in DROP pos inp

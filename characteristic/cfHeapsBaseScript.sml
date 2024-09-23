@@ -47,9 +47,10 @@ Proof
   Cases \\ Cases \\ rw[encode_option_def] \\ metis_tac[]
 QED
 
-val encode_bool_def = Define
-  `encode_bool F = Num 0 ∧
-   encode_bool T = Num 1`;
+Definition encode_bool_def:
+  encode_bool F = Num 0 ∧
+   encode_bool T = Num 1
+End
 
 Theorem encode_bool_11[simp]:
    ∀x y. encode_bool x = encode_bool y ⇔ x = y
@@ -166,7 +167,9 @@ Definition SEP_IMPPOSTe_inv_def:
 End
 
 (* Garbage collection predicate *)
-val GC_def = Define `GC: hprop = SEP_EXISTS H. H`
+Definition GC_def:
+  GC: hprop = SEP_EXISTS H. H
+End
 
 (* Injections for post-conditions *)
 Definition POST_def:

@@ -742,7 +742,9 @@ val SPLIT_th = Q.prove(`
 val semantics_thm = MATCH_MP th (UNDISCH SPLIT_th) |> DISCH_ALL
 val prog_tm = rhs(concl prog_rewrite)
 
-val bot_prog_def = Define`bot_prog = ^prog_tm`;
+Definition bot_prog_def:
+  bot_prog = ^prog_tm
+End
 
 val bot_semantics_thm =
   semantics_thm

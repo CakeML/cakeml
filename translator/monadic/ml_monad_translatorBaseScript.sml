@@ -42,7 +42,9 @@ Proof
 QED
 
 (* REF_REL *)
-val REF_REL_def = Define `REF_REL TYPE r x = SEP_EXISTS v. REF r v * &TYPE x v`;
+Definition REF_REL_def:
+  REF_REL TYPE r x = SEP_EXISTS v. REF r v * &TYPE x v
+End
 
 val H = mk_var("H",``:('a -> hprop) # 'ffi ffi_proj``);
 

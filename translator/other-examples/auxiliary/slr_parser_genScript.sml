@@ -8,7 +8,9 @@ open HolKernel Parse boolLib bossLib;
 val _ = new_theory "slr_parser_gen";
 open arithmeticTheory listTheory combinTheory stringTheory;
 
-val push_def = Define `push l e = e::l`;
+Definition push_def:
+  push l e = e::l
+End
 
 Definition pop_def:
   (pop [] _ = []) /\
@@ -34,14 +36,20 @@ Definition isNonTmnlSym:
   (isNonTmnlSym _ = F)
 End
 
-val sym2Str = Define `(sym2Str (TS s) = s) /\ (sym2Str (NTS s) = s)`;
+Definition sym2Str:
+  (sym2Str (TS s) = s) /\ (sym2Str (NTS s) = s)
+End
 
 Datatype:
   rule = rule string (symbol list)
 End
 
-val ruleRhs = Define `ruleRhs (rule l r) = r`;
-val ruleLhs = Define `ruleLhs (rule l r) = l`;
+Definition ruleRhs:
+  ruleRhs (rule l r) = r
+End
+Definition ruleLhs:
+  ruleLhs (rule l r) = l
+End
 
 Datatype:
   ptree = Leaf string | Node string (ptree list)
@@ -114,7 +122,9 @@ Definition getState:
               NA
 End
 
-val stackSyms = Define `stackSyms stl = (REVERSE (MAP FST (MAP FST stl)))`
+Definition stackSyms:
+  stackSyms stl = (REVERSE (MAP FST (MAP FST stl)))
+End
 
 Definition exitCond:
   exitCond (eof,oldSym)  (inp,stl,csl) =

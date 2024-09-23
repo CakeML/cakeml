@@ -68,9 +68,10 @@ Definition is_Recclosure_def:
 End
 val _ = export_rewrites["is_Recclosure_def"];
 
-val every_refv_def = Define
-  `(every_refv P (ValueArray vs) ⇔ EVERY P vs) ∧
-   (every_refv P _ ⇔ T)`
+Definition every_refv_def:
+  (every_refv P (ValueArray vs) ⇔ EVERY P vs) ∧
+   (every_refv P _ ⇔ T)
+End
 val _ = export_rewrites["every_refv_def"];
 
 val IMP_EXISTS_IFF = Q.prove(

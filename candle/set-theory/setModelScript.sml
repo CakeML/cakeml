@@ -174,7 +174,9 @@ val dest_V_11   = prove_rep_fn_one_one V_bij
 val V_mem_rep_def =
   new_specification("V_mem_rep_def",["V_mem_rep"],is_V_def)
 
-val V_mem_def = Define`V_mem x y = V_mem_rep (dest_V x) (dest_V y)`
+Definition V_mem_def:
+  V_mem x y = V_mem_rep (dest_V x) (dest_V y)
+End
 
 Theorem is_set_theory_V:
    is_set_theory V_mem

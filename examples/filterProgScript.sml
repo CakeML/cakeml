@@ -34,15 +34,19 @@ val matcher_certificate = save_thm
 (* Define a named matcher function                                           *)
 (*---------------------------------------------------------------------------*)
 
-val matcher_def =
- Define `matcher ^(matcher_certificate |> concl |> dest_forall |> fst) =
-                 ^(matcher_certificate |> concl |> dest_forall |> snd |> lhs)`
+Definition matcher_def:
+  matcher ^(matcher_certificate |> concl |> dest_forall |> fst) =
+                 ^(matcher_certificate |> concl |> dest_forall |> snd |> lhs)
+End
 
-val match_string_def = Define `match_string s = matcher(explode s)`
+Definition match_string_def:
+  match_string s = matcher(explode s)
+End
 
-val language_def =
- Define `language =
-                 ^(matcher_certificate |> concl |> dest_forall |> snd |> rhs |> rator)`
+Definition language_def:
+  language =
+                 ^(matcher_certificate |> concl |> dest_forall |> snd |> rhs |> rator)
+End
 
 val match_string_eq = Q.prove(`match_string = language o explode`,
   `!s. match_string s = (language o explode) s` suffices_by metis_tac[]
@@ -247,10 +251,12 @@ Proof
   >> imp_res_tac DROP_CONS_EL >> fs[]
 QED
 
-val cut_at_null_def = Define `cut_at_null s =
+Definition cut_at_null_def:
+  cut_at_null s =
   case null_index s 0 of
       NONE => strcat s (str(CHR 0))
-    | SOME n => substring s 0 (SUC n)`
+    | SOME n => substring s 0 (SUC n)
+End
 
 Theorem cut_at_null_SPLITP:
   !s. cut_at_null s = implode(FST(SPLITP ($= (CHR 0)) (explode s)) ++ [CHR 0])
@@ -356,10 +362,12 @@ Proof
   >> imp_res_tac DROP_CONS_EL >> fs[]
 QED
 
-val cut_at_null_w_def = Define `cut_at_null_w s =
+Definition cut_at_null_w_def:
+  cut_at_null_w s =
   case null_index_w s 0 of
       NONE => s ++ [0w]
-    | SOME n => SEG (SUC n) 0 s`
+    | SOME n => SEG (SUC n) 0 s
+End
 
 Theorem cut_at_null_w_SPLITP:
   !s. cut_at_null_w s = FST(SPLITP ($= 0w) s) ++ [0w]
@@ -597,19 +605,23 @@ val LLENGTH_NONE_LTAKE = Q.prove(
   `!n ll. LLENGTH ll = NONE ==> ?l. LTAKE n ll = SOME l`,
   Induct >> Cases_on `ll` >> rw[]);
 
-val is_emit_def = Define
-  `is_emit (IO_event s _ _) = (s = ExtCall "emit_string")`
+Definition is_emit_def:
+  is_emit (IO_event s _ _) = (s = ExtCall "emit_string")
+End
 
-val output_event_of_def = Define
-  `output_event_of s = IO_event (ExtCall "emit_string") s []`
+Definition output_event_of_def:
+  output_event_of s = IO_event (ExtCall "emit_string") s []
+End
 
-val nth_arr_def = Define `nth_arr n ll =
+Definition nth_arr_def:
+  nth_arr n ll =
  FST(FUNPOW (λ(l,ll).
  if ll = [||] then (l,[||])
  else (
    TAKE 256 (THE(LHD ll)) ++ DROP (LENGTH(THE(LHD ll))) l
       ,THE(LTL ll))) n
- (REPLICATE 256 (0w:word8),ll))`
+ (REPLICATE 256 (0w:word8),ll))
+End
 
 Theorem nth_arr_infinite:
  !n ll.
@@ -673,24 +685,27 @@ Proof
   Cases_on `ll` >> fs[LENGTH_TAKE_EQ]
 QED
 
-val next_filter_events = Define
-  `next_filter_events filter_fun last_input input =
+Definition next_filter_events:
+  next_filter_events filter_fun last_input input =
    let new_input = TAKE 256 input ++ DROP (LENGTH input) last_input
    in
     [IO_event (ExtCall "accept_call") [] (ZIP (last_input,new_input))] ++
     if filter_fun(cut_at_null_w input) then
       [IO_event (ExtCall "emit_string") (cut_at_null_w new_input) []]
     else
-      []`
+      []
+End
 
-val nth_arr_init_def = Define `nth_arr_init n ll buff =
+Definition nth_arr_init_def:
+  nth_arr_init n ll buff =
       FST(FUNPOW
              (λ(l,ll).
                if ll = [||] then (l,[||])
                else
                  (TAKE 256 (THE (LHD ll)) ++
                   DROP (LENGTH (THE (LHD ll))) l,THE (LTL ll))) n
-             (buff:word8 list,ll))`
+             (buff:word8 list,ll))
+End
 
 Theorem nth_arr_init_SUC: !h n ll init.
   nth_arr_init (SUC n) (h:::ll) init = nth_arr_init n ll (TAKE 256 h ++ DROP(LENGTH h) init)
@@ -1237,11 +1252,15 @@ Definition seL4_proj1_def:
                            ("emit_string", filter_oracle (ExtCall "emit_string"))]) ffi))
 End
 
-val seL4_proj2 = Define `seL4_proj2 =
-  [(["accept_call";"emit_string"],filter_cf_oracle)]`
+Definition seL4_proj2:
+  seL4_proj2 =
+  [(["accept_call";"emit_string"],filter_cf_oracle)]
+End
 
-val filter_ffi_state_def = Define `filter_ffi input =
-  <|oracle:=filter_oracle; ffi_state := input; io_events := []|>`;
+Definition filter_ffi_state_def:
+  filter_ffi input =
+  <|oracle:=filter_oracle; ffi_state := input; io_events := []|>
+End
 
 Theorem limited_parts_proj:
   limited_parts ["accept_call";"emit_string"] (seL4_proj1,seL4_proj2)

@@ -39,7 +39,9 @@ Definition sumID_def:
   sumID (INR y) = y
 End
 
-val mktokLf_def = Define`mktokLf t = [Lf (TK (FST t), SND t)]`
+Definition mktokLf_def:
+  mktokLf t = [Lf (TK (FST t), SND t)]
+End
 
 Definition mkNd_def:
   mkNd ntnm l = Nd (ntnm, ptree_list_loc l) l
@@ -49,7 +51,9 @@ Definition bindNT0_def:
   bindNT0 ntnm l = Nd (mkNT ntnm, ptree_list_loc l) l
 End
 
-val bindNT_def = Define`bindNT ntnm l = [bindNT0 ntnm l]`
+Definition bindNT_def:
+  bindNT ntnm l = [bindNT0 ntnm l]
+End
 
 Definition mk_linfix_def:
   mk_linfix tgt acc [] = acc ∧
@@ -82,7 +86,9 @@ Definition choicel_def:
   choicel (h::t) = choice h (choicel t) sumID
 End
 
-val pegf_def = Define`pegf sym f = seq sym (empty []) (λl1 l2. f l1)`
+Definition pegf_def:
+  pegf sym f = seq sym (empty []) (λl1 l2. f l1)
+End
 
 Definition seql_def:
   seql l f = pegf (FOLDR (\p acc. seq p acc (++)) (empty []) l) f
@@ -98,14 +104,18 @@ Definition try_def:
   try sym = choicel [sym; empty []]
 End
 
-val tokeq_def = Define`tokeq t = tok ((=) t) mktokLf`
+Definition tokeq_def:
+  tokeq t = tok ((=) t) mktokLf
+End
 
 Definition tokSymP_def:
   tokSymP P =
     tok (λt. (do s <- destSymbolT t; assert (P s) od) = SOME ()) mktokLf
 End
 
-val pnt_def = Define`pnt ntsym = nt (mkNT ntsym) I`
+Definition pnt_def:
+  pnt ntsym = nt (mkNT ntsym) I
+End
 
 (* ----------------------------------------------------------------------
     PEG for types

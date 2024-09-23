@@ -19,9 +19,13 @@ QED
 
 (* FFI part for the runtime *)
 
-val encode_def = Define `encode = K (List []):unit -> ffi`;
+Definition encode_def:
+  encode = K (List []):unit -> ffi
+End
 
-val decode_def = Define `decode = (K(SOME ())):ffi -> unit option`
+Definition decode_def:
+  decode = (K(SOME ())):ffi -> unit option
+End
 
 val encode_11 = prove(
   ``!x y. encode x = encode y <=> x = y``,

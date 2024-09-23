@@ -22,15 +22,31 @@ val () = Datatype `
      ; failed     : bool
      |>`
 
-val upd_pc_def      = Define `upd_pc pc s = s with pc := pc`
-val upd_reg_def     = Define `upd_reg r v s = s with regs := (r =+ v) s.regs`
-val upd_fp_reg_def  = Define `upd_fp_reg r v s = s with fp_regs := (r =+ v) s.fp_regs`
-val upd_mem_def     = Define `upd_mem a b s = s with mem := (a =+ b) s.mem`
-val read_reg_def    = Define `read_reg r s = s.regs r`
-val read_fp_reg_def = Define `read_fp_reg r s = s.fp_regs r`
-val read_mem_def    = Define `read_mem a s = s.mem a`
+Definition upd_pc_def:
+  upd_pc pc s = s with pc := pc
+End
+Definition upd_reg_def:
+  upd_reg r v s = s with regs := (r =+ v) s.regs
+End
+Definition upd_fp_reg_def:
+  upd_fp_reg r v s = s with fp_regs := (r =+ v) s.fp_regs
+End
+Definition upd_mem_def:
+  upd_mem a b s = s with mem := (a =+ b) s.mem
+End
+Definition read_reg_def:
+  read_reg r s = s.regs r
+End
+Definition read_fp_reg_def:
+  read_fp_reg r s = s.fp_regs r
+End
+Definition read_mem_def:
+  read_mem a s = s.mem a
+End
 
-val assert_def = Define `assert b s = s with failed := (~b \/ s.failed)`
+Definition assert_def:
+  assert b s = s with failed := (~b \/ s.failed)
+End
 
 Definition reg_imm_def:
   (reg_imm (Reg r) s = read_reg r s) /\
@@ -45,7 +61,9 @@ Definition binop_upd_def:
   (binop_upd r Xor w1 w2 = upd_reg r (word_xor w1 w2))
 End
 
-val is_test_def = Define `is_test c <=> (c = Test) \/ (c = NotTest)`
+Definition is_test_def:
+  is_test c <=> (c = Test) \/ (c = NotTest)
+End
 
 Definition word_shift_def:
   (word_shift Lsl w n = w << n) /\
@@ -157,7 +175,9 @@ Definition fp_upd_def:
        upd_fp_reg d1 (int_to_fp64 roundTiesToEven i) s)
 End
 
-val addr_def = Define `addr (Addr r offset) s = read_reg r s + offset`
+Definition addr_def:
+  addr (Addr r offset) s = read_reg r s + offset
+End
 
 Definition read_mem_word_def:
   (read_mem_word a 0 s = (0w:'a word,s)) /\
@@ -207,7 +227,9 @@ Definition inst_def:
   (inst (FP fp) s = fp_upd fp s)
 End
 
-val jump_to_offset_def = Define `jump_to_offset w s = upd_pc (s.pc + w) s`
+Definition jump_to_offset_def:
+  jump_to_offset w s = upd_pc (s.pc + w) s
+End
 
 Definition asm_def:
   (asm (Inst i) pc s = upd_pc pc (inst i s)) /\

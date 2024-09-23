@@ -55,7 +55,9 @@ End
 
 Overload Equal = ``λty. Const (strlit "=") (Fun ty (Fun ty Bool))``
 
-val dest_var_def = Define`dest_var (Var x ty) = (x,ty)`
+Definition dest_var_def:
+  dest_var (Var x ty) = (x,ty)
+End
 val _ = export_rewrites["dest_var_def"]
 
 (* Assignment of types to terms (where possible) *)
@@ -380,7 +382,9 @@ val INST_CORE_def = tDefine"INST_CORE"`
     if IS_RESULT tres then Result(Abs (Var x' ty') (RESULT tres)) else tres)`
 (WF_REL_TAC`measure (sizeof o SND o SND)` >> simp[SIZEOF_VSUBST])
 
-val INST_def = Define`INST tyin tm = RESULT(INST_CORE [] tyin tm)`
+Definition INST_def:
+  INST tyin tm = RESULT(INST_CORE [] tyin tm)
+End
 
 (* Type variables in a type. *)
 

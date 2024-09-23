@@ -75,7 +75,9 @@ Proof
 rw[alt_fv]
 QED
 
-val alt_fv1_def = Define`alt_fv1 v e = alt_fv v [e]`;
+Definition alt_fv1_def:
+  alt_fv1 v e = alt_fv v [e]
+End
 val alt_fv1_intro = save_thm("alt_fv1_intro[simp]",GSYM alt_fv1_def)
 val alt_fv1_thm =
   alt_fv |> SIMP_RULE (srw_ss())[]

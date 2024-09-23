@@ -54,7 +54,8 @@ End
 
 (* TODO could do alt def using toAList -
     not necessary though, may not be cleaner *)
-val get_locals_def = Define ` (* locals : ('a word_loc) num_map *)
+Definition get_locals_def:
+  (* locals : ('a word_loc) num_map *)
     (get_locals (LN : ('a word_loc) num_map) = LN) ∧
     (get_locals (LS a) = case (dest_word_loc a) of
         | SOME n => insert n () LN
@@ -65,7 +66,7 @@ val get_locals_def = Define ` (* locals : ('a word_loc) num_map *)
             case (dest_word_loc a) of
                 | SOME n => insert n () t
                 | NONE => t)
-`
+End
 
 Theorem domain_get_locals_lookup:
   ∀ n t . n ∈ domain (get_locals t) ⇔ ∃ k n1 . lookup k t = SOME (Loc n n1)
@@ -124,12 +125,13 @@ Proof
             qexists_tac `n1` >> fs[])
 QED
 
-val get_store_def = Define ` (* store : store_name |-> 'a word_loc *)
+Definition get_store_def:
+  (* store : store_name |-> 'a word_loc *)
     get_store (st:store_name |-> 'a word_loc) =
         let locSet = SET_TO_LIST (FRANGE st) in
         let locList = MAP THE (FILTER IS_SOME (MAP dest_word_loc locSet)) in
         FOLDL (λ acc loc . insert loc () acc) LN locList
-`
+End
 
 Theorem domain_get_store:
      ∀ n store . n ∈ domain (get_store store) ⇔
@@ -186,11 +188,12 @@ Proof
         fs[SUBSET_DEF] >> metis_tac[])
 QED
 
-val get_stack_def = Define ` (* stack : ('a stack_frame) list *)
+Definition get_stack_def:
+  (* stack : ('a stack_frame) list *)
     (get_stack [] = LN:num_set) ∧
     (get_stack ((StackFrame lsz e _)::xs) =
         union (get_num_wordloc_alist e) (get_stack xs))
-`
+End
 
 val get_stack_ind = theorem "get_stack_ind";
 
@@ -281,12 +284,13 @@ Proof
     fs[get_num_wordloc_alist_def]
 QED
 
-val get_memory_def = Define ` (* 'a word -> 'a word_loc *)
+Definition get_memory_def:
+  (* 'a word -> 'a word_loc *)
     get_memory (mem:'a word -> 'a word_loc) (mdom:'a word set) =
         let locSet = SET_TO_LIST(IMAGE mem mdom) in
         let locList = MAP THE (FILTER IS_SOME (MAP dest_word_loc locSet)) in
         FOLDL (λ acc loc . insert loc () acc) LN locList
-`
+End
 
 Theorem FINITE_mdom_mem:
      ∀ mdom . FINITE mdom ⇒ FINITE {mem x | x ∈ mdom}

@@ -10,7 +10,9 @@ val () = wordsLib.guess_lengths()
 
 (* --- The next-state function --- *)
 
-val x64_next_def = Define `x64_next = THE o NextStateX64`
+Definition x64_next_def:
+  x64_next = THE o NextStateX64
+End
 
 (* --- Valid x64 states --- *)
 

@@ -13,7 +13,9 @@ val _ = temp_tight_equality();
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
 val PMATCH_ELIM_CONV = patternMatchesLib.PMATCH_ELIM_CONV;
 
-val dummy_def = Define `dummy = bvi$Var 1234567890`;
+Definition dummy_def:
+  dummy = bvi$Var 1234567890
+End
 
 Theorem MEM_exp_size_imp:
    ∀xs a. MEM a xs ⇒ bvi$exp_size a < exp2_size xs
@@ -703,7 +705,9 @@ val has_rec_def = tDefine "has_rec" `
   (has_rec loc [x] = F)`
   (WF_REL_TAC `measure (exp2_size o SND)`);
 
-val has_rec1_def = Define `has_rec1 loc x = has_rec loc [x]`;
+Definition has_rec1_def:
+  has_rec1 loc x = has_rec loc [x]
+End
 
 Definition has_rec_sing_def:
   (has_rec_sing loc (If x1 x2 x3) =

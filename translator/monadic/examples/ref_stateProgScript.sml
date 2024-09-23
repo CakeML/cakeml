@@ -30,7 +30,9 @@ val config =  global_state_config |>
  *)
 
 (* A very simple monadic function *)
-val simple_fun_def = Define `simple_fun x = return x`;
+Definition simple_fun_def:
+  simple_fun x = return x
+End
 
 (* A recursive monadic function *)
 Definition rec_fun_def:

@@ -482,7 +482,8 @@ Definition dec_stack_def:
   (dec_stack _ _ = NONE)
 End
 
-val gc_def = Define `  (* gc runs the garbage collector algorithm *)
+Definition gc_def:
+  (* gc runs the garbage collector algorithm *)
   gc ^s =
     let wl_list = enc_stack s.stack in
       case s.gc_fun (wl_list, s.memory, s.mdomain, s.store) of
@@ -493,7 +494,8 @@ val gc_def = Define `  (* gc runs the garbage collector algorithm *)
         | SOME stack =>
             SOME (s with <| stack := stack
                           ; store := st
-                          ; memory := m |>))`
+                          ; memory := m |>))
+End
 
 Definition has_space_def:
   has_space wl ^s =

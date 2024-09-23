@@ -42,7 +42,9 @@ Definition adjust_set_def:
     (fromAList ((0,()):: MAP (\(n,k). (adjust_var n,())) (toAList names))):num_set
 End
 
-val Unit_def = Define`Unit = Const 2w`;
+Definition Unit_def:
+  Unit = Const 2w
+End
 
 Definition GiveUp_def:
   GiveUp = Seq (Assign 1 (Const (-1w)))
@@ -930,7 +932,8 @@ Definition LoadBignum_def:
       :'a wordLang$prog
 End
 
-val WriteWord64_def = Define ` (* also works for storing bignums of length 1 *)
+Definition WriteWord64_def:
+  (* also works for storing bignums of length 1 *)
   WriteWord64 c (header:'a word) dest i =
     list_Seq [Assign 1 (Lookup NextFree);
               Store (Op Add [Var 1; Const bytes_in_word]) i;
@@ -940,7 +943,8 @@ val WriteWord64_def = Define ` (* also works for storing bignums of length 1 *)
               Assign (adjust_var dest)
                 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                           (shift_length c − shift (:'a));
-                        Const 1w])]:'a wordLang$prog`;
+                        Const 1w])]:'a wordLang$prog
+End
 
 Definition WriteWord64_on_32_def:
   WriteWord64_on_32 c (header:'a word) dest i1 i2 =

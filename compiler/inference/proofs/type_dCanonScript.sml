@@ -10,11 +10,12 @@ val _ = new_theory "type_dCanon"
 
 (* TODO: move *)
 
-val tenv_equiv_def = Define
-  `tenv_equiv tenv1 tenv2 ⇔
+Definition tenv_equiv_def:
+  tenv_equiv tenv1 tenv2 ⇔
      nsAll2 (λi v1 v2. v1 = v2) tenv1.t tenv2.t ∧
      nsAll2 (λi v1 v2. v1 = v2) tenv1.c tenv2.c ∧
-     nsAll2 (λi v1 v2. v1 = v2) tenv1.v tenv2.v`;
+     nsAll2 (λi v1 v2. v1 = v2) tenv1.v tenv2.v
+End
 
 Theorem tenv_equiv_refl[simp]:
    tenv_equiv tenv tenv

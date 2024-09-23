@@ -3650,7 +3650,9 @@ Proof
   \\ metis_tac[t_unify_set_tids, t_unify_wfs]
 QED
 
-val hide_def = Define`hide x = x`;
+Definition hide_def:
+  hide x = x
+End
 
 Theorem infer_p_inf_set_tids:
   (!l cenv p st t env st'.

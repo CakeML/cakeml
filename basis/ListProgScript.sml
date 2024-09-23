@@ -424,7 +424,9 @@ val Eval_FLOOKUP = Q.prove(
   |> add_user_proved_v_thm;
 
 val _ = next_ml_names := ["update"];
-val AUPDATE_def = Define `AUPDATE l (x:'a,y:'b) = (x,y)::l`;
+Definition AUPDATE_def:
+  AUPDATE l (x:'a,y:'b) = (x,y)::l
+End
 val AUPDATE_eval = translate AUPDATE_def;
 
 val FMAP_EQ_ALIST_UPDATE = Q.prove(
@@ -462,7 +464,9 @@ Definition AEVERY_AUX_def:
      if MEMBER x aux then AEVERY_AUX aux P xs else
        P (x,y) /\ AEVERY_AUX (x::aux) P xs)
 End
-val AEVERY_def = Define `AEVERY = AEVERY_AUX []`;
+Definition AEVERY_def:
+  AEVERY = AEVERY_AUX []
+End
 val _ = next_ml_names := ["every","every"];
 val _ = translate AEVERY_AUX_def;
 val AEVERY_eval = translate AEVERY_def;

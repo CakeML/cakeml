@@ -143,9 +143,8 @@ val r = translate Brz_def;
 (* Version of compile_regexp that avoids dom_Brz and Brzozo.
    The latter functions are probably untranslatable. *)
 
-val compile_regexp_with_limit_def =
- Define
-   `compile_regexp_with_limit r =
+Definition compile_regexp_with_limit_def:
+  compile_regexp_with_limit r =
       let r' = normalize r in
       case Brz balanced_map$empty
                (balanced_map$singleton r' ())
@@ -157,7 +156,8 @@ val compile_regexp_with_limit_def =
       in
          SOME(state_numbering,
           delta_vecs,
-          accepts_vec))`;
+          accepts_vec))
+End
 
 Theorem Brz_sound_wrt_Brzozo:
    Brz seen worklist acc d = SOME result ==> Brzozo seen worklist acc = result
@@ -193,9 +193,8 @@ QED
 
 val r = translate compile_regexp_with_limit_def;
 
-val regexp_matcher_with_limit_def =
- Define
-  `regexp_matcher_with_limit r s =
+Definition regexp_matcher_with_limit_def:
+  regexp_matcher_with_limit r s =
     case compile_regexp_with_limit r of
            NONE => NONE
          | SOME (state_numbering,deltaL,accepts) =>
@@ -204,7 +203,8 @@ val regexp_matcher_with_limit_def =
     let acceptsV = fromList accepts in
     let deltaV = fromList (MAP fromList deltaL)
     in
-      SOME(exec_dfa acceptsV deltaV start_state s))`;
+      SOME(exec_dfa acceptsV deltaV start_state s))
+End
 
 Theorem regexp_matcher_with_limit_sound:
    regexp_matcher_with_limit r s = SOME result ==> regexp_matcher r s = result
@@ -1005,7 +1005,9 @@ val name = "grep"
 val spec = grep_whole_prog_spec |> UNDISCH
 val (sem_thm,prog_tm) = whole_prog_thm st name spec
 
-val grep_prog_def = Define`grep_prog = ^prog_tm`;
+Definition grep_prog_def:
+  grep_prog = ^prog_tm
+End
 
 val grep_semantics = save_thm("grep_semantics",
   sem_thm |> REWRITE_RULE[GSYM grep_prog_def]

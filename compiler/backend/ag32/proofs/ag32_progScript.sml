@@ -47,21 +47,37 @@ Definition ag32_proj'_def:
     (if pc then { aPc (s.PC) } else {})
 End
 
-val ag32_proj_def   = Define `ag32_proj s = ag32_proj' (T,UNIV,T) s`;
-val ag32_proj''_def = Define `ag32_proj'' x s = ag32_proj s DIFF ag32_proj' x s`;
+Definition ag32_proj_def:
+  ag32_proj s = ag32_proj' (T,UNIV,T) s
+End
+Definition ag32_proj''_def:
+  ag32_proj'' x s = ag32_proj s DIFF ag32_proj' x s
+End
 
 Definition AG32_MODEL_def:
    AG32_MODEL = (ag32_proj, (\x y. y = Next x), ag32_instr, (=), K F)
                 :(ag32_state, ag32_el, word32 # word32) processor
 End
 
-val aP_def = Define `aP x = SEP_EQ {aPc x}`;
-val aM_def = Define `aM a x = SEP_EQ {aMem a x}`;
-val aS_def = Define `aS x = SEP_EQ {aState x}`;
-val aB_def = Define `aB md m = SEP_EQ { aMem a (m a) | a IN md }`;
+Definition aP_def:
+  aP x = SEP_EQ {aPc x}
+End
+Definition aM_def:
+  aM a x = SEP_EQ {aMem a x}
+End
+Definition aS_def:
+  aS x = SEP_EQ {aState x}
+End
+Definition aB_def:
+  aB md m = SEP_EQ { aMem a (m a) | a IN md }
+End
 
-val aD_def = Define `aD md = SEP_EXISTS m. aB md m`;
-val aPC_def = Define `aPC x = aP x * cond (aligned 2 x)`;
+Definition aD_def:
+  aD md = SEP_EXISTS m. aB md m
+End
+Definition aPC_def:
+  aPC x = aP x * cond (aligned 2 x)
+End
 
 (* lemmas about proj *)
 

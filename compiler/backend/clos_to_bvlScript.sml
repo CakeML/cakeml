@@ -118,11 +118,13 @@ End
 
 (* / Constant flattening *)
 
-val num_added_globals_def = Define
-  `num_added_globals = 1n`;
+Definition num_added_globals_def:
+  num_added_globals = 1n
+End
 
-val partial_app_label_table_loc_def = Define
-  `partial_app_label_table_loc = 0n`;
+Definition partial_app_label_table_loc_def:
+  partial_app_label_table_loc = 0n
+End
 
 Definition compile_op_def:
   compile_op (Cons tag) = (Cons (clos_tag_shift tag)) ∧

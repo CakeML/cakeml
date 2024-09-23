@@ -179,7 +179,9 @@ val get_name_aux_def = tDefine "get_name_aux" `
 
 val alpha = EVAL ``GENLIST (\n. CHR (n + ORD #"a")) 26`` |> concl |> rand
 
-val alpha_def = Define `alpha = ^alpha`;
+Definition alpha_def:
+  alpha = ^alpha
+End
 
 (* [get_name vs] returns a fresh name given a list [vs] of already
    used names. *)
@@ -413,11 +415,13 @@ Definition norm_exp_rel_def:
                             (full_normalise ns e1 = e2)
 End
 
-val free_in_def = Define ` (* TODO: complete *)
+Definition free_in_def:
+  (* TODO: complete *)
   free_in (Lit l) v = T /\
   free_in (Var w) v = (w = v) /\
   free_in (Let NONE e1 e2) v = (free_in e1 v \/ free_in e2 v) /\
-  free_in (Let (SOME x) e1 e2) v = (free_in e1 v \/ (free_in e2 v /\ v <> Short x))`
+  free_in (Let (SOME x) e1 e2) v = (free_in e1 v \/ (free_in e2 v /\ v <> Short x))
+End
 
 Inductive norm_rel:
   (!i.

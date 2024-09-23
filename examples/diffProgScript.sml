@@ -201,7 +201,9 @@ QED
 
 val name = "diff"
 val (sem_thm,prog_tm) = whole_prog_thm st name (UNDISCH diff_whole_prog_spec)
-val diff_prog_def = Define`diff_prog = ^prog_tm`;
+Definition diff_prog_def:
+  diff_prog = ^prog_tm
+End
 
 val diff_semantics = save_thm("diff_semantics",
   sem_thm |> REWRITE_RULE[GSYM diff_prog_def]

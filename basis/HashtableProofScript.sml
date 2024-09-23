@@ -70,8 +70,8 @@ Definition REF_ARRAY_def:
   REF_ARRAY loc arr content = REF loc arr * ARRAY arr content
 End
 
-val HASHTABLE_def = Define
- `HASHTABLE a b hf cmp h v =
+Definition HASHTABLE_def:
+  HASHTABLE a b hf cmp h v =
     SEP_EXISTS ur ar hfv vlv arr cmpv heuristic_size.
       &(v = (Conv hashtable_con_stamp [ur; ar; hfv; cmpv]) /\
         (a --> NUM) hf hfv /\
@@ -79,7 +79,8 @@ val HASHTABLE_def = Define
         TotOrd cmp /\
         hashtable_inv a b hf cmp h vlv) *
       REF_NUM ur heuristic_size *
-      REF_ARRAY ar arr vlv`;
+      REF_ARRAY ar arr vlv
+End
 
 Theorem hashtable_initBuckets_spec:
   !a b n nv cmp cmpv.

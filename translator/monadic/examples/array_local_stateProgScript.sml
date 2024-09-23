@@ -48,25 +48,31 @@ Overload failwith = ``raise_Fail``
 
 (* Monadic translations *)
 
-val test1_def = Define `test1 x =
+Definition test1_def:
+  test1 x =
   do
       y <- get_ref1;
       return (x + y)
-  od`;
+  od
+End
 val test1_v_thm = test1_def |> m_translate;
 
-val test2_def = Define `test2 n =
+Definition test2_def:
+  test2 n =
   do
       x <- rarray1_sub n;
       return x
-  od`;
+  od
+End
 val test2_v_thm = test2_def |> m_translate;
 
-val test3_def = Define `test3 n =
+Definition test3_def:
+  test3 n =
   do
       x <- farray1_sub n;
       return x
-  od`;
+  od
+End
 val test3_v_thm = test3_def |> m_translate;
 
 Definition test4_def:

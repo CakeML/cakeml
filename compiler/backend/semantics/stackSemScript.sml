@@ -609,7 +609,9 @@ val fix_clock_IMP = Q.prove(
   `fix_clock s x = (res,s1) ==> s1.clock <= s.clock`,
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
 
-val STOP_def = Define `STOP x = x`;
+Definition STOP_def:
+  STOP x = x
+End
 
 Definition get_labels_def:
   (get_labels (Seq p1 p2) = get_labels p1 UNION get_labels p2) /\

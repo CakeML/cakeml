@@ -112,11 +112,15 @@ val tailrec_clos = cfTacticsLib.process_topdecs `
 
 val tailrec_body = tailrec_clos |> rator |> rand |> rand |> rand |> rand
 
-val mk_inl_def = Define `mk_inl e =
-  Let (SOME "x") e (Con(SOME(Short "Inl")) [Var(Short "x")])`
+Definition mk_inl_def:
+  mk_inl e =
+  Let (SOME "x") e (Con(SOME(Short "Inl")) [Var(Short "x")])
+End
 
-val mk_inr_def = Define `mk_inr e =
-  Let (SOME "x") e (Con(SOME(Short "Inr")) [Var(Short "x")])`
+Definition mk_inr_def:
+  mk_inr e =
+  Let (SOME "x") e (Con(SOME(Short "Inr")) [Var(Short "x")])
+End
 
 Definition mk_single_app_def:
    (mk_single_app fname allow_fname (Raise e) =
@@ -320,16 +324,17 @@ End
 
 val mk_single_app_ind = fetch "-" "mk_single_app_ind"
 
-val mk_stepfun_closure_def = Define
-  `(mk_stepfun_closure env fname farg fbody =
+Definition mk_stepfun_closure_def:
+  (mk_stepfun_closure env fname farg fbody =
     do
      gbody <- mk_single_app (SOME fname) T fbody;
      SOME(let benv = build_rec_env [(fname,farg,fbody)] env env.v
           in Closure (env with v := benv) farg gbody)
-    od) /\ mk_stepfun_closure _ _ _ _ = NONE`
+    od) /\ mk_stepfun_closure _ _ _ _ = NONE
+End
 
-val mk_tailrec_closure_def = Define
-  `(mk_tailrec_closure (Recclosure env [(fname,farg,fbody)] name2) =
+Definition mk_tailrec_closure_def:
+  (mk_tailrec_closure (Recclosure env [(fname,farg,fbody)] name2) =
     do
      gclosure <- mk_stepfun_closure  env fname farg fbody;
      SOME(Closure (env with <| v :=
@@ -341,7 +346,8 @@ val mk_tailrec_closure_def = Define
                 Var(Short farg)]
           )
          )
-    od) /\ mk_tailrec_closure _ = NONE`
+    od) /\ mk_tailrec_closure _ = NONE
+End
 
 val mk_single_app_F_unchanged_gen = Q.prove(
   `(!fname allow_fname e e'. mk_single_app fname allow_fname e = SOME e'
@@ -2258,7 +2264,9 @@ val repeat_clos = cfTacticsLib.process_topdecs `
 
 val repeat_body = repeat_clos |> rator |> rand |> rand |> rand |> rand
 
-val cause_type_error_def = Define `cause_type_error = App Ord [Lit(IntLit 0)]`
+Definition cause_type_error_def:
+  cause_type_error = App Ord [Lit(IntLit 0)]
+End
 
 Theorem evaluate[simp]:
   evaluate s env [cause_type_error] = (s,Rerr (Rabort Rtype_error))
@@ -2267,8 +2275,10 @@ Proof
       semanticPrimitivesTheory.do_opapp_def,semanticPrimitivesTheory.do_app_def]
 QED
 
-val then_tyerr_def = Define `then_tyerr e =
-  Let NONE e cause_type_error`;
+Definition then_tyerr_def:
+  then_tyerr e =
+  Let NONE e cause_type_error
+End
 
 Definition make_single_app_def:
    (make_single_app fname allow_fname (Raise e) =
@@ -2471,16 +2481,17 @@ End
 
 val make_single_app_ind = fetch "-" "make_single_app_ind"
 
-val make_stepfun_closure_def = Define
-  ` make_stepfun_closure env fname farg fbody =
+Definition make_stepfun_closure_def:
+  make_stepfun_closure env fname farg fbody =
     do
      gbody <- make_single_app (SOME fname) T fbody;
      SOME(let benv = build_rec_env [(fname,farg,fbody)] env env.v
           in Closure (env with v := benv) farg gbody)
-    od`
+    od
+End
 
-val make_repeat_closure_def = Define
-  `(make_repeat_closure (Recclosure env [(fname,farg,fbody)] name2) =
+Definition make_repeat_closure_def:
+  (make_repeat_closure (Recclosure env [(fname,farg,fbody)] name2) =
     do
      gclosure <- make_stepfun_closure  env fname farg fbody;
      SOME(Closure (env with <| v :=
@@ -2492,7 +2503,8 @@ val make_repeat_closure_def = Define
                 Var(Short farg)]
           )
          )
-    od) /\ make_repeat_closure _ = NONE`
+    od) /\ make_repeat_closure _ = NONE
+End
 
 val make_single_app_F_unchanged_gen = Q.prove(
   `(!fname allow_fname e e'. make_single_app fname allow_fname e = SOME e'

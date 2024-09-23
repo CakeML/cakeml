@@ -506,7 +506,9 @@ Proof
 rw[fv_def]
 QED
 
-val fv1_def = Define`fv1 v e = fv v [e]`;
+Definition fv1_def:
+  fv1 v e = fv v [e]
+End
 val fv1_intro = save_thm("fv1_intro[simp]",GSYM fv1_def)
 val fv1_thm =
   fv_def |> SIMP_RULE (srw_ss())[]

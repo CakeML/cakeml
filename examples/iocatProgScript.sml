@@ -188,7 +188,9 @@ QED
 
 val name = "cat_main"
 val (semantics_thm,prog_tm) = whole_prog_thm st name (UNDISCH cat_whole_prog_spec)
-val cat_prog_def = Define`cat_prog = ^prog_tm`;
+Definition cat_prog_def:
+  cat_prog = ^prog_tm
+End
 
 val cat_semantics_thm =
   semantics_thm |> ONCE_REWRITE_RULE[GSYM cat_prog_def]

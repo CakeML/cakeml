@@ -174,8 +174,8 @@ Proof
   metis_tac[PAIR,FST,evaluate_io_events_mono]
 QED
 
-val is_clock_io_mono_def = Define
-  `is_clock_io_mono f s = (case f s of (s', r) =>
+Definition is_clock_io_mono_def:
+  is_clock_io_mono f s = (case f s of (s', r) =>
         io_events_mono s.ffi s'.ffi
         /\ s'.clock <= s.clock
         /\ s.next_type_stamp <= s'.next_type_stamp
@@ -193,7 +193,8 @@ val is_clock_io_mono_def = Define
                 ==> clk <= s.clock
                 ==> ~ (r = Rerr (Rabort Rtimeout_error)))
             /\ (clk <= s.clock ==> io_events_mono s''.ffi s'.ffi)
-        ))`;
+        ))
+End
 
 Theorem is_clock_io_mono_cong:
   s = t ==>

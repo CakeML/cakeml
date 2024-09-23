@@ -106,7 +106,9 @@ Proof
   simp [toString_def1, int_to_string_thm]
 QED
 
-val num_to_str_def = Define `num_to_str (n:num) = toString (&n)`;
+Definition num_to_str_def:
+  num_to_str (n:num) = toString (&n)
+End
 
 Overload toString = ``num_to_str``
 

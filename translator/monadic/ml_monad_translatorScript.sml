@@ -1367,7 +1367,9 @@ Definition STATE_REFS_def:
   STATE_REFS A (r::refs) [] = &F
 End
 
-val RES_MONAD = Define `RES_MONAD A = MONAD A (\x v. F)`;
+Definition RES_MONAD:
+  RES_MONAD A = MONAD A (\x v. F)
+End
 
 (* Validity of a store extension *)
 val valid_state_refs_frame_extension = Q.prove(
@@ -3233,7 +3235,9 @@ Proof
   \\ fs[]
 QED
 
-val EQ_def = Define `EQ x y <=> x = y`;
+Definition EQ_def:
+  EQ x y <=> x = y
+End
 
 Theorem EvalSt_AllocEmpty:
    !exp get_ref loc_name TYPE st_name env H P st.

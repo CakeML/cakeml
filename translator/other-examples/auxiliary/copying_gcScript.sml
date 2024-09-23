@@ -63,8 +63,12 @@ val rel_gc_loop_def = tDefine "rel_gc_loop" `
   THEN ONCE_REWRITE_TAC [EQ_SYM_EQ]
   THEN SIMP_TAC std_ss [] THEN REPEAT STRIP_TAC THEN DECIDE_TAC);
 
-val RANGE_def = Define `RANGE(i:num,j) k = i <= k /\ k < j`;
-val CUT_def = Define `CUT (i,j) m = \k. if RANGE (i,j) k then m k else H_EMP`;
+Definition RANGE_def:
+  RANGE(i:num,j) k = i <= k /\ k < j
+End
+Definition CUT_def:
+  CUT (i,j) m = \k. if RANGE (i,j) k then m k else H_EMP
+End
 
 Definition rel_gc_def:
   rel_gc z (b:num,e:num,b2:num,e2:num,roots,m) =

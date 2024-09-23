@@ -10,7 +10,9 @@ val () = wordsLib.guess_lengths ();
 
 (* --- The next-state function --- *)
 
-val arm7_next_def = Define `arm7_next = THE o NextStateARM`;
+Definition arm7_next_def:
+  arm7_next = THE o NextStateARM
+End
 
 (* --- Valid ARMv7 states --- *)
 

@@ -5,9 +5,13 @@ open preamble basis xlrupTheory;
 
 val _ = new_theory "xlrup_list"
 
-val w8z_def = Define`w8z = (0w:word8)`
+Definition w8z_def:
+  w8z = (0w:word8)
+End
 
-val w8o_def = Define`w8o = (1w:word8)`
+Definition w8o_def:
+  w8o = (1w:word8)
+End
 
 Definition list_lookup_def:
   list_lookup ls default k =

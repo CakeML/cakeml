@@ -324,7 +324,9 @@ Proof
 QED
 
 val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state ()) "wordfreq" (UNDISCH wordfreq_whole_prog_spec)
-val wordfreq_prog_def = Define `wordfreq_prog = ^prog_tm`;
+Definition wordfreq_prog_def:
+  wordfreq_prog = ^prog_tm
+End
 
 val wordfreq_semantics =
   sem_thm |> ONCE_REWRITE_RULE[GSYM wordfreq_prog_def]

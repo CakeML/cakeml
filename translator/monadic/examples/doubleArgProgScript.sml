@@ -20,8 +20,10 @@ val config =  global_state_config |>
 val _ = start_translation config;
 
 (* A basic double function *)
-val double_def = Define `double x = if x = 0n then 0 else
-                            double (x - 1) + 2n`;
+Definition double_def:
+  double x = if x = 0n then 0 else
+                            double (x - 1) + 2n
+End
 
 Definition double_tail_rec_aux_def:
   double_tail_rec_aux n carry = if n = 0n then carry else

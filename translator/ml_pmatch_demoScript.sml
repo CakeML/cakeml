@@ -218,7 +218,9 @@ val res = translate codomain_def;
 val res = translate rev_assocd_def
 val res = translate alphavars_def;
 
-val variant_def = Define `variant _ v = v`;
+Definition variant_def:
+  variant _ v = v
+End
 
 val res = translate variant_def
 

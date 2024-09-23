@@ -704,7 +704,9 @@ QED
 val (semantics_thm,prog_tm) =
 whole_prog_thm (get_ml_prog_state()) "main" (main_whole_prog_spec |> UNDISCH);
 
-val compiler64_prog_def = Define`compiler64_prog = ^prog_tm`;
+Definition compiler64_prog_def:
+  compiler64_prog = ^prog_tm
+End
 
 val semantics_compiler64_prog =
 semantics_thm

@@ -66,9 +66,12 @@ val preamble_tm =
        "";
        "     .file        \"cake.S\"";
        ""])`` |> EVAL |> rconc;
-val preamble_def = Define`preamble = ^preamble_tm`;
+Definition preamble_def:
+  preamble = ^preamble_tm
+End
 
-val data_section_def = Define`data_section word_directive ret =
+Definition data_section_def:
+  data_section word_directive ret =
      MAP (\n. strlit (n ++ "\n"))
        (["     .data";
         "     .p2align 3";
@@ -82,7 +85,8 @@ val data_section_def = Define`data_section word_directive ret =
            "can_enter: " ++ word_directive ++ " 0"]
          else []) ++
         ["     .p2align 3";
-        "cake_bitmaps:"])`;
+        "cake_bitmaps:"])
+End
 
 Definition data_buffer_def:
   data_buffer =
@@ -110,8 +114,12 @@ Definition code_buffer_def:
         "     .space 4096"]
 End
 
-val comm_strlit_def = Define `comm_strlit = strlit ","`;
-val newl_strlit_def = Define `newl_strlit = strlit "\n"`;
+Definition comm_strlit_def:
+  comm_strlit = strlit ","
+End
+Definition newl_strlit_def:
+  newl_strlit = strlit "\n"
+End
 
 Definition comma_cat_def:
   comma_cat f x =

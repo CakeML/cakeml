@@ -482,7 +482,9 @@ QED
 val (semantics_thm,prog_tm) =
   whole_prog_thm (get_ml_prog_state()) "main" main_whole_prog_spec;
 
-val compiler32_prog_def = Define`compiler32_prog = ^prog_tm`;
+Definition compiler32_prog_def:
+  compiler32_prog = ^prog_tm
+End
 
 val semantics_compiler32_prog =
   semantics_thm

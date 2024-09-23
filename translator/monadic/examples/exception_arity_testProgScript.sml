@@ -26,16 +26,24 @@ Overload handle_fail = ``handle_Fail1``
 val _ = start_translation config;
 
 (* Translate *)
-val raise1_def = Define `raise1 x = if x then return 1n else raise_Fail1`
+Definition raise1_def:
+  raise1 x = if x then return 1n else raise_Fail1
+End
 val r1 = m_translate raise1_def
 
-val raise2_def = Define `raise2 x = raise_Fail2 x`
+Definition raise2_def:
+  raise2 x = raise_Fail2 x
+End
 val r2 = m_translate raise2_def
 
-val raise3_def = Define `raise3 x y = raise_Fail3 x y`
+Definition raise3_def:
+  raise3 x y = raise_Fail3 x y
+End
 val r3 = m_translate raise3_def
 
-val raise4_def = Define `raise4 x y z = raise_Fail4 x y z`
+Definition raise4_def:
+  raise4 x y z = raise_Fail4 x y z
+End
 val r4 = m_translate raise4_def
 
 Definition handle1_def:

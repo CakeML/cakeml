@@ -161,7 +161,9 @@ QED
 
 (* A small IO model needed for IO examples *)
 
-val names_def = Define `names = ["put_char"; "get_char"]`;
+Definition names_def:
+  names = ["put_char"; "get_char"]
+End
 
 Definition put_char_event_def:
   put_char_event c = IO_event (ExtCall "put_char") [n2w (ORD c)] []
