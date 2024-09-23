@@ -9,20 +9,22 @@ val w8z_def = Define`w8z = (0w:word8)`
 
 val w8o_def = Define`w8o = (1w:word8)`
 
-val list_lookup_def = Define`
+Definition list_lookup_def:
   list_lookup ls default k =
   if LENGTH ls ≤ k then default
-  else EL k ls`
+  else EL k ls
+End
 
-val index_def = Define`
+Definition index_def:
   index (i:int) =
   if i ≤ 0 then
     2 * Num(-i)
   else
-    2 * Num(i) - 1`
+    2 * Num(i) - 1
+End
 
 (* optimized for is_rup  step *)
-val delete_literals_sing_list_def = Define`
+Definition delete_literals_sing_list_def:
   (delete_literals_sing_list Clist [] = SOME 0) ∧
   (delete_literals_sing_list Clist (c::cs) =
   if list_lookup Clist (w8z) (index c) = w8o
@@ -30,9 +32,10 @@ val delete_literals_sing_list_def = Define`
   else (* c should be the only literal left *)
     if EVERY (λi. list_lookup Clist w8z (index i) = w8o) cs
     then SOME (~c)
-    else NONE)`
+    else NONE)
+End
 
-val is_rup_list_aux_def = Define`
+Definition is_rup_list_aux_def:
   (is_rup_list_aux fml [] C Clist = NONE) ∧
   (is_rup_list_aux fml (i::is) C Clist =
   case list_lookup fml NONE i of
@@ -42,19 +45,22 @@ val is_rup_list_aux_def = Define`
     NONE => NONE
   | SOME nl =>
     if nl = 0 then SOME (C, Clist)
-    else is_rup_list_aux fml is (nl::C) (update_resize Clist w8z w8o (index nl)))`
+    else is_rup_list_aux fml is (nl::C) (update_resize Clist w8z w8o (index nl)))
+End
 
-val set_list_def = Define`
+Definition set_list_def:
   (set_list Clist v [] = Clist) ∧
   (set_list Clist v (c::cs) =
-    set_list (update_resize Clist w8z v (index c)) v cs)`
+    set_list (update_resize Clist w8z v (index c)) v cs)
+End
 
-val is_rup_list_def = Define`
+Definition is_rup_list_def:
   is_rup_list fml ls c Clist =
   let Clist = set_list Clist w8o c in
   case is_rup_list_aux fml ls c Clist of
     NONE => NONE
-  | SOME (c, Clist) => SOME (set_list Clist w8z c)`
+  | SOME (c, Clist) => SOME (set_list Clist w8z c)
+End
 
 Definition add_xors_aux_c_list_def:
   (add_xors_aux_c_list fml [] s = SOME s) ∧
@@ -144,22 +150,25 @@ Definition is_xor_list_def:
     | SOME y => is_emp_xor_list y
 End
 
-val list_delete_list_def = Define`
+Definition list_delete_list_def:
   (list_delete_list [] fml = fml) ∧
   (list_delete_list (i::is) fml =
     if LENGTH fml ≤ i
     then list_delete_list is fml
-    else list_delete_list is (LUPDATE NONE i fml))`
+    else list_delete_list is (LUPDATE NONE i fml))
+End
 
-val list_max_index_def = Define`
-  list_max_index C = 2*list_max (MAP (λc. Num (ABS c)) C) + 1`
+Definition list_max_index_def:
+  list_max_index C = 2*list_max (MAP (λc. Num (ABS c)) C) + 1
+End
 
 (* bump up the length to a large number *)
-val resize_Clist_def = Define`
+Definition resize_Clist_def:
   resize_Clist C Clist =
   if LENGTH Clist ≤ list_max_index C then
     REPLICATE (2 * (list_max_index C )) w8z
-  else Clist`
+  else Clist
+End
 
 Definition extend_s_list_def:
   extend_s_list s n =
@@ -306,21 +315,23 @@ Definition check_xlrups_unsat_list_def:
 End
 
 (* prove that check_xlrup_list implements check_xlrup *)
-val fml_rel_def = Define`
+Definition fml_rel_def:
   fml_rel fml fmlls ⇔
   ∀x.
   if x < LENGTH fmlls then
     lookup x fml = EL x fmlls
   else
-    lookup x fml = NONE`
+    lookup x fml = NONE
+End
 
 (* Require that the lookup table matches a clause exactly *)
-val lookup_rel_def = Define`
+Definition lookup_rel_def:
   lookup_rel C Clist ⇔
   (* elements are either 0 or 1 *)
   (∀i. MEM i Clist ⇒ i = w8z ∨ i = w8o) ∧
   (* where 1 indicates membership in C *)
-  (∀i. list_lookup Clist w8z (index i) = w8o ⇔ MEM i C)`
+  (∀i. list_lookup Clist w8z (index i) = w8o ⇔ MEM i C)
+End
 
 Theorem delete_literals_sing_list_correct:
   ∀ls.

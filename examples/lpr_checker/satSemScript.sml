@@ -29,31 +29,37 @@ Type clause = ``:('a + 'a) set``;
 Type cnf = ``:'a clause set``;
 Type assignment = ``:'a -> bool``;
 
-val negate_literal_def = Define`
+Definition negate_literal_def:
   negate_literal l=
   case l of
     INL x => INR x
-  | INR x => INL x`
+  | INR x => INL x
+End
 
-val satisfies_literal_def = Define`
+Definition satisfies_literal_def:
   satisfies_literal (w:'a assignment) l ⇔
   case l of
     INL x => w x
-  | INR x => ¬w x`
+  | INR x => ¬w x
+End
 
-val satisfies_clause_def = Define`
+Definition satisfies_clause_def:
   satisfies_clause (w:'a assignment) (C:'a clause) ⇔
-  ∃l. l ∈ C ∧ satisfies_literal w l`
+  ∃l. l ∈ C ∧ satisfies_literal w l
+End
 
-val satisfies_def = Define`
+Definition satisfies_def:
   satisfies (w:'a assignment) (fml:'a cnf) ⇔
-  ∀C. C ∈ fml ⇒ satisfies_clause w C`
+  ∀C. C ∈ fml ⇒ satisfies_clause w C
+End
 
-val satisfiable_def = Define`
-  satisfiable fml ⇔ ∃w. satisfies w fml`
+Definition satisfiable_def:
+  satisfiable fml ⇔ ∃w. satisfies w fml
+End
 
-val unsatisfiable_def = Define`
-  unsatisfiable fml ⇔ ¬satisfiable fml`
+Definition unsatisfiable_def:
+  unsatisfiable fml ⇔ ¬satisfiable fml
+End
 
 (*** Proofs about the semantics ***)
 
@@ -190,9 +196,10 @@ QED
   redundancy and satisfiability equivalence
 *)
 
-val redundant_def = Define`
+Definition redundant_def:
   redundant fml C ⇔
-  (satisfiable fml ⇒ satisfiable (C INSERT fml))`
+  (satisfiable fml ⇒ satisfiable (C INSERT fml))
+End
 
 (*
   Partial assignments are represented as sets of literals
@@ -202,8 +209,9 @@ val redundant_def = Define`
     both a literal and its negation
 
 *)
-val consistent_par_def = Define`
-  consistent_par s ⇔ s ∩ IMAGE negate_literal s = {}`
+Definition consistent_par_def:
+  consistent_par s ⇔ s ∩ IMAGE negate_literal s = {}
+End
 
 (*
   par s fml does a partial assignment of s onto fml
@@ -211,17 +219,20 @@ val consistent_par_def = Define`
   - For all remaining clauses, it removes the negated literals in s
   - Note that the partial assignment s should be cconsistent
 *)
-val par_def = Define`
+Definition par_def:
   par s fml =
-  {D | ∃E. E ∈ fml ∧ E ∩ s = {} ∧ D = E DIFF (IMAGE negate_literal s)}`
+  {D | ∃E. E ∈ fml ∧ E ∩ s = {} ∧ D = E DIFF (IMAGE negate_literal s)}
+End
 
-val sat_implies_def = Define`
+Definition sat_implies_def:
   sat_implies fml fml' ⇔
-  ∀w. satisfies w fml ⇒ satisfies w fml'`
+  ∀w. satisfies w fml ⇒ satisfies w fml'
+End
 
 (* rules out empty clause and contradictory clauses *)
-val satisfiable_clause_def = Define`
-  satisfiable_clause C ⇔ ∃w. satisfies_clause w C`
+Definition satisfiable_clause_def:
+  satisfiable_clause C ⇔ ∃w. satisfies_clause w C
+End
 
 Theorem consistent_par_negate_literals[simp]:
   consistent_par (IMAGE negate_literal s) ⇔
@@ -410,9 +421,10 @@ QED
   Definition of asymmetric tautologies, roughly:
   fml |- C
 *)
-val asymmetric_tautology_def = Define`
+Definition asymmetric_tautology_def:
   asymmetric_tautology fml C ⇔
-  unsatisfiable (fml ∪ (IMAGE (λl. {negate_literal l}) C))`
+  unsatisfiable (fml ∪ (IMAGE (λl. {negate_literal l}) C))
+End
 
 Theorem list_unsat_negate_satisfies_literal:
   ∀ls.
@@ -456,11 +468,12 @@ QED
   For some l ∈ C, for all D containing ~l,
     fml |- C ∪ (D - {~l})
  *)
-val resolution_asymmetric_tautology_def = Define`
+Definition resolution_asymmetric_tautology_def:
   resolution_asymmetric_tautology fml C ⇔
   ∃l. l ∈ C ∧
   ∀D. D ∈ fml ∧ negate_literal l ∈ D ⇒
-    asymmetric_tautology fml (C ∪ (D DIFF {negate_literal l}))`
+    asymmetric_tautology fml (C ∪ (D DIFF {negate_literal l}))
+End
 
 Theorem not_consistent_par_redundant:
   ¬consistent_par C ⇒
@@ -617,17 +630,20 @@ Proof
   metis_tac[]
 QED
 
-val rename_literal_def = Define`
+Definition rename_literal_def:
   rename_literal f l =
   case l of
     INL x => INL (f x)
-  | INR x => INR (f x)`
+  | INR x => INR (f x)
+End
 
-val rename_clause_def = Define`
-  rename_clause f C = IMAGE (rename_literal f) C`
+Definition rename_clause_def:
+  rename_clause f C = IMAGE (rename_literal f) C
+End
 
-val rename_def = Define`
-  rename f fml = IMAGE (rename_clause f) fml`
+Definition rename_def:
+  rename f fml = IMAGE (rename_clause f) fml
+End
 
 Theorem satisfies_clause_rename:
   (satisfies_clause w (rename_clause f c) ⇔ satisfies_clause (w o f) c)

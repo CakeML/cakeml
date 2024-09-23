@@ -25,13 +25,14 @@ val _ = Datatype`
   status = Success | PlantViol | DefViol `
 
 (* prevent automatic rewrite *)
-val hide_def = Define`
-  hide f p r <=> if f then p else r`
+Definition hide_def:
+  hide f p r <=> if f then p else r
+End
 
 val hideF = Q.prove(`
   hide F p r = r`, fs[hide_def])
 
-val body_step_def = Define`
+Definition body_step_def:
   body_step flg w w' <=>
   ∃ctrlplus_ls conf.
   LENGTH ctrlplus_ls = LENGTH w.wc.ctrlplus_names ∧
@@ -51,10 +52,11 @@ val body_step_def = Define`
     (* If control monitor succeeded, sandbox definitely actuates *)
     ffi_actuate conf (w32_to_w8 ctrl) wi = SOME (FFIreturn (w32_to_w8 ctrl) w')
   (* No actuation happens if a default violation is reported *)
-  | _ => (flg = DefViol ∧ w' = wi)`
+  | _ => (flg = DefViol ∧ w' = wi)
+End
 
 (* The sandbox body *)
-val body_sandbox_def = Define`
+Definition body_sandbox_def:
   body_sandbox flg wc =
    Seq (AssignAnyPar wc.ctrlplus_names)
   (Seq (AssignVarPar wc.ctrlfixed_names wc.ctrlfixed_rhs)
@@ -67,26 +69,28 @@ val body_sandbox_def = Define`
         (Seq (Test wc.plant_monitor)
              (AssignVarPar wc.sensor_names wc.sensorplus_names))
         Skip)
-    )))))`
+    )))))
+End
 
 (*
   The state relation between an FFI state and a HP state
   - maps point FFI state to a point interval
 *)
-val state_rel_def = Define`
+Definition state_rel_def:
   state_rel w (hp_w:cwstate) ⇔
   let names = w.wc.sensor_names ++  w.wc.ctrl_names ++ w.wc.const_names in
   let vals  = w.ws.sensor_vals  ++  w.ws.ctrl_vals  ++ w.ws.const_vals  in
   let ffi_st = ZIP(names, ZIP(vals,vals)) in
     ∀x.
     MEM x names ⇒
-    ALOOKUP ffi_st x = ALOOKUP hp_w x`
+    ALOOKUP ffi_st x = ALOOKUP hp_w x
+End
 
 (*
   These are syntactic well-formedness condition on mach_config
 
 *)
-val wf_config_def = Define`
+Definition wf_config_def:
   wf_config wc ⇔
   (* Length sanity checks *)
   LENGTH wc.sensor_names = LENGTH wc.sensorplus_names ∧
@@ -117,10 +121,11 @@ val wf_config_def = Define`
   let plant_deps = wc.const_names ++ wc.sensor_names ++ wc.ctrl_names ++ wc.sensorplus_names in
     EVERY (λx. MEM x plant_deps) (fv_fml wc.plant_monitor) ∧
   let ctrl_deps = wc.const_names ++ wc.ctrl_names ++ wc.sensor_names ++ wc.ctrlplus_names ++ wc.ctrlfixed_names in
-    EVERY (λx. MEM x ctrl_deps) (fv_fml wc.ctrl_monitor)`
+    EVERY (λx. MEM x ctrl_deps) (fv_fml wc.ctrl_monitor)
+End
 
 (* Well-formed machs obey their config's lengths *)
-val wf_mach_def = Define`
+Definition wf_mach_def:
   wf_mach w ⇔
   let constlen = LENGTH w.wc.const_names in
   let sensorlen = LENGTH w.wc.sensor_names in
@@ -133,7 +138,8 @@ val wf_mach_def = Define`
     LENGTH (w.wo.ctrl_oracle n inp) = ctrllen) ∧
   (∀n inp.
     (* See above on the length restriction *)
-    LENGTH (w.wo.transition_oracle n inp) = sensorlen)`
+    LENGTH (w.wo.transition_oracle n inp) = sensorlen)
+End
 
 val MAP_ZIP2 = Q.prove(`
   LENGTH xs = LENGTH ys ⇒
@@ -811,8 +817,9 @@ Proof
       unabbrev_all_tac>>fs[MAP_ZIP]
 QED
 
-val body_loop_def = Define`
-  body_loop = (body_step Success)^*`
+Definition body_loop_def:
+  body_loop = (body_step Success)^*
+End
 
 (* The first refinement : prove that the RTC of body_step corresponds
    to a the sandbox control loop
@@ -854,22 +861,25 @@ Proof
   metis_tac[]
 QED
 
-val init_sandbox_def = Define`
+Definition init_sandbox_def:
   init_sandbox wc =
    Seq (AssignAnyPar wc.const_names)
   (Seq (AssignAnyPar wc.ctrl_names)
   (Seq (AssignAnyPar wc.sensor_names)
-       (Test (wc.init))))`
+       (Test (wc.init))))
+End
 
-val mk_state_def = Define`
+Definition mk_state_def:
   mk_state w =
   let names_ls = w.wc.sensor_names ++ w.wc.ctrl_names ++ w.wc.const_names in
   let st_ls = w.ws.sensor_vals ++ w.ws.ctrl_vals ++ w.ws.const_vals in
- (ZIP(names_ls,ZIP(st_ls,st_ls)))`
+ (ZIP(names_ls,ZIP(st_ls,st_ls)))
+End
 
 (* The initial world satisfies init *)
-val init_step_def = Define`
-  init_step w = cwfsem_bi_val w.wc.init (mk_state w)`
+Definition init_step_def:
+  init_step w = cwfsem_bi_val w.wc.init (mk_state w)
+End
 
 val ALL_DISTINCT_ALOOKUP_REV = Q.prove(`
   ALL_DISTINCT (MAP FST ls) ∧
@@ -1073,8 +1083,9 @@ QED
 
 (* We now specify each of the functions *)
 
-val IOBOT_def = Define `
-  IOBOT w = IOx bot_ffi_part w * &(wf_mach w)`
+Definition IOBOT_def:
+  IOBOT w = IOx bot_ffi_part w * &(wf_mach w)
+End
 
 (* TODO: remove once STRING_TYPE is fixed *)
 Overload CLSTRING_TYPE =``LIST_TYPE CHAR``;
@@ -1363,10 +1374,11 @@ Theorem stop_spec:
   simp[IOBOT_def]>>xsimpl);
 
 (* eventually on oracle sequences *)
-val eventually_def = Define`
+Definition eventually_def:
   eventually P oracle ⇔
   ∃n.
-    P(oracle n)`
+    P(oracle n)
+End
 
 Theorem violation_spec:
   STRING_TYPE strng strngv
@@ -1618,17 +1630,19 @@ Proof
       metis_tac[]
 QED
 
-val full_sandbox_def = Define`
+Definition full_sandbox_def:
   full_sandbox wc =
-  Seq (init_sandbox wc) (Loop (body_sandbox Success wc))`
+  Seq (init_sandbox wc) (Loop (body_sandbox Success wc))
+End
 
 (* relating w to an abstract state via an intermediate
    concrete state *)
-val state_rel_abs_def = Define`
+Definition state_rel_abs_def:
   state_rel_abs w (st:wstate) ⇔
   ∃cst.
     state_rel w cst ∧
-    st = abs_state cst`
+    st = abs_state cst
+End
 
 (* Rewriting with the combined spec *)
 Theorem monitor_loop_full_spec:

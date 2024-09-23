@@ -12,14 +12,16 @@ val _ = new_theory "lcgLoopProg"
 
 val _ = translation_extends "miniBasisProg";
 
-val n2l_acc_def = Define`
+Definition n2l_acc_def:
   n2l_acc n acc =
   if n < 10 then HEX n::acc
   else
-    n2l_acc (n DIV 10) (HEX (n MOD 10) :: acc)`
+    n2l_acc (n DIV 10) (HEX (n MOD 10) :: acc)
+End
 
-val num_to_string_def = Define`
-  num_to_string n = n2l_acc n [#"\n"]`
+Definition num_to_string_def:
+  num_to_string n = n2l_acc n [#"\n"]
+End
 
 val _ = translate HEX_def;
 val _ = translate n2l_acc_def;
@@ -66,8 +68,9 @@ val _ = (append_prog o process_topdecs) `fun print_num n = put_string (num_to_st
 *)
 
 (* X_{n+1} = (a X_n + c) mod m *)
-val lcg_def = Define`
-  lcg a c m x = (a * x + c) MOD m`
+Definition lcg_def:
+  lcg a c m x = (a * x + c) MOD m
+End
 
 val _ = translate lcg_def;
 

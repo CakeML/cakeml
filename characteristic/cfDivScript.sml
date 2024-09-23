@@ -363,33 +363,37 @@ val mk_single_app_F_unchanged_gen = Q.prove(
 val mk_single_app_F_unchanged = save_thm("mk_single_app_F_unchanged",
   SIMP_RULE std_ss [] mk_single_app_F_unchanged_gen);
 
-val mk_inr_res_def = Define `
+Definition mk_inr_res_def:
   (mk_inr_res(Rval vs) =
    Rval(MAP (λv. Conv (SOME (TypeStamp "Inr" 4)) [v]) vs)
   ) /\
-  (mk_inr_res res = res)`
+  (mk_inr_res res = res)
+End
 
-val mk_inl_res_def = Define `
+Definition mk_inl_res_def:
   (mk_inl_res(Rval vs) =
    Rval(MAP (λv. Conv (SOME (TypeStamp "Inl" 4)) [v]) vs)
   ) /\
-  (mk_inl_res res = res)`
+  (mk_inl_res res = res)
+End
 
-val dest_inr_v_def = Define `
+Definition dest_inr_v_def:
   (dest_inr_v (Conv (SOME (TypeStamp txt n)) [v]) =
    if txt = "Inr" /\ n = 4 then
      SOME v
    else
      NONE) /\
-  (dest_inr_v _ = NONE)`
+  (dest_inr_v _ = NONE)
+End
 
-val dest_inl_v_def = Define `
+Definition dest_inl_v_def:
   (dest_inl_v (Conv (SOME (TypeStamp txt n)) [v]) =
    if txt = "Inl" /\ n = 4 then
      SOME v
    else
      NONE) /\
-  (dest_inl_v _ = NONE)`
+  (dest_inl_v _ = NONE)
+End
 
 Theorem dest_inr_v_IMP:
   !e1 v. dest_inr_v e1 = SOME v ==> e1 = Conv (SOME (TypeStamp "Inr" 4)) [v]
@@ -649,7 +653,7 @@ val mk_single_app_NONE_evaluate_single = Q.prove(
   match_mp_tac(CONJUNCT1 mk_single_app_NONE_evaluate) >>
   simp[mk_single_app_def]);
 
-val partially_evaluates_to_def = Define `
+Definition partially_evaluates_to_def:
 partially_evaluates_to fv env st [] = T /\
 partially_evaluates_to fv env st ((e1,e2)::r) =
   case evaluate st env [e1] of
@@ -668,9 +672,9 @@ partially_evaluates_to fv env st ((e1,e2)::r) =
                   | _ => T)
           | NONE => res = Rerr (Rabort Rtype_error))
    | (st',rerr) => evaluate st env [e2] = (st',rerr)
-`;
+End
 
-val partially_evaluates_to_match_def = Define `
+Definition partially_evaluates_to_match_def:
 partially_evaluates_to_match fv mv err_v env st (pr1,pr2) =
   case evaluate_match st env mv pr1 err_v of
     (st',Rval v1) =>
@@ -684,7 +688,7 @@ partially_evaluates_to_match fv mv err_v env st (pr1,pr2) =
                    evaluate (dec_clock st') env' [e3] = (st'',res)
             | NONE => res = Rerr (Rabort Rtype_error))
    | (st',rerr) => evaluate_match st env mv pr2 err_v = (st',rerr)
-`;
+End
 
 val mk_single_app_evaluate = Q.prove(
   `(!^st env es es' fname fv. mk_single_apps (SOME fname) T es = SOME es'
@@ -1821,8 +1825,9 @@ Proof
   metis_tac[mk_tailrec_closure_sound_basic,app_def]
 QED
 
-val some_tailrec_clos_def = Define `
-  some_tailrec_clos env = Recclosure env ^tailrec_clos "tailrec"`;
+Definition some_tailrec_clos_def:
+  some_tailrec_clos env = Recclosure env ^tailrec_clos "tailrec"
+End
 
 Theorem POSTv_eq:
   $POSTv Q r h <=> ?v. r = Val v /\ Q v h
@@ -1835,9 +1840,10 @@ fun rename_conv s tm =
     val (v,body) = dest_abs tm
   in ALPHA_CONV (mk_var(s,type_of v)) tm end;
 
-val get_index_def = Define `
+Definition get_index_def:
   get_index st states i = if i = 0:num then (i,st) else
-                            (i, states (get_index st states (i-1)))`
+                            (i, states (get_index st states (i-1)))
+End
 
 Theorem FFI_full_IN_st2heap_IMP:
   FFI_full io ∈ st2heap p s ==> s.ffi.io_events = io
@@ -2508,9 +2514,10 @@ val make_single_app_F_unchanged_gen = Q.prove(
 val make_single_app_F_unchanged = save_thm("make_single_app_F_unchanged",
   SIMP_RULE std_ss [] make_single_app_F_unchanged_gen);
 
-val mk_tyerr_res_def = Define `
+Definition mk_tyerr_res_def:
   mk_tyerr_res (Rerr e) = Rerr e /\
-  mk_tyerr_res r = Rerr (Rabort Rtype_error)`;
+  mk_tyerr_res r = Rerr (Rabort Rtype_error)
+End
 
 Theorem evaluate_then_tyerr[simp]:
   evaluate st env [then_tyerr e] =
@@ -2662,7 +2669,7 @@ QED
 val make_single_app_NONE_evaluate_exp =
   make_single_app_NONE_evaluate |> CONJUNCT1 |> SIMP_RULE std_ss [];
 
-val part_evaluates_to_def = Define `
+Definition part_evaluates_to_def:
   part_evaluates_to fv env st (e1,e2) =
     case evaluate st env [e1] of
       (st',Rval v1) =>
@@ -2675,9 +2682,10 @@ val part_evaluates_to_def = Define `
             | NONE => res = Rerr (Rabort Rtype_error))
      | (st',Rerr (Rabort Rtype_error)) =>
          (?res. evaluate st env [e2] = (st',res))
-     | (st',Rerr err) => evaluate st env [e2] = (st',Rerr err)`;
+     | (st',Rerr err) => evaluate st env [e2] = (st',Rerr err)
+End
 
-val part_evaluates_to_match_def = Define `
+Definition part_evaluates_to_match_def:
   part_evaluates_to_match fv mv err_v env st (pr1,pr2) =
     case evaluate_match st env mv pr1 err_v of
       (st',Rval v1) =>
@@ -2691,7 +2699,8 @@ val part_evaluates_to_match_def = Define `
               | NONE => res = Rerr (Rabort Rtype_error))
      | (st',Rerr (Rabort Rtype_error)) =>
          (?res. evaluate_match st env mv pr2 err_v = (st',res))
-     | (st',Rerr err) => evaluate_match st env mv pr2 err_v = (st',Rerr err)`;
+     | (st',Rerr err) => evaluate_match st env mv pr2 err_v = (st',Rerr err)
+End
 
 Theorem make_single_app_SOME_evaluate:
    (!fname allow_fname e e' ^st env f fv.
@@ -3466,8 +3475,9 @@ Proof
   metis_tac[make_repeat_closure_sound_basic,app_def]
 QED;
 
-val some_repeat_clos_def = Define `
-  some_repeat_clos env = Recclosure env ^repeat_clos "repeat"`;
+Definition some_repeat_clos_def:
+  some_repeat_clos env = Recclosure env ^repeat_clos "repeat"
+End
 
 fun rename_conv s tm =
   let
@@ -3700,9 +3710,10 @@ QED
 
 (* -- FFI_part -- *)
 
-val limited_parts_def = Define `
+Definition limited_parts_def:
   limited_parts ns ((proj,parts):'ffi ffi_proj) <=>
-    ns = FLAT (MAP FST parts)`
+    ns = FLAT (MAP FST parts)
+End
 
 Theorem FFI_part_IN_st2heap_IMP:
   FFI_part s u ns events ∈ st2heap p st ==>

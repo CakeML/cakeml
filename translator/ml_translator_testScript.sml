@@ -128,9 +128,10 @@ val _ = translate uses_hidden2_def;
 
 (* test side conditions *)
 
-val ZIP2_def = Define `
+Definition ZIP2_def:
   (ZIP2 ([],[]) z = []) /\
-  (ZIP2 (x::xs,y::ys) z = (x,y) :: ZIP2 (xs, ys) (5:int))`
+  (ZIP2 (x::xs,y::ys) z = (x,y) :: ZIP2 (xs, ys) (5:int))
+End
 
 (* test timing by setting this
 val _ = (ml_translatorLib.trace_timing_to
@@ -145,30 +146,34 @@ val res = translate mllistTheory.tabulate_aux_def;
 
 val res = translate MEMBER_def;
 
-val AEVERY_AUX_def = Define `
+Definition AEVERY_AUX_def:
   (AEVERY_AUX aux P [] = T) /\
   (AEVERY_AUX aux P ((x:'a,y:'b)::xs) =
      if MEMBER x aux then AEVERY_AUX aux P xs else
-       P (x,y) /\ AEVERY_AUX (x::aux) P xs)`;
+       P (x,y) /\ AEVERY_AUX (x::aux) P xs)
+End
 
 val res = translate AEVERY_AUX_def;
 
 val res = translate mlstringTheory.strcat_def;
 (* val res = translate mlstringTheory.concatWith_aux_def *)
 
-val ADEL_def = Define `
+Definition ADEL_def:
   (ADEL [] z = []) /\
-  (ADEL ((x:'a,y:'b)::xs) z = if x = z then ADEL xs z else (x,y)::ADEL xs z)`
+  (ADEL ((x:'a,y:'b)::xs) z = if x = z then ADEL xs z else (x,y)::ADEL xs z)
+End
 
 val res = translate ADEL_def;
 
-val ZIP4_def = Define `
-  ZIP4 xs = ZIP2 xs 6`
+Definition ZIP4_def:
+  ZIP4 xs = ZIP2 xs 6
+End
 
 val res = translate ZIP4_def;
 
-val char_to_byte_def = Define`
-  char_to_byte c = (n2w (ORD c) : word8)`;
+Definition char_to_byte_def:
+  char_to_byte c = (n2w (ORD c) : word8)
+End
 
 val res = translate char_to_byte_def;
 
@@ -182,8 +187,9 @@ val res = translate mlstringTheory.explode_aux_def;
 
 val res = translate mlstringTheory.explode_def;
 
-val string_to_bytes_def = Define`
-  string_to_bytes s = MAP char_to_byte (explode s)`;
+Definition string_to_bytes_def:
+  string_to_bytes s = MAP char_to_byte (explode s)
+End
 
 val res = translate string_to_bytes_def;
 *)
@@ -221,10 +227,12 @@ val _ = Datatype `bar2 = Ta | TI`
 val _ = register_type ``:bar1``
 val _ = register_type ``:bar2``
 
-val and_pre_def = Define`
-  and_pre x ⇔ x <> 0i ∧ 2 / x > 0`;
-val or_pre_def = Define`
-  or_pre x = if (x = 0) \/ 2 / x > 0 then and_pre x \/ 0 < x else x < 0`
+Definition and_pre_def:
+  and_pre x ⇔ x <> 0i ∧ 2 / x > 0
+End
+Definition or_pre_def:
+  or_pre x = if (x = 0) \/ 2 / x > 0 then and_pre x \/ 0 < x else x < 0
+End
 val res =  translate and_pre_def;
 val res =  translate or_pre_def;
 
@@ -452,9 +460,10 @@ val _ = ml_prog_update (close_module NONE);
 
 val _ = use_string_type true;
 
-val str_ex1_def = Define `
+Definition str_ex1_def:
   str_ex1 s1 s2 = if LENGTH s1 = 0 then "Hello!" else
-                  if EL 0 s1 = #"\n" then s1 else STRCAT s1 s2`;
+                  if EL 0 s1 = #"\n" then s1 else STRCAT s1 s2
+End
 
 val res = translate str_ex1_def;
 
@@ -465,18 +474,21 @@ val str_ex1_side_thm = Q.prove(
 
 val res = translate MAP;
 
-val str_ex2_def = Define `
-  str_ex2 s1 = MAP ORD (str_ex1 s1 "Test")`;
+Definition str_ex2_def:
+  str_ex2 s1 = MAP ORD (str_ex1 s1 "Test")
+End
 
 val res = translate str_ex2_def; (* causes warning *)
 
-val str_ex3_def = Define `
-  str_ex3 s1 = MAP ORD (EXPLODE (str_ex1 s1 "Test"))`;
+Definition str_ex3_def:
+  str_ex3 s1 = MAP ORD (EXPLODE (str_ex1 s1 "Test"))
+End
 
 val res = translate str_ex3_def; (* doesn't cause warning *)
 
-val str_ex4_def = Define `
-  str_ex4 s1 = MAP CHR (str_ex3 s1)`
+Definition str_ex4_def:
+  str_ex4 s1 = MAP CHR (str_ex3 s1)
+End
 
 val res = translate str_ex4_def;
 
@@ -486,8 +498,9 @@ val str_ex4_side_thm = Q.prove(
   \\ fs [stringTheory.ORD_BOUND])
   |> update_precondition;
 
-val str_ex5_def = Define `
-  str_ex5 s1 = if s1 = "Hello" then "There!" else IMPLODE (MAP CHR (str_ex3 s1))`
+Definition str_ex5_def:
+  str_ex5 s1 = if s1 = "Hello" then "There!" else IMPLODE (MAP CHR (str_ex3 s1))
+End
 
 val res = translate str_ex5_def;
 
@@ -497,16 +510,18 @@ val str_ex5_side_thm = Q.prove(
   \\ fs [stringTheory.ORD_BOUND])
   |> update_precondition;
 
-val str_ex6_def = Define `
+Definition str_ex6_def:
   str_ex6 s <=>
     s <> "before" /\ s <> "div" /\ s <> "mod" /\ s <> "o" ∧
-    if s = "" then T else HD s = #" "`
+    if s = "" then T else HD s = #" "
+End
 
 val res = translate str_ex6_def;
 
-val id_to_string_def = Define `
+Definition id_to_string_def:
   id_to_string (Short s) = implode s /\
-  id_to_string (Long x id) = concat [implode x; implode "."; id_to_string id]`
+  id_to_string (Long x id) = concat [implode x; implode "."; id_to_string id]
+End
 
 val res = translate id_to_string_def;
 

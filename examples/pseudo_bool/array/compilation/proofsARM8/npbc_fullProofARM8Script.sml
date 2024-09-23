@@ -37,7 +37,7 @@ val cake_pb_compiled_thm =
   |> curry save_thm "cake_pb_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
-val installed_arm8_asl_def = Define `
+Definition installed_arm8_asl_def:
   installed_arm8_asl ((code, data, cfg) :
       (word8 list # word64 list # 64 backend$config))
     mc ms
@@ -50,18 +50,19 @@ val installed_arm8_asl_def = Define `
         cfg.lab_conf.ffi_names
         (heap_regs arm8_backend_config.stack_conf.reg_names) mc
         cfg.lab_conf.shmem_extra ms
-    `;
+End
 
-val cake_pb_code_def = Define `
+Definition cake_pb_code_def:
   cake_pb_code = (arm8_code, arm8_data, arm8_info)
-  `;
+End
 
 (* A standard run of cake_pb
   satisfying all the default assumptions *)
-val cake_pb_run_def = Define`
+Definition cake_pb_run_def:
   cake_pb_run cl fs mc ms ⇔
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  installed_arm8_asl cake_pb_code mc ms`
+  installed_arm8_asl cake_pb_code mc ms
+End
 
 Theorem machine_code_sound:
   cake_pb_run cl fs mc ms ⇒

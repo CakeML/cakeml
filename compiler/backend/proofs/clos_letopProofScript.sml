@@ -27,9 +27,10 @@ Proof
   strip_tac \\ strip_assume_tac (Q.SPEC `x` let_op_SING) \\ simp []
 QED
 
-val code_rel_def = Define `
+Definition code_rel_def:
   code_rel e1 e2 <=>
-    e2 = let_op e1`;
+    e2 = let_op e1
+End
 
 Theorem code_rel_IMP_LENGTH:
    !xs ys. code_rel xs ys ==> LENGTH xs = LENGTH ys
@@ -46,9 +47,10 @@ QED
 
 (* value relation *)
 
-val f_rel_def = Define `
+Definition f_rel_def:
   f_rel (a1, e1) (a2, e2) <=>
-     a1 = a2 /\ code_rel [e1] [e2]`;
+     a1 = a2 /\ code_rel [e1] [e2]
+End
 
 Inductive v_rel:
   (!i. v_rel (Number i) (Number i)) /\
@@ -92,13 +94,14 @@ Inductive ref_rel:
     ref_rel (ValueArray xs) (ValueArray ys))
 End
 
-val FMAP_REL_def = Define `
+Definition FMAP_REL_def:
   FMAP_REL r f1 f2 <=>
     FDOM f1 = FDOM f2 /\
     !k v. FLOOKUP f1 k = SOME v ==>
-          ?v2. FLOOKUP f2 k = SOME v2 /\ r v v2`;
+          ?v2. FLOOKUP f2 k = SOME v2 /\ r v v2
+End
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel (s:('c, 'ffi) closSem$state) (t:('c, 'ffi) closSem$state) <=>
     (!n. SND (SND (s.compile_oracle n)) = []) /\
     s.code = FEMPTY /\ t.code = FEMPTY /\
@@ -108,7 +111,8 @@ val state_rel_def = Define `
     LIST_REL (OPTREL v_rel) s.globals t.globals /\
     FMAP_REL ref_rel s.refs t.refs /\
     s.compile = pure_cc compile_inc t.compile /\
-    t.compile_oracle = pure_co compile_inc o s.compile_oracle`;
+    t.compile_oracle = pure_co compile_inc o s.compile_oracle
+End
 
 (* *)
 

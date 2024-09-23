@@ -40,17 +40,17 @@ QED
 
 (**************************** DEFINITIONS *****************************)
 
-val dest_word_loc_def = Define `
+Definition dest_word_loc_def:
     (* 'a word_loc = Word ('a word) | Loc num num *)
     (dest_word_loc (Loc n _) = SOME n) ∧
     (dest_word_loc (_:'a word_loc) = NONE)
-`
+End
 
-val dest_result_loc_def = Define `
+Definition dest_result_loc_def:
     (dest_result_loc (SOME (Result w (Loc n n0))) = {n}) ∧
     (dest_result_loc (SOME (Exception w (Loc n n0))) = {n}) ∧
     (dest_result_loc _ = {})
-`
+End
 
 (* TODO could do alt def using toAList -
     not necessary though, may not be cleaner *)
@@ -153,11 +153,11 @@ Proof
     >| [ALL_TAC, disj1_tac] >> qexists_tac `k'` >> qexists_tac `n1` >> fs[]
 QED
 
-val get_num_wordloc_alist_def = Define `
+Definition get_num_wordloc_alist_def:
     get_num_wordloc_alist (l: (num, 'a word_loc) alist) =
         let locs = MAP THE (FILTER IS_SOME (MAP (dest_word_loc o SND) l)) in
         FOLDL (λ acc loc . insert loc () acc) LN locs
-`
+End
 
 Theorem get_num_wordloc_alist_thm:
      ∀ n e l . (∃ n0 . MEM (Loc n n0) (MAP SND l)) ⇔
@@ -326,14 +326,14 @@ Proof
         >| [ALL_TAC, disj1_tac] >> qexists_tac `k'` >> qexists_tac `n1` >> fs[]
 QED
 
-val find_loc_state_def = Define`
+Definition find_loc_state_def:
     find_loc_state s =
         let loc = (get_locals s.locals) in
         let sto = (get_store s.store) in
         let sta = (get_stack s.stack) in
         let mem = (get_memory s.memory s.mdomain) in
         union (union loc sto) (union sta mem)
-`
+End
 
 Theorem domain_find_loc_state:
      ∀ s . domain (find_loc_state s) =
@@ -343,30 +343,30 @@ Proof
     rw[find_loc_state_def, domain_union, UNION_ASSOC]
 QED
 
-val code_rel_def = Define`
+Definition code_rel_def:
     code_rel (reachable:num_set) s_code
         (t_code :(num # ('a wordLang$prog)) num_map) =
         ∀ n . n ∈ domain reachable ⇒
             lookup n s_code = lookup n t_code
-`
+End
 
-val code_closed_def = Define`
+Definition code_closed_def:
     code_closed reachable c1 ⇔ ∃ code1 . c1 = fromAList code1 ∧
         ∀ n m . n ∈ domain reachable ∧
         is_reachable (analyse_word_code code1) n m ⇒
         m ∈ domain reachable
-`
+End
 
-val gc_no_new_locs_def = Define`
+Definition gc_no_new_locs_def:
     gc_no_new_locs (g:'a gc_fun_type) ⇔  ∀ sta mem mdom sto wl mem1 sto1 sta1 .
         (g (enc_stack sta, mem, mdom, sto) = SOME (wl, mem1, sto1)) ∧
          dec_stack wl sta = SOME sta1 ⇒
         domain (get_stack sta1) ⊆ domain (get_stack sta) ∧
         domain (get_memory mem1 mdom) ⊆ domain (get_memory mem mdom) ∧
         domain (get_store sto1) ⊆ domain (get_store sto)
-`
+End
 
-val word_state_rel_def = Define `
+Definition word_state_rel_def:
     word_state_rel (reachable:num_set) t s ⇔
         s.locals         = t.locals ∧
         s.fp_regs        = t.fp_regs ∧
@@ -392,7 +392,7 @@ val word_state_rel_def = Define `
         s.stack_size     = t.stack_size  /\
         code_rel reachable (s.code) (t.code) ∧
         domain (find_loc_state t) ⊆ domain (reachable)
-`
+End
 
 
 (**************************** OTHER LEMMAS *****************************)

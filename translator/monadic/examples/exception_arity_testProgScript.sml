@@ -38,20 +38,24 @@ val r3 = m_translate raise3_def
 val raise4_def = Define `raise4 x y z = raise_Fail4 x y z`
 val r4 = m_translate raise4_def
 
-val handle1_def = Define `
-  handle1 n = handle_Fail1 (return n) (return n)`
+Definition handle1_def:
+  handle1 n = handle_Fail1 (return n) (return n)
+End
 val rh1 = m_translate handle1_def
 
-val handle2_def = Define `
-  handle2 n = handle_Fail2 (return n) (\x. return n)`
+Definition handle2_def:
+  handle2 n = handle_Fail2 (return n) (\x. return n)
+End
 val rh2 = m_translate handle2_def
 
-val handle3_def = Define `
-  handle3 n = handle_Fail3 (return n) (\x y. return n)`
+Definition handle3_def:
+  handle3 n = handle_Fail3 (return n) (\x y. return n)
+End
 val rh3 = m_translate handle3_def
 
-val handle4_def = Define `
-  handle4 n = handle_Fail4 (return n) (\x y z. return n)`
+Definition handle4_def:
+  handle4 n = handle_Fail4 (return n) (\x y z. return n)
+End
 val rh4 = m_translate handle4_def
 
 (* ... *)

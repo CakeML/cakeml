@@ -31,12 +31,13 @@ val res = translate $
   INST_TYPE[beta|->``:64``] panScopeTheory.scope_check_funs_def;
 val res = translate $ INST_TYPE[beta|->``:64``] panScopeTheory.scope_check_def;
 
-val max_heap_limit_64_def = Define`
+Definition max_heap_limit_64_def:
                                   max_heap_limit_64 c =
 ^(spec64 data_to_wordTheory.max_heap_limit_def
     |> SPEC_ALL
     |> SIMP_RULE (srw_ss())[backend_commonTheory.word_shift_def]
-    |> concl |> rhs)`;
+    |> concl |> rhs)
+End
 
 val res = translate max_heap_limit_64_def
 
@@ -350,12 +351,13 @@ val res = translate print_option_def
 val res = translate current_build_info_str_def
 val res = translate compilerTheory.help_string_def;
 
-val nonzero_exit_code_for_error_msg_def = Define `
+Definition nonzero_exit_code_for_error_msg_def:
                                                  nonzero_exit_code_for_error_msg e =
 if compiler$is_error_msg e then
   (let a = empty_ffi (strlit "nonzero_exit") in
      ml_translator$force_out_of_memory_error ())
-else ()`;
+else ()
+End
 
 val res = translate compilerTheory.is_error_msg_def;
 val res = translate nonzero_exit_code_for_error_msg_def;

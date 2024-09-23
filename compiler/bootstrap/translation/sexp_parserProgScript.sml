@@ -195,11 +195,12 @@ val decode_control_side = Q.prove(
   rw[Once(theorem"decode_control_side_def")])
   |> update_precondition
 
-val decode_control_wrapper_def = Define `
+Definition decode_control_wrapper_def:
   decode_control_wrapper s =
     case decode_control (explode s) of
       NONE => NONE
-    | SOME x => SOME (implode x)`
+    | SOME x => SOME (implode x)
+End
 
 val r = translate decode_control_wrapper_def
 

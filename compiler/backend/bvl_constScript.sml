@@ -17,9 +17,10 @@ val _ = new_theory "bvl_const";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
-val dest_simple_def = Define `
+Definition dest_simple_def:
   (dest_simple (bvl$Op (Const i) xs) = if NULL xs then SOME i else NONE) /\
-  (dest_simple _ = NONE)`;
+  (dest_simple _ = NONE)
+End
 val _ = export_rewrites["dest_simple_def"];
 
 Theorem dest_simple_pmatch:
@@ -33,12 +34,12 @@ Proof
   >> fs[dest_simple_def]
 QED
 
-val case_op_const_def = Define `
+Definition case_op_const_def:
     case_op_const exp =
         dtcase exp of
         | (Op op [x1; Op (Const n2) l]) => if NULL l then SOME (op, x1, n2) else NONE
         | _ => NONE
-`
+End
 
 Theorem case_op_const_pmatch:
     ∀exp. case_op_const exp =
@@ -51,7 +52,7 @@ Proof
   >> fs[case_op_const_def]
 QED
 
-val SmartOp_flip_def = Define `
+Definition SmartOp_flip_def:
     SmartOp_flip op x1 x2 =
       dtcase (dest_simple x1) of
       | (SOME i) =>
@@ -59,7 +60,7 @@ val SmartOp_flip_def = Define `
           else if op = Sub then (Add, x2, Op (Const (-i)) [])
           else (op, x1, x2)
       | _ => (op, x1, x2)
-`
+End
 
 Theorem SmartOp_flip_pmatch:
   !op x1 x2. SmartOp_flip op x1 x2 =
@@ -227,12 +228,13 @@ Definition SmartOp1_def:
 End
 
 
-val SmartOp_def = Define `
+Definition SmartOp_def:
   SmartOp op xs =
     dtcase xs of
     | [x1; x2] => SmartOp2 (SmartOp_flip op x1 x2)
     | [x] => SmartOp1 op x
-    | _ => Op op xs`
+    | _ => Op op xs
+End
 
 Theorem SmartOp_pmatch:
       !op xs. SmartOp op xs =
@@ -246,12 +248,13 @@ Proof
   >> fs[SmartOp_def]
 QED
 
-val extract_def = Define `
+Definition extract_def:
   (extract ((Var n):bvl$exp) ys = SOME ((Var (n + LENGTH ys + 1)):bvl$exp)) /\
   (extract (Op (Const i) xs) ys = SOME (Op (Const i) [])) /\
   (extract (Op (Cons t) xs) ys =
     if NULL xs then SOME (Op (Cons t) []) else NONE) /\
-  (extract _ _ = NONE)`
+  (extract _ _ = NONE)
+End
 
 Theorem extract_pmatch:
     ∀op ys. extract op ys =
@@ -266,13 +269,15 @@ Proof
   >> fs[extract_def]
 QED
 
-val extract_list_def = Define `
+Definition extract_list_def:
   (extract_list [] = []) /\
-  (extract_list (x::xs) = extract x xs :: extract_list xs)`
+  (extract_list (x::xs) = extract x xs :: extract_list xs)
+End
 
-val delete_var_def = Define `
+Definition delete_var_def:
   (delete_var ((Var n):bvl$exp) = Op (Const 0) []) /\
-  (delete_var x = x)`;
+  (delete_var x = x)
+End
 
 Theorem delete_var_pmatch:
   !op.

@@ -26,9 +26,10 @@ val _ = translate parse_clause_def;
 
 val _ = translate nocomment_line_def;
 
-val format_dimacs_failure_def = Define`
+Definition format_dimacs_failure_def:
   format_dimacs_failure (lno:num) s =
-  strlit "c DIMACS parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"`
+  strlit "c DIMACS parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"
+End
 
 val _ = translate format_dimacs_failure_def;
 
@@ -617,8 +618,9 @@ Proof
   xapp>>simp[]
 QED
 
-val mapf_def = Define`
-  mapf ls = MAP FST (ls: (int list # num list) list)`
+Definition mapf_def:
+  mapf ls = MAP FST (ls: (int list # num list) list)
+End
 
 val _ = translate mapf_def;
 
@@ -813,8 +815,9 @@ val _ = translate parse_proofstep_def;
 val _ = translate parse_proof_toks_aux_def;
 val _ = translate parse_proof_toks_def;
 
-val noparse_string_def = Define`
-  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]`;
+Definition noparse_string_def:
+  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]
+End
 
 val r = translate noparse_string_def;
 
@@ -853,9 +856,10 @@ val check_unsat_2 = (append_prog o process_topdecs) `
     | Inr (Some l) => TextIO.output TextIO.stdErr "c empty clause not derived at end of proof\n"
   end`
 
-val transformation_err_def = Define`
+Definition transformation_err_def:
   transformation_err cl =
-  concat[strlit"c transformation clause: ";print_clause cl;strlit"c not derived at end of proof\n"]`;
+  concat[strlit"c transformation clause: ";print_clause cl;strlit"c not derived at end of proof\n"]
+End
 
 val _ = translate transformation_err_def;
 
@@ -881,20 +885,23 @@ val check_unsat_3 = (append_prog o process_topdecs) `
     | Inr (Some cl) => TextIO.output TextIO.stdErr (transformation_err cl)
   end`
 
-val check_cond_def = Define`
-  check_cond i j pf = (i ≤ j ∧ j ≤ LENGTH pf)`
+Definition check_cond_def:
+  check_cond i j pf = (i ≤ j ∧ j ≤ LENGTH pf)
+End
 
 val _ = translate check_cond_def;
 
-val success_str_def = Define`
-  success_str cnf_md5 proof_md5 rng = expected_prefix cnf_md5 proof_md5 ^ rng ^ strlit "\n"`
+Definition success_str_def:
+  success_str cnf_md5 proof_md5 rng = expected_prefix cnf_md5 proof_md5 ^ rng ^ strlit "\n"
+End
 
 val _ = translate success_str_def;
 
-val parse_rng_or_check_def = Define`
+Definition parse_rng_or_check_def:
   parse_rng_or_check rngc =
   if rngc = strlit "-check" then SOME (INL ())
-  else OPTION_MAP INR (parse_rng rngc)`
+  else OPTION_MAP INR (parse_rng rngc)
+End
 
 val _ = translate parse_rng_or_check_def;
 

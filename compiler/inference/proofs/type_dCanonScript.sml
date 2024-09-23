@@ -142,20 +142,22 @@ QED
 (* -- *)
 
 (* all the tids used in a tenv *)
-val set_tids_tenv_def = Define`
+Definition set_tids_tenv_def:
   set_tids_tenv tids tenv ⇔
   nsAll (λi (ls,t). set_tids_subset tids t) tenv.t ∧
   nsAll (λi (ls,ts,tid). EVERY (λt. set_tids_subset tids t) ts ∧ tid ∈ tids) tenv.c ∧
-  nsAll (λi (n,t). set_tids_subset tids t) tenv.v`
+  nsAll (λi (n,t). set_tids_subset tids t) tenv.v
+End
 
-val type_pe_determ_canon_def = Define`
+Definition type_pe_determ_canon_def:
   type_pe_determ_canon n tenv tenvE p e ⇔
   ∀t1 tenv1 t2 tenv2.
     type_p 0 tenv p t1 tenv1 ∧ type_e tenv tenvE e t1 ∧
     EVERY (λ(k,t).  set_tids_subset (count n) t) tenv1 ∧
     type_p 0 tenv p t2 tenv2 ∧ type_e tenv tenvE e t2 ∧
     EVERY (λ(k,t).  set_tids_subset (count n) t) tenv2
-    ⇒ tenv1 = tenv2`;
+    ⇒ tenv1 = tenv2
+End
 
 Theorem type_pe_determ_canon_tenv_equiv:
    type_pe_determ_canon n t1 x y z ∧
@@ -263,10 +265,11 @@ Inductive type_d_canon:
 End
 
 (* The remapping must be identity on these numbers *)
-val good_remap_def = Define`
+Definition good_remap_def:
   good_remap f ⇔
   MAP f (Tlist_num :: (Tbool_num :: prim_type_nums)) =
-    Tlist_num :: (Tbool_num :: prim_type_nums)`
+    Tlist_num :: (Tbool_num :: prim_type_nums)
+End
 
 val ts_tid_rename_type_subst = Q.prove(`
   ∀s t f.
@@ -312,22 +315,24 @@ val check_type_names_ts_tid_rename = Q.prove(`
   Cases_on`nsLookup tenvt tn`>>fs[]>>
   pairarg_tac>>fs[]);
 
-val extend_bij_def = Define`
+Definition extend_bij_def:
   extend_bij (f:type_ident->type_ident) g ids n v =
   if v ∈ ids then
     n + g v
   else
-    f v`
+    f v
+End
 
 (*
-val extend_bij_def = Define`
+Definition extend_bij_def:
   extend_bij (f:type_ident->type_ident) g tids ids n v =
   if v ∈ tids then
     f v
   else if v ∈ ids then
     n + g v
   else
-    v`
+    v
+End
 *)
 
 Theorem extend_bij_id[simp]:
@@ -461,8 +466,9 @@ val check_freevars_ts_tid_rename = Q.prove(`
   ho_match_mp_tac check_freevars_ind>>
   fs[ts_tid_rename_def,check_freevars_def,EVERY_MAP,EVERY_MEM]);
 
-val sing_renum_def = Define`
-  sing_renum m n = λx. if x = m then n else x`
+Definition sing_renum_def:
+  sing_renum m n = λx. if x = m then n else x
+End
 
 val ast_t_ind = ast_t_induction
   |> Q.SPECL[`P`,`EVERY P`]
@@ -590,10 +596,11 @@ Proof
   fs[good_remap_def,prim_type_nums_def]
 QED
 
-val remap_tenvE_def = Define`
+Definition remap_tenvE_def:
   (remap_tenvE f Empty = Empty) ∧
   (remap_tenvE f (Bind_tvar n e) = Bind_tvar n (remap_tenvE f e)) ∧
-  (remap_tenvE f (Bind_name s n t e) = Bind_name s n (ts_tid_rename f t) (remap_tenvE f e))`
+  (remap_tenvE f (Bind_name s n t e) = Bind_name s n (ts_tid_rename f t) (remap_tenvE f e))
+End
 
 val num_tvs_remap_tenvE = Q.prove(`
   ∀tenvE. num_tvs (remap_tenvE f tenvE) = num_tvs tenvE`,

@@ -32,25 +32,28 @@ val ag32_el_distinct = DB.fetch "-" "ag32_el_distinct";
 
 Type ag32_set = ``:ag32_el set``
 
-val ag32_instr_def = Define`
+Definition ag32_instr_def:
   ag32_instr (a, w: word32) =
   { aMem (a+3w) ((31 >< 24) w) ;
     aMem (a+2w) ((23 >< 16) w) ;
     aMem (a+1w) ((15 ><  8) w) ;
-    aMem (a+0w) (( 7 ><  0) w) }`;
+    aMem (a+0w) (( 7 ><  0) w) }
+End
 
-val ag32_proj'_def = Define `
+Definition ag32_proj'_def:
   ag32_proj' (fs,ms,pc) (s:ag32_state) =
     (if fs then { aState s } else {}) UNION
     IMAGE (\a. aMem a (s.MEM a)) ms UNION
-    (if pc then { aPc (s.PC) } else {})`;
+    (if pc then { aPc (s.PC) } else {})
+End
 
 val ag32_proj_def   = Define `ag32_proj s = ag32_proj' (T,UNIV,T) s`;
 val ag32_proj''_def = Define `ag32_proj'' x s = ag32_proj s DIFF ag32_proj' x s`;
 
-val AG32_MODEL_def = Define`
+Definition AG32_MODEL_def:
    AG32_MODEL = (ag32_proj, (\x y. y = Next x), ag32_instr, (=), K F)
-                :(ag32_state, ag32_el, word32 # word32) processor`
+                :(ag32_state, ag32_el, word32 # word32) processor
+End
 
 val aP_def = Define `aP x = SEP_EQ {aPc x}`;
 val aM_def = Define `aM a x = SEP_EQ {aMem a x}`;
@@ -282,8 +285,9 @@ val IMP_AG32_SPEC = save_thm("IMP_AG32_SPEC",
    SPECL [``CODE_POOL ag32_instr c * p'``,
           ``CODE_POOL ag32_instr c * q'``]) IMP_AG32_SPEC_LEMMA);
 
-val mem_unchanged_def = Define `
-  mem_unchanged md m1 m2 = (!a. ~(a IN md) ==> m1 a = m2 a)`;
+Definition mem_unchanged_def:
+  mem_unchanged md m1 m2 = (!a. ~(a IN md) ==> m1 a = m2 a)
+End
 
 Theorem mem_unchanged_same[simp]:
    mem_unchanged md m m
@@ -361,9 +365,10 @@ QED
 
 (* SPEC implies FUNPOW Next *)
 
-val code_set_def = Define `
+Definition code_set_def:
   code_set a [] = {} /\
-  code_set a (i::is) = (a:word32,i) INSERT code_set (a+4w) is`;
+  code_set a (i::is) = (a:word32,i) INSERT code_set (a+4w) is
+End
 
 Theorem IN_code_set:
    !a xs p x.

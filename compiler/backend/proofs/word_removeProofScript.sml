@@ -7,7 +7,7 @@ val _ = new_theory "word_removeProof";
 
 val _ = set_grammar_ancestry["word_remove","wordSem","wordProps"];
 
-val compile_state_def = Define`
+Definition compile_state_def:
   compile_state clk c s =
     s with <|
       clock := s.clock+clk;
@@ -15,7 +15,8 @@ val compile_state_def = Define`
       code := map (I ## remove_must_terminate) s.code;
       compile_oracle := (I ## (MAP (I ## I ## remove_must_terminate))) o s.compile_oracle;
       compile := c
-    |>`;
+    |>
+End
 
 Theorem compile_state_const[simp]:
    (compile_state clk c s).locals = s.locals ∧

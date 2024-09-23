@@ -185,8 +185,9 @@ Proof
   \\ Cases_on `free (h::t)` \\ fs [SING_HD]
 \\ IMP_RES_TAC free_SING \\ fs []
 QED
-val closed_def = Define `
-  closed x = isEmpty (db_to_set (SND (free [x])))`
+Definition closed_def:
+  closed x = isEmpty (db_to_set (SND (free [x])))
+End
 
 Theorem closed_eq:
   closed x = isEmpty (db_to_set (SND (free_sing x)))
@@ -198,25 +199,29 @@ val EL_MEM_LEMMA = Q.prove(
   `!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs`,
   Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []);
 
-val insert_each_def = Define `
+Definition insert_each_def:
   (insert_each p 0 g = g) /\
-  (insert_each p (SUC n) (g1,g2) = insert_each (p+2) n (insert p () g1,g2))`
+  (insert_each p (SUC n) (g1,g2) = insert_each (p+2) n (insert p () g1,g2))
+End
 
-val code_list_def = Define `
+Definition code_list_def:
   (code_list loc [] g = g) /\
   (code_list loc ((n,p)::xs) (g1,g2) =
-     code_list (loc+2n) xs (g1,(loc+1,n,p)::g2))`
+     code_list (loc+2n) xs (g1,(loc+1,n,p)::g2))
+End
 
-val GENLIST_Var_def = Define `
+Definition GENLIST_Var_def:
   GENLIST_Var t (i:num) n =
     if n = 0 then [] else
-      GENLIST_Var t (i+1) (n-1:num) ++ [Var t (n-1)]`;
+      GENLIST_Var t (i+1) (n-1:num) ++ [Var t (n-1)]
+End
 
-val calls_list_def = Define `
+Definition calls_list_def:
   (calls_list t (i:num) loc [] = []) /\
   (calls_list t i loc ((n,_)::xs) =
      (n,Call t 0 (loc+1) (GENLIST_Var t 1 n))::
-          calls_list t (i+1) (loc+2n) xs)`;
+          calls_list t (i+1) (loc+2n) xs)
+End
 
 val exp3_size_MAP_SND = Q.prove(
   `!fns. exp3_size (MAP SND fns) <= exp1_size fns`,
@@ -396,14 +401,16 @@ Proof
   Cases_on `es` >> gvs[calls_def, calls_sing_def]
 QED
 
-val compile_def = Define `
+Definition compile_def:
   compile F x = (x,(LN,[])) /\
-  compile T x = let (xs,g) = calls x (LN,[]) in (xs,g)`
+  compile T x = let (xs,g) = calls x (LN,[]) in (xs,g)
+End
 
-val compile_inc_def = Define `
+Definition compile_inc_def:
   compile_inc d (e,xs) =
     let (ea, d1, new_code) = calls e (d,[]) in
-      (d1, ea, new_code)`;
+      (d1, ea, new_code)
+End
 
 Theorem compile_eq:
   compile F x = (x,(LN,[])) ∧
@@ -420,8 +427,9 @@ Proof
   simp[compile_inc_def, calls_sing_eq]
 QED
 
-val cond_call_compile_inc_def = Define`
-  cond_call_compile_inc do_it = if do_it then compile_inc else CURRY I`;
+Definition cond_call_compile_inc_def:
+  cond_call_compile_inc do_it = if do_it then compile_inc else CURRY I
+End
 
 Theorem calls_length:
    ∀xs g0 ys g. calls xs g0 = (ys,g) ⇒ LENGTH ys = LENGTH xs

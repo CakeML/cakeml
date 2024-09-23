@@ -78,9 +78,10 @@ QED
 
 
 (* bind locals with an arbitrary trace *)
-val bind_locals_def = Define `
+Definition bind_locals_def:
   bind_locals ts locals comp_map =
-    nsBindList (MAP2 (\t x. (x, Local t x)) ts locals) comp_map`;
+    nsBindList (MAP2 (\t x. (x, Local t x)) ts locals) comp_map
+End
 
 val nsAppend_bind_locals = Q.prove(`
   ∀funs.
@@ -122,22 +123,25 @@ Proof
   \\ fs [DOMSUB_FAPPLY_THM]
 QED
 
-val has_bools_def = Define `
+Definition has_bools_def:
   has_bools genv ⇔
     FLOOKUP genv ((true_tag, SOME bool_id), 0n) = SOME (TypeStamp "True" bool_type_num) ∧
-    FLOOKUP genv ((false_tag, SOME bool_id), 0n) = SOME (TypeStamp "False" bool_type_num)`;
+    FLOOKUP genv ((false_tag, SOME bool_id), 0n) = SOME (TypeStamp "False" bool_type_num)
+End
 
-val has_lists_def = Define `
+Definition has_lists_def:
   has_lists genv ⇔
     FLOOKUP genv ((cons_tag, SOME list_id), 2n) = SOME (TypeStamp "::" list_type_num) ∧
-    FLOOKUP genv ((nil_tag, SOME list_id), 0n) = SOME (TypeStamp "[]" list_type_num)`;
+    FLOOKUP genv ((nil_tag, SOME list_id), 0n) = SOME (TypeStamp "[]" list_type_num)
+End
 
-val has_exns_def = Define `
+Definition has_exns_def:
   has_exns genv ⇔
     FLOOKUP genv ((div_tag, NONE), 0n) = SOME div_stamp ∧
     FLOOKUP genv ((chr_tag, NONE), 0n) = SOME chr_stamp ∧
     FLOOKUP genv ((subscript_tag, NONE), 0n) = SOME subscript_stamp ∧
-    FLOOKUP genv ((bind_tag, NONE), 0n) = SOME bind_stamp`;
+    FLOOKUP genv ((bind_tag, NONE), 0n) = SOME bind_stamp
+End
 
 Definition genv_c_ok_def:
   genv_c_ok genv_c ⇔
@@ -451,10 +455,11 @@ val env_rel_el = Q.prove (
       FIRST_X_ASSUM (qspecl_then [`SUC n`] mp_tac) >>
       srw_tac[][]));
 
-val subglobals_def = Define `
+Definition subglobals_def:
   subglobals g1 g2 ⇔
     LENGTH g1 ≤ LENGTH g2 ∧
-    !n. n < LENGTH g1 ∧ IS_SOME (EL n g1) ⇒ EL n g1 = EL n g2`;
+    !n. n < LENGTH g1 ∧ IS_SOME (EL n g1) ⇒ EL n g1 = EL n g2
+End
 
 val subglobals_refl = Q.prove (
   `!g. subglobals g g`,
@@ -1778,12 +1783,13 @@ Proof
   fs[Once v_rel_cases]
 QED
 
-val env_domain_eq_def = Define `
+Definition env_domain_eq_def:
   env_domain_eq (var_map : source_to_flat$environment) (env : 'a sem_env)⇔
     nsDom var_map.v = nsDom env.v ∧
     nsDomMod var_map.v = nsDomMod env.v ∧
     nsDom var_map.c = nsDom env.c ∧
-    nsDomMod var_map.c = nsDomMod env.c`;
+    nsDomMod var_map.c = nsDomMod env.c
+End
 
 val env_domain_eq_append = Q.prove (
   `env_domain_eq env1 env1' ∧

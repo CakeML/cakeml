@@ -55,12 +55,13 @@ val check_unsat_3 = (append_prog o process_topdecs) `
     | None =>
       TextIO.output TextIO.stdErr usage_string`
 
-val check_unsat_3_sem_def = Define`
+Definition check_unsat_3_sem_def:
   check_unsat_3_sem fs enc r k c err =
     case parse_numbers r k c of
       SOME (r,k,c) =>
       add_stdout fs (concat (print_dimacs (enc r k c)))
-    | NONE => add_stderr fs err`
+    | NONE => add_stderr fs err
+End
 
 Theorem check_unsat_3_spec:
   STRING_TYPE r rv ∧
@@ -132,11 +133,12 @@ val main = (append_prog o process_topdecs) `
     [r,k,c] => check_unsat_3 full_encode r k c
   | _ => TextIO.output TextIO.stdErr usage_string`
 
-val main_sem_def = Define`
+Definition main_sem_def:
   main_sem cl fs err =
   case TL cl of
     [r;k;c] => check_unsat_3_sem fs full_encode r k c err
-  | _ => add_stderr fs err`
+  | _ => add_stderr fs err
+End
 
 Theorem main_spec:
   hasFreeFD fs

@@ -17,14 +17,15 @@ val _ = translation_extends "ListProg";
 val _ = Datatype`
   heap = Empty | Tree 'a (heap list)`;
 
-val heap_to_bag_def = Define `
+Definition heap_to_bag_def:
 (heap_to_bag Empty = {||}) ∧
 (heap_to_bag (Tree x hs) =
   BAG_INSERT x (heaps_to_bag hs)) ∧
 
 (heaps_to_bag [] = {||}) ∧
 (heaps_to_bag (h::hs) =
-  BAG_UNION (heap_to_bag h) (heaps_to_bag hs))`;
+  BAG_UNION (heap_to_bag h) (heaps_to_bag hs))
+End
 
 val is_heap_ordered_def = tDefine "is_heap_ordered" `
 (is_heap_ordered get_key leq Empty <=> T) ∧

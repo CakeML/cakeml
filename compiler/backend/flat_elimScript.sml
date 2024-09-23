@@ -108,15 +108,15 @@ Termination
                                 | INR (INR (INR funs)) => exp1_size funs)`
 End
 
-val dest_GlobalVarInit_def = Define `
+Definition dest_GlobalVarInit_def:
     dest_GlobalVarInit (GlobalVarInit n) = SOME n ∧
     dest_GlobalVarInit _ = NONE
-`
+End
 
-val dest_GlobalVarLookup_def = Define `
+Definition dest_GlobalVarLookup_def:
     dest_GlobalVarLookup (GlobalVarLookup n) = SOME n ∧
     dest_GlobalVarLookup _ = NONE
-`
+End
 
 Theorem exp_size_map_snd:
      ∀ p_es . exp6_size (MAP SND p_es) ≤ exp3_size p_es

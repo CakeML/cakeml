@@ -113,27 +113,32 @@ End
 val comm_strlit_def = Define `comm_strlit = strlit ","`;
 val newl_strlit_def = Define `newl_strlit = strlit "\n"`;
 
-val comma_cat_def = Define `
+Definition comma_cat_def:
   comma_cat f x =
     case x of
     | [] => [newl_strlit]
     | [x] => [f x; newl_strlit]
-    | (x::xs) => f x :: comm_strlit :: comma_cat f xs`;
+    | (x::xs) => f x :: comm_strlit :: comma_cat f xs
+End
 
-val words_line_def = Define`
+Definition words_line_def:
   words_line word_directive to_string ls =
-    List (word_directive :: comma_cat to_string ls)`;
+    List (word_directive :: comma_cat to_string ls)
+End
 
-val word_to_string_def = Define`
-  word_to_string w = toString(w2n w)`;
+Definition word_to_string_def:
+  word_to_string w = toString(w2n w)
+End
 
-val byte_to_string_def = Define `
+Definition byte_to_string_def:
   byte_to_string (b:word8) =
     strlit ("0x" ++ [EL (w2n b DIV 16) "0123456789ABCDEF"]
-                 ++ [EL (w2n b MOD 16) "0123456789ABCDEF"])`;
+                 ++ [EL (w2n b MOD 16) "0123456789ABCDEF"])
+End
 
-val all_bytes_def = Define `
-  all_bytes = Vector (GENLIST (\n. byte_to_string (n2w n)) 256)`;
+Definition all_bytes_def:
+  all_bytes = Vector (GENLIST (\n. byte_to_string (n2w n)) 256)
+End
 
 val all_bytes_eq = save_thm("all_bytes_eq",EVAL ``all_bytes``);
 
@@ -149,31 +154,36 @@ QED
 (* gas allows 0-9a-zA-Z_$. in labels as long as the first is _A-Za-z *)
 (* we prefix labels and reserve $; . is special *)
 
-val escape_sym_char_def = Define`
+Definition escape_sym_char_def:
   escape_sym_char ch = let code = ORD ch in
     if code >= 0x61 /\ code <= 0x7A \/ code >= 0x41 /\ code <= 0x5A \/
        code >= 0x30 /\ code <= 0x39 \/ code = 0x5F then str ch else
-    «$» ^ toString(code) ^ «_»`
+    «$» ^ toString(code) ^ «_»
+End
 
-val get_sym_label_def = Define `
+Definition get_sym_label_def:
   get_sym_label (ix,appl) (name,start,len) =
     let label =
       «cml_» ^ concat (MAP escape_sym_char (explode name)) ^
       «_» ^ toString(ix) in
-    (ix + 1, appl ++ [(name,label,start,len)])`;
+    (ix + 1, appl ++ [(name,label,start,len)])
+End
 
-val get_sym_labels_def = Define `
+Definition get_sym_labels_def:
   get_sym_labels syms =
-    SND $ FOLDL get_sym_label (0, []) syms`;
+    SND $ FOLDL get_sym_label (0, []) syms
+End
 
-val emit_symbol_def = Define `
+Definition emit_symbol_def:
   emit_symbol appl (name,label,start,len) =
     misc$Append appl (misc$List
       [«    makesym(» ^ label ^ «, » ^ toString(start) ^ «, » ^
-      toString(len) ^ «)\n»])`;
+      toString(len) ^ «)\n»])
+End
 
-val emit_symbols_def = Define `
+Definition emit_symbols_def:
   emit_symbols lsyms =
-    FOLDL emit_symbol misc$Nil lsyms`;
+    FOLDL emit_symbol misc$Nil lsyms
+End
 
 val _ = export_theory ();

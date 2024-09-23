@@ -16,16 +16,19 @@ val _ = preamble.option_monadsyntax.temp_add_option_monadsyntax();
 
 (* heap predicate for the file-system state *)
 
-val IOFS_iobuff_def = Define`
+Definition IOFS_iobuff_def:
   IOFS_iobuff =
-    SEP_EXISTS v. W8ARRAY iobuff_loc v * cond (LENGTH v >= 2052) `;
+    SEP_EXISTS v. W8ARRAY iobuff_loc v * cond (LENGTH v >= 2052)
+End
 
-val IOFS_def = Define `
-  IOFS fs = IOx (fs_ffi_part) fs * IOFS_iobuff * &wfFS fs`
+Definition IOFS_def:
+  IOFS fs = IOx (fs_ffi_part) fs * IOFS_iobuff * &wfFS fs
+End
 
 (*Used for read_into where the target buffer is specified*)
-val IOFS_WO_iobuff_def = Define `
-  IOFS_WO_iobuff fs = IOx (fs_ffi_part) fs * &wfFS fs`;
+Definition IOFS_WO_iobuff_def:
+  IOFS_WO_iobuff fs = IOx (fs_ffi_part) fs * &wfFS fs
+End
 
 Theorem UNIQUE_IOFS:
 !s. VALID_HEAP s ==> !fs1 fs2 H1 H2. (IOFS fs1 * H1) s /\
@@ -64,9 +67,10 @@ QED;
 (* abstracts away the lazy list and ensure that standard streams are opened on
  * their respective standard fds at the right position *)
 
-val STDIO_def = Define`
+Definition STDIO_def:
  STDIO fs = (SEP_EXISTS ll. IOFS (fs with numchars := ll)) *
-   &STD_streams fs`
+   &STD_streams fs
+End
 
 (* Used by the monadic translator *)
 val MONAD_IO_def = Define `MONAD_IO fs = STDIO fs * &hasFreeFD fs`;
@@ -126,12 +130,12 @@ Proof
 QED;
 
 (* refinement invariant for filenames *)
-val FILENAME_def = Define `
+Definition FILENAME_def:
   FILENAME s sv =
     (STRING_TYPE s sv ∧
      ¬MEM (CHR 0) (explode s) ∧
      strlen s < 256 * 256)
-`;
+End
 
 val filename_tac = metis_tac[FILENAME_def,EqualityType_NUM_BOOL,EqualityType_def];
 
@@ -202,10 +206,11 @@ QED;
 (* convenient functions for standard output/error
  * n.b. numchars is ignored *)
 
-val stdo_def = Define`
+Definition stdo_def:
   stdo fd name fs out =
     (ALOOKUP fs.infds fd = SOME(UStream(strlit name),WriteMode,strlen out) /\
-     ALOOKUP fs.inode_tbl (UStream(strlit name)) = SOME (explode out))`;
+     ALOOKUP fs.inode_tbl (UStream(strlit name)) = SOME (explode out))
+End
 
 Overload stdout = ``stdo 1 "stdout"``;
 Overload stderr = ``stdo 2 "stderr"``;
@@ -260,8 +265,9 @@ Proof
   rw[up_stdo_def,fsupdate_numchars]
 QED
 
-val add_stdo_def = Define`
-  add_stdo fd nm fs out = up_stdo fd fs ((@init. stdo fd nm fs init) ^ out)`;
+Definition add_stdo_def:
+  add_stdo fd nm fs out = up_stdo fd fs ((@init. stdo fd nm fs init) ^ out)
+End
 Overload add_stdout = ``add_stdo 1 "stdout"``;
 Overload add_stderr = ``add_stdo 2 "stderr"``;
 
@@ -714,8 +720,9 @@ val stdin_def = Define
 val up_stdin_def = Define
 `up_stdin inp pos fs = fsupdate fs 0 0 pos inp`
 
-val get_stdin_def = Define`
-  get_stdin fs = let (inp,pos) = @(inp,pos). stdin fs inp pos in DROP pos inp`;
+Definition get_stdin_def:
+  get_stdin fs = let (inp,pos) = @(inp,pos). stdin fs inp pos in DROP pos inp
+End
 
 Theorem stdin_11:
    stdin fs i1 p1 ∧ stdin fs i2 p2 ⇒ i1 = i2 ∧ p1 = p2
@@ -775,18 +782,21 @@ Proof
 QED
 
 (* file descriptors are encoded on 8 bytes *)
-val FD_def = Define `
-  FD fd fdv = (STRING_TYPE (strlit(MAP (CHR ∘ w2n) (n2w8 fd))) fdv ∧ fd < 256**8)`;
+Definition FD_def:
+  FD fd fdv = (STRING_TYPE (strlit(MAP (CHR ∘ w2n) (n2w8 fd))) fdv ∧ fd < 256**8)
+End
 
-val INSTREAM_def = Define `
+Definition INSTREAM_def:
   INSTREAM fd fdv <=>
     INSTREAM_TYPE (Instream (strlit(MAP (CHR ∘ w2n) (n2w8 fd)))) fdv ∧
-    fd < 256**8`
+    fd < 256**8
+End
 
-val OUTSTREAM_def = Define `
+Definition OUTSTREAM_def:
   OUTSTREAM fd fdv <=>
     OUTSTREAM_TYPE (Outstream (strlit(MAP (CHR ∘ w2n) (n2w8 fd)))) fdv ∧
-    fd < 256**8`
+    fd < 256**8
+End
 
 Theorem INSTREAM_stdin:
    INSTREAM 0 stdin_v
@@ -806,11 +816,12 @@ Proof
   fs[OUTSTREAM_def,MarshallingTheory.n2w8_def,stderr_v_thm,GSYM stdErr_def]
 QED
 
-val REF_NUM_def = Define `
+Definition REF_NUM_def:
   REF_NUM loc n =
-    SEP_EXISTS v. REF loc v * & (NUM n v)`;
+    SEP_EXISTS v. REF loc v * & (NUM n v)
+End
 
-val instream_buffered_inv_def = Define `
+Definition instream_buffered_inv_def:
   instream_buffered_inv r w bcontent bactive =
       (1028 <= LENGTH bcontent  /\
        LENGTH bcontent < 256**2 /\
@@ -821,7 +832,8 @@ val instream_buffered_inv_def = Define `
       r <= w /\
       LENGTH bactive = w - r /\
       LENGTH bactive < LENGTH bcontent /\
-      bactive = TAKE (w-r) (DROP r bcontent))`;
+      bactive = TAKE (w-r) (DROP r bcontent))
+End
       (*(bactive = [] <=> r = w))*)
 
 Theorem instream_buffered_inv_alt:
@@ -851,7 +863,7 @@ QED
 
 Overload TypeStamp_InstreamBuffered = “TypeStamp "InstreamBuffered" 35”;
 
-val INSTREAM_BUFFERED_def = Define `
+Definition INSTREAM_BUFFERED_def:
   INSTREAM_BUFFERED bactive is =
     SEP_EXISTS rr r wr w buff bcontent fd fdv.
       & (is = (Conv instreambuffered_con_stamp [fdv; rr; wr; buff]) /\
@@ -859,9 +871,10 @@ val INSTREAM_BUFFERED_def = Define `
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
       REF_NUM wr w *
-      W8ARRAY buff bcontent`;
+      W8ARRAY buff bcontent
+End
 
-val INSTREAM_BUFFERED_FD_def = Define `
+Definition INSTREAM_BUFFERED_FD_def:
   INSTREAM_BUFFERED_FD bactive fd is =
     SEP_EXISTS rr r wr w buff bcontent fdv.
       & (is = (Conv instreambuffered_con_stamp [fdv; rr; wr; buff]) /\
@@ -869,9 +882,10 @@ val INSTREAM_BUFFERED_FD_def = Define `
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
       REF_NUM wr w *
-      W8ARRAY buff bcontent`;
+      W8ARRAY buff bcontent
+End
 
-val INSTREAM_BUFFERED_BL_FD_def = Define `
+Definition INSTREAM_BUFFERED_BL_FD_def:
   INSTREAM_BUFFERED_BL_FD bcontent bactive fd is =
     SEP_EXISTS rr r wr w buff fdv.
       & (is = (Conv instreambuffered_con_stamp [fdv; rr; wr; buff]) /\
@@ -879,9 +893,10 @@ val INSTREAM_BUFFERED_BL_FD_def = Define `
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
       REF_NUM wr w *
-      W8ARRAY buff bcontent`;
+      W8ARRAY buff bcontent
+End
 
-val INSTREAM_BUFFERED_BL_FD_RW_def = Define `
+Definition INSTREAM_BUFFERED_BL_FD_RW_def:
   INSTREAM_BUFFERED_BL_FD_RW bcontent bactive fd r w is =
     SEP_EXISTS rr wr buff fdv.
       & (is = (Conv instreambuffered_con_stamp [fdv; rr; wr; buff]) /\
@@ -889,7 +904,8 @@ val INSTREAM_BUFFERED_BL_FD_RW_def = Define `
         instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
       REF_NUM wr w *
-      W8ARRAY buff bcontent`;
+      W8ARRAY buff bcontent
+End
 (* -- *)
 
 Theorem openIn_spec:
@@ -1575,8 +1591,9 @@ Proof
   \\ tac
 QED
 
-val print_def = Define `
-  print s = (\fs. (M_success (), add_stdout fs s))`
+Definition print_def:
+  print s = (\fs. (M_success (), add_stdout fs s))
+End
 
 Theorem EvalM_print:
    Eval env exp (STRING_TYPE x) /\
@@ -1619,8 +1636,9 @@ Proof
   \\ xapp_spec output_stderr_spec \\ fs []
 QED
 
-val print_err_def = Define `
-  print_err s = (\fs. (M_success (), add_stderr fs s))`;
+Definition print_err_def:
+  print_err s = (\fs. (M_success (), add_stderr fs s))
+End
 
 Theorem EvalM_print_err:
    Eval env exp (STRING_TYPE x) /\
@@ -2381,8 +2399,9 @@ Proof
   \\ metis_tac[]
 QED
 
-val take_fromI_def = Define `
-  take_fromI n l i = TAKE n (DROP i l)`;
+Definition take_fromI_def:
+  take_fromI n l i = TAKE n (DROP i l)
+End
 
 Theorem LENGTH_take_fromI:
   (n <= LENGTH l - i ==> LENGTH (take_fromI n l i) = n) /\
@@ -2391,9 +2410,10 @@ Proof
   fs[take_fromI_def, TAKE_LENGTH_TOO_LONG]
 QED
 
-val explode_fromI_def = Define `
+Definition explode_fromI_def:
   explode_fromI n (content:string) pos =
-      take_fromI n (MAP (n2w o ORD) content) pos :word8 list`;
+      take_fromI n (MAP (n2w o ORD) content) pos :word8 list
+End
 
 Theorem LENGTH_explode_fromI:
   (n <= LENGTH l - i ==> LENGTH (explode_fromI n l i) = n) /\
@@ -2983,12 +3003,14 @@ Proof
     >-(xsimpl \\ rpt strip_tac \\ qexists_tac`ll` \\ xsimpl))
 QED
 
-val takeUntilIncl_def = Define `
+Definition takeUntilIncl_def:
   ((takeUntilIncl p [] = []) /\
-  takeUntilIncl p (x::xs) = if p x then [x] else (x::takeUntilIncl p xs))`;
+  takeUntilIncl p (x::xs) = if p x then [x] else (x::takeUntilIncl p xs))
+End
 
-val dropUntilIncl_def = Define `
-  dropUntilIncl p l = DROP 1 (dropUntil p l) `;
+Definition dropUntilIncl_def:
+  dropUntilIncl p l = DROP 1 (dropUntil p l)
+End
 
 Theorem dropUntil_drop_drop:
   !P  l x.
@@ -3903,7 +3925,7 @@ Proof
   >- fs[dropUntilIncl_def, mllistTheory.dropUntil_def]
 QED
 
-val b_lineForwardFD_def = Define `
+Definition b_lineForwardFD_def:
     b_lineForwardFD buff fs fd extra =
          case get_file_content fs fd of
            NONE => fs
@@ -3914,19 +3936,23 @@ val b_lineForwardFD_def = Define `
                 (l,r) = SPLITP ($= #"\n") (DROP pos' content)
               in
                 forwardFD fs fd (LENGTH extra + STRLEN l + if NULL r then 0 else 1))
-           else fs`;
+           else fs
+End
 
-val takeLine_def = Define `
-  takeLine s = takeUntilIncl ($= #"\n") s`;
+Definition takeLine_def:
+  takeLine s = takeUntilIncl ($= #"\n") s
+End
 
-val dropLine_def = Define `
-  dropLine s = dropUntilIncl ($= #"\n") s`;
+Definition dropLine_def:
+  dropLine s = dropUntilIncl ($= #"\n") s
+End
 
-val inputLine_def = Define `
+Definition inputLine_def:
   inputLine s =
     implode (if EXISTS ($= #"\n") s
              then takeLine s
-             else STRCAT s "\n")`;
+             else STRCAT s "\n")
+End
 
 Definition gen_inputLine_def:
   gen_inputLine c s =
@@ -5845,11 +5871,12 @@ Proof
           IO_fs_component_equality,openFileFS_inode_tbl]
 QED
 
-val inputLinesFrom_def = Define `
+Definition inputLinesFrom_def:
   inputLinesFrom f =
     (\fs. (M_success (if inFS_fname fs f then
                         SOME(all_lines fs f)
-                      else NONE), fs))`;
+                      else NONE), fs))
+End
 
 Theorem EvalM_inputLinesFrom:
    Eval env exp (FILENAME f) /\
@@ -6665,9 +6692,10 @@ QED
 Overload all_lines_inode_gen =
   ``λc0 fs ino. lines_of_gen c0 (implode (THE (ALOOKUP fs.inode_tbl ino)))``
 
-val all_lines_gen_def = Define `
+Definition all_lines_gen_def:
   all_lines_gen c0 fs fname =
-    all_lines_inode_gen c0 fs (File (THE(ALOOKUP fs.files fname)))`
+    all_lines_inode_gen c0 fs (File (THE(ALOOKUP fs.files fname)))
+End
 
 (* end TODO: copied from fsFFIProps *)
 

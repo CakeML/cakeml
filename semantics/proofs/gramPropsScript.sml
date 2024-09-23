@@ -40,7 +40,7 @@ val _ = augment_srw_ss [rewrites [APPEND_EQ_SING']]
 val _ = new_theory "gramProps"
 val _ = set_grammar_ancestry ["gram", "NTproperties"]
 
-val NT_rank_def = Define`
+Definition NT_rank_def:
   NT_rank N =
     case N of
       | INR _ => 0n
@@ -107,7 +107,7 @@ val NT_rank_def = Define`
         else if n = nTyVarList         then  2
         else if n = nTyvarN            then  1
         else                                 0
-`
+End
 
 val rules_t = ``cmlG.rules``
 fun ty2frag ty = let
@@ -280,9 +280,9 @@ val rank_assum =
        assert (Lib.can
                  (find_term (same_const ``NT_rank``) o concl)))
 
-val fringe_lengths_def = Define`
+Definition fringe_lengths_def:
   fringe_lengths G sf = { LENGTH i | derives G sf (MAP TOK i) }
-`
+End
 
 val RTC_R_I = relationTheory.RTC_RULES |> SPEC_ALL |> CONJUNCT2 |> GEN_ALL
 Theorem fringe_length_ptree:

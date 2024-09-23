@@ -19,16 +19,18 @@ fun get_exn_conv name =
 
 val fail = get_exn_conv ``"Fail"``
 
-val Fail_exn_def = Define `
-  Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)`
+Definition Fail_exn_def:
+  Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)
+End
 
 val _ = register_type ``:constr``
 val _ = register_type ``:lstep ``
 val _ = register_type ``:sstep ``
 
-val format_failure_def = Define`
+Definition format_failure_def:
   format_failure (lno:num) s =
-  strlit "c Checking failed for top-level proof step starting at line: " ^ toString lno ^ strlit " (error may be in subproofs). Reason: " ^ s ^ strlit"\n"`
+  strlit "c Checking failed for top-level proof step starting at line: " ^ toString lno ^ strlit " (error may be in subproofs). Reason: " ^ s ^ strlit"\n"
+End
 
 val r = translate format_failure_def;
 
@@ -2534,10 +2536,11 @@ val res = translate print_subproofs_def; *)
 val res = translate print_expected_subproofs_def;
 val res = translate print_subproofs_err_def;
 
-val format_failure_2_def = Define`
+Definition format_failure_2_def:
   format_failure_2 (lno:num) s s2 =
   strlit "c Checking failed for top-level proof step starting at line: " ^ toString lno ^ strlit " Reason: " ^ s
-  ^ strlit " Info: " ^ s2 ^ strlit"\n"`
+  ^ strlit " Info: " ^ s2 ^ strlit"\n"
+End
 
 val r = translate format_failure_2_def;
 

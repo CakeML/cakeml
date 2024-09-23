@@ -47,20 +47,23 @@ val REF_REL_def = Define `REF_REL TYPE r x = SEP_EXISTS v. REF r v * &TYPE x v`;
 val H = mk_var("H",``:('a -> hprop) # 'ffi ffi_proj``);
 
 (* REFS_PRED *)
-val REFS_PRED_def = Define `
-  REFS_PRED (h,p:'ffi ffi_proj) refs s = (h refs * GC) (st2heap p s)`;
+Definition REFS_PRED_def:
+  REFS_PRED (h,p:'ffi ffi_proj) refs s = (h refs * GC) (st2heap p s)
+End
 
-val VALID_REFS_PRED_def = Define `
-  VALID_REFS_PRED ^H = ?(s : 'ffi state) refs. REFS_PRED H refs s`;
+Definition VALID_REFS_PRED_def:
+  VALID_REFS_PRED ^H = ?(s : 'ffi state) refs. REFS_PRED H refs s
+End
 
 (* Frame rule for EvalM *)
 
-val REFS_PRED_FRAME_def = Define `
+Definition REFS_PRED_FRAME_def:
   REFS_PRED_FRAME ro (h,p:'ffi ffi_proj) (refs1, s1) (refs2, s2) <=>
     (ro ==> ?refs. s2 = s1 with refs := refs) /\
     s2.next_type_stamp = s1.next_type_stamp /\
     s2.next_exn_stamp = s1.next_exn_stamp /\
-    !F. (h refs1 * F) (st2heap p s1) ==> (h refs2 * F * GC) (st2heap p s2)`;
+    !F. (h refs1 * F) (st2heap p s1) ==> (h refs2 * F * GC) (st2heap p s2)
+End
 
 Theorem EMP_STAR_GC:
    !H. emp * H = H
@@ -659,15 +662,18 @@ QED
 *)
 
 (* Fixed-size arrays *)
-val ARRAY_REL = Define `
-  ARRAY_REL TYPE rv l = SEP_EXISTS av. ARRAY rv av * &LIST_REL TYPE l av`;
+Definition ARRAY_REL:
+  ARRAY_REL TYPE rv l = SEP_EXISTS av. ARRAY rv av * &LIST_REL TYPE l av
+End
 
 (* Resizable arrays *)
-val RARRAY_def = Define `
-  RARRAY rv av = SEP_EXISTS arv. REF rv arv * ARRAY arv av`;
+Definition RARRAY_def:
+  RARRAY rv av = SEP_EXISTS arv. REF rv arv * ARRAY arv av
+End
 
-val RARRAY_REL_def = Define `
-  RARRAY_REL TYPE rv l = SEP_EXISTS av. RARRAY rv av * &LIST_REL TYPE l av`;
+Definition RARRAY_REL_def:
+  RARRAY_REL TYPE rv l = SEP_EXISTS av. RARRAY rv av * &LIST_REL TYPE l av
+End
 
 Theorem RARRAY_HPROP_SAT_EQ:
    RARRAY (Loc l) av s <=>

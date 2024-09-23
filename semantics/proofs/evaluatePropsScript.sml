@@ -18,8 +18,9 @@ Proof
   fs[ffiTheory.call_FFI_def] \\ every_case_tac \\ rw[] \\ fs[LENGTH_MAP]
 QED
 
-val call_FFI_rel_def = Define `
-  call_FFI_rel s1 s2 <=> ?n conf bytes t. call_FFI s1 n conf bytes = FFI_return s2 t`;
+Definition call_FFI_rel_def:
+  call_FFI_rel s1 s2 <=> ?n conf bytes t. call_FFI s1 n conf bytes = FFI_return s2 t
+End
 
 Theorem call_FFI_rel_consts:
    call_FFI_rel s1 s2 ⇒ (s2.oracle = s1.oracle)
@@ -38,14 +39,16 @@ Proof
   \\ rw[call_FFI_rel_consts]
 QED
 
-val dest_IO_event_def = Define`
-  dest_IO_event (IO_event s c b) = (s,c,b)`;
+Definition dest_IO_event_def:
+  dest_IO_event (IO_event s c b) = (s,c,b)
+End
 val _ = export_rewrites["dest_IO_event_def"];
 
-val io_events_mono_def = Define`
+Definition io_events_mono_def:
   io_events_mono s1 s2 ⇔
     s1.io_events ≼ s2.io_events ∧
-    (s2.io_events = s1.io_events ⇒ s2 = s1)`;
+    (s2.io_events = s1.io_events ⇒ s2 = s1)
+End
 
 Theorem io_events_mono_refl[simp]:
    io_events_mono ffi ffi

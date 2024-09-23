@@ -8,14 +8,15 @@ open blastLib;
 
 val _ = new_theory"x64_configProof";
 
-val is_x64_machine_config_def = Define`
+Definition is_x64_machine_config_def:
   is_x64_machine_config mc ⇔
     mc.target = x64_target ∧
     mc.len_reg = 6 ∧
     mc.ptr_reg = 7 ∧
     mc.len2_reg = 1 ∧
     mc.ptr2_reg = 2 ∧
-    mc.callee_saved_regs = [12;13;14]`;
+    mc.callee_saved_regs = [12;13;14]
+End
 
 val names_tac =
   simp[tlookup_bij_iff] \\ EVAL_TAC

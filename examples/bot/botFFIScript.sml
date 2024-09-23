@@ -57,26 +57,31 @@ val _ = Datatype`
             wo : mach_oracle |>`
 
 (* flatten 4 tuples *)
-val FLAT_TUP_def = Define`
+Definition FLAT_TUP_def:
   (FLAT_TUP [] = []) ∧
-  (FLAT_TUP ((b0,b1,b2,b3)::bs) = [b0;b1;b2;b3]++FLAT_TUP bs)`
+  (FLAT_TUP ((b0,b1,b2,b3)::bs) = [b0;b1;b2;b3]++FLAT_TUP bs)
+End
 
 (* Consume a list 4 elements at a time *)
-val MAP4_def = Define`
+Definition MAP4_def:
   (MAP4 f (a::b::c::d::ls) = f a b c d :: MAP4 f ls) ∧
-  (MAP4 f ls = [])`
+  (MAP4 f ls = [])
+End
 
-val w32_to_w8_def = Define`
-  w32_to_w8 ls = FLAT_TUP (MAP w32_to_le_bytes ls)`
+Definition w32_to_w8_def:
+  w32_to_w8 ls = FLAT_TUP (MAP w32_to_le_bytes ls)
+End
 
-val w8_to_w32_def = Define`
-  w8_to_w32 ls = MAP4 le_bytes_to_w32 ls`
+Definition w8_to_w32_def:
+  w8_to_w32 ls = MAP4 le_bytes_to_w32 ls
+End
 
-val get_oracle_def = Define`
-  get_oracle f = (f 0n,λn. f (n+1))`
+Definition get_oracle_def:
+  get_oracle f = (f 0n,λn. f (n+1))
+End
 
 (* Specification of the const FFI *)
-val ffi_const_def = Define`
+Definition ffi_const_def:
   ffi_const (conf:word8 list) (bytes:word8 list) (st:mach) =
   if LENGTH bytes = 4 * LENGTH st.wc.const_names ∧
      (* This second check is added for parts_ok *)
@@ -84,10 +89,11 @@ val ffi_const_def = Define`
   then
     SOME (FFIreturn (w32_to_w8 st.ws.const_vals) st)
   else
-    NONE`
+    NONE
+End
 
 (* Specification of the ctrl FFI *)
-val ffi_ctrl_def = Define`
+Definition ffi_ctrl_def:
   ffi_ctrl (conf:word8 list) (bytes:word8 list) (st:mach) =
   if LENGTH bytes = 4 * LENGTH st.wc.ctrl_names ∧
      (* This second check is added for parts_ok *)
@@ -95,20 +101,22 @@ val ffi_ctrl_def = Define`
   then
     SOME (FFIreturn (w32_to_w8 st.ws.ctrl_vals) st)
   else
-    NONE`
+    NONE
+End
 
 (* Specification of the sense FFI *)
-val ffi_sense_def = Define`
+Definition ffi_sense_def:
   ffi_sense (conf:word8 list) (bytes:word8 list) (st:mach) =
   if LENGTH bytes = 4 * LENGTH st.wc.sensor_names ∧
      LENGTH st.wc.sensor_names = LENGTH st.ws.sensor_vals
   then
     SOME (FFIreturn (w32_to_w8 st.ws.sensor_vals) st)
   else
-    NONE`
+    NONE
+End
 
 (* Specification of the extCtrl FFI *)
-val ffi_extCtrl_def = Define`
+Definition ffi_extCtrl_def:
   ffi_extCtrl (conf:word8 list) (bytes:word8 list) (st:mach) =
   if LENGTH conf = 4 * (LENGTH st.wc.const_names + LENGTH st.wc.sensor_names) ∧
      LENGTH bytes = 4 * LENGTH st.wc.ctrl_names
@@ -123,10 +131,11 @@ val ffi_extCtrl_def = Define`
       SOME (FFIreturn w8s (st with wo := new_wo))
     else
       NONE
-  else NONE`
+  else NONE
+End
 
 (* Specification of the actuate FFI *)
-val ffi_actuate_def = Define`
+Definition ffi_actuate_def:
   ffi_actuate (conf:word8 list) (bytes:word8 list) (st:mach) =
   if LENGTH bytes = 4 * (LENGTH st.wc.ctrl_names)
   then
@@ -144,10 +153,11 @@ val ffi_actuate_def = Define`
         SOME (FFIreturn bytes (st with <|wo := new_wo ; ws := new_ws |>))
     else
        NONE
-  else NONE`
+  else NONE
+End
 
 (* Specification of the stop FFI *)
-val ffi_stop_def = Define`
+Definition ffi_stop_def:
   ffi_stop (conf:word8 list) (bytes:word8 list) (st:mach) =
   if LENGTH bytes = 1
   then
@@ -156,16 +166,18 @@ val ffi_stop_def = Define`
     else
       SOME (FFIreturn [0w:word8]st)
   else
-    NONE`
+    NONE
+End
 
 (* Specification of the violation FFI *)
-val ffi_violation_def = Define`
+Definition ffi_violation_def:
   ffi_violation (conf:word8 list) (bytes:word8 list) (st:mach) =
   if LENGTH bytes = 0
   then
     SOME (FFIreturn bytes st)
   else
-    NONE`
+    NONE
+End
 
 val comp_eq = map theorem ["mach_component_equality",
                            "mach_config_component_equality",
@@ -186,8 +198,9 @@ Proof
     rw[]>>match_mp_tac s2w_w2s>>simp[]
 QED
 
-val encode_word32_list_def = Define`
-  encode_word32_list = encode_list (Str o w2s 2 CHR)`
+Definition encode_word32_list_def:
+  encode_word32_list = encode_list (Str o w2s 2 CHR)
+End
 
 Theorem encode_word32_list_11:
   !x y. encode_word32_list x = encode_word32_list y <=> x = y
@@ -202,7 +215,7 @@ val decode_encode_word32_list = new_specification("decode_encode_word32_list",["
         qexists_tac `\f. some c. encode_word32_list c = f` \\ fs [encode_word32_list_11]));
 val _ = export_rewrites ["decode_encode_word32_list"];
 
-val encode_trm_def = Define`
+Definition encode_trm_def:
   (encode_trm (Const w) = Cons (Num 0) (Str (w2s 2 CHR w))) ∧
   (encode_trm (Var s) = Cons (Num 1) (Str s)) ∧
   (encode_trm (Plus t1 t2) = Cons (Num 2) (Cons (encode_trm t1) (encode_trm t2))) ∧
@@ -211,7 +224,8 @@ val encode_trm_def = Define`
   (encode_trm (Max t1 t2) = Cons (Num 5) (Cons (encode_trm t1) (encode_trm t2))) ∧
   (encode_trm (Min t1 t2) = Cons (Num 6) (Cons (encode_trm t1) (encode_trm t2))) ∧
   (encode_trm (Neg t) = Cons (Num 7) (encode_trm t)) ∧
-  (encode_trm (Abs t) = Cons (Num 8) (encode_trm t))`
+  (encode_trm (Abs t) = Cons (Num 8) (encode_trm t))
+End
 
 Theorem encode_trm_11:
   ∀x y. encode_trm x = encode_trm y <=> x = y
@@ -226,13 +240,14 @@ val decode_encode_trm = new_specification("decode_encode_trm",["decode_trm"],
         qexists_tac `\f. some c. encode_trm c = f` \\ fs [encode_trm_11]));
 val _ = export_rewrites ["decode_encode_trm"];
 
-val encode_fml_def = Define`
+Definition encode_fml_def:
   (encode_fml (Le t1 t2) = Cons (Num 0) (Cons (encode_trm t1) (encode_trm t2))) ∧
   (encode_fml (Leq t1 t2) = Cons (Num 1) (Cons (encode_trm t1) (encode_trm t2))) ∧
   (encode_fml (Equals t1 t2) = Cons (Num 2) (Cons (encode_trm t1) (encode_trm t2))) ∧
   (encode_fml (And f1 f2) = Cons (Num 3) (Cons (encode_fml f1) (encode_fml f2))) ∧
   (encode_fml (Or f1 f2) = Cons (Num 4) (Cons (encode_fml f1) (encode_fml f2))) ∧
-  (encode_fml (Not f) = Cons (Num 5) (encode_fml f))`
+  (encode_fml (Not f) = Cons (Num 5) (encode_fml f))
+End
 
 Theorem encode_fml_11:
   ∀x y. encode_fml x = encode_fml y <=> x = y
@@ -247,13 +262,14 @@ val decode_encode_fml = new_specification("decode_encode_fml",["decode_fml"],
 val _ = export_rewrites ["decode_encode_fml"];
 
 (* Encode the fixed list *)
-val encode_sum_list_def = Define`
+Definition encode_sum_list_def:
   encode_sum_list = encode_list
     (λs. case s of
      INL w =>
        Cons (Num 0) (Str (w2s 2 CHR w))
     | INR x =>
-       Cons (Num 1) (Str x))`
+       Cons (Num 1) (Str x))
+End
 
 Theorem encode_sum_list_11:
   !x y. encode_sum_list x = encode_sum_list y <=> x = y
@@ -264,7 +280,7 @@ Proof
   \\ metis_tac[w2sCHR_11]
 QED
 
-val encode_mach_config_def = Define`
+Definition encode_mach_config_def:
   encode_mach_config wc =
    Cons (List (MAP (Str ) wc.const_names))
    (Cons (List (MAP (Str) wc.sensor_names))
@@ -277,7 +293,8 @@ val encode_mach_config_def = Define`
    (Cons (List (MAP Str wc.ctrlfixed_names))
    (Cons (List (MAP Str wc.ctrlfixed_rhs))
    (List (MAP encode_trm wc.default))
-   )))))))))`
+   )))))))))
+End
 
 Theorem MAP_Str_11:
   MAP (Str) ls =
@@ -302,21 +319,24 @@ val encode_mach_config_11 = Q.prove(`
   rw[EQ_IMP_THM]>>fs comp_eq>>
   fs[MAP_Str_11,encode_fml_11,encode_sum_list_11,encode_default_11]);
 
-val encode_word32_list_inner_def = Define`
-  encode_word32_list_inner = iList o (MAP (iStr o w2s 2 CHR))`
+Definition encode_word32_list_inner_def:
+  encode_word32_list_inner = iList o (MAP (iStr o w2s 2 CHR))
+End
 
-val encode_mach_state_def = Define`
+Definition encode_mach_state_def:
   encode_mach_state ws =
   Cons (encode_word32_list ws.const_vals)
   (Cons (encode_word32_list ws.ctrl_vals)
-  (encode_word32_list ws.sensor_vals))`
+  (encode_word32_list ws.sensor_vals))
+End
 
 (* This is a bit special: we will use the inner type as well *)
-val encode_mach_state_inner_def = Define`
+Definition encode_mach_state_inner_def:
   encode_mach_state_inner ws =
   iCons (encode_word32_list_inner ws.const_vals)
   (iCons (encode_word32_list_inner ws.ctrl_vals)
-  (encode_word32_list_inner ws.sensor_vals))`
+  (encode_word32_list_inner ws.sensor_vals))
+End
 
 val encode_mach_state_11 = Q.prove(`
   encode_mach_state x = encode_mach_state y ⇔
@@ -343,22 +363,26 @@ val decode_encode_mach_state_inner = new_specification("decode_encode_mach_state
 val _ = export_rewrites ["decode_encode_mach_state_inner"];
 
 (* Now we encode the oracles *)
-val get_num_def = Define`
+Definition get_num_def:
   (get_num (iNum n) = n) ∧
-  (get_num _ = 0)`
+  (get_num _ = 0)
+End
 
-val get_word32_def = Define`
+Definition get_word32_def:
   (get_word32 (iStr s) = (s2w 2 ORD s)) ∧
-  (get_word32 _ = 0w:word32)`
+  (get_word32 _ = 0w:word32)
+End
 
-val get_word32_list_def = Define`
+Definition get_word32_list_def:
   (get_word32_list (iList ls) = MAP get_word32 ls) /\
-  (get_word32_list _ = [])`
+  (get_word32_list _ = [])
+End
 
-val encode_stop_oracle_def = Define`
+Definition encode_stop_oracle_def:
   encode_stop_oracle stop_oracle =
     Fun (λnum:ffi_inner.
-      Num (if stop_oracle (get_num num) then 1 else 0))`
+      Num (if stop_oracle (get_num num) then 1 else 0))
+End
 
 val encode_stop_oracle_11 = Q.prove(`
   encode_stop_oracle x = encode_stop_oracle y ==>
@@ -367,11 +391,12 @@ val encode_stop_oracle_11 = Q.prove(`
   pop_assum(qspec_then`iNum x'` assume_tac)>>fs[get_num_def]>>
   every_case_tac>>fs[]);
 
-val encode_ctrl_oracle_def = Define`
+Definition encode_ctrl_oracle_def:
   encode_ctrl_oracle ctrl_oracle =
     Fun (λnum:ffi_inner.
     Fun (λw32ls:ffi_inner.
-      encode_word32_list (ctrl_oracle (get_num num) (get_word32_list w32ls))))`
+      encode_word32_list (ctrl_oracle (get_num num) (get_word32_list w32ls))))
+End
 
 Theorem encode_ctrl_oracle_11:
   encode_ctrl_oracle f = encode_ctrl_oracle f' ⇒
@@ -388,19 +413,21 @@ Proof
   metis_tac[encode_word32_list_11]
 QED
 
-val get_st_ctrl_pair_def = Define`
+Definition get_st_ctrl_pair_def:
   (get_st_ctrl_pair (iCons st ctrl) =
     case decode_mach_state_inner st of
       NONE => ARB
     | SOME st => (st, get_word32_list ctrl)) ∧
-  (get_st_ctrl_pair _ = ARB)`
+  (get_st_ctrl_pair _ = ARB)
+End
 
 (* This is a bit strange... *)
-val encode_transition_oracle_def = Define`
+Definition encode_transition_oracle_def:
   encode_transition_oracle transition_oracle =
     Fun (λnum:ffi_inner.
     Fun (λstpr:ffi_inner.
-    encode_word32_list (transition_oracle (get_num num) (get_st_ctrl_pair stpr))))`
+    encode_word32_list (transition_oracle (get_num num) (get_st_ctrl_pair stpr))))
+End
 
 val encode_transition_oracle_11 = Q.prove(`
   encode_transition_oracle f = encode_transition_oracle f' ==>
@@ -417,11 +444,12 @@ val encode_transition_oracle_11 = Q.prove(`
   fs[]>>
   metis_tac[encode_word32_list_11]);
 
-val encode_mach_oracle_def = Define`
+Definition encode_mach_oracle_def:
   encode_mach_oracle wo =
   Cons (encode_ctrl_oracle wo.ctrl_oracle)
   (Cons (encode_transition_oracle wo.transition_oracle)
-  (encode_stop_oracle wo.stop_oracle))`
+  (encode_stop_oracle wo.stop_oracle))
+End
 
 val encode_mach_oracle_11 = Q.prove(`
   encode_mach_oracle x = encode_mach_oracle y ⇔
@@ -430,11 +458,12 @@ val encode_mach_oracle_11 = Q.prove(`
   fs comp_eq>>
   metis_tac[encode_transition_oracle_11,encode_ctrl_oracle_11,encode_stop_oracle_11]);
 
-val encode_def = Define`
+Definition encode_def:
   encode w =
    Cons (encode_mach_config w.wc)
   (Cons (encode_mach_state w.ws)
-  (encode_mach_oracle w.wo))`
+  (encode_mach_oracle w.wo))
+End
 
 Theorem encode_11:
   ∀w w'.
@@ -450,7 +479,7 @@ val decode_encode = new_specification("decode_encode",["decode"],
         qexists_tac `\f. some c. encode c = f` \\ fs [encode_11]));
 val _ = export_rewrites ["decode_encode"];
 
-val bot_ffi_part_def = Define`
+Definition bot_ffi_part_def:
   bot_ffi_part =
     (encode,decode,
       [("const",ffi_const);
@@ -460,7 +489,8 @@ val bot_ffi_part_def = Define`
        ("actuate",ffi_actuate);
        ("stop",ffi_stop);
        ("violation",ffi_violation);
-       ])`;
+       ])
+End
 
 Theorem LENGTH_w32_to_w8:
   ∀ls. LENGTH (w32_to_w8 ls) = 4* LENGTH ls

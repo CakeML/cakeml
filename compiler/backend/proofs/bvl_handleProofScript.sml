@@ -153,9 +153,10 @@ Proof
   rw [SmartLet_def] \\ fs [NULL_EQ,evaluate_def]
 QED
 
-val let_ok_def = Define `
+Definition let_ok_def:
   (let_ok (Let xs b) <=> EVERY isVar xs /\ bVarBound (LENGTH xs) [b]) /\
-  (let_ok _ = F)`;
+  (let_ok _ = F)
+End
 
 val handle_ok_def = tDefine "handle_ok" `
   (handle_ok [] <=> T) /\
@@ -188,9 +189,10 @@ val evaluate_GENLIST = save_thm("evaluate_GENLIST",
   |> Q.SPECL[`0`,`env ++ ys`,`LENGTH (env:bvlSem$v list)`,`s`]
   |> SIMP_RULE(srw_ss()++ETA_ss)[TAKE_APPEND1]);
 
-val env_rel_def = Define `
+Definition env_rel_def:
   env_rel l env env1 =
-    LIST_RELi (\i v1 v2. has_var i l ==> v1 = v2) env env1`
+    LIST_RELi (\i v1 v2. has_var i l ==> v1 = v2) env env1
+End
 
 Theorem env_rel_mk_Union:
    !env env1. env_rel (mk_Union lx ly) env env1 <=>

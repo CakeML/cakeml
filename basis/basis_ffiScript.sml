@@ -14,7 +14,7 @@ val _ = new_theory"basis_ffi";
 (*---------------------------------------------------------------------------*)
 (* GENERALISED FFI *)
 
-val basis_ffi_oracle_def = Define `
+Definition basis_ffi_oracle_def:
   basis_ffi_oracle =
     \name (cls,fs) conf bytes.
      if name = ExtCall "write" then
@@ -54,27 +54,31 @@ val basis_ffi_oracle_def = Define `
        | SOME(FFIreturn bytes ()) => Oracle_return (cls,fs) bytes
        | SOME(FFIdiverge) => Oracle_final FFI_diverged
        | NONE => Oracle_final FFI_failed else
-     Oracle_final FFI_failed`
+     Oracle_final FFI_failed
+End
 
 (* standard streams are initialized *)
-val basis_ffi_def = Define `
+Definition basis_ffi_def:
   basis_ffi cl fs =
     <| oracle := basis_ffi_oracle
      ; ffi_state := (cl, fs)
-     ; io_events := [] |>`;
+     ; io_events := [] |>
+End
 
-val basis_proj1_def = Define `
+Definition basis_proj1_def:
   basis_proj1 = (λ(cls, fs).
     FEMPTY |++ ((mk_proj1 cl_ffi_part cls)
                 ++ (mk_proj1 fs_ffi_part fs)
                 ++ (mk_proj1 runtime_ffi_part ()
-                )))`;
+                )))
+End
 
-val basis_proj2_def = Define `
+Definition basis_proj2_def:
   basis_proj2 =
     [mk_proj2 cl_ffi_part;
      mk_proj2 fs_ffi_part;
-     mk_proj2 runtime_ffi_part]`;
+     mk_proj2 runtime_ffi_part]
+End
 
 Theorem basis_proj1_write:
    basis_proj1 ffi ' "write" = encode(SND ffi)
@@ -84,7 +88,7 @@ QED
 
 (* builds the file system from a list of events *)
 
-val extract_fs_with_numchars_def = Define `
+Definition extract_fs_with_numchars_def:
   (extract_fs_with_numchars init_fs [] = SOME init_fs) ∧
   (extract_fs_with_numchars init_fs ((IO_event (ExtCall name) conf bytes)::xs) =
     case (ALOOKUP (SND(SND fs_ffi_part)) name) of
@@ -96,7 +100,8 @@ val extract_fs_with_numchars_def = Define `
                        | _ => NONE)
     | NONE => extract_fs_with_numchars init_fs xs) ∧
    (extract_fs_with_numchars init_fs (_::xs) =
-     extract_fs_with_numchars init_fs xs)`
+     extract_fs_with_numchars init_fs xs)
+End
 
 Theorem extract_fs_with_numchars_APPEND:
    !xs ys init_fs. extract_fs_with_numchars init_fs (xs ++ ys) =
@@ -112,10 +117,11 @@ Proof
   \\ rpt CASE_TAC
 QED
 
-val extract_fs_def = Define`
+Definition extract_fs_def:
   extract_fs init_fs events =
     OPTION_MAP (numchars_fupd (K init_fs.numchars))
-    (extract_fs_with_numchars init_fs events)`;
+    (extract_fs_with_numchars init_fs events)
+End
 
 Theorem extract_fs_with_numchars_keeps_iostreams:
    ∀ls fs fs' off.
@@ -213,7 +219,7 @@ Proof
 QED
 
 (*
-val extract_stdo_def = Define`
+Definition extract_stdo_def:
   (extract_stdo fd [] = "") ∧
   (extract_stdo fd (IO_event name conf bytes::xs) =
    if name = "write" ∧
@@ -223,7 +229,8 @@ val extract_stdo_def = Define`
    then
      MAP (CHR o w2n o FST) (TAKE (w2n(SND(HD(TL bytes)))) (DROP 3 bytes))
      ++ extract_stdo fd xs
-   else extract_stdo fd xs)`
+   else extract_stdo fd xs)
+End
 
 Overload extract_stdout = ``extract_stdo stdOut``
 Overload extract_stderr = ``extract_stdo stdErr``
@@ -281,13 +288,15 @@ Theorem extract_stdo_extract_fs
   \\ rw[] \\ fs[]
   stdo_def
 
-val is_write_def = Define`
+Definition is_write_def:
   (is_write fd (IO_event name _ ((fd',st)::_)) ⇔ name="write" ∧ fd' = fd ∧ st = 0w) ∧
-  (is_write _ _ ⇔ F)`;
+  (is_write _ _ ⇔ F)
+End
 val _ = export_rewrites["is_write_def"];
 
-val extract_write_def = Define`
-  extract_write (IO_event _ _ (_::(_,nw)::bytes)) = TAKE (w2n nw) (MAP FST bytes)`;
+Definition extract_write_def:
+  extract_write (IO_event _ _ (_::(_,nw)::bytes)) = TAKE (w2n nw) (MAP FST bytes)
+End
 val _ = export_rewrites["extract_write_def"];
 
 val extract_writes_def = Define
@@ -309,11 +318,12 @@ fs_ffi_part_def
 ffi_read_def
 read_def
 
-val extract_stdout_def = Define`
+Definition extract_stdout_def:
   extract_stdout io_events =
     @out.
       ∀fs. wfFS fs ∧ STD_streams fs ⇒
-          ∃ll. extract_fs fs io_events = SOME (add_stdout fs out with numchars := ll)`;
+          ∃ll. extract_fs fs io_events = SOME (add_stdout fs out with numchars := ll)
+End
 
 Theorem extract_stdout_intro
   `wfFS fs ∧ STD_streams fs ∧
@@ -452,30 +462,33 @@ fun mk_main_call s =
 val fname = mk_var("fname",``:string``);
 val main_call = mk_main_call fname;
 
-val whole_prog_spec_def = Define`
+Definition whole_prog_spec_def:
   whole_prog_spec fv cl fs sprop post ⇔
     ∃fs'.
     app (basis_proj1, basis_proj2) fv [Conv NONE []]
       (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME p => p)
       (POSTv uv. &UNIT_TYPE () uv * STDIO fs') ∧
-    post (fs' with numchars := fs.numchars)`;
+    post (fs' with numchars := fs.numchars)
+End
 
-val whole_prog_ffidiv_spec_def = Define`
+Definition whole_prog_ffidiv_spec_def:
   whole_prog_ffidiv_spec fv cl fs post ⇔
     ∃fs' n' c' b'.
     app (basis_proj1, basis_proj2) fv [Conv NONE []]
       (COMMANDLINE cl * STDIO fs * RUNTIME)
       (POSTf n. λc b. STDIO fs' * RUNTIME * &(n = n' /\ c = c' /\ b = b')) ∧
-    post n' c' b' (fs' with numchars := fs.numchars)`;
+    post n' c' b' (fs' with numchars := fs.numchars)
+End
 
-val whole_prog_spec2_def = Define`
+Definition whole_prog_spec2_def:
   whole_prog_spec2 fv cl fs sprop post ⇔
     app (basis_proj1, basis_proj2) fv [Conv NONE []]
       (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME p => p)
       (POSTv uv. &UNIT_TYPE () uv *
       SEP_EXISTS fs'.
         STDIO fs' * &(post (fs' with numchars := fs.numchars))
-      )`;
+      )
+End
 
 Theorem whole_prog_spec2_semantics_prog:
    ∀fname fv.

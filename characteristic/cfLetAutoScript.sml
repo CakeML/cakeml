@@ -409,8 +409,9 @@ rpt strip_tac >> FIRST_ASSUM eqtype_unicity_thm_tac >> metis_tac[]
 QED
 
 (* Theorems to use LIST_REL A "as a" refinement invariant *)
-val InjectiveRel_def = Define `
-InjectiveRel A = !x1 y1 x2 y2. A x1 y1 /\ A x2 y2 ==> (x1 = x2 <=> y1 = y2)`;
+Definition InjectiveRel_def:
+InjectiveRel A = !x1 y1 x2 y2. A x1 y1 /\ A x2 y2 ==> (x1 = x2 <=> y1 = y2)
+End
 
 val EQTYPE_INJECTIVEREL = Q.prove(`EqualityType A ==> InjectiveRel A`,
 rw[InjectiveRel_def, EqualityType_def]);

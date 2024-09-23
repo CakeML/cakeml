@@ -37,9 +37,10 @@ val _ = translate parse_clause_def;
 
 val _ = translate lpr_parsingTheory.nocomment_line_def;
 
-val format_dimacs_failure_def = Define`
+Definition format_dimacs_failure_def:
   format_dimacs_failure (lno:num) s =
-  strlit "c DIMACS parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"`
+  strlit "c DIMACS parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"
+End
 
 val _ = translate format_dimacs_failure_def;
 

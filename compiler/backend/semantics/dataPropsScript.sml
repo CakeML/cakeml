@@ -128,9 +128,10 @@ Proof
   full_simp_tac(srw_ss())[state_component_equality]
 QED
 
-val var_corr_def = Define `
+Definition var_corr_def:
   var_corr env corr t <=>
-    EVERY2 (\v x. get_var v t = SOME x) corr env`;
+    EVERY2 (\v x. get_var v t = SOME x) corr env
+End
 
 Theorem get_vars_thm:
    !vs a t2. var_corr a vs t2 ==> (get_vars vs t2 = SOME a)
@@ -1339,9 +1340,10 @@ Proof
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_locals_LN_lemma) \\ full_simp_tac(srw_ss())[]
 QED
 
-val locals_ok_def = Define `
+Definition locals_ok_def:
   locals_ok l1 l2 =
-    !v x. (sptree$lookup v l1 = SOME x) ==> (sptree$lookup v l2 = SOME x)`;
+    !v x. (sptree$lookup v l1 = SOME x) ==> (sptree$lookup v l2 = SOME x)
+End
 
 Theorem locals_ok_IMP:
    locals_ok l1 l2 ==> domain l1 SUBSET domain l2
@@ -1952,20 +1954,22 @@ Proof
   \\ imp_res_tac semantics_Term_IMP_PREFIX \\ fs []
 QED
 
-val get_code_labels_def = Define`
+Definition get_code_labels_def:
   (get_code_labels (Call r d a h) =
     (case d of SOME x => {x} | _ => {}) ∪
     (case h of SOME (n,p) => get_code_labels p | _ => {})) ∧
   (get_code_labels (Seq p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
   (get_code_labels (If _ p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
   (get_code_labels (Assign _ op _ _) = closLang$assign_get_code_label op) ∧
-  (get_code_labels _ = {})`;
+  (get_code_labels _ = {})
+End
 val _ = export_rewrites["get_code_labels_def"];
 
-val good_code_labels_def = Define`
+Definition good_code_labels_def:
   good_code_labels p elabs ⇔
     (BIGUNION (set (MAP (λ(n,m,pp). (get_code_labels pp)) p))) ⊆
-    (set (MAP FST p)) ∪ elabs`
+    (set (MAP FST p)) ∪ elabs
+End
 
 Theorem get_code_labels_mk_ticks:
    ∀n m. get_code_labels (mk_ticks n m) ⊆ get_code_labels m

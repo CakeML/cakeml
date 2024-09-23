@@ -1050,7 +1050,7 @@ t = convert_t (t_walkstar s' t')`,
       metis_tac[submap_t_walkstar_replace]>>
     rest_uvar_tac));
 
-val simp_tenv_invC_def = Define`
+Definition simp_tenv_invC_def:
   simp_tenv_invC s tvs tenv tenvE ⇔
   (!n t. ALOOKUP tenvE n = SOME t
   ⇒
@@ -1058,7 +1058,8 @@ val simp_tenv_invC_def = Define`
   ?t'. ALOOKUP tenv n = SOME t' ∧
        unconvert_t t = t_walkstar s t') ∧
   !n t'. ALOOKUP tenv n = SOME t' ⇒
-  ?t. ALOOKUP tenvE n = SOME t`
+  ?t. ALOOKUP tenvE n = SOME t
+End
 
 val simp_tenv_invC_empty = Q.prove(
 `simp_tenv_invC s n [] []`,

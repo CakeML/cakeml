@@ -193,9 +193,10 @@ QED
 
 (* some shorthands that are allowed to EVAL are below *)
 
-val write_rec_def = Define `
+Definition write_rec_def:
   write_rec funs env1 env =
-    FOLDR (\f env. write (FST f) (Recclosure env1 funs (FST f)) env) env funs`;
+    FOLDR (\f env. write (FST f) (Recclosure env1 funs (FST f)) env) env funs
+End
 
 Theorem write_rec_thm:
    write_rec funs env1 env =
@@ -208,15 +209,17 @@ Proof
   \\ fs [write_def]
 QED
 
-val write_conses_def = Define `
+Definition write_conses_def:
   write_conses [] env = env /\
   write_conses ((n,y)::xs) env =
-    write_cons n y (write_conses xs env)`;
+    write_cons n y (write_conses xs env)
+End
 
-val write_tdefs_def = Define `
+Definition write_tdefs_def:
   write_tdefs n [] env = env /\
   write_tdefs n ((x,_,condefs)::tds) env =
-    write_tdefs (n+1) tds (write_conses (REVERSE (build_constrs n condefs)) env)`
+    write_tdefs (n+1) tds (write_conses (REVERSE (build_constrs n condefs)) env)
+End
 
 val write_conses_v = prove(
   ``!xs env. (write_conses xs env).v = env.v``,
@@ -312,11 +315,12 @@ QED
 
 (* --- declarations --- *)
 
-val Decls_def = Define `
+Definition Decls_def:
   Decls env s1 ds env2 s2 <=>
     s1.clock = s2.clock /\
     ?ck1 ck2. evaluate_decs (s1 with clock := ck1) env ds =
-                            (s2 with clock := ck2, Rval env2)`;
+                            (s2 with clock := ck2, Rval env2)
+End
 
 Theorem Decls_Dtype:
    !env s tds env2 s2 locs.
@@ -352,12 +356,13 @@ Proof
   \\ rveq \\ fs [state_component_equality,empty_env_def]
 QED
 
-val eval_rel_def = Define `
+Definition eval_rel_def:
   eval_rel s1 env e s2 x <=>
     s1.clock = s2.clock /\
     ?ck1 ck2.
        evaluate (s1 with clock := ck1) env [e] =
-                (s2 with clock := ck2,Rval [x])`
+                (s2 with clock := ck2,Rval [x])
+End
 
 Theorem eval_rel_alt:
    eval_rel s1 env e s2 x <=>
@@ -372,20 +377,22 @@ Proof
   \\ qexists_tac `ck` \\ fs [state_component_equality]
 QED
 
-val eval_list_rel_def = Define `
+Definition eval_list_rel_def:
   eval_list_rel s1 env e s2 x <=>
     s1.clock = s2.clock /\
     ?ck1 ck2.
        evaluate (s1 with clock := ck1) env e =
-                (s2 with clock := ck2,Rval x)`
+                (s2 with clock := ck2,Rval x)
+End
 
-val eval_match_rel_def = Define `
+Definition eval_match_rel_def:
   eval_match_rel s1 env v pats err_v s2 x <=>
     s1.clock = s2.clock /\
     ?ck1 ck2.
        evaluate_match
                 (s1 with clock := ck1) env v pats err_v =
-                (s2 with clock := ck2,Rval [x])`
+                (s2 with clock := ck2,Rval [x])
+End
 
 (* Delays the write *)
 Theorem Decls_Dlet:
@@ -854,11 +861,13 @@ QED
 
 (* lookup function definitions *)
 
-val lookup_var_def = Define `
-  lookup_var name (env:v sem_env) = nsLookup env.v (Short name)`;
+Definition lookup_var_def:
+  lookup_var name (env:v sem_env) = nsLookup env.v (Short name)
+End
 
-val lookup_cons_def = Define `
-  lookup_cons name (env:v sem_env) = nsLookup env.c name`;
+Definition lookup_cons_def:
+  lookup_cons name (env:v sem_env) = nsLookup env.c name
+End
 
 (* the old lookup formulation worked via nsLookup/mod_defined,
    and mod_defined is still used in various characteristic scripts

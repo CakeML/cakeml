@@ -52,21 +52,26 @@ open cfDivTheory;
 
 val names_def = Define `names = ["put_char"]`;
 
-val put_char_event_def = Define `
-  put_char_event c = IO_event "put_char" [n2w (ORD c)] []`;
+Definition put_char_event_def:
+  put_char_event c = IO_event "put_char" [n2w (ORD c)] []
+End
 
-val put_str_event_def = Define `
-  put_str_event cs = IO_event "put_char" (MAP (n2w o ORD) cs) []`;
+Definition put_str_event_def:
+  put_str_event cs = IO_event "put_char" (MAP (n2w o ORD) cs) []
+End
 
-val update_def = Define `
-  (update "put_char" cs l s = SOME (FFIreturn l s))`
+Definition update_def:
+  (update "put_char" cs l s = SOME (FFIreturn l s))
+End
 
-val State_def = Define `
-  State = Stream [||]`
+Definition State_def:
+  State = Stream [||]
+End
 
-val SIO_def = Define `
+Definition SIO_def:
   SIO events =
-    one (FFI_part (State) update names events)`
+    one (FFI_part (State) update names events)
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -103,9 +108,10 @@ QED
 (* TODO: Move REPLICATE_LIST and lemmas to an appropriate theory;
          this is copypasted from divScript *)
 
-val REPLICATE_LIST_def = Define `
+Definition REPLICATE_LIST_def:
   (REPLICATE_LIST l 0 = []) /\
-  (REPLICATE_LIST l (SUC n) = REPLICATE_LIST l n ++ l)`
+  (REPLICATE_LIST l (SUC n) = REPLICATE_LIST l n ++ l)
+End
 
 Theorem REPLICATE_LIST_SNOC:
   !x n. SNOC x (REPLICATE_LIST [x] n) = REPLICATE_LIST [x] (SUC n)
@@ -250,19 +256,21 @@ Proof
   \\ xvar \\ xsimpl
 QED
 
-val sio_oracle = Define `
+Definition sio_oracle:
   (sio_oracle:unit oracle) port st conf bytes =
   if port = "put_char" then
     Oracle_return st bytes
   else Oracle_final FFI_failed
-`
+End
 
-val encode_oracle_state_def = Define `
+Definition encode_oracle_state_def:
   encode_oracle_state(st:unit) =
-      State`
+      State
+End
 
-val decode_oracle_state_def = Define `
-  decode_oracle_state(st:ffi) = ()`
+Definition decode_oracle_state_def:
+  decode_oracle_state(st:ffi) = ()
+End
 
 Theorem decode_encode_oracle_state_11:
   !ffi_st. decode_oracle_state(encode_oracle_state ffi_st) = ffi_st
@@ -270,10 +278,11 @@ Proof
   rw[encode_oracle_state_def,decode_oracle_state_def]
 QED
 
-val sio_proj1_def = Define `
+Definition sio_proj1_def:
   sio_proj1 = (λffi.
     FEMPTY |++ (mk_proj1 (encode_oracle_state,decode_oracle_state,
-                          [("put_char", sio_oracle "put_char")]) ffi))`;
+                          [("put_char", sio_oracle "put_char")]) ffi))
+End
 
 val sio_proj2 = Define `sio_proj2 =
   [(["put_char"],update)]`

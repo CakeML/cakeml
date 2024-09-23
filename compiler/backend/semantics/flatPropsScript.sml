@@ -529,8 +529,9 @@ Proof
   \\ fs[] \\ metis_tac[]
 QED
 
-val bind_locals_list_def = Define`
-  bind_locals_list ts ks = list$MAP2 (λt x. (flatLang$Var_local t x)) ts ks`;
+Definition bind_locals_list_def:
+  bind_locals_list ts ks = list$MAP2 (λt x. (flatLang$Var_local t x)) ts ks
+End
 
 Theorem evaluate_vars:
    !env s kvs env' ks vs ts.
@@ -653,7 +654,7 @@ val SND_SND_lemma = prove(
   ``(SND x) = y <=> ?y1. x = (y1, y)``,
   PairCases_on `x` \\ fs []);
 
-val eval_sim_def = Define `
+Definition eval_sim_def:
   eval_sim ffi ds1 ds2 ec ec2 rel allow_fail =
     !k res1 s2.
       evaluate_decs (initial_state ffi k ec) ds1 =
@@ -667,7 +668,8 @@ val eval_sim_def = Define `
         s2.ffi = t2.ffi /\
         (res1 = NONE ==> res2 = NONE) /\
         (!v. res1 = SOME (Rraise v) ==> ?v1. res2 = SOME (Rraise v1)) /\
-        (!a. res1 = SOME (Rabort a) ==> res2 = SOME (Rabort a))`;
+        (!a. res1 = SOME (Rabort a) ==> res2 = SOME (Rabort a))
+End
 
 Theorem IMP_semantics_eq:
    eval_sim ffi ds1 ds2 ec ec2 rel F /\
@@ -796,9 +798,10 @@ Proof
          initial_state_with_clock, FST, ADD_SYM]
 QED
 
-val op_gbag_def = Define `
+Definition op_gbag_def:
   op_gbag (GlobalVarInit n) = BAG_INSERT n {||} /\
-  op_gbag _ = {||}`;
+  op_gbag _ = {||}
+End
 
 val set_globals_def = tDefine "set_globals" `
   (set_globals (Raise t e) = set_globals e) /\
@@ -873,9 +876,10 @@ Proof
   Induct_on `es` \\ simp [elist_globals_append, COMM_BAG_UNION]
 QED
 
-val is_Dlet_def = Define `
+Definition is_Dlet_def:
   (is_Dlet (Dlet _) <=> T) /\
-  (is_Dlet _ <=> F)`;
+  (is_Dlet _ <=> F)
+End
 
 val dest_Dlet_def = Define `dest_Dlet (Dlet e) = e`;
 

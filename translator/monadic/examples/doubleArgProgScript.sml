@@ -23,21 +23,23 @@ val _ = start_translation config;
 val double_def = Define `double x = if x = 0n then 0 else
                             double (x - 1) + 2n`;
 
-val double_tail_rec_aux_def = Define `
+Definition double_tail_rec_aux_def:
   double_tail_rec_aux n carry = if n = 0n then carry else
-                                  double_tail_rec_aux (n - 1) (carry + 2n)`
+                                  double_tail_rec_aux (n - 1) (carry + 2n)
+End
 
-val double_tail_rec_def = Define `
-  (double_tail_rec x = if x = 0n then 0n else double_tail_rec_aux x 0)`
+Definition double_tail_rec_def:
+  (double_tail_rec x = if x = 0n then 0n else double_tail_rec_aux x 0)
+End
 
 (* TODO update this A basic monadic double function using references *)
-val double_ref_def = Define `
+Definition double_ref_def:
   double_ref x = dtcase x of 0n    => return 0n
                            | SUC v => do
                                         result <- double_ref v;
                                         return (result + 2)
                                       od
-`
+End
 
 val double_v = double_def |> translate;
 

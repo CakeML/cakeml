@@ -19,30 +19,36 @@ val hashtable_st = get_ml_prog_state();
 (* the vlv list contains the buckets *)
 (* each bucket only contains keys that hash there *)
 
-val hash_key_set_def = Define`
-  hash_key_set hf length idx  = { k' | hf k' MOD length = idx }`;
+Definition hash_key_set_def:
+  hash_key_set hf length idx  = { k' | hf k' MOD length = idx }
+End
 
-val bucket_ok_def = Define `
+Definition bucket_ok_def:
 bucket_ok b hf idx length  = !k v.
-      (mlmap$lookup b k = SOME v ==> k ∈ (hash_key_set hf length idx))`;
+      (mlmap$lookup b k = SOME v ==> k ∈ (hash_key_set hf length idx))
+End
 
-val buckets_empty_def = Define `
-  buckets_empty bs = (MAP mlmap$to_fmap bs = (REPLICATE (LENGTH bs) FEMPTY))`;
+Definition buckets_empty_def:
+  buckets_empty bs = (MAP mlmap$to_fmap bs = (REPLICATE (LENGTH bs) FEMPTY))
+End
 
 
-val buckets_to_fmap_def = Define `
-  buckets_to_fmap xs = alist_to_fmap (FLAT (MAP mlmap$toAscList xs))`;
+Definition buckets_to_fmap_def:
+  buckets_to_fmap xs = alist_to_fmap (FLAT (MAP mlmap$toAscList xs))
+End
 
-val list_union_def = Define `
+Definition list_union_def:
   list_union [x] = x /\
-  list_union (x::xs) = mlmap$union x (list_union xs)`;
+  list_union (x::xs) = mlmap$union x (list_union xs)
+End
 
-val buckets_ok_def = Define `
+Definition buckets_ok_def:
    buckets_ok bs hf =
      !i. i < LENGTH bs ==>
-       bucket_ok (EL i bs) hf i (LENGTH bs)`;
+       bucket_ok (EL i bs) hf i (LENGTH bs)
+End
 
-val hashtable_inv_def = Define `
+Definition hashtable_inv_def:
   hashtable_inv a b hf cmp (h:('a|->'b)) vlv =
     ?buckets.
       h = to_fmap (list_union buckets) /\
@@ -50,16 +56,19 @@ val hashtable_inv_def = Define `
       0 <> (LENGTH vlv)  /\
       LIST_REL (MAP_TYPE a b) buckets vlv /\
       EVERY mlmap$map_ok buckets /\
-      EVERY (\t. mlmap$cmp_of t = cmp) buckets`;
+      EVERY (\t. mlmap$cmp_of t = cmp) buckets
+End
 
 
 
-val REF_NUM_def = Define `
+Definition REF_NUM_def:
   REF_NUM loc n =
-    SEP_EXISTS v. REF loc v * & (NUM n v)`;
+    SEP_EXISTS v. REF loc v * & (NUM n v)
+End
 
-val REF_ARRAY_def = Define `
-  REF_ARRAY loc arr content = REF loc arr * ARRAY arr content`;
+Definition REF_ARRAY_def:
+  REF_ARRAY loc arr content = REF loc arr * ARRAY arr content
+End
 
 val HASHTABLE_def = Define
  `HASHTABLE a b hf cmp h v =

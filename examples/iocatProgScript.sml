@@ -20,15 +20,16 @@ val _ = process_topdecs `
 ` |> append_prog
 
 (* TODO: move *)
-val file_contents_def = Define `
+Definition file_contents_def:
   file_contents fnm fs =
-    implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fnm)))))`
+    implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fnm)))))
+End
 (* -- *)
 
-val catfiles_string_def = Define`
+Definition catfiles_string_def:
   catfiles_string fs fns =
     concat (MAP (λfnm. file_contents fnm fs) fns)
-`;
+End
 
 Triviality cat_spec0:
  ∀fns fnsv fs.

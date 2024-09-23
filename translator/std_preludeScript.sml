@@ -40,8 +40,9 @@ val res = translate UPDATE_def;
 
 (* arithmetic *)
 
-val EXP_AUX_def = Define `
-  EXP_AUX m n k = if n = 0 then k else EXP_AUX m (n-1:num) (m * k:num)`;
+Definition EXP_AUX_def:
+  EXP_AUX m n k = if n = 0 then k else EXP_AUX m (n-1:num) (m * k:num)
+End
 
 val EXP_AUX_THM = Q.prove(
   `!n k. EXP_AUX m n (m**k) = m**(k+n)`,

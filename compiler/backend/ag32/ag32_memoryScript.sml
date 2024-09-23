@@ -22,19 +22,21 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 
 (* TODO: move *)
 
-val get_mem_word_def = Define`
+Definition get_mem_word_def:
   get_mem_word (m:word32->word8) (pc:word32) : word32 =
   (m (pc + 3w) @@
    ((m (pc + 2w) @@
      ((m (pc + 1w) @@
-       m (pc)) : word16)) :word24))`;
+       m (pc)) : word16)) :word24))
+End
 
-val set_mem_word_def = Define`
+Definition set_mem_word_def:
   set_mem_word (a:word32) (w:word32) : (word32->word8) -> (word32->word8) =
     ((a =+ (((7 >< 0) w):word8)) o
     ((a + 1w =+ (((15 >< 8) w):word8)) o
     ((a + 2w =+ (((23 >< 16) w):word8)) o
-    ((a + 3w =+ (((31 >< 24) w):word8))))))`;
+    ((a + 3w =+ (((31 >< 24) w):word8))))))
+End
 
 Theorem set_mem_word_neq:
     x ≠ k ∧
@@ -271,23 +273,29 @@ QED
 
 (* -- *)
 
-val memory_size_def = Define`
-  memory_size = 128n * 10 ** 6`;
+Definition memory_size_def:
+  memory_size = 128n * 10 ** 6
+End
 
-val cline_size_def = Define`
-  cline_size = 2 * 1024n`;
+Definition cline_size_def:
+  cline_size = 2 * 1024n
+End
 
-val stdin_size_def = Define`
-  stdin_size = 5 * 1024 * 1024n`;
+Definition stdin_size_def:
+  stdin_size = 5 * 1024 * 1024n
+End
 
-val output_buffer_size_def = Define`
-  output_buffer_size = 2048n`;
+Definition output_buffer_size_def:
+  output_buffer_size = 2048n
+End
 
-val heap_size_def = Define`
-  heap_size = 80 * 1024 * 1024n`;
+Definition heap_size_def:
+  heap_size = 80 * 1024 * 1024n
+End
 
-val startup_code_size_def = Define`
-  startup_code_size = 240n`;
+Definition startup_code_size_def:
+  startup_code_size = 240n
+End
 
 (* Memory Layout:
 
@@ -332,7 +340,7 @@ val startup_code_size_def = Define`
   The plussed items are set by the host before execution.
 *)
 
-val FFI_codes_def = Define`
+Definition FFI_codes_def:
   FFI_codes =
     [
     ("", 0n)
@@ -345,30 +353,37 @@ val FFI_codes_def = Define`
     ;("open_out", 7n)
     ;("close", 8n)
     (*;("exit", 9n)*)
-    ]`;
+    ]
+End
 
-val stdin_offset_def = Define`
-  stdin_offset = startup_code_size + 4 + cline_size`;
+Definition stdin_offset_def:
+  stdin_offset = startup_code_size + 4 + cline_size
+End
 
-val output_offset_def = Define`
-  output_offset = stdin_offset + 4 + 4 + stdin_size`;
+Definition output_offset_def:
+  output_offset = stdin_offset + 4 + 4 + stdin_size
+End
 
-val ffi_code_start_offset_def = Define`
+Definition ffi_code_start_offset_def:
   ffi_code_start_offset =
-    output_offset + 8 + 4 + output_buffer_size + 4`;
+    output_offset + 8 + 4 + output_buffer_size + 4
+End
 
-val length_ag32_ffi_code = Define`
-  length_ag32_ffi_code = 1272n`;
+Definition length_ag32_ffi_code:
+  length_ag32_ffi_code = 1272n
+End
 
-val heap_start_offset_def = Define`
+Definition heap_start_offset_def:
   heap_start_offset =
-    ffi_code_start_offset + length_ag32_ffi_code`;
+    ffi_code_start_offset + length_ag32_ffi_code
+End
 
-val ffi_jumps_offset_def = Define`
+Definition ffi_jumps_offset_def:
   ffi_jumps_offset =
-    heap_start_offset + heap_size`;
+    heap_start_offset + heap_size
+End
 
-val ag32_ffi_return_code_def = Define`
+Definition ag32_ffi_return_code_def:
   ag32_ffi_return_code = [
    Normal (fAdd, 1w, Imm 0w, Imm 0w);
    Normal (fSnd, 2w, Imm 0w, Imm 0w);
@@ -379,9 +394,10 @@ val ag32_ffi_return_code_def = Define`
    Normal (fSnd, 7w, Imm 0w, Imm 0w);
    Normal (fSnd, 8w, Imm 0w, Imm 0w);
    Interrupt;
-   Jump (fSnd, 0w, Reg 0w)]`;
+   Jump (fSnd, 0w, Reg 0w)]
+End
 
-val ag32_ffi_return_def = Define`
+Definition ag32_ffi_return_def:
   ag32_ffi_return s =
   let s = dfn'Normal (fAdd, 1w, Imm 0w, Imm 0w) s in
   let s = dfn'Normal (fSnd, 2w, Imm 0w, Imm 0w) s in
@@ -393,7 +409,8 @@ val ag32_ffi_return_def = Define`
   let s = dfn'Normal (fSnd, 8w, Imm 0w, Imm 0w) s in
   let s = dfn'Interrupt s in
   let s = dfn'Jump (fSnd, 0w, Reg 0w) s in
-  s`;
+  s
+End
 
 Theorem ag32_ffi_return_thm:
    (ag32_ffi_return s =
@@ -421,7 +438,7 @@ Proof
   \\ EVAL_TAC \\ gvs []
 QED
 
-val ag32_ffi_copy_code_def = Define`
+Definition ag32_ffi_copy_code_def:
   ag32_ffi_copy_code = [
      JumpIfZero (fSnd, Reg 2w, Imm 0w, Reg 1w);
      LoadMEMByte (8w, Reg 3w);
@@ -429,7 +446,8 @@ val ag32_ffi_copy_code_def = Define`
      Normal (fInc, 3w, Reg 3w, Imm 1w);
      Normal (fInc, 5w, Reg 5w, Imm 1w);
      Normal (fDec, 1w, Reg 1w, Imm 1w);
-     JumpIfZero (fSnd, Imm (4w * -6w), Imm 0w, Imm 0w)]`;
+     JumpIfZero (fSnd, Imm (4w * -6w), Imm 0w, Imm 0w)]
+End
 
 val ag32_ffi_copy_def = tDefine"ag32_ffi_copy"`
   ag32_ffi_copy s0 =
@@ -564,10 +582,11 @@ QED
 (* exit
    PC is ffi_code_start_offset
 
-val ag32_ffi_exit_entrypoint_def = Define`
-  ag32_ffi_exit_entrypoint = 0n`;
+Definition ag32_ffi_exit_entrypoint_def:
+  ag32_ffi_exit_entrypoint = 0n
+End
 
-val ag32_ffi_exit_def = Define`
+Definition ag32_ffi_exit_def:
   ag32_ffi_exit s =
     let s = dfn'Jump(fAdd, 5w, Imm 4w) s in
     let s = incPC () (s with R := (6w =+ w2w(((22 >< 0)(n2w (ffi_code_start_offset+4) :word32)):23 word)) s.R) in
@@ -579,9 +598,10 @@ val ag32_ffi_exit_def = Define`
     let s = incPC () (s with R := (7w =+ 0w) s.R) in
     let s = incPC () (s with <| R := (8w =+ 0w) s.R; OverflowFlag := F; CarryFlag := F|>) in
     let s = incPC () (s with io_events := s.io_events ++ [s.MEM]) in
-    s`;
+    s
+End
 
-val ag32_ffi_exit_code_def = Define`
+Definition ag32_ffi_exit_code_def:
   ag32_ffi_exit_code =
     [Jump (fAdd, 5w, Imm 4w);
      LoadConstant(6w, F, (22 >< 0)((n2w (ffi_code_start_offset+4)):word32));
@@ -592,36 +612,41 @@ val ag32_ffi_exit_code_def = Define`
      Normal(fSnd, 6w, Imm 0w, Imm 0w);
      Normal(fSnd, 7w, Imm 0w, Imm 0w);
      Normal(fAdd, 8w, Imm 0w, Imm 0w);
-     Interrupt]`;
+     Interrupt]
+End
 *)
 
 (* "" ffi
   PC is ffi_code_start_offset
  *)
-val ag32_ffi__entrypoint_def = Define`
-  ag32_ffi__entrypoint = 0n`;
+Definition ag32_ffi__entrypoint_def:
+  ag32_ffi__entrypoint = 0n
+End
 
-val ag32_ffi__def = Define`
+Definition ag32_ffi__def:
   ag32_ffi_ s =
   let s = dfn'Normal (fAdd, 5w, Imm 0w, Imm 0w) s in
-  dfn'Jump (fSnd, 0w, Reg 0w) s`
+  dfn'Jump (fSnd, 0w, Reg 0w) s
+End
 
-val ag32_ffi__code_def = Define`
+Definition ag32_ffi__code_def:
   ag32_ffi__code =
     [
     Normal (fAdd, 5w, Imm 0w, Imm 0w);
-    Jump (fSnd, 0w, Reg 0w)]`;
+    Jump (fSnd, 0w, Reg 0w)]
+End
 
 (* get_arg_count
    PC is ffi_code_start_offset
          + 4 * LENGTH ag32_ffi__code
    pointer is in r3 *)
 
-val ag32_ffi_get_arg_count_entrypoint_def = Define`
+Definition ag32_ffi_get_arg_count_entrypoint_def:
   ag32_ffi_get_arg_count_entrypoint =
-  ag32_ffi__entrypoint + 4 * LENGTH ag32_ffi__code`;
+  ag32_ffi__entrypoint + 4 * LENGTH ag32_ffi__code
+End
 
-val ag32_ffi_get_arg_count_main_code_def = Define`
+Definition ag32_ffi_get_arg_count_main_code_def:
   ag32_ffi_get_arg_count_main_code =
     [LoadConstant(5w, F, n2w (ffi_code_start_offset - 1));
      StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "get_arg_count"))), Reg 5w);
@@ -630,14 +655,16 @@ val ag32_ffi_get_arg_count_main_code_def = Define`
      StoreMEMByte (Reg 5w, Reg 3w);
      Shift (shiftLR, 5w, Reg 5w, Imm 8w);
      Normal (fInc, 3w, Reg 3w, Imm 0w);
-     StoreMEMByte (Reg 5w, Reg 3w)]`;
+     StoreMEMByte (Reg 5w, Reg 3w)]
+End
 
-val ag32_ffi_get_arg_count_code_def = Define`
+Definition ag32_ffi_get_arg_count_code_def:
   ag32_ffi_get_arg_count_code =
     ag32_ffi_get_arg_count_main_code
-    ++ ag32_ffi_return_code`;
+    ++ ag32_ffi_return_code
+End
 
-val ag32_ffi_get_arg_count_main_def = Define`
+Definition ag32_ffi_get_arg_count_main_def:
   ag32_ffi_get_arg_count_main s =
   let s = dfn'LoadConstant(5w, F, n2w (ffi_code_start_offset - 1)) s in
   let s = dfn'StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "get_arg_count"))), Reg 5w) s in
@@ -647,7 +674,8 @@ val ag32_ffi_get_arg_count_main_def = Define`
   let s = dfn'Shift (shiftLR, 5w, Reg 5w, Imm 8w) s in
   let s = dfn'Normal (fInc, 3w, Reg 3w, Imm 0w) s in
   let s = dfn'StoreMEMByte (Reg 5w, Reg 3w) s in
-  s`;
+  s
+End
 
 Theorem ag32_ffi_get_arg_count_main_thm:
    (get_mem_word s.MEM (n2w startup_code_size) = n2w len) ∧ len < 256 * 256
@@ -688,10 +716,11 @@ Proof
   simp[word_extract_n2w,bitTheory.BITS_THM]
 QED
 
-val ag32_ffi_get_arg_count_def = Define`
+Definition ag32_ffi_get_arg_count_def:
   ag32_ffi_get_arg_count s =
   let s = ag32_ffi_get_arg_count_main s in
-  ag32_ffi_return s`;
+  ag32_ffi_return s
+End
 
 (* get_arg_length
    PC is ffi_code_start_offset
@@ -700,11 +729,12 @@ val ag32_ffi_get_arg_count_def = Define`
    r3 contains pointer to byte array with the arg index: [index % 256, index / 256]
    the array should afterwards contain the length of the arg at index (in the same format) *)
 
-val ag32_ffi_get_arg_length_entrypoint_def = Define`
+Definition ag32_ffi_get_arg_length_entrypoint_def:
   ag32_ffi_get_arg_length_entrypoint =
-  ag32_ffi_get_arg_count_entrypoint + 4 * LENGTH ag32_ffi_get_arg_count_code`;
+  ag32_ffi_get_arg_count_entrypoint + 4 * LENGTH ag32_ffi_get_arg_count_code
+End
 
-val ag32_ffi_get_arg_length_setup_code_def = Define`
+Definition ag32_ffi_get_arg_length_setup_code_def:
   ag32_ffi_get_arg_length_setup_code =
     [LoadConstant(5w, F, n2w (ffi_code_start_offset - 1));
      StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "get_arg_length"))), Reg 5w);
@@ -716,9 +746,10 @@ val ag32_ffi_get_arg_length_setup_code_def = Define`
      Normal(fDec, 3w, Reg 3w, Imm 1w);
      Normal(fInc, 6w, Reg 6w, Imm 1w);
      Normal(fAdd, 6w, Reg 6w, Reg 7w); (* r6 contains index+1 *)
-     LoadConstant(7w, F, n2w (4 * 8))]`;
+     LoadConstant(7w, F, n2w (4 * 8))]
+End
 
-val ag32_ffi_get_arg_length_loop_code_def = Define`
+Definition ag32_ffi_get_arg_length_loop_code_def:
   ag32_ffi_get_arg_length_loop_code =
   (* decompiler version:
     [JumpIfZero (fSnd,Imm (4w * 7w),Imm 0w,Imm 0w);
@@ -737,24 +768,27 @@ val ag32_ffi_get_arg_length_loop_code_def = Define`
      Normal (fInc, 4w, Reg 4w, Imm 1w);
      JumpIfNotZero (fSnd, Imm (4w * -3w), Imm 0w, Reg 8w);
      Normal (fDec, 6w, Reg 6w, Imm 1w);
-     JumpIfZero (fSnd, Imm (4w * -7w), Imm 0w, Imm 0w)]`;
+     JumpIfZero (fSnd, Imm (4w * -7w), Imm 0w, Imm 0w)]
+End
 
-val ag32_ffi_get_arg_length_store_code_def = Define`
+Definition ag32_ffi_get_arg_length_store_code_def:
   ag32_ffi_get_arg_length_store_code =
     [Normal (fDec, 4w, Reg 4w, Imm 1w);
      StoreMEMByte(Reg 4w, Reg 3w);
      Shift(shiftLR, 4w, Reg 4w, Imm 8w);
      Normal(fInc, 3w, Reg 3w, Imm 1w);
-     StoreMEMByte(Reg 4w, Reg 3w)]`;
+     StoreMEMByte(Reg 4w, Reg 3w)]
+End
 
-val ag32_ffi_get_arg_length_code_def = Define`
+Definition ag32_ffi_get_arg_length_code_def:
   ag32_ffi_get_arg_length_code =
     ag32_ffi_get_arg_length_setup_code ++
     ag32_ffi_get_arg_length_loop_code ++
     ag32_ffi_get_arg_length_store_code ++
-    ag32_ffi_return_code`;
+    ag32_ffi_return_code
+End
 
-val ag32_ffi_get_arg_length_setup_def = Define`
+Definition ag32_ffi_get_arg_length_setup_def:
   ag32_ffi_get_arg_length_setup s =
   let s = dfn'LoadConstant(5w, F, n2w (ffi_code_start_offset - 1)) s in
   let s = dfn'StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "get_arg_length"))), Reg 5w) s in
@@ -767,7 +801,8 @@ val ag32_ffi_get_arg_length_setup_def = Define`
   let s = dfn'Normal(fInc, 6w, Reg 6w, Imm 1w) s in
   let s = dfn'Normal(fAdd, 6w, Reg 6w, Reg 7w) s in
   let s = dfn'LoadConstant(7w, F, n2w (4 * 8)) s in
-  s`;
+  s
+End
 
 Theorem ag32_ffi_get_arg_length_setup_thm:
    bytes_in_memory (s.R 3w) [l0; l1] s.MEM md ∧ n2w(ffi_code_start_offset - 1) ∉ md
@@ -982,11 +1017,12 @@ Proof
   \\ fs[]
 QED
 
-val get_mem_arg_def = Define`
+Definition get_mem_arg_def:
   (get_mem_arg m a 0 = get_next_mem_arg m a []) ∧
   (get_mem_arg m a (SUC n) =
    let (a, _) = get_next_mem_arg m a [] in
-     get_mem_arg m (a+1w) n)`;
+     get_mem_arg m (a+1w) n)
+End
 
 Theorem ag32_ffi_get_arg_length_loop_thm:
    (s.R 6w = n2w (index+1)) ∧ index ≤ cline_size ∧
@@ -1068,14 +1104,15 @@ Proof
   \\ IF_CASES_TAC \\ fs[]
 QED
 
-val ag32_ffi_get_arg_length_store_def = Define`
+Definition ag32_ffi_get_arg_length_store_def:
   ag32_ffi_get_arg_length_store s =
   let s = dfn'Normal (fDec, 4w, Reg 4w, Imm 1w) s in
   let s = dfn'StoreMEMByte(Reg 4w, Reg 3w) s in
   let s = dfn'Shift(shiftLR, 4w, Reg 4w, Imm 8w) s in
   let s = dfn'Normal(fInc, 3w, Reg 3w, Imm 1w) s in
   let s = dfn'StoreMEMByte(Reg 4w, Reg 3w) s in
-  s`;
+  s
+End
 
 Theorem ag32_ffi_get_arg_length_store_thm:
    (s.R 4w = n2w (n+1)) ∧
@@ -1109,20 +1146,22 @@ Proof
   \\ blastLib.FULL_BBLAST_TAC
 QED
 
-val ag32_ffi_get_arg_length_def = Define`
+Definition ag32_ffi_get_arg_length_def:
   ag32_ffi_get_arg_length s =
     let s = ag32_ffi_get_arg_length_setup s in
     let s = ag32_ffi_get_arg_length_loop s in
     let s = ag32_ffi_get_arg_length_store s in
-    ag32_ffi_return s`;
+    ag32_ffi_return s
+End
 
 (* get_arg *)
 
-val ag32_ffi_get_arg_entrypoint_def = Define`
+Definition ag32_ffi_get_arg_entrypoint_def:
   ag32_ffi_get_arg_entrypoint =
-  ag32_ffi_get_arg_length_entrypoint + 4 * LENGTH ag32_ffi_get_arg_length_code`;
+  ag32_ffi_get_arg_length_entrypoint + 4 * LENGTH ag32_ffi_get_arg_length_code
+End
 
-val ag32_ffi_get_arg_setup_code_def = Define`
+Definition ag32_ffi_get_arg_setup_code_def:
   ag32_ffi_get_arg_setup_code =
     [LoadConstant(5w, F, n2w (ffi_code_start_offset - 1));
      StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "get_arg"))), Reg 5w);
@@ -1132,34 +1171,38 @@ val ag32_ffi_get_arg_setup_code_def = Define`
      LoadMEMByte(7w, Reg 3w);
      Shift(shiftLL, 7w, Reg 7w, Imm 8w);
      Normal(fDec, 3w, Reg 3w, Imm 1w);
-     Normal(fAdd, 6w, Reg 6w, Reg 7w)] (* r6 contains index *)`;
+     Normal(fAdd, 6w, Reg 6w, Reg 7w)] (* r6 contains index *)
+End
 
-val ag32_ffi_get_arg_find_code_def = Define`
+Definition ag32_ffi_get_arg_find_code_def:
   ag32_ffi_get_arg_find_code =
     [JumpIfZero (fSnd, Imm (4w * 6w), Imm 0w, Reg 6w);
      LoadMEMByte (8w, Reg 5w);
      Normal (fInc, 5w, Reg 5w, Imm 1w);
      JumpIfNotZero (fSnd, Imm (4w * -2w), Imm 0w, Reg 8w);
      Normal (fDec, 6w, Reg 6w, Imm 1w);
-     JumpIfZero (fSnd, Imm (4w * -5w), Imm 0w, Imm 0w)]`;
+     JumpIfZero (fSnd, Imm (4w * -5w), Imm 0w, Imm 0w)]
+End
 
-val ag32_ffi_get_arg_store_code_def = Define`
+Definition ag32_ffi_get_arg_store_code_def:
   ag32_ffi_get_arg_store_code =
     [LoadMEMByte (8w, Reg 5w);
      JumpIfZero (fSnd, Imm (4w * 5w), Imm 0w, Reg 8w);
      StoreMEMByte(Reg 8w, Reg 3w);
      Normal(fInc, 3w, Reg 3w, Imm 1w);
      Normal(fInc, 5w, Reg 5w, Imm 1w);
-     JumpIfZero (fSnd, Imm (4w * -5w), Imm 0w, Imm 0w)]`;
+     JumpIfZero (fSnd, Imm (4w * -5w), Imm 0w, Imm 0w)]
+End
 
-val ag32_ffi_get_arg_code_def = Define`
+Definition ag32_ffi_get_arg_code_def:
   ag32_ffi_get_arg_code =
     ag32_ffi_get_arg_setup_code ++
     ag32_ffi_get_arg_find_code ++
     ag32_ffi_get_arg_store_code ++
-    ag32_ffi_return_code`;
+    ag32_ffi_return_code
+End
 
-val ag32_ffi_get_arg_setup_def = Define`
+Definition ag32_ffi_get_arg_setup_def:
   ag32_ffi_get_arg_setup s =
   let s = dfn'LoadConstant(5w, F, n2w (ffi_code_start_offset - 1)) s in
   let s = dfn'StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "get_arg"))), Reg 5w) s in
@@ -1170,7 +1213,8 @@ val ag32_ffi_get_arg_setup_def = Define`
   let s = dfn'Shift(shiftLL, 7w, Reg 7w, Imm 8w) s in
   let s = dfn'Normal(fDec, 3w, Reg 3w, Imm 1w) s in
   let s = dfn'Normal(fAdd, 6w, Reg 6w, Reg 7w) s in
-  s`;
+  s
+End
 
 Theorem ag32_ffi_get_arg_setup_thm:
    bytes_in_memory (s.R 3w) [l0; l1] s.MEM md ∧ n2w(ffi_code_start_offset - 1) ∉ md
@@ -1609,26 +1653,29 @@ Proof
   \\ simp[Abbr`m'`,Abbr`m`,APPLY_UPDATE_THM]
 QED
 
-val ag32_ffi_get_arg_def = Define`
+Definition ag32_ffi_get_arg_def:
   ag32_ffi_get_arg s =
     let s = ag32_ffi_get_arg_setup s in
     let s = ag32_ffi_get_arg_find s in
     let s = ag32_ffi_get_arg_store s in
-    ag32_ffi_return s`;
+    ag32_ffi_return s
+End
 
 (* read *)
 
-val ag32_ffi_read_entrypoint_def = Define`
+Definition ag32_ffi_read_entrypoint_def:
   ag32_ffi_read_entrypoint =
-  ag32_ffi_get_arg_entrypoint + 4 * LENGTH ag32_ffi_get_arg_code`;
+  ag32_ffi_get_arg_entrypoint + 4 * LENGTH ag32_ffi_get_arg_code
+End
 
-val ag32_ffi_read_set_id_code_def = Define`
+Definition ag32_ffi_read_set_id_code_def:
   ag32_ffi_read_set_id_code =
     [LoadConstant(5w, F, n2w (ffi_code_start_offset - 1));
-     StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "read"))), Reg 5w)]`;
+     StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "read"))), Reg 5w)]
+End
 
 (* TODO: this would be shorter and maybe simpler using LoadMEM rather than LoadMEMByte *)
-val ag32_ffi_read_check_conf_code_def = Define`
+Definition ag32_ffi_read_check_conf_code_def:
   ag32_ffi_read_check_conf_code = [
      Normal (fEqual, 6w, Reg 2w, Imm 8w); (* r6 = (LENGTH conf = 8) *)
      Normal (fSub, 4w, Reg 4w, Imm 4w);   (* r4 = LENGTH tll *)
@@ -1662,9 +1709,10 @@ val ag32_ffi_read_check_conf_code_def = Define`
      Normal (fInc, 1w, Reg 1w, Imm 1w);   (* r1 -> conf0 *)
      LoadMEMByte (2w, Reg 1w);            (* r2 = conf0 *)
      Normal (fEqual, 7w, Reg 2w, Imm 0w); (* r7 = conf0 = 0 *)
-     Normal (fAnd, 6w, Reg 6w, Reg 7w)]   (* r6 = (LENGTH conf = 8) ∧ w82n conf = 0 *)`;
+     Normal (fAnd, 6w, Reg 6w, Reg 7w)]   (* r6 = (LENGTH conf = 8) ∧ w82n conf = 0 *)
+End
 
-val ag32_ffi_read_load_lengths_code_def = Define`
+Definition ag32_ffi_read_load_lengths_code_def:
   ag32_ffi_read_load_lengths_code = [     (* r3 -> n1::n0::... *)
      LoadMEMByte (1w, Reg 3w);            (* r1 = [0w; 0w; 0w; n1] *)
      Shift (shiftLL, 1w, Reg 1w, Imm 8w); (* r1 = [0w; 0w; n1; 0w] *)
@@ -1676,18 +1724,20 @@ val ag32_ffi_read_load_lengths_code_def = Define`
      LoadMEM (5w, Reg 8w);                (* r5 = off *)
      Normal (fAdd, 8w, Reg 8w, Imm 4w);   (* r8 = stdin_offset + 4 *)
      LoadMEM (7w, Reg 8w);                (* r7 = LENGTH content *)
-     Normal (fSub, 7w, Reg 7w, Reg 5w)]   (* r7 = LENGTH content - off *)`;
+     Normal (fSub, 7w, Reg 7w, Reg 5w)]   (* r7 = LENGTH content - off *)
+End
 
-val ag32_ffi_read_check_length_code_def = Define`
+Definition ag32_ffi_read_check_length_code_def:
   ag32_ffi_read_check_length_code = [
      Normal (fLower, 8w, Reg 4w, Reg 1w); (* r8 = LENGTH tll < w22n [n1; n0] *)
      Normal (fSub, 8w, Imm 1w, Reg 8w);   (* r8 = ¬(LENGTH tll < w22n [n1; n0] *)
      Normal (fAnd, 6w, Reg 6w, Reg 8w);   (* r6 = (LENGTH conf = 8) ∧ w82n conf < 3 ∧
                                                   w22n [n1; n0] ≤ LENGTH tll *)
      LoadConstant (4w, F, 4w * 26w);
-     JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w)]`;
+     JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w)]
+End
 
-val ag32_ffi_read_num_written_code_def = Define`
+Definition ag32_ffi_read_num_written_code_def:
   ag32_ffi_read_num_written_code = [
      StoreMEMByte(Imm 0w, Reg 3w);        (* r3 -> 0w::n0::pad1::pad2::tll *)
      Normal (fInc, 3w, Reg 3w, Imm 1w);   (* r3 -> n0::pad1::pad2::tll *)
@@ -1706,9 +1756,10 @@ val ag32_ffi_read_num_written_code_def = Define`
      Normal (fAdd, 2w, Reg 2w, Imm 8w);   (* r2 -> stdin *)
      Normal (fAdd, 3w, Reg 2w, Reg 5w);   (* r3 -> DROP off stdin *)
      Normal (fAdd, 5w, Reg 4w, Imm 2w);   (* r5 -> tll *)
-     LoadConstant (2w, F, 4w * 8w)]`;     (* r2 = 4*8 *)
+     LoadConstant (2w, F, 4w * 8w)]
+End     (* r2 = 4*8 *)
 
-val ag32_ffi_read_code_def = Define`
+Definition ag32_ffi_read_code_def:
   ag32_ffi_read_code =
      ag32_ffi_read_set_id_code ++
      ag32_ffi_read_check_conf_code ++
@@ -1717,13 +1768,15 @@ val ag32_ffi_read_code_def = Define`
      ag32_ffi_read_num_written_code ++
      ag32_ffi_copy_code ++
      [ StoreMEMByte (Imm 1w, Reg 3w) ] ++
-     ag32_ffi_return_code`;
+     ag32_ffi_return_code
+End
 
-val ag32_ffi_read_set_id_def = Define`
+Definition ag32_ffi_read_set_id_def:
   ag32_ffi_read_set_id s =
     let s = dfn'LoadConstant (5w, F, n2w (ffi_code_start_offset - 1)) s in
     let s = dfn'StoreMEMByte (Imm (n2w(THE(ALOOKUP FFI_codes "read"))), Reg 5w) s in
-    s`;
+    s
+End
 
 Theorem ag32_ffi_read_set_id_thm:
      (ag32_ffi_read_set_id s =
@@ -1738,7 +1791,7 @@ Proof
   \\ EVAL_TAC
 QED
 
-val ag32_ffi_read_check_conf_def = Define`
+Definition ag32_ffi_read_check_conf_def:
   ag32_ffi_read_check_conf s =
    let s = dfn'Normal (fEqual, 6w, Reg 2w, Imm 8w) s in
    let s = dfn'Normal (fSub, 4w, Reg 4w, Imm 4w) s in
@@ -1772,7 +1825,8 @@ val ag32_ffi_read_check_conf_def = Define`
    let s = dfn'Normal (fInc, 1w, Reg 1w, Imm 1w) s in
    let s = dfn'LoadMEMByte (2w, Reg 1w) s in
    let s = dfn'Normal (fEqual, 7w, Reg 2w, Imm 0w) s in
-   let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 7w) s in s`;
+   let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 7w) s in s
+End
 
 Theorem ag32_ffi_read_check_conf_thm:
    bytes_in_memory (s.R 1w) conf s.MEM md ∧ (w2n (s.R 2w) = LENGTH conf)
@@ -1913,7 +1967,7 @@ Proof
   \\ simp[]
 QED
 
-val ag32_ffi_read_load_lengths_def = Define`
+Definition ag32_ffi_read_load_lengths_def:
   ag32_ffi_read_load_lengths s =
   let s = dfn'LoadMEMByte (1w, Reg 3w) s in
   let s = dfn'Shift (shiftLL, 1w, Reg 1w, Imm 8w) s in
@@ -1926,7 +1980,8 @@ val ag32_ffi_read_load_lengths_def = Define`
   let s = dfn'Normal (fAdd, 8w, Reg 8w, Imm 4w) s in
   let s = dfn'LoadMEM (7w, Reg 8w) s in
   let s = dfn'Normal (fSub, 7w, Reg 7w, Reg 5w) s in
-  s`;
+  s
+End
 
 Theorem ag32_ffi_read_load_lengths_thm:
    bytes_in_memory (s.R 3w) [n1; n0] s.MEM md ∧
@@ -2039,14 +2094,15 @@ Proof
   \\ fs [WORD_LO]
 QED
 
-val ag32_ffi_read_check_length_def = Define`
+Definition ag32_ffi_read_check_length_def:
   ag32_ffi_read_check_length s =
    let s = dfn'Normal (fLower, 8w, Reg 4w, Reg 1w) s in
    let s = dfn'Normal (fSub, 8w, Imm 1w, Reg 8w) s in
    let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 8w) s in
    let s = dfn'LoadConstant (4w, F, 4w * 26w) s in
    let s = dfn'JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w) s in
-   s`;
+   s
+End
 
 Theorem ag32_ffi_read_check_length_thm:
    (s.R 1w = n2w n) ∧ (s.R 4w = n2w ltll) ∧ (s.R 6w = v2w [cnd])
@@ -2093,7 +2149,7 @@ Proof
   \\ rw[] \\ fs[]
 QED
 
-val ag32_ffi_read_num_written_def = Define`
+Definition ag32_ffi_read_num_written_def:
   ag32_ffi_read_num_written s =
    let s = dfn'StoreMEMByte(Imm 0w, Reg 3w) s in
    let s = dfn'Normal (fInc, 3w, Reg 3w, Imm 1w) s in
@@ -2113,7 +2169,8 @@ val ag32_ffi_read_num_written_def = Define`
    let s = dfn'Normal (fAdd, 3w, Reg 2w, Reg 5w) s in
    let s = dfn'Normal (fAdd, 5w, Reg 4w, Imm 2w) s in
    let s = dfn'LoadConstant (2w, F, 4w * 8w) s in
-   s`;
+   s
+End
 
 Theorem ag32_ffi_read_num_written_thm:
    bytes_in_memory (s.R 3w) (n1::n0::pad1::pad2::tll) s.MEM md ∧
@@ -2277,7 +2334,7 @@ Proof
   \\ fs [DIV_LT_X]
 QED
 
-val ag32_ffi_read_def = Define`
+Definition ag32_ffi_read_def:
   ag32_ffi_read s =
   let s = ag32_ffi_read_set_id s in
   let s = ag32_ffi_read_check_conf s in
@@ -2290,7 +2347,8 @@ val ag32_ffi_read_def = Define`
     else
       dfn'StoreMEMByte (Imm 1w, Reg 3w) s
   in
-    ag32_ffi_return s`;
+    ag32_ffi_return s
+End
 
 (* write
    PC is ffi_code_start_offset + ag32_ffi_write_entrypoint
@@ -2317,19 +2375,21 @@ val ag32_ffi_read_def = Define`
      * exit happens at the end of the code, by jumping to r0
 *)
 
-val ag32_ffi_write_entrypoint_def = Define`
+Definition ag32_ffi_write_entrypoint_def:
   ag32_ffi_write_entrypoint =
-  ag32_ffi_read_entrypoint + 4 * LENGTH ag32_ffi_read_code`;
+  ag32_ffi_read_entrypoint + 4 * LENGTH ag32_ffi_read_code
+End
 
-val ag32_ffi_write_set_id_code_def = Define`
+Definition ag32_ffi_write_set_id_code_def:
   ag32_ffi_write_set_id_code =
     [Jump (fAdd, 5w, Imm 4w);
      LoadConstant(6w, F, n2w (ag32_ffi_write_entrypoint + 4));
      Normal (fSub, 5w, Reg 5w, Reg 6w);   (* r5 = ffi_code_start_offset *)
      Normal (fDec, 5w, Reg 5w, Imm 0w);
-     StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "write"))), Reg 5w)]`;
+     StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "write"))), Reg 5w)]
+End
 
-val ag32_ffi_write_check_conf_code_def = Define`
+Definition ag32_ffi_write_check_conf_code_def:
   ag32_ffi_write_check_conf_code = [
      Normal (fEqual, 6w, Reg 2w, Imm 8w); (* r6 = (LENGTH conf = 8) *)
      Normal (fSub, 4w, Reg 4w, Imm 4w);   (* r4 = LENGTH tll *)
@@ -2365,9 +2425,10 @@ val ag32_ffi_write_check_conf_code_def = Define`
      Normal (fLess, 7w, Reg 2w, Imm 3w);  (* r7 = conf0 < 3 *)
      Normal (fAnd, 6w, Reg 6w, Reg 7w);   (* r6 = (LENGTH conf = 8) ∧ w82n conf < 3 *)
      Normal (fLess, 7w, Imm 0w, Reg 2w);  (* r7 = 0 < conf0 *)
-     Normal (fAnd, 6w, Reg 6w, Reg 7w)]   (* r6 = (LENGTH conf = 8) ∧ 0 < w82n conf < 3 *)`;
+     Normal (fAnd, 6w, Reg 6w, Reg 7w)]   (* r6 = (LENGTH conf = 8) ∧ 0 < w82n conf < 3 *)
+End
 
-val ag32_ffi_write_load_noff_code_def = Define`
+Definition ag32_ffi_write_load_noff_code_def:
   ag32_ffi_write_load_noff_code = [       (* r3 -> n1::n0::off1::off0::... *)
      LoadMEMByte (1w, Reg 3w);            (* r1 = [0w; 0w; 0w; n1] *)
      Shift (shiftLL, 1w, Reg 1w, Imm 8w); (* r1 = [0w; 0w; n1; 0w] *)
@@ -2380,9 +2441,10 @@ val ag32_ffi_write_load_noff_code_def = Define`
      Normal (fInc, 3w, Reg 3w, Imm 1w);   (* r3 -> off0::... *)
      LoadMEMByte (8w, Reg 3w);            (* r8 = [0w; 0w; 0w; off0] *)
      Normal (fXor, 7w, Reg 7w, Reg 8w);   (* r7 = [0w; 0w; off1; off0] (= w22n [off1; off0]) *)
-     Normal (fSub, 3w, Reg 3w, Imm 3w)]   (* r3 -> n1::n0::off1::off0::... *)`;
+     Normal (fSub, 3w, Reg 3w, Imm 3w)]   (* r3 -> n1::n0::off1::off0::... *)
+End
 
-val ag32_ffi_write_check_lengths_code_def = Define`
+Definition ag32_ffi_write_check_lengths_code_def:
   ag32_ffi_write_check_lengths_code = [
      Normal (fLower, 8w, Reg 4w, Reg 7w); (* r8 = LENGTH tll < w22n [off1; off0] *)
      Normal (fSub, 8w, Imm 1w, Reg 8w);   (* r8 = ¬(LENGTH tll < w22n [off1; off0] *)
@@ -2394,9 +2456,10 @@ val ag32_ffi_write_check_lengths_code_def = Define`
      LoadConstant(4w, F, n2w ((ffi_code_start_offset - 1) - output_offset));
      Normal (fSub, 5w, Reg 5w, Reg 4w);   (* r5 = output_offset *)
      LoadConstant (4w, F, 4w * 34w);
-     JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w)]`;
+     JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w)]
+End
 
-val ag32_ffi_write_write_header_code_def = Define`
+Definition ag32_ffi_write_write_header_code_def:
   ag32_ffi_write_write_header_code = [
      StoreMEM (Imm 0w, Reg 5w);
      Normal (fAdd, 5w, Reg 5w, Imm 4w);   (* r5 = output_offset + 4 *)
@@ -2412,9 +2475,10 @@ val ag32_ffi_write_write_header_code_def = Define`
      Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = output_offset + 11 *)
      StoreMEMByte (Reg 1w, Reg 5w);
      Normal (fInc, 5w, Reg 5w, Imm 1w);   (* r5 = output_offset + 12 *)
-     StoreMEMByte (Imm 0w, Reg 3w)]`;
+     StoreMEMByte (Imm 0w, Reg 3w)]
+End
 
-val ag32_ffi_write_num_written_code_def = Define`
+Definition ag32_ffi_write_num_written_code_def:
   ag32_ffi_write_num_written_code = [
      (* calculate k and write to mutable array *)
      Normal (fInc, 3w, Reg 3w, Imm 1w);   (* r3 -> n0::off1::off0::tll *)
@@ -2427,9 +2491,10 @@ val ag32_ffi_write_num_written_code_def = Define`
      StoreMEMByte (Reg 1w, Reg 3w);
      Normal (fAdd, 3w, Reg 3w, Imm 2w);
      Normal (fAdd, 3w, Reg 3w, Reg 7w);   (* r3 -> DROP off tll *)
-     LoadConstant (2w, F, 4w * 9w)]`;
+     LoadConstant (2w, F, 4w * 9w)]
+End
 
-val ag32_ffi_write_code_def = Define`
+Definition ag32_ffi_write_code_def:
   ag32_ffi_write_code =
      ag32_ffi_write_set_id_code ++
      ag32_ffi_write_check_conf_code ++
@@ -2441,16 +2506,18 @@ val ag32_ffi_write_code_def = Define`
      [ (* error case *)
       StoreMEMByte (Imm 1w, Reg 3w);
       StoreMEMByte (Imm 1w, Reg 5w) ] ++
-     ag32_ffi_return_code`;
+     ag32_ffi_return_code
+End
 
-val ag32_ffi_write_set_id_def = Define`
+Definition ag32_ffi_write_set_id_def:
   ag32_ffi_write_set_id s =
     let s = dfn'Jump (fAdd, 5w, Imm 4w) s in
     let s = dfn'LoadConstant (6w, F, n2w (ag32_ffi_write_entrypoint + 4)) s in
     let s = dfn'Normal (fSub, 5w, Reg 5w, Reg 6w) s in
     let s = dfn'Normal (fDec, 5w, Reg 5w, Imm 0w) s in
     let s = dfn'StoreMEMByte (Imm (n2w(THE(ALOOKUP FFI_codes "write"))), Reg 5w) s in
-    s`;
+    s
+End
 
 Theorem ag32_ffi_write_set_id_thm:
    (s.PC = n2w (ffi_code_start_offset + ag32_ffi_write_entrypoint))
@@ -2477,7 +2544,7 @@ Proof
   \\ metis_tac[]
 QED
 
-val ag32_ffi_write_check_conf_def = Define`
+Definition ag32_ffi_write_check_conf_def:
   ag32_ffi_write_check_conf s =
    let s = dfn'Normal (fEqual, 6w, Reg 2w, Imm 8w) s in
    let s = dfn'Normal (fSub, 4w, Reg 4w, Imm 4w) s in
@@ -2514,7 +2581,8 @@ val ag32_ffi_write_check_conf_def = Define`
    let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 7w) s in
    let s = dfn'Normal (fLess, 7w, Imm 0w, Reg 2w) s in
    let s = dfn'Normal (fAnd, 6w, Reg 6w, Reg 7w) s in
-   s`;
+   s
+End
 
 Theorem ag32_ffi_write_check_conf_thm:
    bytes_in_memory (s.R 1w) conf s.MEM md ∧ (w2n (s.R 2w) = LENGTH conf)
@@ -2683,7 +2751,7 @@ Proof
      APPLY_UPDATE_THM]
 QED
 
-val ag32_ffi_write_load_noff_def = Define`
+Definition ag32_ffi_write_load_noff_def:
   ag32_ffi_write_load_noff s =
   let s = dfn'LoadMEMByte (1w, Reg 3w) s in
   let s = dfn'Shift (shiftLL, 1w, Reg 1w, Imm 8w) s in
@@ -2697,7 +2765,8 @@ val ag32_ffi_write_load_noff_def = Define`
   let s = dfn'LoadMEMByte (8w, Reg 3w) s in
   let s = dfn'Normal (fXor, 7w, Reg 7w, Reg 8w) s in
   let s = dfn'Normal (fSub, 3w, Reg 3w, Imm 3w) s in
-  s`;
+  s
+End
 
 Theorem ag32_ffi_write_load_noff_thm:
    bytes_in_memory (s.R 3w) (n1::n0::off1::off0::tll) s.MEM md
@@ -2831,7 +2900,7 @@ Proof
      APPLY_UPDATE_THM]
 QED
 
-val ag32_ffi_write_check_lengths_def = Define`
+Definition ag32_ffi_write_check_lengths_def:
   ag32_ffi_write_check_lengths s =
   let s = dfn'Normal (fLower, 8w, Reg 4w, Reg 7w) s in
   let s = dfn'Normal (fSub, 8w, Imm 1w, Reg 8w) s in
@@ -2843,7 +2912,8 @@ val ag32_ffi_write_check_lengths_def = Define`
   let s = dfn'Normal (fSub, 5w, Reg 5w, Reg 4w) s in
   let s = dfn'LoadConstant (4w, F, 4w * 34w) s in
   let s = dfn'JumpIfZero (fAnd, Reg 4w, Reg 6w, Reg 8w) s in
-  s`;
+  s
+End
 
 Theorem ag32_ffi_write_check_lengths_thm:
    (s.R 5w = n2w (ffi_code_start_offset - 1)) ∧
@@ -2930,7 +3000,7 @@ Proof
   \\ EVAL_TAC
 QED
 
-val ag32_ffi_write_write_header_def = Define`
+Definition ag32_ffi_write_write_header_def:
   ag32_ffi_write_write_header s =
   let s = dfn'StoreMEM (Imm 0w, Reg 5w) s in
   let s = dfn'Normal (fAdd, 5w, Reg 5w, Imm 4w) s in
@@ -2947,7 +3017,8 @@ val ag32_ffi_write_write_header_def = Define`
   let s = dfn'StoreMEMByte (Reg 1w, Reg 5w) s in
   let s = dfn'Normal (fInc, 5w, Reg 5w, Imm 1w) s in
   let s = dfn'StoreMEMByte (Imm 0w, Reg 3w) s in
-  s`;
+  s
+End
 
 Theorem ag32_ffi_write_write_header_thm:
    (s.R 5w = n2w output_offset) ∧
@@ -3206,7 +3277,7 @@ Proof
   \\ rw[ag32Theory.dfn'LoadConstant_def, ag32Theory.incPC_def, APPLY_UPDATE_THM]
 QED
 
-val ag32_ffi_write_num_written_def = Define`
+Definition ag32_ffi_write_num_written_def:
   ag32_ffi_write_num_written s =
   let s = dfn'Normal (fInc, 3w, Reg 3w, Imm 1w) s in
   let s0 = dfn'LoadConstant (8w, F, n2w output_buffer_size) s in
@@ -3219,7 +3290,8 @@ val ag32_ffi_write_num_written_def = Define`
   let s = dfn'Normal (fAdd, 3w, Reg 3w, Imm 2w) s in
   let s = dfn'Normal (fAdd, 3w, Reg 3w, Reg 7w) s in
   let s = dfn'LoadConstant (2w, F, 4w * 9w) s in
-  s`;
+  s
+End
 
 Theorem ag32_ffi_write_num_written_thm:
    bytes_in_memory (s.R 3w) (0w::n0::off1::off0::tll) s.MEM md ∧
@@ -3326,7 +3398,7 @@ Proof
   \\ fs [DIV_LT_X]
 QED
 
-val ag32_ffi_write_def = Define`
+Definition ag32_ffi_write_def:
   ag32_ffi_write s =
   let s = ag32_ffi_write_set_id s in
   let s = ag32_ffi_write_check_conf s in
@@ -3340,62 +3412,74 @@ val ag32_ffi_write_def = Define`
     else
       let s = dfn'StoreMEMByte (Imm 1w, Reg 3w) s in
               dfn'StoreMEMByte (Imm 1w, Reg 5w) s
-  in ag32_ffi_return s`;
+  in ag32_ffi_return s
+End
 
 (* returns error code 1 after writing the appropriate ffi *)
-val ag32_ffi_fail_def = Define`
+Definition ag32_ffi_fail_def:
   ag32_ffi_fail ffiname s =
   let s = dfn'LoadConstant(5w, F, n2w (ffi_code_start_offset - 1)) s in
   let s = dfn'StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes ffiname))), Reg 5w) s in
   let s = dfn'StoreMEMByte (Imm 1w, Reg 3w) s in
-  s`
+  s
+End
 
-val ag32_ffi_fail_code_def = Define`
+Definition ag32_ffi_fail_code_def:
   ag32_ffi_fail_code ffiname =
     [LoadConstant(5w, F, n2w (ffi_code_start_offset - 1));
      StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes ffiname))), Reg 5w);
-     StoreMEMByte(Imm 1w, Reg 3w)]`
+     StoreMEMByte(Imm 1w, Reg 3w)]
+End
 
 (* open_in *)
-val ag32_ffi_open_in_entrypoint_def = Define`
+Definition ag32_ffi_open_in_entrypoint_def:
   ag32_ffi_open_in_entrypoint =
-  ag32_ffi_write_entrypoint + 4 * LENGTH ag32_ffi_write_code`;
+  ag32_ffi_write_entrypoint + 4 * LENGTH ag32_ffi_write_code
+End
 
-val ag32_ffi_open_in_def = Define`
+Definition ag32_ffi_open_in_def:
   ag32_ffi_open_in s =
  let s = ag32_ffi_fail "open_in" s in
-  ag32_ffi_return s`;
+  ag32_ffi_return s
+End
 
-val ag32_ffi_open_in_code_def = Define`
-  ag32_ffi_open_in_code = ag32_ffi_fail_code "open_in" ++ ag32_ffi_return_code`
+Definition ag32_ffi_open_in_code_def:
+  ag32_ffi_open_in_code = ag32_ffi_fail_code "open_in" ++ ag32_ffi_return_code
+End
 
 (* open_out *)
 
-val ag32_ffi_open_out_entrypoint_def = Define`
+Definition ag32_ffi_open_out_entrypoint_def:
   ag32_ffi_open_out_entrypoint =
-  ag32_ffi_open_in_entrypoint + 4 * LENGTH ag32_ffi_open_in_code`;
+  ag32_ffi_open_in_entrypoint + 4 * LENGTH ag32_ffi_open_in_code
+End
 
-val ag32_ffi_open_out_def = Define`
+Definition ag32_ffi_open_out_def:
   ag32_ffi_open_out s =
  let s = ag32_ffi_fail "open_out" s in
-  ag32_ffi_return s`;
+  ag32_ffi_return s
+End
 
-val ag32_ffi_open_out_code_def = Define`
-  ag32_ffi_open_out_code = ag32_ffi_fail_code "open_out" ++ ag32_ffi_return_code`
+Definition ag32_ffi_open_out_code_def:
+  ag32_ffi_open_out_code = ag32_ffi_fail_code "open_out" ++ ag32_ffi_return_code
+End
 
 (* close *)
 
-val ag32_ffi_close_entrypoint_def = Define`
+Definition ag32_ffi_close_entrypoint_def:
   ag32_ffi_close_entrypoint =
-  ag32_ffi_open_out_entrypoint + 4 * LENGTH ag32_ffi_open_out_code`;
+  ag32_ffi_open_out_entrypoint + 4 * LENGTH ag32_ffi_open_out_code
+End
 
-val ag32_ffi_close_def = Define`
+Definition ag32_ffi_close_def:
   ag32_ffi_close s =
  let s = ag32_ffi_fail "close" s in
-  ag32_ffi_return s`;
+  ag32_ffi_return s
+End
 
-val ag32_ffi_close_code_def = Define`
-  ag32_ffi_close_code = ag32_ffi_fail_code "close" ++ ag32_ffi_return_code`
+Definition ag32_ffi_close_code_def:
+  ag32_ffi_close_code = ag32_ffi_fail_code "close" ++ ag32_ffi_return_code
+End
 
 (* FFI jumps
   - get byte array (length,pointer)s in (len_reg,ptr_reg) and (len2_reg,ptr2_reg) (these are r1-r4)
@@ -3407,7 +3491,7 @@ val ag32_ffi_close_code_def = Define`
     overflow and carry are false
 *)
 
-val ffi_entrypoints_def = Define`
+Definition ffi_entrypoints_def:
   ffi_entrypoints = [
     ("", ag32_ffi__entrypoint);
     ("get_arg_count", ag32_ffi_get_arg_count_entrypoint);
@@ -3421,9 +3505,10 @@ val ffi_entrypoints_def = Define`
     (*
     ("exit", ag32_ffi_exit_entrypoint);
     *)
-    ]`;
+    ]
+End
 
-val ffi_exitpcs_def = Define`
+Definition ffi_exitpcs_def:
   ffi_exitpcs = [
     ("", ffi_code_start_offset + ag32_ffi_get_arg_count_entrypoint);
     ("get_arg_count", ffi_code_start_offset + ag32_ffi_get_arg_length_entrypoint);
@@ -3437,9 +3522,10 @@ val ffi_exitpcs_def = Define`
     (*
     ("exit", ffi_code_start_offset + ag32_ffi_get_arg_count_entrypoint);
     *)
-    ]`;
+    ]
+End
 
-val mk_jump_ag32_code_def = Define`
+Definition mk_jump_ag32_code_def:
   mk_jump_ag32_code ffi_names name =
     let index = THE (INDEX_OF name ffi_names) in
     let entrypoint = THE (ALOOKUP ffi_entrypoints name) in
@@ -3449,7 +3535,8 @@ val mk_jump_ag32_code_def = Define`
     [Encode(LoadConstant(5w, F, (22 >< 0)((n2w dist_to_ffi_code):word32)));
      Encode(LoadUpperConstant(5w, (31 >< 23)((n2w dist_to_ffi_code):word32)));
      Encode(Jump (fSub, 5w, Reg 5w));
-     0w]`;
+     0w]
+End
 
 Theorem EL_FLAT_MAP_mk_jump_ag32_code:
    ∀ls index.
@@ -3473,15 +3560,18 @@ Proof
   \\ simp[LEFT_ADD_DISTRIB]
 QED
 
-val ccache_jump_ag32_code_def = Define`
-  ccache_jump_ag32_code = [Encode (Jump (fSnd, 0w, Reg 0w)); 0w; 0w; 0w]`;
+Definition ccache_jump_ag32_code_def:
+  ccache_jump_ag32_code = [Encode (Jump (fSnd, 0w, Reg 0w)); 0w; 0w; 0w]
+End
 
-val halt_jump_ag32_code_def = Define`
-  halt_jump_ag32_code = [Encode (Jump (fAdd, 0w, Imm 0w)); 0w; 0w; 0w]`;
+Definition halt_jump_ag32_code_def:
+  halt_jump_ag32_code = [Encode (Jump (fAdd, 0w, Imm 0w)); 0w; 0w; 0w]
+End
 
-val ag32_ffi_jumps_def = Define`
+Definition ag32_ffi_jumps_def:
   ag32_ffi_jumps ffi_names =
-    FLAT (MAP (mk_jump_ag32_code ffi_names) (REVERSE ffi_names)) ++ ccache_jump_ag32_code ++ halt_jump_ag32_code`;
+    FLAT (MAP (mk_jump_ag32_code ffi_names) (REVERSE ffi_names)) ++ ccache_jump_ag32_code ++ halt_jump_ag32_code
+End
 
 val LENGTH_ag32_ffi_jumps =
   ``LENGTH (ag32_ffi_jumps nms)``
@@ -3491,7 +3581,7 @@ val LENGTH_ag32_ffi_jumps =
   |> CONV_RULE(RAND_CONV EVAL)
   |> curry save_thm "LENGTH_ag32_ffi_jumps"
 
-val ag32_ffi_code_def = Define`
+Definition ag32_ffi_code_def:
   ag32_ffi_code =
     MAP Encode (
       ag32_ffi__code ++
@@ -3506,7 +3596,8 @@ val ag32_ffi_code_def = Define`
       (*
       ag32_ffi_exit_code ++
       *)
-      )`;
+      )
+End
 
 val LENGTH_ag32_ffi_code = ``LENGTH ag32_ffi_code`` |> EVAL
   |> curry save_thm "LENGTH_ag32_ffi_code"
@@ -3517,13 +3608,14 @@ Proof
   simp[LENGTH_ag32_ffi_code] \\ EVAL_TAC
 QED
 
-val code_start_offset_def = Define`
+Definition code_start_offset_def:
   code_start_offset num_ffis =
     ffi_jumps_offset +
     ffi_offset *
-    (2 (* halt and ccache *) + num_ffis)`;
+    (2 (* halt and ccache *) + num_ffis)
+End
 
-val startup_asm_code_def = Define`
+Definition startup_asm_code_def:
   startup_asm_code
     (* r1: temp reg *)
     (* r2: heap start reg: should be left with heap start address *)
@@ -3575,16 +3667,18 @@ val startup_asm_code_def = Define`
      Inst (Const 1 (n2w heap_size));
      Inst (Arith (Binop Add 4 2 (Reg 1)));
      Inst (Const 1 (n2w (code_start_offset num_ffis)));
-     JumpReg 1]`;
+     JumpReg 1]
+End
 
 val LENGTH_startup_asm_code = save_thm("LENGTH_startup_asm_code",
   ``LENGTH (startup_asm_code n cl bl)`` |> EVAL);
 
-val startup_code_def = Define`
+Definition startup_code_def:
   startup_code ffi_len code_len data_len =
-    FLAT (MAP ag32_enc (startup_asm_code ffi_len (n2w code_len) (n2w (4* data_len))))`
+    FLAT (MAP ag32_enc (startup_asm_code ffi_len (n2w code_len) (n2w (4* data_len))))
+End
 
-val init_memory_words_def = Define`
+Definition init_memory_words_def:
   init_memory_words code data ffis cl stdin =
   let sc = startup_code (LENGTH ffis) (LENGTH code) (LENGTH data) in
   (* startup code *)
@@ -3608,10 +3702,11 @@ val init_memory_words_def = Define`
   ag32_ffi_jumps ffis ++
   words_of_bytes F code ++
   data (* ++ padding of 0w out to memory_size: not included here *)
-  `
+End
 
-val init_memory_def = Define`
+Definition init_memory_def:
   init_memory code data ffis (cl,stdin) k =
-  get_byte k (EL (w2n (byte_align k) DIV 4) (init_memory_words code data ffis cl stdin)) F`
+  get_byte k (EL (w2n (byte_align k) DIV 4) (init_memory_words code data ffis cl stdin)) F
+End
 
 val _ = export_theory();

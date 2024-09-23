@@ -87,12 +87,13 @@ val word_exp_op_permute_lem = Q.prove(`
   Cases_on`op`>>fs[]);
 
 (*Remove tail recursion to make proof easier...*)
-val pull_ops_simp_def = Define`
+Definition pull_ops_simp_def:
   (pull_ops_simp op [] = [] ) ∧
   (pull_ops_simp op (x::xs) =
     case x of
     |  (Op op' ls) => if op = op' then ls ++ (pull_ops_simp op xs) else x::(pull_ops_simp op xs)
-    |  _  => x::(pull_ops_simp op xs))`;
+    |  _  => x::(pull_ops_simp op xs))
+End
 
 val pull_ops_simp_pull_ops_perm = Q.prove(`
   ∀ls x.

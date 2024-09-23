@@ -10,9 +10,10 @@ val _ = new_theory"targetProps";
 
 val _ = set_grammar_ancestry["ffi","asm","targetSem","misc"];
 
-val shift_interfer_def = Define `
+Definition shift_interfer_def:
   shift_interfer k s =
-    s with next_interfer := shift_seq k s.next_interfer`
+    s with next_interfer := shift_seq k s.next_interfer
+End
 
 val shift_interfer_intro = Q.prove(
   `shift_interfer k1 (shift_interfer k2 c) =

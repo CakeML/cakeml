@@ -52,8 +52,9 @@ QED
 val res = translate miscTheory.enumerate_def;
 
 (* 1 arg *)
-val max_lit_fml_def = Define`
-  max_lit_fml fml = Num (max_lit 0 (MAP (max_lit 0) fml))`
+Definition max_lit_fml_def:
+  max_lit_fml fml = Num (max_lit 0 (MAP (max_lit 0) fml))
+End
 
 val res = translate max_lit_fml_def;
 
@@ -232,8 +233,9 @@ Proof
 QED
 
 (* Translate the thunked enc call *)
-val enc_def = Define`
-  enc () = ramsey_lpr 4 18`
+Definition enc_def:
+  enc () = ramsey_lpr 4 18
+End
 
 val res = translate choose_def;
 val res = translate (COUNT_LIST_GENLIST);

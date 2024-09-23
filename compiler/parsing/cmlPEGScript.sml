@@ -34,67 +34,69 @@ end
 
 val _ = computeLib.add_thms distinct_ths computeLib.the_compset
 
-val sumID_def = Define`
+Definition sumID_def:
   sumID (INL x) = x ∧
   sumID (INR y) = y
-`;
+End
 
 val mktokLf_def = Define`mktokLf t = [Lf (TK (FST t), SND t)]`
 
-val mkNd_def = Define`
-  mkNd ntnm l = Nd (ntnm, ptree_list_loc l) l`
+Definition mkNd_def:
+  mkNd ntnm l = Nd (ntnm, ptree_list_loc l) l
+End
 
-val bindNT0_def = Define`
+Definition bindNT0_def:
   bindNT0 ntnm l = Nd (mkNT ntnm, ptree_list_loc l) l
-`;
+End
 
 val bindNT_def = Define`bindNT ntnm l = [bindNT0 ntnm l]`
 
-val mk_linfix_def = Define`
+Definition mk_linfix_def:
   mk_linfix tgt acc [] = acc ∧
   mk_linfix tgt acc [t] = acc ∧
   mk_linfix tgt acc (opt::t::rest) =
    mk_linfix tgt (mkNd tgt [acc; opt; t]) rest
-`;
+End
 
-val mk_rinfix_def = Define`
+Definition mk_rinfix_def:
   mk_rinfix tgt [] = mkNd tgt [] ∧
   mk_rinfix tgt [t] = mkNd tgt [t] ∧
-  mk_rinfix tgt (t::opt::rest) = mkNd tgt [t; opt; mk_rinfix tgt rest]`;
+  mk_rinfix tgt (t::opt::rest) = mkNd tgt [t; opt; mk_rinfix tgt rest]
+End
 
-val peg_linfix_def = Define`
+Definition peg_linfix_def:
   peg_linfix tgtnt rptsym opsym =
     seq rptsym (rpt (seq opsym rptsym (++)) FLAT)
         (λa b. case a of
                    [] => []
                   | h::_ => [mk_linfix tgtnt (mkNd tgtnt [h]) b])
-`;
+End
 
 (* have to use these versions of choicel and pegf below because the
    "built-in" versions from HOL/examples/ use ARB in their definitions.
    Logically, the ARBs are harmless, but they completely mess with the
    translator
 *)
-val choicel_def = Define`
+Definition choicel_def:
   choicel [] = not (empty []) [] ∧
   choicel (h::t) = choice h (choicel t) sumID
-`;
+End
 
 val pegf_def = Define`pegf sym f = seq sym (empty []) (λl1 l2. f l1)`
 
-val seql_def = Define`
+Definition seql_def:
   seql l f = pegf (FOLDR (\p acc. seq p acc (++)) (empty []) l) f
-`;
+End
 
 (* unused
-val peg_nonfix_def = Define`
+Definition peg_nonfix_def:
   peg_nonfix tgtnt argsym opsym =
     seql [argsym; choicel [seq opsym argsym (++); empty []]] (bindNT tgtnt)
-` *)
+End *)
 
-val try_def = Define`
+Definition try_def:
   try sym = choicel [sym; empty []]
-`
+End
 
 val tokeq_def = Define`tokeq t = tok ((=) t) mktokLf`
 
@@ -109,21 +111,21 @@ val pnt_def = Define`pnt ntsym = nt (mkNT ntsym) I`
     PEG for types
    ---------------------------------------------------------------------- *)
 
-val peg_UQConstructorName_def = Define`
+Definition peg_UQConstructorName_def:
   peg_UQConstructorName =
     tok (λt. do s <- destAlphaT t ;
                 assert (s ≠ "" ∧ isUpper (HD s))
              od = SOME ())
         (bindNT nUQConstructorName o mktokLf)
-`;
+End
 
-val peg_TypeDec_def = Define`
+Definition peg_TypeDec_def:
   peg_TypeDec =
     seq (tokeq DatatypeT)
         (peg_linfix (mkNT nDtypeDecls) (pnt nDtypeDecl)
                     (tokeq AndT))
         (λl1 l2. bindNT nTypeDec (l1 ++ l2))
-`;
+End
 
 (* expressions *)
 Definition peg_V_def:
@@ -137,15 +139,15 @@ Definition peg_V_def:
             pegf (tokSymP validPrefixSym) (bindNT nV)]
 End
 
-val peg_longV_def = Define`
+Definition peg_longV_def:
   peg_longV = tok (λt. do
                         (str,s) <- destLongidT t;
                         assert(s <> "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s)))
                        od = SOME ())
                   (bindNT nFQV o mktokLf)
-`
+End
 
-val peg_EbaseParenFn_def = Define`
+Definition peg_EbaseParenFn_def:
   peg_EbaseParenFn l =
     case l of
       [lp; es; rp] => [mkNd (mkNT nEbase) [lp; mkNd (mkNT nEseq) [es]; rp]]
@@ -167,35 +169,35 @@ val peg_EbaseParenFn_def = Define`
                 mkNd (mkNT nEbase) [lp; mkNd (mkNT nEseq) [e; sep; es]; rp]
               ]))
     | _ => []
-`
+End
 
-val peg_EbaseParen_def = Define`
+Definition peg_EbaseParen_def:
   peg_EbaseParen =
     seql [tokeq LparT; pnt nE;
           choicel [tokeq RparT;
                    seql [tokeq CommaT; pnt nElist1; tokeq RparT] I;
                    seql [tokeq SemicolonT; pnt nEseq; tokeq RparT] I]]
          peg_EbaseParenFn
-`
-val peg_StructName_def = Define`
+End
+Definition peg_StructName_def:
   peg_StructName =
     tok (λt. do s <- destAlphaT t ;
                 assert (s ≠ "")
              od = SOME ())
         (bindNT nStructName o mktokLf)
-`;
+End
 
-val ptPapply0_def = Define`
+Definition ptPapply0_def:
   ptPapply0 c [] = [] (* can't happen *) ∧
   ptPapply0 c [pb_pt] = bindNT nPapp [c; pb_pt] ∧
   ptPapply0 c (pb::pbs) = ptPapply0 (bindNT0 nPConApp [c;pb]) pbs
-`;
+End
 
-val ptPapply_def = Define`
+Definition ptPapply_def:
   ptPapply [] = [] (* can't happen *) ∧
   ptPapply [_] = [] (* can't happen *) ∧
   ptPapply (c::rest) = ptPapply0 (bindNT0 nPConApp [c]) rest
-`;
+End
 
 
 Definition cmlPEG_def[nocompute]:

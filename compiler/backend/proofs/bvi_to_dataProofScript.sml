@@ -19,14 +19,15 @@ val _ = hide"tail";
 
 (* value relation *)
 
-val code_rel_def = Define `
+Definition code_rel_def:
   code_rel (bvi_code : (num # bvi$exp) num_map)
            (data_code : (num # dataLang$prog) num_map) <=>
     wf bvi_code /\ wf data_code /\
     (domain bvi_code = domain data_code) /\
     !n exp arg_count.
       (lookup n bvi_code = SOME (arg_count,exp)) ==>
-      (lookup n data_code = SOME (arg_count,compile_exp arg_count exp))`;
+      (lookup n data_code = SOME (arg_count,compile_exp arg_count exp))
+End
 
 (* Projection from `dataSem$v` into `bvlSem$v` that basically gets rid of
    timestamp information (note this make the function non-injective)
@@ -65,13 +66,13 @@ Proof
 QED
 
 (* Projection for references, non-injective for value arrays *)
-val data_to_bvi_ref_def = Define`
+Definition data_to_bvi_ref_def:
   data_to_bvi_ref (ValueArray l)   = ValueArray (MAP data_to_bvi_v l)
 ∧ data_to_bvi_ref (ByteArray b bl) = ByteArray b bl
-`
+End
 
 (* State relation *)
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel (s:('c,'ffi) bviSem$state) (t:('c,'ffi) dataSem$state) <=>
     (s.clock = t.clock) /\
     code_rel s.code t.code /\
@@ -79,7 +80,8 @@ val state_rel_def = Define `
     (s.compile = (λcfg prog. t.compile cfg (bvi_to_data$compile_prog prog))) /\
     (∀n. FLOOKUP s.refs n  = lookup n (map data_to_bvi_ref t.refs)) /\
     (s.ffi = t.ffi) /\
-    (s.global = t.global)`;
+    (s.global = t.global)
+End
 
 (* semantics lemmas *)
 
@@ -159,11 +161,11 @@ val compile_part_thm = Q.prove(
   simp[FUN_EQ_THM,FORALL_PROD,compile_part_def])
 
 (* Projection for results, injective upto `dataSem$v` *)
-val data_to_bvi_result_def = Define`
+Definition data_to_bvi_result_def:
   data_to_bvi_result (Rval v) = Rval (data_to_bvi_v v)
 ∧ data_to_bvi_result (Rerr (Rraise v)) = Rerr (Rraise (data_to_bvi_v v))
 ∧ data_to_bvi_result (Rerr (Rabort err)) = Rerr (Rabort err)
-`
+End
 
 (* All the `dataSem$v` values project to `bvlSem$Boolv b` satisfy `isBool` *)
 Theorem isBool_eq:

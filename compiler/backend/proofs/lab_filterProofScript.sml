@@ -9,7 +9,7 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = new_theory "lab_filterProof";
 
-val adjust_pc_def = Define `
+Definition adjust_pc_def:
   adjust_pc p xs =
     if p = 0n then 0n else
       case xs of
@@ -20,15 +20,17 @@ val adjust_pc_def = Define `
             adjust_pc p (Section n lines :: rest)
           else if not_skip l then
             adjust_pc (p-1) (Section n lines :: rest) + 1
-          else adjust_pc (p-1) (Section n lines :: rest)`
+          else adjust_pc (p-1) (Section n lines :: rest)
+End
 
 (*All skips for the next k*)
-val all_skips_def = Define`
+Definition all_skips_def:
   all_skips pc code k ⇔
   (∀x y. asm_fetch_aux (pc+k) code ≠ SOME(Asm (Asmi(Inst Skip)) x y)) ∧
   ∀i. i < k ⇒
     ∃x y.
-    asm_fetch_aux (pc+i) code = SOME(Asm (Asmi(Inst Skip)) x y)`
+    asm_fetch_aux (pc+i) code = SOME(Asm (Asmi(Inst Skip)) x y)
+End
 
 val is_Label_not_skip = Q.prove(`
   is_Label y ⇒ not_skip y`,
@@ -184,7 +186,7 @@ val all_skips_evaluate = Q.prove(`
     srw_tac[][]>>first_x_assum(qspec_then`0` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
     metis_tac[arithmeticTheory.ADD_COMM,ADD_ASSOC])
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel (s1:('a,'c,'ffi) labSem$state) t1 ⇔
     (∃s1compile.
      s1 = t1 with <| code := filter_skip t1.code ;
@@ -193,7 +195,8 @@ val state_rel_def = Define `
                      compile := s1compile
                      |> ∧
     t1.compile = λc p. s1compile c (filter_skip p)  ) ∧
-    ¬t1.failed`
+    ¬t1.failed
+End
 
 val adjust_pc_all_skips = Q.prove(`
   ∀k pc code.

@@ -301,17 +301,19 @@ QED
     word_ml_inv: definition and lemmas
    ------------------------------------------------------- *)
 
-val join_env_def = Define `
+Definition join_env_def:
   join_env env vs =
     MAP (\(n,v). (THE (lookup ((n-2) DIV 2) env), v))
-      (FILTER (\(n,v). n <> 0 /\ EVEN n) vs)`
+      (FILTER (\(n,v). n <> 0 /\ EVEN n) vs)
+End
 
-val flat_def = Define `
+Definition flat_def:
   (flat (Env _ env::xs) (StackFrame _ vs _::ys) =
      join_env env vs ++ flat xs ys) /\
   (flat (Exc _ env _::xs) (StackFrame _ vs _::ys) =
      join_env env vs ++ flat xs ys) /\
-  (flat _ _ = [])`
+  (flat _ _ = [])
+End
 
 Theorem flat_APPEND:
    !xs ys xs1 ys1.
@@ -743,8 +745,9 @@ Proof
   srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [word_index]
 QED
 
-val can_select_def = Define `
-  can_select k n w <=> ((k - 1 -- n) (w << n) = w)`
+Definition can_select_def:
+  can_select k n w <=> ((k - 1 -- n) (w << n) = w)
+End
 
 Theorem read_length_lemma:
    can_select (n+2) 2 (n2w k :'a word) ==>
@@ -1255,14 +1258,16 @@ Proof
   \\ fs [word_or_def,fcpTheory.FCP_BETA,good_dimindex_def,word_lsl_def,word_index]
 QED
 
-val is_Ref_def = Define `
+Definition is_Ref_def:
   is_Ref is_ref_tag (DataElement xs l r) = is_ref_tag r /\
-  is_Ref is_ref_tag _ = F`
+  is_Ref is_ref_tag _ = F
+End
 
-val len_inv_def = Define `
+Definition len_inv_def:
   len_inv s <=>
     heap_length s.heap =
-    heap_length (s.h1 ++ s.h2) + s.n + heap_length (s.r4 ++ s.r3 ++ s.r2 ++ s.r1)`;
+    heap_length (s.h1 ++ s.h2) + s.n + heap_length (s.r4 ++ s.r3 ++ s.r2 ++ s.r1)
+End
 
 Theorem word_gen_gc_move_thm:
    (gen_gc$gc_move gen_conf s x = (x1,s1)) /\ s1.ok /\ s.h2 = [] /\ s.r4 = [] /\
@@ -1645,12 +1650,13 @@ Theorem word_gen_gc_move_list_thm = Q.prove(`
   \\ fs [heap_length_APPEND,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ fs [AC STAR_COMM STAR_ASSOC]) |> SIMP_RULE std_ss [];
 
-val word_heap_parts_def = Define `
+Definition word_heap_parts_def:
   word_heap_parts conf p s xs =
     word_heap p (s.h1 ++ s.h2) conf *
     word_list (p + bytes_in_word * n2w (heap_length (s.h1 ++ s.h2))) xs *
     word_heap (p + bytes_in_word * n2w (heap_length (s.h1 ++ s.h2) + LENGTH xs))
-      (s.r4 ++ s.r3 ++ s.r2 ++ s.r1) conf`
+      (s.r4 ++ s.r3 ++ s.r2 ++ s.r1) conf
+End
 
 Theorem gc_move_const:
    !l s xs' s'.
@@ -3154,10 +3160,11 @@ Proof
   >> res_tac
 QED
 
-val partial_len_inv_def = Define `
+Definition partial_len_inv_def:
   partial_len_inv s <=>
     heap_length s.heap =
-    heap_length (s.h1 ++ s.h2) + s.n + heap_length (s.r4 ++ s.r3 ++ s.r2 ++ s.r1 ++ s.old)`;
+    heap_length (s.h1 ++ s.h2) + s.n + heap_length (s.r4 ++ s.r3 ++ s.r2 ++ s.r1 ++ s.old)
+End
 
 Theorem word_gen_gc_partial_move_data_thm:
    !k s m dm curr xs s1 pa1 m1 i1 frame c1 old current refs.
@@ -3530,9 +3537,10 @@ Proof
   >> Cases_on `b` >> fs[isRef_def]
 QED
 
-val ends_with_refs_def = Define `
+Definition ends_with_refs_def:
   ends_with_refs rs heap =
-    ?h1 h2. heap_split rs heap = SOME (h1,h2) /\ EVERY isRef h2`
+    ?h1 h2. heap_split rs heap = SOME (h1,h2) /\ EVERY isRef h2
+End
 
 Theorem word_gen_gc_partial_thm:
    !m dm curr s1 pa1 m1 i1 frame c1 roots heap roots1 roots1' new.
@@ -3846,11 +3854,12 @@ Theorem word_gc_fun_lemma_Simple = Q.prove(`
   \\ rpt (pairarg_tac \\ fs []) \\ gvs []) |> GEN_ALL
   |> SIMP_RULE (srw_ss()) [LET_DEF,PULL_EXISTS,GSYM CONJ_ASSOC] |> SPEC_ALL;
 
-val do_partial_def = Define `
+Definition do_partial_def:
   do_partial c s =
     case c.gc_kind of
     | Generational l => word_gen_gc_can_do_partial l s
-    | _ => F`
+    | _ => F
+End
 
 Theorem heap_segment_IMP_split:
    heap_segment (m,n) heap = SOME (x1,x2,x3) ==>
@@ -4005,10 +4014,11 @@ val new_trig_LESS_EQ = prove(
         MULT_bytes_in_word_LESS_EQ_IMP)
   \\ fs [] \\ qexists_tac `l` \\ fs []);
 
-val alloc_size_def = Define `
+Definition alloc_size_def:
   alloc_size k = (if k * (dimindex (:'a) DIV 8) < dimword (:α) then
                     n2w (k * (dimindex (:'a) DIV 8))
-                  else (-1w)):'a word`
+                  else (-1w)):'a word
+End
 
 Theorem word_gc_fun_lemma = Q.prove(`
   abs_ml_inv c (v::MAP FST stack) refs (hs,heap,be,a,sp,sp1,gens) limit ts /\
@@ -4391,15 +4401,16 @@ QED
     definition of state relation
    ------------------------------------------------------- *)
 
-val code_rel_def = Define `
+Definition code_rel_def:
   code_rel c s_code (t_code: (num # 'a wordLang$prog) num_map) <=>
     domain t_code = domain s_code UNION set (MAP FST (stubs (:'a) c)) /\
     EVERY (\(n,x). lookup n t_code = SOME x) (stubs (:'a) c) /\
     !n arg_count prog.
       (lookup n s_code = SOME (arg_count:num,prog)) ==>
-      (lookup n t_code = SOME (arg_count+1,FST (comp c n 2 prog)))`
+      (lookup n t_code = SOME (arg_count+1,FST (comp c n 2 prog)))
+End
 
-val stack_rel_def = Define `
+Definition stack_rel_def:
   (stack_rel (Env s1 env) (StackFrame s2 vs NONE) <=>
      EVERY (\(x1,x2). isWord x2 ==> x1 <> 0 /\ EVEN x1) vs /\ s1 = s2 /\
      ALL_DISTINCT (MAP FST vs) /\
@@ -4407,19 +4418,23 @@ val stack_rel_def = Define `
          IS_SOME (lookup (adjust_var n) (fromAList vs))) /\
   (stack_rel (Exc s1 env n) (StackFrame s2 vs (SOME (x1,x2,x3))) <=>
      stack_rel (Env s1 env) (StackFrame s2 vs NONE) /\ (x1 = n)) /\
-  (stack_rel _ _ <=> F)`
+  (stack_rel _ _ <=> F)
+End
 
-val the_global_def = Define `
-  the_global g = the (Number 0) (OPTION_MAP RefPtr g)`;
+Definition the_global_def:
+  the_global g = the (Number 0) (OPTION_MAP RefPtr g)
+End
 
-val contains_loc_def = Define `
-  contains_loc (StackFrame _ vs _) (l1,l2) = (ALOOKUP vs 0 = SOME (Loc l1 l2))`
+Definition contains_loc_def:
+  contains_loc (StackFrame _ vs _) (l1,l2) = (ALOOKUP vs 0 = SOME (Loc l1 l2))
+End
 
-val upper_w2w_def = Define `
+Definition upper_w2w_def:
   upper_w2w (w:'a word) =
-    if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64`;
+    if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64
+End
 
-val code_oracle_rel_def = Define `
+Definition code_oracle_rel_def:
   code_oracle_rel c
       (s_compile:'c -> (num # num # dataLang$prog) list ->
                        (word8 list # word64 list # 'c) option)
@@ -4439,7 +4454,8 @@ val code_oracle_rel_def = Define `
     s_compile = (\cfg. OPTION_MAP (I ## MAP upper_w2w ## I) o t_compile cfg o
                        MAP (compile_part c)) /\
     t_compile_oracle = (I ## MAP (compile_part c)) o s_compile_oracle /\
-    (!n. EVERY (\(n,_). data_num_stubs <= n) (SND (s_compile_oracle n)))`
+    (!n. EVERY (\(n,_). data_num_stubs <= n) (SND (s_compile_oracle n)))
+End
 
 Theorem code_oracle_rel_NextFree[simp]:
    code_oracle_rel c sc sco (ts |+ (NextFree,x)) tcc tco cb db ⇔
@@ -4461,7 +4477,7 @@ End
 
 val s = ``(s:('c,'ffi) dataSem$state)``
 
-val state_rel_thm = Define `
+Definition state_rel_thm:
   state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) v1 locs <=>
     (* I/O, clock and handler are the same, GC is fixed, code is compiled *)
     (t.ffi = s.ffi) /\
@@ -4493,7 +4509,8 @@ val state_rel_thm = Define `
       (v1 ++
        join_env s.locals (toAList (inter t.locals (adjust_set s.locals))) ++
        [(the_global s.global,t.store ' Globals)] ++
-       flat s.stack t.stack)`
+       flat s.stack t.stack)
+End
 
 val state_rel_thm = save_thm("state_rel_thm[allow_rebind]",state_rel_thm);
 
@@ -4722,8 +4739,9 @@ Proof
   \\ EVAL_TAC \\ full_simp_tac(srw_ss())[good_dimindex_def,dimword_def]
 QED
 
-val mk_loc_def = Define `
-  mk_loc (SOME (t1,d1,d2)) = Loc d1 d2`;
+Definition mk_loc_def:
+  mk_loc (SOME (t1,d1,d2)) = Loc d1 d2
+End
 
 Theorem cut_env_IMP_cut_env:
    state_rel c l1 l2 ^s t [] locs /\
@@ -5455,8 +5473,9 @@ Proof
   \\ full_simp_tac(srw_ss())[LET_DEF,LASTN_ADD1,mk_loc_def]
 QED
 
-val inc_clock_def = Define `
-  inc_clock n (t:('a,'c,'ffi) wordSem$state) = t with clock := t.clock + n`;
+Definition inc_clock_def:
+  inc_clock n (t:('a,'c,'ffi) wordSem$state) = t with clock := t.clock + n
+End
 
 Theorem inc_clock_0[simp]:
    !t. inc_clock 0 t = t
@@ -6045,11 +6064,12 @@ Proof
     \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
 QED
 
-val loc_merge_def = Define `
+Definition loc_merge_def:
   (loc_merge [] ys = []) /\
   (loc_merge (Loc l1 l2::xs) ys = Loc l1 l2::loc_merge xs ys) /\
   (loc_merge (Word w::xs) (y::ys) = y::loc_merge xs ys) /\
-  (loc_merge (Word w::xs) [] = Word w::xs)`
+  (loc_merge (Word w::xs) [] = Word w::xs)
+End
 
 Theorem LENGTH_loc_merge:
    !xs ys. LENGTH (loc_merge xs ys) = LENGTH xs
@@ -8067,9 +8087,10 @@ Proof
   Induct \\ EVAL_TAC \\ rw [] \\ every_case_tac \\ fs []
 QED
 
-val join_env_locals_def = Define`
+Definition join_env_locals_def:
   join_env_locals sl tl =
-    join_env sl (toAList (inter tl (adjust_set sl)))`;
+    join_env sl (toAList (inter tl (adjust_set sl)))
+End
 
 Theorem join_env_locals_insert_odd[simp]:
    ODD n ⇒ join_env_locals sl (insert n v ls) = join_env_locals sl ls

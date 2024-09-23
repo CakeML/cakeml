@@ -399,12 +399,14 @@ val _ =  ml_prog_update (close_module NONE);
 
 val _ = ml_prog_update (open_module "Alist");
 
-val FMAP_EQ_ALIST_def = Define `
-  FMAP_EQ_ALIST f l <=> (ALOOKUP l = FLOOKUP f)`;
+Definition FMAP_EQ_ALIST_def:
+  FMAP_EQ_ALIST f l <=> (ALOOKUP l = FLOOKUP f)
+End
 
-val FMAP_TYPE_def = Define `
+Definition FMAP_TYPE_def:
   FMAP_TYPE (a:'a -> v -> bool) (b:'b -> v -> bool) (f:'a|->'b) =
-    \v. ?l. LIST_TYPE (PAIR_TYPE a b) l v /\ FMAP_EQ_ALIST f l`;
+    \v. ?l. LIST_TYPE (PAIR_TYPE a b) l v /\ FMAP_EQ_ALIST f l
+End
 
 val _ = add_type_inv ``FMAP_TYPE (a:'a -> v -> bool) (b:'b -> v -> bool)``
                      ``:('a # 'b) list``;
@@ -454,11 +456,12 @@ val Eval_FEMPTY = Q.prove(
   |> MATCH_MP (MATCH_MP Eval_WEAKEN NIL_eval)
   |> add_eval_thm;
 
-val AEVERY_AUX_def = Define `
+Definition AEVERY_AUX_def:
   (AEVERY_AUX aux P [] = T) /\
   (AEVERY_AUX aux P ((x:'a,y:'b)::xs) =
      if MEMBER x aux then AEVERY_AUX aux P xs else
-       P (x,y) /\ AEVERY_AUX (x::aux) P xs)`;
+       P (x,y) /\ AEVERY_AUX (x::aux) P xs)
+End
 val AEVERY_def = Define `AEVERY = AEVERY_AUX []`;
 val _ = next_ml_names := ["every","every"];
 val _ = translate AEVERY_AUX_def;
@@ -494,9 +497,10 @@ val Eval_FEVERY = Q.prove(
   |> add_user_proved_v_thm;
 
 val _ = next_ml_names := ["map"];
-val AMAP_def = Define `
+Definition AMAP_def:
   (AMAP f [] = []) /\
-  (AMAP f ((x:'a,y:'b)::xs) = (x,(f y):'c) :: AMAP f xs)`;
+  (AMAP f ((x:'a,y:'b)::xs) = (x,(f y):'c) :: AMAP f xs)
+End
 val AMAP_eval = translate AMAP_def;
 
 val ALOOKUP_AMAP = Q.prove(
@@ -551,9 +555,10 @@ val Eval_FUNION = Q.prove(
   |> add_user_proved_v_thm;
 
 val _ = next_ml_names := ["delete"];
-val ADEL_def = Define `
+Definition ADEL_def:
   (ADEL [] z = []) /\
-  (ADEL ((x:'a,y:'b)::xs) z = if x = z then ADEL xs z else (x,y)::ADEL xs z)`
+  (ADEL ((x:'a,y:'b)::xs) z = if x = z then ADEL xs z else (x,y)::ADEL xs z)
+End
 val ADEL_eval = translate ADEL_def;
 
 val ALOOKUP_ADEL = Q.prove(

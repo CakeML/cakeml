@@ -39,9 +39,10 @@ val wnocomment_line_side = Q.prove(`
   EVAL_TAC>>
   rw[]) |> update_precondition;
 
-val format_wcnf_failure_def = Define`
+Definition format_wcnf_failure_def:
   format_wcnf_failure (lno:num) s =
-  strlit "c wcnf parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"`
+  strlit "c wcnf parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"
+End
 
 val _ = translate format_wcnf_failure_def;
 

@@ -137,9 +137,10 @@ val _ = Define `
     else the_type_constants := (name,arity)::(!the_type_constants)
 *)
 
-val add_def = Define `
+Definition add_def:
   add_def d = do defs <- get_the_context ;
-                 set_the_context (d::defs) od`;
+                 set_the_context (d::defs) od
+End
 
 val _ = Define`
   add_type (name,arity) =
@@ -581,7 +582,7 @@ val _ = Define `
                          Abs v' (vsubst_aux ((v',v)::ilist') s)
                   else Abs v s'`;
 
-val vsubst_def = Define `
+Definition vsubst_def:
   vsubst theta tm =
     if theta = [] then return tm else
     do ok <- forall (\(t,x). do ty <- type_of t ;
@@ -589,7 +590,8 @@ val vsubst_def = Define `
                                 return (ty = SND vty) od) theta ;
        if ok
        then return (vsubst_aux theta tm)
-       else failwith (strlit "vsubst: Bad substitution list") od`
+       else failwith (strlit "vsubst: Bad substitution list") od
+End
 
 (*
   let inst =
@@ -616,11 +618,12 @@ val vsubst_def = Define `
       fun tyin -> if tyin = [] then fun tm -> tm else inst [] tyin
 *)
 
-val my_term_size_def = Define `
+Definition my_term_size_def:
   (my_term_size (Var _ _) = 1:num) /\
   (my_term_size (Const _ _) = 1) /\
   (my_term_size (Comb s1 s2) = 1 + my_term_size s1 + my_term_size s2) /\
-  (my_term_size (Abs s1 s2) = 1 + my_term_size s1 + my_term_size s2)`;
+  (my_term_size (Abs s1 s2) = 1 + my_term_size s1 + my_term_size s2)
+End
 
 val my_term_size_variant = Q.prove(
   `!avoid t. my_term_size (variant avoid t) = my_term_size t`,
@@ -990,7 +993,7 @@ val _ = Define `axioms () = get_the_axioms`;
     else failwith "new_axiom: Not a proposition"
 *)
 
-val new_axiom_def = Define `
+Definition new_axiom_def:
   new_axiom tm =
     do ty <- type_of tm ;
        bty <- bool_ty ;
@@ -1002,7 +1005,8 @@ val new_axiom_def = Define `
             return th od
        else
          failwith (strlit "new_axiom: Not a proposition")
-    od`;
+    od
+End
 
 val _ = Define`
   first_dup ls acc =
@@ -1107,7 +1111,7 @@ val _ = Define `
     Sequent([],mk_eq(mk_comb(P,r),mk_eq(mk_comb(rep,mk_comb(abs,r)),r)))
 *)
 
-val new_basic_type_definition_def = Define `
+Definition new_basic_type_definition_def:
   new_basic_type_definition (tyname, absname, repname, thm) =
     dtcase thm of (Sequent asl c) =>
     do ok0 <- can get_type_arity tyname ;
@@ -1141,7 +1145,8 @@ val new_basic_type_definition_def = Define `
        y3 <- mk_comb(P,r) ;
        eq2 <- mk_eq(y2,r) ;
        eq3 <- mk_eq(y3,eq2) ;
-       return (Sequent [] eq1, Sequent [] eq3) od od od`
+       return (Sequent [] eq1, Sequent [] eq3) od od od
+End
 
 val _ = Define `context () = get_the_context`;
 

@@ -419,66 +419,78 @@ val def = mc_use_fac_def |> to_deep
 
 (* compiler into wordLang *)
 
-val has_compiled_def = Define `
+Definition has_compiled_def:
   has_compiled code (n,code_list) =
     case ALOOKUP code_list code of
     | NONE => INR (n:num)
-    | SOME (index,word_code) => INL (index:num)`;
+    | SOME (index,word_code) => INL (index:num)
+End
 
-val code_acc_next_def = Define `
-  code_acc_next (n,code_list) = (n+1n,code_list)`
+Definition code_acc_next_def:
+  code_acc_next (n,code_list) = (n+1n,code_list)
+End
 
-val install_def = Define `
-  install c (n,code_list) = (n,c::code_list)`
+Definition install_def:
+  install c (n,code_list) = (n,c::code_list)
+End
 
-val compile_exp_def = Define `
+Definition compile_exp_def:
   compile_exp (Op b [x1;x2]) = Op b [compile_exp x1; compile_exp x2] /\
   compile_exp (Var n) = Lookup (Temp (n2w n)) /\
   compile_exp (Const w) = Const w /\
   compile_exp (Shift sh x na) = Shift sh (compile_exp x) na /\
-  compile_exp _ = Const 0w`
+  compile_exp _ = Const 0w
+End
 
 val TempIn1_def = Define `TempIn1 = Temp 31w`
 val TempIn2_def = Define `TempIn2 = Temp 30w`
 val TempOut_def = Define `TempOut = Temp 29w`
 
-val SeqTemp_def = Define `
-  SeqTemp i r p = Seq (wordLang$Assign i (Lookup (Temp (n2w r)))) p`;
+Definition SeqTemp_def:
+  SeqTemp i r p = Seq (wordLang$Assign i (Lookup (Temp (n2w r)))) p
+End
 
-val SeqTempImm_def = Define `
+Definition SeqTempImm_def:
   SeqTempImm i (Reg r) p = SeqTemp i r p /\
-  SeqTempImm i (Imm w) p = Seq (wordLang$Assign i (Const w)) p`;
+  SeqTempImm i (Imm w) p = Seq (wordLang$Assign i (Const w)) p
+End
 
-val SeqTempImmNot_def = Define `
+Definition SeqTempImmNot_def:
   SeqTempImmNot i (Reg r) p =
     SeqTemp i r (Seq (Assign i (Op Xor [Var i; Const (~0w)])) p) /\
-  SeqTempImmNot i (Imm w) p = Seq (wordLang$Assign i (Const (~w))) p`;
+  SeqTempImmNot i (Imm w) p = Seq (wordLang$Assign i (Const (~w))) p
+End
 
-val SeqIndex_def = Define `
+Definition SeqIndex_def:
   SeqIndex i r arr p =
     let t = (case arr of Out => TempOut | In2 => TempIn2 | In1 => TempIn1) in
       Seq (Assign i (Op Add [Lookup t;
            Shift Lsl (Lookup (Temp (n2w r))) (shift (:'a))])) p
-              :'a wordLang$prog`
+              :'a wordLang$prog
+End
 
-val div_location_def = Define `
-  div_location = 23n`;
+Definition div_location_def:
+  div_location = 23n
+End
 
-val DivCode_def = Define `
+Definition DivCode_def:
   DivCode l1 l2 n1 n2 n3 n4 n5 =
     MustTerminate
       (Seq (Call (SOME (n1,LS (),Skip,l1,l2)) (SOME div_location) [n3;n4;n5] NONE)
-           (Assign n2 (Lookup (Temp 28w))))`
+           (Assign n2 (Lookup (Temp 28w))))
+End
 
-val LoadRegs_def = Define `
+Definition LoadRegs_def:
   (LoadRegs [] p = p:'a wordLang$prog) /\
-  (LoadRegs (n::ns) p = Seq (Get (n+2) (Temp (n2w n))) (LoadRegs ns p))`
+  (LoadRegs (n::ns) p = Seq (Get (n+2) (Temp (n2w n))) (LoadRegs ns p))
+End
 
-val SaveRegs_def = Define `
+Definition SaveRegs_def:
   (SaveRegs [] = Skip:'a wordLang$prog) /\
-  (SaveRegs (n::ns) = Seq (Set (Temp (n2w n)) (Var (n+2))) (SaveRegs ns))`;
+  (SaveRegs (n::ns) = Seq (Set (Temp (n2w n)) (Var (n+2))) (SaveRegs ns))
+End
 
-val compile_def = Define `
+Definition compile_def:
   (compile n l i cs Skip = (wordLang$Skip,l,i,cs)) /\
   (compile n l i cs Continue = (Call NONE (SOME n) [0] NONE,l,i,cs)) /\
   (compile n l i cs (Rec save_regs names) =
@@ -540,14 +552,16 @@ val compile_def = Define `
      (Seq (DivCode n l (i+0) (i+1) (i+2) (i+3) (i+4))
      (Seq (Set (Temp (n2w r0)) (Var (i+0)))
           (Set (Temp (n2w r1)) (Var (i+1))))))),l+1,i+5,cs)) /\
-  (compile n l i cs _ = (Skip,l,i,cs))`
+  (compile n l i cs _ = (Skip,l,i,cs))
+End
 
 val _ = (max_print_depth := 25);
 
-val generated_bignum_stubs_def = Define `
+Definition generated_bignum_stubs_def:
   generated_bignum_stubs n =
     let (x1,_,_,(_,cs)) = compile n 2 1 (n+1,[]) mc_iop_code in
-      (n,1n,Seq x1 (Return 0 0)) :: MAP (\(x,y,z). (y,1,Seq z (Return 0 0))) cs`
+      (n,1n,Seq x1 (Return 0 0)) :: MAP (\(x,y,z). (y,1,Seq z (Return 0 0))) cs
+End
 
 val generated_bignum_stubs_eq = save_thm("generated_bignum_stubs_eq",
   EVAL ``generated_bignum_stubs n`` |> SIMP_RULE std_ss [GSYM ADD_ASSOC]);

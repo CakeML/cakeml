@@ -163,8 +163,9 @@ QED
 
 val _ = computeLib.add_persistent_funs(["get_token_eqn"]);
 
-val unhex_alt_def = Define`
-  unhex_alt x = (if isHexDigit x then UNHEX x else 0n)`
+Definition unhex_alt_def:
+  unhex_alt x = (if isHexDigit x then UNHEX x else 0n)
+End
 
 val num_from_dec_string_alt_def = Define `num_from_dec_string_alt = s2n 10 unhex_alt`;
 val num_from_hex_string_alt_def = Define `num_from_hex_string_alt = s2n 16 unhex_alt`;
@@ -361,8 +362,9 @@ Termination
   imp_res_tac next_token_LESS
 End
 
-val lex_until_toplevel_semicolon_def = Define `
-  lex_until_toplevel_semicolon input = lex_aux [] 0 input`;
+Definition lex_until_toplevel_semicolon_def:
+  lex_until_toplevel_semicolon input = lex_aux [] 0 input
+End
 
 val lex_aux_LESS = Q.prove(
   `!acc d input l.
@@ -418,8 +420,9 @@ Termination
   imp_res_tac next_sym_LESS
 End
 
-val lex_until_top_semicolon_alt_def = Define `
-  lex_until_top_semicolon_alt input = lex_aux_alt [] 0 input`
+Definition lex_until_top_semicolon_alt_def:
+  lex_until_top_semicolon_alt input = lex_aux_alt [] 0 input
+End
 
 val lex_aux_alt_LESS = Q.prove(
   `!acc d input l.
@@ -464,8 +467,9 @@ Proof
 QED
 
 
-val token_of_sym_loc_def = Define`
-  token_of_sym_loc (t, l) = (token_of_sym t, l)`;
+Definition token_of_sym_loc_def:
+  token_of_sym_loc (t, l) = (token_of_sym t, l)
+End
 
 val lex_aux_alt_thm = Q.prove(
   `!acc d input l.
@@ -504,7 +508,7 @@ val lex_impl_all_def = tDefine "lex_impl_all" `
    rw [] >>
    metis_tac [lex_until_toplevel_semicolon_LESS]);
 
-val lex_aux_tokens_def = Define `
+Definition lex_aux_tokens_def:
   lex_aux_tokens acc (d:num) input =
      case input of
        [] => NONE
@@ -525,10 +529,12 @@ val lex_aux_tokens_def = Define `
                lex_aux_tokens new_acc (d-1) rest
              else if token = RparT then
                lex_aux_tokens new_acc (d-1) rest
-             else lex_aux_tokens new_acc d rest`
+             else lex_aux_tokens new_acc d rest
+End
 
-val lex_until_toplevel_semicolon_tokens_def = Define `
-  lex_until_toplevel_semicolon_tokens input = lex_aux_tokens [] 0 input`;
+Definition lex_until_toplevel_semicolon_tokens_def:
+  lex_until_toplevel_semicolon_tokens input = lex_aux_tokens [] 0 input
+End
 
 val lex_aux_tokens_LESS = Q.prove(
   `!acc d input.

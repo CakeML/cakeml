@@ -137,19 +137,20 @@ Type state = ``:'ffi semanticPrimitives$state``
  * `ro`: references only
  *)
 
-val EvalM_def = Define `
+Definition EvalM_def:
   EvalM ro env st exp P H <=>
     !(s:'ffi state).
       REFS_PRED H st s ==>
       ?s2 res st2 ck.
         evaluate (s with clock := ck) env [exp] = (s2,res) /\
         P st (st2, res) /\ REFS_PRED_FRAME ro H (st, s) (st2, s2) /\
-        s.fp_state = s2.fp_state`;
+        s.fp_state = s2.fp_state
+End
 
 (* refinement invariant for ``:('a, 'b, 'c) M`` *)
 Type M = ``:'a -> ('b, 'c) exc # 'a``
 
-val MONAD_def = Define `
+Definition MONAD_def:
   MONAD (a:'a->v->bool) (b: 'b->v->bool) (x:('refs, 'a, 'b) M)
                                     (state1:'refs)
                                     (state2:'refs,res: (v list,v) result) =
@@ -157,7 +158,8 @@ val MONAD_def = Define `
       ((M_success y, st), Rval [v]) => (st = state2) /\ a y v
     | ((M_failure e, st), Rerr (Rraise v)) => (st = state2) /\
                                               b e v
-    | _ => F`
+    | _ => F
+End
 
 val H = mk_var("H",``:('a -> hprop) # 'ffi ffi_proj``);
 
@@ -277,12 +279,14 @@ QED
 
 Type H = ``:'a -> 'refs -> 'refs # (v list,v) result -> bool``
 
-val PURE_def = Define `
+Definition PURE_def:
   PURE a (x:'a) (st1:'refs) (st2,res:(v list,v) result) =
-    ?v:v. (res = Rval [v]) /\ (st1 = st2) /\ a x v`;
+    ?v:v. (res = Rval [v]) /\ (st1 = st2) /\ a x v
+End
 
-val EqSt_def = Define `
-  EqSt abs st = \x st1 (st2, res). st = st1 /\ abs x st1 (st2, res)`;
+Definition EqSt_def:
+  EqSt abs st = \x st1 (st2, res). st = st1 /\ abs x st1 (st2, res)
+End
 
 Theorem state_update_clock_id[simp]:
    (s with <|clock := s.clock; refs := refs'|>) =
@@ -312,7 +316,7 @@ QED
 
 (* function abstraction and application *)
 
-val ArrowP_def = Define `
+Definition ArrowP_def:
   ArrowP ro H (a:('a, 'refs) H) b f c =
      !x st1 s1 st2 (res:(v list,v) result).
        a x st1 (st2,res) /\ REFS_PRED H st1 s1 ==>
@@ -324,11 +328,13 @@ val ArrowP_def = Define `
              env [exp] = (s3,res3) /\
            s1.fp_state = s3.fp_state /\
            b (f x) st1 (st3,res3) /\
-           REFS_PRED_FRAME ro H (st1, s1) (st3, s3)`;
+           REFS_PRED_FRAME ro H (st1, s1) (st3, s3)
+End
 
-val ArrowM_def = Define `
+Definition ArrowM_def:
   ArrowM ro H (a:('a, 'refs) H) (b:('b, 'refs) H) =
-     PURE (ArrowP ro H a b) : ('a -> 'b, 'refs) H`;
+     PURE (ArrowP ro H a b) : ('a -> 'b, 'refs) H
+End
 
 val EvalM_Arrow_tac =
   rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,PULL_EXISTS,evaluate_def,
@@ -986,9 +992,10 @@ Proof
 QED
 
 (* Exception handling *)
-val write_list_def = Define `
+Definition write_list_def:
   (write_list [] [] env = env) /\
-  (write_list (n::nl) (v::vl) env = write_list nl vl (write n v env))`;
+  (write_list (n::nl) (v::vl) env = write_list nl vl (write n v env))
+End
 
 val pats_bindings_MAP_Pvar = Q.prove(
  `!bind_names already_bound.
@@ -1148,13 +1155,15 @@ Proof
   \\ fs []
 QED
 
-val ZIP3_def = Define `
+Definition ZIP3_def:
   ZIP3 ([],[],[]) = [] /\
-  ZIP3 (x1::l1,x2::l2,x3::l3) = (x1,x2,x3)::(ZIP3 (l1,l2,l3))`;
+  ZIP3 (x1::l1,x2::l2,x3::l3) = (x1,x2,x3)::(ZIP3 (l1,l2,l3))
+End
 
-val LIST_CONJ_def = Define `
+Definition LIST_CONJ_def:
   LIST_CONJ [] = T /\
-  LIST_CONJ (x::l) = (x /\ LIST_CONJ l)`;
+  LIST_CONJ (x::l) = (x /\ LIST_CONJ l)
+End
 
 val LIST_CONJ_APPEND = Q.prove(
  `!a b. LIST_CONJ (a++b) = (LIST_CONJ a /\ LIST_CONJ b)`,
@@ -1347,14 +1356,16 @@ QED
 
 (* Dynamic allocation of references *)
 
-val STATE_REF_def = Define`
-  STATE_REF A r x = SEP_EXISTS v. REF r v * &A x v`;
+Definition STATE_REF_def:
+  STATE_REF A r x = SEP_EXISTS v. REF r v * &A x v
+End
 
-val STATE_REFS_def = Define`
+Definition STATE_REFS_def:
   STATE_REFS A [] [] = emp /\
   STATE_REFS A (r::refs) (x::state) = STATE_REF A r x * STATE_REFS A refs state /\
   STATE_REFS A [] (x::state) = &F /\
-  STATE_REFS A (r::refs) [] = &F`;
+  STATE_REFS A (r::refs) [] = &F
+End
 
 val RES_MONAD = Define `RES_MONAD A = MONAD A (\x v. F)`;
 
@@ -2704,11 +2715,13 @@ Proof
 QED
 
 (* TODO: implement support for 2d arrays *)
-val ARRAY2D_def = Define `
-  ARRAY2D av l = SEP_EXISTS fl. ARRAY av fl * &(fl = FLAT l)`;
+Definition ARRAY2D_def:
+  ARRAY2D av l = SEP_EXISTS fl. ARRAY av fl * &(fl = FLAT l)
+End
 
-val RARRAY2D_def = Define `
-  RARRAY2D rv l = SEP_EXISTS av. REF rv av * ARRAY2D av l`;
+Definition RARRAY2D_def:
+  RARRAY2D rv l = SEP_EXISTS av. REF rv av * ARRAY2D av l
+End
 
 (* TODO: implement support for n-dimensional arrays? *)
 
@@ -2833,12 +2846,13 @@ QED
 (*
  * Run
  *)
-val EvalSt_def = Define `
+Definition EvalSt_def:
   EvalSt env st exp P H =
     !(s: unit semanticPrimitives$state). REFS_PRED H st s ==>
     ?s2 res st2 ck.
       evaluate (s with clock := ck) env [exp] = (s2, Rval [res]) /\
-      P res /\ REFS_PRED_FRAME T H (st, s) (st2, s2)`;
+      P res /\ REFS_PRED_FRAME T H (st, s) (st2, s2)
+End
 
 val LENGTH_Mem_IN_store2heap = Q.prove(
   `!refs n. n < LENGTH refs ==> (Mem n (EL n refs)) IN (store2heap refs)`,
@@ -2917,10 +2931,11 @@ Proof
   \\ fs[state_component_equality]
 QED
 
-val handle_mult_def = Define `
+Definition handle_mult_def:
   handle_mult [] exp1 ename = exp1 /\
   handle_mult (_:string list) exp1 ename =
-    Handle exp1 [(Pvar "e",(Con (SOME (Short ename)) [Var (Short "e")]))]`;
+    Handle exp1 [(Pvar "e",(Con (SOME (Short ename)) [Var (Short "e")]))]
+End
 
 val evaluate_handle_mult_Rval = Q.prove(
   `!cons_names exp1 ename res s s2 env.
@@ -2944,9 +2959,10 @@ val EVERY_CONJ_1 = GSYM EVERY_CONJ |> SPEC_ALL |> EQ_IMP_RULE
 
 (* EvalM_to_EvalSt *)
 
-val handle_all_def = Define `
+Definition handle_all_def:
   handle_all exp ename =
-    Handle exp [(Pvar "e",(Con (SOME (Short ename)) [Var (Short "e")]))]`;
+    Handle exp [(Pvar "e",(Con (SOME (Short ename)) [Var (Short "e")]))]
+End
 
 val evaluate_handle_all_Rval = Q.prove(
   `!exp1 ename res s s2 env.
@@ -2989,13 +3005,14 @@ val evaluate_Success_CONS_err = Q.prove(
 
 (* For the dynamic store initialisation *)
 (* It is not possible to use register_type here... *)
-val EXC_TYPE_aux_def = Define `
+Definition EXC_TYPE_aux_def:
        (EXC_TYPE_aux stamp a b (M_failure x_2) v ⇔
         ∃v2_1. v = Conv (SOME (TypeStamp "M_failure" stamp)) [v2_1]
                         ∧ b x_2 v2_1) ∧
        (EXC_TYPE_aux stamp a b (M_success x_1) v ⇔
         ∃v1_1. v = Conv (SOME (TypeStamp "M_success" stamp)) [v1_1]
-                        ∧ a x_1 v1_1)`;
+                        ∧ a x_1 v1_1)
+End
 
 Theorem EvalM_to_EvalSt:
   ∀exc_stamp TYPE EXN_TYPE x exp H init_state env.

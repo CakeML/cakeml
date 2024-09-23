@@ -35,9 +35,10 @@ val _ = Parse.hide "B"
 
 val the_eqn = backendPropsTheory.the_eqn
 
-val index_list_def = Define `
+Definition index_list_def:
   (index_list [] n = []) /\
-  (index_list (x::xs) n = (n + LENGTH xs,x) :: index_list xs n)`
+  (index_list (x::xs) n = (n + LENGTH xs,x) :: index_list xs n)
+End
 
 val drule = old_drule
 Theorem LENGTH_index_list:
@@ -280,9 +281,10 @@ val MIN_ADD = Q.prove(
   `MIN m1 m2 + n = MIN (m1 + n) (m2 + n)`,
   fs [MIN_DEF] \\ decide_tac);
 
-val list_LUPDATE_def = Define `
+Definition list_LUPDATE_def:
   (list_LUPDATE [] n ys = ys) /\
-  (list_LUPDATE (x::xs) n ys = list_LUPDATE xs (n+1) (LUPDATE x n ys))`
+  (list_LUPDATE (x::xs) n ys = list_LUPDATE xs (n+1) (LUPDATE x n ys))
+End
 
 Theorem LENGTH_list_LUPDATE[simp]:
    !xs n ys. LENGTH (list_LUPDATE xs n ys) = LENGTH ys
@@ -403,7 +405,7 @@ val list_rearrange_I = Q.prove(
   Note: requires assumption on dimindex(:'a) stated in state_rel
   TODO: The length checks may be inconvenient for handler frames
 *)
-val abs_stack_def = Define`
+Definition abs_stack_def:
   (abs_stack (bitmaps:'a word list) [] stack [] =
     if stack = [Word (0w:'a word)] then SOME [] else NONE) ∧
   (abs_stack bitmaps ((StackFrame n l NONE)::xs) (w::stack) (len::lens) =
@@ -442,7 +444,8 @@ val abs_stack_def = Define`
                   | NONE => NONE
                   | SOME ys => SOME ((SOME(loc,hv),bits,frame)::ys))
       | _ => NONE)) ∧
-  (abs_stack bitmaps _ _ _ = NONE)`
+  (abs_stack bitmaps _ _ _ = NONE)
+End
 
 val abs_stack_ind = theorem"abs_stack_ind";
 
@@ -483,14 +486,16 @@ Proof
   \\ simp[]
 QED
 
-val MAP_FST_def = Define `
-  MAP_FST f xs = MAP (\(x,y). (f x, y)) xs`
+Definition MAP_FST_def:
+  MAP_FST f xs = MAP (\(x,y). (f x, y)) xs
+End
 
-val adjust_names_def = Define `
-  adjust_names n = n DIV 2`;
+Definition adjust_names_def:
+  adjust_names n = n DIV 2
+End
 
 (*handler_val counts the total number of words in the list of frames*)
-val handler_val_def = Define`
+Definition handler_val_def:
   (handler_val [] = 1n) ∧
   (handler_val ((NONE,_,frame)::stack) =
     1+LENGTH frame+handler_val stack) ∧
@@ -499,23 +504,26 @@ val handler_val_def = Define`
       + 2 more for the pointer and locs
       + 1 for the next bitmap pointer
     *)
-    4+LENGTH frame+handler_val stack)`
+    4+LENGTH frame+handler_val stack)
+End
 
 (*TODO: Maybe switch to this alternative index_list that goes from
 stackLang vars to wordLang vars more directly*)
 (*
-val index_list_def = Define `
+Definition index_list_def:
   (index_list [] k = []) /\
-  (index_list (x::xs) k = (2*(k+LENGTH xs),x) :: index_list xs k)`
+  (index_list (x::xs) k = (2*(k+LENGTH xs),x) :: index_list xs k)
+End
 *)
 
-val is_handler_frame_def = Define`
+Definition is_handler_frame_def:
   (is_handler_frame (StackFrame n l NONE) = F) ∧
-  (is_handler_frame _ = T)`
+  (is_handler_frame _ = T)
+End
 
 
 (*Checks for consistency of the values*)
-val stack_rel_aux_def = Define`
+Definition stack_rel_aux_def:
   (stack_rel_aux k len [] [] ⇔ T) ∧
   (stack_rel_aux k len ((StackFrame n l NONE)::xs) ((NONE,bits,frame)::stack) ⇔
     filter_bitmap bits (index_list frame k) = SOME (MAP_FST adjust_names l,[]) ∧
@@ -529,12 +537,14 @@ val stack_rel_aux_def = Define`
       filter_bitmap bits (index_list frame k) = SOME (MAP_FST adjust_names l,[]) ∧
       the (LENGTH frame + 1) n = LENGTH frame + 1 ∧
       stack_rel_aux k len xs stack) ∧
-  (stack_rel_aux k len _ _ = F)`
+  (stack_rel_aux k len _ _ = F)
+End
 
-val sorted_env_def = Define `
-  sorted_env (StackFrame n l _) = SORTED (\x y. FST x > FST y) l`
+Definition sorted_env_def:
+  sorted_env (StackFrame n l _) = SORTED (\x y. FST x > FST y) l
+End
 
-val stack_rel_def = Define `
+Definition stack_rel_def:
   stack_rel k s_handler s_stack t_handler t_rest_of_stack t_stack_length t_bitmaps lens <=>
     EVERY sorted_env s_stack /\
     ∃stack.
@@ -543,14 +553,15 @@ val stack_rel_def = Define `
       is_handler_frame (EL (LENGTH s_stack - (s_handler+1)) s_stack)
       ⇒
       t_handler = SOME(Word (n2w (t_stack_length - handler_val (LASTN (s_handler+1) stack))))) ∧
-      stack_rel_aux k t_stack_length s_stack stack`
+      stack_rel_aux k t_stack_length s_stack stack
+End
 
 (*f is the size of the current frame + 1 most of the time
   (extra word for the bitmap pointer)
   f' is the size of the current frame
   lens tracks the size of each remaining stack frame on the stackLang stack
 *)
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel k f f' (s:('a,num # 'c,'ffi) wordSem$state) (t:('a,'c,'ffi) stackSem$state) lens ⇔
     (s.clock = t.clock) /\ (s.gc_fun = t.gc_fun) /\ (s.permute = K I) /\
     (t.ffi = s.ffi) /\ t.use_stack /\ t.use_store /\ t.use_alloc /\
@@ -615,7 +626,8 @@ val state_rel_def = Define `
         EVEN n /\
         if n DIV 2 < k then (FLOOKUP t.regs (n DIV 2) = SOME v)
         else (LLOOKUP current_frame (f-1 -(n DIV 2 - k)) = SOME v) /\
-             n DIV 2 < k + f')`
+             n DIV 2 < k + f')
+End
 
 (* correctness proof *)
 
@@ -1376,11 +1388,12 @@ val abs_stack_empty = Q.prove(`
   abs_stack bs [] ls lens = SOME stack ⇒ ls = [Word 0w] ∧ lens = []`,
   rpt Cases>>fs[abs_stack_def])
 
-val abs_frame_eq_def = Define`
+Definition abs_frame_eq_def:
   abs_frame_eq p q ⇔
   FST p = FST q ∧
   FST (SND p) = FST (SND q) ∧
-  LENGTH (SND (SND p)) = LENGTH (SND (SND q))`
+  LENGTH (SND (SND p)) = LENGTH (SND (SND q))
+End
 
 val LIST_REL_abs_frame_eq_handler_val = Q.prove(`
   ∀xs ys.
@@ -1918,13 +1931,14 @@ val alloc_IMP_alloc2 = Q.prove(`
   \\ imp_res_tac dec_stack_stack_size
   \\ fs[]);
 
-val compile_result_def = Define`
+Definition compile_result_def:
   (compile_result (Result w1 w2) = Result w1) ∧
   (compile_result (Exception w1 w2) = Exception w1) ∧
   (compile_result TimeOut = TimeOut) ∧
   (compile_result NotEnoughSpace = Halt (Word 1w)) ∧
   (compile_result (FinalFFI f) = FinalFFI f) ∧
-  (compile_result Error = Error)`;
+  (compile_result Error = Error)
+End
 val _ = export_rewrites["compile_result_def"];
 
 val Halt_EQ_compile_result = Q.prove(
@@ -1936,9 +1950,10 @@ val stack_evaluate_add_clock_NONE =
   stackPropsTheory.evaluate_add_clock
   |> Q.SPECL [`p`,`s`,`NONE`] |> SIMP_RULE (srw_ss()) [] |> GEN_ALL
 
-val push_locals_def = Define `
+Definition push_locals_def:
   push_locals s = s with <| locals := LN; locals_size := SOME 0;
-    stack := StackFrame s.locals_size (FST (env_to_list s.locals (K I))) NONE :: s.stack |>`
+    stack := StackFrame s.locals_size (FST (env_to_list s.locals (K I))) NONE :: s.stack |>
+End
 
 val LASTN_LENGTH_ID2 = Q.prove(`
   ∀stack x.
@@ -9526,7 +9541,7 @@ Proof
   simp[EL_APPEND1]
 QED
 
-val init_state_ok_def = Define `
+Definition init_state_ok_def:
   init_state_ok k ^t coracle <=>
     4n < k /\ good_dimindex (:'a) /\ 8 <= dimindex (:'a) /\
     t.use_stack /\ t.use_store /\ t.use_alloc /\ gc_fun_ok t.gc_fun /\
@@ -9548,9 +9563,10 @@ val init_state_ok_def = Define `
         EVERY (flat_exp_conventions o SND o SND) progs ∧
         EVERY ((<>) raise_stub_location o FST) progs ∧
         EVERY ((<>) store_consts_stub_location o FST) progs ∧
-        (n = 0 ⇒ bm0 = LENGTH t.bitmaps))`
+        (n = 0 ⇒ bm0 = LENGTH t.bitmaps))
+End
 
-val make_init_def = Define `
+Definition make_init_def:
   make_init k ^t code coracle =
     <| locals  := insert 0 (Loc 1 0) LN
      ; fp_regs := t.fp_regs
@@ -9578,7 +9594,8 @@ val make_init_def = Define `
      ; stack_max   := stack_size([]:'a stack_frame list)
       (* Not sure about Nil,0 *)
      ; stack_size  := mapi (λn (arg_count,prog). FST (SND (compile_prog prog arg_count k (Nil,0)))) code
-     ; locals_size := SOME 0|> ` ;
+     ; locals_size := SOME 0|>
+End ;
 
 val init_state_ok_IMP_state_rel = Q.prove(
   `lookup raise_stub_location t.code = SOME (raise_stub k) /\

@@ -49,7 +49,7 @@ val hash_tab_64_manip = el 1 arr_manip;
 
 val hash_tab_64_accessor = save_thm("hash_tab_64_accessor",accessor_thm hash_tab_64_manip);
 
-val lookup_ins_table_64_def = Define`
+Definition lookup_ins_table_64_def:
   lookup_ins_table_64 enc n a =
   let v = hash_asm n a MOD n in
   do
@@ -63,9 +63,10 @@ val lookup_ins_table_64_def = Define`
       od
     | SOME res =>
       return res
-  od`
+  od
+End
 
-val enc_line_hash_64_def = Define `
+Definition enc_line_hash_64_def:
   (enc_line_hash_64 enc skip_len n (Label n1 n2 n3) =
     return (Label n1 n2 skip_len)) ∧
   (enc_line_hash_64 enc skip_len n (Asm a _ _) =
@@ -77,18 +78,20 @@ val enc_line_hash_64_def = Define `
      do
        bs <- lookup_ins_table_64 enc n (lab_inst 0w l);
        return (LabAsm l 0w bs (LENGTH bs))
-     od)`
+     od)
+End
 
-val enc_line_hash_64_ls_def = Define`
+Definition enc_line_hash_64_ls_def:
   (enc_line_hash_64_ls enc skip_len n [] = return []) ∧
   (enc_line_hash_64_ls enc skip_len n (x::xs) =
   do
     fx <- enc_line_hash_64 enc skip_len n x;
     fxs <- enc_line_hash_64_ls enc skip_len n xs;
     return (fx::fxs)
-  od)`
+  od)
+End
 
-val enc_sec_hash_64_ls_def = Define`
+Definition enc_sec_hash_64_ls_def:
   (enc_sec_hash_64_ls enc skip_len n [] = return []) ∧
   (enc_sec_hash_64_ls enc skip_len n (x::xs) =
   case x of Section k ys =>
@@ -96,11 +99,13 @@ val enc_sec_hash_64_ls_def = Define`
     ls <- enc_line_hash_64_ls enc skip_len n ys;
     rest <- enc_sec_hash_64_ls enc skip_len n xs;
     return (Section k ls::rest)
-  od)`
+  od)
+End
 
-val enc_sec_hash_64_ls_full_def = Define`
+Definition enc_sec_hash_64_ls_full_def:
   enc_sec_hash_64_ls_full enc n xs =
-  enc_sec_hash_64_ls enc (LENGTH (enc (Inst Skip))) n xs`
+  enc_sec_hash_64_ls enc (LENGTH (enc (Inst Skip))) n xs
+End
 
 (* As we are using fixed-size array, we need to define a different record type for the initialization *)
 val array_fields_names = ["hash_tab_64"];
@@ -108,15 +113,17 @@ val run_ienc_state_64_def = define_run ``:enc_state_64``
                                       array_fields_names
                                       "ienc_state_64";
 
-val enc_secs_64_aux_def = Define`
+Definition enc_secs_64_aux_def:
   enc_secs_64_aux enc n xs =
-    run_ienc_state_64 (enc_sec_hash_64_ls_full enc n xs) <| hash_tab_64 := (n, []) |>`
+    run_ienc_state_64 (enc_sec_hash_64_ls_full enc n xs) <| hash_tab_64 := (n, []) |>
+End
 
-val enc_secs_64_def = Define`
+Definition enc_secs_64_def:
   enc_secs_64 enc n xs =
     case enc_secs_64_aux enc (if n = 0 then 1 else n) xs of
       M_success xs => xs
-    | M_failure _ => []`
+    | M_failure _ => []
+End
 
 val msimps = [st_ex_bind_def,st_ex_return_def];
 
@@ -170,10 +177,11 @@ Proof
   fs[Marray_update_def]
 QED
 
-val good_table_64_def = Define`
+Definition good_table_64_def:
   good_table_64 enc n s ⇔
   EVERY (λls. EVERY (λ(x,y). enc x = y) ls) s.hash_tab_64 ∧
-  LENGTH s.hash_tab_64 = n`;
+  LENGTH s.hash_tab_64 = n
+End
 
 val lookup_ins_table_64_correct = Q.prove(`
   good_table_64 enc n s ∧

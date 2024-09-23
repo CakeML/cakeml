@@ -6,9 +6,9 @@ open preamble
 
 val _ = new_theory"runtimeFFI";
 
-val ffi_exit_def = Define `
+Definition ffi_exit_def:
  ffi_exit (conf:word8 list) (bytes:word8 list) () = SOME(FFIdiverge:unit ffi_result)
-  `
+End
 
 Theorem ffi_exit_length:
     ffi_exit (conf:word8 list) (bytes:word8 list) u = SOME (FFIreturn bytes' args')
@@ -33,8 +33,9 @@ Proof
 rw[decode_def,encode_def]
 QED
 
-val runtime_ffi_part_def = Define`
+Definition runtime_ffi_part_def:
   runtime_ffi_part = (encode,decode,
-    [("exit",ffi_exit)])`;
+    [("exit",ffi_exit)])
+End
 
 val _ = export_theory();

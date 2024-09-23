@@ -1473,7 +1473,7 @@ Definition app_wordToInt_def:
 End
 
 (*
-val app_opn_def = Define `
+Definition app_opn_def:
   app_opn opn i1 i2 H Q =
     if (opn = Divide \/ opn = Modulo) /\ i2 = 0 then
       H ==>> Q (Exn (prim_exn "Div"))
@@ -2000,7 +2000,8 @@ Definition cf_def:
   cf (p:'ffi ffi_proj) (Tannot e _) = cf p e /\
   cf _ _ = cf_bottom
 Termination
-  WF_REL_TAC `measure (exp_size o SND)` \\ rw []
+  WF_REL_TAC
+Endmeasure (exp_size o SND)` \\ rw []
     THEN1 (
       Cases_on `opt` \\ Cases_on `e1` \\ fs [is_bound_Fun_def] \\
       drule Fun_body_exp_size \\ strip_tac \\ fs [astTheory.exp_size_def]

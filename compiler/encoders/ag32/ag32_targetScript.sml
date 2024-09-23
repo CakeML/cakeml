@@ -8,42 +8,47 @@ val () = new_theory "ag32_target"
 
 (* --- Valid Ag32 states --- *)
 
-val ag32_ok_def = Define`
-  ag32_ok ms <=> aligned 2 ms.PC`
+Definition ag32_ok_def:
+  ag32_ok ms <=> aligned 2 ms.PC
+End
 
 (* Possible initial states for Ag32, not placed in the L3 ISA because it was
    difficult to express this concisely there *)
 
-val is_ag32_init_state_def = Define `
+Definition is_ag32_init_state_def:
  is_ag32_init_state mem s <=>
   s.PC = 0w /\
   s.MEM = mem /\
   s.R = K 0w /\
-  s.io_events = []`;
+  s.io_events = []
+End
 
 (* --- Encode ASM instructions to Ag32 bytes. --- *)
 
-val ag32_encode1_def = Define`
+Definition ag32_encode1_def:
   ag32_encode1 i =
   let w = ag32$Encode i in
-  [(7 >< 0) w; (15 >< 8) w; (23 >< 16) w; (31 >< 24) w] : word8 list`
+  [(7 >< 0) w; (15 >< 8) w; (23 >< 16) w; (31 >< 24) w] : word8 list
+End
 
 val ag32_encode_def = Define `ag32_encode = combin$C LIST_BIND ag32_encode1`
 
-val ag32_bop_def = Define`
+Definition ag32_bop_def:
    (ag32_bop Add = fAdd) /\
    (ag32_bop Sub = fSub) /\
    (ag32_bop And = fAnd) /\
    (ag32_bop Or  = fOr) /\
-   (ag32_bop Xor = fXor)`
+   (ag32_bop Xor = fXor)
+End
 
-val ag32_sh_def = Define`
+Definition ag32_sh_def:
    (ag32_sh Lsl = shiftLL) /\
    (ag32_sh Lsr = shiftLR) /\
    (ag32_sh Asr = shiftAR) /\
-   (ag32_sh Ror = shiftRor)`
+   (ag32_sh Ror = shiftRor)
+End
 
-val ag32_cmp_def = Define`
+Definition ag32_cmp_def:
    (ag32_cmp Equal = fEqual) /\
    (ag32_cmp Less = fLess) /\
    (ag32_cmp Lower = fLower) /\
@@ -51,28 +56,31 @@ val ag32_cmp_def = Define`
    (ag32_cmp NotEqual = fEqual) /\
    (ag32_cmp NotLess = fLess) /\
    (ag32_cmp NotLower = fLower) /\
-   (ag32_cmp NotTest = fAnd)`
+   (ag32_cmp NotTest = fAnd)
+End
 
-val ag32_constant_def = Define`
+Definition ag32_constant_def:
   ag32_constant (r, v : word32) =
   if -0x7FFFFFw <= v /\ v < 0x7FFFFFw then
    let (b, n) = if 0w <= v then (F, v) else (T, -v) in
     [LoadConstant (r, b, w2w n)]
   else
-   [LoadConstant (r, F, (22 >< 0) v); LoadUpperConstant (r, (31 >< 23) v)]`;
+   [LoadConstant (r, F, (22 >< 0) v); LoadUpperConstant (r, (31 >< 23) v)]
+End
 
 (* Workaround that makes sure that all jump-related instructions
    are always encoded to the same length.
    Not using this workaround causes problems in lab_to_target. *)
-val ag32_jump_constant_def = Define`
+Definition ag32_jump_constant_def:
   ag32_jump_constant (r, v : word32, adjust_offset) =
    let v = if adjust_offset then v - 8w else v in
-    [LoadConstant (r, F, (22 >< 0) v); LoadUpperConstant (r, (31 >< 23) v)]`;
+    [LoadConstant (r, F, (22 >< 0) v); LoadUpperConstant (r, (31 >< 23) v)]
+End
 
 Overload enc[local] = ``ag32_encode1``
 Overload temp_reg[local] = ``63w : word6``
 
-val ag32_enc_def = Define`
+Definition ag32_enc_def:
    (ag32_enc (Inst Skip) =
       enc (Normal (fOr, 0w, Reg 0w, Imm 0w))) /\
    (ag32_enc (Inst (Const r i)) =
@@ -199,12 +207,13 @@ val ag32_enc_def = Define`
          [if cmp IN {Test; NotEqual; NotLess; NotLower} then
            JumpIfZero arg
          else
-           JumpIfNotZero arg]))`
+           JumpIfNotZero arg]))
+End
 
 (* --- Configuration for Ag32 --- *)
 
 (* Note that some bounds here might not be tight *)
-val ag32_config_def = Define`
+Definition ag32_config_def:
    ag32_config =
    <| ISA := Ag32
     ; encode := ag32_enc
@@ -224,13 +233,15 @@ val ag32_config_def = Define`
     ; jump_offset := (-0x7FFFFFFFw + 4w, 0x7FFFFFFFw)
     ; cjump_offset := (-0x7FFFFFFFw + 4w, 0x7FFFFFFFw)
     ; loc_offset := (-0x7FFFFFFFw + 4w, 0x7FFFFFFFw)
-    |>`
+    |>
+End
 
-val ag32_proj_def = Define`
+Definition ag32_proj_def:
    ag32_proj d s =
-   (s.PC, s.R, fun2set (s.MEM, d), s.CarryFlag, s.OverflowFlag)`
+   (s.PC, s.R, fun2set (s.MEM, d), s.CarryFlag, s.OverflowFlag)
+End
 
-val ag32_target_def = Define`
+Definition ag32_target_def:
    ag32_target =
    <| next := ag32$Next
     ; config := ag32_config
@@ -239,7 +250,8 @@ val ag32_target_def = Define`
     ; get_byte := ag32_state_MEM
     ; state_ok := ag32_ok
     ; proj := ag32_proj
-    |>`
+    |>
+End
 
 val (ag32_config, ag32_asm_ok) = asmLib.target_asm_rwts [] ``ag32_config``
 

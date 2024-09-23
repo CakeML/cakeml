@@ -42,8 +42,9 @@ Overload "\226\150\183*" = ``RTC $▷``
 
 (* invariant on states *)
 
-val windmill_def = Define `
-  windmill (moves:('a # 'a) list) = ALL_DISTINCT (MAP FST moves)`;
+Definition windmill_def:
+  windmill (moves:('a # 'a) list) = ALL_DISTINCT (MAP FST moves)
+End
 
 Theorem windmill_cons:
    windmill (x::ls) ⇔ ¬MEM (FST x) (MAP FST ls) ∧ windmill ls
@@ -51,10 +52,11 @@ Proof
   rw[windmill_def]
 QED
 
-val path_def = Define`
+Definition path_def:
   (path [] ⇔ T) ∧ (path [_] ⇔ T) ∧
   (path ((c,b')::(b,a)::p) ⇔
-     (b = b') ∧ path ((b,a)::p))`;
+     (b = b') ∧ path ((b,a)::p))
+End
 val _ = export_rewrites["path_def"];
 
 Theorem path_change_start:
@@ -108,14 +110,15 @@ val NoRead_path = Q.prove(
   imp_res_tac path_imp_mem2 >>
   fs[] >> metis_tac[] )
 
-val wf_def = Define`
+Definition wf_def:
   wf (μ,σ,τ) ⇔
     windmill (μ++σ) ∧
     EVERY IS_SOME (MAP FST μ) ∧
     EVERY IS_SOME (MAP SND μ) ∧
     (¬NULL σ ⇒ EVERY IS_SOME (MAP SND (FRONT σ))) ∧
     EVERY IS_SOME (MAP FST σ) ∧
-    path σ`;
+    path σ
+End
 val _ = overload_on(UnicodeChars.turnstile,``wf``);
 
 Theorem wf_init:
@@ -148,8 +151,9 @@ QED
 
 (* semantics of moves *)
 
-val parsem_def = Define`
-  parsem μ ρ = ρ =++ (ZIP(MAP FST μ, MAP (ρ o SND) μ))`;
+Definition parsem_def:
+  parsem μ ρ = ρ =++ (ZIP(MAP FST μ, MAP (ρ o SND) μ))
+End
 
 Theorem parsem_nil[simp]:
    parsem [] = I
@@ -304,9 +308,10 @@ Proof
   \\ metis_tac[]
 QED
 
-val seqsem_def = Define`
+Definition seqsem_def:
   (seqsem [] ρ = ρ) ∧
-  (seqsem ((d,s)::τ) ρ = seqsem τ ((d =+ ρ s) ρ))`;
+  (seqsem ((d,s)::τ) ρ = seqsem τ ((d =+ ρ s) ρ))
+End
 
 val seqsem_ind = theorem"seqsem_ind";
 
@@ -325,8 +330,9 @@ QED
 
 (* semantics of the state *)
 
-val sem_def = Define`
-  sem (μ,σ,τ) ρ = parsem (μ++σ) (seqsem (REVERSE τ) ρ)`;
+Definition sem_def:
+  sem (μ,σ,τ) ρ = parsem (μ++σ) (seqsem (REVERSE τ) ρ)
+End
 
 Theorem sem_init:
    sem (μ,[],[]) = parsem μ
@@ -342,8 +348,9 @@ QED
 
 (* semantic preservation *)
 
-val eqenv_def = Define`
-  eqenv ρ1 ρ2 ⇔ ∀r. IS_SOME r ⇒ (ρ1 r = ρ2 r)`;
+Definition eqenv_def:
+  eqenv ρ1 ρ2 ⇔ ∀r. IS_SOME r ⇒ (ρ1 r = ρ2 r)
+End
 val _ = set_fixity"\226\137\161"(Infix(NONASSOC,450));
 Overload "\226\137\161" = ``eqenv``
 
@@ -502,7 +509,7 @@ QED
 
 (* functional algorithm *)
 
-val fstep_def = Define`
+Definition fstep_def:
   fstep st =
   case st of
   | ([],[],_) => st
@@ -520,7 +527,8 @@ val fstep_def = Define`
                 if s' = d
                 then (t,SNOC (d',NONE) b',(d,s)::(NONE,d)::l)
                 else (t,b,(d,s)::l))
-      t`;
+      t
+End
 
 val not_or = METIS_PROVE[]``¬a ∨ b ⇔ a ⇒ b``;
 
@@ -639,9 +647,10 @@ QED
 
 (* The top-level parallel move compiler *)
 
-val parmove_def = Define `
+Definition parmove_def:
   parmove (xs:('a # 'a) list) =
-    REVERSE(SND(SND(pmov (MAP (\(x,y). (SOME x, SOME y)) xs, [],[]))))`;
+    REVERSE(SND(SND(pmov (MAP (\(x,y). (SOME x, SOME y)) xs, [],[]))))
+End
 
 Theorem parmove_correct:
    windmill xs ⇒
@@ -803,11 +812,12 @@ QED
 
 (* the compiler does not use uninitialised temporaries *)
 
-val not_use_temp_before_assign_def = Define`
+Definition not_use_temp_before_assign_def:
    (not_use_temp_before_assign [] = T) ∧
    (not_use_temp_before_assign ((d,NONE)::ls) = F) ∧
    (not_use_temp_before_assign ((NONE,s)::ls) = T) ∧
-   (not_use_temp_before_assign ((d,s)::ls) = not_use_temp_before_assign ls)`
+   (not_use_temp_before_assign ((d,s)::ls) = not_use_temp_before_assign ls)
+End
 val _ = export_rewrites["not_use_temp_before_assign_def"];
 
 val not_use_temp_before_assign_ind = theorem"not_use_temp_before_assign_ind";
@@ -998,8 +1008,9 @@ QED
 
 (* the compiler retains all non-trivial moves *)
 
-val state_to_list_def = Define`
-  state_to_list p = APPEND (FST p) (FST(SND p)) ++ SND(SND p)`;
+Definition state_to_list_def:
+  state_to_list p = APPEND (FST p) (FST(SND p)) ++ SND(SND p)
+End
 
 Theorem step_preserves_moves:
    ∀s1 s2. s1 ▷ s2 ⇒
@@ -1057,15 +1068,17 @@ QED
 
 (* mapping an injective function over compiled moves *)
 
-val map_state_def = Define`
-  map_state f = let m = MAP (f ## f) in m ## m ## m`;
+Definition map_state_def:
+  map_state f = let m = MAP (f ## f) in m ## m ## m
+End
 
-val inj_on_state_def = Define`
+Definition inj_on_state_def:
   inj_on_state f p =
      let ls0 = state_to_list p in
      let ls = MAP FST ls0 ++ MAP SND ls0 in
      (∀x y. MEM x ls ∧ MEM y ls ∧ f x = f y ⇒ x = y) ∧
-     (∀x. f x = NONE ⇔ x = NONE)`;
+     (∀x. f x = NONE ⇔ x = NONE)
+End
 
 Theorem step_inj_on_state:
    ∀s1 s2. s1 ▷ s2 ⇒ inj_on_state f s1 ⇒ inj_on_state f s2

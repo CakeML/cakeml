@@ -32,15 +32,15 @@ val [builtin_closure_inj,builtin_closure_bool,builtin_closure_fun] =
          ["builtin_closure_inj","builtin_closure_bool","builtin_closure_fun"]
          (CONJUNCTS builtin_closure_rules);
 
-val ground_types_def = Define `
+Definition ground_types_def:
   ground_types (sig:sig) =
   {ty | tyvars ty = [] /\ type_ok (tysof sig) ty}
-  `
+End
 
-val ground_consts_def = Define `
+Definition ground_consts_def:
   ground_consts sig =
   {(n,ty) | ty ∈ ground_types sig /\ term_ok sig (Const n ty)}
-  `
+End
 
 val nonbuiltin_types_def = Define `nonbuiltin_types = {ty | ¬is_builtin_type ty}`
 
@@ -1097,8 +1097,9 @@ Proof
   \\ fs[]
 QED
 
-val total_fragment_def = Define `
-  total_fragment sig = (ground_types sig ∩ nonbuiltin_types, ground_consts sig ∩ nonbuiltin_constinsts)`
+Definition total_fragment_def:
+  total_fragment sig = (ground_types sig ∩ nonbuiltin_types, ground_consts sig ∩ nonbuiltin_constinsts)
+End
 
 Theorem ground_types_builtin_closure:
   !c sig. c ∈ ground_types sig ==> c ∈ builtin_closure (ground_types sig ∩ nonbuiltin_types)

@@ -23,34 +23,38 @@ End
 val tree_distinct = fetch "-" "tree_distinct"
 val tree_nchotomy = fetch "-" "tree_nchotomy"
 
-val tree_to_set_def = Define `
+Definition tree_to_set_def:
 (tree_to_set Empty = {}) ∧
-(tree_to_set (Tree _ t1 x t2)  = {x} ∪ tree_to_set t1 ∪ tree_to_set t2)`;
+(tree_to_set (Tree _ t1 x t2)  = {x} ∪ tree_to_set t1 ∪ tree_to_set t2)
+End
 
 (* The tree is a binary search tree *)
-val is_bst_def = Define `
+Definition is_bst_def:
 (is_bst lt Empty <=> T) ∧
 (is_bst lt (Tree _ t1 x t2) <=>
   is_bst lt t1 ∧
   is_bst lt t2 ∧
   (!y. y ∈ tree_to_set t1 ⇒ lt y x) ∧
-  (!y. y ∈ tree_to_set t2 ⇒ lt x y))`;
+  (!y. y ∈ tree_to_set t2 ⇒ lt x y))
+End
 
-val not_red_def = Define `
+Definition not_red_def:
 (not_red (Tree Red t1 x t2) = F) ∧
-(not_red _ = T)`;
+(not_red _ = T)
+End
 
-val red_black_invariant1_def = Define `
+Definition red_black_invariant1_def:
 (red_black_invariant1 Empty <=> T) ∧
 (red_black_invariant1 (Tree Black t1 x t2) <=>
   red_black_invariant1 t1 ∧ red_black_invariant1 t2) ∧
 (red_black_invariant1 (Tree Red t1 x t2) <=>
   red_black_invariant1 t1 ∧ red_black_invariant1 t2 ∧
-  not_red t1 ∧ not_red t2)`;
+  not_red t1 ∧ not_red t2)
+End
 
 (* Count the number of black nodes along every path to the root.
  * Return NONE, if this number isn't the same along every path. *)
-val red_black_invariant2_def = Define `
+Definition red_black_invariant2_def:
 (red_black_invariant2 Empty = SOME 0) ∧
 (red_black_invariant2 (Tree c t1 x t2) =
   case red_black_invariant2 t1 of
@@ -65,7 +69,8 @@ val red_black_invariant2_def = Define `
                   else
                     SOME n
                 else
-                  NONE)`;
+                  NONE)
+End
 
 val empty_def = mlDefine `
 empty = Empty`;
@@ -80,7 +85,7 @@ val member_def = mlDefine `
   else
     T)`;
 
-val balance_def = Define `
+Definition balance_def:
 (balance Black (Tree Red (Tree Red a x b) y c) z d =
   Tree Red (Tree Black a x b) y (Tree Black c z d)) ∧
 
@@ -93,7 +98,8 @@ val balance_def = Define `
 (balance Black a x (Tree Red b y (Tree Red c z d)) =
   Tree Red (Tree Black a x b) y (Tree Black c z d)) ∧
 
-(balance col a x b = Tree col a x b)`;
+(balance col a x b = Tree col a x b)
+End
 
 val balance_ind = fetch "-" "balance_ind"
 
@@ -337,10 +343,11 @@ QED
 
 (* Invariant one hold everywhere except for the root node,
  * where it may or may not. *)
-val rbinv1_root_def = Define `
+Definition rbinv1_root_def:
 (rbinv1_root Empty <=> T) ∧
 (rbinv1_root (Tree c t1 x t2) <=>
-  red_black_invariant1 t1 ∧ red_black_invariant1 t2)`;
+  red_black_invariant1 t1 ∧ red_black_invariant1 t2)
+End
 
 val balance_inv1_black = Q.prove (
 `!c t1 a t2 n.

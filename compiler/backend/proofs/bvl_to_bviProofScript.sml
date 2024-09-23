@@ -55,11 +55,12 @@ Proof
   Cases_on`b`>>EVAL_TAC
 QED
 
-val aux_code_installed_def = Define `
+Definition aux_code_installed_def:
   (aux_code_installed [] t <=> T) /\
   (aux_code_installed ((name,arg_count,body)::rest) t <=>
      (sptree$lookup name t = SOME (arg_count,body)) /\
-     aux_code_installed rest t)`
+     aux_code_installed rest t)
+End
 
 val aux_code_installed_APPEND = Q.prove(
   `!xs ys.
@@ -79,7 +80,7 @@ QED
 Overload in_ns_0[local] = ``λn. n MOD bvl_to_bvi_namespaces = 0``
 Overload in_ns_1[local] = ``λn. n MOD bvl_to_bvi_namespaces = 1``
 
-val names_ok_def = Define `
+Definition names_ok_def:
   names_ok s_code t_code s_oracle <=>
     (!n k prog. s_oracle n = (k,prog) ==>
                 EVERY (\(name,arity,exp). handle_ok [exp]) prog) /\
@@ -87,9 +88,10 @@ val names_ok_def = Define `
       (!n. n IN sptree$domain t_code /\ num_stubs <= n ==>
            if in_ns_1 n then n < num_stubs + nss * next
            else in_ns_0 n /\
-                (n - num_stubs) DIV bvl_to_bvi_namespaces IN sptree$domain s_code)`;
+                (n - num_stubs) DIV bvl_to_bvi_namespaces IN sptree$domain s_code)
+End
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel (b:num->num) s (t:('c,'ffi) bviSem$state) <=>
     INJ b (FDOM s.refs) (FDOM t.refs) /\
     (!k. case FLOOKUP s.refs k of
@@ -124,7 +126,8 @@ val state_rel_def = Define `
              (lookup (num_stubs + nss * name) t.code =
                 SOME (arity,bvi_let$compile_exp (HD c1))) /\
              aux_code_installed (append aux1) t.code /\
-             handle_ok [exp])`;
+             handle_ok [exp])
+End
 
 Theorem state_rel_FLOOKUP_byteArray:
    !b s t m l n. state_rel b s t /\ FLOOKUP s.refs n = SOME (ByteArray m l)
@@ -172,12 +175,13 @@ val bv_ok_IMP_adjust_bv_eq = Q.prove(
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[adjust_bv_def,bv_ok_def]
   \\ full_simp_tac(srw_ss())[MAP_EQ_f,EVERY_MEM]);
 
-val state_ok_def = Define `
+Definition state_ok_def:
   state_ok (s:('c,'ffi) bvlSem$state) <=>
     EVERY (\x. case x of NONE => T | SOME v => bv_ok s.refs v) s.globals /\
     !k. case FLOOKUP s.refs k of
         | SOME (ValueArray vs) => EVERY (bv_ok s.refs) vs
-        | _ => T`;
+        | _ => T
+End
 
 (* evaluate preserves state_ok *)
 

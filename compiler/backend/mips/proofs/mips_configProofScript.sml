@@ -8,14 +8,15 @@ open blastLib;
 
 val _ = new_theory"mips_configProof";
 
-val is_mips_machine_config_def = Define`
+Definition is_mips_machine_config_def:
   is_mips_machine_config mc ⇔
   mc.target = mips_target ∧
   mc.len_reg =5  ∧
   mc.ptr_reg = 4 ∧
   mc.len2_reg =7  ∧
   mc.ptr2_reg = 6 ∧
-  mc.callee_saved_regs = [21;22;23]`;
+  mc.callee_saved_regs = [21;22;23]
+End
 
 val names_tac =
   simp[tlookup_bij_iff] \\ EVAL_TAC

@@ -42,9 +42,10 @@ Datatype:
        env_gens : (environment sptree$num_map) sptree$num_map |>
 End
 
-val compile_var_def = Define `
+Definition compile_var_def:
   compile_var t (Glob _ i) = App t (GlobalVarLookup i) [] /\
-  compile_var t (Local _ s) = Var_local t s`;
+  compile_var t (Local _ s) = Var_local t s
+End
 
 Theorem ast_pat1_size:
   ast$pat1_size xs = LENGTH xs + SUM (MAP pat_size xs)
@@ -69,13 +70,14 @@ Termination
   fs [MEM_SPLIT, SUM_APPEND]
 End
 
-val pat_tups_def = Define`
+Definition pat_tups_def:
   (pat_tups t [] = []) ∧
   (pat_tups t (x::xs) =
    let t' = mk_cons t ((LENGTH xs) + 1) in
-     (x, Local t' x)::pat_tups t xs)`;
+     (x, Local t' x)::pat_tups t xs)
+End
 
-val astOp_to_flatOp_def = Define `
+Definition astOp_to_flatOp_def:
   astOp_to_flatOp (op : ast$op) : flatLang$op =
   case op of
     Opn opn => flatLang$Opn opn
@@ -128,7 +130,8 @@ val astOp_to_flatOp_def = Define `
   | FFI string => flatLang$FFI string
   | Eval => Eval
   (* default element *)
-  | _ => flatLang$ConfigGC`;
+  | _ => flatLang$ConfigGC
+End
 
 Definition type_group_id_type_def:
   type_group_id_type NONE = NONE /\
@@ -299,13 +302,15 @@ Proof
    rw [compile_exp_def]
 QED
 
-val om_tra_def = Define`
-  om_tra = Cons orphan_trace 1`;
+Definition om_tra_def:
+  om_tra = Cons orphan_trace 1
+End
 
-val alloc_defs_def = Define `
+Definition alloc_defs_def:
   (alloc_defs n next [] = []) ∧
   (alloc_defs n next (x::xs) =
-    (x, Glob om_tra next) :: alloc_defs (n + 1) (next + 1) xs)`;
+    (x, Glob om_tra next) :: alloc_defs (n + 1) (next + 1) xs)
+End
 
 Theorem fst_alloc_defs:
    !n next l. MAP FST (alloc_defs n next l) = l
@@ -323,23 +328,27 @@ Proof
   srw_tac [ARITH_ss] [alloc_defs_def, arithmeticTheory.ADD1]
 QED
 
-val make_varls_def = Define`
+Definition make_varls_def:
   (make_varls n t idx [] = Con None NONE []) ∧
   (make_varls n t idx [x] = App None (GlobalVarInit idx) [Var_local None x])
   /\
   (make_varls n (t:tra) idx (x::xs) =
       Let None NONE (App None (GlobalVarInit idx) [Var_local None x])
-        (make_varls (n+1) None (idx + 1) xs):flatLang$exp)`;
+        (make_varls (n+1) None (idx + 1) xs):flatLang$exp)
+End
 
-val empty_env_def = Define `
-  empty_env = <| v := nsEmpty; c := nsEmpty |>`;
+Definition empty_env_def:
+  empty_env = <| v := nsEmpty; c := nsEmpty |>
+End
 
-val extend_env_def = Define `
+Definition extend_env_def:
   extend_env e1 e2 =
-    <| v := nsAppend e1.v e2.v; c := nsAppend e1.c e2.c |>`;
+    <| v := nsAppend e1.v e2.v; c := nsAppend e1.c e2.c |>
+End
 
-val lift_env_def = Define `
-  lift_env mn e = <| v := nsLift mn e.v; c := nsLift mn e.c |>`;
+Definition lift_env_def:
+  lift_env mn e = <| v := nsLift mn e.v; c := nsLift mn e.c |>
+End
 
 val _ = Datatype `
   next_indices = <| vidx : num; tidx : num; eidx : num |>`;
@@ -442,32 +451,35 @@ val _ = Datatype`
             ; envs : environment_store
             |>`;
 
-val empty_config_def = Define`
+Definition empty_config_def:
   empty_config =
     <| next := <| vidx := 0; tidx := 0; eidx := 0 |>;
         mod_env := empty_env;
         pattern_cfg := flat_pattern$init_config 0;
         envs := <| next := 0; env_gens := LN |>
-    |>`;
+    |>
+End
 
-val compile_flat_def = Define `
+Definition compile_flat_def:
   compile_flat pcfg = MAP (flat_pattern$compile_dec pcfg)
-    o flat_elim$remove_flat_prog`;
+    o flat_elim$remove_flat_prog
+End
 
-val glob_alloc_def = Define `
+Definition glob_alloc_def:
   glob_alloc next c =
     Dlet
       (Let om_tra NONE
         (App om_tra
           (GlobalVarAlloc (next.vidx - c.next.vidx)) [])
-        (flatLang$Con om_tra NONE []))`;
+        (flatLang$Con om_tra NONE []))
+End
 
 Definition alloc_env_ref_def:
   alloc_env_ref = Dlet (App None (GlobalVarInit 0)
     [App None Opref [Con None NONE []]])
 End
 
-val compile_prog_def = Define`
+Definition compile_prog_def:
   compile_prog c p =
     let next = c.next with <| vidx := c.next.vidx + 1 |> in
     let envs = <| next := 0; generation := c.envs.next; envs := LN |> in
@@ -475,7 +487,8 @@ val compile_prog_def = Define`
     let envs2 = <| next := c.envs.next + 1;
         env_gens := insert c.envs.next gen.envs c.envs.env_gens |> in
     (c with <| next := next; envs := envs2; mod_env := e |>,
-        glob_alloc next c :: alloc_env_ref :: p')`;
+        glob_alloc next c :: alloc_env_ref :: p')
+End
 
 Definition lookup_env_id_def:
   lookup_env_id env_id envs = case lookup (FST env_id) envs.env_gens of
@@ -486,12 +499,13 @@ Definition lookup_env_id_def:
   )
 End
 
-val store_env_id_def = Define`
+Definition store_env_id_def:
   store_env_id gen id =
     Dlet (Let None (SOME "r") (flatLang$App None (GlobalVarLookup 0) [])
-        (App None Opassign [Var_local None "r"; env_id_tuple gen id]))`;
+        (App None Opassign [Var_local None "r"; env_id_tuple gen id]))
+End
 
-val inc_compile_prog_def = Define`
+Definition inc_compile_prog_def:
   inc_compile_prog env_id c p =
     let env = lookup_env_id env_id c.envs in
     let envs = <| next := 0; generation := c.envs.next; envs := LN |> in
@@ -500,19 +514,22 @@ val inc_compile_prog_def = Define`
     let envs2 = <| next := c.envs.next + 1;
         env_gens := insert c.envs.next gen_envs c.envs.env_gens |> in
     (c with <| next := next; envs := envs2 |>,
-        glob_alloc next c :: p' ++ [store_env_id gen.generation gen.next])`;
+        glob_alloc next c :: p' ++ [store_env_id gen.generation gen.next])
+End
 
-val compile_def = Define `
+Definition compile_def:
   compile c p =
     let (c', p') = compile_prog c p in
     let p' = compile_flat c'.pattern_cfg p' in
-    (c', p')`;
+    (c', p')
+End
 
 (* note that flat_elim is always disabled in the eval/incremental case *)
-val inc_compile_def = Define `
+Definition inc_compile_def:
   inc_compile env_id c p =
     let (c', p') = inc_compile_prog env_id c p in
     let p' = MAP (flat_pattern$compile_dec c'.pattern_cfg) p' in
-    (c', p')`;
+    (c', p')
+End
 
 val _ = export_theory();

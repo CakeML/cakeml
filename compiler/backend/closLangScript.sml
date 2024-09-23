@@ -142,7 +142,7 @@ Proof
   \\ RES_TAC \\ SRW_TAC [] [] \\ DECIDE_TAC
 QED
 
-val pure_op_def = Define `
+Definition pure_op_def:
   pure_op op ⇔
     case op of
       FFI _ => F
@@ -156,7 +156,7 @@ val pure_op_def = Define `
     | Update => F
     | Install => F
     | _ => T
-`;
+End
 
 (* pure e means e can neither raise an exception nor side-effect the state *)
 val pure_def = tDefine "pure" `
@@ -186,9 +186,10 @@ val pure_def = tDefine "pure" `
    rpt strip_tac >> res_tac >> simp[])
 
 (* used in proofs about closLang, BVL, BVI and dataLang *)
-val assign_get_code_label_def = Define`
+Definition assign_get_code_label_def:
   (assign_get_code_label (closLang$Label x) = {x}) ∧
-  (assign_get_code_label x = {})`
+  (assign_get_code_label x = {})
+End
 
 Type clos_prog = ``: closLang$exp list # (num # num # closLang$exp) list``
 

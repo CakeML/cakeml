@@ -73,10 +73,11 @@ val term_image_term_remove = Q.prove (
 
 (* End of theorems for elsewhere *)
 
-val const_subst_ok_def = Define `
-const_subst_ok s = EVERY (\(c,tm). welltyped tm ∧ CLOSED tm) s`;
+Definition const_subst_ok_def:
+const_subst_ok s = EVERY (\(c,tm). welltyped tm ∧ CLOSED tm) s
+End
 
-val remove_const_def = Define `
+Definition remove_const_def:
 (remove_const thy subst (Var v ty) = Var v ty) ∧
 (remove_const thy subst (Const c ty) =
   case ALOOKUP subst c of
@@ -88,12 +89,14 @@ val remove_const_def = Define `
 (remove_const thy subst (Comb tm1 tm2) =
   Comb (remove_const thy subst tm1) (remove_const thy subst tm2)) ∧
 (remove_const thy subst (Abs v tm) =
-  Abs v (remove_const thy subst tm))`;
+  Abs v (remove_const thy subst tm))
+End
 
-val upd_to_subst_def = Define `
+Definition upd_to_subst_def:
 (upd_to_subst (ConstSpec consts p) =
   consts) ∧
-(upd_to_subst _ = [])`;
+(upd_to_subst _ = [])
+End
 
 val updates_to_subst = Q.prove (
 `!upd ctxt.
