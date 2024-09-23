@@ -20,7 +20,7 @@ Definition domain_raw:
   domain ty = case ty of Tyapp n (x::xs) => x | _ => ty
 End
 
-Theorem domain_def[compute,simp,allow_rebind]:
+Theorem domain_def[compute,simp]:
    !t s. domain (Fun s t) = s
 Proof
   REPEAT STRIP_TAC \\ EVAL_TAC
@@ -30,7 +30,7 @@ Definition codomain_raw:
   codomain ty = case ty of Tyapp n (y::x::xs) => x | _ => ty
 End
 
-Theorem codomain_def[compute,simp,allow_rebind]:
+Theorem codomain_def[compute,simp]:
    !t s. codomain (Fun s t) = t
 Proof
   REPEAT STRIP_TAC \\ EVAL_TAC
