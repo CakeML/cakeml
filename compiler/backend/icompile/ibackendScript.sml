@@ -636,13 +636,6 @@ Proof
   pairarg_tac >> gvs[]
 QED
 
-Theorem calls_acc:
-   !xs d old res d1 aux.
-     clos_call$calls xs (d, []) = (res, d1, aux) ==>
-     clos_call$calls xs (d, old) = (res, d1, aux ++ old)
-Proof
-  cheat (* proved in clos_callProofScript *)
-QED
 
 Theorem clos_call_calls_cons_alt:
   clos_call$calls (p :: ps) (g, []) =
@@ -654,7 +647,7 @@ Proof
   >- (gvs[clos_callTheory.calls_def])
   >- (gvs[clos_callTheory.calls_def] >>
       rpt (pairarg_tac >> gvs[]) >>
-      qspecl_then [‘(h::t)’, ‘g'’, ‘acc_head’] mp_tac calls_acc >>
+      qspecl_then [‘(h::t)’, ‘g'’, ‘acc_head’] mp_tac clos_callTheory.calls_acc >>
       gvs[] >> strip_tac >> gvs[])
 
 QED
@@ -695,12 +688,6 @@ Proof
   last_x_assum drule_all >> gvs[]
 QED
 
-Theorem compile_exps_eq_append:
-  compile_exps max_app xs aux =
-    ((\(ys, aux2). (ys, aux2 ++ aux)) (I compile_exps max_app xs []))
-Proof
-  cheat
-QED
 
 
 (* Super ugly, to fix, also how to do a drule for this *)
@@ -716,19 +703,19 @@ Proof
       rw[] >>
       rpt (pairarg_tac >> gvs[]) >>
       first_x_assum mp_tac >>
-      once_rewrite_tac[compile_exps_eq_append] >>
+      once_rewrite_tac[clos_to_bvlTheory.compile_exps_eq_append] >>
       rpt (pairarg_tac >> gvs[]) >>
       first_x_assum mp_tac >>
       once_rewrite_tac[clos_to_bvlTheory.compile_exps_CONS] >> rw[] >>
       rpt (pairarg_tac >> gvs[]) >>
       first_x_assum mp_tac >>
-      once_rewrite_tac[compile_exps_eq_append] >>
+      once_rewrite_tac[clos_to_bvlTheory.compile_exps_eq_append] >>
       rpt (pairarg_tac >> gvs[]) >>
       rw[] >>
       last_x_assum rev_drule >> gvs[] >>
       rpt (pairarg_tac >> gvs[]) >>
       first_x_assum mp_tac >>
-      once_rewrite_tac[compile_exps_eq_append] >>
+      once_rewrite_tac[clos_to_bvlTheory.compile_exps_eq_append] >>
       rpt (pairarg_tac >> gvs[]) >>
       last_x_assum rev_drule >> gvs[])
 QED

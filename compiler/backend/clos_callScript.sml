@@ -198,14 +198,19 @@ val EL_MEM_LEMMA = Q.prove(
   `!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs`,
   Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []);
 
-val insert_each_def = Define `
+Definition insert_each_def:
   (insert_each p 0 g = g) /\
-  (insert_each p (SUC n) (g1,g2) = insert_each (p+2) n (insert p () g1,g2))`
+  (insert_each p (SUC n) (g1,g2) = insert_each (p+2) n (insert p () g1,g2))
+End
 
-val code_list_def = Define `
+Definition code_list_def:
   (code_list loc [] g = g) /\
   (code_list loc ((n,p)::xs) (g1,g2) =
-     code_list (loc+2n) xs (g1,(loc+1,n,p)::g2))`
+   code_list (loc+2n) xs (g1,(loc+1,n,p)::g2))
+End
+
+
+
 
 val GENLIST_Var_def = Define `
   GENLIST_Var t (i:num) n =
@@ -222,7 +227,7 @@ val exp3_size_MAP_SND = Q.prove(
   `!fns. exp3_size (MAP SND fns) <= exp1_size fns`,
   Induct \\ fs [exp_size_def,FORALL_PROD]);
 
-val calls_def = tDefine "calls" `
+Definition calls_def:
   (calls [] g = ([],g)) /\
   (calls ((x:closLang$exp)::y::xs) g =
      let (e1,g) = calls [x] g in
@@ -298,14 +303,19 @@ val calls_def = tDefine "calls" `
        else
          let (fns1,g) = calls (MAP SND fns) g in
          let (e1,g) = calls [x1] g in
-           ([Letrec t loc_opt ws (ZIP (MAP FST fns,fns1)) (HD e1)],g))`
+           ([Letrec t loc_opt ws (ZIP (MAP FST fns,fns1)) (HD e1)],g))
+Termination
  (WF_REL_TAC `measure (exp3_size o FST)`
   \\ REPEAT STRIP_TAC
   \\ fs [GSYM NOT_LESS]
   \\ IMP_RES_TAC EL_MEM_LEMMA
   \\ IMP_RES_TAC exp1_size_lemma
   \\ assume_tac (SPEC_ALL exp3_size_MAP_SND)
-  \\ DECIDE_TAC);
+  \\ DECIDE_TAC)
+End
+
+
+
 
 Definition calls_sing_def:
   (calls_sing (Var t v) g =
@@ -464,5 +474,175 @@ val selftest = let
   val n = tm |> find_terms (aconv ``closLang$Call``) |> length
   val _ = (n = 5) orelse failwith "clos_call implementation broken"
   in tm end
+
+
+(* Add some theorems *)
+
+Theorem FST_code_list[simp]:
+   ∀loc fns g. FST (code_list loc fns g) = FST g
+Proof
+  ho_match_mp_tac code_list_ind
+  \\ rw[code_list_def]
+QED
+
+fun pairmaparg_tac (g as (asl,w)) =
+  (tryfind
+    (Lib.partial(mk_HOL_ERR"clos_callProofTheory""pairmaparg_tac""not found")
+        (bvk_find_term
+          (fn (bvs,tm) =>
+            is_comb tm andalso
+            pairSyntax.is_pair_map (rator tm) andalso
+            HOLset.isEmpty
+              (HOLset.intersection (FVL bvs empty_tmset,
+                                    FVL [rand tm] empty_tmset)) andalso
+            not (pairSyntax.is_pair (rand tm)))
+          (fn tm => Cases_on [ANTIQUOTE (rand tm)])))
+    (w::asl)) g
+
+Theorem SND_code_list_ZIP:
+   ∀loc fns g. SND (code_list loc fns g) =
+   REVERSE(ZIP (GENLIST ($+ (loc+1) o $* 2) (LENGTH fns), fns)) ++ (SND g)
+Proof
+  ho_match_mp_tac code_list_ind
+  \\ rw[code_list_def,GENLIST_CONS]
+  \\ simp[REVERSE_ZIP,o_DEF,ADD1,LEFT_ADD_DISTRIB]
+QED
+
+Theorem SND_insert_each[simp]:
+   ∀p n g. SND (insert_each p n g) = SND g
+Proof
+  ho_match_mp_tac insert_each_ind
+  \\ rw[insert_each_def]
+QED
+Theorem code_list_IS_SUFFIX:
+   ∀loc fns g. IS_SUFFIX (SND (code_list loc fns g)) (SND g)
+Proof
+  ho_match_mp_tac code_list_ind
+  \\ rw[code_list_def] \\ fs[IS_SUFFIX_APPEND]
+QED
+
+
+Theorem code_list_replace_SND:
+   ∀loc fns g0 g g0' ls.
+   code_list loc fns g0 = g ∧
+   FST g0 = FST g0' ∧
+   SND g = ls ++ SND g0
+   ⇒
+   code_list loc fns g0' = (FST g, ls ++ SND g0')
+Proof
+  ho_match_mp_tac code_list_ind
+  \\ rw[code_list_def] \\ fs[] \\ rw[]
+  \\ Cases_on`g0'` \\ fs[code_list_def]
+  \\ fs[FORALL_PROD]
+  \\ qmatch_asmsub_abbrev_tac`SND (code_list l2 fns g)`
+  \\ qispl_then[`l2`,`fns`,`g`]strip_assume_tac code_list_IS_SUFFIX
+  \\ fs[IS_SUFFIX_APPEND,Abbr`g`] \\ fs[] \\ rw[] \\ fs[]
+QED
+
+Theorem FST_insert_each_same:
+   ∀p n g0 g0'.
+    FST g0 = FST g0' ⇒ FST (insert_each p n g0) = FST (insert_each p n g0')
+Proof
+  ho_match_mp_tac insert_each_ind
+  \\ rw[insert_each_def] \\ fs[FORALL_PROD]
+  \\ Cases_on`g0'` \\ fs[insert_each_def]
+QED
+
+Theorem insert_each_pair_arg:
+   insert_each x y (p,q) = (FST (insert_each x y (p,q')), q)
+Proof
+  Cases_on`insert_each x y (p,q)` \\ rw[]
+  \\ metis_tac[SND_insert_each, SND, FST_insert_each_same, FST]
+QED
+
+val calls_acc_0 = Q.prove(
+  `!xs tmp x r.
+     x ++ r = SND tmp ⇒
+     calls xs tmp = (I ## I ## (combin$C (++) r)) (calls xs (FST tmp, x))`,
+  recInduct calls_ind
+  \\ rw[calls_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ rveq \\ fs[]
+  \\ TRY (
+    first_x_assum drule
+    \\ pairmaparg_tac \\ fs[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ fsrw_tac[DNF_ss][APPEND_EQ_APPEND]
+    \\ first_x_assum(qspecl_then[`r''`,`[]`]mp_tac)
+    \\ simp[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ last_x_assum(qspecl_then[`r'''`,`r`]mp_tac)
+    \\ simp[]
+    \\ NO_TAC )
+  >- (
+    first_x_assum drule
+    \\ pairmaparg_tac \\ fs[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ fs[bool_case_eq] \\ rveq \\ fs[]
+    \\ first_x_assum(qspecl_then[`r'`,`r`]mp_tac)
+    \\ simp[] )
+  >- (
+    pairmaparg_tac \\ fs[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ first_x_assum drule
+    \\ pairmaparg_tac \\ fs[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ qmatch_asmsub_abbrev_tac`insert_each p s (FST g, x)`
+    \\ `insert_each p s (FST g, x) = (FST (insert_each p s g), x)` by metis_tac[insert_each_pair_arg, PAIR]
+    \\ fs[] \\ rveq
+    \\ fs[bool_case_eq] \\ rveq \\ fs[]
+    \\ first_x_assum drule
+    \\ pairmaparg_tac \\ fs[] )
+  >- (
+    pairmaparg_tac \\ fs[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ first_x_assum drule
+    \\ pairmaparg_tac \\ fs[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ qmatch_asmsub_abbrev_tac`insert_each p s (FST g, x)`
+    \\ `insert_each p s (FST g, x) = (FST (insert_each p s g), x)` by metis_tac[insert_each_pair_arg, PAIR]
+    \\ fs[] \\ rveq
+    \\ reverse (fs[bool_case_eq]) \\ rveq \\ fs[]
+    >- (
+      first_x_assum drule
+      \\ pairmaparg_tac \\ fs[]
+      \\ rveq \\ fs[]
+      \\ pairmaparg_tac \\ fs[]
+      \\ pairmaparg_tac \\ fs[]
+      \\ strip_tac \\ rveq \\ fs[]
+      \\ first_x_assum(qspecl_then[`r'`,`r`]mp_tac)
+      \\ simp[] )
+    \\ pairmaparg_tac \\ fs[]
+    \\ qmatch_asmsub_abbrev_tac`code_list p ff`
+    \\ Q.ISPECL_THEN[`p`,`ff`,`q,r'`]mp_tac code_list_replace_SND
+    \\ simp[]
+    \\ disch_then(qspec_then`q,r'++r`mp_tac) \\ fs[]
+    \\ Cases_on`code_list p ff (q,r')` \\ fs[]
+    \\ `∃ls. r''' = ls ++ r'` by metis_tac[SND_code_list_ZIP, SND] \\ fs[]
+    \\ strip_tac \\ fs[]
+    \\ first_x_assum(qspecl_then[`ls++r'`,`r`]mp_tac)
+    \\ simp[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ pairmaparg_tac \\ fs[]
+    \\ `q'' = q` by metis_tac[FST_code_list, FST]
+    \\ fs[] ));
+
+Theorem calls_acc:
+   !xs d old res d1 aux.
+      calls xs (d, []) = (res, d1, aux) ==>
+      calls xs (d, old) = (res, d1, aux ++ old)
+Proof
+  rw[]
+  \\ qspecl_then[`xs`,`d,old`,`[]`,`old`]mp_tac calls_acc_0
+  \\ simp[]
+QED
+
 
 val _ = export_theory();
