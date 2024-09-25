@@ -1,0 +1,1 @@
+Tests adapted from the integration test suite for Dafny compilers.

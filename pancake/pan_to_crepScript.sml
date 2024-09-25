@@ -299,7 +299,7 @@ Definition compile_def:
          | _ => Skip)
      | _ => Skip)) ∧
   (compile ctxt Tick = Tick) ∧
-  (compile _ (Annot _) = Skip)
+  (compile _ (Annot _ _) = Skip)
 End
 
 Definition mk_ctxt_def:
