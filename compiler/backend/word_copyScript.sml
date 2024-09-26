@@ -175,8 +175,12 @@ Definition set_eq_def:
   set_eq cs x y =
   if is_alloc_var x ∧ is_alloc_var y
   then
-    case lookup y cs.to_eq of
-      NONE =>
+    case
+      case lookup y cs.to_eq of
+        NONE => NONE
+      | SOME c => if lookup c cs.from_eq = NONE then NONE else SOME c
+    of
+       NONE =>
       <| to_eq := insert x cs.next (insert y cs.next cs.to_eq);
          from_eq := insert cs.next x cs.from_eq;
          next := cs.next +1 |>

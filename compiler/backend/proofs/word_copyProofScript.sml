@@ -14,19 +14,15 @@ Definition CPstate_inv_def:
    (* cs.next is a fresh class *)
    (∀v c. lookup v cs.to_eq = SOME c ⇒ c < cs.next) ∧
    (∀c. c ∈ domain cs.from_eq ⇒ c < cs.next) ∧
-   (* each class has a representative *)
-   (* (∀c. c < cs.next ⇒ lookup c cs.from_eq ≠ NONE) ∧
-   *)
    (* if representative of equiv class c is var v,
       then class of v is c *)
    (∀c v. lookup c cs.from_eq = SOME v ⇒
      lookup v cs.to_eq = SOME c)
   )
 End
-(*   ∧
-   (* different classes have different representatives *)
+(* As a corollary, different classes have different representatives:
    (∀c c'. c < c' ⇒ c' < cs.next ⇒ lookup c cs.from_eq ≠ lookup c' cs.from_eq))
-End *)
+*)
 
 Theorem empty_eq_inv:
   CPstate_inv empty_eq
@@ -114,9 +110,9 @@ QED
 *)
 
 Theorem merge_eqs_inv:
-  CPstate_inv cs ∧
-  CPstate_inv ds ⇒
-  CPstate_inv (merge_eqs cs ds)
+  CPstate_inv cs1 ∧
+  CPstate_inv cs2 ⇒
+  CPstate_inv (merge_eqs cs1 cs2)
 Proof
   rw[]>>
   simp[merge_eqs_def,CPstate_inv_def]>>
@@ -127,8 +123,8 @@ Proof
   CONJ_TAC >- (
     (* invariant 2 works *)
     simp[domain_lookup,lookup_inter_eq,AllCaseEqs()]>>
-    rw[]>>
-    cheat )>>
+    rw[]>>metis_tac[CPstate_inv_def]
+  )>>
   rw[lookup_inter_eq,AllCaseEqs()]>>
   metis_tac[CPstate_inv_def]
 QED
@@ -163,6 +159,14 @@ Proof
   metis_tac[SOME_11]
 QED
 
+Theorem lookup_eqI:
+  ∀cs r v.
+  (r=v ∧ lookup v cs.to_eq = NONE) ∨ (∃c. lookup v cs.to_eq = SOME c ∧ lookup c cs.from_eq = SOME r) ⇒
+  lookup_eq cs v = r
+Proof
+  rw[lookup_eq_def]>>every_case_tac>>rw[]
+QED
+
 Theorem lookup_eq_set_eq_not_is_alloc_var:
   ¬ (is_alloc_var s ∧ is_alloc_var t) ⇒
   lookup_eq (set_eq cs t s) v =
@@ -172,15 +176,54 @@ Proof
 QED
 
 (* t := s *)
-Theorem lookup_eq_set_eq_is_alloc_var:
+Theorem lookup_eq_set_eq_is_alloc_var1:
   CPstate_inv cs ∧
   is_alloc_var s ∧ is_alloc_var t ⇒
-  lookup_eq (set_eq cs t s) v =
-  if lookup_eq cs s = lookup_eq cs v
-  then t
-  else lookup_eq cs v
+  lookup t cs.to_eq = NONE ⇒
+  lookup_eq cs s = lookup_eq cs v ⇒
+  lookup_eq (set_eq cs t s) v = t
 Proof
-  cheat
+  rpt strip_tac>>
+  ‘v=s ∨ (∃c. lookup v cs.to_eq = SOME c ∧ lookup s cs.to_eq = SOME c)’
+     by metis_tac[same_classD]
+  >- (
+     (* could be shorter, I think *)
+    simp[lookup_eq_def,set_eq_def]>>
+    (Cases_on‘lookup s cs.to_eq’>>rw[lookup_insert])
+    )
+  >- (
+    ‘v≠t’ by metis_tac[NOT_NONE_SOME]>>
+    irule lookup_eqI>>
+    DISJ2_TAC>>
+    rw[set_eq_def,lookup_insert]>>
+    every_case_tac>>rw[]>>
+    gvs[CPstate_inv_def,lookup_eq_def]
+  )
+QED
+
+Theorem lookup_eq_set_eq_is_alloc_var2:
+  CPstate_inv cs ∧
+  is_alloc_var s ∧ is_alloc_var t ⇒
+  lookup t cs.to_eq = NONE ⇒
+  v≠t ⇒
+  lookup_eq cs s ≠ lookup_eq cs v ⇒
+  lookup_eq (set_eq cs t s) v = lookup_eq cs v
+Proof
+  rw[set_eq_def,CPstate_inv_def]>>
+  ‘v≠s’by metis_tac[]>>
+  namedCases_on‘lookup s cs.to_eq’["","c_s"]>>simp[lookup_eq_def,set_eq_def,lookup_insert]
+  >-(
+    namedCases_on‘lookup v cs.to_eq’["","c"]>>simp[]>>
+    ‘c<cs.next’by metis_tac[]>>simp[]
+  )
+  >-(
+    namedCases_on‘lookup c_s cs.from_eq’["","s_rep"]>>namedCases_on‘lookup v cs.to_eq’["","c"]>>simp[lookup_insert]
+    >-(
+      Cases_on‘c=cs.next’>>simp[]
+      >>(‘c<cs.next’by metis_tac[]>>decide_tac)
+    )
+    >-(Cases_on‘c=c_s’>>simp[]>>gvs[lookup_eq_def])
+  )
 QED
 
 (* TODO: insert an induction over copy_prop_prog *)
