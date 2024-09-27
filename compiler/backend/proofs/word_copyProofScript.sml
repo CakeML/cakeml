@@ -48,18 +48,17 @@ Proof
 QED
 
 Theorem set_eq_inv:
-  ∀cs t s.
-    CPstate_inv cs ∧
-    lookup t cs.to_eq = NONE ⇒
-    CPstate_inv (set_eq cs t s)
+  CPstate_inv cs ∧
+  lookup t cs.to_eq = NONE ⇒
+  CPstate_inv (set_eq cs t s)
 Proof
-  rpt strip_tac>>
+  rw[]>>
   ‘∀c. lookup c cs.from_eq ≠ SOME t’ by (
     fs[CPstate_inv_def]>>
     metis_tac[NOT_NONE_SOME])>>
   rw[set_eq_def]>>
   namedCases_on‘lookup s cs.to_eq’["","c_s"]>>
-  fs[]
+  rw[]>>fs[]
   >~[`lookup s cs.to_eq = NONE`]
   >- (
     fs[CPstate_inv_def]>>
@@ -71,6 +70,18 @@ Proof
       first_x_assum drule>>
       simp[])
     >- metis_tac[NOT_SOME_NONE])
+  >~[`lookup c_s cs.from_eq = NONE`]
+  >- (
+    fs[CPstate_inv_def]>>
+    rw[lookup_insert]>>simp[]
+    >- (
+      first_x_assum drule>>
+      simp[])
+    >- (
+      first_x_assum drule>>
+      simp[])
+    >-
+      metis_tac[SOME_11,NOT_SOME_NONE])
   >~[`lookup s cs.to_eq = SOME c_s`]
   >- (
     fs[CPstate_inv_def]>>
@@ -184,28 +195,23 @@ Theorem lookup_eq_set_eq_is_alloc_var1:
   lookup_eq (set_eq cs t s) v = t
 Proof
   rpt strip_tac>>
-  ‘v=s ∨ (∃c. lookup v cs.to_eq = SOME c ∧ lookup s cs.to_eq = SOME c)’
-    by metis_tac[same_classD]
+  drule_all same_classD>>
+  rw[]
   >- (
-     (* could be shorter, I think *)
     simp[lookup_eq_def,set_eq_def]>>
-    (Cases_on‘lookup s cs.to_eq’>>rw[lookup_insert])
-  )
+    Cases_on‘lookup s cs.to_eq’>>rw[lookup_insert])
   >- (
-    ‘v≠t’ by metis_tac[NOT_NONE_SOME]>>
     irule lookup_eqI>>
-    DISJ2_TAC>>
     rw[set_eq_def,lookup_insert]>>
-    every_case_tac>>rw[]>>
-    gvs[CPstate_inv_def,lookup_eq_def]
-  )
+    rw[]>>
+    `F` by gvs[CPstate_inv_def,lookup_eq_def])
 QED
 
 Theorem lookup_eq_set_eq_is_alloc_var2:
   CPstate_inv cs ∧
   is_alloc_var s ∧ is_alloc_var t ⇒
   lookup t cs.to_eq = NONE ⇒
-  v≠t ⇒
+  v ≠ t ⇒
   lookup_eq cs s ≠ lookup_eq cs v ⇒
   lookup_eq (set_eq cs t s) v = lookup_eq cs v
 Proof
@@ -230,7 +236,8 @@ Theorem lookup_eq_set_eq_t:
   is_alloc_var t ∧ is_alloc_var s ⇒
   lookup_eq (set_eq cs t s) t = t
 Proof
-  simp[lookup_eq_def,set_eq_def]>>every_case_tac>>gvs[lookup_insert]
+  simp[lookup_eq_def,set_eq_def]>>
+  every_case_tac>>gvs[lookup_insert]
 QED
 
 Theorem lookup_eq_set_eqD:
@@ -289,6 +296,5 @@ QED
 (* Bunch of syntactic results for integration into compiler *)
 
 (* Leave these things for now *)
-
 
 val _ = export_theory();
