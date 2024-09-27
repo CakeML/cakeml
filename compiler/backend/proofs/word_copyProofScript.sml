@@ -185,12 +185,12 @@ Theorem lookup_eq_set_eq_is_alloc_var1:
 Proof
   rpt strip_tac>>
   ‘v=s ∨ (∃c. lookup v cs.to_eq = SOME c ∧ lookup s cs.to_eq = SOME c)’
-     by metis_tac[same_classD]
+    by metis_tac[same_classD]
   >- (
      (* could be shorter, I think *)
     simp[lookup_eq_def,set_eq_def]>>
     (Cases_on‘lookup s cs.to_eq’>>rw[lookup_insert])
-    )
+  )
   >- (
     ‘v≠t’ by metis_tac[NOT_NONE_SOME]>>
     irule lookup_eqI>>
@@ -220,9 +220,60 @@ Proof
     namedCases_on‘lookup c_s cs.from_eq’["","s_rep"]>>namedCases_on‘lookup v cs.to_eq’["","c"]>>simp[lookup_insert]
     >-(
       Cases_on‘c=cs.next’>>simp[]
-      >>(‘c<cs.next’by metis_tac[]>>decide_tac)
+      >-(‘c<cs.next’by metis_tac[]>>decide_tac)
     )
     >-(Cases_on‘c=c_s’>>simp[]>>gvs[lookup_eq_def])
+  )
+QED
+
+Theorem lookup_eq_set_eq_t:
+  is_alloc_var t ∧ is_alloc_var s ⇒
+  lookup_eq (set_eq cs t s) t = t
+Proof
+  simp[lookup_eq_def,set_eq_def]>>every_case_tac>>gvs[lookup_insert]
+QED
+
+Theorem lookup_eq_set_eqD:
+  CPstate_inv cs ⇒
+  lookup t cs.to_eq = NONE ⇒
+  lookup_eq (set_eq cs t s) v = r ⇒
+  (r=t ⇒ v=t ∨ lookup_eq cs v = lookup_eq cs s) ∧
+  (r≠t ⇒ r = lookup_eq cs v)
+Proof
+  Cases_on‘is_alloc_var s ∧ is_alloc_var t’
+  >-(
+    rpt strip_tac
+    >-(
+      Cases_on‘v=t’>-decide_tac
+      >-(
+        DISJ2_TAC>>
+        CCONTR_TAC>>
+        ‘t = lookup_eq cs v’
+          by metis_tac[lookup_eq_set_eq_is_alloc_var2]>>
+        (* t = lookup_eq cs v, v≠t, hence lookup t cs.eq ≠ NONE *)
+        first_x_assum mp_tac>>
+        simp[lookup_eq_def]>>every_case_tac>-decide_tac>-decide_tac
+        >-metis_tac[CPstate_inv_def,NOT_NONE_SOME]
+      )
+    )
+    >-(
+      ‘lookup_eq cs s ≠ lookup_eq cs v’
+        by metis_tac[lookup_eq_set_eq_is_alloc_var1]>>
+      ‘v≠t’ by (qpat_x_assum‘lookup_eq (set_eq cs t s) v = r’mp_tac>>metis_tac[lookup_eq_set_eq_t])>>
+      metis_tac[lookup_eq_set_eq_is_alloc_var2]
+    )
+  )
+  >-(
+    drule lookup_eq_set_eq_not_is_alloc_var>>
+    DISCH_TAC>>
+    first_x_assum(fn eq=>rewrite_tac[eq])>>
+    first_x_assum(K ALL_TAC)>>
+    rw[]>>
+    DISJ1_TAC>>
+    first_x_assum mp_tac>>
+    fs[CPstate_inv_def,lookup_eq_def]>>
+    every_case_tac>>
+    metis_tac[NOT_NONE_SOME]
   )
 QED
 
