@@ -72,16 +72,18 @@ Proof
     METIS_TAC[PAIR,FST,SND]
 QED
 
-val compile_inc_def = Define `
+Definition compile_inc_def:
   compile_inc n xs =
     (* leave space in the naming for the daisy chaining of clos_to_bvl *)
     let n1 = misc$make_even (n + MAX (LENGTH xs) 1) in
     let (m,ys) = renumber_code_locs_list n1 xs in
       (* embed the name of the first free slot (n) in the code *)
       (* no code will be generated for this pure Const expression *)
-      (m, Op backend_common$None (Const (&n)) [] :: ys)`;
+      (m, Op backend_common$None (Const (&n)) [] :: ys)
+End
 
-val ignore_table_def = Define`
-  ignore_table f st (code,aux) = let (st',code') = f st code in (st',(code',aux))`;
+Definition ignore_table_def:
+  ignore_table f st (code,aux) = let (st',code') = f st code in (st',(code',aux))
+End
 
 val _ = export_theory()

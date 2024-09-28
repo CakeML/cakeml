@@ -19,7 +19,7 @@ val _ = Datatype `
      ; refs_start : num         (* start of references *)
      |>`;
 
-val gc_move_def = Define `
+Definition gc_move_def:
   (gc_move conf state (Data d) = (Data d, state)) /\
   (gc_move conf state (Pointer ptr d) =
      let ok = (state.ok /\ (ptr < heap_length state.heap)) in
@@ -35,7 +35,8 @@ val gc_move_def = Define `
              (Pointer state.a d
              ,state with <| h2 := h2; n := n; a := a; heap := heap; ok := ok |>))
         | SOME (ForwardPointer ptr _ l) => (Pointer ptr d,state)
-        | _ => (Pointer ptr d, state with <| ok := F |>)))`;
+        | _ => (Pointer ptr d, state with <| ok := F |>)))
+End
 
 Theorem gc_move_IMP:
    !x x' state state1.
@@ -61,12 +62,13 @@ Proof
   \\ fs [gc_state_component_equality]
 QED
 
-val gc_move_list_def = Define `
+Definition gc_move_list_def:
   (gc_move_list conf state [] = ([], state)) /\
   (gc_move_list conf state (x::xs) =
     let (x,state) = gc_move conf state x in
     let (xs,state) = gc_move_list conf state xs in
-      (x::xs,state))`;
+      (x::xs,state))
+End
 
 Theorem gc_move_list_IMP:
    !xs xs' state state1.
@@ -133,13 +135,14 @@ Proof
   \\ strip_tac \\ fs []
 QED
 
-val gc_move_ref_list_def = Define `
+Definition gc_move_ref_list_def:
   (gc_move_ref_list conf state [] = ([], state)) /\
   (gc_move_ref_list conf state (DataElement ptrs l d::xs) =
     let (ptrs', state) = gc_move_list conf state ptrs in
     let (xs,state) = gc_move_ref_list conf state xs in
       (DataElement ptrs' l d::xs,state)) /\
-  (gc_move_ref_list conf state (x::xs) = (x::xs,state with ok := F))`;
+  (gc_move_ref_list conf state (x::xs) = (x::xs,state with ok := F))
+End
 
 val gc_move_ref_list_IMP = prove (
   ``!conf state refs state1 refs1.
@@ -170,7 +173,7 @@ val gc_move_ref_list_IMP = prove (
   >- simp [isSomeDataElement_def]
   \\ IF_CASES_TAC \\ fs [el_length_def]);
 
-val partial_gc_def = Define `
+Definition partial_gc_def:
   partial_gc conf (roots,heap) =
     case heap_segment (conf.gen_start,conf.refs_start) heap of
     | NONE => (roots,empty_state with <| ok := F |>)
@@ -187,7 +190,8 @@ val partial_gc_def = Define `
       let (refs',state) = gc_move_ref_list conf state refs in
         (* process rest: *)
       let state = gc_move_data conf (state with <|r1 := refs';r2 := []|>) in
-        (roots,state)`;
+        (roots,state)
+End
 
 val partial_gc_IMP = prove(
   ``!roots heap roots1 state1 heap_old heap_current heap_refs.
@@ -213,7 +217,7 @@ val partial_gc_IMP = prove(
   \\ strip_tac \\ fs []);
 
 (* Pointers between current and old generations are correct *)
-val heap_gen_ok_def = Define `
+Definition heap_gen_ok_def:
   heap_gen_ok heap conf <=>
     ?old current refs.
       conf.gen_start <= conf.refs_start /\ conf.refs_start <= conf.limit /\
@@ -228,13 +232,14 @@ val heap_gen_ok_def = Define `
       (* old contains no references *)
       (!xs l d. MEM (DataElement xs l d) current ==> ~ (conf.isRef d)) /\
       (* refs only contains references *)
-      (!xs l d. MEM (DataElement xs l d) refs ==> conf.isRef d)`;
+      (!xs l d. MEM (DataElement xs l d) refs ==> conf.isRef d)
+End
 
 val _ = Datatype `
   data_sort = Protected 'a      (* pointer to old generations *)
             | Real 'b`;         (* data or pointer to current generation *)
 
-val to_gen_heap_address_def = Define `
+Definition to_gen_heap_address_def:
   (to_gen_heap_address conf (Data a) = Data (Real a)) /\
   (to_gen_heap_address conf (Pointer ptr a) =
     if ptr < conf.gen_start then
@@ -242,24 +247,28 @@ val to_gen_heap_address_def = Define `
     else if conf.refs_start <= ptr then
       Data (Protected (Pointer ptr a))
     else
-      Pointer (ptr - conf.gen_start) (Real a))`;
+      Pointer (ptr - conf.gen_start) (Real a))
+End
 
-val to_gen_conf_def = Define `
+Definition to_gen_conf_def:
   to_gen_conf (conf:'a gen_gc_partial_conf) =
     <| limit := conf.limit - conf.gen_start - (conf.limit - conf.refs_start)
      ; isRef := conf.isRef |>
-     : 'a gen_gc_conf`;
+     : 'a gen_gc_conf
+End
 
-val to_gen_heap_element_def = Define `
+Definition to_gen_heap_element_def:
   (to_gen_heap_element conf (Unused n) = Unused n) /\
   (to_gen_heap_element conf (ForwardPointer ptr a l) =
     ForwardPointer (ptr - conf.gen_start) (Real a) l) /\
   (to_gen_heap_element conf (DataElement ptrs l d) =
-    DataElement (MAP (to_gen_heap_address conf) ptrs) l d)`;
+    DataElement (MAP (to_gen_heap_address conf) ptrs) l d)
+End
 
-val to_gen_heap_list_def = Define `
+Definition to_gen_heap_list_def:
   to_gen_heap_list conf heap =
-    MAP (to_gen_heap_element conf) heap`;
+    MAP (to_gen_heap_element conf) heap
+End
 
 val to_gen_heap_list_heap_length = prove(
   ``!xs.
@@ -269,12 +278,13 @@ val to_gen_heap_list_heap_length = prove(
   \\ Cases
   \\ fs [heap_length_def,to_gen_heap_element_def,el_length_def]);
 
-val to_gen_heap_def = Define `
+Definition to_gen_heap_def:
   to_gen_heap conf heap =
     to_gen_heap_list conf
-        (heap_restrict conf.gen_start conf.refs_start heap)`;
+        (heap_restrict conf.gen_start conf.refs_start heap)
+End
 
-val to_gen_state_def = Define `
+Definition to_gen_state_def:
   to_gen_state conf state =
     empty_state with
     <| h1 := to_gen_heap_list conf state.h1
@@ -288,17 +298,20 @@ val to_gen_state_def = Define `
      ; ok := state.ok
      ; heap := to_gen_heap conf state.heap
      ; heap0 := to_gen_heap conf state.heap0
-     |>`;
+     |>
+End
 
-val to_gen_roots_def = Define `
+Definition to_gen_roots_def:
   to_gen_roots conf roots =
-    MAP (to_gen_heap_address conf) roots`;
+    MAP (to_gen_heap_address conf) roots
+End
 
-val refs_to_roots_def = Define `
+Definition refs_to_roots_def:
   (refs_to_roots conf [] = []) /\
   (refs_to_roots conf (DataElement ptrs _ _::refs) =
     MAP (to_gen_heap_address conf) ptrs ++ refs_to_roots conf refs) /\
-  (refs_to_roots conf (_::refs) = refs_to_roots conf refs)`;
+  (refs_to_roots conf (_::refs) = refs_to_roots conf refs)
+End
 
 Inductive RootsRefs:
   (RootsRefs [] []) /\
@@ -333,11 +346,12 @@ out    o ----> o
 last step: need a relation <---
  *)
 
-val heap_element_is_ref_def = Define `
+Definition heap_element_is_ref_def:
   (heap_element_is_ref conf (DataElement xs l d) = conf.isRef d) /\
-  (heap_element_is_ref conf _ = F)`;
+  (heap_element_is_ref conf _ = F)
+End
 
-val gen_inv_def = Define `
+Definition gen_inv_def:
   gen_inv (conf:'b gen_gc_partial_conf) heap =
     conf.gen_start <= conf.refs_start /\
     conf.refs_start <= conf.limit /\
@@ -353,13 +367,15 @@ val gen_inv_def = Define `
       EVERY isDataElement heap_old /\
       !xs l d ptr u.
         MEM (DataElement xs l d) heap_old /\ MEM (Pointer ptr u) xs ==>
-        ptr < conf.gen_start \/ conf.refs_start <= ptr`;
+        ptr < conf.gen_start \/ conf.refs_start <= ptr
+End
 
-val has_old_ptr_def = Define `
+Definition has_old_ptr_def:
   has_old_ptr conf hs ptr <=>
     ?xs l d u.
       MEM (DataElement xs l d) hs /\ MEM (Pointer ptr u) xs /\
-      (ptr < conf.gen_start ∨ conf.refs_start ≤ ptr)`;
+      (ptr < conf.gen_start ∨ conf.refs_start ≤ ptr)
+End
 
 val has_old_ptr_APPEND = prove(
   ``!xs ys. has_old_ptr conf (xs++ys) =
@@ -370,10 +386,11 @@ val has_old_ptr_APPEND = prove(
 val has_old_ptr_CONS =
   has_old_ptr_APPEND |> Q.SPEC `[x]` |> SIMP_RULE std_ss [APPEND]
 
-val all_old_ptrs_def = Define `
+Definition all_old_ptrs_def:
   all_old_ptrs conf xs ptr <=>
     ?u. MEM (Pointer ptr u) xs /\
-        (ptr < conf.gen_start ∨ conf.refs_start ≤ ptr)`
+        (ptr < conf.gen_start ∨ conf.refs_start ≤ ptr)
+End
 
 Theorem has_old_ptr_simp[simp]:
    has_old_ptr conf [DataElement xs x1 x2] = all_old_ptrs conf xs
@@ -381,7 +398,7 @@ Proof
   fs [has_old_ptr_def,FUN_EQ_THM,all_old_ptrs_def]
 QED
 
-val sim_inv_def = Define `
+Definition sim_inv_def:
   sim_inv conf (heap0:('a,'b) heap_element list) (state:('a,'b)gc_state) <=>
     gen_inv conf state.heap /\
     conf.gen_start <= state.a /\
@@ -389,7 +406,8 @@ val sim_inv_def = Define `
     (conf.gen_start + heap_length (state.h1 ++ state.h2) + state.n = conf.refs_start) /\
     (conf.refs_start <= conf.gen_start ==> (state.h1 = []) /\ (state.h2 = [])) /\
     has_old_ptr conf (state.heap ++ state.h1 ++ state.h2 ++ state.r1)
-      SUBSET has_old_ptr conf heap0`;
+      SUBSET has_old_ptr conf heap0
+End
 
 Theorem heap_length_to_gen_heap_list[simp]:
    !h2. heap_length (to_gen_heap_list conf h2) = heap_length h2
@@ -1185,10 +1203,11 @@ val partial_gc_simulation = prove(
   \\ drule gen_gcTheory.gc_move_loop_ok
   \\ fs [to_gen_state_def]);
 
-val f_old_ptrs_def = Define `
+Definition f_old_ptrs_def:
   f_old_ptrs conf heap =
     {a | isSomeDataElement (heap_lookup a heap)
-         /\ (a < conf.gen_start \/ conf.refs_start <= a)}`;
+         /\ (a < conf.gen_start \/ conf.refs_start <= a)}
+End
 
 Theorem f_old_ptrs_finite[simp]:
    !heap conf.
@@ -1234,11 +1253,12 @@ QED
 val f_old_ptrs_finite_open = save_thm("f_old_ptrs_finite_open[simp]",
   f_old_ptrs_finite |> SIMP_RULE std_ss [f_old_ptrs_def]);
 
-val new_f_def = Define `
+Definition new_f_def:
   new_f f conf heap =
     FUNION (FUN_FMAP I (f_old_ptrs conf heap))
            (FUN_FMAP (\a. conf.gen_start + f ' (a - conf.gen_start))
-                     (IMAGE ((+) conf.gen_start) (FDOM f)))`;
+                     (IMAGE ((+) conf.gen_start) (FDOM f)))
+End
 
 val APPEND_LENGTH_IMP = prove(
   ``!a c b d.
@@ -1977,14 +1997,16 @@ val heap_lookup_by_f_isSomeData_lemma = prove(
   \\ rw []
   \\ metis_tac []);
 
-val similar_ptr_def = Define `
+Definition similar_ptr_def:
   (similar_ptr conf (Pointer p1 d1) (Pointer p2 d2) <=> (d2 = d1)) /\
-  (similar_ptr conf x1 x2 = (x1 = x2))`
+  (similar_ptr conf x1 x2 = (x1 = x2))
+End
 
-val similar_data_def = Define `
+Definition similar_data_def:
   (similar_data conf (DataElement xs1 l1 d1) (DataElement xs2 l2 d2) <=>
     (l2 = l1) /\ (d2 = d1) /\ LIST_REL (similar_ptr conf) xs1 xs2) /\
-  (similar_data conf x y = (x = y))`;
+  (similar_data conf x y = (x = y))
+End
 
 val LENGTH_ADDR_MAP = prove(
   ``!xs. LENGTH (ADDR_MAP f xs) = LENGTH xs``,
@@ -2809,15 +2831,16 @@ Proof
   \\ res_tac \\ fs [heap_length_def,el_length_def]
 QED
 
-val has_bad_ref_def = Define `
+Definition has_bad_ref_def:
   has_bad_ref c s <=>
     (?xs l d. MEM (DataElement xs l d) (s.h1 ++ s.h2) /\ c.isRef d)
     \/
     ?xs l d n.
       c.gen_start <= n /\ n < c.refs_start /\
-      (heap_lookup n s.heap = SOME (DataElement xs l d)) /\ c.isRef d`;
+      (heap_lookup n s.heap = SOME (DataElement xs l d)) /\ c.isRef d
+End
 
-val balanced_state_def = Define `
+Definition balanced_state_def:
   balanced_state c s <=>
     (heap_length (FILTER isForwardPointer s.heap)
      = heap_length s.h1 + heap_length s.h2) /\
@@ -2828,9 +2851,10 @@ val balanced_state_def = Define `
         heap_length (FILTER isDataElement s.r2) +
         heap_length (FILTER isDataElement s.old) <=
         heap_length (FILTER isDataElement old) +
-        heap_length (FILTER isDataElement refs))`
+        heap_length (FILTER isDataElement refs))
+End
 
-val simple_rel_def = Define `
+Definition simple_rel_def:
   simple_rel c s1 s2 <=>
     (s2.old = s1.old) /\
     (heap_length (s2.h1 ++ s2.h2 ++ heap_expand s2.n) =
@@ -2845,7 +2869,8 @@ val simple_rel_def = Define `
      heap_length (FILTER isForwardPointer s2.heap) +
      heap_length (FILTER isDataElement s2.heap)) /\
     (balanced_state c s1 ==> balanced_state c s2) /\
-    (has_bad_ref c s2 ==> has_bad_ref c s1)`;
+    (has_bad_ref c s2 ==> has_bad_ref c s1)
+End
 
 val simple_rel_refl = prove(
   ``simple_rel c x x``,

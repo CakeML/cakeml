@@ -174,7 +174,8 @@ val _ = translate $ spec32 comp_field_def;
 
 val _ = translate $ spec32 exp_hdl_def;
 
-val _ = translate $ INST_TYPE[alpha|->“:32”,
+val _ = translate $ SIMP_RULE std_ss [byteTheory.bytes_in_word_def,lem]
+                  $ INST_TYPE[alpha|->“:32”,
                               beta|->“:32”] compile_exp_def;
 
 val res = translate_no_ind $ spec32 compile_def;
@@ -475,7 +476,7 @@ Definition conv_Exp_alt_def:
               OPTION_CHOICE (OPTION_CHOICE (conv_const t) (conv_var t))
                             (conv_Exp_alt t)
           | t::v4::v5 =>
-              FOLDR (λt. OPTION_MAP2 Field (conv_nat t))
+              FOLDL (λe t. OPTION_MAP2 Field (conv_nat t) e)
                     (OPTION_CHOICE (conv_var t) (conv_Exp_alt t)) (v4::v5)
         else if isNT nodeNT LabelNT then
           case args of
@@ -496,12 +497,12 @@ Definition conv_Exp_alt_def:
           case args of
             [t] => OPTION_MAP (λe. Cmp Equal (Const 0w) e) (conv_Exp_alt t)
           | _ => NONE
-        else if isNT nodeNT LoadByteNT then
+        else if isNT nodeNT ELoadByteNT then
           case args of
             [] => NONE
           | [t] => OPTION_MAP LoadByte (conv_Exp_alt t)
           | t::v6::v7 => NONE
-        else if isNT nodeNT LoadNT then
+        else if isNT nodeNT ELoadNT then
           case args of
             [] => NONE
           | [t1] => NONE
@@ -565,6 +566,7 @@ Definition conv_Exp_alt_def:
         else NONE
     | Lf v12 =>
         if tokcheck (Lf v12) (kw BaseK) then SOME BaseAddr
+        else if tokcheck (Lf v12) (kw BiwK) then SOME BytesInWord
         else if tokcheck (Lf v12) (kw TrueK) then SOME $ Const 1w
                    else if tokcheck (Lf v12) (kw FalseK) then SOME $ Const 0w
         else NONE)) ∧
@@ -694,12 +696,14 @@ val res = translate $ spec32 $ GSYM $ cj 2 conv_Exp_thm
 
 val res = translate $ spec32 $ SIMP_RULE std_ss [option_map_thm, OPTION_MAP2_thm] conv_NonRecStmt_def;
 
+val res = translate $ spec32 $ add_locs_annot_def;
+
 val res = translate butlast_def;
 
 val res = preprocess $ spec32 conv_Prog_def |> translate_no_ind;
 
 Theorem conv_Prog_ind:
-  panptreeconversion_conv_handle_ind (:'b)
+  panptreeconversion_conv_handle_ind
 Proof
   PURE_REWRITE_TAC [fetch "-" "panptreeconversion_conv_handle_ind_def"]
   \\ rpt gen_tac

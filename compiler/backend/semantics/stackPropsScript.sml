@@ -286,6 +286,7 @@ Proof
   strip_tac>>Cases_on`op` >>
   fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
      sh_mem_load_byte_def,sh_mem_store_byte_def,
+     sh_mem_load32_def,sh_mem_store32_def,
      ffiTheory.call_FFI_def] >>
   every_case_tac >> gvs[get_var_def]
 QED
@@ -431,7 +432,7 @@ Proof
   TRY (CHANGED_TAC(full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]) >>
        every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
   TRY (Cases_on ‘op’>>fs[sh_mem_op_def]>>
-       fs[sh_mem_load_def,sh_mem_store_def,
+       fs[sh_mem_load_def,sh_mem_store_def,sh_mem_load32_def,sh_mem_store32_def,
           sh_mem_load_byte_def,sh_mem_store_byte_def]>>
        fs[ffiTheory.call_FFI_def]>>
        rpt (FULL_CASE_TAC>>gvs[]))>>
@@ -521,7 +522,7 @@ Proof
     rename1`call_FFI` >>
     pairarg_tac >> full_simp_tac(srw_ss())[] >> rveq >> simp[] ) >>
   Cases_on ‘op’>>fs[sh_mem_op_def]>>
-  gs[sh_mem_load_def,sh_mem_store_def,get_var_def,
+  gs[sh_mem_load_def,sh_mem_store_def,get_var_def,sh_mem_load32_def,sh_mem_store32_def,
      sh_mem_load_byte_def,sh_mem_store_byte_def,ffiTheory.call_FFI_def]>>
   rpt (FULL_CASE_TAC>>gvs[])
 QED
@@ -578,19 +579,21 @@ Proof
     every_case_tac >> fs[get_var_def])>>
   TRY (Cases_on ‘op’>>fs[sh_mem_op_def]>>
        gs[sh_mem_load_def,sh_mem_store_def,ffiTheory.call_FFI_def,
+          sh_mem_load32_def,sh_mem_store32_def,
           sh_mem_load_byte_def,sh_mem_store_byte_def,get_var_def]>>
       rpt (FULL_CASE_TAC>>gvs[]))>>
   metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR]
 QED
 
-val clock_neutral_def = Define `
+Definition clock_neutral_def:
   (clock_neutral (Seq p1 p2) <=> clock_neutral p1 /\ clock_neutral p2) /\
   (clock_neutral (LocValue _ _ _) <=> T) /\
   (clock_neutral (Halt _) <=> T) /\
   (clock_neutral (Inst _) <=> T) /\
   (clock_neutral (Skip) <=> T) /\
   (clock_neutral (If _ _ _ p1 p2) <=> clock_neutral p1 /\ clock_neutral p2) /\
-  (clock_neutral r <=> F)`
+  (clock_neutral r <=> F)
+End
 
 val inst_clock_neutral = Q.prove(
   `(inst i s = SOME t ==> inst i (s with clock := k) = SOME (t with clock := k)) /\
@@ -709,7 +712,7 @@ Proof
   simp[]>>metis_tac[]
 QED
 
-val extract_labels_def = Define`
+Definition extract_labels_def:
   (extract_labels (Call ret dest h) =
     (case ret of
       NONE => []
@@ -725,7 +728,8 @@ val extract_labels_def = Define`
     extract_labels s1 ++ extract_labels s2) ∧
   (extract_labels (If cmp r1 ri e2 e3) =
     (extract_labels e2 ++ extract_labels e3)) ∧
-  (extract_labels _ = [])`
+  (extract_labels _ = [])
+End
 
 Theorem find_code_IMP_get_labels:
    find_code d r code = SOME e ==>
@@ -741,12 +745,12 @@ QED
 Definition addr_ok_def:
   addr_ok op (Addr a w) c ⇔
   (reg_ok a c ∧
-   if op ∈ {Load; Store} then addr_offset_ok c w else byte_offset_ok c w)
+   if op ∈ {Load; Store; Load32; Store32} then addr_offset_ok c w else byte_offset_ok c w)
 End
 
 (* TODO: This is not updated for Install, CBW and DBW *)
 (* asm_ok out of stack_names *)
-val stack_asm_ok_def = Define`
+Definition stack_asm_ok_def:
   (stack_asm_ok c ((Inst i):'a stackLang$prog) ⇔ asm$inst_ok i c) ∧
   (stack_asm_ok c (ShMemOp op r ad) ⇔ reg_ok r c ∧ addr_ok op ad c) ∧
   (stack_asm_ok c (CodeBufferWrite r1 r2) ⇔ r1 < c.reg_count ∧ r2 < c.reg_count ∧ ¬MEM r1 c.avoid_regs ∧ ¬MEM r2 c.avoid_regs) ∧
@@ -763,19 +767,22 @@ val stack_asm_ok_def = Define`
       SOME (p',_,_) => stack_asm_ok c p'
       | _ => T)
     | _ => T) ∧
-  (stack_asm_ok c _ ⇔  T)`
+  (stack_asm_ok c _ ⇔  T)
+End
 
-val reg_name_def = Define`
+Definition reg_name_def:
   reg_name r c ⇔
-  r < c.reg_count - LENGTH (c.avoid_regs)`
+  r < c.reg_count - LENGTH (c.avoid_regs)
+End
 
 (* inst requirements just before stack_names *)
 
-val reg_imm_name_def = Define`
+Definition reg_imm_name_def:
   (reg_imm_name b (Reg r) c ⇔ reg_name r c) ∧
-  (reg_imm_name b (Imm w) c ⇔ c.valid_imm b w)`
+  (reg_imm_name b (Imm w) c ⇔ c.valid_imm b w)
+End
 
-val arith_name_def = Define`
+Definition arith_name_def:
   (arith_name (Binop b r1 r2 ri) (c:'a asm_config) ⇔
     (c.two_reg_arith ⇒ r1 = r2 ∨ b = Or ∧ ri = Reg r2) ∧ reg_name r1 c ∧
     reg_name r2 c ∧ reg_imm_name (INL b) ri c) ∧
@@ -804,11 +811,12 @@ val arith_name_def = Define`
   (arith_name (SubOverflow r1 r2 r3 r4) c ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
     reg_name r3 c ∧ reg_name r4 c ∧
-    (c.ISA = MIPS ∨ c.ISA = RISC_V ⇒ r1 ≠ r3))`
+    (c.ISA = MIPS ∨ c.ISA = RISC_V ⇒ r1 ≠ r3))
+End
 
 (* We could actually almost use fp_ok, except this needs to check reg_ok for
    some registers as well *)
-val fp_name_def = Define `
+Definition fp_name_def:
   (fp_name (FPLess r d1 d2) c <=>
       reg_name r c /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_name (FPLessEqual r d1 d2) c <=>
@@ -844,21 +852,24 @@ val fp_name_def = Define `
       reg_name r1 c /\ ((dimindex(:'a) = 32) ==> r1 <> r2 /\ reg_name r2 c) /\
       fp_reg_ok d c) /\
   (fp_name (FPToInt d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
-  (fp_name (FPFromInt d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c)`
+  (fp_name (FPFromInt d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c)
+End
 
-val addr_name_def = Define`
+Definition addr_name_def:
   addr_name m (Addr r w) c ⇔
   reg_name r c ∧
-  (if m IN {Load; Store} then addr_offset_ok c w else byte_offset_ok c w)`
+  (if m IN {Load; Store; Load32; Store32} then addr_offset_ok c w else byte_offset_ok c w)
+End
 
-val inst_name_def = Define`
+Definition inst_name_def:
   (inst_name c (Const r w) ⇔ reg_name r c) ∧
   (inst_name c (Mem m r a) ⇔ reg_name r c ∧ addr_name m a c) ∧
   (inst_name c (Arith x) ⇔ arith_name x c) ∧
   (inst_name c (FP f) ⇔ fp_name f c) ∧
-  (inst_name _ _ = T)`
+  (inst_name _ _ = T)
+End
 
-val stack_asm_name_def = Define`
+Definition stack_asm_name_def:
   (stack_asm_name c ((Inst i):'a stackLang$prog) ⇔ inst_name c i) ∧
   (stack_asm_name c (OpCurrHeap b r1 r2) ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c) ∧
@@ -878,16 +889,18 @@ val stack_asm_name_def = Define`
       SOME (p',_,_) => stack_asm_name c p'
       | _ => T)
     | _ => T) ∧
-  (stack_asm_name c _ ⇔  T)`
+  (stack_asm_name c _ ⇔  T)
+End
 
-val fixed_names_def = Define`
+Definition fixed_names_def:
   fixed_names names c =
   if c.ISA = x86_64 then
     find_name names 3 = 2 ∧
     find_name names 0 = 0
-  else T`
+  else T
+End
 
-val stack_asm_remove_def = Define`
+Definition stack_asm_remove_def:
   (stack_asm_remove c ((Get n s):'a stackLang$prog) ⇔ reg_name n c) ∧
   (stack_asm_remove c (OpCurrHeap binop v src) ⇔ reg_name v c ∧ reg_name src c) ∧
   (stack_asm_remove c (Set s n) ⇔ reg_name n c) ∧
@@ -909,7 +922,8 @@ val stack_asm_remove_def = Define`
       SOME (p',_,_) => stack_asm_remove c p'
       | _ => T)
     | _ => T)) ∧
-  (stack_asm_remove c _ ⇔  T)`
+  (stack_asm_remove c _ ⇔  T)
+End
 
 (* Various syntactic properties required for correctness of the stackLang passes
   All of these are trivially preserved from word_to_stack until the pass that
@@ -920,7 +934,7 @@ val stack_asm_remove_def = Define`
    TODO: this can also be a semantic check...
 *)
 
-val alloc_arg_def = Define `
+Definition alloc_arg_def:
   (alloc_arg (Alloc v) <=> (v = 1)) /\
   (alloc_arg ((Seq p1 p2):'a stackLang$prog) <=>
      alloc_arg p1 /\ alloc_arg p2) /\
@@ -931,7 +945,8 @@ val alloc_arg_def = Define `
   (alloc_arg (Call x1 _ x2) <=>
      (case x1 of | SOME (y,r,_,_) => alloc_arg y | NONE => T) /\
      (case x2 of SOME (y,_,_) => alloc_arg y | NONE => T)) /\
-  (alloc_arg _ <=> T)`
+  (alloc_arg _ <=> T)
+End
 
 (* stack_remove requires that all register arguments are bounded by k *)
 
@@ -947,7 +962,7 @@ val reg_bound_exp_def = tDefine"reg_bound_exp"`
    \\ srw_tac[][] \\ res_tac \\ simp[]);
 val _ = export_rewrites["reg_bound_exp_def"];
 
-val reg_bound_inst_def = Define`
+Definition reg_bound_inst_def:
   (reg_bound_inst (Mem _ n (Addr a _)) k ⇔ n < k ∧ a < k) ∧
   (reg_bound_inst (Const n _) k ⇔ n < k) ∧
   (reg_bound_inst (Arith (Shift _ n r2 _)) k ⇔ r2 < k ∧ n < k) ∧
@@ -963,10 +978,11 @@ val reg_bound_inst_def = Define`
   (reg_bound_inst (FP (FPEqual r f1 f2)) k ⇔ r < k) ∧
   (reg_bound_inst (FP (FPMovToReg r1 r2 d)) k ⇔ r1 < k ∧ r2 < k) ∧
   (reg_bound_inst (FP (FPMovFromReg d r1 r2)) k ⇔ r1 < k ∧ r2 < k) ∧
-  (reg_bound_inst _ _ ⇔ T)`;
+  (reg_bound_inst _ _ ⇔ T)
+End
 val _ = export_rewrites["reg_bound_inst_def"];
 
-val reg_bound_def = Define `
+Definition reg_bound_def:
   (reg_bound (Halt v1) k <=>
      v1 < k) /\
   (reg_bound (Raise v1) k <=>
@@ -1018,10 +1034,11 @@ val reg_bound_def = Define `
   (reg_bound (StackLoadAny r r2) k <=> r < k /\ r2 < k) /\
   (reg_bound (StackStore r n) k <=> r < k) /\
   (reg_bound (StackStoreAny r r2) k <=> r < k /\ r2 < k) /\
-  (reg_bound _ k <=> T)`
+  (reg_bound _ k <=> T)
+End
 
 (* Finally, stack_to_lab requires correct arguments for Call/FFI/Install calls *)
-val call_args_def = Define `
+Definition call_args_def:
   (call_args ((Seq p1 p2):'a stackLang$prog) ptr len ptr2 len2 ret <=>
      call_args p1 ptr len ptr2 len2 ret /\
      call_args p2 ptr len ptr2 len2 ret) /\
@@ -1041,11 +1058,12 @@ val call_args_def = Define `
           (case x2 of SOME (y,_,_) => call_args y ptr len ptr2 len2 ret | NONE => T))) /\
   (call_args (Install ptr' len' _ _ ret') ptr len ptr2 len2 ret <=>
      ptr' = ptr /\ len' = len /\ ret' = ret) /\
-  (call_args _ ptr len ptr2 len2 ret <=> T)`
+  (call_args _ ptr len ptr2 len2 ret <=> T)
+End
 
 (* TODO: remove "stack_" prefix from these functions *)
 
-val stack_get_handler_labels_def = Define`
+Definition stack_get_handler_labels_def:
   (stack_get_handler_labels n (Call r d h) =
     (case r of SOME (x,_,_) => stack_get_handler_labels n x  ∪
       (case h of SOME (x,l1,l2) => (if l1 = n then {(l1,l2)} else {}) ∪ (stack_get_handler_labels n x) | _ => {})
@@ -1054,10 +1072,11 @@ val stack_get_handler_labels_def = Define`
   (stack_get_handler_labels n (Seq p1 p2) = stack_get_handler_labels n p1 ∪ stack_get_handler_labels n p2) ∧
   (stack_get_handler_labels n (If _ _ _ p1 p2) = stack_get_handler_labels n p1 ∪ stack_get_handler_labels n p2) ∧
   (stack_get_handler_labels n (While _ _ _ p) = stack_get_handler_labels n p) ∧
-  (stack_get_handler_labels n _ = {})`;
+  (stack_get_handler_labels n _ = {})
+End
 val _ = export_rewrites["stack_get_handler_labels_def"];
 
-val get_code_labels_def = Define`
+Definition get_code_labels_def:
   (get_code_labels (Call r d h) =
     (case d of INL x => {(x,0n)} | _ => {}) ∪
     (case r of SOME (x,_,_) => get_code_labels x | _ => {}) ∪
@@ -1069,22 +1088,25 @@ val get_code_labels_def = Define`
   (get_code_labels (RawCall t) = {(t,1)}) ∧
   (get_code_labels (LocValue _ l1 l2) = {(l1,l2)}) ∧
   (get_code_labels (StoreConsts _ _ (SOME l)) = {(l,0)}) ∧
-  (get_code_labels _ = {})`;
+  (get_code_labels _ = {})
+End
 val _ = export_rewrites["get_code_labels_def"];
 
 (* elabs gives a set of existing code labels *)
-val stack_good_code_labels_def = Define`
+Definition stack_good_code_labels_def:
   stack_good_code_labels p elabs ⇔
   BIGUNION (IMAGE get_code_labels (set (MAP SND p))) ⊆
   BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
   IMAGE (λn. n,0) (set (MAP FST p)) ∪ IMAGE (λn. n,0) elabs ∪
-  IMAGE (λn. n,1) (set (MAP FST p)) ∪ IMAGE (λn. n,1) elabs`
+  IMAGE (λn. n,1) (set (MAP FST p)) ∪ IMAGE (λn. n,1) elabs
+End
 
-val stack_good_handler_labels_def = Define`
+Definition stack_good_handler_labels_def:
   stack_good_handler_labels p ⇔
   restrict_nonzero (BIGUNION (IMAGE get_code_labels (set (MAP SND p)))) ⊆
   BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
-  IMAGE (λn. n,1) (set (MAP FST p))`
+  IMAGE (λn. n,1) (set (MAP FST p))
+End
 
 Definition no_install_def:
   (no_install (Call r d h) =

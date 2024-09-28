@@ -35,10 +35,11 @@ val sortable_inv_def = tDefine "sortable_inv" `
 
 val sortable_inv_ind = fetch "-" "sortable_inv_ind"
 
-val sortable_to_bag_def = Define `
+Definition sortable_to_bag_def:
 (sortable_to_bag (size,[]) = {||}) ∧
 (sortable_to_bag (size,seg::segs) =
-  BAG_UNION (list_to_bag seg) (sortable_to_bag (size-LENGTH seg,segs)))`;
+  BAG_UNION (list_to_bag seg) (sortable_to_bag (size-LENGTH seg,segs)))
+End
 
 val mrg_def = mlDefine `
 (mrg leq [] ys = ys) ∧

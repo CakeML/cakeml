@@ -88,17 +88,21 @@ val InvalidFD = get_exn_conv ``"InvalidFD"``
 val EndOfFile = get_exn_conv ``"EndOfFile"``
 val IllegalArgument = get_exn_conv ``"IllegalArgument"``
 
-val BadFileName_exn_def = Define `
-  BadFileName_exn v = (v = Conv (SOME ^BadFileName) [])`
+Definition BadFileName_exn_def:
+  BadFileName_exn v = (v = Conv (SOME ^BadFileName) [])
+End
 
-val InvalidFD_exn_def = Define `
-  InvalidFD_exn v = (v = Conv (SOME ^InvalidFD) [])`
+Definition InvalidFD_exn_def:
+  InvalidFD_exn v = (v = Conv (SOME ^InvalidFD) [])
+End
 
-val EndOfFile_exn_def = Define `
-  EndOfFile_exn v = (v = Conv (SOME ^EndOfFile) [])`
+Definition EndOfFile_exn_def:
+  EndOfFile_exn v = (v = Conv (SOME ^EndOfFile) [])
+End
 
-val IllegalArgument_exn_def = Define `
-  IllegalArgument_exn v = (v = Conv (SOME ^IllegalArgument) [])`
+Definition IllegalArgument_exn_def:
+  IllegalArgument_exn v = (v = Conv (SOME ^IllegalArgument) [])
+End
 
 val iobuff_e = ``(App Aw8alloc [Lit (IntLit 2052); Lit (Word8 0w)])``
 val eval_thm = let
@@ -121,19 +125,31 @@ val _ = ml_prog_update (add_Dlet eval_thm "iobuff");
 val _ = ml_prog_update open_local_in_block;
 
 (* stdin, stdout, stderr *)
-val stdIn_def = Define`
-  stdIn = Instream (strlit (MAP (CHR o w2n) (n2w8 0)))`
-  |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
-val stdOut_def = Define`
-  stdOut = Outstream (strlit (MAP (CHR o w2n) (n2w8 1)))`
-  |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
-val stdErr_def = Define`
-  stdErr = Outstream (strlit (MAP (CHR o w2n) (n2w8 2)))`
-  |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def];
+Definition stdIn_def:
+  stdIn = Instream (strlit (MAP (CHR o w2n) (n2w8 0)))
+End
+
+Definition stdOut_def:
+  stdOut = Outstream (strlit (MAP (CHR o w2n) (n2w8 1)))
+End
+
+Definition stdErr_def:
+  stdErr = Outstream (strlit (MAP (CHR o w2n) (n2w8 2)))
+End
+
 val _ = next_ml_names := ["stdIn","stdOut","stdErr"];
-val r = translate stdIn_def;
-val r = translate stdOut_def;
-val r = translate stdErr_def;
+
+val r = stdIn_def
+          |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+          |> translate;
+
+val r = stdOut_def
+          |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+          |> translate;
+
+val r = stdErr_def
+          |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+          |> translate ;
 
 val _ = ml_prog_update open_local_block;
 
@@ -600,11 +616,11 @@ val _ = (append_prog o process_topdecs)`
   fun b_inputLine c0 is = b_inputUntil_2 is c0 []`;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputLineTokens c0 is f g =
+  fun b_inputLineTokens c0 is tokP mp =
     case b_inputLine c0 is of
       None => None
     | Some l =>
-      Some (List.map g (String.tokens f l))`;
+      Some (List.map mp (String.tokens tokP l))`;
 
 val _ = ml_prog_update open_local_block;
 
@@ -647,10 +663,10 @@ val _ = (append_prog o process_topdecs) `
     case b_inputLine c0 is of
       None => y
     | Some c => fold_lines_loop c0 f is (f c y);
-  fun fold_tokens_loop c0 g h f is y =
-    case b_inputLineTokens c0 is g h of
+  fun fold_tokens_loop c0 tokP mp fld is y =
+    case b_inputLineTokens c0 is tokP mp of
       None => y
-    | Some c => fold_tokens_loop c0 g h f is (f c y);`;
+    | Some c => fold_tokens_loop c0 tokP mp fld is (fld c y);`;
 
 val _ = ml_prog_update open_local_in_block;
 
@@ -720,12 +736,12 @@ val _ = (append_prog o process_topdecs) `
        handle e => (close (); raise e))`;
 
 val _ = (append_prog o process_topdecs) `
-  fun foldTokens c0 g h f x stdin_or_fname =
+  fun foldTokens c0 tokP mp fld x stdin_or_fname =
     case b_open_option stdin_or_fname of
       None => None
     | Some (is,close) =>
       (let
-         val res = fold_tokens_loop c0 g h f is x
+         val res = fold_tokens_loop c0 tokP mp fld is x
          val _ = close ()
        in Some res end
        handle e => (close (); raise e))`;

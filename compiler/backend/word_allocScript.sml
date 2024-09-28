@@ -20,33 +20,39 @@ val _ = set_grammar_ancestry [
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (*SSA form*)
-val apply_nummap_key_def = Define`
+Definition apply_nummap_key_def:
   apply_nummap_key f names =
-  fromAList (MAP (λx,y.f x,y) (toAList names))`
+  fromAList (MAP (λx,y.f x,y) (toAList names))
+End
 
-val option_lookup_def = Define`
-  option_lookup t v = dtcase lookup v t of NONE => 0n | SOME x => x`
+Definition option_lookup_def:
+  option_lookup t v = dtcase lookup v t of NONE => 0n | SOME x => x
+End
 
-val even_list_def = Define `
-  (even_list = GENLIST (\x.2*x))`
+Definition even_list_def:
+  (even_list = GENLIST (\x.2*x))
+End
 
 (*Consistently sets up the next alloc variable rename for v*)
-val next_var_rename_def = Define`
-  next_var_rename v ssa (na:num) = (na,insert v na ssa,na+4)`
+Definition next_var_rename_def:
+  next_var_rename v ssa (na:num) = (na,insert v na ssa,na+4)
+End
 
-val list_next_var_rename_def = Define`
+Definition list_next_var_rename_def:
   (list_next_var_rename [] ssa (na:num) = ([],ssa,na)) ∧
   (list_next_var_rename (x::xs) ssa na =
     (*Write this way to make it ascending, can also use acc passing*)
     let (y,ssa',na') = next_var_rename x ssa na in
     let (ys,ssa'',na'') = list_next_var_rename xs ssa' na' in
-      (y::ys,ssa'',na''))`
+      (y::ys,ssa'',na''))
+End
 
-val fake_move_def = Define`
-  fake_move v : α wordLang$prog = Inst (Const v 0w)`
+Definition fake_move_def:
+  fake_move v : α wordLang$prog = Inst (Const v 0w)
+End
 
 (*Do the merging moves only*)
-val merge_moves_def = Define`
+Definition merge_moves_def:
   (merge_moves [] ssa_L ssa_R (na:num) = ([],[],na,ssa_L,ssa_R)) ∧
   (merge_moves (x::xs) ssa_L ssa_R na =
     let (seqL,seqR,na',ssa_L',ssa_R') =
@@ -62,10 +68,11 @@ val merge_moves_def = Define`
         let Rmove = (na',Ly) in
         (Lmove::seqL, Rmove::seqR,na'+4, insert x na' ssa_L'
                                        , insert x na' ssa_R')
-    | _ => (seqL,seqR,na',ssa_L',ssa_R'))`
+    | _ => (seqL,seqR,na',ssa_L',ssa_R'))
+End
 
 (*Separately do the fake moves*)
-val fake_moves_def = Define`
+Definition fake_moves_def:
   (fake_moves [] ssa_L ssa_R (na:num) = (Skip:'a wordLang$prog,Skip:'a wordLang$prog,na,ssa_L,ssa_R)) ∧
   (fake_moves (x::xs) ssa_L ssa_R na =
     let (seqL,seqR,na',ssa_L',ssa_R') =
@@ -81,21 +88,23 @@ val fake_moves_def = Define`
         let Lmove = Seq seqL (Move 1 [(na',Lx)]) in
         let Rmove = Seq seqR (fake_move na') in
         (Lmove, Rmove,na'+4, insert x na' ssa_L', insert x na' ssa_R')
-    | _ => (seqL,seqR,na',ssa_L',ssa_R'))`
+    | _ => (seqL,seqR,na',ssa_L',ssa_R'))
+End
 
-val fix_inconsistencies_def = Define`
+Definition fix_inconsistencies_def:
   fix_inconsistencies ssa_L ssa_R na =
   let var_union = MAP FST (toAList (union ssa_L ssa_R)) in
   let (Lmov,Rmov,na',ssa_L',ssa_R') =
     merge_moves var_union ssa_L ssa_R na in
   let (Lseq,Rseq,na'',ssa_L'',ssa_R'') =
     fake_moves var_union ssa_L' ssa_R' na' in
-    (Seq (Move 1 Lmov) Lseq,Seq (Move 1 Rmov) Rseq,na'',ssa_L'')`
+    (Seq (Move 1 Lmov) Lseq,Seq (Move 1 Rmov) Rseq,na'',ssa_L'')
+End
 
 (*ssa_cc_trans_inst does not need to interact with stack*)
 (* Note: this needs to return a prog to support specific registers for AddCarry and other special insts
 *)
-val ssa_cc_trans_inst_def = Define`
+Definition ssa_cc_trans_inst_def:
   (ssa_cc_trans_inst Skip ssa na = (Skip,ssa,na)) ∧
   (ssa_cc_trans_inst (Const reg w) ssa na =
     let (reg',ssa',na') = next_var_rename reg ssa na in
@@ -203,7 +212,8 @@ val ssa_cc_trans_inst_def = Define`
     let r2' = (dtcase lookup r2 ssa of NONE => 4 | SOME v => v) in
       (Inst (FP (FPMovFromReg d r1' r2')),ssa,na)) ∧
   (*Catchall -- for future instructions to be added, and all other FP *)
-  (ssa_cc_trans_inst x ssa na = (Inst x,ssa,na))`
+  (ssa_cc_trans_inst x ssa na = (Inst x,ssa,na))
+End
 
 (*Expressions only ever need to lookup a variable's current ssa map
   so it doesn't need the other parts *)
@@ -225,13 +235,14 @@ val ssa_cc_trans_exp_def = tDefine "ssa_cc_trans_exp" `
   This takes a current name map and updates the names of all the vars
   Intended for Alloc,Call cutset restoration moves
 *)
-val list_next_var_rename_move_def = Define`
+Definition list_next_var_rename_move_def:
   list_next_var_rename_move ssa n ls =
     let cur_ls = MAP (option_lookup ssa) ls in
     let (new_ls,ssa',n') = list_next_var_rename ls ssa n in
-    (Move 1 (ZIP(new_ls,cur_ls)),ssa',n')`
+    (Move 1 (ZIP(new_ls,cur_ls)),ssa',n')
+End
 
-val ssa_cc_trans_def = Define`
+Definition ssa_cc_trans_def:
   (ssa_cc_trans Skip ssa na = (Skip,ssa,na)) ∧
   (ssa_cc_trans (Move pri ls) ssa na =
     let ls_1 = MAP FST ls in
@@ -411,12 +422,13 @@ val ssa_cc_trans_def = Define`
         (prog,ssa_fin,na_fin))) /\
   (ssa_cc_trans (ShareInst op v exp) ssa na =
     let exp' = ssa_cc_trans_exp ssa exp in
-      if op = Store ∨ op = Store8
+      if op = Store ∨ op = Store8 ∨ op = Store32
       then
         (ShareInst op (option_lookup ssa v) exp',ssa,na)
       else
         let (v',ssa',na') = next_var_rename v ssa na in
-          (ShareInst op v' exp',ssa',na'))`
+          (ShareInst op v' exp',ssa',na'))
+End
 
 (*Recursively applying colours to a program*)
 
@@ -431,11 +443,12 @@ val apply_colour_exp_def = tDefine "apply_colour_exp" `
   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
   \\ DECIDE_TAC);
 
-val apply_colour_imm_def = Define`
+Definition apply_colour_imm_def:
   (apply_colour_imm f (Reg n) = Reg (f n)) ∧
-  (apply_colour_imm f x = x)`
+  (apply_colour_imm f x = x)
+End
 
-val apply_colour_inst_def = Define`
+Definition apply_colour_inst_def:
   (apply_colour_inst f Skip = Skip) ∧
   (apply_colour_inst f (Const reg w) = Const (f reg) w) ∧
   (apply_colour_inst f (Arith (Binop bop r1 r2 ri)) =
@@ -467,9 +480,10 @@ val apply_colour_inst_def = Define`
   (apply_colour_inst f (FP (FPEqual r f1 f2)) = FP (FPEqual (f r) f1 f2)) ∧
   (apply_colour_inst f (FP (FPMovToReg r1 r2 d)) = FP (FPMovToReg (f r1) (f r2) d)) ∧
   (apply_colour_inst f (FP (FPMovFromReg d r1 r2)) = FP (FPMovFromReg d (f r1) (f r2))) ∧
-  (apply_colour_inst f x = x)` (*Catchall -- for future instructions to be added*)
+  (apply_colour_inst f x = x)
+End (*Catchall -- for future instructions to be added*)
 
-val apply_colour_def = Define `
+Definition apply_colour_def:
   (apply_colour f Skip = Skip) ∧
   (apply_colour f (Move pri ls) =
     Move pri (ZIP (MAP (f o FST) ls, MAP (f o SND) ls))) ∧
@@ -509,7 +523,8 @@ val apply_colour_def = Define `
   (apply_colour f (Set n exp) = Set n (apply_colour_exp f exp)) ∧
   (apply_colour f (OpCurrHeap b n1 n2) = OpCurrHeap b (f n1) (f n2)) ∧
   (apply_colour f (ShareInst op v exp) = ShareInst op (f v) (apply_colour_exp f exp)) ∧
-  (apply_colour f p = p )`
+  (apply_colour f p = p )
+End
 
 val _ = export_rewrites ["apply_nummap_key_def","apply_colour_exp_def"
                         ,"apply_colour_inst_def","apply_colour_def"
@@ -518,7 +533,7 @@ val _ = export_rewrites ["apply_nummap_key_def","apply_colour_exp_def"
 (* Liveness Analysis*)
 
 (*Writes made by any inst as a sptree*)
-val get_writes_inst_def = Define`
+Definition get_writes_inst_def:
   (get_writes_inst (Const reg w) = insert reg () LN) ∧
   (get_writes_inst (Arith (Binop bop r1 r2 ri)) = insert r1 () LN) ∧
   (get_writes_inst (Arith (Shift shift r1 r2 n)) = insert r1 () LN) ∧
@@ -537,11 +552,12 @@ val get_writes_inst_def = Define`
     if dimindex(:'a) = 64
       then insert r1 () LN
       else insert r2 () (insert r1 () LN)) ∧
-  (get_writes_inst inst = LN)`
+  (get_writes_inst inst = LN)
+End
 
 (*Liveness for instructions, follows liveness equations
   live-sets are num_sets a.k.a. unit-sptrees*)
-val get_live_inst_def = Define`
+Definition get_live_inst_def:
   (get_live_inst Skip live:num_set = live) ∧
   (get_live_inst (Const reg w) live = delete reg live) ∧
   (get_live_inst (Arith (Binop bop r1 r2 ri)) live =
@@ -582,10 +598,12 @@ val get_live_inst_def = Define`
       then insert r1 () live
       else insert r2 () (insert r1 () live)) ∧
   (*Catchall -- for future instructions to be added*)
-  (get_live_inst x live = live)`
+  (get_live_inst x live = live)
+End
 
-val big_union_def = Define`
-  big_union ls = FOLDR (λx y. union x y) LN ls`
+Definition big_union_def:
+  big_union ls = FOLDR (λx y. union x y) LN ls
+End
 
 val get_live_exp_def = tDefine"get_live_exp"`
   (get_live_exp (Var num) = insert num () LN ) ∧
@@ -599,11 +617,12 @@ val get_live_exp_def = tDefine"get_live_exp"`
   imp_res_tac MEM_IMP_exp_size>>
   FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`) >> DECIDE_TAC)
 
-val numset_list_insert_def = Define`
+Definition numset_list_insert_def:
   (numset_list_insert [] t = t) ∧
-  (numset_list_insert (x::xs) t = insert x () (numset_list_insert xs t))`
+  (numset_list_insert (x::xs) t = insert x () (numset_list_insert xs t))
+End
 
-val get_live_def = Define`
+Definition get_live_def:
   (get_live Skip live = live) ∧
   (*All SNDs are read and all FSTs are written*)
   (get_live (Move pri ls) live =
@@ -655,7 +674,7 @@ val get_live_def = Define`
   (get_live (OpCurrHeap b n1 n2) live = insert n2 () (delete n1 live)) ∧
   (get_live (ShareInst mop v exp) live =
     let sub = get_live_exp exp in
-      if mop = Store ∨ mop = Store8
+      if mop = Store ∨ mop = Store8 ∨ mop = Store32
       then union sub (insert v () live)
       else union sub (delete v live)) ∧
   (*Cut-set must be live, args input must be live
@@ -665,10 +684,11 @@ val get_live_def = Define`
   *)
   (get_live (Call NONE dest args h) live = numset_list_insert args LN) ∧
   (get_live (Call (SOME(_,cutset,_)) dest args h) live =
-    union cutset (numset_list_insert args LN))`
+    union cutset (numset_list_insert args LN))
+End
 
 (* Dead instruction removal *)
-val remove_dead_inst_def = Define`
+Definition remove_dead_inst_def:
   (remove_dead_inst Skip (live:num_set) = T) ∧
   (remove_dead_inst (Const reg w) live = (lookup reg live = NONE)) ∧
   (remove_dead_inst (Arith (Binop bop r1 r2 ri)) live = (lookup r1 live = NONE)) ∧
@@ -693,10 +713,11 @@ val remove_dead_inst_def = Define`
     if dimindex(:'a) = 64 then lookup r1 live = NONE
     else (lookup r1 live = NONE ∧ (lookup r2 live = NONE))) ∧
   (*Catchall -- for other instructions*)
-  (remove_dead_inst x live = F)`
+  (remove_dead_inst x live = F)
+End
 
 (*Delete dead code, w.r.t. a set of live variables*)
-val remove_dead_def = Define`
+Definition remove_dead_def:
   (remove_dead Skip live = (Skip,live)) ∧
   (remove_dead (Move pri ls) live =
     let ls = FILTER (λx,y. lookup x live = SOME ()) ls in
@@ -766,10 +787,11 @@ val remove_dead_def = Define`
   (* we should not remove the ShareInst Load instructions.
   * It produces a ffi event even if the variable is not in
   * the live set *)
-  (remove_dead prog live = (prog,get_live prog live))`
+  (remove_dead prog live = (prog,get_live prog live))
+End
 
 (*Single step immediate writes by a prog*)
-val get_writes_def = Define`
+Definition get_writes_def:
   (get_writes (Move pri ls) = numset_list_insert (MAP FST ls) LN)∧
   (get_writes (Inst i) = get_writes_inst i) ∧
   (get_writes (Assign num exp) = insert num () LN)∧
@@ -780,7 +802,9 @@ val get_writes_def = Define`
   (get_writes (StoreConsts a b c d _) = insert a () (insert b () (insert c () (insert d () LN)))) ∧
   (get_writes (ShareInst Load v _) = insert v () LN) ∧
   (get_writes (ShareInst Load8 v _) = insert v () LN) ∧
-  (get_writes prog = LN)`
+  (get_writes (ShareInst Load32 v _) = insert v () LN) ∧
+  (get_writes prog = LN)
+End
 
 Theorem get_writes_pmatch:
   !inst.
@@ -796,6 +820,7 @@ Theorem get_writes_pmatch:
     | StoreConsts a b c d _ => insert a () (insert b () (insert c () (insert d () LN)))
     | ShareInst Load v _ => insert v () LN
     | ShareInst Load8 v _ => insert v () LN
+    | ShareInst Load32 v _ => insert v () LN
     | prog => LN
 Proof
   rpt strip_tac
@@ -840,7 +865,7 @@ QED
 *)
 
 (* Potentially more efficient liveset representation for checking / allocation*)
-val get_delta_inst_def = Define`
+Definition get_delta_inst_def:
   (get_delta_inst Skip = Delta [] []) ∧
   (get_delta_inst (Const reg w) = Delta [reg] []) ∧
   (get_delta_inst (Arith (Binop bop r1 r2 ri)) =
@@ -869,7 +894,8 @@ val get_delta_inst_def = Define`
       then Delta [] [r1]
       else Delta [] [r1;r2]) ∧
   (*Catchall -- for future instructions to be added*)
-  (get_delta_inst x = Delta [] [])`
+  (get_delta_inst x = Delta [] [])
+End
 
 val get_reads_exp_def = tDefine "get_reads_exp" `
   (get_reads_exp (Var num) = [num]) ∧
@@ -883,7 +909,7 @@ val get_reads_exp_def = tDefine "get_reads_exp" `
   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
   \\ DECIDE_TAC)
 
-val get_clash_tree_def = Define`
+Definition get_clash_tree_def:
   (get_clash_tree Skip = Delta [] []) ∧
   (get_clash_tree (Move pri ls) =
     Delta (MAP FST ls) (MAP SND ls)) ∧
@@ -917,7 +943,7 @@ val get_clash_tree_def = Define`
   (get_clash_tree (Set n exp) = Delta [] (get_reads_exp exp)) ∧
   (get_clash_tree (OpCurrHeap b dst src) = Delta [dst] [src]) ∧
   (get_clash_tree (StoreConsts a b c d ws) = Delta [a;b;c;d] [c;d]) ∧
-  (get_clash_tree (ShareInst op v exp) = if op = Store ∨ op = Store8
+  (get_clash_tree (ShareInst op v exp) = if op = Store ∨ op = Store8 ∨ op = Store32
     then Delta [] (v::get_reads_exp exp)
     else Delta [v] $ get_reads_exp exp) ∧
   (get_clash_tree (Call ret dest args h) =
@@ -935,12 +961,13 @@ val get_clash_tree_def = Define`
           (*They will actually always be equal if call_arg_conv is met*)
           if v = v' then get_clash_tree prog
           else Seq (Set (insert v' () cutset)) (get_clash_tree prog) in
-        Branch (SOME live_set) ret_tree handler_tree)`
+        Branch (SOME live_set) ret_tree handler_tree)
+End
 
 (* Preference edges
   The allocator tries hard to coalesce these edges
 *)
-val get_prefs_def = Define`
+Definition get_prefs_def:
   (get_prefs (Move pri ls) acc = (MAP (λx,y. (pri,x,y)) ls) ++ acc) ∧
   (get_prefs (MustTerminate s1) acc =
     get_prefs s1 acc) ∧
@@ -952,7 +979,8 @@ val get_prefs_def = Define`
     dtcase h of
       NONE => get_prefs ret_handler acc
     | SOME (v,prog,l1,l2) => get_prefs prog (get_prefs ret_handler acc)) ∧
-  (get_prefs prog acc = acc)`
+  (get_prefs prog acc = acc)
+End
 
 Theorem get_prefs_pmatch:
   !s acc.
@@ -999,42 +1027,47 @@ Type heu_data = ``:num#num#num#num#num``
 
 val _ = Parse.hide"mem";
 
-val add1_lhs_const_def = Define`
+Definition add1_lhs_const_def:
   add1_lhs_const x (t: (heu_data num_map)) =
   dtcase lookup x t of NONE =>
     insert x (1,0,0,0,0) t
   | SOME (const,reg,mem,rreg,rmem) =>
-    insert x (const+1n,reg,mem,rreg,rmem) t`
+    insert x (const+1n,reg,mem,rreg,rmem) t
+End
 
-val add1_lhs_reg_def = Define`
+Definition add1_lhs_reg_def:
   add1_lhs_reg x (t: (heu_data num_map)) =
   dtcase lookup x t of NONE =>
     insert x (0,1,0,0,0) t
   | SOME (const,reg,mem,rreg,rmem) =>
-    insert x (const,reg+1,mem,rreg,rmem) t`
+    insert x (const,reg+1,mem,rreg,rmem) t
+End
 
-val add1_lhs_mem_def = Define`
+Definition add1_lhs_mem_def:
   add1_lhs_mem x (t: (heu_data num_map)) =
   dtcase lookup x t of NONE =>
     insert x (0,0,1,0,0) t
   | SOME (const,reg,mem,rreg,rmem) =>
-    insert x (const,reg,mem+1,rreg,rmem) t`
+    insert x (const,reg,mem+1,rreg,rmem) t
+End
 
-val add1_rhs_reg_def = Define`
+Definition add1_rhs_reg_def:
   add1_rhs_reg x (t: (heu_data num_map)) =
   dtcase lookup x t of NONE =>
     insert x (0,0,0,1,0) t
   | SOME (const,reg,mem,rreg,rmem) =>
-    insert x (const,reg,mem,rreg+1,rmem) t`
+    insert x (const,reg,mem,rreg+1,rmem) t
+End
 
-val add1_rhs_mem_def = Define`
+Definition add1_rhs_mem_def:
   add1_rhs_mem x (t: (heu_data num_map)) =
   dtcase lookup x t of NONE =>
     insert x (0,0,0,0,1) t
   | SOME (const,reg,mem,rreg,rmem) =>
-    insert x (const,reg,mem,rreg,rmem+1) t`
+    insert x (const,reg,mem,rreg,rmem+1) t
+End
 
-val get_heu_inst_def = Define`
+Definition get_heu_inst_def:
   (get_heu_inst Skip tup = tup) ∧
   (get_heu_inst (Const reg w) lr =
     (add1_lhs_const reg lr)) ∧
@@ -1091,14 +1124,16 @@ val get_heu_inst_def = Define`
   (get_heu_inst (FP (FPMovFromReg d r1 r2)) lr =
      (add1_rhs_reg r2 (add1_rhs_reg r1 lr))) ∧
   (*Catchall -- for future instructions to be added, and all other FP *)
-  (get_heu_inst x lr = lr)`
+  (get_heu_inst x lr = lr)
+End
 
 (* For Ifs, as a heuristic we take the max over branching paths *)
-val heu_max_def = Define`
+Definition heu_max_def:
   heu_max (c1,r1,m1,rr1,rm1) (c2,r2,m2,rr2,rm2) =
-    (MAX c1 c2, MAX r1 r2, MAX m1 m2,MAX rr1 rr2, MAX rm1 rm2)`
+    (MAX c1 c2, MAX r1 r2, MAX m1 m2,MAX rr1 rr2, MAX rm1 rm2)
+End
 
-val heu_max_all_def = Define`
+Definition heu_max_all_def:
   heu_max_all t1 t2 =
   let t1r = difference t1 t2 in (*everything in t1 not already in t2*)
   union
@@ -1106,18 +1141,21 @@ val heu_max_all_def = Define`
   (mapi (λk v.
     dtcase lookup k t1 of
       NONE => v
-    | SOME v' => heu_max v v') t2)`
+    | SOME v' => heu_max v v') t2)
+End
 
-val heu_merge_call_def = Define`
+Definition heu_merge_call_def:
   heu_merge_call (t1:num_set) t2 =
-  union t1 t2`
+  union t1 t2
+End
 
 (* We use "lr" to approximate any new vars not already tracked in calls *)
-val add_call_def = Define`
+Definition add_call_def:
   add_call lr calls:num_set =
-  union (map (λv. ()) lr) calls`
+  union (map (λv. ()) lr) calls
+End
 
-val get_heu_def = Define `
+Definition get_heu_def:
   (get_heu fc (Move pri ls) (lr,calls) =
     (FOLDR add1_lhs_reg
     (FOLDR add1_rhs_reg lr (MAP SND ls))
@@ -1165,16 +1203,19 @@ val get_heu_def = Define `
       (heu_max_all lr2 lr3, heu_merge_call calls2 calls3)) ∧
   (get_heu fs (ShareInst Load r _) (lr,calls) = (add1_lhs_mem r lr,calls)) ∧
   (get_heu fs (ShareInst Load8 r _) (lr,calls) = (add1_lhs_mem r lr,calls)) ∧
+  (get_heu fs (ShareInst Load32 r _) (lr,calls) = (add1_lhs_mem r lr,calls)) ∧
   (get_heu fs (ShareInst Store r _) (lr,calls) = (add1_rhs_mem r lr,calls)) ∧
   (get_heu fs (ShareInst Store8 r _) (lr,calls) = (add1_rhs_mem r lr,calls)) ∧
+  (get_heu fs (ShareInst Store32 r _) (lr,calls) = (add1_rhs_mem r lr,calls)) ∧
   (* The remaining ones are exps, or otherwise unimportant from the
   pov of register allocation, since all their temps are already forced into
   specific registers
   Omitted: Skip, Assign, Store, FFI, Alloc, Raise, Tick, Call NONE*)
-  (get_heu fc f lrc = lrc)`
+  (get_heu fc f lrc = lrc)
+End
 
 (* Forced edges for certain instructions *)
-val get_forced_def = Define`
+Definition get_forced_def:
   (get_forced (c:'a asm_config) ((Inst i):'a prog) acc =
     dtcase i of
       Arith (AddCarry r1 r2 r3 r4) =>
@@ -1219,7 +1260,8 @@ val get_forced_def = Define`
     dtcase h of
       NONE => get_forced c ret_handler acc
     | SOME (v,prog,l1,l2) => get_forced c prog (get_forced c ret_handler acc)) ∧
-  (get_forced c prog acc = acc)`
+  (get_forced c prog acc = acc)
+End
 
 Theorem get_forced_pmatch:
   !c prog acc.
@@ -1283,23 +1325,26 @@ Proof
 QED
 
 (*col is injective over every cut set*)
-val check_colouring_ok_alt_def = Define`
+Definition check_colouring_ok_alt_def:
   (check_colouring_ok_alt col [] = T) ∧
   (check_colouring_ok_alt col (x::xs) ⇔
     let names = MAP (col o FST) (toAList x) in
-      ALL_DISTINCT names ∧ check_colouring_ok_alt col xs)`
+      ALL_DISTINCT names ∧ check_colouring_ok_alt col xs)
+End
 
-val every_even_colour_def = Define`
+Definition every_even_colour_def:
   every_even_colour col ⇔
-  EVERY (λ(x,y). if is_phy_var x then y = x DIV 2 else T) (toAList col)`
+  EVERY (λ(x,y). if is_phy_var x then y = x DIV 2 else T) (toAList col)
+End
 
 (*Extract a colouring function from the generated sptree*)
-val total_colour_def = Define`
+Definition total_colour_def:
   total_colour col x =
-    dtcase lookup x col of NONE => if is_phy_var x then x else 2*x | SOME x => 2*x`
+    dtcase lookup x col of NONE => if is_phy_var x then x else 2*x | SOME x => 2*x
+End
 
 (*Check that the oracle provided colour (if it exists) is okay*)
-val oracle_colour_ok_def = Define`
+Definition oracle_colour_ok_def:
   oracle_colour_ok k col_opt tree prog ls ⇔
   dtcase col_opt of
     NONE => NONE
@@ -1317,7 +1362,8 @@ val oracle_colour_ok_def = Define`
          SOME prog
        else
          NONE
-     else NONE`
+     else NONE
+End
 
 (* Returns
   1) a lookup table
@@ -1332,15 +1378,16 @@ val oracle_colour_ok_def = Define`
   Then QSORT them by lexicographic order, and count
   returns (num, maxpriority, (x,y))
 *)
-val canonize_moves_aux_def = Define`
+Definition canonize_moves_aux_def:
   (canonize_moves_aux curp curm ctr [] acc = (ctr,curp,curm)::acc) ∧
   (canonize_moves_aux curp curm ctr ((p,m)::xs) acc =
     if curm = m then
       canonize_moves_aux (MAX curp p) m (ctr+1n) xs acc
     else
-      canonize_moves_aux p m 1 xs ((ctr,curp,curm)::acc))`
+      canonize_moves_aux p m 1 xs ((ctr,curp,curm)::acc))
+End
 
-val canonize_moves_def = Define`
+Definition canonize_moves_def:
   canonize_moves ls =
   let can1 = MAP (λ(p:num,(x:num,y:num)). if (x<=y) then (p,(x,y)) else (p,(y,x))) ls in
   let can2 = QSORT
@@ -1351,26 +1398,29 @@ val canonize_moves_def = Define`
         else y1 < y2
       else x1 < x2) can1 in
   dtcase can2 of [] => []
-  | ((p,m)::xs) => canonize_moves_aux p m 1 xs []`
+  | ((p,m)::xs) => canonize_moves_aux p m 1 xs []
+End
 
 (* TODO: ALL of these magic numbers must be adjusted!! *)
 
-val get_spillcost_def = Define`
+Definition get_spillcost_def:
   get_spillcost (c,lr,lm,rr,rm) istail =
   (c + 2*lr + 4*lm + 2*rr + 4 * rm) *
-  if istail then 5 else 1n`
+  if istail then 5 else 1n
+End
 
 (*
   Prioritize moves that happen a lot, and have high max priority
   also give some weight to the spill cost of their endpoints
 *)
-val get_coalescecost_def = Define`
+Definition get_coalescecost_def:
   get_coalescecost spillcost (n,p,(x,y))=
   let xcost = if lookup x spillcost = NONE then 0 else 1 in
   let ycost = if lookup y spillcost = NONE then 0 else 1n in
-  (n * (10 * (p+1) + xcost + ycost),(x,y))`
+  (n * (10 * (p+1) + xcost + ycost),(x,y))
+End
 
-val get_heuristics_def = Define`
+Definition get_heuristics_def:
   get_heuristics alg fc prog =
   if alg MOD 2n = 1n then
     let (lr,calls) = get_heu fc prog (LN,LN) in
@@ -1381,14 +1431,16 @@ val get_heuristics_def = Define`
     (heu_moves,SOME spillcosts)
   else
     let moves = get_prefs prog [] in
-    (moves,NONE)`
+    (moves,NONE)
+End
 
-val select_reg_alloc_def = Define`
+Definition select_reg_alloc_def:
   select_reg_alloc alg spillcosts k heu_moves tree forced =
     if 4 <= alg then
       linear_scan$linear_scan_reg_alloc k heu_moves tree forced
     else
-      reg_alloc (if alg <= 1n then Simple else IRC) spillcosts k heu_moves tree forced`
+      reg_alloc (if alg <= 1n then Simple else IRC) spillcosts k heu_moves tree forced
+End
 
 (*
   fc is the current prog number
@@ -1402,7 +1454,7 @@ val select_reg_alloc_def = Define`
   prog is the program to be colored
   col_opt is an optional oracle colour
 *)
-val word_alloc_def = Define`
+Definition word_alloc_def:
   word_alloc fc c alg k prog col_opt =
   let tree = get_clash_tree prog in
   (*let moves = get_prefs_sp prog [] in*)
@@ -1415,25 +1467,29 @@ val word_alloc_def = Define`
           apply_colour (total_colour col) prog
       | M_failure _ => prog (*cannot happen*))
   | SOME col_prog =>
-      col_prog`
+      col_prog
+End
 
 (*The initial move, ssa and limit vars*)
-val setup_ssa_def = Define`
+Definition setup_ssa_def:
   setup_ssa n lim (prog:'a wordLang$prog) =
   let args = even_list n in
   let (new_ls,ssa',n') = list_next_var_rename args LN lim in
-    (Move 1 (ZIP(new_ls,args)),ssa',n')`
+    (Move 1 (ZIP(new_ls,args)),ssa',n')
+End
 
-val limit_var_def = Define`
+Definition limit_var_def:
   limit_var prog =
     let x = max_var prog in
-    x + (4 - (x MOD 4)) +1`
+    x + (4 - (x MOD 4)) +1
+End
 
-val full_ssa_cc_trans_def = Define`
+Definition full_ssa_cc_trans_def:
   full_ssa_cc_trans n prog =
     let lim = limit_var prog in
     let (mov,ssa,na) = setup_ssa n lim prog in
     let (prog',ssa',na') = ssa_cc_trans prog ssa na in
-      Seq mov prog'`
+      Seq mov prog'
+End
 
 val _ = export_theory();

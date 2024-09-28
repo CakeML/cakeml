@@ -1780,9 +1780,10 @@ Proof
   \\ fs[]
 QED
 
-val w2w_upper_def = Define `
+Definition w2w_upper_def:
   w2w_upper (w:word64) =
-    if dimindex (:'a) = 32 then ((63 >< 32) w):'a word else w2w w`
+    if dimindex (:'a) = 32 then ((63 >< 32) w):'a word else w2w w
+End
 
 Theorem InstallData_code_thm:
    !(t:('a,'c,'ffi) wordSem$state) c hv2 v1 q2 a1 a2 ret_val s1 vars sp refs ts.
@@ -3405,7 +3406,9 @@ val evaluate_AppendMainLoop_code = prove(
   \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
   \\ fs [] \\ rw [] \\ fs []);
 
-val STOP_def = Define `STOP x = x`;
+Definition STOP_def:
+  STOP x = x
+End
 
 val evaluate_AppendMainLoop_code_alt = prove(
   ``!xs ww (t:('a,'c,'ffi)wordSem$state) vars ptr hdr l k frame r1 r2 next_free ts v.
@@ -11952,12 +11955,13 @@ Proof
   Cases_on `b1` \\ Cases_on `b2` \\ fs []
 QED
 
-val memcopy_def = Define `
+Definition memcopy_def:
   memcopy k a1 a2 m dm =
     if k = 0n then SOME m else
       if a1 IN dm /\ a2 IN dm then
         memcopy (k-1) (a1+bytes_in_word) (a2+bytes_in_word) ((a2 =+ m a1) m) dm
-      else NONE`
+      else NONE
+End
 
 Theorem MemCopy_thm:
    !ret_val l1 l2 k a1 a2 (s:('a,'c,'ffi) wordSem$state) m dm m1.

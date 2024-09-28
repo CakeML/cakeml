@@ -36,10 +36,12 @@ val _ = Datatype `
       | Call num (num option) (exp list)
       | Op closLang$op (exp list) `
 
-val Bool_def = Define`
-  Bool b = Op (Cons (bool_to_tag b)) []`;
+Definition Bool_def:
+  Bool b = Op (Cons (bool_to_tag b)) []
+End
 
-val mk_tick_def = Define `
-  mk_tick n e = FUNPOW Tick n e : bvl$exp`;
+Definition mk_tick_def:
+  mk_tick n e = FUNPOW Tick n e : bvl$exp
+End
 
 val _ = export_theory();

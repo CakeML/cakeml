@@ -7,14 +7,15 @@ open preamble backendProofTheory ag32_configTheory
 
 val _ = new_theory"ag32_configProof";
 
-val is_ag32_machine_config_def = Define`
+Definition is_ag32_machine_config_def:
   is_ag32_machine_config mc ⇔
   mc.target = ag32_target ∧
   mc.ptr_reg = 1 ∧
   mc.len_reg = 2  ∧
   mc.ptr2_reg = 3 ∧
   mc.len2_reg = 4  ∧
-  mc.callee_saved_regs = [60;61;62]`;
+  mc.callee_saved_regs = [60;61;62]
+End
 
 val names_tac =
   simp[tlookup_bij_iff] \\ EVAL_TAC

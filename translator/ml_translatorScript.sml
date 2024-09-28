@@ -61,36 +61,46 @@ End
 
 Overload "-->" = ``Arrow``
 
-val Eq_def = Define `
+Definition Eq_def:
   Eq (abs:'a->v->bool) x =
-    (\y v. (x = y) /\ abs y v)`;
+    (\y v. (x = y) /\ abs y v)
+End
 
-val And_def = Define `And a P x v = (P x /\ a (x:'a) (v:v))`;
+Definition And_def:
+  And a P x v = (P x /\ a (x:'a) (v:v))
+End
 
-val UNIT_TYPE_def = Define `
-  UNIT_TYPE (u:unit) (v:v) = (v = Conv NONE [])`;
+Definition UNIT_TYPE_def:
+  UNIT_TYPE (u:unit) (v:v) = (v = Conv NONE [])
+End
 
-val INT_def = Define `
-  INT i = \v:v. (v = Litv (IntLit i))`;
+Definition INT_def:
+  INT i = \v:v. (v = Litv (IntLit i))
+End
 
-val NUM_def = Define `
-  NUM n = INT (& n)`;
+Definition NUM_def:
+  NUM n = INT (& n)
+End
 
-val BOOL_def = Define `
-  BOOL b = \v:v. (v = Boolv b)`;
+Definition BOOL_def:
+  BOOL b = \v:v. (v = Boolv b)
+End
 
-val WORD_def = Define `
+Definition WORD_def:
   WORD (w:'a word) =
     \v:v. dimindex (:'a) <= 64 /\
           (v = Litv (if dimindex (:'a) <= 8
                      then Word8 (w2w w << (8 - dimindex (:'a)))
-                     else Word64 (w2w w << (64 - dimindex (:'a)))))`;
+                     else Word64 (w2w w << (64 - dimindex (:'a)))))
+End
 
-val CHAR_def = Define`
-  CHAR (c:char) = \v:v. (v = Litv (Char c))`;
+Definition CHAR_def:
+  CHAR (c:char) = \v:v. (v = Litv (Char c))
+End
 
-val STRING_TYPE_def = Define`
-  STRING_TYPE (strlit s) = \v:v. (v = Litv (StrLit s))`;
+Definition STRING_TYPE_def:
+  STRING_TYPE (strlit s) = \v:v. (v = Litv (StrLit s))
+End
 
 Theorem STRING_TYPE_explode:
   STRING_TYPE s = \v. (v = Litv (StrLit (explode s)))
@@ -112,20 +122,29 @@ Proof
   \\ rw[GSYM mlstringTheory.implode_def]
 QED
 
-val HOL_STRING_TYPE_def = Define `
-  HOL_STRING_TYPE cs = STRING_TYPE (implode cs)`
+Definition HOL_STRING_TYPE_def:
+  HOL_STRING_TYPE cs = STRING_TYPE (implode cs)
+End
 
-val CONTAINER_def = Define `CONTAINER x = x`;
+Definition CONTAINER_def:
+  CONTAINER x = x
+End
 
-val TAG_def = Define `TAG n x = x`;
+Definition TAG_def:
+  TAG n x = x
+End
 
-val PRECONDITION_def = Define `PRECONDITION b = (b:bool)`;
+Definition PRECONDITION_def:
+  PRECONDITION b = (b:bool)
+End
 
-val PreImp_def = Define `
-  PreImp b1 b2 = (PRECONDITION b1 ==> b2)`;
+Definition PreImp_def:
+  PreImp b1 b2 = (PRECONDITION b1 ==> b2)
+End
 
-val PreImpEval_def = Define`
-  PreImpEval b env code P = PreImp b (Eval env code P)`;
+Definition PreImpEval_def:
+  PreImpEval b env code P = PreImp b (Eval env code P)
+End
 
 (* Theorems *)
 
@@ -303,8 +322,9 @@ Proof
   fs [FORALL_PROD,lookup_var_def,Eval_rw]
 QED
 
-val LOOKUP_VAR_def = Define `
-  LOOKUP_VAR name env x = (lookup_var name env = SOME x)`;
+Definition LOOKUP_VAR_def:
+  LOOKUP_VAR name env x = (lookup_var name env = SOME x)
+End
 
 Theorem LOOKUP_VAR_THM:
    LOOKUP_VAR name env x ==> Eval env (Var (Short name)) ($= x)
@@ -870,7 +890,9 @@ Proof
   \\ FULL_SIMP_TAC std_ss []
 QED
 
-val SafeVar_def = Define `SafeVar = Var`;
+Definition SafeVar_def:
+  SafeVar = Var
+End
 
 Theorem Eval_Eq_Recclosure:
    LOOKUP_VAR name env (Recclosure x1 x2 x3) ==>
@@ -991,8 +1013,9 @@ QED
 
 end;
 
-val num_of_int_def = Define `
-  num_of_int i = Num (ABS i)`;
+Definition num_of_int_def:
+  num_of_int i = Num (ABS i)
+End
 
 Theorem num_of_int_num[simp]:
    num_of_int (& n) = n /\ num_of_int (- & n) = n
@@ -1037,8 +1060,9 @@ QED
 
 (* arithmetic for num *)
 
-val sub_nocheck_def = Define`
-  sub_nocheck (n:num) m = n - m`;
+Definition sub_nocheck_def:
+  sub_nocheck (n:num) m = n - m
+End
 
 val Eval_NUM_SUB_nocheck = save_thm("Eval_NUM_SUB_nocheck",
   Eval_INT_SUB |> Q.SPECL [`&n`,`&m`]
@@ -2333,8 +2357,12 @@ QED
 val PUSH_FORALL_INTO_IMP = save_thm("PUSH_FORALL_INTO_IMP",
   METIS_PROVE [] ``!P Q. (!x. P x ==> Q x) ==> (!x. P x) ==> (!x. Q x)``);
 
-val FALSE_def = Define `FALSE = F`;
-val TRUE_def = Define `TRUE = T`;
+Definition FALSE_def:
+  FALSE = F
+End
+Definition TRUE_def:
+  TRUE = T
+End
 
 Theorem Eval_Val_BOOL_FALSE:
    Eval env (App (Opb Lt) [Lit (IntLit 0); Lit (IntLit 0)]) (BOOL FALSE)

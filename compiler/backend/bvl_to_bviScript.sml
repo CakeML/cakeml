@@ -105,22 +105,30 @@ Proof
   \\ gvs [global_count_sing_def,alloc_glob_count_def]
 QED
 
-val AllocGlobal_location_def = Define`
-  AllocGlobal_location = data_num_stubs`;
-val CopyGlobals_location_def = Define`
-  CopyGlobals_location = AllocGlobal_location+1`;
-val InitGlobals_location_def = Define`
-  InitGlobals_location = CopyGlobals_location+1`;
-val ListLength_location_def = Define`
-  ListLength_location = InitGlobals_location+1`;
-val FromListByte_location_def = Define`
-  FromListByte_location = ListLength_location+1`;
-val ToListByte_location_def = Define`
-  ToListByte_location = FromListByte_location+1`;
-val SumListLength_location_def = Define`
-  SumListLength_location = ToListByte_location+1`;
-val ConcatByte_location_def = Define`
-  ConcatByte_location = SumListLength_location+1`;
+Definition AllocGlobal_location_def:
+  AllocGlobal_location = data_num_stubs
+End
+Definition CopyGlobals_location_def:
+  CopyGlobals_location = AllocGlobal_location+1
+End
+Definition InitGlobals_location_def:
+  InitGlobals_location = CopyGlobals_location+1
+End
+Definition ListLength_location_def:
+  ListLength_location = InitGlobals_location+1
+End
+Definition FromListByte_location_def:
+  FromListByte_location = ListLength_location+1
+End
+Definition ToListByte_location_def:
+  ToListByte_location = FromListByte_location+1
+End
+Definition SumListLength_location_def:
+  SumListLength_location = ToListByte_location+1
+End
+Definition ConcatByte_location_def:
+  ConcatByte_location = SumListLength_location+1
+End
 
 val AllocGlobal_location_eq = save_thm("AllocGlobal_location_eq",
   ``AllocGlobal_location`` |> EVAL);
@@ -153,40 +161,45 @@ Definition AllocGlobal_code_def:
               [Var 1; Var 6; Op Sub [Op (Const 1) []; Var 3]] NONE))
 End
 
-val CopyGlobals_code_def = Define`
+Definition CopyGlobals_code_def:
   CopyGlobals_code = (3:num, (* ptr to new array, ptr to old array, index to copy *)
     Let [Op Update [Op El [Var 2; Var 1]; Var 2; Var 0]]
       (If (Op Equal [Op(Const 0)[]; Var 3]) (Var 0)
-        (Call 0 (SOME CopyGlobals_location) [Var 1; Var 2; Op Sub [Op(Const 1)[];Var 3]] NONE)))`;
+        (Call 0 (SOME CopyGlobals_location) [Var 1; Var 2; Op Sub [Op(Const 1)[];Var 3]] NONE)))
+End
 
-val InitGlobals_max_def = Define`
-  InitGlobals_max = 10000n`;
+Definition InitGlobals_max_def:
+  InitGlobals_max = 10000n
+End
 
-val InitGlobals_code_def = Define`
+Definition InitGlobals_code_def:
   InitGlobals_code start n = (0:num,
     let n = MIN (MAX n 1) InitGlobals_max in
       Let [Op RefArray [Op (Const 0) []; Op (Const (&n)) []]]
         (Let [Op Update [Op (Const 1) []; Op (Const 0) []; Var 0]]
           (Let [Op SetGlobalsPtr [Var 1]]
-             (Call 0 (SOME start) [] (SOME (Var 0))))))`;
+             (Call 0 (SOME start) [] (SOME (Var 0))))))
+End
 
-val ListLength_code_def = Define `
+Definition ListLength_code_def:
   ListLength_code = (2n, (* ptr to array, accumulated length *)
     If (Op (TagLenEq nil_tag 0) [Var 0])
       (Var 1) (Call 0 (SOME ListLength_location)
                 [Op El [Op (Const 1) []; Var 0];
-                 Op Add [Var 1; Op (Const 1) []]] NONE))`
+                 Op Add [Var 1; Op (Const 1) []]] NONE))
+End
 
-val FromListByte_code_def = Define`
+Definition FromListByte_code_def:
   FromListByte_code = (3n, (* list, current index, byte array *)
     If (Op (TagLenEq nil_tag 0) [Var 0]) (Var 2)
       (Let [Op UpdateByte [Op El [Op (Const 0) []; Var 0]; Var 1; Var 2]]
         (Call 0 (SOME FromListByte_location)
           [Op El [Op (Const 1) []; Var 1];
            Op Add [Var 2; Op (Const 1) []];
-           Var 3] NONE)))`;
+           Var 3] NONE)))
+End
 
-val ToListByte_code_def = Define`
+Definition ToListByte_code_def:
   ToListByte_code = (3n, (* list, current index, byte array *)
     If (Op (EqualConst (Int 0i)) [Var 1]) (Var 0)
       (Let [Op Sub [Op (Const 1) []; Var 1]]
@@ -194,18 +207,20 @@ val ToListByte_code_def = Define`
         (Call 0 (SOME ToListByte_location)
           [Op (Cons 0) [Var 2; Var 0];
            Var 1;
-           Var 4] NONE))))`;
+           Var 4] NONE))))
+End
 
-val SumListLength_code_def = Define`
+Definition SumListLength_code_def:
   SumListLength_code = (2n, (* ptr to list, accumulated length *)
     If (Op (TagLenEq nil_tag 0) [Var 0])
       (Var 1)
       (Call 0 (SOME SumListLength_location)
          [Op El [Op (Const 1) []; Var 0];
           Op Add [Var 1; Op LengthByte
-                           [Op El [Op (Const 0) []; Var 0]]]] NONE))`
+                           [Op El [Op (Const 0) []; Var 0]]]] NONE))
+End
 
-val ConcatByte_code_def = Define`
+Definition ConcatByte_code_def:
   ConcatByte_code = (3n, (* list, current index, destination *)
     If (Op (TagLenEq nil_tag 0) [Var 0]) (Var 2)
       (Let [Op El [Op (Const 0) []; Var 0]]
@@ -215,9 +230,10 @@ val ConcatByte_code_def = Define`
             (Call 0 (SOME ConcatByte_location)
               [Op El [Op (Const 1) []; Var 3];
                Op Add [Var 4; Var 1];
-               Var 5] NONE)))))`;
+               Var 5] NONE)))))
+End
 
-val stubs_def = Define `
+Definition stubs_def:
   stubs start n = [(AllocGlobal_location, AllocGlobal_code);
                    (CopyGlobals_location, CopyGlobals_code);
                    (InitGlobals_location, InitGlobals_code start n);
@@ -225,7 +241,8 @@ val stubs_def = Define `
                    (FromListByte_location, FromListByte_code);
                    (ToListByte_location, ToListByte_code);
                    (SumListLength_location, SumListLength_code);
-                   (ConcatByte_location, ConcatByte_code)]`;
+                   (ConcatByte_location, ConcatByte_code)]
+End
 
 Overload num_stubs[local] = ``backend_common$bvl_num_stubs``
 

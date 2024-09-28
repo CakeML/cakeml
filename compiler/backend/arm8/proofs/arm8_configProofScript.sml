@@ -8,14 +8,15 @@ open blastLib;
 
 val _ = new_theory"arm8_configProof";
 
-val is_arm8_machine_config_def = Define`
+Definition is_arm8_machine_config_def:
   is_arm8_machine_config mc ⇔
   mc.target = arm8_target ∧
   mc.len_reg =1  ∧
   mc.ptr_reg = 0 ∧
   mc.len2_reg =3  ∧
   mc.ptr2_reg = 2 ∧
-  mc.callee_saved_regs = [19;20;21;22;23;24;25;26;27;28]`;
+  mc.callee_saved_regs = [19;20;21;22;23;24;25;26;27;28]
+End
 
 val names_tac =
   simp[tlookup_bij_iff] \\ EVAL_TAC

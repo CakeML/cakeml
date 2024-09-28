@@ -21,18 +21,20 @@ val fs = full_simp_tac (srw_ss ())
 val rw = srw_tac []
 val heap_size_def = fetch "-" "heap_size_def"
 
-val heap_to_bag_def = Define `
+Definition heap_to_bag_def:
 (heap_to_bag Empty = {||}) ∧
 (heap_to_bag (Tree x h1 h2) =
-  BAG_INSERT x (BAG_UNION (heap_to_bag h1) (heap_to_bag h2)))`;
+  BAG_INSERT x (BAG_UNION (heap_to_bag h1) (heap_to_bag h2)))
+End
 
-val is_heap_ordered_def = Define `
+Definition is_heap_ordered_def:
 (is_heap_ordered get_key leq Empty <=> T) ∧
 (is_heap_ordered get_key leq (Tree x h1 h2) <=>
   is_heap_ordered get_key leq h1 ∧
   is_heap_ordered get_key leq h2 ∧
   BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag h1) ∧
-  BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag h2))`;
+  BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag h2))
+End
 
 val empty_def = mlDefine `
 empty = Empty`;
@@ -42,7 +44,7 @@ val is_empty = mlDefine `
 (is_empty _ = F)`;
 
 (*
-val merge_def = Define `
+Definition merge_def:
 (merge get_key leq a Empty = a) ∧
 (merge get_key leq Empty b = b) ∧
 (merge get_key leq (Tree x h1 h2) (Tree y h1' h2') =
@@ -53,13 +55,14 @@ val merge_def = Define `
 
 (link get_key leq (Tree x Empty m) a = Tree x a m) ∧
 (link get_key leq (Tree x b m) a =
-  Tree x Empty (merge get_key leq (merge get_key leq a b) m))`;
+  Tree x Empty (merge get_key leq (merge get_key leq a b) m))
+End
 *)
 
 (* Without mutual recursion, and with size constraints to handle the nested
  * recursion *)
 
-val merge_def = Define `
+Definition merge_def:
  (merge get_key leq a Empty = a) /\
  (merge get_key leq Empty b = b) /\
  (merge get_key leq (Tree x h1 h2) (Tree y h1' h2') =
@@ -84,7 +87,8 @@ val merge_def = Define `
                   heap_size (\x.0) h1' + 2 then
                  Tree y Empty (merge get_key leq h3 h2')
                else
-                 Empty))`;
+                 Empty))
+End
 
 val merge_size = Q.prove (
 `!get_key leq h1 h2.

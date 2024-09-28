@@ -667,6 +667,33 @@ Proof
   gvs[flush_state_def]
 QED
 
+Theorem sh_mem_store32_const:
+  sh_mem_store32 ad v s = (res, s') ==>
+  s'.clock = s.clock ∧
+  s'.compile_oracle = s.compile_oracle ∧
+  s'.compile = s.compile ∧
+  s'.be = s.be ∧
+  s'.gc_fun = s.gc_fun ∧
+  s'.code = s.code ∧
+  s'.code_buffer = s.code_buffer ∧
+  s'.data_buffer = s.data_buffer ∧
+  s'.permute = s.permute ∧
+  s'.handler = s.handler ∧
+  s'.stack_limit = s.stack_limit ∧
+  s'.stack_max = s.stack_max ∧
+  (res = SOME Error ==> s'.locals_size = s.locals_size) ∧
+  (res = NONE ==> s'.locals_size = s.locals_size) ∧
+  (res = NONE ==> s'.stack_max = s.stack_max) ∧
+  (res = SOME Error ==> s'.stack_max = s.stack_max) ∧
+  (res = NONE ==> s'.stack_size = s.stack_size) ∧
+  (res = SOME Error ==> s'.stack_size = s.stack_size)
+Proof
+  gvs[sh_mem_store32_def] >>
+  rpt (TOP_CASE_TAC>> fs[]) >>
+  rpt strip_tac >>
+  gvs[flush_state_def]
+QED
+
 Theorem share_inst_const:
   share_inst op v c s = (res, s') ==>
   s'.code = s.code ∧
@@ -689,7 +716,7 @@ Proof
   >> gvs[AllCaseEqs()]
   >> rpt strip_tac
   >> gvs[]
-  >> metis_tac[sh_mem_store_const,sh_mem_store_byte_const]
+  >> metis_tac[sh_mem_set_var_const,sh_mem_store_const,sh_mem_store_byte_const,sh_mem_store32_const]
 QED
 
 Theorem sh_mem_set_var_with_const:
@@ -715,6 +742,12 @@ Proof
   gvs[sh_mem_load_byte_def]
 QED
 
+Theorem sh_mem_load32_with_const:
+  sh_mem_load32 a (s with clock := k) = sh_mem_load32 a s
+Proof
+  gvs[sh_mem_load32_def]
+QED
+
 Theorem sh_mem_store_with_const:
   sh_mem_store a w s = (r, s') ==>
   sh_mem_store a w (s with clock := k) = (r, s' with clock := k)
@@ -735,6 +768,16 @@ Proof
   gvs[]
 QED
 
+Theorem sh_mem_store32_with_const:
+  sh_mem_store32 a w s = (r, s') ==>
+  sh_mem_store32 a w (s with clock := k) = (r, s' with clock := k)
+Proof
+  gvs[sh_mem_store32_def] >>
+  rpt strip_tac >>
+  rpt (TOP_CASE_TAC >> gvs[]) >>
+  gvs[]
+QED
+
 Theorem share_inst_with_const:
   share_inst op v c s = (r,s') ==>
   share_inst op v c (s with clock := k) = (r, s' with clock := k)
@@ -745,10 +788,11 @@ Proof
   >- metis_tac[sh_mem_set_var_with_const,
     sh_mem_load_with_const]
   >- metis_tac[sh_mem_set_var_with_const,
-    sh_mem_load_byte_with_const] >>
+    sh_mem_load_byte_with_const]
+  >- metis_tac[sh_mem_set_var_with_const,
+    sh_mem_load32_with_const] >>
   rpt (TOP_CASE_TAC >> gvs[])
-  >- metis_tac[sh_mem_store_with_const]
-  >- metis_tac[sh_mem_store_byte_with_const]
+  >> metis_tac[sh_mem_store_with_const,sh_mem_store32_with_const,sh_mem_store_byte_with_const]
 QED
 
 (*code and gc_fun are unchanged across eval*)
@@ -788,8 +832,15 @@ Proof
   >- (
     Cases_on `op` >>
     gvs[share_inst_def,sh_mem_load_def,
-      sh_mem_load_byte_def,sh_mem_store_def,
-      sh_mem_store_byte_def]
+      sh_mem_load_byte_def,sh_mem_load32_def,
+      sh_mem_store_def,sh_mem_store_byte_def,
+      sh_mem_store32_def]
+    >- (
+      IF_CASES_TAC >>
+      gvs[sh_mem_set_var_def] >>
+      qpat_abbrev_tac`res = call_FFI _ _ _ _` >>
+      Cases_on `res` >>
+      gvs[sh_mem_set_var_def] )
     >- (
       IF_CASES_TAC >>
       gvs[sh_mem_set_var_def] >>
@@ -917,25 +968,15 @@ Proof
   >- (tac>>fs[cut_env_def]>> rveq >> fs [])
   >- (
     tac >>
-    Cases_on `op` >>
-    fs[share_inst_def]
-    >- (
-      gvs[sh_mem_load_def,sh_mem_load_byte_def] >>
-      IF_CASES_TAC >>
-      gvs[sh_mem_set_var_def] >>
-      qpat_abbrev_tac `x = call_FFI _ _ _ _` >>
-      Cases_on `x` >>
-      gvs[sh_mem_set_var_def]
-    )
-    >- (
-      gvs[sh_mem_load_def,sh_mem_load_byte_def] >>
-      IF_CASES_TAC >>
-      gvs[sh_mem_set_var_def] >>
-      qpat_abbrev_tac `x = call_FFI _ _ _ _` >>
-      Cases_on `x` >>
-      gvs[sh_mem_set_var_def]
-    ) >>
-    gvs[AllCaseEqs(),sh_mem_store_def,sh_mem_store_byte_def] )
+    gvs[oneline share_inst_def,AllCaseEqs(),
+        oneline sh_mem_set_var_def,
+        sh_mem_load_def,
+        sh_mem_load_byte_def,
+        sh_mem_load32_def,
+        sh_mem_store_def,
+        sh_mem_store_byte_def,
+        sh_mem_store32_def
+       ])
   >>
     qpat_x_assum`A=(res,rst)` mp_tac>>
     ntac 6 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
@@ -1006,37 +1047,12 @@ Proof
   TRY (pairarg_tac >> full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[]) >>
   rveq
   >~ [`share_inst`]
-  >- (
-    Cases_on `op` >>
-    gvs[share_inst_def,sh_mem_store_def,sh_mem_store_byte_def,
-      sh_mem_load_def,sh_mem_load_byte_def,AllCaseEqs()]
-    >- (
-      rename1 `ad IN s.sh_mdomain` >>
-      Cases_on `ad IN s.sh_mdomain`
-      >- (
-        gvs[ffiTheory.call_FFI_def] >>
-        every_case_tac >>
-        gvs[sh_mem_set_var_def]
-      ) >>
-      drule sh_mem_set_var_const >>
-      gvs[]
-    )
-    >- (
-      rename1 `ad IN s.sh_mdomain` >>
-      Cases_on `ad IN s.sh_mdomain`
-      >- (
-        gvs[ffiTheory.call_FFI_def] >>
-        every_case_tac >>
-        gvs[sh_mem_set_var_def]
-      ) >>
-      drule sh_mem_set_var_const >>
-      gvs[]
-    ) >>
-    gvs[ffiTheory.call_FFI_def] >>
-    every_case_tac >>
-    gvs[]
-  ) >>
-   TRY (CHANGED_TAC(full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]) >>
+  >- (gvs[oneline share_inst_def,sh_mem_store_def,sh_mem_store_byte_def,
+          sh_mem_load_def,sh_mem_load_byte_def,AllCaseEqs(),
+          oneline sh_mem_set_var_def, oneline ffiTheory.call_FFI_def,
+          sh_mem_load32_def,sh_mem_store32_def
+         ]) >>
+  TRY (CHANGED_TAC(full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]) >>
        every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
   metis_tac[IS_PREFIX_TRANS]
 QED
@@ -1188,19 +1204,8 @@ Proof
   \\ TRY(pairarg_tac \\ fs[])
   \\ EVERY_CASE_TAC
   >>~ [`share_inst`]
-  >- (
-    Cases_on `op` >>
-    gvs[share_inst_def]
-    >>~- ([`sh_mem_set_var`],
-      qmatch_asmsub_abbrev_tac `sh_mem_set_var res` >>
-      Cases_on `res` >>
-      gvs[sh_mem_set_var_def] >>
-      rename1 `sh_mem_set_var (SOME res)` >>
-      Cases_on `res` >>
-      gvs[sh_mem_set_var_def,set_var_def,flush_state_def]
-    ) >>
-    gvs[AllCaseEqs(),sh_mem_store_def,sh_mem_store_byte_def,flush_state_def]
-  )
+  >- (gvs[oneline share_inst_def,oneline sh_mem_set_var_def,set_var_def,flush_state_def,
+          AllCaseEqs(),sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def])
   \\ fs[set_vars_def,state_component_equality
        ,set_var_def,set_store_def,mem_store_def
        ,call_env_def,flush_state_def,dec_clock_def,flush_state_def]
@@ -1225,32 +1230,36 @@ QED
 (*--Stack Swap Lemma--*)
 
 (*Stacks look the same except for the keys (e.g. recoloured and in order)*)
-val s_frame_val_eq_def = Define`
+Definition s_frame_val_eq_def:
   (s_frame_val_eq (StackFrame n ls NONE) (StackFrame n' ls' NONE)
      <=> MAP SND ls = MAP SND ls' /\ n=n') /\
   (s_frame_val_eq (StackFrame n ls (SOME y)) (StackFrame n' ls' (SOME y'))
      <=> MAP SND ls = MAP SND ls' /\ y=y' /\ n=n') /\
-  (s_frame_val_eq _ _ = F)`
+  (s_frame_val_eq _ _ = F)
+End
 
-val s_val_eq_def = Define`
+Definition s_val_eq_def:
   (s_val_eq [] [] = T) /\
   (s_val_eq (x::xs) (y::ys) = (s_val_eq xs ys /\
                                     s_frame_val_eq x y)) /\
-  (s_val_eq _ _ = F)`
+  (s_val_eq _ _ = F)
+End
 
 (*Stacks look the same except for the values (e.g. result of gc)*)
-val s_frame_key_eq_def = Define`
+Definition s_frame_key_eq_def:
   (s_frame_key_eq (StackFrame n ls NONE) (StackFrame n' ls' NONE)
      <=> MAP FST ls = MAP FST ls' /\ n=n') /\
   (s_frame_key_eq (StackFrame n ls (SOME y)) (StackFrame n' ls' (SOME y'))
      <=> MAP FST ls = MAP FST ls' /\ y=y' /\ n=n') /\
-  (s_frame_key_eq _ _ = F)`
+  (s_frame_key_eq _ _ = F)
+End
 
-val s_key_eq_def = Define`
+Definition s_key_eq_def:
   (s_key_eq [] [] = T) /\
   (s_key_eq (x::xs) (y::ys) = (s_key_eq xs ys /\
                                     s_frame_key_eq x y)) /\
-  (s_key_eq _ _ = F)`
+  (s_key_eq _ _ = F)
+End
 
 (*Reflexive*)
 Theorem s_key_eq_refl:
@@ -1929,11 +1938,11 @@ Proof
     TRY (fs [call_env_def,flush_state_def] \\ EVAL_TAC \\ NO_TAC) >>
     metis_tac[s_key_eq_refl])
   >- (*ShareInst*)
-    (gvs[evaluate_def] >>
+   (gvs[evaluate_def] >>
     rw[] >> fs[case_eq_thms] >>
     Cases_on `op` >>
-    gvs[share_inst_def,sh_mem_store_byte_def,sh_mem_store_def,
-      sh_mem_load_def,sh_mem_load_byte_def] >>
+    gvs[share_inst_def,sh_mem_store_byte_def,sh_mem_store_def,sh_mem_store32_def,
+      sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def] >>
     rpt strip_tac
     >>~- ([`sh_mem_set_var`],
       every_case_tac >>
@@ -2594,11 +2603,10 @@ Proof
     (fs[AllCaseEqs()] >>
     qexists_tac `perm` >>
     Cases_on `op` >>
-    gvs[share_inst_def,sh_mem_load_def,sh_mem_load_byte_def,
-      sh_mem_store_def,sh_mem_store_byte_def] >>
+    gvs[share_inst_def,sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
+      sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def] >>
     every_case_tac
     >>~- ([`sh_mem_set_var (SOME (call_FFI _ _ _ _))`],
-
     qmatch_asmsub_abbrev_tac `sh_mem_set_var (SOME x)` >>
     Cases_on `x` >>
     gvs[sh_mem_set_var_def,flush_state_def]) >>
@@ -2812,8 +2820,9 @@ Proof
 QED
 
 (* Locals extend lemma *)
-val locals_rel_def = Define`
-  locals_rel temp (s:'a word_loc num_map) t ⇔ (∀x. x < temp ⇒ lookup x s = lookup x t)`
+Definition locals_rel_def:
+  locals_rel temp (s:'a word_loc num_map) t ⇔ (∀x. x < temp ⇒ lookup x s = lookup x t)
+End
 
 Theorem the_words_EVERY_IS_SOME:
    ∀ls x.
@@ -3164,7 +3173,8 @@ Proof
     rpt strip_tac >>
     rename1 `share_inst op n ad _` >>
     Cases_on `op` >>
-    gvs[share_inst_def,sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def]
+    gvs[share_inst_def,sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,
+        sh_mem_store_byte_def,sh_mem_load32_def,sh_mem_store32_def]
     >>~- ([`sh_mem_set_var`],
       IF_CASES_TAC
       >- (
@@ -3181,18 +3191,19 @@ Proof
     gvs[get_var_def,state_component_equality] )
 QED
 
-val gc_fun_ok_def = Define `
+Definition gc_fun_ok_def:
   gc_fun_ok (f:'a gc_fun_type) =
     !wl m d s wl1 m1 s1.
       Handler IN FDOM s /\
       (f (wl,m,d,s \\ Handler) = SOME (wl1,m1,s1)) ==>
       (LENGTH wl = LENGTH wl1) /\
       ~(Handler IN FDOM s1) /\
-      (f (wl,m,d,s) = SOME (wl1,m1,s1 |+ (Handler,s ' Handler)))`
+      (f (wl,m,d,s) = SOME (wl1,m1,s1 |+ (Handler,s ' Handler)))
+End
 
 (* The expressions in ShareInst must be Var or Op Add *)
 (* No expressions occur except in Set, where it must be a Var expr *)
-val flat_exp_conventions_def = Define`
+Definition flat_exp_conventions_def:
   (*These should be converted to Insts*)
   (flat_exp_conventions (Assign v exp) ⇔ F) ∧
   (flat_exp_conventions (Store exp num) ⇔ F) ∧
@@ -3215,12 +3226,13 @@ val flat_exp_conventions_def = Define`
     (case h of
       NONE => T
     | SOME (v,prog,l1,l2) => flat_exp_conventions prog))) ∧
-  (flat_exp_conventions _ ⇔ T)`
+  (flat_exp_conventions _ ⇔ T)
+End
 
 (* Well-formed instructions
   This also includes the FP conditions since we do not allocate them
 *)
-val inst_ok_less_def = Define`
+Definition inst_ok_less_def:
   (inst_ok_less (c:'a asm_config) (Arith (Binop b r1 r2 (Imm w))) ⇔
     c.valid_imm (INL b) w) ∧
   (inst_ok_less c (Arith (Shift l r1 r2 n)) ⇔
@@ -3241,7 +3253,7 @@ val inst_ok_less_def = Define`
   (inst_ok_less c (Arith (SubOverflow r1 r2 r3 r4)) ⇔
     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
   (inst_ok_less c (Mem m r (Addr r' w)) ⇔
-    if m IN {Load; Store} then addr_offset_ok c w else byte_offset_ok c w) ∧
+    if m IN {Load; Store; Load32; Store32} then addr_offset_ok c w else byte_offset_ok c w) ∧
   (inst_ok_less c (FP (FPLess r d1 d2)) ⇔  fp_reg_ok d1 c ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPLessEqual r d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPEqual r d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c)  ∧
@@ -3273,10 +3285,11 @@ val inst_ok_less_def = Define`
       ((dimindex(:'a) = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
   (inst_ok_less c (FP (FPToInt d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPFromInt d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
-  (inst_ok_less _ _ = T)`
+  (inst_ok_less _ _ = T)
+End
 
 (* Instructions have distinct targets and read vars -- set by SSA form *)
-val distinct_tar_reg_def = Define`
+Definition distinct_tar_reg_def:
   (distinct_tar_reg (Arith (Binop bop r1 r2 ri))
     ⇔ (r1 ≠ r2 ∧ case ri of (Reg r3) => r1 ≠ r3 | _ => T)) ∧
   (distinct_tar_reg  (Arith (Shift l r1 r2 n))
@@ -3287,12 +3300,13 @@ val distinct_tar_reg_def = Define`
     ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4) ∧
   (distinct_tar_reg (Arith (SubOverflow r1 r2 r3 r4))
     ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4) ∧
-  (distinct_tar_reg _ ⇔ T)`
+  (distinct_tar_reg _ ⇔ T)
+End
 
 (*Instructions are 2 register code for arith ok
   Currently no two_reg for Mul and Div
 *)
-val two_reg_inst_def = Define`
+Definition two_reg_inst_def:
   (two_reg_inst (Arith (Binop bop r1 r2 ri))
     ⇔ (r1 = r2)) ∧
   (two_reg_inst (Arith (Shift l r1 r2 n))
@@ -3303,7 +3317,8 @@ val two_reg_inst_def = Define`
     ⇔ (r1 = r2)) ∧
   (two_reg_inst (Arith (SubOverflow r1 r2 r3 r4))
     ⇔ (r1 = r2)) ∧
-  (two_reg_inst _ ⇔ T)`
+  (two_reg_inst _ ⇔ T)
+End
 
 (* Recursor over instructions *)
 Definition every_inst_def:
@@ -3323,7 +3338,7 @@ Definition every_inst_def:
 End
 
 (* Every instruction is well-formed, including the jump hidden in If *)
-val full_inst_ok_less_def = Define`
+Definition full_inst_ok_less_def:
   (full_inst_ok_less c (Inst i) ⇔ inst_ok_less c i) ∧
   (full_inst_ok_less c (Seq p1 p2) ⇔
     (full_inst_ok_less c p1 ∧ full_inst_ok_less c p2)) ∧
@@ -3341,14 +3356,15 @@ val full_inst_ok_less_def = Define`
   (full_inst_ok_less c (ShareInst op r ad) =
     case exp_to_addr ad of
     | SOME (Addr _ w) =>
-      if op IN {Load; Store}
+      if op IN {Load; Store; Load32; Store32}
         then addr_offset_ok c w
         else byte_offset_ok c w
     | NONE => F) ∧
-  (full_inst_ok_less c prog ⇔ T)`
+  (full_inst_ok_less c prog ⇔ T)
+End
 
 (* All cutsets are well-formed *)
-val wf_cutsets_def = Define`
+Definition wf_cutsets_def:
   (wf_cutsets (Alloc n s) = wf s) ∧
   (wf_cutsets (Install _ _ _ _ s) = wf s) ∧
   (wf_cutsets (Call ret dest args h) =
@@ -3368,9 +3384,10 @@ val wf_cutsets_def = Define`
   (wf_cutsets (If cmp r1 ri e2 e3) =
     (wf_cutsets e2 ∧
      wf_cutsets e3)) ∧
-  (wf_cutsets _ = T)`
+  (wf_cutsets _ = T)
+End
 
-val inst_arg_convention_def = Define`
+Definition inst_arg_convention_def:
   (inst_arg_convention (Arith (AddCarry r1 r2 r3 r4)) ⇔ r4 = 0) ∧
   (* Note: these are not necessary *)
   (inst_arg_convention (Arith (AddOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
@@ -3378,10 +3395,11 @@ val inst_arg_convention_def = Define`
   (* Follows conventions for x86 *)
   (inst_arg_convention (Arith (LongMul r1 r2 r3 r4)) ⇔ r1 = 6 ∧ r2 = 0 ∧ r3 = 0 ∧ r4 = 4) ∧
   (inst_arg_convention (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔ r1 = 0 ∧ r2 = 6 ∧ r3 = 6 ∧ r4 = 0) ∧
-  (inst_arg_convention _ = T)`
+  (inst_arg_convention _ = T)
+End
 
 (* Syntactic conventions for allocator *)
-val call_arg_convention_def = Define`
+Definition call_arg_convention_def:
   (call_arg_convention (Inst i) = inst_arg_convention i) ∧
   (call_arg_convention (Return x y) = (y=2)) ∧
   (call_arg_convention (Raise y) = (y=2)) ∧
@@ -3408,20 +3426,23 @@ val call_arg_convention_def = Define`
   (call_arg_convention (If cmp r1 ri e2 e3) =
     (call_arg_convention e2 ∧
      call_arg_convention e3)) ∧
-  (call_arg_convention p = T)`
+  (call_arg_convention p = T)
+End
 
 (*Before allocation, generated by SSA CC*)
-val pre_alloc_conventions_def = Define`
+Definition pre_alloc_conventions_def:
   pre_alloc_conventions p =
     (every_stack_var is_stack_var p ∧
-    call_arg_convention p)`
+    call_arg_convention p)
+End
 
 (*After allocation, generated by allocator and/or the oracles*)
-val post_alloc_conventions_def = Define`
+Definition post_alloc_conventions_def:
   post_alloc_conventions k prog =
     (every_var is_phy_var prog ∧
     every_stack_var (λx. x ≥ 2*k) prog ∧
-    call_arg_convention prog)`
+    call_arg_convention prog)
+End
 
 (* This is the current order of passes and the required syntactic conventions
 that they need to establish or preserve
@@ -3441,7 +3462,7 @@ word_to_stack (probably needs to extend full_inst_ok_less and two_reg_inst)
   extract_labels prog = extract_labels (transform prog)
 *)
 
-val extract_labels_def = Define`
+Definition extract_labels_def:
   (extract_labels (Call ret dest args h) =
     (case ret of
       NONE => []
@@ -3457,7 +3478,8 @@ val extract_labels_def = Define`
     extract_labels s1 ++ extract_labels s2) ∧
   (extract_labels (If cmp r1 ri e2 e3) =
     (extract_labels e2 ++ extract_labels e3)) ∧
-  (extract_labels _ = [])`
+  (extract_labels _ = [])
+End
 
 Theorem env_to_list_lookup_equiv:
    env_to_list y f = (q,r) ==>
@@ -3558,7 +3580,7 @@ End
 (* TODO: This seems like it must have been established before
   handler labels point only within the current table entry
 *)
-val good_handlers_def = Define`
+Definition good_handlers_def:
   (good_handlers n (Call r d a h) <=>
     case r of
       NONE => T
@@ -3567,14 +3589,16 @@ val good_handlers_def = Define`
   (good_handlers n (Seq p1 p2) <=> good_handlers n p1 ∧ good_handlers n p2) ∧
   (good_handlers n (If _ _ _ p1 p2) <=> good_handlers n p1 ∧ good_handlers n p2) ∧
   (good_handlers n (MustTerminate p) <=> good_handlers n p) ∧
-  (good_handlers n _ <=> T)`;
+  (good_handlers n _ <=> T)
+End
 val _ = export_rewrites["good_handlers_def"];
 
-val good_code_labels_def = Define`
+Definition good_code_labels_def:
   good_code_labels p elabs ⇔
   EVERY (λ(n,m,pp). good_handlers n pp) p ∧
   (BIGUNION (set (MAP (λ(n,m,pp). (get_code_labels pp)) p))) ⊆
-  (set (MAP FST p) ∪ elabs)`;
+  (set (MAP FST p) ∪ elabs)
+End
 
 Theorem push_env_dec_clock_stack:
   (push_env y opt (wordSem$dec_clock t)).stack_max =
@@ -3828,7 +3852,8 @@ Proof
     every_case_tac >>
     gvs[] >>
     Cases_on `op` >>
-    gvs[share_inst_def,sh_mem_store_def,sh_mem_load_def,sh_mem_store_byte_def,sh_mem_load_byte_def]
+    gvs[share_inst_def,sh_mem_store_def,sh_mem_load_def,sh_mem_store_byte_def,
+        sh_mem_load_byte_def,sh_mem_load32_def,sh_mem_store32_def]
     >>~- ([`sh_mem_set_var`],
       every_case_tac
       >- (
@@ -4223,8 +4248,9 @@ QED
 
 
 
-val inc_clock_def = Define `
-  inc_clock n (t:('a,'c,'ffi) wordSem$state) = t with clock := t.clock + n`;
+Definition inc_clock_def:
+  inc_clock n (t:('a,'c,'ffi) wordSem$state) = t with clock := t.clock + n
+End
 
 Theorem inc_clock_0[simp]:
    !t. inc_clock 0 t = t
@@ -4525,9 +4551,10 @@ Theorem no_alloc_def = not_created_subprogs_P_def
   |> ISPEC no_alloc_P
   |> REWRITE_RULE [GSYM no_alloc_subprogs_def]
 
-val no_alloc_code_def = Define `
+Definition no_alloc_code_def:
   no_alloc_code (code : (num # ('a wordLang$prog)) num_map) ⇔
-  ∀ k n p . lookup k code = SOME (n, p) ⇒ no_alloc p`
+  ∀ k n p . lookup k code = SOME (n, p) ⇒ no_alloc p
+End
 
 Theorem no_alloc_find_code:
   ∀ code dest args lsize args1 expr ps.
@@ -4551,10 +4578,10 @@ Theorem no_install_def = not_created_subprogs_P_def
   |> ISPEC no_install_P
   |> REWRITE_RULE [GSYM no_install_subprogs_def]
 
-val no_install_code_def = Define `
+Definition no_install_code_def:
     no_install_code (code : (num # ('a wordLang$prog)) num_map) ⇔
         ∀ k n p . lookup k code = SOME (n, p) ⇒ no_install p
-`
+End
 
 Theorem no_install_find_code:
      ∀ code dest args lsize args1 expr ps.
@@ -4985,9 +5012,9 @@ Proof
       )
    >~ [`ShareInst`]
    >- (
-     gvs[evaluate_def,DefnBase.one_line_ify NONE share_inst_def,AllCaseEqs(),
+     gvs[evaluate_def,oneline share_inst_def,AllCaseEqs(),
       sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def,
-      DefnBase.one_line_ify NONE sh_mem_set_var_def] >>
+      sh_mem_load32_def,sh_mem_store32_def,oneline sh_mem_set_var_def] >>
      simp[state_component_equality,set_var_def,flush_state_def] ) >>
    (* else *)
    gvs[evaluate_def,AllCaseEqs(),set_var_def,set_store_def,mem_store_def,flush_state_def,
@@ -5034,9 +5061,10 @@ Theorem no_mt_def = not_created_subprogs_P_def
   |> ISPEC no_mt_P
   |> REWRITE_RULE [GSYM no_mt_subprogs_def]
 
-val no_mt_code_def = Define `
+Definition no_mt_code_def:
   no_mt_code (code : (num # ('a wordLang$prog)) num_map) <=>
-  ! k n p . lookup k code = SOME (n, p) ==> no_mt p`
+  ! k n p . lookup k code = SOME (n, p) ==> no_mt p
+End
 
 Theorem no_mt_find_code:
   ! code dest args lsize args1 expr ps.

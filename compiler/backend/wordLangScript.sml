@@ -56,10 +56,12 @@ val _ = Datatype `
        | FFI string num num num num num_set (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
        | ShareInst memop num ('a exp)`; (* memory operation, varname, expression for memory address *)
 
-val raise_stub_location_def = Define`
-  raise_stub_location = word_num_stubs - 2`;
-val store_consts_stub_location_def = Define`
-  store_consts_stub_location = word_num_stubs - 1`;
+Definition raise_stub_location_def:
+  raise_stub_location = word_num_stubs - 2
+End
+Definition store_consts_stub_location_def:
+  store_consts_stub_location = word_num_stubs - 1
+End
 
 Theorem raise_stub_location_eq = EVAL``raise_stub_location``;
 Theorem store_consts_stub_location_eq = EVAL``store_consts_stub_location``;
@@ -80,11 +82,12 @@ val every_var_exp_def = tDefine "every_var_exp" `
   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
   \\ DECIDE_TAC);
 
-val every_var_imm_def = Define`
+Definition every_var_imm_def:
   (every_var_imm P (Reg r) = P r) ∧
-  (every_var_imm P _ = T)`
+  (every_var_imm P _ = T)
+End
 
-val every_var_inst_def = Define`
+Definition every_var_inst_def:
   (every_var_inst P (Const reg w) = P reg) ∧
   (every_var_inst P (Arith (Binop bop r1 r2 ri)) =
     (P r1 ∧ P r2 ∧ every_var_imm P ri)) ∧
@@ -108,13 +111,15 @@ val every_var_inst_def = Define`
   (every_var_inst P (FP (FPMovFromReg d r1 r2)) =
     if dimindex(:'a) = 64 then P r1
     else (P r1 ∧ P r2)) ∧
-  (every_var_inst P inst = T)` (*catchall*)
+  (every_var_inst P inst = T)
+End (*catchall*)
 
-val every_name_def = Define`
+Definition every_name_def:
   every_name P t ⇔
-  EVERY P (MAP FST (toAList t))`
+  EVERY P (MAP FST (toAList t))
+End
 
-val every_var_def = Define `
+Definition every_var_def:
   (every_var P (Skip:'a prog) ⇔ T) ∧
   (every_var P (Move pri ls) = (EVERY P (MAP FST ls) ∧ EVERY P (MAP SND ls))) ∧
   (every_var P (Inst i) = every_var_inst P i) ∧
@@ -153,10 +158,11 @@ val every_var_def = Define `
   (every_var P Tick = T) ∧
   (every_var P (Set n exp) = every_var_exp P exp) ∧
   (every_var P (ShareInst op num exp) = (P num /\ every_var_exp P exp)) /\
-  (every_var P p = T)`
+  (every_var P p = T)
+End
 
 (*Recursor for stack variables*)
-val every_stack_var_def = Define `
+Definition every_stack_var_def:
   (every_stack_var P (FFI ffi_index cptr clen ptr len names) =
     every_name P names) ∧
   (every_stack_var P (Install _ _ _ _ names) =
@@ -179,7 +185,8 @@ val every_stack_var_def = Define `
     (every_stack_var P s1 ∧ every_stack_var P s2)) ∧
   (every_stack_var P (If cmp r1 ri e2 e3) =
     (every_stack_var P e2 ∧ every_stack_var P e3)) ∧
-  (every_stack_var P p = T)`
+  (every_stack_var P p = T)
+End
 
 (*Find the maximum variable*)
 val max_var_exp_def = tDefine "max_var_exp" `
@@ -193,7 +200,7 @@ val max_var_exp_def = tDefine "max_var_exp" `
   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
   \\ DECIDE_TAC);
 
-val max_var_inst_def = Define`
+Definition max_var_inst_def:
   (max_var_inst Skip = 0) ∧
   (max_var_inst (Const reg w) = reg) ∧
   (max_var_inst (Arith (Binop bop r1 r2 ri)) =
@@ -218,9 +225,10 @@ val max_var_inst_def = Define`
   (max_var_inst (FP (FPMovFromReg d r1 r2)) =
     if dimindex(:'a) = 64 then r1
     else MAX r1 r2) ∧
-  (max_var_inst _ = 0)`
+  (max_var_inst _ = 0)
+End
 
-val max_var_def = Define `
+Definition max_var_def:
   (max_var Skip = 0) ∧
   (max_var (Move pri ls) =
     list_max (MAP FST ls ++ MAP SND ls)) ∧
@@ -263,9 +271,10 @@ val max_var_def = Define `
   (max_var (LocValue r l1) = r) ∧
   (max_var (Set n exp) = max_var_exp exp) ∧
   (max_var (ShareInst op num exp) = MAX num (max_var_exp exp)) /\
-  (max_var p = 0)`;
+  (max_var p = 0)
+End
 
-val word_op_def = Define `
+Definition word_op_def:
   word_op op (ws:('a word) list) =
     case (op,ws) of
     | (And,ws) => SOME (FOLDR word_and (¬0w) ws)
@@ -273,16 +282,18 @@ val word_op_def = Define `
     | (Or,ws) => SOME (FOLDR word_or 0w ws)
     | (Xor,ws) => SOME (FOLDR word_xor 0w ws)
     | (Sub,[w1;w2]) => SOME (w1 - w2)
-    | _ => NONE`;
+    | _ => NONE
+End
 
-val word_sh_def = Define `
+Definition word_sh_def:
   word_sh sh (w:'a word) n =
     if n <> 0 /\ n ≥ dimindex (:'a) then NONE else
       case sh of
       | Lsl => SOME (w << n)
       | Lsr => SOME (w >>> n)
       | Asr => SOME (w >> n)
-      | Ror => SOME (word_ror w n)`;
+      | Ror => SOME (word_ror w n)
+End
 
 Definition exp_to_addr_def:
   (exp_to_addr (Var ad) = SOME $ Addr ad 0w) /\

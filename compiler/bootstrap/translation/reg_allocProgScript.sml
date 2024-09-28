@@ -318,12 +318,13 @@ val res = translate pairTheory.LEX_DEF;
 
 (* Translate linear scan register allocator *)
 
-val map_colors_sub_def = Define `
+Definition map_colors_sub_def:
   (map_colors_sub [] = st_ex_return []) ∧
   (map_colors_sub (x::xs) =
      st_ex_bind (colors_sub x)
        (\fx. st_ex_bind (map_colors_sub xs)
-               (\fxs. st_ex_return (fx::fxs))))`
+               (\fxs. st_ex_return (fx::fxs))))
+End
 
 Theorem map_colors_sub_eq:
    map_colors_sub = st_ex_MAP colors_sub

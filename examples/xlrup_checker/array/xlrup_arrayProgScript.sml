@@ -85,11 +85,13 @@ fun get_exn_conv name =
 
 val fail = get_exn_conv ``"Fail"``
 
-val Fail_exn_def = Define `
-  Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)`
+Definition Fail_exn_def:
+  Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)
+End
 
-val eq_w8o_def = Define`
-  eq_w8o v ⇔ v = w8o`
+Definition eq_w8o_def:
+  eq_w8o v ⇔ v = w8o
+End
 
 val _ = translate (eq_w8o_def |> SIMP_RULE std_ss [w8o_def]);
 
@@ -100,15 +102,17 @@ val every_one_arr = process_topdecs`
     if eq_w8o (Unsafe.w8sub carr (index c)) then every_one_arr carr cs
     else False` |> append_prog
 
-val format_failure_def = Define`
+Definition format_failure_def:
   format_failure (lno:num) s =
-  strlit "c Checking failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"`
+  strlit "c Checking failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"
+End
 
 val _ = translate format_failure_def;
 
-val unwrap_TYPE_def = Define`
+Definition unwrap_TYPE_def:
   unwrap_TYPE P x y =
-  ∃z. x = SOME z ∧ P z y`
+  ∃z. x = SOME z ∧ P z y
+End
 
 val delete_literals_sing_arr_def = process_topdecs`
   fun delete_literals_sing_arr lno i carr cs =
@@ -238,13 +242,14 @@ val is_rup_arr_aux = process_topdecs`
 
 (* For every literal in every clause and their negations,
   the index is bounded above by n *)
-val bounded_cfml_def = Define`
+Definition bounded_cfml_def:
   bounded_cfml n fmlls ⇔
   EVERY (λCopt.
     case Copt of
       NONE => T
     | SOME C => EVERY ($> n o index) C ∧ EVERY ($> n o index o $~) C
-    ) fmlls`
+    ) fmlls
+End
 
 Theorem delete_literals_sing_list_MEM:
   ∀C.
@@ -670,8 +675,9 @@ Proof
   metis_tac[]
 QED
 
-val eq_w8z_def = Define`
-  eq_w8z v ⇔ v = w8z`
+Definition eq_w8z_def:
+  eq_w8z v ⇔ v = w8z
+End
 
 val _ = translate (eq_w8z_def |> SIMP_RULE std_ss [w8z_def]);
 
@@ -2332,14 +2338,16 @@ Proof
   metis_tac[]
 QED
 
-val noparse_string_def = Define`
-  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]`;
+Definition noparse_string_def:
+  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]
+End
 
 val r = translate noparse_string_def;
 
 (*
-val nocheck_string_def = Define`
-  nocheck_string = strlit "cake_xlrup: XLRUP checking failed.\n"`;
+Definition nocheck_string_def:
+  nocheck_string = strlit "cake_xlrup: XLRUP checking failed.\n"
+End
 
 val r = translate nocheck_string_def;
 *)
@@ -2356,7 +2364,7 @@ val check_unsat'' = process_topdecs `
       |> append_prog;
 
 (* This says what happens to the STDIO *)
-val check_unsat''_def = Define`
+Definition check_unsat''_def:
   (check_unsat'' fd xorig cfml xfml tn def Clist fs [] =
     STDIO (fastForwardFD fs fd)) ∧
   (check_unsat'' fd xorig cfml xfml tn def Clist fs (ln::ls) =
@@ -2364,17 +2372,19 @@ val check_unsat''_def = Define`
       NONE => STDIO (lineForwardFD fs fd)
     | SOME (cfml', xfml', tn', def', Clist') =>
       check_unsat'' fd xorig cfml' xfml' tn' def' Clist'
-        (lineForwardFD fs fd) ls)`
+        (lineForwardFD fs fd) ls)
+End
 
 (* This says what happens to cfml, xfml *)
-val parse_and_run_file_list_def = Define`
+Definition parse_and_run_file_list_def:
   (parse_and_run_file_list [] xorig cfml xfml tn def Clist =
     SOME (cfml, xfml)) ∧
   (parse_and_run_file_list (x::xs) xorig cfml xfml tn def Clist =
     case parse_and_run_list xorig cfml xfml tn def Clist (toks_fast x) of
       NONE => NONE
     | SOME (cfml', xfml', tn', def',Clist') =>
-    parse_and_run_file_list xs xorig cfml' xfml' tn' def' Clist')`
+    parse_and_run_file_list xs xorig cfml' xfml' tn' def' Clist')
+End
 
 Theorem parse_and_run_file_list_eq:
   ∀ls xorig cfml xfml tn def Clist.
@@ -2563,8 +2573,9 @@ QED
   Returns: Inl (error string)
   Otherwise: Inr (true/false result of checking clause inclusion)
 *)
-val notfound_string_def = Define`
-  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]`;
+Definition notfound_string_def:
+  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]
+End
 
 val r = translate notfound_string_def;
 

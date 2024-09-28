@@ -527,7 +527,6 @@ Definition camlPEG_def[nocompute]:
       (INL nLiteral,
        choicel [
          tok isInt    (bindNT nLiteral o mktokLf);
-         tok isFloat  (bindNT nLiteral o mktokLf);
          tok isString (bindNT nLiteral o mktokLf);
          tok isChar   (bindNT nLiteral o mktokLf);
          tok (λx. MEM x [TrueT; FalseT]) (bindNT nLiteral o mktokLf)]);

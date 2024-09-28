@@ -83,11 +83,12 @@ QED
 *******************************************************************************)
 
 (* borrowed from examples/quicksortProg *)
-val strict_weak_order_def = Define `
+Definition strict_weak_order_def:
   strict_weak_order r ⇔
     transitive r ∧
     (∀ x y. r x y ⇒ ¬ r y x) ∧
-    transitive (λ x y. ¬ r x y ∧ ¬ r y x)`;
+    transitive (λ x y. ¬ r x y ∧ ¬ r y x)
+End
 
 (* borrowed from examples/quicksortProg *)
 Theorem strict_weak_order_alt:
@@ -297,7 +298,7 @@ val scan_lower_def = allowing_rebind (mtDefine "scan_lower" `
 )
 
 
-val scan_upper_def = Define `
+Definition scan_upper_def:
   scan_upper (cmp : 'a -> 'a -> bool) pivot ub =
     if ub = 0n then return ub else do
     elem <- arr_sub (ub - 1);
@@ -305,7 +306,7 @@ val scan_upper_def = Define `
       scan_upper cmp pivot (ub - 1)
     else return (ub - 1)
   od
-`
+End
 
 Theorem scan_lower_index:
   ∀ cmp pivot lb s new_lb s' .
@@ -656,17 +657,17 @@ QED
 
 *******************************************************************************)
 
-val array_set_aux_def = Define `
+Definition array_set_aux_def:
   (array_set_aux _ [] = return ()) ∧
   (array_set_aux n (x::xs) = do
     update_arr n x;
     array_set_aux (n + 1n) xs
   od)
-`;
+End
 
-val array_set_def = Define `
+Definition array_set_def:
   array_set l = array_set_aux 0n l
-`;
+End
 
 Theorem array_set_aux_Success:
   ∀ l n s . (LENGTH (DROP n s.arr) = LENGTH l)
@@ -716,12 +717,12 @@ val array_get_aux_def = tDefine "array_get_aux" `
   WF_REL_TAC `measure (λ (length, n) . length - n)`
 )
 
-val array_get_def = Define `
+Definition array_get_def:
   array_get () = do
     len <- arr_length;
     array_get_aux len 0n
   od
-`
+End
 
 Theorem array_get_aux_Success:
   ∀ length n s . (LENGTH s.arr = length)
@@ -984,7 +985,7 @@ Proof
       )
 QED
 
-val quicksort_def = Define `
+Definition quicksort_def:
   (quicksort cmp [] = return []) ∧
   (quicksort cmp (x::xs) = do
     alloc_arr (LENGTH (x::xs)) x;
@@ -992,7 +993,7 @@ val quicksort_def = Define `
     quicksort_aux cmp 0n (LENGTH (x::xs) - 1n);
     array_get ()
   od)
-`;
+End
 
 Theorem quicksort_result:
   ∀ l l' cmp s s' .
@@ -1039,14 +1040,14 @@ QED
 
 val run_init_state_def = define_run state_type [] "init_state";
 
-val run_quicksort_def = Define `
+Definition run_quicksort_def:
   run_quicksort cmp l =
     run_init_state (quicksort l cmp) (init_state [])
-`;
+End
 
-val qsort_def = Define `
+Definition qsort_def:
   qsort cmp l = case run_quicksort l cmp of M_success result => result
-`;
+End
 
 
 (*******************************************************************************

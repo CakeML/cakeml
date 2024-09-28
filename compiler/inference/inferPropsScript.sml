@@ -1839,11 +1839,12 @@ Proof
    \\ match_mp_tac check_t_more_0 \\ simp[] \\ NO_TAC
 QED
 
-val ienv_ok_def = Define `
+Definition ienv_ok_def:
   ienv_ok uvars ienv ⇔
     ienv_val_ok uvars ienv.inf_v ∧
     tenv_ctor_ok ienv.inf_c ∧
-    tenv_abbrev_ok ienv.inf_t`;
+    tenv_abbrev_ok ienv.inf_t
+End
 
 Theorem ienv_ok_more:
    !uv uv' ienv. ienv_ok (count uv) ienv ∧ uv ≤ uv' ⇒ ienv_ok (count uv') ienv
@@ -2283,12 +2284,13 @@ val generalise_complete_lemma2 = Q.prove (
     metis_tac []) >>
   metis_tac []);
 
-val infer_subst_var_def = Define `
+Definition infer_subst_var_def:
 (infer_subst_var s (Infer_Tuvar n) =
   case FLOOKUP s n of
     | NONE => Infer_Tuvar n
     | SOME tv => Infer_Tvar_db tv) ∧
-(infer_subst_var s t = t)`;
+(infer_subst_var s t = t)
+End
 
 val generalise_complete_lemma4 = Q.prove (
 `!s. t_wfs s ⇒
@@ -2410,8 +2412,9 @@ Proof
   \\ metis_tac[IN_IMAGE]
 QED
 
-val set_tids_subset_def = Define`
-  set_tids_subset tids t <=> set_tids t ⊆ tids`
+Definition set_tids_subset_def:
+  set_tids_subset tids t <=> set_tids t ⊆ tids
+End
 
 Theorem set_tids_subset_type_subst:
     ∀s t tids.
@@ -3533,13 +3536,14 @@ Proof
   >> REFL_TAC)
 QED
 
-val remap_tenv_def = Define`
+Definition remap_tenv_def:
   remap_tenv f tenv =
   <|
     t := nsMap (λ(ls,t). (ls, ts_tid_rename f t)) tenv.t;
     c := nsMap (λ(ls,ts,tid). (ls, MAP (ts_tid_rename f) ts, f tid)) tenv.c;
     v := nsMap (λ(n,t). (n,ts_tid_rename f t)) tenv.v
-   |>`
+   |>
+End
 
 Theorem remap_tenv_I[simp]:
    remap_tenv I = I
@@ -3646,7 +3650,9 @@ Proof
   \\ metis_tac[t_unify_set_tids, t_unify_wfs]
 QED
 
-val hide_def = Define`hide x = x`;
+Definition hide_def:
+  hide x = x
+End
 
 Theorem infer_p_inf_set_tids:
   (!l cenv p st t env st'.

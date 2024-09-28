@@ -811,9 +811,10 @@ Datatype:
     (* Derive XOR from hint clauses *)
 End
 
-val delete_literals_def = Define`
+Definition delete_literals_def:
   delete_literals (C:cclause) (D:cclause) =
-  FILTER (λx. ¬MEM x D) C`
+  FILTER (λx. ¬MEM x D) C
+End
 
 (* Checking for RUP *)
 Definition is_rup_def:

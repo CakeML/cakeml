@@ -41,8 +41,9 @@ val INJ_less = Q.prove(`
   metis_tac[INJ_DEF,SUBSET_DEF])
 
 (* TODO: can we have a global for this *)
-val hide_def = Define`
-  hide x = x`;
+Definition hide_def:
+  hide x = x
+End
 
 val INJ_IMP_IMAGE_DIFF = Q.prove(`
   INJ f (s ∪ t) UNIV ⇒
@@ -77,7 +78,7 @@ val INJ_ALL_DISTINCT_MAP = Q.prove(`
  *)
 
 (* colouring_ok correctness proof *)
-val colouring_ok_def = Define`
+Definition colouring_ok_def:
   (colouring_ok f (Seq s1 s2) live =
     (*Normal live sets*)
     let s2_live = get_live s2 live in
@@ -113,11 +114,12 @@ val colouring_ok_def = Define`
     (*live before must be fine, and clash set must be fine*)
     let lset = get_live prog live in
     let iset = union (get_writes prog) live in
-      INJ f (domain lset) UNIV ∧ INJ f (domain iset) UNIV)`;
+      INJ f (domain lset) UNIV ∧ INJ f (domain iset) UNIV)
+End
 
 (*Equivalence on everything except permutation and locals*)
 (* should we add local_size here? may be no, as locals are not included *)
-val word_state_eq_rel_def = Define`
+Definition word_state_eq_rel_def:
   word_state_eq_rel (s:('a,'c,'ffi) wordSem$state) (t:('a,'c,'ffi) wordSem$state) ⇔
   t.fp_regs = s.fp_regs ∧
   t.store = s.store ∧
@@ -139,16 +141,18 @@ val word_state_eq_rel_def = Define`
   t.compile = s.compile ∧
   t.compile_oracle = s.compile_oracle ∧
   t.code_buffer = s.code_buffer ∧
-  t.data_buffer = s.data_buffer`;
+  t.data_buffer = s.data_buffer
+End
 
 
 (*tlocs is a supermap of slocs under f for everything in a given
   live set*)
-val strong_locals_rel_def = Define`
+Definition strong_locals_rel_def:
   strong_locals_rel f ls slocs tlocs ⇔
   ∀n v.
     n ∈ ls ∧ lookup n slocs = SOME v ⇒
-    lookup (f n) tlocs = SOME v`;
+    lookup (f n) tlocs = SOME v
+End
 
 Theorem domain_numset_list_insert:
     ∀ls locs.
@@ -1472,8 +1476,8 @@ Proof
     gvs[AllCaseEqs()]>>
     drule apply_colour_exp_lemma >>
     disch_then $ qspecl_then [`cst`,`f`] mp_tac >>
-    rename1`m = Store \/ m = Store8`>>
-    qabbrev_tac `mcase = (m = Store \/ m = Store8)`>>
+    rename1`m = Store \/ m = Store8 \/ m = Store32`>>
+    qabbrev_tac `mcase = (m = Store \/ m = Store8 \/ m = Store32)`>>
     qpat_x_assum `strong_locals_rel _ _ _ _` mp_tac >>
     IF_CASES_TAC >>
     fs[] >>
@@ -1487,9 +1491,10 @@ Proof
          ,strong_locals_rel_subset])
     >- (
       strip_tac >>
-      gvs[DefnBase.one_line_ify NONE share_inst_def,
-        DefnBase.one_line_ify NONE sh_mem_store_def,
-        DefnBase.one_line_ify NONE sh_mem_store_byte_def,
+      gvs[oneline share_inst_def,
+        oneline sh_mem_store_def,
+        oneline sh_mem_store_byte_def,
+        oneline sh_mem_store32_def,
         flush_state_def,
         markerTheory.Abbrev_def,AllCaseEqs()] >>
       first_x_assum $ drule_at (Pos last) >>
@@ -1506,10 +1511,11 @@ Proof
          ,strong_locals_rel_subset])
     >- (
       strip_tac >>
-      gvs[DefnBase.one_line_ify NONE share_inst_def,
-        DefnBase.one_line_ify NONE sh_mem_load_def,
-        DefnBase.one_line_ify NONE sh_mem_load_byte_def,
-        DefnBase.one_line_ify NONE sh_mem_set_var_def,
+      gvs[oneline share_inst_def,
+        oneline sh_mem_load_def,
+        oneline sh_mem_load_byte_def,
+        oneline sh_mem_load32_def,
+        oneline sh_mem_set_var_def,
         flush_state_def,set_var_def,
         markerTheory.Abbrev_def,AllCaseEqs()] >>
       (irule strong_locals_rel_insert >>
@@ -1525,11 +1531,12 @@ QED
 
 (*
 (*Alternate liveness*)
-val colouring_ok_alt_def = Define`
+Definition colouring_ok_alt_def:
   colouring_ok_alt f prog live =
     let (hd,ls) = get_clash_sets prog live in
     EVERY (λs. INJ f (domain s) UNIV) ls ∧
-    INJ f (domain hd) UNIV`;
+    INJ f (domain hd) UNIV
+End
 
 (*hd element is just get_live*)
 val get_clash_sets_hd = Q.prove(
@@ -2383,8 +2390,23 @@ Proof
       fs[GSYM numset_list_insert_def] >>
       irule numset_list_insert_eq_UNION >>
       rw[IMAGE_DEF,get_reads_exp_get_live_exp] >>
-      metis_tac[wf_insert,wf_get_live_exp] )
-  >- ((*ShareInst Load/Load8*)
+      metis_tac[wf_insert,wf_get_live_exp])
+  >- ((*ShareInst Store32*)
+      start_tac >>
+      fs[domain_union,UNION_COMM,get_reads_exp_get_live_exp] >>
+      conj_tac >- (
+        drule_then irule INJ_less >> rw[] >>
+        metis_tac[SUBSET_UNION,SUBSET_OF_INSERT,SUBSET_TRANS]) >>
+      CONV_TAC $ RHS_CONV $ SCONV[Once insert_union] >>
+      simp[union_assoc] >>
+      CONV_TAC $ RHS_CONV $ RATOR_CONV $ RAND_CONV $
+        REWRITE_CONV[Once union_num_set_sym] >>
+      simp[union_insert_LN] >>
+      fs[GSYM numset_list_insert_def] >>
+      irule numset_list_insert_eq_UNION >>
+      rw[IMAGE_DEF,get_reads_exp_get_live_exp] >>
+      metis_tac[wf_insert,wf_get_live_exp])
+  >- ((*ShareInst Load/Load8/Load32*)
     start_tac
     >- (
       conj_tac >- (
@@ -2440,9 +2462,10 @@ Proof
 QED
 
 (*Actually, it should probably be exactly 0,2,4,6...*)
-val even_starting_locals_def = Define`
+Definition even_starting_locals_def:
   even_starting_locals (locs:'a word_loc num_map) ⇔
-    ∀x. x ∈ domain locs ⇒ is_phy_var x`
+    ∀x. x ∈ domain locs ⇒ is_phy_var x
+End
 
 fun rm_let tm = tm|> SIMP_RULE std_ss [LET_THM];
 
@@ -3124,14 +3147,15 @@ Proof
     rveq>>fs[]>>
     rpt(qpat_x_assum `_ (call_env _ _) = _` (mp_tac o GSYM))>>
     simp[call_env_def,flush_state_def]) >>
-  rename1`m=Store \/ m = Store8` >>
-  qabbrev_tac`mcase=(m=Store \/ m = Store8)`>>
+  rename1`m=Store \/ m = Store8 \/ m = Store32` >>
+  qabbrev_tac`mcase=(m=Store \/ m = Store8 \/ m = Store32)`>>
   fs[AllCaseEqs(),PULL_EXISTS] >>
   Cases_on`mcase` >> gvs[]
   >- (
-    gvs[DefnBase.one_line_ify NONE share_inst_def,
-      DefnBase.one_line_ify NONE sh_mem_store_def,
-      DefnBase.one_line_ify NONE sh_mem_store_byte_def,
+    gvs[oneline share_inst_def,
+      oneline sh_mem_store_def,
+      oneline sh_mem_store_byte_def,
+      oneline sh_mem_store32_def,
       markerTheory.Abbrev_def,flush_state_def] >>
     drule_all_then (irule_at (Pos hd)) strong_locals_rel_I_word_exp >>
     gvs[domain_union,AllCaseEqs(),PULL_EXISTS] >>
@@ -3140,10 +3164,11 @@ Proof
     fs[strong_locals_rel_def] >>
     metis_tac[]
   ) >>
-  gvs[DefnBase.one_line_ify NONE share_inst_def,
-    DefnBase.one_line_ify NONE sh_mem_load_def,
-    DefnBase.one_line_ify NONE sh_mem_load_byte_def,
-    DefnBase.one_line_ify NONE sh_mem_set_var_def,
+  gvs[oneline share_inst_def,
+    oneline sh_mem_load_def,
+    oneline sh_mem_load_byte_def,
+    oneline sh_mem_load32_def,
+    oneline sh_mem_set_var_def,
     AllCaseEqs(),set_var_def,
     markerTheory.Abbrev_def,flush_state_def] >>
   drule_all_then (irule_at (Pos hd)) strong_locals_rel_I_word_exp >>
@@ -3158,23 +3183,25 @@ val size_tac = impl_tac>- (full_simp_tac(srw_ss())[prog_size_def]>>DECIDE_TAC)
 
 (*This might not be the optimal invariant.. because it is very
   restrictive on the ssa_mapping*)
-val ssa_locals_rel_def = Define`
+Definition ssa_locals_rel_def:
   ssa_locals_rel na ssa st_locs cst_locs =
   ((∀x y. lookup x ssa = SOME y ⇒ y ∈ domain cst_locs) ∧
   (∀x y. lookup x st_locs = SOME y ⇒
     x ∈ domain ssa ∧
     lookup (THE (lookup x ssa)) cst_locs = SOME y ∧
-    (is_alloc_var x ⇒ x < na)))`;
+    (is_alloc_var x ⇒ x < na)))
+End
 
 (*ssa_map_ok specifies the form of ssa_maps we care about
   1) The remapped keys are ALL_DISTINCT
   2) The remap keyset is bounded, and no phy vars
 *)
-val ssa_map_ok_def = Define`
+Definition ssa_map_ok_def:
   ssa_map_ok na ssa =
   (∀x y. lookup x ssa = SOME y ⇒
     ¬is_phy_var y ∧ y < na ∧
-    (∀z. z ≠ x ⇒ lookup z ssa ≠ SOME y))`;
+    (∀z. z ≠ x ⇒ lookup z ssa ≠ SOME y))
+End
 
 val list_next_var_rename_lemma_1 = Q.prove(`
   ∀ls ssa na ls' ssa' na'.
@@ -6590,8 +6617,8 @@ Proof
     exists_tac >>
     pairarg_tac >>
     simp[] >>
-    rename1`m = Store \/ m = Store8`>>
-    qabbrev_tac `mcase = (m = Store \/ m = Store8)`>>
+    rename1`m = Store \/ m = Store8 \/ m = Store32`>>
+    qabbrev_tac `mcase = (m = Store \/ m = Store8 \/ m = Store32)`>>
     fs[AllCaseEqs()] >>
     IF_CASES_TAC >>
     gvs[next_var_rename_def,evaluate_def] >>
@@ -6599,18 +6626,20 @@ Proof
     >- (
       impl_tac >- simp[word_state_eq_rel_def] >>
       disch_then (fn t => simp[t]) >>
-      gvs[DefnBase.one_line_ify NONE share_inst_def,
-        DefnBase.one_line_ify NONE sh_mem_store_def,
-        DefnBase.one_line_ify NONE sh_mem_store_byte_def,
+      gvs[oneline share_inst_def,
+        oneline sh_mem_store_def,
+        oneline sh_mem_store_byte_def,
+        oneline sh_mem_store32_def,
         markerTheory.Abbrev_def,flush_state_def,AllCaseEqs()] >>
       drule_then (drule_then assume_tac) ssa_locals_rel_get_var >>
       simp[]) >>
     impl_tac >- simp[word_state_eq_rel_def] >>
     disch_then (fn t => simp[t]) >>
-    gvs[DefnBase.one_line_ify NONE share_inst_def,
-      DefnBase.one_line_ify NONE sh_mem_load_def,
-      DefnBase.one_line_ify NONE sh_mem_load_byte_def,
-      DefnBase.one_line_ify NONE sh_mem_set_var_def,
+    gvs[oneline share_inst_def,
+      oneline sh_mem_load_def,
+      oneline sh_mem_load_byte_def,
+      oneline sh_mem_load32_def,
+      oneline sh_mem_set_var_def,
       set_var_def,flush_state_def,AllCaseEqs(),
       markerTheory.Abbrev_def] >>
     irule ssa_locals_rel_set_var >>

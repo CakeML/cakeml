@@ -20,7 +20,7 @@ val _ = Datatype`config =
   <| reg_alg : num
    ; col_oracle : (num num_map) option list |>`;
 
-val compile_single_def = Define`
+Definition compile_single_def:
   compile_single two_reg_arith reg_count alg c ((name_num:num,arg_count,prog),col_opt) =
   let prog = word_simp$compile_exp prog in
   let maxv = max_var prog + 1 in
@@ -31,26 +31,30 @@ val compile_single_def = Define`
   let prog = if two_reg_arith then three_to_two_reg rm_prog
                               else rm_prog in
   let reg_prog = word_alloc name_num c alg reg_count prog col_opt in
-    (name_num,arg_count,reg_prog)`
+    (name_num,arg_count,reg_prog)
+End
 
-val full_compile_single_def = Define`
+Definition full_compile_single_def:
   full_compile_single two_reg_arith reg_count alg c p =
   let (name_num,arg_count,reg_prog) = compile_single two_reg_arith reg_count alg c p in
-    (name_num,arg_count,remove_must_terminate reg_prog)`
+    (name_num,arg_count,remove_must_terminate reg_prog)
+End
 
-val next_n_oracle_def = Define`
+Definition next_n_oracle_def:
   next_n_oracle n (col:(num num_map) option list) =
   if n ≤ LENGTH col then
     (TAKE n col, DROP n col)
   else
-    (REPLICATE n NONE, [])`
+    (REPLICATE n NONE, [])
+End
 
-val compile_def = Define `
+Definition compile_def:
   compile word_conf (asm_conf:'a asm_config) progs =
     let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
     let (n_oracles,col) = next_n_oracle (LENGTH progs) word_conf.col_oracle in
     let progs = ZIP (progs,n_oracles) in
-    (col,MAP (full_compile_single two_reg_arith reg_count word_conf.reg_alg asm_conf) progs)`
+    (col,MAP (full_compile_single two_reg_arith reg_count word_conf.reg_alg asm_conf) progs)
+End
 
 Definition full_compile_single_for_eval_def:
   full_compile_single_for_eval two_reg_arith reg_count alg c p =

@@ -34,17 +34,19 @@ val _ = ml_prog_update (add_dec
 
 (* refinement invariants *)
 
-val RAT_TYPE_def = Define `
+Definition RAT_TYPE_def:
   RAT_TYPE (r:rat) =
     \v. ?(n:int) (d:num). (r = (rat_of_int n) / &d) /\
                           gcd (Num (ABS n)) d = 1 /\ d <> 0 /\
-                          RATIONAL_TYPE (RatPair n d) v`;
+                          RATIONAL_TYPE (RatPair n d) v
+End
 
 val _ = add_type_inv ``RAT_TYPE`` ``:rational``;
 
-val REAL_TYPE_def = Define `
+Definition REAL_TYPE_def:
   REAL_TYPE (r:real) =
-    \v. ?x:rat. RAT_TYPE x v /\ (real_of_rat x = r)`;
+    \v. ?x:rat. RAT_TYPE x v /\ (real_of_rat x = r)
+End
 
 val _ = add_type_inv ``REAL_TYPE`` ``:rational``;
 
@@ -160,8 +162,9 @@ val Eval_REAL_NUM = Q.prove(
   \\ pop_assum $ qspec_then ‘&x’ mp_tac \\ fs [])
   |> add_user_proved_v_thm;
 
-val pair_le_def = Define `
-  pair_le (RatPair n1 d1) (RatPair n2 d2) = (n1 * & d2 <= n2 * (& d1):int)`;
+Definition pair_le_def:
+  pair_le (RatPair n1 d1) (RatPair n2 d2) = (n1 * & d2 <= n2 * (& d1):int)
+End
 
 val _ = next_ml_names := ["<="];
 val pair_le_v_thm = translate pair_le_def;
@@ -209,8 +212,9 @@ val Eval_REAL_GE = Q.prove(
   |> (fn th => MATCH_MP th Eval_RAT_GE)
   |> add_user_proved_v_thm;
 
-val pair_lt_def = Define `
-  pair_lt (RatPair n1 d1) (RatPair n2 d2) = (n1 * & d2 < n2 * (& d1):int)`;
+Definition pair_lt_def:
+  pair_lt (RatPair n1 d1) (RatPair n2 d2) = (n1 * & d2 < n2 * (& d1):int)
+End
 
 val _ = next_ml_names := ["<"];
 val pair_lt_v_thm = translate pair_lt_def;
@@ -256,16 +260,18 @@ val Eval_REAL_GT = Q.prove(
   |> (fn th => MATCH_MP th Eval_RAT_GT)
   |> add_user_proved_v_thm;
 
-val pair_compare_def = Define `
+Definition pair_compare_def:
   pair_compare (RatPair n1 d1) (RatPair n2 d2) =
     let x1 = n1 * & d2 in
     let x2 = n2 * & d1 in
       if x1 < x2 then Less else
-      if x2 < x1 then Greater else Equal`
+      if x2 < x1 then Greater else Equal
+End
 
-val rat_compare_def = Define `
+Definition rat_compare_def:
   rat_compare (r1:rat) r2 =
-    if r1 < r2 then Less else if r2 < r1 then Greater else Equal`
+    if r1 < r2 then Less else if r2 < r1 then Greater else Equal
+End
 
 val _ = next_ml_names := ["compare"];
 val pair_compare_v_thm = translate pair_compare_def;
@@ -410,9 +416,10 @@ val PAIR_TYPE_IMP_RAT_TYPE = prove(
        integerTheory.INT_ABS_NUM, rat_of_int_ainv] >>
   simp[RAT_MUL_NUM_CALCULATE]);
 
-val pair_add_def = Define `
+Definition pair_add_def:
   pair_add (RatPair n1 d1) (RatPair n2 d2) =
-    div_gcd ((n1 * &d2) + (n2 * &d1)) (d1 * d2)`;
+    div_gcd ((n1 * &d2) + (n2 * &d1)) (d1 * d2)
+End
 
 val _ = next_ml_names := ["+"];
 val pair_add_v_thm = translate pair_add_def;
@@ -454,9 +461,10 @@ val Eval_REAL_ADD = Q.prove(
   |> (fn th => MATCH_MP th Eval_RAT_ADD)
   |> add_user_proved_v_thm;
 
-val pair_sub_def = Define `
+Definition pair_sub_def:
   pair_sub (RatPair n1 d1) (RatPair n2 d2) =
-    div_gcd ((n1 * &d2) - (n2 * &d1)) (d1 * d2)`;
+    div_gcd ((n1 * &d2) - (n2 * &d1)) (d1 * d2)
+End
 
 val _ = next_ml_names := ["-"];
 val pair_sub_v_thm = translate pair_sub_def;
@@ -509,8 +517,9 @@ val Eval_REAL_NEG = Q.prove(
   |> (fn th => MATCH_MP th Eval_RAT_NEG)
   |> add_user_proved_v_thm;
 
-val pair_mul_def = Define `
-  pair_mul (RatPair n1 d1) (RatPair n2 d2) = div_gcd (n1 * n2:int) (d1 * d2:num)`;
+Definition pair_mul_def:
+  pair_mul (RatPair n1 d1) (RatPair n2 d2) = div_gcd (n1 * n2:int) (d1 * d2:num)
+End
 
 val _ = next_ml_names := ["*"];
 val pair_mul_v_thm = translate pair_mul_def;
@@ -546,9 +555,10 @@ val Eval_REAL_MUL = Q.prove(
   |> (fn th => MATCH_MP th Eval_RAT_MUL)
   |> add_user_proved_v_thm;
 
-val pair_inv_def = Define `
+Definition pair_inv_def:
   pair_inv (RatPair n1 d1) =
-    (RatPair (if n1 < 0 then - & d1 else (& d1):int) (num_of_int n1))`;
+    (RatPair (if n1 < 0 then - & d1 else (& d1):int) (num_of_int n1))
+End
 
 val _ = next_ml_names := ["inv"];
 val pair_inv_v_thm = translate pair_inv_def;

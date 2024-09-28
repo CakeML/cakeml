@@ -161,19 +161,25 @@ QED
 
 (* A small IO model needed for IO examples *)
 
-val names_def = Define `names = ["put_char"; "get_char"]`;
+Definition names_def:
+  names = ["put_char"; "get_char"]
+End
 
-val put_char_event_def = Define `
-  put_char_event c = IO_event (ExtCall "put_char") [n2w (ORD c)] []`;
+Definition put_char_event_def:
+  put_char_event c = IO_event (ExtCall "put_char") [n2w (ORD c)] []
+End
 
-val put_str_event_def = Define `
-  put_str_event cs = IO_event (ExtCall "put_char") (MAP (n2w o ORD) cs) []`;
+Definition put_str_event_def:
+  put_str_event cs = IO_event (ExtCall "put_char") (MAP (n2w o ORD) cs) []
+End
 
-val get_char_event_def = Define `
-  get_char_event c = IO_event (ExtCall "get_char") [] [0w, 1w; 0w, n2w (ORD c)]`;
+Definition get_char_event_def:
+  get_char_event c = IO_event (ExtCall "get_char") [] [0w, 1w; 0w, n2w (ORD c)]
+End
 
-val get_char_eof_event_def = Define `
-  get_char_eof_event = IO_event (ExtCall "get_char") [] [0w, 0w; 0w, 0w]`;
+Definition get_char_eof_event_def:
+  get_char_eof_event = IO_event (ExtCall "get_char") [] [0w, 0w; 0w, 0w]
+End
 
 val update_def = PmatchHeuristics.with_classic_heuristic Define `
   (update "put_char" cs [] s = SOME (FFIreturn [] s)) /\
@@ -185,12 +191,14 @@ val update_def = PmatchHeuristics.with_classic_heuristic Define `
          SOME (FFIreturn [1w; n2w (THE (LHD ll))]
                          (Stream (THE (LTL ll)))))`
 
-val State_def = Define `
-  State input = Stream (LMAP ORD input)`
+Definition State_def:
+  State input = Stream (LMAP ORD input)
+End
 
-val SIO_def = Define `
+Definition SIO_def:
   SIO input events =
-    one (FFI_part (State input) update names events)`
+    one (FFI_part (State input) update names events)
+End
 
 val _ = process_topdecs `
   fun put_char c = let
@@ -321,9 +329,10 @@ QED
 
 (* TODO: Move REPLICATE_LIST and lemmas to an appropriate theory *)
 
-val REPLICATE_LIST_def = Define `
+Definition REPLICATE_LIST_def:
   (REPLICATE_LIST l 0 = []) /\
-  (REPLICATE_LIST l (SUC n) = REPLICATE_LIST l n ++ l)`
+  (REPLICATE_LIST l (SUC n) = REPLICATE_LIST l n ++ l)
+End
 
 Theorem REPLICATE_LIST_SNOC:
   !x n. SNOC x (REPLICATE_LIST [x] n) = REPLICATE_LIST [x] (SUC n)
@@ -484,8 +493,9 @@ val _ = process_topdecs `
 
 val st = ml_translatorLib.get_ml_prog_state();
 
-val io_events_def = Define `
-  io_events = SIO [||]`;
+Definition io_events_def:
+  io_events = SIO [||]
+End
 
 Overload yes = ``yes_v``
 
@@ -531,9 +541,10 @@ val _ = process_topdecs `
 
 val st = ml_translatorLib.get_ml_prog_state();
 
-val cat_def = Define `
+Definition cat_def:
   cat ll = LFLATTEN (LMAP (\c. fromList [get_char_event c;
-                                         put_char_event c]) ll)`
+                                         put_char_event c]) ll)
+End
 
 Theorem cat_LCONS:
   !h t. cat (h ::: t) = LAPPEND (fromList [get_char_event h;
@@ -780,7 +791,7 @@ QED
 
 (* Infinite lists encoded as cyclic pointer structures in the heap *)
 
-val REF_LIST_def = Define `
+Definition REF_LIST_def:
  (REF_LIST rv [] A [] = SEP_EXISTS loc. cond(rv=Loc loc))
  /\
  (REF_LIST rv (rv2::rvs) A (x::l) =
@@ -792,7 +803,7 @@ val REF_LIST_def = Define `
   ) /\
   (REF_LIST _ _ _ _ = &F)
  )
-`
+End
 
 Theorem REF_LIST_extend:
   !rv rvs A l x v1.

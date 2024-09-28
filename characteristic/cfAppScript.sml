@@ -12,15 +12,17 @@ val _ = new_theory "cfApp"
 
 Type state = ``:'ffi semanticPrimitives$state``
 
-val evaluate_ck_def = Define `
-  evaluate_ck ck (st: 'ffi state) = evaluate (st with clock := ck)`
+Definition evaluate_ck_def:
+  evaluate_ck ck (st: 'ffi state) = evaluate (st with clock := ck)
+End
 
-val io_prefix_def = Define `
+Definition io_prefix_def:
   io_prefix (s1:'ffi semanticPrimitives$state) (s2:'ffi semanticPrimitives$state) ⇔
     (* TODO: update io_events to an llist and use LPREFIX instead of ≼ *)
-    s1.ffi.io_events ≼ s2.ffi.io_events`;
+    s1.ffi.io_events ≼ s2.ffi.io_events
+End
 
-val evaluate_to_heap_def = Define `
+Definition evaluate_to_heap_def:
   evaluate_to_heap st env exp p heap (r:res) <=>
     case r of
     | Val v => (∃ck st'. evaluate_ck ck st env [exp] = (st', Rval [v]) /\
@@ -45,17 +47,19 @@ val evaluate_to_heap_def = Define `
                 (* io is the limit of the io_events of all states *)
                 lprefix_lub (IMAGE (λck. fromList (FST(evaluate_ck ck st env [exp])).ffi.io_events)
                                    UNIV)
-                              io`
+                              io
+End
 
 (* [app_basic]: application with one argument *)
-val app_basic_def = Define `
+Definition app_basic_def:
   app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: res -> hprop) =
     !(h_i: heap) (h_k: heap) (st: 'ffi semanticPrimitives$state).
       SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
       ?env exp (r: res) (h_f: heap) (h_g: heap) heap.
         SPLIT3 heap (h_f, h_k, h_g) /\
         do_opapp [f;x] = SOME (env, exp) /\
-        Q r h_f /\ evaluate_to_heap st env exp p heap r`;
+        Q r h_f /\ evaluate_to_heap st env exp p heap r
+End
 
 val app_basic_local = Q.prove (
   `!f x. is_local (app_basic p f x)`,
@@ -82,12 +86,13 @@ val app_basic_local = Q.prove (
 );
 
 (* [app]: n-ary application *)
-val app_def = Define `
+Definition app_def:
   app (p:'ffi ffi_proj) (f: v) ([]: v list) (H: hprop) (Q: res -> hprop) = F /\
   app (p:'ffi ffi_proj) f [x] H Q = app_basic p f x H Q /\
   app (p:'ffi ffi_proj) f (x::xs) H Q =
     app_basic p f x H
-      (POSTv g. SEP_EXISTS H'. H' * cond (app p g xs H' Q))`
+      (POSTv g. SEP_EXISTS H'. H' * cond (app p g xs H' Q))
+End
 
 Theorem app_alt_ind:
    !f xs x H Q.
@@ -189,7 +194,7 @@ Proof
 QED
 
 (* [curried (p:'ffi ffi_proj) n f] states that [f] is curried [n] times *)
-val curried_def = Define `
+Definition curried_def:
   curried (p:'ffi ffi_proj) (n: num) (f: v) =
     case n of
      | 0 => F
@@ -200,7 +205,8 @@ val curried_def = Define `
                   !xs H Q.
                     LENGTH xs = n ==>
                     app (p:'ffi ffi_proj) f (x::xs) H Q ==>
-                    app (p:'ffi ffi_proj) g xs H Q))`;
+                    app (p:'ffi ffi_proj) g xs H Q))
+End
 
 Theorem curried_ge_2_unfold:
    !n f.
@@ -273,8 +279,9 @@ val app_partial = Q.prove (
 (* [spec (p:'ffi ffi_proj) f n P] asserts that [curried (p:'ffi ffi_proj) f n] is true and
 that [P] is a valid specification for [f]. Useful for conciseness and
 tactics. *)
-val spec_def = Define `
-  spec (p:'ffi ffi_proj) f n P = (curried (p:'ffi ffi_proj) n f /\ P)`
+Definition spec_def:
+  spec (p:'ffi ffi_proj) f n P = (curried (p:'ffi ffi_proj) n f /\ P)
+End
 
 (*------------------------------------------------------------------*)
 (* Relating [app] to [_ --> _] from the translator *)

@@ -17,8 +17,9 @@ val EVERY2_EL = LIST_REL_EL_EQN |> SPEC_ALL |> EQ_IMP_RULE |> fst
 
 (* alternative definition of free_vars (fv) function *)
 
-val alt_fv_def = Define `
-  alt_fv n xs = has_var n (SND (alt_free xs))`;
+Definition alt_fv_def:
+  alt_fv n xs = has_var n (SND (alt_free xs))
+End
 
 Theorem alt_free_thm:
    !xs.
@@ -74,7 +75,9 @@ Proof
 rw[alt_fv]
 QED
 
-val alt_fv1_def = Define`alt_fv1 v e = alt_fv v [e]`;
+Definition alt_fv1_def:
+  alt_fv1 v e = alt_fv v [e]
+End
 val alt_fv1_intro = save_thm("alt_fv1_intro[simp]",GSYM alt_fv1_def)
 val alt_fv1_thm =
   alt_fv |> SIMP_RULE (srw_ss())[]
@@ -230,7 +233,7 @@ val env_ok_EXTEND_IGNORE = Q.prove(
   \\ full_simp_tac(srw_ss())[env_ok_def]
   \\ fs [rich_listTheory.EL_APPEND2]);
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel (s:('c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (s.clock = t.clock) /\
     (s.ffi = t.ffi) /\
@@ -247,7 +250,8 @@ val state_rel_def = Define `
       (FLOOKUP s.code name = SOME (arity,c)) ==>
       ?c2.
         (shift (FST (alt_free [c])) 0 arity LN = [c2]) /\
-        (FLOOKUP t.code name = SOME (arity,c2)))`
+        (FLOOKUP t.code name = SOME (arity,c2)))
+End
 
 Theorem state_rel_max_app:
    state_rel s t ⇒ s.max_app = t.max_app

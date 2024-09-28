@@ -13,7 +13,7 @@ val _ = new_theory"stack_namesProof";
 
 val _ = temp_delsimps ["fromAList_def"]
 
-val rename_state_def = Define `
+Definition rename_state_def:
   rename_state compile_rest f s =
    s with
    <| regs := MAP_KEYS (find_name f) s.regs
@@ -21,7 +21,8 @@ val rename_state_def = Define `
     ; compile := compile_rest
     ; compile_oracle := (I ## compile f ## I) o s.compile_oracle
     ; ffi_save_regs := IMAGE (find_name f) s.ffi_save_regs
-    |>`
+    |>
+End
 
 Theorem rename_state_with_clock:
    rename_state c f (s with clock := k) = rename_state c f s with clock := k
@@ -138,6 +139,26 @@ Theorem sh_mem_store_byte_rename_state[simp]:
   (FST (sh_mem_store_byte x y s), (rename_state c f) (SND (sh_mem_store_byte x y s)))
 Proof
   simp[sh_mem_store_byte_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  gs[rename_state_def]
+QED
+
+Theorem sh_mem_load32_rename_state[simp]:
+  BIJ (find_name f) UNIV UNIV ⇒
+  sh_mem_load32 (find_name f x) y (rename_state c f s) =
+  (FST (sh_mem_load32 x y s), (rename_state c f) (SND (sh_mem_load32 x y s)))
+Proof
+  rw[sh_mem_load32_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  gs[rename_state_def,BIJ_DEF]>>
+  dep_rewrite.DEP_REWRITE_TAC[MAP_KEYS_FUPDATE]>>
+  metis_tac[BIJ_IMP_11,INJ_DEF,IN_UNIV]
+QED
+
+Theorem sh_mem_store32_rename_state[simp]:
+  BIJ (find_name f) UNIV UNIV ⇒
+  sh_mem_store32 (find_name f x) y (rename_state c f s) =
+  (FST (sh_mem_store32 x y s), (rename_state c f) (SND (sh_mem_store32 x y s)))
+Proof
+  simp[sh_mem_store32_def,ffiTheory.call_FFI_def]>>every_case_tac>>
   gs[rename_state_def]
 QED
 
@@ -515,7 +536,7 @@ val compile_semantics_alt = Q.prove(
       semantics start t = semantics start s`,
   metis_tac [compile_semantics]);
 
-val make_init_def = Define `
+Definition make_init_def:
   make_init f code oracle (s:('a,'c,'ffi) stackSem$state) =
     s with
      <| code := code;
@@ -526,7 +547,8 @@ val make_init_def = Define `
         code_buffer := <| position := 0w; buffer := []; space_left := 0 |>;
         data_buffer := <| position := 0w; buffer := []; space_left := 0 |>;
 *)
-        ffi_save_regs := IMAGE (LINV (find_name f) UNIV) s.ffi_save_regs|>`
+        ffi_save_regs := IMAGE (LINV (find_name f) UNIV) s.ffi_save_regs|>
+End
 
 Theorem make_init_semantics:
    ~s.use_alloc /\ ~s.use_store /\ ~s.use_stack /\

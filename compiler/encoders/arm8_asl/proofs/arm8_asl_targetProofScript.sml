@@ -406,6 +406,38 @@ Proof
   )
 QED
 
+Theorem l3_asl_arm8_load_store_ast32:
+  ∀instr ls r1 r2 a.
+    MEM instr (arm8_target$arm8_load_store_ast32 ls r1 r2 a) ∧
+    ls ≠ MemOp_PREFETCH ∧
+    (∀s. Encode instr ≠ BadCode s)
+  ⇒ l3_models_asl_instr instr
+Proof
+  rw[arm8_load_store_ast32_def] >> gvs[]
+  >- (
+    irule l3_models_asl_AddSubImmediate >> simp[] >>
+    gvs[encode_rws] >> every_case_tac >> gvs[]
+    )
+  >~ [`AddSubImmediate@64`]
+  >- (
+    irule l3_models_asl_AddSubImmediate >> simp[] >>
+    gvs[encode_rws] >> every_case_tac >> gvs[]
+    ) >>
+  (
+    Cases_on `ls` >> gvs[]
+    >- ( (* Load32 *)
+      irule $ SIMP_RULE std_ss [LET_DEF]
+        l3_models_asl_LoadStoreImmediate_32_NORMAL_LOAD_FFFFF >>
+      simp[]
+      )
+    >- ( (* Store32 *)
+      irule $ SIMP_RULE std_ss [LET_DEF]
+        l3_models_asl_LoadStoreImmediate_32_NORMAL_STORE_FFFFF >>
+      simp[]
+      )
+  )
+QED
+
 Theorem l3_asl_arm8_ast:
   ∀instr prog.
     MEM instr (arm8_target$arm8_ast prog) ∧
@@ -518,6 +550,11 @@ Proof
           l3_models_asl_LoadStoreImmediate_8_NORMAL_LOAD_FFFFF >>
         simp[]
         )
+      >- ( (* Load32 *)
+        Cases_on `a` >> gvs[arm8_ast_def] >>
+        irule l3_asl_arm8_load_store_ast32 >> simp[] >>
+        goal_assum $ drule_at Any >> simp[]
+        )
       >- ( (* Store *)
         Cases_on `a` >> gvs[arm8_ast_def] >>
         irule l3_asl_arm8_load_store_ast >> simp[] >>
@@ -528,6 +565,11 @@ Proof
         irule $ SIMP_RULE std_ss [LET_DEF]
           l3_models_asl_LoadStoreImmediate_8_NORMAL_STORE_FFFFF >>
         simp[]
+        )
+      >- ( (* Store32 *)
+        Cases_on `a` >> gvs[arm8_ast_def] >>
+        irule l3_asl_arm8_load_store_ast32 >> simp[] >>
+        goal_assum $ drule_at Any >> simp[]
         )
       )
     )
@@ -1201,12 +1243,26 @@ Proof
           ]
       , Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
       , Cases_on `c = sw2sw ((8 >< 0) c : word9)` >| [
+          Cases_on `¬word_msb c ∧ c = w2w (^ext12 (c >>> 2)) << 2`,
+          Cases_on `word_msb c` >| [
+            all_tac,
+            Cases_on `c = w2w (^ext12 (c >>> 2)) << 2`
+            ]
+          ]
+      , Cases_on `c = sw2sw ((8 >< 0) c : word9)` >| [
           Cases_on `¬word_msb c ∧ c = w2w (^ext12 (c >>> 3)) << 3`,
           Cases_on `word_msb c` >| [
             all_tac, Cases_on `c = w2w (^ext12 (c >>> 3)) << 3`
             ]
         ]
       , Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
+      , Cases_on `c = sw2sw ((8 >< 0) c : word9)` >| [
+          Cases_on `¬word_msb c ∧ c = w2w (^ext12 (c >>> 2)) << 2`,
+          Cases_on `word_msb c` >| [
+            all_tac,
+            Cases_on `c = w2w (^ext12 (c >>> 2)) << 2`
+            ]
+          ]
       ] >>
       rfs[] >> fs[lem7, lem7b, lem31, lem35]
       >- (
@@ -1362,6 +1418,130 @@ Proof
         (conj_tac >- gvs[interference_ok_def, arm8_asl_proj_def]) >>
         imp_res_tac l3_asl_target >> simp[] >> l3_state_tac[] >>
         simp[mem_dword_def, ExtendWord_def] >> simp[SF wordsLib.WORD_EXTRACT_ss]
+        )
+      >- (
+        unabbrev_all_tac >> encode >> asserts >>
+        `aligned 2 (c + l3.REG (n2w n'))` by imp_res_tac lem14b >>
+        next_l3_tac `l3` >> strip_tac >>
+        irule_at Any $ iffLR l3_asl_target_state_rel >>
+        drule_all l3_asl_interference_ok >> strip_tac >>
+        pop_assum $ qspec_then `0` assume_tac >> gvs[] >> goal_assum drule >>
+        (conj_tac >- gvs[interference_ok_def, arm8_asl_proj_def]) >>
+        imp_res_tac l3_asl_target >> simp[] >> l3_state_tac[] >>
+        simp[mem_word_def, ExtendWord_def] >> simp[SF wordsLib.WORD_EXTRACT_ss]
+        )
+      >- (
+        unabbrev_all_tac >> encode >> asserts >>
+        `aligned 2 (c + l3.REG (n2w n'))` by imp_res_tac lem14b >>
+        next_l3_tac `l3` >> strip_tac >>
+        irule_at Any $ iffLR l3_asl_target_state_rel >>
+        drule_all l3_asl_interference_ok >> strip_tac >>
+        pop_assum $ qspec_then `0` assume_tac >> gvs[] >> goal_assum drule >>
+        (conj_tac >- gvs[interference_ok_def, arm8_asl_proj_def]) >>
+        imp_res_tac l3_asl_target >> simp[] >> l3_state_tac[] >>
+        simp[mem_word_def, ExtendWord_def] >> simp[SF wordsLib.WORD_EXTRACT_ss]
+        )
+      >- (
+        unabbrev_all_tac >> encode >> asserts >>
+        `aligned 2 (c + l3.REG (n2w n'))` by imp_res_tac lem14b >>
+        next_l3_tac `l3` >> strip_tac >>
+        irule_at Any $ iffLR l3_asl_target_state_rel >>
+        drule_all l3_asl_interference_ok >> strip_tac >>
+        pop_assum $ qspec_then `0` assume_tac >> gvs[] >> goal_assum drule >>
+        (conj_tac >- gvs[interference_ok_def, arm8_asl_proj_def]) >>
+        imp_res_tac l3_asl_target >> simp[] >> l3_state_tac[] >>
+        simp[mem_word_def, ExtendWord_def] >> simp[SF wordsLib.WORD_EXTRACT_ss]
+        )
+      >- (
+        unabbrev_all_tac >> encode >>
+        drule_all lem31 >> strip_tac >> gvs[] >> asserts >>
+        `aligned 2 (c + l3.REG (n2w n'))` by imp_res_tac lem14b >>
+        split_bytes_in_memory_tac 4 >> next_l3_tac `l3` >> strip_tac >>
+        qmatch_asmsub_abbrev_tac `c * foo` >>
+        `foo = -1w` by (unabbrev_all_tac >> blastLib.BBLAST_TAC) >>
+        pop_assum SUBST_ALL_TAC >> pop_assum kall_tac >>
+        qmatch_asmsub_abbrev_tac `v2w foo` >>
+        `v2w foo = (11 >< 0) (-1w * c - 0x100w)` by (
+          qpat_x_assum `c ≤ _` mp_tac >> qpat_x_assum `_ ≤ c` mp_tac >>
+          unabbrev_all_tac >> blastLib.BBLAST_TAC) >>
+        pop_assum SUBST_ALL_TAC >> pop_assum kall_tac >>
+        drule_all l3_asl_interference_ok >> strip_tac >> gvs[] >>
+        pop_assum $ qspec_then `0` assume_tac >> simp[GSYM CONJ_ASSOC] >> conj_asm1_tac
+        >- (
+          simp[arm8_asl_ok] >> gvs[interference_ok_def, arm8_asl_proj_def] >>
+          goal_assum drule >> simp[] >> gvs[arm8_proj_def, arm8_ok_def] >>
+          simp[alignmentTheory.aligned_numeric]
+          ) >>
+        drule l3_asl_next >>
+        disch_then $ qspecl_then [`Inst (Mem Load32 n (Addr n' c))`,`1`] mp_tac >>
+        encode >>
+        interference `l3_env` >> imp_res_tac $ Q.SPEC `4w` bytes_in_memory_thm2 >>
+        `∀a. a ∈ s1.mem_domain ⇒
+          (l3_env 0 (THE $ NextStateARM8 l3)).MEM a = (THE $ NextStateARM8 l3).MEM a` by
+          gvs[interference_ok_def, arm8_proj_def, set_sepTheory.fun2set_eq] >>
+        next_state_tac0 true (fn l => List.nth (l,0))
+          filter_reg_31 `l3_env 0n (THE $ NextStateARM8 l3)` >>
+        drule_all lem33 >> simp[] >> disch_then SUBST_ALL_TAC >>
+        pop_assum mp_tac >> impl_tac >- simp[alignmentTheory.aligned_numeric] >>
+        strip_tac >> gvs[] >> impl_tac
+        >- (
+          gvs[interference_ok_def, arm8_asl_proj_def, arm8_proj_def, arm8_ok_def] >>
+          simp[alignmentTheory.aligned_numeric]
+          ) >>
+        strip_tac >> imp_res_tac l3_asl_target >> simp[] >>
+        irule_at Any $ iffLR l3_asl_target_state_rel >>
+        drule_all l3_asl_interference_ok >> strip_tac >> gvs[] >>
+        pop_assum $ qspec_then `1` assume_tac >> goal_assum drule >>
+        interference `l3_env'` >> simp[] >> conj_tac
+        >- gvs[interference_ok_def, arm8_asl_proj_def] >>
+        l3_state_tac[] >>
+        simp[mem_word_def, ExtendWord_def] >> simp[SF wordsLib.WORD_EXTRACT_ss]
+        )
+      >- (
+        unabbrev_all_tac >> encode >> asserts >>
+        `aligned 2 (c + l3.REG (n2w n'))` by imp_res_tac lem14b >>
+        next_l3_tac `l3` >> strip_tac >>
+        irule_at Any $ iffLR l3_asl_target_state_rel >>
+        drule_all l3_asl_interference_ok >> strip_tac >>
+        pop_assum $ qspec_then `0` assume_tac >> gvs[] >> goal_assum drule >>
+        (conj_tac >- gvs[interference_ok_def, arm8_asl_proj_def]) >>
+        imp_res_tac l3_asl_target >> simp[] >> l3_state_tac[] >>
+        simp[mem_word_def, ExtendWord_def] >> simp[SF wordsLib.WORD_EXTRACT_ss]
+        )
+      >- (
+        unabbrev_all_tac >> encode >>
+        drule_all lem35 >> strip_tac >> gvs[] >> asserts >>
+        `aligned 2 (c + l3.REG (n2w n'))` by imp_res_tac lem14b >>
+        split_bytes_in_memory_tac 4 >> next_l3_tac `l3` >> strip_tac >>
+        drule_all l3_asl_interference_ok >> strip_tac >> gvs[] >>
+        pop_assum $ qspec_then `0` assume_tac >> simp[GSYM CONJ_ASSOC] >> conj_asm1_tac
+        >- (
+          simp[arm8_asl_ok] >> gvs[interference_ok_def, arm8_asl_proj_def] >>
+          goal_assum drule >> simp[] >> gvs[arm8_proj_def, arm8_ok_def] >>
+          simp[alignmentTheory.aligned_numeric]
+          ) >>
+        drule l3_asl_next >>
+        disch_then $ qspecl_then [`Inst (Mem Load32 n (Addr n' c))`,`1`] mp_tac >>
+        encode >>
+        interference `l3_env` >> imp_res_tac $ Q.SPEC `4w` bytes_in_memory_thm2 >>
+        `∀a. a ∈ s1.mem_domain ⇒
+          (l3_env 0 (THE $ NextStateARM8 l3)).MEM a = (THE $ NextStateARM8 l3).MEM a` by
+          gvs[interference_ok_def, arm8_proj_def, set_sepTheory.fun2set_eq] >>
+        next_state_tac0 false (fn l => List.nth (l,0))
+          filter_reg_31 `l3_env 0n (THE $ NextStateARM8 l3)` >>
+        impl_tac
+        >- (
+          gvs[interference_ok_def, arm8_asl_proj_def, arm8_proj_def, arm8_ok_def] >>
+          simp[alignmentTheory.aligned_numeric]
+          ) >>
+        strip_tac >> imp_res_tac l3_asl_target >> simp[] >>
+        irule_at Any $ iffLR l3_asl_target_state_rel >>
+        drule_all l3_asl_interference_ok >> strip_tac >> gvs[] >>
+        pop_assum $ qspec_then `1` assume_tac >> goal_assum drule >>
+        interference `l3_env'` >> simp[] >> conj_tac
+        >- gvs[interference_ok_def, arm8_asl_proj_def] >>
+        l3_state_tac[] >>
+        simp[mem_word_def, ExtendWord_def] >> simp[SF wordsLib.WORD_EXTRACT_ss]
         )
       >- (
         unabbrev_all_tac >> encode >> asserts >>
@@ -1529,6 +1709,143 @@ Proof
         (conj_tac >- gvs[interference_ok_def, arm8_asl_proj_def]) >>
         imp_res_tac l3_asl_target >> simp[] >> l3_state_tac[] >>
         simp[mem_dword_def, ExtendWord_def] >> simp[SF wordsLib.WORD_EXTRACT_ss]
+        )
+      >- (
+        unabbrev_all_tac >> encode >> asserts >>
+        imp_res_tac bytes_in_memory_thm >> gvs[] >>
+        next_state_tac0 false (fn l => List.nth (l,0)) filter_reg_31 `l3` >>
+        pop_assum mp_tac >> impl_tac
+        >- gvs[target_state_rel_def, arm8_target_def, arm8_config_def] >>
+        ntac 2 strip_tac >> gvs[] >>
+        irule_at Any $ iffLR l3_asl_target_state_rel >>
+        drule_all l3_asl_interference_ok >> strip_tac >>
+        pop_assum $ qspec_then `0` assume_tac >> gvs[] >> goal_assum drule >>
+        (conj_tac >- gvs[interference_ok_def, arm8_asl_proj_def]) >>
+        imp_res_tac l3_asl_target >> simp[] >> l3_state_tac[] >> gvs[] >>
+        pop_assum mp_tac >> blastLib.BBLAST_TAC
+        )
+      >- (
+        unabbrev_all_tac >> encode >> asserts >>
+        imp_res_tac bytes_in_memory_thm >> gvs[] >>
+        next_state_tac0 false (fn l => List.nth (l,0)) filter_reg_31 `l3` >>
+        pop_assum mp_tac >> impl_tac
+        >- gvs[target_state_rel_def, arm8_target_def, arm8_config_def] >>
+        ntac 2 strip_tac >> gvs[] >>
+        irule_at Any $ iffLR l3_asl_target_state_rel >>
+        drule_all l3_asl_interference_ok >> strip_tac >>
+        pop_assum $ qspec_then `0` assume_tac >> gvs[] >> goal_assum drule >>
+        (conj_tac >- gvs[interference_ok_def, arm8_asl_proj_def]) >>
+        imp_res_tac l3_asl_target >> simp[] >> l3_state_tac[] >> gvs[] >>
+        pop_assum mp_tac >> blastLib.BBLAST_TAC
+        )
+      >- (
+        unabbrev_all_tac >> encode >> asserts >>
+        imp_res_tac bytes_in_memory_thm >> gvs[] >>
+        next_state_tac0 false (fn l => List.nth (l,0)) filter_reg_31 `l3` >>
+        pop_assum mp_tac >> impl_tac
+        >- gvs[target_state_rel_def, arm8_target_def, arm8_config_def] >>
+        ntac 2 strip_tac >> gvs[] >>
+        irule_at Any $ iffLR l3_asl_target_state_rel >>
+        drule_all l3_asl_interference_ok >> strip_tac >>
+        pop_assum $ qspec_then `0` assume_tac >> gvs[] >> goal_assum drule >>
+        (conj_tac >- gvs[interference_ok_def, arm8_asl_proj_def]) >>
+        imp_res_tac l3_asl_target >> simp[] >> l3_state_tac[] >> gvs[] >>
+        pop_assum mp_tac >> blastLib.BBLAST_TAC
+        )
+      >- ( (* Mem Store n (Addr n' c) *)
+        unabbrev_all_tac >> encode >>
+        drule_all lem31 >> strip_tac >> gvs[] >> asserts >>
+        `aligned 2 (c + l3.REG (n2w n'))` by imp_res_tac lem14b >>
+        split_bytes_in_memory_tac 4 >> next_l3_tac `l3` >> strip_tac >>
+        qmatch_asmsub_abbrev_tac `c * foo` >>
+        `foo = -1w` by (unabbrev_all_tac >> blastLib.BBLAST_TAC) >>
+        pop_assum SUBST_ALL_TAC >> pop_assum kall_tac >>
+        qmatch_asmsub_abbrev_tac `v2w foo` >>
+        `v2w foo = (11 >< 0) (-1w * c - 0x100w)` by (
+          qpat_x_assum `c ≤ _` mp_tac >> qpat_x_assum `_ ≤ c` mp_tac >>
+          unabbrev_all_tac >> blastLib.BBLAST_TAC) >>
+        pop_assum SUBST_ALL_TAC >> pop_assum kall_tac >>
+        drule_all l3_asl_interference_ok >> strip_tac >> gvs[] >>
+        pop_assum $ qspec_then `0` assume_tac >> simp[GSYM CONJ_ASSOC] >> conj_asm1_tac
+        >- (
+          simp[arm8_asl_ok] >> gvs[interference_ok_def, arm8_asl_proj_def] >>
+          goal_assum drule >> simp[] >> gvs[arm8_proj_def, arm8_ok_def] >>
+          simp[alignmentTheory.aligned_numeric]
+          ) >>
+        drule l3_asl_next >>
+        disch_then $ qspecl_then [`Inst (Mem Store32 n (Addr n' c))`,`1`] mp_tac >>
+        encode >>
+        interference `l3_env` >> imp_res_tac $ Q.SPEC `4w` bytes_in_memory_thm2 >>
+        `∀a. a ∈ s1.mem_domain ⇒
+          (l3_env 0 (THE $ NextStateARM8 l3)).MEM a = (THE $ NextStateARM8 l3).MEM a` by
+          gvs[interference_ok_def, arm8_proj_def, set_sepTheory.fun2set_eq] >>
+        next_state_tac0 true (fn l => List.nth (l,0))
+          filter_reg_31 `l3_env 0n (THE $ NextStateARM8 l3)` >>
+        drule_all lem33 >> simp[] >> disch_then SUBST_ALL_TAC >>
+        pop_assum mp_tac >> impl_tac >- simp[alignmentTheory.aligned_numeric] >>
+        strip_tac >> gvs[] >> impl_tac
+        >- (
+          gvs[interference_ok_def, arm8_asl_proj_def, arm8_proj_def, arm8_ok_def] >>
+          simp[alignmentTheory.aligned_numeric]
+          ) >>
+        strip_tac >> imp_res_tac l3_asl_target >> simp[] >>
+        irule_at Any $ iffLR l3_asl_target_state_rel >>
+        drule_all l3_asl_interference_ok >> strip_tac >> gvs[] >>
+        pop_assum $ qspec_then `1` assume_tac >> goal_assum drule >>
+        interference `l3_env'` >> simp[] >> conj_tac
+        >- gvs[interference_ok_def, arm8_asl_proj_def] >>
+        l3_state_tac[] >> gvs[] >>
+        pop_assum mp_tac >> blastLib.BBLAST_TAC
+        )
+      >- (
+        unabbrev_all_tac >> encode >> asserts >>
+        imp_res_tac bytes_in_memory_thm >> gvs[] >>
+        next_state_tac0 false (fn l => List.nth (l,0)) filter_reg_31 `l3` >>
+        pop_assum mp_tac >> impl_tac
+        >- gvs[target_state_rel_def, arm8_target_def, arm8_config_def] >>
+        ntac 2 strip_tac >> gvs[] >>
+        irule_at Any $ iffLR l3_asl_target_state_rel >>
+        drule_all l3_asl_interference_ok >> strip_tac >>
+        pop_assum $ qspec_then `0` assume_tac >> gvs[] >> goal_assum drule >>
+        (conj_tac >- gvs[interference_ok_def, arm8_asl_proj_def]) >>
+        imp_res_tac l3_asl_target >> simp[] >> l3_state_tac[] >> gvs[] >>
+        pop_assum mp_tac >> blastLib.BBLAST_TAC
+        )
+      >- ( (* Mem Store n (Addr n' c) *)
+        unabbrev_all_tac >> encode >>
+        drule_all lem35 >> strip_tac >> gvs[] >> asserts >>
+        `aligned 2 (c + l3.REG (n2w n'))` by imp_res_tac lem14b >>
+        split_bytes_in_memory_tac 4 >> next_l3_tac `l3` >> strip_tac >>
+        drule_all l3_asl_interference_ok >> strip_tac >> gvs[] >>
+        pop_assum $ qspec_then `0` assume_tac >> simp[GSYM CONJ_ASSOC] >> conj_asm1_tac
+        >- (
+          simp[arm8_asl_ok] >> gvs[interference_ok_def, arm8_asl_proj_def] >>
+          goal_assum drule >> simp[] >> gvs[arm8_proj_def, arm8_ok_def] >>
+          simp[alignmentTheory.aligned_numeric]
+          ) >>
+        drule l3_asl_next >>
+        disch_then $ qspecl_then [`Inst (Mem Store32 n (Addr n' c))`,`1`] mp_tac >>
+        encode >>
+        interference `l3_env` >> imp_res_tac $ Q.SPEC `4w` bytes_in_memory_thm2 >>
+        `∀a. a ∈ s1.mem_domain ⇒
+          (l3_env 0 (THE $ NextStateARM8 l3)).MEM a = (THE $ NextStateARM8 l3).MEM a` by
+          gvs[interference_ok_def, arm8_proj_def, set_sepTheory.fun2set_eq] >>
+        next_state_tac0 false (fn l => List.nth (l,0))
+          filter_reg_31 `l3_env 0n (THE $ NextStateARM8 l3)` >>
+        impl_tac
+        >- (
+          gvs[interference_ok_def, arm8_asl_proj_def, arm8_proj_def, arm8_ok_def] >>
+          simp[alignmentTheory.aligned_numeric]
+          ) >>
+        strip_tac >> imp_res_tac l3_asl_target >> simp[] >>
+        irule_at Any $ iffLR l3_asl_target_state_rel >>
+        drule_all l3_asl_interference_ok >> strip_tac >> gvs[] >>
+        pop_assum $ qspec_then `1` assume_tac >> goal_assum drule >>
+        interference `l3_env'` >> simp[] >> conj_tac
+        >- gvs[interference_ok_def, arm8_asl_proj_def] >>
+        l3_state_tac[] >>
+        simp[mem_dword_def, ExtendWord_def] >> simp[SF wordsLib.WORD_EXTRACT_ss] >>
+        gvs[] >> pop_assum mp_tac >> blastLib.BBLAST_TAC
         )
       )
     >- (Cases_on `f` >> encode) (* FP *)

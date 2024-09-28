@@ -397,7 +397,9 @@ val st = get_ml_prog_state ();
 val name = "readmain";
 val spec = (UNDISCH monadreader_wps);
 val (sem_thm,prog_tm) = whole_prog_thm st name spec
-val readerIO_prog_def = Define `readerIO_prog = ^prog_tm`
+Definition readerIO_prog_def:
+  readerIO_prog = ^prog_tm
+End
 
 val semantics_readerIO_prog =
   sem_thm

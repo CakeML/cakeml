@@ -58,13 +58,15 @@ Proof
   srw_tac[][asm_fetch_aux_def] >> Cases_on`y`>>full_simp_tac(srw_ss())[]
 QED
 
-val dest_to_loc_def = Define`
+Definition dest_to_loc_def:
   dest_to_loc regs dest =
-    case dest of INL p => p | INR r => case FAPPLY regs r of Loc loc _ => loc`;
+    case dest of INL p => p | INR r => case FAPPLY regs r of Loc loc _ => loc
+End
 
-val dest_to_loc'_def = Define`
+Definition dest_to_loc'_def:
   dest_to_loc' regs dest =
-    case dest of INL p => p | INR r => case regs r of Loc loc _ => loc`;
+    case dest of INL p => p | INR r => case regs r of Loc loc _ => loc
+End
 
 Theorem find_code_lookup:
    find_code dest regs code = SOME p ⇒
@@ -105,7 +107,7 @@ QED
 
 (* -- Lemmas about code_installed, loc_to_pc and asm_fetch_aux -- *)
 
-val code_installed_def = Define`
+Definition code_installed_def:
   (code_installed n [] code = T) ∧
   (code_installed n (x::xs) code ⇔
    if is_Label x then
@@ -113,7 +115,8 @@ val code_installed_def = Define`
      code_installed n xs code
    else
      asm_fetch_aux n code = SOME x ∧
-     code_installed (n+1) xs code)`;
+     code_installed (n+1) xs code)
+End
 
 Theorem code_installed_append_imp:
    ∀l1 pc l2 code. code_installed pc (l1 ++ l2) code ⇒
@@ -319,11 +322,12 @@ Proof
     qexists_tac`(q,r)::ls1`>>simp[]
 QED
 
-val code_installed'_def = Define `
+Definition code_installed'_def:
   (code_installed' n [] code ⇔ T) /\
   (code_installed' n (x::xs) code ⇔
      if is_Label x then code_installed' n xs code
-     else asm_fetch_aux n code = SOME x ∧ code_installed' (n + 1) xs code)`;
+     else asm_fetch_aux n code = SOME x ∧ code_installed' (n + 1) xs code)
+End
 
 Theorem code_installed'_cons_label:
    !lines pos.
@@ -374,14 +378,15 @@ Proof
   Induct \\ fs [labSemTheory.asm_fetch_aux_def,ADD1]
 QED
 
-val labs_correct_def = Define `
+Definition labs_correct_def:
   (labs_correct n [] code ⇔ T) /\
   (labs_correct n (x::xs) code ⇔
      if is_Label x then labs_correct n xs code /\
        (case x of
         | Label l1 l2 v2 => loc_to_pc l1 l2 code = SOME n
         | _ => T)
-     else labs_correct (n + 1) xs code)`
+     else labs_correct (n + 1) xs code)
+End
 
 val is_Label_def = labSemTheory.is_Label_def
 
@@ -458,14 +463,15 @@ Proof
     metis_tac[APPEND_ASSOC,APPEND]
 QED
 
-val labels_ok_def = Define`
+Definition labels_ok_def:
   labels_ok code ⇔
   (*Section names are distinct*)
   ALL_DISTINCT (MAP (λs. case s of Section n _ => n) code) ∧
   EVERY (λs. case s of Section n lines =>
     let labs = extract_labels lines in
     EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) labs ∧
-    ALL_DISTINCT labs) code`;
+    ALL_DISTINCT labs) code
+End
 
 Theorem labels_ok_imp:
    ∀code.
@@ -590,7 +596,7 @@ QED
 
 (* -- End code_installed lemmas  -- *)
 
-val state_rel_def = Define`
+Definition state_rel_def:
   state_rel (s:('a,'c,'ffi)stackSem$state) (t:('a,'c,'ffi)labSem$state) ⇔
     (∀n v. FLOOKUP s.regs n = SOME v ⇒ t.regs n = v) ∧
     (∀n v. FLOOKUP s.fp_regs n = SOME v ⇒ t.fp_regs n = v) ∧
@@ -630,7 +636,9 @@ val state_rel_def = Define`
         ALL_DISTINCT (MAP FST ps) ) ∧
     ¬s.use_stack ∧
     ¬s.use_store ∧
-    ¬s.use_alloc`;
+    ¬s.use_alloc ∧
+    good_dimindex(:'a)
+End
 
 Theorem loc_check_IMP_loc_to_pc:
    loc_check s.code (l1,l2) /\ state_rel s t1 ==>
@@ -873,23 +881,26 @@ QED
 val _ = Datatype`
   result_view = Vloc num num | Vtimeout | Verr`;
 
-val result_view_def = Define`
+Definition result_view_def:
   (result_view (Result (Loc n1 n2)) = Vloc n1 n2) ∧
   (result_view (Exception (Loc n1 n2)) = Vloc n1 n2) ∧
   (result_view TimeOut = Vtimeout) ∧
-  (result_view _ = Verr)`;
+  (result_view _ = Verr)
+End
 val _ = export_rewrites["result_view_def"];
 
-val halt_word_view_def = Define`
+Definition halt_word_view_def:
   (halt_word_view (Word 0w) = Halt Success) ∧
   (halt_word_view (Word _) = Halt Resource_limit_hit) ∧
-  (halt_word_view _ = Error)`;
+  (halt_word_view _ = Error)
+End
 val _ = export_rewrites["halt_word_view_def"];
 
-val halt_view_def = Define`
+Definition halt_view_def:
   (halt_view (SOME (Halt w)) = SOME (halt_word_view w)) ∧
   (halt_view (SOME (FinalFFI outcome)) = SOME (Halt(FFI_outcome outcome))) ∧
-  (halt_view _ = NONE)`;
+  (halt_view _ = NONE)
+End
 val _ = export_rewrites["halt_view_def"];
 
 val finish_tac =
@@ -2347,13 +2358,17 @@ Proof
       fs[o_DEF]))>>
   conj_tac >- (
     rename [`ShMemOp`] >>rpt gen_tac>>strip_tac>>
+    ‘∀w:'a word. TAKE 1 (word_to_bytes w F) = [get_byte 0w w F]’
+      by(fs[state_rel_def,good_dimindex_def,word_to_bytes_def,
+            CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV word_to_bytes_aux_def]) >>
     Cases_on ‘op’>>
     fs[stackSemTheory.evaluate_def,flatten_def]>>
     fs[word_exp_def,IS_SOME_EXISTS,wordLangTheory.word_op_def]>>
     gs[case_eq_thms]>>
     rveq>>fs[]>>
     gs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,
-       sh_mem_store_byte_def,sh_mem_load_byte_def]>>
+       sh_mem_store_byte_def,sh_mem_load_byte_def,
+       sh_mem_store32_def,sh_mem_load32_def]>>
     imp_res_tac state_rel_read_reg_FLOOKUP_regs>>
     pop_assum (assume_tac o GSYM)>>
     gs[case_eq_thms]>>rveq>>fs[]
@@ -2369,11 +2384,8 @@ Proof
           rpt (CASE_TAC>>fs[])>>
           fs[state_rel_def,dec_clock_def,inc_pc_def]>>
           gs[])>>
-
     TRY (qexists_tac ‘0’>>qexists_tac ‘t1’>>fs[state_rel_def]>>NO_TAC)>>
-
     qpat_x_assum ‘call_args (ShMemOp _ _ _) _ _ _ _ _’ mp_tac
-       (* Load *)
     >>~- ([‘call_args (ShMemOp Load _ _) _ _ _ _ _’],
          strip_tac>>
          qexists_tac`0`>>
@@ -2392,8 +2404,25 @@ Proof
          conj_tac >> rpt strip_tac>-
           (FULL_CASE_TAC>>gs[APPLY_UPDATE_THM])>>
          metis_tac[])
-  (* Load *)
     >>~- ([‘call_args (ShMemOp Load8 _ _) _ _ _ _ _’],
+         strip_tac>>
+         qexists_tac`0`>>
+                    qexists_tac ‘dec_clock t1
+                    with <| regs := t1.regs⦇r ↦ Word (word_of_bytes F 0w new_bytes)⦈;
+                            io_regs := shift_seq 1 t1.io_regs;
+                            pc:=t1.pc+1; ffi := new_ffi|>’ >>
+         simp[]>>
+         fs[code_installed_def,call_args_def] >>
+         simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+         gs[share_mem_op_def,share_mem_load_def,share_mem_store_def,addr_def]>>
+         fs[state_rel_def,stackSemTheory.dec_clock_def,dec_clock_def,inc_pc_def]>>
+         gs[]>>
+         fs[code_installed_def,call_args_def,shift_seq_def] >>
+         fs[FLOOKUP_UPDATE]>>
+         conj_tac >> rpt strip_tac>-
+          (FULL_CASE_TAC>>gs[APPLY_UPDATE_THM])>>
+         metis_tac[])
+    >>~- ([‘call_args (ShMemOp Load32 _ _) _ _ _ _ _’],
          strip_tac>>
          qexists_tac`0`>>
                     qexists_tac ‘dec_clock t1
@@ -2609,12 +2638,13 @@ Proof
   qexists_tac`ck+ck'`>>simp[]
 QED
 
-val halt_assum_def = Define `
+Definition halt_assum_def:
   halt_assum (:('ffi#'c)) code <=>
    !(s:(α,'c,'ffi)stackSem$state).
      subspt code s.code /\ s.clock <> 0 ==>
      ∃t. evaluate (Call NONE (INL 1) NONE,s) = (SOME (Halt (Word 0w)),t) /\
-         t.ffi = s.ffi /\ t.clock = s.clock - 1`;
+         t.ffi = s.ffi /\ t.clock = s.clock - 1
+End
 
 Theorem flatten_semantics:
    halt_assum (:'ffi#'c) (s1:(α,'c,'ffi)stackSem$state).code /\
@@ -2808,7 +2838,7 @@ Proof
   simp[EL_APPEND1]
 QED
 
-val make_init_def = Define `
+Definition make_init_def:
   make_init code coracle regs save_regs (s:('a,'c,'ffi) labSem$state) =
     <| regs    := FEMPTY |++ (MAP (\r. r, read_reg r s) regs)
      ; fp_regs    := FEMPTY (*TODO: is this right? *)
@@ -2825,7 +2855,8 @@ val make_init_def = Define `
      ; code    := code
      ; ffi     := s.ffi
      ; ffi_save_regs := save_regs
-     ; be      := s.be |> :(α,'c,'ffi)stackSem$state`;
+     ; be      := s.be |> :(α,'c,'ffi)stackSem$state
+End
 
 val make_init_semantics = flatten_semantics
   |> Q.INST [`s1`|->`make_init code coracle regs save_regs (s:('a,'c,'ffi)labSem$state)`,`s2`|->`s`]
@@ -2836,7 +2867,7 @@ Overload stack_names_compile[local] = ``stack_names$compile``
 Overload stack_alloc_compile[local] = ``stack_alloc$compile``
 Overload stack_remove_compile[local] = ``stack_remove$compile``
 
-val full_make_init_def = Define`
+Definition full_make_init_def:
   full_make_init stack_conf data_conf max_heap sp offset bitmaps code s4 save_regs data_sp coracle =
   let ggc = is_gen_gc data_conf.gc_kind in
   let jump = stack_conf.jump in
@@ -2850,7 +2881,8 @@ val full_make_init_def = Define`
   let s2 = make_init stack_conf.reg_names (fromAList code2) coracle2 s3 in
   let s1 = make_init_any ggc max_heap bitmaps data_sp coracle1 jump offset sp (fromAList code1) s2 in
     (make_init data_conf (fromAList code) coracle s1,
-     make_init_opt ggc max_heap bitmaps data_sp coracle1 jump offset sp (fromAList code1) s2)`;
+     make_init_opt ggc max_heap bitmaps data_sp coracle1 jump offset sp (fromAList code1) s2)
+End
 
 Theorem full_make_init_buffer:
     (FST(full_make_init a b c d e f g h i j k)).code_buffer.buffer = [] ∧
@@ -2885,7 +2917,7 @@ Proof
   \\ EVAL_TAC \\ fs[]
 QED
 
-val memory_assumption_def = Define`
+Definition memory_assumption_def:
   memory_assumption rnames (bitmaps:'a word list) data_sp t =
     ∃ptr2 ptr3 ptr4 bitmap_ptr.
       read_reg (find_name rnames 2) t = Word ptr2 ∧
@@ -2908,7 +2940,8 @@ val memory_assumption_def = Define`
       word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp *
       word_list_exists ptr2
         (w2n (-1w * ptr2 + ptr4) DIV w2n (bytes_in_word:'a word)))
-       (fun2set (t.mem,t.mem_domain))`;
+       (fun2set (t.mem,t.mem_domain))
+End
 
 val halt_assum_lemma = Q.prove(
   `halt_assum (:'ffi#'c)
@@ -2968,7 +3001,8 @@ Theorem state_rel_make_init:
     (∀k i n. k ∈ save_regs ⇒ s.io_regs n i k = NONE) ∧
     (∀k n. k ∈ save_regs ⇒ s.cc_regs n k = NONE) ∧
     (∀x. x ∈ s.mem_domain ⇒ w2n x MOD (dimindex (:α) DIV 8) = 0) ∧
-    (∀x. x ∈ s.shared_mem_domain ⇒ w2n x MOD (dimindex (:α) DIV 8) = 0)
+    (∀x. x ∈ s.shared_mem_domain ⇒ w2n x MOD (dimindex (:α) DIV 8) = 0) ∧
+    good_dimindex(:'a)
 Proof
   fs [state_rel_def,make_init_def,FLOOKUP_regs]
   \\ eq_tac \\ strip_tac \\ fs []
@@ -3122,7 +3156,7 @@ Proof
   \\ CCONTR_TAC \\ fs [EVERY_MEM] \\ res_tac \\ fs []
 QED
 
-val good_code_def = Define`
+Definition good_code_def:
   good_code sp code ⇔
    ALL_DISTINCT (MAP FST code) ∧
    EVERY (λ(k,prog). stack_num_stubs ≤ k ∧ alloc_arg prog) code ∧
@@ -3131,7 +3165,8 @@ val good_code_def = Define`
    EVERY
    (λ(n,p).
       EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) (extract_labels p) ∧
-      ALL_DISTINCT (extract_labels p)) code`;
+      ALL_DISTINCT (extract_labels p)) code
+End
 
 Definition contain_def:
   contain b = Abbrev b
@@ -3570,7 +3605,7 @@ Proof
   \\ fs [stack_allocProofTheory.make_init_def]
 QED
 
-val complex_get_code_labels_def = Define `
+Definition complex_get_code_labels_def:
   (complex_get_code_labels (Seq p1 p2) = complex_get_code_labels p1 UNION complex_get_code_labels p2) /\
   (complex_get_code_labels (If _ _ _ p1 p2) = complex_get_code_labels p1 UNION complex_get_code_labels p2) /\
   (complex_get_code_labels (Call ret dest handler) =
@@ -3585,7 +3620,8 @@ val complex_get_code_labels_def = Define `
   (complex_get_code_labels (LocValue i l1 l2) = {(l1,l2)}) /\
   (complex_get_code_labels (RawCall l) = {(l,1)}) /\
   (complex_get_code_labels (JumpLower n m l) = {(l,0)}) /\
-  (complex_get_code_labels _ = {})`
+  (complex_get_code_labels _ = {})
+End
 val _ = export_rewrites["complex_get_code_labels_def"];
 
 Theorem complex_flatten_labels:

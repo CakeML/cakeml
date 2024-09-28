@@ -41,32 +41,36 @@ val _ = Datatype `
     ; mmio_info : (num # (word8 # 'a addr # num # 'a word)) list
     |>`
 
-val apply_oracle_def = Define `
+Definition apply_oracle_def:
   apply_oracle oracle x =
-    (oracle (0:num) x, shift_seq 1 oracle)`
+    (oracle (0:num) x, shift_seq 1 oracle)
+End
 
-val encoded_bytes_in_mem_def = Define`
+Definition encoded_bytes_in_mem_def:
   encoded_bytes_in_mem c pc m md ⇔
     ∃i k. k * (2 ** c.code_alignment) < LENGTH (c.encode i) ∧
       bytes_in_memory pc
         (DROP (k * (2 ** c.code_alignment)) (c.encode i))
-        m md`;
+        m md
+End
 
-val read_ffi_bytearray_def = Define`
+Definition read_ffi_bytearray_def:
   read_ffi_bytearray mc ptr_reg len_reg ms =
     read_bytearray (mc.target.get_reg ms ptr_reg)
       (w2n (mc.target.get_reg ms len_reg))
       (λa.
         if a ∈ mc.prog_addresses then
           SOME (mc.target.get_byte ms a)
-        else NONE)`;
+        else NONE)
+End
 
-val read_ffi_bytearrays_def = Define`
+Definition read_ffi_bytearrays_def:
   read_ffi_bytearrays mc ms =
     (read_ffi_bytearray mc mc.ptr_reg mc.len_reg ms,
-     read_ffi_bytearray mc mc.ptr2_reg mc.len2_reg ms)`;
+     read_ffi_bytearray mc mc.ptr2_reg mc.len2_reg ms)
+End
 
-val is_valid_mapped_read_def = Define`
+Definition is_valid_mapped_read_def:
   is_valid_mapped_read pc (nb: word8) (ad: 'a addr) r pc' t ms md =
     if nb = 1w
     then
@@ -76,13 +80,14 @@ val is_valid_mapped_read_def = Define`
     then
       (bytes_in_memory pc (t.config.encode (Inst (Mem Load r ad)))
         (t.get_byte ms) md)
-    (* else if nb = 4w
+    else if nb = 4w
     then
       (bytes_in_memory pc (t.config.encode (Inst (Mem Load32 r ad)))
-        (t.get_byte ms) md) *)
-    else F`;
+        (t.get_byte ms) md)
+    else F
+End
 
-val is_valid_mapped_write_def = Define`
+Definition is_valid_mapped_write_def:
   is_valid_mapped_write pc (nb:word8) (ad: 'a addr) r pc' t ms md =
     if nb = 1w
     then
@@ -92,13 +97,14 @@ val is_valid_mapped_write_def = Define`
     then
         (bytes_in_memory pc (t.config.encode (Inst (Mem Store r ad)))
           (t.get_byte ms) md)
-    (* else if nb = 4w
+    else if nb = 4w
     then
         (bytes_in_memory pc (t.config.encode (Inst (Mem Store32 r ad)))
-          (t.get_byte ms) md) *)
-    else F`;
+          (t.get_byte ms) md)
+    else F
+End
 
-val evaluate_def = Define `
+Definition evaluate_def:
   evaluate (mc:('b,'a,'c) machine_config) (ffi:'ffi ffi_state) k (ms:'a) =
     if k = 0 then (TimeOut,ms,ffi)
     else
@@ -198,9 +204,10 @@ val evaluate_def = Define `
                                                    (ffi_index,new_bytes,ms) in
                                   let mc = mc with ffi_interfer := new_oracle in
                                     evaluate mc new_ffi (k - 1:num) ms1)
-                       | _ => (Error,ms,ffi))))`
+                       | _ => (Error,ms,ffi))))
+End
 
-val machine_sem_def = Define `
+Definition machine_sem_def:
   (machine_sem mc st ms (Terminate t io_list) <=>
      ?k ms' st'.
        evaluate mc st k ms = (Halt t,ms',st') ∧
@@ -212,19 +219,21 @@ val machine_sem_def = Define `
          (\k. fromList (SND (SND (evaluate mc st k ms))).io_events) UNIV)
        io_trace) /\
   (machine_sem mc st ms Fail <=>
-     ?k. FST (evaluate mc st k ms) = Error)`
+     ?k. FST (evaluate mc st k ms) = Error)
+End
 
 (* define what it means for code to be loaded and ready to run *)
 
-val code_loaded_def = Define`
+Definition code_loaded_def:
   code_loaded (bytes:word8 list) (mc:(α,β,γ)machine_config) (ms:β) <=>
     read_bytearray (mc.target.get_pc ms) (LENGTH bytes)
       (\a. if a IN mc.prog_addresses
-           then SOME (mc.target.get_byte ms a) else NONE) = SOME bytes`;
+           then SOME (mc.target.get_byte ms a) else NONE) = SOME bytes
+End
 
 (* target_configured: target and mc_conf are compatible
    will be proved at the top-level by creating an appropriate t *)
-val target_configured_def = Define`
+Definition target_configured_def:
   target_configured (t:'a asm_state) mc_conf ⇔
     ~t.failed /\
     (*
@@ -238,23 +247,25 @@ val target_configured_def = Define`
     (* byte_aligned (t.regs mc_conf.ptr_reg) ∧ *)
     (* byte_aligned (t.regs mc_conf.ptr2_reg) ∧ *)
     (case mc_conf.target.config.link_reg of NONE => T | SOME r => t.lr = r)
-    `;
+End
 
-val get_reg_value_def = Define `
+Definition get_reg_value_def:
   (get_reg_value NONE w f = w) /\
-  (get_reg_value (SOME v) _ f = f v)`
+  (get_reg_value (SOME v) _ f = f v)
+End
 
-val mmio_pcs_min_index_def = Define`
+Definition mmio_pcs_min_index_def:
   mmio_pcs_min_index ffi_names =
   some x.
     ((x <= LENGTH ffi_names) /\
     (!j. j < x ==> (∃s.
       EL j ffi_names =  ExtCall s)) /\
     (!j. x <= j /\ j < LENGTH ffi_names ==>
-         (∃op. EL j ffi_names = SharedMem op)))`
+         (∃op. EL j ffi_names = SharedMem op)))
+End
 
 (* start_pc_ok: machine configuration's saved pcs and initial pc are ok *)
-val start_pc_ok_def = Define`
+Definition start_pc_ok_def:
   start_pc_ok mc_conf pc ⇔
     mc_conf.halt_pc NOTIN mc_conf.prog_addresses /\
     mc_conf.ccache_pc NOTIN mc_conf.prog_addresses /\
@@ -281,11 +292,12 @@ val start_pc_ok_def = Define`
       index < LENGTH mc_conf.ffi_names /\ i <= index ==>
       mc_conf.halt_pc <> (EL index mc_conf.ffi_entry_pcs) /\
       mc_conf.ccache_pc <> (EL index mc_conf.ffi_entry_pcs)) /\
-    LENGTH mc_conf.ffi_names = LENGTH mc_conf.ffi_entry_pcs`;
+    LENGTH mc_conf.ffi_names = LENGTH mc_conf.ffi_entry_pcs
+End
 
 (* ffi_interfer_ok: the FFI interference oracle is ok:
    target_state_rel is preserved for any FFI behaviour *)
-val ffi_interfer_ok_def = Define`
+Definition ffi_interfer_ok_def:
   ffi_interfer_ok pc io_regs mc_conf ⇔
     (∀ms2 k index new_bytes t1 bytes bytes2 i.
        index < LENGTH mc_conf.ffi_names ∧
@@ -332,9 +344,10 @@ val ffi_interfer_ok_def = Define`
                target_state_rel mc_conf.target
                  (t1 with
                  <|pc := SND(SND(SND info))|>)
-                 (mc_conf.ffi_interfer k (index,new_bytes,ms2))))))`;
+                 (mc_conf.ffi_interfer k (index,new_bytes,ms2))))))
+End
 
-val ccache_interfer_ok_def = Define`
+Definition ccache_interfer_ok_def:
   ccache_interfer_ok pc cc_regs mc_conf ⇔
     (!ms2 t1 k a1 a2.
        target_state_rel mc_conf.target
@@ -352,7 +365,8 @@ val ccache_interfer_ok_def = Define`
                (t1.regs a) I);
            pc := t1.regs (case mc_conf.target.config.link_reg of NONE => 0
                   | SOME n => n) |> )
-        (mc_conf.ccache_interfer k (a1,a2,ms2)))`;
+        (mc_conf.ccache_interfer k (a1,a2,ms2)))
+End
 
 (*
   good_init_state:
@@ -363,7 +377,7 @@ val ccache_interfer_ok_def = Define`
   these are all destined to be assumptions on the top-level correctness theorem
 *)
 
-val good_init_state_def = Define `
+Definition good_init_state_def:
   good_init_state
     (mc_conf: ('a,'state,'b) machine_config) ms bytes
     cbspace
@@ -398,7 +412,8 @@ val good_init_state_def = Define `
     (∀n. n < cbspace ⇒
       n2w (n + LENGTH bytes) + t.pc ∈ t.mem_domain  ∧
       n2w (n + LENGTH bytes) + t.pc NOTIN dm) ∧
-    cbspace + LENGTH bytes < dimword(:'a)`;
+    cbspace + LENGTH bytes < dimword(:'a)
+End
 
 (* CakeML code, bytes, and code buffer space, cspace, and FFI functions, ffi,
    are installed into the machine, mc_conf + ms
@@ -406,7 +421,7 @@ val good_init_state_def = Define `
    the first address of the CakeML heap and the first address past the CakeML stack
    i.e., the range of the data memory
 *)
-val installed_def = Define`
+Definition installed_def:
   installed bytes cbspace bitmaps data_sp ffi_names (r1,r2) (mc_conf:('a,'state,'b) machine_config) shmem_extra ms ⇔
     ∃t m io_regs cc_regs bitmap_ptr bitmaps_dm sdm.
       let heap_stack_dm = { w | t.regs r1 <=+ w ∧ w <+ t.regs r2 } in
@@ -438,6 +453,7 @@ val installed_def = Define`
                               (MAP (\rec. (rec.nbytes, rec.access_addr, rec.reg,
                                            rec.exit_pc + mc_conf.target.get_pc ms))
                                    shmem_extra)) /\
-    cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a))`
+    cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a))
+End
 
 val _ = export_theory();

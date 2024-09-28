@@ -17,11 +17,12 @@ Datatype:
     H_EMP | H_REF num | H_BLOCK (('a heap_address) list # (num # 'b))
 End
 
-val getBLOCK_def = Define `
+Definition getBLOCK_def:
   (getBLOCK z (H_BLOCK y) = y) /\
-  (getBLOCK z _ = z)`;
+  (getBLOCK z _ = z)
+End
 
-val rel_move_def = Define `
+Definition rel_move_def:
   (rel_move (H_DATA x,j,m,b,e,b2,e2) = (H_DATA x,j,m)) /\
   (rel_move (H_ADDR a,j,m,b,e,b2,e2) =
      case m a of
@@ -29,22 +30,25 @@ val rel_move_def = Define `
       | H_REF i => (H_ADDR i,j,m)
       | H_BLOCK (xs,n,d) => let m = (a =+ H_REF j) m in
                             let m = (j =+ H_BLOCK (xs,n,d)) m in
-                              (H_ADDR j,j + n + 1,m))`;
+                              (H_ADDR j,j + n + 1,m))
+End
 
-val rel_move_list_def = Define `
+Definition rel_move_list_def:
   (rel_move_list ([],j,m,b,e,b2,e2) = ([],j,m)) /\
   (rel_move_list (x::xs,j,m,b,e,b2,e2) =
      let (x,j,m) = rel_move (x,j,m,b,e,b2,e2) in
      let (xs,j,m) = rel_move_list (xs,j,m,b,e,b2,e2) in
-       (x::xs,j,m))`;
+       (x::xs,j,m))
+End
 
-val rel_gc_step_def = Define `
+Definition rel_gc_step_def:
   rel_gc_step z (i,j,m,b,e,b2,e2) =
     let (xs,n,d) = getBLOCK z (m i) in
     let (ys,j,m) = rel_move_list (xs,j,m,b,e,b2,e2) in
     let m = (i =+ H_BLOCK (ys,n,d)) m in
     let i = i + n + 1 in
-      (i,j,m)`;
+      (i,j,m)
+End
 
 val rel_gc_loop_def = tDefine "rel_gc_loop" `
   rel_gc_loop z (i,j,m,b,e,b2,e2) =
@@ -59,16 +63,21 @@ val rel_gc_loop_def = tDefine "rel_gc_loop" `
   THEN ONCE_REWRITE_TAC [EQ_SYM_EQ]
   THEN SIMP_TAC std_ss [] THEN REPEAT STRIP_TAC THEN DECIDE_TAC);
 
-val RANGE_def = Define `RANGE(i:num,j) k = i <= k /\ k < j`;
-val CUT_def = Define `CUT (i,j) m = \k. if RANGE (i,j) k then m k else H_EMP`;
+Definition RANGE_def:
+  RANGE(i:num,j) k = i <= k /\ k < j
+End
+Definition CUT_def:
+  CUT (i,j) m = \k. if RANGE (i,j) k then m k else H_EMP
+End
 
-val rel_gc_def = Define `
+Definition rel_gc_def:
   rel_gc z (b:num,e:num,b2:num,e2:num,roots,m) =
     let (b2,e2,b,e) = (b,e,b2,e2) in
     let (roots,j,m) = rel_move_list (roots,b,m,b,e,b2,e2) in
     let (i,m) = rel_gc_loop z (b,j,m,b,e,b2,e2) in
     let m = CUT (b,i) m in
-      (b,i,e,b2,e2,roots,m)`;
+      (b,i,e,b2,e2,roots,m)
+End
 
 (*
 val res = translate getBLOCK_def

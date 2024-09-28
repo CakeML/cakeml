@@ -112,13 +112,14 @@ Proof
  rw [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]
 QED
 
-val type_pes_def = Define `
+Definition type_pes_def:
   type_pes tvs tvs' tenv tenvE pes t1 t2 ⇔
     (∀(p,e)::set pes.
       ∃bindings.
         ALL_DISTINCT (pat_bindings p []) ∧
         type_p tvs tenv p t1 bindings ∧
-        type_e tenv (bind_var_list tvs' bindings tenvE) e t2)`;
+        type_e tenv (bind_var_list tvs' bindings tenvE) e t2)
+End
 
 Theorem type_pes_cons:
    !tvs tvs' tenv tenvE p e pes t1 t2.
@@ -618,7 +619,7 @@ QED
 
 (* ---------- tenv_val_exp stuff ---------- *)
 
-val deBruijn_subst_tenvE_def = Define `
+Definition deBruijn_subst_tenvE_def:
 (deBruijn_subst_tenvE targs Empty = Empty) ∧
 (deBruijn_subst_tenvE targs (Bind_tvar tvs env) =
   Bind_tvar tvs (deBruijn_subst_tenvE targs env)) ∧
@@ -626,12 +627,14 @@ val deBruijn_subst_tenvE_def = Define `
   Bind_name x tvs (deBruijn_subst (tvs + num_tvs env)
                                   (MAP (deBruijn_inc 0 (tvs + num_tvs env)) targs)
                                   t)
-       (deBruijn_subst_tenvE targs env))`;
+       (deBruijn_subst_tenvE targs env))
+End
 
-val db_merge_def = Define `
+Definition db_merge_def:
 (db_merge Empty e = e) ∧
 (db_merge (Bind_tvar tvs e1) e2 = Bind_tvar tvs (db_merge e1 e2)) ∧
-(db_merge (Bind_name x tvs t e1) e2 = Bind_name x tvs t (db_merge e1 e2))`;
+(db_merge (Bind_name x tvs t e1) e2 = Bind_name x tvs t (db_merge e1 e2))
+End
 
 Theorem bind_tvar_rewrites[simp]:
    (!tvs e1 e2. db_merge (bind_tvar tvs e1) e2 = bind_tvar tvs (db_merge e1 e2)) ∧
@@ -1652,14 +1655,15 @@ QED
 (* ---------- ctMap stuff ---------- *)
 
 
-val type_def_to_ctMap_def = Define `
+Definition type_def_to_ctMap_def:
   (type_def_to_ctMap tenvT next_stamp [] [] = []) ∧
   (type_def_to_ctMap tenvT next_stamp ((tvs,tn,ctors)::tds) (id::ids) =
     type_def_to_ctMap tenvT (next_stamp + 1) tds ids ++
     REVERSE
       (MAP (\(cn,ts).
         (TypeStamp cn next_stamp, (tvs, MAP (type_name_subst tenvT) ts, id)))
-        ctors))`;
+        ctors))
+End
 
 Theorem mem_type_def_to_ctMap:
    !tenvT next tds ids stamp x.
@@ -2992,10 +2996,11 @@ Overload tmenv_dom =
 
 open boolSimps semanticPrimitivesPropsTheory
 
-val tenv_names_def = Define`
+Definition tenv_names_def:
   (tenv_names Empty = {}) ∧
   (tenv_names (Bind_tvar _ e) = tenv_names e) ∧
-  (tenv_names (Bind_name n _ _ e) = n INSERT tenv_names e)`
+  (tenv_names (Bind_name n _ _ e) = n INSERT tenv_names e)
+End
 val _ = export_rewrites["tenv_names_def"]
 
 Theorem lookup_tenv_names:

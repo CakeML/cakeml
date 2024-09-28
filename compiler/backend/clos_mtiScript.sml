@@ -8,13 +8,14 @@ open preamble closLangTheory;
 
 val _ = new_theory "clos_mti";
 
-val collect_args_def = Define `
+Definition collect_args_def:
   (collect_args max_app num_args (Fn t NONE NONE num_args' e) =
     if num_args + num_args' ≤ max_app then
       collect_args max_app (num_args + num_args') e
     else
       (num_args, Fn t NONE NONE num_args' e)) ∧
-  (collect_args max_app num_args e = (num_args, e))`;
+  (collect_args max_app num_args e = (num_args, e))
+End
 
 val collect_args_ind = theorem "collect_args_ind";
 
@@ -53,13 +54,14 @@ Proof
   full_simp_tac(srw_ss())[]
 QED
 
-val collect_apps_def = Define `
+Definition collect_apps_def:
   (collect_apps max_app args (App tra NONE e es) =
     if LENGTH args + LENGTH es ≤ max_app then
       collect_apps max_app (args ++ es) e
     else
       (args, App tra NONE e es)) ∧
-  (collect_apps max_app args e = (args, e))`;
+  (collect_apps max_app args e = (args, e))
+End
 
 val collect_apps_ind = theorem "collect_apps_ind";
 
@@ -261,17 +263,20 @@ Proof
   >- metis_tac [intro_multi_sing, HD]
 QED
 
-val compile_def = Define`
+Definition compile_def:
   compile F max_app exps = exps /\
-  compile T max_app exps = intro_multi max_app exps`
+  compile T max_app exps = intro_multi max_app exps
+End
 
-val compile_inc_def = Define `
+Definition compile_inc_def:
   compile_inc max_app (e,es) =
-    (intro_multi max_app e, [])`
+    (intro_multi max_app e, [])
+End
 
-val cond_mti_compile_inc_def = Define`
+Definition cond_mti_compile_inc_def:
   cond_mti_compile_inc do_it max_app =
-    if do_it then (compile_inc max_app) else I`;
+    if do_it then (compile_inc max_app) else I
+End
 
 Theorem compile_nil[simp]:
   compile do_mti max_app [] = []

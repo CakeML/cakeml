@@ -3748,9 +3748,12 @@ QED
 
 (* ag32_ffi_open_in *)
 
-val ag32_ffi_open_in_fail_code_def = Define `
-  ag32_ffi_open_in_fail_code = ag32_ffi_fail_code "open_in"`
-    |> REWRITE_RULE [ag32_ffi_fail_code_def]
+Definition ag32_ffi_open_in_fail_code_def:
+  ag32_ffi_open_in_fail_code = ag32_ffi_fail_code "open_in"
+End
+val ag32_ffi_open_in_fail_code_def = ag32_ffi_open_in_fail_code_def
+                                       |> REWRITE_RULE [ag32_ffi_fail_code_def];
+
 
 val (ag32_ffi_open_in_fail_SPEC,
      ag32_ffi_open_in_fail_decomp_def) = ag32_decompile
@@ -3804,9 +3807,11 @@ QED
 
 (* ag32_ffi_open_out *)
 
-val ag32_ffi_open_out_fail_code_def = Define `
-  ag32_ffi_open_out_fail_code = ag32_ffi_fail_code "open_out"`
-    |> REWRITE_RULE [ag32_ffi_fail_code_def]
+Definition ag32_ffi_open_out_fail_code_def:
+  ag32_ffi_open_out_fail_code = ag32_ffi_fail_code "open_out"
+End
+val ag32_ffi_open_out_fail_code_def = ag32_ffi_open_out_fail_code_def
+                                        |> REWRITE_RULE [ag32_ffi_fail_code_def];
 
 val (ag32_ffi_open_out_fail_SPEC,
      ag32_ffi_open_out_fail_decomp_def) = ag32_decompile
@@ -3858,9 +3863,11 @@ QED
 
 (* ag32_ffi_close *)
 
-val ag32_ffi_close_fail_code_def = Define `
-  ag32_ffi_close_fail_code = ag32_ffi_fail_code "close"`
-    |> REWRITE_RULE [ag32_ffi_fail_code_def]
+Definition ag32_ffi_close_fail_code_def:
+  ag32_ffi_close_fail_code = ag32_ffi_fail_code "close"
+End
+val ag32_ffi_close_fail_code_def = ag32_ffi_close_fail_code_def
+                                     |> REWRITE_RULE [ag32_ffi_fail_code_def];
 
 val (ag32_ffi_close_fail_SPEC,
      ag32_ffi_close_fail_decomp_def) = ag32_decompile

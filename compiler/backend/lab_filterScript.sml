@@ -6,13 +6,15 @@ open preamble labLangTheory;
 
 val _ = new_theory "lab_filter";
 
-val not_skip_def = Define `
-  not_skip l = case l of Asm (Asmi (Inst Skip)) _ _ => F | _ => T`;
+Definition not_skip_def:
+  not_skip l = case l of Asm (Asmi (Inst Skip)) _ _ => F | _ => T
+End
 
-val filter_skip_def = Define `
+Definition filter_skip_def:
   (filter_skip [] = []) /\
   (filter_skip (Section n xs :: rest) =
-     Section n (FILTER not_skip xs) :: filter_skip rest)`;
+     Section n (FILTER not_skip xs) :: filter_skip rest)
+End
 
 Theorem filter_skip_MAP:
    ∀ls. filter_skip ls = MAP (λx. case x of Section n xs => Section n (FILTER not_skip xs)) ls
