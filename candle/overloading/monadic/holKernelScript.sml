@@ -294,7 +294,9 @@ val _ = tDefine "type_subst" `
   let bty = mk_vartype "B";;
 *)
 
-val _ = Define `mk_fun_ty ty1 ty2 = mk_type(strlit"fun",[ty1; ty2])`;
+Definition mk_fun_ty_def:
+  mk_fun_ty ty1 ty2 = mk_type(strlit"fun",[ty1; ty2])
+End
 
 Overload bool_ty[local] = ``mk_type(strlit"bool",[])``
 Overload aty[local] = ``mk_vartype (strlit "A")``
@@ -394,16 +396,26 @@ End
   let is_comb = function (Comb(_,_)) -> true | _ -> false
 *)
 
-val _ = Define `is_var x = dtcase x of (Var _ _) => T | _ => F`;
-val _ = Define `is_const x = dtcase x of (Const _ _) => T | _ => F`;
-val _ = Define `is_abs x = dtcase x of (Abs _ _) => T | _ => F`;
-val _ = Define `is_comb x = dtcase x of (Comb _ _) => T | _ => F`;
+Definition is_var_def:
+  is_var x = dtcase x of (Var _ _) => T | _ => F
+End
+Definition is_const_def:
+  is_const x = dtcase x of (Const _ _) => T | _ => F
+End
+Definition is_abs_def:
+  is_abs x = dtcase x of (Abs _ _) => T | _ => F
+End
+Definition is_comb_def:
+  is_comb x = dtcase x of (Comb _ _) => T | _ => F
+End
 
 (*
   let mk_var(v,ty) = Var(v,ty)
 *)
 
-val _ = Define `mk_var(v,ty) = Var v ty`;
+Definition mk_var_def:
+  mk_var(v,ty) = Var v ty
+End
 
 (*
   let mk_const(name,theta) =
@@ -826,9 +838,15 @@ End
   let concl (Sequent(asl,c)) = c
 *)
 
-val _ = Define `dest_thm (Sequent asl c) = (asl,c)`;
-val _ = Define `hyp (Sequent asl c) = asl`;
-val _ = Define `concl (Sequent asl c) = c`;
+Definition dest_thm_def:
+  dest_thm (Sequent asl c) = (asl,c)
+End
+Definition hyp_def:
+  hyp (Sequent asl c) = asl
+End
+Definition concl_def:
+  concl (Sequent asl c) = c
+End
 
 (*
   let REFL tm =
@@ -1039,7 +1057,9 @@ End
   let axioms() = !the_axioms
 *)
 
-val _ = Define `axioms () = get_the_axioms`;
+Definition axioms_def:
+  axioms () = get_the_axioms
+End
 
 (*
   let new_axiom tm =
@@ -1331,6 +1351,8 @@ Definition new_basic_type_definition_def:
        return (Sequent [] eq1, Sequent [] eq3) od od od
 End
 
-val _ = Define `context () = get_the_context`;
+Definition context_def:
+  context () = get_the_context
+End
 
 val _ = export_theory();
