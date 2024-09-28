@@ -22,10 +22,11 @@ Definition definitional_extension_def:
     (ctxt1 extends ctxt2 /\ (!p. ~MEM (NewAxiom p) (TAKE (LENGTH ctxt1 - LENGTH ctxt2) ctxt1)))
 End
 
-val consistent_theory_def = Define`
+Definition consistent_theory_def:
   consistent_theory thy ⇔
         (thy,[]) |- (Var (strlit"x") Bool === Var (strlit"x") Bool) ∧
-      ¬((thy,[]) |- (Var (strlit"x") Bool === Var (strlit"y") Bool))`
+      ¬((thy,[]) |- (Var (strlit"x") Bool === Var (strlit"y") Bool))
+End
 
 Theorem proves_consistent:
    is_set_theory ^mem ⇒

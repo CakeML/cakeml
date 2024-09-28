@@ -531,10 +531,11 @@ Proof
      >> metis_tac []))
 QED
 
-val store_type_extension_def = Define `
+Definition store_type_extension_def:
 store_type_extension tenvS1 tenvS2 =
   ?tenvS'. (tenvS2 = FUNION tenvS' tenvS1) ∧
-           (!l. (FLOOKUP tenvS' l = NONE) ∨ (FLOOKUP tenvS1 l = NONE))`;
+           (!l. (FLOOKUP tenvS' l = NONE) ∨ (FLOOKUP tenvS1 l = NONE))
+End
 
 Theorem store_type_extension_weakS:
  !tenvS1 tenvS2.
@@ -2853,7 +2854,7 @@ Proof
 QED
 
      (*
-val type_sound_invariant_def = Define `
+Definition type_sound_invariant_def:
 type_sound_invariant st env tdecs ctMap tenvS tenv ⇔
   ?tdecs_no_sig tenv_no_sig.
     decls_ok tdecs_no_sig ∧
@@ -2867,7 +2868,8 @@ type_sound_invariant st env tdecs ctMap tenvS tenv ⇔
     weak_decls_only_mods tdecs_no_sig tdecs ∧
     consistent_decls st.defined_types tdecs_no_sig ∧
     consistent_ctMap tdecs_no_sig ctMap ∧
-    st.defined_mods ⊆ tdecs_no_sig.defined_mods`;
+    st.defined_mods ⊆ tdecs_no_sig.defined_mods
+End
 
 val tscheme_inst2_lemma = Q.prove (
   `(λid. tscheme_inst2 (Long mn id)) = tscheme_inst2`,

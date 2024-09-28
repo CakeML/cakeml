@@ -13,14 +13,15 @@ val _ = new_theory "ml_pmatch";
 
 val write_def = ml_progTheory.write_def;
 
-val EvalPatRel_def = Define`
+Definition EvalPatRel_def:
   EvalPatRel env a p pat ⇔
     ∀x av. a x av ⇒ ∀refs.
       evaluate_match (empty_state with refs := refs) env av
         [(p,Con NONE [])] ARB =
         (empty_state with refs := refs,
          if ∃vars. pat vars = x
-         then Rval([Conv NONE []]) else Rerr(Rraise ARB))`
+         then Rval([Conv NONE []]) else Rerr(Rraise ARB))
+End
 
 (*
   This is very similar to pmatch_list (see theorems proving connection below).
@@ -61,12 +62,13 @@ val Pmatch_def = tDefine"Pmatch"`
 
 val Pmatch_ind = theorem"Pmatch_ind"
 
-val EvalPatBind_def = Define`
+Definition EvalPatBind_def:
   EvalPatBind env a p pat vars env2 ⇔
     ∃x av refs.
       a x av ∧
       (Pmatch env refs [p] [av] = SOME env2) ∧
-      (pat vars = x)`
+      (pat vars = x)
+End
 
 Theorem Pmatch_cons:
    ∀ps vs.

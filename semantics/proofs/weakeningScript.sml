@@ -12,15 +12,17 @@ open typeSoundInvariantsTheory;
 
 val _ = new_theory "weakening";
 
-val weak_tenvE_def = Define `
+Definition weak_tenvE_def:
 weak_tenvE tenv tenv' =
   (num_tvs tenv ≥ num_tvs tenv' ∧
    ∀n inc tvs t.
     (tveLookup n inc tenv' = SOME (tvs,t)) ⇔
-    (tveLookup n inc tenv = SOME (tvs,t)))`;
+    (tveLookup n inc tenv = SOME (tvs,t)))
+End
 
-val weakS_def = Define `
-weakS tenvS tenvS' ⇔ tenvS' SUBMAP tenvS`;
+Definition weakS_def:
+weakS tenvS tenvS' ⇔ tenvS' SUBMAP tenvS
+End
 
 Theorem weak_tenvE_refl:
    !tenvE. weak_tenvE tenvE tenvE
@@ -180,9 +182,10 @@ val weak_tenvM_lookup = Q.prove (
 
  *)
 
-val weak_def = Define `
+Definition weak_def:
 weak tenv' tenv ⇔
-  tenv'.t = tenv.t ∧ weak_tenv tenv' tenv`;
+  tenv'.t = tenv.t ∧ weak_tenv tenv' tenv
+End
 
 Theorem type_p_weakening:
  (!tvs tenv p t bindings. type_p tvs tenv p t bindings ⇒
@@ -305,8 +308,9 @@ val gt_0 = Q.prove (
 `!x:num.x ≥ 0`,
 decide_tac);
 
-val weakCT_def = Define `
-weakCT cenv_impl cenv_spec ⇔ cenv_spec SUBMAP cenv_impl`;
+Definition weakCT_def:
+weakCT cenv_impl cenv_spec ⇔ cenv_spec SUBMAP cenv_impl
+End
 
 val weak_ctMap_lookup = Q.prove (
 `∀ctMap ctMap' tvs ts stamp.
@@ -543,12 +547,13 @@ Proof
 QED
 
  (*
-val weakCT_only_other_mods_def = Define `
+Definition weakCT_only_other_mods_def:
 weakCT_only_other_mods mn ctMap' ctMap =
   !cn tn.
     ((cn,tn) ∈ FDOM ctMap' ∧ (cn,tn) ∉ FDOM ctMap)
     ⇒
-    (?mn' x. mn ≠ SOME mn' ∧ (tn = TypeId (Long mn' x) ∨ tn = TypeExn (Long mn' x)))`;
+    (?mn' x. mn ≠ SOME mn' ∧ (tn = TypeId (Long mn' x) ∨ tn = TypeExn (Long mn' x)))
+End
 
 val weakCT_only_other_mods_merge = Q.prove (
 `!mn ctMap1 ctMap2 ctMap3.
@@ -598,10 +603,11 @@ Proof
  fs [weak_decls_def, SUBSET_DEF]
 QED
 
-val weak_decls_other_mods_def = Define `
+Definition weak_decls_other_mods_def:
 weak_decls_other_mods mn d' d ⇔
   (!tid. tid ∈ d'.defined_types ∧ tid ∉ d.defined_types ⇒ ¬?tn. tid = mk_id mn tn) ∧
-  (!cid. cid ∈ d'.defined_exns ∧ cid ∉ d.defined_exns ⇒ ¬?cn. cid = mk_id mn cn)`;
+  (!cid. cid ∈ d'.defined_exns ∧ cid ∉ d.defined_exns ⇒ ¬?cn. cid = mk_id mn cn)
+End
 
 Theorem weak_decls_other_mods_refl:
  !mn decls. weak_decls_other_mods mn decls decls

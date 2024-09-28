@@ -5,14 +5,15 @@ open preamble miscTheory cnf_xorTheory xlrupTheory mlintTheory;
 
 val _ = new_theory "xlrup_parsing";
 
-val fromString_unsafe_def = Define`
+Definition fromString_unsafe_def:
   fromString_unsafe str =
     if strlen str = 0
     then 0i
     else if strsub str 0 = #"-"
       then ~&fromChars_unsafe (strlen str - 1)
                               (substring str 1 (strlen str - 1))
-      else &fromChars_unsafe (strlen str) str`;
+      else &fromChars_unsafe (strlen str) str
+End
 
 (* lowercase alphabet *)
 Definition is_lowercase_def:
@@ -20,14 +21,16 @@ Definition is_lowercase_def:
   #"a" ≤ c ∧ c ≤ #"z"
 End
 
-val tokenize_fast_def = Define`
+Definition tokenize_fast_def:
   tokenize_fast (s:mlstring) =
   if strlen s = 0 then INL s
   else if is_lowercase (strsub s 0) then INL s
-  else INR (fromString_unsafe s)`
+  else INR (fromString_unsafe s)
+End
 
-val toks_fast_def = Define`
-  toks_fast s = MAP tokenize_fast (tokens blanks s)`
+Definition toks_fast_def:
+  toks_fast s = MAP tokenize_fast (tokens blanks s)
+End
 
 Definition parse_until_zero_def:
   (parse_until_zero [] acc = NONE) ∧

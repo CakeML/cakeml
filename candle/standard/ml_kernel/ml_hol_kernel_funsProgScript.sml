@@ -54,19 +54,22 @@ val _ = ml_prog_update open_local_block;
 
 (* Initialize the translation *)
 
-val init_type_constants_def = Define `
-  init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]`;
+Definition init_type_constants_def:
+  init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]
+End
 
-val init_term_constants_def = Define `
+Definition init_term_constants_def:
   init_term_constants = [(strlit"=",
     Tyapp (strlit"fun")
       [Tyvar (strlit"A");
        Tyapp (strlit"fun")
          [Tyvar (strlit"A");
-          Tyapp (strlit"bool") []]])]`;
+          Tyapp (strlit"bool") []]])]
+End
 
-val init_axioms_def = Define `
-  init_axioms = []:thm list`;
+Definition init_axioms_def:
+  init_axioms = []:thm list
+End
 
 Triviality init_axioms_alt:
   init_axioms = case [Sequent [] (Var (strlit "") (Tyvar (strlit "")))] of
@@ -76,8 +79,9 @@ Proof
   EVAL_TAC
 QED
 
-val init_context_def = Define `
-  init_context = ^(rhs(concl(holSyntaxTheory.init_ctxt_def)))`;
+Definition init_context_def:
+  init_context = ^(rhs(concl(holSyntaxTheory.init_ctxt_def)))
+End
 
 val refs_init_list = [
   ("the_type_constants", init_type_constants_def, get_the_type_constants_def,
@@ -298,7 +302,7 @@ val _ = save_thm("type_cmp_ind",
           (fetch "-" "type_compare_ind") |> RW [GSYM type_cmp_thm]);
 val res = translate (type_compare_def |> RW [GSYM type_cmp_thm]);
 
-val term_compare_def = Define `
+Definition term_compare_def:
   term_compare t1 t2 =
      case (t1,t2) of
        (Var x1 ty1,Var x2 ty2) =>
@@ -332,7 +336,8 @@ val term_compare_def = Define `
          case term_compare s1' s2' of
            Less => Less
          | Equal => term_compare t1' t2'
-         | Greater => Greater`;
+         | Greater => Greater
+End
 
 val term_cmp_thm = Q.prove(
   `term_cmp = term_compare`,

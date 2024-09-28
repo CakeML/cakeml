@@ -12,14 +12,16 @@ val _ = set_grammar_ancestry ["closLang"]
 
 (* let_op -- a function that optimises Let [...] (Op op [Var ...]) *)
 
-val var_list_def = Define `
+Definition var_list_def:
   (var_list n [] [] = T) /\
   (var_list n (Var t m :: xs) (y::ys) = ((m = n) /\ var_list (n+1) xs ys)) /\
-  (var_list _ _ _ = F)`
+  (var_list _ _ _ = F)
+End
 
-val dest_op_def = Define `
+Definition dest_op_def:
   (dest_op (Op t op xs) args = (if var_list 0 xs args then SOME op else NONE)) /\
-  (dest_op _ _ = NONE)`
+  (dest_op _ _ = NONE)
+End
 
 val let_op_def = tDefine "let_op" `
   (let_op [] = []) /\
@@ -118,7 +120,8 @@ Proof
   rpt(PURE_TOP_CASE_TAC >> gvs[])
 QED
 
-val compile_inc_def = Define `
-  compile_inc (e, xs) = (let_op e, [])`;
+Definition compile_inc_def:
+  compile_inc (e, xs) = (let_op e, [])
+End
 
 val _ = export_theory();

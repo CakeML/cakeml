@@ -17,14 +17,15 @@ val drule = old_drule
 
 (* removal of ticks *)
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel (s:('c,'ffi) bvlSem$state) (t:('c,'ffi) bvlSem$state) <=>
     t = s with <| code := map (I ## (\x. HD (remove_ticks [x]))) s.code
                 ; compile := t.compile
                 ; compile_oracle := (I ##
       MAP (I ## I ## (\x. HD (remove_ticks [x])))) o s.compile_oracle |> /\
     s.compile = \cfg prog. t.compile cfg
-                   (MAP (I ## I ## (\x. HD (remove_ticks [x]))) prog)`
+                   (MAP (I ## I ## (\x. HD (remove_ticks [x]))) prog)
+End
 
 val state_rel_alt = state_rel_def
 
@@ -285,13 +286,15 @@ val evaluate_remove_ticks_thm =
   |> Q.SPEC `[Call 0 (SOME start) []]`
   |> SIMP_RULE std_ss [remove_ticks_def];
 
-val remove_ticks_cc_def = Define `
+Definition remove_ticks_cc_def:
   remove_ticks_cc cc =
-    (λcfg prog'. cc cfg (MAP (I ## I ## (λx. HD (remove_ticks [x]))) prog'))`;
+    (λcfg prog'. cc cfg (MAP (I ## I ## (λx. HD (remove_ticks [x]))) prog'))
+End
 
-val remove_ticks_co_def = Define `
+Definition remove_ticks_co_def:
   remove_ticks_co =
-    (I ## MAP (I ## I ## (λx. HD (remove_ticks [x]))))`;
+    (I ## MAP (I ## I ## (λx. HD (remove_ticks [x]))))
+End
 
 Theorem evaluate_compile_prog:
    evaluate ([Call 0 (SOME start) []], [],
@@ -587,15 +590,16 @@ Inductive exp_rel:
               [Let ys (mk_tick (SUC ticks) y)])
 End
 
-val in_cc_def = Define `
+Definition in_cc_def:
   in_cc limit cc =
     (λ(cs,cfg) prog.
         let (cs1,prog1) = tick_compile_prog limit cs prog in
           case cc cfg prog1 of
           | NONE => NONE
-          | SOME (code,data,cfg1) => SOME (code,data,(cs1,cfg1)))`
+          | SOME (code,data,cfg1) => SOME (code,data,(cs1,cfg1)))
+End
 
-val in_state_rel_def = Define `
+Definition in_state_rel_def:
   in_state_rel limit s t <=>
     t.globals = s.globals ∧
     t.refs = s.refs ∧
@@ -611,7 +615,8 @@ val in_state_rel_def = Define `
     (!k arity exp.
        lookup k s.code = SOME (arity,exp) ==>
        ?exp2. lookup k t.code = SOME (arity,exp2) /\
-              exp_rel s.code [exp] [exp2])`;
+              exp_rel s.code [exp] [exp2])
+End
 
 Theorem subspt_exp_rel:
    !s1 s2 xs ys. subspt s1 s2 /\ exp_rel s1 xs ys ==> exp_rel s2 xs ys
@@ -1030,13 +1035,14 @@ Proof
   \\ Cases_on `x'` \\ fs []
 QED
 
-val in_co_def = Define `
+Definition in_co_def:
   in_co limit co = (λn.
       (let
          ((cs,cfg),progs) = co n ;
          (cs1,progs) = tick_compile_prog limit cs progs
        in
-         (cfg,progs)))`;
+         (cfg,progs)))
+End
 
 Theorem MAP_FST_tick_inline_all:
    !limit cs prog.
@@ -1386,18 +1392,20 @@ val semantics_tick_inline = prove(
 
 (* let_op *)
 
-val let_opt_def = Define `
+Definition let_opt_def:
   let_opt split_seq cut_size (arity, prog) =
-    (arity, compile_any split_seq cut_size arity (let_op_sing prog))`
+    (arity, compile_any split_seq cut_size arity (let_op_sing prog))
+End
 
-val let_state_rel_def = Define `
+Definition let_state_rel_def:
   let_state_rel split_seq cut_size
            (s:('c,'ffi) bvlSem$state) (t:('c,'ffi) bvlSem$state) <=>
     t = s with <| code := map (let_opt split_seq cut_size) s.code
                 ; compile := t.compile
                 ; compile_oracle := (I ##
       MAP (I ## let_opt split_seq cut_size)) o s.compile_oracle |> /\
-    s.compile = \cfg prog. t.compile cfg (MAP (I ## let_opt split_seq cut_size) prog)`
+    s.compile = \cfg prog. t.compile cfg (MAP (I ## let_opt split_seq cut_size) prog)
+End
 
 val let_state_rel_alt = let_state_rel_def
 
@@ -1584,9 +1592,10 @@ Proof
     \\ fs [let_op_sing_thm,HD_let_op])
 QED
 
-val let_op_cc_def = Define `
+Definition let_op_cc_def:
   let_op_cc q4 l4 cc =
-     (λcfg prog. cc cfg (MAP (I ## let_opt q4 l4) prog))`;
+     (λcfg prog. cc cfg (MAP (I ## let_opt q4 l4) prog))
+End
 
 val let_evaluate_Call = Q.prove(
   `evaluate ([Call 0 (SOME start) []], [],
@@ -1860,9 +1869,10 @@ val must_inline_remove_ticks = prove(
   \\ fs [is_small_def,is_rec_def,is_small_aux_remove_ticks]
   \\ fs [is_rec_remove_ticks]);
 
-val let_opt_remove_def = Define `
+Definition let_opt_remove_def:
   let_opt_remove b l (arity,prog) =
-    let_opt b l (arity,HD (remove_ticks [prog]))`;
+    let_opt b l (arity,HD (remove_ticks [prog]))
+End
 
 val map_fromAList_HASH = prove(
   ``map f (fromAList ls) = fromAList (MAP (I ## f) ls)``,
@@ -1903,14 +1913,16 @@ val comp_lemma = prove(
     (I ## let_opt_remove q4 l4)``,
   fs [FUN_EQ_THM,FORALL_PROD,let_opt_remove_def,let_opt_def]);
 
-val bvl_inline_cc_def = Define `
+Definition bvl_inline_cc_def:
   bvl_inline_cc limit q4 l4 cc =
-    (in_cc limit (remove_ticks_cc (let_op_cc q4 l4 cc)))`;
+    (in_cc limit (remove_ticks_cc (let_op_cc q4 l4 cc)))
+End
 
-val bvl_inline_co_def = Define `
+Definition bvl_inline_co_def:
   bvl_inline_co limit q4 l4 co =
    (λx. (I ## MAP (I ## let_opt q4 l4))
-          (remove_ticks_co (in_co limit co x)))`;
+          (remove_ticks_co (in_co limit co x)))
+End
 
 val MAP_optimise = prove(
   ``!prog.

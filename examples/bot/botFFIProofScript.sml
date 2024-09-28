@@ -14,13 +14,15 @@ open botFFITheory MonitorProofTheory;
 
 val _ = new_theory "botFFIProof"
 
-val bot_proj1_def = Define `
-  bot_proj1 = λw. FEMPTY |++ (mk_proj1 bot_ffi_part w)`
+Definition bot_proj1_def:
+  bot_proj1 = λw. FEMPTY |++ (mk_proj1 bot_ffi_part w)
+End
 
-val bot_proj2_def = Define `
-  bot_proj2 = [mk_proj2 bot_ffi_part]`
+Definition bot_proj2_def:
+  bot_proj2 = [mk_proj2 bot_ffi_part]
+End
 
-val bot_ffi_oracle_def = Define `
+Definition bot_ffi_oracle_def:
   bot_ffi_oracle =
     \name w conf bytes.
      if name = "const" then
@@ -51,16 +53,18 @@ val bot_ffi_oracle_def = Define `
        case ffi_violation conf bytes w of
        | SOME(FFIreturn bytes w) => Oracle_return w bytes
        | _ => Oracle_final FFI_failed else
-     Oracle_final FFI_failed`
+     Oracle_final FFI_failed
+End
 
-val bot_ffi_def = Define `
+Definition bot_ffi_def:
   bot_ffi w =
     <| oracle := bot_ffi_oracle
      ; ffi_state := w
-     ; io_events := [] |>`;
+     ; io_events := [] |>
+End
 
 (* Rebuild the mach from a trace *)
-val extract_mach_def = Define `
+Definition extract_mach_def:
   (extract_mach init_mach [] = SOME init_mach) ∧
   (extract_mach init_mach ((IO_event name conf bytes)::xs) =
   (* monadic style doesn't work here *)
@@ -76,7 +80,8 @@ val extract_mach_def = Define `
     | SOME ffi_fun => (case ffi_fun conf (MAP FST bytes) init_mach of
                        | SOME (FFIreturn bytes' mach') => extract_mach mach' xs
                        | _ => NONE)
-    | NONE => NONE)`
+    | NONE => NONE)
+End
 
 Theorem IOBOT_FFI_part_hprop:
   FFI_part_hprop (IOBOT fs)

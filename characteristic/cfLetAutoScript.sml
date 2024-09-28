@@ -61,11 +61,13 @@ rw[SPLIT_def] >> fs[SUBSET_UNION]
 QED
 
 (* Predicate stating that a heap is valid *)
-val HEAP_FROM_STATE_def =
-    Define `HEAP_FROM_STATE s = ?(f : ffi ffi_proj) st. s = (st2heap f st)`;
+Definition HEAP_FROM_STATE_def:
+  HEAP_FROM_STATE s = ?(f : ffi ffi_proj) st. s = (st2heap f st)
+End
 
-val VALID_HEAP_def =
-    Define `VALID_HEAP s = ?(f : ffi ffi_proj) st. s SUBSET (st2heap f st)`;
+Definition VALID_HEAP_def:
+  VALID_HEAP s = ?(f : ffi ffi_proj) st. s SUBSET (st2heap f st)
+End
 
 Theorem VALID_HEAP_SUBSET:
  VALID_HEAP s1 ==> s2 SUBSET s1 ==> VALID_HEAP s2
@@ -83,8 +85,10 @@ fs[STAR_def, STAR_def, cond_def, SPLIT_def] >> EQ_TAC >-(rw [] >-(instantiate) >
 QED
 
 (* Definitions and theorems used to compare two heap conditions *)
-val HPROP_INJ_def = Define `HPROP_INJ H1 H2 PF <=>
-!s. VALID_HEAP s ==> !G1 G2. (H1 * G1) s ==> ((H2 * G2) s <=> (&PF * H1 * G2) s)`;
+Definition HPROP_INJ_def:
+  HPROP_INJ H1 H2 PF <=>
+!s. VALID_HEAP s ==> !G1 G2. (H1 * G1) s ==> ((H2 * G2) s <=> (&PF * H1 * G2) s)
+End
 
 (* TODO: use that *)
 (* val HPROP_FRAME_IMP_def = Define `HPROP_FRAME_IMP H1 H2 Frame <=>
@@ -409,8 +413,9 @@ rpt strip_tac >> FIRST_ASSUM eqtype_unicity_thm_tac >> metis_tac[]
 QED
 
 (* Theorems to use LIST_REL A "as a" refinement invariant *)
-val InjectiveRel_def = Define `
-InjectiveRel A = !x1 y1 x2 y2. A x1 y1 /\ A x2 y2 ==> (x1 = x2 <=> y1 = y2)`;
+Definition InjectiveRel_def:
+InjectiveRel A = !x1 y1 x2 y2. A x1 y1 /\ A x2 y2 ==> (x1 = x2 <=> y1 = y2)
+End
 
 val EQTYPE_INJECTIVEREL = Q.prove(`EqualityType A ==> InjectiveRel A`,
 rw[InjectiveRel_def, EqualityType_def]);

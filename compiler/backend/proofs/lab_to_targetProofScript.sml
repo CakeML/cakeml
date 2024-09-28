@@ -27,14 +27,15 @@ val evaluate_ignore_clocks = Q.prove(
   \\ pop_assum (qspec_then `k` mp_tac)
   \\ full_simp_tac(srw_ss())[AC ADD_ASSOC ADD_COMM])
 
-val sec_loc_to_pc_def = Define`
+Definition sec_loc_to_pc_def:
   (sec_loc_to_pc n2 xs =
    if n2 = 0 then SOME 0
    else case xs of [] => NONE
    | (z::zs) =>
      if (?n1 k. z = Label n1 n2 k) then SOME 0
      else if is_Label z then sec_loc_to_pc n2 zs
-     else OPTION_MAP SUC (sec_loc_to_pc n2 zs))`;
+     else OPTION_MAP SUC (sec_loc_to_pc n2 zs))
+End
 
 val sec_loc_to_pc_ind = theorem"sec_loc_to_pc_ind"
 
@@ -92,13 +93,14 @@ QED
 
 val _ = temp_remove_rules_for_term"step";
 
-val enc_with_nop_def = Define `
+Definition enc_with_nop_def:
   enc_with_nop enc (b:'a asm) bytes =
     let init = enc b in
     let step = enc (asm$Inst Skip) in
       if LENGTH step = 0 then bytes = init else
         let n = (LENGTH bytes - LENGTH init) DIV LENGTH step in
-          bytes = init ++ FLAT (REPLICATE n step)`
+          bytes = init ++ FLAT (REPLICATE n step)
+End
 
 val enc_with_nop_thm = Q.prove(
   `enc_with_nop enc (b:'a asm) bytes =
@@ -109,14 +111,15 @@ val enc_with_nop_thm = Q.prove(
   \\ fs [LENGTH_APPEND,LENGTH_FLAT,map_replicate,SUM_REPLICATE]
   \\ full_simp_tac (std_ss++ARITH_ss) [GSYM LENGTH_NIL,MULT_DIV]);
 
-val asm_step_nop_def = Define `
+Definition asm_step_nop_def:
   asm_step_nop bytes c s1 i s2 <=>
     bytes_in_memory s1.pc bytes s1.mem s1.mem_domain /\
     enc_with_nop c.encode i bytes /\
     (case c.link_reg of NONE => T | SOME r => s1.lr = r) /\
     (s1.be <=> c.big_endian) /\ s1.align = c.code_alignment /\
     asm i (s1.pc + n2w (LENGTH bytes)) s1 = s2 /\ ~s2.failed /\
-    asm_ok i c`
+    asm_ok i c
+End
 
 val evaluate_nop_step =
   asm_step_IMP_evaluate_step
@@ -332,11 +335,12 @@ QED
 
 (* define relation between labSem and targetSem states *)
 
-val lab_lookup_def = Define `
+Definition lab_lookup_def:
   lab_lookup k1 k2 labs =
     case lookup k1 labs of
     | NONE => NONE
-    | SOME f => lookup k2 f`
+    | SOME f => lookup k2 f
+End
 
 val lab_lookup_IMP = Q.prove(
   `(lab_lookup l1 l2 labs = SOME x) ==>
@@ -344,8 +348,9 @@ val lab_lookup_IMP = Q.prove(
   full_simp_tac(srw_ss())[lab_lookup_def,find_pos_def,lookup_any_def]
   \\ BasicProvers.EVERY_CASE_TAC);
 
-val labs_domain_def = Define`
-  labs_domain labs = { (n1, n2) | lab_lookup n1 n2 labs ≠ NONE }`;
+Definition labs_domain_def:
+  labs_domain labs = { (n1, n2) | lab_lookup n1 n2 labs ≠ NONE }
+End
 
 Theorem labs_domain_LN[simp]:
    labs_domain LN = {}
@@ -363,26 +368,29 @@ Proof
 QED
 
 
-val has_odd_inst_def = Define `
+Definition has_odd_inst_def:
   (has_odd_inst [] = F) /\
   (has_odd_inst ((Section k [])::xs) = has_odd_inst xs) /\
   (has_odd_inst ((Section k (y::ys))::xs) <=>
-     ~EVEN (line_length y) \/ has_odd_inst ((Section k ys)::xs))`
+     ~EVEN (line_length y) \/ has_odd_inst ((Section k ys)::xs))
+End
 
-val line_similar_def = Define `
+Definition line_similar_def:
   (line_similar (Label k1 k2 l) (Label k1' k2' l') <=> (k1 = k1') /\ (k2 = k2')) /\
   (line_similar (Asm b bytes l) (Asm b' bytes' l') <=> (b = b')) /\
   (line_similar (LabAsm a w bytes l) (LabAsm a' w' bytes' l') <=> (a = a')) /\
-  (line_similar _ _ <=> F)`
+  (line_similar _ _ <=> F)
+End
 
 val line_similar_ind = theorem"line_similar_ind";
 
-val code_similar_def = Define `
+Definition code_similar_def:
   (code_similar [] [] = T) /\
   (code_similar ((Section s1 lines1)::rest1) ((Section s2 lines2)::rest2) <=>
      code_similar rest1 rest2 /\
      EVERY2 line_similar lines1 lines2 /\ (s1 = s2)) /\
-  (code_similar _ _ = F)`
+  (code_similar _ _ = F)
+End
 
 val code_similar_ind = theorem "code_similar_ind";
 
@@ -490,29 +498,32 @@ Proof
   metis_tac[line_similar_len_no_lab]
 QED
 
-val word_loc_val_def = Define `
+Definition word_loc_val_def:
   (word_loc_val p labs (Word w) = SOME w) /\
   (word_loc_val p labs (Loc k1 k2) =
      case lab_lookup k1 k2 labs of
      | NONE => NONE
-     | SOME q => SOME (p + n2w q))`;
+     | SOME q => SOME (p + n2w q))
+End
 
-val has_io_name_def = Define `
+Definition has_io_name_def:
   (has_io_name index [] = F) /\
   (has_io_name index ((Section k [])::xs) = has_io_name index xs) /\
   (has_io_name index ((Section k (y::ys))::xs) <=>
      has_io_name index ((Section k ys)::xs) \/
-     case y of LabAsm (CallFFI i) _ _ _ => (i = index) | _ => F)`
+     case y of LabAsm (CallFFI i) _ _ _ => (i = index) | _ => F)
+End
 
 val has_io_name_ind = theorem"has_io_name_ind"
 
-val word_loc_val_byte_def = Define `
+Definition word_loc_val_byte_def:
   word_loc_val_byte p labs m a be =
     case word_loc_val p labs (m (byte_align a)) of
     | SOME w => SOME (get_byte a w be)
-    | NONE => NONE`
+    | NONE => NONE
+End
 
-val line_ok_def = Define `
+Definition line_ok_def:
   (line_ok (c:'a asm_config) labs ffis pos (Label _ _ l) <=>
      EVEN pos /\ (l = 0)) /\
   (line_ok c labs ffis pos (Asm b bytes l) <=>
@@ -539,23 +550,26 @@ val line_ok_def = Define `
      | SOME t =>
      let w1 = n2w t- n2w pos in
        enc_with_nop c.encode (lab_inst w1 a) bytes /\
-       (LENGTH bytes = l) /\ asm_ok (lab_inst w1 a) c))`
+       (LENGTH bytes = l) /\ asm_ok (lab_inst w1 a) c))
+End
 
 val line_ok_ind = theorem"line_ok_ind";
 
-val lines_ok_def = Define`
+Definition lines_ok_def:
   (lines_ok c labs ffis pos [] = T) ∧
   (lines_ok c labs ffis pos (y::ys) ⇔
    line_ok c labs ffis pos y ∧
-   lines_ok c labs ffis (pos + line_length y) ys)`;
+   lines_ok c labs ffis (pos + line_length y) ys)
+End
 
-val all_enc_ok_def = Define `
+Definition all_enc_ok_def:
   (all_enc_ok c labs ffis pos [] = T) /\
   (all_enc_ok c labs ffis pos ((Section k [])::xs) <=>
      EVEN pos /\ all_enc_ok c labs ffis pos xs) /\
   (all_enc_ok c labs ffis pos ((Section k (y::ys))::xs) <=>
      line_ok c labs ffis pos y /\
-     all_enc_ok c labs ffis (pos + line_length y) ((Section k ys)::xs))`
+     all_enc_ok c labs ffis (pos + line_length y) ((Section k ys)::xs))
+End
 
 val all_enc_ok_ind = theorem"all_enc_ok_ind";
 
@@ -570,14 +584,15 @@ Proof
   simp[] >> metis_tac[]
 QED
 
-val pos_val_def = Define `
+Definition pos_val_def:
   (pos_val i pos [] = (pos:num)) /\
   (pos_val i pos ((Section k [])::xs) = pos_val i pos xs) /\
   (pos_val i pos ((Section k (y::ys))::xs) =
      if is_Label y
      then pos_val i (pos + line_length y) ((Section k ys)::xs)
      else if i = 0:num then pos
-          else pos_val (i-1) (pos + line_length y) ((Section k ys)::xs))`;
+          else pos_val (i-1) (pos + line_length y) ((Section k ys)::xs))
+End
 
 val pos_val_ind = theorem"pos_val_ind";
 
@@ -591,13 +606,14 @@ Proof
   \\ Cases_on `h` \\ full_simp_tac(srw_ss())[line_ok_def,line_length_def,is_Label_def]
 QED
 
-val sec_pos_val_def = Define`
+Definition sec_pos_val_def:
   (sec_pos_val i pos [] = NONE) ∧
   (sec_pos_val i pos (y::ys) =
    if is_Label y then
      sec_pos_val i (pos + line_length y) ys
    else if i = 0n then SOME pos
-   else sec_pos_val (i-1) (pos + line_length y) ys)`;
+   else sec_pos_val (i-1) (pos + line_length y) ys)
+End
 
 Theorem sec_pos_val_too_big:
    ∀i pos lines.
@@ -633,7 +649,7 @@ Proof
   rw[Once pos_val_thm0] \\ rw[Once pos_val_thm0]
 QED
 
-val good_code_def = Define`
+Definition good_code_def:
   good_code c labs code ⇔
    EVERY sec_ends_with_label code /\
    EVERY sec_labels_ok code /\
@@ -641,7 +657,8 @@ val good_code_def = Define`
    EVERY (ALL_DISTINCT o extract_labels o Section_lines) code /\
    DISJOINT (domain labs) (set (MAP Section_num code)) ∧
    restrict_nonzero (get_labels code) ⊆ get_code_labels code ∪ labs_domain labs ∧
-   all_enc_ok_pre c code`;
+   all_enc_ok_pre c code
+End
 
 Definition num_pcs_def:
   num_pcs [] = (0:num) /\
@@ -749,7 +766,7 @@ End
 (* The code buffer is set-up to immediately follow the current code:
   |---code---|---cb---|
 *)
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel (mc_conf, code2, labs, p) (s1:('a,'a lab_to_target$config,'ffi) labSem$state) t1 ms1 <=>
     target_state_rel mc_conf.target t1 ms1 /\ good_dimindex (:'a) /\
     (mc_conf.prog_addresses = t1.mem_domain) /\
@@ -875,7 +892,8 @@ val state_rel_def = Define `
     share_mem_state_rel mc_conf s1 t1 ms1 /\
     share_mem_domain_code_rel mc_conf p code2 s1.shared_mem_domain /\
     LENGTH mc_conf.ffi_names = LENGTH mc_conf.ffi_entry_pcs /\
-    no_install_or_no_share_mem code2 mc_conf.ffi_names`
+    no_install_or_no_share_mem code2 mc_conf.ffi_names
+End
 
 Theorem state_rel_clock:
   state_rel x s1 t1 ms ==>
@@ -2407,10 +2425,11 @@ QED
 
 (* annotated line length *)
 
-val line_len_def = Define`
+Definition line_len_def:
   (line_len (Label _ _ l) = l) ∧
   (line_len (Asm _ _ l) = l) ∧
-  (line_len (LabAsm _ _ _ l) = l)`;
+  (line_len (LabAsm _ _ _ l) = l)
+End
 val _ = export_rewrites["line_len_def"];
 
 (* annotated section length *)
@@ -2431,7 +2450,7 @@ QED
 
 (* simple syntactic properties of compiler functions *)
 
-val enc_lines_again_simp_def = Define`
+Definition enc_lines_again_simp_def:
   (enc_lines_again_simp labs ffis pos enc [] = ([],T)) ∧
   (enc_lines_again_simp labs ffis pos enc (LabAsm a w bytes l::xs) =
     let w1 = get_jump_offset a ffis labs pos
@@ -2449,7 +2468,8 @@ val enc_lines_again_simp_def = Define`
     (Label k1 k2 l::rest,ok)) ∧
   (enc_lines_again_simp labs ffis pos enc (Asm x1 x2 l::xs) =
     let (rest,ok) = enc_lines_again_simp labs ffis (pos + l) enc xs in
-    (Asm x1 x2 l::rest,ok))`
+    (Asm x1 x2 l::rest,ok))
+End
 
 val enc_lines_again_simp_ind = theorem"enc_lines_again_simp_ind";
 
@@ -2876,16 +2896,18 @@ QED
 
 (* invariant: lines are encoded and non-label lengths annotated *)
 
-val line_encd0_def = Define`
+Definition line_encd0_def:
   (line_encd0 enc (Asm b bytes len) ⇔
     enc (cbw_to_asm b) = bytes ∧ len = LENGTH bytes) ∧
   (line_encd0 enc (LabAsm l w bytes len) ⇔
      enc (lab_inst w l) = bytes ∧ LENGTH bytes ≤ len ∧
      (∃w'. len = LENGTH (enc (lab_inst w' l)))) ∧
-  (line_encd0 enc _ ⇔ T)`;
+  (line_encd0 enc _ ⇔ T)
+End
 
-val sec_encd0_def = Define`
-  sec_encd0 enc (Section _ ls) = EVERY (line_encd0 enc) ls`;
+Definition sec_encd0_def:
+  sec_encd0 enc (Section _ ls) = EVERY (line_encd0 enc) ls
+End
 val _ = export_rewrites["sec_encd0_def"];
 
 Overload all_encd0 = ``λenc l. EVERY (sec_encd0 enc) l``
@@ -2961,29 +2983,33 @@ QED
 (* invariant: annotated lengths are not too small *)
 (* this is a consequence of encd (below) and not treated separately much *)
 
-val line_length_leq_def = Define`
+Definition line_length_leq_def:
   (line_length_leq (LabAsm _ _ bytes l) ⇔
     LENGTH bytes ≤ l) ∧
   (line_length_leq (Asm _ bytes l) ⇔
     LENGTH bytes ≤ l) ∧
-  (line_length_leq _ ⇔ T)`;
+  (line_length_leq _ ⇔ T)
+End
 val _ = export_rewrites["line_length_leq_def"];
 
-val sec_length_leq_def = Define`
-  sec_length_leq (Section _ ls) = EVERY line_length_leq ls`;
+Definition sec_length_leq_def:
+  sec_length_leq (Section _ ls) = EVERY line_length_leq ls
+End
 val _ = export_rewrites["sec_length_leq_def"];
 
 Overload all_length_leq = ``λl. EVERY sec_length_leq l``
 
 (* invariant: label annotated lengths are 0 or 1 *)
 
-val label_one_def = Define`
+Definition label_one_def:
   (label_one (Label _ _ n) ⇔ n ≤ 1) ∧
-  (label_one _ ⇔ T)`;
+  (label_one _ ⇔ T)
+End
 val _ = export_rewrites["label_one_def"];
 
-val sec_label_one_def = Define`
-  sec_label_one (Section _ ls) = EVERY label_one ls`;
+Definition sec_label_one_def:
+  sec_label_one (Section _ ls) = EVERY label_one ls
+End
 val _ = export_rewrites["sec_label_one_def"];
 
 (* establishing label_one *)
@@ -3069,7 +3095,7 @@ QED
 
 (* invariant: lines are encoded and annotated lengths are correct *)
 
-val line_encd_def = Define`
+Definition line_encd_def:
   (line_encd enc labs ffis pos (Asm b bytes len) ⇔
     enc (cbw_to_asm b) = bytes ∧ len = LENGTH bytes) ∧
   (line_encd enc labs ffis pos (LabAsm Halt _ bytes len) ⇔
@@ -3093,21 +3119,24 @@ val line_encd_def = Define`
   (line_encd enc labs ffis pos (LabAsm (Call l) _ bytes len) ⇔
     enc (Call (n2w (find_pos l labs) + -n2w pos)) = bytes ∧
     LENGTH bytes ≤ len) ∧
-  (line_encd enc labs ffis pos _ ⇔ T)`;
+  (line_encd enc labs ffis pos _ ⇔ T)
+End
 
 val line_encd_ind = theorem"line_encd_ind";
 
-val lines_encd_def = Define`
+Definition lines_encd_def:
   (lines_encd enc labs ffis pos [] ⇔ T) ∧
   (lines_encd enc labs ffis pos (l::ls) ⇔
    line_encd enc labs ffis pos l ∧
-   lines_encd enc labs ffis (pos+line_len l) ls)`;
+   lines_encd enc labs ffis (pos+line_len l) ls)
+End
 
-val all_encd_def = Define`
+Definition all_encd_def:
   (all_encd enc labs ffis pos [] ⇔ T) ∧
   (all_encd enc labs ffis pos (Section k ls::ss) ⇔
    lines_encd enc labs ffis pos ls ∧
-   all_encd enc labs ffis (pos + SUM (MAP line_len ls)) ss)`;
+   all_encd enc labs ffis (pos + SUM (MAP line_len ls)) ss)
+End
 
 (* length_leq follows from encd *)
 
@@ -3176,11 +3205,13 @@ QED
 
 (* invariant: annotated lengths are correct *)
 
-val line_length_ok_def = Define`
-  line_length_ok l ⇔ LENGTH (line_bytes l) = line_len l`;
+Definition line_length_ok_def:
+  line_length_ok l ⇔ LENGTH (line_bytes l) = line_len l
+End
 
-val sec_length_ok_def = Define`
-  sec_length_ok (Section _ ls) = EVERY line_length_ok ls`;
+Definition sec_length_ok_def:
+  sec_length_ok (Section _ ls) = EVERY line_length_ok ls
+End
 
 (* simple consequences of length_ok *)
 
@@ -3196,13 +3227,15 @@ QED
 
 (* invariant: all labels annotated with length 0 *)
 
-val label_zero_def = Define`
+Definition label_zero_def:
   (label_zero (Label _ _ n) ⇔ n = 0) ∧
-  (label_zero _ ⇔ T)`;
+  (label_zero _ ⇔ T)
+End
 val _ = export_rewrites["label_zero_def"];
 
-val sec_label_zero_def = Define`
-  sec_label_zero (Section _ ls) = EVERY label_zero ls`;
+Definition sec_label_zero_def:
+  sec_label_zero (Section _ ls) = EVERY label_zero ls
+End
 
 (* label_zero preservation *)
 
@@ -3356,13 +3389,15 @@ QED
 
 (* invariant: lines aligned *)
 
-val line_aligned_def = Define`
+Definition line_aligned_def:
   line_aligned m l ⇔
     line_len l MOD m = 0 ∧
-    line_length l MOD m = 0`;
+    line_length l MOD m = 0
+End
 
-val sec_aligned_def = Define`
-  sec_aligned noplen (Section _ ls) = EVERY (line_aligned noplen) ls`;
+Definition sec_aligned_def:
+  sec_aligned noplen (Section _ ls) = EVERY (line_aligned noplen) ls
+End
 val _ = export_rewrites["sec_aligned_def"];
 
 (* establishing aligned *)
@@ -3422,13 +3457,15 @@ QED
 
 (* invariant: all initial labels have annotated length 0 *)
 
-val label_prefix_zero_def = Define`
+Definition label_prefix_zero_def:
   label_prefix_zero ls ⇔
      (∀n. n < LENGTH ls ∧ (∀m. m ≤ n ⇒ is_Label (EL m ls)) ⇒
-        ∀m. m ≤ n ⇒ line_len (EL m ls) = 0)`;
+        ∀m. m ≤ n ⇒ line_len (EL m ls) = 0)
+End
 
-val sec_label_prefix_zero_def = Define`
-  sec_label_prefix_zero (Section k ls) ⇔ label_prefix_zero ls`;
+Definition sec_label_prefix_zero_def:
+  sec_label_prefix_zero (Section k ls) ⇔ label_prefix_zero ls
+End
 val _ = export_rewrites["sec_label_prefix_zero_def"];
 
 Theorem label_prefix_zero_cons:
@@ -3582,7 +3619,7 @@ QED
 
 (* invariant: lines encd with nops *)
 
-val line_enc_with_nop_def = Define`
+Definition line_enc_with_nop_def:
   (line_enc_with_nop enc labs ffis pos (Asm b bytes len) ⇔
     enc_with_nop enc (cbw_to_asm b) bytes ∧ LENGTH bytes = len) ∧
   (line_enc_with_nop enc labs ffis pos (LabAsm Halt _ bytes len) ⇔
@@ -3604,15 +3641,17 @@ val line_enc_with_nop_def = Define`
     enc_with_nop enc (Loc k (n2w (find_pos l labs) + -n2w pos)) bytes ∧
     LENGTH bytes = len) ∧
   (line_enc_with_nop enc labs ffis pos (LabAsm _ _ bytes len) ⇔ LENGTH bytes = len) ∧
-  (line_enc_with_nop enc labs ffis pos (Label _ _ len) ⇔ len = 0)`;
+  (line_enc_with_nop enc labs ffis pos (Label _ _ len) ⇔ len = 0)
+End
 
 val line_enc_with_nop_ind = theorem"line_enc_with_nop_ind";
 
-val lines_enc_with_nop_def = Define`
+Definition lines_enc_with_nop_def:
   (lines_enc_with_nop enc labs ffis pos [] ⇔ T) ∧
   (lines_enc_with_nop enc labs ffis pos (l::ls) ⇔
    line_enc_with_nop enc labs ffis pos l ∧
-   lines_enc_with_nop enc labs ffis (pos+line_length l) ls)`;
+   lines_enc_with_nop enc labs ffis (pos+line_length l) ls)
+End
 
 Theorem lines_enc_with_nop_append:
    ∀enc labs ffis pos l1 l2.
@@ -3623,13 +3662,14 @@ Proof
   Induct_on`l1` \\ rw[lines_enc_with_nop_def,EQ_IMP_THM]
 QED
 
-val all_enc_with_nop_def = Define`
+Definition all_enc_with_nop_def:
   (all_enc_with_nop enc labs ffis pos [] ⇔ T) ∧
   (all_enc_with_nop enc labs ffis pos (Section k []::xs) ⇔
    all_enc_with_nop enc labs ffis pos xs) ∧
   (all_enc_with_nop enc labs ffis pos (Section k (y::ys)::xs) ⇔
    line_enc_with_nop enc labs ffis pos y ∧
-   all_enc_with_nop enc labs ffis (pos + line_length y) (Section k ys::xs))`;
+   all_enc_with_nop enc labs ffis (pos + line_length y) (Section k ys::xs))
+End
 
 val all_enc_with_nop_ind = theorem"all_enc_with_nop_ind";
 
@@ -3931,16 +3971,18 @@ QED
 
 (* invariant: label annotation correctly records alignment *)
 
-val line_lab_len_pos_ok_def = Define`
+Definition line_lab_len_pos_ok_def:
   (line_lab_len_pos_ok pos (Label _ _ l) ⇔
      if EVEN pos then l = 0 else l = 1) ∧
-  (line_lab_len_pos_ok _ _ ⇔ T)`;
+  (line_lab_len_pos_ok _ _ ⇔ T)
+End
 
-val lab_len_pos_ok_def = Define`
+Definition lab_len_pos_ok_def:
   (lab_len_pos_ok pos [] ⇔ T) ∧
   (lab_len_pos_ok pos (l::ls) ⇔
      line_lab_len_pos_ok pos l ∧
-     lab_len_pos_ok (pos + line_len l) ls)`;
+     lab_len_pos_ok (pos + line_len l) ls)
+End
 
 Theorem lab_len_pos_ok_append:
    ∀l1 pos l2.
@@ -3952,11 +3994,12 @@ Proof
   \\ metis_tac[]
 QED
 
-val all_lab_len_pos_ok_def = Define`
+Definition all_lab_len_pos_ok_def:
   (all_lab_len_pos_ok _ [] ⇔ T) ∧
   (all_lab_len_pos_ok pos (Section k ls::ss) ⇔
    lab_len_pos_ok pos ls ∧
-   all_lab_len_pos_ok (pos + sec_length ls 0) ss)`;
+   all_lab_len_pos_ok (pos + sec_length ls 0) ss)
+End
 
 val all_lab_len_pos_ok_ind = theorem"all_lab_len_pos_ok_ind";
 
@@ -4107,16 +4150,18 @@ QED
 
 (* invariant: jump offsets ok *)
 
-val line_offset_ok_def = Define`
+Definition line_offset_ok_def:
   (line_offset_ok labs ffis pos (LabAsm a w bytes _) ⇔
     w = get_jump_offset a ffis labs pos) ∧
-  (line_offset_ok _ _ _ _ ⇔ T)`;
+  (line_offset_ok _ _ _ _ ⇔ T)
+End
 
-val lines_offset_ok_def = Define`
+Definition lines_offset_ok_def:
   (lines_offset_ok labs ffis pos [] ⇔ T) ∧
   (lines_offset_ok labs ffis pos (l::ls) ⇔
    line_offset_ok labs ffis pos l ∧
-   lines_offset_ok labs ffis (pos + line_len l) ls)`;
+   lines_offset_ok labs ffis (pos + line_len l) ls)
+End
 
 Theorem lines_offset_ok_append:
    ∀labs ffis pos l1 l2.
@@ -4127,11 +4172,12 @@ Proof
   Induct_on`l1` \\ rw[lines_offset_ok_def,EQ_IMP_THM]
 QED
 
-val offset_ok_def = Define`
+Definition offset_ok_def:
   (offset_ok labs ffis pos [] ⇔ T) ∧
   (offset_ok labs ffis pos (Section k ls::ss) ⇔
    lines_offset_ok labs ffis pos ls ∧
-   offset_ok labs ffis (pos + SUM (MAP line_len ls)) ss)`;
+   offset_ok labs ffis (pos + SUM (MAP line_len ls)) ss)
+End
 
 val offset_ok_ind = theorem"offset_ok_ind";
 
@@ -4233,17 +4279,19 @@ QED
 
 (* invariant: referenced labels exist *)
 
-val line_labs_exist_def = Define`
+Definition line_labs_exist_def:
   (line_labs_exist labs (LabAsm a _ _ _) ⇔
     ∀n1 n2. (n1,n2) ∈ labs_of a ⇒ lab_lookup n1 n2 labs ≠ NONE) ∧
-  (line_labs_exist _ _ ⇔ T)`;
+  (line_labs_exist _ _ ⇔ T)
+End
 
 val line_labs_exist_ind = theorem "line_labs_exist_ind";
 
 val _ = export_rewrites["line_labs_exist_def"];
 
-val sec_labs_exist_def = Define`
-  sec_labs_exist labs (Section _ ls) ⇔ EVERY (line_labs_exist labs) ls`;
+Definition sec_labs_exist_def:
+  sec_labs_exist labs (Section _ ls) ⇔ EVERY (line_labs_exist labs) ls
+End
 val _ = export_rewrites["sec_labs_exist_def"];
 
 Overload all_labs_exist = ``λlabs code. EVERY (sec_labs_exist labs) code``
@@ -4455,20 +4503,22 @@ QED
 
 (* invariant: labels aligned at even positions *)
 
-val even_labels_def = Define`
+Definition even_labels_def:
   (even_labels pos [] ⇔ T) ∧
   (even_labels pos (Section _ []::ls) ⇔ even_labels pos ls) ∧
   (even_labels pos (Section k (y::ys)::ls) ⇔
    (is_Label y ⇒ EVEN pos) ∧
-   even_labels (pos + line_len y) (Section k ys::ls))`;
+   even_labels (pos + line_len y) (Section k ys::ls))
+End
 
 val even_labels_ind = theorem"even_labels_ind";
 
-val lines_even_labels_def = Define`
+Definition lines_even_labels_def:
   (lines_even_labels pos [] ⇔ T) ∧
   (lines_even_labels pos (y::ys) ⇔
    (is_Label y ⇒ EVEN pos) ∧
-   lines_even_labels (pos + line_len y) ys)`;
+   lines_even_labels (pos + line_len y) ys)
+End
 
 Theorem even_labels_alt:
    (even_labels pos [] ⇔ T) ∧
@@ -4484,13 +4534,14 @@ Proof
   \\ metis_tac[]
 QED
 
-val even_labels_strong_def = Define`
+Definition even_labels_strong_def:
   (even_labels_strong pos [] ⇔ T) ∧
   (even_labels_strong pos (Section _ []::ls) ⇔
     EVEN pos ∧ even_labels_strong pos ls) ∧
   (even_labels_strong pos (Section k (y::ys)::ls) ⇔
    (is_Label y ⇒ EVEN pos) ∧
-   even_labels_strong (pos + line_len y) (Section k ys::ls))`;
+   even_labels_strong (pos + line_len y) (Section k ys::ls))
+End
 
 Theorem even_labels_ends_imp_strong:
    ∀pos code.
@@ -8136,10 +8187,11 @@ QED
 
 (* relating observable semantics *)
 
-val init_ok_def = Define `
+Definition init_ok_def:
   init_ok (mc_conf, p) s ms <=>
     ?code2 labs t1.
-      state_rel (mc_conf,code2,labs,p) s t1 ms`;
+      state_rel (mc_conf,code2,labs,p) s t1 ms
+End
 
 Theorem machine_sem_EQ_sem:
    !mc_conf p (ms:'state) ^s1.
@@ -8282,19 +8334,21 @@ val () = PolyML.SaveState.loadState "lab_to_target_syntactic";
 
 (* introducing make_init *)
 
-val set_bytes_def = Define `
+Definition set_bytes_def:
   (set_bytes a be [] = 0w) /\
-  (set_bytes a be (b::bs) = set_byte a b (set_bytes (a+1w) be bs) be) `
+  (set_bytes a be (b::bs) = set_byte a b (set_bytes (a+1w) be bs) be)
+End
 
-val make_word_def = Define `
+Definition make_word_def:
   make_word be m (a:'a word) =
     if dimindex (:'a) = 32 then
       Word (set_bytes a be [m a; m (a+1w); m (a+2w); m (a+3w)])
     else
       Word (set_bytes a be [m a; m (a+1w); m (a+2w); m (a+3w);
-                            m (a+4w); m (a+5w); m (a+6w); m (a+7w)]) `
+                            m (a+4w); m (a+5w); m (a+6w); m (a+7w)])
+End
 
-val make_init_def = Define `
+Definition make_init_def:
   make_init mc_conf (ffi:'ffi ffi_state) io_regs cc_regs t m dm sdm (ms:'state) code
     comp cbpos cbspace coracle =
     <| regs           := \k. Word ((t.regs k):'a word)
@@ -8319,11 +8373,12 @@ val make_init_def = Define `
      (* Initialize with code buffer empty *)
      ; code_buffer    := <|position:=cbpos; buffer:=[] ; space_left:=cbspace|>
      ; compile_oracle := coracle
-     |>`;
+     |>
+End
 
 val IMP_LEMMA = METIS_PROVE [] ``(a ==> b) ==> (b ==> c) ==> (a ==> c)``
 
-val compiler_oracle_ok_def = Define`
+Definition compiler_oracle_ok_def:
   compiler_oracle_ok coracle init_labs init_pos c ffis ⇔
     (* Assumptions about initial compile oracle *)
     (∀k:num. let (cfg,code) = coracle k in good_code c cfg.labels code /\
@@ -8332,12 +8387,13 @@ val compiler_oracle_ok_def = Define`
         cfg.labels = init_labs ∧
         cfg.pos = init_pos ∧
         cfg.asm_conf = c ∧
-        cfg.ffi_names = SOME ffis)`
+        cfg.ffi_names = SOME ffis)
+End
 
 (* mc_conf_ok: conditions on the machine configuration
    which will be discharged for the particular configuration of each target
 *)
-val mc_conf_ok_def = Define`
+Definition mc_conf_ok_def:
   mc_conf_ok (mc_conf:('a,'b,'c) machine_config) ⇔
     good_dimindex(:'a) ∧
     encoder_correct mc_conf.target ∧
@@ -8347,7 +8403,8 @@ val mc_conf_ok_def = Define`
     reg_ok mc_conf.len2_reg mc_conf.target.config /\
     reg_ok (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n)
       mc_conf.target.config ∧
-    enc_ok mc_conf.target.config`;
+    enc_ok mc_conf.target.config
+End
 
 Theorem get_shmem_info_APPEND:
 !secs pos ffi_names shmem_info ffis1 ffis2 info1 info2 new_ffi_names new_shmem_info.

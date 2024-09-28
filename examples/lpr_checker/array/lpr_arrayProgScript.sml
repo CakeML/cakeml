@@ -42,11 +42,13 @@ fun get_exn_conv name =
 
 val fail = get_exn_conv ``"Fail"``
 
-val Fail_exn_def = Define `
-  Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)`
+Definition Fail_exn_def:
+  Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)
+End
 
-val eq_w8o_def = Define`
-  eq_w8o v ⇔ v = w8o`
+Definition eq_w8o_def:
+  eq_w8o v ⇔ v = w8o
+End
 
 val _ = translate (eq_w8o_def |> SIMP_RULE std_ss [w8o_def]);
 
@@ -57,15 +59,17 @@ val every_one_arr = process_topdecs`
     if eq_w8o (Unsafe.w8sub carr (index c)) then every_one_arr carr cs
     else False` |> append_prog
 
-val format_failure_def = Define`
+Definition format_failure_def:
   format_failure (lno:num) s =
-  strlit "c Checking failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"`
+  strlit "c Checking failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"
+End
 
 val _ = translate format_failure_def;
 
-val unwrap_TYPE_def = Define`
+Definition unwrap_TYPE_def:
   unwrap_TYPE P x y =
-  ∃z. x = SOME z ∧ P z y`
+  ∃z. x = SOME z ∧ P z y
+End
 
 val delete_literals_sing_arr_def = process_topdecs`
   fun delete_literals_sing_arr lno carr cs =
@@ -187,13 +191,14 @@ val is_AT_arr_aux = process_topdecs`
 
 (* For every literal in every clause and their negations,
   the index is bounded above by n *)
-val bounded_fml_def = Define`
+Definition bounded_fml_def:
   bounded_fml n fmlls ⇔
   EVERY (λCopt.
     case Copt of
       NONE => T
     | SOME C => EVERY ($> n o index) C ∧ EVERY ($> n o index o $~) C
-    ) fmlls`
+    ) fmlls
+End
 
 Theorem delete_literals_sing_list_MEM:
   ∀C.
@@ -1357,8 +1362,9 @@ Proof
   match_mp_tac LIST_REL_update_resize>>fs[OPTION_TYPE_def]
 QED
 
-val every_less_def = Define`
-  every_less (mindel:num) cls ⇔ EVERY ($< mindel) cls`
+Definition every_less_def:
+  every_less (mindel:num) cls ⇔ EVERY ($< mindel) cls
+End
 
 val _ = translate every_less_def;
 
@@ -1533,12 +1539,13 @@ Proof
 QED
 
 (* A version of contains_clauses_list that returns an error clause (if any) *)
-val contains_clauses_list_err_def = Define`
+Definition contains_clauses_list_err_def:
   contains_clauses_list_err fml inds cls =
   case reindex fml inds of
     (_,inds') =>
   let inds'' = MAP canon_clause inds' in
-  oHD (FILTER (λcl. ¬MEM (canon_clause cl) inds'') cls)`
+  oHD (FILTER (λcl. ¬MEM (canon_clause cl) inds'') cls)
+End
 
 Theorem contains_clauses_list_err:
   contains_clauses_list fml inds cls ⇔
@@ -1555,14 +1562,15 @@ Proof
 QED
 
 (* SOME cls indicates failure to detect clause cls *)
-val contains_clauses_sing_list_def = Define`
+Definition contains_clauses_sing_list_def:
   (contains_clauses_sing_list fml [] cls ccls = SOME cls) ∧
   (contains_clauses_sing_list fml (i::is) cls ccls =
   case any_el i fml NONE of
     NONE => contains_clauses_sing_list fml is cls ccls
   | SOME v =>
     if canon_clause v = ccls then NONE
-    else contains_clauses_sing_list fml is cls ccls)`
+    else contains_clauses_sing_list fml is cls ccls)
+End
 
 Theorem contains_clauses_sing_list_eq:
   ∀inds fml cls.
@@ -1668,18 +1676,20 @@ val hash_contains = (append_prog o process_topdecs)`
     hash_contains hash is)`
 
 (* Magic number 7 for base of rolling hash *)
-val hash_func_def = Define`
+Definition hash_func_def:
   (hash_func [] = 0n) ∧
   (hash_func (i::is) =
-    index i + 7 * (hash_func is))`
+    index i + 7 * (hash_func is))
+End
 
-val order_lists_def = Define`
+Definition order_lists_def:
   (order_lists [] [] = Equal) ∧
   (order_lists [] (y::ys) = Less) ∧
   (order_lists (x::xs) [] = Greater) ∧
   (order_lists (x::xs) (y::ys) =
     if (x:int) < y then Less
-    else if x > y then Greater else order_lists xs ys)`
+    else if x > y then Greater else order_lists xs ys)
+End
 
 val _ = translate hash_func_def;
 val _ = translate order_lists_def;

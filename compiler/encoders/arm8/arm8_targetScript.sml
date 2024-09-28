@@ -10,34 +10,39 @@ val () = wordsLib.guess_lengths ()
 
 (* --- The next-state function --- *)
 
-val arm8_next_def = Define `arm8_next = THE o NextStateARM8`
+Definition arm8_next_def:
+  arm8_next = THE o NextStateARM8
+End
 
 (* --- Valid ARMv8 states --- *)
 
-val arm8_ok_def = Define`
+Definition arm8_ok_def:
    arm8_ok ms <=>
    (ms.PSTATE.EL = 0w) /\
    ~ms.SCTLR_EL1.E0E  /\ ~ms.SCTLR_EL1.SA0 /\
    ~ms.TCR_EL1.TBI1 /\ ~ms.TCR_EL1.TBI0 /\
-   (ms.exception = NoException) /\ aligned 2 ms.PC`
+   (ms.exception = NoException) /\ aligned 2 ms.PC
+End
 
 (* --- Encode ASM instructions to ARM bytes. --- *)
 
 val arm8_encode_fail_def = zDefine`
   arm8_encode_fail = [NoOperation]`
 
-val arm8_encode_def = Define`
+Definition arm8_encode_def:
    arm8_encode i =
    case arm8$Encode i of
       ARM8 w => [(7 >< 0) w; (15 >< 8) w; (23 >< 16) w; (31 >< 24) w]
-    | _ => [0w; 0w; 0w; 0w]`
+    | _ => [0w; 0w; 0w; 0w]
+End
 
-val bop_enc_def = Define`
+Definition bop_enc_def:
    (bop_enc And = LogicalOp_AND) /\
    (bop_enc Or  = LogicalOp_ORR) /\
-   (bop_enc Xor = LogicalOp_EOR)`
+   (bop_enc Xor = LogicalOp_EOR)
+End
 
-val cmp_cond_def = Define`
+Definition cmp_cond_def:
    (cmp_cond Less     = 0b1011w:word4) /\
    (cmp_cond Lower    = 0b0011w) /\
    (cmp_cond Equal    = 0b0000w) /\
@@ -45,9 +50,10 @@ val cmp_cond_def = Define`
    (cmp_cond NotLess  = 0b1010w) /\
    (cmp_cond NotLower = 0b0010w) /\
    (cmp_cond NotEqual = 0b0001w) /\
-   (cmp_cond NotTest  = 0b0001w)`
+   (cmp_cond NotTest  = 0b0001w)
+End
 
-val arm8_enc_mov_imm_def = Define`
+Definition arm8_enc_mov_imm_def:
    arm8_enc_mov_imm (i: word64) =
    if (i && 0xFFFFFFFFFFFF0000w) = 0w then
       SOME ((15 >< 0) i, 0w: word2)
@@ -58,11 +64,12 @@ val arm8_enc_mov_imm_def = Define`
    else if (i && 0x0000FFFFFFFFFFFFw) = 0w then
       SOME ((63 >< 48) i, 3w)
    else
-      NONE`
+      NONE
+End
 
 val temp = ``26w : word5``
 
-val arm8_load_store_ast_def = Define`
+Definition arm8_load_store_ast_def:
   arm8_load_store_ast ls r1 r2 a =
   let unsigned = ~word_msb a in
   if a <> sw2sw ((8 >< 0) a : word9) /\
@@ -78,9 +85,10 @@ val arm8_load_store_ast_def = Define`
     [LoadStore
        (LoadStoreImmediate@64
           (3w, F, ls, AccType_NORMAL, F, F, F, F, F, unsigned, a,
-           n2w r2, n2w r1))]`
+           n2w r2, n2w r1))]
+End
 
-val arm8_load_store_ast32_def = Define`
+Definition arm8_load_store_ast32_def:
   arm8_load_store_ast32 ls r1 r2 a =
   let unsigned = ~word_msb a in
   if a <> sw2sw ((8 >< 0) a : word9) /\
@@ -96,9 +104,10 @@ val arm8_load_store_ast32_def = Define`
     [LoadStore
        (LoadStoreImmediate@32
           (2w, T, ls, AccType_NORMAL, F, F, F, F, F, unsigned, a,
-           n2w r2, n2w r1))]`
+           n2w r2, n2w r1))]
+End
 
-val arm8_ast_def = Define`
+Definition arm8_ast_def:
    (arm8_ast (Inst Skip) = [NoOperation]) /\
    (arm8_ast (Inst (Const r i)) =
       case arm8_enc_mov_imm i of
@@ -241,7 +250,8 @@ val arm8_ast_def = Define`
                 (1w, MoveWideOp_K, 3w, (63 >< 48) i, ^temp));
         Data (AddSubShiftedRegister@64
                 (1w, F, F, ShiftType_LSL, ^temp, 0w, n2w r, n2w r))
-        ])`
+        ])
+End
 
 val arm8_enc_def = zDefine
   `arm8_enc = combin$C LIST_BIND arm8_encode o arm8_ast`
@@ -262,16 +272,17 @@ val cjump_max = eval ``sw2sw (INT_MAXw: 21 word) + 4w : word64``
 val jump_min = eval ``sw2sw (INT_MINw: word28) : word64``
 val jump_max = eval ``sw2sw (INT_MAXw: word28) : word64``
 
-val valid_immediate_def = Define`
+Definition valid_immediate_def:
    valid_immediate (c:binop+cmp) (i: word64) =
    if c IN {INL Add; INL Sub;
             INR Less; INR Lower; INR Equal;
             INR NotLess; INR NotLower; INR NotEqual} then
       ((~0xFFFw && i) = 0w) \/ ((~0xFFF000w && i) = 0w)
    else
-      IS_SOME (EncodeBitMask i)`
+      IS_SOME (EncodeBitMask i)
+End
 
-val arm8_config_def = Define`
+Definition arm8_config_def:
    arm8_config =
    <| ISA := ARMv8
     ; encode := arm8_enc
@@ -289,14 +300,16 @@ val arm8_config_def = Define`
     ; jump_offset := (^jump_min, ^jump_max)
     ; cjump_offset := (^cjump_min, ^cjump_max)
     ; loc_offset := (^loc_min, ^loc_max)
-    |>`
+    |>
+End
 
-val arm8_proj_def = Define`
+Definition arm8_proj_def:
    arm8_proj d s =
    (s.PSTATE, s.SCTLR_EL1, s.TCR_EL1, s.exception, s.REG, fun2set (s.MEM,d),
-    s.PC)`
+    s.PC)
+End
 
-val arm8_target_def = Define`
+Definition arm8_target_def:
    arm8_target =
    <| next := arm8_next
     ; config := arm8_config
@@ -305,7 +318,8 @@ val arm8_target_def = Define`
     ; get_byte := arm8_state_MEM
     ; state_ok := arm8_ok
     ; proj := arm8_proj
-    |>`
+    |>
+End
 
 val (arm8_config, arm8_asm_ok) =
   asmLib.target_asm_rwts

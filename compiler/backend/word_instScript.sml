@@ -18,26 +18,30 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 *)
 
 (*Pull all nested arguments with the same op up*)
-val pull_ops_def = Define`
+Definition pull_ops_def:
   (pull_ops op [] acc = acc) ∧
   (pull_ops op (x::xs) acc =
     dtcase x of
     |  (Op op' ls) => if op = op' then pull_ops op xs (ls ++ acc) else pull_ops op xs (x::acc)
-    |  _  => pull_ops op xs (x::acc))`
+    |  _  => pull_ops op xs (x::acc))
+End
 
-val is_const_def = Define`
+Definition is_const_def:
   (is_const (Const w) = T) ∧
-  (is_const _ = F)`
+  (is_const _ = F)
+End
 
-val rm_const_def = Define`
+Definition rm_const_def:
   (rm_const (Const w) = w) ∧
   (*Make it total*)
-  (rm_const _ = 0w)`
+  (rm_const _ = 0w)
+End
 
-val convert_sub_def = Define`
+Definition convert_sub_def:
   (convert_sub [Const w1;Const w2] = Const (w1 -w2)) ∧
   (convert_sub [x;Const w] = Op Add [x;Const (-w)]) ∧
-  (convert_sub ls = Op Sub ls)`
+  (convert_sub ls = Op Sub ls)
+End
 
 Theorem convert_sub_pmatch:
   !l.
@@ -53,9 +57,10 @@ Proof
   >> fs[convert_sub_def]
 QED
 
-val op_consts_def = Define`
+Definition op_consts_def:
   (op_consts And = Const (~0w)) ∧
-  (op_consts _ = Const 0w)`
+  (op_consts _ = Const 0w)
+End
 
 Theorem op_consts_pmatch:
   !op.
@@ -70,7 +75,7 @@ Proof
   >> fs[op_consts_def]
 QED
 
-val optimize_consts_def = Define`
+Definition optimize_consts_def:
   optimize_consts op ls =
   let (const_ls,nconst_ls) = PARTITION is_const ls in
     dtcase const_ls of
@@ -79,7 +84,8 @@ val optimize_consts_def = Define`
       let w = THE (word_op op (MAP rm_const const_ls)) in
       dtcase nconst_ls of
         [] => Const w
-      | _ => Op op (Const w::nconst_ls)`
+      | _ => Op op (Const w::nconst_ls)
+End
 
 val pull_exp_def = tDefine "pull_exp"`
   (pull_exp (Op Sub ls) =
@@ -336,7 +342,7 @@ EVAL ``(pull_exp (Op And [Const (99w:64 word); Op Add [Op Add [];Op Or []]]))``
 *)
 
 (*Flattens all expressions in program, temp must a fresh var*)
-val inst_select_def = Define`
+Definition inst_select_def:
   (inst_select c temp (Assign v exp) =
     (inst_select_exp c v temp o flatten_exp o pull_exp) exp) ∧
   (inst_select c temp (Set store exp) =
@@ -395,7 +401,8 @@ val inst_select_def = Define`
         NONE => NONE
       | SOME (n,h,l1,l2) => SOME (n,inst_select c temp h,l1,l2) in
     Call retsel dest args handlersel) ∧
-  (inst_select c temp prog = prog)`
+  (inst_select c temp prog = prog)
+End
 
 Theorem inst_select_pmatch:
   !c temp prog.
@@ -471,7 +478,7 @@ QED
 (*
   Convert all 3 register instructions to 2 register instructions
 *)
-val three_to_two_reg_def = Define`
+Definition three_to_two_reg_def:
   (three_to_two_reg (Inst (Arith (Binop bop r1 r2 ri))) =
     Seq (Move 0 [r1,r2]) (Inst (Arith (Binop bop r1 r1 ri)))) ∧
   (three_to_two_reg (Inst (Arith (Shift l r1 r2 n))) =
@@ -501,7 +508,8 @@ val three_to_two_reg_def = Define`
         NONE => NONE
       | SOME (n,h,l1,l2) => SOME (n,three_to_two_reg h,l1,l2) in
     Call retsel dest args handlersel) ∧
-  (three_to_two_reg prog = prog)`
+  (three_to_two_reg prog = prog)
+End
 
 Theorem three_to_two_reg_pmatch:
   !prog.

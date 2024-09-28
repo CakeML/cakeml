@@ -474,8 +474,9 @@ val drop_pre_length_thm = Q.prove(
 );
 
 (*
-val ARRAY_TYPE_def = Define`
-  ARRAY_TYPE A a av = SEP_EXISTS vs. ARRAY av vs * & LIST_REL A a vs`;
+Definition ARRAY_TYPE_def:
+  ARRAY_TYPE A a av = SEP_EXISTS vs. ARRAY av vs * & LIST_REL A a vs
+End
 *)
 
 Theorem array_modify_aux_spec:

@@ -40,7 +40,7 @@ val _ = trans "-" ``word_sub:word64->word64->word64``;
 
 (* shifts *)
 
-val var_word_lsl_def = Define `
+Definition var_word_lsl_def:
   var_word_lsl (w:word64) (n:num) = if 64 < n then 0w
     else if n < 8 then
     if n < 4 then
@@ -49,7 +49,8 @@ val var_word_lsl_def = Define `
       else w << 3
     else if n < 6 then if n < 5 then w << 4 else w << 5
     else if n < 7 then w << 6
-    else w << 7 else var_word_lsl (w << 8) (n − 8)`
+    else w << 7 else var_word_lsl (w << 8) (n − 8)
+End
 
 Theorem var_word_lsl_thm[simp]:
    var_word_lsl w n = word_lsl w n
@@ -60,7 +61,7 @@ Proof
   \\ ntac 9 (once_rewrite_tac [var_word_lsl_def] \\ fs [])
 QED
 
-val var_word_lsr_def = Define `
+Definition var_word_lsr_def:
   var_word_lsr (w:word64) (n:num) = if 64 < n then 0w
     else if n < 8 then
     if n < 4 then
@@ -69,7 +70,8 @@ val var_word_lsr_def = Define `
       else w >>> 3
     else if n < 6 then if n < 5 then w >>> 4 else w >>> 5
     else if n < 7 then w >>> 6
-    else w >>> 7 else var_word_lsr (w >>> 8) (n − 8)`
+    else w >>> 7 else var_word_lsr (w >>> 8) (n − 8)
+End
 
 Theorem var_word_lsr_thm[simp]:
    var_word_lsr w n = word_lsr w n
@@ -80,7 +82,7 @@ Proof
   \\ ntac 9 (once_rewrite_tac [var_word_lsr_def] \\ fs [])
 QED
 
-val var_word_asr_def = Define `
+Definition var_word_asr_def:
   var_word_asr (w:word64) (n:num) = if 64 < n then w >> 64
     else if n < 8 then
     if n < 4 then
@@ -89,7 +91,8 @@ val var_word_asr_def = Define `
       else w >> 3
     else if n < 6 then if n < 5 then w >> 4 else w >> 5
     else if n < 7 then w >> 6
-    else w >> 7 else var_word_asr (w >> 8) (n − 8)`
+    else w >> 7 else var_word_asr (w >> 8) (n − 8)
+End
 
 Theorem var_word_asr_thm[simp]:
    var_word_asr w n = word_asr w n
@@ -109,9 +112,10 @@ val _ = translate var_word_lsr_def;
 val _ = (next_ml_names := ["~>>"]);
 val _ = translate var_word_asr_def;
 
-val concat_all_def = Define `
+Definition concat_all_def:
   concat_all (a:word8) b c d e f g h =
-    concat_word_list [a;b;c;d;e;f;g;h]:64 word`
+    concat_word_list [a;b;c;d;e;f;g;h]:64 word
+End
 
 val concat_all_impl =
   REWRITE_RULE [concat_word_list_def, dimindex_8, ZERO_SHIFT, WORD_OR_CLAUSES] concat_all_def;

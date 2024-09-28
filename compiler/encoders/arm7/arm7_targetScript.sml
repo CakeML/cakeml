@@ -10,7 +10,9 @@ val () = wordsLib.guess_lengths ();
 
 (* --- The next-state function --- *)
 
-val arm7_next_def = Define `arm7_next = THE o NextStateARM`;
+Definition arm7_next_def:
+  arm7_next = THE o NextStateARM
+End
 
 (* --- Valid ARMv7 states --- *)
 
@@ -21,7 +23,7 @@ val arm7_next_def = Define `arm7_next = THE o NextStateARM`;
 *)
 
 
-val arm7_ok_def = Define`
+Definition arm7_ok_def:
    arm7_ok ms <=>
    GoodMode ms.CPSR.M /\ ~ms.CPSR.E /\ ~ms.CPSR.J /\ ~ms.CPSR.T /\
    (ms.FP.FPSCR.RMode = 0w) /\ (* Rounding mode is TiesToEven *)
@@ -31,7 +33,8 @@ val arm7_ok_def = Define`
   (* TODO: Potentially change to ARMv7_A *)
    (ms.Architecture = ARMv7_R) /\ ~ms.Extensions Extension_Security /\
    (ms.VFPExtension = VFPv4) /\ (ms.exception = NoException) /\
-   aligned 2 (ms.REG RName_PC)`
+   aligned 2 (ms.REG RName_PC)
+End
 
 (* --- Encode ASM instructions to ARM bytes. --- *)
 
@@ -44,32 +47,36 @@ val () = List.app Parse.temp_overload_on
 val arm7_encode_fail_def = zDefine`
   arm7_encode_fail = [0w; 0w; 0w; 0w] : word8 list`
 
-val arm7_encode1_def = Define`
+Definition arm7_encode1_def:
   arm7_encode1 c i =
   case arm$encode (c, i) of
      ARM w =>
        [(7 >< 0) w; (15 >< 8) w; (23 >< 16) w; (31 >< 24) w] : word8 list
-   | _ => arm7_encode_fail`
+   | _ => arm7_encode_fail
+End
 
-val arm7_encode_def = Define`
-   arm7_encode = combin$C LIST_BIND (UNCURRY arm7_encode1)`
+Definition arm7_encode_def:
+   arm7_encode = combin$C LIST_BIND (UNCURRY arm7_encode1)
+End
 
 Overload enc[local] = ``arm7_encode1 AL``
 
-val arm7_bop_def = Define`
+Definition arm7_bop_def:
    (arm7_bop Add = 0b0100w: word4) /\
    (arm7_bop Sub = 0b0010w) /\
    (arm7_bop And = 0b0000w) /\
    (arm7_bop Or  = 0b1100w) /\
-   (arm7_bop Xor = 0b0001w)`
+   (arm7_bop Xor = 0b0001w)
+End
 
-val arm7_sh_def = Define`
+Definition arm7_sh_def:
    (arm7_sh Lsl = SRType_LSL) /\
    (arm7_sh Lsr = SRType_LSR) /\
    (arm7_sh Asr = SRType_ASR) /\
-   (arm7_sh Ror = SRType_ROR)`
+   (arm7_sh Ror = SRType_ROR)
+End
 
-val arm7_cmp_def = Define`
+Definition arm7_cmp_def:
    (arm7_cmp Less     = (2w, 0b1011w) : word2 # word4) /\
    (arm7_cmp Lower    = (2w, 0b0011w)) /\
    (arm7_cmp Equal    = (2w, 0b0000w)) /\
@@ -77,9 +84,10 @@ val arm7_cmp_def = Define`
    (arm7_cmp NotLess  = (2w, 0b1010w)) /\
    (arm7_cmp NotLower = (2w, 0b0010w)) /\
    (arm7_cmp NotEqual = (2w, 0b0001w)) /\
-   (arm7_cmp NotTest  = (0w, 0b0001w))`
+   (arm7_cmp NotTest  = (0w, 0b0001w))
+End
 
-val arm7_vfp_cmp_def = Define`
+Definition arm7_vfp_cmp_def:
   arm7_vfp_cmp c n d1 d2 =
   arm7_encode
     [(AL, VFP (vcmp (T, n2w d1, SOME (n2w d2))));
@@ -87,9 +95,10 @@ val arm7_vfp_cmp_def = Define`
      (AL, Data (Move (F, F, n2w n, 0w)));
      (c,  Data (Move (F, F, n2w n, 1w)));
      (VS, Data (Move (F, F, n2w n, 0w))) (* unordered (d1 or d2 is a NaN) *)
-    ]`
+    ]
+End
 
-val arm7_enc_def = Define`
+Definition arm7_enc_def:
    (arm7_enc (Inst Skip) =
       (* >= ARMv6T2 has dedicated NOP but using MOV r0, r0 instead. *)
       enc (Data (ShiftImmediate (F, F, 0w, 0w, SRType_LSL, 0)))) /\
@@ -233,7 +242,8 @@ val arm7_enc_def = Define`
             [(15w, (12w : word4) @@ imm32b1);
              (n2w r, imm32b0)]
           else
-            [(15w, imm32b0)]))`
+            [(15w, imm32b0)]))
+End
 
 (* --- Configuration for ARMv7 --- *)
 
@@ -243,10 +253,11 @@ val max12 = eval ``w2w (UINT_MAXw: word12) : word32``
 val min26 = eval ``sw2sw (INT_MINw: 26 word) : word32``
 val max26 = eval ``sw2sw (INT_MAXw: 26 word) : word32``
 
-val valid_immediate_def = Define`
-   valid_immediate = IS_SOME o EncodeARMImmediate`
+Definition valid_immediate_def:
+   valid_immediate = IS_SOME o EncodeARMImmediate
+End
 
-val arm7_config_def = Define`
+Definition arm7_config_def:
    arm7_config =
    <| ISA := ARMv7
     ; encode := arm7_enc
@@ -263,14 +274,16 @@ val arm7_config_def = Define`
     ; jump_offset := (^min26 + 8w, ^max26 + 8w)
     ; cjump_offset := (^min26 + 12w, ^max26 + 12w)
     ; loc_offset := (INT_MINw, INT_MAXw)
-    |>`
+    |>
+End
 
-val arm7_proj_def = Define`
+Definition arm7_proj_def:
    arm7_proj d s =
    (s.CPSR, s.FP.FPSCR, s.Architecture, s.Extensions, s.VFPExtension,
-    s.exception, s.REG o R_mode s.CPSR.M, s.FP.REG, fun2set (s.MEM,d))`
+    s.exception, s.REG o R_mode s.CPSR.M, s.FP.REG, fun2set (s.MEM,d))
+End
 
-val arm7_target_def = Define`
+Definition arm7_target_def:
    arm7_target =
    <| next := arm7_next
     ; config := arm7_config
@@ -280,7 +293,8 @@ val arm7_target_def = Define`
     ; get_byte := arm_state_MEM
     ; state_ok := arm7_ok
     ; proj := arm7_proj
-    |>`
+    |>
+End
 
 val (arm7_config, arm7_asm_ok) = asmLib.target_asm_rwts [] ``arm7_config``
 

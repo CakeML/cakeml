@@ -50,22 +50,25 @@ val if_length_lemma = Q.prove(`TAKE (if LENGTH r <= 1 then 1 else LENGTH r) r = 
     lcs l1 l2 l3
    is true iff l1 is the longest common subsequence of l2 and l3. *)
 
-val is_subsequence_def =
-Define `(is_subsequence [] l = T) ∧
+Definition is_subsequence_def:
+  (is_subsequence [] l = T) ∧
 (is_subsequence (f::r) l =
  case l of
     | [] => F
     | f'::r' =>
-      (((f = f') /\ is_subsequence r r') \/ is_subsequence (f::r) r'))`
+      (((f = f') /\ is_subsequence r r') \/ is_subsequence (f::r) r'))
+End
 
-val common_subsequence_def =
-Define `common_subsequence s t u =
-         (is_subsequence s t ∧ is_subsequence s u)`
+Definition common_subsequence_def:
+  common_subsequence s t u =
+         (is_subsequence s t ∧ is_subsequence s u)
+End
 
-val lcs_def =
-Define `lcs s t u =
+Definition lcs_def:
+  lcs s t u =
          (common_subsequence s t u ∧
-          (∀s'. common_subsequence s' t u ⇒ LENGTH s' <= LENGTH s))`
+          (∀s'. common_subsequence s' t u ⇒ LENGTH s' <= LENGTH s))
+End
 
 (* Properties of lcs and its auxiliary functions *)
 
@@ -566,18 +569,19 @@ QED
 
 (* A naive, exponential-time LCS algorithm that's easy to verify *)
 
-val longest_def =
-Define `longest l l' = if LENGTH l >= LENGTH l' then l else l'`
+Definition longest_def:
+  longest l l' = if LENGTH l >= LENGTH l' then l else l'
+End
 
-val naive_lcs_def =
-Define
-`(naive_lcs l [] = []) ∧
+Definition naive_lcs_def:
+  (naive_lcs l [] = []) ∧
 (naive_lcs [] l = []) ∧
 (naive_lcs (f::r) (f'::r') =
  if f = f' then
    f::naive_lcs r r'
  else
-   longest(naive_lcs (f::r) r') (naive_lcs r (f'::r')))`
+   longest(naive_lcs (f::r) r') (naive_lcs r (f'::r')))
+End
 
 (* Properties of the naive lcs algorithm *)
 
@@ -671,14 +675,15 @@ QED
 
 (* A quadratic-time LCS algorithm in dynamic programming style *)
 
-val longest'_def =
-Define `longest' (l,n) (l',n') = if n:num >= n' then (l,n) else (l',n')`
+Definition longest'_def:
+  longest' (l,n) (l',n') = if n:num >= n' then (l,n) else (l',n')
+End
 
 val longest'_thm = Q.prove(
   `!l l'. longest' l l' = if SND l >= SND l' then l else l'`,
   Cases >> Cases >> fs[longest'_def]);
 
-val dynamic_lcs_row_def = Define `
+Definition dynamic_lcs_row_def:
    (dynamic_lcs_row h [] previous_col previous_row ddl = [])
 ∧ (dynamic_lcs_row h (f::r) previous_col previous_row (diagonal,dl) =
     if f = h then
@@ -687,24 +692,27 @@ val dynamic_lcs_row_def = Define `
     else
       (let current = longest' (HD previous_row) previous_col in
         current::dynamic_lcs_row h r current (TL previous_row) (HD previous_row))
-   )`;
+   )
+End
 
-val dynamic_lcs_rows_def = Define `
+Definition dynamic_lcs_rows_def:
   (dynamic_lcs_rows [] r previous_row =
    if previous_row = [] then [] else FST(LAST previous_row)) ∧
   (dynamic_lcs_rows (h::l) r previous_row =
    dynamic_lcs_rows l r (dynamic_lcs_row h r ([],0) previous_row ([],0)))
-`;
+End
 
-val dynamic_lcs_def = Define `
-  dynamic_lcs l r = REVERSE(dynamic_lcs_rows l r (REPLICATE (LENGTH r) ([],0)))`;
+Definition dynamic_lcs_def:
+  dynamic_lcs l r = REVERSE(dynamic_lcs_rows l r (REPLICATE (LENGTH r) ([],0)))
+End
 
-val dynamic_lcs_no_rev_def = Define `
-  dynamic_lcs_no_rev l r = dynamic_lcs_rows l r (REPLICATE (LENGTH r) ([],0))`;
+Definition dynamic_lcs_no_rev_def:
+  dynamic_lcs_no_rev l r = dynamic_lcs_rows l r (REPLICATE (LENGTH r) ([],0))
+End
 
 (* Verification of dynamic LCS algorithm *)
 
-val dynamic_lcs_row_invariant_def = Define `
+Definition dynamic_lcs_row_invariant_def:
   dynamic_lcs_row_invariant h r previous_col previous_row diagonal prevh fullr =
   ((LENGTH r = LENGTH previous_row) ∧ (IS_SUFFIX fullr r) ∧
   (SND previous_col = LENGTH(FST previous_col)) ∧
@@ -712,13 +720,15 @@ val dynamic_lcs_row_invariant_def = Define `
   (!n. 0 <= n /\ n < LENGTH previous_row ==> (lcs (REVERSE(FST((EL n previous_row)))) prevh (TAKE (SUC n + (LENGTH fullr - LENGTH r)) fullr))) ∧
   (!n. 0 <= n /\ n < LENGTH previous_row ==> (SND(EL n previous_row) = LENGTH(FST(EL n previous_row)))) ∧
    (lcs (REVERSE(FST diagonal)) prevh (TAKE (LENGTH fullr - LENGTH r) fullr)) ∧
-   (lcs (REVERSE(FST previous_col)) (SNOC h prevh) (TAKE (LENGTH fullr - LENGTH r) fullr)))`;
+   (lcs (REVERSE(FST previous_col)) (SNOC h prevh) (TAKE (LENGTH fullr - LENGTH r) fullr)))
+End
 
-val dynamic_lcs_rows_invariant_def = Define `
+Definition dynamic_lcs_rows_invariant_def:
   dynamic_lcs_rows_invariant h r previous_row fullh =
   ((LENGTH r = LENGTH previous_row) ∧ (IS_SUFFIX fullh h) ∧
   (!n. 0 <= n /\ n < LENGTH previous_row ==> (lcs (REVERSE(FST(EL n previous_row))) (TAKE (LENGTH fullh - LENGTH h) fullh) (TAKE (SUC n) r))) ∧
-  (!n. 0 <= n /\ n < LENGTH previous_row ==> (SND(EL n previous_row) = LENGTH(FST(EL n previous_row)))))`;
+  (!n. 0 <= n /\ n < LENGTH previous_row ==> (SND(EL n previous_row) = LENGTH(FST(EL n previous_row)))))
+End
 
 Theorem dynamic_lcs_row_invariant_pres1:
     dynamic_lcs_row_invariant h (h::r) previous_col previous_row (diagonal,dl) prevh fullr
@@ -1028,11 +1038,12 @@ QED
 (* Further optimisation of the dynamic LCS algorithm: prune common
    prefixes and suffixes as a preprocessing step *)
 
-val longest_common_prefix_def = Define `
+Definition longest_common_prefix_def:
   (longest_common_prefix [] l = []) /\
   (longest_common_prefix l [] = []) /\
   (longest_common_prefix (f::r) (f'::r') =
-    if f = f' then f::longest_common_prefix r r' else [])`
+    if f = f' then f::longest_common_prefix r r' else [])
+End
 
 Theorem longest_common_prefix_clauses:
     (longest_common_prefix [] l = []) /\
@@ -1043,7 +1054,7 @@ Proof
   Cases_on `l` >> fs[longest_common_prefix_def]
 QED
 
-val optimised_lcs_def = Define `
+Definition optimised_lcs_def:
   optimised_lcs l r =
     let prefix = longest_common_prefix l r in
       let len = LENGTH prefix in
@@ -1053,11 +1064,12 @@ val optimised_lcs_def = Define `
               let len = LENGTH suffix in
                 let l = DROP len l in
                   let r = DROP len r in
-                    prefix++dynamic_lcs_no_rev l r++REVERSE suffix`;
+                    prefix++dynamic_lcs_no_rev l r++REVERSE suffix
+End
 
 (* Verification of optimised LCS *)
 
-val longest_common_suffix_def = Define `
+Definition longest_common_suffix_def:
   (longest_common_suffix [] l = []) /\
   (longest_common_suffix l [] = []) /\
   (longest_common_suffix (f::r) (f'::r') =
@@ -1068,7 +1080,8 @@ val longest_common_suffix_def = Define `
    else let l = longest_common_suffix r r' in
      if f = f' /\ LENGTH l = LENGTH r then
        f::l
-     else l)`
+     else l)
+End
 
 Theorem longest_common_suffix_clauses:
   !r r' f f'.
@@ -1106,13 +1119,14 @@ Proof
   >> rw[longest_common_suffix_def]
 QED
 
-val longest_common_suffix_length_def = Define `
+Definition longest_common_suffix_length_def:
   (longest_common_suffix_length [] [] n = n) /\
   (longest_common_suffix_length (f::r) (f'::r') n =
      if f = f' then
        longest_common_suffix_length r r' (SUC n)
      else
-       longest_common_suffix_length r r' 0)`
+       longest_common_suffix_length r r' 0)
+End
 
 Theorem longest_common_suffix_length_le_length:
    !l r. LENGTH(longest_common_suffix l r) <= LENGTH r

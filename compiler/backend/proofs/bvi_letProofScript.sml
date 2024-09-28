@@ -7,14 +7,16 @@ val _ = new_theory"bvi_letProof";
 
 val _ = bring_to_front_overload "compile" {Name = "compile", Thy = "bvi_let"}
 
-val v_rel_def = Define `
-  v_rel a x y xs ys <=> LLOOKUP ys a = SOME x`;
+Definition v_rel_def:
+  v_rel a x y xs ys <=> LLOOKUP ys a = SOME x
+End
 
-val env_rel_def = Define `
+Definition env_rel_def:
   (env_rel [] d e1 e2 = (e1 = DROP d e2)) /\
   (env_rel (a::rest) d (x::e1) (y::e2) <=>
      v_rel a x y (x::e1) (y::e2) /\ env_rel rest d e1 e2) /\
-  (env_rel _ _ _ _ = F)`
+  (env_rel _ _ _ _ = F)
+End
 
 Theorem env_rel_length:
    !ax env env2. env_rel ax d env env2 ==> LENGTH env <= LENGTH env2

@@ -70,13 +70,15 @@ val diff_alg2_side_def = Q.prove(`
   >> rw[longest_common_suffix_length_side]
   >> fs[mllistTheory.drop_def]) |> update_precondition;
 
-val notfound_string_def = Define`
-  notfound_string f = concat[strlit"cake_diff: ";f;strlit": No such file or directory\n"]`;
+Definition notfound_string_def:
+  notfound_string f = concat[strlit"cake_diff: ";f;strlit": No such file or directory\n"]
+End
 
 val r = translate notfound_string_def;
 
-val usage_string_def = Define`
-  usage_string = strlit"Usage: diff <file> <file>\n"`;
+Definition usage_string_def:
+  usage_string = strlit"Usage: diff <file> <file>\n"
+End
 
 val r = translate usage_string_def;
 
@@ -131,7 +133,7 @@ val _ = (append_prog o process_topdecs) `
         (f1::f2::[]) => diff' f1 f2
       | _ => TextIO.output TextIO.stdErr usage_string`;
 
-val diff_sem_def = Define`
+Definition diff_sem_def:
   diff_sem cl fs =
     if (LENGTH cl = 3) then
     if inFS_fname fs (EL 1 cl) then
@@ -143,7 +145,8 @@ val diff_sem_def = Define`
            (all_lines fs (EL 2 cl))))
     else add_stderr fs (notfound_string (EL 2 cl))
     else add_stderr fs (notfound_string (EL 1 cl))
-    else add_stderr fs usage_string`;
+    else add_stderr fs usage_string
+End
 
 Theorem diff_spec:
    hasFreeFD fs
@@ -198,7 +201,9 @@ QED
 
 val name = "diff"
 val (sem_thm,prog_tm) = whole_prog_thm st name (UNDISCH diff_whole_prog_spec)
-val diff_prog_def = Define`diff_prog = ^prog_tm`;
+Definition diff_prog_def:
+  diff_prog = ^prog_tm
+End
 
 val diff_semantics = save_thm("diff_semantics",
   sem_thm |> REWRITE_RULE[GSYM diff_prog_def]

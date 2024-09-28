@@ -32,9 +32,10 @@ Proof
   strip_assume_tac(SPEC_ALL remove_fvs_SING) \\ rw[]
 QED
 
-val code_rel_def = Define `
+Definition code_rel_def:
   code_rel fvs e1 e2 <=>
-    e2 = remove_fvs fvs e1`;
+    e2 = remove_fvs fvs e1
+End
 
 Theorem code_rel_IMP_LENGTH:
    !xs ys. code_rel fvs xs ys ==> LENGTH xs = LENGTH ys
@@ -51,9 +52,10 @@ QED
 
 (* value relation *)
 
-val f_rel_def = Define `
+Definition f_rel_def:
   f_rel fvs (a1, e1) (a2, e2) <=>
-     a1 = a2 /\ code_rel (a1+fvs) [e1] [e2]`;
+     a1 = a2 /\ code_rel (a1+fvs) [e1] [e2]
+End
 
 Inductive v_rel:
   (!i. v_rel (Number i) (Number i)) /\
@@ -97,7 +99,7 @@ Inductive ref_rel:
     ref_rel (ValueArray xs) (ValueArray ys))
 End
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel (s:('c, 'ffi) closSem$state) (t:('c, 'ffi) closSem$state) <=>
     (!n. SND (SND (s.compile_oracle n)) = []) /\
     s.code = FEMPTY /\ t.code = FEMPTY /\
@@ -107,7 +109,8 @@ val state_rel_def = Define `
     LIST_REL (OPTREL v_rel) s.globals t.globals /\
     fmap_rel ref_rel s.refs t.refs /\
     s.compile = pure_cc compile_inc t.compile /\
-    t.compile_oracle = pure_co compile_inc o s.compile_oracle`;
+    t.compile_oracle = pure_co compile_inc o s.compile_oracle
+End
 
 (* *)
 

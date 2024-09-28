@@ -57,9 +57,9 @@ Proof
   res_tac >> simp[]
 QED
 
-val subapprox_def = Define`
+Definition subapprox_def:
   subapprox a1 a2 ⇔ merge a1 a2 = a2
-`;
+End
 
 val _ = set_fixity "◁" (Infix(NONASSOC,450))
 Overload "◁" = ``subapprox``
@@ -133,10 +133,10 @@ Proof
   simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP] >> metis_tac[]
 QED
 
-val better_definedg_def = Define`
+Definition better_definedg_def:
   better_definedg g1 g2 ⇔
     ∀k. k ∈ domain g1 ⇒ k ∈ domain g2 ∧ THE (lookup k g1) ◁ THE (lookup k g2)
-`;
+End
 
 Theorem better_definedg_refl[simp]:
    better_definedg g g

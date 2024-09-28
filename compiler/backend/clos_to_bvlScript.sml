@@ -118,13 +118,15 @@ End
 
 (* / Constant flattening *)
 
-val num_added_globals_def = Define
-  `num_added_globals = 1n`;
+Definition num_added_globals_def:
+  num_added_globals = 1n
+End
 
-val partial_app_label_table_loc_def = Define
-  `partial_app_label_table_loc = 0n`;
+Definition partial_app_label_table_loc_def:
+  partial_app_label_table_loc = 0n
+End
 
-val compile_op_def = Define`
+Definition compile_op_def:
   compile_op (Cons tag) = (Cons (clos_tag_shift tag)) ∧
   compile_op (ConsExtend tag) = (ConsExtend (clos_tag_shift tag)) ∧
   compile_op (TagEq tag) = (TagEq (clos_tag_shift tag)) ∧
@@ -135,7 +137,8 @@ val compile_op_def = Define`
   compile_op (SetGlobal n) = SetGlobal (n + num_added_globals) ∧
   compile_op (Global n) = Global (n + num_added_globals) ∧
   compile_op (Constant c) = compile_const c ∧
-  compile_op x = x`
+  compile_op x = x
+End
 val _ = export_rewrites["compile_op_def"];
 
 Theorem compile_op_pmatch:
@@ -159,29 +162,35 @@ Proof
   >> fs[compile_op_def]
 QED
 
-val mk_const_def = Define `
-  mk_const n : bvl$exp = Op (Const (&n)) []`;
+Definition mk_const_def:
+  mk_const n : bvl$exp = Op (Const (&n)) []
+End
 
-val mk_label_def = Define `
-  mk_label n : bvl$exp = Op (Label n) []`;
+Definition mk_label_def:
+  mk_label n : bvl$exp = Op (Label n) []
+End
 
-val mk_el_def = Define `
-  mk_el b i : bvl$exp = Op El [i; b]`;
+Definition mk_el_def:
+  mk_el b i : bvl$exp = Op El [i; b]
+End
 
 val _ = export_rewrites ["mk_const_def", "mk_label_def", "mk_el_def"];
 
-val free_let_def = Define `
-  free_let cl n = (GENLIST (\n. mk_el cl (mk_const (n+2))) n)`;
+Definition free_let_def:
+  free_let cl n = (GENLIST (\n. mk_el cl (mk_const (n+2))) n)
+End
 
-val code_for_recc_case_def = Define `
+Definition code_for_recc_case_def:
   code_for_recc_case n num_args (c:bvl$exp) =
     (num_args + 1,
      Let [mk_el (Var num_args) (mk_const 2)]
-      (Let (GENLIST (\a. Var (a + 1)) num_args ++ GENLIST (\i. Op El [mk_const i; Var 0]) n) c))`;
+      (Let (GENLIST (\a. Var (a + 1)) num_args ++ GENLIST (\i. Op El [mk_const i; Var 0]) n) c))
+End
 
-val build_aux_def = Define `
+Definition build_aux_def:
   (build_aux i [] aux = (i:num,aux)) /\
-  (build_aux i ((x:num#bvl$exp)::xs) aux = build_aux (i+2) xs ((i,x) :: aux))`;
+  (build_aux i ((x:num#bvl$exp)::xs) aux = build_aux (i+2) xs ((i,x) :: aux))
+End
 
 Theorem build_aux_LENGTH:
    !l n aux n1 t.
@@ -230,58 +239,67 @@ Proof
   Induct \\ fs [build_aux_def,LET_DEF]
 QED
 
-val recc_Let_def = Define `
+Definition recc_Let_def:
   recc_Let n num_args i =
     Let [mk_el (Var 0) (mk_const 2)]
      (Let [Op (Cons closure_tag) [Var 0; mk_const (num_args-1); mk_label n]]
        (Let [Op Update [Var 0; mk_const i; Var 1]]
-         (Var 1 : bvl$exp)))`;
+         (Var 1 : bvl$exp)))
+End
 
-val recc_Lets_def = Define `
+Definition recc_Lets_def:
   recc_Lets n nargs k rest =
     if k = 0:num then rest else
       let k = k - 1 in
-        Let [recc_Let (n + 2*k) (HD nargs) k] (recc_Lets n (TL nargs) k rest)`;
+        Let [recc_Let (n + 2*k) (HD nargs) k] (recc_Lets n (TL nargs) k rest)
+End
 
-val recc_Let0_def = Define `
+Definition recc_Let0_def:
   recc_Let0 n num_args i =
     Let [Op (Cons closure_tag) [Var 0; mk_const (num_args-1); mk_label n]]
-      (Let [Op Update [Var 0; mk_const i; Var 1]] (Var 1 : bvl$exp))`;
+      (Let [Op Update [Var 0; mk_const i; Var 1]] (Var 1 : bvl$exp))
+End
 
-val build_recc_lets_def = Define `
+Definition build_recc_lets_def:
   build_recc_lets (nargs:num list) vs n1 fns_l (c3:bvl$exp) =
     Let [Let [Op Ref (REVERSE (MAP (K (mk_const 0)) nargs ++ MAP Var vs))]
            (recc_Let0 (n1 + (2 * (fns_l - 1))) (HD (REVERSE nargs)) (fns_l - 1))]
-      (recc_Lets n1 (TL (REVERSE nargs)) (fns_l - 1) c3)`;
+      (recc_Lets n1 (TL (REVERSE nargs)) (fns_l - 1) c3)
+End
 
-val num_stubs_def = Define `
+Definition num_stubs_def:
   num_stubs max_app =
     (* generic apps *)         max_app
     (* partial apps *)       + max_app * (max_app - 1) DIV 2
-    + 1 (* code to install a jump table in global 0 *) `;
+    + 1 (* code to install a jump table in global 0 *)
+End
 
-val generic_app_fn_location_def = Define `
-  generic_app_fn_location n = n`;
+Definition generic_app_fn_location_def:
+  generic_app_fn_location n = n
+End
 
-val partial_app_fn_location_def = Define `
+Definition partial_app_fn_location_def:
   partial_app_fn_location (max_app:num) tot prev =
-    max_app + tot * (tot - 1) DIV 2 + prev`;
+    max_app + tot * (tot - 1) DIV 2 + prev
+End
 
-val partial_app_fn_location_code_def = Define `
+Definition partial_app_fn_location_code_def:
   partial_app_fn_location_code max_app tot_exp prev_exp : bvl$exp =
     Let [tot_exp]
      (Op Add [prev_exp;
         Op Div [mk_const 2;
-          Op Mult [Var 0; Op Sub [mk_const 1; Var 0]]]])`;
+          Op Mult [Var 0; Op Sub [mk_const 1; Var 0]]]])
+End
 
-val mk_cl_call_def = Define `
+Definition mk_cl_call_def:
   mk_cl_call cl args =
     If (Op Equal [mk_const (LENGTH args - 1); mk_el cl (mk_const 1)])
        (Call (LENGTH args - 1) NONE (args ++ [cl] ++ [mk_el cl (mk_const 0)]))
-       (Call 0 (SOME (generic_app_fn_location (LENGTH args - 1))) (args ++ [cl]))`;
+       (Call 0 (SOME (generic_app_fn_location (LENGTH args - 1))) (args ++ [cl]))
+End
 
 (* Generic application of a function to n+1 arguments *)
-val generate_generic_app_def = Define `
+Definition generate_generic_app_def:
   generate_generic_app max_app n =
     Let [Op Sub [mk_const (n+1); mk_el (Var (n+1)) (mk_const 1)]] (* The number of arguments remaining - 1 *)
         (If (Op Less [mk_const 0; Var 0])
@@ -324,14 +342,15 @@ val generate_generic_app_def = Define `
                            (Op Add [Var 1; mk_const n])) ::
                        Var 1 ::
                        mk_el (Var (n+3)) (mk_const 2) ::
-                       GENLIST (\this_arg. Var (this_arg + 2)) (n + 1))))))))`;
+                       GENLIST (\this_arg. Var (this_arg + 2)) (n + 1))))))))
+End
 
 (* The functions to complete the application of a partial closure.
  * We expect prev_args < total_args, also the function should take one more
  * argument than total, and have seen one more than prev (since there is
  * possiblity for a 0 argument function, or a partial application wrapper that
  * has seen no arguments yet. *)
-val generate_partial_app_closure_fn_def = Define `
+Definition generate_partial_app_closure_fn_def:
   generate_partial_app_closure_fn total_args prev_args =
     Let [mk_el (Var (total_args - prev_args)) (mk_const 2)]
       (Call 0
@@ -340,14 +359,16 @@ val generate_partial_app_closure_fn_def = Define `
          GENLIST (\prev_arg.
            mk_el (Var (total_args - prev_args + 1)) (mk_const (prev_arg + 3))) (prev_args + 1) ++
          [Var 0] ++
-         [mk_el (Var 0) (mk_const 0)]))`;
+         [mk_el (Var 0) (mk_const 0)]))
+End
 
-val check_closure_def = Define`
+Definition check_closure_def:
   check_closure v e =
     If (Op (TagEq closure_tag) [Var v]) (Bool T)
-      (If (Op (TagEq partial_app_tag) [Var v]) (Bool T) e)`;
+      (If (Op (TagEq partial_app_tag) [Var v]) (Bool T) e)
+End
 
-val init_code_def = Define `
+Definition init_code_def:
   init_code max_app =
     sptree$fromList
       (GENLIST (\n. (n + 2, generate_generic_app max_app n)) max_app ++
@@ -357,9 +378,10 @@ val init_code_def = Define `
              GENLIST
                (\prev. (tot - prev + 1, generate_partial_app_closure_fn tot prev))
                tot)
-           max_app))`;
+           max_app))
+End
 
-val init_globals_def = Define `
+Definition init_globals_def:
   init_globals max_app start_loc =
     Let [Op AllocGlobal [Op (Const 1) []]]
     (Let
@@ -373,7 +395,8 @@ val init_globals_def = Define `
                   tot)
               max_app)))]]
       (* Expect the real start of the program in code location 3 *)
-      (Call 0 (SOME start_loc) []))`;
+      (Call 0 (SOME start_loc) []))
+End
 
 val compile_exps_def = tDefine "compile_exps" `
   (compile_exps max_app [] aux = ([],aux)) /\
@@ -571,11 +594,12 @@ Proof
   PairCases_on `h` >> gvs[] >> rpt (pairarg_tac >> gvs[])
 QED
 
-val compile_prog_def = Define`
+Definition compile_prog_def:
   compile_prog max_app prog =
     let (new_exps, aux) = compile_exps max_app (MAP (SND o SND) prog) [] in
       MAP2 (λ(loc,args,_) exp. (loc + num_stubs max_app, args, exp))
-        prog new_exps ++ aux`;
+        prog new_exps ++ aux
+End
 
 Theorem compile_prog_eq = compile_prog_def |> SRULE [compile_exp_sing_eq];
 
@@ -660,7 +684,7 @@ val _ = Datatype`
             ; max_app : num
             |>`;
 
-val default_config_def = Define`
+Definition default_config_def:
   default_config = <|
     next_loc := 0;
     start := 1;
@@ -668,11 +692,13 @@ val default_config_def = Define`
     known_conf := SOME (clos_known$default_config 10);
     do_call := T;
     call_state := (LN,[]);
-    max_app := 10 |>`;
+    max_app := 10 |>
+End
 
-val code_split_def = Define `
+Definition code_split_def:
   (code_split [] xs ys = (xs,ys)) /\
-  (code_split (z::zs) xs ys = code_split zs (z::ys) xs)`;
+  (code_split (z::zs) xs ys = code_split zs (z::ys) xs)
+End
 
 val code_merge_def = tDefine "code_merge" `
   code_merge xs ys =
@@ -714,15 +740,16 @@ val code_sort_def = tDefine "code_sort" `
   \\ drule code_split_NULL \\ fs [] \\ full_simp_tac std_ss [GSYM LENGTH_NIL] >>
   decide_tac);
 
-val chain_exps = Define `
+Definition chain_exps_def:
   (chain_exps i [] = [(i, 0n, Op None (Const 0) [])]) ∧
   (chain_exps i [e] = [(i, 0n, e)]) ∧
   (chain_exps i (e::es) =
     (i, 0,
-     closLang$Let None [e] (closLang$Call None 0 (i + 1n) [])) :: chain_exps (i + 1) es)`;
+     closLang$Let None [e] (closLang$Call None 0 (i + 1n) [])) :: chain_exps (i + 1) es)
+End
 
 (* c.max_app must be the same each time this is called *)
-val compile_common_def = Define `
+Definition compile_common_def:
   compile_common c es =
     let es = clos_mti$compile c.do_mti c.max_app es in
     (* Add space for functions to call the expressions *)
@@ -736,7 +763,8 @@ val compile_common_def = Define `
     let prog = clos_annotate$compile prog in
       (c with <| start := c.next_loc; next_loc := n; known_conf := kc;
                  call_state := (g,aux) |>,
-       prog)`;
+       prog)
+End
 
 Definition add_src_names_def:
   add_src_names n [] l = l ∧
@@ -834,7 +862,7 @@ End
 Theorem make_name_alist_eq =
   make_name_alist_def |> SRULE [get_src_names_sing_eq];
 
-val compile_def = Define `
+Definition compile_def:
   compile c0 es =
     let (c, prog) = compile_common c0 es in
     let init_stubs = toAList (init_code c.max_app) in
@@ -844,14 +872,16 @@ val compile_def = Define `
     let func_names = make_name_alist (MAP FST prog') prog (num_stubs c.max_app)
                        c0.next_loc (LENGTH es) in
     let c = c with start := num_stubs c.max_app - 1 in
-      (c, code_sort prog', func_names)`;
+      (c, code_sort prog', func_names)
+End
 
-val extract_name_def = Define `
+Definition extract_name_def:
   extract_name [] = (0,[]) /\
   extract_name (x :: xs) =
     dtcase (some n. ?t. x = Op t (Const (& n)) []) of
     | NONE => (0,x::xs)
-    | SOME n => (n, if xs = [] then [x] else xs)`;
+    | SOME n => (n, if xs = [] then [x] else xs)
+End
 
 Theorem extract_name_pmatch:
   extract_name xs =
@@ -870,14 +900,15 @@ Proof
   \\ Cases_on ‘i’ \\ fs []
 QED
 
-val compile_inc_def = Define `
+Definition compile_inc_def:
   compile_inc max_app (es,prog) =
     let (n,real_es) = extract_name es in
         clos_to_bvl$compile_prog max_app
           (clos_to_bvl$chain_exps n real_es ++ prog)
-    : (num, num # exp) alist`;
+    : (num, num # exp) alist
+End
 
-val clos_to_bvl_compile_inc_def = Define`
+Definition clos_to_bvl_compile_inc_def:
   clos_to_bvl_compile_inc c p =
     let p = clos_mti$cond_mti_compile_inc c.do_mti c.max_app p in
     let (n, p) = ignore_table clos_number$compile_inc c.next_loc p in
@@ -889,6 +920,7 @@ val clos_to_bvl_compile_inc_def = Define`
     let c = c with <| call_state := (c', []) |> in
     let p = clos_annotate$compile_inc p in
     let p = clos_to_bvl$compile_inc c.max_app p in
-      (c, p)`;
+      (c, p)
+End
 
 val _ = export_theory()

@@ -410,11 +410,12 @@ val evaluate_partial_app_fn_location_code = Q.prove (
   rw [integerTheory.INT_ADD, integerTheory.INT_MUL, integerTheory.INT_DIV,
       integerTheory.INT_SUB]);
 
-val global_table_def = Define `
+Definition global_table_def:
   global_table max_app =
     Block tuple_tag
       (FLAT (GENLIST (\tot. GENLIST
-        (\prev. CodePtr (partial_app_fn_location max_app tot prev)) tot) max_app))`;
+        (\prev. CodePtr (partial_app_fn_location max_app tot prev)) tot) max_app))
+End
 
 val evaluate_generic_app1 = Q.prove (
   `!n args st total_args l fvs cl.
@@ -775,11 +776,12 @@ val evaluate_partial_app_fn = Q.prove (
 
 (* value relation *)
 
-val code_installed_def = Define `
+Definition code_installed_def:
   code_installed aux code =
-    EVERY (\(n,num_args,exp). lookup n code = SOME (num_args,exp)) aux`;
+    EVERY (\(n,num_args,exp). lookup n code = SOME (num_args,exp)) aux
+End
 
-val closure_code_installed_def = Define `
+Definition closure_code_installed_def:
   closure_code_installed max_app code exps_ps (env:closSem$v list) =
     EVERY (\((n,exp),p).
       n ≤ max_app ∧
@@ -787,7 +789,8 @@ val closure_code_installed_def = Define `
       ?aux c aux1.
         (compile_exps max_app [exp] aux = ([c],aux1)) /\
         (lookup p code = SOME (n+1,SND (code_for_recc_case (LENGTH env + LENGTH exps_ps) n c))) /\
-        code_installed aux1 code) exps_ps`
+        code_installed aux1 code) exps_ps
+End
 
 Inductive cl_rel:
   ( num_args ≤ max_app ∧
@@ -828,12 +831,13 @@ Inductive cl_rel:
      cl_rel max_app fs refs code (env,ys) (Recclosure (SOME loc) [] env exps k) (EL k rs))
 End
 
-val add_args_def = Define `
+Definition add_args_def:
   (add_args (Closure loc_opt args env num_args exp : closSem$v) args' =
     SOME (Closure loc_opt (args'++args) env num_args exp)) ∧
   (add_args (Recclosure loc_opt args env funs i : closSem$v) args' =
     SOME (Recclosure loc_opt (args'++args) env funs i)) ∧
-  (add_args _ _ = NONE)`;
+  (add_args _ _ = NONE)
+End
 
 val add_args_append = Q.prove (
   `add_args cl arg_env = SOME func
@@ -843,12 +847,13 @@ val add_args_append = Q.prove (
   srw_tac[][add_args_def] >>
   srw_tac[][add_args_def]);
 
-val get_num_args_def = Define `
+Definition get_num_args_def:
   (get_num_args (Closure loc_opt args env num_args exp : closSem$v) =
     SOME num_args) ∧
   (get_num_args (Recclosure loc_opt args env funs i : closSem$v) =
     SOME (FST (EL i funs))) ∧
-  (get_num_args _ = NONE)`;
+  (get_num_args _ = NONE)
+End
 
 Inductive v_rel:
   (v_rel max_app f refs code (Number n) (Number n))
@@ -942,12 +947,13 @@ val v_rel_SIMP = LIST_CONJ
    |> SIMP_CONV (srw_ss()) [v_rel_cases, cl_rel_F, add_args_F]]
   |> curry save_thm "v_rel_SIMP"
 
-val env_rel_def = Define `
+Definition env_rel_def:
   (env_rel max_app f refs code [] [] = T) /\
   (env_rel max_app f refs code [] ys = T) /\   (* bvl env allowed to contain extra stuff *)
   (env_rel max_app f refs code (x::xs) [] = F) /\
   (env_rel max_app f refs code (x::xs) (y::ys) <=>
-     v_rel max_app f refs code x y /\ env_rel max_app f refs code xs ys)`;
+     v_rel max_app f refs code x y /\ env_rel max_app f refs code xs ys)
+End
 
 val env_rel_APPEND = Q.prove(
   `!xs1 xs2.
@@ -982,27 +988,30 @@ val env_rel_IMP_EL =
   |> CONJUNCT2 |> DISCH_ALL |> GEN_ALL;
 
 (*
-val extract_name_def = Define `
+Definition extract_name_def:
   extract_name [] = (0,[]) /\
   extract_name (x :: xs) =
     case (some n. ?t. x = Op t (Const (& n)) []) of
     | NONE => (0,x::xs)
-    | SOME n => (n, if xs = [] then [x] else xs)`;
+    | SOME n => (n, if xs = [] then [x] else xs)
+End
 
-val compile_inc_def = Define `
+Definition compile_inc_def:
   compile_inc max_app (es,prog) =
     let (n,real_es) = extract_name es in
         clos_to_bvl$compile_prog max_app
           (clos_to_bvl$chain_exps n real_es ++ prog)
-    : (num, num # exp) alist`;
+    : (num, num # exp) alist
+End
 *)
 
-val nth_code_def = Define `
+Definition nth_code_def:
   nth_code t_co 0 = LN /\
   nth_code t_co (SUC n) =
-    union (fromAList (SND (t_co 0))) (nth_code (shift_seq 1 t_co) n)`
+    union (fromAList (SND (t_co 0))) (nth_code (shift_seq 1 t_co) n)
+End
 
-val compile_oracle_inv_def = Define `
+Definition compile_oracle_inv_def:
   compile_oracle_inv max_app s_code s_cc s_co t_code t_cc t_co ⇔
      s_cc = pure_cc (compile_inc max_app) t_cc ∧
      t_co = pure_co (compile_inc max_app) ∘ s_co ∧
@@ -1013,19 +1022,22 @@ val compile_oracle_inv_def = Define `
        s_co n = (cfg,e,ps) ==>
        every_Fn_SOME e ∧ every_Fn_vs_SOME e /\
        EVERY (λp. every_Fn_SOME [SND (SND p)]) ps /\
-       EVERY (λp. every_Fn_vs_SOME [SND (SND p)]) ps`;
+       EVERY (λp. every_Fn_vs_SOME [SND (SND p)]) ps
+End
 
 (*
 val dummy_compile_oracle_inv = mk_var("compile_oracle_inv",
   type_of(#1(strip_comb(lhs(concl(SPEC_ALL compile_oracle_inv_def))))))
-val compile_oracle_inv_def = Define`
-  ^dummy_compile_oracle_inv max_app s_code s_cc s_co t_code t_cc t_co ⇔ T`;
+Definition compile_oracle_inv_def:
+  ^dummy_compile_oracle_inv max_app s_code s_cc s_co t_code t_cc t_co ⇔ T
+End
 *)
 
-val ref_rel_def = Define`
+Definition ref_rel_def:
   (ref_rel R (closSem$ValueArray vs) (bvlSem$ValueArray ws) ⇔ LIST_REL R vs ws) ∧
   (ref_rel R (ByteArray as) (ByteArray g bs) ⇔ ~g ∧ as = bs) ∧
-  (ref_rel _ _ _ = F)`
+  (ref_rel _ _ _ = F)
+End
 val _ = export_rewrites["ref_rel_def"];
 
 Theorem ref_rel_simp[simp]:
@@ -1035,7 +1047,7 @@ Proof
   Cases_on`y`>>simp[ref_rel_def] >> srw_tac[][EQ_IMP_THM]
 QED
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel f (s:('c,'ffi) closSem$state) (t:('c,'ffi) bvlSem$state) <=>
     (s.ffi = t.ffi) /\
     LIST_REL (OPTREL (v_rel s.max_app f t.refs t.code)) s.globals (DROP num_added_globals t.globals) /\
@@ -1059,7 +1071,8 @@ val state_rel_def = Define `
       ?aux1 c2 aux2.
         (compile_exps s.max_app [c] aux1 = ([c2],aux2)) /\
         (lookup (name + (num_stubs s.max_app)) t.code = SOME (arity,c2)) /\
-        code_installed aux2 t.code)`;
+        code_installed aux2 t.code)
+End
 
 val state_rel_globals = Q.prove(
   `state_rel f s t ⇒
@@ -1711,9 +1724,10 @@ val do_app_err = Q.prove(
 
 (* correctness of implemented primitives *)
 
-val eq_res_def = Define`
+Definition eq_res_def:
   eq_res (Eq_val b) = Rval [bvlSem$Boolv b] ∧
-  eq_res _ = Rerr (Rabort Rtype_error)`;
+  eq_res _ = Rerr (Rabort Rtype_error)
+End
 val _ = export_rewrites["eq_res_def"];
 
 val eq_res_not_timeout = Q.prove(
@@ -1949,12 +1963,13 @@ val evaluate_simple_genlist_vars = Q.prove (
   srw_tac [ARITH_ss] [TAKE_LENGTH_APPEND] >>
   metis_tac []);
 
-val num_remaining_args_def = Define `
+Definition num_remaining_args_def:
   (num_remaining_args (Closure loc_opt args env num_args exp : closSem$v) =
     SOME (num_args - LENGTH args)) ∧
   (num_remaining_args (Recclosure loc_opt args env funs i : closSem$v) =
     SOME (FST (EL i funs) - LENGTH args)) ∧
-  (num_remaining_args _ = NONE)`;
+  (num_remaining_args _ = NONE)
+End
 
 val dest_closure_part_app = Q.prove (
   `!loc_opt func args c f1 t1.
@@ -1975,20 +1990,23 @@ val dest_closure_part_app = Q.prove (
   full_simp_tac(srw_ss())[check_loc_def] >>
   decide_tac);
 
-val get_loc_def = Define `
+Definition get_loc_def:
   (get_loc (Closure (SOME loc) args env num_args exp) = SOME loc) ∧
   (get_loc (Recclosure (SOME loc) args env fns i) = SOME (loc + 2*i)) ∧
-  (get_loc _ = NONE)`;
+  (get_loc _ = NONE)
+End
 
-val get_old_args_def = Define `
+Definition get_old_args_def:
   (get_old_args (Closure loc args env num_args exp) = SOME args) ∧
   (get_old_args (Recclosure loc args env fns i) = SOME args) ∧
-  (get_old_args _ = NONE)`;
+  (get_old_args _ = NONE)
+End
 
-val get_cl_env_def = Define `
+Definition get_cl_env_def:
   (get_cl_env (Closure loc args env num_args exp) = SOME env) ∧
   (get_cl_env (Recclosure loc args env fns i) = SOME env) ∧
-  (get_cl_env _ = NONE)`;
+  (get_cl_env _ = NONE)
+End
 
 val dest_closure_full_app = Q.prove (
   `!loc_opt func args c f1 t1 exp args1 args2.
@@ -2188,12 +2206,13 @@ val cl_rel_get_loc = Q.prove (
   ARITH_TAC);
 
 (* Differs from check_loc and dest_closure by not checking that max_app *)
-val check_loc'_def = Define `
+Definition check_loc'_def:
   (check_loc' NONE loc num_params num_args so_far ⇔  T) ∧
   (check_loc' (SOME p) loc num_params num_args so_far ⇔
-    (num_params = num_args) ∧ (so_far = 0:num) ∧ (SOME p = loc))`;
+    (num_params = num_args) ∧ (so_far = 0:num) ∧ (SOME p = loc))
+End
 
-val dest_closure'_def = Define `
+Definition dest_closure'_def:
   dest_closure' loc_opt f args =
     case f of
     | Closure loc arg_env clo_env num_args exp =>
@@ -2220,7 +2239,8 @@ val dest_closure'_def = Define `
                                (REVERSE (DROP (num_args - LENGTH arg_env) (REVERSE args))))
               else
                 SOME (Partial_app (Recclosure loc (args++arg_env) clo_env fns i))
-    | _ => NONE`;
+    | _ => NONE
+End
 
 val dest_cl_imp_dest_cl' = Q.prove (
   `dest_closure max_app l f a = SOME x ⇒ dest_closure' l f a = SOME x`,
@@ -5567,9 +5587,10 @@ Proof
 QED
 
 (* Initial state *)
-val clos_init_def = Define`
+Definition clos_init_def:
   clos_init max_app s ⇔
-  s.globals = [] ∧ s.refs = FEMPTY ∧ s.code = FEMPTY ∧ s.max_app = max_app`
+  s.globals = [] ∧ s.refs = FEMPTY ∧ s.code = FEMPTY ∧ s.max_app = max_app
+End
 
 Theorem clos_init_with_clock[simp]:
    clos_init max_app (s with clock := k) ⇔ clos_init max_app s
@@ -5651,7 +5672,7 @@ val evaluate_add_to_clock_io_events_mono_alt_bvl =
   |> DISCH ``evaluate (exps,env,s) = (res,s1:('a,'b) bvlSem$state)``
   |> SIMP_RULE std_ss [] |> GEN_ALL;
 
-val eval_sim_def = Define `
+Definition eval_sim_def:
   eval_sim ffi max_app code1 co1 cc1 es1 code2 co2 cc2 start rel =
     !k res1 s2.
       evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 k) = (res1,s2) /\
@@ -5660,7 +5681,8 @@ val eval_sim_def = Define `
       ?ck res2 t2.
         bvlSem$evaluate ([Call 0 (SOME start) []],[],
           initial_state ffi code2 co2 cc2 (k+ck)) = (res2,t2) /\
-        result_rel (\x y. T) (\x y. T) res1 res2 /\ s2.ffi = t2.ffi`
+        result_rel (\x y. T) (\x y. T) res1 res2 /\ s2.ffi = t2.ffi
+End
 
 val initial_state_with_clock = prove(
   ``(initial_state ffi ma code co cc k with clock :=
@@ -5829,7 +5851,7 @@ Proof
          initial_state_with_clock,SND,ADD_SYM]
 QED
 
-val init_code_def = Define `
+Definition init_code_def:
   init_code code1 code2 max_app <=>
     (∀n.
        n < max_app ⇒
@@ -5844,14 +5866,16 @@ val init_code_def = Define `
       ∃aux1 c2 aux2.
         compile_exps max_app [c] aux1 = ([c2],aux2) ∧
         lookup (name + num_stubs max_app) code2 = SOME (arity,c2) ∧
-        code_installed aux2 code2`
+        code_installed aux2 code2
+End
 
-val chain_installed_def = Define`
+Definition chain_installed_def:
   chain_installed start (es:closLang$exp list) code ⇔
     (∀i. i < LENGTH es ⇒ closSem$find_code (start + i) ([]:closSem$v list) code =
          SOME ([], if i + 1 < LENGTH es
                      then Let None [EL i es] (Call None 0 (start + i + 1) [])
-                     else EL i es))`;
+                     else EL i es))
+End
 
 Theorem chain_installed_cons:
    chain_installed start (e::es) code ⇔
@@ -6502,16 +6526,18 @@ Proof
   \\ fs []
 QED
 
-val compile_common_inc_def = Define`
+Definition compile_common_inc_def:
   compile_common_inc c cc =
   (pure_cc (cond_mti_compile_inc c.do_mti c.max_app)
     (state_cc (ignore_table clos_number$compile_inc)
       (clos_knownProof$known_cc c.known_conf
         (state_cc (cond_call_compile_inc c.do_call)
-          (pure_cc clos_annotate$compile_inc cc)))))`;
+          (pure_cc clos_annotate$compile_inc cc)))))
+End
 
-val clos_state_cc_def = Define `
-  clos_state_cc inc (cc : 'b clos_cc) = (state_cc inc cc : ('a # 'b) clos_cc)`;
+Definition clos_state_cc_def:
+  clos_state_cc inc (cc : 'b clos_cc) = (state_cc inc cc : ('a # 'b) clos_cc)
+End
 
 Theorem semantics_cond_call_compile_inc:
     semantics ffi max_app FEMPTY co
@@ -6942,11 +6968,12 @@ Proof
   metis_tac [backendPropsTheory.oracle_monotonic_subset, SUBSET_REFL]
 QED
 
-val compile_inc_post_kcompile_def = Define `
+Definition compile_inc_post_kcompile_def:
   compile_inc_post_kcompile c exps = compile c.known_conf
     (SND (renumber_code_locs_list
         (make_even (c.next_loc + MAX 1 (LENGTH exps)))
-        (compile c.do_mti c.max_app exps)))`;
+        (compile c.do_mti c.max_app exps)))
+End
 
 fun promote_bool pat thm = let
     val term = find_term (can (match_term pat)) (concl thm)
@@ -7223,7 +7250,7 @@ Proof
   \\ Cases_on`e` \\ fs[]
 QED
 
-val syntax_oracle_ok_def = Define`
+Definition syntax_oracle_ok_def:
   syntax_oracle_ok c c' es co ⇔
    (∀n. SND (SND (co n)) = []) ∧
    (c.do_mti ⇒ 1 ≤ c.max_app ∧ EVERY no_mti es ∧
@@ -7249,7 +7276,8 @@ val syntax_oracle_ok_def = Define`
    (∀n. ¬contains_App_SOME c.max_app (FST(SND(co n))) ∧
            every_Fn_vs_NONE (FST (SND (co n)))) ∧
    is_state_oracle (ignore_table clos_number$compile_inc)
-       (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co)`;
+       (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co)
+End
 
 Theorem compile_exps_IMP_acc:
   compile_exps max_app xs aux = (c,aux1) ==>
@@ -7308,19 +7336,22 @@ Proof
   \\ rw [] \\ fs [code_locs_def]
 QED
 
-val extracted_addrs_def = Define `
+Definition extracted_addrs_def:
   extracted_addrs exps = (if exps = [] then [0]
     else (case extract_name exps of
-        (n, real_es) => MAP ($+ n) (COUNT_LIST (MAX 1 (LENGTH real_es)))))`;
+        (n, real_es) => MAP ($+ n) (COUNT_LIST (MAX 1 (LENGTH real_es)))))
+End
 
-val req_compile_inc_addrs_def = Define `
+Definition req_compile_inc_addrs_def:
   req_compile_inc_addrs extra (exps, code) = extracted_addrs exps ++
     code_locs exps ++ MAP FST code ++ code_locs (MAP (SND o SND) code) ++
-    FLAT (MAP (\f. MAP f (code_locs exps)) extra)`;
+    FLAT (MAP (\f. MAP f (code_locs exps)) extra)
+End
 
-val can_extract_def = Define `
+Definition can_extract_def:
   can_extract exps = (?t n exps'.
-        exps = Op t (Const (& n)) [] :: exps')`;
+        exps = Op t (Const (& n)) [] :: exps')
+End
 
 Theorem extract_name_MAP_FST_addrs:
   extract_name exps = (n, real_es) ==>

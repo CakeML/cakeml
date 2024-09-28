@@ -39,8 +39,9 @@ val _ = Datatype `
 val _ = Datatype `
   ffi = FFI_TYPE (ffi_inner -> ffi_inner)`
 
-val ffi_app_def = Define `
-  ffi_app x n = case x of FFI_TYPE f => f n`;
+Definition ffi_app_def:
+  ffi_app x n = case x of FFI_TYPE f => f n
+End
 
 (* constructors *)
 
@@ -270,8 +271,9 @@ val destInner_def = new_specification("destInner_def",["destInner"],prove(``
                   Stream_def,Fun_def,ffi_app_def]));
 val _ = export_rewrites ["destInner_def"];
 
-val dest_iStr_def = Define`
-  dest_iStr (iStr s) = s`;
+Definition dest_iStr_def:
+  dest_iStr (iStr s) = s
+End
 val _ = export_rewrites ["dest_iStr_def"];
 
 (* clean up *)

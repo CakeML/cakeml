@@ -143,9 +143,8 @@ val r = translate Brz_def;
 (* Version of compile_regexp that avoids dom_Brz and Brzozo.
    The latter functions are probably untranslatable. *)
 
-val compile_regexp_with_limit_def =
- Define
-   `compile_regexp_with_limit r =
+Definition compile_regexp_with_limit_def:
+  compile_regexp_with_limit r =
       let r' = normalize r in
       case Brz balanced_map$empty
                (balanced_map$singleton r' ())
@@ -157,7 +156,8 @@ val compile_regexp_with_limit_def =
       in
          SOME(state_numbering,
           delta_vecs,
-          accepts_vec))`;
+          accepts_vec))
+End
 
 Theorem Brz_sound_wrt_Brzozo:
    Brz seen worklist acc d = SOME result ==> Brzozo seen worklist acc = result
@@ -193,9 +193,8 @@ QED
 
 val r = translate compile_regexp_with_limit_def;
 
-val regexp_matcher_with_limit_def =
- Define
-  `regexp_matcher_with_limit r s =
+Definition regexp_matcher_with_limit_def:
+  regexp_matcher_with_limit r s =
     case compile_regexp_with_limit r of
            NONE => NONE
          | SOME (state_numbering,deltaL,accepts) =>
@@ -204,7 +203,8 @@ val regexp_matcher_with_limit_def =
     let acceptsV = fromList accepts in
     let deltaV = fromList (MAP fromList deltaL)
     in
-      SOME(exec_dfa acceptsV deltaV start_state s))`;
+      SOME(exec_dfa acceptsV deltaV start_state s))
+End
 
 Theorem regexp_matcher_with_limit_sound:
    regexp_matcher_with_limit r s = SOME result ==> regexp_matcher r s = result
@@ -366,8 +366,9 @@ val r = translate (pegexecTheory.peg_exec_def);
 
 (* -- *)
 
-val all_charsets_def = Define `
-  all_charsets = Vector (GENLIST (\n. charset_sing (CHR n)) 256)`;
+Definition all_charsets_def:
+  all_charsets = Vector (GENLIST (\n. charset_sing (CHR n)) 256)
+End
 
 val all_charsets_eq = EVAL ``all_charsets``;
 
@@ -524,8 +525,9 @@ Proof
   \\ rw[concat_cons]
 QED
 
-val notfound_string_def = Define`
-  notfound_string f = concat[strlit"cake_grep: ";f;strlit": No such file or directory\n"]`;
+Definition notfound_string_def:
+  notfound_string f = concat[strlit"cake_grep: ";f;strlit": No such file or directory\n"]
+End
 
 val r = translate notfound_string_def;
 
@@ -614,37 +616,42 @@ Proof
   \\ xsimpl
 QED
 
-val usage_string_def = Define`
-  usage_string = strlit"Usage: grep <regex> <file> <file>...\n"`;
+Definition usage_string_def:
+  usage_string = strlit"Usage: grep <regex> <file> <file>...\n"
+End
 
 val r = translate usage_string_def;
 
 val usage_string_v_thm = theorem"usage_string_v_thm";
 
-val parse_failure_string_def = Define`
-  parse_failure_string r = concat[strlit"Could not parse regexp: ";r;strlit"\n"]`;
+Definition parse_failure_string_def:
+  parse_failure_string r = concat[strlit"Could not parse regexp: ";r;strlit"\n"]
+End
 
 val r = translate parse_failure_string_def;
 
 (* TODO: This approach (with matcher argument as a function) does not play nicely with CF
-val match_line_def = Define`
+Definition match_line_def:
   match_line matcher (line:string) =
-  case matcher line of | SOME T => T | _ => F`;
+  case matcher line of | SOME T => T | _ => F
+End
 
 val r = translate match_line_def;
 *)
-val match_line_def = Define`
+Definition match_line_def:
   match_line r s =
-    case regexp_matcher_with_limit r s of | SOME T => T | _ => F`;
+    case regexp_matcher_with_limit r s of | SOME T => T | _ => F
+End
 
 val r = translate match_line_def;
 
-val build_matcher_def = Define`
+Definition build_matcher_def:
   build_matcher r s =
     if strlen s = 0 then
       match_line r []
     else
-      match_line r (FRONT (explode s))`;
+      match_line r (FRONT (explode s))
+End
 
 val r = translate build_matcher_def;
 
@@ -693,7 +700,7 @@ val _ = append_prog grep;
 Overload addout = ``combin$C add_stdout``
 Overload adderr = ``combin$C add_stderr``
 
-val grep_sem_file_def = Define`
+Definition grep_sem_file_def:
   grep_sem_file L filename fs =
     case ALOOKUP fs.files filename of
     | NONE => adderr (notfound_string filename) fs
@@ -703,9 +710,10 @@ val grep_sem_file_def = Define`
         addout
           (concat
             (MAP (λmatching_line. concat [filename;strlit":";implode matching_line;strlit"\n"])
-               (FILTER (λline. line ∈ L) (splitlines contents)))) fs`;
+               (FILTER (λline. line ∈ L) (splitlines contents)))) fs
+End
 
-val grep_sem_def = Define`
+Definition grep_sem_def:
   (grep_sem (_::regexp::filenames) (fs : fsFFI$IO_fs) =
    if NULL filenames then adderr usage_string fs else
    case parse_regexp (explode regexp) of
@@ -716,7 +724,8 @@ val grep_sem_def = Define`
            grep_sem_file (regexp_lang r) filename
              o action)
          I filenames fs) ∧
-  (grep_sem _ fs = adderr usage_string fs)`;
+  (grep_sem _ fs = adderr usage_string fs)
+End
 
 val grep_sem_ind = theorem"grep_sem_ind";
 
@@ -818,14 +827,15 @@ Proof
   \\ rw[grep_sem_file_with_numchars,grep_sem_file_lemma']
 QED
 
-val grep_termination_assum_def = Define`
+Definition grep_termination_assum_def:
   (grep_termination_assum (_::regexp::filenames) ⇔
    if NULL filenames then T else
      case parse_regexp (explode regexp) of
      | NONE => T
      | SOME r => IS_SOME (Brz empty (singleton (normalize r) ())
                                     (1,singleton (normalize r) 0,[]) MAXNUM_32)) ∧
-  (grep_termination_assum _ ⇔ T)`;
+  (grep_termination_assum _ ⇔ T)
+End
 
 Theorem grep_spec:
    hasFreeFD fs ∧
@@ -995,7 +1005,9 @@ val name = "grep"
 val spec = grep_whole_prog_spec |> UNDISCH
 val (sem_thm,prog_tm) = whole_prog_thm st name spec
 
-val grep_prog_def = Define`grep_prog = ^prog_tm`;
+Definition grep_prog_def:
+  grep_prog = ^prog_tm
+End
 
 val grep_semantics = save_thm("grep_semantics",
   sem_thm |> REWRITE_RULE[GSYM grep_prog_def]

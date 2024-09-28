@@ -329,9 +329,10 @@ val res = translate (get_zero_labs_acc_def |> spec32)
 val res = translate (zero_labs_acc_exist_def |> INST_TYPE[alpha |-> ``:num``, beta |->``:32``])
 
 (* Add in hidden argument to compile_lab *)
-val remove_labels_hash_def = Define `
+Definition remove_labels_hash_def:
   remove_labels_hash init_clock c pos labs ffis hash_size sec_list =
-    remove_labels_loop init_clock c pos labs ffis (enc_secs_32 c.encode hash_size sec_list)`;
+    remove_labels_loop init_clock c pos labs ffis (enc_secs_32 c.encode hash_size sec_list)
+End
 
 val remove_labels_hash_correct = Q.prove(`
   remove_labels_hash c.init_clock c.asm_conf c.pos c.labels ffis c.hash_size sec_list =

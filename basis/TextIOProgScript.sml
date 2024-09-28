@@ -88,17 +88,21 @@ val InvalidFD = get_exn_conv ``"InvalidFD"``
 val EndOfFile = get_exn_conv ``"EndOfFile"``
 val IllegalArgument = get_exn_conv ``"IllegalArgument"``
 
-val BadFileName_exn_def = Define `
-  BadFileName_exn v = (v = Conv (SOME ^BadFileName) [])`
+Definition BadFileName_exn_def:
+  BadFileName_exn v = (v = Conv (SOME ^BadFileName) [])
+End
 
-val InvalidFD_exn_def = Define `
-  InvalidFD_exn v = (v = Conv (SOME ^InvalidFD) [])`
+Definition InvalidFD_exn_def:
+  InvalidFD_exn v = (v = Conv (SOME ^InvalidFD) [])
+End
 
-val EndOfFile_exn_def = Define `
-  EndOfFile_exn v = (v = Conv (SOME ^EndOfFile) [])`
+Definition EndOfFile_exn_def:
+  EndOfFile_exn v = (v = Conv (SOME ^EndOfFile) [])
+End
 
-val IllegalArgument_exn_def = Define `
-  IllegalArgument_exn v = (v = Conv (SOME ^IllegalArgument) [])`
+Definition IllegalArgument_exn_def:
+  IllegalArgument_exn v = (v = Conv (SOME ^IllegalArgument) [])
+End
 
 val iobuff_e = ``(App Aw8alloc [Lit (IntLit 2052); Lit (Word8 0w)])``
 val eval_thm = let
@@ -121,19 +125,31 @@ val _ = ml_prog_update (add_Dlet eval_thm "iobuff");
 val _ = ml_prog_update open_local_in_block;
 
 (* stdin, stdout, stderr *)
-val stdIn_def = Define`
-  stdIn = Instream (strlit (MAP (CHR o w2n) (n2w8 0)))`
-  |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
-val stdOut_def = Define`
-  stdOut = Outstream (strlit (MAP (CHR o w2n) (n2w8 1)))`
-  |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
-val stdErr_def = Define`
-  stdErr = Outstream (strlit (MAP (CHR o w2n) (n2w8 2)))`
-  |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def];
+Definition stdIn_def:
+  stdIn = Instream (strlit (MAP (CHR o w2n) (n2w8 0)))
+End
+
+Definition stdOut_def:
+  stdOut = Outstream (strlit (MAP (CHR o w2n) (n2w8 1)))
+End
+
+Definition stdErr_def:
+  stdErr = Outstream (strlit (MAP (CHR o w2n) (n2w8 2)))
+End
+
 val _ = next_ml_names := ["stdIn","stdOut","stdErr"];
-val r = translate stdIn_def;
-val r = translate stdOut_def;
-val r = translate stdErr_def;
+
+val r = stdIn_def
+          |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+          |> translate;
+
+val r = stdOut_def
+          |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+          |> translate;
+
+val r = stdErr_def
+          |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+          |> translate ;
 
 val _ = ml_prog_update open_local_block;
 

@@ -16,18 +16,20 @@ Datatype:
   tree = Empty | Tree tree 'a tree
 End
 
-val tree_to_set_def = Define `
+Definition tree_to_set_def:
 (tree_to_set Empty = {}) ∧
-(tree_to_set (Tree t1 x t2) = {x} ∪ tree_to_set t1 ∪ tree_to_set t2)`;
+(tree_to_set (Tree t1 x t2) = {x} ∪ tree_to_set t1 ∪ tree_to_set t2)
+End
 
 (* That the tree is a binary search tree *)
-val is_bst_def = Define `
+Definition is_bst_def:
 (is_bst lt Empty <=> T) ∧
 (is_bst lt (Tree t1 x t2) <=>
   is_bst lt t1 ∧
   is_bst lt t2 ∧
   (!y. y ∈ tree_to_set t1 ⇒ lt y x) ∧
-  (!y. y ∈ tree_to_set t2 ⇒ lt x y))`;
+  (!y. y ∈ tree_to_set t2 ⇒ lt x y))
+End
 
 val empty_def = mlDefine `
 empty = Empty`;

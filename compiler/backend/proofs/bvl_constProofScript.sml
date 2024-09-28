@@ -7,20 +7,22 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = new_theory"bvl_constProof";
 
-val v_rel_def = Define `
+Definition v_rel_def:
   v_rel (:'c) (:'ffi) a x y xs ys =
     case a of
     | Var n => LLOOKUP ys n = SOME x
     | Op _ _ => !(s:('c,'ffi) bvlSem$state) env. evaluate ([a],env,s) = (Rval [x],s)
-    | _ => F`;
+    | _ => F
+End
 
-val env_rel_def = Define `
+Definition env_rel_def:
   (env_rel (:'c) (:'ffi) [] e1 e2 = (e1 = e2)) /\
   (env_rel (:'c) (:'ffi) (NONE::rest) (x::e1) (y::e2) <=>
      (x = y) /\ env_rel (:'c) (:'ffi) rest e1 e2) /\
   (env_rel (:'c) (:'ffi) (SOME a::rest) (x::e1) (y::e2) <=>
      v_rel (:'c) (:'ffi) a x y (x::e1) (y::e2) /\ env_rel (:'c) (:'ffi) rest e1 e2) /\
-  (env_rel _ _ _ _ _ = F)`
+  (env_rel _ _ _ _ _ = F)
+End
 
 Theorem env_rel_length:
    !ax env env2. env_rel (:'c) (:'ffi) ax env env2 ==> LENGTH env2 = LENGTH env

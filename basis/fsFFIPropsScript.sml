@@ -140,9 +140,10 @@ Proof
   fs[MEM_MAP,EXISTS_PROD] >> metis_tac[]
 QED
 
-val validFileFD_def = Define`
+Definition validFileFD_def:
   validFileFD fd infds ⇔
-    ∃fnm md off. ALOOKUP infds fd = SOME (File fnm, md, off)`;
+    ∃fnm md off. ALOOKUP infds fd = SOME (File fnm, md, off)
+End
 
 Theorem validFD_nextFD:
   ~validFD (nextFD fs) fs
@@ -176,30 +177,33 @@ QED
 
 (* the filesystem will always eventually allow to write something *)
 
-val live_numchars_def = Define`
+Definition live_numchars_def:
   live_numchars ns ⇔
     ¬LFINITE ns ∧
-    always (eventually (λll. ∃k. LHD ll = SOME k ∧ k ≠ 0n)) ns`;
+    always (eventually (λll. ∃k. LHD ll = SOME k ∧ k ≠ 0n)) ns
+End
 
-val liveFS_def = Define`
-  liveFS fs ⇔ live_numchars fs.numchars`;
+Definition liveFS_def:
+  liveFS fs ⇔ live_numchars fs.numchars
+End
 
 (* each inode refered to by a filename has a content *)
-val consistentFS_def = Define`
+Definition consistentFS_def:
   consistentFS fs = (∀fname ino. ALOOKUP fs.files fname = SOME ino ⇒
-        (File ino) ∈ FDOM (alist_to_fmap fs.inode_tbl))`
+        (File ino) ∈ FDOM (alist_to_fmap fs.inode_tbl))
+End
 
 (* well formed file descriptor: all descriptors are <= maxFD
 *  and correspond to file names in files *)
 
-val wfFS_def = Define`
+Definition wfFS_def:
   wfFS fs =
     ((∀fd. fd ∈ FDOM (alist_to_fmap fs.infds) ⇒
          fd <= fs.maxFD ∧
          ∃ino off. ALOOKUP fs.infds fd = SOME (ino,off) ∧
                    ino ∈ FDOM (alist_to_fmap fs.inode_tbl))∧
      consistentFS fs ∧ liveFS fs)
-`;
+End
 
 Theorem consistentFS_with_numchars[simp]:
   !fs ll. consistentFS fs ⇒ consistentFS (fs with numchars := ll)
@@ -265,14 +269,14 @@ QED
 
 (* end of file is reached when the position index is the length of the file *)
 
-val eof_def = Define`
+Definition eof_def:
   eof fd fsys =
     do
       (ino,md,pos) <- ALOOKUP fsys.infds fd ;
       contents <- ALOOKUP fsys.inode_tbl ino ;
       return (LENGTH contents <= pos)
     od
-`;
+End
 
 Theorem eof_numchars[simp]:
    eof fd (fs with numchars := ll) = eof fd fs
@@ -338,8 +342,9 @@ QED
 
 (* inFS_fname *)
 
-val inFS_fname_def = Define `
-  inFS_fname fs s = (?ino. ALOOKUP fs.files s = SOME ino)`
+Definition inFS_fname_def:
+  inFS_fname fs s = (?ino. ALOOKUP fs.files s = SOME ino)
+End
 
 Theorem not_inFS_fname_openFile:
    ~inFS_fname fs iname ⇒ openFile iname fs md off = NONE
@@ -438,13 +443,14 @@ QED
 
 (* fastForwardFD *)
 
-val fastForwardFD_def = Define`
+Definition fastForwardFD_def:
   fastForwardFD fs fd =
     the fs (do
       (ino,md,off) <- ALOOKUP fs.infds fd;
       content <- ALOOKUP fs.inode_tbl ino;
       SOME (fs with infds updated_by AFUPDKEY fd (I ## I ## MAX (LENGTH content)))
-    od)`;
+    od)
+End
 
 Theorem validFD_fastForwardFD[simp]:
    validFD fd (fastForwardFD fs fd) = validFD fd fs
@@ -878,9 +884,10 @@ QED
 
 (* forwardFD: like bumpFD but leave numchars *)
 
-val forwardFD_def = Define`
+Definition forwardFD_def:
   forwardFD fs fd n =
-    fs with infds updated_by AFUPDKEY fd (I ## I ## (+) n)`;
+    fs with infds updated_by AFUPDKEY fd (I ## I ## (+) n)
+End
 
 Theorem forwardFD_const[simp]:
    (forwardFD fs fd n).files = fs.files ∧
@@ -982,22 +989,24 @@ QED
 
 (* lineFD: the next line *)
 
-val lineFD_def = Define`
+Definition lineFD_def:
   lineFD fs fd = do
     (content, pos) <- get_file_content fs fd;
     assert (pos < LENGTH content);
     let (l,r) = SPLITP ((=)#"\n") (DROP pos content) in
-      SOME(l++"\n") od`;
+      SOME(l++"\n") od
+End
 
 (* linesFD: get all the lines *)
 
-val linesFD_def = Define`
+Definition linesFD_def:
  linesFD fs fd =
    case get_file_content fs fd of
    | NONE => []
    | SOME (content,pos) =>
        MAP (λx. x ++ "\n")
-         (splitlines (DROP pos content))`;
+         (splitlines (DROP pos content))
+End
 
 Theorem linesFD_nil_lineFD_NONE:
    linesFD fs fd = [] ⇔ lineFD fs fd = NONE
@@ -1009,10 +1018,11 @@ Proof
 QED
 
 
-val lines_of_def = Define `
+Definition lines_of_def:
   lines_of str =
     MAP (\x. strcat (implode x) (implode "\n"))
-          (splitlines (explode str))`
+          (splitlines (explode str))
+End
 
 (* all_lines_inode: get all the lines based on an inode *)
 
@@ -1021,9 +1031,10 @@ Overload all_lines_inode =
 
 (* all_lines: get all the lines based on filename *)
 
-val all_lines_def = Define `
+Definition all_lines_def:
   all_lines fs fname =
-    all_lines_inode fs (File (THE(ALOOKUP fs.files fname)))`
+    all_lines_inode fs (File (THE(ALOOKUP fs.files fname)))
+End
 
 Theorem concat_lines_of:
    !s. concat (lines_of s) = s ∨
@@ -1082,7 +1093,7 @@ QED
 
 (* lineForwardFD: seek past the next line *)
 
-val lineForwardFD_def = Define`
+Definition lineForwardFD_def:
   lineForwardFD fs fd =
     case get_file_content fs fd of
     | NONE => fs
@@ -1090,7 +1101,8 @@ val lineForwardFD_def = Define`
       if pos < LENGTH content
       then let (l,r) = SPLITP ((=)#"\n") (DROP pos content) in
         forwardFD fs fd (LENGTH l + if NULL r then 0 else 1)
-      else fs`;
+      else fs
+End
 
 Theorem fastForwardFD_lineForwardFD[simp]:
    fastForwardFD (lineForwardFD fs fd) fd = fastForwardFD fs fd
@@ -1241,13 +1253,14 @@ Proof
 QED
 
 (* Property ensuring that standard streams are correctly opened *)
-val STD_streams_def = Define
-  `STD_streams fs = ?inp out err.
+Definition STD_streams_def:
+  STD_streams fs = ?inp out err.
     (ALOOKUP fs.inode_tbl (UStream(strlit "stdout")) = SOME out) ∧
     (ALOOKUP fs.inode_tbl (UStream(strlit "stderr")) = SOME err) ∧
     (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stdin"),md,off) ⇔ fd = 0 ∧ md = ReadMode ∧ off = inp) ∧
     (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stdout"),md,off) ⇔ fd = 1 ∧ md = WriteMode ∧ off = LENGTH out) ∧
-    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stderr"),md,off) ⇔ fd = 2 ∧ md = WriteMode ∧ off = LENGTH err)`;
+    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stderr"),md,off) ⇔ fd = 2 ∧ md = WriteMode ∧ off = LENGTH err)
+End
 
 Theorem STD_streams_fsupdate:
    ! fs fd k pos c.
@@ -1379,9 +1392,10 @@ Proof
   metis_tac[SOME_11,PAIR,FST,SND,lemma]
 QED
 
-val get_mode_def = Define`
+Definition get_mode_def:
   get_mode fs fd =
-    OPTION_MAP (FST o SND) (ALOOKUP fs.infds fd)`;
+    OPTION_MAP (FST o SND) (ALOOKUP fs.infds fd)
+End
 
 Theorem get_mode_with_numchars:
    get_mode (fs with numchars := ll) fd = get_mode fs fd
@@ -1423,11 +1437,12 @@ Overload hard_link =
   ``λfs fn1 fn2. ∃ino.  ALOOKUP fs.files fn1 = SOME ino ∧
                         ALOOKUP fs.files fn2 = SOME ino``
 
-val pipe_def = Define`
+Definition pipe_def:
   pipe fs (fdin, fdout) c =
     (∃ ino ipos. ALOOKUP fs.infds fdin = SOME (UStream ino, ReadMode, ipos) ∧
             ALOOKUP fs.infds fdout = SOME (UStream ino, WriteMode, LENGTH c) ∧
-            ALOOKUP fs.inode_tbl (UStream ino) = SOME c)`
+            ALOOKUP fs.inode_tbl (UStream ino) = SOME c)
+End
 
 Theorem validFileFD_forwardFD:
    validFileFD fd (forwardFD fs x y).infds <=> validFileFD fd fs.infds

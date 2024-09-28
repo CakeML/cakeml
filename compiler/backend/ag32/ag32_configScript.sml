@@ -5,8 +5,9 @@ open preamble backendTheory ag32_targetTheory ag32_targetLib
 
 val _ = new_theory"ag32_config";
 
-val ag32_names_def = Define `
-  ag32_names = LN:num num_map`
+Definition ag32_names_def:
+  ag32_names = LN:num num_map
+End
 
 val ag32_names_def = save_thm("ag32_names_def[compute,allow_rebind]",
   CONV_RULE (RAND_CONV EVAL) ag32_names_def);
@@ -19,7 +20,7 @@ val ag32_word_conf = ``<| bitmaps_length := 0; stack_frame_size := LN |>``
 val ag32_stack_conf = ``<|jump:=T;reg_names:=ag32_names|>``
 val ag32_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=ag32_config;init_clock:=5;hash_size:=104729n;shmem_extra:=[]|>``
 
-val ag32_backend_config_def = Define`
+Definition ag32_backend_config_def:
   ag32_backend_config =
              <|source_conf:=prim_src_config;
                clos_conf:=^(clos_conf);
@@ -32,6 +33,7 @@ val ag32_backend_config_def = Define`
                symbols:=[];
                tap_conf:=default_tap_config;
                exported:=[]
-               |>`;
+               |>
+End
 
 val _ = export_theory();

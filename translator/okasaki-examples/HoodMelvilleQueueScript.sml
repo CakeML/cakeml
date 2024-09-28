@@ -71,34 +71,38 @@ val tail_def = mlDefine `
 
 (* verification proof
 
-val base_def = Define `
+Definition base_def:
   base lf lenf lenr r g q =
-    (lenr = LENGTH r) /\ (lenf = lf) /\ (q = g ++ REVERSE r)`;
+    (lenr = LENGTH r) /\ (lenf = lf) /\ (q = g ++ REVERSE r)
+End
 
-val oper_def = Define `
+Definition oper_def:
   oper lenf f lenr r g q d n m p =
     base (2 * m + 1 - p) lenf lenr r g q /\
     (n + d = 2 * p + 2 * lenr + 2) /\
     (m = LENGTH f + p) /\
-    isPREFIX f q`;
+    isPREFIX f q
+End
 
-val reve_def = Define `
+Definition reve_def:
   reve f f' f'' r' r'' g ok n m p =
     (g = REVERSE (TAKE ok f') ++ f'' ++ REVERSE r'' ++ r') /\
     (n = LENGTH f') /\
     (m = LENGTH f'' + n) /\
     (n = LENGTH r') /\
-    (m + 1 = LENGTH r'' + n)`;
+    (m + 1 = LENGTH r'' + n)
+End
 
-val appe_def = Define `
+Definition appe_def:
   appe f f' r' g ok n m p =
     (g = REVERSE (TAKE ok f') ++ r') /\
     (LENGTH f' + n = 2 * m + 1) /\
     (LENGTH r' = n) /\
     (ok + n + p = 2 * m + 1) /\
-    m <= n /\ n <= 2 * m + 1`
+    m <= n /\ n <= 2 * m + 1
+End
 
-val prop_def = Define `
+Definition prop_def:
   prop c d (QUEUE lenf f s lenr r) q =
     case s of
       Idle => base (LENGTH f) lenf lenr r f q /\ lenr <= lenf
@@ -106,10 +110,12 @@ val prop_def = Define `
     | Reversing ok f'' f' r'' r' => ?n m p g.
         oper lenf f lenr r g q d n m p /\ reve f f' f'' r' r'' g ok n m p
     | Appending ok f' r' => ?n m p g.
-        oper lenf f lenr r g q d n m p /\ appe f f' r' g ok n m p`;
+        oper lenf f lenr r g q d n m p /\ appe f f' r' g ok n m p
+End
 
-val queue_inv_def = Define `
-  queue_inv q q' = prop F 0 q' q`;
+Definition queue_inv_def:
+  queue_inv q q' = prop F 0 q' q
+End
 
 *)
 

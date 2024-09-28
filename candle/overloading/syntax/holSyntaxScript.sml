@@ -628,10 +628,10 @@ Definition is_reserved_name_def:
 End
 
 
-val overloadable_in_def = Define `
+Definition overloadable_in_def:
   overloadable_in name ctxt =
     (~is_builtin_name name /\ ?ty. MEM (NewConst name ty) ctxt)
-  `
+End
 
   (* From this we can recover a signature *)
 Overload sigof = ``λctxt:update list. (tysof ctxt, tmsof ctxt)``

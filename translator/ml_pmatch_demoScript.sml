@@ -11,8 +11,9 @@ val _ = new_theory "ml_pmatch_demo";
 
 (* basic example *)
 
-val foo_def = Define `
-  foo f x k = case f x of ([t]::[y]::ys) => t + y + (3:num) + k | _ => 5`
+Definition foo_def:
+  foo f x k = case f x of ([t]::[y]::ys) => t + y + (3:num) + k | _ => 5
+End
 
 val c = (PMATCH_INTRO_CONV THENC PMATCH_SIMP_CONV)
 
@@ -30,14 +31,15 @@ val _ = Datatype `
 (* causes the normal case-of syntax to be parsed as PMATCH *)
 val _ = patternMatchesSyntax.ENABLE_PMATCH_CASES();
 
-val balance_black_def = Define `
+Definition balance_black_def:
   balance_black a n b =
     case (a,b) of
     | (Red (Red a x b) y c,d) => Red (Black a x b) y (Black c n d)
     | (Red a x (Red b y c),d) => Red (Black a x b) y (Black c n d)
     | (a,Red (Red b y c) z d) => Red (Black a n b) y (Black c z d)
     | (a,Red b y (Red c z d)) => Red (Black a n b) y (Black c z d)
-    | other => Black a n b`
+    | other => Black a n b
+End
 
 val res = translate balance_black_def;
 
@@ -145,8 +147,9 @@ val tac =
   FULL_SIMP_TAC (rc_ss []) [PMATCH_EVAL, PMATCH_ROW_COND_def,
     PMATCH_INCOMPLETE_def]
 
-val codomain_def = Define `
-  codomain ty = dtcase ty of Tyapp n (y::x::xs) => x | _ => ty`;
+Definition codomain_def:
+  codomain ty = dtcase ty of Tyapp n (y::x::xs) => x | _ => ty
+End
 
 val codomain_PMATCH = Q.prove(
   `^(rhs(concl(SPEC_ALL codomain_def))) =
@@ -154,11 +157,12 @@ val codomain_PMATCH = Q.prove(
   rpt tac)
 val codomain_def = fix codomain_def "codomain_def" codomain_PMATCH
 
-val rev_assocd_def = Define `
+Definition rev_assocd_def:
   rev_assocd a l d =
     dtcase l of
       [] => d
-    | ((x,y)::l) => if y = a then x else rev_assocd a l d`;
+    | ((x,y)::l) => if y = a then x else rev_assocd a l d
+End
 
 val rev_assocd_PMATCH = Q.prove(
   `^(rhs(concl(SPEC_ALL rev_assocd_def))) =
@@ -168,15 +172,16 @@ val rev_assocd_PMATCH = Q.prove(
   rpt tac)
 val rev_assocd_def = fix rev_assocd_def "rev_assocd_def" rev_assocd_PMATCH
 
-val alphavars_def = Define `
+Definition alphavars_def:
   alphavars env tm1 tm2 =
     dtcase env of
       [] => (tm1 = tm2)
     | (t1,t2)::oenv =>
          ((t1 = tm1) /\ (t2 = tm2)) \/
-         ((t1 <> tm1) /\ (t2 <> tm2) /\ alphavars oenv tm1 tm2)`;
+         ((t1 <> tm1) /\ (t2 <> tm2) /\ alphavars oenv tm1 tm2)
+End
 
-val raconv_def = Define `
+Definition raconv_def:
   raconv env tm1 tm2 =
     dtcase (tm1,tm2) of
       (Var _ _, Var _ _) => alphavars env tm1 tm2
@@ -187,7 +192,8 @@ val raconv_def = Define `
           (Var n1 ty1, Var n2 ty2) => (ty1 = ty2) /\
                                       raconv ((v1,v2)::env) t1 t2
         | _ => F)
-    | _ => F`;
+    | _ => F
+End
 
 val raconv_PMATCH = Q.prove(
   `^(rhs(concl(SPEC_ALL raconv_def))) =
@@ -212,30 +218,34 @@ val res = translate codomain_def;
 val res = translate rev_assocd_def
 val res = translate alphavars_def;
 
-val variant_def = Define `variant _ v = v`;
+Definition variant_def:
+  variant _ v = v
+End
 
 val res = translate variant_def
 
-val vfree_in_def = Define `
+Definition vfree_in_def:
   vfree_in v tm =
     dtcase tm of
       Abs bv bod => v <> bv /\ vfree_in v bod
     | Comb s t => vfree_in v s \/ vfree_in v t
-    | _ => (tm = v)`;
+    | _ => (tm = v)
+End
 
 val res = translate vfree_in_def
 
-val is_var_def = Define `
+Definition is_var_def:
   is_var tm =
     dtcase tm of
       Var bv bod => T
-    | _ => F`
+    | _ => F
+End
 
 val res = translate is_var_def
 val res = translate listTheory.FILTER
 val res = translate listTheory.EXISTS_DEF
 
-val vsubst_aux_def = Define `
+Definition vsubst_aux_def:
   vsubst_aux ilist tm =
     dtcase tm of
       Var _ _ => rev_assocd tm ilist tm
@@ -252,12 +262,14 @@ val vsubst_aux_def = Define `
                   if EXISTS (\(t,x). vfree_in v t /\ vfree_in x s) ilist'
                   then let v' = variant [s'] v in
                          Abs v' (vsubst_aux ((v',v)::ilist') s)
-                  else Abs v s'`;
+                  else Abs v s'
+End
 
 val res = translate vsubst_aux_def;
 
-val foo1_def = Define `
-  foo1 theta tm = vsubst_aux theta tm`
+Definition foo1_def:
+  foo1 theta tm = vsubst_aux theta tm
+End
 
 val res = translate foo1_def
 

@@ -8,8 +8,9 @@ open preamble
 
 val _ = new_theory"splitwords";
 
-val splitwords_def = Define`
-  splitwords s = tokens isSpace s`;
+Definition splitwords_def:
+  splitwords s = tokens isSpace s
+End
 (*
 EVAL ``splitwords (strlit"hello there hello how are you one two one two three")``
 *)
@@ -67,8 +68,9 @@ Proof
   rw[] \\ EVAL_TAC
 QED
 
-val frequency_def = Define`
-  frequency s w = LENGTH (FILTER ($= w) (splitwords s))`;
+Definition frequency_def:
+  frequency s w = LENGTH (FILTER ($= w) (splitwords s))
+End
 (*
 EVAL``frequency (strlit"hello there hello how are you one two one two three") (strlit"hello")``
 EVAL``frequency (strlit"hello there hello how are you one two one two three") (strlit"one")``

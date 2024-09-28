@@ -87,18 +87,21 @@ val _ = translate(patch_aux_def |> REWRITE_RULE (map GSYM [mllistTheory.take_def
 
 val _ = translate patch_alg_def;
 
-val notfound_string_def = Define`
-  notfound_string f = concat[strlit"cake_patch: ";f;strlit": No such file or directory\n"]`;
+Definition notfound_string_def:
+  notfound_string f = concat[strlit"cake_patch: ";f;strlit": No such file or directory\n"]
+End
 
 val r = translate notfound_string_def;
 
-val usage_string_def = Define`
-  usage_string = strlit"Usage: patch <file> <patch>\n"`;
+Definition usage_string_def:
+  usage_string = strlit"Usage: patch <file> <patch>\n"
+End
 
 val r = translate usage_string_def;
 
-val rejected_patch_string_def = Define`
-  rejected_patch_string = strlit"cake_patch: Patch rejected\n"`;
+Definition rejected_patch_string_def:
+  rejected_patch_string = strlit"cake_patch: Patch rejected\n"
+End
 
 val r = translate rejected_patch_string_def;
 
@@ -154,7 +157,7 @@ val _ = (append_prog o process_topdecs) `
         (f1::f2::[]) => patch' f1 f2
       | _ => TextIO.output TextIO.stdErr usage_string`
 
-val patch_sem_def = Define`
+Definition patch_sem_def:
   patch_sem cl fs =
     if (LENGTH cl = 3) then
     if inFS_fname fs (EL 1 cl) then
@@ -165,7 +168,8 @@ val patch_sem_def = Define`
      | SOME s => add_stdout fs (concat s)
     else add_stderr fs (notfound_string (EL 2 cl))
     else add_stderr fs (notfound_string (EL 1 cl))
-    else add_stderr fs usage_string`;
+    else add_stderr fs usage_string
+End
 
 Theorem patch_spec:
    hasFreeFD fs
@@ -223,7 +227,9 @@ QED
 
 val name = "patch"
 val (sem_thm,prog_tm) = whole_prog_thm st name (UNDISCH patch_whole_prog_spec)
-val patch_prog_def = Define`patch_prog = ^prog_tm`;
+Definition patch_prog_def:
+  patch_prog = ^prog_tm
+End
 
 val patch_semantics = save_thm("patch_semantics",
   sem_thm |> REWRITE_RULE[GSYM patch_prog_def]

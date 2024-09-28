@@ -375,10 +375,11 @@ Theorem BOTTOM_UP_OPT_THM = BOTTOM_UP_OPT_THM1
 
 (* rewrite optimisation: (fn x => exp) y --> let x = y in exp *)
 
-val abs2let_def = Define `
+Definition abs2let_def:
   abs2let x =
      case x of App Opapp [Fun v exp; y] => Let (SOME v) y exp
-             | rest => rest`;
+             | rest => rest
+End
 
 val abs2let_thm = Q.prove(
   `!env s exp t res. eval_rel s env exp t res ==>
@@ -401,10 +402,11 @@ val abs2let_thm = Q.prove(
 
 (* rewrite optimisation: let x = y in x --> y *)
 
-val let_id_def = Define `
+Definition let_id_def:
   (let_id (Let (SOME v) x y) =
      if (y = Var (Short v)) then x else Let (SOME v) x y) /\
-  (let_id rest = rest)`;
+  (let_id rest = rest)
+End
 
 val let_id_thm = Q.prove(
   `!env s exp t res. eval_rel s env exp t res ==>
@@ -424,11 +426,12 @@ val let_id_thm = Q.prove(
 
 (* rewrite optimisations: x - n + n --> x and x + n - n --> x *)
 
-val dest_binop_def = Define `
+Definition dest_binop_def:
   (dest_binop (App (Opn op) [x;y]) = SOME (op,x,y)) /\
-  (dest_binop rest = NONE)`;
+  (dest_binop rest = NONE)
+End
 
-val opt_sub_add_def = Define `
+Definition opt_sub_add_def:
   opt_sub_add x =
     case dest_binop x of
      | NONE => x
@@ -439,7 +442,8 @@ val opt_sub_add_def = Define `
               if (op1 = Plus) /\ (op2 = Minus) then x1 else
               if (op2 = Plus) /\ (op1 = Minus) then x1 else x
             else x
-         | _ => x`;
+         | _ => x
+End
 
 val dest_binop_thm = Q.prove(
   `!x. (dest_binop x = SOME (x1,x2,x3)) <=> (x = App (Opn x1) [x2; x3])`,
@@ -477,9 +481,10 @@ val opt_sub_add_thm = Q.prove(
 
 (* top-level optimiser *)
 
-val OPTIMISE_def = Define `
+Definition OPTIMISE_def:
   OPTIMISE =
-    BOTTOM_UP_OPT (opt_sub_add o let_id) o BOTTOM_UP_OPT abs2let`;
+    BOTTOM_UP_OPT (opt_sub_add o let_id) o BOTTOM_UP_OPT abs2let
+End
 
 Theorem Eval_OPTIMISE:
    Eval env exp P ==> Eval env (OPTIMISE exp) P

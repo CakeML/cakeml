@@ -195,11 +195,12 @@ val decode_control_side = Q.prove(
   rw[Once(theorem"decode_control_side_def")])
   |> update_precondition
 
-val decode_control_wrapper_def = Define `
+Definition decode_control_wrapper_def:
   decode_control_wrapper s =
     case decode_control (explode s) of
       NONE => NONE
-    | SOME x => SOME (implode x)`
+    | SOME x => SOME (implode x)
+End
 
 val r = translate decode_control_wrapper_def
 
@@ -429,10 +430,13 @@ val l2n_side_thm = Q.prove(`!n l. l2n_side n l <=> (l <> [] ==> n <> 0)`,
 val s2n_side_thm = Q.prove(`!n f l. s2n_side n f l <=> (l <> [] ==> n <> 0)`,
   rw[l2n_side_thm,lexerProgTheory.s2n_side_def]);
 
-val hex_alt_def = Define `hex_alt x = if x < 16 then HEX x else #"0"`
+Definition hex_alt_def:
+  hex_alt x = if x < 16 then HEX x else #"0"
+End
 
-val num_to_hex_string_alt =
-    Define `num_to_hex_string_alt = n2s 16 hex_alt`
+Definition num_to_hex_string_alt:
+  num_to_hex_string_alt = n2s 16 hex_alt
+End
 
 Theorem num_to_hex_string_alt_intro:
   !n. num_to_hex_string n = num_to_hex_string_alt n

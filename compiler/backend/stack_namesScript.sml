@@ -13,11 +13,12 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 Overload find_name = ``tlookup``
 
-val ri_find_name_def = Define `
+Definition ri_find_name_def:
   (ri_find_name f (Reg r) = Reg (find_name f r)) /\
-  (ri_find_name f (Imm w) = Imm w)`
+  (ri_find_name f (Imm w) = Imm w)
+End
 
-val inst_find_name_def = Define `
+Definition inst_find_name_def:
   inst_find_name f i =
     dtcase i of
     | Skip => Skip
@@ -44,11 +45,13 @@ val inst_find_name_def = Define `
     | FP (FPEqual r f1 f2) => FP (FPEqual (find_name f r) f1 f2)
     | FP (FPMovToReg r1 r2 d) => FP (FPMovToReg (find_name f r1) (find_name f r2) d)
     | FP (FPMovFromReg d r1 r2) => FP (FPMovFromReg d (find_name f r1) (find_name f r2))
-    | i => i`
+    | i => i
+End
 
-val dest_find_name_def = Define`
+Definition dest_find_name_def:
   dest_find_name f (INR r) = INR (find_name f r) ∧
-  dest_find_name f x = x`;
+  dest_find_name f x = x
+End
 
 local val comp_quotation = `
   comp f p =
@@ -94,18 +97,21 @@ Theorem comp_pmatch = Q.prove(
     >> fs[Once comp_def]));
 end
 
-val prog_comp_def = Define `
-  prog_comp f (n,p) = (n,comp f p)`
+Definition prog_comp_def:
+  prog_comp f (n,p) = (n,comp f p)
+End
 
-val compile_def = Define `
-  compile f prog = MAP (prog_comp f) prog`;
+Definition compile_def:
+  compile f prog = MAP (prog_comp f) prog
+End
 
 (* some defaults *)
 
-val names_ok_def = Define `
+Definition names_ok_def:
   names_ok names reg_count avoid_regs =
     let xs = GENLIST (find_name names) (reg_count - LENGTH avoid_regs) in
       ALL_DISTINCT xs /\
-      EVERY (\x. x < reg_count /\ ~(MEM x avoid_regs)) xs`
+      EVERY (\x. x < reg_count /\ ~(MEM x avoid_regs)) xs
+End
 
 val _ = export_theory();

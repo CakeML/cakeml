@@ -19,11 +19,13 @@ val _ = Datatype `
       | Stream (num llist)`
 *)
 
-val encode_pair_def = Define`
-  encode_pair e1 e2 (x,y) = Cons (e1 x) (e2 y)`;
+Definition encode_pair_def:
+  encode_pair e1 e2 (x,y) = Cons (e1 x) (e2 y)
+End
 
-val encode_list_def = Define`
-  encode_list e l = List (MAP e l)`;
+Definition encode_list_def:
+  encode_list e l = List (MAP e l)
+End
 
 Theorem encode_list_11:
    !xs ys.
@@ -34,9 +36,10 @@ Proof
   Induct \\ Cases_on `ys` \\ fs [encode_list_def] \\ rw [] \\ fs []
 QED
 
-val encode_option_def = Define`
+Definition encode_option_def:
   encode_option e NONE = List [] ∧
-  encode_option e (SOME x) = List [e x]`;
+  encode_option e (SOME x) = List [e x]
+End
 
 Theorem encode_option_11:
    ∀x y. encode_option f x = encode_option f y ∧ (∀x y. f x = f y ⇔ x = y) ⇒ x = y
@@ -44,9 +47,10 @@ Proof
   Cases \\ Cases \\ rw[encode_option_def] \\ metis_tac[]
 QED
 
-val encode_bool_def = Define
-  `encode_bool F = Num 0 ∧
-   encode_bool T = Num 1`;
+Definition encode_bool_def:
+  encode_bool F = Num 0 ∧
+   encode_bool T = Num 1
+End
 
 Theorem encode_bool_11[simp]:
    ∀x y. encode_bool x = encode_bool y ⇔ x = y
@@ -54,8 +58,9 @@ Proof
   Cases \\ Cases \\ rw[encode_bool_def]
 QED
 
-val encode_int_def = Define`
-  encode_int i = Cons (encode_bool (0 ≤ i)) (Num(Num(ABS i)))`;
+Definition encode_int_def:
+  encode_int i = Cons (encode_bool (0 ≤ i)) (Num(Num(ABS i)))
+End
 
 Theorem encode_int_11[simp]:
    ∀x y. encode_int x = encode_int y ⇔ x = y
@@ -67,14 +72,15 @@ val _ = Datatype `
   ffi_result = FFIreturn (word8 list) 'ffi | FFIdiverge`
 
 (* make an ffi_next function from base functions and encode/decode *)
-val mk_ffi_next_def = Define`
+Definition mk_ffi_next_def:
   mk_ffi_next (encode,decode,ls) name conf bytes s =
     OPTION_BIND (ALOOKUP ls name) (λf.
     OPTION_BIND (decode s) (λs.
     OPTION_BIND (f conf bytes s) (λr.
      case r of
        FFIreturn bytes s => SOME(FFIreturn bytes (encode s))
-     | FFIdiverge => SOME FFIdiverge)))`;
+     | FFIdiverge => SOME FFIdiverge)))
+End
 
 Type loc = ``:num``
 
@@ -98,10 +104,11 @@ val _ = Datatype `
 Type ffi_proj = ``: ('ffi -> (string |-> ffi)) #
                     ((string list # ffi_next) list)``
 
-val SPLIT3_def = Define `
+Definition SPLIT3_def:
   SPLIT3 (s:'a set) (u,v,w) =
     ((u UNION v UNION w = s) /\
-     DISJOINT u v /\ DISJOINT v w /\ DISJOINT u w)`
+     DISJOINT u v /\ DISJOINT v w /\ DISJOINT u w)
+End
 
 (* val SPLIT_ss = rewrites [SPLIT_def,SPLIT3_def,SUBSET_DEF,DISJOINT_DEF,DELETE_DEF,IN_INSERT, *)
 (*                          UNION_DEF,SEP_EQ_def,EXTENSION,NOT_IN_EMPTY,IN_DEF,IN_UNION,IN_INTER, *)
@@ -118,50 +125,61 @@ val SPLIT_TAC = fs [SPLIT_def,SPLIT3_def,SUBSET_DEF,DISJOINT_DEF,DELETE_DEF,IN_I
 (* in set_sepTheory: emp, one, STAR, SEP_IMP, SEP_EXISTS, cond *)
 
 (* STAR for post-conditions *)
-val STARPOST_def = Define `
+Definition STARPOST_def:
   STARPOST (Q: res -> hprop) (H: hprop) =
-    \r. (Q r) * H`
+    \r. (Q r) * H
+End
 
 (* SEP_IMP lifted to post-conditions *)
-val SEP_IMPPOST_def = Define `
+Definition SEP_IMPPOST_def:
   SEP_IMPPOST (Q1: res -> hprop) (Q2: res -> hprop) =
-    !r. SEP_IMP (Q1 r) (Q2 r)`
+    !r. SEP_IMP (Q1 r) (Q2 r)
+End
 
-val SEP_IMPPOSTv_def = Define `
+Definition SEP_IMPPOSTv_def:
   SEP_IMPPOSTv (Q1: res -> hprop) (Q2: res -> hprop) =
-    !v. SEP_IMP (Q1 (Val v)) (Q2 (Val v))`
+    !v. SEP_IMP (Q1 (Val v)) (Q2 (Val v))
+End
 
-val SEP_IMPPOSTe_def = Define `
+Definition SEP_IMPPOSTe_def:
   SEP_IMPPOSTe (Q1: res -> hprop) (Q2: res -> hprop) =
-    !e. SEP_IMP (Q1 (Exn e)) (Q2 (Exn e))`
+    !e. SEP_IMP (Q1 (Exn e)) (Q2 (Exn e))
+End
 
-val SEP_IMPPOSTf_def = Define `
+Definition SEP_IMPPOSTf_def:
   SEP_IMPPOSTf (Q1: res -> hprop) (Q2: res -> hprop) =
-    !name conf bytes. SEP_IMP (Q1 (FFIDiv name conf bytes)) (Q2 (FFIDiv name conf bytes))`
+    !name conf bytes. SEP_IMP (Q1 (FFIDiv name conf bytes)) (Q2 (FFIDiv name conf bytes))
+End
 
-val SEP_IMPPOSTd_def = Define `
+Definition SEP_IMPPOSTd_def:
   SEP_IMPPOSTd (Q1: res -> hprop) (Q2: res -> hprop) =
-    !io. SEP_IMP (Q1 (Div io)) (Q2 (Div io))`
+    !io. SEP_IMP (Q1 (Div io)) (Q2 (Div io))
+End
 
-val SEP_IMPPOSTv_inv_def = Define `
+Definition SEP_IMPPOSTv_inv_def:
   SEP_IMPPOSTv_inv (Q1: res -> hprop) (Q2: res -> hprop) =
-    (SEP_IMPPOSTe Q1 Q2 /\ SEP_IMPPOSTf Q1 Q2 /\ SEP_IMPPOSTd Q1 Q2)`
+    (SEP_IMPPOSTe Q1 Q2 /\ SEP_IMPPOSTf Q1 Q2 /\ SEP_IMPPOSTd Q1 Q2)
+End
 
-val SEP_IMPPOSTe_inv_def = Define `
+Definition SEP_IMPPOSTe_inv_def:
   SEP_IMPPOSTe_inv (Q1: res -> hprop) (Q2: res -> hprop) =
-    (SEP_IMPPOSTv Q1 Q2 /\ SEP_IMPPOSTf Q1 Q2 /\ SEP_IMPPOSTd Q1 Q2)`
+    (SEP_IMPPOSTv Q1 Q2 /\ SEP_IMPPOSTf Q1 Q2 /\ SEP_IMPPOSTd Q1 Q2)
+End
 
 (* Garbage collection predicate *)
-val GC_def = Define `GC: hprop = SEP_EXISTS H. H`
+Definition GC_def:
+  GC: hprop = SEP_EXISTS H. H
+End
 
 (* Injections for post-conditions *)
-val POST_def = Define `
+Definition POST_def:
   POST (Qv: v -> hprop) (Qe: v -> hprop) (Qf: string -> word8 list -> word8 list -> hprop) (Qd: io_event llist -> bool) = \r.
     case r of
      | Val v => Qv v
      | Exn e => Qe e
      | FFIDiv name conf bytes => Qf name conf bytes
-     | Div io => cond (Qd io)`
+     | Div io => cond (Qd io)
+End
 
 val POSTv_def = new_binder_definition("POSTv_def",
   ``($POSTv) (Qv: v -> hprop) =
@@ -179,58 +197,71 @@ val POSTd_def = new_binder_definition("POSTd_def",
   ``($POSTd) (Qd: io_event llist -> bool) =
       POST (\v. cond F) (\e. cond F) (\name conf bytes. cond F) Qd``)
 
-val POSTve_def = Define `
+Definition POSTve_def:
   POSTve (Qv: v -> hprop) (Qe: v -> hprop) =
-    POST Qv Qe (\name conf bytes. cond F) (\io. F)`
+    POST Qv Qe (\name conf bytes. cond F) (\io. F)
+End
 
-val POSTvd_def = Define `
+Definition POSTvd_def:
   POSTvd (Qv: v -> hprop) (Qd: io_event llist -> bool) =
-    POST Qv (\e. cond F) (\name conf bytes. cond F) Qd`
+    POST Qv (\e. cond F) (\name conf bytes. cond F) Qd
+End
 
-val POSTed_def = Define `
+Definition POSTed_def:
   POSTed (Qe: v -> hprop) (Qd: io_event llist -> bool) =
-    POST (\v. cond F) Qe (\name conf bytes. cond F) Qd`
+    POST (\v. cond F) Qe (\name conf bytes. cond F) Qd
+End
 
-val POST_F_def = Define `
-  POST_F (r: res): hprop = cond F`
+Definition POST_F_def:
+  POST_F (r: res): hprop = cond F
+End
 
 (* cond specialized to equality to some value; as a post-condition *)
-val cond_eq_def = Define `
-  cond_eq v = \x. cond (x = v)`
+Definition cond_eq_def:
+  cond_eq v = \x. cond (x = v)
+End
 
 (* A single memory cell. *)
-val cell_def = Define `
-  cell l v = one (Mem l v)`
+Definition cell_def:
+  cell l v = one (Mem l v)
+End
 
 (* A reference cell, as a convenience wrapper over cell and Refv *)
-val REF_def = Define `
+Definition REF_def:
   REF rv xv =
-    SEP_EXISTS loc. cond (rv = Loc loc) * cell loc (Refv xv)`
+    SEP_EXISTS loc. cond (rv = Loc loc) * cell loc (Refv xv)
+End
 
 (* An array cell, as a wrapper over cell and Varray *)
-val ARRAY_def = Define `
+Definition ARRAY_def:
   ARRAY av vl =
-    SEP_EXISTS loc. cond (av = Loc loc) * cell loc (Varray vl)`
+    SEP_EXISTS loc. cond (av = Loc loc) * cell loc (Varray vl)
+End
 
 (* A bytearray cell, as a wrapper over cell and W8array *)
-val W8ARRAY_def = Define `
+Definition W8ARRAY_def:
   W8ARRAY av wl =
-    SEP_EXISTS loc. cond (av = Loc loc) * cell loc (W8array wl)`
+    SEP_EXISTS loc. cond (av = Loc loc) * cell loc (W8array wl)
+End
 
-val IO_def = Define `
-  IO s u ns = SEP_EXISTS events. one (FFI_part s u ns events) * cond (~MEM "" ns)`;
+Definition IO_def:
+  IO s u ns = SEP_EXISTS events. one (FFI_part s u ns events) * cond (~MEM "" ns)
+End
 
-val IOx_def = Define`
+Definition IOx_def:
   IOx (encode,decode,ls) s =
-    IO (encode s) (mk_ffi_next (encode,decode,ls)) (MAP FST ls)`;
+    IO (encode s) (mk_ffi_next (encode,decode,ls)) (MAP FST ls)
+End
 
-val mk_proj1_def = Define`
+Definition mk_proj1_def:
   mk_proj1 (encode,decode,ls) s =
-    MAP (λx. (x, encode s)) (MAP FST ls)`;
+    MAP (λx. (x, encode s)) (MAP FST ls)
+End
 
-val mk_proj2_def = Define`
+Definition mk_proj2_def:
   mk_proj2 (encode,decode,ls) =
-    (MAP FST ls, mk_ffi_next (encode,decode,ls))`;
+    (MAP FST ls, mk_ffi_next (encode,decode,ls))
+End
 
 (*------------------------------------------------------------------*)
 (** Notations for heap predicates *)

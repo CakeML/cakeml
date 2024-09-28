@@ -43,7 +43,7 @@ val _ = trans "-" ``word_sub:word8->word8->word8``;
 
 (* shifts *)
 
-val var_word_lsl_def = Define `
+Definition var_word_lsl_def:
   var_word_lsl (w:word8) (n:num) =
     if n < 8 then
     if n < 4 then
@@ -52,7 +52,8 @@ val var_word_lsl_def = Define `
       else w << 3
     else if n < 6 then if n < 5 then w << 4 else w << 5
     else if n < 7 then w << 6
-    else w << 7 else 0w`
+    else w << 7 else 0w
+End
 
 Theorem var_word_lsl_thm[simp]:
    var_word_lsl w n = word_lsl w n
@@ -63,7 +64,7 @@ Proof
   \\ ntac 9 (once_rewrite_tac [var_word_lsl_def] \\ fs [])
 QED
 
-val var_word_lsr_def = Define `
+Definition var_word_lsr_def:
   var_word_lsr (w:word8) (n:num) =
     if n < 8 then
     if n < 4 then
@@ -72,7 +73,8 @@ val var_word_lsr_def = Define `
       else w >>> 3
     else if n < 6 then if n < 5 then w >>> 4 else w >>> 5
     else if n < 7 then w >>> 6
-    else w >>> 7 else 0w`
+    else w >>> 7 else 0w
+End
 
 Theorem var_word_lsr_thm[simp]:
    var_word_lsr w n = word_lsr w n
@@ -83,7 +85,7 @@ Proof
   \\ ntac 9 (once_rewrite_tac [var_word_lsr_def] \\ fs [])
 QED
 
-val var_word_asr_def = Define `
+Definition var_word_asr_def:
   var_word_asr (w:word8) (n:num) =
     if n < 8 then
     if n < 4 then
@@ -92,7 +94,8 @@ val var_word_asr_def = Define `
       else w >> 3
     else if n < 6 then if n < 5 then w >> 4 else w >> 5
     else if n < 7 then w >> 6
-    else w >> 7 else w >> 8`
+    else w >> 7 else w >> 8
+End
 
 Theorem var_word_asr_thm[simp]:
    var_word_asr w n = word_asr w n

@@ -30,12 +30,13 @@ val res = translate $
   INST_TYPE[beta|->``:32``] panScopeTheory.scope_check_funs_def;
 val res = translate $ INST_TYPE[beta|->``:32``] panScopeTheory.scope_check_def;
 
-val max_heap_limit_32_def = Define`
+Definition max_heap_limit_32_def:
   max_heap_limit_32 c =
     ^(spec32 data_to_wordTheory.max_heap_limit_def
       |> SPEC_ALL
       |> SIMP_RULE (srw_ss())[backend_commonTheory.word_shift_def]
-      |> concl |> rhs)`;
+      |> concl |> rhs)
+End
 
 val res = translate max_heap_limit_32_def
 
@@ -318,12 +319,13 @@ val res = translate print_option_def
 val res = translate current_build_info_str_def
 val res = translate compilerTheory.help_string_def;
 
-val nonzero_exit_code_for_error_msg_def = Define `
+Definition nonzero_exit_code_for_error_msg_def:
   nonzero_exit_code_for_error_msg e =
     if compiler$is_error_msg e then
       (let a = empty_ffi (strlit "nonzero_exit") in
          ml_translator$force_out_of_memory_error ())
-    else ()`;
+    else ()
+End
 
 val res = translate compilerTheory.is_error_msg_def;
 val res = translate nonzero_exit_code_for_error_msg_def;
@@ -480,7 +482,9 @@ QED
 val (semantics_thm,prog_tm) =
   whole_prog_thm (get_ml_prog_state()) "main" main_whole_prog_spec;
 
-val compiler32_prog_def = Define`compiler32_prog = ^prog_tm`;
+Definition compiler32_prog_def:
+  compiler32_prog = ^prog_tm
+End
 
 val semantics_compiler32_prog =
   semantics_thm

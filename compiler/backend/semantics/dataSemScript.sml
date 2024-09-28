@@ -15,11 +15,13 @@ val _ = Datatype `
     | CodePtr num             (* code pointer *)
     | RefPtr num              (* pointer to ref cell *)`;
 
-val Boolv_def = Define`
-  Boolv b = Block 0 (bool_to_tag b) []`
+Definition Boolv_def:
+  Boolv b = Block 0 (bool_to_tag b) []
+End
 
-val Unit_def = Define`
-  Unit = Block 0 (tuple_tag) []`
+Definition Unit_def:
+  Unit = Block 0 (tuple_tag) []
+End
 
 (* Stack frame with:
    -  A stack frame size `ss` (NONE when unbounded)
@@ -175,23 +177,24 @@ Overload add_space_safe =
 Overload heap_peak =
   ``λk ^s. MAX (s.peak_heap_length) (size_of_heap s + k)``
 
-val add_space_def = Define `
+Definition add_space_def:
   add_space ^s k =
     s with <| space := k
             ; safe_for_space   := add_space_safe k s
             ; peak_heap_length := heap_peak k s |>
-`;
+End
 
-val consume_space_def = Define `
+Definition consume_space_def:
   consume_space k ^s =
-    if s.space < k then NONE else SOME (s with space := s.space - k)`;
+    if s.space < k then NONE else SOME (s with space := s.space - k)
+End
 
 (* Determines which operations are safe for space *)
 Definition allowed_op_def:
   allowed_op op _ = (op <> closLang$Install)
 End
 
-val v_to_list_def = Define`
+Definition v_to_list_def:
   (v_to_list (Block ts tag []) =
      if tag = nil_tag then SOME [] else NONE) ∧
   (v_to_list (Block ts tag [h;bt]) =
@@ -200,7 +203,8 @@ val v_to_list_def = Define`
         | SOME t => SOME (h::t)
         | _ => NONE )
      else NONE) ∧
-  (v_to_list _ = NONE)`
+  (v_to_list _ = NONE)
+End
 
 Overload bignum_limit[local] =
   ``\i1 i2 s.
@@ -373,7 +377,7 @@ Overload do_space_peak =
               then heap_peak (space_consumed s op vs) s
               else s.peak_heap_length``
 
-val do_space_def = Define `
+Definition do_space_def:
   do_space op vs ^s =
     if op_space_reset op
     then  SOME (s with <| space := 0
@@ -381,7 +385,8 @@ val do_space_def = Define `
                         ; peak_heap_length := do_space_peak op vs s
                         |>)
     else if op_space_req op (LENGTH vs) = 0 then SOME s
-         else consume_space (op_space_req op (LENGTH vs)) s`;
+         else consume_space (op_space_req op (LENGTH vs)) s
+End
 
 Definition size_of_stack_frame_def:
   size_of_stack_frame (Env n _)  = n
@@ -392,25 +397,29 @@ Definition size_of_stack_def:
   size_of_stack = FOLDR (OPTION_MAP2 $+ o size_of_stack_frame) (SOME 1)
 End
 
-val do_stack_def = Define `
+Definition do_stack_def:
   do_stack op vs ^s =
   let new_stack = OPTION_MAP2 $+ (stack_consumed s.stack_frame_sizes s.limits op vs)
                       (OPTION_MAP2 $+ (size_of_stack s.stack) s.locals_size)
   in
     s with <| safe_for_space := (s.safe_for_space
                                 ∧ the F (OPTION_MAP ($> s.limits.stack_limit) new_stack))
-              ; stack_max := OPTION_MAP2 MAX s.stack_max new_stack |>`
+              ; stack_max := OPTION_MAP2 MAX s.stack_max new_stack |>
+End
 
-val v_to_bytes_def = Define `
+Definition v_to_bytes_def:
   v_to_bytes lv = some ns:word8 list.
-                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)`;
+                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)
+End
 
-val v_to_words_def = Define `
-  v_to_words lv = some ns. v_to_list lv = SOME (MAP Word64 ns)`;
+Definition v_to_words_def:
+  v_to_words lv = some ns. v_to_list lv = SOME (MAP Word64 ns)
+End
 
 (* TODO: move this stuff *)
-val isClos_def = Define `
-  isClos t1 l1 = (((t1 = closure_tag) \/ (t1 = partial_app_tag)) /\ l1 <> [])`;
+Definition isClos_def:
+  isClos t1 l1 = (((t1 = closure_tag) \/ (t1 = partial_app_tag)) /\ l1 <> [])
+End
 
 val do_eq_def = tDefine"do_eq"`
   (do_eq _ (CodePtr _) _ = Eq_type_error) ∧
@@ -450,7 +459,7 @@ val _ = export_rewrites["do_eq_def"];
 Overload Error[local] =
   ``(Rerr(Rabort Rtype_error)):(dataSem$v#('c,'ffi) dataSem$state, dataSem$v)result``
 
-val do_install_def = Define `
+Definition do_install_def:
   do_install vs ^s =
       (case vs of
        | [v1;v2;vl1;vl2] =>
@@ -474,19 +483,21 @@ val do_install_def = Define `
                       else Rerr(Rabort Rtype_error)
                   | _ => Rerr(Rabort Rtype_error))
             | _ => Rerr(Rabort Rtype_error))
-       | _ => Rerr(Rabort Rtype_error))`;
+       | _ => Rerr(Rabort Rtype_error))
+End
 
-val list_to_v_def = Define`
+Definition list_to_v_def:
   list_to_v ts t [] = t ∧
-  list_to_v ts t (h::l) = Block ts cons_tag [h; list_to_v (ts+1) t l]`;
+  list_to_v ts t (h::l) = Block ts cons_tag [h; list_to_v (ts+1) t l]
+End
 
 Overload Block_nil = ``Block 0 nil_tag []``
 
-val with_fresh_ts_def = Define`
+Definition with_fresh_ts_def:
   with_fresh_ts ^s n f = case s.tstamps of
                            SOME ts => f ts (s with <| tstamps := SOME (ts + n) |>)
                          | NONE    => f 0 s
-`;
+End
 
 Definition lim_safe_part_def[simp]:
   (lim_safe_part lims (Con tag xs) ⇔ if xs = []
@@ -976,34 +987,40 @@ Overload do_app_peak =
               else if MEM op [Greater; GreaterEq] then s.peak_heap_length
               else do_space_peak op vs s``
 
-val do_app_def = Define `
+Definition do_app_def:
   do_app op vs ^s =
     if op = Install then do_install vs (s with <|stack_max := NONE; stack_frame_sizes := LN|>) else
     if MEM op [Greater; GreaterEq] then Error else
     case do_space op vs s of
     | NONE => Error
-    | SOME s1 => do_app_aux op vs (do_stack op vs (do_lim_safe s1 op vs))`
+    | SOME s1 => do_app_aux op vs (do_stack op vs (do_lim_safe s1 op vs))
+End
 
-val get_var_def = Define `
-  get_var v = sptree$lookup v`;
+Definition get_var_def:
+  get_var v = sptree$lookup v
+End
 
-val get_vars_def = Define `
+Definition get_vars_def:
   (get_vars [] s = SOME []) /\
   (get_vars (v::vs) s =
      case get_var v s of
      | NONE => NONE
      | SOME x => (case get_vars vs s of
                   | NONE => NONE
-                  | SOME xs => SOME (x::xs)))`;
+                  | SOME xs => SOME (x::xs)))
+End
 
-val set_var_def = Define `
-set_var v x s = (s with locals := (insert v x s.locals))`;
+Definition set_var_def:
+set_var v x s = (s with locals := (insert v x s.locals))
+End
 
-val dec_clock_def = Define`
-dec_clock s = s with clock := s.clock -1`;
+Definition dec_clock_def:
+dec_clock s = s with clock := s.clock -1
+End
 
-val fix_clock_def = Define `
-  fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)`
+Definition fix_clock_def:
+  fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
+End
 
 val fix_clock_IMP = Q.prove(
   `fix_clock s x = (res,s1) ==> s1.clock <= s.clock`,
@@ -1052,7 +1069,7 @@ Definition push_env_def:
               ; safe_for_space := (s.safe_for_space ∧ stack_safe) |>)
 End
 
-val pop_env_def = Define `
+Definition pop_env_def:
   pop_env ^s =
     case s.stack of
     | (Env ss e::xs) =>
@@ -1064,9 +1081,10 @@ val pop_env_def = Define `
                       ; stack       := xs
                       ; locals_size := ss
                       ; handler     := n |>)
-    | _ => NONE`;
+    | _ => NONE
+End
 
-val jump_exc_def = Define `
+Definition jump_exc_def:
   jump_exc ^s =
     if s.handler < LENGTH s.stack then
       case LASTN (s.handler+1) s.stack of
@@ -1076,25 +1094,29 @@ val jump_exc_def = Define `
                         ; stack       := xs
                         ; locals_size := ss|>)
       | _ => NONE
-    else NONE`;
+    else NONE
+End
 
-val cut_env_def = Define `
+Definition cut_env_def:
   cut_env (name_set:num_set) env =
     if domain name_set SUBSET domain env
     then SOME (mk_wf (inter env name_set))
-    else NONE`
+    else NONE
+End
 
-val cut_state_def = Define `
+Definition cut_state_def:
   cut_state names ^s =
     case cut_env names s.locals of
     | NONE => NONE
-    | SOME env => SOME (s with locals := env)`;
+    | SOME env => SOME (s with locals := env)
+End
 
-val cut_state_opt_def = Define `
+Definition cut_state_opt_def:
   cut_state_opt names s =
     case names of
     | NONE => SOME s
-    | SOME names => cut_state names s`;
+    | SOME names => cut_state names s
+End
 
 val pop_env_clock = Q.prove(
   `(pop_env s = SOME s1) ==> (s1.clock = s.clock)`,
@@ -1108,7 +1130,7 @@ val push_env_clock = Q.prove(
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
 
-val find_code_def = Define `
+Definition find_code_def:
   (find_code (SOME p) args code ssize =
      case sptree$lookup p code of
      | NONE => NONE
@@ -1126,12 +1148,13 @@ val find_code_def = Define `
                if LENGTH args = arity + 1
                then SOME (FRONT args,exp,lookup loc ssize)
                else NONE)
-       | other => NONE)`
+       | other => NONE)
+End
 
-val isBool_def = Define`
+Definition isBool_def:
   isBool b (Block _ tag []) = (bool_to_tag b = tag)
 ∧ isBool _ _                = F
-`;
+End
 
 Definition install_sfs_def[simp]:
   install_sfs op ^s = s with safe_for_space := (op ≠ closLang$Install ∧ s.safe_for_space)
@@ -1326,7 +1349,7 @@ Theorem evaluate_ind[allow_rebind] =
 
 (* observational semantics *)
 
-val initial_state_def = Define`
+Definition initial_state_def:
   initial_state ffi code coracle cc stamps lims ss k = <|
     locals := LN
   ; locals_size := SOME 0
@@ -1346,9 +1369,10 @@ val initial_state_def = Define`
   ; peak_heap_length := 0
   ; stack_frame_sizes := ss
   ; limits := lims
-  |>`;
+  |>
+End
 
-val semantics_def = Define`
+Definition semantics_def:
   semantics init_ffi code coracle cc lims ss start  =
   let p = Call NONE (SOME start) [] NONE in
   let init = initial_state init_ffi code coracle cc T lims ss in
@@ -1369,7 +1393,8 @@ val semantics_def = Define`
      | NONE =>
        Diverge
          (build_lprefix_lub
-           (IMAGE (λk. fromList (SND (evaluate (p,init k))).ffi.io_events) UNIV))`;
+           (IMAGE (λk. fromList (SND (evaluate (p,init k))).ffi.io_events) UNIV))
+End
 
 Definition data_lang_safe_for_space_def:
   data_lang_safe_for_space init_ffi code (lims:dataSem$limits) (ss:num num_map) start =

@@ -2132,18 +2132,18 @@ QED
 
 val msimps = [st_ex_bind_def,st_ex_return_def];
 
-val lookup_default_id_def = Define`
+Definition lookup_default_id_def:
     lookup_default_id s x = option_CASE (lookup x s) x (\x.x)
-`;
+End
 
-val find_reg_exchange_step_def = Define`
+Definition find_reg_exchange_step_def:
     find_reg_exchange_step colors r (exch, invexch) =
         let col1 = EL r colors in
         let fcol1 = r DIV 2 in
         let col2 = lookup_default_id invexch fcol1 in
         let fcol2 = lookup_default_id exch col1 in
         (insert col1 fcol1 (insert col2 fcol2 exch), insert fcol1 col1 (insert fcol2 col2 invexch))
-`;
+End
 
 Theorem find_reg_exchange_FOLDL:
      !l colors exch invexch sth.
@@ -2162,7 +2162,9 @@ Proof
     rw [lookup_default_id_def, lookup_insert]
 QED
 
-val id_def = Define `id x = x`
+Definition id_def:
+  id x = x
+End
 
 Theorem find_reg_exchange_FOLDR_correct:
      !l colors exch invexch k.
@@ -2402,9 +2404,9 @@ Proof
     )
 QED
 
-val less_FST_def = Define`
+Definition less_FST_def:
     less_FST (x:int#num) y = (FST x <= FST y)
-`;
+End
 
 Theorem transitive_less_FST:
      transitive less_FST
@@ -2413,7 +2415,7 @@ Proof
     intLib.COOPER_TAC
 QED
 
-val good_linear_scan_state_def = Define`
+Definition good_linear_scan_state_def:
     good_linear_scan_state st sth l (pos:int) forced mincol = (
         LENGTH sth.int_beg = LENGTH sth.colors /\ LENGTH sth.int_end = LENGTH sth.colors /\
         ALL_DISTINCT (st.colorpool ++ MAP (\(e,r). EL r sth.colors) st.active) /\
@@ -2440,7 +2442,7 @@ val good_linear_scan_state_def = Define`
         mincol <= st.colornum /\
         EVERY (\c. mincol <= c) (st.colorpool ++ MAP (\r. EL r sth.colors) l)
     )
-`;
+End
 
 val good_linear_scan_state_def' = let
   val inj_rwt = Q.prove(‘(f x = f y ==> x = y) ⇔ (f x = f y ⇔ x = y)’,
@@ -2725,7 +2727,7 @@ Proof
 QED
 
 (* TODO: this should be part of the standard library, but I couldn't find it *)
-val IS_SPARSE_SUBLIST_def = Define`
+Definition IS_SPARSE_SUBLIST_def:
   (
     IS_SPARSE_SUBLIST [] l2 = T
   ) /\ (
@@ -2733,7 +2735,8 @@ val IS_SPARSE_SUBLIST_def = Define`
   ) /\ (
     IS_SPARSE_SUBLIST (x::xs) (y::ys) =
       ((x=y /\ IS_SPARSE_SUBLIST xs ys) \/ IS_SPARSE_SUBLIST (x::xs) ys)
-  )`
+  )
+End
 
 Theorem FILTER_IS_SPARSE_SUBLIST:
      !l. IS_SPARSE_SUBLIST (FILTER P l) l
@@ -2945,7 +2948,7 @@ Proof
     metis_tac [spill_register_FILTER_invariants]
 QED
 
-val edges_to_adjlist_step_def = Define`
+Definition edges_to_adjlist_step_def:
     edges_to_adjlist_step sth (a,b) acc =
       if a = b then
         acc
@@ -2953,7 +2956,7 @@ val edges_to_adjlist_step_def = Define`
         insert b (a::(the [] (lookup b acc))) acc
       else
         insert a (b::(the [] (lookup a acc))) acc
-`;
+End
 
 Theorem edges_to_adjlist_FOLDL:
      !forced sth acc.
@@ -2970,31 +2973,31 @@ Proof
     every_case_tac
 QED
 
-val forbidden_is_from_forced_def = Define`
+Definition forbidden_is_from_forced_def:
     forbidden_is_from_forced forced (int_beg : int list) reg forbidden =
         !reg2. (reg <> reg2 /\ (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) /\
         ($< LEX $<=) (EL reg2 int_beg, reg2) (EL reg int_beg, reg)) <=> MEM reg2 forbidden
-`;
+End
 
-val forbidden_is_from_forced_sublist_def = Define`
+Definition forbidden_is_from_forced_sublist_def:
     forbidden_is_from_forced_sublist l forced (int_beg : int list) reg forbidden =
         !reg2. (reg <> reg2 /\ (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) /\
         ($< LEX $<=) (EL reg2 int_beg, reg2) (EL reg int_beg, reg)) <=> (MEM reg2 forbidden /\ MEM reg l)
-`;
+End
 
-val forbidden_is_from_forced_list_def = Define`
+Definition forbidden_is_from_forced_list_def:
     forbidden_is_from_forced_list forced l reg forbidden =
         !reg2. MEM reg2 l /\
                (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) ==>
                MEM reg2 forbidden
-`;
+End
 
-val forbidden_is_from_map_color_forced_def = Define`
+Definition forbidden_is_from_map_color_forced_def:
     forbidden_is_from_map_color_forced forced l colors reg (forbidden:num_set) =
         !reg2. MEM reg2 l /\
                (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) ==>
                EL reg2 colors IN domain forbidden
-`;
+End
 
 Theorem edges_to_adjlist_FOLDR_output:
      !forced sth.
@@ -3548,10 +3551,10 @@ Proof
     Induct_on `l` >> rw (st_ex_MAP_def::msimps)
 QED
 
-val phystack_on_stack_def = Define`
+Definition phystack_on_stack_def:
     phystack_on_stack l st sth =
       !r. MEM r l /\ is_phy_var r /\ 2*st.colormax <= r ==> st.colormax <= EL r sth.colors
-`;
+End
 
 Theorem linear_reg_alloc_step_pass1_invariants:
      !st sth l moves forced_adj forced reg pos mincol.
@@ -3690,9 +3693,9 @@ Proof
 QED
 
 (* TODO: move *)
-val intbeg_less_def = Define`
+Definition intbeg_less_def:
     intbeg_less (int_beg : int list) r1 r2 = ($< LEX $<=) (EL r1 int_beg, r1) (EL r2 int_beg, r2)
-`;
+End
 
 Theorem intbeg_less_transitive:
      !int_beg. transitive (intbeg_less int_beg)
@@ -5005,7 +5008,7 @@ Proof
     )
 QED
 
-val good_bijection_state_def = Define`
+Definition good_bijection_state_def:
     good_bijection_state st regset = (
         regset = domain st.bij /\
         (
@@ -5024,7 +5027,7 @@ val good_bijection_state_def = Define`
         ) /\
         (!r. the 0 (lookup r st.bij) <= st.nmax)
     )
-`;
+End
 
 Theorem convention_partitions_or:
      !r. ( is_phy_var r /\ ~is_stack_var r /\ ~is_alloc_var r) \/
@@ -5214,12 +5217,12 @@ Proof
     simp [good_bijection_state_def, find_bijection_init_def, sp_inverts_def, lookup_def, is_stack_var_def, is_alloc_var_def, the_def]
 QED
 
-val sptree_eq_list_def = Define`
+Definition sptree_eq_list_def:
     sptree_eq_list (s : int num_map) l = !i.
       i < LENGTH l ==>
       (0 < EL i l <=> lookup i s = NONE) /\
       (EL i l <= 0 <=> lookup i s = SOME (EL i l))
-`
+End
 
 Theorem numset_list_add_if_lt_monad_correct:
      !int_beg sth l v.

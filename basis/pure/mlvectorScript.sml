@@ -14,8 +14,9 @@ val sub_def = save_thm("sub_def",regexp_compilerTheory.sub_def);
 
 val length_def = save_thm("length_def",regexp_compilerTheory.length_def);
 
-val tabulate_def = Define`
-  tabulate n f = Vector (GENLIST f n)`;
+Definition tabulate_def:
+  tabulate n f = Vector (GENLIST f n)
+End
 
 val toList_aux_def = tDefine "toList_aux"`
   toList_aux vec n =
@@ -26,7 +27,9 @@ val toList_aux_def = tDefine "toList_aux"`
 
 val toList_aux_ind = theorem"toList_aux_ind";
 
-val toList_def = Define`toList vec = toList_aux vec 0`;
+Definition toList_def:
+  toList vec = toList_aux vec 0
+End
 
 val toList_aux_thm = Q.prove (
   `!vec n. toList_aux vec n = case vec of Vector vs => DROP n vs`,
@@ -70,8 +73,9 @@ Proof
   Cases_on `v` >> fs[toList_thm,fromList_def]
 QED
 
-val update_def = Define`
-  update vec i x = Vector (LUPDATE x i (toList(vec)))`;
+Definition update_def:
+  update vec i x = Vector (LUPDATE x i (toList(vec)))
+End
 
 Theorem update_thm:
    !vec i x. sub (update vec i x) i = if i < length vec then x
@@ -83,14 +87,17 @@ QED
 
 
 
-val concat_def = Define`
-  concat l = Vector (FLAT (MAP toList l))`;
+Definition concat_def:
+  concat l = Vector (FLAT (MAP toList l))
+End
 
-val map_def = Define`
-  map vec f = Vector (MAP f (toList vec))`;
+Definition map_def:
+  map vec f = Vector (MAP f (toList vec))
+End
 
-val mapi_def = Define`
-  mapi vec f = Vector (MAPi f (toList vec))`;
+Definition mapi_def:
+  mapi vec f = Vector (MAPi f (toList vec))
+End
 
 
 val less_than_length_thm = Q.prove (
@@ -104,12 +111,14 @@ val less_than_length_thm = Q.prove (
   metis_tac[TAKE_DROP,APPEND_ASSOC,CONS_APPEND]
 );
 
-val foldli_aux_def = Define`
+Definition foldli_aux_def:
   (foldli_aux f e vec n 0 = e) /\
-  (foldli_aux f e vec n (SUC len) = foldli_aux f (f n (sub vec n) e) vec (n + 1) len)`;
+  (foldli_aux f e vec n (SUC len) = foldli_aux f (f n (sub vec n) e) vec (n + 1) len)
+End
 
-val foldli_def = Define`
-  foldli f e vec = foldli_aux f e vec 0 (length vec)`;
+Definition foldli_def:
+  foldli f e vec = foldli_aux f e vec 0 (length vec)
+End
 
 val foldli_aux_thm = Q.prove (
   `!f e vec n len. (n + len = length vec) ==>
@@ -126,12 +135,14 @@ Proof
   rw [foldli_def, mllistTheory.foldli_def, foldli_aux_thm]
 QED
 
-val foldl_aux_def = Define`
+Definition foldl_aux_def:
   (foldl_aux f e vec n 0 = e) /\
-  (foldl_aux f e vec n (SUC len) = foldl_aux f (f e (sub vec n)) vec (n + 1) len)`;
+  (foldl_aux f e vec n (SUC len) = foldl_aux f (f e (sub vec n)) vec (n + 1) len)
+End
 
-val foldl_def = Define`
-  foldl f e vec = foldl_aux f e vec 0 (length vec)`;
+Definition foldl_def:
+  foldl f e vec = foldl_aux f e vec 0 (length vec)
+End
 
 val foldl_aux_thm = Q.prove (
   `!f e vec x len. (x + len = length vec) ==>
@@ -156,12 +167,14 @@ QED
 
 
 
-val foldri_aux_def = Define`
+Definition foldri_aux_def:
   (foldri_aux f e vec 0 = e) /\
-  (foldri_aux f e vec (SUC len) = foldri_aux f (f len (sub vec len) e) vec len)`;
+  (foldri_aux f e vec (SUC len) = foldri_aux f (f len (sub vec len) e) vec len)
+End
 
-val foldri_def = Define`
-  foldri f e vec = foldri_aux f e vec (length vec)`;
+Definition foldri_def:
+  foldri f e vec = foldri_aux f e vec (length vec)
+End
 
 
 val foldri_aux_thm = Q.prove (
@@ -181,12 +194,14 @@ QED
 
 
 
-val foldr_aux_def = Define`
+Definition foldr_aux_def:
   (foldr_aux f e vec 0 = e) /\
-  (foldr_aux f e vec (SUC len) = foldr_aux f (f (sub vec len) e) vec len)`;
+  (foldr_aux f e vec (SUC len) = foldr_aux f (f (sub vec len) e) vec len)
+End
 
-val foldr_def = Define`
-  foldr f e vec = foldr_aux f e vec (length vec)`;
+Definition foldr_def:
+  foldr f e vec = foldr_aux f e vec (length vec)
+End
 
 val foldr_aux_thm = Q.prove (
   `!f e vec len. len <= length vec ==>
@@ -204,27 +219,31 @@ Proof
 QED
 
 
-val findi_aux_def = Define`
+Definition findi_aux_def:
   (findi_aux f vec n 0 = NONE) /\
   (findi_aux f vec n (SUC len) =
   if f n (sub vec n)
     then SOME(n, (sub vec n))
-  else findi_aux f vec (n + 1) len)`;
+  else findi_aux f vec (n + 1) len)
+End
 
-val findi_def = Define`
-  findi f vec = findi_aux f vec 0 (length vec)`;
+Definition findi_def:
+  findi f vec = findi_aux f vec 0 (length vec)
+End
 
 
 
-val find_aux_def = Define`
+Definition find_aux_def:
   (find_aux f vec n 0 = NONE) /\
   (find_aux f vec n (SUC len) =
   if f (sub vec n)
     then SOME(sub vec n)
-  else find_aux f vec (n + 1) len)`;
+  else find_aux f vec (n + 1) len)
+End
 
-val find_def = Define `
-  find f vec = find_aux f vec 0 (length vec)`;
+Definition find_def:
+  find f vec = find_aux f vec 0 (length vec)
+End
 
 val find_aux_thm = Q.prove (
   `!f vec n len. (n + len = length vec) ==> (find_aux f vec n len = FIND f (DROP n (toList vec)))`,

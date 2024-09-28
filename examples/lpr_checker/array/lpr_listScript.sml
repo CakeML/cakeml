@@ -10,19 +10,24 @@ open preamble basis lprTheory;
 
 val _ = new_theory "lpr_list"
 
-val w8z_def = Define`w8z = (0w:word8)`
+Definition w8z_def:
+  w8z = (0w:word8)
+End
 
-val w8o_def = Define`w8o = (1w:word8)`
+Definition w8o_def:
+  w8o = (1w:word8)
+End
 
-val index_def = Define`
+Definition index_def:
   index (i:int) =
   if i ≤ 0 then
     2 * Num(-i)
   else
-    2 * Num(i) - 1`
+    2 * Num(i) - 1
+End
 
 (* optimized for is_AT  step *)
-val delete_literals_sing_list_def = Define`
+Definition delete_literals_sing_list_def:
   (delete_literals_sing_list Clist [] = SOME 0) ∧
   (delete_literals_sing_list Clist (c::cs) =
   if any_el (index c) Clist w8z = w8o
@@ -30,9 +35,10 @@ val delete_literals_sing_list_def = Define`
   else (* c should be the only literal left *)
     if EVERY (λi. any_el (index i) Clist w8z = w8o) cs
     then SOME (~c)
-    else NONE)`
+    else NONE)
+End
 
-val is_AT_list_aux_def = Define`
+Definition is_AT_list_aux_def:
   (is_AT_list_aux fml [] C Clist = SOME (INR C, Clist)) ∧
   (is_AT_list_aux fml (i::is) C Clist =
   case any_el i fml NONE of
@@ -42,22 +48,25 @@ val is_AT_list_aux_def = Define`
     NONE => NONE
   | SOME nl =>
     if nl = 0 then SOME (INL C, Clist)
-    else is_AT_list_aux fml is (nl::C) (update_resize Clist w8z w8o (index nl)))`
+    else is_AT_list_aux fml is (nl::C) (update_resize Clist w8z w8o (index nl)))
+End
 
-val set_list_def = Define`
+Definition set_list_def:
   (set_list Clist v [] = Clist) ∧
   (set_list Clist v (c::cs) =
-    set_list (update_resize Clist w8z v (index c)) v cs)`
+    set_list (update_resize Clist w8z v (index c)) v cs)
+End
 
-val is_AT_list_def = Define`
+Definition is_AT_list_def:
   is_AT_list fml ls c Clist =
   let Clist = set_list Clist w8o c in
   case is_AT_list_aux fml ls c Clist of
     NONE => NONE
   | SOME (INL c, Clist) => SOME (INL (), set_list Clist w8z c)
-  | SOME (INR c, Clist) => SOME (INR c, set_list Clist w8z c)`
+  | SOME (INR c, Clist) => SOME (INR c, set_list Clist w8z c)
+End
 
-val check_RAT_list_def = Define`
+Definition check_RAT_list_def:
   check_RAT_list fml Clist np C ik (i:num) Ci =
   if MEM np Ci then
     case ALOOKUP ik i of
@@ -72,9 +81,10 @@ val check_RAT_list_def = Define`
       case is_AT_list fml is (C ++ (delete_literals Ci [np])) Clist of
         SOME (INL (), Clist) => SOME Clist
       | _ => NONE
-  else SOME Clist`
+  else SOME Clist
+End
 
-val check_PR_list_def = Define`
+Definition check_PR_list_def:
   check_PR_list fml Clist nw C ik (i:num) Ci =
   if check_overlap Ci nw then
     case ALOOKUP ik i of
@@ -92,48 +102,54 @@ val check_PR_list_def = Define`
       case is_AT_list fml is (C ++ (delete_literals Ci (flip (overlap_assignment (flip nw) C)))) Clist of
         SOME (INL (), Clist) => SOME Clist
       | _ => NONE
-  else SOME Clist`
+  else SOME Clist
+End
 
-val every_check_RAT_list_def = Define`
+Definition every_check_RAT_list_def:
   (every_check_RAT_list fml Clist np C ik [] [] = SOME Clist) ∧
   (every_check_RAT_list fml Clist np C ik (i::is) (Ci::Cis) =
   case check_RAT_list fml Clist np C ik i Ci of
     NONE => NONE
   | SOME Clist => every_check_RAT_list fml Clist np C ik is Cis) ∧
-  (every_check_RAT_list fml Clist np C ik _ _ = NONE)`
+  (every_check_RAT_list fml Clist np C ik _ _ = NONE)
+End
 
-val every_check_PR_list_def = Define`
+Definition every_check_PR_list_def:
   (every_check_PR_list fml Clist nw C ik [] [] = SOME Clist) ∧
   (every_check_PR_list fml Clist nw C ik (i::is) (Ci::Cis) =
   case check_PR_list fml Clist nw C ik i Ci of
     NONE => NONE
   | SOME Clist => every_check_PR_list fml Clist nw C ik is Cis) ∧
-  (every_check_PR_list fml Clist nw C ik _ _ = NONE)`
+  (every_check_PR_list fml Clist nw C ik _ _ = NONE)
+End
 
-val min_opt_def = Define`
+Definition min_opt_def:
   min_opt i j =
   case i of NONE => j
   | SOME ii =>
     (case j of
       NONE => SOME ii
-    | SOME jj => SOME (MIN ii jj))`
+    | SOME jj => SOME (MIN ii jj))
+End
 
-val list_min_opt_def = Define`
+Definition list_min_opt_def:
   (list_min_opt min [] = min) ∧
   (list_min_opt min (i::is) =
-    list_min_opt (min_opt min i) is)`
+    list_min_opt (min_opt min i) is)
+End
 
 (* Clean up the index list *)
-val reindex_def = Define`
+Definition reindex_def:
   (reindex fml [] = ([],[])) ∧
   (reindex fml (i::is) =
   case any_el i fml NONE of
     NONE => reindex fml is
   | SOME v =>
     let (l,r) = reindex fml is in
-      (i::l, v::r))`
+      (i::l, v::r))
+End
 
-val reindex_partial_def = Define`
+Definition reindex_partial_def:
   (reindex_partial fml mini [] = ([],[],[])) ∧
   (reindex_partial fml mini (i::is) =
   if i ≥ mini then
@@ -143,9 +159,10 @@ val reindex_partial_def = Define`
       let (l,r,rest) = reindex_partial fml mini is in
         (i::l, v::r,rest)
   else
-    ([],[],i::is))`
+    ([],[],i::is))
+End
 
-val every_check_RAT_inds_list_def = Define`
+Definition every_check_RAT_inds_list_def:
   (every_check_RAT_inds_list fml Clist np C ik mini [] acc = SOME (REVERSE acc, Clist)) ∧
   (every_check_RAT_inds_list fml Clist np C ik mini (i::is) acc =
   if i ≥ mini then
@@ -156,7 +173,8 @@ val every_check_RAT_inds_list_def = Define`
       NONE => NONE
     | SOME Clist => every_check_RAT_inds_list fml Clist np C ik mini is (i::acc)
   else
-      SOME(REV acc (i::is), Clist))`
+      SOME(REV acc (i::is), Clist))
+End
 
 (* rewrite into a simpler form without accumulator *)
 Theorem every_check_RAT_inds_list_eq:
@@ -178,7 +196,7 @@ Proof
   simp[REV_REVERSE_LEM]
 QED
 
-val every_check_PR_inds_list_def = Define`
+Definition every_check_PR_inds_list_def:
   (every_check_PR_inds_list fml Clist np C ik mini [] acc = SOME (REVERSE acc, Clist)) ∧
   (every_check_PR_inds_list fml Clist np C ik mini (i::is) acc =
   if i ≥ mini then
@@ -189,7 +207,8 @@ val every_check_PR_inds_list_def = Define`
       NONE => NONE
     | SOME Clist => every_check_PR_inds_list fml Clist np C ik mini is (i::acc)
   else
-    SOME(REV acc (i::is), Clist))`
+    SOME(REV acc (i::is), Clist))
+End
 
 Theorem every_check_PR_inds_list_eq:
   ∀inds fml Clist np C ik mini acc.
@@ -210,7 +229,7 @@ Proof
   simp[REV_REVERSE_LEM]
 QED
 
-val is_PR_list_def = Define`
+Definition is_PR_list_def:
   is_PR_list fml inds Clist earliest p (C:cclause) wopt i0 ik =
   (* First, do the asymmetric tautology check *)
   case is_AT_list fml i0 C Clist of
@@ -229,7 +248,8 @@ val is_PR_list_def = Define`
       case miniopt of NONE => SOME (inds,Clist)
       | SOME mini => every_check_PR_inds_list fml Clist (flip w) D ik mini inds []
   else
-     NONE`
+     NONE
+End
 
 (* easier to reason about later *)
 Theorem is_PR_list_eq:
@@ -270,43 +290,49 @@ Proof
   simp[every_check_PR_inds_list_eq]
 QED
 
-val list_delete_list_def = Define`
+Definition list_delete_list_def:
   (list_delete_list [] fml = fml) ∧
   (list_delete_list (i::is) fml =
     if LENGTH fml ≤ i
     then list_delete_list is fml
-    else list_delete_list is (LUPDATE NONE i fml))`
+    else list_delete_list is (LUPDATE NONE i fml))
+End
 
-val safe_hd_def = Define`
-  safe_hd ls = case ls of [] => (0:int) | (x::xs) => x`
+Definition safe_hd_def:
+  safe_hd ls = case ls of [] => (0:int) | (x::xs) => x
+End
 
-val list_max_index_def = Define`
-  list_max_index C = 2*list_max (MAP (λc. Num (ABS c)) C) + 1`
+Definition list_max_index_def:
+  list_max_index C = 2*list_max (MAP (λc. Num (ABS c)) C) + 1
+End
 
 (* bump up the length to a large number *)
-val resize_Clist_def = Define`
+Definition resize_Clist_def:
   resize_Clist C Clist =
   if LENGTH Clist ≤ list_max_index C then
     REPLICATE (2 * (list_max_index C )) w8z
-  else Clist`
+  else Clist
+End
 
 (* v is the clause index *)
-val update_earliest_def = Define`
+Definition update_earliest_def:
   (update_earliest ls v [] = ls) ∧
   (update_earliest ls v (n::ns) =
     let ind = index n in
     let minn = any_el ind ls NONE in
     let updmin = min_opt minn (SOME v) in
-    update_earliest (update_resize ls NONE updmin ind) v ns)`
+    update_earliest (update_resize ls NONE updmin ind) v ns)
+End
 
 (* ensure list remains ≥ sorted -- common case: will always just insert at the front *)
-val sorted_insert_def = Define`
+Definition sorted_insert_def:
   (sorted_insert (x:num) [] = [x]) ∧
   (sorted_insert x (y::ys) =
     if x ≥ y then x::y::ys
-    else y::(sorted_insert x ys))`
+    else y::(sorted_insert x ys))
+End
 
-val check_earliest_def = Define`
+Definition check_earliest_def:
   (check_earliest fml x old new [] = T) ∧
   (check_earliest fml x old new (i::is) =
   if i ≥ old then
@@ -318,20 +344,23 @@ val check_earliest_def = Define`
         ¬ (MEM x Ci) ∧ check_earliest fml x old new is
     else
       check_earliest fml x old new is
-  else T)`
+  else T)
+End
 
-val list_min_aux_def = Define`
+Definition list_min_aux_def:
   (list_min_aux min [] = min) ∧
   (list_min_aux min ((i,_)::is) =
-      list_min_aux (MIN min i) is)`
+      list_min_aux (MIN min i) is)
+End
 
 (* Note that clauses are 1 indexed *)
-val list_min_def = Define`
+Definition list_min_def:
   list_min ls =
   case ls of [] => 0
-  | (x::xs) => list_min_aux (FST x) xs`
+  | (x::xs) => list_min_aux (FST x) xs
+End
 
-val hint_earliest_def = Define`
+Definition hint_earliest_def:
   hint_earliest C (w:int list option) (ik:(num # num list) list) fml inds earliest =
   case w of
     NONE =>
@@ -346,9 +375,10 @@ val hint_earliest_def = Define`
           if check_earliest fml (~p) mini lm inds
           then update_resize earliest NONE (SOME lm) (index (~p))
           else earliest)
-  | SOME _ => earliest`
+  | SOME _ => earliest
+End
 
-val check_lpr_step_list_def = Define`
+Definition check_lpr_step_list_def:
   check_lpr_step_list mindel step fml inds Clist earliest =
   case step of
     Delete cl =>
@@ -366,48 +396,55 @@ val check_lpr_step_list_def = Define`
         if mindel < n then
           SOME (update_resize fml NONE (SOME C) n, sorted_insert n inds, Clist,
             update_earliest earliest n C)
-        else NONE`
+        else NONE
+End
 
-val check_lpr_list_def = Define`
+Definition check_lpr_list_def:
   (check_lpr_list mindel [] fml inds Clist earliest = SOME (fml, inds)) ∧
   (check_lpr_list mindel (step::steps) fml inds Clist earliest =
     case check_lpr_step_list mindel step fml inds Clist earliest of
       NONE => NONE
-    | SOME (fml', inds', Clist',earliest') => check_lpr_list mindel steps fml' inds' Clist' earliest')`
+    | SOME (fml', inds', Clist',earliest') => check_lpr_list mindel steps fml' inds' Clist' earliest')
+End
 
-val contains_clauses_list_def = Define`
+Definition contains_clauses_list_def:
   contains_clauses_list fml inds cls =
   case reindex fml inds of
     (_,inds') =>
   let inds'' = MAP canon_clause inds' in
-  EVERY (λcl. MEM (canon_clause cl) inds'') cls`
+  EVERY (λcl. MEM (canon_clause cl) inds'') cls
+End
 
-val check_lpr_unsat_list_def = Define`
+Definition check_lpr_unsat_list_def:
   check_lpr_unsat_list lpr fml inds Clist earliest =
   case check_lpr_list 0 lpr fml inds Clist earliest of
     NONE => F
-  | SOME (fml', inds') => contains_clauses_list fml' inds' [[]]`
+  | SOME (fml', inds') => contains_clauses_list fml' inds' [[]]
+End
 
 (* Checking satisfiability equivalence *)
-val check_lpr_sat_equiv_list_def = Define`
+Definition check_lpr_sat_equiv_list_def:
   check_lpr_sat_equiv_list lpr fml inds Clist earliest mindel cls =
   case check_lpr_list mindel lpr fml inds Clist earliest of
     NONE => F
-  | SOME (fml', inds') => contains_clauses_list fml' inds' cls`
+  | SOME (fml', inds') => contains_clauses_list fml' inds' cls
+End
 
 (* prove that check_lpr_step_list implements check_lpr_step *)
-val fml_rel_def = Define`
+Definition fml_rel_def:
   fml_rel fml fmlls ⇔
   ∀x.
-  lookup x fml = any_el x fmlls NONE`
+  lookup x fml = any_el x fmlls NONE
+End
 
 (* Require that the lookup table matches a clause exactly *)
-val lookup_rel_def = Define`
+Definition lookup_rel_def:
   lookup_rel C Clist ⇔
   (* elements are either 0 or 1 *)
   (∀i. MEM i Clist ⇒ i = w8z ∨ i = w8o) ∧
   (* where 1 indicates membership in C *)
-  (∀i. any_el (index i) Clist w8z = w8o ⇔ MEM i C)`
+  (∀i. any_el (index i) Clist w8z = w8o ⇔ MEM i C)
+End
 
 Theorem delete_literals_sing_list_correct:
   ∀ls.
@@ -695,11 +732,12 @@ Proof
 QED
 
 (* It must be the case that everything that is SOME is in inds *)
-val ind_rel_def = Define`
+Definition ind_rel_def:
   ind_rel fmlls inds ⇔
   ∀x. x < LENGTH fmlls ∧
   IS_SOME (EL x fmlls) ⇒
-  MEM x inds`
+  MEM x inds
+End
 
 Theorem reindex_characterize:
   ∀inds inds' vs.
@@ -828,7 +866,7 @@ Proof
 QED
 
 (* earliest correctly tracks earliest occurrence of a literal *)
-val earliest_rel_def = Define`
+Definition earliest_rel_def:
   earliest_rel fmlls earliest ⇔
   ∀x.
   case any_el x earliest NONE of
@@ -844,7 +882,8 @@ val earliest_rel_def = Define`
       pos < LENGTH fmlls ⇒
       case EL pos fmlls of
         NONE => T
-      | SOME ls => MEM z ls ⇒ index z ≠ x)`
+      | SOME ls => MEM z ls ⇒ index z ≠ x)
+End
 
 (* Trivial case when the earliest index is NONE *)
 Theorem earliest_rel_RAT_NONE:
@@ -1688,22 +1727,25 @@ Proof
 QED
 
 (* Construct "hash table" mapping clauses -> list of indexes *)
-val hash_insert_def = Define`
+Definition hash_insert_def:
   hash_insert fm k v =
     case FLOOKUP fm k of
       NONE => fm |+ (k,[v])
-    | SOME vs => fm |+ (k, v::vs)`
+    | SOME vs => fm |+ (k, v::vs)
+End
 
-val hash_clauses_aux_def = Define`
+Definition hash_clauses_aux_def:
   (hash_clauses_aux [] [] fm = fm) ∧
   (hash_clauses_aux (c::cs) (i::is) fm =
-    hash_clauses_aux cs is (hash_insert fm c i))`
+    hash_clauses_aux cs is (hash_insert fm c i))
+End
 
 (* Construct a "hash table" from an existing formula representation *)
-val hash_clauses_list_def = Define`
+Definition hash_clauses_list_def:
   hash_clauses_list fml inds =
   case reindex fml inds of
-    (inds', cls) => hash_clauses_aux cls inds' FEMPTY`
+    (inds', cls) => hash_clauses_aux cls inds' FEMPTY
+End
 
 (*
   Run "first part" of proof that updates all moving parts simultaneously:
@@ -1714,7 +1756,7 @@ val hash_clauses_list_def = Define`
 
   The "second part" of the proof only needs to project out the "fm" component
 *)
-val run_proof_step_list_def = Define`
+Definition run_proof_step_list_def:
   (run_proof_step_list (fml,inds,earliest,fm,n,mv) (Del C) =
     case FLOOKUP fm C of
       NONE => (* the clause to be deleted doesn't exist, don't do anything *)
@@ -1727,12 +1769,14 @@ val run_proof_step_list_def = Define`
      update_earliest earliest n C,
      hash_insert fm C n,
      n+1,
-     MAX mv (list_max_index C + 1)))`
+     MAX mv (list_max_index C + 1)))
+End
 
-val run_proof_list_def = Define`
-  run_proof_list data pf = FOLDL run_proof_step_list data pf`
+Definition run_proof_list_def:
+  run_proof_list data pf = FOLDL run_proof_step_list data pf
+End
 
-val check_lpr_range_list_def = Define`
+Definition check_lpr_range_list_def:
   check_lpr_range_list lpr fml inds earliest mv n pf i j =
   if i ≤ j then
     let fm = hash_clauses_list fml inds in
@@ -1743,7 +1787,8 @@ val check_lpr_range_list_def = Define`
     let (fml'',inds'',earliest'',fm'',n'',mv'') = run_proof_list (fml',inds',earliest',fm',n',mv') pfj in
     let cls = MAP FST (fmap_to_alist fm'') in
     check_lpr_sat_equiv_list lpr fml' inds' (REPLICATE mv' w8z) earliest' 0 cls
-  else F`
+  else F
+End
 
 (* The "easy" part of the induction *)
 Theorem run_proof_list_rels:
@@ -1772,12 +1817,13 @@ Proof
 QED
 
 (* the hash set contains all the information necessary and nothing extra *)
-val hash_rel_def = Define`
+Definition hash_rel_def:
   hash_rel fmlls fm ⇔
   (∀C x. x < LENGTH fmlls ∧ EL x fmlls = SOME C ⇒
     ∃xs. FLOOKUP fm C = SOME xs ∧ MEM x xs) ∧
   (∀C x xs. FLOOKUP fm C = SOME xs ∧ MEM x xs ⇒
-    x < LENGTH fmlls ∧ EL x fmlls = SOME C)`
+    x < LENGTH fmlls ∧ EL x fmlls = SOME C)
+End
 
 Theorem fml_rel_from_to_AList:
   fml_rel fml fmlls ⇒

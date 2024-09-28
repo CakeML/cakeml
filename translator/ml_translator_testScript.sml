@@ -128,9 +128,10 @@ val _ = translate uses_hidden2_def;
 
 (* test side conditions *)
 
-val ZIP2_def = Define `
+Definition ZIP2_def:
   (ZIP2 ([],[]) z = []) /\
-  (ZIP2 (x::xs,y::ys) z = (x,y) :: ZIP2 (xs, ys) (5:int))`
+  (ZIP2 (x::xs,y::ys) z = (x,y) :: ZIP2 (xs, ys) (5:int))
+End
 
 (* test timing by setting this
 val _ = (ml_translatorLib.trace_timing_to
@@ -145,30 +146,34 @@ val res = translate mllistTheory.tabulate_aux_def;
 
 val res = translate MEMBER_def;
 
-val AEVERY_AUX_def = Define `
+Definition AEVERY_AUX_def:
   (AEVERY_AUX aux P [] = T) /\
   (AEVERY_AUX aux P ((x:'a,y:'b)::xs) =
      if MEMBER x aux then AEVERY_AUX aux P xs else
-       P (x,y) /\ AEVERY_AUX (x::aux) P xs)`;
+       P (x,y) /\ AEVERY_AUX (x::aux) P xs)
+End
 
 val res = translate AEVERY_AUX_def;
 
 val res = translate mlstringTheory.strcat_def;
 (* val res = translate mlstringTheory.concatWith_aux_def *)
 
-val ADEL_def = Define `
+Definition ADEL_def:
   (ADEL [] z = []) /\
-  (ADEL ((x:'a,y:'b)::xs) z = if x = z then ADEL xs z else (x,y)::ADEL xs z)`
+  (ADEL ((x:'a,y:'b)::xs) z = if x = z then ADEL xs z else (x,y)::ADEL xs z)
+End
 
 val res = translate ADEL_def;
 
-val ZIP4_def = Define `
-  ZIP4 xs = ZIP2 xs 6`
+Definition ZIP4_def:
+  ZIP4 xs = ZIP2 xs 6
+End
 
 val res = translate ZIP4_def;
 
-val char_to_byte_def = Define`
-  char_to_byte c = (n2w (ORD c) : word8)`;
+Definition char_to_byte_def:
+  char_to_byte c = (n2w (ORD c) : word8)
+End
 
 val res = translate char_to_byte_def;
 
@@ -182,22 +187,29 @@ val res = translate mlstringTheory.explode_aux_def;
 
 val res = translate mlstringTheory.explode_def;
 
-val string_to_bytes_def = Define`
-  string_to_bytes s = MAP char_to_byte (explode s)`;
+Definition string_to_bytes_def:
+  string_to_bytes s = MAP char_to_byte (explode s)
+End
 
 val res = translate string_to_bytes_def;
 *)
 
 val res = translate miscTheory.any_word64_ror_def
 
-val def = Define `bar = []:'a list`
-val res = translate def
+Definition bar_def:
+  bar = []:'a list
+End
+val res = translate bar_def
 
-val def = Define `foo1 = if bar = []:'a list then [] else []:'a list`
-val res = translate def
+Definition foo1_def:
+  foo1 = if bar = []:'a list then [] else []:'a list
+End
+val res = translate foo1_def
 
-val def = Define `foo2 = 4:num`
-val res = translate def
+Definition foo2_def:
+  foo2 = 4:num
+End
+val res = translate foo2_def
 
 val _ = Datatype`
   foo = <| next_loc : num
@@ -221,10 +233,12 @@ val _ = Datatype `bar2 = Ta | TI`
 val _ = register_type ``:bar1``
 val _ = register_type ``:bar2``
 
-val and_pre_def = Define`
-  and_pre x ⇔ x <> 0i ∧ 2 / x > 0`;
-val or_pre_def = Define`
-  or_pre x = if (x = 0) \/ 2 / x > 0 then and_pre x \/ 0 < x else x < 0`
+Definition and_pre_def:
+  and_pre x ⇔ x <> 0i ∧ 2 / x > 0
+End
+Definition or_pre_def:
+  or_pre x = if (x = 0) \/ 2 / x > 0 then and_pre x \/ 0 < x else x < 0
+End
 val res =  translate and_pre_def;
 val res =  translate or_pre_def;
 
@@ -268,7 +282,9 @@ QED
 
 val _ = arith_shift_right_ind |> update_precondition;
 
-val shift_test_def = Define `shift_test (x:word64) y = arith_shift_right x y`
+Definition shift_test_def:
+  shift_test (x:word64) y = arith_shift_right x y
+End
 
 val res = translate shift_test_def;
 
@@ -279,18 +295,24 @@ val _ = Datatype` idrec = <|v : num; f : 'a|>`;
 
 val _ = Datatype` t = V num | F 'a | D t t`;
 
-val test_def = Define`test ids = D (F ids.f) (V ids.v)`;
+Definition test_def:
+  test ids = D (F ids.f) (V ids.v)
+End
 
 val res = translate test_def;
 
 (* Test floating-point support *)
-val test1_def = Define `test1 f = fp64_add roundTiesToEven f f`
+Definition test1_def:
+  test1 f = fp64_add roundTiesToEven f f
+End
 
 val res = translate test1_def;
 
 (* FMA: *)
 
-val test2_def = Define `test2 f1 f2 f3 = (fp64_mul_add roundTiesToEven) f1 f2 f3`
+Definition test2_def:
+  test2 f1 f2 f3 = (fp64_mul_add roundTiesToEven) f1 f2 f3
+End
 
 val res = translate test2_def;
 
@@ -326,8 +348,10 @@ val r = translate_no_ind test3_def;
 (* registering types inside modules *)
 
 val _ = Datatype `my_type = my_case1 | my_case2 | my_case3`;
-val my_fun_def = Define `(my_fun my_case1 = 0n) /\ (my_fun my_case2 = 1n) /\
-                         (my_fun my_case3 = 2n)`;
+Definition my_fun_def:
+  (my_fun my_case1 = 0n) /\ (my_fun my_case2 = 1n) /\
+                         (my_fun my_case3 = 2n)
+End
 
 val r = register_type ``:'a option``;
 
@@ -345,10 +369,14 @@ val _ = ml_prog_update (close_module NONE);
 
 (* test the abstract translator is working *)
 
-val map_again_def = Define `map_again f [] = []
-  /\ map_again f (x :: xs) = f x :: map_again f xs`;
+Definition map_again_def:
+  map_again f [] = []
+  /\ map_again f (x :: xs) = f x :: map_again f xs
+End
 
-val inc_list_def = Define `inc_list xs = map_again (\x. x + SUC 0) xs`;
+Definition inc_list_def:
+  inc_list xs = map_again (\x. x + SUC 0) xs
+End
 
 val r = abs_translate map_again_def;
 val r = abs_translate inc_list_def;
@@ -399,12 +427,24 @@ val part_dummy_v_fun = fetch_v_fun ``: non_eq_type``;
 
 (* translating within nested local blocks and modules *)
 
-val hidden_f1_def = Define `hidden_f1 xs = REVERSE xs ++ [()]`;
-val global_f2_def = Define `global_f2 xs = hidden_f1 xs ++ [()]`;
-val hidden_f3_def = Define `hidden_f3 xs = global_f2 (hidden_f1 xs)`;
-val module_f4_def = Define `module_f4 xs = hidden_f3 (global_f2 xs)`;
-val module_f5_def = Define `module_f5 xs = module_f4 xs`;
-val global_f6_def = Define `global_f6 xs = module_f5 xs ++ module_f4 xs`;
+Definition hidden_f1_def:
+  hidden_f1 xs = REVERSE xs ++ [()]
+End
+Definition global_f2_def:
+  global_f2 xs = hidden_f1 xs ++ [()]
+End
+Definition hidden_f3_def:
+  hidden_f3 xs = global_f2 (hidden_f1 xs)
+End
+Definition module_f4_def:
+  module_f4 xs = hidden_f3 (global_f2 xs)
+End
+Definition module_f5_def:
+  module_f5 xs = module_f4 xs
+End
+Definition global_f6_def:
+  global_f6 xs = module_f5 xs ++ module_f4 xs
+End
 
 val r = translate REVERSE_DEF;
 val _ = ml_prog_update open_local_block;
@@ -426,11 +466,21 @@ val r = translate global_f6_def;
 
 (* translating within nested modules *)
 
-val m1_m2_f_def = Define `m1_m2_f i = SUC 1 + i`;
-val m1_m3_f_def = Define `m1_m3_f i = m1_m2_f (SUC i)`;
-val m1_f_def = Define `m1_f i = m1_m2_f (m1_m3_f i)`;
-val m4_f_def = Define `m4_f i = m1_f i + m1_m3_f (m1_m2_f i)`;
-val m4_m5_f_def = Define `m4_m5_f i = m1_f i + m4_f i + m1_m2_f i`;
+Definition m1_m2_f_def:
+  m1_m2_f i = SUC 1 + i
+End
+Definition m1_m3_f_def:
+  m1_m3_f i = m1_m2_f (SUC i)
+End
+Definition m1_f_def:
+  m1_f i = m1_m2_f (m1_m3_f i)
+End
+Definition m4_f_def:
+  m4_f i = m1_f i + m1_m3_f (m1_m2_f i)
+End
+Definition m4_m5_f_def:
+  m4_m5_f i = m1_f i + m4_f i + m1_m2_f i
+End
 
 val _ = ml_prog_update (open_module "m1");
 val _ = ml_prog_update (open_module "m2");
@@ -452,9 +502,10 @@ val _ = ml_prog_update (close_module NONE);
 
 val _ = use_string_type true;
 
-val str_ex1_def = Define `
+Definition str_ex1_def:
   str_ex1 s1 s2 = if LENGTH s1 = 0 then "Hello!" else
-                  if EL 0 s1 = #"\n" then s1 else STRCAT s1 s2`;
+                  if EL 0 s1 = #"\n" then s1 else STRCAT s1 s2
+End
 
 val res = translate str_ex1_def;
 
@@ -465,18 +516,21 @@ val str_ex1_side_thm = Q.prove(
 
 val res = translate MAP;
 
-val str_ex2_def = Define `
-  str_ex2 s1 = MAP ORD (str_ex1 s1 "Test")`;
+Definition str_ex2_def:
+  str_ex2 s1 = MAP ORD (str_ex1 s1 "Test")
+End
 
 val res = translate str_ex2_def; (* causes warning *)
 
-val str_ex3_def = Define `
-  str_ex3 s1 = MAP ORD (EXPLODE (str_ex1 s1 "Test"))`;
+Definition str_ex3_def:
+  str_ex3 s1 = MAP ORD (EXPLODE (str_ex1 s1 "Test"))
+End
 
 val res = translate str_ex3_def; (* doesn't cause warning *)
 
-val str_ex4_def = Define `
-  str_ex4 s1 = MAP CHR (str_ex3 s1)`
+Definition str_ex4_def:
+  str_ex4 s1 = MAP CHR (str_ex3 s1)
+End
 
 val res = translate str_ex4_def;
 
@@ -486,8 +540,9 @@ val str_ex4_side_thm = Q.prove(
   \\ fs [stringTheory.ORD_BOUND])
   |> update_precondition;
 
-val str_ex5_def = Define `
-  str_ex5 s1 = if s1 = "Hello" then "There!" else IMPLODE (MAP CHR (str_ex3 s1))`
+Definition str_ex5_def:
+  str_ex5 s1 = if s1 = "Hello" then "There!" else IMPLODE (MAP CHR (str_ex3 s1))
+End
 
 val res = translate str_ex5_def;
 
@@ -497,16 +552,18 @@ val str_ex5_side_thm = Q.prove(
   \\ fs [stringTheory.ORD_BOUND])
   |> update_precondition;
 
-val str_ex6_def = Define `
+Definition str_ex6_def:
   str_ex6 s <=>
     s <> "before" /\ s <> "div" /\ s <> "mod" /\ s <> "o" ∧
-    if s = "" then T else HD s = #" "`
+    if s = "" then T else HD s = #" "
+End
 
 val res = translate str_ex6_def;
 
-val id_to_string_def = Define `
+Definition id_to_string_def:
   id_to_string (Short s) = implode s /\
-  id_to_string (Long x id) = concat [implode x; implode "."; id_to_string id]`
+  id_to_string (Long x id) = concat [implode x; implode "."; id_to_string id]
+End
 
 val res = translate id_to_string_def;
 

@@ -42,10 +42,11 @@ val tail_def = mlDefine `
 
 (* verification proof *)
 
-val queue_inv_def = Define `
+Definition queue_inv_def:
   queue_inv q (QUEUE w lenf f lenr r) <=>
     (q = f ++ REVERSE r) /\ (lenr = LENGTH r) /\ (lenf = LENGTH f) /\
-    lenr <= lenf /\ ((w = []) ==> (q = [])) /\ isPREFIX w f`;
+    lenr <= lenf /\ ((w = []) ==> (q = [])) /\ isPREFIX w f
+End
 
 val empty_thm = Q.prove(
   `!xs. queue_inv xs empty = (xs = [])`,
