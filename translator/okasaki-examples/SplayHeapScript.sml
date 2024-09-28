@@ -32,8 +32,10 @@ Definition is_heap_ordered_def:
   BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag h2))
 End
 
-val _ = mlDefine `
-empty = Empty`;
+Definition empty_def:
+  empty = Empty
+End
+val r = translate empty_def;
 
 Definition is_empty_def:
 (is_empty Empty = T) ∧

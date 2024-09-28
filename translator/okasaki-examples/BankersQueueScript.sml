@@ -14,7 +14,10 @@ Datatype:
   queue = QUEUE num ('a list) num ('a list)
 End
 
-val empty_def = mlDefine `empty = QUEUE 0 [] 0 []`;
+Definition empty_def:
+  empty = QUEUE 0 [] 0 []
+End
+val r = translate empty_def;
 
 Definition is_empty_def:
   is_empty (QUEUE lenf _ _ _) = (lenf = 0)

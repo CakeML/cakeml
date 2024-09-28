@@ -49,8 +49,10 @@ make_node x a b =
 End
 val r = translate make_node_def;
 
-val _ = mlDefine `
-empty = Empty`;
+Definition empty_def:
+  empty = Empty
+End
+val r = translate empty_def;
 
 Definition is_empty_def:
 (is_empty Empty = T) ∧
