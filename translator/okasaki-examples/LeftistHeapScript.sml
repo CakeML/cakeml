@@ -24,9 +24,11 @@ Definition heap_to_bag_def:
   BAG_INSERT x (BAG_UNION (heap_to_bag h1) (heap_to_bag h2)))
 End
 
-val rank_def = mlDefine `
+Definition rank_def:
 (rank Empty = 0) ∧
-(rank (Tree r _ _ _) = r)`;
+(rank (Tree r _ _ _) = r)
+End
+val r = translate rank_def;
 
 Definition is_heap_ordered_def:
 (is_heap_ordered get_key leq Empty <=> T) ∧
@@ -38,39 +40,51 @@ Definition is_heap_ordered_def:
   rank h1 ≥ rank h2)
 End
 
-val make_node_def = mlDefine `
+Definition make_node_def:
 make_node x a b =
   if rank a >= rank b then
     Tree (rank b + 1) x a b
   else
-    Tree (rank a + 1) x b a`;
+    Tree (rank a + 1) x b a
+End
+val r = translate make_node_def;
 
 val _ = mlDefine `
 empty = Empty`;
 
-val is_empty_def = mlDefine `
+Definition is_empty_def:
 (is_empty Empty = T) ∧
-(is_empty _ = F)`;
+(is_empty _ = F)
+End
+val r = translate is_empty_def;
 
-val merge_def = mlDefine `
+Definition merge_def:
 (merge get_key leq h Empty = h) ∧
 (merge get_key leq Empty h = h) ∧
 (merge get_key leq (Tree n1 x a1 b1) (Tree n2 y a2 b2) =
   if leq (get_key x) (get_key y) then
     make_node x a1 (merge get_key leq b1 (Tree n2 y a2 b2))
   else
-    make_node y a2 (merge get_key leq (Tree n1 x a1 b1) b2))`;
+    make_node y a2 (merge get_key leq (Tree n1 x a1 b1) b2))
+End
+val r = translate merge_def;
 
 val merge_ind = fetch "-" "merge_ind"
 
-val insert_def = mlDefine `
-insert get_key leq x h = merge get_key leq (Tree 1 x Empty Empty) h`;
+Definition insert_def:
+insert get_key leq x h = merge get_key leq (Tree 1 x Empty Empty) h
+End
+val r = translate insert_def;
 
-val find_min_def = mlDefine `
-find_min (Tree _ x _ _) = x`;
+Definition find_min_def:
+find_min (Tree _ x _ _) = x
+End
+val r = translate find_min_def;
 
-val delete_min_def = mlDefine `
-delete_min get_key leq (Tree _ x a b) = merge get_key leq a b`;
+Definition delete_min_def:
+delete_min get_key leq (Tree _ x a b) = merge get_key leq a b
+End
+val r = translate delete_min_def;
 
 
 (* Functional correctness proof *)

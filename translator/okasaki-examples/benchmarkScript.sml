@@ -29,39 +29,53 @@ Datatype:
         | Deep ('a digit) queue ('a digit)
 End
 
-val empty_def = mlDefine `
-  empty = Shallow Zero`;
+Definition empty_def:
+  empty = Shallow Zero
+End
+val r = translate empty_def;
 
-val is_empty_def = mlDefine `
+Definition is_empty_def:
   (is_empty (Shallow Zero) = T) /\
-  (is_empty _ = F)`;
+  (is_empty _ = F)
+End
+val r = translate is_empty_def;
 
-val snoc_def = mlDefine `
+Definition snoc_def:
   (snoc (Shallow Zero) y = Shallow (One y)) /\
   (snoc (Shallow (One x)) y = Deep (Two x y) empty Zero) /\
   (snoc (Deep f m Zero) y = Deep f m (One y)) /\
-  (snoc (Deep f m (One x)) y = Deep f (snoc m (Twice x y)) Zero)`
+  (snoc (Deep f m (One x)) y = Deep f (snoc m (Twice x y)) Zero)
+End
+val r = translate snoc_def;
 
-val head_def = mlDefine `
+Definition head_def:
   (head (Shallow (One x)) = x) /\
   (head (Deep (One x) m r) = x) /\
-  (head (Deep (Two x y) m r) = x)`;
+  (head (Deep (Two x y) m r) = x)
+End
+val r = translate head_def;
 
-val tail_def = mlDefine `
+Definition tail_def:
   (tail (Shallow (One x)) = empty) /\
   (tail (Deep (Two x y) m r) = Deep (One y) m r) /\
   (tail (Deep (One x) q r) =
      if is_empty q then Shallow r else
-       case head q of Twice y z => Deep (Two y z) (tail q) r)`
+       case head q of Twice y z => Deep (Two y z) (tail q) r)
+End
+val r = translate tail_def;
 
 
-val use_queue_def = mlDefine `
+Definition use_queue_def:
 (use_queue 0 q ⇔ q) ∧
 (use_queue (SUC n) q ⇔
-  use_queue n (tail (snoc (snoc q (Once n)) (Once n))))`;
+  use_queue n (tail (snoc (snoc q (Once n)) (Once n))))
+End
+val r = translate use_queue_def;
 
-val run_queue_def = mlDefine `
-run_queue ⇔ head (use_queue 1000 empty)`;
+Definition run_queue_def:
+run_queue ⇔ head (use_queue 1000 empty)
+End
+val r = translate run_queue_def;
 
 
 (* Copied from SplayHeapScript *)
@@ -87,11 +101,13 @@ End
 val _ = mlDefine `
 empty' = Empty`;
 
-val is_empty'_def = mlDefine `
+Definition is_empty'_def:
 (is_empty' Empty = T) ∧
-(is_empty' _ = F)`;
+(is_empty' _ = F)
+End
+val r = translate is_empty'_def;
 
-val partition_def = mlDefine `
+Definition partition_def:
 (partition get_key leq pivot Empty = (Empty, Empty)) ∧
 (partition get_key leq pivot (Tree a x b) =
   if leq (get_key x) (get_key pivot) then
@@ -113,7 +129,9 @@ val partition_def = mlDefine `
               (Tree a1 y small, Tree big x b)
           else
             let (small, big) = partition get_key leq pivot a1 in
-              (small, Tree big y (Tree a2 x b))))`;
+              (small, Tree big y (Tree a2 x b))))
+End
+val r = translate partition_def;
 
 val partition_ind = fetch "-" "partition_ind"
 val heap_size_def = fetch "-" "heap_size_def"
@@ -134,10 +152,12 @@ fs [LET_THM] >>
 rw [heap_size_def] >>
 decide_tac);
 
-val insert_def = mlDefine `
+Definition insert_def:
 insert get_key leq x t =
   let (a, b) = partition get_key leq x t in
-    Tree a x b`;
+    Tree a x b
+End
+val r = translate insert_def;
 
 val merge_def = tDefine "merge" `
 (merge get_key leq Empty h2 = h2) ∧
@@ -155,25 +175,33 @@ val _ = translate merge_def
 
 val merge_ind = fetch "-" "merge_ind"
 
-val find_min_def = mlDefine `
+Definition find_min_def:
 (find_min (Tree Empty x b) = x) ∧
-(find_min (Tree a x b) = find_min a)`;
+(find_min (Tree a x b) = find_min a)
+End
+val r = translate find_min_def;
 
 val find_min_ind = fetch "-" "find_min_ind"
 
-val delete_min_def = mlDefine `
+Definition delete_min_def:
 (delete_min (Tree Empty x b) = b) ∧
 (delete_min (Tree (Tree Empty x b) y c) = Tree b y c) ∧
-(delete_min (Tree (Tree a x b) y c) = Tree (delete_min a) x (Tree b y c))`;
+(delete_min (Tree (Tree a x b) y c) = Tree (delete_min a) x (Tree b y c))
+End
+val r = translate delete_min_def;
 
 val delete_min_ind = fetch "-" "delete_min_ind"
 
-val use_heap_def = mlDefine `
+Definition use_heap_def:
 (use_heap 0 h ⇔ h) ∧
 (use_heap (SUC n) h ⇔
-  use_heap n (insert (\x.x) ((\x y. x < y) :num->num->bool) n (delete_min (insert (\x.x) ((\x y. x < y) :num->num->bool) (n + 400000) h))))`
+  use_heap n (insert (\x.x) ((\x y. x < y) :num->num->bool) n (delete_min (insert (\x.x) ((\x y. x < y) :num->num->bool) (n + 400000) h))))
+End
+val r = translate use_heap_def;
 
-val run_heap = mlDefine `
-run_heap ⇔ find_min (use_heap 1000 empty')`;
+Definition run_heap:
+run_heap ⇔ find_min (use_heap 1000 empty')
+End
+val r = translate run_heap;
 
 val _ = export_theory ();

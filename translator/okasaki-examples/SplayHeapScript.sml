@@ -35,11 +35,13 @@ End
 val _ = mlDefine `
 empty = Empty`;
 
-val is_empty_def = mlDefine `
+Definition is_empty_def:
 (is_empty Empty = T) ∧
-(is_empty _ = F)`;
+(is_empty _ = F)
+End
+val r = translate is_empty_def;
 
-val partition_def = mlDefine `
+Definition partition_def:
 (partition get_key leq pivot Empty = (Empty, Empty)) ∧
 (partition get_key leq pivot (Tree a x b) =
   if leq (get_key x) (get_key pivot) then
@@ -61,7 +63,9 @@ val partition_def = mlDefine `
               (Tree a1 y small, Tree big x b)
           else
             let (small, big) = partition get_key leq pivot a1 in
-              (small, Tree big y (Tree a2 x b))))`;
+              (small, Tree big y (Tree a2 x b))))
+End
+val r = translate partition_def;
 
 val partition_ind = fetch "-" "partition_ind"
 val heap_size_def = fetch "-" "heap_size_def"
@@ -82,10 +86,12 @@ fs [LET_THM] >>
 rw [heap_size_def] >>
 decide_tac);
 
-val insert_def = mlDefine `
+Definition insert_def:
 insert get_key leq x t =
   let (a, b) = partition get_key leq x t in
-    Tree a x b`;
+    Tree a x b
+End
+val r = translate insert_def;
 
 val merge_def = tDefine "merge" `
 (merge get_key leq Empty h2 = h2) ∧
@@ -103,16 +109,20 @@ val _ = translate merge_def
 
 val merge_ind = fetch "-" "merge_ind"
 
-val find_min_def = mlDefine `
+Definition find_min_def:
 (find_min (Tree Empty x b) = x) ∧
-(find_min (Tree a x b) = find_min a)`;
+(find_min (Tree a x b) = find_min a)
+End
+val r = translate find_min_def;
 
 val find_min_ind = fetch "-" "find_min_ind"
 
-val delete_min_def = mlDefine `
+Definition delete_min_def:
 (delete_min (Tree Empty x b) = b) ∧
 (delete_min (Tree (Tree Empty x b) y c) = Tree b y c) ∧
-(delete_min (Tree (Tree a x b) y c) = Tree (delete_min a) x (Tree b y c))`;
+(delete_min (Tree (Tree a x b) y c) = Tree (delete_min a) x (Tree b y c))
+End
+val r = translate delete_min_def;
 
 val delete_min_ind = fetch "-" "delete_min_ind"
 
