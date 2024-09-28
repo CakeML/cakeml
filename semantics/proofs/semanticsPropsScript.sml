@@ -150,11 +150,12 @@ Proof
   \\ metis_tac[semantics_prog_deterministic]
 QED
 
-val state_invariant_def = Define`
+Definition state_invariant_def:
   state_invariant st ⇔
   ?ctMap tenvS.
     FRANGE ((SND ∘ SND) o_f ctMap) ⊆ st.type_ids ∧
-    type_sound_invariant st.sem_st st.sem_env ctMap tenvS {} st.tenv`;
+    type_sound_invariant st.sem_st st.sem_env ctMap tenvS {} st.tenv
+End
 
 val clock_lemmas = Q.prove(
   `((x with clock := c).clock = c) ∧

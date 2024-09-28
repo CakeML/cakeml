@@ -143,7 +143,7 @@ QED
 
 Overload nxt = ``λmc n ms. FUNPOW mc.target.next n ms``
 
-val interference_implemented_def = Define`
+Definition interference_implemented_def:
   interference_implemented mc ffi_rel md ms0 ⇔
     ∃next_interfer ccache_interfer ffi_interfer.
     (∀n. mc.next_interfer n = next_interfer) ∧
@@ -193,7 +193,8 @@ val interference_implemented_def = Define`
             (∀x. x ∉ md ∧
                  x ∉ all_words (mc.target.get_reg ms mc.ptr2_reg) (LENGTH bytes2) ⇒
               (mc.target.get_byte (FUNPOW mc.target.next k ms) x =
-               mc.target.get_byte ms x))`;
+               mc.target.get_byte ms x))
+End
 
 Theorem evaluate_Halt_FUNPOW_next:
    ∀mc (ffi:'ffi ffi_state) k ms t ms' ffi'.
@@ -734,7 +735,7 @@ Proof
 QED
 *)
 
-val get_output_io_event_def = Define`
+Definition get_output_io_event_def:
   get_output_io_event (IO_event name conf bs2) =
     if name = ExtCall "write" then
       case MAP FST bs2 of (n1 :: n0 :: off1 :: off0 :: tll) =>
@@ -744,9 +745,10 @@ val get_output_io_event_def = Define`
             SOME (conf ++ [0w;0w;n1;n0] ++ written)
         else SOME []
       | _ => NONE
-    else NONE`;
+    else NONE
+End
 
-val get_ag32_io_event_def = Define`
+Definition get_ag32_io_event_def:
   get_ag32_io_event m =
     let call_id = m (n2w (ffi_code_start_offset - 1)) in
     if call_id = n2w (THE (ALOOKUP FFI_codes "write")) then
@@ -756,7 +758,8 @@ val get_ag32_io_event_def = Define`
         let n = MIN (w22n [n1; n0]) output_buffer_size in
           read_bytearray (n2w output_offset) (8 + 4 + n) (SOME o m)
       else SOME []
-    else NONE`;
+    else NONE
+End
 
 val is_ag32_init_state_def = ag32_targetTheory.is_ag32_init_state_def;
 
@@ -781,7 +784,7 @@ Proof
   >- ( pop_assum mp_tac \\ EVAL_TAC )
 QED
 
-val stdin_fs_def = Define`
+Definition stdin_fs_def:
   stdin_fs inp =
     <| inode_tbl :=
        [(UStream (strlit "stdout"), "")
@@ -794,7 +797,8 @@ val stdin_fs_def = Define`
      ; files := []
      ; numchars := LGENLIST (K output_buffer_size) NONE
      ; maxFD := 2
-     |>`;
+     |>
+End
 
 Theorem wfFS_stdin_fs:
    wfFS (stdin_fs inp)
@@ -823,7 +827,7 @@ Proof
   \\ rw[EQ_IMP_THM]
 QED
 
-val ag32_fs_ok_def = Define`
+Definition ag32_fs_ok_def:
   ag32_fs_ok fs ⇔
    (fs.numchars = LGENLIST (K output_buffer_size) NONE) ∧
    (∀fd. IS_SOME (ALOOKUP fs.infds fd) ⇔ fd < 3) ∧ (* this needs to change for close *)
@@ -832,9 +836,10 @@ val ag32_fs_ok_def = Define`
      ∃cnt. (ALOOKUP fs.inode_tbl ino = SOME cnt) ∧ (fd ∈ {1;2} ⇒ (off = LENGTH cnt))) ∧
    (∀fnm. ALOOKUP fs.inode_tbl (File fnm) = NONE) ∧
    (* maybe *) fs.maxFD ≤ 2 ∧
-   STD_streams fs`;
+   STD_streams fs
+End
 
-val ag32_stdin_implemented_def = Define`
+Definition ag32_stdin_implemented_def:
   ag32_stdin_implemented fs m ⇔
     ∃off inp.
       (ALOOKUP fs.infds 0 = SOME (UStream(strlit"stdin"), ReadMode, off)) ∧
@@ -843,37 +848,42 @@ val ag32_stdin_implemented_def = Define`
       (get_mem_word m (n2w (stdin_offset + 4)) = n2w (LENGTH inp)) ∧
       off ≤ LENGTH inp ∧ LENGTH inp ≤ stdin_size ∧
       bytes_in_memory (n2w (stdin_offset + 8)) (MAP (n2w o ORD) inp)
-        m (all_words (n2w (stdin_offset + 8)) (LENGTH inp))`;
+        m (all_words (n2w (stdin_offset + 8)) (LENGTH inp))
+End
 
-val ag32_cline_implemented_def = Define`
+Definition ag32_cline_implemented_def:
   ag32_cline_implemented cl m ⇔
     (get_mem_word m (n2w startup_code_size) = n2w (LENGTH cl)) ∧
     SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
     EVERY validArg cl ∧ cl ≠ [] ∧
     bytes_in_memory (n2w (startup_code_size  + 4))
       (FLAT (MAP (SNOC 0w) (MAP (MAP (n2w o ORD) o explode) cl)))
-      m (all_words (n2w (startup_code_size + 4)) (SUM (MAP strlen cl) + LENGTH cl))`;
+      m (all_words (n2w (startup_code_size + 4)) (SUM (MAP strlen cl) + LENGTH cl))
+End
 
-val ag32_ffi_rel_def = Define`
+Definition ag32_ffi_rel_def:
   ag32_ffi_rel ms ffi ⇔
     (MAP get_ag32_io_event ms.io_events =
      MAP get_output_io_event ffi.io_events) ∧
     (ffi.oracle = basis_ffi_oracle) ∧
     (ag32_fs_ok (SND ffi.ffi_state)) ∧
     (ag32_stdin_implemented (SND ffi.ffi_state) ms.MEM) ∧
-    (ag32_cline_implemented (FST ffi.ffi_state) ms.MEM)`;
+    (ag32_cline_implemented (FST ffi.ffi_state) ms.MEM)
+End
 
-val extract_write_def = Define`
+Definition extract_write_def:
   extract_write fd oevent =
     if NULL oevent then NONE else
       let conf = TAKE 8 oevent in
       if (w82n conf = fd) then
         SOME (DROP (8 + 4) oevent)
-      else NONE`;
+      else NONE
+End
 
-val extract_writes_def = Define`
+Definition extract_writes_def:
   extract_writes fd oevents =
-    FLAT (MAP (MAP (CHR o w2n) o THE) (FILTER IS_SOME (MAP (combin$C OPTION_BIND (extract_write fd)) oevents)))`;
+    FLAT (MAP (MAP (CHR o w2n) o THE) (FILTER IS_SOME (MAP (combin$C OPTION_BIND (extract_write fd)) oevents)))
+End
 
 (* TODO: why is this proof so slow? make it faster? *)
 Theorem extract_fs_extract_writes:

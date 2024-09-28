@@ -316,8 +316,9 @@ val do_pr_side = Q.prove(
   intLib.ARITH_TAC)
   |> update_precondition;
 
-val c0_def = Define`
-  c0 = CHR 0`
+Definition c0_def:
+  c0 = CHR 0
+End
 
 val c0_v_thm = translate c0_def;
 

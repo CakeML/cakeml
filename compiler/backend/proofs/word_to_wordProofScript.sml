@@ -152,11 +152,12 @@ val pop_env_termdep = Q.prove(`
   full_simp_tac(srw_ss())[pop_env_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[state_component_equality])
 
 (* The t k a c parameters don't need to be existentially quantified *)
-val code_rel_def = Define`
+Definition code_rel_def:
   code_rel stc ttc ⇔
   (!n v. lookup n stc = SOME v ==>
          ∃col t k a c.
-         lookup n ttc = SOME (SND (compile_single t k a c ((n,v),col))))`
+         lookup n ttc = SOME (SND (compile_single t k a c ((n,v),col))))
+End
 
 val compile_single_eta = Q.prove(`
   compile_single t k a c ((p,x),y) =
@@ -1493,14 +1494,15 @@ QED
 
 (*** code_rel_ext ***)
 
-val code_rel_ext_def = Define`
+Definition code_rel_ext_def:
                              code_rel_ext code l ⇔
   (∀n p_1 p_2.
      SOME (p_1,p_2) = lookup n code ⇒
      ∃t' k' a' c' col.
        SOME
        (SND (full_compile_single t' k' a' c' ((n,p_1,p_2),col))) =
-       lookup n l)`
+       lookup n l)
+End
 
 val code_rel_ext_def = definition"code_rel_ext_def";
 

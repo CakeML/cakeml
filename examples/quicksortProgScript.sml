@@ -135,11 +135,12 @@ Proof
   rw []
 QED
 
-val strict_weak_order_def = Define `
+Definition strict_weak_order_def:
   strict_weak_order r ⇔
     transitive r ∧
     (!x y. r x y ⇒ ~r y x) ∧
-    transitive (\x y. ~r x y ∧ ¬r y x)`;
+    transitive (\x y. ~r x y ∧ ¬r y x)
+End
 
 Theorem strict_weak_order_alt:
    strict_weak_order r ⇔
@@ -215,7 +216,7 @@ end;
 `;
 val _ = append_prog partition;
 
-val partition_pred_def = Define `
+Definition partition_pred_def:
   partition_pred cmp offset p_v pivot elems elem_vs part1 part2 ⇔
     (* Neither part is empty *)
     part1 ≠ [] ∧ part2 ≠ [] ∧
@@ -231,7 +232,8 @@ val partition_pred_def = Define `
       (* The elements of the first part aren't greater than the pivot *)
       EVERY (\e. ¬cmp pivot e) elems1 ∧
       (* The elements of the second part aren't less than the pivot *)
-      EVERY (\e. ¬cmp e pivot) elems2`;
+      EVERY (\e. ¬cmp e pivot) elems2
+End
 
 val perm_helper = Q.prove(
   `!a b c. PERM b c ∧ PERM a b ⇒ PERM a c`,

@@ -51,26 +51,33 @@ val case_eq_thms =
 (* Refinement invariants                                                     *)
 (* ------------------------------------------------------------------------- *)
 
-val TYPE_def = Define `
-  TYPE ctxt ty = type_ok (tysof ctxt) ty`;
+Definition TYPE_def:
+  TYPE ctxt ty = type_ok (tysof ctxt) ty
+End
 
-val TERM_def = Define `
-  TERM ctxt tm = term_ok (sigof (ctxt:update list)) tm`;
+Definition TERM_def:
+  TERM ctxt tm = term_ok (sigof (ctxt:update list)) tm
+End
 
-val CONTEXT_def = Define `
-  CONTEXT ctxt = ctxt extends init_ctxt`;
+Definition CONTEXT_def:
+  CONTEXT ctxt = ctxt extends init_ctxt
+End
 
-val THM_def = Define `
-  THM ctxt (Sequent asl c) = ((thyof ctxt, asl) |- c)`;
+Definition THM_def:
+  THM ctxt (Sequent asl c) = ((thyof ctxt, asl) |- c)
+End
 
-val lift_tm_def = Define `lift_tm c = Sequent [] c`;
+Definition lift_tm_def:
+  lift_tm c = Sequent [] c
+End
 
-val STATE_def = Define `
+Definition STATE_def:
   STATE ctxt state =
       (ctxt = state.the_context) /\ CONTEXT ctxt /\
       (state.the_type_constants = type_list ctxt) /\
       (state.the_term_constants = const_list ctxt) /\
-      (state.the_axioms = MAP lift_tm (axexts ctxt))`;
+      (state.the_axioms = MAP lift_tm (axexts ctxt))
+End
 
 (* ------------------------------------------------------------------------- *)
 (* impossible term lemmas                                                    *)
@@ -450,7 +457,7 @@ val get_const_type_thm = Q.prove(
     get_the_term_constants_def] \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC assoc_thm);
 
-val term_type_def = Define `
+Definition term_type_def:
   term_type tm =
     case tm of
       Var _ ty => ty
@@ -458,7 +465,8 @@ val term_type_def = Define `
     | Comb s _ => (case term_type s of Tyapp (strlit "fun") (_::ty1::_) => ty1
                                     | _ => Tyvar (strlit ""))
     | Abs (Var _ ty) t => Tyapp (strlit "fun") [ty; term_type t]
-    | _ => Tyvar (strlit "")`
+    | _ => Tyvar (strlit "")
+End
 
 Theorem term_type:
   !defs tm. CONTEXT defs ∧ TERM defs tm ==>
@@ -3240,10 +3248,11 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-val sizeof'_def = Define`
+Definition sizeof'_def:
   (sizeof' (Comb s t) = 1 + sizeof' s + sizeof' t) ∧
   (sizeof' (Abs v t) = 1 + sizeof' v + sizeof' t) ∧
-  (sizeof' _ = 1n)`;
+  (sizeof' _ = 1n)
+End
 val _ = export_rewrites["sizeof'_def"];
 
 Theorem sizeof'_rev_assocd:

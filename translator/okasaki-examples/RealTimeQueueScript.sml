@@ -40,12 +40,14 @@ val tail_def = mlDefine `
 
 (* verification proof *)
 
-val prop_def = Define `
+Definition prop_def:
   prop d q (QUEUE f r s) <=>
-    (q = f ++ REVERSE r) /\ (LENGTH s + LENGTH r = LENGTH f + d)`
+    (q = f ++ REVERSE r) /\ (LENGTH s + LENGTH r = LENGTH f + d)
+End
 
-val queue_inv_def = Define `
-  queue_inv q (QUEUE f r s) <=> prop 0 q (QUEUE f r s)`
+Definition queue_inv_def:
+  queue_inv q (QUEUE f r s) <=> prop 0 q (QUEUE f r s)
+End
 
 val empty_thm = Q.prove(
   `!xs. queue_inv xs empty = (xs = [])`,

@@ -14,7 +14,7 @@ val SPLIT_PAIR = Q.prove(
   `!x y z. (x = (y,z)) <=> (y = FST x) /\ (z = SND x)`,
   Cases \\ SRW_TAC [] [] \\ METIS_TAC []);
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel (s1:('a,'ffi) dataSem$state) (t1:('a,'ffi) dataSem$state) (live:num_set) <=>
     s1.code = t1.code /\ s1.clock = t1.clock /\ s1.space = t1.space /\
     s1.ffi = t1.ffi /\ s1.refs = t1.refs /\ s1.global = t1.global /\
@@ -24,7 +24,8 @@ val state_rel_def = Define `
     s1.limits  = t1.limits /\
     s1.stack_frame_sizes  = t1.stack_frame_sizes /\
     (* s1.safe_for_space = t1.safe_for_space /\ *) (* ASK: Probably don't need it *)
-    (!x. x IN domain live ==> (lookup x s1.locals = lookup x t1.locals))`;
+    (!x. x IN domain live ==> (lookup x s1.locals = lookup x t1.locals))
+End
 
 val state_rel_ID = Q.prove(
   `!s live. state_rel s s live`,

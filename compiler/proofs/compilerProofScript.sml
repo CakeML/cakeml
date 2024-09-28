@@ -15,7 +15,7 @@ val _ = new_theory"compilerProof";
 
 val _ = diminish_srw_ss ["ABBREV"]
 
-val config_ok_def = Define`
+Definition config_ok_def:
   config_ok (cc:α compiler$config) mc ⇔
     env_rel prim_tenv cc.inferencer_config ∧
     inf_set_tids_ienv prim_type_ids cc.inferencer_config ∧ (* TODO: ok? *)
@@ -25,9 +25,10 @@ val config_ok_def = Define`
     ¬cc.only_print_types ∧
     ¬cc.only_print_sexp ∧
     backend_config_ok cc.backend_config ∧
-    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
+    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc
+End
 
-val initial_condition_def = Define`
+Definition initial_condition_def:
   initial_condition (st:'ffi semantics$state) (cc:α compiler$config) mc ⇔
     (st.sem_st,st.sem_env) = THE (prim_sem_env st.sem_st.ffi) ∧
     (?ctMap.
@@ -45,7 +46,8 @@ val initial_condition_def = Define`
     ¬cc.only_print_types ∧
     ¬cc.only_print_sexp ∧
     backend_config_ok cc.backend_config ∧
-    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
+    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc
+End
 
 Theorem parse_prog_correct:
   (parse_prog s = Failure y1 y2 ⇒ parse s = NONE) ∧

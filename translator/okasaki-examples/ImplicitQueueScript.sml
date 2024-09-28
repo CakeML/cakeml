@@ -56,41 +56,50 @@ val tail_def = mlDefine `
 
 (* verification *)
 
-val exps_def = Define `
+Definition exps_def:
   (exps (Once x) = [x]) /\
-  (exps (Twice t1 t2) = exps t1 ++ exps t2)`;
+  (exps (Twice t1 t2) = exps t1 ++ exps t2)
+End
 
-val digits_def = Define `
+Definition digits_def:
   (digits Zero = []) /\
   (digits (One x) = exps x) /\
-  (digits (Two x y) = exps x ++ exps y)`;
+  (digits (Two x y) = exps x ++ exps y)
+End
 
-val flatten_def = Define `
+Definition flatten_def:
   (flatten (Shallow x) = digits x) /\
-  (flatten (Deep d1 t d2) = digits d1 ++ flatten t ++ digits d2)`;
+  (flatten (Deep d1 t d2) = digits d1 ++ flatten t ++ digits d2)
+End
 
-val only_digits_def = Define `
+Definition only_digits_def:
   (only_digits Zero = []) /\
   (only_digits (One x) = [x]) /\
-  (only_digits (Two x y) = [x;y])`;
+  (only_digits (Two x y) = [x;y])
+End
 
-val depth_def = Define `
+Definition depth_def:
   (depth n (Once x) <=> (n = 0:num)) /\
-  (depth n (Twice t1 t2) <=> ~(n = 0) /\ depth (n-1) t1 /\ depth (n-1) t2)`;
+  (depth n (Twice t1 t2) <=> ~(n = 0) /\ depth (n-1) t1 /\ depth (n-1) t2)
+End
 
-val ddepth_def = Define `
-  ddepth n d = EVERY (\d. depth n d) (only_digits d)`;
+Definition ddepth_def:
+  ddepth n d = EVERY (\d. depth n d) (only_digits d)
+End
 
-val two_def = Define `
-  (two (Two _ _) = T) /\ (two _ = F)`;
+Definition two_def:
+  (two (Two _ _) = T) /\ (two _ = F)
+End
 
-val queue_ok_def = Define `
+Definition queue_ok_def:
   (queue_ok n (Shallow x) <=> ~two x /\ ddepth n x) /\
   (queue_ok n (Deep x1 t x2) <=>
-     ~(x1 = Zero) /\ queue_ok (n+1) t /\ ~two x2 /\ ddepth n x1 /\ ddepth n x2)`;
+     ~(x1 = Zero) /\ queue_ok (n+1) t /\ ~two x2 /\ ddepth n x1 /\ ddepth n x2)
+End
 
-val queue_inv_def = Define `
-  queue_inv q t <=> queue_ok 0 t /\ (q = flatten t)`;
+Definition queue_inv_def:
+  queue_inv q t <=> queue_ok 0 t /\ (q = flatten t)
+End
 
 val empty_thm = Q.prove(
   `queue_inv [] empty`,

@@ -25,7 +25,8 @@ val JumpList_def = tDefine "JumpList" `
    full_simp_tac std_ss [GSYM LENGTH_NIL] >>
    decide_tac);
 
-val Jump_def = Define `
-  Jump x xs = Let [x] (JumpList 0 xs)`;
+Definition Jump_def:
+  Jump x xs = Let [x] (JumpList 0 xs)
+End
 
 val _ = export_theory();

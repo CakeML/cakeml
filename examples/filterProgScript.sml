@@ -34,15 +34,19 @@ val matcher_certificate = save_thm
 (* Define a named matcher function                                           *)
 (*---------------------------------------------------------------------------*)
 
-val matcher_def =
- Define `matcher ^(matcher_certificate |> concl |> dest_forall |> fst) =
-                 ^(matcher_certificate |> concl |> dest_forall |> snd |> lhs)`
+Definition matcher_def:
+  matcher ^(matcher_certificate |> concl |> dest_forall |> fst) =
+                 ^(matcher_certificate |> concl |> dest_forall |> snd |> lhs)
+End
 
-val match_string_def = Define `match_string s = matcher(explode s)`
+Definition match_string_def:
+  match_string s = matcher(explode s)
+End
 
-val language_def =
- Define `language =
-                 ^(matcher_certificate |> concl |> dest_forall |> snd |> rhs |> rator)`
+Definition language_def:
+  language =
+                 ^(matcher_certificate |> concl |> dest_forall |> snd |> rhs |> rator)
+End
 
 val match_string_eq = Q.prove(`match_string = language o explode`,
   `!s. match_string s = (language o explode) s` suffices_by metis_tac[]
@@ -247,10 +251,12 @@ Proof
   >> imp_res_tac DROP_CONS_EL >> fs[]
 QED
 
-val cut_at_null_def = Define `cut_at_null s =
+Definition cut_at_null_def:
+  cut_at_null s =
   case null_index s 0 of
       NONE => strcat s (str(CHR 0))
-    | SOME n => substring s 0 (SUC n)`
+    | SOME n => substring s 0 (SUC n)
+End
 
 Theorem cut_at_null_SPLITP:
   !s. cut_at_null s = implode(FST(SPLITP ($= (CHR 0)) (explode s)) ++ [CHR 0])
@@ -356,10 +362,12 @@ Proof
   >> imp_res_tac DROP_CONS_EL >> fs[]
 QED
 
-val cut_at_null_w_def = Define `cut_at_null_w s =
+Definition cut_at_null_w_def:
+  cut_at_null_w s =
   case null_index_w s 0 of
       NONE => s ++ [0w]
-    | SOME n => SEG (SUC n) 0 s`
+    | SOME n => SEG (SUC n) 0 s
+End
 
 Theorem cut_at_null_w_SPLITP:
   !s. cut_at_null_w s = FST(SPLITP ($= 0w) s) ++ [0w]
@@ -408,11 +416,13 @@ Proof
   rw[cut_at_null_w_thm,MAP_MAP_o,implode_def,CHR_w2n_n2w_ORD,REWRITE_RULE[implode_def] implode_explode]
 QED
 
-val null_terminated_def = Define `
-  null_terminated s = ?m. null_index s 0 = SOME m`
+Definition null_terminated_def:
+  null_terminated s = ?m. null_index s 0 = SOME m
+End
 
-val null_terminated_w_def = Define `
-  null_terminated_w s = ?m. null_index_w s 0 = SOME m`
+Definition null_terminated_w_def:
+  null_terminated_w s = ?m. null_index_w s 0 = SOME m
+End
 
 Theorem null_terminated_w_thm:
   !s. null_terminated_w (s:word8 list) = null_terminated(implode(MAP (CHR o w2n) s))
@@ -507,7 +517,7 @@ val filter_ffi = Datatype `
   <| input : word8 list llist
    |>`
 
-val filter_oracle = Define `
+Definition filter_oracle:
   (filter_oracle:filter_ffi oracle) port st conf bytes =
   if port = ExtCall "accept_call" then
     (if st.input = LNIL then Oracle_final FFI_diverged
@@ -518,9 +528,9 @@ val filter_oracle = Define `
   else if port = ExtCall "emit_string" then
     Oracle_return st bytes
   else Oracle_final FFI_failed
-`
+End
 
-val encode_oracle_state_def = Define `
+Definition encode_oracle_state_def:
   encode_oracle_state st =
       (Fun
          (λffi.
@@ -531,32 +541,36 @@ val encode_oracle_state_def = Define `
                | NONE => Num 0)
             | _ => ARB
          )
-      )`
+      )
+End
 
 val filter_ffi_component_equality = fetch "-" "filter_ffi_component_equality"
 
-val decode_oracle_state_def = Define `
+Definition decode_oracle_state_def:
   decode_oracle_state ffi =
      case destFun ffi of
        SOME instream =>
        <|input:= LUNFOLD (λn. OPTION_MAP ($, (SUC n) o MAP (n2w o ORD))
-                              (destStr(instream (iNum n)))) 0|>`
+                              (destStr(instream (iNum n)))) 0|>
+End
 
-val filter_cf_oracle = Define `
+Definition filter_cf_oracle:
   filter_cf_oracle port conf bytes ffi =
   case filter_oracle (ExtCall port) (decode_oracle_state ffi) conf bytes of
       Oracle_final FFI_failed => NONE
     | Oracle_final FFI_diverged => SOME FFIdiverge
-    | Oracle_return st' bytes => SOME(FFIreturn bytes (encode_oracle_state st'))`
+    | Oracle_return st' bytes => SOME(FFIreturn bytes (encode_oracle_state st'))
+End
 
-val seL4_IO_def = Define `
+Definition seL4_IO_def:
   seL4_IO input events =
   one(
     FFI_part
       (encode_oracle_state (<|input:=input|>))
       filter_cf_oracle
       ["accept_call"; "emit_string"]
-      events)`
+      events)
+End
 
 Theorem decode_encode_oracle_state_11:
   !ffi_st. decode_oracle_state(encode_oracle_state ffi_st) = ffi_st
@@ -591,19 +605,23 @@ val LLENGTH_NONE_LTAKE = Q.prove(
   `!n ll. LLENGTH ll = NONE ==> ?l. LTAKE n ll = SOME l`,
   Induct >> Cases_on `ll` >> rw[]);
 
-val is_emit_def = Define
-  `is_emit (IO_event s _ _) = (s = ExtCall "emit_string")`
+Definition is_emit_def:
+  is_emit (IO_event s _ _) = (s = ExtCall "emit_string")
+End
 
-val output_event_of_def = Define
-  `output_event_of s = IO_event (ExtCall "emit_string") s []`
+Definition output_event_of_def:
+  output_event_of s = IO_event (ExtCall "emit_string") s []
+End
 
-val nth_arr_def = Define `nth_arr n ll =
+Definition nth_arr_def:
+  nth_arr n ll =
  FST(FUNPOW (λ(l,ll).
  if ll = [||] then (l,[||])
  else (
    TAKE 256 (THE(LHD ll)) ++ DROP (LENGTH(THE(LHD ll))) l
       ,THE(LTL ll))) n
- (REPLICATE 256 (0w:word8),ll))`
+ (REPLICATE 256 (0w:word8),ll))
+End
 
 Theorem nth_arr_infinite:
  !n ll.
@@ -667,24 +685,27 @@ Proof
   Cases_on `ll` >> fs[LENGTH_TAKE_EQ]
 QED
 
-val next_filter_events = Define
-  `next_filter_events filter_fun last_input input =
+Definition next_filter_events:
+  next_filter_events filter_fun last_input input =
    let new_input = TAKE 256 input ++ DROP (LENGTH input) last_input
    in
     [IO_event (ExtCall "accept_call") [] (ZIP (last_input,new_input))] ++
     if filter_fun(cut_at_null_w input) then
       [IO_event (ExtCall "emit_string") (cut_at_null_w new_input) []]
     else
-      []`
+      []
+End
 
-val nth_arr_init_def = Define `nth_arr_init n ll buff =
+Definition nth_arr_init_def:
+  nth_arr_init n ll buff =
       FST(FUNPOW
              (λ(l,ll).
                if ll = [||] then (l,[||])
                else
                  (TAKE 256 (THE (LHD ll)) ++
                   DROP (LENGTH (THE (LHD ll))) l,THE (LTL ll))) n
-             (buff:word8 list,ll))`
+             (buff:word8 list,ll))
+End
 
 Theorem nth_arr_init_SUC: !h n ll init.
   nth_arr_init (SUC n) (h:::ll) init = nth_arr_init n ll (TAKE 256 h ++ DROP(LENGTH h) init)
@@ -718,7 +739,7 @@ Proof
   TRY(simp[nth_arr_init_def] >> NO_TAC)
 QED
 
-val filter_bisim_rel_infinite_def = Define `
+Definition filter_bisim_rel_infinite_def:
   filter_bisim_rel_infinite =
   λl1 l2.
    (?inl buff.
@@ -732,7 +753,8 @@ val filter_bisim_rel_infinite_def = Define `
      LLENGTH inl = NONE /\
      LENGTH buff = 256 /\
      every ($>= 256 ∘ LENGTH) inl /\
-     every null_terminated_w inl)`
+     every null_terminated_w inl)
+End
 
 Theorem exists_LFLATTEN:
   !P ll. exists P (LFLATTEN ll) /\
@@ -1223,17 +1245,22 @@ Proof
   xsimpl
 QED
 
-val seL4_proj1_def = Define `
+Definition seL4_proj1_def:
   seL4_proj1 = (λffi.
     FEMPTY |++ (mk_proj1 (encode_oracle_state,decode_oracle_state,
                           [("accept_call", filter_oracle (ExtCall "accept_call"));
-                           ("emit_string", filter_oracle (ExtCall "emit_string"))]) ffi))`;
+                           ("emit_string", filter_oracle (ExtCall "emit_string"))]) ffi))
+End
 
-val seL4_proj2 = Define `seL4_proj2 =
-  [(["accept_call";"emit_string"],filter_cf_oracle)]`
+Definition seL4_proj2:
+  seL4_proj2 =
+  [(["accept_call";"emit_string"],filter_cf_oracle)]
+End
 
-val filter_ffi_state_def = Define `filter_ffi input =
-  <|oracle:=filter_oracle; ffi_state := input; io_events := []|>`;
+Definition filter_ffi_state_def:
+  filter_ffi input =
+  <|oracle:=filter_oracle; ffi_state := input; io_events := []|>
+End
 
 Theorem limited_parts_proj:
   limited_parts ["accept_call";"emit_string"] (seL4_proj1,seL4_proj2)

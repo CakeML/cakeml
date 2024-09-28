@@ -15,11 +15,11 @@ Type program = “:module list”
 
 (* TODO? Move to dafny_ast *)
 Definition method_name_def:
-  method_name (Method _ _ _ _ _ nam _ _ _ _ _) = nam
+  method_name (Method _ _ _ _ _ _ nam _ _ _ _ _) = nam
 End
 
 Definition method_body_def:
-  method_body (Method _ _ _ _ _ _ _ _ body _ _) = body
+  method_body (Method _ _ _ _ _ _ _ _ _ body _ _) = body
 End
 
 Definition dest_classitem_def:
@@ -69,7 +69,7 @@ End
 
 Definition is_simple_method_def:
   is_simple_method (m: method): bool =
-  let (isStatic, hasBody,
+  let (_, isStatic, hasBody,
        outVarsAreUninitFieldsToAssign,
        wasFunction, overridingPath, _,
        typeParams, params, _, outTypes, outVars) = dest_Method m in

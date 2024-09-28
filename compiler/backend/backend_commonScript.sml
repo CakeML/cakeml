@@ -9,8 +9,9 @@ val _ = new_theory "backend_common";
 val _ = set_grammar_ancestry ["arithmetic", "integer", "words"];
 
 (* Small general definition *)
-val small_enough_int_def = Define `
-  small_enough_int i <=> -268435457 <= i /\ i <= 268435457:int`;
+Definition small_enough_int_def:
+  small_enough_int i <=> -268435457 <= i /\ i <= 268435457:int
+End
 
 val _ = numLib.temp_prefer_num();
 
@@ -55,48 +56,56 @@ Overload "▷" = ``backend_common$Cons``
 * This is a trace that can be used as a basis for traces for orphan expressions.
 * It's structure guarantees it will not conflict with any trace originating from
 * source, since the always start with four Cons, indicating source position. *)
-val orphan_trace_def = Define`
-  orphan_trace = SourceLoc 2 2 1 1`;
+Definition orphan_trace_def:
+  orphan_trace = SourceLoc 2 2 1 1
+End
 
 (* Create new Cons trace, unless original trace is `None`, indicating traces are
 * turned off. *)
-val mk_cons_def = Define`
+Definition mk_cons_def:
   mk_cons tr n =
     case tr of
        | None => None
-       | _    => Cons tr n`;
+       | _    => Cons tr n
+End
 
 val _ = set_fixity "§" (Infixl 480);
 Overload "§" = ``backend_common$mk_cons``
 
 (* Create new Cons trace, unless any of the original traces are `None`,
 * indicating traces are turned off. *)
-val mk_union_def = Define`
+Definition mk_union_def:
   mk_union tr1 tr2 =
     case tr1 of
        | None => None
        | _    => case tr2 of
                   | None  => None
-                  | _     => Union tr1 tr2`;
+                  | _     => Union tr1 tr2
+End
 
-val bool_to_tag_def = Define`
-  bool_to_tag b = if b then true_tag else false_tag`
+Definition bool_to_tag_def:
+  bool_to_tag b = if b then true_tag else false_tag
+End
 
-val stack_num_stubs_def = Define`
-  stack_num_stubs = 5n`;
+Definition stack_num_stubs_def:
+  stack_num_stubs = 5n
+End
 
-val word_num_stubs_def = Define`
-  word_num_stubs = stack_num_stubs + 1 (* raise *) + 1 (* store consts *)`;
+Definition word_num_stubs_def:
+  word_num_stubs = stack_num_stubs + 1 (* raise *) + 1 (* store consts *)
+End
 
-val data_num_stubs_def = Define`
-  data_num_stubs = word_num_stubs + (* general: *) 30 + (* bignum: *) 23 `;
+Definition data_num_stubs_def:
+  data_num_stubs = word_num_stubs + (* general: *) 30 + (* bignum: *) 23
+End
 
-val bvl_num_stubs_def = Define`
+Definition bvl_num_stubs_def:
   bvl_num_stubs = data_num_stubs + 8 + (* dummy to make it a multiple of 3 *) 1
-`;
+End
 
-val bvl_to_bvi_namespaces_def = Define`
-  bvl_to_bvi_namespaces = 3n`;
+Definition bvl_to_bvi_namespaces_def:
+  bvl_to_bvi_namespaces = 3n
+End
 
 Theorem data_num_stubs_EVEN:
   EVEN data_num_stubs
@@ -111,11 +120,12 @@ Proof
 QED
 
 (* shift values, per dimindex(:α) *)
-val word_shift_def = Define `
+Definition word_shift_def:
   word_shift (:'a) =
     (* this could be defined as LOG 2 (dimindex(:'a)) - 3, but I want
        to be sure that LOG doesn't unnecessarily end up in the
        generated CakeML code *)
-    if dimindex (:'a) = 32 then 2 else 3:num`;
+    if dimindex (:'a) = 32 then 2 else 3:num
+End
 
 val _ = export_theory();

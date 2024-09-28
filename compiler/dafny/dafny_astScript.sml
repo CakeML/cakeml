@@ -34,6 +34,7 @@ Datatype:
   | String
   | Bool
   | Char
+  | Native
 End
 
 Datatype:
@@ -60,6 +61,9 @@ Datatype:
   | TypeArgDecl ident (typeArgBound list) variance
 End
 
+(* From Dafny:
+ * USIZE is for whatever target considers that native arrays can be
+ * indexed with *)
 Datatype:
   newtypeRange =
   | U8 | I8
@@ -67,7 +71,8 @@ Datatype:
   | U32 | I32
   | U64 | I64
   | U128 | I128
-  | BigInt | NoRange
+  | BigInt | USIZE
+  | NoRange
 End
 
 Datatype:
@@ -263,6 +268,8 @@ Datatype:
   | MapBoundedPool expression
   (* SeqBoundedPool of includeDuplicates *)
   | SeqBoundedPool expression bool
+  (* ExactBoundedPool of *)
+  | ExactBoundedPool expression
   (* IntRange elemType lo hi up *)
   | IntRange type expression expression bool
   (* UnboundedIntRange start up *)
@@ -308,12 +315,13 @@ End
 
 Datatype:
   method =
-  (* Method isStatic hasBody outVarsAreUninitFieldsToAssign wasFunction
-            overridingPath name typeParams params body outTypes outVars *)
+  (* Method attributes isStatic hasBody outVarsAreUninitFieldsToAssign
+            wasFunction overridingPath name typeParams params body outTypes
+            outVars *)
   (* Comments from Dafny (probably Rust specific) *)
   (* outVarsAreUninitFieldsToAssign: for constructors *)
   (* wasFunction: to choose between "&self" and "&mut self" *)
-  | Method bool bool bool bool ((ident list) option) name
+  | Method (attribute list) bool bool bool bool ((ident list) option) name
            (typeArgDecl list) (formal list) (statement list)
            (type list) ((varName list) option)
 End
@@ -400,10 +408,10 @@ Definition dest_varName_def:
 End
 
 Definition dest_Method_def:
-  dest_Method (Method isStatic hasBody outVarsAreUninitFieldsToAssign
+  dest_Method (Method attributes isStatic hasBody outVarsAreUninitFieldsToAssign
                       wasFunction overridingPath nam typeParams params body
                       outTypes outVars) =
-  (isStatic, hasBody, outVarsAreUninitFieldsToAssign, wasFunction,
+  (attributes, isStatic, hasBody, outVarsAreUninitFieldsToAssign, wasFunction,
    overridingPath, nam, typeParams, params, body, outTypes, outVars)
 End
 

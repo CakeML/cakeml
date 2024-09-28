@@ -33,27 +33,34 @@ val config =  global_state_config |>
 val _ = start_translation config;
 
 (* A very simple monadic function *)
-val simple_fun_def = Define `simple_fun x = return x`;
+Definition simple_fun_def:
+  simple_fun x = return x
+End
 
 (* A recursive monadic function *)
-val rec_fun_def = Define `
+Definition rec_fun_def:
   rec_fun l = dtcase l of []    => return (0 : num)
-                        | x::l' => do x <- rec_fun l'; return (1+x) od`;
+                        | x::l' => do x <- rec_fun l'; return (1+x) od
+End
 
 (* A monadic function calling other monadic functions *)
-val calling_fun_def = Define `
-  calling_fun l = do x <- rec_fun l; simple_fun x od`;
+Definition calling_fun_def:
+  calling_fun l = do x <- rec_fun l; simple_fun x od
+End
 
 (* A monadic function using the store *)
-val store_fun_def = Define `
-  store_fun x = do y <- get_the_num_ref; set_the_num_ref (x + y) od`;
+Definition store_fun_def:
+  store_fun x = do y <- get_the_num_ref; set_the_num_ref (x + y) od
+End
 
-val io_fun_def = Define `
-  io_fun x = do y <- get_the_num_ref; set_the_num_ref (x + y) od`;
+Definition io_fun_def:
+  io_fun x = do y <- get_the_num_ref; set_the_num_ref (x + y) od
+End
 
 (* Other *)
-val if_fun_def = Define `
-  if_fun (x : num) y = if x > y then return T else return F`;
+Definition if_fun_def:
+  if_fun (x : num) y = if x > y then return T else return F
+End
 
 (* The polymorphism of simple_fun is taken into account *)
 val simple_fun_v_thm = simple_fun_def |> m_translate;
@@ -66,8 +73,9 @@ val calling_fun_v_thm = calling_fun_def |> m_translate;
 val store_fun_v_thm = store_fun_def |> m_translate;
 val if_fun_v_thm = if_fun_def |> m_translate;
 
-val hello_def = Define `
-  hello (u:unit) = stdio (print (strlit "Hello")) : (state_refs, unit, unit) M`
+Definition hello_def:
+  hello (u:unit) = stdio (print (strlit "Hello")) : (state_refs, unit, unit) M
+End
 
 val res = m_translate hello_def;
 

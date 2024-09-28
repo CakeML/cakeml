@@ -335,14 +335,15 @@ val heap_size_def = tDefine "heap_size" `
                                   | INL z => tree1_size (\x.0) z)` >>
  rw []);
 
-val is_binomial_tree_def = Define `
+Definition is_binomial_tree_def:
 (is_binomial_tree (Node r x []) <=> (r = 0)) ∧
 (is_binomial_tree (Node r x (t::ts)) <=>
   SORTED ($> : num->num->bool) (MAP rank (t::ts)) ∧
   (r ≠ 0) ∧
   is_binomial_tree t ∧
   (rank t = r - 1) ∧
-  is_binomial_tree (Node (r - 1) x ts))`;
+  is_binomial_tree (Node (r - 1) x ts))
+End
 
 val is_binomial_tree_ind = fetch "-" "is_binomial_tree_ind";
 
@@ -368,9 +369,10 @@ rw [arithmeticTheory.EXP_SUB, GSYM arithmeticTheory.TIMES2,
     bitTheory.DIV_MULT_THM2, exp2_mod2]
 QED
 
-val is_binomial_heap_def = Define `
+Definition is_binomial_heap_def:
 is_binomial_heap h <=>
-  EVERY is_binomial_tree h ∧ SORTED ($< : num->num->bool) (MAP rank h)`;
+  EVERY is_binomial_tree h ∧ SORTED ($< : num->num->bool) (MAP rank h)
+End
 
 val trans_less = Q.prove (
 `transitive ($< : num->num->bool)`,

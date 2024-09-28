@@ -22,7 +22,7 @@ val _ = Datatype `
            ; clock : num
            |>`
 
-val eval_exp_def = Define `
+Definition eval_exp_def:
   eval_exp s (Const w) = w /\
   eval_exp s (Var v) = s.regs ' v /\
   eval_exp s (Op Add [x1;x2]) = eval_exp s x1 + eval_exp s x2 /\
@@ -33,46 +33,56 @@ val eval_exp_def = Define `
   eval_exp s (Shift Lsl x n) = eval_exp s x << n /\
   eval_exp s (Shift Asr x n) = eval_exp s x >> n /\
   eval_exp s (Shift Lsr x n) = eval_exp s x >>> n /\
-  eval_exp s (Shift Ror x n) = word_ror (eval_exp s x) n`
+  eval_exp s (Shift Ror x n) = word_ror (eval_exp s x) n
+End
 
-val eval_exp_pre_def = Define `
+Definition eval_exp_pre_def:
   (eval_exp_pre s (Const w) <=> T) /\
   (eval_exp_pre s (Var v) <=> v IN FDOM s.regs) /\
   (eval_exp_pre s (Op _ [x;y]) <=> eval_exp_pre s x /\ eval_exp_pre s y) /\
   (eval_exp_pre s (Shift sh x n) <=> eval_exp_pre s x /\ n = 1) /\
-  (eval_exp_pre s _ <=> F)`
+  (eval_exp_pre s _ <=> F)
+End
 
-val eval_ri_pre_def = Define `
+Definition eval_ri_pre_def:
 (eval_ri_pre s (Reg r) <=> eval_exp_pre (s:'a state) ((Var r):'a wordLang$exp)) /\
-  (eval_ri_pre s (Imm (w:'a word)) <=> T)`;
+  (eval_ri_pre s (Imm (w:'a word)) <=> T)
+End
 
-val eval_ri_def = Define `
+Definition eval_ri_def:
   eval_ri s (Reg r) = eval_exp s (Var r) /\
-  eval_ri s (Imm w) = w`
+  eval_ri s (Imm w) = w
+End
 
-val dec_clock_def = Define `
-  dec_clock s = s with clock := s.clock - 1`;
+Definition dec_clock_def:
+  dec_clock s = s with clock := s.clock - 1
+End
 
-val reg_write_def = Define `
+Definition reg_write_def:
   reg_write v NONE (s:'a state) = s with regs := s.regs \\ v /\
-  reg_write n (SOME v) s = s with regs := s.regs |+ (n,v)`;
+  reg_write n (SOME v) s = s with regs := s.regs |+ (n,v)
+End
 
-val delete_vars_def = Define `
+Definition delete_vars_def:
   delete_vars [] s = s /\
-  delete_vars (v::vs) s = reg_write v NONE (delete_vars vs s)`
+  delete_vars (v::vs) s = reg_write v NONE (delete_vars vs s)
+End
 
-val array_write_def = Define `
-  array_write n v s = s with arrays := (n =+ v) s.arrays`;
+Definition array_write_def:
+  array_write n v s = s with arrays := (n =+ v) s.arrays
+End
 
-val clock_write_def = Define `
-  clock_write l s = s with clock := l`;
+Definition clock_write_def:
+  clock_write l s = s with clock := l
+End
 
-val copy_vars_def = Define `
+Definition copy_vars_def:
   (copy_vars [] s t = SOME t) /\
   (copy_vars (n::ns) s t =
      case FLOOKUP s n of
      | NONE => NONE
-     | SOME x => copy_vars ns s (reg_write n (SOME x) t))`;
+     | SOME x => copy_vars ns s (reg_write n (SOME x) t))
+End
 
 Inductive eval:
   (!r s. Eval r s Skip (INR (s:'a state))) /\
@@ -177,7 +187,7 @@ QED
 
 (* verification of compiler to wordLang *)
 
-val array_rel_def = Define `
+Definition array_rel_def:
   array_rel arr v1 v2 v3 m dm frame =
     ?a1 a2 a3 rest1 rest2.
       v1 = SOME (Word a1) /\
@@ -187,22 +197,25 @@ val array_rel_def = Define `
        word_list a3 (MAP Word (arr Out)) * rest1) (fun2set (m,dm)) /\
       (word_list a2 (MAP Word (arr In2)) *
        word_list a3 (MAP Word (arr Out)) * rest2) (fun2set (m,dm)) /\
-      (word_list a3 (MAP Word (arr Out)) * frame) (fun2set (m,dm))`
+      (word_list a3 (MAP Word (arr Out)) * frame) (fun2set (m,dm))
+End
 
-val code_subset_def = Define `
+Definition code_subset_def:
   code_subset (n1,cs1) (n2,cs2) <=>
-    !n v. ALOOKUP cs1 n = SOME v ==> ALOOKUP cs2 n = SOME v`;
+    !n v. ALOOKUP cs1 n = SOME v ==> ALOOKUP cs2 n = SOME v
+End
 
-val code_rel_def = Define `
+Definition code_rel_def:
   code_rel cs code <=>
     !prog n p2.
        ALOOKUP (SND cs) prog = SOME (n,p2) ==>
        ?cs1 l2 i2 cs2.
          compile n 2 1 cs1 prog = (p2,l2,i2,cs2) /\
          lookup n code = SOME (1n,Seq p2 (Return 0 0)) /\
-         code_subset cs2 cs`
+         code_subset cs2 cs
+End
 
-val div_code_assum_def = Define `
+Definition div_code_assum_def:
   div_code_assum (:'ffi) (:'c) code =
     !(t1:('a,'c,'ffi) wordSem$state) n l i0 i1 i2 i3 i4 w3 w4 w5 ret_val.
       0 < i0 /\ 0 < i1 /\ 0 < i2 /\ 0 < i3 /\ 0 < i4 /\
@@ -221,11 +234,12 @@ val div_code_assum_def = Define `
              set_var i0 (Word w1) o set_store (Temp 28w) (Word w2)) (t1
             with <| permute := (λn. t1.permute (n + 1)) ;
                     locals := LN;
-                    stack_max := max |> ))`
+                    stack_max := max |> ))
+End
 
 Overload max_var_name[local] = ``25n``
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel s (t:('a,'c,'ffi) wordSem$state) cs t0 frame <=>
     (* clock related *)
     s.clock = t.clock /\
@@ -258,7 +272,8 @@ val state_rel_def = Define `
     t0.stack_limit = t.stack_limit /\
     t0.stack_size = t.stack_size  /\
     FLOOKUP t.store TempOut = FLOOKUP t0.store TempOut /\
-    (!n. (!r. n <> Temp r) ==> FLOOKUP t.store n = FLOOKUP t0.store n) `
+    (!n. (!r. n <> Temp r) ==> FLOOKUP t.store n = FLOOKUP t0.store n)
+End
 
 val state_rel_delete_vars = prove(
   ``s1.arrays = s2.arrays /\ s1.clock = s2.clock /\
@@ -277,14 +292,15 @@ val state_rel_delete_vars = prove(
   \\ Induct_on `vs` \\ fs [delete_vars_def,reg_write_def]
   \\ fs [SUBMAP_DEF,FDOM_DOMSUB,DOMSUB_FAPPLY_THM]);
 
-val exp_ok_def = Define `
+Definition exp_ok_def:
   (exp_ok (Const _) <=> T) /\
   (exp_ok (Var i) <=> i < max_var_name) /\
   (exp_ok (Op _ [x;y]) <=> exp_ok x /\ exp_ok y) /\
   (exp_ok (Shift sh e n) <=> exp_ok e) /\
-  (exp_ok _ <=> F)`;
+  (exp_ok _ <=> F)
+End
 
-val syntax_ok_aux_def = Define `
+Definition syntax_ok_aux_def:
   syntax_ok_aux (Loop r vs body) = syntax_ok_aux body /\
   syntax_ok_aux (LoopBody body) = F /\
   (syntax_ok_aux (Seq p1 p2) <=> syntax_ok_aux p1 /\ syntax_ok_aux p2) /\
@@ -310,11 +326,13 @@ val syntax_ok_aux_def = Define `
      n3 < max_var_name /\ n4 < max_var_name /\ n5 < max_var_name) /\
   (syntax_ok_aux (Rec save_regs _) <=>
      EVERY (\n. n < max_var_name) save_regs /\ ALL_DISTINCT save_regs) /\
-  syntax_ok_aux _ = T`;
+  syntax_ok_aux _ = T
+End
 
-val syntax_ok_def = Define `
+Definition syntax_ok_def:
   syntax_ok (LoopBody body) = syntax_ok_aux body /\
-  syntax_ok p = syntax_ok_aux p`
+  syntax_ok p = syntax_ok_aux p
+End
 
 Theorem evaluate_Seq_Seq:
    !p1 p2 p3 t1.
@@ -472,10 +490,11 @@ val b2n_if = prove(
   ``b2n b = if ~b then 0 else 1``,
   Cases_on `b` \\ EVAL_TAC);
 
-val list_update_def = Define `
+Definition list_update_def:
   list_update [] ys t = t /\
   list_update (x::xs) (y::ys) t = insert x y (list_update xs ys t) /\
-  list_update (x::xs) [] t = insert x ARB (list_update xs [] t)`
+  list_update (x::xs) [] t = insert x ARB (list_update xs [] t)
+End
 
 val evaluate_LoadRegs = prove(
   ``!save_regs vals t1.
@@ -512,9 +531,10 @@ val domain_list_update = prove(
   ``∀xs ys x t. x ∈ domain (list_update xs ys t) ⇔ MEM x xs ∨ x ∈ domain t``,
   Induct \\ Cases_on `ys` \\ fs [list_update_def] \\ metis_tac []);
 
-val list_store_def = Define `
+Definition list_store_def:
   list_store [] ys s = s /\
-  list_store (x::xs) ys s = (list_store xs (TL ys) s) |+ (Temp (n2w x),HD ys)`
+  list_store (x::xs) ys s = (list_store xs (TL ys) s) |+ (Temp (n2w x),HD ys)
+End
 
 val list_store_FUPDATE = prove(
   ``!save_regs st ys.
@@ -1132,12 +1152,13 @@ Proof
     \\ every_case_tac \\ fs [])
 QED
 
-val good_code_def = Define `
+Definition good_code_def:
   good_code cs3 =
     !prog n p2.
       MEM (prog,n,p2) (SND cs3) ==>
       ∃cs1 l2' i2 cs2.
-        compile n 2 1 cs1 prog = (p2,l2',i2,cs2) ∧ code_subset cs2 cs3`;
+        compile n 2 1 cs1 prog = (p2,l2',i2,cs2) ∧ code_subset cs2 cs3
+End
 
 val compile_LESS_mini_size = prove(
   ``!k l1 l2 yy5 code xx1 xx2 xx3 xx5.
@@ -1212,9 +1233,10 @@ val compile_NIL_IMP = save_thm("compile_NIL_IMP",
 
 val all_corrs = ref (tl [TRUTH]);
 
-val Corr_def = Define `
+Definition Corr_def:
   Corr prog (s:'a state) s1 p <=>
-    (p ==> Eval NONE s prog s1)`;
+    (p ==> Eval NONE s prog s1)
+End
 
 val Corr_Skip = prove(
   ``Corr Skip s (INR s) T``,
@@ -1322,11 +1344,12 @@ val Corr_If = prove(
   fs [Corr_def,eval_cases] \\ rw [] \\ fs []
   \\ asm_exists_tac \\ fs [] \\ rw [] \\ fs []);
 
-val loop_app_def = Define `
+Definition loop_app_def:
   loop_app f g x =
     case f x of
     | INL s => (INL (dec_clock s), g x /\ s.clock <> 0)
-    | INR s => (INR s, g x)`;
+    | INR s => (INR s, g x)
+End
 
 val Corr_LoopBody = prove(
   ``(!s. Corr p s (f s) (q s)) ==>
@@ -1342,9 +1365,10 @@ val Corr_LoopBody = prove(
   \\ qpat_x_assum `!x. _` imp_res_tac \\ rfs []
   \\ asm_exists_tac \\ fs []);
 
-val tick_before_def = Define `
+Definition tick_before_def:
   tick_before vs f s =
-    if s.clock = 0 then (s,F) else f (delete_vars vs (dec_clock s))`
+    if s.clock = 0 then (s,F) else f (delete_vars vs (dec_clock s))
+End
 
 val Corr_Loop_lemma = prove(
   ``(!s. Corr (LoopBody p) s (INR (f s)) (q s)) ==>

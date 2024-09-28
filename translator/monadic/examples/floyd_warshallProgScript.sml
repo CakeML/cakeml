@@ -31,36 +31,40 @@ val config =  global_state_config |>
 val _ = start_translation config;
 
 (* allocate an n x n matrix *)
-val mk_graph_def = Define`
+Definition mk_graph_def:
   mk_graph n =
   do
     () <- set_dim n;
     alloc_adj_mat (n * n) NONE
-  od`
+  od
+End
 
 (* Because we are using a 1D array to represent 2D*)
-val reind_def = Define`
+Definition reind_def:
   reind (i:num) j =
   do
     d <- get_dim;
     return (i*d+j)
-  od`
+  od
+End
 
 (* Make (i,j) adjacent with weight w *)
-val set_weight_def = Define`
+Definition set_weight_def:
   set_weight i j w =
   do
     pij <- reind i j;
     update_adj_mat pij (SOME w)
-  od`
+  od
+End
 
 (* Returns the weight of (i,j) *)
-val get_weight_def = Define`
+Definition get_weight_def:
   get_weight i j =
   do
     pij <- reind i j;
     adj_mat_sub pij
-  od`
+  od
+End
 
 val st_ex_FOR_def = tDefine "st_ex_FOR" `
   st_ex_FOR (i:num) j a =
@@ -73,20 +77,22 @@ val st_ex_FOR_def = tDefine "st_ex_FOR" `
     od`
   (WF_REL_TAC `measure (\(i, j:num, a).  j-i)`);
 
-val st_ex_FOREACH_def = Define `
+Definition st_ex_FOREACH_def:
   (st_ex_FOREACH [] a = return ()) ∧
   (st_ex_FOREACH (x::xs) a =
   do
     () <- a x;
     st_ex_FOREACH xs a
-  od)`
+  od)
+End
 
 (* Initialize the diagonal to zero *)
-val init_diag_def = Define`
+Definition init_diag_def:
   init_diag d =
   do
     st_ex_FOR 0n d (λi. set_weight i i 0n)
-  od`
+  od
+End
 
 (* TODO: defining it as :
   init_diag =
@@ -103,7 +109,7 @@ val init_diag_def = Define`
 
 (* Floyd-Warshall algorithm *)
 
-val relax_def = Define`
+Definition relax_def:
   relax i k j =
   do
     wik <- get_weight i k;
@@ -117,10 +123,11 @@ val relax_def = Define`
       if wik + wkj < wij
       then set_weight i j (wik+wkj)
       else return ()
- od`
+ od
+End
 
 (* TODO: same as init_diag *)
-val floyd_warshall_def = Define`
+Definition floyd_warshall_def:
   floyd_warshall d =
   do
     st_ex_FOR 0n d (λk.
@@ -130,26 +137,30 @@ val floyd_warshall_def = Define`
     )
     )
     )
-  od`
+  od
+End
 
-val init_g_def = Define`
-  init_g =  <|dim := ref_init_dim ; adj_mat := rarray_init_adj_mat |>`
+Definition init_g_def:
+  init_g =  <|dim := ref_init_dim ; adj_mat := rarray_init_adj_mat |>
+End
 
-val init_from_ls_def = Define`
+Definition init_from_ls_def:
   init_from_ls ls =
   do
     d <- get_dim;
     () <- init_diag d;
     st_ex_FOREACH ls (\(i,j,w). set_weight i j w)
-  od`
+  od
+End
 
-val do_floyd_def = Define`
+Definition do_floyd_def:
   do_floyd d ls =
   do
     () <- mk_graph d;
     () <- init_from_ls ls;
     () <- floyd_warshall d;
-  od`
+  od
+End
 
 val alloc_adj_mat_def = definition "alloc_adj_mat_def";
 val get_dim_def = definition "get_dim_def";

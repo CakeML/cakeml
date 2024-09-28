@@ -15,13 +15,14 @@ QED
 
 (* -- well-formedness of encoding -- *)
 
-val offset_monotonic_def = Define `
+Definition offset_monotonic_def:
   offset_monotonic enc c a1 a2 i1 i2 <=>
   asm_ok i1 c /\ asm_ok i2 c ==>
   (0w <= a1 /\ 0w <= a2 /\ a1 <= a2 ==> LENGTH (enc i1) <= LENGTH (enc i2)) /\
-  (a1 < 0w /\ a2 < 0w /\ a2 <= a1 ==> LENGTH (enc i1) <= LENGTH (enc i2))`
+  (a1 < 0w /\ a2 < 0w /\ a2 <= a1 ==> LENGTH (enc i1) <= LENGTH (enc i2))
+End
 
-val enc_ok_def = Define `
+Definition enc_ok_def:
   enc_ok (c : 'a asm_config) <=>
     (* code alignment and length *)
     (2 EXP c.code_alignment = LENGTH (c.encode (Inst Skip))) /\
@@ -33,7 +34,8 @@ val enc_ok_def = Define `
        offset_monotonic c.encode c w1 w2
           (JumpCmp cmp r ri w1) (JumpCmp cmp r ri w2)) /\
     (!w1 w2. offset_monotonic c.encode c w1 w2 (Call w1) (Call w2)) /\
-    (!w1 w2 r. offset_monotonic c.encode c w1 w2 (Loc r w1) (Loc r w2))`
+    (!w1 w2 r. offset_monotonic c.encode c w1 w2 (Loc r w1) (Loc r w2))
+End
 
 (* -- correctness property to be proved for each backend -- *)
 
@@ -49,15 +51,16 @@ val () = Datatype `
      ; proj : 'a word set -> 'b -> 'c
      |>`
 
-val target_state_rel_def = Define`
+Definition target_state_rel_def:
   target_state_rel t s ms <=>
   t.state_ok ms /\ (t.get_pc ms = s.pc) /\
   (!a. a IN s.mem_domain ==> (t.get_byte ms a = s.mem a)) /\
   (!i. i < t.config.reg_count /\ ~MEM i t.config.avoid_regs ==>
        (t.get_reg ms i = s.regs i)) /\
-  (!i. i < t.config.fp_reg_count ==> (t.get_fp_reg ms i = s.fp_regs i))`
+  (!i. i < t.config.fp_reg_count ==> (t.get_fp_reg ms i = s.fp_regs i))
+End
 
-val target_ok_def = Define`
+Definition target_ok_def:
   target_ok t <=>
   enc_ok t.config /\
   !ms1 ms2 s.
@@ -65,10 +68,12 @@ val target_ok_def = Define`
     (target_state_rel t s ms1 = target_state_rel t s ms2) /\
     (t.state_ok ms1 = t.state_ok ms2) /\
     (t.get_pc ms1 = t.get_pc ms2) /\
-    (!a. a IN s.mem_domain ==> t.get_byte ms1 a = t.get_byte ms2 a)`
+    (!a. a IN s.mem_domain ==> t.get_byte ms1 a = t.get_byte ms2 a)
+End
 
-val interference_ok_def = Define `
-  interference_ok env proj <=> !i:num ms. proj (env i ms) = proj ms`;
+Definition interference_ok_def:
+  interference_ok env proj <=> !i:num ms. proj (env i ms) = proj ms
+End
 
 val _ = TotalDefn.temp_export_termsimp "arithmetic.ZERO_LT_EXP"
 Definition all_pcs_def:
@@ -104,7 +109,7 @@ val asserts2_def = zDefine`
      P ms (fc ms) ∧
      asserts2 (n-1) fi fc (fi n (fc ms)) P)`;
 
-val encoder_correct_def = Define `
+Definition encoder_correct_def:
   encoder_correct t <=>
     target_ok t /\
     !s1 i s2 ms.
@@ -118,7 +123,8 @@ val encoder_correct_def = Define `
                      t.get_pc ms' IN pcs t.config.code_alignment)
               (\ms'. target_state_rel t s2 ms') ∧
             asserts2 (n + 1) (λk. env (n + 1 - k)) t.next ms
-              (λms1 ms2. ∀x. x ∉ s1.mem_domain ⇒ t.get_byte ms1 x = t.get_byte ms2 x)`
+              (λms1 ms2. ∀x. x ∉ s1.mem_domain ⇒ t.get_byte ms1 x = t.get_byte ms2 x)
+End
 
 (* lemma for proofs *)
 

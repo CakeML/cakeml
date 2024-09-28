@@ -20,17 +20,19 @@ Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
 Overload return[local] = ``st_ex_return``
 
 (* Edge from node x to node y, in terms of an adjacency list *)
-val has_edge_def = Define`
+Definition has_edge_def:
   has_edge adjls x y ⇔
   x < LENGTH adjls ∧
   y < LENGTH adjls ∧
-  MEM y (EL x adjls)`
+  MEM y (EL x adjls)
+End
 
-val undirected_def = Define`
+Definition undirected_def:
   undirected adjls ⇔
   ∀x y.
     has_edge adjls x y ⇒
-    has_edge adjls y x`
+    has_edge adjls y x
+End
 
 (* ---
   some well-formedness properties on the state.
@@ -38,7 +40,7 @@ val undirected_def = Define`
   and that the worklists always contain legal nodes
   --- *)
 
-val good_ra_state_def = Define`
+Definition good_ra_state_def:
   good_ra_state s ⇔
   LENGTH s.adj_ls = s.dim ∧
   LENGTH s.node_tag = s.dim ∧
@@ -54,23 +56,24 @@ val good_ra_state_def = Define`
   EVERY (λ(p:num,x,y). x < s.dim ∧ y < s.dim) s.avail_moves_wl ∧
   EVERY (λ(p:num,x,y). x < s.dim ∧ y < s.dim) s.unavail_moves_wl ∧
   undirected s.adj_ls
-  `
+End
 
 (* --- invariant: no two adjacent nodes have the same colour --- *)
-val no_clash_def = Define`
+Definition no_clash_def:
   no_clash adj_ls node_tag ⇔
   ∀x y.
     has_edge adj_ls x y ⇒
     case (EL x node_tag,EL y node_tag) of
       (Fixed n,Fixed m) =>
         n = m ⇒ x = y
-    | _ => T`
+    | _ => T
+End
 
 (*
   Good preference oracle may only inspect, but not touch the state
   Moreover, it must always select a member of the input list
 *)
-val good_pref_def = Define`
+Definition good_pref_def:
   good_pref pref ⇔
   ∀n ks s.
     good_ra_state s ⇒
@@ -78,7 +81,8 @@ val good_pref_def = Define`
     pref n ks s = (M_success res,s) ∧
     case res of
       NONE => T
-    | SOME k => MEM k ks`
+    | SOME k => MEM k ks
+End
 
 val msimps = [st_ex_bind_def,st_ex_return_def];
 
@@ -701,7 +705,7 @@ QED
 
 (* Checking that the bijection produced is correct *)
 
-val in_clash_tree_def = Define`
+Definition in_clash_tree_def:
   (in_clash_tree (Delta w r) x ⇔ MEM x w ∨ MEM x r) ∧
   (in_clash_tree (Set names) x ⇔ x ∈ domain names) ∧
   (in_clash_tree (Branch name_opt t1 t2) x ⇔
@@ -710,14 +714,16 @@ val in_clash_tree_def = Define`
     case name_opt of
       SOME names => x ∈ domain names
     | NONE => F) ∧
-  (in_clash_tree (Seq t t') x ⇔ in_clash_tree t x ∨ in_clash_tree t' x)`
+  (in_clash_tree (Seq t t') x ⇔ in_clash_tree t x ∨ in_clash_tree t' x)
+End
 
 (*g inverts f as an sptree *)
-val sp_inverts_def = Define`
+Definition sp_inverts_def:
   sp_inverts f g ⇔
   ∀m fm.
     lookup m f = SOME fm ⇒
-    lookup fm g = SOME m`
+    lookup fm g = SOME m
+End
 
 Theorem sp_inverts_insert:
     sp_inverts f g ∧
@@ -906,15 +912,17 @@ QED
    the correctness
 *)
 (* the list represents a clique *)
-val is_clique_def = Define`
+Definition is_clique_def:
   is_clique ls adjls ⇔
   ∀x y. MEM x ls ∧ MEM y ls ∧ x ≠ y ⇒
-    has_edge adjls x y`
+    has_edge adjls x y
+End
 
-val is_subgraph_def = Define`
+Definition is_subgraph_def:
   is_subgraph g h ⇔
   ∀x y.
-    has_edge g x y ⇒ has_edge h x y`
+    has_edge g x y ⇒ has_edge h x y
+End
 
 Theorem is_subgraph_refl:
   is_subgraph s s
@@ -931,8 +939,9 @@ Proof
 QED
 
 (* TODO quick sanity check: move to proof file when done *)
-val hide_def = Define`
-  hide x = x`
+Definition hide_def:
+  hide x = x
+End
 
 val GT_TRANS = Q.prove(`
   a:num > b ∧ b > c ⇒ a > c`,
@@ -1150,11 +1159,12 @@ QED
 (* The col needed to get colouring satisfactory can be generated
    from the node tags
    The correctness should be a consequence of no_clash *)
-val colouring_satisfactory_def = Define `
+Definition colouring_satisfactory_def:
   colouring_satisfactory col adjls =
   ∀x. x < LENGTH adjls ⇒
    (∀y. y < LENGTH adjls ∧ MEM y (EL x adjls) ⇒
-   col x = col y ==> x = y)`
+   col x = col y ==> x = y)
+End
 
 (*TODO: this is in word_allocProof*)
 val INJ_less = Q.prove(`

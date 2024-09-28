@@ -42,8 +42,9 @@ val b_inputAllTokensFrom_spec_specialize =
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE NUM`
   |> REWRITE_RULE [blanks_v_thm,tokenize_num_v_thm] ;
 
-val noparse_string_def = Define`
-  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]`;
+Definition noparse_string_def:
+  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]
+End
 
 val r = translate noparse_string_def;
 

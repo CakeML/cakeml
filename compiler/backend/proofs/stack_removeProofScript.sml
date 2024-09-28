@@ -120,36 +120,42 @@ Proof
   full_simp_tac(srw_ss())[word_offset_def,word_mul_n2w,bytes_in_word_def]
 QED
 
-val memory_def = Define `
-  memory m dm = \s. s = fun2set (m, dm)`;
+Definition memory_def:
+  memory m dm = \s. s = fun2set (m, dm)
+End
 
-val word_list_rev_def = Define `
+Definition word_list_rev_def:
   (word_list_rev a [] = emp) /\
   (word_list_rev a (x::xs) =
-     one (a - bytes_in_word, x) * word_list_rev (a - bytes_in_word) xs)`;
+     one (a - bytes_in_word, x) * word_list_rev (a - bytes_in_word) xs)
+End
 
-val word_store_def = Define `
+Definition word_store_def:
   word_store base store =
     word_list_rev base
       (MAP (\name. case FLOOKUP store name of
-                   | NONE => Word 0w | SOME x => x) store_list)`
+                   | NONE => Word 0w | SOME x => x) store_list)
+End
 
-val code_rel_def = Define `
+Definition code_rel_def:
   code_rel jump off k code1 code2 <=>
     (!n prog.
       lookup n code1 = SOME prog ==>
       reg_bound prog k /\
       lookup n code2 = SOME (comp jump off k prog)) ∧
-    domain code2 = domain code1 ∪ {0;1;2}` (* exact characterization for Install *)
+    domain code2 = domain code1 ∪ {0;1;2}
+End (* exact characterization for Install *)
 
-val is_SOME_Word_def = Define `
+Definition is_SOME_Word_def:
   (is_SOME_Word (SOME (Word w)) = T) /\
-  (is_SOME_Word _ = F)`;
+  (is_SOME_Word _ = F)
+End
 
-val the_SOME_Word_def = Define `
-  (the_SOME_Word (SOME (Word w)) = w)`;
+Definition the_SOME_Word_def:
+  (the_SOME_Word (SOME (Word w)) = w)
+End
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel jump off k (s1:('a,'c,'ffi) stackSem$state) s2 <=>
     s1.use_stack /\ s1.use_store /\
     ~s2.use_stack /\ ~s2.use_store /\
@@ -191,7 +197,8 @@ val state_rel_def = Define `
        word_store base s1.store *
        word_list base s1.stack)
         (fun2set (s2.memory,s2.mdomain))
-    | _ => F`
+    | _ => F
+End
 
 val state_rel_get_var = Q.prove(
   `state_rel jump off k s t /\ n < k ==> (get_var n s = get_var n t)`,
@@ -2518,9 +2525,10 @@ val tac1 = simp [Once list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_de
        labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
        wordLangTheory.word_sh_def,halt_inst_def]
 
-val mem_val_def = Define `
+Definition mem_val_def:
   (mem_val regs (INL w) = Word w) /\
-  (mem_val (regs:num |-> 'a word_loc) (INR n) = regs ' n)`
+  (mem_val (regs:num |-> 'a word_loc) (INR n) = regs ' n)
+End
 
 Theorem store_list_code_thm:
    !xs s w frame ys m dm.
@@ -2621,14 +2629,16 @@ val star_move_lemma = Q.prove(
   `p0 * p1 * p1' * p2 * p3 * p4 = p2 * (p1 * p1' * STAR p3 (p4 * p0))`,
   fs [AC STAR_COMM STAR_ASSOC]);
 
-val read_mem_def = Define `
+Definition read_mem_def:
   (read_mem a m 0 = []) /\
   (read_mem a m (SUC n) =
-     m a :: read_mem (a + bytes_in_word) m n)`
+     m a :: read_mem (a + bytes_in_word) m n)
+End
 
-val addresses_def = Define `
+Definition addresses_def:
   (addresses a 0 = {}) /\
-  (addresses a (SUC n) = a INSERT addresses (a + bytes_in_word) n)`
+  (addresses a (SUC n) = a INSERT addresses (a + bytes_in_word) n)
+End
 
 Theorem LENGTH_read_mem:
   !n a m. LENGTH (read_mem a m n) = n
@@ -2739,7 +2749,7 @@ Proof
   \\ fs [good_dimindex_def,dimword_def] \\ rfs [] \\ fs []
 QED
 
-val init_reduce_def = Define `
+Definition init_reduce_def:
   init_reduce gen_gc jump off k code bitmaps data_sp coracle (s:('a,'c,'ffi)stackSem$state) =
     let heap_ptr = theWord (s.regs ' (k + 2)) in
     let bitmap_ptr = theWord (s.regs ' 3) << word_shift (:'a) in
@@ -2762,7 +2772,8 @@ val init_reduce_def = Define `
          store := FEMPTY |++ (MAP (\n. case store_init gen_gc k n of
                                        | INL w => (n,Word w)
                                        | INR i => (n,s.regs ' i))
-                               (CurrHeap::store_list)) |>`
+                               (CurrHeap::store_list)) |>
+End
 
 val init_reduce_stack_space = Q.prove(
   `(init_reduce gen_gc jump off k code bitmaps data_sp coracle s8).stack_space <=
@@ -2776,7 +2787,7 @@ Definition stack_heap_limit_ok_def:
     stack_lim = LENGTH t.stack
 End
 
-val init_prop_def = Define `
+Definition init_prop_def:
   init_prop gen_gc max_heap data_sp stack_heap_lim (s:('a,'c,'ffi)stackSem$state) =
     ?curr other bitmap_base len.
        FLOOKUP s.store CurrHeap = SOME (Word curr) /\
@@ -2813,9 +2824,10 @@ val init_prop_def = Define `
        LENGTH s.stack * (dimindex (:α) DIV 8) < dimword (:α) /\
        len + len <= max_heap /\
        (word_list_exists curr len * word_list_exists other len)
-          (fun2set (s.memory,s.mdomain))`
+          (fun2set (s.memory,s.mdomain))
+End
 
-val init_code_pre_def = Define `
+Definition init_code_pre_def:
   init_code_pre k bitmaps data_sp s <=>
     ?ptr2 ptr3 ptr4 bitmap_ptr.
       good_dimindex (:'a) /\ 8 <= k /\ 1 ∈ domain s.code /\
@@ -2842,7 +2854,8 @@ val init_code_pre_def = Define `
       (word_list bitmap_ptr (MAP Word bitmaps) *
        word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp *
        word_list_exists ptr2 (w2n (ptr4 - ptr2) DIV w2n (bytes_in_word:'a word)))
-        (fun2set (s.memory,s.mdomain))`
+        (fun2set (s.memory,s.mdomain))
+End
 
 val byte_aligned_bytes_in_word_MULT = Q.prove(
   `good_dimindex (:'a) ==>
@@ -3671,20 +3684,22 @@ Proof
   gs[]
 QED
 
-val make_init_opt_def = Define `
+Definition make_init_opt_def:
   make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code (s:('a,'c,'ffi)stackSem$state) =
     case evaluate (init_code gen_gc max_heap k,s) of
     | (SOME _,t) => NONE
     | (NONE,t) => if init_prop gen_gc max_heap data_sp
                        (get_stack_heap_limit max_heap (read_pointers s))
                        (init_reduce gen_gc jump off k code bitmaps data_sp coracle t)
-                  then SOME (init_reduce gen_gc jump off k code bitmaps data_sp coracle t) else NONE`
+                  then SOME (init_reduce gen_gc jump off k code bitmaps data_sp coracle t) else NONE
+End
 
-val init_pre_def = Define `
+Definition init_pre_def:
   init_pre gen_gc max_heap bitmaps data_sp k start s <=>
     lookup 0 s.code = SOME (Seq (init_code gen_gc max_heap k)
                                 (Call NONE (INL start) NONE)) /\
-    init_code_pre k bitmaps data_sp s /\ max_stack_alloc ≤ max_heap`
+    init_code_pre k bitmaps data_sp s /\ max_stack_alloc ≤ max_heap
+End
 
 Theorem evaluate_init_code:
    init_pre gen_gc max_heap bitmaps data_sp k start s /\
@@ -3830,7 +3845,7 @@ val IMP_code_rel = Q.prove(
   simp[EXTENSION]>>
   metis_tac[]);
 
-val make_init_any_def = Define `
+Definition make_init_any_def:
   make_init_any gen_gc max_heap bitmaps data_sp coracle jump off k code s =
     case make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code s of
     | SOME t => t
@@ -3849,9 +3864,10 @@ val make_init_any_def = Define `
                       ; code_buffer := <|buffer := []; position := 0w; space_left := 0|>
                       ; code := code
                       ; store := FEMPTY |++ (MAP (\x. (x,Word 0w))
-                                   (CurrHeap::store_list)) |>`
+                                   (CurrHeap::store_list)) |>
+End
 
-val discharge_these_def = Define`
+Definition discharge_these_def:
   discharge_these jump off gen_gc max_heap k start coracle code s2 ⇔
       EVERY (\(n,p). reg_bound p k /\ num_stubs ≤ n+1) code /\
       (∀n i p.
@@ -3860,9 +3876,10 @@ val discharge_these_def = Define`
       s2.code = fromAList (compile jump off gen_gc max_heap k start code) ∧
       8 ≤ k ∧ 1 ∈ domain s2.code ∧
       {k; k + 1; k + 2} ⊆ s2.ffi_save_regs ∧ ¬s2.use_stack ∧
-      ¬s2.use_store ∧ ¬s2.use_alloc ∧ max_stack_alloc <= max_heap`;
+      ¬s2.use_store ∧ ¬s2.use_alloc ∧ max_stack_alloc <= max_heap
+End
 
-val propagate_these_def = Define`
+Definition propagate_these_def:
   propagate_these s (bitmaps:'a word list) data_sp ⇔
   good_dimindex(:'a) /\
   ∃ptr2 ptr3 ptr4 bitmap_ptr.
@@ -3887,7 +3904,8 @@ val propagate_these_def = Define`
         word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp *
         word_list_exists ptr2
             (w2n (-1w * ptr2 + ptr4) DIV w2n (bytes_in_word:'a word)))
-         (fun2set (s.memory,s.mdomain))`;
+         (fun2set (s.memory,s.mdomain))
+End
 
 Theorem make_init_semantics:
    discharge_these jump off gen_gc max_heap k start coracle code s2 /\

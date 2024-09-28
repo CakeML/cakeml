@@ -153,13 +153,14 @@ Datatype:
            | Cartprod setlevel setlevel
 End
 
-val setlevel_def = Define`
+Definition setlevel_def:
   setlevel Ur_bool = IMAGE I_BOOL UNIV ∧
   setlevel Ur_ind = IMAGE I_IND UNIV ∧
   setlevel (Cartprod l1 l2) =
     IMAGE I_PAIR (setlevel l1 × setlevel l2) ∧
   setlevel (Powerset l) =
-    IMAGE (I_SET (setlevel l)) (POW (setlevel l))`
+    IMAGE (I_SET (setlevel l)) (POW (setlevel l))
+End
 
 Theorem setlevel_CARD:
    ∀l. setlevel l ≺ 𝕌(:I)
@@ -195,8 +196,9 @@ Proof
   metis_tac[setlevel_CARD,I_SET_def]
 QED
 
-val universe_def = Define`
-  universe = {(t,x) | x ∈ setlevel t}`
+Definition universe_def:
+  universe = {(t,x) | x ∈ setlevel t}
+End
 
 val v_exists = Q.prove(
   `∃a. a ∈ universe`,
@@ -223,18 +225,22 @@ Proof
   rw[universe_IN,universe_def]
 QED
 
-val droplevel_def = Define`
-  droplevel (Powerset l) = l`
+Definition droplevel_def:
+  droplevel (Powerset l) = l
+End
 
-val isasetlevel = Define`
+Definition isasetlevel:
   isasetlevel (Powerset _) = T ∧
-  isasetlevel _ = F`
+  isasetlevel _ = F
+End
 
-val level_def = Define`
-  level x = FST(dest_V x)`
+Definition level_def:
+  level x = FST(dest_V x)
+End
 
-val element_def = Define`
-  element x = SND(dest_V x)`
+Definition element_def:
+  element x = SND(dest_V x)
+End
 
 Theorem ELEMENT_IN_LEVEL:
    ∀x. (element x) ∈ setlevel (level x)
@@ -248,12 +254,14 @@ Proof
   rw[level_def,element_def,v_bij]
 QED
 
-val set_def = Define`
+Definition set_def:
   set x = @s. s ⊆ (setlevel(droplevel(level x))) ∧
-              I_SET (setlevel(droplevel(level x))) s = element x`
+              I_SET (setlevel(droplevel(level x))) s = element x
+End
 
-val isaset_def = Define`
-  isaset x ⇔ ∃l. level x = Powerset l`
+Definition isaset_def:
+  isaset x ⇔ ∃l. level x = Powerset l
+End
 
 val _ = Parse.add_infix("<:",425,Parse.NONASSOC)
 
@@ -387,9 +395,10 @@ val powerset_def =
   new_specification("powerset_def",["powerset"],
     SIMP_RULE std_ss [SKOLEM_THM] POWERSET_EXISTS)
 
-val pair_def = Define`
+Definition pair_def:
   pair x y = mk_V(Cartprod (level x) (level y),
-                  I_PAIR(element x,element y))`
+                  I_PAIR(element x,element y))
+End
 
 Theorem PAIR_IN_LEVEL:
    ∀x y l m. x ∈ setlevel l ∧ y ∈ setlevel m
@@ -421,11 +430,13 @@ Proof
   rw[level_def,DEST_MK_PAIR]
 QED
 
-val fst_def = Define`
-  fst p = @x. ∃y. p = pair x y`
+Definition fst_def:
+  fst p = @x. ∃y. p = pair x y
+End
 
-val snd_def = Define`
-  snd p = @y. ∃x. p = pair x y`
+Definition snd_def:
+  snd p = @y. ∃x. p = pair x y
+End
 
 Theorem PAIR_CLAUSES:
    ∀x y. (fst(pair x y) = x) ∧ (snd(pair x y) = y)
@@ -499,14 +510,17 @@ Proof
   metis_tac[EXTENSIONALITY_LEVEL,MEMBERS_ISASET,inset_def]
 QED
 
-val true_def = Define`
-  true = mk_V(Ur_bool,I_BOOL T)`
+Definition true_def:
+  true = mk_V(Ur_bool,I_BOOL T)
+End
 
-val false_def = Define`
-  false = mk_V(Ur_bool,I_BOOL F)`
+Definition false_def:
+  false = mk_V(Ur_bool,I_BOOL F)
+End
 
-val boolset_def = Define`
-  boolset = mk_V(Powerset Ur_bool,I_SET (setlevel Ur_bool) (setlevel Ur_bool))`
+Definition boolset_def:
+  boolset = mk_V(Powerset Ur_bool,I_SET (setlevel Ur_bool) (setlevel Ur_bool))
+End
 
 val setlevel_bool = Q.prove(
   `∀b. I_BOOL b ∈ setlevel Ur_bool`,
@@ -535,8 +549,9 @@ Proof
   metis_tac[TRUE_NE_FALSE,IN_BOOL]
 QED
 
-val indset_def = Define`
-  indset = mk_V(Powerset Ur_ind,I_SET (setlevel Ur_ind) (setlevel Ur_ind))`
+Definition indset_def:
+  indset = mk_V(Powerset Ur_ind,I_SET (setlevel Ur_ind) (setlevel Ur_ind))
+End
 
 Theorem INDSET_IND_MODEL:
    ∃f. (∀i:ind_model. f i <: indset) ∧ (∀i j. f i = f j ⇒ i = j)
@@ -575,16 +590,19 @@ val PRODUCT_INHABITED = Q.prove
  (`(?x. x <: s) /\ (?y. y <: t) ==> ?z. z <: product s t`,
   metis_tac[IN_PRODUCT]);;
 
-val funspace_def = Define`
+Definition funspace_def:
   funspace s t = (powerset(product s t) suchthat
-                  λu. ∀x. x <: s ⇒ ∃!y. pair x y <: u)`
+                  λu. ∀x. x <: s ⇒ ∃!y. pair x y <: u)
+End
 
-val apply_def = Define`
-  apply f x = @y. pair x y <: f`
+Definition apply_def:
+  apply f x = @y. pair x y <: f
+End
 
-val abstract_def = Define`
+Definition abstract_def:
   abstract s t f =
-    (product s t suchthat λz. ∀x y. pair x y = z ⇒ y = f x)`
+    (product s t suchthat λz. ∀x y. pair x y = z ⇒ y = f x)
+End
 
 Theorem APPLY_ABSTRACT:
    ∀f x s t. x <: s ∧ f x <: t ⇒ apply(abstract s t f) x = f x
@@ -625,11 +643,13 @@ Proof
   metis_tac[PAIR_INJ]
 QED
 
-val boolean_def = Define`
-  boolean b = if b then true else false`
+Definition boolean_def:
+  boolean b = if b then true else false
+End
 
-val holds_def = Define`
-  holds s x ⇔ apply s x = true`
+Definition holds_def:
+  holds s x ⇔ apply s x = true
+End
 
 Theorem BOOLEAN_IN_BOOLSET:
    ∀b. boolean b <: boolset

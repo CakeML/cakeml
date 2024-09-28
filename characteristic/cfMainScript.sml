@@ -130,9 +130,10 @@ val prog_SNOC_semantics_prog = Q.prove(
   semantics_prog st1 init_env (SNOC decl prog1) (Terminate outcome events)`,
   simp[SNOC_APPEND] \\ MATCH_ACCEPT_TAC prog_APPEND_semantics_prog);
 
-val FFI_part_hprop_def = Define`
+Definition FFI_part_hprop_def:
   FFI_part_hprop Q =
-   (!h. Q h ==> (?s u ns us. FFI_part s u ns us IN h))`;
+   (!h. Q h ==> (?s u ns us. FFI_part s u ns us IN h))
+End
 
 Theorem FFI_part_hprop_STAR:
    FFI_part_hprop P \/ FFI_part_hprop Q ==> FFI_part_hprop (P * Q)

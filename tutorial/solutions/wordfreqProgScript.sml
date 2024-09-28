@@ -18,8 +18,9 @@ val _ = Globals.max_print_depth := 20
 
 (* Pure functions for word frequency counting *)
 
-val lookup0_def = Define`
-  lookup0 w t = case mlmap$lookup t w of NONE => 0n | SOME n => n`;
+Definition lookup0_def:
+  lookup0 w t = case mlmap$lookup t w of NONE => 0n | SOME n => n
+End
 
 Theorem lookup0_empty[simp]:
    !w cmp. lookup0 w (empty cmp) = 0
@@ -27,13 +28,15 @@ Proof
 EVAL_TAC \\ fs []
 QED
 
-val insert_word_def = Define`
+Definition insert_word_def:
   insert_word t w =
-    insert t w (lookup0 w t + 1)`;
+    insert t w (lookup0 w t + 1)
+End
 
-val insert_line_def = Define`
+Definition insert_line_def:
   insert_line t s =
-     FOLDL insert_word t (splitwords s)`;
+     FOLDL insert_word t (splitwords s)
+End
 
 (* and their verification *)
 
@@ -94,17 +97,20 @@ val res = translate lookup0_def;
 val res = translate insert_word_def;
 val res = translate (insert_line_def |> REWRITE_RULE[splitwords_def]);
 
-val format_output_def = Define`
-  format_output (k,v) = concat [k; strlit": "; toString (&v); strlit"\n"]`;
+Definition format_output_def:
+  format_output (k,v) = concat [k; strlit": "; toString (&v); strlit"\n"]
+End
 
 val res = translate format_output_def;
 
-val empty_def = Define `
-  empty = mlmap$empty compare`;
+Definition empty_def:
+  empty = mlmap$empty compare
+End
 
-val compute_wordfreq_output_def = Define `
+Definition compute_wordfreq_output_def:
   compute_wordfreq_output input_lines =
-    MAP format_output (toAscList (FOLDL insert_line empty input_lines))`
+    MAP format_output (toAscList (FOLDL insert_line empty input_lines))
+End
 
 val res = translate empty_def;
 val res = translate compute_wordfreq_output_def;
@@ -131,10 +137,11 @@ val () = append_prog wordfreq;
    holds if output is valid for the file_contents, as described above.
 *)
 
-val valid_wordfreq_output_def = Define`
+Definition valid_wordfreq_output_def:
   valid_wordfreq_output file_contents output =
     ∃ws. set ws = set (splitwords file_contents) ∧ SORTED $< ws ∧
-         output = concat (MAP (λw. format_output (w, frequency file_contents w)) ws)`;
+         output = concat (MAP (λw. format_output (w, frequency file_contents w)) ws)
+End
 
 (* Although we have defined valid_wordfreq_output as a relation between
    file_contents and output, it is actually functional (there is only one correct
@@ -358,7 +365,9 @@ Proof
 QED
 
 val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state ()) "wordfreq" (UNDISCH wordfreq_whole_prog_spec)
-val wordfreq_prog_def = Define `wordfreq_prog = ^prog_tm`;
+Definition wordfreq_prog_def:
+  wordfreq_prog = ^prog_tm
+End
 
 val wordfreq_semantics =
   sem_thm |> ONCE_REWRITE_RULE[GSYM wordfreq_prog_def]

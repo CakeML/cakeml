@@ -8,14 +8,15 @@ open blastLib;
 
 val _ = new_theory"arm7_configProof";
 
-val is_arm7_machine_config_def = Define`
+Definition is_arm7_machine_config_def:
   is_arm7_machine_config mc ⇔
   mc.target = arm7_target ∧
   mc.len_reg = 1  ∧
   mc.ptr_reg = 0 ∧
   mc.len2_reg = 3  ∧
   mc.ptr2_reg = 2 ∧
-  mc.callee_saved_regs = [8;10;11]`;
+  mc.callee_saved_regs = [8;10;11]
+End
 
 val _ = computeLib.add_funs [arm7_names_def];
 

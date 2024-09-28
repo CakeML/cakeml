@@ -8,14 +8,15 @@ open blastLib;
 
 val _ = new_theory"riscv_configProof";
 
-val is_riscv_machine_config_def = Define`
+Definition is_riscv_machine_config_def:
   is_riscv_machine_config mc ⇔
   mc.target = riscv_target ∧
   mc.len_reg = 11  ∧
   mc.ptr_reg = 10 ∧
   mc.len2_reg = 13  ∧
   mc.ptr2_reg = 12 ∧
-  mc.callee_saved_regs = [24;25;26]`;
+  mc.callee_saved_regs = [24;25;26]
+End
 
 val names_tac =
   simp[tlookup_bij_iff] \\ EVAL_TAC

@@ -251,11 +251,13 @@ in
   save_thm("nt_distinct_ths",  LIST_CONJ (recurse ntlist))
 end
 
-val Ndl_def = Define`
-  (Ndl n l = Nd (n, unknown_loc) l)`
+Definition Ndl_def:
+  (Ndl n l = Nd (n, unknown_loc) l)
+End
 
-val Lfl_def = Define`
-  (Lfl t = Lf (t, unknown_loc))`
+Definition Lfl_def:
+  (Lfl t = Lf (t, unknown_loc))
+End
 
 val _ = computeLib.add_persistent_funs ["nt_distinct_ths"]
 

@@ -67,11 +67,11 @@ Termination
   \\ simp []
 End
 
-val get_size_sc_def = Define `
+Definition get_size_sc_def:
   get_size_sc limit e =
     let n = get_size_sc_aux (limit + 1) [e] in
       if n = 0 then NONE else SOME (limit + 1 - n)
-`;
+End
 
 Definition get_size_aux_def:
   (get_size_aux [] = 0n) /\
@@ -108,7 +108,9 @@ End
 
 val get_size_aux_ind = theorem "get_size_aux_ind";
 
-val get_size_def = Define `get_size e = get_size_aux [e]`;
+Definition get_size_def:
+  get_size e = get_size_aux [e]
+End
 
 Theorem get_size_sc_aux_correct:
    !xs limit n. get_size_sc_aux limit xs = limit - get_size_aux xs
@@ -225,8 +227,9 @@ Proof
 QED
 *)
 
-val closed_def = Define `
-  closed x = isEmpty (db_to_set (SND (free [x])))`
+Definition closed_def:
+  closed x = isEmpty (db_to_set (SND (free [x])))
+End
 
 Definition contains_closures_def:
   (contains_closures [] = F) /\
@@ -363,7 +366,7 @@ Proof
   first_x_assum match_mp_tac>>metis_tac[MEM_EL]
 QED
 
-val known_op_def = Define `
+Definition known_op_def:
   (known_op (Global n) as g =
    if NULL as then
      dtcase lookup n g of
@@ -388,7 +391,8 @@ val known_op_def = Define `
      | Impossible::xs => (Impossible,g)
      | _ :: Impossible :: xs => (Impossible,g)
      | _ => (Other,g)) /\
-(known_op op as g = (Other,g))`
+(known_op op as g = (Other,g))
+End
 
 Theorem known_op_pmatch:
   !op as g.
@@ -429,23 +433,25 @@ val EL_MEM_LEMMA = Q.prove(
   `!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs`,
   Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []);
 
-val clos_approx_def = Define `
+Definition clos_approx_def:
   clos_approx max_size loc num_args body =
     dtcase get_size_sc max_size body of
       | NONE => ClosNoInline loc num_args
       | SOME body_size => Clos loc num_args body body_size
-`;
+End
 
-val clos_gen_noinline_def = Define`
+Definition clos_gen_noinline_def:
   (clos_gen_noinline n i [] = []) /\
   (clos_gen_noinline n i ((a,e)::xs) =
-    ClosNoInline (n+2*i) a::clos_gen_noinline n (i+1) xs)`;
+    ClosNoInline (n+2*i) a::clos_gen_noinline n (i+1) xs)
+End
 
 val _ = Datatype `globalOpt = gO_Int int | gO_NullTuple num | gO_None`
 
-val isGlobal_def = Define`
+Definition isGlobal_def:
   (isGlobal (Global _) ⇔ T) ∧
-  (isGlobal _ ⇔ F)`;
+  (isGlobal _ ⇔ F)
+End
 
 Theorem isGlobal_pmatch:
   ∀op.
@@ -459,11 +465,12 @@ Proof
   >> fs[isGlobal_def]
 QED
 
-val gO_destApx_def = Define`
+Definition gO_destApx_def:
   (gO_destApx (Int i) = gO_Int i) ∧
   (gO_destApx (Tuple tag args) = if NULL args then gO_NullTuple tag
                                  else gO_None) ∧
-  (gO_destApx _ = gO_None)`;
+  (gO_destApx _ = gO_None)
+End
 
 Definition mk_Ticks_def:
   mk_Ticks t tc n e =
@@ -485,28 +492,35 @@ val _ = Datatype`
             ; val_approx_spt : val_approx spt (* TODO: this could replace the explicit g argument in known_def *)
             |>`;
 
-val default_inline_factor_def = Define`default_inline_factor = 8n`;
-val default_max_body_size_def = Define`
-  default_max_body_size max_app inline_factor = (max_app + 1n) * inline_factor`;
+Definition default_inline_factor_def:
+  default_inline_factor = 8n
+End
+Definition default_max_body_size_def:
+  default_max_body_size max_app inline_factor = (max_app + 1n) * inline_factor
+End
 
-val mk_config_def = Define`
+Definition mk_config_def:
   mk_config max_body_size inline_factor = <|
       inline_max_body_size := max_body_size
     ; inline_factor := inline_factor
     ; initial_inline_factor := inline_factor
     ; val_approx_spt := LN
-  |>`;
+  |>
+End
 
-val default_config_def = Define`
-  default_config max_app = mk_config (default_max_body_size max_app default_inline_factor) default_inline_factor`;
+Definition default_config_def:
+  default_config max_app = mk_config (default_max_body_size max_app default_inline_factor) default_inline_factor
+End
 
-val dec_inline_factor_def = Define `
-  dec_inline_factor c = c with inline_factor := c.inline_factor DIV 2`;
+Definition dec_inline_factor_def:
+  dec_inline_factor c = c with inline_factor := c.inline_factor DIV 2
+End
 
-val reset_inline_factor_def = Define `
-  reset_inline_factor c = c with inline_factor := c.initial_inline_factor`;
+Definition reset_inline_factor_def:
+  reset_inline_factor c = c with inline_factor := c.initial_inline_factor
+End
 
-val decide_inline_def = Define `
+Definition decide_inline_def:
   decide_inline c fapx app_lopt app_arity =
     dtcase fapx of
       | ClosNoInline loc arity =>
@@ -524,7 +538,7 @@ val decide_inline_def = Define `
                else inlD_Annotate loc)
           else inlD_Nothing
       | _ => inlD_Nothing
-`;
+End
 
 Theorem decide_inline_LetInline:
    !c fapx lopt arity body.
@@ -662,39 +676,45 @@ Proof
   metis_tac[PAIR_EQ, known_sing]
 QED
 
-val compile_def = Define `
+Definition compile_def:
   compile NONE exps = (NONE, exps) /\
   compile (SOME c) exps =
     let exps = clos_fvs$compile exps in
     let (es, g) = known c exps [] LN in
     let es1 = remove_ticks (MAP FST es) in
     let es2 = let_op es1 in
-      (SOME (c with val_approx_spt := g), es2)`;
+      (SOME (c with val_approx_spt := g), es2)
+End
 
-val compile_inc_def = Define `
+Definition compile_inc_def:
   compile_inc c g (es,xs) =
-    let (eas, g') = known (reset_inline_factor c) es [] g in (g', MAP FST eas, xs)`;
+    let (eas, g') = known (reset_inline_factor c) es [] g in (g', MAP FST eas, xs)
+End
 
-val known_static_conf_def = Define `
+Definition known_static_conf_def:
   known_static_conf kc = (dtcase kc of NONE => NONE
-    | SOME kc => SOME (reset_inline_factor kc with val_approx_spt := LN))`;
+    | SOME kc => SOME (reset_inline_factor kc with val_approx_spt := LN))
+End
 
-val known_compile_inc_def = Define`
+Definition known_compile_inc_def:
   known_compile_inc NONE spt p = (spt, p) /\
   known_compile_inc (SOME c) spt p =
     let (p : clos_prog) = clos_fvs$compile_inc p in
     let (spt, p) = clos_known$compile_inc c spt p in
     let (p : clos_prog) = clos_ticks$compile_inc p in
     let p = clos_letop$compile_inc p in
-    (spt, p)`;
+    (spt, p)
+End
 
-val option_val_approx_spt_def = Define `
+Definition option_val_approx_spt_def:
   option_val_approx_spt kc = (dtcase kc of NONE => LN
-    | SOME kcfg => kcfg.val_approx_spt)`;
+    | SOME kcfg => kcfg.val_approx_spt)
+End
 
-val option_upd_val_spt_def = Define`
+Definition option_upd_val_spt_def:
   option_upd_val_spt spt NONE = NONE /\
-  option_upd_val_spt spt (SOME kc) = SOME (kc with val_approx_spt := spt)`;
+  option_upd_val_spt spt (SOME kc) = SOME (kc with val_approx_spt := spt)
+End
 
 (*
 

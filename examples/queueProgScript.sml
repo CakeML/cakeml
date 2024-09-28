@@ -39,8 +39,9 @@ val queue_decls = process_topdecs
 
 val _ = append_prog queue_decls;
 
-val EmptyQueue_exn_def = Define`
-  EmptyQueue_exn v = QUEUEPROG_EXN_TYPE_TYPE EmptyQueue v`;
+Definition EmptyQueue_exn_def:
+  EmptyQueue_exn v = QUEUEPROG_EXN_TYPE_TYPE EmptyQueue v
+End
 
 val EmptyQueue_exn_def = EVAL ``EmptyQueue_exn v``;
 

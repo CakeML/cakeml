@@ -122,7 +122,9 @@ val basis_st = get_ml_prog_state ();
 
 val basis_prog = basis_st |> remove_snocs |> ml_progLib.get_prog;
 
-val basis_def = Define `basis = ^basis_prog`;
+Definition basis_def:
+  basis = ^basis_prog
+End
 
 Theorem basis_Decls_thm =
   ml_progLib.get_Decls_thm basis_st

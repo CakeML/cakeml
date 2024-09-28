@@ -53,8 +53,9 @@ val linear_search_aux_def = allowing_rebind (mtDefine "linear_search_aux" `
   WF_REL_TAC `measure (λ (value, start, state) . LENGTH state.arr - start)`
 );
 
-val linear_search_def = Define `
-  linear_search value = linear_search_aux value 0n`
+Definition linear_search_def:
+  linear_search value = linear_search_aux value 0n
+End
 
 
 val binary_search_aux_def = tDefine "binary_search_aux" `
@@ -82,9 +83,10 @@ val binary_search_aux_def = tDefine "binary_search_aux" `
     >- fs[DIV_LT_X]
   );
 
-val binary_search_def = Define `
+Definition binary_search_def:
   binary_search value =
-    do len <- arr_length; binary_search_aux value 0 len od`;
+    do len <- arr_length; binary_search_aux value 0 len od
+End
 
 (* Monadic translation *)
 

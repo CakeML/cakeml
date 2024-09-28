@@ -200,21 +200,23 @@ Proof
   Cases_on `b` \\ EVAL_TAC
 QED
 
-val get_iop_def = Define `
+Definition get_iop_def:
   get_iop (n:num) =
     if n = 0 then multiword$Add else
     if n = 1 then multiword$Sub else
     if n = 4 then multiword$Mul else
     if n = 5 then multiword$Div else
-                  multiword$Mod`;
+                  multiword$Mod
+End
 
-val int_op_def = Define `
+Definition int_op_def:
   int_op op_index i j =
     if op_index = 0n then SOME (i + j) else
     if op_index = 1 then SOME (i - j) else
     if op_index = 4 then SOME (i * j) else
     if op_index = 5 /\ j <> 0 then SOME (i / j) else
-    if op_index = 6 /\ j <> 0 then SOME (i % j) else NONE`
+    if op_index = 6 /\ j <> 0 then SOME (i % j) else NONE
+End
 
 Theorem get_sign_word_lemma:
    good_dimindex (:α) ⇒ (1w && x ⋙ 4) = if word_bit 4 x then 1w else 0w:'a word
@@ -973,13 +975,14 @@ Proof
   \\ Cases_on `n` \\ fs [EXP] \\ Cases_on `2 ** n'` \\ fs []
 QED
 
-val Arith_location_def = Define `
+Definition Arith_location_def:
   Arith_location index =
     if index = 0n then Add_location else
     if index = 1n then Sub_location else
     if index = 4n then Mul_location else
     if index = 5n then Div_location else
-    if index = 6n then Mod_location else ARB`;
+    if index = 6n then Mod_location else ARB
+End
 
 Theorem push_env_code:
    (push_env y NONE t).code = t.code
@@ -987,10 +990,11 @@ Proof
   fs [wordSemTheory.push_env_def] \\ pairarg_tac \\ fs []
 QED
 
-val Arith_code_def = Define `
+Definition Arith_code_def:
   Arith_code index =
     Seq (Assign 6 (Const (n2w (4 * index))))
-      (Call NONE (SOME AnyArith_location) [0; 2; 4; 6] NONE)`;
+      (Call NONE (SOME AnyArith_location) [0; 2; 4; 6] NONE)
+End
 
 Theorem lookup_Arith_location:
    state_rel c l1 l2 x t [] locs /\ int_op index i1 i2 = SOME r ==>

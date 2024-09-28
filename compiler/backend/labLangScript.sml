@@ -42,8 +42,12 @@ val () = Datatype `
 val () = Datatype `
   sec = Section num (('a line) list)`
 
-val Section_num_def = Define`Section_num (Section k _) = k`;
-val Section_lines_def = Define`Section_lines (Section _ lines) = lines`;
+Definition Section_num_def:
+  Section_num (Section k _) = k
+End
+Definition Section_lines_def:
+  Section_lines (Section _ lines) = lines
+End
 val _ = export_rewrites["Section_num_def","Section_lines_def"];
 
 (* A full assembly program consists of a list of sections. *)
