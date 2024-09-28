@@ -67,13 +67,15 @@ End
  * single step *)
 
 (*val push : forall 'ffi. sem_env v -> store_ffi 'ffi v -> exp -> ctxt_frame -> list ctxt -> e_step_result 'ffi*)
-val _ = Define `
- ((push:(v)sem_env ->(v)store#'ffi ffi_state -> fpState -> exp -> ctxt_frame ->(ctxt_frame#(v)sem_env)list -> 'ffi e_step_result) env s fp e c' cs=  (Estep (env, s, fp, Exp e, ((c',env)::cs))))`;
+Definition push_def:
+ ((push:(v)sem_env ->(v)store#'ffi ffi_state -> fpState -> exp -> ctxt_frame ->(ctxt_frame#(v)sem_env)list -> 'ffi e_step_result) env s fp e c' cs=  (Estep (env, s, fp, Exp e, ((c',env)::cs))))
+End
 
 
 (*val return : forall 'ffi. sem_env v -> store_ffi 'ffi v -> v -> list ctxt -> e_step_result 'ffi*)
-val _ = Define `
- ((return:(v)sem_env ->(v)store#'ffi ffi_state -> fpState -> v ->(ctxt)list -> 'ffi e_step_result) env s fp v c=  (Estep (env, s, fp, Val v, c)))`;
+Definition return_def:
+ ((return:(v)sem_env ->(v)store#'ffi ffi_state -> fpState -> v ->(ctxt)list -> 'ffi e_step_result) env s fp v c=  (Estep (env, s, fp, Val v, c)))
+End
 
 Definition shift_fp_state_def:
   shift_fp_state fp =
@@ -87,7 +89,7 @@ Definition fix_fp_state_def:
 End
 
 (*val application : forall 'ffi. op -> sem_env v -> store_ffi 'ffi v -> list v -> list ctxt -> e_step_result 'ffi*)
-val _ = Define `
+Definition application_def:
  (application:op ->(v)sem_env ->(v)store#'ffi ffi_state -> fpState ->(v)list ->(ctxt)list -> 'ffi e_step_result) op env s fp vs c=
    (case getOpClass op of
       FunApp =>
@@ -140,11 +142,12 @@ val _ = Define `
             | Rval v => return env s' fp v c
           )
         | NONE => Eabort (fix_fp_state c fp, Rtype_error))
-    )`;
+    )
+End
 
 (* apply a context to a value *)
 (*val continue : forall 'ffi. store_ffi 'ffi v -> fpState -> v -> list ctxt -> e_step_result 'ffi*)
-val _ = Define `
+Definition continue_def:
  ((continue:(v)store#'ffi ffi_state -> fpState -> v ->(ctxt_frame#(v)sem_env)list -> 'ffi e_step_result) s fp v cs=
    ((case cs of
       [] => Estuck
@@ -203,7 +206,8 @@ val _ = Define `
         return env s fp v c
     | (Coptimise oldSc sc (), env) :: c =>
         return env s (fp with canOpt := oldSc) (HD (do_fpoptimise sc [v])) c
-  )))`;
+  )))
+End
 
 
 (* The single step expression evaluator.  Returns None if there is nothing to
@@ -213,7 +217,7 @@ val _ = Define `
  * matches the value.  Otherwise it returns the next state *)
 
 (*val e_step : forall 'ffi. small_state 'ffi -> e_step_result 'ffi*)
-val _ = Define `
+Definition e_step_def:
  ((e_step:(v)sem_env#((v)store#'ffi ffi_state)#fpState#exp_val_exn#(ctxt)list -> 'ffi e_step_result) (env, s, fp, ev, c)=
    ((case ev of
       Val v  =>
@@ -274,7 +278,8 @@ val _ = Define `
        | (Coptimise oldSc sc (), env') :: c =>
            Estep (env, s, fp with canOpt := oldSc , Exn v, c)
        | _ :: c => Estep (env, s, fp, Exn v, c)
-  )))`;
+  )))
+End
 
 
 (* Define a semantic function using the steps *)
@@ -282,9 +287,10 @@ val _ = Define `
 (*val e_step_reln : forall 'ffi. small_state 'ffi -> small_state 'ffi -> bool*)
 (*val small_eval : forall 'ffi. sem_env v -> store_ffi 'ffi v -> exp -> list ctxt -> store_ffi 'ffi v * result v v -> bool*)
 
-val _ = Define `
+Definition e_step_reln_def:
  ((e_step_reln:(v)sem_env#('ffi,(v))store_ffi#fpState#exp_val_exn#(ctxt)list ->(v)sem_env#('ffi,(v))store_ffi#fpState#exp_val_exn#(ctxt)list -> bool) st1 st2=
-   (e_step st1 = Estep st2))`;
+   (e_step st1 = Estep st2))
+End
 
  val _ = Define `
 
@@ -301,13 +307,14 @@ val _ = Define `
 
 
 (*val e_diverges : forall 'ffi. sem_env v -> store_ffi 'ffi v -> exp -> bool*)
-val _ = Define `
+Definition e_diverges_def:
  ((e_diverges:(v)sem_env ->(v)store#'ffi ffi_state -> fpState -> exp -> bool) env s fp e=
    (! env' s' e' c' fp'.
     (RTC (e_step_reln)) (env,s,fp,Exp e,[]) (env',s',fp',e',c')
     ==>
 (? env'' s'' fp'' e'' c''.
-      e_step_reln (env',s',fp',e',c') (env'',s'',fp'',e'',c''))))`;
+      e_step_reln (env',s',fp',e',c') (env'',s'',fp'',e'',c''))))
+End
 
 
 
@@ -344,13 +351,15 @@ End
 (* Helper functions *)
 
 (*val empty_dec_env : forall 'v. sem_env 'v*)
-val _ = Define `
- ((empty_dec_env:'v sem_env)=  (<| v := nsEmpty ; c := nsEmpty |>))`;
+Definition empty_dec_env_def:
+ ((empty_dec_env:'v sem_env)=  (<| v := nsEmpty ; c := nsEmpty |>))
+End
 
 
 (*val lift_dec_env : forall 'v. modN -> sem_env 'v -> sem_env 'v*)
-val _ = Define `
- ((lift_dec_env:string -> 'v sem_env -> 'v sem_env) mn env=  (<| v := (nsLift mn env.v) ; c := (nsLift mn env.c) |>))`;
+Definition lift_dec_env_def:
+ ((lift_dec_env:string -> 'v sem_env -> 'v sem_env) mn env=  (<| v := (nsLift mn env.v) ; c := (nsLift mn env.c) |>))
+End
 
 
 (* Get the "current" sem_env given the context *)
@@ -370,7 +379,7 @@ val _ = Define `
 
 (* Apply a context to the env resulting from evaluating a declaration *)
 (*val decl_continue : forall 'ffi. sem_env v -> state 'ffi -> decl_ctxt -> decl_step_result 'ffi*)
-val _ = Define `
+Definition decl_continue_def:
  ((decl_continue:(v)sem_env -> 'ffi state ->(decl_ctxt_frame)list -> 'ffi decl_step_result) env' st c=
    ((case c of
     [] => Ddone
@@ -386,11 +395,12 @@ val _ = Define `
   | CdlocalG lenv genv [] :: cs => Dstep (st, Env (extend_dec_env env' genv), cs)
   | CdlocalG lenv genv (gd::gds) :: cs =>
       Dstep (st, Decl gd, (CdlocalG lenv (extend_dec_env env' genv) gds :: cs))
-  )))`;
+  )))
+End
 
 
 (*val decl_step : forall 'ffi. sem_env v -> small_decl_state 'ffi -> decl_step_result 'ffi*)
-val _ = Define `
+Definition decl_step_def:
  ((decl_step:(v)sem_env -> 'ffi state#decl_eval#(decl_ctxt_frame)list -> 'ffi decl_step_result) benv (st, dev, c)=
    ((case dev of
     Decl d =>
@@ -459,16 +469,18 @@ val _ = Define `
         | Estuck => Ddone (* cannot happen *)
         )
       )
-  )))`;
+  )))
+End
 
 
 (*val decl_step_reln : forall 'ffi. sem_env v -> small_decl_state 'ffi -> small_decl_state 'ffi -> bool*)
 
 (*val small_eval_dec : forall 'ffi. sem_env v -> small_decl_state 'ffi -> state 'ffi * result (sem_env v) v -> bool*)
 
-val _ = Define `
+Definition decl_step_reln_def:
  ((decl_step_reln:(v)sem_env -> 'ffi state#decl_eval#decl_ctxt -> 'ffi state#decl_eval#decl_ctxt -> bool) env st1 st2=
-   (decl_step env st1 = Dstep st2))`;
+   (decl_step env st1 = Dstep st2))
+End
 
 
  val _ = Define `
@@ -488,12 +500,13 @@ val _ = Define `
 
 
 (*val small_decl_diverges : forall 'ffi. sem_env v -> small_decl_state 'ffi -> bool*)
-val _ = Define `
+Definition small_decl_diverges_def:
  ((small_decl_diverges:(v)sem_env -> 'ffi state#decl_eval#decl_ctxt -> bool) env a=
    (! b.
     (RTC (decl_step_reln env)) a b
     ==>
-  (? c.  decl_step_reln env b c)))`;
+  (? c.  decl_step_reln env b c)))
+End
 
 
 val _ = export_theory()

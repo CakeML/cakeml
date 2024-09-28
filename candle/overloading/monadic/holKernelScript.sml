@@ -871,10 +871,11 @@ Definition PROVE_HYP_def:
     return (Sequent (term_union asl2 (term_remove c2 asl1)) c1)
 End
 
-val _ = Define`
+Definition list_to_hypset_def:
   (list_to_hypset [] a = a) ∧
   (list_to_hypset (h::hs) a =
-   list_to_hypset hs (term_union [h] a))`;
+   list_to_hypset hs (term_union [h] a))
+End
 
 Definition ALPHA_THM_def:
   ALPHA_THM (Sequent h c) (h',c') =

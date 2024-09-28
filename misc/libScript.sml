@@ -11,8 +11,9 @@ val _ = new_theory "lib"
  val _ = Define `
  ((the:'a -> 'a option -> 'a) _ (SOME x)=  x) /\ ((the:'a -> 'a option -> 'a) x NONE=  x)`;
 
-val _ = Define `
- ((fapply:'a -> 'b ->('b,'a)fmap -> 'a) d x f=  ((case FLOOKUP f x of SOME d => d | NONE => d )))`;
+Definition fapply_def:
+ ((fapply:'a -> 'b ->('b,'a)fmap -> 'a) d x f=  ((case FLOOKUP f x of SOME d => d | NONE => d )))
+End
 
 
  val lunion_defn = Defn.Hol_multi_defns `
@@ -28,12 +29,13 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 
 val _ = type_abbrev((* ( 'a, 'b) *) "alist" , ``: ('a # 'b) list``);
 
-val _ = Define `
+Definition opt_bind_def:
  ((opt_bind:'a option -> 'b ->('a#'b)list ->('a#'b)list) n v e=
    ((case n of
       NONE => e
     | SOME n' => (n',v)::e
-  )))`;
+  )))
+End
 
  val _ = Define `
 

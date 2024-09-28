@@ -28,8 +28,9 @@ val _ = new_theory "lib"
 
 
 (*val fapply : forall 'a 'b. MapKeyType 'b => 'a -> 'b -> Map.map 'b 'a -> 'a*)
-val _ = Define `
- ((fapply:'a -> 'b ->('b,'a)fmap -> 'a) d x f=  ((case FLOOKUP f x of SOME d => d | NONE => d )))`;
+Definition fapply_def:
+ ((fapply:'a -> 'b ->('b,'a)fmap -> 'a) d x f=  ((case FLOOKUP f x of SOME d => d | NONE => d )))
+End
 
 
  val lunion_defn = Defn.Hol_multi_defns `
@@ -114,12 +115,13 @@ val _ = type_abbrev((* ( 'a, 'b) *) "alist" , ``: ('a # 'b) list``);
 (*val alistToFmap : forall 'k 'v. alist 'k 'v -> Map.map 'k 'v*)
 
 (*val opt_bind : forall 'a 'b. maybe 'a -> 'b -> alist 'a 'b -> alist 'a 'b*)
-val _ = Define `
+Definition opt_bind_def:
  ((opt_bind:'a option -> 'b ->('a#'b)list ->('a#'b)list) n v e=
    ((case n of
       NONE => e
     | SOME n' => (n',v)::e
-  )))`;
+  )))
+End
 
 
 (* Lists of indices *)
