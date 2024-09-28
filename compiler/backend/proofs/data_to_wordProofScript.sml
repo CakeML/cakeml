@@ -692,7 +692,7 @@ Proof
   \\ full_simp_tac(srw_ss())[state_rel_def]
 QED
 
-val state_rel_ext_def = Define `
+Definition state_rel_ext_def:
   state_rel_ext c l1 l2 s u <=>
     ?t l.
       state_rel c l1 l2 s t [] [] /\
@@ -707,7 +707,8 @@ val state_rel_ext_def = Define `
       (!n v. lookup n t.code = SOME v ==>
              ∃t' k' a' c' col.
              lookup n l = SOME (SND (full_compile_single t' k' a' c' ((n,v),col)))) /\
-      u = t with <| code := l; termdep:=0; compile:=u.compile; compile_oracle := u.compile_oracle|>`
+      u = t with <| code := l; termdep:=0; compile:=u.compile; compile_oracle := u.compile_oracle|>
+End
 
 Theorem compile_correct:
    !x s l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
@@ -2542,8 +2543,9 @@ QED
 val th = EVAL``MAP FST (stubs (:'a) c)``;
 
 (* TODO: move somewhere better *)
-val stubs_fst_def = Define`
-  stubs_fst = ^(rconc th)`
+Definition stubs_fst_def:
+  stubs_fst = ^(rconc th)
+End
 
 val stubs_fst_eq =
   save_thm("stubs_fst_eq",th |> REWRITE_RULE [GSYM stubs_fst_def])

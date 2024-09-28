@@ -64,7 +64,7 @@ Proof
   fs[op_requires_names_eqn]
 QED
 
-val iAssign_def = Define `
+Definition iAssign_def:
   iAssign n1 op vs live env =
     if op_requires_names op then
       let xs = SOME (list_to_num_set (vs++live++env)) in
@@ -78,7 +78,8 @@ val iAssign_def = Define `
       let k = op_space_req op (LENGTH vs) in
         if k = 0 then Assign n1 op vs NONE
           else Seq (MakeSpace k (list_to_num_set (vs++live++env)))
-                   (Assign n1 op vs NONE)`;
+                   (Assign n1 op vs NONE)
+End
 
 val _ = Parse.hide"tail";
 
@@ -247,8 +248,9 @@ QED
 
 (* combine dataLang optimisations *)
 
-val optimise_def = Define `
-  optimise prog = data_space$compile (simp (FST (data_live$compile prog LN)) Skip)`;
+Definition optimise_def:
+  optimise prog = data_space$compile (simp (FST (data_live$compile prog LN)) Skip)
+End
 
 (* the top-level compiler includes the optimisations, because the correctness
    proofs are combined *)

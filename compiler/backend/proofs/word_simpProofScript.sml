@@ -11,10 +11,11 @@ val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_simp"];
 
 (** common **)
 
-val labels_rel_def = Define `
+Definition labels_rel_def:
   labels_rel old_labs new_labs <=>
     (ALL_DISTINCT old_labs ==> ALL_DISTINCT new_labs) /\
-    set new_labs SUBSET set old_labs`;
+    set new_labs SUBSET set old_labs
+End
 
 Theorem labels_rel_refl[simp]:
    !xs. labels_rel xs xs
@@ -162,24 +163,28 @@ QED
 
 (* gc *)
 
-val is_gc_word_const_def = Define `
+Definition is_gc_word_const_def:
   is_gc_word_const (Loc _ _) = T /\
-  is_gc_word_const (Word w) = is_gc_const w`;
+  is_gc_word_const (Word w) = is_gc_const w
+End
 
-val gc_fun_const_ok_def = Define `
+Definition gc_fun_const_ok_def:
   gc_fun_const_ok (f:'a gc_fun_type) =
-    !x y. f x = SOME y ==> EVERY2 (\a b. is_gc_word_const a ==> b = a) (FST x) (FST y)`;
+    !x y. f x = SOME y ==> EVERY2 (\a b. is_gc_word_const a ==> b = a) (FST x) (FST y)
+End
 
 
-val sf_gc_consts_def = Define `
+Definition sf_gc_consts_def:
   sf_gc_consts (StackFrame lsz sv h) (StackFrame lsz' sw h') =
-  (EVERY2 (\(ak, av) (bk, bv). (ak = bk) /\ (is_gc_word_const av ==> bv = av)) sv sw /\ h = h')`;
+  (EVERY2 (\(ak, av) (bk, bv). (ak = bk) /\ (is_gc_word_const av ==> bv = av)) sv sw /\ h = h')
+End
 
 (*
-val sf_gc_consts_def = Define `
+Definition sf_gc_consts_def:
   sf_gc_consts (StackFrame lsz sv h) (StackFrame lsz' sw h') =
   (EVERY2 (\(ak, av) (bk, bv). (ak = bk) /\ (is_gc_word_const av ==> bv = av)) sv sw /\
-   lsz = lsz' /\ h = h')`;
+   lsz = lsz' /\ h = h')
+End
 *)
 
 Theorem sf_gc_consts_refl:
@@ -555,9 +560,10 @@ Proof
   metis_tac[evaluate_consts]
 QED
 
-val get_above_handler_def = Define `
+Definition get_above_handler_def:
   get_above_handler s = case EL (LENGTH s.stack - (s.handler + 1)) s.stack of
-                          | StackFrame _ _ (SOME (h,_,_)) => h`;
+                          | StackFrame _ _ (SOME (h,_,_)) => h
+End
 
 Theorem enc_stack_dec_stack_is_gc_word_const:
    !s s' s'l.
@@ -811,10 +817,10 @@ Proof
     \\ (* Other cases *)
     (rw [] \\ rw []))
   >~ [`ShareInst`]
-  >- (gvs[evaluate_def,DefnBase.one_line_ify NONE share_inst_def,
-      sh_mem_store_def,sh_mem_store_byte_def,
-      sh_mem_load_def,sh_mem_load_byte_def,
-      DefnBase.one_line_ify NONE sh_mem_set_var_def] >>
+  >- (gvs[evaluate_def,oneline share_inst_def,
+      sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
+      sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
+      oneline sh_mem_set_var_def] >>
     rw[] >>
     gvs[AllCaseEqs(),set_var_def,flush_state_def] >>
     irule EVERY2_refl >>
@@ -1041,10 +1047,10 @@ Proof
   (** ShareInst **)
   >>~- ([`ShareInst`],
     fs[const_fp_loop_def] \\
-    gvs[evaluate_def,DefnBase.one_line_ify NONE share_inst_def,
-      sh_mem_store_def,sh_mem_store_byte_def,
-      sh_mem_load_def,sh_mem_load_byte_def,
-      DefnBase.one_line_ify NONE sh_mem_set_var_def] \\
+    gvs[evaluate_def,oneline share_inst_def,
+      sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
+      sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
+      oneline sh_mem_set_var_def] \\
     rw[] \\
     gvs[AllCaseEqs(),set_var_def,flush_state_def,
       get_var_def,lookup_insert,lookup_delete] \\

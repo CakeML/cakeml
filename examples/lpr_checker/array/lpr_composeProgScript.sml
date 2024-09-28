@@ -237,8 +237,9 @@ Proof
   \\ Induct \\ fs [mllistTheory.foldl_def,add_one_def,ADD1]
 QED
 
-val notfound_string_def = Define`
-  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]`;
+Definition notfound_string_def:
+  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]
+End
 
 val r = translate notfound_string_def;
 

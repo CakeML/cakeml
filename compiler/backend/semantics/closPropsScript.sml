@@ -97,10 +97,11 @@ Proof
   \\ gvs [LESS_OR_EQ]
 QED
 
-val ref_rel_def = Define`
+Definition ref_rel_def:
   (ref_rel R (ValueArray vs) (ValueArray ws) ⇔ LIST_REL R vs ws) ∧
   (ref_rel R (ByteArray as) (ByteArray bs) ⇔ as = bs) ∧
-  (ref_rel _ _ _ = F)`
+  (ref_rel _ _ _ = F)
+End
 val _ = export_rewrites["ref_rel_def"];
 
 Theorem ref_rel_simp[simp]:
@@ -505,7 +506,9 @@ Proof
 rw[fv_def]
 QED
 
-val fv1_def = Define`fv1 v e = fv v [e]`;
+Definition fv1_def:
+  fv1 v e = fv v [e]
+End
 val fv1_intro = save_thm("fv1_intro[simp]",GSYM fv1_def)
 val fv1_thm =
   fv_def |> SIMP_RULE (srw_ss())[]
@@ -1056,43 +1059,50 @@ Proof
  rev_full_simp_tac(srw_ss())[DROP_NIL]
 QED
 
-val is_closure_def = Define `
+Definition is_closure_def:
 (is_closure (Closure _ _ _ _ _) ⇔ T) ∧
 (is_closure (Recclosure _ _ _ _ _) ⇔ T) ∧
-(is_closure _ ⇔ F)`;
+(is_closure _ ⇔ F)
+End
 val _ = export_rewrites ["is_closure_def"]
 
-val clo_to_loc_def = Define `
+Definition clo_to_loc_def:
 (clo_to_loc (Closure l _ _ _ _) = l) ∧
-(clo_to_loc (Recclosure l _ _ _ i) = OPTION_MAP ((+) (2 * i)) l)`;
+(clo_to_loc (Recclosure l _ _ _ i) = OPTION_MAP ((+) (2 * i)) l)
+End
 val _ = export_rewrites ["clo_to_loc_def"]
 
-val clo_to_env_def = Define `
+Definition clo_to_env_def:
 (clo_to_env (Closure _ _ env _ _) = env) ∧
 (clo_to_env (Recclosure loc _ env fns _) =
-  GENLIST (Recclosure loc [] env fns) (LENGTH fns) ++ env)`;
+  GENLIST (Recclosure loc [] env fns) (LENGTH fns) ++ env)
+End
 val _ = export_rewrites ["clo_to_env_def"]
 
-val clo_to_partial_args_def = Define `
+Definition clo_to_partial_args_def:
 (clo_to_partial_args (Closure _ args _ _ _) = args) ∧
-(clo_to_partial_args (Recclosure _ args _ _ _) = args)`;
+(clo_to_partial_args (Recclosure _ args _ _ _) = args)
+End
 val _ = export_rewrites ["clo_to_partial_args_def"]
 
-val clo_add_partial_args_def = Define `
+Definition clo_add_partial_args_def:
 (clo_add_partial_args args (Closure x1 args' x2 x3 x4) =
   Closure x1 (args ++ args') x2 x3 x4) ∧
 (clo_add_partial_args args (Recclosure x1 args' x2 x3 x4) =
-  Recclosure x1 (args ++ args') x2 x3 x4)`;
+  Recclosure x1 (args ++ args') x2 x3 x4)
+End
 val _ = export_rewrites ["clo_add_partial_args_def"]
 
-val clo_to_num_params_def = Define `
+Definition clo_to_num_params_def:
 (clo_to_num_params (Closure _ _ _ n _) = n) ∧
-(clo_to_num_params (Recclosure _ _ _ fns i) = FST (EL i fns))`;
+(clo_to_num_params (Recclosure _ _ _ fns i) = FST (EL i fns))
+End
 val _ = export_rewrites ["clo_to_num_params_def"]
 
-val rec_clo_ok_def = Define `
+Definition rec_clo_ok_def:
 (rec_clo_ok (Recclosure _ _ _ fns i) ⇔ i < LENGTH fns) ∧
-(rec_clo_ok (Closure _ _ _ _ _) ⇔ T)`;
+(rec_clo_ok (Closure _ _ _ _ _) ⇔ T)
+End
 val _ = export_rewrites ["rec_clo_ok_def"]
 
 Theorem dest_closure_full_length:
@@ -1147,19 +1157,21 @@ Proof
  srw_tac[][is_closure_def, clo_add_partial_args_def]
 QED
 
-val clo_can_apply_def = Define `
+Definition clo_can_apply_def:
 clo_can_apply loc cl num_args ⇔
   LENGTH (clo_to_partial_args cl) < clo_to_num_params cl ∧
   rec_clo_ok cl ∧
   (loc ≠ NONE ⇒
    loc = clo_to_loc cl ∧
    num_args = clo_to_num_params cl ∧
-   clo_to_partial_args cl = [])`;
+   clo_to_partial_args cl = [])
+End
 
-val check_closures_def = Define `
+Definition check_closures_def:
 check_closures cl cl' ⇔
   !loc num_args.
-    clo_can_apply loc cl num_args ⇒ clo_can_apply loc cl' num_args`;
+    clo_can_apply loc cl num_args ⇒ clo_can_apply loc cl' num_args
+End
 
 Theorem dest_closure_partial_is_closure:
    dest_closure max_app l v vs = SOME (Partial_app v') ⇒
@@ -1793,10 +1805,10 @@ QED
 
 
 (* finding the SetGlobal operations *)
-val op_gbag_def = Define`
+Definition op_gbag_def:
   op_gbag (SetGlobal n) = BAG_INSERT n {||} ∧
   op_gbag _ = {||}
-`;
+End
 
 Theorem exp2_size_rw[simp]:
    exp2_size h = 1 + FST h + exp_size (SND h)
@@ -1868,11 +1880,11 @@ Proof
 QED
 
 (* result is setglobal-closure free *)
-val rsgc_free_def = Define`
+Definition rsgc_free_def:
   (rsgc_free (Rval vs) ⇔ EVERY vsgc_free vs) ∧
   (rsgc_free (Rerr (Rabort _)) ⇔ T) ∧
   (rsgc_free (Rerr (Rraise v)) ⇔ vsgc_free v)
-`;
+End
 val _ = export_rewrites ["rsgc_free_def"]
 
 val esgc_free_def = tDefine "esgc_free" `
@@ -1894,14 +1906,14 @@ val esgc_free_def = save_thm("esgc_free_def[simp,compute,allow_rebind]",
   SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def)
 
 (* state is setglobal-closure free *)
-val ssgc_free_def = Define`
+Definition ssgc_free_def:
   ssgc_free ^s ⇔
     (∀n m e. FLOOKUP s.code n = SOME (m,e) ⇒ set_globals e = {||}) ∧
     (∀n vl. FLOOKUP s.refs n = SOME (ValueArray vl) ⇒ EVERY vsgc_free vl) ∧
     (∀v. MEM (SOME v) s.globals ⇒ vsgc_free v) ∧
     (∀n exp aux. SND (s.compile_oracle n) = (exp, aux) ⇒ EVERY esgc_free exp ∧
          elist_globals (MAP (SND o SND) aux) = {||})
-`;
+End
 
 Theorem ssgc_free_clockupd[simp]:
    ssgc_free (s with clock updated_by f) = ssgc_free s
@@ -1951,10 +1963,11 @@ QED
 
 (* generic do_app compile proof *)
 
-val isClos_def = Define `
+Definition isClos_def:
   isClos (Closure x1 x2 x3 x4 x5) = T /\
   isClos (Recclosure y1 y2 y3 y4 y5) = T /\
-  isClos _ = F`
+  isClos _ = F
+End
 val _ = export_rewrites ["isClos_def"];
 
 Theorem isClos_cases:
@@ -1965,7 +1978,7 @@ Proof
   Cases_on `x` \\ fs []
 QED
 
-val simple_val_rel_def = Define `
+Definition simple_val_rel_def:
   simple_val_rel vr <=>
    (∀x n. vr x (Number n) ⇔ x = Number n) ∧
    (∀x p n.
@@ -1977,7 +1990,8 @@ val simple_val_rel_def = Define `
    (∀x5 x4 x3 x2 x1 x.
       vr x (Closure x1 x2 x3 x4 x5) ==> isClos x) ∧
    (∀y5 y4 y3 y2 y1 x.
-      vr x (Recclosure y1 y2 y3 y4 y5) ==> isClos x)`
+      vr x (Recclosure y1 y2 y3 y4 y5) ==> isClos x)
+End
 
 val simple_val_rel_alt = prove(
   ``simple_val_rel vr <=>
@@ -1996,7 +2010,7 @@ val simple_val_rel_alt = prove(
   rw [simple_val_rel_def] \\ eq_tac \\ rw [] \\ fs [] \\ res_tac \\ fs []
   \\ Cases_on `b1` \\ Cases_on `b2` \\ fs [Boolv_def] \\ EVAL_TAC);
 
-val simple_state_rel_def = Define `
+Definition simple_state_rel_def:
   simple_state_rel vr sr <=>
     (!s t ptr. FLOOKUP t.refs ptr = NONE /\ sr s t ==>
                FLOOKUP s.refs ptr = NONE) /\
@@ -2022,7 +2036,8 @@ val simple_state_rel_def = Define `
          (t with refs := t.refs |+ (p,ValueArray ys))) /\
     (!s t xs ys.
       sr s t /\ LIST_REL (OPTREL vr) xs ys ==>
-      sr (s with globals := xs) (t with globals := ys))`
+      sr (s with globals := xs) (t with globals := ys))
+End
 
 Theorem simple_state_rel_ffi:
    simple_state_rel vr sr /\ sr s t ==> s.ffi = t.ffi
@@ -2454,7 +2469,7 @@ Proof
 QED
 
 (* generic do_install compile proof *)
-val simple_compile_state_rel_def = Define `
+Definition simple_compile_state_rel_def:
   simple_compile_state_rel vr sr comp cr <=>
     simple_state_rel vr sr /\
     (! (s:('c, 'ffi) closSem$state) (t:('c, 'ffi) closSem$state).
@@ -2469,7 +2484,7 @@ val simple_compile_state_rel_def = Define `
                         shift_seq 1 s.compile_oracle; code := s.code |>)
              (t with <| clock := n; compile_oracle :=
                         shift_seq 1 t.compile_oracle; code := t.code |>)))
-`;
+End
 
 Theorem simple_val_rel_v_to_bytes:
   simple_val_rel vr /\ vr x y ==> v_to_bytes x = v_to_bytes y
@@ -2570,7 +2585,7 @@ Proof
   EVAL_TAC
 QED
 
-val eval_sim_def = Define `
+Definition eval_sim_def:
   eval_sim ffi max_app code1 co1 cc1 es1 code2 co2 cc2 es2 rel allow_fail =
     !k res1 s2.
       evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 k) = (res1,s2) /\
@@ -2579,7 +2594,8 @@ val eval_sim_def = Define `
       ?ck res2 t2.
         evaluate (es2,[],
           initial_state ffi max_app code2 co2 cc2 (k+ck)) = (res2,t2) /\
-        result_rel (\x y. T) (\x y. T) res1 res2 /\ s2.ffi = t2.ffi`
+        result_rel (\x y. T) (\x y. T) res1 res2 /\ s2.ffi = t2.ffi
+End
 
 val evaluate_add_to_clock_io_events_mono_alt =
   evaluate_add_to_clock_io_events_mono
@@ -3109,11 +3125,12 @@ Proof
   \\ imp_res_tac FLOOKUP_SUBMAP
 QED
 
-val SUBMAP_rel_def = Define`
+Definition SUBMAP_rel_def:
   SUBMAP_rel z1 z2 ⇔
     z2 = z1 with code := z2.code ∧ z1.code ⊑ z2.code ∧
     oracle_monotonic (set ∘ MAP FST ∘ SND ∘ SND) $<
-        (FDOM z2.code) z1.compile_oracle`;
+        (FDOM z2.code) z1.compile_oracle
+End
 
 Theorem find_code_SUBMAP_rel:
    find_code dest vs s1.code = SOME p ∧ SUBMAP_rel s1 s2 ⇒

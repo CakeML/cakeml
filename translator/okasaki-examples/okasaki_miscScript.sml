@@ -55,9 +55,10 @@ cases_on `x' = x` >>
 rw []
 QED
 
-val list_to_bag_def = Define `
+Definition list_to_bag_def:
 (list_to_bag [] = {||}) ∧
-(list_to_bag (h::t) = BAG_INSERT h (list_to_bag t))`;
+(list_to_bag (h::t) = BAG_INSERT h (list_to_bag t))
+End
 
 Theorem list_to_bag_filter:
  ∀P l. list_to_bag (FILTER P l) = BAG_FILTER P (list_to_bag l)

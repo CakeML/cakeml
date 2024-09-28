@@ -33,8 +33,9 @@ Overload commandline = ``liftM state_refs_cl cl_fupd``
 (* Wrap the emptyffi call in return.                                         *)
 (* ------------------------------------------------------------------------- *)
 
-val ffi_msg_def = Define `
-  ffi_msg msg = return (empty_ffi msg)`;
+Definition ffi_msg_def:
+  ffi_msg msg = return (empty_ffi msg)
+End
 
 (* ------------------------------------------------------------------------- *)
 (* Monadic wrappers for readLine                                             *)
@@ -42,7 +43,7 @@ val ffi_msg_def = Define `
 
 (* Matching process_line *)
 
-val readLine_wrap_def = Define `
+Definition readLine_wrap_def:
   readLine_wrap (line, s) =
     if invalid_line line then
       return (INR s)
@@ -50,11 +51,12 @@ val readLine_wrap_def = Define `
         handle_Fail
           (do s <- readLine (unescape_ml (fix_fun_typ (str_prefix line))) s;
               return (INR s) od)
-          (\e. return (INL e))`;
+          (\e. return (INL e))
+End
 
 (* Matching process_lines *)
 
-val readLines_def = Define `
+Definition readLines_def:
   readLines s lines =
     case lines of
       [] =>
@@ -75,11 +77,12 @@ val readLines_def = Define `
                   stdio (print_err (line_Fail s e))
                 od
           | INR s => readLines (next_line s) ls
-        od`
+        od
+End
 
 (* Matching read_file *)
 
-val readFile_def = Define `
+Definition readFile_def:
   readFile fname =
     do
       ffi_msg (strlit"starting...");
@@ -88,22 +91,24 @@ val readFile_def = Define `
       case lines of
         NONE => stdio (print_err (msg_bad_name fname))
       | SOME ls => readLines init_state ls
-    od`
+    od
+End
 
 (* Wrap away the exception *)
 
-val init_reader_wrap_def = Define `
+Definition init_reader_wrap_def:
   init_reader_wrap () =
     handle_Fail
       (do
          init_reader ();
          return (INR ())
        od)
-      (\e. return (INL e))`;
+      (\e. return (INL e))
+End
 
 (* Matching reader_main *)
 
-val readMain_def = Define `
+Definition readMain_def:
   readMain () =
     do
       args <- commandline (arguments ());
@@ -116,6 +121,7 @@ val readMain_def = Define `
             | INR () => readFile fname
           od
       | _ => stdio (print_err msg_usage)
-    od`;
+    od
+End
 
 val _ = export_theory()

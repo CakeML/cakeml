@@ -419,8 +419,9 @@ Proof
   THEN1 (split_tac `evaluate (xs,env,s1)`)
 QED
 
-val inc_clock_def = Define `
-  inc_clock ck s = s with clock := s.clock + ck`;
+Definition inc_clock_def:
+  inc_clock ck s = s with clock := s.clock + ck
+End
 
 Theorem inc_clock_code:
    !n ^s. (inc_clock n s).code = s.code
@@ -757,20 +758,23 @@ Proof
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_refs_SUBSET_lemma) \\ full_simp_tac(srw_ss())[]
 QED
 
-val get_vars_def = Define `
+Definition get_vars_def:
   (get_vars [] env = SOME []) /\
   (get_vars (n::ns) env =
      if n < LENGTH env then
        (case get_vars ns env of
         | NONE => NONE
         | SOME vs => SOME (EL n env :: vs))
-     else NONE)`
+     else NONE)
+End
 
-val isVar_def = Define `
-  (isVar ((Var n):bvl$exp) = T) /\ (isVar _ = F)`;
+Definition isVar_def:
+  (isVar ((Var n):bvl$exp) = T) /\ (isVar _ = F)
+End
 
-val destVar_def = Define `
-  (destVar ((Var n):bvl$exp) = n)`;
+Definition destVar_def:
+  (destVar ((Var n):bvl$exp) = n)
+End
 
 Theorem evaluate_Var_list:
    !l. EVERY isVar l ==>

@@ -111,10 +111,11 @@ Proof
   \\ Cases_on `ty3` \\ fs []
 QED
 
-val ty_rel_def = Define `
+Definition ty_rel_def:
   ty_rel = LIST_REL
     (\v t. (t = Int  ==> ?k. v = Number k) /\
-           (t = List ==> ?ys. v_to_list v = SOME ys))`;
+           (t = List ==> ?ys. v_to_list v = SOME ys))
+End
 
 val v_ty_thms = { nchotomy = v_ty_nchotomy, case_def = v_ty_case_def };
 val v_ty_cases = prove_case_eq_thm v_ty_thms
@@ -241,12 +242,12 @@ Proof
   \\ metis_tac [term_ok_int_SING, term_ok_any_SING]
 QED
 
-val op_id_val_def = Define `
+Definition op_id_val_def:
   op_id_val Plus   = Number 0 /\
   op_id_val Times  = Number 1 /\
   op_id_val Append = Block nil_tag [] /\
   op_id_val Noop   = Number 6333
-  `;
+End
 
 Theorem scan_expr_not_Noop:
    ∀exp ts loc tt ty r ok op.
@@ -262,7 +263,7 @@ Proof
   \\ metis_tac []
 QED
 
-val env_rel_def = Define `
+Definition env_rel_def:
   env_rel ty opt acc env1 env2 <=>
     isPREFIX env1 env2 /\
     (opt ⇒
@@ -271,11 +272,12 @@ val env_rel_def = Define `
       case ty of
         Int => ?k. EL acc env2 = Number k
       | List => ?ys. v_to_list (EL acc env2) = SOME ys
-      | Any => F)`;
+      | Any => F)
+End
 
 Overload in_ns_2[local] = ``λn. n MOD bvl_to_bvi_namespaces = 2``
 
-val code_rel_def = Define `
+Definition code_rel_def:
   code_rel c1 c2 ⇔
     ∀loc arity exp op.
       lookup loc c1 = SOME (arity, exp) ⇒
@@ -286,7 +288,8 @@ val code_rel_def = Define `
           ∀exp_aux exp_opt.
           compile_exp loc n arity exp = SOME (exp_aux, exp_opt) ⇒
             lookup loc c2 = SOME (arity, exp_aux) ∧
-            lookup n c2 = SOME (arity + 1, exp_opt))`;
+            lookup n c2 = SOME (arity + 1, exp_opt))
+End
 
 val code_rel_find_code_SOME = Q.prove (
   `∀c1 c2 (args: v list) a exp.
@@ -645,13 +648,14 @@ Proof
   \\ Cases_on `ty1` \\ Cases_on `ty2` \\ rfs [decide_ty_def]
 QED
 
-val optimized_code_def = Define `
+Definition optimized_code_def:
   optimized_code loc arity exp n c op =
     ∃exp_aux exp_opt.
         compile_exp loc n arity exp = SOME (exp_aux, exp_opt) ∧
         check_exp loc arity exp     = SOME op ∧
         lookup loc c                = SOME (arity, exp_aux) ∧
-        lookup n c                  = SOME (arity + 1, exp_opt)`;
+        lookup n c                  = SOME (arity + 1, exp_opt)
+End
 
 Theorem code_rel_subspt:
    code_rel c1 x1 ∧ subspt x1 x2 ⇒ code_rel c1 x2
@@ -679,9 +683,9 @@ Proof
   \\ pairarg_tac \\ fs []
 QED
 
-val free_names_def = Define `
+Definition free_names_def:
   free_names n (name: num) ⇔ ∀k. n + bvl_to_bvi_namespaces*k ≠ name
-  `;
+End
 
 val more_free_names = Q.prove (
   `free_names n name ⇒ free_names (n + bvl_to_bvi_namespaces) name`,
@@ -961,20 +965,22 @@ Proof
   \\ metis_tac [compile_prog_intro, more_free_names]
 QED
 
-val namespace_rel_def = Define`
+Definition namespace_rel_def:
   namespace_rel (c1:'a spt) (c2:'a spt) ⇔
     (∀n. n ∈ domain c2 ∧ bvl_num_stubs ≤ n ⇒ if in_ns_2 n then n ∉ domain c1 else n ∈ domain c1) ∧
     (∀n. n ∈ domain c1 ∧ bvl_num_stubs ≤ n ⇒ ¬(in_ns_2 n)) ∧
-    (∀n. n ∈ domain c2 ∧ n < bvl_num_stubs ⇒ n ∈ domain c1)`;
+    (∀n. n ∈ domain c2 ∧ n < bvl_num_stubs ⇒ n ∈ domain c1)
+End
 
-val input_condition_def = Define`
+Definition input_condition_def:
   input_condition next prog ⇔
     EVERY (free_names next o FST) prog ∧
    ALL_DISTINCT (MAP FST prog) ∧
    EVERY ($~ o in_ns_2 o FST) (FILTER ((<=) bvl_num_stubs o FST) prog) ∧
-   bvl_num_stubs ≤ next ∧ in_ns_2 next`;
+   bvl_num_stubs ≤ next ∧ in_ns_2 next
+End
 
-val state_rel_def = Define`
+Definition state_rel_def:
   state_rel s (t:('a,'ffi) bviSem$state) ⇔
     t.refs = s.refs ∧
     t.clock = s.clock ∧
@@ -986,7 +992,8 @@ val state_rel_def = Define`
     namespace_rel s.code t.code ∧
     (∀n. let ((next,cfg),prog) = s.compile_oracle n in
             input_condition next prog) ∧
-    (∀n. n ∈ domain t.code ∧ in_ns_2 n ⇒ n < FST(FST(s.compile_oracle 0)))`;
+    (∀n. n ∈ domain t.code ∧ in_ns_2 n ⇒ n < FST(FST(s.compile_oracle 0)))
+End
 
 Theorem state_rel_const:
    state_rel s t ⇒

@@ -79,15 +79,18 @@ val _ = map overload_on
    ("load_inst",``\r a. Inst (Mem Load r (Addr a 0w))``),
    ("store_inst",``\r a. Inst (Mem Store r (Addr a 0w))``)]
 
-val list_Seq_def = Define `
+Definition list_Seq_def:
   (list_Seq [] = Skip) /\
   (list_Seq [x] = x) /\
-  (list_Seq (x::y::xs) = Seq x (list_Seq (y::xs)))`;
+  (list_Seq (x::y::xs) = Seq x (list_Seq (y::xs)))
+End
 
-val gc_stub_location_def = Define`
-  gc_stub_location = stack_num_stubs-1`;
-val store_consts_stub_location_def = Define`
-  store_consts_stub_location = gc_stub_location-1`;
+Definition gc_stub_location_def:
+  gc_stub_location = stack_num_stubs-1
+End
+Definition store_consts_stub_location_def:
+  store_consts_stub_location = gc_stub_location-1
+End
 val gc_stub_location_eq = save_thm("gc_stub_location_eq",
   gc_stub_location_def |> CONV_RULE(RAND_CONV EVAL));
 val store_consts_stub_location_eq = save_thm("store_consts_stub_location_eq",

@@ -106,8 +106,9 @@ Proof
   Cases_on `es` >> gvs[remove_fvs_def, remove_fvs_sing_def]
 QED
 
-val compile_def = Define`
-  compile exps = remove_fvs 0 exps`;
+Definition compile_def:
+  compile exps = remove_fvs 0 exps
+End
 
 Theorem compile_eq:
   compile exps = remove_fvs_list 0 exps
@@ -115,8 +116,9 @@ Proof
   simp[compile_def, remove_fvs_sing_eq]
 QED
 
-val compile_inc_def = Define `
-  compile_inc (e, xs) = (compile e, [])`;
+Definition compile_inc_def:
+  compile_inc (e, xs) = (compile e, [])
+End
 
 Theorem LENGTH_remove_fvs:
    !fvs xs. LENGTH (remove_fvs fvs xs) = LENGTH xs

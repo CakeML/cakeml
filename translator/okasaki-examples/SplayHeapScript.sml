@@ -17,18 +17,20 @@ val _ = translation_extends "ListProg";
 val _ = Datatype`
   heap = Empty | Tree heap 'a heap`;
 
-val heap_to_bag_def = Define `
+Definition heap_to_bag_def:
 (heap_to_bag Empty = {||}) ∧
 (heap_to_bag (Tree h1 x h2) =
-  BAG_INSERT x (BAG_UNION (heap_to_bag h1) (heap_to_bag h2)))`;
+  BAG_INSERT x (BAG_UNION (heap_to_bag h1) (heap_to_bag h2)))
+End
 
-val is_heap_ordered_def = Define `
+Definition is_heap_ordered_def:
 (is_heap_ordered get_key leq Empty <=> T) ∧
 (is_heap_ordered get_key leq (Tree h1 x h2) <=>
   is_heap_ordered get_key leq h1 ∧
   is_heap_ordered get_key leq h2 ∧
   BAG_EVERY (\y. leq (get_key y) (get_key x)) (heap_to_bag h1) ∧
-  BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag h2))`;
+  BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag h2))
+End
 
 val _ = mlDefine `
 empty = Empty`;

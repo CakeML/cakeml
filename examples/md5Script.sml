@@ -5,6 +5,8 @@ open preamble wordsTheory;
 
 val _ = new_theory "md5";
 
+val _ = set_grammar_ancestry ["list", "words"];
+
 (*
     type word64  = {hi:W32.word,lo:W32.word}
     type word128 = {A:W32.word, B:W32.word, C:W32.word,  D:W32.word}

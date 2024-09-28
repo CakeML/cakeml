@@ -206,8 +206,9 @@ Proof
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
 QED
 
-val inc_clock_def = Define `
-  inc_clock n (s:('c,'ffi) bviSem$state) = s with clock := s.clock + n`;
+Definition inc_clock_def:
+  inc_clock n (s:('c,'ffi) bviSem$state) = s with clock := s.clock + n
+End
 
 Theorem inc_clock_ZERO:
    !s. inc_clock 0 s = s
@@ -724,8 +725,9 @@ val get_code_labels_def = tDefine"get_code_labels"
 val get_code_labels_def =
   get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[] |> curry save_thm "get_code_labels_def[simp,compute,allow_rebind]"
 
-val good_code_labels_def = Define`
+Definition good_code_labels_def:
   good_code_labels p elabs ⇔
-    BIGUNION (set (MAP (get_code_labels o SND o SND) p)) ⊆ set (MAP FST p) ∪ elabs`;
+    BIGUNION (set (MAP (get_code_labels o SND o SND) p)) ⊆ set (MAP FST p) ∪ elabs
+End
 
 val _ = export_theory();

@@ -11,7 +11,7 @@ val _ = ParseExtras.temp_loose_equality();
 
 (* The GC is a copying collector which moves elements *)
 
-val gc_move_def = Define `
+Definition gc_move_def:
   (gc_move (Data d,h2,a,n,heap,c,limit) = (Data d,h2,a,n,heap,c)) /\
   (gc_move (Pointer ptr d,h2,a,n,heap,c,limit) =
      case heap_lookup ptr heap of
@@ -22,14 +22,16 @@ val gc_move_def = Define `
          let (heap,c) = gc_forward_ptr ptr heap a d c in
            (Pointer a d,h2,a + (l+1),n,heap,c)
      | SOME (ForwardPointer ptr _ l) => (Pointer ptr d,h2,a,n,heap,c)
-     | _ => (ARB,h2,a,n,heap,F))`
+     | _ => (ARB,h2,a,n,heap,F))
+End
 
-val gc_move_list_def = Define `
+Definition gc_move_list_def:
   (gc_move_list ([],h2,a,n,heap,c,limit) = ([],h2,a,n,heap,c)) /\
   (gc_move_list (x::xs,h2,a,n,heap,c,limit) =
      let (x,h2,a,n,heap,c) = gc_move (x,h2,a,n,heap,c,limit) in
      let (xs,h2,a,n,heap,c) = gc_move_list (xs,h2,a,n,heap,c,limit) in
-       (x::xs,h2,a,n,heap,c))`;
+       (x::xs,h2,a,n,heap,c))
+End
 
 val gc_move_loop_def = tDefine "gc_move_loop" `
   (gc_move_loop (h1,[],a,n,heap,c,limit) = (h1,a,n,heap,c)) /\
@@ -46,20 +48,21 @@ val gc_move_loop_def = tDefine "gc_move_loop" `
   (WF_REL_TAC `measure (\(h1,h2,a,n,heap,c,limit). limit - heap_length h1)`
    \\ SRW_TAC [] [heap_length_def,el_length_def,SUM_APPEND] \\ decide_tac);
 
-val full_gc_def = Define `
+Definition full_gc_def:
   full_gc (roots,heap,limit) =
     let c0 = (heap_length heap = limit) in
     let (roots,h2,a,n,heap,c) = gc_move_list (roots,[],0,limit,heap,T,limit) in
     let (heap,a,n,temp,c) = gc_move_loop ([],h2,a,n,heap,c,limit) in
     let c = (c /\ (a = heap_length heap) /\ (heap_length temp = limit) /\
              c0 /\ (n = limit - a) /\ a <= limit) in
-      (roots,heap,a,c)`;
+      (roots,heap,a,c)
+End
 
 (* Invariant *)
 
 val _ = augment_srw_ss [rewrites [LIST_REL_def]];
 
-val gc_inv_def = Define `
+Definition gc_inv_def:
   gc_inv (h1,h2,a,n,heap,c,limit) (heap0:('a, 'b) heap_element list)
                                   (roots0:'a heap_address list) =
     (a + n = limit) /\
@@ -81,7 +84,8 @@ val gc_inv_def = Define `
                                           ADDR_MAP (heap_map1 heap) xs else xs) l d)) /\
                    reachable_addresses roots0 heap0 i /\
                    !ptr d. MEM (Pointer ptr d) xs /\ j < heap_length h1 ==>
-                           ptr IN FDOM (heap_map 0 heap)`;
+                           ptr IN FDOM (heap_map 0 heap)
+End
 
 (* Invariant maintained *)
 

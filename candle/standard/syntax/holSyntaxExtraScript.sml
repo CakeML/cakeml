@@ -1822,39 +1822,43 @@ End
 
 (* bind a variable above a de Bruijn term *)
 
-val bind_def = Define`
+Definition bind_def:
   (bind v n (dbVar x ty) = if v = (x,ty) then dbBound n else dbVar x ty) ∧
   bind v n (dbBound m) = dbBound m ∧
   bind v n (dbConst x ty) = dbConst x ty ∧
   bind v n (dbComb t1 t2) = dbComb (bind v n t1) (bind v n t2) ∧
-  bind v n (dbAbs ty tm) = dbAbs ty (bind v (n+1) tm)`
+  bind v n (dbAbs ty tm) = dbAbs ty (bind v (n+1) tm)
+End
 val _ = export_rewrites["bind_def"]
 
 (* conversion into de Bruijn *)
 
-val db_def = Define`
+Definition db_def:
   db (Var x ty) = dbVar x ty ∧
   db (Const x ty) = dbConst x ty ∧
   db (Comb t1 t2) = dbComb (db t1) (db t2) ∧
-  db (Abs v tm) = dbAbs (typeof v) (bind (dest_var v) 0 (db tm))`
+  db (Abs v tm) = dbAbs (typeof v) (bind (dest_var v) 0 (db tm))
+End
 val _ = export_rewrites["db_def"]
 
 (* de Bruijn versions of VSUBST and VFREE_IN *)
 
-val dbVSUBST_def = Define`
+Definition dbVSUBST_def:
   dbVSUBST ilist (dbVar x ty) = REV_ASSOCD (dbVar x ty) ilist (dbVar x ty) ∧
   dbVSUBST ilist (dbBound m) = dbBound m ∧
   dbVSUBST ilist (dbConst x ty) = dbConst x ty ∧
   dbVSUBST ilist (dbComb t1 t2) = dbComb (dbVSUBST ilist t1) (dbVSUBST ilist t2) ∧
-  dbVSUBST ilist (dbAbs ty t) = dbAbs ty (dbVSUBST ilist t)`
+  dbVSUBST ilist (dbAbs ty t) = dbAbs ty (dbVSUBST ilist t)
+End
 val _ = export_rewrites["dbVSUBST_def"]
 
-val dbVFREE_IN_def = Define`
+Definition dbVFREE_IN_def:
   (dbVFREE_IN v (dbVar x ty) ⇔ dbVar x ty = v) ∧
   (dbVFREE_IN v (dbBound n) ⇔ F) ∧
   (dbVFREE_IN v (dbConst x ty) ⇔ dbConst x ty = v) ∧
   (dbVFREE_IN v (dbComb t1 t2) ⇔ (dbVFREE_IN v t1 ∨ dbVFREE_IN v t2)) ∧
-  (dbVFREE_IN v (dbAbs ty t) ⇔ dbVFREE_IN v t)`
+  (dbVFREE_IN v (dbAbs ty t) ⇔ dbVFREE_IN v t)
+End
 val _ = export_rewrites["dbVFREE_IN_def"]
 
 Theorem bind_not_free:
@@ -2076,12 +2080,13 @@ QED
 
 (* de Bruijn version of INST *)
 
-val dbINST_def = Define`
+Definition dbINST_def:
   dbINST tyin (dbVar x ty) = dbVar x (TYPE_SUBST tyin ty) ∧
   dbINST tyin (dbBound n) = dbBound n ∧
   dbINST tyin (dbConst x ty) = dbConst x (TYPE_SUBST tyin ty) ∧
   dbINST tyin (dbComb t1 t2) = dbComb (dbINST tyin t1) (dbINST tyin t2) ∧
-  dbINST tyin (dbAbs ty t) = dbAbs (TYPE_SUBST tyin ty) (dbINST tyin t)`
+  dbINST tyin (dbAbs ty t) = dbAbs (TYPE_SUBST tyin ty) (dbINST tyin t)
+End
 val _ = export_rewrites["dbINST_def"]
 
 Theorem dbINST_bind:
@@ -2238,17 +2243,19 @@ QED
 
 (* conversion into de Bruijn given an environment of already bound variables *)
 
-val dbterm_def = Define`
+Definition dbterm_def:
   (dbterm env (Var s ty) =
      case find_index (s,ty) env 0 of SOME n => dbBound n | NONE => dbVar s ty) ∧
   (dbterm env (Const s ty) = dbConst s ty) ∧
   (dbterm env (Comb t1 t2) = dbComb (dbterm env t1) (dbterm env t2)) ∧
-  (dbterm env (Abs v t) = dbAbs (typeof v) (dbterm ((dest_var v)::env) t))`
+  (dbterm env (Abs v t) = dbAbs (typeof v) (dbterm ((dest_var v)::env) t))
+End
 val _ = export_rewrites["dbterm_def"]
 
-val bind_list_aux_def = Define`
+Definition bind_list_aux_def:
   bind_list_aux n [] tm = tm ∧
-  bind_list_aux n (v::vs) tm = bind_list_aux (n+1) vs (bind v n tm)`
+  bind_list_aux n (v::vs) tm = bind_list_aux (n+1) vs (bind v n tm)
+End
 val _ = export_rewrites["bind_list_aux_def"]
 
 Theorem bind_list_aux_clauses:
@@ -2372,11 +2379,12 @@ QED
 
 (* list of bound variable names in a term *)
 
-val bv_names_def = Define`
+Definition bv_names_def:
   bv_names (Var _ _) = [] ∧
   bv_names (Const _ _) = [] ∧
   bv_names (Comb s t) = bv_names s ++ bv_names t ∧
-  bv_names (Abs v t) = (FST(dest_var v))::bv_names t`
+  bv_names (Abs v t) = (FST(dest_var v))::bv_names t
+End
 val _ = export_rewrites["bv_names_def"]
 
 (* Simpler versions (non-capture-avoiding) of substitution and instantiation.
@@ -2384,19 +2392,21 @@ val _ = export_rewrites["bv_names_def"]
    alpha-equivalence respecting, and suitable equivalent term always exists
    (see below). *)
 
-val simple_subst_def = Define`
+Definition simple_subst_def:
   (simple_subst ilist (Var x ty) = REV_ASSOCD (Var x ty) ilist (Var x ty)) ∧
   (simple_subst ilist (Const x ty) = Const x ty) ∧
   (simple_subst ilist (Comb t1 t2) = Comb (simple_subst ilist t1) (simple_subst ilist t2)) ∧
   (simple_subst ilist (Abs v tm) =
-    Abs v (simple_subst (FILTER (λ(s',s). (s ≠ v)) ilist) tm))`
+    Abs v (simple_subst (FILTER (λ(s',s). (s ≠ v)) ilist) tm))
+End
 val _ = export_rewrites["simple_subst_def"]
 
-val simple_inst_def = Define`
+Definition simple_inst_def:
   simple_inst tyin (Var x ty) = Var x (TYPE_SUBST tyin ty) ∧
   simple_inst tyin (Const x ty) = Const x (TYPE_SUBST tyin ty) ∧
   simple_inst tyin (Comb s t) = Comb (simple_inst tyin s) (simple_inst tyin t) ∧
-  simple_inst tyin (Abs v t) = Abs (simple_inst tyin v) (simple_inst tyin t)`
+  simple_inst tyin (Abs v t) = Abs (simple_inst tyin v) (simple_inst tyin t)
+End
 val _ = export_rewrites["simple_inst_def"]
 
 Theorem VSUBST_simple_subst:
@@ -2518,7 +2528,7 @@ QED
 
 (* rename bound variables from a source of names *)
 
-val rename_bvars_def = Define`
+Definition rename_bvars_def:
   rename_bvars names env (Var s ty) = (names, Var (REV_ASSOCD (s,ty) env s) ty) ∧
   rename_bvars names env (Const s ty) = (names, Const s ty) ∧
   (rename_bvars names env (Comb t1 t2) =
@@ -2530,7 +2540,8 @@ val rename_bvars_def = Define`
      (names, Abs v tm)) ∧
   (rename_bvars (s'::names) env (Abs v tm) =
      let (names,tm) = rename_bvars names ((s',dest_var v)::env) tm in
-     (names, Abs (Var s' (typeof v)) tm))`
+     (names, Abs (Var s' (typeof v)) tm))
+End
 
 Theorem FST_rename_bvars:
    ∀names env tm. LENGTH (bv_names tm) ≤ LENGTH names ⇒ (FST (rename_bvars names env tm) = DROP (LENGTH (bv_names tm)) names)
@@ -2784,12 +2795,13 @@ val fresh_term_def = new_specification("fresh_term_def",["fresh_term"],
 (* Alternative characterisation of VARIANT, and thereby of VSUBST and INST_CORE.
    Better for evaluation. *)
 
-val vfree_in_def = Define `
+Definition vfree_in_def:
   vfree_in v tm =
     case tm of
       Abs bv bod => v <> bv /\ vfree_in v bod
     | Comb s t => vfree_in v s \/ vfree_in v t
-    | _ => (tm = v)`;
+    | _ => (tm = v)
+End
 
 Theorem vfree_in_thm:
    !name ty y. (VFREE_IN (Var name ty) y = vfree_in (Var name ty) y)
@@ -2867,20 +2879,24 @@ val variant_vsubst_thm = save_thm("variant_vsubst_thm",prove(
 val VSUBST_thm = save_thm("VSUBST_thm",
   REWRITE_RULE[SYM variant_vsubst_thm] VSUBST_def)
 
-val subtract_def = Define `
-  subtract l1 l2 = FILTER (\t. ~(MEM t l2)) l1`;
+Definition subtract_def:
+  subtract l1 l2 = FILTER (\t. ~(MEM t l2)) l1
+End
 
-val insert_def = Define `
-  insert x l = if MEM x l then l else x::l`;
+Definition insert_def:
+  insert x l = if MEM x l then l else x::l
+End
 
-val itlist_def = Define `
+Definition itlist_def:
   itlist f l b =
     case l of
       [] => b
-    | (h::t) => f h (itlist f t b)`;
+    | (h::t) => f h (itlist f t b)
+End
 
-val union_def = Define `
-  union l1 l2 = itlist insert l1 l2`;
+Definition union_def:
+  union l1 l2 = itlist insert l1 l2
+End
 
 Theorem MEM_union:
    !xs ys x. MEM x (union xs ys) <=> MEM x xs \/ MEM x ys
@@ -2896,13 +2912,14 @@ Proof
   SIMP_TAC std_ss [EXISTS_MEM,MEM_MAP,MEM_union] \\ METIS_TAC []
 QED
 
-val frees_def = Define `
+Definition frees_def:
   frees tm =
     case tm of
       Var _ _ => [tm]
     | Const _ _ => []
     | Abs bv bod => subtract (frees bod) [bv]
-    | Comb s t => union (frees s) (frees t)`
+    | Comb s t => union (frees s) (frees t)
+End
 
 Theorem MEM_frees_EQ:
    !a x. MEM x (frees a) = ?n ty. (x = Var n ty) /\ MEM (Var n ty) (frees a)
@@ -3866,11 +3883,12 @@ QED
 
 (* types occurring in a term *)
 
-val types_in_def = Define`
+Definition types_in_def:
   types_in (Var x ty) = {ty} ∧
   types_in (Const c ty) = {ty} ∧
   types_in (Comb t1 t2) = types_in t1 ∪ types_in t2 ∧
-  types_in (Abs v t) = types_in v ∪ types_in t`
+  types_in (Abs v t) = types_in v ∪ types_in t
+End
 val _ = export_rewrites["types_in_def"]
 
 Theorem type_ok_types_in:
@@ -4085,8 +4103,9 @@ Proof
   fs[LENGTH_NIL]
 QED
 
-val match_type_def = Define`
-  match_type ty1 ty2 = OPTION_MAP FST (tymatch [ty1] [ty2] ([],[]))`
+Definition match_type_def:
+  match_type ty1 ty2 = OPTION_MAP FST (tymatch [ty1] [ty2] ([],[]))
+End
 
 Theorem type_ok_arities_match:
    ∀tys ty1 ty2.

@@ -17,7 +17,7 @@ In addition, the first address on the heap should store the address of cake_bitm
 
 Note: this set up does NOT account for restoring clobbered registers
 *)
-val startup_def = Define `
+Definition startup_def:
   startup ret pk =
     SmartAppend (List
       [strlit"\n";
@@ -68,9 +68,10 @@ val startup_def = Define `
       [strlit"\n";
        strlit"#if defined(__WIN32)\n";
        strlit"     .endfunc\n";
-       strlit"#endif\n"]))))`
+       strlit"#endif\n"]))))
+End
 
-val ffi_asm_def = Define `
+Definition ffi_asm_def:
   (ffi_asm [] = Nil) /\
   (ffi_asm (ffi::ffis) =
       SmartAppend (List [
@@ -78,7 +79,8 @@ val ffi_asm_def = Define `
        strlit"     pushq   %rax\n";
        strlit"     jmp     wcdecl(ffi"; implode ffi; strlit")\n";
        strlit"     .p2align 4\n";
-       strlit"\n"]) (ffi_asm ffis))`
+       strlit"\n"]) (ffi_asm ffis))
+End
 
 val ffi_code' =
   ``λret. SmartAppend
@@ -117,7 +119,7 @@ val (ffi_code_true,ffi_code_false) =
 val ffi_code =
   ``λret. if ret then ^ffi_code_true else ^ffi_code_false``;
 
-val windows_ffi_asm_def = Define `
+Definition windows_ffi_asm_def:
   (windows_ffi_asm [] = Nil) /\
   (windows_ffi_asm (ffi::ffis) =
       SmartAppend (List [
@@ -127,7 +129,8 @@ val windows_ffi_asm_def = Define `
        strlit"     movq    %rsi, %rdx\n";
        strlit"     movq    %rdi, %rcx\n";
        strlit"     jmp     cdecl(ffi"; implode ffi; strlit")\n";
-       strlit"\n"]) (windows_ffi_asm ffis))`
+       strlit"\n"]) (windows_ffi_asm ffis))
+End
 
 val windows_ffi_code' =
   ``λret. SmartAppend
@@ -172,20 +175,6 @@ val entry_point_code =
      "     movq    %rbx, -0x28(%rbp)";
      "     jmp     cake_main";
      "";
-     "cml_return:";
-     "     movq    $1, can_enter(%rip)";
-     "     movq    %r14, ret_base(%rip)";
-     "     movq    %r12, ret_stack(%rip)";
-     "     movq    %r13, ret_stackend(%rip)";
-     "     movq    -0x28(%rbp),%rbx";
-     "     movq    -0x20(%rbp),%r15";
-     "     movq    -0x18(%rbp),%r14";
-     "     movq    -0x10(%rbp),%r13";
-     "     movq    -0x8(%rbp),%r12";
-     "     leave";
-     "     ret";
-     "     .p2align 4";
-     "";
      "windows_cake_enter:";
      "     movq    %rcx, %rdi";
      "     movq    %rdx, %rsi";
@@ -211,6 +200,11 @@ val entry_point_code =
      "     lea     cake_return(%rip), %rax";
      "     jmp     *%r10";
      "     .p2align 4";
+     "";
+     "cml_return:";
+     "     movq    %r14, ret_base(%rip)";
+     "     movq    %r12, ret_stack(%rip)";
+     "     movq    %r13, ret_stackend(%rip)";
      "";
      "cake_return:";
      "     movq    $1, can_enter(%rip)";
@@ -238,7 +232,7 @@ val entry_point_code =
      "     jmp     cdecl(cml_err)";
      ""]))`` |> EVAL |> concl |> rand;
 
-val export_func_def = Define `
+Definition export_func_def:
   export_func appl (name,label,start,len) =
     SmartAppend appl (List
     [strlit"\n    .globl cdecl("; name; strlit")\n";
@@ -257,13 +251,15 @@ val export_func_def = Define `
      strlit"#if defined(__WIN32)\n";
      strlit"     .endfunc\n";
      strlit"#endif\n";
-    ])`;
+    ])
+End
 
-val export_funcs_def = Define `
+Definition export_funcs_def:
   export_funcs lsyms exp =
-    FOLDL export_func misc$Nil (FILTER ((flip MEM exp) o FST) lsyms)`;
+    FOLDL export_func misc$Nil (FILTER ((flip MEM exp) o FST) lsyms)
+End
 
-val x64_export_def = Define `
+Definition x64_export_def:
   x64_export ffi_names bytes (data:word64 list) syms exp ret pk =
     let lsyms = get_sym_labels syms in
     SmartAppend
@@ -279,7 +275,8 @@ val x64_export_def = Define `
       (SmartAppend (^windows_ffi_code ret)
       (if ret then
         (SmartAppend ^entry_point_code (export_funcs lsyms exp))
-      else List []))`;
+      else List []))
+End
 
 (*
   EVAL``append(split16 (words_line (strlit"\t.quad ") word_to_string) [100w:word64;393w;392w])``

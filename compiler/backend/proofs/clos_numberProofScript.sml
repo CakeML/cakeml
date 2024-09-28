@@ -189,7 +189,7 @@ Inductive v_rel:
    v_rel max_app (Recclosure p argenv env es k) (Recclosure p' argenv' env' es' k))
 End
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel (s:(num#'c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (s.clock = t.clock) /\ (s.ffi = t.ffi) /\ (t.max_app = s.max_app) /\
     s.compile = state_cc (ignore_table compile_inc) t.compile /\
@@ -198,7 +198,8 @@ val state_rel_def = Define `
     EVERY2 (OPTREL (v_rel s.max_app)) s.globals t.globals /\
     (∀n. SND (SND (s.compile_oracle n )) = [] ∧
          ¬contains_App_SOME s.max_app (FST(SND(s.compile_oracle n)))) /\
-    s.code = FEMPTY ∧ t.code = FEMPTY`
+    s.code = FEMPTY ∧ t.code = FEMPTY
+End
 
 val state_rel_max_app = Q.prove (
   `!s t. state_rel s t ⇒ s.max_app = t.max_app`,

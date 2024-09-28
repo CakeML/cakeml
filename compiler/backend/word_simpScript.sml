@@ -11,11 +11,12 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (* function that makes all Seq associate to the left *)
 
-val SmartSeq_def = Define `
+Definition SmartSeq_def:
   SmartSeq p1 (p2:'a wordLang$prog) =
-    if p1 = Skip then p2 else Seq p1 p2`
+    if p1 = Skip then p2 else Seq p1 p2
+End
 
-val Seq_assoc_def = Define `
+Definition Seq_assoc_def:
   (Seq_assoc p1 Skip = p1) /\
   (Seq_assoc p1 (Seq q1 q2) = Seq_assoc (Seq_assoc p1 q1) q2) /\
   (Seq_assoc p1 (If v n r q1 q2) =
@@ -30,7 +31,8 @@ val Seq_assoc_def = Define `
           (dtcase handler of
            | NONE => NONE
            | SOME (y1,q2,y2,y3) => SOME (y1,Seq_assoc Skip q2,y2,y3)))) /\
-  (Seq_assoc p1 other = SmartSeq p1 other)`;
+  (Seq_assoc p1 other = SmartSeq p1 other)
+End
 
 Theorem Seq_assoc_pmatch:
   !p1 prog.
@@ -70,9 +72,10 @@ QED
 
 *)
 
-val dest_Seq_def = Define `
+Definition dest_Seq_def:
   (dest_Seq (Seq p1 p2) = (p1,p2:'a wordLang$prog)) /\
-  (dest_Seq p = (Skip,p))`
+  (dest_Seq p = (Skip,p))
+End
 
 Theorem dest_Seq_pmatch:
   !p.
@@ -87,9 +90,10 @@ Proof
   >> fs[dest_Seq_def]
 QED
 
-val dest_If_def = Define `
+Definition dest_If_def:
   (dest_If (If x1 x2 x3 p1 p2) = SOME (x1,x2,x3,p1,p2:'a wordLang$prog)) /\
-  (dest_If _ = NONE)`
+  (dest_If _ = NONE)
+End
 
 Theorem dest_If_pmatch:
   !p.
@@ -104,11 +108,12 @@ Proof
   >> fs[dest_If_def]
 QED
 
-val dest_If_Eq_Imm_def = Define `
+Definition dest_If_Eq_Imm_def:
   dest_If_Eq_Imm p =
     dtcase dest_If p of
     | SOME (Equal,n,Imm w,p1,p2) => SOME (n,w,p1,p2)
-    | _ => NONE`
+    | _ => NONE
+End
 
 Theorem dest_If_Eq_Imm_pmatch:
   !p.
@@ -123,12 +128,13 @@ Proof
   >> fs[dest_If_Eq_Imm_def]
 QED
 
-val dest_Seq_Assign_Const_def = Define `
+Definition dest_Seq_Assign_Const_def:
   dest_Seq_Assign_Const n p =
     let (p1,p2) = dest_Seq p in
       dtcase p2 of
       | Assign m (Const w) => if m = n then SOME (p1,w) else NONE
-      | _ => NONE`
+      | _ => NONE
+End
 
 Theorem dest_Seq_Assign_Const_pmatch:
   !n p.
@@ -167,13 +173,14 @@ QED
   run, so we must throw away all variables mentioned in the handler).
  *)
 
-val strip_const_def = Define `
+Definition strip_const_def:
   (strip_const [] = SOME []) /\
   (strip_const (Const w::cs) =
      dtcase strip_const cs of
        | SOME ws => SOME (w::ws)
        | _ => NONE) /\
-  (strip_const _ = NONE)`;
+  (strip_const _ = NONE)
+End
 
 Definition const_fp_exp_def:
   (const_fp_exp (Var v) cs =
@@ -199,7 +206,7 @@ Termination
   WF_REL_TAC `measure (exp_size (\x.0) o FST)`
 End
 
-val const_fp_move_cs_def = Define `
+Definition const_fp_move_cs_def:
   (const_fp_move_cs [] _ cs = cs) /\
   (const_fp_move_cs (m::ms) ocs ncs =
     let v = FST m in
@@ -207,9 +214,10 @@ val const_fp_move_cs_def = Define `
       (dtcase lookup (SND m) ocs of
         | SOME c => insert v c ncs
         | _ => delete v ncs) in
-        const_fp_move_cs ms ocs nncs)`;
+        const_fp_move_cs ms ocs nncs)
+End
 
-val const_fp_inst_cs_def = Define `
+Definition const_fp_inst_cs_def:
   (const_fp_inst_cs (Const r _) cs = delete r cs) /\
   (const_fp_inst_cs (Arith (Binop _ r _ _)) cs = delete r cs) /\
   (const_fp_inst_cs (Arith (Shift _ r _ _)) cs = delete r cs) /\
@@ -227,13 +235,17 @@ val const_fp_inst_cs_def = Define `
   (const_fp_inst_cs ((FP (FPMovToReg r1 r2 d)):'a inst) cs =
     if dimindex(:'a) = 64 then delete r1 cs
     else delete r2 (delete r1 cs)) ∧
-  (const_fp_inst_cs _ cs = cs)`;
+  (const_fp_inst_cs _ cs = cs)
+End
 
-val get_var_imm_cs_def = Define `
+Definition get_var_imm_cs_def:
   (get_var_imm_cs (Reg r) cs = lookup r cs) /\
-  (get_var_imm_cs (Imm i) _ = SOME i)`;
+  (get_var_imm_cs (Imm i) _ = SOME i)
+End
 
-val is_gc_const_def = Define `is_gc_const c = ((c && 1w) = 0w)`
+Definition is_gc_const_def:
+  is_gc_const c = ((c && 1w) = 0w)
+End
 
 Definition drop_consts_def:
   drop_consts cs [] = Skip ∧
@@ -295,10 +307,14 @@ Definition const_fp_loop_def:
     (ShareInst Load v (const_fp_exp e cs), delete v cs)) /\
   (const_fp_loop (ShareInst Load8 v e) cs =
     (ShareInst Load8 v (const_fp_exp e cs), delete v cs)) /\
+  (const_fp_loop (ShareInst Load32 v e) cs =
+    (ShareInst Load32 v (const_fp_exp e cs), delete v cs)) /\
   (const_fp_loop (ShareInst Store v e) cs =
     (ShareInst Store v (const_fp_exp e cs), cs)) /\
   (const_fp_loop (ShareInst Store8 v e) cs =
     (ShareInst Store8 v (const_fp_exp e cs), cs)) /\
+  (const_fp_loop (ShareInst Store32 v e) cs =
+    (ShareInst Store32 v (const_fp_exp e cs), cs)) /\
   (const_fp_loop p cs = (p, cs))
 End
 

@@ -11,17 +11,20 @@ ifdef POLY
 HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
 endif
 
+CFLAGS+=-O2
+LDLIBS+=-lm
+
 graphColoring_encoder: graphColoringEncoderCompileTheory.uo
-	gcc -o graphColoring_encoder graphColoring_encoder.S $(CAKEMLDIR)/basis/basis_ffi.c
+	$(CC) $(CFLAGS) -o $@ $@.S $(CAKEMLDIR)/basis/basis_ffi.c $(LDLIBS)
 
 killerSudoku_encoder: killerSudokuEncoderCompileTheory.uo
-	gcc -o killerSudoku_encoder killerSudoku_encoder.S $(CAKEMLDIR)/basis/basis_ffi.c
+	$(CC) $(CFLAGS) -o $@ $@.S $(CAKEMLDIR)/basis/basis_ffi.c $(LDLIBS)
 
 nQueens_encoder: nQueensEncoderCompileTheory.uo
-	gcc -o nQueens_encoder nQueens_encoder.S $(CAKEMLDIR)/basis/basis_ffi.c
+	$(CC) $(CFLAGS) -o $@ $@.S $(CAKEMLDIR)/basis/basis_ffi.c $(LDLIBS)
 
 numBoolRange_encoder: numBoolRangeEncoderCompileTheory.uo
-	gcc -o numBoolRange_encoder numBoolRange_encoder.S $(CAKEMLDIR)/basis/basis_ffi.c
+	$(CC) $(CFLAGS) -o $@ $@.S $(CAKEMLDIR)/basis/basis_ffi.c $(LDLIBS)
 
 sudoku_encoder: sudokuEncoderCompileTheory.uo
-	gcc -o sudoku_encoder sudoku_encoder.S $(CAKEMLDIR)/basis/basis_ffi.c
+	$(CC) $(CFLAGS) -o $@ $@.S $(CAKEMLDIR)/basis/basis_ffi.c $(LDLIBS)

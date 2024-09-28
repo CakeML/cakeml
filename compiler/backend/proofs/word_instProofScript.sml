@@ -88,12 +88,13 @@ val word_exp_op_permute_lem = Q.prove(`
   Cases_on`op`>>fs[]);
 
 (*Remove tail recursion to make proof easier...*)
-val pull_ops_simp_def = Define`
+Definition pull_ops_simp_def:
   (pull_ops_simp op [] = [] ) ∧
   (pull_ops_simp op (x::xs) =
     case x of
     |  (Op op' ls) => if op = op' then ls ++ (pull_ops_simp op xs) else x::(pull_ops_simp op xs)
-    |  _  => x::(pull_ops_simp op xs))`;
+    |  _  => x::(pull_ops_simp op xs))
+End
 
 val pull_ops_simp_pull_ops_perm = Q.prove(`
   ∀ls x.
@@ -824,9 +825,9 @@ Proof
         disch_then $ qspecl_then [`c`,`temp`] assume_tac >>
         gvs[AllCaseEqs(),evaluate_def,COND_EXPAND_IMP,FORALL_AND_THM] >>
         gvs[AllCaseEqs(),PULL_EXISTS,
-          DefnBase.one_line_ify NONE share_inst_def,
+          oneline share_inst_def,
           sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def,
-          DefnBase.one_line_ify NONE sh_mem_set_var_def,
+          oneline sh_mem_set_var_def, sh_mem_load32_def, sh_mem_store32_def,
           set_var_def,locals_rel_def,word_exp_def,the_words_def,word_op_def,
           get_var_def,state_component_equality,lookup_insert,flush_state_def] >>
         metis_tac[lookup_insert]
@@ -842,9 +843,9 @@ Proof
       disch_then $ qspecl_then [`c`,`temp`] assume_tac >>
       gvs[AllCaseEqs(),evaluate_def,COND_EXPAND_IMP,FORALL_AND_THM] >>
       gvs[AllCaseEqs(),PULL_EXISTS,
-        DefnBase.one_line_ify NONE share_inst_def,
+        oneline share_inst_def,
         sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def,
-        DefnBase.one_line_ify NONE sh_mem_set_var_def,
+        oneline sh_mem_set_var_def, sh_mem_load32_def, sh_mem_store32_def,
         set_var_def,locals_rel_def,word_exp_def,the_words_def,word_op_def,
         get_var_def,state_component_equality,lookup_insert,flush_state_def] >>
       metis_tac[lookup_insert]) >>
@@ -865,9 +866,9 @@ Proof
     disch_then $ qspecl_then [`c`, `temp`] assume_tac >>
     gvs[AllCaseEqs(),evaluate_def,COND_EXPAND_IMP,FORALL_AND_THM] >>
     gvs[AllCaseEqs(),PULL_EXISTS,
-      DefnBase.one_line_ify NONE share_inst_def,
+      oneline share_inst_def,
       sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def,
-      DefnBase.one_line_ify NONE sh_mem_set_var_def,
+      oneline sh_mem_set_var_def, sh_mem_load32_def, sh_mem_store32_def,
       set_var_def,locals_rel_def,word_exp_def,the_words_def,word_op_def,
       get_var_def,state_component_equality,lookup_insert,flush_state_def] >>
     metis_tac[lookup_insert])

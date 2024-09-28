@@ -32,11 +32,13 @@ Datatype:
   | RefPtr num          (* pointer to ref cell *)
 End
 
-val Boolv_def = Define`
-  Boolv b = bvlSem$Block (bool_to_tag b) []`
+Definition Boolv_def:
+  Boolv b = bvlSem$Block (bool_to_tag b) []
+End
 
-val Unit_def = Define`
-  Unit = bvlSem$Block (tuple_tag) []`
+Definition Unit_def:
+  Unit = bvlSem$Block (tuple_tag) []
+End
 
 (* -- *)
 
@@ -51,7 +53,7 @@ Datatype:
      ; ffi     : 'ffi ffi_state |>
 End
 
-val v_to_list_def = Define`
+Definition v_to_list_def:
   (v_to_list (Block tag []) =
      if tag = nil_tag then SOME [] else NONE) ∧
   (v_to_list (Block tag [h;bt]) =
@@ -60,14 +62,17 @@ val v_to_list_def = Define`
         | SOME t => SOME (h::t)
         | _ => NONE )
      else NONE) ∧
-  (v_to_list _ = NONE)`
+  (v_to_list _ = NONE)
+End
 
-val list_to_v_def = Define `
+Definition list_to_v_def:
   list_to_v [] = Block nil_tag [] /\
-  list_to_v (v::vs) = Block cons_tag [v; list_to_v vs]`;
+  list_to_v (v::vs) = Block cons_tag [v; list_to_v vs]
+End
 
-val isClos_def = Define `
-  isClos t1 l1 = (((t1 = closure_tag) \/ (t1 = partial_app_tag)) /\ l1 <> [])`;
+Definition isClos_def:
+  isClos t1 l1 = (((t1 = closure_tag) \/ (t1 = partial_app_tag)) /\ l1 <> [])
+End
 
 val do_eq_def = tDefine"do_eq"`
   (do_eq _ (CodePtr _) _ = Eq_type_error) ∧
@@ -105,16 +110,18 @@ val _ = export_rewrites["do_eq_def"];
 
 Overload Error[local] = ``(Rerr(Rabort Rtype_error)):(bvlSem$v#('c,'ffi) bvlSem$state, bvlSem$v)result``
 
-val v_to_bytes_def = Define `
+Definition v_to_bytes_def:
   v_to_bytes lv = some ns:word8 list.
-                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)`;
+                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)
+End
 
-val v_to_words_def = Define `
-  v_to_words lv = some ns. v_to_list lv = SOME (MAP Word64 ns)`;
+Definition v_to_words_def:
+  v_to_words lv = some ns. v_to_list lv = SOME (MAP Word64 ns)
+End
 
 val s = ``(s:('c,'ffi) bvlSem$state)``
 
-val do_install_def = Define `
+Definition do_install_def:
   do_install vs ^s =
       (case vs of
        | [v1;v2] =>
@@ -137,7 +144,8 @@ val do_install_def = Define `
                   | _ => Rerr(Rabort Rtype_error))
                   else Rerr(Rabort Rtype_error))
             | _ => Rerr(Rabort Rtype_error))
-       | _ => Rerr(Rabort Rtype_error))`;
+       | _ => Rerr(Rabort Rtype_error))
+End
 
 Definition do_part_def:
   do_part m (Int i) refs = (Number i, refs) ∧
@@ -167,7 +175,7 @@ End
     - Build now has full semantics, i.e. can handle all cases
     - Label is added *)
 
-val do_app_def = Define `
+Definition do_app_def:
   do_app op vs ^s =
     case (op,vs) of
     | (Global n,[]) =>
@@ -428,14 +436,16 @@ val do_app_def = Define `
                          then Rval (Boolv (i < &n),s) else Error
          | _ => Error)
     | (ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
-    | _ => Error`;
+    | _ => Error
+End
 
-val dec_clock_def = Define `
-  dec_clock n s = s with clock := s.clock - n`;
+Definition dec_clock_def:
+  dec_clock n s = s with clock := s.clock - n
+End
 
 (* Functions for looking up function definitions *)
 
-val find_code_def = Define `
+Definition find_code_def:
   (find_code (SOME p) args code =
      case lookup p code of
      | NONE => NONE
@@ -450,7 +460,8 @@ val find_code_def = Define `
             | SOME (arity,exp) => if LENGTH args = arity + 1
                                   then SOME (FRONT args,exp)
                                   else NONE)
-       | other => NONE)`
+       | other => NONE)
+End
 
 (* The evaluation is defined as a clocked functional version of
    a conventional big-step operational semantics. *)
@@ -460,8 +471,9 @@ val find_code_def = Define `
    fix_clock. At the bottom of this file, we remove all occurrences
    of fix_clock. *)
 
-val fix_clock_def = Define `
-  fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)`
+Definition fix_clock_def:
+  fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
+End
 
 val fix_clock_IMP = Q.prove(
   `fix_clock s x = (res,s1) ==> s1.clock <= s.clock`,
@@ -597,7 +609,7 @@ Theorem evaluate_ind[allow_rebind] =
 
 (* observational semantics *)
 
-val initial_state_def = Define`
+Definition initial_state_def:
   initial_state ffi code co cc k = <|
     clock := k;
     ffi := ffi;
@@ -606,9 +618,10 @@ val initial_state_def = Define`
     compile_oracle := co;
     globals := [];
     refs := FEMPTY
-  |>`;
+  |>
+End
 
-val semantics_def = Define`
+Definition semantics_def:
   semantics init_ffi code co cc start =
   let es = [Call 0 (SOME start) []] in
   let init = initial_state init_ffi code co cc in
@@ -628,7 +641,8 @@ val semantics_def = Define`
        Diverge
          (build_lprefix_lub
            (IMAGE (λk. fromList
-              (SND (evaluate (es,[],init k))).ffi.io_events) UNIV))`;
+              (SND (evaluate (es,[],init k))).ffi.io_events) UNIV))
+End
 
 (* clean up *)
 

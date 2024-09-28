@@ -38,17 +38,19 @@ Definition compile_single_def:
     (name_num,arg_count,reg_prog)
 End
 
-val full_compile_single_def = Define`
+Definition full_compile_single_def:
   full_compile_single two_reg_arith reg_count alg c p =
   let (name_num,arg_count,reg_prog) = compile_single two_reg_arith reg_count alg c p in
-    (name_num,arg_count,remove_must_terminate reg_prog)`
+    (name_num,arg_count,remove_must_terminate reg_prog)
+End
 
-val next_n_oracle_def = Define`
+Definition next_n_oracle_def:
   next_n_oracle n (col:(num num_map) option list) =
   if n ≤ LENGTH col then
     (TAKE n col, DROP n col)
   else
-    (REPLICATE n NONE, [])`
+    (REPLICATE n NONE, [])
+End
 
 Definition compile_def:
   compile word_conf (asm_conf:'a asm_config) progs =

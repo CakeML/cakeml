@@ -39,9 +39,10 @@ val wnocomment_line_side = Q.prove(`
   EVAL_TAC>>
   rw[]) |> update_precondition;
 
-val format_wcnf_failure_def = Define`
+Definition format_wcnf_failure_def:
   format_wcnf_failure (lno:num) s =
-  strlit "c wcnf parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"`
+  strlit "c wcnf parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"
+End
 
 val _ = translate format_wcnf_failure_def;
 
@@ -925,7 +926,9 @@ local
 val name = "main"
 val (sem_thm,prog_tm) =
   whole_prog_thm (get_ml_prog_state()) name (UNDISCH main_whole_prog_spec2)
-val main_prog_def = Define`main_prog = ^prog_tm`;
+Definition main_prog_def:
+  main_prog = ^prog_tm
+End
 
 in
 

@@ -143,8 +143,9 @@ Proof
   \\ qexists_tac `h'::t` \\ full_simp_tac(srw_ss())[]
 QED
 
-val get_bits_def = Define `
-  get_bits w = GENLIST (\i. w ' i) (bit_length w − 1)`
+Definition get_bits_def:
+  get_bits w = GENLIST (\i. w ' i) (bit_length w − 1)
+End
 
 Theorem bit_length_thm:
    !w. ((w >>> bit_length w) = 0w) /\ !n. n < bit_length w ==> (w >>> n) <> 0w
@@ -485,7 +486,7 @@ val gc_lemma = gc_def
   |> DISCH ``conf.gc_kind = Simple``
   |> SIMP_RULE std_ss [word_gc_fun_thm] |> DISCH_ALL
 
-val word_gc_move_roots_bitmaps_def = Define `
+Definition word_gc_move_roots_bitmaps_def:
   word_gc_move_roots_bitmaps conf (stack,bitmaps,i1,pa1,curr,m,dm) =
     case enc_stack bitmaps stack of
     | NONE => (ARB,ARB,ARB,ARB,F)
@@ -494,7 +495,8 @@ val word_gc_move_roots_bitmaps_def = Define `
             word_gc_move_roots conf (wl_list,i1,pa1,curr,m,dm) in
           case dec_stack bitmaps wl stack of
           | NONE => (ARB,ARB,ARB,ARB,F)
-          | SOME stack => (stack,i2,pa2,m2,c2)`
+          | SOME stack => (stack,i2,pa2,m2,c2)
+End
 
 Theorem word_gc_move_loop_F:
    !k conf pb i pa old m dm i1 pa1 m1 c1.
@@ -569,7 +571,7 @@ val gc_thm = Q.prove(
   \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]);
 
-val word_gc_move_bitmaps_def = Define `
+Definition word_gc_move_bitmaps_def:
   word_gc_move_bitmaps conf (w,stack,bitmaps,i1,pa1,curr,m,dm) =
     case full_read_bitmap bitmaps w of
     | NONE => NONE
@@ -582,7 +584,8 @@ val word_gc_move_bitmaps_def = Define `
           case map_bitmap bs wl stack of
           | NONE => NONE
           | SOME (hd,ts1,ws') =>
-              SOME (hd,ws,i2,pa2,m2,c2)`
+              SOME (hd,ws,i2,pa2,m2,c2)
+End
 
 val word_gc_move_roots_APPEND = Q.prove(
   `!xs ys i1 pa1 m.
@@ -657,7 +660,7 @@ val word_gc_move_roots_bitmaps = Q.prove(
   \\ disch_then drule \\ full_simp_tac(srw_ss())[]
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]);
 
-val word_gc_move_bitmap_def = Define `
+Definition word_gc_move_bitmap_def:
   word_gc_move_bitmap conf (w,stack,i1,pa1,curr,m,dm) =
     let bs = get_bits w in
       case filter_bitmap bs stack of
@@ -666,7 +669,8 @@ val word_gc_move_bitmap_def = Define `
          let (wl,i2,pa2,m2,c2) = word_gc_move_roots conf (ts,i1,pa1,curr,m,dm) in
            case map_bitmap bs wl stack of
            | NONE => NONE
-           | SOME (hd,v2) => SOME (hd,ws,i2,pa2,m2,c2)`
+           | SOME (hd,v2) => SOME (hd,ws,i2,pa2,m2,c2)
+End
 
 val map_bitmap_APPEND_APPEND = Q.prove(
   `!vs1 stack x0 x1 ws2 vs2 ws1.
@@ -1784,7 +1788,7 @@ val gc_lemma = gc_def
   |> DISCH ``conf.gc_kind = ^kind``
   |> SIMP_RULE std_ss [word_gc_fun_thm] |> DISCH_ALL
 
-val word_gen_gc_move_roots_bitmaps_def = Define `
+Definition word_gen_gc_move_roots_bitmaps_def:
   word_gen_gc_move_roots_bitmaps conf (stack,bitmaps,i1,pa1,ib1,pb1,curr,m,dm) =
     case enc_stack bitmaps stack of
     | NONE => (ARB,ARB,ARB,ARB,ARB,ARB,F)
@@ -1793,9 +1797,10 @@ val word_gen_gc_move_roots_bitmaps_def = Define `
             word_gen_gc_move_roots conf (wl_list,i1,pa1,ib1,pb1,curr,m,dm) in
           case dec_stack bitmaps wl stack of
           | NONE => (ARB,ARB,ARB,ARB,ARB,ARB,F)
-          | SOME stack => (stack,i2,pa2,ib2,pb2,m2,c2)`
+          | SOME stack => (stack,i2,pa2,ib2,pb2,m2,c2)
+End
 
-val word_gen_gc_partial_move_roots_bitmaps_def = Define `
+Definition word_gen_gc_partial_move_roots_bitmaps_def:
   word_gen_gc_partial_move_roots_bitmaps conf (stack,bitmaps,i1,pa1,curr,m,dm,gs,rs) =
     case enc_stack bitmaps stack of
     | NONE => (ARB,ARB,ARB,ARB,F)
@@ -1804,7 +1809,8 @@ val word_gen_gc_partial_move_roots_bitmaps_def = Define `
             word_gen_gc_partial_move_roots conf (wl_list,i1,pa1,curr,m,dm,gs,rs) in
           case dec_stack bitmaps wl stack of
           | NONE => (ARB,ARB,ARB,ARB,F)
-          | SOME stack => (stack,i2,pa2,m2,c2)`
+          | SOME stack => (stack,i2,pa2,m2,c2)
+End
 
 val word_gen_gc_partial_move_ref_list_ok = prove(
   ``!k rs re pb pa old m i gs dm conf c i1 pa1 m1.
@@ -1935,7 +1941,7 @@ val gc_thm = Q.prove(
   \\ rpt (CASE_TAC \\ fs []) \\ rveq \\ fs []
   \\ every_case_tac \\ fs [] \\ rveq);
 
-val word_gen_gc_move_bitmaps_def = Define `
+Definition word_gen_gc_move_bitmaps_def:
   word_gen_gc_move_bitmaps conf (w,stack,bitmaps,i1,pa1,ib1,pb1,curr,m,dm) =
     case full_read_bitmap bitmaps w of
     | NONE => NONE
@@ -1948,9 +1954,10 @@ val word_gen_gc_move_bitmaps_def = Define `
           case map_bitmap bs wl stack of
           | NONE => NONE
           | SOME (hd,ts1,ws') =>
-              SOME (hd,ws,i2,pa2,ib2,pb2,m2,c2)`
+              SOME (hd,ws,i2,pa2,ib2,pb2,m2,c2)
+End
 
-val word_gen_gc_partial_move_bitmaps_def = Define `
+Definition word_gen_gc_partial_move_bitmaps_def:
   word_gen_gc_partial_move_bitmaps conf (w,stack,bitmaps,i1,pa1,curr,m,dm,gs,rs) =
     case full_read_bitmap bitmaps w of
     | NONE => NONE
@@ -1963,7 +1970,8 @@ val word_gen_gc_partial_move_bitmaps_def = Define `
           case map_bitmap bs wl stack of
           | NONE => NONE
           | SOME (hd,ts1,ws') =>
-              SOME (hd,ws,i2,pa2,m2,c2)`
+              SOME (hd,ws,i2,pa2,m2,c2)
+End
 
 val word_gen_gc_move_roots_APPEND = Q.prove(
   `!xs ys i1 pa1 ib1 pb1 m.
@@ -2125,7 +2133,7 @@ val word_gen_gc_partial_move_roots_bitmaps = Q.prove(
   \\ disch_then drule \\ full_simp_tac(srw_ss())[]
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]);
 
-val word_gen_gc_move_bitmap_def = Define `
+Definition word_gen_gc_move_bitmap_def:
   word_gen_gc_move_bitmap conf (w,stack,i1,pa1,ib1,pb1,curr,m,dm) =
     let bs = get_bits w in
       case filter_bitmap bs stack of
@@ -2135,9 +2143,10 @@ val word_gen_gc_move_bitmap_def = Define `
            word_gen_gc_move_roots conf (ts,i1,pa1,ib1,pb1,curr,m,dm) in
            case map_bitmap bs wl stack of
            | NONE => NONE
-           | SOME (hd,v2) => SOME (hd,ws,i2,pa2,ib2,pb2,m2,c2)`
+           | SOME (hd,v2) => SOME (hd,ws,i2,pa2,ib2,pb2,m2,c2)
+End
 
-val word_gen_gc_partial_move_bitmap_def = Define `
+Definition word_gen_gc_partial_move_bitmap_def:
   word_gen_gc_partial_move_bitmap conf (w,stack,i1,pa1,curr,m,dm,gs,rs) =
     let bs = get_bits w in
       case filter_bitmap bs stack of
@@ -2147,7 +2156,8 @@ val word_gen_gc_partial_move_bitmap_def = Define `
            word_gen_gc_partial_move_roots conf (ts,i1,pa1,curr,m,dm,gs,rs) in
            case map_bitmap bs wl stack of
            | NONE => NONE
-           | SOME (hd,v2) => SOME (hd,ws,i2,pa2,m2,c2)`
+           | SOME (hd,v2) => SOME (hd,ws,i2,pa2,m2,c2)
+End
 
 val map_bitmap_APPEND_APPEND = Q.prove(
   `!vs1 stack x0 x1 ws2 vs2 ws1.
@@ -5737,6 +5747,7 @@ Proof
     rw[Once comp_def,evaluate_def,get_var_def] \\
     Cases_on ‘op’>>
     fs[word_exp_def,sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,IS_SOME_EXISTS,
+       sh_mem_load32_def,sh_mem_store32_def,
        wordLangTheory.word_op_def,sh_mem_load_byte_def,sh_mem_store_byte_def,
        get_var_def,dec_clock_def,empty_env_def]>>
     fs[case_eq_thms] \\ rw[] \\
@@ -5959,11 +5970,12 @@ Proof
 QED
 
 (* TODO: does this have to initialize the data_buffer to empty? *)
-val make_init_def = Define `
+Definition make_init_def:
   make_init c code oracle s =
     s with <| code := code; use_alloc := T; use_stack := T; gc_fun := word_gc_fun c
             ; compile := λc. s.compile c o (MAP prog_comp)
-            ; compile_oracle := oracle |>`;
+            ; compile_oracle := oracle |>
+End
 
 Theorem prog_comp_lambda:
    prog_comp = λ(n,p). ^(rhs (concl (SPEC_ALL prog_comp_def)))

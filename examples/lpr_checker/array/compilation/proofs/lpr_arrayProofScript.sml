@@ -36,7 +36,7 @@ val check_unsat_compiled_thm =
   |> curry save_thm "check_unsat_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
-val installed_x64_def = Define `
+Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
       (word8 list # word64 list # 64 backend$config))
     mc ms
@@ -49,17 +49,18 @@ val installed_x64_def = Define `
         cfg.lab_conf.ffi_names
         (heap_regs x64_backend_config.stack_conf.reg_names) mc
         cfg.lab_conf.shmem_extra ms
-    `;
+End
 
-val check_unsat_code_def = Define `
+Definition check_unsat_code_def:
   check_unsat_code = (code, data, info)
-  `;
+End
 
 (* A standard run of cake_lpr satisfying all the default assumptions *)
-val cake_lpr_run_def = Define`
+Definition cake_lpr_run_def:
   cake_lpr_run cl fs mc ms ⇔
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  installed_x64 check_unsat_code mc ms`
+  installed_x64 check_unsat_code mc ms
+End
 
 Theorem concat_success_str:
   ∀a b c. concat [strlit "s VERIFIED INTERVALS COVER 0-"; toString (d:num); strlit "\n"] ≠ success_str a b c

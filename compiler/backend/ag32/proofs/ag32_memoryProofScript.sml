@@ -879,7 +879,7 @@ Proof
   \\ fs[Abbr`sc`, LENGTH_startup_asm_code]
 QED
 
-val init_asm_state_def = Define`
+Definition init_asm_state_def:
   init_asm_state code data ffis input =
   let im =  init_memory code data ffis in
   let sac = startup_asm_code (LENGTH ffis) (n2w (LENGTH code)) (n2w (4 * LENGTH data)) in
@@ -887,7 +887,8 @@ val init_asm_state_def = Define`
       (ag32_init_asm_state
         (im input)
         (ag32_startup_addresses))
-        sac`;
+        sac
+End
 
 val (asm_tm, mk_asm, dest_asm, is_asm) = HolKernel.syntax_fns3 "asmSem" "asm"
 val (asm_ok_tm, mk_asm_ok, dest_asm_ok, is_asm_ok) = HolKernel.syntax_fns2 "asm" "asm_ok"
@@ -1043,8 +1044,9 @@ val startup_code_eq =
   |> SIMP_RULE (srw_ss()) [FLAT_compute,FLAT]
 
 (*
-val hide_def = Define`
-  hide x = x`
+Definition hide_def:
+  hide x = x
+End
 *)
 
 Theorem init_asm_state_asm_step:

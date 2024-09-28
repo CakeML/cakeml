@@ -110,13 +110,14 @@ Proof
   prove_array_spec "Word8Array.substring"
 QED
 
-val findi_def = Define `
+Definition findi_def:
   findi f [] = NONE /\
   findi f (x::xs) =
     if (f x) then SOME (0:num, x) else
     case findi f xs of
       |NONE => NONE
-      |SOME (n,x) => SOME (n + 1, x)`;
+      |SOME (n,x) => SOME (n + 1, x)
+End
 
 Theorem findi_spec_SOME:
   ! f arr i.

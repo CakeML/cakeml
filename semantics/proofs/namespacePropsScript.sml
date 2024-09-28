@@ -742,7 +742,7 @@ Proof
    >> simp [nsLookupMod_def])
 QED
 
-val alist_rel_restr_def = Define `
+Definition alist_rel_restr_def:
   (alist_rel_restr R l1 l2 [] ⇔ T) ∧
   (alist_rel_restr R l1 l2 (k1::keys) ⇔
     case ALOOKUP l1 k1 of
@@ -750,7 +750,8 @@ val alist_rel_restr_def = Define `
     | SOME v1 =>
       case ALOOKUP l2 k1 of
       | NONE => F
-      | SOME v2 => R k1 v1 v2 ∧ alist_rel_restr R l1 l2 keys)`;
+      | SOME v2 => R k1 v1 v2 ∧ alist_rel_restr R l1 l2 keys)
+End
 
 Theorem alist_rel_restr_thm:
    !R e1 e2 keys.
@@ -764,8 +765,9 @@ Proof
  >> metis_tac [NOT_SOME_NONE, SOME_11, option_nchotomy]
 QED
 
-val alistSub_def = Define `
-  alistSub R e1 e2 ⇔ alist_rel_restr R e1 e2 (MAP FST e1)`;
+Definition alistSub_def:
+  alistSub R e1 e2 ⇔ alist_rel_restr R e1 e2 (MAP FST e1)
+End
 
 Theorem alistSub_cong:
    !l1 l2 l1' l2' R R'.

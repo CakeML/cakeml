@@ -154,9 +154,10 @@ Proof
   simp[validFileFD_def]
 QED
 
-val file_contents_def = Define `
+Definition file_contents_def:
   file_contents fnm fs =
-    implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fnm)))))`
+    implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fnm)))))
+End
 
 Theorem file_contents_add_stdout:
    STD_streams fs ⇒
@@ -169,10 +170,10 @@ Proof
   \\ metis_tac[STD_streams_def,SOME_11,PAIR,FST,fsFFITheory.inode_distinct]
 QED
 
-val catfiles_string_def = Define`
+Definition catfiles_string_def:
   catfiles_string fs fns =
     concat (MAP (λfnm. file_contents fnm fs) fns)
-`;
+End
 
 val cat_spec0 = Q.prove(
   `∀fns fnsv fs.
@@ -221,10 +222,11 @@ val _ = process_topdecs `
     handle TextIO.BadFileName => ()
 ` |> append_prog
 
-val catfile_string_def = Define `
+Definition catfile_string_def:
   catfile_string fs fnm =
     if inFS_fname fs fnm then file_contents fnm fs
-    else (strlit"")`
+    else (strlit"")
+End
 
 Theorem cat1_spec:
    !fnm fnmv.
@@ -306,7 +308,9 @@ QED
 
 val name = "cat_main"
 val (semantics_thm,prog_tm) = whole_prog_thm st name (UNDISCH cat_whole_prog_spec)
-val cat_prog_def = Define`cat_prog = ^prog_tm`;
+Definition cat_prog_def:
+  cat_prog = ^prog_tm
+End
 
 val cat_semantics_thm =
   semantics_thm |> ONCE_REWRITE_RULE[GSYM cat_prog_def]

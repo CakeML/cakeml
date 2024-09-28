@@ -883,8 +883,9 @@ Proof
   >> metis_tac[SUBSET_DEF]
 QED
 
-val equal_on_def = Define`
+Definition equal_on_def:
   equal_on (sig:sig) i i' ⇔
-  fleq (total_fragment sig,i) (total_fragment sig, i')`
+  fleq (total_fragment sig,i) (total_fragment sig, i')
+End
 
 val _ = export_theory()

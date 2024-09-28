@@ -47,17 +47,20 @@ validIntervalAdd (iv1:interval) (iv2:interval) (iv3:interval) =
 (! a b. contained a iv1 /\ contained b iv2 ==> contained (a + b) iv3)
 End
 
-val validIntervalSub_def = Define `
+Definition validIntervalSub_def:
 validIntervalSub (iv1:interval) (iv2:interval) (iv3:interval) =
-(! a b. contained a iv1 /\ contained b iv2 ==> contained (a - b) iv3)`;
+(! a b. contained a iv1 /\ contained b iv2 ==> contained (a - b) iv3)
+End
 
-val validIntervalMult_def = Define`
+Definition validIntervalMult_def:
 validIntervalMult (iv1:interval) (iv2:interval) (iv3:interval) =
-(! a b. contained a iv1 /\ contained b iv2 ==> contained (a * b) iv3)`;
+(! a b. contained a iv1 /\ contained b iv2 ==> contained (a * b) iv3)
+End
 
-val validIntervalDiv_def = Define `
+Definition validIntervalDiv_def:
 validIntervalDiv (iv1:interval) (iv2:interval) (iv3:interval) =
-(! a b. contained a iv1 /\ contained b iv2 ==> contained (a / b) iv3)`;
+(! a b. contained a iv1 /\ contained b iv2 ==> contained (a / b) iv3)
+End
 
 Definition min4_def:
   min4 a b c d = min a (min b (min c d))

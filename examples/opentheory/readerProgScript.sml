@@ -578,7 +578,9 @@ val st = get_ml_prog_state ();
 val name = "reader_main";
 val spec = UNDISCH reader_whole_prog_spec;
 val (sem_thm,prog_tm) = whole_prog_thm st name spec
-val reader_prog_def = Define `reader_prog = ^prog_tm`
+Definition reader_prog_def:
+  reader_prog = ^prog_tm
+End
 
 val reader_semantics =
   sem_thm

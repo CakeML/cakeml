@@ -104,7 +104,8 @@ Proof
   Cases_on `es` >> gvs[remove_ticks_def, remove_ticks_sing_def]
 QED
 
-val compile_inc_def = Define `
-  compile_inc (e, xs) = (remove_ticks e, [])`;
+Definition compile_inc_def:
+  compile_inc (e, xs) = (remove_ticks e, [])
+End
 
 val _ = export_theory();

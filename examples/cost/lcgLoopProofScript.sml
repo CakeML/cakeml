@@ -22,12 +22,13 @@ val lcgLoop = lcgLoop_ast_def |> concl |> rand
 val _ = install_naming_overloads "lcgLoopProg";
 val _ = write_to_file lcgLoop_data_prog_def;
 
-val coeff_bounds_def = Define`
+Definition coeff_bounds_def:
   coeff_bounds a c m =
   small_num T (&a) ∧
   small_num T (&c) ∧
   small_num T (&m) ∧
-  small_num T (&(a*m + c))`
+  small_num T (&(a*m + c))
+End
 
 val fields = TypeBase.fields_of “:('c,'ffi) dataSem$state”;
 
@@ -91,8 +92,9 @@ val hex_body = ``lookup_hex (fromAList lcgLoop_data_prog)``
            |> (REWRITE_CONV [lcgLoop_data_code_def] THENC EVAL)
            |> concl |> rhs |> rand |> rand
 
-val hex_body_def = Define`
-  hex_body = ^hex_body`
+Definition hex_body_def:
+  hex_body = ^hex_body
+End
 
 val strip_asg_n =
   REWRITE_TAC [ bind_def           , assign_def
@@ -166,8 +168,9 @@ val n2l_acc_body = ``lookup_n2l_acc (fromAList lcgLoop_data_prog)``
            |> (REWRITE_CONV [lcgLoop_data_code_def] THENC EVAL)
            |> concl |> rhs |> rand |> rand
 
-val n2l_acc_body_def = Define`
-  n2l_acc_body = ^n2l_acc_body`
+Definition n2l_acc_body_def:
+  n2l_acc_body = ^n2l_acc_body
+End
 
 (* blocks is a Block representation of a char? list of length ≤ l and with timestamps strictly bounded by tsb *)
 Definition repchar_list_def:
@@ -1137,8 +1140,9 @@ val put_char_body = ``lookup_put_char (fromAList lcgLoop_data_prog)``
            |> (REWRITE_CONV [lcgLoop_data_code_def] THENC EVAL)
            |> concl |> rhs |> rand |> rand
 
-val put_char_body_def = Define`
-    put_char_body = ^put_char_body`
+Definition put_char_body_def:
+    put_char_body = ^put_char_body
+End
 
 Theorem delete_insert:
   p ≠ r ∧ wf refs ⇒
@@ -1590,8 +1594,9 @@ val put_chars_body = ``lookup_put_chars (fromAList lcgLoop_data_prog)``
            |> (REWRITE_CONV [lcgLoop_data_code_def] THENC EVAL)
            |> concl |> rhs |> rand |> rand
 
-val put_chars_body_def = Define`
-    put_chars_body = ^put_chars_body`
+Definition put_chars_body_def:
+    put_chars_body = ^put_chars_body
+End
 
 Theorem closed_ptrs_repchar_list:
   ∀block l ts refs.
@@ -1602,8 +1607,9 @@ Proof
   \\ fs [repchar_list_def]
 QED
 
-val max_def = Define`
-  max = MAX`
+Definition max_def:
+  max = MAX
+End
 
 val put_char_evaluate_max =put_char_evaluate |> PURE_REWRITE_RULE [GSYM max_def]
 
@@ -2085,8 +2091,9 @@ val lcgLoop_body = ``lookup_lcgLoop (fromAList lcgLoop_data_prog)``
            |> (REWRITE_CONV [lcgLoop_data_code_def] THENC EVAL)
            |> concl |> rhs |> rand |> rand
 
-val lcgLoop_body_def = Define`
-  lcgLoop_body = ^lcgLoop_body`
+Definition lcgLoop_body_def:
+  lcgLoop_body = ^lcgLoop_body
+End
 
 Theorem approx_of_cons_Number:
   small_num lims.arch_64_bit n ⇒

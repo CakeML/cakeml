@@ -2195,13 +2195,14 @@ t_unify s t1 t2 =
     ((o_f) decode_infer_t)
     (unify (encode_infer_t o_f s) (encode_infer_t t1) (encode_infer_t t2))`;
 
-val ts_unify_def = Define `
+Definition ts_unify_def:
 (ts_unify s [] [] = SOME s) ∧
 (ts_unify s (t1::ts1) (t2::ts2) =
   dtcase t_unify s t1 t2 of
    | NONE => NONE
    | SOME s' => ts_unify s' ts1 ts2) ∧
-(ts_unify s _ _ = NONE)`;
+(ts_unify s _ _ = NONE)
+End
 
 val encode_walk = Q.prove(
   `∀s. t_wfs s ⇒
@@ -2801,8 +2802,9 @@ rw [t_walkstar_def] >>
 rw [encode_walkstar, decode_left_inverse]
 QED
 
-val t_vR_def = Define `
-t_vR s = vR (encode_infer_t o_f s)`;
+Definition t_vR_def:
+t_vR s = vR (encode_infer_t o_f s)
+End
 
 Theorem t_vR_eqn:
  !s x y. t_vR s y x = dtcase FLOOKUP s x of SOME t => y IN t_vars t | _ => F
@@ -2825,8 +2827,9 @@ qexists_tac `min` >>
 rw []
 QED
 
-val t_rangevars_def = Define `
-t_rangevars s = rangevars (encode_infer_t o_f s)`;
+Definition t_rangevars_def:
+t_rangevars s = rangevars (encode_infer_t o_f s)
+End
 
 Theorem t_rangevars_eqn:
  !s. t_rangevars s = BIGUNION (IMAGE t_vars (FRANGE s))
@@ -3141,10 +3144,11 @@ Proof
 QED
 
 (*t_compat theorems*)
-val t_compat_def = Define`
+Definition t_compat_def:
   t_compat s s' ⇔
   t_wfs s ∧ t_wfs s' ∧
-  !t. t_walkstar s' (t_walkstar s t) = t_walkstar s' t`
+  !t. t_walkstar s' (t_walkstar s t) = t_walkstar s' t
+End
 
 Theorem t_compat_refl:
  t_wfs s ⇒ t_compat s s

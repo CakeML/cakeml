@@ -8,10 +8,11 @@ val _ = new_theory"labProps";
 
 val _ = Parse.hide"mem";
 
-val extract_labels_def = Define`
+Definition extract_labels_def:
   (extract_labels [] = []) ∧
   (extract_labels ((Label l1 l2 _)::xs) = (l1,l2):: extract_labels xs) ∧
-  (extract_labels (x::xs) = extract_labels xs)`
+  (extract_labels (x::xs) = extract_labels xs)
+End
 val _ = export_rewrites["extract_labels_def"];
 
 val extract_labels_ind = theorem"extract_labels_ind";
@@ -23,23 +24,27 @@ Proof
   Induct>>fs[extract_labels_def]>>Cases_on`h`>>rw[extract_labels_def]
 QED
 
-val labs_of_def = Define`
+Definition labs_of_def:
   labs_of (LocValue _ (Lab n1 n2)) = {(n1,n2)} ∧
   labs_of (Jump (Lab n1 n2)) = {(n1,n2)} ∧
   labs_of (JumpCmp _ _ _ (Lab n1 n2)) = {(n1,n2)} ∧
-  labs_of _ = {}`;
+  labs_of _ = {}
+End
 val _ = export_rewrites["labs_of_def"];
 
-val line_get_labels_def = Define`
+Definition line_get_labels_def:
   line_get_labels (LabAsm a _ _ _) = labs_of a ∧
-  line_get_labels _ = {}`;
+  line_get_labels _ = {}
+End
 
-val sec_get_labels_def = Define`
+Definition sec_get_labels_def:
   sec_get_labels (Section _ lines) =
-    BIGUNION (IMAGE line_get_labels (set lines))`;
+    BIGUNION (IMAGE line_get_labels (set lines))
+End
 
-val get_labels_def = Define`
-  get_labels code = BIGUNION (IMAGE sec_get_labels (set code))`;
+Definition get_labels_def:
+  get_labels code = BIGUNION (IMAGE sec_get_labels (set code))
+End
 
 Theorem get_labels_cons:
    get_labels (x::xs) = sec_get_labels x ∪ get_labels xs
@@ -47,18 +52,21 @@ Proof
   rw[get_labels_def]
 QED
 
-val line_get_code_labels_def = Define`
+Definition line_get_code_labels_def:
   line_get_code_labels (Label _ l _) = {l} ∧
-  line_get_code_labels _ = {}`;
+  line_get_code_labels _ = {}
+End
 val _ = export_rewrites["line_get_code_labels_def"];
 
-val sec_get_code_labels_def = Define`
+Definition sec_get_code_labels_def:
   sec_get_code_labels (Section n1 lines) =
     (n1,0) INSERT
-    IMAGE (λn2. (n1,n2)) (BIGUNION (IMAGE line_get_code_labels (set lines)))`;
+    IMAGE (λn2. (n1,n2)) (BIGUNION (IMAGE line_get_code_labels (set lines)))
+End
 
-val get_code_labels_def = Define`
-  get_code_labels code = BIGUNION (IMAGE sec_get_code_labels (set code))`;
+Definition get_code_labels_def:
+  get_code_labels code = BIGUNION (IMAGE sec_get_code_labels (set code))
+End
 
 Theorem get_code_labels_nil[simp]:
    get_code_labels [] = {}
@@ -72,9 +80,10 @@ Proof
   rw[get_code_labels_def]
 QED
 
-val sec_ends_with_label_def = Define`
+Definition sec_ends_with_label_def:
   sec_ends_with_label (Section _ ls) ⇔
-    ¬NULL ls ∧ is_Label (LAST ls)`;
+    ¬NULL ls ∧ is_Label (LAST ls)
+End
 
 Theorem reg_imm_with_clock[simp]:
    reg_imm r (s with clock := z) = reg_imm r s
@@ -241,10 +250,11 @@ Proof
   every_case_tac >> EVAL_TAC >> rw[]
 QED
 
-val line_length_def = Define `
+Definition line_length_def:
   (line_length (Label k1 k2 l) = if l = 0 then 0 else 1) /\
   (line_length (Asm b bytes l) = LENGTH bytes) /\
-  (line_length (LabAsm a w bytes l) = LENGTH bytes)`
+  (line_length (LabAsm a w bytes l) = LENGTH bytes)
+End
 
 Theorem LENGTH_line_bytes[simp]:
    !x2. ~is_Label x2 ==> (LENGTH (line_bytes x2) = line_length x2)
@@ -419,9 +429,10 @@ Proof
   )
 QED
 
-val align_dm_def = Define `
+Definition align_dm_def:
   align_dm (s:('a,'c,'ffi) labSem$state) =
-    (s with mem_domain := s.mem_domain INTER byte_aligned)`
+    (s with mem_domain := s.mem_domain INTER byte_aligned)
+End
 
 Theorem align_dm_const[simp]:
    (align_dm s).clock = s.clock ∧
@@ -794,9 +805,10 @@ QED
 
 (** align_sdm **)
 
-val align_sdm_def = Define `
+Definition align_sdm_def:
   align_sdm (s:('a,'c,'ffi) labSem$state) =
-    (s with shared_mem_domain := s.shared_mem_domain INTER byte_aligned)`
+    (s with shared_mem_domain := s.shared_mem_domain INTER byte_aligned)
+End
 
 Theorem align_sdm_const[simp]:
    (align_sdm s).clock = s.clock ∧
@@ -1155,26 +1167,30 @@ QED
 
 
 (* asm_ok checks coming into lab_to_target *)
-val line_ok_pre_def = Define`
+Definition line_ok_pre_def:
   (line_ok_pre (c:'a asm_config) (Asm b bytes l) ⇔ asm_ok (cbw_to_asm b) c) ∧
-  (line_ok_pre c _ ⇔ T)`
+  (line_ok_pre c _ ⇔ T)
+End
 
-val sec_ok_pre_def = Define`
+Definition sec_ok_pre_def:
   sec_ok_pre c (Section k ls) ⇔
-    EVERY (line_ok_pre c) ls`;
+    EVERY (line_ok_pre c) ls
+End
 val _ = export_rewrites["sec_ok_pre_def"];
 
 Overload all_enc_ok_pre = ``λc ls. EVERY (sec_ok_pre c) ls``
 
 (* invariant: labels have correct section number and are non-zero *)
 
-val sec_label_ok_def = Define`
+Definition sec_label_ok_def:
   (sec_label_ok k (Label l1 l2 len) ⇔ l1 = k ∧ l2 ≠ 0) ∧
-  (sec_label_ok _ _ = T)`;
+  (sec_label_ok _ _ = T)
+End
 val _ = export_rewrites["sec_label_ok_def"];
 
-val sec_labels_ok_def = Define`
-  sec_labels_ok (Section k ls) ⇔ EVERY (sec_label_ok k) ls`;
+Definition sec_labels_ok_def:
+  sec_labels_ok (Section k ls) ⇔ EVERY (sec_label_ok k) ls
+End
 val _ = export_rewrites["sec_labels_ok_def"];
 
 Theorem sec_label_ok_extract_labels:

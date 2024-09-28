@@ -584,10 +584,11 @@ QED
 
 (* one interpretation being compatible with another in a signature *)
 
-val equal_on_def = Define`
+Definition equal_on_def:
   equal_on (sig:sig) i i' ⇔
   (∀name. name ∈ FDOM (tysof sig) ⇒ tyaof i' name = tyaof i name) ∧
-  (∀name. name ∈ FDOM (tmsof sig) ⇒ tmaof i' name = tmaof i name)`
+  (∀name. name ∈ FDOM (tmsof sig) ⇒ tmaof i' name = tmaof i name)
+End
 
 Theorem equal_on_refl:
    ∀sig i. equal_on sig i i

@@ -462,10 +462,11 @@ end
 
 
 
-Theorem compile_Skip_Break_Continue:
+Theorem compile_Skip_Break_Continue_Annot:
   ^(get_goal "compile _ panLang$Skip") /\
   ^(get_goal "compile _ panLang$Break") /\
-  ^(get_goal "compile _ panLang$Continue")
+  ^(get_goal "compile _ panLang$Continue") /\
+  ^(get_goal "compile _ (panLang$Annot _ _)")
 Proof
   rpt strip_tac >>
   fs [panSemTheory.evaluate_def, evaluate_def,
@@ -4635,7 +4636,8 @@ Theorem pc_compile_correct:
 Proof
   match_mp_tac (the_ind_thm()) >>
   EVERY (map strip_assume_tac
-         [compile_Skip_Break_Continue, compile_Dec, compile_ShMemLoad, compile_ShMemStore,
+         [compile_Skip_Break_Continue_Annot,
+          compile_Dec, compile_ShMemLoad, compile_ShMemStore,
           compile_Assign, compile_Store, compile_StoreByte, compile_Seq,
           compile_If, compile_While, compile_Call, compile_ExtCall,
           compile_Raise, compile_Return, compile_Tick, compile_DecCall]) >>

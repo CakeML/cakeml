@@ -275,7 +275,7 @@ Proof
   EVAL_TAC>>fs[]
 QED
 
-val pan_installed_def = Define`
+Definition pan_installed_def:
   pan_installed bytes cbspace bitmaps data_sp ffi_names (r1,r2) (mc_conf:('a,'state,'b) machine_config) shmem_extra ms p_mem p_dom sdm' ⇔
   ∃t m io_regs cc_regs bitmap_ptr bitmaps_dm sdm.
   let heap_stack_dm = { w | t.regs r1 <=+ w ∧ w <+ t.regs r2 } in
@@ -309,7 +309,8 @@ val pan_installed_def = Define`
              (MAP (λrec. (rec.nbytes, rec.access_addr, rec.reg,
                         rec.exit_pc + mc_conf.target.get_pc ms))
                                                            shmem_extra)) ∧
-    cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a))`;
+    cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a))
+End
 
 Theorem pan_installed_imp_installed:
   pan_installed bytes cbspace bitmaps data_sp ffi_names (r1,r2) mc_conf shmem_extra ms p_mem p_dom sdm ⇒
@@ -512,8 +513,10 @@ Proof
   gs[wordSemTheory.share_inst_def,
      wordSemTheory.sh_mem_load_def,
      wordSemTheory.sh_mem_load_byte_def,
+     wordSemTheory.sh_mem_load32_def,
      wordSemTheory.sh_mem_store_def,
      wordSemTheory.sh_mem_store_byte_def,
+     wordSemTheory.sh_mem_store32_def,
      ffiTheory.call_FFI_def]>>
   every_case_tac>>gvs[]>>
   fs[wordSemTheory.sh_mem_set_var_def,
@@ -864,6 +867,7 @@ Proof
     gs[wordSemTheory.share_inst_def,
          wordSemTheory.sh_mem_load_def, wordSemTheory.sh_mem_load_byte_def,
          wordSemTheory.sh_mem_store_def, wordSemTheory.sh_mem_store_byte_def,
+         wordSemTheory.sh_mem_load32_def, wordSemTheory.sh_mem_store32_def,
          ffiTheory.call_FFI_def]>>
     every_case_tac>>
     fs[wordSemTheory.sh_mem_set_var_def,
@@ -959,8 +963,10 @@ Proof
      wordSemTheory.sh_mem_load_def,
      wordSemTheory.sh_mem_load_def,
      wordSemTheory.sh_mem_load_byte_def,
+     wordSemTheory.sh_mem_load32_def,
      wordSemTheory.sh_mem_store_def,
      wordSemTheory.sh_mem_store_byte_def,
+     wordSemTheory.sh_mem_store32_def,
      ffiTheory.call_FFI_def]>>
   every_case_tac >>
   fs[wordSemTheory.sh_mem_set_var_def,

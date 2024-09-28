@@ -11,6 +11,19 @@ DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
 
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/misc/cakeml-heap
+endif
+
+EXTRA_CLEANS = basis-heap
+
+ifdef POLY
+all: basis-heap
+
+basis-heap: basis.uo
+	$(HOLDIR)/bin/buildheap -o $@ $<
+endif
+
 ifndef CC
 CC=gcc
 endif
