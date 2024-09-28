@@ -272,8 +272,7 @@ End
 
 
 (*val tveLookup : varN -> nat -> tenv_val_exp -> maybe (nat * t)*)
- val _ = Define `
-
+Definition tveLookup_def:
 ((tveLookup:string -> num -> tenv_val_exp ->(num#t)option) n inc Empty=  NONE)
 /\
 ((tveLookup:string -> num -> tenv_val_exp ->(num#t)option) n inc (Bind_tvar tvs tenvE)=  (tveLookup n (inc + tvs) tenvE))
@@ -282,7 +281,8 @@ End
    (if n' = n then
     SOME (tvs, deBruijn_inc tvs inc t)
   else
-    tveLookup n inc tenvE))`;
+    tveLookup n inc tenvE))
+End
 
 
 Type tenv_abbrev = ``: (modN, typeN, ( tvarN list # t)) namespace``
@@ -328,22 +328,22 @@ End
 
 
 (*val num_tvs : tenv_val_exp -> nat*)
- val _ = Define `
-
+Definition num_tvs_def:
 ((num_tvs:tenv_val_exp -> num) Empty= (( 0 : num)))
 /\
 ((num_tvs:tenv_val_exp -> num) (Bind_tvar tvs tenvE)=  (tvs + num_tvs tenvE))
 /\
-((num_tvs:tenv_val_exp -> num) (Bind_name n tvs t tenvE)=  (num_tvs tenvE))`;
+((num_tvs:tenv_val_exp -> num) (Bind_name n tvs t tenvE)=  (num_tvs tenvE))
+End
 
 
 (*val bind_var_list : nat -> list (varN * t) -> tenv_val_exp -> tenv_val_exp*)
- val _ = Define `
-
+Definition bind_var_list_def:
 ((bind_var_list:num ->(string#t)list -> tenv_val_exp -> tenv_val_exp) tvs [] tenvE=  tenvE)
 /\
 ((bind_var_list:num ->(string#t)list -> tenv_val_exp -> tenv_val_exp) tvs ((n,t)::binds) tenvE=
-   (Bind_name n tvs t (bind_var_list tvs binds tenvE)))`;
+ (Bind_name n tvs t (bind_var_list tvs binds tenvE)))
+End
 
 
 (* A pattern matches values of a certain type and extends the type environment
@@ -482,7 +482,7 @@ End
  * type are included in the type's type parameters. Also check that all of the
  * types mentioned are in scope. *)
 (*val check_ctor_tenv : tenv_abbrev -> list (list tvarN * typeN * list (conN * list ast_t)) -> bool*)
- val _ = Define `
+Definition check_ctor_tenv_def:
  ((check_ctor_tenv:((modN),(typeN),((tvarN)list#t))namespace ->((tvarN)list#string#(conN#(ast_t)list)list)list -> bool) tenvT []=  T)
 /\ ((check_ctor_tenv:((modN),(typeN),((tvarN)list#t))namespace ->((tvarN)list#string#(conN#(ast_t)list)list)list -> bool) tenvT ((tvs,tn,ctors)::tds)=
    (check_dup_ctors (tvs,tn,ctors) /\
@@ -492,11 +492,12 @@ End
     ctors /\
   ~ (MEM tn (MAP (\p .
   (case (p ) of ( (_,tn,_) ) => tn )) tds)) /\
-  check_ctor_tenv tenvT tds))`;
+  check_ctor_tenv tenvT tds))
+End
 
 
 (*val build_ctor_tenv : tenv_abbrev -> list (list tvarN * typeN * list (conN * list ast_t)) -> list nat -> tenv_ctor*)
- val _ = Define `
+Definition build_ctor_tenv_def:
  (build_ctor_tenv tenvT [] []=  (alist_to_ns []))
 /\ (build_ctor_tenv tenvT ((tvs,tn,ctors)::tds) (id::ids)=
    (nsAppend
@@ -506,7 +507,8 @@ End
         (MAP
           (\ (cn,ts) .  (cn,(tvs,MAP (type_name_subst tenvT) ts, id)))
           ctors)))))
-/\ (build_ctor_tenv tenvT _ _=  (alist_to_ns []))`;
+/\ (build_ctor_tenv tenvT _ _=  (alist_to_ns []))
+End
 
 
 (* For the value restriction on let-based polymorphism *)

@@ -23,8 +23,9 @@ val _ = new_theory "lib"
 (*val all2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool*)
 (*val map2 : forall 'a 'b 'c. ('a -> 'b -> 'c) -> list 'a -> list 'b -> list 'c*)
 
- val _ = Define `
- ((the:'a -> 'a option -> 'a) _ (SOME x)=  x) /\ ((the:'a -> 'a option -> 'a) x NONE=  x)`;
+Definition the_def:
+  ((the:'a -> 'a option -> 'a) _ (SOME x)=  x) /\ ((the:'a -> 'a option -> 'a) x NONE=  x)
+End
 
 
 (*val fapply : forall 'a 'b. MapKeyType 'b => 'a -> 'b -> Map.map 'b 'a -> 'a*)
@@ -126,10 +127,10 @@ End
 
 (* Lists of indices *)
 
- val _ = Define `
-
-((lshift:num ->(num)list ->(num)list) (n : num) ls=
-   (MAP (\ v .  v - n) (FILTER (\ v .  n <= v) ls)))`;
+Definition lshift_def:
+  ((lshift:num ->(num)list ->(num)list) (n : num) ls=
+   (MAP (\ v .  v - n) (FILTER (\ v .  n <= v) ls)))
+End
 
 
 (*open import {hol} `locationTheory`*)
@@ -141,4 +142,3 @@ End
 
 (*val some : forall 'a. ('a -> bool) -> maybe 'a*) (* TODO *)
 val _ = export_theory()
-

@@ -8,8 +8,9 @@ val _ = numLib.temp_prefer_num();
 
 val _ = new_theory "lib"
 
- val _ = Define `
- ((the:'a -> 'a option -> 'a) _ (SOME x)=  x) /\ ((the:'a -> 'a option -> 'a) x NONE=  x)`;
+Definition the_def:
+  ((the:'a -> 'a option -> 'a) _ (SOME x)=  x) /\ ((the:'a -> 'a option -> 'a) x NONE=  x)
+End
 
 Definition fapply_def:
  ((fapply:'a -> 'b ->('b,'a)fmap -> 'a) d x f=  ((case FLOOKUP f x of SOME d => d | NONE => d )))
@@ -37,9 +38,9 @@ Definition opt_bind_def:
   )))
 End
 
- val _ = Define `
-
-((lshift:num ->(num)list ->(num)list) (n : num) ls=
-   (MAP (\ v .  v - n) (FILTER (\ v .  n <= v) ls)))`;
+Definition lshift_def:
+  ((lshift:num ->(num)list ->(num)list) (n : num) ls =
+   (MAP (\ v .  v - n) (FILTER (\ v .  n <= v) ls)))
+End
 
 val _ = export_theory()

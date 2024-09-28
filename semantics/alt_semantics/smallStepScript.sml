@@ -292,8 +292,7 @@ Definition e_step_reln_def:
    (e_step st1 = Estep st2))
 End
 
- val _ = Define `
-
+Definition small_eval_def:
 ((small_eval:(v)sem_env ->(v)store#'ffi ffi_state -> fpState -> exp ->(ctxt)list ->((v)store#'ffi ffi_state)#fpState#((v),(v))result -> bool) env s fp e c (s', fp', Rval v)=
    (? env'. (RTC (e_step_reln)) (env,s,fp,Exp e,c) (env',s',fp', Val v,[])))
 /\
@@ -303,7 +302,8 @@ End
 ((small_eval:(v)sem_env ->(v)store#'ffi ffi_state -> fpState -> exp ->(ctxt)list ->((v)store#'ffi ffi_state)#fpState#((v),(v))result -> bool) env s fp e c (s', fp', Rerr (Rabort a))=
    (? env' e' c' fp''.
     (RTC (e_step_reln)) (env,s,fp,Exp e,c) (env',s',fp'',e',c') /\
-    (e_step (env',s',fp'',e',c') = Eabort (fp', a))))`;
+    (e_step (env',s',fp'',e',c') = Eabort (fp', a))))
+End
 
 
 (*val e_diverges : forall 'ffi. sem_env v -> store_ffi 'ffi v -> exp -> bool*)
@@ -364,7 +364,7 @@ End
 
 (* Get the "current" sem_env given the context *)
 (*val collapse_env : sem_env v -> decl_ctxt -> sem_env v*)
- val _ = Define `
+Definition collapse_env_def:
  ((collapse_env:(v)sem_env ->(decl_ctxt_frame)list ->(v)sem_env) base c=
    ((case c of
     [] => base
@@ -373,7 +373,8 @@ End
       extend_dec_env lenv (collapse_env base cs)
   | CdlocalG lenv genv gds :: cs =>
       extend_dec_env (extend_dec_env genv lenv) (collapse_env base cs)
-  )))`;
+ )))
+End
 
 
 
@@ -483,8 +484,7 @@ Definition decl_step_reln_def:
 End
 
 
- val _ = Define `
-
+Definition small_eval_dec_def:
 ((small_eval_dec:(v)sem_env -> 'ffi state#decl_eval#decl_ctxt -> 'ffi state#(((v)sem_env),(v))result -> bool) env dst (st, Rval e)=
    ((RTC (decl_step_reln env)) dst (st, Env e, [])))
 /\
@@ -496,7 +496,8 @@ End
 ((small_eval_dec:(v)sem_env -> 'ffi state#decl_eval#decl_ctxt -> 'ffi state#(((v)sem_env),(v))result -> bool) env dst (st, Rerr (Rabort v))=
    (? dev' dcs' fp.
     (RTC (decl_step_reln env)) dst (st with fp_state := fp, dev', dcs') /\
-    (decl_step env (st with fp_state := fp, dev', dcs') = Dabort (st.fp_state, v))))`;
+    (decl_step env (st with fp_state := fp, dev', dcs') = Dabort (st.fp_state, v))))
+End
 
 
 (*val small_decl_diverges : forall 'ffi. sem_env v -> small_decl_state 'ffi -> bool*)
