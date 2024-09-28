@@ -653,11 +653,13 @@ End
  * expression can be compiled down to statements in it *)
 (* TODO Handle everything as "method"*)
 Definition method_is_function_def:
-  method_is_function (Method isStatic hasBody _ _ overridingPath nam typeParams
-                             params body outTypes outVars) =
+  method_is_function (Method attrs isStatic hasBody _ _ overridingPath nam
+                             typeParams params body outTypes outVars) =
   (* Function has one outType and no outVars *)
   if LENGTH outTypes ≠ 1 ∨ outVars ≠ NONE then
     return F
+  else if attrs ≠ [] ∧ attrs ≠ [Attribute "tailrecursion" ["false"]] then
+    fail ("method_is_function: unsupported attributes")
   else if ¬isStatic then
     fail ("method_is_function: Did not expect function " ++ (dest_Name nam) ++
           " to be static")
@@ -675,7 +677,7 @@ Definition method_is_function_def:
 End
 
 Definition method_is_method_def:
-  method_is_method (Method isStatic hasBody _ _ overridingPath nam
+  method_is_method (Method attrs isStatic hasBody _ _ overridingPath nam
                            typeParams params body outTypes outVars) =
   case outVars of
   | SOME outVars_list =>
@@ -683,6 +685,8 @@ Definition method_is_method_def:
         fail ("method_is_method: Function " ++ (dest_Name nam) ++
               " did not have the same number of outTypes and outVars, even" ++
               " though it must")
+      else if attrs ≠ [] ∧ attrs ≠ [Attribute "tailrecursion" ["false"]] then
+        fail ("method_is_method: unsupported attributes")
       else if ¬isStatic then
         fail ("method_is_method: non-static methods are currently " ++
               "unsupported (in " ++ (dest_Name nam) ++ ")")
@@ -753,7 +757,7 @@ Definition call_type_env_from_class_body_def:
     is_method <- method_is_method m;
     if is_function then
       do
-        (_, _, _, _, _, nam, _, params, _, outTypes, _) <<- dest_Method m;
+        (_, _, _, _, _, _, nam, _, params, _, outTypes, _) <<- dest_Method m;
         nam <<- dest_Name nam;
         param_t <- type_from_formals params;
         outTypes <<- MAP normalize_type outTypes;
@@ -762,7 +766,7 @@ Definition call_type_env_from_class_body_def:
       od
     else if is_method then
       do
-        (_, _, _, _, _, nam, _, params, _, _, _) <<- dest_Method m;
+        (_, _, _, _, _, _, nam, _, params, _, _, _) <<- dest_Method m;
         nam <<- dest_Name nam;
         (* outTypes refers to the type of outVars; the method itself returns
          * Unit (I think) *)
@@ -987,7 +991,7 @@ Definition dafny_type_of_def:
             case ALOOKUP env (on, ct_name) of
             | SOME (Arrow _ retT) => return retT
             | NONE => fail ("dafny_type_of: " ++ ct_name ++
-                            "not found or bad type"))
+                            " not found or bad type"))
    | Lambda params retT _ =>
        do
          argT <- type_from_formals params;
@@ -1544,7 +1548,7 @@ Definition from_classItem_def:
     is_method <- method_is_method m;
     if is_function then
       do
-        (_, _, _, _, _, nam, _, params, body, _, _) <<- dest_Method m;
+        (_, _, _, _, _, _, nam, _, params, body, _, _) <<- dest_Method m;
         fun_name <<- dest_Name nam;
         (env, cml_param, preamble) <- gen_param_preamble env params;
         cml_body <- process_function_body comp env preamble body;
@@ -1552,7 +1556,7 @@ Definition from_classItem_def:
       od
     else if is_method then
       do
-        (_, _, _, _, _, nam, _, params,
+        (_, _, _, _, _, _, nam, _, params,
          body, outTypes, outVars) <<- dest_Method m;
         outTypes <<- MAP normalize_type outTypes;
         outVars <- dest_SOME outVars;
@@ -1729,9 +1733,9 @@ End
 (* open fromSexpTheory simpleSexpParseTheory *)
 (* open TextIO *)
 (* (* val _ = astPP.disable_astPP(); *) *)
-(* (* val _ = astPP.enable_astPP(); *) *)
+(* val _ = astPP.enable_astPP(); *)
 
-(* val inStream = TextIO.openIn "/home/daniel/dafny-to-cakeml/2024-09-12_demo/simple_modules.sexp"; *)
+(* val inStream = TextIO.openIn "/home/daniel/cakeml/dafny-ir-update/compiler/dafny/tests/basic/simple_modules.sexp"; *)
 (* val fileContent = TextIO.inputAll inStream; *)
 (* val _ = TextIO.closeIn inStream; *)
 (* val fileContent_tm = stringSyntax.fromMLstring fileContent; *)
