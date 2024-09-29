@@ -509,10 +509,8 @@ Definition remove_inactive_intervals_def:
           return st
       )
 Termination
-
     WF_REL_TAC `measure (\(_,st). LENGTH (st.active))` >>
     rw []
-
 End
 
 Definition add_active_interval_def:
@@ -822,9 +820,7 @@ Definition partition_regs_def:
             od
         od
 Termination
-
   WF_REL_TAC `measure (\l,rpiv,begrpiv,r. r-l)`
-
 End
 
 Definition qsort_regs_def:
@@ -847,9 +843,7 @@ Definition qsort_regs_def:
             od
         od
 Termination
-
     WF_REL_TAC `measure (\l,r. r-l)`
-
 End
 
 Definition list_to_sorted_regs_def:
@@ -876,9 +870,7 @@ Definition sorted_regs_to_list_def:
           return (r::l);
         od
 Termination
-
   WF_REL_TAC `measure (\n,last. last-n)`
-
 End
 
 Definition swap_moves_def:
@@ -907,9 +899,7 @@ Definition partition_moves_def:
             od
         od
 Termination
-
   WF_REL_TAC `measure (\l,piv,r. r-l)`
-
 End
 
 Definition qsort_moves_def:
@@ -931,9 +921,7 @@ Definition qsort_moves_def:
             od
         od
 Termination
-
     WF_REL_TAC `measure (\l,r. r-l)`
-
 End
 
 
@@ -961,9 +949,7 @@ Definition sorted_moves_to_list_def:
           return (r::l);
         od
 Termination
-
   WF_REL_TAC `measure (\n,len. len-n)`
-
 End
 
 Definition linear_reg_alloc_intervals_def:

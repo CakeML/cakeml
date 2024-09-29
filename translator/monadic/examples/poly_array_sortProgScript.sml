@@ -715,9 +715,7 @@ Definition array_get_aux_def:
       return (elem :: rest)
     od
 Termination
-
   WF_REL_TAC `measure (λ (length, n) . length - n)`
-
 End
 
 Definition array_get_def:

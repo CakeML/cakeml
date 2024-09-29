@@ -2071,7 +2071,6 @@ Definition type_interpretation_ext_of0_def:
          | NONE => One (* cannot happen *)
   )
 Termination
-
   wf_rel_tac `subst_clos_term_ext_rel`
   >- (
     rw[wellorderTheory.WF_IND,subst_clos_term_ext_rel_def,WF_TC_EQN] >>
@@ -2602,7 +2601,6 @@ Termination
           fs[extends_init_def]
          )
       )
-
 End
 
 Overload type_interpretation_ext_of = ``type_interpretation_ext_of0 ^mem``
