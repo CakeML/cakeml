@@ -652,21 +652,20 @@ val match_seq_find_lemma = Q.prove
 (* out the intermediate parts of the match sequence.                         *)
 (*---------------------------------------------------------------------------*)
 
-val NS_DEF =
- tDefine
-  "NS"
-  `NS ms =
-     case split (\x. ?r l w. x = (Repeat r::l, w, SOME (Repeat r::l))) ms [] of
-         NONE => ms
-      |  SOME (l1, (bad_r, bad_w, bad_s), z) =>
-           let opt = split (\x. ?s. x = (bad_r, bad_w, s)) l1 []
-           in if opt = NONE then []
-              else
-                let (x1, (rl, w1, s1), y) = THE opt in
-                if (?ra L. (rl = Repeat ra::L) /\ (FST(HD z) = L))
-                  then NS (x1 ++ [(rl,w1,s1)] ++ change_stop_on_prefix z s1)
-                  else NS (x1 ++ [(rl,w1,s1)] ++ z)`
-(WF_REL_TAC `measure LENGTH`
+Definition NS_def:
+  NS ms =
+    case split (\x. ?r l w. x = (Repeat r::l, w, SOME (Repeat r::l))) ms [] of
+        NONE => ms
+     |  SOME (l1, (bad_r, bad_w, bad_s), z) =>
+          let opt = split (\x. ?s. x = (bad_r, bad_w, s)) l1 []
+          in if opt = NONE then []
+             else
+               let (x1, (rl, w1, s1), y) = THE opt in
+               if (?ra L. (rl = Repeat ra::L) /\ (FST(HD z) = L))
+                 then NS (x1 ++ [(rl,w1,s1)] ++ change_stop_on_prefix z s1)
+               else NS (x1 ++ [(rl,w1,s1)] ++ z)
+Termination
+  WF_REL_TAC `measure LENGTH`
   THEN RW_TAC list_ss [LENGTH_CSP]
   THEN IMP_RES_TAC split_thm THEN FULL_SIMP_TAC list_ss []
   THEN RW_TAC list_ss []
@@ -675,7 +674,8 @@ val NS_DEF =
   THEN FULL_SIMP_TAC list_ss []
   THEN Cases_on `x` THEN Cases_on `r`
   THEN IMP_RES_TAC split_thm THEN FULL_SIMP_TAC list_ss []
-  THEN RW_TAC list_ss []);
+  THEN RW_TAC list_ss []
+End
 
 val NS_IND = fetch "-" "NS_ind";
 
@@ -747,7 +747,7 @@ val match_seq_surg_thm = Q.prove
 val NS_match_thm = Q.prove
 (`!ms. match_seq ms ==> match_seq (NS ms)`,
  recInduct NS_IND THEN RW_TAC list_ss []
-   THEN ONCE_REWRITE_TAC [NS_DEF] THEN CASE_TAC THENL
+   THEN ONCE_REWRITE_TAC [NS_def] THEN CASE_TAC THENL
    [METIS_TAC [],
     REPEAT CASE_TAC
      THEN RW_TAC list_ss [match_seq_def, LET_THM]
@@ -767,7 +767,7 @@ val NS_match_thm = Q.prove
 val NS_is_normal_thm = Q.prove
 (`!ms r w t. ~MEM (Repeat r::t, w, SOME (Repeat r::t)) (NS ms)`,
  recInduct NS_IND THEN RW_TAC list_ss []
-   THEN ONCE_REWRITE_TAC [NS_DEF]
+   THEN ONCE_REWRITE_TAC [NS_def]
    THEN CASE_TAC THENL
    [IMP_RES_TAC split_thm4
       THEN FULL_SIMP_TAC list_ss [] THEN RW_TAC list_ss []
@@ -802,7 +802,7 @@ val  NS_HD_THM = Q.prove
               match_seq t ==>
              ?t''. (NS t = (r, w, NONE)::t'')`,
  recInduct NS_IND THEN RW_TAC list_ss []
-   THEN ONCE_REWRITE_TAC [NS_DEF]
+   THEN ONCE_REWRITE_TAC [NS_def]
    THEN REPEAT CASE_TAC
    THEN REPEAT (POP_ASSUM MP_TAC)
    THEN RENAME_FREES_TAC [("q","l1"), ("r''","l2"),

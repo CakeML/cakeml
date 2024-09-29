@@ -438,7 +438,7 @@ val partition_helper_def = allowing_rebind (mtDefine "partition_helper" `
 (* TODO fix s5 / s6 problem - can get away with it for now,
    but probably not in general... *)
 (*
-val partition_helper_def = tDefine "partition_helper" `
+Definition partition_helper_def:
   partition_helper (cmp : 'a -> 'a -> bool) pivot lb ub s =
     if ub ≤ lb then (return ub s) else (
       monad_bind (scan_lower cmp pivot lb)
@@ -461,7 +461,9 @@ val partition_helper_def = tDefine "partition_helper" `
         )
       s1 )
     ) s
-`
+Termination
+  ...
+End
 *)
 
 Theorem partition_helper_index:
@@ -713,7 +715,7 @@ Definition array_get_aux_def:
       return (elem :: rest)
     od
 Termination
-  
+
   WF_REL_TAC `measure (λ (length, n) . length - n)`
 
 End
