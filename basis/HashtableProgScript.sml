@@ -7,6 +7,7 @@ open preamble
 
 val _ = new_theory "HashtableProg"
 val _ = translation_extends "SetProg"
+val cakeml = append_prog o process_topdecs;
 val () = ml_prog_update(open_module "Hashtable");
 
 (*Local structure:
@@ -40,13 +41,14 @@ val () = ml_prog_update(open_module "Hashtable");
 
 val _ = ml_prog_update open_local_block;
 
-val hashtable_hashtable = (append_prog o process_topdecs)
-`datatype ('k, 'v) hashtable =
+Quote cakeml:
+  datatype ('k, 'v) hashtable =
   Hashtable
     (int ref) (*Element counter*)
     ((('k,'v) Map.map) array ref) (*Buckets*)
     ('k -> int) (*Hash function*)
-    ('k -> 'k -> ordering) (*Key compare function*)`
+    ('k -> 'k -> ordering) (*Key compare function*)
+End
 
 val hashtable_ty_env = get_env (get_ml_prog_state());
 val stamp_eval = EVAL ``nsLookup (^hashtable_ty_env).c (Short "Hashtable")``
@@ -62,111 +64,121 @@ val _ = ml_prog_update open_local_in_block;
 val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc ["'a";"'b"] "hashtable" (Atapp [Atvar "'a"; Atvar "'b"] (Short "hashtable"))`` I);
 
-val hashtable_delete = (append_prog o process_topdecs)
-`fun delete ht k =
-  case ht of Hashtable usedRef bucketsRef hf _ =>
-    let
-      val buckets = !bucketsRef
-      val index = (hf k) mod (Array.length buckets)
-      val bucket = Array.sub buckets index
-      val newBucket = Map.delete bucket k
-    in
-      Array.update buckets index newBucket;
-      if not (Map.null bucket) andalso Map.null newBucket
-            andalso (0 < (!usedRef)) then (
-        usedRef := (!usedRef)-1 )
-      else
-        ()
-    end`;
+Quote cakeml:
+  fun delete ht k =
+    case ht of Hashtable usedRef bucketsRef hf _ =>
+      let
+        val buckets = !bucketsRef
+        val index = (hf k) mod (Array.length buckets)
+        val bucket = Array.sub buckets index
+        val newBucket = Map.delete bucket k
+      in
+        Array.update buckets index newBucket;
+        if not (Map.null bucket) andalso Map.null newBucket
+              andalso (0 < (!usedRef)) then (
+          usedRef := (!usedRef)-1 )
+        else
+          ()
+      end
+End
 
-val hashtable_lookup = (append_prog o process_topdecs)
-`fun lookup ht k =
-  case ht of Hashtable usedRef bucketsRef hf cmp =>
-    let
-      val buckets = !bucketsRef
-      val bucket = Array.sub buckets ((hf k) mod (Array.length buckets))
-    in
-      Map.lookup bucket k
-  end`;
+Quote cakeml:
+  fun lookup ht k =
+    case ht of Hashtable usedRef bucketsRef hf cmp =>
+      let
+        val buckets = !bucketsRef
+        val bucket = Array.sub buckets ((hf k) mod (Array.length buckets))
+      in
+        Map.lookup bucket k
+    end
+End
 
-val hashtable_toAscList = (append_prog o process_topdecs)
-`fun toAscList ht =
-  case ht of Hashtable _ bucketsRef _ cmp =>
-    Map.toAscList (Array.foldr Map.union (Map.empty cmp) (!bucketsRef))`;
+Quote cakeml:
+  fun toAscList ht =
+    case ht of Hashtable _ bucketsRef _ cmp =>
+      Map.toAscList (Array.foldr Map.union (Map.empty cmp) (!bucketsRef))
+End
 
-val hashtable_size = (append_prog o process_topdecs)
-`fun size ht =
-  case ht of Hashtable usedRef bucketsRef hf cmp =>
-    !usedRef`;
+Quote cakeml:
+  fun size ht =
+    case ht of Hashtable usedRef bucketsRef hf cmp =>
+      !usedRef
+End
 
 val _ = ml_prog_update open_local_block;
-val hashtable_initBuckets = (append_prog o process_topdecs)
-`fun initBuckets n cmp = Array.array n (Map.empty cmp)`;
+
+Quote cakeml:
+  fun initBuckets n cmp = Array.array n (Map.empty cmp)
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val hashtable_empty = (append_prog o process_topdecs)
-`fun empty size hf cmp =
-  ( Hashtable
-    (Ref 0)
-    (Ref (initBuckets (if size < 1 then 1 else size) cmp))
-    hf
-    cmp
-  )`;
+Quote cakeml:
+  fun empty size hf cmp =
+    ( Hashtable
+      (Ref 0)
+      (Ref (initBuckets (if size < 1 then 1 else size) cmp))
+      hf
+      cmp
+    )
+End
 
-val hashtable_clear = (append_prog o process_topdecs)
-`fun clear ht =
-  case ht of Hashtable usedRef bucketsRef _ cmp =>
-    (bucketsRef := initBuckets (Array.length (!bucketsRef)) cmp;
-    usedRef := (!usedRef)*0)`;
+Quote cakeml:
+  fun clear ht =
+    case ht of Hashtable usedRef bucketsRef _ cmp =>
+      (bucketsRef := initBuckets (Array.length (!bucketsRef)) cmp;
+      usedRef := (!usedRef)*0)
+End
 
 val _ = ml_prog_update open_local_block;
 
-val hashtable_staticInsert = (append_prog o process_topdecs)
-`fun staticInsert ht k v =
-  case ht of Hashtable usedRef bucketsRef hf cmp =>
-    let
-      val buckets = !bucketsRef
-      val index = (hf k) mod (Array.length buckets)
-      val bucket = Array.sub buckets index
-    in
-      Array.update buckets index (Map.insert bucket k v);
-      if Map.null bucket then (
-        usedRef := (!usedRef)+1 )
-      else
-        ()
-    end`;
+Quote cakeml:
+  fun staticInsert ht k v =
+    case ht of Hashtable usedRef bucketsRef hf cmp =>
+      let
+        val buckets = !bucketsRef
+        val index = (hf k) mod (Array.length buckets)
+        val bucket = Array.sub buckets index
+      in
+        Array.update buckets index (Map.insert bucket k v);
+        if Map.null bucket then (
+          usedRef := (!usedRef)+1 )
+        else
+          ()
+      end
+End
 
 val _ = ml_prog_update open_local_in_block;
 val _ = ml_prog_update open_local_block;
 
-val hashtable_insertList = (append_prog o process_topdecs)
-`fun insertList ht l = List.app (fn (k,v) => staticInsert ht k v) l`;
+Quote cakeml:
+  fun insertList ht l = List.app (fn (k,v) => staticInsert ht k v) l
+End
 
-val hashtable_doubleCapacity = (append_prog o process_topdecs)
-`fun doubleCapacity ht =
-  case ht of Hashtable usedRef bucketsRef _ cmp =>
-    let
-      val oldArr = !bucketsRef
-      val newLen = Array.length oldArr * 2
-      val oldList = toAscList ht
-    in
-      usedRef := 0;
-      bucketsRef := initBuckets newLen cmp;
-      insertList ht oldList
-    end`;
-
+Quote cakeml:
+  fun doubleCapacity ht =
+    case ht of Hashtable usedRef bucketsRef _ cmp =>
+      let
+        val oldArr = !bucketsRef
+        val newLen = Array.length oldArr * 2
+        val oldList = toAscList ht
+      in
+        usedRef := 0;
+        bucketsRef := initBuckets newLen cmp;
+        insertList ht oldList
+      end
+End
 
 val _ = ml_prog_update open_local_in_block;
 
 (*Load treshold values for insert function, default 3/4*)
-val hashtable_insert = (append_prog o process_topdecs)
-`fun insert ht k v =
-  case ht of Hashtable usedRef bucketsRef _ _ =>
-    if (4*(!usedRef))<(3* (Array.length (!bucketsRef)))
-    then staticInsert ht k v
-    else (doubleCapacity ht; staticInsert ht k v)`;
-
+Quote cakeml:
+  fun insert ht k v =
+    case ht of Hashtable usedRef bucketsRef _ _ =>
+      if (4*(!usedRef))<(3* (Array.length (!bucketsRef)))
+      then staticInsert ht k v
+      else (doubleCapacity ht; staticInsert ht k v)
+End
 
 val _ = ml_prog_update close_local_blocks;
 

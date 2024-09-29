@@ -8,21 +8,25 @@ open preamble ml_translatorLib ml_progLib basisFunctionsLib cfLib
 val _ = new_theory "MarshallingProg";
 
 val _ = translation_extends "DoubleProg";
+val cakeml = append_prog o process_topdecs;
 
 (* Word8 module -- translated *)
 
 val _ = ml_prog_update (open_module "Marshalling");
 
-val _ = process_topdecs`fun n2w2 n bytes off =
-  let val a = Word8Array.update bytes off     (Word8.fromInt (n div 256))
-      val a = Word8Array.update bytes (off+1) (Word8.fromInt n)
-  in () end` |> append_prog;
+Quote cakeml:
+  fun n2w2 n bytes off =
+    let val a = Word8Array.update bytes off     (Word8.fromInt (n div 256))
+        val a = Word8Array.update bytes (off+1) (Word8.fromInt n)
+    in () end
+End
 
-
-val _ = process_topdecs`fun w22n bytes off =
-  let val b1 = Word8Array.sub bytes off
-      val b0 = Word8Array.sub bytes (off+1)
-  in Word8.toInt b1 * 256 + Word8.toInt b0 end` |> append_prog;
+Quote cakeml:
+  fun w22n bytes off =
+    let val b1 = Word8Array.sub bytes off
+        val b0 = Word8Array.sub bytes (off+1)
+    in Word8.toInt b1 * 256 + Word8.toInt b0 end
+End
 
 val _ = ml_prog_update (close_module NONE);
 

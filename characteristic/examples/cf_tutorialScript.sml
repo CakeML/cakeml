@@ -18,6 +18,8 @@ local open ml_progLib basisProgTheory in end
 
 val _ = new_theory "cf_tutorial";
 
+val cakeml = append_prog o process_topdecs;
+
 val _ = translation_extends "basisProg"
 
 (* We use basisFunctionsLib for managing the state resulting from
@@ -30,8 +32,8 @@ val _ = translation_extends "basisProg"
    function we want to specify (it takes a list of bytes, and returns
    a new bytearray containing those bytes).
 *)
-val _ = (append_prog o process_topdecs)
-  ‘fun length l =
+Quote cakeml:
+   fun length l =
      case l of
          [] => 0
        | x::xs => (length xs) + 1
@@ -42,7 +44,8 @@ val _ = (append_prog o process_topdecs)
            case ls of
                [] => a
              | h::t => (Word8Array.update a i h; f t (i+1))
-     in f ls 0 end’
+     in f ls 0 end
+End
 
 (* We can start proving a specification for length.
 
