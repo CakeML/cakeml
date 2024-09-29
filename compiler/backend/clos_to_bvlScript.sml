@@ -871,7 +871,8 @@ Definition compile_def:
     let func_names = make_name_alist (MAP FST prog') prog (num_stubs c.max_app)
                        c.start (LENGTH es) in
     let c = c with start := num_stubs c.max_app - 1 in
-      (c, code_sort prog', func_names)`;
+      (c, prog', func_names)
+End
 
 Definition extract_name_def:
   extract_name [] = (0,[]) /\
