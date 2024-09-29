@@ -74,14 +74,14 @@ Definition binary_search_aux_def:
             od
   od
 Termination
-  
+
     WF_REL_TAC `measure (λ (_, start, finish) . finish - start)` >>
     rw[] >>
     fs[NOT_GREATER_EQ, NOT_GREATER, ADD1] >>
     `start <= (finish + start) DIV 2` by fs[X_LE_DIV]
     >- DECIDE_TAC
     >- fs[DIV_LT_X]
-  
+
 End
 
 Definition binary_search_def:

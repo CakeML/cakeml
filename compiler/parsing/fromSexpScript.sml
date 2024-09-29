@@ -1270,7 +1270,7 @@ Termination
    Induct_on`ps`>>simp[pat_size_def] >>
    rw[] >> simp[] >> res_tac >>
    first_x_assum(qspec_then`cn`strip_assume_tac)>>
-   decide_tac 
+   decide_tac
 End
 
 Theorem patsexp_11[simp]:
