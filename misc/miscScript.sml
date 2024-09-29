@@ -3193,12 +3193,13 @@ Proof
 QED
 
 (* computes the next position for which P holds *)
-val Lnext_def = tDefine "Lnext" `
+Definition Lnext_def:
   Lnext P ll = if eventually P ll then
                         if P ll then 0
                         else SUC(Lnext P (THE (LTL ll)))
-                     else ARB`
- (exists_tac``\(P,ll') (P',ll).
+                     else ARB
+Termination
+  exists_tac``\(P,ll') (P',ll).
     ((P = P') /\ eventually P ll /\ eventually P ll' /\
     (LTL ll = SOME ll') /\ ¬ P ll)`` >>
     reverse(rw[relationTheory.WF_DEF,eventually_thm])
@@ -3211,7 +3212,8 @@ val Lnext_def = tDefine "Lnext" `
   HO_MATCH_MP_TAC eventually_ind >> rw[]
   >-(qexists_tac`(P,ll)` >> rw[] >> pairarg_tac >> fs[] >> res_tac >> rfs[]) >>
   Cases_on`B(P,ll)` >-(metis_tac[]) >>
-  qexists_tac`(P,h:::ll)` >> fs[] >> rw[] >> pairarg_tac >> fs[]);
+  qexists_tac`(P,h:::ll)` >> fs[] >> rw[] >> pairarg_tac >> fs[]
+End
 
 Definition Lnext_pos_def:
   Lnext_pos (ll :num llist) = Lnext (λll. ∃k. LHD ll = SOME k ∧ k ≠ 0) ll

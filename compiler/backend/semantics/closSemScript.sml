@@ -52,7 +52,7 @@ Definition Boolv_def:
   (Boolv b = Block (if b then true_tag else false_tag) [])
 End
 
-val do_eq_def = tDefine "do_eq" `
+Definition do_eq_def:
   (do_eq x y =
      case x of
      | Number i =>
@@ -90,9 +90,11 @@ val do_eq_def = tDefine "do_eq" `
      case do_eq x y of
      | Eq_val T => do_eq_list xs ys
      | res => res) /\
-  (do_eq_list _ _ = Eq_val F)`
- (WF_REL_TAC `measure (\x. case x of INL (v,_) => v_size v
-                                   | INR (vs,_) => v1_size vs)`)
+  (do_eq_list _ _ = Eq_val F)
+Termination
+  WF_REL_TAC `measure (\x. case x of INL (v,_) => v_size v
+                                   | INR (vs,_) => v1_size vs)`
+End
 
 Definition v_to_list_def:
   (v_to_list (Block tag []) =

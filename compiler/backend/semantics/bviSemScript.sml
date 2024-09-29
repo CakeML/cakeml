@@ -172,7 +172,7 @@ val fix_clock_IMP = Q.prove(
    convenience of subsequent proofs, the evaluation function is
    defined to evaluate a list of bvi_exp expressions. *)
 
-val evaluate_def = tDefine "evaluate" `
+Definition evaluate_def:
   (evaluate ([],env,s) = (Rval [],s)) /\
   (evaluate (x::y::xs,env,s) =
      case fix_clock s (evaluate ([x],env,s)) of
@@ -221,14 +221,16 @@ val evaluate_def = tDefine "evaluate" `
                       | SOME x => evaluate ([x],v::env,s)
                       | NONE => (Rerr(Rraise v),s))
                 | res => res)
-     | res => res)`
-  (WF_REL_TAC `(inv_image (measure I LEX measure exp2_size)
+     | res => res)
+Termination
+  WF_REL_TAC `(inv_image (measure I LEX measure exp2_size)
                           (\(xs,env,s). (s.clock,xs)))`
   >> rpt strip_tac
   >> simp[dec_clock_def]
   >> imp_res_tac fix_clock_IMP
   >> imp_res_tac LESS_EQ_dec_clock
-  >> rw[]);
+  >> rw[]
+End
 
 val evaluate_ind = theorem"evaluate_ind";
 

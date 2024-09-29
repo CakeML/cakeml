@@ -462,7 +462,7 @@ Definition share_mem_op_def:
   (share_mem_op Store32 r ad s = share_mem_store r ad s 4)
 End
 
-val evaluate_def = tDefine "evaluate" `
+Definition evaluate_def:
   evaluate (s:('a,'c,'ffi) labSem$state) =
     if s.clock = 0 then (TimeOut,s) else
     case asm_fetch s of
@@ -574,13 +574,15 @@ val evaluate_def = tDefine "evaluate" `
                                    clock := s.clock - 1 |>))
           | _ => (Error,s))
        | _ => (Error,s))
-    | _ => (Error,s)`
- (WF_REL_TAC `measure (\s. s.clock)`
+    | _ => (Error,s)
+Termination
+  WF_REL_TAC `measure (\s. s.clock)`
   \\ fs [inc_pc_def] \\ rw [] \\ IMP_RES_TAC asm_fetch_IMP
   \\ fs[asm_inst_consts,upd_reg_def,upd_pc_def,dec_clock_def,inc_pc_def]
   \\ Cases_on `m`
   \\ fs[share_mem_op_def,share_mem_load_def,share_mem_store_def]
-  \\ gvs[AllCaseEqs(),inc_pc_def,dec_clock_def])
+  \\ gvs[AllCaseEqs(),inc_pc_def,dec_clock_def]
+End
 
 Definition semantics_def:
   semantics s =

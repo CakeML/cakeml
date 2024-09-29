@@ -2370,15 +2370,17 @@ val t_ind = t_induction
   |> curry save_thm "t_ind";
 
 (* Rename (type_system) type identifiers with a function *)
-val ts_tid_rename_def = tDefine"ts_tid_rename"`
+Definition ts_tid_rename_def:
   (ts_tid_rename f (Tapp ts tn) = Tapp (MAP (ts_tid_rename f) ts) (f tn)) ∧
-  (ts_tid_rename f t = t)`
-  (WF_REL_TAC `measure (λ(_,y). t_size y)` >>
+  (ts_tid_rename f t = t)
+Termination
+  WF_REL_TAC `measure (λ(_,y). t_size y)` >>
   rw [] >>
   induct_on `ts` >>
   rw [t_size_def] >>
   res_tac >>
-  decide_tac);
+  decide_tac
+End
 
 val ts_tid_rename_ind = theorem"ts_tid_rename_ind";
 
@@ -2391,15 +2393,17 @@ Proof
 QED
 
 (* All type ids in a type belonging to a set *)
-val set_tids_def = tDefine "set_tids"`
+Definition set_tids_def:
   (set_tids (Tapp ts tn) = tn INSERT (BIGUNION (set (MAP set_tids ts)))) ∧
-  (set_tids _ = {})`
-  (WF_REL_TAC `measure t_size` >>
+  (set_tids _ = {})
+Termination
+  WF_REL_TAC `measure t_size` >>
   rw [] >>
   induct_on `ts` >>
   rw [t_size_def] >>
   res_tac >>
-  decide_tac)
+  decide_tac
+End
 
 val set_tids_ind = theorem"set_tids_ind";
 
@@ -2438,16 +2442,17 @@ Proof
     metis_tac[])
 QED
 
-val unconvert_t_def = tDefine "unconvert_t" `
+Definition unconvert_t_def:
 (unconvert_t (Tvar_db n) = Infer_Tvar_db n) ∧
 (unconvert_t (Tapp ts tc) = Infer_Tapp (MAP unconvert_t ts) tc) ∧
 (unconvert_t (Tvar v) = Infer_Tuvar ARB)
-`
-(wf_rel_tac `measure t_size` >>
+Termination
+  wf_rel_tac `measure t_size` >>
  rw [] >>
  induct_on `ts` >>
  rw [t_size_def] >>
- full_simp_tac (srw_ss()++ARITH_ss) []);
+ full_simp_tac (srw_ss()++ARITH_ss) []
+End
 
 val unconvert_t_ind = theorem"unconvert_t_ind"
 

@@ -610,14 +610,16 @@ val generalise_list_length = Q.prove (
   srw_tac[] [] >>
   metis_tac [SND]);
 
-val gen_d_ind_def = tDefine "gen_d_ind" `
+Definition gen_d_ind_def:
   (gen_d_ind (Dmod n ds) = gen_ds_ind ds) /\
   (gen_d_ind (Dlocal lds ds) = (gen_ds_ind lds /\ gen_ds_ind ds)) /\
   (gen_d_ind _ = T) /\
   (gen_ds_ind [] = T) /\
-  (gen_ds_ind (x::xs) = (gen_d_ind x /\ gen_ds_ind xs))`
-  (WF_REL_TAC `measure (\x. case x of INL d => dec_size d
-                                    | INR ds => dec1_size ds)`)
+  (gen_ds_ind (x::xs) = (gen_d_ind x /\ gen_ds_ind xs))
+Termination
+  WF_REL_TAC `measure (\x. case x of INL d => dec_size d
+                                    | INR ds => dec1_size ds)`
+End
 
 val infer_p_wfs_dest = infer_p_wfs |> BODY_CONJUNCTS
     |> map (CONV_RULE (ONCE_DEPTH_CONV (REWR_CONV CONJ_COMM)))

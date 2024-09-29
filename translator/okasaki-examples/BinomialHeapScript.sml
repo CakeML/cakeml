@@ -22,28 +22,32 @@ Type heap = ``:'a tree list``
 
 val tree_size_def = fetch "-" "tree_size_def";
 
-val heap_to_bag_def = tDefine "heap_to_bag" `
+Definition heap_to_bag_def:
 (heap_to_bag [] = {||}) ∧
 (heap_to_bag (h::hs) =
   BAG_UNION (tree_to_bag h) (heap_to_bag hs)) ∧
 
 (tree_to_bag (Node _ x hs) =
-  BAG_INSERT x (heap_to_bag hs))`
-(wf_rel_tac `measure (\x. case x of INL x => tree1_size (\x.0) x
+  BAG_INSERT x (heap_to_bag hs))
+Termination
+  wf_rel_tac `measure (\x. case x of INL x => tree1_size (\x.0) x
                                   | INR x => tree_size (\x.0) x)` >>
- rw [tree_size_def]);
+ rw [tree_size_def]
+End
 
-val is_heap_ordered_def = tDefine "is_heap_ordered" `
+Definition is_heap_ordered_def:
 (is_heap_ordered get_key leq [] <=> T) ∧
 (is_heap_ordered get_key leq (t::ts) <=>
   is_heap_ordered_tree get_key leq t ∧ is_heap_ordered get_key leq ts) ∧
 
 (is_heap_ordered_tree get_key leq (Node _ x hs) <=>
   is_heap_ordered get_key leq hs ∧
-  BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag hs))`
-(wf_rel_tac `measure (\x. case x of INL (_,_,x) => tree1_size (\x.0) x
+  BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag hs))
+Termination
+  wf_rel_tac `measure (\x. case x of INL (_,_,x) => tree1_size (\x.0) x
                                   | INR (_,_,x) => tree_size (\x.0) x)` >>
- rw [tree_size_def]);
+ rw [tree_size_def]
+End
 
 val empty_def = mlDefine `
 empty = []`;
@@ -327,13 +331,15 @@ QED
 
 (* Verify size and shape invariants *)
 
-val heap_size_def = tDefine "heap_size" `
+Definition heap_size_def:
 (heap_size [] = 0) ∧
 (heap_size (t::ts) = heap_tree_size t + heap_size ts) ∧
-(heap_tree_size (Node _ _ trees) = (1:num) + heap_size trees)`
-(wf_rel_tac `measure (\x. case x of INR y => tree_size (\x.0) y
+(heap_tree_size (Node _ _ trees) = (1:num) + heap_size trees)
+Termination
+  wf_rel_tac `measure (\x. case x of INR y => tree_size (\x.0) y
                                   | INL z => tree1_size (\x.0) z)` >>
- rw []);
+ rw []
+End
 
 Definition is_binomial_tree_def:
 (is_binomial_tree (Node r x []) <=> (r = 0)) ∧

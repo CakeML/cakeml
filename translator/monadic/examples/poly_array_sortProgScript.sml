@@ -705,17 +705,18 @@ Proof
   metis_tac[]
 QED
 
-val array_get_aux_def = tDefine "array_get_aux" `
+Definition array_get_aux_def:
   array_get_aux length n =
     if n ≥ length then return [] else do
       rest <- array_get_aux length (n + 1);
       elem <- arr_sub n;
       return (elem :: rest)
     od
-`
-(
+Termination
+  
   WF_REL_TAC `measure (λ (length, n) . length - n)`
-)
+
+End
 
 Definition array_get_def:
   array_get () = do

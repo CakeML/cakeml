@@ -66,7 +66,7 @@ Definition get_weight_def:
   od
 End
 
-val st_ex_FOR_def = tDefine "st_ex_FOR" `
+Definition st_ex_FOR_def:
   st_ex_FOR (i:num) j a =
   if i >= j then
     return ()
@@ -74,8 +74,10 @@ val st_ex_FOR_def = tDefine "st_ex_FOR" `
     do
       () <- a i;
       st_ex_FOR (i+1) j a
-    od`
-  (WF_REL_TAC `measure (\(i, j:num, a).  j-i)`);
+    od
+Termination
+  WF_REL_TAC `measure (\(i, j:num, a).  j-i)`
+End
 
 Definition st_ex_FOREACH_def:
   (st_ex_FOREACH [] a = return ()) ∧

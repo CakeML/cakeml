@@ -75,14 +75,15 @@ Definition terms_of_frag_def:
         /\ set(allTypes t) ⊆ tys /\ welltyped t}
 End
 
-val TYPE_SUBSTf_def = tDefine "TYPE_SUBSTf" `
+Definition TYPE_SUBSTf_def:
   (TYPE_SUBSTf i (Tyvar v) = i v) ∧
   (TYPE_SUBSTf i (Tyapp v tys) =
     Tyapp v (MAP (λa. TYPE_SUBSTf i a) tys))
-  `
-  (WF_REL_TAC(`measure (type_size o SND)`) >> simp[] >>
+Termination
+  WF_REL_TAC(`measure (type_size o SND)`) >> simp[] >>
    gen_tac >> Induct >> simp[type_size_def] >> rw[] >>
-   simp[] >> res_tac >> simp[]);
+   simp[] >> res_tac >> simp[]
+End
 
 val _ = export_rewrites["TYPE_SUBSTf_def"]
 

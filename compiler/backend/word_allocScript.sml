@@ -217,7 +217,7 @@ End
 
 (*Expressions only ever need to lookup a variable's current ssa map
   so it doesn't need the other parts *)
-val ssa_cc_trans_exp_def = tDefine "ssa_cc_trans_exp" `
+Definition ssa_cc_trans_exp_def:
   (ssa_cc_trans_exp t (Var num) =
     Var (option_lookup t num)) ∧
   (ssa_cc_trans_exp t (Load exp) = Load (ssa_cc_trans_exp t exp)) ∧
@@ -225,11 +225,13 @@ val ssa_cc_trans_exp_def = tDefine "ssa_cc_trans_exp" `
     Op wop (MAP (ssa_cc_trans_exp t) ls)) ∧
   (ssa_cc_trans_exp t (Shift sh exp nexp) =
     Shift sh (ssa_cc_trans_exp t exp) nexp) ∧
-  (ssa_cc_trans_exp t expr = expr)`
-  (WF_REL_TAC `measure (exp_size ARB o SND)`
+  (ssa_cc_trans_exp t expr = expr)
+Termination
+  WF_REL_TAC `measure (exp_size ARB o SND)`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-  \\ DECIDE_TAC)
+  \\ DECIDE_TAC
+End
 
 (*Attempt to pull out "renaming" moves
   This takes a current name map and updates the names of all the vars
@@ -432,16 +434,18 @@ End
 
 (*Recursively applying colours to a program*)
 
-val apply_colour_exp_def = tDefine "apply_colour_exp" `
+Definition apply_colour_exp_def:
   (apply_colour_exp f (Var num) = Var (f num)) /\
   (apply_colour_exp f (Load exp) = Load (apply_colour_exp f exp)) /\
   (apply_colour_exp f (Op wop ls) = Op wop (MAP (apply_colour_exp f) ls)) /\
   (apply_colour_exp f (Shift sh exp nexp) = Shift sh (apply_colour_exp f exp) nexp) /\
-  (apply_colour_exp f expr = expr)`
-(WF_REL_TAC `measure (exp_size ARB o SND)`
+  (apply_colour_exp f expr = expr)
+Termination
+  WF_REL_TAC `measure (exp_size ARB o SND)`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-  \\ DECIDE_TAC);
+  \\ DECIDE_TAC
+End
 
 Definition apply_colour_imm_def:
   (apply_colour_imm f (Reg n) = Reg (f n)) ∧
@@ -605,17 +609,19 @@ Definition big_union_def:
   big_union ls = FOLDR (λx y. union x y) LN ls
 End
 
-val get_live_exp_def = tDefine"get_live_exp"`
+Definition get_live_exp_def:
   (get_live_exp (Var num) = insert num () LN ) ∧
   (get_live_exp (Load exp) = get_live_exp exp) ∧
   (get_live_exp (Op wop ls) =
     big_union (MAP get_live_exp ls)) ∧
   (get_live_exp (Shift sh exp nexp) = get_live_exp exp) ∧
-  (get_live_exp expr = LN)`
-  (WF_REL_TAC `measure (exp_size ARB)`>>
+  (get_live_exp expr = LN)
+Termination
+  WF_REL_TAC `measure (exp_size ARB)`>>
   rw[]>>
   imp_res_tac MEM_IMP_exp_size>>
-  FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`) >> DECIDE_TAC)
+  FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`) >> DECIDE_TAC
+End
 
 Definition numset_list_insert_def:
   (numset_list_insert [] t = t) ∧
@@ -897,17 +903,19 @@ Definition get_delta_inst_def:
   (get_delta_inst x = Delta [] [])
 End
 
-val get_reads_exp_def = tDefine "get_reads_exp" `
+Definition get_reads_exp_def:
   (get_reads_exp (Var num) = [num]) ∧
   (get_reads_exp (Load exp) = get_reads_exp exp) ∧
   (get_reads_exp (Op wop ls) =
       FLAT (MAP get_reads_exp ls)) ∧
   (get_reads_exp (Shift sh exp nexp) = get_reads_exp exp) ∧
-  (get_reads_exp expr = [])`
-  (WF_REL_TAC `measure (exp_size ARB)`
+  (get_reads_exp expr = [])
+Termination
+  WF_REL_TAC `measure (exp_size ARB)`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-  \\ DECIDE_TAC)
+  \\ DECIDE_TAC
+End
 
 Definition get_clash_tree_def:
   (get_clash_tree Skip = Delta [] []) ∧

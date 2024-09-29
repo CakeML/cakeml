@@ -190,7 +190,7 @@ Definition the_words_def:
      | _ => NONE)
 End
 
-val word_exp_def = tDefine "word_exp" `
+Definition word_exp_def:
   (word_exp ^s (Const w) = SOME (Word w)) /\
   (word_exp s (Var v) = lookup v s.locals) /\
   (word_exp s (Lookup name) = FLOOKUP s.store name) /\
@@ -205,11 +205,13 @@ val word_exp_def = tDefine "word_exp" `
   (word_exp s (Shift sh wexp n) =
      case word_exp s wexp of
      | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
-     | _ => NONE)`
-  (WF_REL_TAC `measure (exp_size ARB o SND)`
+     | _ => NONE)
+Termination
+  WF_REL_TAC `measure (exp_size ARB o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ DECIDE_TAC);
+   \\ DECIDE_TAC
+End
 
 Definition get_var_def:
   get_var v ^s = sptree$lookup v s.locals

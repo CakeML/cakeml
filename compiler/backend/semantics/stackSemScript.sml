@@ -124,7 +124,7 @@ Definition dec_clock_def:
   dec_clock (s:('a,'c,'ffi) stackSem$state) = s with clock := s.clock - 1
 End
 
-val word_exp_def = tDefine "word_exp" `
+Definition word_exp_def:
   (word_exp s (Const w) = SOME w) /\
   (word_exp s (Var v) =
      case FLOOKUP s.regs v of
@@ -146,11 +146,13 @@ val word_exp_def = tDefine "word_exp" `
   (word_exp s (Shift sh wexp n) =
      case word_exp s wexp of
      | NONE => NONE
-     | SOME w => word_sh sh w n)`
-  (WF_REL_TAC `measure (exp_size ARB o SND)`
+     | SOME w => word_sh sh w n)
+Termination
+  WF_REL_TAC `measure (exp_size ARB o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC wordLangTheory.MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ DECIDE_TAC);
+   \\ DECIDE_TAC
+End
 
 Definition get_var_def:
   get_var v (s:('a,'c,'ffi) stackSem$state) = FLOOKUP s.regs v
@@ -283,7 +285,7 @@ Definition full_read_bitmap_def:
   (full_read_bitmap bitmaps _ = NONE)
 End
 
-val enc_stack_def = tDefine "enc_stack" `
+Definition enc_stack_def:
   (enc_stack bitmaps [] = NONE) /\
   (enc_stack bitmaps (w::ws) =
      if w = Word 0w then (if ws = [] then SOME [] else NONE) else
@@ -295,12 +297,14 @@ val enc_stack_def = tDefine "enc_stack" `
           | SOME (ts,ws') =>
               case enc_stack bitmaps ws' of
               | NONE => NONE
-              | SOME rs => SOME (ts ++ rs))`
- (WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
+              | SOME rs => SOME (ts ++ rs))
+Termination
+  WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC filter_bitmap_LENGTH
-  \\ fs [] \\ decide_tac)
+  \\ fs [] \\ decide_tac
+End
 
-val dec_stack_def = tDefine "dec_stack" `
+Definition dec_stack_def:
   (dec_stack bitmaps _ [] = NONE) ∧
   (dec_stack bitmaps ts (w::ws) =
     if w = Word 0w then (if ts = [] ∧ ws = [] then SOME [Word 0w] else NONE) else
@@ -312,11 +316,13 @@ val dec_stack_def = tDefine "dec_stack" `
         | SOME (hd,ts',ws') =>
            case dec_stack bitmaps ts' ws' of
            | NONE => NONE
-           | SOME rest => SOME ([w] ++ hd ++ rest))`
-  (WF_REL_TAC `measure (LENGTH o SND o SND)` \\ rw []
+           | SOME rest => SOME ([w] ++ hd ++ rest))
+Termination
+  WF_REL_TAC `measure (LENGTH o SND o SND)` \\ rw []
    \\ IMP_RES_TAC map_bitmap_LENGTH
    \\ fs [LENGTH_NIL] \\ rw []
-   \\ fs [map_bitmap_def] \\ rw [] \\ decide_tac)
+   \\ fs [map_bitmap_def] \\ rw [] \\ decide_tac
+End
 
 Definition gc_def:
   gc s =

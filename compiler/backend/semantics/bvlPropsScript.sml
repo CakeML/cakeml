@@ -789,7 +789,7 @@ Proof
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[destVar_def]
 QED
 
-val bVarBound_def = tDefine "bVarBound" `
+Definition bVarBound_def:
   (bVarBound n [] <=> T) /\
   (bVarBound n ((x:bvl$exp)::y::xs) <=>
      bVarBound n [x] /\ bVarBound n (y::xs)) /\
@@ -803,12 +803,14 @@ val bVarBound_def = tDefine "bVarBound" `
   (bVarBound n [Op op xs] <=> bVarBound n xs) /\
   (bVarBound n [Handle x1 x2] <=>
      bVarBound n [x1] /\ bVarBound (n + 1) [x2]) /\
-  (bVarBound n [Call ticks dest xs] <=> bVarBound n xs)`
-  (WF_REL_TAC `measure (exp1_size o SND)`
+  (bVarBound n [Call ticks dest xs] <=> bVarBound n xs)
+Termination
+  WF_REL_TAC `measure (exp1_size o SND)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
+   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
+End
 
-val bEvery_def = tDefine "bEvery" `
+Definition bEvery_def:
   (bEvery P [] <=> T) /\
   (bEvery P ((x:bvl$exp)::y::xs) <=>
      bEvery P [x] /\ bEvery P (y::xs)) /\
@@ -822,10 +824,12 @@ val bEvery_def = tDefine "bEvery" `
   (bEvery P [Op op xs] <=> P (Op op xs) /\ bEvery P xs) /\
   (bEvery P [Handle x1 x2] <=> P (Handle x1 x2) /\
      bEvery P [x1] /\ bEvery P [x2]) /\
-  (bEvery P [Call ticks dest xs] <=> P (Call ticks dest xs) /\ bEvery P xs)`
-  (WF_REL_TAC `measure (exp1_size o SND)`
+  (bEvery P [Call ticks dest xs] <=> P (Call ticks dest xs) /\ bEvery P xs)
+Termination
+  WF_REL_TAC `measure (exp1_size o SND)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
+   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
+End
 
 val _ = export_rewrites["bEvery_def","bVarBound_def"];
 

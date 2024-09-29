@@ -93,7 +93,7 @@ Proof
   \\ metis_tac []
 QED
 
-val gc_move_data_def = tDefine "gc_move_data"  `
+Definition gc_move_data_def:
   (gc_move_data conf state =
     case state.h2 of
     | [] => state
@@ -106,12 +106,14 @@ val gc_move_data_def = tDefine "gc_move_data"  `
          let h2 = TL state.h2 in
          let ok = state.ok /\ state.h2 <> [] /\ (HD state.h2 = h) in
            gc_move_data conf (state with <| h1 := h1; h2 := h2; ok := ok |>)
-       | _ => state with <| ok := F |>)`
-  (WF_REL_TAC `measure (\(conf,state). conf.limit - heap_length state.h1)`
+       | _ => state with <| ok := F |>)
+Termination
+  WF_REL_TAC `measure (\(conf,state). conf.limit - heap_length state.h1)`
   \\ rw [heap_length_def,el_length_def,SUM_APPEND]
   \\ imp_res_tac (GSYM gc_move_list_IMP)
   \\ fs []
-  \\ decide_tac)
+  \\ decide_tac
+End
 
 Theorem gc_move_data_IMP:
    !conf state state1.

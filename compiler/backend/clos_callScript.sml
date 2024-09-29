@@ -7,7 +7,7 @@ open preamble closLangTheory db_varsTheory;
 
 val _ = new_theory "clos_call";
 
-val free_def = tDefine "free" `
+Definition free_def:
   (free [] = ([],Empty)) /\
   (free ((x:closLang$exp)::y::xs) =
      let (c1,l1) = free [x] in
@@ -55,9 +55,11 @@ val free_def = tDefine "free" `
        ([Handle t (HD c1) (HD c2)],mk_Union l1 (Shift 1 l2))) /\
   (free [Call t ticks dest xs] =
      let (c1,l1) = free xs in
-       ([Call t ticks dest c1],l1))`
- (WF_REL_TAC `measure exp3_size`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC);
+       ([Call t ticks dest c1],l1))
+Termination
+  WF_REL_TAC `measure exp3_size`
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC
+End
 
 val free_ind = theorem "free_ind";
 
@@ -227,7 +229,7 @@ val exp3_size_MAP_SND = Q.prove(
   `!fns. exp3_size (MAP SND fns) <= exp1_size fns`,
   Induct \\ fs [exp_size_def,FORALL_PROD]);
 
-val calls_def = tDefine "calls" `
+Definition calls_def:
   (calls [] g = ([],g)) /\
   (calls ((x:closLang$exp)::y::xs) g =
      let (e1,g) = calls [x] g in
@@ -303,14 +305,16 @@ val calls_def = tDefine "calls" `
        else
          let (fns1,g) = calls (MAP SND fns) g in
          let (e1,g) = calls [x1] g in
-           ([Letrec t loc_opt ws (ZIP (MAP FST fns,fns1)) (HD e1)],g))`
- (WF_REL_TAC `measure (exp3_size o FST)`
+           ([Letrec t loc_opt ws (ZIP (MAP FST fns,fns1)) (HD e1)],g))
+Termination
+  WF_REL_TAC `measure (exp3_size o FST)`
   \\ REPEAT STRIP_TAC
   \\ fs [GSYM NOT_LESS]
   \\ IMP_RES_TAC EL_MEM_LEMMA
   \\ IMP_RES_TAC exp1_size_lemma
   \\ assume_tac (SPEC_ALL exp3_size_MAP_SND)
-  \\ DECIDE_TAC);
+  \\ DECIDE_TAC
+End
 
 Definition calls_sing_def:
   (calls_sing (Var t v) g =

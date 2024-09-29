@@ -950,16 +950,18 @@ End
 
 (* stack_remove requires that all register arguments are bounded by k *)
 
-val reg_bound_exp_def = tDefine"reg_bound_exp"`
+Definition reg_bound_exp_def:
   (reg_bound_exp (Var n) k ⇔ n < k) ∧
   (reg_bound_exp (Load e) k ⇔ reg_bound_exp e k) ∧
   (reg_bound_exp (Shift _ e _) k ⇔ reg_bound_exp e k) ∧
   (reg_bound_exp (Lookup _) _ ⇔ F) ∧
   (reg_bound_exp (Op _ es) k ⇔ EVERY (λe. reg_bound_exp e k) es) ∧
-  (reg_bound_exp _ _ ⇔ T)`
-  (WF_REL_TAC`measure ((exp_size ARB) o FST)` \\ simp[]
+  (reg_bound_exp _ _ ⇔ T)
+Termination
+  WF_REL_TAC`measure ((exp_size ARB) o FST)` \\ simp[]
    \\ Induct \\ simp[wordLangTheory.exp_size_def]
-   \\ srw_tac[][] \\ res_tac \\ simp[]);
+   \\ srw_tac[][] \\ res_tac \\ simp[]
+End
 val _ = export_rewrites["reg_bound_exp_def"];
 
 Definition reg_bound_inst_def:

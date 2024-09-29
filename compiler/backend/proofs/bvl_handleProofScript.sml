@@ -158,7 +158,7 @@ Definition let_ok_def:
   (let_ok _ = F)
 End
 
-val handle_ok_def = tDefine "handle_ok" `
+Definition handle_ok_def:
   (handle_ok [] <=> T) /\
   (handle_ok ((x:bvl$exp)::y::xs) <=>
      handle_ok [x] /\ handle_ok (y::xs)) /\
@@ -179,10 +179,12 @@ val handle_ok_def = tDefine "handle_ok" `
          EVERY isVar xs /\ bVarBound (LENGTH xs) [b] /\
          handle_ok [b] /\ handle_ok [x2]
      | _ => F) /\
-  (handle_ok [Call ticks dest xs] <=> handle_ok xs)`
-  (WF_REL_TAC `measure (exp1_size)`
+  (handle_ok [Call ticks dest xs] <=> handle_ok xs)
+Termination
+  WF_REL_TAC `measure (exp1_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
+   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
+End
 
 val evaluate_GENLIST = save_thm("evaluate_GENLIST",
   evaluate_genlist_vars
