@@ -32,7 +32,7 @@ End
 (* Projection from `dataSem$v` into `bvlSem$v` that basically gets rid of
    timestamp information (note this make the function non-injective)
 *)
-Definition data_to_bvi_v_def_def:
+Definition data_to_bvi_v_def:
   data_to_bvi_v (Number i)      = bvlSem$Number i
 ∧ data_to_bvi_v (Word64 w)      = bvlSem$Word64 w
 ∧ data_to_bvi_v (CodePtr p)     = bvlSem$CodePtr p
